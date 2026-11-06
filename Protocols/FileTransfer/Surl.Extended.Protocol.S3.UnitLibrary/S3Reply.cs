@@ -86,12 +86,20 @@ internal sealed class S3Reply
     /// <summary>
     /// An error answer: its status, <c>Content-Type: application/xml</c>, and the <c>Error</c>
     /// body with its length unless the request is a <c>HEAD</c> (HeadObject: "the response to a
-    /// HEAD request has no body").
+    /// HEAD request has no body"). An error that <see cref="S3Error.ClosesWithoutDrain"/> is a
+    /// refusal that closes the connection without draining the request body (ADR-0108, decision 7).
     /// </summary>
     /// <param name="error">The error.</param>
     /// <param name="extraElements">The elements the code carries beside the common ones.</param>
     /// <returns>The answer.</returns>
     public HttpAnswer Error(S3Error error, params KeyValuePair<string, string>[] extraElements)
+    {
+        var answer = ErrorAnswer(error, extraElements);
+
+        return error.ClosesWithoutDrain ? answer with { IsRefusal = true, DrainsBeforeClose = false } : answer;
+    }
+
+    private HttpAnswer ErrorAnswer(S3Error error, KeyValuePair<string, string>[] extraElements)
     {
         if (IsHead)
         {

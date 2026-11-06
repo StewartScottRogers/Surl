@@ -165,6 +165,17 @@ public sealed class GcsPutObjectTests
     }
 
     [TestMethod]
+    public async Task ServeAsync_PutWithNoUploadLimit_IsStored()
+    {
+        var harness = new GcsServerHarness(exposure: GcsServerHarness.Writable with { MaxUploadBytes = 0 });
+        harness.CreateFolder("photos");
+
+        var response = await harness.SendWithBearerAndBodyAsync("PUT", "/photos/a.txt", "hello world");
+
+        StringAssert.StartsWith(response, "HTTP/1.1 200 OK\r\n");
+    }
+
+    [TestMethod]
     public async Task ServeAsync_PutWhoseBodyEndsEarly_Is400IncompleteBodyAndStoresNothing()
     {
         var harness = new GcsServerHarness(exposure: GcsServerHarness.Writable);

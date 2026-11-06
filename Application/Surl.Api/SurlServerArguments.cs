@@ -27,11 +27,7 @@ internal static class SurlServerArguments
             throw new ArgumentException("ListenUrls names no listen URL.", nameof(options));
         }
 
-        if (options.ListenUrls.Contains(null!) || options.AdditionalArguments.Contains(null!))
-        {
-            throw new ArgumentException("ListenUrls and AdditionalArguments may not hold null.", nameof(options));
-        }
-
+        ThrowIfHoldsNull(options);
         if (options.DataDirectory is not null && options.Files.Count > 0)
         {
             throw new ArgumentException("DataDirectory and Files cannot both be given.", nameof(options));
@@ -41,9 +37,27 @@ internal static class SurlServerArguments
         ThrowIfAuthenticationMisused(options);
         ThrowIfNegativeDuration(options.IdleTimeout, nameof(options.IdleTimeout));
         ThrowIfNegativeDuration(options.MaxTime, nameof(options.MaxTime));
-        if (options.MaxRecordedExchanges <= 0 || options.MaxRecordedBytesPerExchange <= 0)
+        ThrowIfRecordBoundNotPositive(options);
+        if (options.HookTimeLimit < SurlServerOptions.MinHookTimeLimit || options.HookTimeLimit > SurlServerOptions.MaxHookTimeLimit)
         {
-            throw new ArgumentException("MaxRecordedExchanges and MaxRecordedBytesPerExchange must be positive.", nameof(options));
+            throw new ArgumentException("HookTimeLimit must be from 1 millisecond to 30 seconds.", nameof(options));
+        }
+    }
+
+    private static void ThrowIfHoldsNull(SurlServerOptions options)
+    {
+        if (options.ListenUrls.Contains(null!) || options.AdditionalArguments.Contains(null!) || options.Faults.Contains(null!))
+        {
+            throw new ArgumentException("ListenUrls, AdditionalArguments and Faults may not hold null.", nameof(options));
+        }
+    }
+
+    private static void ThrowIfRecordBoundNotPositive(SurlServerOptions options)
+    {
+        if (options.MaxRecordedExchanges <= 0 || options.MaxRecordedBytesPerExchange <= 0 || options.MaxRecordedEvents <= 0)
+        {
+            throw new ArgumentException(
+                "MaxRecordedExchanges, MaxRecordedBytesPerExchange and MaxRecordedEvents must be positive.", nameof(options));
         }
     }
 
@@ -89,6 +103,11 @@ internal static class SurlServerArguments
         AddAuthentication(arguments, options);
         AddTls(arguments, options);
         AddLimits(arguments, options);
+        foreach (var fault in options.Faults)
+        {
+            arguments.AddRange(["--fault", fault.ToItem()]);
+        }
+
         if (options.LogLevel != LogLevel.Info)
         {
             arguments.AddRange(["--log-level", options.LogLevel.ToString().ToLowerInvariant()]);

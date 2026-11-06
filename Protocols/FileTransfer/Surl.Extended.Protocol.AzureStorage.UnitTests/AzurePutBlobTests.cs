@@ -76,6 +76,21 @@ public sealed class AzurePutBlobTests
     }
 
     [TestMethod]
+    public async Task ServeAsync_PutBlobWithBlobContentMd5_StoresItUncheckedAndGetBlobPropertiesAnswersIt()
+    {
+        var harness = Writable();
+
+        // Not the body's MD5: the page says the value is stored without being validated.
+        var put = await harness.SendWithBearerAndBodyAsync("PUT", "/photos/a.txt", "hello world", "x-ms-blob-type: BlockBlob", "x-ms-blob-content-md5: AAECAwQFBgcICQoLDA0ODw==");
+        var head = await harness.SendWithBearerAsync("HEAD", "/photos/a.txt");
+        var get = await harness.SendWithBearerAsync("GET", "/photos/a.txt");
+
+        StringAssert.Contains(put, $"Content-MD5: {HelloWorldMd5}\r\n");
+        StringAssert.Contains(head, $"Content-MD5: AAECAwQFBgcICQoLDA0ODw==\r\nETag: {HelloWorldETag}\r\n");
+        StringAssert.Contains(get, $"Content-MD5: AAECAwQFBgcICQoLDA0ODw==\r\nETag: {HelloWorldETag}\r\n");
+    }
+
+    [TestMethod]
     public async Task ServeAsync_PutBlobWithContentTypeOnly_KeepsTheContentType()
     {
         var harness = Writable();
@@ -119,6 +134,80 @@ public sealed class AzurePutBlobTests
 
         StringAssert.StartsWith(response, "HTTP/1.1 201 Created\r\n");
         Assert.AreEqual("hello world", harness.ReadFile("photos/a.txt"));
+    }
+
+    [TestMethod]
+    [DataRow("If-Match: \"0123\"", DisplayName = "If-Match failing")]
+    [DataRow("If-Unmodified-Since: Wed, 04 Nov 2026 12:00:00 GMT", DisplayName = "If-Unmodified-Since failing")]
+    [DataRow("If-None-Match: \"5eb63bbbe01eeed093cb22bb8f5acdc3\"", DisplayName = "If-None-Match matching")]
+    [DataRow("If-Modified-Since: Thu, 05 Nov 2026 12:00:00 GMT", DisplayName = "If-Modified-Since unmodified")]
+    public async Task ServeAsync_PutBlobWithAFailingCondition_Is412ConditionNotMetAndNothingChanges(string condition)
+    {
+        var harness = Writable();
+        harness.WriteFile("photos/a.txt", "hello world");
+
+        var response = await harness.SendWithBearerAndBodyAsync("PUT", "/photos/a.txt", "new bytes", "x-ms-blob-type: BlockBlob", condition);
+
+        Assert.AreEqual(
+            AzureServerHarness.ExpectedError(response, "412 Precondition Failed", "ConditionNotMet", "The condition specified using HTTP conditional header(s) is not met."),
+            response);
+        Assert.AreEqual("hello world", harness.ReadFile("photos/a.txt"));
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_PutBlobWithHoldingConditions_IsStored()
+    {
+        var harness = Writable();
+        harness.WriteFile("photos/a.txt", "hello world");
+
+        var response = await harness.SendWithBearerAndBodyAsync(
+            "PUT",
+            "/photos/a.txt",
+            "new bytes",
+            "x-ms-blob-type: BlockBlob",
+            $"If-Match: {HelloWorldETag}",
+            $"If-Unmodified-Since: {AzureServerHarness.NowHttpDate}",
+            "If-None-Match: \"0123\"",
+            "If-Modified-Since: Wed, 04 Nov 2026 12:00:00 GMT");
+
+        StringAssert.StartsWith(response, "HTTP/1.1 201 Created\r\n");
+        Assert.AreEqual("new bytes", harness.ReadFile("photos/a.txt"));
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_PutBlobIfNoneMatchAnyOnAnExistingBlob_Is409BlobAlreadyExists()
+    {
+        var harness = Writable();
+        harness.WriteFile("photos/a.txt", "hello world");
+
+        var response = await harness.SendWithBearerAndBodyAsync("PUT", "/photos/a.txt", "new bytes", "x-ms-blob-type: BlockBlob", "If-None-Match: *");
+
+        Assert.AreEqual(
+            AzureServerHarness.ExpectedError(response, "409 Conflict", "BlobAlreadyExists", "The specified blob already exists."),
+            response);
+        Assert.AreEqual("hello world", harness.ReadFile("photos/a.txt"));
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_PutBlobIfNoneMatchAnyOnAMissingBlob_IsStored()
+    {
+        var harness = Writable();
+
+        var response = await harness.SendWithBearerAndBodyAsync("PUT", "/photos/a.txt", "hello world", "x-ms-blob-type: BlockBlob", "If-None-Match: *");
+
+        StringAssert.StartsWith(response, "HTTP/1.1 201 Created\r\n");
+        Assert.AreEqual("hello world", harness.ReadFile("photos/a.txt"));
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_PutBlobIfMatchOnAMissingBlob_Is412ConditionNotMetAndNothingIsStored()
+    {
+        var harness = Writable();
+
+        var response = await harness.SendWithBearerAndBodyAsync("PUT", "/photos/a.txt", "hello world", "x-ms-blob-type: BlockBlob", "If-Match: *");
+
+        StringAssert.StartsWith(response, "HTTP/1.1 412 Precondition Failed\r\n");
+        Assert.AreEqual(ContentEntryKind.None, harness.FileSystem.GetEntryKind(Path.Join(AzureServerHarness.Root, "photos", "a.txt")));
     }
 
     [TestMethod]
@@ -457,7 +546,7 @@ public sealed class AzurePutBlobTests
         await harness.SendWithBearerAndBodyAsync("PUT", "/shared/a.txt", "hello world", "x-ms-blob-type: BlockBlob", "x-ms-blob-content-type: text/csv");
         var response = await harness.SendWithBearerAsync("HEAD", "/shared/a.txt");
 
-        StringAssert.Contains(response, $"Content-Type: application/octet-stream\r\nContent-MD5: {HelloWorldMd5}\r\nETag: {HelloWorldETag}\r\n");
+        StringAssert.Contains(response, $"Content-Type: text/plain\r\nContent-MD5: {HelloWorldMd5}\r\nETag: {HelloWorldETag}\r\n");
     }
 
     [TestMethod]

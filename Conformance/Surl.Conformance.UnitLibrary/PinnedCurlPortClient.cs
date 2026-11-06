@@ -21,4 +21,11 @@ public sealed record PinnedCurlPortClient(
     string Sha256,
     string Commit,
     string PublishCommand,
-    string Published);
+    string Published)
+{
+    /// <summary>
+    /// Gets what the pinned file is: the port's curl executable (the default, for an entry with no
+    /// <c>kind</c>) or its managed <c>Libcurl</c> assembly (ADR-0089 decision 1 (c)).
+    /// </summary>
+    public CurlPortClientKind Kind { get; init; } = CurlPortClientKind.Curl;
+}

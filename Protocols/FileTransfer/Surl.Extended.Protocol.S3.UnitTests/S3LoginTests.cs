@@ -251,4 +251,33 @@ public sealed class S3LoginTests
     {
         Assert.AreSame(S3Error.AccessDenied, S3Login.ErrorOf(null));
     }
+
+    [TestMethod]
+    [DataRow(HttpAuthenticationRefusal.SignatureExpired, "AccessDenied", 403, "Request has expired")]
+    [DataRow(HttpAuthenticationRefusal.ExpiryOutOfRange, "InvalidArgument", 400, "X-Amz-Expires must be a number of seconds from 1 to 604800")]
+    [DataRow(HttpAuthenticationRefusal.ConflictingCredentials, "InvalidArgument", 400, "Only one auth mechanism allowed; only the X-Amz-Algorithm query parameter, Signature query string parameter or the Authorization header should be specified")]
+    public void ErrorOf_PresignedUrlRefusals_HaveTheirErrors(HttpAuthenticationRefusal refusal, string code, int status, string message)
+    {
+        var error = S3Login.ErrorOf(refusal);
+
+        Assert.AreEqual(code, error.Code);
+        Assert.AreEqual(status, error.Status.Code);
+        Assert.AreEqual(message, error.Message);
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_PresignedGetObject_IsReadAsGetObjectWithItsSignatureParametersSetAside()
+    {
+        // The policy stands in for Surl.Authentication's presigned check, which has no Authorization to read.
+        var harness = HarnessWithBucket(UnitTestUnsignedRequests.LoggedIn);
+
+        var response = await harness.SendAsync(
+            "GET",
+            "/bucket/a.txt?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=AKIAIOSFODNN7EXAMPLE%2F20261105%2Fus-east-1%2Fs3%2Faws4_request"
+                + "&X-Amz-Date=20261105T120000Z&X-Amz-Expires=60&X-Amz-SignedHeaders=host&X-Amz-Signature=" + new string('0', 64));
+
+        StringAssert.StartsWith(response, "HTTP/1.1 200 OK\r\n");
+        StringAssert.EndsWith(response, "\r\n\r\nhello world");
+        StringAssert.Contains(harness.Policy.Requests.Single().Target, "X-Amz-Signature=");
+    }
 }

@@ -11,10 +11,12 @@ namespace Surl.Extended.Protocol.SignalR;
 /// </summary>
 /// <param name="connections">The hub's connections.</param>
 /// <param name="hubConnection">The connection the upgrade took up.</param>
+/// <param name="hubPath">The hub's endpoint base (<c>/chat</c>), as the fault plan names it.</param>
 /// <param name="context">The exchange.</param>
 internal sealed class SignalRWebSocketTakeover(
     SignalRHubConnections connections,
     SignalRNegotiatedConnection hubConnection,
+    string hubPath,
     ExchangeContext context) : IHttpConnectionTakeover
 {
     /// <inheritdoc/>
@@ -22,7 +24,7 @@ internal sealed class SignalRWebSocketTakeover(
     {
         try
         {
-            using var session = new SignalRHubSession(connection, reader, context);
+            using var session = new SignalRHubSession(connection, reader, context, new SignalRInvocationFaults(context, hubPath, hubConnection.AccountName));
             await session.RunAsync();
         }
         finally

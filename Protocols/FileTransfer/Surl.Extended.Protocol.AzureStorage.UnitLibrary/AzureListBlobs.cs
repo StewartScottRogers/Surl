@@ -108,7 +108,7 @@ internal sealed class AzureListBlobs(ContentStore store, AzureBlobPropertiesRead
         Append(xml, "Content-Type", properties.ContentType);
         Append(xml, "Content-Encoding", properties.ContentEncoding);
         Append(xml, "Content-Language", properties.ContentLanguage);
-        Append(xml, "Content-MD5", AzureBlobAnswer.StoredMd5(properties.ETag));
+        Append(xml, "Content-MD5", AzureBlobAnswer.StoredMd5(properties));
         Append(xml, "Cache-Control", properties.CacheControl);
         Append(xml, "Content-Disposition", properties.ContentDisposition);
         Append(xml, "BlobType", "BlockBlob");
@@ -137,7 +137,7 @@ internal sealed class AzureListBlobs(ContentStore store, AzureBlobPropertiesRead
         xml.Append("</Metadata>");
     }
 
-    private static void AppendSent(StringBuilder xml, string name, string? value)
+    internal static void AppendSent(StringBuilder xml, string name, string? value)
     {
         if (value is not null)
         {
@@ -146,7 +146,7 @@ internal sealed class AzureListBlobs(ContentStore store, AzureBlobPropertiesRead
     }
 
     // An element with its text escaped, or the empty element the page's example writes for no value.
-    private static void Append(StringBuilder xml, string name, string? text)
+    internal static void Append(StringBuilder xml, string name, string? text)
     {
         if (text is null)
         {
@@ -157,7 +157,7 @@ internal sealed class AzureListBlobs(ContentStore store, AzureBlobPropertiesRead
         xml.Append('<').Append(name).Append('>').Append(Escaped(text)).Append("</").Append(name).Append('>');
     }
 
-    private static string Escaped(string text) =>
+    internal static string Escaped(string text) =>
         text.Replace("&", "&amp;", StringComparison.Ordinal)
             .Replace("<", "&lt;", StringComparison.Ordinal)
             .Replace(">", "&gt;", StringComparison.Ordinal)

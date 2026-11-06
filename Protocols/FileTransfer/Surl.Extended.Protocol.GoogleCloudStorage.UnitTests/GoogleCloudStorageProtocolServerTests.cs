@@ -17,7 +17,7 @@ public sealed class GoogleCloudStorageProtocolServerTests
     private const string HelloWorldHash = "crc32c=yZRlqg==,md5=XrY7u+Ae7tCTyyK7j1rNww==";
 
     private const string ObjectFields =
-        $"Last-Modified: {GcsServerHarness.NowHttpDate}\r\nETag: {HelloWorldETag}\r\nAccept-Ranges: bytes\r\nContent-Type: application/octet-stream\r\n"
+        $"Last-Modified: {GcsServerHarness.NowHttpDate}\r\nETag: {HelloWorldETag}\r\nAccept-Ranges: bytes\r\nContent-Type: text/plain\r\n"
         + $"x-goog-generation: {GcsServerHarness.NowGeneration}\r\nx-goog-metageneration: 1\r\nx-goog-stored-content-encoding: identity\r\n"
         + $"x-goog-stored-content-length: 11\r\nx-goog-storage-class: STANDARD\r\nx-goog-hash: {HelloWorldHash}\r\n";
 

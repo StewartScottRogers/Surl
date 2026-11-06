@@ -52,6 +52,68 @@ public sealed class Http3ProtocolServerTests
     }
 
     [TestMethod]
+    [DataRow(ConnectionRefusal.TooManyConnections)]
+    [DataRow(ConnectionRefusal.TooManyConnectionsFromAddress)]
+    public async Task WriteRefusalAsync_RecordedCurlInitial_SendsOneInitialHoldingConnectionCloseConnectionRefused(ConnectionRefusal refusal)
+    {
+        using var key = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+        var server = new Http3ProtocolServer(Store(), new AnonymousAuthenticationPolicy(), [], key, TimeSpan.Zero);
+        var first = RecordedCurlFirstDatagram();
+        await using var flow = new InMemoryDatagramFlow(first);
+
+        await server.WriteRefusalAsync(flow, refusal, Token);
+
+        var sent = flow.SentDatagrams.Single();
+        var destinationConnectionId = first.AsSpan(6, first[5]).ToArray();
+        var sourceConnectionId = first.AsSpan(7 + first[5], first[6 + first[5]]).ToArray();
+        var (client, serverKeys) = QuicInitialSecrets.DerivePacketProtection(destinationConnectionId);
+        using (client)
+        using (serverKeys)
+        {
+            var opened = serverKeys.Unprotect(sent, 0, 0);
+            Assert.AreEqual(QuicUnprotectStatus.Unprotected, opened.Status);
+            var packet = (QuicLongHeaderPacket)opened.Packet!;
+            Assert.AreEqual(QuicPacketType.Initial, packet.Type);
+            CollectionAssert.AreEqual(sourceConnectionId, packet.DestinationConnectionId.ToArray());
+            CollectionAssert.AreEqual(new byte[] { 0x1c, 0x02, 0x00, 0x00 }, packet.Payload.ToArray());
+            var close = (QuicConnectionCloseFrame)QuicFrameReader.Read(packet.Payload, QuicPacketType.Initial).Single();
+            Assert.AreEqual(0x02UL, close.ErrorCode);
+        }
+    }
+
+    [TestMethod]
+    public async Task WriteRefusalAsync_FirstDatagramNotAVersion1Initial_SendsNoBytes()
+    {
+        using var key = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+        var server = new Http3ProtocolServer(Store(), new AnonymousAuthenticationPolicy(), [], key, TimeSpan.Zero);
+        var first = RecordedCurlFirstDatagram();
+        first[4] = 0x02;
+        await using var flow = new InMemoryDatagramFlow(first);
+
+        await server.WriteRefusalAsync(flow, ConnectionRefusal.TooManyConnections, Token);
+
+        Assert.IsEmpty(flow.SentDatagrams);
+    }
+
+    [TestMethod]
+    public async Task WriteRefusalAsync_NullFlow_Throws()
+    {
+        using var key = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+        var server = new Http3ProtocolServer(Store(), new AnonymousAuthenticationPolicy(), [], key, TimeSpan.Zero);
+
+        await Assert.ThrowsExactlyAsync<ArgumentNullException>(() => server.WriteRefusalAsync(null!, ConnectionRefusal.TooManyConnections, Token).AsTask());
+    }
+
+    // The first datagram pinned upstream curl 8.21.0 sent for an h3 request (Fixtures/h3-client-initial),
+    // stored with each datagram prefixed by its two-byte big-endian length.
+    private static byte[] RecordedCurlFirstDatagram()
+    {
+        var bytes = RecordedFixture.ReadBytes("h3-client-initial", "static-8.21.0-win.datagrams.bin");
+        var length = (bytes[0] << 8) | bytes[1];
+        return bytes[2..(2 + length)];
+    }
+
+    [TestMethod]
     public async Task ServeAsync_GetOfAContentStoreFile_AnswersItOverHttp3()
     {
         using var client = new Http3TestClient { ProtocolServerPolicy = new AnonymousAuthenticationPolicy() };

@@ -15,6 +15,7 @@ public sealed class Http2RequestHeadMappingTests
         Assert.IsNull(malformation);
         Assert.AreEqual("GET", head!.Method);
         Assert.AreEqual("/a?b", head.Target);
+        Assert.AreEqual("http", head.Scheme);
         Assert.AreEqual("example", head.Authority);
         Assert.AreEqual(3L, head.ContentLength);
         Assert.IsTrue(head.ExpectsContinue);
@@ -40,6 +41,7 @@ public sealed class Http2RequestHeadMappingTests
 
         Assert.IsNull(malformation);
         Assert.AreEqual("example:443", head!.Target);
+        Assert.IsNull(head.Scheme);
     }
 
     [TestMethod]

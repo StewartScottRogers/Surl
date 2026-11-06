@@ -70,6 +70,7 @@ internal static class Amqp0TestBytes
             .. ShortString("basic.nack"), (byte)'t', 1,
             .. ShortString("consumer_cancel_notify"), (byte)'t', 1,
             .. ShortString("authentication_failure_close"), (byte)'t', 1,
+            .. ShortString("publisher_confirms"), (byte)'t', 1,
         ];
         byte[] serverProperties =
         [

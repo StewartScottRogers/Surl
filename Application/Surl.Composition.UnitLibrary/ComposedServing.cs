@@ -24,6 +24,7 @@ public sealed class ComposedServing : IAsyncDisposable
     private readonly SurlServerCompositionSeams seams;
     private readonly IProtocolServer[] servers;
     private readonly ComposedAuthentication authentication;
+    private readonly EventStreamAndFaultPlan instruments;
     private readonly ServerTlsComposition tls;
     private readonly IDisposable? dataDirectoryLock;
 
@@ -32,6 +33,8 @@ public sealed class ComposedServing : IAsyncDisposable
         SurlServerCompositionSeams seams,
         IProtocolServer[] servers,
         ComposedAuthentication authentication,
+        EventStreamAndFaultPlan instruments,
+        ComposedStores stores,
         ServerTlsComposition tls,
         IDisposable? dataDirectoryLock)
     {
@@ -39,9 +42,33 @@ public sealed class ComposedServing : IAsyncDisposable
         this.seams = seams;
         this.servers = servers;
         this.authentication = authentication;
+        this.instruments = instruments;
+        Stores = stores;
         this.tls = tls;
         this.dataDirectoryLock = dataDirectoryLock;
     }
+
+    /// <summary>
+    /// The instance's one event stream (ADR-0124, decision 1): every exchange the serving engine
+    /// serves, every change of the content store, the mail store, the message bus and the object
+    /// metadata index, every judged login and every applied fault is published on it. Subscribe to
+    /// see the events published after the subscription is made; another instance's are never on it.
+    /// </summary>
+    public SurlEventStream Events => instruments.Events;
+
+    /// <summary>
+    /// The instance's one fault plan (ADR-0124, decision 4), holding the <c>--fault</c> rules in
+    /// command-line order as <c>f1</c>, <c>f2</c> ...; rules may be added, removed and cleared
+    /// while serving.
+    /// </summary>
+    public FaultPlan Faults => instruments.Faults;
+
+    /// <summary>
+    /// The instance's stores - content, mail, message bus and accounts - as a test seeds, resets,
+    /// snapshots and restores them, one at a time or all together (ADR-0124, decision 3). Every
+    /// change they make is published on <see cref="Events"/>.
+    /// </summary>
+    public ComposedStores Stores { get; }
 
     /// <summary>
     /// The protocol servers the serving engine routes each listen URL to, original and extended, in
@@ -85,7 +112,9 @@ public sealed class ComposedServing : IAsyncDisposable
             ServingEngine.DefaultShutdownGracePeriod,
             SurlServerComposition.ComposeConnectionLimits(commandLine),
             CreateDataConnectionOpener(),
-            commandLine.Limits);
+            commandLine.Limits,
+            instruments.Events,
+            instruments.Faults);
 
         try
         {
@@ -122,6 +151,9 @@ public sealed class ComposedServing : IAsyncDisposable
         // Each loosening option's warning (ADR-0032, section 9).
         AuthenticationComposition.WriteLooseningWarnings(commandLine, log);
 
+        // The --fault warning, once, with the other loosening warnings (ADR-0124, decision 4).
+        FaultPlanComposition.WriteWarning(commandLine, log);
+
         // Each skipped keytab entry's warning, then the unused --keytab one (ADR-0057, decision 1).
         KeytabComposition.WriteStartLines(commandLine, authentication.SkippedKeytabEntries, log);
 
@@ -138,6 +170,9 @@ public sealed class ComposedServing : IAsyncDisposable
 
         // Each group's note, after the warnings (ADR-0102 decision 5).
         authentication.AccountGroups.WriteStartLines(commandLine.LogLevel, log);
+
+        // The mail domains' and each mailbox's note, after the groups' (ADR-0102 decision 5).
+        authentication.Mailboxes.WriteStartLines(commandLine, log);
     }
 
     // From verbose up, unstamped, once per https listen URL served over HTTP/3 too (ADR-0082,

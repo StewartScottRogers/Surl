@@ -93,10 +93,10 @@ public sealed class CommandLineRunnerTests
         var exitCode = await runner.RunAsync(["--version"], output, error, TestContext.CancellationToken);
 
         Assert.AreEqual(SurlExitCode.Ok, exitCode);
-        Assert.AreEqual(VersionText.Compose(informationalVersion, RuntimeInformation.RuntimeIdentifier, ["dict", "ftp", "ftps", "gopher", "gophers", "http", "https", "imap", "imaps", "ldap", "ldaps", "mqtt", "mqtts", "pop3", "pop3s", "rtsp", "scp", "sftp", "smb", "smbs", "smtp", "smtps", "telnet", "tftp", "ws", "wss"], ["s3"]), output.ToString());
+        Assert.AreEqual(VersionText.Compose(informationalVersion, RuntimeInformation.RuntimeIdentifier, ["dict", "ftp", "ftps", "gopher", "gophers", "http", "https", "imap", "imaps", "ldap", "ldaps", "mqtt", "mqtts", "pop3", "pop3s", "rtsp", "scp", "sftp", "smb", "smbs", "smtp", "smtps", "telnet", "tftp", "ws", "wss"], ["nats", "natss", "s3"]), output.ToString());
         StringAssert.EndsWith(
             output.ToString(),
-            NewLine + "Protocols: dict ftp ftps gopher gophers http https imap imaps ldap ldaps mqtt mqtts pop3 pop3s rtsp scp sftp smb smbs smtp smtps telnet tftp ws wss" + NewLine + "Extended: s3" + NewLine);
+            NewLine + "Protocols: dict ftp ftps gopher gophers http https imap imaps ldap ldaps mqtt mqtts pop3 pop3s rtsp scp sftp smb smbs smtp smtps telnet tftp ws wss" + NewLine + "Extended: nats natss s3" + NewLine);
         Assert.AreEqual(string.Empty, error.ToString());
     }
 

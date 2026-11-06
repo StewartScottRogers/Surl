@@ -60,10 +60,10 @@ public sealed partial class QuicServerConnectionTests
         var flight = new List<byte[]>();
         foreach (var datagram in exchange.Client.InitialDatagrams)
         {
-            // The flight answers curl's second Initial; its middle datagram holds only Handshake data.
+            // The flight answers curl's second Initial; the datagram dropped holds only Handshake data.
             var answer = exchange.Server.ReceiveDatagram(datagram).Datagrams;
             flight = answer.Count > 1 ? [.. answer] : flight;
-            exchange.Client.Receive(answer.Count > 1 ? answer.Where((_, index) => index != 1) : answer);
+            exchange.Client.Receive(WithoutTheFirstHandshakeOnlyDatagram(answer));
         }
 
         var stalled = exchange.Client.ClientFinished is null;
@@ -110,8 +110,7 @@ public sealed partial class QuicServerConnectionTests
         using var exchange = new UnitTestExchange(UnitTestCertificates.Options(key, copies: 3));
         foreach (var datagram in exchange.Client.InitialDatagrams)
         {
-            var answer = exchange.Server.ReceiveDatagram(datagram).Datagrams;
-            exchange.Client.Receive(answer.Count > 1 ? answer.Where((_, index) => index != 1) : answer);
+            exchange.Client.Receive(WithoutTheFirstHandshakeOnlyDatagram(exchange.Server.ReceiveDatagram(datagram).Datagrams));
         }
 
         var offsetsBeforeTheLoss = exchange.Client.FramesReceived[QuicPacketType.Handshake].OfType<QuicCryptoFrame>().Select(frame => frame.Offset).ToHashSet();
@@ -137,9 +136,11 @@ public sealed partial class QuicServerConnectionTests
             exchange.Client.Receive(answer.Count > 1 ? answer.Skip(1) : answer);
         }
 
+        // The 1120-byte X25519MLKEM768 share carries the ServerHello's end into the second datagram, which arrives.
+        var initialCryptoBeforeTheLoss = exchange.Client.FramesReceived[QuicPacketType.Initial].OfType<QuicCryptoFrame>().Count();
         exchange.Send(exchange.Client.SealInitial(exchange.Client.ServerConnectionId!, 1200, exchange.Client.AckFrame(QuicPacketType.Initial), new QuicPingFrame()));
         var lossFound = exchange.Send(exchange.Client.SealInitial(exchange.Client.ServerConnectionId!, 1200, exchange.Client.AckFrame(QuicPacketType.Initial), new QuicPingFrame()));
-        var serverHelloHeldBack = !exchange.Client.FramesReceived[QuicPacketType.Initial].OfType<QuicCryptoFrame>().Any();
+        var serverHelloHeldBack = exchange.Client.FramesReceived[QuicPacketType.Initial].OfType<QuicCryptoFrame>().Count() == initialCryptoBeforeTheLoss;
         for (var round = 0; exchange.Client.ClientFinished is null; round++)
         {
             Assert.IsLessThan(50, round, "The handshake never finished.");
@@ -217,6 +218,16 @@ public sealed partial class QuicServerConnectionTests
         Assert.HasCount(3, output.Datagrams);
         CollectionAssert.AreEqual(new[] { 1100, 1100 }, OneRttFrames(exchange).OfType<QuicStreamFrame>().Select(frame => frame.Data.Length).ToArray());
         Assert.HasCount(1, OneRttFrames(exchange).OfType<QuicNewTokenFrame>().ToList());
+    }
+
+    /// <summary>
+    /// The server's datagrams less the first one whose first packet is a Handshake packet (long
+    /// header type bits 0b10, which header protection leaves in the clear); a single datagram as it is.
+    /// </summary>
+    private static IEnumerable<byte[]> WithoutTheFirstHandshakeOnlyDatagram(IReadOnlyList<byte[]> datagrams)
+    {
+        var dropped = datagrams.Count > 1 ? datagrams.ToList().FindIndex(datagram => (datagram[0] & 0x30) == 0x20) : -1;
+        return datagrams.Where((_, index) => index != dropped);
     }
 
     private static List<QuicFrame> OneRttFrames(UnitTestExchange exchange) => exchange.Client.FramesReceived[QuicPacketType.OneRtt];

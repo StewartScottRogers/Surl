@@ -16,6 +16,15 @@ horizontal library may reference it (ADR-0099 decision 11, held by
   earlier entry built (`ComposedProtocolServices.ComposedServerFor`). A new protocol server is one
   entry there, and in the same change gets its `--aihelp` facts in `Surl.Cli` (root `CLAUDE.md`,
   "`surl --aihelp`"). The overload `ComposeProtocolServers(registrations, services)` builds any list.
+- Per-scheme accounts (ADR-0102 decision 4.3 and its 2026-11-06 amendment, BL-881): every
+  registration with a login builds its server with `ComposedProtocolServices.AuthenticationPolicyFor(<its
+  plain scheme>)`, which the start sets to `SchemeAuthenticationPolicies.For` (carried on
+  `ComposedAuthentication.SchemePolicies`): one cached policy per scheme over
+  `AuthenticationSettings.ForScheme`, so an account whose `protocols=` leaves a scheme out is refused
+  there as no such account. Unset, as for listing schemes, every server gets the one policy. The SSH
+  server is two entries, `scp` and `sftp`, each a `SingleSchemeServer`; the LDAP server is loaded
+  with `For("ldap")`, the HTTP/3 server composed with `For("https")`, the S3 server with
+  `AuthenticationPolicyFor("s3")` (`ExtendedProtocolServerServices` forwards both members).
 - `SurlServerCompositionSeams.AdditionalProtocolServers` (`AdditionalProtocolServer`: a registration
   and its already-parsed `ListenUrl`s) are composed after the extended servers and served on their
   listen URLs after the command line's: how `Surl.Api` serves a test's own server (BL-813).
@@ -27,11 +36,17 @@ horizontal library may reference it (ADR-0099 decision 11, held by
   status line) and `ComposedServing` writes `* Serving HTTP/3 over QUIC on UDP port <port>` from
   verbose up.
 - `ExtendedProtocolServers.Compose` builds the extended servers (`Surl.Extended.Protocol.*`: today
-  the S3 server for `s3`, BL-421) from `ExtendedProtocolServers.Registrations`, the same
+  the NATS server for `nats` and `natss`, BL-528, and the S3 server for `s3`, BL-421) from
+  `ExtendedProtocolServers.Registrations`, the same
   `ProtocolServerRegistration` record, each joining with one entry; its `ExtendedProtocolServerServices`
   wraps the start's `ComposedProtocolServices` (the S3 server reads its content store, policy, object
   metadata index and clock); `s3` is TLS from the first byte through `TlsSchemes` (ADR-0108 decision 5),
-  so it needs no `ImplicitTls` entry; `ComposeUnservedExtendedServices` wraps
+  so it needs no `ImplicitTls` entry. The NATS server is built over the one `MessageBus` the MQTT
+  server shares, `AuthenticationPolicyFor("nats")`, and a `NatsServerOptions` of
+  `ComposedProtocolServices.IdleTimeout` (the start sets it to `ComposeConnectionLimits`' idle timeout)
+  and the policy's `AllowAnonymous`. `natss` starts in plain text and upgrades (ADR-0113 decision 6),
+  so it is not in `TlsSchemes`; `ServerTlsComposition` lists it as requiring a certificate, so a
+  `natss` listen URL without `--cert` or `--self-signed` is refused `(58)` like an implicit-TLS one; `ComposeUnservedExtendedServices` wraps
   `ComposeUnservedProtocolServices` for listing schemes. `ExtendedProtocolServers.AreTurnedOn` reads `SURL_EXTENSIONS`
   through an `IEnvironmentVariableReader` (`ProcessEnvironmentVariableReader` in `surl`); `0`
   turns them off (ADR-0083 decisions 6 to 8). `SurlServerComposition.ComposeExtendedProtocolServers`
@@ -52,6 +67,37 @@ horizontal library may reference it (ADR-0099 decision 11, held by
   root (`ComposeObjectMetadataIndex`, kept in `<path>/.surl/objects/index` with `--directory`,
   `LoadObjectMetadataIndexAsync`); the first that cannot be loaded returns its
   `(37)` message, which the host writes after `surl: `.
+
+- One event stream and one fault plan per start (ADR-0124 decisions 1 and 4, BL-803):
+  `ComposeAsync` creates a `SurlEventStream` and, through `FaultPlanComposition.Compose`, a
+  `FaultPlan` holding `SurlCommandLine.Faults` in order (`f1`, `f2` ...), never static, carried as
+  the internal `EventStreamAndFaultPlan`. Both go to the content store (`ComposeContentStore`'s
+  four-argument overload), the message bus, the mail store and the object metadata index
+  (`LoadServiceStateAsync`), the policy (`AuthenticationComposition.Compose`'s `events`/`faults`),
+  `ComposedProtocolServices.Events`/`Faults` and so `ExtendedProtocolServerServices`, and the
+  `ServingEngine`, which hands them to every server through `ExchangeContext`.
+  `ComposedServing.Events` (subscribe there) and `ComposedServing.Faults` expose them to the host.
+  `ComposeUnservedProtocolServices` keeps the null objects (`DiscardingSurlEventPublisher`,
+  `EmptyFaultPlan`). With any rule, `ServeAsync` writes `FaultPlanComposition.WriteWarning`'s
+  `surl: warning: --fault: <n> fault rule(s) make this server misbehave on purpose` once, from info
+  up, right after the other loosening warnings.
+
+- Store control per instance (ADR-0124 decision 3, BL-805): `ComposedServing.Stores` is a
+  `ComposedStores` over the start's content store and object metadata index, mail store, message bus
+  and account book (the policy's `Settings.Accounts`, which `AuthenticationComposition.ComposeSettings`'
+  three-argument overload builds over the instance's stream, so account changes are published too).
+  Seeds go through each store's own seed path: `SeedMailAsync` and `SeedPublishAsync`/`SeedEnqueueAsync`
+  then save the store (a bus save that fails throws `IOException` with its message), `SeedFileAsync`,
+  `SeedFolder`, `AddAccount`, `RemoveAccount`. `ResetAsync`, `TakeSnapshotAsync` and `RestoreAsync` work on
+  every store in `ComposedStores.StoreOrder` (content, mail, bus, accounts), or on one `StoreKind`; the
+  first refusal stops a whole-instance operation with a `ComposedStoreException`
+  (an `InvalidOperationException` whose `Store` names the store, the store's own refusal inner). A
+  `ComposedSnapshot` holds one snapshot per store, `ByteCount` together, refused past
+  `MaxSnapshotBytes` (`DefaultMaxSnapshotBytes`, 256 MiB) at the store that passed it; another
+  instance's snapshot is an `ArgumentException`. With `--directory` the content store (its index is on
+  disk), the mail store and the bus refuse reset, snapshot and restore, so a whole-instance reset or
+  snapshot stops at `Content`; seeding them is allowed, and accounts stay controllable. Tests:
+  `ComposedStoresTests`.
 
 The types are `public` because more than one host calls them, but they are not a supported
 programming interface and may change in any release.
@@ -77,6 +123,16 @@ rather than writing it, and the warning writers take the log `TextWriter` they w
 
 - `AuthenticationComposition` - the accounts (`--user`, `--user-file`), `--authorized-keys`, the
   `--auth` methods and the `AuthenticationPolicy` (ADR-0032); `WriteLooseningWarnings`.
+- `MailboxComposition` - the mail domains and mailboxes (ADR-0102 decisions 1.1, 1.2, 1.4 and 5,
+  BL-882): every `SurlCommandLine.Mailboxes` then each `MailboxFiles` record (read through
+  `ReadStartFile` with `Surl.Cli`'s `MailboxFileReader`; unreadable `(37) Could not read mailbox
+  file <file>`, malformed `(2) Mailbox file <file>, line <n>: ...`), each an `Account` named by its
+  address and restricted to its `protocols=` (the mail schemes when absent), and the
+  `MailDomainConfiguration` handed to `LoadServiceStateAsync`/`LoadMailStoreAsync`. It is composed
+  before `AuthenticationComposition.Compose`, which adds its accounts after the `--user-file` ones
+  and refuses one named like a `--user-file` account `(2)`; it rides on `ComposedAuthentication.Mailboxes`,
+  and `WriteStartLines` writes the `-v` notes after the groups'. With no `MailDomains` it composes
+  nothing and the start is as before.
 - `AccountGroupExpansion` - every `--group` expanded to account names once the accounts are read
   (ADR-0102 decision 4.1), refusing `everyone` and `@everyone` (4.2), a member naming no account or
   group and a group that includes itself (ADR-0101 decision 5 row 18), each `(2)`; `Expand` turns a

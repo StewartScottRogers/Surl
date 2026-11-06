@@ -17,7 +17,9 @@ public sealed class HelpTextTests
         " ldap       LDAP protocol",
         " limits     Connection, time and size limits",
         " logging    Log levels, tracing and the log file",
+        " mail       Mail domains, mailboxes and aliases",
         " mqtt       MQTT and MQTTS protocol",
+        " nats       NATS and NATSS protocol (extended)",
         " pop3       POP3 and POP3S protocol",
         " rtsp       RTSP protocol",
         " s3         Amazon S3 protocol (extended)",
@@ -180,9 +182,9 @@ public sealed class HelpTextTests
             "",
             "This is not the full help; this menu is split into categories.",
             "Use \"--help category\" to get an overview of all categories, which are:",
-            "auth, content, dict, ftp, gopher, http, imap, ldap, limits, logging, mqtt,",
-            "pop3, rtsp, s3, security, smb, smtp, ssh, surl, telnet, testing, tftp, tls,",
-            "websocket.",
+            "auth, content, dict, ftp, gopher, http, imap, ldap, limits, logging, mail,",
+            "mqtt, nats, pop3, rtsp, s3, security, smb, smtp, ssh, surl, telnet, testing,",
+            "tftp, tls, websocket.",
             "Use \"--help all\" to list all options",
             "Use \"--help [option]\" to view documentation for a given option");
     }
@@ -228,6 +230,9 @@ public sealed class HelpTextTests
             Row(38, "    --list-directories", "Answer directory listings"),
             Row(38, "    --log-file <file>", "Append the log to <file>"),
             Row(38, "    --log-level <level>", "Set the log level"),
+            Row(38, "    --mail-domain <domain>", "Serve mail for a domain (repeatable)"),
+            Row(38, "    --mailbox <address>:<password>[;...]", "Add a mailbox and login (repeatable)"),
+            Row(38, "    --mailbox-file <file>", "Read mailboxes from CSV (repeatable)"),
             Row(38, "-M, --manual", "Display the full manual"),
             Row(38, "    --max-connections <number>", "Connections at once, all listeners"),
             Row(38, "    --max-connections-per-address <number>", "Connections at once per address"),
@@ -284,16 +289,18 @@ public sealed class HelpTextTests
         AssertOutput(
             HelpText.Answer("auth"),
             "auth: Accounts and authentication methods",
-            Row(37, "    --allow-anonymous", "Accept any login, or none (warns)"),
-            Row(37, "    --allow-plaintext-auth", "Accept passwords in clear (warns)"),
-            Row(37, "    --auth <methods>", "Authentication methods accepted"),
-            Row(37, "    --authorized-keys <user:file>", "SSH public keys a user may use"),
-            Row(37, "    --group <name>=<member>,...", "Name a group of accounts (repeatable)"),
-            Row(37, "    --hostcert <file>", "SSH host certificate file"),
-            Row(37, "    --hostkey <file>", "SSH host private key file"),
+            Row(38, "    --allow-anonymous", "Accept any login, or none (warns)"),
+            Row(38, "    --allow-plaintext-auth", "Accept passwords in clear (warns)"),
+            Row(38, "    --auth <methods>", "Authentication methods accepted"),
+            Row(38, "    --authorized-keys <user:file>", "SSH public keys a user may use"),
+            Row(38, "    --group <name>=<member>,...", "Name a group of accounts (repeatable)"),
+            Row(38, "    --hostcert <file>", "SSH host certificate file"),
+            Row(38, "    --hostkey <file>", "SSH host private key file"),
             Row(35, "    --keytab <file>", "Read Kerberos service keys from a keytab file"),
-            Row(37, "-u, --user <user:password>", "Add an account (repeatable)"),
-            Row(37, "    --user-file <file>", "Read accounts from a file"));
+            Row(38, "    --mailbox <address>:<password>[;...]", "Add a mailbox and login (repeatable)"),
+            Row(38, "    --mailbox-file <file>", "Read mailboxes from CSV (repeatable)"),
+            Row(38, "-u, --user <user:password>", "Add an account (repeatable)"),
+            Row(38, "    --user-file <file>", "Read accounts from a file"));
 
     [TestMethod]
     public void Answer_Testing_ListsItsOptions() =>
@@ -468,8 +475,8 @@ public sealed class HelpTextTests
             "    -u, --user <user:password>",
             "        Add an account (repeatable). Default: no accounts.",
             "",
-            "        Categories: auth, ftp, http, imap, ldap, mqtt, pop3, rtsp, s3, smb,",
-            "        smtp, ssh, websocket.",
+            "        Categories: auth, ftp, http, imap, ldap, mqtt, nats, pop3, rtsp, s3,",
+            "        smb, smtp, ssh, websocket.",
             "");
 
     [TestMethod]
@@ -479,8 +486,8 @@ public sealed class HelpTextTests
             "    --user-file <file>",
             "        Read accounts from a file. Default: none.",
             "",
-            "        Categories: auth, ftp, http, imap, ldap, mqtt, pop3, rtsp, s3, smb,",
-            "        smtp, ssh, websocket.",
+            "        Categories: auth, ftp, http, imap, ldap, mqtt, nats, pop3, rtsp, s3,",
+            "        smb, smtp, ssh, websocket.",
             "");
 
     [TestMethod]
@@ -493,7 +500,7 @@ public sealed class HelpTextTests
                 "",
                 .. AllowAnonymousExplanationLines,
                 "",
-                "        Categories: auth, ftp, http, imap, ldap, mqtt, pop3, rtsp, s3,",
+                "        Categories: auth, ftp, http, imap, ldap, mqtt, nats, pop3, rtsp, s3,",
                 "        security, smb, smtp, ssh, testing, websocket.",
                 "",
             ]);
@@ -510,8 +517,8 @@ public sealed class HelpTextTests
                 "",
                 .. AllowPlaintextAuthExplanationLines,
                 "",
-                "        Categories: auth, ftp, http, imap, ldap, mqtt, pop3, rtsp, security,",
-                "        smtp, testing, websocket.",
+                "        Categories: auth, ftp, http, imap, ldap, mqtt, nats, pop3, rtsp,",
+                "        security, smtp, testing, websocket.",
                 "",
             ]);
 
@@ -806,7 +813,7 @@ public sealed class HelpTextTests
             "    --max-line <bytes>",
             "        Longest command line accepted. Default: 8192.",
             "",
-            "        Categories: dict, ftp, gopher, imap, limits, pop3, smtp, telnet.",
+            "        Categories: dict, ftp, gopher, imap, limits, nats, pop3, smtp, telnet.",
             "");
 
     [TestMethod]

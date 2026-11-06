@@ -11,7 +11,8 @@ namespace Surl.Extended.Protocol.S3;
 /// <param name="session">The upload session the bytes are appended to.</param>
 /// <param name="bodyMd5">The MD5 every byte of the body goes through, for the <c>ETag</c> and <c>Content-MD5</c>.</param>
 /// <param name="bodySha256">The SHA-256 every byte of the body goes through, for <c>x-amz-content-sha256</c>.</param>
-internal sealed class S3UploadStream(ContentUploadSession session, IncrementalHash bodyMd5, IncrementalHash bodySha256) : Stream
+/// <param name="checksum">The additional checksum every byte goes through (<c>x-amz-checksum-*</c>), or <see langword="null"/>.</param>
+internal sealed class S3UploadStream(ContentUploadSession session, IncrementalHash bodyMd5, IncrementalHash bodySha256, S3Checksum? checksum = null) : Stream
 {
     /// <summary>
     /// Whether the upload went past the store's upload limit; the session has then discarded it.
@@ -69,6 +70,7 @@ internal sealed class S3UploadStream(ContentUploadSession session, IncrementalHa
     {
         bodyMd5.AppendData(buffer.Span);
         bodySha256.AppendData(buffer.Span);
+        checksum?.Append(buffer.Span);
         if (IsTooLarge)
         {
             return;

@@ -3,13 +3,15 @@ using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using Surl.Cryptography.Curve25519;
+using Surl.Cryptography.MlKem;
 
 namespace Surl.Quic;
 
 /// <summary>
 /// The TLS 1.3 client half of <see cref="UnitTestQuicClient"/>, written in the test project from
 /// RFC 8446 sections 4.4 and 7.1 (as Surl.Tls13.UnitTests' client is) and sharing no code with
-/// Surl.Tls13's key schedule, transcript or messages. It holds an x25519 private key, derives the
+/// Surl.Tls13's key schedule, transcript or messages. It holds an x25519 private key and an
+/// ML-KEM-768 decapsulation key (for an X25519MLKEM768 share, draft-ietf-tls-ecdhe-mlkem), derives the
 /// handshake secrets from the ServerHello, checks the server's flight - the CertificateVerify
 /// signature with the certificate's public key, and the server's Finished - and writes the
 /// client's Finished.
@@ -17,6 +19,7 @@ namespace Surl.Quic;
 internal sealed class UnitTestTls13Client
 {
     private readonly byte[] privateKey = RandomNumberGenerator.GetBytes(X25519.KeySize);
+    private readonly byte[] decapsulationKey = new byte[MlKem768.DecapsulationKeySize];
     private readonly List<byte> transcript = [];
     private HashAlgorithmName hash;
     private int hashLength;
@@ -26,10 +29,19 @@ internal sealed class UnitTestTls13Client
     {
         PublicKey = new byte[X25519.KeySize];
         X25519.ComputePublicKey(privateKey, PublicKey);
+        var encapsulationKey = new byte[MlKem768.EncapsulationKeySize];
+        MlKem768.GenerateKey(RandomNumberGenerator.GetBytes(32), RandomNumberGenerator.GetBytes(32), encapsulationKey, decapsulationKey);
+        X25519MlKem768Share = [.. encapsulationKey, .. PublicKey];
     }
 
     /// <summary>The client's x25519 key_exchange value.</summary>
     public byte[] PublicKey { get; }
+
+    /// <summary>The client's X25519MLKEM768 key_exchange value: the ML-KEM-768 encapsulation key, then <see cref="PublicKey"/>.</summary>
+    public byte[] X25519MlKem768Share { get; }
+
+    /// <summary>The group of the server's key share in the last ServerHello: 0x11EC (X25519MLKEM768) or 0x001D (x25519).</summary>
+    public ushort Group { get; private set; }
 
     public ushort CipherSuite { get; private set; }
 
@@ -48,14 +60,13 @@ internal sealed class UnitTestTls13Client
     {
         Assert.AreEqual(2, serverHello[0], "The Initial CRYPTO data is not a ServerHello.");
         var (suite, group, serverShare) = ReadServerHello(serverHello);
-        Assert.AreEqual((ushort)0x001D, group, "The ServerHello's key share is not x25519.");
+        Group = group;
         CipherSuite = suite;
         hash = suite == 0x1302 ? HashAlgorithmName.SHA384 : HashAlgorithmName.SHA256;
         hashLength = suite == 0x1302 ? 48 : 32;
         transcript.AddRange(clientHello);
         transcript.AddRange(serverHello);
-        var shared = new byte[X25519.KeySize];
-        X25519.ScalarMultiply(privateKey, serverShare, shared);
+        var shared = SharedSecret(group, serverShare);
         var early = HKDF.Extract(hash, new byte[hashLength], new byte[hashLength]);
         handshakeSecret = HKDF.Extract(hash, shared, ExpandLabel(early, "derived", CryptographicOperations.HashData(hash, []), hashLength));
         var helloHash = TranscriptHash();
@@ -107,6 +118,31 @@ internal sealed class UnitTestTls13Client
 
         Assert.Fail($"EncryptedExtensions carries no extension 0x{wanted:x4}.");
         return [];
+    }
+
+    /// <summary>
+    /// x25519's secret, or for X25519MLKEM768 the server's share split into the ML-KEM-768
+    /// ciphertext and its x25519 key, and the secret ML-KEM's then x25519's.
+    /// </summary>
+    private byte[] SharedSecret(ushort group, byte[] serverShare)
+    {
+        if (group == 0x001D)
+        {
+            return X25519Secret(serverShare);
+        }
+
+        Assert.AreEqual((ushort)0x11EC, group, "The ServerHello's key share is neither X25519MLKEM768 nor x25519.");
+        Assert.HasCount(MlKem768.CiphertextSize + X25519.KeySize, serverShare);
+        var mlKemSecret = new byte[MlKem768.SharedSecretSize];
+        Assert.IsTrue(MlKem768.TryDecapsulate(decapsulationKey, serverShare.AsSpan(0, MlKem768.CiphertextSize), mlKemSecret));
+        return [.. mlKemSecret, .. X25519Secret(serverShare[MlKem768.CiphertextSize..])];
+    }
+
+    private byte[] X25519Secret(byte[] serverPublicKey)
+    {
+        var shared = new byte[X25519.KeySize];
+        X25519.ScalarMultiply(privateKey, serverPublicKey, shared);
+        return shared;
     }
 
     private byte[] TranscriptHash() => CryptographicOperations.HashData(hash, [.. transcript]);

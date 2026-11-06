@@ -7,8 +7,8 @@ namespace Surl.Cli;
 public sealed class AiHelpExamplesTests
 {
     // The file AiHelpExamplePrecondition.ConfigFileExists names.
-    // The extended schemes the s3 topic's example serves, as surl registers them (BL-421).
-    private static readonly string[] ExtendedSchemesServed = ["s3"];
+    // The extended schemes the nats and s3 topics' examples serve, as surl registers them (BL-528, BL-421).
+    private static readonly string[] ExtendedSchemesServed = ["nats", "natss", "s3"];
 
     private static readonly FakeConfigFileSource ExampleConfigFiles = new(("surl.cfg", "url = http://127.0.0.1:0/\n"));
 
@@ -17,8 +17,8 @@ public sealed class AiHelpExamplesTests
     {
         string[] topics =
         [
-            "overview", "listen-urls", "listen-urls", "surl", "surl", "surl", "content", "content", "content", "auth", "auth", "testing", "tls", "tls",
-            "logging", "limits", "dict", "ftp", "gopher", "http", "http", "imap", "ldap", "mqtt", "pop3", "rtsp", "s3", "smb", "smtp", "ssh", "telnet", "tftp",
+            "overview", "listen-urls", "listen-urls", "surl", "surl", "surl", "content", "content", "content", "auth", "auth", "mail", "testing", "tls", "tls",
+            "logging", "limits", "dict", "ftp", "gopher", "http", "http", "imap", "ldap", "mqtt", "nats", "pop3", "rtsp", "s3", "smb", "smtp", "ssh", "telnet", "tftp",
             "websocket", "websocket", "extended", "control",
         ];
 

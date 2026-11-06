@@ -23,16 +23,7 @@ public sealed class UpstreamTestCasePortComparison
         UnlistedPortDefects = [.. PortDefects.Where(row => !listedFindings.Contains(row.Number))];
         var defects = PortDefects.Select(row => row.Number).ToHashSet();
         FindingsNoLongerAppearing = [.. listedFindings.Where(number => !defects.Contains(number)).Order()];
-        Families = [.. rows
-            .GroupBy(row => row.Family, StringComparer.Ordinal)
-            .OrderBy(group => group.Key, StringComparer.Ordinal)
-            .Select(group => new UpstreamTestCasePortFamilyCount(
-                group.Key,
-                group.Count(),
-                group.Count(row => row.Upstream.Outcome == UpstreamTestCaseOutcome.Pass),
-                group.Count(row => row.Port.Outcome == UpstreamTestCaseOutcome.Pass),
-                group.Count(row => row.Verdict == CurlPortVerdictKind.PortDefect),
-                group.Count(row => row.Verdict == CurlPortVerdictKind.NotComparable)))];
+        Families = CountFamilies(rows);
     }
 
     /// <summary>
@@ -145,8 +136,27 @@ public sealed class UpstreamTestCasePortComparison
                 $"| {family.Family} | {family.Cases} | {family.UpstreamPassed} | {family.PortPassed} | {family.PortDefects} | {family.NotComparable} |\n");
         }
 
-        text.Append(CultureInfo.InvariantCulture,
-            $"| **All** | {Families.Sum(family => family.Cases)} | {Families.Sum(family => family.UpstreamPassed)} | {Families.Sum(family => family.PortPassed)} | {Families.Sum(family => family.PortDefects)} | {Families.Sum(family => family.NotComparable)} |\n");
+        text.Append(FormatTotalRow());
         return text.ToString();
     }
+
+    private static List<UpstreamTestCasePortFamilyCount> CountFamilies(IReadOnlyList<UpstreamTestCasePortRow> rows) =>
+    [
+        .. rows
+            .GroupBy(row => row.Family, StringComparer.Ordinal)
+            .OrderBy(group => group.Key, StringComparer.Ordinal)
+            .Select(CountFamily),
+    ];
+
+    private static UpstreamTestCasePortFamilyCount CountFamily(IGrouping<string, UpstreamTestCasePortRow> family) => new(
+        family.Key,
+        family.Count(),
+        family.Count(row => row.Upstream.Outcome == UpstreamTestCaseOutcome.Pass),
+        family.Count(row => row.Port.Outcome == UpstreamTestCaseOutcome.Pass),
+        family.Count(row => row.Verdict == CurlPortVerdictKind.PortDefect),
+        family.Count(row => row.Verdict == CurlPortVerdictKind.NotComparable));
+
+    private string FormatTotalRow() => string.Create(
+        CultureInfo.InvariantCulture,
+        $"| **All** | {Families.Sum(family => family.Cases)} | {Families.Sum(family => family.UpstreamPassed)} | {Families.Sum(family => family.PortPassed)} | {Families.Sum(family => family.PortDefects)} | {Families.Sum(family => family.NotComparable)} |\n");
 }

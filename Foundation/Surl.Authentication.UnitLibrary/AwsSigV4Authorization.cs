@@ -38,7 +38,7 @@ internal sealed record AwsSigV4Authorization(
             && parameters.TryGetValue("Credential", out var credential)
             && parameters.TryGetValue("SignedHeaders", out var signedHeaders)
             && parameters.TryGetValue("Signature", out var signature)
-            ? Create(credential, signedHeaders, signature)
+            ? TryCreate(credential, signedHeaders, signature)
             : null;
     }
 
@@ -59,7 +59,16 @@ internal sealed record AwsSigV4Authorization(
         return parameters;
     }
 
-    private static AwsSigV4Authorization? Create(string credential, string signedHeaders, string signature)
+    /// <summary>
+    /// Reads the three values as an <c>Authorization</c> field or a presigned URL's
+    /// <c>X-Amz-Credential</c>, <c>X-Amz-SignedHeaders</c> and <c>X-Amz-Signature</c> carry them;
+    /// anything malformed reads as <see langword="null"/>.
+    /// </summary>
+    /// <param name="credential">The access key ID and the scope, joined by <c>/</c>.</param>
+    /// <param name="signedHeaders">The signed header names joined by <c>;</c>.</param>
+    /// <param name="signature">The signature in lower-case hex.</param>
+    /// <returns>The credentials, or <see langword="null"/>.</returns>
+    public static AwsSigV4Authorization? TryCreate(string credential, string signedHeaders, string signature)
     {
         // The key is everything before the last four parts, so a key holding a / still reads.
         var parts = credential.Split('/');
@@ -86,6 +95,11 @@ internal sealed record AwsSigV4Authorization(
             : null;
     }
 
-    private static byte[]? ReadSignature(string signature) =>
+    /// <summary>
+    /// A signature as sent: 64 lower-case hex digits, else <see langword="null"/>.
+    /// </summary>
+    /// <param name="signature">The signature's text.</param>
+    /// <returns>Its 32 bytes, or <see langword="null"/>.</returns>
+    public static byte[]? ReadSignature(string signature) =>
         signature.Length == 64 && signature.All(char.IsAsciiHexDigitLower) ? Convert.FromHexString(signature) : null;
 }

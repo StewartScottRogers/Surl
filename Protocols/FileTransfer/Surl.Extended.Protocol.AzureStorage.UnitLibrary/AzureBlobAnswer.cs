@@ -71,7 +71,7 @@ internal static class AzureBlobAnswer
 
         var contentMd5 = range is not null && AsksRangeMd5(requestFields)
             ? await RangeMd5Async(wholeBlob, range, cancellationToken)
-            : StoredMd5(properties.ETag);
+            : StoredMd5(properties);
 
         return BlobAnswer(reply, properties, contentMd5, wholeBlob, range, resourceFields);
     }
@@ -103,6 +103,15 @@ internal static class AzureBlobAnswer
 
     private static bool AsksRangeMd5(IReadOnlyList<KeyValuePair<string, string>> requestFields) =>
         string.Equals(AzureRequestFields.Value(requestFields, "x-ms-range-get-content-md5"), "true", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// A blob's <c>Content-MD5</c>: the <c>x-ms-blob-content-md5</c> stored with its upload, kept
+    /// as sent (ADR-0109, decision 5.6), else the one its ETag gives (<see cref="StoredMd5(string)"/>).
+    /// </summary>
+    /// <param name="properties">The blob's properties.</param>
+    /// <returns>The base64 digest, or null.</returns>
+    public static string? StoredMd5(ObjectProperties properties) =>
+        properties.ContentMd5 ?? StoredMd5(properties.ETag);
 
     /// <summary>
     /// The base64 <c>Content-MD5</c> of a blob whose ETag is the quoted hexadecimal MD5 the

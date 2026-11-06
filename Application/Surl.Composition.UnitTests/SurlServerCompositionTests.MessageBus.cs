@@ -102,7 +102,7 @@ public sealed partial class SurlServerCompositionTests
         var commandLine = StartTestSeams.Parse("--max-filesize", maxFilesize, "mqtt://127.0.0.1:0/");
 
         var (bus, failureMessage) = await SurlServerComposition.LoadMessageBusAsync(
-            null, commandLine, TimeProvider.System, TestContext.CancellationToken);
+            null, commandLine, TimeProvider.System, DiscardingSurlEventPublisher.Instance, EmptyFaultPlan.Instance, TestContext.CancellationToken);
 
         Assert.IsNull(failureMessage);
         Assert.AreEqual(expectedMaxMessageBytes, bus!.MaxMessageBytes);
@@ -118,7 +118,7 @@ public sealed partial class SurlServerCompositionTests
             [.. "SURL-MQTT-RETAINED-1\n"u8, 0x00, 0x01, (byte)'t', 0x00, 0x00, 0x00, 0x02, (byte)'h', (byte)'i'];
 
         var (bus, failureMessage) = await SurlServerComposition.LoadMessageBusAsync(
-            files, commandLine, TimeProvider.System, TestContext.CancellationToken);
+            files, commandLine, TimeProvider.System, DiscardingSurlEventPublisher.Instance, EmptyFaultPlan.Instance, TestContext.CancellationToken);
 
         Assert.IsNull(failureMessage);
         using var reader = bus!.Connect();
@@ -130,7 +130,7 @@ public sealed partial class SurlServerCompositionTests
     public async Task LoadMessageBusAsync_NullCommandLine_ThrowsArgumentNullException()
     {
         await Assert.ThrowsExactlyAsync<ArgumentNullException>(
-            () => SurlServerComposition.LoadMessageBusAsync(null, null!, TimeProvider.System, TestContext.CancellationToken));
+            () => SurlServerComposition.LoadMessageBusAsync(null, null!, TimeProvider.System, DiscardingSurlEventPublisher.Instance, EmptyFaultPlan.Instance, TestContext.CancellationToken));
     }
 
     private ExchangeContext MqttContext() => new(

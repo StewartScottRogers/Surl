@@ -1,4 +1,5 @@
 using Surl.Output;
+using Surl.Protocol.Abstractions;
 
 namespace Surl.Api;
 
@@ -116,6 +117,14 @@ public sealed class SurlServerOptions
     public long? MaxFileSize { get; set; }
 
     /// <summary>
+    /// The fault rules the server starts with (<c>--fault</c>, once each, in order; ADR-0124 decision 4), numbered
+    /// <c>f1</c>, <c>f2</c> ... in <see cref="SurlServer.Faults"/>; none by default. Any rule writes <c>surl</c>'s
+    /// <c>--fault</c> warning to <see cref="Log"/>, and a rule <c>surl</c> would refuse refuses the start with its
+    /// text. May not hold null.
+    /// </summary>
+    public IList<SurlFault> Faults { get; } = [];
+
+    /// <summary>
     /// Any other <c>surl</c> option, as <c>surl</c>'s own words, read after the properties above.
     /// <c>--help</c>, <c>--aihelp</c>, <c>--manual</c>, <c>--version</c>, <c>--log-file</c>,
     /// <c>--trace</c> and <c>--trace-ascii</c> belong to a host and are refused.
@@ -172,4 +181,27 @@ public sealed class SurlServerOptions
     /// true. Must be positive.
     /// </summary>
     public int MaxRecordedBytesPerExchange { get; set; } = 1_048_576;
+
+    /// <summary>
+    /// The most events <see cref="SurlServer.FindEvents"/> and <see cref="SurlServer.WaitForEventAsync"/> keep,
+    /// without their bytes, 10000 by default (ADR-0124 decision 1); past it the oldest is dropped and
+    /// <see cref="SurlServer.DroppedEventCount"/> grows. Kept only while <see cref="RecordExchanges"/> is on.
+    /// Must be positive.
+    /// </summary>
+    public int MaxRecordedEvents { get; set; } = 10000;
+
+    /// <summary>The shortest <see cref="HookTimeLimit"/>: 1 millisecond.</summary>
+    public static readonly TimeSpan MinHookTimeLimit = TimeSpan.FromMilliseconds(1);
+
+    /// <summary>The longest <see cref="HookTimeLimit"/>: 30 seconds.</summary>
+    public static readonly TimeSpan MaxHookTimeLimit = TimeSpan.FromSeconds(30);
+
+    /// <summary>
+    /// How long a response override (<see cref="SurlServerFaults.AddOverride"/>) may take to decide, on
+    /// <see cref="TimeProvider"/> (ADR-0124, decision 5): 1 second by default, from <see cref="MinHookTimeLimit"/> to
+    /// <see cref="MaxHookTimeLimit"/>. Past it the point is served as if the override were not there and a
+    /// <see cref="HookFailedEvent"/> with <see cref="HookFailure.TimedOut"/> is published. It is not a <c>surl</c>
+    /// option and adds no word.
+    /// </summary>
+    public TimeSpan HookTimeLimit { get; set; } = TimeSpan.FromSeconds(1);
 }

@@ -25,8 +25,44 @@ internal static class S3OperationRecognition
             return OfBucket(request, target);
         }
 
-        return target.NamesAnObject && target.Query is null ? OfObject(request) : S3Operation.NotImplemented;
+        return target.NamesAnObject ? OfObjectRequest(request, target) : S3Operation.NotImplemented;
     }
+
+    private static S3Operation OfObjectRequest(HttpRequest request, S3RequestTarget target) =>
+        target.Query is { } query ? OfMultipart(request, S3QueryParameters.Parse(query)) : OfObject(request);
+
+    // The multipart requests, by method and by the uploads, uploadId and partNumber parameters;
+    // every other query on an object (ListParts, UploadPartCopy, tagging, ...) is not served.
+    private static S3Operation OfMultipart(HttpRequest request, IReadOnlyList<KeyValuePair<string, string>> parameters)
+    {
+        var hasPartNumber = S3QueryParameters.Value(parameters, "partNumber") is not null;
+        if (S3QueryParameters.Value(parameters, "uploadId") is null)
+        {
+            return OfUploads(request, parameters, hasPartNumber);
+        }
+
+        return hasPartNumber ? OfPart(request) : OfUpload(request);
+    }
+
+    // POST ?uploads, with no part number: CreateMultipartUpload.
+    private static S3Operation OfUploads(HttpRequest request, IReadOnlyList<KeyValuePair<string, string>> parameters, bool hasPartNumber) =>
+        request.Method == "POST" && !hasPartNumber && S3QueryParameters.Value(parameters, "uploads") is not null
+            ? S3Operation.CreateMultipartUpload
+            : S3Operation.NotImplemented;
+
+    // An upload ID and a part number: UploadPart, unless it copies (UploadPartCopy).
+    private static S3Operation OfPart(HttpRequest request) =>
+        request.Method == "PUT" && S3RequestFields.Value(request.Fields, "x-amz-copy-source") is null
+            ? S3Operation.UploadPart
+            : S3Operation.NotImplemented;
+
+    // An upload ID alone: CompleteMultipartUpload or AbortMultipartUpload.
+    private static S3Operation OfUpload(HttpRequest request) => request.Method switch
+    {
+        "POST" => S3Operation.CompleteMultipartUpload,
+        "DELETE" => S3Operation.AbortMultipartUpload,
+        _ => S3Operation.NotImplemented,
+    };
 
     // HeadBucket with no query; ListObjectsV2 by its list-type.
     private static S3Operation OfBucket(HttpRequest request, S3RequestTarget target)

@@ -40,7 +40,7 @@ internal sealed class S3Login(IHttpAuthenticationSession authentication, IExchan
 
         return isWrite && verdict.AccountName is null
             ? S3LoginResult.Refused(S3Error.AccessDenied)
-            : S3LoginResult.As(verdict.AccountName, verdict.BodyCheck);
+            : S3LoginResult.As(verdict.AccountName, verdict.BodyCheck) with { ChunkSignatures = verdict.ChunkSignatures };
     }
 
     /// <summary>
@@ -88,6 +88,9 @@ internal sealed class S3Login(IHttpAuthenticationSession authentication, IExchan
         HttpAuthenticationRefusal.BadSignature => S3Error.SignatureDoesNotMatch,
         HttpAuthenticationRefusal.ClockSkew => S3Error.RequestTimeTooSkewed,
         HttpAuthenticationRefusal.PayloadHashMismatch => S3Error.ContentSha256Mismatch,
+        HttpAuthenticationRefusal.SignatureExpired => S3Error.RequestExpired,
+        HttpAuthenticationRefusal.ExpiryOutOfRange => S3Error.ExpiresOutOfRange,
+        HttpAuthenticationRefusal.ConflictingCredentials => S3Error.ConflictingAuthentication,
         _ => S3Error.AccessDenied,
     };
 

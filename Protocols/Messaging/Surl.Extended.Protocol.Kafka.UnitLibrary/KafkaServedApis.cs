@@ -16,6 +16,8 @@ public static class KafkaServedApis
         new KafkaApiVersionRange(KafkaApiKey.Metadata, 0, 8, 9),
         new KafkaApiVersionRange(KafkaApiKey.SaslHandshake, 0, 1, null),
         new KafkaApiVersionRange(KafkaApiKey.ApiVersions, 0, 3, 3),
+        new KafkaApiVersionRange(KafkaApiKey.CreateTopics, 2, 4, 5),
+        new KafkaApiVersionRange(KafkaApiKey.InitProducerId, 0, 1, 2),
         new KafkaApiVersionRange(KafkaApiKey.SaslAuthenticate, 0, 1, 2),
     ]);
 

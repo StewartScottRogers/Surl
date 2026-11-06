@@ -17,7 +17,7 @@ public sealed class S3RequestAnswererTests
 
         var response = await harness.SendAsync("GET", "/shared/a.txt");
 
-        StringAssert.Contains(response, "ETag: \"5eb63bbbe01eeed093cb22bb8f5acdc3\"\r\nAccept-Ranges: bytes\r\nContent-Type: application/octet-stream\r\nContent-Length: 11\r\n");
+        StringAssert.Contains(response, "ETag: \"5eb63bbbe01eeed093cb22bb8f5acdc3\"\r\nAccept-Ranges: bytes\r\nContent-Type: text/plain\r\nContent-Length: 11\r\n");
         StringAssert.EndsWith(response, "hello world");
     }
 

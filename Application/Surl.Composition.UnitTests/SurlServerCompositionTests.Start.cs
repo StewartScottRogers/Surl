@@ -1,4 +1,6 @@
+using Surl.Cli;
 using Surl.Content;
+using Surl.MailStore;
 using Surl.Protocol.Abstractions;
 
 namespace Surl.Composition;
@@ -134,6 +136,69 @@ public sealed partial class SurlServerCompositionTests
 
         Assert.AreEqual(SurlExitCode.CouldNotReadFile, start.Failure!.ExitCode);
         CollectionAssert.AreEqual(new[] { "(37) Could not open directory missing" }, start.Failure.Lines.ToArray());
+    }
+
+    [TestMethod]
+    public async Task ComposeAsync_AnUnreadableMailboxFile_FailsWithCouldNotReadFileBeforeAnyListenerBinds()
+    {
+        var seams = new StartTestSeams().Seams with { ReadStartFile = path => throw new FileNotFoundException(path) };
+        var commandLine = MailboxCompositionTests.WithMail(StartTestSeams.Parse("imap://127.0.0.1:0"), ["example.com"], [], ["m.csv"]);
+
+        var start = await SurlServerComposition.ComposeAsync(commandLine, seams, TestContext.CancellationToken);
+
+        Assert.IsNull(start.Serving);
+        Assert.AreEqual(SurlExitCode.CouldNotReadFile, start.Failure!.ExitCode);
+        CollectionAssert.AreEqual(new[] { "(37) Could not read mailbox file m.csv" }, start.Failure.Lines.ToArray());
+    }
+
+    [TestMethod]
+    public async Task ComposeAsync_AMailboxNamedLikeAUserFileAccount_FailsWithFailedInit()
+    {
+        var seams = new StartTestSeams().Seams with { ReadStartFile = _ => "ann@example.com:other\n"u8.ToArray() };
+        var commandLine = MailboxCompositionTests.WithMail(
+            StartTestSeams.Parse("--user-file", "users.txt", "imap://127.0.0.1:0"), ["example.com"], [new ConfiguredMailbox("ann@example.com", "secret", null)]);
+
+        var start = await SurlServerComposition.ComposeAsync(commandLine, seams, TestContext.CancellationToken);
+
+        Assert.AreEqual(SurlExitCode.FailedInit, start.Failure!.ExitCode);
+        CollectionAssert.AreEqual(new[] { "(2) option --mailbox: mailbox ann@example.com is also a --user-file account" }, start.Failure.Lines.ToArray());
+    }
+
+    [TestMethod]
+    public async Task ComposeAsync_MailboxesFromAFile_AreNotedAtVerboseAfterTheGroupsAndAGroupMayNameThem()
+    {
+        var seams = new StartTestSeams().Seams with { ReadStartFile = _ => "address,password,protocols\nann@example.com,secret,imap\n"u8.ToArray() };
+        var commandLine = MailboxCompositionTests.WithMail(
+            StartTestSeams.Parse("-v", "--group", "staff=ann@example.com", "imap://127.0.0.1:0"), ["example.com"], [], ["m.csv"]);
+        using var log = new StringWriter();
+        using var stop = CancellationTokenSource.CreateLinkedTokenSource(TestContext.CancellationToken);
+        var bound = new TaskCompletionSource<IReadOnlyList<ListenUrl>>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var start = await SurlServerComposition.ComposeAsync(commandLine, seams, TestContext.CancellationToken);
+        await using var serving = start.Serving!;
+
+        var serve = serving.ServeAsync(StartTestSeams.Outputs(log, bound.SetResult), stop.Token);
+        await bound.Task.WaitAsync(TestContext.CancellationToken);
+        await stop.CancelAsync();
+        await serve;
+
+        StringAssert.Contains(
+            log.ToString(),
+            "* Group staff: 1 accounts" + Environment.NewLine + "* Mail domains: example.com" + Environment.NewLine + "* Mailbox ann@example.com: logins on imap" + Environment.NewLine);
+    }
+
+    [TestMethod]
+    public async Task ComposeAsync_AConfiguredMailbox_IsAnOwnerOfTheComposedStoreWithItsInbox()
+    {
+        var commandLine = MailboxCompositionTests.WithMail(
+            StartTestSeams.Parse("imap://127.0.0.1:0"), ["example.com"], [new ConfiguredMailbox("ann@example.com", "secret", null)]);
+        var start = await SurlServerComposition.ComposeAsync(commandLine, new StartTestSeams().Seams, TestContext.CancellationToken);
+        await using var serving = start.Serving!;
+
+        var toAnn = await serving.Stores.SeedMailAsync("ann@example.com", "Subject: hi\r\n\r\nhello\r\n"u8.ToArray(), TestContext.CancellationToken);
+        var toOtherDomain = await serving.Stores.SeedMailAsync("bob@example.org", "Subject: hi\r\n\r\nhello\r\n"u8.ToArray(), TestContext.CancellationToken);
+
+        Assert.AreEqual(MailRecipientLookup.Deliverable, toAnn.Recipient);
+        Assert.AreEqual(MailRecipientLookup.RelayingDenied, toOtherDomain.Recipient);
     }
 
     [TestMethod]

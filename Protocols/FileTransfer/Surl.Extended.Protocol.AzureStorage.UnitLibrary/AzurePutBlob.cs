@@ -17,7 +17,8 @@ namespace Surl.Extended.Protocol.AzureStorage;
 /// <remarks>
 /// Uploads need <c>--allow-uploads</c>, which the store's exposure options carry: off, every Put
 /// Blob is <c>403 AuthorizationPermissionMismatch</c> and nothing is read. A name ending in
-/// <c>/</c> with an empty body creates the folder.
+/// <c>/</c> with an empty body creates the folder. The conditional fields are checked against the
+/// blob at the name before the body is read (<see cref="AzureConditions.WriteRefusal"/>).
 /// </remarks>
 /// <param name="store">The content store the blob is written to.</param>
 /// <param name="index">The object metadata index of the store's served root.</param>
@@ -30,6 +31,8 @@ internal sealed class AzurePutBlob(ContentStore store, ObjectMetadataIndex index
     public const int MaxUserMetadataBytes = 8192;
 
     private const string UserMetadataPrefix = "x-ms-meta-";
+
+    private readonly AzureBlobPropertiesReader properties = new(store, index, log);
 
     /// <summary>
     /// Answers a Put Blob whose container exists and whose name is not too long.
@@ -63,9 +66,22 @@ internal sealed class AzurePutBlob(ContentStore store, ObjectMetadataIndex index
             return reply.Error(AzureRefusal.Of(AzureError.InvalidResourceName));
         }
 
+        if (await ConditionRefusalAsync(request, target, mapping, cancellationToken) is { } conditionRefusal)
+        {
+            return reply.Error(AzureRefusal.Of(conditionRefusal));
+        }
+
         return CreateFolders(target, caller) is { } folderRefusal
             ? reply.Error(AzureRefusal.Of(folderRefusal))
             : await StoreAsync(reply, request, target, mapping, cancellationToken);
+    }
+
+    // The conditional fields, checked against the blob at the name (ADR-0109, decision 1).
+    private async Task<AzureError?> ConditionRefusalAsync(HttpRequest request, AzureBlobTarget target, ContentPathMapping mapping, CancellationToken cancellationToken)
+    {
+        var existing = await properties.ReadAsync(mapping, AzureIndexKey.OfRaw(store, target.RawContainer, target.RawBlob), cancellationToken);
+
+        return AzureConditions.WriteRefusal(request.Fields, existing);
     }
 
     /// <summary>
@@ -136,7 +152,7 @@ internal sealed class AzurePutBlob(ContentStore store, ObjectMetadataIndex index
     }
 
     // A metadata name must be a C# identifier ("Naming and Referencing Containers, Blobs, and Metadata").
-    private static bool IsMetadataName(string name) =>
+    internal static bool IsMetadataName(string name) =>
         name.Length > 0 && (char.IsAsciiLetter(name[0]) || name[0] == '_') && name.All(character => char.IsAsciiLetterOrDigit(character) || character == '_');
 
     internal bool IsAnnouncedPastTheLimit(IHttpRequestBody body) =>
@@ -291,7 +307,8 @@ internal sealed class AzurePutBlob(ContentStore store, ObjectMetadataIndex index
 
     internal static string ETagOf(byte[] digest) => $"\"{Convert.ToHexStringLower(digest)}\"";
 
-    // x-ms-blob-content-type, else Content-Type; the other x-ms-blob-* fields; each x-ms-meta-*.
+    // x-ms-blob-content-type, else Content-Type; the other x-ms-blob-* fields, x-ms-blob-content-md5
+    // kept as sent and unchecked (ADR-0109, decision 5.6); each x-ms-meta-*.
     private static ObjectMetadata MetadataOf(IReadOnlyList<KeyValuePair<string, string>> fields, string eTag) => new()
     {
         ContentType = AzureRequestFields.Value(fields, "x-ms-blob-content-type") ?? AzureRequestFields.Value(fields, "Content-Type"),
@@ -299,6 +316,7 @@ internal sealed class AzurePutBlob(ContentStore store, ObjectMetadataIndex index
         ContentDisposition = AzureRequestFields.Value(fields, "x-ms-blob-content-disposition"),
         CacheControl = AzureRequestFields.Value(fields, "x-ms-blob-cache-control"),
         ContentLanguage = AzureRequestFields.Value(fields, "x-ms-blob-content-language"),
+        ContentMd5 = AzureRequestFields.Value(fields, "x-ms-blob-content-md5"),
         UserMetadata = UserMetadata(fields),
         ETag = eTag,
     };

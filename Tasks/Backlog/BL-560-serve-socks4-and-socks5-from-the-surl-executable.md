@@ -4,8 +4,8 @@ title: Serve SOCKS4 and SOCKS5 from the surl executable
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-559]
-touches: [Application/Surl.Console, Application/Surl.Console.UnitTests, Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests]
+depends-on: [BL-559, BL-555]
+touches: [Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests, Application/Surl.Console, Application/Surl.Console.UnitTests, Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests]
 requirement: none
 created: 2026-11-04
 completed:
@@ -53,7 +53,10 @@ and limits, over TCP, and `surl --aihelp` documents it.
 ## Notes
 
 - Planning assumption (BL-399): the listen URL schemes above; BL-557's ADR decides them.
+- 2026-11-06 (lane 4): ADR-0121 decision 5 fixes the schemes (`socks4`, `socks4a`, `socks5`, `socks5h`, default port 1080). Protocol servers are no longer composed in `CommandLineRunner`: ADR-0124 moved the registration list to `Application/Surl.Composition.UnitLibrary` (`ProtocolServerRegistrations.Original`, `ComposedProtocolServices`, which must also carry the outbound `IOriginConnector`), so this task now touches `Surl.Composition.UnitLibrary` and its `.UnitTests`. BL-803 (in Doing) touches both, so the task went back to Backlog until BL-803 is Done. Note also that `-x`/`--proxy`, `-U`/`--proxy-user`, `--proxy-user-file` and `--proxy-allow-origin` (ADR-0088 decision 7) do not exist in `Surl.Cli` yet; BL-555 adds them, and this task reuses them for SOCKS (ADR-0121 decision 4), so BL-555 is added to `depends-on` rather than building the shared proxy options twice.
 
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-06: Backlog -> Doing.
+- 2026-11-06: Doing -> Backlog. Needs Application/Surl.Composition.UnitLibrary and .UnitTests, which BL-803 (Doing) touches; also waits on BL-555 for the shared -x/-U proxy options

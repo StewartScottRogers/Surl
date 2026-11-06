@@ -34,7 +34,7 @@ public sealed class ProtocolServerRegistrationsTests
                 typeof(ImplicitTlsSchemeServer), typeof(LdapProtocolServer), typeof(ImplicitTlsSchemeServer),
                 typeof(MqttProtocolServer), typeof(Pop3ProtocolServer), typeof(ImplicitTlsSchemeServer),
                 typeof(RtspProtocolServer), typeof(SmbProtocolServer), typeof(SmtpProtocolServer),
-                typeof(ImplicitTlsSchemeServer), typeof(SshProtocolServer), typeof(TelnetProtocolServer),
+                typeof(ImplicitTlsSchemeServer), typeof(SingleSchemeServer), typeof(SingleSchemeServer), typeof(TelnetProtocolServer),
                 typeof(TftpProtocolServer), typeof(WsProtocolServer), typeof(ImplicitTlsSchemeServer),
             },
             servers.Select(server => server.GetType()).ToArray());
@@ -42,7 +42,7 @@ public sealed class ProtocolServerRegistrationsTests
             new[]
             {
                 "http", "https", "dict", "ftp ftps", "gopher gophers", "imap", "imaps", "ldap", "ldaps", "mqtt mqtts",
-                "pop3", "pop3s", "rtsp", "smb smbs", "smtp", "smtps", "scp sftp", "telnet", "tftp", "ws", "wss",
+                "pop3", "pop3s", "rtsp", "smb smbs", "smtp", "smtps", "scp", "sftp", "telnet", "tftp", "ws", "wss",
             },
             servers.Select(server => string.Join(' ', server.Schemes)).ToArray());
     }

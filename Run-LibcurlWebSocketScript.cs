@@ -38,7 +38,6 @@
 // platform, as on Linux and macOS, whose static builds carry no shared library.
 using System.Reflection;
 using System.Runtime.InteropServices;
-using System.Text;
 using Surl.Conformance;
 
 return await LibcurlWebSocketDriver.RunAsync(args);
@@ -48,10 +47,10 @@ internal static class LibcurlWebSocketDriver
 {
     public static async Task<int> RunAsync(string[] args)
     {
-        DriverArguments arguments;
+        LibcurlWebSocketScript arguments;
         try
         {
-            arguments = DriverArguments.Parse(args);
+            arguments = LibcurlWebSocketScript.Parse(args);
         }
         catch (FormatException exception)
         {
@@ -101,7 +100,7 @@ internal static class LibcurlWebSocketDriver
         }
     }
 
-    private static async Task<int> RunScriptAsync(DriverArguments arguments)
+    private static async Task<int> RunScriptAsync(LibcurlWebSocketScript arguments)
     {
         Libcurl.curl_global_init(Libcurl.GlobalDefault);
         IntPtr easy = Libcurl.curl_easy_init();
@@ -110,13 +109,13 @@ internal static class LibcurlWebSocketDriver
             Libcurl.curl_easy_setopt(easy, Libcurl.OptionUrl, arguments.Url);
             Libcurl.curl_easy_setopt(easy, Libcurl.OptionConnectOnly, 2);
             int performed = Libcurl.curl_easy_perform(easy);
-            Console.WriteLine($"perform: {Libcurl.Describe(performed)}");
+            Console.WriteLine(LibcurlWebSocketReport.PerformLine(Libcurl.Describe(performed)));
             if (performed != 0)
             {
                 return 1;
             }
 
-            foreach (DriverStep step in arguments.Steps)
+            foreach (LibcurlWebSocketStep step in arguments.Steps)
             {
                 Console.WriteLine(step.IsReceive ? await ReceiveAsync(easy, arguments.ReceiveTimeout) : await SendAsync(easy, step, arguments.ReceiveTimeout));
             }
@@ -132,7 +131,7 @@ internal static class LibcurlWebSocketDriver
 
     // A payload libcurl takes only in part is sent on from where it stopped, as curl_ws_send's
     // documentation says, waiting out CURLE_AGAIN, until all of it is sent or a call fails.
-    private static async Task<string> SendAsync(IntPtr easy, DriverStep step, TimeSpan timeout)
+    private static async Task<string> SendAsync(IntPtr easy, LibcurlWebSocketStep step, TimeSpan timeout)
     {
         DateTimeOffset deadline = TimeProvider.System.GetUtcNow() + timeout;
         int offset = 0;
@@ -151,8 +150,7 @@ internal static class LibcurlWebSocketDriver
         }
         while (result == 0 && offset < step.Payload.Length);
 
-        string shown = step.Payload.Length > 64 ? $"{Shown(step.Payload[..64])}...\"" : $"{Shown(step.Payload)}\"";
-        return $"send {Libcurl.FlagNames(step.Flags)} {step.Payload.Length} bytes \"{shown}: {Libcurl.Describe(result)}, sent {offset}{(calls > 1 ? $" in {calls} calls" : string.Empty)}";
+        return LibcurlWebSocketReport.SendLine(step, Libcurl.Describe(result), offset, calls);
     }
 
     private static async Task<string> ReceiveAsync(IntPtr easy, TimeSpan timeout)
@@ -170,33 +168,15 @@ internal static class LibcurlWebSocketDriver
 
             if (result != 0 || frame == IntPtr.Zero)
             {
-                return $"recv: {Libcurl.Describe(result)}";
+                return LibcurlWebSocketReport.ReceiveFailedLine(Libcurl.Describe(result));
             }
 
             // struct curl_ws_frame { int age; int flags; curl_off_t offset; curl_off_t bytesleft; size_t len; }
             int flags = Marshal.ReadInt32(frame, 4);
             long offset = Marshal.ReadInt64(frame, 8);
             long bytesLeft = Marshal.ReadInt64(frame, 16);
-            byte[] payload = buffer[..(int)received];
-            return $"recv: {Libcurl.Describe(result)}, flags {Libcurl.FlagNames((uint)flags)}, offset {offset}, bytesleft {bytesLeft}, {payload.Length} bytes \"{Shown(payload)}\"";
+            return LibcurlWebSocketReport.ReceiveLine(Libcurl.Describe(result), (uint)flags, offset, bytesLeft, buffer.AsSpan(0, (int)received));
         }
-    }
-
-    private static string Shown(byte[] bytes)
-    {
-        var text = new StringBuilder();
-        foreach (byte value in bytes)
-        {
-            text.Append(value switch
-            {
-                (byte)'\\' => "\\\\",
-                (byte)'"' => "\\\"",
-                >= 0x20 and < 0x7F => ((char)value).ToString(),
-                _ => $"\\x{value:X2}",
-            });
-        }
-
-        return text.ToString();
     }
 
     private static string RepositoryRoot()
@@ -213,111 +193,6 @@ internal static class LibcurlWebSocketDriver
         // fallback, and Record-CurlExchange.ps1 sets it to the repository root.
         return Directory.GetCurrentDirectory();
     }
-
-}
-
-/// <summary>One step of the script: a curl_ws_send of a payload with flags, or a curl_ws_recv.</summary>
-internal sealed record DriverStep(bool IsReceive, uint Flags, byte[] Payload);
-
-/// <summary>The driver's command line: an optional library, the receive timeout, the URL and the steps.</summary>
-internal sealed record DriverArguments(string? LibraryPath, TimeSpan ReceiveTimeout, string Url, IReadOnlyList<DriverStep> Steps)
-{
-    public static DriverArguments Parse(string[] args)
-    {
-        string? libraryPath = null;
-        int timeoutMilliseconds = 5000;
-        string? url = null;
-        var steps = new List<DriverStep>();
-        for (int index = 0; index < args.Length; index++)
-        {
-            switch (args[index])
-            {
-                case "--library":
-                    libraryPath = ValueAfter(args, ref index);
-                    break;
-                case "--recv-timeout":
-                    timeoutMilliseconds = int.TryParse(ValueAfter(args, ref index), out int parsed) && parsed > 0
-                        ? parsed
-                        : throw new FormatException("--recv-timeout takes a positive number of milliseconds.");
-                    break;
-                default:
-                    if (url is null)
-                    {
-                        url = args[index];
-                    }
-                    else
-                    {
-                        steps.Add(ParseStep(args[index]));
-                    }
-
-                    break;
-            }
-        }
-
-        return url is null
-            ? throw new FormatException("a ws:// or wss:// URL is required, followed by the steps.")
-            : new DriverArguments(libraryPath, TimeSpan.FromMilliseconds(timeoutMilliseconds), url, steps);
-    }
-
-    private static string ValueAfter(string[] args, ref int index) =>
-        ++index < args.Length ? args[index] : throw new FormatException($"{args[index - 1]} needs a value.");
-
-    private static DriverStep ParseStep(string step)
-    {
-        if (step == "recv")
-        {
-            return new DriverStep(true, 0, []);
-        }
-
-        string[] parts = step.Split(':', 3);
-        int repeat = 1;
-        if (parts.Length == 3 && parts[0].StartsWith("send*", StringComparison.Ordinal))
-        {
-            repeat = int.TryParse(parts[0]["send*".Length..], out int count) && count > 0
-                ? count
-                : throw new FormatException($"step '{step}' repeats its payload a number of times that is not a positive number.");
-            parts[0] = "send";
-        }
-
-        if (parts.Length != 3 || parts[0] != "send")
-        {
-            throw new FormatException($"step '{step}' is neither recv, send:<FLAGS>:<payload> nor send*<count>:<FLAGS>:<payload>.");
-        }
-
-        uint flags = 0;
-        foreach (string name in parts[1].Split('+'))
-        {
-            flags |= Libcurl.FlagValue(name) ?? throw new FormatException($"step '{step}' names flag '{name}', not TEXT, BINARY, CONT, CLOSE, PING or PONG.");
-        }
-
-        byte[] payload = Unescape(parts[2]);
-        return new DriverStep(false, flags, [.. Enumerable.Repeat(payload, repeat).SelectMany(bytes => bytes)]);
-    }
-
-    private static byte[] Unescape(string text)
-    {
-        var bytes = new List<byte>();
-        for (int index = 0; index < text.Length; index++)
-        {
-            if (text[index] != '\\' || index + 1 == text.Length)
-            {
-                bytes.Add(checked((byte)text[index]));
-                continue;
-            }
-
-            char escape = text[++index];
-            if (escape == 'x' && index + 2 < text.Length)
-            {
-                bytes.Add(Convert.ToByte(text.Substring(index + 1, 2), 16));
-                index += 2;
-                continue;
-            }
-
-            bytes.Add(escape switch { 'r' => 13, 'n' => 10, 't' => 9, '0' => 0, _ => (byte)escape });
-        }
-
-        return [.. bytes];
-    }
 }
 
 /// <summary>The libcurl entry points the driver calls, resolved to the pinned file only.</summary>
@@ -328,18 +203,6 @@ internal static class Libcurl
     public const int OptionUrl = 10002;
     public const int OptionConnectOnly = 141;
     public const int ResultAgain = 81;
-
-    private static readonly (string Name, uint Value)[] Flags =
-        [("TEXT", 1), ("BINARY", 2), ("CONT", 4), ("CLOSE", 8), ("PING", 16), ("OFFSET", 32), ("PONG", 64)];
-
-    public static uint? FlagValue(string name) =>
-        Flags.Where(flag => flag.Name == name && flag.Name != "OFFSET").Select(flag => (uint?)flag.Value).FirstOrDefault();
-
-    public static string FlagNames(uint flags)
-    {
-        string names = string.Join('+', Flags.Where(flag => (flags & flag.Value) != 0).Select(flag => flag.Name));
-        return names.Length == 0 ? "0" : names;
-    }
 
     public static string Describe(int result) => $"CURLcode {result} ({Marshal.PtrToStringUTF8(curl_easy_strerror(result))})";
 

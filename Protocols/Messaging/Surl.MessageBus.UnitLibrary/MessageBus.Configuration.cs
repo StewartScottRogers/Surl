@@ -98,7 +98,7 @@ public sealed partial class MessageBus
         }
 
         var published = WithDeclaredAttributes(Copy(message, now));
-        return ChangeState(() => Accept(published, now, publisher, onlyToConsumedQueues, seed));
+        return ChangeState(() => Accept(published, now, publisher, onlyToConsumedQueues, seed, queuesFullByPlan: null));
     }
 
     private static (DeclaredTopic Topic, string[] Levels)[] SplitDeclaredTopics(MessageBusConfiguration configuration) =>

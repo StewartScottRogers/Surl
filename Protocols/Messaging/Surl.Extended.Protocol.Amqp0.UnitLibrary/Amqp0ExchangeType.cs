@@ -11,4 +11,7 @@ internal enum Amqp0ExchangeType
 
     /// <summary><c>topic</c>: queues bound with a key whose words match the routing key's.</summary>
     Topic,
+
+    /// <summary><c>headers</c>: queues whose binding arguments match the message's <c>headers</c> table.</summary>
+    Headers,
 }

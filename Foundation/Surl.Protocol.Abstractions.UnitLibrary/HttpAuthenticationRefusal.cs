@@ -58,7 +58,9 @@ public enum HttpAuthenticationRefusal
     MissingRequestDate,
 
     /// <summary>
-    /// A shared access signature whose signed expiry has passed (ADR-0109 decision 3.3).
+    /// A shared access signature whose signed expiry has passed (ADR-0109 decision 3.3), or an
+    /// AWS Signature Version 4 presigned URL past its <c>X-Amz-Date</c> plus <c>X-Amz-Expires</c>
+    /// (ADR-0108 decision 4.5).
     /// </summary>
     SignatureExpired,
 
@@ -95,4 +97,16 @@ public enum HttpAuthenticationRefusal
     /// permissions, services or resource types lack it (ADR-0109 decision 3.3).
     /// </summary>
     PermissionNotGranted,
+
+    /// <summary>
+    /// An AWS Signature Version 4 presigned URL whose <c>X-Amz-Expires</c> is not a whole number
+    /// of seconds from 1 to 604800 (ADR-0108 decision 4.5).
+    /// </summary>
+    ExpiryOutOfRange,
+
+    /// <summary>
+    /// A request signed twice: an AWS Signature Version 4 query string and an
+    /// <c>Authorization</c> field together (ADR-0108 decision 4.5).
+    /// </summary>
+    ConflictingCredentials,
 }

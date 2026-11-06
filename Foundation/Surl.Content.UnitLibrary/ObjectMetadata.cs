@@ -14,7 +14,7 @@ public sealed record ObjectMetadata
 {
     /// <summary>
     /// The <c>Content-Type</c> set at upload; absent, the object answers with
-    /// <see cref="ObjectMetadataIndex.DefaultContentType"/>.
+    /// the one <see cref="ContentMediaTypes.Of"/> names from its key's extension.
     /// </summary>
     public string? ContentType { get; init; }
 
@@ -37,6 +37,12 @@ public sealed record ObjectMetadata
     /// The <c>Content-Language</c> set at upload.
     /// </summary>
     public string? ContentLanguage { get; init; }
+
+    /// <summary>
+    /// The <c>Content-MD5</c> set at upload - Azure's <c>x-ms-blob-content-md5</c> - kept as sent,
+    /// without being checked against the bytes (ADR-0109, decision 5.6).
+    /// </summary>
+    public string? ContentMd5 { get; init; }
 
     /// <summary>
     /// The user metadata set at upload - S3 <c>x-amz-meta-*</c>, Azure <c>x-ms-meta-*</c>, GCS

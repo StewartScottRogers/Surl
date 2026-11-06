@@ -85,7 +85,7 @@ public sealed class S3PutObjectTests
 
         StringAssert.Contains(
             head,
-            "Content-Type: application/octet-stream\r\nContent-Encoding: gzip\r\nContent-Disposition: attachment\r\n"
+            "Content-Type: text/plain\r\nContent-Encoding: gzip\r\nContent-Disposition: attachment\r\n"
                 + "Cache-Control: no-cache\r\nContent-Language: en\r\nx-amz-meta-colour: green\r\nContent-Length: 11\r\n");
     }
 
@@ -283,7 +283,7 @@ public sealed class S3PutObjectTests
     }
 
     [TestMethod]
-    public async Task ServeAsync_PutObjectWithAnAwsChunkedBody_Is501NotImplemented()
+    public async Task ServeAsync_PutObjectChunkedWithADecodedLengthButNoStreamingHash_Is400InvalidRequest()
     {
         var harness = new S3ServerHarness(exposure: S3ServerHarness.Writable);
         harness.CreateFolder("photos");
@@ -291,7 +291,8 @@ public sealed class S3PutObjectTests
         var response = await harness.SendRawAsync(
             "PUT /photos/a.txt HTTP/1.1\r\nHost: s3.test\r\nTransfer-Encoding: chunked\r\nx-amz-decoded-content-length: 1\r\n\r\n1\r\nx\r\n0\r\n\r\n");
 
-        StringAssert.StartsWith(response, "HTTP/1.1 501 Not Implemented\r\n");
+        StringAssert.StartsWith(response, "HTTP/1.1 400 Bad Request\r\n");
+        StringAssert.Contains(response, "<Code>InvalidRequest</Code>");
     }
 
     [TestMethod]
@@ -318,6 +319,56 @@ public sealed class S3PutObjectTests
         StringAssert.Contains(response, "<Code>EntityTooLarge</Code><Message>Your proposed upload exceeds the maximum allowed object size.</Message>");
         StringAssert.Contains(response, "Connection: close\r\n");
         Assert.AreEqual(ContentEntryKind.None, harness.FileSystem.GetEntryKind(Path.Join(S3ServerHarness.Root, "photos", "a.txt")));
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_KeepAlivePutObjectAnnouncedPastMaxFilesize_Is400EntityTooLargeClosedWithTheBodyUnread()
+    {
+        var harness = new S3ServerHarness(exposure: S3ServerHarness.Writable with { MaxUploadBytes = 10 });
+        harness.CreateFolder("photos");
+        var connection = new InMemoryConnection(
+            [Encoding.Latin1.GetBytes("PUT /photos/a.txt HTTP/1.1\r\nHost: s3.test\r\nContent-Length: 11\r\n\r\n"), Encoding.Latin1.GetBytes("hello world")]);
+
+        await harness.Server.ServeAsync(connection, harness.Context());
+        var response = Encoding.UTF8.GetString(connection.WrittenBytes);
+
+        Assert.AreEqual(
+            S3ServerHarness.ExpectedError(
+                response,
+                "400 Bad Request",
+                "<Code>EntityTooLarge</Code><Message>Your proposed upload exceeds the maximum allowed object size.</Message><Resource>/photos/a.txt</Resource><RequestId>{RequestId}</RequestId>"),
+            response);
+        Assert.AreEqual("hello world", await ReadRestAsync(connection));
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_KeepAlivePutObjectWhoseBodyEndsEarly_Is400IncompleteBodyAndCloses()
+    {
+        var harness = new S3ServerHarness(exposure: S3ServerHarness.Writable);
+        harness.CreateFolder("photos");
+
+        var response = await harness.SendRawAsync("PUT /photos/a.txt HTTP/1.1\r\nHost: s3.test\r\nContent-Length: 11\r\n\r\nhello");
+
+        Assert.AreEqual(
+            S3ServerHarness.ExpectedError(
+                response,
+                "400 Bad Request",
+                "<Code>IncompleteBody</Code><Message>You did not provide the number of bytes specified by the Content-Length HTTP header.</Message><Resource>/photos/a.txt</Resource><RequestId>{RequestId}</RequestId>"),
+            response);
+    }
+
+    // What the client sent that the server left unread, read until the client half-closes.
+    private static async Task<string> ReadRestAsync(InMemoryConnection connection)
+    {
+        var rest = new List<byte>();
+        var buffer = new byte[64];
+        int read;
+        while ((read = await connection.ReadAsync(buffer, CancellationToken.None)) > 0)
+        {
+            rest.AddRange(buffer.AsSpan(0, read));
+        }
+
+        return Encoding.Latin1.GetString([.. rest]);
     }
 
     [TestMethod]
@@ -378,6 +429,30 @@ public sealed class S3PutObjectTests
     }
 
     [TestMethod]
+    public async Task ServeAsync_PutFolderObjectWithTheIndexFull_Is503ServiceUnavailable()
+    {
+        var harness = new S3ServerHarness(exposure: S3ServerHarness.Writable, maxIndexEntries: 0);
+        harness.CreateFolder("photos");
+
+        var response = await harness.SendAsync("PUT", "/photos/2026/", "Content-Length: 0");
+
+        StringAssert.StartsWith(response, "HTTP/1.1 503 Service Unavailable\r\n");
+        StringAssert.Contains(response, "<Code>ServiceUnavailable</Code>");
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_PutFolderObjectWithAnIndexThatCannotBeWritten_StoresItAndNotesTheFailure()
+    {
+        var harness = new S3ServerHarness(maxTotalBytes: 0, persistsIndex: true, exposure: S3ServerHarness.Writable);
+        harness.CreateFolder("photos");
+
+        var response = await harness.SendAsync("PUT", "/photos/2026/", "Content-Length: 0");
+
+        StringAssert.StartsWith(response, "HTTP/1.1 200 OK\r\n");
+        Assert.IsTrue(harness.Log.Notes.Any(note => note.StartsWith("The object metadata index could not be written: ", StringComparison.Ordinal)));
+    }
+
+    [TestMethod]
     public async Task ServeAsync_PutObjectWithAnIndexThatCannotBeWritten_StoresTheObjectAndNotesTheFailure()
     {
         var harness = new S3ServerHarness(maxTotalBytes: 20, persistsIndex: true, exposure: S3ServerHarness.Writable);
@@ -428,11 +503,11 @@ public sealed class S3PutObjectTests
         var shareFileSystem = new InMemoryContentFileSystem(new FixedTimeProvider(S3ServerHarness.Now));
         var harness = new S3ServerHarness(exposure: S3ServerHarness.Writable, shares: [new ContentShare("shared", S3ServerHarness.Root, shareFileSystem)]);
 
-        var put = await harness.SendWithBodyAsync("PUT", "/shared/a.txt", "hello world", "Content-Type: text/plain");
+        var put = await harness.SendWithBodyAsync("PUT", "/shared/a.txt", "hello world", "Content-Type: text/csv");
         var get = await harness.SendAsync("GET", "/shared/a.txt");
 
         StringAssert.Contains(put, $"ETag: {HelloWorldETag}\r\n");
-        StringAssert.Contains(get, $"ETag: {HelloWorldETag}\r\nAccept-Ranges: bytes\r\nContent-Type: application/octet-stream\r\n");
+        StringAssert.Contains(get, $"ETag: {HelloWorldETag}\r\nAccept-Ranges: bytes\r\nContent-Type: text/plain\r\n");
         Assert.AreEqual(0, harness.Index.Count);
     }
 

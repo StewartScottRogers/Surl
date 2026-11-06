@@ -1,5 +1,5 @@
 {
-  "comment": "Curl port clients (https://github.com/StewartScottRogers/Curl) the extended servers' Integration tests may connect with, pinned by SHA-256 (ADR-0083 decision 2). Never an oracle, never an expected value, never ADR evidence, and never a test client for an original protocol; never list an upstream curl build here, nor a port client in UpstreamCurlBuilds.json, and the two files never share a SHA-256. To add an entry: clone or fetch the port, check out a commit of its master, publish its curl executable (for example 'dotnet publish Curl.Console -c Release -r win-x64 -o %LOCALAPPDATA%\\Surl\\curl-port\\<commit>') into a folder outside both repositories (%LOCALAPPDATA%\\Surl\\curl-port\\<commit>\\ on Windows, %HOME%/.local/share/surl/curl-port/<commit>/ elsewhere), then add {platform, path, sha256, commit, publishCommand, published}. A path may name environment variables as %NAME%; they are expanded when the client is located. Re-pinning is an ordinary commit, not an ADR.",
+  "comment": "Curl port clients (https://github.com/StewartScottRogers/Curl) the extended servers' Integration tests may connect with, and Phase 7 measures beside pinned upstream curl, pinned by SHA-256 (ADR-0083 decision 2, ADR-0089). Never an oracle, never an expected value, never ADR evidence, and never a test client for an original protocol; never list an upstream curl build here, nor a port client in UpstreamCurlBuilds.json, and the two files never share a SHA-256. Each entry's kind is 'curl' (the port's curl executable, run as a command; an entry with no kind is a curl) or 'library' (the port's managed Libcurl assembly, compiled against and called only by Run-CurlPortLibcurlWebSocketScript.cs and Run-CurlPortLibcurlRtspScript.cs, never run as a curl; ADR-0089 decision 1 (c)); a library is pinned at the same commit as its curl. To add an entry: take a commit of the port's master into a folder outside both repositories (for example 'git archive <commit>' from a clone, so no working tree is disturbed), publish its curl executable ('dotnet publish Curl.Console -c Release -r win-x64 -o %LOCALAPPDATA%\\Surl\\curl-port\\<commit>') or its Libcurl assembly ('dotnet publish Libcurl -c Release -o %LOCALAPPDATA%\\Surl\\curl-port\\<commit>\\libcurl') under %LOCALAPPDATA%\\Surl\\curl-port\\<commit>\\ on Windows (%HOME%/.local/share/surl/curl-port/<commit>/ elsewhere), then add {platform, path, sha256, commit, publishCommand, published} and, for a library, kind. A path may name environment variables as %NAME%; they are expanded when the client is located. Re-pinning is an ordinary commit, not an ADR.",
   "builds": [
     {
       "platform": "win-x64",
@@ -8,6 +8,15 @@
       "commit": "b42c319ba940f66452b2b6f3e9910d46825b08fe",
       "publishCommand": "dotnet publish Curl.Console -c Release -r win-x64 -o \"C:\\Users\\Stewart Rogers\\AppData\\Local\\Surl\\curl-port\\b42c319ba940f66452b2b6f3e9910d46825b08fe\"",
       "published": "2026-11-04"
+    },
+    {
+      "platform": "win-x64",
+      "kind": "library",
+      "path": "%LOCALAPPDATA%\\Surl\\curl-port\\b42c319ba940f66452b2b6f3e9910d46825b08fe\\libcurl\\Libcurl.dll",
+      "sha256": "613976A7CC3DA746AB74819C6A526D676A39998D56B5470D5C527A902D7C8311",
+      "commit": "b42c319ba940f66452b2b6f3e9910d46825b08fe",
+      "publishCommand": "git archive b42c319ba940f66452b2b6f3e9910d46825b08fe | tar -x -C \"C:\\Users\\Stewart Rogers\\AppData\\Local\\Surl\\curl-port-source\\b42c319ba940f66452b2b6f3e9910d46825b08fe\", then in that folder: dotnet publish Libcurl -c Release -o \"C:\\Users\\Stewart Rogers\\AppData\\Local\\Surl\\curl-port\\b42c319ba940f66452b2b6f3e9910d46825b08fe\\libcurl\"",
+      "published": "2026-11-06"
     }
   ]
 }

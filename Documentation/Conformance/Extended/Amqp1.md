@@ -12,7 +12,9 @@ row needs no test.
 IDs are `Amqp1:Types-<section>-<n>` for Part 1, `Amqp1:Core-<section>-<n>` for Part 2,
 `Amqp1:Messaging-<section>-<n>` for Part 3, `Amqp1:Security-<section>-<n>` for Part 5,
 `Amqp1:RFC<n>-<n>` for an RFC, and `Amqp1:Surl-<Decision>-<n>` for a rule ADR-0107 adds where the
-specification leaves the container a choice. Part 4 (transactions) is BL-707's.
+specification leaves the container a choice, and `Amqp1:Transactions-<section>-<n>` for Part 4. Part 4, the
+source filters and terminus durability are decided by
+[ADR-0146](../../Planning/Decisions/ADR-0146-how-the-amqp-1-0-container-serves-transactions-durable-subscriptions-and-source-filters.md).
 
 ## Types and encodings (Part 1, sections 1.2 to 1.6)
 
@@ -98,8 +100,8 @@ specification leaves the container a choice. Part 4 (transactions) is BL-707's.
 | Amqp1:Surl-Nodes-3 | MUST | No address, an address that maps to no valid name, or a wildcard in a target is refused with `amqp:not-found`. | `Amqp1ContainerConnectionTests.ServeAsync_AttachAsSenderToAnAddressNamingNoNode_IsRefusedWithNotFound` |
 | Amqp1:Surl-Nodes-4 | MUST | An attach topic access denies is refused with `amqp:unauthorized-access`, the same whether or not the node exists. | BL-513 |
 | Amqp1:Surl-Nodes-5 | MUST | An attach the bus refuses (`TooManyQueues`, `TooManySubscriptions`) is refused with `amqp:resource-limit-exceeded`. | BL-513 |
-| Amqp1:Surl-Nodes-6 | MUST | A `coordinator` target is refused with `amqp:not-implemented` until BL-707's decision is built. | `Amqp1ContainerConnectionTests.ServeAsync_AttachToACoordinator_IsRefusedWithNotImplemented` |
-| Amqp1:Messaging-3.5.3-2 | MUST | The container's source states `distribution-mode` `move` for a queue and `copy` for a topic, `durable` `none` for a topic, and leaves out a `filter` it does not apply. | `Amqp1ContainerConnectionTests.ServeAsync_AttachAsReceiver_IsAnsweredWithASendingLinkFromTheNode` |
+| Amqp1:Surl-Nodes-6 | MUST | A `coordinator` target is refused with `amqp:not-implemented` until BL-956 builds ADR-0146 decision 1, which replaces this row with `Amqp1:Transactions-4.5.1-1`. | `Amqp1ContainerConnectionTests.ServeAsync_AttachToACoordinator_IsRefusedWithNotImplemented` (until BL-956) |
+| Amqp1:Messaging-3.5.3-2 | MUST | The container's source states `distribution-mode` `move` for a queue and `copy` for a topic, `durable` `none` for a topic, and leaves out a `filter` entry it does not apply (the applied ones are `Amqp1:Messaging-3.5.8-1`); ADR-0146 changes the topic `durable` (BL-960). | `Amqp1ContainerConnectionTests.ServeAsync_AttachAsReceiver_IsAnsweredWithASendingLinkFromTheNode` |
 | Amqp1:Core-2.6.13-1 | MUST | A client's `unsettled` map is ignored and the container's attach carries none: links are not resumed. | `Amqp1ContainerConnectionTests.ServeAsync_AttachAsReceiver_IsAnsweredWithASendingLinkFromTheNode` |
 
 ## Flow, transfer and settlement (Part 2 sections 2.6.7, 2.6.12, 2.6.14, 2.7.4 to 2.7.6, 2.8.2, 2.8.3)
@@ -135,6 +137,51 @@ specification leaves the container a choice. Part 4 (transactions) is BL-707's.
 | Amqp1:Messaging-3.4.5-1 | MUST | A client's `modified` puts a queue delivery back marked redelivered, and with `undeliverable-here` true never offers it to the same link again. | BL-513 |
 | Amqp1:Surl-Delivery-1 | MUST | Deliveries from a topic wait on the link while it has no credit, at most 1000, a later one dropped for that link and noted; every outcome only settles them. | BL-513 |
 | Amqp1:Surl-Delivery-2 | MUST | A queue link consumes with at most 1000 unacknowledged deliveries; those not sent when it ends go back to the queue. | BL-513 |
+
+## Transactions (Part 4; ADR-0146 decision 1)
+
+| ID | Level | Requirement | Covered by |
+| --- | --- | --- | --- |
+| Amqp1:Transactions-4.5.1-1 | MUST | An `attach` to a `coordinator` target is answered as a receiving link with credit 100, its `coordinator` listing `amqp:local-transactions`, `amqp:multi-txns-per-ssn` and `amqp:multi-ssns-per-txn` and no other capability asked. | BL-956 |
+| Amqp1:Transactions-4.2-1 | MUST | A `declare` is answered with a `disposition` whose state is `declared` with a 4-byte `txn-id` counting up from `00 00 00 01` per connection, never reused on it. | BL-956 |
+| Amqp1:Transactions-4.2-2 | MUST | A `declare` with a `global-id` is `rejected` with `amqp:not-implemented`; a 101st open transaction on a connection with `amqp:resource-limit-exceeded`; any other body on a coordinator link with `amqp:decode-error`. | BL-956 |
+| Amqp1:Transactions-4.4.1-1 | MUST | A transfer in `transactional-state` naming an open transaction is held, not published, and answered `transactional-state` with outcome `accepted`; one the container would refuse is answered `transactional-state` with outcome `rejected` and its error, and is not held. | BL-956 |
+| Amqp1:Transactions-4.4.1-2 | MUST | A transfer, `discharge` or `disposition` naming a `txn-id` that is not open on the connection is `rejected` with `amqp:transaction:unknown-id`. | BL-956 (transfer, discharge), BL-957 (disposition) |
+| Amqp1:Transactions-4.3-1 | MUST | A `discharge` with `fail` false publishes the held messages all or none, in posting order, then applies the held outcomes, and is answered `accepted`; when the bus refuses any of them none is published, the transaction rolls back and the `discharge` is `rejected` with `amqp:transaction:rollback`. | BL-956 |
+| Amqp1:Transactions-4.3-2 | MUST | A `discharge` with `fail` true drops the held messages, forgets the held outcomes and is answered `accepted`; a discharged `txn-id` is unknown afterwards. | BL-956 |
+| Amqp1:Transactions-4.4.2-1 | MUST | A client `disposition` in `transactional-state` holds its outcome until discharge: the delivery stays acquired, then is acknowledged, dropped or returned by the outcome at commit, or is unsettled again at rollback. | BL-957 |
+| Amqp1:Transactions-4.4.3-1 | MUST | After a `flow` whose `properties` carry `txn-id`, the container's transfers on that link carry `transactional-state` naming it until a `flow` without it; a rollback returns those deliveries, unless retired outside the transaction, to their queue marked redelivered. | BL-957 |
+| Amqp1:Transactions-4.4-1 | MUST | Held messages count with the connection's partial deliveries against `--max-filesize`; past it the transfer is `rejected` with `amqp:resource-limit-exceeded`. | BL-956 |
+| Amqp1:Surl-Transactions-1 | MUST | An open transaction rolls back with no frame of its own when its coordinator link detaches, its session ends or the connection ends. | BL-956 (detach, session, connection), BL-957 (acquired and retired deliveries returned) |
+| Amqp1:Transactions-4.5.8-1 | MUST NOT | `amqp:transaction:timeout` is never sent: a transaction has no time-out. | n/a: a condition that is never sent has no case; the bound rows above pin what limits a transaction |
+| Amqp1:Transactions-4.5.7-1 | MUST NOT | Distributed and promotable transactions are not offered. | n/a: `Amqp1:Transactions-4.5.1-1`'s test pins every capability the coordinator offers |
+
+## Source filters (Part 3 sections 3.5.1, 3.5.3, 3.5.8; the Apache filter registry; ADR-0146 decision 2)
+
+| ID | Level | Requirement | Covered by |
+| --- | --- | --- | --- |
+| Amqp1:Messaging-3.5.8-1 | MUST | A `filter` entry is recognised by its descriptor, symbol or ulong form; the applied entries are echoed in the container's source under the client's keys, and any other descriptor (`apache.org:xquery-filter:string` among them) is left out. | `Amqp1ContainerConnectionTests.ServeAsync_AttachWithSelectorNoLocalAndAnUnknownFilter_EchoesTheFirstTwoUnderTheClientsKeys`; `Amqp1SourceFiltersTests` (`CodeOf_UlongAndSymbolForms_NameTheSameFilter`, `CodeOf_UnknownSymbolOrOtherType_IsNull`, `Read_EntriesNotApplied_AreLeftOut`, `Read_NoFilterMap_AppliesNothing`) |
+| Amqp1:Messaging-3.5.8-2 | MUST | `apache.org:selector-filter:string` is applied on topic and queue links: only messages whose selector is TRUE are delivered. | `Amqp1ContainerConnectionTests` (`ServeAsync_TopicLinkWithASelector_GetsOnlySelectedMessagesAndFilteredOnesNeverWait`, `ServeAsync_QueueLinksWithDifferentSelectors_EachGetWhatTheirsAcceptsAndTheRestStaysReady`); `Amqp1SourceFiltersTests.Accepts_Selector_SelectsByTheMessagesProperties`; `Amqp1BusSelectorMessageTests` |
+| Amqp1:Messaging-3.5.8-3 | MUST | `apache.org:no-local-filter:list` on a topic link withholds messages the same connection published; on a queue link it is left out. | `Amqp1ContainerConnectionTests.ServeAsync_TopicLinkWithNoLocal_WithholdsTheConnectionsOwnPublishesOnly`; `Amqp1SourceFiltersTests` (`Read_NoLocalOnATopic_IsAppliedAndLetsEveryMessageThrough`, `Read_EntriesNotApplied_AreLeftOut`) |
+| Amqp1:Messaging-3.5.8-4 | MUST | `apache.org:legacy-amqp-direct-binding:string` and `apache.org:legacy-amqp-topic-binding:string` match the routing key (the `subject`, else the bus topic with `/` as `.`) exactly or as an AMQP 0-9-1 topic pattern; a message with neither matches neither. | `Amqp1ContainerConnectionTests.ServeAsync_TopicBindingOnAMessageAnotherProtocolPublished_MatchesItsTopicAsARoutingKey`; `Amqp1SourceFiltersTests` (`Accepts_DirectBinding_MatchesTheSubjectElseTheTopicAsARoutingKey`, `Accepts_TopicBinding_MatchesAsAnAmqp091TopicPattern`, `Accepts_TopicBindingAndATopicWithNoRoutingKey_DoesNotMatch`, `Accepts_MessageSentStraightToTheQueueWithoutSubject_HasNoRoutingKey`) |
+| Amqp1:Messaging-3.5.8-5 | MUST | `apache.org:legacy-amqp-headers-binding:map` matches application properties under `x-match` `all` (the default) or `any`. | `Amqp1SourceFiltersTests` (`Accepts_HeadersBindingAll_MatchesEveryEntryButReservedOnes`, `Accepts_HeadersBindingAny_MatchesOneEntry`, `Accepts_HeadersBindingAllAsASymbol_ComparesBinaryAndOtherValues`) |
+| Amqp1:Surl-Filters-1 | MUST | Several applied filters must all match. On a topic link a filtered-out message never counts against the 1000 waiting; on a queue link it stays ready for a consumer whose filters accept it. | `Amqp1SourceFiltersTests.Accepts_SeveralFilters_MustAllAccept`; `Amqp1ContainerConnectionTests` (`ServeAsync_TopicLinkWithASelector_GetsOnlySelectedMessagesAndFilteredOnesNeverWait`, `ServeAsync_QueueLinksWithDifferentSelectors_EachGetWhatTheirsAcceptsAndTheRestStaysReady`) |
+| Amqp1:Surl-Filters-2 | MUST | A JMS selector is parsed per Jakarta Messaging 3.1 section 3.8.1 (literals, identifiers, `NOT`, `AND`, `OR`, comparisons, arithmetic, `BETWEEN`, `IN`, `LIKE ... ESCAPE`, `IS NULL`, keywords in any case) and evaluated with three-valued logic, a missing identifier NULL. | `Amqp1SelectorTests` (`Evaluate_Literals_HaveTheirValues`, `Evaluate_Logic_FollowsPrecedence`, `Evaluate_Comparisons_CompareLikeTypes`, `Evaluate_Arithmetic_Calculates`, `Evaluate_Predicates_AndTheirNotForms`, `Evaluate_ThreeValuedLogic`, `Selects_OnlyWhenTrue`) |
+| Amqp1:Surl-Filters-3 | MUST | `JMSMessageID`, `JMSCorrelationID`, `JMSType`, `JMSPriority` (default 4), `JMSDeliveryMode`, `JMSTimestamp` and `JMSExpiration` read the fields ADR-0146 decision 2.2 names; any other identifier an application property. | `Amqp1SelectorIdentifiersTests` (`Read_HeaderIdentifier_ReadsItsField`, `Read_MessageWithoutHeaderOrProperties_ReadsDefaultsAndNull`, `Read_HeaderNotDurable_IsNonPersistent`) |
+| Amqp1:Surl-Filters-4 | MUST | A selector longer than 4096 characters, nested deeper than 32 levels, or that does not parse refuses the attach with `amqp:invalid-field`; an empty selector selects every message. | `Amqp1SelectorTests` (`Parse_SelectorOver4096Characters_IsRefusedTooLong`, `Parse_Nesting_Is32LevelsAtMost`, `Parse_MalformedSelector_IsRefusedMalformed`, `Parse_EmptySelector_SelectsEverything`) for the recogniser's limits; `Amqp1ContainerConnectionTests.ServeAsync_AttachWithARefusedSelector_IsRefusedWithInvalidField` and `Amqp1SourceFiltersTests.Read_RefusedSelector_IsNull` for the refusal |
+| Amqp1:Surl-Filters-5 | MAY | A `filter` map on a target is ignored. | n/a: Part 3 section 3.5.4 gives a target no `filter` field, so there is nothing to answer |
+
+## Terminus durability and expiry (Part 3 sections 3.5.3, 3.5.5, 3.5.6; Part 2 section 2.6.6; ADR-0146 decision 3)
+
+| ID | Level | Requirement | Covered by |
+| --- | --- | --- | --- |
+| Amqp1:Messaging-3.5.5-1 | MUST | A topic source with `durable` 1 or 2 and `expiry-policy` `never` makes a durable subscription, a persisted bus queue named `surl-subscription-` and the hex SHA-256 of the `container-id`, a zero byte and the link name, answered `durable` `configuration`. | BL-960 |
+| Amqp1:Messaging-3.5.5-2 | MUST | Deliveries unsettled when a durable subscriber's link detaches return to its queue marked redelivered. | BL-960 |
+| Amqp1:Surl-Subscriptions-1 | MUST | Reattaching with the same `container-id` and link name resumes the subscription with what it kept; with a different address or filters replaces it; with a null source is answered with the subscription's source, or refused with `amqp:not-found` when there is none. | BL-960 |
+| Amqp1:Core-2.6.6-2 | MUST | A `detach` with `closed` true destroys the subscription and its messages (a shared one, when it is the last link); `closed` false, session end and connection end keep it. | BL-960 |
+| Amqp1:Surl-Subscriptions-2 | MUST | A second attach to a subscription another link holds is refused with `amqp:resource-locked`, unless its source has the `shared` capability; a shared subscription is keyed by the link name before its first `\|`, with the `container-id` unless `global` is also given, and its links compete. | BL-960 |
+| Amqp1:Messaging-3.5.6-1 | MUST | `expiry-policy` `session-end` or `connection-close` with `durable` above `none` keeps an unpersisted subscription until that event, answered `durable` `configuration` and `timeout` 0; `link-detach` is answered `durable` `none`. | BL-960 |
+| Amqp1:Surl-Subscriptions-3 | MUST | A durable or shared subscription needs the `Subscribe` right on its topic at every attach, else `amqp:unauthorized-access`; `/queue/surl-subscription-...` is refused with `amqp:not-found`; past the bus's queue bound the attach gets `amqp:resource-limit-exceeded`. | BL-960 |
 
 ## Limits, TLS and storage (ADR-0006; ADR-0100 decisions 3.6 and 3.7; Part 5 section 5.2.1)
 

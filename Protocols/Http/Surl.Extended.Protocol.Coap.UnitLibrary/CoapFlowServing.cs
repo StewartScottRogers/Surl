@@ -7,7 +7,9 @@ namespace Surl.Extended.Protocol.Coap;
 /// Serves one flow's CoAP messages, the one code path <c>coap</c> and <c>coaps</c> share (ADR-0097
 /// decision 0): the flow's message layer, its Block1 uploads and its observers, answered by one
 /// <see cref="CoapResourceAnswerer"/>. Over <c>coaps</c> the flow is the decrypted DTLS
-/// association, and the peer may be authenticated.
+/// association, and the peer may be authenticated. Each request is first offered to the exchange's
+/// fault plan (<see cref="CoapRequestFaults"/>), whose chosen error answers it in place of the
+/// resource, so it registers no observation.
 /// </summary>
 internal static class CoapFlowServing
 {
@@ -52,7 +54,12 @@ internal static class CoapFlowServing
             (request, options, cancellationToken) => answerer.AnswerAsync(request, options, context.Scheme, peerIsAuthenticated, uploads, cancellationToken),
             options => answerer.LocationOf(options, context.Scheme),
             (what, compose, cancellationToken) => session!.SendConfirmableAsync(what, compose, cancellationToken));
-        session = new CoapFlowSession(flow, context, observers.AnswerAsync, random);
+        session = new CoapFlowSession(
+            flow,
+            context,
+            async (request, options, cancellationToken) =>
+                await CoapRequestFaults.FindErrorAsync(context, request, options) ?? await observers.AnswerAsync(request, options, cancellationToken),
+            random);
         var serving = session.ServeAsync();
         await Task.WhenAny(serving);
 

@@ -28,7 +28,7 @@ internal sealed partial class HttpProxyExchange
         ClientBodyEnded,
     }
 
-    private static bool IsMaxForwardsMethod(string method) => method is "OPTIONS" or "TRACE";
+    internal static bool IsMaxForwardsMethod(string method) => method is "OPTIONS" or "TRACE";
 
     // http is forwarded, and an ftp GET fetched over FTP (Amendment 4); every other ftp method
     // and every other scheme is 501.
@@ -56,7 +56,7 @@ internal sealed partial class HttpProxyExchange
         return HeadBytes($"{head.Method} {target.OriginForm} HTTP/1.1", fields);
     }
 
-    private static byte[] HeadBytes(string startLine, IEnumerable<HttpRequestField> fields)
+    internal static byte[] HeadBytes(string startLine, IEnumerable<HttpRequestField> fields)
     {
         var text = new StringBuilder(startLine).Append("\r\n");
         foreach (var field in fields)
@@ -67,7 +67,7 @@ internal sealed partial class HttpProxyExchange
         return Encoding.Latin1.GetBytes(text.Append("\r\n").ToString());
     }
 
-    private static TimeSpan TimerDelay(TimeSpan headTimeout) =>
+    internal static TimeSpan TimerDelay(TimeSpan headTimeout) =>
         headTimeout > MaxTimerDelay ? Timeout.InfiniteTimeSpan : headTimeout;
 
     private async Task<bool> AnswerForwardableAsync(HttpRequestHead head)

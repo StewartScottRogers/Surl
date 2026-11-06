@@ -53,7 +53,7 @@ choice.
 | --- | --- | --- | --- |
 | AzureStorage:Surl-Addressing-1 | MUST | The listen scheme decides the endpoint: `az` is Blob, `abfs` and `abfss` are Data Lake; the `Host` never switches it. | BL-424 |
 | AzureStorage:Surl-Addressing-2 | MUST | In the account-host form the path is `/<container>/<blob>` or `/<filesystem>/<path>` whatever the `Host`; `/` is the account. | BL-424 |
-| AzureStorage:NamingAndReferencing-1 | MUST | With an IP-literal or `localhost` host, a first path segment naming a named account is the account and is removed. | BL-424 |
+| AzureStorage:NamingAndReferencing-1 | MUST | With an IP-literal or `localhost` host, a first path segment naming a named account is the account and is removed. | `AzurePathStyleTests.Read_IpHostAndANamedAccountSegment_ServesTheContainerAfterIt`, `Read_IpHostAndASegmentNamingNoAccount_ServesThatContainer`, `Read_AccountHostAndANamedAccountSegment_ServesThatContainer` |
 | AzureStorage:NamingAndReferencing-2 | MUST | A blob name over 1024 characters is `400 InvalidResourceName`. | BL-424 |
 | AzureStorage:NamingAndReferencing-3 | MUST | The blob name is percent-decoded once from the path, as UTF-8. | BL-424 |
 | AzureStorage:Surl-Store-1 | MUST | A container or filesystem is a top-level folder of the shared content store; a top-level file and `.surl` are not. | BL-424 |
@@ -156,7 +156,7 @@ choice.
 | AzureStorage:BearerChallenge-1 | MUST | No credentials with anonymous off is `401 NoAuthenticationInformation` with `WWW-Authenticate: Bearer authorization_uri=… resource_id=https://storage.azure.com`. | BL-424 |
 | AzureStorage:BearerChallenge-2 | MUST | A bearer token that is no account is `401 InvalidAuthenticationInfo` with the same challenge. | BL-424 |
 | AzureStorage:AnonymousRead-1 | MUST | Under `--allow-anonymous`, unauthenticated reads are served and unauthenticated writes are `401 NoAuthenticationInformation`. | BL-424 |
-| AzureStorage:Surl-Auth-1 | MUST | Credentials sent under `--allow-anonymous` are checked; a bad one is never served as anonymous. | BL-424 |
+| AzureStorage:Surl-Auth-1 | MUST | Credentials sent under `--allow-anonymous` are checked; a bad one is never served as anonymous. | `AzureStorageProtocolServerTests.ServeAsync_WrongBearerTokenUnderAllowAnonymous_Is401InvalidAuthenticationInfoWithTheChallenge`, `AzureStorageVerifierTests.Bearer_WrongTokenUnderAllowAnonymous_IsForbiddenAsUnknownAccount`, `SharedKey_UnderAllowAnonymous_IsStillChecked` |
 | AzureStorage:Surl-Auth-2 | MUST | A write needs `--allow-uploads`; without it an authenticated write is `403 AuthorizationPermissionMismatch`. | BL-425 |
 | AzureStorage:Surl-Auth-3 | MUST | Another `Authorization` scheme, or one that does not parse, is `400 InvalidAuthenticationInfo`. | BL-424 |
 | AzureStorage:Surl-Auth-4 | MUST | The checked account is what the store's share access check receives. | BL-425 |

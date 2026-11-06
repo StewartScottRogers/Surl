@@ -9,8 +9,9 @@ internal sealed partial class Amqp0BrokerConnection
 {
     private const byte PersistentDeliveryMode = 2;
 
-    // The body bytes announced by content headers whose bodies are still arriving, all channels.
-    private long pendingContentBytes;
+    // The body bytes held on all channels: announced by content headers whose bodies are still
+    // arriving, and published on transacted channels but not yet committed.
+    private long heldContentBytes;
 
     private void BeginPublish(Amqp0Channel channel, Amqp0WireReader arguments)
     {
@@ -58,7 +59,27 @@ internal sealed partial class Amqp0BrokerConnection
 
         if (publish.IsComplete)
         {
-            ReleasePendingContent(channel);
+            channel.Publish = null;
+            TakeWholePublish(channel, publish);
+        }
+    }
+
+    // A transacted channel buffers the publish, its bytes still held; otherwise it is routed now.
+    private void TakeWholePublish(Amqp0Channel channel, Amqp0PendingPublish publish)
+    {
+        if (channel.Transaction is { } transaction)
+        {
+            transaction.AddPublish(publish);
+            return;
+        }
+
+        heldContentBytes -= publish.Body.Length;
+        if (channel.Confirming)
+        {
+            RouteConfirmed(channel, publish);
+        }
+        else
+        {
             Route(channel, publish);
         }
     }
@@ -81,24 +102,15 @@ internal sealed partial class Amqp0BrokerConnection
             throw new Amqp0ChannelException(Amqp0ReplyCode.ContentTooLarge, "CONTENT_TOO_LARGE - body above the limit");
         }
 
-        // ADR-0112 decision 8: the content partly read on all channels together stays within --max-filesize.
-        if (pendingContentBytes + (long)header.BodySize > bus.MaxMessageBytes)
+        // ADR-0112 decision 8: the content partly read, and the content transactions buffer, on all
+        // channels together stays within --max-filesize.
+        if (heldContentBytes + (long)header.BodySize > bus.MaxMessageBytes)
         {
             throw new Amqp0ConnectionException(Amqp0ReplyCode.ResourceError, "RESOURCE_ERROR - content in progress above the limit");
         }
 
-        pendingContentBytes += (long)header.BodySize;
+        heldContentBytes += (long)header.BodySize;
         publish.TakeHeader(header);
-    }
-
-    private void ReleasePendingContent(Amqp0Channel channel)
-    {
-        if (channel.Publish?.Header is { } header)
-        {
-            pendingContentBytes -= (long)header.BodySize;
-        }
-
-        channel.Publish = null;
     }
 
     private void Route(Amqp0Channel channel, Amqp0PendingPublish publish)
@@ -111,7 +123,7 @@ internal sealed partial class Amqp0BrokerConnection
         var persistent = properties.DeliveryMode == PersistentDeliveryMode;
         var (routed, taken) = publish.Exchange?.Name == Amqp0ExchangeTable.TopicSpace
             ? PublishOnTopicSpace(topic, message, publish.Immediate, persistent)
-            : PublishToQueues(QueuesFor(publish), message, publish.Immediate, persistent);
+            : PublishToQueues(QueuesFor(publish, properties.Headers), message, publish.Immediate, persistent);
         if (!routed)
         {
             ReturnOrDrop(channel, publish, publish.Mandatory || publish.Immediate);
@@ -124,8 +136,8 @@ internal sealed partial class Amqp0BrokerConnection
 
     private static string ExchangeNameOf(Amqp0PendingPublish publish) => publish.Exchange?.Name ?? string.Empty;
 
-    private List<string> QueuesFor(Amqp0PendingPublish publish) =>
-        publish.Exchange is { } exchange ? exchanges.Route(exchange, publish.RoutingKey) : [publish.RoutingKey];
+    private List<string> QueuesFor(Amqp0PendingPublish publish, Amqp0FieldTable? headers) =>
+        publish.Exchange is { } exchange ? exchanges.Route(exchange, publish.RoutingKey, headers) : [publish.RoutingKey];
 
     // amq.topic is the bus's topic space: routed when a queue was chosen, room or not.
     private (bool Routed, bool Taken) PublishOnTopicSpace(TopicNameMapping topic, BusMessage message, bool immediate, bool persistent)

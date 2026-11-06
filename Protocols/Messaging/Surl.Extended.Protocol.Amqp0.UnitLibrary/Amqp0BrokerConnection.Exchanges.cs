@@ -51,7 +51,7 @@ internal sealed partial class Amqp0BrokerConnection
 
     // Rule declare/syntax: a run of letters, digits, '-', '_', '.' and ':'. Its callers have already
     // answered the empty name, and a shortstr holds at most 255 bytes.
-    private static bool IsValidName(string name) =>
+    internal static bool IsValidName(string name) =>
         name.All(character => char.IsAsciiLetterOrDigit(character) || character is '-' or '_' or '.' or ':');
 
     // A server-made name: the prefix and 22 base64url characters of 16 random bytes.
@@ -115,6 +115,7 @@ internal sealed partial class Amqp0BrokerConnection
         "direct" => Amqp0ExchangeType.Direct,
         "fanout" => Amqp0ExchangeType.Fanout,
         "topic" => Amqp0ExchangeType.Topic,
+        "headers" => Amqp0ExchangeType.Headers,
         _ => throw new Amqp0ConnectionException(Amqp0ReplyCode.CommandInvalid, "COMMAND_INVALID - unknown exchange type"),
     };
 
@@ -223,7 +224,7 @@ internal sealed partial class Amqp0BrokerConnection
         var exchangeName = arguments.ReadShortString();
         var key = arguments.ReadShortString();
         var noWait = bind && arguments.ReadBits(1)[0];
-        arguments.ReadFieldTable();
+        var table = arguments.ReadFieldTable();
         if (exchangeName.Length == 0)
         {
             throw DefaultExchangeRefused();
@@ -237,7 +238,7 @@ internal sealed partial class Amqp0BrokerConnection
         }
         else
         {
-            BindOnExchange(exchange, queue, key, bind);
+            BindOnExchange(exchange, BindingOf(exchange, queue, key, table), bind);
         }
 
         if (!noWait)
@@ -260,13 +261,26 @@ internal sealed partial class Amqp0BrokerConnection
         Refuse(bind ? Bus.BindQueue(queue, filter.Name) : Bus.UnbindQueue(queue, filter.Name));
     }
 
-    private void BindOnExchange(Amqp0Exchange exchange, string queue, string key, bool bind)
+    // Only a headers exchange keeps a binding's arguments, and its x-match must be all or any.
+    private static Amqp0Binding BindingOf(Amqp0Exchange exchange, string queue, string key, Amqp0FieldTable table)
+    {
+        if (exchange.Type != Amqp0ExchangeType.Headers)
+        {
+            return new(queue, key, Amqp0FieldTable.Empty);
+        }
+
+        return Amqp0HeadersMatcher.IsValidBinding(table)
+            ? new(queue, key, table)
+            : throw new Amqp0ChannelException(Amqp0ReplyCode.PreconditionFailed, "PRECONDITION_FAILED - invalid x-match");
+    }
+
+    private void BindOnExchange(Amqp0Exchange exchange, Amqp0Binding binding, bool bind)
     {
         if (!bind)
         {
-            exchanges.Unbind(exchange, queue, key);
+            exchanges.Unbind(exchange, binding);
         }
-        else if (!exchanges.Bind(exchange, queue, key))
+        else if (!exchanges.Bind(exchange, binding))
         {
             throw new Amqp0ConnectionException(Amqp0ReplyCode.ResourceError, "RESOURCE_ERROR - broker bound reached");
         }
@@ -291,6 +305,15 @@ internal sealed partial class Amqp0BrokerConnection
         Refuse(deleted.Outcome);
         exchanges.RemoveQueue(queue);
         SendCountUnlessNoWait(channel, Amqp0QueueMethodId.DeleteOk, deleted.RemovedMessageCount, bits[2]);
+    }
+
+    // ADR-0031 decision 6's rule: a failed write is noted and never ends serving.
+    private async Task SaveExchangesAsync()
+    {
+        if (await exchanges.SaveChangesAsync() is { } failure)
+        {
+            context.Log.Note($"The exchange file was not written: {failure}");
+        }
     }
 
     private void SendCountUnlessNoWait(Amqp0Channel channel, ushort methodId, int count, bool noWait)

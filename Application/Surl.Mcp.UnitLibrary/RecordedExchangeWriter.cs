@@ -64,6 +64,8 @@ internal static class RecordedExchangeWriter
     {
         writer.WriteStartObject();
         writer.WriteNumber("exchange_id", record.ExchangeId);
+        writer.WriteString("listen_url", record.ListenUrl.ToString());
+        writer.WriteString("scheme", record.Scheme);
         writer.WriteString("client", record.Client.ToString());
         writer.WriteString("started_at", record.StartedAt.ToUniversalTime().ToString("O", CultureInfo.InvariantCulture));
         writer.WriteStartArray("chunks");

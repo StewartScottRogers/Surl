@@ -21,7 +21,7 @@ public sealed class AzureBlobAnswerTests
         var response = await harness.SendWithBearerAsync("GET", "/photos/a.txt", "Range: bytes=0-4");
 
         StringAssert.StartsWith(response, "HTTP/1.1 206 Partial Content\r\n");
-        StringAssert.Contains(response, "Content-Length: 5\r\nContent-Type: application/octet-stream\r\nContent-Range: bytes 0-4/11\r\nContent-MD5: XrY7u+Ae7tCTyyK7j1rNww==\r\n");
+        StringAssert.Contains(response, "Content-Length: 5\r\nContent-Type: text/plain\r\nContent-Range: bytes 0-4/11\r\nContent-MD5: XrY7u+Ae7tCTyyK7j1rNww==\r\n");
         StringAssert.EndsWith(response, "\r\n\r\nhello");
     }
 

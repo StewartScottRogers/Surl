@@ -69,22 +69,7 @@ public sealed record UpstreamTestCasePassRateFile(
 
     private static List<UpstreamTestCasePassRateRow> ReadTable(List<string> lines, string heading, bool hasVersion)
     {
-        var start = lines.FindIndex(line => line.Trim() == heading);
-        if (start < 0)
-        {
-            throw new FormatException($"The pass-rate file has no '{heading}' heading.");
-        }
-
-        var table = lines.Skip(start + 1)
-            .SkipWhile(line => !line.TrimStart().StartsWith('|'))
-            .TakeWhile(line => line.TrimStart().StartsWith('|'))
-            .Select(Cells)
-            .ToList();
-        if (table.Count < 2)
-        {
-            throw new FormatException($"The pass-rate file's '{heading}' section has no table.");
-        }
-
+        var table = ReadTableCells(lines, heading);
         var header = table[0];
         var platform = Column(header, "Platform", heading);
         var passed = Column(header, "Passed", heading);
@@ -100,6 +85,24 @@ public sealed record UpstreamTestCasePassRateFile(
             cells[platform],
             ReadPassed(cells[passed])))];
     }
+
+    private static List<List<string>> ReadTableCells(List<string> lines, string heading)
+    {
+        var start = lines.FindIndex(line => line.Trim() == heading);
+        if (start < 0)
+        {
+            throw new FormatException($"The pass-rate file has no '{heading}' heading.");
+        }
+
+        var table = lines.Skip(start + 1)
+            .SkipWhile(line => !IsTableLine(line))
+            .TakeWhile(IsTableLine)
+            .Select(Cells)
+            .ToList();
+        return table.Count >= 2 ? table : throw new FormatException($"The pass-rate file's '{heading}' section has no table.");
+    }
+
+    private static bool IsTableLine(string line) => line.TrimStart().StartsWith('|');
 
     private static List<string> Cells(string line) =>
         [.. line.Trim().Trim('|').Split('|').Select(cell => cell.Trim().Trim('`'))];

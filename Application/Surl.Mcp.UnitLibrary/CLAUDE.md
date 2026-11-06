@@ -26,11 +26,49 @@ with one `McpServerRegistry.AddTool` line and holds nothing else of the tools.
     exchange_count, dropped_exchange_count}]}`; never an error.
   - `StopServerTool` (`stop_server`): `{server_id, exit_code, exit_code_name}`; an unknown ID is `isError`
     `no running server has ID <id>`.
-  - `GetExchangesTool` (`get_exchanges`): `server_id`, `after_exchange_id` (only larger IDs) and
-    `max_exchanges` (1 to 100, default 20). Result `{server_id, exchanges: [{exchange_id, client, started_at,
-    chunks: [{direction, encoding, data}], recorded_bytes, shown_bytes, is_cut, is_truncated}],
-    dropped_exchange_count, has_more}`, oldest first; an unknown ID is `isError` as for `stop_server`. There is
-    no listen URL per exchange: `Surl.Api` records none (ADR-0099 decision 7).
+  - `GetExchangesTool` (`get_exchanges`): `server_id`, `after_exchange_id` (only larger IDs),
+    `max_exchanges` (1 to 100, default 20), and the `scheme` and `listen_url` filters (ADR-0124 decision 8),
+    found with `SurlServer.FindExchanges`. Result `{server_id, exchanges: [{exchange_id, listen_url, scheme,
+    client, started_at, chunks: [{direction, encoding, data}], recorded_bytes, shown_bytes, is_cut,
+    is_truncated}], dropped_exchange_count, has_more}`, oldest first; an unknown ID is `isError` as for
+    `stop_server`.
+  - `GetEventsTool` (`get_events`): `server_id`, `after_sequence`, `kinds` (`exchange_started`,
+    `exchange_ended`, `login_judged`, `store_changed`, `fault_applied`, `hook_failed`), `scheme`, `listen_url`,
+    `account` and `max_events` (1 to 500, default 100), found with `SurlServer.FindEvents`. Result `{events,
+    has_more, dropped_event_count}`, oldest first.
+  - `WaitForEventTool` (`wait_for_event`): the same filters and `timeout_ms` (1 to 60000, default 10000),
+    waited for with `SurlServer.WaitForEventAsync` on the host's clock. Result `{event}`, or `{timed_out: true}`,
+    which is no error. `timeout_ms` is range-checked by the tool, not the schema, so a wait out of range is an
+    `isError` result rather than a JSON-RPC error. `kinds` may name several kinds and a `SurlEventQuery` names
+    one, so an event of a kind not asked for moves the query past it and the wait goes on under one deadline.
+  - The store and fault tools (ADR-0124 decision 8, BL-812), each built by `RunningServerTool`: `server_id` is
+    required and an unknown one is `isError` as for `stop_server`; any `InvalidOperationException` from
+    `Surl.Api` (a seed a store refuses, a store on disk refusing reset or snapshot, a snapshot past 256 MiB, a
+    257th fault rule) is `isError` with its message.
+    - `SeedMailTool` (`seed_mail`): `to`, and `message` (UTF-8) or `message_base64` -> `{delivered: true}`.
+    - `PutFileTool` (`put_file`): `path`, and `text` or `base64` -> `{path, byte_count}`.
+    - `PublishMessageTool` (`publish_message`): `topic` (with `retain`) or `queue`, and `payload` or
+      `payload_base64` -> `{published: true}`; `retain` with `queue` is refused.
+    - `AddAccountTool` (`add_account`): `user`, `password` -> `{user}`. A `:` in the name and a name taken are
+      refused with the tool's own text (`user: a user name may not hold ':'`, `user <user> already has an
+      account`), so no exception text and never the password is echoed.
+    - `ResetServerTool` (`reset_server`) -> `{server_id}`; `SnapshotServerTool` (`snapshot_server`) ->
+      `{snapshot_id}`; `RestoreServerTool` (`restore_server`): `snapshot_id` -> `{server_id, snapshot_id}`, and
+      an ID not kept is `server <id> has no snapshot <p>; only its newest 4 snapshots are kept`.
+    - `AddFaultTool` (`add_fault`): `fault`, one `--fault` item, read by `Surl.Cli`'s `CommandLineParser` (a bad
+      item is `isError` with `surl`'s `option --fault: ...` text) and added as a `SurlFault` -> `{fault_id}`.
+    - `RemoveFaultTool` (`remove_fault`): `fault_id` -> `{fault_id}`; one the plan does not hold is
+      `server <id> has no fault rule <f>`.
+    - `list_faults` is not here yet: `Surl.Api` has no listing of a server's fault plan to read `remaining` from
+      (BL-812's Notes name the follow-up tasks).
+  - `SeededContent` reads the content those tools take: exactly one of the text and the base64 property, at most
+    16 MiB decoded; no local path is ever read.
+  - `ServerSnapshots` - each `RunningSurlServer`'s snapshots, IDs `p1`, `p2` ... per server, never reused, the
+    newest 4 kept and the oldest dropped; never returned whole, and forgotten with the server.
+  - For every tool taking filters, a `listen_url` that is not an absolute URL is `isError`; `EventToolFilter`
+    reads them into the `SurlEventQuery` a .NET test would pass.
+- `RecordedEventWriter` - writes an event as `{sequence, at, kind, ...}` with the record's members and enum
+  values in snake_case and a `null` member left out, as the control endpoint does (ADR-0124 decision 7).
 - `RecordedExchangeWriter` - writes `get_exchanges`'s `exchanges`: a chunk is `text` when it is well-formed
   UTF-8 with no control character but tab, CR and LF, else `base64`. At most 65536 bytes of each exchange and
   1 MiB in all are shown; a cut ends its chunk early and drops the chunks after it (`is_cut`), and in a text
@@ -66,5 +104,6 @@ with one `McpServerRegistry.AddTool` line and holds nothing else of the tools.
 
 `Application/Surl.Mcp.UnitTests`, with no network: `McpTestHost` starts servers through `Surl.Api`'s internal
 `SurlServerHostSeams`, using `ApiTestSeams` and `FakeListenerFactory` compiled in from `Surl.Api.UnitTests`
-(`Surl.Api` makes its internals visible to this test project), and a fixed clock. `PathConfinement` is tested
+(`Surl.Api` makes its internals visible to this test project), and a fixed clock, or `Surl.Api.UnitTests`'
+`ManualTimeProvider` where a test moves time on to time a wait out. `PathConfinement` is tested
 through fake link tables; only read-only probes of the test's own output directory touch the disk.

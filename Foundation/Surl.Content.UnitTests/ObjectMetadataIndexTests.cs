@@ -42,6 +42,7 @@ public sealed class ObjectMetadataIndexTests
             ContentDisposition = "attachment",
             CacheControl = "no-cache",
             ContentLanguage = "en",
+            ContentMd5 = "XUFAKrxLKna5cZ2REBfFkg==",
             UserMetadata = new Dictionary<string, string> { ["z"] = "last", ["a"] = "first" },
         };
 
@@ -57,6 +58,7 @@ public sealed class ObjectMetadataIndexTests
         Assert.AreEqual("attachment", properties.ContentDisposition);
         Assert.AreEqual("no-cache", properties.CacheControl);
         Assert.AreEqual("en", properties.ContentLanguage);
+        Assert.AreEqual("XUFAKrxLKna5cZ2REBfFkg==", properties.ContentMd5);
         CollectionAssert.AreEqual(new[] { "a", "z" }, properties.UserMetadata.Select(pair => pair.Key).ToArray());
         Assert.AreEqual("first", properties.UserMetadata[0].Value);
         Assert.AreEqual(HelloETag, properties.ETag);
@@ -95,16 +97,35 @@ public sealed class ObjectMetadataIndexTests
         var second = await fixture.Index.ReadAsync("ftp.txt", CancellationToken.None);
 
         var properties = first.Properties!;
-        Assert.AreEqual("application/octet-stream", properties.ContentType);
+        Assert.AreEqual("text/plain", properties.ContentType);
         Assert.IsNull(properties.ContentEncoding);
         Assert.IsNull(properties.ContentDisposition);
         Assert.IsNull(properties.CacheControl);
         Assert.IsNull(properties.ContentLanguage);
+        Assert.IsNull(properties.ContentMd5);
         Assert.IsEmpty(properties.UserMetadata);
         Assert.AreEqual(HelloETag, properties.ETag);
         Assert.AreEqual(StartGeneration, properties.Generation);
         Assert.AreEqual(1, fixture.Index.Count);
         Assert.AreEqual(properties, second.Properties);
+    }
+
+    [TestMethod]
+    [DataRow("bucket/photos/a.PNG", "image/png")]
+    [DataRow("bucket/site.d/index.html", "text/html")]
+    [DataRow("bucket/a.unknownext", ObjectMetadataIndex.DefaultContentType)]
+    [DataRow("bucket/folder.json/noextension", ObjectMetadataIndex.DefaultContentType)]
+    public async Task ReadAsync_FileWithNoStoredContentType_AnswersTheMediaTypeContentMediaTypesNamesFromTheKey(string key, string contentType)
+    {
+        var fixture = new Fixture(persists: false);
+        await fixture.UploadAsync(key, "hello"u8.ToArray());
+
+        var reading = await fixture.Index.ReadAsync(key, CancellationToken.None);
+        var stored = await fixture.Index.StoreAsync(key, new ObjectMetadata(), CancellationToken.None);
+
+        Assert.AreEqual(contentType, reading.Properties!.ContentType);
+        Assert.AreEqual(contentType, stored.Properties!.ContentType);
+        Assert.AreEqual(ContentMediaTypes.Of(key), contentType);
     }
 
     [TestMethod]
@@ -124,13 +145,13 @@ public sealed class ObjectMetadataIndexTests
     {
         var fixture = new Fixture(persists: false);
         await fixture.UploadAsync("x.txt", "old"u8.ToArray());
-        await fixture.Index.StoreAsync("x.txt", new ObjectMetadata { ContentType = "text/plain" }, CancellationToken.None);
+        await fixture.Index.StoreAsync("x.txt", new ObjectMetadata { ContentType = "application/x-old" }, CancellationToken.None);
         fixture.Time.Now = Start.AddSeconds(1);
         await fixture.UploadAsync("x.txt", "hello"u8.ToArray());
 
         var reading = await fixture.Index.ReadAsync("x.txt", CancellationToken.None);
 
-        Assert.AreEqual(ObjectMetadataIndex.DefaultContentType, reading.Properties!.ContentType);
+        Assert.AreEqual("text/plain", reading.Properties!.ContentType);
         Assert.AreEqual(HelloETag, reading.Properties.ETag);
         Assert.AreEqual(Start.AddSeconds(1), reading.Properties.LastWriteTimeUtc);
     }
@@ -140,7 +161,7 @@ public sealed class ObjectMetadataIndexTests
     {
         var fixture = new Fixture(persists: true);
         await fixture.UploadAsync("a.txt", "hello"u8.ToArray());
-        await fixture.Index.StoreAsync("a.txt", new ObjectMetadata { ContentType = "text/plain" }, CancellationToken.None);
+        await fixture.Index.StoreAsync("a.txt", new ObjectMetadata { ContentType = "application/x-old" }, CancellationToken.None);
 
         var renamed = fixture.Store.RenameEntry(fixture.Store.MapRequestPath("/a.txt"), fixture.Store.MapRequestPath("/b.txt"));
         var oldKey = await fixture.Index.ReadAsync("a.txt", CancellationToken.None);
@@ -148,7 +169,7 @@ public sealed class ObjectMetadataIndexTests
 
         Assert.AreEqual(ContentChangeResult.Done, renamed);
         Assert.IsNull(oldKey.Properties);
-        Assert.AreEqual(ObjectMetadataIndex.DefaultContentType, newKey.Properties!.ContentType);
+        Assert.AreEqual("text/plain", newKey.Properties!.ContentType);
         var reloaded = await fixture.ReloadAsync();
         Assert.AreEqual(1, reloaded.Count);
     }
@@ -182,14 +203,14 @@ public sealed class ObjectMetadataIndexTests
 
         byte[] expected =
         [
-            .. "SURL-OBJECT-INDEX-1\n"u8,
+            .. "SURL-OBJECT-INDEX-2\n"u8,
             .. Convert.FromHexString("00000001" + "0007"),
             .. "b/x.txt"u8,
             .. Convert.FromHexString("0000000000000005" + "08df3a5a63755000" + "0000000000000007" + "0022"),
             .. "\"5d41402abc4b2a76b9719d911017c592\""u8,
             .. Convert.FromHexString("000a"),
             .. "text/plain"u8,
-            .. Convert.FromHexString("0000" + "0000" + "0000" + "0000" + "0001" + "0001" + "6b" + "0001" + "76"),
+            .. Convert.FromHexString("0000" + "0000" + "0000" + "0000" + "0000" + "0001" + "0001" + "6b" + "0001" + "76"),
         ];
         Assert.IsNull(stored.StorageFailure);
         Assert.AreEqual(IndexPath, fixture.Index.IndexPath);
@@ -212,6 +233,51 @@ public sealed class ObjectMetadataIndexTests
     }
 
     [TestMethod]
+    public async Task LoadAsync_IndexWrittenWithAContentMd5_ReadsItBack()
+    {
+        var fixture = new Fixture(persists: true);
+        await fixture.UploadAsync("x.txt", "hello"u8.ToArray());
+        await fixture.Index.StoreAsync("x.txt", new ObjectMetadata { ContentLanguage = "en", ContentMd5 = "AAAAAAAAAAAAAAAAAAAAAA==" }, CancellationToken.None);
+
+        var reloaded = await fixture.ReloadAsync();
+        var reading = await reloaded.ReadAsync("x.txt", CancellationToken.None);
+
+        Assert.AreEqual("en", reading.Properties!.ContentLanguage);
+        Assert.AreEqual("AAAAAAAAAAAAAAAAAAAAAA==", reading.Properties.ContentMd5);
+    }
+
+    [TestMethod]
+    public async Task LoadAsync_IndexWrittenBeforeContentMd5WasKept_ReadsItsFiveHeaderFieldsAndNoContentMd5()
+    {
+        var fixture = new Fixture(persists: true);
+        await fixture.UploadAsync("b/x.txt", "hello"u8.ToArray());
+        byte[] versionOne =
+        [
+            .. "SURL-OBJECT-INDEX-1\n"u8,
+            .. Convert.FromHexString("00000001" + "0007"),
+            .. "b/x.txt"u8,
+            .. Convert.FromHexString("0000000000000005" + "08df3a5a63755000" + "0000000000000007" + "0022"),
+            .. "\"5d41402abc4b2a76b9719d911017c592\""u8,
+            .. Convert.FromHexString("000a"),
+            .. "text/plain"u8,
+            .. Convert.FromHexString("0000" + "0000" + "0000" + "0002"),
+            .. "fr"u8,
+            .. Convert.FromHexString("0001" + "0001" + "6b" + "0001" + "76"),
+        ];
+        await fixture.WriteFileAsync(IndexPath, versionOne);
+
+        await fixture.Index.LoadAsync(CancellationToken.None);
+        var reading = await fixture.Index.ReadAsync("b/x.txt", CancellationToken.None);
+
+        var properties = reading.Properties!;
+        Assert.AreEqual("text/plain", properties.ContentType);
+        Assert.AreEqual("fr", properties.ContentLanguage);
+        Assert.IsNull(properties.ContentMd5);
+        Assert.AreEqual(7, properties.Generation);
+        Assert.AreEqual("v", properties.UserMetadata.Single(pair => pair.Key == "k").Value);
+    }
+
+    [TestMethod]
     public async Task LoadAsync_NoIndexFileOrInMemoryOnly_LoadsNothing()
     {
         var persisting = new Fixture(persists: true);
@@ -227,7 +293,7 @@ public sealed class ObjectMetadataIndexTests
     [TestMethod]
     [DataRow("", DisplayName = "empty")]
     [DataRow("53555246", DisplayName = "truncated header")]
-    [DataRow("5355524c2d4f424a4543542d494e4445582d320a00000000", DisplayName = "wrong header")]
+    [DataRow("5355524c2d4f424a4543542d494e4445582d330a00000000", DisplayName = "wrong header")]
     [DataRow("5355524c2d4f424a4543542d494e4445582d310a0000000000", DisplayName = "trailing byte")]
     [DataRow("5355524c2d4f424a4543542d494e4445582d310a00000003", DisplayName = "more entries than the bound")]
     [DataRow("5355524c2d4f424a4543542d494e4445582d310a00000001", DisplayName = "truncated entry")]
@@ -330,6 +396,117 @@ public sealed class ObjectMetadataIndexTests
 
         Assert.AreEqual(ObjectMetadataStoreOutcome.Stored, stored.Outcome);
         Assert.AreEqual(1, fixture.Index.Count);
+    }
+
+    [TestMethod]
+    public async Task StoreFolderObjectAsync_ThenReadFolderObjectsAsync_ReadsTheFolderObjectWithLengthZeroAndTheEmptyETag()
+    {
+        var fixture = new Fixture(persists: false);
+        fixture.FileSystem.CreateDirectory(Path.Join(Root, "b", "x"));
+        fixture.Time.Now = Start.AddMinutes(1);
+
+        var stored = await fixture.Index.StoreFolderObjectAsync("b/x/", new ObjectMetadata { CacheControl = "no-cache" }, CancellationToken.None);
+        await fixture.UploadAsync("b/x/inside.txt", "hello"u8.ToArray());
+        var folderObjects = await fixture.Index.ReadFolderObjectsAsync(CancellationToken.None);
+
+        Assert.AreEqual(ObjectMetadataStoreOutcome.Stored, stored.Outcome);
+        Assert.HasCount(1, folderObjects);
+        var properties = folderObjects["b/x/"];
+        Assert.AreEqual(stored.Properties, properties);
+        Assert.AreEqual(0, properties.Length);
+        Assert.AreEqual("\"d41d8cd98f00b204e9800998ecf8427e\"", properties.ETag);
+        Assert.AreEqual("no-cache", properties.CacheControl);
+        Assert.AreEqual(Start, properties.LastWriteTimeUtc);
+        Assert.AreEqual(StartGeneration, properties.Generation);
+    }
+
+    [TestMethod]
+    public async Task StoreFolderObjectAsync_NoFolderAtTheKey_IsNoSuchFile()
+    {
+        var fixture = new Fixture(persists: false);
+        await fixture.UploadAsync("b/file", "hello"u8.ToArray());
+
+        var missing = await fixture.Index.StoreFolderObjectAsync("b/missing/", new ObjectMetadata(), CancellationToken.None);
+        var file = await fixture.Index.StoreFolderObjectAsync("b/file/", new ObjectMetadata(), CancellationToken.None);
+
+        Assert.AreEqual(ObjectMetadataStoreOutcome.NoSuchFile, missing.Outcome);
+        Assert.AreEqual(ObjectMetadataStoreOutcome.NoSuchFile, file.Outcome);
+        Assert.AreEqual(0, fixture.Index.Count);
+    }
+
+    [TestMethod]
+    public async Task StoreFolderObjectAsync_KeyNotAFolderObjectKey_Throws()
+    {
+        var fixture = new Fixture(persists: false);
+
+        await Assert.ThrowsExactlyAsync<ArgumentException>(() => fixture.Index.StoreFolderObjectAsync("b/x", new ObjectMetadata(), CancellationToken.None));
+        await Assert.ThrowsExactlyAsync<ArgumentNullException>(() => fixture.Index.StoreFolderObjectAsync(null!, new ObjectMetadata(), CancellationToken.None));
+        await Assert.ThrowsExactlyAsync<ArgumentException>(() => fixture.Index.StoreAsync("b/x/", new ObjectMetadata(), CancellationToken.None));
+    }
+
+    [TestMethod]
+    public async Task ReadFolderObjectsAsync_FolderRemoved_DropsItsFolderObjectAndLeavesFileEntries()
+    {
+        var fixture = new Fixture(persists: false);
+        fixture.FileSystem.CreateDirectory(Path.Join(Root, "b", "x"));
+        await fixture.UploadAsync("b/y.txt", "hello"u8.ToArray());
+        await fixture.Index.StoreFolderObjectAsync("b/x/", new ObjectMetadata(), CancellationToken.None);
+        await fixture.Index.StoreAsync("b/y.txt", new ObjectMetadata(), CancellationToken.None);
+        fixture.FileSystem.RemoveEmptyDirectory(Path.Join(Root, "b", "x"));
+
+        var folderObjects = await fixture.Index.ReadFolderObjectsAsync(CancellationToken.None);
+
+        Assert.IsEmpty(folderObjects);
+        Assert.AreEqual(1, fixture.Index.Count);
+    }
+
+    [TestMethod]
+    public async Task StoreAsync_IndexFullOfAFolderObject_DropsItOnlyOnceItsFolderIsGone()
+    {
+        var fixture = new Fixture(persists: false, maxEntries: 1);
+        fixture.FileSystem.CreateDirectory(Path.Join(Root, "b", "x"));
+        await fixture.UploadAsync("b/y.txt", "hello"u8.ToArray());
+        await fixture.Index.StoreFolderObjectAsync("b/x/", new ObjectMetadata(), CancellationToken.None);
+
+        var whileTheFolderStands = await fixture.Index.StoreAsync("b/y.txt", new ObjectMetadata(), CancellationToken.None);
+        fixture.FileSystem.RemoveEmptyDirectory(Path.Join(Root, "b", "x"));
+        var onceItIsGone = await fixture.Index.StoreAsync("b/y.txt", new ObjectMetadata(), CancellationToken.None);
+
+        Assert.AreEqual(ObjectMetadataStoreOutcome.MetadataIndexFull, whileTheFolderStands.Outcome);
+        Assert.AreEqual(ObjectMetadataStoreOutcome.Stored, onceItIsGone.Outcome);
+    }
+
+    [TestMethod]
+    public async Task LoadAsync_FolderObjectWrittenBefore_ReadsItBack()
+    {
+        var fixture = new Fixture(persists: true);
+        fixture.FileSystem.CreateDirectory(Path.Join(Root, "b", "x"));
+        await fixture.UploadAsync("b/x.txt", "hello"u8.ToArray());
+        await fixture.Index.StoreAsync("b/x.txt", new ObjectMetadata(), CancellationToken.None);
+        await fixture.Index.StoreFolderObjectAsync("b/x/", new ObjectMetadata(), CancellationToken.None);
+
+        var reloaded = await fixture.ReloadAsync();
+
+        Assert.AreEqual(2, reloaded.Count);
+        Assert.IsTrue((await reloaded.ReadFolderObjectsAsync(CancellationToken.None)).ContainsKey("b/x/"));
+    }
+
+    [TestMethod]
+    [DataRow("b/x/", true)]
+    [DataRow("x/", true)]
+    [DataRow("b/x", false)]
+    [DataRow("/", false)]
+    [DataRow("b//", false)]
+    [DataRow(".surl/", false)]
+    public void IsValidFolderObjectKey_Key_IsAFolderKeyAndAFinalSlash(string key, bool isValid)
+    {
+        Assert.AreEqual(isValid, ObjectMetadataIndex.IsValidFolderObjectKey(key));
+    }
+
+    [TestMethod]
+    public void IsValidFolderObjectKey_Null_Throws()
+    {
+        Assert.ThrowsExactly<ArgumentNullException>(() => ObjectMetadataIndex.IsValidFolderObjectKey(null!));
     }
 
     [TestMethod]

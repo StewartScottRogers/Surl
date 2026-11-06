@@ -54,6 +54,14 @@ public sealed class BusQueueConsumer : IDisposable
     /// <see cref="BusConnection.GetFromQueue"/>: never started, never counted.</summary>
     internal bool IsGetHolder { get; init; }
 
+    /// <summary>Which messages it is offered (ADR-0146, decision 2.4); <see langword="null"/> for
+    /// every one. Called under the bus's lock.</summary>
+    internal Func<BusMessage, bool>? Predicate { get; init; }
+
+    /// <summary>Whether a delivery of <paramref name="message"/> may go to it now: it has room and
+    /// its predicate, if any, accepts the message.</summary>
+    internal bool HasRoomFor(BusMessage message) => HasRoom && (Predicate is null || Predicate(message));
+
     /// <summary>Whether it is a consumer still taking deliveries: not stopped, not a get holder.</summary>
     internal bool TakesDeliveries => !IsStopped && !IsGetHolder;
 

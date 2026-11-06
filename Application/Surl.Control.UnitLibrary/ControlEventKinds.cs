@@ -20,6 +20,7 @@ internal static class ControlEventKinds
         NameOf(typeof(StoreChangedEvent)),
         NameOf(typeof(FaultAppliedEvent)),
         NameOf(typeof(HookFailedEvent)),
+        NameOf(typeof(ConsumerGroupChangedEvent)),
     };
 
     /// <summary>The kind of <paramref name="surlEvent"/>.</summary>
@@ -51,17 +52,20 @@ internal static class ControlEventKinds
         LoginJudgedEvent login => login.ExchangeId,
         StoreChangedEvent change => change.ExchangeId,
         FaultAppliedEvent fault => fault.ExchangeId,
+        ConsumerGroupChangedEvent group => group.ExchangeId,
         _ => null,
     };
 
     /// <summary>
-    /// The account an event names: a judged login's account, or the account an account-store change touched.
+    /// The account an event names: a judged login's account, a consumer group change's account, or the account an
+    /// account-store change touched.
     /// </summary>
     /// <param name="surlEvent">An event.</param>
     /// <returns>The account name, or <see langword="null"/>.</returns>
     public static string? AccountOf(SurlEvent surlEvent) => surlEvent switch
     {
         LoginJudgedEvent login => login.Account,
+        ConsumerGroupChangedEvent group => group.Account,
         StoreChangedEvent { Store: StoreKind.Accounts } change => change.Name,
         _ => null,
     };

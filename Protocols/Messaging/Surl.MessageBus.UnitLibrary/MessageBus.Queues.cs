@@ -86,7 +86,7 @@ public sealed partial class MessageBus
             !queues.TryGetValue(queueName, out var queue) ? MessageBusOutcome.UnknownQueue
             : IsExpired(published, now) ? MessageBusOutcome.Succeeded
             : isOutOfSpace ? MessageBusOutcome.QueueFull
-            : onlyWhenConsumed && !queue.HasConsumerWithRoom ? MessageBusOutcome.NoReadyConsumer
+            : onlyWhenConsumed && !queue.HasConsumerWithRoomFor(published) ? MessageBusOutcome.NoReadyConsumer
             : Enqueue(queue, published, now));
     }
 
@@ -98,7 +98,7 @@ public sealed partial class MessageBus
         }
     }
 
-    internal BusQueueDeclareResult DeclareQueue(BusConnection connection, string name, BusQueueFlags flags)
+    internal BusQueueDeclareResult DeclareQueue(BusConnection connection, string name, BusQueueFlags flags, string? subscriptionDescription)
     {
         if (name.Length == 0)
         {
@@ -110,7 +110,7 @@ public sealed partial class MessageBus
             ObjectDisposedException.ThrowIf(connection.IsClosed, connection);
             if (queues.TryGetValue(name, out var existing))
             {
-                return Redeclare(connection, existing, flags);
+                return Redeclare(connection, existing, flags, subscriptionDescription);
             }
 
             if (queues.Count >= MaxQueues)
@@ -118,7 +118,7 @@ public sealed partial class MessageBus
                 return new(MessageBusOutcome.TooManyQueues, 0, 0);
             }
 
-            queues.Add(name, new NamedQueue(name, flags, flags.Exclusive ? connection : null));
+            queues.Add(name, new NamedQueue(name, flags, flags.Exclusive ? connection : null) { SubscriptionDescription = subscriptionDescription });
             queuesVersion++;
             PublishQueueChange(StoreChange.Written, name, byteCount: null);
             return new(MessageBusOutcome.Succeeded, 0, 0);
@@ -165,7 +165,7 @@ public sealed partial class MessageBus
         lock (stateLock)
         {
             var (outcome, queue) = Access(connection, queueName);
-            return queue is null ? new(outcome, 0, 0) : new(outcome, queue.ReadyCount, queue.ActiveConsumerCount);
+            return queue is null ? new(outcome, 0, 0) : new(outcome, queue.ReadyCount, queue.ActiveConsumerCount, queue.SubscriptionDescription);
         }
     }
 
@@ -260,7 +260,7 @@ public sealed partial class MessageBus
             : Reject(holder, deliveryTag, requeue);
     }
 
-    internal BusConsumeResult Consume(BusConnection connection, string queueName, Action<BusQueueDelivery> deliver, int maxUnacknowledged, bool exclusive)
+    internal BusConsumeResult Consume(BusConnection connection, string queueName, Action<BusQueueDelivery> deliver, int maxUnacknowledged, bool exclusive, Func<BusMessage, bool>? accepts)
     {
         if (!accessPolicy.MayUseQueue(connection.Account, TopicAccessRights.Subscribe, queueName))
         {
@@ -285,7 +285,7 @@ public sealed partial class MessageBus
                 return new(MessageBusOutcome.TooManySubscriptions, null);
             }
 
-            var consumer = new BusQueueConsumer(this, connection, queue, maxUnacknowledged, deliver) { IsExclusive = exclusive };
+            var consumer = new BusQueueConsumer(this, connection, queue, maxUnacknowledged, deliver) { IsExclusive = exclusive, Predicate = accepts };
             queue.AddConsumer(consumer);
             connection.SubscriptionCount++;
             return new(MessageBusOutcome.Succeeded, consumer);
@@ -341,23 +341,27 @@ public sealed partial class MessageBus
             : (MessageBusOutcome.Succeeded, queue);
     }
 
-    private static BusQueueDeclareResult Redeclare(BusConnection connection, NamedQueue existing, BusQueueFlags flags) =>
+    private static BusQueueDeclareResult Redeclare(BusConnection connection, NamedQueue existing, BusQueueFlags flags, string? subscriptionDescription) =>
         existing.IsLockedAgainst(connection) ? new(MessageBusOutcome.QueueLocked, 0, 0)
         : existing.Flags != flags ? new(MessageBusOutcome.QueueFlagsDiffer, 0, 0)
+        : subscriptionDescription is not null && !string.Equals(subscriptionDescription, existing.SubscriptionDescription, StringComparison.Ordinal)
+            ? new(MessageBusOutcome.QueueDescriptionDiffers, 0, 0)
         : new(MessageBusOutcome.Succeeded, existing.ReadyCount, existing.ActiveConsumerCount);
 
-    private (int QueuedCount, int FullQueueCount, int UnconsumedQueueCount) CopyIntoBoundQueues(BusMessage published, string[] topicLevels, DateTimeOffset now, bool onlyToConsumedQueues)
+    // A batch passes the bound queues its plan found full, so each is refused as planned and the
+    // queues never hold more than the plan counted on (MessageBus.Batch.cs).
+    private (int QueuedCount, int FullQueueCount, int UnconsumedQueueCount) CopyIntoBoundQueues(BusMessage published, string[] topicLevels, DateTimeOffset now, bool onlyToConsumedQueues, HashSet<NamedQueue>? queuesFullByPlan)
     {
         var queuedCount = 0;
         var fullQueueCount = 0;
         var unconsumedQueueCount = 0;
         foreach (var queue in queues.Values.Where(queue => queue.IsBoundTo(topicLevels)))
         {
-            if (onlyToConsumedQueues && !queue.HasConsumerWithRoom)
+            if (onlyToConsumedQueues && !queue.HasConsumerWithRoomFor(published))
             {
                 unconsumedQueueCount++;
             }
-            else if (Enqueue(queue, published, now) is MessageBusOutcome.Succeeded)
+            else if (queuesFullByPlan?.Contains(queue) != true && Enqueue(queue, published, now) is MessageBusOutcome.Succeeded)
             {
                 queuedCount++;
             }

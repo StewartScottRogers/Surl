@@ -48,6 +48,9 @@ internal sealed class Amqp1Link(uint containerHandle)
     /// <summary>When the container receives: the delivery whose transfers are still arriving.</summary>
     public Amqp1IncomingDelivery? Partial { get; set; }
 
+    /// <summary>When the container sends: the source filters it applies (ADR-0146 decision 2).</summary>
+    public Amqp1SourceFilters Filters { get; set; } = Amqp1SourceFilters.None;
+
     /// <summary>When the container sends from a topic: the live subscription.</summary>
     public BusSubscription? Subscription { get; set; }
 

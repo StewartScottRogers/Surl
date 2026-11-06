@@ -53,6 +53,12 @@ internal sealed class UnitTestS3AuthenticationPolicy(UnitTestUnsignedRequests un
 
     public List<TlsSession?> StartedConnections { get; } = [];
 
+    /// <summary>
+    /// The chain a signed request with <c>STREAMING-AWS4-HMAC-SHA256-PAYLOAD</c> proceeds with,
+    /// as <c>Surl.Authentication</c> gives one once the seed signature verifies.
+    /// </summary>
+    public IHttpChunkSignatureChain? ChunkSignatures { get; init; }
+
     public ValueTask<PasswordLoginVerdict> CheckPasswordLoginAsync(PasswordLogin login, CancellationToken cancellationToken) =>
         throw new NotSupportedException();
 
@@ -93,7 +99,8 @@ internal sealed class UnitTestS3AuthenticationPolicy(UnitTestUnsignedRequests un
             [],
             AccountName,
             bodyCheck is null ? new CheckedLogin("AWS4-HMAC-SHA256", AccountName, true) : null,
-            bodyCheck);
+            bodyCheck,
+            ChunkSignatures: contentSha256 == "STREAMING-AWS4-HMAC-SHA256-PAYLOAD" ? ChunkSignatures : null);
     }
 
     private sealed class Session(UnitTestS3AuthenticationPolicy policy) : IHttpAuthenticationSession

@@ -35,7 +35,7 @@ public sealed class AzurePathUpdateTests
             $"HTTP/1.1 200 OK\r\n{AzureServerHarness.CommonFields(flushed)}ETag: {HelloWorldETag}\r\nLast-Modified: {AzureServerHarness.NowHttpDate}\r\nContent-Length: 0\r\nConnection: close\r\n\r\n",
             flushed);
         Assert.AreEqual(
-            $"HTTP/1.1 200 OK\r\n{AzureServerHarness.CommonFields(read)}Content-Length: 11\r\nContent-Type: application/octet-stream\r\nContent-MD5: XrY7u+Ae7tCTyyK7j1rNww==\r\n"
+            $"HTTP/1.1 200 OK\r\n{AzureServerHarness.CommonFields(read)}Content-Length: 11\r\nContent-Type: text/plain\r\nContent-MD5: XrY7u+Ae7tCTyyK7j1rNww==\r\n"
                 + $"ETag: {HelloWorldETag}\r\nLast-Modified: {AzureServerHarness.NowHttpDate}\r\nAccept-Ranges: bytes\r\nx-ms-resource-type: file\r\nConnection: close\r\n\r\nhello world",
             read);
     }

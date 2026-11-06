@@ -21,8 +21,8 @@ namespace Surl.Protocol.Http;
 /// </para>
 /// <para>
 /// A file is answered <c>200 OK</c> with <c>Date</c>, <c>Server</c>, <c>Last-Modified</c>,
-/// <c>Content-Type: application/octet-stream</c> (until the content store knows media
-/// types, RFC 9110 section 8.3) and <c>Content-Length</c>, then the file's bytes for
+/// <c>Content-Type</c> (the media type <see cref="ContentMediaTypes.Of"/> names from the
+/// file's extension, else <c>application/octet-stream</c>, ADR-0142) and <c>Content-Length</c>, then the file's bytes for
 /// <c>GET</c> and none for <c>HEAD</c>. The status line always names HTTP/1.1.
 /// </para>
 /// <para>

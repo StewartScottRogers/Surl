@@ -26,9 +26,17 @@ internal static class AwsSigV4CanonicalRequest
     /// <c>s3</c>); <see langword="false"/> to sign it as received (<c>s3</c>, and Cloud Storage's
     /// path encoded once, ADR-0110 decision 3.3).
     /// </param>
+    /// <param name="excludedQueryParameter">
+    /// A query parameter left out of the canonical query, named as it reads once re-encoded:
+    /// a presigned URL's <c>X-Amz-Signature</c>; <see langword="null"/> to keep every parameter.
+    /// </param>
     /// <returns>The canonical request, or <see langword="null"/>.</returns>
     public static string? Build(
-        HttpAuthenticationRequest request, AwsSigV4Authorization authorization, string payloadHash, bool reencodesPath)
+        HttpAuthenticationRequest request,
+        AwsSigV4Authorization authorization,
+        string payloadHash,
+        bool reencodesPath,
+        string? excludedQueryParameter = null)
     {
         var headers = BuildHeaders(request.Fields, authorization.SignedHeaders);
         var pathAndQuery = ReadPathAndQuery(request.Target);
@@ -44,7 +52,7 @@ internal static class AwsSigV4CanonicalRequest
             '\n',
             request.Method,
             canonicalPath,
-            CanonicaliseQuery(query),
+            CanonicaliseQuery(query, excludedQueryParameter),
             headers,
             string.Join(';', authorization.SignedHeaders),
             payloadHash);
@@ -105,12 +113,13 @@ internal static class AwsSigV4CanonicalRequest
 
     // Each parameter split at its first = (none reads as an empty value), its name and value
     // re-encoded, then sorted by name and then by value, as measured (Fixtures/README.md).
-    private static string CanonicaliseQuery(string query)
+    private static string CanonicaliseQuery(string query, string? excludedQueryParameter)
     {
         var parameters = query
             .Split('&', StringSplitOptions.RemoveEmptyEntries)
             .Select(parameter => parameter.Split('=', 2))
             .Select(pair => (Name: EncodeQueryPart(pair[0]), Value: pair.Length == 2 ? EncodeQueryPart(pair[1]) : string.Empty))
+            .Where(pair => pair.Name != excludedQueryParameter)
             .OrderBy(pair => pair.Name, StringComparer.Ordinal)
             .ThenBy(pair => pair.Value, StringComparer.Ordinal)
             .Select(pair => $"{pair.Name}={pair.Value}");

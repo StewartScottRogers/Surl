@@ -405,6 +405,45 @@ public sealed class AzureStorageVerifierTests
         Assert.IsNull(verdict.CheckedLogin);
     }
 
+    [TestMethod]
+    public async Task Bearer_WrongTokenUnderAllowAnonymous_IsForbiddenAsUnknownAccount()
+    {
+        var verdict = await JudgeAsync(Request("GET", "/c/a.txt", Scope("/c/a.txt"), "Authorization: Bearer wrong"), CreatePolicy(allowAnonymous: true));
+
+        AssertForbidden(verdict, HttpAuthenticationRefusal.UnknownAccount);
+    }
+
+    [TestMethod]
+    public async Task Bearer_GoodTokenUnderAllowAnonymous_IsAcceptedAsTheEmptyName()
+    {
+        var verdict = await JudgeAsync(Request("GET", "/c/a.txt", Scope("/c/a.txt"), "Authorization: Bearer tok"), CreatePolicy(allowAnonymous: true));
+
+        AssertAccepted(verdict, "Login accepted: Bearer bearer token", string.Empty);
+    }
+
+    // ---- The path-style account segment (ADR-0109 decision 2) ------------------------------
+
+    [TestMethod]
+    [DataRow(AccountName, true, DisplayName = "a named account")]
+    [DataRow("plainaccount", true, DisplayName = "a named account whose password is not base64")]
+    [DataRow("MyAccount", false, DisplayName = "a named account in another case")]
+    [DataRow("nosuchaccount", false, DisplayName = "no account")]
+    [DataRow("", false, DisplayName = "the empty name, the bearer token's account")]
+    public void NamesAccount_Name_IsTrueOnlyForANamedAccount(string name, bool expected)
+    {
+        var policy = CreatePolicy();
+
+        Assert.AreEqual(expected, policy.NamesAccount(name));
+    }
+
+    [TestMethod]
+    public void NamesAccount_Null_Throws()
+    {
+        var policy = CreatePolicy();
+
+        Assert.ThrowsExactly<ArgumentNullException>(() => policy.NamesAccount(null!));
+    }
+
     // ---- Service shared access signatures ---------------------------------------------------
 
     private static string ServiceStringToSign(string permissions, string start, string expiry, string resource, string ip, string protocol, string signedResource, string snapshot = "") =>

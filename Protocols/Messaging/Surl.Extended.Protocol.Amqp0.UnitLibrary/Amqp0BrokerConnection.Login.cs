@@ -17,6 +17,7 @@ internal sealed partial class Amqp0BrokerConnection
             new("basic.nack", Amqp0FieldValue.Boolean(true)),
             new("consumer_cancel_notify", Amqp0FieldValue.Boolean(true)),
             new("authentication_failure_close", Amqp0FieldValue.Boolean(true)),
+            new("publisher_confirms", Amqp0FieldValue.Boolean(true)),
         ]))),
     ]);
 

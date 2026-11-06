@@ -58,15 +58,24 @@ internal sealed record S3Error(string Code, HttpStatus Status, string Message)
     public static S3Error InvalidDigest { get; } = new("InvalidDigest", HttpStatus.BadRequest, "The Content-MD5 you specified is not valid.");
 
     /// <summary>
-    /// <c>400 EntityTooLarge</c>: a body past <c>--max-filesize</c> (ADR-0108, decision 7).
+    /// <c>400 EntityTooLarge</c>: a body past <c>--max-filesize</c>; the answer closes the
+    /// connection without draining the body (ADR-0108, decision 7).
     /// </summary>
-    public static S3Error EntityTooLarge { get; } = new("EntityTooLarge", HttpStatus.BadRequest, "Your proposed upload exceeds the maximum allowed object size.");
+    public static S3Error EntityTooLarge { get; } = new("EntityTooLarge", HttpStatus.BadRequest, "Your proposed upload exceeds the maximum allowed object size.") { ClosesWithoutDrain = true };
 
     /// <summary>
     /// <c>400 IncompleteBody</c>: a body that ended before the length it announced, or malformed
-    /// chunked coding.
+    /// chunked coding; the answer closes the connection without draining the body (ADR-0108,
+    /// decision 7).
     /// </summary>
-    public static S3Error IncompleteBody { get; } = new("IncompleteBody", HttpStatus.BadRequest, "You did not provide the number of bytes specified by the Content-Length HTTP header.");
+    public static S3Error IncompleteBody { get; } = new("IncompleteBody", HttpStatus.BadRequest, "You did not provide the number of bytes specified by the Content-Length HTTP header.") { ClosesWithoutDrain = true };
+
+    /// <summary>
+    /// Whether an answer with this error is a refusal that closes the connection with
+    /// <c>Connection: close</c> and leaves what the client still sends of the request body
+    /// unread (<see cref="Surl.HttpServing.HttpAnswer.DrainsBeforeClose"/>; ADR-0108, decision 7).
+    /// </summary>
+    public bool ClosesWithoutDrain { get; init; }
 
     /// <summary>
     /// <c>400 InvalidArgument</c>: a key the store cannot hold on a write, or a bad query value.
@@ -107,7 +116,8 @@ internal sealed record S3Error(string Code, HttpStatus Status, string Message)
 
     /// <summary>
     /// <c>503 SlowDown</c>: a connection past <c>--max-connections</c> or
-    /// <c>--max-connections-per-address</c> (ADR-0108, decision 7).
+    /// <c>--max-connections-per-address</c>, or a CreateMultipartUpload past the open uploads
+    /// (ADR-0108, decision 7).
     /// </summary>
     public static S3Error SlowDown { get; } = new("SlowDown", HttpStatus.ServiceUnavailable, "Please reduce your request rate.");
 
@@ -153,8 +163,76 @@ internal sealed record S3Error(string Code, HttpStatus Status, string Message)
     public static S3Error RequestTimeTooSkewed { get; } = new("RequestTimeTooSkewed", new HttpStatus(403, "Forbidden"), "The difference between the request time and the server's time is too large.");
 
     /// <summary>
+    /// <c>404 NoSuchUpload</c>: an <c>uploadId</c> that names no open multipart upload of the
+    /// bucket and key (ADR-0108, decision 1.1).
+    /// </summary>
+    public static S3Error NoSuchUpload { get; } = new("NoSuchUpload", HttpStatus.NotFound, "The specified upload does not exist. The upload ID may be invalid, or the upload may have been aborted or completed.");
+
+    /// <summary>
+    /// <c>400 InvalidPart</c>: a CompleteMultipartUpload part that was not uploaded, or whose
+    /// <c>ETag</c> is not the part's.
+    /// </summary>
+    public static S3Error InvalidPart { get; } = new("InvalidPart", HttpStatus.BadRequest, "One or more of the specified parts could not be found. The part might not have been uploaded, or the specified entity tag might not have matched the part's entity tag.");
+
+    /// <summary>
+    /// <c>400 InvalidPartOrder</c>: CompleteMultipartUpload parts not in ascending part-number order.
+    /// </summary>
+    public static S3Error InvalidPartOrder { get; } = new("InvalidPartOrder", HttpStatus.BadRequest, "The list of parts was not in ascending order. The parts list must be specified in order by part number.");
+
+    /// <summary>
+    /// <c>400 EntityTooSmall</c>: a completed part other than the last below 5 MiB.
+    /// </summary>
+    public static S3Error EntityTooSmall { get; } = new("EntityTooSmall", HttpStatus.BadRequest, "Your proposed upload is smaller than the minimum allowed object size.");
+
+    /// <summary>
+    /// <c>400 MalformedXML</c>: a CompleteMultipartUpload body that does not parse, names no part,
+    /// or passes 10000 parts or 1 MiB (ADR-0108, decision 7).
+    /// </summary>
+    public static S3Error MalformedXml { get; } = new("MalformedXML", HttpStatus.BadRequest, "The XML you provided was not well-formed or did not validate against our published schema.");
+
+    /// <summary>
     /// <c>400 XAmzContentSHA256Mismatch</c>: a body whose SHA-256 is not
     /// <c>x-amz-content-sha256</c> (ADR-0108, decision 4.3).
     /// </summary>
     public static S3Error ContentSha256Mismatch { get; } = new("XAmzContentSHA256Mismatch", HttpStatus.BadRequest, "The provided 'x-amz-content-sha256' header does not match what was computed.");
+
+    /// <summary>
+    /// <c>403 AccessDenied</c>: a presigned URL past <c>X-Amz-Date</c> plus <c>X-Amz-Expires</c>
+    /// (ADR-0108, decisions 4.3 and 4.5).
+    /// </summary>
+    public static S3Error RequestExpired { get; } = new("AccessDenied", new HttpStatus(403, "Forbidden"), "Request has expired");
+
+    /// <summary>
+    /// <c>400 InvalidArgument</c>: a presigned URL whose <c>X-Amz-Expires</c> is not 1 to 604800
+    /// seconds (ADR-0108, decision 4.5).
+    /// </summary>
+    public static S3Error ExpiresOutOfRange { get; } = new("InvalidArgument", HttpStatus.BadRequest, "X-Amz-Expires must be a number of seconds from 1 to 604800");
+
+    /// <summary>
+    /// <c>400 InvalidArgument</c>: a presigned URL with an <c>Authorization</c> field too
+    /// (ADR-0108, decision 4.5).
+    /// </summary>
+    public static S3Error ConflictingAuthentication { get; } = new("InvalidArgument", HttpStatus.BadRequest, "Only one auth mechanism allowed; only the X-Amz-Algorithm query parameter, Signature query string parameter or the Authorization header should be specified");
+
+    /// <summary>
+    /// <c>400 InvalidRequest</c>: an <c>x-amz-checksum-*</c> value that is not the base64 of
+    /// its algorithm's digest, or an <c>x-amz-trailer</c> naming no checksum the request can
+    /// carry, or a trailer that does not carry it (ADR-0108, decision 4.5).
+    /// </summary>
+    public static S3Error InvalidChecksum { get; } = new("InvalidRequest", HttpStatus.BadRequest, "Value for x-amz-checksum header is invalid.");
+
+    /// <summary>
+    /// <c>400 InvalidRequest</c>: more than one <c>x-amz-checksum-*</c> algorithm named
+    /// (ADR-0108, decision 4.5).
+    /// </summary>
+    public static S3Error MultipleChecksums { get; } = new("InvalidRequest", HttpStatus.BadRequest, "Expecting a single x-amz-checksum- header. Multiple checksum Types are not allowed.");
+
+    /// <summary>
+    /// <c>400 BadDigest</c>: a body whose checksum is not the <c>x-amz-checksum-*</c> sent
+    /// ("Checking object integrity"; ADR-0108, decision 4.5).
+    /// </summary>
+    /// <param name="algorithmName">The algorithm's name as the message spells it, such as <c>CRC32</c>.</param>
+    /// <returns>The error.</returns>
+    public static S3Error ChecksumMismatch(string algorithmName) =>
+        new("BadDigest", HttpStatus.BadRequest, $"The {algorithmName} you specified did not match the calculated checksum.");
 }

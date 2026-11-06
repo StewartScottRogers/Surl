@@ -70,7 +70,7 @@ internal sealed class Http1AnswerWriter
         if (!keepsConnectionOpen)
         {
             await connection.CompleteWritesAsync(context.CancellationToken);
-            await unreadRequestDrainer.DrainAsync();
+            await DrainBeforeCloseAsync(answer);
         }
 
         return keepsConnectionOpen;
@@ -81,7 +81,8 @@ internal sealed class Http1AnswerWriter
     /// <see cref="HttpAnswerBody.Bytes"/>, within <see cref="RefusalWriteDeadline"/>,
     /// and half-closes the connection; past the deadline the server gives up on it and leaves
     /// the close to the engine's dispose, never an abort (ADR-0006, section 5). Once the
-    /// refusal is written, what the client still sends is drained (ADR-0024).
+    /// refusal is written, what the client still sends is drained (ADR-0024), unless the
+    /// answer says <see cref="HttpAnswer.DrainsBeforeClose"/> is <see langword="false"/>.
     /// </summary>
     /// <param name="answer">The refusal.</param>
     /// <returns><see langword="false"/>: the connection never stays open after a refusal.</returns>
@@ -89,10 +90,19 @@ internal sealed class Http1AnswerWriter
     {
         if (await TryWriteRefusalAsync(answer))
         {
-            await unreadRequestDrainer.DrainAsync();
+            await DrainBeforeCloseAsync(answer);
         }
 
         return false;
+    }
+
+    // The lingering close (ADR-0024), unless the answer leaves what follows unread (ADR-0108, decision 7).
+    private async Task DrainBeforeCloseAsync(HttpAnswer answer)
+    {
+        if (answer.DrainsBeforeClose)
+        {
+            await unreadRequestDrainer.DrainAsync();
+        }
     }
 
     // An upgrade (ADR-0084, decision 1): the head as the answer gives it, its own Connection

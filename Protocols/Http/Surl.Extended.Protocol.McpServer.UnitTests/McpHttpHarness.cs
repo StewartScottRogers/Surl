@@ -51,6 +51,13 @@ internal sealed class McpHttpHarness
 
     public ExchangeLimits Limits { get; set; } = ExchangeLimits.Default;
 
+    /// <summary>The fault plan every exchange asks; none unless a test sets one.</summary>
+    public IFaultPlan Faults { get; set; } = new ScriptedFaultPlan();
+
+    public RecordingSurlEventPublisher Events { get; } = new();
+
+    public RecordingExchangeLog Log { get; } = new();
+
     /// <summary>The session ID the n-th session is given: the n-th call's 32 bytes, base64url without padding.</summary>
     public static string SessionIdNumber(int n) => Base64Url.EncodeToString(CountingRandomNumberGenerator.BytesOfCall(n, 32));
 
@@ -86,11 +93,13 @@ internal sealed class McpHttpHarness
             new ListenUrl("mcp", "127.0.0.1", 8080).WithBoundPort(8080),
             new IPEndPoint(IPAddress.Loopback, 8080),
             new IPEndPoint(IPAddress.Loopback, 50000),
-            new RecordingExchangeLog(),
+            Log,
             TimeProvider,
             CancellationToken.None)
         {
             Limits = Limits,
+            Faults = Faults,
+            Events = Events,
         };
 
     public static string StatusLineOf(string response) => response[..response.IndexOf("\r\n", StringComparison.Ordinal)];

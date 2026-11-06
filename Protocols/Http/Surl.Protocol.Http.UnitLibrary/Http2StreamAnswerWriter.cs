@@ -42,7 +42,7 @@ internal sealed class Http2StreamAnswerWriter(IHttpRequestHandler answerer, Exch
     public async Task ServeStreamAsync(Http2RequestStream stream, CancellationToken cancellationToken)
     {
         var head = stream.Head;
-        if (head.Fields.Any(field => field.Key == "authorization" && IsLoginBoundToTheConnection(field.Value)))
+        if (ConnectionBoundLogins.AreCarriedBy(head.Fields))
         {
             await stream.ResetAsync(Http2ErrorCode.Http11Required, "its authorization names NTLM or Negotiate, which HTTP/2 does not carry");
 
@@ -58,7 +58,7 @@ internal sealed class Http2StreamAnswerWriter(IHttpRequestHandler answerer, Exch
             return;
         }
 
-        if (OffersOnlyLoginsBoundToTheConnection(answer))
+        if (ConnectionBoundLogins.AreTheOnlyLoginsOfferedBy(answer))
         {
             await stream.ResetAsync(Http2ErrorCode.Http11Required, "the only logins it could be challenged for are NTLM or Negotiate, which HTTP/2 does not carry");
 
@@ -66,27 +66,6 @@ internal sealed class Http2StreamAnswerWriter(IHttpRequestHandler answerer, Exch
         }
 
         await WriteAsync(stream, answer, cancellationToken);
-    }
-
-    // A 401 whose every WWW-Authenticate challenge is NTLM or Negotiate (ADR-0081, decision 7).
-    private static bool OffersOnlyLoginsBoundToTheConnection(HttpAnswer answer)
-    {
-        var challenges = answer.Fields
-            .Where(field => string.Equals(field.Key, "WWW-Authenticate", StringComparison.OrdinalIgnoreCase))
-            .Select(field => field.Value)
-            .ToList();
-
-        return answer.Status == HttpStatus.Unauthorized && challenges.Count > 0 && challenges.All(IsLoginBoundToTheConnection);
-    }
-
-    // Whether a credentials or challenge value's auth-scheme (RFC 9110, section 11.1) is NTLM
-    // (ADR-0041) or Negotiate (ADR-0044): logins bound to the connection, which RFC 9113
-    // section 8.2.3 keeps off HTTP/2.
-    private static bool IsLoginBoundToTheConnection(string value)
-    {
-        var scheme = value.TrimStart().Split(' ', 2)[0];
-
-        return scheme.Equals("NTLM", StringComparison.OrdinalIgnoreCase) || scheme.Equals("Negotiate", StringComparison.OrdinalIgnoreCase);
     }
 
     private async Task WriteAsync(Http2RequestStream stream, HttpAnswer answer, CancellationToken cancellationToken)

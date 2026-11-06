@@ -7,7 +7,7 @@
   the error body and the limits (decisions 1, 2, 3.1, 3.2, 3.4, 6 and 7). BL-430 adds the
   `GOOG4-HMAC-SHA256` check to `Surl.Authentication` (decision 3.3). BL-432 wires that check into the
   server (decision 3.3's refusals). BL-433 serves `gs` from `surl` with its TLS, its option and its
-  `--aihelp` topic (decisions 5 and 8).
+  `--aihelp` topic (decisions 5 and 8). BL-718 serves multipart and resumable uploads (amendment 2).
 - **Builds on:** [ADR-0083](ADR-0083-how-surl-serves-the-curl-ports-extended-protocols-and-how-they-are-tested.md)
   (the oracle is the specification; the Curl port is never proof),
   [ADR-0084](ADR-0084-the-libraries-the-extended-servers-share-for-http-1-1-websocket-and-dtls.md)
@@ -460,3 +460,117 @@ Decided by Claude under Stewart's delegation. What BL-430 built fills in decisio
   ADR-0109 decision 3.2 added for Azure Shared Key (BL-717); no new contract was needed.
 - **Head checks in order:** parse, scope and `host` (malformed); missing date; missing content hash;
   date unreadable, then skewed; then the signature (an unknown access ID against a random secret).
+
+## Amendment 2 (BL-718, 2026-11-06): XML API multipart and resumable uploads
+
+Decided by Claude under Stewart's delegation. This amends decisions 1 and 7: the two upload forms
+decision 1 answered `400 NotImplemented` are now served, by the pages read on 2026-11-06 ("XML API
+multipart uploads" with its "POST Object multipart", "PUT Object multipart", "GET Object multipart",
+"POST Object complete multipart" and "DELETE Object multipart" pages, and "Perform resumable
+uploads", XML API tab). ADR-0108 decisions 1 and 7 (S3's multipart uploads, BL-713) are the model.
+
+### 9. Multipart and resumable uploads
+
+| Operation | Request | Success |
+| --- | --- | --- |
+| Initiate multipart | `POST /<bucket>/<object>?uploads` | `200`, `InitiateMultipartUploadResult` (`Bucket`, `Key`, `UploadId`) |
+| Upload part | `PUT /<bucket>/<object>?partNumber=<n>&uploadId=<id>` | `200`, `ETag` (the part's quoted hex MD5), `x-goog-hash`, no body |
+| List parts | `GET /<bucket>/<object>?uploadId=<id>`, optional `max-parts`, `part-number-marker` | `200`, `ListPartsResult` |
+| Complete multipart | `POST /<bucket>/<object>?uploadId=<id>` with `CompleteMultipartUpload` | `200`, `CompleteMultipartUploadResult` (`Location`, `Bucket`, `Key`, `ETag`) |
+| Abort multipart | `DELETE /<bucket>/<object>?uploadId=<id>` | `204` |
+| Start resumable | `POST /<bucket>/<object>`, no query, `x-goog-resumable: start` (any case) | `201`, `Location: <session URI>`, no body |
+| Resume (a chunk or a status check) | `PUT /<bucket>/<object>?upload_id=<id>` with `Content-Range` | `308 Resume Incomplete` with `Range`, or `200` with PUT Object's fields once every byte is in |
+| Cancel resumable | `DELETE /<bucket>/<object>?upload_id=<id>` | `204` |
+
+An operation is recognised by its method and the exact set of its query parameter names; any other
+set stays `400 NotImplemented`.
+
+- **Result bodies** carry the single-quoted declaration every other XML body of this server carries,
+  the namespace `http://s3.amazonaws.com/doc/2006-03-01/` that each multipart page's example writes, and
+  `Content-Type: application/xml; charset=UTF-8`. `ListPartsResult` writes `Bucket`, `Key`, `UploadId`,
+  `StorageClass` (`STANDARD`), `PartNumberMarker`, `NextPartNumberMarker` (only when truncated),
+  `MaxParts`, `IsTruncated`, then each `Part` (`PartNumber`, `LastModified`, `ETag`, `Size`) in number
+  order. `max-parts` defaults to and is capped at 1000 (the page: "the smaller of this value or
+  1000"); a value of it or of `part-number-marker` that is not a decimal number is `400 InvalidArgument`.
+- **Staging** is one upload session per upload, opened at the object name when the upload is opened:
+  the content store's dot-file beside the object (ADR-0054), so the bytes are invisible to a read and
+  to every listing until the upload completes. The object's folders are created at opening, as PUT
+  Object creates them. A multipart upload appends each part to its session and records where it sits;
+  a resumable upload's session holds the object's bytes in order. ADR-0100's `.surl/objects/uploads/`
+  folder is not used: the upload session already gives a hidden, discardable staging file per upload,
+  as BL-713 found for S3.
+- **The opening request's fields are the object's metadata**: `Content-Type`, the stored header fields
+  and `x-goog-meta-*` (8 KiB, `400 MetadataTooLarge`) of the initiation or the resumable start, kept in
+  the object metadata index when the object is written. A name the store cannot hold or ending in `/`
+  is `400 InvalidObjectName`, and one in conflict with an entry of the other kind `409
+  InvalidObjectName`, at opening.
+- **Upload IDs** are 32 random lower-case hexadecimal digits, for either form. An ID names an upload of
+  one form, bucket and object only: used with the other form, or another bucket or object, it is **`404
+  NoSuchUpload`**, as is an ID never issued, completed, aborted, cancelled or expired. The resumable
+  page says a request to a cancelled session is answered `204` again; Surl answers `NoSuchUpload`
+  instead, because remembering every cancelled ID is unbounded state and a client that cancelled has no
+  further use for the session.
+- **The session URI** is the object's URI as the request reached it - `https` over TLS, else `http`;
+  the request's `Host`, or the listen host when there is none; the path - with `?upload_id=<id>`, the
+  query name Cloud Storage's own session URIs use. The completion's `Location` is the same URI without
+  a query.
+- **Parts.** `partNumber` is 1 to 10000 ("PUT Object multipart"), else `400 InvalidArgument`. PUT
+  Object's head checks apply to a part (`411 MissingContentLength`, `400 InvalidDigest`, `400
+  InvalidHash`, an announced length past `--max-filesize` `400 EntityTooLarge`), and its body checks to
+  the part's bytes (`400 IncompleteBody`, a signed `x-goog-content-sha256`, then `Content-MD5` and
+  `x-goog-hash`, `400 BadDigest`). A refused part is cut back out of the staging session and not
+  recorded. A part sent again with a number replaces the earlier one.
+- **Completion** reads the body (at most 1 MiB; one past it, one that does not parse or one naming no
+  part is `400 InvalidArgument`, the code the page gives a malformed completion), then checks the parts
+  in this order: ascending numbers (`400 InvalidPartOrder`); each uploaded with the ETag named (`400
+  InvalidPart`; the quotes are optional and the case of the digits free); every part but the last at
+  least 5 MiB (**`400 EntityTooSmall`**, the code "HTTP status and error codes" gives an upload below
+  the minimum - the completion page names `InvalidArgument` for the same case, and the more specific
+  code is taken so a client can tell the two apart). A refused completion leaves the upload open. The
+  object is written through a fresh session committed over the name, so an object already there stays
+  readable until then. Its ETag is `"<hex MD5 of the parts' MD5s>-<part count>"`, the form of the
+  page's example (`"…-9"`); its `x-goog-hash` on a later read is the whole object's CRC-32C and MD5, as
+  for any object (decision 1.1). The completion answer carries no `x-goog-hash`.
+- **Resumable chunks.** `Content-Range: bytes <first>-<last>/<total>` names a chunk, with `*` for a
+  total not yet known; `bytes */<total>` or `bytes */*` with no body is a status check; without
+  `Content-Range` the body is the whole object. A range that does not parse, a chunk whose length is
+  not the announced `Content-Length`, a byte past the total, or a total below the bytes already in is
+  **`400 InvalidArgument`**. A chunk that starts at the next byte expected is appended; one that starts
+  anywhere else is not read, and the answer says where to resume, so a client that retries a chunk
+  whose answer it lost is told the truth. Any chunk size is taken and every byte kept: the page asks
+  clients for multiples of 256 KiB but has the server report what it kept in `Range`, and a client
+  following `Range` cannot tell. Until every byte is in, the answer is **`308 Resume Incomplete`** with
+  `Range: bytes=0-<last byte kept>`, or no `Range` when none is; once the bytes kept equal the total, the
+  staging session is committed over the name and the answer is PUT Object's `200` (`ETag` the whole
+  object's MD5, `x-goog-generation`, `x-goog-metageneration`, `x-goog-hash`). `Content-MD5` and
+  `x-goog-hash` on a chunk are not checked. A refused chunk is cut back out of the session.
+- **Writes need `--allow-uploads`** (`403 AccessDenied`) for every upload request but listing the
+  parts, which needs an upload only an allowed write can have opened. A commit the store refuses (a
+  folder made at the name meanwhile, a share gone read-only) is `403 AccessDenied`, and a full index
+  `403 InsufficientQuota`, as for PUT Object.
+- **A signature that binds the body** (decision 3.3) is finished by the operation that reads it: a part
+  and a chunk hash their bytes on the way into the session, and a completion hashes its body. Every
+  other upload request reads and discards its body first, as before.
+
+### 7, amended: the upload limits
+
+| Limit | How the server applies it | Answer when hit |
+| --- | --- | --- |
+| `--max-filesize` | a part's or chunk's announced length; the bytes one upload stages together; a resumable upload's declared total | `400 EntityTooLarge`; past the staging bound or the declared total the upload is discarded |
+| open uploads | 1000 per server, multipart and resumable together | the 1001st opening is `503 SlowDown` |
+| idle uploads | one untouched for 24 hours on `TimeProvider` is discarded with its bytes, the next time any upload request is served | then `404 NoSuchUpload` |
+| a completion body | 1 MiB and 10000 parts | `400 InvalidArgument` |
+| a part listing | 1000 parts | served as 1000 |
+
+The 24-hour bound is ADR-0108's. Cloud Storage keeps a resumable session for a week, but a test
+stand-in has no use for a week-old half-upload, and the bound keeps staged bytes short-lived. Decision
+7's sentence "no staging bound is needed" no longer holds.
+
+### Alternatives considered for this amendment
+
+- **`499` for a resumable cancel**, as the JSON API's page gives. Rejected: the XML API tab of "Perform
+  resumable uploads" gives `204`.
+- **Keeping only whole 256 KiB multiples of a chunk**, as Cloud Storage may. Rejected: it adds a rule a
+  stand-in's test would have to work around, and `Range` tells the client what was kept either way.
+- **Checking `x-goog-hash` against the whole object on a resumable upload's last chunk.** Left out: the
+  page does not require it, and a mismatch would leave the client with nothing to resume from.

@@ -53,17 +53,26 @@ internal static class KafkaRecordBatches
     public static byte[] CompressedBatch(short attributes, int recordCount, byte[] payload) =>
         BatchOfPayload(payload, recordCount, attributes, recordCount - 1, 2, 0);
 
-    private static byte[] BatchOfPayload(byte[] payload, int recordCount, short attributes, int lastOffsetDelta, byte magic, uint crcFlip)
+    /// <summary>
+    /// A batch from an idempotent producer: the given producerId, producerEpoch and baseSequence,
+    /// otherwise as <see cref="Batch"/>.
+    /// </summary>
+    public static byte[] IdempotentBatch(long producerId, short producerEpoch, int baseSequence, params byte[][] records) =>
+        BatchOfPayload([.. records.SelectMany(record => record)], records.Length, 0, records.Length - 1, 2, 0, (producerId, producerEpoch, baseSequence));
+
+    private static byte[] BatchOfPayload(
+        byte[] payload, int recordCount, short attributes, int lastOffsetDelta, byte magic, uint crcFlip, (long Id, short Epoch, int BaseSequence)? producer = null)
     {
+        var (producerId, producerEpoch, baseSequence) = producer ?? (-1L, (short)-1, -1);
         byte[] checkedPart =
         [
             .. Int16(attributes),
             .. Int32(lastOffsetDelta),
             .. Int64(0),
             .. Int64(0),
-            .. Int64(-1),
-            .. Int16(-1),
-            .. Int32(-1),
+            .. Int64(producerId),
+            .. Int16(producerEpoch),
+            .. Int32(baseSequence),
             .. Int32(recordCount),
             .. payload,
         ];

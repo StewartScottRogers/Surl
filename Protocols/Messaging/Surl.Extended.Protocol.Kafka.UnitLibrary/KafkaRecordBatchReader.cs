@@ -23,8 +23,9 @@ namespace Surl.Extended.Protocol.Kafka;
 /// <c>records count</c> of them, each with the <c>offsetDelta</c> of its place, the last at
 /// <c>lastOffsetDelta</c>, each <c>length</c> matching its bytes, no negative header count or
 /// header key length, and nothing after the last, otherwise 2. Empty or null <c>records</c> is 2.
-/// <c>baseOffset</c>, <c>partitionLeaderEpoch</c>, the timestamps, <c>producerId</c>,
-/// <c>producerEpoch</c> and <c>baseSequence</c> are not checked.
+/// <c>baseOffset</c>, <c>partitionLeaderEpoch</c> and the timestamps are not checked; <c>producerId</c>,
+/// <c>producerEpoch</c>, <c>baseSequence</c> and <c>lastOffsetDelta</c> are read into a
+/// <see cref="KafkaProducedBatch"/> for the producer's sequence check (ADR-0145 decision 8).
 /// </remarks>
 public static class KafkaRecordBatchReader
 {
@@ -37,13 +38,16 @@ public static class KafkaRecordBatchReader
     private const int CrcPosition = 17;
     private const int AttributesPosition = 21;
     private const int LastOffsetDeltaPosition = 23;
+    private const int ProducerIdPosition = 43;
+    private const int ProducerEpochPosition = 51;
+    private const int BaseSequencePosition = 53;
     private const int RecordCountPosition = 57;
     private const byte CurrentMagic = 2;
     private const int CodecMask = 0x07;
     private const int TransactionalOrControl = 0x30;
     private const int LastCodec = (int)KafkaCompressionCodec.Zstd;
 
-    private static readonly KafkaRecordBatchReadResult CorruptMessage = new(KafkaErrorCode.CorruptMessage, []);
+    private static readonly KafkaRecordBatchReadResult CorruptMessage = new(KafkaErrorCode.CorruptMessage, [], []);
 
     /// <summary>Reads every batch in <paramref name="records"/>.</summary>
     /// <param name="records">A partition's <c>records</c>.</param>
@@ -51,10 +55,11 @@ public static class KafkaRecordBatchReader
     /// The most bytes one compressed batch's records may decompress to
     /// (<see cref="KafkaRecordsCompression.DecompressionBound"/>); 256 MiB unless given.
     /// </param>
-    /// <returns>Every record, or the error of the first batch that failed.</returns>
+    /// <returns>Every record and batch, or the error of the first batch that failed.</returns>
     public static KafkaRecordBatchReadResult Read(ReadOnlyMemory<byte> records, int decompressionBound = KafkaRecordsCompression.BoundWithoutMaxMessage)
     {
         var produced = new List<KafkaProducedRecord>();
+        var batches = new List<KafkaProducedBatch>();
         var rest = records;
         do
         {
@@ -66,13 +71,21 @@ public static class KafkaRecordBatchReader
             var error = ReadBatch(batch, decompressionBound, produced);
             if (error != KafkaErrorCode.None)
             {
-                return new(error, []);
+                return new(error, [], []);
             }
+
+            batches.Add(ProducedBatch(batch.Span));
         }
         while (!rest.IsEmpty);
 
-        return new(KafkaErrorCode.None, produced);
+        return new(KafkaErrorCode.None, produced, batches);
     }
+
+    private static KafkaProducedBatch ProducedBatch(ReadOnlySpan<byte> header) => new(
+        BinaryPrimitives.ReadInt64BigEndian(header[ProducerIdPosition..]),
+        BinaryPrimitives.ReadInt16BigEndian(header[ProducerEpochPosition..]),
+        BinaryPrimitives.ReadInt32BigEndian(header[BaseSequencePosition..]),
+        BinaryPrimitives.ReadInt32BigEndian(header[LastOffsetDeltaPosition..]));
 
     // Takes the next batch off the front of rest: its header must be whole, and its batchLength
     // must cover the rest of the header and stay within the bytes left.

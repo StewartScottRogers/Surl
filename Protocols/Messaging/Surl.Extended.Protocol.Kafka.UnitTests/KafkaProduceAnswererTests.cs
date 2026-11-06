@@ -31,7 +31,7 @@ public sealed class KafkaProduceAnswererTests
     public async Task AnswerAsync_NullArguments_Throw()
     {
         var answerer = new KafkaProduceAnswerer(new Surl.MessageBus.MessageBus(clock));
-        var request = new KafkaRequest(new KafkaRequestHeader(0, 3, 1, null), KafkaServedApis.Ranges[0], new KafkaPrimitiveReader(Array.Empty<byte>()), new KafkaConnectionState(null));
+        var request = new KafkaRequest(new KafkaRequestHeader(0, 3, 1, null), KafkaServedApis.Ranges[0], new KafkaPrimitiveReader(Array.Empty<byte>()), new KafkaConnectionState(null), new InMemoryConnection([]));
 
         Assert.AreEqual(KafkaApiKey.Produce, answerer.ApiKey);
         await Assert.ThrowsExactlyAsync<ArgumentNullException>(async () => await answerer.AnswerAsync(null!, Context(TestContext.CancellationToken)));
@@ -319,6 +319,134 @@ public sealed class KafkaProduceAnswererTests
         byte[] partitions = [.. Int32(1), 0, 3, .. NoOffset, .. NoOffset, .. Int32(0), 0, 0, .. Int64(0), .. AppendTime];
         CollectionAssert.AreEqual(Response([0, 0, 0, 1, .. String("orders"), 0, 0, 0, 2, .. partitions, 0, 0, 0, 0]), written);
     }
+
+    [TestMethod]
+    public async Task ServeAsync_AnIdempotentBatchThenItsExactRetry_AnswersTheSameBaseOffsetAndTheLogHoldsItOnce()
+    {
+        var bus = new Surl.MessageBus.MessageBus(clock);
+        bus.CreateLog("orders");
+        bus.Publish(new BusMessage("orders", new byte[] { 0x7A }), null);
+        var batch = IdempotentBatch(5, 0, 0, Record(0, "a"), Record(1, "b"));
+
+        var (written, _) = await ServeAsync(bus, Produce(3, -1, "orders", 0, batch), Produce(5, -1, "orders", 0, batch));
+
+        byte[] retried = [0, 0, 0, 1, .. String("orders"), 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, .. Int64(1), .. NoOffset, .. Int64(0), 0, 0, 0, 0];
+        CollectionAssert.AreEqual(new[] { Response(Answer("orders", 0, 0, Int64(1), AppendTime)), Response(retried) }.SelectMany(bytes => bytes).ToArray(), written);
+        CollectionAssert.AreEqual(new[] { "z", "a", "b" }, LoggedValues(bus));
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_ABatchAfterASequenceGap_IsOutOfOrderSequenceNumberAndNothingIsAppended()
+    {
+        var bus = new Surl.MessageBus.MessageBus(clock);
+
+        var (written, _) = await ServeAsync(bus, Produce(3, -1, "orders", 0, IdempotentBatch(5, 0, 0, Record(0, "a"))), Produce(3, -1, "orders", 0, IdempotentBatch(5, 0, 2, Record(0, "c"))));
+
+        CollectionAssert.AreEqual(new[] { Response(Answer("orders", 0, 0, Int64(0), AppendTime)), Response(Answer("orders", 0, 45, NoOffset, NoOffset)) }.SelectMany(bytes => bytes).ToArray(), written);
+        CollectionAssert.AreEqual(new[] { "a" }, LoggedValues(bus));
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_ABatchOfAnOlderEpoch_IsInvalidProducerEpoch()
+    {
+        var bus = new Surl.MessageBus.MessageBus(clock);
+
+        var (written, _) = await ServeAsync(bus, Produce(3, -1, "orders", 0, IdempotentBatch(5, 1, 0, Record(0, "a"))), Produce(3, -1, "orders", 0, IdempotentBatch(5, 0, 1, Record(0, "b"))));
+
+        CollectionAssert.AreEqual(new[] { Response(Answer("orders", 0, 0, Int64(0), AppendTime)), Response(Answer("orders", 0, 47, NoOffset, NoOffset)) }.SelectMany(bytes => bytes).ToArray(), written);
+        CollectionAssert.AreEqual(new[] { "a" }, LoggedValues(bus));
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_ANewerEpoch_IsTakenAtAnySequence()
+    {
+        var bus = new Surl.MessageBus.MessageBus(clock);
+
+        var (written, _) = await ServeAsync(bus, Produce(3, -1, "orders", 0, IdempotentBatch(5, 0, 0, Record(0, "a"))), Produce(3, -1, "orders", 0, IdempotentBatch(5, 1, 9, Record(0, "b"))));
+
+        CollectionAssert.AreEqual(new[] { Response(Answer("orders", 0, 0, Int64(0), AppendTime)), Response(Answer("orders", 0, 0, Int64(1), AppendTime)) }.SelectMany(bytes => bytes).ToArray(), written);
+        CollectionAssert.AreEqual(new[] { "a", "b" }, LoggedValues(bus));
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_AProducerWithNoStateAtSequenceSeven_IsAccepted()
+    {
+        var bus = new Surl.MessageBus.MessageBus(clock);
+
+        var (written, _) = await ServeAsync(bus, Produce(3, -1, "orders", 0, IdempotentBatch(5, 0, 7, Record(0, "a"))), Produce(3, -1, "orders", 0, IdempotentBatch(5, 0, 8, Record(0, "b"))));
+
+        CollectionAssert.AreEqual(new[] { Response(Answer("orders", 0, 0, Int64(0), AppendTime)), Response(Answer("orders", 0, 0, Int64(1), AppendTime)) }.SelectMany(bytes => bytes).ToArray(), written);
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_Sequence2147483647ThenZero_AreBothAccepted()
+    {
+        var bus = new Surl.MessageBus.MessageBus(clock);
+
+        var (written, _) = await ServeAsync(bus, Produce(3, -1, "orders", 0, IdempotentBatch(5, 0, int.MaxValue, Record(0, "a"))), Produce(3, -1, "orders", 0, IdempotentBatch(5, 0, 0, Record(0, "b"))));
+
+        CollectionAssert.AreEqual(new[] { Response(Answer("orders", 0, 0, Int64(0), AppendTime)), Response(Answer("orders", 0, 0, Int64(1), AppendTime)) }.SelectMany(bytes => bytes).ToArray(), written);
+        CollectionAssert.AreEqual(new[] { "a", "b" }, LoggedValues(bus));
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_ProducerIdMinusOne_IsNeverCheckedAndARepeatIsAppendedAgain()
+    {
+        var bus = new Surl.MessageBus.MessageBus(clock);
+        var batch = IdempotentBatch(-1, -1, 0, Record(0, "a"));
+
+        var (written, _) = await ServeAsync(bus, Produce(3, -1, "orders", 0, batch), Produce(3, -1, "orders", 0, batch));
+
+        CollectionAssert.AreEqual(new[] { Response(Answer("orders", 0, 0, Int64(0), AppendTime)), Response(Answer("orders", 0, 0, Int64(1), AppendTime)) }.SelectMany(bytes => bytes).ToArray(), written);
+        CollectionAssert.AreEqual(new[] { "a", "a" }, LoggedValues(bus));
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_TwoBatchesInOnePartitionThenTheirRetry_AreAppendedOnceAndTheRetryAnswersTheFirstBaseOffset()
+    {
+        var bus = new Surl.MessageBus.MessageBus(clock);
+        byte[] records = [.. IdempotentBatch(5, 0, 0, Record(0, "a"), Record(1, "b")), .. IdempotentBatch(5, 0, 2, Record(0, "c"))];
+
+        var (written, _) = await ServeAsync(bus, Produce(3, -1, "orders", 0, records), Produce(3, -1, "orders", 0, records), Produce(3, -1, "orders", 0, IdempotentBatch(5, 0, 2, Record(0, "c"))));
+
+        byte[] expected =
+        [
+            .. Response(Answer("orders", 0, 0, Int64(0), AppendTime)),
+            .. Response(Answer("orders", 0, 0, Int64(0), NoOffset)),
+            .. Response(Answer("orders", 0, 0, Int64(2), NoOffset)),
+        ];
+        CollectionAssert.AreEqual(expected, written);
+        CollectionAssert.AreEqual(new[] { "a", "b", "c" }, LoggedValues(bus));
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_ARetriedBatchFollowedByANewOneInOnePartition_IsOutOfOrderSequenceNumberAndNothingIsAppended()
+    {
+        var bus = new Surl.MessageBus.MessageBus(clock);
+        var first = IdempotentBatch(5, 0, 0, Record(0, "a"));
+        byte[] retryAndNew = [.. first, .. IdempotentBatch(5, 0, 1, Record(0, "b"))];
+
+        var (written, _) = await ServeAsync(bus, Produce(3, -1, "orders", 0, first), Produce(3, -1, "orders", 0, retryAndNew));
+
+        CollectionAssert.AreEqual(new[] { Response(Answer("orders", 0, 0, Int64(0), AppendTime)), Response(Answer("orders", 0, 45, NoOffset, NoOffset)) }.SelectMany(bytes => bytes).ToArray(), written);
+        CollectionAssert.AreEqual(new[] { "a" }, LoggedValues(bus));
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_ProducerStatesSharedWithInitProducerId_ChecksTheIdItHandedOut()
+    {
+        var bus = new Surl.MessageBus.MessageBus(clock);
+        var states = new KafkaProducerStates();
+        var connection = new InMemoryConnection([Produce(3, -1, "orders", 0, IdempotentBatch(5, 0, 0, Record(0, "a")))]);
+        var broker = new KafkaBroker(new UnitTestKafkaAuthenticationPolicy(true, "PLAIN"), [new KafkaProduceAnswerer(bus, states), new KafkaInitProducerIdAnswerer(states)]);
+
+        await broker.ServeAsync(connection, Context(TestContext.CancellationToken));
+
+        Assert.AreEqual(1, states.Count);
+    }
+
+    private static string[] LoggedValues(Surl.MessageBus.MessageBus bus) =>
+        [.. bus.ReadLog("orders", 0, long.MaxValue).Records.Select(record => Encoding.UTF8.GetString(record.Message.Payload.Span))];
 
     // A Produce request: transactional_id, acks, timeout_ms 30000, one topic with one partition.
     private static byte[] Produce(short version, short acks, string topic, int partition, byte[]? records, string? transactionalId = null)

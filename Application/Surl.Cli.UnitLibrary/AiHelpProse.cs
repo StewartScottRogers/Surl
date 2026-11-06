@@ -17,7 +17,19 @@ internal static class AiHelpProse
         "surl is the server-side mate of curl: for each request upstream curl makes, surl is the server that answers it. Where `curl [options] <url>` names what to fetch, `surl [options] <url>` names what to listen on.",
         "`surl --version` names the schemes this build serves. Each protocol has a topic below with its schemes, their default ports, its options and an upstream curl command line that reaches it.",
         "surl serves until it is stopped with Ctrl+C or SIGTERM, and then exits 0.",
+        OverviewHosts,
     ];
+
+    /// <summary>
+    /// The overview's paragraph pointing at the two other hosts of the same servers, <c>Surl.Api</c> and
+    /// <c>Surl.Mcp</c>, and where their own help lives (ADR-0099 decision 9, ADR-0103 decision 6).
+    /// </summary>
+    public const string OverviewHosts =
+        "The same servers start in-process from .NET through the `Surl.Api` package: `SurlServer.StartAsync` takes a "
+        + "`SurlServerOptions`, whose properties are these options, and its help is the package README and XML documentation. "
+        + "An MCP client starts them through `surl-mcp`, the `Surl.Mcp` executable, on standard input and output: its tools "
+        + "`start_server`, `list_servers`, `stop_server` and `get_exchanges` describe themselves, and it serves these pages as "
+        + "the `surl://aihelp` resources.";
 
     /// <summary>The overview's <c>Command line</c> paragraphs.</summary>
     public static IReadOnlyList<string> OverviewCommandLine { get; } =
@@ -83,7 +95,7 @@ internal static class AiHelpProse
             "The extended protocol servers answer schemes the Curl port (https://github.com/StewartScottRogers/Curl) adds and upstream curl does not have. Each is judged by its protocol's specification and is not validated against upstream curl, unlike every other protocol topic's server.",
             "They are on unless the environment variable `SURL_EXTENSIONS` is `0`; unset, empty or any other value leaves them on. With `SURL_EXTENSIONS=0` no extended server is registered, and a listen URL naming an extended scheme writes `surl: (1) Protocol \"<scheme>\" not supported` and exits 1, as any scheme this build does not serve does. No command-line option turns them off.",
             "An extended scheme never changes how an original scheme is served, and has its own default port, which its topic's Schemes section lists. `surl --version` lists the extended schemes this build serves on an `Extended:` line after the `Protocols:` line; with none registered, or with `SURL_EXTENSIONS=0`, there is no such line.",
-            "This build registers one extended protocol server, the S3 server for `s3` (see the s3 topic); each one added gets its own topic.",
+            "This build registers two extended protocol servers, the NATS server for `nats` and `natss` (see the nats topic) and the S3 server for `s3` (see the s3 topic); each one added gets its own topic.",
         ],
         ["exit-codes"] =
         [
@@ -149,12 +161,28 @@ internal static class AiHelpProse
             "`--log-level <level>` sets a level by its name. The last level option given wins, and `-S` is applied after the whole command line is read. `--trace-time` stamps each exchange log line with the time.",
             "The log goes to stderr, or is appended to the file `--log-file <file>` names (`-` for stdout). The failure messages and command-line errors always go to stderr. A log or trace file that cannot be opened exits 23, and so does a trace file that is the `--log-file` file.",
         ],
+        ["mail"] =
+        [
+            "The SMTP, IMAP and POP3 servers share one mail store. Without `--mail-domain` a recipient's domain is ignored: mail to `ann@anything` is delivered to the account named `ann`, and an unknown recipient is accepted and discarded.",
+            "`--mail-domain <domain>` serves mail for a domain, and may be given again for more. A domain is compared in its ASCII form (U-labels converted as IDNA does), lower-cased, with one trailing dot dropped; subdomains are not matched. A name that is not a domain exits 2 with `surl: option --mail-domain: not a domain name`, and a domain given twice with `mail domain <domain> is given twice`. With a domain, a recipient outside every `--mail-domain` is answered `550 5.7.1 Relaying denied`; one inside is delivered to its mailbox, or to the `--user` account named by its local part, or accepted and discarded, so no peer can tell which addresses exist. Under `--allow-anonymous` the domains are not applied: every recipient goes to the one anonymous mailbox set.",
+            "`--mailbox <address>:<password>[;protocols=<scheme>,...]` adds a mailbox and the account that reads it, and may be given again for more. The value is split at its first colon, so the password may hold one. The account and the mailbox are named by the address with its domain in ASCII lower case, and a client logs in with that name (`curl -u ann@example.com:secret imap://...`). The account logs in on `smtp`, `imap` and `pop3` and their TLS twins only; `protocols=` replaces that list with the schemes it names, each admitting its TLS twin, and refused as no such account elsewhere. A field percent-encodes `%`, `;`, `:` in the address and `,` in a scheme, as URLs do. An address given twice (compared without regard to case), outside every `--mail-domain`, with no `--mail-domain` at all, or equal to a `--user` name exits 2 (`mailbox <address> is given twice`, `is not in any --mail-domain`, `needs --mail-domain`, `is also a --user account`), and so do a scheme no server speaks (`unknown scheme <scheme>`) and an address holding a colon. No refusal shows the password.",
+            "`--mailbox-file <file>` reads mailboxes from a CSV file (RFC 4180, UTF-8, a byte-order mark skipped, CR LF or LF), and may be given again for more. The first record names the columns, `address` and `password` and optionally `protocols`, in any order and case. Each later record is one mailbox, read as `--mailbox` reads it but without percent-encoding (quote a field holding `,` and double a `\"` inside it); an empty `protocols` field means the mail schemes, and blank records are skipped. It is read when surl starts, before any listener binds: a file that cannot be read exits 37 with `surl: (37) Could not read mailbox file <file>`, and a malformed record exits 2 with `surl: (2) Mailbox file <file>, line <n>: <reason>`, `<n>` the line the record starts on. One file holds at most 10000 mailboxes and 16 MiB, and a start at most 10000 mailboxes in all. The passwords are in clear, so let only the user surl runs as read the file.",
+            "With `-v`, surl notes `* Mail domains: <domains>` and `* Mailbox <address>: logins on <schemes>` for each mailbox at start, and under `--allow-anonymous` `* Mail domains not applied: --allow-anonymous delivers every recipient to one mailbox set`.",
+        ],
         ["mqtt"] =
         [
             "The MQTT server (MQTT 3.1.1) accepts the CONNECT, the SUBSCRIBE and the PUBLISH upstream curl sends. `curl mqtt://127.0.0.1:<port>/<topic>` subscribes to `<topic>` and is answered with the retained messages its filter matches, then DISCONNECT; `curl -d <message> mqtt://127.0.0.1:<port>/<topic>` publishes `<message>`, which is kept as the topic's retained message.",
             "Every CONNECT needs a login unless `--allow-anonymous` is given: its user name and password are checked against the accounts (see the auth topic), answered CONNACK 0 when accepted, and CONNACK 4 or 5 and a close when refused. A password over `mqtt://` is refused unchecked unless `--allow-plaintext-auth` is given.",
             "Without `--directory` the retained messages live in memory only; with it, they are kept on the message bus in `<path>/.surl/bus/retained` and loaded at start (an older `<path>/.surl/mqtt/retained-messages` is read once when that file is missing), and a file that cannot be read or does not parse exits 37.",
             "`mqtts` is the same server over TLS from the first byte, so an `mqtts` listen URL needs `--cert` or `--self-signed` (see the tls topic).",
+        ],
+        ["nats"] =
+        [
+            "The NATS server answers the NATS client protocol (INFO, CONNECT, PUB, HPUB, SUB, UNSUB, MSG, HMSG, PING and PONG) for `nats` and `natss` listen URLs. It is an extended server (see the extended topic): it is judged by the NATS client protocol page (https://docs.nats.io/reference/reference-protocols/nats-protocol), not by upstream curl, which has no `nats` scheme.",
+            "Its subjects, subscriptions and queue groups are those of the one message bus the MQTT server also uses, so a message published over `nats://` reaches a matching MQTT subscriber in the same run, and the reverse. A NATS client connects, sends CONNECT, then publishes with PUB or HPUB and subscribes with SUB; `*` and `>` match one and the rest of the tokens, and a queue group gives each message to one member.",
+            "Every CONNECT needs a login unless `--allow-anonymous` is given: `user` and `pass` log in as that account (`--user`, `--user-file`), and `auth_token` as the account with an empty name whose password is the token. A refused login, an NKey or a JWT is answered `-ERR 'Authorization Violation'` and closed. A password over `nats://` is refused unchecked unless `--allow-plaintext-auth` is given (see the auth topic).",
+            "`nats` never offers TLS. `natss` requires it before CONNECT, whether the client starts TLS at once or after the plain-text INFO that says `tls_required: true`, so a `natss` listen URL needs `--cert` or `--self-signed` (see the tls topic). Both schemes default to port 4222.",
+            "CONNECT must arrive within `--head-timeout`, a line over `--max-line` and a payload over the smaller of `--max-message` and `--max-filesize` close the connection with `-ERR`, and the server sends its own PING every quarter of `--idle-timeout` and closes a client that leaves two unanswered.",
         ],
         ["pop3"] =
         [

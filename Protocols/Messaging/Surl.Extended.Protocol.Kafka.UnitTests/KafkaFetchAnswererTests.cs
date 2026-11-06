@@ -31,7 +31,7 @@ public sealed class KafkaFetchAnswererTests
     public async Task AnswerAsync_NullArguments_Throw()
     {
         var answerer = new KafkaFetchAnswerer(new Surl.MessageBus.MessageBus(clock));
-        var request = new KafkaRequest(new KafkaRequestHeader(1, 4, 1, null), KafkaServedApis.Ranges[1], new KafkaPrimitiveReader(Array.Empty<byte>()), new KafkaConnectionState(null));
+        var request = new KafkaRequest(new KafkaRequestHeader(1, 4, 1, null), KafkaServedApis.Ranges[1], new KafkaPrimitiveReader(Array.Empty<byte>()), new KafkaConnectionState(null), new InMemoryConnection([]));
 
         Assert.AreEqual(KafkaApiKey.Fetch, answerer.ApiKey);
         await Assert.ThrowsExactlyAsync<ArgumentNullException>(async () => await answerer.AnswerAsync(null!, Context(TestContext.CancellationToken)));
@@ -274,7 +274,7 @@ public sealed class KafkaFetchAnswererTests
         await cancellation.CancelAsync();
 
         await Assert.ThrowsAsync<OperationCanceledException>(async () => await new KafkaFetchAnswerer(bus).AnswerAsync(
-            new KafkaRequest(header, KafkaServedApis.Find((short)KafkaApiKey.Fetch)!, fields, new KafkaConnectionState(null)),
+            new KafkaRequest(header, KafkaServedApis.Find((short)KafkaApiKey.Fetch)!, fields, new KafkaConnectionState(null), new InMemoryConnection([])),
             Context(cancellation.Token, timeProvider: clock)));
     }
 

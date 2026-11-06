@@ -112,7 +112,11 @@ and the closing and draining states (BL-608); the flow loop holding a flow open 
   the application work at once, so every call goes through one lock. It accepts the client's
   streams (`AcceptStreamAsync`), reads waiting for bytes (`ReadAsync`), receives `DATAGRAM` data
   (`ReceiveDatagramAsync`), and writes, resets, stops sending, sends `DATAGRAM` frames, opens
-  unidirectional streams and closes, each sent at once. The application returning
+  unidirectional streams and closes, each sent at once. `WriteAsync` never lets a stream's
+  `UnsentLength` pass `MaxUnsentLength` (64 KiB; BL-710, ADR-0082 amendment 3): it queues what fits
+  and waits for the client's `MAX_STREAM_DATA`, `MAX_DATA` or acknowledgements before queuing more,
+  so an answer of any size holds at most that plus the client's outstanding credit; a reset stream
+  throws `InvalidOperationException`, an ended connection `OperationCanceledException`. The application returning
   closes the connection with application error code 0; the connection ending (either side's
   close, idle, the server's token) cancels `Ended`, the application's token, after which reads
   return what is left then 0, datagram receives what is left then null, accepts null, and other
@@ -120,6 +124,12 @@ and the closing and draining states (BL-608); the flow loop holding a flow open 
   An exception the application throws closes the connection with code 0 and is thrown from
   `ServeAsync`. The ALPN IDs agreed and the transport parameters sent are the caller's
   `QuicServerConnectionOptions`; the defaults stay ADR-0082 decision 4's `h3` values, byte for byte.
+- `QuicConnectionRefusal.Write` (BL-740, ADR-0082 decision 7, "Too many connections") writes the
+  one datagram refusing a flow past a connection limit: an Initial packet, protected with the Initial
+  keys of the client's Destination Connection ID, to the client's Source Connection ID from a random
+  8-byte one, packet number 0, holding only `CONNECTION_CLOSE` (0x1c) `CONNECTION_REFUSED` (0x02),
+  frame type 0, no reason phrase. It answers only a first datagram `QuicServerConnection` would start
+  on whose Initial opens with those keys; anything else is null, so no bytes are sent.
 - `QuicTransportParameters` reads and writes RFC 9000 section 18's parameters and
   `version_information` (`QuicVersionInformation`); a malformed or repeated one is
   `TRANSPORT_PARAMETER_ERROR`.
@@ -177,5 +187,7 @@ Every expected value in `Surl.Quic.UnitTests` comes from RFC 9000 (Appendix A.1'
 RFC 9001 Appendix A's keys, unprotected and protected packets (A.1 to A.5), never from the Curl port (ADR-0003).
 The connection tests replay the Initial datagrams pinned upstream curl builds sent
 (`Fixtures/ClientInitial`, recorded by `Record-CurlExchange.ps1 -QuicInitial`; BL-377's Notes say
-how) through `UnitTestQuicClient`, which puts its own x25519 share in the ClientHello and completes
+how) through `UnitTestQuicClient`, which puts its own x25519 and X25519MLKEM768 shares in the
+ClientHello in place of curl's (the server prefers X25519MLKEM768, so the ServerHello runs into a
+second datagram) and completes
 the handshake with its own TLS 1.3 client, `UnitTestTls13Client`.

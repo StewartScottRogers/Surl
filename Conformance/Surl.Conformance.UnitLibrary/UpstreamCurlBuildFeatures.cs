@@ -11,7 +11,8 @@ namespace Surl.Conformance;
 /// <remarks>
 /// Runtests reads some of them from <c>curlinfo</c>, a program only upstream's test build has;
 /// <see cref="ReleaseBuildOptions"/> holds those a default release build of 8.21.0 enables,
-/// measured against the Windows reference pin in BL-389. <c>Debug</c>, <c>TrackMemory</c> and
+/// measured against the Windows reference pin in BL-389 and probed with every reference pin by
+/// <c>UpstreamCurlShowsItsBuildOptionsTests</c> (BL-598), as are the platform options. <c>Debug</c>, <c>TrackMemory</c> and
 /// <c>unittest</c> are never present: the pinned builds are release builds.
 /// </remarks>
 public static class UpstreamCurlBuildFeatures
@@ -100,23 +101,30 @@ public static class UpstreamCurlBuildFeatures
         var tool = libcurlAt < 0 ? version : version[..libcurlAt];
         var library = libcurlAt < 0 ? string.Empty : version[libcurlAt..];
 
-        if (WindowsTool.IsMatch(tool))
-        {
-            features.Add("win32");
-        }
+        AddWhen(features, WindowsTool.IsMatch(tool), "win32");
+        AddFromLibraryWords(features, library);
+    }
 
+    private static void AddFromLibraryWords(HashSet<string> features, string library)
+    {
         foreach (var (word, set) in LibraryWords.Where(entry => library.Contains(entry.Word, StringComparison.OrdinalIgnoreCase)))
         {
             features.UnionWith(set);
         }
 
-        if (library.Contains("ares", StringComparison.OrdinalIgnoreCase))
-        {
-            features.Add("c-ares");
-        }
+        AddWhen(features, library.Contains("ares", StringComparison.OrdinalIgnoreCase), "c-ares");
     }
 
     private static void AddRenamedFeatures(HashSet<string> features, HashSet<string> words)
+    {
+        AddThreadedResolver(features, words);
+        AddWhen(features, words.Contains("HTTP2"), "http/2");
+        AddWhen(features, words.Contains("HTTP3"), "http/3");
+        AddWhen(features, words.Contains("SSLS-EXPORT"), "ssl-sessions");
+        AddCryptoAndCertStatus(features);
+    }
+
+    private static void AddThreadedResolver(HashSet<string> features, HashSet<string> words)
     {
         if (words.Contains("AsynchDNS") && (!features.Contains("c-ares") || words.Contains("asyn-rr")))
         {
@@ -124,10 +132,10 @@ public static class UpstreamCurlBuildFeatures
             features.Add("threaded-resolver");
             features.Add("resolv-threaded");
         }
+    }
 
-        AddWhen(features, words.Contains("HTTP2"), "http/2");
-        AddWhen(features, words.Contains("HTTP3"), "http/3");
-        AddWhen(features, words.Contains("SSLS-EXPORT"), "ssl-sessions");
+    private static void AddCryptoAndCertStatus(HashSet<string> features)
+    {
         AddWhen(features, features.Contains("NTLM") || features.Contains("Kerberos") || features.Contains("SPNEGO"), "crypto");
         AddWhen(features, features.Contains("OpenSSL") || features.Contains("GnuTLS"), "cert-status");
     }

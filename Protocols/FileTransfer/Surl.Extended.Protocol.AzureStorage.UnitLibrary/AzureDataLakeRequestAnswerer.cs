@@ -16,18 +16,22 @@ namespace Surl.Extended.Protocol.AzureStorage;
 /// (<see cref="AzureDataLakeOperationRecognition"/>), the filesystem (<c>404 FilesystemNotFound</c>),
 /// the path's length (<c>400 InvalidResourceName</c>), and then the operation itself.
 /// </remarks>
-internal sealed class AzureDataLakeRequestAnswerer : IHttpRequestHandler
+internal sealed class AzureDataLakeRequestAnswerer : IHttpRequestHandler, IHttpHeadNotReadRefuser
 {
-    private static readonly KeyValuePair<string, string>[] FileResourceFields = [new("x-ms-resource-type", "file")];
+    private static readonly KeyValuePair<string, string> FileResourceField = new("x-ms-resource-type", "file");
 
     private readonly ContentStore store;
     private readonly ExchangeContext context;
     private readonly AzureLoginJudge login;
+    private readonly AzurePathStyle pathStyle;
     private readonly AzureBlobPropertiesReader properties;
     private readonly AzurePathCreate create;
     private readonly AzurePathUpdate update;
     private readonly AzurePathList list;
     private readonly AzureStagingArea staging;
+    private readonly AzurePathRename rename;
+    private readonly AzurePathSetProperties setProperties;
+    private readonly AzureFilesystemList listFilesystems;
 
     /// <summary>
     /// Creates the answerer for one exchange.
@@ -37,9 +41,11 @@ internal sealed class AzureDataLakeRequestAnswerer : IHttpRequestHandler
     /// <param name="authentication">The connection's authentication session.</param>
     /// <param name="context">The exchange: its scheme, clock and log.</param>
     /// <param name="staging">The server's staged appends.</param>
-    public AzureDataLakeRequestAnswerer(ContentStore store, ObjectMetadataIndex index, IHttpAuthenticationSession authentication, ExchangeContext context, AzureStagingArea staging)
+    /// <param name="pathStyle">Removes a path-style request's account segment.</param>
+    public AzureDataLakeRequestAnswerer(ContentStore store, ObjectMetadataIndex index, IHttpAuthenticationSession authentication, ExchangeContext context, AzureStagingArea staging, AzurePathStyle pathStyle)
     {
         this.store = store;
+        this.pathStyle = pathStyle;
         this.context = context;
         this.staging = staging;
         login = new AzureLoginJudge(authentication, context.Scheme, AzureStorageProtocolServer.PeerAddressOf(context));
@@ -47,19 +53,27 @@ internal sealed class AzureDataLakeRequestAnswerer : IHttpRequestHandler
         create = new AzurePathCreate(store, index, staging, context.Log);
         update = new AzurePathUpdate(store, index, properties, staging, context.Log);
         list = new AzurePathList(store, properties);
+        rename = new AzurePathRename(store, index, properties, staging, context.Log);
+        setProperties = new AzurePathSetProperties(store, index, properties, context.Log);
+        listFilesystems = new AzureFilesystemList(store);
     }
+
+    /// <inheritdoc/>
+    /// <remarks>A head past <c>--max-request-head</c> is <c>400 InvalidInput</c> in the JSON error body (ADR-0109, decision 7).</remarks>
+    public HttpAnswer RefuseHeadNotRead(HttpRequestHeadReadOutcome outcome, HttpAnswer standardRefusal) =>
+        AzureReply.HeadNotReadRefusal(outcome, standardRefusal, context.TimeProvider.GetUtcNow(), writesJsonErrors: true);
 
     /// <inheritdoc/>
     public async Task<HttpAnswer> AnswerAsync(HttpRequest request, CancellationToken cancellationToken)
     {
-        var target = AzureBlobTarget.Parse(request.Target);
+        var (target, pathStyleAccount) = pathStyle.Read(request);
         var reply = new AzureReply(request, AzureReply.NewRequestId(), context.TimeProvider.GetUtcNow(), writesJsonErrors: true);
         if (AzureRequestChecks.CheckRequiredHeaders(request.Fields) is { } headerRefusal)
         {
             return reply.Error(headerRefusal);
         }
 
-        var loggedIn = await login.LogInAsync(request, reply, cancellationToken);
+        var loggedIn = await login.LogInAsync(request, target, pathStyleAccount, reply, cancellationToken);
         if (loggedIn.Refusal is not null)
         {
             return loggedIn.Refusal;
@@ -75,9 +89,15 @@ internal sealed class AzureDataLakeRequestAnswerer : IHttpRequestHandler
         return await AnswerOperationAsync(reply, request, target, operation, loggedIn.Caller!, cancellationToken);
     }
 
-    // The filesystem, then the path's length, then the operation.
+    // Filesystem - List, which names no filesystem; else the filesystem, then the path's length,
+    // then the operation.
     private async Task<HttpAnswer> AnswerOperationAsync(AzureReply reply, HttpRequest request, AzureBlobTarget target, AzureDataLakeOperation operation, ContentCaller caller, CancellationToken cancellationToken)
     {
+        if (operation == AzureDataLakeOperation.ListFilesystems)
+        {
+            return listFilesystems.Answer(reply, target, caller, cancellationToken);
+        }
+
         var filesystem = store.MapBucketRequestPathForCaller($"/{target.RawContainer}/", caller);
         if (!filesystem.IsMapped || store.GetEntryKind(filesystem) != ContentEntryKind.Directory)
         {
@@ -95,17 +115,21 @@ internal sealed class AzureDataLakeRequestAnswerer : IHttpRequestHandler
             AzureDataLakeOperation.CreatePath => await create.AnswerAsync(reply, request, target, caller, cancellationToken),
             AzureDataLakeOperation.UpdatePath => await update.AnswerAsync(reply, request, target, caller, cancellationToken),
             AzureDataLakeOperation.DeletePath => await DeletePathAsync(reply, target, caller, cancellationToken),
+            AzureDataLakeOperation.RenamePath => await rename.AnswerAsync(reply, request, target, caller, cancellationToken),
+            AzureDataLakeOperation.SetPathProperties => await setProperties.AnswerAsync(reply, request, target, caller, cancellationToken),
+            AzureDataLakeOperation.GetFilesystemProperties => AzureFolderProperties.Filesystem(reply, store.GetEntryStatus(filesystem)!.LastModifiedUtc),
             _ => await ReadPathAsync(reply, request, target, caller, cancellationToken),
         };
     }
 
-    // Path - Read: a file's bytes and head; a directory is 409 ResourceTypeMismatch.
+    // Path - Read and Path - Get Properties: a file's bytes and head, with its x-ms-properties; a
+    // directory's head on a HEAD, and 409 ResourceTypeMismatch on a GET.
     private async Task<HttpAnswer> ReadPathAsync(AzureReply reply, HttpRequest request, AzureBlobTarget target, ContentCaller caller, CancellationToken cancellationToken)
     {
         var mapping = store.MapBucketRequestPathForCaller(target.Path, caller);
-        if (mapping.IsMapped && store.GetEntryKind(mapping) == ContentEntryKind.Directory)
+        if (mapping.IsMapped && store.GetEntryStatus(mapping) is { Kind: ContentEntryKind.Directory } directory)
         {
-            return reply.Error(AzureRefusal.Of(AzureError.ResourceTypeMismatch));
+            return reply.IsHead ? AzureFolderProperties.Directory(reply, directory.LastModifiedUtc) : reply.Error(AzureRefusal.Of(AzureError.ResourceTypeMismatch));
         }
 
         var found = mapping.IsMapped
@@ -114,8 +138,14 @@ internal sealed class AzureDataLakeRequestAnswerer : IHttpRequestHandler
 
         return found is null
             ? reply.Error(AzureRefusal.Of(AzureError.PathNotFound))
-            : await AzureBlobAnswer.AnswerAsync(reply, request.Fields, found, new HttpAnswerBody.ContentFile(store, mapping, ContentByteRange.WholeFile(found.Length)), FileResourceFields, cancellationToken);
+            : await AzureBlobAnswer.AnswerAsync(reply, request.Fields, found, new HttpAnswerBody.ContentFile(store, mapping, ContentByteRange.WholeFile(found.Length)), FileFieldsOf(found), cancellationToken);
     }
+
+    // x-ms-resource-type: file, then x-ms-properties when the file has any ("Path - Get Properties").
+    private static List<KeyValuePair<string, string>> FileFieldsOf(ObjectProperties found) =>
+        AzurePropertiesField.Format(found.UserMetadata) is { } properties
+            ? [FileResourceField, new(AzurePropertiesField.Name, properties)]
+            : [FileResourceField];
 
     // Path - Delete ("Path - Delete"; decision 5.5): a file, an empty directory, or with
     // recursive=true a directory and all it holds; 200. Uploads off is 403.

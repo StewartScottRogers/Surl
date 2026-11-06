@@ -31,11 +31,16 @@ internal sealed class AzureLoginJudge(IHttpAuthenticationSession authentication,
     /// <summary>
     /// Judges the request's login.
     /// </summary>
-    /// <param name="request">The request.</param>
+    /// <param name="request">The request, its target as sent, which a Shared Key signature covers.</param>
+    /// <param name="target">The target the container and blob are read from, the path-style account segment removed.</param>
+    /// <param name="pathStyleAccount">
+    /// The account the path-style segment named, which a shared access signature is then signed
+    /// by; <see langword="null"/> in the account-host form, where the <c>Host</c>'s first label is.
+    /// </param>
     /// <param name="reply">The request's answers, which a refusal is made from.</param>
     /// <param name="cancellationToken">Cancels the session's judgement.</param>
     /// <returns>The caller, or the refusal.</returns>
-    public async Task<AzureLogin> LogInAsync(HttpRequest request, AzureReply reply, CancellationToken cancellationToken)
+    public async Task<AzureLogin> LogInAsync(HttpRequest request, AzureBlobTarget target, string? pathStyleAccount, AzureReply reply, CancellationToken cancellationToken)
     {
         var authorization = AzureRequestFields.Value(request.Fields, "Authorization");
         if (IsBearer(authorization) && AzureRequestChecks.PrecedesBearer(AzureRequestFields.Value(request.Fields, "x-ms-version")!))
@@ -44,8 +49,7 @@ internal sealed class AzureLoginJudge(IHttpAuthenticationSession authentication,
         }
 
         var isWrite = request.Method is not ("GET" or "HEAD");
-        var target = AzureBlobTarget.Parse(request.Target);
-        var scope = new AzureStorageScope(AccountNameOf(request.Fields), ResourcePathOf(target), GrantingPermissionsOf(request.Method, target), peerAddress);
+        var scope = new AzureStorageScope(pathStyleAccount ?? AccountNameOf(request.Fields), ResourcePathOf(target), GrantingPermissionsOf(request.Method, target), peerAddress);
         var verdict = await authentication.JudgeAsync(new HttpAuthenticationRequest(request.Method, request.Target, isWrite, request.Fields, AzureStorage: scope), cancellationToken);
         if (verdict.Outcome != HttpAuthenticationOutcome.Proceed)
         {
@@ -70,7 +74,7 @@ internal sealed class AzureLoginJudge(IHttpAuthenticationSession authentication,
     public static string GrantingPermissionsOf(string method, AzureBlobTarget target) =>
         method switch
         {
-            "GET" or "HEAD" when IsListing(target) => "l",
+            "GET" when IsListing(target) => "l",
             "GET" or "HEAD" => "r",
             "DELETE" => "d",
             "PATCH" when QueryValue(target, "action") == "append" => "aw",
@@ -116,7 +120,8 @@ internal sealed class AzureLoginJudge(IHttpAuthenticationSession authentication,
             _ => SignatureMismatchDetail,
         };
 
-    // The Host's first label, the account a shared access signature is signed by (decision 3.3).
+    // The Host's first label, the account a shared access signature is signed by in the
+    // account-host form (decision 3.3).
     private static string? AccountNameOf(IReadOnlyList<KeyValuePair<string, string>> fields)
     {
         var host = AzureRequestFields.Value(fields, "Host");

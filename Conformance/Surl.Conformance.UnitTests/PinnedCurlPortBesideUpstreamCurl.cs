@@ -252,7 +252,7 @@ internal static class PinnedCurlPortBesideUpstreamCurl
     /// <c>surl</c>'s notes once they have stayed unchanged for <see cref="NotesQuietPeriod"/>, or as they
     /// stand after <see cref="NotesSettleTimeout"/>, in exchange order.
     /// </summary>
-    private static async Task<string> SettledNotesAsync(SurlOnLoopback surl, CancellationToken cancellationToken)
+    internal static async Task<string> SettledNotesAsync(SurlOnLoopback surl, CancellationToken cancellationToken)
     {
         var deadline = TimeProvider.System.GetTimestamp() + (long)(NotesSettleTimeout.TotalSeconds * TimeProvider.System.TimestampFrequency);
         var notes = surl.Log;
@@ -318,7 +318,7 @@ internal static class PinnedCurlPortBesideUpstreamCurl
         return stored;
     }
 
-    private static async Task<string> SurlCommitAsync(string root, CancellationToken cancellationToken)
+    internal static async Task<string> SurlCommitAsync(string root, CancellationToken cancellationToken)
     {
         var startInfo = new ProcessStartInfo("git") { RedirectStandardOutput = true, UseShellExecute = false, CreateNoWindow = true };
         foreach (var argument in new[] { "-C", root, "rev-parse", "HEAD" })

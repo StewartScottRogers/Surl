@@ -28,6 +28,37 @@ public sealed class ServerTlsCompositionTests
     }
 
     [TestMethod]
+    public void FindListenUrlWithoutCertificate_NatssWithoutACertificate_IsTheNatssListenUrl()
+    {
+        Assert.AreEqual(
+            new ListenUrl("natss", "127.0.0.1", 0),
+            ServerTlsComposition.FindListenUrlWithoutCertificate(ParseWithNats("nats://127.0.0.1:0/", "natss://127.0.0.1:0/")));
+    }
+
+    [TestMethod]
+    public void FindListenUrlWithoutCertificate_NatsWithoutACertificate_IsNull()
+    {
+        Assert.IsNull(ServerTlsComposition.FindListenUrlWithoutCertificate(ParseWithNats("nats://127.0.0.1:0/")));
+    }
+
+    [TestMethod]
+    public void Compose_NatssWithSelfSigned_ServesAThrowawayCertificateForItsUpgrade()
+    {
+        using var composition = ServerTlsComposition.Compose(ParseWithNats("--self-signed", "natss://127.0.0.1:0/"), TimeProvider.System);
+
+        Assert.IsNotNull(composition.Settings);
+        Assert.IsNotNull(composition.ThrowawayCertificateFingerprint);
+    }
+
+    [TestMethod]
+    public void Compose_NatsWithSelfSigned_HasNoSettings()
+    {
+        using var composition = ServerTlsComposition.Compose(ParseWithNats("--self-signed", "nats://127.0.0.1:0/"), TimeProvider.System);
+
+        Assert.IsNull(composition.Settings);
+    }
+
+    [TestMethod]
     public void Compose_NoImplicitTlsListenUrl_HasNoSettingsAndReadsNoFile()
     {
         using var composition = ServerTlsComposition.Compose(
@@ -194,4 +225,7 @@ public sealed class ServerTlsCompositionTests
 
     private static SurlCommandLine Parse(params string[] args) =>
         CommandLineParser.Parse(args).CommandLine ?? throw new AssertFailedException("The command line was refused.");
+
+    private static SurlCommandLine ParseWithNats(params string[] args) =>
+        CommandLineParser.Parse(args, ["nats", "natss"]).CommandLine ?? throw new AssertFailedException("The command line was refused.");
 }

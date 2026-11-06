@@ -2,6 +2,7 @@
 
 - **Status:** Accepted
 - **Amended by:** Amendment 1 below (2026-11-05, BL-383: the HTTP/3 server where this ADR is silent);
+  Amendment 3 below (2026-11-06, BL-710: writes wait for the client's credit past a bound);
   [ADR-0086](ADR-0086-how-the-extended-servers-share-http-2-http-3-and-quic.md)
   (2026-11-04, BL-402): decision 2's HTTP/3 frames and control and QPACK streams move from
   `Surl.Protocol.Http` to the horizontal library `Surl.Http3.UnitLibrary` (BL-410), which
@@ -383,6 +384,11 @@ follows RFC 9114 where curl's behaviour cannot be observed first.
 7. **Not built here.** Decision 9's `H3_VERSION_FALLBACK` for NTLM and Negotiate waits on the same
    work for HTTP/2 (BL-602), and a body larger than the client's credit is queued whole, since
    `QuicApplicationConnection.WriteAsync` does not wait for credit; both are filed as tasks.
+   BL-709 built the first: `Http3StreamAnswerWriter` resets and stops `H3_VERSION_FALLBACK` a
+   stream whose `authorization` names NTLM or Negotiate before the answerer sees it, and one whose
+   answer is a `401` challenging for nothing else, as `Http2StreamAnswerWriter` resets both
+   `HTTP_1_1_REQUIRED` (BL-602); the two writers share `ConnectionBoundLogins`. BL-710 built the
+   second: a write waits for the client's credit past a bound (amendment 3).
 
 ## Amendment 2 (2026-11-05, BL-608): the closing and draining states
 
@@ -410,3 +416,28 @@ only when it sends one again, so there is nothing of upstream curl's to measure 
    `QuicApplicationConnection` and `QuicDatagramFlowLoop` are unchanged, and the flow loop still
    returns when the connection closes. Holding the flow open through the closing and draining
    states is filed as its own task.
+
+## Amendment 3 (2026-11-06, BL-710): writes wait for the client's credit past a bound
+
+Decided by Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), in BL-710, which
+builds what amendment 1 item 7 left out. No byte the server sends changes, only when it reads the
+next part of an answer, so there is nothing of upstream curl's to measure first.
+
+1. **A bound on what waits unsent.** `QuicApplicationConnection.WriteAsync` never lets a stream's
+   `QuicStream.UnsentLength` pass `QuicApplicationConnection.MaxUnsentLength`, 64 KiB: it queues
+   what fits, sends what the client's credit allows, and waits under the connection's one lock, as
+   `ReadAsync` does, until the client's `MAX_STREAM_DATA`, `MAX_DATA` or acknowledgements change
+   something before it queues more. 64 KiB is twice curl's recorded
+   `initial_max_stream_data_bidi_local` (32768), so a client granting its usual window always finds
+   the next window's bytes already queued, and it is under the 81920-byte buffer
+   `ContentStore.CopyFileBytesAsync` reads through, so one file read never fits whole.
+2. **What a served file holds.** Bytes the client's credit allows leave `UnsentLength` as `STREAM`
+   frames at once, whether or not the congestion window lets them go yet, so an answer holds at most
+   the bound, the client's outstanding credit and one copy buffer. The client's credit is the
+   client's to choose, as HTTP/2's windows are (`Http2DataStream`).
+3. **How a waiting write ends.** The connection ending throws `OperationCanceledException` (with
+   `Ended`), the caller's token cancels the wait, and a stream the client stopped or the server
+   reset meanwhile throws `InvalidOperationException`, as a write on such a stream always has; the
+   HTTP/3 server already notes that and carries on.
+4. **Every caller gets it.** HTTP/3, WebTransport and DNS over QUIC all write through
+   `WriteAsync`; none queues more than the bound by calling `QuicStream.Write` directly.

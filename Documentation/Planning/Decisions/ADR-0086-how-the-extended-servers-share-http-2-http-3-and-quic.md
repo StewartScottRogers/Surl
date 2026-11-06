@@ -223,12 +223,19 @@ DNS over QUIC rides `Surl.Quic` directly, so `Surl.Quic` - not `Surl.Http3` and 
   ```csharp
   public interface IQuicApplicationProtocol
   {
-      Task ServeAsync(QuicServerConnection connection, CancellationToken cancellationToken);
+      Task ServeAsync(QuicApplicationConnection connection, CancellationToken cancellationToken);
   }
   ```
 
-  `QuicServerConnection` is the stream API of BL-378: accept client streams, open server streams,
-  read and write with flow control, reset, close the connection with an application error code.
+  The application is handed a `QuicApplicationConnection`, not the bare `QuicServerConnection`
+  (the stream API of BL-378), which this decision first named here as a planning name. BL-572
+  built it this way because the flow loop keeps receiving datagrams and acting on timers while
+  the application reads and writes, and `QuicServerConnection` is not thread-safe: every call the
+  application makes - accept client streams, open server streams, read and write with flow
+  control, reset, stop sending, send and receive `DATAGRAM` data, close the connection with an
+  application error code - goes through one lock the loop shares. The application returning
+  closes the connection with application error code 0, and the connection ending cancels the
+  wrapper's `Ended` token (`Protocols/Http/Surl.Quic.UnitLibrary/CLAUDE.md` has the details).
   `Http3ConnectionServer` is one `IQuicApplicationProtocol`; the DNS server's DoQ handler is
   another. The connection core still does no I/O (ADR-0082 decision 2); only this loop touches the
   flow, so `Surl.Quic`'s ADR-0002 row gains `Surl.Protocol.Abstractions.UnitLibrary`.

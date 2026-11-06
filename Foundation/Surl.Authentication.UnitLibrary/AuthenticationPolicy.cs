@@ -252,6 +252,14 @@ public sealed class AuthenticationPolicy : IAuthenticationPolicy, IMailAuthentic
     public IHttpAuthenticationSession StartHttpConnection(TlsSession? tlsSession) =>
         new HttpAuthenticationSession(this, tlsSession is not null);
 
+    /// <inheritdoc/>
+    public bool NamesAccount(string name)
+    {
+        ArgumentNullException.ThrowIfNull(name);
+
+        return settings.Accounts.HasNamedAccount(name);
+    }
+
     /// <summary>
     /// The accepted SASL mechanisms that may be used on a connection in this TLS state, in
     /// ADR-0049 section 2's order; the clear-password login when a plain-text secret may be sent;
@@ -562,7 +570,7 @@ public sealed class AuthenticationPolicy : IAuthenticationPolicy, IMailAuthentic
     /// <see cref="HttpAuthenticationRequest.AwsSigV4Service"/> (the S3 server's), which
     /// <c>--auth</c> does not decide (ADR-0108 decision 4.3).
     /// </summary>
-    internal IHttpCredentialVerifier ServiceSignatureVerifier { get; }
+    internal AwsSigV4AuthenticationMethod ServiceSignatureVerifier { get; }
 
     /// <summary>
     /// The check of a request naming its <see cref="HttpAuthenticationRequest.AzureStorage"/> (the

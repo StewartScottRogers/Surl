@@ -22,4 +22,10 @@ public enum AiHelpExamplePrecondition
     /// <c>surl.cfg</c> is a config file holding the line <c>url = http://127.0.0.1:0/</c>.
     /// </summary>
     ConfigFileExists,
+
+    /// <summary>
+    /// <c>mailboxes.csv</c> is a <c>--mailbox-file</c> with the header <c>address,password</c> and
+    /// the record <c>ann@example.com,secret</c>.
+    /// </summary>
+    MailboxFileExists,
 }

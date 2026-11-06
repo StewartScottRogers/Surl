@@ -118,7 +118,22 @@ public static partial class SurlServerComposition
     /// <param name="fileSystem">The file system <see cref="ComposeContentFileSystem"/> chose.</param>
     /// <returns>The content store.</returns>
     public static ContentStore ComposeContentStore(SurlCommandLine commandLine, IContentFileSystem fileSystem) =>
-        new(ComposeServedRoot(commandLine), fileSystem, MapExposureOptions(commandLine));
+        ComposeContentStore(commandLine, fileSystem, DiscardingSurlEventPublisher.Instance, EmptyFaultPlan.Instance);
+
+    /// <summary>
+    /// Builds the one content store over <paramref name="fileSystem"/>, as
+    /// <see cref="ComposeContentStore(SurlCommandLine, IContentFileSystem)"/> does, publishing each
+    /// change on <paramref name="events"/> and applying <paramref name="faults"/>' out-of-space rules
+    /// (ADR-0124, decisions 1 and 4).
+    /// </summary>
+    /// <param name="commandLine">The parsed command line.</param>
+    /// <param name="fileSystem">The file system <see cref="ComposeContentFileSystem"/> chose.</param>
+    /// <param name="events">The instance's event stream.</param>
+    /// <param name="faults">The instance's fault plan.</param>
+    /// <returns>The content store.</returns>
+    public static ContentStore ComposeContentStore(
+        SurlCommandLine commandLine, IContentFileSystem fileSystem, ISurlEventPublisher events, IFaultPlan faults) =>
+        new(ComposeServedRoot(commandLine), fileSystem, MapExposureOptions(commandLine), [], [], events, faults);
 
     private static string ComposeServedRoot(SurlCommandLine commandLine) =>
         commandLine.DataDirectory is { } dataDirectory ? Path.GetFullPath(dataDirectory) : InMemoryContentFileSystem.RootPath;
@@ -185,7 +200,10 @@ public static partial class SurlServerComposition
     /// <param name="accountNames">Every configured account's user name, the mail store's owners.</param>
     /// <param name="isTlsUpgradeAvailable">Whether a certificate is configured, so the LDAP server offers <c>StartTLS</c>.</param>
     /// <param name="timeProvider">The one clock.</param>
+    /// <param name="events">The instance's event stream, which the bus, the mail store and the index publish their changes on.</param>
+    /// <param name="faults">The instance's fault plan, whose out-of-space rules the bus and the mail store apply.</param>
     /// <param name="cancellationToken">Cancels the reads.</param>
+    /// <param name="mailDomains">The mail domains and mailboxes the mail store resolves recipients against (ADR-0102, decision 1); none without <c>--mail-domain</c>.</param>
     /// <returns>The state, or the message after the <c>surl: </c> prefix when part of it cannot be loaded.</returns>
     public static async Task<(ServiceState? State, string? FailureMessage)> LoadServiceStateAsync(
         SurlCommandLine commandLine,
@@ -194,17 +212,20 @@ public static partial class SurlServerComposition
         IReadOnlyList<string> accountNames,
         bool isTlsUpgradeAvailable,
         TimeProvider timeProvider,
-        CancellationToken cancellationToken)
+        ISurlEventPublisher events,
+        IFaultPlan faults,
+        CancellationToken cancellationToken,
+        MailDomainConfiguration? mailDomains = null)
     {
         var (messageBus, messageBusFailure) = await LoadMessageBusAsync(
-            ComposeMessageBusFiles(commandLine, fileSystem), commandLine, timeProvider, cancellationToken);
+            ComposeMessageBusFiles(commandLine, fileSystem), commandLine, timeProvider, events, faults, cancellationToken);
         if (messageBus is null)
         {
             return (null, messageBusFailure);
         }
 
         var (mailStore, mailStoreFailure) = await LoadMailStoreAsync(
-            ComposeMailStoreFiles(commandLine, fileSystem), commandLine, accountNames, timeProvider, cancellationToken);
+            ComposeMailStoreFiles(commandLine, fileSystem), commandLine, accountNames, timeProvider, events, faults, cancellationToken, mailDomains);
         if (mailStore is null)
         {
             return (null, mailStoreFailure);
@@ -222,7 +243,7 @@ public static partial class SurlServerComposition
         }
 
         var (index, indexFailure) = await LoadObjectMetadataIndexAsync(
-            ComposeObjectMetadataIndex(commandLine, fileSystem), cancellationToken);
+            ComposeObjectMetadataIndex(commandLine, fileSystem, events), cancellationToken);
         return index is null ? (null, indexFailure) : (new ServiceState(messageBus, mailStore, ldapServer, index), null);
     }
 
@@ -234,10 +255,13 @@ public static partial class SurlServerComposition
     /// <param name="commandLine">The parsed command line.</param>
     /// <param name="fileSystem">The file system the content store serves.</param>
     /// <returns>The index, not yet loaded.</returns>
-    public static ObjectMetadataIndex ComposeObjectMetadataIndex(SurlCommandLine commandLine, IContentFileSystem fileSystem)
+    /// <param name="events">The instance's event stream, which the index publishes each stored metadata on; none when <see langword="null"/>.</param>
+    public static ObjectMetadataIndex ComposeObjectMetadataIndex(
+        SurlCommandLine commandLine, IContentFileSystem fileSystem, ISurlEventPublisher? events = null)
     {
         ArgumentNullException.ThrowIfNull(commandLine);
-        return new ObjectMetadataIndex(fileSystem, ComposeServedRoot(commandLine), persists: commandLine.DataDirectory is not null);
+        return new ObjectMetadataIndex(
+            fileSystem, ComposeServedRoot(commandLine), persists: commandLine.DataDirectory is not null, events: events);
     }
 
     /// <summary>
@@ -290,14 +314,22 @@ public static partial class SurlServerComposition
     /// <param name="files">The bus's files, or <see langword="null"/> for none.</param>
     /// <param name="commandLine">The parsed command line.</param>
     /// <param name="timeProvider">The clock the bus stamps and expires messages by.</param>
+    /// <param name="events">The instance's event stream, which the bus publishes its changes on.</param>
+    /// <param name="faults">The instance's fault plan, whose out-of-space rules the bus applies.</param>
     /// <param name="cancellationToken">Cancels the read.</param>
     /// <returns>The bus, or the message after the <c>surl: </c> prefix when it cannot be loaded.</returns>
     public static async Task<(MessageBus.MessageBus? MessageBus, string? FailureMessage)> LoadMessageBusAsync(
-        MessageBusFiles? files, SurlCommandLine commandLine, TimeProvider timeProvider, CancellationToken cancellationToken)
+        MessageBusFiles? files,
+        SurlCommandLine commandLine,
+        TimeProvider timeProvider,
+        ISurlEventPublisher events,
+        IFaultPlan faults,
+        CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(commandLine);
         var maxUploadBytes = commandLine.Limits.MaxUploadBytes;
-        var bus = new MessageBus.MessageBus(timeProvider, maxMessageBytes: maxUploadBytes > 0 ? maxUploadBytes : long.MaxValue);
+        var bus = new MessageBus.MessageBus(
+            timeProvider, maxMessageBytes: maxUploadBytes > 0 ? maxUploadBytes : long.MaxValue, events: events, faults: faults);
         if (files is null)
         {
             return (bus, null);
@@ -341,23 +373,60 @@ public static partial class SurlServerComposition
     /// <param name="timeProvider">The clock for internal dates and <c>UIDVALIDITY</c>.</param>
     /// <param name="cancellationToken">Cancels the read.</param>
     /// <returns>The store, or the message after the <c>surl: </c> prefix when it cannot be loaded.</returns>
+    public static Task<(MailboxStore? MailStore, string? FailureMessage)> LoadMailStoreAsync(
+        MailStoreFiles? files,
+        SurlCommandLine commandLine,
+        IReadOnlyList<string> accountNames,
+        TimeProvider timeProvider,
+        CancellationToken cancellationToken) =>
+        LoadMailStoreAsync(
+            files, commandLine, accountNames, timeProvider, DiscardingSurlEventPublisher.Instance, EmptyFaultPlan.Instance, cancellationToken);
+
+    /// <summary>
+    /// Builds the one mail store the mail servers share, as
+    /// <see cref="LoadMailStoreAsync(MailStoreFiles?, SurlCommandLine, IReadOnlyList{string}, TimeProvider, CancellationToken)"/>
+    /// does, publishing each change on <paramref name="events"/> and applying
+    /// <paramref name="faults"/>' out-of-space rules (ADR-0124, decisions 1 and 4).
+    /// </summary>
+    /// <param name="files">The mail store's files, or <see langword="null"/> for none.</param>
+    /// <param name="commandLine">The parsed command line.</param>
+    /// <param name="accountNames">Every configured account's user name.</param>
+    /// <param name="timeProvider">The clock for internal dates and <c>UIDVALIDITY</c>.</param>
+    /// <param name="events">The instance's event stream.</param>
+    /// <param name="faults">The instance's fault plan.</param>
+    /// <param name="cancellationToken">Cancels the read.</param>
+    /// <param name="mailDomains">The mail domains and mailboxes recipients are resolved against (ADR-0102, decision 1); none without <c>--mail-domain</c>.</param>
+    /// <returns>The store, or the message after the <c>surl: </c> prefix when it cannot be loaded.</returns>
     public static async Task<(MailboxStore? MailStore, string? FailureMessage)> LoadMailStoreAsync(
         MailStoreFiles? files,
         SurlCommandLine commandLine,
         IReadOnlyList<string> accountNames,
         TimeProvider timeProvider,
-        CancellationToken cancellationToken)
+        ISurlEventPublisher events,
+        IFaultPlan faults,
+        CancellationToken cancellationToken,
+        MailDomainConfiguration? mailDomains = null)
     {
+        ArgumentNullException.ThrowIfNull(commandLine);
         var maxMessageBytes = commandLine.Limits.MaxUploadBytes;
         if (files is null)
         {
-            return (new MailboxStore(accountNames, commandLine.AllowAnonymous, timeProvider, maxMessageBytes), null);
+            return (new MailboxStore(
+                accountNames, commandLine.AllowAnonymous, timeProvider, maxMessageBytes, mailDomains: mailDomains, events: events, faults: faults), null);
         }
 
         try
         {
             return (await MailboxStore.LoadAsync(
-                files, accountNames, commandLine.AllowAnonymous, timeProvider, maxMessageBytes, cancellationToken: cancellationToken), null);
+                files,
+                accountNames,
+                commandLine.AllowAnonymous,
+                timeProvider,
+                maxMessageBytes,
+                mailDomains: mailDomains,
+                events: events,
+                faults: faults,
+                cancellationToken: cancellationToken), null);
         }
         catch (MailStoreLoadException failure)
         {
@@ -428,6 +497,12 @@ public static partial class SurlServerComposition
     /// <param name="echoesWebSocketMessages">Whether <c>--ws-echo</c> is given.</param>
     /// <param name="advertisesHttp3">Whether <c>--http3</c> is given, so the HTTP server adds <c>Alt-Svc</c> on https (ADR-0082, decision 6).</param>
     /// <param name="timeProvider">The one clock; <see cref="TimeProvider.System"/> when <see langword="null"/>.</param>
+    /// <param name="authenticationPolicyForScheme">
+    /// The policy each server with a login judges it by, given the scheme it answers (the plaintext
+    /// one, which admits its TLS twin), over the accounts allowed on that scheme (ADR-0102, decision
+    /// 4.3; <see cref="SchemeAuthenticationPolicies.For"/>); <paramref name="authenticationPolicy"/>
+    /// for every scheme when <see langword="null"/>.
+    /// </param>
     /// <returns>The servers.</returns>
     public static IProtocolServer[] ComposeProtocolServers(
         ContentStore contentStore,
@@ -438,7 +513,8 @@ public static partial class SurlServerComposition
         bool isTlsUpgradeAvailable,
         bool echoesWebSocketMessages,
         bool advertisesHttp3 = false,
-        TimeProvider? timeProvider = null)
+        TimeProvider? timeProvider = null,
+        Func<string, AuthenticationPolicy>? authenticationPolicyForScheme = null)
     {
         ArgumentNullException.ThrowIfNull(serviceState);
         return ComposeProtocolServers(
@@ -452,7 +528,10 @@ public static partial class SurlServerComposition
                 sshAlgorithms,
                 isTlsUpgradeAvailable,
                 echoesWebSocketMessages,
-                advertisesHttp3));
+                advertisesHttp3)
+            {
+                AuthenticationPolicyForScheme = authenticationPolicyForScheme,
+            });
     }
 
     /// <summary>

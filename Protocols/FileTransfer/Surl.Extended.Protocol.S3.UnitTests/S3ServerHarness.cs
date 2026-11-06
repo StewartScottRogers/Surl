@@ -114,6 +114,18 @@ internal sealed partial class S3ServerHarness
     }
 
     /// <summary>
+    /// Sends one request on a connection that is TLS from the start, and returns what the server wrote.
+    /// </summary>
+    public async Task<string> SendRawOverTlsAsync(string request)
+    {
+        var tls = new TlsSession(System.Security.Authentication.SslProtocols.Tls13, System.Net.Security.TlsCipherSuite.TLS_AES_128_GCM_SHA256, null, null, null);
+        var connection = new InMemoryConnection([Encoding.Latin1.GetBytes(request)], initialTlsSession: tls);
+        await Server.ServeAsync(connection, Context());
+
+        return Encoding.UTF8.GetString(connection.WrittenBytes);
+    }
+
+    /// <summary>
     /// The request ID an answer carries, checked to be 16 upper-case hexadecimal digits.
     /// </summary>
     public static string RequestIdOf(string response)

@@ -158,7 +158,7 @@ public sealed class RecordedExchangeWriterTests
     }
 
     private static SurlExchangeRecord Record(long exchangeId, bool isTruncated, params SurlExchangeChunk[] chunks) =>
-        new(exchangeId, Client, new DateTimeOffset(2026, 11, 5, 11, 0, 0, TimeSpan.FromHours(1)), chunks, isTruncated);
+        new(exchangeId, new Uri("http://127.0.0.1:49731/"), "http", Client, new DateTimeOffset(2026, 11, 5, 11, 0, 0, TimeSpan.FromHours(1)), chunks, isTruncated);
 
     private static SurlExchangeChunk Received(byte[] bytes) => new(SurlExchangeDirection.Received, bytes);
 

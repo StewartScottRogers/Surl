@@ -107,7 +107,7 @@ public static class CurlPortComparison
     private static string FormatExitCode(int? exitCode) =>
         exitCode?.ToString(CultureInfo.InvariantCulture) ?? "stopped at its timeout";
 
-    private static void AddTextDifference(List<CurlPortDifference> differences, string item, string upstream, string port)
+    internal static void AddTextDifference(List<CurlPortDifference> differences, string item, string upstream, string port)
     {
         if (upstream == port)
         {
@@ -153,7 +153,7 @@ public static class CurlPortComparison
             ? CurlPortResultNormaliser.NormaliseRequestBytes(surl.ClientRequestBytes[connection], surl.ClientFacingPort)
             : null;
 
-    private static void AddBytesDifference(List<CurlPortDifference> differences, string item, byte[]? upstream, byte[]? port)
+    internal static void AddBytesDifference(List<CurlPortDifference> differences, string item, byte[]? upstream, byte[]? port)
     {
         if (upstream is not null && port is not null)
         {

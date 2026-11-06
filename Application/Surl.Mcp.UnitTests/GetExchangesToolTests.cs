@@ -15,6 +15,8 @@ public sealed class GetExchangesToolTests
 
     private static readonly IPEndPoint Client = new(IPAddress.Loopback, 50512);
 
+    private static readonly string BoundUrl = $"http://127.0.0.1:{FakeListenerFactory.BoundPort}/";
+
     public TestContext TestContext { get; set; } = null!;
 
     [TestMethod]
@@ -32,6 +34,8 @@ public sealed class GetExchangesToolTests
         var structured = result.StructuredContent!.Value;
         Assert.AreEqual("s1", structured.GetProperty("server_id").GetString());
         var exchange = Assert.ContainsSingle(structured.GetProperty("exchanges").EnumerateArray());
+        Assert.AreEqual(BoundUrl, exchange.GetProperty("listen_url").GetString());
+        Assert.AreEqual("http", exchange.GetProperty("scheme").GetString());
         Assert.AreEqual(FakeConnection.Client.ToString(), exchange.GetProperty("client").GetString());
         Assert.AreEqual("2026-11-05T10:00:00.0000000+00:00", exchange.GetProperty("started_at").GetString());
         CollectionAssert.AreEqual(CurlGetHello, Bytes(exchange, "received"));
@@ -43,6 +47,40 @@ public sealed class GetExchangesToolTests
         Assert.AreEqual(0, structured.GetProperty("dropped_exchange_count").GetInt64());
         Assert.IsFalse(structured.GetProperty("has_more").GetBoolean());
         Assert.AreEqual(structured.GetRawText(), Assert.ContainsSingle(result.TextContent));
+    }
+
+    [TestMethod]
+    [DataRow("""{"server_id": "s1", "scheme": "http"}""", 1)]
+    [DataRow("""{"server_id": "s1", "scheme": "HTTP"}""", 1)]
+    [DataRow("""{"server_id": "s1", "scheme": "ftp"}""", 0)]
+    [DataRow("""{"server_id": "s1", "listen_url": "http://127.0.0.1:49731/"}""", 1)]
+    [DataRow("""{"server_id": "s1", "listen_url": "http://127.0.0.1:49731"}""", 1)]
+    [DataRow("""{"server_id": "s1", "listen_url": "http://127.0.0.1:1/"}""", 0)]
+    [DataRow("""{"server_id": "s1", "scheme": "http", "listen_url": "http://127.0.0.1:1/"}""", 0)]
+    public async Task Handler_SchemeAndListenUrlFilters_ReturnOnlyMatchingExchanges(string arguments, int expectedCount)
+    {
+        var connection = new FakeConnection(CurlGetHello);
+        await using var host = new McpTestHost(listenerFactory: new FakeListenerFactory { ConnectionToAccept = connection });
+        await McpTestHost.CallAsync(
+            host.StartServer, """{"listen_urls": ["http://127.0.0.1:0"], "files": {"hello.txt": "hello"}}""", TestContext.CancellationToken);
+        await connection.Disposed.WaitAsync(TimeSpan.FromSeconds(30), TestContext.CancellationToken);
+
+        var result = await McpTestHost.CallAsync(host.GetExchanges, arguments, TestContext.CancellationToken);
+
+        Assert.IsFalse(result.IsError);
+        Assert.AreEqual(expectedCount, result.StructuredContent!.Value.GetProperty("exchanges").GetArrayLength());
+    }
+
+    [TestMethod]
+    public async Task Handler_ListenUrlThatIsNotAnAbsoluteUrl_IsAnErrorNamingIt()
+    {
+        await using var host = new McpTestHost();
+        await McpTestHost.CallAsync(host.StartServer, """{"listen_urls": ["http://127.0.0.1:0"]}""", TestContext.CancellationToken);
+
+        var result = await McpTestHost.CallAsync(host.GetExchanges, """{"server_id": "s1", "listen_url": "not a url"}""", TestContext.CancellationToken);
+
+        Assert.IsTrue(result.IsError);
+        Assert.AreEqual("listen_url is not an absolute URL: not a url", Assert.ContainsSingle(result.TextContent));
     }
 
     [TestMethod]
@@ -111,7 +149,7 @@ public sealed class GetExchangesToolTests
         Assert.ThrowsExactly<ArgumentNullException>(() => GetExchangesTool.Create(null!));
 
     private static SurlExchangeRecord Record(long exchangeId, byte[] received) =>
-        new(exchangeId, Client, McpTestHost.Now, [new SurlExchangeChunk(SurlExchangeDirection.Received, received)], IsTruncated: false);
+        new(exchangeId, new Uri($"http://127.0.0.1:{FakeListenerFactory.BoundPort}/"), "http", Client, McpTestHost.Now, [new SurlExchangeChunk(SurlExchangeDirection.Received, received)], IsTruncated: false);
 
     private static byte[] Bytes(JsonElement exchange, string direction) =>
         [.. exchange.GetProperty("chunks").EnumerateArray()

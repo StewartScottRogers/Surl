@@ -18,6 +18,13 @@ namespace Surl.Protocol.Http;
 /// and stopped <c>H3_MESSAGE_ERROR</c> instead of answered. A content-store file that cannot be
 /// read whole once its <c>HEADERS</c> went out is reset <c>H3_INTERNAL_ERROR</c>, as HTTP/2 resets
 /// it <c>INTERNAL_ERROR</c>, with a log note naming the file; the connection carries on.
+/// <para>
+/// NTLM and Negotiate are logins bound to the connection, which HTTP/3 does not carry (ADR-0082,
+/// decision 9): a stream whose <c>authorization</c> names either is reset and stopped
+/// <c>H3_VERSION_FALLBACK</c> before the answerer sees it, so no handshake starts, and so is one
+/// whose answer is a <c>401</c> challenging for nothing else, as <see cref="Http2StreamAnswerWriter"/>
+/// resets them <c>HTTP_1_1_REQUIRED</c>. The connection carries on.
+/// </para>
 /// </remarks>
 /// <param name="answerer">Decides the answer to every request.</param>
 /// <param name="context">The exchange: its limits and log.</param>
@@ -32,11 +39,23 @@ internal sealed class Http3StreamAnswerWriter(IHttpRequestHandler answerer, Exch
     public async Task ServeRequestStreamAsync(Http3RequestStream stream, CancellationToken cancellationToken)
     {
         var head = stream.Head;
+        if (ConnectionBoundLogins.AreCarriedBy(head.Fields))
+        {
+            await stream.ResetAsync(Http3ErrorCode.VersionFallback, "its authorization names NTLM or Negotiate, which HTTP/3 does not carry", cancellationToken);
+            return;
+        }
+
         var body = new Http3HttpRequestBody(stream, context.Limits.MaxUploadBytes);
         var answer = await answerer.AnswerAsync(new HttpRequest(head.Method, head.Target, head.Authority, head.Fields, body), cancellationToken);
         if (stream.HasContentLengthMismatch)
         {
             await stream.ResetAsync(Http3ErrorCode.MessageError, "its DATA did not add up to its content-length", cancellationToken);
+            return;
+        }
+
+        if (ConnectionBoundLogins.AreTheOnlyLoginsOfferedBy(answer))
+        {
+            await stream.ResetAsync(Http3ErrorCode.VersionFallback, "the only logins it could be challenged for are NTLM or Negotiate, which HTTP/3 does not carry", cancellationToken);
             return;
         }
 

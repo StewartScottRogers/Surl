@@ -26,6 +26,10 @@ Public, because a server uses them:
   answer it returns is written as a refusal with `Connection: close`, its body only when
   `HttpAnswerBody.Bytes` (BL-720; the S3 server's `400 RequestHeaderSectionTooLarge`). A handler
   that does not implement it gets the standard refusal, byte for byte as before.
+- `HttpAnswer.DrainsBeforeClose` (default `true`) - whether a closing answer, refusal or not, is
+  followed by the lingering drain (ADR-0024); `false` half-closes and returns, leaving what the
+  client still sends unread and the close to the transport (BL-729; the S3 server's
+  `EntityTooLarge` and `IncompleteBody`, ADR-0108 decision 7).
 - `IHttpConnectionTakeover` - an `HttpAnswer.Takeover` is awaited after its `101` head is
   written, with the connection and its reader; nothing is drained or written after it.
 

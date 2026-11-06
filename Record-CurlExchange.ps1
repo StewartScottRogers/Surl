@@ -3388,7 +3388,7 @@ try {
         $listener.Start()
         $server = [System.Management.Automation.PowerShell]::Create()
     } elseif ($useTlsRelay) {
-        $tlsRelay = Start-TlsRelay-Certificate $tlsCertificate -Address $ListenAddress -ListenPort $Port -Protocols ([int] $servedTlsProtocols) -AllowRenegotiation (-not $TlsRenegotiationOff) -ApplicationProtocols $TlsAlpn -AgreedProtocolPath $agreedProtocolPath
+        $tlsRelay = Start-TlsRelay -Certificate $tlsCertificate -Address $ListenAddress -ListenPort $Port -Protocols ([int] $servedTlsProtocols) -AllowRenegotiation (-not $TlsRenegotiationOff) -ApplicationProtocols $TlsAlpn -AgreedProtocolPath $agreedProtocolPath
         $listener = New-Object System.Net.Sockets.TcpListener([System.Net.IPAddress]::Loopback, 0)
         $listener.Start()
         $server = [System.Management.Automation.PowerShell]::Create()

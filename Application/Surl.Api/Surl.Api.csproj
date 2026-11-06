@@ -50,6 +50,7 @@
     <ProjectReference Include="..\Surl.Cli.UnitLibrary\Surl.Cli.UnitLibrary.csproj" PrivateAssets="$(BundledProjectReferencesPrivateAssets)" />
     <ProjectReference Include="..\Surl.Composition.UnitLibrary\Surl.Composition.UnitLibrary.csproj" PrivateAssets="$(BundledProjectReferencesPrivateAssets)" />
     <ProjectReference Include="..\..\Foundation\Surl.Content.UnitLibrary\Surl.Content.UnitLibrary.csproj" PrivateAssets="$(BundledProjectReferencesPrivateAssets)" />
+    <ProjectReference Include="..\..\Foundation\Surl.Core.UnitLibrary\Surl.Core.UnitLibrary.csproj" PrivateAssets="$(BundledProjectReferencesPrivateAssets)" />
     <ProjectReference Include="..\..\Foundation\Surl.Networking.UnitLibrary\Surl.Networking.UnitLibrary.csproj" PrivateAssets="$(BundledProjectReferencesPrivateAssets)" />
     <ProjectReference Include="..\..\Foundation\Surl.Output.UnitLibrary\Surl.Output.UnitLibrary.csproj" PrivateAssets="$(BundledProjectReferencesPrivateAssets)" />
     <ProjectReference Include="..\..\Foundation\Surl.Protocol.Abstractions.UnitLibrary\Surl.Protocol.Abstractions.UnitLibrary.csproj" PrivateAssets="$(BundledProjectReferencesPrivateAssets)" />

@@ -29,9 +29,10 @@ namespace Surl.Composition;
 /// <see cref="ProtocolServerRegistration.ImplicitTls"/> (ADR-0020, ADR-0053 decision 5, ADR-0055
 /// decision 11, ADR-0056 decision 8, ADR-0071 decision 8, ADR-0072 decision 5). The FTP server
 /// answers ftp and, TLS from the first byte, ftps itself (ADR-0052 decision 5); the SMB server smb
-/// and smbs (ADR-0073 decision 6). The servers with a login judge it by the one policy (ADR-0032);
+/// and smbs (ADR-0073 decision 6). The servers with a login judge it by their scheme's view of the
+/// accounts, <see cref="ComposedProtocolServices.AuthenticationPolicyFor"/> (ADR-0032; ADR-0102 decision 4.3);
 /// SMTP and IMAP offer STARTTLS, POP3 STLS, FTP AUTH TLS and LDAP StartTLS only when a certificate
-/// is configured. The SSH server answers scp and sftp with its host keys and offers the algorithms
+/// is configured. An SSH server, one for scp and one for sftp, answers with the host keys and offers the algorithms
 /// given (ADR-0051, ADR-0066). The WebSocket server echoes every client message instead with
 /// <c>--ws-echo</c> (ADR-0071 decision 4). The RTSP server has no rtsps, as curl has none (ADR-0074
 /// decision 7).
@@ -41,30 +42,38 @@ public static class ProtocolServerRegistrations
     /// <summary>Gets every original protocol server's entry, in registration order.</summary>
     public static IReadOnlyList<ProtocolServerRegistration> Original { get; } =
     [
-        new(["http"], services => new HttpProtocolServer(services.ContentStore, services.AuthenticationPolicy, services.AdvertisesHttp3)),
+        new(["http"], services => new HttpProtocolServer(services.ContentStore, services.AuthenticationPolicyFor("http"), services.AdvertisesHttp3)),
         ProtocolServerRegistration.ImplicitTls("https", "http"),
         new(["dict"], services => new DictProtocolServer(services.ContentStore)),
-        new(["ftp", "ftps"], services => new FtpProtocolServer(services.ContentStore, services.AuthenticationPolicy, services.IsTlsUpgradeAvailable)),
+        new(["ftp", "ftps"], services => new FtpProtocolServer(services.ContentStore, services.AuthenticationPolicyFor("ftp"), services.IsTlsUpgradeAvailable)),
         new(["gopher", "gophers"], services => new GopherProtocolServer(services.ContentStore)),
         new(["imap"], services => new ImapProtocolServer(
-            services.AuthenticationPolicy, services.AuthenticationPolicy, services.MailStore, services.IsTlsUpgradeAvailable)),
+            services.AuthenticationPolicyFor("imap"), services.AuthenticationPolicyFor("imap"), services.MailStore, services.IsTlsUpgradeAvailable)),
         ProtocolServerRegistration.ImplicitTls("imaps", "imap"),
         new(["ldap"], services => services.LdapServer),
         ProtocolServerRegistration.ImplicitTls("ldaps", "ldap"),
-        new(["mqtt", "mqtts"], services => new MqttProtocolServer(services.MessageBus, services.AuthenticationPolicy)),
+        new(["mqtt", "mqtts"], services => new MqttProtocolServer(services.MessageBus, services.AuthenticationPolicyFor("mqtt"))),
         new(["pop3"], services => new Pop3ProtocolServer(
-            services.AuthenticationPolicy, services.AuthenticationPolicy, services.MailStore, services.IsTlsUpgradeAvailable)),
+            services.AuthenticationPolicyFor("pop3"), services.AuthenticationPolicyFor("pop3"), services.MailStore, services.IsTlsUpgradeAvailable)),
         ProtocolServerRegistration.ImplicitTls("pop3s", "pop3"),
-        new(["rtsp"], services => new RtspProtocolServer(services.ContentStore, services.AuthenticationPolicy)),
-        new(["smb", "smbs"], services => new SmbProtocolServer(services.ContentStore, services.AuthenticationPolicy)),
+        new(["rtsp"], services => new RtspProtocolServer(services.ContentStore, services.AuthenticationPolicyFor("rtsp"))),
+        new(["smb", "smbs"], services => new SmbProtocolServer(services.ContentStore, services.AuthenticationPolicyFor("smb"))),
         new(["smtp"], services => new SmtpProtocolServer(
-            services.AuthenticationPolicy, services.AuthenticationPolicy, services.MailStore, services.IsTlsUpgradeAvailable)),
+            services.AuthenticationPolicyFor("smtp"), services.AuthenticationPolicyFor("smtp"), services.MailStore, services.IsTlsUpgradeAvailable)),
         ProtocolServerRegistration.ImplicitTls("smtps", "smtp"),
-        new(["scp", "sftp"], services => new SshProtocolServer(
-            services.SshHostKeys, services.SshAlgorithms, services.AuthenticationPolicy, new SshSystemRandomSource(), services.ContentStore)),
+        new(["scp"], services => ComposeSshServer(services, "scp")),
+        new(["sftp"], services => ComposeSshServer(services, "sftp")),
         new(["telnet"], _ => new TelnetProtocolServer()),
         new(["tftp"], services => new TftpProtocolServer(services.ContentStore)),
-        new(["ws"], services => new WsProtocolServer(services.ContentStore, services.AuthenticationPolicy, services.EchoesWebSocketMessages)),
+        new(["ws"], services => new WsProtocolServer(services.ContentStore, services.AuthenticationPolicyFor("ws"), services.EchoesWebSocketMessages)),
         ProtocolServerRegistration.ImplicitTls("wss", "ws"),
     ];
+
+    // One SSH server per scheme, each over that scheme's view of the accounts, so protocols=sftp
+    // admits an account on sftp and not on scp (ADR-0102, decision 4.3).
+    private static SingleSchemeServer ComposeSshServer(ComposedProtocolServices services, string scheme) =>
+        new(
+            new SshProtocolServer(
+                services.SshHostKeys, services.SshAlgorithms, services.AuthenticationPolicyFor(scheme), new SshSystemRandomSource(), services.ContentStore),
+            scheme);
 }

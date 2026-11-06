@@ -10,12 +10,14 @@ namespace Surl.Extended.Protocol.AzureStorage;
 internal static class AzureDataLakeOperationRecognition
 {
     /// <summary>
-    /// Recognises a request's operation. In order: Path - List; a method no path takes
+    /// Recognises a request's operation. In order: Filesystem - List, Path - List and Filesystem - Get
+    /// Properties; a method no path takes
     /// (<c>405 UnsupportedHttpVerb</c>); a path that names no file or directory (<c>400
     /// InvalidQueryParameterValue</c> for its <c>resource</c>, else <c>400 InvalidUri</c>); a header
     /// for a feature the server lacks (<c>400 UnsupportedHeader</c>); Path - Create's
     /// <c>resource</c> and Path - Update's <c>action</c> (<c>400 MissingRequiredQueryParameter</c>,
-    /// <c>400 InvalidQueryParameterValue</c>).
+    /// <c>400 InvalidQueryParameterValue</c>), or a read's <c>action</c> other than <c>getStatus</c>.
+    /// A <c>PUT</c> with <c>x-ms-rename-source</c> is a rename and needs no <c>resource</c>.
     /// </summary>
     /// <param name="request">The request.</param>
     /// <param name="target">The request's target: the filesystem and the path.</param>
@@ -23,13 +25,13 @@ internal static class AzureDataLakeOperationRecognition
     /// <returns>The refusal, or null when <paramref name="operation"/> is served.</returns>
     public static AzureRefusal? Recognize(HttpRequest request, AzureBlobTarget target, out AzureDataLakeOperation operation)
     {
-        if (IsListPaths(request, target))
+        if (AccountOrFilesystemOperationOf(request.Method, target) is { } listOrProperties)
         {
-            operation = AzureDataLakeOperation.ListPaths;
+            operation = listOrProperties;
             return null;
         }
 
-        operation = OperationOf(request.Method);
+        operation = OperationOf(request, target);
 
         return IsPathMethod(request.Method) ? PathRefusal(request, target, operation) : AzureRefusal.Of(AzureError.UnsupportedHttpVerb);
     }
@@ -43,9 +45,12 @@ internal static class AzureDataLakeOperationRecognition
     public static string? Parameter(AzureBlobTarget target, string name) =>
         target.QueryParameters.FirstOrDefault(parameter => parameter.Key.Equals(name, StringComparison.OrdinalIgnoreCase)).Value;
 
-    private static AzureDataLakeOperation OperationOf(string method) => method switch
+    // A PUT with x-ms-rename-source is a rename, and a PATCH with action=setProperties sets properties.
+    private static AzureDataLakeOperation OperationOf(HttpRequest request, AzureBlobTarget target) => request.Method switch
     {
+        "PUT" when AzureRequestFields.Value(request.Fields, AzurePathRename.SourceField) is not null => AzureDataLakeOperation.RenamePath,
         "PUT" => AzureDataLakeOperation.CreatePath,
+        "PATCH" when Parameter(target, "action") == "setProperties" => AzureDataLakeOperation.SetPathProperties,
         "PATCH" => AzureDataLakeOperation.UpdatePath,
         "DELETE" => AzureDataLakeOperation.DeletePath,
         _ => AzureDataLakeOperation.ReadPath,
@@ -72,9 +77,15 @@ internal static class AzureDataLakeOperationRecognition
         {
             AzureDataLakeOperation.CreatePath => CheckNamingParameter(target, "resource", ["file", "directory"]),
             AzureDataLakeOperation.UpdatePath => CheckNamingParameter(target, "action", ["append", "flush"]),
+            AzureDataLakeOperation.ReadPath => CheckReadAction(target),
             _ => null,
         };
     }
+
+    // Path - Read and Path - Get Properties take no action but getStatus ("Path - Get Properties"):
+    // getAccessControl and any other is not served.
+    private static AzureRefusal? CheckReadAction(AzureBlobTarget target) =>
+        Parameter(target, "action") is { } action && action != "getStatus" ? AzureRefusal.InvalidQueryParameterValue("action", action) : null;
 
     // The parameter naming what a PUT creates or what a PATCH does: missing, or a value not served.
     private static AzureRefusal? CheckNamingParameter(AzureBlobTarget target, string name, string[] served)
@@ -88,10 +99,26 @@ internal static class AzureDataLakeOperationRecognition
         return served.Contains(value) ? null : AzureRefusal.InvalidQueryParameterValue(name, value);
     }
 
-    // GET on a filesystem alone with resource=filesystem.
-    private static bool IsListPaths(HttpRequest request, AzureBlobTarget target) =>
-        request.Method == "GET"
-            && target.RawContainer.Length > 0
-            && target.RawBlob.Length == 0
-            && Parameter(target, "resource") == "filesystem";
+    // Filesystem - List (GET on the account with resource=account), Path - List (GET on a filesystem
+    // alone with resource=filesystem) and Filesystem - Get Properties (HEAD on it).
+    private static AzureDataLakeOperation? AccountOrFilesystemOperationOf(string method, AzureBlobTarget target)
+    {
+        if (target.RawBlob.Length > 0)
+        {
+            return null;
+        }
+
+        var resource = Parameter(target, "resource");
+        if (target.RawContainer.Length == 0)
+        {
+            return method == "GET" && resource == "account" ? AzureDataLakeOperation.ListFilesystems : null;
+        }
+
+        return (method, resource) switch
+        {
+            ("GET", "filesystem") => AzureDataLakeOperation.ListPaths,
+            ("HEAD", "filesystem") => AzureDataLakeOperation.GetFilesystemProperties,
+            _ => null,
+        };
+    }
 }

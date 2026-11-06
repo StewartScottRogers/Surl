@@ -171,21 +171,21 @@ public sealed record SurlCommandLine
     /// <summary>
     /// The mail domains the mail store serves, each as written, in configuration order (ADR-0101
     /// decision 4); <see cref="MailDomainNames.ReadDomain"/> gives the form they are compared in
-    /// (ADR-0102 decision 1.1). None by default, and no option fills it yet (BL-883 adds one).
+    /// (ADR-0102 decision 1.1). None by default; each <c>--mail-domain</c> adds one.
     /// </summary>
     public IReadOnlyList<string> MailDomains { get; init; } = [];
 
     /// <summary>
     /// The mailboxes, each an account and a mail owner named by its normalised address
     /// (<see cref="ConfiguredMailboxReader"/>, ADR-0102 decision 1.2), in configuration order. None
-    /// by default, and no option fills it yet (BL-883 adds one).
+    /// by default; each <c>--mailbox</c> adds one.
     /// </summary>
     public IReadOnlyList<ConfiguredMailbox> Mailboxes { get; init; } = [];
 
     /// <summary>
     /// The mailbox CSV files, each path as given, in configuration order. They are read when surl
     /// starts serving, by <see cref="MailboxFileReader"/>, not while parsing (ADR-0101 decision 4).
-    /// None by default, and no option fills it yet (BL-883 adds one).
+    /// None by default; each <c>--mailbox-file</c> adds one.
     /// </summary>
     public IReadOnlyList<string> MailboxFiles { get; init; } = [];
 

@@ -40,4 +40,25 @@ internal enum S3Operation
     /// <c>GET /</c> on the service, no query: ListBuckets.
     /// </summary>
     ListBuckets,
+
+    /// <summary>
+    /// <c>POST /&lt;bucket&gt;/&lt;key&gt;?uploads</c>: CreateMultipartUpload.
+    /// </summary>
+    CreateMultipartUpload,
+
+    /// <summary>
+    /// <c>PUT /&lt;bucket&gt;/&lt;key&gt;?partNumber=&lt;n&gt;&amp;uploadId=&lt;id&gt;</c>, no
+    /// <c>x-amz-copy-source</c>: UploadPart.
+    /// </summary>
+    UploadPart,
+
+    /// <summary>
+    /// <c>POST /&lt;bucket&gt;/&lt;key&gt;?uploadId=&lt;id&gt;</c>: CompleteMultipartUpload.
+    /// </summary>
+    CompleteMultipartUpload,
+
+    /// <summary>
+    /// <c>DELETE /&lt;bucket&gt;/&lt;key&gt;?uploadId=&lt;id&gt;</c>: AbortMultipartUpload.
+    /// </summary>
+    AbortMultipartUpload,
 }

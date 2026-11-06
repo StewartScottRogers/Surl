@@ -77,6 +77,24 @@ public sealed class MessageBusFilesTests
     }
 
     [TestMethod]
+    public async Task SaveChangesAsync_ADurableQueueWithASubscriptionDescription_WritesTheSecondIndexFormAndLoadsItBack()
+    {
+        var bus = await fixture.LoadBusAsync();
+        var connection = bus.Connect();
+        connection.DeclareQueue("a", new BusQueueFlags(Durable: true), subscriptionDescription: "d");
+        connection.DeclareQueue("b", new BusQueueFlags(Durable: true));
+
+        await bus.SaveChangesAsync();
+        var loaded = (await fixture.LoadBusAsync()).Connect();
+
+        CollectionAssert.AreEqual(
+            (byte[])[.. "SURL-BUS-QUEUES-2\n"u8, .. Bytes("00000002 00000001 61 01 00000001 64 00000000 00000000 00000001 62 00 00000000 00000000")],
+            fixture.Read(fixture.Files.QueueIndexPath));
+        Assert.AreEqual("d", loaded.InspectQueue("a").SubscriptionDescription);
+        Assert.IsNull(loaded.InspectQueue("b").SubscriptionDescription);
+    }
+
+    [TestMethod]
     [DataRow("SURL-BUS-RETAINED-2\n", "", DisplayName = "Another header")]
     [DataRow("SURL-BUS-RETAINED-1\n", "00000001 2b 01 00 08df3a499fec8000 00000000 00000002 6869", DisplayName = "A wildcard topic")]
     [DataRow("SURL-BUS-RETAINED-1\n", Hi, DisplayName = "A message not marked retained")]
@@ -94,7 +112,9 @@ public sealed class MessageBusFilesTests
     }
 
     [TestMethod]
-    [DataRow("SURL-BUS-QUEUES-2\n00000000", DisplayName = "Another header")]
+    [DataRow("SURL-BUS-QUEUES-3\n00000000", DisplayName = "Another header")]
+    [DataRow("SURL-BUS-QUEUES-2\n00000001 00000001 71 02 00000000 00000000", DisplayName = "A description byte that is neither 0 nor 1")]
+    [DataRow("SURL-BUS-QUEUES-2\n00000001 00000001 71 01", DisplayName = "A description cut short")]
     [DataRow("SURL-BUS-QUEUES-1\n00000000 00", DisplayName = "Bytes after the last queue")]
     [DataRow("SURL-BUS-QUEUES-1\n00000001 00000000 00000000 00000000", DisplayName = "An empty queue name")]
     [DataRow("SURL-BUS-QUEUES-1\n00000002 00000001 71 00000000 00000000 00000001 71 00000000 00000000", DisplayName = "A queue twice")]

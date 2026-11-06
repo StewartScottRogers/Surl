@@ -49,7 +49,7 @@ internal static class ExitCodeGuidanceTable
             ["content", "logging"]),
         new(
             SurlExitCode.CouldNotReadFile,
-            "The data directory cannot be opened, or the --user-file, an --authorized-keys, --keytab, --hostkey or --hostcert file, a message bus file or the mail store cannot be read",
+            "The data directory cannot be opened, or the --user-file, a --mailbox-file, an --authorized-keys, --keytab, --hostkey or --hostcert file, a message bus file or the mail store cannot be read",
             "Check the path exists and the user surl runs as can read it; surl creates none of them",
             ["auth", "content", "imap", "mqtt", "pop3", "smtp", "ssh"]),
         new(

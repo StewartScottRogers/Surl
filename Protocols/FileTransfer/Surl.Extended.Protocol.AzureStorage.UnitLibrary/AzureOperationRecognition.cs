@@ -10,7 +10,8 @@ namespace Surl.Extended.Protocol.AzureStorage;
 internal static class AzureOperationRecognition
 {
     /// <summary>
-    /// Recognises a request's operation. In order: List Blobs; a method no blob takes
+    /// Recognises a request's operation. In order: List Containers, List Blobs and Get Container
+    /// Properties; a method no blob takes
     /// (<c>405 UnsupportedHttpVerb</c>); the query (<c>400 InvalidQueryParameterValue</c>); a path
     /// that names no blob (<c>400 InvalidUri</c>); a header for a feature the server lacks
     /// (<c>400 UnsupportedHeader</c>); Put Blob's <c>x-ms-blob-type</c>.
@@ -21,9 +22,9 @@ internal static class AzureOperationRecognition
     /// <returns>The refusal, or null when <paramref name="operation"/> is served.</returns>
     public static AzureRefusal? Recognize(HttpRequest request, AzureBlobTarget target, out AzureOperation operation)
     {
-        if (IsListBlobs(request, target))
+        if (AccountOrContainerOperationOf(request.Method, target) is { } listOrProperties)
         {
-            operation = AzureOperation.ListBlobs;
+            operation = listOrProperties;
             return null;
         }
 
@@ -90,13 +91,29 @@ internal static class AzureOperationRecognition
         return operation == AzureOperation.PutBlob ? AzureRequestChecks.CheckBlobType(request.Fields) : null;
     }
 
-    // GET on a container alone with restype=container and comp=list.
-    private static bool IsListBlobs(HttpRequest request, AzureBlobTarget target) =>
-        request.Method == "GET"
-            && target.RawContainer.Length > 0
-            && target.RawBlob.Length == 0
-            && HasParameter(target, "restype", "container")
-            && HasParameter(target, "comp", "list");
+    // List Containers (GET on the account with comp=list), List Blobs (GET on a container alone
+    // with restype=container and comp=list) and Get Container Properties (GET or HEAD on a
+    // container alone with restype=container and no comp).
+    private static AzureOperation? AccountOrContainerOperationOf(string method, AzureBlobTarget target)
+    {
+        if (target.RawBlob.Length > 0 || method is not ("GET" or "HEAD"))
+        {
+            return null;
+        }
+
+        var comp = AzureDataLakeOperationRecognition.Parameter(target, "comp");
+        if (target.RawContainer.Length == 0)
+        {
+            return method == "GET" && comp == "list" ? AzureOperation.ListContainers : null;
+        }
+
+        return (method, HasParameter(target, "restype", "container"), comp) switch
+        {
+            ("GET", true, "list") => AzureOperation.ListBlobs,
+            (_, true, null) => AzureOperation.GetContainerProperties,
+            _ => null,
+        };
+    }
 
     private static bool HasParameter(AzureBlobTarget target, string name, string value) =>
         target.QueryParameters.Any(parameter => parameter.Key.Equals(name, StringComparison.OrdinalIgnoreCase) && parameter.Value == value);

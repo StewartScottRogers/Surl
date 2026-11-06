@@ -37,11 +37,12 @@ internal sealed record Amqp1Terminus(string? Address, bool IsDynamic, bool IsCoo
 
     /// <summary>
     /// The container's source as a sender: the address, <c>dynamic</c> when asked, and the
-    /// distribution mode, <c>copy</c> for a topic and <c>move</c> for a queue (ADR-0107 decision 4).
+    /// distribution mode, <c>copy</c> for a topic and <c>move</c> for a queue (ADR-0107 decision 4), and the
+    /// <c>filter</c> entries it applies (ADR-0146 decision 2.1).
     /// </summary>
-    public static Amqp1Described Source(string address, bool isDynamic, bool isTopic) => new(
+    public static Amqp1Described Source(string address, bool isDynamic, bool isTopic, Amqp1Map? appliedFilters) => new(
         Amqp1Descriptor.Source,
-        Amqp1Fields.WithoutTrailingNulls([address, null, null, null, DynamicField(isDynamic), null, isTopic ? DistributionModeCopy : DistributionModeMove]));
+        Amqp1Fields.WithoutTrailingNulls([address, null, null, null, DynamicField(isDynamic), null, isTopic ? DistributionModeCopy : DistributionModeMove, appliedFilters]));
 
     /// <summary>The container's target as a receiver: the address, and <c>dynamic</c> when asked.</summary>
     public static Amqp1Described Target(string address, bool isDynamic) => new(

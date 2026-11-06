@@ -17,8 +17,20 @@ Every request and `CONNECT` is judged after the `Host` check and before anything
 **The HTTPS proxy** is this same server on a connection the serving engine secured before
 `ServeAsync` (an `https` listen URL with `ListenUrl.IsProxy`, whose listener offers ALPN
 `http/1.1` only). `HttpProxyExchange` notes the TLS once before the first request; a session that
-agreed any ALPN but `http/1.1` is closed unwritten (Amendment 2). `HttpProxyProtocolServerTlsTests`
+agreed any ALPN but `h2` or `http/1.1` is closed unwritten (Amendment 2). `HttpProxyProtocolServerTlsTests`
 drive it with an `InMemoryConnection` given an initial `TlsSession`.
+
+**HTTP/2** (BL-940; what curl's `--proxy-http2` asks for): a connection whose TLS agreed ALPN `h2`
+is served by `Surl.Http2`'s `Http2ConnectionServer` with `Http2ProxyStreamHandler`
+(`HttpProxyExchange.Http2.cs`, which notes the `h2` choice, a preface that is not one and a head
+timeout). Each stream is judged by the connection's proxy login first; a `CONNECT` stream
+(RFC 9113 section 8.5) is answered `:status 200` and relayed in `DATA` frames by `Http2ProxyTunnel`;
+any other `:scheme http` stream is forwarded to its origin over HTTP/1.1 on its own origin
+connection and the response relayed back on the stream (a `101` from the origin is `502`; another
+scheme is `501`). `AlreadyReadBytesConnection` hands `Http2ConnectionServer` the bytes read past the
+connection preface. The listener does not offer `h2` to a proxy yet; `HttpProxyProtocolServerHttp2Tests` drive it
+with a `TlsSession` whose `ApplicationProtocol` is `h2`, replaying bytes recorded from pinned
+upstream curl in `Fixtures/https-proxy-h2-*`.
 
 **Listen URL schemes:** `http`, `https` - but the proxy is chosen by `--proxy`, not by scheme.
 
@@ -46,8 +58,8 @@ What exists:
 `Protocols/Http/Surl.Protocol.HttpProxy.UnitTests/Fixtures` holds exchanges recorded from pinned
 upstream curl 8.21.0 with the recorder playing the proxy; its README says how each was recorded.
 
-This library references `Surl.Protocol.Abstractions.UnitLibrary` and `Surl.HttpMessage.UnitLibrary`
-only. ADR-0088 also allows `Surl.Authentication.UnitLibrary`, but the proxy reaches its checks
+This library references `Surl.Protocol.Abstractions.UnitLibrary`, `Surl.HttpMessage.UnitLibrary`,
+and the horizontal `Surl.Http2.UnitLibrary` and `Surl.Hpack.UnitLibrary` (ADR-0086) only. ADR-0088 also allows `Surl.Authentication.UnitLibrary`, but the proxy reaches its checks
 through `IAuthenticationPolicy` as the HTTP server does, so it needs no reference (Amendment 3).
 Referencing another protocol server is a build break, and
 `Surl.Protocol.Abstractions.UnitTests` fails if one appears.

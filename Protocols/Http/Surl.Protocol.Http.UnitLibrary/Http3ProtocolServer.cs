@@ -15,9 +15,11 @@ namespace Surl.Protocol.Http;
 /// The serving engine registers it beside the <c>https</c> connection server, so a listen URL
 /// binds both on one port. QUIC's <c>max_idle_timeout</c> is the <c>--idle-timeout</c> it is
 /// given, and the TLS handshake must complete within the exchange's head timeout (ADR-0082,
-/// decision 7). A flow past a connection limit gets no bytes: no <see cref="IDatagramRefusalWriter"/> yet.
+/// decision 7). A flow past a connection limit whose first datagram is a version 1 Initial is refused
+/// with one Initial packet holding <c>CONNECTION_CLOSE</c> <c>CONNECTION_REFUSED</c> (0x02); any other
+/// first datagram gets no bytes (<see cref="QuicConnectionRefusal"/>).
 /// </remarks>
-public sealed class Http3ProtocolServer : IDatagramProtocolServer
+public sealed class Http3ProtocolServer : IDatagramProtocolServer, IDatagramRefusalWriter
 {
     private readonly ContentStore contentStore;
     private readonly IAuthenticationPolicy authenticationPolicy;
@@ -90,5 +92,25 @@ public sealed class Http3ProtocolServer : IDatagramProtocolServer
             }
         });
         await new QuicDatagramFlowServer(options, application, context.TimeProvider, random).ServeAsync(flow, stopBeforeServing.Token);
+    }
+
+    /// <summary>
+    /// Refuses a flow past a connection limit (ADR-0082 decision 7, "Too many connections"): a first
+    /// datagram that is a version 1 Initial gets one Initial packet holding <c>CONNECTION_CLOSE</c>
+    /// <c>CONNECTION_REFUSED</c>; any other gets no bytes. Both limits are refused alike.
+    /// </summary>
+    /// <param name="flow">The flow past the limit.</param>
+    /// <param name="refusal">Which limit it is past.</param>
+    /// <param name="cancellationToken">Cancelled when the engine gives up on the refusal.</param>
+    /// <returns>A task that completes when the refusal is sent, or at once when nothing is.</returns>
+    public async ValueTask WriteRefusalAsync(IDatagramFlow flow, ConnectionRefusal refusal, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(flow);
+
+        using var random = RandomNumberGenerator.Create();
+        if (QuicConnectionRefusal.Write(flow.FirstDatagram, random) is { } datagram)
+        {
+            await flow.SendAsync(datagram, cancellationToken);
+        }
     }
 }

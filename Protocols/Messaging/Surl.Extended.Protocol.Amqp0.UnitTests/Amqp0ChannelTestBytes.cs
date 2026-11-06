@@ -56,13 +56,13 @@ internal static class Amqp0ChannelTestBytes
     public static byte[] QueueDeclareOk(int channel, string name, int messages = 0, int consumers = 0) =>
         Method(channel, 50, 11, [.. ShortString(name), .. Long(messages), .. Long(consumers)]);
 
-    public static byte[] QueueBind(int channel, string queue, string exchange, string key, bool noWait = false) =>
-        Method(channel, 50, 20, [.. Short(0), .. ShortString(queue), .. ShortString(exchange), .. ShortString(key), Bits(noWait), .. EmptyTable]);
+    public static byte[] QueueBind(int channel, string queue, string exchange, string key, bool noWait = false, byte[]? table = null) =>
+        Method(channel, 50, 20, [.. Short(0), .. ShortString(queue), .. ShortString(exchange), .. ShortString(key), Bits(noWait), .. table ?? EmptyTable]);
 
     public static byte[] QueueBindOk(int channel) => Method(channel, 50, 21);
 
-    public static byte[] QueueUnbind(int channel, string queue, string exchange, string key) =>
-        Method(channel, 50, 50, [.. Short(0), .. ShortString(queue), .. ShortString(exchange), .. ShortString(key), .. EmptyTable]);
+    public static byte[] QueueUnbind(int channel, string queue, string exchange, string key, byte[]? table = null) =>
+        Method(channel, 50, 50, [.. Short(0), .. ShortString(queue), .. ShortString(exchange), .. ShortString(key), .. table ?? EmptyTable]);
 
     public static byte[] QueueUnbindOk(int channel) => Method(channel, 50, 51);
 
@@ -129,6 +129,29 @@ internal static class Amqp0ChannelTestBytes
     /// <summary>A publish of <paramref name="text"/> with no properties, header and one body frame.</summary>
     public static byte[] PublishText(int channel, string exchange, string routingKey, string text, byte bits = 0) =>
         Concat(Publish(channel, exchange, routingKey, bits), ContentHeader(channel, System.Text.Encoding.UTF8.GetByteCount(text)), Body(channel, text));
+
+    public static byte[] TxSelect(int channel) => Method(channel, 90, 10);
+
+    public static byte[] TxSelectOk(int channel) => Method(channel, 90, 11);
+
+    public static byte[] TxCommit(int channel) => Method(channel, 90, 20);
+
+    public static byte[] TxCommitOk(int channel) => Method(channel, 90, 21);
+
+    public static byte[] TxRollback(int channel) => Method(channel, 90, 30);
+
+    public static byte[] TxRollbackOk(int channel) => Method(channel, 90, 31);
+
+    /// <summary>RabbitMQ's <c>confirm.select</c> (85.10) with its <c>nowait</c> bit.</summary>
+    public static byte[] ConfirmSelect(int channel, bool noWait = false) => Method(channel, 85, 10, Bits(noWait));
+
+    public static byte[] ConfirmSelectOk(int channel) => Method(channel, 85, 11);
+
+    /// <summary>The broker's publisher confirm: <c>basic.ack</c> of the publish's sequence number, <c>multiple</c> clear.</summary>
+    public static byte[] Confirm(int channel, long sequence) => Ack(channel, sequence);
+
+    /// <summary>The broker's refusal of a publish in confirm mode: <c>basic.nack</c>, <c>multiple</c> and <c>requeue</c> clear.</summary>
+    public static byte[] ConfirmRefused(int channel, long sequence) => Nack(channel, sequence, multiple: false, requeue: false);
 
     /// <summary>The header and body frames the broker writes for <paramref name="text"/> with no properties.</summary>
     public static byte[] TextContent(int channel, string text) =>

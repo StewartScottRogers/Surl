@@ -28,7 +28,8 @@ public static class CurlPortClientPins
     /// <returns>Every entry of the <c>builds</c> array, in file order.</returns>
     /// <exception cref="FormatException">
     /// The text is not JSON, has no <c>builds</c> array, or an entry lacks one of the six fields
-    /// ADR-0083 decision 2 names or has one of the wrong shape.
+    /// ADR-0083 decision 2 names or has one of the wrong shape, or has a <c>kind</c> other than
+    /// <c>curl</c> or <c>library</c>.
     /// </exception>
     public static IReadOnlyList<PinnedCurlPortClient> Parse(string json)
     {
@@ -79,7 +80,27 @@ public static class CurlPortClientPins
             ParseSha256(RequiredString(entry, index, "sha256"), index),
             RequiredString(entry, index, "commit"),
             RequiredString(entry, index, "publishCommand"),
-            RequiredString(entry, index, "published"));
+            RequiredString(entry, index, "published"))
+        {
+            Kind = ParseKind(entry, index),
+        };
+    }
+
+    private static CurlPortClientKind ParseKind(JsonElement entry, int index)
+    {
+        if (!entry.TryGetProperty("kind", out var value))
+        {
+            return CurlPortClientKind.Curl;
+        }
+
+        return value.ValueKind != JsonValueKind.String
+            ? throw new FormatException($"The kind of entry {index} of builds in {FileName} is not a string.")
+            : value.GetString() switch
+            {
+                "curl" => CurlPortClientKind.Curl,
+                "library" => CurlPortClientKind.Library,
+                var kind => throw new FormatException($"The kind of entry {index} of builds in {FileName} is '{kind}', not curl or library."),
+            };
     }
 
     private static string RequiredString(JsonElement entry, int index, string name)

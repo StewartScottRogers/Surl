@@ -36,6 +36,13 @@ public sealed class ServerTlsComposition : IDisposable
     private static readonly HashSet<string> UpgradableSchemes = new(StringComparer.OrdinalIgnoreCase) { "ftp", "imap", "ldap", "pop3", "smtp" };
 
     /// <summary>
+    /// The listen URL schemes that start in plain text but whose server requires TLS before a login,
+    /// so they need a certificate as a scheme TLS from the first byte does: the extended
+    /// <c>natss</c> (ADR-0113 decision 6).
+    /// </summary>
+    private static readonly HashSet<string> UpgradeRequiredSchemes = new(StringComparer.OrdinalIgnoreCase) { "natss" };
+
+    /// <summary>
     /// The settings every listener secures its connections with, or <see langword="null"/>
     /// when no listen URL is TLS from the first byte and none can be upgraded.
     /// </summary>
@@ -54,15 +61,15 @@ public sealed class ServerTlsComposition : IDisposable
     public QuicServerCertificate? QuicCertificate { get; }
 
     /// <summary>
-    /// Finds the first listen URL, in command-line order, that is TLS from the first byte and
-    /// has no certificate to serve because neither <c>--cert</c> nor <c>--self-signed</c> was
+    /// Finds the first listen URL, in command-line order, that is TLS from the first byte or
+    /// requires TLS before a login (<c>natss</c>, ADR-0113 decision 6), and has no certificate to serve because neither <c>--cert</c> nor <c>--self-signed</c> was
     /// given (ADR-0032, section 10).
     /// </summary>
     /// <param name="commandLine">The parsed command line.</param>
     /// <returns>That listen URL, or <see langword="null"/> when every listen URL has what it needs.</returns>
     public static ListenUrl? FindListenUrlWithoutCertificate(SurlCommandLine commandLine) =>
         commandLine.CertificateFile is null && !commandLine.SelfSigned
-            ? commandLine.ListenUrls.FirstOrDefault(listenUrl => TlsSchemes.IsImplicitTls(listenUrl.Scheme))
+            ? commandLine.ListenUrls.FirstOrDefault(listenUrl => RequiresCertificate(listenUrl.Scheme))
             : null;
 
     /// <summary>
@@ -110,7 +117,10 @@ public sealed class ServerTlsComposition : IDisposable
     }
 
     private static bool NeedsTls(SurlCommandLine commandLine, string scheme) =>
-        TlsSchemes.IsImplicitTls(scheme) || (IsCertificateConfigured(commandLine) && UpgradableSchemes.Contains(scheme));
+        RequiresCertificate(scheme) || (IsCertificateConfigured(commandLine) && UpgradableSchemes.Contains(scheme));
+
+    private static bool RequiresCertificate(string scheme) =>
+        TlsSchemes.IsImplicitTls(scheme) || UpgradeRequiredSchemes.Contains(scheme);
 
     /// <summary>
     /// Formats the message for a TLS option file that could not be loaded, after the

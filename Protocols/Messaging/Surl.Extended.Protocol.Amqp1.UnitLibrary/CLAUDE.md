@@ -133,6 +133,48 @@ BL-513 amendment):
 - A link ending (client `detach`, `end`, the connection going) ends its subscription or consumer, so
   its unsettled and waiting queue deliveries go back to the queue.
 
+JMS selectors (BL-958; ADR-0146 decision 2.2):
+
+- `Amqp1Selector.Parse` reads a Jakarta Messaging 3.1 section 3.8.1 selector once, by hand
+  (`Amqp1SelectorTokenizer`, then the recursive-descent `Amqp1SelectorParser`), and never throws: a
+  selector over 4096 characters, nested past 32 levels (each parenthesised group, `NOT` and unary
+  sign is one), or malformed gives an `Amqp1SelectorRefusal`; null, empty or white space selects
+  everything. Keywords are in any case, identifiers case-sensitive; literals are strings with `''`,
+  Java integer literals (decimal, `0x`, leading-zero octal, `L`) and Java floating literals.
+- `Evaluate` gives TRUE, FALSE or NULL with SQL's three-valued logic; `Selects` only on TRUE. NULL in
+  is NULL out for arithmetic and comparison; numbers are `long` when both are exact, else `double`;
+  an exact division by zero, arithmetic on a non-number and `IN`/`LIKE` on a non-string are NULL;
+  strings and booleans compare only with `=` and `<>`, and unlike types compare FALSE.
+- The message is read through `IAmqp1SelectorMessage` (header, properties, application properties).
+  `Amqp1SelectorIdentifiers` maps the JMS header identifiers: `JMSMessageID` and `JMSCorrelationID`
+  the ids (a string as is, a ulong, uuid or binary as `ID:AMQP_ULONG:`, `ID:AMQP_UUID:`,
+  `ID:AMQP_BINARY:` text), `JMSType` the `subject`, `JMSPriority` the priority (4 with no header),
+  `JMSDeliveryMode` `PERSISTENT`/`NON_PERSISTENT` from `durable`, `JMSTimestamp` and `JMSExpiration`
+  the times in milliseconds. Any other identifier is the application property: integers as `long` (a
+  `ulong` past `long` as `double`), `float`/`double` as `double`, symbol as string, timestamp as
+  milliseconds, anything else NULL.
+
+Source filters (BL-959; ADR-0146 decisions 2.1 and 2.4):
+
+- `Amqp1SourceFilters.Read` reads a client receiver's source `filter` map (field 7). An entry is
+  recognised by its descriptor, ulong or symbol (`0x0000468C:0x00000000` to `0x00000004`): a JMS
+  selector (a string `Amqp1Selector.Parse` accepts; anything else refuses the attach with a null source
+  and a closing `detach` with `amqp:invalid-field`, `selector not valid`, before the node is resolved),
+  no-local (a topic link only: the bus's `noLocal` subscription), the direct binding (the routing key
+  equals a string), the topic binding (a string `AmqpTopicExchangeNames.ToCanonicalFilter` accepts, matched
+  word by word, `*` one word and `#` none or more) and the headers binding (a map whose `x-match` is
+  absent, `all` or `any`, string or symbol; `x-` keys are not matched, a null value matches a property
+  present, binaries compare by bytes). Applied entries are echoed under the client's keys in the
+  container's source (`Amqp1Terminus.Source`); any other entry, or one of the wrong type, is left out.
+  A sending client's source is not read.
+- `Accepts` lets a message through only when every applied filter does. The message is read through
+  `Amqp1BusSelectorMessage` - the sections a transfer of it would carry, an undecodable native form as an
+  empty message - and its routing key is its `subject`, else its bus topic through
+  `AmqpTopicExchangeNames.FromCanonicalTopic`, except that on a queue link a message whose bus topic is
+  the queue's name (sent straight to it) has none. A topic link filters before a message waits, so a
+  filtered one never counts against the 1000; a queue link hands `QueuePredicate` to the bus as its
+  consumer predicate, so a message no consumer accepts stays ready.
+
 `Amqp1Container` is the one `IConnectionProtocolServer`: it runs `Amqp1SecurityNegotiation`, then
 `Amqp1ContainerConnection` for the account SASL logged in. The head timeout runs from accept until the
 client's `open` is read (headers and SASL included) and closes with no bytes. An exchange cancelled for

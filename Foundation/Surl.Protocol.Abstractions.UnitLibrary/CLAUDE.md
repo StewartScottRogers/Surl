@@ -45,8 +45,10 @@ What it holds:
   `ReadAsync` must forward it too. `InMemoryConnection` peeks the script; past its end it returns
   `null` at once when the client half-closes, and otherwise after `wait` on its `peekClock`.
 - The authentication contract (ADR-0032, section 6): `IAuthenticationPolicy` (a password
-  login, `PasswordLogin` judged as a `PasswordLoginVerdict`, and one
-  `IHttpAuthenticationSession` per HTTP connection), `HttpAuthenticationRequest` and
+  login, `PasswordLogin` judged as a `PasswordLoginVerdict`, one
+  `IHttpAuthenticationSession` per HTTP connection, and `NamesAccount`, a default interface member
+  matching nothing, which says whether a name is a named account's so the Azure Storage server can
+  read a path-style target, ADR-0109 decision 2, BL-725), `HttpAuthenticationRequest` and
   `HttpAuthenticationVerdict` with `HttpAuthenticationOutcome` (and, for a login that binds
   the body, `IHttpRequestBodyCheck`, asked with the body's SHA-256 once it is read,
   ADR-0045), a refused verdict's `HttpAuthenticationRefusal` and a request's
@@ -55,7 +57,10 @@ What it holds:
   account a shared access signature names, the decoded resource path, the permission letters
   that grant the operation and the peer's address), which makes Azure's bearer token, Shared Key
   and shared access signatures its only methods (the Azure Storage server's, ADR-0109 decision 3;
-  BL-717, which added the refusals from `MissingRequestDate` to `PermissionNotGranted`), and `CheckedLogin`, the
+  BL-717, which added the refusals from `MissingRequestDate` to `PermissionNotGranted`; BL-711 added
+  `ExpiryOutOfRange` and `ConflictingCredentials` for presigned URLs, which also use `SignatureExpired`),
+  an accepted verdict's `ChunkSignatures`, the `IHttpChunkSignatureChain` an `aws-chunked`
+  `STREAMING-AWS4-HMAC-SHA256-PAYLOAD` body's chunks are checked against (ADR-0108 decision 4.5), and `CheckedLogin`, the
   credentials checked and the answer, whose `Note` a server writes to the verbose log
   (`Login accepted: <method> <user>`, ADR-0032 section 8). `Surl.Authentication`
   implements it; `AnonymousAuthenticationPolicy` accepts every login and lets every request
@@ -115,8 +120,10 @@ What it holds:
   (`Sequence` and `At`, stamped by the stream, not the publisher) and its records
   `ExchangeStartedEvent`, `ExchangeBytesEvent` (with `ExchangeDirection`), `ExchangeEndedEvent`,
   `LoginJudgedEvent`, `StoreChangedEvent` (with `StoreKind` and `StoreChange`; a `Renamed`
-  change carries its old name in `PreviousName`, ADR-0129),
-  `FaultAppliedEvent` and `HookFailedEvent` (with `HookFailure`); no event carries a password,
+  change carries its old name in `PreviousName`, ADR-0129; a `Committed` change names
+  `$group/<group id, % and / percent-encoded>/<canonical topic>`, ADR-0145 decision 10),
+  `FaultAppliedEvent`, `HookFailedEvent` (with `HookFailure`) and `ConsumerGroupChangedEvent` (with
+  `ConsumerGroupChange`, ADR-0145 decision 10; BL-946); no event carries a password,
   key or token. The fault plan: `IFaultPlan.FindAsync(FaultPoint, CancellationToken)` returning
   `ValueTask<FaultRule?>`, with `FaultPoint`, `FaultRule`, `FaultKind` and `FaultStage`. Both reach
   a server through `ExchangeContext.Events` and `ExchangeContext.Faults`, whose defaults

@@ -34,13 +34,18 @@ decision 5). This is success criterion 2 of the
 | Platform | Commit | Date | Reference pin SHA-256 | Total | Runnable | Passed | Failed | Skipped | test-server-choice | Pass rate |
 | --- | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | `win-x64` | `5ac86cca` + BL-681 | 2026-11-06 | `0E773709C3A44DB47B88B71351D902027682ED87C3BD3821009E454BACCA8778` | 2,013 | 1,124 | 1,063 | 61 | 889 | 0 | 94.6% |
-| `linux-x64` | not run | not run | `153CA463957609117D21A848BE29B70691B85F9E5CC9370C7DAA037B839A4E45` | 2,013 | not run | not run | not run | not run | not run | not run |
-| `osx-arm64` | not run | not run | `04E0E69BCD3BD814EC093551A0447AC14EDEEA9D395B468A2025DCB3F766EEBF` | 2,013 | not run | not run | not run | not run | not run | not run |
+| `linux-x64` | `8eb0301b` | 2026-11-06 | `153CA463957609117D21A848BE29B70691B85F9E5CC9370C7DAA037B839A4E45` | 2,013 | 1,237 | 1,154 | 83 | 776 | 0 | 93.3% |
+| `osx-arm64` | `8eb0301b` | 2026-11-06 | `04E0E69BCD3BD814EC093551A0447AC14EDEEA9D395B468A2025DCB3F766EEBF` | 2,013 | 1,237 | 1,153 | 84 | 776 | 0 | 93.2% |
 
 Linux and macOS: CI run
-[41980108989](https://github.com/StewartScottRogers/Surl/actions/runs/41980108989) (commit
-`b1a280aa`) ran the suite on both and it passed, but uploaded no results file, so their counts are
-not known yet; BL-393 fixed the upload, and BL-688 fills both rows from the next run.
+[42203619501](https://github.com/StewartScottRogers/Surl/actions/runs/42203619501) (`master`,
+commit `8eb0301b`), whose `upstream-test-case-results-<platform>` artifacts hold each leg's
+results file and passing list now that BL-393 fixed their upload path. The two legs agree on every case but 4001, which passes on Linux
+and fails `errorcode` on macOS. Both skip fewer cases than Windows, chiefly `feature-missing`
+(127 on Windows, 12 here: their reference builds have features the Windows one lacks). Of the
+83 Linux failures 31 differ in `protocol`, 24 in `file2` (upstream's test-server banner, BL-776),
+8 in `data`, 7 in `errorcode`, 4 each in `stdout` and `timeout`, 3 in `stderr` and 1 each in
+`file` and `upload`.
 
 Windows: the run of BL-681's changes on top of commit `5ac86cca`, where the HTTP server half reads
 past a PROXY protocol version 1 header before the first request and records it as the first
@@ -74,23 +79,23 @@ upstream's test-server greeting banner in a `-D` file, BL-776), TFTP 15 ran, 13 
 
 ### Skipped, by reason
 
-| Reason | `win-x64` |
-| --- | ---: |
-| `debug-build` | 50 |
-| `disabled-upstream` | 19 |
-| `feature-missing:<name>` | 127 |
-| `libtest` | 349 |
-| `no-server-half` | 87 |
-| `perl-command` | 27 |
-| `postcheck` | 14 |
-| `precheck` | 19 |
-| `server-half-not-composed:<name>` | 12 |
-| `server-not-built:<name>` | 67 |
-| `servercmd-unsupported:<command>` | 32 |
-| `strippart-unsupported` | 1 |
-| `unittest` | 81 |
-| `unparsable` | 4 |
-| **Total** | **889** |
+| Reason | `win-x64` | `linux-x64` | `osx-arm64` |
+| --- | ---: | ---: | ---: |
+| `debug-build` | 50 | 50 | 50 |
+| `disabled-upstream` | 19 | 14 | 14 |
+| `feature-missing:<name>` | 127 | 12 | 12 |
+| `libtest` | 349 | 350 | 350 |
+| `no-server-half` | 87 | 87 | 87 |
+| `perl-command` | 27 | 27 | 27 |
+| `postcheck` | 14 | 14 | 14 |
+| `precheck` | 19 | 19 | 19 |
+| `server-half-not-composed:<name>` | 12 | 15 | 15 |
+| `server-not-built:<name>` | 67 | 67 | 67 |
+| `servercmd-unsupported:<command>` | 32 | 35 | 35 |
+| `strippart-unsupported` | 1 | 1 | 1 |
+| `unittest` | 81 | 81 | 81 |
+| `unparsable` | 4 | 4 | 4 |
+| **Total** | **889** | **776** | **776** |
 
 ## Releases
 

@@ -1,4 +1,5 @@
 using Surl.Content;
+using Surl.Protocol.Abstractions;
 
 namespace Surl.Extended.Protocol.AzureStorage;
 
@@ -272,6 +273,31 @@ public sealed class AzureDataLakeRequestAnswererTests
         var response = await harness.SendWithBearerAsync("DELETE", "/shared/a.txt");
 
         StringAssert.StartsWith(response, "HTTP/1.1 403 Forbidden\r\n");
+    }
+
+    [TestMethod]
+    public async Task RefuseHeadNotRead_HeadPastMaxRequestHead_Is400InvalidInputInTheJsonBodyAndClosed()
+    {
+        var harness = Readable();
+        var limits = ExchangeLimits.Default with { MaxRequestHeadBytes = 64 };
+
+        var response = await harness.SendRawAsync(
+            $"GET /photos/a.txt HTTP/1.1\r\nHost: account.dfs.core.windows.net\r\nX-Padding: {new string('p', 100)}\r\n\r\n",
+            limits);
+
+        Assert.AreEqual(
+            AzureServerHarness.ExpectedJsonError(response, "400 Bad Request", "InvalidInput", "One of the request inputs is not valid."),
+            response);
+    }
+
+    [TestMethod]
+    public async Task RefuseHeadNotRead_HeadOfAnUnsupportedVersion_KeepsTheStandard505()
+    {
+        var harness = Readable();
+
+        var response = await harness.SendRawAsync("GET /photos/a.txt HTTP/2.0\r\nHost: account.dfs.core.windows.net\r\n\r\n");
+
+        StringAssert.StartsWith(response, "HTTP/1.1 505 HTTP Version Not Supported\r\n");
     }
 
     private static AzureServerHarness Readable()

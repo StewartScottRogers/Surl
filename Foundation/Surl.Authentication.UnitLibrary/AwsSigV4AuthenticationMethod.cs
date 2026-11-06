@@ -85,6 +85,69 @@ public sealed class AwsSigV4AuthenticationMethod : IHttpAuthenticationMethod, IH
             : SignatureV4Check.Refused(authorization, HttpAuthenticationRefusal.MalformedCredentials));
     }
 
+    /// <summary>
+    /// Checks a presigned URL's signature ("Authenticating Requests: Using Query Parameters";
+    /// ADR-0108 decision 4.5) for a request naming its
+    /// <see cref="HttpAuthenticationRequest.AwsSigV4Service"/>: the parameters must read, the
+    /// algorithm be the scope's provider's, the scope be for the service and <c>host</c> be signed
+    /// (else <see cref="HttpAuthenticationRefusal.MalformedCredentials"/>); <c>X-Amz-Expires</c>
+    /// must be 1 to 604800 seconds (<see cref="HttpAuthenticationRefusal.ExpiryOutOfRange"/>); the
+    /// time must not be past <c>X-Amz-Date</c> plus <c>X-Amz-Expires</c>
+    /// (<see cref="HttpAuthenticationRefusal.SignatureExpired"/>) nor more than
+    /// <see cref="RequestTimeWindow"/> before <c>X-Amz-Date</c>
+    /// (<see cref="HttpAuthenticationRefusal.ClockSkew"/>); then the signature, over
+    /// <c>UNSIGNED-PAYLOAD</c> and the query without <c>X-Amz-Signature</c>, must match. No body
+    /// is bound.
+    /// </summary>
+    /// <param name="request">The request whose target carries the parameters.</param>
+    /// <returns>Accepted as the key's account, or refused with its reason.</returns>
+    public HttpCredentialCheck VerifyQueryString(HttpAuthenticationRequest request)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        var query = AwsSigV4QueryString.Read(request.Target);
+        if (query.Authorization is not { } authorization || !IsWellFormedQueryString(query, authorization, request))
+        {
+            return new HttpCredentialCheck(
+                HttpCredentialOutcome.Refused, null, [], query.Authorization?.AccessKeyId, Refusal: HttpAuthenticationRefusal.MalformedCredentials);
+        }
+
+        if (QueryStringTimeRefusal(query) is { } timeRefusal)
+        {
+            return SignatureV4Check.Refused(authorization, timeRefusal);
+        }
+
+        return SignatureV4Check.VerifySignature(
+            accounts, authorization, request, query.RequestTime!, SignatureV4Check.UnsignedPayload, false, AwsSigV4QueryString.SignatureParameter);
+    }
+
+    private static bool IsWellFormedQueryString(AwsSigV4QueryString query, AwsSigV4Authorization authorization, HttpAuthenticationRequest request) =>
+        query.Algorithm == AwsSigV4Provider.AlgorithmOf(authorization.Provider)
+        && IsScopedForTheService(authorization, request)
+        && authorization.SignedHeaders.Contains("host")
+        && query.RequestTime is { } requestTime
+        && SignatureV4Check.ReadsAsRequestTime(requestTime)
+        && requestTime.StartsWith(authorization.ScopeDate + "T", StringComparison.Ordinal);
+
+    // The validity period: X-Amz-Date to X-Amz-Date plus X-Amz-Expires, with the window's leeway
+    // before it for a client clock running ahead.
+    private HttpAuthenticationRefusal? QueryStringTimeRefusal(AwsSigV4QueryString query)
+    {
+        if (query.ExpiresAfter is not { } expiresAfter)
+        {
+            return HttpAuthenticationRefusal.ExpiryOutOfRange;
+        }
+
+        var signedAt = SignatureV4Check.ReadRequestTime(query.RequestTime!);
+        var now = timeProvider.GetUtcNow();
+        if (now > signedAt + expiresAfter)
+        {
+            return HttpAuthenticationRefusal.SignatureExpired;
+        }
+
+        return now < signedAt - RequestTimeWindow ? HttpAuthenticationRefusal.ClockSkew : null;
+    }
+
     private static bool IsScopedForTheService(AwsSigV4Authorization authorization, HttpAuthenticationRequest request) =>
         request.AwsSigV4Service is null || authorization.Service == request.AwsSigV4Service;
 

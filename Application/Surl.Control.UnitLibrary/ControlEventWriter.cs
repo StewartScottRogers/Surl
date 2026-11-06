@@ -63,6 +63,7 @@ internal static class ControlEventWriter
                 Failure = ControlEventKinds.SnakeCase(hook.Failure),
                 Message = hook.Message,
             },
+            ConsumerGroupChangedEvent group => WithConsumerGroupChange(head, group),
             _ => head,
         };
     }
@@ -100,6 +101,17 @@ internal static class ControlEventWriter
         Name = change.Name,
         PreviousName = change.PreviousName,
         ByteCount = change.ByteCount,
+    };
+
+    private static ControlEventJson WithConsumerGroupChange(ControlEventJson head, ConsumerGroupChangedEvent group) => head with
+    {
+        ExchangeId = group.ExchangeId,
+        Scheme = group.Scheme,
+        Account = group.Account,
+        Change = ControlEventKinds.SnakeCase(group.Change),
+        Group = group.Group,
+        MemberId = group.MemberId,
+        GenerationId = group.GenerationId,
     };
 
     private static ControlEventJson WithFault(ControlEventJson head, FaultAppliedEvent fault) => head with

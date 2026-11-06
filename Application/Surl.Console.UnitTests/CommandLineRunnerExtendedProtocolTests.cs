@@ -208,6 +208,67 @@ public sealed class CommandLineRunnerExtendedProtocolTests
         Assert.AreEqual("surl: (1) Protocol \"s3\" not supported" + NewLine, error.ToString());
     }
 
+    [TestMethod]
+    public void ComposeExtendedSchemes_ThisBuildWithTheSwitchUnset_RegistersNatsAndNatss()
+    {
+        var runner = CreateRunner(new FakeListenerFactory(), FakeEnvironmentVariableReader.Empty, composeExtendedProtocolServers: null);
+
+        var schemes = runner.ComposeExtendedSchemes();
+
+        CollectionAssert.AreEqual(new[] { "nats", "natss", "s3" }, schemes.ToArray());
+    }
+
+    [TestMethod]
+    [DataRow("nats")]
+    [DataRow("natss")]
+    public async Task RunAsync_NatsSchemeWithTheSwitchAtZero_RefusesItAsAnUnknownScheme(string scheme)
+    {
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+        var runner = CreateRunner(new FakeListenerFactory(), FakeEnvironmentVariableReader.ExtensionsTurnedOff, composeExtendedProtocolServers: null);
+
+        var exitCode = await runner.RunAsync(["--self-signed", $"{scheme}://127.0.0.1:0/"], output, error, TestContext.CancellationToken);
+
+        Assert.AreEqual(SurlExitCode.UnsupportedProtocol, exitCode);
+        Assert.AreEqual($"surl: (1) Protocol \"{scheme}\" not supported" + NewLine, error.ToString());
+    }
+
+    [TestMethod]
+    [DataRow("nats", new string[0])]
+    [DataRow("natss", new[] { "--self-signed" })]
+    public async Task RunAsync_NatsSchemeWithTheSwitchUnset_ListensAtItsDefaultPort4222(string scheme, string[] options)
+    {
+        var factory = new FakeListenerFactory();
+        using var stop = CancellationTokenSource.CreateLinkedTokenSource(TestContext.CancellationToken);
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+        var runner = CreateRunner(factory, FakeEnvironmentVariableReader.Empty, composeExtendedProtocolServers: null);
+
+        var running = runner.RunAsync([.. options, $"{scheme}://127.0.0.1/"], output, error, stop.Token);
+        await factory.AcceptStarted.Task.WaitAsync(TestContext.CancellationToken);
+        await stop.CancelAsync();
+        var exitCode = await running;
+
+        Assert.AreEqual(SurlExitCode.Ok, exitCode);
+        Assert.AreEqual(new ListenUrl(scheme, "127.0.0.1", 4222), factory.StartedListenUrls.Single());
+        Assert.AreEqual($"Listening on {scheme}://127.0.0.1:{FakeListenerFactory.BoundPort}/" + NewLine, output.ToString());
+    }
+
+    [TestMethod]
+    public async Task RunAsync_NatssWithoutACertificate_ExitsWithCertificateProblem()
+    {
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+        var runner = CreateRunner(new FakeListenerFactory(), FakeEnvironmentVariableReader.Empty, composeExtendedProtocolServers: null);
+
+        var exitCode = await runner.RunAsync(["natss://127.0.0.1:0/"], output, error, TestContext.CancellationToken);
+
+        Assert.AreEqual(SurlExitCode.CertificateProblem, exitCode);
+        Assert.AreEqual(
+            "surl: (58) natss://127.0.0.1:0/ needs a certificate: give --cert <file>, or --self-signed for a throwaway one" + NewLine,
+            error.ToString());
+    }
+
     private static string? InformationalVersion() =>
         typeof(CommandLineRunner).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
 

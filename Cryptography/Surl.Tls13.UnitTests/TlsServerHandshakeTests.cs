@@ -1,4 +1,5 @@
 using System.Security.Cryptography;
+using Surl.Cryptography.MlKem;
 
 namespace Surl.Tls13;
 
@@ -70,14 +71,14 @@ public sealed class TlsServerHandshakeTests
     [DataRow("static-8.21.0-win.bin")]
     [DataRow("curlse-8.22.0_2-win.bin")]
     [DataRow("static-8.21.0-linux.bin")]
-    public void Receive_RecordedUpstreamCurlClientHello_CompletesAHandshakeTheTestClientVerifies(string fixture)
+    public void Receive_RecordedUpstreamCurlClientHello_SelectsX25519MlKem768AndCompletesAHandshakeTheTestClientVerifies(string fixture)
     {
         using var key = RSA.Create(2048);
         var options = UnitTestCertificates.QuicOptions(key);
         using var handshake = new TlsServerHandshake(options, RandomNumberGenerator.Create());
         var recorded = UnitTestFixtures.Read(fixture);
-        var recordedShare = ClientHello.Read(recorded).KeyShares!.Single(share => share.Group == TlsNamedGroup.X25519);
-        var client = UnitTestTlsClient.WithX25519Share();
+        var recordedShare = ClientHello.Read(recorded).KeyShares!.Single(share => share.Group == TlsNamedGroup.X25519MlKem768);
+        var client = UnitTestTlsClient.WithX25519MlKem768Share();
         var clientHello = client.WithShareReplaced(recorded, recordedShare.KeyExchange.Span);
 
         var output = handshake.Receive(TlsEncryptionLevel.Initial, clientHello);
@@ -92,8 +93,121 @@ public sealed class TlsServerHandshakeTests
         CollectionAssert.AreEqual(verified.HandshakeSecrets.Server, output.HandshakeSecrets.Server);
         CollectionAssert.AreEqual(verified.ApplicationSecrets.Client, output.ApplicationSecrets!.Client);
         CollectionAssert.AreEqual(verified.ApplicationSecrets.Server, output.ApplicationSecrets.Server);
-        Assert.AreEqual(TlsNamedGroup.X25519, handshake.KeyExchangeGroup);
+        Assert.AreEqual(TlsNamedGroup.X25519MlKem768, handshake.KeyExchangeGroup);
+        Assert.HasCount(1120, client.ServerShare);
         CollectionAssert.AreEqual(ClientHello.Read(clientHello).QuicTransportParameters, handshake.ClientHello!.QuicTransportParameters);
+    }
+
+    [TestMethod]
+    [DataRow("static-8.21.0-win.bin")]
+    [DataRow("curlse-8.22.0_2-win.bin")]
+    [DataRow("static-8.21.0-linux.bin")]
+    public void Receive_RecordedUpstreamCurlClientHello_SendsAnX25519MlKem768ShareOf1216Bytes(string fixture)
+    {
+        var recorded = ClientHello.Read(UnitTestFixtures.Read(fixture));
+
+        var share = recorded.KeyShares!.Single(share => share.Group == TlsNamedGroup.X25519MlKem768);
+
+        Assert.AreEqual(1216, share.KeyExchange.Length);
+    }
+
+    [TestMethod]
+    public void Receive_X25519MlKem768ListedButOnlyAnX25519Share_AnswersX25519WithoutAHelloRetryRequest()
+    {
+        using var handshake = EcdsaHandshake();
+        var client = UnitTestTlsClient.WithX25519Share();
+        var clientHello = new UnitTestClientHelloBuilder
+        {
+            SupportedGroups = [0x11EC, 0x001D],
+            KeyShares = [(0x001D, client.PublicShare)],
+        }.Write();
+
+        var output = handshake.Receive(TlsEncryptionLevel.Initial, clientHello);
+        var verified = client.VerifyServerFlight([clientHello], output.Initial, output.Handshake);
+        handshake.Receive(TlsEncryptionLevel.Handshake, verified.ClientFinished);
+
+        Assert.IsTrue(handshake.IsComplete);
+        Assert.AreEqual(TlsNamedGroup.X25519, handshake.KeyExchangeGroup);
+        Assert.HasCount(32, client.ServerShare);
+    }
+
+    [TestMethod]
+    public void Receive_X25519MlKem768ShareWithScriptedRandomness_AnswersTheCiphertextAndX25519KeyTheRandomnessFixes()
+    {
+        var encapsulationKey = new byte[1184];
+        MlKem768.GenerateKey(new byte[32], new byte[32], encapsulationKey, new byte[2400]);
+        var clientX25519 = UnitTestTlsClient.WithX25519Share();
+        byte[] m = [.. Enumerable.Repeat((byte)0x11, 32)];
+        byte[] serverX25519PrivateKey = [.. Enumerable.Repeat((byte)0x22, 32)];
+        var expectedCiphertext = new byte[1088];
+        MlKem768.TryEncapsulate(encapsulationKey, m, expectedCiphertext, new byte[32]);
+        var expectedX25519 = new byte[32];
+        Surl.Cryptography.Curve25519.X25519.ComputePublicKey(serverX25519PrivateKey, expectedX25519);
+        using var key = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+        using var handshake = new TlsServerHandshake(
+            UnitTestCertificates.QuicOptions(key), new UnitTestScriptedRandom(new byte[32], m, serverX25519PrivateKey));
+        var clientHello = new UnitTestClientHelloBuilder
+        {
+            SupportedGroups = [0x11EC],
+            KeyShares = [(0x11EC, [.. encapsulationKey, .. clientX25519.PublicShare])],
+        }.Write();
+
+        var output = handshake.Receive(TlsEncryptionLevel.Initial, clientHello);
+
+        byte[] expectedShare = [.. expectedCiphertext, .. expectedX25519];
+        Assert.AreNotEqual(-1, output.Initial.AsSpan().IndexOf(expectedShare));
+    }
+
+    [TestMethod]
+    [DataRow(1215)]
+    [DataRow(1217)]
+    public void Receive_X25519MlKem768ShareOfTheWrongLength_FailsWithIllegalParameter(int length)
+    {
+        using var handshake = EcdsaHandshake();
+        var clientHello = new UnitTestClientHelloBuilder { SupportedGroups = [0x11EC], KeyShares = [(0x11EC, new byte[length])] }.Write();
+
+        AssertAlert(TlsAlert.IllegalParameter, () => handshake.Receive(TlsEncryptionLevel.Initial, clientHello));
+    }
+
+    [TestMethod]
+    public void Receive_X25519MlKem768ShareFailingTheModulusCheck_FailsWithIllegalParameter()
+    {
+        using var handshake = EcdsaHandshake();
+        byte[] share = [.. Enumerable.Repeat((byte)0xFF, 1184), .. UnitTestTlsClient.WithX25519Share().PublicShare];
+        var clientHello = new UnitTestClientHelloBuilder { SupportedGroups = [0x11EC], KeyShares = [(0x11EC, share)] }.Write();
+
+        AssertAlert(TlsAlert.IllegalParameter, () => handshake.Receive(TlsEncryptionLevel.Initial, clientHello));
+    }
+
+    [TestMethod]
+    public void Receive_X25519MlKem768ShareWithALowOrderX25519Point_FailsWithIllegalParameter()
+    {
+        using var handshake = EcdsaHandshake();
+        var encapsulationKey = new byte[1184];
+        MlKem768.GenerateKey(new byte[32], new byte[32], encapsulationKey, new byte[2400]);
+        var clientHello = new UnitTestClientHelloBuilder
+        {
+            SupportedGroups = [0x11EC],
+            KeyShares = [(0x11EC, [.. encapsulationKey, .. new byte[32]])],
+        }.Write();
+
+        AssertAlert(TlsAlert.IllegalParameter, () => handshake.Receive(TlsEncryptionLevel.Initial, clientHello));
+    }
+
+    [TestMethod]
+    public void Receive_X25519MlKem768ListedWithAShareForNoServedGroup_RetriesForX25519MlKem768()
+    {
+        using var handshake = EcdsaHandshake();
+        var clientHello = new UnitTestClientHelloBuilder
+        {
+            SupportedGroups = [0x001E, 0x11EC, 0x001D],
+            KeyShares = [(0x001E, new byte[56])],
+        }.Write();
+
+        var output = handshake.Receive(TlsEncryptionLevel.Initial, clientHello);
+
+        Assert.AreNotEqual(-1, output.Initial.AsSpan().IndexOf(Convert.FromHexString("0033000211EC")));
+        Assert.IsNull(handshake.KeyExchangeGroup);
     }
 
     [TestMethod]

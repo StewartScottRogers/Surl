@@ -230,12 +230,17 @@ public sealed partial class QuicServerConnection
         }
     }
 
+    /// <summary>
+    /// The packet's length once sealed. A long header's Length field covers the AEAD tag too, so
+    /// the tag is counted inside the payload: a payload just under 64 bytes in the clear takes a
+    /// two-byte Length once sealed.
+    /// </summary>
     private int PacketLength(QuicPacketNumberSpace space, IReadOnlyList<QuicFrame> frames) =>
         PacketInTheClear(space, frames, space.NextPacketNumber) switch
         {
-            QuicLongHeaderPacket longHeader => longHeader.ToBytes().Length,
-            var shortHeader => ((QuicShortHeaderPacket)shortHeader).ToBytes().Length,
-        } + QuicPacketProtection.AeadTagLength;
+            QuicLongHeaderPacket longHeader => (longHeader with { Payload = new byte[longHeader.Payload.Length + QuicPacketProtection.AeadTagLength] }).ToBytes().Length,
+            var shortHeader => ((QuicShortHeaderPacket)shortHeader).ToBytes().Length + QuicPacketProtection.AeadTagLength,
+        };
 
     private byte[] SealPacket(QuicPacketNumberSpace space, IReadOnlyList<QuicFrame> frames, ulong packetNumber) =>
         PacketInTheClear(space, frames, packetNumber) switch

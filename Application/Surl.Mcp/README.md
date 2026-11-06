@@ -20,7 +20,12 @@ archives hold the same server as a native binary that needs no .NET runtime.
 - `start_server` - starts a server from listen URLs and `surl`'s own options.
 - `list_servers` - lists the servers this host started.
 - `stop_server` - stops one.
-- `get_exchanges` - the bytes each client sent and was answered.
+- `get_exchanges` - the bytes each client sent and was answered, with the listen URL and scheme of each
+  exchange, filtered by scheme and listen URL.
+- `get_events` - the events a server kept (exchanges started and ended, logins judged, store changes, faults
+  applied, hooks failed), filtered by kind, scheme, listen URL, account and sequence.
+- `wait_for_event` - waits up to `timeout_ms` (1 to 60000 milliseconds) for the first event matching the
+  same filters, or answers `timed_out`.
 
 The `surl://aihelp` resources carry `surl --aihelp`'s topics.
 

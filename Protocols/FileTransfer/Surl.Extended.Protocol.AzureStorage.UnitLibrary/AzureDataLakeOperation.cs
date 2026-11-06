@@ -29,4 +29,24 @@ internal enum AzureDataLakeOperation
     /// Path - List: <c>GET /&lt;filesystem&gt;?resource=filesystem&amp;recursive=&lt;bool&gt;</c>.
     /// </summary>
     ListPaths,
+
+    /// <summary>
+    /// Filesystem - List: <c>GET /?resource=account</c>.
+    /// </summary>
+    ListFilesystems,
+
+    /// <summary>
+    /// Filesystem - Get Properties: <c>HEAD /&lt;filesystem&gt;?resource=filesystem</c>.
+    /// </summary>
+    GetFilesystemProperties,
+
+    /// <summary>
+    /// Path - Create with <c>x-ms-rename-source</c>: <c>PUT /&lt;filesystem&gt;/&lt;path&gt;</c>, a rename.
+    /// </summary>
+    RenamePath,
+
+    /// <summary>
+    /// Path - Update: <c>PATCH /&lt;filesystem&gt;/&lt;path&gt;?action=setProperties</c>.
+    /// </summary>
+    SetPathProperties,
 }

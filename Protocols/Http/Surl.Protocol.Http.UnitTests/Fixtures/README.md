@@ -37,15 +37,19 @@ recorder's four files plus `response.bin`, the exact response bytes sent (decode
 The fixed clock is 2026-09-28 12:00:00 UTC and `file.txt` was last written 2026-09-01
 08:30:00 UTC. BL-050 added `Server: surl` to every response (ADR-0019), so it re-recorded
 the first three on 2026-09-29 and recorded the rest the same day, from the repository
-root in Windows PowerShell. `<upload>` is a 2048-byte file of `a` bytes in the temporary
+root in Windows PowerShell. BL-686 named `file.txt`'s media type `text/plain` (ADR-0142), so on
+2026-11-06 it re-recorded every fixture whose response carries a `Content-Type` for `file.txt` -
+`get-file`, `head-file`, `expect-continue-get`, `digest-401-then-200` and the four `range-*` cases -
+with the same commands and `Content-Type: text/plain`; each exited 0 as before, and only
+`digest-401-then-200`'s `request.bin` changed (curl's fresh `cnonce`). `<upload>` is a 2048-byte file of `a` bytes in the temporary
 directory; `expect-continue-413` was recorded with `-RespondAfterBodyBytes 0`, so the
 413 went out as soon as the head arrived, and its `request.bin` is the 181-byte head
 alone: curl sent no body byte.
 
 | Folder | Exit code | stdout.bin | Command line |
 | --- | --- | --- | --- |
-| `get-file` | 0 | the 17-byte body `Hello from Surl.\n` | `.\Record-CurlExchange.ps1 -Port 18050 -OutDirectory Protocols\Http\Surl.Protocol.Http.UnitTests\Fixtures\get-file -Response 'HTTP/1.1 200 OK\r\nDate: Mon, 28 Sep 2026 12:00:00 GMT\r\nServer: surl\r\nLast-Modified: Tue, 01 Sep 2026 08:30:00 GMT\r\nContent-Type: application/octet-stream\r\nContent-Length: 17\r\n\r\nHello from Surl.\n' -CurlArgs 'http://127.0.0.1:18050/file.txt'` |
-| `head-file` | 0 | the response head | `.\Record-CurlExchange.ps1 -Port 18050 -OutDirectory Protocols\Http\Surl.Protocol.Http.UnitTests\Fixtures\head-file -Response 'HTTP/1.1 200 OK\r\nDate: Mon, 28 Sep 2026 12:00:00 GMT\r\nServer: surl\r\nLast-Modified: Tue, 01 Sep 2026 08:30:00 GMT\r\nContent-Type: application/octet-stream\r\nContent-Length: 17\r\n\r\n' -CurlArgs '-I','http://127.0.0.1:18050/file.txt'` |
+| `get-file` | 0 | the 17-byte body `Hello from Surl.\n` | `.\Record-CurlExchange.ps1 -Port 18050 -OutDirectory Protocols\Http\Surl.Protocol.Http.UnitTests\Fixtures\get-file -Response 'HTTP/1.1 200 OK\r\nDate: Mon, 28 Sep 2026 12:00:00 GMT\r\nServer: surl\r\nLast-Modified: Tue, 01 Sep 2026 08:30:00 GMT\r\nContent-Type: text/plain\r\nContent-Length: 17\r\n\r\nHello from Surl.\n' -CurlArgs 'http://127.0.0.1:18050/file.txt'` |
+| `head-file` | 0 | the response head | `.\Record-CurlExchange.ps1 -Port 18050 -OutDirectory Protocols\Http\Surl.Protocol.Http.UnitTests\Fixtures\head-file -Response 'HTTP/1.1 200 OK\r\nDate: Mon, 28 Sep 2026 12:00:00 GMT\r\nServer: surl\r\nLast-Modified: Tue, 01 Sep 2026 08:30:00 GMT\r\nContent-Type: text/plain\r\nContent-Length: 17\r\n\r\n' -CurlArgs '-I','http://127.0.0.1:18050/file.txt'` |
 | `not-found-fail` | 22 | empty; stderr ends `curl: (22) The requested URL returned error: 404` | `.\Record-CurlExchange.ps1 -Port 18050 -OutDirectory Protocols\Http\Surl.Protocol.Http.UnitTests\Fixtures\not-found-fail -Response 'HTTP/1.1 404 Not Found\r\nDate: Mon, 28 Sep 2026 12:00:00 GMT\r\nServer: surl\r\nContent-Length: 0\r\n\r\n' -CurlArgs '--fail','http://127.0.0.1:18050/missing.txt'` |
 | `head-timeout-408` | 22 | empty; stderr `curl: (22) The requested URL returned error: 408` | `.\Record-CurlExchange.ps1 -Port 18050 -OutDirectory Protocols\Http\Surl.Protocol.Http.UnitTests\Fixtures\head-timeout-408 -Response 'HTTP/1.1 408 Request Timeout\r\nDate: Mon, 28 Sep 2026 12:00:00 GMT\r\nServer: surl\r\nContent-Length: 0\r\nConnection: close\r\n\r\n' -CurlArgs '-sS','--fail','http://127.0.0.1:18050/file.txt'` |
 | `head-too-large-431` | 22 | empty; stderr `curl: (22) The requested URL returned error: 431` | `.\Record-CurlExchange.ps1 -Port 18050 -OutDirectory Protocols\Http\Surl.Protocol.Http.UnitTests\Fixtures\head-too-large-431 -Response 'HTTP/1.1 431 Request Header Fields Too Large\r\nDate: Mon, 28 Sep 2026 12:00:00 GMT\r\nServer: surl\r\nContent-Length: 0\r\nConnection: close\r\n\r\n' -CurlArgs '-sS','--fail','http://127.0.0.1:18050/file.txt'` |
@@ -78,7 +82,7 @@ same run without `-InterimResponse` took 1037 ms, curl's one-second `--expect100
 
 | Folder | Exit code | stdout.bin | Command line |
 | --- | --- | --- | --- |
-| `expect-continue-get` | 0 | the 17-byte body `Hello from Surl.\n` | `.\Record-CurlExchange.ps1 -Port 18083 -OutDirectory Protocols\Http\Surl.Protocol.Http.UnitTests\Fixtures\expect-continue-get -InterimResponse 'HTTP/1.1 100 Continue\r\n\r\n' -Response 'HTTP/1.1 200 OK\r\nDate: Mon, 28 Sep 2026 12:00:00 GMT\r\nServer: surl\r\nLast-Modified: Tue, 01 Sep 2026 08:30:00 GMT\r\nContent-Type: application/octet-stream\r\nContent-Length: 17\r\n\r\nHello from Surl.\n' -CurlArgs '-sS','-X','GET','-H','Expect: 100-continue','--data-binary','@<upload>','http://127.0.0.1:18083/file.txt'` |
+| `expect-continue-get` | 0 | the 17-byte body `Hello from Surl.\n` | `.\Record-CurlExchange.ps1 -Port 18083 -OutDirectory Protocols\Http\Surl.Protocol.Http.UnitTests\Fixtures\expect-continue-get -InterimResponse 'HTTP/1.1 100 Continue\r\n\r\n' -Response 'HTTP/1.1 200 OK\r\nDate: Mon, 28 Sep 2026 12:00:00 GMT\r\nServer: surl\r\nLast-Modified: Tue, 01 Sep 2026 08:30:00 GMT\r\nContent-Type: text/plain\r\nContent-Length: 17\r\n\r\nHello from Surl.\n' -CurlArgs '-sS','-X','GET','-H','Expect: 100-continue','--data-binary','@<upload>','http://127.0.0.1:18083/file.txt'` |
 
 ## Authentication fixtures (BL-114)
 
@@ -147,7 +151,7 @@ Recorded on 2026-11-05 from the repository root in PowerShell, with the same pin
 `response.bin` is the decoded `-Response` each case was fed, which the tests compare the server's
 output with; the clock and `file.txt` are those of the response fixtures above, and every case exited
 0 with an empty `stderr.txt`. `<lm>` is `Tue, 01 Sep 2026 08:30:00 GMT`, `<head>` is
-`HTTP/1.1 206 Partial Content\r\nDate: Mon, 28 Sep 2026 12:00:00 GMT\r\nServer: surl\r\nLast-Modified: <lm>\r\nContent-Type: application/octet-stream\r\n`,
+`HTTP/1.1 206 Partial Content\r\nDate: Mon, 28 Sep 2026 12:00:00 GMT\r\nServer: surl\r\nLast-Modified: <lm>\r\nContent-Type: text/plain\r\n`,
 and `<upload>` is a 16-byte file of `a` bytes in the temporary directory. In the `put-*` cases curl
 sent the 16-byte body with the head, and no `Expect`.
 
@@ -169,7 +173,7 @@ decision 1). `response.bin` is the decoded `-Response`, concatenated in order fo
 
 | Folder | Exit code | stdout.bin | Command line |
 | --- | --- | --- | --- |
-| `fault-503-then-get` | 0 | the 17-byte body of `/b`; both requests on one connection | `.\Record-CurlExchange.ps1 -Port 18793 -ResponsesPerConnection 2 -OutDirectory <folder> -Response 'HTTP/1.1 503 Service Unavailable\r\nDate: Mon, 28 Sep 2026 12:00:00 GMT\r\nServer: surl\r\nContent-Length: 0\r\n\r\n','HTTP/1.1 200 OK\r\nDate: Mon, 28 Sep 2026 12:00:00 GMT\r\nServer: surl\r\nLast-Modified: Tue, 01 Sep 2026 08:30:00 GMT\r\nContent-Type: application/octet-stream\r\nContent-Length: 17\r\n\r\nHello from Surl.\n' -CurlArgs '-sS','http://127.0.0.1:18793/a','http://127.0.0.1:18793/b'` |
+| `fault-503-then-get` | 0 | the 17-byte body of `/b`; both requests on one connection | `.\Record-CurlExchange.ps1 -Port 18793 -ResponsesPerConnection 2 -OutDirectory <folder> -Response 'HTTP/1.1 503 Service Unavailable\r\nDate: Mon, 28 Sep 2026 12:00:00 GMT\r\nServer: surl\r\nContent-Length: 0\r\n\r\n','HTTP/1.1 200 OK\r\nDate: Mon, 28 Sep 2026 12:00:00 GMT\r\nServer: surl\r\nLast-Modified: Tue, 01 Sep 2026 08:30:00 GMT\r\nContent-Type: text/plain\r\nContent-Length: 17\r\n\r\nHello from Surl.\n' -CurlArgs '-sS','http://127.0.0.1:18793/a','http://127.0.0.1:18793/b'` |
 | `fault-503-fail` | 22 | empty; stderr `curl: (22) The requested URL returned error: 503` | `.\Record-CurlExchange.ps1 -Port 18793 -OutDirectory <folder> -Response 'HTTP/1.1 503 Service Unavailable\r\nDate: Mon, 28 Sep 2026 12:00:00 GMT\r\nServer: surl\r\nContent-Length: 0\r\n\r\n' -CurlArgs '-sS','--fail','http://127.0.0.1:18793/a'` |
 
 The same build also exited 0 with `-w '%{response_code}'` printing `599` for `HTTP/1.1 599 \r\n...`, an empty

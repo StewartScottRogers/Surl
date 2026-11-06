@@ -42,6 +42,8 @@ public static class CommandLineParser
     private const string AuthorizedKeysLongName = "authorized-keys";
     private const string GroupLongName = "group";
     private const string FaultLongName = "fault";
+    private const string MailDomainLongName = "mail-domain";
+    private const string MailboxLongName = "mailbox";
     private const string ConfigLongName = "config";
     private const string ConfigOption = "--config";
     private const string UrlLongName = "url";
@@ -349,19 +351,36 @@ public static class CommandLineParser
     /// <summary>
     /// What an accepted argument does besides setting its value: counts a <c>--group</c> or a
     /// <c>--fault</c>, reads a <c>-K</c> file in place, adds a <c>--url</c> listen URL, reads the
-    /// <c>--control</c> listen URL; null to read on.
+    /// <c>--control</c> listen URL, or does what <see cref="ActOnAcceptedMailOption"/> does; null to read on.
     /// </summary>
     private static CommandLineParseResult? ActOnAcceptedArgument(
         CommandLineReading reading, string longName, string reportedName, string argument) =>
-        longName switch
+        ActOnAcceptedMailOption(reading, longName, reportedName, argument)
+        ?? longName switch
         {
-            GroupLongName => CountGroup(reading, reportedName),
             FaultLongName => CountFault(reading, reportedName),
+            GroupLongName => CountItemOption(reading.GroupOptionNames, reportedName),
             ConfigLongName => ReadConfigFile(reading, argument),
             UrlLongName => ReadListenUrl(reading, argument),
             ControlLongName => ReadControlListenUrl(reading, argument),
             _ => null,
         };
+
+    /// <summary>
+    /// What an accepted <c>--mail-domain</c> or <c>--mailbox</c> does besides setting its value:
+    /// counts it, and reads a mailbox's scheme list (<see cref="ReadMailbox"/>); null to read on,
+    /// and for every other option.
+    /// </summary>
+    private static CommandLineParseResult? ActOnAcceptedMailOption(
+        CommandLineReading reading, string longName, string reportedName, string argument)
+    {
+        if (longName == MailDomainLongName)
+        {
+            return CountItemOption(reading.MailDomainOptionNames, reportedName);
+        }
+
+        return longName == MailboxLongName ? ReadMailbox(reading, reportedName, argument) : null;
+    }
 
     /// <summary>
     /// Reads <c>--control</c>'s argument into <see cref="SurlCommandLine.ControlListenUrl"/>, the
@@ -491,13 +510,14 @@ public static class CommandLineParser
     }
 
     /// <summary>
-    /// Keeps the name a <c>--group</c> was written with, and refuses the one past
+    /// Keeps the name a <c>--group</c>, <c>--mail-domain</c> or <c>--mailbox</c> was written with, in
+    /// <paramref name="optionNames"/>, and refuses the one past
     /// <see cref="ConfigurationItemReader.MaxOccurrences"/> (ADR-0101 decision 5 row 13); null otherwise.
     /// </summary>
-    private static CommandLineParseResult? CountGroup(CommandLineReading reading, string reportedName)
+    private static CommandLineParseResult? CountItemOption(List<string> optionNames, string reportedName)
     {
-        reading.GroupOptionNames.Add(reportedName);
-        return reading.GroupOptionNames.Count > ConfigurationItemReader.MaxOccurrences
+        optionNames.Add(reportedName);
+        return optionNames.Count > ConfigurationItemReader.MaxOccurrences
             ? RefusedOption(reportedName, ConfigurationItemReader.GivenTooOften)
             : null;
     }
@@ -512,7 +532,92 @@ public static class CommandLineParser
             : null;
 
     /// <summary>
-    /// The name a refusal gives:<paramref name="writtenName"/>, or, for an option whose
+    /// Counts the <c>--mailbox</c> just read, keeps its address as written for a later refusal,
+    /// and refuses it when its <c>protocols=</c> names a scheme no server this start runs speaks,
+    /// so an extended scheme under <c>SURL_EXTENSIONS=0</c> is refused (ADR-0101 decision 4); null otherwise.
+    /// </summary>
+    private static CommandLineParseResult? ReadMailbox(CommandLineReading reading, string reportedName, string argument)
+    {
+        ConfigurationItemReader.Read(ConfiguredMailboxReader.Shape, argument, out var item);
+        reading.MailboxWrittenAddresses.Add(item.Name);
+        var unknown = reading.CommandLine.Mailboxes[^1].Protocols?
+            .FirstOrDefault(scheme => !ConfiguredMailboxReader.IsServedScheme(scheme, reading.ExtendedSchemes));
+        return CountItemOption(reading.MailboxOptionNames, reportedName)
+            ?? (unknown is null ? null : RefusedOption(reportedName, ConfiguredMailboxReader.UnknownScheme(unknown)));
+    }
+
+    /// <summary>
+    /// Refuses, once the whole line is read, a mail domain given twice (compared as
+    /// <see cref="MailDomainNames.ReadDomain"/> reads it), a mailbox address given twice (compared
+    /// without regard to case), then the first mailbox with a conflict of ADR-0101 decision 5 row 15;
+    /// null when none. Each refusal names the domain or address as written.
+    /// </summary>
+    private static CommandLineParseResult? RefuseMailCombination(CommandLineReading reading)
+    {
+        var domains = reading.CommandLine.MailDomains.Select(ComparedMailDomain).ToList();
+        return RefuseMailDomainGivenTwice(reading, domains)
+            ?? RefuseMailboxGivenTwice(reading)
+            ?? RefuseMailboxConflict(reading, domains.ToHashSet(StringComparer.Ordinal));
+    }
+
+    /// <summary>Refuses the first <c>--mail-domain</c> an earlier one already gave; null when none.</summary>
+    private static CommandLineParseResult? RefuseMailDomainGivenTwice(CommandLineReading reading, List<string> domains)
+    {
+        var repeated = FindRepeatedIndex(domains, StringComparer.Ordinal);
+        return repeated < 0
+            ? null
+            : RefusedOption(reading.MailDomainOptionNames[repeated], MailDomainNames.MailDomainGivenTwice(reading.CommandLine.MailDomains[repeated]));
+    }
+
+    /// <summary>Refuses the first <c>--mailbox</c> whose address an earlier one gave, compared without regard to case; null when none.</summary>
+    private static CommandLineParseResult? RefuseMailboxGivenTwice(CommandLineReading reading)
+    {
+        var repeated = FindRepeatedIndex(reading.CommandLine.Mailboxes.Select(mailbox => mailbox.Address).ToList(), StringComparer.OrdinalIgnoreCase);
+        return repeated < 0
+            ? null
+            : RefusedOption(reading.MailboxOptionNames[repeated], ConfiguredMailboxReader.MailboxGivenTwice(reading.MailboxWrittenAddresses[repeated]));
+    }
+
+    /// <summary>Refuses the first <c>--mailbox</c> outside every mail domain, with none, or naming a <c>--user</c> account; null when none.</summary>
+    private static CommandLineParseResult? RefuseMailboxConflict(CommandLineReading reading, HashSet<string> mailDomains)
+    {
+        var mailboxes = reading.CommandLine.Mailboxes;
+        var userNames = reading.CommandLine.Accounts.Select(account => account.UserName).ToHashSet(StringComparer.Ordinal);
+        for (var index = 0; index < mailboxes.Count; index++)
+        {
+            if (ConfiguredMailboxReader.FindConflict(reading.MailboxWrittenAddresses[index], mailboxes[index], mailDomains, userNames) is { } conflict)
+            {
+                return RefusedOption(reading.MailboxOptionNames[index], conflict);
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>An accepted <c>--mail-domain</c> in the form domains are compared in (ADR-0102 decision 1.1).</summary>
+    private static string ComparedMailDomain(string written)
+    {
+        MailDomainNames.ReadDomain(written, out var domain);
+        return domain;
+    }
+
+    /// <summary>The index of the first name an earlier one already gave; -1 when none repeats.</summary>
+    private static int FindRepeatedIndex(IReadOnlyList<string> names, StringComparer comparer)
+    {
+        var seen = new HashSet<string>(comparer);
+        for (var index = 0; index < names.Count; index++)
+        {
+            if (!seen.Add(names[index]))
+            {
+                return index;
+            }
+        }
+
+        return -1;
+    }
+
+    /// <summary>
+    /// The name a refusal gives: <paramref name="writtenName"/>, or, for an option whose
     /// argument holds a secret, the option as written without any value (<c>--user</c>,
     /// <c>--no-user</c>, <c>-u</c> of <c>-vua:b</c>), so none of that option's own refusals
     /// echoes its value (ADR-0032 section 1). An unknown option is still named as written.
@@ -618,14 +723,16 @@ public static class CommandLineParser
     /// <summary>
     /// Refuses the first option combination that cannot work, in this order: the TLS options,
     /// <c>--throwaway-hostkey</c> with <c>--hostkey</c>, a repeated <c>--user</c> name, then a
-    /// repeated <c>--authorized-keys</c> user, then a repeated <c>--group</c> name; null when none is.
+    /// repeated <c>--authorized-keys</c> user, then a repeated <c>--group</c> name, then the mail
+    /// options (<see cref="RefuseMailCombination"/>); null when none is.
     /// </summary>
     private static CommandLineParseResult? RefuseCombination(CommandLineReading reading) =>
         RefuseTlsCombination(reading)
         ?? RefuseThrowawayHostKeyWithHostKey(reading)
         ?? RefuseRepeatedName(reading.CommandLine.Accounts.Select(account => account.UserName), reading.AccountOptionNames, UserGivenTwice)
         ?? RefuseRepeatedName(reading.CommandLine.AuthorizedKeys.Select(keys => keys.UserName), reading.AuthorizedKeysOptionNames, UserGivenTwice)
-        ?? RefuseRepeatedName(reading.CommandLine.Groups.Select(group => group.Name), reading.GroupOptionNames, ConfiguredGroupReader.GroupGivenTwice);
+        ?? RefuseRepeatedName(reading.CommandLine.Groups.Select(group => group.Name), reading.GroupOptionNames, ConfiguredGroupReader.GroupGivenTwice)
+        ?? RefuseMailCombination(reading);
 
     private static string UserGivenTwice(string userName) => $"user {userName} is given twice";
 
@@ -752,6 +859,15 @@ public static class CommandLineParser
 
         /// <summary>The name each accepted <c>--group</c> was written with, one per group, in order.</summary>
         public List<string> GroupOptionNames { get; } = [];
+
+        /// <summary>The name each accepted <c>--mail-domain</c> was written with, one per domain, in order.</summary>
+        public List<string> MailDomainOptionNames { get; } = [];
+
+        /// <summary>The name each accepted <c>--mailbox</c> was written with, one per mailbox, in order.</summary>
+        public List<string> MailboxOptionNames { get; } = [];
+
+        /// <summary>The address each accepted <c>--mailbox</c> was written with, decoded, one per mailbox, in order.</summary>
+        public List<string> MailboxWrittenAddresses { get; } = [];
 
         /// <summary>The written names of <c>--user</c> (<paramref name="longName"/> <c>user</c>) or <c>--authorized-keys</c>.</summary>
         public List<string> OptionNamesByUser(string longName) =>

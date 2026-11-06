@@ -139,5 +139,17 @@ internal sealed class GcsServerHarness
         return Encoding.UTF8.GetString(connection.WrittenBytes);
     }
 
+    /// <summary>
+    /// Sends <paramref name="request"/> on a connection that reports a TLS session.
+    /// </summary>
+    public async Task<string> SendRawOverTlsAsync(string request)
+    {
+        var tls = new TlsSession(System.Security.Authentication.SslProtocols.Tls13, System.Net.Security.TlsCipherSuite.TLS_AES_128_GCM_SHA256, null, null, null);
+        var connection = new InMemoryConnection([Encoding.Latin1.GetBytes(request)], initialTlsSession: tls);
+        await Server.ServeAsync(connection, Context());
+
+        return Encoding.UTF8.GetString(connection.WrittenBytes);
+    }
+
     private static string Lines(IEnumerable<string> fields) => string.Concat(fields.Select(field => field + "\r\n"));
 }

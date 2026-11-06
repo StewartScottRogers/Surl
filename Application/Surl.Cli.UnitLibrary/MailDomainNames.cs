@@ -18,6 +18,26 @@ public static class MailDomainNames
 
     private static readonly IdnMapping Mapping = new() { UseStd3AsciiRules = true };
 
+    /// <summary><see cref="ReadMailDomain"/> and its argument type (ADR-0046 decision 5), for <c>--mail-domain</c>.</summary>
+    internal static readonly OptionArgumentReading<string> Reading =
+        new(ReadMailDomain, new("domain", "a domain name in A-labels or U-labels, one trailing dot allowed; subdomains are not matched"));
+
+    /// <summary>A mail domain an earlier <c>--mail-domain</c> already gave, compared as <see cref="ReadDomain"/> reads it (ADR-0101 decision 5 row 14).</summary>
+    /// <param name="domain">The domain as written.</param>
+    /// <returns><c>mail domain &lt;domain&gt; is given twice</c>.</returns>
+    public static string MailDomainGivenTwice(string domain) => $"mail domain {domain} is given twice";
+
+    /// <summary>Reads one <c>--mail-domain</c> argument: a name <see cref="ReadDomain"/> accepts, kept as written.</summary>
+    /// <param name="argument">The argument as given.</param>
+    /// <param name="value">The domain as written.</param>
+    /// <returns><c>blank argument where content is expected</c>, <see cref="NotADomainName"/>, or <see langword="null"/>.</returns>
+    public static string? ReadMailDomain(string argument, out string value)
+    {
+        ArgumentNullException.ThrowIfNull(argument);
+        value = argument;
+        return argument.Length == 0 ? OptionArgumentReader.Blank : ReadDomain(argument, out _);
+    }
+
     /// <summary>Reads one domain name.</summary>
     /// <param name="name">The name as given, e.g. <c>Bücher.Example.</c>.</param>
     /// <param name="domain">The ASCII lower-case form, e.g. <c>xn--bcher-kva.example</c>; empty when refused.</param>

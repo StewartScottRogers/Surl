@@ -64,6 +64,14 @@ public sealed class AnonymousAuthenticationPolicyTests
     }
 
     [TestMethod]
+    public void NamesAccount_DefaultMember_MatchesNoName()
+    {
+        IAuthenticationPolicy policy = new AnonymousAuthenticationPolicy();
+
+        Assert.IsFalse(policy.NamesAccount("account1"));
+    }
+
+    [TestMethod]
     public async Task JudgeAsync_WriteRequest_Proceeds()
     {
         var session = new AnonymousAuthenticationPolicy().StartHttpConnection(null);

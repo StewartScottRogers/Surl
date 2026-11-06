@@ -45,8 +45,20 @@ listen URL's host when it is a DNS name, `localhost` and `storage.googleapis.com
   and before committing; every other request reads and discards it first (`JudgeDiscardedBodyAsync`).
   Tests replay BL-430's hand-worked GET and a signed PUT worked the same way (`GcsSignedRequests`).
 
-Every other request - another method, a subresource or unlisted query parameter, a copy, a POST,
-`x-goog-encryption-*` - is `400 NotImplemented`, judged after the login. Every error is `GcsError`'s fixed
+- Multipart and resumable uploads (BL-718, ADR-0110 amendment 2), recognised by method and the exact set of
+  query names (`GcsOperationRecognition`): `GcsMultipartUpload` (initiate `?uploads`, part
+  `?partNumber&uploadId` 1-10000, list parts `?uploadId` with `max-parts` and `part-number-marker`, abort),
+  `GcsCompleteMultipartUpload` (body read by `GcsCompleteMultipartUploadDocument`; `InvalidPartOrder`,
+  `InvalidPart`, `EntityTooSmall` below 5 MiB, ETag `"<md5 of md5s>-<n>"`) and `GcsResumableUpload` (`POST`
+  with `x-goog-resumable: start` is `201` with a `?upload_id=` session URI; `PUT` chunks by `Content-Range`,
+  read by `GcsContentRange`, `308 Resume Incomplete` with `Range` until the total is in, then `200`; cancel
+  `204`). Both share `GcsUploadStaging` (opening, appending a body, committing with the opening request's
+  metadata) and the server-wide `GcsStagedUploads` (1000 open, 24-hour idle discard on `TimeProvider`, one
+  request at a time): each upload is a `GcsStagedUpload` whose bytes sit in an uncommitted upload session at
+  the object, invisible until completion. An unknown, finished or other-form ID is `404 NoSuchUpload`.
+
+Every other request - another method, a subresource or unlisted query parameter, a copy, a `POST` that is no
+upload, `x-goog-encryption-*` - is `400 NotImplemented`, judged after the login. Every error is `GcsError`'s fixed
 code and message in the one-line XML body (`GcsErrorBody`); no client byte is echoed, and a `HEAD` error has
 no body. A connection past a limit is `503 SlowDown` (`WriteRefusalAsync`). A head past `--max-request-head`
 is still `Surl.HttpServing`'s `431` until BL-774.

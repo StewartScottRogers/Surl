@@ -1,5 +1,7 @@
+using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Net;
+using System.Threading.Channels;
 using Surl.Protocol.Abstractions;
 
 namespace Surl.Api;
@@ -18,15 +20,49 @@ internal sealed class FakeListenerFactory : IListenerFactory
     private int startedListenerCount;
     private int disposedListenerCount;
     private IConnection? connectionToAccept;
+    private readonly ConcurrentDictionary<string, IConnection> connectionsToAcceptByScheme = new(StringComparer.Ordinal);
+    private readonly Channel<IConnection> queuedConnections = Channel.CreateUnbounded<IConnection>();
+    private readonly ConcurrentDictionary<string, Channel<IConnection>> queuedConnectionsByScheme = new(StringComparer.Ordinal);
+
+    /// <summary>
+    /// Hands <paramref name="connection"/> to the next accept of any connection listener, after
+    /// <see cref="ConnectionsToAcceptByScheme"/> and <see cref="ConnectionToAccept"/>, so a test can bring a
+    /// client in once the server is running.
+    /// </summary>
+    public void Accept(IConnection connection) => queuedConnections.Writer.TryWrite(connection);
+
+    /// <summary>
+    /// Hands <paramref name="connection"/> to the next accept of a connection listener on <paramref name="scheme"/>
+    /// only, so a server with several listen URLs takes each client on the listener it is meant for.
+    /// </summary>
+    public void Accept(string scheme, IConnection connection) => QueueOf(scheme).Writer.TryWrite(connection);
+
+    private Channel<IConnection> QueueOf(string scheme) =>
+        queuedConnectionsByScheme.GetOrAdd(scheme, _ => Channel.CreateUnbounded<IConnection>());
 
     /// <summary>
     /// A connection the first accept of any connection listener returns, once; every other accept
-    /// waits until cancelled.
+    /// takes the next connection given to <see cref="Accept"/>, waiting for one until cancelled.
     /// </summary>
     public IConnection? ConnectionToAccept
     {
         get => Volatile.Read(ref connectionToAccept);
         init => connectionToAccept = value;
+    }
+
+    /// <summary>
+    /// A connection for each scheme: the first accept of a connection listener on that scheme returns it,
+    /// once, before <see cref="ConnectionToAccept"/> is looked at.
+    /// </summary>
+    public IReadOnlyDictionary<string, IConnection> ConnectionsToAcceptByScheme
+    {
+        init
+        {
+            foreach (var (scheme, connection) in value)
+            {
+                connectionsToAcceptByScheme[scheme] = connection;
+            }
+        }
     }
 
     /// <summary>Whether every start throws an address-in-use <see cref="ListenerBindException"/>.</summary>
@@ -81,13 +117,29 @@ internal sealed class FakeListenerFactory : IListenerFactory
 
         public async ValueTask<IConnection> AcceptAsync(CancellationToken cancellationToken)
         {
+            if (factory.connectionsToAcceptByScheme.TryRemove(ListenUrl.Scheme, out var schemeConnection))
+            {
+                return schemeConnection;
+            }
+
             if (Interlocked.Exchange(ref factory.connectionToAccept, null) is { } connection)
             {
                 return connection;
             }
 
-            await WaitUntilCancelledAsync(cancellationToken);
-            throw new UnreachableException();
+            var schemeQueue = factory.QueueOf(ListenUrl.Scheme).Reader;
+            var anyQueue = factory.queuedConnections.Reader;
+            while (true)
+            {
+                if (schemeQueue.TryRead(out var queued) || anyQueue.TryRead(out queued))
+                {
+                    return queued;
+                }
+
+                await Task.WhenAny(
+                    schemeQueue.WaitToReadAsync(cancellationToken).AsTask(), anyQueue.WaitToReadAsync(cancellationToken).AsTask());
+                cancellationToken.ThrowIfCancellationRequested();
+            }
         }
 
         public ValueTask DisposeAsync()

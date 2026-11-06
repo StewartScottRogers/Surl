@@ -5,7 +5,7 @@ priority: Normal
 assignee: Claude
 pipeline: feature
 depends-on: [BL-553, BL-554]
-touches: [Application/Surl.Console, Application/Surl.Console.UnitTests, Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests]
+touches: [Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests, Application/Surl.Console, Application/Surl.Console.UnitTests, Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests]
 requirement: none
 created: 2026-11-04
 completed:
@@ -57,8 +57,11 @@ and `surl --aihelp` documents them.
 ## Notes
 
 - Planning assumption (BL-399): the command-line form above; BL-550's ADR decides it.
+- 2026-11-06 (lane 4): `touches` widened with `Application/Surl.Composition.UnitLibrary` and `.UnitTests`. ADR-0124 moved `ComposeProtocolServers` and the registration list (`ProtocolServerRegistrations.Original`) out of `Surl.Console` into `Surl.Composition`, so registering `Surl.Protocol.HttpProxy` and composing its outbound connector and `IsProxy` listen URLs is a change there. BL-803 (Doing) holds that project, so the task returns to Backlog until BL-803 is Done.
 - BL-554 (ADR-0088 Amendment 2): every listen URL built from `--proxy` must set `ListenUrl.IsProxy = true`, so an `https` proxy listener offers ALPN `http/1.1` only; without it curl's `--proxy-http2` agrees `h2` and the proxy closes the connection.
 
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-06: Backlog -> Doing.
+- 2026-11-06: Doing -> Backlog. Needs Application/Surl.Composition.UnitLibrary (proxy registration lives there since ADR-0124), held by BL-803; touches widened

@@ -8,7 +8,7 @@
   and Delete Blob (decisions 1 and 3), BL-426 the Data Lake path requests and Path - Delete
   (decisions 1, 2 and 5), BL-717 Shared Key and shared access signatures (decision 3), BL-715 Put
   Block, Put Block List and Get Block List (decisions 1 and 7), BL-716 List Containers and the Data
-  Lake rename, properties and filesystem requests (decision 1), and BL-427 serves the three schemes
+  Lake rename, properties and filesystem requests (decisions 1 and 9, decision 9 added 2026-11-06), and BL-427 serves the three schemes
   from `surl` with their TLS (decision 6).
 - **Builds on:** [ADR-0083](ADR-0083-how-surl-serves-the-curl-ports-extended-protocols-and-how-they-are-tested.md)
   (the oracle is the specification; the Curl port is never proof; decision 7's ports),
@@ -478,6 +478,54 @@ the Azure Blob service on `az` and the Data Lake Storage Gen2 endpoint on `abfs`
 shared content store, is judged by the Azure Storage REST API at 2025-01-05 and not by upstream curl,
 requires a login by default (a bearer token from `--user ':<token>'`, Shared Key or a SAS), and is
 HTTPS on `az` and `abfss` unless `--az-plaintext`. BL-427 writes it with its example.
+
+### 9. List Containers, the Data Lake rename, properties and filesystem requests (BL-716)
+
+Decided by Claude under Stewart's delegation, 2026-11-06, in BL-716, by the pages each row names.
+
+- **List Containers and Filesystem - List** name the containers the caller may read: the served
+  root's top-level folders (shares included) and every `--bucket`, a share the caller may not read
+  left out (ADR-0102 decision 2.3), a top-level file never a container. Both are listings, so both
+  need `--list-directories` (off: `403 AuthorizationPermissionMismatch`), as List Blobs does. List
+  Containers reads `prefix`, `marker` and `maxresults` as List Blobs does (decision 5.3);
+  `include=metadata` adds an empty `Metadata` (a folder keeps none), `deleted` and `system` add
+  nothing. Each `Container` carries `Name` and `Properties` - `Last-Modified`, `Etag`,
+  `LeaseStatus` `unlocked`, `LeaseState` `available`, `HasImmutabilityPolicy` and `HasLegalHold`
+  `false`, the page example's order. Filesystem - List answers `{"filesystems":[…]}` with `name`,
+  `lastModified` and `etag`, reading `prefix`, `maxResults` and `continuation` as Path - List does.
+- **A folder's ETag** - a container's, a filesystem's or a directory's - is `"0x<last-write ticks in
+  hexadecimal>"`, as Path - Create already answers for a directory; listings write it without quotes.
+- **Get Container Properties** (`GET` or `HEAD /<container>?restype=container`, no `comp`) and
+  **Filesystem - Get Properties** (`HEAD /<filesystem>?resource=filesystem`) answer `200`, no body,
+  with `ETag` and `Last-Modified`; the first adds the lease, immutability-policy and legal-hold
+  fields, the second `x-ms-namespace-enabled: true`.
+- **Path - Get Properties** is `HEAD` with `action` absent or `getStatus` (another `action`, such as
+  `getAccessControl`, is `400 InvalidQueryParameterValue`, decision 1). A file answers Path - Read's
+  head, adding `x-ms-properties` when it has user metadata; a directory answers `200` with `ETag`,
+  `Last-Modified` and `x-ms-resource-type: directory` (a `GET` of a directory stays `409
+  ResourceTypeMismatch`). A `HEAD` that names a listing is judged as a read (`r`), not a listing.
+- **Rename** is `PUT /<filesystem>/<path>` with `x-ms-rename-source: /<filesystem>/<path>` (any
+  query on it, a SAS, ignored; `resource` not needed; `mode` accepted and changing nothing), under
+  `--allow-uploads`, through the content store's rename, so every protocol sees the new name at
+  once. A file at the destination is replaced ("By default, the destination is overwritten"),
+  unless `If-None-Match: *`. Codes, from the Data Lake error-code list: a field naming no path `400
+  InvalidSourceUri`; nothing there `404 SourcePathNotFound`; a directory into itself `400
+  InvalidRenameSourcePath`; no parent directory `404 RenameDestinationParentPathNotFound`; a
+  directory at the destination, a file there when the source is a directory, or anything with
+  `If-None-Match: *` `409 PathAlreadyExists`; a rename the store refuses (a read-only share, across
+  shares) `403 AuthorizationPermissionMismatch`. A renamed file's stored header fields and user
+  metadata are stored again under its new name; a renamed directory's files fall back to the
+  index's defaults, because the index keys files by path and a directory rename does not walk it.
+- **`setProperties`** (`PATCH …?action=setProperties`), under `--allow-uploads`: `x-ms-properties`
+  (`name=base64,…`) is the file's **user metadata**, the same entries the Blob endpoint answers as
+  `x-ms-meta-*`, as the service itself maps Data Lake properties onto blob metadata. Its names
+  follow the metadata rule (C# identifiers) and its values are base64 of UTF-8; one that does not
+  read is `400 InvalidHeaderValue`. The sent list replaces the stored one ("any properties not
+  included in the list will be removed"); each `x-ms-content-*` and `x-ms-cache-control` sent
+  replaces its stored field. `200` with `ETag` and `Last-Modified`. A **directory is `409
+  ResourceTypeMismatch`**: the object metadata index keeps entries for files only (ADR-0100
+  decision 2.3), and claiming properties it cannot keep would be a false answer. A file in a share
+  keeps nothing, as Put Blob keeps nothing for one.
 
 ## Alternatives considered
 

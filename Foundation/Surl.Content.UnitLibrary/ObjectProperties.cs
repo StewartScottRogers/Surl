@@ -4,8 +4,8 @@ namespace Surl.Content;
 /// What an object-storage server answers about one file in the content store (ADR-0100,
 /// decision 2.3): the metadata stored with its upload, or the defaults for a file with none.
 /// </summary>
-/// <param name="ContentType">The <c>Content-Type</c> set at upload, else
-/// <see cref="ObjectMetadataIndex.DefaultContentType"/>.</param>
+/// <param name="ContentType">The <c>Content-Type</c> set at upload, else the one
+/// <see cref="ContentMediaTypes.Of"/> names from the key's extension.</param>
 /// <param name="ContentEncoding">The <c>Content-Encoding</c> set at upload, or <see langword="null"/>.</param>
 /// <param name="ContentDisposition">The <c>Content-Disposition</c> set at upload, or <see langword="null"/>.</param>
 /// <param name="CacheControl">The <c>Cache-Control</c> set at upload, or <see langword="null"/>.</param>
@@ -28,4 +28,11 @@ public sealed record ObjectProperties(
     string ETag,
     long Generation,
     long Length,
-    DateTimeOffset LastWriteTimeUtc);
+    DateTimeOffset LastWriteTimeUtc)
+{
+    /// <summary>
+    /// The <c>Content-MD5</c> set at upload (<see cref="ObjectMetadata.ContentMd5"/>), or
+    /// <see langword="null"/> when none was.
+    /// </summary>
+    public string? ContentMd5 { get; init; }
+}

@@ -121,6 +121,62 @@ public sealed class CurlPortClientPinsTests
     }
 
     [TestMethod]
+    public void Parse_NoKind_IsACurl()
+    {
+        var pins = CurlPortClientPins.Parse(Builds(Entry()));
+
+        Assert.AreEqual(CurlPortClientKind.Curl, pins[0].Kind);
+    }
+
+    [TestMethod]
+    [DataRow("curl", CurlPortClientKind.Curl)]
+    [DataRow("library", CurlPortClientKind.Library)]
+    public void Parse_Kind_IsReadIntoKind(string kind, CurlPortClientKind expected)
+    {
+        var fields = Fields();
+        fields["kind"] = kind;
+
+        var pins = CurlPortClientPins.Parse(Builds(EntryOf(fields)));
+
+        Assert.AreEqual(expected, pins[0].Kind);
+    }
+
+    [TestMethod]
+    public void Parse_UnknownKind_ThrowsNamingIt()
+    {
+        var fields = Fields();
+        fields["kind"] = "plugin";
+
+        var exception = Assert.ThrowsExactly<FormatException>(() => CurlPortClientPins.Parse(Builds(EntryOf(fields))));
+
+        StringAssert.Contains(exception.Message, "'plugin', not curl or library");
+    }
+
+    [TestMethod]
+    public void Parse_KindIsNotAString_ThrowsNamingIt()
+    {
+        var json = Builds(Entry().Replace(" }", ", \"kind\": 1 }", StringComparison.Ordinal));
+
+        var exception = Assert.ThrowsExactly<FormatException>(() => CurlPortClientPins.Parse(json));
+
+        StringAssert.Contains(exception.Message, "The kind of entry 0");
+    }
+
+    [TestMethod]
+    [TestCategory("Integration")]
+    public void Parse_RepositoryPinFile_PinsTheLibraryAtTheCommitOfTheCurlOnWindows()
+    {
+        var path = Path.Combine(PinnedUpstreamCurl.RepositoryRoot(), CurlPortClientPins.FileName);
+
+        var pins = CurlPortClientPins.Parse(File.ReadAllText(path)).Where(pin => pin.Platform == "win-x64").ToList();
+
+        var curl = pins.Single(pin => pin.Kind == CurlPortClientKind.Curl);
+        var library = pins.Single(pin => pin.Kind == CurlPortClientKind.Library);
+        Assert.AreEqual(curl.Commit, library.Commit);
+        StringAssert.EndsWith(library.Path, "Libcurl.dll");
+    }
+
+    [TestMethod]
     [TestCategory("Integration")]
     public void Parse_RepositoryPinFile_ParsesWithoutFailure()
     {

@@ -23,7 +23,7 @@ public sealed class KafkaSaslAuthenticateAnswererTests
     public async Task AnswerAsync_NullArguments_Throw()
     {
         var answerer = new KafkaSaslAuthenticateAnswerer();
-        var request = new KafkaRequest(new KafkaRequestHeader(36, 0, 1, null), KafkaServedApis.Ranges[6], new KafkaPrimitiveReader(Array.Empty<byte>()), new KafkaConnectionState(null));
+        var request = new KafkaRequest(new KafkaRequestHeader(36, 0, 1, null), KafkaServedApis.Find(36)!, new KafkaPrimitiveReader(Array.Empty<byte>()), new KafkaConnectionState(null), new InMemoryConnection([]));
 
         Assert.AreEqual(KafkaApiKey.SaslAuthenticate, answerer.ApiKey);
         await Assert.ThrowsExactlyAsync<ArgumentNullException>(async () => await answerer.AnswerAsync(null!, Context(TestContext.CancellationToken)));

@@ -28,7 +28,11 @@ through `PinnedLibcurlDriver`.
 `UpstreamCurlRunner` refuses a library. `PinnedLibcurlChoice.Choose` decides which file a
 driver may load before anything is loaded; `LibcurlRtspScript`, `LibcurlRtspReport` and
 `LibcurlBytes` are the RTSP driver's command line, its output lines and the byte escapes,
-kept here so they are unit tested while the driver itself only calls libcurl.
+and `LibcurlWebSocketScript` (with its `LibcurlWebSocketStep`s), `LibcurlWebSocketFlags` and
+`LibcurlWebSocketReport` the WebSocket driver's command line, `CURLWS_*` flag names and output
+lines, kept here so they are unit tested while the drivers themselves only call libcurl, and so
+the Curl port's twin drivers take the same arguments and print the same lines (ADR-0089
+decision 1 (c)).
 `UpstreamCurlRunner` takes the locator's `UpstreamCurlLocation` - never a path - so the
 only curl it starts is a verified pin; it passes arguments through
 `ProcessStartInfo.ArgumentList`, writes the given standard input bytes (none by default)
@@ -92,6 +96,15 @@ to make the port pass. One case is compared and judged here (BL-578), request by
   test, command line, upstream build (SHA-256, version line), port client (commit, SHA-256), Surl
   commit, both runs and each `CurlPortDifference` (exit code, first differing line, or first differing
   byte with its connection and offset).
+
+A libcurl row (decision 1 (c), BL-935) is judged the same way: `CurlPortLibcurlCase` is a pinned-libcurl
+test's step list with `{surl}` standing for each run's authority, its mirrored assertions and the stored
+files it compares; `CurlPortLibcurlRun` is one driver run (exit code, report lines, stderr, its
+`CurlPortSurlSide`); `CurlPortLibcurlReportNormaliser` masks what varies between two correct runs -
+`surl`'s port, a session ID `surl` drew (not one the script set), a send's call count, and the SSRCs and
+timestamps of interleaved RTP/RTCP frames but never their body; and `CurlPortLibcurlComparison.Compare`
+gives decision 5's `CurlPortVerdict`, reusing `CurlPortComparison`'s internal `AddTextDifference` and
+`AddBytesDifference`.
 
 The tests' `PinnedCurlPortBesideUpstreamCurl.MeasureAsync` is the one call each Phase 7 test class
 makes: it locates both pinned clients (Inconclusive naming the missing file), runs each against its
@@ -172,7 +185,10 @@ Selection is built (BL-389):
   from the pin's `features` line), the TLS backend and libraries of the version line, `win32`,
   `threaded-resolver`, `http/2`, each protocol with its `-ipv6` and `-unix` forms, and
   `ReleaseBuildOptions`, the `curlinfo` options a default release build enables (probed on the
-  Windows reference pin, BL-389's Notes). Never `Debug`, `TrackMemory` or `unittest`.
+  Windows reference pin, BL-389's Notes). The tests' `UpstreamCurlShowsItsBuildOptionsTests`
+  (`Integration`) probes every one of them and the platform options `For` claims with the
+  reference pin of the platform it runs on, so CI's Linux and macOS conformance steps probe theirs
+  (BL-598); `NotShownByTheTool` names the options no curl command can show, and why. Never `Debug`, `TrackMemory` or `unittest`.
 - `UpstreamTestCaseDisabledList.Parse` reads `DISABLED`, its `%if` lines against those features.
 - `UpstreamTestCaseSelector.FindSkipReason(number, case)` gives the first of decision 3's
   `UpstreamTestCaseSkipReasons` that applies, or `null` when the case can run, under

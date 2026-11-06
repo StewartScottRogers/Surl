@@ -16,8 +16,9 @@ namespace Surl.Extended.Protocol.GoogleCloudStorage;
 /// <para>
 /// It serves List Buckets and List Objects (both versions) when the store lists directories, GET
 /// Object and HEAD Object - ranges, conditions, generations, the object's stored header fields,
-/// <c>x-goog-meta-*</c> and <c>x-goog-hash</c> - and PUT Object and DELETE Object when the store
-/// allows uploads, path style or virtual-hosted style, and answers every other request
+/// <c>x-goog-meta-*</c> and <c>x-goog-hash</c> - and PUT Object, DELETE Object and the XML API
+/// multipart and resumable uploads when the store allows uploads (their open uploads shared by every
+/// connection; ADR-0110, decision 9), path style or virtual-hosted style, and answers every other request
 /// <c>400 NotImplemented</c>, each failure with the XML API's <c>Error</c> body. Every request must
 /// carry a Bearer token or a <c>GOOG4-HMAC-SHA256</c> signature of an account, checked through the
 /// policy's HTTP session (anonymous reads only when the policy allows them; ADR-0110, decision 3).
@@ -39,6 +40,7 @@ public sealed class GoogleCloudStorageProtocolServer : IConnectionProtocolServer
     private readonly ObjectMetadataIndex index;
     private readonly IAuthenticationPolicy authenticationPolicy;
     private readonly TimeProvider timeProvider;
+    private readonly GcsStagedUploads uploads;
 
     /// <summary>
     /// Creates the server.
@@ -58,6 +60,7 @@ public sealed class GoogleCloudStorageProtocolServer : IConnectionProtocolServer
         this.index = index;
         this.authenticationPolicy = authenticationPolicy;
         this.timeProvider = timeProvider;
+        uploads = new GcsStagedUploads(timeProvider);
     }
 
     /// <inheritdoc/>
@@ -69,7 +72,7 @@ public sealed class GoogleCloudStorageProtocolServer : IConnectionProtocolServer
         ArgumentNullException.ThrowIfNull(connection);
         ArgumentNullException.ThrowIfNull(context);
 
-        return new Http1ConnectionServer(new GcsRequestAnswerer(store, index, authenticationPolicy.StartHttpConnection(connection.TlsSession), context), context).ServeAsync(connection);
+        return new Http1ConnectionServer(new GcsRequestAnswerer(store, index, authenticationPolicy.StartHttpConnection(connection.TlsSession), context, uploads, connection.TlsSession is not null), context).ServeAsync(connection);
     }
 
     /// <inheritdoc/>

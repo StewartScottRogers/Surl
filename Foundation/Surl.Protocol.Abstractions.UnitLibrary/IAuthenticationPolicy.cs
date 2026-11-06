@@ -28,4 +28,15 @@ public interface IAuthenticationPolicy
     /// </param>
     /// <returns>The session that judges every request on the connection.</returns>
     IHttpAuthenticationSession StartHttpConnection(TlsSession? tlsSession);
+
+    /// <summary>
+    /// Whether <paramref name="name"/> is exactly the name of a named account in the account set,
+    /// its password unused: how the Azure Storage server tells a path-style request's first
+    /// segment, <c>/&lt;account&gt;/&lt;container&gt;/&lt;blob&gt;</c>, from a container (ADR-0109,
+    /// decision 2). The empty name, a bearer token's account, never matches. A policy with no
+    /// named accounts keeps this default, which matches nothing.
+    /// </summary>
+    /// <param name="name">The name, compared ordinally.</param>
+    /// <returns><see langword="true"/> only when a named account has that name.</returns>
+    bool NamesAccount(string name) => false;
 }

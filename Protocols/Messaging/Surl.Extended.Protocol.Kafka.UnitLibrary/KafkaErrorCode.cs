@@ -36,11 +36,32 @@ public enum KafkaErrorCode : short
     /// <summary><c>UNSUPPORTED_VERSION</c>: the API version is not served.</summary>
     UnsupportedVersion = 35,
 
+    /// <summary><c>TOPIC_ALREADY_EXISTS</c>: CreateTopics named a topic that has a log.</summary>
+    TopicAlreadyExists = 36,
+
+    /// <summary><c>INVALID_PARTITIONS</c>: a partition count other than one.</summary>
+    InvalidPartitions = 37,
+
+    /// <summary><c>INVALID_REPLICATION_FACTOR</c>: a replication factor other than one.</summary>
+    InvalidReplicationFactor = 38,
+
+    /// <summary><c>INVALID_REPLICA_ASSIGNMENT</c>: an assignment other than partition 0 on node 0.</summary>
+    InvalidReplicaAssignment = 39,
+
+    /// <summary><c>INVALID_REQUEST</c>: the request is malformed or contradicts itself, such as a topic named twice.</summary>
+    InvalidRequest = 42,
+
     /// <summary><c>UNSUPPORTED_FOR_MESSAGE_FORMAT</c>: a batch format or attribute is not served.</summary>
     UnsupportedForMessageFormat = 43,
 
     /// <summary><c>POLICY_VIOLATION</c>: a store bound was reached.</summary>
     PolicyViolation = 44,
+
+    /// <summary><c>OUT_OF_ORDER_SEQUENCE_NUMBER</c>: an idempotent batch's sequence is not one past the last taken.</summary>
+    OutOfOrderSequenceNumber = 45,
+
+    /// <summary><c>INVALID_PRODUCER_EPOCH</c>: an idempotent batch carries an older producer epoch than the one held.</summary>
+    InvalidProducerEpoch = 47,
 
     /// <summary><c>SASL_AUTHENTICATION_FAILED</c>: the login was refused.</summary>
     SaslAuthenticationFailed = 58,

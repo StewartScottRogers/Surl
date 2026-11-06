@@ -1,0 +1,21 @@
+<Project>
+  <!--
+    Compiles the Curl port's libcurl drivers (Run-CurlPortLibcurlWebSocketScript.cs and
+    Run-CurlPortLibcurlRtspScript.cs, ADR-0089 decision 1 (c)) against the port's managed Libcurl
+    assembly that SURL_CURL_PORT_LIBCURL names: the pin in CurlPortBuilds.json of kind library, which
+    the tests' PinnedLibcurlDriver locates and verifies before it runs a driver. A file-based app has no
+    directive for an assembly reference, so each driver imports this file through
+    CustomAfterMicrosoftCommonTargets. The reference is not copied: at run time the driver checks the
+    file's SHA-256 against the pin again and loads the assembly and its dependencies from the pinned
+    folder itself, so the code it calls is the pinned file's.
+  -->
+  <Target Name="RequireCurlPortLibcurl" BeforeTargets="ResolveAssemblyReferences" Condition="'$(SURL_CURL_PORT_LIBCURL)' == ''">
+    <Error Text="Set SURL_CURL_PORT_LIBCURL to the Curl port's Libcurl.dll that CurlPortBuilds.json pins (kind library) before running this driver." />
+  </Target>
+
+  <ItemGroup Condition="'$(SURL_CURL_PORT_LIBCURL)' != ''">
+    <Reference Include="$(SURL_CURL_PORT_LIBCURL)" Private="false" />
+    <!-- The result codes and WebSocket frame types Libcurl's public members use, published beside it. -->
+    <Reference Include="$([System.IO.Path]::GetDirectoryName($(SURL_CURL_PORT_LIBCURL)))\Curl.Api.UnitLibrary.dll" Private="false" />
+  </ItemGroup>
+</Project>

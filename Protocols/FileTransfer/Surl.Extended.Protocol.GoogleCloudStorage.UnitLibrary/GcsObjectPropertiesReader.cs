@@ -33,7 +33,7 @@ internal sealed class GcsObjectPropertiesReader(ContentStore store, ObjectMetada
             var digests = await HashAsync(mapping, status.Length, cancellationToken);
 
             return new ObjectProperties(
-                ObjectMetadataIndex.DefaultContentType, null, null, null, null, [], digests.ETag, GcsGeneration.Of(status.LastModifiedUtc), status.Length, status.LastModifiedUtc);
+                ContentMediaTypes.Of(mapping.Location!), null, null, null, null, [], digests.ETag, GcsGeneration.Of(status.LastModifiedUtc), status.Length, status.LastModifiedUtc);
         }
 
         var reading = await index.ReadAsync(indexKey, cancellationToken);

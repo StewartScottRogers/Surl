@@ -305,7 +305,7 @@ internal sealed partial class HttpRequestAnswerer : IHttpRequestHandler
             new("Date", FormatHttpDate(now)),
             new("Server", HttpResponseHead.ServerName),
             new("Last-Modified", lastModified),
-            new("Content-Type", "application/octet-stream"),
+            new("Content-Type", ContentMediaTypes.Of(mapping.Location!)),
         ];
         if (range is not null)
         {

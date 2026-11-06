@@ -77,15 +77,25 @@ internal sealed class UpstreamTestCaseStripCondition
             return ReadRegex(text, ref index);
         }
 
+        return ReadSymbol(text, ref index) ?? ReadWord(text, ref index);
+    }
+
+    private static Token? ReadSymbol(string text, ref int index)
+    {
         var start = index;
         var symbol = Symbols.FirstOrDefault(candidate => string.CompareOrdinal(text, start, candidate, 0, candidate.Length) == 0);
 
-        if (symbol is not null)
+        if (symbol is null)
         {
-            index += symbol.Length;
-            return new Token(symbol, null);
+            return null;
         }
 
+        index += symbol.Length;
+        return new Token(symbol, null);
+    }
+
+    private static Token? ReadWord(string text, ref int index)
+    {
         var word = Word.Match(text[index..]).Value;
         index += word.Length;
         return word is "and" or "or" or "not" ? new Token(word, null) : null;
@@ -160,14 +170,16 @@ internal sealed class UpstreamTestCaseStripCondition
         return ParsePrimary();
     }
 
-    private Func<string, bool>? ParsePrimary()
-    {
-        if (Accept("("))
-        {
-            var inner = ParseOr();
-            return inner is not null && Accept(")") ? inner : null;
-        }
+    private Func<string, bool>? ParsePrimary() => Accept("(") ? ParseParenthesised() : ParseBoundMatch();
 
+    private Func<string, bool>? ParseParenthesised()
+    {
+        var inner = ParseOr();
+        return inner is not null && Accept(")") ? inner : null;
+    }
+
+    private Func<string, bool>? ParseBoundMatch()
+    {
         var negated = false;
 
         if (Accept("$_"))

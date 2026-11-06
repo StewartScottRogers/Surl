@@ -91,9 +91,16 @@ internal sealed record AzureError(string Code, HttpStatus Status, string Message
     public static AzureError AuthenticationFailed { get; } = new("AuthenticationFailed", HttpStatus.Forbidden, "Server failed to authenticate the request. Make sure the value of Authorization header is formed correctly including the signature.");
 
     /// <summary>
-    /// <c>412 ConditionNotMet</c>: a failed <c>If-Match</c> or <c>If-Unmodified-Since</c>.
+    /// <c>412 ConditionNotMet</c>: on a read, a failed <c>If-Match</c> or <c>If-Unmodified-Since</c>;
+    /// on a write, any failed condition.
     /// </summary>
     public static AzureError ConditionNotMet { get; } = new("ConditionNotMet", PreconditionFailedStatus, "The condition specified using HTTP conditional header(s) is not met.");
+
+    /// <summary>
+    /// <c>409 BlobAlreadyExists</c>: a Put Blob or Delete Blob with <c>If-None-Match: *</c> on a blob
+    /// that exists (ADR-0109, decision 1).
+    /// </summary>
+    public static AzureError BlobAlreadyExists { get; } = new("BlobAlreadyExists", ConflictStatus, "The specified blob already exists.");
 
     /// <summary>
     /// <c>416 InvalidRange</c>: a single range that names no byte of the blob.
@@ -230,4 +237,33 @@ internal sealed record AzureError(string Code, HttpStatus Status, string Message
     /// document, or is past 4 MiB (ADR-0109, decision 7).
     /// </summary>
     public static AzureError InvalidXmlDocument { get; } = new("InvalidXmlDocument", HttpStatus.BadRequest, "XML specified is not syntactically valid.");
+
+    /// <summary>
+    /// <c>404 SourcePathNotFound</c> (Data Lake): a rename whose <c>x-ms-rename-source</c> names no
+    /// file or directory the caller may read ("Path - Create").
+    /// </summary>
+    public static AzureError SourcePathNotFound { get; } = new("SourcePathNotFound", HttpStatus.NotFound, "The source path for a rename operation does not exist.");
+
+    /// <summary>
+    /// <c>400 InvalidSourceUri</c> (Data Lake): an <c>x-ms-rename-source</c> that names no path in a
+    /// filesystem ("Path - Create").
+    /// </summary>
+    public static AzureError InvalidSourceUri { get; } = new("InvalidSourceUri", HttpStatus.BadRequest, "The source URI is invalid.");
+
+    /// <summary>
+    /// <c>400 InvalidRenameSourcePath</c> (Data Lake): a directory renamed into itself ("Path - Create").
+    /// </summary>
+    public static AzureError InvalidRenameSourcePath { get; } = new("InvalidRenameSourcePath", HttpStatus.BadRequest, "The source directory cannot be the same as the destination directory, nor can the destination be a subdirectory of the source directory.");
+
+    /// <summary>
+    /// <c>404 RenameDestinationParentPathNotFound</c> (Data Lake): a rename whose destination's
+    /// parent directory does not exist ("Path - Create").
+    /// </summary>
+    public static AzureError RenameDestinationParentPathNotFound { get; } = new("RenameDestinationParentPathNotFound", HttpStatus.NotFound, "The parent directory of the destination path does not exist.");
+
+    /// <summary>
+    /// <c>409 PathAlreadyExists</c> (Data Lake): a rename onto a directory, onto a file when the
+    /// source is a directory, or onto any path with <c>If-None-Match: *</c> ("Path - Create").
+    /// </summary>
+    public static AzureError PathAlreadyExists { get; } = new("PathAlreadyExists", ConflictStatus, "The specified path already exists.");
 }

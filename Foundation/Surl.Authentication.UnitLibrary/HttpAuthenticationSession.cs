@@ -111,6 +111,11 @@ internal sealed class HttpAuthenticationSession : IHttpAuthenticationSession
         HttpAuthenticationRequest request, CancellationToken cancellationToken)
     {
         var hasAuthorization = request.Fields.Any(field => string.Equals(field.Key, "Authorization", StringComparison.OrdinalIgnoreCase));
+        if (IsPresignedForTheService(request))
+        {
+            return JudgePresignedUrl(request, hasAuthorization, cancellationToken);
+        }
+
         var authorization = HttpAuthorization.Find(request.Fields);
         if (FindServiceSignatureVerifier(authorization, request.AwsSigV4Service!) is { } verifier)
         {
@@ -126,6 +131,18 @@ internal sealed class HttpAuthenticationSession : IHttpAuthenticationSession
             ? ProceedAnonymously
             : Forbidden with { Refusal = HttpAuthenticationRefusal.MissingCredentials });
     }
+
+    // A presigned URL is checked even under --allow-anonymous; with an Authorization too it is
+    // refused unchecked, so undelayed (ADR-0108 decision 4.5).
+    private ValueTask<HttpAuthenticationVerdict> JudgePresignedUrl(
+        HttpAuthenticationRequest request, bool hasAuthorization, CancellationToken cancellationToken) =>
+        hasAuthorization
+            ? ValueTask.FromResult(Forbidden with { Refusal = HttpAuthenticationRefusal.ConflictingCredentials })
+            : ConcludeAsync(policy.ServiceSignatureVerifier.VerifyQueryString(request), AuthenticationMethod.AwsSigV4, request, cancellationToken);
+
+    // An AWS presigned URL (ADR-0108 decision 4.5); Cloud Storage's storage service takes none.
+    private static bool IsPresignedForTheService(HttpAuthenticationRequest request) =>
+        request.AwsSigV4Service != GoogleV4HmacAuthenticationMethod.Service && AwsSigV4QueryString.IsPresigned(request.Target);
 
     // The service's signature verifier, when the field is a Signature Version 4 scheme the service takes.
     private IHttpCredentialVerifier? FindServiceSignatureVerifier(HttpAuthorization? authorization, string service) =>
@@ -168,16 +185,27 @@ internal sealed class HttpAuthenticationSession : IHttpAuthenticationSession
     {
         var verified = await verifier.VerifyAsync(authorization.Credentials, request, cancellationToken)
             .ConfigureAwait(false);
+
+        return await ConcludeAsync(verified, authorization.Method, request, cancellationToken).ConfigureAwait(false);
+    }
+
+    // A checked credential, through the refuse-login fault, the connection's login and the answer.
+    private async ValueTask<HttpAuthenticationVerdict> ConcludeAsync(
+        HttpCredentialCheck verified,
+        AuthenticationMethod method,
+        HttpAuthenticationRequest request,
+        CancellationToken cancellationToken)
+    {
         var isRefusedByFault = await IsRefusedByFaultAsync(verified, cancellationToken).ConfigureAwait(false);
-        var check = isRefusedByFault ? RefusedByFault(verified, WrongCredentialsRefusal(authorization.Method)) : verified;
+        var check = isRefusedByFault ? RefusedByFault(verified, WrongCredentialsRefusal(method)) : verified;
 
         // A new handshake on the connection replaces its login, whatever it comes to.
-        if (AuthenticationMethods.AuthenticatesConnection(authorization.Method))
+        if (AuthenticationMethods.AuthenticatesConnection(method))
         {
             connectionAccountName = check.Outcome == HttpCredentialOutcome.Accepted ? check.AccountName : null;
         }
 
-        var verdict = await AnswerCheckAsync(check, authorization.Method, request.AwsSigV4Service is not null, cancellationToken).ConfigureAwait(false);
+        var verdict = await AnswerCheckAsync(check, method, request.AwsSigV4Service is not null, cancellationToken).ConfigureAwait(false);
 
         return Published(verdict, isRefusedByFault);
     }
@@ -190,7 +218,7 @@ internal sealed class HttpAuthenticationSession : IHttpAuthenticationSession
 
     // The check a wrong credential of the same method comes to: refused, no account, nothing to send.
     private static HttpCredentialCheck RefusedByFault(HttpCredentialCheck check, HttpAuthenticationRefusal? refusal) =>
-        check with { Outcome = HttpCredentialOutcome.Refused, AccountName = null, WwwAuthenticateValues = [], CheckBody = null, Refusal = refusal };
+        check with { Outcome = HttpCredentialOutcome.Refused, AccountName = null, WwwAuthenticateValues = [], CheckBody = null, Refusal = refusal, ChunkSignatures = null };
 
     // Only Signature Version 4 tells a wrong secret apart; every other method's refusal carries no reason.
     private static HttpAuthenticationRefusal? WrongCredentialsRefusal(AuthenticationMethod method) =>
@@ -232,7 +260,7 @@ internal sealed class HttpAuthenticationSession : IHttpAuthenticationSession
     }
 
     private static HttpAuthenticationVerdict Accepted(HttpCredentialCheck check, AuthenticationMethod method) =>
-        new(HttpAuthenticationOutcome.Proceed, check.WwwAuthenticateValues, check.AccountName, LoginChecked(method, check, true));
+        new(HttpAuthenticationOutcome.Proceed, check.WwwAuthenticateValues, check.AccountName, LoginChecked(method, check, true), ChunkSignatures: check.ChunkSignatures);
 
     private async ValueTask<HttpAuthenticationVerdict> RefuseAsync(
         HttpCredentialCheck check, AuthenticationMethod method, bool isServiceSignature, CancellationToken cancellationToken)

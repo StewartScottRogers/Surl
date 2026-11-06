@@ -36,7 +36,11 @@ internal sealed class TopicLog
     /// <summary>The high watermark the log's file was last written up to.</summary>
     public long SavedHighWatermark { get; set; }
 
-    private int HeldCount => records.Count - firstHeldIndex;
+    /// <summary>How many records the log holds.</summary>
+    public int HeldCount => records.Count - firstHeldIndex;
+
+    /// <summary>The bytes the held record at <paramref name="index"/> counts, the oldest held at 0.</summary>
+    public long HeldRecordBytes(int index) => MessageBus.LogRecordBytes(records[firstHeldIndex + index].Message);
 
     /// <summary>Sets the log start offset of a log loaded from its file, before any record is
     /// appended.</summary>
@@ -57,7 +61,7 @@ internal sealed class TopicLog
         var dropped = 0L;
         while (count < HeldCount && Bytes - dropped + incomingBytes > maxBytes)
         {
-            dropped += MessageBus.LogRecordBytes(records[firstHeldIndex + count].Message);
+            dropped += HeldRecordBytes(count);
             count++;
         }
 

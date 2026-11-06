@@ -9,11 +9,11 @@ public sealed partial class AiHelpTextTests
 {
     private static readonly string NewLine = Environment.NewLine;
 
-    // ADR-0046 decision 3's sixteen topics, smtp (BL-207), imap (BL-208), pop3 (BL-209), websocket (BL-303), smb (BL-299), rtsp (BL-317), ldap (BL-310), extended (BL-405), s3 (BL-421) and control (BL-815), in ordinal order.
+    // ADR-0046 decision 3's sixteen topics, smtp (BL-207), imap (BL-208), pop3 (BL-209), websocket (BL-303), smb (BL-299), rtsp (BL-317), ldap (BL-310), extended (BL-405), nats (BL-528), s3 (BL-421), control (BL-815) and mail (BL-653, ADR-0101 decision 7), in ordinal order.
     private static readonly string[] AdrTopicNames =
     [
         "auth", "content", "control", "dict", "exit-codes", "extended", "ftp", "gopher", "http", "imap", "ldap", "limits", "listen-urls",
-        "logging", "mqtt", "pop3", "rtsp", "s3", "security", "smb", "smtp", "ssh", "surl", "telnet", "testing", "tftp", "tls", "websocket",
+        "logging", "mail", "mqtt", "nats", "pop3", "rtsp", "s3", "security", "smb", "smtp", "ssh", "surl", "telnet", "testing", "tftp", "tls", "websocket",
     ];
 
     // ADR-0046 decision 4's section headings, in order, on every topic page.
@@ -37,7 +37,9 @@ public sealed partial class AiHelpTextTests
         "| `limits` | Connection, time and size limits |",
         "| `listen-urls` | Listen URLs, ports and the Listening on line |",
         "| `logging` | Log levels, tracing and the log file |",
+        "| `mail` | Mail domains, mailboxes and aliases |",
         "| `mqtt` | MQTT and MQTTS protocol |",
+        "| `nats` | NATS and NATSS protocol (extended) |",
         "| `pop3` | POP3 and POP3S protocol |",
         "| `rtsp` | RTSP protocol |",
         "| `s3` | Amazon S3 protocol (extended) |",
@@ -88,6 +90,8 @@ public sealed partial class AiHelpTextTests
                 + "their default ports, its options and an upstream curl command line that reaches it.",
             "",
             "surl serves until it is stopped with Ctrl+C or SIGTERM, and then exits 0.",
+            "",
+            OverviewHostsParagraph,
             "",
             "## Command line",
             "",
@@ -160,6 +164,26 @@ public sealed partial class AiHelpTextTests
 
         Assert.AreEqual(Text(expected), answer.Output);
         Assert.AreEqual(string.Empty, answer.Error);
+    }
+
+    private const string OverviewHostsParagraph =
+        "The same servers start in-process from .NET through the `Surl.Api` package: `SurlServer.StartAsync` takes a "
+        + "`SurlServerOptions`, whose properties are these options, and its help is the package README and XML documentation. "
+        + "An MCP client starts them through `surl-mcp`, the `Surl.Mcp` executable, on standard input and output: its tools "
+        + "`start_server`, `list_servers`, `stop_server` and `get_exchanges` describe themselves, and it serves these pages as "
+        + "the `surl://aihelp` resources.";
+
+    [TestMethod]
+    public void Answer_NoTopic_PointsAtSurlApisStartingTypeAndSurlMcpsExecutableAndTools()
+    {
+        var overview = AiHelpText.Answer(null).Output;
+
+        var about = overview[..overview.IndexOf("## Command line", StringComparison.Ordinal)];
+        Assert.Contains(OverviewHostsParagraph, about);
+        foreach (var name in new[] { "`Surl.Api`", "`SurlServer.StartAsync`", "`Surl.Mcp`", "`surl-mcp`", "`start_server`", "`list_servers`", "`stop_server`", "`get_exchanges`", "`surl://aihelp`" })
+        {
+            Assert.Contains(name, about, name);
+        }
     }
 
     [TestMethod]
@@ -370,7 +394,7 @@ public sealed partial class AiHelpTextTests
             "| --- | --- | --- | --- | --- | --- | --- |",
             "| `--max-line <bytes>` | bytes | 8192 | digits with an optional decimal point and more digits, then at most one suffix "
                 + "k, m, g, t or p in either case, each 1024 times the one before; at most 9223372036854775807 bytes; 0 means no limit "
-                + "| no | dict, ftp, gopher, imap, limits, pop3, smtp, telnet | Longest command line accepted |",
+                + "| no | dict, ftp, gopher, imap, limits, nats, pop3, smtp, telnet | Longest command line accepted |",
             "",
             "## Exit codes",
             "",
@@ -468,7 +492,7 @@ public sealed partial class AiHelpTextTests
                 + "or the trace file is the --log-file file "
                 + "| Make the data directory writable by the user surl runs as, or give a log or trace file that can be opened "
                 + "and is not the --log-file file |",
-            "| 37 | `CouldNotReadFile` | The data directory cannot be opened, or the --user-file, an --authorized-keys, --keytab, --hostkey or --hostcert file, a message bus file or the mail store "
+            "| 37 | `CouldNotReadFile` | The data directory cannot be opened, or the --user-file, a --mailbox-file, an --authorized-keys, --keytab, --hostkey or --hostcert file, a message bus file or the mail store "
                 + "cannot be read | Check the path exists and the user surl runs as can read it; surl creates none of them |",
             "| 45 | `BindFailed` | A listener cannot bind its address and port "
                 + "| Use another port, or port 0 and read the bound port from the Listening on line, and an address this machine has |",
@@ -575,6 +599,7 @@ public sealed partial class AiHelpTextTests
         // Written by Surl.Cli: each template is matched against what the parser writes.
         var writtenByTheParser = new Dictionary<string, string>(StringComparer.Ordinal)
         {
+            ["surl: option --mail-domain: not a domain name"] = "surl: " + CommandLineParser.Parse(["--mail-domain", "a..b", "http://127.0.0.1/"]).Failure!.Message,
             ["surl: (2) no URL specified"] = "surl: " + CommandLineParser.Parse([]).Failure!.Message,
             ["surl: try 'surl --help' or 'surl --manual' for more information"] = "surl: " + CommandLineFailure.TryHelpLine,
             ["surl: option --<name>: <reason>"] = "surl: " + CommandLineParser.Parse(["--max-time", "abc"]).Failure!.Message,
@@ -624,6 +649,9 @@ public sealed partial class AiHelpTextTests
             "surl: (2) option --group: group <name> includes itself",
             "surl: (2) option --group: group everyone is reserved",
             "surl: (2) option --group: member @everyone is not allowed here",
+            // Written by Surl.Composition when it reads a --mailbox-file, whose tests pin each (BL-653).
+            "surl: (37) Could not read mailbox file <file>",
+            "surl: (2) Mailbox file <file>, line <n>: <reason>",
         ];
 
         foreach (var (template, written) in writtenByTheParser)

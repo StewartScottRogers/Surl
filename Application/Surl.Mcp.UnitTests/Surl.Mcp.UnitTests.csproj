@@ -22,6 +22,7 @@
     <Compile Include="..\Surl.Api.UnitTests\FakeConnection.cs" Link="ApiSeams\FakeConnection.cs" />
     <Compile Include="..\Surl.Api.UnitTests\FakeEnvironmentVariableReader.cs" Link="ApiSeams\FakeEnvironmentVariableReader.cs" />
     <Compile Include="..\Surl.Api.UnitTests\FakeListenerFactory.cs" Link="ApiSeams\FakeListenerFactory.cs" />
+    <Compile Include="..\Surl.Api.UnitTests\ManualTimeProvider.cs" Link="ApiSeams\ManualTimeProvider.cs" />
   </ItemGroup>
 
   <!-- Surl.McpServing's in-memory standard input and output, shared rather than copied, for Program's tests. -->

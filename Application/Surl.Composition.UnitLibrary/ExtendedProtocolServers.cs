@@ -1,3 +1,4 @@
+using Surl.Extended.Protocol.Nats;
 using Surl.Extended.Protocol.S3;
 using Surl.Protocol.Abstractions;
 
@@ -34,17 +35,31 @@ public static class ExtendedProtocolServers
     /// <summary>
     /// Gets every extended protocol server's entry this build has, in ordinal order of its first
     /// scheme, on the same <see cref="ProtocolServerRegistration"/> as the originals (ADR-0124,
-    /// decision 2): today the S3 server for <c>s3</c> (BL-421).
+    /// decision 2): today the NATS server for <c>nats</c> and <c>natss</c> (BL-528) and the S3 server
+    /// for <c>s3</c> (BL-421).
     /// </summary>
     /// <remarks>
+    /// The NATS server answers <c>nats</c> and <c>natss</c> over the one message bus the MQTT server
+    /// shares (ADR-0100 decision 3.2), judging logins by the policy over the accounts allowed on
+    /// <c>nats</c>, with <c>--idle-timeout</c> and <c>--allow-anonymous</c> (ADR-0113 decisions 2 and 5).
+    /// <c>natss</c> starts in plain text and requires TLS before CONNECT (ADR-0113 decision 6), so it is
+    /// no implicit-TLS scheme; <see cref="ServerTlsComposition"/> requires a certificate for it.
     /// The S3 server answers <c>s3</c> over the one content store, its object metadata index and the
-    /// one policy (ADR-0108); <c>s3</c> is TLS from the first byte (ADR-0108, decision 5), which
+    /// policy over the accounts allowed on <c>s3</c> (ADR-0108; ADR-0102 decision 4.3); <c>s3</c> is TLS from the first byte (ADR-0108, decision 5), which
     /// the serving engine reads from <see cref="TlsSchemes"/>, so it needs no second registration.
     /// </remarks>
     public static IReadOnlyList<ProtocolServerRegistration> Registrations { get; } =
     [
+        new(["nats", NatsServer.TlsScheme], services => new NatsServer(
+            services.AuthenticationPolicyFor("nats"),
+            services.MessageBus,
+            new NatsServerOptions
+            {
+                IdleTimeout = services.IdleTimeout,
+                AllowsAnonymous = services.AuthenticationPolicy.Settings.AllowAnonymous,
+            })),
         new(["s3"], services => new S3ProtocolServer(
-            services.ContentStore, services.ObjectMetadataIndex, services.AuthenticationPolicy, services.TimeProvider)),
+            services.ContentStore, services.ObjectMetadataIndex, services.AuthenticationPolicyFor("s3"), services.TimeProvider)),
     ];
 
     /// <summary>
