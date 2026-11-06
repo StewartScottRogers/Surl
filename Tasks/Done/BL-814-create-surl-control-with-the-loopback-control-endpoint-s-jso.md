@@ -5,10 +5,10 @@ priority: Normal
 assignee: Claude
 pipeline: feature
 depends-on: [BL-823]
-touches: [Application/Surl.Control.UnitLibrary, Application/Surl.Control.UnitTests, Surl.slnx]
+touches: [Application/Surl.Control.UnitLibrary, Application/Surl.Control.UnitTests, Surl.slnx, Documentation/Planning/Decisions/ADR-0135-how-the-control-endpoint-writes-events-and-reads-requests.md, Documentation/Planning/Decisions/README.md]
 requirement: none
 created: 2026-11-05
-completed:
+completed: 2026-11-05
 ---
 # BL-814 — Create Surl.Control with the loopback control endpoint's JSON requests and token check
 
@@ -47,17 +47,41 @@ running `surl` with nothing but an HTTP client, and so it is unit tested without
 
 ## Acceptance criteria
 
-- [ ] `Surl.slnx` lists both projects in order; `dotnet build Application/Surl.Control.UnitLibrary -warnaserror`
+- [x] `Surl.slnx` lists both projects in order; `dotnet build Application/Surl.Control.UnitLibrary -warnaserror`
       is clean.
-- [ ] Named tests drive the handler through `InMemoryConnection` and `Http1ConnectionServer` with a fake
+- [x] Named tests drive the handler through `InMemoryConnection` and `Http1ConnectionServer` with a fake
       `IControlTarget`: each path the ADR defines answers its JSON shape and calls the target as expected; a
       missing token, a wrong token and a non-loopback peer are refused as the ADR says; an oversized body and
       malformed JSON get the ADR's error; a wait past its bound is refused; no answer contains the token.
-- [ ] The fast tests are green and `Surl.Control.UnitLibrary` has 100% line and branch coverage, no method over
+- [x] The fast tests are green and `Surl.Control.UnitLibrary` has 100% line and branch coverage, no method over
       complexity 10, and a CRAP score of at most 30.
-- [ ] `Application/Surl.Control.UnitLibrary/CLAUDE.md` states what the library holds and what it may reference.
+- [x] `Application/Surl.Control.UnitLibrary/CLAUDE.md` states what the library holds and what it may reference.
 
 ## Notes
+
+- Built: `ControlEndpoint` (`FeedEventsAsync` fills its own event log from `IControlTarget.ReadEventsAsync`;
+  `ServeAsync(IConnection, ExchangeContext)` answers one connection through `Http1ConnectionServer` with the
+  upload limit set to 16 MiB), `IControlTarget`, `IControlSnapshot`, `ControlFault`, `ControlMessage`,
+  `ControlRefusalException`/`ControlRefusalKind` (400/404/409 from the target), `ControlToken` (SHA-256 then
+  `FixedTimeEquals`), and internal routes, event log, JSON shapes (`ControlJsonContext`, source generation,
+  snake_case) and the text-or-base64 rule.
+- Decisions the ADR left open are recorded in ADR-0135 (decided by Claude under Stewart's delegation): `fault_kind`
+  for the fault's kind, filters through the event's exchange, dropped counts including subscription gaps,
+  `is_truncated` on a gap, a wait answers the first held match, peer before token, strict query keys and JSON
+  members, JSON errors naming only a path, `Cache-Control: no-store`, no `Content-Length` on `204`.
+- `touches` widened to the ADR file and `Documentation/Planning/Decisions/README.md`: the ADR is needed for the
+  decisions above, and no task in Doing names either.
+- `IControlTarget.ReadEventsAsync` replaces a dropped-count member: the endpoint counts subscription drops itself
+  from gaps in `sequence`, so BL-816 only hands over a subscription with bytes, excluding the endpoint's own
+  exchanges.
+- The body bound uses the exchange's `MaxUploadBytes` (set to 16 MiB by `ServeAsync`) for chunked bodies, plus an
+  up-front check of `Content-Length`, because the shared body discarder reads an announced body before it finds
+  the length past its limit.
+- The generated `ControlJsonContext` carries `[ExcludeFromCodeCoverage]` with its justification; with it the
+  library measures 100% line and 100% branch coverage and no method above complexity 10 in Cobertura (the same
+  figures `Measure-CodeQuality.ps1` reads), so CRAP is at most 10. 128 tests in `Surl.Control.UnitTests`.
+- No upstream curl measurement: the control endpoint is Surl's own interface for test suites, not a protocol
+  curl speaks (ADR-0124 decision 7).
 
 ## Log
 
@@ -65,3 +89,4 @@ running `surl` with nothing but an HTTP client, and so it is unit tested without
 - 2026-11-05: depends-on narrowed from BL-805 to BL-823 at filing: Surl.Control drives its own interface, so it
   needs only the event contracts; BL-816 depends on BL-805 instead.
 - 2026-11-05: Backlog -> Doing.
+- 2026-11-05: Doing -> Done. Surl.Control answers the loopback control endpoint's /v1/ requests against IControlTarget, checking a loopback peer and the bearer token on every request
