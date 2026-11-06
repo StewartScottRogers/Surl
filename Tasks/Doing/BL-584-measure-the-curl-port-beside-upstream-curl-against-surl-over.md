@@ -65,3 +65,4 @@ lists every port finding in BL-576's ADR decision 6 form.
 - 2026-11-04: Created.
 - 2026-11-05: Backlog -> Doing.
 - 2026-11-05: Doing -> Backlog. Waits on BL-580: per-run setup (multi-command runs, accounts and upload files) and the findings-file reader land in the shared Phase 7 helper there
+- 2026-11-05: Backlog -> Doing.
