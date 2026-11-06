@@ -18,6 +18,11 @@ namespace Surl.Protocol.Gopher;
 /// percent-encoded (<c>%2e%2e</c>), is refused there.
 /// </para>
 /// <para>
+/// Before the content store is asked, the exchange's fault plan is (<see cref="GopherSelectorFaults"/>):
+/// a chosen-error rule for the selector's path is answered with an error menu carrying the rule's
+/// text (ADR-0124 decision 4, ADR-0138).
+/// </para>
+/// <para>
 /// A file is sent as its bytes exactly, with no <c>.</c> line after them and no line-ending
 /// conversion, whatever its item type: upstream curl writes every byte it receives until the
 /// close. If the file shrinks while it is sent, the connection is aborted, so the client sees
@@ -107,6 +112,14 @@ public sealed class GopherProtocolServer : IConnectionProtocolServer
         if (hasSearch)
         {
             context.Log.Note($"Selector \"{GopherLogText.Render(selector)}\": the text after its TAB was ignored.");
+        }
+
+        // ADR-0138: a chosen-error rule for the selector is answered before the content store is asked.
+        if (await GopherSelectorFaults.FindErrorAsync(context, requestPath) is { } chosenError)
+        {
+            await connection.WriteAsync(GopherSelectorFaults.ErrorMenu(chosenError), context.CancellationToken);
+            await connection.CompleteWritesAsync(context.CancellationToken);
+            return;
         }
 
         await answer.AnswerAsync(requestPath);
