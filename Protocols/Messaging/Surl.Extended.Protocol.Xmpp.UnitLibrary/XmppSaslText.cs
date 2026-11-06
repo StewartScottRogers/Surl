@@ -40,13 +40,6 @@ internal static class XmppSaslText
         $"<iq type='result' id='{Escaped(id)}'><bind xmlns='{XmppNamespaces.Bind}'><jid>{Escaped(fullJid)}</jid></bind></iq>";
 
     /// <summary>
-    /// An empty IQ result (8.2.3), the answer to RFC 3921's legacy session request (decision 4).
-    /// </summary>
-    /// <param name="id">The request's <c>id</c>.</param>
-    /// <returns>The result IQ.</returns>
-    public static string EmptyResult(string id) => $"<iq type='result' id='{Escaped(id)}'/>";
-
-    /// <summary>
     /// An IQ error (8.3), with no <c>&lt;text/&gt;</c>.
     /// </summary>
     /// <param name="id">The request's <c>id</c>.</param>

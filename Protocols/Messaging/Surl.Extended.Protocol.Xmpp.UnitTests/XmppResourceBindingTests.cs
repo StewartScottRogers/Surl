@@ -111,7 +111,8 @@ public sealed class XmppResourceBindingTests
         var (answers, _) = await AfterLoginAsync(BindBalcony, BindGenerated, Close);
 
         Assert.EndsWith(
-            "<iq type='error' id='yhc13a95'><error type='cancel'><not-allowed xmlns='urn:ietf:params:xml:ns:xmpp-stanzas'/></error></iq>" + Close,
+            "<iq id=\"yhc13a95\" type=\"error\" to=\"user@im.example.com/balcony\" xmlns=\"jabber:client\"><bind xmlns=\"urn:ietf:params:xml:ns:xmpp-bind\" />" +
+            "<error type=\"cancel\"><not-allowed xmlns=\"urn:ietf:params:xml:ns:xmpp-stanzas\" /></error></iq>" + Close,
             answers);
     }
 
@@ -121,24 +122,24 @@ public sealed class XmppResourceBindingTests
         var (answers, _) = await AfterLoginAsync(
             BindBalcony, "<iq id='s1' type='set'><session xmlns='urn:ietf:params:xml:ns:xmpp-session'/></iq>", Close);
 
-        Assert.EndsWith("<iq type='result' id='s1'/>" + Close, answers);
+        Assert.EndsWith("<iq type='result' to='user@im.example.com/balcony' id='s1'/>" + Close, answers);
     }
 
     [TestMethod]
-    public async Task AnswerAsync_OtherIqAfterBind_IsServiceUnavailable()
+    public async Task AnswerAsync_PingToOwnAccountAfterBind_IsServiceUnavailable()
     {
         var (answers, _) = await AfterLoginAsync(BindBalcony, "<iq id='p1' type='get'><ping xmlns='urn:xmpp:ping'/></iq>", Close);
 
         Assert.EndsWith(
-            "<iq type='error' id='p1'><error type='cancel'><service-unavailable xmlns='urn:ietf:params:xml:ns:xmpp-stanzas'/></error></iq>" + Close,
+            "<iq id=\"p1\" type=\"error\" to=\"user@im.example.com/balcony\" xmlns=\"jabber:client\"><ping xmlns=\"urn:xmpp:ping\" />" +
+            "<error type=\"cancel\"><service-unavailable xmlns=\"urn:ietf:params:xml:ns:xmpp-stanzas\" /></error></iq>" + Close,
             answers);
     }
 
     [TestMethod]
     [DataRow("<iq id='r1' type='result'/>")]
     [DataRow("<iq id='r1' type='error'/>")]
-    [DataRow("<message to='romeo@example.net'><body>hi</body></message>")]
-    public async Task AnswerAsync_IqReplyOrMessageAfterBind_IsNotAnswered(string stanza)
+    public async Task AnswerAsync_IqReplyAfterBind_IsNotAnswered(string stanza)
     {
         var (answers, _) = await AfterLoginAsync(BindBalcony, stanza, Close);
 
