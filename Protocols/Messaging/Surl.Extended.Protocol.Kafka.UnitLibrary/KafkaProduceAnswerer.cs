@@ -23,7 +23,10 @@ namespace Surl.Extended.Protocol.Kafka;
 /// <see cref="ExchangeLimits.MaxMessageBytes"/> (<c>MESSAGE_TOO_LARGE</c> (10) past it) - and
 /// each of its records becomes one bus message; a record whose key and value
 /// pass the bus's <c>MaxMessageBytes</c> (<c>--max-filesize</c>) <c>MESSAGE_TOO_LARGE</c> (10);
-/// a bus store bound <c>POLICY_VIOLATION</c> (44). A topic with no log is created. Otherwise each
+/// an idempotent producer's sequence or epoch refused by <see cref="KafkaProducerStates"/>
+/// <c>OUT_OF_ORDER_SEQUENCE_NUMBER</c> (45) or <c>INVALID_PRODUCER_EPOCH</c> (47), and a retry of
+/// batches already taken answered 0 with the first one's original <c>base_offset</c>,
+/// <c>log_append_time_ms</c> -1 and nothing appended (ADR-0145 decision 8); a bus store bound <c>POLICY_VIOLATION</c> (44). A topic with no log is created. Otherwise each
 /// record is published on the bus as one message - the value as payload (null as empty), the
 /// key, the UTF-8 headers, quality of service 1 - so live subscribers of the mapped topic
 /// receive it, and the partition is answered with the first record's offset as
@@ -37,11 +40,14 @@ namespace Surl.Extended.Protocol.Kafka;
 /// </para>
 /// </remarks>
 /// <param name="bus">The shared message bus whose topic logs the records are appended to.</param>
-public sealed class KafkaProduceAnswerer(MessageBus.MessageBus bus) : IKafkaApiAnswerer
+/// <param name="producerStates">The broker's idempotent producers, shared with its
+/// <see cref="KafkaInitProducerIdAnswerer"/>; a new, empty set unless given.</param>
+public sealed class KafkaProduceAnswerer(MessageBus.MessageBus bus, KafkaProducerStates? producerStates = null) : IKafkaApiAnswerer
 {
     private const long NoOffset = -1;
 
     private readonly MessageBus.MessageBus bus = bus ?? throw new ArgumentNullException(nameof(bus));
+    private readonly KafkaProducerStates producerStates = producerStates ?? new KafkaProducerStates();
 
     /// <inheritdoc/>
     public KafkaApiKey ApiKey => KafkaApiKey.Produce;
@@ -83,10 +89,17 @@ public sealed class KafkaProduceAnswerer(MessageBus.MessageBus bus) : IKafkaApiA
         var batches = KafkaRecordBatchReader.Read(
             partition.Records ?? ReadOnlyMemory<byte>.Empty,
             KafkaRecordsCompression.DecompressionBound(context.Limits.MaxMessageBytes));
-        var error = AppendError(topic, batches);
-        return error == KafkaErrorCode.None
-            ? Publish(topic, partition.Index, batches.Records, account, context)
-            : PartitionAnswer.Failed(partition.Index, error);
+        var error = RecordsError(batches);
+        if (error != KafkaErrorCode.None)
+        {
+            return PartitionAnswer.Failed(partition.Index, error);
+        }
+
+        var sequence = producerStates.Check(topic, batches.Batches);
+        return sequence.Error != KafkaErrorCode.None ? PartitionAnswer.Failed(partition.Index, sequence.Error)
+            : sequence.DuplicateBaseOffset is { } original ? Duplicate(topic, partition.Index, original)
+            : bus.CreateLog(topic) != MessageBusOutcome.Succeeded ? PartitionAnswer.Failed(partition.Index, KafkaErrorCode.PolicyViolation)
+            : Publish(topic, partition.Index, batches, account, context);
     }
 
     // The canonical topic a partition's records go to, or why they may not: an invalid name,
@@ -100,20 +113,23 @@ public sealed class KafkaProduceAnswerer(MessageBus.MessageBus bus) : IKafkaApiA
             : (mapping.Name, KafkaErrorCode.None);
     }
 
-    // A batch that failed its checks, a record past the bus's message limit, or a topic the bus
-    // cannot give a log; creating the log when the topic has none.
-    private KafkaErrorCode AppendError(string topic, KafkaRecordBatchReadResult batches) =>
+    // A batch that failed its checks, or a record past the bus's message limit.
+    private KafkaErrorCode RecordsError(KafkaRecordBatchReadResult batches) =>
         batches.Error != KafkaErrorCode.None ? batches.Error
         : batches.Records.Any(record => record.KeyAndValueBytes > bus.MaxMessageBytes) ? KafkaErrorCode.MessageTooLarge
-        : bus.CreateLog(topic) != MessageBusOutcome.Succeeded ? KafkaErrorCode.PolicyViolation
         : KafkaErrorCode.None;
+
+    // A retried batch already appended: its original base offset, no append time (Kafka answers
+    // a duplicate with -1 there), and the log's start offset now.
+    private PartitionAnswer Duplicate(string topic, int index, long baseOffset) =>
+        new(index, KafkaErrorCode.None, baseOffset, NoOffset, bus.GetLogOffsets(topic).LogStartOffset);
 
     // Publishes each record in turn; a store bound met part of the way is POLICY_VIOLATION, the
     // records before it staying appended (the bus has no all-or-nothing append yet).
-    private PartitionAnswer Publish(string topic, int index, IReadOnlyList<KafkaProducedRecord> records, string? account, ExchangeContext context)
+    private PartitionAnswer Publish(string topic, int index, KafkaRecordBatchReadResult batches, string? account, ExchangeContext context)
     {
-        var offsets = new List<long>(records.Count);
-        foreach (var record in records)
+        var offsets = new List<long>(batches.Records.Count);
+        foreach (var record in batches.Records)
         {
             var published = bus.Publish(ToBusMessage(topic, record), account);
             if (published.Outcome != MessageBusOutcome.Succeeded)
@@ -124,6 +140,8 @@ public sealed class KafkaProduceAnswerer(MessageBus.MessageBus bus) : IKafkaApiA
             offsets.Add(published.LogOffset.GetValueOrDefault());
         }
 
+        producerStates.Record(topic, batches.Batches, BatchBaseOffsets(batches.Batches, offsets));
+
         // Retention always keeps the newest record, so its publish time is read back from the
         // log; the exchange's clock stands in should a later publish have dropped it already.
         var appendedAt = bus.ReadLog(topic, offsets[^1], 0).Records
@@ -131,6 +149,20 @@ public sealed class KafkaProduceAnswerer(MessageBus.MessageBus bus) : IKafkaApiA
             .DefaultIfEmpty(context.TimeProvider.GetUtcNow())
             .First();
         return new(index, KafkaErrorCode.None, offsets[0], appendedAt.ToUnixTimeMilliseconds(), bus.GetLogOffsets(topic).LogStartOffset);
+    }
+
+    // The offset of each batch's first record: the batches' records were published in order.
+    private static List<long> BatchBaseOffsets(IReadOnlyList<KafkaProducedBatch> batches, List<long> offsets)
+    {
+        var baseOffsets = new List<long>(batches.Count);
+        var first = 0;
+        foreach (var batch in batches)
+        {
+            baseOffsets.Add(offsets[first]);
+            first += batch.RecordCount;
+        }
+
+        return baseOffsets;
     }
 
     private static BusMessage ToBusMessage(string topic, KafkaProducedRecord record) =>

@@ -27,6 +27,9 @@ public enum KafkaApiKey : short
     /// <summary>CreateTopics: create topics.</summary>
     CreateTopics = 19,
 
+    /// <summary>InitProducerId: hand an idempotent producer its producer id and epoch.</summary>
+    InitProducerId = 22,
+
     /// <summary>SaslAuthenticate: carry one SASL step.</summary>
     SaslAuthenticate = 36,
 }

@@ -57,6 +57,12 @@ public enum KafkaErrorCode : short
     /// <summary><c>POLICY_VIOLATION</c>: a store bound was reached.</summary>
     PolicyViolation = 44,
 
+    /// <summary><c>OUT_OF_ORDER_SEQUENCE_NUMBER</c>: an idempotent batch's sequence is not one past the last taken.</summary>
+    OutOfOrderSequenceNumber = 45,
+
+    /// <summary><c>INVALID_PRODUCER_EPOCH</c>: an idempotent batch carries an older producer epoch than the one held.</summary>
+    InvalidProducerEpoch = 47,
+
     /// <summary><c>SASL_AUTHENTICATION_FAILED</c>: the login was refused.</summary>
     SaslAuthenticationFailed = 58,
 

@@ -46,6 +46,7 @@ public sealed class KafkaApiVersionRangeTests
             (KafkaApiKey.SaslHandshake, 0, 1),
             (KafkaApiKey.ApiVersions, 0, 3),
             (KafkaApiKey.CreateTopics, 2, 4),
+            (KafkaApiKey.InitProducerId, 0, 1),
             (KafkaApiKey.SaslAuthenticate, 0, 1),
         };
 

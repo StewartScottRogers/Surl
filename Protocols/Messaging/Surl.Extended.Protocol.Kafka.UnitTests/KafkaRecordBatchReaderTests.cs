@@ -48,6 +48,20 @@ public sealed class KafkaRecordBatchReaderTests
     }
 
     [TestMethod]
+    public void Read_TwoBatches_ReturnsEachBatchsProducerFields()
+    {
+        var result = KafkaRecordBatchReader.Read((byte[])[.. IdempotentBatch(0x0102030405, 3, 77, Record(0, "a"), Record(1, "b")), .. Batch([Record(0, "c")])]);
+
+        CollectionAssert.AreEqual(
+            new[] { new KafkaProducedBatch(0x0102030405, 3, 77, 1), new KafkaProducedBatch(-1, -1, -1, 0) },
+            result.Batches.ToArray());
+    }
+
+    [TestMethod]
+    public void Read_ACorruptBatch_ReturnsNoBatches() =>
+        Assert.IsEmpty(KafkaRecordBatchReader.Read(Batch([Record(0, "a")], crcFlip: 1)).Batches);
+
+    [TestMethod]
     public void Read_HeadersWithANullValueOrMalformedUtf8_AreDropped()
     {
         byte[] invalidUtf8 = [0xC3];

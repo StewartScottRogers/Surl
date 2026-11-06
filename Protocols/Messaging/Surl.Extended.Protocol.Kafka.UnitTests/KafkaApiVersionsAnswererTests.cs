@@ -21,6 +21,7 @@ public sealed class KafkaApiVersionsAnswererTests
         0x00, 0x11, 0x00, 0x00, 0x00, 0x01,
         0x00, 0x12, 0x00, 0x00, 0x00, 0x03,
         0x00, 0x13, 0x00, 0x02, 0x00, 0x04,
+        0x00, 0x16, 0x00, 0x00, 0x00, 0x01,
         0x00, 0x24, 0x00, 0x00, 0x00, 0x01,
     ];
 
@@ -40,6 +41,15 @@ public sealed class KafkaApiVersionsAnswererTests
     }
 
     [TestMethod]
+    public async Task ServeAsync_ApiVersionsZero_ListsInitProducerIdZeroToOne()
+    {
+        var (written, _) = await ServeAsync(Refusing(), EmptyBusMetadata(), TestContext.CancellationToken, Request(KafkaApiKey.ApiVersions, 0));
+
+        byte[] initProducerIdRow = [0x00, 0x16, 0x00, 0x00, 0x00, 0x01];
+        Assert.IsTrue(written.Skip(4 + 4 + 6).Chunk(6).Any(row => row.SequenceEqual(initProducerIdRow)));
+    }
+
+    [TestMethod]
     public async Task AnswerAsync_NullArguments_Throw()
     {
         var answerer = new KafkaApiVersionsAnswerer();
@@ -54,7 +64,7 @@ public sealed class KafkaApiVersionsAnswererTests
     {
         var (written, _) = await ServeAsync(Refusing(), EmptyBusMetadata(), TestContext.CancellationToken, Request(KafkaApiKey.ApiVersions, 0));
 
-        CollectionAssert.AreEqual(Response([0x00, 0x00, 0x00, 0x00, 0x00, 0x08, .. Rows]), written);
+        CollectionAssert.AreEqual(Response([0x00, 0x00, 0x00, 0x00, 0x00, 0x09, .. Rows]), written);
     }
 
     [TestMethod]
@@ -64,7 +74,7 @@ public sealed class KafkaApiVersionsAnswererTests
     {
         var (written, _) = await ServeAsync(Refusing(), EmptyBusMetadata(), TestContext.CancellationToken, Request(KafkaApiKey.ApiVersions, version));
 
-        CollectionAssert.AreEqual(Response([0x00, 0x00, 0x00, 0x00, 0x00, 0x08, .. Rows, 0x00, 0x00, 0x00, 0x00]), written);
+        CollectionAssert.AreEqual(Response([0x00, 0x00, 0x00, 0x00, 0x00, 0x09, .. Rows, 0x00, 0x00, 0x00, 0x00]), written);
     }
 
     [TestMethod]
@@ -77,7 +87,7 @@ public sealed class KafkaApiVersionsAnswererTests
 
         var (written, _) = await ServeAsync(Refusing(), EmptyBusMetadata(), TestContext.CancellationToken, request);
 
-        CollectionAssert.AreEqual(Response([0x00, 0x00, 0x09, .. compactRows, 0x00, 0x00, 0x00, 0x00, 0x00]), written);
+        CollectionAssert.AreEqual(Response([0x00, 0x00, 0x0A, .. compactRows, 0x00, 0x00, 0x00, 0x00, 0x00]), written);
     }
 
     [TestMethod]

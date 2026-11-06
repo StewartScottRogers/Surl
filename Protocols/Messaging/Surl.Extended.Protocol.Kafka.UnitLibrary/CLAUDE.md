@@ -92,6 +92,21 @@ CreateTopics (BL-950, ADR-0145 decisions 7 and 10):
   `MessageBus.CreateLog` (its bound 44). `validate_only` creates nothing; `configs` are ignored and
   their names noted. `KafkaRequest.Transport` is the connection a fault rule's drop aborts.
 
+InitProducerId and idempotent producers (BL-951, ADR-0145 decisions 8 to 10):
+
+- `KafkaProducerStates` is shared by `KafkaInitProducerIdAnswerer` and `KafkaProduceAnswerer`:
+  producer ids rising by one from a start drawn from `ExchangeContext.Identifiers` (47 bits), and
+  per producer id and canonical topic the epoch and last five batches, at most
+  `DefaultMaxProducerStates` (10000), the least recently taken dropped.
+- `KafkaInitProducerIdAnswerer` answers v0 and v1: a fault rule first (command `InitProducerId`, no
+  path), then a non-null `transactional_id` 42 with id and epoch -1, else the next id, epoch 0.
+- `KafkaRecordBatchReader` returns each batch's `KafkaProducedBatch` (`producerId`,
+  `producerEpoch`, `baseSequence`, `lastOffsetDelta`). `KafkaProduceAnswerer` checks them after the
+  record size check (10) and before the bus append (44): no state held (or a newer epoch) takes
+  any sequence, an older epoch is 47, a repeat of one of the last five is answered 0 with its base
+  offset and nothing appended, one past the last taken is taken, anything else is 45; a partition
+  mixing repeats and new batches is 45. `producerId` -1 is not checked.
+
 Each served API gets an `IKafkaApiAnswerer`, passed to `KafkaBroker`'s constructor; the command
 line (`--kafka-fetch-compression`) and composition are BL-522.
 
