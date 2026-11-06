@@ -140,6 +140,16 @@ UploadPart or CompleteMultipartUpload answer them, are refusals: the XML `Error`
 `Connection: close`, and no lingering drain (`HttpAnswer.DrainsBeforeClose` is `false`), so the
 rest of a refused body is never read (ADR-0108 decision 7; BL-729).
 
+The chosen-error fault (BL-980; ADR-0124 decisions 4 and 9): after the login is judged and before the
+operation or the content store, `S3ChosenErrorFault` asks `ExchangeContext.Faults` at `FaultStage.Command`
+through `HttpCommandFaults.FindChosenErrorAsync` - `scheme` `s3`, `account` the login (none when anonymous),
+`command` the method, `path` `/<bucket>` or `/<bucket>/<key>` path style even when virtual-hosted, else the
+path as sent, all still percent-encoded. An `error` rule whose reply is a status 400 to 599 and an error code
+word (an ASCII letter, then letters and digits, at most 64) is answered as that status with the `Error` body's
+`Code` the word and `Message` `This error was chosen by fault rule <id>.`, and publishes one
+`FaultAppliedEvent` naming the path. A reply that does not fit, or a rule of another kind, is noted in the
+exchange log and the request is served as without it. A refused login asks no fault point.
+
 A head past `--max-request-head` is refused `400 RequestHeaderSectionTooLarge` with the `Error`
 body (empty `Resource`), then closed (ADR-0108, decision 7; BL-720): `S3RequestAnswerer` is also
 `Surl.HttpServing`'s `IHttpHeadNotReadRefuser`. Every other head that could not be read keeps

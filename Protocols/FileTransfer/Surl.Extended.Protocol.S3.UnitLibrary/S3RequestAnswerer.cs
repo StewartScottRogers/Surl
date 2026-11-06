@@ -13,7 +13,7 @@ namespace Surl.Extended.Protocol.S3;
 /// </summary>
 /// <remarks>
 /// The order is ADR-0108 decision 4.1's: the addressing, the SigV4 check of the head
-/// (<see cref="S3Login"/>), the operation - with a body the operation does not use read first
+/// (<see cref="S3Login"/>), a fault rule's chosen error (<see cref="S3ChosenErrorFault"/>), the operation - with a body the operation does not use read first
 /// when the signature binds it - then the bucket (<c>404 NoSuchBucket</c>), then the
 /// operation's own checks: for a read, the key's length (<c>400 KeyTooLongError</c>) and the
 /// key (<c>404 NoSuchKey</c>).
@@ -67,6 +67,11 @@ internal sealed class S3RequestAnswerer : IHttpRequestHandler, IHttpHeadNotReadR
         if (loginResult.Refusal is { } loginRefusal)
         {
             return reply.Error(loginRefusal);
+        }
+
+        if (await S3ChosenErrorFault.FindAsync(context, request.Method, target, loginResult.Caller!.AccountName) is { } chosenError)
+        {
+            return reply.Error(chosenError);
         }
 
         var operation = S3OperationRecognition.Of(request, target);
