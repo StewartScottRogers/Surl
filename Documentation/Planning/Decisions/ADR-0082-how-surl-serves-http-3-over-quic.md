@@ -1,6 +1,7 @@
 # ADR-0082 — How Surl serves HTTP/3 over QUIC, and what is hand-built
 
 - **Status:** Accepted
+- **Amended by:** [ADR-0147](ADR-0147-the-remaining-tls-1-3-groups-curl-offers-over-quic.md) (2026-11-06, BL-1005): the six groups curl lists only in `supported_groups`, and SecP384r1MLKEM1024 (`11ED`), are served after decision 3's five; the table's `11EE` is curveSM2MLKEM768.
 - **Amended by:** Amendment 1 below (2026-11-05, BL-383: the HTTP/3 server where this ADR is silent);
   Amendment 3 below (2026-11-06, BL-710: writes wait for the client's credit past a bound);
   [ADR-0086](ADR-0086-how-the-extended-servers-share-http-2-http-3-and-quic.md)
@@ -98,7 +99,7 @@ BL-363's `-QuicInitial` (`Run-QuicInitialRecorder.cs`):
 | ClientHello length | 1519 bytes (1501 for `127.0.0.1`: no `server_name`) | 1501 bytes | 1479 bytes |
 | `legacy_version`, `supported_versions` | `0303`; `0304` (TLS 1.3 only) | same | same |
 | Cipher suites, in order | `1302` `TLS_AES_256_GCM_SHA384`, `1303` `TLS_CHACHA20_POLY1305_SHA256`, `1301` `TLS_AES_128_GCM_SHA256` | same | the same three, then `00FF` (renegotiation SCSV) |
-| `supported_groups`, in order | `11EC` X25519MLKEM768, `11EB` SecP256r1MLKEM768, `11EE` SecP384r1MLKEM1024, `001D` x25519, `0017` secp256r1, `001E` x448, `0018` secp384r1, `0019` secp521r1, `0029` curveSM2, `0100` ffdhe2048, `0101` ffdhe3072 | same | `11EC` X25519MLKEM768, `001D` x25519, `0017` secp256r1, `0018` secp384r1, `0019` secp521r1 |
+| `supported_groups`, in order | `11EC` X25519MLKEM768, `11EB` SecP256r1MLKEM768, `11EE` curveSM2MLKEM768 (named SecP384r1MLKEM1024 here until ADR-0147 corrected it), `001D` x25519, `0017` secp256r1, `001E` x448, `0018` secp384r1, `0019` secp521r1, `0029` curveSM2, `0100` ffdhe2048, `0101` ffdhe3072 | same | `11EC` X25519MLKEM768, `001D` x25519, `0017` secp256r1, `0018` secp384r1, `0019` secp521r1 |
 | `key_share` | X25519MLKEM768 (1216 bytes), x25519 (32 bytes) | same | same |
 | `signature_algorithms`, in order | `0905` `0906` `0904` (ML-DSA-65, -87, -44), `0403` `0503` `0603` (ECDSA P-256, P-384, P-521), `0807` Ed25519, `0808` Ed448, `081A` `081B` `081C` (ECDSA brainpool, TLS 1.3), `0809` `080A` `080B` (RSA-PSS PSS), `0804` `0805` `0806` (RSA-PSS RSAE), `0401` `0501` `0601` (RSA PKCS#1), `0708` (SM2) | same | `0806`, `080B`, `0601`, `0603`, `0805`, `080A`, `0501`, `0503`, `0804`, `0809`, `0401`, `0403` |
 | `psk_key_exchange_modes` | `psk_dhe_ke` | same | not sent |

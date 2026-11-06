@@ -8,7 +8,7 @@ depends-on: []
 touches: [Documentation/Planning/Decisions]
 requirement: FR-055
 created: 2026-11-06
-completed:
+completed: 2026-11-06
 ---
 # BL-1005 — Record the ADR for the remaining TLS 1.3 groups curl offers over QUIC
 
@@ -42,20 +42,26 @@ table, so the code tasks split from BL-545 can cite it.
 
 ## Acceptance criteria
 
-- [ ] A new ADR under `Documentation/Planning/Decisions/`, numbered next free, "Decided by Claude under
+- [x] A new ADR under `Documentation/Planning/Decisions/`, numbered next free, "Decided by Claude under
       Stewart's delegation", holds the measurement table for all seven groups and both build families,
       the server's order (SecP256r1MLKEM768, SecP384r1MLKEM1024, curveSM2MLKEM768, x448, curveSM2,
       ffdhe2048, ffdhe3072) and decision 3's library table.
-- [ ] ADR-0002 carries an "Amended" line naming the new ADR, the two new `Cryptography/` libraries
+- [x] ADR-0002 carries an "Amended" line naming the new ADR, the two new `Cryptography/` libraries
       (each referencing nothing) and `Surl.Tls13.UnitLibrary`'s right to reference both.
-- [ ] ADR-0082 carries an "Amended by" line naming the new ADR, and its `supported_groups` row names
+- [x] ADR-0082 carries an "Amended by" line naming the new ADR, and its `supported_groups` row names
       `11EE` curveSM2MLKEM768.
-- [ ] No file outside `Documentation/Planning/Decisions/` changes.
+- [x] No file outside `Documentation/Planning/Decisions/` changes.
 
 ## Notes
+
+- Saved as ADR-0147: the highest ADR on every local ref and in this worktree was ADR-0146 (fetch was not available to the lane). Every `ADR-0142` inside the stashed text was rewritten.
+- Recorded the ADR myself rather than through `align-and-document`: the text was already written and reviewed in BL-545, so the work was a renumber plus three one-line edits. Added an "Acted on by" line naming BL-1006, BL-1007, BL-1029 and BL-1008 to BL-1010 and BL-1030 in place of "BL-545 creates the projects", and kept "measured in BL-545" because that is where the measurements were made.
+- ADR-0002 and ADR-0082 lines re-made by hand from the stash diff, as the Context asked. Added ADR-0147 to the README index.
+- No test reads the ADR folder; `dotnet build` was clean and the fast tests passed (79 projects, 22539 tests, 0 failed).
 
 ## Log
 
 - 2026-11-06: Created.
 - 2026-11-06: Split from BL-545 (timed out after 120 min); reuses the ADR written in stash `darkfactory BL-545 20261106-033059`.
 - 2026-11-06: Backlog -> Doing.
+- 2026-11-06: Doing -> Done. ADR-0147 records the seven remaining TLS 1.3 groups, their order and the Curve448 and Sm2 libraries; ADR-0002 and ADR-0082 amended

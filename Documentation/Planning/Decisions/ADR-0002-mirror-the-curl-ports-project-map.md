@@ -19,6 +19,7 @@
 - **Amended:** decision 3's table by [ADR-0103](ADR-0103-surl-mcp-its-tools-and-the-mcp-core-it-shares-with-the-extended-mcp-server.md) (2026-11-05), which adds the MCP core the `Surl.Mcp` host and the extended MCP server share, `Surl.McpServing.UnitLibrary` in `Protocols/Http/`, referencing nothing. BL-619 creates the projects.
 - **Amended:** decision 3's table by [ADR-0105](ADR-0105-how-the-kafka-broker-answers-kafka-and-kafkas.md) (2026-11-05), which adds the hand-built codecs the Kafka broker needs and any server may use, `Surl.Compression.UnitLibrary` in `Foundation/`, referencing nothing. BL-702 creates the projects.
 - **Amended:** decision 3's table by [ADR-0122](ADR-0122-how-surl-serves-https-over-tls-srp.md) (2026-11-05), which adds the two hand-built libraries TLS-SRP needs, in `Cryptography/`: `Surl.Cryptography.Srp.UnitLibrary`, referencing nothing, and `Surl.TlsSrp.UnitLibrary`, referencing `Surl.Cryptography.Srp.UnitLibrary`. BL-564 and BL-565 create the projects; `Surl.Networking.UnitLibrary` references `Surl.TlsSrp` (BL-567).
+- **Amended:** decision 3's table by [ADR-0147](ADR-0147-the-remaining-tls-1-3-groups-curl-offers-over-quic.md) (2026-11-06), which adds two hand-built libraries in `Cryptography/`, each referencing nothing: `Surl.Cryptography.Curve448.UnitLibrary` (X448) and `Surl.Cryptography.Sm2.UnitLibrary` (ECDH on curveSM2); and lets `Surl.Tls13.UnitLibrary` reference both. BL-1007 and BL-1029 create the projects; BL-1010 and BL-1030 add the references.
 
 ## Context
 
