@@ -8,7 +8,7 @@ depends-on: []
 touches: [Protocols/Messaging/Surl.Extended.Protocol.Kafka.UnitLibrary, Protocols/Messaging/Surl.Extended.Protocol.Kafka.UnitTests, Documentation/Conformance/Extended/Kafka.md]
 requirement: none
 created: 2026-11-06
-completed:
+completed: 2026-11-06
 ---
 # BL-951 — Answer Kafka InitProducerId and check idempotent producers' sequence numbers
 
@@ -41,24 +41,35 @@ appended twice.
 
 ## Acceptance criteria
 
-- [ ] `KafkaApiVersionsAnswererTests` pins InitProducerId 0-1.
-- [ ] Named `KafkaInitProducerIdAnswererTests`: two calls answered consecutive ids from a fixed-byte
+- [x] `KafkaApiVersionsAnswererTests` pins InitProducerId 0-1.
+- [x] Named `KafkaInitProducerIdAnswererTests`: two calls answered consecutive ids from a fixed-byte
       `IIdentifierRandom` test double's start (masked to 47 bits) with epoch 0; a transactional id and an empty one answered 42 with -1 and -1.
-- [ ] Named `KafkaProduceAnswererTests`: a batch then its exact retry answered with the same base offset and the log
+- [x] Named `KafkaProduceAnswererTests`: a batch then its exact retry answered with the same base offset and the log
       holding it once; a gap answered 45 and nothing appended; an older epoch 47; a producer with no state accepted at
       sequence 7; sequence 2147483647 followed by 0 accepted; `producerId` -1 never checked.
-- [ ] A test shows the 10001st producer state dropping the least recently used, whose next batch is then accepted
+- [x] A test shows the 10001st producer state dropping the least recently used, whose next batch is then accepted
       at any sequence.
-- [ ] `Kafka.md`'s InitProducerId rows name these tests in place of BL-951, and `Kafka:Batch-Producer-1` is
+- [x] `Kafka.md`'s InitProducerId rows name these tests in place of BL-951, and `Kafka:Batch-Producer-1` is
       removed.
-- [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and the library keeps 100% line and branch
+- [x] `dotnet build -warnaserror` is clean, the fast tests are green, and the library keeps 100% line and branch
       coverage.
 
 ## Notes
 
 - Filed by BL-701 (ADR-0145).
+- Delivered directly against ADR-0145 decisions 8 to 10, which already fix every behaviour; no new ADR was needed.
+- Choices taken (sensible defaults, recorded here): a duplicate is answered with log_append_time_ms -1, as Kafka answers one, and
+  the log's current start offset; a partition mixing repeated and new batches is 45 (ADR-0145's all-or-nothing rule, no partial
+  append); a negative producerId (not only -1) is unchecked, as decision 8's "0 or above" reads; the least recently *taken*
+  state is dropped (a Check does not refresh recency); the producer-id counter wraps within 47 bits.
+- KafkaProduceAnswerer takes KafkaProducerStates as an optional constructor parameter (new set by default), so composition
+  (BL-522) passes one shared instance to it and to KafkaInitProducerIdAnswerer. Check and Record are each locked; a producer's
+  batches arrive on one connection answered in order, so no lock spans the bus append.
+- Added Kafka:Surl-Producer-5 (the InitProducerId fault rule) to Kafka.md.
+- Coverage: the library stays at 100% line and branch (cobertura from the MSTest coverage collector); Kafka tests 412 passing.
 
 ## Log
 
 - 2026-11-06: Created.
 - 2026-11-06: Backlog -> Doing.
+- 2026-11-06: Doing -> Done. Kafka InitProducerId v0-v1 hands out producer ids and Produce checks idempotent sequences, answering retries once
