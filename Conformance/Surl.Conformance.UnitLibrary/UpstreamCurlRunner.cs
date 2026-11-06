@@ -129,12 +129,13 @@ public sealed class UpstreamCurlRunner
     {
         using var process = Process.Start(CreateStartInfo(arguments, environment, workingDirectory))
             ?? throw new InvalidOperationException($"{Build.DefaultPath} did not start.");
-        await process.StandardInput.BaseStream.WriteAsync(standardInput, cancellationToken);
-        process.StandardInput.Close();
 
+        // Both reads start before stdin is written, so curl never blocks on a full stdout or
+        // stderr pipe while the runner blocks on a full stdin pipe.
         using var standardOutput = new MemoryStream();
         var copyingOutput = process.StandardOutput.BaseStream.CopyToAsync(standardOutput, CancellationToken.None);
         var readingError = process.StandardError.ReadToEndAsync(CancellationToken.None);
+        await WriteStandardInputAsync(process.StandardInput, standardInput, cancellationToken);
 
         using var deadline = new CancellationTokenSource(timeout, timeProvider);
         using var waitEnds = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, deadline.Token);
@@ -155,6 +156,46 @@ public sealed class UpstreamCurlRunner
         await copyingOutput;
         var error = await readingError;
         return UpstreamCurlRunResult.Exited(Build, process.ExitCode, standardOutput.ToArray(), error);
+    }
+
+    /// <summary>
+    /// Writes <paramref name="standardInput"/> to curl's stdin and closes it. An
+    /// <see cref="IOException"/> from writing or closing means curl exited, or closed its stdin,
+    /// without reading it all - <c>EPIPE</c> ("Broken pipe") on Linux and macOS, "The pipe is
+    /// being closed" on Windows - and is ignored, so the run still reports curl's exit code,
+    /// stdout and stderr. Any other exception propagates.
+    /// </summary>
+    /// <param name="stdin">curl's standard input stream; closed on return.</param>
+    /// <param name="standardInput">The bytes to write; empty for none.</param>
+    /// <param name="cancellationToken">Cancels the write.</param>
+    /// <returns>A task that completes when stdin is written and closed, or curl stopped reading it.</returns>
+    internal static async Task WriteStandardInputAsync(
+        StreamWriter stdin, ReadOnlyMemory<byte> standardInput, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(stdin);
+
+        try
+        {
+            await stdin.BaseStream.WriteAsync(standardInput, cancellationToken);
+            stdin.Close();
+        }
+        catch (IOException)
+        {
+            // curl did not read its stdin; closing what is left of the pipe is all that remains.
+            CloseIgnoringBrokenPipe(stdin);
+        }
+    }
+
+    private static void CloseIgnoringBrokenPipe(StreamWriter stdin)
+    {
+        try
+        {
+            stdin.Close();
+        }
+        catch (IOException)
+        {
+            // The pipe is already gone; there is nothing left to close.
+        }
     }
 
     /// <summary>

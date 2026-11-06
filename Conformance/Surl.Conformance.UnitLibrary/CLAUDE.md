@@ -32,7 +32,9 @@ kept here so they are unit tested while the driver itself only calls libcurl.
 `UpstreamCurlRunner` takes the locator's `UpstreamCurlLocation` - never a path - so the
 only curl it starts is a verified pin; it passes arguments through
 `ProcessStartInfo.ArgumentList`, writes the given standard input bytes (none by default)
-all at once and closes stdin, as `Record-CurlExchange.ps1` does, sets any environment
+all at once and closes stdin, as `Record-CurlExchange.ps1` does - after it has started
+reading stdout and stderr, and ignoring the `IOException` a curl that exits without reading
+its stdin leaves behind (`WriteStandardInputAsync`, BL-884) - sets any environment
 variables it is given (the SSH tests point `HOME` and `USERPROFILE` at a temporary directory,
 ADR-0051 decision 8), and returns an `UpstreamCurlRunResult`
 (exit code, stdout bytes, stderr text), killing curl at its timeout.

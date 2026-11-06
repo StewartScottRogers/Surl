@@ -138,4 +138,80 @@ public sealed class UpstreamCurlRunnerTests
 
         Assert.AreEqual("arguments", exception.ParamName);
     }
+
+    [TestMethod]
+    public async Task WriteStandardInputAsync_CurlReadsIt_WritesEveryByteAndCloses()
+    {
+        var pipe = new ClosedPipeStream(writeFailure: null, closeFailure: null);
+        byte[] bytes = [1, 2, 3];
+
+        await UpstreamCurlRunner.WriteStandardInputAsync(new StreamWriter(pipe), bytes, CancellationToken.None);
+
+        CollectionAssert.AreEqual(bytes, pipe.Written.ToArray());
+        Assert.IsTrue(pipe.CloseAttempted);
+    }
+
+    [TestMethod]
+    public async Task WriteStandardInputAsync_CurlExitedBeforeReadingIt_IgnoresTheBrokenPipeAndCloses()
+    {
+        var pipe = new ClosedPipeStream(new IOException("Broken pipe"), closeFailure: null);
+
+        await UpstreamCurlRunner.WriteStandardInputAsync(new StreamWriter(pipe), new byte[4096], CancellationToken.None);
+
+        Assert.IsTrue(pipe.CloseAttempted);
+    }
+
+    [TestMethod]
+    public async Task WriteStandardInputAsync_PipeBreaksOnWritingAndOnClosing_IgnoresBoth()
+    {
+        var pipe = new ClosedPipeStream(new IOException("Broken pipe"), new IOException("Broken pipe"));
+
+        await UpstreamCurlRunner.WriteStandardInputAsync(new StreamWriter(pipe), new byte[4096], CancellationToken.None);
+
+        Assert.IsTrue(pipe.CloseAttempted);
+    }
+
+    [TestMethod]
+    public async Task WriteStandardInputAsync_PipeBreaksOnClosing_IgnoresIt()
+    {
+        var pipe = new ClosedPipeStream(writeFailure: null, new IOException("The pipe is being closed."));
+
+        await UpstreamCurlRunner.WriteStandardInputAsync(new StreamWriter(pipe), new byte[] { 1 }, CancellationToken.None);
+
+        Assert.IsTrue(pipe.CloseAttempted);
+    }
+
+    [TestMethod]
+    public async Task WriteStandardInputAsync_WriteFailsOtherThanWithIOException_Propagates()
+    {
+        var pipe = new ClosedPipeStream(new InvalidOperationException("not a pipe failure"), closeFailure: null);
+
+        await Assert.ThrowsExactlyAsync<InvalidOperationException>(
+            () => UpstreamCurlRunner.WriteStandardInputAsync(new StreamWriter(pipe), new byte[] { 1 }, CancellationToken.None));
+    }
+
+    [TestMethod]
+    public async Task WriteStandardInputAsync_NullStandardInput_ThrowsArgumentNullException()
+    {
+        await Assert.ThrowsExactlyAsync<ArgumentNullException>(
+            () => UpstreamCurlRunner.WriteStandardInputAsync(null!, new byte[] { 1 }, CancellationToken.None));
+    }
+
+    [TestMethod]
+    [TestCategory("Integration")]
+    public async Task RunAsync_ProcessExitsWithoutReadingFourMebibytesOfStandardInput_ReturnsItsExitCode()
+    {
+        var dotnetHost = Environment.GetEnvironmentVariable("DOTNET_HOST_PATH");
+        if (string.IsNullOrEmpty(dotnetHost) || !File.Exists(dotnetHost))
+        {
+            Assert.Inconclusive("DOTNET_HOST_PATH does not name the dotnet host, so there is no process to start.");
+        }
+
+        var exitsAtOnce = Build with { DefaultPath = dotnetHost };
+        var runner = new UpstreamCurlRunner(UpstreamCurlLocation.Found(exitsAtOnce), TimeSpan.FromSeconds(60), TimeProvider.System);
+
+        var result = await runner.RunAsync(["--version"], new byte[4 * 1024 * 1024], CancellationToken.None);
+
+        Assert.AreEqual(0, result.ExitCode);
+    }
 }
