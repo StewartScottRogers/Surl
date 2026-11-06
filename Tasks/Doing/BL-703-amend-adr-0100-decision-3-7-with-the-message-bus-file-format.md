@@ -45,3 +45,4 @@ into `Surl.MessageBus`, so the decision says what the code does.
 ## Log
 
 - 2026-11-05: Created.
+- 2026-11-06: Backlog -> Doing.
