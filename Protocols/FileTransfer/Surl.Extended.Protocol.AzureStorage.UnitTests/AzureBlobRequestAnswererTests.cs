@@ -1,4 +1,5 @@
 using Surl.Content;
+using Surl.Protocol.Abstractions;
 
 namespace Surl.Extended.Protocol.AzureStorage;
 
@@ -102,5 +103,33 @@ public sealed class AzureBlobRequestAnswererTests
 
         StringAssert.EndsWith(response, "hello world");
         Assert.IsTrue(harness.Log.Notes.Any(note => note.StartsWith("The object metadata index could not be written: ", StringComparison.Ordinal)));
+    }
+
+    [TestMethod]
+    public async Task RefuseHeadNotRead_HeadPastMaxRequestHead_Is400InvalidInputAndClosed()
+    {
+        var harness = new AzureServerHarness();
+        harness.CreateFolder("photos");
+        var limits = ExchangeLimits.Default with { MaxRequestHeadBytes = 64 };
+
+        var response = await harness.SendRawAsync(
+            $"GET /photos/a.txt HTTP/1.1\r\nHost: account.blob.core.windows.net\r\nx-ms-client-request-id: c1\r\nX-Padding: {new string('p', 100)}\r\n\r\n",
+            limits);
+
+        Assert.AreEqual(
+            AzureServerHarness.ExpectedError(response, "400 Bad Request", "InvalidInput", "One of the request inputs is not valid."),
+            response);
+    }
+
+    [TestMethod]
+    public async Task RefuseHeadNotRead_HeadOfAnUnsupportedVersion_KeepsTheStandard505()
+    {
+        var harness = new AzureServerHarness();
+
+        var response = await harness.SendRawAsync("GET /photos/a.txt HTTP/2.0\r\nHost: account.blob.core.windows.net\r\n\r\n");
+
+        Assert.AreEqual(
+            $"HTTP/1.1 505 HTTP Version Not Supported\r\nDate: {AzureServerHarness.NowHttpDate}\r\nServer: surl\r\nContent-Length: 0\r\nConnection: close\r\n\r\n",
+            response);
     }
 }

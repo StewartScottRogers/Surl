@@ -108,7 +108,11 @@ What the Blob endpoint serves now (BL-424, BL-425, BL-715, BL-716), on `az`:
 - Every answer carries `Date`, `Server`, `x-ms-request-id` (a lower-case GUID), `x-ms-version:
   2025-01-05` and the echoed `x-ms-client-request-id`; an error carries `x-ms-error-code` and the
   one-line XML `Error` body, whose `Message` ends with `RequestId:` and `Time:` lines. A `HEAD`
-  error has no body. A connection past a limit is `503 ServerBusy`, then closed.
+  error has no body. A connection past a limit is `503 ServerBusy`, then closed. A head past
+  `--max-request-head` (BL-726) is `400 InvalidInput` with the common fields, `x-ms-error-code` and
+  the `Error` body - on `abfs` and `abfss` the JSON error body - then closed: both answerers word
+  `Surl.HttpServing`'s refusal through `IHttpHeadNotReadRefuser` (`AzureReply.HeadNotReadRefusal`);
+  every other head not read keeps the standard `505`, `408` or `400`.
 
 What the Data Lake endpoint serves now (BL-426, BL-716), on `abfs` and `abfss`, in the same order of checks
 (required headers, login, operation, `404 FilesystemNotFound`, `400 InvalidResourceName` past 1024
@@ -174,8 +178,7 @@ Not yet: the conditional fields on Put Blob and Delete Blob and `x-ms-blob-conte
 from BL-425); `retainUncommittedData=true`, `beginFrom`, `x-ms-properties` on Path - Create, the conditional fields on
 the Data Lake writes and the JSON body on a Data Lake connection refused past a limit (BL-758);
 List Blobs' `include=uncommittedblobs`, properties on a directory or a filesystem, the path-style account segment, so a
-shared access signature on an IP-literal or `localhost` host names its account (BL-725), and `400 InvalidInput` for a head
-past `--max-request-head`, which `Surl.HttpServing` still answers `431` (BL-726).
+shared access signature on an IP-literal or `localhost` host names its account (BL-725).
 
 This library references `Surl.Protocol.Abstractions`, `Surl.Content` and `Surl.HttpServing`
 (and through it `Surl.HttpMessage`), nothing else (`ProtocolIsolationTests`). It never

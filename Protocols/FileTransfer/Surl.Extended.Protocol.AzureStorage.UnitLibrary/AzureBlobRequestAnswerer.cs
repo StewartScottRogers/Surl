@@ -17,7 +17,7 @@ namespace Surl.Extended.Protocol.AzureStorage;
 /// (<see cref="AzureOperationRecognition"/>), the container (<c>404 ContainerNotFound</c>), the
 /// name's length (<c>400 InvalidResourceName</c>), and then the operation itself.
 /// </remarks>
-internal sealed class AzureBlobRequestAnswerer : IHttpRequestHandler
+internal sealed class AzureBlobRequestAnswerer : IHttpRequestHandler, IHttpHeadNotReadRefuser
 {
     /// <summary>
     /// The longest blob name, in characters ("Naming and Referencing Containers, Blobs, and Metadata").
@@ -93,6 +93,11 @@ internal sealed class AzureBlobRequestAnswerer : IHttpRequestHandler
 
         return await AnswerOperationAsync(reply, request, target, operation, loggedIn.Caller!, cancellationToken);
     }
+
+    /// <inheritdoc/>
+    /// <remarks>A head past <c>--max-request-head</c> is <c>400 InvalidInput</c> in the XML <c>Error</c> body (ADR-0109, decision 7).</remarks>
+    public HttpAnswer RefuseHeadNotRead(HttpRequestHeadReadOutcome outcome, HttpAnswer standardRefusal) =>
+        AzureReply.HeadNotReadRefusal(outcome, standardRefusal, context.TimeProvider.GetUtcNow(), writesJsonErrors: false);
 
     // List Containers, which names no container; else the container, then the name's length, then
     // the operation.

@@ -16,7 +16,7 @@ namespace Surl.Extended.Protocol.AzureStorage;
 /// (<see cref="AzureDataLakeOperationRecognition"/>), the filesystem (<c>404 FilesystemNotFound</c>),
 /// the path's length (<c>400 InvalidResourceName</c>), and then the operation itself.
 /// </remarks>
-internal sealed class AzureDataLakeRequestAnswerer : IHttpRequestHandler
+internal sealed class AzureDataLakeRequestAnswerer : IHttpRequestHandler, IHttpHeadNotReadRefuser
 {
     private static readonly KeyValuePair<string, string> FileResourceField = new("x-ms-resource-type", "file");
 
@@ -54,6 +54,11 @@ internal sealed class AzureDataLakeRequestAnswerer : IHttpRequestHandler
         setProperties = new AzurePathSetProperties(store, index, properties, context.Log);
         listFilesystems = new AzureFilesystemList(store);
     }
+
+    /// <inheritdoc/>
+    /// <remarks>A head past <c>--max-request-head</c> is <c>400 InvalidInput</c> in the JSON error body (ADR-0109, decision 7).</remarks>
+    public HttpAnswer RefuseHeadNotRead(HttpRequestHeadReadOutcome outcome, HttpAnswer standardRefusal) =>
+        AzureReply.HeadNotReadRefusal(outcome, standardRefusal, context.TimeProvider.GetUtcNow(), writesJsonErrors: true);
 
     /// <inheritdoc/>
     public async Task<HttpAnswer> AnswerAsync(HttpRequest request, CancellationToken cancellationToken)

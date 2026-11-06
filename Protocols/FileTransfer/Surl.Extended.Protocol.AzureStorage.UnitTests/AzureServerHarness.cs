@@ -76,14 +76,17 @@ internal sealed partial class AzureServerHarness
         stream.Write(Encoding.UTF8.GetBytes(content));
     }
 
-    public ExchangeContext Context() => new(
+    public ExchangeContext Context(ExchangeLimits? limits = null) => new(
         1,
         new ListenUrl(Scheme, "127.0.0.1", 10000).WithBoundPort(10000),
         new IPEndPoint(IPAddress.Loopback, 10000),
         new IPEndPoint(IPAddress.Loopback, 50000),
         Log,
         TimeProvider,
-        CancellationToken.None);
+        CancellationToken.None)
+    {
+        Limits = limits ?? ExchangeLimits.Default,
+    };
 
     /// <summary>
     /// Sends one request head with the bearer fields, <c>Host</c> and <c>Connection: close</c>.
@@ -120,10 +123,10 @@ internal sealed partial class AzureServerHarness
         return reader.ReadToEnd();
     }
 
-    public async Task<string> SendRawAsync(string request)
+    public async Task<string> SendRawAsync(string request, ExchangeLimits? limits = null)
     {
         var connection = new InMemoryConnection([Encoding.Latin1.GetBytes(request)]);
-        await Server.ServeAsync(connection, Context());
+        await Server.ServeAsync(connection, Context(limits));
 
         return Encoding.UTF8.GetString(connection.WrittenBytes);
     }

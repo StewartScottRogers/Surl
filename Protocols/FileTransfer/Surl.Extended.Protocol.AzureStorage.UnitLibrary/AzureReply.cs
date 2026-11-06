@@ -78,6 +78,40 @@ internal sealed class AzureReply
     public static string NewRequestId() => new Guid(System.Security.Cryptography.RandomNumberGenerator.GetBytes(16)).ToString("D");
 
     /// <summary>
+    /// The refusal of a head the server could not read (ADR-0109, decision 7): one past
+    /// <c>--max-request-head</c> is <c>400 InvalidInput</c> with the common fields,
+    /// <c>x-ms-error-code</c> and the endpoint's error body; any other keeps
+    /// <paramref name="standardRefusal"/>. No head was read, so nothing is echoed and the body
+    /// is always written.
+    /// </summary>
+    /// <param name="outcome">Why no head was read.</param>
+    /// <param name="standardRefusal">The refusal written when the server words it no other way.</param>
+    /// <param name="now">When the refusal is made.</param>
+    /// <param name="writesJsonErrors">Whether the body is the Data Lake endpoint's JSON error
+    /// rather than the Blob endpoint's XML <c>Error</c>.</param>
+    /// <returns>The refusal.</returns>
+    public static HttpAnswer HeadNotReadRefusal(HttpRequestHeadReadOutcome outcome, HttpAnswer standardRefusal, DateTimeOffset now, bool writesJsonErrors)
+    {
+        if (outcome != HttpRequestHeadReadOutcome.HeadTooLarge)
+        {
+            return standardRefusal;
+        }
+
+        var error = AzureError.InvalidInput;
+        var requestId = NewRequestId();
+        var body = writesJsonErrors ? AzureDataLakeErrorBody.Render(error, requestId, now) : AzureErrorBody.Render(AzureRefusal.Of(error), requestId, now);
+        List<KeyValuePair<string, string>> fields =
+        [
+            .. CommonFields(requestId, now),
+            new("x-ms-error-code", error.Code),
+            new("Content-Type", writesJsonErrors ? AzureDataLakeErrorBody.ContentType : "application/xml"),
+            new("Content-Length", body.Length.ToString(CultureInfo.InvariantCulture)),
+        ];
+
+        return new HttpAnswer(error.Status, fields, new HttpAnswerBody.Bytes(body), IsRefusal: true, LeavesRequestBodyUnread: false);
+    }
+
+    /// <summary>
     /// An answer with the common fields, then <paramref name="fields"/>, then <paramref name="body"/>.
     /// </summary>
     /// <param name="status">The status.</param>
