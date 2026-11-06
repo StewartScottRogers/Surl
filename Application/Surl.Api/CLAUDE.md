@@ -29,22 +29,28 @@ measures it by name.
   `SurlServerArguments.Compose`; a null or default property adds no word, so the default is
   `surl`'s. Misuse `--user` could not spell (a null, a `:` in a user name) and a negative
   duration other than `Timeout.InfiniteTimeSpan` are `ArgumentException`s.
-- `RecordExchanges` (ADR-0099 decision 7, off by default and adding no word) gives the serving
-  a `FanOutExchangeLogFactory` that passes every call to the levelled or trace log and to a
-  `RecordingExchangeLogFactory`. `SurlServer.Exchanges` snapshots it as `SurlExchangeRecord`s
-  (exchange ID, client, `StartedAt`, the `SurlExchangeChunk`s in order, `Received`, `Sent`,
-  `IsTruncated`) and `DroppedExchangeCount` counts the oldest dropped past
-  `MaxRecordedExchanges`; bytes past `MaxRecordedBytesPerExchange` (both directions together)
-  are cut. With recording off both throw `InvalidOperationException`; a non-positive bound is an
-  `ArgumentException`. Notes are not recorded, and a record names no listen URL.
+- `RecordExchanges` (ADR-0099 decision 7 as ADR-0124 decision 1 amends it, off by default and
+  adding no word) makes an `ExchangeRecordSubscriber`: it subscribes to `ComposedServing.Events`
+  with bytes, at the largest capacity, before serving starts, and a pump task applies every event
+  in stream order, under its `Gate`, to an `ExchangeRecordBook`. `SurlServer.Exchanges` snapshots
+  the book as `SurlExchangeRecord`s (exchange ID, `ListenUrl` and `Scheme` from the
+  `ExchangeStartedEvent`, client, `StartedAt`, the `SurlExchangeChunk`s in order, `Received`,
+  `Sent`, `IsTruncated`) once the pump has applied every event the stream had published when the
+  read began; `DroppedExchangeCount` counts the oldest dropped past `MaxRecordedExchanges`; bytes
+  past `MaxRecordedBytesPerExchange` (both directions together) are cut. When the subscription
+  drops events, every exchange not yet ended is marked `IsTruncated`; bytes or an end for an
+  exchange whose start was dropped are ignored. Stopping disposes the subscription and waits for
+  the pump, so the record stays readable. With recording off both throw
+  `InvalidOperationException`; a non-positive bound is an `ArgumentException`. The levelled or
+  trace log keeps its own `IExchangeLogFactory`.
 - `SurlServerHostSeams.ReadStartFile` is handed to the composition's `ReadStartFile`, so tests
   give the `--user-file` and `--hostkey` files in memory (`ApiTestSeams.StartFiles`). The
   `--cert`, `--key` and `--cacert` files are still read from disk by `ServerTlsComposition`.
 
 ## What it references
 
-`Surl.Composition`, `Surl.Cli`, `Surl.Content`, `Surl.Networking` (`SocketListenerFactory`),
-`Surl.Output` and `Surl.Protocol.Abstractions`. It is a composition root: no protocol server or
+`Surl.Composition`, `Surl.Cli`, `Surl.Content`, `Surl.Core` (`SurlEventStream`), `Surl.Networking`
+(`SocketListenerFactory`), `Surl.Output` and `Surl.Protocol.Abstractions`. It is a composition root: no protocol server or
 horizontal library may reference it (ADR-0099 decision 11).
 
 ## How it is tested

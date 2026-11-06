@@ -1,4 +1,5 @@
 using System.Text;
+using Surl.Protocol.Abstractions;
 
 namespace Surl.Api;
 
@@ -75,5 +76,124 @@ public sealed partial class SurlServerTests
         Assert.AreEqual(1_048_576, options.MaxRecordedBytesPerExchange);
         Assert.IsFalse(new SurlServerOptions().RecordExchanges);
         CollectionAssert.AreEqual(new[] { "http://127.0.0.1:0" }, arguments.ToArray());
+    }
+
+    [TestMethod]
+    public async Task Exchanges_AServerOnAnHttpAndAnFtpListenUrl_RecordsEachExchangeWithItsOwnBoundListenUrlAndScheme()
+    {
+        var (seams, connections) = HttpAndFtpSeams();
+        var options = HttpAndFtpOptions();
+
+        await using var server = await SurlServer.StartAsync(options, seams.Host, TestContext.CancellationToken);
+        await WaitUntilDisposedAsync(connections);
+        var records = server.Exchanges;
+
+        Assert.HasCount(2, records);
+        var http = records.Single(record => record.Scheme == "http");
+        var ftp = records.Single(record => record.Scheme == "ftp");
+        Assert.AreEqual(server.BoundUrls[0], http.ListenUrl);
+        Assert.AreEqual(new Uri($"http://127.0.0.1:{FakeListenerFactory.BoundPort}/"), http.ListenUrl);
+        CollectionAssert.AreEqual(CurlGetHello, http.Received);
+        Assert.AreEqual(server.BoundUrls[1], ftp.ListenUrl);
+        Assert.AreEqual(new Uri($"ftp://127.0.0.1:{FakeListenerFactory.BoundPort}/"), ftp.ListenUrl);
+        CollectionAssert.AreEqual(FtpQuit, ftp.Received);
+        StringAssert.StartsWith(Encoding.ASCII.GetString(ftp.Sent), "220");
+        Assert.AreEqual(0, server.DroppedExchangeCount);
+    }
+
+    [TestMethod]
+    public async Task Exchanges_OneExchangeKeptAndTwoServed_KeepsOneAndCountsTheDroppedOne()
+    {
+        var (seams, connections) = HttpAndFtpSeams();
+        var options = HttpAndFtpOptions();
+        options.MaxRecordedExchanges = 1;
+
+        await using var server = await SurlServer.StartAsync(options, seams.Host, TestContext.CancellationToken);
+        await WaitUntilDisposedAsync(connections);
+        var records = server.Exchanges;
+
+        Assert.HasCount(1, records);
+        Assert.AreEqual(1, server.DroppedExchangeCount);
+    }
+
+    [TestMethod]
+    public async Task Exchanges_BytesPastTheBytesPerExchangeCap_KeepsTheFirstBytesBothDirectionsTogetherAndMarksEachTruncated()
+    {
+        var (seams, connections) = HttpAndFtpSeams();
+        var options = HttpAndFtpOptions();
+        options.MaxRecordedBytesPerExchange = 4;
+
+        await using var server = await SurlServer.StartAsync(options, seams.Host, TestContext.CancellationToken);
+        await WaitUntilDisposedAsync(connections);
+        var records = server.Exchanges;
+
+        Assert.HasCount(2, records);
+        Assert.IsTrue(records.All(record => record.IsTruncated));
+        Assert.IsTrue(records.All(record => record.Chunks.Sum(chunk => chunk.Bytes.Length) == 4));
+        CollectionAssert.AreEqual(CurlGetHello[..4], records.Single(record => record.Scheme == "http").Received);
+        CollectionAssert.AreEqual("220 "u8.ToArray(), records.Single(record => record.Scheme == "ftp").Sent);
+    }
+
+    [TestMethod]
+    public async Task Exchanges_AfterTheServerStopped_StillHoldsEveryExchange()
+    {
+        var connection = new FakeConnection(CurlGetHello);
+        var seams = new ApiTestSeams(new FakeListenerFactory { ConnectionToAccept = connection });
+        var options = ApiTestSeams.Options("http://127.0.0.1:0");
+        options.Files["hello.txt"] = "hello"u8.ToArray();
+        options.RecordExchanges = true;
+
+        var server = await SurlServer.StartAsync(options, seams.Host, TestContext.CancellationToken);
+        await connection.Disposed.WaitAsync(TimeSpan.FromSeconds(30), TestContext.CancellationToken);
+        await server.StopAsync(TestContext.CancellationToken);
+
+        CollectionAssert.AreEqual(CurlGetHello, server.Exchanges.Single().Received);
+    }
+
+    [TestMethod]
+    public async Task StartAsync_RecordingOnAndTheBindFails_ThrowsTheBindFailure()
+    {
+        var seams = new ApiTestSeams(new FakeListenerFactory { BindFails = true });
+        var options = ApiTestSeams.Options("http://127.0.0.1:0");
+        options.RecordExchanges = true;
+
+        var exception = await Assert.ThrowsExactlyAsync<SurlServerStartException>(
+            () => SurlServer.StartAsync(options, seams.Host, TestContext.CancellationToken));
+
+        Assert.AreEqual(SurlExitCode.BindFailed, exception.ExitCode);
+    }
+
+    // What an FTP client sends to end the session at once (RFC 959, section 4.1.1).
+    private static readonly byte[] FtpQuit = "QUIT\r\n"u8.ToArray();
+
+    private static (ApiTestSeams Seams, FakeConnection[] Connections) HttpAndFtpSeams()
+    {
+        var http = new FakeConnection(CurlGetHello);
+        var ftp = new FakeConnection(FtpQuit);
+        var listenerFactory = new FakeListenerFactory
+        {
+            ConnectionsToAcceptByScheme = new Dictionary<string, IConnection>
+            {
+                ["http"] = http,
+                ["ftp"] = ftp,
+            },
+        };
+        return (new ApiTestSeams(listenerFactory), [http, ftp]);
+    }
+
+    private static SurlServerOptions HttpAndFtpOptions()
+    {
+        var options = ApiTestSeams.Options("http://127.0.0.1:0", "ftp://127.0.0.1:0");
+        options.Files["hello.txt"] = "hello"u8.ToArray();
+        options.RecordExchanges = true;
+        return options;
+    }
+
+    private async Task WaitUntilDisposedAsync(FakeConnection[] connections)
+    {
+        foreach (var connection in connections)
+        {
+            await connection.Disposed.WaitAsync(TimeSpan.FromSeconds(30), TestContext.CancellationToken);
+        }
     }
 }

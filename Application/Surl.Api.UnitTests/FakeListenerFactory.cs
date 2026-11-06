@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Net;
 using Surl.Protocol.Abstractions;
@@ -18,6 +19,7 @@ internal sealed class FakeListenerFactory : IListenerFactory
     private int startedListenerCount;
     private int disposedListenerCount;
     private IConnection? connectionToAccept;
+    private readonly ConcurrentDictionary<string, IConnection> connectionsToAcceptByScheme = new(StringComparer.Ordinal);
 
     /// <summary>
     /// A connection the first accept of any connection listener returns, once; every other accept
@@ -27,6 +29,21 @@ internal sealed class FakeListenerFactory : IListenerFactory
     {
         get => Volatile.Read(ref connectionToAccept);
         init => connectionToAccept = value;
+    }
+
+    /// <summary>
+    /// A connection for each scheme: the first accept of a connection listener on that scheme returns it,
+    /// once, before <see cref="ConnectionToAccept"/> is looked at.
+    /// </summary>
+    public IReadOnlyDictionary<string, IConnection> ConnectionsToAcceptByScheme
+    {
+        init
+        {
+            foreach (var (scheme, connection) in value)
+            {
+                connectionsToAcceptByScheme[scheme] = connection;
+            }
+        }
     }
 
     /// <summary>Whether every start throws an address-in-use <see cref="ListenerBindException"/>.</summary>
@@ -81,6 +98,11 @@ internal sealed class FakeListenerFactory : IListenerFactory
 
         public async ValueTask<IConnection> AcceptAsync(CancellationToken cancellationToken)
         {
+            if (factory.connectionsToAcceptByScheme.TryRemove(ListenUrl.Scheme, out var schemeConnection))
+            {
+                return schemeConnection;
+            }
+
             if (Interlocked.Exchange(ref factory.connectionToAccept, null) is { } connection)
             {
                 return connection;

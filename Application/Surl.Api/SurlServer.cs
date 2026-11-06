@@ -24,14 +24,14 @@ public sealed class SurlServer : IAsyncDisposable
     private readonly CancellationTokenSource stop;
     private readonly Task<SurlServingOutcome> serving;
     private readonly Lazy<Task<SurlExitCode>> stopping;
-    private readonly RecordingExchangeLogFactory? record;
+    private readonly ExchangeRecordSubscriber? record;
 
     private SurlServer(
         ComposedServing composedServing,
         CancellationTokenSource stop,
         Task<SurlServingOutcome> serving,
         IReadOnlyList<Uri> boundUrls,
-        RecordingExchangeLogFactory? record)
+        ExchangeRecordSubscriber? record)
     {
         this.composedServing = composedServing;
         this.stop = stop;
@@ -119,7 +119,7 @@ public sealed class SurlServer : IAsyncDisposable
         }
 
         var record = options.RecordExchanges
-            ? new RecordingExchangeLogFactory(options.MaxRecordedExchanges, options.MaxRecordedBytesPerExchange, timeProvider)
+            ? new ExchangeRecordSubscriber(start.Serving!.Events, options.MaxRecordedExchanges, options.MaxRecordedBytesPerExchange)
             : null;
         return await ServeUntilBoundAsync(commandLine, start.Serving!, options.Log, record, timeProvider, cancellationToken);
     }
@@ -138,7 +138,7 @@ public sealed class SurlServer : IAsyncDisposable
         SurlCommandLine commandLine,
         ComposedServing composedServing,
         TextWriter? optionsLog,
-        RecordingExchangeLogFactory? record,
+        ExchangeRecordSubscriber? record,
         TimeProvider timeProvider,
         CancellationToken cancellationToken)
     {
@@ -149,7 +149,7 @@ public sealed class SurlServer : IAsyncDisposable
         var outputs = new SurlServingOutputs(
             log,
             log,
-            record is null ? exchangeLogFactory : new FanOutExchangeLogFactory(exchangeLogFactory, record),
+            exchangeLogFactory,
             boundUrls => bound.TrySetResult(boundUrls));
         var serving = composedServing.ServeAsync(outputs, stop.Token);
         using (cancellationToken.Register(stop.Cancel))
@@ -164,15 +164,25 @@ public sealed class SurlServer : IAsyncDisposable
 
         // Serving ended before every listener bound: cancelled, or a bind failure (45 or 6).
         var outcome = await serving;
+        await StopRecordingAsync(record);
         await composedServing.DisposeAsync();
         stop.Dispose();
         cancellationToken.ThrowIfCancellationRequested();
         throw new SurlServerStartException(outcome.Failure!);
     }
 
-    private RecordingExchangeLogFactory RecordOrThrow() =>
+    private ExchangeRecordSubscriber RecordOrThrow() =>
         record ?? throw new InvalidOperationException(
             "RecordExchanges is off, so no exchange was recorded; set SurlServerOptions.RecordExchanges to read Exchanges.");
+
+    // The record stays readable once stopped: the pump has applied every event the subscription held.
+    private static async ValueTask StopRecordingAsync(ExchangeRecordSubscriber? record)
+    {
+        if (record is not null)
+        {
+            await record.DisposeAsync();
+        }
+    }
 
     private static Uri ToUri(ListenUrl boundUrl) => new(ListenerStatusLine.FormatBoundListenUrl(boundUrl));
 
@@ -180,6 +190,7 @@ public sealed class SurlServer : IAsyncDisposable
     {
         await stop.CancelAsync();
         var outcome = await serving;
+        await StopRecordingAsync(record);
         await composedServing.DisposeAsync();
         stop.Dispose();
         return outcome.ExitCode;

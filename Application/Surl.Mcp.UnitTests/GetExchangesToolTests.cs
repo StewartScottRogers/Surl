@@ -111,7 +111,7 @@ public sealed class GetExchangesToolTests
         Assert.ThrowsExactly<ArgumentNullException>(() => GetExchangesTool.Create(null!));
 
     private static SurlExchangeRecord Record(long exchangeId, byte[] received) =>
-        new(exchangeId, Client, McpTestHost.Now, [new SurlExchangeChunk(SurlExchangeDirection.Received, received)], IsTruncated: false);
+        new(exchangeId, new Uri($"http://127.0.0.1:{FakeListenerFactory.BoundPort}/"), "http", Client, McpTestHost.Now, [new SurlExchangeChunk(SurlExchangeDirection.Received, received)], IsTruncated: false);
 
     private static byte[] Bytes(JsonElement exchange, string direction) =>
         [.. exchange.GetProperty("chunks").EnumerateArray()

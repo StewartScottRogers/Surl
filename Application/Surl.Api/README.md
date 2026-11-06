@@ -66,13 +66,17 @@ var request = server.Exchanges[0].Received;   // every byte the client sent
 var response = server.Exchanges[0].Sent;      // every byte the server answered
 ```
 
-Each `SurlExchangeRecord` has the exchange ID, the client's endpoint, `StartedAt` (from
-`TimeProvider`), the `Chunks` in the order the bytes crossed (one per read or write, one per
-datagram), and `IsTruncated`. At most `MaxRecordedExchanges` (1000) are kept, the oldest dropped
-and counted in `DroppedExchangeCount`; at most `MaxRecordedBytesPerExchange` (1 MiB, both
-directions together) of each, the rest cut. Recording is off by default and costs nothing then;
-reading `Exchanges` with it off throws `InvalidOperationException`. A record names no listen URL:
-tell several listeners apart by what was sent.
+Each `SurlExchangeRecord` has the exchange ID, the `ListenUrl` that accepted it with its bound
+port (as `BoundUrls` lists it) and its `Scheme`, so a server on several listen URLs tells them
+apart, the client's endpoint, `StartedAt` (from `TimeProvider`), the `Chunks` in the order the
+bytes crossed (one per read or write, one per datagram), and `IsTruncated`. At most
+`MaxRecordedExchanges` (1000) are kept, the oldest dropped and counted in `DroppedExchangeCount`;
+at most `MaxRecordedBytesPerExchange` (1 MiB, both directions together) of each, the rest cut.
+The record is a subscriber of the server's event stream: should the stream ever drop events for
+it, every exchange still open is marked `IsTruncated` rather than left silently short. Reading
+`Exchanges` first waits for every event already published, so a client that has finished finds
+its exchange complete. Recording is off by default and costs nothing then; reading `Exchanges`
+with it off throws `InvalidOperationException`.
 
 `Surl.Composition`'s public types, which this package carries, are not a supported programming
 interface and may change in any release.
