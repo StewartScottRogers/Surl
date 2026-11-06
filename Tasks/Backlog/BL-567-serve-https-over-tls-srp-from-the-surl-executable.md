@@ -57,6 +57,11 @@ options.
   `Surl.Networking` for every TLS listener and `TlsSession` gains `SrpUserName` (decision 5), so
   BL-563 added `Foundation/Surl.Networking.*` and `Foundation/Surl.Protocol.Abstractions.*` to
   `touches` on 2026-11-05.
+- BL-566 (2026-11-05, ADR-0122 Amendment 1): draw the startup salt again until its first byte is
+  not zero, because OpenSSL's client hashes the salt without its leading zero bytes. The
+  handshake is `new TlsSrpServer(new TlsSrpAccounts(entries, secret), RandomNumberGenerator.Create())
+  .AuthenticateAsync(stream, ct)`, which returns a `TlsSrpSession` whose asynchronous-only
+  `TlsSrpStream` carries the plaintext.
 
 ## Log
 
