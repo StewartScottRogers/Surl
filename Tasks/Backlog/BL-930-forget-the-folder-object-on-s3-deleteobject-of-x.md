@@ -1,5 +1,5 @@
 ---
-id: BL-928
+id: BL-930
 title: Forget the folder object on S3 DeleteObject of x/
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-06
 completed:
 ---
-# BL-928 — Forget the folder object on S3 DeleteObject of x/
+# BL-930 — Forget the folder object on S3 DeleteObject of x/
 
 ## Goal
 

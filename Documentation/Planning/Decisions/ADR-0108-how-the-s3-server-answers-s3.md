@@ -510,4 +510,4 @@ BL-728. It builds decision 6's last point: a folder a client put as `x/` is list
    as a folder, because it may already hold other keys.
 5. **DeleteObject of `x/` does not forget the folder object;** it removes the folder only when empty,
    and an empty folder's removal drops the folder object at the next listing. A non-empty folder's
-   `x/` still lists after its DeleteObject: BL-928 makes DeleteObject forget it.
+   `x/` still lists after its DeleteObject: BL-930 makes DeleteObject forget it.

@@ -32,7 +32,7 @@ What it serves now (BL-418, BL-419, BL-712, BL-713), path style or virtual-hoste
   (`ObjectMetadataIndex.StoreFolderObjectAsync`; ADR-0108 Amendment 3, BL-728): the listing reads
   every folder object once and the walk yields `x/` just before the keys inside it. Every other
   folder - empty, made for a deeper key, made by another protocol, or in a share - is not a key.
-  DeleteObject of `x/` does not yet forget the folder object (BL-928).
+  DeleteObject of `x/` does not yet forget the folder object (BL-930).
 - DeleteObject (`DELETE /<bucket>/<key>`, `S3DeleteObject`): needs `--allow-uploads` (off: `403`
   `AccessDenied`) and a login; removes the file, or for a key ending in `/` the folder only when it
   is empty; `204` for every key that holds no object (missing, a folder without the `/`, a key the

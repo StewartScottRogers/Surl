@@ -42,7 +42,7 @@ A folder created by a zero-byte PutObject of a key ending in `/` is listed by Li
 - ListObjectsV2 reads every folder object once per listing and `S3BucketWalk` yields `x/` just
   before the keys inside it, so paging and common prefixes count only real keys.
 - A folder put as `x/` in a share has no index key: created, `200`, not listed. Index full: `503`.
-- Follow-up filed: BL-928 (DeleteObject of a non-empty `x/` should forget the folder object).
+- Follow-up filed: BL-930 (DeleteObject of a non-empty `x/` should forget the folder object).
 - Tests: `S3ListObjectsV2Tests.ServeAsync_FolderPutAsAnObject_IsListedAsItsKeyWithSizeZeroAndTheEmptyETag`
   and `ServeAsync_FolderMadeByAnotherProtocol_IsNotListed`, plus prefix/delimiter, removed-folder
   and share cases; two PutObject cases; seven `ObjectMetadataIndexTests` cases. S3 314 and Content
