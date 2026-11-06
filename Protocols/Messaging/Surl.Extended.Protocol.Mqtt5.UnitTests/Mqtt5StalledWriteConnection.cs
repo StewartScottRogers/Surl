@@ -9,7 +9,7 @@ namespace Surl.Extended.Protocol.Mqtt5.UnitTests;
 /// </summary>
 internal sealed class Mqtt5StalledWriteConnection(byte[] request) : IConnection
 {
-    private bool requestRead;
+    private int requestOffset;
 
     public EndPoint LocalEndPoint { get; } = new IPEndPoint(IPAddress.Loopback, 8083);
 
@@ -17,16 +17,13 @@ internal sealed class Mqtt5StalledWriteConnection(byte[] request) : IConnection
 
     public TlsSession? TlsSession => null;
 
+    // Hands the request over in as many reads as the reader's buffers need.
     public ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken)
     {
-        if (requestRead)
-        {
-            return ValueTask.FromResult(0);
-        }
-
-        requestRead = true;
-        request.CopyTo(buffer);
-        return ValueTask.FromResult(request.Length);
+        var count = Math.Min(buffer.Length, request.Length - requestOffset);
+        request.AsMemory(requestOffset, count).CopyTo(buffer);
+        requestOffset += count;
+        return ValueTask.FromResult(count);
     }
 
     public async ValueTask WriteAsync(ReadOnlyMemory<byte> bytes, CancellationToken cancellationToken)

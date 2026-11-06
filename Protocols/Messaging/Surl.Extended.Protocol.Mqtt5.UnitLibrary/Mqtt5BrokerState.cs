@@ -1,4 +1,3 @@
-using System.Collections.Concurrent;
 using System.Security.Cryptography;
 using Surl.MessageBus;
 
@@ -45,7 +44,8 @@ public sealed class Mqtt5BrokerState
     private const int DefaultMaxKeptSessions = 1000;
 
     private readonly Func<string> assignedClientIdentifierSource;
-    private readonly ConcurrentDictionary<string, object> connectedClients = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, Mqtt5ClientRegistration> connectedClients = new(StringComparer.Ordinal);
+    private readonly Lock connectedClientsGate = new();
     private readonly Dictionary<string, PendingWill> pendingWills = new(StringComparer.Ordinal);
     private readonly Lock pendingWillsGate = new();
     private readonly Dictionary<string, Mqtt5Session> sessions = new(StringComparer.Ordinal);
@@ -95,7 +95,9 @@ public sealed class Mqtt5BrokerState
     /// Opens the session for an accepted <c>CONNECT</c> (section 3.1.2.4). A kept session with no
     /// connection is resumed when Clean Start is 0 and the login is for the session's account;
     /// otherwise it ends and a new one starts. A session another connection still holds is never
-    /// resumed: the new one replaces it, and it ends with its connection.
+    /// resumed: the new one replaces it, and it ends with its connection. A takeover
+    /// (<see cref="RegisterClient"/>) waits for the older connection to end first, so its session
+    /// is no longer held by then.
     /// </summary>
     /// <param name="clientIdentifier">The client identifier.</param>
     /// <param name="account">The account the login matched; <see langword="null"/> for an anonymous one.</param>
@@ -214,14 +216,25 @@ public sealed class Mqtt5BrokerState
         AssignedClientIdentifierPrefix + Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(AssignedClientIdentifierRandomBytes));
 
     /// <summary>
-    /// Registers a connection for the identifier its client sent.
+    /// Registers a connection for the identifier its client sent. A connection already registered
+    /// for it is taken over (<c>[MQTT-3.1.4-3]</c>): told through its registration's
+    /// <see cref="Mqtt5ClientRegistration.TakenOverToken"/>, and the new registration's
+    /// <see cref="Mqtt5ClientRegistration.PreviousEnded"/> completes once it has ended.
     /// </summary>
     /// <param name="clientIdentifier">The client's identifier.</param>
     /// <returns>The registration, which <see cref="UnregisterClient"/> takes back.</returns>
-    internal object RegisterClient(string clientIdentifier)
+    internal Mqtt5ClientRegistration RegisterClient(string clientIdentifier)
     {
-        var registration = new object();
-        connectedClients[clientIdentifier] = registration;
+        Mqtt5ClientRegistration registration;
+        Mqtt5ClientRegistration? previous;
+        lock (connectedClientsGate)
+        {
+            connectedClients.TryGetValue(clientIdentifier, out previous);
+            registration = new Mqtt5ClientRegistration(previous?.Ended ?? Task.CompletedTask);
+            connectedClients[clientIdentifier] = registration;
+        }
+
+        previous?.TakeOver();
         return registration;
     }
 
@@ -230,17 +243,25 @@ public sealed class Mqtt5BrokerState
     /// </summary>
     /// <param name="registration">The registration, which <see cref="UnregisterClient"/> takes back.</param>
     /// <returns>The assigned identifier.</returns>
-    internal string RegisterAssignedClient(out object registration)
+    internal string RegisterAssignedClient(out Mqtt5ClientRegistration registration)
     {
-        registration = new object();
+        registration = new Mqtt5ClientRegistration(Task.CompletedTask);
         string clientIdentifier;
         do
         {
             clientIdentifier = assignedClientIdentifierSource();
         }
-        while (!connectedClients.TryAdd(clientIdentifier, registration));
+        while (!TryAddClient(clientIdentifier, registration));
 
         return clientIdentifier;
+    }
+
+    private bool TryAddClient(string clientIdentifier, Mqtt5ClientRegistration registration)
+    {
+        lock (connectedClientsGate)
+        {
+            return connectedClients.TryAdd(clientIdentifier, registration);
+        }
     }
 
     /// <summary>
@@ -248,15 +269,29 @@ public sealed class Mqtt5BrokerState
     /// </summary>
     /// <param name="clientIdentifier">The identifier.</param>
     /// <returns><see langword="true"/> when one is.</returns>
-    internal bool IsConnected(string clientIdentifier) => connectedClients.ContainsKey(clientIdentifier);
+    internal bool IsConnected(string clientIdentifier)
+    {
+        lock (connectedClientsGate)
+        {
+            return connectedClients.ContainsKey(clientIdentifier);
+        }
+    }
 
     /// <summary>
-    /// Ends a connection's registration, unless a later connection has registered the same identifier since.
+    /// Ends a connection's registration, unless a later connection has registered the same
+    /// identifier since, and lets a connection that took it over go on.
     /// </summary>
     /// <param name="clientIdentifier">The identifier it registered.</param>
     /// <param name="registration">What registering it returned.</param>
-    internal void UnregisterClient(string clientIdentifier, object registration) =>
-        connectedClients.TryRemove(new KeyValuePair<string, object>(clientIdentifier, registration));
+    internal void UnregisterClient(string clientIdentifier, Mqtt5ClientRegistration registration)
+    {
+        lock (connectedClientsGate)
+        {
+            ((ICollection<KeyValuePair<string, Mqtt5ClientRegistration>>)connectedClients).Remove(new(clientIdentifier, registration));
+        }
+
+        registration.End();
+    }
 
     /// <summary>
     /// Publishes <paramref name="message"/> on <see cref="Bus"/> for <paramref name="account"/>.

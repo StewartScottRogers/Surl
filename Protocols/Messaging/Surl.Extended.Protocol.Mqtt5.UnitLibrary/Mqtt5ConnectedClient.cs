@@ -15,7 +15,7 @@ namespace Surl.Extended.Protocol.Mqtt5;
 /// <c>AUTH</c> <c>0x19</c> must name; <see langword="null"/> when it used none, and then no <c>AUTH</c> is allowed.</param>
 internal sealed record Mqtt5ConnectedClient(
     string ClientIdentifier,
-    object Registration,
+    Mqtt5ClientRegistration Registration,
     string? Account,
     TimeSpan KeepAlive,
     Mqtt5ApplicationMessage? Will,

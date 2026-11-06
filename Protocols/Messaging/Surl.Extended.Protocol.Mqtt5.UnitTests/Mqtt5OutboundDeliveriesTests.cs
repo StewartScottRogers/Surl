@@ -138,7 +138,7 @@ public sealed class Mqtt5OutboundDeliveriesTests
             session.InFlight[identifier] = publish;
         }
 
-        var client = new Mqtt5ConnectedClient("c", new object(), null, TimeSpan.FromSeconds(30), null, TimeSpan.Zero, null) { ReceiveMaximum = receiveMaximum };
+        var client = new Mqtt5ConnectedClient("c", new Mqtt5ClientRegistration(Task.CompletedTask), null, TimeSpan.FromSeconds(30), null, TimeSpan.Zero, null) { ReceiveMaximum = receiveMaximum };
         return new Mqtt5OutboundDeliveries(
             session,
             client,

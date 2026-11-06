@@ -45,8 +45,17 @@ namespace Surl.Extended.Protocol.Mqtt5;
 /// Start 0 for the same identifier and account resumes it with Session Present 1, resending its
 /// unacknowledged <c>PUBLISH</c>es with DUP 1 and its <c>PUBREL</c>s in their original order, then
 /// its waiting messages; Clean Start 1 discards it. While no connection holds it, QoS 1 and 2
-/// messages wait for it, up to 1000 messages and 16 MiB of payload. A session another connection
-/// holds is not resumed.
+/// messages wait for it, up to 1000 messages and 16 MiB of payload.
+/// </para>
+/// <para>
+/// <b>Session takeover</b> (<c>[MQTT-3.1.4-3]</c>, ADR-0093 decision 1). A <c>CONNECT</c> for an
+/// identifier already connected sends the older connection <c>DISCONNECT</c> <c>0x8E</c> and closes
+/// it; that connection's session and Will are settled as for any other close, and only then is the
+/// new <c>CONNECT</c>'s session opened, so Clean Start 0 resumes the session the older connection
+/// kept and Clean Start 1 discards it. The older connection's Will is therefore published at once
+/// when its Will Delay Interval or Session Expiry Interval is 0 or the new Clean Start is 1, and not
+/// when Clean Start 0 resumes the session before the Will Delay passes. The wait for the older
+/// connection runs within the new connection's head timeout; past it the new one closes with no reply.
 /// </para>
 /// <para>
 /// <b>The CONNACK of an accepted CONNECT</b> carries Session Present and, in this order: Session

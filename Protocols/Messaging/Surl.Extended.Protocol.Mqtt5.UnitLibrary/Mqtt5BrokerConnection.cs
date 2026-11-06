@@ -310,6 +310,11 @@ internal sealed class Mqtt5BrokerConnection
     {
         var registration = RegisterClient(connect, out var assignedClientIdentifier);
         var clientIdentifier = assignedClientIdentifier ?? connect.ClientIdentifier;
+        if (!await AwaitTakenOverConnectionAsync(clientIdentifier, registration))
+        {
+            return null;
+        }
+
         var expiry = Mqtt5ConnectAcknowledgementProperties.SessionExpiryInForce(connect);
         session = state.OpenSession(clientIdentifier, login.Account, connect.CleanStart, expiry, context.Scheme, out var resumed);
         if (session is null)
@@ -320,7 +325,17 @@ internal sealed class Mqtt5BrokerConnection
         }
 
         state.SettlePendingWill(clientIdentifier, resumed);
-        await WriteAsync(new Mqtt5ConnectAcknowledgementPacket(resumed, Mqtt5ReasonCode.Success, ConnectAcknowledgementProperties(connect, assignedClientIdentifier, login)));
+        try
+        {
+            await WriteAsync(new Mqtt5ConnectAcknowledgementPacket(resumed, Mqtt5ReasonCode.Success, ConnectAcknowledgementProperties(connect, assignedClientIdentifier, login)));
+        }
+        catch
+        {
+            // A connection taking this one over waits for its registration to end.
+            state.CloseSession(session, context.TimeProvider);
+            state.UnregisterClient(clientIdentifier, registration);
+            throw;
+        }
 
         return new Mqtt5ConnectedClient(
             clientIdentifier,
@@ -333,8 +348,27 @@ internal sealed class Mqtt5BrokerConnection
             .WithLimitsOf(connect);
     }
 
+    // [MQTT-3.1.4-3]: the connection taken over ends - DISCONNECT 0x8E sent, its session and Will
+    // settled - before this one opens the session, so Clean Start 0 resumes what it left. The wait
+    // runs within the head timeout; past it this connection closes with no reply.
+    private async ValueTask<bool> AwaitTakenOverConnectionAsync(string clientIdentifier, Mqtt5ClientRegistration registration)
+    {
+        try
+        {
+            await registration.PreviousEnded.WaitAsync(headToken);
+            return true;
+        }
+        catch (OperationCanceledException)
+        {
+            state.UnregisterClient(clientIdentifier, registration);
+            context.CancellationToken.ThrowIfCancellationRequested();
+            context.Log.Note("The connection whose session this CONNECT takes over did not end within the head timeout; closed with no reply.");
+            return false;
+        }
+    }
+
     // A zero-length identifier is assigned one (section 3.1.3.1).
-    private object RegisterClient(Mqtt5ConnectPacket connect, out string? assignedClientIdentifier)
+    private Mqtt5ClientRegistration RegisterClient(Mqtt5ConnectPacket connect, out string? assignedClientIdentifier)
     {
         if (connect.ClientIdentifier.Length == 0)
         {
@@ -375,9 +409,9 @@ internal sealed class Mqtt5BrokerConnection
         var end = Mqtt5ConnectionEnd.StaysOpen;
         while (end == Mqtt5ConnectionEnd.StaysOpen)
         {
-            end = await ReadWithinKeepAliveAsync(client.KeepAlive) switch
+            end = await ReadWithinKeepAliveAsync(client) switch
             {
-                null => await DisconnectAsync(Mqtt5ReasonCode.KeepAliveTimeout, "No packet arrived within one and a half times the Keep Alive"),
+                null => await DisconnectUnreadAsync(client),
                 { Packet: { } packet } => await AnswerAsync(packet, client),
                 { Fault: { } fault } refused => await DisconnectForRefusedPacketAsync(refused.RefusedPacketType, fault),
                 _ => Mqtt5ConnectionEnd.ClosedAbnormally,
@@ -387,11 +421,18 @@ internal sealed class Mqtt5BrokerConnection
         return end;
     }
 
-    // [MQTT-3.1.2-22]: one and a half times the Keep Alive in force, then DISCONNECT 0x8D.
-    private async ValueTask<Mqtt5PacketReadResult?> ReadWithinKeepAliveAsync(TimeSpan keepAlive)
+    // A read ended by a later CONNECT for the identifier ([MQTT-3.1.4-3]), or by the Keep Alive.
+    private ValueTask<Mqtt5ConnectionEnd> DisconnectUnreadAsync(Mqtt5ConnectedClient client) =>
+        client.Registration.IsTakenOver
+            ? DisconnectAsync(Mqtt5ReasonCode.SessionTakenOver, "A later CONNECT took the session over")
+            : DisconnectAsync(Mqtt5ReasonCode.KeepAliveTimeout, "No packet arrived within one and a half times the Keep Alive");
+
+    // [MQTT-3.1.2-22]: one and a half times the Keep Alive in force, then DISCONNECT 0x8D; a
+    // takeover ends the read too.
+    private async ValueTask<Mqtt5PacketReadResult?> ReadWithinKeepAliveAsync(Mqtt5ConnectedClient client)
     {
-        using var keepAliveTimeout = new CancellationTokenSource(keepAlive * KeepAliveGraceFactor, context.TimeProvider);
-        using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(context.CancellationToken, keepAliveTimeout.Token);
+        using var keepAliveTimeout = new CancellationTokenSource(client.KeepAlive * KeepAliveGraceFactor, context.TimeProvider);
+        using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(context.CancellationToken, keepAliveTimeout.Token, client.Registration.TakenOverToken);
         try
         {
             return await reader.ReadPacketAsync(cancellation.Token);
@@ -666,17 +707,22 @@ internal sealed class Mqtt5BrokerConnection
 
     // Section 3.1.2.5: the Will is published once the lesser of its delay and the session's
     // expiry has passed, unless the client ended the connection with DISCONNECT 0x00. The
-    // session is kept for its expiry, or ends now.
+    // session is kept for its expiry, or ends now. The registration ends last, so a connection
+    // taking this one over opens the session only once it and the Will are settled.
     private void EndConnection(Mqtt5ConnectedClient client, Mqtt5ConnectionEnd end)
     {
-        state.UnregisterClient(client.ClientIdentifier, client.Registration);
         var sessionExpiry = session!.Expiry;
         state.CloseSession(session, context.TimeProvider);
-        if (client.Will is not { } will || end == Mqtt5ConnectionEnd.ClosedNormally)
+        if (client.Will is { } will && end != Mqtt5ConnectionEnd.ClosedNormally)
         {
-            return;
+            SettleWill(client, will, sessionExpiry);
         }
 
+        state.UnregisterClient(client.ClientIdentifier, client.Registration);
+    }
+
+    private void SettleWill(Mqtt5ConnectedClient client, Mqtt5ApplicationMessage will, TimeSpan sessionExpiry)
+    {
         var delay = client.WillDelay < sessionExpiry ? client.WillDelay : sessionExpiry;
         if (delay == TimeSpan.Zero)
         {
