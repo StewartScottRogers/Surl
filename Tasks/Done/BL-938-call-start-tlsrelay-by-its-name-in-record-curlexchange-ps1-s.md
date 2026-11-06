@@ -8,7 +8,7 @@ depends-on: []
 touches: [Record-CurlExchange.ps1]
 requirement: none
 created: 2026-11-06
-completed:
+completed: 2026-11-06
 ---
 # BL-938 — Call Start-TlsRelay by its name in Record-CurlExchange.ps1's TLS relay branch
 
@@ -34,19 +34,23 @@ or `-TlsSrp` starts the relay instead of failing on an unknown command.
 
 ## Acceptance criteria
 
-- [ ] `Select-String -Path Record-CurlExchange.ps1 -Pattern 'Start-TlsRelay-Certificate'` finds nothing,
+- [x] `Select-String -Path Record-CurlExchange.ps1 -Pattern 'Start-TlsRelay-Certificate'` finds nothing,
       and the call at the `$useTlsRelay` branch reads `Start-TlsRelay -Certificate $tlsCertificate`.
-- [ ] A recording through the relay runs to its end: `Record-CurlExchange.ps1 -Tls -TlsAlpn http/1.1
+- [x] A recording through the relay runs to its end: `Record-CurlExchange.ps1 -Tls -TlsAlpn http/1.1
       -OutDirectory <a scratch folder outside the repository> -CurlArgs ...` with the pinned Windows
       reference build (curl 8.21.0, `UpstreamCurlBuilds.json`), `-k` and an `https://` URL on the
       recorder's port, writes `alpn.txt`, `request.bin` and `exitcode.txt` there, and its
       output is not a "not recognized as the name of a cmdlet" error. The result is noted in the
       task's Log.
-- [ ] `dotnet build` is clean and the fast tests are green.
+- [x] `dotnet build` is clean and the fast tests are green.
 
 ## Notes
+
+- Made the one edit by hand (`Start-TlsRelay-Certificate` -> `Start-TlsRelay -Certificate`) rather than applying the shared stash hunk: same result, no risk of touching another session's stash.
 
 ## Log
 
 - 2026-11-06: Created.
 - 2026-11-06: Backlog -> Doing.
+- 2026-11-06: Relay recording with the pinned Windows reference curl 8.21.0 (`-Port 47938 -Tls -TlsAlpn http/1.1 -CurlArgs '-k,-s,https://127.0.0.1:47938/'`, OutDirectory in %TEMP%) ran to its end: relay handshake Tls12 ALPN http/1.1, curl exit 0, wrote alpn.txt (http/1.1), request.bin (79 bytes, GET / HTTP/1.1) and exitcode.txt (0). dotnet build clean; fast tests green.
+- 2026-11-06: Doing -> Done. Record-CurlExchange.ps1 starts its TLS relay again for -TlsAlpn, -TlsRenegotiationOff and -TlsSrp recordings
