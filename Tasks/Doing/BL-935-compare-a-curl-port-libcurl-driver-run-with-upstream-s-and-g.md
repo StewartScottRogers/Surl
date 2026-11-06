@@ -61,3 +61,4 @@ reports and `surl`'s notes (`CurlPortLibcurlReportNormaliser`) and returns ADR-0
 ## Log
 
 - 2026-11-06: Created.
+- 2026-11-06: Backlog -> Doing.
