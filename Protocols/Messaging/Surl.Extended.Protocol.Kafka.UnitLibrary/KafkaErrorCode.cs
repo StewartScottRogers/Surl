@@ -36,6 +36,21 @@ public enum KafkaErrorCode : short
     /// <summary><c>UNSUPPORTED_VERSION</c>: the API version is not served.</summary>
     UnsupportedVersion = 35,
 
+    /// <summary><c>TOPIC_ALREADY_EXISTS</c>: CreateTopics named a topic that has a log.</summary>
+    TopicAlreadyExists = 36,
+
+    /// <summary><c>INVALID_PARTITIONS</c>: a partition count other than one.</summary>
+    InvalidPartitions = 37,
+
+    /// <summary><c>INVALID_REPLICATION_FACTOR</c>: a replication factor other than one.</summary>
+    InvalidReplicationFactor = 38,
+
+    /// <summary><c>INVALID_REPLICA_ASSIGNMENT</c>: an assignment other than partition 0 on node 0.</summary>
+    InvalidReplicaAssignment = 39,
+
+    /// <summary><c>INVALID_REQUEST</c>: the request is malformed or contradicts itself, such as a topic named twice.</summary>
+    InvalidRequest = 42,
+
     /// <summary><c>UNSUPPORTED_FOR_MESSAGE_FORMAT</c>: a batch format or attribute is not served.</summary>
     UnsupportedForMessageFormat = 43,
 

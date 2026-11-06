@@ -22,7 +22,7 @@ public sealed class KafkaSaslHandshakeAnswererTests
     public async Task AnswerAsync_NullArguments_Throw()
     {
         var answerer = new KafkaSaslHandshakeAnswerer(Policy());
-        var request = new KafkaRequest(new KafkaRequestHeader(17, 1, 1, null), KafkaServedApis.Ranges[4], new KafkaPrimitiveReader(Array.Empty<byte>()), new KafkaConnectionState(null));
+        var request = new KafkaRequest(new KafkaRequestHeader(17, 1, 1, null), KafkaServedApis.Ranges[4], new KafkaPrimitiveReader(Array.Empty<byte>()), new KafkaConnectionState(null), new InMemoryConnection([]));
 
         Assert.AreEqual(KafkaApiKey.SaslHandshake, answerer.ApiKey);
         await Assert.ThrowsExactlyAsync<ArgumentNullException>(async () => await answerer.AnswerAsync(null!, Context(TestContext.CancellationToken)));

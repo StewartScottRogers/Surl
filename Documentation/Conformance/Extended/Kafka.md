@@ -170,14 +170,13 @@ Not served yet, as above.
 
 ## CreateTopics (CreateTopics v2 to v4; error codes 17, 29, 36 to 39, 42, 44)
 
-Not served yet, as above.
-
 | ID | Level | Requirement | Covered by |
 | --- | --- | --- | --- |
-| Kafka:Guide-CreateTopics-1 | MUST | CreateTopics creates each topic's empty log on the bus, one partition, and answers each name in request order with its error code and a null message. | BL-950 (ADR-0145 decision 7) |
-| Kafka:Guide-CreateTopics-2 | MUST | A duplicate name is `INVALID_REQUEST` (42); an invalid name 17; no publish access 29; a topic with a log `TOPIC_ALREADY_EXISTS` (36); `num_partitions` other than 1 or -1 `INVALID_PARTITIONS` (37) (ADR-0100 decision 3.2); `replication_factor` other than 1 or -1 `INVALID_REPLICATION_FACTOR` (38); any assignment but partition 0 on broker 0 `INVALID_REPLICA_ASSIGNMENT` (39); the bus's topic bound 44. | BL-950 (ADR-0145 decision 7) |
-| Kafka:Guide-CreateTopics-3 | MUST | `validate_only` makes the checks and creates nothing. | BL-950 (ADR-0145 decision 7) |
-| Kafka:Surl-CreateTopics-1 | MUST | Topic `configs` are accepted and ignored, the ignored names noted with `-v`. | BL-950 (ADR-0145 decision 7) |
+| Kafka:Guide-CreateTopics-1 | MUST | CreateTopics creates each topic's empty log on the bus, one partition, and answers each name in request order with its error code and a null message. | `KafkaCreateTopicsAnswererTests.ServeAsync_NewTopic_IsCreatedWithAnEmptyLogAndListedByMetadata`, `ServeAsync_VersionFourWithMinusOnePartitionsAndReplicationFactor_CreatesTheTopic`, `KafkaApiVersionsAnswererTests.ServeAsync_ApiVersionsZero_ListsCreateTopicsTwoToFour` |
+| Kafka:Guide-CreateTopics-2 | MUST | A duplicate name is `INVALID_REQUEST` (42); an invalid name 17; no publish access 29; a topic with a log `TOPIC_ALREADY_EXISTS` (36); `num_partitions` other than 1 or -1 `INVALID_PARTITIONS` (37) (ADR-0100 decision 3.2); `replication_factor` other than 1 or -1 `INVALID_REPLICATION_FACTOR` (38); any assignment but partition 0 on broker 0 `INVALID_REPLICA_ASSIGNMENT` (39); the bus's topic bound 44. | `KafkaCreateTopicsAnswererTests.ServeAsync_EachInvalidTopic_IsAnsweredItsCodeWhileTheOthersAreCreated`, `ServeAsync_TopicTheCallerMayNotPublishTo_IsTopicAuthorizationFailed`, `ServeAsync_TopicPastTheBussMostTopics_IsPolicyViolation` |
+| Kafka:Guide-CreateTopics-3 | MUST | `validate_only` makes the checks and creates nothing. | `KafkaCreateTopicsAnswererTests.ServeAsync_ValidateOnly_AnswersZeroAndCreatesNothing` |
+| Kafka:Surl-CreateTopics-1 | MUST | Topic `configs` are accepted and ignored, the ignored names noted with `-v`. | `KafkaCreateTopicsAnswererTests.ServeAsync_TopicWithConfigs_IsCreatedAndTheIgnoredNamesNoted` |
+| Kafka:Surl-CreateTopics-2 | MUST | Each topic asks the fault plan once, command `CreateTopics`, path its Kafka name: an `error` rule's code 1 to 127 is that topic's `error_code` and the topic is not created, other replies are noted and not applied; a `drop` aborts with no answer. | `KafkaCreateTopicsAnswererTests.ServeAsync_ErrorRuleOnOneTopic_AnswersItsCodeAndLeavesThatTopicAbsent`, `ServeAsync_ErrorRuleWhoseReplyIsNotACodeOneTo127_IsNotAppliedAndNoted`, `ServeAsync_DropRule_AbortsWithNoBytesAndCreatesNothing` |
 
 ## InitProducerId and idempotent producers (InitProducerId v0 to v1, Produce; error codes 42, 45, 47)
 

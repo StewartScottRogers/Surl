@@ -24,6 +24,9 @@ public enum KafkaApiKey : short
     /// <summary>ApiVersions: the APIs and versions the broker serves.</summary>
     ApiVersions = 18,
 
+    /// <summary>CreateTopics: create topics.</summary>
+    CreateTopics = 19,
+
     /// <summary>SaslAuthenticate: carry one SASL step.</summary>
     SaslAuthenticate = 36,
 }

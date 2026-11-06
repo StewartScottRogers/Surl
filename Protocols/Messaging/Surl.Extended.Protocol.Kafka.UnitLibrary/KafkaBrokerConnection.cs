@@ -172,7 +172,7 @@ internal sealed class KafkaBrokerConnection(
 
         var fields = new KafkaPrimitiveReader(request);
         var header = KafkaRequestHeader.Read(fields, range.RequestHeaderVersion(fixedFields.ApiVersion));
-        var answer = await answerer.AnswerAsync(new KafkaRequest(header, range, fields, state), context);
+        var answer = await answerer.AnswerAsync(new KafkaRequest(header, range, fields, state, connection), context);
         return Reply.Of(answer, header.CorrelationId, range.ResponseHeaderVersion(header.ApiVersion));
     }
 

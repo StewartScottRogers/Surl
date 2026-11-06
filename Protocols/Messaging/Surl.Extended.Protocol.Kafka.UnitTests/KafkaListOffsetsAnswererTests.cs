@@ -26,7 +26,7 @@ public sealed class KafkaListOffsetsAnswererTests
     public async Task AnswerAsync_NullArguments_Throw()
     {
         var answerer = new KafkaListOffsetsAnswerer(new Surl.MessageBus.MessageBus(clock));
-        var request = new KafkaRequest(new KafkaRequestHeader(2, 1, 1, null), KafkaServedApis.Find(2)!, new KafkaPrimitiveReader(Array.Empty<byte>()), new KafkaConnectionState(null));
+        var request = new KafkaRequest(new KafkaRequestHeader(2, 1, 1, null), KafkaServedApis.Find(2)!, new KafkaPrimitiveReader(Array.Empty<byte>()), new KafkaConnectionState(null), new InMemoryConnection([]));
 
         Assert.AreEqual(KafkaApiKey.ListOffsets, answerer.ApiKey);
         await Assert.ThrowsExactlyAsync<ArgumentNullException>(async () => await answerer.AnswerAsync(null!, Context(TestContext.CancellationToken)));

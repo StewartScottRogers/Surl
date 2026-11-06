@@ -82,6 +82,16 @@ Compressed batches (BL-521, ADR-0105 decision 4):
   Records are taken while their uncompressed bytes fit the limit; a compressed batch that still
   passes it gives up its last records until it fits.
 
+CreateTopics (BL-950, ADR-0145 decisions 7 and 10):
+
+- `KafkaCreateTopicsAnswerer` answers v2 to v4: each topic asks the fault plan once (command
+  `CreateTopics`, path its Kafka name, through `CommandStageFaults`; an `error` rule's reply 1 to
+  127 is its `error_code`), then the checks in order - a name given twice 42, an invalid name 17,
+  no publish access 29, a topic with a log 36, `num_partitions` not 1 or -1 37,
+  `replication_factor` not 1 or -1 38, assignments other than partition 0 on `[0]` 39 - and
+  `MessageBus.CreateLog` (its bound 44). `validate_only` creates nothing; `configs` are ignored and
+  their names noted. `KafkaRequest.Transport` is the connection a fault rule's drop aborts.
+
 Each served API gets an `IKafkaApiAnswerer`, passed to `KafkaBroker`'s constructor; the command
 line (`--kafka-fetch-compression`) and composition are BL-522.
 
