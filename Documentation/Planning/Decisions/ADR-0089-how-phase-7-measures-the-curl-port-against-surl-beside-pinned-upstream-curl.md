@@ -317,3 +317,35 @@ every case.
   input first against `surl` and its negotiation first in its recording. Timing is never compared.
 - `CurlPortRunSetup.StandardInput` gives both clients the same standard input, as a TELNET session
   needs.
+
+## Amendment 6 (2026-11-05, BL-582): what the SCP and SFTP family showed decision 4 must leave out
+
+Decided by Claude under Stewart's delegation, in BL-582, from the SCP and SFTP family's first runs. As
+with amendment 1, each item differed between two runs for a reason that is not curl's, and none widens
+what a port finding may excuse: the exit code, output, asserted stderr lines and stored files are still
+compared in every case.
+
+- **A throwaway host key's fingerprint** is replaced by `<sha256>` and `<md5>` in `surl`'s notes (its
+  `--throwaway-hostkey` warning and `Serving SSH host key` note): each run's `surl` makes its own key.
+  Where curl's stderr line names that fingerprint (`--hostpubsha256` mismatch), the line is checked
+  against the mirrored assertion on upstream's run and not compared.
+- **SSH teardown notes** are not compared: `SSH disconnect received`, `SSH channel N ended`,
+  `SFTP session ended`, `Exchange N ended`, and the SCP download's final acknowledgement note (`sent N
+  bytes`, or `refused: read error` when the client closed the channel before acknowledging). They
+  record how the client's SSH layer closes the channel and connection, inside the encrypted transport,
+  and their order races the client's exit (the port closes the channel before it disconnects; libssh2
+  disconnects alone, sometimes before the last acknowledgement). Every note up to the transfer -
+  identification, negotiated algorithms, login, each SFTP or SCP request and its answer - is compared,
+  read once `surl` has ended the exchange.
+- **The client's `KEXINIT`** is compared where the mirrored test records it with
+  `ClientKexInitRecorder`: it is sent in clear before the key exchange, and is the client's own offer,
+  not a random. The identification line and the ten name-lists are compared line by line, beside the
+  exit code and output.
+- **A local file the client writes** (`-o` with `-C -` or `-R`) is per run and compared as a stored
+  file: its bytes, and its modification time in round-trip form.
+- **libssh2 1.11.1 WinCNG's key-exchange defect** (ADR-0062): a family that runs one SSH connection
+  per run over some seventy cases trips its one-in-256 failure in most class runs. When either run
+  exits 2 with exactly `curl: (2) Failure establishing ssh session: -8, Unable to exchange encryption
+  keys`, the case is measured again, both runs, up to three attempts in all; ADR-0062 decision 3 names
+  that failure, and only that one, as the client's defect a re-run clears. Every other failure is
+  judged on the attempt it appears in.
