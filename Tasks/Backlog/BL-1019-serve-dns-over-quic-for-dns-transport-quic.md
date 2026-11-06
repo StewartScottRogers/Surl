@@ -1,16 +1,16 @@
 ---
-id: BL-961
+id: BL-1019
 title: Serve DNS over QUIC for --dns-transport quic
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-959, BL-484, BL-384]
+depends-on: [BL-1017, BL-484, BL-384]
 touches: [Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests, Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests]
 requirement: none
 created: 2026-11-06
 completed:
 ---
-# BL-961 — Serve DNS over QUIC for --dns-transport quic
+# BL-1019 — Serve DNS over QUIC for --dns-transport quic
 
 ## Goal
 
@@ -19,8 +19,8 @@ ADR-0092 decision 5 says.
 
 ## Context
 
-- Last of the four tasks BL-485 was split into (see BL-958). It adds `quic` to `--dns-transport`'s allowed
-  values (BL-959 added the option) and composes the listener.
+- Last of the four tasks BL-485 was split into (see BL-1032). It adds `quic` to `--dns-transport`'s allowed
+  values (BL-1017 added the option) and composes the listener.
 - Decision: ADR-0092 decision 5, the DoQ bullets: `DnsOverQuicProtocolServer` (BL-484, an
   `IQuicApplicationProtocol`) on `QuicDatagramFlowServer` with `QuicServerConnectionOptions` naming ALPN `doq` only
   (ADR-0086 decision 4); composed as BL-384 composes HTTP/3 (`QuicServerCertificate` in

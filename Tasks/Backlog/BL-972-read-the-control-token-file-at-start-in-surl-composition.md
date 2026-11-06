@@ -4,7 +4,7 @@ title: Read the --control-token-file at start in Surl.Composition
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-964, BL-815]
+depends-on: [BL-1022, BL-815]
 touches: [Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests]
 requirement: none
 created: 2026-11-06
@@ -26,7 +26,7 @@ and an accepted token (the first line without its line end) is carried on `Compo
   `(2) Control token file <file> must hold 32 to 1024 visible ASCII bytes on its first line`
   (bounds from `ControlToken.MinLength`/`MaxLength`).
 - Built on: BL-815 (`SurlCommandLine.ControlListenUrl`, `.ControlTokenFile`; the parser already refuses
-  `--control` without `--control-token-file`), BL-814 (`ControlToken`), BL-964 (the `Surl.Control` reference).
+  `--control` without `--control-token-file`), BL-814 (`ControlToken`), BL-1022 (the `Surl.Control` reference).
 - Split from BL-816 (timed out after 120 min, 2026-11-06). Reuse from the stash whose message is
   `darkfactory BL-816 20261106-033059` (commit `0b6c48207fcfb912c5b903ddc55ed2a06d93e6da`, called `S`; find its
   index with `git stash list`):

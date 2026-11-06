@@ -1,5 +1,5 @@
 ---
-id: BL-965
+id: BL-1023
 title: Serve az, abfs and abfss from the surl executable
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-06
 completed:
 ---
-# BL-965 — Serve az, abfs and abfss from the surl executable
+# BL-1023 — Serve az, abfs and abfss from the surl executable
 
 ## Goal
 
@@ -21,7 +21,7 @@ exist, and the extension switch turns it off.
 ## Context
 
 - First of the three tasks BL-427 ("Serve az, abfs and abfss from the surl executable") was split into on
-  2026-11-06 for the 60-minute size limit: this, BL-966 (the plain-text bearer refusal) and BL-967
+  2026-11-06 for the 60-minute size limit: this, BL-1024 (the plain-text bearer refusal) and BL-1025
   (`--az-plaintext`).
 - Composition: extended servers register in `Application/Surl.Composition.UnitLibrary/ExtendedProtocolServers.cs`
   (`Registrations`, beside `s3`, as BL-421 did), and the shared-store tests belong in `Surl.Composition.UnitTests`.
@@ -30,7 +30,7 @@ exist, and the extension switch turns it off.
 - `--aihelp` (root `CLAUDE.md`, "`surl --aihelp`"; ADR-0046): the topic is `azure-storage` (ADR-0109 decision 8):
   a `HelpCategories` row with the three schemes, an `AiHelpProse.TopicAbout` paragraph saying the server is judged
   by the Azure Storage REST API and not by upstream curl, an `AiHelpExamples` entry, and the topic list in
-  `AiHelpTextTests` growing by one. The paragraph states what is true when this task lands; BL-967 adds the
+  `AiHelpTextTests` growing by one. The paragraph states what is true when this task lands; BL-1025 adds the
   `--az-plaintext` sentence.
 - Shared stores (Stewart, 2026-11-04; BL-622's ADR decision 1): the Azure server is handed the **same**
   `ContentStore` instance every original file server gets (containers resolve through BL-655's lookup), and the

@@ -1,16 +1,16 @@
 ---
-id: BL-949
+id: BL-1010
 title: Serve x448 in Surl.Tls13 through Surl.Cryptography.Curve448
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-945, BL-948]
+depends-on: [BL-1007, BL-1009]
 touches: [Cryptography/Surl.Tls13.UnitLibrary, Cryptography/Surl.Tls13.UnitTests, Foundation/Surl.Protocol.Abstractions.UnitTests]
 requirement: FR-055
 created: 2026-11-06
 completed:
 ---
-# BL-949 — Serve x448 in Surl.Tls13 through Surl.Cryptography.Curve448
+# BL-1010 — Serve x448 in Surl.Tls13 through Surl.Cryptography.Curve448
 
 ## Goal
 
@@ -21,8 +21,8 @@ a retry.
 
 ## Context
 
-- Decision: the ADR BL-943 records (decisions 1 to 3); the reference is allowed by its amendment of ADR-0002.
-- Built on: BL-945 (`X448`), BL-948 (the order of the groups before x448).
+- Decision: the ADR BL-1005 records (decisions 1 to 3); the reference is allowed by its amendment of ADR-0002.
+- Built on: BL-1007 (`X448`), BL-1009 (the order of the groups before x448).
 - Split from BL-545 (timed out after 120 min, 2026-11-06). Reuse from the stash whose message is
   `darkfactory BL-545 20261106-033059` (commit `e132aaaa3985ff32f9f5f6e8838cbc123b5082ef`, called `S`), re-made
   by hand from `git diff "S^" "S" -- Cryptography/Surl.Tls13.UnitLibrary Cryptography/Surl.Tls13.UnitTests Foundation/Surl.Protocol.Abstractions.UnitTests`:

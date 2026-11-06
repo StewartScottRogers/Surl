@@ -1,16 +1,16 @@
 ---
-id: BL-964
+id: BL-1022
 title: Implement IControlTarget over ComposedServing in Surl.Composition
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-957, BL-814, BL-805]
+depends-on: [BL-1016, BL-814, BL-805]
 touches: [Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests]
 requirement: none
 created: 2026-11-06
 completed:
 ---
-# BL-964 — Implement IControlTarget over ComposedServing in Surl.Composition
+# BL-1022 — Implement IControlTarget over ComposedServing in Surl.Composition
 
 ## Goal
 
@@ -26,7 +26,7 @@ accounts, and reset, snapshot and restore - each refusal mapped to its `ControlR
   decision 7 (`IControlTarget`, implemented by `Surl.Composition` over `ComposedServing`) and decision 3 (the
   store control BL-805 exposed).
 - Built on: BL-814 (`Application/Surl.Control.UnitLibrary`: `IControlTarget`, `IControlSnapshot`,
-  `ControlRefusalKind`), BL-805 (`ComposedStores`), BL-957 (`ContentStore.DeleteFileForTheTest`).
+  `ControlRefusalKind`), BL-805 (`ComposedStores`), BL-1016 (`ContentStore.DeleteFileForTheTest`).
 - Split from BL-816 (timed out after 120 min, 2026-11-06), whose lane had this written and its 243 composition
   tests passing. Reuse from the stash whose message is `darkfactory BL-816 20261106-033059` (commit
   `0b6c48207fcfb912c5b903ddc55ed2a06d93e6da`, called `S`; find its index with `git stash list`):

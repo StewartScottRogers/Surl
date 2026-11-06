@@ -1,16 +1,16 @@
 ---
-id: BL-959
+id: BL-1017
 title: Add --dns-transport with udp, tcp and tls and serve DNS over TLS with ALPN dot
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-958]
+depends-on: [BL-1032]
 touches: [Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests, Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests, Foundation/Surl.Networking.UnitLibrary, Foundation/Surl.Networking.UnitTests]
 requirement: none
 created: 2026-11-06
 completed:
 ---
-# BL-959 — Add --dns-transport with udp, tcp and tls and serve DNS over TLS with ALPN dot
+# BL-1017 — Add --dns-transport with udp, tcp and tls and serve DNS over TLS with ALPN dot
 
 ## Goal
 
@@ -19,8 +19,8 @@ RFC 7858) on that port's protocols as ADR-0092 decision 5 says, with the DoT han
 
 ## Context
 
-- Second of the four tasks BL-485 was split into (see BL-958). This task adds the option with the values `udp`,
-  `tcp` and `tls`; BL-960 adds `https` and BL-961 adds `quic` to its allowed values.
+- Second of the four tasks BL-485 was split into (see BL-1032). This task adds the option with the values `udp`,
+  `tcp` and `tls`; BL-1018 adds `https` and BL-1019 adds `quic` to its allowed values.
 - Decision: ADR-0092 decision 5 - `--dns-transport <list>`, default `udp,tcp`, categories `dns` and `tls`; ports
   (a listen URL with a port puts every transport on it, without one each on its default: 53, 53, 853; port 0
   gives each its own ephemeral port and status line); `tcp` with `tls` on one explicit non-zero port refused

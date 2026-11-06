@@ -48,4 +48,4 @@ error, instead of being refused at configuration.
 - 2026-11-05: Filed by BL-822 (ADR-0124 decision 9); depends on BL-785 and touches `Surl.Cli` for the reply shapes.
 - 2026-11-06: Backlog -> Doing.
 - 2026-11-06: Doing -> Blocked. Stewart: Surl dark factory timed out after 120 min; see Z:\repos\Surl.logs\BL-834-20261106-033059-L4.jsonl
-- 2026-11-06: Blocked -> Deferred. Split into BL-951, BL-952, BL-953, BL-954, BL-955, BL-956 (timed out after 120 min; Stewart asked for the split 2026-11-06)
+- 2026-11-06: Blocked -> Deferred. Split into BL-1011, BL-1012, BL-1013, BL-1014, BL-1031, BL-1015 (timed out after 120 min; Stewart asked for the split 2026-11-06)

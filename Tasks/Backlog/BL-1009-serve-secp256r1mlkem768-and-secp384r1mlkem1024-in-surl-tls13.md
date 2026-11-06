@@ -1,16 +1,16 @@
 ---
-id: BL-948
+id: BL-1009
 title: Serve SecP256r1MLKEM768 and SecP384r1MLKEM1024 in Surl.Tls13
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-944, BL-947]
+depends-on: [BL-1006, BL-1008]
 touches: [Cryptography/Surl.Tls13.UnitLibrary, Cryptography/Surl.Tls13.UnitTests]
 requirement: FR-055
 created: 2026-11-06
 completed:
 ---
-# BL-948 — Serve SecP256r1MLKEM768 and SecP384r1MLKEM1024 in Surl.Tls13
+# BL-1009 — Serve SecP256r1MLKEM768 and SecP384r1MLKEM1024 in Surl.Tls13
 
 ## Goal
 
@@ -21,14 +21,14 @@ one gets a HelloRetryRequest naming it and then completes, and the recorded upst
 
 ## Context
 
-- Decision: the ADR BL-943 records (decision 2): the client's share is the uncompressed NIST point then the
+- Decision: the ADR BL-1005 records (decision 2): the client's share is the uncompressed NIST point then the
   ML-KEM encapsulation key (1249 and 1665 bytes), the server's its point then the ciphertext, and the secret
   the ECDH secret then ML-KEM's; randomness ML-KEM's m first. The NIST curves are the BCL's `ECDiffieHellman`.
-- Built on: BL-944 (`MlKem1024`) and BL-947 (fixtures, `TlsServerHandshakeTests.Groups.cs`, `partial` test class).
+- Built on: BL-1006 (`MlKem1024`) and BL-1008 (fixtures, `TlsServerHandshakeTests.Groups.cs`, `partial` test class).
 - Split from BL-545 (timed out after 120 min, 2026-11-06). Reuse from the stash whose message is
   `darkfactory BL-545 20261106-033059` (commit `e132aaaa3985ff32f9f5f6e8838cbc123b5082ef`, called `S`), re-made
   by hand from `git diff "S^" "S" -- Cryptography/Surl.Tls13.UnitLibrary Cryptography/Surl.Tls13.UnitTests`,
-  since BL-947 has changed the same files: in `TlsNamedGroup.cs` the `SecP256r1MlKem768` and
+  since BL-1008 has changed the same files: in `TlsNamedGroup.cs` the `SecP256r1MlKem768` and
   `SecP384r1MlKem1024` members (`0x11ED`, not `0x11EE`); in `TlsServerNegotiation.GroupPreference` both after
   `Secp521r1`; in `TlsKeyExchange.cs` the `TlsMlKem` record, `MlKem768Kem`, `MlKem1024Kem`, `Encapsulate`,
   `AgreeClassicalFirstHybrid`, `EncapsulateTo` and `Combine`, dispatching only `0x11EB` and `0x11ED`; in

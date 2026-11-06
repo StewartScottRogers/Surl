@@ -49,4 +49,4 @@ alone today, and changing it is a contract change to `Surl.Protocol.Abstractions
 ## Log
 
 - 2026-11-05: Created.
-- 2026-11-06: Backlog -> Deferred. Split into BL-962 and BL-963 (over the 60-minute size limit; Stewart asked for a backlog audit 2026-11-06)
+- 2026-11-06: Backlog -> Deferred. Split into BL-1020 and BL-1021 (over the 60-minute size limit; Stewart asked for a backlog audit 2026-11-06)

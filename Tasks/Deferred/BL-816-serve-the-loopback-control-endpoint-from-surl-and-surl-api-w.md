@@ -56,5 +56,5 @@ reports its bound URL, and answers it against the instance's own event stream, f
 <<<<<<<< HEAD:Tasks/Blocked/BL-816-serve-the-loopback-control-endpoint-from-surl-and-surl-api-w.md
 - 2026-11-06: Doing -> Blocked. Stewart: Surl dark factory timed out after 120 min; see Z:\repos\Surl.logs\BL-816-20261106-033059-L7.jsonl
 ========
-- 2026-11-06: Doing -> Deferred. Split into BL-957, BL-964, BL-972, BL-977 (timed out after 120 min; Stewart asked for the split 2026-11-06)
+- 2026-11-06: Doing -> Deferred. Split into BL-1016, BL-1022, BL-972, BL-977 (timed out after 120 min; Stewart asked for the split 2026-11-06)
 >>>>>>>> 39b53578 (chore(tasks): split BL-545, BL-816, BL-834 after timeouts, and 16 oversized Backlog tasks into 44 (60-minute size audit)):Tasks/Deferred/BL-816-serve-the-loopback-control-endpoint-from-surl-and-surl-api-w.md

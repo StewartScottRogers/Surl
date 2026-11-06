@@ -1,16 +1,16 @@
 ---
-id: BL-963
+id: BL-1021
 title: Add --s3-plaintext and serve s3 as plain HTTP/1.1 under it
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-962]
+depends-on: [BL-1020]
 touches: [Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests, Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests, Application/Surl.Console.UnitTests]
 requirement: none
 created: 2026-11-06
 completed:
 ---
-# BL-963 — Add --s3-plaintext and serve s3 as plain HTTP/1.1 under it
+# BL-1021 — Add --s3-plaintext and serve s3 as plain HTTP/1.1 under it
 
 ## Goal
 
@@ -19,13 +19,13 @@ start as the other loosening options do (ADR-0108 decision 5).
 
 ## Context
 
-- Second of the two tasks BL-860 was split into; BL-962 gives each listen URL its own TLS answer.
+- Second of the two tasks BL-860 was split into; BL-1020 gives each listen URL its own TLS answer.
 - The option: no argument, category `s3` (and `testing`, `security` as a loosening option), off by default, its
   `OptionArgumentType`, help, `--aihelp` facts and `ManualText` line (ADR-0034, ADR-0046), and a start warning in
   ADR-0032's form. SigV4 sends no secret, so `--allow-plaintext-auth` is not needed with it.
 - Composition: `ServerTlsComposition` (the `(58)` refusal and whether TLS settings are built) and
   `ImplicitTlsSchemeServer` in `Application/Surl.Composition.UnitLibrary` read `TlsSchemes` by scheme today; under
-  the option they build the `s3` listen URLs plain through BL-962's member. `Surl.Networking`'s ALPN is irrelevant
+  the option they build the `s3` listen URLs plain through BL-1020's member. `Surl.Networking`'s ALPN is irrelevant
   without TLS.
 - Stand-in: no store change; the warning is written with the other start-up warnings.
 

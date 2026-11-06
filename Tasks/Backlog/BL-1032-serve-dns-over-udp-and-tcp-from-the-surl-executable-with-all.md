@@ -1,5 +1,5 @@
 ---
-id: BL-958
+id: BL-1032
 title: Serve dns over UDP and TCP from the surl executable with --allow-zone-transfer
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-06
 completed:
 ---
-# BL-958 — Serve dns over UDP and TCP from the surl executable with --allow-zone-transfer
+# BL-1032 — Serve dns over UDP and TCP from the surl executable with --allow-zone-transfer
 
 ## Goal
 
@@ -21,8 +21,8 @@ category exist, and the extension switch (`SURL_EXTENSIONS=0`) turns it off.
 ## Context
 
 - First of the four tasks BL-485 ("Serve dns and its encrypted transports from the surl executable") was split
-  into on 2026-11-06 for the 60-minute size limit: this (UDP and TCP), BL-959 (`--dns-transport` and DNS over
-  TLS), BL-960 (DNS over HTTPS), BL-961 (DNS over QUIC).
+  into on 2026-11-06 for the 60-minute size limit: this (UDP and TCP), BL-1017 (`--dns-transport` and DNS over
+  TLS), BL-1018 (DNS over HTTPS), BL-1019 (DNS over QUIC).
 - Decision: ADR-0092 decision 1 (zones are master files under the data directory, no option names the folder),
   decision 4 (`--allow-zone-transfer`, off by default) and decision 7 (`--aihelp`, help and composition).
 - Composition: extended servers register in

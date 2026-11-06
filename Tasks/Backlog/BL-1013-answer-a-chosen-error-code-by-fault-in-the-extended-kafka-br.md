@@ -1,5 +1,5 @@
 ---
-id: BL-953
+id: BL-1013
 title: Answer a chosen error code by fault in the extended Kafka broker
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: FR-062
 created: 2026-11-06
 completed:
 ---
-# BL-953 — Answer a chosen error code by fault in the extended Kafka broker
+# BL-1013 — Answer a chosen error code by fault in the extended Kafka broker
 
 ## Goal
 
@@ -39,7 +39,7 @@ appending nothing, and for `Fetch` without waiting - instead of serving it, and 
     Re-make them by hand: since the stash, the shared branch added `CreateTopics` and other APIs to this library
     (`KafkaApiKey`, `KafkaErrorCode`, `KafkaRequest`, `KafkaBrokerConnection` changed), so build against the
     current files rather than applying the patch.
-- `Surl.Cli` still refuses these schemes' `reply` until BL-956; the tests here build the fault plan directly.
+- `Surl.Cli` still refuses these schemes' `reply` until BL-1015; the tests here build the fault plan directly.
 - Stand-in: the shared message bus is unchanged; the new observable is `FaultAppliedEvent` on the instance's
   event stream, and tests inject the fault through the fault plan double.
 

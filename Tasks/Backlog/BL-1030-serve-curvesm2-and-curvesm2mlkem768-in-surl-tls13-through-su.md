@@ -1,16 +1,16 @@
 ---
-id: BL-950
+id: BL-1030
 title: Serve curveSM2 and curveSM2MLKEM768 in Surl.Tls13 through Surl.Cryptography.Sm2
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-946, BL-949]
+depends-on: [BL-1029, BL-1010]
 touches: [Cryptography/Surl.Tls13.UnitLibrary, Cryptography/Surl.Tls13.UnitTests, Foundation/Surl.Protocol.Abstractions.UnitTests]
 requirement: FR-055
 created: 2026-11-06
 completed:
 ---
-# BL-950 — Serve curveSM2 and curveSM2MLKEM768 in Surl.Tls13 through Surl.Cryptography.Sm2
+# BL-1030 — Serve curveSM2 and curveSM2MLKEM768 in Surl.Tls13 through Surl.Cryptography.Sm2
 
 ## Goal
 
@@ -21,10 +21,10 @@ either completes without a retry. With this, every group BL-545 named is served.
 
 ## Context
 
-- Decision: the ADR BL-943 records (decision 2): curveSM2 is an uncompressed point and the secret its product's
+- Decision: the ADR BL-1005 records (decision 2): curveSM2 is an uncompressed point and the secret its product's
   x-coordinate, with a 32-byte private key from the injected `RandomNumberGenerator`; curveSM2MLKEM768
   (draft-yang-tls-hybrid-sm2-mlkem) is laid out like SecP256r1MLKEM768 with curveSM2 in the NIST curve's place.
-- Built on: BL-946 (`CurveSm2`), BL-948 (`AgreeClassicalFirstHybrid`), BL-949.
+- Built on: BL-1029 (`CurveSm2`), BL-1009 (`AgreeClassicalFirstHybrid`), BL-1010.
 - Split from BL-545 (timed out after 120 min, 2026-11-06). Reuse from the stash whose message is
   `darkfactory BL-545 20261106-033059` (commit `e132aaaa3985ff32f9f5f6e8838cbc123b5082ef`, called `S`), re-made
   by hand from `git diff "S^" "S" -- Cryptography/Surl.Tls13.UnitLibrary Cryptography/Surl.Tls13.UnitTests Foundation/Surl.Protocol.Abstractions.UnitTests`:
@@ -36,7 +36,7 @@ either completes without a retry. With this, every group BL-545 named is served.
   `ProtocolIsolationTests.cs` `Sm2` in the `[Tls13]` row and `[DataRow(Tls13, Sm2)]`.
 - Finish `Cryptography/Surl.Tls13.UnitLibrary/CLAUDE.md` as the stash's diff has it: the curveSM2 bullet,
   curveSM2MLKEM768 in the hybrids bullet, "a NIST or curveSM2 point off its curve" in the `illegal_parameter`
-  row, `Surl.Cryptography.Sm2.UnitLibrary` in the references paragraph, all citing BL-943's ADR number.
+  row, `Surl.Cryptography.Sm2.UnitLibrary` in the references paragraph, all citing BL-1005's ADR number.
 - Stand-in: not applicable; the TLS handshake gains groups and no store, event or fault.
 
 ## Acceptance criteria

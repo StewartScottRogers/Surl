@@ -1,5 +1,5 @@
 ---
-id: BL-962
+id: BL-1020
 title: Let each listen URL say whether it is TLS from the first byte instead of reading TlsSchemes by scheme
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-06
 completed:
 ---
-# BL-962 — Let each listen URL say whether it is TLS from the first byte instead of reading TlsSchemes by scheme
+# BL-1020 — Let each listen URL say whether it is TLS from the first byte instead of reading TlsSchemes by scheme
 
 ## Goal
 
@@ -22,12 +22,12 @@ over TLS.
 ## Context
 
 - First of the two tasks BL-860 ("Serve s3 as plain HTTP/1.1 with --s3-plaintext") was split into on
-  2026-11-06 for the 60-minute size limit: this contract change, then BL-963 (the option). The `--az-plaintext`,
+  2026-11-06 for the 60-minute size limit: this contract change, then BL-1021 (the option). The `--az-plaintext`,
   `--gs-plaintext` and `--oci-plaintext` tasks wait on this one too.
 - Today `TlsSchemes.IsImplicitTls(scheme)` (`Foundation/Surl.Protocol.Abstractions.UnitLibrary/TlsSchemes.cs`)
   is read by `ServingEngine` (`Foundation/Surl.Core.UnitLibrary/ServingEngine.cs`: the refusal writer check and
   the implicit handshake), and by `ServerTlsComposition` and `ImplicitTlsSchemeServer` in `Surl.Composition`
-  (those change in BL-963).
+  (those change in BL-1021).
 - Shape: a per-listen-URL answer, for example an init-only `ListenUrl.IsImplicitTls` defaulting to
   `TlsSchemes.IsImplicitTls(Scheme)`, as `ListenUrl.IsProxy` is a per-listen-URL flag (ADR-0088 Amendment 2).
   No static mutable state (root `CLAUDE.md`, "Surl is a stand-in for tests": many instances side by side).

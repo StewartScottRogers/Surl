@@ -1,5 +1,5 @@
 ---
-id: BL-955
+id: BL-1031
 title: Answer a chosen -ERR by fault in the extended NATS server
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: FR-062
 created: 2026-11-06
 completed:
 ---
-# BL-955 — Answer a chosen -ERR by fault in the extended NATS server
+# BL-1031 — Answer a chosen -ERR by fault in the extended NATS server
 
 ## Goal
 
@@ -37,7 +37,7 @@ publish one `FaultAppliedEvent`.
   - tracked, with `git diff "S^" "S" -- Protocols/Messaging/Surl.Extended.Protocol.Nats.UnitLibrary | git apply`
     (`NatsServerConnection.cs`; unchanged on the shared branch since the stash's base - if `git apply` refuses,
     re-make it by hand).
-- `Surl.Cli` still refuses these schemes' `reply` until BL-956; the tests here build the fault plan directly.
+- `Surl.Cli` still refuses these schemes' `reply` until BL-1015; the tests here build the fault plan directly.
 - Stand-in: the shared message bus is unchanged; the new observable is `FaultAppliedEvent` on the instance's
   event stream, and tests inject the fault through the fault plan double.
 

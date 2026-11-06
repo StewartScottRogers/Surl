@@ -1,16 +1,16 @@
 ---
-id: BL-945
+id: BL-1007
 title: Create Surl.Cryptography.Curve448 with X448
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-943]
+depends-on: [BL-1005]
 touches: [Cryptography/Surl.Cryptography.Curve448.UnitLibrary, Cryptography/Surl.Cryptography.Curve448.UnitTests, Surl.slnx, Foundation/Surl.Protocol.Abstractions.UnitTests]
 requirement: FR-055
 created: 2026-11-06
 completed:
 ---
-# BL-945 — Create Surl.Cryptography.Curve448 with X448
+# BL-1007 — Create Surl.Cryptography.Curve448 with X448
 
 ## Goal
 
@@ -20,7 +20,7 @@ public keys and shared secrets, with its `.UnitTests` twin, registered in `Surl.
 
 ## Context
 
-- Decision: the ADR BL-943 records (decision 3's table; ADR-0002 amended by it). The BCL has no X448 on any
+- Decision: the ADR BL-1005 records (decision 3's table; ADR-0002 amended by it). The BCL has no X448 on any
   platform, so it is hand-built.
 - Split from BL-545 (timed out after 120 min, 2026-11-06). Its lane finished this library: every RFC 7748
   vector passes, 100% line and branch. Reuse it from the stash whose message is
@@ -28,7 +28,7 @@ public keys and shared secrets, with its `.UnitTests` twin, registered in `Surl.
   index with `git stash list`):
   - untracked, with `git checkout "S^3" -- Cryptography/Surl.Cryptography.Curve448.UnitLibrary Cryptography/Surl.Cryptography.Curve448.UnitTests`:
     `CLAUDE.md`, `Field448.cs` (302 lines), `X448.cs` (168), the csproj, and `Field448Tests.cs`, `X448Tests.cs`
-    and the tests' csproj. In `CLAUDE.md` replace any `ADR-0142` with the number BL-943 gave its ADR.
+    and the tests' csproj. In `CLAUDE.md` replace any `ADR-0142` with the number BL-1005 gave its ADR.
   - tracked, re-made by hand (both files are shared and keep moving): the two `Curve448` lines of
     `git diff "S^" "S" -- Surl.slnx`, and of
     `git diff "S^" "S" -- Foundation/Surl.Protocol.Abstractions.UnitTests/ProtocolIsolationTests.cs` only the

@@ -1,5 +1,5 @@
 ---
-id: BL-943
+id: BL-1005
 title: Record the ADR for the remaining TLS 1.3 groups curl offers over QUIC
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: FR-055
 created: 2026-11-06
 completed:
 ---
-# BL-943 — Record the ADR for the remaining TLS 1.3 groups curl offers over QUIC
+# BL-1005 — Record the ADR for the remaining TLS 1.3 groups curl offers over QUIC
 
 ## Goal
 
@@ -31,7 +31,7 @@ table, so the code tasks split from BL-545 can cite it.
   **ADR-0142 is now taken** (`ADR-0142-how-surl-names-a-files-media-type-from-its-extension.md`), and the
   shared branch has reached at least ADR-0146: save it under the next free number at the time you run,
   rewrite every `ADR-0142` inside it, and replace "BL-545 creates the projects" with the split tasks:
-  BL-944 (ML-KEM-1024), BL-945 (Curve448), BL-946 (Sm2), BL-947 to BL-950 (`Surl.Tls13`).
+  BL-1006 (ML-KEM-1024), BL-1007 (Curve448), BL-1029 (Sm2), BL-1008 to BL-1030 (`Surl.Tls13`).
 - Reuse, tracked: `git diff "S^" "S" -- Documentation/Planning/Decisions/ADR-0002-mirror-the-curl-ports-project-map.md Documentation/Planning/Decisions/ADR-0082-how-surl-serves-http-3-over-quic.md`
   adds ADR-0002's amendment line and ADR-0082's "Amended by" line and corrects its `supported_groups` row
   (`11EE` is curveSM2MLKEM768; SecP384r1MLKEM1024 is `11ED`). Re-make the lines by hand with the new ADR

@@ -1,16 +1,16 @@
 ---
-id: BL-956
+id: BL-1015
 title: Accept --fault error replies for amqp, amqp1, kafka, mqtt5 and nats in Surl.Cli
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-951, BL-952, BL-953, BL-954, BL-955]
+depends-on: [BL-1011, BL-1012, BL-1013, BL-1014, BL-1031]
 touches: [Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests]
 requirement: FR-062
 created: 2026-11-06
 completed:
 ---
-# BL-956 — Accept --fault error replies for amqp, amqp1, kafka, mqtt5 and nats in Surl.Cli
+# BL-1015 — Accept --fault error replies for amqp, amqp1, kafka, mqtt5 and nats in Surl.Cli
 
 ## Goal
 
@@ -22,11 +22,11 @@ otherwise, instead of every such rule being refused at configuration.
 
 - Decision: [ADR-0124](../../Documentation/Planning/Decisions/ADR-0124-surl-is-a-stand-in-for-tests.md)
   decision 9 and its extended reply table. Shapes, each matching what its broker's own reader accepts (read the
-  broker code BL-951 to BL-955 landed, so a reply `Surl.Cli` accepts is one the broker applies):
-  AMQP 0-9-1 a reply code from the specification's exception list, a space and text (BL-951's
+  broker code BL-1011 to BL-1031 landed, so a reply `Surl.Cli` accepts is one the broker applies):
+  AMQP 0-9-1 a reply code from the specification's exception list, a space and text (BL-1011's
   `TryReadException`, text at most 255 bytes); AMQP 1.0 an error condition symbol and an optional description
-  (BL-952's `ReadChosenError`); Kafka an error code 1 to 127 (BL-953); MQTT 5 the existing
-  `IsMqttReasonCode` (128 to 255, no text); NATS non-empty text (BL-955).
+  (BL-1012's `ReadChosenError`); Kafka an error code 1 to 127 (BL-1013); MQTT 5 the existing
+  `IsMqttReasonCode` (128 to 255, no text); NATS non-empty text (BL-1031).
 - Where: `Application/Surl.Cli.UnitLibrary/FaultReplyShapes.cs` (`FitsByScheme`, ordinal-sorted) and
   `Application/Surl.Cli.UnitTests/CommandLineParserFaultTests.cs`, beside the `coap`, `mcp` and `signalr`
   rows ADR-0144 added. Update the class's summary, which still says BL-834 has no rows.
@@ -35,7 +35,7 @@ otherwise, instead of every such rule being refused at configuration.
   `git diff "S^" "S" -- Application/Surl.Cli.UnitLibrary/FaultReplyShapes.cs`, none of the predicates and no
   tests. Re-make the entries by hand (the file has since changed), and cite ADR-0124 decision 9, not the stash's
   mistaken "ADR-0142".
-- Stand-in: this is the configuration gate in front of BL-951 to BL-955's faults; it publishes nothing itself.
+- Stand-in: this is the configuration gate in front of BL-1011 to BL-1031's faults; it publishes nothing itself.
   If the `--aihelp` fault topic or an `AiHelpExamples` entry lists which schemes take `error` replies, update it
   in the same diff (`CommandLineRunnerAiHelpTests.RunAsync_EveryAiHelpExample_WritesWhatTheExampleShows`).
 

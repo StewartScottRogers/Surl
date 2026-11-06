@@ -1,5 +1,5 @@
 ---
-id: BL-952
+id: BL-1012
 title: Answer a chosen error condition by fault in the extended AMQP 1.0 container
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: FR-062
 created: 2026-11-06
 completed:
 ---
-# BL-952 — Answer a chosen error condition by fault in the extended AMQP 1.0 container
+# BL-1012 — Answer a chosen error condition by fault in the extended AMQP 1.0 container
 
 ## Goal
 
@@ -38,7 +38,7 @@ matching `attach` with the chosen error condition and description on the `detach
   - tracked, with `git diff "S^" "S" -- Protocols/Messaging/Surl.Extended.Protocol.Amqp1.UnitLibrary | git apply`
     (`Amqp1ContainerConnection.Links.cs`, `Amqp1ContainerConnection.Transfers.cs`; neither has changed on the
     shared branch since the stash's base - if `git apply` refuses, re-make the three lines by hand).
-- `Surl.Cli` still refuses these schemes' `reply` until BL-956; the tests here build the fault plan directly.
+- `Surl.Cli` still refuses these schemes' `reply` until BL-1015; the tests here build the fault plan directly.
 - Stand-in: the shared message bus is unchanged; the new observable is `FaultAppliedEvent` on the instance's
   event stream, and tests inject the fault through the fault plan double.
 

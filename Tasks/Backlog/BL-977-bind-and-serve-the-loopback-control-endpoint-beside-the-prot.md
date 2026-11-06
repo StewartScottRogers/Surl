@@ -4,7 +4,7 @@ title: Bind and serve the loopback control endpoint beside the protocol listener
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-964, BL-972]
+depends-on: [BL-1022, BL-972]
 touches: [Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests]
 requirement: none
 created: 2026-11-06
@@ -27,7 +27,7 @@ connections of its own, outside `--max-connections`.
   `surl: warning: --control: a test control endpoint on <bound URL> can change this server's files, mail, messages, accounts and faults`
   (from the info level up, after the fault warning), the status line after the `Listening on` lines, a bind
   failure ending the start with its exit code (45) before any other line.
-- Built on: BL-964 (`ComposedControlTarget`), BL-972 (`ComposedAuthentication.ControlToken`), BL-814
+- Built on: BL-1022 (`ComposedControlTarget`), BL-972 (`ComposedAuthentication.ControlToken`), BL-814
   (`ControlEndpoint`, `FeedEventsAsync`).
 - Split from BL-816 (timed out after 120 min, 2026-11-06), whose lane had these tests passing and was measuring
   coverage. Reuse from the stash whose message is `darkfactory BL-816 20261106-033059` (commit
@@ -38,7 +38,7 @@ connections of its own, outside `--max-connections`.
   - `MaxConnections`, `WriteWarning` and `FormatStatusLine` from the stash's `ControlComposition.cs` (`git show "S^3:<path>"`),
     added to the file BL-972 created.
   - tracked, by `git diff "S^" "S" -- <file> | git apply` (unchanged on the shared branch since the stash's
-    base; re-make by hand if BL-964 or BL-972 moved a line): `ComposedServing.cs` (+139: `ControlListenUrl`,
+    base; re-make by hand if BL-1022 or BL-972 moved a line): `ComposedServing.cs` (+139: `ControlListenUrl`,
     `ServeWithControlAsync`, `ComposeControlEngine`, `ServeProtocolsAsync`, `RunEngineAsync`) and
     `Application/Surl.Composition.UnitTests/FakeListenerFactory.cs` (`ConnectionsFor(listenUrl)`, and a
     cancelled start refused as a real listener does).

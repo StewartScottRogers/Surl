@@ -4,7 +4,7 @@ title: Refuse a DNS over QUIC flow past the connection limits with DOQ_EXCESSIVE
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-484, BL-961]
+depends-on: [BL-484, BL-1019]
 touches: [Protocols/Lookup/Surl.Extended.Protocol.DnsQuery.UnitLibrary, Protocols/Lookup/Surl.Extended.Protocol.DnsQuery.UnitTests, Protocols/Http/Surl.Quic.UnitLibrary, Protocols/Http/Surl.Quic.UnitTests]
 requirement: none
 created: 2026-11-05
@@ -46,4 +46,4 @@ sits in the engine's refusal seam, which BL-484's acceptance criteria did not co
 ## Log
 
 - 2026-11-05: Created.
-- 2026-11-06: depends-on BL-485 replaced by BL-961 (BL-485 split for the 60-minute size limit; Stewart asked for a backlog audit 2026-11-06).
+- 2026-11-06: depends-on BL-485 replaced by BL-1019 (BL-485 split for the 60-minute size limit; Stewart asked for a backlog audit 2026-11-06).

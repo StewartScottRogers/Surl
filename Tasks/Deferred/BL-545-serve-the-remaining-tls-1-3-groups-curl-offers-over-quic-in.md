@@ -52,4 +52,4 @@ SecP256r1MLKEM768 (`0x11EB`), SecP384r1MLKEM1024 (`0x11EE`), x448 (`0x001E`), cu
 - 2026-11-04: Filed by BL-372 (ADR-0082 decision 3).
 - 2026-11-06: Backlog -> Doing.
 - 2026-11-06: Doing -> Blocked. Stewart: Surl dark factory timed out after 120 min; see Z:\repos\Surl.logs\BL-545-20261106-033059-L3.jsonl
-- 2026-11-06: Blocked -> Deferred. Split into BL-943, BL-944, BL-945, BL-946, BL-947, BL-948, BL-949, BL-950 (timed out after 120 min; Stewart asked for the split 2026-11-06)
+- 2026-11-06: Blocked -> Deferred. Split into BL-1005, BL-1006, BL-1007, BL-1029, BL-1008, BL-1009, BL-1010, BL-1030 (timed out after 120 min; Stewart asked for the split 2026-11-06)

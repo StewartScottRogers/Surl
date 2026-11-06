@@ -1,16 +1,16 @@
 ---
-id: BL-947
+id: BL-1008
 title: Serve ffdhe2048 and ffdhe3072 through a HelloRetryRequest in Surl.Tls13
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-943]
+depends-on: [BL-1005]
 touches: [Cryptography/Surl.Tls13.UnitLibrary, Cryptography/Surl.Tls13.UnitTests]
 requirement: FR-055
 created: 2026-11-06
 completed:
 ---
-# BL-947 — Serve ffdhe2048 and ffdhe3072 through a HelloRetryRequest in Surl.Tls13
+# BL-1008 — Serve ffdhe2048 and ffdhe3072 through a HelloRetryRequest in Surl.Tls13
 
 ## Goal
 
@@ -20,7 +20,7 @@ recorded upstream curl ClientHello for `--curves ffdhe2048` or `--curves ffdhe30
 
 ## Context
 
-- Decision: the ADR BL-943 records (decisions 1 and 2): Y and the secret padded to the length of p,
+- Decision: the ADR BL-1005 records (decisions 1 and 2): Y and the secret padded to the length of p,
   1 < Y < p - 1 checked, a 256-bit (ffdhe2048) or 320-bit (ffdhe3072) server exponent from the injected
   `RandomNumberGenerator`, `System.Numerics.BigInteger.ModPow`; anything else `illegal_parameter`.
 - First of four `Surl.Tls13` tasks split from BL-545 (timed out after 120 min, 2026-11-06); this one also
@@ -42,7 +42,7 @@ recorded upstream curl ClientHello for `--curves ffdhe2048` or `--curves ffdhe30
     From `TlsNamedGroup.cs`, `TlsServerNegotiation.cs`, `TlsKeyExchange.cs` and `UnitTestTlsClient.cs` take by
     hand only the ffdhe parts: the `Ffdhe3072` member, `Ffdhe2048, Ffdhe3072` at the end of `GroupPreference`,
     the `AgreeClassical` dispatch with `AgreeFiniteField`, and `WithFiniteFieldShare`.
-- Add the ffdhe bullet of the stash's `Cryptography/Surl.Tls13.UnitLibrary/CLAUDE.md` diff, citing BL-943's
+- Add the ffdhe bullet of the stash's `Cryptography/Surl.Tls13.UnitLibrary/CLAUDE.md` diff, citing BL-1005's
   ADR number, and widen its `illegal_parameter` row with "an ffdhe Y outside 1 < Y < p - 1".
 - Stand-in: not applicable; the TLS handshake gains groups and no store, event or fault.
 

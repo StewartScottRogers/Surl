@@ -53,4 +53,4 @@ and the extension switch turns it off.
 - 2026-11-04: Created.
 - 2026-11-05: Backlog -> Doing.
 - 2026-11-05: Doing -> Backlog. Needs Application/Surl.Composition.UnitLibrary, which BL-803 (Doing) touches
-- 2026-11-06: Backlog -> Deferred. Split into BL-958, BL-959, BL-960 and BL-961 (over the 60-minute size limit; Stewart asked for a backlog audit 2026-11-06)
+- 2026-11-06: Backlog -> Deferred. Split into BL-1032, BL-1017, BL-1018 and BL-1019 (over the 60-minute size limit; Stewart asked for a backlog audit 2026-11-06)

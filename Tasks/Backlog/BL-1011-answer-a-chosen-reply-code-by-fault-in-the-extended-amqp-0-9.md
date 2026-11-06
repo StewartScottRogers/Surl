@@ -1,5 +1,5 @@
 ---
-id: BL-951
+id: BL-1011
 title: Answer a chosen reply code by fault in the extended AMQP 0-9-1 broker
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: FR-062
 created: 2026-11-06
 completed:
 ---
-# BL-951 — Answer a chosen reply code by fault in the extended AMQP 0-9-1 broker
+# BL-1011 — Answer a chosen reply code by fault in the extended AMQP 0-9-1 broker
 
 ## Goal
 
@@ -40,7 +40,7 @@ says - instead of serving it, and publish one `FaultAppliedEvent`.
     Re-make it by hand: since the stash, the shared branch added transactions, publisher confirms, headers
     exchanges and persisted exchanges to this library, so check `Amqp0BrokerConnection.Faults.cs` against the
     methods it now serves (`tx.*`, `confirm.select`) and add a test for any that names a path.
-- `Surl.Cli` still refuses these schemes' `reply` until BL-956; the tests here build the fault plan directly.
+- `Surl.Cli` still refuses these schemes' `reply` until BL-1015; the tests here build the fault plan directly.
 - Stand-in: the shared message bus the broker already uses is unchanged; the new observable is
   `FaultAppliedEvent` on the instance's event stream, and tests inject the fault through the fault plan double.
 

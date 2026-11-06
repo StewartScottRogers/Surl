@@ -1,5 +1,5 @@
 ---
-id: BL-968
+id: BL-1026
 title: Serve gs from the surl executable
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-06
 completed:
 ---
-# BL-968 — Serve gs from the surl executable
+# BL-1026 — Serve gs from the surl executable
 
 ## Goal
 
@@ -20,14 +20,14 @@ completed:
 ## Context
 
 - First of the two tasks BL-433 ("Serve gs from the surl executable") was split into on 2026-11-06 for the
-  60-minute size limit: this, then BL-969 (`--gs-plaintext`).
+  60-minute size limit: this, then BL-1027 (`--gs-plaintext`).
 - Decision: ADR-0110 decision 5 - `gs` is implicit TLS on 443, ALPN `http/1.1`, `--cert` or `--self-signed`
   required, `CertificateProblem` (58) without; decision 8 gives the topic's about text.
 - Composition: extended servers register in `Application/Surl.Composition.UnitLibrary/ExtendedProtocolServers.cs`
   (`Registrations`, beside `s3`, with its project reference, as BL-421 did); `gs` is wrapped for TLS
   (`ImplicitTlsSchemeServer`, ADR-0010).
 - `--aihelp` (root `CLAUDE.md`, "`surl --aihelp`"; ADR-0046): a `HelpCategories` row with `gs`, an
-  `AiHelpProse.TopicAbout` paragraph naming the XML API as its oracle (true of what lands here; BL-969 adds the
+  `AiHelpProse.TopicAbout` paragraph naming the XML API as its oracle (true of what lands here; BL-1027 adds the
   `--gs-plaintext` sentence), an `AiHelpExamples` entry, and the topic list in `AiHelpTextTests` growing by one.
 - Shared stores (Stewart, 2026-11-04; BL-622's ADR decision 1): `gs` is handed the **same** `ContentStore`
   instance every original file server gets (buckets resolve through BL-655's lookup), and the same account set.

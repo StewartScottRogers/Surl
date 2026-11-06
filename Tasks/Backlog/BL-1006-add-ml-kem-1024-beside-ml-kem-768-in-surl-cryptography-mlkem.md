@@ -1,16 +1,16 @@
 ---
-id: BL-944
+id: BL-1006
 title: Add ML-KEM-1024 beside ML-KEM-768 in Surl.Cryptography.MlKem
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-943]
+depends-on: [BL-1005]
 touches: [Cryptography/Surl.Cryptography.MlKem.UnitLibrary, Cryptography/Surl.Cryptography.MlKem.UnitTests]
 requirement: FR-055
 created: 2026-11-06
 completed:
 ---
-# BL-944 — Add ML-KEM-1024 beside ML-KEM-768 in Surl.Cryptography.MlKem
+# BL-1006 — Add ML-KEM-1024 beside ML-KEM-768 in Surl.Cryptography.MlKem
 
 ## Goal
 
@@ -19,7 +19,7 @@ sharing K-PKE through a parameter set, so `Surl.Tls13` can serve SecP384r1MLKEM1
 
 ## Context
 
-- Decision: the ADR BL-943 records (decision 3: ML-KEM-1024 beside ML-KEM-768).
+- Decision: the ADR BL-1005 records (decision 3: ML-KEM-1024 beside ML-KEM-768).
 - Split from BL-545 (timed out after 120 min, 2026-11-06). Its lane finished this piece: 100% line and branch,
   worst CRAP 8, all ACVP vectors passing. Reuse it from the stash whose message is
   `darkfactory BL-545 20261106-033059` (commit `e132aaaa3985ff32f9f5f6e8838cbc123b5082ef`, called `S` here;
@@ -32,7 +32,7 @@ sharing K-PKE through a parameter set, so `Surl.Tls13` can serve SecP384r1MLKEM1
   - tracked, with `git diff "S^" "S" -- Cryptography/Surl.Cryptography.MlKem.UnitLibrary Cryptography/Surl.Cryptography.MlKem.UnitTests | git apply`
     (none of these files changed on the shared branch since): `KPke.cs`, `MlKem768.cs`,
     `MlKemPolynomial.cs`, `CLAUDE.md`, `MlKem768Tests.cs`, `UnitTestAcvpVectors.cs`.
-  - In the library's `CLAUDE.md`, replace any `ADR-0142` with the number BL-943 gave its ADR.
+  - In the library's `CLAUDE.md`, replace any `ADR-0142` with the number BL-1005 gave its ADR.
 - Every expected value comes from NIST's ACVP ML-KEM-1024 vectors (the fixture above), never from the Curl port.
 - Stand-in: not applicable; a key-encapsulation primitive with no store, event or fault.
 

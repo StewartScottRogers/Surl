@@ -1,16 +1,16 @@
 ---
-id: BL-960
+id: BL-1018
 title: Serve DNS over HTTPS for --dns-transport https
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-959, BL-483]
+depends-on: [BL-1017, BL-483]
 touches: [Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests, Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests]
 requirement: none
 created: 2026-11-06
 completed:
 ---
-# BL-960 — Serve DNS over HTTPS for --dns-transport https
+# BL-1018 — Serve DNS over HTTPS for --dns-transport https
 
 ## Goal
 
@@ -19,8 +19,8 @@ over HTTP/2 and HTTP/1.1, as ADR-0092 decision 5 says.
 
 ## Context
 
-- Third of the four tasks BL-485 was split into (see BL-958). It adds `https` to `--dns-transport`'s allowed
-  values (BL-959 added the option) and composes the listener.
+- Third of the four tasks BL-485 was split into (see BL-1032). It adds `https` to `--dns-transport`'s allowed
+  values (BL-1017 added the option) and composes the listener.
 - Decision: ADR-0092 decision 5, the DoH bullets: through `Surl.HttpServing`'s `IHttpRequestHandler` (HTTP/1.1)
   and `Surl.Http2`'s `IHttp2StreamHandler` (HTTP/2), one handler deciding both - `DnsOverHttpsHandler` in
   `Protocols/Lookup/Surl.Extended.Protocol.DnsQuery.UnitLibrary` (BL-483) takes the zones and

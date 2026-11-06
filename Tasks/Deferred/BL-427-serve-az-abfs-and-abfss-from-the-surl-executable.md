@@ -56,4 +56,4 @@ decides. Its `--aihelp` topic and help category exist, and the extension switch 
 - 2026-11-04: Amended for Stewart's shared-stores approval of 2026-11-04: waits on BL-655; composed with the one shared content store.
 - 2026-11-05: Backlog -> Doing.
 - 2026-11-05: Doing -> Backlog. Needs Application/Surl.Composition.UnitLibrary and .UnitTests, which BL-803 (Doing) touches; resume once BL-803 is Done
-- 2026-11-06: Backlog -> Deferred. Split into BL-965, BL-966 and BL-967 (over the 60-minute size limit; Stewart asked for a backlog audit 2026-11-06)
+- 2026-11-06: Backlog -> Deferred. Split into BL-1023, BL-1024 and BL-1025 (over the 60-minute size limit; Stewart asked for a backlog audit 2026-11-06)

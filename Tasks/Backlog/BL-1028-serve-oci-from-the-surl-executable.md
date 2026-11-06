@@ -1,5 +1,5 @@
 ---
-id: BL-970
+id: BL-1028
 title: Serve oci from the surl executable
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-06
 completed:
 ---
-# BL-970 — Serve oci from the surl executable
+# BL-1028 — Serve oci from the surl executable
 
 ## Goal
 

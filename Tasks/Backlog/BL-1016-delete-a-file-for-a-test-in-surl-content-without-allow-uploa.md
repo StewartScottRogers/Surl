@@ -1,5 +1,5 @@
 ---
-id: BL-957
+id: BL-1016
 title: Delete a file for a test in Surl.Content without --allow-uploads
 priority: Normal
 assignee: Claude
@@ -10,14 +10,14 @@ requirement: none
 created: 2026-11-06
 completed:
 ---
-# BL-957 — Delete a file for a test in Surl.Content without --allow-uploads
+# BL-1016 — Delete a file for a test in Surl.Content without --allow-uploads
 
 ## Goal
 
 `ContentStore.DeleteFileForTheTest(requestPath)` deletes a file as the test (ADR-0124 decision 7's
 `DELETE /v1/files/{path}`): no `--allow-uploads` and no share write access needed, never asking the fault plan,
 publishing one `StoreChange.Deleted`, and answering `ContentChangeResult.Absent` with nothing published when no
-file is there - so the control endpoint (BL-964) can delete what a test seeded.
+file is there - so the control endpoint (BL-1022) can delete what a test seeded.
 
 ## Context
 

@@ -4,7 +4,7 @@ title: Fence a DNS over HTTPS listener with a login
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-483, BL-960]
+depends-on: [BL-483, BL-1018]
 touches: [Protocols/Lookup/Surl.Extended.Protocol.DnsQuery.UnitLibrary, Protocols/Lookup/Surl.Extended.Protocol.DnsQuery.UnitTests, Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests]
 requirement: none
 created: 2026-11-05
@@ -39,4 +39,4 @@ Filed by BL-483, which built DoH without the optional login to keep to its accep
 ## Log
 
 - 2026-11-05: Created.
-- 2026-11-06: depends-on BL-485 replaced by BL-960 (BL-485 split for the 60-minute size limit; Stewart asked for a backlog audit 2026-11-06).
+- 2026-11-06: depends-on BL-485 replaced by BL-1018 (BL-485 split for the 60-minute size limit; Stewart asked for a backlog audit 2026-11-06).
