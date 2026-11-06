@@ -67,3 +67,4 @@ over HTTP/2 to a curl given `--proxy-http2`, instead of ADR-0088's interim ALPN 
 - 2026-11-06: Doing -> Backlog. Needs Foundation/Surl.Protocol.Abstractions.UnitLibrary (held by BL-901) and Documentation/Planning/Decisions (held by BL-687); touches widened, restart once they are Done
 - 2026-11-06: Backlog -> Doing.
 - 2026-11-06: Doing -> Blocked. Stewart: Surl dark factory timed out after 120 min; see Z:\repos\Surl.logs\BL-595-20261106-033059-L5.jsonl
+- 2026-11-06: Blocked -> Deferred. Split into BL-929, BL-930, BL-931, BL-932 (timed out after 120 min; Stewart asked for the split 2026-11-06)
