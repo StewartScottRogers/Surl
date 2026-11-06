@@ -67,7 +67,7 @@ runtime identifiers, and this task's Notes record its run URL.
 - A separate `workflow_dispatch` run on `master` (42222500303, not started by this lane) failed only
   linux-arm64, on a flaky unit test,
   `GrpcStreamHandlerTests.ServeStreamAsync_ClientClosesTheConnectionMidCall_WritesNothingAndLogsCancelled`.
-  That test is outside this task's `touches`, so it is filed as BL-928.
+  That test is outside this task's `touches`, so it is filed as BL-929.
 
 ## Log
 
