@@ -63,3 +63,4 @@ runtime identifiers, and this task's Notes record its run URL.
 - 2026-11-04: Created.
 - 2026-11-05: Backlog -> Doing.
 - 2026-11-05: Doing -> Backlog. Waits on BL-838 (UpstreamCurlRunner broken pipe in Conformance, held by BL-396); Linux container smoke check fixed in Test-PublishedSurl.ps1
+- 2026-11-06: Backlog -> Doing.
