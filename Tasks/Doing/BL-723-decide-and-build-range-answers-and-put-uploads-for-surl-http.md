@@ -46,3 +46,4 @@ HTTP/2 alike, as an ADR decides from measured upstream curl 8.21.0.
 ## Log
 
 - 2026-11-05: Created.
+- 2026-11-05: Backlog -> Doing.
