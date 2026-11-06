@@ -5,7 +5,7 @@ priority: Normal
 assignee: Claude
 pipeline: feature
 depends-on: [BL-438, BL-405, BL-655]
-touches: [Application/Surl.Console, Application/Surl.Console.UnitTests, Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests]
+touches: [Application/Surl.Console, Application/Surl.Console.UnitTests, Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests, Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests]
 requirement: none
 created: 2026-11-04
 completed:
@@ -42,8 +42,15 @@ decides. Its `--aihelp` topic and help category exist, and the extension switch 
 
 ## Notes
 
+- 2026-11-05 (lane 4): BL-609 moved the composition into `Application/Surl.Composition.UnitLibrary`;
+  `ExtendedProtocolServers.Compose` and `SurlServerComposition` are where `oci` is registered over the shared
+  content store (as BL-421 did for s3, commit efa2f1bc), so `touches` now adds
+  `Application/Surl.Composition.UnitLibrary` and `Application/Surl.Composition.UnitTests`. BL-803, in Doing,
+  touches both, so the task returned to Backlog until BL-803 is Done. No code was written.
+
 ## Log
 
 - 2026-11-04: Created.
 - 2026-11-04: Amended for Stewart's shared-stores approval of 2026-11-04: waits on BL-655; composed with the one shared content store.
 - 2026-11-05: Backlog -> Doing.
+- 2026-11-05: Doing -> Backlog. Needs Application/Surl.Composition.UnitLibrary and .UnitTests, which BL-803 in Doing touches
