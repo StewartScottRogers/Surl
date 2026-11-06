@@ -38,6 +38,7 @@ public sealed class SurlServer : IAsyncDisposable
         this.serving = serving;
         this.record = record;
         BoundUrls = boundUrls;
+        Faults = new SurlServerFaults(composedServing.Faults);
         stopping = new Lazy<Task<SurlExitCode>>(StopServingAsync);
     }
 
@@ -129,6 +130,12 @@ public sealed class SurlServer : IAsyncDisposable
     /// port bound (<c>http://127.0.0.1:49731/</c>).
     /// </summary>
     public IReadOnlyList<Uri> BoundUrls { get; }
+
+    /// <summary>
+    /// The server's fault plan (ADR-0124, decision 4): the rules <see cref="SurlServerOptions.Faults"/> gave at start,
+    /// and adding, removing and clearing rules while it serves.
+    /// </summary>
+    public SurlServerFaults Faults { get; }
 
     /// <summary>The first of <see cref="BoundUrls"/>.</summary>
     public Uri BoundUrl => BoundUrls[0];

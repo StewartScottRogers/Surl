@@ -51,6 +51,13 @@ measures it by name.
   then wakes on each applied event (a `TaskCompletionSource` swapped under `Gate`); its timeout is a
   `CancellationTokenSource` on the instance's `TimeProvider`, and it throws `TimeoutException`
   with `ExchangeRecordSubscriber.TimedOutMessage`. Tests drive waits with `ManualTimeProvider`.
+- Fault rules (BL-808, ADR-0124 decision 4): `SurlServerOptions.Faults` holds `SurlFault`
+  records, each composed by `SurlFault.ToItem` as one `--fault` item (values percent-encoded) after
+  the limits. `SurlServer.Faults` is a `SurlServerFaults` over `ComposedServing.Faults`: `Add`
+  parses the item beside a fixed listen URL with `CommandLineParser`, so a refusal is the
+  `ArgumentException` carrying `surl`'s text, then adds `FaultPlanComposition.ToRule`'s rule and
+  returns its ID; `Remove` and `Clear` go straight to the plan. A runtime rule logs nothing.
+  Tests bring clients in after start with `FakeListenerFactory.Accept`.
 - `SurlServerHostSeams.ReadStartFile` is handed to the composition's `ReadStartFile`, so tests
   give the `--user-file` and `--hostkey` files in memory (`ApiTestSeams.StartFiles`). The
   `--cert`, `--key` and `--cacert` files are still read from disk by `ServerTlsComposition`.

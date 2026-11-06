@@ -27,11 +27,7 @@ internal static class SurlServerArguments
             throw new ArgumentException("ListenUrls names no listen URL.", nameof(options));
         }
 
-        if (options.ListenUrls.Contains(null!) || options.AdditionalArguments.Contains(null!))
-        {
-            throw new ArgumentException("ListenUrls and AdditionalArguments may not hold null.", nameof(options));
-        }
-
+        ThrowIfHoldsNull(options);
         if (options.DataDirectory is not null && options.Files.Count > 0)
         {
             throw new ArgumentException("DataDirectory and Files cannot both be given.", nameof(options));
@@ -42,6 +38,14 @@ internal static class SurlServerArguments
         ThrowIfNegativeDuration(options.IdleTimeout, nameof(options.IdleTimeout));
         ThrowIfNegativeDuration(options.MaxTime, nameof(options.MaxTime));
         ThrowIfRecordBoundNotPositive(options);
+    }
+
+    private static void ThrowIfHoldsNull(SurlServerOptions options)
+    {
+        if (options.ListenUrls.Contains(null!) || options.AdditionalArguments.Contains(null!) || options.Faults.Contains(null!))
+        {
+            throw new ArgumentException("ListenUrls, AdditionalArguments and Faults may not hold null.", nameof(options));
+        }
     }
 
     private static void ThrowIfRecordBoundNotPositive(SurlServerOptions options)
@@ -95,6 +99,11 @@ internal static class SurlServerArguments
         AddAuthentication(arguments, options);
         AddTls(arguments, options);
         AddLimits(arguments, options);
+        foreach (var fault in options.Faults)
+        {
+            arguments.AddRange(["--fault", fault.ToItem()]);
+        }
+
         if (options.LogLevel != LogLevel.Info)
         {
             arguments.AddRange(["--log-level", options.LogLevel.ToString().ToLowerInvariant()]);

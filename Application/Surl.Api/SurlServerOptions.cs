@@ -116,6 +116,14 @@ public sealed class SurlServerOptions
     public long? MaxFileSize { get; set; }
 
     /// <summary>
+    /// The fault rules the server starts with (<c>--fault</c>, once each, in order; ADR-0124 decision 4), numbered
+    /// <c>f1</c>, <c>f2</c> ... in <see cref="SurlServer.Faults"/>; none by default. Any rule writes <c>surl</c>'s
+    /// <c>--fault</c> warning to <see cref="Log"/>, and a rule <c>surl</c> would refuse refuses the start with its
+    /// text. May not hold null.
+    /// </summary>
+    public IList<SurlFault> Faults { get; } = [];
+
+    /// <summary>
     /// Any other <c>surl</c> option, as <c>surl</c>'s own words, read after the properties above.
     /// <c>--help</c>, <c>--aihelp</c>, <c>--manual</c>, <c>--version</c>, <c>--log-file</c>,
     /// <c>--trace</c> and <c>--trace-ascii</c> belong to a host and are refused.

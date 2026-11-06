@@ -40,6 +40,7 @@ var exitCode = await server.StopAsync();   // SurlExitCode.Ok
   | `MaxConnections`, `MaxConnectionsPerAddress` | `--max-connections`, `--max-connections-per-address` |
   | `IdleTimeout`, `MaxTime` (`TimeSpan.Zero` or `Timeout.InfiniteTimeSpan`: no limit) | `--idle-timeout`, `--max-time`, in seconds |
   | `MaxFileSize` | `--max-filesize`, in bytes |
+  | `Faults` (`SurlFault`, in order) | `--fault <item>`, once each |
 
 - Nothing is looser than `surl`: with only a listen URL and an account, anonymous logins,
   plaintext authentication and uploads are all off. Each loosening is a property named for its
@@ -103,6 +104,26 @@ never misses an event that came before it; its timeout runs on `TimeProvider`, s
 controls it, and a wait that times out throws `TimeoutException` naming the query and how many
 events arrived meanwhile. A cancelled wait throws `OperationCanceledException`. With recording off,
 every query throws `InvalidOperationException` as `Exchanges` does.
+
+## Making the server misbehave
+
+A test makes one listener, account or path misbehave on purpose with a `SurlFault` rule
+(ADR-0124 decision 4): `Delay`, `DropConnection`, `RefuseLogin`, `ProtocolError` (a reply in the
+scheme's error shape) or `OutOfSpace`, narrowed with `Listener`, `Scheme`, `Account`, `Path`,
+`Command`, `Stage`, `AfterBytes` and `Times`. Give rules at start in `Faults`, or change them while
+the server runs:
+
+```csharp
+var id = server.Faults.Add(SurlFault.DropConnection() with { Listener = "smtp://127.0.0.1:0" });   // "f1"
+// ... the next SMTP connection is dropped before any byte ...
+server.Faults.Remove(id);   // normal serving again; Clear() removes every rule
+```
+
+Each rule is one `surl --fault` item read by `surl`'s own reader: a start rule `surl` would refuse
+throws `SurlServerStartException`, a runtime one `ArgumentException`, each with `surl`'s text
+(`option --fault: kind error needs key scheme or key listener`). Rules given at start write `surl`'s
+`--fault` warning to `Log`; a rule added at run time writes nothing. Each rule applied is a
+`FaultApplied` event the queries above find.
 
 `Surl.Composition`'s public types, which this package carries, are not a supported programming
 interface and may change in any release.

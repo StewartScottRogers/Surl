@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Net;
+using System.Threading.Channels;
 using Surl.Protocol.Abstractions;
 
 namespace Surl.Api;
@@ -20,10 +21,18 @@ internal sealed class FakeListenerFactory : IListenerFactory
     private int disposedListenerCount;
     private IConnection? connectionToAccept;
     private readonly ConcurrentDictionary<string, IConnection> connectionsToAcceptByScheme = new(StringComparer.Ordinal);
+    private readonly Channel<IConnection> queuedConnections = Channel.CreateUnbounded<IConnection>();
+
+    /// <summary>
+    /// Hands <paramref name="connection"/> to the next accept of any connection listener, after
+    /// <see cref="ConnectionsToAcceptByScheme"/> and <see cref="ConnectionToAccept"/>, so a test can bring a
+    /// client in once the server is running.
+    /// </summary>
+    public void Accept(IConnection connection) => queuedConnections.Writer.TryWrite(connection);
 
     /// <summary>
     /// A connection the first accept of any connection listener returns, once; every other accept
-    /// waits until cancelled.
+    /// takes the next connection given to <see cref="Accept"/>, waiting for one until cancelled.
     /// </summary>
     public IConnection? ConnectionToAccept
     {
@@ -108,8 +117,7 @@ internal sealed class FakeListenerFactory : IListenerFactory
                 return connection;
             }
 
-            await WaitUntilCancelledAsync(cancellationToken);
-            throw new UnreachableException();
+            return await factory.queuedConnections.Reader.ReadAsync(cancellationToken);
         }
 
         public ValueTask DisposeAsync()
