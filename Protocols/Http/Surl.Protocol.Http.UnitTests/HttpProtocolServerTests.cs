@@ -13,7 +13,7 @@ public sealed class HttpProtocolServerTests
     private const string OkHead =
         "HTTP/1.1 200 OK\r\n" + DateAndServer
         + "Last-Modified: Tue, 01 Sep 2026 08:30:00 GMT\r\n"
-        + "Content-Type: application/octet-stream\r\n"
+        + "Content-Type: text/plain\r\n"
         + "Content-Length: 17\r\n";
 
     private const string NotFound = "HTTP/1.1 404 Not Found\r\n" + DateAndServer + "Content-Length: 0\r\n\r\n";
@@ -109,7 +109,7 @@ public sealed class HttpProtocolServerTests
 
         var (connection, log) = await ServeAsync(RecordedFixture.ReadRequestBytes("two-urls"), fileSystem, oneBytePerRead);
 
-        Assert.AreEqual(OkResponse(1, "1") + OkResponse(2, "22"), Latin1(connection.WrittenBytes));
+        Assert.AreEqual(OkResponseForAFileWithNoExtension(1, "1") + OkResponseForAFileWithNoExtension(2, "22"), Latin1(connection.WrittenBytes));
         Assert.IsFalse(connection.WritesCompleted, "Neither response closed the connection; only the client's close ended it.");
         Assert.HasCount(3, log.Notes);
     }
@@ -310,7 +310,7 @@ public sealed class HttpProtocolServerTests
 
         var (connection, _) = await ServeAsync("GET /empty HTTP/1.1\r\nHost: h\r\n\r\n"u8.ToArray(), fileSystem);
 
-        Assert.AreEqual(OkResponse(0, string.Empty), Latin1(connection.WrittenBytes));
+        Assert.AreEqual(OkResponseForAFileWithNoExtension(0, string.Empty), Latin1(connection.WrittenBytes));
     }
 
     [TestMethod]
@@ -320,12 +320,12 @@ public sealed class HttpProtocolServerTests
 
         var (connection, log) = await ServeAsync("GET /shrinks HTTP/1.1\r\nHost: h\r\n\r\nGET /file.txt HTTP/1.1\r\nHost: h\r\n\r\n"u8.ToArray(), fileSystem);
 
-        Assert.AreEqual(OkResponse(5, "abc"), Latin1(connection.WrittenBytes));
+        Assert.AreEqual(OkResponseForAFileWithNoExtension(5, "abc"), Latin1(connection.WrittenBytes));
         Assert.IsTrue(connection.Aborted);
         Assert.AreEqual($"{Path.Join(Root, "shrinks")} shrank to 3 bytes while it was sent; the connection was aborted.", log.Notes[1]);
     }
 
-    private static string OkResponse(int length, string body) =>
+    private static string OkResponseForAFileWithNoExtension(int length, string body) =>
         "HTTP/1.1 200 OK\r\n" + DateAndServer
         + "Last-Modified: Tue, 01 Sep 2026 08:30:00 GMT\r\n"
         + "Content-Type: application/octet-stream\r\n"

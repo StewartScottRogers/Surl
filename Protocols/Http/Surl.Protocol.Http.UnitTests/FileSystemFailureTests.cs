@@ -11,7 +11,7 @@ public sealed class FileSystemFailureTests
     private const string OkHead =
         "HTTP/1.1 200 OK\r\n" + DateAndServer
         + "Last-Modified: Tue, 01 Sep 2026 08:30:00 GMT\r\n"
-        + "Content-Type: application/octet-stream\r\n"
+        + "Content-Type: text/plain\r\n"
         + "Content-Length: 17\r\n\r\n";
 
     private static readonly string FilePath = Path.Join(Root, "file.txt");

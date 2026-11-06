@@ -49,6 +49,28 @@ public sealed partial class HttpRequestAnswererTests
     }
 
     [TestMethod]
+    [DataRow("page.HTML", "text/html")]
+    [DataRow("photo.png", "image/png")]
+    [DataRow("data.json", "application/json")]
+    [DataRow("archive.unknownext", "application/octet-stream")]
+    [DataRow("noextension", "application/octet-stream")]
+    public async Task AnswerAsync_GetOfAFile_NamesTheContentTypeContentMediaTypesNamesFromItsExtension(string fileName, string contentType)
+    {
+        var fileSystem = StandardFileSystem().AddFile(Path.Join(Root, fileName), "x"u8.ToArray(), FileTime);
+        var contentStore = new ContentStore(Root, fileSystem, ContentExposureOptions.ServeEverythingInsideTheRoot);
+        var answerer = new HttpRequestAnswerer(
+            Context(new RecordingExchangeLog(), new FixedTimeProvider(Now), TestContext.CancellationToken),
+            contentStore,
+            new AnonymousAuthenticationPolicy().StartHttpConnection(null));
+
+        var answer = await answerer.AnswerAsync(Request("GET", "/" + fileName), TestContext.CancellationToken);
+
+        Assert.AreEqual(HttpStatus.Ok, answer.Status);
+        Assert.AreEqual(contentType, answer.Fields.Single(field => field.Key == "Content-Type").Value);
+        Assert.AreEqual(ContentMediaTypes.Of(fileName), contentType);
+    }
+
+    [TestMethod]
     public async Task AnswerAsync_ChallengedRequest_IsAnEmpty401WithEachChallengeAfterContentLength()
     {
         var policy = new UnitTestAuthenticationPolicy(_ => new HttpAuthenticationVerdict(HttpAuthenticationOutcome.Challenge, [BasicChallenge, "Bearer"], null));
@@ -108,7 +130,7 @@ public sealed partial class HttpRequestAnswererTests
         Field("Date", Date),
         Field("Server", "surl"),
         Field("Last-Modified", FileDate),
-        Field("Content-Type", "application/octet-stream"),
+        Field("Content-Type", "text/plain"),
         Field("Content-Length", FileBody.Length.ToString(CultureInfo.InvariantCulture)),
     ];
 
