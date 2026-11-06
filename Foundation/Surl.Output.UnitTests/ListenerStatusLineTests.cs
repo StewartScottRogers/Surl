@@ -47,6 +47,25 @@ public sealed class ListenerStatusLineTests
         Assert.ThrowsExactly<ArgumentException>(() => ListenerStatusLine.Format(new ListenUrl("http", "127.0.0.1", 0)));
 
     [TestMethod]
+    [DataRow("/tmp/surl.sock", false, "Listening on http://localhost:80/ over unix:///tmp/surl.sock", DisplayName = "Socket file")]
+    [DataRow("surl-test", true, "Listening on http://localhost:80/ over unix://@surl-test", DisplayName = "Abstract name")]
+    public void Format_UnixSocketListenUrl_NamesThePortAskedForAndTheSocket(string name, bool isAbstract, string expected)
+    {
+        var listenUrl = new ListenUrl("http", "localhost", 80) { UnixSocket = new UnixSocketAddress(name, isAbstract) };
+
+        var line = ListenerStatusLine.Format(listenUrl);
+
+        Assert.AreEqual(expected, line);
+    }
+
+    [TestMethod]
+    public void FormatBoundListenUrl_UnixSocketListenUrl_ReturnsTheUrlWithThePortAskedFor() =>
+        Assert.AreEqual(
+            "http://localhost:8080/",
+            ListenerStatusLine.FormatBoundListenUrl(
+                new ListenUrl("http", "localhost", 8080) { UnixSocket = new UnixSocketAddress("s.sock", isAbstract: false) }));
+
+    [TestMethod]
     public void FormatBoundListenUrl_Null_Throws() =>
         Assert.ThrowsExactly<ArgumentNullException>(() => ListenerStatusLine.FormatBoundListenUrl(null!));
 
