@@ -60,10 +60,18 @@ internal static class ProxyTestKit
     /// Serves <paramref name="client"/> with a proxy reaching <paramref name="origins"/>, and
     /// returns what the proxy wrote to curl.
     /// </summary>
-    public static async Task<string> ServeAsync(InMemoryConnection client, InMemoryOriginConnector origins, RecordingExchangeLog? log = null, ExchangeLimits? limits = null)
-    {
-        var server = new HttpProxyProtocolServer(origins);
+    public static Task<string> ServeAsync(InMemoryConnection client, InMemoryOriginConnector origins, RecordingExchangeLog? log = null, ExchangeLimits? limits = null) =>
+        ServeAsync(new HttpProxyProtocolServer(origins), client, log, limits);
 
+    /// <summary>
+    /// Serves <paramref name="client"/> with a proxy reaching <paramref name="origins"/> whose
+    /// logins <paramref name="policy"/> judges, and returns what the proxy wrote to curl.
+    /// </summary>
+    public static Task<string> ServeAsync(InMemoryConnection client, InMemoryOriginConnector origins, IAuthenticationPolicy policy, RecordingExchangeLog? log = null) =>
+        ServeAsync(new HttpProxyProtocolServer(origins, policy), client, log, null);
+
+    private static async Task<string> ServeAsync(HttpProxyProtocolServer server, InMemoryConnection client, RecordingExchangeLog? log, ExchangeLimits? limits)
+    {
         await server.ServeAsync(client, Context(log ?? new RecordingExchangeLog(), limits));
 
         return Latin1(client.WrittenBytes);

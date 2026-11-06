@@ -24,20 +24,24 @@ internal sealed partial class HttpProxyExchange : IAsyncDisposable
     private readonly HttpConnectionReader reader;
     private readonly ExchangeContext context;
     private readonly IOriginConnector originConnector;
+    private readonly IHttpAuthenticationSession authenticationSession;
     private OriginLink? origin;
 
     /// <summary>
-    /// Creates the exchange for one accepted connection.
+    /// Creates the exchange for one accepted connection, and starts its authentication session,
+    /// which holds the connection's NTLM and Negotiate handshakes across every request on it.
     /// </summary>
     /// <param name="client">curl's connection.</param>
     /// <param name="context">The exchange: its clock, limits, log and cancellation.</param>
     /// <param name="originConnector">How origins are reached.</param>
-    public HttpProxyExchange(IConnection client, ExchangeContext context, IOriginConnector originConnector)
+    /// <param name="proxyAuthenticationPolicy">Who may use the proxy, and how.</param>
+    public HttpProxyExchange(IConnection client, ExchangeContext context, IOriginConnector originConnector, IAuthenticationPolicy proxyAuthenticationPolicy)
     {
         this.client = client;
         this.context = context;
         this.originConnector = originConnector;
         reader = new HttpConnectionReader(client, context.Limits.MaxRequestHeadBytes);
+        authenticationSession = proxyAuthenticationPolicy.StartHttpConnection(client.TlsSession);
     }
 
     private CancellationToken Cancellation => context.CancellationToken;
@@ -115,28 +119,40 @@ internal sealed partial class HttpProxyExchange : IAsyncDisposable
         return AnswerAsync(status, $"no request head was read ({outcome})", closes: true);
     }
 
-    private Task<bool> AnswerRequestAsync(HttpRequestHead head)
+    private async Task<bool> AnswerRequestAsync(HttpRequestHead head)
     {
         if (head.GetFieldValues("Host").Count > 1)
         {
-            return AnswerAsync(HttpStatus.BadRequest, "the request carries more than one Host field", closes: true);
+            return await AnswerAsync(HttpStatus.BadRequest, "the request carries more than one Host field", closes: true);
         }
 
-        return string.Equals(head.Method, "CONNECT", StringComparison.Ordinal)
-            ? AnswerConnectAsync(head)
-            : AnswerForwardableAsync(head);
+        var isConnect = string.Equals(head.Method, "CONNECT", StringComparison.Ordinal);
+        if (await RefuseProxyLoginAsync(head, isConnect) is { } keepsConnectionOpen)
+        {
+            return keepsConnectionOpen;
+        }
+
+        return isConnect
+            ? await AnswerConnectAsync(head)
+            : await AnswerForwardableAsync(head);
     }
 
     /// <summary>
     /// Writes an answer the proxy makes itself: the status, <c>Date</c>, <c>Server: surl</c>,
-    /// a fixed-text body naming the status (ADR-0006 section 3), and <c>Connection: close</c>
-    /// when the connection closes after it; notes it in the log.
+    /// one <c>Proxy-Authenticate</c> per challenge, a fixed-text body naming the status
+    /// (ADR-0006 section 3), and <c>Connection: close</c> when the connection closes after it;
+    /// notes it in the log.
     /// </summary>
-    private async Task<bool> AnswerAsync(HttpStatus status, string why, bool closes)
+    private async Task<bool> AnswerAsync(HttpStatus status, string why, bool closes, IReadOnlyList<string>? challenges = null)
     {
         var body = FixedText(status);
-        var head = NewHead(status)
-            .AddField("Content-Type", "text/plain; charset=us-ascii")
+        var head = NewHead(status);
+        foreach (var challenge in challenges ?? [])
+        {
+            head.AddField("Proxy-Authenticate", challenge);
+        }
+
+        head.AddField("Content-Type", "text/plain; charset=us-ascii")
             .AddField("Content-Length", body.Length.ToString(CultureInfo.InvariantCulture))
             .AddField("Connection", closes ? "close" : null);
 

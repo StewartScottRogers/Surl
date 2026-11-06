@@ -4,11 +4,17 @@ using Surl.Protocol.Abstractions;
 namespace Surl.Protocol.HttpProxy;
 
 /// <summary>
-/// The statuses only a proxy answers (RFC 9110 sections 15.6.3 and 15.6.5), and which status
+/// The statuses only a proxy answers (RFC 9110 sections 15.5.8, 15.6.3 and 15.6.5), and which status
 /// and log line answer each way an origin cannot be reached (ADR-0088 decision 2).
 /// </summary>
 internal static class HttpProxyStatus
 {
+    /// <summary>
+    /// <c>407 Proxy Authentication Required</c> (RFC 9110 section 15.5.8): the request carried no
+    /// valid <c>Proxy-Authorization</c>; sent with a <c>Proxy-Authenticate</c> per challenge.
+    /// </summary>
+    public static HttpStatus ProxyAuthenticationRequired { get; } = new(407, "Proxy Authentication Required");
+
     /// <summary><c>502 Bad Gateway</c>.</summary>
     public static HttpStatus BadGateway { get; } = new(502, "Bad Gateway");
 
