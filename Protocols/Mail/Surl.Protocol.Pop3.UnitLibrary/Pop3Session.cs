@@ -128,8 +128,8 @@ internal sealed partial class Pop3Session
             return await ReplyAsync(Pop3Replies.NotRecognized);
         }
 
-        return CommandsWithoutMaildrop.Contains(command.Verb) && await FindChosenErrorAsync(command.Verb) is { } chosenError
-            ? await ReplyAsync(chosenError)
+        return CommandsWithoutMaildrop.Contains(command.Verb)
+            ? await AnswerUnlessFaultedAsync(command.Verb, () => answer(command))
             : await answer(command);
     }
 
@@ -472,15 +472,13 @@ internal sealed partial class Pop3Session
             return await ReplyAsync(refusal);
         }
 
-        if (await FindChosenErrorAsync(command.Verb) is { } chosenError)
-        {
-            return await ReplyAsync(chosenError);
-        }
-
-        return command.TrySplitArguments(out var words)
-            ? await answer(maildrop!, words)
-            : await ReplyAsync(Pop3Replies.InvalidArguments);
+        return await AnswerUnlessFaultedAsync(command.Verb, () => AnswerWithMaildropAsync(command, answer));
     }
+
+    private ValueTask<bool> AnswerWithMaildropAsync(Pop3CommandLine command, Func<Pop3Maildrop, string[], ValueTask<bool>> answer) =>
+        command.TrySplitArguments(out var words)
+            ? answer(maildrop!, words)
+            : ReplyAsync(Pop3Replies.InvalidArguments);
 
     private async ValueTask<string?> OpenAnonymousMaildropAsync(string verb)
     {

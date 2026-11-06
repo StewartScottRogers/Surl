@@ -6,7 +6,8 @@ using static Surl.Protocol.Imap.RecordedFixtureTests;
 namespace Surl.Protocol.Imap;
 
 /// <summary>
-/// The chosen-error fault (ADR-0124, decision 4; BL-796): a command an <see cref="FaultKind.Error"/>
+/// The command-stage faults (ADR-0124, decision 4; BL-796; ADR-0140, BL-901). A delay holds a
+/// command's answer with the idle clock paused and a drop aborts the connection unanswered; a command an <see cref="FaultKind.Error"/>
 /// rule matches is answered with a tagged <c>NO</c> or <c>BAD</c> - the rule's reply - in place of
 /// its own, the store untouched, and one <see cref="FaultAppliedEvent"/> is published. The
 /// <c>SELECT</c> request is replayed from pinned upstream curl 8.21.0 (<c>Fixtures/fault-select</c>).
@@ -137,15 +138,75 @@ public sealed class ImapFaultTests
         StringAssert.EndsWith(responses, "A1 NO [UNAVAILABLE] Local error in processing\r\n");
     }
 
-    // Only an Error rule is answered by the server; a command-stage delay a plan returns is not one.
+    // ADR-0140: a command-stage delay holds SELECT's answer on the exchange's clock, with the idle
+    // clock paused for the whole hold, then answers it as usual.
     [TestMethod]
-    public async Task ServeAsync_CommandStageDelayRule_IsNotAnsweredAsAnError()
+    public async Task ServeAsync_SelectDelayRule_HoldsTheAnswerUntilTheClockAdvances500Ms_WithTheIdleClockPaused()
     {
-        var delay = new FaultRule("f1", FaultKind.Delay) { Stage = FaultStage.Command, DelayMilliseconds = 10 };
+        var delay = new FaultRule("f1", FaultKind.Delay) { Stage = FaultStage.Command, Command = "SELECT", DelayMilliseconds = 500 };
+        var clock = new ManualTimeProvider();
+        var idleClock = new RecordingIdleClock();
+        var (serving, connection, events) = StartServing(
+            Bytes("A1 LOGIN alice p\r\nA2 SELECT INBOX\r\nA3 LOGOUT\r\n"), new ScriptedFaultPlan(delay), clock, idleClock);
 
-        var (responses, events) = await ServeAsync(Bytes("A1 NOOP\r\n"), new ScriptedFaultPlan(delay));
+        await idleClock.FirstPause.WaitAsync(TimeSpan.FromSeconds(30), TestContext.CancellationToken);
+        var writtenAtTheHold = Utf8(connection.WrittenBytes);
+        clock.Advance(TimeSpan.FromMilliseconds(499));
+        var writtenAfter499Ms = Utf8(connection.WrittenBytes);
+        var pausedAfter499Ms = idleClock.IsPaused;
+        clock.Advance(TimeSpan.FromMilliseconds(1));
+        await serving.WaitAsync(TimeSpan.FromSeconds(30), TestContext.CancellationToken);
 
-        StringAssert.EndsWith(responses, "A1 OK NOOP completed\r\n");
-        Assert.IsEmpty(events.Events);
+        StringAssert.Contains(writtenAtTheHold, "A1 OK");
+        Assert.DoesNotContain("A2 ", writtenAtTheHold);
+        Assert.AreEqual(writtenAtTheHold, writtenAfter499Ms);
+        Assert.IsTrue(pausedAfter499Ms);
+        Assert.IsFalse(idleClock.IsPaused);
+        StringAssert.Contains(Utf8(connection.WrittenBytes), "A2 OK [READ-WRITE] SELECT completed\r\n");
+        Assert.AreEqual(new FaultAppliedEvent("f1", FaultKind.Delay, FaultStage.Command, 1, "INBOX"), events.Events.Single());
+    }
+
+    // ADR-0140: a command-stage drop aborts the connection in place of SELECT's answer; curl's
+    // request is replayed from Fixtures/fault-select up to the SELECT it never sees answered.
+    [TestMethod]
+    public async Task ServeAsync_SelectDropRule_AbortsTheConnectionWithNoAnswerToSelect()
+    {
+        var drop = new FaultRule("f1", FaultKind.Drop) { Stage = FaultStage.Command, Command = "SELECT" };
+        var (serving, connection, events) = StartServing(
+            [ReadBytes("fault-select", "request.bin")], new ScriptedFaultPlan(drop), new ManualTimeProvider(), new RecordingIdleClock());
+
+        await serving.WaitAsync(TimeSpan.FromSeconds(30), TestContext.CancellationToken);
+
+        var recorded = RecordedResponses("fault-select");
+        Assert.IsTrue(connection.Aborted);
+        Assert.AreEqual(recorded[..recorded.IndexOf("A003 ", StringComparison.Ordinal)], Utf8(connection.WrittenBytes));
+        Assert.AreEqual(new FaultAppliedEvent("f1", FaultKind.Drop, FaultStage.Command, 1, "INBOX"), events.Events.Single());
+    }
+
+    // ADR-0140: APPEND asks the plan before its "+" continuation, so a drop sends no "+".
+    [TestMethod]
+    public async Task ServeAsync_AppendDropRule_AbortsTheConnectionBeforeTheContinuation()
+    {
+        var drop = new FaultRule("f1", FaultKind.Drop) { Stage = FaultStage.Command, Command = "APPEND" };
+        var (serving, connection, events) = StartServing(
+            Bytes("A1 LOGIN alice p\r\nA2 APPEND INBOX {5}\r\nhello\r\n"), new ScriptedFaultPlan(drop), new ManualTimeProvider(), new RecordingIdleClock());
+
+        await serving.WaitAsync(TimeSpan.FromSeconds(30), TestContext.CancellationToken);
+
+        Assert.IsTrue(connection.Aborted);
+        StringAssert.EndsWith(Utf8(connection.WrittenBytes), "A1 OK LOGIN completed\r\n");
+        Assert.AreEqual(new FaultAppliedEvent("f1", FaultKind.Drop, FaultStage.Command, 1, "INBOX"), events.Events.Single());
+    }
+
+    private (Task Serving, InMemoryConnection Connection, RecordingSurlEventPublisher Events) StartServing(
+        IEnumerable<ReadOnlyMemory<byte>> request, IFaultPlan faults, ManualTimeProvider clock, RecordingIdleClock idleClock)
+    {
+        var store = AccountStore(clock, "alice", "bob");
+        Deliver(store, "alice", 1);
+        var events = new RecordingSurlEventPublisher();
+        var connection = new InMemoryConnection(request);
+        var context = Context(clock, TestContext.CancellationToken) with { Faults = faults, Events = events, IdleClock = idleClock };
+
+        return (Server(store, new ScriptedLoginPolicy()).ServeAsync(connection, context), connection, events);
     }
 }

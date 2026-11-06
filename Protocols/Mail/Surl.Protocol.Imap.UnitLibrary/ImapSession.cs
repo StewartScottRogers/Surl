@@ -202,9 +202,7 @@ internal sealed partial class ImapSession
             return await RespondAsync(ImapResponse.Only(refusal));
         }
 
-        return await FindChosenErrorAsync(name, text) is { } chosenError
-            ? await RespondAsync(chosenError)
-            : await command.Answer(arguments);
+        return await AnswerUnlessFaultedAsync(name, text, () => command.Answer(arguments));
     }
 
     private async ValueTask<string?> RefuseForStateAsync(ImapCommandState state, string name) => state switch

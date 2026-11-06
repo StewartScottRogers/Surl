@@ -6,7 +6,8 @@ using static Surl.Protocol.Smtp.SmtpTestExchange;
 namespace Surl.Protocol.Smtp;
 
 /// <summary>
-/// The chosen-error fault (ADR-0124, decision 4; BL-796): a command an <see cref="FaultKind.Error"/>
+/// The command-stage faults (ADR-0124, decision 4; BL-796; ADR-0140, BL-901). A delay holds a
+/// command's answer with the idle clock paused and a drop aborts the connection unanswered; a command an <see cref="FaultKind.Error"/>
 /// rule matches is answered with the rule's reply in place of its own, nothing is stored, and one
 /// <see cref="FaultAppliedEvent"/> is published. Requests are replayed from pinned upstream curl
 /// 8.21.0 (<c>Fixtures/fault-*</c>, see the README).
@@ -131,17 +132,59 @@ public sealed class SmtpFaultTests
         Assert.AreEqual(Greeting + "451 4.3.0 Local error in processing\r\n", Utf8(connection.WrittenBytes));
     }
 
-    // Only an Error rule is answered by the server; a command-stage delay a plan returns is not one.
+    // ADR-0140: a command-stage delay holds RCPT's answer on the exchange's clock, with the idle
+    // clock paused for the whole hold, then answers it as usual.
     [TestMethod]
-    public async Task ServeAsync_CommandStageDelayRule_IsNotAnsweredAsAnError()
+    public async Task ServeAsync_RcptDelayRule_HoldsTheAnswerUntilTheClockAdvances500Ms_WithTheIdleClockPaused()
     {
+        var delay = new FaultRule("f1", FaultKind.Delay) { Stage = FaultStage.Command, Command = "RCPT", DelayMilliseconds = 500 };
         var clock = new ManualTimeProvider();
-        var delay = new FaultRule("f1", FaultKind.Delay) { Stage = FaultStage.Command, DelayMilliseconds = 10 };
+        var idleClock = new RecordingIdleClock();
+        var (serving, connection, events) = StartServing(
+            Ascii("EHLO c\r\nMAIL FROM:<a@x>\r\nRCPT TO:<alice@x>\r\nQUIT\r\n"), new ScriptedFaultPlan(delay), clock, idleClock);
 
-        var (connection, events) = await ServeAsync(AliceAndBobStore(clock), Ascii("NOOP\r\n"), new ScriptedFaultPlan(delay), clock);
+        await idleClock.FirstPause.WaitAsync(TimeSpan.FromSeconds(30), TestContext.CancellationToken);
+        var writtenAtTheHold = Utf8(connection.WrittenBytes);
+        clock.Advance(TimeSpan.FromMilliseconds(499));
+        var writtenAfter499Ms = Utf8(connection.WrittenBytes);
+        var pausedAfter499Ms = idleClock.IsPaused;
+        clock.Advance(TimeSpan.FromMilliseconds(1));
+        await serving.WaitAsync(TimeSpan.FromSeconds(30), TestContext.CancellationToken);
 
-        Assert.AreEqual(Greeting + SmtpReplies.Ok + "\r\n", Utf8(connection.WrittenBytes));
-        Assert.IsEmpty(events.Events);
+        StringAssert.EndsWith(writtenAtTheHold, "250 2.1.0 Sender OK\r\n");
+        Assert.AreEqual(writtenAtTheHold, writtenAfter499Ms);
+        Assert.IsTrue(pausedAfter499Ms);
+        Assert.IsFalse(idleClock.IsPaused);
+        StringAssert.StartsWith(Utf8(connection.WrittenBytes), writtenAtTheHold + "250 2.1.5 Recipient OK\r\n");
+        Assert.AreEqual(new FaultAppliedEvent("f1", FaultKind.Delay, FaultStage.Command, 1, "alice@x"), events.Events.Single());
+    }
+
+    // ADR-0140: a command-stage drop aborts the connection in place of bob's RCPT answer; curl's
+    // request is replayed from Fixtures/fault-recipient up to the RCPT it never sees answered.
+    [TestMethod]
+    public async Task ServeAsync_RcptDropRule_AbortsTheConnectionWithNoAnswerToRcpt()
+    {
+        var drop = new FaultRule("f1", FaultKind.Drop) { Stage = FaultStage.Command, Command = "RCPT", Path = "bob@x" };
+        var clock = new ManualTimeProvider();
+        var (serving, connection, events) = StartServing(
+            [ReadBytes("fault-recipient", "request.bin")], new ScriptedFaultPlan(drop), clock, new RecordingIdleClock());
+
+        await serving.WaitAsync(TimeSpan.FromSeconds(30), TestContext.CancellationToken);
+
+        var recorded = RecordedReplies("fault-recipient");
+        Assert.IsTrue(connection.Aborted);
+        Assert.AreEqual(recorded[..recorded.IndexOf(TryLater, StringComparison.Ordinal)], Utf8(connection.WrittenBytes));
+        Assert.AreEqual(new FaultAppliedEvent("f1", FaultKind.Drop, FaultStage.Command, 1, "bob@x"), events.Events.Single());
+    }
+
+    private (Task Serving, InMemoryConnection Connection, RecordingSurlEventPublisher Events) StartServing(
+        IEnumerable<ReadOnlyMemory<byte>> request, IFaultPlan faults, ManualTimeProvider clock, RecordingIdleClock idleClock)
+    {
+        var events = new RecordingSurlEventPublisher();
+        var connection = new InMemoryConnection(request);
+        var context = Context(clock, TestContext.CancellationToken) with { Faults = faults, Events = events, IdleClock = idleClock };
+
+        return (Server(AliceAndBobStore(clock)).ServeAsync(connection, context), connection, events);
     }
 
     [TestMethod]

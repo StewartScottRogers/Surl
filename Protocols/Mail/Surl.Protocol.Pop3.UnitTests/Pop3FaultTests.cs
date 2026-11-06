@@ -6,7 +6,8 @@ using static Surl.Protocol.Pop3.RecordedFixtureTests;
 namespace Surl.Protocol.Pop3;
 
 /// <summary>
-/// The chosen-error fault (ADR-0124, decision 4; BL-796): a command an <see cref="FaultKind.Error"/>
+/// The command-stage faults (ADR-0124, decision 4; BL-796; ADR-0140, BL-901). A delay holds a
+/// command's answer with the idle clock paused and a drop aborts the connection unanswered; a command an <see cref="FaultKind.Error"/>
 /// rule matches is answered with <c>-ERR</c> and the rule's text in place of its own, the maildrop
 /// untouched, and one <see cref="FaultAppliedEvent"/> is published. The <c>RETR</c> request is
 /// replayed from pinned upstream curl 8.21.0 (<c>Fixtures/fault-retr</c>).
@@ -94,16 +95,61 @@ public sealed class Pop3FaultTests
         Assert.AreEqual(Greeting + "-ERR Local error in processing\r\n", written);
     }
 
-    // Only an Error rule is answered by the server; a command-stage delay a plan returns is not one.
+    // ADR-0140: a command-stage delay holds RETR's answer on the exchange's clock, with the idle
+    // clock paused for the whole hold, then answers it as usual.
     [TestMethod]
-    public async Task ServeAsync_CommandStageDelayRule_IsNotAnsweredAsAnError()
+    public async Task ServeAsync_RetrDelayRule_HoldsTheAnswerUntilTheClockAdvances500Ms_WithTheIdleClockPaused()
     {
-        var delay = new FaultRule("f1", FaultKind.Delay) { Stage = FaultStage.Command, DelayMilliseconds = 10 };
+        var delay = new FaultRule("f1", FaultKind.Delay) { Stage = FaultStage.Command, Command = "RETR", DelayMilliseconds = 500 };
+        var clock = new ManualTimeProvider();
+        var idleClock = new RecordingIdleClock();
+        var (serving, connection, events) = StartServing(Ascii("USER alice\r\nPASS p\r\nRETR 1\r\nQUIT\r\n"), new ScriptedFaultPlan(delay), clock, idleClock);
 
-        var (written, events) = await ServeAsync(Ascii("USER alice\r\nPASS p\r\nNOOP\r\n"), new ScriptedFaultPlan(delay));
+        await idleClock.FirstPause.WaitAsync(TimeSpan.FromSeconds(30), TestContext.CancellationToken);
+        var writtenAtTheHold = Utf8(connection.WrittenBytes);
+        clock.Advance(TimeSpan.FromMilliseconds(499));
+        var writtenAfter499Ms = Utf8(connection.WrittenBytes);
+        var pausedAfter499Ms = idleClock.IsPaused;
+        clock.Advance(TimeSpan.FromMilliseconds(1));
+        await serving.WaitAsync(TimeSpan.FromSeconds(30), TestContext.CancellationToken);
 
-        Assert.AreEqual(Greeting + "+OK User accepted\r\n+OK Logged in\r\n+OK\r\n", written);
-        Assert.IsEmpty(events.Events);
+        const string BeforeRetr = Greeting + "+OK User accepted\r\n+OK Logged in\r\n";
+        Assert.AreEqual(BeforeRetr, writtenAtTheHold);
+        Assert.AreEqual(BeforeRetr, writtenAfter499Ms);
+        Assert.IsTrue(pausedAfter499Ms);
+        Assert.IsFalse(idleClock.IsPaused);
+        StringAssert.Contains(Utf8(connection.WrittenBytes), BeforeRetr + "+OK 133 octets\r\n" + StuffedMessage);
+        Assert.AreEqual(new FaultAppliedEvent("f1", FaultKind.Delay, FaultStage.Command, 1, "RETR"), events.Events.Single());
+    }
+
+    // ADR-0140: a command-stage drop aborts the connection in place of RETR's answer; curl's
+    // request is replayed from Fixtures/fault-retr up to the RETR it never sees answered.
+    [TestMethod]
+    public async Task ServeAsync_RetrDropRule_AbortsTheConnectionWithNoAnswerToRetr()
+    {
+        var drop = new FaultRule("f1", FaultKind.Drop) { Stage = FaultStage.Command, Command = "RETR" };
+        var (serving, connection, events) = StartServing(
+            [ReadBytes("fault-retr", "request.bin")], new ScriptedFaultPlan(drop), new ManualTimeProvider(), new RecordingIdleClock());
+
+        await serving.WaitAsync(TimeSpan.FromSeconds(30), TestContext.CancellationToken);
+
+        Assert.IsTrue(connection.Aborted);
+        var recorded = RecordedReplies("fault-retr");
+        Assert.AreEqual(recorded[..recorded.IndexOf("-ERR try later", StringComparison.Ordinal)], Utf8(connection.WrittenBytes));
+        Assert.AreEqual(new FaultAppliedEvent("f1", FaultKind.Drop, FaultStage.Command, 1, "RETR"), events.Events.Single());
+    }
+
+    private (Task Serving, InMemoryConnection Connection, RecordingSurlEventPublisher Events) StartServing(
+        IEnumerable<ReadOnlyMemory<byte>> request, IFaultPlan faults, ManualTimeProvider clock, RecordingIdleClock idleClock)
+    {
+        var store = new MailboxStore(["alice"], allowAnonymous: false, clock);
+        Seed(store, "alice@x", [Message]);
+        var events = new RecordingSurlEventPublisher();
+        var connection = new InMemoryConnection(request);
+        var policy = new Pop3TestPolicy { Verdict = PasswordLoginVerdict.Accepted };
+        var context = Context(clock, TestContext.CancellationToken) with { Faults = faults, Events = events, IdleClock = idleClock };
+
+        return (Server(store, policy).ServeAsync(connection, context), connection, events);
     }
 
     [TestMethod]

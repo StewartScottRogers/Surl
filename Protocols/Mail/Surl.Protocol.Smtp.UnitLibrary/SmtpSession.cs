@@ -118,9 +118,7 @@ internal sealed partial class SmtpSession
             return await ReplyAsync(SmtpReplies.NotRecognized);
         }
 
-        return await FindChosenErrorAsync(command) is { } chosenError
-            ? await ReplyAsync(chosenError)
-            : await answer(command.Argument);
+        return await AnswerUnlessFaultedAsync(command, answer);
     }
 
     private async ValueTask<bool> AnswerNoLineAsync(CrlfLineReadOutcome outcome)

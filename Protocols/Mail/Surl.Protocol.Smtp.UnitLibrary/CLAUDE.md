@@ -60,14 +60,14 @@ glossary's, sections "Mail: SMTP, IMAP and POP3" and "Authentication".
   past `--max-filesize`, each then closing, written within `LimitReplyWriteDeadline`; an
   exchange cancelled for a limit (`ExchangeContext.IsCancelledForALimit`) is answered
   `421 4.4.2 surl Timeout, closing`, and shutdown ends it with no farewell.
-- Chosen-error faults (ADR-0124 decision 4, BL-796; `SmtpSession.Faults.cs`): every recognized
+- Command-stage faults (ADR-0124 decision 4, BL-796, BL-901; `SmtpSession.Faults.cs`): every recognized
   command asks `ExchangeContext.Faults` at `FaultStage.Command` with its verb, the account an
   `AUTH` logged in (null otherwise, and again after `STARTTLS`), the listen URL as
   `ReportedListenUrl` writes it, and at `RCPT` the recipient address as sent as the path. An
   `Error` rule's reply is written in place of the command's own (`DATA`'s in place of `354`,
   before the message), nothing is stored, a note is logged and one `FaultAppliedEvent` (target:
   the path, else the verb) is published; a rule with no reply answers
-  `451 4.3.0 Local error in processing`. Any other kind a plan returns is not applied here.
+  `451 4.3.0 Local error in processing`. A `Delay` rule (`stage=command`) holds the answer for its `ms` on `ExchangeContext.TimeProvider` with `ExchangeContext.IdleClock` paused, and a `Drop` rule aborts the connection with no answer and ends the session, each through `CommandStageFaults.FindAndApplyAsync` with one `FaultAppliedEvent` (ADR-0140, BL-901).
 - `SmtpLogText`: renders peer bytes for the verbose notes of decision 8.
 - `SmtpUpstreamTestCaseServer` (ADR-0080 decision 2): the SMTP server half of one upstream
   curl test case, never composed by the shipped `surl`. It is `SmtpProtocolServer` built with
