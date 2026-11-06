@@ -45,7 +45,7 @@ and `S3XmlElement` (the escaping `S3ListObjectsV2` already used, now shared) are
 answers ListBuckets before the bucket check and HeadBucket as `200` with no body.
 
 Decisions (Decided by Claude under Stewart's delegation; to be written into ADR-0108 as Amendment 2 by
-BL-915, because `Documentation/Planning/Decisions` was held by BL-687 while this ran):
+BL-918, because `Documentation/Planning/Decisions` was held by BL-687 while this ran):
 
 1. ListBuckets is `GET /` path style with no query; any query (`prefix`, `max-buckets`,
    `continuation-token`, `bucket-region`) and any other method on `/` is `501 NotImplemented` - an
@@ -70,7 +70,7 @@ BL-915, because `Documentation/Planning/Decisions` was held by BL-687 while this
    metadata index needs no removal: the entry's stamp no longer matches a file, so it reads as absent.
 
 The `--aihelp` `s3` paragraph and the manual in `Surl.Cli` (held by BL-548) still list only the older
-operations; BL-915 updates them with the ADR.
+operations; BL-918 updates them with the ADR.
 
 ## Log
 

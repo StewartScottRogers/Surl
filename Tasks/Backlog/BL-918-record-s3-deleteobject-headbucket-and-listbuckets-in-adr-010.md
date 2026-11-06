@@ -1,5 +1,5 @@
 ---
-id: BL-915
+id: BL-918
 title: Record S3 DeleteObject, HeadBucket and ListBuckets in ADR-0108 and --aihelp
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-06
 completed:
 ---
-# BL-915 — Record S3 DeleteObject, HeadBucket and ListBuckets in ADR-0108 and --aihelp
+# BL-918 — Record S3 DeleteObject, HeadBucket and ListBuckets in ADR-0108 and --aihelp
 
 ## Goal
 
