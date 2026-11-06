@@ -54,3 +54,4 @@ pinned upstream `libcurl-4.dll`, and every disagreement is a Phase 7 finding in
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-06: Backlog -> Doing.
