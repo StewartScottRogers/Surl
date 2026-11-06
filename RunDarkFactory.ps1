@@ -2793,7 +2793,18 @@ if (($AutoLanes -or $LaneCount -gt 1) -and -not $Lane) {
             }
         }
         $orphans = @($stuck | Where-Object { $adopt.Values -notcontains $_ })
-        if ($orphans.Count) { Write-Trace '-' 'refuse' "task already in Doing and held by no lane: $($orphans -join ', ')" 'Red'; exit 1 }
+        # A task in Doing that no stopped lane holds was lost by a lane whose last push failed
+        # (BL-802, BL-803 on 2026-11-05). Refusing the shift left the factory idle for hours,
+        # so return each to Backlog, saying where its work may be, and start.
+        if ($orphans.Count) {
+            foreach ($orphan in $orphans) {
+                Invoke-Board @('move', '-Id', $orphan, '-To', 'Backlog', '-Reason', "returned by the shift starting $($Stamp): it was in Doing but no stopped lane held it; look for its work in 'git stash list' and in factory/$orphan-* branches before redoing it") | Out-Null
+            }
+            git -C $Root add -A Tasks 2>&1 | Out-Null
+            git -C $Root commit -q -m "chore(tasks): return $($orphans -join ', ') to Backlog - in Doing but held by no lane" 2>&1 | Out-Null
+            if (-not (Invoke-Git @('push', '-q', 'origin', "HEAD:$branch"))) { Write-Trace '-' 'refuse' "could not push the return of $($orphans -join ', ') to Backlog" 'Red'; exit 1 }
+            Write-Trace '-' 'requeue' "returned $($orphans -join ', ') to Backlog: in Doing but held by no lane" 'Yellow'
+        }
         if (@($adopt.Keys | Where-Object { $_ -gt $LaneCount }).Count) { $LaneCount = [int]($adopt.Keys | Measure-Object -Maximum).Maximum }
     }
 
@@ -3147,8 +3158,17 @@ if ($Lane) {
     } elseif ($held) {
         # It stopped after the run but before its work reached the shared branch: integrate
         # those commits now, before a claim resets the worktree and loses them.
-        $ahead = [int](git -C $Root rev-list --count "origin/$branch..HEAD" 2>$null)
         $heldState = Get-TaskState $held
+        # A run cut off between moving its task out of Doing and committing leaves the work
+        # uncommitted; the next claim's sync would stash it and the task would stay in Doing
+        # on the shared branch (BL-803, 2026-11-05). Commit it so it integrates; integrating
+        # rebuilds and runs the fast tests before anything is pushed.
+        if ($heldState -in 'Done', 'Blocked', 'Backlog' -and (Get-Dirty)) {
+            git -C $Root add -A 2>&1 | Out-Null
+            git -C $Root commit -q -m "chore(tasks): commit $held's finished work that its stopped run left uncommitted" 2>&1 | Out-Null
+            Write-Trace $held 'commit' "committed the stopped run's uncommitted work to integrate it" 'Yellow'
+        }
+        $ahead = [int](git -C $Root rev-list --count "origin/$branch..HEAD" 2>$null)
         if ($ahead -gt 0 -and $heldState -in 'Done', 'Blocked', 'Backlog') {
             $problem = Invoke-Integrate -Id $held -State $heldState
             if ($problem) { Invoke-Park -Id $held -Why $problem; Write-Trace $held 'PARKED' "$problem; back to Backlog" 'Yellow' }
