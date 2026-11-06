@@ -1,5 +1,5 @@
 ---
-id: BL-933
+id: BL-944
 title: Answer the conditional fields on Azure Put Block List
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-06
 completed:
 ---
-# BL-933 — Answer the conditional fields on Azure Put Block List
+# BL-944 — Answer the conditional fields on Azure Put Block List
 
 ## Goal
 

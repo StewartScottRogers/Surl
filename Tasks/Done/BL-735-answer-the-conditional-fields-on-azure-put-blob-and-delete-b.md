@@ -54,7 +54,7 @@ Azure Put Blob and Delete Blob answer the conditional fields as ADR-0109 decisio
   gives 100% line and 100% branch coverage. The 9 members it lists over complexity 10 (counted
   with async state machines) were all over it before this change; none is new. The build's
   CA1502 gate passes.
-- Follow-up filed: BL-933, the same conditional fields on Put Block List.
+- Follow-up filed: BL-944, the same conditional fields on Put Block List.
 
 ## Log
 
