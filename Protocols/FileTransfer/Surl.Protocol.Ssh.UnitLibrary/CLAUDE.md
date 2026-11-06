@@ -37,6 +37,11 @@ subsystem) are the glossary's, section "SSH, SCP and SFTP".
   an `exec` of an SCP command (`SshScpCommand`) handed to `ScpDownloadHandler` (`-f`) or
   `ScpUploadHandler` (`-t`), and the `sftp` subsystem to `SftpSession`, all serving the
   content store through `SshContentChannelHandlers` and `SshContentPath`.
+- **Chosen-error faults** (`SshCommandFaults`, ADR-0135): each SFTP request and SCP command asks
+  `ExchangeContext.Faults` at the `Command` stage before the content store, and a matching `error`
+  rule is answered `SSH_FXP_STATUS` with its code and text (SFTP) or byte 1, its line and LF (SCP),
+  publishing `FaultAppliedEvent`. A reply that does not fit, or a `delay` or `drop` rule, is noted
+  and not applied (BL-901).
 - **The weak algorithms** of ADR-0051 decision 2 and ADR-0061, offered only when
   `SshAlgorithmOffer.Default` is given `allowWeakAlgorithms`, as `Surl.Console` does under
   `--allow-weak-ssh-algorithms`. `SshAlgorithmOffer.Narrowed` narrows an offer's ciphers and MACs

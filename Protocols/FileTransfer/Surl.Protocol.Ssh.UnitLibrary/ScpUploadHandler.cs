@@ -31,6 +31,10 @@ namespace Surl.Protocol.Ssh;
 /// untouched. A store failure is <c>write error</c>, its message in the verbose note only
 /// (ADR-0006 section 3). The <c>C</c> line's mode is never kept.
 /// </para>
+/// <para>
+/// Before the first <c>\0</c>, the fault plan is asked about the command; a chosen-error rule is
+/// answered with byte 1, the rule's line and LF, exit status 1 (ADR-0135, <see cref="SshCommandFaults"/>).
+/// </para>
 /// </remarks>
 /// <param name="store">The content store the file is written to.</param>
 /// <param name="caller">Who logged in, on <c>scp</c>: the share access the target is checked against (ADR-0102 decision 2.2).</param>
@@ -48,6 +52,11 @@ internal sealed class ScpUploadHandler(ContentStore store, ContentCaller caller,
     /// <inheritdoc/>
     public async Task<uint> RunAsync(ISshChannelDataStream channel, CancellationToken cancellationToken)
     {
+        if (await SshCommandFaults.FindScpErrorAsync(context, caller, command, cancellationToken) is { } rule)
+        {
+            return await SshCommandFaults.AnswerScpErrorAsync(channel, context, $"SCP upload {path}", rule, cancellationToken);
+        }
+
         var reader = new ScpChannelReader(channel);
         await channel.WriteAsync(ScpReply.Ok, cancellationToken);
         var (header, lastWriteTime, error) = await ReadHeaderAsync(channel, reader, cancellationToken);

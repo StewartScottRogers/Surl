@@ -23,6 +23,11 @@ namespace Surl.Protocol.Ssh;
 /// verbose notes only. A file that shrinks while it is sent ends the channel after the bytes
 /// there are, without the trailing <c>\0</c>, exit status 1.
 /// </para>
+/// <para>
+/// Once the client's starting <c>\0</c> arrives, the fault plan is asked about the command before
+/// the store; a chosen-error rule is answered with byte 1, the rule's line and LF, exit status 1
+/// (ADR-0135, <see cref="SshCommandFaults"/>).
+/// </para>
 /// </remarks>
 /// <param name="store">The content store the file is read from.</param>
 /// <param name="caller">Who logged in, on <c>scp</c>: the share access the path is checked against (ADR-0102 decision 2.2).</param>
@@ -42,6 +47,11 @@ internal sealed class ScpDownloadHandler(ContentStore store, ContentCaller calle
         if (!await IsAcknowledgedAsync(reader, "the start", cancellationToken))
         {
             return 1;
+        }
+
+        if (await SshCommandFaults.FindScpErrorAsync(context, caller, command, cancellationToken) is { } rule)
+        {
+            return await SshCommandFaults.AnswerScpErrorAsync(channel, context, $"SCP download {path}", rule, cancellationToken);
         }
 
         try

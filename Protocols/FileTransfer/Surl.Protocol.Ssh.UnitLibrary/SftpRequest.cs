@@ -10,6 +10,7 @@ internal sealed class SftpRequest
 {
     private readonly SshWireReader fields;
     private readonly int length;
+    private readonly byte[] packet;
 
     /// <summary>
     /// Reads the type and id of <paramref name="packet"/>.
@@ -20,6 +21,7 @@ internal sealed class SftpRequest
         Type = packet[0];
         fields = new SshWireReader(packet);
         length = packet.Length;
+        this.packet = packet;
         fields.ReadByte();
         Id = fields.ReadUInt32();
     }
@@ -45,6 +47,26 @@ internal sealed class SftpRequest
     /// <returns>The string's bytes.</returns>
     /// <exception cref="SshDisconnectRequiredException">The field runs past the packet.</exception>
     public ReadOnlyMemory<byte> ReadString() => fields.ReadString();
+
+    /// <summary>
+    /// The first field after the id read as a <c>string</c> - the path or handle a request names
+    /// first - without moving past it, so the request is still read from its first field.
+    /// </summary>
+    /// <returns>The string's bytes, or <see langword="null"/> when the field runs past the packet.</returns>
+    public ReadOnlyMemory<byte>? PeekFirstString()
+    {
+        try
+        {
+            var peek = new SshWireReader(packet);
+            peek.ReadBytes(5);
+
+            return peek.ReadString();
+        }
+        catch (SshDisconnectRequiredException)
+        {
+            return null;
+        }
+    }
 
     /// <summary>
     /// Reads a <c>uint32</c> field.
