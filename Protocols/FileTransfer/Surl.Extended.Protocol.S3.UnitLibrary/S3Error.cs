@@ -107,7 +107,8 @@ internal sealed record S3Error(string Code, HttpStatus Status, string Message)
 
     /// <summary>
     /// <c>503 SlowDown</c>: a connection past <c>--max-connections</c> or
-    /// <c>--max-connections-per-address</c> (ADR-0108, decision 7).
+    /// <c>--max-connections-per-address</c>, or a CreateMultipartUpload past the open uploads
+    /// (ADR-0108, decision 7).
     /// </summary>
     public static S3Error SlowDown { get; } = new("SlowDown", HttpStatus.ServiceUnavailable, "Please reduce your request rate.");
 
@@ -151,6 +152,34 @@ internal sealed record S3Error(string Code, HttpStatus Status, string Message)
     /// clock (ADR-0108, decision 4.3).
     /// </summary>
     public static S3Error RequestTimeTooSkewed { get; } = new("RequestTimeTooSkewed", new HttpStatus(403, "Forbidden"), "The difference between the request time and the server's time is too large.");
+
+    /// <summary>
+    /// <c>404 NoSuchUpload</c>: an <c>uploadId</c> that names no open multipart upload of the
+    /// bucket and key (ADR-0108, decision 1.1).
+    /// </summary>
+    public static S3Error NoSuchUpload { get; } = new("NoSuchUpload", HttpStatus.NotFound, "The specified upload does not exist. The upload ID may be invalid, or the upload may have been aborted or completed.");
+
+    /// <summary>
+    /// <c>400 InvalidPart</c>: a CompleteMultipartUpload part that was not uploaded, or whose
+    /// <c>ETag</c> is not the part's.
+    /// </summary>
+    public static S3Error InvalidPart { get; } = new("InvalidPart", HttpStatus.BadRequest, "One or more of the specified parts could not be found. The part might not have been uploaded, or the specified entity tag might not have matched the part's entity tag.");
+
+    /// <summary>
+    /// <c>400 InvalidPartOrder</c>: CompleteMultipartUpload parts not in ascending part-number order.
+    /// </summary>
+    public static S3Error InvalidPartOrder { get; } = new("InvalidPartOrder", HttpStatus.BadRequest, "The list of parts was not in ascending order. The parts list must be specified in order by part number.");
+
+    /// <summary>
+    /// <c>400 EntityTooSmall</c>: a completed part other than the last below 5 MiB.
+    /// </summary>
+    public static S3Error EntityTooSmall { get; } = new("EntityTooSmall", HttpStatus.BadRequest, "Your proposed upload is smaller than the minimum allowed object size.");
+
+    /// <summary>
+    /// <c>400 MalformedXML</c>: a CompleteMultipartUpload body that does not parse, names no part,
+    /// or passes 10000 parts or 1 MiB (ADR-0108, decision 7).
+    /// </summary>
+    public static S3Error MalformedXml { get; } = new("MalformedXML", HttpStatus.BadRequest, "The XML you provided was not well-formed or did not validate against our published schema.");
 
     /// <summary>
     /// <c>400 XAmzContentSHA256Mismatch</c>: a body whose SHA-256 is not

@@ -291,7 +291,6 @@ public sealed class S3ProtocolServerTests
 
     [TestMethod]
     [DataRow("DELETE", "/photos/a.txt?versionId=1", DisplayName = "DeleteObject of a version")]
-    [DataRow("POST", "/photos/a.txt?uploads", DisplayName = "CreateMultipartUpload, not yet served")]
     [DataRow("GET", "/?prefix=p", DisplayName = "ListBuckets with a query")]
     [DataRow("PUT", "/photos?versioning", DisplayName = "PutBucketVersioning")]
     [DataRow("POST", "/", DisplayName = "POST on the service")]

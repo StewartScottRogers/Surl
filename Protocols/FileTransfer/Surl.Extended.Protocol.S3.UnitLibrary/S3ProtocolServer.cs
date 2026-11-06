@@ -15,8 +15,8 @@ namespace Surl.Extended.Protocol.S3;
 /// <remarks>
 /// <para>
 /// It serves GetObject and HeadObject - ranges, conditional fields, the object's stored header
-/// fields and user metadata - PutObject when the store allows uploads, and ListObjectsV2 when it
-/// lists directories, path style or virtual-hosted style, and answers every other request
+/// fields and user metadata - PutObject, DeleteObject and the multipart uploads when the store allows
+/// uploads, and ListBuckets and ListObjectsV2 when it lists directories, path style or virtual-hosted style, and answers every other request
 /// <c>501 NotImplemented</c>, each failure with the S3 <c>Error</c> body. Every request must carry
 /// a valid AWS Signature Version 4 <c>Authorization</c> of an account (anonymous reads only under
 /// <c>--allow-anonymous</c>), checked through the policy's HTTP session (ADR-0108, decision 4).
@@ -40,6 +40,7 @@ public sealed class S3ProtocolServer : IConnectionProtocolServer, IConnectionRef
     private readonly ObjectMetadataIndex index;
     private readonly IAuthenticationPolicy authenticationPolicy;
     private readonly TimeProvider timeProvider;
+    private readonly S3MultipartUploads uploads;
 
     /// <summary>
     /// Creates the server.
@@ -47,7 +48,8 @@ public sealed class S3ProtocolServer : IConnectionProtocolServer, IConnectionRef
     /// <param name="store">The shared content store; its top-level folders are the buckets.</param>
     /// <param name="index">The object metadata index of <paramref name="store"/>'s served root.</param>
     /// <param name="authenticationPolicy">The policy whose HTTP session checks each request's Signature Version 4 login.</param>
-    /// <param name="timeProvider">The clock a connection refusal's <c>Date</c> is taken from.</param>
+    /// <param name="timeProvider">The clock a connection refusal's <c>Date</c> is taken from, and the open
+    /// multipart uploads' idleness is measured on.</param>
     public S3ProtocolServer(ContentStore store, ObjectMetadataIndex index, IAuthenticationPolicy authenticationPolicy, TimeProvider timeProvider)
     {
         ArgumentNullException.ThrowIfNull(store);
@@ -59,6 +61,7 @@ public sealed class S3ProtocolServer : IConnectionProtocolServer, IConnectionRef
         this.index = index;
         this.authenticationPolicy = authenticationPolicy;
         this.timeProvider = timeProvider;
+        uploads = new S3MultipartUploads(timeProvider);
     }
 
     /// <inheritdoc/>
@@ -70,7 +73,7 @@ public sealed class S3ProtocolServer : IConnectionProtocolServer, IConnectionRef
         ArgumentNullException.ThrowIfNull(connection);
         ArgumentNullException.ThrowIfNull(context);
 
-        return new Http1ConnectionServer(new S3RequestAnswerer(store, index, authenticationPolicy.StartHttpConnection(connection.TlsSession), context), context).ServeAsync(connection);
+        return new Http1ConnectionServer(new S3RequestAnswerer(store, index, authenticationPolicy.StartHttpConnection(connection.TlsSession), context, uploads, connection.TlsSession is not null), context).ServeAsync(connection);
     }
 
     /// <inheritdoc/>

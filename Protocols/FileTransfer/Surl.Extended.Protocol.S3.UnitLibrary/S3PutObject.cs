@@ -78,6 +78,15 @@ internal sealed class S3PutObject(ContentStore store, ObjectMetadataIndex index,
         committed == ContentUploadResult.Written ? null : S3Error.AccessDenied;
 
     /// <summary>
+    /// What an upload session the store would not open is answered with: a folder at the key,
+    /// <c>409 InvalidArgument</c>; anything else the store refuses, <c>403 AccessDenied</c>.
+    /// </summary>
+    /// <param name="result">Why no session was opened.</param>
+    /// <returns>The error.</returns>
+    internal static S3Error OpeningRefusal(ContentUploadOpeningResult result) =>
+        result == ContentUploadOpeningResult.IsADirectory ? S3Error.ConflictingKey : S3Error.AccessDenied;
+
+    /// <summary>
     /// What reading a body into the upload is answered with when it fails: past the upload limit,
     /// <c>EntityTooLarge</c>; cut short or malformed, <c>IncompleteBody</c>.
     /// </summary>
@@ -107,17 +116,25 @@ internal sealed class S3PutObject(ContentStore store, ObjectMetadataIndex index,
     };
 
     // The checks a request's head decides, before any byte of its body is read.
-    private static S3Error? RefusalBeforeTheBody(HttpRequest request)
+    internal static S3Error? RefusalBeforeTheBody(HttpRequest request)
     {
         if (S3RequestFields.Value(request.Fields, "Content-MD5") is { } contentMd5 && ExpectedMd5(contentMd5) is null)
         {
             return S3Error.InvalidDigest;
         }
 
-        return UserMetadataBytes(UserMetadata(request.Fields)) > MaxUserMetadataBytes
+        return HasTooMuchUserMetadata(request.Fields)
             ? S3Error.MetadataTooLarge
             : BodyFramingRefusal(request);
     }
+
+    /// <summary>
+    /// Whether the <c>x-amz-meta-*</c> names and values pass <see cref="MaxUserMetadataBytes"/>.
+    /// </summary>
+    /// <param name="fields">The request's fields.</param>
+    /// <returns>Whether the user metadata is too large.</returns>
+    internal static bool HasTooMuchUserMetadata(IReadOnlyList<KeyValuePair<string, string>> fields) =>
+        UserMetadataBytes(UserMetadata(fields)) > MaxUserMetadataBytes;
 
     // A body must be readable and announced by Content-Length; a chunked one is aws-chunked
     // (BL-711) when it names its decoded length, and unreadable as an object when it does not.
@@ -137,11 +154,11 @@ internal sealed class S3PutObject(ContentStore store, ObjectMetadataIndex index,
         return body.IsAnnounced || S3RequestFields.Value(request.Fields, "Content-Length") is not null ? null : S3Error.MissingContentLength;
     }
 
-    private bool IsAnnouncedPastTheLimit(IHttpRequestBody body) =>
+    internal bool IsAnnouncedPastTheLimit(IHttpRequestBody body) =>
         store.ExposureOptions.MaxUploadBytes > 0 && body.AnnouncedLength > store.ExposureOptions.MaxUploadBytes;
 
     // Each folder the key names, created when missing; a file in the way is a conflict.
-    private S3Error? CreateFolders(S3RequestTarget target, ContentCaller caller)
+    internal S3Error? CreateFolders(S3RequestTarget target, ContentCaller caller)
     {
         var segments = target.RawKey.Split('/');
         for (var count = 1; count < segments.Length; count++)
@@ -175,7 +192,7 @@ internal sealed class S3PutObject(ContentStore store, ObjectMetadataIndex index,
         var opening = await store.OpenUploadAsync(mapping, new ContentUploadOpening(StartsFromExistingBytes: false, CreatesMissingFile: true, RefusesExistingFile: false), cancellationToken);
         if (opening.Session is not { } session)
         {
-            return reply.Error(opening.Result == ContentUploadOpeningResult.IsADirectory ? S3Error.ConflictingKey : S3Error.AccessDenied);
+            return reply.Error(OpeningRefusal(opening.Result));
         }
 
         await using (session)
@@ -209,7 +226,9 @@ internal sealed class S3PutObject(ContentStore store, ObjectMetadataIndex index,
             return reply.Error(commitRefusal);
         }
 
-        return await StoreMetadataAsync(reply, request, target, mapping, digest, cancellationToken);
+        return await StoreMetadataAsync(request.Fields, target, mapping, ETagOf(digest), cancellationToken) is { } metadataRefusal
+            ? reply.Error(metadataRefusal)
+            : Stored(reply, digest);
     }
 
     // The body against what the request said of it: the signed x-amz-content-sha256 first
@@ -226,33 +245,55 @@ internal sealed class S3PutObject(ContentStore store, ObjectMetadataIndex index,
             : null;
     }
 
-    // The metadata goes into the index for a file it keys; refused there, the object is removed.
-    private async Task<HttpAnswer> StoreMetadataAsync(S3Reply reply, HttpRequest request, S3RequestTarget target, ContentPathMapping mapping, byte[] digest, CancellationToken cancellationToken)
+    /// <summary>
+    /// Keeps the object's header fields, <c>x-amz-meta-*</c> and <paramref name="eTag"/> in the
+    /// index for a file it keys; refused there, the object just written is removed.
+    /// </summary>
+    /// <param name="fields">The fields of the request that named the metadata.</param>
+    /// <param name="target">The object's bucket and key.</param>
+    /// <param name="mapping">Where the object was written.</param>
+    /// <param name="eTag">The object's quoted ETag.</param>
+    /// <param name="cancellationToken">Cancels writing the index.</param>
+    /// <returns><see langword="null"/> when the object stands, else the error.</returns>
+    internal async Task<S3Error?> StoreMetadataAsync(IReadOnlyList<KeyValuePair<string, string>> fields, S3RequestTarget target, ContentPathMapping mapping, string eTag, CancellationToken cancellationToken)
     {
         if (S3IndexKey.OfRaw(store, target.RawBucket, target.RawKey) is not { } indexKey)
         {
-            return Stored(reply, digest);
+            return null;
         }
 
-        var stored = await index.StoreAsync(indexKey, MetadataOf(request.Fields, ETagOf(digest)), cancellationToken);
+        var stored = await index.StoreAsync(indexKey, MetadataOf(fields, eTag), cancellationToken);
         if (stored.StorageFailure is { } failure)
         {
             log.Note($"The object metadata index could not be written: {failure}");
         }
 
-        if (MetadataRefusal(stored.Outcome) is { } refusal)
+        var refusal = MetadataRefusal(stored.Outcome);
+        if (refusal is not null)
         {
             store.DeleteFile(mapping);
-            return reply.Error(refusal);
         }
 
-        return Stored(reply, digest);
+        return refusal;
     }
+
+    /// <summary>
+    /// The body against what the request said of it: the signed <c>x-amz-content-sha256</c>
+    /// first (<c>XAmzContentSHA256Mismatch</c>), then <c>Content-MD5</c> (<c>BadDigest</c>).
+    /// </summary>
+    /// <param name="request">The request.</param>
+    /// <param name="bodyCheck">The rest of a signature that binds the body, or <see langword="null"/>.</param>
+    /// <param name="bodySha256">The body's SHA-256.</param>
+    /// <param name="bodyMd5">The body's MD5.</param>
+    /// <param name="cancellationToken">Cancels the check.</param>
+    /// <returns><see langword="null"/> when the body is the one described, else the error.</returns>
+    internal Task<S3Error?> BodyContentRefusalAsync(HttpRequest request, IHttpRequestBodyCheck? bodyCheck, byte[] bodySha256, byte[] bodyMd5, CancellationToken cancellationToken) =>
+        ContentRefusalAsync(request, bodyCheck, bodySha256, bodyMd5, cancellationToken);
 
     private static HttpAnswer Stored(S3Reply reply, byte[] digest) =>
         reply.Answer(HttpStatus.Ok, [new("ETag", ETagOf(digest)), new("Content-Length", "0")], HttpAnswerBody.None);
 
-    private static string ETagOf(byte[] digest) => $"\"{Convert.ToHexStringLower(digest)}\"";
+    internal static string ETagOf(byte[] digest) => $"\"{Convert.ToHexStringLower(digest)}\"";
 
     private static ObjectMetadata MetadataOf(IReadOnlyList<KeyValuePair<string, string>> fields, string eTag) => new()
     {
@@ -281,13 +322,13 @@ internal sealed class S3PutObject(ContentStore store, ObjectMetadataIndex index,
         metadata.Sum(entry => Encoding.UTF8.GetByteCount(entry.Key) + Encoding.UTF8.GetByteCount(entry.Value));
 
     // The 16 bytes a Content-MD5 field's base64 holds, or null when it holds anything else.
-    private static byte[]? ExpectedMd5(string contentMd5)
+    internal static byte[]? ExpectedMd5(string contentMd5)
     {
         var bytes = new byte[64];
 
         return Convert.TryFromBase64String(contentMd5.Trim(), bytes, out var written) && written == 16 ? bytes[..16] : null;
     }
 
-    private static KeyValuePair<string, string>[] KeyArgument(S3RequestTarget target) =>
+    internal static KeyValuePair<string, string>[] KeyArgument(S3RequestTarget target) =>
         [new("ArgumentName", "key"), new("ArgumentValue", target.RawKey)];
 }
