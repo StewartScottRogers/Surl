@@ -1,7 +1,8 @@
 # Surl.Extended.Protocol.Nats.UnitLibrary
 
 An extended server (ADR-0083) for the `nats` and `natss` schemes the Curl port adds, which
-upstream curl does not have; the composition registers it in BL-528, so `surl` does not serve it yet.
+upstream curl does not have; `Surl.Composition`'s `ExtendedProtocolServers.Registrations` registers it
+(BL-528), so `surl` serves both schemes unless `SURL_EXTENSIONS=0`.
 ADR-0113 decides how. It is judged by the NATS client protocol page
 (<https://docs.nats.io/reference/reference-protocols/nats-protocol>, read 2026-11-05), never by
 the Curl port's output, and its unit tests replay lines written by hand from that page.

@@ -36,11 +36,17 @@ horizontal library may reference it (ADR-0099 decision 11, held by
   status line) and `ComposedServing` writes `* Serving HTTP/3 over QUIC on UDP port <port>` from
   verbose up.
 - `ExtendedProtocolServers.Compose` builds the extended servers (`Surl.Extended.Protocol.*`: today
-  the S3 server for `s3`, BL-421) from `ExtendedProtocolServers.Registrations`, the same
+  the NATS server for `nats` and `natss`, BL-528, and the S3 server for `s3`, BL-421) from
+  `ExtendedProtocolServers.Registrations`, the same
   `ProtocolServerRegistration` record, each joining with one entry; its `ExtendedProtocolServerServices`
   wraps the start's `ComposedProtocolServices` (the S3 server reads its content store, policy, object
   metadata index and clock); `s3` is TLS from the first byte through `TlsSchemes` (ADR-0108 decision 5),
-  so it needs no `ImplicitTls` entry; `ComposeUnservedExtendedServices` wraps
+  so it needs no `ImplicitTls` entry. The NATS server is built over the one `MessageBus` the MQTT
+  server shares, `AuthenticationPolicyFor("nats")`, and a `NatsServerOptions` of
+  `ComposedProtocolServices.IdleTimeout` (the start sets it to `ComposeConnectionLimits`' idle timeout)
+  and the policy's `AllowAnonymous`. `natss` starts in plain text and upgrades (ADR-0113 decision 6),
+  so it is not in `TlsSchemes`; `ServerTlsComposition` lists it as requiring a certificate, so a
+  `natss` listen URL without `--cert` or `--self-signed` is refused `(58)` like an implicit-TLS one; `ComposeUnservedExtendedServices` wraps
   `ComposeUnservedProtocolServices` for listing schemes. `ExtendedProtocolServers.AreTurnedOn` reads `SURL_EXTENSIONS`
   through an `IEnvironmentVariableReader` (`ProcessEnvironmentVariableReader` in `surl`); `0`
   turns them off (ADR-0083 decisions 6 to 8). `SurlServerComposition.ComposeExtendedProtocolServers`

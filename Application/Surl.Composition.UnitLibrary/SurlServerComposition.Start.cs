@@ -275,6 +275,7 @@ public static partial class SurlServerComposition
             Events = instruments.Events,
             Faults = instruments.Faults,
             AuthenticationPolicyForScheme = authentication.SchemePolicies.For,
+            IdleTimeout = ComposeConnectionLimits(commandLine).IdleTimeout,
         };
         IProtocolServer[] servers =
         [

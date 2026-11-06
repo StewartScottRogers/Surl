@@ -91,6 +91,13 @@ public sealed class ComposedProtocolServices(
     /// </summary>
     public IFaultPlan Faults { get; init; } = EmptyFaultPlan.Instance;
 
+    /// <summary>
+    /// Gets <c>--idle-timeout</c> as the serving engine applies it (ADR-0006 section 1),
+    /// <see cref="TimeSpan.Zero"/> when it is off: what the NATS server paces its own PINGs by
+    /// (ADR-0113 decision 5); 120 seconds, the option's default, unless set.
+    /// </summary>
+    public TimeSpan IdleTimeout { get; init; } = TimeSpan.FromSeconds(120);
+
     /// <summary>Gets the SSH server's host keys.</summary>
     public SshHostKeySet SshHostKeys { get; } = sshHostKeys;
 
