@@ -11,7 +11,8 @@ namespace Surl.Content;
 /// <remarks>
 /// <see cref="Header"/>; the entry count (4 bytes, unsigned); that many entries in strictly
 /// ascending ordinal order of key. An entry is its key (a string: the path relative to the served
-/// root, segments joined by <c>/</c>), the stamped file length (8 bytes, signed, not negative),
+/// root, segments joined by <c>/</c>, or a folder object's: the folder's path and a final <c>/</c>),
+/// the stamped file length (0 for a folder object) (8 bytes, signed, not negative),
 /// the stamped last write time in UTC ticks (8 bytes, signed, a valid <see cref="DateTime"/>),
 /// the generation (8 bytes, signed), the ETag (a string, not empty), <c>Content-Type</c>,
 /// <c>Content-Encoding</c>, <c>Content-Disposition</c>, <c>Cache-Control</c> and
@@ -75,7 +76,7 @@ internal static class ObjectMetadataIndexFormat
         for (var remaining = count; remaining > 0; remaining--)
         {
             var key = reader.ReadString();
-            Require(ObjectMetadataIndex.IsValidKey(key) && IsAfter(key, previousKey));
+            Require((ObjectMetadataIndex.IsValidKey(key) || ObjectMetadataIndex.IsValidFolderObjectKey(key)) && IsAfter(key, previousKey));
             entries.Add(key, DecodeEntry(reader, maxMetadataBytes));
             previousKey = key;
         }

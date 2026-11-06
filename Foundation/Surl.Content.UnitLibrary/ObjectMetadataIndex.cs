@@ -44,6 +44,11 @@ namespace Surl.Content;
 /// memory. Without a data directory nothing is written.
 /// </para>
 /// <para>
+/// <b>Folder objects.</b> A folder a client put as an object (S3's zero-byte <c>x/</c>) is kept
+/// under the folder's key and a final <c>/</c> by <see cref="StoreFolderObjectAsync"/>, and lasts
+/// while the folder exists (ADR-0108 Amendment 3).
+/// </para>
+/// <para>
 /// Safe for concurrent use: every operation runs alone.
 /// </para>
 /// </remarks>
@@ -86,6 +91,9 @@ public sealed class ObjectMetadataIndex
     public const string MalformedIndexReason = "not an object metadata index";
 
     private const string TemporaryIndexPrefix = ".index-";
+
+    // The quoted MD5 of no bytes: a folder object's default ETag.
+    private const string EmptyETag = "\"d41d8cd98f00b204e9800998ecf8427e\"";
 
     private readonly IContentFileSystem fileSystem;
     private readonly ISurlEventPublisher events;
@@ -232,6 +240,80 @@ public sealed class ObjectMetadataIndex
     public async Task<ObjectMetadataStoreResult> StoreAsync(string key, ObjectMetadata metadata, CancellationToken cancellationToken)
     {
         RequireValidKey(key);
+        return await StoreEntryAsync(key, metadata, cancellationToken);
+    }
+
+    /// <summary>
+    /// Records that a client put the folder at <paramref name="key"/> as an object - a zero-byte
+    /// object whose key ends in <c>/</c> (ADR-0108, decision 6) - with the metadata it set,
+    /// replacing any it had. The folder object lasts while the folder exists; its length is 0, its
+    /// default ETag the quoted MD5 of no bytes, and its last write time the folder's when stored.
+    /// </summary>
+    /// <param name="key">The folder's path relative to the served root and a final <c>/</c>; see
+    /// <see cref="IsValidFolderObjectKey"/>.</param>
+    /// <param name="metadata">The metadata set at upload.</param>
+    /// <param name="cancellationToken">Cancels writing the index.</param>
+    /// <returns>Whether it is stored (<see cref="ObjectMetadataStoreOutcome.NoSuchFile"/> when no
+    /// folder is there), what the object now answers with, and any failure to rewrite the index file.</returns>
+    /// <exception cref="ArgumentException"><paramref name="key"/> is not valid, or
+    /// <paramref name="metadata"/>'s ETag is given and not valid.</exception>
+    public async Task<ObjectMetadataStoreResult> StoreFolderObjectAsync(string key, ObjectMetadata metadata, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(key);
+        if (!IsValidFolderObjectKey(key))
+        {
+            throw new ArgumentException("The key is not a folder the content store can hold and a final '/'.", nameof(key));
+        }
+
+        return await StoreEntryAsync(key, metadata, cancellationToken);
+    }
+
+    /// <summary>
+    /// Every folder object (<see cref="StoreFolderObjectAsync"/>) whose folder still exists, by
+    /// its key; one whose folder is gone is dropped.
+    /// </summary>
+    /// <param name="cancellationToken">Cancels the wait for the index's lock.</param>
+    /// <returns>Each folder object's properties, keyed by its key with the final <c>/</c>.</returns>
+    public async Task<IReadOnlyDictionary<string, ObjectProperties>> ReadFolderObjectsAsync(CancellationToken cancellationToken)
+    {
+        await gate.WaitAsync(cancellationToken);
+        try
+        {
+            var found = new Dictionary<string, ObjectProperties>(StringComparer.Ordinal);
+            foreach (var (key, entry) in entries.Where(pair => IsFolderObjectKey(pair.Key)).ToList())
+            {
+                if (StampOf(key) is null)
+                {
+                    entries.Remove(key);
+                }
+                else
+                {
+                    found.Add(key, PropertiesOf(key, entry));
+                }
+            }
+
+            return found;
+        }
+        finally
+        {
+            gate.Release();
+        }
+    }
+
+    /// <summary>
+    /// Whether <paramref name="key"/> names a folder object the index can keep: a key
+    /// <see cref="IsValidKey"/> accepts, then a final <c>/</c>.
+    /// </summary>
+    /// <param name="key">The key to check.</param>
+    /// <returns><see langword="true"/> when the key is valid.</returns>
+    public static bool IsValidFolderObjectKey(string key)
+    {
+        ArgumentNullException.ThrowIfNull(key);
+        return IsFolderObjectKey(key) && IsValidKey(key[..^1]);
+    }
+
+    private async Task<ObjectMetadataStoreResult> StoreEntryAsync(string key, ObjectMetadata metadata, CancellationToken cancellationToken)
+    {
         ArgumentNullException.ThrowIfNull(metadata);
         if (metadata.ETag is not null && !IsValidETag(metadata.ETag))
         {
@@ -249,8 +331,7 @@ public sealed class ObjectMetadataIndex
         await gate.WaitAsync(cancellationToken);
         try
         {
-            var path = FullPathOf(key);
-            if (!TryReadStamp(path, out var length, out var lastWriteTicks))
+            if (StampOf(key) is not var (length, lastWriteTicks))
             {
                 return new ObjectMetadataStoreResult(ObjectMetadataStoreOutcome.NoSuchFile, null, null);
             }
@@ -260,7 +341,7 @@ public sealed class ObjectMetadataIndex
                 return new ObjectMetadataStoreResult(ObjectMetadataStoreOutcome.MetadataIndexFull, null, null);
             }
 
-            var eTag = metadata.ETag ?? await ComputeETagAsync(path, cancellationToken);
+            var eTag = metadata.ETag ?? await DefaultETagAsync(key, cancellationToken);
             var entry = new ObjectMetadataEntry(
                 length, lastWriteTicks, metadata.Generation ?? GenerationOf(lastWriteTicks), eTag,
                 fields[0], fields[1], fields[2], fields[3], fields[4], userMetadata);
@@ -290,8 +371,7 @@ public sealed class ObjectMetadataIndex
         await gate.WaitAsync(cancellationToken);
         try
         {
-            var path = FullPathOf(key);
-            if (!TryReadStamp(path, out var length, out var lastWriteTicks))
+            if (StampOf(key) is not var (length, lastWriteTicks))
             {
                 entries.Remove(key);
                 return new ObjectMetadataReading(null, null);
@@ -304,7 +384,7 @@ public sealed class ObjectMetadataIndex
 
             entries.Remove(key);
             var entry = new ObjectMetadataEntry(
-                length, lastWriteTicks, GenerationOf(lastWriteTicks), await ComputeETagAsync(path, cancellationToken),
+                length, lastWriteTicks, GenerationOf(lastWriteTicks), await ComputeETagAsync(FullPathOf(key), cancellationToken),
                 null, null, null, null, null, []);
             string? failure = null;
             if (entries.Count < MaxEntries)
@@ -422,19 +502,29 @@ public sealed class ObjectMetadataIndex
 
     private string FullPathOf(string key) => Path.Join([servedRoot, .. key.Split('/')]);
 
-    private bool TryReadStamp(string path, out long length, out long lastWriteTicks)
+    private static bool IsFolderObjectKey(string key) => key.EndsWith('/');
+
+    // A file's length and last write time; a folder object's 0 and its folder's last write time.
+    // Null when no entry of the key's kind is there.
+    private (long Length, long LastWriteTicks)? StampOf(string key)
     {
-        if (fileSystem.GetEntryKind(path) != ContentEntryKind.File)
+        var isFolderObject = IsFolderObjectKey(key);
+        var path = FullPathOf(isFolderObject ? key[..^1] : key);
+        if (fileSystem.GetEntryKind(path) != (isFolderObject ? ContentEntryKind.Directory : ContentEntryKind.File))
         {
-            length = 0;
-            lastWriteTicks = 0;
-            return false;
+            return null;
         }
 
-        length = fileSystem.GetFileLength(path);
-        lastWriteTicks = fileSystem.GetLastWriteTimeUtc(path).UtcTicks;
-        return true;
+        return (isFolderObject ? 0 : fileSystem.GetFileLength(path), fileSystem.GetLastWriteTimeUtc(path).UtcTicks);
     }
+
+    // A folder object lasts while its folder exists, whatever is written inside it; a file's
+    // entry while its stamp matches.
+    private bool IsCurrent(string key, ObjectMetadataEntry entry) =>
+        StampOf(key) is var (length, lastWriteTicks) && (IsFolderObjectKey(key) || entry.Describes(length, lastWriteTicks));
+
+    private Task<string> DefaultETagAsync(string key, CancellationToken cancellationToken) =>
+        IsFolderObjectKey(key) ? Task.FromResult(EmptyETag) : ComputeETagAsync(FullPathOf(key), cancellationToken);
 
     private bool HasRoomAfterDroppingStaleEntries()
     {
@@ -445,7 +535,7 @@ public sealed class ObjectMetadataIndex
 
         foreach (var (key, entry) in entries.ToList())
         {
-            if (!TryReadStamp(FullPathOf(key), out var length, out var lastWriteTicks) || !entry.Describes(length, lastWriteTicks))
+            if (!IsCurrent(key, entry))
             {
                 entries.Remove(key);
             }

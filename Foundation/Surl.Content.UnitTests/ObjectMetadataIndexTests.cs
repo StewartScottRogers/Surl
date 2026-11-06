@@ -351,6 +351,117 @@ public sealed class ObjectMetadataIndexTests
     }
 
     [TestMethod]
+    public async Task StoreFolderObjectAsync_ThenReadFolderObjectsAsync_ReadsTheFolderObjectWithLengthZeroAndTheEmptyETag()
+    {
+        var fixture = new Fixture(persists: false);
+        fixture.FileSystem.CreateDirectory(Path.Join(Root, "b", "x"));
+        fixture.Time.Now = Start.AddMinutes(1);
+
+        var stored = await fixture.Index.StoreFolderObjectAsync("b/x/", new ObjectMetadata { CacheControl = "no-cache" }, CancellationToken.None);
+        await fixture.UploadAsync("b/x/inside.txt", "hello"u8.ToArray());
+        var folderObjects = await fixture.Index.ReadFolderObjectsAsync(CancellationToken.None);
+
+        Assert.AreEqual(ObjectMetadataStoreOutcome.Stored, stored.Outcome);
+        Assert.HasCount(1, folderObjects);
+        var properties = folderObjects["b/x/"];
+        Assert.AreEqual(stored.Properties, properties);
+        Assert.AreEqual(0, properties.Length);
+        Assert.AreEqual("\"d41d8cd98f00b204e9800998ecf8427e\"", properties.ETag);
+        Assert.AreEqual("no-cache", properties.CacheControl);
+        Assert.AreEqual(Start, properties.LastWriteTimeUtc);
+        Assert.AreEqual(StartGeneration, properties.Generation);
+    }
+
+    [TestMethod]
+    public async Task StoreFolderObjectAsync_NoFolderAtTheKey_IsNoSuchFile()
+    {
+        var fixture = new Fixture(persists: false);
+        await fixture.UploadAsync("b/file", "hello"u8.ToArray());
+
+        var missing = await fixture.Index.StoreFolderObjectAsync("b/missing/", new ObjectMetadata(), CancellationToken.None);
+        var file = await fixture.Index.StoreFolderObjectAsync("b/file/", new ObjectMetadata(), CancellationToken.None);
+
+        Assert.AreEqual(ObjectMetadataStoreOutcome.NoSuchFile, missing.Outcome);
+        Assert.AreEqual(ObjectMetadataStoreOutcome.NoSuchFile, file.Outcome);
+        Assert.AreEqual(0, fixture.Index.Count);
+    }
+
+    [TestMethod]
+    public async Task StoreFolderObjectAsync_KeyNotAFolderObjectKey_Throws()
+    {
+        var fixture = new Fixture(persists: false);
+
+        await Assert.ThrowsExactlyAsync<ArgumentException>(() => fixture.Index.StoreFolderObjectAsync("b/x", new ObjectMetadata(), CancellationToken.None));
+        await Assert.ThrowsExactlyAsync<ArgumentNullException>(() => fixture.Index.StoreFolderObjectAsync(null!, new ObjectMetadata(), CancellationToken.None));
+        await Assert.ThrowsExactlyAsync<ArgumentException>(() => fixture.Index.StoreAsync("b/x/", new ObjectMetadata(), CancellationToken.None));
+    }
+
+    [TestMethod]
+    public async Task ReadFolderObjectsAsync_FolderRemoved_DropsItsFolderObjectAndLeavesFileEntries()
+    {
+        var fixture = new Fixture(persists: false);
+        fixture.FileSystem.CreateDirectory(Path.Join(Root, "b", "x"));
+        await fixture.UploadAsync("b/y.txt", "hello"u8.ToArray());
+        await fixture.Index.StoreFolderObjectAsync("b/x/", new ObjectMetadata(), CancellationToken.None);
+        await fixture.Index.StoreAsync("b/y.txt", new ObjectMetadata(), CancellationToken.None);
+        fixture.FileSystem.RemoveEmptyDirectory(Path.Join(Root, "b", "x"));
+
+        var folderObjects = await fixture.Index.ReadFolderObjectsAsync(CancellationToken.None);
+
+        Assert.IsEmpty(folderObjects);
+        Assert.AreEqual(1, fixture.Index.Count);
+    }
+
+    [TestMethod]
+    public async Task StoreAsync_IndexFullOfAFolderObject_DropsItOnlyOnceItsFolderIsGone()
+    {
+        var fixture = new Fixture(persists: false, maxEntries: 1);
+        fixture.FileSystem.CreateDirectory(Path.Join(Root, "b", "x"));
+        await fixture.UploadAsync("b/y.txt", "hello"u8.ToArray());
+        await fixture.Index.StoreFolderObjectAsync("b/x/", new ObjectMetadata(), CancellationToken.None);
+
+        var whileTheFolderStands = await fixture.Index.StoreAsync("b/y.txt", new ObjectMetadata(), CancellationToken.None);
+        fixture.FileSystem.RemoveEmptyDirectory(Path.Join(Root, "b", "x"));
+        var onceItIsGone = await fixture.Index.StoreAsync("b/y.txt", new ObjectMetadata(), CancellationToken.None);
+
+        Assert.AreEqual(ObjectMetadataStoreOutcome.MetadataIndexFull, whileTheFolderStands.Outcome);
+        Assert.AreEqual(ObjectMetadataStoreOutcome.Stored, onceItIsGone.Outcome);
+    }
+
+    [TestMethod]
+    public async Task LoadAsync_FolderObjectWrittenBefore_ReadsItBack()
+    {
+        var fixture = new Fixture(persists: true);
+        fixture.FileSystem.CreateDirectory(Path.Join(Root, "b", "x"));
+        await fixture.UploadAsync("b/x.txt", "hello"u8.ToArray());
+        await fixture.Index.StoreAsync("b/x.txt", new ObjectMetadata(), CancellationToken.None);
+        await fixture.Index.StoreFolderObjectAsync("b/x/", new ObjectMetadata(), CancellationToken.None);
+
+        var reloaded = await fixture.ReloadAsync();
+
+        Assert.AreEqual(2, reloaded.Count);
+        Assert.IsTrue((await reloaded.ReadFolderObjectsAsync(CancellationToken.None)).ContainsKey("b/x/"));
+    }
+
+    [TestMethod]
+    [DataRow("b/x/", true)]
+    [DataRow("x/", true)]
+    [DataRow("b/x", false)]
+    [DataRow("/", false)]
+    [DataRow("b//", false)]
+    [DataRow(".surl/", false)]
+    public void IsValidFolderObjectKey_Key_IsAFolderKeyAndAFinalSlash(string key, bool isValid)
+    {
+        Assert.AreEqual(isValid, ObjectMetadataIndex.IsValidFolderObjectKey(key));
+    }
+
+    [TestMethod]
+    public void IsValidFolderObjectKey_Null_Throws()
+    {
+        Assert.ThrowsExactly<ArgumentNullException>(() => ObjectMetadataIndex.IsValidFolderObjectKey(null!));
+    }
+
+    [TestMethod]
     public async Task StoreAsync_NoFileAtTheKey_IsNoSuchFile()
     {
         var fixture = new Fixture(persists: false);

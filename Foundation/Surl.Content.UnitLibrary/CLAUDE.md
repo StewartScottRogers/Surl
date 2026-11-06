@@ -125,3 +125,11 @@ key order - key, length (8, signed), last write UTC ticks (8, signed), generatio
 ETag, the five header fields (empty is absent), a 2-byte user-metadata count and its name and
 value pairs in strictly ascending ordinal order of name; every string is a 2-byte UTF-8
 length then its bytes, every integer big-endian.
+
+Folder objects (ADR-0108 Amendment 3, BL-728): `StoreFolderObjectAsync` records a folder a
+client put as an object (S3's zero-byte `x/`) under the folder's key and a final `/`
+(`IsValidFolderObjectKey`), with length 0, the empty-body MD5 ETag by default, and the folder's
+last write time when stored. It lasts while the folder exists, whatever is written inside;
+`ReadFolderObjectsAsync` answers every one whose folder is still there and drops the rest, and a
+full index drops them first. The index file holds them as ordinary entries; `ReadAsync` and
+`StoreAsync` never take a folder key.
