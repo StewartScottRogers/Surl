@@ -8,7 +8,7 @@ depends-on: [BL-635]
 touches: [Conformance/Surl.Conformance.UnitTests]
 requirement: none
 created: 2026-11-04
-completed:
+completed: 2026-11-05
 ---
 # BL-640 — Prove with pinned upstream curl that an MQTT message published on one listener is read on another
 
@@ -31,13 +31,25 @@ message bus, in memory and across a restart with `--directory`.
 
 ## Acceptance criteria
 
-- [ ] The class exists with a named test per case above, each asserting curl's exit code and the subscriber's
+- [x] The class exists with a named test per case above, each asserting curl's exit code and the subscriber's
       stdout equal to the published payload as ADR-0014 frames it.
-- [ ] `dotnet build -warnaserror` is clean and `dotnet test --filter "TestCategory!=Integration"` is green.
+- [x] `dotnet build -warnaserror` is clean and `dotnet test --filter "TestCategory!=Integration"` is green.
 
 ## Notes
+
+- Class `UpstreamCurlSharesTopicsAcrossSurlListenersTests` (Integration, like its model), four tests, all four
+  run and pass against pinned upstream curl 8.21.0 on Windows: two `mqtt` listeners in memory; `mqtt` publish to
+  `mqtts` subscribe (`--self-signed`, curl `-k`); publish on listener 1, restart over `--directory`, subscribe on
+  listener 2; an old `.surl/mqtt/retained-messages` (`SURL-MQTT-RETAINED-1\n` format) served on both listeners.
+- Decision (sensible default): the topic is `t`, not `a/b`, so every expected exit code and stdout is a measured
+  recording read from `Surl.Protocol.Mqtt.UnitTests/Fixtures` (`publish-hi`, `subscribe-t`, `mqtts-subscribe-t`)
+  rather than bytes re-framed by hand for another topic (measure before pinning a byte). The topic name plays no
+  part in what crosses listeners.
+- Added `SurlOnLoopback.StartInMemoryAsync(schemes, options, ct)` (same project) to start several listeners
+  without `--directory`.
 
 ## Log
 
 - 2026-11-04: Created.
 - 2026-11-05: Backlog -> Doing.
+- 2026-11-05: Doing -> Done. Pinned upstream curl publishes on one surl MQTT listener and reads it on another (mqtt, mqtts, after restart, from an old retained-messages file)
