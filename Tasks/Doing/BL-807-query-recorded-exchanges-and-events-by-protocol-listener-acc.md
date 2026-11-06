@@ -52,3 +52,4 @@ mail for bob arrived over SMTP within 5 seconds" are one line and never poll.
 ## Log
 
 - 2026-11-05: Created.
+- 2026-11-06: Backlog -> Doing.
