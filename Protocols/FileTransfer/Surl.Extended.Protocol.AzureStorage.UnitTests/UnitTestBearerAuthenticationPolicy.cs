@@ -26,6 +26,13 @@ internal sealed class UnitTestBearerAuthenticationPolicy(bool allowsAnonymous) :
 
     public List<TlsSession?> StartedConnections { get; } = [];
 
+    /// <summary>
+    /// The named accounts <see cref="NamesAccount"/> knows, which a path-style request's first segment may name.
+    /// </summary>
+    public HashSet<string> NamedAccounts { get; } = new(StringComparer.Ordinal);
+
+    public bool NamesAccount(string name) => NamedAccounts.Contains(name);
+
     public ValueTask<PasswordLoginVerdict> CheckPasswordLoginAsync(PasswordLogin login, CancellationToken cancellationToken) =>
         throw new NotSupportedException();
 

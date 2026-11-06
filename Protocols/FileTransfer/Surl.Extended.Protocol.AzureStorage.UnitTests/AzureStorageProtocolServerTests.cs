@@ -229,6 +229,32 @@ public sealed class AzureStorageProtocolServerTests
     }
 
     [TestMethod]
+    public async Task ServeAsync_WrongBearerTokenUnderAllowAnonymous_Is401InvalidAuthenticationInfoWithTheChallenge()
+    {
+        var harness = new AzureServerHarness(allowsAnonymous: true);
+        harness.CreateFolder("photos");
+        harness.WriteFile("photos/a.txt", "hello world");
+
+        var response = await harness.SendAsync("GET", "/photos/a.txt", "x-ms-version: 2025-01-05", "Authorization: Bearer wrong");
+
+        Assert.AreEqual(
+            AzureServerHarness.ExpectedError(response, "401 Unauthorized", "InvalidAuthenticationInfo", AuthenticationMessage, extraFields: BearerChallengeField),
+            response);
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_GoodBearerTokenUnderAllowAnonymous_IsServedAsTheAccount()
+    {
+        var harness = new AzureServerHarness(allowsAnonymous: true, accountName: "alice", exposure: AzureServerHarness.Writable);
+        harness.CreateFolder("photos");
+
+        var response = await harness.SendWithBearerAsync("PUT", "/photos/a.txt", "x-ms-blob-type: BlockBlob", "Content-Length: 0");
+
+        StringAssert.StartsWith(response, "HTTP/1.1 201 Created\r\n");
+        Assert.AreEqual(string.Empty, harness.ReadFile("photos/a.txt"));
+    }
+
+    [TestMethod]
     [DataRow("Basic YWxpY2U6c2VjcmV0", DisplayName = "another scheme")]
     [DataRow("Bearer  ", DisplayName = "a bearer with no token")]
     [DataRow("Digest username=\"alice\"", DisplayName = "Digest")]

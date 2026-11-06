@@ -21,9 +21,11 @@ namespace Surl.Extended.Protocol.AzureStorage;
 /// every other request with the Blob service's XML <c>Error</c>. On <c>abfs</c> and <c>abfss</c> it
 /// serves Path - Read, Path - Create, Path - Update's <c>append</c> and <c>flush</c>, Path - Delete
 /// and Path - List, refusing every other request with the Data Lake JSON error. Both check
-/// <c>x-ms-version</c> and <c>x-ms-date</c> and log in with a bearer token through the
-/// <see cref="IAuthenticationPolicy"/>'s HTTP session (or anonymously when the policy allows it).
-/// Shared Key and shared access signatures are BL-717's.
+/// <c>x-ms-version</c> and <c>x-ms-date</c> and log in with a bearer token, Shared Key or a shared
+/// access signature through the <see cref="IAuthenticationPolicy"/>'s HTTP session (or anonymously
+/// when the policy allows it and no credentials are sent). Both read the path-style form,
+/// <c>/&lt;account&gt;/&lt;container&gt;/&lt;blob&gt;</c> on an IP-literal or <c>localhost</c> host
+/// (<see cref="AzurePathStyle"/>).
 /// </para>
 /// <para>
 /// HTTP/1.1 framing, the head limit and timeouts are <see cref="Http1ConnectionServer"/>'s. As an
@@ -102,11 +104,12 @@ public sealed class AzureStorageProtocolServer : IConnectionProtocolServer, ICon
         var authentication = authenticationPolicy.StartHttpConnection(connection.TlsSession);
 
         var endpointScheme = connection.TlsSession is null ? "http" : "https";
+        var pathStyle = new AzurePathStyle(authenticationPolicy.NamesAccount);
 
         // The listen scheme decides the endpoint (ADR-0109, decision 1).
         IHttpRequestHandler answerer = context.Scheme == BlobScheme
-            ? new AzureBlobRequestAnswerer(store, index, authentication, context, endpointScheme, staging)
-            : new AzureDataLakeRequestAnswerer(store, index, authentication, context, staging);
+            ? new AzureBlobRequestAnswerer(store, index, authentication, context, endpointScheme, staging, pathStyle)
+            : new AzureDataLakeRequestAnswerer(store, index, authentication, context, staging, pathStyle);
 
         return new Http1ConnectionServer(answerer, context).ServeAsync(connection);
     }

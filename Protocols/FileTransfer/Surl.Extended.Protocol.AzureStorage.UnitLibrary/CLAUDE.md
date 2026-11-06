@@ -21,8 +21,8 @@ What the Blob endpoint serves now (BL-424, BL-425, BL-715, BL-716), on `az`:
 - The required headers: a malformed `x-ms-version` or `x-ms-date` is `400 InvalidHeaderValue`; a
   request with `Authorization` and no `x-ms-version` is `400 MissingRequiredHeader`.
 - The login (BL-424, BL-717) through `IAuthenticationPolicy.StartHttpConnection`'s session:
-  `AzureLoginJudge` sends each request with its `AzureStorageScope` - the `Host`'s first label as
-  the account a shared access signature names, the decoded resource path, the SAS permission
+  `AzureLoginJudge` sends each request with its `AzureStorageScope` - the `Host`'s first label (or the
+  path-style segment, below) as the account a shared access signature names, the decoded resource path, the SAS permission
   letters that grant the operation (`GrantingPermissionsOf`: `l` a listing `GET`, `r` any other read, `d` a
   delete, `aw` a Data Lake append, `w` any other write; `c` alone never grants a write) and the
   peer's address (`AzureStorageProtocolServer.PeerAddressOf`) - and `Surl.Authentication` judges
@@ -177,8 +177,17 @@ characters):
 Not yet: the conditional fields on Put Blob and Delete Blob and `x-ms-blob-content-md5` (filed
 from BL-425); `retainUncommittedData=true`, `beginFrom`, `x-ms-properties` on Path - Create, the conditional fields on
 the Data Lake writes and the JSON body on a Data Lake connection refused past a limit (BL-758);
-List Blobs' `include=uncommittedblobs`, properties on a directory or a filesystem, the path-style account segment, so a
-shared access signature on an IP-literal or `localhost` host names its account (BL-725).
+List Blobs' `include=uncommittedblobs`, properties on a directory or a filesystem.
+
+The path-style form (BL-725, ADR-0109 decision 2), on both endpoints: `AzurePathStyle.Read` runs
+before anything else. When the `Host` (port removed) is an IP literal (`127.0.0.1`, `[::1]`; four
+dotted parts for IPv4) or `localhost`, and the path's first segment, percent-decoded, is a named
+account's name (`IAuthenticationPolicy.NamesAccount`), that segment is removed and the rest of the
+path, with the query, is the target every operation reads. `AzureLoginJudge` then names that account
+in the `AzureStorageScope` (so a shared access signature on an IP-literal host is checked under it)
+and the resource path after it, while the session still receives the target as sent, which a Shared
+Key signature's canonicalized resource covers (`/<account>/<account>/<container>/<blob>`). A segment
+naming no account, or any other `Host`, leaves the target as it is.
 
 This library references `Surl.Protocol.Abstractions`, `Surl.Content` and `Surl.HttpServing`
 (and through it `Surl.HttpMessage`), nothing else (`ProtocolIsolationTests`). It never

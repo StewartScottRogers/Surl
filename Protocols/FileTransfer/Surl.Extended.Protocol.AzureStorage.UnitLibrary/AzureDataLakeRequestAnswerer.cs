@@ -23,6 +23,7 @@ internal sealed class AzureDataLakeRequestAnswerer : IHttpRequestHandler, IHttpH
     private readonly ContentStore store;
     private readonly ExchangeContext context;
     private readonly AzureLoginJudge login;
+    private readonly AzurePathStyle pathStyle;
     private readonly AzureBlobPropertiesReader properties;
     private readonly AzurePathCreate create;
     private readonly AzurePathUpdate update;
@@ -40,9 +41,11 @@ internal sealed class AzureDataLakeRequestAnswerer : IHttpRequestHandler, IHttpH
     /// <param name="authentication">The connection's authentication session.</param>
     /// <param name="context">The exchange: its scheme, clock and log.</param>
     /// <param name="staging">The server's staged appends.</param>
-    public AzureDataLakeRequestAnswerer(ContentStore store, ObjectMetadataIndex index, IHttpAuthenticationSession authentication, ExchangeContext context, AzureStagingArea staging)
+    /// <param name="pathStyle">Removes a path-style request's account segment.</param>
+    public AzureDataLakeRequestAnswerer(ContentStore store, ObjectMetadataIndex index, IHttpAuthenticationSession authentication, ExchangeContext context, AzureStagingArea staging, AzurePathStyle pathStyle)
     {
         this.store = store;
+        this.pathStyle = pathStyle;
         this.context = context;
         this.staging = staging;
         login = new AzureLoginJudge(authentication, context.Scheme, AzureStorageProtocolServer.PeerAddressOf(context));
@@ -63,14 +66,14 @@ internal sealed class AzureDataLakeRequestAnswerer : IHttpRequestHandler, IHttpH
     /// <inheritdoc/>
     public async Task<HttpAnswer> AnswerAsync(HttpRequest request, CancellationToken cancellationToken)
     {
-        var target = AzureBlobTarget.Parse(request.Target);
+        var (target, pathStyleAccount) = pathStyle.Read(request);
         var reply = new AzureReply(request, AzureReply.NewRequestId(), context.TimeProvider.GetUtcNow(), writesJsonErrors: true);
         if (AzureRequestChecks.CheckRequiredHeaders(request.Fields) is { } headerRefusal)
         {
             return reply.Error(headerRefusal);
         }
 
-        var loggedIn = await login.LogInAsync(request, reply, cancellationToken);
+        var loggedIn = await login.LogInAsync(request, target, pathStyleAccount, reply, cancellationToken);
         if (loggedIn.Refusal is not null)
         {
             return loggedIn.Refusal;

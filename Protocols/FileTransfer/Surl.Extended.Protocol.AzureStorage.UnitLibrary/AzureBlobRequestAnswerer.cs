@@ -36,6 +36,7 @@ internal sealed class AzureBlobRequestAnswerer : IHttpRequestHandler, IHttpHeadN
 
     private readonly ContentStore store;
     private readonly AzureLoginJudge login;
+    private readonly AzurePathStyle pathStyle;
     private readonly ExchangeContext context;
     private readonly AzureBlobPropertiesReader properties;
     private readonly AzurePutBlob putBlob;
@@ -54,9 +55,11 @@ internal sealed class AzureBlobRequestAnswerer : IHttpRequestHandler, IHttpHeadN
     /// <param name="context">The exchange: its clock and log.</param>
     /// <param name="endpointScheme">How the connection is served, <c>https</c> or <c>http</c>.</param>
     /// <param name="staging">The server's staged uploads, where Put Block keeps blocks until Put Block List commits them.</param>
-    public AzureBlobRequestAnswerer(ContentStore store, ObjectMetadataIndex index, IHttpAuthenticationSession authentication, ExchangeContext context, string endpointScheme, AzureStagingArea staging)
+    /// <param name="pathStyle">Removes a path-style request's account segment.</param>
+    public AzureBlobRequestAnswerer(ContentStore store, ObjectMetadataIndex index, IHttpAuthenticationSession authentication, ExchangeContext context, string endpointScheme, AzureStagingArea staging, AzurePathStyle pathStyle)
     {
         this.store = store;
+        this.pathStyle = pathStyle;
         login = new AzureLoginJudge(authentication, AzureStorageProtocolServer.BlobScheme, AzureStorageProtocolServer.PeerAddressOf(context));
         this.context = context;
         properties = new AzureBlobPropertiesReader(store, index, context.Log);
@@ -71,14 +74,14 @@ internal sealed class AzureBlobRequestAnswerer : IHttpRequestHandler, IHttpHeadN
     /// <inheritdoc/>
     public async Task<HttpAnswer> AnswerAsync(HttpRequest request, CancellationToken cancellationToken)
     {
-        var target = AzureBlobTarget.Parse(request.Target);
+        var (target, pathStyleAccount) = pathStyle.Read(request);
         var reply = new AzureReply(request, AzureReply.NewRequestId(), context.TimeProvider.GetUtcNow());
         if (AzureRequestChecks.CheckRequiredHeaders(request.Fields) is { } headerRefusal)
         {
             return reply.Error(headerRefusal);
         }
 
-        var loggedIn = await login.LogInAsync(request, reply, cancellationToken);
+        var loggedIn = await login.LogInAsync(request, target, pathStyleAccount, reply, cancellationToken);
         if (loggedIn.Refusal is not null)
         {
             return loggedIn.Refusal;
