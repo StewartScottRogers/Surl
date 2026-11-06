@@ -4,7 +4,7 @@ title: Run the Curl port's dns client against a live surl
 priority: Low
 assignee: Claude
 pipeline: feature
-depends-on: [BL-485, BL-406]
+depends-on: [BL-958, BL-959, BL-960, BL-961, BL-406]
 touches: [Conformance/Surl.Conformance.UnitTests, Documentation/Conformance/Extended/DnsQuery.md]
 requirement: none
 created: 2026-11-04
@@ -38,3 +38,4 @@ and the matrix is fully covered.
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-06: depends-on BL-485 replaced by BL-958, BL-959, BL-960, BL-961 (BL-485 split for the 60-minute size limit; Stewart asked for a backlog audit 2026-11-06).

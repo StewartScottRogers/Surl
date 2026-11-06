@@ -4,7 +4,7 @@ title: Write the control-endpoint stand-in recipe with pinned upstream curl driv
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-816]
+depends-on: [BL-977]
 touches: [Conformance/Surl.Conformance.UnitTests]
 requirement: none
 created: 2026-11-05
@@ -44,3 +44,4 @@ watch the exchange through the control endpoint, and reset.
 ## Log
 
 - 2026-11-05: Created.
+- 2026-11-06: depends-on BL-816 replaced by BL-977 (BL-816 split into BL-957, BL-964, BL-972, BL-977 after timing out; Stewart asked for the split 2026-11-06).

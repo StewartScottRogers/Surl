@@ -4,7 +4,7 @@ title: Run the Curl port's mqtt5 client against a live surl
 priority: Low
 assignee: Claude
 pipeline: feature
-depends-on: [BL-501, BL-406]
+depends-on: [BL-975, BL-406]
 touches: [Conformance/Surl.Conformance.UnitTests, Documentation/Conformance/Extended/Mqtt5.md]
 requirement: none
 created: 2026-11-04
@@ -40,3 +40,4 @@ Each assertion comes from MQTT 5.0, and the matrix is fully covered.
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-06: depends-on BL-501 replaced by BL-975 (BL-501 split for the 60-minute size limit; Stewart asked for a backlog audit 2026-11-06).

@@ -4,7 +4,7 @@ title: Run the Curl port's gs client against a live surl
 priority: Low
 assignee: Claude
 pipeline: feature
-depends-on: [BL-433, BL-406]
+depends-on: [BL-968, BL-406]
 touches: [Conformance/Surl.Conformance.UnitTests, Documentation/Conformance/Extended/GoogleCloudStorage.md]
 requirement: none
 created: 2026-11-04
@@ -38,3 +38,4 @@ pages, and the matrix is fully covered.
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-06: depends-on BL-433 replaced by BL-968 (BL-433 split for the 60-minute size limit; Stewart asked for a backlog audit 2026-11-06).

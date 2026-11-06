@@ -4,7 +4,7 @@ title: Serve SOCKS4 and SOCKS5 from the surl executable
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-559, BL-555]
+depends-on: [BL-559, BL-1004]
 touches: [Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests, Application/Surl.Console, Application/Surl.Console.UnitTests, Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests]
 requirement: none
 created: 2026-11-04
@@ -60,3 +60,4 @@ and limits, over TCP, and `surl --aihelp` documents it.
 - 2026-11-04: Created.
 - 2026-11-06: Backlog -> Doing.
 - 2026-11-06: Doing -> Backlog. Needs Application/Surl.Composition.UnitLibrary and .UnitTests, which BL-803 (Doing) touches; also waits on BL-555 for the shared -x/-U proxy options
+- 2026-11-06: depends-on BL-555 replaced by BL-1004 (BL-555 split for the 60-minute size limit; Stewart asked for a backlog audit 2026-11-06).

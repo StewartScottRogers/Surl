@@ -4,7 +4,7 @@ title: Run the Curl port's s3, az and gs clients against files uploaded to surl 
 priority: Low
 assignee: Claude
 pipeline: feature
-depends-on: [BL-638, BL-421, BL-427, BL-433]
+depends-on: [BL-638, BL-421, BL-965, BL-968]
 touches: [Conformance/Surl.Conformance.UnitTests]
 requirement: none
 created: 2026-11-04
@@ -42,3 +42,5 @@ the shared content store seen from both families of client.
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-06: depends-on BL-427 replaced by BL-965 (BL-427 split for the 60-minute size limit; Stewart asked for a backlog audit 2026-11-06).
+- 2026-11-06: depends-on BL-433 replaced by BL-968 (BL-433 split for the 60-minute size limit; Stewart asked for a backlog audit 2026-11-06).

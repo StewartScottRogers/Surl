@@ -4,7 +4,7 @@ title: Run the Curl port's amqp, stomp, nats, kafka and mqtt5 clients against me
 priority: Low
 assignee: Claude
 pipeline: feature
-depends-on: [BL-640, BL-501, BL-507, BL-514, BL-522, BL-528, BL-533]
+depends-on: [BL-640, BL-975, BL-507, BL-514, BL-973, BL-528, BL-533]
 touches: [Conformance/Surl.Conformance.UnitTests]
 requirement: none
 created: 2026-11-04
@@ -44,3 +44,5 @@ families of client.
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-06: depends-on BL-522 replaced by BL-973 (BL-522 split for the 60-minute size limit; Stewart asked for a backlog audit 2026-11-06).
+- 2026-11-06: depends-on BL-501 replaced by BL-975 (BL-501 split for the 60-minute size limit; Stewart asked for a backlog audit 2026-11-06).
