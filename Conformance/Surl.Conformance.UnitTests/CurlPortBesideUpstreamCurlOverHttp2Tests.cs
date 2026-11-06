@@ -260,7 +260,7 @@ public sealed class CurlPortBesideUpstreamCurlOverHttp2Tests
     /// are TLS's and are not compared (decision 4). On <c>http</c> they are compared as
     /// <see cref="DecodedRequestFrames"/>, not byte for byte: HPACK Huffman-codes <c>:authority</c>, which
     /// holds each run's own relay port, so the raw bytes of two runs of one client differ (ADR-0089
-    /// amendment 2). A difference there is a port defect like any other.
+    /// amendment 4). A difference there is a port defect like any other.
     /// </summary>
     private async Task MeasureAsync(CurlPortMeasurementCase measurementCase)
     {
