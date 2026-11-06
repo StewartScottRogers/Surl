@@ -8,7 +8,7 @@ depends-on: []
 touches: [Foundation/Surl.Protocol.Abstractions.UnitLibrary, Foundation/Surl.Protocol.Abstractions.UnitTests, Application/Surl.Control.UnitLibrary, Application/Surl.Control.UnitTests]
 requirement: none
 created: 2026-11-06
-completed:
+completed: 2026-11-06
 ---
 # BL-946 — Add the consumer group event and the committed-offset store change to the event contracts
 
@@ -32,20 +32,27 @@ coordinator (BL-948) and the bus's committed offsets (BL-947) have contracts to 
 
 ## Acceptance criteria
 
-- [ ] `ConsumerGroupChangedEvent`, `ConsumerGroupChange` and `StoreChange.Committed` exist in
+- [x] `ConsumerGroupChangedEvent`, `ConsumerGroupChange` and `StoreChange.Committed` exist in
       `Foundation/Surl.Protocol.Abstractions.UnitLibrary` with XML doc comments citing ADR-0145 decision 10, and an
       Abstractions test pins `ConsumerGroupChange`'s six members in that order.
-- [ ] A `ControlEventKindsTests` test shows `consumer_group_changed` in `Known`, the event's exchange id and account
+- [x] A `ControlEventKindsTests` test shows `consumer_group_changed` in `Known`, the event's exchange id and account
       read back, and a `ControlEventWriterTests` test pins the JSON written for one event of each change.
-- [ ] A `ControlEventWriterTests` test pins a `StoreChangedEvent` with `Committed` written as `"change":"committed"`.
-- [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and both libraries keep 100% line and branch
+- [x] A `ControlEventWriterTests` test pins a `StoreChangedEvent` with `Committed` written as `"change":"committed"`.
+- [x] `dotnet build -warnaserror` is clean, the fast tests are green, and both libraries keep 100% line and branch
       coverage.
 
 ## Notes
 
 - Filed by BL-701 (ADR-0145).
+- Delivered directly (a contract and its writer, about 60 lines): the pipeline's plan is ADR-0145 decision 10 itself, so no separate protocol-architect plan was needed.
+- Choice: `ControlEventJson` gains `group`, `member_id` and `generation_id` at its end, so no existing event's JSON changes (null members are left out). A consumer group event writes `exchange_id`, `scheme`, `account`, `change`, `group`, `member_id`, `generation_id`, reusing `change` for the `ConsumerGroupChange` as `store_changed` does for `StoreChange`.
+- `ControlEventKinds.AccountOf` returns the event's `Account`, so `?account=` matches group changes.
+- The `kind=nope` refusal's list in `ControlEventRequestsTests` now begins with `consumer_group_changed`.
+- Coverage: Surl.Control.UnitLibrary and Surl.Protocol.Abstractions.UnitLibrary 100% line and branch (Code Coverage collector, cobertura).
+- Follow-up filed: BL-963, the same kind in Surl.Mcp's `get_events` (outside this task's `touches`).
 
 ## Log
 
 - 2026-11-06: Created.
 - 2026-11-06: Backlog -> Doing.
+- 2026-11-06: Doing -> Done. ConsumerGroupChangedEvent, ConsumerGroupChange and StoreChange.Committed exist; the control endpoint writes and filters consumer_group_changed
