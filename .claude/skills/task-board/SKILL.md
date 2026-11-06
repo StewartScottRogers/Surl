@@ -44,7 +44,12 @@ appends to it, so hand-written entries go there too, never above it.
 ## What makes a good task
 
 - **Sized for one `/task-run`.** One pipeline run; for code, ideally one library and
-  its `.UnitTests` twin. If the goal needs "and then", split it.
+  its `.UnitTests` twin. If the goal needs "and then", split it. Aim for about 60
+  minutes of a lane's work (it is cut off at 120). That means at most two projects, one
+  protocol, about 300 lines of new production code, one kind of work and six
+  acceptance criteria. The kinds are a decision record; code with its unit tests; a
+  pinned-curl or Curl-port run; help text; prose docs. `task-planner` lists the
+  reasons (`.claude/agents/task-planner.md`, step 3).
 - **Ready means a stranger could finish it** without asking a question.
 - **Acceptance criteria are checkable from the repository**: a named test that passes,
   a command and its expected result, the `SurlExitCode` a failure returns, bytes

@@ -33,6 +33,22 @@ You turn intent into tasks. You write files under `Tasks/` and nothing else.
    its `.UnitTests` twin. Order by dependency: abstractions before implementations,
    the command-line option before the behaviour behind it, a decision before the work
    that waits on it.
+   **Size each task for about 60 minutes of a lane's work.** A lane is cut off at 120
+   minutes, and measuring coverage, formatting and verifying take a third of a run.
+   Four tasks timed out on 2026-11-05/06 (BL-395, BL-653, BL-595, BL-597), and each
+   broke at least two of these limits, so split until every task keeps all of them:
+   - **Two projects at most**: one library and its `.UnitTests` twin. A third only for a
+     one-line registration, such as a composition list or `Surl.slnx`.
+   - **One protocol per task** when the work repeats per protocol (SMTP, then POP3,
+     then IMAP), with a shared harness or library task first.
+   - **About 300 lines of new production code at most.** Every branch needs tests to
+     100% line and branch coverage, so the tests are usually the bigger half.
+   - **One kind of work per task.** Keep these apart: a decision record; production
+     code with its unit tests; a run against pinned upstream curl or the Curl port
+     (slow, `Integration`); `--help`, `--manual` and `--aihelp` text; prose docs.
+   - **Six acceptance criteria at most.** A title that joins two deliverables with
+     "and" is two tasks.
+   When a lane's run has already started similar work, size from what it got through.
 4. **Separate the decisions.** Design and behaviour questions are delegated to Claude
    (root `CLAUDE.md`, "Decisions"): each becomes a `-Assignee Claude -Pipeline docs` task
    that decides by the standing rules and records an ADR. Only a new NuGet package, a
