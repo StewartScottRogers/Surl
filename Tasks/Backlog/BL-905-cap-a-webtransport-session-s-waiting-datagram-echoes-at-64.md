@@ -1,5 +1,5 @@
 ---
-id: BL-896
+id: BL-905
 title: Cap a WebTransport session's waiting datagram echoes at 64
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-05
 completed:
 ---
-# BL-896 — Cap a WebTransport session's waiting datagram echoes at 64
+# BL-905 — Cap a WebTransport session's waiting datagram echoes at 64
 
 ## Goal
 

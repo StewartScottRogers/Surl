@@ -70,7 +70,7 @@ honouring the flow-control capsules. It requires a login on the CONNECT unless `
     (they are bounded by `--max-message` per capsule already). "Reaches" is `>=`.
   - `WebTransportConnectJudgement.Judge` was removed: the login sits between its two checks, so the handler
     calls `IsOwnOrigin` and `IsAcceptedPath` directly.
-- Follow-ups filed: BL-896 (the 64-datagram echo cap of decision 8, conformance row Surl-8-3) and BL-897
+- Follow-ups filed: BL-905 (the 64-datagram echo cap of decision 8, conformance row Surl-8-3) and BL-906
   (point the conformance matrix's BL-460 rows at these tests; `Documentation/Conformance` was held by
   BL-879, so this lane left it alone).
 

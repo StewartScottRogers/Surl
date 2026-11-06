@@ -75,7 +75,7 @@ Flow control, the session limit, authentication and the limits (BL-460, ADR-0117
 - Whatever the flow control, a session whose stream payload and HTTP datagrams reach `--max-filesize`
   is closed `WT_CLOSE_SESSION` code 1 `session data limit reached`, then FIN.
 
-Still to come: the 64-datagram echo queue a session (BL-896); closing the
+Still to come: the 64-datagram echo queue a session (BL-905); closing the
 connection for unmet requirements, the `:scheme` check, datagrams held before their CONNECT and
 serving through the shutdown grace, once `Surl.Http3` offers them (BL-894, BL-895).
 

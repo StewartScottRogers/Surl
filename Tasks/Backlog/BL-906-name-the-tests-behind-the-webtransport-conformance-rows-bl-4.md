@@ -1,5 +1,5 @@
 ---
-id: BL-897
+id: BL-906
 title: Name the tests behind the WebTransport conformance rows BL-460 covers
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-05
 completed:
 ---
-# BL-897 — Name the tests behind the WebTransport conformance rows BL-460 covers
+# BL-906 — Name the tests behind the WebTransport conformance rows BL-460 covers
 
 ## Goal
 
@@ -36,11 +36,11 @@ now cover it instead.
   - `WTH3-6-4` (code 1) and `Surl-8-1`: `WebTransportSessionTests.ServeStreamAsync_PayloadReachesMaxFilesize_ClosesTheSessionWithCode1ThenFin`, `ServeAsync_DatagramsReachMaxFilesize_CloseTheSessionWithCode1`;
   - `Surl-7-1` to `Surl-7-3`: `WebTransportConnectAuthenticationTests` (the refusal delay is the policy's, `Surl.Authentication`);
   - `Surl-8-2`: `WebTransportSessionTests.ServeAsync_CapsulePastTheMessageLimit_EndsTheSessionOnTheResetSurlHttp3Sent`;
-  - `Surl-8-3`: the stream half is `WebTransportSession.EchoChunkLength`; the datagram half is BL-896.
+  - `Surl-8-3`: the stream half is `WebTransportSession.EchoChunkLength`; the datagram half is BL-905.
 
 ## Acceptance criteria
 
-- [ ] No row of `Documentation/Conformance/Extended/WebTransport.md` names BL-460; each names the tests above, and `Surl-8-3`'s datagram half names BL-896.
+- [ ] No row of `Documentation/Conformance/Extended/WebTransport.md` names BL-460; each names the tests above, and `Surl-8-3`'s datagram half names BL-905.
 
 ## Notes
 
