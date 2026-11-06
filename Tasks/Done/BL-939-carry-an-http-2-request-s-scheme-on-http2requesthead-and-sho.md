@@ -8,7 +8,7 @@ depends-on: []
 touches: [Protocols/Http/Surl.Http2.UnitLibrary, Protocols/Http/Surl.Http2.UnitTests]
 requirement: none
 created: 2026-11-06
-completed:
+completed: 2026-11-06
 ---
 # BL-939 — Carry an HTTP/2 request's :scheme on Http2RequestHead and show Surl.Http2's internals to the proxy's tests
 
@@ -41,15 +41,20 @@ can forward an HTTP/2 request by its scheme (BL-940).
 
 ## Acceptance criteria
 
-- [ ] `Http2RequestHeadMappingTests` asserts `head.Scheme` is `"http"` for the mapped GET and null for
+- [x] `Http2RequestHeadMappingTests` asserts `head.Scheme` is `"http"` for the mapped GET and null for
       the mapped `CONNECT`, and passes.
-- [ ] `Surl.Http2.UnitLibrary.csproj` has `<InternalsVisibleTo Include="Surl.Protocol.HttpProxy.UnitTests" />`.
-- [ ] `dotnet build Protocols/Http/Surl.Http2.UnitLibrary -warnaserror` is clean, the fast tests are
+- [x] `Surl.Http2.UnitLibrary.csproj` has `<InternalsVisibleTo Include="Surl.Protocol.HttpProxy.UnitTests" />`.
+- [x] `dotnet build Protocols/Http/Surl.Http2.UnitLibrary -warnaserror` is clean, the fast tests are
       green, and `Surl.Http2.UnitLibrary` keeps 100% line and branch coverage.
 
 ## Notes
+
+- The stash could not be read from this lane (git stash list was denied), so the four changes were written by hand to the specification above: an init-only `Scheme` on `Http2RequestHead` (kept off the positional parameters so no existing constructor call changes), set by `Http2RequestHeadMapping` from `:scheme`; the `InternalsVisibleTo`; and the two assertions. The projects CLAUDE.md now names the new visible-to project and `Scheme`.
+- Coverage: `Http2RequestHead` and `Http2RequestHeadMapping` are 100% line and branch with `Surl.Http2.UnitTests`; the change adds no branch.
+- `Surl.Extended.Protocol.Nats.UnitTests` failed one test once under the full fast run and passed in three isolated reruns and a second full run; it does not reference Surl.Http2.
 
 ## Log
 
 - 2026-11-06: Created.
 - 2026-11-06: Backlog -> Doing.
+- 2026-11-06: Doing -> Done. Http2RequestHead carries :scheme (null for CONNECT) and Surl.Protocol.HttpProxy.UnitTests sees Surl.Http2's internals

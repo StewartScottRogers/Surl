@@ -16,4 +16,11 @@ public sealed record Http2RequestHead(
     string? Authority,
     IReadOnlyList<KeyValuePair<string, string>> Fields,
     long? ContentLength,
-    bool ExpectsContinue);
+    bool ExpectsContinue)
+{
+    /// <summary>
+    /// Gets the <c>:scheme</c> a proxy forwards the request by (RFC 9113 section 8.3.1), or
+    /// <see langword="null"/> for a <c>CONNECT</c>, which carries none (section 8.5).
+    /// </summary>
+    public string? Scheme { get; init; }
+}

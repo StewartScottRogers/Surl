@@ -117,7 +117,7 @@ public static class Http2RequestHeadMapping
 
         var target = method == "CONNECT" ? pseudoHeaders[":authority"] : pseudoHeaders[":path"];
 
-        return (new Http2RequestHead(method, target, Authority(pseudoHeaders, fields), fields, contentLength, ExpectsContinue(fields)), null);
+        return (new Http2RequestHead(method, target, Authority(pseudoHeaders, fields), fields, contentLength, ExpectsContinue(fields)) { Scheme = pseudoHeaders.GetValueOrDefault(":scheme") }, null);
     }
 
     private static string? ConnectMalformation(Dictionary<string, string> pseudoHeaders) =>

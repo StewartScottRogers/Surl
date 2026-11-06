@@ -3,11 +3,13 @@
   <!--
     Surl.Protocol.Http.UnitTests drives the HTTP/2 connection through the HTTP server with bytes
     recorded from pinned upstream curl, and encodes and parses frames with this library's codec
-    to do it, so it sees the internals too (BL-409).
+    to do it, so it sees the internals too (BL-409). Surl.Protocol.HttpProxy.UnitTests drives the
+    HTTPS proxy's HTTP/2 connection the same way, with the same codec (BL-939).
   -->
   <ItemGroup>
     <InternalsVisibleTo Include="Surl.Http2.UnitTests" />
     <InternalsVisibleTo Include="Surl.Protocol.Http.UnitTests" />
+    <InternalsVisibleTo Include="Surl.Protocol.HttpProxy.UnitTests" />
   </ItemGroup>
 
   <ItemGroup>

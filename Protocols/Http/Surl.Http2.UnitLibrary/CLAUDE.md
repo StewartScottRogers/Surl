@@ -44,7 +44,10 @@ Internal: the frame codec (`Http2Frame` and its records, `Http2FrameEncoder`, `H
 `Http2Stream`, `Http2RequestBody`, `Http2SendWindows`, `Http2ConnectionError` and
 `Http2HeadTimeoutDelay`. They are visible to `Surl.Http2.UnitTests` and to
 `Surl.Protocol.Http.UnitTests`, which drives the connection through the HTTP server with bytes
-recorded from pinned upstream curl and encodes and parses frames with this codec to do it.
+recorded from pinned upstream curl and encodes and parses frames with this codec to do it, and
+to `Surl.Protocol.HttpProxy.UnitTests`, which drives the HTTPS proxy's HTTP/2 connection the same
+way (BL-939). `Http2RequestHead.Scheme` carries the request's `:scheme`, null for a `CONNECT`, so
+a proxy can forward by it (RFC 9113 sections 8.3.1 and 8.5).
 
 `Surl.Http2.UnitTests` owns the HTTP/2 test client (`Http2TestClient`, `Http2TestResponse`,
 `Http2TestBytes`, `Http2TestStream`), which `Surl.Protocol.Http.UnitTests` compiles in by link.
