@@ -13,7 +13,8 @@ namespace Surl.Extended.Protocol.GoogleCloudStorage;
 /// <c>400 NotImplemented</c> for every other request.
 /// </summary>
 /// <remarks>
-/// The order is decision 3.1's: the addressing, the login (<see cref="GcsLoginJudge"/>), the
+/// The order is decision 3.1's: the addressing, the login (<see cref="GcsLoginJudge"/>), a
+/// chosen-error fault rule (<see cref="GcsRequestFaults"/>; ADR-0124), the
 /// operation (<see cref="GcsOperationRecognition"/>), the bucket (<c>404 NoSuchBucket</c>), the
 /// name's length (<c>400 KeyTooLong</c>), and then the operation itself.
 /// </remarks>
@@ -68,6 +69,12 @@ internal sealed class GcsRequestAnswerer : IHttpRequestHandler
         if (loggedIn.Refusal is { } refusal)
         {
             return refusal;
+        }
+
+        // ADR-0124 decisions 4 and 9: a chosen-error fault rule answers before the store is touched.
+        if (await GcsRequestFaults.FindChosenErrorAsync(context, request.Method, target, loggedIn.Caller!) is { } chosenError)
+        {
+            return reply.Error(chosenError);
         }
 
         var operation = GcsOperationRecognition.Of(request, target);

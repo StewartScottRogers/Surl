@@ -57,6 +57,14 @@ listen URL's host when it is a DNS name, `localhost` and `storage.googleapis.com
   request at a time): each upload is a `GcsStagedUpload` whose bytes sit in an uncommitted upload session at
   the object, invisible until completion. An unknown, finished or other-form ID is `404 NoSuchUpload`.
 
+- Chosen-error faults (BL-982, ADR-0124 decisions 4 and 9; `GcsRequestFaults`): once a login proceeds and
+  before the operation or the store, each request asks `ExchangeContext.Faults` at the command stage through
+  `HttpCommandFaults` - `command` the method, `path` the path-style, percent-decoded `/`, `/<bucket>` or
+  `/<bucket>/<name>`, `account` the login. An `error` rule whose reply is a status 400-599 and a code word
+  (`503 SlowDown`) is answered with that status and code in the `Error` body (the server's own message for a
+  code it sends, else `GcsRequestFaults.ChosenErrorMessage`) and publishes one `FaultAppliedEvent`; a reply
+  that does not fit, or a delay or drop rule at a request, is noted and the request is served.
+
 Every other request - another method, a subresource or unlisted query parameter, a copy, a `POST` that is no
 upload, `x-goog-encryption-*` - is `400 NotImplemented`, judged after the login. Every error is `GcsError`'s fixed
 code and message in the one-line XML body (`GcsErrorBody`); no client byte is echoed, and a `HEAD` error has
