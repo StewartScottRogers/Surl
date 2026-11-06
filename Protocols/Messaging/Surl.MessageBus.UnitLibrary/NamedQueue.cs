@@ -32,8 +32,13 @@ internal sealed class NamedQueue(string name, BusQueueFlags flags, BusConnection
     /// <summary>How many consumers still take deliveries: not stopped, and not a get holder.</summary>
     public int ActiveConsumerCount => consumers.Count(consumer => consumer.TakesDeliveries);
 
-    /// <summary>Whether a consumer could take a message now.</summary>
-    public bool HasConsumerWithRoom => consumers.Any(consumer => consumer.HasRoom);
+    /// <summary>The subscription description the queue was declared with (ADR-0146, decision 3.2);
+    /// <see langword="null"/> for none. Opaque text to the bus.</summary>
+    public string? SubscriptionDescription { get; set; }
+
+    /// <summary>Whether a consumer could take <paramref name="message"/> now: one has room and
+    /// accepts it.</summary>
+    public bool HasConsumerWithRoomFor(BusMessage message) => consumers.Any(consumer => consumer.HasRoomFor(message));
 
     /// <summary>Whether a consumer still taking deliveries asked to be the queue's only one.</summary>
     public bool IsConsumedExclusively => consumers.Any(consumer => consumer.TakesDeliveries && consumer.IsExclusive);
@@ -125,7 +130,9 @@ internal sealed class NamedQueue(string name, BusQueueFlags flags, BusConnection
 
     /// <summary>
     /// Hands ready messages, high priority first and each level first to last, to consumers
-    /// with room, round robin, and drops each expired one it reaches instead.
+    /// with room that accept them, round robin among those, and drops each expired one it reaches
+    /// instead. A message no consumer with room accepts stays ready in its place, and the messages
+    /// after it are still offered (ADR-0146, decision 2.4).
     /// </summary>
     /// <returns>The deliveries made, for the bus to hand over outside its lock, and the payload
     /// and native-form bytes of the expired messages dropped.</returns>
@@ -133,10 +140,10 @@ internal sealed class NamedQueue(string name, BusQueueFlags flags, BusConnection
     {
         var deliveries = new List<(BusQueueConsumer Consumer, BusQueueDelivery Delivery)>();
         var droppedBytes = DropExpiredAtHead(now);
-        while (ReadyCount > 0 && NextConsumerWithRoom() is { } consumer)
+        if (consumers.Any(consumer => consumer.HasRoom))
         {
-            deliveries.Add((consumer, TakeFirstReady(consumer)));
-            droppedBytes += DropExpiredAtHead(now);
+            droppedBytes += DispatchLevel(readyHighPriority, now, deliveries);
+            droppedBytes += DispatchLevel(readyNormalPriority, now, deliveries);
         }
 
         return (deliveries, droppedBytes);
@@ -190,12 +197,38 @@ internal sealed class NamedQueue(string name, BusQueueFlags flags, BusConnection
         return consumer.Take(first, ++nextDeliveryTag);
     }
 
-    private BusQueueConsumer? NextConsumerWithRoom()
+    // Offers each message of one level, first to last, until no consumer has room; returns the
+    // bytes of the expired messages it dropped.
+    private long DispatchLevel(SortedDictionary<long, QueuedMessage> level, DateTimeOffset now, List<(BusQueueConsumer Consumer, BusQueueDelivery Delivery)> deliveries)
+    {
+        long droppedBytes = 0;
+        foreach (var (sequence, queued) in level.ToList())
+        {
+            if (queued.Message.ExpiresAt <= now)
+            {
+                level.Remove(sequence);
+                droppedBytes += queued.Message.PayloadAndNativeFormBytes;
+            }
+            else if (!consumers.Any(consumer => consumer.HasRoom))
+            {
+                break;
+            }
+            else if (NextConsumerWithRoomFor(queued.Message) is { } consumer)
+            {
+                level.Remove(sequence);
+                deliveries.Add((consumer, consumer.Take(queued, ++nextDeliveryTag)));
+            }
+        }
+
+        return droppedBytes;
+    }
+
+    private BusQueueConsumer? NextConsumerWithRoomFor(BusMessage message)
     {
         for (var offset = 0; offset < consumers.Count; offset++)
         {
             var index = (nextConsumer + offset) % consumers.Count;
-            if (consumers[index].HasRoom)
+            if (consumers[index].HasRoomFor(message))
             {
                 nextConsumer = index + 1;
                 return consumers[index];

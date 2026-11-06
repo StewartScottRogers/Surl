@@ -209,6 +209,27 @@ public sealed class MessageBusSeedResetSnapshotTests
     }
 
     [TestMethod]
+    public void Restore_AQueuesSubscriptionDescription_ComesBackAndResetTakesItWithTheQueue()
+    {
+        var bus = new MessageBus(clock);
+        using var connection = bus.Connect();
+        connection.DeclareQueue("deleted", subscriptionDescription: "first");
+        connection.DeclareQueue("kept", subscriptionDescription: "kept");
+        var snapshot = bus.TakeSnapshot();
+        connection.DeleteQueue("deleted");
+        connection.DeclareQueue("deleted", subscriptionDescription: "second");
+
+        bus.Restore(snapshot);
+        var restored = (connection.InspectQueue("deleted").SubscriptionDescription, connection.InspectQueue("kept").SubscriptionDescription);
+        bus.Reset();
+        var afterReset = connection.DeclareQueue("deleted");
+
+        Assert.AreEqual(("first", "kept"), restored);
+        Assert.AreEqual(MessageBusOutcome.Succeeded, afterReset.Outcome);
+        Assert.IsNull(connection.InspectQueue("deleted").SubscriptionDescription);
+    }
+
+    [TestMethod]
     public void Restore_AnUnacknowledgedMessage_ComesBackRedeliveredToTheLiveConsumer()
     {
         var bus = new MessageBus(clock);

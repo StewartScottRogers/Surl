@@ -178,7 +178,7 @@ public sealed partial class MessageBus
     {
         foreach (var persisted in persistedQueues)
         {
-            var queue = new NamedQueue(persisted.Name, new BusQueueFlags(Durable: true), null);
+            var queue = new NamedQueue(persisted.Name, new BusQueueFlags(Durable: true), null) { SubscriptionDescription = persisted.SubscriptionDescription };
             foreach (var filter in persisted.Filters)
             {
                 queue.Bind(filter);
@@ -245,7 +245,7 @@ public sealed partial class MessageBus
                 messages.Add((fileNumber, message.HandedOut, message.Message.HighPriority));
             }
 
-            entries.Add(new(queue.Name, [.. queue.Filters], messages));
+            entries.Add(new(queue.Name, [.. queue.Filters], messages, queue.SubscriptionDescription));
         }
 
         return new(queuesVersion, MessageBusFiles.EncodeQueueIndex(entries), newFiles, referenced);

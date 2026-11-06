@@ -228,5 +228,63 @@ public sealed class MessageBusQueueDeclareTests
         Assert.ThrowsExactly<ArgumentNullException>(() => bus.PublishToQueue("q", null!));
     }
 
+    [TestMethod]
+    public void DeclareQueue_WithASubscriptionDescription_InspectQueueReturnsIt()
+    {
+        var bus = new MessageBus(clock);
+        using var connection = bus.Connect();
+
+        var declared = connection.DeclareQueue("q", subscriptionDescription: "/topic/a|filters");
+        var inspected = connection.InspectQueue("q");
+
+        Assert.AreEqual(new BusQueueDeclareResult(MessageBusOutcome.Succeeded, 0, 0), declared);
+        Assert.AreEqual(new BusQueueInspectResult(MessageBusOutcome.Succeeded, 0, 0, "/topic/a|filters"), inspected);
+    }
+
+    [TestMethod]
+    [DataRow("/topic/b")]
+    [DataRow("")]
+    public void DeclareQueue_AgainWithAnotherDescription_ReturnsQueueDescriptionDiffersAndChangesNothing(string otherDescription)
+    {
+        var bus = new MessageBus(clock);
+        using var connection = bus.Connect();
+        connection.DeclareQueue("q", subscriptionDescription: "/topic/a");
+        bus.PublishToQueue("q", Message("1"));
+
+        var result = connection.DeclareQueue("q", subscriptionDescription: otherDescription);
+
+        Assert.AreEqual(new BusQueueDeclareResult(MessageBusOutcome.QueueDescriptionDiffers, 0, 0), result);
+        Assert.AreEqual(new BusQueueInspectResult(MessageBusOutcome.Succeeded, 1, 0, "/topic/a"), connection.InspectQueue("q"));
+    }
+
+    [TestMethod]
+    public void DeclareQueue_ADescriptionOnAQueueWithNone_ReturnsQueueDescriptionDiffers()
+    {
+        var bus = new MessageBus(clock);
+        using var connection = bus.Connect();
+        connection.DeclareQueue("q");
+
+        var result = connection.DeclareQueue("q", subscriptionDescription: "/topic/a");
+
+        Assert.AreEqual(MessageBusOutcome.QueueDescriptionDiffers, result.Outcome);
+        Assert.IsNull(connection.InspectQueue("q").SubscriptionDescription);
+    }
+
+    [TestMethod]
+    [DataRow("/topic/a")]
+    [DataRow(null)]
+    public void DeclareQueue_AgainWithTheSameDescriptionOrNone_Succeeds(string? description)
+    {
+        var bus = new MessageBus(clock);
+        using var connection = bus.Connect();
+        connection.DeclareQueue("q", subscriptionDescription: "/topic/a");
+        bus.PublishToQueue("q", Message("1"));
+
+        var result = connection.DeclareQueue("q", subscriptionDescription: description);
+
+        Assert.AreEqual(new BusQueueDeclareResult(MessageBusOutcome.Succeeded, 1, 0), result);
+        Assert.AreEqual("/topic/a", connection.InspectQueue("q").SubscriptionDescription);
+    }
+
     private static BusMessage Message(string payload) => new("t", System.Text.Encoding.UTF8.GetBytes(payload));
 }

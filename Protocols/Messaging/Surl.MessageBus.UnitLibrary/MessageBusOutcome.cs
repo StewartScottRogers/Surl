@@ -96,4 +96,9 @@ public enum MessageBusOutcome
     /// could (AMQP 0-9-1 <c>basic.publish</c>'s <c>immediate</c>, <c>313 no-consumers</c>); the queue
     /// did not take it.</summary>
     NoReadyConsumer,
+
+    /// <summary>A declare gave a subscription description, and the queue exists with another one
+    /// or none (ADR-0146, decision 3.2): it is not that subscription's queue, or the subscription
+    /// changed. The queue is unchanged.</summary>
+    QueueDescriptionDiffers,
 }

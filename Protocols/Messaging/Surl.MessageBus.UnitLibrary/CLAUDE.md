@@ -69,6 +69,21 @@ What it holds now (BL-629):
   normal level, each level in publish order. `queues/index`'s per-message byte keeps it as
   bit `0x02` beside redelivered `0x01`. Fan-out and logs ignore the level. An auto-delete
   queue goes when its last consumer that is not a get holder ends.
+- **Filtered consumers and subscription descriptions (BL-955, ADR-0146 decisions 2.4 and 3.2).**
+  `Consume(..., accepts:)` takes a predicate over `BusMessage`: the consumer is offered only what
+  it accepts. A message no consumer with room accepts stays ready in its place while later ones
+  are still offered, and round robin runs among the consumers that accept each message. The
+  predicate is called under the bus's lock, any number of times per message, so it must be pure
+  and quick and never call the bus. `PublishToQueue(..., onlyWhenConsumed: true)` and
+  `PublishToConsumedQueues` count only a consumer that has room and accepts the message; a get
+  ignores predicates. `DeclareQueue(name, flags, subscriptionDescription)` keeps opaque text beside
+  the queue, which `InspectQueue` answers in `BusQueueInspectResult.SubscriptionDescription`.
+  Declaring again with a non-null description other than the queue's, or on a queue with none,
+  is `QueueDescriptionDiffers` and changes nothing; a declare with none checks nothing, so AMQP
+  0-9-1 and STOMP never meet it. The description is persisted (`queues/index` is written as
+  `SURL-BUS-QUEUES-2`, each queue's name followed by `0x00`, or `0x01` and the description, only
+  when some persisted queue has one, so a bus with none writes what earlier builds read),
+  snapshotted and restored with its queue, and goes with the queue on reset.
 - **Topic logs (BL-633).** Every publish the bus takes, retained or not and whichever
   protocol made it, is appended to its topic's `TopicLog` at the next offset, from 0 and
   contiguous; one partition per topic. `BusPublishResult.LogOffset` is the offset it got

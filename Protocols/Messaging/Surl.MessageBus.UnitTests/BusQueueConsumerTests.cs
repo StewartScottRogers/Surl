@@ -300,6 +300,72 @@ public sealed class BusQueueConsumerTests
         Assert.AreEqual(MessageBusOutcome.Succeeded, connection.Consume("q", _ => { }).Outcome);
     }
 
+    [TestMethod]
+    public void Consume_TwoFilteredConsumers_EachIsOfferedOnlyWhatItAcceptsAndTheRestStaysReadyInOrder()
+    {
+        var bus = new MessageBus(clock);
+        using var connection = bus.Connect();
+        connection.DeclareQueue("q");
+        var evens = new List<BusQueueDelivery>();
+        var threes = new List<BusQueueDelivery>();
+        connection.Consume("q", evens.Add, accepts: message => Number(message) % 2 == 0).Consumer!.Start();
+        connection.Consume("q", threes.Add, accepts: message => Number(message) % 3 == 0).Consumer!.Start();
+
+        foreach (var payload in new[] { "1", "2", "3", "4", "5", "6" })
+        {
+            bus.PublishToQueue("q", Message(payload));
+        }
+
+        var inspected = connection.InspectQueue("q");
+        var rest = new List<BusQueueDelivery>();
+        connection.Consume("q", rest.Add).Consumer!.Start();
+
+        CollectionAssert.AreEqual(new[] { "2", "4" }, Payloads(evens));
+        CollectionAssert.AreEqual(new[] { "3", "6" }, Payloads(threes));
+        Assert.AreEqual(2, inspected.ReadyMessageCount);
+        CollectionAssert.AreEqual(new[] { "1", "5" }, Payloads(rest));
+    }
+
+    [TestMethod]
+    public void Consume_AFilteredConsumer_DropsAnExpiredMessageBehindOneItRefusesAndStopsWhenFull()
+    {
+        var bus = new MessageBus(clock);
+        using var connection = bus.Connect();
+        connection.DeclareQueue("q");
+        bus.PublishToQueue("q", Message("refused"));
+        bus.PublishToQueue("q", Message("expiring") with { ExpiresAt = clock.UtcNow.AddSeconds(1) });
+        bus.PublishToQueue("q", Message("taken") with { HighPriority = true });
+        bus.PublishToQueue("q", Message("taken"));
+        bus.PublishToQueue("q", Message("taken"));
+        clock.UtcNow = clock.UtcNow.AddSeconds(2);
+        var received = new List<BusQueueDelivery>();
+
+        connection.Consume("q", received.Add, maxUnacknowledged: 2, accepts: message => Text(message) != "refused").Consumer!.Start();
+
+        Assert.HasCount(2, received);
+        Assert.IsTrue(received[0].Message.HighPriority);
+        Assert.AreEqual(2, connection.InspectQueue("q").ReadyMessageCount);
+    }
+
+    [TestMethod]
+    public void PublishToQueue_OnlyWhenConsumed_AndTheOnlyConsumerRefusesIt_IsNoReadyConsumer()
+    {
+        var bus = new MessageBus(clock);
+        using var connection = bus.Connect();
+        connection.DeclareQueue("q");
+        connection.Consume("q", _ => { }, accepts: message => Text(message) == "wanted").Consumer!.Start();
+
+        var refused = bus.PublishToQueue("q", Message("other"), account: null, onlyWhenConsumed: true);
+        var taken = bus.PublishToQueue("q", Message("wanted"), account: null, onlyWhenConsumed: true);
+
+        Assert.AreEqual(MessageBusOutcome.NoReadyConsumer, refused);
+        Assert.AreEqual(MessageBusOutcome.Succeeded, taken);
+    }
+
+    private static int Number(BusMessage message) => int.Parse(Text(message), System.Globalization.CultureInfo.InvariantCulture);
+
+    private static string Text(BusMessage message) => System.Text.Encoding.UTF8.GetString(message.Payload.Span);
+
     private static BusMessage Message(string payload) => new("t", System.Text.Encoding.UTF8.GetBytes(payload));
 
     private static string[] Payloads(List<BusQueueDelivery> deliveries) =>

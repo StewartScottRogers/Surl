@@ -86,20 +86,27 @@ public sealed class BusConnection : IDisposable
 
     /// <summary>
     /// Declares a named queue (AMQP 0-9-1 <c>queue.declare</c>): makes it when absent, and
-    /// otherwise checks it was made with the same <paramref name="flags"/>. An exclusive queue
+    /// otherwise checks it was made with the same <paramref name="flags"/> and, when
+    /// <paramref name="subscriptionDescription"/> is given, the same description. An exclusive queue
     /// belongs to this connection.
     /// </summary>
     /// <param name="name">The queue's name; not empty.</param>
     /// <param name="flags">Its flags.</param>
+    /// <param name="subscriptionDescription">Opaque text kept beside the queue, as the AMQP 1.0
+    /// container keeps a durable subscription's address and filters (ADR-0146, decision 3.2):
+    /// persisted, reset, snapshotted and restored with the queue and answered by
+    /// <see cref="InspectQueue"/>. <see langword="null"/> makes a queue with none and, on an existing
+    /// queue, checks nothing.</param>
     /// <returns>The outcome - <see cref="MessageBusOutcome.InvalidQueueName"/>,
-    /// <see cref="MessageBusOutcome.TooManyQueues"/>, <see cref="MessageBusOutcome.QueueLocked"/>
-    /// or <see cref="MessageBusOutcome.QueueFlagsDiffer"/> when refused - and the queue's counts.</returns>
+    /// <see cref="MessageBusOutcome.TooManyQueues"/>, <see cref="MessageBusOutcome.QueueLocked"/>,
+    /// <see cref="MessageBusOutcome.QueueFlagsDiffer"/> or
+    /// <see cref="MessageBusOutcome.QueueDescriptionDiffers"/> when refused - and the queue's counts.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="name"/> is <see langword="null"/>.</exception>
     /// <exception cref="ObjectDisposedException">The connection has been disposed.</exception>
-    public BusQueueDeclareResult DeclareQueue(string name, BusQueueFlags flags = default)
+    public BusQueueDeclareResult DeclareQueue(string name, BusQueueFlags flags = default, string? subscriptionDescription = null)
     {
         ArgumentNullException.ThrowIfNull(name);
-        return bus.DeclareQueue(this, name, flags);
+        return bus.DeclareQueue(this, name, flags, subscriptionDescription);
     }
 
     /// <summary>
@@ -260,6 +267,10 @@ public sealed class BusConnection : IDisposable
     /// <param name="exclusive">Whether it must be the queue's only consumer still taking
     /// deliveries (AMQP 0-9-1 <c>basic.consume</c>'s <c>exclusive</c>): refused while the queue has
     /// one, and while it lasts every other consume of the queue is refused.</param>
+    /// <param name="accepts">Which messages the consumer is offered (ADR-0146, decision 2.4), or
+    /// <see langword="null"/> for every one. A message no consumer with room accepts stays ready, in
+    /// its place, and round robin runs among the consumers that accept it. The bus calls it under its
+    /// lock, any number of times per message: it must be pure and quick, and never call the bus.</param>
     /// <returns>The outcome - <see cref="MessageBusOutcome.UnknownQueue"/>,
     /// <see cref="MessageBusOutcome.QueueLocked"/>, <see cref="MessageBusOutcome.ExclusiveConsumeRefused"/>,
     /// <see cref="MessageBusOutcome.TooManySubscriptions"/>, or <see cref="MessageBusOutcome.AccessDenied"/>
@@ -268,12 +279,12 @@ public sealed class BusConnection : IDisposable
     /// <exception cref="ArgumentNullException">An argument is <see langword="null"/>.</exception>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="maxUnacknowledged"/> is negative.</exception>
     /// <exception cref="ObjectDisposedException">The connection has been disposed.</exception>
-    public BusConsumeResult Consume(string queueName, Action<BusQueueDelivery> deliver, int maxUnacknowledged = 0, bool exclusive = false)
+    public BusConsumeResult Consume(string queueName, Action<BusQueueDelivery> deliver, int maxUnacknowledged = 0, bool exclusive = false, Func<BusMessage, bool>? accepts = null)
     {
         ArgumentNullException.ThrowIfNull(queueName);
         ArgumentNullException.ThrowIfNull(deliver);
         ArgumentOutOfRangeException.ThrowIfNegative(maxUnacknowledged);
-        return bus.Consume(this, queueName, deliver, maxUnacknowledged, exclusive);
+        return bus.Consume(this, queueName, deliver, maxUnacknowledged, exclusive, accepts);
     }
 
     /// <summary>

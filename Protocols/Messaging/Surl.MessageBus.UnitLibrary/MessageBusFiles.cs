@@ -24,7 +24,11 @@ namespace Surl.MessageBus;
 /// (4 bytes), and per queue in ordinal order of name: its name, its filter count (4 bytes) and
 /// filters in ordinal order, its message count (4 bytes), and per message in queue order its
 /// file number (8 bytes) and a marks byte: <c>0x01</c> redelivered, <c>0x02</c> high priority
-/// (<see cref="BusMessage.HighPriority"/>), no other bit. A queue message file:
+/// (<see cref="BusMessage.HighPriority"/>), no other bit. When any queue has a subscription
+/// description (ADR-0146, decision 3.2) the index starts with
+/// <see cref="QueueIndexWithDescriptionsHeader"/> instead, and each queue's name is followed by a
+/// byte, <c>0x00</c> for no description or <c>0x01</c> then the description; otherwise it is written
+/// as above, so a bus holding none writes what earlier builds read. A queue message file:
 /// <see cref="QueueMessageHeader"/> and the message. A log file: <see cref="LogHeader"/>, the
 /// topic, the log start offset (8 bytes), then each held record's message in offset order.
 /// </para>
@@ -57,6 +61,8 @@ public sealed class MessageBusFiles
 
     private const byte RedeliveredMark = 0x01;
     private const byte HighPriorityMark = 0x02;
+    private const byte NoDescriptionMark = 0x00;
+    private const byte DescriptionMark = 0x01;
 
     /// <summary>The queue message files' folder name in <see cref="QueuesFolderName"/>: <c>messages</c>.</summary>
     public const string QueueMessagesFolderName = "messages";
@@ -106,6 +112,10 @@ public sealed class MessageBusFiles
 
     /// <summary>The 18 ASCII bytes <c>queues/index</c> starts with: <c>SURL-BUS-QUEUES-1</c> and a line feed.</summary>
     public static ReadOnlySpan<byte> QueueIndexHeader => "SURL-BUS-QUEUES-1\n"u8;
+
+    /// <summary>The 18 ASCII bytes <c>queues/index</c> starts with when any queue in it has a
+    /// subscription description (ADR-0146, decision 3.2): <c>SURL-BUS-QUEUES-2</c> and a line feed.</summary>
+    public static ReadOnlySpan<byte> QueueIndexWithDescriptionsHeader => "SURL-BUS-QUEUES-2\n"u8;
 
     /// <summary>The 19 ASCII bytes a queue message file starts with: <c>SURL-BUS-MESSAGE-1</c> and a line feed.</summary>
     public static ReadOnlySpan<byte> QueueMessageHeader => "SURL-BUS-MESSAGE-1\n"u8;
@@ -159,11 +169,17 @@ public sealed class MessageBusFiles
 
     internal static byte[] EncodeQueueIndex(IReadOnlyCollection<QueueIndexEntry> queues)
     {
-        var writer = new BusFileWriter(QueueIndexHeader);
+        var withDescriptions = queues.Any(queue => queue.SubscriptionDescription is not null);
+        var writer = new BusFileWriter(withDescriptions ? QueueIndexWithDescriptionsHeader : QueueIndexHeader);
         writer.WriteCount(queues.Count);
         foreach (var queue in queues.OrderBy(queue => queue.Name, StringComparer.Ordinal))
         {
             writer.WriteString(queue.Name);
+            if (withDescriptions)
+            {
+                WriteSubscriptionDescription(writer, queue.SubscriptionDescription);
+            }
+
             writer.WriteCount(queue.Filters.Count);
             foreach (var filter in queue.Filters.Order(StringComparer.Ordinal))
             {
@@ -327,14 +343,15 @@ public sealed class MessageBusFiles
 
     private static List<QueueIndexEntry> DecodeQueueIndex(byte[] bytes)
     {
-        var reader = new BusFileReader(bytes, QueueIndexHeader, MalformedFileReason);
+        var withDescriptions = bytes.AsSpan().StartsWith(QueueIndexWithDescriptionsHeader);
+        var reader = new BusFileReader(bytes, withDescriptions ? QueueIndexWithDescriptionsHeader : QueueIndexHeader, MalformedFileReason);
         var count = reader.ReadCount();
         var queues = new List<QueueIndexEntry>();
         var names = new HashSet<string>(StringComparer.Ordinal);
         var fileNumbers = new HashSet<ulong>();
         for (var index = 0; index < count; index++)
         {
-            var queue = DecodeQueueIndexEntry(reader, fileNumbers);
+            var queue = DecodeQueueIndexEntry(reader, fileNumbers, withDescriptions);
             if (!names.Add(queue.Name))
             {
                 throw reader.Malformed();
@@ -346,9 +363,10 @@ public sealed class MessageBusFiles
         return reader.AtEnd ? queues : throw reader.Malformed();
     }
 
-    private static QueueIndexEntry DecodeQueueIndexEntry(BusFileReader reader, HashSet<ulong> fileNumbers)
+    private static QueueIndexEntry DecodeQueueIndexEntry(BusFileReader reader, HashSet<ulong> fileNumbers, bool withDescriptions)
     {
         var name = reader.ReadString();
+        var description = withDescriptions ? ReadSubscriptionDescription(reader) : null;
         var filters = new string[reader.ReadCount()];
         for (var index = 0; index < filters.Length; index++)
         {
@@ -361,8 +379,24 @@ public sealed class MessageBusFiles
             messages[index] = DecodeQueueIndexMessage(reader, fileNumbers);
         }
 
-        return name.Length > 0 && filters.All(CanonicalTopicName.IsValidFilter) ? new(name, filters, messages) : throw reader.Malformed();
+        return name.Length > 0 && filters.All(CanonicalTopicName.IsValidFilter) ? new(name, filters, messages, description) : throw reader.Malformed();
     }
+
+    private static void WriteSubscriptionDescription(BusFileWriter writer, string? description)
+    {
+        writer.WriteByte(description is null ? NoDescriptionMark : DescriptionMark);
+        if (description is not null)
+        {
+            writer.WriteString(description);
+        }
+    }
+
+    private static string? ReadSubscriptionDescription(BusFileReader reader) => reader.ReadByte() switch
+    {
+        NoDescriptionMark => null,
+        DescriptionMark => reader.ReadString(),
+        _ => throw reader.Malformed(),
+    };
 
     private static (ulong FileNumber, bool Redelivered, bool HighPriority) DecodeQueueIndexMessage(BusFileReader reader, HashSet<ulong> fileNumbers)
     {
@@ -428,7 +462,7 @@ public sealed class MessageBusFiles
                 messages.Add(new(fileNumber, redelivered, message with { HighPriority = highPriority }));
             }
 
-            queues.Add(new(entry.Name, entry.Filters, messages));
+            queues.Add(new(entry.Name, entry.Filters, messages, entry.SubscriptionDescription));
         }
 
         return queues;
