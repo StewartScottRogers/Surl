@@ -81,7 +81,7 @@ public static class AuthenticationComposition
         var (kerberosAcceptor, skippedKeytabEntries, keytabExitCode, keytabFailureMessage) = KeytabComposition.Read(commandLine, readFile, timeProvider);
         return keytabFailureMessage is not null
             ? (null, [], [], keytabExitCode, keytabFailureMessage)
-            : (ComposePolicy(ComposeSettings(commandLine, accounts) with { AuthorizedKeys = authorizedKeys, KerberosAcceptor = kerberosAcceptor }, timeProvider, events, faults),
+            : (ComposePolicy(ComposeSettings(commandLine, accounts, events) with { AuthorizedKeys = authorizedKeys, KerberosAcceptor = kerberosAcceptor }, timeProvider, events, faults),
                 [.. accounts.Select(account => account.UserName)],
                 skippedKeytabEntries,
                 SurlExitCode.Ok,
@@ -105,8 +105,21 @@ public static class AuthenticationComposition
     /// <param name="accounts">Every account, the <c>--user</c> ones first.</param>
     /// <returns>The settings.</returns>
     public static AuthenticationSettings ComposeSettings(SurlCommandLine commandLine, IReadOnlyList<Account> accounts) =>
+        ComposeSettings(commandLine, accounts, null);
+
+    /// <summary>
+    /// Builds the settings as <see cref="ComposeSettings(SurlCommandLine, IReadOnlyList{Account})"/>
+    /// does, over an account book that publishes each change of its accounts - added, removed, reset,
+    /// restored - on <paramref name="events"/> (ADR-0124, decisions 1 and 3).
+    /// </summary>
+    /// <param name="commandLine">The parsed command line.</param>
+    /// <param name="accounts">Every account, the <c>--user</c> ones first.</param>
+    /// <param name="events">The instance's event stream; none when <see langword="null"/>.</param>
+    /// <returns>The settings.</returns>
+    public static AuthenticationSettings ComposeSettings(
+        SurlCommandLine commandLine, IReadOnlyList<Account> accounts, ISurlEventPublisher? events) =>
         new(
-            new AccountBook(accounts),
+            events is null ? new AccountBook(accounts) : new AccountBook(accounts, events),
             commandLine.AllowAnonymous,
             commandLine.AllowPlaintextAuthentication,
             commandLine.GivenAuthenticationMethods is { } words
