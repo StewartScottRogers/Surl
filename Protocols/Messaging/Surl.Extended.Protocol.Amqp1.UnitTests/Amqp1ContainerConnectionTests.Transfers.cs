@@ -203,7 +203,7 @@ public sealed partial class Amqp1ContainerConnectionTests
 
         await WaitUntilWrittenAsync(async () => Transfers(await ReadWrittenWithPayloadsAsync(connection.WrittenBytes)).Count == 1);
         await cancellation.CancelAsync();
-        await Assert.ThrowsAsync<OperationCanceledException>(() => serving);
+        await serving;
         var payload = Transfers(await ReadWrittenWithPayloadsAsync(connection.WrittenBytes)).Single().Payload;
         var properties = Amqp1Properties.FromDescribed(Amqp1MessageSection.ReadAll(payload)[0].Described);
         Assert.AreEqual("/topic/sensors/temp", properties.To);

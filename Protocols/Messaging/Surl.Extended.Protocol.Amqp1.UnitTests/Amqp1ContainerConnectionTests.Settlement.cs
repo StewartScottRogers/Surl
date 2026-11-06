@@ -481,7 +481,7 @@ public sealed partial class Amqp1ContainerConnectionTests
         }
 
         await cancellation.CancelAsync();
-        await Assert.ThrowsAsync<OperationCanceledException>(() => serving);
+        await serving;
         CollectionAssert.Contains(log.Notes.ToList(), "Link 0 dropped 1 topic messages past 1000 waiting.");
     }
 
@@ -501,7 +501,7 @@ public sealed partial class Amqp1ContainerConnectionTests
 
         await WaitUntilWrittenAsync(async () => Transfers(await ReadWrittenWithPayloadsAsync(connection.WrittenBytes)).Count == 1);
         await cancellation.CancelAsync();
-        await Assert.ThrowsAsync<OperationCanceledException>(() => serving);
+        await serving;
         var payload = Transfers(await ReadWrittenWithPayloadsAsync(connection.WrittenBytes)).Single().Payload;
         Assert.AreEqual("/topic/other", Amqp1Properties.FromDescribed(Amqp1MessageSection.ReadAll(payload)[0].Described).To);
     }

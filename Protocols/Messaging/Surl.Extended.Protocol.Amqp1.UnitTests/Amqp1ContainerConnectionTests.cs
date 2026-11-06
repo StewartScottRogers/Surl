@@ -533,18 +533,73 @@ public sealed partial class Amqp1ContainerConnectionTests
     }
 
     [TestMethod]
-    public async Task ServeAsync_ExchangeCancelled_Throws()
+    public async Task ServeAsync_ExchangeCancelledAtShutdown_ThrowsWithNoClose()
     {
         using var cancellation = new CancellationTokenSource();
         var clock = new ManualTimeProvider();
         var connection = new InMemoryConnection([Frame(0, new Amqp1Open("client") { IdleTimeOut = 1000 })], peerHalfClosesWhenExhausted: false);
-        var context = Context(clock, new RecordingExchangeLog(), cancellation.Token);
+        var context = Context(clock, new RecordingExchangeLog(), cancellation.Token) with { ShutdownToken = cancellation.Token };
         var serving = Container(connection, context, Options(TimeSpan.FromSeconds(120)), new UnitTestAmqp1NodeDirectory()).ServeAsync();
         await WaitUntilAsync(() => connection.WrittenBytes.Length > 0);
+        var opened = connection.WrittenBytes.Length;
 
         await cancellation.CancelAsync();
 
         await Assert.ThrowsAsync<OperationCanceledException>(() => serving);
+        Assert.HasCount(opened, connection.WrittenBytes);
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_CancelledForALimitAfterOpen_ClosesWithResourceLimitExceeded()
+    {
+        using var cancellation = new CancellationTokenSource();
+        var connection = new InMemoryConnection([ClientOpen], peerHalfClosesWhenExhausted: false);
+        var context = Context(new ManualTimeProvider(), new RecordingExchangeLog(), cancellation.Token);
+        var serving = Container(connection, context, Options(TimeSpan.FromSeconds(120)), new UnitTestAmqp1NodeDirectory()).ServeAsync();
+        await WaitUntilAsync(() => connection.WrittenBytes.Length > 0);
+
+        await cancellation.CancelAsync();
+        await serving.WaitAsync(TimeSpan.FromSeconds(30), TestContext.CancellationToken);
+
+        var written = await ReadWrittenAsync(connection.WrittenBytes);
+        Assert.AreEqual(ClosedWith(Amqp1ErrorCondition.ResourceLimitExceeded, Amqp1ContainerConnection.LimitCloseDescription), written[1].Performative);
+        Assert.IsTrue(connection.WritesCompleted);
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_CancelledForALimitWhileClosing_WritesNoSecondClose()
+    {
+        using var cancellation = new CancellationTokenSource();
+        var log = new CancellingExchangeLog(cancellation, "Closed with ");
+        var connection = new InMemoryConnection([ClientOpen, ClientOpen], peerHalfClosesWhenExhausted: false);
+        var context = Context(new ManualTimeProvider(), log, cancellation.Token);
+
+        await Container(connection, context, Options(TimeSpan.FromSeconds(120)), new UnitTestAmqp1NodeDirectory()).ServeAsync();
+
+        Assert.IsInstanceOfType<Amqp1Open>((await ReadWrittenAsync(connection.WrittenBytes)).Single().Performative);
+        Assert.IsFalse(connection.WritesCompleted);
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_LimitCloseNotWrittenWithinItsDeadline_EndsWithoutIt()
+    {
+        using var cancellation = new CancellationTokenSource();
+        var clock = new ManualTimeProvider();
+        var log = new RecordingExchangeLog();
+        var inner = new InMemoryConnection([ClientOpen], peerHalfClosesWhenExhausted: false);
+        var connection = new StallingWritesConnection(inner, cancellation.Token);
+        var context = Context(clock, log, cancellation.Token);
+        var serving = new Amqp1ContainerConnection(connection, context, Options(TimeSpan.FromSeconds(120)), new MessageBus.MessageBus(new ManualTimeProvider()), "alice", new UnitTestAmqp1NodeDirectory().On).ServeAsync();
+        await WaitUntilAsync(() => inner.WrittenBytes.Length > 0 && clock.PendingTimerCount == 1);
+        var opened = inner.WrittenBytes.Length;
+
+        await cancellation.CancelAsync();
+        await WaitUntilAsync(() => connection.IsStalled);
+        clock.Advance(Amqp1ContainerConnection.LimitCloseWriteDeadline);
+        await serving.WaitAsync(TimeSpan.FromSeconds(30), TestContext.CancellationToken);
+
+        Assert.HasCount(opened, inner.WrittenBytes);
+        CollectionAssert.Contains(log.Notes.ToList(), "The close was not written within its one-second write deadline; the connection is closed without it.");
     }
 
     [TestMethod]

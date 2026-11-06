@@ -49,13 +49,28 @@ public sealed partial class Amqp1ContainerConnection
         Properties = new Amqp1Map([new KeyValuePair<object?, object?>(ProductKey, ProductName)]),
     };
 
-    // The first frame with a body; null, with nothing written, when the client went or sent a frame
-    // the reader refuses (ADR-0107 decision 7: before open, a frame above 512 bytes ends it with no bytes).
+    // The first frame with a body; null, with nothing written, when the client went, sent a frame
+    // the reader refuses (ADR-0107 decision 7: before open, a frame above 512 bytes ends it with no
+    // bytes), or sent none before the head timeout ran out.
     private async ValueTask<Amqp1Frame?> ReadFrameBeforeOpenAsync()
+    {
+        using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken, openDeadline);
+        try
+        {
+            return await ReadFrameWithABodyAsync(cancellation.Token);
+        }
+        catch (OperationCanceledException) when (!CancellationToken.IsCancellationRequested)
+        {
+            context.Log.Note("No open arrived within the head timeout; closed with no bytes.");
+            return null;
+        }
+    }
+
+    private async ValueTask<Amqp1Frame?> ReadFrameWithABodyAsync(CancellationToken cancellationToken)
     {
         while (true)
         {
-            var read = await reader.ReadFrameAsync(Amqp1FrameLimits.MinMaxFrameSize, CancellationToken);
+            var read = await reader.ReadFrameAsync(Amqp1FrameLimits.MinMaxFrameSize, cancellationToken);
             if (read.Frame is not { } frame)
             {
                 context.Log.Note($"No open arrived ({read.Outcome}); closed with no bytes.");

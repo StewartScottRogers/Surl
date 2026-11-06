@@ -53,6 +53,7 @@ public sealed partial class Amqp1ContainerConnection
     private long lastWrittenUtcTicks;
     private ushort clientChannelMax;
     private uint clientMaxFrameSize;
+    private CancellationToken openDeadline;
     private bool closed;
 
     /// <summary>Prepares to serve one connection whose next bytes are AMQP frames.</summary>
@@ -98,10 +99,32 @@ public sealed partial class Amqp1ContainerConnection
 
     private CancellationToken CancellationToken => context.CancellationToken;
 
+    /// <summary>
+    /// How long the <c>close</c> of an exchange cancelled for a limit may take to write (ADR-0006
+    /// section 5; ADR-0059).
+    /// </summary>
+    public static readonly TimeSpan LimitCloseWriteDeadline = TimeSpan.FromSeconds(1);
+
+    /// <summary>The <c>description</c> of the <c>close</c> written when the exchange is cancelled for a limit.</summary>
+    public const string LimitCloseDescription = "an exchange limit was reached";
+
     /// <summary>Serves the connection until it is closed by either side.</summary>
     /// <returns>A task that completes when the connection is over.</returns>
-    public async Task ServeAsync()
+    /// <remarks>
+    /// When the engine cancels the exchange for a limit (<c>--max-time</c>, or its idle timeout) once
+    /// <c>open</c> has been exchanged, the container writes <c>close</c> with
+    /// <c>amqp:resource-limit-exceeded</c> within <see cref="LimitCloseWriteDeadline"/>, unless it had
+    /// already closed; before <c>open</c> it writes nothing. Either way the cancellation does not
+    /// escape. At shutdown nothing more is written and the cancellation escapes.
+    /// </remarks>
+    public Task ServeAsync() => ServeAsync(CancellationToken.None);
+
+    /// <summary>Serves the connection, ending it with no bytes when <paramref name="headDeadline"/> fires before the client's <c>open</c> is read.</summary>
+    /// <param name="headDeadline">Cancelled when the head timeout runs out (ADR-0107 decision 7).</param>
+    /// <returns>A task that completes when the connection is over.</returns>
+    internal async Task ServeAsync(CancellationToken headDeadline)
     {
+        openDeadline = headDeadline;
         var failure = await CaptureFailureAsync(ServeUntilEndAsync);
         await StopWritingAsync();
         await emptyFramesCancellation.CancelAsync();
@@ -117,8 +140,12 @@ public sealed partial class Amqp1ContainerConnection
         }
 
         busConnection.Dispose();
-        (failure ?? pumpFailure)?.Throw();
+        (UnlessCancelledForALimit(failure) ?? UnlessCancelledForALimit(pumpFailure))?.Throw();
     }
+
+    // A limit's cancellation has been answered (or needs no answer before open); only shutdown escapes.
+    private ExceptionDispatchInfo? UnlessCancelledForALimit(ExceptionDispatchInfo? failure) =>
+        failure?.SourceException is OperationCanceledException && context.IsCancelledForALimit ? null : failure;
 
     // Once serving is over nothing more is written, whatever the pump still holds: the client may be gone.
     private async Task StopWritingAsync()
@@ -148,7 +175,33 @@ public sealed partial class Amqp1ContainerConnection
         if (await OpenAsync())
         {
             pumping = PumpAsync();
-            await ServeOpenedAsync();
+            try
+            {
+                await ServeOpenedAsync();
+            }
+            catch (OperationCanceledException) when (context.IsCancelledForALimit && !closed)
+            {
+                await CloseForALimitAsync();
+            }
+        }
+    }
+
+    // ADR-0107 decision 7: --max-time once open has been exchanged is close with
+    // amqp:resource-limit-exceeded, on a deadline of its own since the exchange's token is cancelled.
+    private async Task CloseForALimitAsync()
+    {
+        closed = true;
+        var error = Error(Amqp1ErrorCondition.ResourceLimitExceeded, LimitCloseDescription);
+        using var deadline = new CancellationTokenSource(LimitCloseWriteDeadline, context.TimeProvider);
+        try
+        {
+            await WriteFrameAsync(Amqp1Frame.Carrying(0, new Amqp1Close(error)), deadline.Token);
+            await connection.CompleteWritesAsync(deadline.Token);
+            context.Log.Note($"The exchange was cancelled for a limit; closed with {error.Condition.Value}: {error.Description}.");
+        }
+        catch (OperationCanceledException) when (deadline.IsCancellationRequested)
+        {
+            context.Log.Note("The close was not written within its one-second write deadline; the connection is closed without it.");
         }
     }
 

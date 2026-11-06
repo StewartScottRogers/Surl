@@ -133,8 +133,12 @@ BL-513 amendment):
 - A link ending (client `detach`, `end`, the connection going) ends its subscription or consumer, so
   its unsettled and waiting queue deliveries go back to the queue.
 
-One server running the negotiation and the connection under the head timeout and `--max-time` is
-BL-764; the command line and composition BL-514.
+`Amqp1Container` is the one `IConnectionProtocolServer`: it runs `Amqp1SecurityNegotiation`, then
+`Amqp1ContainerConnection` for the account SASL logged in. The head timeout runs from accept until the
+client's `open` is read (headers and SASL included) and closes with no bytes. An exchange cancelled for
+a limit (`--max-time`, idle) after `open` writes `close` with `amqp:resource-limit-exceeded` on a
+one-second write deadline of its own; before `open` it writes nothing. Only shutdown lets the
+cancellation escape. The command line and composition are BL-514.
 
 This library references `Surl.Protocol.Abstractions.UnitLibrary`, and may also reference the
 horizontal libraries ADR-0107 decision 0 names (`Surl.MessageBus`) - never another protocol
