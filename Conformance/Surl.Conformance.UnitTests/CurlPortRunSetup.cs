@@ -27,6 +27,12 @@ internal sealed record CurlPortRunSetup
     public IReadOnlyDictionary<string, string> Environment { get; init; } = new Dictionary<string, string>();
 
     /// <summary>
+    /// Gets the bytes both clients read on standard input, as the mirrored test feeds them
+    /// (a TELNET session's keystrokes). Empty by default.
+    /// </summary>
+    public ReadOnlyMemory<byte> StandardInput { get; init; }
+
+    /// <summary>
     /// Gets how each run's own <c>surl</c> starts, when it is not
     /// <see cref="SurlOnLoopback.StartAsync(string, IReadOnlyDictionary{string, byte[]}, IReadOnlyList{string}, IReadOnlyList{string}, CancellationToken)"/>
     /// with the case's scheme, files and options (several listeners over one data directory, for example).

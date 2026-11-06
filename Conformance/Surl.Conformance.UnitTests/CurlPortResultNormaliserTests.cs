@@ -48,6 +48,19 @@ public sealed class CurlPortResultNormaliserTests
     }
 
     [TestMethod]
+    public void NormaliseOutput_OfASurlSide_ReplacesBothTheRelaysPortAndSurlsOwn()
+    {
+        var side = new CurlPortSurlSide(50101, string.Empty, new Dictionary<string, byte[]>()) { RelayPort = 50202 };
+        var output = Encoding.Latin1.GetBytes("0file.txt\t/file.txt\t127.0.0.1\t50101\r\nvia 50202\r\n");
+
+        Assert.AreEqual(
+            "0file.txt\t/file.txt\t127.0.0.1\t<port>\r\nvia <port>\r\n",
+            Encoding.Latin1.GetString(CurlPortResultNormaliser.NormaliseOutput(output, side, [])));
+        Assert.ThrowsExactly<ArgumentNullException>(() => CurlPortResultNormaliser.NormaliseOutput(null!, side, []));
+        Assert.ThrowsExactly<ArgumentNullException>(() => CurlPortResultNormaliser.NormaliseOutput(output, (CurlPortSurlSide)null!, []));
+    }
+
+    [TestMethod]
     public void NormaliseStandardError_KeepsOnlyAssertedLines_Normalised()
     {
         Assert.AreEqual(

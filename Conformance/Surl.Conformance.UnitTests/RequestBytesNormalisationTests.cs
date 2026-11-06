@@ -32,6 +32,24 @@ public sealed class RequestBytesNormalisationTests
     }
 
     [TestMethod]
+    public void NormaliseRequestBytes_ReplacesTheDictClientText_OnlyAtALineStart()
+    {
+        Assert.AreEqual(
+            "CLIENT <user-agent>\r\nDEFINE ! CLIENT x\r\nQUIT\r\n",
+            Normalise("CLIENT libcurl 8.21.0\r\nDEFINE ! CLIENT x\r\nQUIT\r\n"));
+    }
+
+    [TestMethod]
+    public void NormaliseRequestBytes_ReplacesTheRandomPartOfCurlsMqttClientIdentifier()
+    {
+        // MQTT 3.1.1 section 3.1: fixed header, "MQTT", level 4, flags, keep-alive 60, client identifier.
+        const string Connect = "\u0010\u0018\0\u0004MQTT\u0004\u0002\0<\0\u000c";
+
+        Assert.AreEqual(Connect + "curl<client-id>0\u0005", Normalise(Connect + "curlaUz70Ln50\u0005"));
+        Assert.AreEqual(Connect + "mineaUz70Ln5", Normalise(Connect + "mineaUz70Ln5"));
+    }
+
+    [TestMethod]
     public void NormaliseRequestBytes_ReplacesTheClientPortInFtpPortAndEprt()
     {
         Assert.AreEqual(

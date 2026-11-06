@@ -121,14 +121,14 @@ internal static class PinnedCurlPortBesideUpstreamCurl
         var (upstream, upstreamSurl) = await RunAgainstFreshSurlAsync(
             measurementCase,
             setup,
-            (arguments, environment) => upstreamRunner.RunAsync(arguments, ReadOnlyMemory<byte>.Empty, environment, testContext.CancellationToken),
+            (arguments, environment) => upstreamRunner.RunAsync(arguments, setup.StandardInput, environment, testContext.CancellationToken),
             arrangeAsync,
             testContext.CancellationToken);
         testContext.WriteLine($"{measurementCase.CommandLine}: {upstream}");
         var (port, portSurl) = await RunAgainstFreshSurlAsync(
             measurementCase,
             setup,
-            (arguments, environment) => portRunner.RunAsync(arguments, ReadOnlyMemory<byte>.Empty, environment, testContext.CancellationToken),
+            (arguments, environment) => portRunner.RunAsync(arguments, setup.StandardInput, environment, testContext.CancellationToken),
             arrangeAsync,
             testContext.CancellationToken);
         testContext.WriteLine($"{measurementCase.CommandLine}: {port}");

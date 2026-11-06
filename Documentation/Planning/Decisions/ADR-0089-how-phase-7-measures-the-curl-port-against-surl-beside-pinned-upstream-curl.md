@@ -298,3 +298,21 @@ Decided by Claude under Stewart's delegation, in BL-589, from the HTTP/2 family'
 - The client's own ephemeral port in a `-v` line (`* Established connection to … from 127.0.0.1 port N`)
   is not normalised by `CurlPortResultNormaliser`, so such a line is not one of a case's compared standard
   error lines; the mirrored test's own count of it still judges upstream's run.
+## Amendment 5 (2026-11-05, BL-584): DICT, Gopher, TELNET, TFTP and MQTT
+
+Decided by Claude under Stewart's delegation, in BL-584, from that family's first runs. As in
+amendment 1, each item differed between two runs for a reason that is not curl's protocol behaviour;
+the exit code, output, asserted stderr lines, `surl`'s notes and stored files are still compared in
+every case.
+
+- **DICT's `CLIENT` text** is replaced by `<user-agent>`, as `User-Agent:` is: RFC 2229 section 3.6
+  makes it the client's self-identification, which curl fills with `libcurl <version>`.
+- **The random part of curl's MQTT client identifier** is replaced by `<client-id>`: a `CONNECT` from
+  curl names `curl` and 8 alphanumerics drawn afresh for every connection.
+- **Standard output has `surl`'s own port replaced** beside the client-facing (relay's) port: a reply
+  can name the port the server listens on, as a Gopher menu does.
+- **TELNET request bytes are not recorded.** How curl interleaves what it reads from standard input
+  with its option negotiation depends on when `surl`'s options arrive: the same upstream build sent its
+  input first against `surl` and its negotiation first in its recording. Timing is never compared.
+- `CurlPortRunSetup.StandardInput` gives both clients the same standard input, as a TELNET session
+  needs.

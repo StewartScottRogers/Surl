@@ -23,6 +23,12 @@ public static class CurlPortResultNormaliser
     /// <summary>The text a <c>User-Agent:</c> field value in request bytes is replaced by.</summary>
     public const string UserAgentPlaceholder = "<user-agent>";
 
+    /// <summary>
+    /// The text the 8 random characters after <c>curl</c> in an MQTT <c>CONNECT</c>s client identifier are
+    /// replaced by: curl picks them at random for every connection.
+    /// </summary>
+    public const string MqttClientIdPlaceholder = "<client-id>";
+
     /// <summary>The text a multipart boundary in request bytes is replaced by, everywhere it occurs.</summary>
     public const string BoundaryPlaceholder = "<boundary>";
 
@@ -122,6 +128,24 @@ public static class CurlPortResultNormaliser
         var text = RequestBytesNormalisation.Normalise(
             Encoding.Latin1.GetBytes(ReplacePort(Encoding.Latin1.GetString(WebSocketFrameUnmasking.Unmask(requestBytes)), clientFacingPort)));
         return Encoding.Latin1.GetBytes(text);
+    }
+
+    /// <summary>
+    /// Normalises a client's standard output as <see cref="NormaliseOutput(byte[], int, IReadOnlyList{string})"/>
+    /// does, replacing both ports of <paramref name="surl"/>: the one the client connected to and the one
+    /// <c>surl</c> listened on, which a reply can name when a recording relay stands between them (a
+    /// Gopher menu names the server's own port).
+    /// </summary>
+    /// <param name="output">The bytes the client wrote.</param>
+    /// <param name="surl">That run's <c>surl</c> and relay.</param>
+    /// <param name="arguments">The case's arguments, read for a <c>-w</c> or <c>--write-out</c> format.</param>
+    /// <returns>The normalised bytes.</returns>
+    public static byte[] NormaliseOutput(byte[] output, CurlPortSurlSide surl, IReadOnlyList<string> arguments)
+    {
+        ArgumentNullException.ThrowIfNull(output);
+        ArgumentNullException.ThrowIfNull(surl);
+        var text = ReplacePort(Encoding.Latin1.GetString(output), surl.Port);
+        return Encoding.Latin1.GetBytes(NormaliseOutputText(text, surl.ClientFacingPort, arguments));
     }
 
     private static string NormaliseOutputText(string text, int surlPort, IReadOnlyList<string> arguments)

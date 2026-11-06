@@ -83,8 +83,8 @@ public static class CurlPortComparison
         AddTextDifference(
             differences,
             "standard output",
-            Encoding.Latin1.GetString(CurlPortResultNormaliser.NormaliseOutput(upstream.StandardOutput, upstream.Surl.ClientFacingPort, arguments)),
-            Encoding.Latin1.GetString(CurlPortResultNormaliser.NormaliseOutput(port.StandardOutput, port.Surl.ClientFacingPort, arguments)));
+            Encoding.Latin1.GetString(CurlPortResultNormaliser.NormaliseOutput(upstream.StandardOutput, upstream.Surl, arguments)),
+            Encoding.Latin1.GetString(CurlPortResultNormaliser.NormaliseOutput(port.StandardOutput, port.Surl, arguments)));
         AddTextDifference(
             differences,
             "standard error",
