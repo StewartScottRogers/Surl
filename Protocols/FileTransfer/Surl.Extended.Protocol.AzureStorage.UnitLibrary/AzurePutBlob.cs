@@ -136,7 +136,7 @@ internal sealed class AzurePutBlob(ContentStore store, ObjectMetadataIndex index
     }
 
     // A metadata name must be a C# identifier ("Naming and Referencing Containers, Blobs, and Metadata").
-    private static bool IsMetadataName(string name) =>
+    internal static bool IsMetadataName(string name) =>
         name.Length > 0 && (char.IsAsciiLetter(name[0]) || name[0] == '_') && name.All(character => char.IsAsciiLetterOrDigit(character) || character == '_');
 
     internal bool IsAnnouncedPastTheLimit(IHttpRequestBody body) =>

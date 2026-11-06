@@ -180,6 +180,8 @@ public sealed class AzureLoginJudgeTests
     [DataRow("GET", "/photos?restype=container&comp=list", "l")]
     [DataRow("GET", "/photos?resource=filesystem&recursive=false", "l")]
     [DataRow("GET", "/?resource=account", "l")]
+    [DataRow("HEAD", "/photos?resource=filesystem", "r")]
+    [DataRow("GET", "/?comp=list", "l")]
     [DataRow("DELETE", "/photos/a.txt", "d")]
     [DataRow("PUT", "/photos/a.txt", "w")]
     [DataRow("PATCH", "/photos/a.txt?action=append&position=0", "aw")]

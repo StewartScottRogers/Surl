@@ -39,4 +39,14 @@ internal enum AzureOperation
     /// Get Block List: <c>GET /&lt;container&gt;/&lt;blob&gt;?comp=blocklist</c>.
     /// </summary>
     GetBlockList,
+
+    /// <summary>
+    /// List Containers: <c>GET /?comp=list</c>.
+    /// </summary>
+    ListContainers,
+
+    /// <summary>
+    /// Get Container Properties: <c>GET</c> or <c>HEAD /&lt;container&gt;?restype=container</c>.
+    /// </summary>
+    GetContainerProperties,
 }

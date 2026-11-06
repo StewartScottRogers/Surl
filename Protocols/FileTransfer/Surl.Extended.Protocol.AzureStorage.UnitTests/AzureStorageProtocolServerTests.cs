@@ -367,7 +367,8 @@ public sealed class AzureStorageProtocolServerTests
     }
 
     [TestMethod]
-    [DataRow("/photos?restype=container", "restype", "container", DisplayName = "Get Container Properties, not served yet")]
+    [DataRow("/photos?restype=container&comp=metadata", "restype", "container", DisplayName = "Get Container Metadata")]
+    [DataRow("/photos?restype=share", "restype", "share", DisplayName = "a restype other than container")]
     [DataRow("/photos?restype=container&comp=lis", "restype", "container", DisplayName = "a List Blobs with another comp")]
     [DataRow("/photos/a.txt?comp=lease", "comp", "lease", DisplayName = "a lease")]
     [DataRow("/photos/a.txt?snapshot=2026-11-05T12%3A00%3A00Z", "snapshot", "2026-11-05T12:00:00Z", DisplayName = "a snapshot")]

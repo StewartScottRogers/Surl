@@ -7,8 +7,9 @@ namespace Surl.Extended.Protocol.AzureStorage;
 
 /// <summary>
 /// Decides the answer to each Blob endpoint request on one connection (ADR-0109): Get Blob, Get
-/// Blob Properties, Put Blob and Delete Blob on <c>/&lt;container&gt;/&lt;blob&gt;</c> and List Blobs
-/// on <c>/&lt;container&gt;?restype=container&amp;comp=list</c>, made on the content store as the
+/// Blob Properties, Put Blob and Delete Blob on <c>/&lt;container&gt;/&lt;blob&gt;</c>, the block
+/// requests, List Blobs and Get Container Properties on <c>/&lt;container&gt;?restype=container</c>,
+/// and List Containers on <c>/?comp=list</c>, made on the content store as the
 /// caller the login names, and the pages' own refusal for every other request.
 /// </summary>
 /// <remarks>
@@ -42,6 +43,7 @@ internal sealed class AzureBlobRequestAnswerer : IHttpRequestHandler
     private readonly AzurePutBlock putBlock;
     private readonly AzurePutBlockList putBlockList;
     private readonly AzureGetBlockList getBlockList;
+    private readonly AzureListContainers listContainers;
 
     /// <summary>
     /// Creates the answerer for one exchange.
@@ -63,6 +65,7 @@ internal sealed class AzureBlobRequestAnswerer : IHttpRequestHandler
         putBlock = new AzurePutBlock(store, putBlob, staging);
         putBlockList = new AzurePutBlockList(store, putBlob, staging);
         getBlockList = new AzureGetBlockList(store, properties, staging);
+        listContainers = new AzureListContainers(store, endpointScheme);
     }
 
     /// <inheritdoc/>
@@ -91,10 +94,17 @@ internal sealed class AzureBlobRequestAnswerer : IHttpRequestHandler
         return await AnswerOperationAsync(reply, request, target, operation, loggedIn.Caller!, cancellationToken);
     }
 
-    // The container, then the name's length, then the operation.
+    // List Containers, which names no container; else the container, then the name's length, then
+    // the operation.
     private async Task<HttpAnswer> AnswerOperationAsync(AzureReply reply, HttpRequest request, AzureBlobTarget target, AzureOperation operation, ContentCaller caller, CancellationToken cancellationToken)
     {
-        if (!IsContainer(store.MapBucketRequestPathForCaller($"/{target.RawContainer}/", caller)))
+        if (operation == AzureOperation.ListContainers)
+        {
+            return listContainers.Answer(reply, request, target, caller, cancellationToken);
+        }
+
+        var container = store.MapBucketRequestPathForCaller($"/{target.RawContainer}/", caller);
+        if (!IsContainer(container))
         {
             return reply.Error(AzureRefusal.Of(AzureError.ContainerNotFound));
         }
@@ -112,6 +122,7 @@ internal sealed class AzureBlobRequestAnswerer : IHttpRequestHandler
             AzureOperation.PutBlock => await putBlock.AnswerAsync(reply, request, target, caller, cancellationToken),
             AzureOperation.PutBlockList => await putBlockList.AnswerAsync(reply, request, target, caller, cancellationToken),
             AzureOperation.GetBlockList => await getBlockList.AnswerAsync(reply, target, caller, cancellationToken),
+            AzureOperation.GetContainerProperties => AzureFolderProperties.Container(reply, store.GetEntryStatus(container)!.LastModifiedUtc),
             _ => await ReadBlobAsync(reply, request, target, caller, cancellationToken),
         };
     }

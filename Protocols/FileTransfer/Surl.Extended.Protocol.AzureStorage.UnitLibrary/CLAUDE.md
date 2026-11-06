@@ -10,7 +10,7 @@ upstream curl (which has none of these schemes) and never by the Curl port. Name
 The listen scheme (`ExchangeContext.Scheme`) decides the endpoint: `AzureBlobRequestAnswerer` on
 `az`, `AzureDataLakeRequestAnswerer` on `abfs` and `abfss`. Both log in through `AzureLoginJudge`.
 
-What the Blob endpoint serves now (BL-424, BL-425, BL-715), on `az`:
+What the Blob endpoint serves now (BL-424, BL-425, BL-715, BL-716), on `az`:
 
 - Get Blob and Get Blob Properties on `/<container>/<blob>` (account-host form): one `Range` or
   `x-ms-range` (`x-ms-range` wins; `206`, `416 InvalidRange`, several ranges ignored),
@@ -23,7 +23,7 @@ What the Blob endpoint serves now (BL-424, BL-425, BL-715), on `az`:
 - The login (BL-424, BL-717) through `IAuthenticationPolicy.StartHttpConnection`'s session:
   `AzureLoginJudge` sends each request with its `AzureStorageScope` - the `Host`'s first label as
   the account a shared access signature names, the decoded resource path, the SAS permission
-  letters that grant the operation (`GrantingPermissionsOf`: `l` a listing, `r` a read, `d` a
+  letters that grant the operation (`GrantingPermissionsOf`: `l` a listing `GET`, `r` any other read, `d` a
   delete, `aw` a Data Lake append, `w` any other write; `c` alone never grants a write) and the
   peer's address (`AzureStorageProtocolServer.PeerAddressOf`) - and `Surl.Authentication` judges
   the bearer token, `SharedKey`/`SharedKeyLite` signature or shared access signature. Each
@@ -90,8 +90,19 @@ What the Blob endpoint serves now (BL-424, BL-425, BL-715), on `az`:
   `http`, and the `Host`), `ContainerName`, the sent `Prefix`, `Marker`, `MaxResults` and
   `Delimiter`, each blob's `Properties` in decision 5.3's order (empty elements for no value,
   `Etag` without its quotes), and `NextMarker`, empty on the last page.
+- List Containers (BL-716, `AzureListContainers`) on `GET /?comp=list`, under `--list-directories`:
+  the containers the caller may read (`AzureTopLevelFolders`: the root's top-level folders, shares
+  included, and every `--bucket`, a hidden share or a top-level file left out) in UTF-8 byte order,
+  `prefix`, `marker` and `maxresults` read as List Blobs reads them; `include=metadata` adds an
+  empty `Metadata`, `deleted` and `system` add nothing, another value is `400
+  InvalidQueryParameterValue`. Each `Container` has `Name` and `Properties` (`Last-Modified`, the
+  folder's `Etag` without quotes, `LeaseStatus` `unlocked`, `LeaseState` `available`,
+  `HasImmutabilityPolicy` and `HasLegalHold` `false`). Get Container Properties
+  (`AzureFolderProperties`) on `GET` or `HEAD /<container>?restype=container` (no `comp`): `200`, no
+  body, the folder's `ETag` (`"0x<ticks>"`) and `Last-Modified`, and the lease, immutability and
+  legal-hold fields.
 - Every other request: `405 UnsupportedHttpVerb` for a method other than `GET`, `HEAD`, `PUT` or `DELETE`;
-  `400 InvalidQueryParameterValue` for `comp` (other than the three block requests), `restype`, `snapshot` or `versionid`; `400 InvalidUri`
+  `400 InvalidQueryParameterValue` for `comp` (other than the three block requests), `restype` (other than the container requests above), `snapshot` or `versionid`; `400 InvalidUri`
   for a path naming no blob; `400 UnsupportedHeader` for a lease, copy, customer-key, ACL or similar
   header; `400 InvalidResourceName` for a blob name over 1024 characters.
 - Every answer carries `Date`, `Server`, `x-ms-request-id` (a lower-case GUID), `x-ms-version:
@@ -99,13 +110,38 @@ What the Blob endpoint serves now (BL-424, BL-425, BL-715), on `az`:
   one-line XML `Error` body, whose `Message` ends with `RequestId:` and `Time:` lines. A `HEAD`
   error has no body. A connection past a limit is `503 ServerBusy`, then closed.
 
-What the Data Lake endpoint serves now (BL-426), on `abfs` and `abfss`, in the same order of checks
+What the Data Lake endpoint serves now (BL-426, BL-716), on `abfs` and `abfss`, in the same order of checks
 (required headers, login, operation, `404 FilesystemNotFound`, `400 InvalidResourceName` past 1024
 characters):
 
-- Path - Read (`GET`, and its head with `HEAD`) on `/<filesystem>/<path>`: Get Blob's answer with
-  `x-ms-resource-type: file` in place of the blob, lease and encryption fields; a directory `409
-  ResourceTypeMismatch`; no file `404 PathNotFound`.
+- Path - Read (`GET`) and Path - Get Properties (`HEAD`, `action` absent or `getStatus`; another
+  `action`, such as `getAccessControl`, `400 InvalidQueryParameterValue`) on `/<filesystem>/<path>`:
+  Get Blob's answer with `x-ms-resource-type: file` and, when the file has user metadata,
+  `x-ms-properties` (`AzurePropertiesField`) in place of the blob, lease and encryption fields; a
+  directory's `HEAD` is `200` with its `ETag`, `Last-Modified` and `x-ms-resource-type: directory`
+  (BL-716), its `GET` `409 ResourceTypeMismatch`; no file `404 PathNotFound`.
+- Filesystem - List (BL-716, `AzureFilesystemList`) on `GET /?resource=account`, under
+  `--list-directories`: `{"filesystems":[…]}` with each `name`, `lastModified` and `etag`, from
+  `AzureTopLevelFolders` as List Containers lists them; `prefix`, `maxResults` (1 to 5000) and
+  `continuation` (base64url of the last name), `x-ms-continuation` while more remain. Filesystem -
+  Get Properties on `HEAD /<filesystem>?resource=filesystem`: `200`, `ETag`, `Last-Modified` and
+  `x-ms-namespace-enabled: true`.
+- Rename (BL-716, `AzurePathRename`): `PUT /<filesystem>/<path>` with `x-ms-rename-source:
+  /<filesystem>/<path>` (its query ignored; `resource` not needed; `mode` accepted), under
+  `--allow-uploads`, moves the file or directory through `ContentStore.RenameEntry` (or
+  `RenameEntryWithoutReplacing` with `If-None-Match: *`), a renamed file's stored header fields and
+  properties stored again under the new name; `201` with `ETag` and `Last-Modified`. A source naming
+  no path `400 InvalidSourceUri`; nothing there `404 SourcePathNotFound`; a directory into itself
+  `400 InvalidRenameSourcePath`; no parent directory `404 RenameDestinationParentPathNotFound`; a
+  directory in the way (or anything, with `If-None-Match: *`) `409 PathAlreadyExists`; a rename the
+  store does not permit `403 AuthorizationPermissionMismatch`.
+- Path - Update `action=setProperties` (BL-716, `AzurePathSetProperties`), under `--allow-uploads`:
+  `x-ms-properties` (`name=base64,…`, names C# identifiers, values UTF-8; else `400
+  InvalidHeaderValue`) replaces the file's user metadata in `ObjectMetadataIndex` - the same entries
+  the Blob endpoint sends as `x-ms-meta-*` - and each `x-ms-content-*` or `x-ms-cache-control` sent
+  replaces the stored field; `200` with `ETag` and `Last-Modified`. A directory is `409
+  ResourceTypeMismatch` (the index keeps files only), a missing path `404 PathNotFound`, metadata
+  past 8 KiB `400 MetadataTooLarge`; a file in a share keeps nothing.
 - Path - Create (`AzurePathCreate`), `PUT …?resource=file|directory`, under `--allow-uploads`:
   creates every missing parent; `file` writes the file empty (emptying one there), discards its
   staged appends and keeps `x-ms-content-type`, `-encoding`, `-language`, `-disposition` and
@@ -135,9 +171,9 @@ characters):
   `Content-Type: application/json;charset=utf-8`; `code` and `message` only.
 
 Not yet: the conditional fields on Put Blob and Delete Blob and `x-ms-blob-content-md5` (filed
-from BL-425); `retainUncommittedData=true`, `beginFrom`, `x-ms-properties`, the conditional fields on
+from BL-425); `retainUncommittedData=true`, `beginFrom`, `x-ms-properties` on Path - Create, the conditional fields on
 the Data Lake writes and the JSON body on a Data Lake connection refused past a limit (BL-758);
-List Blobs' `include=uncommittedblobs`, List Containers and properties (BL-716), the path-style account segment, so a
+List Blobs' `include=uncommittedblobs`, properties on a directory or a filesystem, the path-style account segment, so a
 shared access signature on an IP-literal or `localhost` host names its account (BL-725), and `400 InvalidInput` for a head
 past `--max-request-head`, which `Surl.HttpServing` still answers `431` (BL-726).
 

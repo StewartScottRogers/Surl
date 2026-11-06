@@ -70,7 +70,7 @@ internal sealed class AzureLoginJudge(IHttpAuthenticationSession authentication,
     public static string GrantingPermissionsOf(string method, AzureBlobTarget target) =>
         method switch
         {
-            "GET" or "HEAD" when IsListing(target) => "l",
+            "GET" when IsListing(target) => "l",
             "GET" or "HEAD" => "r",
             "DELETE" => "d",
             "PATCH" when QueryValue(target, "action") == "append" => "aw",
