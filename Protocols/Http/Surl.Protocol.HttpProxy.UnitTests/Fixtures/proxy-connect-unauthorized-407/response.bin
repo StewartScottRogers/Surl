@@ -1,0 +1,9 @@
+HTTP/1.1 407 Proxy Authentication Required
+Date: Mon, 28 Sep 2026 12:00:00 GMT
+Server: surl
+Proxy-Authenticate: Digest realm="surl", qop="auth", algorithm=MD5, nonce="abc"
+Proxy-Authenticate: Basic realm="surl", charset="UTF-8"
+Content-Type: text/plain; charset=us-ascii
+Content-Length: 34
+
+407 Proxy Authentication Required

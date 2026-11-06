@@ -1,0 +1,6 @@
+CONNECT origin.test:8080 HTTP/1.1
+Host: origin.test:8080
+Proxy-Authorization: Digest username="u",realm="surl",nonce="abc",uri="origin.test:8080",cnonce="f87554cc11132cc2ac34d35181b0cc7b",nc=00000001,algorithm=MD5,response="12ec3cfd36fa518223220579b5198812",qop="auth"
+User-Agent: curl/8.21.0
+Proxy-Connection: Keep-Alive
+

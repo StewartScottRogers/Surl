@@ -1,0 +1,7 @@
+GET http://origin.test/a HTTP/1.1
+Host: origin.test
+Proxy-Authorization: NTLM TlRMTVNTUAABAAAAB4IIogAAAAAAAAAAAAAAAAAAAAAKAPRlAAAADw==
+User-Agent: curl/8.21.0
+Accept: */*
+Proxy-Connection: Keep-Alive
+
