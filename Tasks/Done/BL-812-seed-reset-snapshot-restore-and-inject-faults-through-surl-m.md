@@ -37,17 +37,17 @@ call the same `Surl.Api` surface a .NET test uses, under `surl-mcp`'s existing s
       fetch shows the seeded bytes; `reset_server` empties it; `snapshot_server` then `restore_server` round-trips;
       `add_fault` then a fake request shows the fault and `remove_fault` ends it; past the snapshot bound, an
       unknown server ID or snapshot ID, and a bad fault item are each `isError: true` with the ADR's text; no result
-      or log line holds a password. (Nine tools; `list_faults` split to BL-955 and BL-956, see Notes.)
+      or log line holds a password. (Nine tools; `list_faults` split to BL-963 and BL-964, see Notes.)
 - [x] A named test shows `tools/list` lists every new tool with a JSON object input schema and a description.
 - [x] `dotnet build -warnaserror` is clean, the fast tests are green, and `Surl.Mcp.UnitLibrary` and `Surl.Mcp`
       keep 100% line and branch coverage.
 
 ## Notes
 
-- **Split: `list_faults` moved to BL-955 and BL-956.** Its `remaining` needs the fault plan's live counts, which
+- **Split: `list_faults` moved to BL-963 and BL-964.** Its `remaining` needs the fault plan's live counts, which
   only `Surl.Core`'s `FaultPlan.Rules` holds, kept private by `Surl.Api`'s `SurlServerFaults`. `Surl.Api` was in
   BL-811's `touches` (in Doing), so rather than send the whole task back to Backlog for one listing method, the
-  nine other tools landed here and BL-955 (a `SurlServerFaults` listing in `Surl.Api`) and BL-956 (`list_faults`
+  nine other tools landed here and BL-963 (a `SurlServerFaults` listing in `Surl.Api`) and BL-964 (`list_faults`
   in `Surl.Mcp`) were filed. Counting `FaultAppliedEvent`s in the host was rejected: the event record is bounded,
   so `remaining` would be overstated once events drop.
 - Decisions (Claude, under Stewart's delegation; ADR-0124 decision 8 leaves the texts open, and they are recorded
@@ -74,4 +74,4 @@ call the same `Surl.Api` surface a .NET test uses, under `surl-mcp`'s existing s
 
 - 2026-11-05: Created.
 - 2026-11-06: Backlog -> Doing.
-- 2026-11-06: Doing -> Done. surl-mcp seeds, resets, snapshots, restores and adds and removes faults on a running server through nine tools; list_faults split to BL-955/BL-956
+- 2026-11-06: Doing -> Done. surl-mcp seeds, resets, snapshots, restores and adds and removes faults on a running server through nine tools; list_faults split to BL-963/BL-964

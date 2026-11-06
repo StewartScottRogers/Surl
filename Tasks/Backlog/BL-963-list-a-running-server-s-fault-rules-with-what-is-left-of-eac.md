@@ -1,5 +1,5 @@
 ---
-id: BL-955
+id: BL-963
 title: List a running server's fault rules with what is left of each count through Surl.Api
 priority: Normal
 assignee: Claude
@@ -10,11 +10,11 @@ requirement: none
 created: 2026-11-06
 completed:
 ---
-# BL-955 — List a running server's fault rules with what is left of each count through Surl.Api
+# BL-963 — List a running server's fault rules with what is left of each count through Surl.Api
 
 ## Goal
 
-A .NET test (and `Surl.Mcp`'s `list_faults`, BL-956) can read a running `SurlServer`'s fault plan: each rule's ID,
+A .NET test (and `Surl.Mcp`'s `list_faults`, BL-964) can read a running `SurlServer`'s fault plan: each rule's ID,
 its `--fault` item and how many applications are left of its `times`.
 
 ## Context
