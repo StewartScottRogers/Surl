@@ -348,7 +348,9 @@ public sealed partial class MessageBus
             ? new(MessageBusOutcome.QueueDescriptionDiffers, 0, 0)
         : new(MessageBusOutcome.Succeeded, existing.ReadyCount, existing.ActiveConsumerCount);
 
-    private (int QueuedCount, int FullQueueCount, int UnconsumedQueueCount) CopyIntoBoundQueues(BusMessage published, string[] topicLevels, DateTimeOffset now, bool onlyToConsumedQueues)
+    // A batch passes the bound queues its plan found full, so each is refused as planned and the
+    // queues never hold more than the plan counted on (MessageBus.Batch.cs).
+    private (int QueuedCount, int FullQueueCount, int UnconsumedQueueCount) CopyIntoBoundQueues(BusMessage published, string[] topicLevels, DateTimeOffset now, bool onlyToConsumedQueues, HashSet<NamedQueue>? queuesFullByPlan)
     {
         var queuedCount = 0;
         var fullQueueCount = 0;
@@ -359,7 +361,7 @@ public sealed partial class MessageBus
             {
                 unconsumedQueueCount++;
             }
-            else if (Enqueue(queue, published, now) is MessageBusOutcome.Succeeded)
+            else if (queuesFullByPlan?.Contains(queue) != true && Enqueue(queue, published, now) is MessageBusOutcome.Succeeded)
             {
                 queuedCount++;
             }

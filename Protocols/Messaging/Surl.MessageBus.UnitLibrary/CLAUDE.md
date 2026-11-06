@@ -84,6 +84,21 @@ What it holds now (BL-629):
   `SURL-BUS-QUEUES-2`, each queue's name followed by `0x00`, or `0x01` and the description, only
   when some persisted queue has one, so a bus with none writes what earlier builds read),
   snapshotted and restored with its queue, and goes with the queue on reset.
+- **Batch publish, all or none (BL-961, ADR-0146 decision 1.6).** `BusConnection.PublishBatch` takes an
+  ordered list of `BusBatchEntry` - `ToTopic(message)` or `ToQueue(name, message)` - and answers a
+  `BusBatchPublishResult`: `Succeeded` with each entry's `BusPublishResult` in order, or the first refused
+  entry's `RefusedIndex` and the outcome its own publish would have met, with nothing published and no
+  store change raised. What needs no lock (topic, size, access, the out-of-space fault) is checked first,
+  in order, stopping at the first refusal; then, under one hold of the bus's lock, a `BatchPlan` counts each
+  entry against the bus as the entries before it would leave it (`MaxTopics`, `MaxLogBytes` after each
+  topic's retention, `MaxRetainedPayloadBytes`, `UnknownQueue`, and `MaxMessagesPerQueue` and
+  `MaxQueuedBytes` with the batch's own copies), and only when all fit publishes them in order through
+  the single publish's own path, so logs, retained slots, queue copies and store changes come out as the
+  single publishes would. A bound queue too full for a topic entry's copy refuses only that copy
+  (`FullQueueCount`), and the plan names those queues so the publish refuses exactly them. Live and
+  queue deliveries run after the lock is let go, so a batch's `Delivered` events follow its other
+  changes, each kind in batch order. An expired entry succeeds and is stored nowhere. The fault plan
+  may have been asked about an entry after one the locked check later refuses.
 - **Topic logs (BL-633).** Every publish the bus takes, retained or not and whichever
   protocol made it, is appended to its topic's `TopicLog` at the next offset, from 0 and
   contiguous; one partition per topic. `BusPublishResult.LogOffset` is the offset it got

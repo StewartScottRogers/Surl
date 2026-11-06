@@ -85,6 +85,25 @@ public sealed class BusConnection : IDisposable
     public BusPublishResult PublishToConsumedQueues(BusMessage message) => bus.Publish(message, Account, this, onlyToConsumedQueues: true);
 
     /// <summary>
+    /// Publishes an ordered batch all or none, as the AMQP 1.0 container commits a transaction
+    /// (ADR-0146, decision 1.6). Each entry is checked as its own <see cref="Publish(BusMessage)"/>
+    /// or <see cref="MessageBus.PublishToQueue(string, BusMessage, string?)"/> for
+    /// <see cref="Account"/> would be, against the bus as the entries before it would leave it; when
+    /// any one would be refused, nothing is published and no store change is raised. Otherwise every
+    /// entry is published in batch order, with the same deliveries, queue copies, log appends,
+    /// retained changes and events as its own publish. The check and the publish happen under one
+    /// hold of the bus's lock, so no other publish interleaves. A bound queue too full for a topic
+    /// entry's copy refuses only that copy, as for a single publish
+    /// (<see cref="BusPublishResult.FullQueueCount"/>).
+    /// </summary>
+    /// <param name="entries">The entries, in the order they are published.</param>
+    /// <returns>The outcome; when refused, the index of the first entry refused and why, as its own
+    /// publish would have answered; when published, each entry's result.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="entries"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentException">An entry is <see langword="null"/>.</exception>
+    public BusBatchPublishResult PublishBatch(IReadOnlyList<BusBatchEntry> entries) => bus.PublishBatch(this, entries);
+
+    /// <summary>
     /// Declares a named queue (AMQP 0-9-1 <c>queue.declare</c>): makes it when absent, and
     /// otherwise checks it was made with the same <paramref name="flags"/> and, when
     /// <paramref name="subscriptionDescription"/> is given, the same description. An exclusive queue
