@@ -1,5 +1,5 @@
 ---
-id: BL-916
+id: BL-921
 title: Bring ImapSession.AnswerNextCommandAsync under cyclomatic complexity 10
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-06
 completed:
 ---
-# BL-916 — Bring ImapSession.AnswerNextCommandAsync under cyclomatic complexity 10
+# BL-921 — Bring ImapSession.AnswerNextCommandAsync under cyclomatic complexity 10
 
 ## Goal
 

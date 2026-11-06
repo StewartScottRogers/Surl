@@ -1,5 +1,5 @@
 ---
-id: BL-915
+id: BL-920
 title: Apply command-stage delay and drop fault rules in the MQTT and LDAP servers
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-06
 completed:
 ---
-# BL-915 — Apply command-stage delay and drop fault rules in the MQTT and LDAP servers
+# BL-920 — Apply command-stage delay and drop fault rules in the MQTT and LDAP servers
 
 ## Goal
 

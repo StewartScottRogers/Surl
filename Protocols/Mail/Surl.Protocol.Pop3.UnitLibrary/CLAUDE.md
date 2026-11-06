@@ -48,7 +48,7 @@ timestamp) are the glossary's, sections "Mail: SMTP, IMAP and POP3" and "Authent
   maildrop the session opened, and the listen URL as `Surl.Protocol.Abstractions`' `ReportedListenUrl` writes it; POP3 has no
   path. An `Error` rule is answered `-ERR <reply>` in place of the command, the maildrop is
   untouched, a note is logged and one `FaultAppliedEvent` (target: the verb) is published. A
-  rule with no reply answers `-ERR Local error in processing`. A `Delay` rule (`stage=command`) holds the answer for its `ms` on `ExchangeContext.TimeProvider` with `ExchangeContext.IdleClock` paused, and a `Drop` rule aborts the connection with no answer and ends the session, each through `CommandStageFaults.FindAndApplyAsync` with one `FaultAppliedEvent` (ADR-0140, BL-901).
+  rule with no reply answers `-ERR Local error in processing`. A `Delay` rule (`stage=command`) holds the answer for its `ms` on `ExchangeContext.TimeProvider` with `ExchangeContext.IdleClock` paused, and a `Drop` rule aborts the connection with no answer and ends the session, each through `CommandStageFaults.FindAndApplyAsync` with one `FaultAppliedEvent` (ADR-0141, BL-901).
 - `STLS` (decision 8): `+OK Begin TLS negotiation`, then `CrlfLineReader.DiscardBuffered`, then
   `IConnection.UpgradeToTlsAsync`, and the session starts over with the `USER` forgotten;
   `-ERR STLS not available` without a certificate, `-ERR Already using TLS` on a TLS

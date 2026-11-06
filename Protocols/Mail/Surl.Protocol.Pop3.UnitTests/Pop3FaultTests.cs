@@ -6,7 +6,7 @@ using static Surl.Protocol.Pop3.RecordedFixtureTests;
 namespace Surl.Protocol.Pop3;
 
 /// <summary>
-/// The command-stage faults (ADR-0124, decision 4; BL-796; ADR-0140, BL-901). A delay holds a
+/// The command-stage faults (ADR-0124, decision 4; BL-796; ADR-0141, BL-901). A delay holds a
 /// command's answer with the idle clock paused and a drop aborts the connection unanswered; a command an <see cref="FaultKind.Error"/>
 /// rule matches is answered with <c>-ERR</c> and the rule's text in place of its own, the maildrop
 /// untouched, and one <see cref="FaultAppliedEvent"/> is published. The <c>RETR</c> request is
@@ -95,7 +95,7 @@ public sealed class Pop3FaultTests
         Assert.AreEqual(Greeting + "-ERR Local error in processing\r\n", written);
     }
 
-    // ADR-0140: a command-stage delay holds RETR's answer on the exchange's clock, with the idle
+    // ADR-0141: a command-stage delay holds RETR's answer on the exchange's clock, with the idle
     // clock paused for the whole hold, then answers it as usual.
     [TestMethod]
     public async Task ServeAsync_RetrDelayRule_HoldsTheAnswerUntilTheClockAdvances500Ms_WithTheIdleClockPaused()
@@ -122,7 +122,7 @@ public sealed class Pop3FaultTests
         Assert.AreEqual(new FaultAppliedEvent("f1", FaultKind.Delay, FaultStage.Command, 1, "RETR"), events.Events.Single());
     }
 
-    // ADR-0140: a command-stage drop aborts the connection in place of RETR's answer; curl's
+    // ADR-0141: a command-stage drop aborts the connection in place of RETR's answer; curl's
     // request is replayed from Fixtures/fault-retr up to the RETR it never sees answered.
     [TestMethod]
     public async Task ServeAsync_RetrDropRule_AbortsTheConnectionWithNoAnswerToRetr()

@@ -3,7 +3,7 @@ using Surl.Protocol.Abstractions;
 namespace Surl.Protocol.Smtp;
 
 /// <summary>
-/// The command-stage faults (ADR-0124, decision 4; ADR-0140): every recognized command asks the
+/// The command-stage faults (ADR-0124, decision 4; ADR-0141): every recognized command asks the
 /// exchange's fault plan at <see cref="FaultStage.Command"/>. An <see cref="FaultKind.Error"/> rule
 /// answers it with the rule's reply in place of the command, before the mail store is touched; a
 /// <see cref="FaultKind.Delay"/> rule holds the answer for the rule's <c>ms</c> with the idle clock

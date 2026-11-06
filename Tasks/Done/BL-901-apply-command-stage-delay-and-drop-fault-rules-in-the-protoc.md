@@ -5,7 +5,7 @@ priority: Normal
 assignee: Claude
 pipeline: feature
 depends-on: [BL-796]
-touches: [Foundation/Surl.Protocol.Abstractions.UnitLibrary, Foundation/Surl.Protocol.Abstractions.UnitTests, Foundation/Surl.Core.UnitLibrary, Foundation/Surl.Core.UnitTests, Protocols/Mail/Surl.Protocol.Smtp.UnitLibrary, Protocols/Mail/Surl.Protocol.Smtp.UnitTests, Protocols/Mail/Surl.Protocol.Imap.UnitLibrary, Protocols/Mail/Surl.Protocol.Imap.UnitTests, Protocols/Mail/Surl.Protocol.Pop3.UnitLibrary, Protocols/Mail/Surl.Protocol.Pop3.UnitTests, Documentation/Planning/Decisions/ADR-0140-how-a-server-applies-a-command-stage-delay-or-drop.md, Documentation/Planning/Decisions/README.md]
+touches: [Foundation/Surl.Protocol.Abstractions.UnitLibrary, Foundation/Surl.Protocol.Abstractions.UnitTests, Foundation/Surl.Core.UnitLibrary, Foundation/Surl.Core.UnitTests, Protocols/Mail/Surl.Protocol.Smtp.UnitLibrary, Protocols/Mail/Surl.Protocol.Smtp.UnitTests, Protocols/Mail/Surl.Protocol.Imap.UnitLibrary, Protocols/Mail/Surl.Protocol.Imap.UnitTests, Protocols/Mail/Surl.Protocol.Pop3.UnitLibrary, Protocols/Mail/Surl.Protocol.Pop3.UnitTests, Documentation/Planning/Decisions/ADR-0141-how-a-server-applies-a-command-stage-delay-or-drop.md, Documentation/Planning/Decisions/README.md]
 requirement: none
 created: 2026-11-05
 completed: 2026-11-06
@@ -50,7 +50,7 @@ the answer, so a test can make one command slow or cut off on purpose.
 
 Filed by BL-796 (2026-11-05, dark factory lane 5).
 
-Done 2026-11-06 (dark factory lane 9). Decisions in ADR-0140 (decided by Claude under Stewart's delegation):
+Done 2026-11-06 (dark factory lane 9). Decisions in ADR-0141 (decided by Claude under Stewart's delegation):
 
 - The drop seam already existed: `IConnection.Abort()`. Only the idle clock was missing: `IIdleClock` on
   `ExchangeContext.IdleClock` (default `NoIdleClock`), implemented explicitly by the engine's `ExchangeDeadlines`.
@@ -65,7 +65,7 @@ Done 2026-11-06 (dark factory lane 9). Decisions in ADR-0140 (decided by Claude 
 - ADR number 0140 (0137 is unused on every branch seen; left alone in case a running lane holds it).
 - `touches` grew by the ADR file and the decisions index, which no task in Doing names.
 - Family follow-ups already existed (BL-902, BL-907, BL-909, BL-914); BL-902/907/909 now depend on BL-901 too.
-  Filed BL-915 for MQTT and LDAP, which had none.
+  Filed BL-920 for MQTT and LDAP, which had none.
 - Coverage: Abstractions, Core, SMTP, POP3, IMAP all 100% line and branch. IMAP's
   `ImapSession.AnswerNextCommandAsync` reports cyclomatic complexity 16 in `Measure-CodeQuality.ps1`; this task
   did not change that method (the upstream-test-case branches of BL-878 did).

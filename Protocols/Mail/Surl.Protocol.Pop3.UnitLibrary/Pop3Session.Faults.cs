@@ -3,7 +3,7 @@ using Surl.Protocol.Abstractions;
 namespace Surl.Protocol.Pop3;
 
 /// <summary>
-/// The command-stage faults (ADR-0124, decision 4; ADR-0140): every recognized command asks the
+/// The command-stage faults (ADR-0124, decision 4; ADR-0141): every recognized command asks the
 /// exchange's fault plan at <see cref="FaultStage.Command"/> - a maildrop command once its maildrop
 /// is open, so a fault never skips the login check. An <see cref="FaultKind.Error"/> rule answers it
 /// with <c>-ERR</c> and the rule's text in place of the command, before the mail store is touched;

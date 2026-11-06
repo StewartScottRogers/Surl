@@ -6,7 +6,7 @@ using static Surl.Protocol.Imap.RecordedFixtureTests;
 namespace Surl.Protocol.Imap;
 
 /// <summary>
-/// The command-stage faults (ADR-0124, decision 4; BL-796; ADR-0140, BL-901). A delay holds a
+/// The command-stage faults (ADR-0124, decision 4; BL-796; ADR-0141, BL-901). A delay holds a
 /// command's answer with the idle clock paused and a drop aborts the connection unanswered; a command an <see cref="FaultKind.Error"/>
 /// rule matches is answered with a tagged <c>NO</c> or <c>BAD</c> - the rule's reply - in place of
 /// its own, the store untouched, and one <see cref="FaultAppliedEvent"/> is published. The
@@ -138,7 +138,7 @@ public sealed class ImapFaultTests
         StringAssert.EndsWith(responses, "A1 NO [UNAVAILABLE] Local error in processing\r\n");
     }
 
-    // ADR-0140: a command-stage delay holds SELECT's answer on the exchange's clock, with the idle
+    // ADR-0141: a command-stage delay holds SELECT's answer on the exchange's clock, with the idle
     // clock paused for the whole hold, then answers it as usual.
     [TestMethod]
     public async Task ServeAsync_SelectDelayRule_HoldsTheAnswerUntilTheClockAdvances500Ms_WithTheIdleClockPaused()
@@ -166,7 +166,7 @@ public sealed class ImapFaultTests
         Assert.AreEqual(new FaultAppliedEvent("f1", FaultKind.Delay, FaultStage.Command, 1, "INBOX"), events.Events.Single());
     }
 
-    // ADR-0140: a command-stage drop aborts the connection in place of SELECT's answer; curl's
+    // ADR-0141: a command-stage drop aborts the connection in place of SELECT's answer; curl's
     // request is replayed from Fixtures/fault-select up to the SELECT it never sees answered.
     [TestMethod]
     public async Task ServeAsync_SelectDropRule_AbortsTheConnectionWithNoAnswerToSelect()
@@ -183,7 +183,7 @@ public sealed class ImapFaultTests
         Assert.AreEqual(new FaultAppliedEvent("f1", FaultKind.Drop, FaultStage.Command, 1, "INBOX"), events.Events.Single());
     }
 
-    // ADR-0140: APPEND asks the plan before its "+" continuation, so a drop sends no "+".
+    // ADR-0141: APPEND asks the plan before its "+" continuation, so a drop sends no "+".
     [TestMethod]
     public async Task ServeAsync_AppendDropRule_AbortsTheConnectionBeforeTheContinuation()
     {

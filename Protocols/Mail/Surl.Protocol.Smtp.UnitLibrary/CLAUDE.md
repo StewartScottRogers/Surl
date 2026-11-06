@@ -67,7 +67,7 @@ glossary's, sections "Mail: SMTP, IMAP and POP3" and "Authentication".
   `Error` rule's reply is written in place of the command's own (`DATA`'s in place of `354`,
   before the message), nothing is stored, a note is logged and one `FaultAppliedEvent` (target:
   the path, else the verb) is published; a rule with no reply answers
-  `451 4.3.0 Local error in processing`. A `Delay` rule (`stage=command`) holds the answer for its `ms` on `ExchangeContext.TimeProvider` with `ExchangeContext.IdleClock` paused, and a `Drop` rule aborts the connection with no answer and ends the session, each through `CommandStageFaults.FindAndApplyAsync` with one `FaultAppliedEvent` (ADR-0140, BL-901).
+  `451 4.3.0 Local error in processing`. A `Delay` rule (`stage=command`) holds the answer for its `ms` on `ExchangeContext.TimeProvider` with `ExchangeContext.IdleClock` paused, and a `Drop` rule aborts the connection with no answer and ends the session, each through `CommandStageFaults.FindAndApplyAsync` with one `FaultAppliedEvent` (ADR-0141, BL-901).
 - `SmtpLogText`: renders peer bytes for the verbose notes of decision 8.
 - `SmtpUpstreamTestCaseServer` (ADR-0080 decision 2): the SMTP server half of one upstream
   curl test case, never composed by the shipped `surl`. It is `SmtpProtocolServer` built with

@@ -3,7 +3,7 @@ using Surl.Protocol.Abstractions;
 namespace Surl.Protocol.Imap;
 
 /// <summary>
-/// The command-stage faults (ADR-0124, decision 4; ADR-0140): every recognized command the
+/// The command-stage faults (ADR-0124, decision 4; ADR-0141): every recognized command the
 /// session's state allows asks the exchange's fault plan at <see cref="FaultStage.Command"/>. An
 /// <see cref="FaultKind.Error"/> rule answers it with a tagged <c>NO</c> or <c>BAD</c> - the rule's
 /// reply - in place of the command, before the mail store is touched; a
