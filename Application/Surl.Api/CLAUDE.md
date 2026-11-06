@@ -58,6 +58,15 @@ measures it by name.
   `ArgumentException` carrying `surl`'s text, then adds `FaultPlanComposition.ToRule`'s rule and
   returns its ID; `Remove` and `Clear` go straight to the plan. A runtime rule logs nothing.
   Tests bring clients in after start with `FakeListenerFactory.Accept`.
+- Store control (BL-810, ADR-0124 decision 3): `SurlServer.Mail`, `Files`, `Messages` and
+  `Accounts` (`SurlServerMail`, `SurlServerFiles`, `SurlServerMessages`, `SurlServerAccounts`) are
+  thin wrappers over `ComposedServing.Stores` (`ComposedStores`); each store result that is not a
+  success becomes a `SurlSeedRefusedException` (`Store`, `Refusal` = the store's enum member name).
+  `ResetAsync`, `SnapshotAsync` (a `SurlSnapshot` wrapping `ComposedSnapshot` and its owning
+  server) and `RestoreAsync` (another server's snapshot is an `ArgumentException`) go straight to
+  `ComposedStores`, whose `ComposedStoreException` is the `InvalidOperationException` a refused
+  reset or snapshot throws. No file delete yet: `ComposedStores` has none. Tests bring clients in
+  on one listener of several with `FakeListenerFactory.Accept(scheme, connection)`.
 - `SurlServerHostSeams.ReadStartFile` is handed to the composition's `ReadStartFile`, so tests
   give the `--user-file` and `--hostkey` files in memory (`ApiTestSeams.StartFiles`). The
   `--cert`, `--key` and `--cacert` files are still read from disk by `ServerTlsComposition`.

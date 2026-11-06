@@ -22,6 +22,7 @@ internal sealed class FakeListenerFactory : IListenerFactory
     private IConnection? connectionToAccept;
     private readonly ConcurrentDictionary<string, IConnection> connectionsToAcceptByScheme = new(StringComparer.Ordinal);
     private readonly Channel<IConnection> queuedConnections = Channel.CreateUnbounded<IConnection>();
+    private readonly ConcurrentDictionary<string, Channel<IConnection>> queuedConnectionsByScheme = new(StringComparer.Ordinal);
 
     /// <summary>
     /// Hands <paramref name="connection"/> to the next accept of any connection listener, after
@@ -29,6 +30,15 @@ internal sealed class FakeListenerFactory : IListenerFactory
     /// client in once the server is running.
     /// </summary>
     public void Accept(IConnection connection) => queuedConnections.Writer.TryWrite(connection);
+
+    /// <summary>
+    /// Hands <paramref name="connection"/> to the next accept of a connection listener on <paramref name="scheme"/>
+    /// only, so a server with several listen URLs takes each client on the listener it is meant for.
+    /// </summary>
+    public void Accept(string scheme, IConnection connection) => QueueOf(scheme).Writer.TryWrite(connection);
+
+    private Channel<IConnection> QueueOf(string scheme) =>
+        queuedConnectionsByScheme.GetOrAdd(scheme, _ => Channel.CreateUnbounded<IConnection>());
 
     /// <summary>
     /// A connection the first accept of any connection listener returns, once; every other accept
@@ -117,7 +127,19 @@ internal sealed class FakeListenerFactory : IListenerFactory
                 return connection;
             }
 
-            return await factory.queuedConnections.Reader.ReadAsync(cancellationToken);
+            var schemeQueue = factory.QueueOf(ListenUrl.Scheme).Reader;
+            var anyQueue = factory.queuedConnections.Reader;
+            while (true)
+            {
+                if (schemeQueue.TryRead(out var queued) || anyQueue.TryRead(out queued))
+                {
+                    return queued;
+                }
+
+                await Task.WhenAny(
+                    schemeQueue.WaitToReadAsync(cancellationToken).AsTask(), anyQueue.WaitToReadAsync(cancellationToken).AsTask());
+                cancellationToken.ThrowIfCancellationRequested();
+            }
         }
 
         public ValueTask DisposeAsync()

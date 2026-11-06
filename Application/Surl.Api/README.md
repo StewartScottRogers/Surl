@@ -125,5 +125,42 @@ throws `SurlServerStartException`, a runtime one `ArgumentException`, each with 
 `--fault` warning to `Log`; a rule added at run time writes nothing. Each rule applied is a
 `FaultApplied` event the queries above find.
 
+## Seed, reset, snapshot
+
+One server can serve a whole test class without one test leaking into the next (ADR-0124
+decision 3). Seed what a test needs through the path a client would write by, so names, size
+limits and events apply as they would to a client; a seed never trips a fault rule:
+
+```csharp
+await server.Mail.DeliverAsync("alice@example.com", "Subject: hi\r\n\r\nhello\r\n"u8.ToArray());
+await server.Files.PutAsync("/reports/a.txt", "contents"u8.ToArray());
+await server.Messages.PublishAsync("sensors/1", "21.5"u8.ToArray(), retain: true);
+await server.Messages.EnqueueAsync("jobs", "job 1"u8.ToArray());   // the queue must already exist
+server.Accounts.Add("bob", "builder");                              // Remove("bob") takes it away
+```
+
+A seed a client would be refused throws `SurlSeedRefusedException`, never fails silently: its
+`Store` is the store and its `Refusal` the store's own word for it - `NoSuchAccount` for mail to an
+unknown mailbox, `NotPermitted` for a `.surl` path, `TooLarge` or `MessageTooLarge` past
+`MaxFileSize`, `InvalidTopic`, `UnknownQueue`, `StoreFull`. `Accounts.Add` throws
+`ArgumentException` for a user name with `:` or one that exists.
+
+```csharp
+var clean = await server.SnapshotAsync();   // after the class's own seeding
+// ... a test changes things ...
+await server.RestoreAsync(clean);           // back to the snapshot
+await server.ResetAsync();                  // or back to how the server started
+```
+
+`ResetAsync` returns files, mail, messages and accounts, in that order, to the server's start:
+the `Files` given at start and no others, the configured mailboxes holding nothing, no retained or
+queued messages, and exactly the accounts given at start. A snapshot is an in-memory copy (at most
+256 MiB, accounts as password hashes only) that only the server that took it restores; another
+server's throws `ArgumentException`. Every mailbox gets a new `UIDVALIDITY` on reset and restore,
+so an IMAP client resynchronises; open connections stay open and see the new contents on their
+next command. Each seed, reset and restore is a `StoreChanged` event the queries above find. With
+`DataDirectory` the files, mail and messages are on disk, and reset and snapshot throw
+`InvalidOperationException` so a fixture never empties a real directory; seeding them still works.
+
 `Surl.Composition`'s public types, which this package carries, are not a supported programming
 interface and may change in any release.

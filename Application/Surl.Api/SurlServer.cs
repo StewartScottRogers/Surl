@@ -39,6 +39,10 @@ public sealed class SurlServer : IAsyncDisposable
         this.record = record;
         BoundUrls = boundUrls;
         Faults = new SurlServerFaults(composedServing.Faults);
+        Mail = new SurlServerMail(composedServing.Stores);
+        Files = new SurlServerFiles(composedServing.Stores);
+        Messages = new SurlServerMessages(composedServing.Stores);
+        Accounts = new SurlServerAccounts(composedServing.Stores);
         stopping = new Lazy<Task<SurlExitCode>>(StopServingAsync);
     }
 
@@ -136,6 +140,67 @@ public sealed class SurlServer : IAsyncDisposable
     /// and adding, removing and clearing rules while it serves.
     /// </summary>
     public SurlServerFaults Faults { get; }
+
+    /// <summary>The server's mail store, to seed messages into mailboxes (ADR-0124, decision 3).</summary>
+    public SurlServerMail Mail { get; }
+
+    /// <summary>The server's content store, to seed files (ADR-0124, decision 3).</summary>
+    public SurlServerFiles Files { get; }
+
+    /// <summary>The server's message bus, to seed messages onto topics and queues (ADR-0124, decision 3).</summary>
+    public SurlServerMessages Messages { get; }
+
+    /// <summary>The server's accounts, to add and remove them while it serves (ADR-0124, decision 3).</summary>
+    public SurlServerAccounts Accounts { get; }
+
+    /// <summary>
+    /// Returns the content store, the mail store, the message bus and the accounts, in that order, to their state
+    /// at start (ADR-0124, decision 3): the files <see cref="SurlServerOptions.Files"/> gave and no others, the
+    /// configured mailboxes holding no messages (each with a new <c>UIDVALIDITY</c>), the configured topics and
+    /// queues holding no messages, and exactly the accounts given at start. Open sessions keep their connections
+    /// and see the new contents on their next command. Publishes one <see cref="StoreChangedEvent"/> with
+    /// <see cref="StoreChange.Reset"/> per store.
+    /// </summary>
+    /// <param name="cancellationToken">Cancels the wait for the content store.</param>
+    /// <returns>A task that completes once every store is reset.</returns>
+    /// <exception cref="InvalidOperationException">A store refused, such as one on disk under
+    /// <see cref="SurlServerOptions.DataDirectory"/>; the message names it, and the stores before it are reset.</exception>
+    public Task ResetAsync(CancellationToken cancellationToken = default) =>
+        composedServing.Stores.ResetAsync(cancellationToken);
+
+    /// <summary>
+    /// Takes an in-memory copy of every store - files, mail with its UIDs and flags, retained and queued messages,
+    /// and accounts - that <see cref="RestoreAsync"/> gives back to this server (ADR-0124, decision 3). Changes
+    /// nothing.
+    /// </summary>
+    /// <param name="cancellationToken">Cancels the wait for the content store.</param>
+    /// <returns>The snapshot.</returns>
+    /// <exception cref="InvalidOperationException">A store refused, such as one on disk, or the stores together
+    /// hold more than 256 MiB.</exception>
+    public async Task<SurlSnapshot> SnapshotAsync(CancellationToken cancellationToken = default) =>
+        new(this, await composedServing.Stores.TakeSnapshotAsync(cancellationToken));
+
+    /// <summary>
+    /// Replaces every store's contents with <paramref name="snapshot"/>'s, in the order <see cref="ResetAsync"/>
+    /// takes them; every mailbox gets a new <c>UIDVALIDITY</c>. Publishes one <see cref="StoreChangedEvent"/> with
+    /// <see cref="StoreChange.Restored"/> per store.
+    /// </summary>
+    /// <param name="snapshot">A snapshot this server took.</param>
+    /// <param name="cancellationToken">Cancels the wait for the content store.</param>
+    /// <returns>A task that completes once every store is restored.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="snapshot"/> is null.</exception>
+    /// <exception cref="ArgumentException"><paramref name="snapshot"/> was taken by another server.</exception>
+    /// <exception cref="InvalidOperationException">A store refused; the message names it.</exception>
+    public Task RestoreAsync(SurlSnapshot snapshot, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(snapshot);
+        if (!ReferenceEquals(snapshot.Owner, this))
+        {
+            throw new ArgumentException("The snapshot was taken by another server; restore it into the server that took it.", nameof(snapshot));
+        }
+
+        return composedServing.Stores.RestoreAsync(snapshot.Stores, cancellationToken);
+    }
 
     /// <summary>The first of <see cref="BoundUrls"/>.</summary>
     public Uri BoundUrl => BoundUrls[0];
