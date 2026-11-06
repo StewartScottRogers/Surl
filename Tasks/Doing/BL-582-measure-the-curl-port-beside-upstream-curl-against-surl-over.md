@@ -70,3 +70,4 @@ live `surl`, through both pinned upstream curl and the pinned Curl port, using B
 - 2026-11-04: Created.
 - 2026-11-05: Backlog -> Doing.
 - 2026-11-05: Doing -> Backlog. Waits on BL-580: per-run SSH arguments, surl start with a served subdirectory and the findings-file reader land in the shared helper there
+- 2026-11-05: Backlog -> Doing.
