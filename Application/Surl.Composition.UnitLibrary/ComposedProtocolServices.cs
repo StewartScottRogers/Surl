@@ -56,8 +56,25 @@ public sealed class ComposedProtocolServices(
     /// </summary>
     public ObjectMetadataIndex ObjectMetadataIndex { get; } = serviceState.ObjectMetadataIndex;
 
-    /// <summary>Gets the one policy every login is judged by.</summary>
+    /// <summary>Gets the one policy, over every account.</summary>
     public AuthenticationPolicy AuthenticationPolicy { get; } = authenticationPolicy;
+
+    /// <summary>
+    /// Gets the policy a server answering a scheme judges logins by, over the accounts allowed on it
+    /// (ADR-0102, decision 4.3; <see cref="SchemeAuthenticationPolicies.For"/>); <see langword="null"/>,
+    /// as when only schemes are wanted, for <see cref="AuthenticationPolicy"/> on every scheme. A
+    /// server with a login is composed with <see cref="AuthenticationPolicyFor"/> its scheme.
+    /// </summary>
+    public Func<string, AuthenticationPolicy>? AuthenticationPolicyForScheme { get; init; }
+
+    /// <summary>
+    /// The policy a server answering <paramref name="scheme"/> judges logins by: its scheme's view
+    /// of the accounts, or <see cref="AuthenticationPolicy"/> when no view is composed.
+    /// </summary>
+    /// <param name="scheme">The server's scheme, the plaintext one of a TLS twin.</param>
+    /// <returns>The policy.</returns>
+    public AuthenticationPolicy AuthenticationPolicyFor(string scheme) =>
+        AuthenticationPolicyForScheme is { } policyFor ? policyFor(scheme) : AuthenticationPolicy;
 
     /// <summary>Gets the one clock.</summary>
     public TimeProvider TimeProvider { get; } = timeProvider;

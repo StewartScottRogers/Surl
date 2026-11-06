@@ -16,4 +16,19 @@ public sealed record ExtendedProtocolServerServices(ComposedProtocolServices Com
 
     /// <summary>Gets the instance's one fault plan (ADR-0124, decisions 4 and 9).</summary>
     public IFaultPlan Faults => ComposedServices.Faults;
+
+    /// <summary>
+    /// Gets the policy a server answering a scheme judges logins by, over the accounts allowed on it
+    /// (ADR-0102, decision 4.3); <see langword="null"/> for the one policy on every scheme.
+    /// </summary>
+    public Func<string, Surl.Authentication.AuthenticationPolicy>? AuthenticationPolicyForScheme =>
+        ComposedServices.AuthenticationPolicyForScheme;
+
+    /// <summary>
+    /// The policy an extended server answering <paramref name="scheme"/> judges logins by.
+    /// </summary>
+    /// <param name="scheme">The server's scheme.</param>
+    /// <returns>The policy.</returns>
+    public Surl.Authentication.AuthenticationPolicy AuthenticationPolicyFor(string scheme) =>
+        ComposedServices.AuthenticationPolicyFor(scheme);
 }

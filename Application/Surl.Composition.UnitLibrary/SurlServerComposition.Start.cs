@@ -166,7 +166,13 @@ public static partial class SurlServerComposition
         var (sshHostKeys, hostKeyExitCode, hostKeyFailureMessage) = SshHostKeyComposition.Compose(commandLine, readStartFile);
         return sshHostKeys is null
             ? (null, new SurlStartFailure(hostKeyExitCode, [hostKeyFailureMessage!]))
-            : (new ComposedAuthentication(policy, accountNames, accountGroups, skippedKeytabEntries, sshHostKeys), null);
+            : (new ComposedAuthentication(
+                policy,
+                accountNames,
+                accountGroups,
+                skippedKeytabEntries,
+                sshHostKeys,
+                new SchemeAuthenticationPolicies(policy, seams.TimeProvider, instruments.Events, instruments.Faults)), null);
     }
 
     private static async Task<SurlServerStart> LockThenComposeAsync(
@@ -220,7 +226,7 @@ public static partial class SurlServerComposition
             loaded = await LoadServiceStateAsync(
                 commandLine,
                 fileSystem,
-                authentication.Policy,
+                authentication.SchemePolicies.For("ldap"),
                 authentication.AccountNames,
                 isCertificateConfigured,
                 seams.TimeProvider,
@@ -252,6 +258,7 @@ public static partial class SurlServerComposition
         {
             Events = instruments.Events,
             Faults = instruments.Faults,
+            AuthenticationPolicyForScheme = authentication.SchemePolicies.For,
         };
         IProtocolServer[] servers =
         [
@@ -297,7 +304,7 @@ public static partial class SurlServerComposition
         }
 
         IProtocolServer[] served = tls.QuicCertificate is { } quicCertificate
-            ? [.. servers, ComposeHttp3ProtocolServer(commandLine, stores.Content, authentication.Policy, quicCertificate)]
+            ? [.. servers, ComposeHttp3ProtocolServer(commandLine, stores.Content, authentication.SchemePolicies.For("https"), quicCertificate)]
             : servers;
         return new SurlServerStart(
             null, new ComposedServing(commandLine, seams, served, authentication, instruments, stores, tls, dataDirectoryLock));

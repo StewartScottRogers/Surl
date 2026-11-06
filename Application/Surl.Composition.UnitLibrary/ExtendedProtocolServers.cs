@@ -38,13 +38,13 @@ public static class ExtendedProtocolServers
     /// </summary>
     /// <remarks>
     /// The S3 server answers <c>s3</c> over the one content store, its object metadata index and the
-    /// one policy (ADR-0108); <c>s3</c> is TLS from the first byte (ADR-0108, decision 5), which
+    /// policy over the accounts allowed on <c>s3</c> (ADR-0108; ADR-0102 decision 4.3); <c>s3</c> is TLS from the first byte (ADR-0108, decision 5), which
     /// the serving engine reads from <see cref="TlsSchemes"/>, so it needs no second registration.
     /// </remarks>
     public static IReadOnlyList<ProtocolServerRegistration> Registrations { get; } =
     [
         new(["s3"], services => new S3ProtocolServer(
-            services.ContentStore, services.ObjectMetadataIndex, services.AuthenticationPolicy, services.TimeProvider)),
+            services.ContentStore, services.ObjectMetadataIndex, services.AuthenticationPolicyFor("s3"), services.TimeProvider)),
     ];
 
     /// <summary>

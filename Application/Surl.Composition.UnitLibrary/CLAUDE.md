@@ -16,6 +16,15 @@ horizontal library may reference it (ADR-0099 decision 11, held by
   earlier entry built (`ComposedProtocolServices.ComposedServerFor`). A new protocol server is one
   entry there, and in the same change gets its `--aihelp` facts in `Surl.Cli` (root `CLAUDE.md`,
   "`surl --aihelp`"). The overload `ComposeProtocolServers(registrations, services)` builds any list.
+- Per-scheme accounts (ADR-0102 decision 4.3 and its 2026-11-06 amendment, BL-881): every
+  registration with a login builds its server with `ComposedProtocolServices.AuthenticationPolicyFor(<its
+  plain scheme>)`, which the start sets to `SchemeAuthenticationPolicies.For` (carried on
+  `ComposedAuthentication.SchemePolicies`): one cached policy per scheme over
+  `AuthenticationSettings.ForScheme`, so an account whose `protocols=` leaves a scheme out is refused
+  there as no such account. Unset, as for listing schemes, every server gets the one policy. The SSH
+  server is two entries, `scp` and `sftp`, each a `SingleSchemeServer`; the LDAP server is loaded
+  with `For("ldap")`, the HTTP/3 server composed with `For("https")`, the S3 server with
+  `AuthenticationPolicyFor("s3")` (`ExtendedProtocolServerServices` forwards both members).
 - `SurlServerCompositionSeams.AdditionalProtocolServers` (`AdditionalProtocolServer`: a registration
   and its already-parsed `ListenUrl`s) are composed after the extended servers and served on their
   listen URLs after the command line's: how `Surl.Api` serves a test's own server (BL-813).

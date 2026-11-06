@@ -214,7 +214,7 @@ public static class AuthenticationComposition
         return (new AuthorizedKeyBook(keys), SurlExitCode.Ok, null);
     }
 
-    private static AuthenticationPolicy ComposePolicy(
+    internal static AuthenticationPolicy ComposePolicy(
         AuthenticationSettings settings, TimeProvider timeProvider, ISurlEventPublisher? events, IFaultPlan? faults) =>
         new(
             settings,

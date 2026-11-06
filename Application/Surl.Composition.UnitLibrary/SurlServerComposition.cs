@@ -492,6 +492,12 @@ public static partial class SurlServerComposition
     /// <param name="echoesWebSocketMessages">Whether <c>--ws-echo</c> is given.</param>
     /// <param name="advertisesHttp3">Whether <c>--http3</c> is given, so the HTTP server adds <c>Alt-Svc</c> on https (ADR-0082, decision 6).</param>
     /// <param name="timeProvider">The one clock; <see cref="TimeProvider.System"/> when <see langword="null"/>.</param>
+    /// <param name="authenticationPolicyForScheme">
+    /// The policy each server with a login judges it by, given the scheme it answers (the plaintext
+    /// one, which admits its TLS twin), over the accounts allowed on that scheme (ADR-0102, decision
+    /// 4.3; <see cref="SchemeAuthenticationPolicies.For"/>); <paramref name="authenticationPolicy"/>
+    /// for every scheme when <see langword="null"/>.
+    /// </param>
     /// <returns>The servers.</returns>
     public static IProtocolServer[] ComposeProtocolServers(
         ContentStore contentStore,
@@ -502,7 +508,8 @@ public static partial class SurlServerComposition
         bool isTlsUpgradeAvailable,
         bool echoesWebSocketMessages,
         bool advertisesHttp3 = false,
-        TimeProvider? timeProvider = null)
+        TimeProvider? timeProvider = null,
+        Func<string, AuthenticationPolicy>? authenticationPolicyForScheme = null)
     {
         ArgumentNullException.ThrowIfNull(serviceState);
         return ComposeProtocolServers(
@@ -516,7 +523,10 @@ public static partial class SurlServerComposition
                 sshAlgorithms,
                 isTlsUpgradeAvailable,
                 echoesWebSocketMessages,
-                advertisesHttp3));
+                advertisesHttp3)
+            {
+                AuthenticationPolicyForScheme = authenticationPolicyForScheme,
+            });
     }
 
     /// <summary>
