@@ -45,3 +45,4 @@ ADR-0100 decisions 3.3 and 3.6 state the topic-log rules and the typed outcome t
 ## Log
 
 - 2026-11-05: Created.
+- 2026-11-06: Backlog -> Doing.
