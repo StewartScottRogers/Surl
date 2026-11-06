@@ -62,6 +62,14 @@ and `Surl.Protocol.Abstractions.UnitLibrary`.
   the 10001st `--group` is refused (`GivenTooOften`). Whether members name accounts or groups,
   cycles and the reserved `everyone` are checked at start by `Surl.Composition`'s
   `AccountGroupExpansion`. BL-653, BL-654, BL-663 and BL-666 add the other item options.
+- Mail options (ADR-0101 decisions 4, 5 and 7, ADR-0102 decision 1; BL-883), category `mail`:
+  `--mail-domain <domain>` (`MailDomainNames.Reading`, kept as written in `MailDomains`),
+  `--mailbox <address>:<password>[;protocols=...]` (`ConfiguredMailboxReader.Reading`, the address
+  normalised, `ArgumentHoldsSecret`) and `--mailbox-file <file>` (a path in `MailboxFiles`, read at
+  start by `Surl.Composition`). Each is counted like `--group`; a `protocols=` scheme no registered
+  server claims is refused as read; once the whole line is read `RefuseMailCombination` refuses a
+  domain or a mailbox given twice, then a mailbox outside every domain, with none, or equal to a
+  `--user` name, each naming the domain or address as written.
 - Config files (ADR-0101 decisions 1, 2, 5 rows 1 to 9, and 6; BL-644): `-K`/`--config <file>`
   (category `surl`) reads a file in curl's config-file syntax in place, through the
   `IConfigFileSource` seam the host passes to `CommandLineParser.Parse`'s third overload (the

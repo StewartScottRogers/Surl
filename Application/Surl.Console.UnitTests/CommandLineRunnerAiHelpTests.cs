@@ -98,11 +98,13 @@ public sealed class CommandLineRunnerAiHelpTests
             ? DataDirectoryLockOutcome.InUse(path)
             : DataDirectoryLockOutcome.Taken(new FakeLockHolder());
 
-    // The files AiHelpExamplePrecondition.KeytabAndUserFileExist names; no other example reads a file.
+    // The files AiHelpExamplePrecondition.KeytabAndUserFileExist and MailboxFileExists name; no
+    // other example reads a start file.
     private static byte[] ReadStartFileAsThePreconditionSays(string path) => path switch
     {
         "http.keytab" => TestKeytabFiles.AesOnly,
         "users.txt" => "alice:secret\n"u8.ToArray(),
+        "mailboxes.csv" => "address,password\nann@example.com,secret\n"u8.ToArray(),
         _ => throw new FileNotFoundException(path),
     };
 

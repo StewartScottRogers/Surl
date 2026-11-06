@@ -9,11 +9,11 @@ public sealed partial class AiHelpTextTests
 {
     private static readonly string NewLine = Environment.NewLine;
 
-    // ADR-0046 decision 3's sixteen topics, smtp (BL-207), imap (BL-208), pop3 (BL-209), websocket (BL-303), smb (BL-299), rtsp (BL-317), ldap (BL-310), extended (BL-405), s3 (BL-421) and control (BL-815), in ordinal order.
+    // ADR-0046 decision 3's sixteen topics, smtp (BL-207), imap (BL-208), pop3 (BL-209), websocket (BL-303), smb (BL-299), rtsp (BL-317), ldap (BL-310), extended (BL-405), s3 (BL-421), control (BL-815) and mail (BL-653, ADR-0101 decision 7), in ordinal order.
     private static readonly string[] AdrTopicNames =
     [
         "auth", "content", "control", "dict", "exit-codes", "extended", "ftp", "gopher", "http", "imap", "ldap", "limits", "listen-urls",
-        "logging", "mqtt", "pop3", "rtsp", "s3", "security", "smb", "smtp", "ssh", "surl", "telnet", "testing", "tftp", "tls", "websocket",
+        "logging", "mail", "mqtt", "pop3", "rtsp", "s3", "security", "smb", "smtp", "ssh", "surl", "telnet", "testing", "tftp", "tls", "websocket",
     ];
 
     // ADR-0046 decision 4's section headings, in order, on every topic page.
@@ -37,6 +37,7 @@ public sealed partial class AiHelpTextTests
         "| `limits` | Connection, time and size limits |",
         "| `listen-urls` | Listen URLs, ports and the Listening on line |",
         "| `logging` | Log levels, tracing and the log file |",
+        "| `mail` | Mail domains, mailboxes and aliases |",
         "| `mqtt` | MQTT and MQTTS protocol |",
         "| `pop3` | POP3 and POP3S protocol |",
         "| `rtsp` | RTSP protocol |",
@@ -490,7 +491,7 @@ public sealed partial class AiHelpTextTests
                 + "or the trace file is the --log-file file "
                 + "| Make the data directory writable by the user surl runs as, or give a log or trace file that can be opened "
                 + "and is not the --log-file file |",
-            "| 37 | `CouldNotReadFile` | The data directory cannot be opened, or the --user-file, an --authorized-keys, --keytab, --hostkey or --hostcert file, a message bus file or the mail store "
+            "| 37 | `CouldNotReadFile` | The data directory cannot be opened, or the --user-file, a --mailbox-file, an --authorized-keys, --keytab, --hostkey or --hostcert file, a message bus file or the mail store "
                 + "cannot be read | Check the path exists and the user surl runs as can read it; surl creates none of them |",
             "| 45 | `BindFailed` | A listener cannot bind its address and port "
                 + "| Use another port, or port 0 and read the bound port from the Listening on line, and an address this machine has |",
@@ -597,6 +598,7 @@ public sealed partial class AiHelpTextTests
         // Written by Surl.Cli: each template is matched against what the parser writes.
         var writtenByTheParser = new Dictionary<string, string>(StringComparer.Ordinal)
         {
+            ["surl: option --mail-domain: not a domain name"] = "surl: " + CommandLineParser.Parse(["--mail-domain", "a..b", "http://127.0.0.1/"]).Failure!.Message,
             ["surl: (2) no URL specified"] = "surl: " + CommandLineParser.Parse([]).Failure!.Message,
             ["surl: try 'surl --help' or 'surl --manual' for more information"] = "surl: " + CommandLineFailure.TryHelpLine,
             ["surl: option --<name>: <reason>"] = "surl: " + CommandLineParser.Parse(["--max-time", "abc"]).Failure!.Message,
@@ -646,6 +648,9 @@ public sealed partial class AiHelpTextTests
             "surl: (2) option --group: group <name> includes itself",
             "surl: (2) option --group: group everyone is reserved",
             "surl: (2) option --group: member @everyone is not allowed here",
+            // Written by Surl.Composition when it reads a --mailbox-file, whose tests pin each (BL-653).
+            "surl: (37) Could not read mailbox file <file>",
+            "surl: (2) Mailbox file <file>, line <n>: <reason>",
         ];
 
         foreach (var (template, written) in writtenByTheParser)

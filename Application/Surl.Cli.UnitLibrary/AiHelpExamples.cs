@@ -60,6 +60,14 @@ public static class AiHelpExamples
             [])
             with { Precondition = AiHelpExamplePrecondition.KeytabAndUserFileExist },
         Serving(
+            "mail",
+            "Serve a mail domain's mailboxes from a CSV file",
+            ["--mail-domain", "example.com", "--mailbox-file", "mailboxes.csv", "imap://127.0.0.1:0/"],
+            ["Listening on imap://127.0.0.1:<port>/"],
+            [],
+            ["curl -u ann@example.com:secret imap://127.0.0.1:<port>/"])
+            with { Precondition = AiHelpExamplePrecondition.MailboxFileExists },
+        Serving(
             "testing",
             "For a test: accept a password over plain HTTP",
             ["--allow-plaintext-auth", "-u", "alice:secret", HttpListenUrl],

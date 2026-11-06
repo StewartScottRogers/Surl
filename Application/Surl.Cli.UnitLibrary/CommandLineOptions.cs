@@ -185,6 +185,13 @@ internal static class CommandLineOptions
             new("<file>", "Read accounts from a file", ["auth", "ftp", "http", "imap", "ldap", "mqtt", "pop3", "rtsp", "s3", "smb", "smtp", "ssh", "websocket"], IsInShortList: true, Default: "none")),
         WithArgument<ConfiguredGroup>("group", null, ConfiguredGroupReader.Reading, (c, v) => c with { Groups = [.. c.Groups, v] },
             new("<name>=<member>,...", "Name a group of accounts (repeatable)", ["auth"], IsInShortList: false, Default: "no groups")),
+        WithArgument<string>("mail-domain", null, MailDomainNames.Reading, (c, v) => c with { MailDomains = [.. c.MailDomains, v] },
+            new("<domain>", "Serve mail for a domain (repeatable)", ["mail"], IsInShortList: false, Default: "none: the domain is ignored")),
+        WithArgument<ConfiguredMailbox>("mailbox", null, ConfiguredMailboxReader.Reading, (c, v) => c with { Mailboxes = [.. c.Mailboxes, v] },
+            new("<address>:<password>[;...]", "Add a mailbox and login (repeatable)", ["auth", "mail"], IsInShortList: false, Default: "no mailboxes"))
+            with { ArgumentHoldsSecret = true },
+        WithArgument<string>("mailbox-file", null, OptionArgumentReader.Path, (c, v) => c with { MailboxFiles = [.. c.MailboxFiles, v] },
+            new("<file>", "Read mailboxes from CSV (repeatable)", ["auth", "mail"], IsInShortList: false, Default: "none")),
         WithArgument<string>("keytab", null, OptionArgumentReader.Path, (c, v) => c with { KeytabFile = v },
             new("<file>", "Read Kerberos service keys from a keytab file", ["auth", "ldap"], IsInShortList: false, Default: "none")),
         Flag("allow-anonymous", null, negatable: true, (c, on) => c with { AllowAnonymous = on },

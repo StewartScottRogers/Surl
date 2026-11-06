@@ -17,6 +17,7 @@ internal static class HelpCategories
         new("ldap", "LDAP protocol", ["ldap", "ldaps"]),
         new("limits", "Connection, time and size limits", []),
         new("logging", "Log levels, tracing and the log file", []),
+        new("mail", "Mail domains, mailboxes and aliases", []),
         new("mqtt", "MQTT and MQTTS protocol", ["mqtt", "mqtts"]),
         new("pop3", "POP3 and POP3S protocol", ["pop3", "pop3s"]),
         new("rtsp", "RTSP protocol", ["rtsp"]),
