@@ -1,5 +1,5 @@
 ---
-id: BL-886
+id: BL-887
 title: End an XMPP stream with policy-violation once 16 MiB routed to it is unsent
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-05
 completed:
 ---
-# BL-886 — End an XMPP stream with policy-violation once 16 MiB routed to it is unsent
+# BL-887 — End an XMPP stream with policy-violation once 16 MiB routed to it is unsent
 
 ## Goal
 

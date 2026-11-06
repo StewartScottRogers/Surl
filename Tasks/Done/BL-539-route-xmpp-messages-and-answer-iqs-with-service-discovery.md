@@ -61,7 +61,7 @@ other IQ get or set with `service-unavailable`, and each malformed stanza with t
   quotes, as the rest of the server does. A message or presence error drops the original children; an IQ's keeps them
   (decision 5). JID localparts compare without case (RFC 7622 3.3); resources compare exactly.
 - A routed write awaits the recipient's transport. The 16 MiB unsent-output limit (decision 7, row
-  `Xmpp:Surl-Limits-4`) was not in this task's criteria; filed as BL-886 and the conformance row now names it. Added
+  `Xmpp:Surl-Limits-4`) was not in this task's criteria; filed as BL-887 and the conformance row now names it. Added
   `Documentation/Conformance/Extended/Xmpp.md` to `touches` for that one row; no task in Doing touches it.
 
 ## Log

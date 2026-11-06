@@ -104,4 +104,4 @@ Stanzas (BL-539, ADR-0114 decision 5):
   `item-not-found`; anything else `service-unavailable`. Results use XEP-0030 example 2's shape
   (`XmppStanzaText.Result`); stanza errors swap `to` and `from`, keep an IQ's children and drop a
   message's or presence's (`XmppStanzaText.Error`). An IQ `result` or `error` to anything but a
-  bound full JID is dropped. The 16 MiB unsent-output limit comes with BL-886.
+  bound full JID is dropped. The 16 MiB unsent-output limit comes with BL-887.
