@@ -71,7 +71,8 @@ public sealed partial class MessageBus
     /// A queue a connection declared stays, emptied, while it is exclusive to a connection or has a
     /// consumer; any other goes. Every unacknowledged delivery is dropped, not redelivered, so a later
     /// settle of it is <see cref="MessageBusOutcome.UnknownDeliveryTag"/>; the consumer keeps
-    /// receiving. Topic maps and access grants are configuration and do not change. Publishes one
+    /// receiving. No committed offset stays (no configuration declares one). Topic maps and access
+    /// grants are configuration and do not change. Publishes one
     /// <see cref="StoreChange.Reset"/> named <see cref="WholeBusChangeName"/>.
     /// </summary>
     /// <exception cref="InvalidOperationException">The bus was loaded from a data directory, so it is
@@ -84,7 +85,7 @@ public sealed partial class MessageBus
         ChangeState(() =>
         {
             RequireInMemory();
-            ReplaceContents([], [], declaredQueues);
+            ReplaceContents([], [], declaredQueues, []);
             PublishChange(StoreChange.Reset, WholeBusChangeName, byteCount: null);
             return true;
         });
@@ -108,7 +109,7 @@ public sealed partial class MessageBus
         lock (stateLock)
         {
             RequireInMemory();
-            var byteCount = retainedPayloadBytes + logBytes + queuedBytes;
+            var byteCount = retainedPayloadBytes + logBytes + queuedBytes + committedOffsets.Values.Sum(CommittedOffsetBytes);
             if (byteCount > maxBytes)
             {
                 throw new InvalidOperationException(
@@ -120,7 +121,8 @@ public sealed partial class MessageBus
                 byteCount,
                 [.. retainedMessages.Values],
                 [.. logs.Select(entry => new BusLogSnapshot(entry.Key, entry.Value.LogStartOffset, entry.Value.MessagesFrom(entry.Value.LogStartOffset)))],
-                [.. queues.Values.Where(queue => queue.Owner is null).Select(SnapshotOf)]);
+                [.. queues.Values.Where(queue => queue.Owner is null).Select(SnapshotOf)],
+                [.. committedOffsets.Values]);
         }
     }
 
@@ -147,7 +149,7 @@ public sealed partial class MessageBus
         ChangeState(() =>
         {
             RequireInMemory();
-            ReplaceContents(snapshot.Retained, snapshot.Logs, snapshot.Queues);
+            ReplaceContents(snapshot.Retained, snapshot.Logs, snapshot.Queues, snapshot.CommittedOffsets);
             PublishChange(StoreChange.Restored, WholeBusChangeName, byteCount: null);
             return true;
         });
@@ -178,7 +180,7 @@ public sealed partial class MessageBus
 
     /// <summary>Makes the bus hold exactly <paramref name="retained"/>, <paramref name="topicLogs"/>
     /// (and each declared topic's log) and <paramref name="targetQueues"/>. Called with the lock held.</summary>
-    private void ReplaceContents(IReadOnlyList<BusMessage> retained, IReadOnlyList<BusLogSnapshot> topicLogs, IReadOnlyList<BusQueueSnapshot> targetQueues)
+    private void ReplaceContents(IReadOnlyList<BusMessage> retained, IReadOnlyList<BusLogSnapshot> topicLogs, IReadOnlyList<BusQueueSnapshot> targetQueues, IReadOnlyList<BusCommittedOffset> offsets)
     {
         retainedMessages.Clear();
         foreach (var message in retained)
@@ -190,6 +192,7 @@ public sealed partial class MessageBus
         retainedVersion++;
         ReplaceLogs(topicLogs);
         ReplaceQueues(targetQueues);
+        ReplaceCommittedOffsets(offsets);
     }
 
     private void ReplaceLogs(IReadOnlyList<BusLogSnapshot> topicLogs)

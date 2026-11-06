@@ -202,6 +202,23 @@ What it holds now (BL-629):
   yet: drops by expiry in queues and by log retention, and a bound queue's copy refused by fault
   (BL-870).
 
+- **Committed offsets and group access (BL-947, ADR-0145 decisions 4, 6, 9 and 10).** A table of
+  `BusCommittedOffset` keyed by Kafka consumer group id and canonical topic, which only the Kafka
+  broker uses; it is not a message. `CommitOffset(account, group, topic, offset, leaderEpoch, metadata)`
+  keeps the values as given, stamped with the bus's clock, replacing the group's earlier entry for
+  the topic. It is `InvalidTopic` for a topic that is not canonical. It is `AccessDenied` without `sub` on
+  the topic or on `$group/<id>`, and `StoreFull` when an out-of-space rule matches its change name or
+  a new entry would pass `MaxCommittedOffsets` (constructor parameter, default 10000; a replacement
+  is always taken). Each commit publishes one `StoreChange.Committed` named
+  `MessageBus.CommittedChangeName`: `$group/<id>/<topic>`, with `%` and `/` in the id written `%25`
+  and `%2F`. `MayUseGroup(account, group)` is the group check: `sub` on `$group/<id>`, the id one
+  level, never matched by a wildcard first level, and every group open with no grants.
+  `GetCommittedOffset`, `GetCommittedOffsets(group)` (ordinal by topic) and `GetCommittedGroups`
+  (ordinal) read it without checking access. No expiry by time and no seed method. `Reset` empties it.
+  `TakeSnapshot` copies it, counting each entry's group, topic and metadata in UTF-8 and 20 bytes,
+  and `Restore` puts it back. It is persisted as `.surl/bus/offsets` (`SURL-BUS-OFFSETS-1`, see
+  `MessageBusFiles`' remarks) and rewritten whole by `SaveChangesAsync` after a commit.
+
 Not here yet, each its own task: the MQTT 3.1.1 server's move onto the bus (BL-635), and
 each server passing its caller's account and mapping through `Names` (BL-665 for MQTT, the
 extended brokers' routing tasks).

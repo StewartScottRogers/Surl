@@ -25,6 +25,26 @@ public sealed class MessageBusFilesTests
     }
 
     [TestMethod]
+    public async Task SaveChangesAsync_CommittedOffsetsOfTwoGroups_WritesTheOffsetsFilesExactBytesInOrdinalOrder()
+    {
+        var bus = await fixture.LoadBusAsync();
+        bus.CommitOffset(null, "g2", "a/b", 0x0102, 3, "m");
+        bus.CommitOffset(null, "g1", "t", 5, -1, metadata: null);
+
+        await bus.SaveChangesAsync();
+
+        Assert.AreEqual(Path.Join(SurlFolderPath, "bus", "offsets"), fixture.Files.OffsetsPath);
+        CollectionAssert.AreEqual(
+            (byte[])[
+                .. "SURL-BUS-OFFSETS-1\n"u8,
+                .. Bytes("00000002"),
+                .. Bytes("00000002 6731 00000001 74 0000000000000005 ffffffff 00 08df3a499fec8000"),
+                .. Bytes("00000002 6732 00000003 612f62 0000000000000102 00000003 01 00000001 6d 08df3a499fec8000"),
+            ],
+            fixture.Read(fixture.Files.OffsetsPath));
+    }
+
+    [TestMethod]
     public void MessageBusFiles_NullOrEmptyArguments_Throw()
     {
         Assert.ThrowsExactly<ArgumentNullException>(() => new MessageBusFiles(null!, SurlFolderPath));

@@ -11,12 +11,14 @@ namespace Surl.MessageBus;
 /// <c>retained-messages</c> file, so the bus's own <c>retained</c> file is still to be written.</param>
 /// <param name="Queues">The durable queues, in ordinal order of name.</param>
 /// <param name="Logs">The topic logs, in order of file number.</param>
+/// <param name="CommittedOffsets">The committed offsets, in the file's order.</param>
 internal sealed record MessageBusFileContents(
     IReadOnlyList<BusMessage> Retained,
     PersistedFileSource RetainedSource,
     bool RetainedMigrated,
     IReadOnlyList<PersistedQueue> Queues,
-    IReadOnlyList<PersistedLog> Logs);
+    IReadOnlyList<PersistedLog> Logs,
+    IReadOnlyList<BusCommittedOffset> CommittedOffsets);
 
 /// <summary>A file read at load and the reason it is refused with when it holds too much.</summary>
 internal sealed record PersistedFileSource(string FilePath, string MalformedReason);

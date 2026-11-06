@@ -81,6 +81,7 @@ public sealed partial class MessageBus
     /// <see langword="null"/> to publish nothing.</param>
     /// <param name="faults">The fault plan a publish consults for an out-of-space rule (ADR-0124
     /// decision 4), or <see langword="null"/> for none.</param>
+    /// <param name="maxCommittedOffsets">The value of <see cref="MaxCommittedOffsets"/>; at least 1.</param>
     /// <exception cref="ArgumentNullException"><paramref name="timeProvider"/> is <see langword="null"/>.</exception>
     /// <exception cref="ArgumentOutOfRangeException">A bound is below its least value.</exception>
     /// <exception cref="ArgumentException">The configuration declares more topics without
@@ -99,9 +100,11 @@ public sealed partial class MessageBus
         long maxLogBytes = DefaultMaxLogBytes,
         MessageBusConfiguration? configuration = null,
         ISurlEventPublisher? events = null,
-        IFaultPlan? faults = null)
+        IFaultPlan? faults = null,
+        int maxCommittedOffsets = DefaultMaxCommittedOffsets)
     {
         ArgumentNullException.ThrowIfNull(timeProvider);
+        ArgumentOutOfRangeException.ThrowIfLessThan(maxCommittedOffsets, 1);
         ArgumentOutOfRangeException.ThrowIfLessThan(maxTopics, 1);
         ArgumentOutOfRangeException.ThrowIfLessThan(maxRetainedPayloadBytes, 1);
         ArgumentOutOfRangeException.ThrowIfLessThan(maxSubscriptionsPerConnection, 1);
@@ -116,6 +119,7 @@ public sealed partial class MessageBus
         this.events = events ?? DiscardingSurlEventPublisher.Instance;
         this.faults = faults ?? EmptyFaultPlan.Instance;
         MaxTopics = maxTopics;
+        MaxCommittedOffsets = maxCommittedOffsets;
         MaxRetainedPayloadBytes = maxRetainedPayloadBytes;
         MaxSubscriptionsPerConnection = maxSubscriptionsPerConnection;
         MaxMessageBytes = maxMessageBytes;

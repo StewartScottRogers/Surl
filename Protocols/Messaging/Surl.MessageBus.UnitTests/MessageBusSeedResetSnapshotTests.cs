@@ -271,6 +271,38 @@ public sealed class MessageBusSeedResetSnapshotTests
     }
 
     [TestMethod]
+    public void Reset_CommittedOffsets_EmptiesTheTable()
+    {
+        var bus = new MessageBus(clock);
+        bus.CommitOffset(null, "g", "t", 5, -1, null);
+
+        bus.Reset();
+
+        Assert.IsEmpty(bus.GetCommittedGroups());
+        Assert.IsNull(bus.GetCommittedOffset("g", "t"));
+    }
+
+    [TestMethod]
+    public void SnapshotChangeRestore_GivesBackTheCommittedOffsetsAndCountsTheirBytes()
+    {
+        var bus = new MessageBus(clock);
+        var kept = new BusCommittedOffset("g", "t", 5, -1, null, clock.UtcNow);
+        var withMetadata = new BusCommittedOffset("gh", "a/b", 7, 2, "meta", clock.UtcNow);
+        bus.CommitOffset(null, kept.Group, kept.Topic, kept.Offset, kept.LeaderEpoch, kept.Metadata);
+        bus.CommitOffset(null, withMetadata.Group, withMetadata.Topic, withMetadata.Offset, withMetadata.LeaderEpoch, withMetadata.Metadata);
+        var snapshot = bus.TakeSnapshot();
+        bus.CommitOffset(null, "g", "t", 99, -1, null);
+        bus.CommitOffset(null, "new", "t", 1, -1, null);
+
+        bus.Restore(snapshot);
+
+        Assert.AreEqual((20 + 1 + 1) + (20 + 2 + 3 + 4), snapshot.ByteCount);
+        Assert.AreEqual(kept, bus.GetCommittedOffset("g", "t"));
+        Assert.AreEqual(withMetadata, bus.GetCommittedOffset("gh", "a/b"));
+        CollectionAssert.AreEqual(new[] { "g", "gh" }, bus.GetCommittedGroups().ToArray());
+    }
+
+    [TestMethod]
     public void Restore_ANullSnapshotOrOneFromAnotherBus_IsRefused()
     {
         var bus = new MessageBus(clock);
