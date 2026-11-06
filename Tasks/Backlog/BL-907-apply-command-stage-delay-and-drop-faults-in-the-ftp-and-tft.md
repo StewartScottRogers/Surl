@@ -1,5 +1,5 @@
 ---
-id: BL-896
+id: BL-907
 title: Apply command-stage delay and drop faults in the FTP and TFTP servers
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-05
 completed:
 ---
-# BL-896 — Apply command-stage delay and drop faults in the FTP and TFTP servers
+# BL-907 — Apply command-stage delay and drop faults in the FTP and TFTP servers
 
 ## Goal
 

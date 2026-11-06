@@ -58,10 +58,10 @@ new decisions, so no ADR):
   `path` the decoded request path, no account. Reply `<code 0-7> <text>` becomes that ERROR from the transfer
   port; a reply not starting with a code 0-7 (refused by the reader, but possible from a plan built in code)
   is sent whole as ERROR 0.
-- Only `Error` is acted on; `Delay`/`Drop` at the command stage are BL-896.
+- Only `Error` is acted on; `Delay`/`Drop` at the command stage are BL-907.
 - The listen URL in each point uses the engine's form; with no shared helper in Abstractions it is copied
   into each library as `FaultListenUrl` (Abstractions left alone while sibling chosen-error tasks run).
-  BL-897 folds the copies into `ListenUrl`.
+  BL-908 folds the copies into `ListenUrl`.
 - `Surl.Protocol.Ftp.UnitTests` now references `Surl.Core.UnitLibrary` (tests only), so the `/up` rule is
   matched by the engine's own `FaultPlan` segment-prefix rule. Inside this task's touches.
 
@@ -72,7 +72,7 @@ code: 1 -> 68, 2 -> 69, 3 -> 70, 0 and 4 -> 71 per the existing fixtures). curl 
 
 Tests: `FtpFaultTests`, `FaultListenUrlTests` (both libraries), `TftpChosenErrorFaultTests`.
 Ftp.UnitTests 531, Tftp.UnitTests 153, solution fast tests 19,774, all green. Both libraries 100% line and
-branch, worst CRAP 10. Follow-ups filed: BL-896, BL-897.
+branch, worst CRAP 10. Follow-ups filed: BL-907, BL-908.
 
 ## Log
 
