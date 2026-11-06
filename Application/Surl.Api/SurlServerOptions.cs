@@ -1,4 +1,5 @@
 using Surl.Output;
+using Surl.Protocol.Abstractions;
 
 namespace Surl.Api;
 
@@ -188,4 +189,19 @@ public sealed class SurlServerOptions
     /// Must be positive.
     /// </summary>
     public int MaxRecordedEvents { get; set; } = 10000;
+
+    /// <summary>The shortest <see cref="HookTimeLimit"/>: 1 millisecond.</summary>
+    public static readonly TimeSpan MinHookTimeLimit = TimeSpan.FromMilliseconds(1);
+
+    /// <summary>The longest <see cref="HookTimeLimit"/>: 30 seconds.</summary>
+    public static readonly TimeSpan MaxHookTimeLimit = TimeSpan.FromSeconds(30);
+
+    /// <summary>
+    /// How long a response override (<see cref="SurlServerFaults.AddOverride"/>) may take to decide, on
+    /// <see cref="TimeProvider"/> (ADR-0124, decision 5): 1 second by default, from <see cref="MinHookTimeLimit"/> to
+    /// <see cref="MaxHookTimeLimit"/>. Past it the point is served as if the override were not there and a
+    /// <see cref="HookFailedEvent"/> with <see cref="HookFailure.TimedOut"/> is published. It is not a <c>surl</c>
+    /// option and adds no word.
+    /// </summary>
+    public TimeSpan HookTimeLimit { get; set; } = TimeSpan.FromSeconds(1);
 }

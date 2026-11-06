@@ -38,6 +38,10 @@ internal static class SurlServerArguments
         ThrowIfNegativeDuration(options.IdleTimeout, nameof(options.IdleTimeout));
         ThrowIfNegativeDuration(options.MaxTime, nameof(options.MaxTime));
         ThrowIfRecordBoundNotPositive(options);
+        if (options.HookTimeLimit < SurlServerOptions.MinHookTimeLimit || options.HookTimeLimit > SurlServerOptions.MaxHookTimeLimit)
+        {
+            throw new ArgumentException("HookTimeLimit must be from 1 millisecond to 30 seconds.", nameof(options));
+        }
     }
 
     private static void ThrowIfHoldsNull(SurlServerOptions options)

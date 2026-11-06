@@ -67,6 +67,20 @@ measures it by name.
   `ComposedStores`, whose `ComposedStoreException` is the `InvalidOperationException` a refused
   reset or snapshot throws. No file delete yet: `ComposedStores` has none. Tests bring clients in
   on one listener of several with `FakeListenerFactory.Accept(scheme, connection)`.
+- Hooks (BL-811, ADR-0124 decision 5): `SurlServer.OnEvent` makes an `EventCallbackHook`
+  (`h1`, `h2` ...): its own `SurlEventStream` subscription at the default capacity without bytes, a
+  pump task that keeps `ExchangeFacts` for each exchange open since it subscribed, so
+  `SurlEventFacts.Matches` reads a query as `FindEvents` does, and runs the callback one event at a
+  time. A throw is published as `HookFailedEvent` (`Threw`) unless the hook was disposed or the event
+  was its own failure. Disposing cancels the callback's token; the server disposes every callback
+  on stop. `SurlServerFaults.AddOverride` adds a `ResponseOverrideHook` to the plan through
+  `FaultPlan.AddOverride` (Surl.Core) under the next `f<n>`: the decision is started with
+  `Task.Factory.StartNew` (so a thrown `OperationCanceledException` stays a failure) and raced
+  against `Task.Delay(HookTimeLimit, TimeProvider)`; the answer is re-scoped to the point
+  (`ResponseOverrideHook.ToRule`), read by `SurlServerFaults.Read` (the `--fault` reader) and
+  checked against `FaultPlan.StageOf`. A timeout, a throw or a refused answer publishes
+  `HookFailedEvent` and answers null. `SurlServerOptions.HookTimeLimit` is checked in
+  `SurlServerArguments.ThrowIfMisused`.
 - `SurlServerHostSeams.ReadStartFile` is handed to the composition's `ReadStartFile`, so tests
   give the `--user-file` and `--hostkey` files in memory (`ApiTestSeams.StartFiles`). The
   `--cert`, `--key` and `--cacert` files are still read from disk by `ServerTlsComposition`.

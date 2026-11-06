@@ -125,6 +125,56 @@ throws `SurlServerStartException`, a runtime one `ArgumentException`, each with 
 `--fault` warning to `Log`; a rule added at run time writes nothing. Each rule applied is a
 `FaultApplied` event the queries above find.
 
+## Hooks
+
+Hooks are test code the server runs (ADR-0124 decision 5). They are `Surl.Api` only: the control
+endpoint and `Surl.Mcp` offer fault rules, never callbacks.
+
+An **event callback** runs for each event a `SurlEventQuery` matches, from the moment it is
+registered until its registration is disposed or the server stops, whether or not
+`RecordExchanges` is on:
+
+```csharp
+using var registration = server.OnEvent(
+    new SurlEventQuery { Scheme = "smtp", Kind = SurlEventKind.StoreChanged },
+    (surlEvent, cancellationToken) => { delivered.Add(surlEvent); return ValueTask.CompletedTask; });
+```
+
+A **response override** is a fault rule whose answer is computed per request. At each point its
+`SurlFaultScope` matches (`Listener` or `Scheme`, `Account`, `Path`, `Command`, `Stage`; null matches
+anything), it returns the `SurlFault` to apply there, or null for none:
+
+```csharp
+var id = server.Faults.AddOverride(
+    new SurlFaultScope { Scheme = "http", Stage = FaultStage.Command },
+    (point, cancellationToken) => ValueTask.FromResult(
+        point.Path == "/a" ? SurlFault.ProtocolError("503 Busy") : null));   // "f1"; Remove(id) takes it out
+```
+
+The bounds - nothing a hook does can loosen a secure default, hang the server or crash it:
+
+- **A callback never blocks a server.** Each runs on its own subscription of the event stream
+  (65536 events) on its own task, one event at a time; a callback slower than the events loses the
+  oldest, as any slow subscriber does. Exchange bytes never reach it. Disposing the registration
+  cancels the token it was given and runs it no more.
+- **An override is bounded by `HookTimeLimit`** (`SurlServerOptions`, 1 second by default, 1 ms to
+  30 seconds) on the server's `TimeProvider`, and runs off the serving thread. Past the limit its
+  token is cancelled, the request is served as if no override were there, and a `HookFailedEvent`
+  with `TimedOut` is published.
+- **A hook that throws is caught.** A `HookFailedEvent` with `Threw` and the exception's message is
+  published, naming the override's rule ID (`f1`) or the callback's (`h1`, `h2` ...); the request is
+  served as if no override were there, or the callback goes on to the next event. The hook stays
+  registered. A callback that throws on its own `HookFailedEvent` is not published again.
+- **An override can choose only what a fault rule can.** Its answer is read by `surl`'s own
+  `--fault` reader and applies to the point it was asked at: its own scope and `Times` are ignored,
+  and an error's reply shape is the point's scheme's. An answer `surl` would refuse, or one whose
+  kind cannot act at the point's stage (a `RefuseLogin` at a request), is published as `Threw` and
+  ignored. So an override cannot accept a refused login, turn TLS off, reach outside the served root
+  (a `.surl` path stays unserved) or widen an option.
+- An override sits in the fault plan's order like any rule: a rule added before it wins first, and
+  an answer of null goes on to the next rule. Overrides count toward the 256 rules and are not
+  listed among the plan's rules.
+
 ## Seed, reset, snapshot
 
 One server can serve a whole test class without one test leaking into the next (ADR-0124

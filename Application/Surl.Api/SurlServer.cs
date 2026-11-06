@@ -25,20 +25,24 @@ public sealed class SurlServer : IAsyncDisposable
     private readonly Task<SurlServingOutcome> serving;
     private readonly Lazy<Task<SurlExitCode>> stopping;
     private readonly ExchangeRecordSubscriber? record;
+    private readonly List<EventCallbackHook> callbacks = [];
+    private int lastCallbackNumber;
 
     private SurlServer(
         ComposedServing composedServing,
         CancellationTokenSource stop,
         Task<SurlServingOutcome> serving,
         IReadOnlyList<Uri> boundUrls,
-        ExchangeRecordSubscriber? record)
+        ExchangeRecordSubscriber? record,
+        TimeProvider timeProvider,
+        TimeSpan hookTimeLimit)
     {
         this.composedServing = composedServing;
         this.stop = stop;
         this.serving = serving;
         this.record = record;
         BoundUrls = boundUrls;
-        Faults = new SurlServerFaults(composedServing.Faults);
+        Faults = new SurlServerFaults(composedServing.Faults, composedServing.Events, timeProvider, hookTimeLimit);
         Mail = new SurlServerMail(composedServing.Stores);
         Files = new SurlServerFiles(composedServing.Stores);
         Messages = new SurlServerMessages(composedServing.Stores);
@@ -127,6 +131,31 @@ public sealed class SurlServer : IAsyncDisposable
     {
         ArgumentNullException.ThrowIfNull(query);
         return RecordOrThrow().WaitForEventAsync(query, timeout, cancellationToken);
+    }
+
+    /// <summary>
+    /// Runs <paramref name="callback"/> for each event <paramref name="query"/> matches from now on (ADR-0124,
+    /// decision 5), whether or not <see cref="SurlServerOptions.RecordExchanges"/> is on, until the registration is
+    /// disposed or the server stops. The callback runs on its own subscription of the server's event stream, one event
+    /// at a time and off the serving path, so it never blocks a server: a callback slower than the events loses the
+    /// oldest, as any slow subscriber does. A callback that throws is published as a <see cref="HookFailedEvent"/>
+    /// naming it (<c>h1</c>, <c>h2</c> ...) and runs again for the next event; exchange bytes never reach it.
+    /// </summary>
+    /// <param name="query">Which events, as <see cref="FindEvents"/> takes it.</param>
+    /// <param name="callback">What to run; its token is cancelled when the registration is disposed.</param>
+    /// <returns>The registration; disposing it stops the callback being run.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="query"/> or <paramref name="callback"/> is null.</exception>
+    public IDisposable OnEvent(SurlEventQuery query, Func<SurlEvent, CancellationToken, ValueTask> callback)
+    {
+        ArgumentNullException.ThrowIfNull(query);
+        ArgumentNullException.ThrowIfNull(callback);
+        lock (callbacks)
+        {
+            var hookId = "h" + (++lastCallbackNumber).ToString(System.Globalization.CultureInfo.InvariantCulture);
+            var hook = new EventCallbackHook(hookId, query, callback, composedServing.Events);
+            callbacks.Add(hook);
+            return hook;
+        }
     }
 
     /// <summary>
@@ -264,7 +293,7 @@ public sealed class SurlServer : IAsyncDisposable
         var record = options.RecordExchanges
             ? new ExchangeRecordSubscriber(start.Serving!.Events, timeProvider, ExchangeRecordBounds.Of(options))
             : null;
-        return await ServeUntilBoundAsync(commandLine, start.Serving!, options.Log, record, timeProvider, cancellationToken);
+        return await ServeUntilBoundAsync(commandLine, start.Serving!, options, record, cancellationToken);
     }
 
     /// <summary>The exchange log <c>surl</c> would write at the command line's level, to <paramref name="log"/>.</summary>
@@ -280,12 +309,12 @@ public sealed class SurlServer : IAsyncDisposable
     private static async Task<SurlServer> ServeUntilBoundAsync(
         SurlCommandLine commandLine,
         ComposedServing composedServing,
-        TextWriter? optionsLog,
+        SurlServerOptions options,
         ExchangeRecordSubscriber? record,
-        TimeProvider timeProvider,
         CancellationToken cancellationToken)
     {
-        var log = optionsLog is null ? TextWriter.Null : TextWriter.Synchronized(optionsLog);
+        var timeProvider = options.TimeProvider;
+        var log = options.Log is null ? TextWriter.Null : TextWriter.Synchronized(options.Log);
         var bound = new TaskCompletionSource<IReadOnlyList<ListenUrl>>(TaskCreationOptions.RunContinuationsAsynchronously);
         var stop = new CancellationTokenSource();
         var exchangeLogFactory = CreateExchangeLogFactory(commandLine, log, timeProvider);
@@ -302,7 +331,7 @@ public sealed class SurlServer : IAsyncDisposable
 
         if (bound.Task.IsCompletedSuccessfully)
         {
-            return new SurlServer(composedServing, stop, serving, [.. bound.Task.Result.Select(ToUri)], record);
+            return new SurlServer(composedServing, stop, serving, [.. bound.Task.Result.Select(ToUri)], record, timeProvider, options.HookTimeLimit);
         }
 
         // Serving ended before every listener bound: cancelled, or a bind failure (45 or 6).
@@ -327,6 +356,14 @@ public sealed class SurlServer : IAsyncDisposable
         }
     }
 
+    private void StopCallbacks()
+    {
+        lock (callbacks)
+        {
+            callbacks.ForEach(callback => callback.Dispose());
+        }
+    }
+
     private static Uri ToUri(ListenUrl boundUrl) => new(ListenerStatusLine.FormatBoundListenUrl(boundUrl));
 
     private async Task<SurlExitCode> StopServingAsync()
@@ -334,6 +371,7 @@ public sealed class SurlServer : IAsyncDisposable
         await stop.CancelAsync();
         var outcome = await serving;
         await StopRecordingAsync(record);
+        StopCallbacks();
         await composedServing.DisposeAsync();
         stop.Dispose();
         return outcome.ExitCode;
