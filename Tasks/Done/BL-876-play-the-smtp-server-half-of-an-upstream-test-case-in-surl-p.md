@@ -8,7 +8,7 @@ depends-on: [BL-875]
 touches: [Protocols/Mail/Surl.Protocol.Smtp.UnitLibrary, Protocols/Mail/Surl.Protocol.Smtp.UnitTests]
 requirement: none
 created: 2026-11-05
-completed:
+completed: 2026-11-05
 ---
 # BL-876 — Play the SMTP server half of an upstream test case in Surl.Protocol.Smtp
 
@@ -50,21 +50,27 @@ upstream test case through BL-875's `MailUpstreamTestCaseReplies`. Unit tests dr
 
 ## Acceptance criteria
 
-- [ ] `Protocols/Mail/Surl.Protocol.Smtp.UnitTests` has `SmtpUpstreamTestCaseServerTests`, which drive the half
+- [x] `Protocols/Mail/Surl.Protocol.Smtp.UnitTests` has `SmtpUpstreamTestCaseServerTests`, which drive the half
       over an in-memory connection with inline cases. They cover `REPLY welcome`, a `REPLY`'d command not being
       run, a `COUNT`-limited reply, `REPLYLF`, `EHLO` listing `CAPA` and `AUTH`, `MAIL` without a login, a
       `DATA` body landing in `UploadedBytes` and not in the store, `VRFY` answered from the case's data, and
       `ReceivedBytes` holding every command line with CRLF.
-- [ ] A named test shows that `SmtpProtocolServer` composed without a case still answers `EHLO` with its own
+- [x] A named test shows that `SmtpProtocolServer` composed without a case still answers `EHLO` with its own
       extensions and still refuses `MAIL` before a login where ADR-0053 refuses it.
-- [ ] `dotnet build Protocols/Mail/Surl.Protocol.Smtp.UnitLibrary -warnaserror` is clean,
+- [x] `dotnet build Protocols/Mail/Surl.Protocol.Smtp.UnitLibrary -warnaserror` is clean,
       `dotnet test --filter "TestCategory!=Integration"` is green, and `Surl.Protocol.Smtp.UnitLibrary` keeps 100%
       line and branch coverage.
 
 ## Notes
+
+- Restored the stash's four SMTP files from the `darkfactory BL-395` entry by its hash (`git stash list` was refused in this lane; `git reflog show refs/stash` found it). The tracked edits applied cleanly; the stash was neither applied nor dropped.
+- `SmtpUpstreamTestCaseServerTests` (25 tests) covers every acceptance case plus the guards, `HELO` in a case, `DATA` before `MAIL`/`RCPT`, a body cut off and one past `MaxUploadBytes`, and `VRFY`/`EXPN` without data or argument. `ServeAsync_NoCase_AnswersEhloWithItsOwnExtensionsAndRefusesMailBeforeALogin` is the no-case test.
+- `Measure-CodeQuality.ps1` flagged `SmtpSession.AnswerRecipient` at complexity 12, a gap that existed before this task. Its domain and limit checks moved into `AcceptRecipient` with no change in behaviour. The library is now at 100% line and branch coverage with no failing member (worst CRAP 10).
+- The project's CLAUDE.md now lists `SmtpUpstreamTestCaseServer`. No new ADR: ADR-0080 decision 2 and the task's Context made every decision.
 
 ## Log
 
 - 2026-11-05: Created.
 - 2026-11-05: Split from BL-395 (timed out after 120 min; Stewart asked for the split 2026-11-05).
 - 2026-11-05: Backlog -> Doing.
+- 2026-11-05: Doing -> Done. SmtpUpstreamTestCaseServer plays an upstream SMTP test case, unit tested at 100% coverage
