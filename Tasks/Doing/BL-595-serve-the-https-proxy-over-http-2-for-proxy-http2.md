@@ -43,3 +43,4 @@ over HTTP/2 to a curl given `--proxy-http2`, instead of ADR-0088's interim ALPN 
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-06: Backlog -> Doing.
