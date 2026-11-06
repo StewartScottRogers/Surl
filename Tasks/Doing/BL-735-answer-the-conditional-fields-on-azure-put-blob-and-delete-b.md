@@ -33,3 +33,4 @@ Azure Put Blob and Delete Blob answer the conditional fields as ADR-0109 decisio
 ## Log
 
 - 2026-11-05: Created.
+- 2026-11-06: Backlog -> Doing.
