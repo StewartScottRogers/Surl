@@ -49,3 +49,4 @@ marked "Decided by Claude under Stewart's delegation", so the ADR is true of `Su
 ## Log
 
 - 2026-11-05: Created.
+- 2026-11-06: Backlog -> Doing.
