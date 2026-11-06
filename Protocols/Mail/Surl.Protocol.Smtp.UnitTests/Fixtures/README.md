@@ -108,3 +108,17 @@ Every case exits 0. `RecordedFixtureTests` replays each against a store without
 `--allow-anonymous`, with a `ScriptedMailAuthenticationPolicy` offering the one mechanism and
 scripted with the recorded challenges then acceptance, and asserts the bytes Surl writes, what
 the policy was handed, the login note, and the message stored with protocol `ESMTPA`.
+
+## Chosen-error faults (BL-796)
+
+Recorded on 2026-11-05 the same way, on port 18025, with `mail.txt` as above and the common
+replies `GREETING`, `EHLO`, `MAIL`, `DATA`, `DATADONE` and `QUIT` of the first table, the
+fault's reply standing where a rule `error;scheme=smtp;reply=451 4.3.0 try later` puts it
+(ADR-0124, decision 4). `SmtpFaultTests` replays each against a store with the accounts `alice`
+and `bob` and a `ScriptedFaultPlan`.
+
+| Folder | RCPT and DATA replies | curl arguments (then the URL) | curl sends, and exits |
+| --- | --- | --- | --- |
+| `fault-recipient-allowfails` | `$ok`, then `RCPT=451 4.3.0 try later` | `-sS --mail-rcpt-allowfails --mail-from a@x --mail-rcpt alice@x --mail-rcpt bob@x -T mail.txt` | both `RCPT`s, then `DATA`: exit 0 |
+| `fault-recipient` | the same | the same without `--mail-rcpt-allowfails` | `RCPT TO:<bob@x>`, then `QUIT`: exit 55, `curl: (55) RCPT failed: 451` |
+| `fault-data` | `$ok`, `DATA=451 4.3.0 try later` | `-sS --mail-from a@x --mail-rcpt alice@x -T mail.txt` | `DATA`, then `QUIT`: exit 55, `curl: (55) DATA failed: 451` |

@@ -113,9 +113,14 @@ internal sealed partial class SmtpSession
             return true;
         }
 
-        return SmtpCommandLine.TryParse(line, out var command) && commands.TryGetValue(command!.Verb, out var answer)
-            ? await answer(command.Argument)
-            : await ReplyAsync(SmtpReplies.NotRecognized);
+        if (!SmtpCommandLine.TryParse(line, out var command) || !commands.TryGetValue(command!.Verb, out var answer))
+        {
+            return await ReplyAsync(SmtpReplies.NotRecognized);
+        }
+
+        return await FindChosenErrorAsync(command) is { } chosenError
+            ? await ReplyAsync(chosenError)
+            : await answer(command.Argument);
     }
 
     private async ValueTask<bool> AnswerNoLineAsync(CrlfLineReadOutcome outcome)
@@ -399,6 +404,7 @@ internal sealed partial class SmtpSession
         isExtendedHello = false;
         mailLoginVerdict = null;
         isLoggedIn = false;
+        accountName = null;
         transaction = null;
         return true;
     }
@@ -445,6 +451,7 @@ internal sealed partial class SmtpSession
             if (step.Outcome != SaslLoginOutcome.Challenge)
             {
                 isLoggedIn = step.Outcome is SaslLoginOutcome.Accepted or SaslLoginOutcome.AcceptedUnchecked;
+                accountName = step.AccountName;
                 return await ReplyAsync(SmtpReplies.LoginEnded(step.Outcome));
             }
 
