@@ -11,8 +11,9 @@ namespace Surl.Protocol.Http;
 /// once <c>NUM</c> is 1000 or more, and for Negotiate the count of Negotiate requests so far.
 /// </summary>
 /// <remarks>
-/// The test number is the run of digits the request's path ends in - the path without its
-/// query or fragment, and without scheme and authority when the target is absolute - or, for
+/// The test number is the run of digits that starts right after the last <c>/</c> of the whole
+/// request target, query and fragment included, and ends at the first character that is not a
+/// digit (<c>/data/10240002.txt</c>, <c>/moo.html/?testcase=/11380002</c>) - or, for
 /// <c>CONNECT</c>, the run the host name ends in (<c>test.remote.example.com.1059:443</c>).
 /// The credentials judged are the <c>Authorization</c> field's, or the
 /// <c>Proxy-Authorization</c> field's when there is none.
@@ -39,12 +40,14 @@ internal static class HttpUpstreamTestCasePartNumber
     /// The part number the request target alone gives.
     /// </summary>
     /// <param name="method">The request's method.</param>
-    /// <param name="target">The request target as sent.</param>
+    /// <param name="target">
+    /// The request target as sent. The test number is the run of digits right after its last
+    /// <c>/</c>, query included, or for <c>CONNECT</c> the run its host name ends in.
+    /// </param>
     /// <returns>The test number's remainder by 10000 when it is over 10000; otherwise 0.</returns>
     public static int FromTarget(string method, string target)
     {
-        var named = method == "CONNECT" ? HostOf(target) : PathOf(target);
-        var digits = named.AsSpan(named.Length - TrailingDigitCount(named)).TrimStart('0');
+        var digits = (method == "CONNECT" ? TrailingDigitsOf(HostOf(target)) : DigitsAfterLastSlash(target)).TrimStart('0');
 
         // Over 10000 means five digits or more once leading zeros go; 10000 itself leaves 0.
         return digits.Length > 4 ? int.Parse(digits[^4..], provider: null) : 0;
@@ -94,29 +97,19 @@ internal static class HttpUpstreamTestCasePartNumber
         return colon < 0 ? target : target[..colon];
     }
 
-    private static string PathOf(string target)
+    // The digits right after the target's last '/', up to the first non-digit.
+    private static ReadOnlySpan<char> DigitsAfterLastSlash(string target)
     {
-        var schemeEnd = target.IndexOf("://", StringComparison.Ordinal);
-        var path = target;
-        if (schemeEnd >= 0)
-        {
-            var pathStart = target.IndexOf('/', schemeEnd + 3);
-            path = pathStart < 0 ? string.Empty : target[pathStart..];
-        }
+        var rest = target.AsSpan(target.LastIndexOf('/') + 1);
+        var end = rest.IndexOfAnyExceptInRange('0', '9');
 
-        var end = path.IndexOfAny(['?', '#']);
-
-        return end < 0 ? path : path[..end];
+        return end < 0 ? rest : rest[..end];
     }
 
-    private static int TrailingDigitCount(string text)
+    private static ReadOnlySpan<char> TrailingDigitsOf(string text)
     {
-        var count = 0;
-        while (count < text.Length && char.IsAsciiDigit(text[text.Length - 1 - count]))
-        {
-            count++;
-        }
+        var start = text.AsSpan().LastIndexOfAnyExceptInRange('0', '9') + 1;
 
-        return count;
+        return text.AsSpan(start);
     }
 }

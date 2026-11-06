@@ -97,8 +97,9 @@ The upstream test cases' server half (ADR-0080 decision 2; BL-391) is a test sea
 case's `HttpUpstreamTestCaseReplies` (its reply parts by name as bytes and its `<servercmd>`
 lines). The server reads each head with `Surl.HttpMessage`'s reader and its body as framed
 (`HttpUpstreamTestCaseRequestBody`; no `100 Continue` is ever written), then sends the part
-`HttpUpstreamTestCasePartNumber` picks verbatim: FILEFORMAT.md's `NUM` from the trailing digits
-of the path (the host for `CONNECT`) and the `Authorization` (else `Proxy-Authorization`)
+`HttpUpstreamTestCasePartNumber` picks verbatim: FILEFORMAT.md's `NUM` from the run of digits
+right after the last `/` of the whole request target, query included, up to the first non-digit
+(`/data/10240002.txt` gives part 2; for `CONNECT`, the digits the host name ends in) and the `Authorization` (else `Proxy-Authorization`)
 scheme, `swsbounce` moving the case's next request to the next part. The connection stays open
 unless `swsclose` is in the part or the commands; a missing part closes it with no bytes.
 `HttpUpstreamTestCaseServerCommands` holds `auth_required`, `idle`, `no-expect`, `skip:`,
