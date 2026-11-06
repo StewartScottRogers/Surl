@@ -60,12 +60,13 @@ internal static class AzureRequestChecks
     /// parameter names something the reads do not serve.
     /// </summary>
     /// <param name="target">The request's target.</param>
+    /// <param name="allowsComp">Whether <c>comp</c> already named the operation, as on a block request.</param>
     /// <returns>The refusal, or null when the query passes.</returns>
-    public static AzureRefusal? CheckQuery(AzureBlobTarget target)
+    public static AzureRefusal? CheckQuery(AzureBlobTarget target, bool allowsComp = false)
     {
         foreach (var parameter in target.QueryParameters)
         {
-            var refused = Array.Find(RefusedQueryParameters, name => name.Equals(parameter.Key, StringComparison.OrdinalIgnoreCase));
+            var refused = Array.Find(RefusedQueryParameters, name => name.Equals(parameter.Key, StringComparison.OrdinalIgnoreCase) && !(allowsComp && name == "comp"));
             if (refused is not null)
             {
                 return AzureRefusal.InvalidQueryParameterValue(refused, parameter.Value);

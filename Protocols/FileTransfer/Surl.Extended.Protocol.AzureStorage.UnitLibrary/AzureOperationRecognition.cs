@@ -27,6 +27,12 @@ internal static class AzureOperationRecognition
             return null;
         }
 
+        if (BlockOperationOf(request.Method, target) is { } blockOperation)
+        {
+            operation = blockOperation;
+            return BlockRefusal(request, target);
+        }
+
         operation = BlobOperationOf(request.Method);
 
         return IsBlobMethod(request.Method) ? BlobRefusal(request, target, operation) : AzureRefusal.Of(AzureError.UnsupportedHttpVerb);
@@ -40,6 +46,28 @@ internal static class AzureOperationRecognition
     };
 
     private static bool IsBlobMethod(string method) => method is "GET" or "HEAD" or "PUT" or "DELETE";
+
+    // Put Block, Put Block List and Get Block List, by method and comp ("Put Block", "Put Block
+    // List", "Get Block List").
+    private static AzureOperation? BlockOperationOf(string method, AzureBlobTarget target) =>
+        (method, AzureDataLakeOperationRecognition.Parameter(target, "comp")) switch
+        {
+            ("PUT", "block") => AzureOperation.PutBlock,
+            ("PUT", "blocklist") => AzureOperation.PutBlockList,
+            ("GET", "blocklist") => AzureOperation.GetBlockList,
+            _ => null,
+        };
+
+    // A block request's query besides comp, its path, then the unsupported headers.
+    private static AzureRefusal? BlockRefusal(HttpRequest request, AzureBlobTarget target)
+    {
+        if (AzureRequestChecks.CheckQuery(target, allowsComp: true) is { } queryRefusal)
+        {
+            return queryRefusal;
+        }
+
+        return target.NamesABlob ? AzureRequestChecks.CheckUnsupportedHeaders(request.Fields) : AzureRefusal.Of(AzureError.InvalidUri);
+    }
 
     // The query, the path, the unsupported headers, then Put Blob's blob type.
     private static AzureRefusal? BlobRefusal(HttpRequest request, AzureBlobTarget target, AzureOperation operation)
