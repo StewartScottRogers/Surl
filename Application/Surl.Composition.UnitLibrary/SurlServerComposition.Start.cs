@@ -1,6 +1,7 @@
 using System.Net;
 using Surl.Cli;
 using Surl.Content;
+using Surl.Core;
 using Surl.Networking;
 using Surl.Output;
 using Surl.Protocol.Abstractions;
@@ -126,27 +127,30 @@ public static partial class SurlServerComposition
             seams.TimeProvider,
             seams.DataDirectoryFileSystem ?? new DiskContentFileSystem(),
             seams.ContentWithoutDataDirectory);
-        var contentStore = ComposeContentStore(commandLine, fileSystem);
+        // One event stream and one fault plan per instance, never static (ADR-0124, decisions 1 and 4).
+        var instruments = new EventStreamAndFaultPlan(
+            new SurlEventStream(seams.TimeProvider), FaultPlanComposition.Compose(commandLine.Faults));
+        var contentStore = ComposeContentStore(commandLine, fileSystem, instruments.Events, instruments.Faults);
         if (FindListenUrlRefusal(commandLine) is { } refusal)
         {
             return refusal;
         }
 
-        var (authentication, failure) = ComposeAuthentication(commandLine, seams);
+        var (authentication, failure) = ComposeAuthentication(commandLine, seams, instruments);
         return authentication is null
             ? new SurlServerStart(failure, null)
-            : await LockThenComposeAsync(commandLine, seams, fileSystem, contentStore, authentication, cancellationToken);
+            : await LockThenComposeAsync(commandLine, seams, fileSystem, contentStore, authentication, instruments, cancellationToken);
     }
 
     // The --auth words, the --user-file, the --authorized-keys and --keytab files, then the --hostkey
     // and --hostcert files, are checked before the lock is taken and any listener binds (ADR-0032, sections 1 and 2;
     // ADR-0051, decisions 4 and 6; ADR-0057, decision 1).
     private static (ComposedAuthentication? Authentication, SurlStartFailure? Failure) ComposeAuthentication(
-        SurlCommandLine commandLine, SurlServerCompositionSeams seams)
+        SurlCommandLine commandLine, SurlServerCompositionSeams seams, EventStreamAndFaultPlan instruments)
     {
         var readStartFile = seams.ReadStartFile ?? File.ReadAllBytes;
         var (policy, accountNames, skippedKeytabEntries, exitCode, failureMessage) =
-            AuthenticationComposition.Compose(commandLine, readStartFile, seams.TimeProvider);
+            AuthenticationComposition.Compose(commandLine, readStartFile, seams.TimeProvider, instruments.Events, instruments.Faults);
         if (policy is null)
         {
             return (null, new SurlStartFailure(exitCode, [failureMessage!]));
@@ -171,6 +175,7 @@ public static partial class SurlServerComposition
         IContentFileSystem fileSystem,
         ContentStore contentStore,
         ComposedAuthentication authentication,
+        EventStreamAndFaultPlan instruments,
         CancellationToken cancellationToken)
     {
         var dataDirectoryLock = commandLine.DataDirectory is { } dataDirectory
@@ -186,7 +191,7 @@ public static partial class SurlServerComposition
         try
         {
             start = await ComposeUnderTheLockAsync(
-                commandLine, seams, fileSystem, contentStore, authentication, dataDirectoryLock.Holder, cancellationToken);
+                commandLine, seams, fileSystem, contentStore, authentication, instruments, dataDirectoryLock.Holder, cancellationToken);
             return start;
         }
         finally
@@ -204,6 +209,7 @@ public static partial class SurlServerComposition
         IContentFileSystem fileSystem,
         ContentStore contentStore,
         ComposedAuthentication authentication,
+        EventStreamAndFaultPlan instruments,
         IDisposable? dataDirectoryLock,
         CancellationToken cancellationToken)
     {
@@ -218,6 +224,8 @@ public static partial class SurlServerComposition
                 authentication.AccountNames,
                 isCertificateConfigured,
                 seams.TimeProvider,
+                instruments.Events,
+                instruments.Faults,
                 cancellationToken);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -240,7 +248,11 @@ public static partial class SurlServerComposition
             SshAlgorithmComposition.Compose(authentication.SshHostKeys.HostKeys.SignatureAlgorithms, commandLine),
             isCertificateConfigured,
             commandLine.WsEcho,
-            commandLine.Http3);
+            commandLine.Http3)
+        {
+            Events = instruments.Events,
+            Faults = instruments.Faults,
+        };
         IProtocolServer[] servers =
         [
             .. ComposeProtocolServers(ProtocolServerRegistrations.Original, services),
@@ -254,7 +266,7 @@ public static partial class SurlServerComposition
         {
             ListenUrls = [.. commandLine.ListenUrls, .. seams.AdditionalProtocolServers.SelectMany(additional => additional.ListenUrls)],
         };
-        return ComposeServing(served, seams, servers, contentStore, authentication, dataDirectoryLock);
+        return ComposeServing(served, seams, servers, contentStore, authentication, instruments, dataDirectoryLock);
     }
 
     private static SurlServerStart ComposeServing(
@@ -263,6 +275,7 @@ public static partial class SurlServerComposition
         IProtocolServer[] servers,
         ContentStore contentStore,
         ComposedAuthentication authentication,
+        EventStreamAndFaultPlan instruments,
         IDisposable? dataDirectoryLock)
     {
         ServerTlsComposition tls;
@@ -279,7 +292,7 @@ public static partial class SurlServerComposition
         IProtocolServer[] served = tls.QuicCertificate is { } quicCertificate
             ? [.. servers, ComposeHttp3ProtocolServer(commandLine, contentStore, authentication.Policy, quicCertificate)]
             : servers;
-        return new SurlServerStart(null, new ComposedServing(commandLine, seams, served, authentication, tls, dataDirectoryLock));
+        return new SurlServerStart(null, new ComposedServing(commandLine, seams, served, authentication, instruments, tls, dataDirectoryLock));
     }
 
     // --http3: the HTTP/3 server on every https listen URL's UDP side, sharing the scheme with the

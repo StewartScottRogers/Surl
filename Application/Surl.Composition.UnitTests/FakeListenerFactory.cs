@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Net;
 using Surl.Protocol.Abstractions;
@@ -19,6 +20,19 @@ internal sealed class FakeListenerFactory : IListenerFactory
 
     /// <summary>Thrown by every accept instead of waiting, when set.</summary>
     public Exception? AcceptFailure { get; init; }
+
+    private readonly ConcurrentDictionary<string, Task<FakeConnection>> connectionsByScheme = new(StringComparer.Ordinal);
+
+    /// <summary>
+    /// Handed out, once each, by the first connection accept of the listener for its scheme, when
+    /// set: the accept waits for the task, so a test can hand one scheme its connection only after
+    /// another's has ended. Every later accept waits until cancelled.
+    /// </summary>
+    public IReadOnlyDictionary<string, Task<FakeConnection>> ConnectionsByScheme
+    {
+        get => connectionsByScheme;
+        init => connectionsByScheme = new(value, StringComparer.Ordinal);
+    }
 
     public ValueTask<IConnectionListener> StartConnectionListenerAsync(ListenUrl listenUrl, CancellationToken cancellationToken)
     {
@@ -59,6 +73,11 @@ internal sealed class FakeListenerFactory : IListenerFactory
 
         public async ValueTask<IConnection> AcceptAsync(CancellationToken cancellationToken)
         {
+            if (factory.connectionsByScheme.TryRemove(ListenUrl.Scheme, out var schemeConnection))
+            {
+                return await schemeConnection.WaitAsync(cancellationToken);
+            }
+
             await factory.WaitUntilCancelledAsync(cancellationToken);
             throw new UnreachableException();
         }

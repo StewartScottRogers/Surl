@@ -62,6 +62,18 @@ public sealed class ComposedProtocolServices(
     /// <summary>Gets the one clock.</summary>
     public TimeProvider TimeProvider { get; } = timeProvider;
 
+    /// <summary>
+    /// Gets the instance's one event stream, which the stores, the policy and the serving engine
+    /// publish on (ADR-0124, decision 1); a publisher that publishes nothing unless set.
+    /// </summary>
+    public ISurlEventPublisher Events { get; init; } = DiscardingSurlEventPublisher.Instance;
+
+    /// <summary>
+    /// Gets the instance's one fault plan, which the stores, the policy and the serving engine
+    /// consult (ADR-0124, decision 4); a plan with no rules unless set.
+    /// </summary>
+    public IFaultPlan Faults { get; init; } = EmptyFaultPlan.Instance;
+
     /// <summary>Gets the SSH server's host keys.</summary>
     public SshHostKeySet SshHostKeys { get; } = sshHostKeys;
 

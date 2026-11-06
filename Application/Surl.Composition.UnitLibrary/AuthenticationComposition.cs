@@ -51,6 +51,8 @@ public static class AuthenticationComposition
     /// <param name="commandLine">The parsed command line.</param>
     /// <param name="readFile">Reads a file's bytes, given its path as given.</param>
     /// <param name="timeProvider">The clock the refusal delay, the Digest nonces, the Signature Version 4 window and the Kerberos acceptor run on.</param>
+    /// <param name="events">The instance's event stream, which the policy publishes each judged login on (ADR-0124, decision 1); none when <see langword="null"/>.</param>
+    /// <param name="faults">The instance's fault plan, whose refuse-login rules the policy applies (ADR-0124, decision 4); none when <see langword="null"/>.</param>
     /// <returns>
     /// The policy, every account's user name, the <c>--user</c> ones first, which the mail
     /// store's owners are (ADR-0050, decision 2), and the keytab entries skipped for their enctype;
@@ -58,7 +60,11 @@ public static class AuthenticationComposition
     /// the <c>surl: </c> prefix (ADR-0032, sections 1 and 2; ADR-0051, section 6; ADR-0057, decision 1).
     /// </returns>
     public static (AuthenticationPolicy? Policy, IReadOnlyList<string> AccountNames, IReadOnlyList<KerberosKeytabSkippedEntry> SkippedKeytabEntries, SurlExitCode ExitCode, string? FailureMessage) Compose(
-        SurlCommandLine commandLine, Func<string, byte[]> readFile, TimeProvider timeProvider)
+        SurlCommandLine commandLine,
+        Func<string, byte[]> readFile,
+        TimeProvider timeProvider,
+        ISurlEventPublisher? events = null,
+        IFaultPlan? faults = null)
     {
         var (accounts, exitCode, failureMessage) = ReadAccounts(commandLine, readFile);
         if (accounts is null)
@@ -75,7 +81,7 @@ public static class AuthenticationComposition
         var (kerberosAcceptor, skippedKeytabEntries, keytabExitCode, keytabFailureMessage) = KeytabComposition.Read(commandLine, readFile, timeProvider);
         return keytabFailureMessage is not null
             ? (null, [], [], keytabExitCode, keytabFailureMessage)
-            : (ComposePolicy(ComposeSettings(commandLine, accounts) with { AuthorizedKeys = authorizedKeys, KerberosAcceptor = kerberosAcceptor }, timeProvider),
+            : (ComposePolicy(ComposeSettings(commandLine, accounts) with { AuthorizedKeys = authorizedKeys, KerberosAcceptor = kerberosAcceptor }, timeProvider, events, faults),
                 [.. accounts.Select(account => account.UserName)],
                 skippedKeytabEntries,
                 SurlExitCode.Ok,
@@ -89,7 +95,7 @@ public static class AuthenticationComposition
     /// <param name="timeProvider">The clock the refusal delay, the Digest nonces and the Signature Version 4 window run on.</param>
     /// <returns>The policy.</returns>
     public static AuthenticationPolicy ComposeWithoutAccounts(TimeProvider timeProvider) =>
-        ComposePolicy(ComposeSettings(new SurlCommandLine(), []), timeProvider);
+        ComposePolicy(ComposeSettings(new SurlCommandLine(), []), timeProvider, null, null);
 
     /// <summary>
     /// Builds the settings the policy judges by: an account book of <paramref name="accounts"/>,
@@ -195,7 +201,8 @@ public static class AuthenticationComposition
         return (new AuthorizedKeyBook(keys), SurlExitCode.Ok, null);
     }
 
-    private static AuthenticationPolicy ComposePolicy(AuthenticationSettings settings, TimeProvider timeProvider) =>
+    private static AuthenticationPolicy ComposePolicy(
+        AuthenticationSettings settings, TimeProvider timeProvider, ISurlEventPublisher? events, IFaultPlan? faults) =>
         new(
             settings,
             [
@@ -206,5 +213,7 @@ public static class AuthenticationComposition
                 new DigestAuthenticationMethod(settings.Accounts, timeProvider),
                 new AwsSigV4AuthenticationMethod(settings.Accounts, timeProvider),
             ],
-            timeProvider);
+            timeProvider,
+            events,
+            faults);
 }

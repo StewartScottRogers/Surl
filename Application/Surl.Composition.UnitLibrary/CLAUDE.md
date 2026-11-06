@@ -53,6 +53,20 @@ horizontal library may reference it (ADR-0099 decision 11, held by
   `LoadObjectMetadataIndexAsync`); the first that cannot be loaded returns its
   `(37)` message, which the host writes after `surl: `.
 
+- One event stream and one fault plan per start (ADR-0124 decisions 1 and 4, BL-803):
+  `ComposeAsync` creates a `SurlEventStream` and, through `FaultPlanComposition.Compose`, a
+  `FaultPlan` holding `SurlCommandLine.Faults` in order (`f1`, `f2` ...), never static, carried as
+  the internal `EventStreamAndFaultPlan`. Both go to the content store (`ComposeContentStore`'s
+  four-argument overload), the message bus, the mail store and the object metadata index
+  (`LoadServiceStateAsync`), the policy (`AuthenticationComposition.Compose`'s `events`/`faults`),
+  `ComposedProtocolServices.Events`/`Faults` and so `ExtendedProtocolServerServices`, and the
+  `ServingEngine`, which hands them to every server through `ExchangeContext`.
+  `ComposedServing.Events` (subscribe there) and `ComposedServing.Faults` expose them to the host.
+  `ComposeUnservedProtocolServices` keeps the null objects (`DiscardingSurlEventPublisher`,
+  `EmptyFaultPlan`). With any rule, `ServeAsync` writes `FaultPlanComposition.WriteWarning`'s
+  `surl: warning: --fault: <n> fault rule(s) make this server misbehave on purpose` once, from info
+  up, right after the other loosening warnings.
+
 The types are `public` because more than one host calls them, but they are not a supported
 programming interface and may change in any release.
 
