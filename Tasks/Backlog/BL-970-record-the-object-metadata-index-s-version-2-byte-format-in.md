@@ -1,5 +1,5 @@
 ---
-id: BL-968
+id: BL-970
 title: Record the object metadata index's version 2 byte format in ADR-0100
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-06
 completed:
 ---
-# BL-968 — Record the object metadata index's version 2 byte format in ADR-0100
+# BL-970 — Record the object metadata index's version 2 byte format in ADR-0100
 
 ## Goal
 
