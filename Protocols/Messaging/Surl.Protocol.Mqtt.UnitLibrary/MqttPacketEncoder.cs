@@ -144,6 +144,12 @@ internal static class MqttPacketEncoder
         return count;
     }
 
-    private static byte[] ConnectAcknowledgement(byte returnCode) =>
+    /// <summary>
+    /// A <c>CONNACK</c> with no session present and <paramref name="returnCode"/> (MQTT 3.1.1,
+    /// section 3.2).
+    /// </summary>
+    /// <param name="returnCode">The connect return code, 0 to 5.</param>
+    /// <returns>The packet's four bytes.</returns>
+    public static byte[] ConnectAcknowledgement(byte returnCode) =>
         [(byte)MqttPacketType.ConnectAcknowledgement << 4, 0x02, 0x00, returnCode];
 }

@@ -25,6 +25,14 @@ BL-665). A refused filter is `SUBACK` return code `0x80`, then the usual `DISCON
 publish is dropped (nothing retained or delivered), noted, and acknowledged as any other at its
 QoS, since MQTT 3.1.1 has no negative acknowledgement, and the connection goes on.
 
+The chosen-error fault (ADR-0124 decision 4, ADR-0139; `MqttPacketResponder.Faults.cs`): the
+exchange's `IFaultPlan` is asked at an accepted `CONNECT`, at each valid `SUBSCRIBE` filter (the
+filter as its path) and at each `PUBLISH` (the topic as its path), with the account the login proved,
+before the bus. A matching `error` rule's reason code 128 to 255 is answered `CONNACK` with the 3.1.1
+code of the same meaning (else 3) and a close, `SUBACK` `0x80` for that filter, or a close with nothing
+published; each publishes one `FaultAppliedEvent`. A reply that does not fit, or another kind, is noted
+and not applied.
+
 After every publish the server calls the bus's `SaveChangesAsync`; a `StorageFailed` result
 is noted in the exchange log and the change stays in memory. Whether anything is written is
 the bus's: `Surl.Composition` composes one bus per run and loads it from `<path>/.surl` with
