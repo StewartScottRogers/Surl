@@ -54,3 +54,4 @@ publisher `basic.ack`/`basic.nack`, and announces `publisher_confirms` in `conne
 ## Log
 
 - 2026-11-05: Created.
+- 2026-11-06: Backlog -> Doing.
