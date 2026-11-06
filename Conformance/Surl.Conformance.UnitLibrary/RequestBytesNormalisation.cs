@@ -7,7 +7,7 @@ namespace Surl.Conformance;
 /// <summary>
 /// ADR-0089 decision 4's rules for the bytes a client sent on one connection, behind
 /// <see cref="CurlPortResultNormaliser.NormaliseRequestBytes"/>: the client ports FTP's <c>PORT</c> and
-/// <c>EPRT</c> name, the <c>User-Agent:</c> value, every multipart boundary, Digest's <c>nonce</c> (surl's own, echoed), <c>cnonce</c> and the
+/// <c>EPRT</c> name, the <c>User-Agent:</c> and <c>Sec-WebSocket-Key:</c> values, every multipart boundary, Digest's <c>nonce</c> (surl's own, echoed), <c>cnonce</c> and the
 /// <c>response</c> computed from it (in a header or a base64 SASL <c>DIGEST-MD5</c> line), and the NTLM
 /// client challenge, time stamp and what is derived from them (raw, as SMB carries it, or base64, as HTTP
 /// and SASL carry it).
@@ -21,6 +21,8 @@ internal static class RequestBytesNormalisation
     private static readonly Regex FtpEprtCommand = new(@"^(EPRT \|[0-9]\|[^|\r\n]*\|)[0-9]+\|", Lines | RegexOptions.IgnoreCase);
 
     private static readonly Regex UserAgentField = new(@"^(User-Agent:[ \t]*)[^\r\n]*", Lines | RegexOptions.IgnoreCase);
+
+    private static readonly Regex WebSocketKeyField = new(@"^(Sec-WebSocket-Key:[ \t]*)[^\r\n]*", Lines | RegexOptions.IgnoreCase);
 
     private static readonly Regex Boundary = new("boundary=(\"?)([^\";\\r\\n]+)\\1", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
 
@@ -53,6 +55,7 @@ internal static class RequestBytesNormalisation
         text = FtpPortCommand.Replace(text, "$1," + CurlPortResultNormaliser.PortPlaceholder);
         text = FtpEprtCommand.Replace(text, "${1}" + CurlPortResultNormaliser.PortPlaceholder + "|");
         text = UserAgentField.Replace(text, "${1}" + CurlPortResultNormaliser.UserAgentPlaceholder);
+        text = WebSocketKeyField.Replace(text, "${1}" + CurlPortResultNormaliser.WebSocketKeyPlaceholder);
         text = Base64Token.Replace(text, NormaliseBase64Token);
         text = NormaliseDigest(text);
         return ReplaceBoundaries(text);

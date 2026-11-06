@@ -230,3 +230,24 @@ exit code, output, asserted stderr lines and stored files are still compared in 
   per-run arguments passes a `CurlPortRunSetup` that both runs share; set-up steps that are not the
   conversation measured (an SMTP delivery for an IMAP or POP3 read) run once through upstream curl, and
   each run's `surl` starts over its own copy of the result, so both clients meet the same bytes.
+
+## Amendment 2 (2026-11-05, BL-585): a WebSocket client's key and masks
+
+- **Decided by:** Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), 2026-11-05, in
+  BL-585.
+
+Decision 4's request-byte normalisation gains two rules, for `ws` (the only WebSocket scheme the relay
+records; `wss` is TLS):
+
+- The `Sec-WebSocket-Key:` value is replaced by `<websocket-key>`. RFC 6455 section 4.1 makes it a
+  fresh random nonce per upgrade request, so it differs between any two runs, upstream's own included.
+- After the last WebSocket upgrade request on a connection, every client frame's payload is unmasked
+  and its masking key zeroed (RFC 6455 section 5.3: the client chooses a fresh unpredictable key for
+  every frame). What is compared is the frame as it would be under the key `00 00 00 00`: its FIN bit,
+  opcode, length and payload stay compared byte for byte. A frame cut short is unmasked as far as it
+  goes. Unmasking runs before every other rule, so the port replacement cannot shift a frame's bytes.
+
+Why: measured in BL-585, every `ws` case's two runs differed first inside the key's value, and with
+both rules every `ws` case agrees; without these rules no `ws` case could ever agree, and turning the relay
+off for `ws` would compare none of curl's upgrade request or frames. `CurlPortResultNormaliser.NormaliseRequestBytes`
+applies both (`WebSocketFrameUnmasking`, `RequestBytesNormalisation`).

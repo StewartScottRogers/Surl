@@ -38,6 +38,9 @@ public static class CurlPortResultNormaliser
     /// </summary>
     public const string DigestNoncePlaceholder = "<nonce>";
 
+    /// <summary>The text a <c>Sec-WebSocket-Key:</c> field value in request bytes is replaced by.</summary>
+    public const string WebSocketKeyPlaceholder = "<websocket-key>";
+
     private const string TimedGroup = "timed";
 
     private static readonly Regex DateField = new(
@@ -106,7 +109,9 @@ public static class CurlPortResultNormaliser
     /// was pointed at, the client ports FTP's <c>PORT</c> and <c>EPRT</c> name, the <c>User-Agent:</c>
     /// value, every multipart boundary, Digest's <c>nonce</c> (surl's own, echoed), <c>cnonce</c> and <c>response</c> (also inside a base64
     /// SASL <c>DIGEST-MD5</c> line), and the NTLM client challenge, time stamp and what is derived from
-    /// them (the LM and NT responses, the encrypted session key and the MIC are zeroed, raw or in base64).
+    /// them (the LM and NT responses, the encrypted session key and the MIC are zeroed, raw or in base64),
+    /// the <c>Sec-WebSocket-Key:</c> value, and each WebSocket frame's masking key (the frames after an
+    /// upgrade request are unmasked and their keys zeroed first, before any other rule reads them).
     /// </summary>
     /// <param name="requestBytes">The bytes sent.</param>
     /// <param name="clientFacingPort">The port the client connected to: the recording relay's.</param>
@@ -115,7 +120,7 @@ public static class CurlPortResultNormaliser
     {
         ArgumentNullException.ThrowIfNull(requestBytes);
         var text = RequestBytesNormalisation.Normalise(
-            Encoding.Latin1.GetBytes(ReplacePort(Encoding.Latin1.GetString(requestBytes), clientFacingPort)));
+            Encoding.Latin1.GetBytes(ReplacePort(Encoding.Latin1.GetString(WebSocketFrameUnmasking.Unmask(requestBytes)), clientFacingPort)));
         return Encoding.Latin1.GetBytes(text);
     }
 

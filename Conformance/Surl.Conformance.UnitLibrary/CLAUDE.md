@@ -80,7 +80,10 @@ to make the port pass. One case is compared and judged here (BL-578), request by
   internal `RequestBytesNormalisation` holds: the client port in FTP `PORT` and `EPRT`, `User-Agent:` as
   `<user-agent>`, every multipart boundary as `<boundary>`, Digest `nonce` (surl's own, echoed), `cnonce` and `response` as `<nonce>`, `<cnonce>`
   and `<response>` (also inside a base64 SASL `DIGEST-MD5` line), and in every NTLM AUTHENTICATE message,
-  raw (SMB) or base64 (HTTP, SASL), the LM and NT responses, the encrypted session key and the MIC zeroed.
+  raw (SMB) or base64 (HTTP, SASL), the LM and NT responses, the encrypted session key and the MIC zeroed;
+  `Sec-WebSocket-Key:` as `<websocket-key>`; and, first of all, the internal `WebSocketFrameUnmasking`
+  unmasks every client frame after a connection's last WebSocket upgrade request and zeroes its masking
+  key (ADR-0089 Amendment 2).
 - `CurlPortComparison.Compare` takes the two runners' results - never a path - and gives a
   `CurlPortVerdict` of decision 5's `CurlPortVerdictKind`: `SurlDefect` when upstream's run fails the
   mirrored assertions (the port is not judged), `Agreement` when every compared item agrees,
