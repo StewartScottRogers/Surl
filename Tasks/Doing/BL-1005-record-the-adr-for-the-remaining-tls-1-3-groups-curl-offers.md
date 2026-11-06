@@ -58,3 +58,4 @@ table, so the code tasks split from BL-545 can cite it.
 
 - 2026-11-06: Created.
 - 2026-11-06: Split from BL-545 (timed out after 120 min); reuses the ADR written in stash `darkfactory BL-545 20261106-033059`.
+- 2026-11-06: Backlog -> Doing.
