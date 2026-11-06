@@ -21,7 +21,9 @@ What it holds, all in namespace `Surl.Protocol.Ws`:
 - The upgrade (ADR-0071 decisions 1 to 3): `WebSocketUpgradeResponder` (the checks in order,
   the login through `IHttpAuthenticationSession`, the `101` - built by `Surl.WebSocket`'s
   `WebSocketUpgradeAcceptance` with no subprotocol - and every refusal) and
-  `WebSocketServedEntry`.
+  `WebSocketServedEntry`. `WebSocketUpgradeResponder.Faults.cs` answers a fault rule's chosen close
+  (ADR-0134 decision 3): after the login and the field checks, the `101`, then a `CLOSE` with the
+  rule's code and reason, asked through `Surl.HttpMessage`'s `HttpCommandFaults`.
 - The exchange after the `101` (decisions 4 to 7): `WebSocketExchange`.
 
 Every type but `WsProtocolServer` is `internal`, visible to `Surl.Protocol.Ws.UnitTests` only.
