@@ -51,3 +51,4 @@ published on the event stream, with every login of every protocol judged by the 
 - 2026-11-05: Created.
 - 2026-11-05: Backlog -> Doing.
 - 2026-11-05: Doing -> Backlog. Lane 5 finished and verified it but could not push during the 16:25 restart; the work is on local branch factory/BL-802-lane-5-20261105-150047 (6987d83f) - rebase it onto the shift branch, rebuild, test and push rather than redo it
+- 2026-11-05: Backlog -> Doing.
