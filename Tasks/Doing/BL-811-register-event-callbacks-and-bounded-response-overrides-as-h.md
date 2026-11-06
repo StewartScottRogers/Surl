@@ -56,3 +56,4 @@ matching request, which fault (delay, drop, refuse login, chosen protocol error,
 
 - 2026-11-05: Created.
 - 2026-11-05: Amended by ADR-0124 (BL-822): async override, 1 s default time limit, `HookFailedEvent`.
+- 2026-11-06: Backlog -> Doing.
