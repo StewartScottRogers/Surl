@@ -53,14 +53,7 @@ public sealed class UpstreamTestCaseStripLine
 
         var substitution = Substitution.Match(line);
 
-        if (substitution.Success)
-        {
-            return FromSubstitution(substitution);
-        }
-
-        var clearing = Clearing.Match(line);
-        var condition = clearing.Success ? UpstreamTestCaseStripCondition.TryParse(clearing.Groups["condition"].Value) : null;
-        return condition is null ? null : new UpstreamTestCaseStripLine(text => condition(text) ? string.Empty : text);
+        return substitution.Success ? FromSubstitution(substitution) : FromClearing(line);
     }
 
     /// <summary>
@@ -92,6 +85,13 @@ public sealed class UpstreamTestCaseStripLine
         ArgumentNullException.ThrowIfNull(line);
 
         return apply(line);
+    }
+
+    private static UpstreamTestCaseStripLine? FromClearing(string line)
+    {
+        var clearing = Clearing.Match(line);
+        var condition = clearing.Success ? UpstreamTestCaseStripCondition.TryParse(clearing.Groups["condition"].Value) : null;
+        return condition is null ? null : new UpstreamTestCaseStripLine(text => condition(text) ? string.Empty : text);
     }
 
     private static UpstreamTestCaseStripLine? FromSubstitution(Match substitution)
@@ -192,8 +192,11 @@ public sealed class UpstreamTestCaseStripLine
 
     private static (string, int)? ReadAt(string text, ref int index)
     {
-        var interpolates = index + 1 < text.Length && (char.IsAsciiLetterOrDigit(text[index + 1]) || text[index + 1] is '_' or '{' or '$');
+        var interpolates = index + 1 < text.Length && StartsArrayInterpolation(text[index + 1]);
         index++;
         return interpolates ? null : ("@", -1);
     }
+
+    private static bool StartsArrayInterpolation(char next) =>
+        char.IsAsciiLetterOrDigit(next) || next is '_' or '{' or '$';
 }

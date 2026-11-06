@@ -92,17 +92,19 @@ public sealed class UpstreamTestCaseVerifyChecker(IUpstreamTestCaseRunFiles file
 
         foreach (var character in latin1)
         {
-            text.Append(character switch
-            {
-                '\r' => @"\r",
-                '\n' => @"\n",
-                >= ' ' and <= '~' and not '\\' => character.ToString(),
-                _ => $"\\x{(int)character:X2}",
-            });
+            text.Append(EscapeCharacter(character));
         }
 
         return text.ToString();
     }
+
+    private static string EscapeCharacter(char character) => character switch
+    {
+        '\r' => @"\r",
+        '\n' => @"\n",
+        >= ' ' and <= '~' and not '\\' => character.ToString(),
+        _ => $"\\x{(int)character:X2}",
+    };
 
     private static UpstreamTestCaseVerifyResult? Compare(string section, List<string> actual, List<string> expected)
     {
@@ -356,19 +358,26 @@ public sealed class UpstreamTestCaseVerifyChecker(IUpstreamTestCaseRunFiles file
 
     private static UpstreamTestCaseVerifyResult? CheckErrorCode(UpstreamTestCaseSection? verify, UpstreamTestCaseRunRecord run)
     {
-        var first = Lines.Of(verify, "errorcode").FirstOrDefault();
-        var expected = Lines.Chomp(Lines.IsTrue(first) ? first! : "0");
+        var expected = ExpectedErrorCode(verify);
 
         if (run.ExitCode is not { } exitCode)
         {
             return UpstreamTestCaseVerifyResult.Fail("errorcode", $"curl was stopped at its timeout, expected exit code {Escape(expected)}");
         }
 
-        var accepted = ErrorCodeSeparator.Split(expected).Reverse().SkipWhile(code => code.Length == 0).Select(PerlInteger);
-        return accepted.Contains(exitCode)
+        return AcceptedExitCodes(expected).Contains(exitCode)
             ? null
             : UpstreamTestCaseVerifyResult.Fail("errorcode", $"curl exited {exitCode}, expected {Escape(expected)}");
     }
+
+    private static string ExpectedErrorCode(UpstreamTestCaseSection? verify)
+    {
+        var first = Lines.Of(verify, "errorcode").FirstOrDefault();
+        return Lines.Chomp(Lines.IsTrue(first) ? first! : "0");
+    }
+
+    private static IEnumerable<int> AcceptedExitCodes(string expected) =>
+        ErrorCodeSeparator.Split(expected).Reverse().SkipWhile(code => code.Length == 0).Select(PerlInteger);
 
     private static int PerlInteger(string text)
     {

@@ -86,24 +86,32 @@ internal static class WebSocketFrameUnmasking
         }
 
         var length = bytes[at + 1] & ~MaskBit;
-        var extended = length switch
-        {
-            SixteenBitLength => 2,
-            SixtyFourBitLength => 8,
-            _ => 0,
-        };
+        var extended = ExtendedLengthSize(length);
         if (at + 2 + extended > bytes.Length)
         {
             return (0, 0);
         }
 
-        var span = bytes.AsSpan(at + 2, extended);
-        long payloadLength = extended switch
-        {
-            2 => BinaryPrimitives.ReadUInt16BigEndian(span),
-            8 => (long)Math.Min(BinaryPrimitives.ReadUInt64BigEndian(span), long.MaxValue / 2),
-            _ => length,
-        };
-        return (2 + extended, payloadLength);
+        return (2 + extended, ReadPayloadLength(bytes.AsSpan(at + 2, extended), length));
     }
+
+    /// <summary>
+    /// The number of extended payload length bytes a frame's 7-bit length announces.
+    /// </summary>
+    private static int ExtendedLengthSize(int length) => length switch
+    {
+        SixteenBitLength => 2,
+        SixtyFourBitLength => 8,
+        _ => 0,
+    };
+
+    /// <summary>
+    /// The payload length from the extended length bytes, or the 7-bit length when there are none.
+    /// </summary>
+    private static long ReadPayloadLength(ReadOnlySpan<byte> extended, int length) => extended.Length switch
+    {
+        2 => BinaryPrimitives.ReadUInt16BigEndian(extended),
+        8 => (long)Math.Min(BinaryPrimitives.ReadUInt64BigEndian(extended), long.MaxValue / 2),
+        _ => length,
+    };
 }
