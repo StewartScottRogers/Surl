@@ -11,7 +11,8 @@ namespace Surl.Conformance;
 /// <remarks>
 /// Runtests reads some of them from <c>curlinfo</c>, a program only upstream's test build has;
 /// <see cref="ReleaseBuildOptions"/> holds those a default release build of 8.21.0 enables,
-/// measured against the Windows reference pin in BL-389. <c>Debug</c>, <c>TrackMemory</c> and
+/// measured against the Windows reference pin in BL-389 and probed with every reference pin by
+/// <c>UpstreamCurlShowsItsBuildOptionsTests</c> (BL-598), as are the platform options. <c>Debug</c>, <c>TrackMemory</c> and
 /// <c>unittest</c> are never present: the pinned builds are release builds.
 /// </remarks>
 public static class UpstreamCurlBuildFeatures

@@ -172,7 +172,10 @@ Selection is built (BL-389):
   from the pin's `features` line), the TLS backend and libraries of the version line, `win32`,
   `threaded-resolver`, `http/2`, each protocol with its `-ipv6` and `-unix` forms, and
   `ReleaseBuildOptions`, the `curlinfo` options a default release build enables (probed on the
-  Windows reference pin, BL-389's Notes). Never `Debug`, `TrackMemory` or `unittest`.
+  Windows reference pin, BL-389's Notes). The tests' `UpstreamCurlShowsItsBuildOptionsTests`
+  (`Integration`) probes every one of them and the platform options `For` claims with the
+  reference pin of the platform it runs on, so CI's Linux and macOS conformance steps probe theirs
+  (BL-598); `NotShownByTheTool` names the options no curl command can show, and why. Never `Debug`, `TrackMemory` or `unittest`.
 - `UpstreamTestCaseDisabledList.Parse` reads `DISABLED`, its `%if` lines against those features.
 - `UpstreamTestCaseSelector.FindSkipReason(number, case)` gives the first of decision 3's
   `UpstreamTestCaseSkipReasons` that applies, or `null` when the case can run, under
