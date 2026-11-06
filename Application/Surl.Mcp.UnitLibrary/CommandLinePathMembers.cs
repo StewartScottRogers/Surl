@@ -47,6 +47,7 @@ internal static class CommandLinePathMembers
         nameof(SurlCommandLine.ListDirectories),
         nameof(SurlCommandLine.FollowSymlinks),
         nameof(SurlCommandLine.ServeDotFiles),
+        nameof(SurlCommandLine.AllowZoneTransfer),
         nameof(SurlCommandLine.MaxConnections),
         nameof(SurlCommandLine.MaxConnectionsPerAddress),
         nameof(SurlCommandLine.IdleTimeout),

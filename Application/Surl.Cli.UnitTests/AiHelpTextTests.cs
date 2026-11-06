@@ -9,10 +9,10 @@ public sealed partial class AiHelpTextTests
 {
     private static readonly string NewLine = Environment.NewLine;
 
-    // ADR-0046 decision 3's sixteen topics, smtp (BL-207), imap (BL-208), pop3 (BL-209), websocket (BL-303), smb (BL-299), rtsp (BL-317), ldap (BL-310), extended (BL-405), nats (BL-528), s3 (BL-421), control (BL-815) and mail (BL-653, ADR-0101 decision 7), in ordinal order.
+    // ADR-0046 decision 3's sixteen topics, smtp (BL-207), imap (BL-208), pop3 (BL-209), websocket (BL-303), smb (BL-299), rtsp (BL-317), ldap (BL-310), extended (BL-405), nats (BL-528), s3 (BL-421), control (BL-815), mail (BL-653, ADR-0101 decision 7) and dns (BL-1032), in ordinal order.
     private static readonly string[] AdrTopicNames =
     [
-        "auth", "content", "control", "dict", "exit-codes", "extended", "ftp", "gopher", "http", "imap", "ldap", "limits", "listen-urls",
+        "auth", "content", "control", "dict", "dns", "exit-codes", "extended", "ftp", "gopher", "http", "imap", "ldap", "limits", "listen-urls",
         "logging", "mail", "mqtt", "nats", "pop3", "rtsp", "s3", "security", "smb", "smtp", "ssh", "surl", "telnet", "testing", "tftp", "tls", "websocket",
     ];
 
@@ -27,6 +27,7 @@ public sealed partial class AiHelpTextTests
         "| `content` | Served files and the data directory |",
         "| `control` | The loopback test control endpoint |",
         "| `dict` | DICT protocol |",
+        "| `dns` | DNS protocol (extended) |",
         "| `exit-codes` | Exit codes and what to do next |",
         "| `extended` | Extended protocol servers, for schemes upstream curl does not have |",
         "| `ftp` | FTP and FTPS protocol |",
@@ -652,6 +653,8 @@ public sealed partial class AiHelpTextTests
             // Written by Surl.Composition when it reads a --mailbox-file, whose tests pin each (BL-653).
             "surl: (37) Could not read mailbox file <file>",
             "surl: (2) Mailbox file <file>, line <n>: <reason>",
+            // Written by Surl.Composition's LoadDnsZonesAsync, whose tests pin it (BL-1032).
+            "surl: (37) Could not read <file>: <reason>",
         ];
 
         foreach (var (template, written) in writtenByTheParser)

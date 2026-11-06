@@ -90,12 +90,19 @@ internal static class AiHelpProse
             "It serves one database, `surl`: each file directly in the served root is a headword, its name the word and its bytes the definition. Headwords are compared case and all; a name that starts with a dot and a directory are never headwords.",
             "`curl dict://127.0.0.1:<port>/d:<word>` asks for the definition of `<word>`, and `m:<word>` for the headwords that match it.",
         ],
+        ["dns"] =
+        [
+            "The DNS server is an authoritative name server for `dns` listen URLs. It is an extended server (see the extended topic): it is judged by its specifications, RFC 1035 and, for its transports, RFC 7766 (TCP), RFC 7858 (TLS), RFC 8484 (HTTPS) and RFC 9250 (QUIC), not by upstream curl, which has no `dns` scheme. It answers no recursive query: RA is always 0.",
+            "One `dns` listen URL serves DNS over UDP and over TCP on the same address and port. Over UDP an answer is at most 512 bytes, or the EDNS(0) payload size the query offers, and is truncated with TC set past it; over TCP each message carries a two-byte length, a connection stays open for further queries, and `--idle-timeout` closes one left idle.",
+            "Its zones are the master files (RFC 1035 section 5) `<path>/.surl/dns/<apex>.zone` under `--directory`, read once at start; no option names another folder. A file that cannot be read or is not a zone writes `surl: (37) Could not read <file>: <reason>` and exits 37. Without `--directory`, or with no zone file, it holds no zone and answers every query `REFUSED`; a name in no served zone is `REFUSED` too. A test seeds the zones by writing the files before surl starts.",
+            "Zone transfers are refused (`REFUSED`) unless `--allow-zone-transfer` is given. With it, AXFR and IXFR over TCP send the whole zone, the apex SOA first and last; over UDP AXFR is `NOTIMP` and IXFR is answered with the apex SOA alone, telling the client to use TCP. A transfer for a name that is no zone's apex is `NOTAUTH`.",
+        ],
         ["extended"] =
         [
             "The extended protocol servers answer schemes the Curl port (https://github.com/StewartScottRogers/Curl) adds and upstream curl does not have. Each is judged by its protocol's specification and is not validated against upstream curl, unlike every other protocol topic's server.",
             "They are on unless the environment variable `SURL_EXTENSIONS` is `0`; unset, empty or any other value leaves them on. With `SURL_EXTENSIONS=0` no extended server is registered, and a listen URL naming an extended scheme writes `surl: (1) Protocol \"<scheme>\" not supported` and exits 1, as any scheme this build does not serve does. No command-line option turns them off.",
             "An extended scheme never changes how an original scheme is served, and has its own default port, which its topic's Schemes section lists. `surl --version` lists the extended schemes this build serves on an `Extended:` line after the `Protocols:` line; with none registered, or with `SURL_EXTENSIONS=0`, there is no such line.",
-            "This build registers two extended protocol servers, the NATS server for `nats` and `natss` (see the nats topic) and the S3 server for `s3` (see the s3 topic); each one added gets its own topic.",
+            "This build registers three extended protocol servers, the DNS server for `dns` (see the dns topic), the NATS server for `nats` and `natss` (see the nats topic) and the S3 server for `s3` (see the s3 topic); each one added gets its own topic.",
         ],
         ["exit-codes"] =
         [
@@ -224,7 +231,7 @@ internal static class AiHelpProse
         ],
         ["security"] =
         [
-            "Every option here widens what a peer may do, and each is off by default. Six are deployment choices that write no warning: `--allow-uploads`, `--list-directories`, `--follow-symlinks`, `--serve-dot-files`, `--tlsv1.0` and `--tlsv1.1`; leave each off unless it is needed.",
+            "Every option here widens what a peer may do, and each is off by default. Seven are deployment choices that write no warning: `--allow-uploads`, `--list-directories`, `--follow-symlinks`, `--serve-dot-files`, `--allow-zone-transfer`, `--tlsv1.0` and `--tlsv1.1`; leave each off unless it is needed.",
             "`--allow-weak-ssh-algorithms` also offers SSH algorithms built on SHA-1, MD5, CBC, RC4, 3DES and 1024-bit Diffie-Hellman. It is for peers that support nothing stronger; a start that gives it writes `surl: warning: --allow-weak-ssh-algorithms: SHA-1, MD5, CBC, RC4, 3DES and 1024-bit Diffie-Hellman SSH algorithms are offered` from the info level up, and it also lets a `--hostkey` file hold an RSA key shorter than 2048 bits or a DSA key.",
             "The other eight, `--allow-anonymous`, `--allow-plaintext-auth`, `--auth`, `--control`, `--control-token-file`, `--fault`, `--self-signed` and `--throwaway-hostkey`, loosen a secure default and are for tests only (see the testing topic).",
             "Before running surl where others can reach it: bind a specific address rather than `0.0.0.0` or `[::]`; give `--cert` and `--key` for secure schemes, never `--self-signed`; configure accounts with `--user-file`; review the limits; start with no loosening option, and treat any `surl: warning:` line at start as one left on.",

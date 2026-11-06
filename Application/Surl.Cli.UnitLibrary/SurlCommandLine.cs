@@ -88,6 +88,12 @@ public sealed record SurlCommandLine
     public bool ServeDotFiles { get; init; }
 
     /// <summary>
+    /// <c>--allow-zone-transfer</c>: answer AXFR and IXFR from the DNS server's zones
+    /// (ADR-0092 decision 4). Off by default, when every zone transfer is refused.
+    /// </summary>
+    public bool AllowZoneTransfer { get; init; }
+
+    /// <summary>
     /// <c>--max-connections</c>: concurrent connections and datagram flows, all listeners
     /// together; 0 is no limit. 1024 by default.
     /// </summary>

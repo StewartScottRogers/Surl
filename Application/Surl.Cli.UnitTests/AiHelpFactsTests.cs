@@ -110,7 +110,7 @@ public sealed class AiHelpFactsTests
             .ToArray();
 
         CollectionAssert.AreEquivalent(
-            new[] { "allow-uploads", "list-directories", "follow-symlinks", "serve-dot-files", "tlsv1.0", "tlsv1.1", "allow-weak-ssh-algorithms" },
+            new[] { "allow-uploads", "list-directories", "follow-symlinks", "serve-dot-files", "allow-zone-transfer", "tlsv1.0", "tlsv1.1", "allow-weak-ssh-algorithms" },
             widening);
     }
 
@@ -156,6 +156,7 @@ public sealed class AiHelpFactsTests
 
     [TestMethod]
     [DataRow("dict", new[] { "dict" })]
+    [DataRow("dns", new[] { "dns" })]
     [DataRow("gopher", new[] { "gopher", "gophers" })]
     [DataRow("http", new[] { "http", "https" })]
     [DataRow("imap", new[] { "imap", "imaps" })]
@@ -179,7 +180,7 @@ public sealed class AiHelpFactsTests
     {
         var withSchemes = HelpCategories.All.Where(category => category.Schemes.Count > 0).Select(category => category.Name);
 
-        CollectionAssert.AreEqual(new[] { "dict", "ftp", "gopher", "http", "imap", "ldap", "mqtt", "nats", "pop3", "rtsp", "s3", "smb", "smtp", "ssh", "telnet", "tftp", "websocket" }, withSchemes.ToArray());
+        CollectionAssert.AreEqual(new[] { "dict", "dns", "ftp", "gopher", "http", "imap", "ldap", "mqtt", "nats", "pop3", "rtsp", "s3", "smb", "smtp", "ssh", "telnet", "tftp", "websocket" }, withSchemes.ToArray());
     }
 
     [TestMethod]
