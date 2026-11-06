@@ -1,5 +1,5 @@
 ---
-id: BL-931
+id: BL-933
 title: Record ADR-0108 Amendment 4: S3 EntityTooLarge and IncompleteBody close without the drain
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-06
 completed:
 ---
-# BL-931 — Record ADR-0108 Amendment 4: S3 EntityTooLarge and IncompleteBody close without the drain
+# BL-933 — Record ADR-0108 Amendment 4: S3 EntityTooLarge and IncompleteBody close without the drain
 
 ## Goal
 
