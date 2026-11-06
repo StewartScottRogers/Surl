@@ -17,6 +17,8 @@ namespace Surl.Extended.Protocol.DnsQuery;
 /// each response length-prefixed (more than one only for an allowed zone transfer, section 4.2.2),
 /// and the stream is ended with FIN; the server does not wait for the client's FIN first.</item>
 /// <item>Streams are served side by side, each on a task of its own.</item>
+/// <item>Each query is first offered to the exchange's fault plan (<see cref="DnsQueryFaults"/>), whose
+/// chosen RCODE answers it in place of the zones.</item>
 /// <item>These close the connection with <see cref="DnsOverQuicErrorCode.ProtocolError"/>: a
 /// Message ID other than 0 (section 4.2.1); a client-initiated unidirectional stream; a length
 /// prefix of 0, past <see cref="ExchangeLimits.MaxMessageBytes"/> when that is set, or longer than
@@ -141,7 +143,7 @@ public sealed class DnsOverQuicConnectionServer : IQuicApplicationProtocol
             return;
         }
 
-        var responses = Answer(query, stream.Id);
+        var responses = await AnswerAsync(query, stream.Id);
         for (var index = 0; index < responses.Count; index++)
         {
             await connection.WriteAsync(stream, DnsTcpResponseWriter.Write(responses[index]), index == responses.Count - 1, cancellationToken);
@@ -196,11 +198,16 @@ public sealed class DnsOverQuicConnectionServer : IQuicApplicationProtocol
             ? throw new DnsOverQuicProtocolException($"stream {stream.Id} ended after {filled} of {length} bytes")
             : null;
 
-    private IReadOnlyList<DnsResponse> Answer(byte[] query, ulong streamId)
+    private async Task<IReadOnlyList<DnsResponse>> AnswerAsync(byte[] query, ulong streamId)
     {
         if (query.Length >= LengthPrefixLength && BinaryPrimitives.ReadUInt16BigEndian(query) != 0)
         {
             throw new DnsOverQuicProtocolException($"stream {streamId} carried a query with Message ID {BinaryPrimitives.ReadUInt16BigEndian(query)}, not 0");
+        }
+
+        if (await DnsQueryFaults.FindErrorAsync(context, query) is { } chosen)
+        {
+            return [chosen];
         }
 
         var responses = answer(query);

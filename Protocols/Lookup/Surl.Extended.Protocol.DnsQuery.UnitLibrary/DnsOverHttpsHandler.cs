@@ -3,6 +3,7 @@ using Surl.Hpack;
 using Surl.Http2;
 using Surl.HttpMessage;
 using Surl.HttpServing;
+using Surl.Protocol.Abstractions;
 
 namespace Surl.Extended.Protocol.DnsQuery;
 
@@ -43,17 +44,31 @@ public sealed class DnsOverHttpsHandler : IHttpRequestHandler, IHttp2StreamHandl
 
     private readonly DnsQueryAnswerer answerer;
     private readonly TimeProvider timeProvider;
+    private readonly ExchangeContext? exchange;
 
     /// <summary>
     /// Creates a DNS over HTTPS handler that answers from <paramref name="zones"/>, dating its
     /// answers by <paramref name="timeProvider"/>; zone transfer allowed or not, AXFR and IXFR are
-    /// <c>REFUSED</c> or <c>NOTIMP</c> (<see cref="DnsQueryAnswerer.AnswerOverHttp"/>).
+    /// <c>REFUSED</c> or <c>NOTIMP</c> (<see cref="DnsQueryAnswerer.AnswerOverHttp"/>). It asks no
+    /// fault plan.
     /// </summary>
     public DnsOverHttpsHandler(DnsZoneSet zones, TimeProvider timeProvider, bool allowZoneTransfer = false)
     {
         ArgumentNullException.ThrowIfNull(timeProvider);
         answerer = new DnsQueryAnswerer(zones, allowZoneTransfer);
         this.timeProvider = timeProvider;
+    }
+
+    /// <summary>
+    /// Creates a DNS over HTTPS handler for one exchange: it answers from <paramref name="zones"/>
+    /// as the other constructor says, dates its answers by the exchange's clock, and offers each
+    /// query to the exchange's fault plan first (<see cref="DnsQueryFaults"/>), whose chosen RCODE
+    /// is answered <c>200</c> in place of the zones' answer.
+    /// </summary>
+    public DnsOverHttpsHandler(DnsZoneSet zones, ExchangeContext exchange, bool allowZoneTransfer = false)
+        : this(zones, (exchange ?? throw new ArgumentNullException(nameof(exchange))).TimeProvider, allowZoneTransfer)
+    {
+        this.exchange = exchange;
     }
 
     /// <summary>Decides the answer to one DNS over HTTPS request, as the remarks say.</summary>
@@ -70,12 +85,12 @@ public sealed class DnsOverHttpsHandler : IHttpRequestHandler, IHttp2StreamHandl
             return Empty(request, HttpStatus.NotFound);
         }
 
-        return request.Method switch
+        return await (request.Method switch
         {
-            "GET" => AnswerGet(request, target.Length == 2 ? target[1] : string.Empty),
-            "POST" => await AnswerPostAsync(request, cancellationToken),
-            _ => Empty(request, HttpStatus.MethodNotAllowed, [new("Allow", "GET, POST")]),
-        };
+            "GET" => AnswerGetAsync(request, target.Length == 2 ? target[1] : string.Empty),
+            "POST" => AnswerPostAsync(request, cancellationToken),
+            _ => Task.FromResult(Empty(request, HttpStatus.MethodNotAllowed, [new("Allow", "GET, POST")])),
+        });
     }
 
     /// <summary>
@@ -106,8 +121,8 @@ public sealed class DnsOverHttpsHandler : IHttpRequestHandler, IHttp2StreamHandl
         }
     }
 
-    private HttpAnswer AnswerGet(HttpRequest request, string query) =>
-        DnsOverHttpsQueryParameter.Decode(query) is { } message ? AnswerQuery(request, message) : Empty(request, HttpStatus.BadRequest);
+    private async Task<HttpAnswer> AnswerGetAsync(HttpRequest request, string query) =>
+        DnsOverHttpsQueryParameter.Decode(query) is { } message ? await AnswerQueryAsync(request, message) : Empty(request, HttpStatus.BadRequest);
 
     private async Task<HttpAnswer> AnswerPostAsync(HttpRequest request, CancellationToken cancellationToken)
     {
@@ -139,13 +154,17 @@ public sealed class DnsOverHttpsHandler : IHttpRequestHandler, IHttp2StreamHandl
         }
 
         return outcome == HttpRequestBodyDiscardOutcome.Discarded
-            ? AnswerQuery(request, buffer.ToArray())
+            ? await AnswerQueryAsync(request, buffer.ToArray())
             : Refusal(HttpStatus.BadRequest);
     }
 
-    private HttpAnswer AnswerQuery(HttpRequest request, byte[] query)
+    // The fault plan's chosen error, when this handler serves an exchange, else the answerer's.
+    private async Task<DnsResponse?> AnswerOverHttpAsync(byte[] query) =>
+        (exchange is null ? null : await DnsQueryFaults.FindErrorAsync(exchange, query)) ?? answerer.AnswerOverHttp(query);
+
+    private async Task<HttpAnswer> AnswerQueryAsync(HttpRequest request, byte[] query)
     {
-        if (answerer.AnswerOverHttp(query) is not { } response)
+        if (await AnswerOverHttpAsync(query) is not { } response)
         {
             return Empty(request, HttpStatus.BadRequest);
         }

@@ -103,6 +103,18 @@ DNS over QUIC (BL-484, ADR-0092 decision 5; RFC 9250):
 - Tests drive both over `DnsOverQuicTestClient`: pinned upstream curl's recorded HTTP/3 Initials
   (embedded from `Surl.Protocol.Http.UnitTests/Fixtures`), the ALPN list edited to `doq`, `h3-29`.
 
+The chosen-error fault (BL-984; ADR-0124 decisions 4 and 9):
+
+- `DnsQueryFaults.FindErrorAsync` offers each standard query with one question
+  (`DnsQueryAnswerer.StandardQueryOf`) to `ExchangeContext.Faults` at `FaultStage.Command` before
+  it is answered: `scheme` `dns`, `command` the QTYPE (`A`, `MX`, `TYPE65280`), `path` the QNAME
+  in lower case without its trailing dot (`.` for the root). An `Error` rule whose reply is an
+  RCODE `1` to `5` answers it with that RCODE alone (`DnsQueryAnswerer.ChosenError`: ID, opcode and
+  RD echoed, the question, an OPT when the query had one) and publishes one `FaultAppliedEvent`
+  naming the QNAME; another kind or reply is noted and the query answered as usual.
+- UDP, TCP and DoQ always ask; DoH asks when its handler is made with the exchange
+  (`new DnsOverHttpsHandler(zones, exchange)`), and answers the chosen RCODE as `200`.
+
 The command line (BL-485, which adds `--allow-zone-transfer`, `--dns-transport` and binds the DoH
 and DoQ listeners with TLS and ALPN) builds on it.
 

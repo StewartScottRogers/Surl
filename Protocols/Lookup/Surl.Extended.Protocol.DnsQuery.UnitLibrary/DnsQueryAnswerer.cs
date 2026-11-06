@@ -74,6 +74,39 @@ public sealed class DnsQueryAnswerer
     /// </summary>
     public DnsResponse? AnswerOverHttp(ReadOnlySpan<byte> query) => AnswerWith(query, TransferOverHttp)?[0];
 
+    /// <summary>
+    /// Reads <paramref name="query"/> as a standard query with one question it could look up: a
+    /// readable query header with opcode QUERY, a message read whole with QDCOUNT 1, and at most
+    /// one OPT record, owned by the root. Every other message is answered by the checks the
+    /// remarks list, so no fault rule is asked about it (<see cref="DnsQueryFaults"/>).
+    /// </summary>
+    /// <param name="query">The message as received.</param>
+    /// <returns>Its header, question and OPT, or <see langword="null"/> when it is not such a query.</returns>
+    internal static DnsStandardQuery? StandardQueryOf(ReadOnlySpan<byte> query)
+    {
+        var read = DnsMessageReader.Read(query);
+        if (read.Header is not { IsResponse: false, Opcode: DnsOpcode.Query } header
+            || read.Message is not { Questions.Count: 1 } message)
+        {
+            return null;
+        }
+
+        var queryOpt = OptOf(message, out var optIsReadable);
+
+        return optIsReadable ? new DnsStandardQuery(header, message.Questions[0], queryOpt) : null;
+    }
+
+    /// <summary>
+    /// The answer to <paramref name="query"/> with the chosen <paramref name="responseCode"/> and
+    /// nothing else: its ID, opcode and RD echoed, QR = 1, AA = 0, RA = 0, its question echoed, and
+    /// an OPT exactly when the query had one, as every other answer.
+    /// </summary>
+    /// <param name="query">The standard query, as <see cref="StandardQueryOf"/> read it.</param>
+    /// <param name="responseCode">The RCODE to answer with.</param>
+    /// <returns>The response.</returns>
+    internal static DnsResponse ChosenError(DnsStandardQuery query, DnsResponseCode responseCode) =>
+        Fault(query.Header, [query.Question], responseCode, query.Opt);
+
     private IReadOnlyList<DnsResponse>? AnswerWith(ReadOnlySpan<byte> query, Func<DnsHeader, DnsQuestion, DnsOptRecord?, IReadOnlyList<DnsResponse>> answerTransfer)
     {
         var read = DnsMessageReader.Read(query);

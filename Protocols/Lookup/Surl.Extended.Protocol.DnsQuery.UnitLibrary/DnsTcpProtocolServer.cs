@@ -20,6 +20,8 @@ namespace Surl.Extended.Protocol.DnsQuery;
 /// <item>The idle timeout and the maximum exchange duration are the engine's: it cancels the
 /// exchange, and the server closes with no bytes and returns. Shutdown ends the call with
 /// <see cref="OperationCanceledException"/>.</item>
+/// <item>Each query is first offered to the exchange's fault plan (<see cref="DnsQueryFaults"/>), whose
+/// chosen RCODE answers it in place of the zones.</item>
 /// <item>Zone transfer is refused unless allowed; allowed, AXFR and IXFR at a served apex are
 /// the whole zone (<see cref="DnsQueryAnswerer.AnswerOverStream"/>).</item>
 /// </list>
@@ -78,7 +80,7 @@ public sealed class DnsTcpProtocolServer : IConnectionProtocolServer
         }
 
         var query = await ReadQueryAsync(reader, context);
-        var responses = query is null ? [] : answerer.AnswerOverStream(query);
+        var responses = query is null ? [] : await AnswerAsync(query, context);
 
         if (query is not null && responses.Count == 0)
         {
@@ -92,6 +94,10 @@ public sealed class DnsTcpProtocolServer : IConnectionProtocolServer
 
         return responses.Count > 0;
     }
+
+    // The fault plan's chosen error (DnsQueryFaults), else the answerer's responses.
+    private async Task<IReadOnlyList<DnsResponse>> AnswerAsync(byte[] query, ExchangeContext context) =>
+        await DnsQueryFaults.FindErrorAsync(context, query) is { } chosen ? [chosen] : answerer.AnswerOverStream(query);
 
     // The query whose length prefix has begun, read within the head timeout; null when the
     // connection is to close with no bytes.

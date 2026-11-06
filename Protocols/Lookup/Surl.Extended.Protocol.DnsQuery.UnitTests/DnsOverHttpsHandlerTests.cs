@@ -50,7 +50,7 @@ public sealed partial class DnsOverHttpsHandlerTests
     public void Constructor_NullArgument_Throws()
     {
         Assert.ThrowsExactly<ArgumentNullException>(() => new DnsOverHttpsHandler(null!, TimeProvider.System));
-        Assert.ThrowsExactly<ArgumentNullException>(() => new DnsOverHttpsHandler(new DnsZoneSet(), null!));
+        Assert.ThrowsExactly<ArgumentNullException>(() => new DnsOverHttpsHandler(new DnsZoneSet(), (TimeProvider)null!));
     }
 
     [TestMethod]
