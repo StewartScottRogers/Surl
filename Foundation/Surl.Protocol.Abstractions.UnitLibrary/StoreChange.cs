@@ -75,4 +75,10 @@ public enum StoreChange
     /// The metadata an upload set for an object (its header fields, user metadata and ETag) was stored.
     /// </summary>
     MetadataStored,
+
+    /// <summary>
+    /// An offset was committed for a consumer group (ADR-0145 decision 10): one event for each partition a commit
+    /// stores, named <c>$group/&lt;group id, % and / percent-encoded&gt;/&lt;canonical topic&gt;</c>.
+    /// </summary>
+    Committed,
 }

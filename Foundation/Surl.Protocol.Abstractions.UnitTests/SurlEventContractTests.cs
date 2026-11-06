@@ -15,6 +15,7 @@ public sealed class SurlEventContractTests
         CollectionAssert.AreEqual(
             new[]
             {
+                nameof(ConsumerGroupChangedEvent),
                 nameof(ExchangeBytesEvent),
                 nameof(ExchangeEndedEvent),
                 nameof(ExchangeStartedEvent),
@@ -100,6 +101,45 @@ public sealed class SurlEventContractTests
         Assert.AreEqual(FaultStage.Command, rule.Stage);
         Assert.IsNull(rule.DelayMilliseconds);
         Assert.IsNull(rule.Reply);
+    }
+
+    [TestMethod]
+    public void ConsumerGroupChange_GetValues_IsAdr0145sSixChangesInOrder()
+    {
+        var changes = Enum.GetValues<ConsumerGroupChange>();
+
+        CollectionAssert.AreEqual(
+            new[]
+            {
+                ConsumerGroupChange.MemberJoined,
+                ConsumerGroupChange.MemberLeft,
+                ConsumerGroupChange.MemberRemoved,
+                ConsumerGroupChange.MemberFenced,
+                ConsumerGroupChange.GenerationStarted,
+                ConsumerGroupChange.AssignmentDistributed,
+            },
+            changes);
+        Assert.AreEqual(0, (int)changes[0]);
+    }
+
+    [TestMethod]
+    public void ConsumerGroupChangedEvent_Constructed_KeepsEveryMember()
+    {
+        var changed = new ConsumerGroupChangedEvent(7, "kafka", "orders", ConsumerGroupChange.MemberJoined, "c-1", 2, "alice");
+
+        Assert.AreEqual(7, changed.ExchangeId);
+        Assert.AreEqual("kafka", changed.Scheme);
+        Assert.AreEqual("orders", changed.Group);
+        Assert.AreEqual(ConsumerGroupChange.MemberJoined, changed.Change);
+        Assert.AreEqual("c-1", changed.MemberId);
+        Assert.AreEqual(2, changed.GenerationId);
+        Assert.AreEqual("alice", changed.Account);
+    }
+
+    [TestMethod]
+    public void StoreChange_Committed_IsTheLastMember()
+    {
+        Assert.AreEqual(StoreChange.Committed, Enum.GetValues<StoreChange>()[^1]);
     }
 
     private static IEnumerable<Type> EventRecordTypes() =>
