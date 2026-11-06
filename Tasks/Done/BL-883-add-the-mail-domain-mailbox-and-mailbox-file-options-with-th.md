@@ -8,7 +8,7 @@ depends-on: [BL-882]
 touches: [Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests, Application/Surl.Console.UnitTests]
 requirement: none
 created: 2026-11-05
-completed:
+completed: 2026-11-06
 ---
 # BL-883 — Add the --mail-domain, --mailbox and --mailbox-file options with their help, manual and aihelp text
 
@@ -54,21 +54,47 @@ and mailboxes end to end. This completes what BL-653 set out to do.
 
 ## Acceptance criteria
 
-- [ ] `CommandLineParserMailTests` in `Application/Surl.Cli.UnitTests` parse each option (one, many), and refuse
+- [x] `CommandLineParserMailTests` in `Application/Surl.Cli.UnitTests` parse each option (one, many), and refuse
       each case above with exit 2 and the ADR's text. No refusal echoes a password.
-- [ ] Each option passes `AiHelpFactsTests.EveryOption_HasAnArgumentTypeAndAllowedValues` and
+- [x] Each option passes `AiHelpFactsTests.EveryOption_HasAnArgumentTypeAndAllowedValues` and
       `AiHelpTextTests.Answer_EveryOption_AppearsInAllAndInEveryTopicItsCategoriesName`. The `mail` topic passes
       `AiHelpTextTests.Answer_EveryTopicAndTheOverview_HasItsAboutText` and
       `AiHelpTextTests.Answer_EveryTopicButExitCodesAndSecurity_HasAnExample`.
-- [ ] `CommandLineRunnerAiHelpTests.RunAsync_EveryAiHelpExample_WritesWhatTheExampleShows` passes with the mail
+- [x] `CommandLineRunnerAiHelpTests.RunAsync_EveryAiHelpExample_WritesWhatTheExampleShows` passes with the mail
       example (`--mail-domain example.com --mailbox-file mailboxes.csv imap://127.0.0.1:0/`).
-- [ ] `dotnet build -warnaserror` is clean, `dotnet test --filter "TestCategory!=Integration"` is green, and
+- [x] `dotnet build -warnaserror` is clean, `dotnet test --filter "TestCategory!=Integration"` is green, and
       `Surl.Cli.UnitLibrary` keeps 100% line and branch coverage.
 
 ## Notes
+
+- The BL-653 stash was found through `git log -g refs/stash` (28786c9f; `git stash list` was not permitted
+  in the lane). Its 13 tracked diffs applied with `git apply -3`; the conflicts were each resolved by keeping
+  both sides (`--fault`, `s3`, `control` from master, `mail` from the stash). The `HelpCategories` typo is fixed.
+- The stash was written against its own readers; BL-880 landed different ones, so the parser was adapted
+  rather than the readers rewritten:
+  - `MailDomainNames` gains `Reading` / `ReadMailDomain` (blank, then `ReadDomain`'s refusal; the domain
+    kept as written) and `MailDomainGivenTwice`.
+  - `ConfiguredMailboxReader.Read` already normalises the address and refuses a scheme no surl server
+    has. The parser (`ReadMailbox`) also refuses a scheme no *registered* server claims, so an extended
+    scheme under `SURL_EXTENSIONS=0` exits 2 as ADR-0101 decision 4 says.
+  - Refusals name the domain or address as written (ADR-0101 decision 5): the parser keeps each
+    `--mailbox`'s written address (`MailboxWrittenAddresses`, decoded from its argument) beside the
+    normalised `ConfiguredMailbox`, the same split `MailboxFileReader` uses.
+  - Test expectations moved to BL-880's behaviour: "no @" and "empty local part" are now
+    `not a mail address` (refused as read, not as "not in any --mail-domain"), `ConfiguredMailbox` has
+    three fields, and `Mailboxes` holds normalised addresses.
+- Complexity: the mail arms sit in `ActOnAcceptedMailOption` so `ActOnAcceptedArgument`'s string switch
+  stays at five cases (seven turned it into a hash jump table with uncoverable branches), and
+  `RefuseMailCombination` is split into three checks. `Surl.Cli.UnitLibrary` is at 100% lines;
+  `RefuseCombination`'s 95% branch figure is unchanged by this task (measured the same with the mail
+  check moved out of it).
+- Every `AiHelpProse` and `ManualText` sentence was checked against `MailboxComposition` (BL-882): the
+  default `smtp`/`imap`/`pop3` with TLS twins (`Account.MayLogInOn`), the `-v` lines, the exit-37 text and
+  the per-file and per-start 10000 bounds all match.
 
 ## Log
 
 - 2026-11-05: Created.
 - 2026-11-05: Split from BL-653 (timed out after 120 min; Stewart asked for the split 2026-11-05).
 - 2026-11-06: Backlog -> Doing.
+- 2026-11-06: Doing -> Done. --mail-domain, --mailbox and --mailbox-file parse, refuse per ADR-0101 and are documented in --help, the manual and the --aihelp mail topic
