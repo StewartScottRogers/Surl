@@ -42,6 +42,11 @@ binds the body, and committed only once all of it arrived and the body check acc
 `204` replaced, `403` not permitted, `409` a directory or no such directory, `413` past the limit.
 Without `--allow-uploads` a `PUT` is the `405` every unserved method is.
 
+A fault rule's chosen error (ADR-0134 decision 1) is answered by `HttpRequestAnswerer.Faults.cs`: the
+plan is asked through `Surl.HttpMessage`'s `HttpCommandFaults` once a request is let in (a body-bound
+`PUT` once its body check accepts), before the upload limit and the content store; the answer is the
+empty answer a `404` is with the reply's status, or a refusal when a body was announced and not read.
+
 The HTTP/2 frames, streams, flow control and connection (RFC 9113; ADR-0081 decisions 4 to 7;
 ADR-0090) live in `Surl.Http2.UnitLibrary` (ADR-0086 decision 1, moved by BL-409); its `CLAUDE.md`
 describes them. This library keeps what is HTTP-server specific: `HttpProtocolServer.ServeAsync` reads the first bytes of a cleartext connection, or of a TLS

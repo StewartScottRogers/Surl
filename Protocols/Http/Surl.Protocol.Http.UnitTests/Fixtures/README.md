@@ -160,3 +160,17 @@ sent the 16-byte body with the head, and no `Expect`.
 | `range-if-range-206` | `Hello from` | `... -Response` as `range-206` `-CurlArgs '-sS','-r','0-9','-H','If-Range: <lm>','http://127.0.0.1:18723/file.txt'` |
 | `put-created-201` | empty | `... -Response 'HTTP/1.1 201 Created\r\nDate: Mon, 28 Sep 2026 12:00:00 GMT\r\nServer: surl\r\nContent-Length: 0\r\n\r\n' -CurlArgs '-sS','--fail','-u','user:secret','-T','<upload>','http://127.0.0.1:18723/up.bin'` |
 | `put-replaced-204` | empty | `... -Response 'HTTP/1.1 204 No Content\r\nDate: Mon, 28 Sep 2026 12:00:00 GMT\r\nServer: surl\r\n\r\n' -CurlArgs` as `put-created-201` |
+
+## Chosen-error fault fixtures (BL-793)
+
+Recorded on 2026-11-05 from the repository root in PowerShell with the same pinned build (ADR-0134
+decision 1). `response.bin` is the decoded `-Response`, concatenated in order for the two answers of
+`fault-503-then-get`, and is what `HttpProtocolServer` sends when a fault rule chooses `503` for `/a`.
+
+| Folder | Exit code | stdout.bin | Command line |
+| --- | --- | --- | --- |
+| `fault-503-then-get` | 0 | the 17-byte body of `/b`; both requests on one connection | `.\Record-CurlExchange.ps1 -Port 18793 -ResponsesPerConnection 2 -OutDirectory <folder> -Response 'HTTP/1.1 503 Service Unavailable\r\nDate: Mon, 28 Sep 2026 12:00:00 GMT\r\nServer: surl\r\nContent-Length: 0\r\n\r\n','HTTP/1.1 200 OK\r\nDate: Mon, 28 Sep 2026 12:00:00 GMT\r\nServer: surl\r\nLast-Modified: Tue, 01 Sep 2026 08:30:00 GMT\r\nContent-Type: application/octet-stream\r\nContent-Length: 17\r\n\r\nHello from Surl.\n' -CurlArgs '-sS','http://127.0.0.1:18793/a','http://127.0.0.1:18793/b'` |
+| `fault-503-fail` | 22 | empty; stderr `curl: (22) The requested URL returned error: 503` | `.\Record-CurlExchange.ps1 -Port 18793 -OutDirectory <folder> -Response 'HTTP/1.1 503 Service Unavailable\r\nDate: Mon, 28 Sep 2026 12:00:00 GMT\r\nServer: surl\r\nContent-Length: 0\r\n\r\n' -CurlArgs '-sS','--fail','http://127.0.0.1:18793/a'` |
+
+The same build also exited 0 with `-w '%{response_code}'` printing `599` for `HTTP/1.1 599 \r\n...`, an empty
+reason phrase (not kept as a fixture).

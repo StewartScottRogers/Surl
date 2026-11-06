@@ -63,23 +63,30 @@ internal sealed partial class HttpRequestAnswerer
             return RefuseBody(request, bodyOutcome, challenges);
         }
 
-        if (bodyCheck is not null)
+        if (bodyCheck is null)
         {
-            var verdict = await bodyCheck.JudgeBodyAsync(bodyHash!.GetHashAndReset(), cancellationToken);
-            if (verdict.CheckedLogin is not null)
-            {
-                context.Log.Note(verdict.CheckedLogin.Note);
-            }
-
-            if (verdict.Outcome != HttpAuthenticationOutcome.Proceed)
-            {
-                return RefuseLogin(request, verdict.Outcome, verdict.WwwAuthenticateValues);
-            }
-
-            challenges = verdict.WwwAuthenticateValues;
+            return await StoreUploadAsync(request, target, sink.IsTooLarge, challenges, cancellationToken);
         }
 
-        return await StoreUploadAsync(request, target, sink.IsTooLarge, challenges, cancellationToken);
+        var verdict = await bodyCheck.JudgeBodyAsync(bodyHash!.GetHashAndReset(), cancellationToken);
+
+        return await RefuseUploadLoginAsync(request, verdict)
+            ?? await StoreUploadAsync(request, target, sink.IsTooLarge, verdict.WwwAuthenticateValues, cancellationToken);
+    }
+
+    // The verdict on a login bound to the upload's body: refused or challenged, or, the login
+    // proven only now, a fault rule's chosen error, which leaves the upload uncommitted
+    // (ADR-0134 decision 1); null when the upload is to be stored.
+    private async Task<HttpAnswer?> RefuseUploadLoginAsync(HttpRequest request, HttpAuthenticationVerdict verdict)
+    {
+        if (verdict.CheckedLogin is not null)
+        {
+            context.Log.Note(verdict.CheckedLogin.Note);
+        }
+
+        return verdict.Outcome != HttpAuthenticationOutcome.Proceed
+            ? RefuseLogin(request, verdict.Outcome, verdict.WwwAuthenticateValues)
+            : await AnswerChosenErrorAsync(request, verdict.AccountName, verdict.WwwAuthenticateValues);
     }
 
     private async Task<HttpAnswer> StoreUploadAsync(HttpRequest request, PutTarget target, bool isTooLarge, IReadOnlyList<string> challenges, CancellationToken cancellationToken)

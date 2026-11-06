@@ -113,13 +113,13 @@ internal sealed partial class HttpRequestAnswerer : IHttpRequestHandler
     }
 
     // A request the authentication session let in, as the account it logged in (null when
-    // anonymous): the upload limit, then method dispatch.
+    // anonymous): a fault rule's chosen error, the upload limit, then method dispatch.
     private async Task<HttpAnswer> AnswerLetInRequestAsync(HttpRequest request, string? accountName, IReadOnlyList<string> challenges, CancellationToken cancellationToken)
     {
-        var uploadRefusal = RefuseUploadPastLimit(request, challenges);
-        if (uploadRefusal is not null)
+        var refusal = await AnswerChosenErrorAsync(request, accountName, challenges) ?? RefuseUploadPastLimit(request, challenges);
+        if (refusal is not null)
         {
-            return uploadRefusal;
+            return refusal;
         }
 
         if (request.Method is "GET" or "HEAD")
