@@ -48,3 +48,4 @@ DescribeGroups and ListGroups if served), CreateTopics and InitProducerId - and 
 ## Log
 
 - 2026-11-05: Created.
+- 2026-11-06: Backlog -> Doing.
