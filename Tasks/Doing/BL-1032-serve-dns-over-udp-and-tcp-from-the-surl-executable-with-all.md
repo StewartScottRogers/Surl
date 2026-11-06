@@ -54,3 +54,4 @@ category exist, and the extension switch (`SURL_EXTENSIONS=0`) turns it off.
 ## Log
 
 - 2026-11-06: Created.
+- 2026-11-06: Backlog -> Doing.
