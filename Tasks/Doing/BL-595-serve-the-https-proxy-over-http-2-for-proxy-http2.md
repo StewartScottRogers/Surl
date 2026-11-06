@@ -65,3 +65,4 @@ over HTTP/2 to a curl given `--proxy-http2`, instead of ADR-0088's interim ALPN 
 - 2026-11-04: Created.
 - 2026-11-06: Backlog -> Doing.
 - 2026-11-06: Doing -> Backlog. Needs Foundation/Surl.Protocol.Abstractions.UnitLibrary (held by BL-901) and Documentation/Planning/Decisions (held by BL-687); touches widened, restart once they are Done
+- 2026-11-06: Backlog -> Doing.
