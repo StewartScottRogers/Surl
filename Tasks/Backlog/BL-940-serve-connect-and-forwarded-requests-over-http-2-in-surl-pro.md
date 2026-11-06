@@ -1,16 +1,16 @@
 ---
-id: BL-931
+id: BL-940
 title: Serve CONNECT and forwarded requests over HTTP/2 in Surl.Protocol.HttpProxy when TLS agreed h2
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-930]
+depends-on: [BL-939]
 touches: [Protocols/Http/Surl.Protocol.HttpProxy.UnitLibrary, Protocols/Http/Surl.Protocol.HttpProxy.UnitTests]
 requirement: none
 created: 2026-11-06
 completed:
 ---
-# BL-931 — Serve CONNECT and forwarded requests over HTTP/2 in Surl.Protocol.HttpProxy when TLS agreed h2
+# BL-940 — Serve CONNECT and forwarded requests over HTTP/2 in Surl.Protocol.HttpProxy when TLS agreed h2
 
 ## Goal
 
@@ -22,7 +22,7 @@ relayed back on the stream.
 ## Context
 
 - Second-to-last of the tasks BL-595 ("Serve the HTTPS proxy over HTTP/2 for --proxy-http2") was split
-  into on 2026-11-06 after it timed out at 120 minutes. Needs BL-930 (`Http2RequestHead.Scheme` and
+  into on 2026-11-06 after it timed out at 120 minutes. Needs BL-939 (`Http2RequestHead.Scheme` and
   `InternalsVisibleTo Surl.Protocol.HttpProxy.UnitTests`). The listener does not offer `h2` to a proxy
   until the task that depends on this one; here the choice is driven from `TlsSession.ApplicationProtocol`
   in unit tests, so no listener change is needed.
@@ -49,7 +49,7 @@ relayed back on the stream.
   - The fixtures were recorded with `Record-CurlExchange.ps1 -Tls -TlsAlpn h2,http/1.1` against the
     pinned static curl 8.21.0 build that carries `HTTP2` (ADR-0081; SHA-256 `589C8E4D…2648` in
     `UpstreamCurlBuilds.json`), with and without `--proxy-http2`. Do not re-record them unless a test
-    shows them wrong; if you must, BL-929 is the recorder fix the relay needs.
+    shows them wrong; if you must, BL-938 is the recorder fix the relay needs.
 - What remains: build, run, close the coverage gaps to 100% line and branch in
   `Surl.Protocol.HttpProxy.UnitLibrary`, keep every method at complexity 10 or less, update the library's
   `CLAUDE.md` for the HTTP/2 path.

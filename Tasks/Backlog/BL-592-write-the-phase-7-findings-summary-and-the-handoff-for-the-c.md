@@ -56,4 +56,4 @@ are planning names; use the ones BL-576's ADR decision 7 chose.
 ## Log
 
 - 2026-11-04: Created.
-- 2026-11-06: depends-on BL-597 replaced by BL-937, the last of the tasks BL-597 was split into (BL-933 to BL-937); BL-597 is Deferred.
+- 2026-11-06: depends-on BL-597 replaced by BL-937, the last of the tasks BL-597 was split into (BL-942 to BL-937); BL-597 is Deferred.

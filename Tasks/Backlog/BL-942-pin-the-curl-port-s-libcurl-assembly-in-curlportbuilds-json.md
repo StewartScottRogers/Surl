@@ -1,5 +1,5 @@
 ---
-id: BL-933
+id: BL-942
 title: Pin the Curl port's Libcurl assembly in CurlPortBuilds.json as kind library and choose it for a libcurl driver
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: FR-057
 created: 2026-11-06
 completed:
 ---
-# BL-933 — Pin the Curl port's Libcurl assembly in CurlPortBuilds.json as kind library and choose it for a libcurl driver
+# BL-942 — Pin the Curl port's Libcurl assembly in CurlPortBuilds.json as kind library and choose it for a libcurl driver
 
 ## Goal
 

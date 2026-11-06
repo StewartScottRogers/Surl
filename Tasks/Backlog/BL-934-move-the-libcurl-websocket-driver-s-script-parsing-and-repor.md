@@ -26,7 +26,7 @@ prints exactly the lines it prints today, so the Curl port's twin driver can sha
   libcurl scripts beside the pinned upstream libcurl") was split into on 2026-11-06 after it timed out
   at 120 minutes. Requirement FR-057; ADR-0089 decision 1 (c) wants a port-side twin that "takes the
   same arguments and prints the same one-line-per-call report"; sharing the parser and the report is how
-  the two stay the same. Independent of BL-933 (they share project folders, so they run one after the other).
+  the two stay the same. Independent of BL-942 (they share project folders, so they run one after the other).
 - The upstream driver already references the library (`#:project
   Conformance/Surl.Conformance.UnitLibrary/...` on line 1). Today its `DriverArguments`, `DriverStep`,
   `Libcurl.FlagValue`/`FlagNames` and `Shown` are private to the file and untested.

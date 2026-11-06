@@ -4,7 +4,7 @@ title: Write the Curl port's libcurl driver twins and run the WebSocket libcurl 
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-933, BL-935]
+depends-on: [BL-942, BL-935]
 touches: [Conformance/Surl.Conformance.UnitTests, Run-CurlPortLibcurlWebSocketScript.cs, Run-CurlPortLibcurlRtspScript.cs, CurlPortLibcurlReference.targets, Documentation/Conformance/CurlPort/Libcurl.md]
 requirement: FR-057
 created: 2026-11-06
@@ -26,7 +26,7 @@ WebSocket rows' result.
 
 - Fourth of the five tasks BL-597 ("Drive the Curl port's managed Libcurl through the WebSocket and RTSP
   libcurl scripts beside the pinned upstream libcurl") was split into on 2026-11-06 after it timed out
-  at 120 minutes. Needs BL-933 (the library pin, `CurlPortLibcurlChoice`) and BL-935 (the comparison;
+  at 120 minutes. Needs BL-942 (the library pin, `CurlPortLibcurlChoice`) and BL-935 (the comparison;
   it needs BL-934's shared script and report). Requirement FR-057; ADR-0089 decisions 1 (c), 4, 5, 6 and 8;
   Windows only, as the upstream libcurl pin is (ADR-0071 decision 10, ADR-0074 decision 12).
 - How the twins reach the port: a file-based app has no directive for an assembly reference, so each
@@ -50,7 +50,7 @@ WebSocket rows' result.
     and `Documentation/Conformance/CurlPort/Libcurl.md` (only a stub heading and an empty findings table;
     fill it in as below). Leave `CurlPortLibcurlBesideUpstreamLibcurlOverRtspTests.cs` for the next task.
 - The port library is published on this machine (`CurlPortBuilds.json`'s `kind: "library"` entry, by
-  BL-933). The upstream `libcurl-4.dll` is pinned in `UpstreamCurlBuilds.json`; never call the port's
+  BL-942). The upstream `libcurl-4.dll` is pinned in `UpstreamCurlBuilds.json`; never call the port's
   output an expected value (ADR-0003 decision 6).
 - `Libcurl.md` follows the other family files under `Documentation/Conformance/CurlPort/` (see
   `WebSocket.md`): a `## Measured` table naming the port commit and the `Libcurl.dll` SHA-256, the upstream

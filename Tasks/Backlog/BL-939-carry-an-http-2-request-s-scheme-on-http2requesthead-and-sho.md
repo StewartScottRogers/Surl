@@ -1,5 +1,5 @@
 ---
-id: BL-930
+id: BL-939
 title: Carry an HTTP/2 request's :scheme on Http2RequestHead and show Surl.Http2's internals to the proxy's tests
 priority: Normal
 assignee: Claude
@@ -10,19 +10,19 @@ requirement: none
 created: 2026-11-06
 completed:
 ---
-# BL-930 — Carry an HTTP/2 request's :scheme on Http2RequestHead and show Surl.Http2's internals to the proxy's tests
+# BL-939 — Carry an HTTP/2 request's :scheme on Http2RequestHead and show Surl.Http2's internals to the proxy's tests
 
 ## Goal
 
 `Http2RequestHead` in `Surl.Http2` carries the request's `:scheme` pseudo-header (null for a `CONNECT`),
 and `Surl.Protocol.HttpProxy.UnitTests` may use `Surl.Http2`'s internal frame codec, so the HTTPS proxy
-can forward an HTTP/2 request by its scheme (BL-931).
+can forward an HTTP/2 request by its scheme (BL-940).
 
 ## Context
 
 - First of the four tasks BL-595 ("Serve the HTTPS proxy over HTTP/2 for --proxy-http2") was split into
-  on 2026-11-06 after it timed out at 120 minutes: BL-929 (recorder fix), this, BL-931 (the proxy serves
-  HTTP/2), BL-932 (the listener offers `h2`, ADR-0088 Amendment 5).
+  on 2026-11-06 after it timed out at 120 minutes: BL-938 (recorder fix), this, BL-940 (the proxy serves
+  HTTP/2), BL-941 (the listener offers `h2`, ADR-0088 Amendment 5).
 - A proxy forwards a request by its `:scheme` (RFC 9113 section 8.3.1); a `CONNECT` carries none
   (section 8.5). `Http2RequestHeadMapping` already reads the pseudo-headers but drops `:scheme`.
 - The work is written. The stash `darkfactory BL-595 20261106-033059` in the main checkout
