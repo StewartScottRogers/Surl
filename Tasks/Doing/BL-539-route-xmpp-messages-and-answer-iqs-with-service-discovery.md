@@ -47,3 +47,4 @@ other IQ get or set with `service-unavailable`, and each malformed stanza with t
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-05: Backlog -> Doing.
