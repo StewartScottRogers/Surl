@@ -5,10 +5,10 @@ priority: Normal
 assignee: Claude
 pipeline: feature
 depends-on: [BL-376]
-touches: [Surl.slnx, Cryptography/Surl.Cryptography.MlKem.UnitLibrary, Cryptography/Surl.Cryptography.MlKem.UnitTests, Cryptography/Surl.Tls13.UnitLibrary, Cryptography/Surl.Tls13.UnitTests, Foundation/Surl.Protocol.Abstractions.UnitTests, Protocols/Http/Surl.Quic.UnitTests, Protocols/Http/Surl.Http3.UnitTests, Protocols/Lookup/Surl.Extended.Protocol.DnsQuery.UnitTests]
+touches: [Surl.slnx, Cryptography/Surl.Cryptography.MlKem.UnitLibrary, Cryptography/Surl.Cryptography.MlKem.UnitTests, Cryptography/Surl.Tls13.UnitLibrary, Cryptography/Surl.Tls13.UnitTests, Foundation/Surl.Protocol.Abstractions.UnitTests, Protocols/Http/Surl.Quic.UnitLibrary, Protocols/Http/Surl.Quic.UnitTests, Protocols/Http/Surl.Http3.UnitTests, Protocols/Lookup/Surl.Extended.Protocol.DnsQuery.UnitTests]
 requirement: FR-055
 created: 2026-11-04
-completed:
+completed: 2026-11-06
 ---
 # BL-544 — Create Surl.Cryptography.MlKem and serve the X25519MLKEM768 group in Surl.Tls13
 
@@ -41,15 +41,15 @@ whenever the client sends a key share for it. Every measured upstream curl build
 
 ## Acceptance criteria
 
-- [ ] `Surl.Cryptography.MlKem.UnitLibrary` and `.UnitTests` exist, are listed in `Surl.slnx`
+- [x] `Surl.Cryptography.MlKem.UnitLibrary` and `.UnitTests` exist, are listed in `Surl.slnx`
       under `/Cryptography/`, and `ProtocolIsolationTests` knows the ADR-0082 row.
-- [ ] Tests reproduce known-answer vectors for ML-KEM-768 key generation, encapsulation and
+- [x] Tests reproduce known-answer vectors for ML-KEM-768 key generation, encapsulation and
       decapsulation. The vectors come from NIST's ACVP or FIPS 203 example values, and a test
       comment names their source and URL.
-- [ ] With BL-363's recorded ClientHello, `Surl.Tls13` selects X25519MLKEM768 and answers with a
+- [x] With BL-363's recorded ClientHello, `Surl.Tls13` selects X25519MLKEM768 and answers with a
       1120-byte key share. The test-side TLS 1.3 client from BL-376 completes the handshake.
-- [ ] A ClientHello with only an x25519 share still gets x25519, with no HelloRetryRequest.
-- [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and both libraries keep
+- [x] A ClientHello with only an x25519 share still gets x25519, with no HelloRetryRequest.
+- [x] `dotnet build -warnaserror` is clean, the fast tests are green, and both libraries keep
       100% line and branch coverage.
 
 ## Notes
@@ -88,6 +88,32 @@ whenever the client sends a key share for it. Every measured upstream curl build
   now does, and have `ReplaceKeyShare` replace the 1216-byte share. `touches` gains the three
   test projects that own those files. `Surl.Http3.UnitTests` is held by BL-894 on lane 7.
 
+- 2026-11-06 (lane 3, second run): restored lane 9's work from the stash
+  `darkfactory BL-544 20261105-175401` by applying its diff (stash commands are not allowed in a
+  lane), and finished it:
+  - Each test-side `UnitTestTls13Client` (Quic, Http3, DnsQuery; Http3's is linked into
+    `Surl.Protocol.Http.UnitTests` and `Surl.Extended.Protocol.WebTransport.UnitTests`) holds an
+    ML-KEM-768 key too, and `UnitTestQuicClient.WithOwnKeyShares` swaps both curl's x25519 and its
+    X25519MLKEM768 share, each found by its whole entry (group, length, key) since a client may
+    reuse one x25519 key in both.
+  - Found and fixed a real `Surl.Quic` bug the larger ServerHello exposed:
+    `QuicServerConnection.PacketLength` sized a long header's Length field before adding the
+    16-byte AEAD tag, so a packet whose payload crossed 64 bytes only once sealed came out a byte
+    longer than estimated - a 1201-byte datagram. It now counts the tag inside the payload. The
+    recorded-handshake tests catch it (every one failed with 1201 before the fix).
+    `Protocols/Http/Surl.Quic.UnitLibrary` added to `touches` for this; no task in Doing names it.
+  - Three Quic recovery tests assumed the flight's second datagram held only Handshake data; with
+    the 1120-byte share the ServerHello ends in it. They now drop the first datagram that starts
+    with a Handshake packet, and the held-back-ServerHello test counts Initial CRYPTO frames
+    before and after the loss.
+  - `Surl.Cryptography.MlKem.UnitLibrary/CLAUDE.md` written; `Surl.Tls13` and `Surl.Quic`
+    CLAUDE.md files updated.
+  - Gates: `dotnet build -warnaserror` clean; fast tests green (MlKem 24, Tls13 149, Quic 479,
+    Http3 96, DnsQuery 354, Protocol.Http 556, WebTransport 203, Abstractions 491).
+    `Measure-CodeQuality.ps1`: MlKem, Tls13 and Quic all 100% line and 100% branch. Quic's three
+    complexity flags (`IsPersistentCongestion`, `QuicStreams.Refresh`, `SendConnectionCloseAgain`)
+    are in methods this task did not touch.
+
 ## Log
 
 - 2026-11-04: Created.
@@ -95,3 +121,4 @@ whenever the client sends a key share for it. Every measured upstream curl build
 - 2026-11-05: Backlog -> Doing.
 - 2026-11-06: Doing -> Backlog. Needs Protocols/Http/Surl.Http3.UnitTests, which BL-894 holds on lane 7: its test QUIC client must answer the X25519MLKEM768 share the server now prefers
 - 2026-11-06: Backlog -> Doing.
+- 2026-11-06: Doing -> Done. Surl.Cryptography.MlKem serves ML-KEM-768 and Surl.Tls13 prefers X25519MLKEM768 with a 1120-byte share; Surl.Quic sizes sealed long-header packets correctly

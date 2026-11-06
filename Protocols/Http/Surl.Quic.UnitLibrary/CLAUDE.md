@@ -177,5 +177,7 @@ Every expected value in `Surl.Quic.UnitTests` comes from RFC 9000 (Appendix A.1'
 RFC 9001 Appendix A's keys, unprotected and protected packets (A.1 to A.5), never from the Curl port (ADR-0003).
 The connection tests replay the Initial datagrams pinned upstream curl builds sent
 (`Fixtures/ClientInitial`, recorded by `Record-CurlExchange.ps1 -QuicInitial`; BL-377's Notes say
-how) through `UnitTestQuicClient`, which puts its own x25519 share in the ClientHello and completes
+how) through `UnitTestQuicClient`, which puts its own x25519 and X25519MLKEM768 shares in the
+ClientHello in place of curl's (the server prefers X25519MLKEM768, so the ServerHello runs into a
+second datagram) and completes
 the handshake with its own TLS 1.3 client, `UnitTestTls13Client`.

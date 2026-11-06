@@ -12,11 +12,10 @@ internal sealed record TlsServerNegotiation(
     TlsCipherSuite CipherSuite, TlsSignatureScheme SignatureScheme, string? ApplicationProtocol)
 {
     /// <summary>
-    /// The key exchange groups the server serves, in its order of preference. X25519MLKEM768 joins
-    /// at the front with BL-544 (ADR-0082 decision 3).
+    /// The key exchange groups the server serves, in its order of preference (ADR-0082 decision 3).
     /// </summary>
     public static IReadOnlyList<TlsNamedGroup> GroupPreference { get; } =
-        [TlsNamedGroup.X25519, TlsNamedGroup.Secp256r1, TlsNamedGroup.Secp384r1, TlsNamedGroup.Secp521r1];
+        [TlsNamedGroup.X25519MlKem768, TlsNamedGroup.X25519, TlsNamedGroup.Secp256r1, TlsNamedGroup.Secp384r1, TlsNamedGroup.Secp521r1];
 
     private static readonly TlsCipherSuite[] SupportedCipherSuites =
         [TlsCipherSuite.Aes128GcmSha256, TlsCipherSuite.Aes256GcmSha384, TlsCipherSuite.ChaCha20Poly1305Sha256];

@@ -33,12 +33,15 @@ And the server handshake (BL-376):
   first. Empty ALPN or null transport parameters turn those checks off, which only the RFC 8448
   test (not QUIC) uses.
 - Choices, all ADR-0082 decision 3: the client's first supported suite; groups in the order
-  x25519, secp256r1, secp384r1, secp521r1 (X25519MLKEM768 joins first with BL-544); with no
-  share for one of them, a HelloRetryRequest for the first the client's `supported_groups` lists.
-  x25519 is `Surl.Cryptography.Curve25519`; the NIST curves are `ECDiffieHellman`, with the
+  X25519MLKEM768, x25519, secp256r1, secp384r1, secp521r1; with no share for one of them, a
+  HelloRetryRequest for the first the client's `supported_groups` lists. X25519MLKEM768
+  (draft-ietf-tls-ecdhe-mlkem) takes the client's 1216-byte share - the ML-KEM-768 encapsulation
+  key, then an x25519 key - and answers 1120 bytes: `Surl.Cryptography.MlKem`'s ciphertext, then
+  the server's x25519 key; the shared secret is ML-KEM's then x25519's. x25519 is
+  `Surl.Cryptography.Curve25519`; the NIST curves are `ECDiffieHellman`, with the
   point checked on the curve by `TlsNistCurve` first, so a bad point is the same alert on every
-  platform. Randomness comes from an injected `RandomNumberGenerator`: the server random, then
-  an x25519 private key. No session ticket.
+  platform. Randomness comes from an injected `RandomNumberGenerator`, in share order: the server
+  random, then for X25519MLKEM768 ML-KEM's 32-byte m, then an x25519 private key. No session ticket.
 
 And client certificates (BL-600, ADR-0082 decision 3 by way of ADR-0010 section 5):
 
@@ -68,7 +71,7 @@ on the wire, the caller reports it as QUIC error `0x0100` plus the alert (RFC 90
 | no `supported_groups` or `signature_algorithms`; no `quic_transport_parameters` when the server sends its own | `missing_extension` |
 | no shared cipher suite, no offered scheme for the certificate key, no group the server serves | `handshake_failure` |
 | no `h3` (or no ALPN at all) | `no_application_protocol` |
-| a malformed key share, a NIST point off its curve, an x25519 low-order point; a second ClientHello changing the suite or not sending exactly one share for the retry group; a message over `MaximumMessageLength` (128 KiB) | `illegal_parameter` |
+| a malformed key share, an ML-KEM-768 encapsulation key failing FIPS 203's modulus check, a NIST point off its curve, an x25519 low-order point; a second ClientHello changing the suite or not sending exactly one share for the retry group; a message over `MaximumMessageLength` (128 KiB) | `illegal_parameter` |
 | a client Finished that does not verify | `decrypt_error` |
 | an empty client Certificate when one is required | `certificate_required` |
 | a client Certificate whose end-entity certificate is not X.509, or whose chain the delegate does not trust | `bad_certificate` |
@@ -77,8 +80,8 @@ on the wire, the caller reports it as QUIC error `0x0100` plus the alert (RFC 90
 
 After an alert the handshake is over: a later `Receive` throws `InvalidOperationException`.
 
-It references `Surl.Cryptography.Curve25519.UnitLibrary` and may reference
-`Surl.Cryptography.MlKem.UnitLibrary` (ADR-0082 decision 2), which arrives with BL-544. Bytes in,
+It references `Surl.Cryptography.Curve25519.UnitLibrary` and
+`Surl.Cryptography.MlKem.UnitLibrary` (ADR-0082 decision 2). Bytes in,
 bytes out: never open a socket or a file, and never read a clock.
 
 Every expected value in its tests comes from RFC 8448 (sections 3 and 5) or from ClientHellos

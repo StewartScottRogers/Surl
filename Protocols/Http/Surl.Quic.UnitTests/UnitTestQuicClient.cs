@@ -264,10 +264,7 @@ internal sealed class UnitTestQuicClient : IDisposable
     {
         var opened = recorded.Select(datagram => initialSend.Unprotect(datagram, 0, 0)).ToList();
         var original = Reassemble(opened.SelectMany(result => QuicFrameReader.Read(((QuicLongHeaderPacket)result.Packet!).Payload, QuicPacketType.Initial)).OfType<QuicCryptoFrame>());
-        var share = Surl.Tls13.ClientHello.Read(original).KeyShares!.Single(entry => entry.Group == TlsNamedGroup.X25519).KeyExchange.ToArray();
-        var withOwnShare = original.ToArray();
-        Tls.PublicKey.CopyTo(withOwnShare, original.AsSpan().IndexOf(share));
-        ClientHello = editClientHello(withOwnShare);
+        ClientHello = editClientHello(WithOwnKeyShares(original));
         Assert.HasCount(original.Length, ClientHello, "An edit must keep the ClientHello's length.");
         foreach (var result in opened)
         {
@@ -287,6 +284,32 @@ internal sealed class UnitTestQuicClient : IDisposable
         }
 
         nextInitialPacketNumber = (ulong)recorded.Count;
+    }
+
+    /// <summary>
+    /// The recorded ClientHello with this client's own key_exchange values in place of curl's: its
+    /// x25519 key, and its X25519MLKEM768 share where curl sent one. Each share is found by its
+    /// whole entry (group, length, key), because curl may reuse one x25519 key in both shares.
+    /// </summary>
+    private byte[] WithOwnKeyShares(byte[] original)
+    {
+        var withOwnShares = original.ToArray();
+        foreach (var entry in Surl.Tls13.ClientHello.Read(original).KeyShares!)
+        {
+            var own = entry.Group switch
+            {
+                TlsNamedGroup.X25519 => Tls.PublicKey,
+                TlsNamedGroup.X25519MlKem768 => Tls.X25519MlKem768Share,
+                _ => null,
+            };
+            if (own is not null)
+            {
+                byte[] header = [(byte)((ushort)entry.Group >> 8), (byte)entry.Group, (byte)(entry.KeyExchange.Length >> 8), (byte)entry.KeyExchange.Length];
+                own.CopyTo(withOwnShares, original.AsSpan().IndexOf([.. header, .. entry.KeyExchange.Span]) + header.Length);
+            }
+        }
+
+        return withOwnShares;
     }
 
     private void OpenDatagram(byte[] datagram)

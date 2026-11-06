@@ -3,6 +3,7 @@ using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using Surl.Cryptography.Curve25519;
+using Surl.Cryptography.MlKem;
 
 namespace Surl.Tls13;
 
@@ -30,7 +31,30 @@ internal sealed class UnitTestTlsClient
     /// <summary>The client's key_exchange value.</summary>
     public byte[] PublicShare { get; }
 
+    /// <summary>The server's key_exchange value from the last ServerHello this client verified.</summary>
+    public byte[] ServerShare { get; private set; } = [];
+
     public static UnitTestTlsClient WithX25519Share() => WithX25519PrivateKey(RandomNumberGenerator.GetBytes(X25519.KeySize));
+
+    /// <summary>
+    /// A client with an X25519MLKEM768 share (draft-ietf-tls-ecdhe-mlkem): an ML-KEM-768
+    /// encapsulation key then an x25519 key. It splits the server's share into the ciphertext and
+    /// the x25519 key, and its shared secret is ML-KEM's then x25519's.
+    /// </summary>
+    public static UnitTestTlsClient WithX25519MlKem768Share()
+    {
+        var encapsulationKey = new byte[MlKem768.EncapsulationKeySize];
+        var decapsulationKey = new byte[MlKem768.DecapsulationKeySize];
+        MlKem768.GenerateKey(RandomNumberGenerator.GetBytes(32), RandomNumberGenerator.GetBytes(32), encapsulationKey, decapsulationKey);
+        var x25519 = WithX25519PrivateKey(RandomNumberGenerator.GetBytes(X25519.KeySize));
+        return new UnitTestTlsClient(0x11EC, [.. encapsulationKey, .. x25519.PublicShare], serverShare =>
+        {
+            Assert.HasCount(MlKem768.CiphertextSize + X25519.KeySize, serverShare);
+            var mlKemSecret = new byte[MlKem768.SharedSecretSize];
+            Assert.IsTrue(MlKem768.TryDecapsulate(decapsulationKey, serverShare.AsSpan(0, MlKem768.CiphertextSize), mlKemSecret));
+            return [.. mlKemSecret, .. x25519.agree(serverShare[MlKem768.CiphertextSize..])];
+        });
+    }
 
     /// <summary>The client of RFC 8448 section 3, with that trace's x25519 private key.</summary>
     public static UnitTestTlsClient WithRfc8448ClientShare() => WithX25519PrivateKey(Rfc8448.ClientEphemeralPrivateKey);
@@ -96,6 +120,7 @@ internal sealed class UnitTestTlsClient
         var hashLength = suite == 0x1302 ? 48 : 32;
         var transcript = new List<byte>(transcriptBeforeServerHello.SelectMany(message => message));
         transcript.AddRange(initial);
+        ServerShare = serverShare;
         var sharedSecret = agree(serverShare);
 
         var early = HKDF.Extract(hash, new byte[hashLength], new byte[hashLength]);
