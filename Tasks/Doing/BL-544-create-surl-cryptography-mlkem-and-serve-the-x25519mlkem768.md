@@ -58,3 +58,4 @@ whenever the client sends a key share for it. Every measured upstream curl build
 
 - 2026-11-04: Created.
 - 2026-11-04: Filed by BL-372 (ADR-0082 decision 3).
+- 2026-11-05: Backlog -> Doing.
