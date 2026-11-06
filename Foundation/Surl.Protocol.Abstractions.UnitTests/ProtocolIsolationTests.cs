@@ -41,6 +41,7 @@ public sealed class ProtocolIsolationTests
     private const string MlKem = "Surl.Cryptography.MlKem.UnitLibrary";
     private const string Qpack = "Surl.Qpack.UnitLibrary";
     private const string Quic = "Surl.Quic.UnitLibrary";
+    private const string Socks = "Surl.Protocol.Socks.UnitLibrary";
     private const string Tls13 = "Surl.Tls13.UnitLibrary";
     private const string WebSocket = "Surl.WebSocket.UnitLibrary";
     private const string ExtendedRedis = "Surl.Extended.Protocol.Redis.UnitLibrary";
@@ -133,6 +134,8 @@ public sealed class ProtocolIsolationTests
     [DataRow("Surl.Protocol.Http.UnitLibrary", ExtendedRedis)]
     [DataRow(HttpProxy, "Surl.Protocol.Http.UnitLibrary")]
     [DataRow("Surl.Protocol.Http.UnitLibrary", HttpProxy)]
+    [DataRow(Socks, HttpProxy)]
+    [DataRow(HttpProxy, Socks)]
     public void ForbiddenProtocolReferences_ServerReferencingAnotherServer_IsForbidden(
         string server, string referenced)
     {
@@ -153,6 +156,18 @@ public sealed class ProtocolIsolationTests
         var proxy = ProtocolServers().Single(path => ProjectName(path) == HttpProxy);
 
         Assert.IsEmpty(ForbiddenProtocolReferences(ProjectReferences(proxy)));
+    }
+
+    /// <summary>
+    /// The SOCKS server (ADR-0121 decision 1) is found as a protocol server, so the rules above
+    /// hold it: it references only Abstractions, never another protocol server.
+    /// </summary>
+    [TestMethod]
+    public void ProtocolServers_IncludeTheSocksServer()
+    {
+        var socks = ProtocolServers().Single(path => ProjectName(path) == Socks);
+
+        Assert.IsEmpty(ForbiddenProtocolReferences(ProjectReferences(socks)));
     }
 
     [TestMethod]

@@ -235,6 +235,11 @@
     <Project Path="Protocols/Messaging/Surl.Protocol.Mqtt.UnitTests/Surl.Protocol.Mqtt.UnitTests.csproj" />
   </Folder>
 
+  <Folder Name="/Protocols/Proxy/">
+    <Project Path="Protocols/Proxy/Surl.Protocol.Socks.UnitLibrary/Surl.Protocol.Socks.UnitLibrary.csproj" />
+    <Project Path="Protocols/Proxy/Surl.Protocol.Socks.UnitTests/Surl.Protocol.Socks.UnitTests.csproj" />
+  </Folder>
+
   <Folder Name="/Protocols/Terminal/">
     <Project Path="Protocols/Terminal/Surl.Protocol.Telnet.UnitLibrary/Surl.Protocol.Telnet.UnitLibrary.csproj" />
     <Project Path="Protocols/Terminal/Surl.Protocol.Telnet.UnitTests/Surl.Protocol.Telnet.UnitTests.csproj" />

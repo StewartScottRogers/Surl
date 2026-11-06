@@ -1,0 +1,12 @@
+> \x04\x01\x1F\x90\x00\x00\x00\x01\x00origin.test\x00
+< \x00Z\x00\x00\x00\x00\x00\x00
+> GET /a HTTP/1.1
+> Host: origin.test:8080
+> User-Agent: curl/8.21.0
+> Accept: */*
+> 
+< HTTP/1.1 200 OK
+< Content-Length: 2
+< 
+< ok
+= curl closed the connection
