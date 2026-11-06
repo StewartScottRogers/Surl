@@ -25,7 +25,7 @@ public sealed class CurlPortClientRunner
     /// <param name="location">What the locator found; it must hold a verified client.</param>
     /// <param name="timeout">How long one run may take before the client is stopped.</param>
     /// <param name="timeProvider">The clock the timeout runs on.</param>
-    /// <exception cref="ArgumentException"><paramref name="location"/> holds no client.</exception>
+    /// <exception cref="ArgumentException"><paramref name="location"/> holds no client, or holds the port's library, which is never run.</exception>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="timeout"/> is not positive.</exception>
     public CurlPortClientRunner(CurlPortClientLocation location, TimeSpan timeout, TimeProvider timeProvider)
     {
@@ -34,6 +34,11 @@ public sealed class CurlPortClientRunner
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
 
         Client = location.Client ?? throw new ArgumentException(location.Message, nameof(location));
+        if (Client.Kind != CurlPortClientKind.Curl)
+        {
+            throw new ArgumentException($"{location.Path} is the Curl port's pinned library; it is called by a libcurl driver, never run as a curl.", nameof(location));
+        }
+
         Path = location.Path!;
         this.timeout = timeout;
         this.timeProvider = timeProvider;

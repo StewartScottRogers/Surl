@@ -19,6 +19,17 @@ public sealed class CurlPortClientRunnerTests
     }
 
     [TestMethod]
+    public void Constructor_LocationHoldsTheLibrary_ThrowsArgumentExceptionAndNeverRunsIt()
+    {
+        var location = CurlPortClientLocation.Found(Client with { Kind = CurlPortClientKind.Library }, ClientPath);
+
+        var exception = Assert.ThrowsExactly<ArgumentException>(
+            () => new CurlPortClientRunner(location, TimeSpan.FromSeconds(1), TimeProvider.System));
+
+        StringAssert.Contains(exception.Message, "never run as a curl");
+    }
+
+    [TestMethod]
     public void Constructor_TimeoutNotPositive_ThrowsArgumentOutOfRangeException()
     {
         Assert.ThrowsExactly<ArgumentOutOfRangeException>(

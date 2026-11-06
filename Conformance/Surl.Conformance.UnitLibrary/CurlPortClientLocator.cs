@@ -31,10 +31,67 @@ public sealed class CurlPortClientLocator(IUpstreamCurlFileAccess fileAccess)
     /// A pinned client's file exists but hashes to something other than its pin, or to an
     /// upstream curl pin, and no other pinned client of the platform verifies.
     /// </exception>
+    /// <remarks>Only pins of <see cref="CurlPortClientKind.Curl"/> are candidates; the port's library is never run.</remarks>
     public CurlPortClientLocation Locate(
         IReadOnlyList<PinnedCurlPortClient> pins,
         IReadOnlyList<PinnedUpstreamCurlBuild> upstreamPins,
-        string platform)
+        string platform) =>
+        LocateOfKind(pins, upstreamPins, platform, CurlPortClientKind.Curl);
+
+    /// <summary>
+    /// As <see cref="Locate"/>, for the port's managed <c>Libcurl</c> assembly: only pins of
+    /// <see cref="CurlPortClientKind.Library"/> are candidates, so a curl is never handed to a libcurl
+    /// driver (ADR-0089 decision 1 (c)).
+    /// </summary>
+    /// <param name="pins">The clients <c>CurlPortBuilds.json</c> pins.</param>
+    /// <param name="upstreamPins">The builds <c>UpstreamCurlBuilds.json</c> pins, none of which is ever returned.</param>
+    /// <param name="platform">The platform to find a library for, such as <c>win-x64</c>.</param>
+    /// <returns>The verified library, or a location saying why none is available.</returns>
+    /// <exception cref="UnpinnedCurlPortClientException">
+    /// A pinned library's file exists but hashes to something other than its pin, or to an upstream
+    /// curl pin, and no other pinned library of the platform verifies.
+    /// </exception>
+    public CurlPortClientLocation LocateLibrary(
+        IReadOnlyList<PinnedCurlPortClient> pins,
+        IReadOnlyList<PinnedUpstreamCurlBuild> upstreamPins,
+        string platform) =>
+        LocateOfKind(pins, upstreamPins, platform, CurlPortClientKind.Library);
+
+    /// <summary>
+    /// Checks that the file at <paramref name="path"/> is a pinned Curl port library, for a libcurl
+    /// driver handed one with <c>--library</c>: its SHA-256 must be a library pin's and no upstream pin's.
+    /// </summary>
+    /// <param name="pins">The clients <c>CurlPortBuilds.json</c> pins.</param>
+    /// <param name="upstreamPins">The builds <c>UpstreamCurlBuilds.json</c> pins.</param>
+    /// <param name="path">The path of the assembly.</param>
+    /// <returns>The first library pin whose SHA-256 the file matches.</returns>
+    /// <exception cref="FileNotFoundException">No file exists at <paramref name="path"/>.</exception>
+    /// <exception cref="UnpinnedCurlPortClientException">The file's SHA-256 matches no library pin, or an upstream pin.</exception>
+    public PinnedCurlPortClient RequirePinnedLibrary(
+        IReadOnlyList<PinnedCurlPortClient> pins,
+        IReadOnlyList<PinnedUpstreamCurlBuild> upstreamPins,
+        string path)
+    {
+        ArgumentNullException.ThrowIfNull(pins);
+        ArgumentNullException.ThrowIfNull(upstreamPins);
+        ArgumentNullException.ThrowIfNull(path);
+
+        if (!fileAccess.FileExists(path))
+        {
+            throw new FileNotFoundException($"The Curl port library to call, {path}, was not found.", path);
+        }
+
+        var sha256 = HashFile(path);
+        var isUpstream = upstreamPins.Any(pin => string.Equals(pin.Sha256, sha256, StringComparison.OrdinalIgnoreCase));
+        return pins.FirstOrDefault(pin => !isUpstream && pin.Kind == CurlPortClientKind.Library && string.Equals(pin.Sha256, sha256, StringComparison.OrdinalIgnoreCase))
+            ?? throw new UnpinnedCurlPortClientException(path, sha256);
+    }
+
+    private CurlPortClientLocation LocateOfKind(
+        IReadOnlyList<PinnedCurlPortClient> pins,
+        IReadOnlyList<PinnedUpstreamCurlBuild> upstreamPins,
+        string platform,
+        CurlPortClientKind kind)
     {
         ArgumentNullException.ThrowIfNull(pins);
         ArgumentNullException.ThrowIfNull(upstreamPins);
@@ -43,7 +100,7 @@ public sealed class CurlPortClientLocator(IUpstreamCurlFileAccess fileAccess)
         var upstreamPaths = upstreamPins.Select(pin => pin.DefaultPath).ToHashSet(StringComparer.OrdinalIgnoreCase);
         var upstreamHashes = upstreamPins.Select(pin => pin.Sha256).ToHashSet(StringComparer.OrdinalIgnoreCase);
         var candidates = pins
-            .Where(pin => pin.Platform == platform)
+            .Where(pin => pin.Platform == platform && pin.Kind == kind)
             .Select(pin => (Client: pin, Path: Environment.ExpandEnvironmentVariables(pin.Path)))
             .Where(candidate => !upstreamPaths.Contains(candidate.Path))
             .ToList();
