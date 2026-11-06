@@ -1,7 +1,7 @@
 # ADR-0088 — How Surl serves the HTTP `CONNECT` proxy and the HTTPS proxy
 
 - **Status:** Accepted
-- **Date:** 2026-11-04; Amendment 1 (BL-552) 2026-11-05; Amendment 2 (BL-554) 2026-11-05
+- **Date:** 2026-11-04; Amendment 1 (BL-552) 2026-11-05; Amendment 2 (BL-554) 2026-11-05; Amendment 3 (BL-553) 2026-11-05
 - **Decided by:** Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), 2026-11-04,
   in BL-550. Built by BL-551 (decision 2's contract), BL-552 (decisions 1, 3, 4 and the limits of
   decision 7), BL-553 (decision 5), BL-554 (decision 6), BL-555 (decision 7's command line) and
@@ -356,3 +356,49 @@ reference build (`0E773709…8778`) and, for `--proxy-http2`, the pinned static 
 - **Forwarding and `CONNECT` are unchanged** inside the TLS: the bytes curl sends inside it are
   row 13's, byte for byte row 1's, and a tunnel's bytes, a nested TLS record stream included, are
   relayed unread (decision 4).
+
+## Amendment 3 - what BL-553 settled inside decision 5 (2026-11-05)
+
+Decided by Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), in BL-553.
+
+Measured with `Record-CurlExchange.ps1` against the Windows reference build (SHA-256
+`0E773709…8778`), the recorder playing the proxy and answering with the bytes Surl's proxy now
+writes (`Protocols/Http/Surl.Protocol.HttpProxy.UnitTests/Fixtures`, `proxy-*`):
+
+| Case | curl arguments (after `-sS`) | Exit | What curl sent |
+| --- | --- | --- | --- |
+| No credentials, forwarded | `-x … http://origin.test/a` | 0, curl printed the `407`'s body | the `GET` without credentials |
+| No credentials, `CONNECT` | `-p -x … http://origin.test:8080/a` | 7, `CONNECT tunnel failed, response 407` | the `CONNECT` without credentials |
+| Basic, `CONNECT` | `-p -U u:p -x …` | 0 | `Proxy-Authorization: Basic dTpw` on the `CONNECT` unasked; none inside the tunnel |
+| Digest, forwarded | `--proxy-anyauth -U u:p -x … http://origin.test/a?b` | 0 | after the `407`, on the same connection, Digest with `uri="/a?b"` |
+| Digest, `CONNECT` | `-p --proxy-digest -U u:p -x … http://origin.test:8080/a` | 0 | after the `407`, on the same connection, Digest with **`uri="origin.test:8080"`: the authority, the `CONNECT`'s own target** |
+| NTLM, forwarded and `CONNECT` | `--proxy-ntlm -U u:p` (with and without `-p`) | 0 | the NEGOTIATE_MESSAGE unasked; after a `407` carrying a CHALLENGE_MESSAGE, the AUTHENTICATE_MESSAGE on the same connection: NTLM's three legs whole |
+
+What this settles:
+
+- **No reference to `Surl.Authentication`.** The proxy takes an `IAuthenticationPolicy` - the one
+  built from the proxy's own accounts (`-U`, `--proxy-user-file`, `--proxy-auth`), composed by
+  BL-555 - exactly as the HTTP server does, so it needs no new reference and the isolation test no
+  new row. `HttpProxyProtocolServer(originConnector)` passes `AnonymousAuthenticationPolicy`: the
+  "no proxy account, no login" case of decision 5, which BL-555 composes when no proxy account is
+  configured. `--allow-anonymous` and `--allow-plaintext-auth` stay the policy's, unchanged.
+- **One session per curl connection,** started before the first request with the connection's
+  `TlsSession`, so NTLM's and Negotiate's legs live with curl's
+  connection and survive a change of origin.
+- **What the session is given.** The request's fields with every `Authorization` removed (it is
+  the origin's login and is forwarded untouched) and every `Proxy-Authorization` renamed
+  `Authorization`; as the target, a `CONNECT`'s authority as received and an absolute-form
+  request's path and query (a target that is not absolute-form, as received). These are exactly
+  the Digest `uri` values measured above, so the Digest check's exact `uri` comparison passes
+  unchanged and decision 5's "path as well as the target itself" is not needed: curl never sends
+  the absolute-form as `uri`.
+- **The order** is: head read, the `Host` check, then the login, then the target's checks. A
+  request that is not let in learns nothing about the target's form or the origin.
+- **The answers.** A challenge is `407 Proxy Authentication Required` with `Date`, `Server: surl`,
+  one `Proxy-Authenticate` per challenge in the policy's order, and the fixed-text body; it keeps
+  curl's connection, which curl's `--proxy-anyauth`, Digest and NTLM all need, unless the request
+  asked to close or announced a body the proxy does not read (`Connection: close` then). A
+  refusal (`Forbidden`) is `403` and closes, as on the HTTP server. A checked login's note is
+  logged; the credentials never are.
+- **Upstream cases.** Of decision 5's 24 `http-proxy` cases, 80, 275 and 1849 send
+  `Proxy-Authorization` (Basic, in their `<proxy>` or `<protocol>` sections); the rest send none.
