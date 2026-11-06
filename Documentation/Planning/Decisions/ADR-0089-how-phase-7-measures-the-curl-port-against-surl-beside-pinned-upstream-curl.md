@@ -349,3 +349,36 @@ compared in every case.
   keys`, the case is measured again, both runs, up to three attempts in all; ADR-0062 decision 3 names
   that failure, and only that one, as the client's defect a re-run clears. Every other failure is
   judged on the attempt it appears in.
+
+## Amendment 7 (2026-11-06, BL-591): how corpus part (b) plays upstream's test cases with the port
+
+Decided by Claude under Stewart's delegation, in BL-591, from the first run of decision 1(b). Part (b)
+is not a mirrored test: each case's own `<verify>` section, written for upstream curl, is the
+comparison, so decisions 4 and 5 are read for it as follows.
+
+- **The cases.** Every case on the platform's passing list,
+  `Documentation/Conformance/upstream-test-cases-passing.<platform>.txt` (ADR-0080 decision 5).
+  `CurlPortBesideUpstreamCurlOverUpstreamTestCasesTests` plays each one twice, each run with its own
+  fresh server halves and its own folder: with the build ADR-0080's runner pairs it with (the reference
+  build, or the smb build), then with the port. Upstream's run is played in the same test, so the oracle
+  is measured, not assumed from the list.
+- **One client seam.** The runner takes an `IUpstreamTestCaseClient`: `UpstreamCurlTestCaseClient`
+  wraps only an `UpstreamCurlRunner` (an upstream pin the locator verified), `CurlPortTestCaseClient`
+  wraps only a `CurlPortClientRunner` (the port pin). Neither can be made from the other's location,
+  and `UpstreamCurlLocator` still refuses the port's binary (ADR-0083 decision 2).
+- **The port runs as runtests would run it.** runtests describes the curl it tests by that curl's own
+  `--version`: `%VERSION` and `%VERNUM` are its version token (`servers.pm`'s `subvariables`), `%CURL`
+  its path, and its `Protocols:` and `Features:` lines decide the `%if` features and which cases run.
+  Each client is described by its own `--version` (`CurlVersionReport`), so the port's `User-Agent:
+  curl/8.22.0` is matched against its own `%VERSION`, as upstream's suite would match it. This is not
+  normalisation: it is the case as the case's author wrote it.
+- **The verdict (decision 5).** Upstream did not pass: **Surl defect**, the port is not judged.
+  Upstream passed and runtests would skip the case for the port (its build lacks the case's protocol,
+  for example `smb`): **not comparable**, with the port's skip reason, a reason this amendment adds.
+  Both passed: **agreement**. Otherwise **port defect**. The test fails on a Surl defect, an unlisted
+  port defect, or a listed finding that no longer appears; `Upstream-Test-Cases.md`'s findings table
+  names each case `test<N>` in its first column.
+- **No normalisation beyond the case's own.** The `<verify>` section's strip lines, `mode="text"` and
+  the rest apply to both runs alike (`UpstreamTestCaseVerifyChecker`), and nothing of decision 4's
+  table is added: upstream's cases already substitute or strip what varies between runs (ports, dates,
+  boundaries, the version) for whichever curl runs them.
