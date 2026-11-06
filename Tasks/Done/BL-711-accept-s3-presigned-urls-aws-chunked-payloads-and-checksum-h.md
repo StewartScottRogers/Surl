@@ -64,9 +64,9 @@ Filed by BL-417 (ADR-0108): AWS's SDKs and CLI send these forms.
   new Authentication member is 100 / 100. `Surl.Protocol.Abstractions` gained an enum's members, an interface and a
   record parameter, no code.
 
-### Decisions (Decided by Claude under Stewart's delegation; to go into ADR-0108 as Amendment 4, BL-934)
+### Decisions (Decided by Claude under Stewart's delegation; to go into ADR-0108 as Amendment 4, BL-962)
 
-BL-701 holds `Documentation/Planning/Decisions`, so ADR-0108 could not be edited here; BL-934 records these there,
+BL-701 holds `Documentation/Planning/Decisions`, so ADR-0108 could not be edited here; BL-962 records these there,
 as BL-727 did for BL-419.
 
 1. **Contract.** `IHttpChunkSignatureChain` (Abstractions) with `VerifyNextChunk(chunkSha256, chunkSignature)`

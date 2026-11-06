@@ -1,5 +1,5 @@
 ---
-id: BL-934
+id: BL-962
 title: Record BL-711's presigned URL, aws-chunked and checksum decisions in ADR-0108
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-06
 completed:
 ---
-# BL-934 — Record BL-711's presigned URL, aws-chunked and checksum decisions in ADR-0108
+# BL-962 — Record BL-711's presigned URL, aws-chunked and checksum decisions in ADR-0108
 
 ## Goal
 
