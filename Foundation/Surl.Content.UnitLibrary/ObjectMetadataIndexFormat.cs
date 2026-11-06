@@ -15,19 +15,29 @@ namespace Surl.Content;
 /// the stamped file length (0 for a folder object) (8 bytes, signed, not negative),
 /// the stamped last write time in UTC ticks (8 bytes, signed, a valid <see cref="DateTime"/>),
 /// the generation (8 bytes, signed), the ETag (a string, not empty), <c>Content-Type</c>,
-/// <c>Content-Encoding</c>, <c>Content-Disposition</c>, <c>Cache-Control</c> and
-/// <c>Content-Language</c> (five strings), the user metadata count (2 bytes, unsigned) and that
-/// many name and value pairs (two strings each) in strictly ascending ordinal order of name.
-/// Then the end of the file.
+/// <c>Content-Encoding</c>, <c>Content-Disposition</c>, <c>Cache-Control</c>,
+/// <c>Content-Language</c> and <c>Content-MD5</c> (six strings), the user metadata count (2 bytes,
+/// unsigned) and that many name and value pairs (two strings each) in strictly ascending ordinal
+/// order of name. Then the end of the file. An index starting with
+/// <see cref="HeaderWithoutContentMd5"/> instead, written before BL-736, is read too: its entries
+/// hold the first five header fields only, and read back with no <c>Content-MD5</c>.
 /// </remarks>
 internal static class ObjectMetadataIndexFormat
 {
     private static readonly UTF8Encoding StrictUtf8 = new(encoderShouldEmitUTF8Identifier: false, throwOnInvalidBytes: true);
 
     /// <summary>
-    /// The 20 ASCII bytes every index starts with: <c>SURL-OBJECT-INDEX-1</c> and a line feed.
+    /// The 20 ASCII bytes every index written now starts with: <c>SURL-OBJECT-INDEX-2</c> and a
+    /// line feed. Its entries hold six header fields, <c>Content-MD5</c> the sixth (BL-736).
     /// </summary>
-    public static ReadOnlySpan<byte> Header => "SURL-OBJECT-INDEX-1\n"u8;
+    public static ReadOnlySpan<byte> Header => "SURL-OBJECT-INDEX-2\n"u8;
+
+    /// <summary>
+    /// The 20 ASCII bytes an index written before <c>Content-MD5</c> was kept starts with:
+    /// <c>SURL-OBJECT-INDEX-1</c> and a line feed. Its entries hold five header fields and read
+    /// back with no <c>Content-MD5</c>; it is never written.
+    /// </summary>
+    public static ReadOnlySpan<byte> HeaderWithoutContentMd5 => "SURL-OBJECT-INDEX-1\n"u8;
 
     /// <summary>
     /// The bytes of an index holding <paramref name="entries"/>.
@@ -68,7 +78,10 @@ internal static class ObjectMetadataIndexFormat
     public static Dictionary<string, ObjectMetadataEntry> Decode(byte[] bytes, int maxEntries, int maxMetadataBytes)
     {
         var reader = new IndexReader(bytes);
-        Require(reader.Take(Header.Length).SequenceEqual(Header));
+        var header = reader.Take(Header.Length);
+        var hasContentMd5 = header.SequenceEqual(Header);
+        Require(hasContentMd5 || header.SequenceEqual(HeaderWithoutContentMd5));
+        var headerFieldCount = hasContentMd5 ? 6 : 5;
         var count = reader.ReadUInt32();
         Require(count <= (uint)maxEntries);
         var entries = new Dictionary<string, ObjectMetadataEntry>(StringComparer.Ordinal);
@@ -77,7 +90,7 @@ internal static class ObjectMetadataIndexFormat
         {
             var key = reader.ReadString();
             Require((ObjectMetadataIndex.IsValidKey(key) || ObjectMetadataIndex.IsValidFolderObjectKey(key)) && IsAfter(key, previousKey));
-            entries.Add(key, DecodeEntry(reader, maxMetadataBytes));
+            entries.Add(key, DecodeEntry(reader, headerFieldCount, maxMetadataBytes));
             previousKey = key;
         }
 
@@ -85,17 +98,24 @@ internal static class ObjectMetadataIndexFormat
         return entries;
     }
 
-    private static ObjectMetadataEntry DecodeEntry(IndexReader reader, int maxMetadataBytes)
+    // An entry's header fields: five in an index written before Content-MD5 was kept, which
+    // reads back with none, else six.
+    private static ObjectMetadataEntry DecodeEntry(IndexReader reader, int headerFieldCount, int maxMetadataBytes)
     {
         var length = reader.ReadInt64();
         var lastWriteTicks = reader.ReadInt64();
         var generation = reader.ReadInt64();
         var eTag = reader.ReadString();
         Require(length >= 0 && lastWriteTicks >= 0 && lastWriteTicks <= DateTime.MaxValue.Ticks && ObjectMetadataIndex.IsValidETag(eTag));
-        string?[] fields = [reader.ReadOptionalString(), reader.ReadOptionalString(), reader.ReadOptionalString(), reader.ReadOptionalString(), reader.ReadOptionalString()];
+        var fields = new string?[6];
+        for (var field = 0; field < headerFieldCount; field++)
+        {
+            fields[field] = reader.ReadOptionalString();
+        }
+
         var userMetadata = DecodeUserMetadata(reader);
         Require(ObjectMetadataEntry.CountMetadataBytes(fields, userMetadata) <= maxMetadataBytes);
-        return new ObjectMetadataEntry(length, lastWriteTicks, generation, eTag, fields[0], fields[1], fields[2], fields[3], fields[4], userMetadata);
+        return new ObjectMetadataEntry(length, lastWriteTicks, generation, eTag, fields[0], fields[1], fields[2], fields[3], fields[4], fields[5], userMetadata);
     }
 
     private static List<KeyValuePair<string, string>> DecodeUserMetadata(IndexReader reader)

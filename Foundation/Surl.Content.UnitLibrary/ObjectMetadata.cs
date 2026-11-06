@@ -39,6 +39,12 @@ public sealed record ObjectMetadata
     public string? ContentLanguage { get; init; }
 
     /// <summary>
+    /// The <c>Content-MD5</c> set at upload - Azure's <c>x-ms-blob-content-md5</c> - kept as sent,
+    /// without being checked against the bytes (ADR-0109, decision 5.6).
+    /// </summary>
+    public string? ContentMd5 { get; init; }
+
+    /// <summary>
     /// The user metadata set at upload - S3 <c>x-amz-meta-*</c>, Azure <c>x-ms-meta-*</c>, GCS
     /// custom <c>metadata</c> - by name, without the service's prefix.
     /// </summary>

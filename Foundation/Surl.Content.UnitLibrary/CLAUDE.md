@@ -107,7 +107,8 @@ from the extension of the path's last segment - 36 extensions in a fixed table, 
 
 `ObjectMetadataIndex` keeps what a file system cannot hold for the object-storage servers
 (S3, Azure Storage, Cloud Storage, the OCI registry; ADR-0100 decision 2.3, built by BL-636):
-the five header fields set at upload, user metadata, the ETag and GCS's generation, keyed by
+the six header fields set at upload (the sixth, `Content-MD5`, Azure's unchecked
+`x-ms-blob-content-md5`, BL-736), user metadata, the ETag and GCS's generation, keyed by
 the file's path relative to the served root (`bucket/x/y`) and stamped with the file's length
 and last write time. A stamp that no longer matches - the file was overwritten, renamed or
 deleted through the content store by any protocol - makes the entry absent: the file answers
@@ -120,11 +121,13 @@ fields and user metadata names and values, `MetadataTooLarge`). With a data dire
 `MoveFileReplacing`, loaded by `LoadAsync` (malformed: `ObjectMetadataIndexLoadException`,
 reason `not an object metadata index`); a failed write is returned as `StorageFailure`, never
 thrown. Its byte format is pinned in `ObjectMetadataIndexFormat`'s remarks: the header
-`SURL-OBJECT-INDEX-1` and LF, a 4-byte entry count, then entries in strictly ascending ordinal
+`SURL-OBJECT-INDEX-2` and LF, a 4-byte entry count, then entries in strictly ascending ordinal
 key order - key, length (8, signed), last write UTC ticks (8, signed), generation (8, signed),
-ETag, the five header fields (empty is absent), a 2-byte user-metadata count and its name and
+ETag, the six header fields (empty is absent), a 2-byte user-metadata count and its name and
 value pairs in strictly ascending ordinal order of name; every string is a 2-byte UTF-8
-length then its bytes, every integer big-endian.
+length then its bytes, every integer big-endian. An index written before BL-736 starts
+`SURL-OBJECT-INDEX-1`, holds five header fields per entry and is still read, its entries with
+no `Content-MD5`; the next write rewrites it as version 2.
 
 Folder objects (ADR-0108 Amendment 3, BL-728): `StoreFolderObjectAsync` records a folder a
 client put as an object (S3's zero-byte `x/`) under the folder's key and a final `/`

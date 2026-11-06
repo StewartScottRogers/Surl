@@ -151,7 +151,7 @@ public sealed class ObjectMetadataIndex
     public int MaxEntries { get; }
 
     /// <summary>
-    /// The most bytes of metadata one object may carry: the UTF-8 bytes of its five header
+    /// The most bytes of metadata one object may carry: the UTF-8 bytes of its six header
     /// fields and of its user metadata's names and values.
     /// </summary>
     public int MaxMetadataBytes { get; }
@@ -320,7 +320,7 @@ public sealed class ObjectMetadataIndex
             throw new ArgumentException("The ETag is empty or longer than the index keeps.", nameof(metadata));
         }
 
-        string?[] fields = [.. new[] { metadata.ContentType, metadata.ContentEncoding, metadata.ContentDisposition, metadata.CacheControl, metadata.ContentLanguage }
+        string?[] fields = [.. new[] { metadata.ContentType, metadata.ContentEncoding, metadata.ContentDisposition, metadata.CacheControl, metadata.ContentLanguage, metadata.ContentMd5 }
             .Select(field => string.IsNullOrEmpty(field) ? null : field)];
         List<KeyValuePair<string, string>> userMetadata = [.. metadata.UserMetadata.OrderBy(pair => pair.Key, StringComparer.Ordinal)];
         if (ObjectMetadataEntry.CountMetadataBytes(fields, userMetadata) > MaxMetadataBytes)
@@ -344,7 +344,7 @@ public sealed class ObjectMetadataIndex
             var eTag = metadata.ETag ?? await DefaultETagAsync(key, cancellationToken);
             var entry = new ObjectMetadataEntry(
                 length, lastWriteTicks, metadata.Generation ?? GenerationOf(lastWriteTicks), eTag,
-                fields[0], fields[1], fields[2], fields[3], fields[4], userMetadata);
+                fields[0], fields[1], fields[2], fields[3], fields[4], fields[5], userMetadata);
             entries[key] = entry;
             var failure = await WriteIndexAsync(cancellationToken);
             events.Publish(new StoreChangedEvent(StoreKind.Content, StoreChange.MetadataStored, "/" + key, null, null));
@@ -385,7 +385,7 @@ public sealed class ObjectMetadataIndex
             entries.Remove(key);
             var entry = new ObjectMetadataEntry(
                 length, lastWriteTicks, GenerationOf(lastWriteTicks), await ComputeETagAsync(FullPathOf(key), cancellationToken),
-                null, null, null, null, null, []);
+                null, null, null, null, null, null, []);
             string? failure = null;
             if (entries.Count < MaxEntries)
             {
@@ -464,7 +464,10 @@ public sealed class ObjectMetadataIndex
         entry.ETag,
         entry.Generation,
         entry.Length,
-        new DateTimeOffset(entry.LastWriteTicks, TimeSpan.Zero));
+        new DateTimeOffset(entry.LastWriteTicks, TimeSpan.Zero))
+    {
+        ContentMd5 = entry.ContentMd5,
+    };
 
     private Dictionary<string, ObjectMetadataEntry> DecodeIndex(string indexPath, byte[] bytes)
     {

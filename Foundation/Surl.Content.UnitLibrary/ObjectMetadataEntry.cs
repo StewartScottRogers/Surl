@@ -13,6 +13,7 @@ namespace Surl.Content;
 /// <param name="ContentDisposition">The <c>Content-Disposition</c> set at upload, or <see langword="null"/>.</param>
 /// <param name="CacheControl">The <c>Cache-Control</c> set at upload, or <see langword="null"/>.</param>
 /// <param name="ContentLanguage">The <c>Content-Language</c> set at upload, or <see langword="null"/>.</param>
+/// <param name="ContentMd5">The <c>Content-MD5</c> set at upload, or <see langword="null"/>.</param>
 /// <param name="UserMetadata">The user metadata, in ordinal order of name.</param>
 internal sealed record ObjectMetadataEntry(
     long Length,
@@ -24,12 +25,13 @@ internal sealed record ObjectMetadataEntry(
     string? ContentDisposition,
     string? CacheControl,
     string? ContentLanguage,
+    string? ContentMd5,
     IReadOnlyList<KeyValuePair<string, string>> UserMetadata)
 {
     /// <summary>
-    /// The five header fields, in the order the index writes them.
+    /// The six header fields, in the order the index writes them.
     /// </summary>
-    public IEnumerable<string?> HeaderFields => [ContentType, ContentEncoding, ContentDisposition, CacheControl, ContentLanguage];
+    public IEnumerable<string?> HeaderFields => [ContentType, ContentEncoding, ContentDisposition, CacheControl, ContentLanguage, ContentMd5];
 
     /// <summary>
     /// Whether the entry still describes a file of <paramref name="length"/> bytes last written

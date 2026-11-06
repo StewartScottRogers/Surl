@@ -42,6 +42,7 @@ public sealed class ObjectMetadataIndexTests
             ContentDisposition = "attachment",
             CacheControl = "no-cache",
             ContentLanguage = "en",
+            ContentMd5 = "XUFAKrxLKna5cZ2REBfFkg==",
             UserMetadata = new Dictionary<string, string> { ["z"] = "last", ["a"] = "first" },
         };
 
@@ -57,6 +58,7 @@ public sealed class ObjectMetadataIndexTests
         Assert.AreEqual("attachment", properties.ContentDisposition);
         Assert.AreEqual("no-cache", properties.CacheControl);
         Assert.AreEqual("en", properties.ContentLanguage);
+        Assert.AreEqual("XUFAKrxLKna5cZ2REBfFkg==", properties.ContentMd5);
         CollectionAssert.AreEqual(new[] { "a", "z" }, properties.UserMetadata.Select(pair => pair.Key).ToArray());
         Assert.AreEqual("first", properties.UserMetadata[0].Value);
         Assert.AreEqual(HelloETag, properties.ETag);
@@ -100,6 +102,7 @@ public sealed class ObjectMetadataIndexTests
         Assert.IsNull(properties.ContentDisposition);
         Assert.IsNull(properties.CacheControl);
         Assert.IsNull(properties.ContentLanguage);
+        Assert.IsNull(properties.ContentMd5);
         Assert.IsEmpty(properties.UserMetadata);
         Assert.AreEqual(HelloETag, properties.ETag);
         Assert.AreEqual(StartGeneration, properties.Generation);
@@ -200,14 +203,14 @@ public sealed class ObjectMetadataIndexTests
 
         byte[] expected =
         [
-            .. "SURL-OBJECT-INDEX-1\n"u8,
+            .. "SURL-OBJECT-INDEX-2\n"u8,
             .. Convert.FromHexString("00000001" + "0007"),
             .. "b/x.txt"u8,
             .. Convert.FromHexString("0000000000000005" + "08df3a5a63755000" + "0000000000000007" + "0022"),
             .. "\"5d41402abc4b2a76b9719d911017c592\""u8,
             .. Convert.FromHexString("000a"),
             .. "text/plain"u8,
-            .. Convert.FromHexString("0000" + "0000" + "0000" + "0000" + "0001" + "0001" + "6b" + "0001" + "76"),
+            .. Convert.FromHexString("0000" + "0000" + "0000" + "0000" + "0000" + "0001" + "0001" + "6b" + "0001" + "76"),
         ];
         Assert.IsNull(stored.StorageFailure);
         Assert.AreEqual(IndexPath, fixture.Index.IndexPath);
@@ -230,6 +233,51 @@ public sealed class ObjectMetadataIndexTests
     }
 
     [TestMethod]
+    public async Task LoadAsync_IndexWrittenWithAContentMd5_ReadsItBack()
+    {
+        var fixture = new Fixture(persists: true);
+        await fixture.UploadAsync("x.txt", "hello"u8.ToArray());
+        await fixture.Index.StoreAsync("x.txt", new ObjectMetadata { ContentLanguage = "en", ContentMd5 = "AAAAAAAAAAAAAAAAAAAAAA==" }, CancellationToken.None);
+
+        var reloaded = await fixture.ReloadAsync();
+        var reading = await reloaded.ReadAsync("x.txt", CancellationToken.None);
+
+        Assert.AreEqual("en", reading.Properties!.ContentLanguage);
+        Assert.AreEqual("AAAAAAAAAAAAAAAAAAAAAA==", reading.Properties.ContentMd5);
+    }
+
+    [TestMethod]
+    public async Task LoadAsync_IndexWrittenBeforeContentMd5WasKept_ReadsItsFiveHeaderFieldsAndNoContentMd5()
+    {
+        var fixture = new Fixture(persists: true);
+        await fixture.UploadAsync("b/x.txt", "hello"u8.ToArray());
+        byte[] versionOne =
+        [
+            .. "SURL-OBJECT-INDEX-1\n"u8,
+            .. Convert.FromHexString("00000001" + "0007"),
+            .. "b/x.txt"u8,
+            .. Convert.FromHexString("0000000000000005" + "08df3a5a63755000" + "0000000000000007" + "0022"),
+            .. "\"5d41402abc4b2a76b9719d911017c592\""u8,
+            .. Convert.FromHexString("000a"),
+            .. "text/plain"u8,
+            .. Convert.FromHexString("0000" + "0000" + "0000" + "0002"),
+            .. "fr"u8,
+            .. Convert.FromHexString("0001" + "0001" + "6b" + "0001" + "76"),
+        ];
+        await fixture.WriteFileAsync(IndexPath, versionOne);
+
+        await fixture.Index.LoadAsync(CancellationToken.None);
+        var reading = await fixture.Index.ReadAsync("b/x.txt", CancellationToken.None);
+
+        var properties = reading.Properties!;
+        Assert.AreEqual("text/plain", properties.ContentType);
+        Assert.AreEqual("fr", properties.ContentLanguage);
+        Assert.IsNull(properties.ContentMd5);
+        Assert.AreEqual(7, properties.Generation);
+        Assert.AreEqual("v", properties.UserMetadata.Single(pair => pair.Key == "k").Value);
+    }
+
+    [TestMethod]
     public async Task LoadAsync_NoIndexFileOrInMemoryOnly_LoadsNothing()
     {
         var persisting = new Fixture(persists: true);
@@ -245,7 +293,7 @@ public sealed class ObjectMetadataIndexTests
     [TestMethod]
     [DataRow("", DisplayName = "empty")]
     [DataRow("53555246", DisplayName = "truncated header")]
-    [DataRow("5355524c2d4f424a4543542d494e4445582d320a00000000", DisplayName = "wrong header")]
+    [DataRow("5355524c2d4f424a4543542d494e4445582d330a00000000", DisplayName = "wrong header")]
     [DataRow("5355524c2d4f424a4543542d494e4445582d310a0000000000", DisplayName = "trailing byte")]
     [DataRow("5355524c2d4f424a4543542d494e4445582d310a00000003", DisplayName = "more entries than the bound")]
     [DataRow("5355524c2d4f424a4543542d494e4445582d310a00000001", DisplayName = "truncated entry")]

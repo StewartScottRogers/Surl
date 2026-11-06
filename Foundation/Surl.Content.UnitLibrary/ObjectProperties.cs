@@ -28,4 +28,11 @@ public sealed record ObjectProperties(
     string ETag,
     long Generation,
     long Length,
-    DateTimeOffset LastWriteTimeUtc);
+    DateTimeOffset LastWriteTimeUtc)
+{
+    /// <summary>
+    /// The <c>Content-MD5</c> set at upload (<see cref="ObjectMetadata.ContentMd5"/>), or
+    /// <see langword="null"/> when none was.
+    /// </summary>
+    public string? ContentMd5 { get; init; }
+}
