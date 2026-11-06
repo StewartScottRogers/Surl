@@ -4,7 +4,7 @@ title: Measure the Curl port beside upstream curl against surl over SCP and SFTP
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-576, BL-577, BL-578, BL-579]
+depends-on: [BL-576, BL-577, BL-578, BL-579, BL-580]
 touches: [Conformance/Surl.Conformance.UnitTests/CurlPortBesideUpstreamCurlOverSshTests.cs, Documentation/Conformance/CurlPort/Ssh.md]
 requirement: none
 created: 2026-11-04
@@ -52,7 +52,21 @@ live `surl`, through both pinned upstream curl and the pinned Curl port, using B
 
 ## Notes
 
+- 2026-11-05 (lane 1): Back to Backlog, waiting on BL-580. The SSH cases cannot run through
+  `PinnedCurlPortBesideUpstreamCurl` as committed: (1) every mirrored test passes
+  `--hostpubsha256` read from that run's own `surl` log (`SshLogNotes.HostKeySha256`), so the
+  arguments must be computed per run; (2) the SCP and SFTP classes serve a `dir/` subdirectory,
+  and the helper starts `surl` with no subdirectories, so writing `dir/b.txt` fails; (3) ADR-0089
+  decision 5 needs a reader for the findings file's table. BL-580 (lane 3) is adding exactly these,
+  uncommitted, to the shared helper: `CurlPortRunSetup` (`ArgumentsForRunAsync`, `StartSurlAsync`,
+  `Environment`), a `MeasureAsync` overload taking it, and `CurlPortFindingsFile`. Building a second
+  copy here would collide with that work on `PinnedCurlPortBesideUpstreamCurl.cs` and on the type
+  names when the lanes integrate. Once BL-580 is Done, this task needs only its own `touches`:
+  `ArgumentsForRunAsync` reads the fingerprint from the run's `surl`, `StartSurlAsync` creates `dir`,
+  and the per-test upload file and user keys go in a temporary folder the test class owns.
+
 ## Log
 
 - 2026-11-04: Created.
 - 2026-11-05: Backlog -> Doing.
+- 2026-11-05: Doing -> Backlog. Waits on BL-580: per-run SSH arguments, surl start with a served subdirectory and the findings-file reader land in the shared helper there
