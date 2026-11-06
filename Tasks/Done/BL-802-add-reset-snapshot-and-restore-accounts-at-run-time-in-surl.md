@@ -8,7 +8,7 @@ depends-on: [BL-791]
 touches: [Foundation/Surl.Authentication.UnitLibrary, Foundation/Surl.Authentication.UnitTests, Documentation/Planning/Decisions]
 requirement: none
 created: 2026-11-05
-completed:
+completed: 2026-11-05
 ---
 # BL-802 — Add, reset, snapshot and restore accounts at run time in Surl.Authentication
 
@@ -75,3 +75,4 @@ published on the event stream, with every login of every protocol judged by the 
 - 2026-11-05: Doing -> Backlog. Lane 5 finished and verified it but could not push during the 16:25 restart; the work is on local branch factory/BL-802-lane-5-20261105-150047 (6987d83f) - rebase it onto the shift branch, rebuild, test and push rather than redo it
 - 2026-11-05: Backlog -> Doing.
 - 2026-11-05: Lane 1 cherry-picked lane 5's commits (03ca1d00, 6987d83f) onto the shift branch; ADR already renumbered 0132 after BL-799 took 0131.
+- 2026-11-05: Doing -> Done. Accounts can be added, removed, reset, snapshotted and restored at run time, judged at once through every live scheme view and published without secrets
