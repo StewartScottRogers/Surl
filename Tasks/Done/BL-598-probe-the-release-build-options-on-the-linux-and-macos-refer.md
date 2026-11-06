@@ -34,7 +34,7 @@ the Linux and macOS reference pins, as BL-389 confirmed them for the Windows one
       `UpstreamCurlBuildFeatures`, with the probe's output recorded in Notes.
       (Wired into both legs and green on Windows; the first Linux and macOS runs happen in CI after
       the shift pushes, which a lane cannot do, so reading their output, recording it and correcting
-      any disproved option is filed as BL-932. A red leg blocks the shift's merge to `master`.)
+      any disproved option is filed as BL-945. A red leg blocks the shift's merge to `master`.)
 
 ## Notes
 
@@ -91,4 +91,4 @@ claimed for Windows.
 
 - 2026-11-04: Created.
 - 2026-11-06: Backlog -> Doing.
-- 2026-11-06: Doing -> Done. UpstreamCurlShowsItsBuildOptionsTests probes every build option the reference pin claims; green on Windows, runs in CI's Linux and macOS conformance steps (BL-932 records their output)
+- 2026-11-06: Doing -> Done. UpstreamCurlShowsItsBuildOptionsTests probes every build option the reference pin claims; green on Windows, runs in CI's Linux and macOS conformance steps (BL-945 records their output)
