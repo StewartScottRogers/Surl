@@ -12,15 +12,16 @@ the streams that name a session, BL-411), and no other protocol server.
 The server (BL-459, ADR-0117 decisions 0 to 3 and 6):
 
 - `WebTransportApplicationProtocol` - the public `IQuicApplicationProtocol` for one QUIC connection,
-  constructed with the listen URL's path and the `ExchangeContext`. It runs an `Http3ConnectionServer`
-  that registers `webtransport-h3` (signal `0x41`, stream type `0x54`) and sends
-  `SETTINGS_WT_ENABLED` = 1. The composing server (BL-461) sets `Surl.Quic`'s `MaxDatagramFrameSize`
+  constructed with the listen URL's path, the `IAuthenticationPolicy` and the `ExchangeContext`. It
+  runs an `Http3ConnectionServer` that registers `webtransport-h3` (signal `0x41`, stream type `0x54`)
+  and sends `SETTINGS_WT_ENABLED` = 1 and the three `SETTINGS_WT_INITIAL_*`. The composing server (BL-461) sets `Surl.Quic`'s `MaxDatagramFrameSize`
   to its `MaxDatagramFrameSize` (65535) and `ResetStreamAt`.
 - `WebTransportConnectHandler` - waits for the client's `SETTINGS` within `--head-timeout` (else
   resets the CONNECT `H3_REQUEST_INCOMPLETE`), requires `SETTINGS_H3_DATAGRAM` = 1 and
-  `SETTINGS_WT_ENABLED` = 1 (else resets it `WT_REQUIREMENTS_NOT_MET`), judges it with
-  `WebTransportConnectJudgement` (`403` for another origin, `405` with `allow: CONNECT` for a path
-  outside the listen path, a query ignored), and answers `200` and serves the session.
+  `SETTINGS_WT_ENABLED` = 1 (else resets it `WT_REQUIREMENTS_NOT_MET`), judges it by
+  `WebTransportConnectJudgement`'s rules (`403` for another origin, then the login, then `405` with
+  `allow: CONNECT` for a path outside the listen path, a query ignored) and the session limit, and
+  answers `200` and serves the session.
 - `WebTransportRequestStreamHandler` - every other request: `405`, `allow: CONNECT`, FIN.
 - `WebTransportSession` - the echo: a bidirectional stream's bytes back on it, a unidirectional
   stream's on a server unidirectional stream of the session (`H3_REQUEST_REJECTED` `STOP_SENDING`
@@ -52,7 +53,29 @@ The codecs (BL-458, ADR-0117 decisions 4 and 6), with no transport:
 - `WebTransportApplicationErrorCode` maps 32-bit application codes into `WT_APPLICATION_ERROR`'s
   HTTP/3 range and back (WTH3 4.4).
 
-Still to come: flow control, the session limit, authentication and the limits (BL-460); closing the
+Flow control, the session limit, authentication and the limits (BL-460, ADR-0117 decisions 4, 5, 7 and 8):
+
+- `WebTransportApplicationProtocol` is also constructed with the `IAuthenticationPolicy`; each
+  connection starts its `IHttpAuthenticationSession` as TLS 1.3, and `WebTransportConnectAuthentication`
+  judges every CONNECT after the origin and before the path: `Proceed` goes on, `Challenge` is `401`
+  with the verdict's challenges, `Forbidden` `403`; NTLM and Negotiate credentials are never judged
+  and are answered `401` with the challenges the request earns without them, neither scheme offered.
+  `--allow-anonymous` is the policy's to apply.
+- The server sends `SETTINGS_WT_INITIAL_MAX_STREAMS_UNI` and `_BIDI` = 100 and `_MAX_DATA` = 1048576
+  (`WebTransportFlowControlSettings`; tests pass smaller ones through the internal constructor).
+  Flow control is on when the client sends any of them non-zero. The session limit is 1 without it
+  and 16 with it, counted by `WebTransportSessionDirectory.TryOpenSession`; the next CONNECT is reset
+  `H3_REQUEST_REJECTED`.
+- With flow control on, `WebTransportFlowControl` holds the client to `WebTransportReceiveLimits`
+  (streams each way and payload read; past either ends the session `WT_FLOW_CONTROL_ERROR`, raised
+  limits sent as `WT_MAX_STREAMS` and `WT_MAX_DATA`, never past `--max-filesize`) and the echo to the
+  client's limits through `WebTransportSendCredit` (`WT_DATA_BLOCKED` and `WT_STREAMS_BLOCKED` once per
+  limit value). A client `WT_MAX_*` that does not raise its last, or a `WT_MAX_STREAMS` above 2^60, is a
+  `WT_FLOW_CONTROL_ERROR`; `WT_MAX_STREAM_DATA` and `WT_STREAM_DATA_BLOCKED` are `H3_MESSAGE_ERROR`.
+- Whatever the flow control, a session whose stream payload and HTTP datagrams reach `--max-filesize`
+  is closed `WT_CLOSE_SESSION` code 1 `session data limit reached`, then FIN.
+
+Still to come: the 64-datagram echo queue a session (BL-896); closing the
 connection for unmet requirements, the `:scheme` check, datagrams held before their CONNECT and
 serving through the shutdown grace, once `Surl.Http3` offers them (BL-894, BL-895).
 

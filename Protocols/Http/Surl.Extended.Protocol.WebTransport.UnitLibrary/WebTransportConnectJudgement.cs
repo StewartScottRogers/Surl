@@ -3,8 +3,9 @@ using Surl.Http3;
 namespace Surl.Extended.Protocol.WebTransport;
 
 /// <summary>
-/// Judges a WebTransport extended <c>CONNECT</c> by its <c>origin</c> and <c>:path</c> (ADR-0117
-/// decision 1; WTH3 3.2): the status the server answers it with.
+/// The <c>origin</c> and <c>:path</c> rules a WebTransport extended <c>CONNECT</c> is judged by
+/// (ADR-0117 decision 1; WTH3 3.2), and the statuses the server answers with;
+/// <see cref="WebTransportConnectHandler"/> judges the login between the two (decision 7).
 /// </summary>
 internal static class WebTransportConnectJudgement
 {
@@ -19,15 +20,6 @@ internal static class WebTransportConnectJudgement
 
     private const string SecureOriginPrefix = "https://";
     private const string DefaultPortSuffix = ":443";
-
-    /// <summary>Returns the status to answer <paramref name="head"/> with.</summary>
-    /// <param name="head">The extended <c>CONNECT</c>'s head.</param>
-    /// <param name="acceptedPath">The listen URL's path; empty or <c>/</c> accepts every path.</param>
-    /// <returns><see cref="Accepted"/>, <see cref="Forbidden"/> or <see cref="MethodNotAllowed"/>.</returns>
-    public static int Judge(Http3RequestHead head, string acceptedPath) =>
-        !IsOwnOrigin(head) ? Forbidden
-        : !IsAcceptedPath(head.Target, acceptedPath) ? MethodNotAllowed
-        : Accepted;
 
     /// <summary>
     /// Whether the request carries no <c>origin</c>, or exactly one naming <c>https://</c> and the

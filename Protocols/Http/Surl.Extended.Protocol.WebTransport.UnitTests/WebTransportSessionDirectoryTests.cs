@@ -101,4 +101,20 @@ public sealed class WebTransportSessionDirectoryTests
 
         Assert.AreEqual(1, streamIds.Count(streamId => client.ResetCode(streamId) == WebTransportHttp3Codes.BufferedStreamRejected), "16 wait for session 0; the 17th is refused.");
     }
+
+    [TestMethod]
+    public void TryOpenSession_AtTheLimitThenAfterASessionEnds_IsRefusedThenAllowed()
+    {
+        var context = new ExchangeContext(1, new ListenUrl("webtransport", "127.0.0.1", 1), new System.Net.IPEndPoint(0, 1), new System.Net.IPEndPoint(0, 2), new RecordingExchangeLog(), TimeProvider.System, CancellationToken.None);
+        var directory = new WebTransportSessionDirectory(context);
+        var first = directory.TryOpenSession(1);
+
+        var atLimit = directory.TryOpenSession(1);
+        directory.End(0);
+        var afterEnd = directory.TryOpenSession(1);
+
+        Assert.IsTrue(first);
+        Assert.IsFalse(atLimit, "ADR-0117 decision 5.");
+        Assert.IsTrue(afterEnd);
+    }
 }

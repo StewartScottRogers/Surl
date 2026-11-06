@@ -61,19 +61,6 @@ public sealed class WebTransportConnectJudgementTests
         Assert.IsTrue(own);
     }
 
-    [TestMethod]
-    [DataRow("https://other.example", "/echo", 403)]
-    [DataRow("https://example.com", "/other", 405)]
-    [DataRow("https://example.com", "/echo", 200)]
-    public void Judge_OriginThenPath_AnswersTheFirstFailure(string origin, string target, int expected)
-    {
-        var head = Head("example.com", ("origin", origin)) with { Target = target };
-
-        var status = WebTransportConnectJudgement.Judge(head, "/echo");
-
-        Assert.AreEqual(expected, status);
-    }
-
     private static Http3RequestHead Head(string? authority, params (string Name, string Value)[] fields) =>
         new("CONNECT", "/echo", authority, [.. fields.Select(field => new KeyValuePair<string, string>(field.Name, field.Value))], null, false) { Protocol = "webtransport-h3" };
 }

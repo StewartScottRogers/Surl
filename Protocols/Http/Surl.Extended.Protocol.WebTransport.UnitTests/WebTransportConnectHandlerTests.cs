@@ -10,6 +10,7 @@ namespace Surl.Extended.Protocol.WebTransport;
 public sealed class WebTransportConnectHandlerTests
 {
     private const ulong H3RequestIncomplete = 0x10d;
+    private const ulong H3RequestRejected = 0x10b;
 
     public TestContext TestContext { get; set; } = null!;
 
@@ -78,6 +79,7 @@ public sealed class WebTransportConnectHandlerTests
         await UnitTestWebTransport.StartAsync(client, Token, clientSettings: UnitTestWebTransport.Settings(settingsHex));
 
         await UnitTestWebTransport.ConnectAsync(client, Token);
+        await client.UntilAsync(() => client.StopSendingCode(0) is not null, Token);
 
         Assert.AreEqual(WebTransportHttp3Codes.RequirementsNotMet, client.ResetCode(0));
         Assert.AreEqual(WebTransportHttp3Codes.RequirementsNotMet, client.StopSendingCode(0));
@@ -110,10 +112,59 @@ public sealed class WebTransportConnectHandlerTests
     }
 
     [TestMethod]
+    public async Task ServeSessionAsync_SecondSessionWithoutFlowControl_IsResetRequestRejected()
+    {
+        using var client = new Http3TestQuicClient();
+        await UnitTestWebTransport.StartAsync(client, Token);
+        await UnitTestWebTransport.OpenSessionAsync(client, Token);
+
+        client.Send(4, UnitTestWebTransport.Connect(client));
+        await client.UntilAsync(() => client.ResetCode(4) is not null && client.StopSendingCode(4) is not null, Token);
+
+        Assert.AreEqual(H3RequestRejected, client.ResetCode(4), "WTH3 5.1: one session at a time without flow control.");
+        Assert.AreEqual(H3RequestRejected, client.StopSendingCode(4));
+        Assert.IsEmpty(client.StreamSent(4).Data);
+    }
+
+    [TestMethod]
+    public async Task ServeSessionAsync_SeventeenthSessionWithFlowControl_IsResetRequestRejected()
+    {
+        using var client = new Http3TestQuicClient();
+        await UnitTestWebTransport.StartAsync(client, Token, clientSettings: UnitTestWebTransport.FlowControlSettings());
+
+        for (ulong stream = 0; stream < 64; stream += 4)
+        {
+            client.Send(stream, UnitTestWebTransport.Connect(client));
+        }
+
+        await client.UntilAsync(() => Enumerable.Range(0, 16).All(index => client.StreamSent((ulong)index * 4).Data.Length > 0), Token);
+        client.Send(64, UnitTestWebTransport.Connect(client));
+        await client.UntilAsync(() => client.ResetCode(64) is not null, Token);
+
+        Assert.IsTrue(Enumerable.Range(0, 16).All(index => client.Response((ulong)index * 4).Status == "200"), "WTH3 5.2: 16 sessions at a time with flow control.");
+        Assert.AreEqual(H3RequestRejected, client.ResetCode(64));
+    }
+
+    [TestMethod]
+    public async Task ServeSessionAsync_SessionEnded_FreesItsPlaceForTheNextConnect()
+    {
+        using var client = new Http3TestQuicClient();
+        var (log, _) = await UnitTestWebTransport.StartAsync(client, Token);
+        await UnitTestWebTransport.OpenSessionAsync(client, Token);
+        client.Send(0, [], fin: true);
+        await client.UntilAsync(() => log.Notes.Contains("WebTransport session 0 has ended."), Token);
+
+        client.Send(4, UnitTestWebTransport.Connect(client));
+        await client.UntilAsync(() => client.StreamSent(4).Data.Length > 0, Token);
+
+        Assert.AreEqual("200", client.Response(4).Status);
+    }
+
+    [TestMethod]
     public async Task ServeSessionAndServeStreamWithoutSession_NullArguments_Throw()
     {
         var context = new ExchangeContext(1, new ListenUrl("webtransport", "127.0.0.1", 1), new System.Net.IPEndPoint(0, 1), new System.Net.IPEndPoint(0, 2), new RecordingExchangeLog(), TimeProvider.System, CancellationToken.None);
-        var handler = new WebTransportConnectHandler("/", new WebTransportSessionDirectory(context), context);
+        var handler = new WebTransportConnectHandler("/", new WebTransportConnectAuthentication(new AnonymousAuthenticationPolicy().StartHttpConnection(null)), WebTransportFlowControlSettings.Default, new WebTransportSessionDirectory(context), context);
 
         await Assert.ThrowsExactlyAsync<ArgumentNullException>(() => handler.ServeSessionAsync(null!, Token));
         await Assert.ThrowsExactlyAsync<ArgumentNullException>(() => handler.ServeStreamWithoutSessionAsync(null!, Token));

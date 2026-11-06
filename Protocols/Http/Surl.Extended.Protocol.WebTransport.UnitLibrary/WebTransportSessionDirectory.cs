@@ -25,6 +25,7 @@ internal sealed class WebTransportSessionDirectory(ExchangeContext context)
     private readonly Dictionary<ulong, TaskCompletionSource<WebTransportSession?>> settlements = [];
     private readonly HashSet<ulong> ended = [];
     private int held;
+    private int open;
 
     /// <summary>
     /// Settles what the request stream <paramref name="sessionId"/> is: an accepted session, or
@@ -41,12 +42,36 @@ internal sealed class WebTransportSessionDirectory(ExchangeContext context)
         }
     }
 
-    /// <summary>Records that session <paramref name="sessionId"/> has ended: streams naming it from now on get <c>WT_SESSION_GONE</c>.</summary>
+    /// <summary>
+    /// Takes a place for a new session under the connection's session limit (ADR-0117 decision 5);
+    /// <see cref="End"/> gives it back.
+    /// </summary>
+    /// <param name="limit">The sessions the connection may hold at once.</param>
+    /// <returns><see langword="false"/> when the connection holds <paramref name="limit"/> sessions already.</returns>
+    public bool TryOpenSession(int limit)
+    {
+        lock (gate)
+        {
+            if (open >= limit)
+            {
+                return false;
+            }
+
+            open++;
+            return true;
+        }
+    }
+
+    /// <summary>
+    /// Records that session <paramref name="sessionId"/>, which <see cref="TryOpenSession"/> let in,
+    /// has ended: its place is free again, and streams naming it from now on get <c>WT_SESSION_GONE</c>.
+    /// </summary>
     /// <param name="sessionId">The session ID.</param>
     public void End(ulong sessionId)
     {
         lock (gate)
         {
+            open--;
             ended.Add(sessionId);
             settlements.Remove(sessionId);
         }

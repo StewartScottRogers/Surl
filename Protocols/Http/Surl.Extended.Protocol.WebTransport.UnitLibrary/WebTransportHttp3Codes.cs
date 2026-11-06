@@ -20,4 +20,7 @@ public static class WebTransportHttp3Codes
 
     /// <summary><c>WT_REQUIREMENTS_NOT_MET</c> (WTH3 3.1): the client's settings do not allow WebTransport.</summary>
     public const ulong RequirementsNotMet = 0x212c0d48;
+
+    /// <summary><c>WT_FLOW_CONTROL_ERROR</c> (WTH3 5.6): the client broke a session's flow control.</summary>
+    public const ulong FlowControlError = 0x045d4487;
 }

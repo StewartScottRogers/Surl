@@ -40,6 +40,23 @@ internal static class UnitTestWebTransport
     /// <summary>A ClientHello edit whose initial_max_streams_uni is 3: room for the server's control and QPACK streams and no more.</summary>
     public static Func<byte[], byte[]> ClientAllowingThreeUnidirectionalStreams => ReplaceParameters(RecordedParametersBeforeStreamsUni + "090103");
 
+    /// <summary>
+    /// The client's SETTINGS with flow control on (WTH3 5.1): the WebTransport ones, then
+    /// SETTINGS_WT_INITIAL_MAX_DATA (0x2b61), _MAX_STREAMS_UNI (0x2b64) and _MAX_STREAMS_BIDI (0x2b65) = 100.
+    /// </summary>
+    public static byte[] FlowControlSettings(ulong maxData = 1048576, ulong unidirectionalStreams = 100) =>
+        Settings("3301" + "AC7CF00001" + "6B61" + VariableLengthHex(maxData) + "6B64" + VariableLengthHex(unidirectionalStreams) + "6B65" + "4064");
+
+    /// <summary>RFC 9000 section 16's encoding of <paramref name="value"/>, as hex.</summary>
+    public static string VariableLengthHex(ulong value) => Convert.ToHexString(QuicVariableLengthInteger.Encode(value));
+
+    /// <summary>A flow-control capsule (WTH3 5.6): the 4-byte type <paramref name="typeHex"/>, the length, then <paramref name="value"/>.</summary>
+    public static string LimitCapsuleHex(string typeHex, ulong value)
+    {
+        var valueHex = VariableLengthHex(value);
+        return typeHex + VariableLengthHex((ulong)valueHex.Length / 2) + valueHex;
+    }
+
     public static byte[] Settings(string payloadHex) => Http3TestQuicClient.Frame(Http3FrameType.Settings, Convert.FromHexString(payloadHex));
 
     /// <summary>A DATA frame carrying <paramref name="hex"/>: how capsules travel on the CONNECT stream.</summary>
@@ -61,7 +78,9 @@ internal static class UnitTestWebTransport
         bool openQpackStreams = true,
         bool openControlStream = true,
         ExchangeLimits? limits = null,
-        CancellationToken exchangeToken = default)
+        CancellationToken exchangeToken = default,
+        IAuthenticationPolicy? authenticationPolicy = null,
+        WebTransportFlowControlSettings? flowControlSettings = null)
     {
         var log = new RecordingExchangeLog();
         var time = new ManualTimeProvider(new DateTimeOffset(2026, 11, 5, 12, 0, 0, TimeSpan.Zero));
@@ -76,7 +95,7 @@ internal static class UnitTestWebTransport
         {
             Limits = limits ?? ExchangeLimits.Default,
         };
-        _ = client.Serve(new WebTransportApplicationProtocol(acceptedPath, context), time, cancellationToken, WebTransportApplicationProtocol.MaxDatagramFrameSize);
+        _ = client.Serve(new WebTransportApplicationProtocol(acceptedPath, authenticationPolicy ?? new AnonymousAuthenticationPolicy(), flowControlSettings ?? WebTransportFlowControlSettings.Default, context), time, cancellationToken, WebTransportApplicationProtocol.MaxDatagramFrameSize);
         if (openControlStream)
         {
             await client.OpenAsync(cancellationToken, clientSettings ?? WebTransportSettings, openQpackStreams);

@@ -286,6 +286,215 @@ public sealed class WebTransportSessionTests
         Assert.AreEqual(0x100UL, client.CloseCode);
     }
 
+    [TestMethod]
+    public async Task ServeStreamAsync_ClientStreamPastWtMaxStreams_EndsTheSessionWithFlowControlError()
+    {
+        using var client = new Http3TestQuicClient();
+        await StartWithFlowControlAsync(client);
+        client.Send(4, Convert.FromHexString("4041" + "00" + "61"));
+        client.Send(8, Convert.FromHexString("4041" + "00" + "62"));
+        await client.UntilAsync(() => client.StreamSent(4).Data.Length == 1 && client.StreamSent(8).Data.Length == 1, Token);
+
+        client.Send(12, Convert.FromHexString("4041" + "00" + "63"));
+        await client.UntilAsync(() => client.StopSendingCode(0) is not null && client.StopSendingCode(12) is not null && client.StopSendingCode(4) is not null, Token);
+
+        Assert.AreEqual(WebTransportHttp3Codes.FlowControlError, client.ResetCode(0), "WTH3 5.6.3: a third stream past WT_MAX_STREAMS 2.");
+        Assert.AreEqual(WebTransportHttp3Codes.FlowControlError, client.StopSendingCode(0));
+        Assert.AreEqual(WebTransportHttp3Codes.SessionGone, client.ResetCode(4));
+        Assert.AreEqual(WebTransportHttp3Codes.SessionGone, client.StopSendingCode(12));
+        Assert.IsEmpty(client.StreamSent(12).Data, "Nothing of the stream past the limit is echoed.");
+    }
+
+    [TestMethod]
+    public async Task ServeStreamAsync_PayloadPastWtMaxData_EndsTheSessionWithFlowControlError()
+    {
+        using var client = new Http3TestQuicClient();
+        await StartWithFlowControlAsync(client);
+
+        client.Send(4, Convert.FromHexString(UnitTestWebTransport.BidirectionalHeaderHex + "616263646566676869"));
+        await client.UntilAsync(() => client.ResetCode(0) is not null && client.StopSendingCode(4) is not null, Token);
+
+        Assert.AreEqual(WebTransportHttp3Codes.FlowControlError, client.ResetCode(0), "WTH3 5.6.2: 9 bytes past WT_MAX_DATA 8.");
+        Assert.IsEmpty(client.StreamSent(4).Data, "Data past the limit is refused, not echoed.");
+        Assert.AreEqual(WebTransportHttp3Codes.SessionGone, client.StopSendingCode(4));
+    }
+
+    [TestMethod]
+    public async Task ServeStreamAsync_HalfTheDataWindowRead_RaisesWtMaxDataToTheBytesReadPlusTheWindow()
+    {
+        using var client = new Http3TestQuicClient();
+        await StartWithFlowControlAsync(client);
+
+        client.Send(4, Convert.FromHexString(UnitTestWebTransport.BidirectionalHeaderHex + "6162636465"));
+        await client.UntilAsync(() => client.StreamSent(4).Data.Length == 5 && client.Response(0).Body.Count > 0, Token);
+
+        Assert.AreEqual(UnitTestWebTransport.LimitCapsuleHex("990B4D3D", 13), Convert.ToHexString([.. client.Response(0).Body]), "WT_MAX_DATA 5 + 8 once 4 of the 8 are read (WTH3 5.6.2).");
+        Assert.IsFalse(client.HasEnded(0));
+    }
+
+    [TestMethod]
+    public async Task ServeStreamAsync_HalfTheDataWindowReadNear_MaxFilesize_RaisesWtMaxDataNoFurtherThanIt()
+    {
+        using var client = new Http3TestQuicClient();
+        await StartWithFlowControlAsync(client, ExchangeLimits.Default with { MaxUploadBytes = 10 });
+
+        client.Send(4, Convert.FromHexString(UnitTestWebTransport.BidirectionalHeaderHex + "6162636465"));
+        await client.UntilAsync(() => client.StreamSent(4).Data.Length == 5 && client.Response(0).Body.Count > 0, Token);
+
+        Assert.AreEqual(UnitTestWebTransport.LimitCapsuleHex("990B4D3D", 10), Convert.ToHexString([.. client.Response(0).Body]), "ADR-0117 decision 4: never past --max-filesize.");
+    }
+
+    [TestMethod]
+    public async Task ServeStreamAsync_ClientStreamFinished_RaisesWtMaxStreamsByTheStreamClosed()
+    {
+        using var client = new Http3TestQuicClient();
+        await StartWithFlowControlAsync(client);
+
+        client.Send(4, Convert.FromHexString(UnitTestWebTransport.BidirectionalHeaderHex + "61"), fin: true);
+        await client.UntilAsync(() => client.StreamSent(4).Fin && client.Response(0).Body.Count > 0, Token);
+
+        Assert.AreEqual(UnitTestWebTransport.LimitCapsuleHex("990B4D3F", 3), Convert.ToHexString([.. client.Response(0).Body]), "Bidirectional WT_MAX_STREAMS 1 closed + 2.");
+    }
+
+    [TestMethod]
+    public async Task ServeStreamAsync_ClientsWtMaxDataReached_EchoesUpToItSendsWtDataBlockedAndResumesWhenRaised()
+    {
+        using var client = new Http3TestQuicClient();
+        await StartWithFlowControlAsync(client, clientSettings: UnitTestWebTransport.FlowControlSettings(maxData: 2));
+        client.Send(4, Convert.FromHexString(UnitTestWebTransport.BidirectionalHeaderHex + "61626364"));
+        await client.UntilAsync(() => client.StreamSent(4).Data.Length == 2 && client.Response(0).Body.Count == 12, Token);
+
+        Assert.AreEqual(
+            UnitTestWebTransport.LimitCapsuleHex("990B4D3D", 12) + UnitTestWebTransport.LimitCapsuleHex("990B4D41", 2),
+            Convert.ToHexString([.. client.Response(0).Body]),
+            "The server's own WT_MAX_DATA 4 + 8 for the 4 bytes read, then WT_DATA_BLOCKED at the client's limit 2 (WTH3 5.6.4).");
+
+        client.Send(0, UnitTestWebTransport.Data(UnitTestWebTransport.LimitCapsuleHex("990B4D3D", 4)));
+        await client.UntilAsync(() => client.StreamSent(4).Data.Length == 4, Token);
+
+        Assert.AreEqual("61626364", UnitTestWebTransport.SentHex(client, 4));
+    }
+
+    [TestMethod]
+    public async Task ServeStreamAsync_ClientsUnidirectionalWtMaxStreamsReached_SendsWtStreamsBlockedAndAnswersWhenRaised()
+    {
+        using var client = new Http3TestQuicClient();
+        await StartWithFlowControlAsync(client, clientSettings: UnitTestWebTransport.FlowControlSettings(unidirectionalStreams: 0), openQpackStreams: false);
+        client.Send(Http3TestQuicClient.EncoderStreamId, Convert.FromHexString(UnitTestWebTransport.UnidirectionalHeaderHex + "78"), fin: true);
+        await client.UntilAsync(() => client.Response(0).Body.Count > 0, Token);
+
+        Assert.AreEqual(UnitTestWebTransport.LimitCapsuleHex("990B4D44", 0), Convert.ToHexString([.. client.Response(0).Body]), "Unidirectional WT_STREAMS_BLOCKED at 0 (WTH3 5.6.5).");
+
+        client.Send(0, UnitTestWebTransport.Data(UnitTestWebTransport.LimitCapsuleHex("990B4D40", 1)));
+        await client.UntilAsync(() => client.StreamSent(UnitTestWebTransport.ServerAnswerStreamId).Fin, Token);
+
+        Assert.AreEqual(UnitTestWebTransport.UnidirectionalHeaderHex + "78", UnitTestWebTransport.SentHex(client, UnitTestWebTransport.ServerAnswerStreamId));
+    }
+
+    [TestMethod]
+    [DataRow("990B4D3D", 5UL, DisplayName = "WT_MAX_DATA below the client's initial 1048576")]
+    [DataRow("990B4D40", 100UL, DisplayName = "Unidirectional WT_MAX_STREAMS equal to the last")]
+    [DataRow("990B4D3F", 99UL, DisplayName = "Bidirectional WT_MAX_STREAMS below the last")]
+    [DataRow("990B4D40", (1UL << 60) + 1, DisplayName = "Unidirectional WT_MAX_STREAMS above 2^60")]
+    [DataRow("990B4D3F", (1UL << 60) + 1, DisplayName = "Bidirectional WT_MAX_STREAMS above 2^60")]
+    public async Task ServeAsync_ClientLimitThatDoesNotRaiseItsLast_EndsTheSessionWithFlowControlError(string typeHex, ulong limit)
+    {
+        using var client = new Http3TestQuicClient();
+        await StartWithFlowControlAsync(client);
+
+        client.Send(0, UnitTestWebTransport.Data(UnitTestWebTransport.LimitCapsuleHex(typeHex, limit)));
+        await client.UntilAsync(() => client.ResetCode(0) is not null, Token);
+
+        Assert.AreEqual(WebTransportHttp3Codes.FlowControlError, client.ResetCode(0));
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_ClientRaisesItsBidirectionalLimitAndSaysItIsBlocked_KeepsServingTheSession()
+    {
+        using var client = new Http3TestQuicClient();
+        var (log, _) = await StartWithFlowControlAsync(client);
+
+        client.Send(0, UnitTestWebTransport.Data(UnitTestWebTransport.LimitCapsuleHex("990B4D3F", 101) + UnitTestWebTransport.LimitCapsuleHex("990B4D41", 3)));
+        await client.UntilAsync(() => log.Notes.Contains("The client sent capsule 0x190b4d41 with 3 on session 0."), Token);
+
+        Assert.Contains("The client sent capsule 0x190b4d3f with 101 on session 0.", log.Notes);
+        Assert.IsFalse(client.HasEnded(0));
+    }
+
+    [TestMethod]
+    [DataRow("990B4D3E", DisplayName = "WT_MAX_STREAM_DATA")]
+    [DataRow("990B4D42", DisplayName = "WT_STREAM_DATA_BLOCKED")]
+    public async Task ServeAsync_CapsuleHttp3Prohibits_ResetsTheConnectStreamWithMessageError(string typeHex)
+    {
+        using var client = new Http3TestQuicClient();
+        await StartWithFlowControlAsync(client);
+
+        client.Send(0, UnitTestWebTransport.Data(UnitTestWebTransport.LimitCapsuleHex(typeHex, 5)));
+        await client.UntilAsync(() => client.ResetCode(0) is not null, Token);
+
+        Assert.AreEqual(H3MessageError, client.ResetCode(0), "WTH3 5.4.");
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_FlowControlCapsulesWithFlowControlOff_AreIgnored()
+    {
+        using var client = new Http3TestQuicClient();
+        await UnitTestWebTransport.StartAsync(client, Token);
+        await UnitTestWebTransport.OpenSessionAsync(client, Token);
+
+        client.Send(0, UnitTestWebTransport.Data(UnitTestWebTransport.LimitCapsuleHex("990B4D3D", 0) + UnitTestWebTransport.LimitCapsuleHex("990B4D3E", 5)));
+        client.Send(4, Convert.FromHexString(UnitTestWebTransport.BidirectionalHeaderHex + "61"), fin: true);
+        await client.UntilAsync(() => client.StreamSent(4).Fin, Token);
+
+        Assert.IsFalse(client.HasEnded(0), "WTH3 5.1: MUST ignore them.");
+        Assert.IsEmpty(client.Response(0).Body, "No flow-control capsule is sent with flow control off.");
+    }
+
+    [TestMethod]
+    public async Task ServeStreamAsync_PayloadReachesMaxFilesize_ClosesTheSessionWithCode1ThenFin()
+    {
+        using var client = new Http3TestQuicClient();
+        var (log, _) = await UnitTestWebTransport.StartAsync(client, Token, limits: ExchangeLimits.Default with { MaxUploadBytes = 4 });
+        await UnitTestWebTransport.OpenSessionAsync(client, Token);
+
+        client.Send(4, Convert.FromHexString(UnitTestWebTransport.BidirectionalHeaderHex + "61626364"));
+        await client.UntilAsync(() => client.StreamSent(0).Fin && client.ResetCode(4) is not null, Token);
+
+        var close = "6843" + "1E" + "00000001" + Convert.ToHexString(Encoding.ASCII.GetBytes("session data limit reached"));
+        Assert.AreEqual(close, Convert.ToHexString([.. client.Response(0).Body]), "ADR-0117 decision 8.");
+        Assert.AreEqual(WebTransportHttp3Codes.SessionGone, client.ResetCode(4));
+        Assert.Contains("Session 0 was closed: its payload reached --max-filesize (4 bytes).", log.Notes);
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_DatagramsReachMaxFilesize_CloseTheSessionWithCode1()
+    {
+        using var client = new Http3TestQuicClient(UnitTestWebTransport.ClientOfferingDatagramFrames);
+        await UnitTestWebTransport.StartAsync(client, Token, limits: ExchangeLimits.Default with { MaxUploadBytes = 2 });
+        await UnitTestWebTransport.OpenSessionAsync(client, Token);
+
+        UnitTestWebTransport.SendDatagram(client, "00" + "6869");
+        await client.UntilAsync(() => client.StreamSent(0).Fin, Token);
+
+        Assert.StartsWith("6843" + "1E" + "00000001", Convert.ToHexString([.. client.Response(0).Body]));
+        Assert.IsFalse(client.OneRttFrames<QuicDatagramFrame>().Any(), "The datagram that reached the limit is not echoed.");
+    }
+
+    // Starts the server with WT_MAX_STREAMS 2 each way and an 8-byte WT_MAX_DATA window, the client turning flow control on, and opens session 0.
+    private async Task<(RecordingExchangeLog Log, ManualTimeProvider Time)> StartWithFlowControlAsync(
+        Http3TestQuicClient client, ExchangeLimits? limits = null, byte[]? clientSettings = null, bool openQpackStreams = true)
+    {
+        var started = await UnitTestWebTransport.StartAsync(
+            client,
+            Token,
+            clientSettings: clientSettings ?? UnitTestWebTransport.FlowControlSettings(),
+            openQpackStreams: openQpackStreams,
+            limits: limits,
+            flowControlSettings: new WebTransportFlowControlSettings(2, 8));
+        await UnitTestWebTransport.OpenSessionAsync(client, Token);
+        return started;
+    }
+
     // The index among the 1-RTT frames received of the STREAM frame on streamId whose data holds hex.
     private static int FrameIndex(Http3TestQuicClient client, ulong streamId, string hex) =>
         client.Quic.FramesReceived[QuicPacketType.OneRtt].FindIndex(frame =>
