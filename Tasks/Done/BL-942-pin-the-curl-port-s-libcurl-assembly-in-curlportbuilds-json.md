@@ -8,7 +8,7 @@ depends-on: []
 touches: [Conformance/Surl.Conformance.UnitLibrary, Conformance/Surl.Conformance.UnitTests, CurlPortBuilds.json]
 requirement: FR-057
 created: 2026-11-06
-completed:
+completed: 2026-11-06
 ---
 # BL-942 — Pin the Curl port's Libcurl assembly in CurlPortBuilds.json as kind library and choose it for a libcurl driver
 
@@ -53,20 +53,32 @@ port-side libcurl driver may call, refusing an unpinned one.
 
 ## Acceptance criteria
 
-- [ ] `CurlPortBuilds.json` has a `win-x64` entry with `"kind": "library"`, SHA-256
+- [x] `CurlPortBuilds.json` has a `win-x64` entry with `"kind": "library"`, SHA-256
       `613976A7CC3DA746AB74819C6A526D676A39998D56B5470D5C527A902D7C8311` and the commit of the `win-x64`
       curl entry, and `CurlPortClientPinsTests.Parse_RepositoryPinFile_PinsTheLibraryAtTheCommitOfTheCurlOnWindows` passes.
-- [ ] An unpinned library is refused: `CurlPortClientLocatorTests.LocateLibrary_UnpinnedLibrary_IsRefused`,
+- [x] An unpinned library is refused: `CurlPortClientLocatorTests.LocateLibrary_UnpinnedLibrary_IsRefused`,
       `RequirePinnedLibrary_FileMatchesOnlyACurlPin_IsRefused`, `RequirePinnedLibrary_FileMatchesAnUpstreamPinToo_IsRefused`
       and `CurlPortLibcurlChoiceTests.Choose_RequestedFileIsUnpinned_IsRefused` pass.
-- [ ] `CurlPortClientRunnerTests.Constructor_LocationHoldsTheLibrary_ThrowsArgumentExceptionAndNeverRunsIt`,
+- [x] `CurlPortClientRunnerTests.Constructor_LocationHoldsTheLibrary_ThrowsArgumentExceptionAndNeverRunsIt`,
       `CurlPortClientPinsTests.Parse_NoKind_IsACurl` and `Parse_UnknownKind_ThrowsNamingIt` pass.
-- [ ] `dotnet build Conformance/Surl.Conformance.UnitLibrary -warnaserror` is clean, the fast tests are
+- [x] `dotnet build Conformance/Surl.Conformance.UnitLibrary -warnaserror` is clean, the fast tests are
       green, and `Surl.Conformance.UnitLibrary` keeps 100% line and branch coverage.
 
 ## Notes
+
+- Taken from stash commit `90c03679` ("darkfactory BL-597 20261106-033059"), found through
+  `git log -g refs/stash` because `git stash list` is denied in lanes. The stash was read, never popped,
+  applied or dropped. The tracked files came across with `git diff <stash>^ <stash> -- <paths> | git apply`,
+  and the three untracked files with `git show <stash>^3:<path>`. The files the context names for later
+  split tasks were left alone.
+- The restored untracked files came out with LF line endings, so `dotnet format whitespace` converted
+  them to CRLF. `dotnet format --verify-no-changes` is now clean.
+- Verified on 2026-11-06: the Conformance build with `-warnaserror` is clean. Surl.Conformance.UnitTests has
+  835 tests and all pass, the eight named tests among them. Cobertura gives `Surl.Conformance.UnitLibrary`
+  a line rate and branch rate of 1. The full build and the fast tests across the solution are green.
 
 ## Log
 
 - 2026-11-06: Created.
 - 2026-11-06: Backlog -> Doing.
+- 2026-11-06: Doing -> Done. CurlPortBuilds.json pins the Curl port's Libcurl assembly as kind library; Surl.Conformance locates, verifies and chooses it and never runs it as a curl
