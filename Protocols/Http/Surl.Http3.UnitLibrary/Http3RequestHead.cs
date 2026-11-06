@@ -23,4 +23,11 @@ public sealed record Http3RequestHead(
     /// every other request.
     /// </summary>
     public string? Protocol { get; init; }
+
+    /// <summary>
+    /// The <c>:scheme</c> as the client sent it - <c>https</c>, or any other value, which a handler
+    /// judges (an extended <c>CONNECT</c>'s protocol may require <c>https</c>) - or
+    /// <see langword="null"/> for a <c>CONNECT</c> that is not extended, which carries none.
+    /// </summary>
+    public string? Scheme { get; init; }
 }

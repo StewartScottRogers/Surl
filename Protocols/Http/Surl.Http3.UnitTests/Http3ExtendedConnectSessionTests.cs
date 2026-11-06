@@ -17,6 +17,9 @@ public sealed class Http3ExtendedConnectSessionTests
     private const ulong H3ExcessiveLoad = 0x107;
     private const ulong H3MessageError = 0x10e;
 
+    // WT_REQUIREMENTS_NOT_MET (draft-ietf-webtrans-http3-16 section 9.5).
+    private const ulong WtRequirementsNotMet = 0x212c0d48;
+
     public TestContext TestContext { get; set; } = null!;
 
     private CancellationToken Token => TestContext.CancellationToken;
@@ -262,6 +265,43 @@ public sealed class Http3ExtendedConnectSessionTests
         Assert.IsNull(await session.AcceptStreamAsync(Token));
         Assert.IsNull(await session.ReceiveDatagramAsync(Token));
         Assert.AreSame(session.Head, session.RequestStream.Head);
+    }
+
+    [TestMethod]
+    public async Task CloseConnection_ACodeOfTheSessionsProtocol_ClosesTheConnectionWithThatCode()
+    {
+        using var client = new Http3TestQuicClient();
+
+        await OpenSessionAsync(client, (session, _) =>
+        {
+            session.CloseConnection((Http3ErrorCode)WtRequirementsNotMet, "the client's SETTINGS lack what the protocol needs");
+            return Task.FromResult(true);
+        });
+        await client.UntilAsync(() => client.CloseCode is not null, Token);
+
+        Assert.AreEqual(WtRequirementsNotMet, client.CloseCode, "ADR-0117 decision 0: WT_REQUIREMENTS_NOT_MET closes the connection.");
+    }
+
+    [TestMethod]
+    public async Task CloseConnection_NoReason_ThrowsArgumentNull()
+    {
+        using var client = new Http3TestQuicClient();
+
+        var thrown = await OpenSessionAsync(client, (session, _) =>
+            Task.FromResult(Assert.ThrowsExactly<ArgumentNullException>(() => session.CloseConnection(Http3ErrorCode.NoError, null!))));
+
+        Assert.AreEqual("reason", thrown.ParamName);
+    }
+
+    [TestMethod]
+    public async Task AddShutdownWrite_NoWrite_ThrowsArgumentNull()
+    {
+        using var client = new Http3TestQuicClient();
+
+        var thrown = await OpenSessionAsync(client, (session, _) =>
+            Task.FromResult(Assert.ThrowsExactly<ArgumentNullException>(() => session.AddShutdownWrite(null!))));
+
+        Assert.AreEqual("write", thrown.ParamName);
     }
 
     private static byte[] Data(string hex) => Http3TestQuicClient.Frame(Http3FrameType.Data, Convert.FromHexString(hex));

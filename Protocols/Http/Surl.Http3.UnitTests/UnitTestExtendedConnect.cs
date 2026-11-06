@@ -56,10 +56,12 @@ internal static class UnitTestExtendedConnect
         ExchangeLimits? limits = null,
         IHttp3RequestStreamHandler? requestHandler = null,
         bool openQpackStreams = true,
-        byte[]? clientSettings = null)
+        byte[]? clientSettings = null,
+        CancellationToken exchangeToken = default,
+        ManualTimeProvider? time = null)
     {
         var log = new RecordingExchangeLog();
-        var time = new ManualTimeProvider(new DateTimeOffset(2026, 9, 28, 12, 0, 0, TimeSpan.Zero));
+        time ??= NewClock();
         var context = new ExchangeContext(
             1,
             new ListenUrl("https", "127.0.0.1", 18050).WithBoundPort(18050),
@@ -67,7 +69,7 @@ internal static class UnitTestExtendedConnect
             new IPEndPoint(IPAddress.Loopback, 50000),
             log,
             time,
-            CancellationToken.None)
+            exchangeToken)
         {
             Limits = limits ?? ExchangeLimits.Default,
         };
@@ -76,6 +78,9 @@ internal static class UnitTestExtendedConnect
         await client.OpenAsync(cancellationToken, clientSettings, openQpackStreams);
         return log;
     }
+
+    /// <summary>A clock stopped at the tests' start, which a test moves on itself.</summary>
+    public static ManualTimeProvider NewClock() => new(new DateTimeOffset(2026, 9, 28, 12, 0, 0, TimeSpan.Zero));
 
     private static Func<byte[], byte[]> ReplaceParameters(string toHex)
     {

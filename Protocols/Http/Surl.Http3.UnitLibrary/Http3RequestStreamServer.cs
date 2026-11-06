@@ -75,6 +75,10 @@ internal sealed class Http3RequestStreamServer(
         {
             context.Log.Note($"The client stopped stream {Stream.Id} with STOP_SENDING 0x{Stream.StopSendingErrorCode:x} before its answer was sent: {stopped.Message}");
         }
+        finally
+        {
+            extendedConnect.Decide(Stream.Id);
+        }
     }
 
     private async Task ServeRequestAsync(CancellationToken cancellationToken)
@@ -189,14 +193,22 @@ internal sealed class Http3RequestStreamServer(
 
     private async Task HandAsync(Http3RequestHead head, CancellationToken cancellationToken)
     {
+
         // An extended CONNECT's stream stays open for capsules, which never wait on a HasMoreAsync.
         var isAnnounced = head.Protocol is not null || head.ContentLength > 0 || head.ExpectsContinue || (head.ContentLength is null && await reader.HasMoreAsync(cancellationToken));
         var stream = new Http3RequestStream(connection, reader, fieldSections, frameLimit, extendedConnect, head, isAnnounced, context.Log);
-        await (head.Protocol is { } protocol ? ServeExtendedConnectAsync(stream, protocol, cancellationToken) : handler.ServeRequestStreamAsync(stream, cancellationToken));
+        await (head.Protocol is { } protocol ? ServeExtendedConnectAsync(stream, protocol, cancellationToken) : ServeOrdinaryRequestAsync(stream, cancellationToken));
         if (stream.IsRequestBodyStillArriving && !stream.HasStoppedRequest)
         {
             await stream.StopRequestAsync(Http3ErrorCode.NoError, cancellationToken);
         }
+    }
+
+    // An ordinary request is no session: the datagrams held for its stream are dropped now, not when it ends.
+    private Task ServeOrdinaryRequestAsync(Http3RequestStream stream, CancellationToken cancellationToken)
+    {
+        extendedConnect.Decide(Stream.Id);
+        return handler.ServeRequestStreamAsync(stream, cancellationToken);
     }
 
     private async Task ServeExtendedConnectAsync(Http3RequestStream stream, string protocol, CancellationToken cancellationToken)

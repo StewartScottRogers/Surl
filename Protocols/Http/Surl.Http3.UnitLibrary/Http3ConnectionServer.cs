@@ -33,11 +33,21 @@ namespace Surl.Http3;
 /// just stops.
 /// </para>
 /// <para>
+/// With <see cref="Http3ServerOptions.ShutdownGrace"/> set (ADR-0117 decision 6), the cancellation
+/// instead marks every extended <c>CONNECT</c> session shutting down and awaits the writes each added
+/// with <see cref="Http3ExtendedConnectSession.AddShutdownWrite"/>, then sends <c>GOAWAY</c>, keeps
+/// accepting and serving streams until the request streams open at <c>GOAWAY</c> are done or the
+/// grace, counted from the cancellation, has passed, and only then cuts the rest off and closes with
+/// <c>H3_NO_ERROR</c>.
+/// </para>
+/// <para>
 /// With <see cref="Http3ServerOptions.ExtendedConnectHandlers"/> registered (ADR-0086 decision 3),
 /// the server's <c>SETTINGS</c> add <c>SETTINGS_ENABLE_CONNECT_PROTOCOL</c> = 1 and
 /// <c>SETTINGS_H3_DATAGRAM</c> = 1, then <see cref="Http3ServerOptions.FurtherSettings"/>; each QUIC
 /// <c>DATAGRAM</c> is an HTTP datagram handed to the session its quarter stream ID names (one cut
-/// short or past 2^60 - 1 is <c>H3_DATAGRAM_ERROR</c>, one for no open session is dropped); and a
+/// short or past 2^60 - 1 is <c>H3_DATAGRAM_ERROR</c>; one for no open session is held for it, 64 a
+/// connection for at most the head timeout, and dropped past either); a handler may close the
+/// connection with a code of its own (<see cref="Http3ExtendedConnectSession.CloseConnection"/>); and a
 /// client unidirectional stream of a registered type is read as its type and a session ID and
 /// handed over, a session ID that is not a client-initiated bidirectional stream ID being
 /// <c>H3_ID_ERROR</c>. With none registered, every byte the server sends is as before.
@@ -58,31 +68,35 @@ public sealed class Http3ConnectionServer(IHttp3RequestStreamHandler handler, Ht
     private readonly ExchangeContext context = context ?? throw new ArgumentNullException(nameof(context));
     private readonly Http3FieldSections fieldSections = new(context.Limits.MaxMessageBytes);
     private readonly Http3FrameLimit frameLimit = new(context.Limits.MaxMessageBytes);
-    private readonly Http3ExtendedConnect extendedConnect = new(options.ExtendedConnectHandlers, context.Log);
+    private readonly Http3ExtendedConnect extendedConnect = new(options.ExtendedConnectHandlers, context.Log, context.TimeProvider, context.Limits.HeadTimeout);
     private readonly Lock gate = new();
     private readonly List<Task> serving = [];
+    private readonly List<Task> requestStreams = [];
     private readonly HashSet<ulong> criticalStreamTypes = [];
     private Http3ConnectionException? error;
     private ulong nextRequestStreamId;
+    private ulong? drainedGoAwayStreamId;
 
     /// <inheritdoc />
     public async Task ServeAsync(QuicApplicationConnection connection, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(connection);
         using var failure = new CancellationTokenSource();
-        using var streamsToken = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, context.CancellationToken, failure.Token);
+        using var graceOver = new CancellationTokenSource();
+
+        // With a shutdown grace, the exchange's cancellation starts DrainAtShutdownAsync, which cuts the streams off once the grace has passed.
+        var cutOffAtCancellation = options.ShutdownGrace is null ? context.CancellationToken : CancellationToken.None;
+        // The datagram reader leaves out the connection's end, which ends it with no datagram left instead.
+        using var stopped = CancellationTokenSource.CreateLinkedTokenSource(cutOffAtCancellation, failure.Token, graceOver.Token);
+        using var streamsToken = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, stopped.Token);
         var control = await OpenServerStreamsAsync(connection, cancellationToken);
         if (control is not null)
         {
-            if (extendedConnect.IsEnabled)
-            {
-                Start(() => DeliverDatagramsAsync(connection, streamsToken.Token), failure, streamsToken.Token);
-            }
-
+            StartConnectionWork(connection, control, failure, graceOver, stopped.Token, streamsToken.Token);
             await AcceptStreamsAsync(connection, failure, streamsToken.Token);
         }
 
-        await streamsToken.CancelAsync();
+        await stopped.CancelAsync();
         await Task.WhenAll(TakeServing());
         await EndAsync(connection, control, cancellationToken);
     }
@@ -113,6 +127,55 @@ public sealed class Http3ConnectionServer(IHttp3RequestStreamHandler handler, Ht
         return stream;
     }
 
+    // The work beside accepting streams: HTTP datagrams and a handler's close for extended CONNECT, and the drain for a shutdown grace.
+    private void StartConnectionWork(QuicApplicationConnection connection, QuicStream control, CancellationTokenSource failure, CancellationTokenSource graceOver, CancellationToken stoppedToken, CancellationToken cancellationToken)
+    {
+        if (extendedConnect.IsEnabled)
+        {
+            Start(() => DeliverDatagramsAsync(connection, stoppedToken), failure, stoppedToken);
+            Start(() => extendedConnect.ThrowWhenConnectionCloseRequestedAsync(cancellationToken), failure, cancellationToken);
+        }
+
+        if (options.ShutdownGrace is { } grace)
+        {
+            Start(() => DrainAtShutdownAsync(connection, control, grace, failure, graceOver, cancellationToken), failure, cancellationToken);
+        }
+    }
+
+    // ADR-0117 decision 6: once the exchange is cancelled, the sessions' shutdown writes, then GOAWAY,
+    // then the open request streams served until they are done or the grace, counted from the
+    // cancellation, has passed.
+    private async Task DrainAtShutdownAsync(QuicApplicationConnection connection, QuicStream control, TimeSpan grace, CancellationTokenSource failure, CancellationTokenSource graceOver, CancellationToken cancellationToken)
+    {
+        await WhenCancelledAsync(context.CancellationToken, cancellationToken);
+        using var stopGraceTimer = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        var graceTimer = Task.Delay(Http3HeadTimeoutDelay.For(grace), context.TimeProvider, stopGraceTimer.Token);
+
+        // The writes are awaited for at most the grace; one still running is cut off with the streams.
+        await Task.WhenAny(Start(() => extendedConnect.ShutDownAsync(cancellationToken), failure, cancellationToken), graceTimer);
+        ulong goAwayStreamId;
+        Task[] open;
+        lock (gate)
+        {
+            goAwayStreamId = nextRequestStreamId;
+            open = [.. requestStreams];
+        }
+
+        await connection.WriteAsync(control, Http3FrameWriter.GoAway(goAwayStreamId), false, cancellationToken);
+        drainedGoAwayStreamId = goAwayStreamId;
+        await Task.WhenAny(Task.WhenAll(open), graceTimer);
+        await stopGraceTimer.CancelAsync();
+        await graceOver.CancelAsync();
+    }
+
+    // Completes when awaited is cancelled; throws OperationCanceledException when cancellationToken is first.
+    private static async Task WhenCancelledAsync(CancellationToken awaited, CancellationToken cancellationToken)
+    {
+        var cancelled = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        await using var registration = awaited.Register(() => cancelled.TrySetResult());
+        await cancelled.Task.WaitAsync(cancellationToken);
+    }
+
     private async Task AcceptStreamsAsync(QuicApplicationConnection connection, CancellationTokenSource failure, CancellationToken cancellationToken)
     {
         while (await AcceptStreamOrNullAsync(connection, cancellationToken) is { } stream)
@@ -120,12 +183,30 @@ public sealed class Http3ConnectionServer(IHttp3RequestStreamHandler handler, Ht
             var reader = new Http3StreamReader(connection, stream);
             if (stream.IsBidirectional)
             {
-                nextRequestStreamId = stream.Id + 4;
-                Start(() => new Http3RequestStreamServer(connection, reader, handler, options, context, fieldSections, extendedConnect).ServeAsync(cancellationToken), failure, cancellationToken);
+                extendedConnect.Accept(stream.Id);
+
+                // Numbered and listed in one step under the gate, so the drain's GOAWAY never names a
+                // stream it does not wait for; the stream is served only once the gate is let go.
+                var listed = new TaskCompletionSource();
+                lock (gate)
+                {
+                    nextRequestStreamId = stream.Id + 4;
+                    requestStreams.RemoveAll(task => task.IsCompleted);
+                    requestStreams.Add(Start(
+                        async () =>
+                        {
+                            await listed.Task;
+                            await new Http3RequestStreamServer(connection, reader, handler, options, context, fieldSections, extendedConnect).ServeAsync(cancellationToken);
+                        },
+                        failure,
+                        cancellationToken));
+                }
+
+                listed.SetResult();
             }
             else
             {
-                Start(() => ServeUnidirectionalStreamAsync(connection, reader, cancellationToken), failure, cancellationToken);
+                _ = Start(() => ServeUnidirectionalStreamAsync(connection, reader, cancellationToken), failure, cancellationToken);
             }
         }
     }
@@ -143,12 +224,14 @@ public sealed class Http3ConnectionServer(IHttp3RequestStreamHandler handler, Ht
         }
     }
 
-    private void Start(Func<Task> work, CancellationTokenSource failure, CancellationToken cancellationToken)
+    private Task Start(Func<Task> work, CancellationTokenSource failure, CancellationToken cancellationToken)
     {
         lock (gate)
         {
             serving.RemoveAll(task => task.IsCompleted);
-            serving.Add(RunAsync(work, failure, cancellationToken));
+            var task = RunAsync(work, failure, cancellationToken);
+            serving.Add(task);
+            return task;
         }
     }
 
@@ -313,6 +396,13 @@ public sealed class Http3ConnectionServer(IHttp3RequestStreamHandler handler, Ht
         {
             context.Log.Note($"{error.Message}; closed the HTTP/3 connection with {error.Code}.");
             await connection.CloseAsync((ulong)error.Code, cancellationToken);
+            return;
+        }
+
+        if (drainedGoAwayStreamId is { } goAwayStreamId)
+        {
+            context.Log.Note($"The exchange was cancelled; sent GOAWAY {goAwayStreamId}, served the open streams for up to the shutdown grace and closed the HTTP/3 connection with H3_NO_ERROR.");
+            await connection.CloseAsync((ulong)Http3ErrorCode.NoError, cancellationToken);
             return;
         }
 

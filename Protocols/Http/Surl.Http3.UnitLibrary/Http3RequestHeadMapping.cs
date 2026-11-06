@@ -136,7 +136,7 @@ public static class Http3RequestHeadMapping
 
         var target = isPlainConnect ? pseudoHeaders[":authority"] : pseudoHeaders[":path"];
 
-        return (new Http3RequestHead(method, target, Authority(pseudoHeaders, fields), fields, contentLength, ExpectsContinue(fields)) { Protocol = protocol }, null);
+        return (new Http3RequestHead(method, target, Authority(pseudoHeaders, fields), fields, contentLength, ExpectsContinue(fields)) { Protocol = protocol, Scheme = pseudoHeaders.GetValueOrDefault(":scheme") }, null);
     }
 
     // RFC 9220 section 3 by way of RFC 8441 section 4: :protocol only on CONNECT, which then carries :scheme and :path too.

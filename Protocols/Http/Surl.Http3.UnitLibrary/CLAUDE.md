@@ -22,12 +22,19 @@ Public, what a server uses:
   `--max-message` `:status 431` itself, resets a malformed request `H3_MESSAGE_ERROR`, and calls
   the handler once per well-formed request on a task of its own. A handler that returns with the
   request body still arriving is followed by `STOP_SENDING` `H3_NO_ERROR`. On cancellation it
-  sends `GOAWAY` and closes `H3_NO_ERROR`.
+  cuts the streams off, sends `GOAWAY` and closes `H3_NO_ERROR`; with `ShutdownGrace` set it
+  drains instead (BL-894, ADR-0117 decision 6): every extended CONNECT session is marked
+  shutting down and its `AddShutdownWrite` writes are awaited for at most the grace (one that
+  throws `InvalidOperationException`, a stream already ended, is logged), then `GOAWAY`, then streams are
+  still accepted and served until the request streams open at `GOAWAY` are done or the grace
+  (from the cancellation, on the exchange's clock) has passed, then the rest are cut off and it
+  closes `H3_NO_ERROR`.
 - `Http3ServerOptions` - `ServerFieldValue`, the `server` field of the `431` and `501` the
   connection writes itself (the HTTP server sets `surl`; null leaves it out);
   `ExtendedConnectHandlers` (BL-411, ADR-0086 decision 3), empty by default; and
   `FurtherSettings`, identifier and value pairs sent after the derived `SETTINGS`, empty by
-  default. The HTTP server sets neither list, so its bytes are unchanged.
+  default; and `ShutdownGrace`, null by default (no drain). The HTTP server sets none of the
+  three, so its bytes are unchanged.
 - `IHttp3ExtendedConnectHandler` - one `:protocol` (RFC 9220), with an optional
   `BidirectionalStreamSignal` and `UnidirectionalStreamType` (WebTransport's `0x41` and `0x54`),
   `ServeSessionAsync` and `ServeStreamWithoutSessionAsync`. With one registered: `SETTINGS` add
@@ -36,8 +43,11 @@ Public, what a server uses:
   (otherwise `H3_MESSAGE_ERROR`; with none registered `:protocol` stays an unknown pseudo-header);
   an unregistered `:protocol` is answered `:status 501`, `content-length: 0`, FIN, then
   `STOP_SENDING` `H3_NO_ERROR`; each QUIC `DATAGRAM` is read as a quarter stream ID and payload
-  (cut short or past 2^60 - 1 closes `H3_DATAGRAM_ERROR`, one for no open session is dropped with
-  a log note); a stream opening with a registered signal (only as its first integer; later it is
+  (cut short or past 2^60 - 1 closes `H3_DATAGRAM_ERROR`; one for no open session whose stream is
+  not yet accepted, or accepted and not yet decided, is held for it, 64 a connection, each for at
+  most `--head-timeout`, handed over in order when that session opens, and dropped with a log note
+  past either or once the stream turns out an ordinary request or a refused session; one for a
+  decided stream - a request, a refused or ended session - is dropped at once, BL-894); a stream opening with a registered signal (only as its first integer; later it is
   `H3_FRAME_ERROR`, also as a frame type after `HEADERS`) or of a registered unidirectional type is
   read past its session ID and handed to that handler's open session, else to its
   `ServeStreamWithoutSessionAsync`; a session ID that is not a client bidirectional stream ID
@@ -48,7 +58,10 @@ Public, what a server uses:
   ones; past `--max-message` resets `H3_EXCESSIVE_LOAD`, a FIN inside one `H3_MESSAGE_ERROR`),
   `WriteCapsuleAsync` (one `DATA` frame), `ReceiveDatagramAsync` (128 wait, oldest dropped),
   `SendDatagramAsync` (quarter stream ID prefixed), `AcceptStreamAsync` and
-  `OpenUnidirectionalStreamAsync` (type and session ID written first).
+  `OpenUnidirectionalStreamAsync` (type and session ID written first); and (BL-894)
+  `CloseConnection` (the whole connection, `CONNECTION_CLOSE` with the handler's code, e.g.
+  `WT_REQUIREMENTS_NOT_MET` cast to `Http3ErrorCode`), `IsShuttingDown` and `AddShutdownWrite`
+  (a write awaited before `GOAWAY` at shutdown; false once shutdown has begun).
 - `Http3SessionStream` - a claimed stream past its header: `Id`, `SessionId`, `Stream`,
   `ReadAsync`, `WriteAsync`, `ResetAsync`, `ResetAtAsync`, `StopSendingAsync`. `Http3Capsule` -
   type and value, with `DatagramType` 0x00.
@@ -60,7 +73,8 @@ Public, what a server uses:
   frame; empty with `endStream` sends the `FIN` alone), `CreateResponseBodyStream` (each write one
   `DATA` frame), `ResetAsync` (`RESET_STREAM` and `STOP_SENDING`, a stream error) and
   `ResetResponseAsync` (`RESET_STREAM` alone, for an answer that cannot be finished).
-- `Http3ErrorCode`, `Http3RequestHead`, `Http3RequestHeadMapping`.
+- `Http3ErrorCode`, `Http3RequestHead` (with `Protocol` and `Scheme`, the `:scheme` as sent, null
+  for a plain `CONNECT`), `Http3RequestHeadMapping`.
 
 Internal: `Http3RequestStreamServer`, `Http3StreamReader` (throws `Http3ConnectionException` for a
 rule that ends the connection, `Http3StreamAbandonedException` for a stream the client reset),
