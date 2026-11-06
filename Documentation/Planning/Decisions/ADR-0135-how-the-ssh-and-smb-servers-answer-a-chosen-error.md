@@ -50,7 +50,7 @@ what path a handle-based request or an SMB tree carries, or what the bytes are.
    (ADR-0134 decision 4).
 5. **Only the `error` kind.** As ADR-0134 decision 5: a `delay` or `drop` rule given `stage=command` that
    matches is noted as not applied and the request goes on. Applying those at the command stage needs the
-   engine's idle clock paused and an abort from inside a channel, filed as BL-901.
+   engine's idle clock paused and an abort from inside a channel, filed as BL-909.
 6. **Events and the point.** Each application publishes one `FaultAppliedEvent` (stage `Command`, the
    exchange's ID, the path as its target, or the command when there is no path) and notes the answer. The
    `FaultPoint` carries the exchange ID, the listen URL formatted as the serving engine formats it (bound port
@@ -65,7 +65,7 @@ against in `Surl.Conformance.UnitTests`: SFTP `NO_SUCH_FILE` exits 78, `PERMISSI
 (`UpstreamCurlTransfersFilesWithSurlOverSftpTests`); an SCP error line exits 78 on a download and 25 on an
 upload (`UpstreamCurlTransfersFilesWithSurlOverScpTests`); an SMB `CREATE` refused with any status but
 `ERRDOS/ERRnoaccess` exits 78 (`UpstreamCurlTransfersFilesWithSurlOverSmbTests`). The fault's own exchanges
-against a live `surl` wait on BL-803, which composes the fault plan into the running server; BL-902 measures
+against a live `surl` wait on BL-803, which composes the fault plan into the running server; BL-910 measures
 them then, including the two not yet seen - an SCP upload refused before its first `\0`, and an NTSTATUS
 rather than a DOS-class status.
 
@@ -73,4 +73,4 @@ rather than a DOS-class status.
 
 A test can make one SFTP request, SCP command or SMB command fail on purpose and see it on the event stream,
 with the session going on (SFTP, SMB) or the command ending (SCP) as for any other refusal. No store changes.
-The command-stage delay and drop (BL-901) and the live measurement (BL-902) are follow-up tasks.
+The command-stage delay and drop (BL-909) and the live measurement (BL-910) are follow-up tasks.

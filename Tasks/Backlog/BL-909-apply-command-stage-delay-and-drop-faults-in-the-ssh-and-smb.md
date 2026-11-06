@@ -1,5 +1,5 @@
 ---
-id: BL-901
+id: BL-909
 title: Apply command-stage delay and drop faults in the SSH and SMB servers
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-05
 completed:
 ---
-# BL-901 — Apply command-stage delay and drop faults in the SSH and SMB servers
+# BL-909 — Apply command-stage delay and drop faults in the SSH and SMB servers
 
 ## Goal
 

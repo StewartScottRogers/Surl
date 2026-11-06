@@ -59,14 +59,14 @@ file operation fail on purpose.
   `ScriptedFaultPlan` matches paths exactly, so the tests name `/up/a`; the engine's `FaultPlan` matches `/up` as
   a segment prefix. SSH 1090 and SMB 222 tests green; both libraries 100% line and branch (cobertura).
 - **Upstream curl exit codes.** Not measured for the fault itself: a live `surl` does not apply faults until
-  BL-803 composes the plan, so the exchange cannot be run yet; filed BL-902 to measure them. The same bytes as
+  BL-803 composes the plan, so the exchange cannot be run yet; filed BL-910 to measure them. The same bytes as
   natural refusals are already measured with pinned 8.21.0 in `Surl.Conformance.UnitTests`: SFTP status 2 exits
   78, 3 exits 9, 4 exits 79; an SCP error line exits 78 on a download and 25 on an upload; an SMB `CREATE`
   refusal exits 78 (9 only for `ERRDOS/ERRnoaccess`). Not yet seen: an SCP upload refused before its first
   `\0`, and an NTSTATUS-flagged SMB status.
 - **Touches widened.** Added ADR-0135 and `Documentation/Planning/Decisions/README.md` for the decision record;
   no task in Doing names either.
-- **Follow-ups filed.** BL-901 (command-stage delay and drop in SSH and SMB), BL-902 (live exit codes, after BL-803).
+- **Follow-ups filed.** BL-909 (command-stage delay and drop in SSH and SMB), BL-910 (live exit codes, after BL-803).
 
 ## Log
 

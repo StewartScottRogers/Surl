@@ -1,5 +1,5 @@
 ---
-id: BL-902
+id: BL-910
 title: Prove with pinned upstream curl the exit codes of chosen-error faults on SFTP, SCP and SMB
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-05
 completed:
 ---
-# BL-902 — Prove with pinned upstream curl the exit codes of chosen-error faults on SFTP, SCP and SMB
+# BL-910 — Prove with pinned upstream curl the exit codes of chosen-error faults on SFTP, SCP and SMB
 
 ## Goal
 
