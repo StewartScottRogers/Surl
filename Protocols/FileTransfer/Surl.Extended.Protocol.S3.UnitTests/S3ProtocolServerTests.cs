@@ -290,9 +290,11 @@ public sealed class S3ProtocolServerTests
     }
 
     [TestMethod]
-    [DataRow("DELETE", "/photos/a.txt", DisplayName = "DeleteObject, not yet served")]
+    [DataRow("DELETE", "/photos/a.txt?versionId=1", DisplayName = "DeleteObject of a version")]
     [DataRow("POST", "/photos/a.txt?uploads", DisplayName = "CreateMultipartUpload, not yet served")]
-    [DataRow("GET", "/", DisplayName = "ListBuckets, not yet served")]
+    [DataRow("GET", "/?prefix=p", DisplayName = "ListBuckets with a query")]
+    [DataRow("PUT", "/photos?versioning", DisplayName = "PutBucketVersioning")]
+    [DataRow("POST", "/", DisplayName = "POST on the service")]
     [DataRow("GET", "/photos", DisplayName = "ListObjects version 1")]
     [DataRow("GET", "/photos?list-type=1", DisplayName = "ListObjects version 1 by its list-type")]
     [DataRow("PUT", "/photos/a.txt?tagging", DisplayName = "PutObjectTagging")]

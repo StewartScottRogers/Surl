@@ -123,7 +123,5 @@ internal sealed class S3ListObjectsV2(ContentStore store, S3ObjectPropertiesRead
     }
 
     private static void Append(StringBuilder xml, string name, string text) =>
-        xml.Append('<').Append(name).Append('>')
-            .Append(text.Replace("&", "&amp;", StringComparison.Ordinal).Replace("<", "&lt;", StringComparison.Ordinal).Replace(">", "&gt;", StringComparison.Ordinal))
-            .Append("</").Append(name).Append('>');
+        S3XmlElement.Append(xml, name, text);
 }

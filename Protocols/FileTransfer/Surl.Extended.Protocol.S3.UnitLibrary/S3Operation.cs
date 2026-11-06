@@ -1,8 +1,8 @@
 namespace Surl.Extended.Protocol.S3;
 
 /// <summary>
-/// The operations the server serves, recognised by method, by whether the request names a bucket
-/// and a key, and by its query (ADR-0108, decision 1's table).
+/// The operations the server serves, recognised by method, by whether the request names the
+/// service, a bucket or a key, and by its query (ADR-0108, decision 1's table).
 /// </summary>
 internal enum S3Operation
 {
@@ -22,7 +22,22 @@ internal enum S3Operation
     PutObject,
 
     /// <summary>
+    /// <c>DELETE /&lt;bucket&gt;/&lt;key&gt;</c>, no query: DeleteObject.
+    /// </summary>
+    DeleteObject,
+
+    /// <summary>
     /// <c>GET /&lt;bucket&gt;?list-type=2</c>: ListObjectsV2.
     /// </summary>
     ListObjectsV2,
+
+    /// <summary>
+    /// <c>HEAD /&lt;bucket&gt;</c>, no query: HeadBucket.
+    /// </summary>
+    HeadBucket,
+
+    /// <summary>
+    /// <c>GET /</c> on the service, no query: ListBuckets.
+    /// </summary>
+    ListBuckets,
 }

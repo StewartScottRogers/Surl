@@ -18,6 +18,11 @@ internal sealed record S3RequestTarget(string Path, string? Query, string RawBuc
     public bool NamesAnObject => RawBucket.Length > 0 && RawKey.Length > 0;
 
     /// <summary>
+    /// Whether the request names the service itself: the path <c>/</c>, path style.
+    /// </summary>
+    public bool NamesTheService => RawBucket.Length == 0 && Path == "/";
+
+    /// <summary>
     /// Whether the request names a bucket and no key.
     /// </summary>
     public bool NamesABucket => RawBucket.Length > 0 && RawKey.Length == 0;

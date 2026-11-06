@@ -5,7 +5,7 @@ The `s3` server (ADR-0108): answers Amazon S3 REST requests over HTTP/1.1 on the
 (ADR-0083): judged by the Amazon S3 API Reference, never by upstream curl (which has no `s3`) and
 never by the Curl port. Namespace `Surl.Extended.Protocol.S3`.
 
-What it serves now (BL-418, BL-419), path style or virtual-hosted style:
+What it serves now (BL-418, BL-419, BL-712), path style or virtual-hosted style:
 
 - GetObject and HeadObject with no query - one `Range` (`206`, `416 InvalidRange`, several
   ranges ignored), the conditional fields with the GetObject page's precedence
@@ -27,6 +27,17 @@ What it serves now (BL-418, BL-419), path style or virtual-hosted style:
   order; `S3ListPage` applies `prefix`, `delimiter`, `start-after`, `max-keys` (default
   and cap 1000) and the continuation token (`S3ContinuationToken`: base64url of the last name);
   `S3ListObjectsV2` writes `ListBucketResult`. Empty folders are not keys.
+- DeleteObject (`DELETE /<bucket>/<key>`, `S3DeleteObject`): needs `--allow-uploads` (off: `403`
+  `AccessDenied`) and a login; removes the file, or for a key ending in `/` the folder only when it
+  is empty; `204` for every key that holds no object (missing, a folder without the `/`, a key the
+  store cannot hold, a non-empty folder); a delete the store refuses (`readonly` or read-only share)
+  is `403 AccessDenied`.
+- HeadBucket (`HEAD /<bucket>`): `200` with no body; a missing bucket, a top-level file or a share
+  the caller may not read is `404` with no body.
+- ListBuckets (`GET /` with no query, `S3ListBuckets`): needs `--list-directories` (off: `403
+  AccessDenied`); the root's top-level folders and shares the caller may read plus every `--bucket`
+  that maps to a folder, in UTF-8 binary order, as `ListAllMyBucketsResult` (`CreationDate` the
+  folder's last-write time; `Owner` the signed account or `anonymous`). ADR-0108 Amendment 2.
 - Virtual-hosted addressing (`S3VirtualHost`): `<bucket>.<domain>` for the exchange's listen
   host when it is a DNS name, `localhost`, `s3.amazonaws.com` and `s3.<region>.amazonaws.com`.
 
@@ -52,8 +63,9 @@ index does not key; PutObject's metadata is kept only for files the index keys.
   `IConnectionRefusalWriter` writing `503 SlowDown`.
 - `S3RequestAnswerer` - the `IHttpRequestHandler`: addressing, login (`S3Login`), operation
   (`S3OperationRecognition`), bucket, then the operation.
-- `S3PutObject`, `S3UploadStream`; `S3ListObjectsV2`, `S3ListRequest`, `S3ListPage`,
-  `S3BucketWalk`, `S3KeyOrder`, `S3ContinuationToken`; `S3QueryParameters`.
+- `S3PutObject`, `S3UploadStream`, `S3DeleteObject`; `S3ListBuckets`; `S3ListObjectsV2`,
+  `S3ListRequest`, `S3ListPage`, `S3BucketWalk`, `S3KeyOrder`, `S3ContinuationToken`;
+  `S3QueryParameters`; `S3XmlElement` (one escaped element of a response body).
 - `S3ObjectAnswer`, `S3Conditions`, `S3RangeSelection` - GetObject's head, conditions and range.
 - `S3Reply`, `S3Error`, `S3ErrorBody` - every answer's `Date`, `Server` and `x-amz-request-id`
   (16 upper-case hexadecimal digits), and the one-line XML `Error` body; `Resource`, `Key`,
