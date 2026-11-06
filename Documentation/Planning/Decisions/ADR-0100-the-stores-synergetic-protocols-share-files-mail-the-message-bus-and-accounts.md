@@ -35,6 +35,9 @@
 - **Amended:** decisions 3.3 and 3.6 by their own text (2026-11-06, BL-694, recording BL-631): the
   named-queue rules BL-631 chose building the queues (3.3, "The named queue's rules") and the five
   queue outcomes with each queue server's answer (3.6).
+- **Amended:** decisions 3.3 and 3.6 by their own text (2026-11-06, BL-697, recording BL-633): the
+  topic-log rules BL-633 chose building the logs (3.3, "The topic log's rules"), the
+  `OffsetOutOfRange` outcome, and `StoreFull` and `TooManyTopics` covering the logs (3.6).
 - **Builds on:** [ADR-0003](ADR-0003-upstream-curl-is-surls-only-oracle.md) (upstream curl is the
   only oracle), ADR-0006 (every store a peer can fill is bounded), ADR-0014 (the MQTT 3.1.1
   server), ADR-0031 decisions 5 to 7 (`.surl` is never served, persistence, the lock), ADR-0032
@@ -391,6 +394,38 @@ ADR's literal text:
   queues that took a copy and `FullQueueCount` the number that refused one as full (3.6), so a
   server can tell a routed publish from an unroutable one (AMQP 0-9-1's `mandatory`, ADR-0112).
 
+**The topic log's rules** (2026-11-06, BL-697, recording what BL-633 built into `Surl.MessageBus`).
+The table's topic-log row left these open:
+
+- **A record counts its payload, key, headers and 16 bytes.** Decided by Claude under Stewart's
+  delegation. `MessageBus.LogRecordBytes` counts the payload, the message's native form when it
+  carries one, the key, the UTF-8 of each header name and value, and
+  `MessageBus.LogRecordOverheadBytes` (16: the offset and the timestamp). The 16 bytes make an
+  empty-payload record count, so no log holds unboundedly many records within its byte bounds.
+- **Retention keeps the newest record, however large.** Decided by Claude under Stewart's
+  delegation. Past `MaxLogBytesPerTopic` the oldest records are dropped and the log start offset
+  rises, but the record just appended is never dropped, even when it alone passes the bound, so a
+  Kafka consumer can still read the latest message. `MaxMessageBytes` (3.6) already bounds one
+  payload.
+- **A read returns at least one record.** Decided by Claude under Stewart's delegation.
+  `MessageBus.ReadLog(topic, offset, maxBytes)` returns the records from `offset` in order, as many
+  as fit in `maxBytes`, but always the first whatever it counts, as a Kafka broker's Fetch does
+  (Kafka protocol guide, Fetch: a record batch larger than the limit is still returned), so a large
+  record never stalls a consumer.
+- **Reading at the high watermark reads nothing; past either end is `OffsetOutOfRange`.** Decided by
+  Claude under Stewart's delegation. An offset equal to the high watermark succeeds with no records
+  (a consumer caught up waits for more); one below the log start offset (retention dropped it) or
+  above the high watermark is `OffsetOutOfRange` (3.6), as a Kafka broker answers a fetch outside
+  its log.
+- **The offset a publish got is reported.** `BusPublishResult.LogOffset` is the offset the publish's
+  record took, which is Kafka Produce's base offset. Every publish the bus takes, retained or not and
+  from whichever protocol, is appended; an expired message stays in the log (3.4), and one already
+  expired at publish is stored nowhere.
+- **Every topic with a log counts against `MaxTopics`** (3.6), and every topic published on has one,
+  so a publish on a new topic past the bound is `TooManyTopics` whether it is retained or not.
+  `MessageBus.CreateLog` gives a topic an empty log, as a Kafka Metadata request auto-creates one
+  (ADR-0105 decision 2), and counts the same way.
+
 #### 3.4 The message, and what survives translation
 
 A bus message holds: the canonical topic; the payload bytes, **always exact**; a `Retain` mark; the
@@ -438,13 +473,13 @@ work:
 
 | Constant | Default | Counts |
 | --- | --- | --- |
-| `DefaultMaxTopics` | 10000 | topics with a retained message or a non-empty log (ADR-0014 decision 7's number) |
+| `DefaultMaxTopics` | 10000 | topics with a retained message or a log, which is every topic published on or given an empty log by `CreateLog` (3.3; ADR-0014 decision 7's number) |
 | `DefaultMaxRetainedPayloadBytes` | 104857600 (100 MiB) | retained payload bytes, all topics (ADR-0014 decision 7's number) |
 | `DefaultMaxQueues` | 1000 | named queues |
 | `DefaultMaxMessagesPerQueue` | 100000 | messages in one queue, unacknowledged included |
 | `DefaultMaxQueuedBytes` | 268435456 (256 MiB) | payload bytes in all queues (ADR-0050 decision 6's memory bound) |
-| `DefaultMaxLogBytesPerTopic` | 16777216 (16 MiB) | one topic's log; past it the oldest messages are dropped and the start offset advances |
-| `DefaultMaxLogBytes` | 268435456 (256 MiB) | every log together; past it a publish is refused |
+| `DefaultMaxLogBytesPerTopic` | 16777216 (16 MiB) | one topic's log, in `LogRecordBytes` (3.3); past it the oldest records are dropped and the start offset advances, though the newest is always kept |
+| `DefaultMaxLogBytes` | 268435456 (256 MiB) | every log together, after each topic's own retention; past it a publish is refused with `StoreFull` |
 | `DefaultMaxSubscriptionsPerConnection` | 1000 | live subscriptions one server connection holds |
 | `MaxMessageBytes` | `--max-filesize` (`ExchangeLimits.MaxUploadBytes`), set by the composition | one payload |
 
@@ -453,9 +488,10 @@ words as its protocol says; the server's own ADR pins the bytes:
 
 | Outcome | MQTT 3.1.1 | MQTT 5 | AMQP 0-9-1 | AMQP 1.0 | Kafka | NATS | STOMP |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| `StoreFull`, `TooManyTopics`, `QueueFull`, `TooManyQueues` | close, no reply (ADR-0014 decision 7) | `0x97` Quota exceeded | channel close `506 resource-error` | `amqp:resource-limit-exceeded` | `POLICY_VIOLATION` (44) | `-ERR` then close | `ERROR` then close |
+| `StoreFull` (the logs included: every log past `MaxLogBytes`), `TooManyTopics` (topics with a retained message or a log), `QueueFull`, `TooManyQueues` | close, no reply (ADR-0014 decision 7) | `0x97` Quota exceeded | channel close `506 resource-error` | `amqp:resource-limit-exceeded` | `POLICY_VIOLATION` (44) | `-ERR` then close | `ERROR` then close |
 | `MessageTooLarge` | close, no reply (ADR-0006 section 5) | `0x95` Packet too large | channel close `311 content-too-large` | `amqp:link:message-size-exceeded` | `MESSAGE_TOO_LARGE` (10) | `-ERR 'Maximum Payload Violation'` | `ERROR` then close |
 | `TooManySubscriptions` | `SUBACK` `0x80` | `SUBACK` `0x97` | channel close `506` | `amqp:resource-limit-exceeded` | n/a | `-ERR` | `ERROR` |
+| `OffsetOutOfRange` (a log read below the log start offset or above the high watermark, 3.3) | n/a | n/a | n/a | n/a | `OFFSET_OUT_OF_RANGE` (1) | n/a | n/a |
 | `StorageFailed` (a persistence write) | noted with `IExchangeLog.Note`; the change stays in memory; serving goes on | same | same | same | same | same | same |
 
 A queue past its message bound refuses the copy into it alone; the publish still reaches fan-out,
