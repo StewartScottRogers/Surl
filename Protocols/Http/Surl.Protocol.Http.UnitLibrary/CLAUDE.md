@@ -80,7 +80,10 @@ control and QPACK streams, `SETTINGS`, `GOAWAY` and request streams - lives in
 session QUIC agreed and serves the connection with `Surl.Http3`'s `Http3ConnectionServer`, its
 `Http3ServerOptions` naming `server: surl` for the `431` the connection writes itself. Cancelling
 the exchange before the handshake completes stops the flow at once; after it, the HTTP/3 server
-answers it. With `--http3`, `HttpProtocolServer` wraps its answerer in `AltSvcAdvertisingHandler`
+answers it. A flow past `--max-connections` or `--max-connections-per-address` is refused
+through its `IDatagramRefusalWriter` with `Surl.Quic`'s `QuicConnectionRefusal`: one Initial holding
+`CONNECTION_CLOSE` `CONNECTION_REFUSED` for a version 1 Initial, no bytes for anything else (BL-740).
+With `--http3`, `HttpProtocolServer` wraps its answerer in `AltSvcAdvertisingHandler`
 on every TLS connection, adding `Alt-Svc: h3=":<port>"; ma=86400`. The connection's
 `IHttp3RequestStreamHandler` is `Http3StreamAnswerWriter`: for each request stream it first resets
 and stops `H3_VERSION_FALLBACK` a stream whose `authorization` names NTLM or Negotiate, unseen by
