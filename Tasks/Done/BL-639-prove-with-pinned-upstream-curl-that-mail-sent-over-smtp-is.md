@@ -8,7 +8,7 @@ depends-on: [BL-622]
 touches: [Conformance/Surl.Conformance.UnitTests]
 requirement: none
 created: 2026-11-04
-completed:
+completed: 2026-11-05
 ---
 # BL-639 — Prove with pinned upstream curl that mail sent over SMTP is read over IMAP and POP3
 
@@ -33,13 +33,26 @@ A conformance test class shows, with pinned upstream curl 8.21.0 at both ends ag
 
 ## Acceptance criteria
 
-- [ ] The class exists with a named test per case above, each asserting curl's exit codes and the fetched message
+- [x] The class exists with a named test per case above, each asserting curl's exit codes and the fetched message
       bytes equal to what ADR-0050/ADR-0053 say the store holds.
-- [ ] `dotnet build -warnaserror` is clean and `dotnet test --filter "TestCategory!=Integration"` is green.
+- [x] `dotnet build -warnaserror` is clean and `dotnet test --filter "TestCategory!=Integration"` is green.
 
 ## Notes
+
+- `Conformance/Surl.Conformance.UnitTests/UpstreamCurlSharesMailAcrossSurlProtocolsTests.cs`, five
+  `Integration` tests, all passing live against pinned curl 8.21.0 (win-x64) on 2026-11-05:
+  `SendOverSmtp_ThenReadOverImapAndPop3_…`, `SendOverSmtpToTwoRecipients_EachReadsTheirOwnCopyOverImapAndPop3`,
+  `SendOverSmtps_ThenReadOverImapsAndPop3s_…` (`--self-signed`, curl `-k`, trace word `ESMTPSA`),
+  `SendOverSmtp_ThenRestartSurlOverTheSameDirectory_…` (first surl serves `smtp` only, second `imap`+`pop3`),
+  `DeleOverPop3_ThenFetchOverImap_ExitsRemoteFileNotFoundAndTheStoreHoldsNothing` (curl exit 78).
+- Choice: a test-local `--user-file` with two accounts, `alice` and `bob`, rather than widening the shared
+  `AccountsFile` helper (one account), so the two-recipient case needs no change outside this class. SMTP
+  logs in as alice in every case; bob's copy reaches bob by local part (ADR-0050 decision 5).
+- Every read is compared byte for byte with the stopped surl's persisted store (`StoredMail`), and the stored
+  bytes are checked to be ADR-0053 decision 6's two trace fields followed by `mail.txt` and nothing else.
 
 ## Log
 
 - 2026-11-04: Created.
 - 2026-11-05: Backlog -> Doing.
+- 2026-11-05: Doing -> Done. Pinned upstream curl sends over smtp/smtps and reads the same stored bytes over imap, pop3, imaps and pop3s, across a restart, with POP3 DELE seen by IMAP
