@@ -5,7 +5,7 @@ priority: Normal
 assignee: Claude
 pipeline: feature
 depends-on: [BL-823]
-touches: [Application/Surl.Control.UnitLibrary, Application/Surl.Control.UnitTests, Surl.slnx, Documentation/Planning/Decisions/ADR-0135-how-the-control-endpoint-writes-events-and-reads-requests.md, Documentation/Planning/Decisions/README.md]
+touches: [Application/Surl.Control.UnitLibrary, Application/Surl.Control.UnitTests, Surl.slnx, Documentation/Planning/Decisions/ADR-0136-how-the-control-endpoint-writes-events-and-reads-requests.md, Documentation/Planning/Decisions/README.md]
 requirement: none
 created: 2026-11-05
 completed: 2026-11-05
@@ -65,7 +65,7 @@ running `surl` with nothing but an HTTP client, and so it is unit tested without
   `ControlRefusalException`/`ControlRefusalKind` (400/404/409 from the target), `ControlToken` (SHA-256 then
   `FixedTimeEquals`), and internal routes, event log, JSON shapes (`ControlJsonContext`, source generation,
   snake_case) and the text-or-base64 rule.
-- Decisions the ADR left open are recorded in ADR-0135 (decided by Claude under Stewart's delegation): `fault_kind`
+- Decisions the ADR left open are recorded in ADR-0136 (decided by Claude under Stewart's delegation): `fault_kind`
   for the fault's kind, filters through the event's exchange, dropped counts including subscription gaps,
   `is_truncated` on a gap, a wait answers the first held match, peer before token, strict query keys and JSON
   members, JSON errors naming only a path, `Cache-Control: no-store`, no `Content-Length` on `204`.
