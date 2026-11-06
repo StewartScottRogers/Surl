@@ -8,7 +8,7 @@ depends-on: [BL-383, BL-602]
 touches: [Protocols/Http/Surl.Protocol.Http.UnitLibrary, Protocols/Http/Surl.Protocol.Http.UnitTests, Protocols/Http/Surl.Http3.UnitLibrary, Documentation/Planning/Decisions/ADR-0082-how-surl-serves-http-3-over-quic.md]
 requirement: none
 created: 2026-11-05
-completed:
+completed: 2026-11-06
 ---
 # BL-709 — Reset HTTP/3 streams carrying NTLM or Negotiate with H3_VERSION_FALLBACK
 
@@ -30,11 +30,11 @@ An HTTP/3 request whose `authorization` names NTLM or Negotiate is reset and sto
 
 ## Acceptance criteria
 
-- [ ] A named test: a request stream whose `authorization` is `NTLM TlRM...` is reset and stopped
+- [x] A named test: a request stream whose `authorization` is `NTLM TlRM...` is reset and stopped
       `H3_VERSION_FALLBACK` (0x110), and the connection carries on.
-- [ ] A named test: the same for `Negotiate`.
-- [ ] A Basic login over HTTP/3 is answered as over HTTP/1.1.
-- [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and `Surl.Protocol.Http`
+- [x] A named test: the same for `Negotiate`.
+- [x] A Basic login over HTTP/3 is answered as over HTTP/1.1.
+- [x] `dotnet build -warnaserror` is clean, the fast tests are green, and `Surl.Protocol.Http`
       keeps 100% line and branch coverage.
 
 ## Notes
@@ -56,3 +56,4 @@ An HTTP/3 request whose `authorization` names NTLM or Negotiate is reset and sto
 
 - 2026-11-05: Created.
 - 2026-11-06: Backlog -> Doing.
+- 2026-11-06: Doing -> Done. HTTP/3 streams carrying NTLM or Negotiate, or answered 401 offering only those, are reset and stopped H3_VERSION_FALLBACK; Basic is answered as over HTTP/1.1
