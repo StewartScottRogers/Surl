@@ -8,7 +8,7 @@ depends-on: []
 touches: [Protocols/Mail/Surl.LineProtocol.UnitLibrary, Protocols/Mail/Surl.LineProtocol.UnitTests]
 requirement: none
 created: 2026-11-05
-completed:
+completed: 2026-11-05
 ---
 # BL-875 — Read a mail upstream test case's servercmd script and record its exchange in Surl.LineProtocol
 
@@ -44,24 +44,29 @@ uploaded message the half received. It is fully unit tested; no server uses it y
 
 ## Acceptance criteria
 
-- [ ] `Protocols/Mail/Surl.LineProtocol.UnitTests` has `MailUpstreamTestCaseServerCommandsTests` and
+- [x] `Protocols/Mail/Surl.LineProtocol.UnitTests` has `MailUpstreamTestCaseServerCommandsTests` and
       `MailUpstreamTestCaseRepliesTests`. They cover each kept instruction (`REPLY` with `welcome`, the quoted
       full-text form and an empty command; `REPLYLF`; `COUNT` limiting a reply to N answers; `CAPA` with a
       double-quoted capability holding spaces; `AUTH`; `POSTFETCH`), the Perl escapes `\r`, `\n`, `\t`, `\xHH`
       and `\<char>`, the `<dataNUM>` choice and its fallback, and the received and uploaded byte records.
-- [ ] Each refused instruction (`DELAY`, `SLOWDOWN`, `SLOWDOWNDATA`, `NOSAVE`, `RETRSIZE`) throws
+- [x] Each refused instruction (`DELAY`, `SLOWDOWN`, `SLOWDOWNDATA`, `NOSAVE`, `RETRSIZE`) throws
       `NotSupportedException` naming the word, and a malformed `COUNT` or unclosed quoted `REPLY` throws
       `FormatException`, each with a named test.
-- [ ] `MailUpstreamTestCaseReplies.SupportedServerCommands` is exactly `Testnum`, `REPLY`, `REPLYLF`, `COUNT`,
+- [x] `MailUpstreamTestCaseReplies.SupportedServerCommands` is exactly `Testnum`, `REPLY`, `REPLYLF`, `COUNT`,
       `CAPA`, `AUTH` and `POSTFETCH`, pinned by a test.
-- [ ] `dotnet build Protocols/Mail/Surl.LineProtocol.UnitLibrary -warnaserror` is clean,
+- [x] `dotnet build Protocols/Mail/Surl.LineProtocol.UnitLibrary -warnaserror` is clean,
       `dotnet test --filter "TestCategory!=Integration"` is green, and `Surl.LineProtocol.UnitLibrary` keeps
       100% line and branch coverage (`Measure-CodeQuality.ps1 -Library Surl.LineProtocol.UnitLibrary`).
 
 ## Notes
+
+- The previous run (cut off) had already restored both files from the `darkfactory BL-395` stash and written both test classes; this run measured them. `FindData` measured cyclomatic complexity 14, so it now calls `ReadFirstNumber` and `FindNumberedPart`; behaviour is unchanged and the library is at 100% line and branch coverage with no failing member (worst CRAP 8).
+- The project's CLAUDE.md now lists `MailUpstreamTestCaseReplies` and `MailUpstreamTestCaseServerCommands`.
+- No new ADR: every decision here was already made by ADR-0080 decision 2 and the task's Context.
 
 ## Log
 
 - 2026-11-05: Created.
 - 2026-11-05: Split from BL-395 (timed out after 120 min; Stewart asked for the split 2026-11-05).
 - 2026-11-05: Backlog -> Doing.
+- 2026-11-05: Doing -> Done. MailUpstreamTestCaseReplies and its server commands are fully tested at 100% coverage
