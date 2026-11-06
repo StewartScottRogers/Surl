@@ -252,6 +252,26 @@ server starts it with `CanCarrySecurityLayer` (BL-329, below), and is `RefusedMe
 - Tested in `AzureStorageVerifierTests`, which sign the strings to sign written as the pages give
   them, never with the library's own builder.
 
+## Cloud Storage V4 HMAC (BL-430)
+
+- `GoogleV4HmacAuthenticationMethod` checks `Authorization: GOOG4-HMAC-SHA256 …` (ADR-0110
+  decision 3.3) for a request whose `AwsSigV4Service` is `storage` (the `gs` server's).
+  `AuthenticationPolicy.FindServiceSignatureVerifier` picks it for `storage` and only with the
+  `GOOG4-HMAC-SHA256` scheme (`HttpAuthorization.Scheme`); any other Signature Version 4 scheme on
+  `storage` is `UnsupportedScheme`. Every other service keeps `ServiceSignatureVerifier`.
+- It shares `SignatureV4Check` with `AwsSigV4AuthenticationMethod`: the date window, the
+  signature against the account (an unknown access ID checked against the dummy secret), and the
+  body bound to a hex `x-goog-content-sha256` once read. The arithmetic is the provider-generic
+  `AwsSigV4Calculation` with the provider `goog`; `AwsSigV4CanonicalRequest.Build`'s
+  `reencodesPath` is `false`, so the path is signed as received.
+- Its rules: the scope must end `/storage/goog4_request` and `host` be signed
+  (`MalformedCredentials`); the date is `x-goog-date`, else `Date`, in `yyyyMMddTHHmmssZ`, not
+  necessarily signed, since the string to sign carries it (none is `MissingRequestDate`; one that
+  does not read or is not the scope's date `MalformedCredentials`; outside 15 minutes
+  `ClockSkew`); `x-goog-content-sha256` is required (`MissingPayloadHash`).
+- `GoogleV4HmacAuthenticationMethodTests` checks a signed GET worked by hand, every intermediate
+  value in its comments.
+
 ## SSH logins (BL-157)
 
 - `AuthenticationPolicy` implements `ISshAuthenticationPolicy` (ADR-0051, sections 6 and 7).

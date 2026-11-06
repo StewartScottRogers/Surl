@@ -103,17 +103,18 @@ internal sealed class HttpAuthenticationSession : IHttpAuthenticationSession
     }
 
     // A request whose only method is Signature Version 4 for a named service (S3, ADR-0108
-    // decision 4): no Authorization is anonymous under --allow-anonymous and refused otherwise,
-    // undelayed since nothing was checked; another scheme is refused unchecked; a signature is
-    // checked even under --allow-anonymous; every refusal is Forbidden with its reason.
+    // decision 4; Cloud Storage's GOOG4-HMAC-SHA256 for storage, ADR-0110 decision 3.3): no
+    // Authorization is anonymous under --allow-anonymous and refused otherwise, undelayed since
+    // nothing was checked; another scheme is refused unchecked; a signature is checked even under
+    // --allow-anonymous; every refusal is Forbidden with its reason.
     private ValueTask<HttpAuthenticationVerdict> JudgeServiceSignature(
         HttpAuthenticationRequest request, CancellationToken cancellationToken)
     {
         var hasAuthorization = request.Fields.Any(field => string.Equals(field.Key, "Authorization", StringComparison.OrdinalIgnoreCase));
         var authorization = HttpAuthorization.Find(request.Fields);
-        if (authorization is { Method: AuthenticationMethod.AwsSigV4 })
+        if (FindServiceSignatureVerifier(authorization, request.AwsSigV4Service!) is { } verifier)
         {
-            return VerifyAsync(policy.ServiceSignatureVerifier, authorization, request, cancellationToken);
+            return VerifyAsync(verifier, authorization!, request, cancellationToken);
         }
 
         if (hasAuthorization)
@@ -125,6 +126,12 @@ internal sealed class HttpAuthenticationSession : IHttpAuthenticationSession
             ? ProceedAnonymously
             : Forbidden with { Refusal = HttpAuthenticationRefusal.MissingCredentials });
     }
+
+    // The service's signature verifier, when the field is a Signature Version 4 scheme the service takes.
+    private IHttpCredentialVerifier? FindServiceSignatureVerifier(HttpAuthorization? authorization, string service) =>
+        authorization is { Method: AuthenticationMethod.AwsSigV4 }
+            ? policy.FindServiceSignatureVerifier(service, authorization.Scheme)
+            : null;
 
     // Under --allow-anonymous every request is served unchecked (ADR-0032 section 1), except a
     // Negotiate token once --keytab gave a Kerberos acceptor: a Kerberos ticket must still decrypt,

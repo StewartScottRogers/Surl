@@ -52,7 +52,8 @@ public enum HttpAuthenticationRefusal
 
     /// <summary>
     /// A signed request without the date it must carry: Azure Shared Key's <c>x-ms-date</c> or
-    /// <c>Date</c> (ADR-0109 decision 3.2).
+    /// <c>Date</c> (ADR-0109 decision 3.2), or Cloud Storage's V4 HMAC <c>x-goog-date</c> or
+    /// <c>Date</c> (ADR-0110 decision 3.3).
     /// </summary>
     MissingRequestDate,
 

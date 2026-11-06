@@ -115,6 +115,17 @@ public sealed class HttpAuthenticationPolicyTests
     }
 
     [TestMethod]
+    public async Task AwaitingBodyWithoutABodyCheck_IsAnsweredAsARefusal()
+    {
+        var ntlm = new ScriptedHttpAuthenticationMethod(
+            AuthenticationMethod.Ntlm, ["NTLM"], new HttpCredentialCheck(HttpCredentialOutcome.AwaitingBody, null, []));
+        var policy = PolicyFixture.Create(
+            PolicyFixture.AliceAndToken, clock, acceptedMethods: new HashSet<AuthenticationMethod> { AuthenticationMethod.Ntlm }, httpMethods: ntlm);
+
+        AssertVerdict(HttpAuthenticationOutcome.Challenge, ["NTLM"], null, await JudgeAsync(policy, null, PolicyFixture.Get("NTLM type1")));
+    }
+
+    [TestMethod]
     public void Constructor_SameMethodTwice_Throws()
     {
         var settings = new AuthenticationSettings(PolicyFixture.NoAccounts, false, false, AuthenticationMethods.DefaultAccepted);

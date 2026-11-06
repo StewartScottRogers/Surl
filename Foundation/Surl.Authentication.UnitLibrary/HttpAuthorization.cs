@@ -6,8 +6,9 @@ namespace Surl.Authentication;
 /// <c>auth-scheme [ 1*SP credentials ]</c>).
 /// </summary>
 /// <param name="Method">The method the scheme names.</param>
+/// <param name="Scheme">The scheme as received, which tells <c>GOOG4-HMAC-SHA256</c> from the other Signature Version 4 schemes.</param>
 /// <param name="Credentials">What follows the scheme and its spaces, as received.</param>
-internal sealed record HttpAuthorization(AuthenticationMethod Method, string Credentials)
+internal sealed record HttpAuthorization(AuthenticationMethod Method, string Scheme, string Credentials)
 {
     /// <summary>
     /// Finds the first <c>Authorization</c> field (name matched case-insensitively) and reads it.
@@ -31,7 +32,7 @@ internal sealed record HttpAuthorization(AuthenticationMethod Method, string Cre
         var credentials = space < 0 ? string.Empty : value[space..].TrimStart(' ');
 
         return AuthenticationMethods.TryFromAuthorizationScheme(scheme, out var method)
-            ? new HttpAuthorization(method, credentials)
+            ? new HttpAuthorization(method, scheme, credentials)
             : null;
     }
 }

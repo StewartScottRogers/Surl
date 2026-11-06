@@ -6,7 +6,7 @@ namespace Surl.Authentication;
 /// <summary>
 /// The canonical request of AWS Signature Version 4, rebuilt from a received request the way
 /// upstream curl 8.21.0's <c>--aws-sigv4</c> built it before signing (ADR-0043): the method, the
-/// path (percent-encoded again for every service but <c>s3</c>), the query (each parameter
+/// path (percent-encoded again when the caller says so: AWS's every service but <c>s3</c>), the query (each parameter
 /// re-encoded, then sorted), each signed header as <c>name:value</c>, the signed header list and
 /// the payload hash, one per line.
 /// </summary>
@@ -21,9 +21,14 @@ internal static class AwsSigV4CanonicalRequest
     /// <param name="request">The request as received.</param>
     /// <param name="authorization">The credentials, for the signed headers and the service.</param>
     /// <param name="payloadHash">The payload hash, lower-case hex or <c>UNSIGNED-PAYLOAD</c>.</param>
+    /// <param name="reencodesPath">
+    /// <see langword="true"/> to percent-encode the path as received again (AWS, every service but
+    /// <c>s3</c>); <see langword="false"/> to sign it as received (<c>s3</c>, and Cloud Storage's
+    /// path encoded once, ADR-0110 decision 3.3).
+    /// </param>
     /// <returns>The canonical request, or <see langword="null"/>.</returns>
     public static string? Build(
-        HttpAuthenticationRequest request, AwsSigV4Authorization authorization, string payloadHash)
+        HttpAuthenticationRequest request, AwsSigV4Authorization authorization, string payloadHash, bool reencodesPath)
     {
         var headers = BuildHeaders(request.Fields, authorization.SignedHeaders);
         var pathAndQuery = ReadPathAndQuery(request.Target);
@@ -33,9 +38,7 @@ internal static class AwsSigV4CanonicalRequest
         }
 
         var (path, query) = pathAndQuery.Value;
-        var canonicalPath = string.Equals(authorization.Service, "s3", StringComparison.OrdinalIgnoreCase)
-            ? path
-            : Encode(path, keepSlash: true);
+        var canonicalPath = reencodesPath ? Encode(path, keepSlash: true) : path;
 
         return string.Join(
             '\n',
