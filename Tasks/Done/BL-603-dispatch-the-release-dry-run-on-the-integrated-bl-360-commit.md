@@ -8,7 +8,7 @@ depends-on: [BL-360, BL-838]
 touches: [.github/workflows/release.yml, .github/workflows/ci.yml, .github/actions, Test-PublishedSurl.ps1]
 requirement: none
 created: 2026-11-04
-completed:
+completed: 2026-11-06
 ---
 # BL-603 — Dispatch the release dry run on the integrated BL-360 commit and record it green on all six runtime identifiers
 
@@ -31,7 +31,7 @@ runtime identifiers, and this task's Notes record its run URL.
 
 ## Acceptance criteria
 
-- [ ] A `workflow_dispatch` run of `release.yml` is green on all six `Publish` legs and both
+- [x] A `workflow_dispatch` run of `release.yml` is green on all six `Publish` legs and both
       `Conformance against the published` jobs, and Notes record its run URL.
 
 ## Notes
@@ -57,6 +57,17 @@ runtime identifiers, and this task's Notes record its run URL.
      this task waits on it.
 - Next run: once BL-838 is Done and lane 8's fix is integrated, `gh workflow run release.yml
   --ref <branch holding both>`, `gh run watch`, record the URL here.
+- 2026-11-06 (lane 9): dispatched `gh workflow run release.yml --ref factory/phase-1` on 19d126c9,
+  which holds BL-360, lane 8's writable-mount fix e0678b0d and BL-838 6c93f386 (`master` 8eb0301b
+  lacks BL-838, so `factory/phase-1` was the branch holding both). Green:
+  https://github.com/StewartScottRogers/Surl/actions/runs/42225649001 - all six `Publish` legs
+  (win-x64, win-arm64, linux-x64, linux-arm64, osx-x64, osx-arm64), both `Conformance against the
+  published` jobs (linux-x64, osx-arm64), and the pass-rate and NuGet pack jobs; `Create the GitHub
+  release` was skipped, as a dry run should be. No file under `touches` needed a change.
+- A separate `workflow_dispatch` run on `master` (42222500303, not started by this lane) failed only
+  linux-arm64, on a flaky unit test,
+  `GrpcStreamHandlerTests.ServeStreamAsync_ClientClosesTheConnectionMidCall_WritesNothingAndLogsCancelled`.
+  That test is outside this task's `touches`, so it is filed as BL-928.
 
 ## Log
 
@@ -64,3 +75,4 @@ runtime identifiers, and this task's Notes record its run URL.
 - 2026-11-05: Backlog -> Doing.
 - 2026-11-05: Doing -> Backlog. Waits on BL-838 (UpstreamCurlRunner broken pipe in Conformance, held by BL-396); Linux container smoke check fixed in Test-PublishedSurl.ps1
 - 2026-11-06: Backlog -> Doing.
+- 2026-11-06: Doing -> Done. Release dry run 42225649001 green on all six Publish legs and both published-binary conformance jobs
