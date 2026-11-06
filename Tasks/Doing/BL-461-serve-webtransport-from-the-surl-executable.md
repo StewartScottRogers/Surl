@@ -37,3 +37,4 @@ WebTransport sessions. The `--aihelp` topic and help category exist, and the ext
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-05: Backlog -> Doing.
