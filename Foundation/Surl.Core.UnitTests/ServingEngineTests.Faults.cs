@@ -325,6 +325,47 @@ public sealed partial class ServingEngineTests
         Assert.AreSame(plan, served.Context.Faults);
     }
 
+    // A server holding a command at a command-stage delay pauses the exchange's own idle clock
+    // through its context (ADR-0141): idle past the timeout while paused, not cancelled; restarted,
+    // the idle timeout counts afresh.
+    [TestMethod]
+    public async Task ServeAsync_ServerPausesItsContextsIdleClock_TheIdleTimeoutWaitsUntilItRestarts()
+    {
+        var factory = new FakeListenerFactory();
+        var time = new ManualTimeProvider();
+        var paused = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var server = new FakeConnectionProtocolServer(
+            (_, context) =>
+            {
+                context.IdleClock.Pause();
+                paused.SetResult();
+                return release.Task;
+            },
+            "http");
+        var limits = ConnectionLimits.None with { IdleTimeout = TimeSpan.FromSeconds(1) };
+        var engine = new ServingEngine(
+            factory, [server], new FakeExchangeLogFactory(), time, GracePeriod, limits,
+            RefusingDataConnectionOpener.Instance, ExchangeLimits.Default, DiscardingSurlEventPublisher.Instance, new FaultPlan());
+        using var stop = new CancellationTokenSource();
+        var serving = engine.ServeAsync([Http], stop.Token);
+
+        factory.ListenerFor(Http).Connect(new InMemoryConnection([]));
+        var exchange = await server.NextExchangeAsync();
+        await paused.Task.WaitAsync(Patience.Timeout);
+        time.Advance(TimeSpan.FromSeconds(5));
+        var cancelledWhilePaused = exchange.Context.CancellationToken.IsCancellationRequested;
+        exchange.Context.IdleClock.Restart();
+        time.Advance(TimeSpan.FromSeconds(1));
+        var cancelledAfterTheRestart = exchange.Context.CancellationToken.IsCancellationRequested;
+        release.SetResult();
+        await stop.CancelAsync();
+        await serving.WaitAsync(Patience.Timeout);
+
+        Assert.IsFalse(cancelledWhilePaused);
+        Assert.IsTrue(cancelledAfterTheRestart);
+    }
+
     private static ServingEngine CreateFaultingEngine(
         FakeListenerFactory factory,
         TimeProvider time,

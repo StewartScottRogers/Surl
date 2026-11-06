@@ -141,22 +141,6 @@ public sealed partial class ServingEngineTests
         CollectionAssert.AreEqual(withoutStream.LogEntries, withStream.LogEntries);
     }
 
-    [TestMethod]
-    [DataRow("http", "::1", 8080, "http://[::1]:8080/")]
-    [DataRow("http", "fe80::1%eth0", 8080, "http://[fe80::1%25eth0]:8080/")]
-    [DataRow("dict", "localhost", 2628, "dict://localhost:2628/")]
-    public void FormatListenUrl_UnboundListenUrl_UsesThePortAskedFor_AndBracketsAnIpv6Host(
-        string scheme, string host, int port, string expected)
-    {
-        Assert.AreEqual(expected, ServingEngine.FormatListenUrl(new ListenUrl(scheme, host, port)));
-    }
-
-    [TestMethod]
-    public void FormatListenUrl_BoundListenUrl_UsesTheBoundPort()
-    {
-        Assert.AreEqual("http://127.0.0.1:49731/", ServingEngine.FormatListenUrl(new ListenUrl("http", "127.0.0.1", 0).WithBoundPort(49731)));
-    }
-
     private static async Task<(ISurlEventPublisher Events, string[] LogEntries)> ServePingPongAsync(ISurlEventPublisher? events)
     {
         var factory = new FakeListenerFactory();

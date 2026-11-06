@@ -1,3 +1,5 @@
+using Surl.Protocol.Abstractions;
+
 namespace Surl.Core;
 
 /// <summary>
@@ -5,7 +7,7 @@ namespace Surl.Core;
 /// at the maximum exchange duration, all counted on the engine's <see cref="TimeProvider"/>
 /// (ADR-0006, sections 1 and 6).
 /// </summary>
-internal sealed class ExchangeDeadlines : IDisposable
+internal sealed class ExchangeDeadlines : IDisposable, IIdleClock
 {
     private readonly TimeSpan idleTimeout;
     private readonly CancellationToken shutdownToken;
@@ -74,6 +76,18 @@ internal sealed class ExchangeDeadlines : IDisposable
     /// holding the exchange (a fault rule's delay, ADR-0124 decision 4) and the exchange is not idle.
     /// </summary>
     public void PauseIdleClock() => idle?.CancelAfter(Timeout.InfiniteTimeSpan);
+
+    /// <summary>
+    /// <see cref="PauseIdleClock"/>, for a server holding the exchange at a command-stage fault delay
+    /// through <see cref="ExchangeContext.IdleClock"/> (ADR-0141).
+    /// </summary>
+    void IIdleClock.Pause() => PauseIdleClock();
+
+    /// <summary>
+    /// <see cref="RestartIdleClock"/>, for a server ending a command-stage fault delay through
+    /// <see cref="ExchangeContext.IdleClock"/> (ADR-0141).
+    /// </summary>
+    void IIdleClock.Restart() => RestartIdleClock();
 
     /// <inheritdoc/>
     public void Dispose()

@@ -127,6 +127,14 @@ What it holds:
   point's, ordinally; never spends `Times`; records every point asked). `Surl.Core`'s
   `SurlEventStream` and `FaultPlan` implement them (BL-787, BL-792).
 
+- Command-stage delay and drop (ADR-0141; BL-901): `IIdleClock` (`Pause`, `Restart`) reaches a
+  server as `ExchangeContext.IdleClock`, default `NoIdleClock.Instance` (does nothing); the engine
+  sets the exchange's own. `CommandStageFaults.FindAndApplyAsync(context, connection, point, target)`
+  asks the plan and applies a `Delay` (hold `ms` on the context's clock with the idle clock paused)
+  or a `Drop` (`IConnection.Abort()`), each noted and published once as a `FaultAppliedEvent`, and
+  hands any other kind back. `RecordingIdleClock` is its test double. `ReportedListenUrl.Format` is
+  the listen URL as the instance reports it, for events and a rule's `listener`.
+
 - The seedable identifier source (ADR-0124, decision 6; BL-851): `IIdentifierRandom.NextBytes`,
   for non-secret generated identifiers only - never keys, nonces, challenges, salts or tokens. It
   reaches a server through `ExchangeContext.Identifiers`, whose default, the internal

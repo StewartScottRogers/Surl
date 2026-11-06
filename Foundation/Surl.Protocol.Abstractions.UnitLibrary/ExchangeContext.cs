@@ -59,6 +59,13 @@ public sealed record ExchangeContext(
     public IFaultPlan Faults { get; init; } = EmptyFaultPlan.Instance;
 
     /// <summary>
+    /// The exchange's idle clock, which a server pauses while a command-stage fault delay holds the
+    /// exchange (ADR-0124, decision 4; ADR-0141): <see cref="NoIdleClock.Instance"/>, which does
+    /// nothing, unless the engine sets the exchange's own.
+    /// </summary>
+    public IIdleClock IdleClock { get; init; } = NoIdleClock.Instance;
+
+    /// <summary>
     /// Where the server draws the bytes of non-secret generated identifiers for this exchange
     /// (ADR-0124, decision 6): a cryptographic source, which gives different identifiers every run,
     /// unless the engine sets a seeded one. Never draw anything secret from it; see
