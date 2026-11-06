@@ -480,6 +480,16 @@ topic restricted by access rows could never serve TFTP, Gopher or `--allow-anony
   carries `imap` to TLS on the same scheme, and an operator who writes `imap` means the mail protocol.
 - **Defaults:** a `--user` or `--user-file` account logs in on every scheme, as today; a
   `--mailbox` account on the mail schemes (decision 1.4).
+- **Amendment, 2026-11-06 (BL-881) - every scheme gets its view, even with no restricted account.**
+  `SchemeAuthenticationPolicies.For(scheme)` composes one policy per scheme over
+  `AuthenticationSettings.ForScheme`, cached, and never hands back the start's one policy. BL-881 was
+  written to reuse the one policy while no account is restricted, but ADR-0132 (written after it)
+  lets a test add an account with `protocols=` while the server runs, and a server holding the one
+  policy would then admit that account on every scheme. Each view reads the same changing account
+  book, so with no restricted account every view admits exactly what the one policy admits: the
+  servers answer exactly as before. The SSH server is composed once for `scp` and once for `sftp`,
+  each registered alone through `SingleSchemeServer`, so `protocols=sftp` admits one and not the
+  other. Decided by Claude under Stewart's delegation.
 
 ### 5. What `Surl.Composition` composes, and what `surl -v` notes
 
