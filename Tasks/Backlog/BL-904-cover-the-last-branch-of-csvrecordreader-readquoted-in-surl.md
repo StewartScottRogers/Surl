@@ -1,5 +1,5 @@
 ---
-id: BL-896
+id: BL-904
 title: Cover the last branch of CsvRecordReader.ReadQuoted in Surl.Cli
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-05
 completed:
 ---
-# BL-896 — Cover the last branch of CsvRecordReader.ReadQuoted in Surl.Cli
+# BL-904 — Cover the last branch of CsvRecordReader.ReadQuoted in Surl.Cli
 
 ## Goal
 
