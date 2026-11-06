@@ -33,3 +33,4 @@ A Put Blob with `x-ms-blob-content-md5` stores that value unchecked as the blob'
 ## Log
 
 - 2026-11-05: Created.
+- 2026-11-06: Backlog -> Doing.
