@@ -53,3 +53,4 @@ The Kafka broker answers CreateTopics v2-v4 by giving each valid, new topic its 
 ## Log
 
 - 2026-11-06: Created.
+- 2026-11-06: Backlog -> Doing.
