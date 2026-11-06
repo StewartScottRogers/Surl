@@ -48,7 +48,7 @@ public sealed partial class Amqp0BrokerConnectionTests
     [TestMethod]
     public async Task ExchangeDeclare_UnknownType_IsClosedWith503()
     {
-        var written = await ServeAsync(NewBroker(NewBus()), ExchangeDeclare(1, "x", "headers"));
+        var written = await ServeAsync(NewBroker(NewBus()), ExchangeDeclare(1, "x", "x-custom"));
 
         AssertAnswered(written, BrokerClose(503, "COMMAND_INVALID - unknown exchange type", 40, 10));
     }

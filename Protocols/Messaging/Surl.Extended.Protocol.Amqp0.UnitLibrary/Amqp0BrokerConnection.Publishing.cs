@@ -123,7 +123,7 @@ internal sealed partial class Amqp0BrokerConnection
         var persistent = properties.DeliveryMode == PersistentDeliveryMode;
         var (routed, taken) = publish.Exchange?.Name == Amqp0ExchangeTable.TopicSpace
             ? PublishOnTopicSpace(topic, message, publish.Immediate, persistent)
-            : PublishToQueues(QueuesFor(publish), message, publish.Immediate, persistent);
+            : PublishToQueues(QueuesFor(publish, properties.Headers), message, publish.Immediate, persistent);
         if (!routed)
         {
             ReturnOrDrop(channel, publish, publish.Mandatory || publish.Immediate);
@@ -136,8 +136,8 @@ internal sealed partial class Amqp0BrokerConnection
 
     private static string ExchangeNameOf(Amqp0PendingPublish publish) => publish.Exchange?.Name ?? string.Empty;
 
-    private List<string> QueuesFor(Amqp0PendingPublish publish) =>
-        publish.Exchange is { } exchange ? exchanges.Route(exchange, publish.RoutingKey) : [publish.RoutingKey];
+    private List<string> QueuesFor(Amqp0PendingPublish publish, Amqp0FieldTable? headers) =>
+        publish.Exchange is { } exchange ? exchanges.Route(exchange, publish.RoutingKey, headers) : [publish.RoutingKey];
 
     // amq.topic is the bus's topic space: routed when a queue was chosen, room or not.
     private (bool Routed, bool Taken) PublishOnTopicSpace(TopicNameMapping topic, BusMessage message, bool immediate, bool persistent)

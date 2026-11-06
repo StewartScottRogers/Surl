@@ -47,8 +47,8 @@ The connection class (BL-505, ADR-0112 decisions 2, 3, 4 and 7):
 Channels, exchanges, queues and the basic class (BL-506, ADR-0112 decisions 5, 6 and 7):
 
 - `Amqp0Broker` takes the process's one `MessageBus` and holds one `Amqp0ExchangeTable`, shared
-  by its connections: `amq.direct`, `amq.fanout` and `amq.topic` from start, and the direct,
-  fanout and topic exchanges clients declare (`Amqp0TopicKeyMatcher` matches `*` and `#`), with
+  by its connections: `amq.direct`, `amq.fanout`, `amq.topic`, `amq.headers` and `amq.match` from
+  start, and the direct, fanout, topic and headers exchanges clients declare (`Amqp0TopicKeyMatcher` matches `*` and `#`), with
   their bindings. The default exchange routes by queue name; `amq.topic` is the bus's topic space,
   its publishes `BusConnection.Publish` and its bindings `BindQueue`, mapped through
   `AmqpTopicExchangeNames`. Queues are the bus's named queues; nothing of a queue is held here.
@@ -80,8 +80,20 @@ Transactions and publisher confirms (BL-731, ADR-0112 decision 6):
   answered `basic.ack` (`multiple` clear), or `basic.nack` when routing threw 506.
 - `tx` and `confirm` exclude each other with 406; `publisher_confirms` is in `connection.start`.
 
-The 320 `CONNECTION_FORCED` close on the idle timeout, `--max-time` and shutdown is BL-749; the headers
-exchange and durable exchanges across restarts BL-732; the command line and composition BL-507.
+The headers exchange and durable exchanges across restarts (BL-732, ADR-0112 decisions 5 and 6):
+
+- `amq.headers` and `amq.match` are pre-declared, and `exchange.declare` takes `headers`.
+  `Amqp0HeadersMatcher` matches a binding's arguments against the message's `headers` (`x-match`
+  `all` by default or `any`; `x-` entries not matched; a void entry matches presence); a binding
+  with another `x-match` is 406. Each `Amqp0Binding` carries its arguments, kept and told apart
+  only on a headers exchange.
+- `Amqp0Broker.LoadExchangesAsync` reads `Amqp0ExchangeFiles` (`.surl/amqp0/exchanges`, through
+  `IContentFileSystem`) once before serving; a malformed file is `Amqp0ExchangeLoadException`, which
+  the composition answers 37. `Amqp0ExchangeTable` counts changes to durable declared exchanges and
+  their bindings, and the connection saves them after each channel frame, noting a failed write.
+
+The 320 `CONNECTION_FORCED` close on the idle timeout, `--max-time` and shutdown is BL-749; the
+command line and composition BL-507, which also hands the broker its `Amqp0ExchangeFiles`.
 
 This library references `Surl.Protocol.Abstractions.UnitLibrary`, and may also reference the
 horizontal libraries ADR-0112 decision 0 names (`Surl.MessageBus`, `Surl.Content`) - never

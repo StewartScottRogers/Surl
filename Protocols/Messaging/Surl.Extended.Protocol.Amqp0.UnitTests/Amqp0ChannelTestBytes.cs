@@ -56,13 +56,13 @@ internal static class Amqp0ChannelTestBytes
     public static byte[] QueueDeclareOk(int channel, string name, int messages = 0, int consumers = 0) =>
         Method(channel, 50, 11, [.. ShortString(name), .. Long(messages), .. Long(consumers)]);
 
-    public static byte[] QueueBind(int channel, string queue, string exchange, string key, bool noWait = false) =>
-        Method(channel, 50, 20, [.. Short(0), .. ShortString(queue), .. ShortString(exchange), .. ShortString(key), Bits(noWait), .. EmptyTable]);
+    public static byte[] QueueBind(int channel, string queue, string exchange, string key, bool noWait = false, byte[]? table = null) =>
+        Method(channel, 50, 20, [.. Short(0), .. ShortString(queue), .. ShortString(exchange), .. ShortString(key), Bits(noWait), .. table ?? EmptyTable]);
 
     public static byte[] QueueBindOk(int channel) => Method(channel, 50, 21);
 
-    public static byte[] QueueUnbind(int channel, string queue, string exchange, string key) =>
-        Method(channel, 50, 50, [.. Short(0), .. ShortString(queue), .. ShortString(exchange), .. ShortString(key), .. EmptyTable]);
+    public static byte[] QueueUnbind(int channel, string queue, string exchange, string key, byte[]? table = null) =>
+        Method(channel, 50, 50, [.. Short(0), .. ShortString(queue), .. ShortString(exchange), .. ShortString(key), .. table ?? EmptyTable]);
 
     public static byte[] QueueUnbindOk(int channel) => Method(channel, 50, 51);
 
