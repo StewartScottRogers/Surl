@@ -1,12 +1,31 @@
 # Surl.Extended.Protocol.Grpc.UnitLibrary
 
-An extended server (ADR-0083): it will answer the `grpc` and `grpcs` schemes the Curl port adds, which
+An extended server (ADR-0083): it answers the `grpc` and `grpcs` schemes (served from `surl` by BL-445) the Curl port adds, which
 upstream curl does not have. ADR-0116 decides how. It is judged by its specifications - grpc/grpc's
 PROTOCOL-HTTP2.md, statuscodes.md and compression.md, and the protobuf encoding guide - never by the Curl
 port's output, and its unit tests replay bytes written by hand from those documents.
 
-What is here so far (BL-442, ADR-0116 decisions 1, 4, 5 and 6) needs no HTTP/2; BL-443 adds the reference
-to `Surl.Http2` and the server itself:
+The calls on HTTP/2 (BL-443, ADR-0116 decisions 0 to 8), through `Surl.Http2`:
+
+- `GrpcStreamHandler` is the `IHttp2StreamHandler` for one connection, built from the services served,
+  the connection's `IHttpAuthenticationSession` and the `ExchangeContext` (clock, log, `--max-message`,
+  `--max-filesize`). A wrong `:method` is HTTP `405` and a non-gRPC `content-type` HTTP `415`; then it
+  judges, in decision 3's order, the subtype, `te: trailers`, authentication (only Basic and Bearer reach
+  the session; `Challenge` is `UNAUTHENTICATED` with `www-authenticate` metadata, `Forbidden`
+  `PERMISSION_DENIED`), `grpc-timeout`, `grpc-encoding` and the `:path`, and answers the first failure
+  as Trailers-Only. It then serves the method within its deadline (`GrpcDeadline`, on the injected
+  `TimeProvider`; `DEADLINE_EXCEEDED` when it passes). A client that resets or leaves gets nothing more,
+  logged `CANCELLED`. What it does not do yet: answer calls open at shutdown `UNAVAILABLE` (BL-884).
+- `GrpcService` and `GrpcMethod` are what it serves: a method's `IsClientStreaming` decides whether the
+  handler reads the whole request first and enforces exactly one message (`request cardinality
+  violation`), and its `ServeAsync` answers through a `GrpcCall` and returns the status.
+- `GrpcCall` is a call as its method sees it: `ReadRequestAsync` (decompressed, limit-checked, by
+  `GrpcRequestReader`) and `WriteReplyAsync` (by `GrpcResponseWriter`, which writes Response-Headers
+  before the first reply and ends with Trailers, or Trailers-Only when nothing was written).
+- `EchoService` is the built-in `surl.test.Echo`: `Echo`, `Expand`, `Collect`, `Chat`, with `EchoRequest`'s
+  `delay_milliseconds`, `status_code`/`status_message` and range checks (`INVALID_ARGUMENT`).
+
+The framing, codec and statuses (BL-442, ADR-0116 decisions 1, 4, 5 and 6) need no HTTP/2:
 
 - `LengthPrefixedMessage` is one Length-Prefixed-Message (Compressed-Flag, 4-byte big-endian length,
   message); `WriteUncompressed` frames a reply, always with Compressed-Flag 0.
@@ -39,5 +58,6 @@ Rules:
 - No protobuf package and no `protoc`: the codec is hand-written (root `CLAUDE.md`, "Base class library only").
 - Every failure that ends a call is a `GrpcCallException` carrying an ADR-0116 status, or a
   `ProtobufFormatException`; never invent a new `grpc-message` text outside `GrpcStatus` and ADR-0116.
-- This library references `Surl.Protocol.Abstractions` (and, from BL-443, `Surl.Http2`), never another
-  protocol server.
+- This library references `Surl.Protocol.Abstractions` and `Surl.Http2`, never another protocol server.
+- A new service plugs in as a `GrpcService` handed to `GrpcStreamHandler`; never add a switch on service
+  names to the handler.

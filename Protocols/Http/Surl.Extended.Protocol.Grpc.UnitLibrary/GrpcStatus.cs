@@ -38,6 +38,36 @@ public sealed record GrpcStatus(GrpcStatusCode Code, string Message)
     /// <summary><c>INTERNAL</c>: a compressed message that does not decompress under the call's encoding (ADR-0116 decision 6).</summary>
     public static GrpcStatus MessageDidNotDecompress { get; } = new(GrpcStatusCode.Internal, "message did not decompress");
 
+    /// <summary><c>UNIMPLEMENTED</c>: a <c>content-type</c> of <c>application/grpc</c> with a subtype other than <c>proto</c>, a codec the server lacks (ADR-0116 decision 3).</summary>
+    public static GrpcStatus ContentTypeNotServed { get; } = new(GrpcStatusCode.Unimplemented, "content-type not served");
+
+    /// <summary><c>INTERNAL</c>: a call without <c>te: trailers</c> (ADR-0116 decision 3).</summary>
+    public static GrpcStatus TeTrailersRequired { get; } = new(GrpcStatusCode.Internal, "te: trailers required");
+
+    /// <summary><c>UNAUTHENTICATED</c>: a call the authentication session challenges, or one with credentials neither Basic nor Bearer (ADR-0116 decision 7).</summary>
+    public static GrpcStatus Unauthenticated { get; } = new(GrpcStatusCode.Unauthenticated, "unauthenticated");
+
+    /// <summary><c>PERMISSION_DENIED</c>: a call the authentication session forbids (ADR-0116 decision 7).</summary>
+    public static GrpcStatus PermissionDenied { get; } = new(GrpcStatusCode.PermissionDenied, "permission denied");
+
+    /// <summary><c>UNIMPLEMENTED</c>: a <c>:path</c> naming no served service (ADR-0116 decision 3).</summary>
+    public static GrpcStatus UnknownService { get; } = new(GrpcStatusCode.Unimplemented, "unknown service");
+
+    /// <summary><c>UNIMPLEMENTED</c>: a <c>:path</c> naming a served service but none of its methods (ADR-0116 decision 3).</summary>
+    public static GrpcStatus UnknownMethod { get; } = new(GrpcStatusCode.Unimplemented, "unknown method");
+
+    /// <summary><c>UNIMPLEMENTED</c>: a unary or server-streaming call with no request message, or more than one (ADR-0116 decision 2).</summary>
+    public static GrpcStatus RequestCardinalityViolation { get; } = new(GrpcStatusCode.Unimplemented, "request cardinality violation");
+
+    /// <summary><c>DEADLINE_EXCEEDED</c>: the call's <c>grpc-timeout</c> passed before it ended (ADR-0116 decision 5).</summary>
+    public static GrpcStatus DeadlineExceeded { get; } = new(GrpcStatusCode.DeadlineExceeded, "deadline exceeded");
+
+    /// <summary><c>INVALID_ARGUMENT</c>: a <c>surl.test.Echo</c> request whose <c>count</c>, <c>status_code</c> or <c>delay_milliseconds</c> is out of range (ADR-0116 decision 1).</summary>
+    public static GrpcStatus RequestFieldOutOfRange { get; } = new(GrpcStatusCode.InvalidArgument, "request field out of range");
+
+    /// <summary><c>RESOURCE_EXHAUSTED</c>: a reply longer than <c>--max-message</c>, <c>Collect</c>'s concatenation (ADR-0116 decision 8).</summary>
+    public static GrpcStatus ReplyLargerThanTheLimit { get; } = new(GrpcStatusCode.ResourceExhausted, "reply larger than the limit");
+
     /// <summary>
     /// The <c>grpc-status</c> value: the code in decimal, <c>0</c> to <c>16</c>.
     /// </summary>
