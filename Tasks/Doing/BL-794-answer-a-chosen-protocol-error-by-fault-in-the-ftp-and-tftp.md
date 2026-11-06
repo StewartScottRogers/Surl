@@ -45,3 +45,4 @@ with an `ERROR` packet carrying the rule's code and message, so a test can make 
 ## Log
 
 - 2026-11-05: Created.
+- 2026-11-05: Backlog -> Doing.
