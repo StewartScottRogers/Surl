@@ -70,7 +70,7 @@ live `surl`, through both pinned upstream curl and the pinned Curl port, using B
   cases paired with the OpenSSL static-curl build - `KexInit_OpenSslWindowsBuild_…` and the four weak
   cipher/MAC rows), no Surl defect. Three full class runs green after the last change.
 - Touches widened to ADR-0089 (no task in Doing names it): the SSH family needed an amendment, recorded
-  there as "Amendment (2026-11-05, BL-582)", decided by Claude under Stewart's delegation: throwaway
+  there as "Amendment 6 (2026-11-05, BL-582)", decided by Claude under Stewart's delegation: throwaway
   host-key fingerprints normalised in notes; SSH teardown notes (disconnect, channel end, SFTP session
   end, exchange end, SCP final acknowledgement) not compared, because their order is the client SSH
   layer's and races its exit (first run showed 62 false findings from this alone); the client's
