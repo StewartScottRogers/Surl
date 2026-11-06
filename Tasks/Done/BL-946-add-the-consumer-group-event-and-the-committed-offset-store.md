@@ -49,7 +49,7 @@ coordinator (BL-948) and the bus's committed offsets (BL-947) have contracts to 
 - `ControlEventKinds.AccountOf` returns the event's `Account`, so `?account=` matches group changes.
 - The `kind=nope` refusal's list in `ControlEventRequestsTests` now begins with `consumer_group_changed`.
 - Coverage: Surl.Control.UnitLibrary and Surl.Protocol.Abstractions.UnitLibrary 100% line and branch (Code Coverage collector, cobertura).
-- Follow-up filed: BL-963, the same kind in Surl.Mcp's `get_events` (outside this task's `touches`).
+- Follow-up filed: BL-968, the same kind in Surl.Mcp's `get_events` (outside this task's `touches`).
 
 ## Log
 

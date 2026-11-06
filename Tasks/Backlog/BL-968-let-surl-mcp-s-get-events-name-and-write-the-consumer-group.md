@@ -1,5 +1,5 @@
 ---
-id: BL-963
+id: BL-968
 title: Let Surl.Mcp's get_events name and write the consumer_group_changed event
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-06
 completed:
 ---
-# BL-963 — Let Surl.Mcp's get_events name and write the consumer_group_changed event
+# BL-968 — Let Surl.Mcp's get_events name and write the consumer_group_changed event
 
 ## Goal
 
