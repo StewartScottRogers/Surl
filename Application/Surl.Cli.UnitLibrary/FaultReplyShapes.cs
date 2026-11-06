@@ -4,14 +4,17 @@ using System.Globalization;
 namespace Surl.Cli;
 
 /// <summary>
-/// The error shape each original scheme's <c>--fault error</c> <c>reply</c> must fit (ADR-0124
-/// decision 4's first reply table), so a chosen error is one the protocol allows. A code and its
-/// text are separated by the first space. The extended schemes have no row yet (BL-833 to BL-836).
+/// The error shape each scheme's <c>--fault error</c> <c>reply</c> must fit (ADR-0124 decision 4's
+/// reply tables), so a chosen error is one the protocol allows. A code and its text are separated
+/// by the first space. Of the extended schemes, <c>coap</c>, <c>mcp</c> and <c>signalr</c> and
+/// their secure twins have rows (ADR-0143); the others have none yet (BL-833, BL-834, BL-836).
 /// </summary>
 internal static class FaultReplyShapes
 {
     private static readonly FrozenDictionary<string, Func<string, bool>> FitsByScheme = new Dictionary<string, Func<string, bool>>(StringComparer.Ordinal)
     {
+        ["coap"] = IsCoapResponseCode,
+        ["coaps"] = IsCoapResponseCode,
         ["dict"] = reply => IsCodeWithText(reply, 500, 599),
         ["ftp"] = reply => IsCodeWithText(reply, 400, 599),
         ["ftps"] = reply => IsCodeWithText(reply, 400, 599),
@@ -23,11 +26,15 @@ internal static class FaultReplyShapes
         ["imaps"] = IsImapResponse,
         ["ldap"] = IsLdapResult,
         ["ldaps"] = IsLdapResult,
+        ["mcp"] = IsJsonRpcError,
+        ["mcps"] = IsJsonRpcError,
         ["mqtt"] = IsMqttReasonCode,
         ["mqtts"] = IsMqttReasonCode,
         ["pop3"] = IsText,
         ["pop3s"] = IsText,
         ["rtsp"] = reply => IsCodeWithOptionalText(reply, 400, 599),
+        ["signalr"] = IsText,
+        ["signalrs"] = IsText,
         ["scp"] = IsText,
         ["sftp"] = reply => IsCodeWithText(reply, 2, 8),
         ["smb"] = IsNtStatusError,
@@ -80,6 +87,30 @@ internal static class FaultReplyShapes
     /// <summary>An MQTT 5 reason code 128 to 255, alone.</summary>
     private static bool IsMqttReasonCode(string reply) =>
         TrySplitCode(reply, out var code, out var text) && text is null && code is >= 128 and <= 255;
+
+    /// <summary>
+    /// A CoAP response code 4.00 to 5.05 written <c>c.dd</c> (RFC 7252 section 3; 4.00 to 4.31 and
+    /// 5.00 to 5.05), and an optional diagnostic text.
+    /// </summary>
+    private static bool IsCoapResponseCode(string reply)
+    {
+        var space = reply.IndexOf(' ', StringComparison.Ordinal);
+        var code = space < 0 ? reply : reply[..space];
+        return code.Length == 4
+            && code[1] == '.'
+            && space != reply.Length - 1
+            && int.TryParse(code.AsSpan(2), NumberStyles.None, CultureInfo.InvariantCulture, out var detail)
+            && ((code[0] == '4' && detail <= 31) || (code[0] == '5' && detail <= 5));
+    }
+
+    /// <summary>A JSON-RPC error code, a whole number with an optional sign, and a message.</summary>
+    private static bool IsJsonRpcError(string reply)
+    {
+        var space = reply.IndexOf(' ', StringComparison.Ordinal);
+        return space > 0
+            && space < reply.Length - 1
+            && int.TryParse(reply.AsSpan(0, space), NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture, out _);
+    }
 
     /// <summary>Eight hex digits whose severity bits say error (0xC0000000 and up).</summary>
     private static bool IsNtStatusError(string reply) =>
