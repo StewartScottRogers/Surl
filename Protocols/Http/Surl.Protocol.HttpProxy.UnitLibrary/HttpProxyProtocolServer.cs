@@ -17,12 +17,24 @@ namespace Surl.Protocol.HttpProxy;
 /// one <c>Host</c> is <c>400</c>.
 /// </para>
 /// <para>
+/// <b>Proxy login.</b> Every request and every <c>CONNECT</c> is first judged by the proxy
+/// authentication policy's session for curl's connection (ADR-0088 decision 5), given the
+/// request's fields with <c>Authorization</c> removed and <c>Proxy-Authorization</c> read as
+/// <c>Authorization</c>, and as its target a <c>CONNECT</c>'s authority or an absolute-form
+/// request's path and query - what upstream curl puts in a Digest <c>uri</c>. A challenge is
+/// answered <c>407 Proxy Authentication Required</c> with one <c>Proxy-Authenticate</c> per
+/// value, keeping the connection (NTLM and Negotiate are bound to it) unless the request asked
+/// to close or announced a body; a refusal is <c>403</c> and closes.
+/// </para>
+/// <para>
 /// <b>Forwarding.</b> An absolute-form <c>http://</c> target is sent to its authority (port 80
 /// when absent) in origin-form, with <c>Host</c> generated from the authority, the hop-by-hop
 /// fields and <c>Proxy-Authorization</c> removed and <c>Via: 1.1 surl</c> added; the origin's
 /// response comes back with its hop-by-hop fields, <c>Proxy-Authenticate</c> and
 /// <c>Proxy-Authentication-Info</c> removed and <c>Via: 1.1 surl</c> added. A target that is not
-/// absolute-form is <c>400</c>; another scheme is <c>501</c>. A <c>Content-Length</c> body is
+/// absolute-form is <c>400</c>. An <c>ftp://</c> <c>GET</c> is fetched over FTP and answered
+/// <c>200</c> with the file or listing, an FTP failure <c>502</c> and a timeout <c>504</c>
+/// (Amendment 4); any other method to <c>ftp</c>, and any other scheme, is <c>501</c>. A <c>Content-Length</c> body is
 /// streamed through and a chunked one sent on chunked; one past
 /// <see cref="ExchangeLimits.MaxUploadBytes"/> is <c>413</c>. <c>Expect: 100-continue</c> is
 /// forwarded and the origin's <c>100</c> relayed before the body. <c>Max-Forwards: 0</c> on
@@ -52,16 +64,36 @@ public sealed class HttpProxyProtocolServer : IConnectionProtocolServer, IConnec
         "HTTP/1.1 503 Service Unavailable\r\nServer: surl\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"u8.ToArray();
 
     private readonly IOriginConnector originConnector;
+    private readonly IAuthenticationPolicy proxyAuthenticationPolicy;
 
     /// <summary>
-    /// Creates the proxy server.
+    /// Creates the proxy server with no proxy accounts: it asks for no credentials and relies on
+    /// the allowed-origin rule (ADR-0088 decision 5), as <see cref="AnonymousAuthenticationPolicy"/>
+    /// lets every request through.
     /// </summary>
     /// <param name="originConnector">How origins are reached: the composition root's, which applies the allowed-origin rule.</param>
     public HttpProxyProtocolServer(IOriginConnector originConnector)
+        : this(originConnector, new AnonymousAuthenticationPolicy())
+    {
+    }
+
+    /// <summary>
+    /// Creates the proxy server whose every request and <c>CONNECT</c> is judged by
+    /// <paramref name="proxyAuthenticationPolicy"/> (ADR-0088 decision 5): the policy built from
+    /// the proxy's own accounts and methods, never the origin's.
+    /// </summary>
+    /// <param name="originConnector">How origins are reached: the composition root's, which applies the allowed-origin rule.</param>
+    /// <param name="proxyAuthenticationPolicy">
+    /// Who may use the proxy, and how. Its HTTP session judges <c>Proxy-Authorization</c> as if it
+    /// were <c>Authorization</c>, and its challenges are sent as <c>Proxy-Authenticate</c>.
+    /// </param>
+    public HttpProxyProtocolServer(IOriginConnector originConnector, IAuthenticationPolicy proxyAuthenticationPolicy)
     {
         ArgumentNullException.ThrowIfNull(originConnector);
+        ArgumentNullException.ThrowIfNull(proxyAuthenticationPolicy);
 
         this.originConnector = originConnector;
+        this.proxyAuthenticationPolicy = proxyAuthenticationPolicy;
     }
 
     /// <summary>
@@ -83,7 +115,7 @@ public sealed class HttpProxyProtocolServer : IConnectionProtocolServer, IConnec
         ArgumentNullException.ThrowIfNull(connection);
         ArgumentNullException.ThrowIfNull(context);
 
-        await using var exchange = new HttpProxyExchange(connection, context, originConnector);
+        await using var exchange = new HttpProxyExchange(connection, context, originConnector, proxyAuthenticationPolicy);
         try
         {
             await exchange.ServeAsync();

@@ -13,7 +13,15 @@ internal static class OciQueryParameters
     /// <param name="query">The query after the <c>?</c>, still percent-encoded.</param>
     /// <param name="name">The parameter's name.</param>
     /// <returns>The value, empty for a parameter with no <c>=</c>; <see langword="null"/> when none is named so.</returns>
-    public static string? First(string query, string name)
+    public static string? First(string query, string name) => All(query, name).FirstOrDefault();
+
+    /// <summary>
+    /// The values of every parameter named <paramref name="name"/>, in order.
+    /// </summary>
+    /// <param name="query">The query after the <c>?</c>, still percent-encoded.</param>
+    /// <param name="name">The parameter's name.</param>
+    /// <returns>The values, empty for a parameter with no <c>=</c>.</returns>
+    public static IEnumerable<string> All(string query, string name)
     {
         foreach (var pair in query.Split('&', StringSplitOptions.RemoveEmptyEntries))
         {
@@ -21,10 +29,8 @@ internal static class OciQueryParameters
             var pairName = Uri.UnescapeDataString(equals < 0 ? pair : pair[..equals]);
             if (pairName == name)
             {
-                return equals < 0 ? string.Empty : Uri.UnescapeDataString(pair[(equals + 1)..]);
+                yield return equals < 0 ? string.Empty : Uri.UnescapeDataString(pair[(equals + 1)..]);
             }
         }
-
-        return null;
     }
 }

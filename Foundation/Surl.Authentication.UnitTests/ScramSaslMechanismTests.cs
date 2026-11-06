@@ -140,6 +140,117 @@ public sealed class ScramSaslMechanismTests
         Assert.AreEqual("Login accepted: SCRAM-SHA-256 user", accepted.CheckedLogin?.Note);
     }
 
+    // ---- SCRAM-SHA-512 (BL-700): no RFC example exists, so the client side is RFC 5802 section 3's
+    // formulas written out over the BCL's SHA-512, independently of ScramHash ----
+
+    private const string Sha512ClientFirst = "n,,n=user,r=rOprNGfwEbeRWgbNEkqO";
+    private const string Sha512ServerNonce = "%hvYDpWUa2RaTCAfuxFIlj)hNlF$k0";
+
+    private static byte[] Sha512SaltedPassword(string password, byte[] salt, int iterations) =>
+        System.Security.Cryptography.Rfc2898DeriveBytes.Pbkdf2(
+            Encoding.UTF8.GetBytes(password), salt, iterations, System.Security.Cryptography.HashAlgorithmName.SHA512, 64);
+
+    // Returns the client-final-message and the ServerSignature the client expects back.
+    private static (string ClientFinal, string ServerSignature) Sha512ClientFinal(string password, string clientFirst, string serverFirst)
+    {
+        var attributes = serverFirst.Split(',');
+        var saltedPassword = Sha512SaltedPassword(
+            password, Convert.FromBase64String(attributes[1][2..]), int.Parse(attributes[2][2..], System.Globalization.CultureInfo.InvariantCulture));
+        var withoutProof = $"c=biws,r={attributes[0][2..]}";
+        var authMessage = Encoding.UTF8.GetBytes($"{clientFirst[3..]},{serverFirst},{withoutProof}");
+        var clientKey = System.Security.Cryptography.HMACSHA512.HashData(saltedPassword, "Client Key"u8);
+        var storedKey = System.Security.Cryptography.SHA512.HashData(clientKey);
+        var clientSignature = System.Security.Cryptography.HMACSHA512.HashData(storedKey, authMessage);
+        var proof = new byte[64];
+        for (var index = 0; index < proof.Length; index++)
+        {
+            proof[index] = (byte)(clientKey[index] ^ clientSignature[index]);
+        }
+
+        var serverKey = System.Security.Cryptography.HMACSHA512.HashData(saltedPassword, "Server Key"u8);
+        var serverSignature = System.Security.Cryptography.HMACSHA512.HashData(serverKey, authMessage);
+
+        return ($"{withoutProof},p={Convert.ToBase64String(proof)}", $"v={Convert.ToBase64String(serverSignature)}");
+    }
+
+    [TestMethod]
+    public async Task Exchange_ScramSha512_AcceptsAProofComputedOverSha512AndSendsTheServerSignature()
+    {
+        var exchange = Exchange(ScramHash.Sha512, Sha512ClientFirst, Sha512ServerNonce);
+
+        var serverFirst = Text((await Undelayed(exchange.BeginAsync(CancellationToken.None))).Challenge);
+        Assert.AreEqual($"r=rOprNGfwEbeRWgbNEkqO{Sha512ServerNonce},s=W22ZaJ0SNY7soEsUEjb6gQ==,i=4096", serverFirst);
+        var (clientFinal, serverSignature) = Sha512ClientFinal("pencil", Sha512ClientFirst, serverFirst);
+        Assert.AreEqual(88, clientFinal.Length - clientFinal.IndexOf(",p=", StringComparison.Ordinal) - 3, "a 64-byte proof");
+
+        var serverFinal = await Undelayed(exchange.ContinueAsync(Ascii(clientFinal), CancellationToken.None));
+        Assert.AreEqual(SaslLoginOutcome.Challenge, serverFinal.Outcome);
+        Assert.AreEqual(serverSignature, Text(serverFinal.Challenge));
+
+        var accepted = await Undelayed(exchange.ContinueAsync(ReadOnlyMemory<byte>.Empty, CancellationToken.None));
+        Assert.AreEqual(SaslLoginOutcome.Accepted, accepted.Outcome);
+        Assert.AreEqual("user", accepted.AccountName);
+        Assert.AreEqual("Login accepted: SCRAM-SHA-512 user", accepted.CheckedLogin?.Note);
+    }
+
+    [TestMethod]
+    public async Task Exchange_ScramSha512WrongPassword_IsRefusedWithInvalidProofAsScramSha256Is()
+    {
+        var sha512 = Exchange(ScramHash.Sha512, Sha512ClientFirst, Sha512ServerNonce);
+        var sha512ServerFirst = Text((await sha512.BeginAsync(CancellationToken.None)).Challenge);
+        var sha256 = Exchange(ScramHash.Sha256, Sha256ClientFirst, Sha256ServerNonce);
+        await sha256.BeginAsync(CancellationToken.None);
+
+        await AssertRefusedAsync(
+            sha512.ContinueAsync(Ascii(Sha512ClientFinal("wrong", Sha512ClientFirst, sha512ServerFirst).ClientFinal), CancellationToken.None),
+            "e=invalid-proof",
+            "Login refused: SCRAM-SHA-512 user");
+        await AssertRefusedAsync(
+            sha256.ContinueAsync(Ascii(ClientFinal(ScramHash.Sha256, "wrong", Sha256ClientFirst, Sha256ServerFirst)), CancellationToken.None),
+            "e=invalid-proof",
+            "Login refused: SCRAM-SHA-256 user");
+    }
+
+    [TestMethod]
+    public async Task StartSaslExchange_ScramSha512WithRandomSalt_AcceptsTheAccountsPassword()
+    {
+        var policy = PolicyFixture.Create(new AccountBook([new Account("alice", "s3cret")]), clock, acceptedMethods: EveryMethod);
+        var exchange = SaslExchangeRunner.Start(policy, "scram-sha-512", Ascii("n,,n=alice,r=client"), null);
+
+        var serverFirst = Text((await exchange.BeginAsync(CancellationToken.None)).Challenge);
+        var (clientFinal, serverSignature) = Sha512ClientFinal("s3cret", "n,,n=alice,r=client", serverFirst);
+        Assert.AreEqual(serverSignature, Text((await exchange.ContinueAsync(Ascii(clientFinal), CancellationToken.None)).Challenge));
+
+        var accepted = await exchange.ContinueAsync(ReadOnlyMemory<byte>.Empty, CancellationToken.None);
+        Assert.AreEqual("alice", accepted.AccountName);
+    }
+
+    [TestMethod]
+    [DataRow(true, new[] { "SCRAM-SHA-256", "SCRAM-SHA-512", "SCRAM-SHA-1" }, DisplayName = "accepted: after SCRAM-SHA-256, before SCRAM-SHA-1")]
+    [DataRow(false, new[] { "SCRAM-SHA-256", "SCRAM-SHA-1" }, DisplayName = "not accepted: not listed")]
+    public void GetSaslMechanisms_ScramSha512_IsListedOnlyWhenAcceptedAfterScramSha256(bool acceptsSha512, string[] expected)
+    {
+        var accepted = new HashSet<AuthenticationMethod> { AuthenticationMethod.ScramSha1, AuthenticationMethod.ScramSha256 };
+        if (acceptsSha512)
+        {
+            accepted.Add(AuthenticationMethod.ScramSha512);
+        }
+
+        var mechanisms = PolicyFixture.Create(RfcAccounts, clock, acceptedMethods: accepted).GetSaslMechanisms(new SaslOfferRequest("xmpp", null));
+
+        CollectionAssert.AreEqual(expected, mechanisms.ToArray());
+    }
+
+    [TestMethod]
+    public async Task StartSaslExchange_ScramSha512NotAccepted_IsRefusedAsAnUnknownMechanism()
+    {
+        var policy = PolicyFixture.Create(RfcAccounts, clock, acceptedMethods: new HashSet<AuthenticationMethod> { AuthenticationMethod.ScramSha256 });
+
+        var step = await SaslExchangeRunner.Start(policy, "SCRAM-SHA-512", Ascii(Sha512ClientFirst), null).BeginAsync(CancellationToken.None);
+
+        Assert.AreEqual(SaslLoginOutcome.RefusedMechanism, step.Outcome);
+    }
+
     [TestMethod]
     public async Task Exchange_WhereSuccessCarriesData_AcceptsWithTheServerFinalMessageAsAdditionalSuccessData()
     {

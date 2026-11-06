@@ -11,6 +11,17 @@ public sealed class PinnedCurlPortBesideUpstreamCurlTests
     public TestContext TestContext { get; set; } = null!;
 
     [TestMethod]
+    public void InExchangeOrder_InterleavedExchanges_GroupsEachExchangeKeepingItsOwnOrder()
+    {
+        var notes = "surl: warning: w\n#2 * Exchange 2 opened.\n#1 * Exchange 1 opened.\n#2 * Exchange 2 closed.\n#1 * Exchange 1 closed.\n";
+
+        var ordered = PinnedCurlPortBesideUpstreamCurl.InExchangeOrder(notes);
+
+        Assert.AreEqual(
+            "surl: warning: w\n#1 * Exchange 1 opened.\n#1 * Exchange 1 closed.\n#2 * Exchange 2 opened.\n#2 * Exchange 2 closed.\n", ordered);
+    }
+
+    [TestMethod]
     [Description("Mirrors UpstreamCurlFetchesFromSurlOverHttp11Tests.Get_File_ExitsZeroWithTheFilesBytes")]
     public async Task MeasureAsync_HelloTxtOverHttp_ReachesAVerdictComparingRequestBytes()
     {

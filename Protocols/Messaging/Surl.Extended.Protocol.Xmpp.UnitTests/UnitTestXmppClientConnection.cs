@@ -21,9 +21,9 @@ internal sealed class UnitTestXmppClientConnection : IConnection
 
     public bool ReadsFail { get; init; }
 
-    public bool WritesFail { get; init; }
+    public bool WritesFail { get; set; }
 
-    public bool WritesAreCancelled { get; init; }
+    public bool WritesAreCancelled { get; set; }
 
     public int ReadsWaiting { get; private set; }
 

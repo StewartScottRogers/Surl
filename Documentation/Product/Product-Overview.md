@@ -598,11 +598,13 @@ in its own `Surl.<Area>.UnitLibrary` (`CLAUDE.md`, "Decisions").
 
 Every project sits in a category folder - `Application/`, `Conformance/`, `Cryptography/`,
 `Foundation/` and, for the protocol servers and the libraries they share, `Protocols/` with
-`DataStore/`, `FileTransfer/`, `Http/`, `Lookup/`, `Mail/`, `Messaging/` and `Terminal/` - each
+`DataStore/`, `FileTransfer/`, `Http/`, `Lookup/`, `Mail/`, `Messaging/`, `Proxy/` and `Terminal/` - each
 production project beside its `.UnitTests` twin ([ADR-0079](../Planning/Decisions/ADR-0079-projects-are-grouped-in-category-folders.md);
 `CLAUDE.md`, "Repository layout"). `DataStore/` is decided by
 [ADR-0095](../Planning/Decisions/ADR-0095-the-protocols-datastore-category-folder.md) for the
-Redis server and is created with its first project (BL-488). Every
+Redis server and is created with its first project (BL-488). `Proxy/` is decided by
+[ADR-0121](../Planning/Decisions/ADR-0121-how-surl-serves-socks4-socks4a-socks5-and-socks5h.md)
+decision 1 for the SOCKS server, `Surl.Protocol.Socks`, created with it (BL-558). Every
 project of ADR-0002's map exists from the first commit; the nine hand-built SSH primitive
 libraries (four of ADR-0048, two of ADR-0051 and three of ADR-0061), the Kerberos library of
 ADR-0057, the mail servers' two shared libraries of ADR-0050, the loopback test KDC of

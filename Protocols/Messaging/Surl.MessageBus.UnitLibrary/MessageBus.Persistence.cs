@@ -103,15 +103,29 @@ public sealed partial class MessageBus
 
     private void RequireWithinBounds(MessageBusFiles busFiles, MessageBusFileContents contents)
     {
+        var logTopics = RequireLogsWithinBounds(busFiles, contents);
+        RequireRetainedWithinBounds(contents, logTopics);
+        RequireQueuesWithinBounds(busFiles, contents);
+    }
+
+    private HashSet<string> RequireLogsWithinBounds(MessageBusFiles busFiles, MessageBusFileContents contents)
+    {
         var logTopics = contents.Logs.Select(log => log.Topic).Union(declaredLogTopics).ToHashSet(StringComparer.Ordinal);
         var logRecordBytes = contents.Logs.SelectMany(log => log.Records).Sum(LogRecordBytes);
         Require(logTopics.Count <= MaxTopics && logRecordBytes <= MaxLogBytes, busFiles.LogsFolderPath, MessageBusFiles.MalformedFileReason);
+        return logTopics;
+    }
 
+    private void RequireRetainedWithinBounds(MessageBusFileContents contents, HashSet<string> logTopics)
+    {
         var source = contents.RetainedSource;
         var topicCount = logTopics.Union(contents.Retained.Select(message => message.Topic)).Count();
         var retainedBytes = contents.Retained.Sum(message => (long)message.Payload.Length);
         Require(topicCount <= MaxTopics && retainedBytes <= MaxRetainedPayloadBytes, source.FilePath, source.MalformedReason);
+    }
 
+    private void RequireQueuesWithinBounds(MessageBusFiles busFiles, MessageBusFileContents contents)
+    {
         var queuedMessages = contents.Queues.SelectMany(queue => queue.Messages).ToList();
         Require(
             contents.Queues.Select(queue => queue.Name).Union(declaredQueueNames).Count() <= MaxQueues

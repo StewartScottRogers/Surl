@@ -64,6 +64,19 @@ public sealed class CurlPortClientRunnerTests
     }
 
     [TestMethod]
+    public void CreateStartInfo_WorkingDirectory_StartsTheClientThereAndPathIsTheVerifiedOne()
+    {
+        var runner = new CurlPortClientRunner(Found(), TimeSpan.FromSeconds(1), TimeProvider.System);
+
+        var startInfo = runner.CreateStartInfo(["-s"], new Dictionary<string, string>(), "/work/test1");
+
+        Assert.AreEqual(ClientPath, runner.Path);
+        Assert.AreEqual("/work/test1", startInfo.WorkingDirectory);
+        Assert.AreEqual(string.Empty, runner.CreateStartInfo(["-s"], new Dictionary<string, string>()).WorkingDirectory);
+        Assert.ThrowsExactly<ArgumentNullException>(() => runner.CreateStartInfo(["-s"], new Dictionary<string, string>(), null!));
+    }
+
+    [TestMethod]
     public void CreateStartInfo_NullOrHoldingNull_ThrowsArgumentException()
     {
         var runner = new CurlPortClientRunner(Found(), TimeSpan.FromSeconds(1), TimeProvider.System);

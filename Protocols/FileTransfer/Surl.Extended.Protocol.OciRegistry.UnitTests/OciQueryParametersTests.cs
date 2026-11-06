@@ -23,4 +23,12 @@ public sealed class OciQueryParametersTests
     {
         Assert.IsNull(OciQueryParameters.First(query, "n"));
     }
+
+    [TestMethod]
+    public void All_RepeatedParameter_IsEveryDecodedValueInOrder()
+    {
+        var values = OciQueryParameters.All("scope=a%3Ab&n=1&scope&scope=c", "scope").ToArray();
+
+        CollectionAssert.AreEqual(new[] { "a:b", string.Empty, "c" }, values);
+    }
 }

@@ -21,6 +21,7 @@ internal sealed record SaslMechanism(
     [
         new("GSSAPI", AuthenticationMethod.Gssapi, context => new GssapiSaslExchange(context)),
         new("SCRAM-SHA-256", AuthenticationMethod.ScramSha256, context => new ScramSaslExchange(context, ScramHash.Sha256)),
+        new("SCRAM-SHA-512", AuthenticationMethod.ScramSha512, context => new ScramSaslExchange(context, ScramHash.Sha512)),
         new("SCRAM-SHA-1", AuthenticationMethod.ScramSha1, context => new ScramSaslExchange(context, ScramHash.Sha1)),
         new("DIGEST-MD5", AuthenticationMethod.DigestMd5, context => new DigestMd5SaslExchange(context)),
         new("CRAM-MD5", AuthenticationMethod.CramMd5, context => new CramMd5SaslExchange(context)),

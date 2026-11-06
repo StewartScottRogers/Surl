@@ -7,7 +7,7 @@ namespace Surl.Conformance;
 /// <summary>
 /// ADR-0089 decision 4's rules for the bytes a client sent on one connection, behind
 /// <see cref="CurlPortResultNormaliser.NormaliseRequestBytes"/>: the client ports FTP's <c>PORT</c> and
-/// <c>EPRT</c> name, the <c>User-Agent:</c> value, every multipart boundary, Digest's <c>cnonce</c> and the
+/// <c>EPRT</c> name, the <c>User-Agent:</c> value and DICT's <c>CLIENT</c> text, the <c>Sec-WebSocket-Key:</c> value, the random part of curl's MQTT client identifier, every multipart boundary, Digest's <c>nonce</c> (surl's own, echoed), <c>cnonce</c> and the
 /// <c>response</c> computed from it (in a header or a base64 SASL <c>DIGEST-MD5</c> line), and the NTLM
 /// client challenge, time stamp and what is derived from them (raw, as SMB carries it, or base64, as HTTP
 /// and SASL carry it).
@@ -22,9 +22,21 @@ internal static class RequestBytesNormalisation
 
     private static readonly Regex UserAgentField = new(@"^(User-Agent:[ \t]*)[^\r\n]*", Lines | RegexOptions.IgnoreCase);
 
+    private static readonly Regex WebSocketKeyField = new(@"^(Sec-WebSocket-Key:[ \t]*)[^\r\n]*", Lines | RegexOptions.IgnoreCase);
+
+    // DICT's CLIENT command (RFC 2229 3.6) carries curl's self-identification, "libcurl <version>", as User-Agent does.
+    private static readonly Regex DictClientCommand = new(@"^(CLIENT )[^\r\n]*", Lines);
+
+    // An MQTT 3.1.1 CONNECT (section 3.1) whose 12-byte client identifier is curl's: "curl" and 8 random
+    // alphanumerics (lib/mqtt.c, MQTT_CLIENTID_LEN), chosen afresh for every connection.
+    private static readonly Regex MqttCurlClientId = new(@"(\x00\x04MQTT\x04[\s\S]{3}\x00\x0Ccurl)[A-Za-z0-9]{8}", RegexOptions.CultureInvariant);
+
     private static readonly Regex Boundary = new("boundary=(\"?)([^\";\\r\\n]+)\\1", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
 
     private static readonly Regex DigestCnonce = new("\\b(cnonce=\"?)[^\",\\r\\n]*", RegexOptions.CultureInvariant);
+
+    // \b keeps cnonce out: no word boundary lies between its c and n.
+    private static readonly Regex DigestNonce = new("\\b(nonce=\"?)[^\",\\r\\n]*", RegexOptions.CultureInvariant);
 
     private static readonly Regex DigestResponse = new("\\b(response=\"?)[^\",\\r\\n]*", RegexOptions.CultureInvariant);
 
@@ -50,15 +62,20 @@ internal static class RequestBytesNormalisation
         text = FtpPortCommand.Replace(text, "$1," + CurlPortResultNormaliser.PortPlaceholder);
         text = FtpEprtCommand.Replace(text, "${1}" + CurlPortResultNormaliser.PortPlaceholder + "|");
         text = UserAgentField.Replace(text, "${1}" + CurlPortResultNormaliser.UserAgentPlaceholder);
+        text = WebSocketKeyField.Replace(text, "${1}" + CurlPortResultNormaliser.WebSocketKeyPlaceholder);
+        text = DictClientCommand.Replace(text, "${1}" + CurlPortResultNormaliser.UserAgentPlaceholder);
+        text = MqttCurlClientId.Replace(text, "${1}" + CurlPortResultNormaliser.MqttClientIdPlaceholder);
         text = Base64Token.Replace(text, NormaliseBase64Token);
         text = NormaliseDigest(text);
         return ReplaceBoundaries(text);
     }
 
     private static string NormaliseDigest(string text) =>
-        DigestResponse.Replace(
-            DigestCnonce.Replace(text, "${1}" + CurlPortResultNormaliser.CnoncePlaceholder),
-            "${1}" + CurlPortResultNormaliser.DigestResponsePlaceholder);
+        DigestNonce.Replace(
+            DigestResponse.Replace(
+                DigestCnonce.Replace(text, "${1}" + CurlPortResultNormaliser.CnoncePlaceholder),
+                "${1}" + CurlPortResultNormaliser.DigestResponsePlaceholder),
+            "${1}" + CurlPortResultNormaliser.DigestNoncePlaceholder);
 
     private static string ReplaceBoundaries(string text)
     {

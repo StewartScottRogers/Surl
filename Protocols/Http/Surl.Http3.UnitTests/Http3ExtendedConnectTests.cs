@@ -76,6 +76,7 @@ public sealed class Http3ExtendedConnectTests
         Assert.AreEqual(0UL, session.Id);
         Assert.AreEqual("CONNECT", session.Head.Method);
         Assert.AreEqual("webtransport-h3", session.Head.Protocol);
+        Assert.AreEqual("https", session.Head.Scheme);
         Assert.AreEqual("/echo", session.Head.Target);
         Assert.AreEqual("127.0.0.1:18050", session.Head.Authority);
         Assert.AreEqual("200", client.Response(0).Status);
@@ -128,7 +129,7 @@ public sealed class Http3ExtendedConnectTests
     }
 
     [TestMethod]
-    public async Task ServeAsync_DatagramForNoOpenSession_IsDroppedAndTheNextOneIsDelivered()
+    public async Task ServeAsync_DatagramForNoOpenSession_IsHeldForItsStreamAndNotGivenToAnother()
     {
         using var client = new Http3TestQuicClient();
         var received = new TaskCompletionSource<byte[]?>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -147,7 +148,7 @@ public sealed class Http3ExtendedConnectTests
         var payload = await received.Task.WaitAsync(TimeSpan.FromSeconds(30), Token);
 
         Assert.AreEqual("79", Convert.ToHexString(payload!), "Quarter stream ID 0 names stream 0; ID 1 names stream 4, no session.");
-        Assert.IsTrue(log.Notes.Contains("An HTTP datagram for stream 4, which is no open session, was dropped."));
+        Assert.IsTrue(log.Notes.Contains("An HTTP datagram for stream 4, which is no open session yet, is held for it."));
     }
 
     [TestMethod]
@@ -300,6 +301,321 @@ public sealed class Http3ExtendedConnectTests
 
         Assert.AreEqual(H3StreamCreationError, client.StopSendingCode(Http3TestQuicClient.EncoderStreamId));
         Assert.IsNull(client.CloseCode);
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_DatagramsBeforeTheirConnect_AreHeldThenDeliveredInOrderWhenTheSessionOpens()
+    {
+        using var client = new Http3TestQuicClient();
+        var received = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var handler = new UnitTestExtendedConnectHandler("webtransport-h3", async (session, token) =>
+            received.SetResult(Convert.ToHexString((await session.ReceiveDatagramAsync(token))!) + Convert.ToHexString((await session.ReceiveDatagramAsync(token))!)));
+        var log = await UnitTestExtendedConnect.StartAsync(client, new Http3ServerOptions { ExtendedConnectHandlers = [handler] }, Token);
+
+        SendDatagram(client, "00" + "61");
+        SendDatagram(client, "00" + "62");
+        await client.UntilAsync(() => log.Notes.Count(note => note == "An HTTP datagram for stream 0, which is no open session yet, is held for it.") == 2, Token);
+        client.Send(0, UnitTestExtendedConnect.Connect(client));
+        var payloads = await received.Task.WaitAsync(TimeSpan.FromSeconds(30), Token);
+
+        Assert.AreEqual("6162", payloads, "ADR-0117 decision 3: held until the session is established, then served in order.");
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_DatagramPastTheSixtyFourHeld_IsDropped()
+    {
+        using var client = new Http3TestQuicClient();
+        var opened = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var received = new TaskCompletionSource<List<byte>>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var handler = new UnitTestExtendedConnectHandler("webtransport-h3", async (session, token) =>
+        {
+            opened.SetResult();
+            var first = new List<byte>();
+            for (var index = 0; index < 65; index++)
+            {
+                first.Add((await session.ReceiveDatagramAsync(token))!.Single());
+            }
+
+            received.SetResult(first);
+        });
+        var log = await UnitTestExtendedConnect.StartAsync(client, new Http3ServerOptions { ExtendedConnectHandlers = [handler] }, Token);
+
+        for (var index = 0; index < 65; index++)
+        {
+            SendDatagram(client, "00" + index.ToString("X2", System.Globalization.CultureInfo.InvariantCulture));
+        }
+
+        await client.UntilAsync(() => log.Notes.Contains("An HTTP datagram for stream 0, which is no open session, was dropped: 64 are held already."), Token);
+        client.Send(0, UnitTestExtendedConnect.Connect(client));
+        await opened.Task.WaitAsync(TimeSpan.FromSeconds(30), Token);
+        SendDatagram(client, "00" + "FF");
+        var payloads = await received.Task.WaitAsync(TimeSpan.FromSeconds(30), Token);
+
+        CollectionAssert.AreEqual(Enumerable.Range(0, 64).Select(index => (byte)index).Append((byte)0xFF).ToList(), payloads, "The 65th held datagram (0x40) was dropped; the live one follows the 64.");
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_HeldDatagramPastTheHeadTimeout_IsDroppedAndTheSessionGetsOnlyLaterOnes()
+    {
+        using var client = new Http3TestQuicClient();
+        var time = UnitTestExtendedConnect.NewClock();
+        var opened = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var received = new TaskCompletionSource<byte[]?>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var handler = new UnitTestExtendedConnectHandler("webtransport-h3", async (session, token) =>
+        {
+            opened.SetResult();
+            received.SetResult(await session.ReceiveDatagramAsync(token));
+        });
+        var limits = ExchangeLimits.Default with { HeadTimeout = TimeSpan.FromSeconds(5) };
+        var log = await UnitTestExtendedConnect.StartAsync(client, new Http3ServerOptions { ExtendedConnectHandlers = [handler] }, Token, limits, time: time);
+
+        SendDatagram(client, "00" + "61");
+        await client.UntilAsync(() => log.Notes.Contains("An HTTP datagram for stream 0, which is no open session yet, is held for it."), Token);
+        time.Advance(TimeSpan.FromSeconds(5));
+        client.Send(0, UnitTestExtendedConnect.Connect(client));
+        await opened.Task.WaitAsync(TimeSpan.FromSeconds(30), Token);
+        SendDatagram(client, "00" + "62");
+        var payload = await received.Task.WaitAsync(TimeSpan.FromSeconds(30), Token);
+
+        Assert.AreEqual("62", Convert.ToHexString(payload!));
+        Assert.IsTrue(log.Notes.Contains("An HTTP datagram held for stream 0 was dropped: no session opened there within the head timeout."));
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_HeldDatagramWithNoHeadTimeout_IsKeptUntilTheSessionOpens()
+    {
+        using var client = new Http3TestQuicClient();
+        var time = UnitTestExtendedConnect.NewClock();
+        var received = new TaskCompletionSource<byte[]?>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var handler = new UnitTestExtendedConnectHandler("webtransport-h3", async (session, token) => received.SetResult(await session.ReceiveDatagramAsync(token)));
+        var limits = ExchangeLimits.Default with { HeadTimeout = Timeout.InfiniteTimeSpan };
+        var log = await UnitTestExtendedConnect.StartAsync(client, new Http3ServerOptions { ExtendedConnectHandlers = [handler] }, Token, limits, time: time);
+
+        SendDatagram(client, "00" + "61");
+        await client.UntilAsync(() => log.Notes.Contains("An HTTP datagram for stream 0, which is no open session yet, is held for it."), Token);
+        time.Advance(TimeSpan.FromSeconds(20));
+        client.Send(0, UnitTestExtendedConnect.Connect(client));
+        var payload = await received.Task.WaitAsync(TimeSpan.FromSeconds(30), Token);
+
+        Assert.AreEqual("61", Convert.ToHexString(payload!));
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_DatagramForAnEndedSession_IsDroppedAtOnce()
+    {
+        using var client = new Http3TestQuicClient();
+        var ended = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var handler = new UnitTestExtendedConnectHandler("webtransport-h3", async (session, token) =>
+        {
+            await session.RequestStream.WriteHeadersAsync([new(":status", "200")], endStream: true, token);
+            ended.SetResult();
+        });
+        var log = await UnitTestExtendedConnect.StartAsync(client, new Http3ServerOptions { ExtendedConnectHandlers = [handler] }, Token);
+        client.Send(0, UnitTestExtendedConnect.Connect(client));
+        await ended.Task.WaitAsync(TimeSpan.FromSeconds(30), Token);
+        await client.UntilAsync(() => client.StreamSent(0).Fin, Token);
+
+        SendDatagram(client, "00" + "61");
+        await client.UntilAsync(() => log.Notes.Contains("An HTTP datagram for stream 0, which is no open session, was dropped."), Token);
+
+        Assert.DoesNotContain("An HTTP datagram for stream 0, which is no open session yet, is held for it.", log.Notes, "The session has ended; nothing will open there again.");
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_HeldDatagramForAStreamThatIsAnOrdinaryRequest_IsDroppedOnceItsHeadIsRead()
+    {
+        using var client = new Http3TestQuicClient();
+        var handler = new UnitTestExtendedConnectHandler("webtransport-h3", (_, _) => Task.CompletedTask);
+        var requestHandler = new UnitTestRequestStreamHandler((stream, token) => stream.WriteHeadersAsync([new(":status", "204")], endStream: true, token));
+        var log = await UnitTestExtendedConnect.StartAsync(client, new Http3ServerOptions { ExtendedConnectHandlers = [handler] }, Token, requestHandler: requestHandler);
+
+        SendDatagram(client, "00" + "61");
+        await client.UntilAsync(() => log.Notes.Contains("An HTTP datagram for stream 0, which is no open session yet, is held for it."), Token);
+        client.Send(0, client.Request("GET", "/"), fin: true);
+        await client.UntilAsync(() => client.HasEnded(0) && log.Notes.Contains("1 HTTP datagram(s) held for stream 0 were dropped: it is no session."), Token);
+
+        Assert.AreEqual("204", client.Response(0).Status);
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_ShutdownWriteOnAnEndedStream_IsLoggedAndTheDrainGoesOn()
+    {
+        using var shutdown = new CancellationTokenSource();
+        using var client = new Http3TestQuicClient();
+        var opened = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var handler = new UnitTestExtendedConnectHandler("webtransport-h3", async (session, token) =>
+        {
+            session.AddShutdownWrite(_ => throw new InvalidOperationException("the stream has ended"));
+            opened.SetResult();
+            await WaitUntilCancelledAsync(token);
+        });
+        var options = new Http3ServerOptions { ExtendedConnectHandlers = [handler], ShutdownGrace = TimeSpan.Zero };
+        var log = await UnitTestExtendedConnect.StartAsync(client, options, Token, exchangeToken: shutdown.Token);
+        client.Send(0, UnitTestExtendedConnect.Connect(client));
+        await opened.Task.WaitAsync(TimeSpan.FromSeconds(30), Token);
+
+        await shutdown.CancelAsync();
+        await client.FinishAsync(Token);
+
+        Assert.IsTrue(log.Notes.Contains("A shutdown write of session 0 failed: the stream has ended"));
+        Assert.EndsWith(GoAwayStream4Hex, ControlStreamHex(client));
+        Assert.AreEqual(H3NoError, client.CloseCode);
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_ShutdownWriteThatOutlastsTheGrace_IsCutOffAndGoAwayAndTheCloseFollow()
+    {
+        using var shutdown = new CancellationTokenSource();
+        using var client = new Http3TestQuicClient();
+        var time = UnitTestExtendedConnect.NewClock();
+        var opened = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var writing = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var handler = new UnitTestExtendedConnectHandler("webtransport-h3", async (session, token) =>
+        {
+            session.AddShutdownWrite(async write =>
+            {
+                writing.SetResult();
+                await Task.Delay(Timeout.Infinite, write);
+            });
+            opened.SetResult();
+            await WaitUntilCancelledAsync(token);
+        });
+        var options = new Http3ServerOptions { ExtendedConnectHandlers = [handler], ShutdownGrace = TimeSpan.FromSeconds(2) };
+        await UnitTestExtendedConnect.StartAsync(client, options, Token, exchangeToken: shutdown.Token, time: time);
+        client.Send(0, UnitTestExtendedConnect.Connect(client));
+        await opened.Task.WaitAsync(TimeSpan.FromSeconds(30), Token);
+
+        await shutdown.CancelAsync();
+        await writing.Task.WaitAsync(TimeSpan.FromSeconds(30), Token);
+        var isGoAwayHeldBack = !ControlStreamHex(client).EndsWith(GoAwayStream4Hex, StringComparison.Ordinal);
+        time.Advance(TimeSpan.FromSeconds(2));
+        await client.FinishAsync(Token);
+
+        Assert.IsTrue(isGoAwayHeldBack, "GOAWAY waits for the shutdown write while the grace lasts.");
+        Assert.EndsWith(GoAwayStream4Hex, ControlStreamHex(client));
+        Assert.AreEqual(H3NoError, client.CloseCode);
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_ShutdownWithAGrace_RunsTheShutdownWritesThenGoAwayThenServesUntilTheGraceHasPassed()
+    {
+        using var shutdown = new CancellationTokenSource();
+        using var client = new Http3TestQuicClient();
+        var time = UnitTestExtendedConnect.NewClock();
+        var opened = new TaskCompletionSource<Http3ExtendedConnectSession>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var handler = new UnitTestExtendedConnectHandler("webtransport-h3", async (session, token) =>
+        {
+            await session.RequestStream.WriteHeadersAsync([new(":status", "200")], endStream: false, token);
+            Assert.IsTrue(session.AddShutdownWrite(write => session.WriteCapsuleAsync(new Http3Capsule(DrainSessionCapsuleType, []), write)));
+            opened.SetResult(session);
+            await WaitUntilCancelledAsync(token);
+            await session.WriteCapsuleAsync(new Http3Capsule(CloseSessionCapsuleType, [0, 0, 0, 0]), CancellationToken.None);
+            await session.RequestStream.WriteDataAsync(ReadOnlyMemory<byte>.Empty, endStream: true, CancellationToken.None);
+        });
+        var options = new Http3ServerOptions { ExtendedConnectHandlers = [handler], ShutdownGrace = TimeSpan.FromSeconds(2) };
+        var log = await UnitTestExtendedConnect.StartAsync(client, options, Token, exchangeToken: shutdown.Token, time: time);
+        client.Send(0, UnitTestExtendedConnect.Connect(client));
+        var session = await opened.Task.WaitAsync(TimeSpan.FromSeconds(30), Token);
+
+        await shutdown.CancelAsync();
+        await client.UntilAsync(() => ControlStreamHex(client).EndsWith(GoAwayStream4Hex, StringComparison.Ordinal), Token);
+        await session.WriteCapsuleAsync(new Http3Capsule(0x21, [0x63]), Token);
+        await client.UntilAsync(() => client.Response(0).Body.Count == 8, Token);
+        var servedDuringTheGrace = client.CloseCode is null;
+        time.Advance(TimeSpan.FromSeconds(2));
+        await client.UntilAsync(() => client.CloseCode is not null, Token);
+
+        Assert.IsTrue(servedDuringTheGrace, "The session is served through the grace.");
+        Assert.IsTrue(session.IsShuttingDown);
+        Assert.IsFalse(session.AddShutdownWrite(_ => Task.CompletedTask), "Shutdown has begun; the write would never run.");
+        Assert.IsLessThan(FrameIndex(client, Http3TestQuicClient.ServerControlStreamId, GoAwayStream4Hex), FrameIndex(client, 0, DrainSessionCapsuleHex), "The shutdown write goes before GOAWAY.");
+        Assert.AreEqual(DrainSessionCapsuleHex + "2101" + "63" + "68430400000000", Convert.ToHexString([.. client.Response(0).Body]), "The drain, the write during the grace, then the handler's close once the grace has passed.");
+        Assert.IsTrue(client.StreamSent(0).Fin);
+        Assert.AreEqual(H3NoError, client.CloseCode);
+        Assert.IsTrue(log.Notes.Contains("The exchange was cancelled; sent GOAWAY 4, served the open streams for up to the shutdown grace and closed the HTTP/3 connection with H3_NO_ERROR."));
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_ShutdownWithAGraceAndNoOpenStream_SendsGoAwayAndClosesWithoutWaitingForTheGrace()
+    {
+        using var shutdown = new CancellationTokenSource();
+        using var client = new Http3TestQuicClient();
+        var handler = new UnitTestExtendedConnectHandler("webtransport-h3", (_, _) => Task.CompletedTask);
+        var options = new Http3ServerOptions { ExtendedConnectHandlers = [handler], ShutdownGrace = TimeSpan.FromHours(1) };
+        await UnitTestExtendedConnect.StartAsync(client, options, Token, exchangeToken: shutdown.Token);
+
+        await shutdown.CancelAsync();
+        await client.FinishAsync(Token);
+
+        Assert.EndsWith("070100", ControlStreamHex(client), "GOAWAY naming stream 0: no request stream was opened.");
+        Assert.AreEqual(H3NoError, client.CloseCode);
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_SessionOpeningAfterShutdownBegan_IsShuttingDownAndTakesNoShutdownWrite()
+    {
+        using var shutdown = new CancellationTokenSource();
+        using var client = new Http3TestQuicClient();
+        var time = UnitTestExtendedConnect.NewClock();
+        var seen = new TaskCompletionSource<(bool IsShuttingDown, bool IsWriteAdded)>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var handler = new UnitTestExtendedConnectHandler("webtransport-h3", async (session, token) =>
+        {
+            seen.SetResult((session.IsShuttingDown, session.AddShutdownWrite(_ => Task.CompletedTask)));
+            await WaitUntilCancelledAsync(token);
+        });
+        var requestReached = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var requestHandler = new UnitTestRequestStreamHandler(async (_, token) =>
+        {
+            requestReached.SetResult();
+            await WaitUntilCancelledAsync(token);
+        });
+        var options = new Http3ServerOptions { ExtendedConnectHandlers = [handler], ShutdownGrace = TimeSpan.FromSeconds(2) };
+        await UnitTestExtendedConnect.StartAsync(client, options, Token, requestHandler: requestHandler, exchangeToken: shutdown.Token, time: time);
+        client.Send(0, client.Request("GET", "/slow"), fin: true);
+        await requestReached.Task.WaitAsync(TimeSpan.FromSeconds(30), Token);
+
+        await shutdown.CancelAsync();
+        await client.UntilAsync(() => ControlStreamHex(client).EndsWith(GoAwayStream4Hex, StringComparison.Ordinal), Token);
+        client.Send(4, UnitTestExtendedConnect.Connect(client));
+        var (isShuttingDown, isWriteAdded) = await seen.Task.WaitAsync(TimeSpan.FromSeconds(30), Token);
+        time.Advance(TimeSpan.FromSeconds(2));
+        await client.UntilAsync(() => client.CloseCode is not null, Token);
+
+        Assert.IsTrue(isShuttingDown);
+        Assert.IsFalse(isWriteAdded);
+        Assert.AreEqual(H3NoError, client.CloseCode);
+    }
+
+    private const ulong DrainSessionCapsuleType = 0x78ae;
+
+    private const ulong CloseSessionCapsuleType = 0x2843;
+
+    // WT_DRAIN_SESSION (0x78ae, a four-byte integer) with an empty value.
+    private const string DrainSessionCapsuleHex = "800078AE" + "00";
+
+    // GOAWAY (0x07), one byte: stream 4, the next after the CONNECT on stream 0.
+    private const string GoAwayStream4Hex = "070104";
+
+    private static void SendDatagram(Http3TestQuicClient client, string hex) =>
+        client.Flow.DeliverFromClient(client.Quic.SealOneRtt(new QuicDatagramFrame(Convert.FromHexString(hex))));
+
+    private static string ControlStreamHex(Http3TestQuicClient client) =>
+        Convert.ToHexString(client.StreamSent(Http3TestQuicClient.ServerControlStreamId).Data);
+
+    private static int FrameIndex(Http3TestQuicClient client, ulong streamId, string hex) =>
+        client.Quic.FramesReceived[QuicPacketType.OneRtt].FindIndex(frame =>
+            frame is QuicStreamFrame stream && stream.StreamId == streamId && Convert.ToHexString(stream.Data.Span).Contains(hex, StringComparison.Ordinal));
+
+    private static async Task WaitUntilCancelledAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            await Task.Delay(Timeout.Infinite, cancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
+            // The grace has passed.
+        }
     }
 
     [TestMethod]

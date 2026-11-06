@@ -608,6 +608,33 @@
     PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n, curl's SETTINGS and its first HEADERS. Not
     combined with -Reset.
 
+.PARAMETER TlsSrp
+    Serve TLS-SRP (RFC 5054) with Surl's own hand-built server, for curl's
+    --tlsauthtype SRP (BL-566, ADR-0122). No certificate is used, so -Tls is not given.
+    The handshake is run by the C# file-based app Run-TlsSrpRelay.cs beside this script
+    (it needs the .NET 10 SDK's dotnet), which forwards the plaintext to the recorder's
+    own server like the -TlsRenegotiationOff relay, so request.bin and the Response
+    matching work as usual. It knows one account, TlsSrpUser with TlsSrpPassword, in
+    RFC 5054's 2048-bit group with salt TlsSrpSalt, and every byte it draws (the server
+    random, b and each explicit IV) is TlsSrpRandom repeated, so a test can replay the
+    recording. It writes every byte curl sent on connection n to client-<n>.bin and
+    every byte the server sent to server-<n>.bin in OutDirectory, n counting from 1, and
+    prints each handshake's outcome. A connection whose handshake fails is never
+    forwarded. Not combined with -Tls, a session mode but -Raw, -Reset or -UnixSocket.
+
+.PARAMETER TlsSrpUser
+    With -TlsSrp, the account's user name. Default jsmith, upstream's test user.
+
+.PARAMETER TlsSrpPassword
+    With -TlsSrp, the account's password. Default abc, upstream's test password.
+
+.PARAMETER TlsSrpSalt
+    With -TlsSrp, the account's salt in hex. Default 16 bytes 00 01 ... 0F.
+
+.PARAMETER TlsSrpRandom
+    With -TlsSrp, the bytes in hex the server draws, repeated as far as it needs. Default
+    the 32 bytes 20 21 ... 3F.
+
 .PARAMETER FtpIdleMilliseconds
     How long, in -Ftp mode, the server waits for curl's next command before it hangs up.
     Default 5000. Raise it to measure a wait longer than five seconds, such as curl's
@@ -931,6 +958,11 @@ param(
     [ValidateSet('Tls12', 'Tls13', 'Tls12AndTls13')] [string] $TlsProtocol = 'Tls12',
     [switch] $TlsRenegotiationOff,
     [string[]] $TlsAlpn = @(),
+    [switch] $TlsSrp,
+    [string] $TlsSrpUser = 'jsmith',
+    [string] $TlsSrpPassword = 'abc',
+    [ValidatePattern('^([0-9A-Fa-f]{2})+$')] [string] $TlsSrpSalt = '000102030405060708090A0B0C0D0E0F',
+    [ValidatePattern('^([0-9A-Fa-f]{2})+$')] [string] $TlsSrpRandom = '202122232425262728292A2B2C2D2E2F303132333435363738393A3B3C3D3E3F',
     [string] $Curl,
     [switch] $LibcurlWebSocket,
     [switch] $LibcurlRtsp,
@@ -962,8 +994,9 @@ if ($TlsRenegotiationOff -and (-not $Tls -or $Ftp -or $Smtp -or $Imap -or $Pop3 
 # powershell -File binds 'h2,http/1.1' as one string, and a caller may give either form.
 $TlsAlpn = @($TlsAlpn | ForEach-Object { $_.Split(',') } | ForEach-Object { $_.Trim() } | Where-Object { $_ })
 if ($TlsAlpn.Count -gt 0 -and (-not $Tls -or $Ftp -or $Smtp -or $Imap -or $Pop3 -or $Ldap -or $Reset)) { throw '-TlsAlpn needs -Tls with no session mode but -Raw, and cannot be combined with -Reset.' }
-# Both are served by the TLS relay, which forwards the plaintext to the recorder's own server.
-$useTlsRelay = $TlsRenegotiationOff -or $TlsAlpn.Count -gt 0
+if ($TlsSrp -and ($Tls -or $Ftp -or $Smtp -or $Imap -or $Pop3 -or $Ldap -or $Tftp -or $QuicInitial -or $DnsQuery -or $NoServer -or $Reset -or $UnixSocket)) { throw '-TlsSrp serves TLS-SRP itself, with no certificate, so it cannot be combined with -Tls, a session mode but -Raw, -NoServer, -Reset or -UnixSocket.' }
+# All three are served by a TLS relay, which forwards the plaintext to the recorder's own server.
+$useTlsRelay = $TlsRenegotiationOff -or $TlsAlpn.Count -gt 0 -or $TlsSrp
 if ($UnixSocket -and ($NoServer -or $Ftp -or $Smtp -or $Imap -or $Pop3 -or $Raw -or $Ldap -or $Tftp -or $QuicInitial -or $Reset -or $useTlsRelay)) { throw '-UnixSocket serves HTTP responses only, so it cannot be combined with -NoServer, -Ftp, -Smtp, -Imap, -Pop3, -Raw, -Ldap, -Tftp, -QuicInitial, -Reset, -TlsRenegotiationOff or -TlsAlpn.' }
 if ($UnixSocket -and $null -eq ('System.Net.Sockets.UnixDomainSocketEndPoint' -as [type])) { throw '-UnixSocket needs PowerShell 7 or later: this .NET has no System.Net.Sockets.UnixDomainSocketEndPoint.' }
 if ($UnixSocketAbstract -and -not $UnixSocket) { throw '-UnixSocketAbstract says how to read -UnixSocket, so it needs -UnixSocket.' }
@@ -3156,7 +3189,23 @@ function Stop-TlsRelay {
     param($Relay)
     & cmd.exe /c "taskkill /T /F /PID $($Relay[0].Id) >nul 2>&1"
     $Relay[0].Dispose()
-    Remove-Item -LiteralPath $Relay[1] -Force
+    if ($Relay[1]) { Remove-Item -LiteralPath $Relay[1] -Force }
+}
+
+function Start-TlsSrpRelay {
+    # -TlsSrp: starts Run-TlsSrpRelay.cs, which speaks Connect-TlsRelay's protocol. Like
+    # Start-TlsRelay, it must start before the backend listener exists. It has no PFX, so
+    # the second element is empty and Stop-TlsRelay deletes nothing.
+    param([System.Net.IPAddress] $Address, [int] $ListenPort, [string] $User, [string] $Password, [string] $Salt, [string] $RandomBytes, [string] $CaptureDirectory)
+    $startInfo = New-Object System.Diagnostics.ProcessStartInfo
+    $startInfo.FileName = 'dotnet'
+    $startInfo.Arguments = (@('run', '--file', (Join-Path $PSScriptRoot 'Run-TlsSrpRelay.cs'), '--', $Address.ToString(), $ListenPort, $User, $Password, $Salt, $RandomBytes, $CaptureDirectory) | ForEach-Object { ConvertTo-CommandLineArgument -Argument ([string] $_) }) -join ' '
+    $startInfo.WorkingDirectory = $PSScriptRoot
+    $startInfo.UseShellExecute = $false
+    $startInfo.RedirectStandardInput = $true
+    $startInfo.RedirectStandardOutput = $true
+    $startInfo.CreateNoWindow = $true
+    return @([System.Diagnostics.Process]::Start($startInfo), '')
 }
 
 # -KerberosTestKdc: Run-KerberosTestKdc.cs writes the keytab, binds 127.0.0.1:88 and prints
@@ -3333,8 +3382,13 @@ try {
         $listener = New-Object System.Net.Sockets.Socket($ListenAddress.AddressFamily, [System.Net.Sockets.SocketType]::Dgram, [System.Net.Sockets.ProtocolType]::Udp)
         $listener.Bind((New-Object System.Net.IPEndPoint($ListenAddress, $Port)))
         $server = [System.Management.Automation.PowerShell]::Create()
+    } elseif ($TlsSrp) {
+        $tlsRelay = Start-TlsSrpRelay -Address $ListenAddress -ListenPort $Port -User $TlsSrpUser -Password $TlsSrpPassword -Salt $TlsSrpSalt -RandomBytes $TlsSrpRandom -CaptureDirectory $OutDirectory
+        $listener = New-Object System.Net.Sockets.TcpListener([System.Net.IPAddress]::Loopback, 0)
+        $listener.Start()
+        $server = [System.Management.Automation.PowerShell]::Create()
     } elseif ($useTlsRelay) {
-        $tlsRelay = Start-TlsRelay -Certificate $tlsCertificate -Address $ListenAddress -ListenPort $Port -Protocols ([int] $servedTlsProtocols) -AllowRenegotiation (-not $TlsRenegotiationOff) -ApplicationProtocols $TlsAlpn -AgreedProtocolPath $agreedProtocolPath
+        $tlsRelay = Start-TlsRelay-Certificate $tlsCertificate -Address $ListenAddress -ListenPort $Port -Protocols ([int] $servedTlsProtocols) -AllowRenegotiation (-not $TlsRenegotiationOff) -ApplicationProtocols $TlsAlpn -AgreedProtocolPath $agreedProtocolPath
         $listener = New-Object System.Net.Sockets.TcpListener([System.Net.IPAddress]::Loopback, 0)
         $listener.Start()
         $server = [System.Management.Automation.PowerShell]::Create()

@@ -7,7 +7,7 @@ namespace Surl.Conformance;
 /// </summary>
 /// <param name="DisabledCases">The case numbers <c>tests/data/DISABLED</c> lists.</param>
 /// <param name="Protocols">The schemes the build's <c>protocols</c> line lists, lower case.</param>
-/// <param name="Features">The build's features, as <see cref="UpstreamCurlBuildFeatures.For"/> derives them.</param>
+/// <param name="Features">The build's features, as <see cref="UpstreamCurlBuildFeatures.For(CurlVersionReport)"/> derives them.</param>
 /// <param name="SupportsServerCommand">
 /// Whether the server half for a server name implements a <c>&lt;servercmd&gt;</c> command,
 /// given the name and the command's first word; a case with a <c>&lt;postcmd&gt;</c> asks for
@@ -35,15 +35,27 @@ public sealed record UpstreamTestCaseSelectionRules(
     /// <param name="build">The pinned build.</param>
     /// <param name="disabledCases">The case numbers <c>tests/data/DISABLED</c> lists.</param>
     /// <returns>The rules.</returns>
-    public static UpstreamTestCaseSelectionRules ForBuild(PinnedUpstreamCurlBuild build, IReadOnlySet<int> disabledCases)
+    public static UpstreamTestCaseSelectionRules ForBuild(PinnedUpstreamCurlBuild build, IReadOnlySet<int> disabledCases) =>
+        ForClient(CurlVersionReport.FromPin(build), disabledCases);
+
+    /// <summary>
+    /// The rules for the client <paramref name="report"/> describes, as <see cref="ForBuild"/> gives
+    /// them for a pin: its own protocols and features decide what it can run, as runtests decides from
+    /// the client's own <c>--version</c>. The Curl port's client is selected this way when it plays
+    /// upstream's test cases (ADR-0089 decision 1(b)).
+    /// </summary>
+    /// <param name="report">What the client's <c>--version</c> says.</param>
+    /// <param name="disabledCases">The case numbers <c>tests/data/DISABLED</c> lists.</param>
+    /// <returns>The rules.</returns>
+    public static UpstreamTestCaseSelectionRules ForClient(CurlVersionReport report, IReadOnlySet<int> disabledCases)
     {
-        ArgumentNullException.ThrowIfNull(build);
+        ArgumentNullException.ThrowIfNull(report);
         ArgumentNullException.ThrowIfNull(disabledCases);
 
         return new UpstreamTestCaseSelectionRules(
             disabledCases,
-            build.Protocols.Select(protocol => protocol.ToLowerInvariant()).ToHashSet(StringComparer.Ordinal),
-            UpstreamCurlBuildFeatures.For(build),
+            report.Protocols.Select(protocol => protocol.ToLowerInvariant()).ToHashSet(StringComparer.Ordinal),
+            UpstreamCurlBuildFeatures.For(report),
             UpstreamTestCaseServerCommands.IsSupported,
             UpstreamTestCaseStripLine.IsSupported,
             new HashSet<int>());

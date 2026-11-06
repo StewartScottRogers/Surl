@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Surl.TlsSrp.UnitTests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Surl.Cryptography.Srp.UnitLibrary\Surl.Cryptography.Srp.UnitLibrary.csproj" />
+  </ItemGroup>
+
+</Project>

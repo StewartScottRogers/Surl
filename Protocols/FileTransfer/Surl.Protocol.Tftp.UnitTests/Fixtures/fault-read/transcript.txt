@@ -1,0 +1,2 @@
+> curl:54669 -> server:18069 \x00\x01up/a.txt\x00octet\x00tsize\x000\x00blksize\x00512\x00timeout\x006\x00
+< server:54670 -> curl:54669 \x00\x05\x00\x02Quota frozen for the test\x00

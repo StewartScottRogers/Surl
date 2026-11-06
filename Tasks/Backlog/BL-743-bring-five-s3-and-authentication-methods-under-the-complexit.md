@@ -25,6 +25,13 @@ completed:
   - `S3OperationRecognition.Of` (20), `S3ListRequest.Refusal` (14), `S3ListPage.Names` (12),
     `S3PutObject.BodyFramingRefusal` (12) in `Surl.Extended.Protocol.S3.UnitLibrary`;
   - `GssapiSaslExchange.ServiceOf` (12) in `Surl.Authentication.UnitLibrary`.
+- Found since by BL-430 (2026-11-05), also in `Surl.Authentication.UnitLibrary`: BL-717's
+  `AzureSharedAccessSignature.ReadingRefusal` (16), `AzureSignedResource.Canonicalize` (16),
+  `AzureStorageVerifier.VerifyAuthorization` (14), `AzureSignedAddressRange.Admits` (12) and
+  `AzureSharedAccessSignature.ServingRefusal` (12) over the complexity gate, and the source-generated
+  regex members (`Runner.Scan`, `Runner.TryMatchAtCurrentPosition`, `Utilities..cctor`) under 100% line
+  or branch coverage: cover the pattern's unmatched paths with tests, or replace the regex with a hand
+  parser.
 - Split each by extracting a named private method or a lookup table; no behaviour changes. The
   thresholds in `CodeMetricsConfig.txt` are not to change.
 

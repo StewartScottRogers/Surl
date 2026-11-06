@@ -43,6 +43,11 @@ namespace Surl.Protocol.Telnet;
 /// section 6).
 /// </para>
 /// <para>
+/// <b>Chosen errors.</b> Each completed line, <c>quit</c> included, first asks the exchange's
+/// fault plan (<see cref="TelnetLineFaults"/>); a chosen-error rule's text is sent as one line in
+/// place of the line's answer and the connection is closed (ADR-0124 decision 4, ADR-0138).
+/// </para>
+/// <para>
 /// <b>Limits.</b> <see cref="ExchangeLimits.MaxLineBytes"/> (ADR-0006, section 1) bounds a
 /// line and a subnegotiation. A line longer than it, its line ending included, is answered
 /// <c>line too long</c> and the connection closed, a departure from ADR-0006 section 5's
@@ -88,8 +93,22 @@ public sealed class TelnetProtocolServer : IConnectionProtocolServer
                 return;
             }
 
-            session.Receive(buffer.AsSpan(0, read));
+            await ReceiveAsync(session, buffer.AsMemory(0, read), context);
             await WriteOutboundAsync(connection, session, cancellationToken);
+        }
+    }
+
+    // Hands the session what was read, asking the fault plan about each line it completes before
+    // the line is answered; stops once the session is over.
+    private static async Task ReceiveAsync(TelnetSession session, ReadOnlyMemory<byte> bytes, ExchangeContext context)
+    {
+        while (!bytes.IsEmpty && !session.IsOver)
+        {
+            bytes = bytes[session.Receive(bytes.Span)..];
+            if (session.LineAwaitingAnswer is not null)
+            {
+                session.AnswerAwaitingLine(await TelnetLineFaults.FindErrorAsync(context, session.CompletedLineCount));
+            }
         }
     }
 

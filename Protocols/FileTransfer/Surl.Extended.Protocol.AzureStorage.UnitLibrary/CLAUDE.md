@@ -10,7 +10,7 @@ upstream curl (which has none of these schemes) and never by the Curl port. Name
 The listen scheme (`ExchangeContext.Scheme`) decides the endpoint: `AzureBlobRequestAnswerer` on
 `az`, `AzureDataLakeRequestAnswerer` on `abfs` and `abfss`. Both log in through `AzureLoginJudge`.
 
-What the Blob endpoint serves now (BL-424, BL-425), on `az`:
+What the Blob endpoint serves now (BL-424, BL-425, BL-715), on `az`:
 
 - Get Blob and Get Blob Properties on `/<container>/<blob>` (account-host form): one `Range` or
   `x-ms-range` (`x-ms-range` wins; `206`, `416 InvalidRange`, several ranges ignored),
@@ -50,6 +50,32 @@ What the Blob endpoint serves now (BL-424, BL-425), on `az`:
   under `AzureIndexKey` (none for a file in a share); an index refusal removes the blob (`400
   MetadataTooLarge`, `503 ServerBusy`). `201` with `ETag`, `Last-Modified`, `Content-MD5` and
   `x-ms-request-server-encrypted: false`.
+- Put Block, Put Block List and Get Block List (BL-715). Put Block (`AzurePutBlock`) on `PUT
+  …?comp=block&blockid=<id>`, under `--allow-uploads`: a missing `blockid` is `400
+  MissingRequiredQueryParameter`; one that is not base64 of 1 to 64 bytes (`AzureBlockId`), or not
+  as long as the blob's other block IDs, `400 InvalidBlockId`; past 100000 uncommitted blocks `409
+  BlockCountExceedsLimit`. Put Blob's `Content-MD5`, framing and `--max-filesize` checks apply. The
+  body is appended to the blob's `AzureStagedBlocks` - an upload session opened at the blob and
+  never committed, so its bytes sit in a hidden dot-file beside the blob (the name's folders are
+  created at the first block) and the blob stays invisible - and the block is recorded, a block
+  put again under the same ID replacing the old one. The staged bytes together are held to
+  `--max-filesize`: past it every uncommitted block of the blob is discarded and the answer is `413
+  RequestBodyTooLarge`. `201` with the body's `Content-MD5`. Put Block List (`AzurePutBlockList`)
+  on `PUT …?comp=blocklist`, under `--allow-uploads`, with Put Blob's head checks: the body
+  (`AzureBlockListDocument`, at most 4 MiB through `AzureBoundedBodyStream`, else `400
+  InvalidXmlDocument`; no DTD) is a `BlockList` of `Committed`, `Uncommitted` and `Latest` entries,
+  at most 50000 (`400 BlockListTooLong`). Each is looked for in its list (`Latest`: uncommitted,
+  then committed); one not found is `400 InvalidBlockList` and nothing changes. The blob is written
+  afresh through an upload session from the blocks in order - staged bytes from the staging
+  session, committed bytes from the blob itself - its `x-ms-blob-*` and `x-ms-meta-*` kept as Put
+  Blob keeps them, the uncommitted blocks discarded and the new committed list remembered against
+  the file's length and last-write time (a blob written any other way since has no committed
+  blocks). `201` with `ETag` (the blob's MD5), `Last-Modified` and
+  `x-ms-request-server-encrypted: false`. Get Block List (`AzureGetBlockList`) on `GET
+  …?comp=blocklist`, `blocklisttype` `committed` (the default), `uncommitted` or `all`
+  (case-insensitive; another `400 InvalidQueryParameterValue`): `200` with the one-line
+  `BlockList` XML of the page's example, `Last-Modified` and `ETag` when the blob exists, and
+  `x-ms-blob-content-length`; no blob and no uncommitted block is `404 BlobNotFound`.
 - Delete Blob on `DELETE /<container>/<blob>`: `202`; a missing blob `404 BlobNotFound`; uploads
   off or share access refusing it `403 AuthorizationPermissionMismatch`.
 - List Blobs (`AzureListBlobs`) on `GET /<container>?restype=container&comp=list`: a listing in
@@ -65,7 +91,7 @@ What the Blob endpoint serves now (BL-424, BL-425), on `az`:
   `Delimiter`, each blob's `Properties` in decision 5.3's order (empty elements for no value,
   `Etag` without its quotes), and `NextMarker`, empty on the last page.
 - Every other request: `405 UnsupportedHttpVerb` for a method other than `GET`, `HEAD`, `PUT` or `DELETE`;
-  `400 InvalidQueryParameterValue` for `comp`, `restype`, `snapshot` or `versionid`; `400 InvalidUri`
+  `400 InvalidQueryParameterValue` for `comp` (other than the three block requests), `restype`, `snapshot` or `versionid`; `400 InvalidUri`
   for a path naming no blob; `400 UnsupportedHeader` for a lease, copy, customer-key, ACL or similar
   header; `400 InvalidResourceName` for a blob name over 1024 characters.
 - Every answer carries `Date`, `Server`, `x-ms-request-id` (a lower-case GUID), `x-ms-version:
@@ -93,9 +119,10 @@ characters):
   `n` when the staged ranges reach it from the committed length without a gap or an overlap (else
   `400 InvalidFlushPosition`), keeps the stored header fields, and answers `200` with the new
   `ETag`. A flush with a body is `400 ContentLengthMustBeZero`; an append before the committed end
-  or `retainUncommittedData=true` is `400 InvalidQueryParameterValue`. `AzurePathStagingArea` holds
-  at most 1000 staged files (the next `503 ServerBusy`), drops one untouched for 7 days when the next
-  staging begins, and serves appends and flushes one at a time across the server, because an upload
+  or `retainUncommittedData=true` is `400 InvalidQueryParameterValue`. `AzureStagingArea`, shared with the
+  blobs' `AzureStagedBlocks`, holds at most 1000 stagings (the next `503 ServerBusy`, unless one with only a
+  remembered committed block list can be forgotten), drops one untouched for 7 days when the next
+  staging begins, and serves appends, flushes and block requests one at a time across the server, because an upload
   session is not safe for concurrent use.
 - Path - Delete, `DELETE /<filesystem>/<path>`, under `--allow-uploads`: a file, an empty directory,
   or with `recursive=true` a directory and all it holds; `200`. A non-empty directory without it is
@@ -110,7 +137,7 @@ characters):
 Not yet: the conditional fields on Put Blob and Delete Blob and `x-ms-blob-content-md5` (filed
 from BL-425); `retainUncommittedData=true`, `beginFrom`, `x-ms-properties`, the conditional fields on
 the Data Lake writes and the JSON body on a Data Lake connection refused past a limit (BL-758);
-blocks (BL-715), List Containers and properties (BL-716), the path-style account segment, so a
+List Blobs' `include=uncommittedblobs`, List Containers and properties (BL-716), the path-style account segment, so a
 shared access signature on an IP-literal or `localhost` host names its account (BL-725), and `400 InvalidInput` for a head
 past `--max-request-head`, which `Surl.HttpServing` still answers `431` (BL-726).
 

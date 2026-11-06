@@ -1,0 +1,6 @@
+GET ftp://origin.test/a.txt HTTP/1.1
+Host: origin.test:21
+User-Agent: curl/8.21.0
+Accept: */*
+Proxy-Connection: Keep-Alive
+

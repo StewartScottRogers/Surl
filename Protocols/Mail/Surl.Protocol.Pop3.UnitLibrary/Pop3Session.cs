@@ -12,7 +12,7 @@ namespace Surl.Protocol.Pop3;
 /// order, in the AUTHORIZATION state until a login opens the maildrop and in the TRANSACTION
 /// state after it, until <c>QUIT</c>, the peer's close, or a limit.
 /// </summary>
-internal sealed class Pop3Session
+internal sealed partial class Pop3Session
 {
     private readonly IConnection connection;
     private readonly ExchangeContext context;
@@ -27,6 +27,7 @@ internal sealed class Pop3Session
     private string? pendingUserName;
     private PasswordLoginVerdict? anonymousVerdict;
     private Pop3Maildrop? maildrop;
+    private readonly MailUpstreamTestCaseReplies? caseReplies;
 
     public Pop3Session(
         IConnection connection,
@@ -36,8 +37,10 @@ internal sealed class Pop3Session
         IMailAuthenticationPolicy mailAuthenticationPolicy,
         MailboxStore mailStore,
         bool isTlsUpgradeAvailable,
-        RandomNumberGenerator timestampRandom)
+        RandomNumberGenerator timestampRandom,
+        MailUpstreamTestCaseReplies? caseReplies = null)
     {
+        this.caseReplies = caseReplies;
         this.connection = connection;
         this.context = context;
         this.reader = reader;
@@ -64,6 +67,10 @@ internal sealed class Pop3Session
             ["RSET"] = command => WithMaildropAsync(command, AnswerResetAsync),
             ["NOOP"] = command => WithMaildropAsync(command, (_, words) => words.Length == 0 ? ReplyAsync(Pop3Replies.Ok) : ReplyAsync(Pop3Replies.InvalidArguments)),
         };
+        if (caseReplies is not null)
+        {
+            AnswerAsTheUpstreamTestCaseSays(caseReplies);
+        }
     }
 
     private CancellationToken CancellationToken => context.CancellationToken;
@@ -77,7 +84,7 @@ internal sealed class Pop3Session
     {
         try
         {
-            await WriteLineAsync(Greeting(), CancellationToken);
+            await GreetAsync();
             while (await AnswerNextLineAsync())
             {
             }
@@ -111,9 +118,19 @@ internal sealed class Pop3Session
             return await AnswerNoLineAsync(read.Outcome);
         }
 
-        return Pop3CommandLine.TryParse(line, out var command) && commands.TryGetValue(command!.Verb, out var answer)
-            ? await answer(command)
-            : await ReplyAsync(Pop3Replies.NotRecognized);
+        if (caseReplies is not null && await AnswerFromTheUpstreamTestCaseAsync(caseReplies, line))
+        {
+            return true;
+        }
+
+        if (!Pop3CommandLine.TryParse(line, out var command) || !commands.TryGetValue(command!.Verb, out var answer))
+        {
+            return await ReplyAsync(Pop3Replies.NotRecognized);
+        }
+
+        return CommandsWithoutMaildrop.Contains(command.Verb)
+            ? await AnswerUnlessFaultedAsync(command.Verb, () => answer(command))
+            : await answer(command);
     }
 
     private async ValueTask<bool> AnswerNoLineAsync(CrlfLineReadOutcome outcome)
@@ -286,6 +303,7 @@ internal sealed class Pop3Session
         // An empty view has no INBOX, and so no message whose unique-id would need its UIDVALIDITY.
         mailStore.ReadMailbox(view, "INBOX", out var inbox);
         maildrop = new Pop3Maildrop(maildropLock!, inbox?.UidValidity ?? 0);
+        this.accountName = accountName;
         pendingUserName = null;
         context.Log.Note(string.Create(CultureInfo.InvariantCulture, $"Maildrop opened: {maildrop.Count} messages, {maildrop.Octets} octets"));
         return null;
@@ -454,10 +472,13 @@ internal sealed class Pop3Session
             return await ReplyAsync(refusal);
         }
 
-        return command.TrySplitArguments(out var words)
-            ? await answer(maildrop!, words)
-            : await ReplyAsync(Pop3Replies.InvalidArguments);
+        return await AnswerUnlessFaultedAsync(command.Verb, () => AnswerWithMaildropAsync(command, answer));
     }
+
+    private ValueTask<bool> AnswerWithMaildropAsync(Pop3CommandLine command, Func<Pop3Maildrop, string[], ValueTask<bool>> answer) =>
+        command.TrySplitArguments(out var words)
+            ? answer(maildrop!, words)
+            : ReplyAsync(Pop3Replies.InvalidArguments);
 
     private async ValueTask<string?> OpenAnonymousMaildropAsync(string verb)
     {

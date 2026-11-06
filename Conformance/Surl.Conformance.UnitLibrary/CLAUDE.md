@@ -73,14 +73,17 @@ to make the port pass. One case is compared and judged here (BL-578), request by
   them) and `RelayPort`; `ClientFacingPort` is the relay's port when there is one, the port the client's
   output and request bytes name.
 - `CurlPortMeasuredRun.Of` makes one run from an `UpstreamCurlRunResult` or a `CurlPortClientRunResult`.
-- `CurlPortResultNormaliser` is decision 4's normalisation column: the client-facing port as `<port>`,
+- `CurlPortResultNormaliser` is decision 4's normalisation column: the client-facing port as `<port>` (in standard output `surl`'s own port too, when a relay stands between them),
   `Date:` and `Last-Modified:` values as `<date>`, the `-w` values of `%{time_*}` and `%{speed_*}` as
   `<time>` (found by matching the case's `-w` format), stderr cut to the asserted lines, `surl` notes'
   loopback ports and time stamps. `NormaliseRequestBytes` applies the request-byte rules, which the
-  internal `RequestBytesNormalisation` holds: the client port in FTP `PORT` and `EPRT`, `User-Agent:` as
-  `<user-agent>`, every multipart boundary as `<boundary>`, Digest `cnonce` and `response` as `<cnonce>`
+  internal `RequestBytesNormalisation` holds: the client port in FTP `PORT` and `EPRT`, `User-Agent:` and DICT's `CLIENT` text as
+  `<user-agent>`, the 8 random characters after `curl` in an MQTT `CONNECT`'s client identifier as `<client-id>`, every multipart boundary as `<boundary>`, Digest `nonce` (surl's own, echoed), `cnonce` and `response` as `<nonce>`, `<cnonce>`
   and `<response>` (also inside a base64 SASL `DIGEST-MD5` line), and in every NTLM AUTHENTICATE message,
-  raw (SMB) or base64 (HTTP, SASL), the LM and NT responses, the encrypted session key and the MIC zeroed.
+  raw (SMB) or base64 (HTTP, SASL), the LM and NT responses, the encrypted session key and the MIC zeroed;
+  `Sec-WebSocket-Key:` as `<websocket-key>`; and, first of all, the internal `WebSocketFrameUnmasking`
+  unmasks every client frame after a connection's last WebSocket upgrade request and zeroes its masking
+  key (ADR-0089 Amendment 2).
 - `CurlPortComparison.Compare` takes the two runners' results - never a path - and gives a
   `CurlPortVerdict` of decision 5's `CurlPortVerdictKind`: `SurlDefect` when upstream's run fails the
   mirrored assertions (the port is not judged), `Agreement` when every compared item agrees,
@@ -99,7 +102,35 @@ its own `ClientBytesRelay` when the case `RecordsClientBytes` - is Inconclusive 
 the tests because it opens sockets: it forwards both directions unchanged, records only client-to-server
 bytes, and shuts down sending to one side when the other stops. An FTP data connection goes straight to
 the port `surl` announced, so only the control connection is recorded (decision 4). Reading a family's
-findings file is the family tasks' work (BL-580 on).
+findings file is `CurlPortFindingsFile`'s (BL-580): decision 5's pass rule over a family's table. A case whose
+mirrored test runs a supplementary build, a relay of its own, several listeners, per-run arguments or standard input passes
+a `CurlPortRunSetup`, applied identically to both runs.
+
+Corpus part (b), upstream's own test cases with the port as the client, is built (BL-591, ADR-0089
+amendment 7):
+
+- `IUpstreamTestCaseClient` is the runner's client seam: `ExecutablePath` (a case's `%CURL`),
+  `Description` and `RunAsync` (arguments, stdin, environment, working directory) giving an
+  `UpstreamTestCaseClientRun` (exit code, stdout, stderr; `From` either runner's result).
+  `UpstreamCurlTestCaseClient` wraps only an `UpstreamCurlRunner` and `CurlPortTestCaseClient` only a
+  `CurlPortClientRunner` (whose `Path` is the verified client's, and whose `RunAsync` takes a working
+  directory), so neither client can be made from the other's location. `UpstreamTestCaseRunRecord.FromRun`
+  takes either run.
+- `CurlVersionReport` is a client's `--version` as runtests reads it: the first line, `Version`
+  (`%VERSION`), `VersionNumber` (`%VERNUM`), `Protocols` and `Features`; `Parse` reads a client's
+  output and `FromPin` a pin. `UpstreamCurlBuildFeatures.For(CurlVersionReport)` and
+  `UpstreamTestCaseSelectionRules.ForClient` derive features and selection from one, so the port runs a
+  case with its own version, path and features, as runtests would run it.
+- `UpstreamTestCasePortRow` is one case played by both clients with decision 5's `Verdict` (Surl
+  defect when upstream did not pass, not comparable when the port skipped, agreement, port defect);
+  `UpstreamTestCasePortComparison.Compare` judges the rows against the case numbers
+  `ListedFindings` reads from `Documentation/Conformance/CurlPort/Upstream-Test-Cases.md`
+  (`Passes`, `DescribeFailures`), and `FormatFamilyTable` writes the per-family counts
+  (`UpstreamTestCasePortFamilyCount`).
+- The tests' `CurlPortBesideUpstreamCurlOverUpstreamTestCasesTests` (`Integration`, `UpstreamTestCases`)
+  plays every case on the platform's passing list twice through `UpstreamTestCasesAgainstSurlTests.CaseRun`
+  (`RunBesideAsync`): with the paired upstream build, then with the port, each with fresh server halves
+  and its own folder (`port-test<N>` for the port).
 
 ## Upstream test cases (ADR-0080)
 
@@ -199,12 +230,12 @@ Running the http and https cases is built (BL-392):
   TFTP on a datagram listener; and Surl's own DICT and TELNET servers, whose cases give them
   nothing to send), its own folder as curl's working directory, `%PWD` and `HOME`, `%LOGDIR` the
   relative `log`, and a 60-second limit; a case naming a server other than `http`, `https`, `ftp`,
-  `ftp-ipv6`, `ftps`, `gopher`, `gopher-ipv6`, `gophers`, `mqtt`, `mqtts`, `tftp`, `dict`, `scp`, `sftp`, `smb` and
-  `telnet` is written `skip server-half-not-composed:<name>` and an unparsable one
+  `ftp-ipv6`, `ftps`, `gopher`, `gopher-ipv6`, `gophers`, `mqtt`, `mqtts`, `tftp`, `dict`, `scp`, `sftp`, `smb`,
+  `telnet`, `imap`, `pop3` and `smtp` is written `skip server-half-not-composed:<name>` and an unparsable one
   `skip unparsable`. After curl exits the run waits up to 2 seconds for every exchange to end, so a
   server half has read curl's last packet before its log is checked. A case's `<protocol>` is
   checked against each server half's received bytes in the order the case names its servers, and
-  `<upload>` against the FTP and TFTP server halves' uploads. CI's
+  `<upload>` against the FTP, TFTP and mail server halves' uploads. CI's
   `Upstream test cases` job runs it on Linux and macOS and uploads the results file and the
   run's passing list (both are written to the test assembly's folder).
 
@@ -243,6 +274,16 @@ server halves are Surl's own servers, made by the tests' `UpstreamTestCaseFileSe
   upstream's `smbserver.py` answers `smb://host/TESTS/<N>`, to any login. An smb case runs with the
   build `UpstreamCurlLocator.LocateForProtocol` pairs with `smb`: the reference build where it has
   smb, else (Windows) the supplementary build ADR-0030 pinned, selected under that build's features.
+
+Playing the imap, pop3 and smtp cases is built (BL-879): `UpstreamTestCaseServerCommands.Mail` is
+their row, the same words as `Surl.LineProtocol`'s `MailUpstreamTestCaseReplies.SupportedServerCommands`
+(`Testnum`, `REPLY`, `REPLYLF`, `COUNT`, `CAPA`, `AUTH`, `POSTFETCH`); `DELAY`, `SLOWDOWN`,
+`SLOWDOWNDATA` and `NOSAVE` skip `servercmd-unsupported:<command>`. The tests' server halves add
+`ImapUpstreamTestCaseServer`, `Pop3UpstreamTestCaseServer` and `SmtpUpstreamTestCaseServer` in
+plaintext on `127.0.0.1` and `[::1]` (`%IMAPPORT`, `%POP3PORT`, `%SMTPPORT` and their `6` forms),
+sharing one `MailUpstreamTestCaseReplies` per case built from its `<data*>` parts, with logins
+going to the accept-all `AnonymousAuthenticationPolicy`; `<protocol>` reads its `ReceivedBytes` and
+`<upload>` its `UploadedBytes`. `imaps`, `pop3s` and `smtps` are not composed.
 
 The stated pass rate and its guard are built (BL-393):
 

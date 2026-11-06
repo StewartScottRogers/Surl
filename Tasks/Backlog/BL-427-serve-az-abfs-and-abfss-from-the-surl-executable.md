@@ -5,7 +5,7 @@ priority: Normal
 assignee: Claude
 pipeline: feature
 depends-on: [BL-426, BL-405, BL-655]
-touches: [Application/Surl.Console, Application/Surl.Console.UnitTests, Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests]
+touches: [Application/Surl.Console, Application/Surl.Console.UnitTests, Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests, Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests]
 requirement: none
 created: 2026-11-04
 completed:
@@ -45,8 +45,14 @@ decides. Its `--aihelp` topic and help category exist, and the extension switch 
 - BL-423 decided (ADR-0109 decision 6): `az` and `abfss` implicit TLS, `abfs` plain HTTP; this task also adds
   `--az-plaintext` (no argument, category `azure-storage`, warned on start) and refuses a bearer token over plain
   text unless `--allow-plaintext-auth`. The `--aihelp` topic is `azure-storage` (decision 8).
+- 2026-11-05: BL-609 has moved the composition: extended servers register in
+  `Application/Surl.Composition.UnitLibrary/ExtendedProtocolServers.cs` (`Registrations`, beside `s3`), and the
+  shared-store tests belong in `Surl.Composition.UnitTests`. Both are added to `touches`. BL-803 (in Doing) touches
+  the same two projects, so this task waits in Backlog until BL-803 finishes.
 
 ## Log
 
 - 2026-11-04: Created.
 - 2026-11-04: Amended for Stewart's shared-stores approval of 2026-11-04: waits on BL-655; composed with the one shared content store.
+- 2026-11-05: Backlog -> Doing.
+- 2026-11-05: Doing -> Backlog. Needs Application/Surl.Composition.UnitLibrary and .UnitTests, which BL-803 (Doing) touches; resume once BL-803 is Done

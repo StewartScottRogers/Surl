@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <PackageReference Include="MSTest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Microsoft.VisualStudio.TestTools.UnitTesting" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Surl.TlsSrp.UnitLibrary\Surl.TlsSrp.UnitLibrary.csproj" />
+  </ItemGroup>
+
+  <!--
+    Bytes recorded from pinned upstream curl 8.21.0 with Record-CurlExchange.ps1 -TlsSrp
+    (Fixtures/README.md), embedded so a fast test reads them without touching the file system.
+    Each is named Fixtures/<case>/<file>.
+  -->
+  <ItemGroup>
+    <EmbeddedResource Include="Fixtures\*\*.bin" LogicalName="Fixtures/$([System.IO.Path]::GetFileName($([System.IO.Path]::GetDirectoryName('%(FullPath)'))))/%(Filename)%(Extension)" />
+  </ItemGroup>
+
+</Project>

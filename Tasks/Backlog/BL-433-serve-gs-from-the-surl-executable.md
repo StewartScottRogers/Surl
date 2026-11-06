@@ -5,7 +5,7 @@ priority: Normal
 assignee: Claude
 pipeline: feature
 depends-on: [BL-432, BL-405, BL-655]
-touches: [Application/Surl.Console, Application/Surl.Console.UnitTests, Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests]
+touches: [Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests, Application/Surl.Console, Application/Surl.Console.UnitTests, Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests]
 requirement: none
 created: 2026-11-04
 completed:
@@ -43,7 +43,15 @@ completed:
 
 ## Notes
 
+- 2026-11-05 (lane 4): BL-609 has moved the composition. `ExtendedProtocolServers.Compose` now lives in
+  `Application/Surl.Composition.UnitLibrary/ExtendedProtocolServers.cs`, where `s3` is registered (its project
+  reference is in that csproj). `gs` must be registered there too, so this task now also touches
+  `Application/Surl.Composition.UnitLibrary` and `Application/Surl.Composition.UnitTests`. BL-803, in Doing, touches
+  both, so the task went back to Backlog until BL-803 no longer holds them. No code was changed.
+
 ## Log
 
 - 2026-11-04: Created.
 - 2026-11-04: Amended for Stewart's shared-stores approval of 2026-11-04: waits on BL-655; composed with the one shared content store.
+- 2026-11-05: Backlog -> Doing.
+- 2026-11-05: Doing -> Backlog. Needs Application/Surl.Composition.UnitLibrary and .UnitTests (gs registers beside s3 in ExtendedProtocolServers), which BL-803 in Doing touches

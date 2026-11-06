@@ -25,7 +25,7 @@ internal sealed class GcsServerHarness
     /// </summary>
     public const string NowGeneration = "1793880000000000";
 
-    public const string BearerField = $"Authorization: Bearer {UnitTestBearerAuthenticationPolicy.Token}";
+    public const string BearerField = $"Authorization: Bearer {UnitTestGcsAuthenticationPolicy.Token}";
 
     public GcsServerHarness(bool allowsAnonymous = false, long maxTotalBytes = InMemoryContentFileSystem.DefaultMaxTotalBytes, bool persistsIndex = false, string accountName = "", ContentExposureOptions? exposure = null, IReadOnlyList<ContentShare>? shares = null, IReadOnlyList<ContentBucket>? buckets = null, int maxIndexEntries = ObjectMetadataIndex.DefaultMaxEntries, string listenHost = "127.0.0.1")
     {
@@ -33,7 +33,7 @@ internal sealed class GcsServerHarness
         FileSystem = new InMemoryContentFileSystem(TimeProvider, maxTotalBytes);
         Store = new ContentStore(InMemoryContentFileSystem.RootPath, FileSystem, exposure ?? new ContentExposureOptions(), shares ?? [], buckets ?? []);
         Index = new ObjectMetadataIndex(FileSystem, InMemoryContentFileSystem.RootPath, persistsIndex, maxIndexEntries);
-        Policy = new UnitTestBearerAuthenticationPolicy(allowsAnonymous) { AccountName = accountName };
+        Policy = new UnitTestGcsAuthenticationPolicy(allowsAnonymous) { AccountName = accountName };
         Server = new GoogleCloudStorageProtocolServer(Store, Index, Policy, TimeProvider);
         ListenHost = listenHost;
     }
@@ -53,7 +53,7 @@ internal sealed class GcsServerHarness
 
     public ObjectMetadataIndex Index { get; }
 
-    public UnitTestBearerAuthenticationPolicy Policy { get; }
+    public UnitTestGcsAuthenticationPolicy Policy { get; }
 
     public GoogleCloudStorageProtocolServer Server { get; }
 

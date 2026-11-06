@@ -32,18 +32,24 @@ internal sealed class XmppServerConnection
     private readonly XmppServerOptions options;
     private readonly IReadOnlyList<string> domains;
     private readonly XmppSaslLogin login;
+    private readonly XmppSessionRegistry sessions;
+    private readonly Lock writeOrder = new();
+    private Task lastWrite = Task.CompletedTask;
     private XmppStreamReader reader;
     private XmppResourceBinding? binding;
+    private XmppBoundSession? session;
+    private XmppStanzaRouter? router;
     private string[] offeredMechanisms = [];
     private string streamDomain = string.Empty;
     private bool headerSent;
     private bool connectionUnusable;
 
-    public XmppServerConnection(IConnection connection, ExchangeContext context, XmppServerOptions options)
+    public XmppServerConnection(IConnection connection, ExchangeContext context, XmppServerOptions options, XmppSessionRegistry sessions)
     {
         this.connection = connection;
         this.context = context;
         this.options = options;
+        this.sessions = sessions;
         reader = new XmppStreamReader(connection, context.Limits.MaxMessageBytes);
         domains = XmppDomains.Served(context.ListenUrl, context.LocalEndPoint, options.MailDomains);
         login = new XmppSaslLogin(options.AuthenticationPolicy, context, options.RandomSource, WriteAsync);
@@ -62,6 +68,21 @@ internal sealed class XmppServerConnection
         connection.TlsSession is null && options.IsTlsUpgradeAvailable && !options.AllowPlaintextAuthentication;
 
     public async Task ServeAsync()
+    {
+        try
+        {
+            await ServeUntilClosedAsync();
+        }
+        finally
+        {
+            if (session is not null)
+            {
+                sessions.Remove(session);
+            }
+        }
+    }
+
+    private async Task ServeUntilClosedAsync()
     {
         try
         {
@@ -216,7 +237,7 @@ internal sealed class XmppServerConnection
     {
         if (binding is not null)
         {
-            await binding.AnswerAsync(RequireStanza(element));
+            await AnswerStanzaAsync(binding, RequireStanza(element));
             return ElementOutcome.Continue;
         }
 
@@ -232,6 +253,40 @@ internal sealed class XmppServerConnection
         }
 
         return IsTlsRequired ? throw Refusal(element) : await AnswerSaslAsync(element);
+    }
+
+    // Decision 4, then 5: the binding until a resource is bound, then the router, with the stream
+    // in the server's registry so other streams can reach it.
+    private async Task AnswerStanzaAsync(XmppResourceBinding resourceBinding, XElement stanza)
+    {
+        if (router is not null)
+        {
+            await router.AnswerAsync(stanza);
+            return;
+        }
+
+        await resourceBinding.AnswerAsync(stanza);
+        if (resourceBinding.BoundResource is { } resource)
+        {
+            session = new XmppBoundSession(resourceBinding.BareJid, resource, TryDeliverAsync);
+            sessions.Add(session);
+            router = new XmppStanzaRouter(session, sessions, domains, context, WriteAsync);
+        }
+    }
+
+    // A stanza another stream routes here: a failed or cancelled write is the sender's to note,
+    // and this stream finds its connection broken on its own next read or write.
+    private async Task<bool> TryDeliverAsync(string stanza)
+    {
+        try
+        {
+            await WriteAsync(stanza, context.CancellationToken);
+            return true;
+        }
+        catch (Exception failure) when (failure is IOException or OperationCanceledException)
+        {
+            return false;
+        }
     }
 
     // RFC 6120 6.4: each SASL element to the login; on success the binding takes over and a new
@@ -375,6 +430,21 @@ internal sealed class XmppServerConnection
 
     private Task WriteAsync(string text) => WriteAsync(text, context.CancellationToken);
 
-    private async Task WriteAsync(string text, CancellationToken cancellationToken) =>
-        await connection.WriteAsync(Encoding.UTF8.GetBytes(text), cancellationToken);
+    // This stream's own answers and stanzas other streams route to it are written one after
+    // another, in the order they were asked for, never interleaved.
+    private Task WriteAsync(string text, CancellationToken cancellationToken)
+    {
+        var bytes = Encoding.UTF8.GetBytes(text);
+        lock (writeOrder)
+        {
+            lastWrite = WriteAfterAsync(lastWrite, bytes, cancellationToken);
+            return lastWrite;
+        }
+    }
+
+    private async Task WriteAfterAsync(Task previous, byte[] bytes, CancellationToken cancellationToken)
+    {
+        await previous.ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing);
+        await connection.WriteAsync(bytes, cancellationToken);
+    }
 }

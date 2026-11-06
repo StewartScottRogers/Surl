@@ -8,7 +8,7 @@ public sealed class ProxyTargetTests
     [DataRow("HTTP://Origin.test:8080", "http", "Origin.test:8080", "Origin.test", 8080, "/")]
     [DataRow("http://origin.test?q", "http", "origin.test", "origin.test", 80, "/?q")]
     [DataRow("http://[::1]:81/x", "http", "[::1]:81", "::1", 81, "/x")]
-    [DataRow("ftp://origin.test/a.txt", "ftp", "origin.test", "origin.test", 80, "/a.txt")]
+    [DataRow("ftp://origin.test/a.txt", "ftp", "origin.test", "origin.test", 21, "/a.txt")]
     public void FromAbsoluteForm_AbsoluteTarget_IsRead(string requestTarget, string scheme, string authority, string host, int port, string originForm)
     {
         var target = ProxyTarget.FromAbsoluteForm(requestTarget);
@@ -29,6 +29,16 @@ public sealed class ProxyTargetTests
     public void FromAbsoluteForm_OtherTarget_IsNone(string requestTarget)
     {
         Assert.IsNull(ProxyTarget.FromAbsoluteForm(requestTarget));
+    }
+
+    [TestMethod]
+    [DataRow("ftp://user:pass@origin.test/a.txt", "user:pass")]
+    [DataRow("FTP://a@b@origin.test/a.txt", "a@b")]
+    public void FromAbsoluteForm_FtpUserInfo_IsKeptOutOfTheAuthority(string requestTarget, string userInfo)
+    {
+        var target = ProxyTarget.FromAbsoluteForm(requestTarget);
+
+        Assert.AreEqual(new ProxyTarget("ftp", "origin.test", "origin.test", 21, "/a.txt", userInfo), target);
     }
 
     [TestMethod]

@@ -7,7 +7,7 @@ namespace Surl.Protocol.Mqtt;
 /// Answers the packets of one MQTT connection, one at a time, and says after each whether
 /// the connection stays open. <see cref="MqttProtocolServer"/> documents the answers.
 /// </summary>
-internal sealed class MqttPacketResponder
+internal sealed partial class MqttPacketResponder
 {
     private const int QualityOfServiceMask = 0x06;
     private const int DuplicateFlag = 0x08;
@@ -214,8 +214,7 @@ internal sealed class MqttPacketResponder
         switch (verdict)
         {
             case MqttConnectVerdict.Accepted:
-                connected = true;
-                return SendAndStayOpenAsync(MqttPacketEncoder.ConnectAccepted);
+                return AnswerAcceptedConnectAsync();
             case MqttConnectVerdict.UnacceptableProtocolLevel:
                 context.Log.Note("CONNECT asked for a protocol level other than 4 (MQTT 3.1.1); answered CONNACK 1 and closed.");
                 return SendAndCloseAsync(MqttPacketEncoder.ConnectRefusedUnacceptableProtocolLevel);
@@ -247,8 +246,25 @@ internal sealed class MqttPacketResponder
             return CloseForViolation("PUBLISH had no packet identifier");
         }
 
+        return PublishUnlessAFaultAnswersAsync(topic, qualityOfService, packetIdentifier, reader.Remaining.ToArray());
+    }
+
+    // A publish a chosen-error rule matches closes the connection with nothing published, since
+    // MQTT 3.1.1 has no negative acknowledgement (ADR-0139, decision 1).
+    private async ValueTask<bool> PublishUnlessAFaultAnswersAsync(string topic, int qualityOfService, ushort packetIdentifier, byte[] payload)
+    {
+        if (await IsPublishAnsweredByAFaultAsync(topic))
+        {
+            return false;
+        }
+
+        return await PublishAsync(topic, qualityOfService, packetIdentifier, payload);
+    }
+
+    private ValueTask<bool> PublishAsync(string topic, int qualityOfService, ushort packetIdentifier, byte[] payload)
+    {
         // Every publish is kept as its topic's retained message, RETAIN set or not (ADR-0014).
-        var message = new BusMessage(topic, reader.Remaining.ToArray())
+        var message = new BusMessage(topic, payload)
         {
             Retain = true,
             QualityOfService = (BusQualityOfService)qualityOfService,
@@ -323,6 +339,7 @@ internal sealed class MqttPacketResponder
 
     private async ValueTask<bool> DeliverRetainedAsync(ushort packetIdentifier, List<string?> filters)
     {
+        await RefuseChosenFiltersAsync(filters);
         var reading = MqttBusRetainedMessages.Read(bus, account, [.. filters.OfType<string>()]);
         await WriteAsync(MqttPacketEncoder.SubscribeAcknowledgement(packetIdentifier, ReturnCodesFor(filters, reading.Granted)));
         foreach (var (topic, payload) in reading.Matching)

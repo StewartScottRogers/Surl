@@ -23,6 +23,12 @@ public static class CurlPortResultNormaliser
     /// <summary>The text a <c>User-Agent:</c> field value in request bytes is replaced by.</summary>
     public const string UserAgentPlaceholder = "<user-agent>";
 
+    /// <summary>
+    /// The text the 8 random characters after <c>curl</c> in an MQTT <c>CONNECT</c>s client identifier are
+    /// replaced by: curl picks them at random for every connection.
+    /// </summary>
+    public const string MqttClientIdPlaceholder = "<client-id>";
+
     /// <summary>The text a multipart boundary in request bytes is replaced by, everywhere it occurs.</summary>
     public const string BoundaryPlaceholder = "<boundary>";
 
@@ -31,6 +37,15 @@ public static class CurlPortResultNormaliser
 
     /// <summary>The text a Digest <c>response</c> value in request bytes is replaced by.</summary>
     public const string DigestResponsePlaceholder = "<response>";
+
+    /// <summary>
+    /// The text a Digest <c>nonce</c> value in request bytes is replaced by: the nonce is the one each run's
+    /// own <c>surl</c> chose at random, which the client only echoes.
+    /// </summary>
+    public const string DigestNoncePlaceholder = "<nonce>";
+
+    /// <summary>The text a <c>Sec-WebSocket-Key:</c> field value in request bytes is replaced by.</summary>
+    public const string WebSocketKeyPlaceholder = "<websocket-key>";
 
     private const string TimedGroup = "timed";
 
@@ -98,9 +113,11 @@ public static class CurlPortResultNormaliser
     /// <summary>
     /// Normalises the bytes a client sent on one connection (ADR-0089 decision 4): the port the client
     /// was pointed at, the client ports FTP's <c>PORT</c> and <c>EPRT</c> name, the <c>User-Agent:</c>
-    /// value, every multipart boundary, Digest's <c>cnonce</c> and <c>response</c> (also inside a base64
+    /// value, every multipart boundary, Digest's <c>nonce</c> (surl's own, echoed), <c>cnonce</c> and <c>response</c> (also inside a base64
     /// SASL <c>DIGEST-MD5</c> line), and the NTLM client challenge, time stamp and what is derived from
-    /// them (the LM and NT responses, the encrypted session key and the MIC are zeroed, raw or in base64).
+    /// them (the LM and NT responses, the encrypted session key and the MIC are zeroed, raw or in base64),
+    /// the <c>Sec-WebSocket-Key:</c> value, and each WebSocket frame's masking key (the frames after an
+    /// upgrade request are unmasked and their keys zeroed first, before any other rule reads them).
     /// </summary>
     /// <param name="requestBytes">The bytes sent.</param>
     /// <param name="clientFacingPort">The port the client connected to: the recording relay's.</param>
@@ -109,8 +126,26 @@ public static class CurlPortResultNormaliser
     {
         ArgumentNullException.ThrowIfNull(requestBytes);
         var text = RequestBytesNormalisation.Normalise(
-            Encoding.Latin1.GetBytes(ReplacePort(Encoding.Latin1.GetString(requestBytes), clientFacingPort)));
+            Encoding.Latin1.GetBytes(ReplacePort(Encoding.Latin1.GetString(WebSocketFrameUnmasking.Unmask(requestBytes)), clientFacingPort)));
         return Encoding.Latin1.GetBytes(text);
+    }
+
+    /// <summary>
+    /// Normalises a client's standard output as <see cref="NormaliseOutput(byte[], int, IReadOnlyList{string})"/>
+    /// does, replacing both ports of <paramref name="surl"/>: the one the client connected to and the one
+    /// <c>surl</c> listened on, which a reply can name when a recording relay stands between them (a
+    /// Gopher menu names the server's own port).
+    /// </summary>
+    /// <param name="output">The bytes the client wrote.</param>
+    /// <param name="surl">That run's <c>surl</c> and relay.</param>
+    /// <param name="arguments">The case's arguments, read for a <c>-w</c> or <c>--write-out</c> format.</param>
+    /// <returns>The normalised bytes.</returns>
+    public static byte[] NormaliseOutput(byte[] output, CurlPortSurlSide surl, IReadOnlyList<string> arguments)
+    {
+        ArgumentNullException.ThrowIfNull(output);
+        ArgumentNullException.ThrowIfNull(surl);
+        var text = ReplacePort(Encoding.Latin1.GetString(output), surl.Port);
+        return Encoding.Latin1.GetBytes(NormaliseOutputText(text, surl.ClientFacingPort, arguments));
     }
 
     private static string NormaliseOutputText(string text, int surlPort, IReadOnlyList<string> arguments)

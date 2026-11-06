@@ -1,0 +1,8 @@
+PUT /up.bin HTTP/1.1
+Host: 127.0.0.1:18723
+Authorization: Basic dXNlcjpzZWNyZXQ=
+User-Agent: curl/8.21.0
+Accept: */*
+Content-Length: 16
+
+aaaaaaaaaaaaaaaa

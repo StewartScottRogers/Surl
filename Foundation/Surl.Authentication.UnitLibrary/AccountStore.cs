@@ -161,6 +161,7 @@ internal sealed class AccountStore
             {
                 [ScramHash.Sha1] = DeriveScram(ScramHash.Sha1, account),
                 [ScramHash.Sha256] = DeriveScram(ScramHash.Sha256, account),
+                [ScramHash.Sha512] = DeriveScram(ScramHash.Sha512, account),
             });
     }
 

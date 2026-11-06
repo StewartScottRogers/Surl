@@ -77,6 +77,7 @@ public sealed class SmtpProtocolServer : IConnectionProtocolServer, IConnectionR
     private readonly IMailAuthenticationPolicy mailAuthenticationPolicy;
     private readonly MailboxStore mailStore;
     private readonly bool isTlsUpgradeAvailable;
+    private readonly MailUpstreamTestCaseReplies? caseReplies;
 
     /// <summary>
     /// Creates an SMTP server that delivers into <paramref name="mailStore"/>.
@@ -95,6 +96,21 @@ public sealed class SmtpProtocolServer : IConnectionProtocolServer, IConnectionR
     /// <see langword="false"/>, <c>STARTTLS</c> is answered <c>454</c> (ADR-0053, decision 5).
     /// </param>
     public SmtpProtocolServer(IAuthenticationPolicy authenticationPolicy, IMailAuthenticationPolicy mailAuthenticationPolicy, MailboxStore mailStore, bool isTlsUpgradeAvailable = false)
+        : this(authenticationPolicy, mailAuthenticationPolicy, mailStore, isTlsUpgradeAvailable, caseReplies: null)
+    {
+    }
+
+    /// <summary>
+    /// Creates an SMTP server that plays an upstream test case's reply as well
+    /// (<see cref="SmtpUpstreamTestCaseServer"/>), or none when <paramref name="caseReplies"/> is
+    /// <see langword="null"/>.
+    /// </summary>
+    internal SmtpProtocolServer(
+        IAuthenticationPolicy authenticationPolicy,
+        IMailAuthenticationPolicy mailAuthenticationPolicy,
+        MailboxStore mailStore,
+        bool isTlsUpgradeAvailable,
+        MailUpstreamTestCaseReplies? caseReplies)
     {
         ArgumentNullException.ThrowIfNull(authenticationPolicy);
         ArgumentNullException.ThrowIfNull(mailAuthenticationPolicy);
@@ -104,6 +120,7 @@ public sealed class SmtpProtocolServer : IConnectionProtocolServer, IConnectionR
         this.mailAuthenticationPolicy = mailAuthenticationPolicy;
         this.mailStore = mailStore;
         this.isTlsUpgradeAvailable = isTlsUpgradeAvailable;
+        this.caseReplies = caseReplies;
     }
 
     /// <summary>
@@ -124,7 +141,7 @@ public sealed class SmtpProtocolServer : IConnectionProtocolServer, IConnectionR
         ArgumentNullException.ThrowIfNull(context);
 
         using var reader = new CrlfLineReader(connection, context.Limits, context.TimeProvider);
-        await new SmtpSession(connection, context, reader, authenticationPolicy, mailAuthenticationPolicy, mailStore, isTlsUpgradeAvailable).RunAsync();
+        await new SmtpSession(connection, context, reader, authenticationPolicy, mailAuthenticationPolicy, mailStore, isTlsUpgradeAvailable, caseReplies).RunAsync();
     }
 
     /// <summary>

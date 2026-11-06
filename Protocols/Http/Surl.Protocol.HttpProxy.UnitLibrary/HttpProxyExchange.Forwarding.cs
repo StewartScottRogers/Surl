@@ -30,10 +30,16 @@ internal sealed partial class HttpProxyExchange
 
     private static bool IsMaxForwardsMethod(string method) => method is "OPTIONS" or "TRACE";
 
-    private static (HttpStatus Status, string Why, bool MustClose)? JudgeTarget(ProxyTarget? target) =>
-        target is null
-            ? (HttpStatus.BadRequest, "the request target is not absolute-form", true)
-            : target.Scheme == "http" ? null : (HttpStatus.NotImplemented, $"the proxy does not forward {target.Scheme}:// requests", false);
+    // http is forwarded, and an ftp GET fetched over FTP (Amendment 4); every other ftp method
+    // and every other scheme is 501.
+    private static (HttpStatus Status, string Why, bool MustClose)? JudgeTarget(ProxyTarget? target, string method) => target switch
+    {
+        null => (HttpStatus.BadRequest, "the request target is not absolute-form", true),
+        { Scheme: "http" } => null,
+        { Scheme: "ftp" } when method == "GET" => null,
+        { Scheme: "ftp" } => (HttpStatus.NotImplemented, $"the proxy forwards only GET to ftp:// origins, not {method}", false),
+        _ => (HttpStatus.NotImplemented, $"the proxy does not forward {target.Scheme}:// requests", false),
+    };
 
     private static (HttpStatus Status, string Why, bool MustClose)? JudgeBody(HttpRequestBodyFraming framing, long maxUploadBytes) => framing.Kind switch
     {
@@ -69,9 +75,14 @@ internal sealed partial class HttpProxyExchange
         var target = ProxyTarget.FromAbsoluteForm(head.RequestTarget);
         var framing = HttpRequestBodyFraming.Of(head);
         var endsConnection = RequestEndsConnection(head) || framing.Kind != HttpRequestBodyFramingKind.None;
-        if ((JudgeTarget(target) ?? JudgeBody(framing, context.Limits.MaxUploadBytes)) is { } refusal)
+        if ((JudgeTarget(target, head.Method) ?? JudgeBody(framing, context.Limits.MaxUploadBytes)) is { } refusal)
         {
             return await AnswerAsync(refusal.Status, refusal.Why, refusal.MustClose || endsConnection);
+        }
+
+        if (target!.Scheme == "ftp")
+        {
+            return await AnswerFtpAsync(head, target, endsConnection);
         }
 
         if (IsMaxForwardsMethod(head.Method) && ProxyFieldRules.MaxForwards(head.Fields) == 0)

@@ -1,0 +1,6 @@
+CONNECT origin.test:8080 HTTP/1.1
+Host: origin.test:8080
+Proxy-Authorization: NTLM TlRMTVNTUAABAAAAB4IIogAAAAAAAAAAAAAAAAAAAAAKAPRlAAAADw==
+User-Agent: curl/8.21.0
+Proxy-Connection: Keep-Alive
+

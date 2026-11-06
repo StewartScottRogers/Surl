@@ -26,6 +26,7 @@ public sealed class ProtocolIsolationTests
     private const string Poly1305 = "Surl.Cryptography.Poly1305.UnitLibrary";
     private const string Rc4 = "Surl.Cryptography.Rc4.UnitLibrary";
     private const string Ripemd160 = "Surl.Cryptography.Ripemd160.UnitLibrary";
+    private const string Srp = "Surl.Cryptography.Srp.UnitLibrary";
     private const string Dtls = "Surl.Dtls.UnitLibrary";
     private const string Hpack = "Surl.Hpack.UnitLibrary";
     private const string Http2 = "Surl.Http2.UnitLibrary";
@@ -41,7 +42,9 @@ public sealed class ProtocolIsolationTests
     private const string MlKem = "Surl.Cryptography.MlKem.UnitLibrary";
     private const string Qpack = "Surl.Qpack.UnitLibrary";
     private const string Quic = "Surl.Quic.UnitLibrary";
+    private const string Socks = "Surl.Protocol.Socks.UnitLibrary";
     private const string Tls13 = "Surl.Tls13.UnitLibrary";
+    private const string TlsSrp = "Surl.TlsSrp.UnitLibrary";
     private const string WebSocket = "Surl.WebSocket.UnitLibrary";
     private const string ExtendedRedis = "Surl.Extended.Protocol.Redis.UnitLibrary";
     private const string ExtendedServerPrefix = "Surl.Extended.Protocol.";
@@ -55,7 +58,7 @@ public sealed class ProtocolIsolationTests
 
     /// <summary>
     /// ADR-0002's table, with the rows ADR-0048, ADR-0050, ADR-0051, ADR-0057, ADR-0061,
-    /// ADR-0070, ADR-0081, ADR-0082, ADR-0084, ADR-0086, ADR-0087, ADR-0100, ADR-0103 and ADR-0105 add: each horizontal library a protocol server may reference, with the projects
+    /// ADR-0070, ADR-0081, ADR-0082, ADR-0084, ADR-0086, ADR-0087, ADR-0100, ADR-0103, ADR-0105 and ADR-0122 add: each horizontal library a protocol server may reference, with the projects
     /// that library may itself reference.
     /// </summary>
     private static readonly Dictionary<string, string[]> HorizontalLibraries = new()
@@ -72,6 +75,7 @@ public sealed class ProtocolIsolationTests
         [Poly1305] = [],
         [Rc4] = [],
         [Ripemd160] = [],
+        [Srp] = [],
         [Dtls] = [Abstractions, Curve25519],
         [Hpack] = [],
         [Http2] = [Abstractions, Hpack],
@@ -86,6 +90,7 @@ public sealed class ProtocolIsolationTests
         [Qpack] = [Hpack],
         [Quic] = [Abstractions, Tls13, ChaCha20, Poly1305],
         [Tls13] = [Curve25519, MlKem],
+        [TlsSrp] = [Srp],
         [WebSocket] = [Abstractions, HttpMessage],
     };
 
@@ -133,6 +138,8 @@ public sealed class ProtocolIsolationTests
     [DataRow("Surl.Protocol.Http.UnitLibrary", ExtendedRedis)]
     [DataRow(HttpProxy, "Surl.Protocol.Http.UnitLibrary")]
     [DataRow("Surl.Protocol.Http.UnitLibrary", HttpProxy)]
+    [DataRow(Socks, HttpProxy)]
+    [DataRow(HttpProxy, Socks)]
     public void ForbiddenProtocolReferences_ServerReferencingAnotherServer_IsForbidden(
         string server, string referenced)
     {
@@ -153,6 +160,18 @@ public sealed class ProtocolIsolationTests
         var proxy = ProtocolServers().Single(path => ProjectName(path) == HttpProxy);
 
         Assert.IsEmpty(ForbiddenProtocolReferences(ProjectReferences(proxy)));
+    }
+
+    /// <summary>
+    /// The SOCKS server (ADR-0121 decision 1) is found as a protocol server, so the rules above
+    /// hold it: it references only Abstractions, never another protocol server.
+    /// </summary>
+    [TestMethod]
+    public void ProtocolServers_IncludeTheSocksServer()
+    {
+        var socks = ProtocolServers().Single(path => ProjectName(path) == Socks);
+
+        Assert.IsEmpty(ForbiddenProtocolReferences(ProjectReferences(socks)));
     }
 
     [TestMethod]
@@ -208,6 +227,7 @@ public sealed class ProtocolIsolationTests
     [DataRow(Poly1305)]
     [DataRow(Rc4)]
     [DataRow(Ripemd160)]
+    [DataRow(Srp)]
     [DataRow(Dtls)]
     [DataRow(Hpack)]
     [DataRow(Http2)]
@@ -222,6 +242,7 @@ public sealed class ProtocolIsolationTests
     [DataRow(Qpack)]
     [DataRow(Quic)]
     [DataRow(Tls13)]
+    [DataRow(TlsSrp)]
     public void ForbiddenProtocolReferences_AllowedLibrary_IsNotForbidden(string referenced)
     {
         Assert.IsEmpty(ForbiddenProtocolReferences([referenced]));
@@ -269,6 +290,7 @@ public sealed class ProtocolIsolationTests
     [DataRow(Quic, Poly1305)]
     [DataRow(Tls13, Curve25519)]
     [DataRow(Tls13, MlKem)]
+    [DataRow(TlsSrp, Srp)]
     public void ForbiddenHorizontalReferences_ReferenceInItsRow_IsNotForbidden(
         string library, string referenced)
     {
@@ -314,6 +336,8 @@ public sealed class ProtocolIsolationTests
     [DataRow(Tls13, Abstractions)]
     [DataRow(Tls13, Cryptography)]
     [DataRow(Tls13, "Surl.Protocol.Http.UnitLibrary")]
+    [DataRow(TlsSrp, Dtls)]
+    [DataRow(TlsSrp, Abstractions)]
     public void ForbiddenHorizontalReferences_ReferenceOutsideItsRow_IsForbidden(
         string library, string referenced)
     {

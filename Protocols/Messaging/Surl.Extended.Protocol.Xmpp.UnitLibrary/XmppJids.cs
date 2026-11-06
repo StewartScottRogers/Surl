@@ -54,8 +54,23 @@ internal static class XmppJids
     public static bool IsValidResourcepart(string resource) =>
         HasPartLength(resource) && !resource.Any(char.IsControl);
 
-    // Decision 3: not empty, at most 1023 bytes, and none of "&'/:<>@ or whitespace.
-    private static bool IsValidLocalpart(string localpart) =>
+    /// <summary>
+    /// Whether a domainpart, as <see cref="XmppDomains.Normalized"/> writes it, may be addressed
+    /// (RFC 7622 section 3.2): 1 to <see cref="MaxPartBytes"/> bytes, and no whitespace, control
+    /// character or <c>@</c>.
+    /// </summary>
+    /// <param name="domain">The normalized domainpart.</param>
+    /// <returns><see langword="true"/> when it is a domainpart.</returns>
+    public static bool IsValidDomainpart(string domain) =>
+        HasPartLength(domain) && !domain.Any(character => char.IsWhiteSpace(character) || char.IsControl(character) || character == '@');
+
+    /// <summary>
+    /// Whether a localpart may be addressed (decision 3; RFC 7622 section 3.3): 1 to
+    /// <see cref="MaxPartBytes"/> bytes and none of <c>"&amp;'/:&lt;&gt;@</c> or whitespace.
+    /// </summary>
+    /// <param name="localpart">The localpart.</param>
+    /// <returns><see langword="true"/> when it is a localpart.</returns>
+    public static bool IsValidLocalpart(string localpart) =>
         HasPartLength(localpart) && !localpart.Any(character => char.IsWhiteSpace(character) || LocalpartForbidden.Contains(character));
 
     private static bool HasPartLength(string part) =>

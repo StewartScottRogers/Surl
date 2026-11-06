@@ -72,3 +72,14 @@ that already holds a TLS session, as the engine hands one over (ADR-0010), with 
 | --- | --- | --- |
 | `gophers-file-selector` | `/file.txt` CRLF | `.\Record-CurlExchange.ps1 -Port 18634 -Raw -Tls -RawIdleMilliseconds 300 -RawReply 'Hello from Surl.\n' -CurlArgs '-sS','-k','gophers://127.0.0.1:18634/0/file.txt' -OutDirectory Protocols\Lookup\Surl.Protocol.Gopher.UnitTests\Fixtures\gophers-file-selector` |
 | `gophers-root-menu` | CRLF (the empty selector) | `.\Record-CurlExchange.ps1 -Port 18634 -Raw -Tls -RawIdleMilliseconds 300 -RawReply '0file.txt\t/file.txt\t127.0.0.1\t18634\r\n1sub\t/sub\t127.0.0.1\t18634\r\n.\r\n' -CurlArgs '-sS','-k','gophers://127.0.0.1:18634/' -OutDirectory Protocols\Lookup\Surl.Protocol.Gopher.UnitTests\Fixtures\gophers-root-menu` |
+
+## Chosen-error fault (BL-798)
+
+Recorded on 2026-11-05 from the repository root, in Windows PowerShell, with the same pinned build, fed the
+error menu `GopherProtocolServer` writes when a fault rule `error;scheme=gopher;path=/a;reply=try later`
+matches (ADR-0138). curl exited 0 with an empty `stderr.txt` and printed the menu; `GopherSelectorFaultsTests`
+pins `stdout.bin`.
+
+| Folder | curl sent | Command line |
+| --- | --- | --- |
+| `fault-selector` | `/a` CRLF | `.\Record-CurlExchange.ps1 -Port 18634 -Raw -RawIdleMilliseconds 300 -RawReply '3try later\t\terror.host\t1\r\n.\r\n' -CurlArgs '-sS','gopher://127.0.0.1:18634/0/a' -OutDirectory Protocols\Lookup\Surl.Protocol.Gopher.UnitTests\Fixtures\fault-selector` |

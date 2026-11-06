@@ -43,6 +43,13 @@ public enum AuthenticationMethod
     ScramSha256,
 
     /// <summary>
+    /// SASL <c>SCRAM-SHA-512</c>, the IANA SASL registry's name for RFC 5802 over SHA-512, without
+    /// channel binding (BL-700; ADR-0105, decision 5); not in the default set, so no original server
+    /// offers it unless <c>--auth</c> names it.
+    /// </summary>
+    ScramSha512,
+
+    /// <summary>
     /// SASL <c>SCRAM-SHA-1</c>, RFC 5802, without channel binding (BL-416); not in the default
     /// set, so no original server offers it unless <c>--auth</c> names it.
     /// </summary>

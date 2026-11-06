@@ -1,5 +1,3 @@
-using System.Globalization;
-using Surl.Content;
 using Surl.HttpMessage;
 using Surl.HttpServing;
 using Surl.McpServing;
@@ -9,10 +7,10 @@ namespace Surl.Extended.Protocol.McpServer;
 
 /// <summary>
 /// Answers the Streamable HTTP requests of one connection (ADR-0111 decision 4), in decision 4.2's order: the
-/// path - the endpoint, or the RFC 9728 metadata document (decision 6.2) - then <c>Origin</c> (4.7), then the
-/// login (6.1), then the method (4.4), then <c>Accept</c> and <c>Content-Type</c> (4.3), the body as one
-/// JSON-RPC message, and the session and <c>MCP-Protocol-Version</c> (4.5, 4.6). Every answer is one of
-/// decision 7.2's rows.
+/// path - the endpoint, the RFC 9728 metadata document (decision 6.2), or one of the authorization server's paths
+/// (decision 6.3) - then <c>Origin</c> (4.7), then the login (6.1), then the method (4.4), then <c>Accept</c> and
+/// <c>Content-Type</c> (4.3), the body as one JSON-RPC message, and the session and <c>MCP-Protocol-Version</c>
+/// (4.5, 4.6). Every answer is one of decision 7.2's rows.
 /// </summary>
 internal sealed class McpHttpRequestAnswerer : IHttpRequestHandler
 {
@@ -21,8 +19,6 @@ internal sealed class McpHttpRequestAnswerer : IHttpRequestHandler
     private const string ToolsCallMethod = "tools/call";
 
     private const string AbsentProtocolVersion = "2025-03-26";
-
-    private const string JsonMediaType = "application/json";
 
     private const string SessionIdField = "Mcp-Session-Id";
 
@@ -34,17 +30,30 @@ internal sealed class McpHttpRequestAnswerer : IHttpRequestHandler
 
     private readonly string _httpScheme;
 
+    private readonly McpHttpAnswerWriter _writer;
+
+    private readonly McpClientRegistrationEndpoint _registration;
+
+    private readonly McpAuthorizeEndpoint _authorize;
+
+    private readonly McpTokenEndpoint _token;
+
     /// <summary>Initializes a new instance of the <see cref="McpHttpRequestAnswerer" /> class.</summary>
     /// <param name="settings">What every connection of the server shares.</param>
-    /// <param name="authentication">The connection's authentication session.</param>
+    /// <param name="policy">The policy whose HTTP session judges the endpoint's logins and which checks passwords.</param>
     /// <param name="context">The exchange: its scheme, clock and limits.</param>
-    /// <param name="isSecure">Whether the connection is TLS (<c>mcps</c>), which makes its origin <c>https</c>.</param>
-    public McpHttpRequestAnswerer(McpHttpServerSettings settings, IHttpAuthenticationSession authentication, ExchangeContext context, bool isSecure)
+    /// <param name="tlsSession">The connection's TLS session (<c>mcps</c>), which makes its origin <c>https</c>; <see langword="null" /> for plain <c>mcp</c>.</param>
+    public McpHttpRequestAnswerer(McpHttpServerSettings settings, IAuthenticationPolicy policy, ExchangeContext context, TlsSession? tlsSession)
     {
         _settings = settings;
-        _authentication = authentication;
+        _authentication = policy.StartHttpConnection(tlsSession);
         _context = context;
-        _httpScheme = isSecure ? "https" : "http";
+        _httpScheme = tlsSession is null ? "http" : "https";
+        _writer = new McpHttpAnswerWriter(context.TimeProvider);
+        McpPasswordCheck passwords = new(policy, context.Scheme, tlsSession);
+        _registration = new McpClientRegistrationEndpoint(settings.Grants, _writer);
+        _authorize = new McpAuthorizeEndpoint(settings.Grants, passwords, _writer);
+        _token = new McpTokenEndpoint(settings.Grants, passwords, _writer);
     }
 
     private int MessageLimit =>
@@ -55,21 +64,21 @@ internal sealed class McpHttpRequestAnswerer : IHttpRequestHandler
     {
         ArgumentNullException.ThrowIfNull(request);
         string path = request.Target.Split('?')[0];
-        if (path == McpProtectedResourceMetadata.PathFor(_settings.EndpointPath))
+        if (path == _settings.EndpointPath)
         {
-            return AnswerMetadata(request);
+            return await AnswerEndpointAsync(request, cancellationToken).ConfigureAwait(false);
         }
 
-        return path == _settings.EndpointPath
-            ? await AnswerEndpointAsync(request, cancellationToken).ConfigureAwait(false)
-            : Empty(request, HttpStatus.NotFound);
+        return AuthorizationMethodOf(path) is { } method
+            ? await AnswerAuthorizationAsync(request, path, method, cancellationToken).ConfigureAwait(false)
+            : _writer.Empty(request, HttpStatus.NotFound);
     }
 
     private async Task<HttpAnswer> AnswerEndpointAsync(HttpRequest request, CancellationToken cancellationToken)
     {
         if (!IsOriginAllowed(request))
         {
-            return Empty(request, HttpStatus.Forbidden);
+            return _writer.Empty(request, HttpStatus.Forbidden);
         }
 
         (string? login, HttpAnswer? refusal) = await LogInAsync(request, cancellationToken).ConfigureAwait(false);
@@ -85,32 +94,72 @@ internal sealed class McpHttpRequestAnswerer : IHttpRequestHandler
 
         return request.Method == "DELETE"
             ? AnswerDelete(request, login)
-            : Empty(request, HttpStatus.MethodNotAllowed, [new("Allow", "POST, DELETE")]);
+            : _writer.Empty(request, HttpStatus.MethodNotAllowed, [new("Allow", "POST, DELETE")]);
     }
 
-    private HttpAnswer AnswerMetadata(HttpRequest request)
+    // The metadata documents and /authorize are GET only; /token and /register POST only.
+    private string? AuthorizationMethodOf(string path) => path switch
+    {
+        McpOAuthJson.MetadataPath or McpOAuthJson.AuthorizePath => "GET",
+        McpOAuthJson.TokenPath or McpOAuthJson.RegisterPath => "POST",
+        _ when path == McpProtectedResourceMetadata.PathFor(_settings.EndpointPath) => "GET",
+        _ => null,
+    };
+
+    // Served without a bearer token, after the Origin check and the method; a POST's body is read whole, bounded
+    // by --max-message, before the endpoint sees it.
+    private async Task<HttpAnswer> AnswerAuthorizationAsync(HttpRequest request, string path, string method, CancellationToken cancellationToken)
     {
         if (!IsOriginAllowed(request))
         {
-            return Empty(request, HttpStatus.Forbidden);
+            return _writer.Empty(request, HttpStatus.Forbidden);
         }
 
-        return request.Method == "GET"
-            ? Json(request, HttpStatus.Ok, McpProtectedResourceMetadata.Write(Issuer(request), _settings.EndpointPath))
-            : Empty(request, HttpStatus.MethodNotAllowed, [new("Allow", "GET")]);
+        if (request.Method != method)
+        {
+            return _writer.Empty(request, HttpStatus.MethodNotAllowed, [new("Allow", method)]);
+        }
+
+        if (method == "GET")
+        {
+            return await AnswerAuthorizationGetAsync(request, path, cancellationToken).ConfigureAwait(false);
+        }
+
+        (byte[]? body, HttpAnswer? refusal) = await ReadMessageAsync(request.Body, cancellationToken).ConfigureAwait(false);
+        if (refusal is not null)
+        {
+            return refusal;
+        }
+
+        return path == McpOAuthJson.TokenPath
+            ? await _token.AnswerAsync(request, body!, Resource(request), cancellationToken).ConfigureAwait(false)
+            : _registration.Answer(request, body!);
     }
 
-    private bool IsOriginAllowed(HttpRequest request) =>
-        McpOriginCheck.IsAllowed(Field(request, "Origin"), _httpScheme, request.Authority);
+    private async Task<HttpAnswer> AnswerAuthorizationGetAsync(HttpRequest request, string path, CancellationToken cancellationToken) => path switch
+    {
+        McpOAuthJson.MetadataPath => _writer.Json(request, HttpStatus.Ok, McpOAuthJson.WriteMetadata(Issuer(request))),
+        McpOAuthJson.AuthorizePath => await _authorize.AnswerAsync(request, Resource(request), cancellationToken).ConfigureAwait(false),
+        _ => _writer.Json(request, HttpStatus.Ok, McpProtectedResourceMetadata.Write(Issuer(request), _settings.EndpointPath)),
+    };
 
-    // Another Authorization scheme is 400; a refusal of the session's is 401 with the RFC 9728 challenge. A
-    // token is never read from the query string, so one there is judged as none.
+    private bool IsOriginAllowed(HttpRequest request) =>
+        McpOriginCheck.IsAllowed(McpHttpFields.Field(request, "Origin"), _httpScheme, request.Authority);
+
+    // Another Authorization scheme is 400. A live token this server issued for this resource logs in as its
+    // account; any other token, or none, is judged by the policy's session, whose refusal is 401 with the RFC
+    // 9728 challenge. A token is never read from the query string, so one there is judged as none.
     private async Task<(string? Login, HttpAnswer? Refusal)> LogInAsync(HttpRequest request, CancellationToken cancellationToken)
     {
-        string? authorization = Field(request, "Authorization");
+        string? authorization = McpHttpFields.Field(request, "Authorization");
         if (authorization is not null && !authorization.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
         {
-            return (null, Empty(request, HttpStatus.BadRequest));
+            return (null, _writer.Empty(request, HttpStatus.BadRequest));
+        }
+
+        if (authorization is not null && _settings.Grants.AccountOf(authorization["Bearer ".Length..].Trim(), Resource(request)) is { } issuedAccount)
+        {
+            return (issuedAccount, null);
         }
 
         bool isWrite = request.Method is not ("GET" or "HEAD");
@@ -120,7 +169,7 @@ internal sealed class McpHttpRequestAnswerer : IHttpRequestHandler
         if (verdict.Outcome != HttpAuthenticationOutcome.Proceed)
         {
             string challenge = McpProtectedResourceMetadata.Challenge(Issuer(request), _settings.EndpointPath, authorization is not null);
-            return (null, Empty(request, HttpStatus.Unauthorized, [new("WWW-Authenticate", challenge)]));
+            return (null, _writer.Empty(request, HttpStatus.Unauthorized, [new("WWW-Authenticate", challenge)]));
         }
 
         return (verdict.AccountName, null);
@@ -139,12 +188,14 @@ internal sealed class McpHttpRequestAnswerer : IHttpRequestHandler
 
     private HttpAnswer? MediaTypeRefusal(HttpRequest request)
     {
-        if (!McpAcceptField.AcceptsJsonAndEventStream(JoinedField(request, "Accept")))
+        if (!McpAcceptField.AcceptsJsonAndEventStream(McpHttpFields.JoinedField(request, "Accept")))
         {
-            return Empty(request, NotAcceptable);
+            return _writer.Empty(request, NotAcceptable);
         }
 
-        return IsJsonMediaType(Field(request, "Content-Type")) ? null : Empty(request, UnsupportedMediaType);
+        return McpHttpFields.IsMediaType(McpHttpFields.Field(request, "Content-Type"), McpHttpAnswerWriter.JsonMediaType)
+            ? null
+            : _writer.Empty(request, UnsupportedMediaType);
     }
 
     private async Task<HttpAnswer> AnswerMessageAsync(HttpRequest request, string? login, byte[] message, CancellationToken cancellationToken)
@@ -152,7 +203,7 @@ internal sealed class McpHttpRequestAnswerer : IHttpRequestHandler
         JsonRpcIncoming incoming = JsonRpcMessageParser.Parse(message);
         if (incoming is JsonRpcInvalidMessage invalid)
         {
-            return Json(request, HttpStatus.BadRequest, JsonRpcResponseWriter.WriteError(null, invalid.Error));
+            return _writer.Json(request, HttpStatus.BadRequest, JsonRpcResponseWriter.WriteError(null, invalid.Error));
         }
 
         return incoming is JsonRpcRequest { Method: InitializeMethod }
@@ -178,10 +229,10 @@ internal sealed class McpHttpRequestAnswerer : IHttpRequestHandler
     {
         if (body.AnnouncedLength > MessageLimit)
         {
-            return Refusal(HttpStatus.ContentTooLarge);
+            return _writer.Refusal(HttpStatus.ContentTooLarge);
         }
 
-        return body.IsAnnounced && !body.IsReadable ? Refusal(HttpStatus.BadRequest) : null;
+        return body.IsAnnounced && !body.IsReadable ? _writer.Refusal(HttpStatus.BadRequest) : null;
     }
 
     private async Task<(byte[]? Message, HttpAnswer? Refusal)> CopyMessageAsync(IHttpRequestBody body, CancellationToken cancellationToken)
@@ -190,33 +241,33 @@ internal sealed class McpHttpRequestAnswerer : IHttpRequestHandler
         HttpRequestBodyDiscardOutcome outcome = await body.CopyToAsync(buffer, cancellationToken).ConfigureAwait(false);
         if (buffer.IsPastLimit || outcome == HttpRequestBodyDiscardOutcome.TooLarge)
         {
-            return (null, Refusal(HttpStatus.ContentTooLarge));
+            return (null, _writer.Refusal(HttpStatus.ContentTooLarge));
         }
 
         return outcome == HttpRequestBodyDiscardOutcome.Discarded
             ? (buffer.ToArray(), null)
-            : (null, Refusal(HttpStatus.BadRequest));
+            : (null, _writer.Refusal(HttpStatus.BadRequest));
     }
 
     // An initialize starts a new session, so one naming a session is 400. The session is kept only when the
     // core answered initialize; past the session bound it is 503 and nothing is kept.
     private async Task<HttpAnswer> AnswerInitializeAsync(HttpRequest request, string? login, byte[] message, CancellationToken cancellationToken)
     {
-        if (Field(request, SessionIdField) is not null)
+        if (McpHttpFields.Field(request, SessionIdField) is not null)
         {
-            return Empty(request, HttpStatus.BadRequest);
+            return _writer.Empty(request, HttpStatus.BadRequest);
         }
 
         McpServerSession session = _settings.CreateSession(login, _context.Scheme, MessageLimit);
         byte[] response = (await session.AnswerAsync(message, cancellationToken).ConfigureAwait(false))!;
         if (session.NegotiatedProtocolVersion is null)
         {
-            return Json(request, HttpStatus.Ok, response);
+            return _writer.Json(request, HttpStatus.Ok, response);
         }
 
         return _settings.Sessions.Add(login, session) is { } id
-            ? Json(request, HttpStatus.Ok, response, [new(SessionIdField, id)])
-            : Empty(request, HttpStatus.ServiceUnavailable, [new("Retry-After", "60")]);
+            ? _writer.Json(request, HttpStatus.Ok, response, [new(SessionIdField, id)])
+            : _writer.Empty(request, HttpStatus.ServiceUnavailable, [new("Retry-After", "60")]);
     }
 
     private async Task<HttpAnswer> AnswerInSessionAsync(HttpRequest request, string? login, JsonRpcIncoming incoming, byte[] message, CancellationToken cancellationToken)
@@ -230,13 +281,13 @@ internal sealed class McpHttpRequestAnswerer : IHttpRequestHandler
         if (incoming is not JsonRpcRequest call)
         {
             await session.AcceptAsync(incoming, message, cancellationToken).ConfigureAwait(false);
-            return Empty(request, Accepted);
+            return _writer.Empty(request, Accepted);
         }
 
         byte[]? response = await session.AnswerRequestAsync(call, message, cancellationToken).ConfigureAwait(false);
         return call.Method == ToolsCallMethod
-            ? Answer(request, HttpStatus.Ok, McpEventStream.MediaType, McpEventStream.Write(response), [])
-            : Json(request, HttpStatus.Ok, response!);
+            ? _writer.Answer(request, HttpStatus.Ok, McpEventStream.MediaType, McpEventStream.Write(response), [])
+            : _writer.Json(request, HttpStatus.Ok, response!);
     }
 
     private HttpAnswer AnswerDelete(HttpRequest request, string? login)
@@ -248,68 +299,28 @@ internal sealed class McpHttpRequestAnswerer : IHttpRequestHandler
         }
 
         _settings.Sessions.End(session);
-        return Empty(request, NoContent, contentLength: false);
+        return _writer.Empty(request, NoContent, contentLength: false);
     }
 
     // An unsupported MCP-Protocol-Version or a missing Mcp-Session-Id is 400; a session that is not live, or
     // is another login's, is 404.
     private (McpHttpSession? Session, HttpAnswer? Refusal) FindSession(HttpRequest request, string? login)
     {
-        string version = Field(request, "MCP-Protocol-Version") ?? AbsentProtocolVersion;
-        if (!McpProtocolVersions.Supported.Contains(version, StringComparer.Ordinal) || Field(request, SessionIdField) is not { } id)
+        string version = McpHttpFields.Field(request, "MCP-Protocol-Version") ?? AbsentProtocolVersion;
+        if (!McpProtocolVersions.Supported.Contains(version, StringComparer.Ordinal) || McpHttpFields.Field(request, SessionIdField) is not { } id)
         {
-            return (null, Empty(request, HttpStatus.BadRequest));
+            return (null, _writer.Empty(request, HttpStatus.BadRequest));
         }
 
         return _settings.Sessions.Find(id, login) is { } session
             ? (session, null)
-            : (null, Empty(request, HttpStatus.NotFound));
+            : (null, _writer.Empty(request, HttpStatus.NotFound));
     }
 
     private string Issuer(HttpRequest request) => $"{_httpScheme}://{request.Authority}";
 
-    private static bool IsJsonMediaType(string? contentType) =>
-        contentType is not null && contentType.Split(';')[0].Trim().Equals(JsonMediaType, StringComparison.OrdinalIgnoreCase);
-
-    private static string? Field(HttpRequest request, string name) =>
-        request.Fields.Where(field => field.Key.Equals(name, StringComparison.OrdinalIgnoreCase)).Select(field => field.Value).FirstOrDefault();
-
-    private static string? JoinedField(HttpRequest request, string name)
-    {
-        string[] values = [.. request.Fields.Where(field => field.Key.Equals(name, StringComparison.OrdinalIgnoreCase)).Select(field => field.Value)];
-        return values.Length == 0 ? null : string.Join(',', values);
-    }
-
-    private HttpAnswer Json(HttpRequest request, HttpStatus status, byte[] body, IReadOnlyList<KeyValuePair<string, string>>? fields = null) =>
-        Answer(request, status, JsonMediaType, body, fields ?? []);
-
-    private HttpAnswer Answer(HttpRequest request, HttpStatus status, string mediaType, byte[] body, IReadOnlyList<KeyValuePair<string, string>> fields) =>
-        new(
-            status,
-            [.. CommonFields(), new("Content-Type", mediaType), .. fields, new("Content-Length", body.Length.ToString(CultureInfo.InvariantCulture))],
-            new HttpAnswerBody.Bytes(body),
-            IsRefusal: false,
-            LeavesRequestBodyUnread: request.Body.IsAnnounced);
-
-    private HttpAnswer Empty(HttpRequest request, HttpStatus status, IReadOnlyList<KeyValuePair<string, string>>? fields = null, bool contentLength = true) =>
-        new(
-            status,
-            [.. CommonFields(), .. fields ?? [], .. contentLength ? ContentLengthZero : []],
-            HttpAnswerBody.None,
-            IsRefusal: false,
-            LeavesRequestBodyUnread: request.Body.IsAnnounced);
-
-    // A refusal while reading the body: the connection closes after it.
-    private HttpAnswer Refusal(HttpStatus status) =>
-        new(status, [.. CommonFields(), .. ContentLengthZero], HttpAnswerBody.None, IsRefusal: true, LeavesRequestBodyUnread: true);
-
-    private KeyValuePair<string, string>[] CommonFields() =>
-    [
-        new("Date", _context.TimeProvider.GetUtcNow().ToString("r", CultureInfo.InvariantCulture)),
-        new("Server", HttpResponseHead.ServerName),
-    ];
-
-    private static readonly KeyValuePair<string, string>[] ContentLengthZero = [new("Content-Length", "0")];
+    // The resource a token is bound to (RFC 8707) and the metadata's "resource" (RFC 9728).
+    private string Resource(HttpRequest request) => Issuer(request) + _settings.EndpointPath;
 
     private static readonly HttpStatus Accepted = new(202, "Accepted");
 

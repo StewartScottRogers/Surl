@@ -22,7 +22,7 @@ namespace Surl.Extended.Protocol.AzureStorage;
 /// <param name="index">The object metadata index of the store's served root.</param>
 /// <param name="staging">The server's staged appends, a re-created file's discarded.</param>
 /// <param name="log">Where a failure to rewrite the index file is noted.</param>
-internal sealed class AzurePathCreate(ContentStore store, ObjectMetadataIndex index, AzurePathStagingArea staging, IExchangeLog log)
+internal sealed class AzurePathCreate(ContentStore store, ObjectMetadataIndex index, AzureStagingArea staging, IExchangeLog log)
 {
     // MD5 of no bytes, quoted: the ETag of an empty file the index does not key.
     private const string EmptyFileETag = "\"d41d8cd98f00b204e9800998ecf8427e\"";

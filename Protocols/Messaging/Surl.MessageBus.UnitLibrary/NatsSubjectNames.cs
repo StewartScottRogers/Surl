@@ -60,20 +60,25 @@ public static class NatsSubjectNames
     /// <returns>The subject; <see cref="TopicNameMappingOutcome.Unreachable"/> when a level
     /// cannot be a token or a <c>#</c> stands anywhere but in a trailing <c>+/#</c>; or
     /// <see cref="TopicNameMappingOutcome.InvalidName"/> when it is not canonical.</returns>
-    public static TopicNameMapping FromCanonicalFilter(string? filter)
-    {
-        if (!CanonicalTopicName.IsValidFilter(filter))
-        {
-            return TopicNameMapping.Refused(TopicNameMappingOutcome.InvalidName);
-        }
+    public static TopicNameMapping FromCanonicalFilter(string? filter) =>
+        CanonicalTopicName.IsValidFilter(filter)
+            ? FromCanonicalFilterLevels(CanonicalTopicName.SplitLevels(filter))
+            : TopicNameMapping.Refused(TopicNameMappingOutcome.InvalidName);
 
-        var levels = CanonicalTopicName.SplitLevels(filter);
-        var endsWithOneOrMore = levels is [.., "+", "#"];
-        var mapped = SeparatedNames.Join(endsWithOneOrMore ? levels[..^2] : levels, FilterLevelToTokenMapping, '.', TopicNameMappingOutcome.Unreachable);
-        return endsWithOneOrMore && mapped.IsMapped
-            ? TopicNameMapping.Of(mapped.Name.Length == 0 ? FullWildcard : mapped.Name + "." + FullWildcard)
-            : mapped;
-    }
+    private static TopicNameMapping FromCanonicalFilterLevels(string[] levels) =>
+        EndsWithOneOrMoreLevels(levels)
+            ? WithFullWildcardAppended(JoinFilterLevels(levels[..^2]))
+            : JoinFilterLevels(levels);
+
+    private static bool EndsWithOneOrMoreLevels(string[] levels) => levels is [.., "+", "#"];
+
+    private static TopicNameMapping JoinFilterLevels(string[] levels) =>
+        SeparatedNames.Join(levels, FilterLevelToTokenMapping, '.', TopicNameMappingOutcome.Unreachable);
+
+    private static TopicNameMapping WithFullWildcardAppended(TopicNameMapping mapped) =>
+        !mapped.IsMapped ? mapped
+        : mapped.Name.Length == 0 ? TopicNameMapping.Of(FullWildcard)
+        : TopicNameMapping.Of(mapped.Name + "." + FullWildcard);
 
     private static string? LiteralToken(string part) =>
         part.Length > 0 && part is not (SingleTokenWildcard or FullWildcard) && part.IndexOfAny(NotInLiteralToken) < 0 ? part : null;

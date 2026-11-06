@@ -32,8 +32,18 @@ listen URL's host when it is a DNS name, `localhost` and `storage.googleapis.com
 - Logins (`GcsLoginJudge`): `Authorization: Bearer` through the connection's `IHttpAuthenticationSession`;
   another scheme `400 InvalidAuthentication`; no credential (anonymous off) or an anonymous write `401
   AuthenticationRequired` with `WWW-Authenticate: Bearer realm="storage"`; a refused token `401
-  InvalidAuthentication` with `error="invalid_token"`. `GOOG4-HMAC-SHA256` is BL-432's; until then it is
-  another scheme.
+  InvalidAuthentication` with `error="invalid_token"`.
+- V4 HMAC signatures (BL-432, ADR-0110 decisions 3.3 and 3.4): an `Authorization` whose first token is
+  `GOOG4-HMAC-SHA256` (any case) is judged by the same session as a request for the `storage` service
+  (`GcsLoginJudge.SignedService`), which picks `Surl.Authentication`'s `GoogleV4HmacAuthenticationMethod`;
+  the library never references it. Each `HttpAuthenticationRefusal` is decision 3.4's error
+  (`GcsLoginJudge.ErrorOf`): malformed `400 InvalidArgument`, no date or content hash `400
+  MissingSecurityHeader`, unknown access ID `403 InvalidAccessKeyId`, bad signature `403
+  SignatureDoesNotMatch`, skewed `403 RequestTimeTooSkewed`, body mismatch `400 BadDigest`; no challenge
+  is sent. A hex `x-goog-content-sha256` binds the body once read (ADR-0045): PUT Object hashes it on its
+  way into the upload (`GcsHashingStream`'s SHA-256) and checks it before `Content-MD5` and `x-goog-hash`
+  and before committing; every other request reads and discards it first (`JudgeDiscardedBodyAsync`).
+  Tests replay BL-430's hand-worked GET and a signed PUT worked the same way (`GcsSignedRequests`).
 
 Every other request - another method, a subresource or unlisted query parameter, a copy, a POST,
 `x-goog-encryption-*` - is `400 NotImplemented`, judged after the login. Every error is `GcsError`'s fixed
@@ -44,4 +54,4 @@ is still `Surl.HttpServing`'s `431` until BL-774.
 This library references `Surl.Protocol.Abstractions`, `Surl.Content` and `Surl.HttpServing` (and through it
 `Surl.HttpMessage`), nothing else (`ProtocolIsolationTests`). It never constructs a transport type. Tests
 replay request bytes written from the XML API pages through `InMemoryConnection` on an
-`InMemoryContentFileSystem`, judged by the hand-written `UnitTestBearerAuthenticationPolicy`.
+`InMemoryContentFileSystem`, judged by the hand-written `UnitTestGcsAuthenticationPolicy`.

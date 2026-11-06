@@ -11,7 +11,7 @@ namespace Surl.Protocol.Ws;
 /// Answers each upgrade request read from one connection, as <see cref="WsProtocolServer"/>
 /// describes, and says whether the connection stays open for another.
 /// </summary>
-internal sealed class WebSocketUpgradeResponder
+internal sealed partial class WebSocketUpgradeResponder
 {
     /// <summary>
     /// How long a refusal - any answer that closes the connection because of the request - may
@@ -78,7 +78,7 @@ internal sealed class WebSocketUpgradeResponder
 
         return verdict.Outcome switch
         {
-            HttpAuthenticationOutcome.Proceed => await AnswerLetInRequestAsync(head),
+            HttpAuthenticationOutcome.Proceed => await AnswerLetInRequestAsync(head, verdict.AccountName),
             HttpAuthenticationOutcome.Challenge => await ChallengeAsync(head),
             _ => await RefuseAsync(WebSocketUpgradeRefusal.WithoutFields(HttpStatus.Forbidden, "the authentication policy forbade the upgrade")),
         };
@@ -164,15 +164,22 @@ internal sealed class WebSocketUpgradeResponder
         return true;
     }
 
-    private Task<bool> AnswerLetInRequestAsync(HttpRequestHead head)
+    // The WebSocket fields first, then a fault rule's chosen close (ADR-0134 decision 3), then the
+    // path, or the echo.
+    private async Task<bool> AnswerLetInRequestAsync(HttpRequestHead head, string? accountName)
     {
         var path = RequestPath(head.RequestTarget);
         if (WebSocketUpgradeChecks.FindRefusal(head) is { } refusal)
         {
-            return RefuseAsync(refusal);
+            return await RefuseAsync(refusal);
         }
 
-        return echoesMessages ? AcceptAsync(head, path, null) : AnswerPathAsync(head, path);
+        if (await FindChosenCloseAsync(head, path, accountName) is { } chosenClose)
+        {
+            return await AcceptAndCloseAsync(head, chosenClose);
+        }
+
+        return echoesMessages ? await AcceptAsync(head, path, null) : await AnswerPathAsync(head, path);
     }
 
     // Check 10: a file, or a directory when listings are on, after the content store's

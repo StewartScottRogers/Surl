@@ -1,7 +1,7 @@
 # ADR-0088 — How Surl serves the HTTP `CONNECT` proxy and the HTTPS proxy
 
 - **Status:** Accepted
-- **Date:** 2026-11-04; Amendment 1 (BL-552) 2026-11-05
+- **Date:** 2026-11-04; Amendment 1 (BL-552) 2026-11-05; Amendment 2 (BL-554) 2026-11-05; Amendment 3 (BL-553) 2026-11-05; Amendment 4 (BL-594) 2026-11-06
 - **Decided by:** Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), 2026-11-04,
   in BL-550. Built by BL-551 (decision 2's contract), BL-552 (decisions 1, 3, 4 and the limits of
   decision 7), BL-553 (decision 5), BL-554 (decision 6), BL-555 (decision 7's command line) and
@@ -121,9 +121,8 @@ Curl reads each as row 11 (forwarded: status and body, exit 0) or rows 4 and 5 (
   authority (port 80 when absent) and sends the request in origin-form (section 3.2.1): path and
   query unchanged, `Host` as the request carried it. An origin-form request to the proxy (no scheme)
   is not a proxy request: `400 Bad Request`.
-- **Schemes:** `http` is forwarded. `ftp` (row 12) is answered `501 Not Implemented` until BL-594
-  hand-writes the FTP client half inside this library; that is sequencing, not a refusal of the
-  feature. `https` and every other scheme are answered `501`: curl always tunnels `https` with
+- **Schemes:** `http` is forwarded. `ftp` (row 12) is fetched over FTP by a client half
+  hand-written inside this library (BL-594, Amendment 4); the interim `501 Not Implemented` is gone. `https` and every other scheme are answered `501`: curl always tunnels `https` with
   `CONNECT` (row 13 and the manpage's `--proxytunnel`), so no curl run sends one.
 - **Headers removed** before forwarding, in both directions (RFC 9110 section 7.6.1): `Connection`
   and every field it names, `Proxy-Connection` (curl sends it on every proxy request, rows 1 to 13),
@@ -315,3 +314,130 @@ Windows reference build (`Surl.Protocol.HttpProxy.UnitTests/Fixtures`).
   connection closes after it, its body unsent.
 - **`Schemes`** is `http` and `https`: the proxy is chosen by `--proxy`, not by scheme (decision 7),
   so BL-555 composes it beside the HTTP server rather than through the scheme table.
+
+## Amendment 2 - what BL-554 settled inside decision 6 (2026-11-05)
+
+Decided by Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), in BL-554, which
+built decision 6. Measured with `Record-CurlExchange.ps1 -Tls -TlsAlpn` against the Windows
+reference build (`0E773709…8778`) and, for `--proxy-http2`, the pinned static 8.21.0 build
+(`589C8E4D…2648`, the Windows build with HTTP/2; ADR-0081):
+
+| curl arguments (after `-sS`) | Recorder offered | Agreed | Exit |
+| --- | --- | --- | --- |
+| `-x https://127.0.0.1:<port> --proxy-insecure http://origin.test/a?b` (reference build) | `h2,http/1.1` | `http/1.1` | 0 |
+| the same (static build) | `h2,http/1.1` | `http/1.1` | 0 |
+| `--proxy-http2 -x https://… --proxy-insecure http://origin.test/a` (static build) | `h2,http/1.1` | `h2` | 16 (the recorder spoke no HTTP/2) |
+| `--proxy-http2 -x https://… --proxy-insecure http://origin.test/a?b` (static build) | `http/1.1` | `http/1.1` | 0, row 13's bytes |
+
+- **A proxy listen URL is marked, and its ALPN is `http/1.1` alone.** Curl offers `http/1.1` to an
+  HTTPS proxy, and `h2` first with `--proxy-http2`; a listener offering an `https` origin's
+  `h2, http/1.1` (ADR-0081 decision 2) would agree `h2` with the latter, which the proxy does not
+  serve until BL-595. So `ListenUrl` gains `IsProxy` (an init-only property, `false` unless set:
+  every existing listen URL keeps its behaviour), set by whoever builds a listen URL from
+  `--proxy` (BL-555), and `Surl.Networking`'s `TlsApplicationProtocols.ForListener` offers
+  exactly `http/1.1` for an `https` proxy listen URL. `ServerTlsHandshake.ForListener` uses it.
+  The proxy, not the scheme, decides, because the scheme is `https` for both (decision 7).
+- **The handshake is the engine's**, as for any `https` listen URL (ADR-0010 section 2): it runs
+  before `ServeAsync` within the head timeout and is noted `TLS handshake completed: …`; a failed
+  one is noted `TLS handshake failed: <message>`, nothing is written and the proxy never sees the
+  connection.
+- **No ALPN in common** (a client offering only `h2`) fails the handshake on Windows as on Linux:
+  Schannel answered BL-554's fast test with "No common application protocol exists between the
+  client and the server", where ADR-0010 section 6's table expected Windows to complete without
+  ALPN. No pinned curl build reaches it (curl always offers `http/1.1`). macOS is not pinned.
+- **What the proxy itself logs.** On a connection secured before its first request the proxy
+  notes once, before reading: `HTTPS proxy: curl's connection to the proxy is TLS (<protocol>,
+  ALPN <id or none>); requests are read inside it.` A plain connection gets no such note. A
+  session that agreed any ALPN but `http/1.1` (none is served too, as HTTP/1.1) is noted
+  `HTTPS proxy: the TLS handshake agreed ALPN <id>, which the proxy does not serve; the
+  connection closes.` and closed without a byte written or an origin connected; it is reachable
+  only by a listener composed without `IsProxy`.
+- **Forwarding and `CONNECT` are unchanged** inside the TLS: the bytes curl sends inside it are
+  row 13's, byte for byte row 1's, and a tunnel's bytes, a nested TLS record stream included, are
+  relayed unread (decision 4).
+
+## Amendment 3 - what BL-553 settled inside decision 5 (2026-11-05)
+
+Decided by Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), in BL-553.
+
+Measured with `Record-CurlExchange.ps1` against the Windows reference build (SHA-256
+`0E773709…8778`), the recorder playing the proxy and answering with the bytes Surl's proxy now
+writes (`Protocols/Http/Surl.Protocol.HttpProxy.UnitTests/Fixtures`, `proxy-*`):
+
+| Case | curl arguments (after `-sS`) | Exit | What curl sent |
+| --- | --- | --- | --- |
+| No credentials, forwarded | `-x … http://origin.test/a` | 0, curl printed the `407`'s body | the `GET` without credentials |
+| No credentials, `CONNECT` | `-p -x … http://origin.test:8080/a` | 7, `CONNECT tunnel failed, response 407` | the `CONNECT` without credentials |
+| Basic, `CONNECT` | `-p -U u:p -x …` | 0 | `Proxy-Authorization: Basic dTpw` on the `CONNECT` unasked; none inside the tunnel |
+| Digest, forwarded | `--proxy-anyauth -U u:p -x … http://origin.test/a?b` | 0 | after the `407`, on the same connection, Digest with `uri="/a?b"` |
+| Digest, `CONNECT` | `-p --proxy-digest -U u:p -x … http://origin.test:8080/a` | 0 | after the `407`, on the same connection, Digest with **`uri="origin.test:8080"`: the authority, the `CONNECT`'s own target** |
+| NTLM, forwarded and `CONNECT` | `--proxy-ntlm -U u:p` (with and without `-p`) | 0 | the NEGOTIATE_MESSAGE unasked; after a `407` carrying a CHALLENGE_MESSAGE, the AUTHENTICATE_MESSAGE on the same connection: NTLM's three legs whole |
+
+What this settles:
+
+- **No reference to `Surl.Authentication`.** The proxy takes an `IAuthenticationPolicy` - the one
+  built from the proxy's own accounts (`-U`, `--proxy-user-file`, `--proxy-auth`), composed by
+  BL-555 - exactly as the HTTP server does, so it needs no new reference and the isolation test no
+  new row. `HttpProxyProtocolServer(originConnector)` passes `AnonymousAuthenticationPolicy`: the
+  "no proxy account, no login" case of decision 5, which BL-555 composes when no proxy account is
+  configured. `--allow-anonymous` and `--allow-plaintext-auth` stay the policy's, unchanged.
+- **One session per curl connection,** started before the first request with the connection's
+  `TlsSession`, so NTLM's and Negotiate's legs live with curl's
+  connection and survive a change of origin.
+- **What the session is given.** The request's fields with every `Authorization` removed (it is
+  the origin's login and is forwarded untouched) and every `Proxy-Authorization` renamed
+  `Authorization`; as the target, a `CONNECT`'s authority as received and an absolute-form
+  request's path and query (a target that is not absolute-form, as received). These are exactly
+  the Digest `uri` values measured above, so the Digest check's exact `uri` comparison passes
+  unchanged and decision 5's "path as well as the target itself" is not needed: curl never sends
+  the absolute-form as `uri`.
+- **The order** is: head read, the `Host` check, then the login, then the target's checks. A
+  request that is not let in learns nothing about the target's form or the origin.
+- **The answers.** A challenge is `407 Proxy Authentication Required` with `Date`, `Server: surl`,
+  one `Proxy-Authenticate` per challenge in the policy's order, and the fixed-text body; it keeps
+  curl's connection, which curl's `--proxy-anyauth`, Digest and NTLM all need, unless the request
+  asked to close or announced a body the proxy does not read (`Connection: close` then). A
+  refusal (`Forbidden`) is `403` and closes, as on the HTTP server. A checked login's note is
+  logged; the credentials never are.
+- **Upstream cases.** Of decision 5's 24 `http-proxy` cases, 80, 275 and 1849 send
+  `Proxy-Authorization` (Basic, in their `<proxy>` or `<protocol>` sections); the rest send none.
+
+## Amendment 4 - `ftp://` forwarding, settled by BL-594 (2026-11-06)
+
+Decided by Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), in BL-594. It
+replaces decision 3's interim answer: **an `ftp://` absolute-form `GET` is no longer `501`**; the
+proxy fetches it over FTP and answers `200`. Measured with `Record-CurlExchange.ps1` against the
+Windows reference build (`Surl.Protocol.HttpProxy.UnitTests/Fixtures`, `ftp-forward-*`).
+
+- **What curl sends.** `ftp://user:pass@host/path` and `-u user:pass` both arrive as
+  `GET ftp://user:pass@origin.test/a.txt HTTP/1.1` **and** `Authorization: Basic dXNlcjpwYXNz`;
+  with no credentials, neither. `Host` is `origin.test:21` (or the URL's port), and
+  `;type=a` stays in the target. So `ProxyTarget` accepts userinfo in an `ftp` authority only
+  (still refused for `http`), and an `ftp` target's default port is 21.
+- **Credentials:** the target's userinfo, percent-decoded; else an `Authorization: Basic`
+  field's; else `anonymous` and `ftp@example.com`, as curl logs in. A credential or path holding a
+  control character (it would end the FTP command line), or `Basic` that is not Base64, is `400`.
+  Credentials are never logged: a refusal names only the command (`answered PASS with 530 ...`).
+- **The FTP client half** is hand-written in `Surl.Protocol.HttpProxy` (`FtpControlConnection`,
+  `FtpFetch`, `HttpProxyExchange.Ftp.cs`), never `Surl.Protocol.Ftp`, over `IOriginConnector`
+  for both connections: greeting `220`; `USER` (`230`, or `331` then `PASS` `230`); `TYPE I`, or
+  `TYPE A` for `;type=a`; `EPSV` (`229`), falling back to `PASV` (`227`); the data connection to
+  the **origin's own host** at the port given, never to the address in a `227` reply, so a reply
+  cannot point the proxy elsewhere; then `RETR path`, `LIST path` for a path that is empty or ends
+  in `/`, or `NLST path` for `;type=d` (RFC 1738 section 3.2.2), answered `125` or `150`. The path
+  is sent whole, percent-decoded, without its leading `/` (no `CWD` per segment). Multi-line
+  replies are read to their last line. After the data closes, `226` or `250` completes it and
+  `QUIT` is sent without waiting for its reply.
+- **The answer:** `200` with `Date`, `Server: surl`, `Content-Type: application/octet-stream`
+  for a file or `text/plain` for a listing, and `Via: 1.1 surl`; the body chunked, or
+  close-delimited with `Connection: close` when the request ends curl's connection (decision 3's
+  rule). Curl's connection otherwise stays open for the next request; each `ftp` request opens its
+  own FTP connections.
+- **Failures,** before the `200` is written: the control connection's origin failure as decision 2's
+  table (`403`, `502`, `504`); every FTP failure - a refused login included, never `401`, since
+  the proxy is not the origin - `502`; a reply not within `--head-timeout`, or a data port that
+  timed out, `504`. A data port that cannot be reached otherwise is `502`. After the `200`, a
+  transfer the origin does not complete (no `226`/`250`, or a failed data connection) aborts
+  curl's connection, as a relayed body that ends early does.
+- **Methods:** only `GET`; any other method to an `ftp` target stays `501` (curl's `-I` and uploads
+  through an HTTP proxy are not served yet). Every scheme but `http` and `ftp` stays `501`.

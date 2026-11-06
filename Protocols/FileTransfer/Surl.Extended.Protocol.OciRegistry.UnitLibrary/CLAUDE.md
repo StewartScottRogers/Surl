@@ -56,8 +56,27 @@ allows uploads (`--allow-uploads`), and `403 DENIED` where the share forbids the
   a file in the way, a name inside another repository's `blobs`, or a non-empty non-repository
   folder is `400 NAME_INVALID`; a share the caller may not see `404 NAME_UNKNOWN`.
 
-Not yet: token authentication (BL-438; until then every request is the anonymous caller on `oci`),
-and serving `oci` from `surl` with TLS (BL-439).
+Token authentication (BL-438, ADR-0115 decision 4 and Amendment 1):
+
+- `GET /token?service=surl&scope=repository:<name>:<actions>` with `Authorization: Basic`, checked by
+  `IAuthenticationPolicy.CheckPasswordLoginAsync`, answers `{"token","access_token","expires_in":300,"issued_at"}`.
+  An account gets `pull`, plus `push` and `delete` under `--allow-uploads`; no credentials under
+  `--allow-anonymous` (the policy's `AcceptedUnchecked`) gets an anonymous `pull`-only token. Unknown actions,
+  other resource types, names off the grammar and scopes past 16 are dropped. Bad or missing credentials
+  `401 UNAUTHORIZED` with `WWW-Authenticate: Basic realm="surl", charset="UTF-8"`; credentials the policy
+  refuses over plain text `403 DENIED`; another `service` `400 UNSUPPORTED`; `POST` `405` with `Allow: GET`;
+  10000 live tokens `429`. Tokens are 32 bytes from `ExchangeContext.Identifiers`, base64url, kept in memory
+  for 300 seconds on the `TimeProvider`.
+- Every `/v2/` request then needs `Authorization: Bearer <token>`: none `401 UNAUTHORIZED` with
+  `Bearer realm="<http|https>://<host>:<port>/token",service="surl",scope="repository:<name>:<pull|pull,push|delete>"`
+  (no scope on `/v2/`); an unknown or expired token or another scheme the same with `error="invalid_token"`; a
+  token not granting the action `403 DENIED` with `error="insufficient_scope"`. Under `--allow-anonymous` a read
+  with no `Authorization` is the anonymous caller; a write never is. The realm's host is the listen host when it
+  is a DNS name, else the connection's local address - never `Host`. The order is endpoint, method, name, uploads
+  off, token. A mount reads `from` only where the token grants `pull`.
+
+Not yet: Bearer tokens over plain text refused without `--allow-plaintext-auth` (BL-890), upload sessions bound
+to their account (BL-891), and serving `oci` from `surl` with TLS (BL-439).
 
 - `OciRegistryProtocolServer` (public) - `IConnectionProtocolServer` over `Http1ConnectionServer`.
 - `OciRequestAnswerer` - the `IHttpRequestHandler`: endpoint, method, name, repository, endpoint.
@@ -70,6 +89,8 @@ and serving `oci` from `surl` with TLS (BL-439).
   `OciUploadSession`, `OciUploadSessions`, `OciUploadStream`, `OciServerState` - upload sessions and
   what one server keeps between requests; `OciRequestFields` - header fields.
 - `OciReply`, `OciError`, `OciErrorBody` - common fields and error bodies.
+- `OciTokenEndpoint`, `OciTokenBook`, `OciToken`, `OciTokenScope`, `OciActions` - issuing tokens;
+  `OciAccessCheck`, `OciAccess`, `OciChallenge` - checking them and the `WWW-Authenticate` values.
 
 This library references `Surl.Protocol.Abstractions`, `Surl.Content` and `Surl.HttpServing`, nothing
 else (`ProtocolIsolationTests`), and never constructs a transport type. Tests replay request bytes

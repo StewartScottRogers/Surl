@@ -47,6 +47,13 @@ time behind `ImplicitTlsSchemeServer` (BL-310). Its tests replay request bytes r
 pinned Windows build (`Protocols/Messaging/Surl.Protocol.Ldap.UnitTests/Fixtures/README.md`), the SASL policy and
 security layer faked.
 
+The chosen-error fault (ADR-0124 decision 4, ADR-0139; `LdapSession.Faults.cs`): the exchange's
+`IFaultPlan` is asked at each `search` (the base DN as its path) and `compare` (the entry DN) once the
+bind check lets it read, and at each write (no path), with the account the last bind proved
+(`LdapBindAnswer.Account`), before the directory. A matching `error` rule's `<resultCode> <text>` is the
+operation's response, with no entry and an empty `matchedDN`, and publishes one `FaultAppliedEvent`. A
+reply that does not fit, or another kind, is noted and not applied.
+
 The directory's file (BL-307, ADR-0072 decision 1): the public `LdapDirectoryFile` names
 `directory.ldif` in the state folder it is given (`<path>/.surl/ldap`) and reads it once
 through `Surl.Content`'s `IContentFileSystem`; a missing file is an empty directory, and the

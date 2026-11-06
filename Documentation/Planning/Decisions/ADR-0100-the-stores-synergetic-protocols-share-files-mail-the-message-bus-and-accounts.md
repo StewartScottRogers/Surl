@@ -26,6 +26,18 @@
   to 9) before normal, each in order, as AMQP 0-9-1's basic rule 06 requires (BL-730); and the
   AMQP 0-9-1 column's `506 resource-error` is a connection exception (`connection.close`), not a
   channel close, because the XML classes it `hard-error`. `311` stays a channel close.
+- **Amended:** decision 2.3 by its own section 2.3.1 (2026-11-06, BL-685): the object metadata
+  index's byte format and the choices BL-636 made building it, among them that stale entries are
+  dropped lazily rather than on every write.
+- **Amended:** decision 3.2's NATS and Kafka rows and "What does not survive a mapping" by its own
+  section 3.2.1 (2026-11-06, BL-691, recording BL-630): NATS's last `>` becomes `+/#` (one or more
+  levels), not `#`, and Kafka names empty levels (`a..b` is `a//b`); only `.` and `..` are refused.
+- **Amended:** decisions 3.3 and 3.6 by their own text (2026-11-06, BL-694, recording BL-631): the
+  named-queue rules BL-631 chose building the queues (3.3, "The named queue's rules") and the five
+  queue outcomes with each queue server's answer (3.6).
+- **Amended:** decisions 3.3 and 3.6 by their own text (2026-11-06, BL-697, recording BL-633): the
+  topic-log rules BL-633 chose building the logs (3.3, "The topic log's rules"), the
+  `OffsetOutOfRange` outcome, and `StoreFull` and `TooManyTopics` covering the logs (3.6).
 - **Builds on:** [ADR-0003](ADR-0003-upstream-curl-is-surls-only-oracle.md) (upstream curl is the
   only oracle), ADR-0006 (every store a peer can fill is bounded), ADR-0014 (the MQTT 3.1.1
   server), ADR-0031 decisions 5 to 7 (`.surl` is never served, persistence, the lock), ADR-0032
@@ -179,6 +191,53 @@ custom `metadata`, the ETag, a multipart upload's ETag, GCS's `generation` - liv
   through the content store's upload session, so a half-finished upload is never visible to FTP or
   HTTP. Their bounds are each server's ADR's.
 
+##### 2.3.1 The index's byte format, and the choices BL-636 made building it
+
+Added 2026-11-06 by BL-685. Decided by Claude under Stewart's delegation (root `CLAUDE.md`,
+"Decisions") in BL-636, which could not edit this ADR at the time, and recorded here so the
+object-storage servers' ADRs (BL-417, BL-423, BL-429, BL-435) cite one source. The code is
+`Foundation/Surl.Content.UnitLibrary/ObjectMetadataIndex.cs` and `ObjectMetadataIndexFormat.cs`;
+`ObjectMetadataIndexTests.StoreAsync_PersistingIndex_WritesThePinnedBytes` pins the bytes.
+
+**Byte format** of `<path>/.surl/objects/index`. Every integer is big-endian. A string is its UTF-8
+length (2 bytes, unsigned) then its UTF-8 bytes; an empty string means absent.
+
+1. The header: the 20 ASCII bytes `SURL-OBJECT-INDEX-1` and a line feed.
+2. The entry count (4 bytes, unsigned).
+3. That many entries, in strictly ascending ordinal order of key. An entry is:
+   - its key (a string: the path relative to the served root, segments joined by `/`);
+   - the stamped file length (8 bytes, signed, not negative);
+   - the stamped last-write time in UTC ticks (8 bytes, signed, a valid `DateTime`) - ticks rather
+     than seconds, so the stamp matches the file system's time exactly;
+   - the generation (8 bytes, signed);
+   - the ETag (a string, not empty);
+   - `Content-Type`, `Content-Encoding`, `Content-Disposition`, `Cache-Control` and
+     `Content-Language` (five strings);
+   - the user metadata count (2 bytes, unsigned), then that many name and value pairs (two strings
+     each) in strictly ascending ordinal order of name.
+4. Then the end of the file. Anything else - a wrong header, keys or names out of order, a bound
+   passed, bytes left over, invalid UTF-8 - is malformed: `CouldNotReadFile` (37), `not an object
+   metadata index`.
+
+**Choices:**
+
+- **What counts toward `MaxMetadataBytes`:** the UTF-8 bytes of the five header fields and of every
+  user metadata name and value. The ETag does not count; it has its own bound. `MaxMetadataBytes`
+  is capped at 65535, so every string fits its 2-byte length.
+- **`MaxETagBytes` is 1024** UTF-8 bytes; an ETag that is empty or longer is refused.
+- **`NoSuchFile`:** storing metadata for a key with no file behind it answers the
+  `ObjectMetadataStoreOutcome` `NoSuchFile` and stores nothing.
+- **Stale entries are dropped lazily**, not on every write as the "Stale is absent" bullet above
+  first said: an entry is checked against its file when it is read, and every entry is checked at
+  once before the index is called full (`MetadataIndexFull`). Stat-ing every one of up to 100000
+  entries on every write would make each write slow; what a reader sees is the same, because a
+  stale entry is never answered. A computed ETag that finds the index full is answered but not
+  cached, and metadata stored without an ETag gets the MD5 computed at store time.
+- **Default content type `application/octet-stream`** for every file stored with none, until BL-686
+  gives `Surl.Content` the media-type table the "A file with no entry" bullet above names. HTTP
+  names every file `application/octet-stream` today too, so the two still agree; when BL-686 lands,
+  both switch together.
+
 #### 2.4 The OCI repository folder
 
 A repository's folder holds an **OCI Image Layout** (OCI Image Format Specification, "OCI Image
@@ -239,24 +298,49 @@ for every protocol.
 | --- | --- | --- | --- | --- |
 | MQTT 3.1.1, MQTT 5 | topic `a/b`, filter `a/+`, `a/#` | identical | none: every valid MQTT name is canonical | MQTT 3.1.1 4.7; MQTT 5.0 4.7 |
 | MQTT 5 shared subscription | `$share/g/a/+` | filter `a/+`, subscription group `g` (3.4) | none | MQTT 5.0 4.8.2 |
-| NATS | subject `a.b`, wildcards `*` and `>` | `.` becomes `/`, `*` becomes `+`, `>` (last only) becomes `#` | a token holding `/`, `+` or `#`: `-ERR 'Invalid Subject'` on SUB, `-ERR 'Invalid Publish Subject'` on PUB | NATS client protocol, "Protocol conventions", PUB, SUB, `-ERR` |
+| NATS | subject `a.b`, wildcards `*` and `>` | `.` becomes `/`, `*` becomes `+`, `>` (last only) becomes `+/#`, and a trailing `+/#` becomes `>` again (3.2.1) | an empty token, a token holding white space, `/`, `+` or `#`, or `>` before the last token: `-ERR 'Invalid Subject'` on SUB, `-ERR 'Invalid Publish Subject'` on PUB | NATS client protocol, "Protocol conventions", PUB, SUB, `-ERR` |
 | AMQP 0-9-1 | `amq.topic` routing key `a.b`, binding key with `*` and `#` | `.` becomes `/`, `*` becomes `+`, `#` stays `#` | a word holding `/`, `+` or `#`: the publish is unroutable - dropped, or `basic.return` `312 NO_ROUTE` when `mandatory` is set | AMQP 0-9-1 section 3.1.3.3 (topic exchange); class `basic`, methods `publish` and `return` |
 | AMQP 0-9-1 | a queue, through the default exchange or a binding | a bus queue of the same name (3.3) | none | AMQP 0-9-1 sections 3.1.3.1, 3.1.4 |
 | AMQP 0-9-1 | other exchanges (`amq.direct`, `amq.fanout`, `amq.headers`, declared ones) | none: their routing stays inside the Amqp0 broker, onto bus queues | n/a | AMQP 0-9-1 section 3.1.3 |
 | AMQP 1.0 | link address `/topic/<t>` (a source may hold `+` and `#`), `/queue/<q>` | topic `<t>` verbatim, queue `<q>` | any other address, or `<t>` not canonical: `attach` refused with `amqp:not-found` | AMQP 1.0 part 3 sections 3.5.3 and 3.5.4 (address is opaque to the specification), part 2 section 2.8.15 |
 | STOMP 1.2 | destination `/topic/<t>` (a SUBSCRIBE may hold `+` and `#`), `/queue/<q>` | topic `<t>` verbatim, queue `<q>` | any other destination, or `<t>` not canonical: an `ERROR` frame, then close | STOMP 1.2 "SEND", "SUBSCRIBE", "ERROR" (destinations are opaque to the specification) |
-| Kafka | topic `a.b`, partition 0 | `.` becomes `/`; one partition per topic (3.3) | a topic name outside `[A-Za-z0-9._-]{1,249}` is already Kafka's `INVALID_TOPIC_EXCEPTION` (17); a partition other than 0: `UNKNOWN_TOPIC_OR_PARTITION` (3); CreateTopics with more than one partition: `INVALID_PARTITIONS` (37) | Kafka protocol guide, "Error Codes"; Kafka documentation 5.3 "Messages" |
+| Kafka | topic `a.b`, partition 0 | `.` becomes `/`, so an empty level is named too (`a..b` is `a//b`, `.a` is `/a`; 3.2.1); one partition per topic (3.3) | a topic name outside `[A-Za-z0-9._-]{1,249}` is already Kafka's `INVALID_TOPIC_EXCEPTION` (17); a partition other than 0: `UNKNOWN_TOPIC_OR_PARTITION` (3); CreateTopics with more than one partition: `INVALID_PARTITIONS` (37) | Kafka protocol guide, "Error Codes"; Kafka documentation 5.3 "Messages" |
 | Redis | channel `a/b` | identical (3.8) | a channel not valid UTF-8 or holding U+0000 stays inside the Redis server | Redis "Pub/Sub" |
 
-**What does not survive a mapping.** NATS, AMQP 0-9-1 and Kafka use `.` as their separator and
-cannot name an empty level, so a canonical topic with an empty level (`/a`, `a//b`, `a/`) or a `.`
-inside a level (`a.b/c`) is unreachable from them: no subscription of theirs can match it, and a
-message published on it is not delivered to them. Kafka can name only levels made of
-`[A-Za-z0-9_-]`, at most 249 bytes in all. NATS cannot name a level holding a space or tab, AMQP
-0-9-1 a routing key past 255 bytes (a `shortstr`). The publisher is never refused for these: the
+**What does not survive a mapping.** NATS, AMQP 0-9-1 and Kafka use `.` as their separator, so a
+canonical topic with a `.` inside a level (`a.b/c`) is unreachable from all three: no subscription
+of theirs can match it, and a message published on it is not delivered to them. NATS and AMQP 0-9-1
+cannot name an empty level, so a canonical topic with one (`/a`, `a//b`, `a/`) is unreachable from
+them too. Kafka can: its rule allows `a..b`, `.a` and `a.`, which are `a//b`, `/a` and `a/`; only the
+canonical topics `/` and `//`, which would be Kafka's refused `.` and `..`, are unreachable from it
+(3.2.1). Kafka can name only levels made of `[A-Za-z0-9_-]`, at most 249 bytes in all. NATS cannot
+name a level holding a space or tab, and a canonical `#` is reachable from NATS only as the last
+level after a `+` (a NATS `>`); a filter with a `#` anywhere else has no NATS subject. AMQP 0-9-1
+cannot name a routing key past 255 bytes (a `shortstr`). The publisher is never refused for these: the
 topic is valid for its own protocol, and nobody on the others can have subscribed to it. The `/topic/`
 and `/queue/` prefixes for AMQP 1.0 and STOMP are decided here because both specifications leave the
 address opaque; one convention for both lets a STOMP producer and an AMQP 1.0 consumer meet.
+
+##### 3.2.1 Amendment: NATS `>` is one or more levels, and Kafka names empty levels
+
+Decided by Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), 2026-11-06, in
+BL-691, recording what BL-630's `NatsSubjectNames` and `KafkaTopicNames` in
+`Surl.MessageBus.UnitLibrary` do. This ADR as first written said NATS's last `>` becomes `#`, and
+that Kafka cannot name an empty level. Both read each protocol by its specification rather than this
+ADR's literal text:
+
+- **NATS `>` becomes `+/#`.** The NATS client protocol ("Protocol conventions") defines `>` as
+  matching one or more tokens, while a canonical `#` matches zero or more levels. Mapping `a.>` to
+  `a/#` would deliver a message published on `a` to a NATS subscriber of `a.>`, which a NATS server
+  never does. `a.>` is therefore `a/+/#` (one or more levels), and `>` alone is `+/#`. Back the other
+  way, a filter ending in `+/#` becomes a subject ending in `>`; a canonical `#` anywhere else is
+  unreachable from NATS, because no NATS subject means "zero or more".
+- **Kafka names empty levels.** Kafka's own rule, `[A-Za-z0-9._-]{1,249}` other than `.` and `..`,
+  allows `a..b`, `.a` and `a.`, and this ADR already holds that a publisher is never refused for a
+  name valid in its own protocol. So `a..b` maps to `a//b` and back, and only `/` and `//` (Kafka's
+  `.` and `..`) are unreachable from Kafka.
+- **AMQP 0-9-1 is unchanged.** Its topic exchange's words are letters and digits (section 3.1.3.3),
+  so an empty word still makes a routing key unroutable, as the table says.
 
 #### 3.3 What the bus holds
 
@@ -281,6 +365,66 @@ address opaque; one convention for both lets a STOMP producer and an AMQP 1.0 co
   the retained slot.
 - **NATS queue groups and MQTT 5 shared subscriptions are fan-out groups**, not queues: neither
   protocol stores a message for an absent subscriber, so neither uses a named queue.
+
+**The named queue's rules** (2026-11-06, BL-694, recording what BL-631 built into
+`Surl.MessageBus`). The table above left these open:
+
+- **A reject without requeue drops the message.** Decided by Claude under Stewart's delegation. The
+  table names only requeue as putting a delivery back; the bus has no dead-letter queue, and AMQP
+  0-9-1 `basic.reject` lets a server discard a message it is not asked to requeue. A dead-letter
+  queue would be a second store a peer can fill, and no protocol on the bus can name one.
+- **A consumer receives nothing until `BusQueueConsumer.Start`.** Decided by Claude under Stewart's
+  delegation. `Consume` makes the consumer, and the server starts it once its own reply is written,
+  so an AMQP 0-9-1 client reads `basic.consume-ok` before the first `basic.deliver` (the XML's
+  consume method answers with consume-ok), and a message already in the queue cannot overtake it.
+  A consumer counts against `MaxSubscriptionsPerConnection` (3.6), the bound on what one
+  connection holds.
+- **An exclusive queue belongs to the connection that declared it.** Decided by Claude under
+  Stewart's delegation. Any connection may send to it (`MessageBus.PublishToQueue` takes no
+  connection, as AMQP 0-9-1's default exchange routes to any queue by name), but only its owner may
+  declare, bind, consume from or delete it; any other connection gets `QueueLocked` (AMQP 0-9-1
+  `405 resource-locked`, rule `declare`/`exclusive`). It is deleted when its owner goes.
+- **Declaring a queue again with other flags is `QueueFlagsDiffer`** and leaves the queue as it was
+  (AMQP 0-9-1 `queue.declare`: an inequivalent redeclaration is `406 precondition-failed`). An empty
+  queue name is `InvalidQueueName`; a queue that does not exist is `UnknownQueue`; a delivery tag the
+  queue did not hand out, or one already settled, is `UnknownDeliveryTag`. Delivery tags are unique
+  per queue and new on each redelivery, and `Redelivered` means the queue handed the message out
+  before, even when the consumer ended before its callback ran.
+- **A topic publish reports its queue copies.** `BusPublishResult.QueuedCount` is the number of bound
+  queues that took a copy and `FullQueueCount` the number that refused one as full (3.6), so a
+  server can tell a routed publish from an unroutable one (AMQP 0-9-1's `mandatory`, ADR-0112).
+
+**The topic log's rules** (2026-11-06, BL-697, recording what BL-633 built into `Surl.MessageBus`).
+The table's topic-log row left these open:
+
+- **A record counts its payload, key, headers and 16 bytes.** Decided by Claude under Stewart's
+  delegation. `MessageBus.LogRecordBytes` counts the payload, the message's native form when it
+  carries one, the key, the UTF-8 of each header name and value, and
+  `MessageBus.LogRecordOverheadBytes` (16: the offset and the timestamp). The 16 bytes make an
+  empty-payload record count, so no log holds unboundedly many records within its byte bounds.
+- **Retention keeps the newest record, however large.** Decided by Claude under Stewart's
+  delegation. Past `MaxLogBytesPerTopic` the oldest records are dropped and the log start offset
+  rises, but the record just appended is never dropped, even when it alone passes the bound, so a
+  Kafka consumer can still read the latest message. `MaxMessageBytes` (3.6) already bounds one
+  payload.
+- **A read returns at least one record.** Decided by Claude under Stewart's delegation.
+  `MessageBus.ReadLog(topic, offset, maxBytes)` returns the records from `offset` in order, as many
+  as fit in `maxBytes`, but always the first whatever it counts, as a Kafka broker's Fetch does
+  (Kafka protocol guide, Fetch: a record batch larger than the limit is still returned), so a large
+  record never stalls a consumer.
+- **Reading at the high watermark reads nothing; past either end is `OffsetOutOfRange`.** Decided by
+  Claude under Stewart's delegation. An offset equal to the high watermark succeeds with no records
+  (a consumer caught up waits for more); one below the log start offset (retention dropped it) or
+  above the high watermark is `OffsetOutOfRange` (3.6), as a Kafka broker answers a fetch outside
+  its log.
+- **The offset a publish got is reported.** `BusPublishResult.LogOffset` is the offset the publish's
+  record took, which is Kafka Produce's base offset. Every publish the bus takes, retained or not and
+  from whichever protocol, is appended; an expired message stays in the log (3.4), and one already
+  expired at publish is stored nowhere.
+- **Every topic with a log counts against `MaxTopics`** (3.6), and every topic published on has one,
+  so a publish on a new topic past the bound is `TooManyTopics` whether it is retained or not.
+  `MessageBus.CreateLog` gives a topic an empty log, as a Kafka Metadata request auto-creates one
+  (ADR-0105 decision 2), and counts the same way.
 
 #### 3.4 The message, and what survives translation
 
@@ -329,13 +473,13 @@ work:
 
 | Constant | Default | Counts |
 | --- | --- | --- |
-| `DefaultMaxTopics` | 10000 | topics with a retained message or a non-empty log (ADR-0014 decision 7's number) |
+| `DefaultMaxTopics` | 10000 | topics with a retained message or a log, which is every topic published on or given an empty log by `CreateLog` (3.3; ADR-0014 decision 7's number) |
 | `DefaultMaxRetainedPayloadBytes` | 104857600 (100 MiB) | retained payload bytes, all topics (ADR-0014 decision 7's number) |
 | `DefaultMaxQueues` | 1000 | named queues |
 | `DefaultMaxMessagesPerQueue` | 100000 | messages in one queue, unacknowledged included |
 | `DefaultMaxQueuedBytes` | 268435456 (256 MiB) | payload bytes in all queues (ADR-0050 decision 6's memory bound) |
-| `DefaultMaxLogBytesPerTopic` | 16777216 (16 MiB) | one topic's log; past it the oldest messages are dropped and the start offset advances |
-| `DefaultMaxLogBytes` | 268435456 (256 MiB) | every log together; past it a publish is refused |
+| `DefaultMaxLogBytesPerTopic` | 16777216 (16 MiB) | one topic's log, in `LogRecordBytes` (3.3); past it the oldest records are dropped and the start offset advances, though the newest is always kept |
+| `DefaultMaxLogBytes` | 268435456 (256 MiB) | every log together, after each topic's own retention; past it a publish is refused with `StoreFull` |
 | `DefaultMaxSubscriptionsPerConnection` | 1000 | live subscriptions one server connection holds |
 | `MaxMessageBytes` | `--max-filesize` (`ExchangeLimits.MaxUploadBytes`), set by the composition | one payload |
 
@@ -344,14 +488,29 @@ words as its protocol says; the server's own ADR pins the bytes:
 
 | Outcome | MQTT 3.1.1 | MQTT 5 | AMQP 0-9-1 | AMQP 1.0 | Kafka | NATS | STOMP |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| `StoreFull`, `TooManyTopics`, `QueueFull`, `TooManyQueues` | close, no reply (ADR-0014 decision 7) | `0x97` Quota exceeded | channel close `506 resource-error` | `amqp:resource-limit-exceeded` | `POLICY_VIOLATION` (44) | `-ERR` then close | `ERROR` then close |
+| `StoreFull` (the logs included: every log past `MaxLogBytes`), `TooManyTopics` (topics with a retained message or a log), `QueueFull`, `TooManyQueues` | close, no reply (ADR-0014 decision 7) | `0x97` Quota exceeded | channel close `506 resource-error` | `amqp:resource-limit-exceeded` | `POLICY_VIOLATION` (44) | `-ERR` then close | `ERROR` then close |
 | `MessageTooLarge` | close, no reply (ADR-0006 section 5) | `0x95` Packet too large | channel close `311 content-too-large` | `amqp:link:message-size-exceeded` | `MESSAGE_TOO_LARGE` (10) | `-ERR 'Maximum Payload Violation'` | `ERROR` then close |
 | `TooManySubscriptions` | `SUBACK` `0x80` | `SUBACK` `0x97` | channel close `506` | `amqp:resource-limit-exceeded` | n/a | `-ERR` | `ERROR` |
+| `OffsetOutOfRange` (a log read below the log start offset or above the high watermark, 3.3) | n/a | n/a | n/a | n/a | `OFFSET_OUT_OF_RANGE` (1) | n/a | n/a |
 | `StorageFailed` (a persistence write) | noted with `IExchangeLog.Note`; the change stays in memory; serving goes on | same | same | same | same | same | same |
 
 A queue past its message bound refuses the copy into it alone; the publish still reaches fan-out,
 other queues and the log: one full queue must not starve every other subscriber (AMQP 0-9-1 leaves
-a queue's overflow to the server).
+a queue's overflow to the server). `QueueFull` answers both `MaxMessagesPerQueue` and
+`MaxQueuedBytes`: the row gives both the same answer.
+
+**The queue outcomes** (2026-11-06, BL-694, recording BL-631). Only the three servers that use named
+queues meet them (3.3). Each answer is the one the server's own ADR pins (ADR-0112 for AMQP 0-9-1,
+ADR-0107 for AMQP 1.0, ADR-0118 for STOMP); "does not arise" means the server never lets the bus
+return that outcome to it:
+
+| Outcome | AMQP 0-9-1 | AMQP 1.0 | STOMP |
+| --- | --- | --- | --- |
+| `UnknownQueue` | channel close `404 not-found`; a publish to the default exchange naming no queue is unroutable instead (`basic.return` `312` under `mandatory`) | a consume refused at attach, or a transfer `rejected`, with `amqp:not-found` (`no such node`) | ERROR `message:Resource limit exceeded`, then close (a queue deleted between SEND or SUBSCRIBE's declare and its use; the first SEND or SUBSCRIBE creates a missing queue) |
+| `QueueLocked` | channel close `405 resource-locked` | attach refused with `amqp:unauthorized-access`, the same answer as a refused access | ERROR `message:Resource limit exceeded`, then close (a SUBSCRIBE to another connection's exclusive queue; a SEND to it succeeds) |
+| `QueueFlagsDiffer` | channel close `406 precondition-failed` | does not arise: an existing queue is used with the flags it has | does not arise: an existing queue is used with the flags it has |
+| `UnknownDeliveryTag` | channel close `406 precondition-failed` (`basic.ack`, `basic.reject`, `basic.nack`, rule `ack`/`exists`) | does not arise: a `disposition` for a delivery already settled finds nothing and changes nothing | does not arise: an ACK or NACK naming no outstanding message is ignored before the bus (ADR-0118 decision 5) |
+| `InvalidQueueName` | does not arise: an empty `queue.declare` name makes a server-named queue, and other names are checked first (`406`) | does not arise: an empty address is refused first with `amqp:not-found` | does not arise: an empty `/queue/` is refused first with ERROR `message:Unknown destination`, then close |
 
 #### 3.7 Persistence under `<path>/.surl/bus`
 

@@ -19,3 +19,10 @@ it with request bytes measured from pinned upstream curl, with no network.
 
 Expected bytes come from a build pinned in `UpstreamCurlBuilds.json`, measured with
 `Record-CurlExchange.ps1`, and never from the Curl port (ADR-0003).
+
+**Chosen-error fault** (ADR-0138, BL-798): `TelnetSession` holds each completed line
+(`LineAwaitingAnswer`) until `TelnetProtocolServer` has asked `ExchangeContext.Faults` through
+`TelnetLineFaults` - scheme only, TELNET has no command, path or account - and a matching `error` rule's
+text is sent as one line in place of the echo, then the session ends, publishing `FaultAppliedEvent`
+with target `line <n>`. A reply that does not fit, or a `delay` or `drop` rule, is noted and not applied
+(BL-914).

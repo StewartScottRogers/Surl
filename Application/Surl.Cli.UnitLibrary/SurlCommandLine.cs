@@ -19,6 +19,15 @@ public sealed record SurlCommandLine
     public IReadOnlyList<ListenUrl> ListenUrls { get; init; } = [];
 
     /// <summary>
+    /// The Unix domain socket the one listen URL listens on instead of a TCP port, set by the last
+    /// of <c>--unix-socket &lt;path&gt;</c> and <c>--abstract-unix-socket &lt;name&gt;</c>
+    /// (ADR-0094, decision 1); <see langword="null"/> by default, when every listen URL listens
+    /// on TCP. Once the whole line is read, the parser also sets it on that listen URL's
+    /// <see cref="ListenUrl.UnixSocket"/>.
+    /// </summary>
+    public UnixSocketAddress? UnixSocket { get; init; }
+
+    /// <summary>
     /// The data directory as given with <c>--directory</c>; <see langword="null"/> by default,
     /// when surl serves an in-memory file system instead (ADR-0031 decisions 1 and 4).
     /// </summary>
@@ -160,10 +169,44 @@ public sealed record SurlCommandLine
     public IReadOnlyList<ConfiguredGroup> Groups { get; init; } = [];
 
     /// <summary>
+    /// The mail domains the mail store serves, each as written, in configuration order (ADR-0101
+    /// decision 4); <see cref="MailDomainNames.ReadDomain"/> gives the form they are compared in
+    /// (ADR-0102 decision 1.1). None by default, and no option fills it yet (BL-883 adds one).
+    /// </summary>
+    public IReadOnlyList<string> MailDomains { get; init; } = [];
+
+    /// <summary>
+    /// The mailboxes, each an account and a mail owner named by its normalised address
+    /// (<see cref="ConfiguredMailboxReader"/>, ADR-0102 decision 1.2), in configuration order. None
+    /// by default, and no option fills it yet (BL-883 adds one).
+    /// </summary>
+    public IReadOnlyList<ConfiguredMailbox> Mailboxes { get; init; } = [];
+
+    /// <summary>
+    /// The mailbox CSV files, each path as given, in configuration order. They are read when surl
+    /// starts serving, by <see cref="MailboxFileReader"/>, not while parsing (ADR-0101 decision 4).
+    /// None by default, and no option fills it yet (BL-883 adds one).
+    /// </summary>
+    public IReadOnlyList<string> MailboxFiles { get; init; } = [];
+
+    /// <summary>
     /// The fault rules from every <c>--fault</c>, in command-line order, at most 256 (ADR-0124
     /// decision 4). None by default. <c>Surl.Composition</c> adds them to the fault plan at start.
     /// </summary>
     public IReadOnlyList<ConfiguredFault> Faults { get; init; } = [];
+
+    /// <summary>
+    /// <c>--control</c>: the listen URL of the test control endpoint, always <c>http</c> on loopback
+    /// (ADR-0124 decision 7); null, the default, serves none. The last one given wins.
+    /// </summary>
+    public ListenUrl? ControlListenUrl { get; init; }
+
+    /// <summary>
+    /// <c>--control-token-file</c>: the file whose first line is the control endpoint's bearer token,
+    /// as given; none by default. It is given exactly when <see cref="ControlListenUrl"/> is, and it is
+    /// read when surl starts serving, not while parsing (ADR-0124 decision 7).
+    /// </summary>
+    public string? ControlTokenFile { get; init; }
 
     /// <summary>
     /// <c>--keytab</c>: the MIT keytab file of Kerberos service keys, as given; none by default.

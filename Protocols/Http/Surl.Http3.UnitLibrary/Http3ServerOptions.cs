@@ -28,4 +28,15 @@ public sealed class Http3ServerOptions
     /// connection derives (a WebTransport server's own, ADR-0117); empty, the default, for none.
     /// </summary>
     public IReadOnlyList<KeyValuePair<ulong, ulong>> FurtherSettings { get; init; } = [];
+
+    /// <summary>
+    /// How long the connection keeps serving once the exchange is cancelled (ADR-0117 decision 6), or
+    /// <see langword="null"/>, the default, for no grace: the open streams are cut off at once and
+    /// <c>GOAWAY</c> follows, as the HTTP server has it. With a grace, the connection first marks every
+    /// extended <c>CONNECT</c> session shutting down and awaits its
+    /// <see cref="Http3ExtendedConnectSession.AddShutdownWrite"/> writes, then sends <c>GOAWAY</c>,
+    /// keeps serving until the request streams open at <c>GOAWAY</c> are done or the grace has passed,
+    /// and only then cuts the rest off and closes <c>H3_NO_ERROR</c>.
+    /// </summary>
+    public TimeSpan? ShutdownGrace { get; init; }
 }

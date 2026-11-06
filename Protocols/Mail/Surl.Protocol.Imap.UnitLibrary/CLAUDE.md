@@ -61,6 +61,23 @@ exchange) are the glossary's, sections "Mail: SMTP, IMAP and POP3" and "Authenti
   `--max-filesize` and before `+`; that, and `QuotaExceeded` from `APPEND`, `COPY` or `MOVE`, is
   `NO [OVERQUOTA] Mailbox is over its quota`. `SharedFolderProtected` is `NO [NOPERM] A shared
   folder cannot be deleted` (`renamed`, `created under` for `RENAME` and `CREATE`).
+- Upstream test cases (BL-878, ADR-0080 decision 2): `ImapUpstreamTestCaseServer` is this server
+  composed with a `MailUpstreamTestCaseReplies` (`ImapProtocolServer.UpstreamTestCaseReplies`,
+  internal) and an empty anonymous store. `ImapSession.UpstreamTestCase.cs` holds what the case
+  changes: the `REPLY welcome` greeting, `REPLY`'d lines answered and not run, `CAPABILITY` from
+  `CAPA` and `AUTH`, `FETCH`/`LIST`/`LSUB`/`EXAMINE`/`STATUS`/`SEARCH` from the case's data with
+  `POSTFETCH`, and `APPEND` recorded in `UploadedBytes`. With no case the session is unchanged.
+  The shipped `surl` never composes it; `Surl.Conformance.UnitTests` does (BL-879).
+- Command-stage faults (ADR-0124 decision 4, BL-796, BL-901; `ImapSession.Faults.cs`): every recognized
+  command its state allows - after the state's login check, so a fault never skips one - asks
+  `ExchangeContext.Faults` at `FaultStage.Command` with its verb (a `UID` command's own verb,
+  `FETCH` for `UID FETCH`), the account `LOGIN` or `AUTHENTICATE` logged in, the listen URL as
+  `ReportedListenUrl` writes it, and as the path the mailbox the command names (`SELECT`,
+  `EXAMINE`, `STATUS`, `CREATE`, `DELETE`, `RENAME`, `SUBSCRIBE`, `UNSUBSCRIBE`, `APPEND`) or
+  else the selected one. An `Error` rule is answered with the tagged rule reply (`NO ...` or
+  `BAD ...`), `APPEND`'s in place of `+`; the store is untouched, a note is logged and one
+  `FaultAppliedEvent` (target: the mailbox, else the verb) is published. A rule with no reply
+  answers `NO [UNAVAILABLE] Local error in processing`. A `Delay` rule (`stage=command`) holds the answer for its `ms` on `ExchangeContext.TimeProvider` with `ExchangeContext.IdleClock` paused, and a `Drop` rule aborts the connection with no answer and ends the session, each through `CommandStageFaults.FindAndApplyAsync` with one `FaultAppliedEvent` (ADR-0141, BL-901).
 - `STARTTLS` (decision 11): `OK Begin TLS negotiation now`, then
   `CrlfLineReader.DiscardBuffered`, then `IConnection.UpgradeToTlsAsync`; `BAD STARTTLS not
   available` without a certificate, `BAD Already using TLS` on a TLS connection.

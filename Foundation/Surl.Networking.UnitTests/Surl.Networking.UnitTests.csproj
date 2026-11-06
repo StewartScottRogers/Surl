@@ -11,6 +11,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Surl.Core.UnitLibrary\Surl.Core.UnitLibrary.csproj" />
     <ProjectReference Include="..\Surl.Networking.UnitLibrary\Surl.Networking.UnitLibrary.csproj" />
+    <ProjectReference Include="..\..\Protocols\Http\Surl.Protocol.HttpProxy.UnitLibrary\Surl.Protocol.HttpProxy.UnitLibrary.csproj" />
   </ItemGroup>
 
 </Project>

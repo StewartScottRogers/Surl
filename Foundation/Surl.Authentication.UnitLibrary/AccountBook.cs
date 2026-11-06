@@ -16,8 +16,8 @@ namespace Surl.Authentication;
 /// <see cref="NtlmPasswordHashes"/>); and for AWS Signature Version 4, each named account's password as UTF-8
 /// bytes, since every signing key derives from the secret itself (ADR-0043); and, for the
 /// challenge-response mail logins, the same bytes (ADR-0049, section 5); and, for SASL
-/// <c>SCRAM-SHA-1</c> and <c>SCRAM-SHA-256</c>, each named account's <see cref="ScramCredentials"/>
-/// under each hash, over a random salt and 4096 iterations (BL-416).
+/// <c>SCRAM-SHA-1</c>, <c>SCRAM-SHA-256</c> and <c>SCRAM-SHA-512</c>, each named account's <see cref="ScramCredentials"/>
+/// under each hash, over a random salt and 4096 iterations (BL-416, BL-700).
 /// <para>
 /// The accounts are a store a test controls while the server runs (ADR-0124, decision 3; ADR-0132):
 /// <see cref="Add"/>, <see cref="Remove"/>, <see cref="Reset"/>, <see cref="TakeSnapshot"/> and

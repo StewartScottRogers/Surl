@@ -442,3 +442,21 @@ Costs and caveats:
 - Resumable and XML multipart uploads answer `NotImplemented` until BL-718 lands. The JSON API waits on
   BL-719's decision.
 - The matrix is `Documentation/Conformance/Extended/GoogleCloudStorage.md` (ADR-0083 decision 9).
+
+## Amendment 1 (BL-430, 2026-11-05)
+
+Decided by Claude under Stewart's delegation. What BL-430 built fills in decision 3.3's details:
+
+- **Routing.** A request whose `AwsSigV4Service` is `storage` is checked by
+  `GoogleV4HmacAuthenticationMethod` only when its `Authorization` scheme is `GOOG4-HMAC-SHA256`; any
+  other Signature Version 4 scheme on `storage` is `UnsupportedScheme` (`400 InvalidAuthentication`).
+  Every other service keeps the AWS check.
+- **The date.** `x-goog-date`, else `Date`, is read in `yyyyMMdd'T'HHmmss'Z'` only, the form the string
+  to sign carries; an RFC 1123 `Date` does not read and is `MalformedCredentials`
+  (`400 InvalidArgument`). It need not be in `SignedHeaders`: the string to sign holds the request
+  time, so the signature binds it anyway; only `host` must be signed. A date that reads but is not the
+  scope's day is `ClockSkew` (`403 RequestTimeTooSkewed`), as decision 3.4 says, even within 15 minutes.
+- **The missing date.** Neither field is `HttpAuthenticationRefusal.MissingRequestDate`, the refusal
+  ADR-0109 decision 3.2 added for Azure Shared Key (BL-717); no new contract was needed.
+- **Head checks in order:** parse, scope and `host` (malformed); missing date; missing content hash;
+  date unreadable, then skewed; then the signature (an unknown access ID against a random secret).

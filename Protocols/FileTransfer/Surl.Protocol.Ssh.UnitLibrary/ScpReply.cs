@@ -21,4 +21,12 @@ internal static class ScpReply
     /// </param>
     /// <returns><c>\x01scp: &lt;message&gt;</c> and LF.</returns>
     public static byte[] Error(string message) => Encoding.UTF8.GetBytes($"\u0001scp: {message}\n");
+
+    /// <summary>
+    /// The error line carrying a fault rule's chosen message as it was given, with no <c>scp: </c>
+    /// before it (ADR-0124 decision 4, "a message line sent after byte 1"; ADR-0135).
+    /// </summary>
+    /// <param name="message">The message, non-empty and holding no CR or LF.</param>
+    /// <returns><c>\x01&lt;message&gt;</c> and LF.</returns>
+    public static byte[] ChosenError(string message) => Encoding.UTF8.GetBytes($"\u0001{message}\n");
 }

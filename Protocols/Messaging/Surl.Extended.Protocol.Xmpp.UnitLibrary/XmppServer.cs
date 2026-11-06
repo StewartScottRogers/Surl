@@ -47,6 +47,14 @@ namespace Surl.Extended.Protocol.Xmpp;
 /// <c>surl-</c> one; a stanza before it is <c>not-authorized</c>.
 /// </para>
 /// <para>
+/// Stanzas (decision 5, <see cref="XmppStanzaRouter"/>): the streams one server instance has
+/// bound are routed between, messages to a full or bare JID, with <c>from</c> stamped; IQs to a
+/// served domain or an account are answered with service discovery (XEP-0030), ping (XEP-0199)
+/// and an empty roster, any other <c>get</c> or <c>set</c> with <c>service-unavailable</c>, and a
+/// malformed stanza with the stanza error RFC 6120 8.3 names; a <c>from</c> not the stream's own
+/// is <c>invalid-from</c>.
+/// </para>
+/// <para>
 /// Every refusal is a stream error with no text, then <c>&lt;/stream:stream&gt;</c> and a close,
 /// preceded by a response header when none was sent (decision 6); <see cref="XmppStreamReader"/>
 /// lists what the XML itself is refused for. No header within the head timeout, or a limit
@@ -63,6 +71,9 @@ public sealed class XmppServer(XmppServerOptions? options = null) : IConnectionP
 {
     private readonly XmppServerOptions options = options ?? XmppServerOptions.Default;
 
+    // The streams this instance has bound, which its stanzas are routed between (decision 5).
+    private readonly XmppSessionRegistry sessions = new();
+
     /// <inheritdoc/>
     public IReadOnlyList<string> Schemes { get; } = Array.AsReadOnly(["xmpp"]);
 
@@ -72,7 +83,7 @@ public sealed class XmppServer(XmppServerOptions? options = null) : IConnectionP
         ArgumentNullException.ThrowIfNull(connection);
         ArgumentNullException.ThrowIfNull(context);
 
-        return new XmppServerConnection(connection, context, options).ServeAsync();
+        return new XmppServerConnection(connection, context, options, sessions).ServeAsync();
     }
 
     /// <summary>

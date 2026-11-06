@@ -7,8 +7,8 @@ using Surl.Protocol.Abstractions;
 namespace Surl.Extended.Protocol.S3;
 
 /// <summary>
-/// Decides the answer to each S3 request on one connection (ADR-0108): GetObject, HeadObject,
-/// PutObject and ListObjectsV2, path style or virtual-hosted style, made as the caller its
+/// Decides the answer to each S3 request on one connection (ADR-0108): ListBuckets, HeadBucket,
+/// ListObjectsV2, GetObject, HeadObject, PutObject and DeleteObject, path style or virtual-hosted style, made as the caller its
 /// Signature Version 4 login names, and <c>501 NotImplemented</c> for every other request.
 /// </summary>
 /// <remarks>
@@ -26,6 +26,8 @@ internal sealed class S3RequestAnswerer : IHttpRequestHandler, IHttpHeadNotReadR
     private readonly S3ObjectPropertiesReader properties;
     private readonly S3PutObject putObject;
     private readonly S3ListObjectsV2 listObjects;
+    private readonly S3DeleteObject deleteObject;
+    private readonly S3ListBuckets listBuckets;
 
     /// <summary>
     /// Creates the answerer for one exchange.
@@ -42,6 +44,8 @@ internal sealed class S3RequestAnswerer : IHttpRequestHandler, IHttpHeadNotReadR
         properties = new S3ObjectPropertiesReader(store, index, context.Log);
         putObject = new S3PutObject(store, index, login, context.Log);
         listObjects = new S3ListObjectsV2(store, properties);
+        deleteObject = new S3DeleteObject(store);
+        listBuckets = new S3ListBuckets(store);
     }
 
     /// <inheritdoc/>
@@ -69,15 +73,30 @@ internal sealed class S3RequestAnswerer : IHttpRequestHandler, IHttpHeadNotReadR
         }
 
         var caller = loginResult.Caller!;
+        if (operation == S3Operation.ListBuckets)
+        {
+            return listBuckets.Answer(reply, caller, cancellationToken);
+        }
+
         if (!IsBucket(store.MapBucketRequestPathForCaller($"/{target.RawBucket}/", caller)))
         {
             return reply.Error(S3Error.NoSuchBucket, new KeyValuePair<string, string>("BucketName", target.RawBucket));
         }
 
+        return await AnswerInBucketAsync(reply, request, target, operation, loginResult, cancellationToken);
+    }
+
+    // The operations on a bucket that exists and the caller may read.
+    private async Task<HttpAnswer> AnswerInBucketAsync(S3Reply reply, HttpRequest request, S3RequestTarget target, S3Operation operation, S3LoginResult loginResult, CancellationToken cancellationToken)
+    {
+        var caller = loginResult.Caller!;
+
         return operation switch
         {
+            S3Operation.HeadBucket => reply.Answer(HttpStatus.Ok, [], HttpAnswerBody.None),
             S3Operation.ListObjectsV2 => await listObjects.AnswerAsync(reply, target, S3QueryParameters.Parse(target.Query!), caller, cancellationToken),
             S3Operation.PutObject => await PutObjectAsync(reply, request, target, loginResult, cancellationToken),
+            S3Operation.DeleteObject => deleteObject.Answer(reply, target, caller),
             _ => await ReadObjectAsync(reply, request, target, caller, cancellationToken),
         };
     }

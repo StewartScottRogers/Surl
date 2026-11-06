@@ -6,12 +6,12 @@ namespace Surl.Extended.Protocol.OciRegistry;
 
 /// <summary>
 /// Decides the answer to each write (ADR-0115, decisions 4.1 and 5.4): every upload request,
-/// manifest pushes and deletes. All of them need <c>--allow-uploads</c>; without it each is
-/// <c>403 DENIED</c> before the repository is looked at.
+/// manifest pushes and deletes. <see cref="OciRequestAnswerer"/> has already refused each one
+/// while <c>--allow-uploads</c> is off, and each one whose token does not grant it.
 /// </summary>
 /// <remarks>
-/// Every write is the anonymous caller on <c>oci</c> until BL-438 adds tokens, so the share
-/// access of the anonymous caller decides what it may write.
+/// Every write is the token's caller on <c>oci</c>, so that caller's share access decides what it
+/// may write, and a mount reads its source only where the token grants <c>pull</c>.
 /// </remarks>
 /// <param name="store">The shared content store.</param>
 /// <param name="state">The server's upload sessions and index lock.</param>
@@ -33,21 +33,17 @@ internal sealed class OciWriteAnswerer(ContentStore store, OciServerState state,
     /// <param name="reply">The reply to the request.</param>
     /// <param name="request">The request.</param>
     /// <param name="target">The request's target, its name already checked against the grammar.</param>
+    /// <param name="token">The token granting the write.</param>
     /// <param name="cancellationToken">Cancels the write.</param>
     /// <returns>The answer.</returns>
-    public Task<HttpAnswer> AnswerAsync(OciReply reply, HttpRequest request, OciRequestTarget target, CancellationToken cancellationToken)
+    public Task<HttpAnswer> AnswerAsync(OciReply reply, HttpRequest request, OciRequestTarget target, OciToken token, CancellationToken cancellationToken)
     {
-        if (!store.ExposureOptions.AllowUploads)
-        {
-            return Task.FromResult(reply.Error(OciError.Denied));
-        }
-
-        var caller = ContentCaller.Anonymous(OciRegistryProtocolServer.Scheme);
+        var caller = token.Caller;
 
         return (target.Endpoint, request.Method) switch
         {
-            (OciEndpoint.Uploads, _) => new OciBlobUploads(store, state, caller, context).OpenAsync(reply, request, target, cancellationToken),
-            (OciEndpoint.UploadSession, _) => new OciBlobUploads(store, state, caller, context).AnswerSessionAsync(reply, request, target, cancellationToken),
+            (OciEndpoint.Uploads, _) => new OciBlobUploads(store, state, token, context).OpenAsync(reply, request, target, cancellationToken),
+            (OciEndpoint.UploadSession, _) => new OciBlobUploads(store, state, token, context).AnswerSessionAsync(reply, request, target, cancellationToken),
             (OciEndpoint.Manifest, "PUT") => new OciManifestPush(store, state, caller, context).AnswerAsync(reply, request, target, cancellationToken),
             (OciEndpoint.Manifest, _) => new OciDeletes(store, state, caller, context).DeleteManifestAsync(reply, target, cancellationToken),
             _ => new OciDeletes(store, state, caller, context).DeleteBlobAsync(reply, target, cancellationToken),

@@ -33,6 +33,14 @@ handshake before `ServeAsync`, so `FtpProtocolServer` claims `ftps` itself.
   `--allow-anonymous` accepted unchecked - on the exchange's scheme (`ftp` or `ftps`). A share the
   caller may not read answers as a missing path (`550 No such file` / `550 No such directory`);
   `STOR` or `APPE` in a share it may only read is `550 Not permitted` before any data connection.
+- Chosen-error faults (ADR-0124 decision 4, BL-794; `FtpCommandResponder.Faults.cs`): every
+  implemented command the login check lets through is asked about at a `Command`-stage
+  `FaultPoint` before it runs - its verb, the path it names resolved against the current directory
+  (`LIST`/`NLST` without ls options; none for a command naming no path), the account a checked
+  login named (none after an unchecked anonymous login), the scheme and the listen URL in the
+  engine's form (`FaultListenUrl`). A matching `error` rule's reply is sent in place of running it,
+  so a transfer command opens no data connection and the store is untouched; the log notes it and
+  one `FaultAppliedEvent` is published. Other kinds a plan returns here are not acted on.
 - `FtpDataConnections`: one control connection's passive listener or active target
   (`EPSV`, `PASV`, `EPRT`, `PORT`, target parsed by `FtpActiveTargetParser`, decision 6), and
   `ProtectAsync`, which upgrades a data connection to TLS under `PROT P`. Every listener and

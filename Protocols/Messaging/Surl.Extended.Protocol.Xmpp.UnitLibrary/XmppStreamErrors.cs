@@ -15,6 +15,9 @@ public static class XmppStreamErrors
     /// <summary>An unexpected failure in the server; nothing about it follows (4.9.3.8).</summary>
     public const string InternalServerError = "internal-server-error";
 
+    /// <summary>A stanza whose <c>from</c> is neither the stream's full JID nor its bare JID (4.9.3.9).</summary>
+    public const string InvalidFrom = "invalid-from";
+
     /// <summary>A stream namespace or content namespace other than the right ones (4.9.3.10).</summary>
     public const string InvalidNamespace = "invalid-namespace";
 

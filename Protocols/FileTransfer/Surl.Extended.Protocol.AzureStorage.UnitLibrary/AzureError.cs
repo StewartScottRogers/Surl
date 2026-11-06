@@ -202,4 +202,32 @@ internal sealed record AzureError(string Code, HttpStatus Status, string Message
     /// <c>--max-connections-per-address</c> (ADR-0109, decision 7).
     /// </summary>
     public static AzureError ServerBusy { get; } = new("ServerBusy", HttpStatus.ServiceUnavailable, "The server is currently unable to receive requests. Please retry your request.");
+
+    /// <summary>
+    /// <c>400 InvalidBlockId</c>: a Put Block whose <c>blockid</c> is not base64 of at most 64
+    /// bytes, or not as long as the blob's other block IDs ("Put Block").
+    /// </summary>
+    public static AzureError InvalidBlockId { get; } = new("InvalidBlockId", HttpStatus.BadRequest, "The specified block ID is invalid. The block ID must be Base64-encoded.");
+
+    /// <summary>
+    /// <c>400 InvalidBlockList</c>: a Put Block List naming a block the blob does not hold in the
+    /// list it is looked for in ("Put Block List").
+    /// </summary>
+    public static AzureError InvalidBlockList { get; } = new("InvalidBlockList", HttpStatus.BadRequest, "The specified block list is invalid.");
+
+    /// <summary>
+    /// <c>409 BlockCountExceedsLimit</c>: a Put Block past 100000 uncommitted blocks (ADR-0109, decision 7).
+    /// </summary>
+    public static AzureError BlockCountExceedsLimit { get; } = new("BlockCountExceedsLimit", ConflictStatus, "The uncommitted block count cannot exceed the maximum limit of 100,000 blocks.");
+
+    /// <summary>
+    /// <c>400 BlockListTooLong</c>: a Put Block List past 50000 entries (ADR-0109, decision 7).
+    /// </summary>
+    public static AzureError BlockListTooLong { get; } = new("BlockListTooLong", HttpStatus.BadRequest, "The block list may not contain more than 50,000 blocks.");
+
+    /// <summary>
+    /// <c>400 InvalidXmlDocument</c>: a Put Block List body that is not a <c>BlockList</c>
+    /// document, or is past 4 MiB (ADR-0109, decision 7).
+    /// </summary>
+    public static AzureError InvalidXmlDocument { get; } = new("InvalidXmlDocument", HttpStatus.BadRequest, "XML specified is not syntactically valid.");
 }

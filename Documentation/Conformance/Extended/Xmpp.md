@@ -132,5 +132,5 @@ choice.
 | Xmpp:Surl-Limits-3 | MUST | No bound resource within twice `--head-timeout` of accept is `policy-violation`. | BL-885 |
 | Xmpp:RFC6120-4.9.3.4-1 | MUST | No byte for `--idle-timeout` is `connection-timeout`. | BL-536 |
 | Xmpp:RFC6120-4.9.3.17-1 | MUST | A connection over `--max-connections` or `--max-connections-per-address` gets a response header and `resource-constraint`. | BL-536 |
-| Xmpp:Surl-Limits-4 | MUST | A stream with 16 MiB of routed stanzas unsent ends with `policy-violation`. | BL-539 |
+| Xmpp:Surl-Limits-4 | MUST | A stream with 16 MiB of routed stanzas unsent ends with `policy-violation`. | BL-887 |
 | Xmpp:RFC6120-4.9.3.20-1 | MUST | A server stopping ends each stream with `system-shutdown`. | BL-536 |

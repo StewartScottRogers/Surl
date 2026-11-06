@@ -236,6 +236,7 @@ Surl/
 │   ├── Lookup/            ← Dict, Gopher
 │   ├── Mail/              ← Smtp, Imap, Pop3, and Surl.MailStore and Surl.LineProtocol which they share
 │   ├── Messaging/         ← Ldap, Mqtt
+│   ├── Proxy/             ← Socks
 │   └── Terminal/          ← Telnet
 ├── Documentation/         ← shared project (docs and planning)
 ├── Tasks/                 ← shared project (task board)

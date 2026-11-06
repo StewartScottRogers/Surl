@@ -5,7 +5,7 @@ priority: Normal
 assignee: Claude
 pipeline: feature
 depends-on: [BL-521, BL-405, BL-635]
-touches: [Application/Surl.Console, Application/Surl.Console.UnitTests, Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests]
+touches: [Application/Surl.Console, Application/Surl.Console.UnitTests, Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests, Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests]
 requirement: none
 created: 2026-11-04
 completed:
@@ -49,8 +49,16 @@ loaded after the data-directory lock if it persists. Metadata advertises the lis
 
 ## Notes
 
+- 2026-11-05 (lane 4): BL-609 moved the server composition to `Application/Surl.Composition.UnitLibrary`: extended
+  servers register in `ExtendedProtocolServers.Registrations`, the shared bus is `ComposedProtocolServices.MessageBus`
+  (where `mqtt` is composed in `ProtocolServerRegistrations`), and the one-bus test belongs in
+  `Surl.Composition.UnitTests`. Both are added to `touches`. BL-803 (in Doing) touches the same projects, so the task
+  returned to Backlog until BL-803 releases them. No code was written.
+
 ## Log
 
 - 2026-11-04: Created.
 - 2026-11-04: Amended for Stewart's shared-stores approval of 2026-11-04: waits on BL-635; composed with the one shared bus.
 - 2026-11-05: Amended by BL-516 for ADR-0105: adds `--kafka-fetch-compression` and the advertised address rule.
+- 2026-11-05: Backlog -> Doing.
+- 2026-11-05: Doing -> Backlog. Needs Application/Surl.Composition.UnitLibrary and Surl.Composition.UnitTests, which BL-803 in Doing touches; resumes once BL-803 releases them

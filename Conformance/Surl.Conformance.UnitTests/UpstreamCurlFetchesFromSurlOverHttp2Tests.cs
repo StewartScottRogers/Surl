@@ -88,18 +88,18 @@ public sealed class UpstreamCurlFetchesFromSurlOverHttp2Tests
         StringAssert.EndsWith(head, "\r\n\r\n");
     }
 
-    // Measured 2026-11-05 (BL-371): surl's HTTP server answers no Range on any version today, as
-    // RFC 9110 section 14.2 lets a server, so curl takes the whole file with 200 and exits 0.
+    // Measured 2026-11-05 (BL-723; ADR-0133, decision 1): a single range is answered 206 with
+    // Content-Range and the bytes it selects, and curl writes just those bytes and exits 0.
     [TestMethod]
-    public async Task GetWithRange_HttpsByAlpn_IsServedTheWholeFileWith200OverHttp2()
+    public async Task GetWithRange_HttpsByAlpn_IsServedTheFirstTenBytesWith206OverHttp2()
     {
         await using var surl = await StartSurlAsync("https", "--self-signed");
 
-        var result = await RunUpstreamCurlAsync("-sS", "-k", "-r", "0-9", "-w", "%{response_code} " + HttpVersion, surl.UrlOf("hello.txt"));
+        var result = await RunUpstreamCurlAsync("-sS", "-k", "-r", "0-9", "-w", " %{response_code} " + HttpVersion, surl.UrlOf("hello.txt"));
 
         Assert.AreEqual(0, result.ExitCode, result.StandardError);
         CollectionAssert.AreEqual(
-            Hello.Concat("200 2"u8.ToArray()).ToArray(), result.StandardOutput, Encoding.ASCII.GetString(result.StandardOutput));
+            Hello.Take(10).Concat(" 206 2"u8.ToArray()).ToArray(), result.StandardOutput, Encoding.ASCII.GetString(result.StandardOutput));
     }
 
     [TestMethod]
@@ -163,12 +163,11 @@ public sealed class UpstreamCurlFetchesFromSurlOverHttp2Tests
         AssertServedOverHttp2(Hello, result);
     }
 
-    // Measured 2026-11-05 (BL-371): surl's HTTP server refuses PUT with 405 on every version
-    // today, uploads allowed or not. Over HTTP/2 the 405 goes out before the body is read and the
-    // stream's unread half is ended with RST_STREAM NO_ERROR (ADR-0081, decision 7), and curl,
-    // still sending a body four times the initial window, completes the exchange and exits 0.
+    // Measured 2026-11-05 (BL-723; ADR-0133, decision 2): under --allow-uploads, with a login, a
+    // PUT of a body four times the initial window is read through the stream's flow control,
+    // stored, and answered 201, and curl exits 0.
     [TestMethod]
-    public async Task Upload_AllowUploads_IsRefusedWith405AndCurlExitsZeroOverHttp2()
+    public async Task Upload_AllowUploads_IsStoredWith201OverHttp2()
     {
         var upload = Path.Combine(Path.GetTempPath(), $"surl-conformance-upload-{Guid.NewGuid():N}.bin");
         await File.WriteAllBytesAsync(upload, Large, TestContext.CancellationToken);
@@ -181,8 +180,8 @@ public sealed class UpstreamCurlFetchesFromSurlOverHttp2Tests
                 "-sS", "-k", "-u", Credentials, "-T", upload, "-o", NullDevice, "-w", "%{response_code} " + HttpVersion, surl.UrlOf("up.bin"));
 
             Assert.AreEqual(0, result.ExitCode, result.StandardError);
-            CollectionAssert.AreEqual("405 2"u8.ToArray(), result.StandardOutput, Encoding.ASCII.GetString(result.StandardOutput));
-            Assert.IsFalse(File.Exists(Path.Combine(surl.ServedDirectory!, "up.bin")));
+            CollectionAssert.AreEqual("201 2"u8.ToArray(), result.StandardOutput, Encoding.ASCII.GetString(result.StandardOutput));
+            CollectionAssert.AreEqual(Large, await File.ReadAllBytesAsync(Path.Combine(surl.ServedDirectory!, "up.bin"), TestContext.CancellationToken));
         }
         finally
         {

@@ -73,6 +73,18 @@ internal sealed record OciError(string Code, string Message, HttpStatus Status)
     public static OciError Denied { get; } = new("DENIED", "requested access to the resource is denied", HttpStatus.Forbidden);
 
     /// <summary>
+    /// code-12 for credentials sent to the token endpoint over plain text without
+    /// <c>--allow-plaintext-auth</c> (ADR-0115, decision 4.4).
+    /// </summary>
+    public static OciError PlaintextCredentialsRefused { get; } = new("DENIED", "credentials over plain text are refused", HttpStatus.Forbidden);
+
+    /// <summary>
+    /// code-11: no token, an unknown or expired one, or a login the token endpoint refuses
+    /// (ADR-0115, decision 4.4).
+    /// </summary>
+    public static OciError Unauthorized { get; } = new("UNAUTHORIZED", "authentication required", HttpStatus.Unauthorized);
+
+    /// <summary>
     /// code-12 for a repository whose <c>index.json</c> already lists
     /// <see cref="OciIndexFile.MaxDescriptors"/> descriptors (ADR-0115, decision 7).
     /// </summary>

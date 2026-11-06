@@ -22,6 +22,7 @@
   error text) and [ADR-0059](ADR-0059-how-a-protocol-server-tells-a-limit-from-shutdown.md)
   (shutdown grace).
 - **Amends:** nothing.
+- **Amended:** 2026-11-05 in BL-454 (amendment 1, below).
 
 ## Context
 
@@ -323,3 +324,28 @@ No new option is added: ADR-0006's options cover what a test harness tunes.
 - The requirement matrix [`SocketIo.md`](../../Conformance/Extended/SocketIo.md) traces each
   server-side requirement to BL-453, BL-454 or a later task; each task replaces its ID with the
   named test.
+
+## Amendment 1 (2026-11-05, BL-454)
+
+Decided by Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), while building the
+WebSocket transport. Three points the decisions above left open or that ADR-0059 already settles:
+
+1. **The farewell is a limit's, not shutdown's.** Decision 7's last row said shutdown sends each
+   connected namespace a DISCONNECT, then Close `1001`, "within the grace". ADR-0059 decision 4
+   already decides that by the time `ExchangeContext.ShutdownToken` fires, the engine has waited out
+   its grace, and the exchange ends with nothing more written. So the farewell (`41`, `41/admin,`,
+   then Close `1001`) is written when the exchange is cancelled for a limit
+   (`ExchangeContext.IsCancelledForALimit`: `--idle-timeout`, `--max-time`), within ADR-0059
+   decision 3's one-second write window linked to `ShutdownToken`; at shutdown nothing more is
+   written. This is what the WebSocket server does (ADR-0071 decision 7).
+2. **The order of decision 1's refusals** is engine.io's own: `transport` (code 0), then `sid` (code
+   3 when a session has it, since every session already has its WebSocket until BL-762, code 1
+   otherwise), then the method (code 2), then `EIO` (code 5), then code 3 for a request whose
+   `Upgrade` does not list `websocket` - "a WebSocket request that is not an upgrade" - and only then
+   `Surl.WebSocket`'s checks (a wrong `Sec-WebSocket-Version` is still `426`), then the session limit
+   (`503`).
+3. **Unsent bytes are queued per session.** Every packet a session sends - its own answers and other
+   sessions' broadcasts - goes through one queue written in order, an event and its attachments as
+   one item, so a broadcast never splits another session's binary packet and a slow reader never
+   holds up its sender. Queuing past 1048576 unsent bytes drops the packet and closes the session
+   `1008`, as decision 7 says.

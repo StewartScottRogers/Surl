@@ -12,7 +12,7 @@ namespace Surl.Protocol.Smtp;
 /// trace fields, into a <see cref="PendingMessage"/> that is delivered or deleted, and a message
 /// file that cannot be written is answered <c>451 4.3.0 Local error in processing</c>.
 /// </summary>
-internal sealed class SmtpSession
+internal sealed partial class SmtpSession
 {
     // A path with no domain (RFC 5321 notwithstanding, curl sends --mail-rcpt bob as <bob>) is
     // looked up as if it named surl's own domain, which the store ignores (ADR-0053, decision 4).
@@ -28,13 +28,14 @@ internal sealed class SmtpSession
     private readonly MailboxStore mailStore;
     private readonly bool isTlsUpgradeAvailable;
     private readonly Dictionary<string, Func<byte[]?, ValueTask<bool>>> commands;
+    private readonly MailUpstreamTestCaseReplies? caseReplies;
     private byte[]? heloDomain;
     private bool isExtendedHello;
     private PasswordLoginVerdict? mailLoginVerdict;
     private bool isLoggedIn;
     private SmtpMailTransaction? transaction;
 
-    public SmtpSession(IConnection connection, ExchangeContext context, CrlfLineReader reader, IAuthenticationPolicy authenticationPolicy, IMailAuthenticationPolicy mailAuthenticationPolicy, MailboxStore mailStore, bool isTlsUpgradeAvailable)
+    public SmtpSession(IConnection connection, ExchangeContext context, CrlfLineReader reader, IAuthenticationPolicy authenticationPolicy, IMailAuthenticationPolicy mailAuthenticationPolicy, MailboxStore mailStore, bool isTlsUpgradeAvailable, MailUpstreamTestCaseReplies? caseReplies = null)
     {
         this.connection = connection;
         this.context = context;
@@ -63,6 +64,12 @@ internal sealed class SmtpSession
         {
             commands[verb] = _ => ReplyAsync(SmtpReplies.NotImplemented);
         }
+
+        this.caseReplies = caseReplies;
+        if (caseReplies is not null)
+        {
+            AnswerAsTheUpstreamTestCaseSays(caseReplies);
+        }
     }
 
     private CancellationToken CancellationToken => context.CancellationToken;
@@ -81,7 +88,7 @@ internal sealed class SmtpSession
     {
         try
         {
-            await WriteLineAsync(SmtpReplies.Greeting, CancellationToken);
+            await GreetAsync();
             while (await AnswerNextLineAsync())
             {
             }
@@ -101,9 +108,17 @@ internal sealed class SmtpSession
             return await AnswerNoLineAsync(read.Outcome);
         }
 
-        return SmtpCommandLine.TryParse(line, out var command) && commands.TryGetValue(command!.Verb, out var answer)
-            ? await answer(command.Argument)
-            : await ReplyAsync(SmtpReplies.NotRecognized);
+        if (caseReplies is not null && await AnswerFromTheUpstreamTestCaseAsync(caseReplies, line))
+        {
+            return true;
+        }
+
+        if (!SmtpCommandLine.TryParse(line, out var command) || !commands.TryGetValue(command!.Verb, out var answer))
+        {
+            return await ReplyAsync(SmtpReplies.NotRecognized);
+        }
+
+        return await AnswerUnlessFaultedAsync(command, answer);
     }
 
     private async ValueTask<bool> AnswerNoLineAsync(CrlfLineReadOutcome outcome)
@@ -132,7 +147,7 @@ internal sealed class SmtpSession
         heloDomain = argument;
         isExtendedHello = isExtended;
         transaction = null;
-        foreach (var line in isExtended ? EhloReplyLines() : [SmtpReplies.HeloAccepted])
+        foreach (var line in !isExtended ? [SmtpReplies.HeloAccepted] : caseReplies is null ? EhloReplyLines() : UpstreamTestCaseEhloReplyLines(caseReplies))
         {
             await WriteLineAsync(line, CancellationToken);
         }
@@ -192,7 +207,7 @@ internal sealed class SmtpSession
     // that carries no credentials (ADR-0053, decision 3).
     private async ValueTask<bool> IsMailAllowedAsync()
     {
-        if (isLoggedIn)
+        if (isLoggedIn || caseReplies is not null)
         {
             return true;
         }
@@ -232,16 +247,17 @@ internal sealed class SmtpSession
             return SmtpReplies.InvalidRecipient;
         }
 
-        if (to!.Parameters.Count > 0)
-        {
-            return SmtpReplies.UnsupportedParameter;
-        }
+        return to!.Parameters.Count > 0 ? SmtpReplies.UnsupportedParameter : AcceptRecipient(transaction, to.Path, lookup, recipient);
+    }
 
+    // A readable recipient with no parameters: refused outside every domain or past the limit, else added.
+    private string AcceptRecipient(SmtpMailTransaction transaction, string path, MailRecipientLookup lookup, MailRecipient? recipient)
+    {
         // Surl never sends mail onward: a recipient outside every --mail-domain is refused,
         // whatever the session's login (ADR-0102, decision 1.1).
         if (lookup == MailRecipientLookup.RelayingDenied)
         {
-            context.Log.Note($"RCPT {SmtpLogText.Render(Encoding.UTF8.GetBytes(to.Path))} refused: outside every --mail-domain");
+            context.Log.Note($"RCPT {SmtpLogText.Render(Encoding.UTF8.GetBytes(path))} refused: outside every --mail-domain");
             return SmtpReplies.RelayingDenied;
         }
 
@@ -250,7 +266,7 @@ internal sealed class SmtpSession
             return SmtpReplies.TooManyRecipients;
         }
 
-        transaction.AddRecipient(to.Path, recipient);
+        transaction.AddRecipient(path, recipient);
         return SmtpReplies.RecipientAccepted;
     }
 
@@ -386,6 +402,7 @@ internal sealed class SmtpSession
         isExtendedHello = false;
         mailLoginVerdict = null;
         isLoggedIn = false;
+        accountName = null;
         transaction = null;
         return true;
     }
@@ -432,6 +449,7 @@ internal sealed class SmtpSession
             if (step.Outcome != SaslLoginOutcome.Challenge)
             {
                 isLoggedIn = step.Outcome is SaslLoginOutcome.Accepted or SaslLoginOutcome.AcceptedUnchecked;
+                accountName = step.AccountName;
                 return await ReplyAsync(SmtpReplies.LoginEnded(step.Outcome));
             }
 

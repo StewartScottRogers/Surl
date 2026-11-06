@@ -204,7 +204,7 @@ internal sealed partial class RtspRequestResponder
 
         return verdict.Outcome switch
         {
-            HttpAuthenticationOutcome.Proceed => AnswerMethodAsync(head, cseq),
+            HttpAuthenticationOutcome.Proceed => AnswerLetInRequestAsync(head, cseq, verdict.AccountName),
             HttpAuthenticationOutcome.Challenge => RefuseAsync(RtspStatus.Unauthorized, cseq, head.Method, "a login is needed"),
             _ => RefuseAsync(RtspStatus.Forbidden, cseq, head.Method, "the authentication policy forbade the request"),
         };

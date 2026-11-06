@@ -5,7 +5,7 @@ priority: Normal
 assignee: Claude
 pipeline: feature
 depends-on: [BL-376]
-touches: [Surl.slnx, Cryptography/Surl.Cryptography.MlKem.UnitLibrary, Cryptography/Surl.Cryptography.MlKem.UnitTests, Cryptography/Surl.Tls13.UnitLibrary, Cryptography/Surl.Tls13.UnitTests, Foundation/Surl.Protocol.Abstractions.UnitTests]
+touches: [Surl.slnx, Cryptography/Surl.Cryptography.MlKem.UnitLibrary, Cryptography/Surl.Cryptography.MlKem.UnitTests, Cryptography/Surl.Tls13.UnitLibrary, Cryptography/Surl.Tls13.UnitTests, Foundation/Surl.Protocol.Abstractions.UnitTests, Protocols/Http/Surl.Quic.UnitTests, Protocols/Http/Surl.Http3.UnitTests, Protocols/Lookup/Surl.Extended.Protocol.DnsQuery.UnitTests]
 requirement: FR-055
 created: 2026-11-04
 completed:
@@ -54,7 +54,43 @@ whenever the client sends a key share for it. Every measured upstream curl build
 
 ## Notes
 
+- 2026-11-06 (lane 9, first run): the work is written and was left uncommitted for the shift
+  to stash, because the task went back to Backlog (see below). What it holds:
+  - `Surl.Cryptography.MlKem.UnitLibrary`: hand-built Keccak-f[1600] and sponge (`Keccak`,
+    `KeccakSponge`, `Sha3`: SHA3-256, SHA3-512, SHAKE128, SHAKE256), `MlKemPolynomial` (FIPS 203
+    Algorithms 5 to 12), `KPke` (13 to 15) and the public `MlKem768` (`GenerateKey`,
+    `TryEncapsulate` with the section 7.2 modulus check, `TryDecapsulate` with the section 7.3
+    hash check and a branch-free implicit-rejection select). Its 24 tests pass: NIST ACVP
+    vectors (keyGen, encapsulation, decapsulation valid and modified, both key checks) embedded
+    as `Fixtures/Acvp/ML-KEM-768.json`, downloaded from
+    https://github.com/usnistgov/ACVP-Server/tree/master/gen-val/json-files, and NIST's SHA-3
+    example values. Still to do: measure line and branch coverage of both libraries.
+  - `Surl.slnx` lines, the `ProtocolIsolationTests` `[MlKem] = []` row and its data rows, and
+    `Surl.Tls13`'s project reference.
+  - `Surl.Tls13`: `GroupPreference` starts with X25519MLKEM768; `TlsKeyExchange` serves it. All
+    149 Tls13 tests pass, including the recorded ClientHellos selecting X25519MLKEM768 with a
+    1120-byte server share and the test client finishing, and an x25519-only share still
+    getting x25519 without a HelloRetryRequest.
+- Choice (sensible default): the server draws its randomness in share order - the server
+  random, then ML-KEM's 32-byte m, then the x25519 private key - so a scripted
+  `RandomNumberGenerator` fixes the whole ServerHello.
+- Choice: with X25519MLKEM768 in `supported_groups` but no share for any served group, the
+  HelloRetryRequest names X25519MLKEM768, because ADR-0082 decision 3 says "the first group in
+  that order that the client's supported_groups lists".
+- Why it went back to Backlog: once the server prefers X25519MLKEM768, the test-side QUIC
+  clients that replay upstream curl's recorded ClientHello break. They swap in their own x25519
+  share only and expect x25519 back: 150 failures in `Surl.Quic.UnitTests`, 41 in
+  `Surl.Http3.UnitTests`, 70 in `Surl.Protocol.Http.UnitTests` and 64 in
+  `Surl.Extended.Protocol.WebTransport.UnitTests` (the last two link Http3's
+  `UnitTestQuicClient.cs` and `UnitTestTls13Client.cs`), and 23 in
+  `Surl.Extended.Protocol.DnsQuery.UnitTests`. The fix: teach each `UnitTestTls13Client` an
+  X25519MLKEM768 share, the way `Surl.Tls13.UnitTests`' `UnitTestTlsClient.WithX25519MlKem768Share`
+  now does, and have `ReplaceKeyShare` replace the 1216-byte share. `touches` gains the three
+  test projects that own those files. `Surl.Http3.UnitTests` is held by BL-894 on lane 7.
+
 ## Log
 
 - 2026-11-04: Created.
 - 2026-11-04: Filed by BL-372 (ADR-0082 decision 3).
+- 2026-11-05: Backlog -> Doing.
+- 2026-11-06: Doing -> Backlog. Needs Protocols/Http/Surl.Http3.UnitTests, which BL-894 holds on lane 7: its test QUIC client must answer the X25519MLKEM768 share the server now prefers

@@ -31,6 +31,9 @@ internal static class ImapResponses
     public const string InvalidSequenceNumber = "BAD Invalid message sequence number";
     public const string BadCharset = "NO [BADCHARSET (US-ASCII UTF-8)] Unsupported charset";
     public const string ReadFailed = "NO [SERVERBUG] Could not read the message";
+
+    // What a chosen-error fault rule with no reply answers; the rule reader and Surl.Api always give one.
+    public const string FaultWithoutReply = "NO [UNAVAILABLE] Local error in processing";
     public const string SystemFlags = @"(\Answered \Flagged \Deleted \Seen \Draft)";
     public const string Namespace = "* NAMESPACE ((\"\" \"/\")) NIL NIL";
     public const string NamespaceWithShared = "* NAMESPACE ((\"\" \"/\")) NIL ((\"Shared/\" \"/\"))";

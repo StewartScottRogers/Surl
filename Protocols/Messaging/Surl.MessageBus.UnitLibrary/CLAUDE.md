@@ -138,7 +138,7 @@ What it holds now (BL-629):
   accepts a bus holding only its still-empty declarations. `MessageBus.Names` is the
   `TopicNameLookup` every server maps through (ADR-0100's planned `ITopicNameLookup`): the
   default mapping for its scheme (`mqtt`, `mqtt5`, `amqp`, `amqp1`, `kafka`, `nats`, `stomp`
-  and their TLS twins; Redis waits for BL-678), with each `TopicMap` (`--topic-map`) alias of
+  and their TLS twins, and `mqtt5+ws`; Redis waits for BL-678), with each `TopicMap` (`--topic-map`) alias of
   one exact name applied both ways; a default name aliased elsewhere is `Unreachable` outbound.
   `TopicAccessGrant`s (`--topic-access`): with none, everyone may do everything; with any, a
   caller needs a grant to its account or `@everyone`. The caller is an account name, `null`
@@ -149,7 +149,8 @@ What it holds now (BL-629):
   `$queue/<name>`, its name one level, `pub` to send to it and `sub` to consume. A refusal is
   `AccessDenied`, checked before anything that would tell whether the topic or queue exists.
   `GetTopicAccess(account, topic)` answers a caller's `pub` and `sub` rights on one topic
-  without touching it, as Kafka's Metadata needs (BL-518). BL-704 adds these choices to ADR-0102.
+  without touching it, as Kafka's Metadata needs (BL-518). ADR-0102 decision 3.5 records these
+  choices (BL-704).
 
 - **Events and the out-of-space fault (BL-790, ADR-0124 decisions 1 and 4).** The constructor's
   optional `ISurlEventPublisher` and `IFaultPlan` default to the discarding publisher and the

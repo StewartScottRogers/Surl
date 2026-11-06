@@ -140,3 +140,37 @@ each prefixed with its two-byte big-endian length. The HTTP/3 tests' QUIC client
 own x25519 key share in place of curl's. The HTTP/3 frames the tests send after the handshake are
 written from RFC 9114 and RFC 9204: the recorder answers nothing, so no curl has yet sent a
 request stream to Surl; BL-385 records curl's against a live `surl`.
+
+## Range and PUT fixtures (BL-723)
+
+Recorded on 2026-11-05 from the repository root in PowerShell, with the same pinned build (ADR-0133).
+`response.bin` is the decoded `-Response` each case was fed, which the tests compare the server's
+output with; the clock and `file.txt` are those of the response fixtures above, and every case exited
+0 with an empty `stderr.txt`. `<lm>` is `Tue, 01 Sep 2026 08:30:00 GMT`, `<head>` is
+`HTTP/1.1 206 Partial Content\r\nDate: Mon, 28 Sep 2026 12:00:00 GMT\r\nServer: surl\r\nLast-Modified: <lm>\r\nContent-Type: application/octet-stream\r\n`,
+and `<upload>` is a 16-byte file of `a` bytes in the temporary directory. In the `put-*` cases curl
+sent the 16-byte body with the head, and no `Expect`.
+
+| Folder | stdout.bin | Command line |
+| --- | --- | --- |
+| `range-206` | `Hello from` | `.\Record-CurlExchange.ps1 -Port 18723 -OutDirectory <folder> -Response '<head>Content-Range: bytes 0-9/17\r\nContent-Length: 10\r\n\r\nHello from' -CurlArgs '-sS','-r','0-9','http://127.0.0.1:18723/file.txt'` |
+| `range-suffix-206` | `url.\n` | `... -Response '<head>Content-Range: bytes 12-16/17\r\nContent-Length: 5\r\n\r\nurl.\n' -CurlArgs '-sS','-r','-5','http://127.0.0.1:18723/file.txt'` |
+| `range-unsatisfiable-416` | empty | `... -Response 'HTTP/1.1 416 Range Not Satisfiable\r\nDate: Mon, 28 Sep 2026 12:00:00 GMT\r\nServer: surl\r\nContent-Range: bytes */17\r\nContent-Length: 0\r\n\r\n' -CurlArgs '-sS','-r','100-200','http://127.0.0.1:18723/file.txt'` |
+| `range-multiple-200` | the 17-byte file | `... -Response` the `get-file` response `-CurlArgs '-sS','-r','0-1,3-4','http://127.0.0.1:18723/file.txt'` |
+| `range-if-range-206` | `Hello from` | `... -Response` as `range-206` `-CurlArgs '-sS','-r','0-9','-H','If-Range: <lm>','http://127.0.0.1:18723/file.txt'` |
+| `put-created-201` | empty | `... -Response 'HTTP/1.1 201 Created\r\nDate: Mon, 28 Sep 2026 12:00:00 GMT\r\nServer: surl\r\nContent-Length: 0\r\n\r\n' -CurlArgs '-sS','--fail','-u','user:secret','-T','<upload>','http://127.0.0.1:18723/up.bin'` |
+| `put-replaced-204` | empty | `... -Response 'HTTP/1.1 204 No Content\r\nDate: Mon, 28 Sep 2026 12:00:00 GMT\r\nServer: surl\r\n\r\n' -CurlArgs` as `put-created-201` |
+
+## Chosen-error fault fixtures (BL-793)
+
+Recorded on 2026-11-05 from the repository root in PowerShell with the same pinned build (ADR-0134
+decision 1). `response.bin` is the decoded `-Response`, concatenated in order for the two answers of
+`fault-503-then-get`, and is what `HttpProtocolServer` sends when a fault rule chooses `503` for `/a`.
+
+| Folder | Exit code | stdout.bin | Command line |
+| --- | --- | --- | --- |
+| `fault-503-then-get` | 0 | the 17-byte body of `/b`; both requests on one connection | `.\Record-CurlExchange.ps1 -Port 18793 -ResponsesPerConnection 2 -OutDirectory <folder> -Response 'HTTP/1.1 503 Service Unavailable\r\nDate: Mon, 28 Sep 2026 12:00:00 GMT\r\nServer: surl\r\nContent-Length: 0\r\n\r\n','HTTP/1.1 200 OK\r\nDate: Mon, 28 Sep 2026 12:00:00 GMT\r\nServer: surl\r\nLast-Modified: Tue, 01 Sep 2026 08:30:00 GMT\r\nContent-Type: application/octet-stream\r\nContent-Length: 17\r\n\r\nHello from Surl.\n' -CurlArgs '-sS','http://127.0.0.1:18793/a','http://127.0.0.1:18793/b'` |
+| `fault-503-fail` | 22 | empty; stderr `curl: (22) The requested URL returned error: 503` | `.\Record-CurlExchange.ps1 -Port 18793 -OutDirectory <folder> -Response 'HTTP/1.1 503 Service Unavailable\r\nDate: Mon, 28 Sep 2026 12:00:00 GMT\r\nServer: surl\r\nContent-Length: 0\r\n\r\n' -CurlArgs '-sS','--fail','http://127.0.0.1:18793/a'` |
+
+The same build also exited 0 with `-w '%{response_code}'` printing `599` for `HTTP/1.1 599 \r\n...`, an empty
+reason phrase (not kept as a fixture).

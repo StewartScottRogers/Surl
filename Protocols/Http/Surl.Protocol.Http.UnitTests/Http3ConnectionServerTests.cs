@@ -85,7 +85,7 @@ public sealed partial class Http3ConnectionServerTests
 
         var response = client.Response(0);
         Assert.AreEqual("405", response.Status);
-        CollectionAssert.Contains(response.RegularFields, "allow: GET, HEAD");
+        CollectionAssert.Contains(response.RegularFields, "allow: GET, HEAD, PUT");
         Assert.IsTrue(response.Fin);
         Assert.AreEqual(H3NoError, client.StopSendingCode(0), "RFC 9114 section 4.1: the body left unread is stopped H3_NO_ERROR.");
         Assert.IsNull(client.CloseCode);

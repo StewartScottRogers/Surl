@@ -39,6 +39,9 @@ internal sealed class AzureBlobRequestAnswerer : IHttpRequestHandler
     private readonly AzureBlobPropertiesReader properties;
     private readonly AzurePutBlob putBlob;
     private readonly AzureListBlobs listBlobs;
+    private readonly AzurePutBlock putBlock;
+    private readonly AzurePutBlockList putBlockList;
+    private readonly AzureGetBlockList getBlockList;
 
     /// <summary>
     /// Creates the answerer for one exchange.
@@ -48,7 +51,8 @@ internal sealed class AzureBlobRequestAnswerer : IHttpRequestHandler
     /// <param name="authentication">The connection's authentication session.</param>
     /// <param name="context">The exchange: its clock and log.</param>
     /// <param name="endpointScheme">How the connection is served, <c>https</c> or <c>http</c>.</param>
-    public AzureBlobRequestAnswerer(ContentStore store, ObjectMetadataIndex index, IHttpAuthenticationSession authentication, ExchangeContext context, string endpointScheme)
+    /// <param name="staging">The server's staged uploads, where Put Block keeps blocks until Put Block List commits them.</param>
+    public AzureBlobRequestAnswerer(ContentStore store, ObjectMetadataIndex index, IHttpAuthenticationSession authentication, ExchangeContext context, string endpointScheme, AzureStagingArea staging)
     {
         this.store = store;
         login = new AzureLoginJudge(authentication, AzureStorageProtocolServer.BlobScheme, AzureStorageProtocolServer.PeerAddressOf(context));
@@ -56,6 +60,9 @@ internal sealed class AzureBlobRequestAnswerer : IHttpRequestHandler
         properties = new AzureBlobPropertiesReader(store, index, context.Log);
         putBlob = new AzurePutBlob(store, index, context.Log);
         listBlobs = new AzureListBlobs(store, properties, endpointScheme);
+        putBlock = new AzurePutBlock(store, putBlob, staging);
+        putBlockList = new AzurePutBlockList(store, putBlob, staging);
+        getBlockList = new AzureGetBlockList(store, properties, staging);
     }
 
     /// <inheritdoc/>
@@ -102,6 +109,9 @@ internal sealed class AzureBlobRequestAnswerer : IHttpRequestHandler
             AzureOperation.ListBlobs => await listBlobs.AnswerAsync(reply, request, target, caller, cancellationToken),
             AzureOperation.PutBlob => await putBlob.AnswerAsync(reply, request, target, caller, cancellationToken),
             AzureOperation.DeleteBlob => DeleteBlob(reply, target, caller),
+            AzureOperation.PutBlock => await putBlock.AnswerAsync(reply, request, target, caller, cancellationToken),
+            AzureOperation.PutBlockList => await putBlockList.AnswerAsync(reply, request, target, caller, cancellationToken),
+            AzureOperation.GetBlockList => await getBlockList.AnswerAsync(reply, target, caller, cancellationToken),
             _ => await ReadBlobAsync(reply, request, target, caller, cancellationToken),
         };
     }

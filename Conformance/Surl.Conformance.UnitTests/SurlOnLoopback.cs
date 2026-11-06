@@ -112,6 +112,21 @@ internal sealed class SurlOnLoopback : IAsyncDisposable
         StartServingAsync(null, [.. options, $"{scheme}://127.0.0.1:0/"], cancellationToken);
 
     /// <summary>
+    /// Starts one surl listening on <c><em>scheme</em>://127.0.0.1:0/</c> for each of
+    /// <paramref name="schemes"/>, in order, with <paramref name="options"/> and no
+    /// <c>--directory</c>, so every listener shares one new, empty in-memory store, returning
+    /// once surl has written a status line for every listener; <see cref="BaseUrls"/> holds
+    /// each listener's URL.
+    /// </summary>
+    public static Task<SurlOnLoopback> StartInMemoryAsync(
+        IReadOnlyList<string> schemes, IReadOnlyList<string> options, CancellationToken cancellationToken) =>
+        StartServingAsync(
+            null,
+            [.. options, .. schemes.Select(scheme => $"{scheme}://127.0.0.1:0/")],
+            cancellationToken,
+            schemes.Count);
+
+    /// <summary>
     /// Starts surl on <c><paramref name="scheme"/>://127.0.0.1:0/</c> with
     /// <paramref name="options"/> and <c>--directory <paramref name="dataDirectory"/></c>, an existing directory the caller
     /// owns, returning once surl has written its status line. Disposing it stops surl and

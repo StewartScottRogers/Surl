@@ -27,11 +27,18 @@ internal static class CommandLinePathMembers
         new(nameof(SurlCommandLine.HostKeyFiles), "--hostkey", commandLine => commandLine.HostKeyFiles),
         new(nameof(SurlCommandLine.HostCertificateFiles), "--hostcert", commandLine => commandLine.HostCertificateFiles),
         new(nameof(SurlCommandLine.AuthorizedKeys), "--authorized-keys", commandLine => commandLine.AuthorizedKeys.Select(keys => keys.File)),
+        new(nameof(SurlCommandLine.MailboxFiles), "--mailbox-file", commandLine => commandLine.MailboxFiles),
+        new(nameof(SurlCommandLine.ControlTokenFile), "--control-token-file", commandLine => OneOrNone(commandLine.ControlTokenFile)),
     ];
 
-    /// <summary>Every member that holds no local path.</summary>
+    /// <summary>
+    /// Every member that holds no local path, or none the root check does not already read through another member:
+    /// <see cref="SurlCommandLine.UnixSocket"/>'s socket file is also set on its listen URL, which
+    /// <see cref="SurlCommandLine.ListenUrls"/>' row reads.
+    /// </summary>
     public static FrozenSet<string> MembersWithoutPaths { get; } = FrozenSet.ToFrozenSet(
     [
+        nameof(SurlCommandLine.UnixSocket),
         nameof(SurlCommandLine.LogLevel),
         nameof(SurlCommandLine.ShowError),
         nameof(SurlCommandLine.TraceLayout),
@@ -52,7 +59,10 @@ internal static class CommandLinePathMembers
         nameof(SurlCommandLine.KeyPassphrase),
         nameof(SurlCommandLine.Accounts),
         nameof(SurlCommandLine.Groups),
+        nameof(SurlCommandLine.MailDomains),
+        nameof(SurlCommandLine.Mailboxes),
         nameof(SurlCommandLine.Faults),
+        nameof(SurlCommandLine.ControlListenUrl),
         nameof(SurlCommandLine.AllowAnonymous),
         nameof(SurlCommandLine.AllowPlaintextAuthentication),
         nameof(SurlCommandLine.GivenAuthenticationMethods),

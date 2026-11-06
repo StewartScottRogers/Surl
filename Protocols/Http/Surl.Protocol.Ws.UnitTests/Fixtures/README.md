@@ -45,3 +45,14 @@ show a client `PONG` is ignored (ADR-0071 decision 6).
 The other refusal cases (no `Host`, `HTTP/1.0`, no `Upgrade`, no `Connection: Upgrade`, a body,
 a missing or malformed key, a missing version, an unknown path) are the recorded `upgrade-101`
 request with one line changed by the test, since curl does not send them on its own.
+
+## Chosen close (BL-793)
+
+Recorded on 2026-11-05 the same way (ADR-0134 decision 3), with `$h` the `101` above:
+
+| Folder | Reply | curl arguments | Exit |
+| --- | --- | --- | --- |
+| `fault-close-1013` | `$h\x88\x0B\x03\xF5try later` | `-sS`, `ws://127.0.0.1:18301/chat` | 0 |
+
+curl wrote the `CLOSE` payload (`\x03\xF5try later`) to `stdout.bin`. A `CLOSE` with `1011` and no reason
+(`$h\x88\x02\x03\xF3`) also exited 0.

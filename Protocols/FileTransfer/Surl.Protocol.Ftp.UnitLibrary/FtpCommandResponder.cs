@@ -174,7 +174,7 @@ internal sealed partial class FtpCommandResponder : IAsyncDisposable
         }
 
         return commands.TryGetValue(commandLine.Command, out var answer)
-            ? answer(commandLine.Argument)
+            ? AnswerUnlessAFaultAnswersAsync(commandLine, answer)
             : ReplyAsync(CommandNotImplemented);
     }
 
@@ -233,6 +233,7 @@ internal sealed partial class FtpCommandResponder : IAsyncDisposable
         if (verdict == PasswordLoginVerdict.Accepted)
         {
             contentCaller = ContentCaller.ForAccount(sentUserName, context.Scheme);
+            loggedInAccount = sentUserName;
         }
 
         return await ReplyAsync(LoginReply(verdict));

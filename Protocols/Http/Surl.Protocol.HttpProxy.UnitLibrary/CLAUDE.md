@@ -1,9 +1,24 @@
 # Surl.Protocol.HttpProxy.UnitLibrary
 
 The HTTP proxy server: what curl's `-x`/`--proxy` and `-p`/`--proxytunnel` talk to. Decided in
-ADR-0088 (decisions 1 to 4 and 7's limits) and its Amendment 1. Built by BL-552; the
-`Proxy-Authorization` checks (BL-553), the HTTPS proxy (BL-554), the command line and composition
-(BL-555) and the upstream cases' server half (BL-556) are still to come, so nothing composes it yet.
+ADR-0088 (decisions 1 to 6 and 7's limits) and its Amendments 1 to 4. Built by BL-552, BL-554 (the
+HTTPS proxy), BL-553 (`Proxy-Authorization`) and BL-594 (`ftp://` forwarding); the command line and composition (BL-555) and
+the upstream cases' server half (BL-556) are still to come, so nothing composes it yet.
+
+**Proxy login** (Amendment 3) is `HttpProxyExchange.Login.cs`: one `IHttpAuthenticationSession`
+per curl connection, from the `IAuthenticationPolicy` the two-argument constructor takes (the
+one-argument constructor passes `AnonymousAuthenticationPolicy`: no proxy account, no login).
+Every request and `CONNECT` is judged after the `Host` check and before anything else, with
+`Authorization` removed and `Proxy-Authorization` read as `Authorization`
+(`ProxyFieldRules.ProxyLoginFields`), and as the target what curl puts in a Digest `uri`: a
+`CONNECT`'s authority, an absolute-form request's path and query. A challenge is `407` with one
+`Proxy-Authenticate` per value and keeps the connection; `Forbidden` is `403` and closes.
+
+**The HTTPS proxy** is this same server on a connection the serving engine secured before
+`ServeAsync` (an `https` listen URL with `ListenUrl.IsProxy`, whose listener offers ALPN
+`http/1.1` only). `HttpProxyExchange` notes the TLS once before the first request; a session that
+agreed any ALPN but `http/1.1` is closed unwritten (Amendment 2). `HttpProxyProtocolServerTlsTests`
+drive it with an `InMemoryConnection` given an initial `TlsSession`.
 
 **Listen URL schemes:** `http`, `https` - but the proxy is chosen by `--proxy`, not by scheme.
 
@@ -16,6 +31,10 @@ What exists:
   `HttpConnectionReader`, keeps one `OriginLink` between requests. `HttpProxyExchange.Forwarding.cs`
   forwards absolute-form `http://` requests (origin-form, `Host` from the authority, bodies,
   `Expect: 100-continue`, interim responses, `101`, the one reconnect, the relayed response);
+  `HttpProxyExchange.Ftp.cs` fetches an `ftp://` `GET` over FTP (Amendment 4) through
+  `FtpControlConnection` (the control connection's commands and replies) and `FtpFetch` (the
+  login, path, type and transfer command read from the request), the data connection opened
+  passively to the origin's own host, and answers `200` chunked, `502` or `504`;
   `HttpProxyExchange.Connect.cs` answers `CONNECT` with exactly
   `HTTP/1.1 200 Connection established\r\n\r\n` and tunnels.
 - `ProxyTarget` - absolute-form and authority-form targets. `ProxyFieldRules` - the fields removed
@@ -28,8 +47,9 @@ What exists:
 upstream curl 8.21.0 with the recorder playing the proxy; its README says how each was recorded.
 
 This library references `Surl.Protocol.Abstractions.UnitLibrary` and `Surl.HttpMessage.UnitLibrary`
-only. ADR-0088 also allows `Surl.Authentication.UnitLibrary`, which BL-553 adds together with the
-isolation test's row for it. Referencing another protocol server is a build break, and
+only. ADR-0088 also allows `Surl.Authentication.UnitLibrary`, but the proxy reaches its checks
+through `IAuthenticationPolicy` as the HTTP server does, so it needs no reference (Amendment 3).
+Referencing another protocol server is a build break, and
 `Surl.Protocol.Abstractions.UnitTests` fails if one appears.
 
 Never construct a `Socket`, `TcpListener`, `UdpClient`, `SslStream` or `HttpListener` here: curl's

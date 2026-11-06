@@ -26,7 +26,7 @@ namespace Surl.Extended.Protocol.AzureStorage;
 /// <param name="properties">Reads the flushed file's properties.</param>
 /// <param name="staging">The server's staged appends.</param>
 /// <param name="log">Where a failure to rewrite the index file is noted.</param>
-internal sealed class AzurePathUpdate(ContentStore store, ObjectMetadataIndex index, AzureBlobPropertiesReader properties, AzurePathStagingArea staging, IExchangeLog log)
+internal sealed class AzurePathUpdate(ContentStore store, ObjectMetadataIndex index, AzureBlobPropertiesReader properties, AzureStagingArea staging, IExchangeLog log)
 {
     private static readonly KeyValuePair<string, string>[] NoBody = [new("Content-Length", "0")];
 
@@ -148,7 +148,7 @@ internal sealed class AzurePathUpdate(ContentStore store, ObjectMetadataIndex in
     private async Task<HttpAnswer> AppendAsync(AzureReply reply, HttpRequest request, AzureBlobTarget target, ContentPathMapping mapping, long position, CancellationToken cancellationToken)
     {
         var key = KeyOf(target);
-        var staged = staging.Find(key) ?? await BeginStagingAsync(key, mapping, cancellationToken);
+        var staged = staging.Find<AzureStagedPath>(key) ?? await BeginStagingAsync(key, mapping, cancellationToken);
         if (staged is null)
         {
             return reply.Error(AzureRefusal.Of(AzureError.ServerBusy));
@@ -213,7 +213,7 @@ internal sealed class AzurePathUpdate(ContentStore store, ObjectMetadataIndex in
     private async Task<HttpAnswer> FlushAsync(AzureReply reply, AzureBlobTarget target, ContentPathMapping mapping, long position, CancellationToken cancellationToken)
     {
         var key = KeyOf(target);
-        var staged = staging.Find(key);
+        var staged = staging.Find<AzureStagedPath>(key);
         if (staged is null ? position != store.GetFileStatus(mapping)!.Length : !staged.Reaches(position))
         {
             return reply.Error(AzureRefusal.Of(AzureError.InvalidFlushPosition));

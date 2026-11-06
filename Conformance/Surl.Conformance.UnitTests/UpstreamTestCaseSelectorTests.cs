@@ -244,6 +244,25 @@ public sealed class UpstreamTestCaseSelectorTests
     }
 
     [TestMethod]
+    public void ForClient_PortVersionLackingSmb_SkipsAnSmbCaseAndRunsAnHttpCase()
+    {
+        var report = CurlVersionReport.Parse(CurlVersionReportTests.PortVersionOutput);
+        var selector = new UpstreamTestCaseSelector(UpstreamTestCaseSelectionRules.ForClient(report, new HashSet<int>()));
+
+        Assert.AreEqual("protocol-missing:smb", selector.FindSkipReason(Number, Case(client: Server("smb"))));
+        Assert.IsNull(selector.FindSkipReason(Number, Case(client: Server("http") + Features("SSL", "Schannel", "brotli"))));
+    }
+
+    [TestMethod]
+    public void ForClient_NullArguments_Throw()
+    {
+        var report = CurlVersionReport.Parse(CurlVersionReportTests.PortVersionOutput);
+
+        Assert.ThrowsExactly<ArgumentNullException>(() => UpstreamTestCaseSelectionRules.ForClient(null!, new HashSet<int>()));
+        Assert.ThrowsExactly<ArgumentNullException>(() => UpstreamTestCaseSelectionRules.ForClient(report, null!));
+    }
+
+    [TestMethod]
     public void ForBuild_NullArguments_Throw()
     {
         var pin = ReferencePins()[0];
@@ -259,7 +278,9 @@ public sealed class UpstreamTestCaseSelectorTests
 
         Assert.IsTrue(rules.SupportsServerCommand("ftp", "REPLY"));
         Assert.IsFalse(rules.SupportsServerCommand("ftp", "DELAY"));
-        Assert.IsFalse(rules.SupportsServerCommand("smtp", "REPLY"));
+        Assert.IsTrue(rules.SupportsServerCommand("smtp", "REPLY"));
+        Assert.IsFalse(rules.SupportsServerCommand("smtp", "SLOWDOWN"));
+        Assert.IsFalse(rules.SupportsServerCommand("imaps", "REPLY"));
         Assert.IsTrue(rules.SupportsServerCommand("http", "writedelay:"));
         Assert.IsFalse(rules.SupportsServerCommand("http", "upgrade"));
         Assert.IsTrue(rules.SupportsStripLine("strip", "^Date:"));

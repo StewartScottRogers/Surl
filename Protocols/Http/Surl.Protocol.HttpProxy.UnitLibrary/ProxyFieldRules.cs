@@ -110,6 +110,19 @@ internal static class ProxyFieldRules
     }
 
     /// <summary>
+    /// The fields the proxy's login check judges (ADR-0088 decision 5): the request's own fields,
+    /// with each <c>Authorization</c> removed - it is the origin's login, not the proxy's - and
+    /// each <c>Proxy-Authorization</c> renamed <c>Authorization</c>, so the same checks the HTTP
+    /// server asks about <c>Authorization</c> judge the proxy's credentials.
+    /// </summary>
+    /// <param name="fields">The request's fields, as curl sent them.</param>
+    /// <returns>The fields as the authentication session reads them, in order.</returns>
+    public static KeyValuePair<string, string>[] ProxyLoginFields(IReadOnlyList<HttpRequestField> fields) =>
+        fields.Where(field => !IsNamed(field, "Authorization"))
+            .Select(field => new KeyValuePair<string, string>(IsNamed(field, "Proxy-Authorization") ? "Authorization" : field.Name, field.Value))
+            .ToArray();
+
+    /// <summary>
     /// The value of a <c>Max-Forwards</c> field (RFC 9110 section 7.6.2), or
     /// <see langword="null"/> when the request has none or its value is not a number.
     /// </summary>

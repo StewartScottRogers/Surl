@@ -21,7 +21,9 @@ and the listener status line. It references `Surl.Protocol.Abstractions.UnitLibr
   local time, `VerboseExchangeLog.TimestampFormat`; dump rows are never stamped.
 - `ExchangeLogEscaping` renders peer bytes as printable ASCII (the escaped rendering,
   ADR-0006 section 3), so no peer byte reaches a terminal as a control sequence.
-- `ListenerStatusLine` writes `Listening on <scheme>://<host>:<bound port>/` per listen URL.
+- `ListenerStatusLine` writes `Listening on <scheme>://<host>:<bound port>/` per listen URL;
+  one on a Unix domain socket binds no port, so it writes the port asked for and
+  ` over unix://<path>` (or `unix://@<name>`) after it (ADR-0094, decision 6).
 
 Not here: which writer the log goes to (stderr, `--log-file` or a trace file), the startup
 warnings and the throwaway-certificate note - `Surl.Console` (`LogStreams`,

@@ -27,6 +27,23 @@ public sealed class GrpcCallException : Exception
         Status = status;
     }
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="GrpcCallException" /> class whose answer carries
+    /// <paramref name="trailerMetadata" /> beside the status: an <c>UNAUTHENTICATED</c> call's
+    /// <c>www-authenticate</c> values (ADR-0116 decision 7).
+    /// </summary>
+    /// <param name="status">The status the call ends with.</param>
+    /// <param name="trailerMetadata">The metadata sent after the status fields, names lowercase.</param>
+    public GrpcCallException(GrpcStatus status, IReadOnlyList<KeyValuePair<string, string>> trailerMetadata)
+        : base(status.Message)
+    {
+        Status = status;
+        TrailerMetadata = trailerMetadata;
+    }
+
     /// <summary>The status the call ends with.</summary>
     public GrpcStatus Status { get; }
+
+    /// <summary>The metadata the answer carries after its status fields; none unless the constructor was given some.</summary>
+    public IReadOnlyList<KeyValuePair<string, string>> TrailerMetadata { get; } = [];
 }

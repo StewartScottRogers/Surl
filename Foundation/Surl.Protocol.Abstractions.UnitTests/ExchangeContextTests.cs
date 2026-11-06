@@ -142,6 +142,17 @@ public sealed class ExchangeContextTests
         CollectionAssert.AreEqual(new byte[] { 0x2A, 0x2A }, bytes);
     }
 
+    [TestMethod]
+    public void IdleClock_ContextCreatedWithoutOne_IsTheNoIdleClockWhosePauseAndRestartDoNothing()
+    {
+        var context = NewContext();
+
+        context.IdleClock.Pause();
+        context.IdleClock.Restart();
+
+        Assert.AreSame(NoIdleClock.Instance, context.IdleClock);
+    }
+
     private static ExchangeContext NewContext() => NewContext(CancellationToken.None);
 
     private static ExchangeContext NewContext(CancellationToken cancellationToken) => new(

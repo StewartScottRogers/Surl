@@ -28,6 +28,14 @@ public sealed record ListenUrl(string Scheme, string Host, int Port)
     public UnixSocketAddress? UnixSocket { get; init; }
 
     /// <summary>
+    /// Whether this listen URL was named by <c>--proxy</c>, so its listener serves a proxy curl
+    /// reaches with <c>-x</c> rather than an origin (ADR-0088, decisions 6 and 7). An
+    /// <c>https</c> proxy listener offers exactly the ALPN protocol ID <c>http/1.1</c>, where an
+    /// <c>https</c> origin listener offers <c>h2</c> first. <see langword="false"/> unless set.
+    /// </summary>
+    public bool IsProxy { get; init; }
+
+    /// <summary>
     /// Returns a copy of this listen URL with <see cref="BoundPort"/> set. The listener calls
     /// it once it has bound.
     /// </summary>

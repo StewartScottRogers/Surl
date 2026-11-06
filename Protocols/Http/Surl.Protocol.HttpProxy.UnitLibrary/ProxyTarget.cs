@@ -11,14 +11,23 @@ namespace Surl.Protocol.HttpProxy;
 /// <param name="Host">The origin's host: a name, an IPv4 literal, or an IPv6 literal without brackets.</param>
 /// <param name="Port">The origin's port, 1 to 65535.</param>
 /// <param name="OriginForm">The path and query sent to the origin (RFC 9112 section 3.2.1); empty for a <c>CONNECT</c> authority.</param>
-internal sealed record ProxyTarget(string Scheme, string Authority, string Host, int Port, string OriginForm)
+/// <param name="UserInfo">
+/// An <c>ftp</c> target's <c>user:password</c> as the request wrote it, still percent-encoded
+/// (RFC 3986 section 3.2.1); <see langword="null"/> when it names none, and for every other scheme.
+/// </param>
+internal sealed record ProxyTarget(string Scheme, string Authority, string Host, int Port, string OriginForm, string? UserInfo = null)
 {
     private const int HttpDefaultPort = 80;
+
+    private const int FtpDefaultPort = 21;
 
     /// <summary>
     /// Reads an absolute-form request target (RFC 9112 section 3.2.2): <c>scheme://authority</c>
     /// and an optional path and query. A target without a scheme, or with no host, is none.
-    /// The port is the authority's, or 80 when it names none.
+    /// The port is the authority's, or 21 for <c>ftp</c> and 80 for every other scheme when it
+    /// names none. Only an <c>ftp</c> authority may carry userinfo, which upstream curl 8.21.0
+    /// writes there for <c>ftp://user:pass@host/</c> (ADR-0088 Amendment 4); the
+    /// <see cref="Authority"/> of such a target leaves it out.
     /// </summary>
     /// <param name="requestTarget">The request line's target.</param>
     /// <returns>The target, or <see langword="null"/> when it is not absolute-form.</returns>
@@ -30,15 +39,25 @@ internal sealed record ProxyTarget(string Scheme, string Authority, string Host,
             return null;
         }
 
+        var scheme = requestTarget[..schemeEnd].ToLowerInvariant();
         var rest = requestTarget[(schemeEnd + 3)..];
         var pathStart = rest.IndexOfAny(['/', '?']);
-        var authority = pathStart < 0 ? rest : rest[..pathStart];
+        var (userInfo, authority) = SplitUserInfo(scheme, pathStart < 0 ? rest : rest[..pathStart]);
         var path = pathStart < 0 ? "/" : rest[pathStart..];
-        var origin = ParseAuthority(authority, HttpDefaultPort);
+        var origin = ParseAuthority(authority, scheme == "ftp" ? FtpDefaultPort : HttpDefaultPort);
 
         return origin is null
             ? null
-            : new ProxyTarget(requestTarget[..schemeEnd].ToLowerInvariant(), authority, origin.Value.Host, origin.Value.Port, path.StartsWith('?') ? "/" + path : path);
+            : new ProxyTarget(scheme, authority, origin.Value.Host, origin.Value.Port, path.StartsWith('?') ? "/" + path : path, userInfo);
+    }
+
+    // An ftp authority's userinfo, up to its last '@'; every other scheme keeps it in the
+    // authority, where ParseAuthority refuses it.
+    private static (string? UserInfo, string Authority) SplitUserInfo(string scheme, string authority)
+    {
+        var at = scheme == "ftp" ? authority.LastIndexOf('@') : -1;
+
+        return at < 0 ? (null, authority) : (authority[..at], authority[(at + 1)..]);
     }
 
     /// <summary>

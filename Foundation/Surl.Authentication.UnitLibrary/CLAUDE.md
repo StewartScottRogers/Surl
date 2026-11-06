@@ -252,6 +252,26 @@ server starts it with `CanCarrySecurityLayer` (BL-329, below), and is `RefusedMe
 - Tested in `AzureStorageVerifierTests`, which sign the strings to sign written as the pages give
   them, never with the library's own builder.
 
+## Cloud Storage V4 HMAC (BL-430)
+
+- `GoogleV4HmacAuthenticationMethod` checks `Authorization: GOOG4-HMAC-SHA256 …` (ADR-0110
+  decision 3.3) for a request whose `AwsSigV4Service` is `storage` (the `gs` server's).
+  `AuthenticationPolicy.FindServiceSignatureVerifier` picks it for `storage` and only with the
+  `GOOG4-HMAC-SHA256` scheme (`HttpAuthorization.Scheme`); any other Signature Version 4 scheme on
+  `storage` is `UnsupportedScheme`. Every other service keeps `ServiceSignatureVerifier`.
+- It shares `SignatureV4Check` with `AwsSigV4AuthenticationMethod`: the date window, the
+  signature against the account (an unknown access ID checked against the dummy secret), and the
+  body bound to a hex `x-goog-content-sha256` once read. The arithmetic is the provider-generic
+  `AwsSigV4Calculation` with the provider `goog`; `AwsSigV4CanonicalRequest.Build`'s
+  `reencodesPath` is `false`, so the path is signed as received.
+- Its rules: the scope must end `/storage/goog4_request` and `host` be signed
+  (`MalformedCredentials`); the date is `x-goog-date`, else `Date`, in `yyyyMMddTHHmmssZ`, not
+  necessarily signed, since the string to sign carries it (none is `MissingRequestDate`; one that
+  does not read or is not the scope's date `MalformedCredentials`; outside 15 minutes
+  `ClockSkew`); `x-goog-content-sha256` is required (`MissingPayloadHash`).
+- `GoogleV4HmacAuthenticationMethodTests` checks a signed GET worked by hand, every intermediate
+  value in its comments.
+
 ## SSH logins (BL-157)
 
 - `AuthenticationPolicy` implements `ISshAuthenticationPolicy` (ADR-0051, sections 6 and 7).
@@ -387,6 +407,20 @@ server starts it with `CanCarrySecurityLayer` (BL-329, below), and is `RefusedMe
   prohibited-output and bidirectional checks are not made, since they only refuse.
 - `ScramSaslMechanismTests` replays RFC 5802 section 5's and RFC 7677 section 3's examples byte
   for byte.
+
+## SASL `SCRAM-SHA-512` (BL-700)
+
+- `ScramHash.Sha512` (SHA-512, 64-byte keys) runs the same `ScramSaslExchange`, for the Kafka
+  broker (ADR-0105 decision 5). `AuthenticationMethod.ScramSha512` is its own method, declared and
+  offered after `ScramSha256` and before `ScramSha1` (`GSSAPI`, `SCRAM-SHA-256`, `SCRAM-SHA-512`,
+  `SCRAM-SHA-1`, `DIGEST-MD5`, ...): SCRAM-SHA-256 stays the first SCRAM a client picking the first
+  offered sees (the standards-track SCRAM, RFC 7677), and SHA-1 stays last. It is not in
+  `AuthenticationMethods.DefaultAccepted`; `Surl.Cli` and `Surl.Composition` have no `--auth`
+  word for it yet (BL-915), so no server offers it until one is given.
+- Every named account also derives `ScramCredentials` under SHA-512 at start-up and on `Add`.
+- No RFC has a SCRAM-SHA-512 example, so the tests compute the client proof and the expected
+  server signature with RFC 5802 section 3's formulas over the BCL's `HMACSHA512` and `SHA512`,
+  not through `ScramHash`.
 
 ## Per-scheme account views (BL-647)
 

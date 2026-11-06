@@ -36,21 +36,22 @@ public static class MqttTopicNames
     /// </summary>
     /// <returns>The filter and its group, or <see cref="TopicNameMappingOutcome.InvalidName"/>
     /// when the share name is empty or holds <c>+</c> or <c>#</c>, or the filter is invalid.</returns>
-    public static TopicNameMapping ToCanonicalSharedSubscription(string? filter)
-    {
-        if (filter is null || !filter.StartsWith(SharedSubscriptionPrefix, StringComparison.Ordinal))
-        {
-            return ToCanonicalFilter(filter);
-        }
+    public static TopicNameMapping ToCanonicalSharedSubscription(string? filter) =>
+        filter is not null && filter.StartsWith(SharedSubscriptionPrefix, StringComparison.Ordinal)
+            ? ToCanonicalGroupAndFilter(filter[SharedSubscriptionPrefix.Length..])
+            : ToCanonicalFilter(filter);
 
-        var rest = filter[SharedSubscriptionPrefix.Length..];
-        var end = rest.IndexOf('/');
-        var group = end < 0 ? string.Empty : rest[..end];
-        var mapped = ToCanonicalFilter(rest[(end + 1)..]);
-        return group.Length == 0 || group.AsSpan().IndexOfAny('+', '#') >= 0 || !mapped.IsMapped
-            ? Refused(TopicNameMappingOutcome.InvalidName)
-            : mapped with { Group = group };
+    private static TopicNameMapping ToCanonicalGroupAndFilter(string groupAndFilter)
+    {
+        var end = groupAndFilter.IndexOf('/');
+        var group = end < 0 ? string.Empty : groupAndFilter[..end];
+        var mapped = ToCanonicalFilter(groupAndFilter[(end + 1)..]);
+        return IsShareName(group) && mapped.IsMapped
+            ? mapped with { Group = group }
+            : Refused(TopicNameMappingOutcome.InvalidName);
     }
+
+    private static bool IsShareName(string group) => group.Length > 0 && group.AsSpan().IndexOfAny('+', '#') < 0;
 
     /// <summary>
     /// Maps a canonical topic name to MQTT's.

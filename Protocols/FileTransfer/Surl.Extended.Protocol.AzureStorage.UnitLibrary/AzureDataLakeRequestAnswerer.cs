@@ -27,7 +27,7 @@ internal sealed class AzureDataLakeRequestAnswerer : IHttpRequestHandler
     private readonly AzurePathCreate create;
     private readonly AzurePathUpdate update;
     private readonly AzurePathList list;
-    private readonly AzurePathStagingArea staging;
+    private readonly AzureStagingArea staging;
 
     /// <summary>
     /// Creates the answerer for one exchange.
@@ -37,7 +37,7 @@ internal sealed class AzureDataLakeRequestAnswerer : IHttpRequestHandler
     /// <param name="authentication">The connection's authentication session.</param>
     /// <param name="context">The exchange: its scheme, clock and log.</param>
     /// <param name="staging">The server's staged appends.</param>
-    public AzureDataLakeRequestAnswerer(ContentStore store, ObjectMetadataIndex index, IHttpAuthenticationSession authentication, ExchangeContext context, AzurePathStagingArea staging)
+    public AzureDataLakeRequestAnswerer(ContentStore store, ObjectMetadataIndex index, IHttpAuthenticationSession authentication, ExchangeContext context, AzureStagingArea staging)
     {
         this.store = store;
         this.context = context;

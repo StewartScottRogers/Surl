@@ -22,7 +22,7 @@ specifications leave the server a choice.
 | OCI:Dist-ErrorCodes-1 | MUST | A JSON error body is `{"errors":[{"code":…,"message":…}]}`, its `code` one of code-1 to code-14. | BL-436 |
 | OCI:Dist-ErrorCodes-2 | MUST | Each code is sent with the status ADR-0115 decision 5.1's table gives it. | BL-436 |
 | OCI:Surl-Errors-1 | MUST | `message` is fixed text per code and `detail` is omitted, so no client byte is echoed; a `HEAD` error has no body. | BL-436 |
-| OCI:Surl-Errors-2 | MUST | A path no endpoint matches is `404 UNSUPPORTED`, another method on an endpoint `405 UNSUPPORTED` with `Allow`, both judged after authentication. | BL-436 |
+| OCI:Surl-Errors-2 | MUST | A path no endpoint matches is `404 UNSUPPORTED`, another method on an endpoint `405 UNSUPPORTED` with `Allow`, both judged before the token, since the endpoints are public (ADR-0115 Amendment 1, point 1). | BL-436 |
 | OCI:Surl-Headers-1 | MUST | Every answer carries `Docker-Distribution-API-Version: registry/2.0`. | BL-436 |
 | OCI:Dist-Warnings-1 | MAY | `Warning` headers with code 299. | n/a: no warning is sent (ADR-0115 decision 1) |
 
@@ -117,24 +117,24 @@ specifications leave the server a choice.
 | OCI:Dist-DeleteTags-1 | MUST | `DELETE /v2/<name>/manifests/<tag>` removes the tag and answers `202`. | BL-437 |
 | OCI:Dist-DeleteManifests-1 | MUST | `DELETE /v2/<name>/manifests/<digest>` removes the manifest and every descriptor of it, `202`; a missing repository `404`. | BL-437 |
 | OCI:Dist-DeleteBlobs-1 | MUST | `DELETE /v2/<name>/blobs/<digest>` removes the blob, `202`; a missing blob `404 BLOB_UNKNOWN`. | BL-437 |
-| OCI:Surl-Delete-1 | MUST | A delete needs `--allow-uploads` and a token granting `delete`; otherwise `403 DENIED`. | BL-438 |
+| OCI:Surl-Delete-1 | MUST | A delete needs `--allow-uploads` and a token granting `delete`; otherwise `403 DENIED`. | `OciTokenEndpointTests.AnswerAsync_Scopes_GrantWhatTheyNameAndDropTheRest`, `OciAccessCheckTests.CheckAsync_WriteWithoutAToken_Returns401WithTheScopeItNeeds` |
 
 ## Authentication (Token; RFC 6750 section 3.1)
 
 | ID | Level | Requirement | Covered by |
 | --- | --- | --- | --- |
-| OCI:Token-Challenge-1 | MUST | A request with no token, anonymous off, is `401 UNAUTHORIZED` with `WWW-Authenticate: Bearer realm=…,service="surl",scope="repository:<name>:<actions>"` (no `scope` on `/v2/`). | BL-438 |
-| OCI:Surl-Auth-1 | MUST | The realm is built from the listen host or the connection's local address and port, never from `Host`. | BL-438 |
-| OCI:Token-Request-1 | MUST | `GET /token?service=surl&scope=…` with good Basic credentials answers `200` `{"token","access_token","expires_in":300,"issued_at"}`. | BL-438 |
-| OCI:Token-Request-2 | MUST | Missing or bad credentials at the token endpoint are `401 UNAUTHORIZED` with a Basic challenge, after the failed-login delay. | BL-438 |
-| OCI:Token-Scope-1 | MUST | A token grants `pull` only where the account may read, and `push` and `delete` only under `--allow-uploads` where it may write; other scopes are dropped. | BL-438 |
-| OCI:Surl-Auth-2 | MUST | Under `--allow-anonymous`, reads are served without a token and an anonymous token grants `pull` only; an anonymous write is challenged. | BL-438 |
-| OCI:Surl-Auth-3 | MUST | `POST /token` is `405 UNSUPPORTED`; another `service` is `400 UNSUPPORTED`. | BL-438 |
-| OCI:Token-Bearer-1 | MUST | A request with a token granting its repository and action is served. | BL-438 |
-| OCI:Token-Bearer-2 | MUST | An unknown or expired token is `401` with `error="invalid_token"`. | BL-438 |
-| OCI:Token-Bearer-3 | MUST | A token not granting the action is `403 DENIED` with `error="insufficient_scope"`. | BL-438 |
-| OCI:Surl-Auth-4 | MUST | Tokens are 32 random bytes in base64url, held in memory, expiring after 300 seconds on `TimeProvider`; 10000 live at most (`429 TOOMANYREQUESTS`). | BL-438 |
-| OCI:Surl-Auth-5 | MUST | Basic on `/v2/` is answered with the Bearer challenge. | BL-438 |
+| OCI:Token-Challenge-1 | MUST | A request with no token, anonymous off, is `401 UNAUTHORIZED` with `WWW-Authenticate: Bearer realm=…,service="surl",scope="repository:<name>:<actions>"` (no `scope` on `/v2/`). | `OciAccessCheckTests.CheckAsync_PullWithoutAToken_Returns401WithTheRealmServiceAndScope`, `OciAccessCheckTests.CheckAsync_V2WithoutAToken_Returns401WithNoScope` |
+| OCI:Surl-Auth-1 | MUST | The realm is built from the listen host or the connection's local address and port, never from `Host`. | `OciChallengeTests` |
+| OCI:Token-Request-1 | MUST | `GET /token?service=surl&scope=…` with good Basic credentials answers `200` `{"token","access_token","expires_in":300,"issued_at"}`. | `OciTokenEndpointTests.AnswerAsync_GoodCredentials_IssuesATokenWithItsLifetimeAndIssueTime` |
+| OCI:Token-Request-2 | MUST | Missing or bad credentials at the token endpoint are `401 UNAUTHORIZED` with a Basic challenge, after the failed-login delay the authentication policy applies. | `OciTokenEndpointTests.AnswerAsync_BadOrUnreadableCredentials_Returns401WithTheBasicChallenge`, `OciTokenEndpointTests.AnswerAsync_NoCredentialsWithAnonymousOff_Returns401WithTheBasicChallenge` |
+| OCI:Token-Scope-1 | MUST | A token grants an account `pull`, and `push` and `delete` only under `--allow-uploads`; the share's access is applied by the content store on each request (ADR-0115 Amendment 1, point 3); other resource types, unknown actions, invalid names and scopes past 16 are dropped. | `OciTokenEndpointTests.AnswerAsync_Scopes_GrantWhatTheyNameAndDropTheRest`, `OciTokenEndpointTests.AnswerAsync_ScopesPastSixteen_AreDropped` |
+| OCI:Surl-Auth-2 | MUST | Under `--allow-anonymous`, reads are served without a token and an anonymous token grants `pull` only; an anonymous write is challenged. | `OciAccessCheckTests.CheckAsync_AnonymousPullUnderAllowAnonymous_IsServedAsTheAnonymousCaller`, `OciAccessCheckTests.CheckAsync_AnonymousPushUnderAllowAnonymous_Returns401WithTheChallenge`, `OciTokenEndpointTests.AnswerAsync_NoCredentialsUnderAllowAnonymous_IssuesAPullOnlyToken` |
+| OCI:Surl-Auth-3 | MUST | `POST /token` is `405 UNSUPPORTED`; another `service` is `400 UNSUPPORTED`. | `OciTokenEndpointTests.AnswerAsync_Post_Returns405WithAllowGet`, `OciTokenEndpointTests.AnswerAsync_AnotherService_Returns400Unsupported` |
+| OCI:Token-Bearer-1 | MUST | A request with a token granting its repository and action is served. | `OciAccessCheckTests.CheckAsync_PullWithAPullScopedToken_IsServed` |
+| OCI:Token-Bearer-2 | MUST | An unknown or expired token is `401` with `error="invalid_token"`. | `OciAccessCheckTests.CheckAsync_ExpiredToken_Returns401InvalidToken`, `OciAccessCheckTests.CheckAsync_UnknownTokenOrAnotherScheme_Returns401InvalidToken` |
+| OCI:Token-Bearer-3 | MUST | A token not granting the action is `403 DENIED` with `error="insufficient_scope"`. | `OciAccessCheckTests.CheckAsync_PushWithAPullOnlyToken_Returns403DeniedWithInsufficientScope` |
+| OCI:Surl-Auth-4 | MUST | Tokens are 32 random bytes in base64url, held in memory, expiring after 300 seconds on `TimeProvider`; 10000 live at most (`429 TOOMANYREQUESTS`). | `OciTokenBookTests`, `OciTokenEndpointTests.AnswerAsync_PastTheLiveTokenBound_Returns429TooManyRequests` |
+| OCI:Surl-Auth-5 | MUST | Basic on `/v2/` is answered with the Bearer challenge, `error="invalid_token"`. | `OciAccessCheckTests.CheckAsync_UnknownTokenOrAnotherScheme_Returns401InvalidToken` |
 | OCI:Surl-Auth-6 | MUST | A write while `--allow-uploads` is off is `403 DENIED`. | BL-437 |
 | OCI:Token-Refresh-1 | MAY | A `refresh_token` is issued. | n/a: none is issued (ADR-0115 decision 4.3) |
 
@@ -144,7 +144,7 @@ specifications leave the server a choice.
 | --- | --- | --- | --- |
 | OCI:Surl-Tls-1 | MUST | `oci` is implicit TLS, `--cert` or `--self-signed` required (58 without), ALPN `http/1.1` only. | BL-439 |
 | OCI:Surl-Tls-2 | MUST | `--oci-plaintext` serves plain HTTP/1.1 and is warned on start. | BL-439 |
-| OCI:Surl-Tls-3 | MUST | Over plain text without `--allow-plaintext-auth`, credentials and tokens are `403 DENIED`. | BL-438 |
+| OCI:Surl-Tls-3 | MUST | Over plain text without `--allow-plaintext-auth`, credentials and tokens are `403 DENIED`. | credentials: `OciTokenEndpointTests.AnswerAsync_CredentialsOverPlainTextRefused_Returns403Denied`; tokens: BL-890 |
 | OCI:Surl-Limits-1 | MUST | A blob past `--max-filesize` is `413 SIZE_INVALID` and its session ended. | BL-437 |
 | OCI:Surl-Limits-2 | MUST | 1000 open sessions at most (`429 TOOMANYREQUESTS`); a session idle 1 hour expires (`404 BLOB_UPLOAD_UNKNOWN`). | BL-437 |
 | OCI:Surl-Limits-3 | MUST | A repository past 10000 descriptors is `403 DENIED`. | BL-437 |

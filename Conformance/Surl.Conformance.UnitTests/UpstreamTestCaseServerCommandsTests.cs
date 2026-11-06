@@ -1,3 +1,4 @@
+using Surl.LineProtocol;
 using Surl.Protocol.Ftp;
 using Surl.Protocol.Gopher;
 using Surl.Protocol.Http;
@@ -22,7 +23,11 @@ public sealed class UpstreamTestCaseServerCommandsTests
     [DataRow("ftps", "RETRSIZE", true)]
     [DataRow("ftp", "DELAY", false)]
     [DataRow("ftp", "idle", false)]
-    [DataRow("smtp", "REPLY", false)]
+    [DataRow("smtp", "REPLY", true)]
+    [DataRow("imap", "POSTFETCH", true)]
+    [DataRow("pop3", "CAPA", true)]
+    [DataRow("pop3", "SLOWDOWN", false)]
+    [DataRow("imaps", "REPLY", false)]
     [DataRow("rtsp", "idle", false)]
     [DataRow("tftp", "writedelay:", true)]
     [DataRow("tftp", "Testnum", true)]
@@ -72,6 +77,14 @@ public sealed class UpstreamTestCaseServerCommandsTests
         Assert.IsEmpty(UpstreamTestCaseServerCommands.None);
         Assert.IsEmpty(GopherUpstreamTestCaseReplies.SupportedServerCommands);
         Assert.IsEmpty(MqttUpstreamTestCaseReplies.SupportedServerCommands);
+    }
+
+    [TestMethod]
+    public void Mail_IsTheCommandsTheMailServerHalvesAccept()
+    {
+        var table = UpstreamTestCaseServerCommands.Mail.Order(StringComparer.Ordinal).ToArray();
+
+        CollectionAssert.AreEqual(MailUpstreamTestCaseReplies.SupportedServerCommands.Order(StringComparer.Ordinal).ToArray(), table);
     }
 
     [TestMethod]

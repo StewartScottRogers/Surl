@@ -158,6 +158,7 @@ internal sealed partial class ImapSession
         if (step.Outcome is SaslLoginOutcome.Accepted or SaslLoginOutcome.AcceptedUnchecked)
         {
             view = mailStore.ViewFor(step.AccountName);
+            accountName = step.AccountName;
             return AuthenticateCompleted;
         }
 

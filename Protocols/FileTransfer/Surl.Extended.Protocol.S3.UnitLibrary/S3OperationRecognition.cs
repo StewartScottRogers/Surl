@@ -15,23 +15,37 @@ internal static class S3OperationRecognition
     /// <returns>The operation, or <see cref="S3Operation.NotImplemented"/>.</returns>
     public static S3Operation Of(HttpRequest request, S3RequestTarget target)
     {
+        if (target.NamesTheService)
+        {
+            return request.Method == "GET" && target.Query is null ? S3Operation.ListBuckets : S3Operation.NotImplemented;
+        }
+
         if (target.NamesABucket)
         {
-            return request.Method == "GET" && target.Query is { } query && S3QueryParameters.Value(S3QueryParameters.Parse(query), "list-type") == "2"
-                ? S3Operation.ListObjectsV2
-                : S3Operation.NotImplemented;
+            return OfBucket(request, target);
         }
 
-        if (!target.NamesAnObject || target.Query is not null)
-        {
-            return S3Operation.NotImplemented;
-        }
-
-        return request.Method switch
-        {
-            "GET" or "HEAD" => S3Operation.ReadObject,
-            "PUT" when S3RequestFields.Value(request.Fields, "x-amz-copy-source") is null => S3Operation.PutObject,
-            _ => S3Operation.NotImplemented,
-        };
+        return target.NamesAnObject && target.Query is null ? OfObject(request) : S3Operation.NotImplemented;
     }
+
+    // HeadBucket with no query; ListObjectsV2 by its list-type.
+    private static S3Operation OfBucket(HttpRequest request, S3RequestTarget target)
+    {
+        if (target.Query is not { } query)
+        {
+            return request.Method == "HEAD" ? S3Operation.HeadBucket : S3Operation.NotImplemented;
+        }
+
+        return request.Method == "GET" && S3QueryParameters.Value(S3QueryParameters.Parse(query), "list-type") == "2"
+            ? S3Operation.ListObjectsV2
+            : S3Operation.NotImplemented;
+    }
+
+    private static S3Operation OfObject(HttpRequest request) => request.Method switch
+    {
+        "GET" or "HEAD" => S3Operation.ReadObject,
+        "PUT" when S3RequestFields.Value(request.Fields, "x-amz-copy-source") is null => S3Operation.PutObject,
+        "DELETE" => S3Operation.DeleteObject,
+        _ => S3Operation.NotImplemented,
+    };
 }

@@ -207,3 +207,178 @@ Costs and caveats:
   would still differ by TLS library only where the library chooses (record sizes), and the plaintext
   twin of each conversation (`http` beside `https`, `ftp` beside `ftps`) already compares curl's own
   bytes.
+
+## Amendment 1 (2026-11-05, BL-580): what the first family run showed decision 4 must leave out
+
+Decided by Claude under Stewart's delegation, in BL-580, from the HTTP/1.1 and HTTPS family's first
+runs. Each item below differed between two runs for a reason that is neither client's curl, so
+comparing it would have filed a false port finding. None widens what a port finding may excuse: the
+exit code, output, asserted stderr lines and stored files are still compared in every case.
+
+- **Digest `nonce`** is replaced by `<nonce>` beside `cnonce` and `response`: it is the value each
+  run's own `surl` chose at random, which the client only echoes (`RequestBytesNormalisation`).
+- **Request bytes are not recorded** for AWS Signature Version 4 cases (`x-amz-date` and the signature
+  over it follow the clock; decision 4 never compares timing) and for Kerberos and `Negotiate` cases
+  (each token carries a fresh session key and time stamp, so its bytes are the GSS-API library's, as
+  TLS bytes are the TLS library's).
+- **`surl`'s packet dumps** (`#<n> > ` and `#<n> < ` lines under `-v`) are not compared on SSH: they carry
+  the server's random cookie and padding. Its `*` notes are.
+- **How a refused TLS connection ended** (`TLS handshake failed: …`, or an `IOException` from a reset
+  connection) is not compared on `https`: the same client produced either note from run to run, and
+  which one depends on the TLS library and timing.
+- A case whose mirrored test runs a supplementary build, a relay of its own, several listeners or
+  per-run arguments passes a `CurlPortRunSetup` that both runs share; set-up steps that are not the
+  conversation measured (an SMTP delivery for an IMAP or POP3 read) run once through upstream curl, and
+  each run's `surl` starts over its own copy of the result, so both clients meet the same bytes.
+
+## Amendment 2 (2026-11-05, BL-585): a WebSocket client's key and masks
+
+- **Decided by:** Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), 2026-11-05, in
+  BL-585.
+
+Decision 4's request-byte normalisation gains two rules, for `ws` (the only WebSocket scheme the relay
+records; `wss` is TLS):
+
+- The `Sec-WebSocket-Key:` value is replaced by `<websocket-key>`. RFC 6455 section 4.1 makes it a
+  fresh random nonce per upgrade request, so it differs between any two runs, upstream's own included.
+- After the last WebSocket upgrade request on a connection, every client frame's payload is unmasked
+  and its masking key zeroed (RFC 6455 section 5.3: the client chooses a fresh unpredictable key for
+  every frame). What is compared is the frame as it would be under the key `00 00 00 00`: its FIN bit,
+  opcode, length and payload stay compared byte for byte. A frame cut short is unmasked as far as it
+  goes. Unmasking runs before every other rule, so the port replacement cannot shift a frame's bytes.
+
+Why: measured in BL-585, every `ws` case's two runs differed first inside the key's value, and with
+both rules every `ws` case agrees; without these rules no `ws` case could ever agree, and turning the relay
+off for `ws` would compare none of curl's upgrade request or frames. `CurlPortResultNormaliser.NormaliseRequestBytes`
+applies both (`WebSocketFrameUnmasking`, `RequestBytesNormalisation`).
+
+## Amendment 3 — `surl`'s notes are read once settled, and in exchange order (2026-11-05)
+
+Decided by Claude under Stewart's delegation, in BL-586.
+
+LDAP showed two ways decision 4's notes comparison could give different verdicts from one run to the
+next for the same two clients:
+
+- **Read too early.** The notes were read the moment the client exited. A connection the client opened
+  and dropped (the `WinLDAP` build's unused connection, a TLS handshake it abandoned) was noted only if
+  `surl` got to it first. `PinnedCurlPortBesideUpstreamCurl` now reads the notes once they have stayed
+  unchanged for 500 ms, waiting at most 5 s after the client exits.
+- **Interleaving.** Two connections a client opens at once are served side by side, so which
+  exchange's line `surl` writes first is the scheduler's choice, not the client's. Before comparing,
+  the notes are grouped by exchange number (`#2 * …`). Each exchange's own lines, and the lines before
+  the first exchange, keep the order `surl` wrote them.
+
+Neither change hides a difference a client makes: an extra connection is still an extra exchange, and
+each exchange's own lines are still compared in order. Without these changes, decision 5 could not hold:
+a listed finding would come and go from run to run.
+
+`PinnedCurlPortBesideUpstreamCurl.MeasureOnPortAsync` also lets a case name `surl`'s port before `surl`
+starts, with both runs' `surl` listening on it one after the other, and set client environment
+variables identically for both clients (decision 3). The Kerberos cases need this: their service
+principal or `--resolve` entry names the port, and the MIT build reads a credential cache.
+
+## Amendment 4 (2026-11-05, BL-589): HTTP/2's request bytes are compared decoded
+
+Decided by Claude under Stewart's delegation, in BL-589, from the HTTP/2 family's first runs.
+
+- **On plaintext HTTP/2 (`h2c`, by prior knowledge or by Upgrade), the bytes each client sent are
+  compared as decoded frames, not byte for byte.** HPACK (RFC 7541) Huffman-codes `:authority`, which
+  holds the port of each run's own recording relay, so two runs of the *same* client differ in raw bytes;
+  and an encoder's indexing and Huffman choices are its own, not part of the request. The Phase 7 test
+  renders each connection as text: an Upgrade request's head line by line, then one line per frame after
+  the connection preface with its type, flags and stream, a `SETTINGS` frame's parameters, a `HEADERS`
+  block's decoded fields (with `CONTINUATION`s, padding and priority removed) and a `DATA` frame's length.
+  That text is normalised as decision 4 normalises request bytes (port, `User-Agent`, Digest) and
+  compared; a difference is a port defect like any other compared item.
+- **Not rendered:** every `WINDOW_UPDATE` but the connection's first, since how many follow, and where
+  the `SETTINGS` acknowledgement falls among them, depend on how the client happened to read the answer
+  (measured: upstream and the port sent the same frames, with the acknowledgement in a different place),
+  and decision 4 never compares timing; and a `PING`'s opaque data.
+- **`https` is unchanged:** `h2` by ALPN is TLS, and its bytes stay uncompared.
+- The client's own ephemeral port in a `-v` line (`* Established connection to … from 127.0.0.1 port N`)
+  is not normalised by `CurlPortResultNormaliser`, so such a line is not one of a case's compared standard
+  error lines; the mirrored test's own count of it still judges upstream's run.
+
+## Amendment 5 (2026-11-05, BL-584): DICT, Gopher, TELNET, TFTP and MQTT
+
+Decided by Claude under Stewart's delegation, in BL-584, from that family's first runs. As in
+amendment 1, each item differed between two runs for a reason that is not curl's protocol behaviour;
+the exit code, output, asserted stderr lines, `surl`'s notes and stored files are still compared in
+every case.
+
+- **DICT's `CLIENT` text** is replaced by `<user-agent>`, as `User-Agent:` is: RFC 2229 section 3.6
+  makes it the client's self-identification, which curl fills with `libcurl <version>`.
+- **The random part of curl's MQTT client identifier** is replaced by `<client-id>`: a `CONNECT` from
+  curl names `curl` and 8 alphanumerics drawn afresh for every connection.
+- **Standard output has `surl`'s own port replaced** beside the client-facing (relay's) port: a reply
+  can name the port the server listens on, as a Gopher menu does.
+- **TELNET request bytes are not recorded.** How curl interleaves what it reads from standard input
+  with its option negotiation depends on when `surl`'s options arrive: the same upstream build sent its
+  input first against `surl` and its negotiation first in its recording. Timing is never compared.
+- `CurlPortRunSetup.StandardInput` gives both clients the same standard input, as a TELNET session
+  needs.
+
+## Amendment 6 (2026-11-05, BL-582): what the SCP and SFTP family showed decision 4 must leave out
+
+Decided by Claude under Stewart's delegation, in BL-582, from the SCP and SFTP family's first runs. As
+with amendment 1, each item differed between two runs for a reason that is not curl's, and none widens
+what a port finding may excuse: the exit code, output, asserted stderr lines and stored files are still
+compared in every case.
+
+- **A throwaway host key's fingerprint** is replaced by `<sha256>` and `<md5>` in `surl`'s notes (its
+  `--throwaway-hostkey` warning and `Serving SSH host key` note): each run's `surl` makes its own key.
+  Where curl's stderr line names that fingerprint (`--hostpubsha256` mismatch), the line is checked
+  against the mirrored assertion on upstream's run and not compared.
+- **SSH teardown notes** are not compared: `SSH disconnect received`, `SSH channel N ended`,
+  `SFTP session ended`, `Exchange N ended`, and the SCP download's final acknowledgement note (`sent N
+  bytes`, or `refused: read error` when the client closed the channel before acknowledging). They
+  record how the client's SSH layer closes the channel and connection, inside the encrypted transport,
+  and their order races the client's exit (the port closes the channel before it disconnects; libssh2
+  disconnects alone, sometimes before the last acknowledgement). Every note up to the transfer -
+  identification, negotiated algorithms, login, each SFTP or SCP request and its answer - is compared,
+  read once `surl` has ended the exchange.
+- **The client's `KEXINIT`** is compared where the mirrored test records it with
+  `ClientKexInitRecorder`: it is sent in clear before the key exchange, and is the client's own offer,
+  not a random. The identification line and the ten name-lists are compared line by line, beside the
+  exit code and output.
+- **A local file the client writes** (`-o` with `-C -` or `-R`) is per run and compared as a stored
+  file: its bytes, and its modification time in round-trip form.
+- **libssh2 1.11.1 WinCNG's key-exchange defect** (ADR-0062): a family that runs one SSH connection
+  per run over some seventy cases trips its one-in-256 failure in most class runs. When either run
+  exits 2 with exactly `curl: (2) Failure establishing ssh session: -8, Unable to exchange encryption
+  keys`, the case is measured again, both runs, up to three attempts in all; ADR-0062 decision 3 names
+  that failure, and only that one, as the client's defect a re-run clears. Every other failure is
+  judged on the attempt it appears in.
+
+## Amendment 7 (2026-11-06, BL-591): how corpus part (b) plays upstream's test cases with the port
+
+Decided by Claude under Stewart's delegation, in BL-591, from the first run of decision 1(b). Part (b)
+is not a mirrored test: each case's own `<verify>` section, written for upstream curl, is the
+comparison, so decisions 4 and 5 are read for it as follows.
+
+- **The cases.** Every case on the platform's passing list,
+  `Documentation/Conformance/upstream-test-cases-passing.<platform>.txt` (ADR-0080 decision 5).
+  `CurlPortBesideUpstreamCurlOverUpstreamTestCasesTests` plays each one twice, each run with its own
+  fresh server halves and its own folder: with the build ADR-0080's runner pairs it with (the reference
+  build, or the smb build), then with the port. Upstream's run is played in the same test, so the oracle
+  is measured, not assumed from the list.
+- **One client seam.** The runner takes an `IUpstreamTestCaseClient`: `UpstreamCurlTestCaseClient`
+  wraps only an `UpstreamCurlRunner` (an upstream pin the locator verified), `CurlPortTestCaseClient`
+  wraps only a `CurlPortClientRunner` (the port pin). Neither can be made from the other's location,
+  and `UpstreamCurlLocator` still refuses the port's binary (ADR-0083 decision 2).
+- **The port runs as runtests would run it.** runtests describes the curl it tests by that curl's own
+  `--version`: `%VERSION` and `%VERNUM` are its version token (`servers.pm`'s `subvariables`), `%CURL`
+  its path, and its `Protocols:` and `Features:` lines decide the `%if` features and which cases run.
+  Each client is described by its own `--version` (`CurlVersionReport`), so the port's `User-Agent:
+  curl/8.22.0` is matched against its own `%VERSION`, as upstream's suite would match it. This is not
+  normalisation: it is the case as the case's author wrote it.
+- **The verdict (decision 5).** Upstream did not pass: **Surl defect**, the port is not judged.
+  Upstream passed and runtests would skip the case for the port (its build lacks the case's protocol,
+  for example `smb`): **not comparable**, with the port's skip reason, a reason this amendment adds.
+  Both passed: **agreement**. Otherwise **port defect**. The test fails on a Surl defect, an unlisted
+  port defect, or a listed finding that no longer appears; `Upstream-Test-Cases.md`'s findings table
+  names each case `test<N>` in its first column.
+- **No normalisation beyond the case's own.** The `<verify>` section's strip lines, `mode="text"` and
+  the rest apply to both runs alike (`UpstreamTestCaseVerifyChecker`), and nothing of decision 4's
+  table is added: upstream's cases already substitute or strip what varies between runs (ports, dates,
+  boundaries, the version) for whichever curl runs them.

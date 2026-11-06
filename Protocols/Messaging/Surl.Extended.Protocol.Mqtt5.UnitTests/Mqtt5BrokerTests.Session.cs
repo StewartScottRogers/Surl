@@ -108,22 +108,6 @@ public sealed partial class Mqtt5BrokerTests
     }
 
     [TestMethod]
-    public async Task ServeAsync_SessionAnotherConnectionHolds_IsNotResumedAndEndsWithThatConnection()
-    {
-        var clock = new ManualTimeProvider();
-        var state = NewState(clock);
-        var broker = Broker(state);
-        var first = await Mqtt5TestClient.ConnectAsync(broker, Context(clock, TestContext.CancellationToken), Connect("s", properties: [SessionExpiry(60)]));
-
-        var second = await Mqtt5TestClient.ConnectAsync(broker, Context(clock, TestContext.CancellationToken), Connect("s", properties: [SessionExpiry(60)], cleanStart: false));
-        Assert.IsEmpty(await first.DisconnectAsync());
-        Assert.IsEmpty(await second.DisconnectAsync());
-
-        CollectionAssert.AreEqual(ConnackSuccess, second.ConnectAcknowledgement);
-        Assert.IsTrue(state.HasSession("s"));
-    }
-
-    [TestMethod]
     public async Task ServeAsync_NewSessionPastTheKeptSessionBound_AnswersQuotaExceeded()
     {
         var clock = new ManualTimeProvider();

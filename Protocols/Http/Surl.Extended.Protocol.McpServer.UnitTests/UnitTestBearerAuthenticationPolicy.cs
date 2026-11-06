@@ -7,6 +7,8 @@ namespace Surl.Extended.Protocol.McpServer;
 /// for Bearer-only accounts: <c>Bearer secret-token</c> proceeds as the empty-name account the Bearer method
 /// answers, <c>Bearer alice-token</c> as <c>alice</c>, any other credential is challenged, and a request without
 /// one proceeds anonymously only when <paramref name="allowsAnonymous" />.
+/// Password logins accept <c>alice</c> with <c>alice-password</c>; any other is refused, and each one checked is
+/// kept in <see cref="PasswordLogins" />.
 /// </summary>
 internal sealed class UnitTestBearerAuthenticationPolicy(bool allowsAnonymous) : IAuthenticationPolicy
 {
@@ -16,8 +18,16 @@ internal sealed class UnitTestBearerAuthenticationPolicy(bool allowsAnonymous) :
 
     public List<TlsSession?> StartedConnections { get; } = [];
 
-    public ValueTask<PasswordLoginVerdict> CheckPasswordLoginAsync(PasswordLogin login, CancellationToken cancellationToken) =>
-        throw new NotSupportedException();
+    public const string AlicePassword = "alice-password";
+
+    public List<PasswordLogin> PasswordLogins { get; } = [];
+
+    public ValueTask<PasswordLoginVerdict> CheckPasswordLoginAsync(PasswordLogin login, CancellationToken cancellationToken)
+    {
+        PasswordLogins.Add(login);
+        bool isAlice = login.UserName == "alice" && login.Password is { } password && password.Span.SequenceEqual("alice-password"u8);
+        return ValueTask.FromResult(isAlice ? PasswordLoginVerdict.Accepted : PasswordLoginVerdict.RefusedCredentials);
+    }
 
     public IHttpAuthenticationSession StartHttpConnection(TlsSession? tlsSession)
     {

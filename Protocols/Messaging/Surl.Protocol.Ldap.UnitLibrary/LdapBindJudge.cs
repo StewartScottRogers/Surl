@@ -113,7 +113,7 @@ internal sealed class LdapBindJudge
         var user = userName is null ? null : LdapLogText.Render(userName);
         context.Log.Note(new CheckedLogin(SimpleMethod, user, isAccepted).Note);
         return isAccepted
-            ? new LdapBindAnswer(Bound, IsBound: true)
+            ? new LdapBindAnswer(Bound, IsBound: true, Account: userName)
             : LdapBindAnswer.Refused(new LdapResult(LdapResultCode.InvalidCredentials, string.Empty, string.Empty));
     }
 

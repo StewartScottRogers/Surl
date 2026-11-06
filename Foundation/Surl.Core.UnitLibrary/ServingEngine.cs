@@ -756,7 +756,7 @@ public sealed partial class ServingEngine
         var point = new FaultPoint(FaultStage.Accept)
         {
             ExchangeId = context.ExchangeId,
-            ListenUrl = FormatListenUrl(context.ListenUrl),
+            ListenUrl = ReportedListenUrl.Format(context.ListenUrl),
             Scheme = context.ListenUrl.Scheme,
         };
         var rule = await faults.FindAsync(point, context.CancellationToken);
@@ -782,7 +782,7 @@ public sealed partial class ServingEngine
 
     private void PublishFaultApplied(FaultRule rule, ExchangeContext context) =>
         events.Publish(new FaultAppliedEvent(
-            rule.Id, rule.Kind, FaultStage.Accept, context.ExchangeId, FormatListenUrl(context.ListenUrl)));
+            rule.Id, rule.Kind, FaultStage.Accept, context.ExchangeId, ReportedListenUrl.Format(context.ListenUrl)));
 
     // A listen URL whose scheme is TLS from the first byte gets its handshake here, and the
     // server sees the connection only once it completed (ADR-0010, section 2).
@@ -843,29 +843,17 @@ public sealed partial class ServingEngine
             ShutdownToken = deadlines.ShutdownToken,
             Events = events,
             Faults = faults,
+            IdleClock = deadlines,
         };
 
         log.Note($"Exchange {exchangeId} opened: {listenUrl.Scheme} from {remoteEndPoint}.");
-        events.Publish(new ExchangeStartedEvent(exchangeId, FormatListenUrl(listenUrl), listenUrl.Scheme, remoteEndPoint));
+        events.Publish(new ExchangeStartedEvent(exchangeId, ReportedListenUrl.Format(listenUrl), listenUrl.Scheme, remoteEndPoint));
 
         return (exchangeId, log, context, new EventPublishingExchangeLog(log, events, exchangeId));
     }
 
     private void PublishExchangeEnded(long exchangeId, EventPublishingExchangeLog bytesLog) =>
         events.Publish(new ExchangeEndedEvent(exchangeId, bytesLog.ReceivedByteCount, bytesLog.SentByteCount));
-
-    // The listen URL as the instance reports it, the format of surl's "Listening on" line
-    // (ADR-0007, section 7): the bound port, the host bracketed when it is an IPv6 literal and a
-    // zone written as %25<zone>. A listener on a Unix domain socket binds no port, so its URL
-    // carries the port asked for.
-    internal static string FormatListenUrl(ListenUrl listenUrl)
-    {
-        var host = listenUrl.Host.Contains(':', StringComparison.Ordinal)
-            ? "[" + listenUrl.Host.Replace("%", "%25", StringComparison.Ordinal) + "]"
-            : listenUrl.Host;
-
-        return $"{listenUrl.Scheme}://{host}:{listenUrl.BoundPort ?? listenUrl.Port}/";
-    }
 
     // A started listener, and the loop that accepts from it until the engine stops accepting.
     private sealed record StartedListener(IAsyncDisposable Listener, Func<ServingState, Task> AcceptUntilStoppedAsync);

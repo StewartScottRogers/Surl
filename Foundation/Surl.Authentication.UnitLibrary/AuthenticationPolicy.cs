@@ -159,6 +159,7 @@ public sealed class AuthenticationPolicy : IAuthenticationPolicy, IMailAuthentic
         this.timeProvider = timeProvider;
         ServiceSignatureVerifier = new AwsSigV4AuthenticationMethod(settings.Accounts, timeProvider);
         AzureStorageVerifier = new AzureStorageVerifier(settings.Accounts, timeProvider);
+        GoogleV4HmacVerifier = new GoogleV4HmacAuthenticationMethod(settings.Accounts, timeProvider);
         NonceSource = nonceSource;
         NtlmServerChallenges = ntlmServerChallenges;
         this.events = events ?? DiscardingSurlEventPublisher.Instance;
@@ -569,6 +570,33 @@ public sealed class AuthenticationPolicy : IAuthenticationPolicy, IMailAuthentic
     /// <c>--auth</c> does not decide (ADR-0109 decision 3).
     /// </summary>
     internal AzureStorageVerifier AzureStorageVerifier { get; }
+
+    /// <summary>
+    /// Cloud Storage's V4 HMAC check of a request naming
+    /// <see cref="GoogleV4HmacAuthenticationMethod.Service"/> (the <c>gs</c> server's, ADR-0110
+    /// decision 3.3), which <c>--auth</c> does not decide either.
+    /// </summary>
+    internal IHttpCredentialVerifier GoogleV4HmacVerifier { get; }
+
+    /// <summary>
+    /// The verifier for a request naming <paramref name="service"/> whose <c>Authorization</c>
+    /// scheme is <paramref name="scheme"/>: Cloud Storage's for <c>storage</c>, and only with the
+    /// <c>GOOG4-HMAC-SHA256</c> scheme; Signature Version 4's for every other service.
+    /// </summary>
+    /// <param name="service">The request's <see cref="HttpAuthenticationRequest.AwsSigV4Service"/>.</param>
+    /// <param name="scheme">The <c>Authorization</c> scheme as received.</param>
+    /// <returns>The verifier, or <see langword="null"/> when the scheme is not the service's.</returns>
+    internal IHttpCredentialVerifier? FindServiceSignatureVerifier(string service, string scheme)
+    {
+        if (service != GoogleV4HmacAuthenticationMethod.Service)
+        {
+            return ServiceSignatureVerifier;
+        }
+
+        return string.Equals(scheme, GoogleV4HmacAuthenticationMethod.Scheme, StringComparison.OrdinalIgnoreCase)
+            ? GoogleV4HmacVerifier
+            : null;
+    }
 
     internal Task WaitRefusalDelayAsync(CancellationToken cancellationToken) =>
         Task.Delay(RefusalDelay, timeProvider, cancellationToken);

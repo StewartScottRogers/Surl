@@ -19,7 +19,8 @@ namespace Surl.Http3;
 /// <para>
 /// The session is open from the moment its <c>CONNECT</c> reaches the handler until
 /// <see cref="IHttp3ExtendedConnectHandler.ServeSessionAsync"/> returns; datagrams and streams that
-/// arrive in that time wait here, whether or not the handler has answered yet. After it, datagrams
+/// arrive in that time wait here, whether or not the handler has answered yet, after the datagrams
+/// the connection held for the session before its <c>CONNECT</c> arrived. After it, datagrams
 /// for the session are dropped (RFC 9297 section 2.1) and streams naming it go to
 /// <see cref="IHttp3ExtendedConnectHandler.ServeStreamWithoutSessionAsync"/>.
 /// </para>
@@ -34,7 +35,10 @@ public sealed class Http3ExtendedConnectSession
     private readonly Http3FrameLimit frameLimit;
     private readonly Channel<byte[]> datagrams = Channel.CreateBounded<byte[]>(new BoundedChannelOptions(ReceivedDatagramCapacity) { FullMode = BoundedChannelFullMode.DropOldest });
     private readonly Channel<Http3SessionStream> streams = Channel.CreateUnbounded<Http3SessionStream>();
+    private readonly List<Func<CancellationToken, Task>> shutdownWrites = [];
+    private readonly Lock shutdownGate = new();
     private byte[] capsuleBytes = [];
+    private bool isShuttingDown;
 
     /// <summary>Opens the session the extended <c>CONNECT</c> on <paramref name="requestStream"/> asks for.</summary>
     /// <param name="connection">The connection.</param>
@@ -182,6 +186,78 @@ public sealed class Http3ExtendedConnectSession
 
         await connection.WriteAsync(stream, (byte[])[.. QuicVariableLengthInteger.Encode(type), .. QuicVariableLengthInteger.Encode(Id)], false, cancellationToken);
         return new Http3SessionStream(connection, new Http3StreamReader(connection, stream), Id);
+    }
+
+    /// <summary>
+    /// Whether the connection has begun to shut down (<see cref="Http3ServerOptions.ShutdownGrace"/>):
+    /// the session is still served until the grace has passed, but <c>GOAWAY</c> is sent or about to be.
+    /// </summary>
+    public bool IsShuttingDown
+    {
+        get
+        {
+            lock (shutdownGate)
+            {
+                return isShuttingDown;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Closes the whole connection with <paramref name="code"/> (RFC 9114 section 8), as a connection
+    /// error the client caused would: every stream is cut off, and <c>CONNECTION_CLOSE</c> carries
+    /// the code - one of <see cref="Http3ErrorCode"/>, or a code of the session's protocol cast to it
+    /// (WebTransport's <c>WT_REQUIREMENTS_NOT_MET</c>). The first close the connection learns of wins.
+    /// </summary>
+    /// <param name="code">The code <c>CONNECTION_CLOSE</c> carries.</param>
+    /// <param name="reason">What the client did, for the exchange log.</param>
+    public void CloseConnection(Http3ErrorCode code, string reason)
+    {
+        ArgumentNullException.ThrowIfNull(reason);
+        extendedConnect.RequestConnectionClose(code, reason);
+    }
+
+    /// <summary>
+    /// Adds a write the connection awaits when it begins to shut down, before it sends
+    /// <c>GOAWAY</c> (WebTransport's <c>WT_DRAIN_SESSION</c>, ADR-0117 decision 6). Writes run in the
+    /// order they were added, only with <see cref="Http3ServerOptions.ShutdownGrace"/> set.
+    /// </summary>
+    /// <param name="write">The write; its token is cancelled when the connection ends or fails.</param>
+    /// <returns><see langword="false"/>, and the write is not added, when shutdown has already begun.</returns>
+    public bool AddShutdownWrite(Func<CancellationToken, Task> write)
+    {
+        ArgumentNullException.ThrowIfNull(write);
+        lock (shutdownGate)
+        {
+            if (isShuttingDown)
+            {
+                return false;
+            }
+
+            shutdownWrites.Add(write);
+            return true;
+        }
+    }
+
+    /// <summary>Marks the session shutting down and runs its shutdown writes in order.</summary>
+    /// <param name="cancellationToken">Cancelled when the connection ends or fails.</param>
+    /// <returns>A task that completes when the writes are done.</returns>
+    internal async Task ShutDownAsync(CancellationToken cancellationToken)
+    {
+        MarkShuttingDown();
+        foreach (var write in shutdownWrites)
+        {
+            await write(cancellationToken);
+        }
+    }
+
+    /// <summary>Marks the session shutting down, so no shutdown write is added any more.</summary>
+    internal void MarkShuttingDown()
+    {
+        lock (shutdownGate)
+        {
+            isShuttingDown = true;
+        }
     }
 
     /// <summary>Hands the session a datagram's payload.</summary>

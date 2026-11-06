@@ -10,7 +10,10 @@ namespace Surl.Extended.Protocol.McpServer;
 /// with JSON, or with a one-event <c>text/event-stream</c> for <c>tools/call</c>; <c>GET</c> and other methods
 /// <c>405</c>; <c>DELETE</c> ending a session. It issues and checks <c>Mcp-Session-Id</c>, checks
 /// <c>MCP-Protocol-Version</c> and <c>Origin</c>, requires a Bearer token unless the policy lets anonymous
-/// requests in (decision 6.1), and serves its RFC 9728 protected resource metadata (decision 6.2). It is judged
+/// requests in (decision 6.1), serves its RFC 9728 protected resource metadata (decision 6.2), and is its own
+/// OAuth 2.1 authorization server (decision 6.3): RFC 8414 metadata, RFC 7591 registration, the authorization-code
+/// grant with PKCE <c>S256</c>, <c>client_credentials</c> and rotated refresh tokens, its access tokens bound to
+/// the RFC 8707 <c>resource</c> and accepted at the endpoint. It is judged
 /// by the MCP specification, revision 2025-06-18, not by upstream curl, which has no MCP scheme (ADR-0083).
 /// </summary>
 /// <remarks>
@@ -34,10 +37,10 @@ public sealed class McpProtocolServer : IConnectionProtocolServer
 
     /// <summary>Initializes a new instance of the <see cref="McpProtocolServer" /> class.</summary>
     /// <param name="store">The shared content store the tools serve.</param>
-    /// <param name="authenticationPolicy">The policy whose HTTP session judges each request's login.</param>
+    /// <param name="authenticationPolicy">The policy whose HTTP session judges each request's login, and which checks the authorization server's password logins.</param>
     /// <param name="surlVersion">surl's informational version, for <c>serverInfo</c>.</param>
-    /// <param name="timeProvider">The clock sessions expire on.</param>
-    /// <param name="sessionIdSource">Where session IDs come from: <see cref="RandomNumberGenerator.Create()" /> in production.</param>
+    /// <param name="timeProvider">The clock sessions, codes and tokens expire on.</param>
+    /// <param name="randomSource">Where session IDs, client IDs, codes and tokens come from: <see cref="RandomNumberGenerator.Create()" /> in production.</param>
     /// <param name="listenPath">The listen URL's path; <see langword="null" />, empty or <c>/</c> is <see cref="DefaultEndpointPath" />.</param>
     /// <exception cref="ArgumentNullException">A reference argument is <see langword="null" />.</exception>
     /// <exception cref="ArgumentException"><paramref name="surlVersion" /> is empty, or <paramref name="listenPath" /> does not start with <c>/</c>.</exception>
@@ -46,16 +49,21 @@ public sealed class McpProtocolServer : IConnectionProtocolServer
         IAuthenticationPolicy authenticationPolicy,
         string surlVersion,
         TimeProvider timeProvider,
-        RandomNumberGenerator sessionIdSource,
+        RandomNumberGenerator randomSource,
         string? listenPath = null)
     {
         ArgumentNullException.ThrowIfNull(store);
         ArgumentNullException.ThrowIfNull(authenticationPolicy);
         ArgumentException.ThrowIfNullOrWhiteSpace(surlVersion);
         ArgumentNullException.ThrowIfNull(timeProvider);
-        ArgumentNullException.ThrowIfNull(sessionIdSource);
+        ArgumentNullException.ThrowIfNull(randomSource);
         _authenticationPolicy = authenticationPolicy;
-        _settings = new McpHttpServerSettings(store, surlVersion, EndpointPathFor(listenPath), new McpHttpSessionTable(sessionIdSource, timeProvider));
+        _settings = new McpHttpServerSettings(
+            store,
+            surlVersion,
+            EndpointPathFor(listenPath),
+            new McpHttpSessionTable(randomSource, timeProvider),
+            new McpAuthorizationGrants(randomSource, timeProvider));
     }
 
     /// <summary>Gets the endpoint's path.</summary>
@@ -69,8 +77,7 @@ public sealed class McpProtocolServer : IConnectionProtocolServer
     {
         ArgumentNullException.ThrowIfNull(connection);
         ArgumentNullException.ThrowIfNull(context);
-        IHttpAuthenticationSession authentication = _authenticationPolicy.StartHttpConnection(connection.TlsSession);
-        McpHttpRequestAnswerer answerer = new(_settings, authentication, context, connection.TlsSession is not null);
+        McpHttpRequestAnswerer answerer = new(_settings, _authenticationPolicy, context, connection.TlsSession);
         return new Http1ConnectionServer(answerer, context).ServeAsync(connection);
     }
 

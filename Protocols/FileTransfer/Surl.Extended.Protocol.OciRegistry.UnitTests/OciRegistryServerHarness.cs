@@ -42,12 +42,42 @@ internal sealed class OciRegistryServerHarness
     /// file system. Upload session UUIDs are <see cref="SessionId(int)"/> 1, 2, … in order.
     /// </summary>
     public OciRegistryServerHarness(ContentExposureOptions options, params Func<InMemoryContentFileSystem, ContentShare>[] shares)
+        : this(OciTokenBook.MaxLiveTokens, options, shares)
+    {
+    }
+
+    private OciRegistryServerHarness(int maxLiveTokens, ContentExposureOptions options, Func<InMemoryContentFileSystem, ContentShare>[] shares)
     {
         TimeProvider = new FixedTimeProvider(Now);
         FileSystem = new InMemoryContentFileSystem(TimeProvider);
         Store = new ContentStore(InMemoryContentFileSystem.RootPath, FileSystem, options, [.. shares.Select(share => share(FileSystem))], []);
-        Server = new OciRegistryProtocolServer(Store, TimeProvider, () => Guid.Parse(SessionId(Interlocked.Increment(ref sessionCount))));
+        Server = new OciRegistryProtocolServer(Store, Policy, TimeProvider, () => Guid.Parse(SessionId(Interlocked.Increment(ref sessionCount))), maxLiveTokens);
     }
+
+    /// <summary>
+    /// A registry that accepts uploads and keeps at most <paramref name="maxLiveTokens"/> live tokens.
+    /// </summary>
+    public static OciRegistryServerHarness WithTokenBound(int maxLiveTokens) =>
+        new(maxLiveTokens, new ContentExposureOptions { AllowUploads = true }, []);
+
+    /// <summary>
+    /// The policy the token endpoint checks logins with: the account
+    /// <see cref="UnitTestAuthenticationPolicy.UserName"/>, anonymous logins refused.
+    /// </summary>
+    public UnitTestAuthenticationPolicy Policy { get; } = new();
+
+    /// <summary>
+    /// Where each exchange's random bytes, and so each token, come from.
+    /// </summary>
+    public CountingIdentifierRandom Random { get; } = new();
+
+    /// <summary>
+    /// Whether a <c>/v2/</c> request sent without <c>Authorization</c> first fetches a token from
+    /// <c>/token</c> as <see cref="UnitTestAuthenticationPolicy.UserName"/>, asking every action
+    /// in its repository and <c>pull</c> in a mount's <c>from</c>, and carries it; on by default,
+    /// so a test of what a request does with a token need not fetch one itself.
+    /// </summary>
+    public bool SendsTokens { get; set; } = true;
 
     /// <summary>
     /// A registry that accepts uploads.
@@ -224,6 +254,7 @@ internal sealed class OciRegistryServerHarness
         CancellationToken.None)
     {
         Limits = Limits,
+        Identifiers = Random,
     };
 
     /// <summary>
@@ -233,7 +264,47 @@ internal sealed class OciRegistryServerHarness
     public Task<string> SendAsync(string method, string target, params string[] fields) =>
         SendRawAsync($"{method} {target} HTTP/1.1\r\nHost: registry.test\r\n{string.Concat(fields.Select(field => field + "\r\n"))}Connection: close\r\n\r\n");
 
-    public async Task<string> SendRawAsync(string request)
+    public async Task<string> SendRawAsync(string request) =>
+        await ServeAsync(SendsTokens && request.Contains(" /v2/", StringComparison.Ordinal) && !request.Contains("\r\nAuthorization:", StringComparison.OrdinalIgnoreCase)
+            ? await WithTokenAsync(request)
+            : request);
+
+    /// <summary>
+    /// Fetches a token as <see cref="UnitTestAuthenticationPolicy.UserName"/> for
+    /// <paramref name="scopes"/>, each a whole <c>scope</c> value.
+    /// </summary>
+    public async Task<string> FetchTokenAsync(params string[] scopes)
+    {
+        var query = string.Join('&', scopes.Select(scope => "scope=" + Uri.EscapeDataString(scope)));
+        var answer = await ServeAsync($"GET /token?service=surl&{query} HTTP/1.1\r\nHost: registry.test\r\n{UnitTestAuthenticationPolicy.BasicAuthorization}\r\nConnection: close\r\n\r\n");
+        StringAssert.StartsWith(answer, "HTTP/1.1 200 OK\r\n");
+        using var json = System.Text.Json.JsonDocument.Parse(answer[(answer.IndexOf("\r\n\r\n", StringComparison.Ordinal) + 4)..]);
+
+        return json.RootElement.GetProperty("token").GetString()!;
+    }
+
+    // The request with a token for its first line's repository (and a mount's from) after that line.
+    private async Task<string> WithTokenAsync(string request)
+    {
+        var lineEnd = request.IndexOf("\r\n", StringComparison.Ordinal);
+        var target = OciRequestTarget.Parse(request[..lineEnd].Split(' ')[1]);
+        var scopes = new List<string>();
+        if (target.Name.Length > 0)
+        {
+            scopes.Add($"repository:{target.Name}:*");
+        }
+
+        if (OciQueryParameters.First(target.Query, "from") is { } from)
+        {
+            scopes.Add($"repository:{from}:pull");
+        }
+
+        var token = await FetchTokenAsync([.. scopes]);
+
+        return request.Insert(lineEnd + 2, $"Authorization: Bearer {token}\r\n");
+    }
+
+    private async Task<string> ServeAsync(string request)
     {
         var connection = new InMemoryConnection([Encoding.Latin1.GetBytes(request)]);
         await Server.ServeAsync(connection, Context());

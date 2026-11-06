@@ -16,6 +16,7 @@ public sealed class Http3RequestHeadMappingTests
         Assert.AreEqual("GET", head!.Method);
         Assert.AreEqual("/a?b", head.Target);
         Assert.AreEqual("example", head.Authority);
+        Assert.AreEqual("http", head.Scheme);
         Assert.AreEqual(3L, head.ContentLength);
         Assert.IsTrue(head.ExpectsContinue);
         CollectionAssert.AreEqual(new[] { "accept", "content-length", "expect" }, head.Fields.Select(field => field.Key).ToArray());
@@ -40,6 +41,7 @@ public sealed class Http3RequestHeadMappingTests
 
         Assert.IsNull(malformation);
         Assert.AreEqual("example:443", head!.Target);
+        Assert.IsNull(head.Scheme, "A CONNECT that is not extended carries no :scheme.");
     }
 
     [TestMethod]

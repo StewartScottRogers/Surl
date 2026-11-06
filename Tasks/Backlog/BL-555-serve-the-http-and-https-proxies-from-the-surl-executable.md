@@ -57,6 +57,7 @@ and `surl --aihelp` documents them.
 ## Notes
 
 - Planning assumption (BL-399): the command-line form above; BL-550's ADR decides it.
+- BL-554 (ADR-0088 Amendment 2): every listen URL built from `--proxy` must set `ListenUrl.IsProxy = true`, so an `https` proxy listener offers ALPN `http/1.1` only; without it curl's `--proxy-http2` agrees `h2` and the proxy closes the connection.
 
 ## Log
 

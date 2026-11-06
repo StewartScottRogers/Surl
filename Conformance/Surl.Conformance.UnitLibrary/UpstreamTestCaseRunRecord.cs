@@ -36,7 +36,20 @@ public sealed record UpstreamTestCaseRunRecord(
     /// <param name="uploadReceived">The upload the server half stored.</param>
     /// <returns>The record, with no proxy bytes.</returns>
     public static UpstreamTestCaseRunRecord FromRun(
-        UpstreamCurlRunResult run, byte[] outputFile, byte[] serverReceived, byte[] uploadReceived)
+        UpstreamCurlRunResult run, byte[] outputFile, byte[] serverReceived, byte[] uploadReceived) =>
+        FromRun(UpstreamTestCaseClientRun.From(run), outputFile, serverReceived, uploadReceived);
+
+    /// <summary>
+    /// Makes the record of a run of whichever client played the case - a pinned upstream build or the
+    /// pinned Curl port (<see cref="IUpstreamTestCaseClient"/>) - and what its server half recorded.
+    /// </summary>
+    /// <param name="run">The run; its stderr text is turned back into UTF-8 bytes, as the runner decoded it.</param>
+    /// <param name="outputFile">The bytes of the <c>--output</c> file, empty when there is none.</param>
+    /// <param name="serverReceived">The bytes the server half received.</param>
+    /// <param name="uploadReceived">The upload the server half stored.</param>
+    /// <returns>The record, with no proxy bytes.</returns>
+    public static UpstreamTestCaseRunRecord FromRun(
+        UpstreamTestCaseClientRun run, byte[] outputFile, byte[] serverReceived, byte[] uploadReceived)
     {
         ArgumentNullException.ThrowIfNull(run);
 

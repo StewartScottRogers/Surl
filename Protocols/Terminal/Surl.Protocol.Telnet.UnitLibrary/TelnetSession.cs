@@ -49,20 +49,59 @@ internal sealed class TelnetSession
     /// <summary>
     /// Whether the session is over, so the server closes the connection: the client sent
     /// <c>quit</c> and has answered every <c>SEND</c> the server made, or a line or
-    /// subnegotiation was too long.
+    /// subnegotiation was too long, or a line was answered with a chosen error.
     /// </summary>
     public bool IsOver => cutShort || (quitReceived && unansweredSends == 0);
 
     /// <summary>
-    /// Takes bytes the client sent, stopping as soon as the session is over.
+    /// The line the client completed and the server has not answered yet, or
+    /// <see langword="null"/>; while one waits, <see cref="Receive"/> takes no more bytes.
+    /// </summary>
+    public byte[]? LineAwaitingAnswer { get; private set; }
+
+    /// <summary>
+    /// How many lines the client has completed, the one awaiting an answer included.
+    /// </summary>
+    public int CompletedLineCount { get; private set; }
+
+    /// <summary>
+    /// Takes bytes the client sent, stopping as soon as the session is over or a line awaits its
+    /// answer (<see cref="LineAwaitingAnswer"/>).
     /// </summary>
     /// <param name="bytes">The bytes.</param>
-    public void Receive(ReadOnlySpan<byte> bytes)
+    /// <returns>How many of <paramref name="bytes"/> were taken.</returns>
+    public int Receive(ReadOnlySpan<byte> bytes)
     {
-        for (var index = 0; index < bytes.Length && !IsOver; index++)
+        var index = 0;
+        while (index < bytes.Length && !IsOver && LineAwaitingAnswer is null)
         {
             Answer(parser.Take(bytes[index]));
+            index++;
         }
+
+        return index;
+    }
+
+    /// <summary>
+    /// Answers <see cref="LineAwaitingAnswer"/>: with <paramref name="chosenError"/> as one line,
+    /// after which the session is over (ADR-0138), or, when it is <see langword="null"/>, as
+    /// usual - echoed back, or <c>bye</c> for <c>quit</c>.
+    /// </summary>
+    /// <param name="chosenError">A chosen-error fault rule's text, or <see langword="null"/>.</param>
+    public void AnswerAwaitingLine(string? chosenError)
+    {
+        var line = LineAwaitingAnswer!;
+        LineAwaitingAnswer = null;
+        if (chosenError is not null)
+        {
+            outbound.Write(Encoding.UTF8.GetBytes(chosenError));
+            outbound.Write(LineEnding);
+            cutShort = true;
+
+            return;
+        }
+
+        AnswerLine(line);
     }
 
     /// <summary>
@@ -118,7 +157,8 @@ internal sealed class TelnetSession
         switch (lines.Take(value))
         {
             case TelnetLineStatus.Completed:
-                AnswerLine(lines.CompletedLine);
+                LineAwaitingAnswer = lines.CompletedLine;
+                CompletedLineCount++;
                 break;
             case TelnetLineStatus.TooLong:
                 log.Note($"A line was longer than {maxLineBytes} bytes; answered line too long and closed.");

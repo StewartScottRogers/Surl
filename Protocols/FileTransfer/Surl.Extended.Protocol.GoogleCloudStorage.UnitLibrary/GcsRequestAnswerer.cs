@@ -42,7 +42,7 @@ internal sealed class GcsRequestAnswerer : IHttpRequestHandler
         this.context = context;
         login = new GcsLoginJudge(authentication, context.Log);
         properties = new GcsObjectPropertiesReader(store, index, context.Log);
-        putObject = new GcsPutObject(store, index, properties, context.Log);
+        putObject = new GcsPutObject(store, index, properties, login, context.Log);
         listObjects = new GcsListObjects(store, properties);
         listBuckets = new GcsListBuckets(store);
     }
@@ -59,15 +59,27 @@ internal sealed class GcsRequestAnswerer : IHttpRequestHandler
         }
 
         var operation = GcsOperationRecognition.Of(request, target);
+        if (await UnusedBodyRefusalAsync(request, operation, loggedIn.BodyCheck, cancellationToken) is { } bodyRefusal)
+        {
+            return reply.Error(bodyRefusal);
+        }
+
         var caller = loggedIn.Caller!;
 
         return operation switch
         {
             GcsOperation.NotImplemented => NotImplemented(reply, request),
             GcsOperation.ListBuckets => listBuckets.Answer(reply, caller, cancellationToken),
-            _ => await AnswerInBucketAsync(reply, request, target, operation, caller, cancellationToken),
+            _ => await AnswerInBucketAsync(reply, request, target, operation, loggedIn, cancellationToken),
         };
     }
+
+    // A signature binding a body that only PUT Object reads (ADR-0045): any other request reads
+    // and discards it first, so its hash is checked before anything is answered.
+    private async Task<GcsError?> UnusedBodyRefusalAsync(HttpRequest request, GcsOperation operation, IHttpRequestBodyCheck? bodyCheck, CancellationToken cancellationToken) =>
+        operation == GcsOperation.PutObject || bodyCheck is null
+            ? null
+            : await login.JudgeDiscardedBodyAsync(request, bodyCheck, cancellationToken);
 
     private HttpAnswer NotImplemented(GcsReply reply, HttpRequest request)
     {
@@ -77,8 +89,9 @@ internal sealed class GcsRequestAnswerer : IHttpRequestHandler
     }
 
     // The bucket, then the name's length, then the operation.
-    private async Task<HttpAnswer> AnswerInBucketAsync(GcsReply reply, HttpRequest request, GcsRequestTarget target, GcsOperation operation, ContentCaller caller, CancellationToken cancellationToken)
+    private async Task<HttpAnswer> AnswerInBucketAsync(GcsReply reply, HttpRequest request, GcsRequestTarget target, GcsOperation operation, GcsLogin loggedIn, CancellationToken cancellationToken)
     {
+        var caller = loggedIn.Caller!;
         var bucket = store.MapBucketRequestPathForCaller($"/{target.RawBucket}/", caller);
         if (!bucket.IsMapped || store.GetEntryKind(bucket) != ContentEntryKind.Directory)
         {
@@ -93,7 +106,7 @@ internal sealed class GcsRequestAnswerer : IHttpRequestHandler
         return operation switch
         {
             GcsOperation.ListObjects => await listObjects.AnswerAsync(reply, target, caller, cancellationToken),
-            GcsOperation.PutObject => await putObject.AnswerAsync(reply, request, target, caller, cancellationToken),
+            GcsOperation.PutObject => await putObject.AnswerAsync(reply, request, target, caller, loggedIn.BodyCheck, cancellationToken),
             GcsOperation.DeleteObject => await DeleteObjectAsync(reply, request, target, caller, cancellationToken),
             _ => await ReadObjectAsync(reply, request, target, caller, cancellationToken),
         };

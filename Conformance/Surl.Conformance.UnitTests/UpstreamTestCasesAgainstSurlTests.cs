@@ -4,6 +4,7 @@ using System.Net;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using Surl.Networking;
+using Surl.LineProtocol;
 using Surl.Protocol.Ftp;
 using Surl.Protocol.Gopher;
 using Surl.Protocol.Http;
@@ -17,7 +18,7 @@ namespace Surl.Conformance;
 /// FTP, Gopher, MQTT, TFTP, DICT, TELNET, SCP, SFTP and SMB - against Surl's server halves
 /// (<see cref="UpstreamTestCaseServerHalves"/>), with the platform's pinned reference build as the
 /// client, or for an smb case the build <see cref="UpstreamCurlLocator.LocateForProtocol"/> pairs
-/// with smb (ADR-0080 decisions 2, 5 and 6; BL-392, BL-394, BL-396, BL-397). Each case gets its own server halves on ephemeral ports, its own
+/// with smb (ADR-0080 decisions 2, 5 and 6; BL-392, BL-394, BL-396, BL-397, BL-879). Each case gets its own server halves on ephemeral ports, its own
 /// <c>%LOGDIR</c> and the command line runtests builds (<see cref="UpstreamTestCaseCommandLine"/>);
 /// its verify section is checked with <see cref="UpstreamTestCaseVerifyChecker"/>. The run writes
 /// <c>upstream-test-case-results.&lt;platform&gt;.txt</c>, one line for each of the 2,013 cases.
@@ -53,6 +54,7 @@ public sealed class UpstreamTestCasesAgainstSurlTests
     private const string TftpFamily = "tftp";
     private const string SshFamily = "ssh";
     private const string SmbFamily = "smb";
+    private const string MailFamily = "mail";
 
     // Each composed server name and the server half that plays it; a case naming any other is
     // skipped server-half-not-composed. dict and telnet are Surl's own servers, which keep no log.
@@ -74,6 +76,9 @@ public sealed class UpstreamTestCasesAgainstSurlTests
         ["scp"] = SshFamily,
         ["sftp"] = SshFamily,
         ["smb"] = SmbFamily,
+        ["imap"] = MailFamily,
+        ["pop3"] = MailFamily,
+        ["smtp"] = MailFamily,
     };
 
     public TestContext TestContext { get; set; } = null!;
@@ -167,7 +172,7 @@ public sealed class UpstreamTestCasesAgainstSurlTests
         }
     }
 
-    private static IEnumerable<string> TestCaseFiles() =>
+    internal static IEnumerable<string> TestCaseFiles() =>
         Directory.EnumerateFiles(Path.Combine(Root, "data"), "test*")
             .Where(path => Path.GetFileName(path)["test".Length..].All(char.IsAsciiDigit))
             .Order(StringComparer.Ordinal);
@@ -194,20 +199,40 @@ public sealed class UpstreamTestCasesAgainstSurlTests
     /// One pinned build as a case's client: the build, its runner, its features and its
     /// selection.
     /// </summary>
-    private sealed class CaseClient
+    internal sealed class CaseClient
     {
         public CaseClient(UpstreamCurlLocation location)
+            : this(
+                new UpstreamCurlTestCaseClient(new UpstreamCurlRunner(location, CaseTimeout, TimeProvider.System)),
+                CurlVersionReport.FromPin(location.Build!),
+                string.Empty)
         {
-            Build = location.Build!;
-            Runner = new UpstreamCurlRunner(location, CaseTimeout, TimeProvider.System);
-            Features = UpstreamCurlBuildFeatures.For(Build);
-            var disabled = UpstreamTestCaseDisabledList.Parse(File.ReadAllBytes(Path.Combine(Root, "data", "DISABLED")), SelectionEnvironment(Features));
-            Selector = new UpstreamTestCaseSelector(UpstreamTestCaseSelectionRules.ForBuild(Build, disabled));
         }
 
-        public PinnedUpstreamCurlBuild Build { get; }
+        /// <summary>
+        /// A client described by its own <c>--version</c>, selected and parsed with its own features
+        /// as runtests would select and parse for it; the Curl port's client is made this way
+        /// (ADR-0089 decision 1(b)).
+        /// </summary>
+        public CaseClient(IUpstreamTestCaseClient client, CurlVersionReport report, string logPrefix)
+        {
+            Client = client;
+            Report = report;
+            LogPrefix = logPrefix;
+            Features = UpstreamCurlBuildFeatures.For(report);
+            var disabled = UpstreamTestCaseDisabledList.Parse(File.ReadAllBytes(Path.Combine(Root, "data", "DISABLED")), SelectionEnvironment(Features));
+            Selector = new UpstreamTestCaseSelector(UpstreamTestCaseSelectionRules.ForClient(report, disabled));
+        }
 
-        public UpstreamCurlRunner Runner { get; }
+        public IUpstreamTestCaseClient Client { get; }
+
+        public CurlVersionReport Report { get; }
+
+        /// <summary>
+        /// Gets what the log and the case's folder name put before <c>test&lt;N&gt;</c>: empty for
+        /// upstream, <c>port-</c> for the Curl port.
+        /// </summary>
+        public string LogPrefix { get; }
 
         public IReadOnlySet<string> Features { get; }
 
@@ -224,7 +249,7 @@ public sealed class UpstreamTestCasesAgainstSurlTests
     /// What every case of one run shares: the reference build and the build that runs smb
     /// cases, the generated certificates, the SSH keys and the work folder.
     /// </summary>
-    private sealed class CaseRun
+    internal sealed class CaseRun
     {
         private readonly CaseClient reference;
         private readonly CaseClient? smb;
@@ -238,10 +263,17 @@ public sealed class UpstreamTestCasesAgainstSurlTests
         {
             reference = new CaseClient(location);
             smb = smbLocation is null || smbLocation.Build!.Sha256 == location.Build!.Sha256 ? null : new CaseClient(smbLocation);
+            PairedBuilds = smb is null ? [location.Build!] : [location.Build!, smbLocation!.Build!];
             this.work = work;
             certificateDirectory = Path.Combine(work, "certdir");
             this.testContext = testContext;
         }
+
+        /// <summary>
+        /// Gets the upstream builds the run's cases are played with: the reference build, then the
+        /// smb build when it is another.
+        /// </summary>
+        public IReadOnlyList<PinnedUpstreamCurlBuild> PairedBuilds { get; }
 
         public async Task<IReadOnlyList<UpstreamTestCaseResult>> RunAllAsync(IEnumerable<string> paths)
         {
@@ -257,20 +289,64 @@ public sealed class UpstreamTestCasesAgainstSurlTests
             await Parallel.ForEachAsync(paths, options, async (path, cancellationToken) =>
             {
                 var number = int.Parse(Path.GetFileName(path)["test".Length..], CultureInfo.InvariantCulture);
-                results.Add(await RunCaseAsync(number, await File.ReadAllBytesAsync(path, cancellationToken), tlsSettings, cancellationToken));
+                results.Add(await RunCaseAsync(number, await File.ReadAllBytesAsync(path, cancellationToken), tlsSettings, null, cancellationToken));
             });
 
             return [.. results.OrderBy(result => result.Number)];
         }
 
-        private async Task<UpstreamTestCaseResult> RunCaseAsync(int number, byte[] source, ServerTlsSettings tlsSettings, CancellationToken cancellationToken)
+        /// <summary>
+        /// Plays each case twice, each time with its own fresh server halves and its own folder: with
+        /// the build upstream's run pairs it with (the reference build, or the smb build), then with
+        /// <paramref name="port"/> (ADR-0089 decisions 1(b) and 2).
+        /// </summary>
+        public async Task<IReadOnlyList<UpstreamTestCasePortRow>> RunBesideAsync(IEnumerable<string> paths, CaseClient port)
+        {
+            using var keys = fileServers;
+            using var tlsSettings = WriteCertificates();
+            var rows = new ConcurrentBag<UpstreamTestCasePortRow>();
+            var options = new ParallelOptions
+            {
+                MaxDegreeOfParallelism = Math.Clamp(Environment.ProcessorCount, 2, 16),
+                CancellationToken = testContext.CancellationToken,
+            };
+
+            await Parallel.ForEachAsync(paths, options, async (path, cancellationToken) =>
+            {
+                var number = int.Parse(Path.GetFileName(path)["test".Length..], CultureInfo.InvariantCulture);
+                var source = await File.ReadAllBytesAsync(path, cancellationToken);
+                var upstream = await RunCaseAsync(number, source, tlsSettings, null, cancellationToken);
+                var ported = await RunCaseAsync(number, source, tlsSettings, port, cancellationToken);
+                rows.Add(new UpstreamTestCasePortRow(number, FamilyOf(source), upstream, ported));
+            });
+
+            return [.. rows.OrderBy(row => row.Number)];
+        }
+
+        // The family of the case's first server, as the results name it; a case whose servers the
+        // run does not compose is named after that server.
+        private string FamilyOf(byte[] source)
+        {
+            try
+            {
+                var names = ServerNames(UpstreamTestCaseParser.Parse(source, SelectionEnvironment(reference.Features))).ToList();
+                return names.Count > 0 ? ServerFamilies.GetValueOrDefault(names[0], names[0]) : "none";
+            }
+            catch (UpstreamTestCaseFormatException)
+            {
+                return "unparsable";
+            }
+        }
+
+        private async Task<UpstreamTestCaseResult> RunCaseAsync(
+            int number, byte[] source, ServerTlsSettings tlsSettings, CaseClient? onlyClient, CancellationToken cancellationToken)
         {
             UpstreamTestCase selected;
-            var client = reference;
+            var client = onlyClient ?? reference;
             try
             {
                 selected = UpstreamTestCaseParser.Parse(source, SelectionEnvironment(client.Features));
-                if (smb is not null && ServerNames(selected).Contains(SmbFamily))
+                if (onlyClient is null && smb is not null && ServerNames(selected).Contains(SmbFamily))
                 {
                     client = smb;
                     selected = UpstreamTestCaseParser.Parse(source, SelectionEnvironment(client.Features));
@@ -297,7 +373,7 @@ public sealed class UpstreamTestCasesAgainstSurlTests
         {
             // The case's folder stands for runtests' own: curl's working directory, %PWD and
             // HOME, with %LOGDIR the relative "log" inside it, as runtests runs one case at a time.
-            var caseDirectory = Directory.CreateDirectory(Path.Combine(work, $"test{number}")).FullName;
+            var caseDirectory = Directory.CreateDirectory(Path.Combine(work, $"{client.LogPrefix}test{number}")).FullName;
             const string logDirectory = "log";
             Directory.CreateDirectory(Path.Combine(caseDirectory, logDirectory));
             await using var serverHalves = await UpstreamTestCaseServerHalves.StartAsync(tlsSettings, cancellationToken);
@@ -309,6 +385,7 @@ public sealed class UpstreamTestCasesAgainstSurlTests
             GopherUpstreamTestCaseReplies gopherReplies;
             MqttUpstreamTestCaseReplies mqttReplies;
             TftpUpstreamTestCaseReplies tftpReplies;
+            MailUpstreamTestCaseReplies mailReplies;
             // The case's <servercmd> is its first server's; each other server half gets none.
             var families = ServerNames(testCase).Select(name => ServerFamilies[name]).Distinct().ToList();
             IEnumerable<string> CommandsFor(string family) => families[0] == family ? ServerCommandLines(testCase) : [];
@@ -320,24 +397,25 @@ public sealed class UpstreamTestCasesAgainstSurlTests
                 gopherReplies = new GopherUpstreamTestCaseReplies(FtpReplyParts(testCase).GetValueOrDefault("data") ?? []);
                 mqttReplies = new MqttUpstreamTestCaseReplies(FtpReplyParts(testCase).GetValueOrDefault("data") ?? []);
                 tftpReplies = new TftpUpstreamTestCaseReplies(FtpReplyParts(testCase), CommandsFor(TftpFamily));
+                mailReplies = new MailUpstreamTestCaseReplies(MailReplyParts(testCase), CommandsFor(MailFamily));
             }
             catch (FormatException exception)
             {
-                testContext.WriteLine($"test{number}: {exception.Message}");
+                testContext.WriteLine($"{client.LogPrefix}test{number}: {exception.Message}");
                 return UpstreamTestCaseResult.Fail(number, "command");
             }
 
             await WriteFilesAsync(caseDirectory, commandLine, cancellationToken);
-            var smbRoot = Path.Combine(work, $"test{number}-smb");
+            var smbRoot = caseDirectory + "-smb";
             await WriteFileServerFilesAsync(number, testCase, families, Path.Combine(caseDirectory, logDirectory), smbRoot, cancellationToken);
             serverHalves.Play(
                 replies, ftpReplies, gopherReplies, mqttReplies, tftpReplies,
-                fileServers.CreateSsh(caseDirectory, sshUser), UpstreamTestCaseFileServers.CreateSmb(smbRoot));
-            var curl = await client.Runner.RunAsync(
+                fileServers.CreateSsh(caseDirectory, sshUser), UpstreamTestCaseFileServers.CreateSmb(smbRoot), mailReplies);
+            var curl = await client.Client.RunAsync(
                 commandLine.Arguments, commandLine.StandardInput, CurlEnvironment(Slashes(caseDirectory), commandLine), caseDirectory, cancellationToken);
             if (curl.TimedOut)
             {
-                testContext.WriteLine($"test{number}: curl stopped after {CaseTimeout.TotalSeconds} s");
+                testContext.WriteLine($"{client.LogPrefix}test{number}: curl stopped after {CaseTimeout.TotalSeconds} s");
                 return UpstreamTestCaseResult.Fail(number, UpstreamTestCaseResult.TimeoutReason);
             }
 
@@ -355,20 +433,21 @@ public sealed class UpstreamTestCasesAgainstSurlTests
                 [GopherFamily] = gopherReplies.ReceivedBytes,
                 [MqttFamily] = mqttReplies.ReceivedBytes,
                 [TftpFamily] = tftpReplies.ReceivedBytes,
+                [MailFamily] = mailReplies.ReceivedBytes,
             };
             byte[] received = [.. families.SelectMany(family => receivedByFamily.GetValueOrDefault(family) ?? [])];
             // runtests compares <upload> with %LOGDIR/upload.<N>; the FTP and TFTP server halves
             // keep their uploads in memory, and an SCP or SFTP upload lands in that very file.
             var sshUpload = Path.Combine(caseDirectory, logDirectory, $"upload.{number}");
             byte[] sshUploaded = families.Contains(SshFamily) && File.Exists(sshUpload) ? await File.ReadAllBytesAsync(sshUpload, cancellationToken) : [];
-            var record = UpstreamTestCaseRunRecord.FromRun(curl, output, received, [.. ftpReplies.UploadedBytes, .. tftpReplies.UploadedBytes, .. sshUploaded]);
+            var record = UpstreamTestCaseRunRecord.FromRun(curl, output, received, [.. ftpReplies.UploadedBytes, .. tftpReplies.UploadedBytes, .. mailReplies.UploadedBytes, .. sshUploaded]);
             var verdict = new UpstreamTestCaseVerifyChecker(new CaseFolderRunFiles(caseDirectory), client.Features).Check(testCase, record);
             if (verdict.Passed)
             {
                 return UpstreamTestCaseResult.Pass(number);
             }
 
-            testContext.WriteLine($"test{number}: {verdict}{Environment.NewLine}{serverHalves.Notes}");
+            testContext.WriteLine($"{client.LogPrefix}test{number}: {verdict}{Environment.NewLine}{serverHalves.Notes}");
 
             // The results file names the section only: "file (log/jar31.txt)" is "file".
             return UpstreamTestCaseResult.Fail(number, verdict.FailedSection!.Split(' ')[0]);
@@ -425,6 +504,12 @@ public sealed class UpstreamTestCasesAgainstSurlTests
                 ["TFTPPORT"] = serverHalves.TftpPort.ToString(CultureInfo.InvariantCulture),
                 ["SSHPORT"] = serverHalves.SshPort.ToString(CultureInfo.InvariantCulture),
                 ["SMBPORT"] = serverHalves.SmbPort.ToString(CultureInfo.InvariantCulture),
+                ["IMAPPORT"] = serverHalves.ImapPort.ToString(CultureInfo.InvariantCulture),
+                ["IMAP6PORT"] = serverHalves.ImapIPv6Port.ToString(CultureInfo.InvariantCulture),
+                ["POP3PORT"] = serverHalves.Pop3Port.ToString(CultureInfo.InvariantCulture),
+                ["POP36PORT"] = serverHalves.Pop3IPv6Port.ToString(CultureInfo.InvariantCulture),
+                ["SMTPPORT"] = serverHalves.SmtpPort.ToString(CultureInfo.InvariantCulture),
+                ["SMTP6PORT"] = serverHalves.SmtpIPv6Port.ToString(CultureInfo.InvariantCulture),
                 // The SSH server half's root is the case's folder (UpstreamTestCaseFileServers).
                 ["SFTP_PWD"] = string.Empty,
                 ["SCP_PWD"] = string.Empty,
@@ -442,9 +527,11 @@ public sealed class UpstreamTestCasesAgainstSurlTests
                 ["FILE_PWD"] = OperatingSystem.IsWindows() ? "/" + Slashes(caseDirectory) : Slashes(caseDirectory),
                 ["SRCDIR"] = Slashes(Root),
                 ["CERTDIR"] = Slashes(certificateDirectory),
-                ["CURL"] = client.Build.DefaultPath,
+                ["CURL"] = client.Client.ExecutablePath,
                 ["TESTNUMBER"] = number.ToString(CultureInfo.InvariantCulture),
-                ["VERSION"] = "8.21.0",
+                // runtests takes both from the client's own --version (servers.pm, subvariables).
+                ["VERSION"] = client.Report.Version,
+                ["VERNUM"] = client.Report.VersionNumber,
                 // Only SCP and SFTP cases name %USER, as the login the SSH server half lets in.
                 ["USER"] = sshUser,
                 ["DEV_NULL"] = OperatingSystem.IsWindows() ? "NUL" : "/dev/null",
@@ -522,6 +609,14 @@ public sealed class UpstreamTestCasesAgainstSurlTests
                 .Select(group => (group.Key, Bytes: group.First().ContentWithNewlineAttributes(UpstreamTestCaseNewlineRule.CutThenCrlf), SendsZero: group.First().IsSet("sendzero")))
                 .Where(part => part.Bytes.Length > 0 || part.SendsZero || !part.Key.StartsWith("data", StringComparison.Ordinal))
                 .ToDictionary(part => part.Key, part => part.Bytes, StringComparer.Ordinal);
+
+        // FILEFORMAT: the mail server halves send a <data*> part as a message or a listing, as
+        // upstream's getreplydata sends what the part holds, so an empty one is kept.
+        private static Dictionary<string, byte[]> MailReplyParts(UpstreamTestCase testCase) =>
+            (testCase.FindSection("reply")?.Parts ?? [])
+                .Where(part => part.Name.StartsWith("data", StringComparison.Ordinal))
+                .GroupBy(part => part.Name, StringComparer.Ordinal)
+                .ToDictionary(group => group.Key, group => group.First().ContentWithNewlineAttributes(UpstreamTestCaseNewlineRule.CutThenCrlf), StringComparer.Ordinal);
 
         private static IEnumerable<string> ServerCommandLines(UpstreamTestCase testCase) =>
             (testCase.FindPart("reply", "servercmd")?.Lines ?? []).Select(line => line.TrimEnd('\n'));

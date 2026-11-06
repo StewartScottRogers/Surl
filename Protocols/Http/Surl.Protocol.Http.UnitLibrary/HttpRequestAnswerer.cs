@@ -12,10 +12,18 @@ namespace Surl.Protocol.Http;
 /// describes, and writes nothing: the status, the fields, the body and whether the request
 /// is refused (ADR-0081, decision 8). It never asks which HTTP version carried the request;
 /// a version's writer, such as <see cref="Http1ConnectionServer"/>'s, turns the answer into bytes.
+/// A <c>GET</c>'s <c>Range</c> is answered <c>206</c> or <c>416</c>, and under
+/// <c>--allow-uploads</c> a <c>PUT</c> stores its body (ADR-0133).
 /// </summary>
-internal sealed class HttpRequestAnswerer : IHttpRequestHandler
+internal sealed partial class HttpRequestAnswerer : IHttpRequestHandler
 {
     private const string AllowedMethods = "GET, HEAD";
+
+    private const string AllowedMethodsWithUploads = "GET, HEAD, PUT";
+
+    private static readonly HttpStatus PartialContent = new(206, "Partial Content");
+
+    private static readonly HttpStatus RangeNotSatisfiable = new(416, "Range Not Satisfiable");
 
     private const string AbsoluteFormPrefix = "http://";
 
@@ -66,13 +74,15 @@ internal sealed class HttpRequestAnswerer : IHttpRequestHandler
 
         return verdict.BodyCheck is null
             ? AnswerLetInRequestAsync(request, verdict.AccountName, verdict.WwwAuthenticateValues, cancellationToken)
-            : AnswerBodyCheckedRequestAsync(request, verdict.BodyCheck, verdict.WwwAuthenticateValues, cancellationToken);
+            : AnswerBodyCheckedRequestAsync(request, verdict.BodyCheck, verdict.AccountName, verdict.WwwAuthenticateValues, cancellationToken);
     }
 
     // A login that binds the body (ADR-0045): the upload limit first, then the body read and
     // hashed, then the verdict the body check gives for its SHA-256, answered with the body
     // already read. A body that cannot be read cannot be checked, and is refused as malformed.
-    private async Task<HttpAnswer> AnswerBodyCheckedRequestAsync(HttpRequest request, IHttpRequestBodyCheck bodyCheck, IReadOnlyList<string> challenges, CancellationToken cancellationToken)
+    // A PUT under --allow-uploads is read into its upload as it is hashed, and stored only once
+    // the body check accepts it (ADR-0133, decision 2).
+    private async Task<HttpAnswer> AnswerBodyCheckedRequestAsync(HttpRequest request, IHttpRequestBodyCheck bodyCheck, string? accountName, IReadOnlyList<string> challenges, CancellationToken cancellationToken)
     {
         var uploadRefusal = RefuseUploadPastLimit(request, challenges);
         if (uploadRefusal is not null)
@@ -83,6 +93,11 @@ internal sealed class HttpRequestAnswerer : IHttpRequestHandler
         if (!request.Body.IsReadable)
         {
             return Refuse(HttpStatus.BadRequest, null, challenges, $"{request.Method} {request.Target}: the login is bound to the body, and the body's framing is not one the server reads");
+        }
+
+        if (IsServedUpload(request))
+        {
+            return await AnswerPutAsync(request, ContentCallerOf(accountName), bodyCheck, challenges, cancellationToken);
         }
 
         using var bodyHash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
@@ -98,15 +113,29 @@ internal sealed class HttpRequestAnswerer : IHttpRequestHandler
     }
 
     // A request the authentication session let in, as the account it logged in (null when
-    // anonymous): the upload limit, then method dispatch.
-    private async Task<HttpAnswer> AnswerLetInRequestAsync(HttpRequest request, string? accountName, IReadOnlyList<string> challenges, CancellationToken cancellationToken) =>
-        RefuseUploadPastLimit(request, challenges)
-            ?? (request.Method is "GET" or "HEAD" ? await AnswerFromContentStoreAsync(request, ContentCallerOf(accountName), challenges, cancellationToken) : RefuseMethod(request, challenges));
+    // anonymous): a fault rule's chosen error, the upload limit, then method dispatch.
+    private async Task<HttpAnswer> AnswerLetInRequestAsync(HttpRequest request, string? accountName, IReadOnlyList<string> challenges, CancellationToken cancellationToken)
+    {
+        var refusal = await AnswerChosenErrorAsync(request, accountName, challenges) ?? RefuseUploadPastLimit(request, challenges);
+        if (refusal is not null)
+        {
+            return refusal;
+        }
+
+        if (request.Method is "GET" or "HEAD")
+        {
+            return await AnswerFromContentStoreAsync(request, ContentCallerOf(accountName), challenges, cancellationToken);
+        }
+
+        return IsServedUpload(request)
+            ? await AnswerPutAsync(request, ContentCallerOf(accountName), null, challenges, cancellationToken)
+            : RefuseMethod(request, challenges);
+    }
 
     // Who the content store is told asks: the account the verdict names, or an anonymous caller,
     // on the scheme the server listens on (ADR-0102 decision 2.2). A share the caller may not
     // read is answered as absent, so a GET or HEAD in it is the 404 a missing path gets
-    // (ADR-0102 decision 2.3); the server takes no uploads, so a write is the 405 it always is.
+    // (ADR-0102 decision 2.3); a PUT the store does not permit is the 403 ADR-0133 gives it.
     private ContentCaller ContentCallerOf(string? accountName) =>
         string.IsNullOrEmpty(accountName)
             ? ContentCaller.Anonymous(context.Scheme)
@@ -131,8 +160,6 @@ internal sealed class HttpRequestAnswerer : IHttpRequestHandler
 
             return EmptyAnswer(request, HttpStatus.NotFound, challenges);
         }
-
-        context.Log.Note($"{request.Method} {request.Target}: 200, {status.Length} bytes of {mapping.Location}");
 
         return FileAnswer(request, mapping, status, challenges);
     }
@@ -225,7 +252,9 @@ internal sealed class HttpRequestAnswerer : IHttpRequestHandler
         var isKnown = MethodsRefusedWithAllow.Contains(request.Method, StringComparer.Ordinal);
         var status = isKnown ? HttpStatus.MethodNotAllowed : HttpStatus.NotImplemented;
 
-        return Refuse(status, isKnown ? AllowedMethods : null, challenges, $"{request.Method} {request.Target}: the method is not served");
+        var allow = contentStore.ExposureOptions.AllowUploads ? AllowedMethodsWithUploads : AllowedMethods;
+
+        return Refuse(status, isKnown ? allow : null, challenges, $"{request.Method} {request.Target}: the method is not served");
     }
 
     private HttpAnswer Refuse(HttpStatus status, string? allow, IReadOnlyList<string> challenges, string note)
@@ -255,24 +284,77 @@ internal sealed class HttpRequestAnswerer : IHttpRequestHandler
         return AddChallenges(fields, challenges);
     }
 
-    // A file is answered 200 with its length; a GET carries its bytes, a HEAD none.
+    // A file is answered 200 with its length; a GET carries its bytes, a HEAD none. A GET whose
+    // Range selects bytes is answered 206 with them, or 416 when they are past the end
+    // (ADR-0133, decision 1).
     private HttpAnswer FileAnswer(HttpRequest request, ContentPathMapping mapping, ContentFileStatus status, IReadOnlyList<string> challenges)
     {
         var now = Now();
-        var lastModified = status.LastModifiedUtc < now ? status.LastModifiedUtc : now;
+        var lastModified = FormatHttpDate(status.LastModifiedUtc < now ? status.LastModifiedUtc : now);
+        var range = request.Method == "GET" ? SelectedRange(request, lastModified, status.Length) : null;
+        if (range is { IsSatisfiable: false })
+        {
+            context.Log.Note($"{request.Method} {request.Target}: 416, the range is past the end of the {status.Length}-byte {mapping.Location}");
+
+            return RangeNotSatisfiableAnswer(request, status.Length, challenges);
+        }
+
+        var servedRange = range ?? ContentByteRange.WholeFile(status.Length);
         List<KeyValuePair<string, string>> fields =
         [
             new("Date", FormatHttpDate(now)),
             new("Server", HttpResponseHead.ServerName),
-            new("Last-Modified", FormatHttpDate(lastModified)),
+            new("Last-Modified", lastModified),
             new("Content-Type", "application/octet-stream"),
-            new("Content-Length", status.Length.ToString(CultureInfo.InvariantCulture)),
         ];
-        HttpAnswerBody body = request.Method == "GET"
-            ? new HttpAnswerBody.ContentFile(contentStore, mapping, ContentByteRange.WholeFile(status.Length))
-            : HttpAnswerBody.None;
+        if (range is not null)
+        {
+            fields.Add(new("Content-Range", FormattableString.Invariant($"bytes {range.FirstByte}-{range.LastByte}/{range.FileLength}")));
+        }
 
-        return new HttpAnswer(HttpStatus.Ok, AddChallenges(fields, challenges), body, IsRefusal: false, LeavesRequestBodyUnread: request.Body.IsAnnounced);
+        fields.Add(new("Content-Length", servedRange.ByteCount.ToString(CultureInfo.InvariantCulture)));
+        HttpAnswerBody body = request.Method == "GET"
+            ? new HttpAnswerBody.ContentFile(contentStore, mapping, servedRange)
+            : HttpAnswerBody.None;
+        var answerStatus = range is null ? HttpStatus.Ok : PartialContent;
+        context.Log.Note($"{request.Method} {request.Target}: {answerStatus.Code}, {servedRange.ByteCount} bytes of {mapping.Location}");
+
+        return new HttpAnswer(answerStatus, AddChallenges(fields, challenges), body, IsRefusal: false, LeavesRequestBodyUnread: request.Body.IsAnnounced);
+    }
+
+    // The range a GET's Range asks for, when its If-Range (if any) is the Last-Modified the
+    // answer carries, character for character; the server sends no ETag, so an entity-tag
+    // If-Range never matches and the whole file is served (RFC 9110, section 13.1.5).
+    private static ContentByteRange? SelectedRange(HttpRequest request, string lastModified, long fileLength)
+    {
+        var ifRange = FieldValue(request, "If-Range");
+        if (ifRange is not null && !string.Equals(ifRange.Trim(' ', '\t'), lastModified, StringComparison.Ordinal))
+        {
+            return null;
+        }
+
+        return HttpRangeSelection.Select(FieldValue(request, "Range"), fileLength);
+    }
+
+    // The value of a field sent once; a field sent more than once is not one the server reads.
+    private static string? FieldValue(HttpRequest request, string name)
+    {
+        var values = request.Fields.Where(field => string.Equals(field.Key, name, StringComparison.OrdinalIgnoreCase)).Select(field => field.Value).ToList();
+
+        return values.Count == 1 ? values[0] : null;
+    }
+
+    private HttpAnswer RangeNotSatisfiableAnswer(HttpRequest request, long fileLength, IReadOnlyList<string> challenges)
+    {
+        List<KeyValuePair<string, string>> fields =
+        [
+            new("Date", FormatHttpDate(Now())),
+            new("Server", HttpResponseHead.ServerName),
+            new("Content-Range", FormattableString.Invariant($"bytes */{fileLength}")),
+            new("Content-Length", "0"),
+        ];
+
+        return new HttpAnswer(RangeNotSatisfiable, AddChallenges(fields, challenges), HttpAnswerBody.None, IsRefusal: false, LeavesRequestBodyUnread: request.Body.IsAnnounced);
     }
 
     // One WWW-Authenticate field per value the authentication session gave, after

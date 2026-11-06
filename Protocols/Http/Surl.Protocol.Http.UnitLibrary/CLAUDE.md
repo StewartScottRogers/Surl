@@ -29,8 +29,23 @@ questions out of the answerer: an HTTP/2 or HTTP/3 writer reuses it as it is.
 
 The answerer maps each `GET` and `HEAD` with `ContentStore.MapRequestPathForCaller`: the caller is
 the account the verdict's `AccountName` names (an empty or absent one is anonymous) on the exchange's
-`Scheme`. A share the caller may not read answers as a missing path, the same empty `404`; a write is
-the `405` every `PUT` already gets, since the server takes no uploads (ADR-0102 decisions 2.2, 2.3).
+`Scheme`. A share the caller may not read answers as a missing path, the same empty `404` (ADR-0102
+decisions 2.2, 2.3).
+
+A `GET`'s `Range` is read by `HttpRangeSelection` (ADR-0133 decision 1): one satisfiable `bytes`
+range is answered `206` with `Content-Range`, one naming no byte `416` with
+`Content-Range: bytes */<length>`, and several ranges, other units, bad syntax or an `If-Range` that
+is not the exact `Last-Modified` get the whole file `200`. Under `--allow-uploads` a `PUT` is
+answered by `HttpRequestAnswerer.Uploads.cs` (ADR-0133 decision 2), mapped for the same caller: the
+body is copied through `HttpUploadStream` into a content-store upload session, hashed when a login
+binds the body, and committed only once all of it arrived and the body check accepted it - `201` new,
+`204` replaced, `403` not permitted, `409` a directory or no such directory, `413` past the limit.
+Without `--allow-uploads` a `PUT` is the `405` every unserved method is.
+
+A fault rule's chosen error (ADR-0134 decision 1) is answered by `HttpRequestAnswerer.Faults.cs`: the
+plan is asked through `Surl.HttpMessage`'s `HttpCommandFaults` once a request is let in (a body-bound
+`PUT` once its body check accepts), before the upload limit and the content store; the answer is the
+empty answer a `404` is with the reply's status, or a refusal when a body was announced and not read.
 
 The HTTP/2 frames, streams, flow control and connection (RFC 9113; ADR-0081 decisions 4 to 7;
 ADR-0090) live in `Surl.Http2.UnitLibrary` (ADR-0086 decision 1, moved by BL-409); its `CLAUDE.md`
@@ -80,10 +95,14 @@ upstream curl's recorded Initials (`Fixtures/h3-client-initial`).
 The upstream test cases' server half (ADR-0080 decision 2; BL-391) is a test seam the shipped
 `surl` never composes: `Surl.Conformance.UnitTests` composes `HttpUpstreamTestCaseServer` with one
 case's `HttpUpstreamTestCaseReplies` (its reply parts by name as bytes and its `<servercmd>`
-lines). The server reads each head with `Surl.HttpMessage`'s reader and its body as framed
+lines). Before the first request, `HttpUpstreamTestCaseProxyHeader` reads past a PROXY protocol
+version 1 header (`--haproxy-protocol`, `--haproxy-clientip`; BL-681), recorded as the first
+received line; one with no CRLF within 107 bytes closes the connection with no bytes. The shipped
+`HttpProtocolServer` does not read PROXY headers. The server reads each head with `Surl.HttpMessage`'s reader and its body as framed
 (`HttpUpstreamTestCaseRequestBody`; no `100 Continue` is ever written), then sends the part
-`HttpUpstreamTestCasePartNumber` picks verbatim: FILEFORMAT.md's `NUM` from the trailing digits
-of the path (the host for `CONNECT`) and the `Authorization` (else `Proxy-Authorization`)
+`HttpUpstreamTestCasePartNumber` picks verbatim: FILEFORMAT.md's `NUM` from the run of digits
+right after the last `/` of the whole request target, query included, up to the first non-digit
+(`/data/10240002.txt` gives part 2; for `CONNECT`, the digits the host name ends in) and the `Authorization` (else `Proxy-Authorization`)
 scheme, `swsbounce` moving the case's next request to the next part. The connection stays open
 unless `swsclose` is in the part or the commands; a missing part closes it with no bytes.
 `HttpUpstreamTestCaseServerCommands` holds `auth_required`, `idle`, `no-expect`, `skip:`,

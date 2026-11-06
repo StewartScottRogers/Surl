@@ -1,0 +1,9 @@
+HTTP/1.1 206 Partial Content
+Date: Mon, 28 Sep 2026 12:00:00 GMT
+Server: surl
+Last-Modified: Tue, 01 Sep 2026 08:30:00 GMT
+Content-Type: application/octet-stream
+Content-Range: bytes 0-9/17
+Content-Length: 10
+
+Hello from

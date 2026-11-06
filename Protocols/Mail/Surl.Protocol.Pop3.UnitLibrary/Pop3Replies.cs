@@ -41,6 +41,9 @@ internal static class Pop3Replies
     public const string HeadTimedOut = "-ERR Timeout waiting for a command, closing";
     public const string LineTooLong = "-ERR Command line too long, closing";
 
+    // What a chosen-error fault rule with no reply answers after "-ERR "; the rule reader and Surl.Api always give one.
+    public const string FaultWithoutReply = "Local error in processing";
+
     /// <summary>
     /// The capabilities <c>CAPA</c> lists in every state, in order (ADR-0056, decision 3).
     /// </summary>

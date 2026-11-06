@@ -11,7 +11,7 @@ namespace Surl.Protocol.Ldap;
 /// the connection after <c>StartTLS</c>, and ends at an unbind, a close, a Notice of
 /// Disconnection or a limit.
 /// </summary>
-internal sealed class LdapSession
+internal sealed partial class LdapSession
 {
     /// <summary>The <c>StartTLS</c> extended operation's OID (RFC 4511, section 4.14).</summary>
     public const string StartTlsName = "1.3.6.1.4.1.1466.20037";
@@ -227,6 +227,7 @@ internal sealed class LdapSession
         isBound = false;
         var answer = await bindJudge.JudgeAsync(bind);
         isBound = answer.IsBound;
+        boundAccount = answer.Account;
         await SendAsync(answer.Encode(messageId));
         if (answer.SecurityLayer is { } layer)
         {
@@ -265,8 +266,8 @@ internal sealed class LdapSession
 
     private async ValueTask AnswerSearchAsync(int messageId, LdapSearchRequest search)
     {
-        var outcome = search.BaseObject.Length == 0 ? directory.Search(search, RootDseFacts())
-            : await MayReadAsync() ? directory.Search(search, UnusedRootDseFacts)
+        var outcome = search.BaseObject.Length == 0 ? await SearchUnlessAFaultAnswersAsync(search, RootDseFacts())
+            : await MayReadAsync() ? await SearchUnlessAFaultAnswersAsync(search, UnusedRootDseFacts)
             : new LdapSearchOutcome([], BindFirst());
         foreach (var entry in outcome.Entries)
         {
@@ -280,7 +281,9 @@ internal sealed class LdapSession
 
     private async ValueTask AnswerCompareAsync(int messageId, LdapCompareRequest compare)
     {
-        var result = await MayReadAsync() ? directory.Compare(compare) : BindFirst();
+        var result = await MayReadAsync()
+            ? await FindChosenResultAsync(CompareOperationName, compare.Entry) ?? directory.Compare(compare)
+            : BindFirst();
         await SendAsync(LdapMessageEncoder.EncodeResultResponse(messageId, LdapTags.CompareResponse, result));
     }
 
@@ -294,8 +297,7 @@ internal sealed class LdapSession
             return false;
         }
 
-        context.Log.Note($"LDAP {operationName} refused: the directory is read-only");
-        var refusal = new LdapResult(LdapResultCode.UnwillingToPerform, string.Empty, "the directory is read-only over LDAP");
+        var refusal = await FindChosenResultAsync(operationName, null) ?? ReadOnlyRefusal(operationName);
         await SendAsync(LdapMessageEncoder.EncodeResultResponse(messageId, new Asn1Tag(TagClass.Application, tag.TagValue + 1, isConstructed: true), refusal));
         return true;
     }

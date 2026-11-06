@@ -65,6 +65,8 @@
     <Project Path="Application/Surl.Composition.UnitTests/Surl.Composition.UnitTests.csproj" />
     <Project Path="Application/Surl.Console.UnitTests/Surl.Console.UnitTests.csproj" />
     <Project Path="Application/Surl.Console/Surl.Console.csproj" />
+    <Project Path="Application/Surl.Control.UnitLibrary/Surl.Control.UnitLibrary.csproj" />
+    <Project Path="Application/Surl.Control.UnitTests/Surl.Control.UnitTests.csproj" />
     <Project Path="Application/Surl.Mcp.UnitLibrary/Surl.Mcp.UnitLibrary.csproj" />
     <Project Path="Application/Surl.Mcp.UnitTests/Surl.Mcp.UnitTests.csproj" />
     <Project Path="Application/Surl.Mcp/Surl.Mcp.csproj" />
@@ -94,6 +96,8 @@
     <Project Path="Cryptography/Surl.Cryptography.Rc4.UnitTests/Surl.Cryptography.Rc4.UnitTests.csproj" />
     <Project Path="Cryptography/Surl.Cryptography.Ripemd160.UnitLibrary/Surl.Cryptography.Ripemd160.UnitLibrary.csproj" />
     <Project Path="Cryptography/Surl.Cryptography.Ripemd160.UnitTests/Surl.Cryptography.Ripemd160.UnitTests.csproj" />
+    <Project Path="Cryptography/Surl.Cryptography.Srp.UnitLibrary/Surl.Cryptography.Srp.UnitLibrary.csproj" />
+    <Project Path="Cryptography/Surl.Cryptography.Srp.UnitTests/Surl.Cryptography.Srp.UnitTests.csproj" />
     <Project Path="Cryptography/Surl.Cryptography.UnitLibrary/Surl.Cryptography.UnitLibrary.csproj" />
     <Project Path="Cryptography/Surl.Cryptography.UnitTests/Surl.Cryptography.UnitTests.csproj" />
     <Project Path="Cryptography/Surl.Dtls.UnitLibrary/Surl.Dtls.UnitLibrary.csproj" />
@@ -104,6 +108,8 @@
     <Project Path="Cryptography/Surl.Kerberos.UnitTests/Surl.Kerberos.UnitTests.csproj" />
     <Project Path="Cryptography/Surl.Tls13.UnitLibrary/Surl.Tls13.UnitLibrary.csproj" />
     <Project Path="Cryptography/Surl.Tls13.UnitTests/Surl.Tls13.UnitTests.csproj" />
+    <Project Path="Cryptography/Surl.TlsSrp.UnitLibrary/Surl.TlsSrp.UnitLibrary.csproj" />
+    <Project Path="Cryptography/Surl.TlsSrp.UnitTests/Surl.TlsSrp.UnitTests.csproj" />
   </Folder>
 
   <Folder Name="/Foundation/">
@@ -160,6 +166,8 @@
     <Project Path="Protocols/Http/Surl.Extended.Protocol.SignalR.UnitTests/Surl.Extended.Protocol.SignalR.UnitTests.csproj" />
     <Project Path="Protocols/Http/Surl.Extended.Protocol.SocketIo.UnitLibrary/Surl.Extended.Protocol.SocketIo.UnitLibrary.csproj" />
     <Project Path="Protocols/Http/Surl.Extended.Protocol.SocketIo.UnitTests/Surl.Extended.Protocol.SocketIo.UnitTests.csproj" />
+    <Project Path="Protocols/Http/Surl.Extended.Protocol.WebTransport.UnitLibrary/Surl.Extended.Protocol.WebTransport.UnitLibrary.csproj" />
+    <Project Path="Protocols/Http/Surl.Extended.Protocol.WebTransport.UnitTests/Surl.Extended.Protocol.WebTransport.UnitTests.csproj" />
     <Project Path="Protocols/Http/Surl.Hpack.UnitLibrary/Surl.Hpack.UnitLibrary.csproj" />
     <Project Path="Protocols/Http/Surl.Hpack.UnitTests/Surl.Hpack.UnitTests.csproj" />
     <Project Path="Protocols/Http/Surl.Http2.UnitLibrary/Surl.Http2.UnitLibrary.csproj" />
@@ -231,6 +239,11 @@
     <Project Path="Protocols/Messaging/Surl.Protocol.Ldap.UnitTests/Surl.Protocol.Ldap.UnitTests.csproj" />
     <Project Path="Protocols/Messaging/Surl.Protocol.Mqtt.UnitLibrary/Surl.Protocol.Mqtt.UnitLibrary.csproj" />
     <Project Path="Protocols/Messaging/Surl.Protocol.Mqtt.UnitTests/Surl.Protocol.Mqtt.UnitTests.csproj" />
+  </Folder>
+
+  <Folder Name="/Protocols/Proxy/">
+    <Project Path="Protocols/Proxy/Surl.Protocol.Socks.UnitLibrary/Surl.Protocol.Socks.UnitLibrary.csproj" />
+    <Project Path="Protocols/Proxy/Surl.Protocol.Socks.UnitTests/Surl.Protocol.Socks.UnitTests.csproj" />
   </Folder>
 
   <Folder Name="/Protocols/Terminal/">

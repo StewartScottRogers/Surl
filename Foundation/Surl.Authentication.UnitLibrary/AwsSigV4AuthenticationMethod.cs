@@ -1,5 +1,3 @@
-using System.Globalization;
-using System.Security.Cryptography;
 using Surl.Protocol.Abstractions;
 
 namespace Surl.Authentication;
@@ -10,21 +8,15 @@ namespace Surl.Authentication;
 /// signature against the account its access key ID names, with the account's password as the
 /// secret access key. The request's date must be within <see cref="RequestTimeWindow"/> of the
 /// injected <see cref="TimeProvider"/>'s time. The method holds no per-connection state, so
-/// every connection shares this one verifier.
+/// every connection shares this one verifier. The steps Cloud Storage's V4 HMAC shares are in
+/// <see cref="SignatureV4Check"/>.
 /// </summary>
 public sealed class AwsSigV4AuthenticationMethod : IHttpAuthenticationMethod, IHttpCredentialVerifier
 {
     /// <summary>
     /// How far a request's date may be from the server's time, either way (ADR-0043).
     /// </summary>
-    public static readonly TimeSpan RequestTimeWindow = TimeSpan.FromMinutes(15);
-
-    private const string RequestTimeFormat = "yyyyMMdd'T'HHmmss'Z'";
-
-    // What curl signs as the payload hash when told to with -H: the body is not bound (ADR-0045).
-    private const string UnsignedPayload = "UNSIGNED-PAYLOAD";
-
-    private static readonly string EmptyPayloadHash = Convert.ToHexStringLower(SHA256.HashData([]));
+    public static readonly TimeSpan RequestTimeWindow = SignatureV4Check.RequestTimeWindow;
 
     private readonly AccountBook accounts;
     private readonly TimeProvider timeProvider;
@@ -90,11 +82,15 @@ public sealed class AwsSigV4AuthenticationMethod : IHttpAuthenticationMethod, IH
 
         return ValueTask.FromResult(IsScopedForTheService(authorization, request)
             ? Verify(authorization, request)
-            : Refused(authorization, HttpAuthenticationRefusal.MalformedCredentials));
+            : SignatureV4Check.Refused(authorization, HttpAuthenticationRefusal.MalformedCredentials));
     }
 
     private static bool IsScopedForTheService(AwsSigV4Authorization authorization, HttpAuthenticationRequest request) =>
         request.AwsSigV4Service is null || authorization.Service == request.AwsSigV4Service;
+
+    // Every service but s3 has its path percent-encoded again (ADR-0043).
+    private static bool ReencodesPath(AwsSigV4Authorization authorization) =>
+        !string.Equals(authorization.Service, "s3", StringComparison.OrdinalIgnoreCase);
 
     // The date is judged on the head, so a stale request is refused before its body is read;
     // the rest waits for the body when the body's hash is signed and not sent (ADR-0045). A
@@ -104,19 +100,20 @@ public sealed class AwsSigV4AuthenticationMethod : IHttpAuthenticationMethod, IH
         var requestTime = FindSignedRequestTime(authorization, request.Fields);
         if (RequestTimeRefusal(authorization, requestTime) is { } timeRefusal)
         {
-            return Refused(authorization, timeRefusal);
+            return SignatureV4Check.Refused(authorization, timeRefusal);
         }
 
         var (dateFieldName, dateValue) = requestTime!.Value;
-        var sentPayloadHash = FindFieldValue(request.Fields, dateFieldName[..^"date".Length] + "content-sha256");
+        var sentPayloadHash = SignatureV4Check.FindFieldValue(request.Fields, dateFieldName[..^"date".Length] + "content-sha256");
         if (sentPayloadHash is not null)
         {
-            return VerifyWithTheSentHash(authorization, request, dateValue, sentPayloadHash);
+            return SignatureV4Check.VerifyWithTheSentHash(
+                accounts, authorization, request, dateValue, sentPayloadHash, ReencodesPath(authorization));
         }
 
         return request.AwsSigV4Service is null
             ? VerifyOverTheBody(authorization, request, dateValue)
-            : Refused(authorization, HttpAuthenticationRefusal.MissingPayloadHash);
+            : SignatureV4Check.Refused(authorization, HttpAuthenticationRefusal.MissingPayloadHash);
     }
 
     // No content hash sent: signed over the body's own hash, known from the head only when there
@@ -124,82 +121,25 @@ public sealed class AwsSigV4AuthenticationMethod : IHttpAuthenticationMethod, IH
     private HttpCredentialCheck VerifyOverTheBody(
         AwsSigV4Authorization authorization, HttpAuthenticationRequest request, string requestTime)
     {
-        if (!HasBody(request.Fields))
+        var reencodesPath = ReencodesPath(authorization);
+        if (!SignatureV4Check.HasBody(request.Fields))
         {
-            return VerifySignature(authorization, request, requestTime, EmptyPayloadHash);
+            return SignatureV4Check.VerifySignature(
+                accounts, authorization, request, requestTime, SignatureV4Check.EmptyPayloadHash, reencodesPath);
         }
 
-        return AwsSigV4CanonicalRequest.Build(request, authorization, EmptyPayloadHash) is null
-            ? Refused(authorization, HttpAuthenticationRefusal.BadSignature)
-            : AwaitBody(authorization, bodySha256 =>
-                VerifySignature(authorization, request, requestTime, Convert.ToHexStringLower(bodySha256.Span)));
+        return AwsSigV4CanonicalRequest.Build(request, authorization, SignatureV4Check.EmptyPayloadHash, reencodesPath) is null
+            ? SignatureV4Check.Refused(authorization, HttpAuthenticationRefusal.BadSignature)
+            : SignatureV4Check.AwaitBody(authorization, bodySha256 => SignatureV4Check.VerifySignature(
+                accounts, authorization, request, requestTime, Convert.ToHexStringLower(bodySha256.Span), reencodesPath));
     }
-
-    // The signature is over the hash as sent, so it is checked on the head; the body must then
-    // match it, unless it is UNSIGNED-PAYLOAD.
-    private HttpCredentialCheck VerifyWithTheSentHash(
-        AwsSigV4Authorization authorization, HttpAuthenticationRequest request, string requestTime, string sentPayloadHash)
-    {
-        var check = VerifySignature(authorization, request, requestTime, sentPayloadHash);
-
-        return check.Outcome == HttpCredentialOutcome.Accepted && sentPayloadHash != UnsignedPayload
-            ? BindBodyToSentHash(check, authorization, request.Fields, sentPayloadHash)
-            : check;
-    }
-
-    // A signed content hash the body must match: the empty body's is known from the head, any
-    // other body's once it is read. The hash is hex, compared without regard to case.
-    private static HttpCredentialCheck BindBodyToSentHash(
-        HttpCredentialCheck signatureCheck,
-        AwsSigV4Authorization authorization,
-        IReadOnlyList<KeyValuePair<string, string>> fields,
-        string sentPayloadHash)
-    {
-        HttpCredentialCheck CheckBody(ReadOnlySpan<byte> bodySha256) =>
-            string.Equals(Convert.ToHexStringLower(bodySha256), sentPayloadHash, StringComparison.OrdinalIgnoreCase)
-                ? signatureCheck
-                : Refused(authorization, HttpAuthenticationRefusal.PayloadHashMismatch);
-
-        return HasBody(fields)
-            ? AwaitBody(authorization, bodySha256 => CheckBody(bodySha256.Span), signatureCheck.AccountName)
-            : CheckBody(Convert.FromHexString(EmptyPayloadHash));
-    }
-
-    private HttpCredentialCheck VerifySignature(
-        AwsSigV4Authorization authorization, HttpAuthenticationRequest request, string requestTime, string payloadHash)
-    {
-        var account = accounts.FindAwsSigV4Account(authorization.AccessKeyId);
-        var canonicalRequest = AwsSigV4CanonicalRequest.Build(request, authorization, payloadHash);
-        var matches = canonicalRequest is not null
-            && accounts.SecretComparer.FixedTimeEquals(
-                AwsSigV4Calculation.ComputeSignature(authorization, requestTime, canonicalRequest, account.Secret),
-                authorization.Signature);
-
-        // Only a configured account's secret can match; the dummy's is random, and its refusal
-        // says the key is no account (ADR-0108 decision 4.3).
-        if (matches)
-        {
-            return new HttpCredentialCheck(HttpCredentialOutcome.Accepted, account.AccountName, [], authorization.AccessKeyId);
-        }
-
-        return Refused(
-            authorization,
-            account.AccountName is null ? HttpAuthenticationRefusal.UnknownAccount : HttpAuthenticationRefusal.BadSignature);
-    }
-
-    private static HttpCredentialCheck AwaitBody(
-        AwsSigV4Authorization authorization, Func<ReadOnlyMemory<byte>, HttpCredentialCheck> checkBody, string? verifiedAccountName = null) =>
-        new(HttpCredentialOutcome.AwaitingBody, verifiedAccountName, [], authorization.AccessKeyId, checkBody);
-
-    private static HttpCredentialCheck Refused(AwsSigV4Authorization authorization, HttpAuthenticationRefusal refusal) =>
-        new(HttpCredentialOutcome.Refused, null, [], authorization.AccessKeyId, Refusal: refusal);
 
     // The signed x-<provider>-date field (x-amz-date for curl's aws:amz), with host signed too.
     private static (string FieldName, string Value)? FindSignedRequestTime(
         AwsSigV4Authorization authorization, IReadOnlyList<KeyValuePair<string, string>> fields)
     {
         var fieldName = authorization.SignedHeaders.FirstOrDefault(IsRequestTimeFieldName);
-        var value = fieldName is null ? null : FindFieldValue(fields, fieldName);
+        var value = fieldName is null ? null : SignatureV4Check.FindFieldValue(fields, fieldName);
 
         return value is not null && authorization.SignedHeaders.Contains("host")
             ? (fieldName!, value)
@@ -211,34 +151,15 @@ public sealed class AwsSigV4AuthenticationMethod : IHttpAuthenticationMethod, IH
         && name.EndsWith("-date", StringComparison.Ordinal)
         && AwsSigV4Provider.IsName(name[2..^5]);
 
-    // A body announced by Transfer-Encoding or a Content-Length other than 0. A head the HTTP
-    // server frames as bodiless all the same (Content-Length: 00) is hashed as the empty body.
-    private static bool HasBody(IReadOnlyList<KeyValuePair<string, string>> fields) =>
-        FindFieldValue(fields, "Content-Length") is not (null or "0")
-        || FindFieldValue(fields, "Transfer-Encoding") is not null;
-
-    private static string? FindFieldValue(IReadOnlyList<KeyValuePair<string, string>> fields, string name) =>
-        fields.FirstOrDefault(field => string.Equals(field.Key, name, StringComparison.OrdinalIgnoreCase)).Value;
-
     // A date that is not signed, does not read or is not the scope's is malformed; one outside
     // the window is skewed.
     private HttpAuthenticationRefusal? RequestTimeRefusal(AwsSigV4Authorization authorization, (string FieldName, string Value)? requestTime) =>
-        (requestTime is null ? null : JudgeRequestTime(requestTime.Value.Value, authorization.ScopeDate)) switch
+        (requestTime is null
+            ? null
+            : SignatureV4Check.JudgeRequestTime(requestTime.Value.Value, authorization.ScopeDate, timeProvider.GetUtcNow())) switch
         {
             true => null,
             false => HttpAuthenticationRefusal.ClockSkew,
             null => HttpAuthenticationRefusal.MalformedCredentials,
         };
-
-    // Whether the request's date is within the window: null when it does not read, or is not
-    // the scope's date.
-    private bool? JudgeRequestTime(string requestTime, string scopeDate)
-    {
-        var parsed = DateTimeOffset.TryParseExact(
-            requestTime, RequestTimeFormat, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out var time);
-
-        return parsed && requestTime.StartsWith(scopeDate + "T", StringComparison.Ordinal)
-            ? (time - timeProvider.GetUtcNow()).Duration() <= RequestTimeWindow
-            : null;
-    }
 }

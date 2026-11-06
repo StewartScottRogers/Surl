@@ -62,7 +62,7 @@ public sealed class AzureStorageProtocolServer : IConnectionProtocolServer, ICon
     private readonly ObjectMetadataIndex index;
     private readonly IAuthenticationPolicy authenticationPolicy;
     private readonly TimeProvider timeProvider;
-    private readonly AzurePathStagingArea staging;
+    private readonly AzureStagingArea staging;
 
     /// <summary>
     /// Creates the server.
@@ -82,11 +82,16 @@ public sealed class AzureStorageProtocolServer : IConnectionProtocolServer, ICon
         this.index = index;
         this.authenticationPolicy = authenticationPolicy;
         this.timeProvider = timeProvider;
-        staging = new AzurePathStagingArea(timeProvider);
+        staging = new AzureStagingArea(timeProvider);
     }
 
     /// <inheritdoc/>
     public IReadOnlyList<string> Schemes { get; } = [BlobScheme, DataLakeScheme, SecureDataLakeScheme];
+
+    /// <summary>
+    /// The uploads every connection of this server stages: Data Lake appends and Put Block's blocks.
+    /// </summary>
+    internal AzureStagingArea StagingArea => staging;
 
     /// <inheritdoc/>
     public Task ServeAsync(IConnection connection, ExchangeContext context)
@@ -100,7 +105,7 @@ public sealed class AzureStorageProtocolServer : IConnectionProtocolServer, ICon
 
         // The listen scheme decides the endpoint (ADR-0109, decision 1).
         IHttpRequestHandler answerer = context.Scheme == BlobScheme
-            ? new AzureBlobRequestAnswerer(store, index, authentication, context, endpointScheme)
+            ? new AzureBlobRequestAnswerer(store, index, authentication, context, endpointScheme, staging)
             : new AzureDataLakeRequestAnswerer(store, index, authentication, context, staging);
 
         return new Http1ConnectionServer(answerer, context).ServeAsync(connection);

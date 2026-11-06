@@ -1,0 +1,7 @@
+< 220 surl DICT server <mime> <1@surl>
+> CLIENT libcurl 8.21.0
+> DEFINE * word
+> QUIT
+< 250 ok
+< 554 try later
+< 221 bye

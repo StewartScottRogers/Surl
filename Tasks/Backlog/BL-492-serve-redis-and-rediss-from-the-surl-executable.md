@@ -5,7 +5,7 @@ priority: Normal
 assignee: Claude
 pipeline: feature
 depends-on: [BL-491, BL-405]
-touches: [Application/Surl.Console, Application/Surl.Console.UnitTests, Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests]
+touches: [Application/Surl.Console, Application/Surl.Console.UnitTests, Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests, Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests]
 requirement: none
 created: 2026-11-04
 completed:
@@ -36,6 +36,16 @@ switch turns both off.
 
 ## Notes
 
+- 2026-11-05 (lane 4): extended servers are composed in
+  `Application/Surl.Composition.UnitLibrary/ExtendedProtocolServers.cs` (`Registrations`), not in
+  `CommandLineRunner.cs` - the composition moved there (BL-804), and BL-421 registered `s3` the same way,
+  touching Surl.Composition and its tests. Redis needs a `Registrations` entry, a project reference from
+  Surl.Composition to `Surl.Extended.Protocol.Redis.UnitLibrary`, its keyspace loaded in `ServiceState`, and a
+  test in `ExtendedProtocolServersTests`. So `touches` now names Surl.Composition.UnitLibrary and .UnitTests;
+  BL-803 (in Doing) holds them, so this task went back to Backlog until they no longer overlap.
+
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-05: Backlog -> Doing.
+- 2026-11-05: Doing -> Backlog. Needs Application/Surl.Composition.UnitLibrary and .UnitTests (where extended servers are registered), which BL-803 in Doing touches

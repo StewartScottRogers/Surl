@@ -33,6 +33,13 @@ public static class AiHelpExamples
             SurlExitCode.FailedInit),
         Serving("surl", "Read the listen URL from a config file", ["-K", "surl.cfg"], [ListeningOnHttp], [], ["curl http://127.0.0.1:<port>/"])
             with { Precondition = AiHelpExamplePrecondition.ConfigFileExists },
+        Serving(
+            "surl",
+            "Serve HTTP on a Unix domain socket file",
+            ["--unix-socket", "surl.sock", "http://localhost/"],
+            ["Listening on http://localhost:80/ over unix://surl.sock"],
+            [],
+            ["curl --unix-socket surl.sock http://localhost/"]),
         Serving("content", "Serve in memory, with listings", ["--list-directories", HttpListenUrl], [ListeningOnHttp], [], ["curl http://127.0.0.1:<port>/"]),
         Serving("content", "Serve a data directory", ["--directory", "<path>", HttpListenUrl], [ListeningOnHttp], [], ["curl http://127.0.0.1:<port>/<file>"])
             with { Precondition = AiHelpExamplePrecondition.DataDirectoryExists },
@@ -161,6 +168,12 @@ public static class AiHelpExamples
             ["oci://127.0.0.1:0/"],
             ["surl: (1) Protocol \"oci\" not supported"],
             SurlExitCode.UnsupportedProtocol),
+        Refused(
+            "control",
+            "A control endpoint that is not on loopback",
+            ["--control", "http://0.0.0.0:0", "--control-token-file", "token.txt", HttpListenUrl],
+            ["surl: (2) --control must listen on loopback (127.0.0.0/8, ::1 or localhost): http://0.0.0.0:0"],
+            SurlExitCode.FailedInit),
     ];
 
     /// <summary>Every example, in ADR-0046 decision 7's order.</summary>

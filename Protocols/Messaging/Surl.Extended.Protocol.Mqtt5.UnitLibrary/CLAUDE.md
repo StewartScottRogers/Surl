@@ -43,9 +43,12 @@ The broker so far answers CONNECT and what follows it (BL-496, ADR-0093 decision
   `TimeProvider`, and the one `Surl.MessageBus` of the run (ADR-0100 decision 3.9), on which
   every Will is published for the client's account. A client PUBLISH goes through the client's own
   `BusConnection.Publish`, so its No Local subscriptions miss it.
-- Still to come, and answered for now as stated: a CONNECT for a connected identifier does not
-  yet take the session over (BL-679); it starts a fresh session, and the older connection's
-  session ends with that connection.
+- Session takeover (BL-679, `[MQTT-3.1.4-3]`): `RegisterClient` for a connected identifier
+  cancels the older connection's `Mqtt5ClientRegistration.TakenOverToken`, which its packet read
+  is linked to, so it sends `DISCONNECT` `0x8E` and closes, settling its session and Will as for
+  any other close; its registration ends last. The newer connection waits for that
+  (`PreviousEnded`, within its head timeout, past it closed with no reply) before it opens the
+  session, so Clean Start 0 resumes what the older one kept and Clean Start 1 discards it.
 
 PUBLISH and the QoS flows (BL-497, ADR-0093 decision 4 as ADR-0100 decision 3.9 amends it):
 
@@ -94,7 +97,7 @@ Sessions, DISCONNECT and AUTH (BL-499, ADR-0093 decisions 2, 3 and 6):
   it after its connection for its Session Expiry Interval on the context's `TimeProvider`, at most
   1000 with no connection (a new one past it is CONNACK `0x97`), and `OpenSession` resumes it for
   Clean Start 0 and the same account (Session Present 1) or ends it. A session another
-  connection holds is never resumed (BL-679 takes it over).
+  connection holds is never resumed; a takeover first waits for that connection to end.
 - `Mqtt5OutboundDeliveries` is per connection, over the session: it resends a resumed session's
   in-flight PUBLISHes with DUP 1 and its PUBRELs in sending order first, and a resumed session
   holding more in flight than the new Receive Maximum owes those slots back.

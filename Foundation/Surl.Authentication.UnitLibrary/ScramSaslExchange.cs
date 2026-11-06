@@ -4,8 +4,8 @@ using Surl.Protocol.Abstractions;
 namespace Surl.Authentication;
 
 /// <summary>
-/// SASL <c>SCRAM-SHA-1</c>, RFC 5802, and <c>SCRAM-SHA-256</c>, RFC 7677, without channel binding
-/// (ADR-0084, decision 4; BL-416). The client speaks first: with no initial response the exchange asks for the
+/// SASL <c>SCRAM-SHA-1</c>, RFC 5802, <c>SCRAM-SHA-256</c>, RFC 7677, and <c>SCRAM-SHA-512</c>, RFC 5802
+/// over SHA-512, without channel binding (ADR-0084, decision 4; BL-416; BL-700). The client speaks first: with no initial response the exchange asks for the
 /// <c>client-first-message</c> with an empty challenge. The <c>server-first-message</c> is
 /// <c>r=&lt;client nonce&gt;&lt;server nonce&gt;,s=&lt;salt&gt;,i=4096</c>, the server nonce the
 /// base64 of 18 random bytes, and the salt the account's, derived when the accounts were loaded

@@ -106,7 +106,7 @@ internal sealed class AzurePutBlob(ContentStore store, ObjectMetadataIndex index
         committed == ContentUploadResult.Written ? null : AzureError.AuthorizationPermissionMismatch;
 
     // The checks a request's head decides, before any byte of its body is read.
-    private static AzureError? RefusalBeforeTheBody(HttpRequest request)
+    internal static AzureError? RefusalBeforeTheBody(HttpRequest request)
     {
         if (AzureRequestFields.Value(request.Fields, "Content-MD5") is { } contentMd5 && ExpectedMd5(contentMd5) is null)
         {
@@ -123,7 +123,7 @@ internal sealed class AzurePutBlob(ContentStore store, ObjectMetadataIndex index
     }
 
     // A body must be readable, and announced by Content-Length or a chunked framing.
-    private static AzureError? BodyFramingRefusal(HttpRequest request)
+    internal static AzureError? BodyFramingRefusal(HttpRequest request)
     {
         if (!request.Body.IsReadable)
         {
@@ -139,11 +139,11 @@ internal sealed class AzurePutBlob(ContentStore store, ObjectMetadataIndex index
     private static bool IsMetadataName(string name) =>
         name.Length > 0 && (char.IsAsciiLetter(name[0]) || name[0] == '_') && name.All(character => char.IsAsciiLetterOrDigit(character) || character == '_');
 
-    private bool IsAnnouncedPastTheLimit(IHttpRequestBody body) =>
+    internal bool IsAnnouncedPastTheLimit(IHttpRequestBody body) =>
         store.ExposureOptions.MaxUploadBytes > 0 && body.AnnouncedLength > store.ExposureOptions.MaxUploadBytes;
 
     // Each folder the name holds, created when missing; a file in the way is a conflict.
-    private AzureError? CreateFolders(AzureBlobTarget target, ContentCaller caller)
+    internal AzureError? CreateFolders(AzureBlobTarget target, ContentCaller caller)
     {
         var segments = target.RawBlob.Split('/');
         for (var count = 1; count < segments.Length; count++)
@@ -177,7 +177,7 @@ internal sealed class AzurePutBlob(ContentStore store, ObjectMetadataIndex index
         var opening = await store.OpenUploadAsync(mapping, new ContentUploadOpening(StartsFromExistingBytes: false, CreatesMissingFile: true, RefusesExistingFile: false), cancellationToken);
         if (opening.Session is not { } session)
         {
-            return reply.Error(AzureRefusal.Of(opening.Result == ContentUploadOpeningResult.IsADirectory ? AzureError.ResourceNameConflict : AzureError.AuthorizationPermissionMismatch));
+            return reply.Error(AzureRefusal.Of(OpeningRefusal(opening.Result)));
         }
 
         await using (session)
@@ -207,32 +207,74 @@ internal sealed class AzurePutBlob(ContentStore store, ObjectMetadataIndex index
             return reply.Error(AzureRefusal.Of(commitRefusal));
         }
 
-        return await StoreMetadataAsync(reply, request, target, mapping, digest, cancellationToken);
+        var lastModified = store.GetFileStatus(mapping)!.LastModifiedUtc;
+
+        return await StoreMetadataAsync(request.Fields, target, mapping, digest, cancellationToken) is { } metadataRefusal
+            ? reply.Error(AzureRefusal.Of(metadataRefusal))
+            : Stored(reply, digest, lastModified);
     }
 
-    // The metadata goes into the index for a file it keys; refused there, the blob is removed.
-    private async Task<HttpAnswer> StoreMetadataAsync(AzureReply reply, HttpRequest request, AzureBlobTarget target, ContentPathMapping mapping, byte[] digest, CancellationToken cancellationToken)
+    /// <summary>
+    /// Keeps a just-written blob's <c>x-ms-blob-*</c> fields, <c>x-ms-meta-*</c> and ETag in the
+    /// index, for a blob the index keys; refused there, the blob is removed.
+    /// </summary>
+    /// <param name="fields">The request's fields.</param>
+    /// <param name="target">The blob's container and name.</param>
+    /// <param name="mapping">Where the blob was written.</param>
+    /// <param name="digest">The blob's MD5, its ETag.</param>
+    /// <param name="cancellationToken">Cancels rewriting the index.</param>
+    /// <returns><see langword="null"/> when the blob stands, else the error.</returns>
+    internal async Task<AzureError?> StoreMetadataAsync(IReadOnlyList<KeyValuePair<string, string>> fields, AzureBlobTarget target, ContentPathMapping mapping, byte[] digest, CancellationToken cancellationToken)
     {
-        var lastModified = store.GetFileStatus(mapping)!.LastModifiedUtc;
         if (AzureIndexKey.OfRaw(store, target.RawContainer, target.RawBlob) is not { } indexKey)
         {
-            return Stored(reply, digest, lastModified);
+            return null;
         }
 
-        var stored = await index.StoreAsync(indexKey, MetadataOf(request.Fields, ETagOf(digest)), cancellationToken);
+        var stored = await index.StoreAsync(indexKey, MetadataOf(fields, ETagOf(digest)), cancellationToken);
         if (stored.StorageFailure is { } failure)
         {
             log.Note($"The object metadata index could not be written: {failure}");
         }
 
-        if (MetadataRefusal(stored.Outcome) is { } refusal)
+        var refusal = MetadataRefusal(stored.Outcome);
+        if (refusal is not null)
         {
             store.DeleteFile(mapping);
-            return reply.Error(AzureRefusal.Of(refusal));
         }
 
-        return Stored(reply, digest, lastModified);
+        return refusal;
     }
+
+    /// <summary>
+    /// Creates the blob name's folders and opens an upload session that writes the blob afresh,
+    /// as Put Block List writes it and Put Block stages beside it.
+    /// </summary>
+    /// <param name="target">The blob's container and name.</param>
+    /// <param name="mapping">Where the blob is written.</param>
+    /// <param name="caller">Who writes, and on which scheme.</param>
+    /// <param name="cancellationToken">Cancels opening the session.</param>
+    /// <returns>The session, which the caller disposes, or the error when it does not open.</returns>
+    internal async Task<(AzureError? Refusal, ContentUploadSession? Session)> OpenBlobUploadAsync(AzureBlobTarget target, ContentPathMapping mapping, ContentCaller caller, CancellationToken cancellationToken)
+    {
+        if (CreateFolders(target, caller) is { } folderRefusal)
+        {
+            return (folderRefusal, null);
+        }
+
+        var opening = await store.OpenUploadAsync(mapping, new ContentUploadOpening(StartsFromExistingBytes: false, CreatesMissingFile: true, RefusesExistingFile: false), cancellationToken);
+
+        return opening.Session is { } session ? (null, session) : (OpeningRefusal(opening.Result), null);
+    }
+
+    /// <summary>
+    /// What opening an upload session is answered with when it does not open: a folder at the
+    /// name <c>409 InvalidResourceName</c>, anything else <c>403 AuthorizationPermissionMismatch</c>.
+    /// </summary>
+    /// <param name="result">Why the session did not open.</param>
+    /// <returns>The error.</returns>
+    internal static AzureError OpeningRefusal(ContentUploadOpeningResult result) =>
+        result == ContentUploadOpeningResult.IsADirectory ? AzureError.ResourceNameConflict : AzureError.AuthorizationPermissionMismatch;
 
     // 201 with the tag, the date, the body's MD5 and no body ("Put Blob", "Response headers").
     private static HttpAnswer Stored(AzureReply reply, byte[] digest, DateTimeOffset lastModified) =>
@@ -247,7 +289,7 @@ internal sealed class AzurePutBlob(ContentStore store, ObjectMetadataIndex index
             ],
             HttpAnswerBody.None);
 
-    private static string ETagOf(byte[] digest) => $"\"{Convert.ToHexStringLower(digest)}\"";
+    internal static string ETagOf(byte[] digest) => $"\"{Convert.ToHexStringLower(digest)}\"";
 
     // x-ms-blob-content-type, else Content-Type; the other x-ms-blob-* fields; each x-ms-meta-*.
     private static ObjectMetadata MetadataOf(IReadOnlyList<KeyValuePair<string, string>> fields, string eTag) => new()
@@ -277,7 +319,7 @@ internal sealed class AzurePutBlob(ContentStore store, ObjectMetadataIndex index
         metadata.Sum(entry => Encoding.UTF8.GetByteCount(entry.Key) + Encoding.UTF8.GetByteCount(entry.Value));
 
     // The 16 bytes a Content-MD5 field's base64 holds, or null when it holds anything else.
-    private static byte[]? ExpectedMd5(string contentMd5)
+    internal static byte[]? ExpectedMd5(string contentMd5)
     {
         var bytes = new byte[64];
 

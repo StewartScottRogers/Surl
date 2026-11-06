@@ -10,7 +10,7 @@ namespace Surl.Extended.Protocol.AzureStorage;
 /// <param name="session">The upload session the appends are written into.</param>
 /// <param name="committedLength">The file's length when the staging began, or after its last flush.</param>
 /// <param name="lastTouched">When the staging began.</param>
-internal sealed class AzureStagedPath(ContentUploadSession session, long committedLength, DateTimeOffset lastTouched)
+internal sealed class AzureStagedPath(ContentUploadSession session, long committedLength, DateTimeOffset lastTouched) : IAzureStaging
 {
     private readonly List<AzureStagedRange> ranges = [];
 
@@ -28,6 +28,17 @@ internal sealed class AzureStagedPath(ContentUploadSession session, long committ
     /// When an append last wrote to the staging.
     /// </summary>
     public DateTimeOffset LastTouched { get; private set; } = lastTouched;
+
+    /// <summary>
+    /// Always true: a staged path exists only while its session holds appends not yet flushed.
+    /// </summary>
+    public bool HoldsStagedBytes => true;
+
+    /// <summary>
+    /// Discards the session's uncommitted bytes.
+    /// </summary>
+    /// <returns>A task that completes when the session is disposed.</returns>
+    public ValueTask DisposeAsync() => Session.DisposeAsync();
 
     /// <summary>
     /// Records an append's bytes.

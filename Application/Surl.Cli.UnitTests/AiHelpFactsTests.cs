@@ -7,7 +7,7 @@ namespace Surl.Cli;
 public sealed class AiHelpFactsTests
 {
     // The topics ADR-0046 decision 3 and ADR-0083 decision 8 add beside the help categories.
-    private static readonly string[] TopicsAddedBesideTheCategories = ["exit-codes", "extended", "listen-urls"];
+    private static readonly string[] TopicsAddedBesideTheCategories = ["control", "exit-codes", "extended", "listen-urls"];
 
     [TestMethod]
     public void EveryOption_HasAnArgumentTypeAndAllowedValues()
@@ -87,12 +87,12 @@ public sealed class AiHelpFactsTests
     }
 
     [TestMethod]
-    public void LoosensSecurityForTestsOnly_IsExactlyTheSixTestingOptions()
+    public void LoosensSecurityForTestsOnly_IsExactlyTheEightTestingOptions()
     {
         var testing = CommandLineOptions.All.Where(option => option.Help.Categories.Contains("testing")).ToArray();
 
         CollectionAssert.AreEquivalent(
-            new[] { "allow-anonymous", "allow-plaintext-auth", "auth", "fault", "self-signed", "throwaway-hostkey" },
+            new[] { "allow-anonymous", "allow-plaintext-auth", "auth", "control", "control-token-file", "fault", "self-signed", "throwaway-hostkey" },
             testing.Select(option => option.LongName).ToArray());
         foreach (var option in testing)
         {

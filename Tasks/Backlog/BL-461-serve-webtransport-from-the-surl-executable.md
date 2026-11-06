@@ -5,7 +5,7 @@ priority: Normal
 assignee: Claude
 pipeline: feature
 depends-on: [BL-460, BL-405, BL-384]
-touches: [Application/Surl.Console, Application/Surl.Console.UnitTests, Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests]
+touches: [Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests, Application/Surl.Console, Application/Surl.Console.UnitTests, Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests]
 requirement: none
 created: 2026-11-04
 completed:
@@ -34,6 +34,16 @@ WebTransport sessions. The `--aihelp` topic and help category exist, and the ext
 
 ## Notes
 
+- 2026-11-05 (lane 4): The Context is out of date. BL-405 put extended-server registration in
+  `Application/Surl.Composition.UnitLibrary/ExtendedProtocolServers.cs` (`Registrations`), not in
+  `Surl.Console/CommandLineRunner.cs`. Serving `webtransport` therefore needs a registration there, plus its
+  on/off test in `Surl.Composition.UnitTests`, so both were added to `touches`.
+  `Surl.Extended.Protocol.WebTransport.UnitLibrary` has no `IProtocolServer` yet, only the session, capsule
+  and CONNECT pieces, so the registration must build one over the HTTP/3 serving BL-384 composed. BL-803
+  (in Doing) touches `Surl.Composition`, so this task went back to Backlog until BL-803 is Done.
+
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-05: Backlog -> Doing.
+- 2026-11-05: Doing -> Backlog. Needs Application/Surl.Composition.UnitLibrary and .UnitTests (ExtendedProtocolServers.Registrations), which BL-803 in Doing touches; retry once BL-803 is Done

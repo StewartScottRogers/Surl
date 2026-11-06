@@ -8,7 +8,7 @@ sections and examples. `Documentation/Conformance/Extended/Xmpp.md` traces each 
 its task.
 
 It references `Surl.Protocol.Abstractions` only. SASL and resource binding (one stream's) came
-with BL-538; stanza routing, IQs and service discovery come with BL-539, and the resource
+with BL-538; stanza routing, IQs and service discovery with BL-539; the resource
 conflict, the per-JID resource cap, `invalid-authzid` and the login deadline with BL-885; BL-540
 serves `xmpps` by wrapping the server in `ImplicitTlsSchemeServer`.
 
@@ -74,7 +74,34 @@ SASL and resource binding (BL-538, ADR-0114 decisions 3 and 4):
   `type` is `invalid-xml`; before bind, only an IQ `set` whose one child is `<bind/>` is served,
   anything else `not-authorized`. A `<resource/>` that is not a resourcepart (empty, over 1023
   bytes, a control character) is `bad-request`; none gives `surl-` and 16 hex digits; the answer
-  is the full JID. After bind a second bind is `not-allowed`, the legacy session request an empty
-  result, any other IQ `get` or `set` `service-unavailable`, and an IQ reply, message or presence is
-  dropped until BL-539 routes them. `<starttls/>`, `<auth/>` or another non-stanza after login ends
-  the stream (`policy-violation`, or `unsupported-stanza-type` in `jabber:client`).
+  is the full JID; then `XmppStanzaRouter` takes the stream's stanzas. `<starttls/>`, `<auth/>` or
+  another non-stanza after login ends the stream (`policy-violation`, or `unsupported-stanza-type`
+  in `jabber:client`).
+
+Stanzas (BL-539, ADR-0114 decision 5):
+
+- `XmppServer` holds one `XmppSessionRegistry` per instance (never a static); a stream is added as
+  an `XmppBoundSession` once bound and removed when its connection ends. `XmppServerConnection`
+  chains its writes, so its own answers and stanzas other streams route to it never interleave;
+  a routed write that fails is noted in the sender's log and nothing else.
+- `XmppStanzaRouter`: an IQ with no `id` or an unknown `type` is `invalid-xml`; a `from` other
+  than the stream's full or bare JID (`XmppJid.HasBare`, the localpart without case) is the stream
+  error `invalid-from`; every routed stanza is written as received with `from` stamped
+  (`XmppStanzaText.Routed`). No `to` is the sender's own bare JID; a `to` that `XmppJid.Parse`
+  refuses is `jid-malformed`, one on a domain not served `remote-server-not-found`.
+- Messages: to a bound full JID, delivered; to a bare JID or an unbound full one, `normal`, `chat`
+  and unknown types go to every available stream with priority 0 or more, else
+  `service-unavailable` (the same for an account that does not exist), `headline` dropped,
+  `groupchat` `service-unavailable`, `error` never answered; to a served domain, `normal` and `chat`
+  are `service-unavailable`, the rest dropped. Presence: undirected sets the priority (`sbyte`, else
+  `bad-request`), `unavailable` takes the stream out of bare-JID delivery, anything directed or
+  other is dropped.
+- IQs: `get` and `set` need exactly one child (`bad-request`). To a bound full JID, delivered, and
+  replies routed back; otherwise the server answers: a second bind `not-allowed`, the legacy session
+  an empty result, a served domain's disco#info (`server`/`im`, features disco#info, disco#items,
+  ping), disco#items (empty) and ping, an account with a bound stream's disco#info
+  (`account`/`registered`) and disco#items, one's own roster (empty); a disco `node` is
+  `item-not-found`; anything else `service-unavailable`. Results use XEP-0030 example 2's shape
+  (`XmppStanzaText.Result`); stanza errors swap `to` and `from`, keep an IQ's children and drop a
+  message's or presence's (`XmppStanzaText.Error`). An IQ `result` or `error` to anything but a
+  bound full JID is dropped. The 16 MiB unsent-output limit comes with BL-887.

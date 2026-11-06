@@ -49,6 +49,12 @@ namespace Surl.Protocol.Ssh;
 /// goes on. No status message holds a path or an exception message (ADR-0006 section 3): those go
 /// to the verbose notes only.
 /// </para>
+/// <para>
+/// <b>Chosen errors</b> (ADR-0124 decision 4, ADR-0135): before each request after <c>INIT</c> is
+/// read, the fault plan is asked with its packet name and the path it names, or its handle's; a
+/// chosen-error rule is answered <c>SSH_FXP_STATUS</c> with the rule's code and text, the store
+/// never asked, and the session goes on (<see cref="SshCommandFaults"/>).
+/// </para>
 /// </remarks>
 /// <param name="store">The content store the session reads and writes.</param>
 /// <param name="caller">Who logged in, on <c>sftp</c>: the share access every path is checked against (ADR-0102 decision 2.2).</param>
@@ -90,6 +96,21 @@ internal sealed partial class SftpSession(ContentStore store, ContentCaller call
         [SftpPacketType.RealPath] = (session, request, _) => ValueTask.FromResult(session.AnswerRealPath(request)),
         [SftpPacketType.ReadLink] = (session, request, _) => ValueTask.FromResult(session.AnswerReadLink(request)),
     };
+
+    // The requests whose first field is a path, and those whose first field is a handle: what a
+    // fault rule's path is matched against (ADR-0124, decision 4).
+    private static readonly HashSet<byte> PathFirstRequests =
+    [
+        SftpPacketType.Open, SftpPacketType.LinkStat, SftpPacketType.SetStat, SftpPacketType.OpenDirectory,
+        SftpPacketType.Remove, SftpPacketType.MakeDirectory, SftpPacketType.RemoveDirectory, SftpPacketType.RealPath,
+        SftpPacketType.Stat, SftpPacketType.Rename, SftpPacketType.ReadLink, SftpPacketType.SymbolicLink,
+    ];
+
+    private static readonly HashSet<byte> HandleFirstRequests =
+    [
+        SftpPacketType.Close, SftpPacketType.Read, SftpPacketType.Write, SftpPacketType.HandleStat,
+        SftpPacketType.HandleSetStat, SftpPacketType.ReadDirectory,
+    ];
 
     private readonly Dictionary<uint, SftpHandle> handles = [];
     private uint nextHandle;
@@ -195,7 +216,7 @@ internal sealed partial class SftpSession(ContentStore store, ContentCaller call
     {
         try
         {
-            return await AnswerRequestAsync(request, cancellationToken);
+            return await AnswerByFaultAsync(request, cancellationToken) ?? await AnswerRequestAsync(request, cancellationToken);
         }
         catch (SshDisconnectRequiredException)
         {
@@ -208,6 +229,36 @@ internal sealed partial class SftpSession(ContentStore store, ContentCaller call
             return Refuse(request, string.Empty, SftpStatusCode.Failure, message, failure.Message);
         }
     }
+
+    // ADR-0124 decision 4: a chosen-error rule for the request's packet name and path is answered
+    // with its status, before the store is asked; null when no rule applies.
+    private async ValueTask<byte[]?> AnswerByFaultAsync(SftpRequest request, CancellationToken cancellationToken)
+    {
+        var path = FaultPathOf(request);
+        if (await SshCommandFaults.FindSftpErrorAsync(context, caller.AccountName, request.Name, path, cancellationToken) is not { } error)
+        {
+            return null;
+        }
+
+        return Refuse(request, path is null ? string.Empty : RenderPath(path), error.Code, error.Message, $"fault rule {error.RuleId}");
+    }
+
+    // The canonical path a request names first, or the path its handle was opened on; null for
+    // a request that names neither, or one whose path or handle does not read.
+    private string? FaultPathOf(SftpRequest request)
+    {
+        var path = PathFirstRequests.Contains(request.Type) ? CanonicalPathOf(request.PeekFirstString()) : HandlePathOf(request);
+
+        return path is null ? null : SshContentPath.WithoutTrailingSlash(path);
+    }
+
+    private static string? CanonicalPathOf(ReadOnlyMemory<byte>? path) =>
+        path is { } bytes ? SshContentPath.Canonicalise(bytes.Span) : null;
+
+    private string? HandlePathOf(SftpRequest request) =>
+        HandleFirstRequests.Contains(request.Type) && request.PeekFirstString() is { } handleBytes && FindHandle(handleBytes) is { Handle: var handle }
+            ? handle.Path
+            : null;
 
     // A failure of the store the session answers and goes on after: a disk fault, access refused.
     private static bool IsStoreFailure(Exception failure) => failure is IOException or UnauthorizedAccessException;
