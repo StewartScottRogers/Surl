@@ -23,7 +23,8 @@ internal sealed record GcsError(string Code, HttpStatus Status, string Message)
     public static GcsError AuthenticationRequired { get; } = new("AuthenticationRequired", HttpStatus.Unauthorized, "Authentication required.");
 
     /// <summary>
-    /// <c>400 BadDigest</c>: a <c>Content-MD5</c> or <c>x-goog-hash</c> that does not match the body.
+    /// <c>400 BadDigest</c>: a <c>Content-MD5</c>, <c>x-goog-hash</c> or signed
+    /// <c>x-goog-content-sha256</c> that does not match the body.
     /// </summary>
     public static GcsError BadDigest { get; } = new("BadDigest", HttpStatus.BadRequest, "The Content-MD5 or x-goog-hash you specified did not match what was received.");
 
@@ -43,7 +44,14 @@ internal sealed record GcsError(string Code, HttpStatus Status, string Message)
     public static GcsError InsufficientQuota { get; } = new("InsufficientQuota", HttpStatus.Forbidden, "The object metadata index is full.");
 
     /// <summary>
-    /// <c>400 InvalidArgument</c>: a bad query or condition value.
+    /// <c>403 InvalidAccessKeyId</c>: a <c>GOOG4-HMAC-SHA256</c> access ID that is no account (decision 3.3).
+    /// </summary>
+    public static GcsError InvalidAccessKeyId { get; } = new("InvalidAccessKeyId", HttpStatus.Forbidden, "The access key ID you provided does not exist in our records.");
+
+    /// <summary>
+    /// <c>400 InvalidArgument</c>: a bad query or condition value; a <c>GOOG4-HMAC-SHA256</c> field
+    /// that does not parse, whose scope does not end <c>/storage/goog4_request</c>, or that leaves
+    /// <c>host</c> unsigned (decision 3.4).
     /// </summary>
     public static GcsError InvalidArgument { get; } = new("InvalidArgument", HttpStatus.BadRequest, "Invalid argument.");
 
@@ -99,6 +107,12 @@ internal sealed record GcsError(string Code, HttpStatus Status, string Message)
     public static GcsError MissingContentLength { get; } = new("MissingContentLength", new HttpStatus(411, "Length Required"), "You must provide the Content-Length HTTP header.");
 
     /// <summary>
+    /// <c>400 MissingSecurityHeader</c>: a <c>GOOG4-HMAC-SHA256</c> request without
+    /// <c>x-goog-date</c> and <c>Date</c>, or without <c>x-goog-content-sha256</c> (decision 3.4).
+    /// </summary>
+    public static GcsError MissingSecurityHeader { get; } = new("MissingSecurityHeader", HttpStatus.BadRequest, "Your request was missing a required header.");
+
+    /// <summary>
     /// <c>404 NoSuchBucket</c>: no such top-level folder, or the caller may not read its share.
     /// </summary>
     public static GcsError NoSuchBucket { get; } = new("NoSuchBucket", HttpStatus.NotFound, "The specified bucket does not exist.");
@@ -118,6 +132,17 @@ internal sealed record GcsError(string Code, HttpStatus Status, string Message)
     /// <c>412 PreconditionFailed</c>: a failing <c>If-Match</c>, <c>If-Unmodified-Since</c> or <c>x-goog-if-*</c>.
     /// </summary>
     public static GcsError PreconditionFailed { get; } = new("PreconditionFailed", new HttpStatus(412, "Precondition Failed"), "At least one of the pre-conditions you specified did not hold.");
+
+    /// <summary>
+    /// <c>403 RequestTimeTooSkewed</c>: a <c>GOOG4-HMAC-SHA256</c> request time more than 15 minutes
+    /// from the server's clock, or not the scope's date (decision 3.4).
+    /// </summary>
+    public static GcsError RequestTimeTooSkewed { get; } = new("RequestTimeTooSkewed", HttpStatus.Forbidden, "The difference between the request time and the server's time is too large.");
+
+    /// <summary>
+    /// <c>403 SignatureDoesNotMatch</c>: a <c>GOOG4-HMAC-SHA256</c> signature that does not verify.
+    /// </summary>
+    public static GcsError SignatureDoesNotMatch { get; } = new("SignatureDoesNotMatch", HttpStatus.Forbidden, "The request signature we calculated does not match the signature you provided.");
 
     /// <summary>
     /// <c>503 SlowDown</c>: a connection past <c>--max-connections</c> or

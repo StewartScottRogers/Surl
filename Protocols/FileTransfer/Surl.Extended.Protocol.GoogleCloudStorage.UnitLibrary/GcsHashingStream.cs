@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using Surl.Content;
 
 namespace Surl.Extended.Protocol.GoogleCloudStorage;
@@ -10,7 +11,8 @@ namespace Surl.Extended.Protocol.GoogleCloudStorage;
 /// <param name="hashes">The hashes every byte goes through.</param>
 /// <param name="session">The upload session the bytes are appended to, or <see langword="null"/>
 /// when the bytes are only hashed.</param>
-internal sealed class GcsHashingStream(GcsObjectHashes hashes, ContentUploadSession? session) : Stream
+/// <param name="bodySha256">The SHA-256 every byte also goes through, for a signature that binds the body; <see langword="null"/> when none is kept.</param>
+internal sealed class GcsHashingStream(GcsObjectHashes hashes, ContentUploadSession? session, IncrementalHash? bodySha256 = null) : Stream
 {
     /// <summary>
     /// Whether the upload went past the store's upload limit; the session has then discarded it.
@@ -67,6 +69,7 @@ internal sealed class GcsHashingStream(GcsObjectHashes hashes, ContentUploadSess
     public override async ValueTask WriteAsync(ReadOnlyMemory<byte> buffer, CancellationToken cancellationToken = default)
     {
         hashes.Append(buffer.Span);
+        bodySha256?.AppendData(buffer.Span);
         if (session is null || IsTooLarge)
         {
             return;

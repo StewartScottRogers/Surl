@@ -400,4 +400,66 @@ public sealed class GcsPutObjectTests
         StringAssert.Contains(response, "x-goog-hash: crc32c=AAAAAA==,md5=1B2M2Y8AsgTpgAmY7PhCfg==\r\n");
         Assert.AreEqual(string.Empty, harness.ReadFile("photos/empty.txt"));
     }
+
+    [TestMethod]
+    public async Task ServeAsync_SignedPutWorkedByHand_StoresTheObjectAsTheAccessIdsAccount()
+    {
+        var harness = new GcsServerHarness(exposure: GcsServerHarness.Writable);
+        harness.Policy.SignedAccounts[GcsSignedRequests.PutAuthorization] = GcsSignedRequests.AccessId;
+        harness.CreateFolder("example-bucket");
+
+        var response = await harness.SendRawAsync(GcsSignedRequests.Request("PUT", "hello world"));
+
+        StringAssert.StartsWith(response, "HTTP/1.1 200 OK\r\n");
+        StringAssert.Contains(response, $"ETag: {HelloWorldETag}\r\n");
+        Assert.AreEqual("hello world", harness.ReadFile("example-bucket/hello.txt"));
+        Assert.AreEqual("storage", harness.Policy.Requests.Single().AwsSigV4Service);
+        Assert.AreEqual(GcsSignedRequests.HelloWorldSha256, Convert.ToHexStringLower(harness.Policy.JudgedBodyHashes.Single()));
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_SignedPutWhoseBodyIsNotTheOneSigned_Is400BadDigestAndKeepsTheOldObject()
+    {
+        var harness = new GcsServerHarness(exposure: GcsServerHarness.Writable);
+        harness.Policy.SignedAccounts[GcsSignedRequests.PutAuthorization] = GcsSignedRequests.AccessId;
+        harness.CreateFolder("example-bucket");
+        harness.WriteFile("example-bucket/hello.txt", "old");
+
+        var response = await harness.SendRawAsync(GcsSignedRequests.Request("PUT", "hello WORLD"));
+
+        Assert.AreEqual(GcsServerHarness.ExpectedError("400 Bad Request", "BadDigest", "The Content-MD5 or x-goog-hash you specified did not match what was received."), response);
+        Assert.AreEqual("old", harness.ReadFile("example-bucket/hello.txt"));
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_SignedPutWithTheSignedBodyButAMismatchedContentMd5_Is400BadDigestAfterTheSignatureHolds()
+    {
+        var harness = new GcsServerHarness(exposure: GcsServerHarness.Writable);
+        harness.Policy.SignedAccounts[GcsSignedRequests.PutAuthorization] = GcsSignedRequests.AccessId;
+        harness.CreateFolder("example-bucket");
+        var request = GcsSignedRequests.Request("PUT", "hello world").Replace("Connection: close", "Content-MD5: 1B2M2Y8AsgTpgAmY7PhCfg==\r\nConnection: close", StringComparison.Ordinal);
+
+        var response = await harness.SendRawAsync(request);
+
+        StringAssert.Contains(response, "<Code>BadDigest</Code>");
+        Assert.HasCount(1, harness.Policy.JudgedBodyHashes);
+        Assert.AreEqual(ContentEntryKind.None, harness.EntryKind("example-bucket/hello.txt"));
+    }
+
+    [TestMethod]
+    [DataRow(true, "200 OK", DisplayName = "the empty body signed")]
+    [DataRow(false, "400 Bad Request", DisplayName = "another body signed")]
+    public async Task ServeAsync_SignedFolderPut_ChecksTheEmptyBodyAgainstTheSignedHash(bool signsTheEmptyBody, string status)
+    {
+        var harness = new GcsServerHarness(exposure: GcsServerHarness.Writable);
+        harness.Policy.SignedAccounts[GcsSignedRequests.PutAuthorization] = GcsSignedRequests.AccessId;
+        harness.CreateFolder("example-bucket");
+        var contentSha256 = signsTheEmptyBody ? GcsSignedRequests.Sha256Hex(string.Empty) : GcsSignedRequests.HelloWorldSha256;
+
+        var response = await harness.SendRawAsync(GcsSignedRequests.Request("PUT", string.Empty, "/example-bucket/folder/", contentSha256));
+
+        StringAssert.StartsWith(response, $"HTTP/1.1 {status}\r\n");
+        Assert.AreEqual(GcsSignedRequests.Sha256Hex(string.Empty), Convert.ToHexStringLower(harness.Policy.JudgedBodyHashes.Single()));
+        Assert.AreEqual(signsTheEmptyBody, !response.Contains("<Code>BadDigest</Code>", StringComparison.Ordinal));
+    }
 }

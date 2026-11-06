@@ -19,9 +19,8 @@ namespace Surl.Extended.Protocol.GoogleCloudStorage;
 /// <c>x-goog-meta-*</c> and <c>x-goog-hash</c> - and PUT Object and DELETE Object when the store
 /// allows uploads, path style or virtual-hosted style, and answers every other request
 /// <c>400 NotImplemented</c>, each failure with the XML API's <c>Error</c> body. Every request must
-/// carry a Bearer token of an account, checked through the policy's HTTP session (anonymous reads
-/// only when the policy allows them; ADR-0110, decision 3). The <c>GOOG4-HMAC-SHA256</c> signature
-/// is wired in by BL-432.
+/// carry a Bearer token or a <c>GOOG4-HMAC-SHA256</c> signature of an account, checked through the
+/// policy's HTTP session (anonymous reads only when the policy allows them; ADR-0110, decision 3).
 /// </para>
 /// <para>
 /// HTTP/1.1 framing, the head limit and timeouts are <see cref="Http1ConnectionServer"/>'s. As an

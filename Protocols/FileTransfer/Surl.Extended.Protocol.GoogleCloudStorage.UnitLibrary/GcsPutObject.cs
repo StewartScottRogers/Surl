@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Security.Cryptography;
 using System.Text;
 using Surl.Content;
 using Surl.HttpMessage;
@@ -21,8 +22,9 @@ namespace Surl.Extended.Protocol.GoogleCloudStorage;
 /// <param name="store">The content store the object is written to.</param>
 /// <param name="index">The object metadata index of the store's served root.</param>
 /// <param name="properties">Reads the existing object when a generation condition is sent.</param>
+/// <param name="login">Finishes a <c>GOOG4-HMAC-SHA256</c> check that binds the body (decision 3.3).</param>
 /// <param name="log">Where a failure to rewrite the index file is noted.</param>
-internal sealed class GcsPutObject(ContentStore store, ObjectMetadataIndex index, GcsObjectPropertiesReader properties, IExchangeLog log)
+internal sealed class GcsPutObject(ContentStore store, ObjectMetadataIndex index, GcsObjectPropertiesReader properties, GcsLoginJudge login, IExchangeLog log)
 {
     /// <summary>
     /// The most UTF-8 bytes of <c>x-goog-meta-*</c> names and values ("HTTP headers").
@@ -38,9 +40,10 @@ internal sealed class GcsPutObject(ContentStore store, ObjectMetadataIndex index
     /// <param name="request">The request, whose body is read.</param>
     /// <param name="target">The request's bucket and object name.</param>
     /// <param name="caller">Who writes, on <c>gs</c>.</param>
+    /// <param name="bodyCheck">The rest of a signature that binds the body; <see langword="null"/> when the head decided.</param>
     /// <param name="cancellationToken">Cancels reading the body and writing the file.</param>
     /// <returns>The answer.</returns>
-    public async Task<HttpAnswer> AnswerAsync(GcsReply reply, HttpRequest request, GcsRequestTarget target, ContentCaller caller, CancellationToken cancellationToken)
+    public async Task<HttpAnswer> AnswerAsync(GcsReply reply, HttpRequest request, GcsRequestTarget target, ContentCaller caller, IHttpRequestBodyCheck? bodyCheck, CancellationToken cancellationToken)
     {
         if (!store.ExposureOptions.AllowUploads)
         {
@@ -65,7 +68,7 @@ internal sealed class GcsPutObject(ContentStore store, ObjectMetadataIndex index
 
         return CreateFolders(target, caller) is { } folderRefusal
             ? reply.Error(folderRefusal)
-            : await StoreAsync(reply, request, target, mapping, sent!, cancellationToken);
+            : await StoreAsync(reply, request, target, mapping, new GcsUploadChecks(sent!, bodyCheck), cancellationToken);
     }
 
     /// <summary>
@@ -157,14 +160,11 @@ internal sealed class GcsPutObject(ContentStore store, ObjectMetadataIndex index
         _ => store.CreateDirectory(folder) == ContentChangeResult.Done ? null : GcsError.AccessDenied,
     };
 
-    private async Task<HttpAnswer> StoreAsync(GcsReply reply, HttpRequest request, GcsRequestTarget target, ContentPathMapping mapping, GcsSentDigests sent, CancellationToken cancellationToken)
+    private async Task<HttpAnswer> StoreAsync(GcsReply reply, HttpRequest request, GcsRequestTarget target, ContentPathMapping mapping, GcsUploadChecks checks, CancellationToken cancellationToken)
     {
         if (target.RawName.EndsWith('/'))
         {
-            using var empty = new GcsObjectHashes();
-            return request.Body.IsAnnounced
-                ? reply.Error(GcsError.InvalidObjectName)
-                : Stored(reply, empty.Finish(), GcsGeneration.Of(reply.Now));
+            return await StoreFolderAsync(reply, request, checks.BodyCheck, cancellationToken);
         }
 
         var opening = await store.OpenUploadAsync(mapping, new ContentUploadOpening(StartsFromExistingBytes: false, CreatesMissingFile: true, RefusesExistingFile: false), cancellationToken);
@@ -175,24 +175,50 @@ internal sealed class GcsPutObject(ContentStore store, ObjectMetadataIndex index
 
         await using (session)
         {
-            return await WriteAsync(reply, request, target, mapping, session, sent, cancellationToken);
+            return await WriteAsync(reply, request, target, mapping, session, checks, cancellationToken);
         }
     }
 
-    // The body goes into the upload session, which is committed only once the body matches every
-    // digest sent; refused, the session is disposed uncommitted and the old object stands.
-    private async Task<HttpAnswer> WriteAsync(GcsReply reply, HttpRequest request, GcsRequestTarget target, ContentPathMapping mapping, ContentUploadSession session, GcsSentDigests sent, CancellationToken cancellationToken)
+    // A zero-byte PUT of a name ending in / creates the folder, once a signature binding the
+    // empty body is finished; a body is 400 InvalidObjectName.
+    private async Task<HttpAnswer> StoreFolderAsync(GcsReply reply, HttpRequest request, IHttpRequestBodyCheck? bodyCheck, CancellationToken cancellationToken)
+    {
+        if (request.Body.IsAnnounced)
+        {
+            return reply.Error(GcsError.InvalidObjectName);
+        }
+
+        if (await login.JudgeBodyAsync(bodyCheck, SHA256.HashData(ReadOnlySpan<byte>.Empty), cancellationToken) is { } signatureRefusal)
+        {
+            return reply.Error(signatureRefusal);
+        }
+
+        using var empty = new GcsObjectHashes();
+
+        return Stored(reply, empty.Finish(), GcsGeneration.Of(reply.Now));
+    }
+
+    // The body goes into the upload session, which is committed only once the body is the one
+    // signed and then matches every digest sent; refused, the session is disposed uncommitted and
+    // the old object stands.
+    private async Task<HttpAnswer> WriteAsync(GcsReply reply, HttpRequest request, GcsRequestTarget target, ContentPathMapping mapping, ContentUploadSession session, GcsUploadChecks checks, CancellationToken cancellationToken)
     {
         using var hashes = new GcsObjectHashes();
-        var sink = new GcsHashingStream(hashes, session);
+        using var bodySha256 = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+        var sink = new GcsHashingStream(hashes, session, bodySha256);
         var outcome = request.Body.IsAnnounced ? await request.Body.CopyToAsync(sink, cancellationToken) : HttpRequestBodyDiscardOutcome.Discarded;
         if (BodyRefusal(outcome, sink.IsTooLarge) is { } bodyRefusal)
         {
             return reply.Error(bodyRefusal);
         }
 
+        if (await login.JudgeBodyAsync(checks.BodyCheck, bodySha256.GetHashAndReset(), cancellationToken) is { } signatureRefusal)
+        {
+            return reply.Error(signatureRefusal);
+        }
+
         var digests = hashes.Finish();
-        if (!sent.Match(digests))
+        if (!checks.Sent.Match(digests))
         {
             return reply.Error(GcsError.BadDigest);
         }
