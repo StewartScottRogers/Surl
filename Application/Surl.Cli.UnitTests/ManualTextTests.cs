@@ -9,7 +9,7 @@ public sealed class ManualTextTests
     private static readonly string[] Headings =
     [
         "NAME", "SYNOPSIS", "DESCRIPTION", "CONFIG FILES", "LISTEN URLS", "DEPLOYMENT CHECKLIST", "DATA DIRECTORY",
-        "IN-MEMORY MODE", "ACCOUNTS", "MAIL", "HTTP OPTIONS", "LDAP OPTIONS", "RTSP OPTIONS", "S3 OPTIONS", "SMB OPTIONS", "SSH OPTIONS", "WEBSOCKET OPTIONS", "LOOSENING OPTIONS", "CONTROL ENDPOINT", "LOG LEVELS", "LIMITS",
+        "IN-MEMORY MODE", "ACCOUNTS", "MAIL", "HTTP OPTIONS", "LDAP OPTIONS", "NATS OPTIONS", "RTSP OPTIONS", "S3 OPTIONS", "SMB OPTIONS", "SSH OPTIONS", "WEBSOCKET OPTIONS", "LOOSENING OPTIONS", "CONTROL ENDPOINT", "LOG LEVELS", "LIMITS",
         "EXIT CODES", "SEE ALSO",
     ];
 
@@ -267,6 +267,14 @@ public sealed class ManualTextTests
             "    --allow-plaintext-auth; the Windows curl's NTLM and DIGEST-MD5 binds need",
             "    --auth and an account. StartTLS and ldaps need --cert or --self-signed.",
             "    surl --aihelp ldap says how each request is answered.",
+            "",
+            "NATS OPTIONS",
+            "",
+            "    The extended NATS server answers nats and natss listen URLs with the NATS",
+            "    client protocol over the message bus the MQTT server shares. Every",
+            "    CONNECT needs an account, or --allow-anonymous; a password over nats needs",
+            "    --allow-plaintext-auth. natss requires TLS before CONNECT and needs --cert",
+            "    or --self-signed. surl --aihelp nats says how each operation is answered.",
             "",
             "RTSP OPTIONS",
             "",

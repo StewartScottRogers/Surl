@@ -95,7 +95,7 @@ internal static class AiHelpProse
             "The extended protocol servers answer schemes the Curl port (https://github.com/StewartScottRogers/Curl) adds and upstream curl does not have. Each is judged by its protocol's specification and is not validated against upstream curl, unlike every other protocol topic's server.",
             "They are on unless the environment variable `SURL_EXTENSIONS` is `0`; unset, empty or any other value leaves them on. With `SURL_EXTENSIONS=0` no extended server is registered, and a listen URL naming an extended scheme writes `surl: (1) Protocol \"<scheme>\" not supported` and exits 1, as any scheme this build does not serve does. No command-line option turns them off.",
             "An extended scheme never changes how an original scheme is served, and has its own default port, which its topic's Schemes section lists. `surl --version` lists the extended schemes this build serves on an `Extended:` line after the `Protocols:` line; with none registered, or with `SURL_EXTENSIONS=0`, there is no such line.",
-            "This build registers one extended protocol server, the S3 server for `s3` (see the s3 topic); each one added gets its own topic.",
+            "This build registers two extended protocol servers, the NATS server for `nats` and `natss` (see the nats topic) and the S3 server for `s3` (see the s3 topic); each one added gets its own topic.",
         ],
         ["exit-codes"] =
         [
@@ -175,6 +175,14 @@ internal static class AiHelpProse
             "Every CONNECT needs a login unless `--allow-anonymous` is given: its user name and password are checked against the accounts (see the auth topic), answered CONNACK 0 when accepted, and CONNACK 4 or 5 and a close when refused. A password over `mqtt://` is refused unchecked unless `--allow-plaintext-auth` is given.",
             "Without `--directory` the retained messages live in memory only; with it, they are kept on the message bus in `<path>/.surl/bus/retained` and loaded at start (an older `<path>/.surl/mqtt/retained-messages` is read once when that file is missing), and a file that cannot be read or does not parse exits 37.",
             "`mqtts` is the same server over TLS from the first byte, so an `mqtts` listen URL needs `--cert` or `--self-signed` (see the tls topic).",
+        ],
+        ["nats"] =
+        [
+            "The NATS server answers the NATS client protocol (INFO, CONNECT, PUB, HPUB, SUB, UNSUB, MSG, HMSG, PING and PONG) for `nats` and `natss` listen URLs. It is an extended server (see the extended topic): it is judged by the NATS client protocol page (https://docs.nats.io/reference/reference-protocols/nats-protocol), not by upstream curl, which has no `nats` scheme.",
+            "Its subjects, subscriptions and queue groups are those of the one message bus the MQTT server also uses, so a message published over `nats://` reaches a matching MQTT subscriber in the same run, and the reverse. A NATS client connects, sends CONNECT, then publishes with PUB or HPUB and subscribes with SUB; `*` and `>` match one and the rest of the tokens, and a queue group gives each message to one member.",
+            "Every CONNECT needs a login unless `--allow-anonymous` is given: `user` and `pass` log in as that account (`--user`, `--user-file`), and `auth_token` as the account with an empty name whose password is the token. A refused login, an NKey or a JWT is answered `-ERR 'Authorization Violation'` and closed. A password over `nats://` is refused unchecked unless `--allow-plaintext-auth` is given (see the auth topic).",
+            "`nats` never offers TLS. `natss` requires it before CONNECT, whether the client starts TLS at once or after the plain-text INFO that says `tls_required: true`, so a `natss` listen URL needs `--cert` or `--self-signed` (see the tls topic). Both schemes default to port 4222.",
+            "CONNECT must arrive within `--head-timeout`, a line over `--max-line` and a payload over the smaller of `--max-message` and `--max-filesize` close the connection with `-ERR`, and the server sends its own PING every quarter of `--idle-timeout` and closes a client that leaves two unanswered.",
         ],
         ["pop3"] =
         [
