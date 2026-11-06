@@ -207,3 +207,26 @@ Costs and caveats:
   would still differ by TLS library only where the library chooses (record sizes), and the plaintext
   twin of each conversation (`http` beside `https`, `ftp` beside `ftps`) already compares curl's own
   bytes.
+
+## Amendment 1 (2026-11-05, BL-580): what the first family run showed decision 4 must leave out
+
+Decided by Claude under Stewart's delegation, in BL-580, from the HTTP/1.1 and HTTPS family's first
+runs. Each item below differed between two runs for a reason that is neither client's curl, so
+comparing it would have filed a false port finding. None widens what a port finding may excuse: the
+exit code, output, asserted stderr lines and stored files are still compared in every case.
+
+- **Digest `nonce`** is replaced by `<nonce>` beside `cnonce` and `response`: it is the value each
+  run's own `surl` chose at random, which the client only echoes (`RequestBytesNormalisation`).
+- **Request bytes are not recorded** for AWS Signature Version 4 cases (`x-amz-date` and the signature
+  over it follow the clock; decision 4 never compares timing) and for Kerberos and `Negotiate` cases
+  (each token carries a fresh session key and time stamp, so its bytes are the GSS-API library's, as
+  TLS bytes are the TLS library's).
+- **`surl`'s packet dumps** (`#<n> > ` and `#<n> < ` lines under `-v`) are not compared on SSH: they carry
+  the server's random cookie and padding. Its `*` notes are.
+- **How a refused TLS connection ended** (`TLS handshake failed: …`, or an `IOException` from a reset
+  connection) is not compared on `https`: the same client produced either note from run to run, and
+  which one depends on the TLS library and timing.
+- A case whose mirrored test runs a supplementary build, a relay of its own, several listeners or
+  per-run arguments passes a `CurlPortRunSetup` that both runs share; set-up steps that are not the
+  conversation measured (an SMTP delivery for an IMAP or POP3 read) run once through upstream curl, and
+  each run's `surl` starts over its own copy of the result, so both clients meet the same bytes.

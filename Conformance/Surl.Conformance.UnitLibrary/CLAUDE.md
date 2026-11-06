@@ -78,7 +78,7 @@ to make the port pass. One case is compared and judged here (BL-578), request by
   `<time>` (found by matching the case's `-w` format), stderr cut to the asserted lines, `surl` notes'
   loopback ports and time stamps. `NormaliseRequestBytes` applies the request-byte rules, which the
   internal `RequestBytesNormalisation` holds: the client port in FTP `PORT` and `EPRT`, `User-Agent:` as
-  `<user-agent>`, every multipart boundary as `<boundary>`, Digest `cnonce` and `response` as `<cnonce>`
+  `<user-agent>`, every multipart boundary as `<boundary>`, Digest `nonce` (surl's own, echoed), `cnonce` and `response` as `<nonce>`, `<cnonce>`
   and `<response>` (also inside a base64 SASL `DIGEST-MD5` line), and in every NTLM AUTHENTICATE message,
   raw (SMB) or base64 (HTTP, SASL), the LM and NT responses, the encrypted session key and the MIC zeroed.
 - `CurlPortComparison.Compare` takes the two runners' results - never a path - and gives a
@@ -99,7 +99,9 @@ its own `ClientBytesRelay` when the case `RecordsClientBytes` - is Inconclusive 
 the tests because it opens sockets: it forwards both directions unchanged, records only client-to-server
 bytes, and shuts down sending to one side when the other stops. An FTP data connection goes straight to
 the port `surl` announced, so only the control connection is recorded (decision 4). Reading a family's
-findings file is the family tasks' work (BL-580 on).
+findings file is `CurlPortFindingsFile`'s (BL-580): decision 5's pass rule over a family's table. A case whose
+mirrored test runs a supplementary build, a relay of its own, several listeners or per-run arguments passes
+a `CurlPortRunSetup`, applied identically to both runs.
 
 ## Upstream test cases (ADR-0080)
 
