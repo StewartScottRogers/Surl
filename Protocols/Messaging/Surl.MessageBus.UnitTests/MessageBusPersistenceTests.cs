@@ -5,7 +5,87 @@ namespace Surl.MessageBus;
 [TestClass]
 public sealed class MessageBusPersistenceTests
 {
+    // Group g, topic t, offset 5, leader epoch -1, no metadata, committed at 2026-11-04T08:00:00Z.
+    private const string OffsetEntry = "00000001 67 00000001 74 0000000000000005 ffffffff 00 08df3a499fec8000";
+
     private readonly PersistedBusFixture fixture = new();
+
+    [TestMethod]
+    public async Task LoadAsync_CommittedOffsetsSaved_ComeBackEqualAndTheNextSaveWritesNothingNew()
+    {
+        var bus = await fixture.LoadBusAsync();
+        bus.CommitOffset(null, "g", "t", 5, -1, metadata: null);
+        bus.CommitOffset(null, "h/i", "a/b", -2, 9, "meta");
+        Assert.AreEqual(BusSaveResult.Saved, await bus.SaveChangesAsync());
+        var written = fixture.Read(fixture.Files.OffsetsPath);
+
+        var loaded = await fixture.LoadBusAsync();
+        fixture.FileSystem.FailCreatesOf = "offsets";
+
+        Assert.AreEqual(new BusCommittedOffset("g", "t", 5, -1, null, fixture.Clock.UtcNow), loaded.GetCommittedOffset("g", "t"));
+        Assert.AreEqual(new BusCommittedOffset("h/i", "a/b", -2, 9, "meta", fixture.Clock.UtcNow), loaded.GetCommittedOffset("h/i", "a/b"));
+        Assert.AreEqual(BusSaveResult.Saved, await loaded.SaveChangesAsync());
+        CollectionAssert.AreEqual(written, fixture.Read(fixture.Files.OffsetsPath));
+    }
+
+    [TestMethod]
+    public async Task SaveChangesAsync_TheOffsetsWriteFails_KeepsTheCommitAndTheNextSaveWritesIt()
+    {
+        var bus = await fixture.LoadBusAsync();
+        fixture.FileSystem.FailCreatesOf = "offsets";
+        bus.CommitOffset(null, "g", "t", 5, -1, null);
+
+        var failed = await bus.SaveChangesAsync();
+        fixture.FileSystem.FailCreatesOf = null;
+        var retried = await bus.SaveChangesAsync();
+
+        Assert.AreEqual(new BusSaveResult(MessageBusOutcome.StorageFailed, "The disk failed."), failed);
+        Assert.AreEqual(BusSaveResult.Saved, retried);
+        Assert.AreEqual(5, (await fixture.LoadBusAsync()).GetCommittedOffset("g", "t")!.Offset);
+    }
+
+    [TestMethod]
+    public async Task LoadAsync_ABusHoldingACommittedOffset_Throws()
+    {
+        var bus = fixture.NewBus();
+        bus.CommitOffset(null, "g", "t", 5, -1, null);
+
+        await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => bus.LoadAsync(fixture.Files));
+    }
+
+    [TestMethod]
+    [DataRow("SURL-BUS-OFFSETS-2\n00000000", DisplayName = "Another header")]
+    [DataRow("SURL-BUS-OFFSETS-1\n00000001", DisplayName = "A file cut short")]
+    [DataRow("SURL-BUS-OFFSETS-1\n00000000 00", DisplayName = "Bytes after the last entry")]
+    [DataRow("SURL-BUS-OFFSETS-1\n00000002 " + OffsetEntry + " " + OffsetEntry, DisplayName = "A group and topic twice")]
+    [DataRow("SURL-BUS-OFFSETS-1\n00000001 00000001 67 00000001 2b 0000000000000005 ffffffff 00 08df3a499fec8000", DisplayName = "A wildcard topic")]
+    [DataRow("SURL-BUS-OFFSETS-1\n00000001 00000001 67 00000001 74 0000000000000005 ffffffff 02 08df3a499fec8000", DisplayName = "A flags byte with an unknown bit")]
+    [DataRow("SURL-BUS-OFFSETS-1\n00000001 00000001 67 00000001 74 0000000000000005 ffffffff 01", DisplayName = "Metadata flagged but missing")]
+    [DataRow("SURL-BUS-OFFSETS-1\n00000001 00000001 67 00000001 74 0000000000000005 ffffffff 00 ffffffffffffffff", DisplayName = "A commit time out of range")]
+    public async Task LoadAsync_AMalformedOffsetsFile_ThrowsWithItsPathAndNotAMessageBusFile(string headerAndHex)
+    {
+        var split = headerAndHex.IndexOf('\n', StringComparison.Ordinal) + 1;
+        fixture.Write(fixture.Files.OffsetsPath, [.. System.Text.Encoding.ASCII.GetBytes(headerAndHex[..split]), .. Bytes(headerAndHex[split..])]);
+
+        var exception = await fixture.LoadFailureAsync();
+
+        Assert.AreEqual(fixture.Files.OffsetsPath, exception.FilePath);
+        Assert.AreEqual(MessageBusFiles.MalformedFileReason, exception.Message);
+    }
+
+    [TestMethod]
+    public async Task LoadAsync_AnOffsetsFileHoldingMoreThanMaxCommittedOffsets_ThrowsNotAMessageBusFile()
+    {
+        var first = OffsetEntry;
+        var second = "00000001 68 00000001 74 0000000000000005 ffffffff 00 08df3a499fec8000";
+        fixture.Write(fixture.Files.OffsetsPath, [.. MessageBusFiles.OffsetsHeader, .. Bytes("00000002 " + first + " " + second)]);
+
+        var exception = await fixture.LoadFailureAsync(new MessageBus(fixture.Clock, maxCommittedOffsets: 1));
+
+        Assert.AreEqual(fixture.Files.OffsetsPath, exception.FilePath);
+        Assert.AreEqual(MessageBusFiles.MalformedFileReason, exception.Message);
+        Assert.AreEqual(2, (await fixture.LoadBusAsync()).GetCommittedGroups().Count);
+    }
 
     [TestMethod]
     public async Task SaveChangesAsync_ABusNeverLoaded_WritesNothing()

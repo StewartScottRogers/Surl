@@ -4,7 +4,7 @@ title: Configure mailboxes, shares, topics and groups through Surl.Api's options
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-616, BL-644, BL-654, BL-663, BL-666]
+depends-on: [BL-616, BL-644, BL-995, BL-989, BL-992]
 touches: [Application/Surl.Api, Application/Surl.Api.UnitTests]
 requirement: none
 created: 2026-11-04
@@ -45,3 +45,6 @@ configuration model the command line fills, with the same defaults, refusals and
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-06: depends-on BL-663 replaced by BL-989 (BL-663 split for the 60-minute size limit; Stewart asked for a backlog audit 2026-11-06).
+- 2026-11-06: depends-on BL-666 replaced by BL-992 (BL-666 split for the 60-minute size limit; Stewart asked for a backlog audit 2026-11-06).
+- 2026-11-06: depends-on BL-654 replaced by BL-995 (BL-654 split for the 60-minute size limit; Stewart asked for a backlog audit 2026-11-06).

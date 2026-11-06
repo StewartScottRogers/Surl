@@ -81,7 +81,19 @@ internal sealed partial class S3ServerHarness
         CancellationToken.None)
     {
         Limits = limits ?? ExchangeLimits.Default,
+        Faults = Faults,
+        Events = Events,
     };
+
+    /// <summary>
+    /// The fault plan every exchange asks; by default one with no rule.
+    /// </summary>
+    public ScriptedFaultPlan Faults { get; set; } = new();
+
+    /// <summary>
+    /// The event stream every exchange publishes to.
+    /// </summary>
+    public RecordingSurlEventPublisher Events { get; } = new();
 
     /// <summary>
     /// Sends one request head, <c>Host: s3.test</c> and <c>Connection: close</c> added, and returns

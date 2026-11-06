@@ -9,7 +9,7 @@ public sealed class ManualTextTests
     private static readonly string[] Headings =
     [
         "NAME", "SYNOPSIS", "DESCRIPTION", "CONFIG FILES", "LISTEN URLS", "DEPLOYMENT CHECKLIST", "DATA DIRECTORY",
-        "IN-MEMORY MODE", "ACCOUNTS", "MAIL", "HTTP OPTIONS", "LDAP OPTIONS", "NATS OPTIONS", "RTSP OPTIONS", "S3 OPTIONS", "SMB OPTIONS", "SSH OPTIONS", "WEBSOCKET OPTIONS", "LOOSENING OPTIONS", "CONTROL ENDPOINT", "LOG LEVELS", "LIMITS",
+        "IN-MEMORY MODE", "ACCOUNTS", "MAIL", "DNS OPTIONS", "HTTP OPTIONS", "LDAP OPTIONS", "NATS OPTIONS", "RTSP OPTIONS", "S3 OPTIONS", "SMB OPTIONS", "SSH OPTIONS", "WEBSOCKET OPTIONS", "LOOSENING OPTIONS", "CONTROL ENDPOINT", "LOG LEVELS", "LIMITS",
         "EXIT CODES", "SEE ALSO",
     ];
 
@@ -249,6 +249,14 @@ public sealed class ManualTextTests
             "    \"surl: (2) Mailbox file <file>, line <n>: <reason>\". A start holds at",
             "    most 10000 mailboxes. With -v surl notes \"* Mail domains: <domains>\"",
             "    and \"* Mailbox <address>: logins on <schemes>\" for each mailbox.",
+            "",
+            "DNS OPTIONS",
+            "",
+            "    The extended DNS server answers dns listen URLs over UDP and TCP on the",
+            "    same port, from the zone files <path>/.surl/dns/*.zone read once at",
+            "    start; without --directory it holds no zone and answers REFUSED. Zone",
+            "    transfers (AXFR, IXFR) are refused unless --allow-zone-transfer is",
+            "    given. surl --aihelp dns says how each query is answered.",
             "",
             "HTTP OPTIONS",
             "",

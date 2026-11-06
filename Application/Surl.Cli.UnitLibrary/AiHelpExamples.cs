@@ -95,6 +95,7 @@ public static class AiHelpExamples
             ["surl: option --max-time: " + OptionArgumentReader.NotANumber, "surl: " + CommandLineFailure.TryHelpLine],
             SurlExitCode.FailedInit),
         Serving("dict", "Serve DICT", ["dict://127.0.0.1:0/"], ["Listening on dict://127.0.0.1:<port>/"], [], ["curl dict://127.0.0.1:<port>/d:surl"]),
+        Serving("dns", "Serve DNS over UDP and TCP, zone transfers allowed", ["--allow-zone-transfer", "dns://127.0.0.1:0/"], ["Listening on dns://127.0.0.1:<port>/"], [], []),
         Serving(
             "ftp",
             "For a test: serve FTP without accounts",

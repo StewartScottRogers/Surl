@@ -35,7 +35,9 @@ What it holds:
 
 - The server-side TLS contract (ADR-0010): `IConnection.TlsSession` and
   `IConnection.UpgradeToTlsAsync`, `TlsSession`, `TlsHandshakeException`, and
-  `TlsSchemes.IsImplicitTls`. `InMemoryConnection` stands in for implicit TLS (an initial
+  `TlsSchemes.IsImplicitTls`, and the per-listen-URL answer the engine reads,
+  `ListenUrl.IsImplicitTls`, init-only and defaulting to `TlsSchemes.IsImplicitTls(Scheme)`, so
+  one `s3` listen URL can be plaintext beside another over TLS (BL-1020). `InMemoryConnection` stands in for implicit TLS (an initial
   session) and for an upgrade (`UpgradeRequested`, a configurable session, or a failure).
 - The peek (ADR-0113, decision 6; BL-734): `IConnection.PeekByteAsync(wait, token)` returns the
   client's next byte without consuming it, or `null` when none came within `wait` or the peer

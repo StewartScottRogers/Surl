@@ -138,6 +138,8 @@ internal static class CommandLineOptions
             new(null, "Follow links that stay in the root", ["content", "dict", "ftp", "gopher", "http", "security", "smb", "ssh", "tftp"], IsInShortList: false, Default: "off")),
         Flag("serve-dot-files", null, negatable: true, (c, on) => c with { ServeDotFiles = on },
             new(null, "Serve names that start with a dot", ["content", "dict", "ftp", "gopher", "http", "security", "smb", "ssh", "tftp"], IsInShortList: false, Default: "off")),
+        Flag("allow-zone-transfer", null, negatable: true, (c, on) => c with { AllowZoneTransfer = on },
+            new(null, "Answer DNS zone transfers (AXFR, IXFR)", ["dns", "security"], IsInShortList: false, Default: "off")),
         WithArgument<int>("max-connections", null, OptionArgumentReader.Number, (c, v) => c with { MaxConnections = v },
             new("<number>", "Connections at once, all listeners", ["limits"], IsInShortList: false, Default: "1024")),
         WithArgument<int>("max-connections-per-address", null, OptionArgumentReader.Number, (c, v) => c with { MaxConnectionsPerAddress = v },

@@ -1,5 +1,6 @@
 using Surl.Authentication;
 using Surl.Content;
+using Surl.Extended.Protocol.DnsQuery;
 using Surl.MailStore;
 using Surl.Protocol.Abstractions;
 using Surl.Protocol.Ldap;
@@ -55,6 +56,15 @@ public sealed class ComposedProtocolServices(
     /// object-store servers (the S3 server) keep each object's metadata and ETag in (ADR-0100, decision 2.3).
     /// </summary>
     public ObjectMetadataIndex ObjectMetadataIndex { get; } = serviceState.ObjectMetadataIndex;
+
+    /// <summary>Gets the zones the DNS server answers from (ADR-0092 decision 1).</summary>
+    public DnsZoneSet DnsZones { get; } = serviceState.DnsZones;
+
+    /// <summary>
+    /// Gets a value indicating whether <c>--allow-zone-transfer</c> is given, so the DNS server
+    /// answers AXFR and IXFR (ADR-0092 decision 4); off unless set.
+    /// </summary>
+    public bool AllowsZoneTransfer { get; init; }
 
     /// <summary>Gets the one policy, over every account.</summary>
     public AuthenticationPolicy AuthenticationPolicy { get; } = authenticationPolicy;

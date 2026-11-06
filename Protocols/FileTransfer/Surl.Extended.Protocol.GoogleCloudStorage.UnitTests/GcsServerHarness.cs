@@ -59,6 +59,10 @@ internal sealed class GcsServerHarness
 
     public RecordingExchangeLog Log { get; } = new();
 
+    public IFaultPlan Faults { get; set; } = EmptyFaultPlan.Instance;
+
+    public RecordingSurlEventPublisher Events { get; } = new();
+
     public string ListenHost { get; }
 
     /// <summary>
@@ -108,6 +112,8 @@ internal sealed class GcsServerHarness
         CancellationToken.None)
     {
         Limits = limits ?? ExchangeLimits.Default,
+        Faults = Faults,
+        Events = Events,
     };
 
     /// <summary>

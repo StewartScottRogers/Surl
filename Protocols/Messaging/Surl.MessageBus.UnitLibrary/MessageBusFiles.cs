@@ -31,9 +31,14 @@ namespace Surl.MessageBus;
 /// as above, so a bus holding none writes what earlier builds read. A queue message file:
 /// <see cref="QueueMessageHeader"/> and the message. A log file: <see cref="LogHeader"/>, the
 /// topic, the log start offset (8 bytes), then each held record's message in offset order.
+/// <see cref="OffsetsFileName"/> (ADR-0145, decision 4): <see cref="OffsetsHeader"/>, the entry
+/// count (4 bytes), then per committed offset in ordinal order of group, then of topic: the group
+/// and the topic (strings), the offset (8 bytes, signed, as given), the leader epoch (4 bytes,
+/// signed), a flags byte (<c>0x01</c> metadata follows, no other bit), the metadata (string) when
+/// flagged, and the commit time (8 bytes, UTC ticks).
 /// </para>
 /// <para>
-/// <b>How it is written.</b> <c>retained</c>, <c>queues/index</c> and each queue message file
+/// <b>How it is written.</b> <c>retained</c>, <c>offsets</c>, <c>queues/index</c> and each queue message file
 /// to <c>.&lt;name&gt;-&lt;guid&gt;</c> beside it, then renamed over it, so a failed write
 /// leaves the file as it was; a queue message file is written once and deleted when its
 /// message leaves every durable queue. A log file is appended to while its log only grew, and
@@ -70,6 +75,11 @@ public sealed class MessageBusFiles
     /// <summary>The topic logs' folder name: <c>logs</c>.</summary>
     public const string LogsFolderName = "logs";
 
+    /// <summary>The committed offsets' file name: <c>offsets</c>.</summary>
+    public const string OffsetsFileName = "offsets";
+
+    private const byte MetadataFollowsFlag = 0x01;
+
     /// <summary>The reason a bus file that does not parse, or holds more than the bus's bounds
     /// allow, is refused with: <c>not a message bus file</c>.</summary>
     public const string MalformedFileReason = "not a message bus file";
@@ -104,6 +114,7 @@ public sealed class MessageBusFiles
         QueueIndexPath = Path.Join(QueuesFolderPath, QueueIndexFileName);
         QueueMessagesFolderPath = Path.Join(QueuesFolderPath, QueueMessagesFolderName);
         LogsFolderPath = Path.Join(StateFolderPath, LogsFolderName);
+        OffsetsPath = Path.Join(StateFolderPath, OffsetsFileName);
         MqttRetainedMessagesPath = Path.Join(surlFolderPath, "mqtt", "retained-messages");
     }
 
@@ -123,6 +134,9 @@ public sealed class MessageBusFiles
     /// <summary>The 15 ASCII bytes a log file starts with: <c>SURL-BUS-LOG-1</c> and a line feed.</summary>
     public static ReadOnlySpan<byte> LogHeader => "SURL-BUS-LOG-1\n"u8;
 
+    /// <summary>The 19 ASCII bytes <c>offsets</c> starts with: <c>SURL-BUS-OFFSETS-1</c> and a line feed.</summary>
+    public static ReadOnlySpan<byte> OffsetsHeader => "SURL-BUS-OFFSETS-1\n"u8;
+
     /// <summary>The full path of the bus's state folder, <c>.surl/bus</c>.</summary>
     public string StateFolderPath { get; }
 
@@ -140,6 +154,9 @@ public sealed class MessageBusFiles
 
     /// <summary>The full path of the topic logs' folder.</summary>
     public string LogsFolderPath { get; }
+
+    /// <summary>The full path of <see cref="OffsetsFileName"/>, the committed offsets.</summary>
+    public string OffsetsPath { get; }
 
     /// <summary>The full path of the MQTT 3.1.1 server's old <c>.surl/mqtt/retained-messages</c>
     /// (ADR-0031 decision 6), read at load when <see cref="RetainedPath"/> is not there and never
@@ -230,7 +247,74 @@ public sealed class MessageBusFiles
         var (retained, source, migrated) = await ReadRetainedAsync(cancellationToken);
         var queues = await ReadQueuesAsync(cancellationToken);
         var logs = await ReadLogsAsync(cancellationToken);
-        return new(retained, source, migrated, queues, logs);
+        var offsets = await ReadIfPresentAsync(OffsetsPath, cancellationToken) is { } offsetsBytes
+            ? Decode(OffsetsPath, () => DecodeOffsets(offsetsBytes))
+            : [];
+        return new(retained, source, migrated, queues, logs, offsets);
+    }
+
+    internal static byte[] EncodeOffsets(IEnumerable<BusCommittedOffset> entries)
+    {
+        var ordered = entries
+            .OrderBy(entry => entry.Group, StringComparer.Ordinal)
+            .ThenBy(entry => entry.Topic, StringComparer.Ordinal)
+            .ToList();
+        var writer = new BusFileWriter(OffsetsHeader);
+        writer.WriteCount(ordered.Count);
+        foreach (var entry in ordered)
+        {
+            writer.WriteString(entry.Group);
+            writer.WriteString(entry.Topic);
+            writer.WriteUInt64((ulong)entry.Offset);
+            writer.WriteUInt32((uint)entry.LeaderEpoch);
+            writer.WriteByte(entry.Metadata is null ? (byte)0 : MetadataFollowsFlag);
+            if (entry.Metadata is { } metadata)
+            {
+                writer.WriteString(metadata);
+            }
+
+            writer.WriteTime(entry.CommittedAt);
+        }
+
+        return writer.ToArray();
+    }
+
+    private static List<BusCommittedOffset> DecodeOffsets(byte[] bytes)
+    {
+        var reader = new BusFileReader(bytes, OffsetsHeader, MalformedFileReason);
+        var count = reader.ReadCount();
+        var entries = new List<BusCommittedOffset>();
+        var keys = new HashSet<(string, string)>();
+        for (var index = 0; index < count; index++)
+        {
+            var entry = DecodeOffset(reader);
+            if (!keys.Add((entry.Group, entry.Topic)))
+            {
+                throw reader.Malformed();
+            }
+
+            entries.Add(entry);
+        }
+
+        return reader.AtEnd ? entries : throw reader.Malformed();
+    }
+
+    private static BusCommittedOffset DecodeOffset(BusFileReader reader)
+    {
+        var group = reader.ReadString();
+        var topic = reader.ReadString();
+        var offset = (long)reader.ReadUInt64();
+        var leaderEpoch = (int)reader.ReadUInt32();
+        var metadata = reader.ReadByte() switch
+        {
+            0 => null,
+            MetadataFollowsFlag => reader.ReadString(),
+            _ => throw reader.Malformed(),
+        };
+        var committedAt = reader.ReadTime();
+        return CanonicalTopicName.IsValidTopic(topic)
+            ? new(group, topic, offset, leaderEpoch, metadata, committedAt)
+            : throw reader.Malformed();
     }
 
     /// <summary>Writes <paramref name="bytes"/> to a temporary file in <paramref name="folderPath"/>

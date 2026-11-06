@@ -215,7 +215,7 @@ public sealed class CommandLineRunnerExtendedProtocolTests
 
         var schemes = runner.ComposeExtendedSchemes();
 
-        CollectionAssert.AreEqual(new[] { "nats", "natss", "s3" }, schemes.ToArray());
+        CollectionAssert.IsSubsetOf(new[] { "nats", "natss" }, schemes.ToArray());
     }
 
     [TestMethod]
@@ -267,6 +267,51 @@ public sealed class CommandLineRunnerExtendedProtocolTests
         Assert.AreEqual(
             "surl: (58) natss://127.0.0.1:0/ needs a certificate: give --cert <file>, or --self-signed for a throwaway one" + NewLine,
             error.ToString());
+    }
+
+    [TestMethod]
+    public void ComposeExtendedSchemes_ThisBuildWithTheSwitchUnset_ListsDnsOnceThoughItHasAUdpAndATcpServer()
+    {
+        var runner = CreateRunner(new FakeListenerFactory(), FakeEnvironmentVariableReader.Empty, composeExtendedProtocolServers: null);
+
+        var schemes = runner.ComposeExtendedSchemes();
+
+        CollectionAssert.AreEqual(new[] { "dns", "nats", "natss", "s3" }, schemes.ToArray());
+    }
+
+    [TestMethod]
+    public async Task RunAsync_VerboseDnsWithTheSwitchUnset_BindsTcpThenUdpOnItsPortAndWritesOneStatusLineAndNoHttp3Note()
+    {
+        var factory = new FakeListenerFactory();
+        using var stop = CancellationTokenSource.CreateLinkedTokenSource(TestContext.CancellationToken);
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+        var runner = CreateRunner(factory, FakeEnvironmentVariableReader.Empty, composeExtendedProtocolServers: null);
+
+        var running = runner.RunAsync(["-v", "--allow-zone-transfer", "dns://127.0.0.1:0/"], output, error, stop.Token);
+        await factory.AcceptStarted.Task.WaitAsync(TestContext.CancellationToken);
+        await stop.CancelAsync();
+        var exitCode = await running;
+
+        Assert.AreEqual(SurlExitCode.Ok, exitCode);
+        var udp = new ListenUrl("dns", "127.0.0.1", FakeListenerFactory.BoundPort);
+        CollectionAssert.AreEqual(new[] { new ListenUrl("dns", "127.0.0.1", 0), udp }, factory.StartedListenUrls);
+        CollectionAssert.AreEqual(new[] { udp }, factory.StartedDatagramListenUrls);
+        Assert.AreEqual($"Listening on dns://127.0.0.1:{FakeListenerFactory.BoundPort}/" + NewLine, output.ToString());
+        Assert.DoesNotContain("HTTP/3", error.ToString());
+    }
+
+    [TestMethod]
+    public async Task RunAsync_DnsWithTheSwitchAtZero_RefusesItsSchemeAsAnUnknownScheme()
+    {
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+        var runner = CreateRunner(new FakeListenerFactory(), FakeEnvironmentVariableReader.ExtensionsTurnedOff, composeExtendedProtocolServers: null);
+
+        var exitCode = await runner.RunAsync(["dns://127.0.0.1:0/"], output, error, TestContext.CancellationToken);
+
+        Assert.AreEqual(SurlExitCode.UnsupportedProtocol, exitCode);
+        Assert.AreEqual("surl: (1) Protocol \"dns\" not supported" + NewLine, error.ToString());
     }
 
     private static string? InformationalVersion() =>

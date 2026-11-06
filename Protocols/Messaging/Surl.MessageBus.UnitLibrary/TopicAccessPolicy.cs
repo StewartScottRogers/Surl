@@ -9,6 +9,7 @@ namespace Surl.MessageBus;
 internal sealed class TopicAccessPolicy(IReadOnlyList<TopicAccessGrant> grants)
 {
     private const string QueueLevel = "$queue";
+    private const string GroupLevel = "$group";
 
     private readonly (TopicAccessGrant Grant, string[] Levels)[] rows =
         [.. grants.Select(grant => (grant, CanonicalTopicName.SplitLevels(grant.Filter)))];
@@ -28,6 +29,12 @@ internal sealed class TopicAccessPolicy(IReadOnlyList<TopicAccessGrant> grants)
     /// whatever it holds.</summary>
     public bool MayUseQueue(string? account, TopicAccessRights rights, string queueName) =>
         IsAllowed(account, rights, levels => CanonicalTopicName.FilterMatches(levels, [QueueLevel, queueName]));
+
+    /// <summary>Whether consumer group <paramref name="group"/> may be used (ADR-0145, decision 6):
+    /// some <c>sub</c> grant's filter matches <c>$group/&lt;id&gt;</c>, the id one level whatever
+    /// it holds.</summary>
+    public bool MayUseGroup(string? account, string group) =>
+        IsAllowed(account, TopicAccessRights.Subscribe, levels => CanonicalTopicName.FilterMatches(levels, [GroupLevel, group]));
 
     private bool IsAllowed(string? account, TopicAccessRights rights, Func<string[], bool> grantApplies) =>
         rows.Length == 0

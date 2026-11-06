@@ -4,7 +4,7 @@ title: Refuse OCI Bearer tokens over plain text without --allow-plaintext-auth
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-439]
+depends-on: [BL-971]
 touches: [Protocols/FileTransfer/Surl.Extended.Protocol.OciRegistry.UnitLibrary, Protocols/FileTransfer/Surl.Extended.Protocol.OciRegistry.UnitTests]
 requirement: none
 created: 2026-11-05
@@ -38,3 +38,4 @@ On a plain-text `oci` connection (`--oci-plaintext`) a `/v2/` request carrying `
 ## Log
 
 - 2026-11-05: Created.
+- 2026-11-06: depends-on BL-439 replaced by BL-971 (BL-439 split for the 60-minute size limit; Stewart asked for a backlog audit 2026-11-06).

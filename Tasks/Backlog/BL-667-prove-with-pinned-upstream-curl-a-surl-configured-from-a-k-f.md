@@ -4,7 +4,7 @@ title: Prove with pinned upstream curl a surl configured from a -K file with mai
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-644, BL-654, BL-663, BL-666]
+depends-on: [BL-644, BL-995, BL-989, BL-992]
 touches: [Conformance/Surl.Conformance.UnitTests]
 requirement: none
 created: 2026-11-04
@@ -41,3 +41,6 @@ refused as the ADRs say - the exchanges a real deployment would see.
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-06: depends-on BL-663 replaced by BL-989 (BL-663 split for the 60-minute size limit; Stewart asked for a backlog audit 2026-11-06).
+- 2026-11-06: depends-on BL-666 replaced by BL-992 (BL-666 split for the 60-minute size limit; Stewart asked for a backlog audit 2026-11-06).
+- 2026-11-06: depends-on BL-654 replaced by BL-995 (BL-654 split for the 60-minute size limit; Stewart asked for a backlog audit 2026-11-06).

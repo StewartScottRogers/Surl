@@ -140,6 +140,27 @@ public sealed class TopicAccessPolicyTests
         Assert.AreEqual(MessageBusOutcome.Succeeded, connection.UnbindQueue("q", "other"));
     }
 
+    [TestMethod]
+    public void MayUseGroup_DollarGroup_IsGrantedByALiteralOrPlusSubGrantNeverByHashOrPubAndOpenWithNoGrants()
+    {
+        var bus = Bus(
+            new TopicAccessGrant("$group/orders", "literal", TopicAccessRights.Subscribe),
+            new TopicAccessGrant("$group/+", "plus", TopicAccessRights.PublishAndSubscribe),
+            new TopicAccessGrant("#", "hash", TopicAccessRights.PublishAndSubscribe),
+            new TopicAccessGrant("$group/orders", "pub", TopicAccessRights.Publish),
+            new TopicAccessGrant("$group/+", TopicAccessGrant.Everyone, TopicAccessRights.Publish));
+
+        Assert.IsTrue(bus.MayUseGroup("literal", "orders"));
+        Assert.IsFalse(bus.MayUseGroup("literal", "other"));
+        Assert.IsTrue(bus.MayUseGroup("plus", "other"));
+        Assert.IsTrue(bus.MayUseGroup("plus", "a/b"));
+        Assert.IsFalse(bus.MayUseGroup("hash", "orders"));
+        Assert.IsFalse(bus.MayUseGroup("pub", "orders"));
+        Assert.IsFalse(bus.MayUseGroup(null, "orders"));
+        Assert.IsTrue(new MessageBus(clock).MayUseGroup(null, "anything"));
+        Assert.IsTrue(new MessageBus(clock).MayUseGroup("anyone", "a/b"));
+    }
+
     private static BusMessage Message(string topic) => new(topic, Encoding.UTF8.GetBytes("x"));
 
     private static MessageBusOutcome Subscribe(MessageBus bus, string account, string filter) =>

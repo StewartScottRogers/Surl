@@ -27,7 +27,8 @@ public enum MessageBusOutcome
     TooManyTopics,
 
     /// <summary>Retaining the message would pass <see cref="MessageBus.MaxRetainedPayloadBytes"/>,
-    /// or logging it would pass <see cref="MessageBus.MaxLogBytes"/>; nothing was stored or delivered.</summary>
+    /// or logging it would pass <see cref="MessageBus.MaxLogBytes"/>, or a commit's new entry would pass
+    /// <see cref="MessageBus.MaxCommittedOffsets"/>, or an out-of-space rule matched; nothing was stored or delivered.</summary>
     StoreFull,
 
     /// <summary>The connection already holds <see cref="MessageBus.MaxSubscriptionsPerConnection"/>

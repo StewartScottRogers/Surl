@@ -16,6 +16,7 @@ public sealed class CommandLineParserTests
         ["list-directories"] = c => c.ListDirectories,
         ["follow-symlinks"] = c => c.FollowSymlinks,
         ["serve-dot-files"] = c => c.ServeDotFiles,
+        ["allow-zone-transfer"] = c => c.AllowZoneTransfer,
         ["allow-anonymous"] = c => c.AllowAnonymous,
         ["allow-plaintext-auth"] = c => c.AllowPlaintextAuthentication,
         ["self-signed"] = c => c.SelfSigned,
@@ -77,6 +78,7 @@ public sealed class CommandLineParserTests
         Assert.IsNull(defaults.DataDirectory);
         Assert.IsFalse(defaults.AllowUploads);
         Assert.IsFalse(defaults.ListDirectories);
+        Assert.IsFalse(defaults.AllowZoneTransfer);
         Assert.IsFalse(defaults.FollowSymlinks);
         Assert.IsFalse(defaults.ServeDotFiles);
         Assert.AreEqual(1024, defaults.MaxConnections);
@@ -301,6 +303,7 @@ public sealed class CommandLineParserTests
     [DataRow("list-directories", "--list-directories")]
     [DataRow("follow-symlinks", "--follow-symlinks")]
     [DataRow("serve-dot-files", "--serve-dot-files")]
+    [DataRow("allow-zone-transfer", "--allow-zone-transfer")]
     [DataRow("allow-anonymous", "--allow-anonymous")]
     [DataRow("allow-plaintext-auth", "--allow-plaintext-auth")]
     [DataRow("self-signed", "--self-signed")]
@@ -315,6 +318,7 @@ public sealed class CommandLineParserTests
     [DataRow("list-directories")]
     [DataRow("follow-symlinks")]
     [DataRow("serve-dot-files")]
+    [DataRow("allow-zone-transfer")]
     [DataRow("allow-anonymous")]
     [DataRow("allow-plaintext-auth")]
     [DataRow("self-signed")]

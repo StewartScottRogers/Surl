@@ -36,6 +36,9 @@ horizontal library may reference it (ADR-0099 decision 11, held by
   status line) and `ComposedServing` writes `* Serving HTTP/3 over QUIC on UDP port <port>` from
   verbose up.
 - `ExtendedProtocolServers.Compose` builds the extended servers (`Surl.Extended.Protocol.*`: today
+  the DNS server for `dns` (BL-1032), two entries - `DnsUdpProtocolServer` and `DnsTcpProtocolServer` -
+  so the engine binds UDP and TCP on one port, both over `ComposedProtocolServices.DnsZones` and
+  `AllowsZoneTransfer` (`--allow-zone-transfer`, ADR-0092 decision 4),
   the NATS server for `nats` and `natss`, BL-528, and the S3 server for `s3`, BL-421) from
   `ExtendedProtocolServers.Registrations`, the same
   `ProtocolServerRegistration` record, each joining with one entry; its `ExtendedProtocolServerServices`
@@ -65,7 +68,8 @@ horizontal library may reference it (ADR-0099 decision 11, held by
   (`ComposeMailStoreFiles`, `LoadMailStoreAsync`) and the LDAP server over its directory
   (`ComposeLdapDirectoryFile`, `LoadLdapServerAsync`), then the one `ObjectMetadataIndex` of the served
   root (`ComposeObjectMetadataIndex`, kept in `<path>/.surl/objects/index` with `--directory`,
-  `LoadObjectMetadataIndexAsync`); the first that cannot be loaded returns its
+  `LoadObjectMetadataIndexAsync`), then the DNS zones (`ComposeDnsZoneFolder`, `<path>/.surl/dns/*.zone` with
+  `--directory`, none without it; `LoadDnsZonesAsync`, held on `ServiceState.DnsZones`); the first that cannot be loaded returns its
   `(37)` message, which the host writes after `surl: `.
 
 - One event stream and one fault plan per start (ADR-0124 decisions 1 and 4, BL-803):

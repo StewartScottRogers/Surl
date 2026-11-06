@@ -51,6 +51,16 @@ internal sealed partial class AzureServerHarness
     public RecordingExchangeLog Log { get; } = new();
 
     /// <summary>
+    /// The fault plan each exchange asks: none unless a test sets one.
+    /// </summary>
+    public IFaultPlan Faults { get; set; } = EmptyFaultPlan.Instance;
+
+    /// <summary>
+    /// The event stream each exchange publishes on.
+    /// </summary>
+    public RecordingSurlEventPublisher Events { get; } = new();
+
+    /// <summary>
     /// The listen scheme each request is served on, which decides the endpoint: <c>az</c> unless a test sets it.
     /// </summary>
     public string Scheme { get; set; } = AzureStorageProtocolServer.BlobScheme;
@@ -86,6 +96,8 @@ internal sealed partial class AzureServerHarness
         CancellationToken.None)
     {
         Limits = limits ?? ExchangeLimits.Default,
+        Faults = Faults,
+        Events = Events,
     };
 
     /// <summary>

@@ -8,7 +8,9 @@ namespace Surl.Extended.Protocol.DnsQuery;
 /// ends the flow (the idle timeout or the maximum exchange duration, ADR-0092 decision 6).
 /// </summary>
 /// <remarks>
-/// Each query is answered by <see cref="DnsQueryAnswerer"/> and written by
+/// Each query is first offered to the exchange's fault plan (<see cref="DnsQueryFaults"/>), whose
+/// chosen RCODE answers it in place of the zones; otherwise it is answered by
+/// <see cref="DnsQueryAnswerer"/>. Either way it is written by
 /// <see cref="DnsUdpResponseWriter"/>, truncated to the requester's payload size. A datagram the
 /// answerer drops - no header, or a response - is noted in the exchange's log and gets nothing.
 /// A flow past a connection limit is never created, so there is no refusal to write.
@@ -53,7 +55,7 @@ public sealed class DnsUdpProtocolServer : IDatagramProtocolServer
 
     private async Task AnswerAsync(IDatagramFlow flow, ReadOnlyMemory<byte> query, ExchangeContext context)
     {
-        var response = answerer.Answer(query.Span);
+        var response = await DnsQueryFaults.FindErrorAsync(context, query) ?? answerer.Answer(query.Span);
 
         if (response is null)
         {

@@ -56,6 +56,8 @@ public sealed partial class MessageBus
             RestoreLogs(contents.Logs);
             RestoreRetained(contents);
             RestoreQueues(contents.Queues);
+            ReplaceCommittedOffsets(contents.CommittedOffsets);
+            savedCommittedOffsetsVersion = committedOffsetsVersion;
             DeclareConfiguredTopicsAndQueues();
             files = busFiles;
         }
@@ -87,6 +89,7 @@ public sealed partial class MessageBus
             var plan = PlanSave(busFiles);
             var failures = new List<string>();
             await SaveRetainedAsync(busFiles, plan.Retained, failures, cancellationToken);
+            await SaveOffsetsAsync(busFiles, plan.Offsets, failures, cancellationToken);
             foreach (var log in plan.Logs)
             {
                 await SaveLogAsync(busFiles, log, failures, cancellationToken);
@@ -106,6 +109,7 @@ public sealed partial class MessageBus
         var logTopics = RequireLogsWithinBounds(busFiles, contents);
         RequireRetainedWithinBounds(contents, logTopics);
         RequireQueuesWithinBounds(busFiles, contents);
+        Require(contents.CommittedOffsets.Count <= MaxCommittedOffsets, busFiles.OffsetsPath, MessageBusFiles.MalformedFileReason);
     }
 
     private HashSet<string> RequireLogsWithinBounds(MessageBusFiles busFiles, MessageBusFileContents contents)
@@ -205,7 +209,10 @@ public sealed partial class MessageBus
                 : new RetainedSave(retainedVersion, MessageBusFiles.EncodeRetained(retainedMessages.Values));
             var logSaves = logs.Select(entry => PlanLogSave(busFiles, entry.Key, entry.Value)).OfType<LogSave>().ToList();
             var queuesSave = queuesVersion == savedQueuesVersion ? null : PlanQueuesSave();
-            return new(retained, logSaves, queuesSave);
+            var offsets = committedOffsetsVersion == savedCommittedOffsetsVersion
+                ? null
+                : new OffsetsSave(committedOffsetsVersion, MessageBusFiles.EncodeOffsets(committedOffsets.Values));
+            return new(retained, logSaves, queuesSave, offsets);
         }
     }
 
@@ -349,7 +356,30 @@ public sealed partial class MessageBus
         }
     }
 
-    private sealed record SavePlan(RetainedSave? Retained, List<LogSave> Logs, QueuesSave? Queues);
+    private async Task SaveOffsetsAsync(MessageBusFiles busFiles, OffsetsSave? save, List<string> failures, CancellationToken cancellationToken)
+    {
+        if (save is null)
+        {
+            return;
+        }
+
+        var failure = await MessageBusFiles.CatchStorageFailureAsync(() =>
+            busFiles.WriteReplacingAsync(busFiles.StateFolderPath, busFiles.OffsetsPath, save.Bytes, cancellationToken));
+        if (failure is not null)
+        {
+            failures.Add(failure);
+            return;
+        }
+
+        lock (stateLock)
+        {
+            savedCommittedOffsetsVersion = save.Version;
+        }
+    }
+
+    private sealed record SavePlan(RetainedSave? Retained, List<LogSave> Logs, QueuesSave? Queues, OffsetsSave? Offsets);
+
+    private sealed record OffsetsSave(long Version, byte[] Bytes);
 
     private sealed record RetainedSave(long Version, byte[] Bytes);
 

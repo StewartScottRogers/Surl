@@ -172,5 +172,6 @@ public sealed partial class MessageBus
         logs.Count == declaredLogTopics.Count
         && logs.Values.All(log => log.HighWatermark == 0)
         && queues.Count == declaredQueueNames.Count
-        && queues.Values.All(queue => queue.MessageCount == 0);
+        && queues.Values.All(queue => queue.MessageCount == 0)
+        && committedOffsets.Count == 0;
 }

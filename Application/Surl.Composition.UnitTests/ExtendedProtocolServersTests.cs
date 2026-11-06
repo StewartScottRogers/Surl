@@ -1,8 +1,10 @@
 using Surl.Authentication;
 using Surl.Cli;
 using Surl.Content;
+using Surl.Extended.Protocol.DnsQuery;
 using Surl.Extended.Protocol.Nats;
 using Surl.Extended.Protocol.S3;
+using Surl.Protocol.Abstractions;
 using Surl.Protocol.Mqtt;
 
 namespace Surl.Composition;
@@ -37,18 +39,82 @@ public sealed class ExtendedProtocolServersTests
     }
 
     [TestMethod]
-    public void Compose_ThisBuild_IsTheNatsServerForNatsAndNatssThenTheS3ServerForS3()
+    public void Compose_ThisBuild_IsTheDnsUdpAndTcpServersThenTheNatsServerThenTheS3Server()
     {
         var services = SurlServerComposition.ComposeUnservedExtendedServices(TimeProvider.System);
 
         var servers = ExtendedProtocolServers.Compose(services);
 
-        Assert.HasCount(2, servers);
-        Assert.IsInstanceOfType<NatsServer>(servers[0]);
-        Assert.IsInstanceOfType<S3ProtocolServer>(servers[1]);
-        CollectionAssert.AreEqual(new[] { "nats", "natss", "s3" }, servers.SelectMany(server => server.Schemes).ToArray());
+        Assert.HasCount(4, servers);
+        Assert.IsInstanceOfType<DnsUdpProtocolServer>(servers[0]);
+        Assert.IsInstanceOfType<DnsTcpProtocolServer>(servers[1]);
+        Assert.IsInstanceOfType<NatsServer>(servers[2]);
+        Assert.IsInstanceOfType<S3ProtocolServer>(servers[3]);
+        CollectionAssert.AreEqual(new[] { "dns", "dns", "nats", "natss", "s3" }, servers.SelectMany(server => server.Schemes).ToArray());
         CollectionAssert.AreEqual(
-            new[] { "nats", "natss", "s3" }, ExtendedProtocolServers.Registrations.SelectMany(registration => registration.Schemes).ToArray());
+            new[] { "dns", "dns", "nats", "natss", "s3" }, ExtendedProtocolServers.Registrations.SelectMany(registration => registration.Schemes).ToArray());
+    }
+
+    [TestMethod]
+    public void Compose_ThisBuild_RegistersDnsAsADatagramAndAConnectionServerSoOneListenUrlBindsUdpAndTcpOnOnePort()
+    {
+        var services = SurlServerComposition.ComposeUnservedExtendedServices(TimeProvider.System);
+
+        var dnsServers = ExtendedProtocolServers.Compose(services).Where(server => server.Schemes.Contains("dns")).ToArray();
+
+        Assert.HasCount(1, dnsServers.OfType<IDatagramProtocolServer>());
+        Assert.HasCount(1, dnsServers.OfType<IConnectionProtocolServer>());
+        Assert.HasCount(2, dnsServers);
+    }
+
+    [TestMethod]
+    public void ComposeExtendedProtocolServers_SwitchAtZero_ComposesNoDnsServer()
+    {
+        var servers = SurlServerComposition.ComposeExtendedProtocolServers(
+            areExtensionsTurnedOn: false, composeExtendedProtocolServers: null, SurlServerComposition.ComposeUnservedExtendedServices(TimeProvider.System));
+
+        Assert.IsEmpty(servers);
+    }
+
+    [TestMethod]
+    [DataRow(true)]
+    [DataRow(false)]
+    public void Compose_AllowsZoneTransferSetOrNot_ReachesBothDnsServersOverTheOneZoneSet(bool allowsZoneTransfer)
+    {
+        var unserved = SurlServerComposition.ComposeUnservedProtocolServices(
+            SurlServerComposition.ComposeContentStore(new SurlCommandLine(), TimeProvider.System), TimeProvider.System);
+        var zones = new DnsZoneSet();
+        var services = new ExtendedProtocolServerServices(new ComposedProtocolServices(
+            unserved.ContentStore,
+            new ServiceState(unserved.MessageBus, unserved.MailStore, unserved.LdapServer, unserved.ObjectMetadataIndex) { DnsZones = zones },
+            unserved.AuthenticationPolicy,
+            TimeProvider.System,
+            unserved.SshHostKeys,
+            unserved.SshAlgorithms,
+            isTlsUpgradeAvailable: false,
+            echoesWebSocketMessages: false,
+            advertisesHttp3: false)
+        {
+            AllowsZoneTransfer = allowsZoneTransfer,
+        });
+
+        var servers = ExtendedProtocolServers.Compose(services);
+
+        foreach (var server in new IProtocolServer[] { servers.OfType<DnsUdpProtocolServer>().Single(), servers.OfType<DnsTcpProtocolServer>().Single() })
+        {
+            var answerer = ComposedServerFields.Single<DnsQueryAnswerer>(server);
+            Assert.AreSame(zones, ComposedServerFields.Single<DnsZoneSet>(answerer));
+            Assert.AreEqual(allowsZoneTransfer, AllowZoneTransferField(answerer), server.GetType().Name);
+        }
+    }
+
+    [TestMethod]
+    public void ComposedProtocolServices_AllowsZoneTransferUnset_IsOff()
+    {
+        var services = SurlServerComposition.ComposeUnservedExtendedServices(TimeProvider.System);
+
+        Assert.IsFalse(services.ComposedServices.AllowsZoneTransfer);
+        Assert.IsEmpty(services.ComposedServices.DnsZones.Apexes);
     }
 
     [TestMethod]
@@ -94,6 +160,12 @@ public sealed class ExtendedProtocolServersTests
     {
         Assert.ThrowsExactly<ArgumentNullException>(() => ExtendedProtocolServers.Compose(null!));
     }
+
+    private static bool AllowZoneTransferField(DnsQueryAnswerer answerer) =>
+        (bool)typeof(DnsQueryAnswerer)
+            .GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+            .Single(field => field.FieldType == typeof(bool))
+            .GetValue(answerer)!;
 
     private static ComposedProtocolServices ComposeServices(bool allowAnonymous, TimeSpan idleTimeout)
     {

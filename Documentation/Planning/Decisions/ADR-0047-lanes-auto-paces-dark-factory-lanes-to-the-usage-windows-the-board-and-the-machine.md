@@ -169,3 +169,31 @@ behind the account's other runners, macOS above all. No shift merged from 2026-1
 Stewart's standing permission (CLAUDE.md, "Git and GitHub") covers creating, merging and
 deleting `factory/merge-*` branches, and closing a superseded frozen pull request. It covers
 no other branch and no force push.
+
+## Amendment 3 (2026-11-06): a task that times out is split, not blocked
+
+Decided by Claude under Stewart's delegation, after Stewart asked for the factory to split
+timed-out tasks itself.
+
+A run cut off at `-TaskMinutes` used to send its task to Blocked as a question for Stewart.
+Seven tasks timed out between 2026-11-05 and 2026-11-06 (BL-395, BL-653, BL-595, BL-597,
+BL-545, BL-816 and BL-834). Each needed only a split, never his judgement, and every split
+was done by hand.
+
+1. When a lane's run times out with its task still in Doing, the lane stashes the run's
+   work as `darkfactory <id> <stamp>`, as before. It then starts a split run of at most
+   45 minutes with `$SplitPrompt`. That run follows the task-planner agent's sizing limits
+   and files smaller tasks with `task-board.ps1 new`. Each new task names the stash files
+   it reuses, taken with `git diff ... | git apply` or `git show "stash@{N}^3:<path>"`,
+   because lanes may not run `git checkout` or `git stash`. The run moves the original to
+   Deferred, repoints its dependents and commits only `Tasks/`.
+2. The run's deny list (`$SplitForbidden`) forbids pushing, fetching, rebasing,
+   checking out, every stash command that changes the stash list, and `dotnet`.
+3. A task that ends in Deferred integrates like any other finished task and counts as
+   `split`, not as a failing run.
+4. If the split does not end with the task in Deferred, the lane resets to the commit
+   before the split. The work is safe in the stash. The lane then blocks the task as
+   before, with the reason "timed out ... and could not be split".
+5. The task-planner agent and the task-board skill now size tasks for about 60 minutes
+   (two projects, one protocol, about 300 lines of new production code, one kind of
+   work, six acceptance criteria), so fewer tasks time out in the first place.

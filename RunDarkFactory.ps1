@@ -1617,11 +1617,11 @@ function Get-LastLogLine {
 function Get-WaitingOnStewart {
     $reasons = @()
     foreach ($f in Get-ChildItem (Join-Path $Root 'Tasks\Blocked') -Filter 'BL-*.md' -ErrorAction SilentlyContinue) {
-        $id = $f.Name.Substring(0, 6)
+        $id = ([regex]::Match($f.Name, '^BL-\d+').Value)
         $reasons += "$id BLOCKED  $(Get-LastLogLine $id)"
     }
     foreach ($line in Invoke-Board @('status')) {
-        if ($line -match '^\s+(BL-\d{3})\s.*\[needs Stewart\]') {
+        if ($line -match '^\s+(BL-\d+)\s.*\[needs Stewart\]') {
             $reasons += "$($Matches[1]) DECIDE   $(Get-TaskTitle $Matches[1])"
         }
     }
@@ -1639,10 +1639,10 @@ function Invoke-Requeue {
     # Stewart. Returns the IDs it moved.
     $moved = @()
     foreach ($f in Get-ChildItem (Join-Path $Root 'Tasks\Blocked') -Filter 'BL-*.md' -ErrorAction SilentlyContinue) {
-        $id = $f.Name.Substring(0, 6)
+        $id = ([regex]::Match($f.Name, '^BL-\d+').Value)
         $reason = Get-LastLogLine $id
         if ($reason -match 'Stewart') { continue }
-        $waits = @([regex]::Matches($reason, 'BL-\d{3}') | ForEach-Object { $_.Value } | Where-Object { $_ -ne $id } | Select-Object -Unique)
+        $waits = @([regex]::Matches($reason, 'BL-\d+') | ForEach-Object { $_.Value } | Where-Object { $_ -ne $id } | Select-Object -Unique)
         if (-not $waits.Count -or @($waits | Where-Object { -not (Test-TaskDone $_) }).Count) { continue }
         Invoke-Board @('move', '-Id', $id, '-To', 'Backlog', '-Reason', "Unblocked: $($waits -join ', ') now Done") | Out-Null
         if ((Get-TaskState $id) -eq 'Backlog') { $moved += $id; Write-Trace $id 'requeue' "unblocked: $($waits -join ', ') Done" 'Cyan' }
@@ -2019,6 +2019,44 @@ or
 FACTORY: UNRESOLVED {ID} <why>
 '@
 
+# A task whose run timed out is split, not blocked: needing a smaller task is never a
+# question for Stewart. Seven tasks timed out at 120 minutes on 2026-11-05/06, and each
+# was split by hand into tasks that then finished (ADR-0047 amendment 3).
+$SplitPrompt = @'
+DARK FACTORY SHIFT, LANE {LANE}. Stewart is away; never ask a question.
+
+Task {ID}'s run was cut off at its time limit and the task is still in Tasks/Doing. The
+run's uncommitted work was saved as the stash named "darkfactory {ID} {STAMP}" (find its
+index with `git stash list`; untracked files are in its third parent, `stash@{N}^3`).
+
+Split {ID} into smaller tasks that each finish well inside one run. Follow the task-planner
+agent's instructions (.claude/agents/task-planner.md), above all step 3's size limits, and
+the task-board skill (.claude/skills/task-board/SKILL.md):
+
+1. Read Tasks/Doing/{ID}-*.md, the ADRs it cites, and the stash read-only
+   (`git stash show --stat --include-untracked`, `git stash show -p`). Judge how far the
+   run got and where the seams are.
+2. Create each new task with `powershell -NoProfile -ExecutionPolicy Bypass -File
+   .claude/skills/task-board/task-board.ps1 new ...` one at a time, then fill its Goal,
+   Context and Acceptance criteria. Every acceptance criterion of {ID} lands in exactly
+   one new task. Name in each new task the stash files it reuses, and how to take them
+   with commands a lane may run: `git diff "stash@{N}^" "stash@{N}" -- <path> | git apply`
+   for a tracked file, `git show "stash@{N}^3:<path>" > <path>` for an untracked one
+   (lanes may not run git checkout or git stash), matching N by the stash's message.
+3. Move {ID} to Deferred with task-board.ps1 move -Reason "Split into BL-a, BL-b, ...
+   (timed out at the run's time limit)", and repoint every task in Tasks/Backlog or
+   Tasks/Doing that depends on {ID} to the right new task, with a Log line.
+4. Commit only Tasks/: `git add -A Tasks` and `git commit -m "chore(tasks): split {ID}
+   after its run timed out"`. Change nothing outside Tasks/. Never apply, pop or drop a
+   stash, push, pull, or check out another branch.
+
+End your reply with exactly one line, either
+FACTORY: SPLIT {ID} <the new task IDs, comma-separated>
+or
+FACTORY: UNSPLIT {ID} <why>
+'@
+$SplitForbidden = $Forbidden + @('git push', 'git pull', 'git fetch', 'git rebase', 'git checkout', 'git switch', 'git worktree', 'git stash pop', 'git stash apply', 'git stash drop', 'git stash clear', 'git stash push', 'git stash save', 'git stash branch', 'dotnet')
+
 $script:ToolLabels = @{}
 
 # Commands only Stewart may authorize (CLAUDE.md). --dangerously-skip-permissions does
@@ -2241,7 +2279,7 @@ function Invoke-Claim {
             $boardArgs = @('next')
             if ($Skip.Count) { $boardArgs += @('-Skip', ($Skip -join ',')) }
             $next = (Invoke-Board $boardArgs) -join "`n"
-            if ($next -notmatch '(?m)^(BL-\d{3})\s') {
+            if ($next -notmatch '(?m)^(BL-\d+)\s') {
                 if ($next -match 'can start yet' -or (Get-DoingCount) -gt 0) { return @{ Wait = $true; Why = (Get-Short $next 80) } }
                 return @{ None = $true }
             }
@@ -2779,7 +2817,7 @@ if (($AutoLanes -or $LaneCount -gt 1) -and -not $Lane) {
     # Tasks in Doing are only allowed when a previous shift's lane holds each of them and that
     # lane is dead - a shift stopped mid-task, or killed while waiting for tokens. Those lanes
     # are adopted: their worktrees are left as they are and they resume the task.
-    $stuck = @(Get-ChildItem (Join-Path $Root 'Tasks\Doing') -Filter 'BL-*.md' -ErrorAction SilentlyContinue | ForEach-Object { $_.Name.Substring(0, 6) })
+    $stuck = @(Get-ChildItem (Join-Path $Root 'Tasks\Doing') -Filter 'BL-*.md' -ErrorAction SilentlyContinue | ForEach-Object { [regex]::Match($_.Name, '^BL-\d+').Value })
     $adopt = @{}
     if ($stuck.Count) {
         $previous = Get-ChildItem $LogDir -Directory -Filter 'lanes-*' -ErrorAction SilentlyContinue | Sort-Object Name | Select-Object -Last 1
@@ -3101,7 +3139,7 @@ if (($AutoLanes -or $LaneCount -gt 1) -and -not $Lane) {
     # -Continuous: while the board still has ready work, the next shift starts itself, so
     # the factory keeps going without anyone - Stewart or a Claude session - to restart it.
     $stillReady = (Invoke-Board @('next')) -join "`n"
-    if ($Continuous -and $stillReady -match '(?m)^BL-\d{3}\s') {
+    if ($Continuous -and $stillReady -match '(?m)^BL-\d+\s') {
         foreach ($r in $reasons) { Write-Trace '-' 'note' (Get-Short $r 100) 'Yellow' }
         # An Auto shift hands on Auto, not the count it ended at; the next one starts from
         # the count auto-lanes.json saved.
@@ -3163,13 +3201,13 @@ if ($Lane) {
         # uncommitted; the next claim's sync would stash it and the task would stay in Doing
         # on the shared branch (BL-803, 2026-11-05). Commit it so it integrates; integrating
         # rebuilds and runs the fast tests before anything is pushed.
-        if ($heldState -in 'Done', 'Blocked', 'Backlog' -and (Get-Dirty)) {
+        if ($heldState -in 'Done', 'Blocked', 'Backlog', 'Deferred' -and (Get-Dirty)) {
             git -C $Root add -A 2>&1 | Out-Null
             git -C $Root commit -q -m "chore(tasks): commit $held's finished work that its stopped run left uncommitted" 2>&1 | Out-Null
             Write-Trace $held 'commit' "committed the stopped run's uncommitted work to integrate it" 'Yellow'
         }
         $ahead = [int](git -C $Root rev-list --count "origin/$branch..HEAD" 2>$null)
-        if ($ahead -gt 0 -and $heldState -in 'Done', 'Blocked', 'Backlog') {
+        if ($ahead -gt 0 -and $heldState -in 'Done', 'Blocked', 'Backlog', 'Deferred') {
             $problem = Invoke-Integrate -Id $held -State $heldState
             if ($problem) { Invoke-Park -Id $held -Why $problem; Write-Trace $held 'PARKED' "$problem; back to Backlog" 'Yellow' }
             else { Write-Trace $held 'push' "integrated the stopped lane's work into $branch" }
@@ -3213,7 +3251,7 @@ while ($true) {
             git -C $Root push -q 2>&1 | Out-Null
         }
         $next = (Invoke-Board @('next')) -join "`n"
-        if ($next -notmatch '(?m)^(BL-\d{3})\s') { $stopWhy = 'nothing ready'; break }
+        if ($next -notmatch '(?m)^(BL-\d+)\s') { $stopWhy = 'nothing ready'; break }
         $id = $Matches[1]
         if ($attempted.ContainsKey($id)) { $stopWhy = "$id offered twice"; $stalls += "$id offered again after a run"; break }
     }
@@ -3250,8 +3288,26 @@ while ($true) {
     }
     $apiRetries = 0
 
+    if ($state -eq 'Doing' -and $run.TimedOut -and $Lane) {
+        # Too big for one run: keep the work, split the task, and integrate the split.
+        Save-StrayChanges $id
+        Write-Trace $id 'split' "timed out after $TaskMinutes min; splitting it" 'Yellow'
+        $beforeSplit = (git -C $Root rev-parse HEAD).Trim()
+        Invoke-TaskRun -Id $id -Text $SplitPrompt.Replace('{STAMP}', $Stamp) -Deny $SplitForbidden -Suffix '-split' -Minutes 45 | Out-Null
+        $state = Get-TaskState $id
+        if ($state -eq 'Deferred') { Write-Trace $id 'split' 'split into smaller tasks; the original is Deferred' 'Green' }
+        else {
+            # The split did not finish: undo whatever it committed or left (the task's own
+            # work is safe in its stash), and block the task as before.
+            git -C $Root reset -q --hard $beforeSplit 2>&1 | Out-Null
+            git -C $Root clean -q -fd 2>&1 | Out-Null
+            Write-Trace $id 'split' 'the split did not finish; blocking the task instead' 'Yellow'
+            $state = Get-TaskState $id
+        }
+    }
+
     if ($state -eq 'Doing') {
-        $why = if ($run.TimedOut) { "timed out after $TaskMinutes min" } else { "run ended in Doing, exit $($run.ExitCode)" }
+        $why = if ($run.TimedOut) { "timed out after $TaskMinutes min and could not be split" } else { "run ended in Doing, exit $($run.ExitCode)" }
         Save-StrayChanges $id
         Invoke-Board @('move', '-Id', $id, '-To', 'Blocked', '-Reason', "Stewart: Surl dark factory $why; see $(Join-Path $LogDir "$id-$Stamp$LaneTag.jsonl")") | Out-Null
         git -C $Root add -A Tasks 2>&1 | Out-Null
@@ -3261,7 +3317,7 @@ while ($true) {
     }
     Save-StrayChanges $id
 
-    if ($Lane -and $state -in 'Done', 'Blocked', 'Backlog') {
+    if ($Lane -and $state -in 'Done', 'Blocked', 'Backlog', 'Deferred') {
         $problem = Invoke-Integrate -Id $id -State $state
         if ($problem) {
             Write-Trace $id 'PARKED' "$problem; back to Backlog" 'Yellow'
@@ -3283,6 +3339,12 @@ while ($true) {
         if ($null -eq $script:RunResult -or $run.TimedOut) { $failStreak++ } else { $failStreak = 0 }
         $outcome = 'BLOCKED (see Tasks\Blocked)'
         Write-Trace $id 'BLOCKED' (Get-Short (Get-LastLogLine $id)) 'Yellow'
+    } elseif ($state -eq 'Deferred') {
+        # Timed out and split into smaller tasks (ADR-0047 amendment 3): the work goes on in
+        # those tasks, so this is not a failing run.
+        $requeued++; $failStreak = 0
+        $outcome = 'split'
+        Write-Trace $id 'SPLIT' (Get-Short (Get-LastLogLine $id)) 'Yellow'
     } elseif ($state -in 'Backlog', 'Parked') {
         # Waiting on other tasks, a widened touches, or work that would not integrate: back
         # in the queue for a later run, not a stall.

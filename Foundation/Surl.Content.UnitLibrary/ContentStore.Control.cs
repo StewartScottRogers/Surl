@@ -120,6 +120,32 @@ public sealed partial class ContentStore
     }
 
     /// <summary>
+    /// Deletes a file for a test (ADR-0124 decision 7's <c>DELETE /v1/files/{path}</c>): the test's own
+    /// delete, not a peer's, so it needs neither <see cref="ContentExposureOptions.AllowUploads"/> nor
+    /// write access to a share, and never asks the fault plan. Publishes one
+    /// <see cref="StoreChange.Deleted"/> change.
+    /// </summary>
+    /// <param name="requestPath">The file's path, as a request path.</param>
+    /// <returns><see cref="ContentChangeResult.Done"/>; or <see cref="ContentChangeResult.Absent"/>,
+    /// publishing nothing, when no file is there - nothing, a folder, a path asked for with a trailing
+    /// <c>/</c>, or one under <c>/.surl</c> or hidden by the exposure options.</returns>
+    /// <exception cref="ArgumentException"><paramref name="requestPath"/> is a path a request may not
+    /// name.</exception>
+    public ContentChangeResult DeleteFileForTheTest(string requestPath)
+    {
+        ContentPathMapping mapping = MapForTheTest(requestPath);
+        string location = mapping.Location!;
+        if (CurrentEntryKind(mapping, location) != ContentEntryKind.File)
+        {
+            return ContentChangeResult.Absent;
+        }
+
+        FileSystemOf(mapping).DeleteFile(location);
+        eventsAndFaults.PublishChange(StoreChange.Deleted, PublishedNameOf(mapping, location), null);
+        return ContentChangeResult.Done;
+    }
+
+    /// <summary>
     /// Returns the store to its configured state (ADR-0124 decision 3): what the in-memory file
     /// systems held when the store was made - the files a host supplied at start - with every
     /// share's folder and every bucket's content path there as a folder, and no object metadata.

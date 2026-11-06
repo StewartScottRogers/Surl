@@ -35,6 +35,21 @@ public sealed record ListenUrl(string Scheme, string Host, int Port)
     /// </summary>
     public bool IsProxy { get; init; }
 
+    private readonly bool? isImplicitTls;
+
+    /// <summary>
+    /// Whether every connection to this listen URL starts with a TLS handshake (ADR-0010,
+    /// section 2). Unless set, it is <see cref="TlsSchemes.IsImplicitTls"/> of
+    /// <see cref="Scheme"/>; the composition sets it to <see langword="false"/> to serve a
+    /// scheme that is TLS by default, such as <c>s3</c>, as plaintext on this listen URL alone,
+    /// while another listen URL in the same process keeps the default (BL-1020).
+    /// </summary>
+    public bool IsImplicitTls
+    {
+        get => isImplicitTls ?? TlsSchemes.IsImplicitTls(Scheme);
+        init => isImplicitTls = value;
+    }
+
     /// <summary>
     /// Returns a copy of this listen URL with <see cref="BoundPort"/> set. The listener calls
     /// it once it has bound.
