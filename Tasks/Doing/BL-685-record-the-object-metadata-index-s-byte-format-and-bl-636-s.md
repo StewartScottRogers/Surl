@@ -40,3 +40,4 @@ one decided source.
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-06: Backlog -> Doing.
