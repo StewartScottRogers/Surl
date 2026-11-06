@@ -1,5 +1,5 @@
 ---
-id: BL-928
+id: BL-932
 title: Bound the QUIC stream frames credit allows but the congestion window holds back
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-06
 completed:
 ---
-# BL-928 — Bound the QUIC stream frames credit allows but the congestion window holds back
+# BL-932 — Bound the QUIC stream frames credit allows but the congestion window holds back
 
 ## Goal
 

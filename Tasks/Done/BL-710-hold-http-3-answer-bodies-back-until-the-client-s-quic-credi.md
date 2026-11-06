@@ -57,7 +57,7 @@ HTTP/2's `Http2DataStream` waits for its windows.
   outstanding credit plus one copy buffer. The HTTP test therefore checks at each credit stall
   (where credit equals what was sent) that the file was read no more than bound + copy buffer past
   it; with the bound removed it fails (read 262144, allowed 180224). Bounding the congestion-held
-  frames too is filed as BL-928.
+  frames too is filed as BL-932.
 - Tests: `QuicApplicationConnectionTests.WriteAsync_MoreThanTheBoundPastTheClientsCredit_WaitsWithTheBoundUnsentUntilTheClientsCreditLetsItGo`
   (two rows: `MAX_STREAM_DATA`, and `MAX_DATA` with the client's two credits swapped),
   `QuicApplicationConnectionTests.WriteAsync_WaitingForCreditWhenTheConnectionEnds_ThrowsOperationCanceled`,
