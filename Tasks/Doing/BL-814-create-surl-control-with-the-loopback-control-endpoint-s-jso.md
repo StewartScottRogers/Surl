@@ -64,3 +64,4 @@ running `surl` with nothing but an HTTP client, and so it is unit tested without
 - 2026-11-05: Created.
 - 2026-11-05: depends-on narrowed from BL-805 to BL-823 at filing: Surl.Control drives its own interface, so it
   needs only the event contracts; BL-816 depends on BL-805 instead.
+- 2026-11-05: Backlog -> Doing.
