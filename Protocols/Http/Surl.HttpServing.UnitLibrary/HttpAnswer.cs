@@ -21,10 +21,17 @@ namespace Surl.HttpServing;
 /// What owns the connection once the answer's head is written - an upgrade answered
 /// <c>101 Switching Protocols</c> - or <see langword="null"/> when the connection stays HTTP's.
 /// </param>
+/// <param name="DrainsBeforeClose">
+/// Whether, when the answer closes the connection, what the client still sends is read and
+/// thrown away after the half-close (the lingering close, ADR-0024). <see langword="false"/>
+/// leaves an unread request body unread and the close to the transport, as the S3 server's
+/// <c>EntityTooLarge</c> and <c>IncompleteBody</c> close (ADR-0108, decision 7).
+/// </param>
 public sealed record HttpAnswer(
     HttpStatus Status,
     IReadOnlyList<KeyValuePair<string, string>> Fields,
     HttpAnswerBody Body,
     bool IsRefusal,
     bool LeavesRequestBodyUnread,
-    IHttpConnectionTakeover? Takeover = null);
+    IHttpConnectionTakeover? Takeover = null,
+    bool DrainsBeforeClose = true);
