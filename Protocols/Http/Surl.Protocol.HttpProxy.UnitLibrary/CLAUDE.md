@@ -1,8 +1,8 @@
 # Surl.Protocol.HttpProxy.UnitLibrary
 
 The HTTP proxy server: what curl's `-x`/`--proxy` and `-p`/`--proxytunnel` talk to. Decided in
-ADR-0088 (decisions 1 to 6 and 7's limits) and its Amendments 1 to 3. Built by BL-552, BL-554 (the
-HTTPS proxy) and BL-553 (`Proxy-Authorization`); the command line and composition (BL-555) and
+ADR-0088 (decisions 1 to 6 and 7's limits) and its Amendments 1 to 4. Built by BL-552, BL-554 (the
+HTTPS proxy), BL-553 (`Proxy-Authorization`) and BL-594 (`ftp://` forwarding); the command line and composition (BL-555) and
 the upstream cases' server half (BL-556) are still to come, so nothing composes it yet.
 
 **Proxy login** (Amendment 3) is `HttpProxyExchange.Login.cs`: one `IHttpAuthenticationSession`
@@ -31,6 +31,10 @@ What exists:
   `HttpConnectionReader`, keeps one `OriginLink` between requests. `HttpProxyExchange.Forwarding.cs`
   forwards absolute-form `http://` requests (origin-form, `Host` from the authority, bodies,
   `Expect: 100-continue`, interim responses, `101`, the one reconnect, the relayed response);
+  `HttpProxyExchange.Ftp.cs` fetches an `ftp://` `GET` over FTP (Amendment 4) through
+  `FtpControlConnection` (the control connection's commands and replies) and `FtpFetch` (the
+  login, path, type and transfer command read from the request), the data connection opened
+  passively to the origin's own host, and answers `200` chunked, `502` or `504`;
   `HttpProxyExchange.Connect.cs` answers `CONNECT` with exactly
   `HTTP/1.1 200 Connection established\r\n\r\n` and tunnels.
 - `ProxyTarget` - absolute-form and authority-form targets. `ProxyFieldRules` - the fields removed

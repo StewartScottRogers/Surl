@@ -77,7 +77,7 @@ public sealed class HttpProxyExchangeTests
     }
 
     [TestMethod]
-    [DataRow("ftp://origin.test/a.txt")]
+    [DataRow("gopher://origin.test/a")]
     [DataRow("https://origin.test/a")]
     public async Task ServeAsync_SchemeOtherThanHttp_Answers501AndKeepsTheConnection(string target)
     {

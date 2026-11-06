@@ -26,6 +26,18 @@ endings.
 | `connect-refused-502` | `... -Port 18131 -Response <502> -CurlArgs '-sS','-p','-x','http://127.0.0.1:18131','http://origin.test:8080/a'` | 7, `curl: (7) CONNECT tunnel failed, response 502` |
 | `connect-not-allowed-403` | `... -Port 18132 -Response <403> -CurlArgs '-sS','-p','-x','http://127.0.0.1:18132','http://origin.test:25/a'` | 7, `curl: (7) CONNECT tunnel failed, response 403` |
 
+`ftp://` forwarding (BL-594, ADR-0088 Amendment 4), recorded on 2026-11-06 the same way.
+`response.bin` is what `Surl.Protocol.HttpProxy` writes to curl after fetching over FTP: `<200f>` is
+`'HTTP/1.1 200 OK\r\nDate: Mon, 28 Sep 2026 12:00:00 GMT\r\nServer: surl\r\nContent-Type: application/octet-stream\r\nTransfer-Encoding: chunked\r\nVia: 1.1 surl\r\n\r\n6\r\nhello\n\r\n0\r\n\r\n'`,
+and `<200l>` the same with `Content-Type: text/plain` and the chunk `7\r\na.txt\r\n\r\n`. Both
+credential forms put `user:pass` in the target's userinfo **and** send `Authorization: Basic`.
+
+| Folder | Command line | Exit, stdout or stderr |
+| --- | --- | --- |
+| `ftp-forward-file` | `... -Port 18311 -Response <200f> -CurlArgs '-sS','-x','http://127.0.0.1:18311','ftp://user:pass@origin.test/a.txt'` | 0, `hello` |
+| `ftp-forward-listing` | `... -Port 18312 -Response <200l> -CurlArgs '-sS','-u','user:pass','-x','http://127.0.0.1:18312','ftp://origin.test/dir/'` | 0, `a.txt` |
+| `ftp-forward-502` | `... -Port 18313 -Response <502> -CurlArgs '-sS','-x','http://127.0.0.1:18313','ftp://origin.test/a.txt'` | 0, `502 Bad Gateway`; no credentials sent |
+
 The HTTPS proxy (BL-554, ADR-0088 Amendment 2): the recorder played an HTTPS proxy with `-Tls`
 and offered exactly the ALPN protocol ID the proxy listener offers, `http/1.1`; `alpn.txt` holds
 what was agreed. `request.bin` is the plaintext read inside the TLS, and `response.bin` is

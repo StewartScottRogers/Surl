@@ -1,0 +1,7 @@
+GET ftp://user:pass@origin.test/dir/ HTTP/1.1
+Host: origin.test:21
+Authorization: Basic dXNlcjpwYXNz
+User-Agent: curl/8.21.0
+Accept: */*
+Proxy-Connection: Keep-Alive
+

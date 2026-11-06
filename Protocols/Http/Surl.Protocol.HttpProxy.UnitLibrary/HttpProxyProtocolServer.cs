@@ -32,7 +32,9 @@ namespace Surl.Protocol.HttpProxy;
 /// fields and <c>Proxy-Authorization</c> removed and <c>Via: 1.1 surl</c> added; the origin's
 /// response comes back with its hop-by-hop fields, <c>Proxy-Authenticate</c> and
 /// <c>Proxy-Authentication-Info</c> removed and <c>Via: 1.1 surl</c> added. A target that is not
-/// absolute-form is <c>400</c>; another scheme is <c>501</c>. A <c>Content-Length</c> body is
+/// absolute-form is <c>400</c>. An <c>ftp://</c> <c>GET</c> is fetched over FTP and answered
+/// <c>200</c> with the file or listing, an FTP failure <c>502</c> and a timeout <c>504</c>
+/// (Amendment 4); any other method to <c>ftp</c>, and any other scheme, is <c>501</c>. A <c>Content-Length</c> body is
 /// streamed through and a chunked one sent on chunked; one past
 /// <see cref="ExchangeLimits.MaxUploadBytes"/> is <c>413</c>. <c>Expect: 100-continue</c> is
 /// forwarded and the origin's <c>100</c> relayed before the body. <c>Max-Forwards: 0</c> on
