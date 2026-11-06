@@ -8,7 +8,7 @@ depends-on: [BL-577]
 touches: [Conformance/Surl.Conformance.UnitTests]
 requirement: none
 created: 2026-11-04
-completed:
+completed: 2026-11-06
 ---
 # BL-596 — Add an Integration test that locates and runs the pinned Curl port client
 
@@ -30,15 +30,18 @@ going unnoticed.
 
 ## Acceptance criteria
 
-- [ ] `PinnedCurlPortClientOnThisMachineTests.RunAsync_PinnedClient_RunsVersionAndExitsZero` (or a name saying
+- [x] `PinnedCurlPortClientOnThisMachineTests.RunAsync_PinnedClient_RunsVersionAndExitsZero` (or a name saying
       the same) exists, is `[TestCategory("Integration")]`, calls `PinnedCurlPortClientOnThisMachine.RunAsync`
       with `--version` and asserts exit code 0.
-- [ ] On Stewart's Windows machine, with BL-577's pin published, the test passes (not Inconclusive).
-- [ ] `dotnet build -warnaserror` is clean and the fast tests are green.
+- [x] On Stewart's Windows machine, with BL-577's pin published, the test passes (not Inconclusive).
+- [x] `dotnet build -warnaserror` is clean and the fast tests are green.
 
 ## Notes
+
+- 2026-11-06: Added `PinnedCurlPortClientOnThisMachineTests.RunAsync_PinnedClient_RunsVersionAndExitsZero` (Integration). It asserts only that the pinned client was found and exited 0 for `--version`, never anything about its output (ADR-0003, ADR-0083). On Stewart's Windows machine it passed (not Inconclusive) against the win-x64 pin at commit b42c319. Build with -warnaserror clean; fast tests green.
 
 ## Log
 
 - 2026-11-04: Created.
 - 2026-11-06: Backlog -> Doing.
+- 2026-11-06: Doing -> Done. An Integration test now locates and runs the pinned Curl port client with --version and asserts exit 0; passes on Windows
