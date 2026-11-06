@@ -32,6 +32,9 @@
 - **Amended:** decision 3.2's NATS and Kafka rows and "What does not survive a mapping" by its own
   section 3.2.1 (2026-11-06, BL-691, recording BL-630): NATS's last `>` becomes `+/#` (one or more
   levels), not `#`, and Kafka names empty levels (`a..b` is `a//b`); only `.` and `..` are refused.
+- **Amended:** decisions 3.3 and 3.6 by their own text (2026-11-06, BL-694, recording BL-631): the
+  named-queue rules BL-631 chose building the queues (3.3, "The named queue's rules") and the five
+  queue outcomes with each queue server's answer (3.6).
 - **Builds on:** [ADR-0003](ADR-0003-upstream-curl-is-surls-only-oracle.md) (upstream curl is the
   only oracle), ADR-0006 (every store a peer can fill is bounded), ADR-0014 (the MQTT 3.1.1
   server), ADR-0031 decisions 5 to 7 (`.surl` is never served, persistence, the lock), ADR-0032
@@ -360,6 +363,34 @@ ADR's literal text:
 - **NATS queue groups and MQTT 5 shared subscriptions are fan-out groups**, not queues: neither
   protocol stores a message for an absent subscriber, so neither uses a named queue.
 
+**The named queue's rules** (2026-11-06, BL-694, recording what BL-631 built into
+`Surl.MessageBus`). The table above left these open:
+
+- **A reject without requeue drops the message.** Decided by Claude under Stewart's delegation. The
+  table names only requeue as putting a delivery back; the bus has no dead-letter queue, and AMQP
+  0-9-1 `basic.reject` lets a server discard a message it is not asked to requeue. A dead-letter
+  queue would be a second store a peer can fill, and no protocol on the bus can name one.
+- **A consumer receives nothing until `BusQueueConsumer.Start`.** Decided by Claude under Stewart's
+  delegation. `Consume` makes the consumer, and the server starts it once its own reply is written,
+  so an AMQP 0-9-1 client reads `basic.consume-ok` before the first `basic.deliver` (the XML's
+  consume method answers with consume-ok), and a message already in the queue cannot overtake it.
+  A consumer counts against `MaxSubscriptionsPerConnection` (3.6), the bound on what one
+  connection holds.
+- **An exclusive queue belongs to the connection that declared it.** Decided by Claude under
+  Stewart's delegation. Any connection may send to it (`MessageBus.PublishToQueue` takes no
+  connection, as AMQP 0-9-1's default exchange routes to any queue by name), but only its owner may
+  declare, bind, consume from or delete it; any other connection gets `QueueLocked` (AMQP 0-9-1
+  `405 resource-locked`, rule `declare`/`exclusive`). It is deleted when its owner goes.
+- **Declaring a queue again with other flags is `QueueFlagsDiffer`** and leaves the queue as it was
+  (AMQP 0-9-1 `queue.declare`: an inequivalent redeclaration is `406 precondition-failed`). An empty
+  queue name is `InvalidQueueName`; a queue that does not exist is `UnknownQueue`; a delivery tag the
+  queue did not hand out, or one already settled, is `UnknownDeliveryTag`. Delivery tags are unique
+  per queue and new on each redelivery, and `Redelivered` means the queue handed the message out
+  before, even when the consumer ended before its callback ran.
+- **A topic publish reports its queue copies.** `BusPublishResult.QueuedCount` is the number of bound
+  queues that took a copy and `FullQueueCount` the number that refused one as full (3.6), so a
+  server can tell a routed publish from an unroutable one (AMQP 0-9-1's `mandatory`, ADR-0112).
+
 #### 3.4 The message, and what survives translation
 
 A bus message holds: the canonical topic; the payload bytes, **always exact**; a `Retain` mark; the
@@ -429,7 +460,21 @@ words as its protocol says; the server's own ADR pins the bytes:
 
 A queue past its message bound refuses the copy into it alone; the publish still reaches fan-out,
 other queues and the log: one full queue must not starve every other subscriber (AMQP 0-9-1 leaves
-a queue's overflow to the server).
+a queue's overflow to the server). `QueueFull` answers both `MaxMessagesPerQueue` and
+`MaxQueuedBytes`: the row gives both the same answer.
+
+**The queue outcomes** (2026-11-06, BL-694, recording BL-631). Only the three servers that use named
+queues meet them (3.3). Each answer is the one the server's own ADR pins (ADR-0112 for AMQP 0-9-1,
+ADR-0107 for AMQP 1.0, ADR-0118 for STOMP); "does not arise" means the server never lets the bus
+return that outcome to it:
+
+| Outcome | AMQP 0-9-1 | AMQP 1.0 | STOMP |
+| --- | --- | --- | --- |
+| `UnknownQueue` | channel close `404 not-found`; a publish to the default exchange naming no queue is unroutable instead (`basic.return` `312` under `mandatory`) | a consume refused at attach, or a transfer `rejected`, with `amqp:not-found` (`no such node`) | ERROR `message:Resource limit exceeded`, then close (a queue deleted between SEND or SUBSCRIBE's declare and its use; the first SEND or SUBSCRIBE creates a missing queue) |
+| `QueueLocked` | channel close `405 resource-locked` | attach refused with `amqp:unauthorized-access`, the same answer as a refused access | ERROR `message:Resource limit exceeded`, then close (a SUBSCRIBE to another connection's exclusive queue; a SEND to it succeeds) |
+| `QueueFlagsDiffer` | channel close `406 precondition-failed` | does not arise: an existing queue is used with the flags it has | does not arise: an existing queue is used with the flags it has |
+| `UnknownDeliveryTag` | channel close `406 precondition-failed` (`basic.ack`, `basic.reject`, `basic.nack`, rule `ack`/`exists`) | does not arise: a `disposition` for a delivery already settled finds nothing and changes nothing | does not arise: an ACK or NACK naming no outstanding message is ignored before the bus (ADR-0118 decision 5) |
+| `InvalidQueueName` | does not arise: an empty `queue.declare` name makes a server-named queue, and other names are checked first (`406`) | does not arise: an empty address is refused first with `amqp:not-found` | does not arise: an empty `/queue/` is refused first with ERROR `message:Unknown destination`, then close |
 
 #### 3.7 Persistence under `<path>/.surl/bus`
 

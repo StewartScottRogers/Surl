@@ -8,7 +8,7 @@ depends-on: [BL-631]
 touches: [Documentation/Planning/Decisions/ADR-0100-the-stores-synergetic-protocols-share-files-mail-the-message-bus-and-accounts.md]
 requirement: none
 created: 2026-11-05
-completed:
+completed: 2026-11-06
 ---
 # BL-694 — Amend ADR-0100 decision 3.3 and 3.6 with the named-queue outcomes and rules BL-631 chose
 
@@ -33,14 +33,32 @@ ADR-0100 decisions 3.3 and 3.6 state the named-queue rules and typed outcomes th
 
 ## Acceptance criteria
 
-- [ ] The ADR-0100 decision 3.6 outcome table has rows for `UnknownQueue`, `QueueLocked`, `QueueFlagsDiffer`,
+- [x] The ADR-0100 decision 3.6 outcome table has rows for `UnknownQueue`, `QueueLocked`, `QueueFlagsDiffer`,
       `UnknownDeliveryTag` and `InvalidQueueName`, with the answer each of Amqp0, Amqp1 and Stomp gives.
-- [ ] ADR-0100 decision 3.3 states the reject-without-requeue rule, the `Start` ordering rule and the
+- [x] ADR-0100 decision 3.3 states the reject-without-requeue rule, the `Start` ordering rule and the
       exclusive-queue access rule, each marked "Decided by Claude under Stewart's delegation".
 
 ## Notes
+
+- Made the edit in the session instead of delegating to `align-and-document`, because it is one ADR file and
+  the content was already decided in BL-631's Notes.
+- ADR-0100 now has: an "Amended" line in the header; "The named queue's rules" after decision 3.3's table
+  (reject without requeue drops, `Start` ordering, consumers count against `MaxSubscriptionsPerConnection`,
+  exclusive-queue access, the four refusal outcomes, delivery tags, `QueuedCount`/`FullQueueCount`), with
+  the three rules marked "Decided by Claude under Stewart's delegation"; and "The queue outcomes" table
+  after decision 3.6's table, plus a note that `QueueFull` covers `MaxQueuedBytes`.
+- Each answer in the 3.6 table was taken from the servers as they are now, not invented:
+  `Amqp0BrokerConnection.Exchanges.cs` `ChannelRefusals` and ADR-0112; `Amqp1ContainerConnection.Links.cs`
+  `OpenNode` and `Amqp1ContainerConnection.Transfers.cs` `StoreRejection` and ADR-0107;
+  `StompServerConnection.Routing.cs` `DeclareQueue` and `RefusalMessage` and ADR-0118. STOMP answers
+  `QueueLocked` and `UnknownQueue` with `Resource limit exceeded` (its default refusal); the ADR records
+  that as it is. "Does not arise" marks outcomes a server never lets the bus return to it.
+- `Surl.MessageBus.UnitLibrary/CLAUDE.md` still says ADR-0100 "does not name yet" these outcomes, but
+  BL-704 (Doing) holds that file, so BL-915 was filed to correct it.
+- No `.cs` or project file changed, so the build and tests were not affected; they were run anyway.
 
 ## Log
 
 - 2026-11-05: Created.
 - 2026-11-06: Backlog -> Doing.
+- 2026-11-06: Doing -> Done. ADR-0100 decisions 3.3 and 3.6 record BL-631's named-queue rules and the five queue outcomes with each queue server's answer
