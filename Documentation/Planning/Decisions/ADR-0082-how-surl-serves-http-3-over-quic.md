@@ -383,6 +383,10 @@ follows RFC 9114 where curl's behaviour cannot be observed first.
 7. **Not built here.** Decision 9's `H3_VERSION_FALLBACK` for NTLM and Negotiate waits on the same
    work for HTTP/2 (BL-602), and a body larger than the client's credit is queued whole, since
    `QuicApplicationConnection.WriteAsync` does not wait for credit; both are filed as tasks.
+   BL-709 built the first: `Http3StreamAnswerWriter` resets and stops `H3_VERSION_FALLBACK` a
+   stream whose `authorization` names NTLM or Negotiate before the answerer sees it, and one whose
+   answer is a `401` challenging for nothing else, as `Http2StreamAnswerWriter` resets both
+   `HTTP_1_1_REQUIRED` (BL-602); the two writers share `ConnectionBoundLogins`.
 
 ## Amendment 2 (2026-11-05, BL-608): the closing and draining states
 

@@ -52,6 +52,9 @@ public enum Http3ErrorCode : ulong
     /// <summary><c>H3_MESSAGE_ERROR</c>: a request is malformed (RFC 9114 section 4.1.2).</summary>
     MessageError = 0x10e,
 
+    /// <summary><c>H3_VERSION_FALLBACK</c>: the request must be retried over HTTP/1.1, as one carrying an NTLM or Negotiate login is (ADR-0082 decision 9).</summary>
+    VersionFallback = 0x110,
+
     /// <summary><c>QPACK_DECOMPRESSION_FAILED</c>: a field section could not be decoded.</summary>
     QpackDecompressionFailed = 0x200,
 

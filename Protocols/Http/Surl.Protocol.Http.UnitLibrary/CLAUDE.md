@@ -82,11 +82,14 @@ session QUIC agreed and serves the connection with `Surl.Http3`'s `Http3Connecti
 the exchange before the handshake completes stops the flow at once; after it, the HTTP/3 server
 answers it. With `--http3`, `HttpProtocolServer` wraps its answerer in `AltSvcAdvertisingHandler`
 on every TLS connection, adding `Alt-Svc: h3=":<port>"; ma=86400`. The connection's
-`IHttp3RequestStreamHandler` is `Http3StreamAnswerWriter`: for each request stream it builds an
+`IHttp3RequestStreamHandler` is `Http3StreamAnswerWriter`: for each request stream it first resets
+and stops `H3_VERSION_FALLBACK` a stream whose `authorization` names NTLM or Negotiate, unseen by
+the answerer (ADR-0082 decision 9; BL-709), then builds an
 `HttpRequest` whose body is an `Http3HttpRequestBody` (the stream's `DATA` against the upload
 limit, with the interim `:status 100` for `expect: 100-continue`), has the same
 `HttpRequestAnswerer` decide the `HttpAnswer`, resets the stream `H3_MESSAGE_ERROR` when the body
-did not add up to its `content-length`, and writes the answer as `HEADERS` and `DATA` frames and
+did not add up to its `content-length`, resets it `H3_VERSION_FALLBACK` when the answer is a `401`
+whose every challenge is NTLM or Negotiate, and writes the answer as `HEADERS` and `DATA` frames and
 `FIN`, resetting the response `H3_INTERNAL_ERROR` when a content-store file cannot be sent whole.
 Its tests drive it over the in-memory QUIC test connection, `Http3TestClient`, a subclass of
 `Surl.Http3.UnitTests`' `Http3TestQuicClient` (compiled in by link), which starts from pinned
