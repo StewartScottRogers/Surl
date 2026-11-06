@@ -81,3 +81,4 @@ WebSocket rows' result.
 ## Log
 
 - 2026-11-06: Created.
+- 2026-11-06: Backlog -> Doing.
