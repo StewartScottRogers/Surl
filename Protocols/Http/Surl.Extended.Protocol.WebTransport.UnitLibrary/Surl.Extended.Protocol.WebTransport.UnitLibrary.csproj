@@ -5,12 +5,14 @@
   </ItemGroup>
 
   <!--
-    Surl.Quic is a horizontal library (ADR-0086), and its public QuicVariableLengthInteger is the
-    RFC 9000 section 16 codec the capsules and stream headers need, so it is reused rather than
-    copied (BL-458). BL-459 adds Surl.Http3.
+    Surl.Quic and Surl.Http3 are horizontal libraries (ADR-0086). Surl.Quic's public
+    QuicVariableLengthInteger is the RFC 9000 section 16 codec the capsules and stream headers need
+    (BL-458); Surl.Http3 carries the sessions: extended CONNECT, HTTP datagrams and the streams that
+    name a session (BL-411, BL-459).
   -->
   <ItemGroup>
     <ProjectReference Include="..\..\..\Foundation\Surl.Protocol.Abstractions.UnitLibrary\Surl.Protocol.Abstractions.UnitLibrary.csproj" />
+    <ProjectReference Include="..\Surl.Http3.UnitLibrary\Surl.Http3.UnitLibrary.csproj" />
     <ProjectReference Include="..\Surl.Quic.UnitLibrary\Surl.Quic.UnitLibrary.csproj" />
   </ItemGroup>
 

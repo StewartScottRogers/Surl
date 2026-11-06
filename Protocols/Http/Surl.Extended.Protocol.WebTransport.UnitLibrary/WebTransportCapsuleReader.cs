@@ -60,7 +60,11 @@ public static class WebTransportCapsuleReader
         _ => WebTransportLimitCapsule.IsLimitType(type),
     };
 
-    private static WebTransportCapsule? Decode(WebTransportCapsuleType type, ReadOnlySpan<byte> value) => type switch
+    /// <summary>Decodes one capsule's value, its type and length already read (as <c>Surl.Http3</c> hands a session's capsules over).</summary>
+    /// <param name="type">The capsule type.</param>
+    /// <param name="value">The whole value.</param>
+    /// <returns>The capsule, or <see langword="null"/> when the value breaks its type's layout.</returns>
+    internal static WebTransportCapsule? Decode(WebTransportCapsuleType type, ReadOnlySpan<byte> value) => type switch
     {
         WebTransportCapsuleType.Datagram => new WebTransportDatagramCapsule(value.ToArray()),
         WebTransportCapsuleType.CloseSession => DecodeCloseSession(value),

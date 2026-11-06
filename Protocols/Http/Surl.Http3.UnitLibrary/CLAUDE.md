@@ -10,7 +10,7 @@ and hands each request stream to a handler.
 
 Namespace `Surl.Http3`. This library references `Surl.Protocol.Abstractions.UnitLibrary`,
 `Surl.Quic.UnitLibrary` and `Surl.Qpack.UnitLibrary` and nothing else (ADR-0086 decision 5;
-`ProtocolIsolationTests` holds the row). `Surl.Protocol.Http` references it, and WebTransport will.
+`ProtocolIsolationTests` holds the row). `Surl.Protocol.Http` and `Surl.Extended.Protocol.WebTransport` reference it.
 
 Public, what a server uses:
 
@@ -67,13 +67,15 @@ rule that ends the connection, `Http3StreamAbandonedException` for a stream the 
 `Http3FieldSections` (QPACK with no dynamic table), `Http3ExtendedConnect` (one connection's
 registrations, open sessions and the client's `SETTINGS`), `Http3FrameWriter`, `Http3FrameType`,
 `Http3FrameHeader`, `Http3FrameLimit`, `Http3Settings`, `Http3DataStream` and
-`Http3HeadTimeoutDelay`. They are visible to `Surl.Http3.UnitTests` and to
-`Surl.Protocol.Http.UnitTests`, which drives the connection through the HTTP server.
+`Http3HeadTimeoutDelay`. They are visible to `Surl.Http3.UnitTests`, to
+`Surl.Protocol.Http.UnitTests`, which drives the connection through the HTTP server, and to
+`Surl.Extended.Protocol.WebTransport.UnitTests`, which drives it through the WebTransport server.
 
 `Surl.Http3.UnitTests` owns the in-memory HTTP/3 test client (`Http3TestQuicClient`,
 `Http3TestResponse`, `UnitTestQuicClient`, `UnitTestTls13Client`), which starts from pinned
 upstream curl's recorded Initials (`Fixtures/h3-client-initial`, embedded from
-`Surl.Protocol.Http.UnitTests`) and which `Surl.Protocol.Http.UnitTests` compiles in by link. Its
+`Surl.Protocol.Http.UnitTests`) and which `Surl.Protocol.Http.UnitTests` and
+`Surl.Extended.Protocol.WebTransport.UnitTests` compile in by link. Its
 own tests drive the connection with handlers of their own, never the Curl port (ADR-0003).
 
 Never construct a `Socket`, `TcpListener`, `UdpClient`, `SslStream` or `HttpListener` here: the

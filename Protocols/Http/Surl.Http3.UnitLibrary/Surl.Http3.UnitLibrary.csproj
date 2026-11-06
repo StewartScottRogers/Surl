@@ -1,13 +1,15 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <!--
-    Surl.Protocol.Http.UnitTests drives the HTTP/3 connection through the HTTP server with the
-    Initials pinned upstream curl sent, and writes and reads frames with this library's frame
-    writer and types to do it, so it sees the internals too (BL-410).
+    Surl.Protocol.Http.UnitTests (BL-410) and Surl.Extended.Protocol.WebTransport.UnitTests (BL-459)
+    drive the HTTP/3 connection through their servers with the Initials pinned upstream curl sent,
+    and write and read frames with this library's frame writer and types to do it, so they see the
+    internals too.
   -->
   <ItemGroup>
     <InternalsVisibleTo Include="Surl.Http3.UnitTests" />
     <InternalsVisibleTo Include="Surl.Protocol.Http.UnitTests" />
+    <InternalsVisibleTo Include="Surl.Extended.Protocol.WebTransport.UnitTests" />
   </ItemGroup>
 
   <ItemGroup>
