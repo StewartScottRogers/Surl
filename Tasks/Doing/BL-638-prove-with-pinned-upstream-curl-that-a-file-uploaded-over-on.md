@@ -58,3 +58,4 @@ schemes, that a file uploaded over one protocol is read byte for byte over anoth
 - 2026-11-04: Created.
 - 2026-11-05: Backlog -> Doing.
 - 2026-11-05: Doing -> Backlog. Waits on BL-723: surl http answers every PUT 405, so the ADR-0100 PUT-then-scp pair cannot pass yet
+- 2026-11-05: Backlog -> Doing.
