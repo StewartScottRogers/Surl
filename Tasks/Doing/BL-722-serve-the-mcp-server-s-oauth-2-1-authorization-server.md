@@ -47,3 +47,4 @@ refresh tokens, and access tokens bound to the RFC 8707 `resource`, which the en
 ## Log
 
 - 2026-11-05: Created.
+- 2026-11-06: Backlog -> Doing.
