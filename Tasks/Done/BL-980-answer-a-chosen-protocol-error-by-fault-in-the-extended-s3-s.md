@@ -8,7 +8,7 @@ depends-on: [BL-823]
 touches: [Protocols/FileTransfer/Surl.Extended.Protocol.S3.UnitLibrary, Protocols/FileTransfer/Surl.Extended.Protocol.S3.UnitTests]
 requirement: FR-062
 created: 2026-11-06
-completed:
+completed: 2026-11-06
 ---
 # BL-980 — Answer a chosen protocol error by fault in the extended S3 server
 
@@ -34,15 +34,29 @@ chosen status and error code in an S3 XML error body.
 
 ## Acceptance criteria
 
-- [ ] Named tests: a request matching an `error` rule (`503 SlowDown`) gets exactly that status and error body, a
+- [x] Named tests: a request matching an `error` rule (`503 SlowDown`) gets exactly that status and error body, a
       non-matching request is served, and one `FaultAppliedEvent` is published.
-- [ ] With no rule, every existing test of the library passes unchanged.
-- [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and the library keeps 100% line and branch
+- [x] With no rule, every existing test of the library passes unchanged.
+- [x] `dotnet build -warnaserror` is clean, the fast tests are green, and the library keeps 100% line and branch
       coverage.
 
 ## Notes
+
+- `S3ChosenErrorFault` (new) is called by `S3RequestAnswerer` right after the login is judged, before the
+  operation is recognised, so no body is read, no bucket is checked and the store is never touched. It reuses
+  `Surl.HttpMessage`'s `HttpCommandFaults` (find, split code, publish), as the HTTP and RTSP servers do.
+- Choices (defaults taken, ADR-0124 already decides the shape): the error code word is an ASCII letter then
+  letters and digits, at most 64 characters, so it can be written into `<Code>` without escaping and matches
+  every code in the S3 error table. `Message` is `This error was chosen by fault rule <id>.`, which tells a test
+  why it got the error. The reason phrase is RFC 9110's for the status, or empty, as the HTTP server does.
+  `path` is path style (`/<bucket>`, `/<bucket>/<key>`) even for a virtual-hosted request, so one rule matches
+  both addressings; still percent-encoded, as the HTTP server's raw path is. A delay or drop rule at the command
+  stage is noted and not applied, as on the HTTP server (ADR-0134 decision 5).
+- Tests: `S3ChosenErrorFaultTests` (24 cases). `S3ServerHarness` gained `Faults` (a `ScriptedFaultPlan`) and
+  `Events` (a `RecordingSurlEventPublisher`). Library coverage: 100% line, 100% branch.
 
 ## Log
 
 - 2026-11-06: Created.
 - 2026-11-06: Backlog -> Doing.
+- 2026-11-06: Doing -> Done. An s3 error fault rule (503 SlowDown) now answers the matching request with that status and an S3 XML Error body and publishes one FaultAppliedEvent
