@@ -184,6 +184,19 @@ characters):
 - Errors are the JSON `{"error":{"code":…,"message":…}}` (`AzureDataLakeErrorBody`) with
   `Content-Type: application/json;charset=utf-8`; `code` and `message` only.
 
+The chosen-error fault (BL-981, ADR-0124 decisions 4 and 9), on both endpoints: once a request has
+logged in, and before its operation is recognized or the content store is touched,
+`AzureRequestFaults` asks `ExchangeContext.Faults` at the `Command` stage (through
+`HttpCommandFaults`) with the scheme, the login as `account` (none when anonymous), the target's
+path as sent (path-style account segment removed, query excluded) as `path` and the HTTP method as
+`command`. An `error` rule whose reply is a status 400 to 599, one space and a code word of 1 to 64
+ASCII letters and digits (`503 ServerBusy`) is answered with that status (the standard reason
+phrase, or none for a code without one), `x-ms-error-code` and the endpoint's error body - the XML
+`Error` on `az`, the JSON error on `abfs` and `abfss`, none for a `HEAD` - whose message is
+`AzureRequestFaults.ChosenErrorMessage`, and publishes one `FaultAppliedEvent` naming the path. A
+reply that does not fit, or a rule of another kind, is noted in the exchange log and the request is
+served as without it.
+
 Not yet: the conditional fields on Put Block List; `retainUncommittedData=true`, `beginFrom`, `x-ms-properties` on Path - Create, the conditional fields on
 the Data Lake writes and the JSON body on a Data Lake connection refused past a limit (BL-758);
 List Blobs' `include=uncommittedblobs`, properties on a directory or a filesystem.

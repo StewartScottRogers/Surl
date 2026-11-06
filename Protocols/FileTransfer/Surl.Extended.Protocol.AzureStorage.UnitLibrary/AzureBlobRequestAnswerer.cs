@@ -87,6 +87,13 @@ internal sealed class AzureBlobRequestAnswerer : IHttpRequestHandler, IHttpHeadN
             return loggedIn.Refusal;
         }
 
+        // A chosen-error fault rule answers in place of the operation, before the content store
+        // is touched (ADR-0124, decisions 4 and 9).
+        if (await AzureRequestFaults.FindChosenErrorAsync(context, request.Method, target.Path, loggedIn.Caller!.AccountName) is { } chosenError)
+        {
+            return reply.Error(AzureRefusal.Of(chosenError));
+        }
+
         if (AzureOperationRecognition.Recognize(request, target, out var operation) is { } operationRefusal)
         {
             context.Log.Note($"{request.Method} {target.Path} is no operation the Azure Blob server serves; answered {operationRefusal.Error.Code}.");

@@ -79,6 +79,13 @@ internal sealed class AzureDataLakeRequestAnswerer : IHttpRequestHandler, IHttpH
             return loggedIn.Refusal;
         }
 
+        // A chosen-error fault rule answers in place of the operation, before the content store
+        // is touched (ADR-0124, decisions 4 and 9).
+        if (await AzureRequestFaults.FindChosenErrorAsync(context, request.Method, target.Path, loggedIn.Caller!.AccountName) is { } chosenError)
+        {
+            return reply.Error(AzureRefusal.Of(chosenError));
+        }
+
         if (AzureDataLakeOperationRecognition.Recognize(request, target, out var operation) is { } operationRefusal)
         {
             context.Log.Note($"{request.Method} {target.Path} is no operation the Azure Data Lake server serves; answered {operationRefusal.Error.Code}.");
