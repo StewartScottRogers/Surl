@@ -33,7 +33,7 @@ decision 5). This is success criterion 2 of the
 
 | Platform | Commit | Date | Reference pin SHA-256 | Total | Runnable | Passed | Failed | Skipped | test-server-choice | Pass rate |
 | --- | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| `win-x64` | `f20ac200` + BL-680 | 2026-11-06 | `0E773709C3A44DB47B88B71351D902027682ED87C3BD3821009E454BACCA8778` | 2,013 | 1,124 | 1,060 | 64 | 889 | 0 | 94.3% |
+| `win-x64` | `5ac86cca` + BL-681 | 2026-11-06 | `0E773709C3A44DB47B88B71351D902027682ED87C3BD3821009E454BACCA8778` | 2,013 | 1,124 | 1,063 | 61 | 889 | 0 | 94.6% |
 | `linux-x64` | not run | not run | `153CA463957609117D21A848BE29B70691B85F9E5CC9370C7DAA037B839A4E45` | 2,013 | not run | not run | not run | not run | not run | not run |
 | `osx-arm64` | not run | not run | `04E0E69BCD3BD814EC093551A0447AC14EDEEA9D395B468A2025DCB3F766EEBF` | 2,013 | not run | not run | not run | not run | not run | not run |
 
@@ -42,7 +42,12 @@ Linux and macOS: CI run
 `b1a280aa`) ran the suite on both and it passed, but uploaded no results file, so their counts are
 not known yet; BL-393 fixed the upload, and BL-688 fills both rows from the next run.
 
-Windows: the run of BL-680's changes on top of commit `f20ac200`, where the HTTP server half takes
+Windows: the run of BL-681's changes on top of commit `5ac86cca`, where the HTTP server half reads
+past a PROXY protocol version 1 header before the first request and records it as the first
+received line. 3 more cases pass - 1455, 3201 and 3220 - and none that passed fails. The skips are
+unchanged.
+
+The run before, of BL-680's changes on top of commit `f20ac200`, was the one where the HTTP server half takes
 the reply part from the digits right after the request target's last `/`, query included
 (`/data/10240002.txt` names part 2). 19 more cases pass - 11, 28, 40, 43, 187, 276, 309, 1024,
 1025, 1031, 1051, 1052, 1053, 1064, 1065, 1067, 1138, 1168 and 2081 - and none that passed
