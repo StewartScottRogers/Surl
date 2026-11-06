@@ -53,3 +53,4 @@ curl 8.21.0's `--proxy-basic`, `--proxy-digest`, `--proxy-ntlm` and `--proxy-any
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-05: Backlog -> Doing.
