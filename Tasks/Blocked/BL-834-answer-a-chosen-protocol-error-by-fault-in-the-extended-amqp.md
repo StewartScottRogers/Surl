@@ -47,3 +47,4 @@ error, instead of being refused at configuration.
 - 2026-11-05: Created.
 - 2026-11-05: Filed by BL-822 (ADR-0124 decision 9); depends on BL-785 and touches `Surl.Cli` for the reply shapes.
 - 2026-11-06: Backlog -> Doing.
+- 2026-11-06: Doing -> Blocked. Stewart: Surl dark factory timed out after 120 min; see Z:\repos\Surl.logs\BL-834-20261106-033059-L4.jsonl
