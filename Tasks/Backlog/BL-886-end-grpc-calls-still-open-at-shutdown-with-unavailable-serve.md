@@ -1,5 +1,5 @@
 ---
-id: BL-884
+id: BL-886
 title: End gRPC calls still open at shutdown with UNAVAILABLE server shutting down
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-05
 completed:
 ---
-# BL-884 — End gRPC calls still open at shutdown with UNAVAILABLE server shutting down
+# BL-886 — End gRPC calls still open at shutdown with UNAVAILABLE server shutting down
 
 ## Goal
 

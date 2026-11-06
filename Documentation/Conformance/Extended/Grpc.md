@@ -52,11 +52,11 @@ own handling of statuses and resets) are not rows.
 
 | ID | Level | Requirement | Covered by |
 | --- | --- | --- | --- |
-| Grpc:HTTP2-Errors-1 | SHOULD | The server sends `RST_STREAM` `CANCEL` only when a reply message was cut off mid-write (deadline or shutdown); otherwise a call ends with trailers. | BL-884 (the gRPC server never resets a stream itself; replies are written whole) |
+| Grpc:HTTP2-Errors-1 | SHOULD | The server sends `RST_STREAM` `CANCEL` only when a reply message was cut off mid-write (deadline or shutdown); otherwise a call ends with trailers. | BL-886 (the gRPC server never resets a stream itself; replies are written whole) |
 | Grpc:HTTP2-Errors-2 | MUST | A client's `RST_STREAM` ends the call at once; nothing more is written on the stream. | `GrpcStreamHandlerTests.ServeStreamAsync_ClientResetsTheStream_WritesNothingMoreAndLogsCancelled` |
 | Grpc:HTTP2-Errors-3 | MUST | A call past `MAX_CONCURRENT_STREAMS` (100) is reset `REFUSED_STREAM`, which a client maps to `UNAVAILABLE`. | n/a: `Surl.Http2` refuses the stream before the gRPC server sees it, proved in its own tests (BL-409, ADR-0081 decision 5) |
 | Grpc:HTTP2-GoAway-1 | SHOULD | Before closing a connection (shutdown, `--idle-timeout`, `--max-time`) the server sends `GOAWAY` naming the last stream processed, `NO_ERROR`. | n/a: `Surl.Http2` sends it, proved in its own tests (BL-409, ADR-0081 decision 5) |
-| Grpc:HTTP2-GoAway-2 | MUST | Calls in flight at shutdown finish within the grace; any still open end `UNAVAILABLE` (14), `grpc-message` `server shutting down`. | BL-884 (until then `Surl.Http2` cuts every write off at shutdown, so a call open then gets the connection's `GOAWAY` only) |
+| Grpc:HTTP2-GoAway-2 | MUST | Calls in flight at shutdown finish within the grace; any still open end `UNAVAILABLE` (14), `grpc-message` `server shutting down`. | BL-886 (until then `Surl.Http2` cuts every write off at shutdown, so a call open then gets the connection's `GOAWAY` only) |
 | Grpc:HTTP2-Ping-1 | MUST | A client's `PING` is answered by echoing its payload exactly. | n/a: `Surl.Http2` answers `PING`, and no handler sees it (ADR-0086 decision 1), proved in its own tests (BL-409) |
 | Grpc:HTTP2-Connection-1 | MUST | When the connection fails, the server's open calls are cancelled. | `GrpcStreamHandlerTests.ServeStreamAsync_ClientClosesTheConnectionMidCall_WritesNothingAndLogsCancelled` |
 | Grpc:HTTP2-Security-1 | MUST | `grpc` takes HTTP/2 prior knowledge only: a first read that is not the preface is `GOAWAY` `PROTOCOL_ERROR`, then close; no `Upgrade: h2c`. | BL-445 (the protocol server reads the preface before handing the connection to `Http2ConnectionServer` with a `GrpcStreamHandler`) |

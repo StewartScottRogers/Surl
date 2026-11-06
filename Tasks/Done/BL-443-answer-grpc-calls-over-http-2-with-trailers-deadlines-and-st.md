@@ -76,7 +76,7 @@ errors as Trailers-Only, and enforces request validation, deadlines, compression
 - Touches: added `Documentation/Conformance/Extended/Grpc.md` (no task in Doing names it) because
   ADR-0116 says each task replaces its ID there with the named tests; every BL-443 row now names its
   tests, or `Surl.Http2`/BL-445 where the behaviour lives there.
-- Filed BL-884: calls still open at shutdown should end `UNAVAILABLE` `server shutting down` (ADR-0116
+- Filed BL-886: calls still open at shutdown should end `UNAVAILABLE` `server shutting down` (ADR-0116
   decision 4), which needs a `Surl.Http2` seam to write within the grace; today `Http2ConnectionServer`
   cuts writes off at shutdown, so the call gets only the connection's `GOAWAY`.
 

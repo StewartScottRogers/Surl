@@ -15,7 +15,7 @@ The calls on HTTP/2 (BL-443, ADR-0116 decisions 0 to 8), through `Surl.Http2`:
   `PERMISSION_DENIED`), `grpc-timeout`, `grpc-encoding` and the `:path`, and answers the first failure
   as Trailers-Only. It then serves the method within its deadline (`GrpcDeadline`, on the injected
   `TimeProvider`; `DEADLINE_EXCEEDED` when it passes). A client that resets or leaves gets nothing more,
-  logged `CANCELLED`. What it does not do yet: answer calls open at shutdown `UNAVAILABLE` (BL-884).
+  logged `CANCELLED`. What it does not do yet: answer calls open at shutdown `UNAVAILABLE` (BL-886).
 - `GrpcService` and `GrpcMethod` are what it serves: a method's `IsClientStreaming` decides whether the
   handler reads the whole request first and enforces exactly one message (`request cardinality
   violation`), and its `ServeAsync` answers through a `GrpcCall` and returns the status.
