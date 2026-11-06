@@ -56,7 +56,7 @@ public sealed class S3ProtocolServerTests
             "HTTP/1.1 200 OK\r\n"
                 + $"Date: {S3ServerHarness.NowHttpDate}\r\nServer: surl\r\nx-amz-request-id: {S3ServerHarness.RequestIdOf(response)}\r\n"
                 + $"Last-Modified: {S3ServerHarness.NowHttpDate}\r\nETag: {HelloWorldETag}\r\nAccept-Ranges: bytes\r\n"
-                + "Content-Type: application/octet-stream\r\nContent-Length: 11\r\nConnection: close\r\n\r\nhello world",
+                + "Content-Type: text/plain\r\nContent-Length: 11\r\nConnection: close\r\n\r\nhello world",
             response);
     }
 
@@ -116,7 +116,7 @@ public sealed class S3ProtocolServerTests
             "HTTP/1.1 200 OK\r\n"
                 + $"Date: {S3ServerHarness.NowHttpDate}\r\nServer: surl\r\nx-amz-request-id: {S3ServerHarness.RequestIdOf(response)}\r\n"
                 + $"Last-Modified: {S3ServerHarness.NowHttpDate}\r\nETag: {HelloWorldETag}\r\nAccept-Ranges: bytes\r\n"
-                + "Content-Type: application/octet-stream\r\nContent-Length: 11\r\nConnection: close\r\n\r\n",
+                + "Content-Type: text/plain\r\nContent-Length: 11\r\nConnection: close\r\n\r\n",
             response);
     }
 
@@ -210,7 +210,7 @@ public sealed class S3ProtocolServerTests
         var response = await harness.SendAsync("GET", "/photos/a.txt", "Range: bytes=6-");
 
         StringAssert.StartsWith(response, "HTTP/1.1 206 Partial Content\r\n");
-        StringAssert.EndsWith(response, "Content-Type: application/octet-stream\r\nContent-Range: bytes 6-10/11\r\nContent-Length: 5\r\nConnection: close\r\n\r\nworld");
+        StringAssert.EndsWith(response, "Content-Type: text/plain\r\nContent-Range: bytes 6-10/11\r\nContent-Length: 5\r\nConnection: close\r\n\r\nworld");
     }
 
     [TestMethod]

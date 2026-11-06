@@ -17,7 +17,7 @@ public sealed class AzureBlobRequestAnswererTests
 
         var response = await harness.SendWithBearerAsync("GET", "/shared/a.txt");
 
-        StringAssert.Contains(response, "Content-Type: application/octet-stream\r\nContent-MD5: XrY7u+Ae7tCTyyK7j1rNww==\r\nETag: \"5eb63bbbe01eeed093cb22bb8f5acdc3\"\r\n");
+        StringAssert.Contains(response, "Content-Type: text/plain\r\nContent-MD5: XrY7u+Ae7tCTyyK7j1rNww==\r\nETag: \"5eb63bbbe01eeed093cb22bb8f5acdc3\"\r\n");
         StringAssert.EndsWith(response, "hello world");
     }
 

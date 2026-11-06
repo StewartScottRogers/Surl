@@ -85,7 +85,7 @@ public sealed class S3PutObjectTests
 
         StringAssert.Contains(
             head,
-            "Content-Type: application/octet-stream\r\nContent-Encoding: gzip\r\nContent-Disposition: attachment\r\n"
+            "Content-Type: text/plain\r\nContent-Encoding: gzip\r\nContent-Disposition: attachment\r\n"
                 + "Cache-Control: no-cache\r\nContent-Language: en\r\nx-amz-meta-colour: green\r\nContent-Length: 11\r\n");
     }
 
@@ -428,11 +428,11 @@ public sealed class S3PutObjectTests
         var shareFileSystem = new InMemoryContentFileSystem(new FixedTimeProvider(S3ServerHarness.Now));
         var harness = new S3ServerHarness(exposure: S3ServerHarness.Writable, shares: [new ContentShare("shared", S3ServerHarness.Root, shareFileSystem)]);
 
-        var put = await harness.SendWithBodyAsync("PUT", "/shared/a.txt", "hello world", "Content-Type: text/plain");
+        var put = await harness.SendWithBodyAsync("PUT", "/shared/a.txt", "hello world", "Content-Type: text/csv");
         var get = await harness.SendAsync("GET", "/shared/a.txt");
 
         StringAssert.Contains(put, $"ETag: {HelloWorldETag}\r\n");
-        StringAssert.Contains(get, $"ETag: {HelloWorldETag}\r\nAccept-Ranges: bytes\r\nContent-Type: application/octet-stream\r\n");
+        StringAssert.Contains(get, $"ETag: {HelloWorldETag}\r\nAccept-Ranges: bytes\r\nContent-Type: text/plain\r\n");
         Assert.AreEqual(0, harness.Index.Count);
     }
 

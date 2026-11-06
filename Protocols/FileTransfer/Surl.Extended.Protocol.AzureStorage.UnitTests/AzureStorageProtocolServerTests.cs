@@ -65,7 +65,7 @@ public sealed class AzureStorageProtocolServerTests
 
         Assert.AreEqual(
             $"HTTP/1.1 200 OK\r\n{AzureServerHarness.CommonFields(response)}"
-                + $"Content-Length: 11\r\nContent-Type: application/octet-stream\r\nContent-MD5: {HelloWorldContentMd5}\r\n{BlobFields}"
+                + $"Content-Length: 11\r\nContent-Type: text/plain\r\nContent-MD5: {HelloWorldContentMd5}\r\n{BlobFields}"
                 + "Connection: close\r\n\r\nhello world",
             response);
     }
@@ -81,7 +81,7 @@ public sealed class AzureStorageProtocolServerTests
 
         Assert.AreEqual(
             $"HTTP/1.1 200 OK\r\n{AzureServerHarness.CommonFields(response)}"
-                + $"Content-Length: 11\r\nContent-Type: application/octet-stream\r\nContent-MD5: {HelloWorldContentMd5}\r\n{BlobFields}"
+                + $"Content-Length: 11\r\nContent-Type: text/plain\r\nContent-MD5: {HelloWorldContentMd5}\r\n{BlobFields}"
                 + "Connection: close\r\n\r\n",
             response);
     }

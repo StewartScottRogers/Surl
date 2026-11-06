@@ -52,6 +52,6 @@ internal sealed class AzureBlobPropertiesReader(ContentStore store, ObjectMetada
         }
 
         return new ObjectProperties(
-            ObjectMetadataIndex.DefaultContentType, null, null, null, null, [], $"\"{Convert.ToHexStringLower(md5.Hash!)}\"", 0, status.Length, status.LastModifiedUtc);
+            ContentMediaTypes.Of(mapping.Location!), null, null, null, null, [], $"\"{Convert.ToHexStringLower(md5.Hash!)}\"", 0, status.Length, status.LastModifiedUtc);
     }
 }

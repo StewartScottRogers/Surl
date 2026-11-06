@@ -457,7 +457,7 @@ public sealed class AzurePutBlobTests
         await harness.SendWithBearerAndBodyAsync("PUT", "/shared/a.txt", "hello world", "x-ms-blob-type: BlockBlob", "x-ms-blob-content-type: text/csv");
         var response = await harness.SendWithBearerAsync("HEAD", "/shared/a.txt");
 
-        StringAssert.Contains(response, $"Content-Type: application/octet-stream\r\nContent-MD5: {HelloWorldMd5}\r\nETag: {HelloWorldETag}\r\n");
+        StringAssert.Contains(response, $"Content-Type: text/plain\r\nContent-MD5: {HelloWorldMd5}\r\nETag: {HelloWorldETag}\r\n");
     }
 
     [TestMethod]

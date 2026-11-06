@@ -17,7 +17,7 @@ public sealed partial class AzureListBlobsTests
     // The Properties the page's example gives a blob holding "hello world" with the index's defaults.
     private const string HelloWorldProperties =
         $"<Properties><Creation-Time>{AzureServerHarness.NowHttpDate}</Creation-Time><Last-Modified>{AzureServerHarness.NowHttpDate}</Last-Modified>"
-        + "<Etag>5eb63bbbe01eeed093cb22bb8f5acdc3</Etag><Content-Length>11</Content-Length><Content-Type>application/octet-stream</Content-Type>"
+        + "<Etag>5eb63bbbe01eeed093cb22bb8f5acdc3</Etag><Content-Length>11</Content-Length><Content-Type>text/plain</Content-Type>"
         + "<Content-Encoding /><Content-Language /><Content-MD5>XrY7u+Ae7tCTyyK7j1rNww==</Content-MD5><Cache-Control /><Content-Disposition />"
         + "<BlobType>BlockBlob</BlobType><AccessTier>Hot</AccessTier><AccessTierInferred>true</AccessTierInferred>"
         + "<LeaseStatus>unlocked</LeaseStatus><LeaseState>available</LeaseState><ServerEncrypted>false</ServerEncrypted></Properties>";
