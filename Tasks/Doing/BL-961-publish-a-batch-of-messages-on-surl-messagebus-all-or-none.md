@@ -47,3 +47,4 @@ all or none: when any one would be refused, none is published, so an AMQP 1.0 tr
 ## Log
 
 - 2026-11-06: Created.
+- 2026-11-06: Backlog -> Doing.
