@@ -38,6 +38,11 @@ Linux and macOS conformance legs, and its URL is recorded here.
 
 ## Notes
 
+Checked 2026-11-06 by the interactive session: in CI run https://github.com/StewartScottRogers/Surl/actions/runs/42291259804
+(PR #23, merged, CI "success") all 13 `UpstreamCurlFetchesFromSurlOverHttp3Tests` are **Skipped** (Inconclusive) on
+both `ubuntu-latest` and `macos-latest`, as BL-724 found for the 12 HTTP/2 tests in the same run. The cause is
+probably shared: investigate the two together.
+
 ## Log
 
 - 2026-11-05: Created.
