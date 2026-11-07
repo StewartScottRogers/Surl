@@ -408,8 +408,15 @@ The codes the server sends, each with the status its page gives it:
   "By default, the destination is overwritten"), visibly, through the content store's upload
   session; `x-ms-content-type`, `x-ms-content-encoding`, `x-ms-content-language`,
   `x-ms-content-disposition`, `x-ms-cache-control` and `x-ms-properties` go to the metadata index.
-- **`action=append&position=<n>`** stages the body at `n` under ADR-0100's
-  `.surl/objects/uploads/<upload id>/`, one staging per path, invisible to every protocol; `202`.
+- **`action=append&position=<n>`** stages the body at `n` in the file's staging, one staging per path, invisible to every
+  protocol; `202`. (Amended 2026-11-06 by BL-759, recording BL-426's decision, decided by Claude
+  under Stewart's delegation: the staging is a `ContentUploadSession` started from the file's
+  committed bytes - the content store's own dot-file beside the target, `.surl-upload-<guid>`,
+  which no protocol serves or lists - renamed over the file on flush, not ADR-0100's
+  `.surl/objects/uploads/<upload id>/`, which the content store has no API to write. It gives the
+  invisibility, the `--max-filesize` bound and the atomic commit this decision asks for.
+  `AzureStagingArea` serves appends, flushes and block requests one at a time across the server,
+  because an upload session is not safe for concurrent use.)
   `flush=true` on an append appends and then flushes to `n` plus the body's length.
 - **`action=flush&position=<n>`** commits: the staged data must cover the committed length to `n`
   without a gap or overlap, else **`400 InvalidFlushPosition`**; the file becomes its committed bytes
