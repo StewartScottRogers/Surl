@@ -1,0 +1,3420 @@
+{
+    "measuredAt":  "2026-11-07T02:58:37Z",
+    "thresholds":  {
+                       "linePercent":  100,
+                       "branchPercent":  100,
+                       "complexity":  10,
+                       "crap":  30
+                   },
+    "totals":  {
+                   "linePercent":  99.99,
+                   "branchPercent":  99.97,
+                   "linesCovered":  88610,
+                   "linesTotal":  88623,
+                   "branchesCovered":  29878,
+                   "branchesTotal":  29887,
+                   "libraries":  79,
+                   "librariesAtGate":  46,
+                   "failingMembers":  147
+               },
+    "libraries":  [
+                      {
+                          "name":  "Surl.Api",
+                          "linePercent":  100,
+                          "branchPercent":  100,
+                          "linesCovered":  879,
+                          "linesTotal":  879,
+                          "branchesCovered":  319,
+                          "branchesTotal":  319,
+                          "members":  181,
+                          "failingMembers":  0,
+                          "worstCrap":  10
+                      },
+                      {
+                          "name":  "Surl.Authentication.UnitLibrary",
+                          "linePercent":  99.75,
+                          "branchPercent":  99.57,
+                          "linesCovered":  3576,
+                          "linesTotal":  3585,
+                          "branchesCovered":  1604,
+                          "branchesTotal":  1611,
+                          "members":  693,
+                          "failingMembers":  9,
+                          "worstCrap":  20.7
+                      },
+                      {
+                          "name":  "Surl.Cli.UnitLibrary",
+                          "linePercent":  100,
+                          "branchPercent":  99.88,
+                          "linesCovered":  3407,
+                          "linesTotal":  3407,
+                          "branchesCovered":  801,
+                          "branchesTotal":  802,
+                          "members":  486,
+                          "failingMembers":  4,
+                          "worstCrap":  16
+                      },
+                      {
+                          "name":  "Surl.Composition.UnitLibrary",
+                          "linePercent":  100,
+                          "branchPercent":  100,
+                          "linesCovered":  1457,
+                          "linesTotal":  1457,
+                          "branchesCovered":  420,
+                          "branchesTotal":  420,
+                          "members":  276,
+                          "failingMembers":  2,
+                          "worstCrap":  14
+                      },
+                      {
+                          "name":  "Surl.Compression.UnitLibrary",
+                          "linePercent":  100,
+                          "branchPercent":  100,
+                          "linesCovered":  1329,
+                          "linesTotal":  1329,
+                          "branchesCovered":  422,
+                          "branchesTotal":  422,
+                          "members":  154,
+                          "failingMembers":  0,
+                          "worstCrap":  10
+                      },
+                      {
+                          "name":  "Surl.Conformance.UnitLibrary",
+                          "linePercent":  100,
+                          "branchPercent":  100,
+                          "linesCovered":  3231,
+                          "linesTotal":  3231,
+                          "branchesCovered":  1330,
+                          "branchesTotal":  1330,
+                          "members":  649,
+                          "failingMembers":  0,
+                          "worstCrap":  10
+                      },
+                      {
+                          "name":  "Surl.Console",
+                          "linePercent":  100,
+                          "branchPercent":  100,
+                          "linesCovered":  187,
+                          "linesTotal":  187,
+                          "branchesCovered":  78,
+                          "branchesTotal":  78,
+                          "members":  36,
+                          "failingMembers":  0,
+                          "worstCrap":  10
+                      },
+                      {
+                          "name":  "Surl.Content.UnitLibrary",
+                          "linePercent":  100,
+                          "branchPercent":  100,
+                          "linesCovered":  1833,
+                          "linesTotal":  1833,
+                          "branchesCovered":  304,
+                          "branchesTotal":  304,
+                          "members":  291,
+                          "failingMembers":  0,
+                          "worstCrap":  10
+                      },
+                      {
+                          "name":  "Surl.Control.UnitLibrary",
+                          "linePercent":  100,
+                          "branchPercent":  100,
+                          "linesCovered":  771,
+                          "linesTotal":  771,
+                          "branchesCovered":  266,
+                          "branchesTotal":  266,
+                          "members":  157,
+                          "failingMembers":  0,
+                          "worstCrap":  10
+                      },
+                      {
+                          "name":  "Surl.Core.UnitLibrary",
+                          "linePercent":  100,
+                          "branchPercent":  100,
+                          "linesCovered":  1141,
+                          "linesTotal":  1141,
+                          "branchesCovered":  239,
+                          "branchesTotal":  239,
+                          "members":  260,
+                          "failingMembers":  0,
+                          "worstCrap":  10
+                      },
+                      {
+                          "name":  "Surl.Cryptography.BcryptPbkdf.UnitLibrary",
+                          "linePercent":  100,
+                          "branchPercent":  100,
+                          "linesCovered":  82,
+                          "linesTotal":  82,
+                          "branchesCovered":  22,
+                          "branchesTotal":  22,
+                          "members":  4,
+                          "failingMembers":  0,
+                          "worstCrap":  10
+                      },
+                      {
+                          "name":  "Surl.Cryptography.Blowfish.UnitLibrary",
+                          "linePercent":  100,
+                          "branchPercent":  100,
+                          "linesCovered":  244,
+                          "linesTotal":  244,
+                          "branchesCovered":  22,
+                          "branchesTotal":  22,
+                          "members":  17,
+                          "failingMembers":  0,
+                          "worstCrap":  6
+                      },
+                      {
+                          "name":  "Surl.Cryptography.Cast128.UnitLibrary",
+                          "linePercent":  100,
+                          "branchPercent":  100,
+                          "linesCovered":  416,
+                          "linesTotal":  416,
+                          "branchesCovered":  26,
+                          "branchesTotal":  26,
+                          "members":  13,
+                          "failingMembers":  0,
+                          "worstCrap":  8
+                      },
+                      {
+                          "name":  "Surl.Cryptography.ChaCha20.UnitLibrary",
+                          "linePercent":  100,
+                          "branchPercent":  100,
+                          "linesCovered":  113,
+                          "linesTotal":  113,
+                          "branchesCovered":  12,
+                          "branchesTotal":  12,
+                          "members":  13,
+                          "failingMembers":  0,
+                          "worstCrap":  4
+                      },
+                      {
+                          "name":  "Surl.Cryptography.Curve25519.UnitLibrary",
+                          "linePercent":  100,
+                          "branchPercent":  100,
+                          "linesCovered":  283,
+                          "linesTotal":  283,
+                          "branchesCovered":  38,
+                          "branchesTotal":  38,
+                          "members":  25,
+                          "failingMembers":  0,
+                          "worstCrap":  6
+                      },
+                      {
+                          "name":  "Surl.Cryptography.Ed25519.UnitLibrary",
+                          "linePercent":  100,
+                          "branchPercent":  100,
+                          "linesCovered":  346,
+                          "linesTotal":  346,
+                          "branchesCovered":  42,
+                          "branchesTotal":  42,
+                          "members":  36,
+                          "failingMembers":  0,
+                          "worstCrap":  10
+                      },
+                      {
+                          "name":  "Surl.Cryptography.MlKem.UnitLibrary",
+                          "linePercent":  100,
+                          "branchPercent":  100,
+                          "linesCovered":  420,
+                          "linesTotal":  420,
+                          "branchesCovered":  98,
+                          "branchesTotal":  98,
+                          "members":  40,
+                          "failingMembers":  0,
+                          "worstCrap":  8
+                      },
+                      {
+                          "name":  "Surl.Cryptography.Poly1305.UnitLibrary",
+                          "linePercent":  100,
+                          "branchPercent":  100,
+                          "linesCovered":  108,
+                          "linesTotal":  108,
+                          "branchesCovered":  8,
+                          "branchesTotal":  8,
+                          "members":  9,
+                          "failingMembers":  0,
+                          "worstCrap":  4
+                      },
+                      {
+                          "name":  "Surl.Cryptography.Rc4.UnitLibrary",
+                          "linePercent":  100,
+                          "branchPercent":  100,
+                          "linesCovered":  47,
+                          "linesTotal":  47,
+                          "branchesCovered":  16,
+                          "branchesTotal":  16,
+                          "members":  5,
+                          "failingMembers":  0,
+                          "worstCrap":  6
+                      },
+                      {
+                          "name":  "Surl.Cryptography.Ripemd160.UnitLibrary",
+                          "linePercent":  100,
+                          "branchPercent":  100,
+                          "linesCovered":  223,
+                          "linesTotal":  223,
+                          "branchesCovered":  29,
+                          "branchesTotal":  29,
+                          "members":  24,
+                          "failingMembers":  0,
+                          "worstCrap":  6
+                      },
+                      {
+                          "name":  "Surl.Cryptography.Srp.UnitLibrary",
+                          "linePercent":  100,
+                          "branchPercent":  100,
+                          "linesCovered":  189,
+                          "linesTotal":  189,
+                          "branchesCovered":  36,
+                          "branchesTotal":  36,
+                          "members":  31,
+                          "failingMembers":  0,
+                          "worstCrap":  8
+                      },
+                      {
+                          "name":  "Surl.Cryptography.UnitLibrary",
+                          "linePercent":  100,
+                          "branchPercent":  100,
+                          "linesCovered":  312,
+                          "linesTotal":  312,
+                          "branchesCovered":  40,
+                          "branchesTotal":  40,
+                          "members":  21,
+                          "failingMembers":  0,
+                          "worstCrap":  8
+                      },
+                      {
+                          "name":  "Surl.Dtls.UnitLibrary",
+                          "linePercent":  100,
+                          "branchPercent":  100,
+                          "linesCovered":  1632,
+                          "linesTotal":  1632,
+                          "branchesCovered":  502,
+                          "branchesTotal":  502,
+                          "members":  253,
+                          "failingMembers":  5,
+                          "worstCrap":  18
+                      },
+                      {
+                          "name":  "Surl.Extended.Protocol.Amqp0.UnitLibrary",
+                          "linePercent":  100,
+                          "branchPercent":  100,
+                          "linesCovered":  2236,
+                          "linesTotal":  2236,
+                          "branchesCovered":  708,
+                          "branchesTotal":  708,
+                          "members":  411,
+                          "failingMembers":  6,
+                          "worstCrap":  16
+                      },
+                      {
+                          "name":  "Surl.Extended.Protocol.Amqp1.UnitLibrary",
+                          "linePercent":  100,
+                          "branchPercent":  100,
+                          "linesCovered":  2926,
+                          "linesTotal":  2926,
+                          "branchesCovered":  1232,
+                          "branchesTotal":  1232,
+                          "members":  633,
+                          "failingMembers":  10,
+                          "worstCrap":  18
+                      },
+                      {
+                          "name":  "Surl.Extended.Protocol.AzureStorage.UnitLibrary",
+                          "linePercent":  100,
+                          "branchPercent":  100,
+                          "linesCovered":  2475,
+                          "linesTotal":  2475,
+                          "branchesCovered":  1206,
+                          "branchesTotal":  1206,
+                          "members":  392,
+                          "failingMembers":  9,
+                          "worstCrap":  24
+                      },
+                      {
+                          "name":  "Surl.Extended.Protocol.Coap.UnitLibrary",
+                          "linePercent":  100,
+                          "branchPercent":  100,
+                          "linesCovered":  1401,
+                          "linesTotal":  1401,
+                          "branchesCovered":  449,
+                          "branchesTotal":  449,
+                          "members":  254,
+                          "failingMembers":  1,
+                          "worstCrap":  18
+                      },
+                      {
+                          "name":  "Surl.Extended.Protocol.DnsQuery.UnitLibrary",
+                          "linePercent":  100,
+                          "branchPercent":  100,
+                          "linesCovered":  1965,
+                          "linesTotal":  1965,
+                          "branchesCovered":  756,
+                          "branchesTotal":  756,
+                          "members":  382,
+                          "failingMembers":  1,
+                          "worstCrap":  14
+                      },
+                      {
+                          "name":  "Surl.Extended.Protocol.GoogleCloudStorage.UnitLibrary",
+                          "linePercent":  100,
+                          "branchPercent":  100,
+                          "linesCovered":  1619,
+                          "linesTotal":  1619,
+                          "branchesCovered":  725,
+                          "branchesTotal":  725,
+                          "members":  280,
+                          "failingMembers":  12,
+                          "worstCrap":  20
+                      },
+                      {
+                          "name":  "Surl.Extended.Protocol.Grpc.UnitLibrary",
+                          "linePercent":  100,
+                          "branchPercent":  100,
+                          "linesCovered":  1010,
+                          "linesTotal":  1010,
+                          "branchesCovered":  289,
+                          "branchesTotal":  289,
+                          "members":  158,
+                          "failingMembers":  3,
+                          "worstCrap":  22
+                      },
+                      {
+                          "name":  "Surl.Extended.Protocol.Kafka.UnitLibrary",
+                          "linePercent":  100,
+                          "branchPercent":  100,
+                          "linesCovered":  1699,
+                          "linesTotal":  1699,
+                          "branchesCovered":  691,
+                          "branchesTotal":  691,
+                          "members":  294,
+                          "failingMembers":  7,
+                          "worstCrap":  18
+                      },
+                      {
+                          "name":  "Surl.Extended.Protocol.McpServer.UnitLibrary",
+                          "linePercent":  100,
+                          "branchPercent":  100,
+                          "linesCovered":  999,
+                          "linesTotal":  999,
+                          "branchesCovered":  516,
+                          "branchesTotal":  516,
+                          "members":  190,
+                          "failingMembers":  4,
+                          "worstCrap":  16
+                      },
+                      {
+                          "name":  "Surl.Extended.Protocol.Mqtt5.UnitLibrary",
+                          "linePercent":  100,
+                          "branchPercent":  100,
+                          "linesCovered":  2057,
+                          "linesTotal":  2057,
+                          "branchesCovered":  744,
+                          "branchesTotal":  744,
+                          "members":  355,
+                          "failingMembers":  3,
+                          "worstCrap":  18
+                      },
+                      {
+                          "name":  "Surl.Extended.Protocol.Nats.UnitLibrary",
+                          "linePercent":  100,
+                          "branchPercent":  100,
+                          "linesCovered":  819,
+                          "linesTotal":  819,
+                          "branchesCovered":  268,
+                          "branchesTotal":  268,
+                          "members":  129,
+                          "failingMembers":  0,
+                          "worstCrap":  10
+                      },
+                      {
+                          "name":  "Surl.Extended.Protocol.OciRegistry.UnitLibrary",
+                          "linePercent":  100,
+                          "branchPercent":  99.86,
+                          "linesCovered":  1419,
+                          "linesTotal":  1419,
+                          "branchesCovered":  722,
+                          "branchesTotal":  723,
+                          "members":  248,
+                          "failingMembers":  13,
+                          "worstCrap":  20
+                      },
+                      {
+                          "name":  "Surl.Extended.Protocol.Redis.UnitLibrary",
+                          "linePercent":  100,
+                          "branchPercent":  100,
+                          "linesCovered":  2059,
+                          "linesTotal":  2059,
+                          "branchesCovered":  880,
+                          "branchesTotal":  880,
+                          "members":  450,
+                          "failingMembers":  9,
+                          "worstCrap":  20
+                      },
+                      {
+                          "name":  "Surl.Extended.Protocol.S3.UnitLibrary",
+                          "linePercent":  100,
+                          "branchPercent":  100,
+                          "linesCovered":  1695,
+                          "linesTotal":  1695,
+                          "branchesCovered":  820,
+                          "branchesTotal":  820,
+                          "members":  303,
+                          "failingMembers":  6,
+                          "worstCrap":  20
+                      },
+                      {
+                          "name":  "Surl.Extended.Protocol.SignalR.UnitLibrary",
+                          "linePercent":  100,
+                          "branchPercent":  100,
+                          "linesCovered":  946,
+                          "linesTotal":  946,
+                          "branchesCovered":  342,
+                          "branchesTotal":  342,
+                          "members":  138,
+                          "failingMembers":  1,
+                          "worstCrap":  12
+                      },
+                      {
+                          "name":  "Surl.Extended.Protocol.SocketIo.UnitLibrary",
+                          "linePercent":  100,
+                          "branchPercent":  100,
+                          "linesCovered":  902,
+                          "linesTotal":  902,
+                          "branchesCovered":  369,
+                          "branchesTotal":  369,
+                          "members":  127,
+                          "failingMembers":  3,
+                          "worstCrap":  18
+                      },
+                      {
+                          "name":  "Surl.Extended.Protocol.Stomp.UnitLibrary",
+                          "linePercent":  100,
+                          "branchPercent":  100,
+                          "linesCovered":  926,
+                          "linesTotal":  926,
+                          "branchesCovered":  346,
+                          "branchesTotal":  346,
+                          "members":  140,
+                          "failingMembers":  0,
+                          "worstCrap":  10
+                      },
+                      {
+                          "name":  "Surl.Extended.Protocol.WebTransport.UnitLibrary",
+                          "linePercent":  100,
+                          "branchPercent":  100,
+                          "linesCovered":  735,
+                          "linesTotal":  735,
+                          "branchesCovered":  246,
+                          "branchesTotal":  246,
+                          "members":  119,
+                          "failingMembers":  2,
+                          "worstCrap":  20
+                      },
+                      {
+                          "name":  "Surl.Extended.Protocol.Xmpp.UnitLibrary",
+                          "linePercent":  100,
+                          "branchPercent":  100,
+                          "linesCovered":  952,
+                          "linesTotal":  952,
+                          "branchesCovered":  490,
+                          "branchesTotal":  490,
+                          "members":  165,
+                          "failingMembers":  7,
+                          "worstCrap":  24
+                      },
+                      {
+                          "name":  "Surl.Hpack.UnitLibrary",
+                          "linePercent":  100,
+                          "branchPercent":  100,
+                          "linesCovered":  467,
+                          "linesTotal":  467,
+                          "branchesCovered":  72,
+                          "branchesTotal":  72,
+                          "members":  50,
+                          "failingMembers":  0,
+                          "worstCrap":  8
+                      },
+                      {
+                          "name":  "Surl.Http2.UnitLibrary",
+                          "linePercent":  100,
+                          "branchPercent":  100,
+                          "linesCovered":  1178,
+                          "linesTotal":  1178,
+                          "branchesCovered":  203,
+                          "branchesTotal":  203,
+                          "members":  223,
+                          "failingMembers":  0,
+                          "worstCrap":  8
+                      },
+                      {
+                          "name":  "Surl.Http3.UnitLibrary",
+                          "linePercent":  99.9,
+                          "branchPercent":  100,
+                          "linesCovered":  998,
+                          "linesTotal":  999,
+                          "branchesCovered":  262,
+                          "branchesTotal":  262,
+                          "members":  190,
+                          "failingMembers":  2,
+                          "worstCrap":  14
+                      },
+                      {
+                          "name":  "Surl.HttpMessage.UnitLibrary",
+                          "linePercent":  100,
+                          "branchPercent":  100,
+                          "linesCovered":  383,
+                          "linesTotal":  383,
+                          "branchesCovered":  56,
+                          "branchesTotal":  56,
+                          "members":  64,
+                          "failingMembers":  0,
+                          "worstCrap":  8
+                      },
+                      {
+                          "name":  "Surl.HttpServing.UnitLibrary",
+                          "linePercent":  99.29,
+                          "branchPercent":  100,
+                          "linesCovered":  422,
+                          "linesTotal":  425,
+                          "branchesCovered":  32,
+                          "branchesTotal":  32,
+                          "members":  74,
+                          "failingMembers":  1,
+                          "worstCrap":  6
+                      },
+                      {
+                          "name":  "Surl.Kerberos.TestKdc.UnitLibrary",
+                          "linePercent":  100,
+                          "branchPercent":  100,
+                          "linesCovered":  605,
+                          "linesTotal":  605,
+                          "branchesCovered":  130,
+                          "branchesTotal":  130,
+                          "members":  85,
+                          "failingMembers":  0,
+                          "worstCrap":  10
+                      },
+                      {
+                          "name":  "Surl.Kerberos.UnitLibrary",
+                          "linePercent":  100,
+                          "branchPercent":  100,
+                          "linesCovered":  896,
+                          "linesTotal":  896,
+                          "branchesCovered":  128,
+                          "branchesTotal":  128,
+                          "members":  136,
+                          "failingMembers":  0,
+                          "worstCrap":  10
+                      },
+                      {
+                          "name":  "Surl.LineProtocol.UnitLibrary",
+                          "linePercent":  100,
+                          "branchPercent":  100,
+                          "linesCovered":  449,
+                          "linesTotal":  449,
+                          "branchesCovered":  120,
+                          "branchesTotal":  120,
+                          "members":  77,
+                          "failingMembers":  0,
+                          "worstCrap":  8
+                      },
+                      {
+                          "name":  "Surl.MailStore.UnitLibrary",
+                          "linePercent":  100,
+                          "branchPercent":  100,
+                          "linesCovered":  1549,
+                          "linesTotal":  1549,
+                          "branchesCovered":  466,
+                          "branchesTotal":  466,
+                          "members":  305,
+                          "failingMembers":  1,
+                          "worstCrap":  12
+                      },
+                      {
+                          "name":  "Surl.Mcp.UnitLibrary",
+                          "linePercent":  100,
+                          "branchPercent":  100,
+                          "linesCovered":  899,
+                          "linesTotal":  899,
+                          "branchesCovered":  331,
+                          "branchesTotal":  331,
+                          "members":  192,
+                          "failingMembers":  0,
+                          "worstCrap":  10
+                      },
+                      {
+                          "name":  "Surl.McpServing.UnitLibrary",
+                          "linePercent":  100,
+                          "branchPercent":  100,
+                          "linesCovered":  1009,
+                          "linesTotal":  1009,
+                          "branchesCovered":  363,
+                          "branchesTotal":  363,
+                          "members":  151,
+                          "failingMembers":  2,
+                          "worstCrap":  14
+                      },
+                      {
+                          "name":  "Surl.MessageBus.UnitLibrary",
+                          "linePercent":  100,
+                          "branchPercent":  100,
+                          "linesCovered":  2636,
+                          "linesTotal":  2636,
+                          "branchesCovered":  764,
+                          "branchesTotal":  764,
+                          "members":  533,
+                          "failingMembers":  3,
+                          "worstCrap":  14
+                      },
+                      {
+                          "name":  "Surl.Networking.UnitLibrary",
+                          "linePercent":  100,
+                          "branchPercent":  100,
+                          "linesCovered":  1253,
+                          "linesTotal":  1253,
+                          "branchesCovered":  266,
+                          "branchesTotal":  266,
+                          "members":  204,
+                          "failingMembers":  0,
+                          "worstCrap":  8
+                      },
+                      {
+                          "name":  "Surl.Output.UnitLibrary",
+                          "linePercent":  100,
+                          "branchPercent":  100,
+                          "linesCovered":  256,
+                          "linesTotal":  256,
+                          "branchesCovered":  50,
+                          "branchesTotal":  50,
+                          "members":  46,
+                          "failingMembers":  0,
+                          "worstCrap":  6
+                      },
+                      {
+                          "name":  "Surl.Protocol.Abstractions.UnitLibrary",
+                          "linePercent":  100,
+                          "branchPercent":  100,
+                          "linesCovered":  790,
+                          "linesTotal":  790,
+                          "branchesCovered":  84,
+                          "branchesTotal":  84,
+                          "members":  191,
+                          "failingMembers":  0,
+                          "worstCrap":  10
+                      },
+                      {
+                          "name":  "Surl.Protocol.Dict.UnitLibrary",
+                          "linePercent":  100,
+                          "branchPercent":  100,
+                          "linesCovered":  526,
+                          "linesTotal":  526,
+                          "branchesCovered":  184,
+                          "branchesTotal":  184,
+                          "members":  95,
+                          "failingMembers":  2,
+                          "worstCrap":  14
+                      },
+                      {
+                          "name":  "Surl.Protocol.Ftp.UnitLibrary",
+                          "linePercent":  100,
+                          "branchPercent":  100,
+                          "linesCovered":  1297,
+                          "linesTotal":  1297,
+                          "branchesCovered":  544,
+                          "branchesTotal":  544,
+                          "members":  277,
+                          "failingMembers":  0,
+                          "worstCrap":  10
+                      },
+                      {
+                          "name":  "Surl.Protocol.Gopher.UnitLibrary",
+                          "linePercent":  100,
+                          "branchPercent":  100,
+                          "linesCovered":  288,
+                          "linesTotal":  288,
+                          "branchesCovered":  94,
+                          "branchesTotal":  94,
+                          "members":  59,
+                          "failingMembers":  0,
+                          "worstCrap":  10
+                      },
+                      {
+                          "name":  "Surl.Protocol.Http.UnitLibrary",
+                          "linePercent":  100,
+                          "branchPercent":  100,
+                          "linesCovered":  1081,
+                          "linesTotal":  1081,
+                          "branchesCovered":  384,
+                          "branchesTotal":  384,
+                          "members":  208,
+                          "failingMembers":  2,
+                          "worstCrap":  16
+                      },
+                      {
+                          "name":  "Surl.Protocol.HttpProxy.UnitLibrary",
+                          "linePercent":  100,
+                          "branchPercent":  100,
+                          "linesCovered":  1244,
+                          "linesTotal":  1244,
+                          "branchesCovered":  610,
+                          "branchesTotal":  610,
+                          "members":  181,
+                          "failingMembers":  10,
+                          "worstCrap":  18
+                      },
+                      {
+                          "name":  "Surl.Protocol.Imap.UnitLibrary",
+                          "linePercent":  100,
+                          "branchPercent":  100,
+                          "linesCovered":  2322,
+                          "linesTotal":  2322,
+                          "branchesCovered":  1092,
+                          "branchesTotal":  1092,
+                          "members":  538,
+                          "failingMembers":  0,
+                          "worstCrap":  10
+                      },
+                      {
+                          "name":  "Surl.Protocol.Ldap.UnitLibrary",
+                          "linePercent":  100,
+                          "branchPercent":  100,
+                          "linesCovered":  1819,
+                          "linesTotal":  1819,
+                          "branchesCovered":  800,
+                          "branchesTotal":  800,
+                          "members":  335,
+                          "failingMembers":  1,
+                          "worstCrap":  18
+                      },
+                      {
+                          "name":  "Surl.Protocol.Mqtt.UnitLibrary",
+                          "linePercent":  100,
+                          "branchPercent":  100,
+                          "linesCovered":  720,
+                          "linesTotal":  720,
+                          "branchesCovered":  156,
+                          "branchesTotal":  156,
+                          "members":  113,
+                          "failingMembers":  0,
+                          "worstCrap":  8
+                      },
+                      {
+                          "name":  "Surl.Protocol.Pop3.UnitLibrary",
+                          "linePercent":  100,
+                          "branchPercent":  100,
+                          "linesCovered":  608,
+                          "linesTotal":  608,
+                          "branchesCovered":  202,
+                          "branchesTotal":  202,
+                          "members":  138,
+                          "failingMembers":  0,
+                          "worstCrap":  10
+                      },
+                      {
+                          "name":  "Surl.Protocol.Rtsp.UnitLibrary",
+                          "linePercent":  100,
+                          "branchPercent":  100,
+                          "linesCovered":  884,
+                          "linesTotal":  884,
+                          "branchesCovered":  343,
+                          "branchesTotal":  343,
+                          "members":  119,
+                          "failingMembers":  0,
+                          "worstCrap":  10
+                      },
+                      {
+                          "name":  "Surl.Protocol.Smb.UnitLibrary",
+                          "linePercent":  100,
+                          "branchPercent":  100,
+                          "linesCovered":  956,
+                          "linesTotal":  956,
+                          "branchesCovered":  275,
+                          "branchesTotal":  275,
+                          "members":  118,
+                          "failingMembers":  0,
+                          "worstCrap":  10
+                      },
+                      {
+                          "name":  "Surl.Protocol.Smtp.UnitLibrary",
+                          "linePercent":  100,
+                          "branchPercent":  100,
+                          "linesCovered":  620,
+                          "linesTotal":  620,
+                          "branchesCovered":  296,
+                          "branchesTotal":  296,
+                          "members":  105,
+                          "failingMembers":  0,
+                          "worstCrap":  10
+                      },
+                      {
+                          "name":  "Surl.Protocol.Socks.UnitLibrary",
+                          "linePercent":  100,
+                          "branchPercent":  100,
+                          "linesCovered":  436,
+                          "linesTotal":  436,
+                          "branchesCovered":  161,
+                          "branchesTotal":  161,
+                          "members":  51,
+                          "failingMembers":  2,
+                          "worstCrap":  14
+                      },
+                      {
+                          "name":  "Surl.Protocol.Ssh.UnitLibrary",
+                          "linePercent":  100,
+                          "branchPercent":  100,
+                          "linesCovered":  4090,
+                          "linesTotal":  4090,
+                          "branchesCovered":  1315,
+                          "branchesTotal":  1315,
+                          "members":  663,
+                          "failingMembers":  1,
+                          "worstCrap":  14
+                      },
+                      {
+                          "name":  "Surl.Protocol.Telnet.UnitLibrary",
+                          "linePercent":  100,
+                          "branchPercent":  100,
+                          "linesCovered":  410,
+                          "linesTotal":  410,
+                          "branchesCovered":  177,
+                          "branchesTotal":  177,
+                          "members":  58,
+                          "failingMembers":  0,
+                          "worstCrap":  10
+                      },
+                      {
+                          "name":  "Surl.Protocol.Tftp.UnitLibrary",
+                          "linePercent":  100,
+                          "branchPercent":  100,
+                          "linesCovered":  532,
+                          "linesTotal":  532,
+                          "branchesCovered":  204,
+                          "branchesTotal":  204,
+                          "members":  94,
+                          "failingMembers":  0,
+                          "worstCrap":  10
+                      },
+                      {
+                          "name":  "Surl.Protocol.Ws.UnitLibrary",
+                          "linePercent":  100,
+                          "branchPercent":  100,
+                          "linesCovered":  437,
+                          "linesTotal":  437,
+                          "branchesCovered":  141,
+                          "branchesTotal":  141,
+                          "members":  56,
+                          "failingMembers":  0,
+                          "worstCrap":  9
+                      },
+                      {
+                          "name":  "Surl.Qpack.UnitLibrary",
+                          "linePercent":  100,
+                          "branchPercent":  100,
+                          "linesCovered":  489,
+                          "linesTotal":  489,
+                          "branchesCovered":  66,
+                          "branchesTotal":  66,
+                          "members":  66,
+                          "failingMembers":  0,
+                          "worstCrap":  6
+                      },
+                      {
+                          "name":  "Surl.Quic.UnitLibrary",
+                          "linePercent":  100,
+                          "branchPercent":  100,
+                          "linesCovered":  2973,
+                          "linesTotal":  2973,
+                          "branchesCovered":  640,
+                          "branchesTotal":  640,
+                          "members":  511,
+                          "failingMembers":  3,
+                          "worstCrap":  18
+                      },
+                      {
+                          "name":  "Surl.Tls13.UnitLibrary",
+                          "linePercent":  100,
+                          "branchPercent":  100,
+                          "linesCovered":  942,
+                          "linesTotal":  942,
+                          "branchesCovered":  110,
+                          "branchesTotal":  110,
+                          "members":  171,
+                          "failingMembers":  0,
+                          "worstCrap":  10
+                      },
+                      {
+                          "name":  "Surl.TlsSrp.UnitLibrary",
+                          "linePercent":  100,
+                          "branchPercent":  100,
+                          "linesCovered":  743,
+                          "linesTotal":  743,
+                          "branchesCovered":  180,
+                          "branchesTotal":  180,
+                          "members":  118,
+                          "failingMembers":  0,
+                          "worstCrap":  10
+                      },
+                      {
+                          "name":  "Surl.WebSocket.UnitLibrary",
+                          "linePercent":  100,
+                          "branchPercent":  100,
+                          "linesCovered":  337,
+                          "linesTotal":  337,
+                          "branchesCovered":  104,
+                          "branchesTotal":  104,
+                          "members":  54,
+                          "failingMembers":  0,
+                          "worstCrap":  10
+                      }
+                  ],
+    "failing":  [
+                    {
+                        "library":  "Surl.Authentication.UnitLibrary",
+                        "member":  "Runner.Scan(System.ReadOnlySpan\u003cchar\u003e)",
+                        "file":  "Foundation\\Surl.Authentication.UnitLibrary\\obj\\Debug\\net10.0\\System.Text.RegularExpressions.Generator\\System.Text.RegularExpressions.Generator.RegexGenerator\\RegexGenerator.g.cs",
+                        "line":  64,
+                        "linePercent":  41.67,
+                        "branchPercent":  50,
+                        "complexity":  8,
+                        "crap":  20.7,
+                        "fails":  [
+                                      "line",
+                                      "branch"
+                                  ],
+                        "uncoveredLines":  "69, 70, 71, 72, 73, 74, 75"
+                    },
+                    {
+                        "library":  "Surl.Authentication.UnitLibrary",
+                        "member":  "AzureSharedAccessSignature.ReadingRefusal()",
+                        "file":  "Foundation\\Surl.Authentication.UnitLibrary\\AzureSharedAccessSignature.cs",
+                        "line":  53,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  16,
+                        "crap":  16,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.Authentication.UnitLibrary",
+                        "member":  "AzureSignedResource.Canonicalize(string, string, string, string)",
+                        "file":  "Foundation\\Surl.Authentication.UnitLibrary\\AzureSignedResource.cs",
+                        "line":  24,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  16,
+                        "crap":  16,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.Authentication.UnitLibrary",
+                        "member":  "AzureStorageVerifier.VerifyAuthorization(string, Surl.Protocol.Abstractions.HttpAuthenticationRequest, Surl.Authentication.AzureStorageTarget)",
+                        "file":  "Foundation\\Surl.Authentication.UnitLibrary\\AzureStorageVerifier.cs",
+                        "line":  60,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  14,
+                        "crap":  14,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.Authentication.UnitLibrary",
+                        "member":  "GssapiSaslExchange.ServiceOf(string)",
+                        "file":  "Foundation\\Surl.Authentication.UnitLibrary\\GssapiSaslExchange.cs",
+                        "line":  55,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  12,
+                        "crap":  12,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.Authentication.UnitLibrary",
+                        "member":  "AzureSignedAddressRange.Admits(string, System.Net.IPAddress)",
+                        "file":  "Foundation\\Surl.Authentication.UnitLibrary\\AzureSignedAddressRange.cs",
+                        "line":  19,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  12,
+                        "crap":  12,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.Authentication.UnitLibrary",
+                        "member":  "AzureSharedAccessSignature.ServingRefusal(Surl.Protocol.Abstractions.AzureStorageScope, System.DateTimeOffset, System.TimeSpan, bool)",
+                        "file":  "Foundation\\Surl.Authentication.UnitLibrary\\AzureSharedAccessSignature.cs",
+                        "line":  90,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  12,
+                        "crap":  12,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.Authentication.UnitLibrary",
+                        "member":  "Runner.TryMatchAtCurrentPosition(System.ReadOnlySpan\u003cchar\u003e)",
+                        "file":  "Foundation\\Surl.Authentication.UnitLibrary\\obj\\Debug\\net10.0\\System.Text.RegularExpressions.Generator\\System.Text.RegularExpressions.Generator.RegexGenerator\\RegexGenerator.g.cs",
+                        "line":  107,
+                        "linePercent":  90,
+                        "branchPercent":  66.67,
+                        "complexity":  6,
+                        "crap":  6.04,
+                        "fails":  [
+                                      "line",
+                                      "branch"
+                                  ],
+                        "uncoveredLines":  "121, 122"
+                    },
+                    {
+                        "library":  "Surl.Authentication.UnitLibrary",
+                        "member":  "\u003cRegexGenerator_g\u003eFC67D545F32D2216B01BE2EF7B9754CB53411DCC43A1FCBD18663D3E0A1E68086__Utilities..cctor()",
+                        "file":  "Foundation\\Surl.Authentication.UnitLibrary\\obj\\Debug\\net10.0\\System.Text.RegularExpressions.Generator\\System.Text.RegularExpressions.Generator.RegexGenerator\\RegexGenerator.g.cs",
+                        "line":  144,
+                        "linePercent":  100,
+                        "branchPercent":  50,
+                        "complexity":  2,
+                        "crap":  2,
+                        "fails":  [
+                                      "branch"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.Cli.UnitLibrary",
+                        "member":  "FaultReplyShapes.IsCoapResponseCode(string)",
+                        "file":  "Application\\Surl.Cli.UnitLibrary\\FaultReplyShapes.cs",
+                        "line":  96,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  16,
+                        "crap":  16,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.Cli.UnitLibrary",
+                        "member":  "CsvRecordReader.ReadQuoted(System.Text.StringBuilder)",
+                        "file":  "Application\\Surl.Cli.UnitLibrary\\MailboxFileReader.cs",
+                        "line":  268,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  12,
+                        "crap":  12,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.Cli.UnitLibrary",
+                        "member":  "ConfiguredFaultReader.ReadReply(System.Collections.Generic.IReadOnlyDictionary\u003cstring, string\u003e, ref Surl.Cli.ConfiguredFault)",
+                        "file":  "Application\\Surl.Cli.UnitLibrary\\ConfiguredFaultReader.cs",
+                        "line":  261,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  12,
+                        "crap":  12,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.Cli.UnitLibrary",
+                        "member":  "ConfigurationItemReader.ReadHeadValue(Surl.Cli.ConfigurationItemShape, string, Surl.Cli.ConfigurationItemReader.ItemBuilder)",
+                        "file":  "Application\\Surl.Cli.UnitLibrary\\ConfigurationItemReader.cs",
+                        "line":  137,
+                        "linePercent":  100,
+                        "branchPercent":  75,
+                        "complexity":  4,
+                        "crap":  4,
+                        "fails":  [
+                                      "branch"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.Composition.UnitLibrary",
+                        "member":  "SurlServerComposition.ComposeAuthentication(Surl.Cli.SurlCommandLine, Surl.Composition.SurlServerCompositionSeams, Surl.Composition.EventStreamAndFaultPlan)",
+                        "file":  "Application\\Surl.Composition.UnitLibrary\\SurlServerComposition.Start.cs",
+                        "line":  150,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  14,
+                        "crap":  14,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.Composition.UnitLibrary",
+                        "member":  "MailboxComposition.WriteStartLines(Surl.Cli.SurlCommandLine, System.IO.TextWriter)",
+                        "file":  "Application\\Surl.Composition.UnitLibrary\\MailboxComposition.cs",
+                        "line":  94,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  12,
+                        "crap":  12,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.Dtls.UnitLibrary",
+                        "member":  "DtlsAssociationRecords.ReadOneRecord(ushort, System.ReadOnlySpan\u003cbyte\u003e)",
+                        "file":  "Cryptography\\Surl.Dtls.UnitLibrary\\DtlsAssociationRecords.cs",
+                        "line":  76,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  18,
+                        "crap":  18,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.Dtls.UnitLibrary",
+                        "member":  "DtlsServerCertificate.Sign(Surl.Dtls.DtlsSignatureScheme, byte[])",
+                        "file":  "Cryptography\\Surl.Dtls.UnitLibrary\\DtlsServerCertificate.cs",
+                        "line":  78,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  16,
+                        "crap":  16,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.Dtls.UnitLibrary",
+                        "member":  "DtlsServerSession.AcceptEstablishedRecord(Surl.Dtls.DtlsRecord)",
+                        "file":  "Cryptography\\Surl.Dtls.UnitLibrary\\DtlsServerSession.cs",
+                        "line":  654,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  14,
+                        "crap":  14,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.Dtls.UnitLibrary",
+                        "member":  "DtlsServerNegotiation.AnswerMaxFragmentLength(Surl.Dtls.DtlsClientHello, System.Collections.Generic.List\u003cSurl.Dtls.DtlsExtension\u003e)",
+                        "file":  "Cryptography\\Surl.Dtls.UnitLibrary\\DtlsServerNegotiation.cs",
+                        "line":  156,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  14,
+                        "crap":  14,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.Dtls.UnitLibrary",
+                        "member":  "DtlsServerNegotiation.AnswerRenegotiationInfo(Surl.Dtls.DtlsClientHello, System.Collections.Generic.List\u003cSurl.Dtls.DtlsExtension\u003e)",
+                        "file":  "Cryptography\\Surl.Dtls.UnitLibrary\\DtlsServerNegotiation.cs",
+                        "line":  238,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  12,
+                        "crap":  12,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.Extended.Protocol.Amqp0.UnitLibrary",
+                        "member":  "Amqp0BrokerConnection.Route(Surl.Extended.Protocol.Amqp0.Amqp0Channel, Surl.Extended.Protocol.Amqp0.Amqp0PendingPublish)",
+                        "file":  "Protocols\\Messaging\\Surl.Extended.Protocol.Amqp0.UnitLibrary\\Amqp0BrokerConnection.Publishing.cs",
+                        "line":  117,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  16,
+                        "crap":  16,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.Extended.Protocol.Amqp0.UnitLibrary",
+                        "member":  "Amqp0BrokerConnection.OpenChannel(Surl.Extended.Protocol.Amqp0.Amqp0Frame)",
+                        "file":  "Protocols\\Messaging\\Surl.Extended.Protocol.Amqp0.UnitLibrary\\Amqp0BrokerConnection.Channels.cs",
+                        "line":  122,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  14,
+                        "crap":  14,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.Extended.Protocol.Amqp0.UnitLibrary",
+                        "member":  "Amqp0BrokerConnection.BindQueue(Surl.Extended.Protocol.Amqp0.Amqp0Channel, Surl.Extended.Protocol.Amqp0.Amqp0WireReader, bool)",
+                        "file":  "Protocols\\Messaging\\Surl.Extended.Protocol.Amqp0.UnitLibrary\\Amqp0BrokerConnection.Exchanges.cs",
+                        "line":  221,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  12,
+                        "crap":  12,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.Extended.Protocol.Amqp0.UnitLibrary",
+                        "member":  "\u003c\u003ec.\u003cIsValidName\u003eb__96_0(char)",
+                        "file":  "Protocols\\Messaging\\Surl.Extended.Protocol.Amqp0.UnitLibrary\\Amqp0BrokerConnection.Exchanges.cs",
+                        "line":  55,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  12,
+                        "crap":  12,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.Extended.Protocol.Amqp0.UnitLibrary",
+                        "member":  "Amqp0ExchangeTable.Declare(string, Surl.Extended.Protocol.Amqp0.Amqp0ExchangeType, bool, byte[])",
+                        "file":  "Protocols\\Messaging\\Surl.Extended.Protocol.Amqp0.UnitLibrary\\Amqp0ExchangeTable.cs",
+                        "line":  64,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  12,
+                        "crap":  12,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.Extended.Protocol.Amqp0.UnitLibrary",
+                        "member":  "Amqp0TopicKeyMatcher.Advance(bool[], string, string[])",
+                        "file":  "Protocols\\Messaging\\Surl.Extended.Protocol.Amqp0.UnitLibrary\\Amqp0TopicKeyMatcher.cs",
+                        "line":  29,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  12,
+                        "crap":  12,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.Extended.Protocol.Amqp1.UnitLibrary",
+                        "member":  "Amqp1BusMessages.ToBusMessage(System.ReadOnlyMemory\u003cbyte\u003e, string, bool, System.DateTimeOffset)",
+                        "file":  "Protocols\\Messaging\\Surl.Extended.Protocol.Amqp1.UnitLibrary\\Amqp1BusMessages.cs",
+                        "line":  35,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  18,
+                        "crap":  18,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.Extended.Protocol.Amqp1.UnitLibrary",
+                        "member":  "Amqp1SourceFilters.HeadersPredicate(Surl.Extended.Protocol.Amqp1.Amqp1Map)",
+                        "file":  "Protocols\\Messaging\\Surl.Extended.Protocol.Amqp1.UnitLibrary\\Amqp1SourceFilters.cs",
+                        "line":  185,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  18,
+                        "crap":  18,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.Extended.Protocol.Amqp1.UnitLibrary",
+                        "member":  "Amqp1BusMessages.RequireSectionOrder(System.Collections.Generic.IReadOnlyList\u003cSurl.Extended.Protocol.Amqp1.Amqp1MessageSection\u003e)",
+                        "file":  "Protocols\\Messaging\\Surl.Extended.Protocol.Amqp1.UnitLibrary\\Amqp1BusMessages.cs",
+                        "line":  57,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  18,
+                        "crap":  18,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.Extended.Protocol.Amqp1.UnitLibrary",
+                        "member":  "Amqp1BusMessages.ExpiresAt(System.Nullable\u003cuint\u003e, System.Nullable\u003cSurl.Extended.Protocol.Amqp1.Amqp1Timestamp\u003e, System.DateTimeOffset)",
+                        "file":  "Protocols\\Messaging\\Surl.Extended.Protocol.Amqp1.UnitLibrary\\Amqp1BusMessages.cs",
+                        "line":  115,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  16,
+                        "crap":  16,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.Extended.Protocol.Amqp1.UnitLibrary",
+                        "member":  "Amqp1ContainerConnection.SendLinkAsync (async)",
+                        "file":  "Protocols\\Messaging\\Surl.Extended.Protocol.Amqp1.UnitLibrary\\Amqp1ContainerConnection.Deliveries.cs",
+                        "line":  95,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  16,
+                        "crap":  16,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.Extended.Protocol.Amqp1.UnitLibrary",
+                        "member":  "Amqp1SourceFilters.TryApply(System.Collections.Generic.KeyValuePair\u003cobject, object\u003e, Surl.Extended.Protocol.Amqp1.Amqp1Described, bool)",
+                        "file":  "Protocols\\Messaging\\Surl.Extended.Protocol.Amqp1.UnitLibrary\\Amqp1SourceFilters.cs",
+                        "line":  102,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  14,
+                        "crap":  14,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.Extended.Protocol.Amqp1.UnitLibrary",
+                        "member":  "Amqp1BusMessages.PayloadOf(System.Collections.Generic.IReadOnlyList\u003cSurl.Extended.Protocol.Amqp1.Amqp1MessageSection\u003e)",
+                        "file":  "Protocols\\Messaging\\Surl.Extended.Protocol.Amqp1.UnitLibrary\\Amqp1BusMessages.cs",
+                        "line":  99,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  12,
+                        "crap":  12,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.Extended.Protocol.Amqp1.UnitLibrary",
+                        "member":  "Amqp1ContainerConnection.ResolveNode(Surl.Extended.Protocol.Amqp1.Amqp1Attach, Surl.Extended.Protocol.Amqp1.Amqp1Link)",
+                        "file":  "Protocols\\Messaging\\Surl.Extended.Protocol.Amqp1.UnitLibrary\\Amqp1ContainerConnection.Links.cs",
+                        "line":  70,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  12,
+                        "crap":  12,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.Extended.Protocol.Amqp1.UnitLibrary",
+                        "member":  "Amqp1SourceFilters.WordMatches(string, string[], int, bool[], bool[])",
+                        "file":  "Protocols\\Messaging\\Surl.Extended.Protocol.Amqp1.UnitLibrary\\Amqp1SourceFilters.cs",
+                        "line":  178,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  12,
+                        "crap":  12,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.Extended.Protocol.Amqp1.UnitLibrary",
+                        "member":  "Amqp1ContainerConnection.StoreRejection(Surl.MessageBus.MessageBusOutcome)",
+                        "file":  "Protocols\\Messaging\\Surl.Extended.Protocol.Amqp1.UnitLibrary\\Amqp1ContainerConnection.Transfers.cs",
+                        "line":  165,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  12,
+                        "crap":  12,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.Extended.Protocol.AzureStorage.UnitLibrary",
+                        "member":  "AzureOperationRecognition.AccountOrContainerOperationOf(string, Surl.Extended.Protocol.AzureStorage.AzureBlobTarget)",
+                        "file":  "Protocols\\FileTransfer\\Surl.Extended.Protocol.AzureStorage.UnitLibrary\\AzureOperationRecognition.cs",
+                        "line":  98,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  24,
+                        "crap":  24,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.Extended.Protocol.AzureStorage.UnitLibrary",
+                        "member":  "AzureLoginJudge.LogInAsync (async)",
+                        "file":  "Protocols\\FileTransfer\\Surl.Extended.Protocol.AzureStorage.UnitLibrary\\AzureLoginJudge.cs",
+                        "line":  44,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  16,
+                        "crap":  16,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.Extended.Protocol.AzureStorage.UnitLibrary",
+                        "member":  "AzureLoginJudge.RefusalAnswer(Surl.Extended.Protocol.AzureStorage.AzureReply, System.Nullable\u003cSurl.Protocol.Abstractions.HttpAuthenticationRefusal\u003e, string)",
+                        "file":  "Protocols\\FileTransfer\\Surl.Extended.Protocol.AzureStorage.UnitLibrary\\AzureLoginJudge.cs",
+                        "line":  91,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  16,
+                        "crap":  16,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.Extended.Protocol.AzureStorage.UnitLibrary",
+                        "member":  "AzurePathSetProperties.AnswerAsync (async)",
+                        "file":  "Protocols\\FileTransfer\\Surl.Extended.Protocol.AzureStorage.UnitLibrary\\AzurePathSetProperties.cs",
+                        "line":  41,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  14,
+                        "crap":  14,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.Extended.Protocol.AzureStorage.UnitLibrary",
+                        "member":  "AzureTopLevelFolders.Folders (async)",
+                        "file":  "Protocols\\FileTransfer\\Surl.Extended.Protocol.AzureStorage.UnitLibrary\\AzureTopLevelFolders.cs",
+                        "line":  29,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  14,
+                        "crap":  14,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.Extended.Protocol.AzureStorage.UnitLibrary",
+                        "member":  "AzureLoginJudge.GrantingPermissionsOf(string, Surl.Extended.Protocol.AzureStorage.AzureBlobTarget)",
+                        "file":  "Protocols\\FileTransfer\\Surl.Extended.Protocol.AzureStorage.UnitLibrary\\AzureLoginJudge.cs",
+                        "line":  75,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  12,
+                        "crap":  12,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.Extended.Protocol.AzureStorage.UnitLibrary",
+                        "member":  "AzureDataLakeRequestAnswerer.ReadPathAsync (async)",
+                        "file":  "Protocols\\FileTransfer\\Surl.Extended.Protocol.AzureStorage.UnitLibrary\\AzureDataLakeRequestAnswerer.cs",
+                        "line":  135,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  12,
+                        "crap":  12,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.Extended.Protocol.AzureStorage.UnitLibrary",
+                        "member":  "AzurePathRename.AnswerAsync (async)",
+                        "file":  "Protocols\\FileTransfer\\Surl.Extended.Protocol.AzureStorage.UnitLibrary\\AzurePathRename.cs",
+                        "line":  56,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  12,
+                        "crap":  12,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.Extended.Protocol.AzureStorage.UnitLibrary",
+                        "member":  "AzureListContainers.Answer(Surl.Extended.Protocol.AzureStorage.AzureReply, Surl.HttpServing.HttpRequest, Surl.Extended.Protocol.AzureStorage.AzureBlobTarget, Surl.Content.ContentCaller, System.Threading.CancellationToken)",
+                        "file":  "Protocols\\FileTransfer\\Surl.Extended.Protocol.AzureStorage.UnitLibrary\\AzureListContainers.cs",
+                        "line":  42,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  12,
+                        "crap":  12,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.Extended.Protocol.Coap.UnitLibrary",
+                        "member":  "CoapRequestFaults.TryParse(string, out Surl.Extended.Protocol.Coap.CoapResponse)",
+                        "file":  "Protocols\\Http\\Surl.Extended.Protocol.Coap.UnitLibrary\\CoapRequestFaults.cs",
+                        "line":  83,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  18,
+                        "crap":  18,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.Extended.Protocol.DnsQuery.UnitLibrary",
+                        "member":  "DnsQueryAnswerer.StandardQueryOf(System.ReadOnlySpan\u003cbyte\u003e)",
+                        "file":  "Protocols\\Lookup\\Surl.Extended.Protocol.DnsQuery.UnitLibrary\\DnsQueryAnswerer.cs",
+                        "line":  86,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  14,
+                        "crap":  14,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.Extended.Protocol.GoogleCloudStorage.UnitLibrary",
+                        "member":  "GcsLoginJudge.LogInAsync (async)",
+                        "file":  "Protocols\\FileTransfer\\Surl.Extended.Protocol.GoogleCloudStorage.UnitLibrary\\GcsLoginJudge.cs",
+                        "line":  49,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  20,
+                        "crap":  20,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.Extended.Protocol.GoogleCloudStorage.UnitLibrary",
+                        "member":  "GcsListBuckets.Answer(Surl.Extended.Protocol.GoogleCloudStorage.GcsReply, Surl.Content.ContentCaller, System.Threading.CancellationToken)",
+                        "file":  "Protocols\\FileTransfer\\Surl.Extended.Protocol.GoogleCloudStorage.UnitLibrary\\GcsListBuckets.cs",
+                        "line":  28,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  18,
+                        "crap":  18,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.Extended.Protocol.GoogleCloudStorage.UnitLibrary",
+                        "member":  "GcsOperationRecognition.Of(Surl.HttpServing.HttpRequest, Surl.Extended.Protocol.GoogleCloudStorage.GcsRequestTarget)",
+                        "file":  "Protocols\\FileTransfer\\Surl.Extended.Protocol.GoogleCloudStorage.UnitLibrary\\GcsOperationRecognition.cs",
+                        "line":  42,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  18,
+                        "crap":  18,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.Extended.Protocol.GoogleCloudStorage.UnitLibrary",
+                        "member":  "GcsListRequest.AreValid(System.Collections.Generic.IReadOnlyList\u003cSystem.Collections.Generic.KeyValuePair\u003cstring, string\u003e\u003e, string, bool, string, string)",
+                        "file":  "Protocols\\FileTransfer\\Surl.Extended.Protocol.GoogleCloudStorage.UnitLibrary\\GcsListRequest.cs",
+                        "line":  76,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  16,
+                        "crap":  16,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.Extended.Protocol.GoogleCloudStorage.UnitLibrary",
+                        "member":  "GcsGenerationConditions.Check(System.Collections.Generic.IReadOnlyList\u003cSystem.Collections.Generic.KeyValuePair\u003cstring, string\u003e\u003e, Surl.Content.ObjectProperties)",
+                        "file":  "Protocols\\FileTransfer\\Surl.Extended.Protocol.GoogleCloudStorage.UnitLibrary\\GcsGenerationConditions.cs",
+                        "line":  32,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  16,
+                        "crap":  16,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.Extended.Protocol.GoogleCloudStorage.UnitLibrary",
+                        "member":  "GcsUploadStaging.AppendBodyAsync (async)",
+                        "file":  "Protocols\\FileTransfer\\Surl.Extended.Protocol.GoogleCloudStorage.UnitLibrary\\GcsUploadStaging.cs",
+                        "line":  95,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  14,
+                        "crap":  14,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.Extended.Protocol.GoogleCloudStorage.UnitLibrary",
+                        "member":  "GcsMultipartUpload.RefusalBeforeThePart(Surl.HttpServing.HttpRequest, Surl.Extended.Protocol.GoogleCloudStorage.GcsRequestTarget, out int, out Surl.Extended.Protocol.GoogleCloudStorage.GcsSentDigests)",
+                        "file":  "Protocols\\FileTransfer\\Surl.Extended.Protocol.GoogleCloudStorage.UnitLibrary\\GcsMultipartUpload.cs",
+                        "line":  181,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  14,
+                        "crap":  14,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.Extended.Protocol.GoogleCloudStorage.UnitLibrary",
+                        "member":  "GcsOperationRecognition.WithoutQuery(Surl.HttpServing.HttpRequest)",
+                        "file":  "Protocols\\FileTransfer\\Surl.Extended.Protocol.GoogleCloudStorage.UnitLibrary\\GcsOperationRecognition.cs",
+                        "line":  61,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  14,
+                        "crap":  14,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.Extended.Protocol.GoogleCloudStorage.UnitLibrary",
+                        "member":  "GcsSentDigests.Read(System.Collections.Generic.IReadOnlyList\u003cSystem.Collections.Generic.KeyValuePair\u003cstring, string\u003e\u003e, out Surl.Extended.Protocol.GoogleCloudStorage.GcsError)",
+                        "file":  "Protocols\\FileTransfer\\Surl.Extended.Protocol.GoogleCloudStorage.UnitLibrary\\GcsSentDigests.cs",
+                        "line":  21,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  12,
+                        "crap":  12,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.Extended.Protocol.GoogleCloudStorage.UnitLibrary",
+                        "member":  "GcsContentRange.Of(string, long)",
+                        "file":  "Protocols\\FileTransfer\\Surl.Extended.Protocol.GoogleCloudStorage.UnitLibrary\\GcsContentRange.cs",
+                        "line":  34,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  12,
+                        "crap":  12,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.Extended.Protocol.GoogleCloudStorage.UnitLibrary",
+                        "member":  "GcsListPage.Names (async)",
+                        "file":  "Protocols\\FileTransfer\\Surl.Extended.Protocol.GoogleCloudStorage.UnitLibrary\\GcsListPage.cs",
+                        "line":  56,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  12,
+                        "crap":  12,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.Extended.Protocol.GoogleCloudStorage.UnitLibrary",
+                        "member":  "GcsLoginJudge.ErrorOf(System.Nullable\u003cSurl.Protocol.Abstractions.HttpAuthenticationRefusal\u003e)",
+                        "file":  "Protocols\\FileTransfer\\Surl.Extended.Protocol.GoogleCloudStorage.UnitLibrary\\GcsLoginJudge.cs",
+                        "line":  112,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  11,
+                        "crap":  11,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.Extended.Protocol.Grpc.UnitLibrary",
+                        "member":  "GrpcTimeout.ReadValue(string)",
+                        "file":  "Protocols\\Http\\Surl.Extended.Protocol.Grpc.UnitLibrary\\GrpcTimeout.cs",
+                        "line":  33,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  22,
+                        "crap":  22,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.Extended.Protocol.Grpc.UnitLibrary",
+                        "member":  "ProtobufReader.ReadField(int)",
+                        "file":  "Protocols\\Http\\Surl.Extended.Protocol.Grpc.UnitLibrary\\ProtobufReader.cs",
+                        "line":  82,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  13,
+                        "crap":  13,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.Extended.Protocol.Grpc.UnitLibrary",
+                        "member":  "EchoRequest.Read(System.ReadOnlyMemory\u003cbyte\u003e)",
+                        "file":  "Protocols\\Http\\Surl.Extended.Protocol.Grpc.UnitLibrary\\EchoRequest.cs",
+                        "line":  31,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  12,
+                        "crap":  12,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.Extended.Protocol.Kafka.UnitLibrary",
+                        "member":  "KafkaCreateTopicsAnswerer.Refusal(Surl.Extended.Protocol.Kafka.KafkaCreateTopicsAnswerer.TopicRequest, string, string)",
+                        "file":  "Protocols\\Messaging\\Surl.Extended.Protocol.Kafka.UnitLibrary\\KafkaCreateTopicsAnswerer.cs",
+                        "line":  142,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  18,
+                        "crap":  18,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.Extended.Protocol.Kafka.UnitLibrary",
+                        "member":  "KafkaCreateTopicsAnswerer.AnswerAsync (async)",
+                        "file":  "Protocols\\Messaging\\Surl.Extended.Protocol.Kafka.UnitLibrary\\KafkaCreateTopicsAnswerer.cs",
+                        "line":  50,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  14,
+                        "crap":  14,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.Extended.Protocol.Kafka.UnitLibrary",
+                        "member":  "KafkaBrokerConnection.ServeAsync (async)",
+                        "file":  "Protocols\\Messaging\\Surl.Extended.Protocol.Kafka.UnitLibrary\\KafkaBrokerConnection.cs",
+                        "line":  28,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  12,
+                        "crap":  12,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.Extended.Protocol.Kafka.UnitLibrary",
+                        "member":  "KafkaCreateTopicsAnswerer.ChosenError(Surl.Protocol.Abstractions.FaultRule, string, Surl.Protocol.Abstractions.ExchangeContext)",
+                        "file":  "Protocols\\Messaging\\Surl.Extended.Protocol.Kafka.UnitLibrary\\KafkaCreateTopicsAnswerer.cs",
+                        "line":  94,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  12,
+                        "crap":  12,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.Extended.Protocol.Kafka.UnitLibrary",
+                        "member":  "KafkaInitProducerIdAnswerer.ChosenError(Surl.Protocol.Abstractions.FaultRule, Surl.Protocol.Abstractions.ExchangeContext)",
+                        "file":  "Protocols\\Messaging\\Surl.Extended.Protocol.Kafka.UnitLibrary\\KafkaInitProducerIdAnswerer.cs",
+                        "line":  74,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  12,
+                        "crap":  12,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.Extended.Protocol.Kafka.UnitLibrary",
+                        "member":  "KafkaProduceAnswerer.Append(string, Surl.Extended.Protocol.Kafka.KafkaProduceAnswerer.PartitionData, string, Surl.Protocol.Abstractions.ExchangeContext)",
+                        "file":  "Protocols\\Messaging\\Surl.Extended.Protocol.Kafka.UnitLibrary\\KafkaProduceAnswerer.cs",
+                        "line":  82,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  12,
+                        "crap":  12,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.Extended.Protocol.Kafka.UnitLibrary",
+                        "member":  "KafkaBrokerConnection.AnswerReadableAsync (async)",
+                        "file":  "Protocols\\Messaging\\Surl.Extended.Protocol.Kafka.UnitLibrary\\KafkaBrokerConnection.cs",
+                        "line":  145,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  12,
+                        "crap":  12,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.Extended.Protocol.McpServer.UnitLibrary",
+                        "member":  "McpTokenEndpoint.AnswerAsync (async)",
+                        "file":  "Protocols\\Http\\Surl.Extended.Protocol.McpServer.UnitLibrary\\McpTokenEndpoint.cs",
+                        "line":  36,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  16,
+                        "crap":  16,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.Extended.Protocol.McpServer.UnitLibrary",
+                        "member":  "McpHttpRequestAnswerer.LogInAsync (async)",
+                        "file":  "Protocols\\Http\\Surl.Extended.Protocol.McpServer.UnitLibrary\\McpHttpRequestAnswerer.cs",
+                        "line":  153,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  14,
+                        "crap":  14,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.Extended.Protocol.McpServer.UnitLibrary",
+                        "member":  "McpClientRegistrationEndpoint.Answer(Surl.HttpServing.HttpRequest, byte[])",
+                        "file":  "Protocols\\Http\\Surl.Extended.Protocol.McpServer.UnitLibrary\\McpClientRegistrationEndpoint.cs",
+                        "line":  26,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  14,
+                        "crap":  14,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.Extended.Protocol.McpServer.UnitLibrary",
+                        "member":  "McpPkce.IsUnreserved(char)",
+                        "file":  "Protocols\\Http\\Surl.Extended.Protocol.McpServer.UnitLibrary\\McpPkce.cs",
+                        "line":  31,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  12,
+                        "crap":  12,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.Extended.Protocol.Mqtt5.UnitLibrary",
+                        "member":  "Mqtt5InboundPublishes.ResolveAlias(Surl.Extended.Protocol.Mqtt5.Mqtt5PublishPacket)",
+                        "file":  "Protocols\\Messaging\\Surl.Extended.Protocol.Mqtt5.UnitLibrary\\Mqtt5InboundPublishes.cs",
+                        "line":  119,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  18,
+                        "crap":  18,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.Extended.Protocol.Mqtt5.UnitLibrary",
+                        "member":  "Mqtt5BusMessages.PropertiesOf(Surl.MessageBus.BusMessage, System.DateTimeOffset)",
+                        "file":  "Protocols\\Messaging\\Surl.Extended.Protocol.Mqtt5.UnitLibrary\\Mqtt5BusMessages.cs",
+                        "line":  45,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  16,
+                        "crap":  16,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.Extended.Protocol.Mqtt5.UnitLibrary",
+                        "member":  "Mqtt5InboundPublishes.Judge(Surl.Extended.Protocol.Mqtt5.Mqtt5PublishPacket)",
+                        "file":  "Protocols\\Messaging\\Surl.Extended.Protocol.Mqtt5.UnitLibrary\\Mqtt5InboundPublishes.cs",
+                        "line":  35,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  12,
+                        "crap":  12,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.Extended.Protocol.OciRegistry.UnitLibrary",
+                        "member":  "OciPushedManifest.ReadChecked(System.Text.Json.JsonElement, string)",
+                        "file":  "Protocols\\FileTransfer\\Surl.Extended.Protocol.OciRegistry.UnitLibrary\\OciPushedManifest.cs",
+                        "line":  62,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  20,
+                        "crap":  20,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.Extended.Protocol.OciRegistry.UnitLibrary",
+                        "member":  "OciTokenEndpoint.AnswerAsync (async)",
+                        "file":  "Protocols\\FileTransfer\\Surl.Extended.Protocol.OciRegistry.UnitLibrary\\OciTokenEndpoint.cs",
+                        "line":  61,
+                        "linePercent":  100,
+                        "branchPercent":  93.75,
+                        "complexity":  16,
+                        "crap":  16,
+                        "fails":  [
+                                      "branch",
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.Extended.Protocol.OciRegistry.UnitLibrary",
+                        "member":  "OciRequestTarget.ParseUnderRoot(string, string)",
+                        "file":  "Protocols\\FileTransfer\\Surl.Extended.Protocol.OciRegistry.UnitLibrary\\OciRequestTarget.cs",
+                        "line":  48,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  16,
+                        "crap":  16,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.Extended.Protocol.OciRegistry.UnitLibrary",
+                        "member":  "OciAccessCheck.CheckAsync (async)",
+                        "file":  "Protocols\\FileTransfer\\Surl.Extended.Protocol.OciRegistry.UnitLibrary\\OciAccessCheck.cs",
+                        "line":  39,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  14,
+                        "crap":  14,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.Extended.Protocol.OciRegistry.UnitLibrary",
+                        "member":  "OciPushedManifest.DigestOf(System.Text.Json.JsonElement)",
+                        "file":  "Protocols\\FileTransfer\\Surl.Extended.Protocol.OciRegistry.UnitLibrary\\OciPushedManifest.cs",
+                        "line":  120,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  14,
+                        "crap":  14,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.Extended.Protocol.OciRegistry.UnitLibrary",
+                        "member":  "OciPushedManifest.IsSchemaVersion2Of(System.Text.Json.JsonElement, string)",
+                        "file":  "Protocols\\FileTransfer\\Surl.Extended.Protocol.OciRegistry.UnitLibrary\\OciPushedManifest.cs",
+                        "line":  57,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  14,
+                        "crap":  14,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.Extended.Protocol.OciRegistry.UnitLibrary",
+                        "member":  "OciBlobUploads.ChunkRefusal(Surl.HttpServing.HttpRequest, Surl.Extended.Protocol.OciRegistry.OciUploadSession)",
+                        "file":  "Protocols\\FileTransfer\\Surl.Extended.Protocol.OciRegistry.UnitLibrary\\OciBlobUploads.cs",
+                        "line":  109,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  14,
+                        "crap":  14,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.Extended.Protocol.OciRegistry.UnitLibrary",
+                        "member":  "OciManifestPush.StoreAsync (async)",
+                        "file":  "Protocols\\FileTransfer\\Surl.Extended.Protocol.OciRegistry.UnitLibrary\\OciManifestPush.cs",
+                        "line":  119,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  14,
+                        "crap":  14,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.Extended.Protocol.OciRegistry.UnitLibrary",
+                        "member":  "OciRepositoryCreation.CreateFolder(Surl.Content.ContentStore, Surl.Content.ContentCaller, string[], int, System.Threading.CancellationToken)",
+                        "file":  "Protocols\\FileTransfer\\Surl.Extended.Protocol.OciRegistry.UnitLibrary\\OciRepositoryCreation.cs",
+                        "line":  65,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  14,
+                        "crap":  14,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.Extended.Protocol.OciRegistry.UnitLibrary",
+                        "member":  "OciBlobUploads.MountAsync (async)",
+                        "file":  "Protocols\\FileTransfer\\Surl.Extended.Protocol.OciRegistry.UnitLibrary\\OciBlobUploads.cs",
+                        "line":  210,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  12,
+                        "crap":  12,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.Extended.Protocol.OciRegistry.UnitLibrary",
+                        "member":  "OciPushedManifest.DescriptorDigests(System.Text.Json.JsonElement, string, bool)",
+                        "file":  "Protocols\\FileTransfer\\Surl.Extended.Protocol.OciRegistry.UnitLibrary\\OciPushedManifest.cs",
+                        "line":  95,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  12,
+                        "crap":  12,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.Extended.Protocol.OciRegistry.UnitLibrary",
+                        "member":  "OciRequestAnswerer.AnswerInRepositoryAsync (async)",
+                        "file":  "Protocols\\FileTransfer\\Surl.Extended.Protocol.OciRegistry.UnitLibrary\\OciRequestAnswerer.cs",
+                        "line":  80,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  12,
+                        "crap":  12,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.Extended.Protocol.OciRegistry.UnitLibrary",
+                        "member":  "OciManifestPush.HeadRefusal(Surl.HttpServing.HttpRequest, string, Surl.Extended.Protocol.OciRegistry.OciDigest)",
+                        "file":  "Protocols\\FileTransfer\\Surl.Extended.Protocol.OciRegistry.UnitLibrary\\OciManifestPush.cs",
+                        "line":  66,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  12,
+                        "crap":  12,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.Extended.Protocol.Redis.UnitLibrary",
+                        "member":  "RedisInlineCommandSplitter.ReadEscape(System.ReadOnlySpan\u003cbyte\u003e, int, System.Collections.Generic.List\u003cbyte\u003e)",
+                        "file":  "Protocols\\DataStore\\Surl.Extended.Protocol.Redis.UnitLibrary\\RedisInlineCommandSplitter.cs",
+                        "line":  90,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  20,
+                        "crap":  20,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.Extended.Protocol.Redis.UnitLibrary",
+                        "member":  "RedisCommandReader.ReadBulkStringAsync (async)",
+                        "file":  "Protocols\\DataStore\\Surl.Extended.Protocol.Redis.UnitLibrary\\RedisCommandReader.cs",
+                        "line":  148,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  18,
+                        "crap":  18,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.Extended.Protocol.Redis.UnitLibrary",
+                        "member":  "RedisCommandReader.TryParseHeaderNumber(byte[], out long)",
+                        "file":  "Protocols\\DataStore\\Surl.Extended.Protocol.Redis.UnitLibrary\\RedisCommandReader.cs",
+                        "line":  276,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  16,
+                        "crap":  16,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.Extended.Protocol.Redis.UnitLibrary",
+                        "member":  "RedisPubSub.LeaveBus(Surl.Extended.Protocol.Redis.RedisSubscriber, string, bool)",
+                        "file":  "Protocols\\DataStore\\Surl.Extended.Protocol.Redis.UnitLibrary\\RedisPubSub.cs",
+                        "line":  327,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  14,
+                        "crap":  14,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.Extended.Protocol.Redis.UnitLibrary",
+                        "member":  "RedisSetOptions.WithFlag(string)",
+                        "file":  "Protocols\\DataStore\\Surl.Extended.Protocol.Redis.UnitLibrary\\RedisSetOptions.cs",
+                        "line":  59,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  14,
+                        "crap":  14,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.Extended.Protocol.Redis.UnitLibrary",
+                        "member":  "RedisExpireConditions.TryRead(System.Collections.Generic.IReadOnlyList\u003cbyte[]\u003e, out Surl.Extended.Protocol.Redis.RedisExpireCondition)",
+                        "file":  "Protocols\\DataStore\\Surl.Extended.Protocol.Redis.UnitLibrary\\RedisExpireConditions.cs",
+                        "line":  11,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  14,
+                        "crap":  14,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.Extended.Protocol.Redis.UnitLibrary",
+                        "member":  "RedisStringCommands.Set(Surl.Extended.Protocol.Redis.RedisCommandCall)",
+                        "file":  "Protocols\\DataStore\\Surl.Extended.Protocol.Redis.UnitLibrary\\RedisStringCommands.cs",
+                        "line":  55,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  14,
+                        "crap":  14,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.Extended.Protocol.Redis.UnitLibrary",
+                        "member":  "RedisGlobPattern.IsMatch(System.ReadOnlySpan\u003cchar\u003e, System.ReadOnlySpan\u003cchar\u003e)",
+                        "file":  "Protocols\\DataStore\\Surl.Extended.Protocol.Redis.UnitLibrary\\RedisGlobPattern.cs",
+                        "line":  18,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  12,
+                        "crap":  12,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.Extended.Protocol.Redis.UnitLibrary",
+                        "member":  "RedisPubSub.Subscribe(Surl.Extended.Protocol.Redis.RedisSubscriber, System.Collections.Generic.IReadOnlyList\u003cbyte[]\u003e, bool)",
+                        "file":  "Protocols\\DataStore\\Surl.Extended.Protocol.Redis.UnitLibrary\\RedisPubSub.cs",
+                        "line":  56,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  12,
+                        "crap":  12,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.Extended.Protocol.S3.UnitLibrary",
+                        "member":  "S3Login.ErrorOf(System.Nullable\u003cSurl.Protocol.Abstractions.HttpAuthenticationRefusal\u003e)",
+                        "file":  "Protocols\\FileTransfer\\Surl.Extended.Protocol.S3.UnitLibrary\\S3Login.cs",
+                        "line":  82,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  20,
+                        "crap":  20,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.Extended.Protocol.S3.UnitLibrary",
+                        "member":  "S3ObjectBodyReader.ReadAsync (async)",
+                        "file":  "Protocols\\FileTransfer\\Surl.Extended.Protocol.S3.UnitLibrary\\S3ObjectBodyReader.cs",
+                        "line":  86,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  18,
+                        "crap":  18,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.Extended.Protocol.S3.UnitLibrary",
+                        "member":  "S3ListRequest.Refusal(string, string, string, string)",
+                        "file":  "Protocols\\FileTransfer\\Surl.Extended.Protocol.S3.UnitLibrary\\S3ListRequest.cs",
+                        "line":  67,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  14,
+                        "crap":  14,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.Extended.Protocol.S3.UnitLibrary",
+                        "member":  "S3ChecksumRequest.Read(System.Collections.Generic.IReadOnlyList\u003cSystem.Collections.Generic.KeyValuePair\u003cstring, string\u003e\u003e, Surl.Extended.Protocol.S3.S3PayloadForm, out Surl.Extended.Protocol.S3.S3Error)",
+                        "file":  "Protocols\\FileTransfer\\Surl.Extended.Protocol.S3.UnitLibrary\\S3ChecksumRequest.cs",
+                        "line":  29,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  14,
+                        "crap":  14,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.Extended.Protocol.S3.UnitLibrary",
+                        "member":  "S3ListPage.Names (async)",
+                        "file":  "Protocols\\FileTransfer\\Surl.Extended.Protocol.S3.UnitLibrary\\S3ListPage.cs",
+                        "line":  54,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  12,
+                        "crap":  12,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.Extended.Protocol.S3.UnitLibrary",
+                        "member":  "S3ChecksumRequest.NamingRefusal(string[], string, Surl.Extended.Protocol.S3.S3PayloadForm)",
+                        "file":  "Protocols\\FileTransfer\\Surl.Extended.Protocol.S3.UnitLibrary\\S3ChecksumRequest.cs",
+                        "line":  66,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  12,
+                        "crap":  12,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.Extended.Protocol.SignalR.UnitLibrary",
+                        "member":  "SignalRHubSession.InvokeAsync (async)",
+                        "file":  "Protocols\\Http\\Surl.Extended.Protocol.SignalR.UnitLibrary\\SignalRHubSession.cs",
+                        "line":  304,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  12,
+                        "crap":  12,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.Extended.Protocol.SocketIo.UnitLibrary",
+                        "member":  "SocketIoPacketReader.TryRead(System.ReadOnlyMemory\u003cbyte\u003e, out Surl.Extended.Protocol.SocketIo.SocketIoPacket)",
+                        "file":  "Protocols\\Http\\Surl.Extended.Protocol.SocketIo.UnitLibrary\\SocketIoPacketReader.cs",
+                        "line":  35,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  18,
+                        "crap":  18,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.Extended.Protocol.SocketIo.UnitLibrary",
+                        "member":  "SocketIoPlaceholderCheck.TakeStructure(System.Text.Json.JsonTokenType)",
+                        "file":  "Protocols\\Http\\Surl.Extended.Protocol.SocketIo.UnitLibrary\\SocketIoPlaceholderCheck.cs",
+                        "line":  50,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  12,
+                        "crap":  12,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.Extended.Protocol.SocketIo.UnitLibrary",
+                        "member":  "SocketIoPacketReader.TryReadAttachmentCount(System.ReadOnlySpan\u003cbyte\u003e, ref int, out int)",
+                        "file":  "Protocols\\Http\\Surl.Extended.Protocol.SocketIo.UnitLibrary\\SocketIoPacketReader.cs",
+                        "line":  85,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  12,
+                        "crap":  12,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.Extended.Protocol.WebTransport.UnitLibrary",
+                        "member":  "WebTransportSession.TakeCapsuleAsync (async)",
+                        "file":  "Protocols\\Http\\Surl.Extended.Protocol.WebTransport.UnitLibrary\\WebTransportSession.cs",
+                        "line":  203,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  20,
+                        "crap":  20,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.Extended.Protocol.WebTransport.UnitLibrary",
+                        "member":  "WebTransportConnectAuthentication.RefuseAsync (async)",
+                        "file":  "Protocols\\Http\\Surl.Extended.Protocol.WebTransport.UnitLibrary\\WebTransportConnectAuthentication.cs",
+                        "line":  29,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  16,
+                        "crap":  16,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.Extended.Protocol.Xmpp.UnitLibrary",
+                        "member":  "XmppStanzaRouter.RouteMessageAsync(System.Xml.Linq.XElement, Surl.Extended.Protocol.Xmpp.XmppJid)",
+                        "file":  "Protocols\\Messaging\\Surl.Extended.Protocol.Xmpp.UnitLibrary\\XmppStanzaRouter.cs",
+                        "line":  114,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  24,
+                        "crap":  24,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.Extended.Protocol.Xmpp.UnitLibrary",
+                        "member":  "XmppJid.Parse(string)",
+                        "file":  "Protocols\\Messaging\\Surl.Extended.Protocol.Xmpp.UnitLibrary\\XmppJid.cs",
+                        "line":  23,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  16,
+                        "crap":  16,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.Extended.Protocol.Xmpp.UnitLibrary",
+                        "member":  "XmppStanzaRouter.AnswerIqAsync(System.Xml.Linq.XElement, Surl.Extended.Protocol.Xmpp.XmppJid, string)",
+                        "file":  "Protocols\\Messaging\\Surl.Extended.Protocol.Xmpp.UnitLibrary\\XmppStanzaRouter.cs",
+                        "line":  183,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  16,
+                        "crap":  16,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.Extended.Protocol.Xmpp.UnitLibrary",
+                        "member":  "XmppStanzaRouter.Discovery(string, System.Xml.Linq.XElement, string)",
+                        "file":  "Protocols\\Messaging\\Surl.Extended.Protocol.Xmpp.UnitLibrary\\XmppStanzaRouter.cs",
+                        "line":  242,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  14,
+                        "crap":  14,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.Extended.Protocol.Xmpp.UnitLibrary",
+                        "member":  "XmppStanzaRouter.AnswerAsync(System.Xml.Linq.XElement)",
+                        "file":  "Protocols\\Messaging\\Surl.Extended.Protocol.Xmpp.UnitLibrary\\XmppStanzaRouter.cs",
+                        "line":  73,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  12,
+                        "crap":  12,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.Extended.Protocol.Xmpp.UnitLibrary",
+                        "member":  "XmppStanzaRouter.AnswerPresenceAsync(System.Xml.Linq.XElement, bool)",
+                        "file":  "Protocols\\Messaging\\Surl.Extended.Protocol.Xmpp.UnitLibrary\\XmppStanzaRouter.cs",
+                        "line":  144,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  12,
+                        "crap":  12,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.Extended.Protocol.Xmpp.UnitLibrary",
+                        "member":  "XmppResourceBinding.RequireIqShape(System.Xml.Linq.XElement)",
+                        "file":  "Protocols\\Messaging\\Surl.Extended.Protocol.Xmpp.UnitLibrary\\XmppResourceBinding.cs",
+                        "line":  55,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  12,
+                        "crap":  12,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.Http3.UnitLibrary",
+                        "member":  "Http3RequestStreamServer.HandAsync (async)",
+                        "file":  "Protocols\\Http\\Surl.Http3.UnitLibrary\\Http3RequestStreamServer.cs",
+                        "line":  195,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  14,
+                        "crap":  14,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.Http3.UnitLibrary",
+                        "member":  "Http3ConnectionServer.DeliverDatagramsAsync (async)",
+                        "file":  "Protocols\\Http\\Surl.Http3.UnitLibrary\\Http3ConnectionServer.cs",
+                        "line":  286,
+                        "linePercent":  83.33,
+                        "branchPercent":  100,
+                        "complexity":  1,
+                        "crap":  1,
+                        "fails":  [
+                                      "line"
+                                  ],
+                        "uncoveredLines":  "291"
+                    },
+                    {
+                        "library":  "Surl.HttpServing.UnitLibrary",
+                        "member":  "Http1RequestResponder.AnswerHeadNotReadAsync(Surl.HttpMessage.HttpRequestHeadReadOutcome)",
+                        "file":  "Protocols\\Http\\Surl.HttpServing.UnitLibrary\\Http1RequestResponder.cs",
+                        "line":  66,
+                        "linePercent":  81.25,
+                        "branchPercent":  100,
+                        "complexity":  1,
+                        "crap":  1.01,
+                        "fails":  [
+                                      "line"
+                                  ],
+                        "uncoveredLines":  "75, 76, 78"
+                    },
+                    {
+                        "library":  "Surl.MailStore.UnitLibrary",
+                        "member":  "MailDomainConfiguration..ctor(System.Collections.Generic.IEnumerable\u003cstring\u003e, System.Collections.Generic.IEnumerable\u003cstring\u003e, System.Collections.Generic.IEnumerable\u003cSurl.MailStore.MailAlias\u003e, System.Collections.Generic.IEnumerable\u003cSurl.MailStore.MailCatchAll\u003e, System.Collections.Generic.IEnumerable\u003cSurl.MailStore.MailboxSettings\u003e, System.Collections.Generic.IEnumerable\u003cSurl.MailStore.MailSharedFolder\u003e)",
+                        "file":  "Protocols\\Mail\\Surl.MailStore.UnitLibrary\\MailDomainConfiguration.cs",
+                        "line":  34,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  12,
+                        "crap":  12,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.McpServing.UnitLibrary",
+                        "member":  "McpRequestDispatcher.AnswerRequestAsync(Surl.McpServing.JsonRpcRequest, System.Threading.CancellationToken)",
+                        "file":  "Protocols\\Http\\Surl.McpServing.UnitLibrary\\McpRequestDispatcher.cs",
+                        "line":  76,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  14,
+                        "crap":  14,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.McpServing.UnitLibrary",
+                        "member":  "McpStreamSession.CancelRequest(System.Nullable\u003cSystem.Text.Json.JsonElement\u003e)",
+                        "file":  "Protocols\\Http\\Surl.McpServing.UnitLibrary\\McpStreamSession.cs",
+                        "line":  212,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  12,
+                        "crap":  12,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.MessageBus.UnitLibrary",
+                        "member":  "MessageBusFiles.EncodeQueueIndex(System.Collections.Generic.IReadOnlyCollection\u003cSurl.MessageBus.QueueIndexEntry\u003e)",
+                        "file":  "Protocols\\Messaging\\Surl.MessageBus.UnitLibrary\\MessageBusFiles.cs",
+                        "line":  188,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  14,
+                        "crap":  14,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.MessageBus.UnitLibrary",
+                        "member":  "BatchPlan.AdmitToTopic(Surl.MessageBus.BusMessage)",
+                        "file":  "Protocols\\Messaging\\Surl.MessageBus.UnitLibrary\\MessageBus.Batch.cs",
+                        "line":  145,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  14,
+                        "crap":  14,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.MessageBus.UnitLibrary",
+                        "member":  "MessageBusFiles.DecodeQueueIndexEntry(Surl.MessageBus.BusFileReader, System.Collections.Generic.HashSet\u003culong\u003e, bool)",
+                        "file":  "Protocols\\Messaging\\Surl.MessageBus.UnitLibrary\\MessageBusFiles.cs",
+                        "line":  451,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  12,
+                        "crap":  12,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.Protocol.Dict.UnitLibrary",
+                        "member":  "DictCommandFaults.PathOf(string, System.Collections.Generic.IReadOnlyList\u003cstring\u003e)",
+                        "file":  "Protocols\\Lookup\\Surl.Protocol.Dict.UnitLibrary\\DictCommandFaults.cs",
+                        "line":  62,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  14,
+                        "crap":  14,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.Protocol.Dict.UnitLibrary",
+                        "member":  "DictCommandFaults.Fits(string)",
+                        "file":  "Protocols\\Lookup\\Surl.Protocol.Dict.UnitLibrary\\DictCommandFaults.cs",
+                        "line":  77,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  12,
+                        "crap":  12,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.Protocol.Http.UnitLibrary",
+                        "member":  "HttpRequestAnswerer.FileAnswer(Surl.HttpServing.HttpRequest, Surl.Content.ContentPathMapping, Surl.Content.ContentFileStatus, System.Collections.Generic.IReadOnlyList\u003cstring\u003e)",
+                        "file":  "Protocols\\Http\\Surl.Protocol.Http.UnitLibrary\\HttpRequestAnswerer.cs",
+                        "line":  291,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  16,
+                        "crap":  16,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.Protocol.Http.UnitLibrary",
+                        "member":  "HttpRequestAnswerer.StoreUploadAsync (async)",
+                        "file":  "Protocols\\Http\\Surl.Protocol.Http.UnitLibrary\\HttpRequestAnswerer.Uploads.cs",
+                        "line":  93,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  12,
+                        "crap":  12,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.Protocol.HttpProxy.UnitLibrary",
+                        "member":  "OriginResponseHead.ParseStatusLine(byte[])",
+                        "file":  "Protocols\\Http\\Surl.Protocol.HttpProxy.UnitLibrary\\OriginResponseHead.cs",
+                        "line":  34,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  18,
+                        "crap":  18,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.Protocol.HttpProxy.UnitLibrary",
+                        "member":  "FtpFetch.Of(Surl.Protocol.HttpProxy.ProxyTarget, Surl.HttpMessage.HttpRequestHead)",
+                        "file":  "Protocols\\Http\\Surl.Protocol.HttpProxy.UnitLibrary\\FtpFetch.cs",
+                        "line":  48,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  18,
+                        "crap":  18,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.Protocol.HttpProxy.UnitLibrary",
+                        "member":  "ProxyTarget.ParseAuthority(string, int)",
+                        "file":  "Protocols\\Http\\Surl.Protocol.HttpProxy.UnitLibrary\\ProxyTarget.cs",
+                        "line":  78,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  18,
+                        "crap":  18,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.Protocol.HttpProxy.UnitLibrary",
+                        "member":  "OriginLink.ReadFieldsAsync (async)",
+                        "file":  "Protocols\\Http\\Surl.Protocol.HttpProxy.UnitLibrary\\OriginLink.cs",
+                        "line":  85,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  16,
+                        "crap":  16,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.Protocol.HttpProxy.UnitLibrary",
+                        "member":  "OriginResponseBody.Of(string, Surl.Protocol.HttpProxy.OriginResponseHead)",
+                        "file":  "Protocols\\Http\\Surl.Protocol.HttpProxy.UnitLibrary\\OriginResponseBody.cs",
+                        "line":  24,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  14,
+                        "crap":  14,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.Protocol.HttpProxy.UnitLibrary",
+                        "member":  "FtpControlConnection.ReplyCode(string)",
+                        "file":  "Protocols\\Http\\Surl.Protocol.HttpProxy.UnitLibrary\\FtpControlConnection.cs",
+                        "line":  112,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  14,
+                        "crap":  14,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.Protocol.HttpProxy.UnitLibrary",
+                        "member":  "HttpProxyExchange.AnswerForwardableAsync (async)",
+                        "file":  "Protocols\\Http\\Surl.Protocol.HttpProxy.UnitLibrary\\HttpProxyExchange.Forwarding.cs",
+                        "line":  74,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  14,
+                        "crap":  14,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.Protocol.HttpProxy.UnitLibrary",
+                        "member":  "Http2ProxyStreamHandler.SendBodyAsync (async)",
+                        "file":  "Protocols\\Http\\Surl.Protocol.HttpProxy.UnitLibrary\\Http2ProxyStreamHandler.cs",
+                        "line":  246,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  12,
+                        "crap":  12,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.Protocol.HttpProxy.UnitLibrary",
+                        "member":  "ProxyTarget.FromAbsoluteForm(string)",
+                        "file":  "Protocols\\Http\\Surl.Protocol.HttpProxy.UnitLibrary\\ProxyTarget.cs",
+                        "line":  35,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  12,
+                        "crap":  12,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.Protocol.HttpProxy.UnitLibrary",
+                        "member":  "OriginResponseHead.ParseFieldLine(byte[])",
+                        "file":  "Protocols\\Http\\Surl.Protocol.HttpProxy.UnitLibrary\\OriginResponseHead.cs",
+                        "line":  53,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  12,
+                        "crap":  12,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.Protocol.Ldap.UnitLibrary",
+                        "member":  "LdapSession.ChosenResultOf(string)",
+                        "file":  "Protocols\\Messaging\\Surl.Protocol.Ldap.UnitLibrary\\LdapSession.Faults.cs",
+                        "line":  68,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  18,
+                        "crap":  18,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.Protocol.Socks.UnitLibrary",
+                        "member":  "Socks5Exchange.JudgeLoginAsync (async)",
+                        "file":  "Protocols\\Proxy\\Surl.Protocol.Socks.UnitLibrary\\Socks5Exchange.cs",
+                        "line":  157,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  14,
+                        "crap":  14,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.Protocol.Socks.UnitLibrary",
+                        "member":  "Socks5RequestReader.ReadAddressAsync (async)",
+                        "file":  "Protocols\\Proxy\\Surl.Protocol.Socks.UnitLibrary\\Socks5RequestReader.cs",
+                        "line":  52,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  11,
+                        "crap":  11,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.Protocol.Ssh.UnitLibrary",
+                        "member":  "SshCommandFaults.TryReadSftpStatus(string, out Surl.Protocol.Ssh.SftpStatusCode, out string)",
+                        "file":  "Protocols\\FileTransfer\\Surl.Protocol.Ssh.UnitLibrary\\SshCommandFaults.cs",
+                        "line":  91,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  14,
+                        "crap":  14,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.Quic.UnitLibrary",
+                        "member":  "QuicLossDetection.IsPersistentCongestion(System.Collections.Generic.IReadOnlyList\u003cSurl.Quic.QuicSentPacket\u003e)",
+                        "file":  "Protocols\\Http\\Surl.Quic.UnitLibrary\\QuicLossDetection.cs",
+                        "line":  120,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  18,
+                        "crap":  18,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.Quic.UnitLibrary",
+                        "member":  "QuicStreams.Refresh(Surl.Quic.QuicFrame)",
+                        "file":  "Protocols\\Http\\Surl.Quic.UnitLibrary\\QuicStreams.cs",
+                        "line":  96,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  16,
+                        "crap":  16,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    },
+                    {
+                        "library":  "Surl.Quic.UnitLibrary",
+                        "member":  "QuicServerConnection.SendConnectionCloseAgain()",
+                        "file":  "Protocols\\Http\\Surl.Quic.UnitLibrary\\QuicServerConnection.Closing.cs",
+                        "line":  83,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  12,
+                        "crap":  12,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    }
+                ],
+    "exclusions":  [
+                       {
+                           "file":  "Application\\Surl.Composition.UnitLibrary\\DataDirectoryLock.cs",
+                           "line":  31,
+                           "text":  "[ExcludeFromCodeCoverage(Justification = \"Asks the disk; covered by the integration tests in DataDirectoryLockTests.\")]"
+                       },
+                       {
+                           "file":  "Application\\Surl.Composition.UnitLibrary\\DataDirectoryProbe.cs",
+                           "line":  17,
+                           "text":  "[ExcludeFromCodeCoverage(Justification = \"Asks the disk; covered by the integration tests in DataDirectoryProbeTests.\")]"
+                       },
+                       {
+                           "file":  "Application\\Surl.Console\\LogFile.cs",
+                           "line":  23,
+                           "text":  "[ExcludeFromCodeCoverage(Justification = \"Opens a file on disk; covered by the integration tests in LogFileTests.\")]"
+                       },
+                       {
+                           "file":  "Application\\Surl.Control.UnitLibrary\\ControlJson.cs",
+                           "line":  156,
+                           "text":  "[ExcludeFromCodeCoverage(Justification = \"Its body is written by the System.Text.Json source generator, not by Surl; the shapes it serializes are pinned byte for byte by the endpoint\u0027s tests.\")]"
+                       },
+                       {
+                           "file":  "Conformance\\Surl.Conformance.UnitLibrary\\CurlPortClientRunner.cs",
+                           "line":  69,
+                           "text":  "[ExcludeFromCodeCoverage]"
+                       },
+                       {
+                           "file":  "Conformance\\Surl.Conformance.UnitLibrary\\CurlPortClientRunner.cs",
+                           "line":  93,
+                           "text":  "[ExcludeFromCodeCoverage]"
+                       },
+                       {
+                           "file":  "Conformance\\Surl.Conformance.UnitLibrary\\CurlPortTestCaseClient.cs",
+                           "line":  24,
+                           "text":  "[ExcludeFromCodeCoverage]"
+                       },
+                       {
+                           "file":  "Conformance\\Surl.Conformance.UnitLibrary\\FileSystemUpstreamCurlFileAccess.cs",
+                           "line":  10,
+                           "text":  "[ExcludeFromCodeCoverage]"
+                       },
+                       {
+                           "file":  "Conformance\\Surl.Conformance.UnitLibrary\\UpstreamCurlRunner.cs",
+                           "line":  64,
+                           "text":  "[ExcludeFromCodeCoverage]"
+                       },
+                       {
+                           "file":  "Conformance\\Surl.Conformance.UnitLibrary\\UpstreamCurlRunner.cs",
+                           "line":  81,
+                           "text":  "[ExcludeFromCodeCoverage]"
+                       },
+                       {
+                           "file":  "Conformance\\Surl.Conformance.UnitLibrary\\UpstreamCurlRunner.cs",
+                           "line":  100,
+                           "text":  "[ExcludeFromCodeCoverage]"
+                       },
+                       {
+                           "file":  "Conformance\\Surl.Conformance.UnitLibrary\\UpstreamCurlRunner.cs",
+                           "line":  122,
+                           "text":  "[ExcludeFromCodeCoverage]"
+                       },
+                       {
+                           "file":  "Conformance\\Surl.Conformance.UnitLibrary\\UpstreamCurlTestCaseClient.cs",
+                           "line":  22,
+                           "text":  "[ExcludeFromCodeCoverage]"
+                       },
+                       {
+                           "file":  "Foundation\\Surl.Content.UnitLibrary\\DiskContentFileSystem.cs",
+                           "line":  23,
+                           "text":  "[ExcludeFromCodeCoverage(Justification = \"Covered by the Integration tests in Surl.Content.UnitTests.\")]"
+                       },
+                       {
+                           "file":  "Foundation\\Surl.Content.UnitLibrary\\DiskContentFileSystem.cs",
+                           "line":  45,
+                           "text":  "[ExcludeFromCodeCoverage(Justification = \"Covered by the Integration tests in Surl.Content.UnitTests.\")]"
+                       },
+                       {
+                           "file":  "Foundation\\Surl.Content.UnitLibrary\\DiskContentFileSystem.cs",
+                           "line":  71,
+                           "text":  "[ExcludeFromCodeCoverage(Justification = \"Covered by the Integration tests in Surl.Content.UnitTests.\")]"
+                       },
+                       {
+                           "file":  "Foundation\\Surl.Content.UnitLibrary\\DiskContentFileSystem.cs",
+                           "line":  77,
+                           "text":  "[ExcludeFromCodeCoverage(Justification = \"Covered by the Integration tests in Surl.Content.UnitTests.\")]"
+                       },
+                       {
+                           "file":  "Foundation\\Surl.Content.UnitLibrary\\DiskContentFileSystem.cs",
+                           "line":  88,
+                           "text":  "[ExcludeFromCodeCoverage(Justification = \"Covered by the Integration tests in Surl.Content.UnitTests.\")]"
+                       },
+                       {
+                           "file":  "Foundation\\Surl.Content.UnitLibrary\\DiskContentFileSystem.cs",
+                           "line":  105,
+                           "text":  "[ExcludeFromCodeCoverage(Justification = \"Covered by the Integration tests in Surl.Content.UnitTests.\")]"
+                       },
+                       {
+                           "file":  "Foundation\\Surl.Content.UnitLibrary\\DiskContentFileSystem.cs",
+                           "line":  118,
+                           "text":  "[ExcludeFromCodeCoverage(Justification = \"Covered by the Integration tests in Surl.Content.UnitTests.\")]"
+                       },
+                       {
+                           "file":  "Foundation\\Surl.Content.UnitLibrary\\DiskContentFileSystem.cs",
+                           "line":  135,
+                           "text":  "[ExcludeFromCodeCoverage(Justification = \"Covered by the Integration tests in Surl.Content.UnitTests.\")]"
+                       },
+                       {
+                           "file":  "Foundation\\Surl.Content.UnitLibrary\\DiskContentFileSystem.cs",
+                           "line":  148,
+                           "text":  "[ExcludeFromCodeCoverage(Justification = \"Covered by the Integration tests in Surl.Content.UnitTests.\")]"
+                       },
+                       {
+                           "file":  "Foundation\\Surl.Content.UnitLibrary\\DiskContentFileSystem.cs",
+                           "line":  154,
+                           "text":  "[ExcludeFromCodeCoverage(Justification = \"Covered by the Integration tests in Surl.Content.UnitTests.\")]"
+                       },
+                       {
+                           "file":  "Foundation\\Surl.Content.UnitLibrary\\DiskContentFileSystem.cs",
+                           "line":  162,
+                           "text":  "[ExcludeFromCodeCoverage(Justification = \"Covered by the Integration tests in Surl.Content.UnitTests.\")]"
+                       },
+                       {
+                           "file":  "Foundation\\Surl.Content.UnitLibrary\\DiskContentFileSystem.cs",
+                           "line":  173,
+                           "text":  "[ExcludeFromCodeCoverage(Justification = \"Covered by the Integration tests in Surl.Content.UnitTests.\")]"
+                       },
+                       {
+                           "file":  "Foundation\\Surl.Content.UnitLibrary\\DiskContentFileSystem.cs",
+                           "line":  189,
+                           "text":  "[ExcludeFromCodeCoverage(Justification = \"Covered by the Integration tests in Surl.Content.UnitTests.\")]"
+                       },
+                       {
+                           "file":  "Foundation\\Surl.Content.UnitLibrary\\DiskContentFileSystem.cs",
+                           "line":  195,
+                           "text":  "[ExcludeFromCodeCoverage(Justification = \"Covered by the Integration tests in Surl.Content.UnitTests.\")]"
+                       },
+                       {
+                           "file":  "Foundation\\Surl.Content.UnitLibrary\\DiskContentFileSystem.cs",
+                           "line":  202,
+                           "text":  "[ExcludeFromCodeCoverage(Justification = \"Covered by the Integration tests in Surl.Content.UnitTests.\")]"
+                       },
+                       {
+                           "file":  "Foundation\\Surl.Networking.UnitLibrary\\SharedPortListenerPair.cs",
+                           "line":  56,
+                           "text":  "[ExcludeFromCodeCoverage(Justification = \"Binds sockets; covered by the integration tests.\")]"
+                       },
+                       {
+                           "file":  "Foundation\\Surl.Networking.UnitLibrary\\SocketDataConnectionSockets.cs",
+                           "line":  16,
+                           "text":  "[ExcludeFromCodeCoverage(Justification = \"Binds a socket; covered by the integration tests.\")]"
+                       },
+                       {
+                           "file":  "Foundation\\Surl.Networking.UnitLibrary\\SocketDataConnectionSockets.cs",
+                           "line":  41,
+                           "text":  "[ExcludeFromCodeCoverage(Justification = \"Connects a socket; covered by the integration tests.\")]"
+                       },
+                       {
+                           "file":  "Foundation\\Surl.Networking.UnitLibrary\\SocketDataConnectionSockets.cs",
+                           "line":  61,
+                           "text":  "[ExcludeFromCodeCoverage(Justification = \"Wraps a connected socket; covered by the integration tests.\")]"
+                       },
+                       {
+                           "file":  "Foundation\\Surl.Networking.UnitLibrary\\SocketDataConnectionSockets.cs",
+                           "line":  70,
+                           "text":  "[ExcludeFromCodeCoverage(Justification = \"Wraps a listening socket; covered by the integration tests.\")]"
+                       },
+                       {
+                           "file":  "Foundation\\Surl.Networking.UnitLibrary\\SocketListenerFactory.cs",
+                           "line":  36,
+                           "text":  "[ExcludeFromCodeCoverage(Justification = \"Delegates to the listeners\u0027 StartAsync, which bind sockets; covered by SocketListenerFactoryTests and UnixSocketConnectionListenerTests.\")]"
+                       },
+                       {
+                           "file":  "Foundation\\Surl.Networking.UnitLibrary\\SocketListenerFactory.cs",
+                           "line":  43,
+                           "text":  "[ExcludeFromCodeCoverage(Justification = \"Delegates to UdpDatagramListener.StartAsync, which binds sockets; covered by the integration tests.\")]"
+                       },
+                       {
+                           "file":  "Foundation\\Surl.Networking.UnitLibrary\\SocketListenerFactory.cs",
+                           "line":  54,
+                           "text":  "[ExcludeFromCodeCoverage(Justification = \"Delegates to SharedPortListenerPair.StartAsync, which binds sockets; covered by its integration tests.\")]"
+                       },
+                       {
+                           "file":  "Foundation\\Surl.Networking.UnitLibrary\\SocketTransportControl.cs",
+                           "line":  16,
+                           "text":  "[ExcludeFromCodeCoverage(Justification = \"Constructed only over an accepted socket; covered by the integration tests.\")]"
+                       },
+                       {
+                           "file":  "Foundation\\Surl.Networking.UnitLibrary\\SocketTransportControl.cs",
+                           "line":  20,
+                           "text":  "[ExcludeFromCodeCoverage(Justification = \"Calls Socket.Shutdown; covered by the integration tests.\")]"
+                       },
+                       {
+                           "file":  "Foundation\\Surl.Networking.UnitLibrary\\SocketTransportControl.cs",
+                           "line":  26,
+                           "text":  "[ExcludeFromCodeCoverage(Justification = \"Sets Socket.LingerState and calls Socket.Close; covered by the integration tests.\")]"
+                       },
+                       {
+                           "file":  "Foundation\\Surl.Networking.UnitLibrary\\TcpConnectionListener.cs",
+                           "line":  27,
+                           "text":  "[ExcludeFromCodeCoverage(Justification = \"Reads Socket.LocalEndPoint; covered by the integration tests.\")]"
+                       },
+                       {
+                           "file":  "Foundation\\Surl.Networking.UnitLibrary\\TcpConnectionListener.cs",
+                           "line":  41,
+                           "text":  "[ExcludeFromCodeCoverage(Justification = \"Set only by the socket-reading constructor; covered by the integration tests.\")]"
+                       },
+                       {
+                           "file":  "Foundation\\Surl.Networking.UnitLibrary\\TcpConnectionListener.cs",
+                           "line":  49,
+                           "text":  "[ExcludeFromCodeCoverage(Justification = \"Set only by the socket-reading constructor; covered by the integration tests.\")]"
+                       },
+                       {
+                           "file":  "Foundation\\Surl.Networking.UnitLibrary\\TcpConnectionListener.cs",
+                           "line":  66,
+                           "text":  "[ExcludeFromCodeCoverage(Justification = \"Calls Dns and binds sockets; covered by the integration tests.\")]"
+                       },
+                       {
+                           "file":  "Foundation\\Surl.Networking.UnitLibrary\\TcpConnectionListener.cs",
+                           "line":  84,
+                           "text":  "[ExcludeFromCodeCoverage(Justification = \"Calls Dns and binds sockets; covered by the integration tests.\")]"
+                       },
+                       {
+                           "file":  "Foundation\\Surl.Networking.UnitLibrary\\TcpConnectionListener.cs",
+                           "line":  101,
+                           "text":  "[ExcludeFromCodeCoverage(Justification = \"Accepts a socket; covered by the integration tests.\")]"
+                       },
+                       {
+                           "file":  "Foundation\\Surl.Networking.UnitLibrary\\TcpConnectionListener.cs",
+                           "line":  111,
+                           "text":  "[ExcludeFromCodeCoverage(Justification = \"Disposes sockets; covered by the integration tests.\")]"
+                       },
+                       {
+                           "file":  "Foundation\\Surl.Networking.UnitLibrary\\TcpConnectionListener.cs",
+                           "line":  122,
+                           "text":  "[ExcludeFromCodeCoverage(Justification = \"Binds a socket; covered by the integration tests.\")]"
+                       },
+                       {
+                           "file":  "Foundation\\Surl.Networking.UnitLibrary\\TcpConnectionListener.cs",
+                           "line":  147,
+                           "text":  "[ExcludeFromCodeCoverage(Justification = \"Reads Socket.LocalEndPoint; covered by the integration tests.\")]"
+                       },
+                       {
+                           "file":  "Foundation\\Surl.Networking.UnitLibrary\\TcpConnectionListener.cs",
+                           "line":  151,
+                           "text":  "[ExcludeFromCodeCoverage(Justification = \"Reads Socket.LocalEndPoint; covered by the integration tests.\")]"
+                       },
+                       {
+                           "file":  "Foundation\\Surl.Networking.UnitLibrary\\TcpConnectionListener.cs",
+                           "line":  155,
+                           "text":  "[ExcludeFromCodeCoverage(Justification = \"Disposes a socket; covered by the integration tests.\")]"
+                       },
+                       {
+                           "file":  "Foundation\\Surl.Networking.UnitLibrary\\TcpConnectionListener.cs",
+                           "line":  159,
+                           "text":  "[ExcludeFromCodeCoverage(Justification = \"Disposes a socket; covered by the integration tests.\")]"
+                       },
+                       {
+                           "file":  "Foundation\\Surl.Networking.UnitLibrary\\TcpConnectionListener.cs",
+                           "line":  163,
+                           "text":  "[ExcludeFromCodeCoverage(Justification = \"Wraps an accepted socket; covered by the integration tests.\")]"
+                       },
+                       {
+                           "file":  "Foundation\\Surl.Networking.UnitLibrary\\TcpConnectionListener.cs",
+                           "line":  177,
+                           "text":  "[ExcludeFromCodeCoverage(Justification = \"Accepts on a socket; covered by the integration tests.\")]"
+                       },
+                       {
+                           "file":  "Foundation\\Surl.Networking.UnitLibrary\\TcpConnectionListener.cs",
+                           "line":  196,
+                           "text":  "[ExcludeFromCodeCoverage(Justification = \"Made only from an accepted socket; covered by the integration tests.\")]"
+                       },
+                       {
+                           "file":  "Foundation\\Surl.Networking.UnitLibrary\\UdpDatagramListener.cs",
+                           "line":  53,
+                           "text":  "[ExcludeFromCodeCoverage(Justification = \"Resolves with Dns and binds sockets; covered by the integration tests.\")]"
+                       },
+                       {
+                           "file":  "Foundation\\Surl.Networking.UnitLibrary\\UdpDatagramSocket.cs",
+                           "line":  22,
+                           "text":  "[ExcludeFromCodeCoverage(Justification = \"Reads Socket.LocalEndPoint; covered by the integration tests.\")]"
+                       },
+                       {
+                           "file":  "Foundation\\Surl.Networking.UnitLibrary\\UdpDatagramSocket.cs",
+                           "line":  34,
+                           "text":  "[ExcludeFromCodeCoverage(Justification = \"Set only by the socket-reading constructor; covered by the integration tests.\")]"
+                       },
+                       {
+                           "file":  "Foundation\\Surl.Networking.UnitLibrary\\UdpDatagramSocket.cs",
+                           "line":  46,
+                           "text":  "[ExcludeFromCodeCoverage(Justification = \"Binds a socket; covered by the integration tests.\")]"
+                       },
+                       {
+                           "file":  "Foundation\\Surl.Networking.UnitLibrary\\UdpDatagramSocket.cs",
+                           "line":  72,
+                           "text":  "[ExcludeFromCodeCoverage(Justification = \"Calls Socket.ReceiveFromAsync; covered by the integration tests.\")]"
+                       },
+                       {
+                           "file":  "Foundation\\Surl.Networking.UnitLibrary\\UdpDatagramSocket.cs",
+                           "line":  82,
+                           "text":  "[ExcludeFromCodeCoverage(Justification = \"Calls Socket.SendToAsync; covered by the integration tests.\")]"
+                       },
+                       {
+                           "file":  "Foundation\\Surl.Networking.UnitLibrary\\UdpDatagramSocket.cs",
+                           "line":  88,
+                           "text":  "[ExcludeFromCodeCoverage(Justification = \"Disposes a socket; covered by the integration tests.\")]"
+                       },
+                       {
+                           "file":  "Foundation\\Surl.Networking.UnitLibrary\\UnixSocketConnectionListener.cs",
+                           "line":  33,
+                           "text":  "[ExcludeFromCodeCoverage(Justification = \"Constructed only over a bound socket; covered by UnixSocketConnectionListenerTests.\")]"
+                       },
+                       {
+                           "file":  "Foundation\\Surl.Networking.UnitLibrary\\UnixSocketConnectionListener.cs",
+                           "line":  49,
+                           "text":  "[ExcludeFromCodeCoverage(Justification = \"Set only by the socket-reading constructor; covered by UnixSocketConnectionListenerTests.\")]"
+                       },
+                       {
+                           "file":  "Foundation\\Surl.Networking.UnitLibrary\\UnixSocketConnectionListener.cs",
+                           "line":  56,
+                           "text":  "[ExcludeFromCodeCoverage(Justification = \"Reads the bound endpoint; covered by UnixSocketConnectionListenerTests.\")]"
+                       },
+                       {
+                           "file":  "Foundation\\Surl.Networking.UnitLibrary\\UnixSocketConnectionListener.cs",
+                           "line":  76,
+                           "text":  "[ExcludeFromCodeCoverage(Justification = \"Binds a socket; covered by UnixSocketConnectionListenerTests.\")]"
+                       },
+                       {
+                           "file":  "Foundation\\Surl.Networking.UnitLibrary\\UnixSocketConnectionListener.cs",
+                           "line":  105,
+                           "text":  "[ExcludeFromCodeCoverage(Justification = \"Accepts a socket; covered by UnixSocketConnectionListenerTests.\")]"
+                       },
+                       {
+                           "file":  "Foundation\\Surl.Networking.UnitLibrary\\UnixSocketConnectionListener.cs",
+                           "line":  124,
+                           "text":  "[ExcludeFromCodeCoverage(Justification = \"Disposes a socket and deletes its file; covered by UnixSocketConnectionListenerTests.\")]"
+                       },
+                       {
+                           "file":  "Foundation\\Surl.Networking.UnitLibrary\\UnixSocketConnectionListener.cs",
+                           "line":  135,
+                           "text":  "[ExcludeFromCodeCoverage(Justification = \"Binds a socket; covered by UnixSocketConnectionListenerTests.\")]"
+                       },
+                       {
+                           "file":  "Foundation\\Surl.Networking.UnitLibrary\\UnixSocketConnectionListener.cs",
+                           "line":  160,
+                           "text":  "[ExcludeFromCodeCoverage(Justification = \"Calls File.SetUnixFileMode off Windows; covered by UnixSocketConnectionListenerTests.\")]"
+                       },
+                       {
+                           "file":  "Foundation\\Surl.Networking.UnitLibrary\\UnixSocketConnectionListener.cs",
+                           "line":  169,
+                           "text":  "[ExcludeFromCodeCoverage(Justification = \"Deletes a file; covered by UnixSocketConnectionListenerTests.\")]"
+                       },
+                       {
+                           "file":  "Foundation\\Surl.Networking.UnitLibrary\\UnixSocketConnectionListener.cs",
+                           "line":  181,
+                           "text":  "[ExcludeFromCodeCoverage(Justification = \"Deletes a file; covered by UnixSocketConnectionListenerTests.\")]"
+                       },
+                       {
+                           "file":  "Foundation\\Surl.Networking.UnitLibrary\\UnixSocketConnectionListener.cs",
+                           "line":  190,
+                           "text":  "[ExcludeFromCodeCoverage(Justification = \"Deletes a file; covered by UnixSocketConnectionListenerTests.\")]"
+                       },
+                       {
+                           "file":  "Foundation\\Surl.Networking.UnitLibrary\\UnixSocketConnectionListener.cs",
+                           "line":  203,
+                           "text":  "[ExcludeFromCodeCoverage(Justification = \"Reads the file system; covered by UnixSocketConnectionListenerTests.\")]"
+                       },
+                       {
+                           "file":  "Foundation\\Surl.Networking.UnitLibrary\\UnixSocketConnectionListener.cs",
+                           "line":  206,
+                           "text":  "[ExcludeFromCodeCoverage(Justification = \"Classifies a socket or file failure; covered by UnixSocketConnectionListenerTests.\")]"
+                       },
+                       {
+                           "file":  "Foundation\\Surl.Networking.UnitLibrary\\UnixSocketConnectionListener.cs",
+                           "line":  215,
+                           "text":  "[ExcludeFromCodeCoverage(Justification = \"Reads Socket.RemoteEndPoint; covered by UnixSocketConnectionListenerTests.\")]"
+                       },
+                       {
+                           "file":  "Foundation\\Surl.Networking.UnitLibrary\\UnixSocketConnectionListener.cs",
+                           "line":  228,
+                           "text":  "[ExcludeFromCodeCoverage(Justification = \"Disposes a socket; covered by UnixSocketConnectionListenerTests.\")]"
+                       },
+                       {
+                           "file":  "Foundation\\Surl.Networking.UnitLibrary\\UnixSocketConnectionListener.cs",
+                           "line":  231,
+                           "text":  "[ExcludeFromCodeCoverage(Justification = \"Accepts on a socket; covered by UnixSocketConnectionListenerTests.\")]"
+                       }
+                   ]
+}
