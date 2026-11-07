@@ -8,7 +8,7 @@ depends-on: [BL-532]
 touches: [Documentation/Conformance/Extended/Stomp.md]
 requirement: none
 created: 2026-11-05
-completed:
+completed: 2026-11-06
 ---
 # BL-863 — Trace the STOMP matrix's BL-532 rows to their named tests
 
@@ -26,12 +26,14 @@ Every row of `Documentation/Conformance/Extended/Stomp.md` that names BL-532 nam
 
 ## Acceptance criteria
 
-- [ ] `Documentation/Conformance/Extended/Stomp.md` names no BL-532; each such row names an existing test method by
+- [x] `Documentation/Conformance/Extended/Stomp.md` names no BL-532; each such row names an existing test method by
       `Class.Method`.
-- [ ] Each named test exists (`grep` finds the method in `Surl.Extended.Protocol.Stomp.UnitTests`).
+- [x] Each named test exists (`grep` finds the method in `Surl.Extended.Protocol.Stomp.UnitTests`).
 
 ## Notes
 
 ## Log
 
 - 2026-11-05: Created.
+- 2026-11-06: Backlog -> Doing.
+- 2026-11-06: Doing -> Done. Stomp.md names existing tests for all 36 BL-532 rows and the two partial BL-532 mentions; every named test checked to exist
