@@ -575,3 +575,23 @@ Costs and caveats:
   host (decision 2).
 - The matrix is `Documentation/Conformance/Extended/AzureStorage.md` (ADR-0083 decision 9), one file
   for both endpoints.
+
+## Amendment, 2026-11-06 (BL-425)
+
+Decided by Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), while building Put Blob and
+List Blobs, on points decisions 3.1, 5.3 and 5.6 left open. BL-737 recorded them here, because BL-503 held
+this folder when BL-425 finished:
+
+- **List Blobs needs `--list-directories`** (decision 5.3); without it, it is
+  `403 AuthorizationPermissionMismatch`. A listing is a directory listing in ADR-0006's sense, as ADR-0108
+  holds for S3's ListObjectsV2, so it is off by default.
+- **A Put Blob body that is unreadable or cut short** (an unknown transfer coding, or fewer bytes than
+  declared) is `400 InvalidInput`, the common code for bad request input (decision 5.6). A chunked body is
+  served, as decision 4 allows.
+- **Query parameter errors** (decision 3.1): `OutOfRangeQueryParameterValue` carries
+  `QueryParameterName`, `QueryParameterValue` and `MinimumAllowed` (`1`), and List Blobs'
+  `InvalidQueryParameterValue` carries a fixed `Reason` for each parameter.
+- **The List Blobs page** (decision 5.3) writes `Etag` without quotes and an absent property as an empty
+  element, as the operation page's example writes them. Blobs and `BlobPrefix` elements come interleaved in
+  name order. `include=metadata` writes `<Metadata />` for a blob with none, and the page's other `include`
+  values (and `deletedwithversions`) are accepted and add nothing.

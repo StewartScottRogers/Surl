@@ -8,7 +8,7 @@ depends-on: [BL-425]
 touches: [Documentation/Planning/Decisions/ADR-0109-how-the-azure-storage-server-answers-az-abfs-and-abfss.md]
 requirement: none
 created: 2026-11-05
-completed:
+completed: 2026-11-06
 ---
 # BL-737 — Record BL-425's List Blobs and Put Blob choices in ADR-0109
 
@@ -23,11 +23,13 @@ ADR-0109 records the choices BL-425 made where the ADR was silent, marked "Decid
 
 ## Acceptance criteria
 
-- [ ] ADR-0109 decisions 3.1, 5.3 and 5.6 (or an amendment section) state each choice in BL-425's Notes, with why, marked "Decided by Claude under Stewart's delegation".
-- [ ] Every statement agrees with `Protocols/FileTransfer/Surl.Extended.Protocol.AzureStorage.UnitLibrary/CLAUDE.md`.
+- [x] ADR-0109 decisions 3.1, 5.3 and 5.6 (or an amendment section) state each choice in BL-425's Notes, with why, marked "Decided by Claude under Stewart's delegation".
+- [x] Every statement agrees with `Protocols/FileTransfer/Surl.Extended.Protocol.AzureStorage.UnitLibrary/CLAUDE.md`.
 
 ## Notes
 
 ## Log
 
 - 2026-11-05: Created.
+- 2026-11-06: Backlog -> Doing.
+- 2026-11-06: Doing -> Done. ADR-0109 has the BL-425 amendment recording its List Blobs and Put Blob choices, each checked against the library and its CLAUDE.md
