@@ -39,6 +39,16 @@ Linux and macOS conformance legs, and its URL is recorded here.
 
 ## Notes
 
+Checked 2026-11-06 by the interactive session: CI run https://github.com/StewartScottRogers/Surl/actions/runs/42291259804
+(PR #23, merged, CI "success") contains BL-371's commits, but all 12 `UpstreamCurlFetchesFromSurlOverHttp2Tests`
+are **Skipped** (Inconclusive) on both `ubuntu-latest` and `macos-latest` - not passed; the run is green only
+because a skip is not a failure. On Linux and macOS the test calls `PinnedUpstreamCurl.RunAsync` (the reference
+build), and the same legs pass 1300 / 1237 other conformance tests, so the reference build is installed;
+the skip reason is not in the log. Find why these 12 go Inconclusive there (run with `--logger "console;verbosity=detailed"`
+on a Linux leg, or read `PinnedUpstreamCurl`'s Inconclusive paths) and make them run.
+
 ## Log
 
 - 2026-11-05: Created.
+- 2026-11-06: Backlog -> Doing.
+- 2026-11-06: Doing -> Backlog. Not confirmable yet: on CI run 42291259804 all 12 HTTP/2 conformance tests are skipped (Inconclusive) on Linux and macOS, not passed; findings in Notes for a lane to investigate
