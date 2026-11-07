@@ -8,7 +8,7 @@ depends-on: [BL-498]
 touches: [Documentation/Planning/Decisions]
 requirement: none
 created: 2026-11-05
-completed:
+completed: 2026-11-06
 ---
 # BL-721 — Record the message bus's No Local publish and after-delivery hook in ADR-0100
 
@@ -36,9 +36,9 @@ true of `Surl.MessageBus.UnitLibrary` again.
 
 ## Acceptance criteria
 
-- [ ] ADR-0100 decision 3.3's table (or an amendment section) names `BusConnection.Publish`, the
+- [x] ADR-0100 decision 3.3's table (or an amendment section) names `BusConnection.Publish`, the
       `noLocal` subscribe option and `BusConnection.AfterMessageDelivered`, each with its reason.
-- [ ] `Documentation/Planning/Decisions/README.md` still lists ADR-0100 with its amendment noted, if
+- [x] `Documentation/Planning/Decisions/README.md` still lists ADR-0100 with its amendment noted, if
       the ADR's header changes.
 
 ## Notes
@@ -46,3 +46,5 @@ true of `Surl.MessageBus.UnitLibrary` again.
 ## Log
 
 - 2026-11-05: Created.
+- 2026-11-06: Backlog -> Doing.
+- 2026-11-06: Doing -> Done. ADR-0100 decision 3.3 records BusConnection.Publish, No Local subscriptions and AfterMessageDelivered with their reasons; the README row notes ADR-0100's amendments

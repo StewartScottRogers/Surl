@@ -174,8 +174,8 @@ same list.
 ### 2. Who performs which handshake
 
 - **Implicit TLS is the engine's.** `IConnectionListener.AcceptAsync` returns a plaintext
-  connection for every scheme. For a listen URL whose scheme `TlsSchemes.IsImplicitTls`
-  names, `Surl.Core`'s engine - after the connection-limit check (a connection past a
+  connection for every scheme. For a listen URL whose `ListenUrl.IsImplicitTls` is true (by
+  default `TlsSchemes.IsImplicitTls` of its scheme; see Amendment 1), `Surl.Core`'s engine - after the connection-limit check (a connection past a
   limit is closed without a handshake, ADR-0006 section 5) - calls
   `UpgradeToTlsAsync` with the exchange's head-timeout token (ADR-0006 section 4), and
   only then calls `ServeAsync`. So an `https` server receives a connection whose
@@ -350,3 +350,22 @@ BL-012's tests hold on all three platforms because:
   other member keeps its meaning.
 - ADR-0005's table gains two rows, as its "Consequences" says a later failure does.
 - Changing any of this is a new ADR that supersedes this one.
+
+## Amendment 1 (2026-11-06): each listen URL says whether it is TLS from the first byte
+
+Decided by Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), recording what BL-1020
+built; BL-1033 wrote it here because BL-1005 held this folder when BL-1020 finished.
+
+- **`ListenUrl.IsImplicitTls`** (`Surl.Protocol.Abstractions`) says whether a connection accepted on
+  that listen URL starts with a TLS handshake. It is init-only; unless set, it is
+  `TlsSchemes.IsImplicitTls(Scheme)`, so every listen URL that sets nothing behaves as section 2
+  first said. The composition may set it per listen URL, as `ListenUrl.IsProxy` is set (ADR-0088
+  Amendment 2).
+- **`ServingEngine` reads it twice**: for the implicit handshake (`SecureThenServeAsync`), and for
+  whether a refused connection gets the server's `IConnectionRefusalWriter` (`RefuseAsync`). A
+  connection that would need a TLS handshake first is closed without a refusal written, as section 2
+  says for a connection past a limit.
+- **Why per listen URL, not per scheme:** one process, or many `Surl.Api` instances side by side,
+  can serve `s3`, `az`, `gs` or `oci` in plain text on one listener and over TLS on another, with no
+  static mutable state (root `CLAUDE.md`, "Surl is a stand-in for tests"). `--s3-plaintext`
+  (BL-1021) is the first to set it.

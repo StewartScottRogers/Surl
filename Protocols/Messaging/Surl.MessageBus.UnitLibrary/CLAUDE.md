@@ -123,9 +123,10 @@ What it holds now (BL-629):
   with `Default…` constants (ADR-0100 decision 3.6). Every refusal a peer can cause is a
   `MessageBusOutcome`, never an exception, and past a bound nothing changes. A full queue
   refuses only its own copy of a topic publish. The publish still succeeds, and
-  `BusPublishResult.FullQueueCount` counts the refusals. The queue outcomes that ADR-0100
-  does not name yet (`InvalidQueueName`, `UnknownQueue`, `QueueLocked`, `QueueFlagsDiffer`,
-  `UnknownDeliveryTag`) follow AMQP 0-9-1's 404, 405 and 406. BL-694 adds them to the ADR.
+  `BusPublishResult.FullQueueCount` counts the refusals. The five queue outcomes
+  (`InvalidQueueName`, `UnknownQueue`, `QueueLocked`, `QueueFlagsDiffer`,
+  `UnknownDeliveryTag`) follow AMQP 0-9-1's 404, 405 and 406. ADR-0100 decision 3.6 records
+  them, with each queue server's answer.
 
 - **Native forms (BL-706).** `BusMessage.NativeForm` is a `BusNativeForm(Format, Bytes)`: a publisher's own
   encoding of the message, `Format` its lower-case scheme family name (`amqp1` for the AMQP 1.0
@@ -219,9 +220,10 @@ What it holds now (BL-629):
   and `Restore` puts it back. It is persisted as `.surl/bus/offsets` (`SURL-BUS-OFFSETS-1`, see
   `MessageBusFiles`' remarks) and rewritten whole by `SaveChangesAsync` after a commit.
 
-Not here yet, each its own task: the MQTT 3.1.1 server's move onto the bus (BL-635), and
-each server passing its caller's account and mapping through `Names` (BL-665 for MQTT, the
-extended brokers' routing tasks).
+The original `mqtt` and `mqtts` server keeps its retained messages on this bus (BL-635):
+`MqttProtocolServer` takes the run's `MessageBus`, which `Surl.Composition` composes and loads
+once per run (`ProtocolServerRegistrations`). That server passes its caller's account to the
+bus's access checks (BL-665), as do the extended brokers through their routing tasks.
 
 This library may reference `Surl.Protocol.Abstractions.UnitLibrary` and
 `Surl.Content.UnitLibrary` (for `IContentFileSystem`) and nothing else (ADR-0100 decision

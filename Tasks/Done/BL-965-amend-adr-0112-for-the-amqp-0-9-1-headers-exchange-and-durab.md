@@ -8,7 +8,7 @@ depends-on: [BL-732]
 touches: [Documentation/Planning/Decisions/ADR-0112-how-the-amqp-0-9-1-broker-answers-amqp-and-amqps.md]
 requirement: none
 created: 2026-11-06
-completed:
+completed: 2026-11-06
 ---
 # BL-965 — Amend ADR-0112 for the AMQP 0-9-1 headers exchange and durable exchanges BL-732 serves
 
@@ -37,7 +37,7 @@ ADR-0112 states what the broker now does for the headers exchange and durable ex
 
 ## Acceptance criteria
 
-- [ ] ADR-0112 no longer says the headers exchange or durable exchanges wait for BL-732, and states each
+- [x] ADR-0112 no longer says the headers exchange or durable exchanges wait for BL-732, and states each
       behaviour listed under Context, marked as an amendment decided by Claude under Stewart's delegation.
 
 ## Notes
@@ -45,3 +45,5 @@ ADR-0112 states what the broker now does for the headers exchange and durable ex
 ## Log
 
 - 2026-11-06: Created.
+- 2026-11-06: Backlog -> Doing.
+- 2026-11-06: Doing -> Done. ADR-0112 states the headers exchange match rules and durable exchanges persisted in .surl/amqp0/exchanges, with no sentence waiting for BL-732

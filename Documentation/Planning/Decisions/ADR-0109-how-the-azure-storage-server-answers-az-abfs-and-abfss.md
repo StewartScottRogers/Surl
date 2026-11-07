@@ -408,8 +408,15 @@ The codes the server sends, each with the status its page gives it:
   "By default, the destination is overwritten"), visibly, through the content store's upload
   session; `x-ms-content-type`, `x-ms-content-encoding`, `x-ms-content-language`,
   `x-ms-content-disposition`, `x-ms-cache-control` and `x-ms-properties` go to the metadata index.
-- **`action=append&position=<n>`** stages the body at `n` under ADR-0100's
-  `.surl/objects/uploads/<upload id>/`, one staging per path, invisible to every protocol; `202`.
+- **`action=append&position=<n>`** stages the body at `n` in the file's staging, one staging per path, invisible to every
+  protocol; `202`. (Amended 2026-11-06 by BL-759, recording BL-426's decision, decided by Claude
+  under Stewart's delegation: the staging is a `ContentUploadSession` started from the file's
+  committed bytes - the content store's own dot-file beside the target, `.surl-upload-<guid>`,
+  which no protocol serves or lists - renamed over the file on flush, not ADR-0100's
+  `.surl/objects/uploads/<upload id>/`, which the content store has no API to write. It gives the
+  invisibility, the `--max-filesize` bound and the atomic commit this decision asks for.
+  `AzureStagingArea` serves appends, flushes and block requests one at a time across the server,
+  because an upload session is not safe for concurrent use.)
   `flush=true` on an append appends and then flushes to `n` plus the body's length.
 - **`action=flush&position=<n>`** commits: the staged data must cover the committed length to `n`
   without a gap or overlap, else **`400 InvalidFlushPosition`**; the file becomes its committed bytes
@@ -568,3 +575,23 @@ Costs and caveats:
   host (decision 2).
 - The matrix is `Documentation/Conformance/Extended/AzureStorage.md` (ADR-0083 decision 9), one file
   for both endpoints.
+
+## Amendment, 2026-11-06 (BL-425)
+
+Decided by Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), while building Put Blob and
+List Blobs, on points decisions 3.1, 5.3 and 5.6 left open. BL-737 recorded them here, because BL-503 held
+this folder when BL-425 finished:
+
+- **List Blobs needs `--list-directories`** (decision 5.3); without it, it is
+  `403 AuthorizationPermissionMismatch`. A listing is a directory listing in ADR-0006's sense, as ADR-0108
+  holds for S3's ListObjectsV2, so it is off by default.
+- **A Put Blob body that is unreadable or cut short** (an unknown transfer coding, or fewer bytes than
+  declared) is `400 InvalidInput`, the common code for bad request input (decision 5.6). A chunked body is
+  served, as decision 4 allows.
+- **Query parameter errors** (decision 3.1): `OutOfRangeQueryParameterValue` carries
+  `QueryParameterName`, `QueryParameterValue` and `MinimumAllowed` (`1`), and List Blobs'
+  `InvalidQueryParameterValue` carries a fixed `Reason` for each parameter.
+- **The List Blobs page** (decision 5.3) writes `Etag` without quotes and an absent property as an empty
+  element, as the operation page's example writes them. Blobs and `BlobPrefix` elements come interleaved in
+  name order. `include=metadata` writes `<Metadata />` for a blob with none, and the page's other `include`
+  values (and `deletedwithversions`) are accepted and add nothing.

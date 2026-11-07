@@ -8,7 +8,7 @@ depends-on: []
 touches: [Foundation/Surl.Authentication.UnitLibrary/CLAUDE.md]
 requirement: none
 created: 2026-11-05
-completed:
+completed: 2026-11-06
 ---
 # BL-841 — Say in Surl.Authentication's CLAUDE.md that the SCRAM --auth words exist
 
@@ -30,12 +30,14 @@ ADR-0125.
 
 ## Acceptance criteria
 
-- [ ] The section no longer says there is no `--auth` word for SCRAM; it says both are out of the
+- [x] The section no longer says there is no `--auth` word for SCRAM; it says both are out of the
       default set and offered only when `--auth` names `scram-sha-256` or `scram-sha-1`.
-- [ ] The section links ADR-0125.
+- [x] The section links ADR-0125.
 
 ## Notes
 
 ## Log
 
 - 2026-11-05: Created.
+- 2026-11-06: Backlog -> Doing.
+- 2026-11-06: Doing -> Done. Surl.Authentication's SCRAM section says both are offered only when --auth names them, and links ADR-0125

@@ -415,8 +415,10 @@ server starts it with `CanCarrySecurityLayer` (BL-329, below), and is `RefusedMe
 - `ScramSaslExchange` is RFC 5802 and RFC 7677 without channel binding, the mechanism ADR-0084
   decision 4 puts here for the extended servers (XMPP first, then Kafka). `AuthenticationMethod`
   has `ScramSha256` and `ScramSha1`, offered after `GSSAPI` and before `DIGEST-MD5`; neither is
-  in `AuthenticationMethods.DefaultAccepted` and `Surl.Console` has no `--auth` word for them
-  yet, so no original server offers them.
+  in `AuthenticationMethods.DefaultAccepted`, so the original servers offer them only when
+  `--auth` names `scram-sha-256` or `scram-sha-1` (`Surl.Cli`, BL-575): `surl --auth scram-sha-256`
+  makes SMTP, IMAP and POP3 offer it. ADR-0125 records the SCRAM decisions
+  ([ADR-0125](../../Documentation/Planning/Decisions/ADR-0125-sasl-scram-sha-1-and-scram-sha-256-in-surl-authentication.md)).
 - `AccountBook.FindScramCredentials` holds each named account's `ScramCredentials` (salt,
   4096 iterations, `StoredKey`, `ServerKey`) per `ScramHash`, derived at start-up over a random
   16-byte salt; an unknown name gets a dummy whose salt is an HMAC of the name, the same every

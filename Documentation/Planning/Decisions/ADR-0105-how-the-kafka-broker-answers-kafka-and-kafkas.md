@@ -397,3 +397,37 @@ on points decision 4 and the guide leave open:
 - **All or nothing** holds for every check the broker can make before it publishes; a `StoreFull` met
   by the bus part of the way through a partition keeps the records before it until the bus can append
   a list whole (BL-754).
+
+## Amendment, 2026-11-05 (BL-520)
+
+Decided by Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), while building Fetch
+(v4 to v11) and ListOffsets (v1 to v5) in `KafkaFetchAnswerer`, `KafkaListOffsetsAnswerer`,
+`KafkaFetchableTopic` and `KafkaRecordBatchWriter`, on points this ADR and the guide leave open.
+BL-763 recorded them here, because BL-452 held this folder when BL-520 finished:
+
+- **A fetch from the middle of a produced batch** gets one batch holding the rest of it. Producer
+  batch boundaries are not kept (decision 4), and a served batch starts exactly at `fetch_offset`.
+- **The first batch is always written whole**, even past the limit, so a fetch always makes
+  progress. Later partitions get records only within what is left of `max_bytes`, and none when
+  nothing is left (zero-length `records`).
+- **Limits count encoded bytes**: the 61-byte batch header (`KafkaRecordBatchWriter.BatchHeaderBytes`)
+  plus each encoded record, not the bus's `LogRecordBytes`. The bus read is bounded by the same
+  number.
+- **Topic checks** for Fetch and ListOffsets run in this order: an invalid name is
+  `INVALID_TOPIC_EXCEPTION` (17), a partition other than 0 is `UNKNOWN_TOPIC_OR_PARTITION` (3), no
+  Subscribe right on the topic is `TOPIC_AUTHORIZATION_FAILED` (29), and a topic with no log is 3.
+  Access comes before existence, so a refused caller cannot probe which topics exist, as in Metadata.
+  Both need Subscribe rights (ADR-0102's Kafka row).
+- **A failed partition** answers -1 for `high_watermark`, `last_stable_offset` and
+  `log_start_offset` (Fetch), or `timestamp`, `offset` and `leader_epoch` (ListOffsets), with
+  zero-length `records`, as Produce does (the BL-519 amendment).
+- **`aborted_transactions`** is always an empty array, never null, and empty `records` are zero
+  length, never null.
+- **The wait** subscribes a bus connection under the caller's account to each readable topic and
+  reads again on each delivery. When the deadline passes it reads once more, so a message delivered
+  as the deadline fires is not lost. A negative `max_wait_ms` or `min_bytes` means no wait.
+- **Fetch sessions** (v7 on) are not kept: `session_id` is answered 0, a request continuing a
+  session (`session_id` above 0) is `FETCH_SESSION_ID_NOT_FOUND` (70) with no topics, and
+  `session_epoch` is not checked.
+- **ListOffsets** answers `timestamp` -1 for the -2 (earliest) and -1 (latest) queries, and
+  `leader_epoch` 0 on success.

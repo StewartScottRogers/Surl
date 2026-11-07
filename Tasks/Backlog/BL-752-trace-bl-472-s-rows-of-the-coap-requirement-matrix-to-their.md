@@ -39,3 +39,5 @@ Filed by BL-472: the matrix file was outside its `touches`.
 ## Log
 
 - 2026-11-05: Created.
+- 2026-11-06: Backlog -> Doing.
+- 2026-11-06: Doing -> Backlog. Released unstarted by the interactive session: 66 rows to trace one by one; better as a lane's full run

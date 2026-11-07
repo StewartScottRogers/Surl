@@ -10,6 +10,9 @@
   (decision 8). BL-730 gives `Surl.MessageBus` the queue operations decisions 5 and 6 need,
   BL-731 serves transactions and publisher confirms (decision 6), and BL-732 the headers exchange
   and durable exchanges across restarts (decision 5).
+- **Amended:** decisions 5 and 6 by their own text (2026-11-06, BL-965, recording BL-732): the
+  headers exchange (decision 5, "Headers exchange") and durable exchanges persisted across restarts
+  (decision 6's storage paragraph).
 - **Builds on:** [ADR-0083](ADR-0083-how-surl-serves-the-curl-ports-extended-protocols-and-how-they-are-tested.md)
   (the oracle is the specification; the Curl port is never proof),
   [ADR-0084](ADR-0084-the-libraries-the-extended-servers-share-for-http-1-1-websocket-and-dtls.md)
@@ -191,8 +194,8 @@ Nothing below is taken from the port's output, and no expected byte comes from i
 | `amq.direct` | direct | the queues bound with a binding key equal to the routing key |
 | `amq.fanout` | fanout | every queue bound to it |
 | `amq.topic` | topic | **the bus's topic space**: a publish is `MessageBus.Publish` on the canonical topic `AmqpTopicExchangeNames.ToCanonicalTopic` maps the routing key to, and a binding is the bus's `BindQueue` to the filter `ToCanonicalFilter` maps the binding key to (ADR-0100 decision 3.2) |
-| `amq.headers`, `amq.match` | headers | BL-732 |
-| declared exchanges | direct, fanout, topic; headers with BL-732 | inside the broker, onto bus queues with `MessageBus.PublishToQueue` (ADR-0100 decision 3.2's "other exchanges" row); a declared topic exchange matches keys itself, by section 3.1.3.3's rules, and is not the bus's topic space |
+| `amq.headers`, `amq.match` | headers | inside the broker: `Amqp0HeadersMatcher` matches each binding's arguments against the message's `headers` (see "Headers exchange" below) |
+| declared exchanges | direct, fanout, topic, headers | inside the broker, onto bus queues with `MessageBus.PublishToQueue` (ADR-0100 decision 3.2's "other exchanges" row); a declared topic exchange matches keys itself, by section 3.1.3.3's rules, and is not the bus's topic space |
 
 - **`exchange.declare`** (40.10):
   - a name that is not a non-empty run of letters, digits, `-`, `_`, `.` and `:` is a channel
@@ -201,14 +204,14 @@ Nothing below is taken from the port's output, and no expected byte comes from i
     `declare`/`reserved`); the default exchange cannot be declared at all (rule
     `exchange`/`default-access`), and naming `""` is **`403`**;
   - `passive` and the exchange missing: **`404`**;
-  - a type other than `direct`, `fanout`, `topic` (and `headers` once BL-732 serves it): connection
+  - a type other than `direct`, `fanout`, `topic` or `headers`: connection
     exception **`503` `COMMAND_INVALID`** (rule `declare`/`support`);
   - an existing exchange redeclared with another type: connection exception **`530`
     `NOT_ALLOWED`** (rule `declare`/`typed`); with the same type but another `durable` or other
     `arguments`: channel exception **`406`**, as `queue.declare` treats unequal flags, since nothing
     else would tell the client its declaration was not what it got;
-  - `durable` is kept; until BL-732 a durable exchange lives for the server's life and is not
-    persisted. `reserved-2` (auto-delete) and `reserved-3` (internal) are read and ignored, as
+  - `durable` is kept, and a durable declared exchange and its bindings persist across restarts
+    under `--directory` (decision 6's storage paragraph). `reserved-2` (auto-delete) and `reserved-3` (internal) are read and ignored, as
     0-9-1 reserves them. `arguments` mean nothing to the broker and are kept only for the equality
     check;
   - answered `declare-ok` (40.11) unless `no-wait` is set.
@@ -261,6 +264,14 @@ Nothing below is taken from the port's output, and no expected byte comes from i
   any other client just stops receiving.
 - **`no-wait`** is honoured on every method that has it: no `-ok` is sent, and a failure is still
   the exception the method would have raised.
+- **Headers exchange** (amended 2026-11-06 by BL-965, recording what BL-732 built; decided by Claude
+  under Stewart's delegation). `Amqp0HeadersMatcher` matches a binding's arguments against the
+  message's `headers` table. `x-match` is `all` (the default) or `any`; entries whose name starts
+  with `x-` are not matched; a void entry matches the header's presence, and any other entry matches
+  a header with the same type octet and the same bytes. `all` with no entry to match takes every
+  message, and `any` with none takes none. A `queue.bind` to a headers exchange with any other
+  `x-match` is channel exception **`406`**. Each `Amqp0Binding` keeps its arguments, which tell two
+  bindings apart only on a headers exchange.
 
 ### 6. The basic class, `mandatory`, and storage (XML class `basic`; section 4.2.6)
 
@@ -378,8 +389,11 @@ Nothing below is taken from the port's output, and no expected byte comes from i
 - **Storage across restarts is the bus's** (ADR-0100 decision 3.7): durable queues, their messages
   (transient ones too) and their `amq.topic` bindings persist under `--directory <path>` in
   `<path>/.surl/bus`, with each message's native form (BL-706); exclusive and auto-delete queues do
-  not. Durable exchanges other than the pre-declared ones and their bindings persist with BL-732;
-  until then they last the server's life. Without `--directory` everything is in memory.
+  not. Durable exchanges other than the pre-declared ones, and their bindings, persist in
+  `<path>/.surl/amqp0/exchanges` (`Amqp0ExchangeFiles`, whose remarks give the bytes), read once
+  before serving and saved after each channel frame that changed them; a failed write is noted and
+  serving goes on. A malformed file is refused as `Amqp0ExchangeLoadException`, which the composition
+  answers with exit code 37. Without `--directory` everything is in memory.
 
 ### 7. Exceptions (XML reply-code constants)
 
@@ -399,10 +413,10 @@ Nothing below is taken from the port's output, and no expected byte comes from i
 | Code | Kind | Sent when |
 | --- | --- | --- |
 | 311 `CONTENT_TOO_LARGE` | channel | body size above `--max-filesize`; the bus's `MessageTooLarge` |
-| 403 `ACCESS_REFUSED` | channel; connection for a refused login | topic access (ADR-0102 decision 3.4); an `amq.` name; the default exchange; deleting a `--queue` queue; an exclusive consumer refused; a refused login (decision 2) |
+| 403 `ACCESS_REFUSED` | channel; connection for a refused login | topic access (ADR-0102 decision 3.4); an `amq.` name; the default exchange; deleting a `--queue` queue; an exclusive consumer refused (the bus's `ExclusiveConsumeRefused`); a refused login (decision 2) |
 | 404 `NOT_FOUND` | channel | a missing exchange or queue; `""` with no queue declared on the channel |
 | 405 `RESOURCE_LOCKED` | channel | another open connection's exclusive queue |
-| 406 `PRECONDITION_FAILED` | channel | bad names; unequal redeclaration; `if-unused`/`if-empty`; an unknown delivery tag; a bad `expiration` |
+| 406 `PRECONDITION_FAILED` | channel | bad names; unequal redeclaration; `if-unused`/`if-empty` (the bus's `QueueInUse` and `QueueNotEmpty`); an unknown delivery tag; a bad `expiration` |
 | 501 `FRAME_ERROR` | connection | a frame-end other than `0xCE`; a frame above frame-max; an unknown frame type; a heartbeat off channel 0 (section 4.2.3, 4.2.7) |
 | 502 `SYNTAX_ERROR` | connection | a method's arguments do not decode (a short field, a bad field-table type octet, a size past the frame) |
 | 503 `COMMAND_INVALID` | connection | a method only a client receives (`basic.deliver`, `connection.start`, ...) sent by the client; an unsupported exchange type |
@@ -413,6 +427,10 @@ Nothing below is taken from the port's output, and no expected byte comes from i
 | 540 `NOT_IMPLEMENTED` | connection | a class or method the broker does not serve: `tx` and `confirm` until BL-731, `exchange.bind`/`unbind` (40.30, 40.40) and every other extension |
 | 541 `INTERNAL_ERROR` | connection | a fault inside the broker, also noted with `IExchangeLog.Note` |
 | 320 `CONNECTION_FORCED` | connection | `--idle-timeout`, `--max-time`, or the server stopping, once `open-ok` was sent |
+
+The bus's `NoReadyConsumer` (a publish with `immediate` that no consumer can take now) is not an
+exception: it is decision 6's `basic.return` with **`313` `NO_CONSUMERS`** (amended 2026-11-06, BL-742,
+recording BL-730).
 
 - **Before `connection.open-ok`** no exception is negotiated except decision 2's `403` and decision
   4's `530`: every other fault closes the connection with no bytes.
@@ -479,8 +497,9 @@ Nothing below is taken from the port's output, and no expected byte comes from i
 - `Surl.MessageBus` gains queue inspection, purge, single get, conditional delete, exclusive
   consumers, a publish to consumed queues only, a consumer stop that keeps its deliveries, and two
   priority levels (BL-730); BL-506 depends on it and on BL-706's native form.
-- Transactions and publisher confirms wait for BL-731; the headers exchange and durable exchanges
-  across restarts for BL-732.
+- Transactions and publisher confirms wait for BL-731. The headers exchange and durable exchanges
+  across restarts are served (BL-732; see "Headers exchange" in decision 5 and decision 6's storage
+  paragraph).
 - The requirement matrix [`Amqp0.md`](../../Conformance/Extended/Amqp0.md) traces each
   server-side requirement to BL-504, BL-505, BL-506, BL-730, BL-731 or BL-732; each task replaces
   its ID with the named test.

@@ -8,6 +8,9 @@
   limits (decisions 4, 6 and 7). BL-467 serves the stdio session (decision 5's library half). BL-468
   serves all three schemes from `surl` (decision 5's command-line half and decision 8). BL-722 serves
   the OAuth 2.1 authorization server (decision 6.3).
+- **Amended:** decisions 1 and 2 in place (2026-11-06, BL-747, recording BL-465's departures): one registry
+  per session, the refusal table, the added failure texts, where `--max-filesize` is checked, the
+  message limit, `write_file`'s path without its leading `/`, and each tool's `title`.
 - **Builds on:** [ADR-0083](ADR-0083-how-surl-serves-the-curl-ports-extended-protocols-and-how-they-are-tested.md)
   (the oracle is the specification; the Curl port is never proof; default ports; `--aihelp` shape;
   the matrix), [ADR-0084](ADR-0084-the-libraries-the-extended-servers-share-for-http-1-1-websocket-and-dtls.md)
@@ -98,7 +101,10 @@ The name is confirmed: it is the server side of the port's McpClient and says wh
 Streamable HTTP) and `Surl.Content` (the tools' files), all on ADR-0002 decision 3's table as amended.
 It references no original server and no other extended server.
 
-- **One registry per server.** The server builds one `McpServerRegistry` at start (decision 2's tools,
+- **One registry per session** (amended 2026-11-06, BL-747). The server builds one `McpServerRegistry`
+  per session (`McpServerTools.CreateRegistry(store, caller, maximumMessageBytes)`), because a tool's
+  handler receives only its arguments and token and every file operation runs as the session's caller
+  (decision 2's tools,
   no resource provider), with `serverInfo` `{"name": "surl", "title": "Surl MCP server", "version":
   <surl's informational version>}` and the `instructions` "This server lists, reads and, when uploads
   are allowed, writes the files Surl serves. Paths are '/'-separated and relative to the served
@@ -130,7 +136,8 @@ offer it.
 Result: a well-formed UTF-8 file is one `text` block holding its text; any other file is one `resource`
 block (an embedded resource) with `uri` `file:///<path>`, `mimeType` `application/octet-stream` and the
 bytes as `blob` (base64). A file whose answer would pass the message limit (decision 7) is `isError`
-`the file is larger than this server returns in one message`.
+`the file is larger than this server returns in one message` when the file's length, its JSON-escaped
+text or its base64 passes `--max-message`. A folder is `isError` `the path is a folder, not a file`.
 
 **`write_file`** - "Create or replace one file Surl serves." Schema: `path` (string, required,
 `minLength` 1), `text` (string) and `base64` (string), `additionalProperties: false`; exactly one of
@@ -138,7 +145,10 @@ bytes as `blob` (base64). A file whose answer would pass the message limit (deci
 `isError` `give exactly one of text and base64`. Result: the text `wrote <n> bytes to <path>` and
 `structuredContent` `{"path", "size"}`. **Registered only under `--allow-uploads`** (ADR-0006 section
 2), so without it a call is the core's `-32602 Invalid params: unknown tool write_file`. A file past
-`--max-filesize` is `isError` before anything is written.
+`--max-filesize` is `isError` and leaves the target untouched: `ContentStore.WriteUploadAsync` checks it while
+writing to a temporary file, which it deletes. A `base64` that does not decode is `isError`
+`base64 is not valid base64`. The result's text and `structuredContent.path` name the path without its
+leading `/`.
 
 **`echo`** - "Return the text it is given, unchanged." Schema: `text` (string, required). Result: one
 text block holding `text`. It is the tool a client checks a session with, and touches nothing.
@@ -152,14 +162,17 @@ the path's resolution:
 
 | Failure | `isError` text |
 | --- | --- |
-| No such file or folder, or one the caller's share access hides | `no such file or folder` |
-| A path the content store refuses (outside the root, `..`, a dot-file, `.surl`) | `the path is refused` |
-| A write the caller's share access denies | `writing is not permitted` |
+| No such file or folder, one the caller's share access hides, a dot-file without `--serve-dot-files`, or `.surl` (`Surl.Content` answers them as absent) | `no such file or folder` |
+| Any `ContentPathRefusal`: `..`, a drive or colon, a separator in a segment, `//`, a device name, a link out of the root | `the path is refused` |
+| A write the caller's share access denies, or a write to a dot-file, a read-only share or a missing folder | `writing is not permitted` |
+| `list_directory` on a file | `the path is a file, not a folder` |
 | A file past `--max-filesize` on write | `the file is larger than --max-filesize` |
 | A read past the message limit | `the file is larger than this server returns in one message` |
 
 A hidden file and a missing one answer alike, as ADR-0102 decision 2.3 answers a denied read. Argument
 errors (a missing `path`, a wrong type) are the core's `-32602`, as the Tools page separates them.
+
+Each tool has a `title` (amended 2026-11-06, BL-747): `List a folder`, `Read a file`, `Write a file` and `Echo`.
 
 ### 3. Version negotiation
 

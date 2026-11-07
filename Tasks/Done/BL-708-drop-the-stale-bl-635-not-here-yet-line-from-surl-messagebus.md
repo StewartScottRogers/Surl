@@ -8,7 +8,7 @@ depends-on: [BL-635]
 touches: [Protocols/Messaging/Surl.MessageBus.UnitLibrary]
 requirement: none
 created: 2026-11-05
-completed:
+completed: 2026-11-06
 ---
 # BL-708 — Drop the stale BL-635 'not here yet' line from Surl.MessageBus's CLAUDE.md
 
@@ -28,13 +28,15 @@ since BL-635.
 
 ## Acceptance criteria
 
-- [ ] `Protocols/Messaging/Surl.MessageBus.UnitLibrary/CLAUDE.md` no longer lists BL-635 as not here yet, and
+- [x] `Protocols/Messaging/Surl.MessageBus.UnitLibrary/CLAUDE.md` no longer lists BL-635 as not here yet, and
       says the original `mqtt`/`mqtts` server keeps its retained messages on the bus (`MqttProtocolServer`,
       composed in `Surl.Composition`).
-- [ ] Every other statement in that file is still true of the code (BL-664's state included).
+- [x] Every other statement in that file is still true of the code (BL-664's state included).
 
 ## Notes
 
 ## Log
 
 - 2026-11-05: Created.
+- 2026-11-06: Backlog -> Doing.
+- 2026-11-06: Doing -> Done. Surl.MessageBus CLAUDE.md says the original mqtt server keeps its retained messages on the bus and passes its account to the access checks; the stale not-here-yet paragraph is gone

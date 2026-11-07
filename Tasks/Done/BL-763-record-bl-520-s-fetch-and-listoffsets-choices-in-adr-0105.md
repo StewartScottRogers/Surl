@@ -8,7 +8,7 @@ depends-on: [BL-520]
 touches: [Documentation/Planning/Decisions/ADR-0105-how-the-kafka-broker-answers-kafka-and-kafkas.md]
 requirement: none
 created: 2026-11-05
-completed:
+completed: 2026-11-06
 ---
 # BL-763 — Record BL-520's Fetch and ListOffsets choices in ADR-0105
 
@@ -28,7 +28,7 @@ delegation", in the style of the BL-519 amendment, true of the code as it is.
 
 ## Acceptance criteria
 
-- [ ] ADR-0105 has an `Amendment, 2026-11-05 (BL-520)` section stating each choice under BL-520's
+- [x] ADR-0105 has an `Amendment, 2026-11-05 (BL-520)` section stating each choice under BL-520's
       Notes, and each statement is true of the Kafka library's code.
 
 ## Notes
@@ -36,3 +36,5 @@ delegation", in the style of the BL-519 amendment, true of the code as it is.
 ## Log
 
 - 2026-11-05: Created.
+- 2026-11-06: Backlog -> Doing.
+- 2026-11-06: Doing -> Done. ADR-0105 has the BL-520 amendment recording its Fetch and ListOffsets choices, each checked against the Kafka library

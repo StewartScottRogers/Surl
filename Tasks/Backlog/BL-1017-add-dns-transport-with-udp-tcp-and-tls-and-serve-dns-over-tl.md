@@ -4,7 +4,7 @@ title: Add --dns-transport with udp, tcp and tls and serve DNS over TLS with ALP
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-1032]
+depends-on: [BL-1032, BL-1020]
 touches: [Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests, Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests, Foundation/Surl.Networking.UnitLibrary, Foundation/Surl.Networking.UnitTests]
 requirement: none
 created: 2026-11-06
@@ -52,3 +52,5 @@ RFC 7858) on that port's protocols as ADR-0092 decision 5 says, with the DoT han
 ## Log
 
 - 2026-11-06: Created.
+- 2026-11-06: Backlog -> Doing.
+- 2026-11-06: Doing -> Backlog. Released by the interactive session unstarted: it needs a TLS-from-the-first-byte dns listener, which BL-1020 builds, so it should depend on BL-1020; no work done

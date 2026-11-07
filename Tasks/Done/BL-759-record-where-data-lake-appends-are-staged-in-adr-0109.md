@@ -8,7 +8,7 @@ depends-on: [BL-426]
 touches: [Documentation/Planning/Decisions/ADR-0109-how-the-azure-storage-server-answers-az-abfs-and-abfss.md]
 requirement: none
 created: 2026-11-05
-completed:
+completed: 2026-11-06
 ---
 # BL-759 — Record where Data Lake appends are staged in ADR-0109
 
@@ -30,12 +30,14 @@ ADR-0109 decision 5.5 says where Data Lake appends are staged and how they are s
 
 ## Acceptance criteria
 
-- [ ] ADR-0109 decision 5.5 names the upload session beside the target as the staging place and says
+- [x] ADR-0109 decision 5.5 names the upload session beside the target as the staging place and says
       appends and flushes are served one at a time, marked as amended by BL-426's decision.
-- [ ] `Protocols/FileTransfer/Surl.Extended.Protocol.AzureStorage.UnitLibrary/CLAUDE.md` and the ADR agree.
+- [x] `Protocols/FileTransfer/Surl.Extended.Protocol.AzureStorage.UnitLibrary/CLAUDE.md` and the ADR agree.
 
 ## Notes
 
 ## Log
 
 - 2026-11-05: Created.
+- 2026-11-06: Backlog -> Doing.
+- 2026-11-06: Doing -> Done. ADR-0109 decision 5.5 names the upload session beside the target as the staging place and AzureStagingArea's one-at-a-time serving, agreeing with the library's CLAUDE.md

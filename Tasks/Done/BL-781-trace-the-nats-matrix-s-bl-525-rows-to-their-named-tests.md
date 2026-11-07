@@ -8,7 +8,7 @@ depends-on: [BL-525]
 touches: [Documentation/Conformance/Extended/Nats.md]
 requirement: none
 created: 2026-11-05
-completed:
+completed: 2026-11-06
 ---
 # BL-781 — Trace the NATS matrix's BL-525 rows to their named tests
 
@@ -33,8 +33,8 @@ the tests that prove it instead.
 
 ## Acceptance criteria
 
-- [ ] `Documentation/Conformance/Extended/Nats.md` contains no `BL-525`.
-- [ ] Each row that said `BL-525` names at least one existing test method as
+- [x] `Documentation/Conformance/Extended/Nats.md` contains no `BL-525`.
+- [x] Each row that said `BL-525` names at least one existing test method as
       `ClassName.MethodName`, and each named test exists in
       `Surl.Extended.Protocol.Nats.UnitTests`.
 
@@ -43,3 +43,5 @@ the tests that prove it instead.
 ## Log
 
 - 2026-11-05: Created.
+- 2026-11-06: Backlog -> Doing.
+- 2026-11-06: Doing -> Done. Nats.md names existing test methods for all 28 BL-525 rows; every test the matrix names was checked to exist

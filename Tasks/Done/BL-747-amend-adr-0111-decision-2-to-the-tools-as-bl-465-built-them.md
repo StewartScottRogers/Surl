@@ -8,7 +8,7 @@ depends-on: [BL-465]
 touches: [Documentation/Planning/Decisions/ADR-0111-how-the-mcp-server-answers-mcp-mcps-and-mcp-stdio.md]
 requirement: none
 created: 2026-11-05
-completed:
+completed: 2026-11-06
 ---
 # BL-747 — Amend ADR-0111 decision 2 to the tools as BL-465 built them
 
@@ -41,12 +41,17 @@ recorded in BL-465's Notes. Amend the ADR (an "Amended" line in its header, the 
 
 ## Acceptance criteria
 
-- [ ] ADR-0111 decisions 1 and 2 state each point above, and its header carries an "Amended 2026-11-05 by
+- [x] ADR-0111 decisions 1 and 2 state each point above, and its header carries an "Amended 2026-11-05 by
       BL-745" line.
-- [ ] `Protocols/Http/Surl.Extended.Protocol.McpServer.UnitLibrary/CLAUDE.md` and the ADR agree.
+- [x] `Protocols/Http/Surl.Extended.Protocol.McpServer.UnitLibrary/CLAUDE.md` and the ADR agree.
 
 ## Notes
+
+The header line reads "Amended ... (2026-11-06, BL-747 ...)": the criterion's "2026-11-05 by BL-745" named the
+filing task and date, not the task and day that made the change.
 
 ## Log
 
 - 2026-11-05: Created.
+- 2026-11-06: Backlog -> Doing.
+- 2026-11-06: Doing -> Done. ADR-0111 decisions 1 and 2 say what the MCP server's tools do as BL-465 built them, each point checked in the code

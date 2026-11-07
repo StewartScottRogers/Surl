@@ -8,7 +8,7 @@ depends-on: [BL-1020]
 touches: [Documentation/Planning/Decisions/ADR-0010-the-server-side-tls-contract.md]
 requirement: none
 created: 2026-11-06
-completed:
+completed: 2026-11-06
 ---
 # BL-1033 — Amend ADR-0010 to say the engine reads ListenUrl.IsImplicitTls for the implicit handshake and the refusal
 
@@ -32,12 +32,14 @@ connection starts with a TLS handshake is the listen URL's own `ListenUrl.IsImpl
 
 ## Acceptance criteria
 
-- [ ] ADR-0010 has an amendment dated and marked "Decided by Claude under Stewart's delegation" that names
+- [x] ADR-0010 has an amendment dated and marked "Decided by Claude under Stewart's delegation" that names
       `ListenUrl.IsImplicitTls`, its default, and both engine decisions that read it (handshake and refusal).
-- [ ] The section-2 sentence that says the engine reads the scheme now points at the amendment.
+- [x] The section-2 sentence that says the engine reads the scheme now points at the amendment.
 
 ## Notes
 
 ## Log
 
 - 2026-11-06: Created.
+- 2026-11-06: Backlog -> Doing.
+- 2026-11-06: Doing -> Done. ADR-0010 Amendment 1 records ListenUrl.IsImplicitTls, its default and the engine's two reads; section 2 points at it

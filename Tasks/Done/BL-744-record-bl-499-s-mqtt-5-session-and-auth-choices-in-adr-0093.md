@@ -8,7 +8,7 @@ depends-on: [BL-499]
 touches: [Documentation/Planning/Decisions]
 requirement: none
 created: 2026-11-05
-completed:
+completed: 2026-11-06
 ---
 # BL-744 — Record BL-499's MQTT 5 session and AUTH choices in ADR-0093
 
@@ -38,9 +38,9 @@ the MQTT 5 broker does.
 
 ## Acceptance criteria
 
-- [ ] ADR-0093 has an "Amended" note dated when it lands, naming BL-499, and decisions 2 and 3
+- [x] ADR-0093 has an "Amended" note dated when it lands, naming BL-499, and decisions 2 and 3
       state choices 1 to 5 above.
-- [ ] The ADR index row for 0093 in `Documentation/Planning/Decisions/README.md` mentions the
+- [x] The ADR index row for 0093 in `Documentation/Planning/Decisions/README.md` mentions the
       amendment.
 
 ## Notes
@@ -48,3 +48,5 @@ the MQTT 5 broker does.
 ## Log
 
 - 2026-11-05: Created.
+- 2026-11-06: Backlog -> Doing.
+- 2026-11-06: Doing -> Done. ADR-0093 decisions 2 and 3 state BL-499's five choices (choice 2 as BL-679's takeover now does it), with an Amended note and the index row updated
