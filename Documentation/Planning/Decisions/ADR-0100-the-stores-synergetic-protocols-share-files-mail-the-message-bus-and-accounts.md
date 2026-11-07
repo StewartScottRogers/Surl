@@ -371,6 +371,13 @@ ADR's literal text:
 - **NATS queue groups and MQTT 5 shared subscriptions are fan-out groups**, not queues: neither
   protocol stores a message for an absent subscriber, so neither uses a named queue.
 
+**Two priority levels and a consumer's stop** (2026-11-06, BL-742, recording what BL-730 built). A named
+queue holds two levels: `BusMessage.HighPriority` puts a message in the high level, handed out before the
+normal level, each level in publish order; fan-out and logs ignore the level. `BusQueueConsumer.Stop` ends a
+consumer's deliveries but keeps its outstanding ones until they are settled or `Dispose` requeues them, and a
+stopped consumer no longer counts as a consumer. The four outcomes BL-730 added - `QueueInUse`,
+`QueueNotEmpty`, `ExclusiveConsumeRefused` and `NoReadyConsumer` - are in 3.6's queue outcomes table.
+
 **A connection's own publishes** (2026-11-06, BL-721, recording what BL-498 built into
 `Surl.MessageBus` for MQTT 5):
 
@@ -532,6 +539,10 @@ return that outcome to it:
 | `QueueFlagsDiffer` | channel close `406 precondition-failed` | does not arise: an existing queue is used with the flags it has | does not arise: an existing queue is used with the flags it has |
 | `UnknownDeliveryTag` | channel close `406 precondition-failed` (`basic.ack`, `basic.reject`, `basic.nack`, rule `ack`/`exists`) | does not arise: a `disposition` for a delivery already settled finds nothing and changes nothing | does not arise: an ACK or NACK naming no outstanding message is ignored before the bus (ADR-0118 decision 5) |
 | `InvalidQueueName` | does not arise: an empty `queue.declare` name makes a server-named queue, and other names are checked first (`406`) | does not arise: an empty address is refused first with `amqp:not-found` | does not arise: an empty `/queue/` is refused first with ERROR `message:Unknown destination`, then close |
+| `QueueInUse` | channel close `406 precondition-failed` (`queue.delete` with `if-unused`) | does not arise: AMQP 1.0 deletes no queue | does not arise: STOMP deletes no queue |
+| `QueueNotEmpty` | channel close `406 precondition-failed` (`queue.delete` with `if-empty`) | does not arise: AMQP 1.0 deletes no queue | does not arise: STOMP deletes no queue |
+| `ExclusiveConsumeRefused` | channel close `403 access-refused` (`basic.consume` with `exclusive`, or any consume while one is exclusive) | attach refused with `amqp:unauthorized-access`, as for `QueueLocked` | does not arise: STOMP never consumes exclusively |
+| `NoReadyConsumer` | `basic.return` `313 no-consumers` for a publish with `immediate` (ADR-0112 decision 6) | does not arise: AMQP 1.0 has no `immediate` | does not arise: STOMP has no `immediate` |
 
 #### 3.7 Persistence under `<path>/.surl/bus`
 

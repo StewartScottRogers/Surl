@@ -413,10 +413,10 @@ Nothing below is taken from the port's output, and no expected byte comes from i
 | Code | Kind | Sent when |
 | --- | --- | --- |
 | 311 `CONTENT_TOO_LARGE` | channel | body size above `--max-filesize`; the bus's `MessageTooLarge` |
-| 403 `ACCESS_REFUSED` | channel; connection for a refused login | topic access (ADR-0102 decision 3.4); an `amq.` name; the default exchange; deleting a `--queue` queue; an exclusive consumer refused; a refused login (decision 2) |
+| 403 `ACCESS_REFUSED` | channel; connection for a refused login | topic access (ADR-0102 decision 3.4); an `amq.` name; the default exchange; deleting a `--queue` queue; an exclusive consumer refused (the bus's `ExclusiveConsumeRefused`); a refused login (decision 2) |
 | 404 `NOT_FOUND` | channel | a missing exchange or queue; `""` with no queue declared on the channel |
 | 405 `RESOURCE_LOCKED` | channel | another open connection's exclusive queue |
-| 406 `PRECONDITION_FAILED` | channel | bad names; unequal redeclaration; `if-unused`/`if-empty`; an unknown delivery tag; a bad `expiration` |
+| 406 `PRECONDITION_FAILED` | channel | bad names; unequal redeclaration; `if-unused`/`if-empty` (the bus's `QueueInUse` and `QueueNotEmpty`); an unknown delivery tag; a bad `expiration` |
 | 501 `FRAME_ERROR` | connection | a frame-end other than `0xCE`; a frame above frame-max; an unknown frame type; a heartbeat off channel 0 (section 4.2.3, 4.2.7) |
 | 502 `SYNTAX_ERROR` | connection | a method's arguments do not decode (a short field, a bad field-table type octet, a size past the frame) |
 | 503 `COMMAND_INVALID` | connection | a method only a client receives (`basic.deliver`, `connection.start`, ...) sent by the client; an unsupported exchange type |
@@ -427,6 +427,10 @@ Nothing below is taken from the port's output, and no expected byte comes from i
 | 540 `NOT_IMPLEMENTED` | connection | a class or method the broker does not serve: `tx` and `confirm` until BL-731, `exchange.bind`/`unbind` (40.30, 40.40) and every other extension |
 | 541 `INTERNAL_ERROR` | connection | a fault inside the broker, also noted with `IExchangeLog.Note` |
 | 320 `CONNECTION_FORCED` | connection | `--idle-timeout`, `--max-time`, or the server stopping, once `open-ok` was sent |
+
+The bus's `NoReadyConsumer` (a publish with `immediate` that no consumer can take now) is not an
+exception: it is decision 6's `basic.return` with **`313` `NO_CONSUMERS`** (amended 2026-11-06, BL-742,
+recording BL-730).
 
 - **Before `connection.open-ok`** no exception is negotiated except decision 2's `403` and decision
   4's `530`: every other fault closes the connection with no bytes.
