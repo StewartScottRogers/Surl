@@ -72,7 +72,7 @@ public static class CommandLineParser
     /// <summary><c>--http3</c> given with <c>--tls-max</c> below 1.3 (ADR-0082 decision 6).</summary>
     public const string NeedsTls13 = "needs --tls-max 1.3: QUIC is TLS 1.3 only";
 
-    /// <summary><c>--http3</c> given with <c>--cacert</c> (ADR-0082 amendment 2).</summary>
+    /// <summary><c>--http3</c> given with <c>--cacert</c> (ADR-0082 amendment 4).</summary>
     public const string CannotBeUsedWithCacert = "cannot be used with --cacert";
 
     /// <summary><c>--self-signed</c> given with <c>--cert</c> (ADR-0032 section 1).</summary>

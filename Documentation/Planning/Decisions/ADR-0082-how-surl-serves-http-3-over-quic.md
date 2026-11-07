@@ -3,6 +3,8 @@
 - **Status:** Accepted
 - **Amended by:** [ADR-0147](ADR-0147-the-remaining-tls-1-3-groups-curl-offers-over-quic.md) (2026-11-06, BL-1005): the six groups curl lists only in `supported_groups`, and SecP384r1MLKEM1024 (`11ED`), are served after decision 3's five; the table's `11EE` is curveSM2MLKEM768.
 - **Amended by:** Amendment 1 below (2026-11-05, BL-383: the HTTP/3 server where this ADR is silent);
+- **Amended by:** Amendment 4 below (2026-11-05, BL-384, written by BL-739): how `surl --http3` binds, refuses
+  and advertises.
   Amendment 3 below (2026-11-06, BL-710: writes wait for the client's credit past a bound);
   [ADR-0086](ADR-0086-how-the-extended-servers-share-http-2-http-3-and-quic.md)
   (2026-11-04, BL-402): decision 2's HTTP/3 frames and control and QPACK streams move from
@@ -442,3 +444,36 @@ next part of an answer, so there is nothing of upstream curl's to measure first.
    HTTP/3 server already notes that and carries on.
 4. **Every caller gets it.** HTTP/3, WebTransport and DNS over QUIC all write through
    `WriteAsync`; none queues more than the bound by calling `QuicStream.Write` directly.
+
+## Amendment 4 (2026-11-05, BL-384): how `surl --http3` binds, refuses and advertises
+
+Decided by Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), where decision 6 is silent.
+BL-739 wrote it here, because BL-417 held this folder when BL-384 finished.
+
+1. **`--http3` with `--cacert` is refused**, exit 2 (`option --http3: cannot be used with --cacert`):
+   `Surl.Quic` asks for no client certificate, so serving HTTP/3 would skip the check the TCP side
+   enforces (secure by default). BL-741 lifts it.
+2. **Refusal order**, after the no-URL refusal: no `https` listen URL (`needs an https listen URL`),
+   then `--tls-max` below 1.3 (`needs --tls-max 1.3: QUIC is TLS 1.3 only`), then `--cacert`. Each is
+   `FailedInit` (2) with the try-help line, as option refusals are. `--tls-max 1.0` or `1.1` with the
+   default minimum meets the existing `--tls-max` refusal first.
+3. **`Alt-Svc: h3=":<port>"; ma=86400`** goes on every answer the HTTP handler gives on a TLS
+   connection (HTTP/1.x and HTTP/2), the port being the connection's local port. Refusals written
+   below the handler (`400`, `431`, and the `503` at a connection limit) do not carry it.
+4. **One port for TCP and UDP**: `IListenerFactory.StartSharedPortListenersAsync` (a default method:
+   TCP, then UDP on its port, TCP released if UDP fails) returns `SharedPortListeners`;
+   `SocketListenerFactory` uses `SharedPortListenerPair`, which retries port 0. `ServingEngine`
+   accepts one connection server and one datagram server for the same scheme and binds both through
+   it. The status line is unchanged (one `Listening on https://<host>:<port>/`); with `-v` it adds
+   `* Serving HTTP/3 over QUIC on UDP port <port>`.
+5. **The authentication session** is started with `TlsSession(Tls13, <agreed suite>, "h3", null, null)`,
+   so Basic and Bearer are judged as over TLS; `QuicApplicationConnection.CipherSuite` was added to
+   `Surl.Quic` for it.
+6. **Cancellation**: cancelling the exchange before the handshake completes stops the QUIC flow at
+   once (`OperationCanceledException`, which the engine treats as a graceful end); after it, the HTTP/3
+   server answers with GOAWAY and `H3_NO_ERROR` (Amendment 1) and the flow ends after that.
+7. **Timeouts**: QUIC's `max_idle_timeout` is `--idle-timeout` (0 means none), and the handshake timeout
+   is the head timeout (none when unlimited), as decision 7's table says.
+8. **No `IDatagramRefusalWriter` then**: BL-384 wrote no refusal for a QUIC flow past a connection
+   limit; BL-740 has since added `IDatagramRefusalWriter`, which the engine uses when the datagram
+   server implements it.
