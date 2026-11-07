@@ -8,7 +8,7 @@ depends-on: [BL-460]
 touches: [Documentation/Conformance/Extended/WebTransport.md]
 requirement: none
 created: 2026-11-05
-completed:
+completed: 2026-11-06
 ---
 # BL-906 — Name the tests behind the WebTransport conformance rows BL-460 covers
 
@@ -40,10 +40,12 @@ now cover it instead.
 
 ## Acceptance criteria
 
-- [ ] No row of `Documentation/Conformance/Extended/WebTransport.md` names BL-460; each names the tests above, and `Surl-8-3`'s datagram half names BL-905.
+- [x] No row of `Documentation/Conformance/Extended/WebTransport.md` names BL-460; each names the tests above, and `Surl-8-3`'s datagram half names BL-905.
 
 ## Notes
 
 ## Log
 
 - 2026-11-05: Created.
+- 2026-11-06: Backlog -> Doing.
+- 2026-11-06: Doing -> Done. WebTransport.md names the tests for every BL-460 row, Surl-8-3's datagram half names BL-905, and two rows citing a renamed SETTINGS test now name its current method
