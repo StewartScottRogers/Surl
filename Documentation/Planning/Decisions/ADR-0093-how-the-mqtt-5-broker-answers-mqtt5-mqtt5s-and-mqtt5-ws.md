@@ -22,6 +22,9 @@
   `[MQTT-3.10.3-2]`), not a Malformed Packet; and a Maximum QoS or Retain Handling of 3 is a
   Protocol Error, `0x82` (3.8.3.1), the reserved option bits alone staying `0x81`
   (`[MQTT-3.8.3-5]`). Decision 6's table now lists each.
+- **Amended:** decisions 2 and 3 by their own text (2026-11-06, BL-744, recording BL-499): SCRAM's
+  edge cases and re-authentication (decision 2, "SCRAM edges"), and which sessions resume, a held
+  session's takeover, and the session bounds (decision 3, "Resuming, holding and bounds").
 - **Amended:** decision 2's "Authorization" bullet and decision 4's "Never `0x87`" by
   [ADR-0102](ADR-0102-what-the-mail-file-message-and-group-options-mean-to-the-shared-stores.md)
   decision 3.4 (2026-11-05): with `--topic-access` given, a refused publish or subscribe is
@@ -221,6 +224,11 @@ allows, and publishing the Will. The clock is `ExchangeContext.TimeProvider`.
   2, and a dropped, noted PUBLISH at QoS 0 (decision 10, choices 1 and 2). `0x8A` is still never
   sent for a topic.
 
+- **SCRAM edges** (amended 2026-11-06 by BL-744, recording BL-499's choices; decided by Claude under
+  Stewart's delegation). Absent Authentication Data on a SCRAM CONNECT or AUTH `0x19` is an empty
+  client-first, which SCRAM refuses (`0x87`). SCRAM's server-final, which the policy issues as a second
+  challenge, is answered with the empty response and carried in the CONNACK or AUTH `0x00`.
+  Re-authentication that authenticates a different account from the CONNECT's is DISCONNECT `0x87`.
 ### 3. Session state (MQTT 5.0 3.1.2.4, 3.1.2.5, 3.1.2.11.2, 4.1)
 
 - **What a session holds** (4.1): its subscriptions with their options and identifiers; QoS 1 and 2
@@ -254,6 +262,15 @@ allows, and publishing the Will. The clock is `ExchangeContext.TimeProvider`.
   DISCONNECT `0x00` (`[MQTT-3.1.2-10]`, `[MQTT-3.14.4-3]`). A Will is published as if its client
   sent it, so a No Local subscription of the same client identifier does not receive it.
 
+- **Resuming, holding and bounds** (amended 2026-11-06 by BL-744, recording BL-499's choices; decided
+  by Claude under Stewart's delegation). A kept session is resumed only for the account that left it:
+  Clean Start 0 with another account's login ends the old session and starts a new one (Session
+  Present 0). A session another connection still holds is never resumed: the newer connection takes
+  it over (BL-679), sending the older one `DISCONNECT` `0x8E` and waiting for it to end within its head
+  timeout, so Clean Start 0 then resumes what the older one kept and Clean Start 1 discards it. BL-499
+  first started a fresh session in that case; BL-679 replaced that. The waiting-message bounds (1000
+  messages, 16 MiB of payload) apply connected or not, and the kept-session bound (1000) counts
+  sessions with no connection; a new session whose expiry would pass it is CONNACK `0x97`.
 ### 4. PUBLISH: QoS, flow control, topic aliases, expiry, payload format, properties (3.3 to 3.7, 4.3 to 4.6, 4.9)
 
 - **QoS flows** (4.3): QoS 0 is delivered; QoS 1 is answered PUBACK after the message is taken
