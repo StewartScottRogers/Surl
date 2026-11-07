@@ -38,6 +38,8 @@
 - **Amended:** decisions 3.3 and 3.6 by their own text (2026-11-06, BL-697, recording BL-633): the
   topic-log rules BL-633 chose building the logs (3.3, "The topic log's rules"), the
   `OffsetOutOfRange` outcome, and `StoreFull` and `TooManyTopics` covering the logs (3.6).
+- **Amended:** decision 3.3 by its own text (2026-11-06, BL-721, recording BL-498): a connection's
+  own publishes, No Local subscriptions and the after-delivery hook ("A connection's own publishes").
 - **Amended:** decision 3.7 by its own text (2026-11-06, BL-703, recording BL-634): the message bus
   files' byte formats and layout, which queues persist, how a log file is saved, and what a load and
   a failed write answer ("The message bus files").
@@ -368,6 +370,22 @@ ADR's literal text:
   the retained slot.
 - **NATS queue groups and MQTT 5 shared subscriptions are fan-out groups**, not queues: neither
   protocol stores a message for an absent subscriber, so neither uses a named queue.
+
+**A connection's own publishes** (2026-11-06, BL-721, recording what BL-498 built into
+`Surl.MessageBus` for MQTT 5):
+
+- **`BusConnection.Publish(BusMessage)`** publishes for the connection's account and marks the
+  message as that connection's own, so the bus can tell a client's own publishes from everyone
+  else's.
+- **`BusConnection.Subscribe(..., noLocal: true)`** (`BusSubscription.NoLocal`) does not hand that
+  subscription a message the same connection published through `BusConnection.Publish` (MQTT 5.0
+  `[MQTT-3.8.3-3]`). A message published through `MessageBus.Publish` is still delivered. No Local is
+  per bus connection, which is per client identifier while sessions are not kept. BL-499 decides
+  whether a resumed session keeps it per client identifier, as ADR-0093 decision 3 does for a Will.
+- **`BusConnection.AfterMessageDelivered`** is called once a live message has been handed to every
+  one of that connection's subscriptions it reached. A server uses it to send a message that matches
+  several of a client's subscriptions once (MQTT 5.0 `[MQTT-3.3.4-2]`), which is how "each server then
+  applies its own overlap rule" above is carried out.
 
 **The named queue's rules** (2026-11-06, BL-694, recording what BL-631 built into
 `Surl.MessageBus`). The table above left these open:
