@@ -45,7 +45,10 @@ are **Skipped** (Inconclusive) on both `ubuntu-latest` and `macos-latest` - not 
 because a skip is not a failure. On Linux and macOS the test calls `PinnedUpstreamCurl.RunAsync` (the reference
 build), and the same legs pass 1300 / 1237 other conformance tests, so the reference build is installed;
 the skip reason is not in the log. Find why these 12 go Inconclusive there (run with `--logger "console;verbosity=detailed"`
-on a Linux leg, or read `PinnedUpstreamCurl`'s Inconclusive paths) and make them run.
+on a Linux leg, or read `PinnedUpstreamCurl`'s Inconclusive paths) and make them run. The same "Conformance tests"
+step skips 581 of 1881 tests on Linux and 644 on macOS, and `ci.yml` keeps no results file for it (only the
+upstream test-case job uploads one), so the skip reasons are lost: adding `--logger trx` and an upload of the
+results to that step is the quickest way to read them.
 
 ## Log
 
