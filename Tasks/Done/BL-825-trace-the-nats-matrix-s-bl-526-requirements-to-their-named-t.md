@@ -8,7 +8,7 @@ depends-on: [BL-526]
 touches: [Documentation/Conformance/Extended/Nats.md]
 requirement: none
 created: 2026-11-05
-completed:
+completed: 2026-11-06
 ---
 # BL-825 — Trace the NATS matrix's BL-526 requirements to their named tests
 
@@ -31,7 +31,7 @@ proves it instead.
 
 ## Acceptance criteria
 
-- [ ] `Nats.md` names no BL-526; each of the rows above names one or more existing test methods
+- [x] `Nats.md` names no BL-526; each of the rows above names one or more existing test methods
       in `Surl.Extended.Protocol.Nats.UnitTests` that prove it.
 
 ## Notes
@@ -39,3 +39,5 @@ proves it instead.
 ## Log
 
 - 2026-11-05: Created.
+- 2026-11-06: Backlog -> Doing.
+- 2026-11-06: Doing -> Done. Nats.md names the test methods that prove each of the 21 rows BL-526 built; no row names BL-526

@@ -24,7 +24,7 @@ the pages leave the server a choice.
 | Nats:NATS-PROTO-1 | MUST | Operation names are matched case-insensitively (`ping` is answered `PONG`). | BL-525 |
 | Nats:NATS-PROTO-2 | MUST | Fields are separated by spaces or tabs; a control line ends with CR LF (a bare LF accepted). | BL-525 |
 | Nats:NATS-PROTO-3 | MUST | A control line is read however its bytes are split across reads, and pipelined operations are each answered in order. | BL-525 |
-| Nats:NATS-PROTO-4 | MUST | A payload is read by its byte count, CR LF inside it included, and must be followed by CR LF, else `-ERR 'Parser Error'`, then close. | BL-526 |
+| Nats:NATS-PROTO-4 | MUST | A payload is read by its byte count, CR LF inside it included, and must be followed by CR LF, else `-ERR 'Parser Error'`, then close. | `NatsControlLineReaderTests.ReadPayloadAsync_PayloadSplitAcrossReadsWithCrLfInside_IsReadByItsCount`, `NatsControlLineReaderTests.ReadPayloadAsync_PayloadNotFollowedByCrLf_IsParserError`, `NatsServerConnectionTests.ServeAsync_MalformedArgumentsOrPayloadEnd_IsParserErrorAndClosed` |
 | Nats:NATS-ERR-1 | MUST | An unknown operation, or INFO, MSG or HMSG from a client, is `-ERR 'Unknown Protocol Operation'`, then close. | BL-525 |
 | Nats:NATS-ERR-2 | MUST | Malformed arguments to a known operation are `-ERR 'Parser Error'`, then close. | BL-525 |
 | Nats:NATS-ERR-3 | MUST | A control line over `--max-line` is `-ERR 'Maximum Control Line Exceeded'`, then close. | BL-525 |
@@ -70,31 +70,31 @@ the pages leave the server a choice.
 
 | ID | Level | Requirement | Covered by |
 | --- | --- | --- | --- |
-| Nats:NATS-PUB-1 | MUST | PUB is delivered as MSG to every matching subscription, payload exact, with the reply-to when given. | BL-526 |
-| Nats:NATS-PUB-2 | MUST | A payload (HPUB: the total) over `max_payload` is `-ERR 'Maximum Payload Violation'`, then close, before the payload is read. | BL-526 |
-| Nats:NATS-SUB-1 | MUST | SUB names a subject, an optional queue group and a `sid`; a SUB reusing a live `sid` is ignored. | BL-526 |
-| Nats:NATS-UNSUB-1 | MUST | UNSUB without `max_msgs` ends the subscription at once; an unknown `sid` is ignored. | BL-526 |
-| Nats:NATS-UNSUB-2 | MUST | UNSUB with `max_msgs` ends the subscription after that many deliveries in all (at once if already reached). | BL-526 |
-| Nats:NATS-MSG-1 | MUST | MSG and HMSG carry the subject, `sid`, optional reply-to and sizes as the page's syntax gives them. | BL-526 |
-| Nats:NATS-ECHO-1 | MUST | `echo: false` suppresses delivery of a connection's own publishes to its own subscriptions. | BL-526 |
-| Nats:Subject-1 | MUST | `*` matches exactly one token and `>` (last only) one or more. | BL-526 |
-| Nats:Subject-2 | MUST | An invalid SUB subject is `-ERR 'Invalid Subject'`, the connection kept. | BL-526 |
-| Nats:Subject-3 | MUST | A PUB or HPUB subject or reply-to with a wildcard, an empty token or an unmappable token is `-ERR 'Invalid Publish Subject'`, the connection kept. | BL-526 |
-| Nats:Queue-1 | MUST | Among a queue group's subscriptions on one subject, each message goes to exactly one member. | BL-526 |
-| Nats:Surl-Bus-1 | MUST | Subjects map onto the shared bus (ADR-0100 decision 3.2): a message published over `mqtt` reaches a NATS subscriber on the mapped subject, and the reverse; a bus topic NATS cannot name is never delivered to NATS. | BL-526 |
-| Nats:Surl-Bus-2 | MUST | A SUB or PUB denied by `--topic-access` is `-ERR 'Permissions Violation for Subscription to <subject>'` / `'Permissions Violation for Publish to <subject>'`, the connection kept. | BL-526 |
-| Nats:Surl-Bus-3 | MUST | Past the bus's 1000 subscriptions a connection, SUB is `-ERR 'Maximum Subscriptions Exceeded'`, the connection kept; a full bus store is `-ERR 'Resource Limit Exceeded'`, then close. | BL-526 |
+| Nats:NATS-PUB-1 | MUST | PUB is delivered as MSG to every matching subscription, payload exact, with the reply-to when given. | `NatsServerConnectionTests.ServeAsync_PubWithTwoSubscribers_IsDeliveredAsMsgToEach` |
+| Nats:NATS-PUB-2 | MUST | A payload (HPUB: the total) over `max_payload` is `-ERR 'Maximum Payload Violation'`, then close, before the payload is read. | `NatsServerConnectionTests.ServeAsync_PayloadOverMaxPayload_IsMaximumPayloadViolationAndClosed`, `NatsServerConnectionTests.ServeAsync_HpubTotalOverMaxPayload_IsMaximumPayloadViolationAndClosed` |
+| Nats:NATS-SUB-1 | MUST | SUB names a subject, an optional queue group and a `sid`; a SUB reusing a live `sid` is ignored. | `NatsServerConnectionTests.ServeAsync_SubReusingALiveSid_IsIgnored`, `NatsServerConnectionTests.ServeAsync_QueueGroupOfTwo_GivesEachMemberOneOfTwoMessages` |
+| Nats:NATS-UNSUB-1 | MUST | UNSUB without `max_msgs` ends the subscription at once; an unknown `sid` is ignored. | `NatsServerConnectionTests.ServeAsync_UnsubWithoutMaxAndUnknownSidUnderVerbose_EndsAtOnceAndAnswersOk` |
+| Nats:NATS-UNSUB-2 | MUST | UNSUB with `max_msgs` ends the subscription after that many deliveries in all (at once if already reached). | `NatsServerConnectionTests.ServeAsync_UnsubWithMaxTwo_EndsAfterTwoMessages`, `NatsServerConnectionTests.ServeAsync_UnsubWithMaxAlreadyReached_EndsAtOnceAndTheSidMayBeReused` |
+| Nats:NATS-MSG-1 | MUST | MSG and HMSG carry the subject, `sid`, optional reply-to and sizes as the page's syntax gives them. | `NatsServerConnectionTests.ServeAsync_PubWithTwoSubscribers_IsDeliveredAsMsgToEach`, `NatsServerConnectionTests.ServeAsync_Hpub_IsDeliveredAsHmsgWithItsHeaderBlockByteForByte` |
+| Nats:NATS-ECHO-1 | MUST | `echo: false` suppresses delivery of a connection's own publishes to its own subscriptions. | `NatsServerConnectionTests.ServeAsync_EchoFalse_SuppressesSelfDeliveryButNotOthers` |
+| Nats:Subject-1 | MUST | `*` matches exactly one token and `>` (last only) one or more. | `NatsSubjectsTests.Matches_SubscriptionAndSubject_IsWhatTheSubjectsPageSays`, `NatsServerConnectionTests.ServeAsync_StarAndFullWildcards_MatchOneTokenAndOneOrMore` |
+| Nats:Subject-2 | MUST | An invalid SUB subject is `-ERR 'Invalid Subject'`, the connection kept. | `NatsServerConnectionTests.ServeAsync_InvalidSubSubject_IsInvalidSubjectAndKept` |
+| Nats:Subject-3 | MUST | A PUB or HPUB subject or reply-to with a wildcard, an empty token or an unmappable token is `-ERR 'Invalid Publish Subject'`, the connection kept. | `NatsServerConnectionTests.ServeAsync_InvalidPublishSubjectOrReplyTo_IsInvalidPublishSubjectAndKept` |
+| Nats:Queue-1 | MUST | Among a queue group's subscriptions on one subject, each message goes to exactly one member. | `NatsServerConnectionTests.ServeAsync_QueueGroupOfTwo_GivesEachMemberOneOfTwoMessages` |
+| Nats:Surl-Bus-1 | MUST | Subjects map onto the shared bus (ADR-0100 decision 3.2): a message published over `mqtt` reaches a NATS subscriber on the mapped subject, and the reverse; a bus topic NATS cannot name is never delivered to NATS. | `NatsServerConnectionTests.ServeAsync_MessagePublishedUnderAnMqttName_IsDeliveredAsMsgOnTheMappedSubject`, `NatsServerConnectionTests.ServeAsync_Pub_ReachesAnMqttSubscriberOnTheMappedTopic` |
+| Nats:Surl-Bus-2 | MUST | A SUB or PUB denied by `--topic-access` is `-ERR 'Permissions Violation for Subscription to <subject>'` / `'Permissions Violation for Publish to <subject>'`, the connection kept. | `NatsServerConnectionTests.ServeAsync_PubAndSubRefusedByTopicAccess_AreAnsweredPermissionsViolationAndKept` |
+| Nats:Surl-Bus-3 | MUST | Past the bus's 1000 subscriptions a connection, SUB is `-ERR 'Maximum Subscriptions Exceeded'`, the connection kept; a full bus store is `-ERR 'Resource Limit Exceeded'`, then close. | `NatsServerConnectionTests.ServeAsync_SubPastTheBusBound_IsMaximumSubscriptionsExceededAndKept`, `NatsServerConnectionTests.ServeAsync_PubPastTheBusStore_IsResourceLimitExceededAndClosed` |
 
 ## Headers and no responders (protocol page, HPUB, HMSG; NATS ADR-4)
 
 | ID | Level | Requirement | Covered by |
 | --- | --- | --- | --- |
-| Nats:Headers-1 | MUST | HPUB is accepted only after CONNECT set `headers: true`; otherwise `-ERR 'Unknown Protocol Operation'`, then close. | BL-526 |
-| Nats:Headers-2 | MUST | An HPUB's header block reaches a NATS subscriber that set `headers` byte for byte, as HMSG. | BL-526 |
-| Nats:Headers-3 | MUST | A message with headers reaches a subscriber without `headers` as MSG with its payload only. | BL-526 |
-| Nats:Headers-4 | MUST | Headers from another protocol reach a NATS subscriber as a `NATS/1.0` block of `name: value` lines, names case-preserved. | BL-526 |
-| Nats:Headers-5 | MUST | A request delivered to no subscription, from a connection with `no_responders` and `headers`, gets `HMSG <reply-to> <sid> 16 16` with the block `NATS/1.0 503` on each of its own subscriptions matching the reply-to. | BL-526 |
-| Nats:Surl-Limits-1 | MUST | A connection with 64 MiB unsent is cut off with `-ERR 'Slow Consumer'`, then closed. | BL-526 |
+| Nats:Headers-1 | MUST | HPUB is accepted only after CONNECT set `headers: true`; otherwise `-ERR 'Unknown Protocol Operation'`, then close. | `NatsServerConnectionTests.ServeAsync_HpubWithoutHeaders_IsUnknownProtocolOperationAndClosed` |
+| Nats:Headers-2 | MUST | An HPUB's header block reaches a NATS subscriber that set `headers` byte for byte, as HMSG. | `NatsServerConnectionTests.ServeAsync_Hpub_IsDeliveredAsHmsgWithItsHeaderBlockByteForByte` |
+| Nats:Headers-3 | MUST | A message with headers reaches a subscriber without `headers` as MSG with its payload only. | `NatsServerConnectionTests.ServeAsync_Hpub_IsDeliveredAsHmsgWithItsHeaderBlockByteForByte`, `NatsServerConnectionTests.ServeAsync_HpubWithAnEmptyHeaderBlock_IsDeliveredAsMsg` |
+| Nats:Headers-4 | MUST | Headers from another protocol reach a NATS subscriber as a `NATS/1.0` block of `name: value` lines, names case-preserved. | `NatsServerConnectionTests.ServeAsync_HeadersFromAnotherProtocol_ReachAHeadersSubscriberAsANatsBlock`, `NatsHeaderBlockTests.Encode_HeadersItCanCarry_WritesTheBlockInOrderLeavingOutTheRest` |
+| Nats:Headers-5 | MUST | A request delivered to no subscription, from a connection with `no_responders` and `headers`, gets `HMSG <reply-to> <sid> 16 16` with the block `NATS/1.0 503` on each of its own subscriptions matching the reply-to. | `NatsServerConnectionTests.ServeAsync_RequestWithNoSubscriberUnderNoResponders_IsAnswered`, `NatsServerConnectionTests.ServeAsync_NoResponders_NeedsHeaders` |
+| Nats:Surl-Limits-1 | MUST | A connection with 64 MiB unsent is cut off with `-ERR 'Slow Consumer'`, then closed. | `NatsServerConnectionTests.ServeAsync_SlowConsumer_IsCutOffWithSlowConsumer` |
 
 ## TLS (protocol page, INFO `tls_required`)
 
