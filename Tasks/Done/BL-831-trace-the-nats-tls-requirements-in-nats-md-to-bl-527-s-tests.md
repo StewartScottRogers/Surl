@@ -8,7 +8,7 @@ depends-on: [BL-527]
 touches: [Documentation/Conformance/Extended/Nats.md]
 requirement: none
 created: 2026-11-05
-completed:
+completed: 2026-11-06
 ---
 # BL-831 — Trace the NATS TLS requirements in Nats.md to BL-527's tests
 
@@ -33,7 +33,7 @@ completed:
 
 ## Acceptance criteria
 
-- [ ] `Nats.md` rows `Nats:NATS-TLS-1` to `Nats:NATS-TLS-5` each name the tests above, and no row names `BL-527`.
+- [x] `Nats.md` rows `Nats:NATS-TLS-1` to `Nats:NATS-TLS-5` each name the tests above, and no row names `BL-527`.
 
 ## Notes
 
@@ -42,3 +42,5 @@ completed:
 ## Log
 
 - 2026-11-05: Created.
+- 2026-11-06: Backlog -> Doing.
+- 2026-11-06: Doing -> Done. Nats.md rows NATS-TLS-1 to NATS-TLS-5 name the tests that prove natss; no row names BL-527

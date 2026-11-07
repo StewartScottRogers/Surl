@@ -100,11 +100,11 @@ the pages leave the server a choice.
 
 | ID | Level | Requirement | Covered by |
 | --- | --- | --- | --- |
-| Nats:NATS-TLS-1 | MUST | On `natss`, a client sending nothing within 50 ms gets INFO with `tls_required: true` in plain text; a following `0x16` byte starts the TLS handshake, and CONNECT over TLS is accepted. | BL-527 |
-| Nats:NATS-TLS-2 | MUST | On `natss`, a client sending its first byte within 50 ms gets the TLS handshake first and INFO inside TLS. | BL-527 |
-| Nats:NATS-TLS-3 | MUST | On `natss`, plain text after INFO with `tls_required` is `-ERR 'Secure Connection - TLS Required'`, then close. | BL-527 |
-| Nats:NATS-TLS-4 | MUST NOT | `nats` never offers TLS: `tls_required` and `tls_available` are `false`, with or without a certificate. | BL-527 |
-| Nats:NATS-TLS-5 | MUST | A failed TLS handshake closes with no bytes. | BL-527 |
+| Nats:NATS-TLS-1 | MUST | On `natss`, a client sending nothing within 50 ms gets INFO with `tls_required: true` in plain text; a following `0x16` byte starts the TLS handshake, and CONNECT over TLS is accepted. | `NatsServerConnectionTests.ServeAsync_NatssInfoFirst_SendsInfoWithTlsRequiredThenUpgradesAndAcceptsConnectOverTls` |
+| Nats:NATS-TLS-2 | MUST | On `natss`, a client sending its first byte within 50 ms gets the TLS handshake first and INFO inside TLS. | `NatsServerConnectionTests.ServeAsync_NatssTlsFirst_UpgradesBeforeSendingInfoInsideTls`, `NatsServerConnectionTests.ServeAsync_NatssAnyByteWithinTheTlsFirstWait_StartsTheHandshakeBeforeInfo` |
+| Nats:NATS-TLS-3 | MUST | On `natss`, plain text after INFO with `tls_required` is `-ERR 'Secure Connection - TLS Required'`, then close. | `NatsServerConnectionTests.ServeAsync_NatssPlainConnectAfterInfo_IsSecureConnectionTlsRequiredAndClosed` |
+| Nats:NATS-TLS-4 | MUST NOT | `nats` never offers TLS: `tls_required` and `tls_available` are `false`, with or without a certificate. | `NatsServerConnectionTests.ServeAsync_NatsWithAClientHello_NeverOffersOrStartsTls`, `NatsInfoTests.Encode_IPv4_IsTheInfoLineWithTheAdrsFieldsInOrder` |
+| Nats:NATS-TLS-5 | MUST | A failed TLS handshake closes with no bytes. | `NatsServerConnectionTests.ServeAsync_NatssHandshakeFails_ThrowsWithNoBytesWritten`, `NatsServerConnectionTests.ServeAsync_NatssHandshakeUnfinishedWithinTheHeadTimeout_ClosesWithNoBytes` |
 
 ## Connections (ADR-0006)
 
