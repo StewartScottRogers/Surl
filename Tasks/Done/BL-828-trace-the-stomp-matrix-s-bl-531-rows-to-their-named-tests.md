@@ -8,7 +8,7 @@ depends-on: [BL-531]
 touches: [Documentation/Conformance/Extended/Stomp.md]
 requirement: none
 created: 2026-11-05
-completed:
+completed: 2026-11-06
 ---
 # BL-828 — Trace the STOMP matrix's BL-531 rows to their named tests
 
@@ -26,7 +26,7 @@ Every row of `Documentation/Conformance/Extended/Stomp.md` whose last cell is BL
 
 ## Acceptance criteria
 
-- [ ] Each BL-531 row in `Stomp.md` names a `Class.Method` test in `Surl.Extended.Protocol.Stomp.UnitTests` that exists
+- [x] Each BL-531 row in `Stomp.md` names a `Class.Method` test in `Surl.Extended.Protocol.Stomp.UnitTests` that exists
       and passes, or names BL-532 where that task owns the rest.
 
 ## Notes
@@ -34,3 +34,5 @@ Every row of `Documentation/Conformance/Extended/Stomp.md` whose last cell is BL
 ## Log
 
 - 2026-11-05: Created.
+- 2026-11-06: Backlog -> Doing.
+- 2026-11-06: Doing -> Done. Stomp.md names existing test methods for all 36 BL-531 rows; Frames-6 and Size-3 keep BL-532 for the part it owns
