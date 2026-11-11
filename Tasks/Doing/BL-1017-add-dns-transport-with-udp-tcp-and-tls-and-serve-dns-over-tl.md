@@ -54,3 +54,4 @@ RFC 7858) on that port's protocols as ADR-0092 decision 5 says, with the DoT han
 - 2026-11-06: Created.
 - 2026-11-06: Backlog -> Doing.
 - 2026-11-06: Doing -> Backlog. Released by the interactive session unstarted: it needs a TLS-from-the-first-byte dns listener, which BL-1020 builds, so it should depend on BL-1020; no work done
+- 2026-11-11: Backlog -> Doing.
