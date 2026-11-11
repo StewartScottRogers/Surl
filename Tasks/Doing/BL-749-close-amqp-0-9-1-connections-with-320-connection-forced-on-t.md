@@ -48,3 +48,4 @@ before it closes, as ADR-0112 decisions 3 and 7 and rows `Amqp0:Surl-Idle-1` and
 ## Log
 
 - 2026-11-05: Created.
+- 2026-11-11: Backlog -> Doing.
