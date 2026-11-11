@@ -36,3 +36,4 @@ The `gs` server answers `objects.insert` with `uploadType=media` and `multipart`
 ## Log
 
 - 2026-11-11: Created.
+- 2026-11-11: Backlog -> Doing.
