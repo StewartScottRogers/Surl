@@ -91,3 +91,27 @@ bytes, the same frames as ADR-0081's "Measured" table with `:path /file.txt`.
 - BL-369 (`Upgrade: h2c`) and BL-370 (ALPN `h2`) hand a connection to the same
   `Http2ConnectionServer`; BL-409 moves it to `Surl.Http2` (ADR-0086).
 - BL-371 measures curl's exit code against a live surl for decisions 4 and 5.
+
+## Amendment 1 (2026-11-11): BL-601 answers the HTTP/2 `503` refusal
+
+Decided by Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), recording what BL-601
+built on 2026-11-05; BL-859 writes it here because BL-574 held this folder when BL-601 finished.
+
+Decision 6's first half is done: a connection past a connection limit is no longer refused with
+HTTP/1.1 bytes whatever the client speaks. `HttpProtocolServer.WriteRefusalAsync` reads the first
+bytes with `Http2ConnectionPreface` under the engine's refusal deadline, as ADR-0081 decision 5's
+"Too many connections" row says:
+
+- **The whole preface** goes to `Surl.Http2`'s `Http2ConnectionRefusal`, which passes over the
+  client's frames up to its first `HEADERS` and sends an empty `SETTINGS`, then `HEADERS` on that
+  stream with `END_STREAM` carrying `:status 503`, `server: surl` and `content-length: 0` (the
+  HTTP/1.1 refusal's fields without `Connection`, which RFC 9113 section 8.2.2 forbids), then
+  `GOAWAY` naming that stream, `NO_ERROR`. The client's `SETTINGS` is not acknowledged.
+- **No `HEADERS` before the deadline**, a close, or a malformed frame first: the connection closes
+  with no bytes.
+- **Anything that is not the preface**, and a client that half-closes with no bytes, gets the
+  recorded HTTP/1.1 `refusal-503` bytes unchanged. A client that sends no byte before the deadline
+  gets no bytes.
+
+Decision 6's second half, `HTTP_1_1_REQUIRED` for NTLM and Negotiate, belongs to BL-602 and is not
+changed by this amendment.
