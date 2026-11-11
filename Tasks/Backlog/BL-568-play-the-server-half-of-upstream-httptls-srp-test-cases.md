@@ -4,7 +4,7 @@ title: Play the server half of upstream httptls+srp test cases
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-566, BL-391, BL-393]
+depends-on: [BL-566, BL-391, BL-393, BL-1035]
 touches: [Conformance/Surl.Conformance.UnitLibrary, Conformance/Surl.Conformance.UnitTests, Documentation/Conformance]
 requirement: none
 created: 2026-11-04
@@ -49,8 +49,30 @@ password, as BL-563's ADR decision 7 says; both rows of the server-name table in
 
 - If the server half needs a seam inside `Surl.TlsSrp` or `Surl.Protocol.Http`, add that library to
   `touches` before claiming, or file it as its own task.
+- 2026-11-11, lane 1: stopped before the first build. `dotnet build` fails with "A compatible .NET
+  SDK was not found" (global.json pins 10.0.401; the machine has 10.0.100-rc.1, 11.0.100-rc.2 and
+  11.0.100), so the task waits on BL-1035. The unbuilt code was left uncommitted for the shift's stash:
+  - `Import-UpstreamTestCases.ps1` now also copies `certs/srp-verifier-db` and `certs/srp-verifier-conf`
+    (rerun: only those two files and their `SHA256SUMS` lines changed).
+  - Library: both `UpstreamTestCaseServers` rows built, with a new optional `PortVariable` column
+    (`HTTPTLSPORT`, `HTTPTLS6PORT`; other rows stay null until a task maps them);
+    `UpstreamTestCaseServerCommands` rows `None` for both; new `UpstreamTestCaseGnuTlsServPage.Compose`
+    (ADR-0122 decision 7's page; request fields echoed as `name: value` CRLF, which is what curl sent).
+  - Tests: `UpstreamTestCaseGnuTlsServPageTests` (exact bytes; passes test 320's real verify section,
+    fails for another user), `UpstreamTestCaseServersTests.Find_TlsSrpName_IsBuiltOverHttpsAndMapsItsPortVariable`,
+    `UpstreamTestCaseSelectorTests.FindSkipReason_ImportedTlsSrpCaseForTheWindowsReferencePin_SkipsFeatureMissingTlsSrp`
+    (320, 321, 322, 324) and `..._ForAReferencePinWithTlsSrp_IsRunnable`; the run's new
+    `UpstreamTestCaseTlsSrpServerHalf` (own `TcpListener`s on 127.0.0.1 and [::1], since
+    `Surl.Networking`'s TLS-SRP listener is BL-567's; `Surl.TlsSrp` handshake with upstream's verifier
+    file; Surl's `HttpConnectionReader`; the page; close), wired into `UpstreamTestCasesAgainstSurlTests`
+    (families and `%HTTPTLSPORT`/`%HTTPTLS6PORT`); `Surl.Conformance.UnitTests.csproj` references
+    `Surl.TlsSrp.UnitLibrary`.
+  - Still to do once it builds: build and fast tests, coverage, the library `CLAUDE.md` paragraph, and
+    split criteria 3 and 4 (CI's Linux/macOS run and grouping its failures) to a follow-up task as
+    BL-371's criterion went to BL-724, since a lane cannot push.
 
 ## Log
 
 - 2026-11-04: Created.
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Backlog. Waits on BL-1035: pinned .NET SDK 10.0.401 is not installed, so nothing builds; unbuilt work is in Notes
