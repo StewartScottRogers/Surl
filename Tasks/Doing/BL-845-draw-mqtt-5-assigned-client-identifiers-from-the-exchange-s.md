@@ -39,3 +39,4 @@ identifier comes from `ExchangeContext.Identifiers`, so a seeded instance assign
 ## Log
 
 - 2026-11-05: Created.
+- 2026-11-11: Backlog -> Doing.
