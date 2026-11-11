@@ -35,3 +35,4 @@ token opened it is `404 BLOB_UPLOAD_UNKNOWN`, as ADR-0115 code-3 says ("another 
 ## Log
 
 - 2026-11-05: Created.
+- 2026-11-11: Backlog -> Doing.
