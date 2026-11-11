@@ -55,3 +55,4 @@ decision 8 says; the `http-proxy` and `https-proxy` rows of the server-name tabl
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-11: Backlog -> Doing.
