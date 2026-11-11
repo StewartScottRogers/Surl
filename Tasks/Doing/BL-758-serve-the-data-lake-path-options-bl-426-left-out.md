@@ -46,3 +46,4 @@ ADR-0109 decisions 1, 5.2, 5.4 and 5.5 describe them.
 ## Log
 
 - 2026-11-05: Created.
+- 2026-11-11: Backlog -> Doing.
