@@ -8,9 +8,9 @@ depends-on: [BL-540, BL-406]
 touches: [Conformance/Surl.Conformance.UnitTests, Documentation/Conformance/Extended/Xmpp.md]
 requirement: none
 created: 2026-11-04
-completed:
+completed: 2026-11-11
 ---
-# BL-541 — Run the Curl port's xmpp client against a live surl
+# BL-541 â€” Run the Curl port's xmpp client against a live surl
 
 ## Goal
 
@@ -27,10 +27,10 @@ assertion comes from RFC 6120 and XEP-0030, and the matrix is fully covered.
 
 ## Acceptance criteria
 
-- [ ] The test class exists with the three exchanges over both schemes, each passing on Windows with the pinned
+- [x] The test class exists with the three exchanges over both schemes, each passing on Windows with the pinned
       client present.
-- [ ] `Documentation/Conformance/Extended/Xmpp.md`: every row is covered by a named test or marked `n/a` with a reason.
-- [ ] The fast tests are green, and `dotnet build -warnaserror` is clean.
+- [x] `Documentation/Conformance/Extended/Xmpp.md`: every row is covered by a named test or marked `n/a` with a reason.
+- [x] The fast tests are green, and `dotnet build -warnaserror` is clean.
 
 ## Notes
 
@@ -38,3 +38,4 @@ assertion comes from RFC 6120 and XEP-0030, and the matrix is fully covered.
 
 - 2026-11-04: Created.
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Done. Pinned Curl port xmpp client logs in (SCRAM), sends, discovers and is refused on a live surl over xmpp and xmpps; Xmpp.md rows name tests
