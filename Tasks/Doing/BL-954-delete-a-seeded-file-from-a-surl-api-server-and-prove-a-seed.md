@@ -46,3 +46,4 @@ message seeded with `SurlServer.Messages.EnqueueAsync` is shown consumed by a qu
 ## Log
 
 - 2026-11-06: Created.
+- 2026-11-11: Backlog -> Doing.
