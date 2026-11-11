@@ -61,3 +61,4 @@ and limits, over TCP, and `surl --aihelp` documents it.
 - 2026-11-06: Backlog -> Doing.
 - 2026-11-06: Doing -> Backlog. Needs Application/Surl.Composition.UnitLibrary and .UnitTests, which BL-803 (Doing) touches; also waits on BL-555 for the shared -x/-U proxy options
 - 2026-11-06: depends-on BL-555 replaced by BL-1004 (BL-555 split for the 60-minute size limit; Stewart asked for a backlog audit 2026-11-06).
+- 2026-11-11: Backlog -> Doing.
