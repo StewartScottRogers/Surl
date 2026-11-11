@@ -4,7 +4,7 @@ title: Stop conformance tests against a published win-x64 surl timing out before
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: []
+depends-on: [BL-1035]
 touches: [Conformance/Surl.Conformance.UnitTests]
 requirement: none
 created: 2026-11-04
@@ -41,7 +41,10 @@ start timeout.
 
 ## Notes
 
+- 2026-11-11, lane 3: no cause found yet. Read so far: `PublishedSurlProcess` drains both pipes with `BeginOutputReadLine`/`BeginErrorReadLine`, so a full standard error cannot block surl; MSTest runs at `Workers = 0` (one per core, 32 here), method level, so up to 32 surl and curl processes start at once. Could not publish win-x64 to reproduce: `dotnet publish` fails, the pinned SDK 10.0.401 is not installed (BL-1035).
+
 ## Log
 
 - 2026-11-04: Created.
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Backlog. Waits on BL-1035: pinned .NET SDK 10.0.401 is not installed, so surl cannot be published or built to reproduce the timeouts
