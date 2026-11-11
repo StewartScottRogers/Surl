@@ -8,7 +8,7 @@ depends-on: [BL-731]
 touches: [Documentation/Planning/Decisions/ADR-0112-how-the-amqp-0-9-1-broker-answers-amqp-and-amqps.md]
 requirement: none
 created: 2026-11-06
-completed:
+completed: 2026-11-11
 ---
 # BL-953 — Amend ADR-0112 for the AMQP 0-9-1 transactions and publisher confirms BL-731 serves
 
@@ -37,18 +37,21 @@ ADR-0112 states what the broker now does for `tx` and `confirm` (BL-731) instead
 
 ## Acceptance criteria
 
-- [ ] ADR-0112 decision 6 replaces the "Transactions ... are BL-731's" bullet with the behaviour above, its
+- [x] ADR-0112 decision 6 replaces the "Transactions ... are BL-731's" bullet with the behaviour above, its
       `Succeeded` row no longer says publishes are unacknowledged outside a pending task, and decision 2's
       `server-properties` row lists `publisher_confirms` unconditionally.
-- [ ] ADR-0112 decision 7's `540` row no longer lists `tx` and `confirm`, and a `406` row (or its text) names
+- [x] ADR-0112 decision 7's `540` row no longer lists `tx` and `confirm`, and a `406` row (or its text) names
       `commit`/`rollback` on a channel not transacted and mixing `tx` with `confirm`.
-- [ ] The amendment is marked "Decided by Claude under Stewart's delegation" and dated.
+- [x] The amendment is marked "Decided by Claude under Stewart's delegation" and dated.
 
 ## Notes
 
 - Filed by BL-731.
+- Done directly rather than through align-and-document: one file, wording given by the task; each claim checked against `Amqp0Broker`'s remarks and `Amqp0BrokerConnection.Transactions.cs` (select-ok, commit-ok, rollback-ok, confirm `nowait`). The header gains an "Amended" line for decisions 2, 6 and 7, and Consequences no longer says confirms wait for BL-731.
+- Docs only: no `.cs` or project file changed, so no build or test run was needed.
 
 ## Log
 
 - 2026-11-06: Created.
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Done. ADR-0112 records the AMQP 0-9-1 transactions and publisher confirms BL-731 serves
