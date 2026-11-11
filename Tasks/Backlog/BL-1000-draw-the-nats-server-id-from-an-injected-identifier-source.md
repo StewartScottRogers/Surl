@@ -4,7 +4,7 @@ title: Draw the NATS server_id from an injected identifier source
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-822, BL-851]
+depends-on: [BL-822, BL-851, BL-1035]
 touches: [Protocols/Messaging/Surl.Extended.Protocol.Nats.UnitLibrary, Protocols/Messaging/Surl.Extended.Protocol.Nats.UnitTests]
 requirement: none
 created: 2026-11-06
@@ -38,7 +38,24 @@ every run.
 
 ## Notes
 
+- 2026-11-11 (lane 4): code written but not built - `dotnet` cannot resolve the pinned SDK 10.0.401 (BL-1035),
+  so the task waits on BL-1035. The shift stashes the uncommitted work; redo it from this outline if lost:
+  - `NatsServer` gains a last optional parameter `IIdentifierRandom? identifiers = null`, so
+    `Surl.Composition` (held by BL-533, and BL-1001's to change) compiles unchanged.
+  - Default when null: an internal `NatsUnseededIdentifierRandom` filling from `RandomNumberGenerator` - the same
+    bytes as `Surl.Core`'s `CryptographicIdentifierRandom`, which a protocol server may not reference (ADR-0002;
+    `ProtocolIsolationTests` forbids `Surl.Core.UnitLibrary`). `NatsServer` itself no longer calls
+    `RandomNumberGenerator`.
+  - `internal static string DrawServerId(IIdentifierRandom)`: one byte per character, bytes >= 252 (7 x 36)
+    drawn again, `byte % 36` into `ServerIdAlphabet` (made `internal` for the tests).
+  - Tests: the test project references `Surl.Core.UnitLibrary` for `SeededIdentifierRandom(seed).ForServer("nats")`;
+    `UnitTestByteSequenceIdentifierRandom` cycles chosen bytes. New tests in `NatsServerTests`:
+    `ServerId_SameSeededSource_IsTheSameEveryRun`, `ServerId_DifferentSeeds_Differ`,
+    `ServerId_SourceGivingEachByteBelowTheLimit_DrawsEveryAlphabetCharacter`,
+    `ServerId_ByteOfEachValue_MapsToItsRemainderModuloTheAlphabet`, `ServerId_BytesAtOrAboveTheLimit_AreDrawnAgain`.
+
 ## Log
 
 - 2026-11-06: Created.
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Backlog. Waits on BL-1035: pinned .NET SDK 10.0.401 is not installed, so nothing builds; code is written and stashed
