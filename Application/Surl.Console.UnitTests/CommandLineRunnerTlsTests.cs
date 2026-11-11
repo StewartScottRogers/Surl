@@ -227,7 +227,7 @@ public sealed class CommandLineRunnerTlsTests
     [TestMethod]
     public void CreateListenerFactory_AnySettings_CreatesASocketListenerFactory()
     {
-        Assert.IsInstanceOfType<SocketListenerFactory>(Program.CreateListenerFactory(null));
+        Assert.IsInstanceOfType<SocketListenerFactory>(Program.CreateListenerFactory(null, TimeProvider.System));
     }
 
     private async Task<RunOutcome> ServeUntilListeningAsync(params string[] args)

@@ -28,11 +28,12 @@ public sealed class UnixSocketConnectionListener : IConnectionListener
     private readonly DateTime createdFileWriteTime;
     private readonly AcceptRace<Socket> acceptRace;
     private readonly ServerTlsHandshake? tlsHandshake;
+    private readonly TimeProvider timeProvider;
 
     // Keeps the bound socket and reads the created file's write time, its identity at stop.
     [ExcludeFromCodeCoverage(Justification = "Constructed only over a bound socket; covered by UnixSocketConnectionListenerTests.")]
     private UnixSocketConnectionListener(
-        ListenUrl listenUrl, Socket listeningSocket, UnixDomainSocketEndPoint localEndPoint, ServerTlsSettings? tlsSettings)
+        ListenUrl listenUrl, Socket listeningSocket, UnixDomainSocketEndPoint localEndPoint, ServerTlsSettings? tlsSettings, TimeProvider timeProvider)
     {
         ListenUrl = listenUrl;
         this.listeningSocket = listeningSocket;
@@ -40,6 +41,7 @@ public sealed class UnixSocketConnectionListener : IConnectionListener
         createdFilePath = listenUrl.UnixSocket!.IsAbstract ? null : listenUrl.UnixSocket.Name;
         createdFileWriteTime = createdFilePath is null ? default : File.GetLastWriteTimeUtc(createdFilePath);
         tlsHandshake = ServerTlsHandshake.ForListener(tlsSettings, listenUrl);
+        this.timeProvider = timeProvider;
         acceptRace = new AcceptRace<Socket>(1, AcceptFromSocketAsync, ReleaseSocket);
     }
 
@@ -66,6 +68,7 @@ public sealed class UnixSocketConnectionListener : IConnectionListener
     /// <param name="listenUrl">What to listen on; its <see cref="ListenUrl.UnixSocket"/> is set.</param>
     /// <param name="tlsSettings">The process's TLS settings, or <see langword="null"/> for connections that cannot be secured.</param>
     /// <param name="cancellationToken">Cuts the start off.</param>
+    /// <param name="timeProvider">Times each accepted connection's peek waits and closes; <see langword="null"/> for <see cref="TimeProvider.System"/>.</param>
     /// <returns>The listener; its listen URL is <paramref name="listenUrl"/>, with no bound port.</returns>
     /// <exception cref="ArgumentException"><paramref name="listenUrl"/> names no Unix socket.</exception>
     /// <exception cref="ListenerBindException">
@@ -75,7 +78,7 @@ public sealed class UnixSocketConnectionListener : IConnectionListener
     /// </exception>
     [ExcludeFromCodeCoverage(Justification = "Binds a socket; covered by UnixSocketConnectionListenerTests.")]
     public static ValueTask<UnixSocketConnectionListener> StartAsync(
-        ListenUrl listenUrl, ServerTlsSettings? tlsSettings, CancellationToken cancellationToken)
+        ListenUrl listenUrl, ServerTlsSettings? tlsSettings, CancellationToken cancellationToken, TimeProvider? timeProvider = null)
     {
         ArgumentNullException.ThrowIfNull(listenUrl);
         var address = listenUrl.UnixSocket
@@ -93,7 +96,7 @@ public sealed class UnixSocketConnectionListener : IConnectionListener
         var endPoint = new UnixDomainSocketEndPoint(UnixSocketBindRules.EndPointNameOf(address));
         var socket = BindListeningSocket(listenUrl, endPoint);
 
-        return ValueTask.FromResult(new UnixSocketConnectionListener(listenUrl, socket, endPoint, tlsSettings));
+        return ValueTask.FromResult(new UnixSocketConnectionListener(listenUrl, socket, endPoint, tlsSettings, timeProvider ?? TimeProvider.System));
     }
 
     /// <inheritdoc/>
@@ -112,7 +115,8 @@ public sealed class UnixSocketConnectionListener : IConnectionListener
             localEndPoint,
             UnixSocketBindRules.DescribePeer(RemoteEndPointOf(accepted)),
             new SocketTransportControl(accepted),
-            tlsHandshake);
+            tlsHandshake,
+            timeProvider);
     }
 
     /// <summary>

@@ -21,7 +21,7 @@ internal sealed class ApiTestSeams
 
     /// <summary>The host seams.</summary>
     public SurlServerHostSeams Host => new(
-        _ => ListenerFactory, _ => true, TakeDataDirectoryLock, FakeEnvironmentVariableReader.ExtensionsTurnedOff)
+        (_, _) => ListenerFactory, _ => true, TakeDataDirectoryLock, FakeEnvironmentVariableReader.ExtensionsTurnedOff)
     {
         DataDirectoryFileSystem = new InMemoryContentFileSystem(TimeProvider.System),
         ReadStartFile = ReadStartFile,

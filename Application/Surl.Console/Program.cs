@@ -48,7 +48,7 @@ internal static class Program
     internal static async Task<int> RunAsync(
         string[] args, TextWriter output, TextWriter error, CancellationToken cancellationToken) =>
         (int)await new CommandLineRunner(
-                CreateListenerFactory, DataDirectoryProbe.CanOpen, DataDirectoryLock.Take, TimeProvider.System)
+                tlsSettings => CreateListenerFactory(tlsSettings, TimeProvider.System), DataDirectoryProbe.CanOpen, DataDirectoryLock.Take, TimeProvider.System)
             .RunAsync(args, output, error, cancellationToken);
 
     /// <summary>
@@ -56,9 +56,10 @@ internal static class Program
     /// <paramref name="tlsSettings"/>.
     /// </summary>
     /// <param name="tlsSettings">The process's TLS settings, or <see langword="null"/> for none.</param>
+    /// <param name="timeProvider">The clock every connection is timed by.</param>
     /// <returns>The factory.</returns>
-    internal static IListenerFactory CreateListenerFactory(ServerTlsSettings? tlsSettings) =>
-        new SocketListenerFactory(tlsSettings);
+    internal static IListenerFactory CreateListenerFactory(ServerTlsSettings? tlsSettings, TimeProvider timeProvider) =>
+        new SocketListenerFactory(tlsSettings, timeProvider);
 
     /// <summary>
     /// Creates the Ctrl+C and SIGTERM handler: it keeps the runtime from ending the process at
