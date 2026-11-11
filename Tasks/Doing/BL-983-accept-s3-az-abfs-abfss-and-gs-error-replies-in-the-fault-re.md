@@ -37,3 +37,4 @@ instead of refused at configuration, now that each server answers a chosen error
 ## Log
 
 - 2026-11-06: Created.
+- 2026-11-11: Backlog -> Doing.
