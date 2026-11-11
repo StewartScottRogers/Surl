@@ -93,7 +93,6 @@ public sealed class GcsJsonObjectInsertTests
     [TestMethod]
     [DataRow("", "400 Bad Request", DisplayName = "no uploadType")]
     [DataRow("uploadType=bogus&name=b.txt", "400 Bad Request", DisplayName = "an unknown uploadType")]
-    [DataRow("uploadType=resumable&name=b.txt", "501 Not Implemented", DisplayName = "a resumable upload, until BL-1042")]
     [DataRow("uploadType=media&name=b.txt&ifGenerationMatch=abc", "400 Bad Request", DisplayName = "a condition that is no number")]
     [DataRow("uploadType=media&name=dir%2F", "400 Bad Request", DisplayName = "a name ending in a slash")]
     [DataRow("uploadType=media&name=a%2F%2e%2e%2Fb.txt", "400 Bad Request", DisplayName = "a name the store cannot hold")]

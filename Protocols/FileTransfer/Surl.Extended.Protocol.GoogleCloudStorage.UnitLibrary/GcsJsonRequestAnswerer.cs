@@ -23,9 +23,10 @@ namespace Surl.Extended.Protocol.GoogleCloudStorage;
 /// <param name="login">The judge of the Bearer login, answering in JSON.</param>
 /// <param name="context">The exchange: its listen URL, log and fault plan.</param>
 /// <param name="insert">Answers <c>objects.insert</c>, media and multipart.</param>
+/// <param name="resumable">Answers <c>objects.insert</c>, resumable: opening, chunks, status checks and cancels.</param>
 /// <param name="update">Answers <c>objects.patch</c> and <c>objects.update</c>.</param>
 /// <param name="isOverTls">Whether the connection is TLS, for the links the resources carry.</param>
-internal sealed class GcsJsonRequestAnswerer(ContentStore store, GcsObjectPropertiesReader properties, GcsListBuckets listBuckets, GcsLoginJudge login, ExchangeContext context, GcsJsonObjectInsert insert, GcsJsonObjectUpdate update, bool isOverTls)
+internal sealed class GcsJsonRequestAnswerer(ContentStore store, GcsObjectPropertiesReader properties, GcsListBuckets listBuckets, GcsLoginJudge login, ExchangeContext context, GcsJsonObjectInsert insert, GcsJsonResumableUpload resumable, GcsJsonObjectUpdate update, bool isOverTls)
 {
     private static readonly HttpStatus NoContent = new(204, "No Content");
 
@@ -105,10 +106,29 @@ internal sealed class GcsJsonRequestAnswerer(ContentStore store, GcsObjectProper
                 : reply.JsonError(GcsJsonError.InvalidParameter),
             GcsJsonOperation.ListObjects => await ListObjectsAsync(reply, target, route, caller, resources, cancellationToken),
             GcsJsonOperation.GetObject => await GetObjectAsync(reply, request, target, route, caller, resources, cancellationToken),
-            GcsJsonOperation.InsertObject => await insert.AnswerAsync(reply, request, target, route, caller, resources, cancellationToken),
+            GcsJsonOperation.InsertObject or GcsJsonOperation.ResumeUpload or GcsJsonOperation.CancelUpload => await AnswerUploadAsync(reply, request, target, route, caller, resources, cancellationToken),
             GcsJsonOperation.DeleteObject => await DeleteObjectAsync(reply, request, target, route, caller, cancellationToken),
             _ => await ChangeMetadataAsync(reply, request, target, route, caller, resources, cancellationToken),
         };
+    }
+
+    // objects.insert: media and multipart in one request; resumable opened, resumed or cancelled.
+    private Task<HttpAnswer> AnswerUploadAsync(GcsReply reply, HttpRequest request, GcsRequestTarget target, GcsJsonRoute route, ContentCaller caller, GcsJsonResources resources, CancellationToken cancellationToken) => route.Operation switch
+    {
+        GcsJsonOperation.ResumeUpload => resumable.ResumeAsync(reply, request, target, route, caller, resources, cancellationToken),
+        GcsJsonOperation.CancelUpload => resumable.CancelAsync(reply, target, route, cancellationToken),
+        _ => InsertAsync(reply, request, target, route, caller, resources, cancellationToken),
+    };
+
+    // objects.insert by POST: resumable opens an upload, media and multipart are one request.
+    private async Task<HttpAnswer> InsertAsync(GcsReply reply, HttpRequest request, GcsRequestTarget target, GcsJsonRoute route, ContentCaller caller, GcsJsonResources resources, CancellationToken cancellationToken)
+    {
+        if (GcsQueryParameters.Value(target.Parameters, "uploadType") == "resumable")
+        {
+            return await resumable.OpenAsync(reply, request, target, route, caller, cancellationToken);
+        }
+
+        return await insert.AnswerAsync(reply, request, target, route, caller, resources, cancellationToken);
     }
 
     // objects.list: a listing needs --list-directories; prefix, delimiter, offsets, maxResults and pageToken.

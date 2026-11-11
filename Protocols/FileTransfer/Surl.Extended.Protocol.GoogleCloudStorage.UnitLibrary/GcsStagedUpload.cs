@@ -40,6 +40,17 @@ internal sealed class GcsStagedUpload(string uploadId, GcsUploadKind kind, GcsRe
     public ContentUploadSession Session => session;
 
     /// <summary>
+    /// The bucket and object the upload was opened for.
+    /// </summary>
+    public GcsRequestTarget Target => target;
+
+    /// <summary>
+    /// The metadata a JSON API upload was opened with, or <see langword="null"/> for an XML API upload, whose metadata is
+    /// <see cref="MetadataFields"/>.
+    /// </summary>
+    public ObjectMetadata? Metadata { get; set; }
+
+    /// <summary>
     /// When a request last opened, wrote to or tried to complete the upload.
     /// </summary>
     public DateTimeOffset LastTouched { get; private set; } = lastTouched;

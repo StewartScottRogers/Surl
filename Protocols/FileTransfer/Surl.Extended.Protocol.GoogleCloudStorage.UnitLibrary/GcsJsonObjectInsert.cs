@@ -61,7 +61,7 @@ internal sealed class GcsJsonObjectInsert(ContentStore store, GcsObjectPropertie
 
         if (uploadType is not ("media" or "multipart"))
         {
-            return (uploadType == "resumable" ? GcsJsonError.NotImplemented : GcsJsonError.InvalidParameter, null);
+            return (GcsJsonError.InvalidParameter, null);
         }
 
         if (GcsJsonConditions.Read(parameters) is not { } conditions)

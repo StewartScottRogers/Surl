@@ -31,6 +31,9 @@ internal sealed record GcsJsonRoute(GcsJsonOperation Operation, string RawBucket
     private static readonly HashSet<string> InsertParameters =
         new([.. Common, "contentEncoding", "ifGenerationMatch", "ifGenerationNotMatch", "ifMetagenerationMatch", "ifMetagenerationNotMatch", "name", "uploadType"], StringComparer.Ordinal);
 
+    private static readonly HashSet<string> UploadSessionParameters =
+        new([.. Common, "uploadType", "upload_id"], StringComparer.Ordinal);
+
     private static readonly GcsJsonRoute UnlistedRoute = new(GcsJsonOperation.Unlisted, string.Empty, string.Empty, false);
 
     /// <summary>
@@ -48,7 +51,7 @@ internal sealed record GcsJsonRoute(GcsJsonOperation Operation, string RawBucket
         GcsJsonOperation.ListObjects => "storage.objects.list",
         GcsJsonOperation.GetObject => "storage.objects.get",
         GcsJsonOperation.DeleteObject => "storage.objects.delete",
-        GcsJsonOperation.InsertObject => "storage.objects.insert",
+        GcsJsonOperation.InsertObject or GcsJsonOperation.ResumeUpload or GcsJsonOperation.CancelUpload => "storage.objects.insert",
         GcsJsonOperation.PatchObject => "storage.objects.patch",
         GcsJsonOperation.UpdateObject => "storage.objects.update",
         _ => "storage.unlisted",
@@ -83,13 +86,20 @@ internal sealed record GcsJsonRoute(GcsJsonOperation Operation, string RawBucket
             : route;
     }
 
-    // The upload path serves one operation: a POST to b/<bucket>/o.
+    // The upload path serves a POST to b/<bucket>/o, which inserts an object or opens a resumable upload, and a PUT or DELETE of that upload, which resumes or cancels a resumable one.
     private static GcsJsonRoute OfUpload(string method, string rest)
     {
         var parts = rest.Split('/');
+        var operation = method switch
+        {
+            "POST" => GcsJsonOperation.InsertObject,
+            "PUT" => GcsJsonOperation.ResumeUpload,
+            "DELETE" => GcsJsonOperation.CancelUpload,
+            _ => GcsJsonOperation.Unlisted,
+        };
 
-        return method == "POST" && parts.Length == 3 && parts[0] == "b" && parts[1].Length > 0 && parts[2] == "o"
-            ? new GcsJsonRoute(GcsJsonOperation.InsertObject, parts[1], string.Empty, false)
+        return operation != GcsJsonOperation.Unlisted && parts.Length == 3 && parts[0] == "b" && parts[1].Length > 0 && parts[2] == "o"
+            ? new GcsJsonRoute(operation, parts[1], string.Empty, false)
             : UnlistedRoute;
     }
 
@@ -164,6 +174,7 @@ internal sealed record GcsJsonRoute(GcsJsonOperation Operation, string RawBucket
             GcsJsonOperation.GetBucket => BucketsGetParameters,
             GcsJsonOperation.ListObjects => ObjectsListParameters,
             GcsJsonOperation.InsertObject => InsertParameters,
+            GcsJsonOperation.ResumeUpload or GcsJsonOperation.CancelUpload => UploadSessionParameters,
             _ => ObjectParameters,
         };
 

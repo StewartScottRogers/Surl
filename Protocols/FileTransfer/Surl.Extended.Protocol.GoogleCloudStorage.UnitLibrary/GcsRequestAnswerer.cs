@@ -66,6 +66,7 @@ internal sealed class GcsRequestAnswerer : IHttpRequestHandler
             new GcsLoginJudge(authentication, context.Log, isJson: true),
             context,
             new GcsJsonObjectInsert(store, properties, putObject),
+            new GcsJsonResumableUpload(store, properties, staging),
             new GcsJsonObjectUpdate(store, index, properties),
             isOverTls);
     }

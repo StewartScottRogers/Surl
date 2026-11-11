@@ -75,8 +75,8 @@ BL-1041), `x-goog-stored-content-*`, `x-goog-storage-class: STANDARD`
   `maxResults`, `pageToken`; `includeTrailingDelimiter` is validated and changes nothing, no file name ending in the
   delimiter being listed), `objects.get` (resource, or bytes for `alt=media` and the download path; `generation`,
   `if*Match`, `If-*`, one `Range`; `GcsJsonObjectQuery`, `GcsJsonConditions`) and `objects.delete`, by method, path
-  and the exact query parameters (`%2F` and `/` both separate folders); anything else, `HEAD` and `uploadType=resumable`
-  included, is `501 notImplemented` after the login. `GcsLoginJudge(isJson: true)` takes Bearer only (a
+  and the exact query parameters (`%2F` and `/` both separate folders); anything else, `HEAD` included,
+  is `501 notImplemented` after the login. `GcsLoginJudge(isJson: true)` takes Bearer only (a
   `GOOG4-HMAC-SHA256` header is `400 invalid`) and refuses in `GcsJsonError` rows (`401 required`, `401 authError`,
   `400 invalid`). Resources are written by `GcsJsonResources` with `Utf8JsonWriter` (`GcsJson`, member order as
   ADR-0148 decision 3, `etag` the base64 of `<generation>/<metageneration>`, `timeCreated` the generation as a
@@ -102,6 +102,15 @@ BL-1041), `x-goog-stored-content-*`, `x-goog-storage-class: STANDARD`
   has no index entry, so it is `403 forbidden`. A malformed `multipart/related` body (no boundary, a third part, a close
   after one part, no close, bytes before the first delimiter, part fields past 8 KiB) is `400 badRequest`; metadata past
   1 MiB `400 invalid`.
+
+- JSON resumable uploads (BL-1042, ADR-0148 decision 7 and amendment 2). `GcsJsonResumableUpload` answers `POST /upload/storage/v1/b/<bucket>/o?uploadType=resumable`
+  (`200`, `Location` the session URI `?uploadType=resumable&upload_id=<id>`; the metadata body optional, `X-Upload-Content-Type`
+  and `X-Upload-Content-Length` read; conditions, name and metadata judged at the opening), `PUT` of the session URI (a chunk by
+  `Content-Range`, read by `GcsContentRange`: `308` with `Range` until the total is in, then `200` and the `storage#object`; `bytes */<total>`
+  with no body is a status check) and `DELETE` (`499`). The staged bytes, the 1000-open and 24-hour bounds are the XML API's
+  (`GcsUploadStaging`, `GcsStagedUploads`); a session is `GcsUploadKind.JsonResumable`, found by ID and bucket
+  (`GcsStagedUploads.FindJson`), so an XML ID on a JSON URL, or the reverse, is `404 notFound`. `GcsStagedUpload.Metadata` holds the
+  opening's `ObjectMetadata`, which `GcsUploadStaging.CommitAsync` stores in place of the XML opening's fields.
 
 Every other request - another method, a subresource or unlisted query parameter, a copy, a `POST` that is no
 upload, `x-goog-encryption-*` - is `400 NotImplemented`, judged after the login. Every error is `GcsError`'s fixed

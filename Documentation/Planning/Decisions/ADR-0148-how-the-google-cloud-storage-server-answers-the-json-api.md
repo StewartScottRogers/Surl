@@ -315,7 +315,7 @@ Costs and caveats:
 - **Order of refusals for an insert**: `403 forbidden` (uploads off), `400 invalidParameter` (`uploadType`, a condition),
   `411`, `413` (announced length), `400 invalid` (head digests), `400 badRequest` (no boundary); then the name (`400
   required`, `400 invalid`), `412`, `409`, and the body. A multipart body is read first, because the name is in it.
-- **`uploadType=resumable`** is `501 notImplemented` until BL-1042; any other value is `400 invalidParameter`.
+- **`uploadType=resumable`** is opened by `GcsJsonResumableUpload` (amendment 2, BL-1042); any other value than `media`, `multipart` and `resumable` is `400 invalidParameter`.
 - **A conditioned insert** judges the object there now: with none, `ifGenerationMatch` must be `0` and
   `ifMetagenerationMatch` absent; with one, the same rules as a delete.
 - **Patch and update of a file the index does not key** - one in a share, outside the served root - is `403 forbidden`: the
@@ -325,3 +325,13 @@ Costs and caveats:
 - **A commit the store refuses** (an out-of-space fault, a vanished folder) is `403 forbidden`, as the XML API's
   `AccessDenied`; a full object metadata index is `403 quotaExceeded` (decision 5's row), new as a `GcsJsonError`.
 - **Rows added to `GcsJsonError`**: `badRequest`, `conflict`, `lengthRequired`, `uploadTooLarge`, `quotaExceeded`.
+
+## Amendment 2 (BL-1042, 2026-11-11): resumable upload
+
+- **Decided by:** Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), 2026-11-11, in BL-1042. Each point settles a case decision 7 left open; none changes a row of it.
+- **Routes.** `POST /upload/storage/v1/b/<bucket>/o?uploadType=resumable` opens; `PUT` and `DELETE` of the same path with `upload_id=` resume (chunk or status check) and cancel. All three are the Google method id `storage.objects.insert` for a fault rule. The session URI names the bucket only, so a request finds its session by ID and bucket; `uploadType` on a `PUT` or `DELETE` is accepted and not judged.
+- **A JSON session is its own kind** (`GcsUploadKind.JsonResumable`), sharing `GcsStagedUploads` (1000 open, 24-hour idle) and `GcsUploadStaging` with the XML API; an ID of the other grammar, of another bucket, cancelled, finished or expired is `404 notFound`.
+- **The opening judges everything about the name**: `403 forbidden` (uploads off), `400 invalidParameter` (a condition), `411`, `400 invalid` (a malformed `X-Upload-Content-Length`, metadata that is not an object, past 1 MiB or with custom metadata past 8 KiB, a name ending in `/` or past 1024 bytes), `413` (a declared size past `--max-filesize`), `400 required` (no name in the metadata or query), `412` (conditions against the object there now, as a media insert does; not re-judged at completion), `409`, `503 backendError` (1000 open). An empty body is empty metadata. The metadata's `contentType` wins over `X-Upload-Content-Type`, which wins over `application/octet-stream`; the query's `contentEncoding` is the metadata's fallback. The metadata's `md5Hash` and `crc32c` are not checked at completion.
+- **A chunk** is judged as ADR-0110 amendment 2 judges the XML one, answered in JSON rows: no `Content-Length` `411`; a `Content-Range` that does not parse, a body of the wrong length, a body cut short, or a total below the bytes in `400 badRequest`; a total or bytes past `--max-filesize` `413` and the upload ends. A chunk not starting at the next byte is not read and is answered `308` with where to resume. A status check whose total equals the bytes kept completes the upload.
+- **A cancel** is `499 Client Closed Request` with no body and `Content-Length: 0`; uploads off is `403 forbidden`.
+- **A commit the store refuses** is `403 forbidden`; a full index `403 quotaExceeded`; the answer on completion is the `storage#object`, its metageneration 1.

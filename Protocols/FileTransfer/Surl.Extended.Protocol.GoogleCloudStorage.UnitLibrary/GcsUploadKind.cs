@@ -14,4 +14,10 @@ internal enum GcsUploadKind
     /// A resumable upload: bytes appended in order through the session URI ("Resumable uploads").
     /// </summary>
     Resumable,
+
+    /// <summary>
+    /// A JSON API resumable upload (ADR-0148, decision 7): the same bytes-in-order session, but its own grammar, so an XML
+    /// upload ID is no session of the JSON URL and the reverse.
+    /// </summary>
+    JsonResumable,
 }

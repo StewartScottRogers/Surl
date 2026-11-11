@@ -16,6 +16,9 @@ public sealed class GcsJsonRouteTests
     [DataRow("/storage/v1/b/photos/o/a/b%2Fc%2fd.txt", "GET", "GetObject", "photos", "a/b/c/d.txt", "storage.objects.get")]
     [DataRow("/storage/v1/b/photos/o/a.txt", "DELETE", "DeleteObject", "photos", "a.txt", "storage.objects.delete")]
     [DataRow("/download/storage/v1/b/photos/o/a.txt", "GET", "GetObject", "photos", "a.txt", "storage.objects.get")]
+    [DataRow("/upload/storage/v1/b/photos/o?uploadType=resumable", "POST", "InsertObject", "photos", "", "storage.objects.insert")]
+    [DataRow("/upload/storage/v1/b/photos/o?uploadType=resumable&upload_id=x", "PUT", "ResumeUpload", "photos", "", "storage.objects.insert")]
+    [DataRow("/upload/storage/v1/b/photos/o?uploadType=resumable&upload_id=x", "DELETE", "CancelUpload", "photos", "", "storage.objects.insert")]
     public void Recognise_AListedRequest_IsItsOperationBucketAndName(string target, string method, string operation, string bucket, string name, string methodId)
     {
         var route = Recognise(method, target);
@@ -35,6 +38,8 @@ public sealed class GcsJsonRouteTests
     [DataRow("/storage/v1/o/photos", "GET", DisplayName = "no b")]
     [DataRow("/storage/v1/b//o", "GET", DisplayName = "an empty bucket")]
     [DataRow("/upload/storage/v1/b/photos/o", "GET", DisplayName = "the upload path")]
+    [DataRow("/upload/storage/v1/b/photos/o", "PATCH", DisplayName = "a patch of the upload path")]
+    [DataRow("/upload/storage/v1/b/photos/o?upload_id=x&name=y&versions=1", "PUT", DisplayName = "an unlisted parameter on a session request")]
     [DataRow("/download/storage/v1/b/photos", "GET", DisplayName = "a bucket on the download path")]
     [DataRow("/storage/v1/b/photos/o?versions=true", "GET", DisplayName = "an unlisted parameter")]
     public void Recognise_AnythingElse_IsUnlisted(string target, string method)

@@ -41,6 +41,16 @@ internal enum GcsJsonOperation
     InsertObject,
 
     /// <summary>
+    /// <c>PUT /upload/storage/v1/b/&lt;bucket&gt;/o?upload_id=</c>: a chunk or status check of a resumable upload, <c>storage.objects.insert</c>.
+    /// </summary>
+    ResumeUpload,
+
+    /// <summary>
+    /// <c>DELETE /upload/storage/v1/b/&lt;bucket&gt;/o?upload_id=</c>: cancels a resumable upload, <c>storage.objects.insert</c>.
+    /// </summary>
+    CancelUpload,
+
+    /// <summary>
     /// <c>PATCH …/o/&lt;object&gt;</c>: <c>storage.objects.patch</c>.
     /// </summary>
     PatchObject,

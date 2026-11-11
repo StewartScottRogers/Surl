@@ -162,7 +162,9 @@ internal sealed class GcsUploadStaging(ContentStore store, GcsPutObject putObjec
 
         var mapping = store.MapBucketRequestPathForCaller(target.ObjectPath, caller);
 
-        return await putObject.StoreMetadataAsync(upload.MetadataFields, target, mapping, eTag, uploads.TimeProvider.GetUtcNow(), cancellationToken);
+        return upload.Metadata is { } metadata
+            ? await putObject.StoreMetadataAsync(target.RawBucket, target.RawName, mapping, metadata, eTag, uploads.TimeProvider.GetUtcNow(), cancellationToken)
+            : await putObject.StoreMetadataAsync(upload.MetadataFields, target, mapping, eTag, uploads.TimeProvider.GetUtcNow(), cancellationToken);
     }
 
     /// <summary>
