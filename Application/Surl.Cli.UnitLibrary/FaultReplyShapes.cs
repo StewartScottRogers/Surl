@@ -7,18 +7,23 @@ namespace Surl.Cli;
 /// The error shape each scheme's <c>--fault error</c> <c>reply</c> must fit (ADR-0124 decision 4's
 /// reply tables), so a chosen error is one the protocol allows. A code and its text are separated
 /// by the first space. Of the extended schemes, <c>coap</c>, <c>mcp</c> and <c>signalr</c> and
-/// their secure twins have rows (ADR-0144); the others have none yet (BL-833, BL-834, BL-836).
+/// their secure twins have rows (ADR-0144), as do <c>s3</c>, <c>az</c>, <c>abfs</c>, <c>abfss</c>
+/// and <c>gs</c> (BL-983); the others have none yet (BL-834, BL-836).
 /// </summary>
 internal static class FaultReplyShapes
 {
     private static readonly FrozenDictionary<string, Func<string, bool>> FitsByScheme = new Dictionary<string, Func<string, bool>>(StringComparer.Ordinal)
     {
+        ["abfs"] = IsObjectStoreError,
+        ["abfss"] = IsObjectStoreError,
+        ["az"] = IsObjectStoreError,
         ["coap"] = IsCoapResponseCode,
         ["coaps"] = IsCoapResponseCode,
         ["dict"] = reply => IsCodeWithText(reply, 500, 599),
         ["ftp"] = reply => IsCodeWithText(reply, 400, 599),
         ["ftps"] = reply => IsCodeWithText(reply, 400, 599),
         ["gopher"] = IsText,
+        ["gs"] = IsObjectStoreError,
         ["gophers"] = IsText,
         ["http"] = reply => IsCodeWithOptionalText(reply, 400, 599),
         ["https"] = reply => IsCodeWithOptionalText(reply, 400, 599),
@@ -35,6 +40,7 @@ internal static class FaultReplyShapes
         ["rtsp"] = reply => IsCodeWithOptionalText(reply, 400, 599),
         ["signalr"] = IsText,
         ["signalrs"] = IsText,
+        ["s3"] = IsObjectStoreError,
         ["scp"] = IsText,
         ["sftp"] = reply => IsCodeWithText(reply, 2, 8),
         ["smb"] = IsNtStatusError,
@@ -59,6 +65,9 @@ internal static class FaultReplyShapes
     public static bool Fits(string scheme, string reply) => FitsByScheme[scheme](reply);
 
     private static bool IsText(string reply) => reply.Length > 0;
+
+    /// <summary>A status 400 to 599 and an error code word, as the object-store services write them (<c>503 SlowDown</c>).</summary>
+    private static bool IsObjectStoreError(string reply) => IsCodeWithText(reply, 400, 599);
 
     private static bool IsCodeWithText(string reply, int lowest, int highest) =>
         TrySplitCode(reply, out var code, out var text) && code >= lowest && code <= highest && !string.IsNullOrEmpty(text);

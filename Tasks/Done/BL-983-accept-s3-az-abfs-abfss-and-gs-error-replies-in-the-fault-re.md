@@ -8,7 +8,7 @@ depends-on: [BL-980, BL-981, BL-982, BL-785]
 touches: [Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests]
 requirement: FR-062
 created: 2026-11-06
-completed:
+completed: 2026-11-11
 ---
 # BL-983 — Accept s3, az, abfs, abfss and gs error replies in the --fault reply check
 
@@ -27,14 +27,17 @@ instead of refused at configuration, now that each server answers a chosen error
 
 ## Acceptance criteria
 
-- [ ] Named `Surl.Cli` tests: `--fault "error;scheme=s3;reply=503 SlowDown"` is read; `reply=200 OK` is refused;
+- [x] Named `Surl.Cli` tests: `--fault "error;scheme=s3;reply=503 SlowDown"` is read; `reply=200 OK` is refused;
       one accepted and one refused `reply` for `az` and for `gs`.
-- [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and `Surl.Cli.UnitLibrary` keeps 100% line
+- [x] `dotnet build -warnaserror` is clean, the fast tests are green, and `Surl.Cli.UnitLibrary` keeps 100% line
       and branch coverage.
 
 ## Notes
+
+- Added one shared rule, status 400 to 599 plus an error code word, for s3, az, abfs, abfss and gs in FaultReplyShapes (ADR-0124 decision 4). The two tests that used s3 as "no shape yet" now use nats.
 
 ## Log
 
 - 2026-11-06: Created.
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Done. --fault error replies for s3, az, abfs, abfss and gs are read and checked
