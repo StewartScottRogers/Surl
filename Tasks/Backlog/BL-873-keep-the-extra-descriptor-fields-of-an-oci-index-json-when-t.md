@@ -4,7 +4,7 @@ title: Keep the extra descriptor fields of an OCI index.json when the registry r
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-437]
+depends-on: [BL-437, BL-1035]
 touches: [Protocols/FileTransfer/Surl.Extended.Protocol.OciRegistry.UnitLibrary, Protocols/FileTransfer/Surl.Extended.Protocol.OciRegistry.UnitTests]
 requirement: none
 created: 2026-11-05
@@ -43,3 +43,4 @@ only `mediaType`, `digest`, `size`, `artifactType` and `annotations` survive.
 
 - 2026-11-05: Created.
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Backlog. Waiting on BL-1035: pinned .NET SDK 10.0.401 is not installed, so dotnet build cannot run
