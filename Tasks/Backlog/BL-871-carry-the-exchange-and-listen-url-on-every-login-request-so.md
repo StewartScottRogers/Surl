@@ -4,7 +4,7 @@ title: Carry the exchange and listen URL on every login request so login events 
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-791]
+depends-on: [BL-791, BL-1035]
 touches: [Foundation/Surl.Protocol.Abstractions.UnitLibrary, Foundation/Surl.Protocol.Abstractions.UnitTests, Foundation/Surl.Authentication.UnitLibrary, Foundation/Surl.Authentication.UnitTests, Protocols]
 requirement: none
 created: 2026-11-05
@@ -43,7 +43,30 @@ request in `Surl.Protocol.Abstractions` carries its exchange ID and listen URL.
 
 ## Notes
 
+- 2026-11-11 (lane 3): first pass written, then stopped before any build. The pinned SDK 10.0.401 in
+  `global.json` is not installed on the dark factory machine (`dotnet build` cannot find it), as for
+  BL-923 and BL-960, so the task waits on BL-1035. The unfinished code is left in the shift's stash:
+  - Contract: new `LoginExchange(long ExchangeId, ListenUrl ListenUrl)` in Abstractions, with `Scheme`,
+    `ReportedListenUrl` and `Of(ExchangeContext)`. Optional `LoginExchange? Exchange = null` is last on
+    `PasswordLogin`, `ApopLogin`, `SshPasswordLogin`, `SshPublicKeyLogin`, `SmbNtlmV1Login` and
+    `SaslExchangeStart`. A new default member, `IAuthenticationPolicy.StartHttpConnection(tlsSession, exchange)`,
+    ignores the exchange. Exchange IDs are per connection, so HTTP carries the exchange on the session,
+    not on each `HttpAuthenticationRequest`. `SshNoneLogin` is never published, so it gets nothing.
+  - Policy: `ConcludeCheckedLoginAsync`, `IsRefusedByFaultAsync` and `PublishJudgedLogin` take the
+    exchange. Its scheme wins over the request's or family's scheme. The `FaultPoint` gets `ExchangeId`,
+    `ListenUrl` (the reported form) and `Scheme`, and `FaultAppliedEvent` gets the exchange ID.
+    `HttpAuthenticationSession` and `SaslExchangeContext` carry it.
+  - Tests: `LoginExchangeTests` (Abstractions) and six new tests in `LoginJudgementPolicyTests`.
+    `SpendingFaultPlan` now also matches `Listener`.
+- Scope decision (default taken, per this task's Context): BL-871 is the contract-first part, so it
+  covers the contract, the policy and the ADR-0128 amendment. Each server family's wiring
+  (`LoginExchange.Of(context)` on its login requests) goes to `task-planner` as one follow-up task per
+  family (HTTP family, SSH, SMB, mail, LDAP, MQTT, the other password-login servers). Each depends on
+  BL-871. Acceptance criterion 2 moves to those tasks, and `touches` here can then drop `Protocols`.
+  Still to do once it builds: build, the fast tests, amend ADR-0128, file those tasks and narrow the criteria.
+
 ## Log
 
 - 2026-11-05: Created.
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Backlog. Waits on BL-1035: the pinned .NET SDK 10.0.401 is not installed, so nothing builds; the first pass of the contract and policy is in the shift's stash
