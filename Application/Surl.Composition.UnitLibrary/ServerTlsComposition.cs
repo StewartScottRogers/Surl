@@ -90,9 +90,10 @@ public sealed class ServerTlsComposition : IDisposable
     /// </summary>
     /// <param name="commandLine">The parsed command line.</param>
     /// <param name="timeProvider">Supplies "now" for the throwaway certificate and client-chain verification.</param>
+    /// <param name="readFile">Reads a TLS option file's bytes (the <c>ReadStartFile</c> seam); <see langword="null"/> reads the disk.</param>
     /// <returns>The composition, which the caller disposes once serving has ended.</returns>
     /// <exception cref="TlsFileLoadException">A <c>--cert</c>, <c>--key</c> or <c>--cacert</c> file cannot be loaded.</exception>
-    public static ServerTlsComposition Compose(SurlCommandLine commandLine, TimeProvider timeProvider)
+    public static ServerTlsComposition Compose(SurlCommandLine commandLine, TimeProvider timeProvider, Func<string, byte[]>? readFile = null)
     {
         if (!commandLine.ListenUrls.Any(listenUrl => NeedsTls(commandLine, listenUrl.Scheme)))
         {
@@ -100,13 +101,13 @@ public sealed class ServerTlsComposition : IDisposable
         }
 
         var trustAnchors = commandLine.CaCertificateFile is { } caCertificateFile
-            ? ClientTrustAnchorFileLoader.Load(caCertificateFile)
+            ? ClientTrustAnchorFileLoader.Load(caCertificateFile, readFile)
             : [];
 
         try
         {
             return commandLine.CertificateFile is { } certificateFile
-                ? ComposeFromFiles(commandLine, certificateFile, trustAnchors, timeProvider)
+                ? ComposeFromFiles(commandLine, certificateFile, trustAnchors, timeProvider, readFile)
                 : ComposeWithThrowaway(commandLine, trustAnchors, timeProvider);
         }
         catch (TlsFileLoadException)
@@ -174,14 +175,16 @@ public sealed class ServerTlsComposition : IDisposable
         SurlCommandLine commandLine,
         string certificateFile,
         IReadOnlyList<X509Certificate2> trustAnchors,
-        TimeProvider timeProvider)
+        TimeProvider timeProvider,
+        Func<string, byte[]>? readFile)
     {
         var loaded = ServerCertificateFileLoader.Load(
             certificateFile,
             MapCertificateFormat(commandLine.CertificateType),
             commandLine.KeyFile,
             MapKeyFormat(commandLine.KeyType),
-            commandLine.KeyPassphrase);
+            commandLine.KeyPassphrase,
+            readFile);
         var settings = CreateSettings(commandLine, loaded.Certificate, loaded.IntermediateCertificates, trustAnchors, timeProvider);
 
         var quicCertificate = ComposeQuicCertificate(commandLine, loaded.Certificate, loaded.IntermediateCertificates);

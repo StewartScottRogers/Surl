@@ -340,7 +340,7 @@ public static partial class SurlServerComposition
         ServerTlsComposition tls;
         try
         {
-            tls = ServerTlsComposition.Compose(commandLine, seams.TimeProvider);
+            tls = ServerTlsComposition.Compose(commandLine, seams.TimeProvider, seams.ReadStartFile);
         }
         catch (TlsFileLoadException failure)
         {

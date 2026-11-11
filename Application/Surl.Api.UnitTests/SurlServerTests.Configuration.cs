@@ -100,8 +100,43 @@ public sealed partial class SurlServerTests
         Assert.DoesNotContain("warning", options.Log.ToString()!);
     }
 
-    // The --cert file is read by ServerTlsComposition, not through the ReadStartFile seam (BL-616 Notes),
-    // so a certificate the test cannot supply is refused as surl refuses an unreadable one.
+    // BL-705: the --cert, --key and --cacert files are read through the ReadStartFile seam too.
+    [TestMethod]
+    public async Task StartAsync_HttpsWithACertificateAndKeyGivenInMemory_Starts()
+    {
+        using var key = System.Security.Cryptography.ECDsa.Create(System.Security.Cryptography.ECCurve.NamedCurves.nistP256);
+        var request = new System.Security.Cryptography.X509Certificates.CertificateRequest(
+            "CN=127.0.0.1", key, System.Security.Cryptography.HashAlgorithmName.SHA256);
+        using var certificate = request.CreateSelfSigned(DateTimeOffset.UtcNow.AddDays(-1), DateTimeOffset.UtcNow.AddDays(1));
+        var seams = new ApiTestSeams();
+        seams.StartFiles["server.pem"] = Encoding.ASCII.GetBytes(certificate.ExportCertificatePem());
+        seams.StartFiles["server.key"] = Encoding.ASCII.GetBytes(key.ExportPkcs8PrivateKeyPem());
+        seams.StartFiles["ca.pem"] = Encoding.ASCII.GetBytes(certificate.ExportCertificatePem());
+        var options = ApiTestSeams.Options("https://127.0.0.1:0");
+        options.CertificateFile = "server.pem";
+        options.KeyFile = "server.key";
+        options.CaCertificateFile = "ca.pem";
+
+        await using var server = await SurlServer.StartAsync(options, seams.Host, TestContext.CancellationToken);
+
+        Assert.AreEqual(1, seams.ListenerFactory.OpenListenerCount);
+    }
+
+    [TestMethod]
+    public async Task StartAsync_HttpsWithAMissingCaCertificateFile_ThrowsFailedInit()
+    {
+        var seams = new ApiTestSeams();
+        var options = ApiTestSeams.Options("https://127.0.0.1:0");
+        options.SelfSigned = true;
+        options.CaCertificateFile = "missing-ca.pem";
+
+        var exception = await Assert.ThrowsExactlyAsync<SurlServerStartException>(
+            () => SurlServer.StartAsync(options, seams.Host, TestContext.CancellationToken));
+
+        Assert.AreEqual(SurlExitCode.FailedInit, exception.ExitCode);
+    }
+
+    // A certificate the test does not supply is refused as surl refuses an unreadable one.
     [TestMethod]
     public async Task StartAsync_HttpsWithAnUnreadableCertificateFile_ThrowsCertificateProblemWithSurlsText()
     {

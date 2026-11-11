@@ -21,17 +21,29 @@ public static class ClientTrustAnchorFileLoader
     /// <paramref name="path"/>; <see cref="TlsFileLoadFailure.CaCertificateUnreadable"/> when it
     /// exists but holds no certificate Surl can read.
     /// </exception>
-    public static IReadOnlyList<X509Certificate2> Load(string path)
+    /// <param name="readFile">
+    /// Reads a file's bytes (BL-705); a <see cref="FileNotFoundException"/> or
+    /// <see cref="DirectoryNotFoundException"/> from it is "does not exist". <see langword="null"/> reads the disk.
+    /// </param>
+    public static IReadOnlyList<X509Certificate2> Load(string path, Func<string, byte[]>? readFile = null)
     {
         ArgumentNullException.ThrowIfNull(path);
 
-        if (!File.Exists(path) && !Directory.Exists(path))
+        if (readFile is null && !File.Exists(path) && !Directory.Exists(path))
         {
-            throw new TlsFileLoadException(
-                TlsFileLoadFailure.CaCertificateNotFound, $"The --cacert file '{path}' does not exist.", null);
+            throw NotFound(path);
         }
 
-        var fileBytes = TlsFileReading.ReadAllBytes(path, TlsFileLoadFailure.CaCertificateUnreadable, "--cacert");
+        byte[] fileBytes;
+
+        try
+        {
+            fileBytes = TlsFileReading.ReadAllBytes(path, TlsFileLoadFailure.CaCertificateUnreadable, "--cacert", readFile);
+        }
+        catch (TlsFileLoadException exception) when (exception.InnerException is FileNotFoundException or DirectoryNotFoundException)
+        {
+            throw NotFound(path);
+        }
 
         try
         {
@@ -57,6 +69,9 @@ public static class ClientTrustAnchorFileLoader
 
         return certificates.Count == 0 ? throw new CryptographicException("No certificate found.") : certificates;
     }
+
+    private static TlsFileLoadException NotFound(string path) =>
+        new(TlsFileLoadFailure.CaCertificateNotFound, $"The --cacert file '{path}' does not exist.", null);
 
     private static TlsFileLoadException Unreadable(string path, Exception innerException) =>
         new(TlsFileLoadFailure.CaCertificateUnreadable, $"The --cacert file '{path}' holds no certificate Surl can read.", innerException);
