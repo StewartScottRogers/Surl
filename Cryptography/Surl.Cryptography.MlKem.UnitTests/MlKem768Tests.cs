@@ -13,7 +13,7 @@ public sealed class MlKem768Tests
     [TestMethod]
     public void GenerateKey_AcvpKeyGenCases_WriteTheVectorsKeys()
     {
-        foreach (var testCase in UnitTestAcvpVectors.Cases("keyGen"))
+        foreach (var testCase in UnitTestAcvpVectors.Cases("ML-KEM-768", "keyGen"))
         {
             var encapsulationKey = new byte[MlKem768.EncapsulationKeySize];
             var decapsulationKey = new byte[MlKem768.DecapsulationKeySize];
@@ -29,7 +29,7 @@ public sealed class MlKem768Tests
     [TestMethod]
     public void TryEncapsulate_AcvpEncapsulationCases_WriteTheVectorsCiphertextAndSecret()
     {
-        foreach (var testCase in UnitTestAcvpVectors.Cases("encapsulation"))
+        foreach (var testCase in UnitTestAcvpVectors.Cases("ML-KEM-768", "encapsulation"))
         {
             var ciphertext = new byte[MlKem768.CiphertextSize];
             var sharedSecret = new byte[MlKem768.SharedSecretSize];
@@ -46,7 +46,7 @@ public sealed class MlKem768Tests
     [TestMethod]
     public void TryDecapsulate_AcvpEncapsulationCases_RecoverTheVectorsSecret()
     {
-        foreach (var testCase in UnitTestAcvpVectors.Cases("encapsulation"))
+        foreach (var testCase in UnitTestAcvpVectors.Cases("ML-KEM-768", "encapsulation"))
         {
             var sharedSecret = new byte[MlKem768.SharedSecretSize];
 
@@ -61,7 +61,7 @@ public sealed class MlKem768Tests
     [TestMethod]
     public void TryDecapsulate_AcvpDecapsulationCases_WriteTheVectorsSecret()
     {
-        foreach (var testCase in UnitTestAcvpVectors.Cases("decapsulation"))
+        foreach (var testCase in UnitTestAcvpVectors.Cases("ML-KEM-768", "decapsulation"))
         {
             var sharedSecret = new byte[MlKem768.SharedSecretSize];
 
@@ -75,7 +75,7 @@ public sealed class MlKem768Tests
     [TestMethod]
     public void TryEncapsulate_AcvpEncapsulationKeyChecks_RejectOnlyTheKeysTheVectorsFail()
     {
-        foreach (var testCase in UnitTestAcvpVectors.Cases("encapsulationKeyCheck"))
+        foreach (var testCase in UnitTestAcvpVectors.Cases("ML-KEM-768", "encapsulationKeyCheck"))
         {
             var ciphertext = new byte[MlKem768.CiphertextSize];
             var sharedSecret = new byte[MlKem768.SharedSecretSize];
@@ -89,7 +89,7 @@ public sealed class MlKem768Tests
     [TestMethod]
     public void TryDecapsulate_AcvpDecapsulationKeyChecks_RejectOnlyTheKeysTheVectorsFail()
     {
-        foreach (var testCase in UnitTestAcvpVectors.Cases("decapsulationKeyCheck"))
+        foreach (var testCase in UnitTestAcvpVectors.Cases("ML-KEM-768", "decapsulationKeyCheck"))
         {
             var sharedSecret = new byte[MlKem768.SharedSecretSize];
 
