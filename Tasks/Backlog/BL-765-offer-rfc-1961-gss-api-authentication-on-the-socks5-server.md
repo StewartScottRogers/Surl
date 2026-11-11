@@ -4,7 +4,7 @@ title: Offer RFC 1961 GSS-API authentication on the SOCKS5 server
 priority: Low
 assignee: Claude
 pipeline: feature
-depends-on: [BL-559]
+depends-on: [BL-559, BL-1035]
 touches: [Protocols/Proxy/Surl.Protocol.Socks.UnitLibrary, Protocols/Proxy/Surl.Protocol.Socks.UnitTests]
 requirement: none
 created: 2026-11-05
@@ -49,8 +49,11 @@ exchange against it, as ADR-0121 decision 3 sequences.
 
 - Filed by BL-557 (ADR-0121 decision 3): GSS-API is in scope and sequenced after the SOCKS5 server,
   not refused.
+- 2026-11-11 (lane 4): no new project reference is needed: `Surl.Kerberos.UnitLibrary` is already an ADR-0002 horizontal library a protocol server may reference (`ProtocolIsolationTests.HorizontalLibraries`), so the SOCKS server can take a `KerberosAcceptor?` directly.
+- 2026-11-11 (lane 4), measured with the win-x64 reference build (SHA-256 `0E7737...8778`) via `Record-CurlExchange.ps1 -Raw -RawReply '\x05\x01' -CurlArgs '--socks5','127.0.0.1:<p>','--socks5-gssapi',...`: curl sends `05 02 00 01`; on `05 01` its SSPI (Kerberos package, default service `rcmd/127.0.0.1`) fails with `SEC_E_TARGET_UNKNOWN`, curl closes and exits 97 (`curl: (97) SSPI error: InitializeSecurityContext failed: SEC_E_TARGET_UNKNOWN ...`). Socks SSPI acquires the logged-on user's credentials (no `-u`), so a live AP-REQ needs `-KerberosTestKdc`, `--socks5-gssapi-service rcmd/web.surl.test` and stored credentials for tester@SURL.TEST (`cmdkey /add:web.surl.test ...`, deleted afterwards); that attempt could not run because `Run-KerberosTestKdc.cs` needs the pinned SDK (BL-1035).
 
 ## Log
 
 - 2026-11-05: Created.
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Backlog. Waits on BL-1035: pinned .NET SDK 10.0.401 is not installed, so no lane can build or run the test KDC; first measurement recorded under Notes
