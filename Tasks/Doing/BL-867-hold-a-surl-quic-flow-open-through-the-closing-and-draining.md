@@ -47,3 +47,4 @@ again, while the application is told the connection ended as soon as it closes.
 ## Log
 
 - 2026-11-05: Created.
+- 2026-11-11: Backlog -> Doing.
