@@ -47,3 +47,4 @@ fully unit tested. No option row uses the readers yet; BL-992 adds the rows.
 ## Log
 
 - 2026-11-06: Created.
+- 2026-11-11: Backlog -> Doing.
