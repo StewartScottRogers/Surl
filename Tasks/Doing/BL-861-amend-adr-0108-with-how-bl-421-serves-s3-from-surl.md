@@ -46,3 +46,4 @@ BL-421 could not edit `Documentation/Planning/Decisions` because BL-822, then in
 ## Log
 
 - 2026-11-05: Created.
+- 2026-11-11: Backlog -> Doing.
