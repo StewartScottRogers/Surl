@@ -70,3 +70,4 @@ Heartbeat v0-v3 and LeaveGroup v0-v3 are answered and listed by ApiVersions.
 ## Log
 
 - 2026-11-06: Created.
+- 2026-11-11: Backlog -> Doing.
