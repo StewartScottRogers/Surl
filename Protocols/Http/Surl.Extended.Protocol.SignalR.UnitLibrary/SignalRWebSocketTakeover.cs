@@ -24,7 +24,7 @@ internal sealed class SignalRWebSocketTakeover(
     {
         try
         {
-            using var session = new SignalRHubSession(connection, reader, context, new SignalRInvocationFaults(context, hubPath, hubConnection.AccountName));
+            using var session = new SignalRHubSession(connection, reader, context, new SignalRInvocationFaults(context, hubPath, hubConnection.AccountName), connections);
             await session.RunAsync();
         }
         finally

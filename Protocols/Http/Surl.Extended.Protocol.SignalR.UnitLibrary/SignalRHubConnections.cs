@@ -26,6 +26,7 @@ public sealed class SignalRHubConnections(TimeProvider timeProvider)
     private readonly Lock gate = new();
     private readonly Dictionary<string, SignalRNegotiatedConnection> negotiated = new(StringComparer.Ordinal);
     private readonly Dictionary<string, SignalRNegotiatedConnection> upgraded = new(StringComparer.Ordinal);
+    private readonly List<ISignalRBroadcastReceiver> receivers = [];
 
     /// <summary>
     /// How many connections the hub holds now, the expired ones forgotten first.
@@ -97,6 +98,49 @@ public sealed class SignalRHubConnections(TimeProvider timeProvider)
         lock (gate)
         {
             upgraded.Remove(connection.UpgradeId);
+        }
+    }
+
+    /// <summary>
+    /// Adds a connection that has finished its handshake to those <see cref="Broadcast"/> reaches.
+    /// </summary>
+    /// <param name="receiver">The connection.</param>
+    internal void Join(ISignalRBroadcastReceiver receiver)
+    {
+        lock (gate)
+        {
+            receivers.Add(receiver);
+        }
+    }
+
+    /// <summary>
+    /// Removes a connection from those <see cref="Broadcast"/> reaches; one never joined is ignored.
+    /// </summary>
+    /// <param name="receiver">The connection.</param>
+    internal void Leave(ISignalRBroadcastReceiver receiver)
+    {
+        lock (gate)
+        {
+            receivers.Remove(receiver);
+        }
+    }
+
+    /// <summary>
+    /// Hands <paramref name="record"/> to every connection that has joined, in the order they joined
+    /// (ADR-0119, decision 1: the caller included).
+    /// </summary>
+    /// <param name="record">The broadcast Invocation's record.</param>
+    internal void Broadcast(byte[] record)
+    {
+        ISignalRBroadcastReceiver[] joined;
+        lock (gate)
+        {
+            joined = [.. receivers];
+        }
+
+        foreach (var receiver in joined)
+        {
+            receiver.ReceiveBroadcast(record);
         }
     }
 

@@ -18,6 +18,7 @@ internal sealed class UnitTestDuplexConnection : IConnection
     private readonly MemoryStream written = new();
     private TaskCompletionSource writtenChanged = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private ReadOnlyMemory<byte> current;
+    private TaskCompletionSource writesReleased = Released();
 
     public TlsSession? TlsSession => null;
 
@@ -93,17 +94,27 @@ internal sealed class UnitTestDuplexConnection : IConnection
         return count;
     }
 
-    public ValueTask WriteAsync(ReadOnlyMemory<byte> bytes, CancellationToken cancellationToken)
+    /// <summary>Makes every write wait, until <see cref="ReleaseWrites"/> or its token, as a client that reads nothing.</summary>
+    public void HoldWrites() => writesReleased = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+    /// <summary>Lets held writes, and every later one, complete.</summary>
+    public void ReleaseWrites() => writesReleased.TrySetResult();
+
+    public async ValueTask WriteAsync(ReadOnlyMemory<byte> bytes, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        await writesReleased.Task.WaitAsync(cancellationToken);
+        Record(bytes);
+    }
+
+    private void Record(ReadOnlyMemory<byte> bytes)
+    {
         lock (gate)
         {
             written.Write(bytes.Span);
             writtenChanged.TrySetResult();
             writtenChanged = new(TaskCreationOptions.RunContinuationsAsynchronously);
         }
-
-        return ValueTask.CompletedTask;
     }
 
     public ValueTask CompleteWritesAsync(CancellationToken cancellationToken)
@@ -111,6 +122,14 @@ internal sealed class UnitTestDuplexConnection : IConnection
         WritesCompleted = true;
 
         return ValueTask.CompletedTask;
+    }
+
+    private static TaskCompletionSource Released()
+    {
+        var released = new TaskCompletionSource();
+        released.SetResult();
+
+        return released;
     }
 
     public void Abort()

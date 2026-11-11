@@ -173,4 +173,28 @@ public sealed class SignalRHubConnectionsTests
 
         Assert.ThrowsExactly<ArgumentNullException>(() => connections.End(null!));
     }
+
+    [TestMethod]
+    public void Broadcast_ReachesEveryJoinedReceiverInJoinOrderAndNoneThatLeft()
+    {
+        var connections = new SignalRHubConnections(new SteppingTimeProvider(Now));
+        var received = new List<string>();
+        var first = new UnitTestBroadcastReceiver("first", received);
+        var gone = new UnitTestBroadcastReceiver("gone", received);
+        var second = new UnitTestBroadcastReceiver("second", received);
+        connections.Join(first);
+        connections.Join(gone);
+        connections.Join(second);
+        connections.Leave(gone);
+        connections.Leave(new UnitTestBroadcastReceiver("never joined", received));
+
+        connections.Broadcast([1]);
+
+        CollectionAssert.AreEqual(new[] { "first", "second" }, received);
+    }
+
+    private sealed class UnitTestBroadcastReceiver(string name, List<string> received) : ISignalRBroadcastReceiver
+    {
+        public void ReceiveBroadcast(byte[] record) => received.Add(name);
+    }
 }

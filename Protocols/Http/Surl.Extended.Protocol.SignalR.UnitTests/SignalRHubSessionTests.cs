@@ -13,6 +13,8 @@ public sealed class SignalRHubSessionTests
 {
     private const string ProtocolErrorClose = "{\"type\":7,\"error\":\"Connection closed with an error.\"}\u001e";
 
+    private const string FarewellClose = "{\"type\":7}\u001e";
+
     private static readonly TimeSpan HundredMilliseconds = TimeSpan.FromMilliseconds(100);
 
     private static readonly TimeSpan FifteenSeconds = TimeSpan.FromSeconds(15);
@@ -160,6 +162,11 @@ public sealed class SignalRHubSessionTests
     [DataRow("{\"type\":4,\"invocationId\":\"1\",\"target\":\"Count\",\"arguments\":[1.5]}", "Invalid arguments for the hub method.")]
     [DataRow("{\"type\":4,\"invocationId\":\"1\",\"target\":\"Count\",\"arguments\":[-1]}", "Invalid arguments for the hub method.")]
     [DataRow("{\"type\":4,\"invocationId\":\"1\",\"target\":\"Count\",\"arguments\":[1001]}", "Invalid arguments for the hub method.")]
+    [DataRow("{\"type\":4,\"invocationId\":\"1\",\"target\":\"Broadcast\",\"arguments\":[]}", "The method was invoked with the wrong message type.")]
+    [DataRow("{\"type\":1,\"invocationId\":\"1\",\"target\":\"Broadcast\",\"arguments\":[],\"streamIds\":[\"s\"]}", "Invalid arguments for the hub method.")]
+    [DataRow("{\"type\":1,\"invocationId\":\"1\",\"target\":\"Collect\",\"arguments\":[1],\"streamIds\":[\"s\"]}", "Invalid arguments for the hub method.")]
+    [DataRow("{\"type\":1,\"invocationId\":\"1\",\"target\":\"Collect\",\"arguments\":[]}", "Invalid arguments for the hub method.")]
+    [DataRow("{\"type\":4,\"invocationId\":\"1\",\"target\":\"Collect\",\"arguments\":[],\"streamIds\":[\"s\",\"t\"]}", "Invalid arguments for the hub method.")]
     public async Task RunAsync_CallTheHubCannotServe_CompletesWithItsError(string invocation, string error)
     {
         var harness = new SignalRServerHarness();
@@ -481,7 +488,7 @@ public sealed class SignalRHubSessionTests
     }
 
     [TestMethod]
-    public async Task RunAsync_ExchangeCancelled_EndsWithNothingWritten()
+    public async Task RunAsync_ExchangeCancelledForALimit_SendsTheFarewellThenLingersForTheClientsClose()
     {
         var harness = new SignalRServerHarness();
         using var cancellation = new CancellationTokenSource();
@@ -490,10 +497,316 @@ public sealed class SignalRHubSessionTests
         await client.WaitForRecordsAsync(2);
 
         await cancellation.CancelAsync();
+
+        Assert.AreEqual(1001, await client.WaitForCloseCodeAsync());
+        CollectionAssert.AreEqual(
+            new[] { SignalRHubClient.HandshakeResponse, "{\"type\":2,\"invocationId\":\"s1\",\"item\":1}\u001e", FarewellClose },
+            client.Records());
+        Assert.IsTrue(client.Connection.WritesCompleted);
+        Assert.IsFalse(client.Serving.IsCompleted);
+        await client.EndAsync();
+    }
+
+    [TestMethod]
+    public async Task RunAsync_Shutdown_SendsTheFarewellAndEndsWithoutLingering()
+    {
+        var harness = new SignalRServerHarness();
+        using var shutdown = new CancellationTokenSource();
+        var client = await SignalRHubClient.ConnectAsync(harness, harness.Context(cancellationToken: shutdown.Token, shutdownToken: shutdown.Token));
+
+        await shutdown.CancelAsync();
         await client.Serving.WaitAsync(TimeSpan.FromSeconds(10));
 
-        Assert.AreEqual(2, client.Records().Length);
+        Assert.AreEqual(1001, await client.WaitForCloseCodeAsync());
+        CollectionAssert.AreEqual(new[] { SignalRHubClient.HandshakeResponse, FarewellClose }, client.Records());
+        Assert.IsTrue(client.Connection.WritesCompleted);
+    }
+
+    [TestMethod]
+    public async Task RunAsync_FarewellNotWrittenWithinItsDeadline_EndsWithoutItAndNotesWhy()
+    {
+        var harness = new SignalRServerHarness();
+        using var shutdown = new CancellationTokenSource();
+        var client = await SignalRHubClient.ConnectAsync(harness, harness.Context(cancellationToken: shutdown.Token, shutdownToken: shutdown.Token));
+        client.Connection.HoldWrites();
+
+        await shutdown.CancelAsync();
+        await harness.Clock.AdvanceWhenWaitingAsync(SignalRHubSession.FarewellWriteDeadline);
+        await client.Serving.WaitAsync(TimeSpan.FromSeconds(10));
+
+        CollectionAssert.AreEqual(new[] { SignalRHubClient.HandshakeResponse }, client.Records());
         Assert.IsFalse(client.Connection.WritesCompleted);
+        Assert.Contains("The farewell was not written within its 1-second deadline, or shutdown cut it short; the connection is closed without it.", harness.Log.Notes);
+    }
+
+    [TestMethod]
+    public async Task RunAsync_Broadcast_ReachesEveryConnectionPastItsHandshakeTheCallerIncludedThenCompletesTheCaller()
+    {
+        var harness = new SignalRServerHarness();
+        var caller = await SignalRHubClient.ConnectAsync(harness);
+        var other = await SignalRHubClient.ConnectAsync(harness);
+        var beforeHandshake = await SignalRHubClient.ConnectAsync(harness, completesHandshake: false);
+
+        caller.SendRecords("{\"type\":1,\"invocationId\":\"1\",\"target\":\"Broadcast\",\"arguments\":[\"hi\",{ \"x\" : 1 }]}");
+
+        const string Broadcast = "{\"type\":1,\"target\":\"Broadcast\",\"arguments\":[\"hi\",{ \"x\" : 1 }]}\u001e";
+        CollectionAssert.AreEqual(
+            new[] { SignalRHubClient.HandshakeResponse, Broadcast, "{\"type\":3,\"invocationId\":\"1\"}\u001e" },
+            await caller.WaitForRecordsAsync(3));
+        CollectionAssert.AreEqual(new[] { SignalRHubClient.HandshakeResponse, Broadcast }, await other.WaitForRecordsAsync(2));
+        Assert.IsEmpty(beforeHandshake.Records());
+        await caller.EndAsync();
+        await other.EndAsync();
+        await beforeHandshake.EndAsync();
+    }
+
+    [TestMethod]
+    public async Task RunAsync_NonBlockingBroadcast_BroadcastsWithoutACompletion()
+    {
+        var harness = new SignalRServerHarness();
+        var caller = await SignalRHubClient.ConnectAsync(harness);
+
+        caller.SendRecords(
+            "{\"type\":1,\"target\":\"Broadcast\",\"arguments\":[]}",
+            "{\"type\":1,\"invocationId\":\"2\",\"target\":\"Echo\",\"arguments\":[2]}");
+
+        CollectionAssert.AreEqual(
+            new[] { SignalRHubClient.HandshakeResponse, "{\"type\":1,\"target\":\"Broadcast\",\"arguments\":[]}\u001e", "{\"type\":3,\"invocationId\":\"2\",\"result\":2}\u001e" },
+            await caller.WaitForRecordsAsync(3));
+        await caller.EndAsync();
+    }
+
+    [TestMethod]
+    public async Task RunAsync_BroadcastAfterAConnectionEnded_DoesNotReachIt()
+    {
+        var harness = new SignalRServerHarness();
+        var caller = await SignalRHubClient.ConnectAsync(harness);
+        var gone = await SignalRHubClient.ConnectAsync(harness);
+        await gone.EndAsync();
+
+        caller.SendRecords("{\"type\":1,\"invocationId\":\"1\",\"target\":\"Broadcast\",\"arguments\":[1]}");
+
+        await caller.WaitForRecordsAsync(3);
+        CollectionAssert.AreEqual(new[] { SignalRHubClient.HandshakeResponse }, gone.Records());
+        await caller.EndAsync();
+    }
+
+    [TestMethod]
+    public async Task RunAsync_BroadcastsPastTheUnsentCap_CloseTheSlowConnectionWithTheErrorCloseAndPolicyViolation()
+    {
+        var harness = new SignalRServerHarness();
+        var caller = await SignalRHubClient.ConnectAsync(harness);
+        var slow = await SignalRHubClient.ConnectAsync(harness);
+        slow.Connection.HoldWrites();
+        var argument = "\"" + new string('a', 40000) + "\"";
+        var broadcasts = (int)(SignalRHubSession.MaxUnsentBytes / 40000) + 1;
+
+        for (var index = 0; index < broadcasts; index++)
+        {
+            caller.SendRecords("{\"type\":1,\"invocationId\":\"" + index + "\",\"target\":\"Broadcast\",\"arguments\":[" + argument + "]}");
+        }
+
+        await caller.WaitForRecordsAsync(1 + (2 * broadcasts));
+        slow.Connection.ReleaseWrites();
+
+        Assert.AreEqual(1008, await slow.WaitForCloseCodeAsync());
+        var records = slow.Records();
+        Assert.AreEqual(ProtocolErrorClose, records[^1]);
+        Assert.IsLessThan(broadcasts, records.Length - 2);
+        await slow.EndAsync();
+        await caller.EndAsync();
+    }
+
+    [TestMethod]
+    public async Task ReceiveBroadcast_AfterTheSessionEnded_QueuesNothing()
+    {
+        var harness = new SignalRServerHarness();
+        var connection = new UnitTestDuplexConnection();
+        var context = harness.Context();
+        using var session = new SignalRHubSession(
+            connection, new HttpMessage.HttpConnectionReader(connection, 8192), context, new SignalRInvocationFaults(context, "/chat", null), harness.Connections);
+        connection.HalfClose();
+        await session.RunAsync();
+
+        session.ReceiveBroadcast(Encoding.UTF8.GetBytes("{\"type\":1,\"target\":\"Broadcast\",\"arguments\":[]}\u001e"));
+
+        Assert.IsEmpty(connection.WrittenBytes);
+    }
+
+    [TestMethod]
+    public async Task RunAsync_CollectInvocation_CompletesWithTheUploadedItemsAfterTheClientCompletesTheStream()
+    {
+        var harness = new SignalRServerHarness();
+        var client = await SignalRHubClient.ConnectAsync(harness);
+
+        client.SendRecords(
+            "{\"type\":1,\"invocationId\":\"1\",\"target\":\"Collect\",\"arguments\":[],\"streamIds\":[\"s\"]}",
+            "{\"type\":2,\"invocationId\":\"s\",\"item\":1}",
+            "{\"type\":2,\"invocationId\":\"s\",\"item\":{ \"a\" : 2 }}",
+            "{\"type\":3,\"invocationId\":\"s\"}");
+
+        CollectionAssert.AreEqual(
+            new[] { SignalRHubClient.HandshakeResponse, "{\"type\":3,\"invocationId\":\"1\",\"result\":[1,{ \"a\" : 2 }]}\u001e" },
+            await client.WaitForRecordsAsync(2));
+        await client.EndAsync();
+    }
+
+    [TestMethod]
+    public async Task RunAsync_CollectStreamInvocation_EchoesEachItemAsItArrivesThenCompletesAfterTheClient()
+    {
+        var harness = new SignalRServerHarness();
+        var client = await SignalRHubClient.ConnectAsync(harness);
+        client.SendRecords("{\"type\":4,\"invocationId\":\"1\",\"target\":\"Collect\",\"arguments\":[],\"streamIds\":[\"s\"]}");
+
+        client.SendRecords("{\"type\":2,\"invocationId\":\"s\",\"item\":\"x\"}");
+        await client.WaitForRecordsAsync(2);
+        client.SendRecords("{\"type\":3,\"invocationId\":\"s\"}");
+
+        CollectionAssert.AreEqual(
+            new[] { SignalRHubClient.HandshakeResponse, "{\"type\":2,\"invocationId\":\"1\",\"item\":\"x\"}\u001e", "{\"type\":3,\"invocationId\":\"1\"}\u001e" },
+            await client.WaitForRecordsAsync(3));
+        await client.EndAsync();
+    }
+
+    [TestMethod]
+    public async Task RunAsync_NonBlockingCollect_ReadsTheUploadAndSendsNothing()
+    {
+        var harness = new SignalRServerHarness();
+        var client = await SignalRHubClient.ConnectAsync(harness);
+
+        client.SendRecords(
+            "{\"type\":1,\"target\":\"Collect\",\"arguments\":[],\"streamIds\":[\"s\"]}",
+            "{\"type\":2,\"invocationId\":\"s\",\"item\":1}",
+            "{\"type\":3,\"invocationId\":\"s\"}",
+            "{\"type\":1,\"invocationId\":\"2\",\"target\":\"Echo\",\"arguments\":[2]}");
+
+        CollectionAssert.AreEqual(
+            new[] { SignalRHubClient.HandshakeResponse, "{\"type\":3,\"invocationId\":\"2\",\"result\":2}\u001e" },
+            await client.WaitForRecordsAsync(2));
+        await client.EndAsync();
+    }
+
+    [TestMethod]
+    [DataRow("{\"type\":2,\"invocationId\":\"s\",\"item\":2}", DisplayName = "StreamItem after the stream's Completion")]
+    [DataRow("{\"type\":3,\"invocationId\":\"s\"}", DisplayName = "Completion after the stream's Completion")]
+    public async Task RunAsync_UploadRecordAfterTheStreamsCompletion_IsAProtocolError(string record)
+    {
+        var harness = new SignalRServerHarness();
+        var client = await SignalRHubClient.ConnectAsync(harness);
+
+        client.SendRecords(
+            "{\"type\":1,\"invocationId\":\"1\",\"target\":\"Collect\",\"arguments\":[],\"streamIds\":[\"s\"]}",
+            "{\"type\":3,\"invocationId\":\"s\"}",
+            record);
+
+        Assert.AreEqual(1002, await client.WaitForCloseCodeAsync());
+        CollectionAssert.AreEqual(
+            new[] { SignalRHubClient.HandshakeResponse, "{\"type\":3,\"invocationId\":\"1\",\"result\":[]}\u001e", ProtocolErrorClose },
+            client.Records());
+        await client.EndAsync();
+    }
+
+    [TestMethod]
+    [DataRow("{\"type\":1,\"invocationId\":\"2\",\"target\":\"Collect\",\"arguments\":[],\"streamIds\":[\"s\"]}", DisplayName = "stream ID being uploaded")]
+    [DataRow("{\"type\":1,\"invocationId\":\"1\",\"target\":\"Echo\",\"arguments\":[1]}", DisplayName = "invocationId of a waiting Collect")]
+    public async Task RunAsync_IdOfAnUploadInProgressUsedAgain_IsAProtocolError(string record)
+    {
+        var harness = new SignalRServerHarness();
+        var client = await SignalRHubClient.ConnectAsync(harness);
+
+        client.SendRecords("{\"type\":1,\"invocationId\":\"1\",\"target\":\"Collect\",\"arguments\":[],\"streamIds\":[\"s\"]}", record);
+
+        Assert.AreEqual(1002, await client.WaitForCloseCodeAsync());
+        CollectionAssert.AreEqual(new[] { SignalRHubClient.HandshakeResponse, ProtocolErrorClose }, client.Records());
+        await client.EndAsync();
+    }
+
+    [TestMethod]
+    [DataRow(1, DisplayName = "Invocation")]
+    [DataRow(4, DisplayName = "StreamInvocation")]
+    public async Task RunAsync_CollectUploadPastMaxFileSize_CompletesWithTooLargeAndDropsTheRest(int type)
+    {
+        var harness = new SignalRServerHarness();
+        var limits = new ExchangeLimits(TimeSpan.FromSeconds(30), 102400, 8192, 1048576, maxUploadBytes: 3);
+        var client = await SignalRHubClient.ConnectAsync(harness, harness.Context(limits));
+
+        client.SendRecords(
+            "{\"type\":" + type + ",\"invocationId\":\"1\",\"target\":\"Collect\",\"arguments\":[],\"streamIds\":[\"s\"]}",
+            "{\"type\":2,\"invocationId\":\"s\",\"item\":12}",
+            "{\"type\":2,\"invocationId\":\"s\",\"item\":3}",
+            "{\"type\":2,\"invocationId\":\"s\",\"item\":4}",
+            "{\"type\":2,\"invocationId\":\"s\",\"item\":5}",
+            "{\"type\":3,\"invocationId\":\"s\"}",
+            "{\"type\":1,\"invocationId\":\"2\",\"target\":\"Echo\",\"arguments\":[2]}");
+
+        var records = await client.WaitForRecordsAsync(type == 1 ? 3 : 5);
+        Assert.HasCount(type == 1 ? 3 : 5, records);
+        CollectionAssert.AreEqual(
+            new[] { "{\"type\":3,\"invocationId\":\"1\",\"error\":\"The upload stream is too large.\"}\u001e", "{\"type\":3,\"invocationId\":\"2\",\"result\":2}\u001e" },
+            records[^2..]);
+        await client.EndAsync();
+    }
+
+    [TestMethod]
+    public async Task RunAsync_CollectUploadWithNoUploadLimit_TakesEveryItem()
+    {
+        var harness = new SignalRServerHarness();
+        var limits = new ExchangeLimits(TimeSpan.FromSeconds(30), 102400, 8192, 1048576, maxUploadBytes: 0);
+        var client = await SignalRHubClient.ConnectAsync(harness, harness.Context(limits));
+
+        client.SendRecords(
+            "{\"type\":1,\"invocationId\":\"1\",\"target\":\"Collect\",\"arguments\":[],\"streamIds\":[\"s\"]}",
+            "{\"type\":2,\"invocationId\":\"s\",\"item\":\"abcdef\"}",
+            "{\"type\":3,\"invocationId\":\"s\"}");
+
+        Assert.AreEqual("{\"type\":3,\"invocationId\":\"1\",\"result\":[\"abcdef\"]}\u001e", (await client.WaitForRecordsAsync(2))[1]);
+        await client.EndAsync();
+    }
+
+    [TestMethod]
+    [DataRow(1, DisplayName = "waiting Collect")]
+    [DataRow(4, DisplayName = "streaming Collect")]
+    public async Task RunAsync_CancelInvocationOfACollect_CompletesItWithNoResultAndDropsTheRestOfTheUpload(int type)
+    {
+        var harness = new SignalRServerHarness();
+        var client = await SignalRHubClient.ConnectAsync(harness);
+
+        client.SendRecords(
+            "{\"type\":" + type + ",\"invocationId\":\"1\",\"target\":\"Collect\",\"arguments\":[],\"streamIds\":[\"s\"]}",
+            "{\"type\":5,\"invocationId\":\"1\"}",
+            "{\"type\":5,\"invocationId\":\"1\"}",
+            "{\"type\":2,\"invocationId\":\"s\",\"item\":1}",
+            "{\"type\":3,\"invocationId\":\"s\"}",
+            "{\"type\":1,\"invocationId\":\"2\",\"target\":\"Echo\",\"arguments\":[2]}");
+
+        CollectionAssert.AreEqual(
+            new[] { SignalRHubClient.HandshakeResponse, "{\"type\":3,\"invocationId\":\"1\"}\u001e", "{\"type\":3,\"invocationId\":\"2\",\"result\":2}\u001e" },
+            await client.WaitForRecordsAsync(3));
+        await client.EndAsync();
+    }
+
+    [TestMethod]
+    public async Task RunAsync_UploadsInProgressAtTheLimit_CompleteTheNextStreamAndCollectWithTooManyInvocations()
+    {
+        var harness = new SignalRServerHarness();
+        var client = await SignalRHubClient.ConnectAsync(harness);
+        var uploads = Enumerable.Range(0, SignalRHubSession.MaxInvocationsInProgress)
+            .Select(index => "{\"type\":1,\"invocationId\":\"c" + index + "\",\"target\":\"Collect\",\"arguments\":[],\"streamIds\":[\"s" + index + "\"]}");
+
+        client.SendRecords(
+            [.. uploads,
+            "{\"type\":4,\"invocationId\":\"count\",\"target\":\"Count\",\"arguments\":[1]}",
+            "{\"type\":1,\"invocationId\":\"collect\",\"target\":\"Collect\",\"arguments\":[],\"streamIds\":[\"more\"]}"]);
+
+        CollectionAssert.AreEqual(
+            new[]
+            {
+                SignalRHubClient.HandshakeResponse,
+                "{\"type\":3,\"invocationId\":\"count\",\"error\":\"Too many invocations in progress.\"}\u001e",
+                "{\"type\":3,\"invocationId\":\"collect\",\"error\":\"Too many invocations in progress.\"}\u001e",
+            },
+            await client.WaitForRecordsAsync(3));
+        await client.EndAsync();
     }
 
     private static ExchangeLimits SmallMessageLimits() => new(TimeSpan.FromSeconds(30), 102400, 8192, maxMessageBytes: 64, 104857600);

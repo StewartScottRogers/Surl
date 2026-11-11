@@ -10,7 +10,7 @@ It references `Surl.Protocol.Abstractions`, `Surl.HttpMessage`, `Surl.HttpServin
 decision 1) and `Surl.WebSocket` (ADR-0084 decision 2). JSON goes through
 `Utf8JsonReader`/`Utf8JsonWriter` and `JsonDocument` only, so it stays native-AOT safe.
 
-What is here so far (BL-448 and BL-449, ADR-0119 decisions 0 to 5 and most of 7):
+What is here so far (BL-448, BL-449 and BL-772, ADR-0119 decisions 0 to 5 and 7, and its Amendment 1):
 
 - `SignalRProtocolServer` serves each connection through `Http1ConnectionServer` with a
   `SignalRRequestAnswerer`, starting the connection's `IHttpAuthenticationSession` first. The hub
@@ -26,26 +26,29 @@ What is here so far (BL-448 and BL-449, ADR-0119 decisions 0 to 5 and most of 7)
 - `SignalRHubConnections` holds the connections of one hub: fresh 16-byte base64url
   `connectionId` and `connectionToken` from `RandomNumberGenerator`, at most 1024 negotiated and
   upgraded together, a negotiated one forgotten `--head-timeout` after its negotiate, an upgraded
-  one held until its WebSocket ends (`TakeUp`, `End`, `SignalRUpgradeOutcome`).
+  one held until its WebSocket ends (`TakeUp`, `End`, `SignalRUpgradeOutcome`). It also holds the
+  sessions past their handshake (`Join`, `Leave`) and hands each `Broadcast` record to every one of
+  them as an `ISignalRBroadcastReceiver`.
 - The WebSocket transport: `SignalRWebSocketTakeover` owns the connection after the `101` and runs a
-  `SignalRHubSession` - the read loop (frames, records, messages), the clock (the handshake within
-  `--head-timeout`, else WebSocket Close `1008`; a Ping after 15 s without a record sent; the
-  timeout Close after 30 s without a record received) and one task per `Count` stream, writes one
-  at a time, each record one text message. `SignalRSessionEnd` is how it ends: an optional hub
-  Close, then a WebSocket Close code, or nothing when the client vanished or the exchange was
-  cancelled.
-- The hub's methods: `SignalRHubMethods` (`Echo`, `Count` up to 1000 items 100 ms apart, `Fail`,
-  and the fixed error texts) answering each call as a `SignalRHubCall`; at most 100 streams in
-  progress a connection.
+  `SignalRHubSession` - the read loop (frames, records, messages, `Collect` uploads), the clock (the
+  handshake within `--head-timeout`, else WebSocket Close `1008`; a Ping after 15 s without a record
+  sent; the timeout Close after 30 s without a record received), one task per `Count` stream and
+  one per broadcast queued for it, writes one at a time in the order queued, each record one text
+  message. More than 1048576 bytes queued and unwritten (`MaxUnsentBytes`) closes it with the
+  protocol-error Close and `1008`. `SignalRSessionEnd` is how it ends: an optional hub Close, then a
+  WebSocket Close code; nothing when the client vanished; and the farewell (`{"type":7}`, then
+  `1001`, on its own one-second deadline) when the exchange is cancelled at shutdown or at a limit.
+- The hub's methods: `SignalRHubMethods` (`Echo`, `Broadcast`, `Count` up to 1000 items 100 ms
+  apart, `Collect`, `Fail`, and the fixed error texts) answering each call as a `SignalRHubCall`;
+  at most 100 streams and uploads in progress a connection. `SignalRUpload` is one `Collect`'s
+  upload: its items counted against `--max-filesize` and kept for the Completion's array, or
+  dropped once the `Collect` is completed early.
 - The JSON hub protocol: `HubRecordReader` cuts records at `0x1E` across buffers within
   `--max-message`; `HubMessageJsonReader` reads types 1 to 7 into `HubMessage` records or finds a
   protocol error; `HubMessageJsonWriter` writes them back, client values byte for byte;
   `HubHandshake` judges the handshake request and writes its response.
 
-Still to come: `Broadcast`, `Collect` uploads, the shutdown farewell and the unsent-bytes cap
-(BL-772; until then `Broadcast` and `Collect` are `Unknown hub method.`, a client StreamItem or
-Completion is a protocol error, and a cancelled exchange writes nothing), the command line (BL-450),
-Server-Sent Events and Long Polling (BL-757), stateful reconnect (BL-755) and MessagePack (BL-756).
+Still to come: the command line (BL-450), Server-Sent Events and Long Polling (BL-757), stateful reconnect (BL-755) and MessagePack (BL-756).
 
 **Chosen-error fault** (ADR-0144, BL-835): `SignalRWebSocketTakeover` gives each `SignalRHubSession` a
 `SignalRInvocationFaults` (the hub's endpoint base and the negotiating account); every Invocation or
