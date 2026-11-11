@@ -191,6 +191,13 @@ public static class AiHelpExamples
             ["surl: warning: --allow-anonymous: every request and login is accepted without checking credentials"],
             []),
         Serving("socks", "Serve SOCKS5", ["socks5://127.0.0.1:0/"], ["Listening on socks5://127.0.0.1:<port>/"], [], ["curl --socks5 127.0.0.1:<port> http://<origin>/"]),
+        Serving(
+            "socks",
+            "Serve SOCKS5 on a Unix domain socket file",
+            ["--unix-socket", "surl-socks.sock", "socks5h://localhost"],
+            ["Listening on socks5h://localhost:1080/ over unix://surl-socks.sock"],
+            [],
+            ["curl --proxy socks5h://localhost/surl-socks.sock http://<origin>/"]),
         Refused(
             "ssh",
             "An SFTP listen URL with no host key",

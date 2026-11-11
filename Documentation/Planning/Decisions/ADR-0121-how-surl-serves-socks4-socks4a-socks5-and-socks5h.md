@@ -284,3 +284,18 @@ the case's other server halves, as ADR-0080 decision 2 composes every server hal
   clear password on every other server by default.
 - **Accounts separate from the HTTP proxy's.** Rejected: curl's `-U` is one option for every proxy
   type, so one set of proxy accounts mirrors it.
+
+## Amendment 1 (2026-11-11, BL-561): the Unix socket takes a positional SOCKS listen URL only
+
+Decided by Claude under Stewart's delegation.
+
+Decision 5 says a SOCKS listen URL means the same given positionally or with `-x`/`--proxy`, and
+that `surl --unix-socket <path> socks5h://localhost` serves SOCKS on a socket file. On a Unix
+socket the two forms part: the positional form is served on the socket (any SOCKS scheme, and
+`--abstract-unix-socket` likewise), while `--unix-socket` beside a `-x`/`--proxy` listen URL of any
+scheme stays refused `FailedInit` (2), `option --unix-socket: cannot be used with --proxy`, as
+ADR-0088 amendment 7 refuses it. Why: the socket serves exactly one listen URL, the positional form
+already reaches every case curl has (1467, 1468, 1470 connect with `--proxy socks5h://localhost/<path>`
+or `--socks5 localhost/<path>`, both client-side), and keeping amendment 7's single rule means one
+refusal for every proxy listen URL instead of a per-scheme exception. The `socks` `--aihelp` topic
+says so, with an example of the positional form.
