@@ -50,3 +50,4 @@ messages posted in a transaction until a commit publishes them all or none.
 ## Log
 
 - 2026-11-06: Created.
+- 2026-11-11: Backlog -> Doing.
