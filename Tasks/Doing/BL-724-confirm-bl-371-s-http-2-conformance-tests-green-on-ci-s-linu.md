@@ -55,3 +55,4 @@ results to that step is the quickest way to read them.
 - 2026-11-05: Created.
 - 2026-11-06: Backlog -> Doing.
 - 2026-11-06: Doing -> Backlog. Not confirmable yet: on CI run 42291259804 all 12 HTTP/2 conformance tests are skipped (Inconclusive) on Linux and macOS, not passed; findings in Notes for a lane to investigate
+- 2026-11-11: Backlog -> Doing.
