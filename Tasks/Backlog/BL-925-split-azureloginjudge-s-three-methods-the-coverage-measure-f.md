@@ -4,7 +4,7 @@ title: Split AzureLoginJudge's three methods the coverage measure finds past com
 priority: Low
 assignee: Claude
 pipeline: direct
-depends-on: []
+depends-on: [BL-1035]
 touches: [Protocols/FileTransfer/Surl.Extended.Protocol.AzureStorage.UnitLibrary/AzureLoginJudge.cs]
 requirement: none
 created: 2026-11-06
@@ -33,8 +33,10 @@ completed:
 ## Notes
 
 - Filed by BL-715.
+- 2026-11-11 (lane 6): split done in the working tree but unmeasured - `RefusalAnswer` keeps the challenge rows and hands the 400/403 rows to `RefusalOf`; `LogInAsync` hands the version check, the scope and the verdict to `IsBearerBeforeItsVersion`, `AuthenticationRequestOf` and `LoginOf`; `GrantingPermissionsOf` tests `GET` and `PATCH` with `if` before a three-arm switch. Neither the measure nor `dotnet build` runs: global.json pins SDK 10.0.401, which is not installed (BL-1035). Waits on BL-1035.
 
 ## Log
 
 - 2026-11-06: Created.
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Backlog. Waits on BL-1035: pinned .NET SDK 10.0.401 is not installed, so neither dotnet build nor Measure-CodeQuality.ps1 runs
