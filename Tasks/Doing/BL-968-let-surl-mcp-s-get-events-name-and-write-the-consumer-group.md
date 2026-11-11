@@ -34,3 +34,4 @@ The MCP `get_events` tool accepts `consumer_group_changed` in its `kinds` filter
 ## Log
 
 - 2026-11-06: Created.
+- 2026-11-11: Backlog -> Doing.
