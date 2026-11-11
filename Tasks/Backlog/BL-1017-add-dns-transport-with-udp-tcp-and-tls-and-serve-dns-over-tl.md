@@ -4,7 +4,7 @@ title: Add --dns-transport with udp, tcp and tls and serve DNS over TLS with ALP
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-1032, BL-1020, BL-1035]
+depends-on: [BL-1032, BL-1020, BL-1036]
 touches: [Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests, Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests, Foundation/Surl.Networking.UnitLibrary, Foundation/Surl.Networking.UnitTests]
 requirement: none
 created: 2026-11-06
@@ -53,7 +53,7 @@ RFC 7858) on that port's protocols as ADR-0092 decision 5 says, with the DoT han
   scheme has on every listen URL of that scheme (`StartListenersAsync`, shared-port pair for `dns` since BL-1032),
   so a DoT listen URL (`dns`, `IsImplicitTls = true`) would also bind UDP on its port, and `udp,tls` cannot leave
   TCP off the plain listen URL. The per-listen-URL choice belongs in `Surl.Protocol.Abstractions` and `Surl.Core`,
-  four projects outside this task's six; filed as BL-1035 and added to `depends-on`.
+  four projects outside this task's six; filed as BL-1036 and added to `depends-on`.
 - For whoever resumes: the DoT ALPN belongs in `TlsApplicationProtocols.ForListener` (`dot` for a `dns` listen
   URL with `IsImplicitTls`); `ServerTlsHandshakeHttpsProxyTests.UpgradeToTlsAsync_HttpsProxyAndClientOffersOnlyH2_ThrowsTlsHandshakeException`
   is the pattern for the alert-120 test (Windows and Linux only; macOS not pinned).
@@ -64,4 +64,4 @@ RFC 7858) on that port's protocols as ADR-0092 decision 5 says, with the DoT han
 - 2026-11-06: Backlog -> Doing.
 - 2026-11-06: Doing -> Backlog. Released by the interactive session unstarted: it needs a TLS-from-the-first-byte dns listener, which BL-1020 builds, so it should depend on BL-1020; no work done
 - 2026-11-11: Backlog -> Doing.
-- 2026-11-11: Doing -> Backlog. Waits on BL-1035: the serving engine must let a dns listen URL bind only its UDP or only its TLS listener before DoT can be served
+- 2026-11-11: Doing -> Backlog. Waits on BL-1036: the serving engine must let a dns listen URL bind only its UDP or only its TLS listener before DoT can be served

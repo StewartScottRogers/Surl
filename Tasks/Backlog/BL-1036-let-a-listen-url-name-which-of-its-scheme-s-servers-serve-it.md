@@ -1,5 +1,5 @@
 ---
-id: BL-1035
+id: BL-1036
 title: Let a listen URL name which of its scheme's servers serve it so dns can bind each transport apart
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-11
 completed:
 ---
-# BL-1035 — Let a listen URL name which of its scheme's servers serve it so dns can bind each transport apart
+# BL-1036 — Let a listen URL name which of its scheme's servers serve it so dns can bind each transport apart
 
 ## Goal
 
