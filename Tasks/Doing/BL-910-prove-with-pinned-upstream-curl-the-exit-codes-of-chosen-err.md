@@ -42,3 +42,4 @@ Integration tests run the pinned upstream curl 8.21.0 against a live `surl` give
 ## Log
 
 - 2026-11-05: Created.
+- 2026-11-11: Backlog -> Doing.
