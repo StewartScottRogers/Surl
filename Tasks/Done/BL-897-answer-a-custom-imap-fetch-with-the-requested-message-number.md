@@ -8,7 +8,7 @@ depends-on: []
 touches: [Protocols/Mail/Surl.Protocol.Imap.UnitLibrary, Protocols/Mail/Surl.Protocol.Imap.UnitTests, Documentation/Conformance]
 requirement: none
 created: 2026-11-05
-completed:
+completed: 2026-11-11
 ---
 # BL-897 — Answer a custom IMAP FETCH with the requested message number as upstream's test server does
 
@@ -40,23 +40,27 @@ case whose expected line is only an arbitrary quirk of that server is listed as 
 
 ## Acceptance criteria
 
-- [ ] Cases 841 and 3206 (and 1847 unless excluded) pass in a Windows run of `UpstreamTestCasesAgainstSurlTests`
+- [x] Cases 841 and 3206 (and 1847 unless excluded) pass in a Windows run of `UpstreamTestCasesAgainstSurlTests`
       (`TestCategory=Integration`) with the reference pin from `UpstreamCurlBuilds.json`; Notes record the pin's
       SHA-256, the date, and for 1847 whether it was reproduced or excluded and why.
-- [ ] The passing cases are added to `Documentation/Conformance/upstream-test-cases-passing.win-x64.txt`, and
+- [x] The passing cases are added to `Documentation/Conformance/upstream-test-cases-passing.win-x64.txt`, and
       the `win-x64` row of `Documentation/Conformance/Upstream-Test-Case-Pass-Rate.md` states the new counts;
       the fast pass-rate guard test is green.
-- [ ] Any excluded case is listed in `Documentation/Conformance/Upstream-Test-Case-Exclusions.md` with the
+- [x] Any excluded case is listed in `Documentation/Conformance/Upstream-Test-Case-Exclusions.md` with the
       `ftpserver.pl` behaviour it would have to copy, and the run reports it as excluded rather than failed.
-- [ ] `Surl.Protocol.Imap.UnitTests` has a unit test per reproduced case replaying its client bytes from the
+- [x] `Surl.Protocol.Imap.UnitTests` has a unit test per reproduced case replaying its client bytes from the
       case file and asserting the untagged FETCH line the case expects.
-- [ ] `dotnet build Protocols/Mail/Surl.Protocol.Imap.UnitTests -warnaserror` is clean,
+- [x] `dotnet build Protocols/Mail/Surl.Protocol.Imap.UnitTests -warnaserror` is clean,
       `dotnet test --filter "TestCategory!=Integration"` is green, and `Surl.Protocol.Imap.UnitLibrary` keeps
       100% line and branch coverage.
 
 ## Notes
 
+- Upstream's server takes the custom request's first argument as the message number and the rest as the item, both echoed verbatim; for `UID FETCH` it takes `UID` as the command, so `FETCH` lands in the number's place. One rule reproduces 841, 3206 and 1847, so 1847 was reproduced, not excluded. (Rule derived from the three case files' datacheck sections; `ftpserver.pl` was not fetched.) The old BODY.PEEK rewrite and parenthesis trimming were dropped; no case relied on them.
+- Windows run 2026-11-11, reference pin SHA-256 `0E773709C3A44DB47B88B71351D902027682ED87C3BD3821009E454BACCA8778`: 1,070 passed, 841, 1847 and 3206 among the new ones.
+
 ## Log
 
 - 2026-11-05: Created.
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Done. Custom IMAP FETCH echoes the requested number and item as upstream's server does; cases 841, 1847 and 3206 pass (1,070 on win-x64)

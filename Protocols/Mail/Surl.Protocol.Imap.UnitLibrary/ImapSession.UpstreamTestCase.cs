@@ -168,16 +168,17 @@ internal sealed partial class ImapSession
     // BODY, as RFC 3501 has it - then POSTFETCH's text inside the closing parenthesis.
     private async ValueTask<bool> AnswerUpstreamTestCaseFetchAsync(ImapArguments arguments, MailUpstreamTestCaseReplies replies, bool isUid)
     {
-        var words = RestOfLine(arguments)?.Split(' ', 2);
+        // Upstream's ftpserver.pl takes the command's first argument as the message number and the
+        // rest as the item, both echoed as sent; for UID FETCH the "arguments" begin at FETCH.
+        var rest = RestOfLine(arguments);
+        var words = (isUid && rest is not null ? "FETCH " + rest : rest)?.Split(' ', 2);
         if (words is not { Length: 2 })
         {
             return await RespondAsync(InvalidArguments);
         }
 
         var message = replies.FindData(caseSelectedMailbox);
-        var item = words[1].Trim('(', ')').Replace("BODY.PEEK[", "BODY[", StringComparison.Ordinal);
-        var uid = isUid ? $"UID {words[0]} " : string.Empty;
-        var head = Encoding.Latin1.GetBytes($"* 1 FETCH ({uid}{item} {LiteralMarker(message.Length)}\r\n");
+        var head = Encoding.Latin1.GetBytes($"* {words[0]} FETCH ({words[1]} {LiteralMarker(message.Length)}\r\n");
         var tail = Encoding.Latin1.GetBytes(replies.PostFetch + ")\r\n");
         await connection.WriteAsync((byte[])[.. head, .. message, .. tail], CancellationToken);
         return await ReplyAsync($"{tag} {ImapResponses.Completed(isUid ? "UID FETCH" : "FETCH")}");

@@ -148,19 +148,42 @@ public sealed class ImapUpstreamTestCaseServerTests
     {
         var replies = Replies([], ("data", "plain"), ("data2", "second"));
 
-        var written = await ServeCaseAsync(replies, "a SELECT 10002\r\nb FETCH 1 (BODY.PEEK[])\r\n");
+        var written = await ServeCaseAsync(replies, "a SELECT 10002\r\nb FETCH 1 BODY[]\r\n");
 
         StringAssert.Contains(written, "* 1 FETCH (BODY[] {6}\r\nsecond)\r\nb OK FETCH completed\r\n");
     }
 
+    // Case 841: the number the client asked for is echoed.
     [TestMethod]
-    public async Task ServeAsync_UidFetch_SendsTheUidAndTheData()
+    public async Task ServeAsync_CustomFetchOfMessage123_EchoesTheNumberAndItem()
+    {
+        var replies = Replies([], ("data", "hi"));
+
+        var written = await ServeCaseAsync(replies, "a SELECT INBOX\r\nb FETCH 123 BODY[1]\r\n");
+
+        StringAssert.Contains(written, "* 123 FETCH (BODY[1] {2}\r\nhi)\r\nb OK FETCH completed\r\n");
+    }
+
+    // Case 3206: the item list is echoed as sent, its parentheses and quoted string included.
+    [TestMethod]
+    public async Task ServeAsync_CustomFetchWithAnItemList_EchoesTheListAsSent()
+    {
+        var replies = Replies([], ("data", "hi"));
+
+        var written = await ServeCaseAsync(replies, "a SELECT INBOX\r\nb FETCH 456 (\"fake {50}\" BODY[TEXT])\r\n");
+
+        StringAssert.Contains(written, "* 456 FETCH ((\"fake {50}\" BODY[TEXT]) {2}\r\nhi)\r\nb OK FETCH completed\r\n");
+    }
+
+    // Case 1847: upstream's server takes UID as the command, so FETCH lands in the number's place.
+    [TestMethod]
+    public async Task ServeAsync_UidFetch_PutsFetchWhereTheNumberGoes()
     {
         var replies = Replies([], ("data", "hi"));
 
         var written = await ServeCaseAsync(replies, "a SELECT INBOX\r\nb UID FETCH 1 BODY[]\r\n");
 
-        StringAssert.Contains(written, "* 1 FETCH (UID 1 BODY[] {2}\r\nhi)\r\nb OK UID FETCH completed\r\n");
+        StringAssert.Contains(written, "* FETCH FETCH (1 BODY[] {2}\r\nhi)\r\nb OK UID FETCH completed\r\n");
     }
 
     [TestMethod]
