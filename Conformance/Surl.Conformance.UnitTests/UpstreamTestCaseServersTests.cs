@@ -23,6 +23,26 @@ public sealed class UpstreamTestCaseServersTests
     }
 
     [TestMethod]
+    public void Find_HttpUnix_IsBuiltAndMapsHttpUnixPath()
+    {
+        Assert.AreEqual(
+            new UpstreamTestCaseServer("http-unix", "http", IsBuilt: true, UnixSocketPathVariable: "HTTPUNIXPATH"),
+            UpstreamTestCaseServers.Find("http-unix"));
+    }
+
+    [TestMethod]
+    public void All_OnlyTheUnixSocketServers_MapAPathVariable()
+    {
+        var mapped = UpstreamTestCaseServers.All
+            .Where(server => server.UnixSocketPathVariable is not null)
+            .Select(server => $"{server.Name} %{server.UnixSocketPathVariable}");
+
+        CollectionAssert.AreEqual(new[] { "socks5unix %SOCKSUNIXPATH", "http-unix %HTTPUNIXPATH" }, mapped.ToArray());
+        Assert.IsTrue(UpstreamTestCaseServers.All.Where(server => server.UnixSocketPathVariable is not null)
+            .All(server => UpstreamTestCaseVariables.Names.Contains(server.UnixSocketPathVariable!)));
+    }
+
+    [TestMethod]
     public void Find_UnknownOrNoServerHalfName_GivesNull()
     {
         Assert.IsNull(UpstreamTestCaseServers.Find("quic"));
@@ -35,7 +55,7 @@ public sealed class UpstreamTestCaseServersTests
         var unbuilt = UpstreamTestCaseServers.All.Where(server => !server.IsBuilt).Select(server => server.Name);
 
         CollectionAssert.AreEquivalent(
-            new[] { "http/2", "http/3", "http-proxy", "https-proxy", "socks4", "socks5", "socks5unix", "http-unix", "httptls+srp", "httptls+srp-ipv6", "dns" },
+            new[] { "http/2", "http/3", "http-proxy", "https-proxy", "socks4", "socks5", "socks5unix", "httptls+srp", "httptls+srp-ipv6", "dns" },
             unbuilt.ToArray());
     }
 }

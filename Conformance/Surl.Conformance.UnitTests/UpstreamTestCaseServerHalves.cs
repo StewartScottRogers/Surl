@@ -35,8 +35,9 @@ namespace Surl.Conformance;
 /// for <c>%SMBPORT</c>; and <see cref="ImapUpstreamTestCaseServer"/>,
 /// <see cref="Pop3UpstreamTestCaseServer"/> and <see cref="SmtpUpstreamTestCaseServer"/> in
 /// plaintext on <c>127.0.0.1</c> and <c>[::1]</c> for <c>%IMAPPORT</c>, <c>%POP3PORT</c>,
-/// <c>%SMTPPORT</c> and their <c>6</c> forms. The listeners bind before the case is parsed, because
-/// the case's replies name the ports; <see cref="Play"/> then hands over the case's reply before
+/// <c>%SMTPPORT</c> and their <c>6</c> forms; and, for an <c>http-unix</c> case, the plaintext HTTP
+/// server half on a Unix domain socket file for <c>%HTTPUNIXPATH</c>. The listeners bind before
+/// the case is parsed, because the case's replies name the ports; <see cref="Play"/> then hands over the case's reply before
 /// curl starts.
 /// </summary>
 /// <remarks>
@@ -179,7 +180,14 @@ internal sealed class UpstreamTestCaseServerHalves : IAsyncDisposable
     /// Binds every listener and starts serving; until <see cref="Play"/>, a connection is closed
     /// with no bytes and a datagram is not answered.
     /// </summary>
-    public static async Task<UpstreamTestCaseServerHalves> StartAsync(ServerTlsSettings tlsSettings, CancellationToken cancellationToken)
+    /// <param name="tlsSettings">The certificate the TLS listeners serve.</param>
+    /// <param name="httpUnixSocketPath">
+    /// The socket file the plaintext HTTP server half also listens on, for an <c>http-unix</c>
+    /// case's <c>%HTTPUNIXPATH</c>, or <see langword="null"/> for none.
+    /// </param>
+    /// <param name="cancellationToken">Stops the serving engine.</param>
+    public static async Task<UpstreamTestCaseServerHalves> StartAsync(
+        ServerTlsSettings tlsSettings, string? httpUnixSocketPath, CancellationToken cancellationToken)
     {
         CaseServer[] servers = [.. Listeners.Select(listener => new CaseServer(listener.Scheme))];
         var tftp = new CaseDatagramServer("tftp");
@@ -187,6 +195,7 @@ internal sealed class UpstreamTestCaseServerHalves : IAsyncDisposable
         [
             .. Listeners.SelectMany(listener => listener.Hosts.Select(host => new ListenUrl(listener.Scheme, host, 0))),
             new("tftp", LoopbackIPv4, 0),
+            .. HttpUnixSocketListenUrls(httpUnixSocketPath),
         ];
         var listeners = new BoundPortRecordingListenerFactory(new SocketListenerFactory(tlsSettings), urls.Length);
         var log = new NoteCollectingExchangeLogFactory();
@@ -245,6 +254,11 @@ internal sealed class UpstreamTestCaseServerHalves : IAsyncDisposable
     }
 
     private static string PortKey(string scheme, string host) => $"{scheme} {host}";
+
+    // The HTTP listener on a Unix socket shares the http scheme, so the plaintext HTTP case server
+    // answers it; its host only keys its row apart from the TCP listener's, as nothing binds it.
+    private static ListenUrl[] HttpUnixSocketListenUrls(string? path) =>
+        path is null ? [] : [new ListenUrl("http", "localhost", 0) { UnixSocket = new UnixSocketAddress(path, isAbstract: false) }];
 
     /// <summary>
     /// Registers one scheme for whichever case server <see cref="Play"/> set.
