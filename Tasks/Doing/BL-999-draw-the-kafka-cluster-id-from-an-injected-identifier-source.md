@@ -42,3 +42,4 @@ given (defaulting to `CryptographicIdentifierRandom`), so a seeded source announ
 ## Log
 
 - 2026-11-06: Created.
+- 2026-11-11: Backlog -> Doing.
