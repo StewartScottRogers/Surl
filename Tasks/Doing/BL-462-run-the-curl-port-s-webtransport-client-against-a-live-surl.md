@@ -44,3 +44,4 @@ assertion comes from WTH3, and the matrix is fully covered.
 - 2026-11-04: Created.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waiting on BL-1047: the live unidirectional exchange hangs, and its cause may be in Surl.Http3 or the WebTransport server, outside this task's touches
+- 2026-11-11: Backlog -> Doing.
