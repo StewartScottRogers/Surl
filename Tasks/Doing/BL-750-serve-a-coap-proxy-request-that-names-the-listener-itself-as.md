@@ -43,3 +43,4 @@ Filed by BL-472, which left this rule of ADR-0097 decision 3 out of its acceptan
 ## Log
 
 - 2026-11-05: Created.
+- 2026-11-11: Backlog -> Doing.
