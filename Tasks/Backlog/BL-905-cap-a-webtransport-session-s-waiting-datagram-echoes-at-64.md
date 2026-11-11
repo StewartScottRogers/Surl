@@ -4,7 +4,7 @@ title: Cap a WebTransport session's waiting datagram echoes at 64
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-460]
+depends-on: [BL-460, BL-1035]
 touches: [Protocols/Http/Surl.Extended.Protocol.WebTransport.UnitLibrary, Protocols/Http/Surl.Extended.Protocol.WebTransport.UnitTests]
 requirement: none
 created: 2026-11-05
@@ -36,7 +36,12 @@ that, as ADR-0117 decision 8's table says.
 
 ## Notes
 
+- 2026-11-11 (lane 6): `dotnet` cannot resolve the SDK `global.json` pins (10.0.401, `latestFeature`);
+  only 10.0.100-rc.1, 11.0.100-rc.2 and 11.0.100 are installed, so no build or test can run. Returned
+  to Backlog behind BL-1035 (Stewart reinstalls the SDK), as BL-902 and BL-556 were.
+
 ## Log
 
 - 2026-11-05: Created.
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Backlog. Waiting on BL-1035 - pinned .NET SDK 10.0.401 is not installed, so nothing builds
