@@ -276,15 +276,46 @@ public sealed class TftpProtocolServerTests
     }
 
     [TestMethod]
-    public async Task ServeAsync_NetasciiMode_SendsTheBytesUnchanged()
+    public async Task ServeAsync_NetasciiMode_SendsLfAsCrLfAndCrAsCrNul()
     {
-        var body = "a\r\nb\r\0c"u8.ToArray();
+        var body = "a\nb\rc"u8.ToArray();
         var fileSystem = StandardFileSystem().AddFile(Path.Join(Root, "t.txt"), body, FileTime);
         byte[] request = [0, 1, .. "t.txt"u8, 0, .. "NetASCII"u8, 0];
         var (flow, log) = await ServeAsync(request, [ScriptedDatagramFlow.Datagram(Ack(1))], fileSystem);
 
-        CollectionAssert.AreEqual(Data(1, body), flow.Sent.Single().Bytes);
-        Assert.StartsWith("Read of \"t.txt\" (netascii)", log.Notes[0]);
+        CollectionAssert.AreEqual(Data(1, "a\r\nb\r\0c"u8.ToArray()), flow.Sent.Single().Bytes);
+        Assert.StartsWith("Read of \"t.txt\" (netascii): 7 bytes", log.Notes[0]);
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_NetasciiModeWithTsize_AnswersTheConvertedLength()
+    {
+        var fileSystem = StandardFileSystem().AddFile(Path.Join(Root, "t.txt"), "a\nb"u8.ToArray(), FileTime);
+        byte[] request = [0, 1, .. "t.txt"u8, 0, .. "netascii"u8, 0, .. "tsize"u8, 0, .. "0"u8, 0];
+        var (flow, _) = await ServeAsync(request, [ScriptedDatagramFlow.Datagram(Ack(0)), ScriptedDatagramFlow.Datagram(Ack(1))], fileSystem);
+
+        CollectionAssert.AreEqual((byte[])[0, 6, .. "tsize"u8, 0, .. "4"u8, 0], flow.Sent[0].Bytes);
+        CollectionAssert.AreEqual(Data(1, "a\r\nb"u8.ToArray()), flow.Sent[1].Bytes);
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_NetasciiModeEmptyFile_SendsOneEmptyBlock()
+    {
+        var fileSystem = StandardFileSystem().AddFile(Path.Join(Root, "empty.txt"), [], FileTime);
+        byte[] request = [0, 1, .. "empty.txt"u8, 0, .. "netascii"u8, 0];
+        var (flow, _) = await ServeAsync(request, [ScriptedDatagramFlow.Datagram(Ack(1))], fileSystem);
+
+        CollectionAssert.AreEqual(Data(1, []), flow.Sent.Single().Bytes);
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_NetasciiModeFileShrinks_IsAnsweredWithError0()
+    {
+        var fileSystem = StandardFileSystem().AddFile(Path.Join(Root, "shrinking.bin"), new byte[600], FileTime, reportedLength: 1000);
+        byte[] request = [0, 1, .. "shrinking.bin"u8, 0, .. "netascii"u8, 0];
+        var (flow, _) = await ServeAsync(request, [], fileSystem);
+
+        CollectionAssert.AreEqual(ChangedFileError, flow.Sent.Single().Bytes);
     }
 
     [TestMethod]

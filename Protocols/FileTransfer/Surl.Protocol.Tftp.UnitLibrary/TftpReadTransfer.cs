@@ -12,15 +12,17 @@ namespace Surl.Protocol.Tftp;
 /// <param name="context">The exchange: its log, clock and cancellation.</param>
 /// <param name="contentStore">Where the file is read from.</param>
 /// <param name="mapping">The file's mapped location.</param>
-/// <param name="fileLength">The file's length when the transfer began.</param>
+/// <param name="fileLength">The length to send: the file's length, or the netascii length in netascii mode.</param>
 /// <param name="negotiation">The block size, retransmission timeout and OACK.</param>
+/// <param name="netasciiBytes">The converted bytes to send in netascii mode; <see langword="null"/> to read the file as stored.</param>
 internal sealed class TftpReadTransfer(
     IDatagramFlow flow,
     ExchangeContext context,
     ContentStore contentStore,
     ContentPathMapping mapping,
     long fileLength,
-    TftpNegotiation negotiation)
+    TftpNegotiation negotiation,
+    byte[]? netasciiBytes = null)
 {
     private readonly TftpLockStep lockStep = new(flow, context, negotiation.RetransmissionTimeout);
 
@@ -70,6 +72,11 @@ internal sealed class TftpReadTransfer(
         if (count == 0)
         {
             return TftpPacket.ForData(blockNumber, []);
+        }
+
+        if (netasciiBytes is not null)
+        {
+            return TftpPacket.ForData(blockNumber, netasciiBytes.AsSpan((int)offset, count));
         }
 
         using var block = new MemoryStream(count);

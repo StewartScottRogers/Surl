@@ -8,7 +8,7 @@ depends-on: []
 touches: [Protocols/FileTransfer/Surl.Protocol.Tftp.UnitLibrary, Protocols/FileTransfer/Surl.Protocol.Tftp.UnitTests, Documentation/Planning/Decisions, Documentation/Conformance]
 requirement: none
 created: 2026-11-05
-completed:
+completed: 2026-11-11
 ---
 # BL-855 — Send netascii TFTP reads with CRLF line endings
 
@@ -30,11 +30,11 @@ so upstream test 1094 passes.
 
 ## Acceptance criteria
 
-- [ ] `TftpProtocolServerTests` pins a netascii read's DATA bytes: LF sent as CR LF, CR as CR NUL.
-- [ ] ADR-0013 records the netascii answer, marked "Decided by Claude under Stewart's delegation".
-- [ ] The upstream test-case run on Windows passes test 1094, and it is added to
+- [x] `TftpProtocolServerTests` pins a netascii read's DATA bytes: LF sent as CR LF, CR as CR NUL.
+- [x] ADR-0013 records the netascii answer, marked "Decided by Claude under Stewart's delegation".
+- [x] The upstream test-case run on Windows passes test 1094, and it is added to
       `Documentation/Conformance/upstream-test-cases-passing.win-x64.txt`.
-- [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and
+- [x] `dotnet build -warnaserror` is clean, the fast tests are green, and
       `Surl.Protocol.Tftp.UnitLibrary` keeps 100% line and branch coverage.
 
 ## Notes
@@ -43,3 +43,4 @@ so upstream test 1094 passes.
 
 - 2026-11-05: Created.
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Done. Netascii TFTP reads send LF as CR LF and CR as CR NUL; upstream test 1094 passes
