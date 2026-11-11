@@ -52,3 +52,4 @@ says, and may be shared; `session-end` and `connection-close` keep one until tha
 ## Log
 
 - 2026-11-06: Created.
+- 2026-11-11: Backlog -> Doing.
