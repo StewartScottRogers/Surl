@@ -4,7 +4,7 @@ title: Decide how an LDAP directory serves as an optional account source
 priority: Low
 assignee: Claude
 pipeline: docs
-depends-on: [BL-642]
+depends-on: [BL-642, BL-1035]
 touches: [Documentation/Planning/Decisions]
 requirement: none
 created: 2026-11-04
@@ -52,9 +52,18 @@ methods that can serve, and how it stays secure by default.
 
 ## Notes
 
+- 2026-11-11 (lane 3): the work is finished on branch `factory/BL-671-lane-6-20261111-060243` (commit c281d6ed:
+  ADR-0148, its README row, new task BL-1037, edits to BL-672 and BL-673, all boxes ticked). It is docs only; the
+  integration failed only because `dotnet build` cannot start on this machine (`global.json` pins SDK 10.0.401,
+  not installed). Returned to Backlog behind BL-1035, as other lanes did. When it runs again: cherry-pick that
+  commit with `--no-commit`, keep this task in `Doing` rather than the commit's `Done` copy (take its Notes and
+  ticks), re-check that ADR-0148 and BL-1037 are still free numbers (`task-board.ps1 dedupe`), build, then move
+  to Done with the script.
+
 ## Log
 
 - 2026-11-04: Created.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Lane 6 could not integrate: build failed after rebasing onto the other lanes' work. The work is on branch factory/BL-671-lane-6-20261111-060243; start with git cherry-pick --no-commit factory/BL-671-lane-6-20261111-060243 and fix it.
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Backlog. waiting on BL-1035: pinned .NET SDK 10.0.401 is not installed, so dotnet build cannot start; the finished ADR-0148 work is on factory/BL-671-lane-6-20261111-060243
