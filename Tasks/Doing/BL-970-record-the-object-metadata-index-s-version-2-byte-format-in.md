@@ -32,3 +32,4 @@ ADR-0100 decision 2.3.1 describes the object metadata index's byte format as the
 ## Log
 
 - 2026-11-06: Created.
+- 2026-11-11: Backlog -> Doing.
