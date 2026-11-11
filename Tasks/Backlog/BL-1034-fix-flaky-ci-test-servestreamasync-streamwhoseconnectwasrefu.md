@@ -4,7 +4,7 @@ title: Fix flaky CI test ServeStreamAsync_StreamWhoseConnectWasRefused_IsResetWi
 priority: High
 assignee: Claude
 pipeline: feature
-depends-on: []
+depends-on: [BL-1035]
 touches: [Protocols/Http/Surl.Extended.Protocol.WebTransport.UnitLibrary, Protocols/Http/Surl.Extended.Protocol.WebTransport.UnitTests]
 requirement: none
 created: 2026-11-06
@@ -40,9 +40,12 @@ completed:
 
 ## Notes
 
+- Lane 4, 2026-11-11: lane 1's fix (commit a4695537 on factory/BL-1034-lane-1-20261111-060243) waits for both RESET_STREAM and STOP_SENDING in the two `WebTransportSessionDirectoryTests` refused-stream tests, because `WebTransportSessionDirectory.RefuseAsync` sends RESET_STREAM before STOP_SENDING and the test read STOP_SENDING once after seeing the reset. Its integration "build failed" was not the fix: `global.json` pins SDK 10.0.401 and no 10.0.4xx SDK is installed (`dotnet --list-sdks`: 10.0.100-rc.1, 11.0.100-rc.2, 11.0.100), so no build can run. The fix is reapplied uncommitted for the shift to stash; parked behind BL-1035.
+
 ## Log
 
 - 2026-11-06: Created.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Lane 1 could not integrate: build failed after rebasing onto the other lanes' work. The work is on branch factory/BL-1034-lane-1-20261111-060243; start with git cherry-pick --no-commit factory/BL-1034-lane-1-20261111-060243 and fix it.
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Backlog. Waits on BL-1035: pinned .NET SDK 10.0.401 is not installed, so nothing builds; the test fix is ready and reapplied uncommitted.
