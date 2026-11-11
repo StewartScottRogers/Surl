@@ -39,11 +39,11 @@ and files the build tasks.
 
 ## Notes
 
-- Decided ADR-0148 (Decided by Claude under Stewart's delegation): JSON served on the same listener, told apart by path; buckets not created or deleted (revisit with s3/az); Bearer only; metageneration added to the index. Filed BL-1040 to BL-1044 (one library, so serial; BL-1044 waits on BL-1026).
+- Decided ADR-0148 (Decided by Claude under Stewart's delegation): JSON served on the same listener, told apart by path; buckets not created or deleted (revisit with s3/az); Bearer only; metageneration added to the index. Filed BL-1045 to BL-1044 (one library, so serial; BL-1044 waits on BL-1026).
 - Docs-only; no .cs touched, so no build needed.
 
 ## Log
 
 - 2026-11-05: Created.
 - 2026-11-11: Backlog -> Doing.
-- 2026-11-11: Doing -> Done. ADR-0148 decides the gs JSON API; matrix GoogleCloudStorage-Json.md written; BL-1040 to BL-1044 filed
+- 2026-11-11: Doing -> Done. ADR-0148 decides the gs JSON API; matrix GoogleCloudStorage-Json.md written; BL-1045 to BL-1044 filed

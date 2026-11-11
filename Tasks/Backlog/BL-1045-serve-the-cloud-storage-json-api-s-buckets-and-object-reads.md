@@ -1,5 +1,5 @@
 ---
-id: BL-1040
+id: BL-1045
 title: Serve the Cloud Storage JSON API's buckets and object reads and deletes on the gs server
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-11
 completed:
 ---
-# BL-1040 — Serve the Cloud Storage JSON API's buckets and object reads and deletes on the gs server
+# BL-1045 — Serve the Cloud Storage JSON API's buckets and object reads and deletes on the gs server
 
 ## Goal
 

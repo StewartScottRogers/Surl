@@ -4,7 +4,7 @@ title: Describe the gs server's JSON API in its aihelp topic and finish its matr
 priority: Low
 assignee: Claude
 pipeline: docs
-depends-on: [BL-1026, BL-1040, BL-1041, BL-1042, BL-1043]
+depends-on: [BL-1026, BL-1045, BL-1041, BL-1042, BL-1043]
 touches: [Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests, Documentation/Conformance/Extended/GoogleCloudStorage-Json.md]
 requirement: none
 created: 2026-11-11

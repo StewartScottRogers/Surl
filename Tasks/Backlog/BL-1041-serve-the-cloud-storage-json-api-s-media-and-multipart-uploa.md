@@ -4,7 +4,7 @@ title: Serve the Cloud Storage JSON API's media and multipart uploads, patch and
 priority: Low
 assignee: Claude
 pipeline: feature
-depends-on: [BL-1040]
+depends-on: [BL-1045]
 touches: [Protocols/FileTransfer/Surl.Extended.Protocol.GoogleCloudStorage.UnitLibrary, Protocols/FileTransfer/Surl.Extended.Protocol.GoogleCloudStorage.UnitTests, Documentation/Conformance/Extended/GoogleCloudStorage-Json.md]
 requirement: none
 created: 2026-11-11

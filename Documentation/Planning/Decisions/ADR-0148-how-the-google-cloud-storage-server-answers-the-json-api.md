@@ -3,7 +3,7 @@
 - **Status:** Accepted
 - **Date:** 2026-11-11
 - **Decided by:** Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), 2026-11-11, in BL-719.
-  The build is filed as BL-1040 to BL-1044 (decision 9). Amends ADR-0110 decisions 1, 1.1, 3 and 7 (the JSON paths are no
+  The build is filed as BL-1045 to BL-1044 (decision 9). Amends ADR-0110 decisions 1, 1.1, 3 and 7 (the JSON paths are no
   longer unlisted, `x-goog-metageneration` can pass 1, the Bearer rules carry over, the staging
   bound is shared) and ADR-0100 decision 2.3 (the object metadata index records a metageneration).
 - **Builds on:** [ADR-0110](ADR-0110-how-the-google-cloud-storage-server-answers-gs.md) (the XML API, its
@@ -260,7 +260,7 @@ Each task is one library, `Protocols/FileTransfer/Surl.Extended.Protocol.GoogleC
 
 | Task | Builds |
 | --- | --- |
-| BL-1040 | Decisions 1, 2 (buckets, objects list and get, delete, `alt=media`), 3 (resources, listing, metageneration in the index), 4, 5, 6 and the limits of 8 |
+| BL-1045 | Decisions 1, 2 (buckets, objects list and get, delete, `alt=media`), 3 (resources, listing, metageneration in the index), 4, 5, 6 and the limits of 8 |
 | BL-1041 | Decision 7's media and multipart insert, `patch` and `update` |
 | BL-1042 | Decision 7's JSON resumable upload |
 | BL-1043 | Decision 7's `copy`, `rewrite` and `compose` |
@@ -299,6 +299,6 @@ Costs and caveats:
 - Bucket creation and deletion are `501`; a test seeds its buckets.
 - `fields`, `projection` and `prettyPrint` are ignored, so a partial-response request gets a whole resource.
 - Three bucket names are reachable over the XML API by virtual-hosted style only (decision 1).
-- BL-1040 to BL-1044 are all in one library, so they run one after another, and BL-1040 changes ADR-0100's index
+- BL-1045 to BL-1044 are all in one library, so they run one after another, and BL-1045 changes ADR-0100's index
   record (a metageneration), which the other file servers read and ignore.
 - The matrix is `Documentation/Conformance/Extended/GoogleCloudStorage-Json.md` (ADR-0083 decision 9).
