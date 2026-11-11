@@ -91,3 +91,20 @@ bytes, the same frames as ADR-0081's "Measured" table with `:path /file.txt`.
 - BL-369 (`Upgrade: h2c`) and BL-370 (ALPN `h2`) hand a connection to the same
   `Http2ConnectionServer`; BL-409 moves it to `Surl.Http2` (ADR-0086).
 - BL-371 measures curl's exit code against a live surl for decisions 4 and 5.
+
+## Amendment 1 - the HTTP/2 `503` refusal is answered (BL-601, 2026-11-11)
+
+Decided by Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), 2026-11-11.
+
+The refusal half of decision 6 is done. BL-601 made `HttpProtocolServer.WriteRefusalAsync` read
+the first bytes with `Http2ConnectionPreface`; when the whole preface arrives it refuses through
+`Surl.Http2`'s `Http2ConnectionRefusal`, as ADR-0081 decision 5's "Too many connections" row says.
+What is sent, in order: an empty `SETTINGS`; `HEADERS` with `:status 503`, `server: surl` and
+`content-length: 0`, carrying `END_STREAM`, on the client's first stream; then `GOAWAY` naming that
+stream with `NO_ERROR`. A client that sends no `HEADERS` before the engine's refusal deadline, or
+no bytes at all, is closed with no bytes. A connection that is not HTTP/2 is still refused with
+HTTP/1.1 bytes, unchanged.
+
+Decision 6 therefore no longer says the `503` is "still written as HTTP/1.1 bytes" for an HTTP/2
+client. What still waits is `HTTP_1_1_REQUIRED` for NTLM and Negotiate over HTTP/2 (decision 7;
+BL-602). BL-859 files this amendment because BL-574 held this folder while BL-601 ran.

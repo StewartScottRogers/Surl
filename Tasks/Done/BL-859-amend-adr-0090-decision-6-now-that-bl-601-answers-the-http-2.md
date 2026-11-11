@@ -8,7 +8,7 @@ depends-on: [BL-601]
 touches: [Documentation/Planning/Decisions]
 requirement: none
 created: 2026-11-05
-completed:
+completed: 2026-11-11
 ---
 # BL-859 — Amend ADR-0090 decision 6 now that BL-601 answers the HTTP/2 503 refusal
 
@@ -23,8 +23,8 @@ ADR-0090 decision 6 and its row in `Documentation/Planning/Decisions/README.md` 
 
 ## Acceptance criteria
 
-- [ ] ADR-0090 has an amendment (dated, naming BL-601) saying decision 6's refusal half is now done, and what is sent.
-- [ ] The ADR-0090 row in `Documentation/Planning/Decisions/README.md` no longer lists the HTTP/2 `503` refusal as left to a later task.
+- [x] ADR-0090 has an amendment (dated, naming BL-601) saying decision 6's refusal half is now done, and what is sent.
+- [x] The ADR-0090 row in `Documentation/Planning/Decisions/README.md` no longer lists the HTTP/2 `503` refusal as left to a later task.
 
 ## Notes
 
@@ -34,3 +34,4 @@ ADR-0090 decision 6 and its row in `Documentation/Planning/Decisions/README.md` 
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Lane 6 could not integrate: build failed after rebasing onto the other lanes' work. The work is on branch factory/BL-859-lane-6-20261111-060243; start with git cherry-pick --no-commit factory/BL-859-lane-6-20261111-060243 and fix it.
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Done. ADR-0090 amendment 1 and README row say BL-601 answers the HTTP/2 503 refusal
