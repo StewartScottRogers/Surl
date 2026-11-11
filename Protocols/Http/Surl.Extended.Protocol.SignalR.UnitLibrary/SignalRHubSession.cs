@@ -2,7 +2,6 @@ using System.Globalization;
 using System.Text;
 using Surl.HttpMessage;
 using Surl.Protocol.Abstractions;
-using Surl.WebSocket;
 
 namespace Surl.Extended.Protocol.SignalR;
 
@@ -13,19 +12,32 @@ namespace Surl.Extended.Protocol.SignalR;
 /// </summary>
 /// <remarks>
 /// <para>
-/// Three kinds of work run at once, their writes one at a time: the read loop (WebSocket frames, then
-/// hub records cut at <c>0x1E</c>, then messages), the clock (the handshake deadline, the keep-alive
-/// Ping and the client timeout, all on <see cref="ExchangeContext.TimeProvider"/>), and one task per
-/// <c>Count</c> stream. Each record is sent as one text message.
+/// Four kinds of work run at once, their writes one at a time and in the order they were queued: the
+/// read loop (WebSocket frames, then hub records cut at <c>0x1E</c>, then messages, <c>Collect</c>
+/// uploads included), the clock (the handshake deadline, the keep-alive Ping and the client timeout,
+/// all on <see cref="ExchangeContext.TimeProvider"/>), one task per <c>Count</c> stream, and one per
+/// <c>Broadcast</c> Invocation another connection queued. Each record is sent as one text message.
+/// Once the handshake is accepted the session joins the hub's broadcast receivers.
 /// </para>
 /// <para>
 /// The first of them to decide the connection's end wins: the others stop, then the end's hub Close,
 /// if any, and its WebSocket Close are written, and the server lingers for the client's close. A
-/// client that vanished, or an exchange cancelled, ends with nothing written.
+/// client that vanished ends with nothing written; a cancelled exchange, at shutdown or at a limit,
+/// gets the farewell on its own deadline.
 /// </para>
 /// </remarks>
-internal sealed class SignalRHubSession : IDisposable
+internal sealed class SignalRHubSession : IDisposable, ISignalRBroadcastReceiver
 {
+    /// <summary>
+    /// The most bytes of records queued for a connection and not yet written (ADR-0119, decision 7).
+    /// </summary>
+    public const long MaxUnsentBytes = 1048576;
+
+    /// <summary>
+    /// How long the farewell to a cancelled exchange may take to write (ADR-0006 section 5's limit-reply deadline).
+    /// </summary>
+    public static readonly TimeSpan FarewellWriteDeadline = TimeSpan.FromSeconds(1);
+
     /// <summary>
     /// The most streams in progress on one connection (ADR-0119, decision 7).
     /// </summary>
@@ -67,10 +79,16 @@ internal sealed class SignalRHubSession : IDisposable
     private readonly Dictionary<string, CancellationTokenSource> streams = new(StringComparer.Ordinal);
     private readonly List<CancellationTokenSource> streamCancellations = [];
     private readonly List<Task> streamTasks = [];
+    private readonly SignalRHubConnections hub;
+
+    // The uploads being read, by stream ID; only the read loop touches them.
+    private readonly Dictionary<string, SignalRUpload> uploads = new(StringComparer.Ordinal);
     private DateTimeOffset lastSentAt;
     private DateTimeOffset lastReceivedAt;
+    private long unsentBytes;
     private bool isHandshakeDone;
     private bool isMessagePack;
+    private bool takesNoMoreWork;
 
     /// <summary>
     /// Creates the session that runs a hub over one transport. Disposing it disposes the transport.
@@ -78,14 +96,16 @@ internal sealed class SignalRHubSession : IDisposable
     /// <param name="transport">What carries the connection's bytes.</param>
     /// <param name="context">The exchange: its clock, limits, log and cancellation.</param>
     /// <param name="invocationFaults">Asks the exchange's fault plan for a chosen Completion error per invocation (ADR-0144).</param>
+    /// <param name="hub">The hub's connections, which <c>Broadcast</c> reaches.</param>
     /// <param name="reconnect">The connection's numbering when it negotiated stateful reconnect (ADR-0119, decision 6), else <see langword="null"/>.</param>
-    public SignalRHubSession(ISignalRHubTransport transport, ExchangeContext context, SignalRInvocationFaults invocationFaults, SignalRReconnectState? reconnect = null)
+    public SignalRHubSession(ISignalRHubTransport transport, ExchangeContext context, SignalRInvocationFaults invocationFaults, SignalRHubConnections hub, SignalRReconnectState? reconnect = null)
     {
         this.reconnect = reconnect;
         this.transport = transport;
         writeGate = transport.WriteGate;
         this.context = context;
         this.invocationFaults = invocationFaults;
+        this.hub = hub;
         var maxMessageBytes = context.Limits.MaxMessageBytes;
         recordReader = new HubRecordReader(maxMessageBytes);
         messagePackRecordReader = new HubMessagePackRecordReader(maxMessageBytes);
@@ -98,11 +118,12 @@ internal sealed class SignalRHubSession : IDisposable
     public async Task<SignalRSessionEnd> RunAsync()
     {
         SignalRSessionEnd end;
-        using (context.CancellationToken.Register(() => Decide(SignalRSessionEnd.Silent("the exchange was cancelled"))))
+        using (context.CancellationToken.Register(() => Decide(SignalRSessionEnd.Farewell("the exchange was cancelled, at shutdown or at a limit"))))
         {
             var readLoop = GuardAsync(ReadLoopAsync);
             var clock = GuardAsync(RunClockAsync);
             end = await ended.Task;
+            hub.Leave(this);
             await ending.CancelAsync();
             await Task.WhenAll(readLoop, clock);
             await Task.WhenAll(StreamTasks());
@@ -148,12 +169,63 @@ internal sealed class SignalRHubSession : IDisposable
         return writer.Written.ToArray();
     }
 
+    /// <inheritdoc/>
+    public void ReceiveBroadcast(HubInvocation invocation)
+    {
+        var record = Encode(invocation);
+        lock (gate)
+        {
+            if (takesNoMoreWork)
+            {
+                return;
+            }
+
+            if (unsentBytes + record.Length <= MaxUnsentBytes)
+            {
+                unsentBytes += record.Length;
+
+                // Started under the gate so the write queues before the session's next record,
+                // and before the session stops taking work.
+                TrackLocked(GuardAsync(token => WriteCountedAsync(record, token)));
+
+                return;
+            }
+        }
+
+        Decide(SignalRSessionEnd.HubClose(SignalRSessionEnd.ProtocolErrorText, SignalRSessionEnd.PolicyViolation, $"a broadcast would have left more than {MaxUnsentBytes} bytes unsent"));
+    }
+
+    // Writes a record already counted as unsent, and counts it sent once written or given up.
+    private async Task WriteCountedAsync(byte[] record, CancellationToken token)
+    {
+        try
+        {
+            await SendNumberedAsync(record, token);
+        }
+        finally
+        {
+            lock (gate)
+            {
+                unsentBytes -= record.Length;
+            }
+        }
+    }
+
+    // The tasks still to wait for; from now on no broadcast is taken.
     private Task[] StreamTasks()
     {
         lock (gate)
         {
+            takesNoMoreWork = true;
+
             return [.. streamTasks];
         }
+    }
+
+    private void TrackLocked(Task task)
+    {
+        streamTasks.RemoveAll(tracked => tracked.IsCompleted);
+        streamTasks.Add(task);
     }
 
     // Stops a loop quietly once the end is decided, and ends the connection when it fails.
@@ -244,6 +316,7 @@ internal sealed class SignalRHubSession : IDisposable
         {
             await ResendAsync(reconnect, token);
         }
+        hub.Join(this);
 
         return null;
     }
@@ -306,14 +379,19 @@ internal sealed class SignalRHubSession : IDisposable
             case HubInvocation invocation:
                 return await InvokeAsync(invocation, token);
             case HubCancelInvocation cancel:
-                await CancelStreamAsync(cancel.InvocationId);
+                await CancelInvocationAsync(cancel.InvocationId, token);
                 return null;
             case HubPing:
                 return null;
+            case HubStreamItem item:
+                return await AcceptUploadItemAsync(item, token);
+            case HubCompletion completion:
+                return await AcceptUploadCompletionAsync(completion, token);
             case HubClose:
                 return SignalRSessionEnd.WebSocketClose(SignalRSessionEnd.NormalClosure, "the client sent a hub Close");
             default:
-                return SignalRSessionEnd.HubProtocolError($"the client sent a {message.Type} for no upload stream the server reads");
+                // An Ack or Sequence on a connection that did not ask for stateful reconnect.
+                return SignalRSessionEnd.HubProtocolError($"the client sent a {message.Type} the connection did not negotiate");
         }
     }
 
@@ -328,25 +406,132 @@ internal sealed class SignalRHubSession : IDisposable
         var call = invocation.InvocationId is not null && await invocationFaults.FindErrorAsync(invocation) is { } chosenError
             ? SignalRHubCall.Failed(chosenError)
             : SignalRHubMethods.Call(invocation, isMessagePack);
+
+        return await AnswerAsync(invocation, call, token);
+    }
+
+    private async Task<SignalRSessionEnd?> AnswerAsync(HubInvocation invocation, SignalRHubCall call, CancellationToken token)
+    {
+        if (call.Broadcasts)
+        {
+            hub.Broadcast(new HubInvocation(false, null, "Broadcast", invocation.Arguments, []));
+        }
+
+        if (call.UploadStreamId is { } streamId)
+        {
+            return await StartUploadAsync(invocation, streamId, token);
+        }
+
         if (call.StreamItemCount is { } count)
         {
             // Only a StreamInvocation streams, and it always has an invocationId.
             await StartStreamAsync(invocation.InvocationId!, count, token);
         }
-        else if (invocation.InvocationId is { } completed)
+        else
         {
-            await SendNumberedAsync(Encode(new HubCompletion(completed, call.Result, call.Error)), token);
+            await CompleteAsync(invocation.InvocationId, call.Result, call.Error, token);
         }
 
         return null;
+    }
+
+    // A non-blocking Invocation is completed with nothing at all.
+    private async Task CompleteAsync(string? invocationId, HubJsonValue? result, string? error, CancellationToken token)
+    {
+        if (invocationId is not null)
+        {
+            await SendNumberedAsync(Encode(new HubCompletion(invocationId, result, error)), token);
+        }
     }
 
     private bool IsInProgress(string id)
     {
         lock (gate)
         {
-            return streams.ContainsKey(id);
+            return streams.ContainsKey(id) || FindUpload(id) is not null;
         }
+    }
+
+    // The upload a Collect still to be completed reads for invocationId.
+    private SignalRUpload? FindUpload(string invocationId) =>
+        uploads.Values.FirstOrDefault(upload => !upload.IsAbandoned && upload.InvocationId == invocationId);
+
+    private int InvocationsInProgress()
+    {
+        lock (gate)
+        {
+            return streams.Count + uploads.Count;
+        }
+    }
+
+    // Collect: the stream ID is read from now on, until the client's Completion of it.
+    private async Task<SignalRSessionEnd?> StartUploadAsync(HubInvocation invocation, string streamId, CancellationToken token)
+    {
+        if (uploads.ContainsKey(streamId))
+        {
+            return SignalRSessionEnd.HubProtocolError("a stream ID already being uploaded was used again");
+        }
+
+        if (InvocationsInProgress() >= MaxInvocationsInProgress)
+        {
+            await CompleteAsync(invocation.InvocationId, null, TooManyInvocationsText, token);
+
+            return null;
+        }
+
+        lock (gate)
+        {
+            uploads.Add(streamId, new SignalRUpload(invocation.InvocationId, invocation.IsStreaming));
+        }
+
+        return null;
+    }
+
+    private async Task<SignalRSessionEnd?> AcceptUploadItemAsync(HubStreamItem item, CancellationToken token)
+    {
+        if (!uploads.TryGetValue(item.InvocationId, out var upload))
+        {
+            return SignalRSessionEnd.HubProtocolError("the client sent a StreamItem for no upload stream the server reads");
+        }
+
+        if (upload.IsAbandoned)
+        {
+            return null;
+        }
+
+        if (!upload.TryAdd(item.Item, context.Limits.MaxUploadBytes))
+        {
+            await CompleteAsync(upload.InvocationId, null, SignalRHubMethods.UploadTooLargeText, token);
+        }
+        else if (upload.IsStreaming)
+        {
+            // A streaming Collect always has an invocationId.
+            await SendNumberedAsync(Encode(new HubStreamItem(upload.InvocationId!, item.Item)), token);
+        }
+
+        return null;
+    }
+
+    // The client's Completion ends its upload, error or not; the Collect is completed unless it already was.
+    private async Task<SignalRSessionEnd?> AcceptUploadCompletionAsync(HubCompletion completion, CancellationToken token)
+    {
+        SignalRUpload? upload;
+        lock (gate)
+        {
+            uploads.Remove(completion.InvocationId, out upload);
+        }
+
+        if (upload is null)
+        {
+            return SignalRSessionEnd.HubProtocolError("the client sent a Completion for no upload stream the server reads");
+        }
+
+        if (!upload.IsAbandoned)
+        {
+            await CompleteAsync(upload.InvocationId, upload.IsStreaming ? null : upload.ItemsAsArray(isMessagePack), null, token);
+        }
+
+        return null;
     }
 
     private async Task StartStreamAsync(string id, int count, CancellationToken token)
@@ -361,7 +546,7 @@ internal sealed class SignalRHubSession : IDisposable
         var stream = GuardAsync(_ => StreamAsync(id, count, cancellation.Token));
         lock (gate)
         {
-            streamTasks.Add(stream);
+            TrackLocked(stream);
         }
     }
 
@@ -369,7 +554,7 @@ internal sealed class SignalRHubSession : IDisposable
     {
         lock (gate)
         {
-            if (streams.Count >= MaxInvocationsInProgress)
+            if (streams.Count + uploads.Count >= MaxInvocationsInProgress)
             {
                 return null;
             }
@@ -411,18 +596,27 @@ internal sealed class SignalRHubSession : IDisposable
         await SendNumberedAsync(Encode(new HubCompletion(id, null, null)), ending.Token);
     }
 
-    // A CancelInvocation naming no stream in progress is ignored (HubProtocol.md "Cancellation").
-    private async Task CancelStreamAsync(string id)
+    // A Count stops and completes; a Collect, streaming or waiting for its upload, completes with
+    // no result and drops the rest of its upload; one naming nothing in progress is ignored
+    // (HubProtocol.md "Cancellation"; ADR-0119, decision 1).
+    private async Task CancelInvocationAsync(string id, CancellationToken token)
     {
         CancellationTokenSource? cancellation;
+        SignalRUpload? upload;
         lock (gate)
         {
             streams.TryGetValue(id, out cancellation);
+            upload = FindUpload(id);
         }
 
         if (cancellation is not null)
         {
             await cancellation.CancelAsync();
+        }
+        else if (upload is not null)
+        {
+            upload.Abandon();
+            await CompleteAsync(id, null, null, token);
         }
     }
 

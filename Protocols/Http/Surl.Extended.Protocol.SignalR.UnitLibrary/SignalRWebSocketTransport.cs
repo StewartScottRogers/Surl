@@ -18,6 +18,7 @@ internal sealed class SignalRWebSocketTransport : ISignalRHubTransport
     private readonly WebSocketFrameReader frameReader;
     private readonly WebSocketMessageReassembler reassembler;
     private readonly WebSocketLingeringClose lingeringClose;
+    private readonly ExchangeContext context;
 
     /// <summary>
     /// Creates the transport that follows one <c>101</c>.
@@ -28,6 +29,7 @@ internal sealed class SignalRWebSocketTransport : ISignalRHubTransport
     public SignalRWebSocketTransport(IConnection connection, HttpConnectionReader reader, ExchangeContext context)
     {
         this.connection = connection;
+        this.context = context;
         var maxMessageBytes = context.Limits.MaxMessageBytes;
         frameReader = new WebSocketFrameReader(reader.ReadAsync, maxMessageBytes == 0 ? 0 : maxMessageBytes + MaxClientFrameHeaderBytes);
         reassembler = new WebSocketMessageReassembler(maxMessageBytes);
@@ -69,6 +71,19 @@ internal sealed class SignalRWebSocketTransport : ISignalRHubTransport
             return;
         }
 
+        if (end.IsFarewell)
+        {
+            await SayFarewellAsync(end, code, hubClose, isBinary);
+
+            return;
+        }
+
+        await WriteCloseAsync(code, hubClose, isBinary, token);
+        await lingeringClose.LingerAsync(token);
+    }
+
+    private async Task WriteCloseAsync(ushort code, byte[]? hubClose, bool isBinary, CancellationToken token)
+    {
         if (hubClose is not null)
         {
             await connection.WriteAsync(WebSocketFrameEncoder.EncodeFrame(true, Opcode(isBinary), hubClose), token);
@@ -76,7 +91,31 @@ internal sealed class SignalRWebSocketTransport : ISignalRHubTransport
 
         await connection.WriteAsync(WebSocketFrameEncoder.EncodeClose(code, string.Empty), token);
         await connection.CompleteWritesAsync(token);
-        await lingeringClose.LingerAsync(token);
+    }
+
+    // ADR-0119 decision 7 as its Amendment 2 reads it, after ADR-0059: the exchange's token is already
+    // cancelled, so the farewell has a deadline of its own - cut short by shutdown when a limit
+    // cancelled the exchange - and the lingering close follows only at a limit.
+    private async Task SayFarewellAsync(SignalRSessionEnd end, ushort code, byte[]? hubClose, bool isBinary)
+    {
+        var isShutdown = context.ShutdownToken.IsCancellationRequested;
+        using var deadline = new CancellationTokenSource(SignalRHubSession.FarewellWriteDeadline, context.TimeProvider);
+        using var deadlineOrShutdown = CancellationTokenSource.CreateLinkedTokenSource(deadline.Token, isShutdown ? CancellationToken.None : context.ShutdownToken);
+        try
+        {
+            await WriteCloseAsync(code, hubClose, isBinary, deadlineOrShutdown.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            context.Log.Note($"The farewell was not written within its {SignalRHubSession.FarewellWriteDeadline.TotalSeconds}-second deadline, or shutdown cut it short; the connection is closed without it.");
+
+            return;
+        }
+
+        if (!isShutdown)
+        {
+            await lingeringClose.LingerAsync(context.ShutdownToken);
+        }
     }
 
     private static WebSocketOpcode Opcode(bool isBinary) => isBinary ? WebSocketOpcode.Binary : WebSocketOpcode.Text;

@@ -175,7 +175,7 @@ internal sealed partial class SignalRRequestAnswerer
         try
         {
             using var session = new SignalRHubSession(
-                new SignalRServerSentEventsTransport(posts, writer), context, FaultsFor(hubConnection));
+                new SignalRServerSentEventsTransport(posts, writer), context, FaultsFor(hubConnection), connections);
 
             // An event stream's comment line: it makes the client see the stream open before any record.
             await writer(":\r\n\r\n"u8.ToArray(), token);
@@ -234,7 +234,7 @@ internal sealed partial class SignalRRequestAnswerer
         try
         {
             using var session = new SignalRHubSession(
-                transport, context with { CancellationToken = context.ShutdownToken }, FaultsFor(hubConnection));
+                transport, context with { CancellationToken = context.ShutdownToken }, FaultsFor(hubConnection), connections);
             await session.RunAsync();
         }
         finally

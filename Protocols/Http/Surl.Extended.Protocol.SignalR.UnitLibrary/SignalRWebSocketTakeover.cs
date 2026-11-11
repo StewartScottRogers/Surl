@@ -29,6 +29,7 @@ internal sealed class SignalRWebSocketTakeover(
                 new SignalRWebSocketTransport(connection, reader, context),
                 context,
                 new SignalRInvocationFaults(context, hubPath, hubConnection.AccountName),
+                connections,
                 hubConnection.Reconnect);
             var end = await session.RunAsync();
 
