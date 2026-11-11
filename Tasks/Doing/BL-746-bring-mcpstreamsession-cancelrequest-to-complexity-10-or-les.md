@@ -33,3 +33,4 @@ reading of `params.requestId`) without changing behaviour; the existing `McpStre
 ## Log
 
 - 2026-11-05: Created.
+- 2026-11-11: Backlog -> Doing.
