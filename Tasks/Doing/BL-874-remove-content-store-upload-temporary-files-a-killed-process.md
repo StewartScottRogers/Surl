@@ -45,3 +45,4 @@ folder. So staged OCI blobs, S3, Azure and GCS uploads do not pile up as hidden 
 ## Log
 
 - 2026-11-05: Created.
+- 2026-11-11: Backlog -> Doing.
