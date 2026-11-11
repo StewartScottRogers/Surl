@@ -205,10 +205,13 @@ The codes the server sends, each with the status the "List of error codes" table
 - **Share access** (ADR-0102 decision 2.3): a bucket or key the caller may not read is `404
   NoSuchBucket` or `NoSuchKey`; a write the caller may not make is `403 AccessDenied`. Every store
   call names the caller (the SigV4 account, or anonymous) and the scheme `s3`.
-- **Multipart staging** is ADR-0100's `<path>/.surl/objects/uploads/<upload id>/`; the upload ID
-  is 32 lower-case hexadecimal digits from `RandomNumberGenerator`. Parts are invisible to every
-  protocol until CompleteMultipartUpload moves the assembled file into place through the content
-  store's upload session.
+- **Multipart staging** is beside the object, not under ADR-0100's `.surl/objects/uploads/`
+  (Amendment 4, point 1): each upload's parts sit one after another in a content-store upload
+  session opened at the key at CreateMultipartUpload and never committed - a hidden
+  `.surl-upload-<guid>` dot-file in the key's folder. The upload ID is 32 lower-case hexadecimal
+  digits from `RandomNumberGenerator`. Parts are invisible to every protocol until
+  CompleteMultipartUpload copies the named parts into a fresh upload session and commits it over
+  the key.
 
 ### 4. Authentication
 
@@ -511,3 +514,60 @@ BL-728. It builds decision 6's last point: a folder a client put as `x/` is list
 5. **DeleteObject of `x/` does not forget the folder object;** it removes the folder only when empty,
    and an empty folder's removal drops the folder object at the next listing. A non-empty folder's
    `x/` still lists after its DeleteObject: BL-930 makes DeleteObject forget it.
+
+## Amendment 4 - multipart uploads, as BL-713 built them (BL-927, 2026-11-11)
+
+Decided by Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), 2026-11-06, in
+BL-713, and recorded here by BL-927. The code is `S3CreateMultipartUpload`, `S3UploadPart`,
+`S3CompleteMultipartUpload`, `S3AbortMultipartUpload` and `S3MultipartUploads` in
+`Surl.Extended.Protocol.S3.UnitLibrary`.
+
+1. **Parts are staged beside the object, not under `.surl/objects/uploads/<upload id>/`.** Each
+   upload's parts sit one after another in a `ContentUploadSession` opened at the key at
+   CreateMultipartUpload and never committed: a hidden `.surl-upload-<guid>` dot-file beside the
+   object, invisible to every protocol, deleted on abort, on expiry or at completion.
+   CompleteMultipartUpload copies the named parts, in order, into a fresh session and commits it.
+   Why: `ContentStore` refuses every write under `/.surl`, so decision 3's path cannot be written
+   through the store, and the upload session already gives an uncommitted, invisible file that the
+   store cleans up; BL-715 made the same choice for Azure blocks (ADR-0109, BL-922).
+2. **The key's folders are created at CreateMultipartUpload,** and the key's mapping, the `409
+   InvalidArgument` conflict and `MetadataTooLarge` are checked there. Why: the staging file sits in
+   those folders, so they must exist before the first part; refusing a bad key at the start spares a
+   client uploading every part of an object that can never be stored.
+3. **The staged bytes of one upload together are held to `--max-filesize`** (the session's own
+   limit): past it the upload is aborted and the answer is `400 EntityTooLarge`. Why: the completed
+   object is an "uploaded file" in ADR-0006's words (decision 7), and its bytes are on disk from the
+   first part, so the bound must hold while staging rather than only at completion.
+4. **A part uploaded again replaces the old one;** the old bytes stay staged until the upload ends.
+   Why: S3 says a part number uploaded again overwrites the part ("UploadPart"); leaving the old
+   bytes in the append-only session keeps staging a single sequential write, and they still count
+   against point 3's bound, so a client cannot grow the file past it by repeating parts.
+5. **Multipart requests run one at a time per server** (`S3MultipartUploads`, shared by the
+   server's connections), **and each first aborts every upload untouched for more than 24 hours**
+   on the injected `TimeProvider`. Why: an upload session is not safe for concurrent use, and
+   expiring on the next request needs no timer, so a test that advances a fake `TimeProvider` sees
+   the expiry deterministically (decision 7's 24 hours).
+6. **An `uploadId` created for another bucket or key is `404 NoSuchUpload`,** the error body
+   carrying `UploadId`. Why: S3 binds an upload to its bucket and key, and the same answer as an
+   unknown ID reveals nothing about other keys' uploads.
+7. **A refused completion leaves the upload open.** Why: the client can correct its part list and
+   try again, as it can against S3; only abort, expiry or a successful completion ends an upload.
+8. **`Checksum*` elements inside a `Part` are skipped;** any other unexpected element is `400
+   MalformedXML`. Why: clients that send checksums (decision 4.5) list them per part, and the part's
+   ETag already names the bytes to assemble; skipping them keeps such a client working without
+   checking a second digest the parts were not stored with.
+9. **CompleteMultipartUpload checks in this order:** the body (at most 1 MiB, the signed hash,
+   `Content-MD5`), `NoSuchUpload`, `MalformedXML`, `InvalidPartOrder` (not strictly ascending, so a
+   repeated number too), `InvalidPart` (not uploaded, or another ETag; quotes optional, hex of
+   either case), `EntityTooSmall` (a part but the last below 5 MiB). Why: a body that is not the
+   one signed is refused before anything in it is trusted, an unknown upload before its document is
+   read, and then from the document's shape to the parts it names, so each refusal names the first
+   thing wrong.
+10. **`Location` in `CompleteMultipartUploadResult` is `http(s)://<Host or listen host><path>`:**
+    `https` when the connection is TLS, the request's `Host` (else the listen host), then the path as
+    sent. Why: it is the URL the client just used to reach the object, so it resolves for path-style
+    and virtual-hosted requests alike.
+11. **Every object query other than the four multipart ones is `501 NotImplemented`,** ListParts
+    and UploadPartCopy included (decision 1's one answer for an operation not served). Why: none is
+    in decision 1's table, and a client that needs one should learn plainly that it is missing rather
+    than receive a guess.

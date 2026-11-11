@@ -8,7 +8,7 @@ depends-on: [BL-713]
 touches: [Documentation/Planning/Decisions/ADR-0108-how-the-s3-server-answers-s3.md]
 requirement: none
 created: 2026-11-06
-completed:
+completed: 2026-11-11
 ---
 # BL-927 — Record BL-713's multipart staging choices in ADR-0108
 
@@ -36,15 +36,18 @@ Claude under Stewart's delegation".
 
 ## Acceptance criteria
 
-- [ ] ADR-0108 decision 3 states where multipart parts are staged, and no longer says `.surl/objects/uploads/`
+- [x] ADR-0108 decision 3 states where multipart parts are staged, and no longer says `.surl/objects/uploads/`
       for S3.
-- [ ] ADR-0108 records each of the other choices listed in Context, with its reason.
+- [x] ADR-0108 records each of the other choices listed in Context, with its reason.
 
 ## Notes
 
 Filed by BL-713.
 
+- Done in the session rather than through align-and-document: one ADR file, prose only, every fact already in the S3 library's CLAUDE.md and BL-713's Notes. Decision 3's staging bullet now says beside the object; Amendment 4 records the eleven choices with reasons. No .cs or project file touched, so no build was needed for this change.
+
 ## Log
 
 - 2026-11-06: Created.
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Done. ADR-0108 decision 3 and Amendment 4 record BL-713's multipart staging beside the object and its other ten choices with reasons
