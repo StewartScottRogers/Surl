@@ -48,3 +48,4 @@ unit tested. No option row uses the new readers yet; BL-995 adds the rows.
 ## Log
 
 - 2026-11-06: Created.
+- 2026-11-11: Backlog -> Doing.
