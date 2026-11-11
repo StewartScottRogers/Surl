@@ -38,3 +38,4 @@ never answered `-ERR 'Slow Consumer'` unless it really passed the pending-bytes 
 
 - 2026-11-05: Created.
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Backlog. Lane 3 could not integrate: build failed after rebasing onto the other lanes' work. The work is on branch factory/BL-864-lane-3-20261111-060243; start with git cherry-pick --no-commit factory/BL-864-lane-3-20261111-060243 and fix it.
