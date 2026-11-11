@@ -59,3 +59,4 @@ are planning names; use the ones BL-576's ADR decision 7 chose.
 - 2026-11-06: depends-on BL-597 replaced by BL-937, the last of the tasks BL-597 was split into (BL-942 to BL-937); BL-597 is Deferred.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Lane 3 could not integrate: build failed after rebasing onto the other lanes' work. The work is on branch factory/BL-592-lane-3-20261111-060243; start with git cherry-pick --no-commit factory/BL-592-lane-3-20261111-060243 and fix it.
+- 2026-11-11: Backlog -> Doing.
