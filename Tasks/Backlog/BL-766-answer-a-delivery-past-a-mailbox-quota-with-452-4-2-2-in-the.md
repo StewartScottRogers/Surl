@@ -4,7 +4,7 @@ title: Answer a delivery past a mailbox quota with 452 4.2.2 in the SMTP server
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-675]
+depends-on: [BL-675, BL-1035]
 touches: [Protocols/Mail/Surl.Protocol.Smtp.UnitLibrary, Protocols/Mail/Surl.Protocol.Smtp.UnitTests]
 requirement: none
 created: 2026-11-05
@@ -37,7 +37,17 @@ When `MailboxStore.Deliver` returns `MailStoreOutcome.QuotaExceeded` after `DATA
 
 ## Notes
 
+- 2026-11-11 (lane 2): code and tests written but left uncommitted (the shift stashes them) because
+  `dotnet` cannot run: global.json pins SDK 10.0.401, which is not installed (BL-1035). What was written:
+  `SmtpReplies.MailboxFull = "452 4.2.2 Mailbox full"`; a `QuotaExceeded` row in `SmtpSession.RefuseMessage`
+  noting "Message refused: a recipient's mailbox would pass its quota" (the store does not say which owner,
+  so the note names none); the project CLAUDE.md line; and two tests in `SmtpMailDomainTests`
+  (`ServeAsync_DeliveryPastARecipientsQuota_Answers452MailboxFullAndDeliversToNoRecipient`, R5's bytes,
+  and `ServeAsync_RcptToAnOverQuotaMailbox_IsAcceptedAsAnyKnownRecipient`). No ADR needed: ADR-0102
+  decision 1.4 already decides the reply. Rerun the build and fast tests once BL-1035 is Done.
+
 ## Log
 
 - 2026-11-05: Created.
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Backlog. Waiting on BL-1035: pinned .NET SDK 10.0.401 is not installed, so nothing can build or test
