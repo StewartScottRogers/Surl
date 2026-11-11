@@ -39,3 +39,4 @@ command with the chosen text as a RESP error `-<text>`.
 ## Log
 
 - 2026-11-06: Created.
+- 2026-11-11: Backlog -> Doing.
