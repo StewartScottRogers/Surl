@@ -4,7 +4,7 @@ title: Serve SignalR's MessagePack hub protocol
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-449]
+depends-on: [BL-449, BL-1035]
 touches: [Protocols/Http/Surl.Extended.Protocol.SignalR.UnitLibrary, Protocols/Http/Surl.Extended.Protocol.SignalR.UnitTests, Documentation/Conformance/Extended/SignalR.md]
 requirement: none
 created: 2026-11-05
@@ -36,7 +36,10 @@ same hub methods in MessagePack-encoded binary messages.
 
 ## Notes
 
+- 2026-11-11 (lane 2): Not started. `dotnet build` fails with "A compatible .NET SDK was not found": global.json pins 10.0.401 (latestFeature) and the machine has only 10.0.100-rc.1, 11.0.100-rc.2 and 11.0.100. Added BL-1035 (Stewart reinstalls the SDK) to depends-on; the board restarts this task once it is Done.
+
 ## Log
 
 - 2026-11-05: Created.
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Backlog. Waits on BL-1035 - pinned .NET SDK 10.0.401 is not installed, so nothing builds
