@@ -38,6 +38,7 @@ internal static class HelpCategories
         new("tls", "TLS certificates and versions", []),
         new("websocket", "WebSocket protocol", ["ws", "wss"]),
         new("webtransport", "WebTransport over HTTP/3 protocol (extended)", ["webtransport"]),
+        new("xmpp", "XMPP and XMPPS protocol (extended)", ["xmpp", "xmpps"]),
     ];
 
     /// <summary>Every category, in ordinal order of its name.</summary>

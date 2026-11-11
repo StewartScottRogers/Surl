@@ -8,7 +8,7 @@ public sealed class AiHelpExamplesTests
 {
     // The file AiHelpExamplePrecondition.ConfigFileExists names.
     // The extended schemes the nats and s3 topics' examples serve, as surl registers them (BL-528, BL-421).
-    private static readonly string[] ExtendedSchemesServed = ["coap", "coaps", "dns", "nats", "natss", "s3", "socketio", "socketios", "webtransport"];
+    private static readonly string[] ExtendedSchemesServed = ["coap", "coaps", "dns", "nats", "natss", "s3", "socketio", "socketios", "webtransport", "xmpp", "xmpps"];
 
     private static readonly FakeConfigFileSource ExampleConfigFiles = new(("surl.cfg", "url = http://127.0.0.1:0/\n"));
 
@@ -19,7 +19,7 @@ public sealed class AiHelpExamplesTests
         [
             "overview", "listen-urls", "listen-urls", "surl", "surl", "surl", "content", "content", "content", "auth", "auth", "mail", "proxy", "proxy", "testing", "tls", "tls",
             "logging", "limits", "coap", "dict", "dns", "ftp", "gopher", "http", "http", "imap", "ldap", "mqtt", "nats", "pop3", "rtsp", "s3", "smb", "smtp", "socketio", "ssh", "telnet", "tftp",
-            "websocket", "webtransport", "websocket", "extended", "control",
+            "websocket", "webtransport", "websocket", "xmpp", "extended", "control",
         ];
 
         CollectionAssert.AreEqual(topics, AiHelpExamples.All.Select(example => example.Topic).ToArray());

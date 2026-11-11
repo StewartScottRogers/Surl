@@ -121,6 +121,11 @@ public sealed class ComposedProtocolServices(
     public TimeSpan IdleTimeout { get; init; } = TimeSpan.FromSeconds(120);
 
     /// <summary>
+    /// Gets every <c>--mail-domain</c>, which the XMPP server serves beside the listen URL host (ADR-0114 decision 1); none unless set.
+    /// </summary>
+    public IReadOnlyList<string> MailDomains { get; init; } = [];
+
+    /// <summary>
     /// Gets how the proxies reach origins (ADR-0088 decision 2): the connector over the allowed-origin
     /// rule the start composed, which the SOCKS server shares; <see langword="null"/> when none is composed.
     /// </summary>

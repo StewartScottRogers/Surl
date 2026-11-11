@@ -38,6 +38,7 @@ public sealed class HelpTextTests
         " tls           TLS certificates and versions",
         " websocket     WebSocket protocol",
         " webtransport  WebTransport over HTTP/3 protocol (extended)",
+        " xmpp          XMPP and XMPPS protocol (extended)",
     ];
 
     // ADR-0034 decision 5's paragraphs, as --help testing and each option's page lay them out.
@@ -189,7 +190,7 @@ public sealed class HelpTextTests
             "Use \"--help category\" to get an overview of all categories, which are:",
             "auth, coap, content, dict, dns, ftp, gopher, http, imap, ldap, limits,",
             "logging, mail, mqtt, nats, pop3, proxy, rtsp, s3, security, smb, smtp,",
-            "socketio, ssh, surl, telnet, testing, tftp, tls, websocket, webtransport.",
+            "socketio, ssh, surl, telnet, testing, tftp, tls, websocket, webtransport, xmpp.",
             "Use \"--help all\" to list all options",
             "Use \"--help [option]\" to view documentation for a given option");
     }

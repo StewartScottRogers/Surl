@@ -226,6 +226,8 @@ public sealed class CommandLineRunnerExtendedProtocolTests
     [DataRow("socketio")]
     [DataRow("socketios")]
     [DataRow("webtransport")]
+    [DataRow("xmpp")]
+    [DataRow("xmpps")]
     public async Task RunAsync_NatsSchemeWithTheSwitchAtZero_RefusesItAsAnUnknownScheme(string scheme)
     {
         using var output = new StringWriter();
@@ -236,6 +238,38 @@ public sealed class CommandLineRunnerExtendedProtocolTests
 
         Assert.AreEqual(SurlExitCode.UnsupportedProtocol, exitCode);
         Assert.AreEqual($"surl: (1) Protocol \"{scheme}\" not supported" + NewLine, error.ToString());
+    }
+
+    [TestMethod]
+    [DataRow("xmpp", new string[0], 5222)]
+    [DataRow("xmpps", new[] { "--self-signed" }, 5223)]
+    public async Task RunAsync_XmppSchemeWithTheSwitchUnset_ListensAtItsDefaultPort(string scheme, string[] options, int port)
+    {
+        var factory = new FakeListenerFactory();
+        using var stop = CancellationTokenSource.CreateLinkedTokenSource(TestContext.CancellationToken);
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+        var runner = CreateRunner(factory, FakeEnvironmentVariableReader.Empty, composeExtendedProtocolServers: null);
+
+        var running = runner.RunAsync([.. options, $"{scheme}://127.0.0.1/"], output, error, stop.Token);
+        await factory.AcceptStarted.Task.WaitAsync(TestContext.CancellationToken);
+        await stop.CancelAsync();
+        var exitCode = await running;
+
+        Assert.AreEqual(SurlExitCode.Ok, exitCode);
+        Assert.AreEqual(new ListenUrl(scheme, "127.0.0.1", port), factory.StartedListenUrls.Single());
+    }
+
+    [TestMethod]
+    public async Task RunAsync_XmppsSchemeWithoutACertificate_ExitsWithTheMissingCertificateCode()
+    {
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+        var runner = CreateRunner(new FakeListenerFactory(), FakeEnvironmentVariableReader.Empty, composeExtendedProtocolServers: null);
+
+        var exitCode = await runner.RunAsync(["xmpps://127.0.0.1:0/"], output, error, TestContext.CancellationToken);
+
+        Assert.AreEqual(SurlExitCode.CertificateProblem, exitCode);
     }
 
     [TestMethod]
@@ -389,7 +423,7 @@ public sealed class CommandLineRunnerExtendedProtocolTests
 
         var schemes = runner.ComposeExtendedSchemes();
 
-        CollectionAssert.AreEqual(new[] { "coap", "coaps", "dns", "nats", "natss", "s3", "socketio", "socketios", "webtransport" }, schemes.ToArray());
+        CollectionAssert.AreEqual(new[] { "coap", "coaps", "dns", "nats", "natss", "s3", "socketio", "socketios", "webtransport", "xmpp", "xmpps" }, schemes.ToArray());
     }
 
     [TestMethod]

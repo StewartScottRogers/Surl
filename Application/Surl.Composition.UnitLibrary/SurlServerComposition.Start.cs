@@ -297,6 +297,7 @@ public static partial class SurlServerComposition
             OriginConnector = originConnector,
             ProxyAuthenticationPolicy = authentication.ProxyPolicy,
             PreSharedKeyAccounts = authentication.PreSharedKeyAccounts,
+            MailDomains = commandLine.MailDomains,
         };
         IProtocolServer[] servers =
         [

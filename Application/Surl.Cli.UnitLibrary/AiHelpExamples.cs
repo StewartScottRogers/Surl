@@ -210,6 +210,7 @@ public static class AiHelpExamples
             ],
             []),
         Serving("websocket", "Echo WebSocket messages", ["--ws-echo", "ws://127.0.0.1:0/"], ["Listening on ws://127.0.0.1:<port>/"], [], []),
+        Serving("xmpp", "Serve XMPP", ["--allow-anonymous", "xmpp://127.0.0.1:0/"], ["Listening on xmpp://127.0.0.1:<port>/"], ["surl: warning: --allow-anonymous: every request and login is accepted without checking credentials"], []),
         Refused(
             "extended",
             "An extended scheme no extended server in this build answers",

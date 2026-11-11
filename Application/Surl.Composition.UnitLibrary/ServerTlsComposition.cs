@@ -32,10 +32,10 @@ public sealed class ServerTlsComposition : IDisposable
     /// The listen URL schemes whose server can upgrade a plaintext connection to TLS in the
     /// middle of it (SMTP's <c>STARTTLS</c>, ADR-0053 decision 5; IMAP's <c>STARTTLS</c>, ADR-0055
     /// decision 11; POP3's <c>STLS</c>, ADR-0056 decision 8; FTP's <c>AUTH TLS</c>, ADR-0052
-    /// decision 5; LDAP's <c>StartTLS</c>, ADR-0072 decision 5), which it does only when a
+    /// decision 5; LDAP's <c>StartTLS</c>, ADR-0072 decision 5), XMPP's <c>STARTTLS</c>, ADR-0114 decision 2), which it does only when a
     /// certificate is configured.
     /// </summary>
-    private static readonly HashSet<string> UpgradableSchemes = new(StringComparer.OrdinalIgnoreCase) { "ftp", "imap", "ldap", "pop3", "smtp" };
+    private static readonly HashSet<string> UpgradableSchemes = new(StringComparer.OrdinalIgnoreCase) { "ftp", "imap", "ldap", "pop3", "smtp", "xmpp" };
 
     /// <summary>
     /// The listen URL schemes that start in plain text but whose server requires TLS before a login,

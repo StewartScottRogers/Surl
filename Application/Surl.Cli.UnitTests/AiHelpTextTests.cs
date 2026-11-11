@@ -13,7 +13,7 @@ public sealed partial class AiHelpTextTests
     private static readonly string[] AdrTopicNames =
     [
         "auth", "coap", "content", "control", "dict", "dns", "exit-codes", "extended", "ftp", "gopher", "http", "imap", "ldap", "limits", "listen-urls",
-        "logging", "mail", "mqtt", "nats", "pop3", "proxy", "rtsp", "s3", "security", "smb", "smtp", "socketio", "ssh", "surl", "telnet", "testing", "tftp", "tls", "websocket", "webtransport",
+        "logging", "mail", "mqtt", "nats", "pop3", "proxy", "rtsp", "s3", "security", "smb", "smtp", "socketio", "ssh", "surl", "telnet", "testing", "tftp", "tls", "websocket", "webtransport", "xmpp",
     ];
 
     // ADR-0046 decision 4's section headings, in order, on every topic page.
@@ -58,6 +58,7 @@ public sealed partial class AiHelpTextTests
         "| `tls` | TLS certificates and versions |",
         "| `websocket` | WebSocket protocol |",
         "| `webtransport` | WebTransport over HTTP/3 protocol (extended) |",
+        "| `xmpp` | XMPP and XMPPS protocol (extended) |",
     ];
 
     [TestMethod]
