@@ -302,3 +302,26 @@ Costs and caveats:
 - BL-1045 to BL-1044 are all in one library, so they run one after another, and BL-1045 changes ADR-0100's index
   record (a metageneration), which the other file servers read and ignore.
 - The matrix is `Documentation/Conformance/Extended/GoogleCloudStorage-Json.md` (ADR-0083 decision 9).
+
+## Amendment 1 (BL-1041, 2026-11-11): media and multipart insert, patch and update
+
+- **Decided by:** Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), 2026-11-11, in BL-1041. Each point
+  settles a case decision 7 left open; none changes a row of it.
+- **A name ending in `/`, or past 1024 UTF-8 bytes, is `400 invalid`** on insert. The XML API's zero-byte PUT of `name/`
+  that makes a folder has no JSON counterpart here: a folder object is made over the XML API or another protocol.
+- **Digests.** A media insert checks `Content-MD5` and `x-goog-hash` from the head; a multipart insert checks those and the
+  metadata's `md5Hash` and `crc32c` (base64). A malformed digest is `400 invalid` before any byte is read for media, and when
+  the metadata is read for multipart; a mismatch is `400 invalid` and the session is discarded, so the old object stands.
+- **Order of refusals for an insert**: `403 forbidden` (uploads off), `400 invalidParameter` (`uploadType`, a condition),
+  `411`, `413` (announced length), `400 invalid` (head digests), `400 badRequest` (no boundary); then the name (`400
+  required`, `400 invalid`), `412`, `409`, and the body. A multipart body is read first, because the name is in it.
+- **`uploadType=resumable`** is `501 notImplemented` until BL-1042; any other value is `400 invalidParameter`.
+- **A conditioned insert** judges the object there now: with none, `ifGenerationMatch` must be `0` and
+  `ifMetagenerationMatch` absent; with one, the same rules as a delete.
+- **Patch and update of a file the index does not key** - one in a share, outside the served root - is `403 forbidden`: the
+  metadata has no entry to live in. They need the same query rules as a delete (`alt=media` is `400 invalidParameter`).
+- **Patch and update keep `updated`** (the file's last write) unchanged, because the bytes are; only the metageneration and
+  the `etag` derived from it change.
+- **A commit the store refuses** (an out-of-space fault, a vanished folder) is `403 forbidden`, as the XML API's
+  `AccessDenied`; a full object metadata index is `403 quotaExceeded` (decision 5's row), new as a `GcsJsonError`.
+- **Rows added to `GcsJsonError`**: `badRequest`, `conflict`, `lengthRequired`, `uploadTooLarge`, `quotaExceeded`.

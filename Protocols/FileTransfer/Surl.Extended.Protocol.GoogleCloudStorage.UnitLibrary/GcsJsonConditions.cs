@@ -60,6 +60,18 @@ internal sealed record GcsJsonConditions(long? GenerationMatch, long? Generation
             : fromFields;
     }
 
+    /// <summary>
+    /// Judges the conditions of a write that makes the object, which may not exist yet: with no object, only "none" conditions hold -
+    /// no <c>ifGenerationMatch</c> but 0 and no <c>ifMetagenerationMatch</c>; with one, <see cref="Evaluate"/> must serve.
+    /// </summary>
+    /// <param name="fields">The request's fields.</param>
+    /// <param name="current">The object there now, or <see langword="null"/> when none.</param>
+    /// <returns>Whether the write may go ahead.</returns>
+    public bool AreMetByWrite(IReadOnlyList<KeyValuePair<string, string>> fields, ObjectProperties? current) =>
+        current is null
+            ? GenerationMatch is null or 0 && MetagenerationMatch is null
+            : Evaluate(fields, current) == GcsConditionOutcome.Serve;
+
     // A parameter not sent reads as null; one sent must be a whole number.
     private static bool TryRead(IReadOnlyList<KeyValuePair<string, string>> parameters, string name, out long? value)
     {

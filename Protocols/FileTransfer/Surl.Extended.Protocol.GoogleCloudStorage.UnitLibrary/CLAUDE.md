@@ -75,7 +75,7 @@ BL-1041), `x-goog-stored-content-*`, `x-goog-storage-class: STANDARD`
   `maxResults`, `pageToken`; `includeTrailingDelimiter` is validated and changes nothing, no file name ending in the
   delimiter being listed), `objects.get` (resource, or bytes for `alt=media` and the download path; `generation`,
   `if*Match`, `If-*`, one `Range`; `GcsJsonObjectQuery`, `GcsJsonConditions`) and `objects.delete`, by method, path
-  and the exact query parameters (`%2F` and `/` both separate folders); anything else, the upload path and `HEAD`
+  and the exact query parameters (`%2F` and `/` both separate folders); anything else, `HEAD` and `uploadType=resumable`
   included, is `501 notImplemented` after the login. `GcsLoginJudge(isJson: true)` takes Bearer only (a
   `GOOG4-HMAC-SHA256` header is `400 invalid`) and refuses in `GcsJsonError` rows (`401 required`, `401 authError`,
   `400 invalid`). Resources are written by `GcsJsonResources` with `Utf8JsonWriter` (`GcsJson`, member order as
@@ -84,6 +84,24 @@ BL-1041), `x-goog-stored-content-*`, `x-goog-storage-class: STANDARD`
   Google method id as command (`storage.objects.get`) and the percent-decoded path; its status picks the row, else
   `backendError`. The metageneration is `ObjectMetadata.Metageneration` in `ObjectMetadataIndex` (BL-1045); a
   connection refused past a limit is still the XML `503 SlowDown`, the grammar not being known before a request.
+
+- JSON writes (BL-1041, ADR-0148 decision 7). `GcsJsonObjectInsert` answers `POST /upload/storage/v1/b/<bucket>/o`:
+  `uploadType=media` (`name` in the query, required; the body is the object, `Content-Type` of the request or
+  `application/octet-stream`) and `uploadType=multipart` (`GcsMultipartRelatedSink` reads the `multipart/related` body by
+  hand: exactly two parts, the first JSON metadata held up to 1 MiB, the second streamed into an upload session; the
+  metadata's `name` wins over the query's, its `contentType` over the second part's own). Both need `--allow-uploads`
+  (`403 forbidden`), `Content-Length` (`411 lengthRequired`), a length within `--max-filesize` (`413 uploadTooLarge`);
+  check the conditions against the object there now (`GcsJsonConditions.AreMetByWrite`: `ifGenerationMatch=0` means none
+  exists; `412 conditionNotMet`), `Content-MD5`, `x-goog-hash` and the metadata's `md5Hash` and `crc32c` (`400 invalid`,
+  nothing stored), create the name's folders (`409 conflict`) and commit the session only when all pass; a name ending in
+  `/` or past 1024 bytes is `400 invalid`. The object is kept in the index as PUT Object keeps it
+  (`GcsPutObject.StoreMetadataAsync`, metageneration 1; a full index is `403 quotaExceeded`). `GcsJsonObjectUpdate` answers
+  `PATCH` (merge; a `null` removes a member or a `metadata` key) and `PUT` (replace) of `.../o/<object>`: the object found and
+  its conditions met as for a delete, a JSON body of at most 1 MiB (`400 invalid`), writable metadata of at most 8 KiB, the
+  index entry rewritten with the metageneration plus one and the ETag, generation and bytes left alone; a file in a share
+  has no index entry, so it is `403 forbidden`. A malformed `multipart/related` body (no boundary, a third part, a close
+  after one part, no close, bytes before the first delimiter, part fields past 8 KiB) is `400 badRequest`; metadata past
+  1 MiB `400 invalid`.
 
 Every other request - another method, a subresource or unlisted query parameter, a copy, a `POST` that is no
 upload, `x-goog-encryption-*` - is `400 NotImplemented`, judged after the login. Every error is `GcsError`'s fixed

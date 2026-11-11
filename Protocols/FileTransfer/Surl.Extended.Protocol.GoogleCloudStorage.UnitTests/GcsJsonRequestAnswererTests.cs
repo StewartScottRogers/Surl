@@ -32,7 +32,7 @@ public sealed class GcsJsonRequestAnswererTests
         var harness = HarnessWithHello();
 
         var download = await harness.SendWithBearerAsync("GET", "/download/storage/v1/b/photos/o/a.txt?alt=media");
-        var upload = await harness.SendWithBearerAsync("POST", "/upload/storage/v1/b/photos/o?uploadType=media&name=b.txt");
+        var upload = await harness.SendWithBearerAsync("GET", "/upload/storage/v1/b/photos/o");
 
         StringAssert.StartsWith(download, "HTTP/1.1 200 OK\r\n");
         StringAssert.EndsWith(download, "hello world");
@@ -505,8 +505,11 @@ public sealed class GcsJsonRequestAnswererTests
 
     [TestMethod]
     [DataRow("POST", "/storage/v1/b/photos/o/a.txt", DisplayName = "POST of an object")]
-    [DataRow("PUT", "/storage/v1/b/photos/o/a.txt", DisplayName = "PUT of an object")]
-    [DataRow("PATCH", "/storage/v1/b/photos/o/a.txt", DisplayName = "PATCH of an object")]
+    [DataRow("PUT", "/upload/storage/v1/b/photos/o?uploadType=media&name=b.txt", DisplayName = "PUT to the upload path")]
+    [DataRow("POST", "/upload/storage/v1/b/photos/o/a.txt?uploadType=media", DisplayName = "POST of an object to the upload path")]
+    [DataRow("POST", "/download/storage/v1/b/photos/o/a.txt", DisplayName = "POST to the download path")]
+    [DataRow("PATCH", "/download/storage/v1/b/photos/o/a.txt", DisplayName = "PATCH to the download path")]
+    [DataRow("PATCH", "/storage/v1/b/photos/o", DisplayName = "PATCH of a listing")]
     [DataRow("POST", "/storage/v1/b/photos/o/a.txt/compose", DisplayName = "compose")]
     [DataRow("POST", "/storage/v1/b/photos/o/a.txt/copyTo/b/photos/o/b.txt", DisplayName = "copyTo")]
     [DataRow("POST", "/storage/v1/b?project=p", DisplayName = "bucket creation")]

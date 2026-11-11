@@ -34,4 +34,19 @@ internal enum GcsJsonOperation
     /// <c>DELETE …/o/&lt;object&gt;</c>: <c>storage.objects.delete</c>.
     /// </summary>
     DeleteObject,
+
+    /// <summary>
+    /// <c>POST /upload/storage/v1/b/&lt;bucket&gt;/o</c>: <c>storage.objects.insert</c>.
+    /// </summary>
+    InsertObject,
+
+    /// <summary>
+    /// <c>PATCH …/o/&lt;object&gt;</c>: <c>storage.objects.patch</c>.
+    /// </summary>
+    PatchObject,
+
+    /// <summary>
+    /// <c>PUT …/o/&lt;object&gt;</c>: <c>storage.objects.update</c>.
+    /// </summary>
+    UpdateObject,
 }

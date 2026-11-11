@@ -22,8 +22,10 @@ namespace Surl.Extended.Protocol.GoogleCloudStorage;
 /// <param name="listBuckets">The enumeration of buckets both grammars share.</param>
 /// <param name="login">The judge of the Bearer login, answering in JSON.</param>
 /// <param name="context">The exchange: its listen URL, log and fault plan.</param>
+/// <param name="insert">Answers <c>objects.insert</c>, media and multipart.</param>
+/// <param name="update">Answers <c>objects.patch</c> and <c>objects.update</c>.</param>
 /// <param name="isOverTls">Whether the connection is TLS, for the links the resources carry.</param>
-internal sealed class GcsJsonRequestAnswerer(ContentStore store, GcsObjectPropertiesReader properties, GcsListBuckets listBuckets, GcsLoginJudge login, ExchangeContext context, bool isOverTls)
+internal sealed class GcsJsonRequestAnswerer(ContentStore store, GcsObjectPropertiesReader properties, GcsListBuckets listBuckets, GcsLoginJudge login, ExchangeContext context, GcsJsonObjectInsert insert, GcsJsonObjectUpdate update, bool isOverTls)
 {
     private static readonly HttpStatus NoContent = new(204, "No Content");
 
@@ -103,7 +105,9 @@ internal sealed class GcsJsonRequestAnswerer(ContentStore store, GcsObjectProper
                 : reply.JsonError(GcsJsonError.InvalidParameter),
             GcsJsonOperation.ListObjects => await ListObjectsAsync(reply, target, route, caller, resources, cancellationToken),
             GcsJsonOperation.GetObject => await GetObjectAsync(reply, request, target, route, caller, resources, cancellationToken),
-            _ => await DeleteObjectAsync(reply, request, target, route, caller, cancellationToken),
+            GcsJsonOperation.InsertObject => await insert.AnswerAsync(reply, request, target, route, caller, resources, cancellationToken),
+            GcsJsonOperation.DeleteObject => await DeleteObjectAsync(reply, request, target, route, caller, cancellationToken),
+            _ => await ChangeMetadataAsync(reply, request, target, route, caller, resources, cancellationToken),
         };
     }
 
@@ -171,31 +175,44 @@ internal sealed class GcsJsonRequestAnswerer(ContentStore store, GcsObjectProper
     // objects.delete: 204; needs --allow-uploads; a missing object or generation 404; a failing condition 412.
     private async Task<HttpAnswer> DeleteObjectAsync(GcsReply reply, HttpRequest request, GcsRequestTarget target, GcsJsonRoute route, ContentCaller caller, CancellationToken cancellationToken)
     {
+        var (refusal, mapping, _) = await FindForWriteAsync(reply, request, target, route, caller, cancellationToken);
+
+        // The file was there a moment ago, so a delete that is not done is one share access refuses.
+        return refusal ?? (store.DeleteFile(mapping!) == ContentChangeResult.Done
+            ? reply.Answer(NoContent, [], HttpAnswerBody.None)
+            : reply.JsonError(GcsJsonError.Forbidden));
+    }
+
+    // objects.patch and objects.update: the object found and its conditions met as for a delete, then the body's metadata.
+    private async Task<HttpAnswer> ChangeMetadataAsync(GcsReply reply, HttpRequest request, GcsRequestTarget target, GcsJsonRoute route, ContentCaller caller, GcsJsonResources resources, CancellationToken cancellationToken)
+    {
+        var (refusal, mapping, found) = await FindForWriteAsync(reply, request, target, route, caller, cancellationToken);
+
+        return refusal ?? await update.AnswerAsync(reply, request, route, mapping!, found!, route.Operation == GcsJsonOperation.PatchObject, resources, cancellationToken);
+    }
+
+    // What a write to an existing object needs: --allow-uploads, a query that is no media read, the object itself, and its conditions met.
+    private async Task<(HttpAnswer? Refusal, ContentPathMapping? Mapping, ObjectProperties? Found)> FindForWriteAsync(GcsReply reply, HttpRequest request, GcsRequestTarget target, GcsJsonRoute route, ContentCaller caller, CancellationToken cancellationToken)
+    {
         if (!store.ExposureOptions.AllowUploads)
         {
-            return reply.JsonError(GcsJsonError.Forbidden);
+            return (reply.JsonError(GcsJsonError.Forbidden), default, null);
         }
 
         if (GcsJsonObjectQuery.Read(target.Parameters, isDownload: false) is not { IsMedia: false } query)
         {
-            return reply.JsonError(GcsJsonError.InvalidParameter);
+            return (reply.JsonError(GcsJsonError.InvalidParameter), default, null);
         }
 
         var (mapping, found) = await FindObjectAsync(route, caller, query, cancellationToken);
         if (found is null)
         {
-            return reply.JsonError(GcsJsonError.NotFound);
+            return (reply.JsonError(GcsJsonError.NotFound), mapping, null);
         }
 
-        if (query.Conditions.Evaluate(request.Fields, found) != GcsConditionOutcome.Serve)
-        {
-            return reply.JsonError(GcsJsonError.ConditionNotMet);
-        }
-
-        // The file was there a moment ago, so a delete that is not done is one share access refuses.
-        return store.DeleteFile(mapping) == ContentChangeResult.Done
-            ? reply.Answer(NoContent, [], HttpAnswerBody.None)
-            : reply.JsonError(GcsJsonError.Forbidden);
+        return query.Conditions.Evaluate(request.Fields, found) == GcsConditionOutcome.Serve
+            ? (null, mapping, found)
+            : (reply.JsonError(GcsJsonError.ConditionNotMet), mapping, null);
     }
 
     // The object, or none when it is not there, the store cannot hold its name, or the generation named is not its current one.

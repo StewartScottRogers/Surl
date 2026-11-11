@@ -28,6 +28,9 @@ internal sealed record GcsJsonRoute(GcsJsonOperation Operation, string RawBucket
     private static readonly HashSet<string> ObjectParameters =
         new([.. Common, "generation", "ifGenerationMatch", "ifGenerationNotMatch", "ifMetagenerationMatch", "ifMetagenerationNotMatch"], StringComparer.Ordinal);
 
+    private static readonly HashSet<string> InsertParameters =
+        new([.. Common, "contentEncoding", "ifGenerationMatch", "ifGenerationNotMatch", "ifMetagenerationMatch", "ifMetagenerationNotMatch", "name", "uploadType"], StringComparer.Ordinal);
+
     private static readonly GcsJsonRoute UnlistedRoute = new(GcsJsonOperation.Unlisted, string.Empty, string.Empty, false);
 
     /// <summary>
@@ -45,6 +48,9 @@ internal sealed record GcsJsonRoute(GcsJsonOperation Operation, string RawBucket
         GcsJsonOperation.ListObjects => "storage.objects.list",
         GcsJsonOperation.GetObject => "storage.objects.get",
         GcsJsonOperation.DeleteObject => "storage.objects.delete",
+        GcsJsonOperation.InsertObject => "storage.objects.insert",
+        GcsJsonOperation.PatchObject => "storage.objects.patch",
+        GcsJsonOperation.UpdateObject => "storage.objects.update",
         _ => "storage.unlisted",
     };
 
@@ -70,24 +76,34 @@ internal sealed record GcsJsonRoute(GcsJsonOperation Operation, string RawBucket
         var isDownload = path.StartsWith(DownloadPrefix, StringComparison.Ordinal);
         var isUpload = path.StartsWith(UploadPrefix, StringComparison.Ordinal);
         var rest = path[(isDownload ? DownloadPrefix.Length : isUpload ? UploadPrefix.Length : StoragePrefix.Length)..];
-        var route = isUpload ? UnlistedRoute : Of(method, rest, isDownload);
+        var route = isUpload ? OfUpload(method, rest) : Of(method, rest, isDownload);
 
         return route.IsListed && !AreParametersOfTheOperation(route.Operation, target)
             ? UnlistedRoute
             : route;
     }
 
+    // The upload path serves one operation: a POST to b/<bucket>/o.
+    private static GcsJsonRoute OfUpload(string method, string rest)
+    {
+        var parts = rest.Split('/');
+
+        return method == "POST" && parts.Length == 3 && parts[0] == "b" && parts[1].Length > 0 && parts[2] == "o"
+            ? new GcsJsonRoute(GcsJsonOperation.InsertObject, parts[1], string.Empty, false)
+            : UnlistedRoute;
+    }
+
     // The operation the method names on a path after the prefix: b, b/<bucket>, b/<bucket>/o or b/<bucket>/o/<object>.
     private static GcsJsonRoute Of(string method, string rest, bool isDownload)
     {
         var parts = rest.Split('/', 4);
-        if (method is not ("GET" or "DELETE") || parts[0] != "b" || (parts.Length > 1 && parts[1].Length == 0))
+        if (method is not ("GET" or "DELETE" or "PATCH" or "PUT") || parts[0] != "b" || (parts.Length > 1 && parts[1].Length == 0))
         {
             return UnlistedRoute;
         }
 
         var operation = OperationOf(parts, method);
-        var name = operation is GcsJsonOperation.GetObject or GcsJsonOperation.DeleteObject
+        var name = IsObjectOperation(operation)
             ? parts[3].Replace("%2F", "/", StringComparison.OrdinalIgnoreCase)
             : string.Empty;
 
@@ -119,13 +135,26 @@ internal sealed record GcsJsonRoute(GcsJsonOperation Operation, string RawBucket
             return GcsJsonOperation.Unlisted;
         }
 
-        return method == "GET" ? GcsJsonOperation.GetObject : GcsJsonOperation.DeleteObject;
+        return method switch
+        {
+            "GET" => GcsJsonOperation.GetObject,
+            "DELETE" => GcsJsonOperation.DeleteObject,
+            "PATCH" => GcsJsonOperation.PatchObject,
+            _ => GcsJsonOperation.UpdateObject,
+        };
     }
-    // A DELETE names an object, and the download path serves an object's bytes only.
-    private static bool IsServed(string method, GcsJsonOperation operation, bool isDownload) =>
-        operation != GcsJsonOperation.Unlisted
-        && (method == "GET" || operation == GcsJsonOperation.DeleteObject)
-        && (!isDownload || operation == GcsJsonOperation.GetObject);
+
+    private static bool IsObjectOperation(GcsJsonOperation operation) =>
+        operation is GcsJsonOperation.GetObject or GcsJsonOperation.DeleteObject or GcsJsonOperation.PatchObject or GcsJsonOperation.UpdateObject;
+
+    // Only GET reads buckets and lists; the other methods name an object (OperationOf); the download path serves an object's bytes only.
+    private static bool IsServed(string method, GcsJsonOperation operation, bool isDownload) => operation switch
+    {
+        GcsJsonOperation.Unlisted => false,
+        GcsJsonOperation.GetObject => method == "GET",
+        _ when IsObjectOperation(operation) => !isDownload,
+        _ => method == "GET" && !isDownload,
+    };
 
     private static bool AreParametersOfTheOperation(GcsJsonOperation operation, GcsRequestTarget target)
     {
@@ -134,6 +163,7 @@ internal sealed record GcsJsonRoute(GcsJsonOperation Operation, string RawBucket
             GcsJsonOperation.ListBuckets => BucketsListParameters,
             GcsJsonOperation.GetBucket => BucketsGetParameters,
             GcsJsonOperation.ListObjects => ObjectsListParameters,
+            GcsJsonOperation.InsertObject => InsertParameters,
             _ => ObjectParameters,
         };
 

@@ -144,7 +144,7 @@ public sealed class GcsJsonRequestAnswererLoginTests
         harness.Faults = faults;
 
         var refused = await harness.SendAsync("GET", Object);
-        var unlisted = await harness.SendWithBearerAsync("PATCH", Object);
+        var unlisted = await harness.SendWithBearerAsync("POST", Object);
 
         StringAssert.StartsWith(refused, "HTTP/1.1 401 Unauthorized\r\n");
         Assert.AreEqual(NotImplemented, unlisted);

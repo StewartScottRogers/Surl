@@ -59,7 +59,15 @@ internal sealed class GcsRequestAnswerer : IHttpRequestHandler
         multipartUpload = new GcsMultipartUpload(staging);
         completeMultipartUpload = new GcsCompleteMultipartUpload(staging, login);
         resumableUpload = new GcsResumableUpload(staging);
-        jsonAnswerer = new GcsJsonRequestAnswerer(store, properties, listBuckets, new GcsLoginJudge(authentication, context.Log, isJson: true), context, isOverTls);
+        jsonAnswerer = new GcsJsonRequestAnswerer(
+            store,
+            properties,
+            listBuckets,
+            new GcsLoginJudge(authentication, context.Log, isJson: true),
+            context,
+            new GcsJsonObjectInsert(store, properties, putObject),
+            new GcsJsonObjectUpdate(store, index, properties),
+            isOverTls);
     }
 
     /// <inheritdoc/>

@@ -69,6 +69,31 @@ internal sealed record GcsJsonError(HttpStatus Status, string Reason, string Mes
     public static GcsJsonError RangeNotSatisfiable { get; } = new(new HttpStatus(416, "Range Not Satisfiable"), "requestedRangeNotSatisfiable", "Requested range not satisfiable.");
 
     /// <summary>
+    /// <c>400 badRequest</c>: a malformed <c>multipart/related</c> body, or a body cut short.
+    /// </summary>
+    public static GcsJsonError BadRequest { get; } = new(HttpStatus.BadRequest, "badRequest", "Bad request.");
+
+    /// <summary>
+    /// <c>403 quotaExceeded</c>: the object metadata index is full.
+    /// </summary>
+    public static GcsJsonError QuotaExceeded { get; } = new(HttpStatus.Forbidden, "quotaExceeded", "The object metadata index is full.");
+
+    /// <summary>
+    /// <c>409 conflict</c>: a name in conflict with a folder or file of the other kind.
+    /// </summary>
+    public static GcsJsonError Conflict { get; } = new(new HttpStatus(409, "Conflict"), "conflict", "Conflict.");
+
+    /// <summary>
+    /// <c>411 lengthRequired</c>: an upload without <c>Content-Length</c>.
+    /// </summary>
+    public static GcsJsonError LengthRequired { get; } = new(new HttpStatus(411, "Length Required"), "lengthRequired", "Length required.");
+
+    /// <summary>
+    /// <c>413 uploadTooLarge</c>: a body past <c>--max-filesize</c>.
+    /// </summary>
+    public static GcsJsonError UploadTooLarge { get; } = new(new HttpStatus(413, "Payload Too Large"), "uploadTooLarge", "Payload too large.");
+
+    /// <summary>
     /// <c>501 notImplemented</c>: every JSON request decision 2 does not list.
     /// </summary>
     public static GcsJsonError NotImplemented { get; } = new(HttpStatus.NotImplemented, "notImplemented", "Not implemented.");
@@ -80,7 +105,7 @@ internal sealed record GcsJsonError(HttpStatus Status, string Reason, string Mes
 
     private static readonly GcsJsonError[] Rows =
     [
-        Invalid, AuthenticationRequired, Forbidden, NotFound, ConditionNotMet, RangeNotSatisfiable, NotImplemented, BackendError,
+        Invalid, AuthenticationRequired, Forbidden, NotFound, Conflict, LengthRequired, ConditionNotMet, UploadTooLarge, RangeNotSatisfiable, NotImplemented, BackendError,
     ];
 
     /// <summary>
