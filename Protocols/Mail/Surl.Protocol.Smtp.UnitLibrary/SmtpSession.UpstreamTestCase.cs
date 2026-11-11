@@ -40,7 +40,25 @@ internal sealed partial class SmtpSession
         }
 
         await connection.WriteAsync(reply, CancellationToken);
+        NoteTheSenderOrRecipientAnUpstreamTestCaseRepliedTo(line);
         return true;
+    }
+
+    // Upstream's DATA_smtp stores the upload however MAIL and RCPT were answered, so a REPLY'd
+    // MAIL opens the transaction and a REPLY'd RCPT counts as a recipient, for DATA to need.
+    private void NoteTheSenderOrRecipientAnUpstreamTestCaseRepliedTo(byte[] line)
+    {
+        var text = Encoding.Latin1.GetString(line);
+        var verb = text.Split(' ', 2)[0];
+        if (verb.Equals("MAIL", StringComparison.OrdinalIgnoreCase))
+        {
+            transaction = new SmtpMailTransaction(string.Empty);
+        }
+        else if (verb.Equals("RCPT", StringComparison.OrdinalIgnoreCase))
+        {
+            transaction ??= new SmtpMailTransaction(string.Empty);
+            transaction.AddRecipient(string.Empty, null);
+        }
     }
 
     // The session's own hello line, then the case's capabilities and mechanisms (FILEFORMAT's CAPA and AUTH).

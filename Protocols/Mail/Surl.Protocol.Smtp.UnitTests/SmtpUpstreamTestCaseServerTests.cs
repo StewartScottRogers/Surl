@@ -146,6 +146,29 @@ public sealed class SmtpUpstreamTestCaseServerTests
     }
 
     [TestMethod]
+    public async Task ServeAsync_DataAfterRepliedMailAndRcpt_RecordsTheUpload()
+    {
+        var replies = Case("REPLY MAIL 250 Ok", "REPLY RCPT 250 Ok");
+        var request = "EHLO c\r\nMAIL FROM:<a@x> RET=HDRS\r\nRCPT TO:<b@y> NOTIFY=SUCCESS\r\nDATA\r\nSubject: hi\r\n\r\nbody\r\n.\r\nQUIT\r\n";
+
+        var written = await ServeAsync(replies, request);
+
+        Assert.AreEqual(Greeting + "250 surl Hello\r\n250 Ok\r\n250 Ok\r\n354 End data with <CR><LF>.<CR><LF>\r\n250 2.0.0 Message accepted\r\n221 2.0.0 Bye\r\n", written);
+        Assert.AreEqual("Subject: hi\r\n\r\nbody\r\n.\r\n", Utf8(replies.UploadedBytes));
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_RepliedRcptWithoutAMail_StillCountsAsARecipient()
+    {
+        var replies = Case("REPLY RCPT 250 Ok");
+
+        var written = await ServeAsync(replies, "EHLO c\r\nRCPT TO:<b@y>\r\nDATA\r\nx\r\n.\r\n");
+
+        Assert.Contains("354 ", written);
+        Assert.AreEqual("x\r\n.\r\n", Utf8(replies.UploadedBytes));
+    }
+
+    [TestMethod]
     public async Task ServeAsync_DataWithAnArgument_Answers501()
     {
         var written = await ServeAsync(Case(), "DATA x\r\n");
