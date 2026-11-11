@@ -49,3 +49,4 @@ and HTTPS proxies from the command line as ADR-0088 decision 7 fixes, with their
 ## Log
 
 - 2026-11-06: Created.
+- 2026-11-11: Backlog -> Doing.
