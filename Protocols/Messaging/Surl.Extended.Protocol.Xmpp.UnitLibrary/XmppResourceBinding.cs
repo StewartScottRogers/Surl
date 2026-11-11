@@ -14,7 +14,9 @@ namespace Surl.Extended.Protocol.Xmpp;
 /// <param name="context">The exchange: its log.</param>
 /// <param name="randomSource">Where a generated resource's digits come from.</param>
 /// <param name="write">Writes text to the client.</param>
-internal sealed class XmppResourceBinding(string bareJid, ExchangeContext context, IXmppRandomSource randomSource, Func<string, Task> write)
+/// <param name="tryBind">Registers the stream under a resource, taking over a stream that holds it; <see langword="false"/> when the account has too many resources bound.</param>
+internal sealed class XmppResourceBinding(
+    string bareJid, ExchangeContext context, IXmppRandomSource randomSource, Func<string, Task> write, Func<string, bool> tryBind)
 {
     private static readonly XName Iq = XNamespace.Get(XmppNamespaces.Client) + "iq";
 
@@ -74,6 +76,13 @@ internal sealed class XmppResourceBinding(string bareJid, ExchangeContext contex
         {
             context.Log.Note("A bind asked for a resource that is not a resourcepart; answered bad-request.");
             await write(XmppSaslText.IqError(id, "modify", "bad-request"));
+            return;
+        }
+
+        if (!tryBind(resource))
+        {
+            context.Log.Note($"{BareJid} already has {XmppSessionRegistry.MaxResourcesPerBareJid} resources bound; answered resource-constraint.");
+            await write(XmppSaslText.IqError(id, "wait", "resource-constraint"));
             return;
         }
 

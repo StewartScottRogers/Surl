@@ -7,8 +7,15 @@ namespace Surl.Extended.Protocol.Xmpp;
 /// <param name="bareJid">The bare JID the stream logged in as.</param>
 /// <param name="resource">The resource it is bound to.</param>
 /// <param name="tryDeliver">Writes a stanza to the stream; <see langword="false"/> when the stream could not take it.</param>
-internal sealed class XmppBoundSession(string bareJid, string resource, Func<string, Task<bool>> tryDeliver)
+/// <param name="end">Asks the stream to end with a stream error condition.</param>
+internal sealed class XmppBoundSession(string bareJid, string resource, Func<string, Task<bool>> tryDeliver, Action<string> end)
 {
+    /// <summary>
+    /// Asks the stream to end: its connection writes the stream error and closes.
+    /// </summary>
+    /// <param name="condition">The stream error condition, one of <see cref="XmppStreamErrors"/>.</param>
+    public void EndWithError(string condition) => end(condition);
+
     /// <summary>The bare JID the stream logged in as.</summary>
     public string BareJid { get; } = bareJid;
 

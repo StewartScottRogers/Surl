@@ -8,7 +8,7 @@ depends-on: [BL-538, BL-539]
 touches: [Protocols/Messaging/Surl.Extended.Protocol.Xmpp.UnitLibrary, Protocols/Messaging/Surl.Extended.Protocol.Xmpp.UnitTests, Documentation/Conformance/Extended/Xmpp.md]
 requirement: none
 created: 2026-11-05
-completed:
+completed: 2026-11-11
 ---
 # BL-885 — Take over conflicting XMPP resources, cap resources per JID, refuse foreign authzids and bound the login time
 
@@ -39,7 +39,7 @@ resource for one bare JID is `resource-constraint`. An authzid other than empty 
 
 ## Acceptance criteria
 
-- [ ] Named tests in `Surl.Extended.Protocol.Xmpp.UnitTests` show:
+- [x] Named tests in `Surl.Extended.Protocol.Xmpp.UnitTests` show:
       - a second stream binding `user@domain/balcony` gets the bind result, and the first stream gets
         `<stream:error><conflict xmlns='urn:ietf:params:xml:ns:xmpp-streams'/></stream:error></stream:stream>`
         and is closed;
@@ -48,8 +48,8 @@ resource for one bare JID is `resource-constraint`. An authzid other than empty 
         an authzid equal to the bare JID logs in;
       - a stream that has not bound a resource when twice the head timeout has passed since accept gets
         `policy-violation`, measured with the injected `TimeProvider`.
-- [ ] The four rows named above in `Documentation/Conformance/Extended/Xmpp.md` name this task's tests.
-- [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and the library keeps 100% line and branch
+- [x] The four rows named above in `Documentation/Conformance/Extended/Xmpp.md` name this task's tests.
+- [x] `dotnet build -warnaserror` is clean, the fast tests are green, and the library keeps 100% line and branch
       coverage.
 
 ## Notes
@@ -57,7 +57,11 @@ resource for one bare JID is `resource-constraint`. An authzid other than empty 
 Filed by BL-538, whose acceptance criteria did not include these four rules even though the conformance trace
 listed them under it.
 
-## Log
+Decided by Claude (ADR-0114 amendment): a SCRAM a= that is the bare JID but not the user is invalid-authzid, since a SCRAM message cannot be rewritten; PLAIN's bare-JID authzid is dropped before the exchange. The session joins the registry just before the bind result is written. No login deadline when the head timeout is infinite. touches unchanged except the ADR file, a doc.n## Log
 
 - 2026-11-05: Created.
 - 2026-11-11: Backlog -> Doing.
+
+## Log
+
+- 2026-11-11: Doing -> Done. XMPP resource takeover, 10-resource cap, invalid-authzid and 2x head-timeout login deadline

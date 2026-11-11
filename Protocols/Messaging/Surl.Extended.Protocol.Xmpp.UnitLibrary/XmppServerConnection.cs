@@ -37,6 +37,10 @@ internal sealed class XmppServerConnection
     private Task lastWrite = Task.CompletedTask;
     private XmppStreamReader reader;
     private XmppResourceBinding? binding;
+    private readonly CancellationTokenSource endRequest = new();
+    private readonly CancellationTokenSource readCancellation;
+    private readonly CancellationTokenSource loginDeadline;
+    private string? endCondition;
     private XmppBoundSession? session;
     private XmppStanzaRouter? router;
     private string[] offeredMechanisms = [];
@@ -53,6 +57,13 @@ internal sealed class XmppServerConnection
         reader = new XmppStreamReader(connection, context.Limits.MaxMessageBytes);
         domains = XmppDomains.Served(context.ListenUrl, context.LocalEndPoint, options.MailDomains);
         login = new XmppSaslLogin(options.AuthenticationPolicy, context, options.RandomSource, WriteAsync);
+        readCancellation = CancellationTokenSource.CreateLinkedTokenSource(context.CancellationToken, endRequest.Token);
+
+        // Decision 7: no resource bound within twice the head timeout of accept is policy-violation.
+        var headTimeout = context.Limits.HeadTimeout;
+        loginDeadline = new CancellationTokenSource(
+            headTimeout == Timeout.InfiniteTimeSpan ? Timeout.InfiniteTimeSpan : headTimeout * 2, context.TimeProvider);
+        loginDeadline.Token.Register(() => RequestEnd(XmppStreamErrors.PolicyViolation));
     }
 
     private enum ElementOutcome
@@ -79,7 +90,18 @@ internal sealed class XmppServerConnection
             {
                 sessions.Remove(session);
             }
+
+            loginDeadline.Dispose();
+            readCancellation.Dispose();
         }
+    }
+
+    // Another stream took over this one's resource (conflict), or the login deadline passed
+    // (policy-violation): the read in progress is cut off and the error written.
+    private void RequestEnd(string condition)
+    {
+        endCondition = condition;
+        endRequest.Cancel();
     }
 
     private async Task ServeUntilClosedAsync()
@@ -100,6 +122,11 @@ internal sealed class XmppServerConnection
         catch (OperationCanceledException) when (context.CancellationToken.IsCancellationRequested)
         {
             await SayFarewellAsync();
+        }
+        catch (OperationCanceledException) when (endCondition is not null)
+        {
+            context.Log.Note($"The stream was ended; answered the stream error {endCondition} and closed.");
+            await WriteErrorAsync(endCondition, context.CancellationToken);
         }
         catch (IOException failure)
         {
@@ -130,7 +157,7 @@ internal sealed class XmppServerConnection
             return null;
         }
 
-        while (await reader.ReadElementAsync(context.CancellationToken) is { } element)
+        while (await reader.ReadElementAsync(readCancellation.Token) is { } element)
         {
             var outcome = await AnswerAsync(element);
             if (outcome != ElementOutcome.Continue)
@@ -155,7 +182,7 @@ internal sealed class XmppServerConnection
     private async Task<XmppStreamHeader?> ReadHeaderWithinHeadTimeoutAsync(bool upgradeFirst)
     {
         using var headTimeout = new CancellationTokenSource(context.Limits.HeadTimeout, context.TimeProvider);
-        using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(context.CancellationToken, headTimeout.Token);
+        using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(readCancellation.Token, headTimeout.Token);
         if (upgradeFirst && !await UpgradedToTlsAsync(cancellation.Token))
         {
             return null;
@@ -165,7 +192,7 @@ internal sealed class XmppServerConnection
         {
             return await reader.ReadHeaderAsync(cancellation.Token);
         }
-        catch (OperationCanceledException) when (!context.CancellationToken.IsCancellationRequested)
+        catch (OperationCanceledException) when (endCondition is null && !context.CancellationToken.IsCancellationRequested)
         {
             throw new XmppStreamErrorException(XmppStreamErrors.ConnectionTimeout, "No stream header arrived within the head timeout");
         }
@@ -266,12 +293,26 @@ internal sealed class XmppServerConnection
         }
 
         await resourceBinding.AnswerAsync(stanza);
-        if (resourceBinding.BoundResource is { } resource)
+        if (session is not null)
         {
-            session = new XmppBoundSession(resourceBinding.BareJid, resource, TryDeliverAsync);
-            sessions.Add(session);
             router = new XmppStanzaRouter(session, sessions, domains, context, WriteAsync);
         }
+    }
+
+    // Decision 4: the stream joins the registry before its bind result is written, taking over a
+    // stream bound to the same resource (conflict) unless the account is at its resource cap.
+    private bool TryBind(string resource)
+    {
+        var candidate = new XmppBoundSession(login.BareJid!, resource, TryDeliverAsync, RequestEnd);
+        if (!sessions.TryAdd(candidate, out var displaced))
+        {
+            return false;
+        }
+
+        session = candidate;
+        loginDeadline.Dispose();
+        displaced?.EndWithError(XmppStreamErrors.Conflict);
+        return true;
     }
 
     // A stanza another stream routes here: a failed or cancelled write is the sender's to note,
@@ -304,7 +345,7 @@ internal sealed class XmppServerConnection
             return ElementOutcome.Continue;
         }
 
-        binding = new XmppResourceBinding(login.BareJid, context, options.RandomSource, WriteAsync);
+        binding = new XmppResourceBinding(login.BareJid, context, options.RandomSource, WriteAsync, TryBind);
         reader = new XmppStreamReader(connection, context.Limits.MaxMessageBytes);
         return ElementOutcome.RestartAfterLogin;
     }

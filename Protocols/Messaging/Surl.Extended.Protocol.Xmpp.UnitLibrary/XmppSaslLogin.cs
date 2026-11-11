@@ -23,6 +23,8 @@ internal sealed class XmppSaslLogin(
     private ISaslExchange? exchange;
     private string domain = string.Empty;
     private int failures;
+    private string? firstMessageMechanism;
+    private bool authzidRefused;
 
     /// <summary>The bare JID the stream logged in as once SASL succeeded; <see langword="null"/> until then.</summary>
     public string? BareJid { get; private set; }
@@ -60,6 +62,13 @@ internal sealed class XmppSaslLogin(
         }
 
         domain = streamDomain;
+        authzidRefused = false;
+        firstMessageMechanism = mechanism;
+        if (auth.Value.Length != 0)
+        {
+            initialResponse = CheckFirstMessage(initialResponse);
+        }
+
         var start = new SaslExchangeStart(
             context.Scheme, mechanism, auth.Value.Length == 0 ? null : (ReadOnlyMemory<byte>?)initialResponse, tlsSession, CanCarrySecurityLayer: true);
         exchange = policy.StartSaslExchange(start);
@@ -81,7 +90,34 @@ internal sealed class XmppSaslLogin(
             return;
         }
 
+        if (firstMessageMechanism is not null)
+        {
+            data = CheckFirstMessage(data);
+        }
+
         await AnswerStepAsync(await current.ContinueAsync(data, context.CancellationToken));
+    }
+
+    // RFC 6120 6.5.6: the authzid of the client's first message, read before the exchange sees it.
+    // The exchange still runs, so a refused authzid costs what a wrong password does; its answer is
+    // then replaced by invalid-authzid.
+    private byte[] CheckFirstMessage(byte[] message)
+    {
+        var mechanism = firstMessageMechanism;
+        firstMessageMechanism = null;
+        var forwarded = message;
+        var isAcceptable = true;
+        if (mechanism == "PLAIN")
+        {
+            isAcceptable = XmppAuthzid.IsAcceptablePlain(message, domain, randomSource, out forwarded);
+        }
+        else if (mechanism!.StartsWith("SCRAM-", StringComparison.Ordinal))
+        {
+            isAcceptable = XmppAuthzid.IsAcceptableScram(message);
+        }
+
+        authzidRefused = !isAcceptable;
+        return forwarded;
     }
 
     /// <summary>
@@ -139,6 +175,12 @@ internal sealed class XmppSaslLogin(
         if (step.RefusalNote is { } refusalNote)
         {
             context.Log.Note(refusalNote);
+        }
+
+        if (authzidRefused)
+        {
+            await FailAsync(XmppSaslFailures.InvalidAuthzid, "The client's authzid is not the account's");
+            return;
         }
 
         switch (step.Outcome)

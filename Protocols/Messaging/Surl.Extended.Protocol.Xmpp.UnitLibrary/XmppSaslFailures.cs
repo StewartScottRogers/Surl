@@ -15,6 +15,9 @@ public static class XmppSaslFailures
     /// <summary>Base64 that does not decode (6.5.5).</summary>
     public const string IncorrectEncoding = "incorrect-encoding";
 
+    /// <summary>An authzid that is neither empty, the authcid nor the account's own bare JID (6.5.6).</summary>
+    public const string InvalidAuthzid = "invalid-authzid";
+
     /// <summary>A mechanism not offered on this connection (6.5.7).</summary>
     public const string InvalidMechanism = "invalid-mechanism";
 

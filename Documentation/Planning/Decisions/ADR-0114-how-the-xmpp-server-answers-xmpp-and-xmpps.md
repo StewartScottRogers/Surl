@@ -341,3 +341,20 @@ No new option is added: ADR-0006's options cover what a test harness tunes.
   to it as a live client in `Integration` tests (ADR-0083).
 - The requirement matrix [`Xmpp.md`](../../Conformance/Extended/Xmpp.md) traces each server-side
   requirement to BL-536, BL-537, BL-538 or BL-539; each task replaces its ID with the named test.
+
+## Amendment (BL-885): how decisions 3, 4 and 7 are applied
+
+Decided by Claude under Stewart's delegation.
+
+- The authzid is read from the client's first SASL message, whether it comes in `<auth/>` or in
+  the first `<response/>`: PLAIN's bytes before the first NUL, SCRAM's gs2 `a=`. Empty, the authcid,
+  or (PLAIN only) the account's own bare JID is accepted; anything else is `invalid-authzid`, after
+  the exchange has run. PLAIN's bare-JID authzid is dropped from the message the exchange sees,
+  because `PlainSaslExchange` refuses any authzid but the authcid. A SCRAM message cannot be
+  rewritten (its `c=` repeats the gs2 header), so a SCRAM `a=` that is the bare JID but not the
+  user is `invalid-authzid`; a client that wants to log in sends no `a=`.
+- A stream joins the server's registry just before its bind result is written. A stream already
+  bound to the same bare JID (localpart compared without case) and resource is ended with the
+  stream error `conflict`; an eleventh resource is an IQ error `resource-constraint` of type `wait`.
+- The login deadline is twice `--head-timeout` from accept, ended when a resource is bound;
+  with no head timeout there is no deadline.
