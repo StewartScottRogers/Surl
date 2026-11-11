@@ -7,7 +7,7 @@ namespace Surl.Core;
 /// <summary>
 /// What a <see cref="FakeRefusalWritingProtocolServer"/> was asked to refuse.
 /// </summary>
-internal sealed record WrittenRefusal(IConnection Connection, ConnectionRefusal Refusal, CancellationToken CancellationToken);
+internal sealed record WrittenRefusal(IConnection Connection, ConnectionRefusal Refusal, string ListenScheme, CancellationToken CancellationToken);
 
 /// <summary>
 /// A connection protocol server that also writes refusals: it serves exchanges as the
@@ -35,9 +35,12 @@ internal sealed class FakeRefusalWritingProtocolServer(
 
     public Task ServeAsync(IConnection connection, ExchangeContext context) => inner.ServeAsync(connection, context);
 
-    public async ValueTask WriteRefusalAsync(IConnection connection, ConnectionRefusal refusal, CancellationToken cancellationToken)
+    public ValueTask WriteRefusalAsync(IConnection connection, ConnectionRefusal refusal, CancellationToken cancellationToken) =>
+        WriteRefusalAsync(connection, refusal, string.Empty, cancellationToken);
+
+    public async ValueTask WriteRefusalAsync(IConnection connection, ConnectionRefusal refusal, string listenScheme, CancellationToken cancellationToken)
     {
-        refusals.Writer.TryWrite(new WrittenRefusal(connection, refusal, cancellationToken));
+        refusals.Writer.TryWrite(new WrittenRefusal(connection, refusal, listenScheme, cancellationToken));
 
         if (writeRefusal is null)
         {
