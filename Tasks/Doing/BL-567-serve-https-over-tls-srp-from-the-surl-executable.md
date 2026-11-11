@@ -73,3 +73,4 @@ options.
 - 2026-11-04: Created.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. touches Application/Surl.Composition.UnitLibrary (ServerTlsComposition), which BL-1003 holds in Doing; retry once BL-1003 is Done
+- 2026-11-11: Backlog -> Doing.
