@@ -4,7 +4,7 @@ title: Bound the QUIC stream frames credit allows but the congestion window hold
 priority: Low
 assignee: Claude
 pipeline: feature
-depends-on: [BL-710]
+depends-on: [BL-710, BL-1035]
 touches: [Protocols/Http/Surl.Quic.UnitLibrary, Protocols/Http/Surl.Quic.UnitTests]
 requirement: none
 created: 2026-11-06
@@ -40,7 +40,26 @@ but not yet sent, not only on `QuicStream.UnsentLength`.
 
 ## Notes
 
+- 2026-11-11 (lane 5): Chose the second option, counting bytes cut into `STREAM` frames but not yet in a
+  packet against the bound in `WriteAsync`'s wait. It is a two-line change that leaves packet building
+  (`FillPacket`, splitting, retransmission order) as it is. Cutting frames only in `FillPacket` would
+  change every send path, so it is not worth the risk for this bound. Code written but not built,
+  because the pinned SDK 10.0.401 is missing (BL-1035); the shift stashes it:
+  - `QuicServerConnection.NotYetInAPacketLength(stream)` (internal, `QuicServerConnection.Sending.cs`):
+    `UnsentLength` plus the data of the stream's `STREAM` frames waiting in `application.FramesToSend`,
+    including lost frames waiting to be sent again.
+  - `QuicApplicationConnection.QueueWhatFitsAsync` bounds by it instead of `stream.UnsentLength`. The
+    XML docs of `MaxUnsentLength` and `WriteAsync` now describe this.
+  - Test `QuicApplicationConnectionTests.WriteAsync_CreditFarPastTheBoundAndNoAcknowledgements_WaitsOnceTheBytesNotYetInAPacketPassTheBoundUntilAcknowledgementsOpenTheWindow`
+    (`QuicApplicationConnectionTests.Credit.cs`): both credits at 1048576000, eight `PING`s that
+    acknowledge nothing, then a check that the write is still waiting; then acknowledgements until `FIN`
+    and the whole body arrives.
+  - Still to do once the SDK is back: build, run the test against the old line to see it fail, and
+    update the `WriteAsync` paragraph in the project's `CLAUDE.md`. It still says "at most that plus the
+    client's outstanding credit".
+
 ## Log
 
 - 2026-11-06: Created.
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Backlog. Waits on BL-1035: the pinned .NET SDK 10.0.401 is not installed, so nothing builds; the fix and its test are written, not built
