@@ -43,3 +43,4 @@ one (`team` -> ann, bob; `pair` -> bob, cat), every owner receives exactly one c
 ## Log
 
 - 2026-11-05: Created.
+- 2026-11-11: Backlog -> Doing.
