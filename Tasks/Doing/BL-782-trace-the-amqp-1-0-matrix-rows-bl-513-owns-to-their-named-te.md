@@ -41,3 +41,4 @@ ADR-0107's Consequences ask ("each task replaces its ID with the named test").
 ## Log
 
 - 2026-11-05: Created.
+- 2026-11-11: Backlog -> Doing.
