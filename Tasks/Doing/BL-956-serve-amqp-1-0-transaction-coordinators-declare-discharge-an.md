@@ -52,3 +52,4 @@ messages posted in a transaction until a commit publishes them all or none.
 - 2026-11-06: Created.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Lane 6 could not integrate: build failed after rebasing onto the other lanes' work. The work is on branch factory/BL-956-lane-6-20261111-060243; start with git cherry-pick --no-commit factory/BL-956-lane-6-20261111-060243 and fix it.
+- 2026-11-11: Backlog -> Doing.
