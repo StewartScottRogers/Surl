@@ -511,3 +511,34 @@ BL-728. It builds decision 6's last point: a folder a client put as `x/` is list
 5. **DeleteObject of `x/` does not forget the folder object;** it removes the folder only when empty,
    and an empty folder's removal drops the folder object at the next listing. A non-empty folder's
    `x/` still lists after its DeleteObject: BL-930 makes DeleteObject forget it.
+
+## Amendment 4 - serving `s3` from `surl`, as BL-421 built it (BL-421, BL-861, 2026-11-11)
+
+Decided by Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), in BL-421; recorded
+here by BL-861, because BL-421 could not edit this folder while another task held it. It builds
+decision 5 except `--s3-plaintext`.
+
+1. **`s3` is an implicit-TLS scheme.** It joins `TlsSchemes`'s implicit-TLS set in
+   `Surl.Protocol.Abstractions`, and `Surl.Networking`'s `TlsApplicationProtocols` offers
+   `http/1.1` alone for it (decision 5: the server answers HTTP/1.1 only). The engine handshakes
+   before the S3 server sees the connection, so the `(58)` refusal of a TLS scheme without `--cert`
+   or `--self-signed` applies unchanged, and `S3ProtocolServer` is registered directly through
+   `Surl.Composition`'s `ExtendedProtocolServers.Compose`, with no `ImplicitTlsSchemeServer` around
+   it. Why: the engine already secures every implicit-TLS scheme's connection, and
+   `ImplicitTlsSchemeServer` exists to reuse a plaintext scheme's server under a TLS scheme name;
+   `s3` has no plaintext scheme to reuse, so the server answers `s3` itself.
+2. **The one `ObjectMetadataIndex` of the served root is service state:**
+   `ServiceState.ObjectMetadataIndex`, built by `SurlServerComposition.ComposeObjectMetadataIndex`
+   (persisted in `<path>/.surl/objects/index` with `--directory`, held in memory without it) and
+   loaded after the LDAP directory by `LoadObjectMetadataIndexAsync`. An unreadable or malformed
+   index ends the start with `(37) Could not read <file>: <reason>`, as an unreadable LDAP
+   directory or DNS zone does. `ExtendedProtocolServerServices` carries it, with the clock, to the
+   S3 server. Why: ADR-0100 decision 2.3 names one index per served root, shared by every protocol
+   that reads the store; building it once per start keeps it one.
+3. **`--s3-plaintext` (decision 5) is left to BL-860,** because the engine decides TLS by scheme
+   alone and a per-option switch from TLS to plaintext needs a seam it does not yet have. Until
+   then `s3` is always HTTPS.
+4. **The `s3` help category** ("Amazon S3 protocol (extended)") is listed by `--directory`,
+   `--allow-uploads`, `--list-directories`, `--head-timeout`, `--max-request-head`,
+   `--max-filesize`, `-u`, `--user-file` and `--allow-anonymous`, and the manual has an
+   `S3 OPTIONS` section.

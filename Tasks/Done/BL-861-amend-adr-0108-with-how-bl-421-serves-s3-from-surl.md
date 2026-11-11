@@ -8,7 +8,7 @@ depends-on: [BL-421]
 touches: [Documentation/Planning/Decisions/ADR-0108-how-the-s3-server-answers-s3.md, Protocols/FileTransfer/Surl.Extended.Protocol.S3.UnitLibrary/CLAUDE.md]
 requirement: none
 created: 2026-11-05
-completed:
+completed: 2026-11-11
 ---
 # BL-861 — Amend ADR-0108 with how BL-421 serves s3 from surl
 
@@ -36,14 +36,28 @@ BL-421 could not edit `Documentation/Planning/Decisions` because BL-822, then in
 
 ## Acceptance criteria
 
-- [ ] ADR-0108 has an "Amendment 2" stating points 1 to 4 above, marked "Decided by Claude under Stewart's
+- [x] ADR-0108 has an "Amendment 4" (Amendment 2 was taken; see Notes) stating points 1 to 4 above, marked "Decided by Claude under Stewart's
       delegation", naming BL-421 and BL-860.
-- [ ] `Surl.Extended.Protocol.S3.UnitLibrary/CLAUDE.md` says `surl` serves `s3` through `Surl.Composition`'s
+- [x] `Surl.Extended.Protocol.S3.UnitLibrary/CLAUDE.md` says `surl` serves `s3` through `Surl.Composition`'s
       `ExtendedProtocolServers.Compose`.
 
 ## Notes
+
+- Numbered Amendment 4, not 2: Amendment 2 (BL-727) and Amendment 3 (BL-728) were written after
+  this task was filed. It states points 1 to 4, is marked decided by Claude under Stewart's
+  delegation, and names BL-421 and BL-860.
+- Every fact was checked against the code first: `TlsSchemes`, `TlsApplicationProtocols`,
+  `ExtendedProtocolServers.Compose`, `ServiceState`, `ComposeObjectMetadataIndex`,
+  `LoadObjectMetadataIndexAsync` and its `(37)` message, `HelpCategories`, `CommandLineOptions` and
+  `ManualText`'s `S3 OPTIONS`. Point 1's "why" corrected: `ImplicitTlsSchemeServer` reuses a
+  plaintext scheme's server, and `s3` has none.
+- Docs only; no `.cs` or project file changed, so the verify skill's build and tests do not apply.
+  `dotnet build` could not run in any case: the pinned SDK 10.0.401 is not installed on this machine
+  (BL-1035). No project compiles, embeds or reads either changed file (searched every `.cs`), so CI
+  is the check; the task is Done rather than held behind BL-1035.
 
 ## Log
 
 - 2026-11-05: Created.
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Done. ADR-0108 Amendment 4 records how BL-421 serves s3 from surl; the S3 library's CLAUDE.md says it is composed by ExtendedProtocolServers.Compose
