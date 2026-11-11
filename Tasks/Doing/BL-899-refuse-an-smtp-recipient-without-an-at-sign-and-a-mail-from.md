@@ -59,3 +59,4 @@ instead of carrying on to RCPT or DATA, as upstream's test server makes it do.
 ## Log
 
 - 2026-11-05: Created.
+- 2026-11-11: Backlog -> Doing.
