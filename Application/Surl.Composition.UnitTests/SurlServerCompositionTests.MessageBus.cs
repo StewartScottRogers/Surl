@@ -37,7 +37,7 @@ public sealed partial class SurlServerCompositionTests
             new ServiceState(
                 bus,
                 new MailboxStore([], allowAnonymous: false, TimeProvider.System),
-                new LdapProtocolServer(policy, policy),
+                new LdapProtocolServer(policy, policy, TimeProvider.System),
                 SurlServerComposition.ComposeObjectMetadataIndex(new SurlCommandLine(), new Content.InMemoryContentFileSystem(TimeProvider.System))),
             new AuthenticationPolicy(
                 new AuthenticationSettings(new AccountBook([]), AllowAnonymous: true, AllowPlaintextAuthentication: false, AuthenticationMethods.DefaultAccepted),

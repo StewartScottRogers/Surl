@@ -22,8 +22,8 @@ public sealed class LdapProtocolServerOperationTests
     [TestMethod]
     public void Constructor_NoPolicy_Throws()
     {
-        Assert.ThrowsExactly<ArgumentNullException>(() => new LdapProtocolServer(null!, new UnitTestSaslAuthenticationPolicy()));
-        Assert.ThrowsExactly<ArgumentNullException>(() => new LdapProtocolServer(new UnitTestAuthenticationPolicy(PasswordLoginVerdict.Accepted), null!));
+        Assert.ThrowsExactly<ArgumentNullException>(() => new LdapProtocolServer(null!, new UnitTestSaslAuthenticationPolicy(), TimeProvider.System));
+        Assert.ThrowsExactly<ArgumentNullException>(() => new LdapProtocolServer(new UnitTestAuthenticationPolicy(PasswordLoginVerdict.Accepted), null!, TimeProvider.System));
     }
 
     [TestMethod]
@@ -38,13 +38,13 @@ public sealed class LdapProtocolServerOperationTests
     [TestMethod]
     public void Schemes_AreLdap()
     {
-        CollectionAssert.AreEqual(new[] { "ldap" }, new LdapProtocolServer(new UnitTestAuthenticationPolicy(PasswordLoginVerdict.Accepted), new UnitTestSaslAuthenticationPolicy()).Schemes.ToArray());
+        CollectionAssert.AreEqual(new[] { "ldap" }, new LdapProtocolServer(new UnitTestAuthenticationPolicy(PasswordLoginVerdict.Accepted), new UnitTestSaslAuthenticationPolicy(), TimeProvider.System).Schemes.ToArray());
     }
 
     [TestMethod]
     public async Task ServeAsync_PublicServerOverItsEmptyDirectory_AnswersNoSuchObject()
     {
-        var server = new LdapProtocolServer(new UnitTestAuthenticationPolicy(PasswordLoginVerdict.Accepted), new UnitTestSaslAuthenticationPolicy());
+        var server = new LdapProtocolServer(new UnitTestAuthenticationPolicy(PasswordLoginVerdict.Accepted), new UnitTestSaslAuthenticationPolicy(), TimeProvider.System);
         var connection = new InMemoryConnection([AliceBind, Message(2, Search(Present("objectClass"), scope: 0))]);
 
         await server.ServeAsync(connection, Context(TestContext.CancellationToken));
