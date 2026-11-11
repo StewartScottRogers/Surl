@@ -4,7 +4,7 @@ title: Serve ffdhe2048 and ffdhe3072 through a HelloRetryRequest in Surl.Tls13
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-1005]
+depends-on: [BL-1005, BL-1035]
 touches: [Cryptography/Surl.Tls13.UnitLibrary, Cryptography/Surl.Tls13.UnitTests]
 requirement: FR-055
 created: 2026-11-06
@@ -60,6 +60,8 @@ recorded upstream curl ClientHello for `--curves ffdhe2048` or `--curves ffdhe30
 
 ## Notes
 
+- 2026-11-11 (lane 6): `git cherry-pick --no-commit fd3f336f` (lane 4's work) applies cleanly onto lane 6's base, but `dotnet build` cannot run: global.json pins SDK 10.0.401 and only 10.0.100-rc.1, 11.0.100-rc.2 and 11.0.100 are installed. Parked behind BL-1035 (reinstall the SDK). Resume with `git cherry-pick --no-commit fd3f336f` (branch factory/BL-1008-lane-4-20261111-060243) and build.
+
 ## Log
 
 - 2026-11-06: Created.
@@ -67,3 +69,4 @@ recorded upstream curl ClientHello for `--curves ffdhe2048` or `--curves ffdhe30
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Lane 4 could not integrate: build failed after rebasing onto the other lanes' work. The work is on branch factory/BL-1008-lane-4-20261111-060243; start with git cherry-pick --no-commit factory/BL-1008-lane-4-20261111-060243 and fix it.
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Backlog. Waits on BL-1035: pinned .NET SDK 10.0.401 is not installed, so dotnet build cannot run
