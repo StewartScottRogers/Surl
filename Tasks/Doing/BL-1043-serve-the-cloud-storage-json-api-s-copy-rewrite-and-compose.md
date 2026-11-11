@@ -35,3 +35,4 @@ The `gs` server answers `objects.copy`, `objects.rewrite` and `objects.compose` 
 ## Log
 
 - 2026-11-11: Created.
+- 2026-11-11: Backlog -> Doing.
