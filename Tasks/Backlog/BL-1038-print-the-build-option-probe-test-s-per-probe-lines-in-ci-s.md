@@ -4,7 +4,7 @@ title: Print the build option probe test's per-probe lines in CI's Conformance t
 priority: Low
 assignee: Claude
 pipeline: direct
-depends-on: []
+depends-on: [BL-1035]
 touches: [.github/workflows/ci.yml]
 requirement: none
 created: 2026-11-11
@@ -35,7 +35,16 @@ A green CI run's `Conformance tests` step log on `ubuntu-latest` and `macos-late
 
 ## Notes
 
+- 2026-11-11 (lane 3): Chose a separate `Build option probe test` step that runs only
+  `UpstreamCurlShowsItsBuildOptionsTests` with `--logger "console;verbosity=detailed"`, and excluded
+  that class from the `Conformance tests` step, so only the probe test's output is detailed and the
+  rest of the log stays readable (the project runs on VSTest, so `--logger` applies). The `ci.yml`
+  edit was made but not committed: `dotnet build` fails on this machine because the pinned SDK
+  10.0.401 is not installed (only 10.0.100-rc.1 and 11.0.x), so the verify gate cannot pass.
+  Returned to Backlog behind BL-1035; redo the one-step edit when it is Done.
+
 ## Log
 
 - 2026-11-11: Created.
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Backlog. Waits on BL-1035: pinned .NET SDK 10.0.401 is not installed, so dotnet build cannot verify the ci.yml change
