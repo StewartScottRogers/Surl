@@ -4,7 +4,7 @@ title: Append a Kafka Produce partition to the bus all or nothing
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-519]
+depends-on: [BL-519, BL-1035]
 touches: [Protocols/Messaging/Surl.MessageBus.UnitLibrary, Protocols/Messaging/Surl.MessageBus.UnitTests, Protocols/Messaging/Surl.Extended.Protocol.Kafka.UnitLibrary, Protocols/Messaging/Surl.Extended.Protocol.Kafka.UnitTests, Documentation/Conformance/Extended/Kafka.md]
 requirement: none
 created: 2026-11-05
@@ -42,7 +42,22 @@ partition") and requirement `Kafka:Surl-Produce-1` say.
 
 ## Notes
 
+- 2026-11-11 (lane 5): The bus already has the all-or-nothing method the Context asks for:
+  `BusConnection.PublishBatch` (BL-961, ADR-0146 decision 1.6) plans every entry under one hold of
+  the lock, retention and `MaxLogBytes` included, and publishes none when any is refused. Reused
+  rather than adding a second one-topic method: one concept, one name. `KafkaProduceAnswerer.Publish`
+  now opens a connection for the caller's account and publishes the partition's records as
+  `BusBatchEntry.ToTopic` entries; offsets come from each `BusPublishResult.LogOffset`.
+- Written, uncommitted (the shift stashes it): tests
+  `BusConnectionPublishBatchTests.PublishBatch_OneTopicsListPassingMaxLogBytesOnItsLast_IsRefusedWholeAndLeavesTheHighWatermark`
+  and `KafkaProduceAnswererTests.ServeAsync_ABatchOfThreeWhoseThirdPassesTheBusLogBound_IsPolicyViolationAndAppendsNone`,
+  the answerer change, its doc comment, the Kafka library CLAUDE.md and `Kafka.md`'s Produce-1 row.
+  With global.json temporarily pointed at SDK 11.0.100 (then restored), both test projects passed:
+  554 and 413. Parked behind BL-1035: the pinned SDK 10.0.401 is not installed, so the build gate
+  cannot be run with the pinned toolchain.
+
 ## Log
 
 - 2026-11-05: Created.
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Backlog. Waits on BL-1035: pinned .NET SDK 10.0.401 is not installed, so the build gate cannot run; code is written and passes under SDK 11
