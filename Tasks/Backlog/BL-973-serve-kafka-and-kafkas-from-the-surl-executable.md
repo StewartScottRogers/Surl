@@ -4,8 +4,8 @@ title: Serve kafka and kafkas from the surl executable
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-521, BL-405, BL-635]
-touches: [Application/Surl.Console, Application/Surl.Console.UnitTests, Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests, Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests]
+depends-on: [BL-521, BL-405, BL-635, BL-1035]
+touches: [Foundation/Surl.Protocol.Abstractions.UnitLibrary, Foundation/Surl.Protocol.Abstractions.UnitTests, Application/Surl.Console, Application/Surl.Console.UnitTests, Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests, Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests]
 requirement: none
 created: 2026-11-06
 completed:
@@ -48,7 +48,29 @@ extension switch turns both off.
 
 ## Notes
 
+- 2026-11-11 (lane 4): code written but never built - `dotnet build` fails with "A compatible .NET SDK was
+  not found" (global.json pins 10.0.401; only 10.0.100-rc.1, 11.0.100-rc.2 and 11.0.100 are installed).
+  Parked behind BL-1035; the shift stashes the uncommitted work. What the stash holds:
+  - `kafkas` added to `TlsSchemes` (TLS from the first byte, ADR-0105 decision 7), so the engine does the
+    handshake and `ServerTlsComposition` refuses `kafkas` without a certificate (58). That is why
+    `Foundation/Surl.Protocol.Abstractions.UnitLibrary` and its `.UnitTests` were added to `touches`; no task
+    in Doing named them.
+  - Decision: one registration `new(["kafka", "kafkas"], ComposeKafkaBroker)` in
+    `ExtendedProtocolServers.Registrations`, as `mqtt`/`mqtts` is, instead of an `ImplicitTlsSchemeServer`
+    entry: `KafkaBroker.Schemes` already claims both, and `ImplicitTls` wraps an earlier registration's
+    server, which would claim `kafkas` twice. Every answerer is built over `ComposedProtocolServices.MessageBus`,
+    the policy is `AuthenticationPolicyFor("kafka")`, Produce and InitProducerId share one `KafkaProducerStates`,
+    Fetch serves uncompressed (BL-974 adds `--kafka-fetch-compression`).
+  - `--aihelp`: `HelpCategories` row `kafka`, `AiHelpProse` `kafka` topic and the extended topic's count,
+    `AiHelpExamples` entry, topic lists in `AiHelpTextTests`, `AiHelpExamplesTests`, `CommandLineRunnerTests`
+    and `CommandLineRunnerExtendedProtocolTests`.
+  - Tests: `SurlServerCompositionTests.Kafka.cs` (one bus with MQTT, switch on/off, Metadata advertises
+    `FakeListenerFactory.BoundPort` for `:0`, `kafkas` without a certificate is 58).
+  - Still to do once it builds: build, fix what fails, fast tests, coverage of the three Application projects,
+    and the `Surl.Composition` CLAUDE.md line for the Kafka broker.
+
 ## Log
 
 - 2026-11-06: Created.
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Backlog. Waits on BL-1035: pinned .NET SDK 10.0.401 is not installed, so dotnet build cannot run; code is written and stashed by the shift
