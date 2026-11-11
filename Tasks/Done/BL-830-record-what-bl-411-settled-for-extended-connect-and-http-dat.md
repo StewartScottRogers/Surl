@@ -8,7 +8,7 @@ depends-on: [BL-411]
 touches: [Documentation/Planning/Decisions/ADR-0086-how-the-extended-servers-share-http-2-http-3-and-quic.md, Documentation/Planning/Decisions/README.md]
 requirement: none
 created: 2026-11-05
-completed:
+completed: 2026-11-11
 ---
 # BL-830 — Record what BL-411 settled for extended CONNECT and HTTP datagrams in ADR-0086
 
@@ -52,13 +52,26 @@ the library's `CLAUDE.md`; this task copies them into the ADR, checking each aga
 
 ## Acceptance criteria
 
-- [ ] ADR-0086 has an "Amendment 2" section stating items 1 to 9, each true of
+- [x] ADR-0086 has an "Amendment 2" section stating items 1 to 9, each true of
       `Protocols/Http/Surl.Http3.UnitLibrary` as it is.
-- [ ] `Documentation/Planning/Decisions/README.md` needs no change, or is updated if it lists amendments.
+- [x] `Documentation/Planning/Decisions/README.md` needs no change, or is updated if it lists amendments.
 
 ## Notes
+
+- Each of the nine items was checked against `Surl.Http3` as it is (`Http3ExtendedConnect`,
+  `Http3RequestStreamServer`, `Http3RequestStream`, `Http3RequestHeadMapping`,
+  `Http3ExtendedConnectSession`, `Http3FrameWriter`, `Http3ErrorCode`).
+- Item 6 changed after BL-411: BL-894 built ADR-0117 decision 3's 64-datagram hold, so datagrams
+  arriving before their `CONNECT` are now held, not dropped. The amendment states what BL-411
+  built and what the code does now.
+- Item 5: `MAX_FIELD_SECTION_SIZE` is left out when `--max-message` is 0; the amendment says so.
+- The README's ADR-0086 row lists Amendment 1, so Amendment 2 was added to it.
+- Docs only, no `.cs` or project file touched, so the `verify` skill was not needed. `dotnet build`
+  could not run in lane 4 on 2026-11-11: `global.json` pins SDK 10.0.401, which is not installed
+  (BL-1035). The change cannot affect the build; the shift's integration rebuilds it.
 
 ## Log
 
 - 2026-11-05: Created.
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Done. ADR-0086 Amendment 2 records what BL-411 built for extended CONNECT, HTTP datagrams and claimed streams, checked against Surl.Http3
