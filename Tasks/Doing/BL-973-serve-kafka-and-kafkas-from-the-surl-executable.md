@@ -51,3 +51,4 @@ extension switch turns both off.
 ## Log
 
 - 2026-11-06: Created.
+- 2026-11-11: Backlog -> Doing.
