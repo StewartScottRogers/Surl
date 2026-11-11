@@ -47,7 +47,7 @@ public sealed class WebTransportSessionDirectoryTests
 
         client.Send(4, Convert.FromHexString(UnitTestWebTransport.BidirectionalHeaderHex + "61"));
         await UnitTestWebTransport.ConnectAsync(client, Token, "/elsewhere");
-        await client.UntilAsync(() => client.ResetCode(4) is not null, Token);
+        await client.UntilAsync(() => client.ResetCode(4) is not null && client.StopSendingCode(4) is not null, Token);
 
         Assert.AreEqual(WebTransportHttp3Codes.BufferedStreamRejected, client.ResetCode(4));
         Assert.AreEqual(WebTransportHttp3Codes.BufferedStreamRejected, client.StopSendingCode(4));
@@ -79,7 +79,7 @@ public sealed class WebTransportSessionDirectoryTests
         await Task.Delay(100, Token);
 
         client.Send(4, Convert.FromHexString(UnitTestWebTransport.BidirectionalHeaderHex + "61"));
-        await client.UntilAsync(() => client.ResetCode(4) is not null, Token);
+        await client.UntilAsync(() => client.ResetCode(4) is not null && client.StopSendingCode(4) is not null, Token);
 
         Assert.AreEqual(WebTransportHttp3Codes.SessionGone, client.ResetCode(4));
         Assert.AreEqual(WebTransportHttp3Codes.SessionGone, client.StopSendingCode(4));
