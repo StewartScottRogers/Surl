@@ -150,6 +150,7 @@ public sealed class ComposedServing : IAsyncDisposable
     {
         // Each loosening option's warning (ADR-0032, section 9).
         AuthenticationComposition.WriteLooseningWarnings(commandLine, log);
+        ProxyComposition.WriteLooseningWarning(commandLine, log);
 
         // The --fault warning, once, with the other loosening warnings (ADR-0124, decision 4).
         FaultPlanComposition.WriteWarning(commandLine, log);

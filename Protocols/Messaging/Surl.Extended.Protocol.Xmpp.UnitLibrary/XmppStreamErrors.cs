@@ -6,6 +6,9 @@ namespace Surl.Extended.Protocol.Xmpp;
 /// </summary>
 public static class XmppStreamErrors
 {
+    /// <summary>The stream's resource was bound again by a newer stream of the same account (4.9.3.3; 7.7.2.2).</summary>
+    public const string Conflict = "conflict";
+
     /// <summary>No stream header within the head timeout, or no byte within the idle timeout (4.9.3.4).</summary>
     public const string ConnectionTimeout = "connection-timeout";
 

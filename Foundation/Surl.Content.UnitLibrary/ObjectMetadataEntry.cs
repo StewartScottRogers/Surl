@@ -7,6 +7,7 @@ namespace Surl.Content;
 /// <param name="Length">The file's length when the entry was written.</param>
 /// <param name="LastWriteTicks">The file's last write time, in UTC ticks, when the entry was written.</param>
 /// <param name="Generation">The GCS <c>generation</c>.</param>
+/// <param name="Metageneration">The GCS <c>metageneration</c>, at least 1.</param>
 /// <param name="ETag">The ETag, quotes included.</param>
 /// <param name="ContentType">The <c>Content-Type</c> set at upload, or <see langword="null"/>.</param>
 /// <param name="ContentEncoding">The <c>Content-Encoding</c> set at upload, or <see langword="null"/>.</param>
@@ -19,6 +20,7 @@ internal sealed record ObjectMetadataEntry(
     long Length,
     long LastWriteTicks,
     long Generation,
+    long Metageneration,
     string ETag,
     string? ContentType,
     string? ContentEncoding,

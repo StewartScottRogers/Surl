@@ -1,5 +1,6 @@
 using System.Text;
 using Surl.Content;
+using static Surl.Extended.Protocol.Coap.CoapTestExchange;
 
 namespace Surl.Extended.Protocol.Coap;
 
@@ -286,6 +287,107 @@ public sealed class CoapResourceAnswererTests
         var response = await AnswerAsync(store, CoapCode.Get, [.. WellKnownCore, new CoapOption(CoapOptionNumber.ETag, entityTag)]);
 
         Assert.AreEqual(CoapCode.Valid, response.Code);
+    }
+
+    [TestMethod]
+    public async Task AnswerAsync_ResponsesWithAnyOption_CarryEachNonRepeatableOptionAtMostOnce()
+    {
+        var store = new CoapTestStore(CoapTestStore.Uploads).WithFile("big.txt", new string('x', 3000)).WithFile("d.txt", "abc").WithDirectory("box");
+        CoapOption[] validating = [.. Path("d.txt"), new CoapOption(CoapOptionNumber.ETag, CoapTestStore.EntityTagOf(3))];
+
+        CoapResponse[] responses =
+        [
+            await AnswerAsync(store, CoapCode.Get, Path("big.txt")),
+            await AnswerAsync(store, CoapCode.Get, [.. Path("big.txt"), CoapOption.FromUInt(CoapOptionNumber.Size2, 0)]),
+            await AnswerAsync(store, CoapCode.Get, validating),
+            await AnswerAsync(store, CoapCode.Post, Path("box", string.Empty), body: "posted"),
+            await AnswerAsync(store, CoapCode.Put, Path("f.txt"), body: new string('y', 5000)),
+        ];
+
+        foreach (var response in responses)
+        {
+            var repeated = response.Options.GroupBy(option => option.Number).Where(group => group.Count() > 1).Select(group => group.Key);
+            CollectionAssert.IsSubsetOf(repeated.ToArray(), new[] { CoapOptionNumber.LocationPath });
+        }
+    }
+
+    [TestMethod]
+    public async Task AnswerAsync_ResponsesWithoutAPayloadByCode_CarryNone_AndAPayloadOnGetOrDeleteIsIgnored()
+    {
+        var store = new CoapTestStore(CoapTestStore.Uploads).WithFile("d.txt", "abc").WithFile("gone.txt", "bye");
+
+        var valid = await AnswerAsync(store, CoapCode.Get, [.. Path("d.txt"), new CoapOption(CoapOptionNumber.ETag, CoapTestStore.EntityTagOf(3))]);
+        var created = await AnswerAsync(store, CoapCode.Put, Path("new.txt"), body: "n");
+        var changed = await AnswerAsync(store, CoapCode.Put, Path("d.txt"), body: "n");
+        var got = await AnswerAsync(store, CoapCode.Get, Path("gone.txt"), body: "ignored");
+        var deleted = await AnswerAsync(store, CoapCode.Delete, Path("gone.txt"), body: "ignored");
+
+        foreach (var response in new[] { valid, created, changed, deleted })
+        {
+            Assert.IsTrue(response.Payload.IsEmpty);
+        }
+
+        Assert.AreEqual(CoapCode.Content, got.Code);
+        Assert.AreEqual("bye", Encoding.UTF8.GetString(got.Payload.Span));
+        Assert.AreEqual(CoapCode.Deleted, deleted.Code);
+        Assert.IsFalse(store.HasFile("gone.txt"));
+    }
+
+    [TestMethod]
+    public async Task AnswerAsync_ProxyUriBesideUriPath_Is505AndNothingIsServedFromThePath()
+    {
+        var store = new CoapTestStore().WithFile("d.txt", "abc");
+
+        var response = await AnswerAsync(store, CoapCode.Get, [.. Path("d.txt"), CoapOption.FromString(CoapOptionNumber.ProxyUri, "coap://localhost/d.txt")]);
+
+        Assert.AreEqual(CoapCode.ProxyingNotSupported, response.Code);
+        Assert.IsTrue(response.Payload.IsEmpty);
+    }
+
+    [TestMethod]
+    public async Task AnswerAsync_ConditionsOnARequestThatEndsInNeither2xxNor412_AreIgnored()
+    {
+        var store = new CoapTestStore(CoapTestStore.Uploads).WithDirectory("dir");
+        var ifNoneMatch = new CoapOption(CoapOptionNumber.IfNoneMatch, ReadOnlyMemory<byte>.Empty);
+        var wrongIfMatch = new CoapOption(CoapOptionNumber.IfMatch, new byte[] { 9 });
+
+        var missingGet = await AnswerAsync(store, CoapCode.Get, [.. Path("nope"), wrongIfMatch]);
+        var missingDirectory = await AnswerAsync(store, CoapCode.Put, [.. Path("none", "f.txt"), ifNoneMatch], body: "x");
+        var directoryDelete = await AnswerAsync(store, CoapCode.Delete, [.. Path("dir"), wrongIfMatch]);
+        var unservedMethod = await AnswerAsync(store, new CoapCode(0x05), [.. Path("f"), wrongIfMatch]);
+        var dotSegment = await AnswerAsync(store, CoapCode.Get, [.. Path(".."), wrongIfMatch]);
+
+        Assert.AreEqual(CoapCode.NotFound, missingGet.Code);
+        Assert.AreEqual(CoapCode.NotFound, missingDirectory.Code);
+        Assert.AreEqual(CoapCode.MethodNotAllowed, directoryDelete.Code);
+        Assert.AreEqual(CoapCode.MethodNotAllowed, unservedMethod.Code);
+        Assert.AreEqual(CoapCode.BadRequest, dotSegment.Code);
+    }
+
+    [TestMethod]
+    public void RequestPathOf_SegmentsWithReservedOrNonAsciiCharacters_ArePercentEncodedWithUpperCaseHex()
+    {
+        var request = Request(CoapCode.Get, Path("café ü", "a/b", "50%", "~-._"));
+
+        var path = CoapResourceAnswerer.RequestPathOf(CoapRequestOptions.Read(request));
+
+        Assert.AreEqual("/caf%C3%A9%20%C3%BC/a%2Fb/50%25/~-._", path);
+    }
+
+    [TestMethod]
+    public async Task AnswerAsync_EachBlockOfALargeRepresentation_CarriesTheSameETag()
+    {
+        var store = new CoapTestStore().WithFile("big.txt", new string('x', 40));
+        await using var exchange = new CoapTestExchange(store);
+
+        var first = await exchange.SendAsync(CoapCode.Get, "big.txt", Block(CoapOptionNumber.Block2, "0/0/16"));
+        var second = await exchange.SendAsync(CoapCode.Get, "big.txt", Block(CoapOptionNumber.Block2, "1/0/16"));
+        var third = await exchange.SendAsync(CoapCode.Get, "big.txt", Block(CoapOptionNumber.Block2, "2/0/16"));
+
+        foreach (var block in new[] { first, second, third })
+        {
+            CollectionAssert.AreEqual(CoapTestStore.EntityTagOf(40), Option(block, CoapOptionNumber.ETag));
+        }
     }
 
     private static CoapOption[] WellKnownCore => Path(".well-known", "core");

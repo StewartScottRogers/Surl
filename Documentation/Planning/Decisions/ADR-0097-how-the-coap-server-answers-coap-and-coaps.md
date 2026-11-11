@@ -453,3 +453,39 @@ left open:
 - BL-475 needs `Surl.Dtls`'s session to report its usable record size and the peer's PSK identity
   or verified client certificate; BL-414 and BL-415 build those reports (ADR-0087 decision 3, "Who
   the peer is").
+
+**Amendment (2026-11-11, BL-476; decided by Claude under Stewart's delegation).** How `surl` composes
+`coap` and `coaps`:
+
+- **Two registrations in `ExtendedProtocolServers.Registrations`**, `coap` (a `CoapProtocolServer`) and
+  `coaps` (a `DeferredCoapsProtocolServer`), over one `CoapObservations` on `ComposedProtocolServices`, so a
+  change notifies an observer over either scheme (decision 0). Both use one `CoapAccessRules`: `--allow-anonymous`
+  and whether any account is allowed on `coap`.
+- **`coaps` is built on its first flow.** Servers are composed before server TLS has made the certificate,
+  and `SecureCoapProtocolServer` takes its credentials at construction, so `DeferredCoapsProtocolServer` builds it
+  from `ComposedProtocolServices.QuicCertificate` (the one source of the served certificate; it also holds the
+  `--cacert` anchors) when the first flow arrives.
+- **The certificate rule is ADR-0087 decision 3's.** A `coaps` listen URL with no `--cert`, no `--self-signed`
+  and no `--user` or `--user-file` account is refused `(58)` like an implicit-TLS one. With an account and no
+  certificate it serves the PreSharedKey mode alone. A certificate whose key DTLS cannot sign with (not RSA of 2048
+  bits or more, nor ECDSA P-256 or P-384) is `(58) Could not load the server certificate: ...` at start.
+- **PSK identities are user names, keys are their passwords**, from the `--user` and `--user-file` accounts that
+  `MayLogInOn("coaps")`. A pre-shared key cannot come from the hashes the account book keeps, so
+  `ComposedAuthentication.PreSharedKeyAccounts` keeps those accounts with their passwords in memory, for `coaps`
+  alone; `--mailbox` accounts are not included.
+
+**Amendment 1 (2026-11-11, BL-1048; decided by Claude under Stewart's delegation).** What tracing the matrix's
+last 17 rows to tests settled:
+
+- **Max-Age 60 stays explicit (decision 1).** RFC 7252 section 5.4.4 says an option at its default SHOULD NOT be
+  sent; the server still sends Max-Age 60 on `2.05` and `2.03`, because the observation timer re-notifies at the same
+  60 seconds, so the number the client is told is the interval it will see, and tests can read it off the wire A SHOULD NOT,
+  so the exception is allowed and is pinned by a test.
+- **A `5.03` carries Max-Age 1 (decision 7; RFC 7252 section 5.9.3.4).** Fault rules answer `5.03`; the
+  response now names 1 second as the time after which to retry, short so a test that retries does not wait.
+- **A Block1 block with M set must be exactly the size SZX gives (decision 3; RFC 7959 section 2.3).** A shorter
+  or longer one is `4.00`; before, it was accepted.
+- **The "8 requests in progress per flow" bound of decision 7 is not a separate limit.** A flow handles one
+  datagram at a time, so one request is read at a time and the one outstanding CON (NSTART 1) paces the rest.
+- **A Proxy-Uri request is never served as local.** The server is an origin server, not a proxy: Proxy-Uri and
+  Proxy-Scheme are `5.05` whatever their authority, and take precedence over the Uri-* options.

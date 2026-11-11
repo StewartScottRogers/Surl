@@ -75,7 +75,7 @@ glossary's, sections "Mail: SMTP, IMAP and POP3" and "Authentication".
   an empty `MailboxStore` it owns. `SmtpSession.UpstreamTestCase.cs` holds what the case
   changes: `REPLY welcome` replaces the greeting, a `REPLY`'d line is answered with the case's
   text and not run, `EHLO` lists only the case's `CAPA` and `AUTH`, `MAIL` needs no login, a
-  `DATA` body is recorded dot-stuffed in `UploadedBytes` and not delivered, `VRFY` and `EXPN`
+  `DATA` body is recorded dot-stuffed in `UploadedBytes` and not delivered, `VRFY`, `EXPN` and `HELP`
   answer the case's data for the `EHLO` name when it has any, and every command line is
   recorded in `ReceivedBytes`. Without a case the session is unchanged.
 

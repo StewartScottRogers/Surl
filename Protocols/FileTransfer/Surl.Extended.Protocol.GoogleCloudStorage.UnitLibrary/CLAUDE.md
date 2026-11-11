@@ -1,6 +1,7 @@
 # Surl.Extended.Protocol.GoogleCloudStorage.UnitLibrary
 
-The `gs` server (ADR-0110): answers Google Cloud Storage XML API requests over HTTP/1.1 on the shared
+The `gs` server (ADR-0110, ADR-0148): answers Google Cloud Storage XML API requests - and, on the JSON paths, the
+JSON API's reads and delete (BL-1045, below) - over HTTP/1.1 on the shared
 `ContentStore`, whose top-level folders are the buckets (ADR-0100 decision 2). An extended server (ADR-0083):
 judged by the Cloud Storage XML API pages, never by upstream curl (which has no `gs`) and never by the Curl
 port. Namespace `Surl.Extended.Protocol.GoogleCloudStorage`. Its requirement matrix is
@@ -12,7 +13,8 @@ listen URL's host when it is a DNS name, `localhost` and `storage.googleapis.com
 - GET Object and HEAD Object (`?generation=` the current one only, any other `404 NoSuchKey`) - one `Range`
   (`206`, `416 InvalidRange`), the HTTP conditional fields (`GcsConditions`), `x-goog-if-generation-match` and
   `x-goog-if-metageneration-match` (`GcsGenerationConditions`), the stored header fields, `x-goog-meta-*`,
-  `x-goog-generation`, `x-goog-metageneration: 1`, `x-goog-stored-content-*`, `x-goog-storage-class: STANDARD`
+  `x-goog-generation`, `x-goog-metageneration` (the index's recorded value, 1 unless a JSON patch or update raised it,
+BL-1041), `x-goog-stored-content-*`, `x-goog-storage-class: STANDARD`
   and `x-goog-hash` (`crc32c=…,md5=…` of the whole object, computed by `GcsObjectHashes` with
   `BitOperations.Crc32C`, read from the file on every request until BL-773 caches it in the index).
 - PUT Object (`GcsPutObject`): needs `--allow-uploads` (`403 AccessDenied`), `Content-Length` (`411
@@ -65,7 +67,54 @@ listen URL's host when it is a DNS name, `localhost` and `storage.googleapis.com
   code it sends, else `GcsRequestFaults.ChosenErrorMessage`) and publishes one `FaultAppliedEvent`; a reply
   that does not fit, or a delay or drop rule at a request, is noted and the request is served.
 
-Every other request - another method, a subresource or unlisted query parameter, a copy, a `POST` that is no
+- The JSON API (BL-1045, ADR-0148 decisions 1 to 6 and the limits of 8; matrix
+  `Documentation/Conformance/Extended/GoogleCloudStorage-Json.md`). `GcsRequestAnswerer` hands a path-style request
+  whose path begins `/storage/v1/`, `/upload/storage/v1/` or `/download/storage/v1/` (`GcsJsonRoute.IsJsonPath`) to
+  `GcsJsonRequestAnswerer` before any login; a virtual-hosted request is always the XML API. `GcsJsonRoute` recognises
+  `buckets.list` (`project` required), `buckets.get`, `objects.list` (`prefix`, `delimiter`, `startOffset`, `endOffset`,
+  `maxResults`, `pageToken`; `includeTrailingDelimiter` is validated and changes nothing, no file name ending in the
+  delimiter being listed), `objects.get` (resource, or bytes for `alt=media` and the download path; `generation`,
+  `if*Match`, `If-*`, one `Range`; `GcsJsonObjectQuery`, `GcsJsonConditions`) and `objects.delete`, by method, path
+  and the exact query parameters (`%2F` and `/` both separate folders); anything else, `HEAD` included,
+  is `501 notImplemented` after the login. `GcsLoginJudge(isJson: true)` takes Bearer only (a
+  `GOOG4-HMAC-SHA256` header is `400 invalid`) and refuses in `GcsJsonError` rows (`401 required`, `401 authError`,
+  `400 invalid`). Resources are written by `GcsJsonResources` with `Utf8JsonWriter` (`GcsJson`, member order as
+  ADR-0148 decision 3, `etag` the base64 of `<generation>/<metageneration>`, `timeCreated` the generation as a
+  time); errors by `GcsJsonErrorBody`, one line, fixed text. A chosen fault (`GcsJsonFaults`) asks the plan with the
+  Google method id as command (`storage.objects.get`) and the percent-decoded path; its status picks the row, else
+  `backendError`. The metageneration is `ObjectMetadata.Metageneration` in `ObjectMetadataIndex` (BL-1045); a
+  connection refused past a limit is still the XML `503 SlowDown`, the grammar not being known before a request.
+
+- JSON writes (BL-1041, ADR-0148 decision 7). `GcsJsonObjectInsert` answers `POST /upload/storage/v1/b/<bucket>/o`:
+  `uploadType=media` (`name` in the query, required; the body is the object, `Content-Type` of the request or
+  `application/octet-stream`) and `uploadType=multipart` (`GcsMultipartRelatedSink` reads the `multipart/related` body by
+  hand: exactly two parts, the first JSON metadata held up to 1 MiB, the second streamed into an upload session; the
+  metadata's `name` wins over the query's, its `contentType` over the second part's own). Both need `--allow-uploads`
+  (`403 forbidden`), `Content-Length` (`411 lengthRequired`), a length within `--max-filesize` (`413 uploadTooLarge`);
+  check the conditions against the object there now (`GcsJsonConditions.AreMetByWrite`: `ifGenerationMatch=0` means none
+  exists; `412 conditionNotMet`), `Content-MD5`, `x-goog-hash` and the metadata's `md5Hash` and `crc32c` (`400 invalid`,
+  nothing stored), create the name's folders (`409 conflict`) and commit the session only when all pass; a name ending in
+  `/` or past 1024 bytes is `400 invalid`. The object is kept in the index as PUT Object keeps it
+  (`GcsPutObject.StoreMetadataAsync`, metageneration 1; a full index is `403 quotaExceeded`). `GcsJsonObjectUpdate` answers
+  `PATCH` (merge; a `null` removes a member or a `metadata` key) and `PUT` (replace) of `.../o/<object>`: the object found and
+  its conditions met as for a delete, a JSON body of at most 1 MiB (`400 invalid`), writable metadata of at most 8 KiB, the
+  index entry rewritten with the metageneration plus one and the ETag, generation and bytes left alone; a file in a share
+  has no index entry, so it is `403 forbidden`. A malformed `multipart/related` body (no boundary, a third part, a close
+  after one part, no close, bytes before the first delimiter, part fields past 8 KiB) is `400 badRequest`; metadata past
+  1 MiB `400 invalid`.
+
+- JSON resumable uploads (BL-1042, ADR-0148 decision 7 and amendment 2). `GcsJsonResumableUpload` answers `POST /upload/storage/v1/b/<bucket>/o?uploadType=resumable`
+  (`200`, `Location` the session URI `?uploadType=resumable&upload_id=<id>`; the metadata body optional, `X-Upload-Content-Type`
+  and `X-Upload-Content-Length` read; conditions, name and metadata judged at the opening), `PUT` of the session URI (a chunk by
+  `Content-Range`, read by `GcsContentRange`: `308` with `Range` until the total is in, then `200` and the `storage#object`; `bytes */<total>`
+  with no body is a status check) and `DELETE` (`499`). The staged bytes, the 1000-open and 24-hour bounds are the XML API's
+  (`GcsUploadStaging`, `GcsStagedUploads`); a session is `GcsUploadKind.JsonResumable`, found by ID and bucket
+  (`GcsStagedUploads.FindJson`), so an XML ID on a JSON URL, or the reverse, is `404 notFound`. `GcsStagedUpload.Metadata` holds the
+  opening's `ObjectMetadata`, which `GcsUploadStaging.CommitAsync` stores in place of the XML opening's fields.
+
+- JSON copy, rewrite and compose (BL-1043, ADR-0148 decision 7 and amendment 3). `GcsJsonRoute` recognises `POST …/o/<object>/copyTo/b/<bucket>/o/<object>`, `…/rewriteTo/b/…` (route members `RawDestinationBucket`, `RawDestinationName`) and `…/o/<object>/compose`; `GcsJsonObjectCopy` answers copy and rewrite (source read, `sourceGeneration` and `ifSource…` judged, body metadata optional, `storage#object` or the finished `storage#rewriteResponse`; `rewriteToken` ignored) and `GcsJsonObjectCompose` compose (`GcsJsonComposeRequest` reads 1 to 32 sources and the destination's fields). Both write through `GcsJsonObjectAssembly`: name, `--max-filesize` on the sources' total, destination conditions, folders, then the sources' bytes through the hashes into an upload session committed last and kept in the index with metageneration 1.
+
+Every other request - another method, a subresource or unlisted query parameter, an XML API copy, a `POST` that is no
 upload, `x-goog-encryption-*` - is `400 NotImplemented`, judged after the login. Every error is `GcsError`'s fixed
 code and message in the one-line XML body (`GcsErrorBody`); no client byte is echoed, and a `HEAD` error has
 no body. A connection past a limit is `503 SlowDown` (`WriteRefusalAsync`). A head past `--max-request-head`

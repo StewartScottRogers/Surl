@@ -51,8 +51,8 @@ public sealed class SocketDataConnectionOpener : IDataConnectionOpener
 
     /// <inheritdoc/>
     /// <remarks>
-    /// Binds <paramref name="controlLocal"/>'s address - as IPv4 when it is IPv4-mapped - on a
-    /// port the operating system picks.
+    /// Binds <paramref name="controlLocal"/>'s address - as IPv4 when it is IPv4-mapped, or IPv4 loopback
+    /// when the control connection came over a Unix domain socket - on a port the operating system picks.
     /// </remarks>
     /// <exception cref="DataConnectionException">
     /// <see cref="DataConnectionFailure.Unreachable"/> when <paramref name="controlLocal"/> is not
@@ -65,13 +65,15 @@ public sealed class SocketDataConnectionOpener : IDataConnectionOpener
         ArgumentNullException.ThrowIfNull(controlRemote);
         cancellationToken.ThrowIfCancellationRequested();
 
-        if (controlLocal is not IPEndPoint local)
+        var address = controlLocal switch
         {
-            throw new DataConnectionException(
-                DataConnectionFailure.Unreachable, $"The control connection's local end point {controlLocal} has no IP address to listen on.");
-        }
-
-        var address = DataConnectionPeer.Normalize(local.Address);
+            IPEndPoint local => DataConnectionPeer.Normalize(local.Address),
+            // A control connection over a Unix domain socket has no IP address; its peer is on this
+            // machine, so the data connection listens on loopback (ADR-0094, decision 2; BL-605).
+            UnixDomainSocketEndPoint => IPAddress.Loopback,
+            _ => throw new DataConnectionException(
+                DataConnectionFailure.Unreachable, $"The control connection's local end point {controlLocal} has no IP address to listen on."),
+        };
         IPassiveDataSocket socket;
 
         try

@@ -4,7 +4,7 @@ title: Draw a SignalR connectionId that sits beside a connectionToken from the s
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-822, BL-851]
+depends-on: [BL-822, BL-851, BL-1035]
 touches: [Protocols/Http/Surl.Extended.Protocol.SignalR.UnitLibrary, Protocols/Http/Surl.Extended.Protocol.SignalR.UnitTests]
 requirement: none
 created: 2026-11-05
@@ -41,6 +41,10 @@ A SignalR negotiate response that carries a `connectionToken` draws its `connect
 
 ## Notes
 
+- 2026-11-11 (lane 6): Code written, not built - `global.json` pins .NET SDK 10.0.401, which is not installed (BL-1035). The change, left uncommitted for the shift to stash: `SignalRHubConnections.Negotiate` takes an `IIdentifierRandom identifiers` (null-guarded) and draws the `connectionId` from it only when `sendsConnectionToken`; the token, a version 0 `connectionId` and `TakeUpNew`'s ids stay on `RandomNumberGenerator`. `SignalRRequestAnswerer` passes `context.Identifiers`. Tests: new `UnitTestIdentifierRandom` (System.Random by seed), the two named tests plus `Negotiate_NullIdentifiers_Throws`; every existing `Negotiate` call passes a source, and `Negotiate_Twice_GivesFreshIds` uses seeds 1 and 2. Next run: build, run the fast tests, check coverage.
+
 ## Log
 
 - 2026-11-05: Created.
+- 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Backlog. Waits on BL-1035: pinned .NET SDK 10.0.401 is not installed, so dotnet build and the fast tests cannot run

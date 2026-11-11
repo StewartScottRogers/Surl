@@ -74,6 +74,16 @@ internal sealed class GcsStagedUploads(TimeProvider timeProvider)
         open.GetValueOrDefault(uploadId) is { } upload && upload.Kind == kind && upload.IsFor(target) ? upload : null;
 
     /// <summary>
+    /// The open JSON API resumable upload <paramref name="uploadId"/> names, when it was opened for <paramref name="rawBucket"/>;
+    /// the session URI carries no object name, so the bucket is all a request names.
+    /// </summary>
+    /// <param name="uploadId">The upload ID the request sent.</param>
+    /// <param name="rawBucket">The bucket as sent.</param>
+    /// <returns>The upload, or <see langword="null"/>.</returns>
+    public GcsStagedUpload? FindJson(string uploadId, string rawBucket) =>
+        open.GetValueOrDefault(uploadId) is { Kind: GcsUploadKind.JsonResumable } upload && upload.Target.RawBucket == rawBucket ? upload : null;
+
+    /// <summary>
     /// Holds <paramref name="upload"/> open; the caller checked <see cref="HasRoom"/>.
     /// </summary>
     /// <param name="upload">The new upload.</param>

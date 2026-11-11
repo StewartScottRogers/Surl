@@ -26,6 +26,8 @@ The factory stays busy only while the board holds ready, independent work. One r
 | A quiet night: banner only, no sound | add `-QuietAlarm` |
 | Spread the weekly budget evenly instead of burning at the 5-hour pace | add `-WeeklyPace` |
 | A shorter shift, or a task cap | add `-Hours 4` or `-MaxTasks 3` |
+| A hard stretch of work: every run on Opus | add `-Model opus` |
+| Never escalate to a stronger model | add `-EscalationModel ""` |
 
 - **`-NewTab`** opens the shift in a herdr tab in the `Surl` workspace (a console window
   outside herdr). Never start a shift with `Start-Process` or a bare background command.
@@ -34,6 +36,11 @@ The factory stays busy only while the board holds ready, independent work. One r
 - **`-Lanes Auto`** starts at its ceiling and, every 15 minutes, adds one lane or retires
   lanes down to the measured token burn rate, capped by the board's parallel capacity,
   the machine's cap and `-MaxLanes` (default 6).
+- **Models.** Runs use Sonnet (`-Model sonnet`) to save tokens. A run that gets into
+  trouble gets one more try on `-EscalationModel` (default `opus`): a task run that
+  ends still in `Doing`, the split after a task times out, and the second and third
+  try at resolving a rebase conflict. The trace shows each one as `escalate`, and its
+  log file name ends in `-escalated`.
 - **The first `-Lanes Auto` shift on a PC** runs the machine probe before any lane starts
   (a few minutes of parallel builds). Run it on its own beforehand with
   `RunDarkFactory.cmd -ProbeMachine`, only while no shift is building.

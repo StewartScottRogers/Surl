@@ -61,6 +61,23 @@ public sealed class CoapFlowObserversTests
     }
 
     [TestMethod]
+    public async Task ServeAsync_Notification_CarriesAnETagAndTheContentFormatOfTheFirstResponse()
+    {
+        await using var harness = new Harness(new CoapTestStore(CoapTestStore.Uploads).WithFile("a.txt", "one"));
+        var observer = harness.Open(Registration);
+        var first = await observer.ReceiveAsync(1);
+
+        var writer = harness.Open(Request(CoapCode.Put, 7, 0x77, "a.txt", "two"));
+        await writer.ReceiveAsync(1);
+        var notification = await observer.ReceiveAsync(2);
+
+        var entityTag = notification.Options.Single(option => option.Number == CoapOptionNumber.ETag).Value;
+        Assert.AreEqual(8, entityTag.Length);
+        Assert.AreEqual(UIntOf(first, CoapOptionNumber.ContentFormat), UIntOf(notification, CoapOptionNumber.ContentFormat));
+        Assert.AreEqual(0u, UIntOf(notification, CoapOptionNumber.ContentFormat));
+    }
+
+    [TestMethod]
     public async Task ServeAsync_MaxAgeLapsing_SendsANotificationWhetherOrNotTheResourceChanged()
     {
         await using var harness = new Harness(new CoapTestStore().WithFile("a.txt", "one"));
@@ -271,7 +288,7 @@ public sealed class CoapFlowObserversTests
 
         var writer = harness.Open(Request(CoapCode.Delete, 7, 0x77, "CON"));
         writer.Flow.DeliverFromClient(Request(CoapCode.Put, 8, 0x78, "a.txt", "two", ifNoneMatch: true));
-        writer.Flow.DeliverFromClient(Request(CoapCode.Put, 9, 0x79, "a.txt", "two", block1: "0/1/16"));
+        writer.Flow.DeliverFromClient(Request(CoapCode.Put, 9, 0x79, "a.txt", "0123456789abcdef", block1: "0/1/16"));
         await writer.ReceiveAsync(3);
 
         Assert.AreEqual(CoapCode.Deleted, writer.Decode(0).Code);

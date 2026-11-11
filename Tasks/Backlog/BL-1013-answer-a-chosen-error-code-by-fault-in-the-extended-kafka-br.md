@@ -4,7 +4,7 @@ title: Answer a chosen error code by fault in the extended Kafka broker
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-823, BL-785]
+depends-on: [BL-823, BL-785, BL-1035]
 touches: [Protocols/Messaging/Surl.Extended.Protocol.Kafka.UnitLibrary, Protocols/Messaging/Surl.Extended.Protocol.Kafka.UnitTests]
 requirement: FR-062
 created: 2026-11-06
@@ -55,7 +55,22 @@ appending nothing, and for `Fetch` without waiting - instead of serving it, and 
 
 ## Notes
 
+- 2026-11-11 (lane 5): code re-made from the BL-834 stash but not built - `dotnet build` fails with "A compatible
+  .NET SDK was not found" (global.json pins 10.0.401; only 10.0.100-rc.1, 11.0.100-rc.2 and 11.0.100 are installed).
+  Parked behind BL-1035. The shift stashes the uncommitted work; what it holds, for the next run:
+  - `KafkaChosenErrorFault.cs` and `KafkaChosenErrorFaultTests.cs` taken from `S^3`, with the stash's
+    `FaultListenUrl` dropped in favour of `ReportedListenUrl.Format` (Surl.Protocol.Abstractions, which
+    `KafkaCreateTopicsAnswerer` already uses), so `FaultListenUrl.cs`/`FaultListenUrlTests.cs` are not needed.
+  - The stash's doc comment cited ADR-0142, which is the media-type ADR; changed to ADR-0124 decisions 4 and 9.
+  - `KafkaProduceAnswerer` (now async, `AnswerPartition`: request error, chosen error, append) and
+    `KafkaFetchAnswerer` (`FetchRead` takes the chosen codes; a failed partition makes `IsShort` false, so no wait)
+    re-made by hand against the current files.
+  - Decision: the fault is asked directly through `context.Faults.FindAsync`, not `CommandStageFaults`, because the
+    task says a `delay` rule at the command stage is noted and not applied for Produce/Fetch.
+
 ## Log
 
 - 2026-11-06: Created.
 - 2026-11-06: Split from BL-834 (timed out after 120 min); reuses its Kafka work from stash `darkfactory BL-834 20261106-033059`.
+- 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Backlog. Waits on BL-1035: pinned .NET SDK 10.0.401 is not installed, so dotnet build cannot run; code re-made and left for the shift to stash

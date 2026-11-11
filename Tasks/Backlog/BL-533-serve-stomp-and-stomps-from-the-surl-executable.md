@@ -4,8 +4,8 @@ title: Serve stomp and stomps from the surl executable
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-532, BL-405, BL-635]
-touches: [Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests, Application/Surl.Console, Application/Surl.Console.UnitTests, Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests]
+depends-on: [BL-532, BL-405, BL-635, BL-1035]
+touches: [Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests, Application/Surl.Console, Application/Surl.Console.UnitTests, Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests, Foundation/Surl.Protocol.Abstractions.UnitLibrary]
 requirement: none
 created: 2026-11-04
 completed:
@@ -44,6 +44,32 @@ The `--aihelp` topic and help category exist, and the extension switch turns bot
   `SurlServerComposition`. So the stomp registration and its bus-sharing test belong in Surl.Composition and its
   tests, and both are added to `touches`. BL-803 (Doing) touches Surl.Composition, so the task waits in Backlog
   until that task no longer overlaps.
+- 2026-11-11 (lane 2): Implemented in full, then parked behind BL-1035. The pinned .NET SDK 10.0.401 is not
+  installed, so `dotnet build` cannot resolve an SDK and the build gate cannot pass (as with BL-1011 and BL-1017).
+  The work stays uncommitted in the lane, and the shift stashes it. With `global.json` pointed for a while at the
+  installed 10.0.100-rc.1 SDK (and put back afterwards), Surl.Composition.UnitTests (225), Surl.Cli.UnitTests
+  (1238) and Surl.Console.UnitTests passed, and so did every other fast test project. Only Surl.Core.UnitTests
+  failed to build, because the rc compiler raises CS1998 in `FaultPlanTests.Overrides.cs`, a file this task does
+  not touch. What the change does:
+  - `Foundation/Surl.Protocol.Abstractions.UnitLibrary` added to touches: `stomps` joins `TlsSchemes`, because
+    `ImplicitTlsSchemeServer` and the serving engine both read that list (ADR-0118 decision 8: `stomps` is TLS from
+    the first byte). No task in Doing names that project. BL-1007 touches only Abstractions.UnitTests, and no
+    test there pins the full list.
+  - `ExtendedProtocolServers.Registrations`: `new(["stomp"], ...)` builds a `StompServer` from
+    `AuthenticationPolicyFor("stomp")`, the one `MessageBus` and `StompServerOptions { IdleTimeout }`. After it
+    comes `ProtocolServerRegistration.ImplicitTls("stomps", "stomp")`. The Composition csproj references the
+    Stomp library.
+  - Tests: `ExtendedProtocolServersTests.Compose_ThisBuild_BuildsTheStompBrokerOverTheOneBusTheMqttServerIsBuiltOver`
+    and `..._BuildsTheStompBrokerWithTheIdleTimeout`. `CommandLineRunnerExtendedProtocolTests`: the switch at zero
+    refuses both schemes `(1)`, both listen on their default ports 61613 and 61614, and `stomps` without a
+    certificate gives `(58)`.
+  - Cli: a `stomp` help category ("STOMP and STOMPS protocol (extended)"), an `AiHelpProse` topic, an example,
+    a STOMP OPTIONS section in the manual, and `stomp` added to the categories of nine options (the same ones
+    `nats` has), with the pinned help, aihelp and manual tests updated.
+  - Default chosen: `stomps` goes through `ImplicitTlsSchemeServer`, which does not forward
+    `IConnectionRefusalWriter`. So a `stomps` connection past `--max-connections` is closed with no bytes, not
+    answered ERROR `Too many connections`; every implicit-TLS scheme behaves the same way today. File a
+    follow-up if that matters.
 
 ## Log
 
@@ -51,3 +77,5 @@ The `--aihelp` topic and help category exist, and the extension switch turns bot
 - 2026-11-04: Amended for Stewart's shared-stores approval of 2026-11-04: waits on BL-635; composed with the one shared bus.
 - 2026-11-05: Backlog -> Doing.
 - 2026-11-05: Doing -> Backlog. Needs Application/Surl.Composition.UnitLibrary, which BL-803 (Doing) touches
+- 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Backlog. Waits on BL-1035: the pinned .NET SDK 10.0.401 is not installed, so dotnet build cannot pass; the stomp/stomps work is done and stashed by the shift

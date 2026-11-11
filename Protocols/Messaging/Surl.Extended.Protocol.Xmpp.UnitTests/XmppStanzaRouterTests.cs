@@ -109,6 +109,37 @@ public sealed class XmppStanzaRouterTests
     }
 
     [TestMethod]
+    public async Task AnswerAsync_MessageWithNoTo_IsHandledAsAddressedToTheSendersBareJid()
+    {
+        var server = NewServer();
+        var juliet = await OpenAsync(server, "juliet", "balcony");
+        var chamber = await OpenAsync(server, "juliet", "chamber");
+
+        var answers = await SendAsync(juliet, "<message><body>Note to self</body></message>");
+
+        Assert.AreEqual(
+            "<message from=\"juliet@im.example.com/balcony\" xmlns=\"jabber:client\"><body>Note to self</body></message>", answers);
+        StringAssert.Contains(Received(chamber), "<body>Note to self</body>");
+        await CloseAsync(juliet, chamber);
+    }
+
+    [TestMethod]
+    public async Task AnswerAsync_MessageOfUnknownType_IsTreatedAsNormalAndDeliveredToTheBareJidsStreams()
+    {
+        var server = NewServer();
+        var juliet = await OpenAsync(server, "juliet", "balcony");
+        var romeo = await OpenAsync(server, "romeo", "orchard");
+
+        var answers = await SendAsync(romeo, "<message to='juliet@im.example.com' type='gossip'><body>Hi</body></message>");
+
+        Assert.AreEqual(string.Empty, answers);
+        StringAssert.Contains(Received(juliet), "<body>Hi</body>");
+        var unanswered = await SendAsync(romeo, "<message to='nobody@im.example.com' type='gossip'><body>Hi</body></message>");
+        StringAssert.Contains(unanswered, $"<service-unavailable {Stanzas} />");
+        await CloseAsync(juliet, romeo);
+    }
+
+    [TestMethod]
     [DataRow("headline")]
     [DataRow("error")]
     public async Task AnswerAsync_HeadlineOrErrorToAUserWithNoStream_IsDropped(string type)
@@ -480,7 +511,7 @@ public sealed class XmppStanzaRouterTests
     }
 
     [TestMethod]
-    public async Task AnswerAsync_RecipientsConnectionFails_IsNotedAndTheSenderKept()
+    public async Task AnswerAsync_RecipientsConnectionFails_IsNotedInTheRecipientsLogAndTheSenderKept()
     {
         var server = NewServer();
         var juliet = await OpenAsync(server, "juliet", "balcony");
@@ -490,14 +521,12 @@ public sealed class XmppStanzaRouterTests
         var answers = await SendAsync(juliet, "<message to='romeo@im.example.com/orchard'><body>Hi</body></message>");
 
         Assert.AreEqual(string.Empty, answers);
-        CollectionAssert.Contains(
-            juliet.Log.Notes.ToList(),
-            "A message from juliet@im.example.com/balcony could not be written to romeo@im.example.com/orchard; its connection failed.");
+        await WaitUntilAsync(() => romeo.Log.Notes.Any(note => note.StartsWith("A routed stanza could not be written", StringComparison.Ordinal)));
         await CloseAsync(juliet, romeo);
     }
 
     [TestMethod]
-    public async Task AnswerAsync_RecipientsWritesCancelled_IsNoted()
+    public async Task AnswerAsync_RecipientsWritesCancelled_IsNotedInTheRecipientsLog()
     {
         var server = NewServer();
         var juliet = await OpenAsync(server, "juliet", "balcony");
@@ -506,7 +535,7 @@ public sealed class XmppStanzaRouterTests
 
         await SendAsync(juliet, "<message to='romeo@im.example.com/orchard'><body>Hi</body></message>");
 
-        Assert.IsTrue(juliet.Log.Notes.Any(note => note.EndsWith("could not be written to romeo@im.example.com/orchard; its connection failed.", StringComparison.Ordinal)));
+        await WaitUntilAsync(() => romeo.Log.Notes.Any(note => note.StartsWith("A routed stanza could not be written", StringComparison.Ordinal)));
         romeo.Connection.WritesAreCancelled = false;
         await CloseAsync(juliet, romeo);
     }
@@ -538,6 +567,51 @@ public sealed class XmppStanzaRouterTests
         await CloseAsync(juliet, romeo);
     }
 
+    [TestMethod]
+    public async Task ServeAsync_RecipientWhoseWritesNeverComplete_LeavesTheSenderFreeToSendAndBeAnswered()
+    {
+        var server = NewServer();
+        var juliet = await OpenAsync(server, "juliet", "balcony");
+        var romeo = await OpenAsync(server, "romeo", "orchard");
+        romeo.Connection.WritesWaitFor = new TaskCompletionSource().Task;
+
+        var answers = await SendAsync(juliet, "<message to='romeo@im.example.com/orchard' type='chat'><body>Hi</body></message>");
+        var second = await SendAsync(juliet, "<message to='nobody@im.example.com/none' type='chat'><body>Hi</body></message>");
+
+        Assert.AreEqual(string.Empty, answers);
+        StringAssert.Contains(second, $"<service-unavailable {Stanzas} />");
+        Assert.AreEqual(string.Empty, Received(romeo));
+        romeo.Connection.Abort();
+        juliet.Connection.Close();
+        await Task.WhenAll(juliet.Serving, romeo.Serving).WaitAsync(TestContext.CancellationToken);
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_RecipientWithMoreThan16MiBRoutedUnsent_EndsWithPolicyViolationAndTheSenderGetsNoError()
+    {
+        var server = NewServer();
+        var juliet = await OpenAsync(server, "juliet", "balcony", ExchangeLimits.Default with { MaxMessageBytes = 1024 * 1024 });
+        var romeo = await OpenAsync(server, "romeo", "orchard");
+        var slowReader = new TaskCompletionSource();
+        romeo.Connection.WritesWaitFor = slowReader.Task;
+        var body = new string('a', 512 * 1024);
+
+        var answers = new StringBuilder();
+        for (var number = 0; number < 33; number++)
+        {
+            answers.Append(await SendAsync(juliet, $"<message to='romeo@im.example.com/orchard' type='chat'><body>{body}</body></message>"));
+        }
+
+        slowReader.SetResult();
+        await romeo.Serving.WaitAsync(TestContext.CancellationToken);
+        StringAssert.EndsWith(
+            romeo.Connection.Written,
+            "<stream:error><policy-violation xmlns='urn:ietf:params:xml:ns:xmpp-streams'/></stream:error></stream:stream>");
+        Assert.AreEqual(string.Empty, answers.ToString());
+        juliet.Connection.Close();
+        await juliet.Serving;
+    }
+
     // Accepts any user over PLAIN in plain text, as the account the message names.
     private static XmppServer NewServer() => new(new XmppServerOptions
     {
@@ -552,7 +626,7 @@ public sealed class XmppStanzaRouterTests
         },
     });
 
-    private async Task<TestStream> OpenAsync(XmppServer server, string user, string resource)
+    private async Task<TestStream> OpenAsync(XmppServer server, string user, string resource, ExchangeLimits? limits = null)
     {
         var connection = new UnitTestXmppClientConnection();
         var log = new RecordingExchangeLog();
@@ -563,7 +637,10 @@ public sealed class XmppStanzaRouterTests
             new IPEndPoint(IPAddress.Loopback, 50000),
             log,
             new ManualTimeProvider(),
-            TestContext.CancellationToken);
+            TestContext.CancellationToken)
+        {
+            Limits = limits ?? ExchangeLimits.Default,
+        };
         var serving = server.ServeAsync(connection, context);
         connection.Send(ClientHeader + Auth("PLAIN", Base64($"\0{user}\0pencil")));
         await WaitUntilAsync(() => connection.Written.Contains(Success, StringComparison.Ordinal));

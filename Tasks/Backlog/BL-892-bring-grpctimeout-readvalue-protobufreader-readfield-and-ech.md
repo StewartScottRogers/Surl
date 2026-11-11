@@ -4,7 +4,7 @@ title: Bring GrpcTimeout.ReadValue, ProtobufReader.ReadField and EchoRequest.Rea
 priority: Normal
 assignee: Claude
 pipeline: direct
-depends-on: []
+depends-on: [BL-1035]
 touches: [Protocols/Http/Surl.Extended.Protocol.Grpc.UnitLibrary, Protocols/Http/Surl.Extended.Protocol.Grpc.UnitTests]
 requirement: none
 created: 2026-11-05
@@ -31,6 +31,10 @@ completed:
 
 ## Notes
 
+- 2026-11-11 (lane 6): `dotnet build` fails with "A compatible .NET SDK was not found" - global.json pins 10.0.401 and only 10.0.100-rc.1, 11.0.100-rc.2 and 11.0.100 are installed. No change can be verified, so the task waits on BL-1035.
+
 ## Log
 
 - 2026-11-05: Created.
+- 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Backlog. Waits on BL-1035 - pinned .NET SDK 10.0.401 is not installed, so nothing can be built or measured

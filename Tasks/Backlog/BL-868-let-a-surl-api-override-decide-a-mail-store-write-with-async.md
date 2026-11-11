@@ -4,7 +4,7 @@ title: Let a Surl.Api override decide a mail store write with async Deliver and 
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-788, BL-811]
+depends-on: [BL-788, BL-811, BL-1035]
 touches: [Protocols/Mail/Surl.MailStore.UnitLibrary, Protocols/Mail/Surl.MailStore.UnitTests, Protocols/Mail/Surl.Protocol.Smtp.UnitLibrary, Protocols/Mail/Surl.Protocol.Smtp.UnitTests, Protocols/Mail/Surl.Protocol.Imap.UnitLibrary, Protocols/Mail/Surl.Protocol.Imap.UnitTests]
 requirement: none
 created: 2026-11-05
@@ -38,6 +38,25 @@ A `Surl.Api` response override (BL-811) that answers asynchronously can make an 
 
 ## Notes
 
+- 2026-11-11 (lane 6): Code written but never built - `dotnet build` fails because global.json pins
+  SDK 10.0.401 and only 10.0.100-rc.1 and 11.0.x are installed (BL-1035). The work is uncommitted and
+  the shift stashes it. What it does:
+  - `MailboxStore.DeliverAsync(recipients, message, cancellationToken)` and
+    `AppendAsync(view, mailboxName, message, flags, internalDate, cancellationToken)` returning a new
+    `MailAppendResult(Outcome, Stored)` record struct; both await the plan through `IsOutOfSpaceAsync`
+    before `DeliverPending` / `AppendPending` take the lock. Sync methods kept.
+  - Decision: an async plan answer that throws is served as no rule (as ADR-0124 decision 5 serves a
+    throwing hook, and as the sync path already does); an `OperationCanceledException` propagates, so a
+    closing session stores nothing. Record this as an amendment to ADR-0127 decision 5 (add
+    `Documentation/Planning/Decisions/ADR-0127-...md` to touches; no Doing task names it).
+  - `SmtpSession.DeliverAsync` and `ImapSession.Changes.AppendAsync` now call the async methods with the
+    session's `CancellationToken`.
+  - Thirteen new `MailboxStoreOutOfSpaceTests` (`DeliverAsync_*`, `AppendAsync_*`).
+  - Still to do: build, fast tests, coverage, ADR amendment, update the library's CLAUDE.md line
+    "(BL-868 makes the writes async)".
+
 ## Log
 
 - 2026-11-05: Created by BL-788.
+- 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Backlog. waiting on BL-1035: pinned .NET SDK 10.0.401 is not installed, so nothing builds; code is written and stashed by the shift

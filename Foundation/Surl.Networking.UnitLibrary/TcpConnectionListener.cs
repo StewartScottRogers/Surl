@@ -22,13 +22,15 @@ public sealed class TcpConnectionListener : IConnectionListener
     private readonly IReadOnlyList<Socket> listeningSockets;
     private readonly AcceptRace<AcceptedSocket> acceptRace;
     private readonly ServerTlsHandshake? tlsHandshake;
+    private readonly TimeProvider timeProvider;
 
     // Reads each listening socket's local endpoint and sets the bound port on the listen URL.
     [ExcludeFromCodeCoverage(Justification = "Reads Socket.LocalEndPoint; covered by the integration tests.")]
-    private TcpConnectionListener(ListenUrl listenUrl, IReadOnlyList<Socket> listeningSockets, ServerTlsSettings? tlsSettings)
+    private TcpConnectionListener(ListenUrl listenUrl, IReadOnlyList<Socket> listeningSockets, ServerTlsSettings? tlsSettings, TimeProvider timeProvider)
     {
         this.listeningSockets = listeningSockets;
         tlsHandshake = ServerTlsHandshake.ForListener(tlsSettings, listenUrl);
+        this.timeProvider = timeProvider;
         BoundEndPoints = [.. listeningSockets.Select(LocalEndPointOf)];
         ListenUrl = listenUrl.WithBoundPort(BoundPortOf(listeningSockets[0]));
         acceptRace = new AcceptRace<AcceptedSocket>(listeningSockets.Count, AcceptFromSocketAsync, ReleaseAcceptedSocket);
@@ -76,6 +78,7 @@ public sealed class TcpConnectionListener : IConnectionListener
     /// <param name="listenUrl">What to listen on.</param>
     /// <param name="tlsSettings">The process's TLS settings, or <see langword="null"/> for connections that cannot be secured.</param>
     /// <param name="cancellationToken">Cuts the host-name resolution off.</param>
+    /// <param name="timeProvider">Times each accepted connection's peek waits and closes; <see langword="null"/> for <see cref="TimeProvider.System"/>.</param>
     /// <returns>The listener, once every address is bound; its listen URL carries the bound port.</returns>
     /// <exception cref="ListenerBindException">
     /// The host did not resolve, or an address could not be bound; nothing stays bound.
@@ -83,12 +86,12 @@ public sealed class TcpConnectionListener : IConnectionListener
     // Resolves with Dns.GetHostAddressesAsync and binds with Socket.Bind and Socket.Listen.
     [ExcludeFromCodeCoverage(Justification = "Calls Dns and binds sockets; covered by the integration tests.")]
     public static async ValueTask<TcpConnectionListener> StartAsync(
-        ListenUrl listenUrl, ServerTlsSettings? tlsSettings, CancellationToken cancellationToken)
+        ListenUrl listenUrl, ServerTlsSettings? tlsSettings, CancellationToken cancellationToken, TimeProvider? timeProvider = null)
     {
         var addresses = await new ListenAddressResolver(Dns.GetHostAddressesAsync).ResolveAsync(listenUrl, cancellationToken);
         var sockets = ListenerBinder.BindAll(listenUrl, addresses, BindListeningSocket, BoundPortOf, ReleaseSocket);
 
-        return new TcpConnectionListener(listenUrl, sockets, tlsSettings);
+        return new TcpConnectionListener(listenUrl, sockets, tlsSettings, timeProvider ?? TimeProvider.System);
     }
 
     /// <inheritdoc/>
@@ -167,7 +170,8 @@ public sealed class TcpConnectionListener : IConnectionListener
             accepted.LocalEndPoint,
             accepted.RemoteEndPoint,
             new SocketTransportControl(accepted.Socket),
-            tlsHandshake);
+            tlsHandshake,
+            timeProvider);
 
     // Calls Socket.AcceptAsync on the listening socket with the given index, then turns
     // Nagle's algorithm off, so small replies are not held back waiting for the client's

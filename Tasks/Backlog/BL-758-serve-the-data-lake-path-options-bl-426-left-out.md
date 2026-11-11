@@ -4,7 +4,7 @@ title: Serve the Data Lake path options BL-426 left out
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-426]
+depends-on: [BL-426, BL-1035]
 touches: [Protocols/FileTransfer/Surl.Extended.Protocol.AzureStorage.UnitLibrary, Protocols/FileTransfer/Surl.Extended.Protocol.AzureStorage.UnitTests]
 requirement: none
 created: 2026-11-05
@@ -43,6 +43,12 @@ ADR-0109 decisions 1, 5.2, 5.4 and 5.5 describe them.
 
 ## Notes
 
+- 2026-11-11 (lane 5): `dotnet` cannot build here: `global.json` pins SDK 10.0.401 with `rollForward: latestFeature`, and the machine has only 10.0.100-rc.1, 11.0.100-rc.2 and 11.0.100, so every `dotnet` command answers "A compatible .NET SDK was not found". Returned to Backlog behind BL-1035 (Stewart reinstalls the SDK). Lane 6's earlier work is still on branch `factory/BL-758-lane-6-20261111-060243`; start from it.
+
 ## Log
 
 - 2026-11-05: Created.
+- 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Backlog. Lane 6 could not integrate: build failed after rebasing onto the other lanes' work. The work is on branch factory/BL-758-lane-6-20261111-060243; start with git cherry-pick --no-commit factory/BL-758-lane-6-20261111-060243 and fix it.
+- 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Backlog. Waits on BL-1035: pinned .NET SDK 10.0.401 is not installed, so nothing builds

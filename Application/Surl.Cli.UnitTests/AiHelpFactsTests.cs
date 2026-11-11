@@ -110,7 +110,7 @@ public sealed class AiHelpFactsTests
             .ToArray();
 
         CollectionAssert.AreEquivalent(
-            new[] { "allow-uploads", "list-directories", "follow-symlinks", "serve-dot-files", "allow-zone-transfer", "tlsv1.0", "tlsv1.1", "allow-weak-ssh-algorithms" },
+            new[] { "allow-uploads", "list-directories", "follow-symlinks", "serve-dot-files", "allow-zone-transfer", "tlsv1.0", "tlsv1.1", "allow-weak-ssh-algorithms", "proxy-allow-origin" },
             widening);
     }
 
@@ -155,6 +155,7 @@ public sealed class AiHelpFactsTests
     }
 
     [TestMethod]
+    [DataRow("coap", new[] { "coap", "coaps" })]
     [DataRow("dict", new[] { "dict" })]
     [DataRow("dns", new[] { "dns" })]
     [DataRow("gopher", new[] { "gopher", "gophers" })]
@@ -166,8 +167,11 @@ public sealed class AiHelpFactsTests
     [DataRow("s3", new[] { "s3" })]
     [DataRow("smb", new[] { "smb", "smbs" })]
     [DataRow("smtp", new[] { "smtp", "smtps" })]
+    [DataRow("socketio", new[] { "socketio", "socketios" })]
     [DataRow("telnet", new[] { "telnet" })]
     [DataRow("tftp", new[] { "tftp" })]
+    [DataRow("webtransport", new[] { "webtransport" })]
+    [DataRow("xmpp", new[] { "xmpp", "xmpps" })]
     public void ProtocolCategory_ClaimsItsSchemes(string name, string[] schemes)
     {
         Assert.IsTrue(HelpCategories.TryFind(name, out var category));
@@ -180,7 +184,7 @@ public sealed class AiHelpFactsTests
     {
         var withSchemes = HelpCategories.All.Where(category => category.Schemes.Count > 0).Select(category => category.Name);
 
-        CollectionAssert.AreEqual(new[] { "dict", "dns", "ftp", "gopher", "http", "imap", "ldap", "mqtt", "nats", "pop3", "rtsp", "s3", "smb", "smtp", "ssh", "telnet", "tftp", "websocket" }, withSchemes.ToArray());
+        CollectionAssert.AreEqual(new[] { "coap", "dict", "dns", "ftp", "gopher", "http", "imap", "ldap", "mqtt", "nats", "pop3", "rtsp", "s3", "smb", "smtp", "socketio", "ssh", "telnet", "tftp", "websocket", "webtransport", "xmpp" }, withSchemes.ToArray());
     }
 
     [TestMethod]

@@ -4,8 +4,8 @@ title: Apply command-stage delay and drop fault rules in the MQTT and LDAP serve
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-901, BL-797]
-touches: [Protocols/Messaging/Surl.Protocol.Mqtt.UnitLibrary, Protocols/Messaging/Surl.Protocol.Mqtt.UnitTests, Protocols/Messaging/Surl.Protocol.Ldap.UnitLibrary, Protocols/Messaging/Surl.Protocol.Ldap.UnitTests]
+depends-on: [BL-901, BL-797, BL-1035]
+touches: [Protocols/Messaging/Surl.Protocol.Mqtt.UnitLibrary, Protocols/Messaging/Surl.Protocol.Mqtt.UnitTests, Protocols/Messaging/Surl.Protocol.Ldap.UnitLibrary, Protocols/Messaging/Surl.Protocol.Ldap.UnitTests, Documentation/Planning/Decisions/ADR-0139-how-the-mqtt-and-ldap-servers-answer-a-chosen-error.md]
 requirement: none
 created: 2026-11-06
 completed:
@@ -44,6 +44,22 @@ makes the server hold its answer `ms` on the injected `TimeProvider`, or abort t
 Filed by BL-901 (2026-11-06, dark factory lane 9): BL-902, BL-907, BL-909 and BL-914 cover the other families;
 MQTT and LDAP had none.
 
+2026-11-11, dark factory lane 4:
+- The ADR the task calls ADR-0140 is ADR-0141 ("How a server applies a command-stage delay or drop"); ADR-0140 is QUIC.
+- Added ADR-0139's file to `touches`: criterion 3 edits it, and no task in Doing names it.
+- Written but NOT built or tested: the pinned .NET SDK 10.0.401 is not installed on the factory machine
+  (`dotnet --list-sdks` has 10.0.100-rc.1 and 11.0.100), so `dotnet build` fails at SDK resolution. Returned to
+  Backlog behind BL-1035 (Stewart: reinstall the SDK). The code is left uncommitted for the shift to stash; the
+  next run should apply that stash, then build, run the fast tests and measure coverage before ticking boxes.
+- Design: both servers call `CommandStageFaults.FindAndApplyAsync` in their existing `FindChosen...Async`; a drop
+  sets `isDroppedByAFault`, after which MQTT sends no CONNACK/SUBACK, asks no further SUBSCRIBE filter and
+  publishes nothing, and LDAP sends no response and ends the session. `FaultListenUrl` copies are deleted in
+  favour of `ReportedListenUrl.Format`. The old "delay is noted and not applied" tests became "out-of-space is
+  noted and not applied". New tests: MqttFaultTests (SUBSCRIBE delay, PUBLISH/CONNECT/SUBSCRIBE drop) and
+  LdapFaultTests (search delay, search/compare/add drop).
+
 ## Log
 
 - 2026-11-06: Created.
+- 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Backlog. Waiting on BL-1035: the pinned .NET SDK 10.0.401 is not installed, so nothing builds; code written and left for the shift to stash

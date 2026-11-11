@@ -4,7 +4,7 @@ title: Name the exchange that made each message bus change in its event
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-790]
+depends-on: [BL-790, BL-1035]
 touches: [Protocols/Messaging/Surl.MessageBus.UnitLibrary, Protocols/Messaging/Surl.MessageBus.UnitTests]
 requirement: none
 created: 2026-11-05
@@ -43,6 +43,10 @@ that made it and scope an out-of-space rule by `scheme` or `listener`.
 
 Filed by BL-790's run (dark factory lane 1).
 
+2026-11-11 (lane 6): not started. `dotnet build` fails with "A compatible .NET SDK was not found": `global.json` pins 10.0.401 and the machine has only 10.0.100-rc.1, 11.0.100-rc.2 and 11.0.100. Added BL-1035 (Stewart reinstalls the SDK) to `depends-on`; the board offers this task again once it is Done.
+
 ## Log
 
 - 2026-11-05: Created.
+- 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Backlog. Waits on BL-1035 - pinned .NET SDK 10.0.401 is not installed, so dotnet build cannot run

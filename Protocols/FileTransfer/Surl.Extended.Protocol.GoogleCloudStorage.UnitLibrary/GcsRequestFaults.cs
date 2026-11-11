@@ -48,7 +48,7 @@ internal static class GcsRequestFaults
 
     // RFC 9110 section 15's reason phrases for the client and server errors, with RFC 6585's; any
     // other status goes with an empty reason phrase, which RFC 9112 section 4 allows.
-    private static readonly FrozenDictionary<int, string> ReasonPhrases = new Dictionary<int, string>
+    internal static readonly FrozenDictionary<int, string> ReasonPhrases = new Dictionary<int, string>
     {
         [400] = "Bad Request",
         [401] = "Unauthorized",

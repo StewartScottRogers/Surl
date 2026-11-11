@@ -4,7 +4,7 @@ title: Serve grpc and grpcs from the surl executable
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-444, BL-405]
+depends-on: [BL-444, BL-405, BL-1035]
 touches: [Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests, Application/Surl.Console, Application/Surl.Console.UnitTests, Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests, Foundation/Surl.Networking.UnitLibrary, Foundation/Surl.Networking.UnitTests]
 requirement: none
 created: 2026-11-04
@@ -46,8 +46,14 @@ and help category exist, and the extension switch turns both off.
   `Surl.Composition.UnitTests`. Both are added to `touches`. BL-803 (in Doing) touches the same projects, so this
   task goes back to Backlog until BL-803 frees them, as BL-433 did.
 
+- 2026-11-11 (lane 2): Returned to Backlog behind BL-1035: `dotnet build` fails with "SDK not found" because
+  global.json pins .NET SDK 10.0.401 and this machine has only 10.0.100-rc.1 and 11.0.x, so no gate can be
+  checked. No code was written.
+
 ## Log
 
 - 2026-11-04: Created.
 - 2026-11-05: Backlog -> Doing.
 - 2026-11-05: Doing -> Backlog. Needs Application/Surl.Composition.UnitLibrary and .UnitTests (ExtendedProtocolServers.Registrations), which BL-803 in Doing touches; resume once BL-803 frees Surl.Composition
+- 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Backlog. Waiting on BL-1035: pinned .NET SDK 10.0.401 is not installed, so dotnet build cannot run

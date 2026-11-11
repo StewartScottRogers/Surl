@@ -1,7 +1,7 @@
 # ADR-0088 — How Surl serves the HTTP `CONNECT` proxy and the HTTPS proxy
 
 - **Status:** Accepted
-- **Date:** 2026-11-04; Amendment 1 (BL-552) 2026-11-05; Amendment 2 (BL-554) 2026-11-05; Amendment 3 (BL-553) 2026-11-05; Amendment 4 (BL-594) 2026-11-06
+- **Date:** 2026-11-04; Amendment 1 (BL-552) 2026-11-05; Amendment 2 (BL-554) 2026-11-05; Amendment 3 (BL-553) 2026-11-05; Amendment 4 (BL-594) 2026-11-06; Amendment 5 (BL-1002) 2026-11-11
 - **Decided by:** Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), 2026-11-04,
   in BL-550. Built by BL-551 (decision 2's contract), BL-552 (decisions 1, 3, 4 and the limits of
   decision 7), BL-553 (decision 5), BL-554 (decision 6), BL-555 (decision 7's command line) and
@@ -441,3 +441,90 @@ Windows reference build (`Surl.Protocol.HttpProxy.UnitTests/Fixtures`, `ftp-forw
   curl's connection, as a relayed body that ends early does.
 - **Methods:** only `GET`; any other method to an `ftp` target stays `501` (curl's `-I` and uploads
   through an HTTP proxy are not served yet). Every scheme but `http` and `ftp` stays `501`.
+
+## Amendment 5 - how `Surl.Cli` reads decision 7's arguments, settled by BL-1002 (2026-11-11)
+
+Decided by Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), in BL-1002, the first
+of the three tasks BL-555 was split into. Nothing here is a byte curl sends or expects, so nothing
+was measured; each choice is the narrowest reading of decision 7.
+
+- **Members.** `SurlCommandLine` gains `ProxyListenUrls`, `ProxyAccounts`, `ProxyUserFile` and
+  `ProxyAllowedOrigins`, each empty or `null` by default, so a command line without the options
+  keeps today's behaviour. BL-1004 adds the option rows that fill them; BL-1003 composes them.
+- **`--proxy <url>`** is read by `ListenUrlParser.ParseProxy`: ADR-0007 section 4's rules
+  unchanged, schemes and default ports from `ProxyDefaultPorts` (`http` 1080, `https` 443), and
+  `ListenUrl.IsProxy` set on every result (Amendment 2). Any other scheme is
+  `UnsupportedProtocol` (1) with the listen URL text `(1) Protocol "<scheme>" not supported`; a
+  malformed one is `MalformedUrl` (3) as a bare listen URL is.
+- **`-U`/`--proxy-user`** reuses `-u`'s `OptionArgumentReader.ReadAccount` and its refusals, and
+  `--proxy-user-file` reuses `ReadPath`; no refusal text holds the password. Their exit code, as for
+  every option argument refused, is `FailedInit` (2) with `option <name>: <reason>`.
+- **`--proxy-allow-origin`** is `*` or an address with an optional `/prefix`, read into a
+  `ProxyAllowedOrigin`. Strictly literal, so a range means one thing on every platform: an IPv4
+  address is exactly four decimal parts of 0 to 255 (no `127.1` or hexadecimal shorthand, which
+  `IPAddress.TryParse` accepts); an IPv6 address is hexadecimal digits, `:` and `.` only (no
+  brackets, zone or port); an IPv4-mapped IPv6 address is taken as IPv4, as `AllowedOriginRule`
+  compares it, and its prefix is then IPv4's. No prefix is the one address (32 or 128 bits).
+  Refusals: empty `blank argument where content is expected`, a bad address `expected an IPv4 or
+  IPv6 address, an address/prefix, or *`, a bad prefix `the prefix length is not 0 to 32 for IPv4
+  or 0 to 128 for IPv6`, each `FailedInit` (2). A host name is refused: decision 2 checks
+  addresses after resolution, so a name in the rule would decide nothing.
+- **`surl-mcp`** (ADR-0103 decision 4): `start_server`'s loopback rule covers `ProxyListenUrls` as
+  it covers listen URLs, and `--proxy-user-file` is a path confined to the host's root, so an agent
+  cannot open a proxy beyond loopback or read a file outside the root once BL-1004's rows exist.
+
+## Amendment 6 - how `Surl.Composition` composes the proxies, settled by BL-1003 (2026-11-11)
+
+Decided by Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), in BL-1003, the second
+of the three tasks BL-555 was split into. Nothing here is a byte curl sends or expects, so nothing was
+measured.
+
+- **One server per scheme, chosen per listen URL.** The serving engine maps a scheme to one server, and
+  `http` and `https` already name the HTTP server, so `ProxyRoutingProtocolServer` wraps every server
+  answering them (the `http` entry and the `https` `ImplicitTlsSchemeServer`) and hands an exchange to
+  the one `HttpProxyProtocolServer` when `ExchangeContext.ListenUrl.IsProxy`, else to the wrapped server.
+  Nothing is wrapped when no `--proxy` is given, so every start without one is as before. A connection
+  refused over a connection limit is written by the origin server's refusal writer, because the refusal
+  is written before any request is read and the listen URL is not known there.
+- **Proxy listen URLs are listen URLs.** `ComposeAsync` appends `ProxyListenUrls` to `ListenUrls`, so the
+  certificate refusal `(58)` for an `https` proxy without `--cert` or `--self-signed`, the status lines,
+  the bind failures and the TLS handshake with ALPN `http/1.1` (Amendment 2, by `IsProxy`) are the existing
+  ones.
+- **The allowed-origin rule** is `AllowedOriginRule.LoopbackOnly`, widened by each `--proxy-allow-origin`
+  (`*` is `EveryAddress`) and narrowed by each proxy listen URL's own end point. A proxy host that is not
+  an address refuses its port on every address, the safe reading; a proxy on port 0 has no port to refuse
+  until it binds, so a request to the proxy's own ephemeral port is not refused (a test that needs the
+  loop refused gives the proxy a port). The connector is a `SocketOriginConnector` on the instance's
+  `TimeProvider`, replaceable through `SurlServerCompositionSeams.CreateOriginConnector`, and rides on
+  `ComposedProtocolServices.OriginConnector` for the SOCKS server (BL-560).
+- **Proxy accounts** are `-U` then `--proxy-user-file`, alone, with the default method set and the two
+  loosening switches `--allow-anonymous` and `--allow-plaintext-auth`; none gives a policy that asks for no
+  login (`ComposedProtocolServices.ProxyAuthenticationPolicy`). An unreadable proxy user file is `(37)` and a
+  malformed one `(2)`, worded as the `--user-file`'s are (`Could not read user file <file>`), before the lock is
+  taken. BL-1040's `--proxy-auth` will replace the default method set.
+- **`--proxy-allow-origin '*'`** writes `surl: warning: --proxy-allow-origin: the proxy connects to every
+  origin address, not only loopback` from the info level up, with the other loosening warnings.
+
+## Amendment 7 - the option rows and the proxy topic, settled by BL-1004 (2026-11-11)
+
+Decided by Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), in BL-1004, the last of the
+three tasks BL-555 was split into. Nothing here is a byte curl sends or expects, so nothing was measured.
+
+- **Rows.** `CommandLineOptions` gains `-x`/`--proxy`, `-U`/`--proxy-user`, `--proxy-user-file` and
+  `--proxy-allow-origin`, filling the `SurlCommandLine` members Amendment 5 added. `--proxy` is read
+  where it is given, as `--url` is: the parser adds the `ListenUrlParser.ParseProxy` result to
+  `ProxyListenUrls`, so a `-K` config line `proxy = http://127.0.0.1:3128` reads the same. `-U` has
+  `ArgumentHoldsSecret`, as `-u` has.
+- **A proxy is a listen URL.** A command line with only proxy listen URLs is served: the "no URL
+  specified" refusal needs neither `ListenUrls` nor `ProxyListenUrls`.
+- **No Unix socket.** `--unix-socket` and `--abstract-unix-socket` serve one listen URL on one socket;
+  with a proxy listen URL they are refused `(2) option --unix-socket: cannot be used with --proxy`
+  (`--abstract-unix-socket` likewise), because the composed proxy is a second listener on TCP. The
+  narrowest reading; a later task may lift it.
+- **Help.** A `proxy` help category and `--aihelp` topic with no schemes (the proxy is chosen by
+  `--proxy`, not by a scheme, so no scheme topic claims it); `--proxy`, `--proxy-user`,
+  `--proxy-user-file` and `--proxy-allow-origin` are in it, the two accounts options also in `auth`. A
+  `PROXY OPTIONS` section joins `--manual`. `--proxy-allow-origin` is in `security`, not `testing`: it
+  widens what the proxy may reach, warns only for `*`, and is a deployment choice like `--allow-uploads`,
+  so it has no loosening explanation. Its argument is `<address>` in the help rows to keep the help
+  columns as they were; its allowed values state the full form.

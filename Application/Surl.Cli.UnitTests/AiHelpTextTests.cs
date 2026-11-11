@@ -12,8 +12,8 @@ public sealed partial class AiHelpTextTests
     // ADR-0046 decision 3's sixteen topics, smtp (BL-207), imap (BL-208), pop3 (BL-209), websocket (BL-303), smb (BL-299), rtsp (BL-317), ldap (BL-310), extended (BL-405), nats (BL-528), s3 (BL-421), control (BL-815), mail (BL-653, ADR-0101 decision 7) and dns (BL-1032), in ordinal order.
     private static readonly string[] AdrTopicNames =
     [
-        "auth", "content", "control", "dict", "dns", "exit-codes", "extended", "ftp", "gopher", "http", "imap", "ldap", "limits", "listen-urls",
-        "logging", "mail", "mqtt", "nats", "pop3", "rtsp", "s3", "security", "smb", "smtp", "ssh", "surl", "telnet", "testing", "tftp", "tls", "websocket",
+        "auth", "coap", "content", "control", "dict", "dns", "exit-codes", "extended", "ftp", "gopher", "http", "imap", "ldap", "limits", "listen-urls",
+        "logging", "mail", "mqtt", "nats", "pop3", "proxy", "rtsp", "s3", "security", "smb", "smtp", "socketio", "ssh", "surl", "telnet", "testing", "tftp", "tls", "websocket", "webtransport", "xmpp",
     ];
 
     // ADR-0046 decision 4's section headings, in order, on every topic page.
@@ -24,6 +24,7 @@ public sealed partial class AiHelpTextTests
         "| Topic | Covers |",
         "| --- | --- |",
         "| `auth` | Accounts and authentication methods |",
+        "| `coap` | CoAP and CoAPS protocol (extended) |",
         "| `content` | Served files and the data directory |",
         "| `control` | The loopback test control endpoint |",
         "| `dict` | DICT protocol |",
@@ -42,11 +43,13 @@ public sealed partial class AiHelpTextTests
         "| `mqtt` | MQTT and MQTTS protocol |",
         "| `nats` | NATS and NATSS protocol (extended) |",
         "| `pop3` | POP3 and POP3S protocol |",
+        "| `proxy` | HTTP and HTTPS proxy |",
         "| `rtsp` | RTSP protocol |",
         "| `s3` | Amazon S3 protocol (extended) |",
         "| `security` | Options that widen what a peer may do |",
         "| `smb` | SMB and SMBS protocol |",
         "| `smtp` | SMTP and SMTPS protocol |",
+        "| `socketio` | Socket.IO and Socket.IO over TLS protocol (extended) |",
         "| `ssh` | SSH protocol |",
         "| `surl` | The command line tool itself |",
         "| `telnet` | TELNET protocol |",
@@ -54,6 +57,8 @@ public sealed partial class AiHelpTextTests
         "| `tftp` | TFTP protocol |",
         "| `tls` | TLS certificates and versions |",
         "| `websocket` | WebSocket protocol |",
+        "| `webtransport` | WebTransport over HTTP/3 protocol (extended) |",
+        "| `xmpp` | XMPP and XMPPS protocol (extended) |",
     ];
 
     [TestMethod]
@@ -629,6 +634,7 @@ public sealed partial class AiHelpTextTests
             "surl: (6) Could not resolve host: <host>",
             "surl: (58) <url> needs a certificate: give --cert <file>, or --self-signed for a throwaway one",
             "surl: warning: --self-signed: serving a throwaway certificate; clients must skip verification (curl -k)",
+            "surl: warning: --proxy-allow-origin: the proxy connects to every origin address, not only loopback",
             "surl: (37) Could not read host certificate <file>",
             "surl: (2) Host certificate <file>: not an OpenSSH host certificate",
             "surl: (2) Host certificate <file>: certifies no --hostkey key",

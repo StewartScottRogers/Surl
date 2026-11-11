@@ -4,7 +4,7 @@ title: Bring McpStreamSession.CancelRequest to complexity 10 or less
 priority: Normal
 assignee: Claude
 pipeline: direct
-depends-on: []
+depends-on: [BL-1035]
 touches: [Protocols/Http/Surl.McpServing.UnitLibrary, Protocols/Http/Surl.McpServing.UnitTests]
 requirement: none
 created: 2026-11-05
@@ -33,3 +33,5 @@ reading of `params.requestId`) without changing behaviour; the existing `McpStre
 ## Log
 
 - 2026-11-05: Created.
+- 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Backlog. Waits on BL-1035: pinned .NET SDK 10.0.401 is not installed, so dotnet build cannot run

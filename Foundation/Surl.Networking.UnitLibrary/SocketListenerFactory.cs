@@ -12,6 +12,7 @@ namespace Surl.Networking;
 public sealed class SocketListenerFactory : IListenerFactory
 {
     private readonly ServerTlsSettings? tlsSettings;
+    private readonly TimeProvider timeProvider;
 
     /// <summary>
     /// Creates a factory whose connections cannot be secured.
@@ -26,7 +27,22 @@ public sealed class SocketListenerFactory : IListenerFactory
     /// <paramref name="tlsSettings"/> when upgraded (ADR-0010).
     /// </summary>
     /// <param name="tlsSettings">The process's TLS settings, or <see langword="null"/> for none.</param>
-    public SocketListenerFactory(ServerTlsSettings? tlsSettings) => this.tlsSettings = tlsSettings;
+    public SocketListenerFactory(ServerTlsSettings? tlsSettings)
+        : this(tlsSettings, null)
+    {
+    }
+
+    /// <summary>
+    /// Creates a factory as <see cref="SocketListenerFactory(ServerTlsSettings?)"/> does, whose connections
+    /// time their peek waits and closes by <paramref name="timeProvider"/> (ADR-0124, decision 6).
+    /// </summary>
+    /// <param name="tlsSettings">The process's TLS settings, or <see langword="null"/> for none.</param>
+    /// <param name="timeProvider">The instance's clock; <see langword="null"/> for <see cref="TimeProvider.System"/>.</param>
+    public SocketListenerFactory(ServerTlsSettings? tlsSettings, TimeProvider? timeProvider)
+    {
+        this.tlsSettings = tlsSettings;
+        this.timeProvider = timeProvider ?? TimeProvider.System;
+    }
 
     /// <inheritdoc/>
     /// <remarks>
@@ -36,8 +52,8 @@ public sealed class SocketListenerFactory : IListenerFactory
     [ExcludeFromCodeCoverage(Justification = "Delegates to the listeners' StartAsync, which bind sockets; covered by SocketListenerFactoryTests and UnixSocketConnectionListenerTests.")]
     public async ValueTask<IConnectionListener> StartConnectionListenerAsync(ListenUrl listenUrl, CancellationToken cancellationToken) =>
         listenUrl.UnixSocket is null
-            ? await TcpConnectionListener.StartAsync(listenUrl, tlsSettings, cancellationToken)
-            : await UnixSocketConnectionListener.StartAsync(listenUrl, tlsSettings, cancellationToken);
+            ? await TcpConnectionListener.StartAsync(listenUrl, tlsSettings, cancellationToken, timeProvider)
+            : await UnixSocketConnectionListener.StartAsync(listenUrl, tlsSettings, cancellationToken, timeProvider);
 
     /// <inheritdoc/>
     [ExcludeFromCodeCoverage(Justification = "Delegates to UdpDatagramListener.StartAsync, which binds sockets; covered by the integration tests.")]

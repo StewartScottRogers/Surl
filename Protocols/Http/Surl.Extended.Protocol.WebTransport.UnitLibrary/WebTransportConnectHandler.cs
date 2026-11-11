@@ -124,7 +124,7 @@ internal sealed class WebTransportConnectHandler(
     {
         using var timer = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         var reading = session.ReadClientSettingsAsync(timer.Token);
-        var timeout = Task.Delay(context.Limits.HeadTimeout, context.TimeProvider, timer.Token);
+        var timeout = Task.Delay(WebTransportHeadTimeoutDelay.For(context.Limits.HeadTimeout), context.TimeProvider, timer.Token);
         var first = await Task.WhenAny(reading, timeout);
         await timer.CancelAsync();
         return first == reading ? await reading : null;

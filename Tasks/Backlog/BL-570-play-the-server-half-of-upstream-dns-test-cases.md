@@ -4,7 +4,7 @@ title: Play the server half of upstream dns test cases
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-569, BL-481, BL-391, BL-393]
+depends-on: [BL-569, BL-481, BL-391, BL-393, BL-1035]
 touches: [Conformance/Surl.Conformance.UnitLibrary, Conformance/Surl.Conformance.UnitTests, Protocols/Lookup/Surl.Extended.Protocol.DnsQuery.UnitLibrary, Protocols/Lookup/Surl.Extended.Protocol.DnsQuery.UnitTests, Documentation/Conformance]
 requirement: none
 created: 2026-11-04
@@ -48,6 +48,33 @@ server-name table in `Surl.Conformance.UnitLibrary` says built, and each case ge
 
 ## Notes
 
+- 2026-11-11, lane 1: returned to Backlog behind BL-1035. `dotnet build` fails with "A compatible
+  .NET SDK was not found": `global.json` pins 10.0.401 and only 10.0.100-rc.1, 11.0.100-rc.2 and
+  11.0.100 are installed. Nothing could be built or tested, so nothing was committed.
+- Work in progress, left uncommitted for the shift's stash (unbuilt, untested):
+  - `DnsQueryUpstreamTestCaseReplies` (DNS library): reads `<dns>` lines as `dnsd.c` does - one
+    `A: ` and one `AAAA: ` (a later line replaces an earlier one; `AAAA: ` may be bracketed, as
+    `%HOST6IP` is `[::1]`); a value not of its family (`none`) gives no record. Every other line
+    name throws `NotSupportedException` with the name as its message. Builds a root zone (`..zone`,
+    synthesized SOA) whose wildcard `*.` holds the A and AAAA at TTL 2580 (`dnsd`'s fixed TTL), plus
+    a TXT at `wildcard-anchor.*.` so the wildcard node always exists and a missing type is NODATA,
+    never NXDOMAIN. `QueryLog` holds `QNAME <name> QTYPE <A|AAAA|HTTPS|<unknown>>`, no trailing dot.
+  - `DnsUpstreamTestCaseServer` (`IDatagramProtocolServer`): logs, then answers with
+    `DnsQueryAnswerer` and `DnsUdpResponseWriter`; no fault plan.
+  - `DnsUpstreamTestCaseServerTests`: hand-written RFC 1035/3596 response bytes for A and AAAA,
+    NODATA cases, unsupported lines, the query log. Still to split into one test class per
+    production class (`DnsQueryUpstreamTestCaseRepliesTests`).
+- `dnsd.c` was read from a local curl 8.22.0 source tree (`/tmp/curl822/.../tests/server/dnsd.c`),
+  not tag `curl-8_21_0`; check the tag's copy before relying on the TTL and the line forms.
+- Still to do: flip the `dns` row in `UpstreamTestCaseServers` (and give rows a port variable,
+  `DNSPORT` for `dns`), an `UpstreamTestCaseServerCommands` `dns` row equal to
+  `SupportedLineNames` checked by the selector against `<reply><dns>` line names, compose the server
+  half in `UpstreamTestCaseServerHalves` on `%DNSPORT`, record 2102-2104 as
+  `feature-missing:override-dns` per pin (ADR-0123 decision 3), the CLAUDE.md files, and file the
+  `<verify><dns>` check in `UpstreamTestCaseVerifyChecker` as a follow-up task.
+
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Backlog. Waits on BL-1035: pinned .NET SDK 10.0.401 is not installed, so nothing builds; DNS seam work left uncommitted

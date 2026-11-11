@@ -4,7 +4,7 @@ title: Answer a chosen protocol error by fault in the extended Redis server
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-823]
+depends-on: [BL-823, BL-1035]
 touches: [Protocols/DataStore/Surl.Extended.Protocol.Redis.UnitLibrary, Protocols/DataStore/Surl.Extended.Protocol.Redis.UnitTests]
 requirement: FR-062
 created: 2026-11-06
@@ -36,6 +36,12 @@ command with the chosen text as a RESP error `-<text>`.
 
 ## Notes
 
+- 2026-11-11 (lane 3): Re-applied lane 6's work (branch factory/BL-985-lane-6-20261111-060243, commits e6c10970 and e4c6e40c) onto the shift branch. With SDK 11.0.100 run from outside the repository the whole solution builds clean with -warnaserror and the Redis tests pass (389/389). The integration failure is not the code: `dotnet build` at the repository root fails because global.json pins SDK 10.0.401, which is not installed (BL-1035, Stewart). Parked behind BL-1035, as BL-1006 is; once it is Done, cherry-pick that branch again and finish.
+
 ## Log
 
 - 2026-11-06: Created.
+- 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Backlog. Lane 6 could not integrate: build failed after rebasing onto the other lanes' work. The work is on branch factory/BL-985-lane-6-20261111-060243; start with git cherry-pick --no-commit factory/BL-985-lane-6-20261111-060243 and fix it.
+- 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Backlog. Waiting on BL-1035: pinned .NET SDK 10.0.401 is not installed, so the root dotnet build fails; the code builds and its 389 tests pass with SDK 11 (branch factory/BL-985-lane-6-20261111-060243).

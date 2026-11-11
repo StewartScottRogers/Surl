@@ -26,8 +26,9 @@ namespace Surl.Protocol.Tftp;
 /// length), which the client acknowledges with ACK 0; then DATA 1, 2 and on, each sent once
 /// the one before is acknowledged, the block number wrapping from 65535 to 0. A file whose
 /// length is a multiple of the block size ends with an empty DATA packet (RFC 1350
-/// section 6). Both modes, <c>octet</c> and <c>netascii</c>, send the file's bytes exactly
-/// as stored, because upstream curl writes the DATA bytes it receives unchanged in either.
+/// section 6). An <c>octet</c> read sends the file's bytes exactly as stored. A <c>netascii</c>
+/// read sends RFC 1350 netascii: each LF as CR LF and each CR as CR NUL, with <c>tsize</c>
+/// answered with the converted length (ADR-0013 amendment, BL-855).
 /// </para>
 /// <para>
 /// A write request (<c>WRQ</c>, <c>curl -T</c>) names the file the same way. It is answered
@@ -187,9 +188,21 @@ public sealed class TftpProtocolServer : IDatagramProtocolServer, IDatagramRefus
             return;
         }
 
-        var negotiation = TftpNegotiation.ForRead(request.Options, status.Length);
-        context.Log.Note($"{label}: {status.Length} bytes of {mapping.Location} in blocks of {negotiation.BlockSize}");
-        await new TftpReadTransfer(flow, context, contentStore, mapping, status.Length, negotiation).RunAsync();
+        byte[]? netasciiBytes = null;
+        if (request.Mode == "netascii")
+        {
+            netasciiBytes = await TftpNetascii.ReadEncodedAsync(contentStore, mapping, status.Length, context.CancellationToken);
+            if (netasciiBytes is null)
+            {
+                await SendErrorAsync(flow, context, TftpErrorCode.NotDefined, "The file changed while it was sent.", $"{mapping.Location} shrank while it was read");
+                return;
+            }
+        }
+
+        var sentLength = netasciiBytes?.Length ?? status.Length;
+        var negotiation = TftpNegotiation.ForRead(request.Options, sentLength);
+        context.Log.Note($"{label}: {sentLength} bytes of {mapping.Location} in blocks of {negotiation.BlockSize}");
+        await new TftpReadTransfer(flow, context, contentStore, mapping, sentLength, negotiation, netasciiBytes).RunAsync();
     }
 
     private async Task AnswerWriteAsync(IDatagramFlow flow, ExchangeContext context, TftpRequest request, ContentPathMapping mapping, string label)

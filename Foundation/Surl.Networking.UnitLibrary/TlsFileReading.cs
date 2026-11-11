@@ -19,13 +19,14 @@ internal static class TlsFileReading
     /// <param name="path">The file.</param>
     /// <param name="failure">The failure a file that cannot be read is.</param>
     /// <param name="option">The option that named the file, for the message.</param>
+    /// <param name="readFile">Reads a file's bytes; <see langword="null"/> reads the disk.</param>
     /// <returns>The file's bytes.</returns>
     /// <exception cref="TlsFileLoadException">The file cannot be read.</exception>
-    public static byte[] ReadAllBytes(string path, TlsFileLoadFailure failure, string option)
+    public static byte[] ReadAllBytes(string path, TlsFileLoadFailure failure, string option, Func<string, byte[]>? readFile = null)
     {
         try
         {
-            return File.ReadAllBytes(path);
+            return (readFile ?? File.ReadAllBytes)(path);
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or ArgumentException)
         {

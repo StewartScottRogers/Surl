@@ -61,6 +61,27 @@ public sealed class TelnetProtocolServer : IConnectionProtocolServer
 {
     private const int ReadBufferBytes = 4096;
 
+    private readonly TelnetUpstreamTestCaseReplies? upstreamTestCaseReplies;
+
+    /// <summary>
+    /// Creates the server as <c>Surl.Console</c> composes it: banner, CRLF echo and <c>quit</c>.
+    /// </summary>
+    public TelnetProtocolServer()
+    {
+    }
+
+    /// <summary>
+    /// Creates the server half of an upstream curl test case: echo-and-close mode
+    /// (<see cref="TelnetUpstreamTestCaseReplies"/>). Never composed by the shipped <c>surl</c>.
+    /// </summary>
+    /// <param name="upstreamTestCaseReplies">The case's idle period and record of what was received.</param>
+    public TelnetProtocolServer(TelnetUpstreamTestCaseReplies upstreamTestCaseReplies)
+    {
+        ArgumentNullException.ThrowIfNull(upstreamTestCaseReplies);
+
+        this.upstreamTestCaseReplies = upstreamTestCaseReplies;
+    }
+
     /// <summary>
     /// The one scheme answered: <c>telnet</c>.
     /// </summary>
@@ -79,22 +100,45 @@ public sealed class TelnetProtocolServer : IConnectionProtocolServer
         ArgumentNullException.ThrowIfNull(context);
 
         var cancellationToken = context.CancellationToken;
-        var session = new TelnetSession(context.Log, context.Limits.MaxLineBytes);
+        var session = new TelnetSession(context.Log, context.Limits.MaxLineBytes, upstreamTestCaseReplies is not null);
         var buffer = new byte[ReadBufferBytes];
 
         await WriteOutboundAsync(connection, session, cancellationToken);
         while (!session.IsOver)
         {
-            var read = await connection.ReadAsync(buffer, cancellationToken);
-            if (read == 0)
+            var read = await ReadAsync(connection, buffer, context);
+            if (read is null or 0)
             {
                 session.ReceiveClose();
 
                 return;
             }
 
-            await ReceiveAsync(session, buffer.AsMemory(0, read), context);
+            upstreamTestCaseReplies?.Record(buffer.AsSpan(0, read.Value));
+            await ReceiveAsync(session, buffer.AsMemory(0, read.Value), context);
             await WriteOutboundAsync(connection, session, cancellationToken);
+        }
+    }
+
+    // Reads once; in echo-and-close mode, once the client has sent something, gives up after the
+    // case's idle period and returns null so the connection closes.
+    private async Task<int?> ReadAsync(IConnection connection, byte[] buffer, ExchangeContext context)
+    {
+        var cancellationToken = context.CancellationToken;
+        if (upstreamTestCaseReplies is not { HasReceivedAnything: true })
+        {
+            return await connection.ReadAsync(buffer, cancellationToken);
+        }
+
+        using var idle = new CancellationTokenSource(upstreamTestCaseReplies.IdlePeriod, context.TimeProvider);
+        using var either = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, idle.Token);
+        try
+        {
+            return await connection.ReadAsync(buffer, either.Token);
+        }
+        catch (OperationCanceledException) when (idle.IsCancellationRequested && !cancellationToken.IsCancellationRequested)
+        {
+            return null;
         }
     }
 

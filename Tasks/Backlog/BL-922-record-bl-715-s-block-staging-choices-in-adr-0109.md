@@ -4,7 +4,7 @@ title: Record BL-715's block staging choices in ADR-0109
 priority: Normal
 assignee: Claude
 pipeline: docs
-depends-on: [BL-715]
+depends-on: [BL-715, BL-1035]
 touches: [Documentation/Planning/Decisions/ADR-0109-how-the-azure-storage-server-answers-az-abfs-and-abfss.md]
 requirement: none
 created: 2026-11-06
@@ -42,7 +42,12 @@ Stewart's delegation".
 ## Notes
 
 - Filed by BL-715.
+- 2026-11-11 (lane 4): the ADR-0109 edit is finished and sits on branch factory/BL-922-lane-6-20261111-060243 (commit 86dba2a3; take only its ADR file, the task file there is in Done). `dotnet build` fails at HEAD for every task because global.json pins SDK 10.0.401, which is not installed (BL-1035), so the shift cannot integrate even this Markdown-only change. Returned to Backlog behind BL-1035, as BL-920 and BL-927 were.
 
 ## Log
 
 - 2026-11-06: Created.
+- 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Backlog. Lane 6 could not integrate: build failed after rebasing onto the other lanes' work. The work is on branch factory/BL-922-lane-6-20261111-060243; start with git cherry-pick --no-commit factory/BL-922-lane-6-20261111-060243 and fix it.
+- 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Backlog. Waits on BL-1035: pinned .NET SDK 10.0.401 is not installed, so dotnet build fails; ADR edit is ready on factory/BL-922-lane-6-20261111-060243

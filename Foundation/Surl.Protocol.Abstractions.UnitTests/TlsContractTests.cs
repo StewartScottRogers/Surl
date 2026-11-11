@@ -18,6 +18,8 @@ public sealed class TlsContractTests
     [DataRow("mqtts")]
     [DataRow("smbs")]
     [DataRow("s3", DisplayName = "The extended s3 is HTTPS (ADR-0108, decision 5)")]
+    [DataRow("socketios", DisplayName = "The extended socketios is Socket.IO inside TLS (ADR-0120)")]
+    [DataRow("xmpps", DisplayName = "The extended xmpps is XMPP with direct TLS (XEP-0368)")]
     [DataRow("HTTPS")]
     public void IsImplicitTls_ImplicitTlsScheme_IsTrue(string scheme)
     {
@@ -36,6 +38,7 @@ public sealed class TlsContractTests
     [DataRow("mqtt")]
     [DataRow("smb")]
     [DataRow("tftp")]
+    [DataRow("socketio", DisplayName = "The extended socketio is plain HTTP (ADR-0120)")]
     [DataRow("oci", DisplayName = "An extended scheme no ADR serves over TLS")]
     [DataRow("")]
     public void IsImplicitTls_PlaintextOrUpgradeScheme_IsFalse(string scheme)

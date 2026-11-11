@@ -77,7 +77,7 @@ public sealed class UpstreamTestCaseSelector(UpstreamTestCaseSelectionRules rule
 
     private string? FindServerCommandUnsupported(CaseFacts facts) =>
         facts.ServerCommands
-            .Where(command => !rules.SupportsServerCommand(facts.Servers[0], command))
+            .Where(command => !facts.Servers.Any(server => rules.SupportsServerCommand(server, command)))
             .Select(UpstreamTestCaseSkipReasons.ServerCommandUnsupported)
             .FirstOrDefault();
 

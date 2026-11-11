@@ -158,12 +158,22 @@ internal sealed class GcsPutObject(ContentStore store, ObjectMetadataIndex index
     /// <param name="caller">Who writes.</param>
     /// <returns><see langword="null"/>, or <c>409 InvalidObjectName</c> for a file in the way, or
     /// <c>403 AccessDenied</c> for a folder the store would not create.</returns>
-    internal GcsError? CreateFolders(GcsRequestTarget target, ContentCaller caller)
+    internal GcsError? CreateFolders(GcsRequestTarget target, ContentCaller caller) =>
+        CreateFolders(target.RawBucket, target.RawName, caller);
+
+    /// <summary>
+    /// Creates each folder the object name holds, when missing.
+    /// </summary>
+    /// <param name="rawBucket">The bucket as sent.</param>
+    /// <param name="rawName">The object name as sent.</param>
+    /// <param name="caller">Who writes.</param>
+    /// <returns>As the overload taking a target.</returns>
+    internal GcsError? CreateFolders(string rawBucket, string rawName, ContentCaller caller)
     {
-        var segments = target.RawName.Split('/');
+        var segments = rawName.Split('/');
         for (var count = 1; count < segments.Length; count++)
         {
-            var folder = store.MapBucketRequestPathForCaller($"/{target.RawBucket}/{string.Join('/', segments[..count])}", caller);
+            var folder = store.MapBucketRequestPathForCaller($"/{rawBucket}/{string.Join('/', segments[..count])}", caller);
             if (CreateFolder(folder) is { } refusal)
             {
                 return refusal;
@@ -264,15 +274,30 @@ internal sealed class GcsPutObject(ContentStore store, ObjectMetadataIndex index
     /// <param name="now">The upload time, which becomes the generation.</param>
     /// <param name="cancellationToken">Cancels writing the index.</param>
     /// <returns>The refusal, or <see langword="null"/> and the object's generation.</returns>
-    internal async Task<(GcsError? Refusal, long Generation)> StoreMetadataAsync(IReadOnlyList<KeyValuePair<string, string>> fields, GcsRequestTarget target, ContentPathMapping mapping, string eTag, DateTimeOffset now, CancellationToken cancellationToken)
+    internal Task<(GcsError? Refusal, long Generation)> StoreMetadataAsync(IReadOnlyList<KeyValuePair<string, string>> fields, GcsRequestTarget target, ContentPathMapping mapping, string eTag, DateTimeOffset now, CancellationToken cancellationToken) =>
+        StoreMetadataAsync(target.RawBucket, target.RawName, mapping, MetadataOf(fields), eTag, now, cancellationToken);
+
+    /// <summary>
+    /// Keeps a written object's metadata, as built, in the index, for a file the index keys; refused there,
+    /// the object is removed.
+    /// </summary>
+    /// <param name="rawBucket">The bucket as sent.</param>
+    /// <param name="rawName">The object's name as sent.</param>
+    /// <param name="mapping">Where the object's file is.</param>
+    /// <param name="metadata">The metadata; its ETag and generation are set here.</param>
+    /// <param name="eTag">The ETag the object is kept with.</param>
+    /// <param name="now">The upload time, which becomes the generation.</param>
+    /// <param name="cancellationToken">Cancels writing the index.</param>
+    /// <returns>The refusal, or <see langword="null"/> and the object's generation.</returns>
+    internal async Task<(GcsError? Refusal, long Generation)> StoreMetadataAsync(string rawBucket, string rawName, ContentPathMapping mapping, ObjectMetadata metadata, string eTag, DateTimeOffset now, CancellationToken cancellationToken)
     {
-        if (GcsIndexKey.OfRaw(store, target.RawBucket, target.RawName) is not { } indexKey)
+        if (GcsIndexKey.OfRaw(store, rawBucket, rawName) is not { } indexKey)
         {
             return (null, GcsGeneration.Of(store.GetFileStatus(mapping)!.LastModifiedUtc));
         }
 
         var generation = GcsGeneration.Of(now);
-        var stored = await index.StoreAsync(indexKey, MetadataOf(fields, eTag, generation), cancellationToken);
+        var stored = await index.StoreAsync(indexKey, metadata with { ETag = eTag, Generation = generation }, cancellationToken);
         if (stored.StorageFailure is { } failure)
         {
             log.Note($"The object metadata index could not be written: {failure}");
@@ -288,7 +313,7 @@ internal sealed class GcsPutObject(ContentStore store, ObjectMetadataIndex index
     }
 
     /// <summary>
-    /// The answer to a stored object: <c>200</c> with its ETag, generation and <c>x-goog-hash</c>.
+    /// The answer to a stored object: <c>200</c> with its ETag, generation, metageneration 1 (new data resets it; ADR-0148, decision 3) and <c>x-goog-hash</c>.
     /// </summary>
     /// <param name="reply">The request's answers.</param>
     /// <param name="digests">The object's digests.</param>
@@ -300,13 +325,13 @@ internal sealed class GcsPutObject(ContentStore store, ObjectMetadataIndex index
             [
                 new("ETag", digests.ETag),
                 new("x-goog-generation", generation.ToString(CultureInfo.InvariantCulture)),
-                new("x-goog-metageneration", GcsGeneration.Metageneration.ToString(CultureInfo.InvariantCulture)),
+                new("x-goog-metageneration", "1"),
                 new("x-goog-hash", digests.HashField),
                 new("Content-Length", "0"),
             ],
             HttpAnswerBody.None);
 
-    private static ObjectMetadata MetadataOf(IReadOnlyList<KeyValuePair<string, string>> fields, string eTag, long generation) => new()
+    private static ObjectMetadata MetadataOf(IReadOnlyList<KeyValuePair<string, string>> fields) => new()
     {
         ContentType = GcsRequestFields.Value(fields, "Content-Type"),
         ContentEncoding = GcsRequestFields.Value(fields, "Content-Encoding"),
@@ -314,8 +339,6 @@ internal sealed class GcsPutObject(ContentStore store, ObjectMetadataIndex index
         CacheControl = GcsRequestFields.Value(fields, "Cache-Control"),
         ContentLanguage = GcsRequestFields.Value(fields, "Content-Language"),
         UserMetadata = UserMetadata(fields),
-        ETag = eTag,
-        Generation = generation,
     };
 
     // Each x-goog-meta-* field by its name, lower-cased and without the prefix; a repeated name keeps its last value.
@@ -330,6 +353,11 @@ internal sealed class GcsPutObject(ContentStore store, ObjectMetadataIndex index
         return metadata;
     }
 
-    private static int UserMetadataBytes(Dictionary<string, string> metadata) =>
+    /// <summary>
+    /// The UTF-8 bytes of custom metadata names and values together.
+    /// </summary>
+    /// <param name="metadata">The custom metadata.</param>
+    /// <returns>The bytes.</returns>
+    internal static int UserMetadataBytes(IReadOnlyDictionary<string, string> metadata) =>
         metadata.Sum(entry => Encoding.UTF8.GetByteCount(entry.Key) + Encoding.UTF8.GetByteCount(entry.Value));
 }

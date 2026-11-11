@@ -67,6 +67,33 @@ public static class ListenUrlParser
         ArgumentNullException.ThrowIfNull(argument);
         ArgumentNullException.ThrowIfNull(extendedSchemes);
 
+        return Parse(argument, (string scheme, out int defaultPort) => TryGetDefaultPort(scheme, extendedSchemes, out defaultPort));
+    }
+
+    /// <summary>
+    /// Parses <paramref name="argument"/> as a proxy listen URL, the argument of <c>-x</c>/<c>--proxy</c>
+    /// (ADR-0088 decision 7 and Amendment 2): <c>http</c> or <c>https</c> only, by the same rules as
+    /// <see cref="Parse(string)"/>, with upstream curl's proxy default ports (1080 for <c>http</c>, 443 for
+    /// <c>https</c>) and <see cref="ListenUrl.IsProxy"/> set.
+    /// </summary>
+    /// <param name="argument">The argument of one <c>--proxy</c>.</param>
+    /// <returns>
+    /// The proxy listen URL; or a failure with <see cref="SurlExitCode.UnsupportedProtocol"/> for any other
+    /// scheme, or <see cref="SurlExitCode.MalformedUrl"/> as <see cref="Parse(string)"/> refuses.
+    /// </returns>
+    public static ListenUrlParseResult ParseProxy(string argument)
+    {
+        ArgumentNullException.ThrowIfNull(argument);
+
+        var parsed = Parse(argument, ProxyDefaultPorts.TryGetDefaultPort);
+        return parsed.Succeeded ? ListenUrlParseResult.Accepted(parsed.ListenUrl with { IsProxy = true }) : parsed;
+    }
+
+    /// <summary>Looks up the default port of a lower-case scheme; false when the scheme is not accepted.</summary>
+    private delegate bool TryGetSchemeDefaultPort(string scheme, out int defaultPort);
+
+    private static ListenUrlParseResult Parse(string argument, TryGetSchemeDefaultPort tryGetDefaultPort)
+    {
         var separator = argument.IndexOf(SchemeSeparator, StringComparison.Ordinal);
         if (separator < 0 || !IsSchemeText(argument.AsSpan(0, separator)))
         {
@@ -74,7 +101,7 @@ public static class ListenUrlParser
         }
 
         var scheme = argument[..separator].ToLowerInvariant();
-        if (!TryGetDefaultPort(scheme, extendedSchemes, out var defaultPort))
+        if (!tryGetDefaultPort(scheme, out var defaultPort))
         {
             return ListenUrlParseResult.Refused(SurlExitCode.UnsupportedProtocol, $"(1) Protocol \"{scheme}\" not supported");
         }

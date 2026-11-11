@@ -117,7 +117,7 @@ internal sealed class GcsListObjects(ContentStore store, GcsObjectPropertiesRead
         xml.Append("<Contents>");
         GcsXml.Append(xml, "Key", name);
         GcsXml.Append(xml, "Generation", properties.Generation.ToString(CultureInfo.InvariantCulture));
-        GcsXml.Append(xml, "MetaGeneration", GcsGeneration.Metageneration.ToString(CultureInfo.InvariantCulture));
+        GcsXml.Append(xml, "MetaGeneration", properties.Metageneration.ToString(CultureInfo.InvariantCulture));
         GcsXml.Append(xml, "LastModified", GcsXml.Time(properties.LastWriteTimeUtc));
         GcsXml.Append(xml, "ETag", properties.ETag);
         GcsXml.Append(xml, "Size", properties.Length.ToString(CultureInfo.InvariantCulture));

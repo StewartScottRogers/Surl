@@ -18,8 +18,10 @@ public sealed class ServerTlsComposition : IDisposable
     private readonly IReadOnlyList<IDisposable> owned;
 
     private ServerTlsComposition(
-        ServerTlsSettings? settings, string? throwawayCertificateFingerprint, QuicServerCertificate? quicCertificate, IReadOnlyList<IDisposable> owned)
+        ServerTlsSettings? settings, string? throwawayCertificateFingerprint, QuicServerCertificate? quicCertificate, IReadOnlyList<IDisposable> owned,
+        IReadOnlyList<X509Certificate2>? clientTrustAnchors = null)
     {
+        ClientTrustAnchors = clientTrustAnchors ?? [];
         Settings = settings;
         QuicCertificate = quicCertificate;
         ThrowawayCertificateFingerprint = throwawayCertificateFingerprint;
@@ -30,17 +32,22 @@ public sealed class ServerTlsComposition : IDisposable
     /// The listen URL schemes whose server can upgrade a plaintext connection to TLS in the
     /// middle of it (SMTP's <c>STARTTLS</c>, ADR-0053 decision 5; IMAP's <c>STARTTLS</c>, ADR-0055
     /// decision 11; POP3's <c>STLS</c>, ADR-0056 decision 8; FTP's <c>AUTH TLS</c>, ADR-0052
-    /// decision 5; LDAP's <c>StartTLS</c>, ADR-0072 decision 5), which it does only when a
+    /// decision 5; LDAP's <c>StartTLS</c>, ADR-0072 decision 5), XMPP's <c>STARTTLS</c>, ADR-0114 decision 2), which it does only when a
     /// certificate is configured.
     /// </summary>
-    private static readonly HashSet<string> UpgradableSchemes = new(StringComparer.OrdinalIgnoreCase) { "ftp", "imap", "ldap", "pop3", "smtp" };
+    private static readonly HashSet<string> UpgradableSchemes = new(StringComparer.OrdinalIgnoreCase) { "ftp", "imap", "ldap", "pop3", "smtp", "xmpp" };
 
     /// <summary>
     /// The listen URL schemes that start in plain text but whose server requires TLS before a login,
     /// so they need a certificate as a scheme TLS from the first byte does: the extended
-    /// <c>natss</c> (ADR-0113 decision 6).
+    /// <c>natss</c> (ADR-0113 decision 6), the extended <c>coaps</c> when no account gives it a pre-shared key (ADR-0087 decision 3, BL-476), and the extended <c>webtransport</c>, which is UDP and
+    /// QUIC, whose TLS 1.3 needs a certificate from its first packet (BL-461).
     /// </summary>
-    private static readonly HashSet<string> UpgradeRequiredSchemes = new(StringComparer.OrdinalIgnoreCase) { "natss" };
+    private static readonly HashSet<string> UpgradeRequiredSchemes = new(StringComparer.OrdinalIgnoreCase) { "natss", WebTransportScheme };
+
+    private const string WebTransportScheme = "webtransport";
+
+    private const string CoapsScheme = "coaps";
 
     /// <summary>
     /// The settings every listener secures its connections with, or <see langword="null"/>
@@ -60,6 +67,9 @@ public sealed class ServerTlsComposition : IDisposable
     /// </summary>
     public QuicServerCertificate? QuicCertificate { get; }
 
+    /// <summary>The <c>--cacert</c> anchors a <c>coaps</c> client certificate must chain to; none when <c>--cacert</c> is not given.</summary>
+    public IReadOnlyList<X509Certificate2> ClientTrustAnchors { get; }
+
     /// <summary>
     /// Finds the first listen URL, in command-line order, that is TLS from the first byte or
     /// requires TLS before a login (<c>natss</c>, ADR-0113 decision 6), and has no certificate to serve because neither <c>--cert</c> nor <c>--self-signed</c> was
@@ -69,7 +79,7 @@ public sealed class ServerTlsComposition : IDisposable
     /// <returns>That listen URL, or <see langword="null"/> when every listen URL has what it needs.</returns>
     public static ListenUrl? FindListenUrlWithoutCertificate(SurlCommandLine commandLine) =>
         commandLine.CertificateFile is null && !commandLine.SelfSigned
-            ? commandLine.ListenUrls.FirstOrDefault(listenUrl => RequiresCertificate(listenUrl.Scheme))
+            ? commandLine.ListenUrls.FirstOrDefault(listenUrl => RequiresCertificate(commandLine, listenUrl.Scheme))
             : null;
 
     /// <summary>
@@ -90,9 +100,10 @@ public sealed class ServerTlsComposition : IDisposable
     /// </summary>
     /// <param name="commandLine">The parsed command line.</param>
     /// <param name="timeProvider">Supplies "now" for the throwaway certificate and client-chain verification.</param>
+    /// <param name="readFile">Reads a TLS option file's bytes (the <c>ReadStartFile</c> seam); <see langword="null"/> reads the disk.</param>
     /// <returns>The composition, which the caller disposes once serving has ended.</returns>
     /// <exception cref="TlsFileLoadException">A <c>--cert</c>, <c>--key</c> or <c>--cacert</c> file cannot be loaded.</exception>
-    public static ServerTlsComposition Compose(SurlCommandLine commandLine, TimeProvider timeProvider)
+    public static ServerTlsComposition Compose(SurlCommandLine commandLine, TimeProvider timeProvider, Func<string, byte[]>? readFile = null)
     {
         if (!commandLine.ListenUrls.Any(listenUrl => NeedsTls(commandLine, listenUrl.Scheme)))
         {
@@ -100,13 +111,13 @@ public sealed class ServerTlsComposition : IDisposable
         }
 
         var trustAnchors = commandLine.CaCertificateFile is { } caCertificateFile
-            ? ClientTrustAnchorFileLoader.Load(caCertificateFile)
+            ? ClientTrustAnchorFileLoader.Load(caCertificateFile, readFile)
             : [];
 
         try
         {
             return commandLine.CertificateFile is { } certificateFile
-                ? ComposeFromFiles(commandLine, certificateFile, trustAnchors, timeProvider)
+                ? ComposeFromFiles(commandLine, certificateFile, trustAnchors, timeProvider, readFile)
                 : ComposeWithThrowaway(commandLine, trustAnchors, timeProvider);
         }
         catch (TlsFileLoadException)
@@ -117,10 +128,14 @@ public sealed class ServerTlsComposition : IDisposable
     }
 
     private static bool NeedsTls(SurlCommandLine commandLine, string scheme) =>
-        RequiresCertificate(scheme) || (IsCertificateConfigured(commandLine) && UpgradableSchemes.Contains(scheme));
+        RequiresCertificate(commandLine, scheme)
+        || (IsCertificateConfigured(commandLine) && (UpgradableSchemes.Contains(scheme) || scheme == CoapsScheme));
 
-    private static bool RequiresCertificate(string scheme) =>
-        TlsSchemes.IsImplicitTls(scheme) || UpgradeRequiredSchemes.Contains(scheme);
+    // coaps needs a certificate or an account, whose pre-shared key it can handshake with (ADR-0087 decision 3).
+    private static bool RequiresCertificate(SurlCommandLine commandLine, string scheme) =>
+        TlsSchemes.IsImplicitTls(scheme)
+        || UpgradeRequiredSchemes.Contains(scheme)
+        || (scheme == CoapsScheme && commandLine.Accounts.Count == 0 && commandLine.UserFile is null);
 
     /// <summary>
     /// Formats the message for a TLS option file that could not be loaded, after the
@@ -174,19 +189,21 @@ public sealed class ServerTlsComposition : IDisposable
         SurlCommandLine commandLine,
         string certificateFile,
         IReadOnlyList<X509Certificate2> trustAnchors,
-        TimeProvider timeProvider)
+        TimeProvider timeProvider,
+        Func<string, byte[]>? readFile)
     {
         var loaded = ServerCertificateFileLoader.Load(
             certificateFile,
             MapCertificateFormat(commandLine.CertificateType),
             commandLine.KeyFile,
             MapKeyFormat(commandLine.KeyType),
-            commandLine.KeyPassphrase);
+            commandLine.KeyPassphrase,
+            readFile);
         var settings = CreateSettings(commandLine, loaded.Certificate, loaded.IntermediateCertificates, trustAnchors, timeProvider);
 
         var quicCertificate = ComposeQuicCertificate(commandLine, loaded.Certificate, loaded.IntermediateCertificates);
 
-        return new ServerTlsComposition(settings, null, quicCertificate, [loaded, .. trustAnchors, .. OwnedKey(quicCertificate)]);
+        return new ServerTlsComposition(settings, null, quicCertificate, [loaded, .. trustAnchors, .. OwnedKey(quicCertificate)], trustAnchors);
     }
 
     private static ServerTlsComposition ComposeWithThrowaway(
@@ -202,12 +219,13 @@ public sealed class ServerTlsComposition : IDisposable
             settings,
             ThrowawayServerCertificate.Sha256FingerprintOf(throwaway),
             quicCertificate,
-            [throwaway, .. trustAnchors, .. OwnedKey(quicCertificate)]);
+            [throwaway, .. trustAnchors, .. OwnedKey(quicCertificate)],
+            trustAnchors);
     }
 
     private static QuicServerCertificate? ComposeQuicCertificate(
         SurlCommandLine commandLine, X509Certificate2 certificate, IReadOnlyList<X509Certificate2> intermediateCertificates) =>
-        commandLine.Http3 ? QuicServerCertificate.From(certificate, intermediateCertificates) : null;
+        (commandLine.Http3 || commandLine.ListenUrls.Any(listenUrl => listenUrl.Scheme is WebTransportScheme or CoapsScheme)) ? QuicServerCertificate.From(certificate, intermediateCertificates) : null;
 
     private static IEnumerable<IDisposable> OwnedKey(QuicServerCertificate? quicCertificate) =>
         quicCertificate is null ? [] : [quicCertificate.Key];

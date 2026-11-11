@@ -86,10 +86,14 @@ public sealed class CommandLineParserUnixSocketTests
     [TestMethod]
     [DataRow("ftp")]
     [DataRow("ftps")]
-    public void Parse_UnixSocketWithFtp_IsRefused(string scheme) =>
-        AssertRefused(
-            ["--unix-socket", SocketPath, $"{scheme}://localhost/"],
-            $"option --unix-socket: {scheme} is not served over a Unix socket: its data connections are TCP");
+    public void Parse_UnixSocketWithFtp_ServesTheControlConnectionOnTheSocket(string scheme)
+    {
+        var commandLine = Served("--unix-socket", SocketPath, $"{scheme}://localhost/");
+
+        var listenUrl = commandLine.ListenUrls.Single();
+        Assert.AreEqual(scheme, listenUrl.Scheme);
+        Assert.AreEqual(new UnixSocketAddress(SocketPath, isAbstract: false), listenUrl.UnixSocket);
+    }
 
     [TestMethod]
     public void Parse_UnixSocketWithNoListenUrl_IsRefusedForTheMissingUrl() =>

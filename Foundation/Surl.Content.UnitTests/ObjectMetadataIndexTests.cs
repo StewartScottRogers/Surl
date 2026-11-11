@@ -198,15 +198,15 @@ public sealed class ObjectMetadataIndexTests
 
         var stored = await fixture.Index.StoreAsync(
             "b/x.txt",
-            new ObjectMetadata { ContentType = "text/plain", Generation = 7, UserMetadata = new Dictionary<string, string> { ["k"] = "v" } },
+            new ObjectMetadata { ContentType = "text/plain", Generation = 7, Metageneration = 5, UserMetadata = new Dictionary<string, string> { ["k"] = "v" } },
             CancellationToken.None);
 
         byte[] expected =
         [
-            .. "SURL-OBJECT-INDEX-2\n"u8,
+            .. "SURL-OBJECT-INDEX-3\n"u8,
             .. Convert.FromHexString("00000001" + "0007"),
             .. "b/x.txt"u8,
-            .. Convert.FromHexString("0000000000000005" + "08df3a5a63755000" + "0000000000000007" + "0022"),
+            .. Convert.FromHexString("0000000000000005" + "08df3a5a63755000" + "0000000000000007" + "0000000000000005" + "0022"),
             .. "\"5d41402abc4b2a76b9719d911017c592\""u8,
             .. Convert.FromHexString("000a"),
             .. "text/plain"u8,
@@ -274,7 +274,68 @@ public sealed class ObjectMetadataIndexTests
         Assert.AreEqual("fr", properties.ContentLanguage);
         Assert.IsNull(properties.ContentMd5);
         Assert.AreEqual(7, properties.Generation);
+        Assert.AreEqual(1, properties.Metageneration);
         Assert.AreEqual("v", properties.UserMetadata.Single(pair => pair.Key == "k").Value);
+    }
+
+    [TestMethod]
+    public async Task LoadAsync_IndexWrittenBeforeTheMetagenerationWasKept_ReadsItWithMetageneration1()
+    {
+        var fixture = new Fixture(persists: true);
+        await fixture.UploadAsync("b/x.txt", "hello"u8.ToArray());
+        byte[] versionTwo =
+        [
+            .. "SURL-OBJECT-INDEX-2\n"u8,
+            .. Convert.FromHexString("00000001" + "0007"),
+            .. "b/x.txt"u8,
+            .. Convert.FromHexString("0000000000000005" + "08df3a5a63755000" + "0000000000000007" + "0022"),
+            .. "\"5d41402abc4b2a76b9719d911017c592\""u8,
+            .. Convert.FromHexString("0000" + "0000" + "0000" + "0000" + "0000" + "0000" + "0000"),
+        ];
+        await fixture.WriteFileAsync(IndexPath, versionTwo);
+
+        await fixture.Index.LoadAsync(CancellationToken.None);
+        var reading = await fixture.Index.ReadAsync("b/x.txt", CancellationToken.None);
+
+        Assert.AreEqual(1, reading.Properties!.Metageneration);
+        Assert.AreEqual(7, reading.Properties.Generation);
+    }
+
+    [TestMethod]
+    public async Task StoreAsync_Metageneration_IsKeptAcrossAReloadAndDefaultsTo1()
+    {
+        var fixture = new Fixture(persists: true);
+        await fixture.UploadAsync("a.txt", "hello"u8.ToArray());
+        await fixture.UploadAsync("b.txt", "hello"u8.ToArray());
+
+        var stored = await fixture.Index.StoreAsync("a.txt", new ObjectMetadata { Metageneration = 4 }, CancellationToken.None);
+        await fixture.Index.StoreAsync("b.txt", new ObjectMetadata(), CancellationToken.None);
+
+        var reloaded = await fixture.ReloadAsync();
+        Assert.AreEqual(4, stored.Properties!.Metageneration);
+        Assert.AreEqual(4, (await reloaded.ReadAsync("a.txt", CancellationToken.None)).Properties!.Metageneration);
+        Assert.AreEqual(1, (await reloaded.ReadAsync("b.txt", CancellationToken.None)).Properties!.Metageneration);
+    }
+
+    [TestMethod]
+    public async Task StoreAsync_MetagenerationBelow1_Throws()
+    {
+        var fixture = new Fixture(persists: true);
+        await fixture.UploadAsync("a.txt", "hello"u8.ToArray());
+
+        await Assert.ThrowsExactlyAsync<ArgumentException>(() => fixture.Index.StoreAsync("a.txt", new ObjectMetadata { Metageneration = 0 }, CancellationToken.None));
+    }
+
+    [TestMethod]
+    public async Task LoadAsync_MetagenerationBelow1_IsMalformed()
+    {
+        byte[] bytes =
+        [
+            .. "SURL-OBJECT-INDEX-3\n"u8,
+            .. Convert.FromHexString("00000001" + "0001" + "61" + "0000000000000005" + "0000000000000000" + "0000000000000000" + "0000000000000000" + "0001" + "41" + "00000000000000000000" + "0000"),
+        ];
+
+        await AssertMalformedAsync(bytes);
     }
 
     [TestMethod]
@@ -293,7 +354,7 @@ public sealed class ObjectMetadataIndexTests
     [TestMethod]
     [DataRow("", DisplayName = "empty")]
     [DataRow("53555246", DisplayName = "truncated header")]
-    [DataRow("5355524c2d4f424a4543542d494e4445582d330a00000000", DisplayName = "wrong header")]
+    [DataRow("5355524c2d4f424a4543542d494e4445582d340a00000000", DisplayName = "wrong header")]
     [DataRow("5355524c2d4f424a4543542d494e4445582d310a0000000000", DisplayName = "trailing byte")]
     [DataRow("5355524c2d4f424a4543542d494e4445582d310a00000003", DisplayName = "more entries than the bound")]
     [DataRow("5355524c2d4f424a4543542d494e4445582d310a00000001", DisplayName = "truncated entry")]

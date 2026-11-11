@@ -98,10 +98,11 @@ public sealed class LdapProtocolServer : IConnectionProtocolServer
     /// </summary>
     /// <param name="authenticationPolicy">Judges every simple bind, and says whether an unbound connection may read.</param>
     /// <param name="saslAuthenticationPolicy">Offers the SASL mechanisms and runs every SASL and Sicily bind.</param>
+    /// <param name="timeProvider">The clock a search's <c>timeLimit</c> is measured by.</param>
     /// <param name="isTlsUpgradeAvailable">Whether the listener has a certificate, so <c>StartTLS</c> can upgrade the connection.</param>
     /// <exception cref="ArgumentNullException">A policy is <see langword="null"/>.</exception>
-    public LdapProtocolServer(IAuthenticationPolicy authenticationPolicy, ISaslAuthenticationPolicy saslAuthenticationPolicy, bool isTlsUpgradeAvailable = false)
-        : this(new LdapDirectory([], TimeProvider.System), authenticationPolicy, saslAuthenticationPolicy, isTlsUpgradeAvailable)
+    public LdapProtocolServer(IAuthenticationPolicy authenticationPolicy, ISaslAuthenticationPolicy saslAuthenticationPolicy, TimeProvider timeProvider, bool isTlsUpgradeAvailable = false)
+        : this(new LdapDirectory([], timeProvider), authenticationPolicy, saslAuthenticationPolicy, isTlsUpgradeAvailable)
     {
     }
 

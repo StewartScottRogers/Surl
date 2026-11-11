@@ -4,7 +4,7 @@ title: Answer list_faults through Surl.Mcp's tools
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-963]
+depends-on: [BL-963, BL-1035]
 touches: [Application/Surl.Mcp.UnitLibrary, Application/Surl.Mcp, Application/Surl.Mcp.UnitTests]
 requirement: none
 created: 2026-11-06
@@ -37,6 +37,16 @@ An agent driving `surl-mcp` can call `list_faults` with a `server_id` and see ea
 
 ## Notes
 
+- 2026-11-11 (lane 4): code written but not built - `dotnet build` cannot resolve the SDK `global.json` pins
+  (10.0.401; only 10.0.100-rc.1, 11.0.100-rc.2 and 11.0.100 are installed), so this waits on BL-1035 as BL-941
+  and BL-943 do. The unbuilt work is left uncommitted for the shift's stash: `ListFaultsTool` (`RunningServerTool`,
+  `SurlServer.Faults.List`, `remaining` written as `null` without `times`), registered in `Program.cs` between
+  `add_fault` and `remove_fault`, named in `Program.Instructions`, `SurlMcpHelpText.Help` and both `CLAUDE.md`
+  files, with five `ListFaults_*` tests in `FaultToolsTests` and the `ProgramTests` order and schema rows. If the
+  stash is lost, redo it from this note.
+
 ## Log
 
 - 2026-11-06: Created.
+- 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Backlog. Waits on BL-1035: pinned .NET SDK 10.0.401 is not installed, so the build cannot run

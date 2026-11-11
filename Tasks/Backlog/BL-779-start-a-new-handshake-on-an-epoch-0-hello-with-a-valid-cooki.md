@@ -4,8 +4,8 @@ title: Start a new handshake on an epoch 0 hello with a valid cookie on an estab
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-738]
-touches: [Cryptography/Surl.Dtls.UnitLibrary, Cryptography/Surl.Dtls.UnitTests]
+depends-on: [BL-738, BL-1035]
+touches: [Cryptography/Surl.Dtls.UnitLibrary, Cryptography/Surl.Dtls.UnitTests, Documentation/Planning/Decisions/ADR-0087-how-surls-dtls-1-2-server-handshakes-for-coaps.md]
 requirement: none
 created: 2026-11-05
 completed:
@@ -40,6 +40,18 @@ association once it completes (ADR-0087 decision 6, RFC 6347 section 4.2.8).
 
 ## Notes
 
+- The implementation is done on branch `factory/BL-779-lane-6-20261111-060243` (commits 6bb00f42 code
+  and tests, 4eebd3fe ADR-0087 amendment; `touches` widened to ADR-0087 for it, no task in Doing names
+  it). Lane 3 cherry-picked both on 2026-11-11: with `global.json` temporarily pointed at SDK 11.0.100,
+  `dotnet build -warnaserror` of `Surl.Dtls.UnitTests` is clean and its 271 fast tests pass.
+- What stops integration is the pinned SDK 10.0.401 missing on the dark factory machine: every build
+  under the committed `global.json` fails SDK resolution. So the task waits on BL-1035. Once that is
+  Done, start with `git cherry-pick --no-commit 6bb00f42 4eebd3fe`, build, test, measure coverage.
+
 ## Log
 
 - 2026-11-05: Created.
+- 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Backlog. Lane 6 could not integrate: build failed after rebasing onto the other lanes' work. The work is on branch factory/BL-779-lane-6-20261111-060243; start with git cherry-pick --no-commit factory/BL-779-lane-6-20261111-060243 and fix it.
+- 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Backlog. Waits on BL-1035: pinned .NET SDK 10.0.401 is not installed, so no build under global.json can run; the work is ready on factory/BL-779-lane-6-20261111-060243 (6bb00f42, 4eebd3fe) and passes under SDK 11.

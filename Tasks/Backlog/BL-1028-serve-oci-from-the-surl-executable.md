@@ -4,8 +4,8 @@ title: Serve oci from the surl executable
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-438, BL-405, BL-655]
-touches: [Application/Surl.Console, Application/Surl.Console.UnitTests, Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests, Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests]
+depends-on: [BL-438, BL-405, BL-655, BL-1035]
+touches: [Application/Surl.Console, Application/Surl.Console.UnitTests, Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests, Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests, Foundation/Surl.Protocol.Abstractions.UnitLibrary, Foundation/Surl.Protocol.Abstractions.UnitTests, Foundation/Surl.Networking.UnitLibrary, Foundation/Surl.Networking.UnitTests]
 requirement: none
 created: 2026-11-06
 completed:
@@ -37,15 +37,46 @@ its `--aihelp` topic and help category exist, and the extension switch turns it 
 
 ## Acceptance criteria
 
-- [ ] A named test finds `oci` registered when the switch is on, and absent when it is off.
-- [ ] A named test shows the `oci` server and the `ftp` and `http` servers composed with one and the same
+- [x] A named test finds `oci` registered when the switch is on, and absent when it is off.
+- [x] A named test shows the `oci` server and the `ftp` and `http` servers composed with one and the same
       `ContentStore` instance.
-- [ ] The `--aihelp` completeness tests named in root `CLAUDE.md` pass.
+- [x] The `--aihelp` completeness tests named in root `CLAUDE.md` pass.
 - [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and `Surl.Composition`, `Surl.Console` and
       `Surl.Cli` keep 100% line and branch coverage.
 
 ## Notes
 
+- 2026-11-11, lane 2: the code is written and was left uncommitted for the shift to stash. Next run: re-apply
+  it, rebuild and test with the pinned SDK, measure coverage, then finish. What it does:
+  - `ExtendedProtocolServers.Registrations` gains an `oci` entry: `OciRegistryProtocolServer` over the shared
+    `ContentStore`, `AuthenticationPolicyFor("oci")` and the `TimeProvider`. The registry keeps no state beyond
+    the content store (sessions and tokens are in memory), so `ServiceState` is unchanged.
+  - TLS: `oci` was added to `TlsSchemes`, as `s3` was, rather than wrapped in `ImplicitTlsSchemeServer`.
+    `ImplicitTlsSchemeServer` needs a plaintext twin scheme, and `oci` has none; the engine and
+    `ServerTlsComposition` read `TlsSchemes`, so `oci` without `--cert` or `--self-signed` is refused (58).
+    That needed `Foundation/Surl.Protocol.Abstractions` (and `Foundation/Surl.Networking`, so ALPN offers
+    `http/1.1` only, per ADR-0115 decision 6). No task in Doing touched either, so both were added to `touches`.
+    BL-971's `--oci-plaintext` can set `ListenUrl.IsImplicitTls = false`, as BL-1020 does for `s3`.
+  - `Surl.Cli`: `oci` help category, `AiHelpProse` `oci` topic (plus the extended, content and tls
+    paragraphs), an `AiHelpExamples` entry, an `OCI OPTIONS` manual section, and `oci` added to the
+    categories of `--directory`, `--allow-uploads`, `--head-timeout`, `--max-request-head`, `--max-filesize`,
+    `--user`, `--user-file` and `--allow-anonymous`. The `extended` topic's refused example now uses `redis`.
+  - Tests: `ExtendedProtocolServersTests.Compose_ThisBuild_BuildsTheOciServerOverTheServicesContentStoreAndThePolicyForOci`,
+    `SurlServerCompositionTests.ComposeExtendedSchemes_ThisBuildWithTheSwitchOnOrOff_ListsOciOnlyWhenOn`,
+    `ComposeAsync_OciBesideFtpAndHttp_HandsAllThreeOneAndTheSameContentStore` and
+    `ComposeAsync_OciWithoutACertificate_FailsWithCertificateProblem`. `Surl.Console.UnitTests`'
+    `FakeExtendedProtocolServer` moved from `oci` to `redis`, because a fake on a TLS-first scheme fails its
+    start (58) and the tests waiting on its listener hang.
+- Verification: the pinned SDK 10.0.401 is not installed on the machine (BL-1035), so `dotnet build` fails
+  with "A compatible .NET SDK was not found". To check the code, `global.json` was pinned to 11.0.100 for a
+  moment and then restored. Under that SDK, `dotnet build -warnaserror` was clean and the fast tests were green
+  in all 79 test projects. That is not the gate's toolchain, and coverage was not measured, so the last box
+  stays open and the task waits on BL-1035.
+- Follow-up for the next run: the OciRegistry project's `CLAUDE.md` still says "Not yet: ... serving `oci`
+  from `surl` with TLS (BL-439)". Correct that line in the same change, or file a docs task for it.
+
 ## Log
 
 - 2026-11-06: Created.
+- 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Backlog. Waits on BL-1035: the pinned .NET SDK 10.0.401 is not installed, so dotnet build cannot run; the code is written and passed under SDK 11.0.100 (left for the shift to stash)

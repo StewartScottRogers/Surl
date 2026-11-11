@@ -4,8 +4,8 @@ title: Serve SignalR Broadcast, Collect uploads, the shutdown farewell and the u
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-449]
-touches: [Protocols/Http/Surl.Extended.Protocol.SignalR.UnitLibrary, Protocols/Http/Surl.Extended.Protocol.SignalR.UnitTests, Documentation/Conformance/Extended/SignalR.md]
+depends-on: [BL-449, BL-1035]
+touches: [Protocols/Http/Surl.Extended.Protocol.SignalR.UnitLibrary, Protocols/Http/Surl.Extended.Protocol.SignalR.UnitTests, Documentation/Conformance/Extended/SignalR.md, Documentation/Planning/Decisions/ADR-0119-how-the-signalr-server-answers-signalr-and-signalrs.md]
 requirement: none
 created: 2026-11-05
 completed:
@@ -52,6 +52,20 @@ with what it is sent is closed.
 
 ## Notes
 
+- 2026-11-11, lane 4: the finished work is still on branch `factory/BL-772-lane-1-20261111-060243`
+  (commits eeecb603, ADR-0119 Amendment 1, and 651a9868, the code). Cherry-picked onto the current
+  shift head, it applies cleanly apart from the task file. With `global.json`'s `rollForward` set to
+  `latestMajor` in the working copy only, `Surl.Extended.Protocol.SignalR.UnitTests` builds with
+  `-warnaserror` and passes 253/253. So lane 1's integration failure came from the missing pinned SDK
+  (BL-1035), not the code. Once BL-1035 is Done, cherry-pick both commits, take this task file's
+  version, rebuild, and finish.
+- `touches` gained ADR-0119, for the amendment. BL-671 in Doing touches `Documentation/Planning/Decisions`,
+  which overlaps it. That is a second reason to wait in Backlog.
+
 ## Log
 
 - 2026-11-05: Created.
+- 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Backlog. Lane 1 could not integrate: build failed after rebasing onto the other lanes' work. The work is on branch factory/BL-772-lane-1-20261111-060243; start with git cherry-pick --no-commit factory/BL-772-lane-1-20261111-060243 and fix it.
+- 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Backlog. Waiting on BL-1035: pinned .NET SDK 10.0.401 is not installed. The code on factory/BL-772-lane-1-20261111-060243 passes 253/253 under a temporary roll-forward. Also overlaps BL-671 on Documentation/Planning/Decisions

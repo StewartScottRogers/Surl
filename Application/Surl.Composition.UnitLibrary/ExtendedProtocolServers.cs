@@ -1,6 +1,10 @@
+using Surl.Extended.Protocol.Coap;
 using Surl.Extended.Protocol.DnsQuery;
 using Surl.Extended.Protocol.Nats;
 using Surl.Extended.Protocol.S3;
+using Surl.Extended.Protocol.SocketIo;
+using Surl.Extended.Protocol.WebTransport;
+using Surl.Extended.Protocol.Xmpp;
 using Surl.Protocol.Abstractions;
 
 namespace Surl.Composition;
@@ -37,8 +41,8 @@ public static class ExtendedProtocolServers
     /// Gets every extended protocol server's entry this build has, in ordinal order of its first
     /// scheme, on the same <see cref="ProtocolServerRegistration"/> as the originals (ADR-0124,
     /// decision 2): today the DNS server for <c>dns</c> over UDP and TCP (BL-1032), the NATS server for
-    /// <c>nats</c> and <c>natss</c> (BL-528) and the S3 server
-    /// for <c>s3</c> (BL-421).
+    /// <c>nats</c> and <c>natss</c> (BL-528), the S3 server
+    /// for <c>s3</c> (BL-421) the Socket.IO server for <c>socketio</c> and <c>socketios</c> (BL-455) the WebTransport server for <c>webtransport</c> (BL-461) the CoAP servers for <c>coap</c> and <c>coaps</c> (BL-476) and the XMPP server for <c>xmpp</c> and <c>xmpps</c> (BL-540).
     /// </summary>
     /// <remarks>
     /// The DNS server is two entries for <c>dns</c>, a <see cref="DnsUdpProtocolServer"/> and a
@@ -54,9 +58,24 @@ public static class ExtendedProtocolServers
     /// The S3 server answers <c>s3</c> over the one content store, its object metadata index and the
     /// policy over the accounts allowed on <c>s3</c> (ADR-0108; ADR-0102 decision 4.3); <c>s3</c> is TLS from the first byte (ADR-0108, decision 5), which
     /// the serving engine reads from <see cref="TlsSchemes"/>, so it needs no second registration.
+    /// The Socket.IO server answers <c>socketio</c> and <c>socketios</c> as one server, so its
+    /// sessions and <c>broadcast</c> span every Socket.IO listen URL of the run; it serves the main
+    /// namespace <c>/</c> only, because a listen URL has no path to name another (ADR-0120 amendment 2),
+    /// and judges CONNECT logins by the policy over the accounts allowed on <c>socketio</c>.
+    /// <c>socketios</c> is TLS from the first byte through <see cref="TlsSchemes"/>.
+    /// The WebTransport server answers <c>webtransport</c> over QUIC and HTTP/3 on UDP, accepting a session
+    /// on every path (a listen URL has no path to name one), judging each <c>CONNECT</c> by the policy over the
+    /// accounts allowed on <c>webtransport</c>. It reads the certificate from
+    /// <see cref="ComposedProtocolServices.QuicCertificate"/>, which the TLS composition fills because a
+    /// <c>webtransport</c> listen URL needs a certificate (<c>--cert</c> or <c>--self-signed</c>).
+    /// The XMPP server answers <c>xmpp</c> (STARTTLS offered when a certificate is configured, required unless
+    /// <c>--allow-plaintext-auth</c>), serving the listen URL host and every <c>--mail-domain</c>, and <c>xmpps</c>, the same server
+    /// over a connection TLS from the first byte (XEP-0368, ALPN <c>xmpp-client</c>), judging logins by the policy over the accounts allowed on <c>xmpp</c>.
     /// </remarks>
     public static IReadOnlyList<ProtocolServerRegistration> Registrations { get; } =
     [
+        new(["coap"], services => new CoapProtocolServer(services.ContentStore, CoapAccessRulesFor(services), services.CoapObservations)),
+        new(["coaps"], services => new DeferredCoapsProtocolServer(services)),
         new(["dns"], services => new DnsUdpProtocolServer(services.DnsZones, services.AllowsZoneTransfer)),
         new(["dns"], services => new DnsTcpProtocolServer(services.DnsZones, services.AllowsZoneTransfer)),
         new(["nats", NatsServer.TlsScheme], services => new NatsServer(
@@ -69,7 +88,27 @@ public static class ExtendedProtocolServers
             })),
         new(["s3"], services => new S3ProtocolServer(
             services.ContentStore, services.ObjectMetadataIndex, services.AuthenticationPolicyFor("s3"), services.TimeProvider)),
+        new([SocketIoProtocolServer.PlainScheme, SocketIoProtocolServer.TlsScheme], services => new SocketIoProtocolServer(
+            SocketIoServedNamespaces.FromListenPath(null), new SocketIoSessions(), services.AuthenticationPolicyFor(SocketIoProtocolServer.PlainScheme))),
+        new([WebTransportProtocolServer.Scheme], services => new WebTransportProtocolServer(
+            services.AuthenticationPolicyFor(WebTransportProtocolServer.Scheme),
+            () => services.QuicCertificate.Certificate is { } certificate ? new WebTransportServerCertificate(certificate.Chain, certificate.Key) : null,
+            services.IdleTimeout)),
+        new(["xmpp"], services => new XmppServer(new XmppServerOptions
+        {
+            MailDomains = services.MailDomains,
+            IsTlsUpgradeAvailable = services.IsTlsUpgradeAvailable,
+            AllowPlaintextAuthentication = services.AuthenticationPolicy.Settings.AllowPlaintextAuthentication,
+            AuthenticationPolicy = services.AuthenticationPolicyFor("xmpp"),
+        })),
+        ProtocolServerRegistration.ImplicitTls("xmpps", "xmpp"),
     ];
+
+    /// <summary>
+    /// Who may read and write over <c>coap</c> and <c>coaps</c> (ADR-0097 decision 6): <c>--allow-anonymous</c>, and whether any account is allowed on <c>coap</c>.
+    /// </summary>
+    internal static CoapAccessRules CoapAccessRulesFor(ComposedProtocolServices services) => new(
+        services.AuthenticationPolicy.Settings.AllowAnonymous, services.AuthenticationPolicyFor("coap").Settings.Accounts.HasAccounts);
 
     /// <summary>
     /// Builds every extended protocol server <see cref="Registrations"/> lists, in its order.

@@ -4,8 +4,8 @@ title: Serve mcp and mcps from the surl executable
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-466, BL-405, BL-614]
-touches: [Application/Surl.Console, Application/Surl.Console.UnitTests, Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests, Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests]
+depends-on: [BL-466, BL-405, BL-614, BL-1035]
+touches: [Application/Surl.Console, Application/Surl.Console.UnitTests, Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests, Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests, Foundation/Surl.Protocol.Abstractions.UnitLibrary, Foundation/Surl.Protocol.Abstractions.UnitTests, Foundation/Surl.Networking.UnitLibrary, Foundation/Surl.Networking.UnitTests]
 requirement: none
 created: 2026-11-06
 completed:
@@ -40,6 +40,32 @@ completed:
 
 ## Notes
 
+- 2026-11-11 (lane 2): Returned to Backlog behind BL-1035: `dotnet build` cannot run because the pinned
+  .NET SDK 10.0.401 is not installed, so no gate can be checked. The work below was written but never
+  built or tested; it is left uncommitted for the shift to stash. Re-check every piece when resuming.
+- Touches widened: `mcps` needs a `TlsSchemes` row (`Foundation/Surl.Protocol.Abstractions.UnitLibrary`)
+  so `ListenUrl.IsImplicitTls` makes the engine handshake and `ServerTlsComposition` demand a certificate
+  (58), and `http/1.1`-only ALPN in `Surl.Networking`'s `TlsApplicationProtocols`, exactly as BL-421 did
+  for `s3` (commit 0d53a586). No task in Doing names either project (BL-840 docs, BL-857 Conformance).
+- Choice: one registration `["mcp", "mcps"]` (as `mqtt`/`mqtts`, `s3`), not an `ImplicitTls` wrapper,
+  because `McpProtocolServer.Schemes` already claims both; TLS comes from `TlsSchemes` either way.
+- Choice: the endpoint is always `/mcp` (`listenPath` null): `ListenUrlParser` refuses a listen URL
+  with a path, so there is no path to pass.
+- Choice: `serverInfo.version` is `ExtendedProtocolServers.SurlVersion`, the Composition assembly's
+  informational version without `+` metadata (every surl assembly shares it); session IDs and tokens
+  come from `RandomNumberGenerator.Create()`. Policy: `AuthenticationPolicyFor("mcp")`.
+- Written so far (uncommitted): the registration and project reference in `Surl.Composition`; `mcp`
+  help category, `AiHelpProse["mcp"]`, `extended`/`tls` paragraphs, an `AiHelpExamples` entry, a
+  `MCP OPTIONS` manual section; the Cli test expectations (topic list, category table, help menu row,
+  examples order, `ExtendedSchemesServed`, manual). Still to do: `ExtendedProtocolServersTests`
+  (Compose order now dns, dns, mcp+mcps, nats, s3; a test the server is built over the content
+  store), `CommandLineRunnerExtendedProtocolTests` for mcp/mcps on and off with `SURL_EXTENSIONS=0`
+  and `mcps` without a certificate (58), the `--help` category wrap line in `HelpTextTests`
+  (`mail, mcp, mqtt, ...` may rewrap), and the Composition `CLAUDE.md` paragraph. Option rows
+  (`--allow-uploads`, `--user`, ...) were not given the `mcp` category; decide when resuming.
+
 ## Log
 
 - 2026-11-06: Created.
+- 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Backlog. Waits on BL-1035: pinned .NET SDK 10.0.401 is not installed, so dotnet build cannot run; partial work left uncommitted

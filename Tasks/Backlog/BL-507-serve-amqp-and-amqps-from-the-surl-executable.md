@@ -4,7 +4,7 @@ title: Serve amqp and amqps from the surl executable
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-506, BL-405, BL-635]
+depends-on: [BL-506, BL-405, BL-635, BL-1035]
 touches: [Application/Surl.Console, Application/Surl.Console.UnitTests, Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests, Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests]
 requirement: none
 created: 2026-11-04
@@ -44,9 +44,15 @@ state. The `--aihelp` topic and help category exist, and the extension switch tu
   and the one-bus test belongs in `Surl.Composition.UnitTests`. Both are added to `touches`. BL-803 (in Doing)
   touches the same projects, so the task returned to Backlog until BL-803 releases them. No code was written.
 
+- 2026-11-11 (lane 2): `dotnet build` fails here with "A compatible .NET SDK was not found": `global.json` pins 10.0.401
+  and no 10.0.4xx SDK is installed (BL-1035, Stewart). No gate can be checked, so BL-1035 is added to
+  `depends-on` and the task returns to Backlog. No code was written.
+
 ## Log
 
 - 2026-11-04: Created.
 - 2026-11-04: Amended for Stewart's shared-stores approval of 2026-11-04: waits on BL-635; composed with the one shared bus.
 - 2026-11-05: Backlog -> Doing.
 - 2026-11-05: Doing -> Backlog. Needs Application/Surl.Composition.UnitLibrary and Surl.Composition.UnitTests, which BL-803 in Doing touches; resumes once BL-803 releases them
+- 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Backlog. Waits on BL-1035: pinned .NET SDK 10.0.401 is not installed, so dotnet build cannot run

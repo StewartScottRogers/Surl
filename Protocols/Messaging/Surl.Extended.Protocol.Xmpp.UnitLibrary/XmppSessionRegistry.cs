@@ -10,13 +10,35 @@ internal sealed class XmppSessionRegistry
     private readonly Lock gate = new();
     private readonly List<XmppBoundSession> sessions = [];
 
-    /// <summary>Adds a stream once its resource is bound.</summary>
-    /// <param name="session">The bound stream.</param>
-    public void Add(XmppBoundSession session)
+    /// <summary>The most resources one bare JID may have bound at once (ADR-0114 decision 4).</summary>
+    public const int MaxResourcesPerBareJid = 10;
+
+    /// <summary>
+    /// Adds a stream once its resource is bound (RFC 6120 7.7.2.2; ADR-0114 decision 4): a stream
+    /// already bound to the same bare JID and resource is taken over, and an account with
+    /// <see cref="MaxResourcesPerBareJid"/> other resources bound is refused.
+    /// </summary>
+    /// <param name="session">The stream to bind.</param>
+    /// <param name="displaced">The stream that held the resource, now removed, or <see langword="null"/>.</param>
+    /// <returns><see langword="false"/> when the account is at its cap and the stream was not added.</returns>
+    public bool TryAdd(XmppBoundSession session, out XmppBoundSession? displaced)
     {
         lock (gate)
         {
+            var sameAccount = sessions.Where(other => string.Equals(other.BareJid, session.BareJid, StringComparison.OrdinalIgnoreCase)).ToList();
+            displaced = sameAccount.FirstOrDefault(other => other.Resource == session.Resource);
+            if (displaced is null && sameAccount.Count >= MaxResourcesPerBareJid)
+            {
+                return false;
+            }
+
+            if (displaced is not null)
+            {
+                sessions.Remove(displaced);
+            }
+
             sessions.Add(session);
+            return true;
         }
     }
 

@@ -4,7 +4,7 @@ title: Serve mqtt5, mqtt5s and mqtt5+ws from the surl executable
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-500, BL-405, BL-635]
+depends-on: [BL-500, BL-405, BL-635, BL-1035]
 touches: [Application/Surl.Console, Application/Surl.Console.UnitTests, Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests, Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests]
 requirement: none
 created: 2026-11-06
@@ -49,6 +49,10 @@ exist, and the extension switch turns all three off.
 
 ## Notes
 
+- 2026-11-11: Not started. `dotnet build` fails with "A compatible .NET SDK was not found": global.json pins 10.0.401 and only 10.0.100-rc.1, 11.0.100-rc.2 and 11.0.100 are installed. Added BL-1035 (reinstall the pinned SDK) to depends-on, as BL-507 and BL-1023 did.
+
 ## Log
 
 - 2026-11-06: Created.
+- 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Backlog. Waits on BL-1035: pinned .NET SDK 10.0.401 is not installed, so dotnet build cannot run

@@ -125,6 +125,11 @@ public sealed class CommandLineParserFaultTests
     [DataRow("mcps", "7 x")]
     [DataRow("signalr", "try later")]
     [DataRow("signalrs", "x")]
+    [DataRow("s3", "503 SlowDown")]
+    [DataRow("az", "503 ServerBusy")]
+    [DataRow("abfs", "400 InvalidUri")]
+    [DataRow("abfss", "599 x")]
+    [DataRow("gs", "503 backendError")]
     public void Parse_ErrorReplyFittingItsScheme_IsServed(string scheme, string reply) =>
         Assert.AreEqual(reply, Served("--fault", $"error;scheme={scheme};reply={reply}", Url).Faults.Single().Reply);
 
@@ -163,8 +168,13 @@ public sealed class CommandLineParserFaultTests
     [DataRow("delay;ms=1;stage=accept;command=GET", "option --fault: key command cannot be given at stage accept", DisplayName = "Command at a named accept")]
     [DataRow("drop;stage=command;after-bytes=5", "option --fault: key after-bytes cannot be given with stage=command", DisplayName = "After-bytes at command")]
     [DataRow("error;reply=503", "option --fault: kind error needs key scheme or key listener", DisplayName = "Error without scheme")]
-    [DataRow("error;scheme=s3;reply=503 SlowDown", "option --fault: scheme s3 has no error shape", DisplayName = "Error on an extended scheme")]
-    [DataRow("error;listener=s3://127.0.0.1:0;reply=503 SlowDown", "option --fault: scheme s3 has no error shape", DisplayName = "Error on an extended listener")]
+    [DataRow("error;scheme=nats;reply=503 x", "option --fault: scheme nats has no error shape", DisplayName = "Error on an extended scheme")]
+    [DataRow("error;listener=nats://127.0.0.1:0;reply=503 x", "option --fault: scheme nats has no error shape", DisplayName = "Error on an extended listener")]
+    [DataRow("error;scheme=s3;reply=200 OK", "option --fault: key reply does not fit the s3 error shape", DisplayName = "S3 success")]
+    [DataRow("error;scheme=s3;reply=503", "option --fault: key reply does not fit the s3 error shape", DisplayName = "S3 without an error code")]
+    [DataRow("error;scheme=az;reply=600 x", "option --fault: key reply does not fit the az error shape", DisplayName = "Azure past 599")]
+    [DataRow("error;scheme=abfss;reply=399 x", "option --fault: key reply does not fit the abfss error shape", DisplayName = "ABFSS below 400")]
+    [DataRow("error;scheme=gs;reply=SlowDown", "option --fault: key reply does not fit the gs error shape", DisplayName = "GCS without a status")]
     [DataRow("error;scheme=http;reply=200 OK", "option --fault: key reply does not fit the http error shape", DisplayName = "HTTP success")]
     [DataRow("error;scheme=http;reply=503 ", "option --fault: key reply does not fit the http error shape", DisplayName = "HTTP empty reason")]
     [DataRow("error;scheme=http;reply=five", "option --fault: key reply does not fit the http error shape", DisplayName = "HTTP no code")]

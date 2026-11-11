@@ -4,8 +4,8 @@ title: Serve az, abfs and abfss from the surl executable
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-426, BL-405, BL-655]
-touches: [Application/Surl.Console, Application/Surl.Console.UnitTests, Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests, Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests]
+depends-on: [BL-426, BL-405, BL-655, BL-1035]
+touches: [Application/Surl.Console, Application/Surl.Console.UnitTests, Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests, Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests, Foundation/Surl.Protocol.Abstractions.UnitLibrary, Foundation/Surl.Protocol.Abstractions.UnitTests, Foundation/Surl.Networking.UnitLibrary, Foundation/Surl.Networking.UnitTests]
 requirement: none
 created: 2026-11-06
 completed:
@@ -50,6 +50,34 @@ exist, and the extension switch turns it off.
 
 ## Notes
 
+- 2026-11-11 (lane 2): returned to Backlog behind BL-1035 - `dotnet build` fails with "A compatible .NET SDK
+  was not found" (global.json pins 10.0.401; only 10.0.100-rc.1, 11.0.100-rc.2 and 11.0.100 are installed).
+  The work below was written but never built; the shift stashes it.
+- `touches` grew by `Foundation/Surl.Protocol.Abstractions.*` and `Foundation/Surl.Networking.*` (no task in
+  Doing named them): `az` and `abfss` must join `TlsSchemes`' implicit-TLS list and `TlsApplicationProtocols`'
+  `http/1.1`-only ALPN, exactly as BL-421 did for `s3`. Without that the engine never handshakes on them and
+  `ServerTlsComposition` never demands a certificate.
+- Decision: one registration `new(["az", "abfs", "abfss"], ...)` first in `ExtendedProtocolServers.Registrations`
+  (ordinal order of first scheme), not an `ImplicitTlsSchemeServer` wrapper as ADR-0109 decision 6 words it.
+  Why: `AzureStorageProtocolServer.Schemes` already claims all three, and one instance must serve all of them so
+  Blob and Data Lake share its `AzureStagingArea`. The engine reads `TlsSchemes`, so the behaviour is the same
+  as the wrapper: TLS on `az`/`abfss`, plain on `abfs`. `ftps`, `smbs` and `s3` are registered the same way.
+- Decision: the server judges logins with `AuthenticationPolicyFor("az")` for all three schemes, as the NATS
+  server uses `"nats"` for `nats` and `natss`. An account with `protocols=abfs` only would be refused; revisit
+  if that matters.
+- Written so far, unbuilt: the Foundation list changes and their test rows; the Composition csproj reference and
+  registration; tests `ExtendedProtocolServersTests.Compose_ThisBuild_IsTheAzureStorageServerThen...`,
+  `ComposeExtendedSchemes_SwitchOnOrOff_RegistersAzAbfsAndAbfssOnlyWhenOn`,
+  `Compose_ThisBuild_BuildsTheAzureStorageServerOverTheServicesContentStoreIndexAndAzPolicy`, and in
+  `SurlServerCompositionTests.SharedStores.cs` the shared `ContentStore` test, the `(58)` test for `az`/`abfss`
+  and the plain `abfs` start test (`StartTestSeams.ParseWithExtendedSchemes`).
+- Still to do: the `Surl.Cli` part - `HelpCategories` row `azure-storage` (az, abfs, abfss), the `AiHelpProse`
+  topic paragraphs, the `extended`/`content`/`tls` topic sentences that list servers and TLS schemes, an
+  `AiHelpExamples` entry, `azure-storage` on the option category lists `s3` is on, a manual section, and the
+  test expectations each changes (follow commit efa2f1bc, BL-421's s3 equivalent).
+
 ## Log
 
 - 2026-11-06: Created.
+- 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Backlog. Waits on BL-1035: pinned .NET SDK 10.0.401 is not installed, so dotnet build cannot run

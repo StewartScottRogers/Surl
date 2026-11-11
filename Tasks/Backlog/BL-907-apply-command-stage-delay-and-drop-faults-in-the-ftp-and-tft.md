@@ -4,8 +4,8 @@ title: Apply command-stage delay and drop faults in the FTP and TFTP servers
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-794, BL-901]
-touches: [Protocols/FileTransfer/Surl.Protocol.Ftp.UnitLibrary, Protocols/FileTransfer/Surl.Protocol.Ftp.UnitTests, Protocols/FileTransfer/Surl.Protocol.Tftp.UnitLibrary, Protocols/FileTransfer/Surl.Protocol.Tftp.UnitTests]
+depends-on: [BL-794, BL-901, BL-1035]
+touches: [Protocols/FileTransfer/Surl.Protocol.Ftp.UnitLibrary, Protocols/FileTransfer/Surl.Protocol.Ftp.UnitTests, Protocols/FileTransfer/Surl.Protocol.Tftp.UnitLibrary, Protocols/FileTransfer/Surl.Protocol.Tftp.UnitTests, Record-CurlExchange.ps1]
 requirement: none
 created: 2026-11-05
 completed:
@@ -43,6 +43,34 @@ no reply, each publishing one `FaultAppliedEvent`.
 
 Filed by BL-794 (dark factory lane 8), which scoped itself to the chosen error its acceptance criteria name.
 
+2026-11-11, lane 6 (the code is written; it was left uncommitted for the shift to stash):
+- The idle-clock question is already settled by ADR-0141: servers pause `ExchangeContext.IdleClock`
+  for the hold. No new ADR was needed. FTP uses `CommandStageFaults.FindAndApplyAsync` from
+  `FtpCommandResponder.Faults.cs`, as POP3 does. A drop returns `false`, so the session ends after
+  the abort.
+- TFTP has no `IConnection` for `CommandStageFaults` to abort, and `Surl.Protocol.Abstractions` is
+  outside `touches`. So `TftpChosenErrorFault` was renamed `TftpCommandStageFault`, which now
+  applies all three kinds itself. Its delay hold mirrors `CommandStageFaults`. Its drop sends
+  nothing and ends the exchange.
+- Measured with pinned upstream curl 8.21.0 through `Record-CurlExchange.ps1`. These are new
+  fixtures, and their README rows are still to be written:
+  - FTP `fault-drop-retr` (port 18833, `RETR=CLOSE`) exits 56 with `curl: (56) response reading failed (errno: 0)`.
+  - FTP `fault-drop-stor` (port 18834, `-T up.txt`, `STOR=CLOSE`) also exits 56.
+  - TFTP `fault-drop-read` (`-TftpSilent -TftpIdleMilliseconds 15000`, curl `--connect-timeout 5`):
+    curl sent the RRQ 3 times and exited 7 with `curl: (7) Could not connect to server`.
+- `Record-CurlExchange.ps1` gained a `-TftpSilent` switch, which answers nothing. It was added to
+  `touches` because no task in Doing named the script.
+- The new tests pass: FTP 533/533 and TFTP 155/155. They were run with `global.json` set to roll
+  forward to the installed SDK 11.0.100 for that one run, then restored. The pinned SDK 10.0.401
+  is not installed, so the gates cannot run on the pinned toolchain, and the task goes back to
+  Backlog behind BL-1035. When it is resumed, the work left is:
+  - add the fixture README rows;
+  - run the full fast tests;
+  - check coverage;
+  - commit.
+
 ## Log
 
 - 2026-11-05: Created.
+- 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Backlog. Waiting on BL-1035: pinned .NET SDK 10.0.401 is not installed; delay/drop code and tests written (stashed), pass under a roll-forward SDK

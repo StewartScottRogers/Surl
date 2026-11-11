@@ -4,7 +4,7 @@ title: Answer a chosen reason code by fault in the extended MQTT 5 broker
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-823, BL-785]
+depends-on: [BL-823, BL-785, BL-1035]
 touches: [Protocols/Messaging/Surl.Extended.Protocol.Mqtt5.UnitLibrary, Protocols/Messaging/Surl.Extended.Protocol.Mqtt5.UnitTests]
 requirement: FR-062
 created: 2026-11-06
@@ -55,7 +55,16 @@ answer a matching `SUBSCRIBE` or `PUBLISH` with the chosen reason code (128 to 2
 
 ## Notes
 
+- 2026-11-11 (lane 3): restored BL-834's MQTT 5 work from stash commit `0980dd73` - the four untracked files
+  via `git show "S^3:<path>"` and the `Mqtt5BrokerConnection.cs` diff, which applied cleanly (the project is
+  unchanged since the stash's base). The tests already carry every name the acceptance criteria give. Not built:
+  `dotnet` cannot resolve the pinned SDK 10.0.401 (installed: 10.0.100-rc.1, 11.0.100-rc.2, 11.0.100), so the
+  task waits on BL-1035. The restored files are left uncommitted for the shift to stash; next run, re-apply them
+  the same way, then build and test.
+
 ## Log
 
 - 2026-11-06: Created.
 - 2026-11-06: Split from BL-834 (timed out after 120 min); reuses its MQTT 5 work from stash `darkfactory BL-834 20261106-033059`.
+- 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Backlog. Waits on BL-1035: pinned .NET SDK 10.0.401 is not installed, so nothing builds; BL-834's MQTT 5 fault work is restored and needs only build and test

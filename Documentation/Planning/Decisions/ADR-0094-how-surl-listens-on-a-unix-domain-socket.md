@@ -99,9 +99,19 @@ BL-547's tests confirm them on CI's Linux and macOS legs.
   builds each option: ADR-0082's `--http3`, and an ADR-0092 `--dns-transport` list naming `udp`
   or `quic` (`--dns-transport tcp,tls,https` is allowed). Neither option exists today.
 - FTP and FTPS: the control connection may come over the socket, but its data connections are TCP
-  connections to the address a `PASV` or `EPSV` reply names. BL-548 refuses `ftp` and `ftps` with
-  `FailedInit` (2) until BL-605 measures what curl does and serves them, with the passive data
-  listener on loopback.
+  connections. BL-548 refused `ftp` and `ftps` with `FailedInit` (2) until BL-605, which lifted
+  the refusal (Decided by Claude under Stewart's delegation, 2026-11-11). Measured with
+  `Record-CurlExchange.ps1 -Ftp -UnixSocket` against the reference curl 8.21.0 (Windows): over
+  `--unix-socket`, `EPSV` and `PASV` (also `--disable-epsv --ftp-skip-pasv-ip`) both fail with exit
+  6 `Could not resolve host: <socket path>` after the server's reply - curl resolves the socket path
+  as the data connection's host, whatever address the reply names; `-P -` (and `-P - --disable-eprt`)
+  exits 30 `command PORT failed`, as curl finds no local address on a Unix socket; `-P 127.0.0.1`
+  works, sending `EPRT |1|127.0.0.1|<port>|` or, with `--disable-eprt`, `PORT 127,0,0,1,<hi>,<lo>`,
+  and connecting its own loopback listener from the server. So surl serves the control connection
+  on the socket and the data connections on loopback TCP: a passive listener binds IPv4 loopback and
+  `PASV` names `127,0,0,1` (`EPSV` names only the port); an active target is allowed when it is any
+  loopback address at port 1024 or above, the Unix peer being local by definition, and a passive
+  listener accepts only loopback peers. Another address is still refused (RFC 2577).
 
 ### 3. Abstract socket names
 

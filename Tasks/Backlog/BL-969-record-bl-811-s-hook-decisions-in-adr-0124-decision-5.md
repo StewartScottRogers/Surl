@@ -4,7 +4,7 @@ title: Record BL-811's hook decisions in ADR-0124 decision 5
 priority: Low
 assignee: Claude
 pipeline: docs
-depends-on: [BL-811]
+depends-on: [BL-811, BL-1035]
 touches: [Documentation/Planning/Decisions/ADR-0124-surl-is-a-stand-in-for-tests.md]
 requirement: none
 created: 2026-11-06
@@ -41,6 +41,12 @@ Stewart's delegation", so the ADR says what the code does.
 
 ## Notes
 
+- 2026-11-11 (lane 3): The ADR amendment is already written on factory/BL-969-lane-5-20261111-060243 (commit 734c5b67); cherry-pick it. `dotnet build` cannot run here because global.json pins SDK 10.0.401, which is not installed, so the task waits on BL-1035.
+
 ## Log
 
 - 2026-11-06: Created.
+- 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Backlog. Lane 5 could not integrate: build failed after rebasing onto the other lanes' work. The work is on branch factory/BL-969-lane-5-20261111-060243; start with git cherry-pick --no-commit factory/BL-969-lane-5-20261111-060243 and fix it.
+- 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Backlog. Waits on BL-1035: pinned .NET SDK 10.0.401 is not installed, so dotnet build fails; ADR text is ready on factory/BL-969-lane-5-20261111-060243

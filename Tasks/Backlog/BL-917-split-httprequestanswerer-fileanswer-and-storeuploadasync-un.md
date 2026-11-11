@@ -4,7 +4,7 @@ title: Split HttpRequestAnswerer.FileAnswer and StoreUploadAsync under complexit
 priority: Normal
 assignee: Claude
 pipeline: direct
-depends-on: []
+depends-on: [BL-1035]
 touches: [Protocols/Http/Surl.Protocol.Http.UnitLibrary, Protocols/Http/Surl.Protocol.Http.UnitTests]
 requirement: none
 created: 2026-11-06
@@ -34,6 +34,10 @@ completed:
 
 ## Notes
 
+- 2026-11-11 (lane 6): Split made but unverified - `FileAnswer` hands the served 200/206 to a new `ServedFileAnswer`, and `StoreUploadAsync` hands the committed result to a new `CommittedUploadAnswer`. Neither build nor `Measure-CodeQuality.ps1` could run: the pinned .NET SDK 10.0.401 is not installed (only 10.0.100-rc.1 and 11.0.100). Waits on BL-1035; the uncommitted split is left for the shift to stash.
+
 ## Log
 
 - 2026-11-06: Created.
+- 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Backlog. waits on BL-1035 - pinned .NET SDK 10.0.401 is not installed, so nothing builds or measures

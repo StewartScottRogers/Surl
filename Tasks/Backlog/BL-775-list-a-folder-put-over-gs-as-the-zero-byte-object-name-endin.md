@@ -4,7 +4,7 @@ title: List a folder put over gs as the zero-byte object name ending in a slash
 priority: Low
 assignee: Claude
 pipeline: feature
-depends-on: [BL-431]
+depends-on: [BL-431, BL-1035]
 touches: [Foundation/Surl.Content.UnitLibrary, Foundation/Surl.Content.UnitTests, Protocols/FileTransfer/Surl.Extended.Protocol.GoogleCloudStorage.UnitLibrary, Protocols/FileTransfer/Surl.Extended.Protocol.GoogleCloudStorage.UnitTests]
 requirement: none
 created: 2026-11-05
@@ -35,6 +35,10 @@ size 0"), while a folder another protocol made stays unlisted.
 
 ## Notes
 
+- 2026-11-11 (lane 4): No change to Surl.Content is needed - ObjectMetadataIndex already keeps folder objects (StoreFolderObjectAsync / ReadFolderObjectsAsync, BL-728). The GCS change mirrors S3: GcsIndexKey.OfFolderObject, GcsPutObject.StoreFolderAsync records the folder object (generation = upload time, index full 403 InsufficientQuota, share folders unrecorded), GcsBucketWalk yields x/ before the names inside it, GcsListObjects reads folder objects once. Code and tests (GcsListObjectsTests, GcsPutObjectTests) were written but not built: the pinned .NET SDK 10.0.401 is not installed (BL-1035), so the work was left uncommitted for the shift to stash.
+
 ## Log
 
 - 2026-11-05: Created.
+- 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Backlog. Waiting on BL-1035 - pinned .NET SDK 10.0.401 is not installed, so nothing can be built or tested

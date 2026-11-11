@@ -8,6 +8,7 @@ internal static class HelpCategories
     private static readonly HelpCategory[] Table =
     [
         new("auth", "Accounts and authentication methods", []),
+        new("coap", "CoAP and CoAPS protocol (extended)", ["coap", "coaps"]),
         new("content", "Served files and the data directory", []),
         new("dict", "DICT protocol", ["dict"]),
         new("dns", "DNS protocol (extended)", ["dns"]),
@@ -22,18 +23,22 @@ internal static class HelpCategories
         new("mqtt", "MQTT and MQTTS protocol", ["mqtt", "mqtts"]),
         new("nats", "NATS and NATSS protocol (extended)", ["nats", "natss"]),
         new("pop3","POP3 and POP3S protocol", ["pop3", "pop3s"]),
+        new("proxy", "HTTP and HTTPS proxy", []),
         new("rtsp", "RTSP protocol", ["rtsp"]),
         new("s3", "Amazon S3 protocol (extended)", ["s3"]),
         new("security", "Options that widen what a peer may do", []),
         new("smb", "SMB and SMBS protocol", ["smb", "smbs"]),
         new("smtp", "SMTP and SMTPS protocol", ["smtp", "smtps"]),
-        new("ssh", "SSH protocol", ["scp", "sftp"]),
+        new("socketio", "Socket.IO and Socket.IO over TLS protocol (extended)", ["socketio", "socketios"]),
+        new("ssh","SSH protocol", ["scp", "sftp"]),
         new("surl", "The command line tool itself", []),
         new("telnet", "TELNET protocol", ["telnet"]),
         new("testing", "Loosening options for tests (warned)", []),
         new("tftp", "TFTP protocol", ["tftp"]),
         new("tls", "TLS certificates and versions", []),
         new("websocket", "WebSocket protocol", ["ws", "wss"]),
+        new("webtransport", "WebTransport over HTTP/3 protocol (extended)", ["webtransport"]),
+        new("xmpp", "XMPP and XMPPS protocol (extended)", ["xmpp", "xmpps"]),
     ];
 
     /// <summary>Every category, in ordinal order of its name.</summary>

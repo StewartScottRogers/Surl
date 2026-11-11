@@ -25,6 +25,9 @@ internal sealed class UnitTestXmppClientConnection : IConnection
 
     public bool WritesAreCancelled { get; set; }
 
+    /// <summary>While set, every write waits for this task before it is taken.</summary>
+    public Task? WritesWaitFor { get; set; }
+
     public int ReadsWaiting { get; private set; }
 
     public EndPoint LocalEndPoint { get; init; } = new IPEndPoint(IPAddress.Loopback, 5222);
@@ -72,8 +75,13 @@ internal sealed class UnitTestXmppClientConnection : IConnection
         return count;
     }
 
-    public ValueTask WriteAsync(ReadOnlyMemory<byte> bytes, CancellationToken cancellationToken)
+    public async ValueTask WriteAsync(ReadOnlyMemory<byte> bytes, CancellationToken cancellationToken)
     {
+        if (WritesWaitFor is { } gateTask)
+        {
+            await gateTask.WaitAsync(cancellationToken);
+        }
+
         if (WritesFail)
         {
             throw new IOException("The connection was reset.");
@@ -88,8 +96,6 @@ internal sealed class UnitTestXmppClientConnection : IConnection
         {
             written.Append(Encoding.UTF8.GetString(bytes.Span));
         }
-
-        return ValueTask.CompletedTask;
     }
 
     public ValueTask CompleteWritesAsync(CancellationToken cancellationToken) => ValueTask.CompletedTask;

@@ -4,8 +4,8 @@ title: Apply command-stage delay and drop fault rules in the DICT, Gopher and TE
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-901]
-touches: [Protocols/Lookup/Surl.Protocol.Dict.UnitLibrary, Protocols/Lookup/Surl.Protocol.Dict.UnitTests, Protocols/Lookup/Surl.Protocol.Gopher.UnitLibrary, Protocols/Lookup/Surl.Protocol.Gopher.UnitTests, Protocols/Terminal/Surl.Protocol.Telnet.UnitLibrary, Protocols/Terminal/Surl.Protocol.Telnet.UnitTests]
+depends-on: [BL-901, BL-1035]
+touches: [Protocols/Lookup/Surl.Protocol.Dict.UnitLibrary, Protocols/Lookup/Surl.Protocol.Dict.UnitTests, Protocols/Lookup/Surl.Protocol.Gopher.UnitLibrary, Protocols/Lookup/Surl.Protocol.Gopher.UnitTests, Protocols/Terminal/Surl.Protocol.Telnet.UnitLibrary, Protocols/Terminal/Surl.Protocol.Telnet.UnitTests, Documentation/Planning/Decisions/ADR-0138-how-the-dict-gopher-and-telnet-servers-answer-a-chosen-error.md]
 requirement: none
 created: 2026-11-05
 completed:
@@ -45,6 +45,21 @@ connection in place of the answer, so a test can make one lookup slow or cut off
 
 Filed by BL-798 (dark factory lane 2, 2026-11-05).
 
+- 2026-11-11 (lane 3): added `Documentation/Planning/Decisions/ADR-0138-...md` to `touches` - decision 5
+  must be amended and no task in Doing names it. `dotnet build` then failed with "A compatible .NET SDK was
+  not found": global.json pins 10.0.401 and only 10.0.100-rc.1, 11.0.100-rc.2 and 11.0.100 are installed.
+  Depends on BL-1035. Uncommitted work left for the shift to stash (unbuilt, untested): the three
+  `*Faults` classes now have `FindAndApplyAsync(context, connection, ...)` returning the rule answered in
+  place of the command (a Drop, or a fitting Error) or null, through `CommandStageFaults` and
+  `ReportedListenUrl.Format` (the `FormatListenUrl` copies are gone); `DictCommandResponder`,
+  `GopherProtocolServer` and `TelnetProtocolServer` (drop ends the session, pending outbound discarded)
+  use it; the three CLAUDE.md files are updated; `DictCommandFaultsTests` has the delay, drop and
+  OutOfSpace tests in place of the Delay-not-applied and FormatListenUrl tests. Still to do: the same
+  tests in `GopherSelectorFaultsTests` and `TelnetLineFaultsTests` (TELNET needs a `ManualTimeProvider`
+  copy), amend ADR-0138 decisions 5 and 6, build, test and check coverage.
+
 ## Log
 
 - 2026-11-05: Created.
+- 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Backlog. Waiting on BL-1035 - pinned .NET SDK 10.0.401 is not installed, so dotnet build cannot run

@@ -4,7 +4,7 @@ title: Run the Curl port's nats client against a live surl
 priority: Low
 assignee: Claude
 pipeline: feature
-depends-on: [BL-528, BL-406]
+depends-on: [BL-528, BL-406, BL-1035]
 touches: [Conformance/Surl.Conformance.UnitTests, Documentation/Conformance/Extended/Nats.md]
 requirement: none
 created: 2026-11-04
@@ -33,6 +33,10 @@ protocol, and the matrix is fully covered.
 
 ## Notes
 
+- 2026-11-11: `dotnet` finds no compatible SDK on this machine: `global.json` pins 10.0.401 (rollForward latestFeature) and only 10.0.100-rc.1, 11.0.100-rc.2 and 11.0.100 are installed, so nothing can be built or tested. Added BL-1035 (reinstall the pinned SDK) to `depends-on` and returned the task to Backlog.
+
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Backlog. Waiting on BL-1035 - pinned .NET SDK 10.0.401 is not installed, so dotnet build cannot run

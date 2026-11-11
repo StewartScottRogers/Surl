@@ -4,7 +4,7 @@ title: Publish message bus drops by expiry and log retention and refuse a bound 
 priority: Low
 assignee: Claude
 pipeline: feature
-depends-on: [BL-790]
+depends-on: [BL-790, BL-1035]
 touches: [Protocols/Messaging/Surl.MessageBus.UnitLibrary, Protocols/Messaging/Surl.MessageBus.UnitTests]
 requirement: none
 created: 2026-11-05
@@ -47,3 +47,5 @@ Filed by BL-790's run (dark factory lane 1).
 ## Log
 
 - 2026-11-05: Created.
+- 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Backlog. Waits on BL-1035: pinned .NET SDK 10.0.401 is not installed, so dotnet build fails

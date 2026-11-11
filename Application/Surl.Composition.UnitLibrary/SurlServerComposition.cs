@@ -520,7 +520,7 @@ public static partial class SurlServerComposition
     {
         if (file is null)
         {
-            return (new LdapProtocolServer(authenticationPolicy, authenticationPolicy, isTlsUpgradeAvailable), null);
+            return (new LdapProtocolServer(authenticationPolicy, authenticationPolicy, timeProvider, isTlsUpgradeAvailable), null);
         }
 
         try
@@ -636,7 +636,7 @@ public static partial class SurlServerComposition
             new ServiceState(
                 new MessageBus.MessageBus(timeProvider),
                 new MailboxStore([], allowAnonymous: false, timeProvider),
-                new LdapProtocolServer(authenticationPolicy, authenticationPolicy),
+                new LdapProtocolServer(authenticationPolicy, authenticationPolicy, timeProvider),
                 new ObjectMetadataIndex(new InMemoryContentFileSystem(timeProvider), contentStore.ServedRoot, persists: false)),
             authenticationPolicy,
             timeProvider,

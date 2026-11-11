@@ -4,7 +4,7 @@ title: Play the server half of upstream http-proxy and https-proxy test cases
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-553, BL-554, BL-391, BL-393]
+depends-on: [BL-553, BL-554, BL-391, BL-393, BL-1035]
 touches: [Conformance/Surl.Conformance.UnitLibrary, Conformance/Surl.Conformance.UnitTests, Protocols/Http/Surl.Protocol.HttpProxy.UnitLibrary, Protocols/Http/Surl.Protocol.HttpProxy.UnitTests, Documentation/Conformance]
 requirement: none
 created: 2026-11-04
@@ -52,6 +52,36 @@ decision 8 says; the `http-proxy` and `https-proxy` rows of the server-name tabl
 
 ## Notes
 
+- 2026-11-11 (lane 1): returned to Backlog behind BL-1035. `dotnet build` cannot resolve the SDK
+  `global.json` pins (10.0.401; installed are only 10.0.100-rc.1, 11.0.100-rc.2 and 11.0.100), so no
+  gate can be run. The first cut of the proxy seam was written and left uncommitted for the shift to stash:
+  `HttpProxyUpstreamTestCaseReplies`, `HttpProxyUpstreamTestCaseReply`,
+  `HttpProxyUpstreamTestCaseRecordingConnection`, `HttpProxyUpstreamTestCaseServer` and a copy of the
+  HTTP half's part-number rules (`HttpProxyUpstreamTestCasePartNumber`, with its tests). None of it has
+  been compiled yet.
+- Findings for whoever resumes:
+  - None of the 29 cases has a `<servercmd>`, so the proxy row in `UpstreamTestCaseServerCommands`
+    is `Testnum` only, and any other command gives `servercmd-unsupported:<command>`.
+  - Port variables: `http-proxy` is `%PROXYPORT`, `https-proxy` is `%HTTPSPROXYPORT`. Give
+    `UpstreamTestCaseServer` an optional `PortVariable` to hold them.
+  - `<proxy>` gets what the proxy read before a tunnel opened (test 80 lists only the `CONNECT`).
+    `<protocol>` gets what the origin server half read.
+  - Upstream's `sws` sends every tunnel to `127.0.0.1` at the `CONNECT`'s port, whatever host is
+    named (test 80 sends `CONNECT test.80:%HTTPPORT`; test 1631 sends `CONNECT` to the FTP control
+    port and then to the EPSV data port). So the conformance run's `IOriginConnector` should be
+    `Surl.Networking`'s `SocketOriginConnector` (loopback only) with the host replaced by
+    `127.0.0.1`. That differs from ADR-0088 decision 8's in-memory connector, which can reach only
+    the HTTP half, so record it as an ADR-0088 amendment. The ADR file is not in `touches` yet, and
+    no task in Doing names it.
+  - Listeners: the plaintext proxy needs its own scheme because `http` is taken (for example
+    `http-proxy` with `IsImplicitTls = false`). The HTTPS proxy can use `https` with
+    `ListenUrl.IsProxy = true` (ALPN `http/1.1` only); the HTTP TLS half is on `wss`, so `https`
+    is free.
+  - Test 1230 uses `-x %HOSTIP:%HTTPPORT` and also names `http-ipv6`. The run does not compose
+    `http-ipv6`, so 1230 will skip `server-half-not-composed:http-ipv6`.
+
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Backlog. Waits on BL-1035: the .NET SDK 10.0.401 global.json pins is not installed, so dotnet build fails before any gate can run

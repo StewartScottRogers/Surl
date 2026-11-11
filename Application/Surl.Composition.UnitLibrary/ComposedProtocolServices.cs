@@ -66,6 +66,18 @@ public sealed class ComposedProtocolServices(
     /// </summary>
     public bool AllowsZoneTransfer { get; init; }
 
+    /// <summary>
+    /// Gets the source of the certificate QUIC's TLS 1.3 serves, which the servers answering over QUIC
+    /// read when a connection arrives and the composition fills once it has made the certificate.
+    /// </summary>
+    public QuicCertificateSource QuicCertificate { get; } = new();
+
+    /// <summary>Gets the accounts <c>coaps</c> handshakes with as pre-shared keys: each identity is a user name and its key the password (ADR-0097 decision 6); none unless set.</summary>
+    public IReadOnlyList<Account> PreSharedKeyAccounts { get; init; } = [];
+
+    /// <summary>Gets the observers of the process, which <c>coap</c> and <c>coaps</c> share so a change notifies an observer over either (ADR-0097 decision 0).</summary>
+    public Surl.Extended.Protocol.Coap.CoapObservations CoapObservations { get; } = new();
+
     /// <summary>Gets the one policy, over every account.</summary>
     public AuthenticationPolicy AuthenticationPolicy { get; } = authenticationPolicy;
 
@@ -107,6 +119,23 @@ public sealed class ComposedProtocolServices(
     /// (ADR-0113 decision 5); 120 seconds, the option's default, unless set.
     /// </summary>
     public TimeSpan IdleTimeout { get; init; } = TimeSpan.FromSeconds(120);
+
+    /// <summary>
+    /// Gets every <c>--mail-domain</c>, which the XMPP server serves beside the listen URL host (ADR-0114 decision 1); none unless set.
+    /// </summary>
+    public IReadOnlyList<string> MailDomains { get; init; } = [];
+
+    /// <summary>
+    /// Gets how the proxies reach origins (ADR-0088 decision 2): the connector over the allowed-origin
+    /// rule the start composed, which the SOCKS server shares; <see langword="null"/> when none is composed.
+    /// </summary>
+    public IOriginConnector? OriginConnector { get; init; }
+
+    /// <summary>
+    /// Gets the policy the HTTP proxy judges <c>Proxy-Authorization</c> by (ADR-0088 decision 5): over
+    /// the proxy's own accounts, or one that asks for no login when it has none.
+    /// </summary>
+    public IAuthenticationPolicy ProxyAuthenticationPolicy { get; init; } = new AnonymousAuthenticationPolicy();
 
     /// <summary>Gets the SSH server's host keys.</summary>
     public SshHostKeySet SshHostKeys { get; } = sshHostKeys;

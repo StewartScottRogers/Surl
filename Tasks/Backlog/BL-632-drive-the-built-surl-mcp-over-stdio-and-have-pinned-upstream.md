@@ -4,7 +4,7 @@ title: Drive the built Surl.Mcp over stdio and have pinned upstream curl fetch f
 priority: Low
 assignee: Claude
 pipeline: feature
-depends-on: [BL-627]
+depends-on: [BL-627, BL-1035]
 touches: [Conformance/Surl.Conformance.UnitTests]
 requirement: none
 created: 2026-11-04
@@ -49,3 +49,5 @@ session - proving the whole host end to end with upstream curl as the only judge
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Backlog. Waits on BL-1035: pinned .NET SDK 10.0.401 is not installed, dotnet build cannot start

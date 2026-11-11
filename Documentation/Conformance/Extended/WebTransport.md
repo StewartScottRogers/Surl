@@ -97,3 +97,22 @@ specifications leave the server a choice. Client-only requirements (waiting for 
 | WebTransport:Surl-8-2 | MUST | A capsule whose declared length exceeds `--max-message` resets the CONNECT stream `H3_EXCESSIVE_LOAD` before its value is read. | `WebTransportSessionTests.ServeAsync_CapsulePastTheMessageLimit_EndsTheSessionOnTheResetSurlHttp3Sent` |
 | WebTransport:Surl-8-3 | MUST | Echo waiting to be written is capped at 65536 bytes a stream (reading pauses) and 64 datagrams a session (the newest dropped). | the stream half: `WebTransportSession.EchoChunkLength`; the datagram half: BL-905 |
 | WebTransport:Surl-8-4 | MUST | Connection limits, the handshake and header timeouts, `--idle-timeout` and `--max-time` are `Surl.Http3`'s and `Surl.Quic`'s (ADR-0082 decision 7). | n/a: those libraries enforce them and their own tests prove it (BL-383, BL-410); the WebTransport server adds nothing |
+
+## Live client (BL-462; ADR-0083 decisions 1 to 3)
+
+`PinnedCurlPortClientTalksToSurlOverWebTransportTests` (`Integration`, in `Surl.Conformance.UnitTests`) runs the
+Curl port client `CurlPortBuilds.json` pins against a live `surl webtransport://` started with `--self-signed`
+(the client skips verification with `-k`). Each assertion is the rule's own, never what the client prints beyond
+the bytes the server was required to echo. The tests are inconclusive where no pinned client is installed. A
+server with no account set lets every CONNECT in, so the accepted exchanges pass `--allow-anonymous` and the
+refusal passes `--user`. The port's client exits 0 on a refused CONNECT (a defect in the port, reported under
+ADR-0083, not in surl), so the refusal test asserts only that nothing is echoed.
+
+| Row | Live test |
+| --- | --- |
+| WebTransport:WTH3-3.2-2, WebTransport:Surl-3-1 | `PinnedCurlPortClientTalksToSurlOverWebTransportTests.Send_OnABidirectionalStream_IsEchoedOnItByteForByte` |
+| WebTransport:WTH3-4.2-1, WebTransport:Surl-3-2 | `PinnedCurlPortClientTalksToSurlOverWebTransportTests.Send_OnAUnidirectionalStream_IsAnsweredOnAServerUnidirectionalStreamByteForByte` |
+| WebTransport:WTH3-4.5-1 | `PinnedCurlPortClientTalksToSurlOverWebTransportTests.Send_AsADatagram_IsEchoedAsADatagramWithTheSamePayload` |
+| WebTransport:Surl-7-1 | `PinnedCurlPortClientTalksToSurlOverWebTransportTests.Connect_WithoutCredentials_EchoesNothing` |
+
+Every other row is proved by the unit tests its "Covered by" column names, or is marked `n/a` with its reason.

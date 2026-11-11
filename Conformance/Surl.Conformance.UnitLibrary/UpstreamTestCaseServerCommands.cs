@@ -2,8 +2,8 @@ namespace Surl.Conformance;
 
 /// <summary>
 /// Which <c>&lt;servercmd&gt;</c> commands each server half implements, by the first word of the
-/// line as the case writes it (ADR-0080 decisions 2 and 3). A case whose main server's half
-/// lacks one of its commands is skipped <c>servercmd-unsupported:&lt;command&gt;</c>, and so is a
+/// line as the case writes it (ADR-0080 decisions 2 and 3). A case none of whose named servers'
+/// halves implements one of its commands (BL-898: any one named server's suffices) is skipped <c>servercmd-unsupported:&lt;command&gt;</c>, and so is a
 /// case with a <c>&lt;postcmd&gt;</c>, which no server half implements
 /// (<c>servercmd-unsupported:postcmd</c>). A server half that lands adds its row here, the same
 /// words its protocol library accepts.

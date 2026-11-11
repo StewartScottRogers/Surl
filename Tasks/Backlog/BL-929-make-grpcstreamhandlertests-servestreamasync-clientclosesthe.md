@@ -4,7 +4,7 @@ title: Make GrpcStreamHandlerTests.ServeStreamAsync_ClientClosesTheConnectionMid
 priority: Normal
 assignee: Claude
 pipeline: direct
-depends-on: []
+depends-on: [BL-928]
 touches: [Protocols/Http/Surl.Extended.Protocol.Grpc.UnitLibrary, Protocols/Http/Surl.Extended.Protocol.Grpc.UnitTests]
 requirement: none
 created: 2026-11-06
@@ -40,7 +40,14 @@ reply headers.
 ## Notes
 
 - Filed by BL-603 (lane 9) after the flake failed a release dry run.
+- 2026-11-11 (lane 6): BL-928, in Doing on lane 3, fixes this same test (same failing run 42222500303)
+  in the same two projects. The board did not see the overlap because BL-928's `touches` uses bare
+  project names and this task uses `Protocols/Http/...` paths. Returned to Backlog depending on BL-928;
+  once BL-928 is Done, this task only has to confirm the 200-run loop and record which side was wrong
+  per the gRPC over HTTP/2 specification (or be closed as covered by BL-928).
 
 ## Log
 
 - 2026-11-06: Created.
+- 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Backlog. Waits on BL-928 (lane 3, Doing), which fixes the same test in Surl.Extended.Protocol.Grpc.UnitTests/UnitLibrary

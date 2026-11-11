@@ -146,6 +146,29 @@ public sealed class SmtpUpstreamTestCaseServerTests
     }
 
     [TestMethod]
+    public async Task ServeAsync_DataAfterRepliedMailAndRcpt_RecordsTheUpload()
+    {
+        var replies = Case("REPLY MAIL 250 Ok", "REPLY RCPT 250 Ok");
+        var request = "EHLO c\r\nMAIL FROM:<a@x> RET=HDRS\r\nRCPT TO:<b@y> NOTIFY=SUCCESS\r\nDATA\r\nSubject: hi\r\n\r\nbody\r\n.\r\nQUIT\r\n";
+
+        var written = await ServeAsync(replies, request);
+
+        Assert.AreEqual(Greeting + "250 surl Hello\r\n250 Ok\r\n250 Ok\r\n354 End data with <CR><LF>.<CR><LF>\r\n250 2.0.0 Message accepted\r\n221 2.0.0 Bye\r\n", written);
+        Assert.AreEqual("Subject: hi\r\n\r\nbody\r\n.\r\n", Utf8(replies.UploadedBytes));
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_RepliedRcptWithoutAMail_StillCountsAsARecipient()
+    {
+        var replies = Case("REPLY RCPT 250 Ok");
+
+        var written = await ServeAsync(replies, "EHLO c\r\nRCPT TO:<b@y>\r\nDATA\r\nx\r\n.\r\n");
+
+        Assert.Contains("354 ", written);
+        Assert.AreEqual("x\r\n.\r\n", Utf8(replies.UploadedBytes));
+    }
+
+    [TestMethod]
     public async Task ServeAsync_DataWithAnArgument_Answers501()
     {
         var written = await ServeAsync(Case(), "DATA x\r\n");
@@ -211,6 +234,25 @@ public sealed class SmtpUpstreamTestCaseServerTests
     }
 
     [TestMethod]
+    public async Task ServeAsync_HelpWithCaseData_AnswersTheCaseDataByteForByte()
+    {
+        var data = "214-This server supports the following commands:\r\n214 HELO EHLO MAIL RCPT DATA\r\n";
+        var replies = Case(new Dictionary<string, byte[]> { ["data"] = Encoding.ASCII.GetBytes(data) });
+
+        var written = await ServeAsync(replies, "HELP\r\n");
+
+        Assert.AreEqual(Greeting + data, written);
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_HelpWithoutCaseData_AnswersAsTheServerDoes()
+    {
+        var written = await ServeAsync(Case(), "HELP\r\n");
+
+        Assert.AreEqual(Greeting + SmtpReplies.Help + "\r\n", written);
+    }
+
+    [TestMethod]
     public async Task ServeAsync_EveryCommandLine_IsRecordedWithCrlf()
     {
         var replies = Case("REPLY NOOP 250 scripted");
@@ -230,6 +272,35 @@ public sealed class SmtpUpstreamTestCaseServerTests
             .ServeAsync(connection, Context(clock, TestContext.CancellationToken));
 
         Assert.AreEqual(Greeting + EhloReply + "530 5.7.0 Authentication required\r\n", Utf8(connection.WrittenBytes));
+    }
+
+    // Client bytes of upstream cases 913 and 916; reply text from ftpserver.pl at curl-8_21_0.
+    [TestMethod]
+    public async Task ServeAsync_MailSizePastTheCapaSize_IsRefusedAsUpstreamsServerRefusesIt()
+    {
+        var written = await ServeAsync(Case("CAPA \"SIZE 32\""), "EHLO 913\r\nMAIL FROM:<sender@example.com> SIZE=38\r\nQUIT\r\n");
+
+        Assert.AreEqual(Greeting + "250-surl Hello\r\n250 SIZE 32\r\n552 Message size too large\r\n221 2.0.0 Bye\r\n", written);
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_MailSizeWithinTheCapaSize_OrWithNoSizeParameter_OrWithNoCapaSize_IsAccepted()
+    {
+        var withinTheSize = await ServeAsync(Case("CAPA \"SIZE 32\""), "EHLO c\r\nMAIL FROM:<a@x> SIZE=32\r\nQUIT\r\n");
+        var withoutASize = await ServeAsync(Case("CAPA \"SIZE 32\""), "EHLO c\r\nMAIL FROM:<a@x>\r\nQUIT\r\n");
+        var withoutACapaSize = await ServeAsync(Case(), "EHLO c\r\nMAIL FROM:<a@x> SIZE=99999\r\nQUIT\r\n");
+
+        Assert.Contains("250 2.1.0 Sender OK\r\n", withinTheSize);
+        Assert.Contains("250 2.1.0 Sender OK\r\n", withoutASize);
+        Assert.Contains("250 2.1.0 Sender OK\r\n", withoutACapaSize);
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_RecipientWithoutAnAtSign_IsRefusedAsUpstreamsServerRefusesIt()
+    {
+        var written = await ServeAsync(Case(), "EHLO 916\r\nMAIL FROM:<sender@example.com>\r\nRCPT TO:<invalid>\r\nRCPT\r\nQUIT\r\n");
+
+        Assert.AreEqual(Greeting + "250 surl Hello\r\n250 2.1.0 Sender OK\r\n501 Invalid address\r\n501 Invalid address\r\n221 2.0.0 Bye\r\n", written);
     }
 
     private static MailUpstreamTestCaseReplies Case(params string[] serverCommands) => new(NoParts, serverCommands);

@@ -4,7 +4,7 @@ title: Remove content store upload temporary files a killed process left behind
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: []
+depends-on: [BL-1035]
 touches: [Foundation/Surl.Content.UnitLibrary, Foundation/Surl.Content.UnitTests]
 requirement: none
 created: 2026-11-05
@@ -42,6 +42,10 @@ folder. So staged OCI blobs, S3, Azure and GCS uploads do not pile up as hidden 
 
 ## Notes
 
+2026-11-11 (lane 6): not started. `dotnet build` fails with "A compatible .NET SDK was not found": `global.json` pins 10.0.401 and the machine has only 10.0.100-rc.1, 11.0.100-rc.2 and 11.0.100. Added BL-1035 (Stewart reinstalls the SDK) to `depends-on`; the board offers this task again once it is Done.
+
 ## Log
 
 - 2026-11-05: Created.
+- 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Backlog. Waits on BL-1035 - pinned .NET SDK 10.0.401 is not installed, so dotnet build cannot run

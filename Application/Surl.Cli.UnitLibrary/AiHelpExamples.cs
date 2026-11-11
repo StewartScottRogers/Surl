@@ -68,6 +68,20 @@ public static class AiHelpExamples
             ["curl -u ann@example.com:secret imap://127.0.0.1:<port>/"])
             with { Precondition = AiHelpExamplePrecondition.MailboxFileExists },
         Serving(
+            "proxy",
+            "Serve an HTTP proxy",
+            ["--proxy", "http://127.0.0.1:0/"],
+            ["Listening on http://127.0.0.1:<port>/"],
+            [],
+            ["curl -x http://127.0.0.1:<port>/ http://127.0.0.1:<origin-port>/"]),
+        Serving(
+            "proxy",
+            "Ask the proxy's clients to log in",
+            ["--proxy", "http://127.0.0.1:0/", "-U", "alice:secret"],
+            ["Listening on http://127.0.0.1:<port>/"],
+            [],
+            ["curl -x http://127.0.0.1:<port>/ -U alice:secret http://127.0.0.1:<origin-port>/"]),
+        Serving(
             "testing",
             "For a test: accept a password over plain HTTP",
             ["--allow-plaintext-auth", "-u", "alice:secret", HttpListenUrl],
@@ -94,6 +108,7 @@ public static class AiHelpExamples
             ["--max-time", "abc", HttpListenUrl],
             ["surl: option --max-time: " + OptionArgumentReader.NotANumber, "surl: " + CommandLineFailure.TryHelpLine],
             SurlExitCode.FailedInit),
+        Serving("coap", "Serve CoAP", ["coap://127.0.0.1:0/"], ["Listening on coap://127.0.0.1:<port>/"], [], []),
         Serving("dict", "Serve DICT", ["dict://127.0.0.1:0/"], ["Listening on dict://127.0.0.1:<port>/"], [], ["curl dict://127.0.0.1:<port>/d:surl"]),
         Serving("dns", "Serve DNS over UDP and TCP, zone transfers allowed", ["--allow-zone-transfer", "dns://127.0.0.1:0/"], ["Listening on dns://127.0.0.1:<port>/"], [], []),
         Serving(
@@ -168,6 +183,13 @@ public static class AiHelpExamples
             ["Listening on smtp://127.0.0.1:<port>/"],
             ["surl: warning: --allow-anonymous: every request and login is accepted without checking credentials"],
             ["curl --mail-from a@example.com --mail-rcpt b@example.com -T mail.txt smtp://127.0.0.1:<port>/example.com"]),
+        Serving(
+            "socketio",
+            "For a test: serve Socket.IO without accounts",
+            ["--allow-anonymous", "socketio://127.0.0.1:0/"],
+            ["Listening on socketio://127.0.0.1:<port>/"],
+            ["surl: warning: --allow-anonymous: every request and login is accepted without checking credentials"],
+            []),
         Refused(
             "ssh",
             "An SFTP listen URL with no host key",
@@ -177,7 +199,18 @@ public static class AiHelpExamples
         Serving("telnet", "Serve TELNET", ["telnet://127.0.0.1:0/"], ["Listening on telnet://127.0.0.1:<port>/"], [], ["curl telnet://127.0.0.1:<port>/"]),
         Serving("tftp", "Serve TFTP", ["tftp://127.0.0.1:0/"], ["Listening on tftp://127.0.0.1:<port>/"], [], ["curl tftp://127.0.0.1:<port>/example.txt"]),
         Serving("websocket", "Serve WebSocket", ["ws://127.0.0.1:0/"], ["Listening on ws://127.0.0.1:<port>/"], [], ["curl ws://127.0.0.1:<port>/example.txt"]),
+        Serving(
+            "webtransport",
+            "For a test: serve WebTransport with a throwaway certificate and no accounts",
+            ["--self-signed", "--allow-anonymous", "webtransport://127.0.0.1:0/"],
+            ["Listening on webtransport://127.0.0.1:<port>/"],
+            [
+                "surl: warning: --allow-anonymous: every request and login is accepted without checking credentials",
+                "surl: warning: --self-signed: serving a throwaway certificate; clients must skip verification (curl -k)",
+            ],
+            []),
         Serving("websocket", "Echo WebSocket messages", ["--ws-echo", "ws://127.0.0.1:0/"], ["Listening on ws://127.0.0.1:<port>/"], [], []),
+        Serving("xmpp", "Serve XMPP", ["--allow-anonymous", "xmpp://127.0.0.1:0/"], ["Listening on xmpp://127.0.0.1:<port>/"], ["surl: warning: --allow-anonymous: every request and login is accepted without checking credentials"], []),
         Refused(
             "extended",
             "An extended scheme no extended server in this build answers",

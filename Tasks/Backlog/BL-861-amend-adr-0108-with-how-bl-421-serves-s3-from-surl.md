@@ -4,7 +4,7 @@ title: Amend ADR-0108 with how BL-421 serves s3 from surl
 priority: Normal
 assignee: Claude
 pipeline: docs
-depends-on: [BL-421]
+depends-on: [BL-421, BL-1035]
 touches: [Documentation/Planning/Decisions/ADR-0108-how-the-s3-server-answers-s3.md, Protocols/FileTransfer/Surl.Extended.Protocol.S3.UnitLibrary/CLAUDE.md]
 requirement: none
 created: 2026-11-05
@@ -43,6 +43,12 @@ BL-421 could not edit `Documentation/Planning/Decisions` because BL-822, then in
 
 ## Notes
 
+- 2026-11-11 (lane 6): The docs work is done in commit a89dbe1f (lane 4 branch factory/BL-861-lane-4-20261111-060243; it numbers the amendment "Amendment 4" because amendments 2 and 3 already exist). Lane 4's integration failed only because `dotnet build` cannot resolve the SDK global.json pins (10.0.401 not installed), not because of this change. Resume with `git cherry-pick --no-commit a89dbe1f`, build, test, move to Done.
+
 ## Log
 
 - 2026-11-05: Created.
+- 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Backlog. Lane 4 could not integrate: build failed after rebasing onto the other lanes' work. The work is on branch factory/BL-861-lane-4-20261111-060243; start with git cherry-pick --no-commit factory/BL-861-lane-4-20261111-060243 and fix it.
+- 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Backlog. Waits on BL-1035: the pinned .NET SDK 10.0.401 is not installed, so dotnet build fails; the docs change is ready in a89dbe1f.

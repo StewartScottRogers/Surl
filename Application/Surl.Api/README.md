@@ -194,6 +194,7 @@ limits and events apply as they would to a client; a seed never trips a fault ru
 ```csharp
 await server.Mail.DeliverAsync("alice@example.com", "Subject: hi\r\n\r\nhello\r\n"u8.ToArray());
 await server.Files.PutAsync("/reports/a.txt", "contents"u8.ToArray());
+await server.Files.DeleteAsync("/reports/a.txt");              // a test deletes it again; no file there throws Absent
 await server.Messages.PublishAsync("sensors/1", "21.5"u8.ToArray(), retain: true);
 await server.Messages.EnqueueAsync("jobs", "job 1"u8.ToArray());   // the queue must already exist
 server.Accounts.Add("bob", "builder");                              // Remove("bob") takes it away

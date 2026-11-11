@@ -4,7 +4,7 @@ title: Prove a Surl.Api server against pinned upstream curl over HTTP and FTP
 priority: Low
 assignee: Claude
 pipeline: feature
-depends-on: [BL-617]
+depends-on: [BL-617, BL-1035]
 touches: [Conformance/Surl.Conformance.UnitTests]
 requirement: none
 created: 2026-11-04
@@ -43,6 +43,14 @@ the API's exchange record holds the bytes curl sent.
 
 ## Notes
 
+- 2026-11-11 (lane 4): Wrote `UpstreamCurlFetchesFromSurlApiServerTests` (HTTP `GET` and the four FTP data-connection modes, each
+  started through `SurlServer.StartAsync` with `RecordExchanges` on, asserting exit code 0, the bytes, and the first
+  recorded exchange's `Received` starting `GET /hello.txt HTTP/1.1` or `USER anonymous`) and the project reference to
+  `Surl.Api`. Not built: `dotnet build` fails with "A compatible .NET SDK was not found" (10.0.401 pinned, not
+  installed), so the work waits on BL-1035; the code is left uncommitted for the shift to stash.
+
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Backlog. Waits on BL-1035: .NET SDK 10.0.401 that global.json pins is not installed, so nothing builds

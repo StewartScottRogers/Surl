@@ -26,7 +26,7 @@ public sealed class CommandLineRunnerUnixSocketTests
     {
         // Short enough for macOS's 103-byte sun_path under its temporary directory.
         var socketPath = Path.Join(Path.GetTempPath(), "surl-" + Guid.NewGuid().ToString("N")[..8] + ".sock");
-        var factory = new ListenerStartSignallingFactory(Program.CreateListenerFactory(null));
+        var factory = new ListenerStartSignallingFactory(Program.CreateListenerFactory(null, TimeProvider.System));
         using var stop = CancellationTokenSource.CreateLinkedTokenSource(TestContext.CancellationToken);
         using var output = new StringWriter();
         using var error = new StringWriter();

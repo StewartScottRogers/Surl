@@ -4,7 +4,7 @@ title: Create Surl.Cryptography.Sm2 with ECDH on curveSM2
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-1005]
+depends-on: [BL-1005, BL-1035]
 touches: [Cryptography/Surl.Cryptography.Sm2.UnitLibrary, Cryptography/Surl.Cryptography.Sm2.UnitTests, Surl.slnx, Foundation/Surl.Protocol.Abstractions.UnitTests]
 requirement: FR-055
 created: 2026-11-06
@@ -51,7 +51,15 @@ twin, registered in `Surl.slnx` and in `ProtocolIsolationTests`' table, so `Surl
 
 ## Notes
 
+- 2026-11-11 (lane 4): not started - `dotnet` cannot resolve the SDK `global.json` pins (10.0.401; installed are
+  10.0.100-rc.1, 11.0.100-rc.2 and 11.0.100, and `rollForward: latestFeature` does not cross a major version), so
+  no acceptance gate (build, tests, coverage) can be checked. The task waits on BL-1035. The finished Sm2 code
+  is still in stash `darkfactory BL-545 20261106-033059` (commit `e132aaaa`), as Context says; nothing was
+  restored from it, so nothing is left to stash.
+
 ## Log
 
 - 2026-11-06: Created.
 - 2026-11-06: Split from BL-545 (timed out after 120 min); reuses its Sm2 projects from stash `darkfactory BL-545 20261106-033059`.
+- 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Backlog. Waits on BL-1035: pinned .NET SDK 10.0.401 is not installed, so nothing can be built or tested

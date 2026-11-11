@@ -191,6 +191,26 @@ servers; this ADR does not decide them.
   accept-all policy injected, and runs the pinned build. **`Surl.Console` never composes the seam:**
   the shipped `surl` has no replay mode and no option for one, and native AOT trims the unused code.
 
+**Amended 2026-11-11 in BL-858** (decided by Claude under Stewart's delegation): upstream test
+1452 (`telnet://... --upload-file -`, stdin `test1452`, stdout `test1452` with no newline). BL-396's
+Windows run measured it `fail timeout` after 60 s against Surl's own `TelnetProtocolServer`
+(ADR-0025), which sends a banner, echoes each line with CRLF and closes only after `quit`, while
+upstream's test server negotiates, echoes what it read with no line ending and closes. Decision: **the
+server half plays the case; it is not a `test-server-choice` exclusion.** A banner's wording is free,
+but a session that ends is what the case verifies about curl (curl uploads stdin, then waits for the
+server's close), so the failure is a missing server half, not an arbitrary upstream byte.
+
+- The seam is `TelnetUpstreamTestCaseReplies`, in `Surl.Protocol.Telnet.UnitLibrary`, as decision 2's
+  "each protocol library" paragraph says. When injected it puts the server in **echo-and-close mode**:
+  no banner, the option negotiation as before, every data byte the client sends echoed verbatim (no
+  line ending added, no `quit` needed), and the connection closed once the client has sent its
+  input and gone quiet for the case's idle period, or half-closes. It records the bytes received in
+  arrival order for `<protocol>`.
+- The mode exists only in the test project's composition. `Surl.Console` never composes it, so the
+  shipped `surl` keeps ADR-0025's banner, CRLF echo and `quit`.
+- Until it lands the case stays a failure (a Surl gap, not an exclusion); no row is added to
+  `Upstream-Test-Case-Exclusions.md`. The build is the task filed for this amendment.
+
 ### 3. Which cases are out of scope, each class with its skip reason
 
 A case is skipped with the first reason that applies, in this order; each reason is a fixed

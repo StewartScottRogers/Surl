@@ -22,6 +22,7 @@ public static class ServerCertificateFileLoader
     /// </param>
     /// <param name="keyFormat">The format of <paramref name="keyPath"/>, from <c>--key-type</c>.</param>
     /// <param name="passphrase">The <c>--pass</c> phrase, or <see langword="null"/>.</param>
+    /// <param name="readFile">Reads a file's bytes (BL-705); <see langword="null"/> reads the disk.</param>
     /// <returns>The certificate with an exportable private key, and its intermediates in file order.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="certificatePath"/> is <see langword="null"/>.</exception>
     /// <exception cref="ArgumentException"><paramref name="keyPath"/> is given with <see cref="ServerCertificateFormat.P12"/>, which the command line refuses first.</exception>
@@ -31,7 +32,8 @@ public static class ServerCertificateFileLoader
         ServerCertificateFormat certificateFormat,
         string? keyPath,
         ServerKeyFormat keyFormat,
-        string? passphrase)
+        string? passphrase,
+        Func<string, byte[]>? readFile = null)
     {
         ArgumentNullException.ThrowIfNull(certificatePath);
 
@@ -40,15 +42,15 @@ public static class ServerCertificateFileLoader
             throw new ArgumentException("--key is refused with --cert-type P12.", nameof(keyPath));
         }
 
-        var fileBytes = TlsFileReading.ReadAllBytes(certificatePath, TlsFileLoadFailure.ServerCertificateUnusable, "--cert");
+        var fileBytes = TlsFileReading.ReadAllBytes(certificatePath, TlsFileLoadFailure.ServerCertificateUnusable, "--cert", readFile);
 
         try
         {
             return certificateFormat switch
             {
                 ServerCertificateFormat.P12 => LoadP12(fileBytes, certificatePath, passphrase),
-                ServerCertificateFormat.Der => LoadDer(fileBytes, certificatePath, keyPath, keyFormat, passphrase),
-                _ => LoadPem(fileBytes, certificatePath, keyPath, keyFormat, passphrase),
+                ServerCertificateFormat.Der => LoadDer(fileBytes, certificatePath, keyPath, keyFormat, passphrase, readFile),
+                _ => LoadPem(fileBytes, certificatePath, keyPath, keyFormat, passphrase, readFile),
             };
         }
         catch (CryptographicException exception)
@@ -58,7 +60,7 @@ public static class ServerCertificateFileLoader
     }
 
     private static LoadedServerCertificate LoadPem(
-        byte[] fileBytes, string certificatePath, string? keyPath, ServerKeyFormat keyFormat, string? passphrase)
+        byte[] fileBytes, string certificatePath, string? keyPath, ServerKeyFormat keyFormat, string? passphrase, Func<string, byte[]>? readFile)
     {
         var blocks = TlsFileReading.PemBlocksIn(fileBytes);
         var certificates = blocks
@@ -73,13 +75,13 @@ public static class ServerCertificateFileLoader
 
         var keyBlock = keyPath is null
             ? ServerPrivateKeyImport.KeyBlockIn(blocks, certificatePath)
-            : ReadKeyBlock(keyPath, keyFormat);
+            : ReadKeyBlock(keyPath, keyFormat, readFile);
 
         return JoinKey(certificates, keyBlock, passphrase);
     }
 
     private static LoadedServerCertificate LoadDer(
-        byte[] fileBytes, string certificatePath, string? keyPath, ServerKeyFormat keyFormat, string? passphrase)
+        byte[] fileBytes, string certificatePath, string? keyPath, ServerKeyFormat keyFormat, string? passphrase, Func<string, byte[]>? readFile)
     {
         if (!TlsFileReading.IsOneDerValue(fileBytes))
         {
@@ -94,7 +96,7 @@ public static class ServerCertificateFileLoader
             throw Unusable($"A DER --cert '{certificatePath}' needs --key.", null);
         }
 
-        return JoinKey([certificate], ReadKeyBlock(keyPath, keyFormat), passphrase);
+        return JoinKey([certificate], ReadKeyBlock(keyPath, keyFormat, readFile), passphrase);
     }
 
     private static LoadedServerCertificate LoadP12(byte[] fileBytes, string certificatePath, string? passphrase)
@@ -116,9 +118,9 @@ public static class ServerCertificateFileLoader
         return new LoadedServerCertificate(certificate, [.. certificates.Where(other => other != certificate)]);
     }
 
-    private static PemBlock ReadKeyBlock(string keyPath, ServerKeyFormat keyFormat)
+    private static PemBlock ReadKeyBlock(string keyPath, ServerKeyFormat keyFormat, Func<string, byte[]>? readFile)
     {
-        var fileBytes = TlsFileReading.ReadAllBytes(keyPath, TlsFileLoadFailure.ServerCertificateUnusable, "--key");
+        var fileBytes = TlsFileReading.ReadAllBytes(keyPath, TlsFileLoadFailure.ServerCertificateUnusable, "--key", readFile);
 
         return keyFormat == ServerKeyFormat.Der
             ? ServerPrivateKeyImport.DerKeyBlock(fileBytes, keyPath)

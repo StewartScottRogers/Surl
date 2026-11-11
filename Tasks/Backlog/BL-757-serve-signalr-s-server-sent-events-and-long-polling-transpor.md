@@ -4,7 +4,7 @@ title: Serve SignalR's Server-Sent Events and Long Polling transports with HTTP 
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-449]
+depends-on: [BL-449, BL-1035]
 touches: [Protocols/Http/Surl.Extended.Protocol.SignalR.UnitLibrary, Protocols/Http/Surl.Extended.Protocol.SignalR.UnitTests, Documentation/Conformance/Extended/SignalR.md]
 requirement: none
 created: 2026-11-05
@@ -42,6 +42,29 @@ client's half, and negotiate lists them in `availableTransports`.
 
 ## Notes
 
+- 2026-11-11 (lane 2): Stopped before the first build: `dotnet build` finds no SDK matching `global.json`'s
+  10.0.401 (only 10.0.100-rc.1, 11.0.100-rc.2 and 11.0.100 are installed), so the task waits on BL-1035.
+  Started code is left uncommitted for the shift's stash. Design chosen, to carry on with:
+  - A transport seam: `ISignalRHubTransport` (`ReadPayloadAsync`, `SendRecordAsync`, `WriteEndAsync`) and
+    `SignalRTransportRead`; `SignalRHubSession` keeps the hub logic (records, clock, streams) and
+    `SignalRWebSocketTransport` takes the frame reading, Pong, write gate and WebSocket Close out of it.
+    Asking `ReadPayloadAsync` again tells an HTTP Post transport its payload was processed (`200`).
+  - Server-Sent Events: `GET [endpoint-base]?id=` with `Accept: text/event-stream` takes the connection up and
+    answers through an `IHttpConnectionTakeover` (no `Surl.HttpServing` change needed): `200`, `Content-Type:
+    text/event-stream`, `Cache-Control: no-cache`, `Connection: close`, then each record as `data: <line>\r\n`
+    per line and a blank line; the client closing the stream ends the session silently.
+  - Long Polling: a non-SSE `GET` with `id` takes the connection up and the first poll answers `200` empty at
+    once (as ASP.NET Core does); the session then runs on the first poll's `ShutdownToken` only. Later polls
+    answer the queued records (`application/octet-stream`), `200` empty after a 90 s poll timeout, `204` to a
+    superseded poll; `DELETE` answers `202` and completes the poll with `204`. Pings and the 30 s client
+    timeout apply to every transport, which also forgets abandoned Long Polling connections.
+  - HTTP Post: `POST [endpoint-base]?id=` reads the body (`--max-filesize` via the body reader, `--max-message`
+    per record via `HubRecordReader`), `200` once processed, `409` for a second outstanding post, `404` unknown
+    or ended; `400` without `id` on any non-upgrade request, `400` for a transport mismatch; other methods `405
+    Allow: GET, POST, DELETE`. Record these as an amendment to ADR-0119 decision 2 (add the ADR to touches).
+
 ## Log
 
 - 2026-11-05: Created.
+- 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Backlog. Waits on BL-1035: pinned .NET SDK 10.0.401 is not installed, so nothing builds

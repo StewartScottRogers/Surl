@@ -4,7 +4,7 @@ title: Record BL-711's presigned URL, aws-chunked and checksum decisions in ADR-
 priority: Normal
 assignee: Claude
 pipeline: docs
-depends-on: [BL-711]
+depends-on: [BL-711, BL-1035]
 touches: [Documentation/Planning/Decisions/ADR-0108-how-the-s3-server-answers-s3.md]
 requirement: none
 created: 2026-11-06
@@ -39,6 +39,16 @@ recording, marked "Decided by Claude under Stewart's delegation", every decision
 
 ## Notes
 
+- 2026-11-11 (lane 6): the ADR amendment is already written on branch
+  `factory/BL-962-lane-3-20261111-060243` (commit 9ca80aec). Lane 3's integration build failed, and
+  lane 6's `dotnet build` fails too, because the .NET SDK 10.0.401 that `global.json` pins is not
+  installed (BL-1035), not because of the docs change. Returned to Backlog behind BL-1035; once it is
+  Done, cherry-pick that commit, build, run the fast tests and finish.
+
 ## Log
 
 - 2026-11-06: Created.
+- 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Backlog. Lane 3 could not integrate: build failed after rebasing onto the other lanes' work. The work is on branch factory/BL-962-lane-3-20261111-060243; start with git cherry-pick --no-commit factory/BL-962-lane-3-20261111-060243 and fix it.
+- 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Backlog. Waits on BL-1035: the pinned .NET SDK 10.0.401 is not installed, so dotnet build fails; the ADR amendment is ready on factory/BL-962-lane-3-20261111-060243

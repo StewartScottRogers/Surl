@@ -56,12 +56,16 @@ public sealed class UpstreamTestCasesAgainstSurlTests
     private const string SmbFamily = "smb";
     private const string MailFamily = "mail";
 
+    // The variable the http-unix row of UpstreamTestCaseServers names its socket path with.
+    private static readonly string HttpUnixPathVariable = UpstreamTestCaseServers.Find("http-unix")!.UnixSocketPathVariable!;
+
     // Each composed server name and the server half that plays it; a case naming any other is
     // skipped server-half-not-composed. dict and telnet are Surl's own servers, which keep no log.
     private static readonly Dictionary<string, string> ServerFamilies = new(StringComparer.Ordinal)
     {
         ["http"] = HttpFamily,
         ["https"] = HttpFamily,
+        ["http-unix"] = HttpFamily,
         ["ftp"] = FtpFamily,
         ["ftp-ipv6"] = FtpFamily,
         ["ftps"] = FtpFamily,
@@ -365,20 +369,44 @@ public sealed class UpstreamTestCasesAgainstSurlTests
             var notComposed = ServerNames(selected).FirstOrDefault(name => !ServerFamilies.ContainsKey(name));
             return notComposed is not null
                 ? UpstreamTestCaseResult.Skip(number, "server-half-not-composed:" + notComposed)
-                : await RunSelectedCaseAsync(number, source, client, tlsSettings, cancellationToken);
+                : await RunInItsSocketFolderAsync(number, source, client, tlsSettings, ServerNames(selected), cancellationToken);
+        }
+
+        /// <summary>
+        /// Runs a case naming <c>http-unix</c> with the socket file in a folder of its own under
+        /// the temporary folder, deleted afterwards: the case's own folder lies too deep for
+        /// <c>sun_path</c> (103 bytes on macOS, 107 elsewhere). Any other case runs as is.
+        /// </summary>
+        private async Task<UpstreamTestCaseResult> RunInItsSocketFolderAsync(
+            int number, byte[] source, CaseClient client, ServerTlsSettings tlsSettings, IEnumerable<string> serverNames, CancellationToken cancellationToken)
+        {
+            if (!serverNames.Any(name => UpstreamTestCaseServers.Find(name)?.UnixSocketPathVariable == HttpUnixPathVariable))
+            {
+                return await RunSelectedCaseAsync(number, source, client, tlsSettings, null, cancellationToken);
+            }
+
+            var socketFolder = Directory.CreateDirectory(Path.Combine(Path.GetTempPath(), "surl-" + Path.GetRandomFileName()));
+            try
+            {
+                return await RunSelectedCaseAsync(number, source, client, tlsSettings, Path.Combine(socketFolder.FullName, "http.sock"), cancellationToken);
+            }
+            finally
+            {
+                DeleteBestEffort(socketFolder);
+            }
         }
 
         private async Task<UpstreamTestCaseResult> RunSelectedCaseAsync(
-            int number, byte[] source, CaseClient client, ServerTlsSettings tlsSettings, CancellationToken cancellationToken)
+            int number, byte[] source, CaseClient client, ServerTlsSettings tlsSettings, string? httpUnixSocketPath, CancellationToken cancellationToken)
         {
             // The case's folder stands for runtests' own: curl's working directory, %PWD and
             // HOME, with %LOGDIR the relative "log" inside it, as runtests runs one case at a time.
             var caseDirectory = Directory.CreateDirectory(Path.Combine(work, $"{client.LogPrefix}test{number}")).FullName;
             const string logDirectory = "log";
             Directory.CreateDirectory(Path.Combine(caseDirectory, logDirectory));
-            await using var serverHalves = await UpstreamTestCaseServerHalves.StartAsync(tlsSettings, cancellationToken);
+            await using var serverHalves = await UpstreamTestCaseServerHalves.StartAsync(tlsSettings, httpUnixSocketPath, cancellationToken);
 
-            var testCase = UpstreamTestCaseParser.Parse(source, RunEnvironment(number, caseDirectory, logDirectory, serverHalves, client));
+            var testCase = UpstreamTestCaseParser.Parse(source, RunEnvironment(number, caseDirectory, logDirectory, serverHalves, client, httpUnixSocketPath));
             UpstreamTestCaseCommandLine commandLine;
             HttpUpstreamTestCaseReplies replies;
             FtpUpstreamTestCaseReplies ftpReplies;
@@ -386,9 +414,12 @@ public sealed class UpstreamTestCasesAgainstSurlTests
             MqttUpstreamTestCaseReplies mqttReplies;
             TftpUpstreamTestCaseReplies tftpReplies;
             MailUpstreamTestCaseReplies mailReplies;
-            // The case's <servercmd> is its first server's; each other server half gets none.
+            // Upstream's runtests writes one servercmd file every server reads and each ignores the words
+            // it does not know (BL-898); a server half here throws on one, so each gets the lines its own row implements.
             var families = ServerNames(testCase).Select(name => ServerFamilies[name]).Distinct().ToList();
-            IEnumerable<string> CommandsFor(string family) => families[0] == family ? ServerCommandLines(testCase) : [];
+            IEnumerable<string> CommandsFor(string family) => ServerCommandLines(testCase)
+                .Where(line => IsComment(line) || ServerNames(testCase).Any(
+                    name => ServerFamilies[name] == family && UpstreamTestCaseServerCommands.IsSupported(name, line.Split(' ', '\t')[0].Trim())));
             try
             {
                 commandLine = UpstreamTestCaseCommandLine.Build(number, testCase, logDirectory);
@@ -484,8 +515,8 @@ public sealed class UpstreamTestCasesAgainstSurlTests
         }
 
         private UpstreamTestCaseEnvironment RunEnvironment(
-            int number, string caseDirectory, string logDirectory, UpstreamTestCaseServerHalves serverHalves, CaseClient client) => new(
-            new Dictionary<string, string>(StringComparer.Ordinal)
+            int number, string caseDirectory, string logDirectory, UpstreamTestCaseServerHalves serverHalves, CaseClient client, string? httpUnixSocketPath) => new(
+            WithHttpUnixSocketPath(new Dictionary<string, string>(StringComparer.Ordinal)
             {
                 ["HOSTIP"] = "127.0.0.1",
                 ["CLIENTIP"] = "127.0.0.1",
@@ -535,10 +566,23 @@ public sealed class UpstreamTestCasesAgainstSurlTests
                 // Only SCP and SFTP cases name %USER, as the login the SSH server half lets in.
                 ["USER"] = sshUser,
                 ["DEV_NULL"] = OperatingSystem.IsWindows() ? "NUL" : "/dev/null",
-            },
+            }, httpUnixSocketPath),
             client.Features,
             new ImportedFileReader(),
             TimeProvider.System);
+
+        // %HTTPUNIXPATH appears only in a command line, which runtests' shell splits; single quotes
+        // keep a blank in the temporary folder's path (C:\Users\First Last\...) and its
+        // backslashes in one word.
+        private static Dictionary<string, string> WithHttpUnixSocketPath(Dictionary<string, string> variables, string? httpUnixSocketPath)
+        {
+            if (httpUnixSocketPath is not null)
+            {
+                variables[HttpUnixPathVariable] = $"'{httpUnixSocketPath}'";
+            }
+
+            return variables;
+        }
 
         private static Dictionary<string, string> CurlEnvironment(string home, UpstreamTestCaseCommandLine commandLine)
         {
@@ -617,6 +661,8 @@ public sealed class UpstreamTestCasesAgainstSurlTests
                 .Where(part => part.Name.StartsWith("data", StringComparison.Ordinal))
                 .GroupBy(part => part.Name, StringComparer.Ordinal)
                 .ToDictionary(group => group.Key, group => group.First().ContentWithNewlineAttributes(UpstreamTestCaseNewlineRule.CutThenCrlf), StringComparer.Ordinal);
+
+        private static bool IsComment(string line) => line.Trim().Length == 0 || line.TrimStart().StartsWith('#');
 
         private static IEnumerable<string> ServerCommandLines(UpstreamTestCase testCase) =>
             (testCase.FindPart("reply", "servercmd")?.Lines ?? []).Select(line => line.TrimEnd('\n'));

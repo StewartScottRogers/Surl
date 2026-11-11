@@ -4,7 +4,7 @@ title: Add ML-KEM-1024 beside ML-KEM-768 in Surl.Cryptography.MlKem
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-1005]
+depends-on: [BL-1005, BL-1035]
 touches: [Cryptography/Surl.Cryptography.MlKem.UnitLibrary, Cryptography/Surl.Cryptography.MlKem.UnitTests]
 requirement: FR-055
 created: 2026-11-06
@@ -47,7 +47,13 @@ sharing K-PKE through a parameter set, so `Surl.Tls13` can serve SecP384r1MLKEM1
 
 ## Notes
 
+- 2026-11-11 (lane 4): The code is finished on branch `factory/BL-1006-lane-3-20261111-060243` (commit `04a3712c`). Cherry-picked onto lane 4; with `global.json` moved aside for the run only (SDK 11.0.100 building `net10.0`), `dotnet build Cryptography/Surl.Cryptography.MlKem.UnitTests -warnaserror` is clean and the 42 MlKem tests pass. With `global.json` in place no build can run: SDK 10.0.401 is not installed, which is why lane 3's integration build failed. Waits on BL-1035 (Stewart reinstalls the SDK); then `git cherry-pick 04a3712c`, build, run the fast tests and finish.
+
 ## Log
 
 - 2026-11-06: Created.
 - 2026-11-06: Split from BL-545 (timed out after 120 min); reuses its ML-KEM-1024 work from stash `darkfactory BL-545 20261106-033059`.
+- 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Backlog. Lane 3 could not integrate: build failed after rebasing onto the other lanes' work. The work is on branch factory/BL-1006-lane-3-20261111-060243; start with git cherry-pick --no-commit factory/BL-1006-lane-3-20261111-060243 and fix it.
+- 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Backlog. Waits on BL-1035: pinned .NET SDK 10.0.401 is not installed, so no build runs; code is done on factory/BL-1006-lane-3-20261111-060243 (04a3712c).

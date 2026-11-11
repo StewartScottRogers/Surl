@@ -1,9 +1,13 @@
 using Surl.Authentication;
 using Surl.Cli;
 using Surl.Content;
+using Surl.Extended.Protocol.Coap;
 using Surl.Extended.Protocol.DnsQuery;
 using Surl.Extended.Protocol.Nats;
 using Surl.Extended.Protocol.S3;
+using Surl.Extended.Protocol.SocketIo;
+using Surl.Extended.Protocol.WebTransport;
+using Surl.Extended.Protocol.Xmpp;
 using Surl.Protocol.Abstractions;
 using Surl.Protocol.Mqtt;
 
@@ -39,20 +43,26 @@ public sealed class ExtendedProtocolServersTests
     }
 
     [TestMethod]
-    public void Compose_ThisBuild_IsTheDnsUdpAndTcpServersThenTheNatsServerThenTheS3Server()
+    public void Compose_ThisBuild_IsTheDnsUdpAndTcpServersThenTheNatsServerThenTheS3ServerThenTheSocketIoServerThenTheWebTransportServerAfterTheCoapServers()
     {
         var services = SurlServerComposition.ComposeUnservedExtendedServices(TimeProvider.System);
 
         var servers = ExtendedProtocolServers.Compose(services);
 
-        Assert.HasCount(4, servers);
-        Assert.IsInstanceOfType<DnsUdpProtocolServer>(servers[0]);
-        Assert.IsInstanceOfType<DnsTcpProtocolServer>(servers[1]);
-        Assert.IsInstanceOfType<NatsServer>(servers[2]);
-        Assert.IsInstanceOfType<S3ProtocolServer>(servers[3]);
-        CollectionAssert.AreEqual(new[] { "dns", "dns", "nats", "natss", "s3" }, servers.SelectMany(server => server.Schemes).ToArray());
+        Assert.HasCount(10, servers);
+        Assert.IsInstanceOfType<CoapProtocolServer>(servers[0]);
+        CollectionAssert.AreEqual(new[] { "coaps" }, servers[1].Schemes.ToArray());
+        Assert.IsInstanceOfType<DnsUdpProtocolServer>(servers[2]);
+        Assert.IsInstanceOfType<DnsTcpProtocolServer>(servers[3]);
+        Assert.IsInstanceOfType<NatsServer>(servers[4]);
+        Assert.IsInstanceOfType<S3ProtocolServer>(servers[5]);
+        Assert.IsInstanceOfType<SocketIoProtocolServer>(servers[6]);
+        Assert.IsInstanceOfType<WebTransportProtocolServer>(servers[7]);
+        Assert.IsInstanceOfType<XmppServer>(servers[8]);
+        CollectionAssert.AreEqual(new[] { "xmpps" }, servers[9].Schemes.ToArray());
+        CollectionAssert.AreEqual(new[] { "coap", "coaps", "dns", "dns", "nats", "natss", "s3", "socketio", "socketios", "webtransport", "xmpp", "xmpps" }, servers.SelectMany(server => server.Schemes).ToArray());
         CollectionAssert.AreEqual(
-            new[] { "dns", "dns", "nats", "natss", "s3" }, ExtendedProtocolServers.Registrations.SelectMany(registration => registration.Schemes).ToArray());
+            new[] { "coap", "coaps", "dns", "dns", "nats", "natss", "s3", "socketio", "socketios", "webtransport", "xmpp", "xmpps" }, ExtendedProtocolServers.Registrations.SelectMany(registration => registration.Schemes).ToArray());
     }
 
     [TestMethod]
@@ -65,6 +75,34 @@ public sealed class ExtendedProtocolServersTests
         Assert.HasCount(1, dnsServers.OfType<IDatagramProtocolServer>());
         Assert.HasCount(1, dnsServers.OfType<IConnectionProtocolServer>());
         Assert.HasCount(2, dnsServers);
+    }
+
+    [TestMethod]
+    public async Task Compose_WebTransportServer_ServesWithTheCertificateTheCompositionFillsIntoItsSourceLater()
+    {
+        var services = SurlServerComposition.ComposeUnservedExtendedServices(TimeProvider.System);
+        var server = (WebTransportProtocolServer)ExtendedProtocolServers.Compose(services).Single(composed => composed.Schemes.Contains("webtransport"));
+        using var cancelled = new CancellationTokenSource();
+        await cancelled.CancelAsync();
+        var context = new ExchangeContext(
+            1,
+            new ListenUrl("webtransport", "127.0.0.1", 1),
+            new System.Net.IPEndPoint(System.Net.IPAddress.Loopback, 1),
+            new System.Net.IPEndPoint(System.Net.IPAddress.Loopback, 2),
+            new RecordingExchangeLog(),
+            TimeProvider.System,
+            cancelled.Token);
+
+        // No certificate yet: nothing is served and the flow is untouched.
+        await using var withoutCertificate = new InMemoryDatagramFlow(new byte[1], []);
+        await server.ServeAsync(withoutCertificate, context);
+        Assert.IsEmpty(withoutCertificate.SentDatagrams);
+
+        // The composition filled the source: the flow is served, and the cancelled exchange stops it before the handshake.
+        using var key = System.Security.Cryptography.ECDsa.Create(System.Security.Cryptography.ECCurve.NamedCurves.nistP256);
+        services.ComposedServices.QuicCertificate.Certificate = new QuicServerCertificate([new byte[] { 1 }], key);
+        await using var withCertificate = new InMemoryDatagramFlow(new byte[1], []);
+        await Assert.ThrowsAsync<OperationCanceledException>(() => server.ServeAsync(withCertificate, context));
     }
 
     [TestMethod]

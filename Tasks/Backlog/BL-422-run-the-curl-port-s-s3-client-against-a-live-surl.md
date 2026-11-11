@@ -4,7 +4,7 @@ title: Run the Curl port's s3 client against a live surl
 priority: Low
 assignee: Claude
 pipeline: feature
-depends-on: [BL-421, BL-406]
+depends-on: [BL-421, BL-406, BL-1035]
 touches: [Conformance/Surl.Conformance.UnitTests, Documentation/Conformance/Extended/S3.md]
 requirement: none
 created: 2026-11-04
@@ -41,6 +41,16 @@ still pointing at a task.
 
 ## Notes
 
+- 2026-11-11 (lane 4): `dotnet build` cannot start - `global.json` pins SDK 10.0.401 and this machine
+  has only 10.0.100-rc.1, 11.0.100-rc.2 and 11.0.100. Returned to Backlog behind BL-1035. Found so far,
+  for the next run: the pinned port client is installed at
+  `%LOCALAPPDATA%\Surl\curl-port\b42c319b…\curl.exe`; its `s3` help says it signs with `--user
+  ACCESS:SECRET`, reaches a non-AWS service through `AWS_ENDPOINT_URL`, lists for an empty key or one
+  ending in `/`, and uploads with `-T`. `PinnedCurlPortClientOnThisMachine.RunAsync` passes no
+  environment changes, so the test class needs an overload taking `AWS_ENDPOINT_URL`.
+
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Backlog. Waiting on BL-1035: pinned .NET SDK 10.0.401 is not installed, so dotnet build cannot run

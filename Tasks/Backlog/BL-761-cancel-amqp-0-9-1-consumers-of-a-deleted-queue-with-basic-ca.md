@@ -4,7 +4,7 @@ title: Cancel AMQP 0-9-1 consumers of a deleted queue with basic.cancel
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-506]
+depends-on: [BL-506, BL-1035]
 touches: [Protocols/Messaging/Surl.Extended.Protocol.Amqp0.UnitLibrary, Protocols/Messaging/Surl.Extended.Protocol.Amqp0.UnitTests, Documentation/Conformance/Extended/Amqp0.md]
 requirement: none
 created: 2026-11-05
@@ -30,6 +30,13 @@ Deleting a queue ends every consumer of it on every AMQP 0-9-1 connection, and a
 
 ## Notes
 
+- 2026-11-11 (lane 5): parked behind BL-1035 before any code. `dotnet build` fails with "A compatible .NET SDK
+  was not found": `global.json` pins 10.0.401 and the machine has only 10.0.100-rc.1, 11.0.100-rc.2 and 11.0.100,
+  so the build and fast-test gate cannot pass. BL-760 (same Amqp0 library, parked the same way) has uncommitted
+  work stashed by the shift; starting BL-761 on top of it now would collide with that stash.
+
 ## Log
 
 - 2026-11-05: Created.
+- 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Backlog. Waits on BL-1035: pinned .NET SDK 10.0.401 is not installed, so dotnet build fails

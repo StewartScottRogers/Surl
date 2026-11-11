@@ -103,6 +103,9 @@ public sealed class ComposedStoresTests
 
         await stores.SeedMailAsync("alice@example.com", Encoding.ASCII.GetBytes(SeededMessage), TestContext.CancellationToken);
         await SeedTextFileAsync(stores, "/seeded.txt", "seeded");
+        Assert.AreEqual(ContentChangeResult.Done, await stores.DeleteFileAsync("/seeded.txt"));
+        Assert.AreEqual(ContentChangeResult.Absent, await stores.DeleteFileAsync("/seeded.txt"));
+        await SeedTextFileAsync(stores, "/seeded.txt", "seeded");
         Assert.AreEqual(ContentChangeResult.Done, stores.SeedFolder("/folder"));
         await stores.SeedPublishAsync(new BusMessage("t", "seeded"u8.ToArray()), TestContext.CancellationToken);
         stores.AddAccount(new Account("bob", "builder"));
@@ -113,10 +116,11 @@ public sealed class ComposedStoresTests
         var changes = Drain(subscription).OfType<StoreChangedEvent>().ToList();
 
         CollectionAssert.AreEqual(
-            new[] { StoreKind.Mail, StoreKind.Content, StoreKind.Content, StoreKind.Bus },
+            new[] { StoreKind.Mail, StoreKind.Content, StoreKind.Content, StoreKind.Content, StoreKind.Bus },
             changes.Where(changed => changed.Change == StoreChange.Seeded).Select(changed => changed.Store).ToArray());
         Assert.IsTrue(changes.Any(changed => changed.Store == StoreKind.Accounts && changed.Change == StoreChange.AccountAdded && changed.Name == "bob"));
         Assert.IsTrue(changes.Any(changed => changed.Store == StoreKind.Accounts && changed.Change == StoreChange.AccountRemoved && changed.Name == "bob"));
+        Assert.AreEqual(1, changes.Count(changed => changed.Store == StoreKind.Content && changed.Change == StoreChange.Deleted));
         CollectionAssert.AreEqual(
             ComposedStores.StoreOrder.ToArray(),
             changes.Where(changed => changed.Change == StoreChange.Reset).Select(changed => changed.Store).ToArray());

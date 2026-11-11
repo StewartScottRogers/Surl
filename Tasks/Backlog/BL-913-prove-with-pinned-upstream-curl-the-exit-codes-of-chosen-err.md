@@ -4,7 +4,7 @@ title: Prove with pinned upstream curl the exit codes of chosen-error faults on 
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-797, BL-803]
+depends-on: [BL-797, BL-803, BL-1035]
 touches: [Conformance/Surl.Conformance.UnitTests, Documentation/Planning/Decisions/ADR-0139-how-the-mqtt-and-ldap-servers-answer-a-chosen-error.md]
 requirement: none
 created: 2026-11-05
@@ -40,6 +40,10 @@ Integration tests run the pinned upstream curl 8.21.0 against a live `surl` give
 
 ## Notes
 
+- 2026-11-11 (lane 4): `dotnet --list-sdks` shows no 10.0.4xx SDK (only 10.0.100-rc.1, 11.0.x), so `global.json` (10.0.401, rollForward latestFeature) cannot resolve and `dotnet build` fails before any integration test can run. Added BL-1035 to depends-on and returned the task to Backlog, as BL-895 and BL-910 were.
+
 ## Log
 
 - 2026-11-05: Created.
+- 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Backlog. Waits on BL-1035: pinned .NET SDK 10.0.401 is not installed, so dotnet build cannot run

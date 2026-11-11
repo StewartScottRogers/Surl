@@ -4,7 +4,7 @@ title: Make GopherMenu.NothingServedHere an immutable value instead of a public 
 priority: Low
 assignee: Claude
 pipeline: feature
-depends-on: [BL-822]
+depends-on: [BL-822, BL-1035]
 touches: [Protocols/Lookup/Surl.Protocol.Gopher.UnitLibrary, Protocols/Lookup/Surl.Protocol.Gopher.UnitTests]
 requirement: none
 created: 2026-11-05
@@ -35,6 +35,10 @@ another instance in the same process answers.
 
 ## Notes
 
+- 2026-11-11 (lane 4): `dotnet build` fails - "A compatible .NET SDK was not found"; global.json pins 10.0.401 and only 10.0.100-rc.1, 11.0.100-rc.2 and 11.0.100 are installed. Added BL-1035 to depends-on and returned to Backlog; no code changed.
+
 ## Log
 
 - 2026-11-05: Created.
+- 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Backlog. behind BL-1035 - pinned .NET SDK 10.0.401 is not installed

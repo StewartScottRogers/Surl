@@ -44,6 +44,22 @@ internal sealed record GcsSentDigests(byte[]? ContentMd5, byte[]? HashCrc32c, by
     }
 
     /// <summary>
+    /// The digests a JSON resource gives: <c>md5Hash</c> and <c>crc32c</c>, each the base64 of the digest.
+    /// </summary>
+    /// <param name="md5Hash">The <c>md5Hash</c> member, or <see langword="null"/> when none is sent.</param>
+    /// <param name="crc32c">The <c>crc32c</c> member, or <see langword="null"/> when none is sent.</param>
+    /// <returns>The digests, or <see langword="null"/> when one sent is malformed.</returns>
+    public static GcsSentDigests? FromBase64(string? md5Hash, string? crc32c)
+    {
+        var md5 = md5Hash is null ? null : Decode(md5Hash, 16);
+        var crc = crc32c is null ? null : Decode(crc32c, 4);
+
+        return (md5Hash is null || md5 is not null) && (crc32c is null || crc is not null)
+            ? new GcsSentDigests(null, crc, md5)
+            : null;
+    }
+
+    /// <summary>
     /// Whether the body's digests match every digest sent.
     /// </summary>
     /// <param name="body">The body's digests.</param>

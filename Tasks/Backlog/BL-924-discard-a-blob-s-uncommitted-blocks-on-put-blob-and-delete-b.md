@@ -4,7 +4,7 @@ title: Discard a blob's uncommitted blocks on Put Blob and Delete Blob
 priority: Low
 assignee: Claude
 pipeline: feature
-depends-on: [BL-715]
+depends-on: [BL-715, BL-1035]
 touches: [Protocols/FileTransfer/Surl.Extended.Protocol.AzureStorage.UnitLibrary, Protocols/FileTransfer/Surl.Extended.Protocol.AzureStorage.UnitTests]
 requirement: none
 created: 2026-11-06
@@ -36,7 +36,12 @@ say the service does, so a later Put Block List cannot commit blocks staged befo
 ## Notes
 
 - Filed by BL-715.
+- 2026-11-11 (lane 3): `dotnet build` fails with "A compatible .NET SDK was not found" - global.json pins 10.0.401 and only 10.0.100-rc.1 and 11.0.x are installed. Waiting on BL-1035. The finished change (fix plus three tests in AzureBlockUploadTests) is still on branch factory/BL-924-lane-6-20261111-060243; cherry-pick it with --no-commit, build and test once BL-1035 is Done.
 
 ## Log
 
 - 2026-11-06: Created.
+- 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Backlog. Lane 6 could not integrate: build failed after rebasing onto the other lanes' work. The work is on branch factory/BL-924-lane-6-20261111-060243; start with git cherry-pick --no-commit factory/BL-924-lane-6-20261111-060243 and fix it.
+- 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Backlog. Waiting on BL-1035 - pinned .NET SDK 10.0.401 is not installed, so dotnet build cannot run; the work is on branch factory/BL-924-lane-6-20261111-060243

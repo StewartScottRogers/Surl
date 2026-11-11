@@ -1,4 +1,6 @@
 using System.Net;
+using System.Net.Sockets;
+using Surl.Protocol.Abstractions;
 
 namespace Surl.Networking;
 
@@ -28,11 +30,21 @@ internal static class DataConnectionPeer
     /// </summary>
     /// <param name="controlRemote">The control connection's remote end point, curl's address.</param>
     /// <param name="candidate">The end point a data connection comes from or goes to.</param>
-    /// <returns><see langword="true"/> only when both are IP end points with the same normalized address.</returns>
+    /// <returns>
+    /// <see langword="true"/> when both are IP end points with the same normalized address, or when
+    /// <paramref name="controlRemote"/> is a Unix socket peer and <paramref name="candidate"/> is an IP end
+    /// point on a loopback address.
+    /// </returns>
+    /// <remarks>
+    /// A control connection that came over a Unix domain socket has no IP address, and its peer is on
+    /// this machine by definition, so its peer's address is any loopback address (ADR-0094,
+    /// decision 2; BL-605).
+    /// </remarks>
     public static bool IsPeer(EndPoint controlRemote, EndPoint candidate) =>
-        controlRemote is IPEndPoint peer
-        && candidate is IPEndPoint other
-        && Normalize(peer.Address).Equals(Normalize(other.Address));
+        candidate is IPEndPoint other
+        && (controlRemote is IPEndPoint peer
+            ? Normalize(peer.Address).Equals(Normalize(other.Address))
+            : controlRemote is UnnamedUnixSocketPeer or UnixDomainSocketEndPoint && IPAddress.IsLoopback(Normalize(other.Address)));
 
     /// <summary>
     /// Says whether an active data connection may go to <paramref name="target"/>.

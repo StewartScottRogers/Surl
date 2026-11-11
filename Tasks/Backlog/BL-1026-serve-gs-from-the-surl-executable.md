@@ -4,8 +4,8 @@ title: Serve gs from the surl executable
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-432, BL-405, BL-655]
-touches: [Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests, Application/Surl.Console, Application/Surl.Console.UnitTests, Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests, Documentation/Conformance/Extended/GoogleCloudStorage.md]
+depends-on: [BL-432, BL-405, BL-655, BL-1035]
+touches: [Foundation/Surl.Protocol.Abstractions.UnitLibrary, Foundation/Surl.Protocol.Abstractions.UnitTests, Foundation/Surl.Networking.UnitLibrary, Foundation/Surl.Networking.UnitTests, Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests, Application/Surl.Console, Application/Surl.Console.UnitTests, Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests, Documentation/Conformance/Extended/GoogleCloudStorage.md]
 requirement: none
 created: 2026-11-06
 completed:
@@ -48,6 +48,38 @@ completed:
 
 ## Notes
 
+- 2026-11-11 (lane 2): returned to Backlog behind BL-1035 - `dotnet build` fails with "A compatible .NET
+  SDK was not found" (global.json pins 10.0.401; only 10.0.100-rc.1, 11.0.100-rc.2 and 11.0.100 are
+  installed). The code below was written but never built or tested; it is left uncommitted for the shift
+  to stash. The next run should restore it, or redo it from this list.
+- Touches widened: `gs` must be TLS from the first byte, and that list is `TlsSchemes` in
+  `Foundation/Surl.Protocol.Abstractions.UnitLibrary`; ALPN `http/1.1` for it is
+  `TlsApplicationProtocols` in `Foundation/Surl.Networking.UnitLibrary`. No task in Doing touched either.
+- Decision: `gs` follows `s3`'s mechanism (BL-421, commit 0d53a586): "gs" added to `TlsSchemes`, so the
+  serving engine handshakes it and no `ImplicitTlsSchemeServer` entry is needed. ADR-0110 decision 5's
+  "wrapped in `ImplicitTlsSchemeServer` as `https` is" needs no wrapper, because the wrapper exists for a
+  plaintext twin and `gs` has none registered; its effect (TLS first, `(58)` without a certificate) is the
+  same. BL-1027's `--gs-plaintext` then sets `ListenUrl.IsImplicitTls = false`, as `--s3-plaintext` does.
+- Work done (uncommitted): `TlsSchemes` + `TlsContractTests` row; `TlsApplicationProtocols` "gs" +
+  test row; `ExtendedProtocolServers.Registrations` gs entry (between dns and nats) and the GCS project
+  reference; Composition tests `Compose_ThisBuild_IsTheDnsUdpAndTcpServersThenTheGsThenTheNatsThenTheS3Server`,
+  `Compose_ThisBuild_BuildsTheGsServerOverTheServicesContentStoreIndexAndGsPolicy`,
+  `ComposeAsync_GsBesideFtpAndHttp_HandsAllThreeOneAndTheSameContentStore`,
+  `ComposeAsync_GsWithoutACertificate_FailsWithCertificateProblem`, `StartTestSeams.ParseWithGs`; Console
+  tests `ComposeExtendedSchemes_ThisBuildWithTheSwitchUnset_RegistersGs`, `..._SwitchAtZero_RegistersNoGs`,
+  `RunAsync_GsWithSelfSigned_ListensAtItsDefaultPort443`, `RunAsync_GsWithoutACertificate_ExitsWithCertificateProblem`,
+  `RunAsync_GsWithTheSwitchAtZero_RefusesItsSchemeAsAnUnknownScheme`, and "gs" in the scheme lists of
+  `CommandLineRunnerTests`; Cli: `HelpCategories` gs row, `AiHelpProse` gs topic (extended, tls, content
+  paragraphs updated), `AiHelpExamples` gs example (`-u :secret-token`, `curl -k --oauth2-bearer`),
+  `ManualText` "GS OPTIONS", "gs" in nine options' categories, and the matching test pins.
+- Still to do after a build: fix the `HelpTextTests` "Categories:" wrapping pins that the new "gs"
+  category shifts, update the `Surl.Composition.UnitLibrary/CLAUDE.md` extended-server paragraph, and
+  replace `GCS:Surl-Tls-1`/`-2` "n/a" in `Documentation/Conformance/Extended/GoogleCloudStorage.md`
+  with `RunAsync_GsWithSelfSigned_ListensAtItsDefaultPort443` and
+  `RunAsync_GsWithoutACertificate_ExitsWithCertificateProblem`.
+
 ## Log
 
 - 2026-11-06: Created.
+- 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Backlog. Waiting on BL-1035: pinned .NET SDK 10.0.401 is not installed, so nothing builds; gs code left uncommitted

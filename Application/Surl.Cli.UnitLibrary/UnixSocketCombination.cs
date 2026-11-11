@@ -17,15 +17,10 @@ internal static class UnixSocketCombination
     public static readonly FrozenSet<string> DatagramSchemes =
         FrozenSet.Create(StringComparer.Ordinal, "tftp", "coap", "coaps", "dns");
 
-    /// <summary>
-    /// The schemes not served over a Unix socket until BL-605: FTP's data connections are TCP
-    /// connections to the address a passive reply names (ADR-0094, decision 2).
-    /// </summary>
-    public static readonly FrozenSet<string> FtpSchemes = FrozenSet.Create(StringComparer.Ordinal, "ftp", "ftps");
 
     /// <summary>
     /// Refuses a Unix socket given with more than one listen URL, with a scheme that listens on UDP,
-    /// with <c>--http3</c>, or with <c>ftp</c> or <c>ftps</c>, in that order, each
+    /// or with <c>--http3</c>, in that order, each
     /// <see cref="SurlExitCode.FailedInit"/> followed by the try-help line; null otherwise, and
     /// whenever no Unix socket is given.
     /// </summary>
@@ -48,6 +43,16 @@ internal static class UnixSocketCombination
             : RefuseScheme(commandLine, listenUrls[0].Scheme, optionName);
     }
 
+    /// <summary>
+    /// Refuses a Unix socket given with a <c>-x</c>/<c>--proxy</c> listen URL: the socket serves one listen
+    /// URL and a proxy's is not one it can take (ADR-0088 amendment 7); null otherwise.
+    /// </summary>
+    /// <param name="commandLine">The command line read so far.</param>
+    /// <returns>The refusal, or <see langword="null"/>.</returns>
+    public static CommandLineFailure? RefuseProxy(SurlCommandLine commandLine) =>
+        commandLine.UnixSocket is { } unixSocket && commandLine.ProxyListenUrls.Count > 0
+            ? Refused(unixSocket.IsAbstract ? "--abstract-unix-socket" : "--unix-socket", "cannot be used with --proxy")
+            : null;
     // Refuses the one listen URL's scheme, or --http3, where a Unix stream socket cannot serve it.
     private static CommandLineFailure? RefuseScheme(SurlCommandLine commandLine, string scheme, string optionName)
     {
@@ -61,9 +66,7 @@ internal static class UnixSocketCombination
             return Refused(optionName, "--http3 listens on UDP");
         }
 
-        return FtpSchemes.Contains(scheme)
-            ? Refused(optionName, $"{scheme} is not served over a Unix socket: its data connections are TCP")
-            : null;
+        return null;
     }
 
     /// <summary>

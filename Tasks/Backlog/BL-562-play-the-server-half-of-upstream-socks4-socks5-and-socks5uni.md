@@ -4,7 +4,7 @@ title: Play the server half of upstream socks4, socks5 and socks5unix test cases
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-559, BL-547, BL-391, BL-393]
+depends-on: [BL-559, BL-547, BL-391, BL-393, BL-1035]
 touches: [Conformance/Surl.Conformance.UnitLibrary, Conformance/Surl.Conformance.UnitTests, Protocols/Proxy/Surl.Protocol.Socks.UnitLibrary, Protocols/Proxy/Surl.Protocol.Socks.UnitTests, Documentation/Conformance]
 requirement: none
 created: 2026-11-04
@@ -53,6 +53,12 @@ file counts the cases.
 
 ## Notes
 
+- 2026-11-11 (lane 1): returned to Backlog behind BL-1035. `dotnet` cannot resolve the SDK
+  `global.json` pins (10.0.401; installed are only 10.0.100-rc.1, 11.0.100-rc.2 and 11.0.100), so
+  no build or test gate can run. No code was written.
+
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Backlog. waits on BL-1035 - pinned .NET SDK 10.0.401 is not installed

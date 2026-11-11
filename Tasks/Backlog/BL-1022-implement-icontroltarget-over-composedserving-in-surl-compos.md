@@ -4,7 +4,7 @@ title: Implement IControlTarget over ComposedServing in Surl.Composition
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-1016, BL-814, BL-805]
+depends-on: [BL-1016, BL-814, BL-805, BL-1035]
 touches: [Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests]
 requirement: none
 created: 2026-11-06
@@ -59,7 +59,11 @@ accounts, and reset, snapshot and restore - each refusal mapped to its `ControlR
 
 ## Notes
 
+- 2026-11-11 (lane 6): restored the four BL-816 files and the three tracked diffs from stash commit `0b6c4820` cleanly (no conflicts), but `dotnet build` fails: global.json pins SDK 10.0.401 and only 10.0.100-rc.1, 11.0.100-rc.2 and 11.0.100 are installed. Waits on BL-1035; the restored work is left uncommitted for the shift to stash.
+
 ## Log
 
 - 2026-11-06: Created.
 - 2026-11-06: Split from BL-816 (timed out after 120 min); reuses its control target from stash `darkfactory BL-816 20261106-033059`.
+- 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Backlog. Waits on BL-1035: pinned .NET SDK 10.0.401 is not installed, so nothing builds

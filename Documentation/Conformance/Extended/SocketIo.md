@@ -102,3 +102,21 @@ each into a row of its own when it lands.
 | SocketIo:Surl-7-3 | MUST | 1024 sessions a listener; the next new session's upgrade is `503` with no body. | `SocketIoRequestAnswererTests.AnswerAsync_ListenerHolding1024Sessions_Is503WithNoBody`, `SocketIoSessionsTests.TryReserve_ListenerHoldingMaxSessions_ReturnsNull` |
 | SocketIo:Surl-7-4 | MUST | A session with more than 1048576 bytes unsent is closed, WebSocket Close `1008`. | `SocketIoSessionTests.Deliver_MoreThanTheUnsentLimit_ClosesWithPolicyViolation`, `SocketIoOutboxTests.TryQueue_PastTheLimitUntilWritten_IsRefusedThenTakenOnceWritten` |
 | SocketIo:Surl-7-5 | MUST | A limit's cancellation (`--idle-timeout`, `--max-time`) sends each connected namespace a DISCONNECT, then closes the WebSocket `1001`, within a one-second write window; shutdown, after the engine's grace, writes nothing more (ADR-0059; ADR-0120 amendment 1). | `SocketIoSessionTests.RunAsync_CancelledForALimit_SaysDisconnectOnEachNamespaceThenGoingAway`, `SocketIoSessionTests.RunAsync_CancelledForALimitWhileWritesAreHeld_GivesUpOnTheFarewellAfterOneSecond`, `SocketIoSessionTests.RunAsync_CancelledAtShutdown_WritesNothingMore` |
+
+## Live client (BL-456; ADR-0083 decisions 1 to 3)
+
+`PinnedCurlPortClientTalksToSurlOverSocketIoTests` (`Integration`, in `Surl.Conformance.UnitTests`) runs the
+Curl port client `CurlPortBuilds.json` pins against a live `surl socketio://` and `socketios://`, with
+`--max-time 3` so the server's DISCONNECT ends the client's read. Each assertion is the rule's own, never
+what the client prints beyond the bytes the server was required to send. The tests are inconclusive where no
+pinned client is installed. Listen URLs have no path, so the CLI serves the main namespace only; a client
+joining another is the refusal below.
+
+| Row | Live test |
+| --- | --- |
+| SocketIo:SIO-Connect-2, SocketIo:Surl-5-1, SocketIo:Surl-7-5 | `PinnedCurlPortClientTalksToSurlOverSocketIoTests.Emit_MainNamespace_IsEchoedByteForByte` |
+| SocketIo:Surl-0-1 | `PinnedCurlPortClientTalksToSurlOverSocketIoTests.Emit_OverTls_IsEchoedByteForByte` (`socketios` with `--self-signed`; its listener failing with `CertificateProblem` without a certificate is `BL-455`'s command-line test) |
+| SocketIo:SIO-Connect-3, SocketIo:Surl-4-2 | `PinnedCurlPortClientTalksToSurlOverSocketIoTests.Connect_WithoutCredentials_IsRefusedAndNothingIsEchoed` |
+| SocketIo:Surl-4-1 | `PinnedCurlPortClientTalksToSurlOverSocketIoTests.Connect_NamespaceThatIsNotServed_IsRefusedAndNothingIsEchoed` |
+
+Every other row is proved by the unit tests its "Covered by" column names, or is marked `n/a` with its reason.

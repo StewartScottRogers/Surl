@@ -4,7 +4,7 @@ title: Record BL-713's multipart staging choices in ADR-0108
 priority: Normal
 assignee: Claude
 pipeline: docs
-depends-on: [BL-713]
+depends-on: [BL-713, BL-1035]
 touches: [Documentation/Planning/Decisions/ADR-0108-how-the-s3-server-answers-s3.md]
 requirement: none
 created: 2026-11-06
@@ -44,6 +44,12 @@ Claude under Stewart's delegation".
 
 Filed by BL-713.
 
+Lane 6, 2026-11-11: the ADR-0108 text from lane 3 (commit 0981f45d on factory/BL-927-lane-3-20261111-060243) cherry-picks cleanly onto the ADR; only the task file conflicted. It is left uncommitted for the shift to stash. `dotnet build` cannot run: `global.json` pins SDK 10.0.401 and only 10.0.100-rc.1, 11.0.100-rc.2 and 11.0.100 are installed, so the shift's integration build fails whatever the task. Waiting on BL-1035 (reinstall the SDK). Restart with `git cherry-pick --no-commit 0981f45d`, keep the ADR change, and finish the task file.
+
 ## Log
 
 - 2026-11-06: Created.
+- 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Backlog. Lane 3 could not integrate: build failed after rebasing onto the other lanes' work. The work is on branch factory/BL-927-lane-3-20261111-060243; start with git cherry-pick --no-commit factory/BL-927-lane-3-20261111-060243 and fix it.
+- 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Backlog. Waits on BL-1035: pinned .NET SDK 10.0.401 is not installed, so no build can pass; ADR text is ready on factory/BL-927-lane-3-20261111-060243 (0981f45d).

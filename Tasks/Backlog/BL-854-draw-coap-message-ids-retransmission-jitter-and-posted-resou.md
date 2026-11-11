@@ -4,7 +4,7 @@ title: Draw CoAP message IDs, retransmission jitter and posted resource names fr
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-822, BL-851]
+depends-on: [BL-822, BL-851, BL-1035]
 touches: [Protocols/Http/Surl.Extended.Protocol.Coap.UnitLibrary, Protocols/Http/Surl.Extended.Protocol.Coap.UnitTests]
 requirement: none
 created: 2026-11-05
@@ -39,6 +39,18 @@ directory come from `ExchangeContext.Identifiers`, so a seeded instance repeats 
 
 ## Notes
 
+- 2026-11-11 (lane 6): Implemented, not yet built - `dotnet build` cannot resolve the SDK `global.json` pins
+  (10.0.401; the machine has 10.0.100-rc.1 and 11.x), so the task waits on BL-1035. The code is left uncommitted
+  for the shift to stash. Design: `IdentifierCoapRandomSource` over `IIdentifierRandom` (Message ID = next 2 bytes
+  big-endian; fraction = low 30 bits of next 4 bytes over 2^30; draws serialised under a lock because a flow's
+  separate responses, observers and requests may draw at once) replaces `CryptographicCoapRandomSource`. Both
+  servers keep an internal `ICoapRandomSource?` seam; null (the public constructors) makes `CoapFlowServing`
+  build the source from `context.Identifiers` and the `CoapResourceAnswerer` per flow. Tests reference
+  `Surl.Core` for `SeededIdentifierRandom` (as Ftp's tests do). New: `IdentifierCoapRandomSourceTests`,
+  `RecordingCoapRandomSource`, and the two named tests.
+
 ## Log
 
 - 2026-11-05: Created.
+- 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Backlog. Waits on BL-1035: pinned .NET SDK 10.0.401 is not installed, so the CoAP change cannot be built or tested

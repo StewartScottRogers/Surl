@@ -715,7 +715,8 @@
 .PARAMETER UnixSocket
     Listen on a Unix domain socket at this path instead of ListenAddress:Port, for
     measuring curl's --unix-socket (ADR-0094). The HTTP responses are served exactly as on
-    TCP, with -Tls if given; every session mode, -Reset, -NoServer and the TLS relay are
+    TCP, with -Tls if given; with -Ftp the FTP session control connection is served on the
+    socket while its data listener stays on ListenAddress (BL-605); every other session mode, -Reset, -NoServer and the TLS relay are
     refused, and Port need not be given. The path must not exist: the script creates the
     socket file and deletes it when curl has finished. Needs PowerShell 7 or later, whose
     .NET has System.Net.Sockets.UnixDomainSocketEndPoint; on Windows it needs Windows 10
@@ -997,7 +998,7 @@ if ($TlsAlpn.Count -gt 0 -and (-not $Tls -or $Ftp -or $Smtp -or $Imap -or $Pop3 
 if ($TlsSrp -and ($Tls -or $Ftp -or $Smtp -or $Imap -or $Pop3 -or $Ldap -or $Tftp -or $QuicInitial -or $DnsQuery -or $NoServer -or $Reset -or $UnixSocket)) { throw '-TlsSrp serves TLS-SRP itself, with no certificate, so it cannot be combined with -Tls, a session mode but -Raw, -NoServer, -Reset or -UnixSocket.' }
 # All three are served by a TLS relay, which forwards the plaintext to the recorder's own server.
 $useTlsRelay = $TlsRenegotiationOff -or $TlsAlpn.Count -gt 0 -or $TlsSrp
-if ($UnixSocket -and ($NoServer -or $Ftp -or $Smtp -or $Imap -or $Pop3 -or $Raw -or $Ldap -or $Tftp -or $QuicInitial -or $Reset -or $useTlsRelay)) { throw '-UnixSocket serves HTTP responses only, so it cannot be combined with -NoServer, -Ftp, -Smtp, -Imap, -Pop3, -Raw, -Ldap, -Tftp, -QuicInitial, -Reset, -TlsRenegotiationOff or -TlsAlpn.' }
+if ($UnixSocket -and ($NoServer -or $Smtp -or $Imap -or $Pop3 -or $Raw -or $Ldap -or $Tftp -or $QuicInitial -or $Reset -or $useTlsRelay)) { throw '-UnixSocket serves HTTP responses or, with -Ftp, the control connection of an FTP session (its data connections stay on loopback TCP), so it cannot be combined with -NoServer, -Smtp, -Imap, -Pop3, -Raw, -Ldap, -Tftp, -QuicInitial, -Reset, -TlsRenegotiationOff or -TlsAlpn.' }
 if ($UnixSocket -and $null -eq ('System.Net.Sockets.UnixDomainSocketEndPoint' -as [type])) { throw '-UnixSocket needs PowerShell 7 or later: this .NET has no System.Net.Sockets.UnixDomainSocketEndPoint.' }
 if ($UnixSocketAbstract -and -not $UnixSocket) { throw '-UnixSocketAbstract says how to read -UnixSocket, so it needs -UnixSocket.' }
 $unixSocketFile = if ($UnixSocket -and -not $UnixSocketAbstract) { $UnixSocket } else { '' }
@@ -1360,12 +1361,12 @@ $serveFtpSession = {
 
     try {
         try {
-            $client = $Listener.AcceptTcpClient()
+            $client = if ($Listener -is [System.Net.Sockets.Socket]) { New-Object System.Net.Sockets.NetworkStream($Listener.Accept(), $true) } else { $Listener.AcceptTcpClient() }
         } catch {
             return , @(, $received.ToArray())
         }
         try {
-            $stream = $client.GetStream()
+            $stream = if ($client -is [System.IO.Stream]) { $client } else { $client.GetStream() }
             # The plaintext stream under any TLS, which CCC returns the control connection to.
             $plainStream = $stream
             if ($ImplicitTls) { $stream = Wrap-Tls -Stream $stream }

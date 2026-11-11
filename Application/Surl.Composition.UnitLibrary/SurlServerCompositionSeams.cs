@@ -77,6 +77,14 @@ public sealed record SurlServerCompositionSeams(
     public Func<ExtendedProtocolServerServices, IReadOnlyList<IProtocolServer>>? ComposeExtendedProtocolServers { get; init; }
 
     /// <summary>
+    /// Creates how the proxies reach origins, given the allowed-origin rule the start composed from
+    /// <c>--proxy-allow-origin</c> and the proxy listen URLs (ADR-0088 decision 2); a
+    /// <see cref="SocketOriginConnector"/> on the one clock when <see langword="null"/>, which is what
+    /// <c>surl</c> passes.
+    /// </summary>
+    public Func<AllowedOriginRule, IOriginConnector>? CreateOriginConnector { get; init; }
+
+    /// <summary>
     /// The protocol servers a host adds after the original and extended servers, each served on
     /// its own listen URLs after the command line's (ADR-0124, decision 2): how <c>Surl.Api</c>
     /// serves a test's own server. None, which is what <c>surl</c> passes, by default.

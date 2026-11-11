@@ -21,6 +21,7 @@ public sealed class TlsApplicationProtocolsTests
     [DataRow("http", true, "")]
     [DataRow("https", false, "h2,http/1.1")]
     [DataRow("wss", false, "http/1.1")]
+    [DataRow("xmpps", false, "xmpp-client")]
     [DataRow("ftps", false, "")]
     public void ForListener_OffersHttp11OnlyForAnHttpsProxyAndTheSchemesListOtherwise(string scheme, bool isProxy, string expected) =>
         Assert.AreEqual(

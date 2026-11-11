@@ -11,12 +11,12 @@ namespace Surl.Api;
 /// <see cref="Production"/> is what <see cref="SurlServer.StartAsync(SurlServerOptions, CancellationToken)"/>
 /// uses; a test passes fakes so no socket or file is opened.
 /// </summary>
-/// <param name="CreateListenerFactory">Creates the factory that starts the listeners, given the server's TLS settings.</param>
+/// <param name="CreateListenerFactory">Creates the factory that starts the listeners, given the server's TLS settings and the instance's clock.</param>
 /// <param name="CanOpenDataDirectory">Tells whether the data directory can be opened.</param>
 /// <param name="TakeDataDirectoryLock">Takes the data directory's <c>.surl/lock</c>.</param>
 /// <param name="EnvironmentVariables">Reads <c>SURL_EXTENSIONS</c> when the options leave it to the process.</param>
 internal sealed record SurlServerHostSeams(
-    Func<ServerTlsSettings?, IListenerFactory> CreateListenerFactory,
+    Func<ServerTlsSettings?, TimeProvider, IListenerFactory> CreateListenerFactory,
     Func<string, bool> CanOpenDataDirectory,
     Func<string, DataDirectoryLockOutcome> TakeDataDirectoryLock,
     IEnvironmentVariableReader EnvironmentVariables)
@@ -37,9 +37,10 @@ internal sealed record SurlServerHostSeams(
     /// </summary>
     public Func<string, byte[]>? ReadStartFile { get; init; }
 
-    /// <summary>Creates a <see cref="SocketListenerFactory"/> securing connections with <paramref name="tlsSettings"/>.</summary>
+    /// <summary>Creates a <see cref="SocketListenerFactory"/> securing connections with <paramref name="tlsSettings"/>, timed by <paramref name="timeProvider"/>.</summary>
     /// <param name="tlsSettings">The server's TLS settings, or <see langword="null"/> for none.</param>
+    /// <param name="timeProvider">The instance's clock.</param>
     /// <returns>The factory.</returns>
-    internal static IListenerFactory CreateSocketListenerFactory(ServerTlsSettings? tlsSettings) =>
-        new SocketListenerFactory(tlsSettings);
+    internal static IListenerFactory CreateSocketListenerFactory(ServerTlsSettings? tlsSettings, TimeProvider timeProvider) =>
+        new SocketListenerFactory(tlsSettings, timeProvider);
 }

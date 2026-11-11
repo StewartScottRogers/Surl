@@ -181,6 +181,53 @@ public sealed class ListenUrlParserTests
         Assert.AreEqual(new ListenUrl("mqtt", "127.0.0.1", 1883), result.ListenUrl);
     }
 
+    [TestMethod]
+    [DataRow("http://127.0.0.1:3128", "http", "127.0.0.1", 3128, DisplayName = "ADR example: the HTTP proxy")]
+    [DataRow("https://127.0.0.1:3129", "https", "127.0.0.1", 3129, DisplayName = "ADR example: the HTTPS proxy")]
+    [DataRow("http://127.0.0.1", "http", "127.0.0.1", 1080, DisplayName = "http proxy default port is curl's 1080")]
+    [DataRow("HTTPS://[::1]/", "https", "::1", 443, DisplayName = "https proxy default port is 443, scheme lower-cased")]
+    [DataRow("http://localhost:0", "http", "localhost", 0, DisplayName = "Port 0 asks for an ephemeral port")]
+    public void ParseProxy_HttpOrHttpsListenUrl_ReturnsProxyListenUrl(string argument, string scheme, string host, int port)
+    {
+        var result = ListenUrlParser.ParseProxy(argument);
+
+        Assert.IsTrue(result.Succeeded);
+        Assert.AreEqual(new ListenUrl(scheme, host, port) { IsProxy = true }, result.ListenUrl);
+        Assert.IsTrue(result.ListenUrl.IsProxy);
+    }
+
+    [TestMethod]
+    [DataRow("ftp://127.0.0.1/", "ftp", DisplayName = "An origin scheme is no proxy")]
+    [DataRow("socks5://127.0.0.1/", "socks5", DisplayName = "SOCKS is BL-560's")]
+    [DataRow("ws://127.0.0.1/", "ws", DisplayName = "ws is no proxy")]
+    public void ParseProxy_OtherScheme_RefusesAsUnsupportedProtocol(string argument, string scheme)
+    {
+        var result = ListenUrlParser.ParseProxy(argument);
+
+        AssertRefused(result, SurlExitCode.UnsupportedProtocol, $"(1) Protocol \"{scheme}\" not supported");
+    }
+
+    [TestMethod]
+    [DataRow("127.0.0.1:3128", "Malformed input to a URL function", DisplayName = "No scheme")]
+    [DataRow("http://user:secret@127.0.0.1:3128", "A listen URL cannot have a user name or password", DisplayName = "User and password")]
+    [DataRow("http://127.0.0.1:65536", "Port number was not a decimal number between 0 and 65535", DisplayName = "Port too high")]
+    [DataRow("https://127.0.0.1:3129/proxy", "A listen URL cannot have a path, query or fragment", DisplayName = "Path")]
+    public void ParseProxy_MalformedListenUrl_RefusesAsMalformedUrl(string argument, string reason)
+    {
+        var result = ListenUrlParser.ParseProxy(argument);
+
+        AssertRefused(result, SurlExitCode.MalformedUrl, $"(3) URL rejected: {reason}");
+        Assert.DoesNotContain("secret", result.Failure!.Message);
+    }
+
+    [TestMethod]
+    public void ParseProxy_NullArgument_Throws() =>
+        Assert.ThrowsExactly<ArgumentNullException>(() => ListenUrlParser.ParseProxy(null!));
+
+    [TestMethod]
+    public void Parse_HttpListenUrl_IsNotAProxy() =>
+        Assert.IsFalse(ListenUrlParser.Parse("http://127.0.0.1:3128").ListenUrl!.IsProxy);
+
     private static void AssertRefused(ListenUrlParseResult result, SurlExitCode exitCode, string message)
     {
         Assert.IsFalse(result.Succeeded);

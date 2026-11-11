@@ -38,7 +38,7 @@ internal static class GcsGenerationConditions
         }
 
         var holds = (generation is null || generation == (current?.Generation ?? 0))
-            && (metageneration is null || (current is not null && metageneration == GcsGeneration.Metageneration));
+            && (metageneration is null || (current is not null && metageneration == current.Metageneration));
 
         return holds ? null : GcsError.PreconditionFailed;
     }

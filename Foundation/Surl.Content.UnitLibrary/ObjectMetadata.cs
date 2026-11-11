@@ -62,4 +62,10 @@ public sealed record ObjectMetadata
     /// in microseconds since the Unix epoch.
     /// </summary>
     public long? Generation { get; init; }
+
+    /// <summary>
+    /// The object GCS <c>metageneration</c> (ADR-0148, decision 3); <see langword="null"/> for 1.
+    /// Must be at least 1.
+    /// </summary>
+    public long? Metageneration { get; init; }
 }

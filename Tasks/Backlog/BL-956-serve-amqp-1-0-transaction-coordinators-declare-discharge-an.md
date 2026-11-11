@@ -4,7 +4,7 @@ title: Serve AMQP 1.0 transaction coordinators, declare, discharge and transacti
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-961]
+depends-on: [BL-961, BL-1035]
 touches: [Protocols/Messaging/Surl.Extended.Protocol.Amqp1.UnitLibrary, Protocols/Messaging/Surl.Extended.Protocol.Amqp1.UnitTests, Documentation/Conformance/Extended/Amqp1.md]
 requirement: none
 created: 2026-11-06
@@ -46,7 +46,17 @@ messages posted in a transaction until a commit publishes them all or none.
 ## Notes
 
 - Filed by BL-707 (ADR-0146 decision 1).
+- 2026-11-11 (lane 2): the finished work is commit 5359ac2e on branch
+  `factory/BL-956-lane-6-20261111-060243`. It cherry-picks cleanly onto the shift branch; built with
+  SDK 11.0.100 from outside the repository it is clean and the Amqp1 fast tests pass (730). The
+  shift's in-repo build fails only because `global.json` pins SDK 10.0.401, which is not installed
+  (BL-1035), so the task waits on BL-1035. Next run: `git cherry-pick --no-commit 5359ac2e`, build,
+  test, finish.
 
 ## Log
 
 - 2026-11-06: Created.
+- 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Backlog. Lane 6 could not integrate: build failed after rebasing onto the other lanes' work. The work is on branch factory/BL-956-lane-6-20261111-060243; start with git cherry-pick --no-commit factory/BL-956-lane-6-20261111-060243 and fix it.
+- 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Backlog. Waits on BL-1035: the pinned .NET SDK 10.0.401 is not installed, so the in-repo build fails; the finished work is commit 5359ac2e on factory/BL-956-lane-6-20261111-060243 and passes on SDK 11 (Amqp1 730 tests).

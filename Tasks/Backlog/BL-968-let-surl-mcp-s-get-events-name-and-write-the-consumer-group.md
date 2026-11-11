@@ -4,8 +4,8 @@ title: Let Surl.Mcp's get_events name and write the consumer_group_changed event
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-946]
-touches: [Application/Surl.Mcp.UnitLibrary, Application/Surl.Mcp.UnitTests]
+depends-on: [BL-946, BL-1035]
+touches: [Application/Surl.Mcp.UnitLibrary, Application/Surl.Mcp.UnitTests, Application/Surl.Api, Application/Surl.Api.UnitTests]
 requirement: none
 created: 2026-11-06
 completed:
@@ -31,6 +31,16 @@ The MCP `get_events` tool accepts `consumer_group_changed` in its `kinds` filter
 
 ## Notes
 
+- 2026-11-11 (lane 4): the `account` and `scheme` filters run in Surl.Api's `SurlEventFacts`, which did not
+  know `ConsumerGroupChangedEvent` (no kind, no exchange id, no own scheme or account), so `touches` gained
+  `Application/Surl.Api` and `Application/Surl.Api.UnitTests` (no task in Doing named them). Code written but
+  uncommitted (the shift stashes it): `SurlEventKind.ConsumerGroupChanged`; `SurlEventFacts` kind, exchange id,
+  own scheme and own account; MCP `kinds` enum and `RecordedEventWriter` members (null member_id, account and
+  exchange_id left out); tests in `SurlEventFactsTests`, `GetEventsToolTests`, `RecordedEventWriterTests`.
+  Not built: the pinned .NET SDK 10.0.401 is not installed on the machine, so back to Backlog behind BL-1035.
+
 ## Log
 
 - 2026-11-06: Created.
+- 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Backlog. Waiting on BL-1035 - pinned .NET SDK 10.0.401 is not installed, so nothing builds; code is written and stashed by the shift

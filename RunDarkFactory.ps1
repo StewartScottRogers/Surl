@@ -204,8 +204,13 @@ param(
     [int]$MaxTasks = 0,
     # A single task run is killed after this long and filed as stalled.
     [int]$TaskMinutes = 120,
-    # Model for each run. "opus" is the moving alias RunClaude.cmd also uses.
-    [string]$Model = $(if ($env:CLAUDE_MODEL) { $env:CLAUDE_MODEL } else { 'opus' }),
+    # Model for each run. "sonnet" by default to save tokens (Stewart, 2026-11-11); the
+    # stronger -EscalationModel is used only for a run that got into trouble.
+    [string]$Model = $(if ($env:CLAUDE_MODEL) { $env:CLAUDE_MODEL } else { 'sonnet' }),
+    # Model for a second try when a run on -Model got into trouble: a task run that ended
+    # still in Doing, a split after a timeout, and a rebase resolver's second and third try.
+    # '' (or the same model as -Model) turns escalation off.
+    [string]$EscalationModel = $(if ($null -ne $env:CLAUDE_ESCALATION_MODEL) { $env:CLAUDE_ESCALATION_MODEL } else { 'opus' }),
     # Show the attention banner and exit, to check it can be seen across the room.
     [switch]$TestAlarm,
     # Multiplies the alarm's stage timings; 0.1 runs the whole ladder in about 90 seconds.
@@ -2165,7 +2170,10 @@ function Invoke-TaskRun {
     # One headless Claude run in this checkout. By default it is the task run; a lane
     # passes its own prompt and deny list, and a log suffix for the resolver's run.
     # -Resume is the task run again after the usage limit cut the last one off.
-    param([string]$Id, [string]$Text = '', [string[]]$Deny = $null, [string]$Suffix = '', [int]$Minutes = 0, [switch]$Resume)
+    # -Escalate runs it on -EscalationModel instead of -Model.
+    param([string]$Id, [string]$Text = '', [string[]]$Deny = $null, [string]$Suffix = '', [int]$Minutes = 0, [switch]$Resume, [switch]$Escalate)
+    $runModel = if ($Escalate -and $EscalationModel) { $EscalationModel } else { $Model }
+    if ($Escalate) { $Suffix += '-escalated' }
     if (-not $Text) { $Text = if ($Lane) { $LanePrompt } else { $Prompt } }
     if ($Resume) { $Text = $ResumeNote + $Text; $Suffix += '-resumed' }
     if ($null -eq $Deny) { $Deny = if ($Lane) { $LaneForbidden } else { $Forbidden } }
@@ -2180,7 +2188,7 @@ function Invoke-TaskRun {
     $psi = New-Object System.Diagnostics.ProcessStartInfo
     $psi.FileName = $env:ComSpec
     $denied = ($Deny | ForEach-Object { "`"Bash($_`:*)`" `"PowerShell($_`:*)`"" }) -join ' '
-    $psi.Arguments = "/d /c claude -p --model $Model --dangerously-skip-permissions --output-format stream-json --verbose --disallowedTools $denied 2>`"$err`""
+    $psi.Arguments = "/d /c claude -p --model $runModel --dangerously-skip-permissions --output-format stream-json --verbose --disallowedTools $denied 2>`"$err`""
     $psi.WorkingDirectory = $Root
     # A tool call past its timeout is moved to the background, and a headless run that then
     # ends its reply to wait for it exits with the task still in Doing: give Bash
@@ -2336,7 +2344,7 @@ function Invoke-Integrate {
             if (-not (Invoke-Git @('rebase', '-q', "origin/$Branch"))) {
                 if (Test-Rebasing) {
                     Write-Trace $Id 'resolve' 'rebase conflict; resolving' 'DarkYellow'
-                    Invoke-TaskRun -Id $Id -Text $ResolvePrompt -Deny $ResolveForbidden -Suffix '-resolve' -Minutes 45 | Out-Null
+                    Invoke-TaskRun -Id $Id -Text $ResolvePrompt -Deny $ResolveForbidden -Suffix "-resolve$attempt" -Minutes 45 -Escalate:($attempt -gt 1) | Out-Null
                     if (Test-Rebasing) { & git -C $Root rebase --abort 2>&1 | Out-Null; return 'rebase conflict the resolver could not settle' }
                 } else { return 'rebase failed' }
             }
@@ -2889,7 +2897,7 @@ if (($AutoLanes -or $LaneCount -gt 1) -and -not $Lane) {
     $laneArgsFor = {
         param([int]$N)
         @('-Lane', $N, '-Branch', $branch, '-Hours', $Hours, '-MaxTasks', $MaxTasks,
-          '-TaskMinutes', $TaskMinutes, '-Model', $Model, '-LogRoot', "`"$LogDir`"", '-ShiftStamp', $Stamp,
+          '-TaskMinutes', $TaskMinutes, '-Model', $Model, '-EscalationModel', "`"$EscalationModel`"", '-LogRoot', "`"$LogDir`"", '-ShiftStamp', $Stamp,
           # Each lane decides for itself when the tokens are low, so it needs the shift's
           # stop levels; without them it stopped at the defaults, 85% and 97%.
           '-StopAtUsage', $StopAtUsage, '-StopAtWeeklyUsage', $StopAtWeeklyUsage)
@@ -3143,7 +3151,7 @@ if (($AutoLanes -or $LaneCount -gt 1) -and -not $Lane) {
         foreach ($r in $reasons) { Write-Trace '-' 'note' (Get-Short $r 100) 'Yellow' }
         # An Auto shift hands on Auto, not the count it ended at; the next one starts from
         # the count auto-lanes.json saved.
-        $forward = @('-Lanes', $(if ($AutoLanes) { 'Auto' } else { $LaneCount }), '-Hours', $Hours, '-MaxTasks', $MaxTasks, '-TaskMinutes', $TaskMinutes, '-Model', $Model, '-HeartbeatMinutes', $HeartbeatMinutes, '-Continuous', '-ShiftBranch', $branch,
+        $forward = @('-Lanes', $(if ($AutoLanes) { 'Auto' } else { $LaneCount }), '-Hours', $Hours, '-MaxTasks', $MaxTasks, '-TaskMinutes', $TaskMinutes, '-Model', $Model, '-EscalationModel', "`"$EscalationModel`"", '-HeartbeatMinutes', $HeartbeatMinutes, '-Continuous', '-ShiftBranch', $branch,
             '-StopAtUsage', $StopAtUsage, '-StopAtWeeklyUsage', $StopAtWeeklyUsage)
         if ($AutoLanes) { $forward += @('-MaxLanes', $MaxLanes, '-MinStartLanes', $MinStartLanes) }
         if ($WeeklyPace) { $forward += '-WeeklyPace' }
@@ -3293,7 +3301,7 @@ while ($true) {
         Save-StrayChanges $id
         Write-Trace $id 'split' "timed out after $TaskMinutes min; splitting it" 'Yellow'
         $beforeSplit = (git -C $Root rev-parse HEAD).Trim()
-        Invoke-TaskRun -Id $id -Text $SplitPrompt.Replace('{STAMP}', $Stamp) -Deny $SplitForbidden -Suffix '-split' -Minutes 45 | Out-Null
+        Invoke-TaskRun -Id $id -Text $SplitPrompt.Replace('{STAMP}', $Stamp) -Deny $SplitForbidden -Suffix '-split' -Minutes 45 -Escalate | Out-Null
         $state = Get-TaskState $id
         if ($state -eq 'Deferred') { Write-Trace $id 'split' 'split into smaller tasks; the original is Deferred' 'Green' }
         else {
@@ -3304,6 +3312,14 @@ while ($true) {
             Write-Trace $id 'split' 'the split did not finish; blocking the task instead' 'Yellow'
             $state = Get-TaskState $id
         }
+    }
+
+    # Ended in Doing without timing out: the cheaper model got stuck. Give it one more run
+    # on the stronger model, carrying on from the work in place, before blocking it.
+    if ($state -eq 'Doing' -and -not $run.TimedOut -and $EscalationModel -and $EscalationModel -ne $Model) {
+        Write-Trace $id 'escalate' "ended in Doing on $Model; one more run on $EscalationModel" 'Yellow'
+        $run = Invoke-TaskRun $id -Resume -Escalate
+        $state = Get-TaskState $id
     }
 
     if ($state -eq 'Doing') {

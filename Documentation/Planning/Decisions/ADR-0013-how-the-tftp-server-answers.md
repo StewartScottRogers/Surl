@@ -132,3 +132,21 @@ makes curl exit 69, ERROR 3 exit 70 (`Disk full or allocation exceeded`), ERROR 
   identifier, as the recorder, and so curl, was measured with.
 - **One flow.** A whole transfer, read or write, is served inside one `ServeAsync` on the
   one flow the engine gave it, so the engine's count of one flow as one connection holds.
+
+## Amendment 2 - netascii reads are sent as netascii (BL-855, 2026-11-11)
+
+Decided by Claude under Stewart's delegation.
+
+Upstream test 1094 (`tftp://...//1094;mode=netascii`) expects the data `a chunk of\r\n` for a
+stored `a chunk of\n`, so the original decision (bytes unchanged in both modes) was wrong: RFC 1350
+makes netascii lines end CR LF on the wire, and pinned upstream curl 8.21.0 writes the DATA bytes it
+receives as they are, which the test's expected output confirms.
+
+- **Read in netascii.** Each LF is sent as CR LF and each CR as CR NUL; every other byte is unchanged.
+  An `octet` read is unchanged. The file is read whole and converted before the first packet, so
+  the converted length is known for `tsize`; a file that shrinks during that read gets ERROR 0,
+  `The file changed while it was sent.`
+- **`tsize`.** A netascii read answers the converted length, the number of bytes the client receives,
+  not the stored length.
+- **Writes.** A netascii write is stored as received. Converting back would need a stored-form choice
+  per platform and no upstream test asks for it; the bytes a client sends are the bytes kept.

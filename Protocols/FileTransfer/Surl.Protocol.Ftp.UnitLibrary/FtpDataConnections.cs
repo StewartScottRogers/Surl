@@ -235,13 +235,25 @@ internal sealed class FtpDataConnections : IAsyncDisposable
         return IsPeerAddress(target.Address) && target.Port >= 1024 ? target : null;
     }
 
+    // A control connection over a Unix domain socket has no peer IP address; its peer is on this
+    // machine, so any loopback address is its own (ADR-0094, decision 2; BL-605).
     private bool IsPeerAddress(IPAddress address) =>
-        controlConnection.RemoteEndPoint is IPEndPoint peer && Unmapped(peer.Address).Equals(Unmapped(address));
+        controlConnection.RemoteEndPoint switch
+        {
+            IPEndPoint peer => Unmapped(peer.Address).Equals(Unmapped(address)),
+            UnnamedUnixSocketPeer or UnixDomainSocketEndPoint => IPAddress.IsLoopback(Unmapped(address)),
+            _ => false,
+        };
 
+    // The IPv4 address PASV names: the control connection's own, or loopback when the control
+    // connection came over a Unix domain socket, where the passive listener binds loopback.
     private static IPAddress? IPv4AddressOf(EndPoint endPoint) =>
-        endPoint is IPEndPoint { Address: var address } && Unmapped(address) is { AddressFamily: AddressFamily.InterNetwork } unmapped
-            ? unmapped
-            : null;
+        endPoint switch
+        {
+            IPEndPoint { Address: var address } when Unmapped(address) is { AddressFamily: AddressFamily.InterNetwork } unmapped => unmapped,
+            UnixDomainSocketEndPoint => IPAddress.Loopback,
+            _ => null,
+        };
 
     private static IPAddress Unmapped(IPAddress address) => address.IsIPv4MappedToIPv6 ? address.MapToIPv4() : address;
 }

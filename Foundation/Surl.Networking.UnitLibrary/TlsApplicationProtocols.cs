@@ -8,7 +8,7 @@ namespace Surl.Networking;
 /// as ADR-0081 decision 2 amends it): <c>h2</c> then <c>http/1.1</c> for <c>https</c>, exactly
 /// <c>http/1.1</c> for <c>wss</c>, whose WebSocket upgrade is HTTP/1.1's, and for the extended
 /// <c>s3</c>, which the S3 server answers over HTTP/1.1 only (ADR-0108, decision 5), and none for every
-/// other scheme, because upstream curl sends ALPN only for HTTP.
+/// other scheme but the extended <c>xmpps</c>, which offers <c>xmpp-client</c> (XEP-0368 section 3, BL-540), because upstream curl sends ALPN only for HTTP.
 /// </summary>
 internal static class TlsApplicationProtocols
 {
@@ -16,15 +16,19 @@ internal static class TlsApplicationProtocols
 
     private static readonly SslApplicationProtocol[] Http11Only = [SslApplicationProtocol.Http11];
 
+    // XEP-0368 section 3: direct-TLS XMPP clients name the ALPN protocol xmpp-client.
+    private static readonly SslApplicationProtocol[] XmppClient = [new SslApplicationProtocol("xmpp-client")];
+
     /// <summary>
     /// The ALPN protocol IDs offered for <paramref name="scheme"/>, in the server's order of preference.
     /// </summary>
     /// <param name="scheme">The listen URL's scheme, lower-cased.</param>
-    /// <returns><c>h2</c> and <c>http/1.1</c> for <c>https</c>; <c>http/1.1</c> for <c>wss</c> and <c>s3</c>; otherwise empty.</returns>
+    /// <returns><c>h2</c> and <c>http/1.1</c> for <c>https</c>; <c>http/1.1</c> for <c>wss</c> and <c>s3</c>; <c>xmpp-client</c> for <c>xmpps</c>; otherwise empty.</returns>
     public static IReadOnlyList<SslApplicationProtocol> ForScheme(string scheme) => scheme switch
     {
         "https" => Https,
         "wss" or "s3" => Http11Only,
+        "xmpps" => XmppClient,
         _ => [],
     };
 
