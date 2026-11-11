@@ -42,3 +42,4 @@ Filed by BL-472: the matrix file was outside its `touches`.
 - 2026-11-06: Backlog -> Doing.
 - 2026-11-06: Doing -> Backlog. Released unstarted by the interactive session: 66 rows to trace one by one; better as a lane's full run
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Backlog. Lane 6 could not integrate: build failed after rebasing onto the other lanes' work. The work is on branch factory/BL-752-lane-6-20261111-060243; start with git cherry-pick --no-commit factory/BL-752-lane-6-20261111-060243 and fix it.
