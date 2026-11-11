@@ -51,3 +51,4 @@ even when the case's `<servercmd>` answered MAIL and RCPT with `REPLY` rather th
 ## Log
 
 - 2026-11-05: Created.
+- 2026-11-11: Backlog -> Doing.
