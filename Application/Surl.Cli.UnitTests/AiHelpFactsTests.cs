@@ -169,6 +169,7 @@ public sealed class AiHelpFactsTests
     [DataRow("socketio", new[] { "socketio", "socketios" })]
     [DataRow("telnet", new[] { "telnet" })]
     [DataRow("tftp", new[] { "tftp" })]
+    [DataRow("webtransport", new[] { "webtransport" })]
     public void ProtocolCategory_ClaimsItsSchemes(string name, string[] schemes)
     {
         Assert.IsTrue(HelpCategories.TryFind(name, out var category));
@@ -181,7 +182,7 @@ public sealed class AiHelpFactsTests
     {
         var withSchemes = HelpCategories.All.Where(category => category.Schemes.Count > 0).Select(category => category.Name);
 
-        CollectionAssert.AreEqual(new[] { "dict", "dns", "ftp", "gopher", "http", "imap", "ldap", "mqtt", "nats", "pop3", "rtsp", "s3", "smb", "smtp", "socketio", "ssh", "telnet", "tftp", "websocket" }, withSchemes.ToArray());
+        CollectionAssert.AreEqual(new[] { "dict", "dns", "ftp", "gopher", "http", "imap", "ldap", "mqtt", "nats", "pop3", "rtsp", "s3", "smb", "smtp", "socketio", "ssh", "telnet", "tftp", "websocket", "webtransport" }, withSchemes.ToArray());
     }
 
     [TestMethod]

@@ -17,6 +17,7 @@
     <ProjectReference Include="..\..\Protocols\Messaging\Surl.Extended.Protocol.Nats.UnitLibrary\Surl.Extended.Protocol.Nats.UnitLibrary.csproj" />
     <ProjectReference Include="..\..\Protocols\FileTransfer\Surl.Extended.Protocol.S3.UnitLibrary\Surl.Extended.Protocol.S3.UnitLibrary.csproj" />
     <ProjectReference Include="..\..\Protocols\Http\Surl.Extended.Protocol.SocketIo.UnitLibrary\Surl.Extended.Protocol.SocketIo.UnitLibrary.csproj" />
+    <ProjectReference Include="..\..\Protocols\Http\Surl.Extended.Protocol.WebTransport.UnitLibrary\Surl.Extended.Protocol.WebTransport.UnitLibrary.csproj" />
     <ProjectReference Include="..\..\Protocols\Lookup\Surl.Protocol.Dict.UnitLibrary\Surl.Protocol.Dict.UnitLibrary.csproj" />
     <ProjectReference Include="..\..\Protocols\FileTransfer\Surl.Protocol.Ftp.UnitLibrary\Surl.Protocol.Ftp.UnitLibrary.csproj" />
     <ProjectReference Include="..\..\Protocols\Lookup\Surl.Protocol.Gopher.UnitLibrary\Surl.Protocol.Gopher.UnitLibrary.csproj" />

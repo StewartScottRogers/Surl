@@ -102,7 +102,7 @@ internal static class AiHelpProse
             "The extended protocol servers answer schemes the Curl port (https://github.com/StewartScottRogers/Curl) adds and upstream curl does not have. Each is judged by its protocol's specification and is not validated against upstream curl, unlike every other protocol topic's server.",
             "They are on unless the environment variable `SURL_EXTENSIONS` is `0`; unset, empty or any other value leaves them on. With `SURL_EXTENSIONS=0` no extended server is registered, and a listen URL naming an extended scheme writes `surl: (1) Protocol \"<scheme>\" not supported` and exits 1, as any scheme this build does not serve does. No command-line option turns them off.",
             "An extended scheme never changes how an original scheme is served, and has its own default port, which its topic's Schemes section lists. `surl --version` lists the extended schemes this build serves on an `Extended:` line after the `Protocols:` line; with none registered, or with `SURL_EXTENSIONS=0`, there is no such line.",
-            "This build registers four extended protocol servers, the DNS server for `dns` (see the dns topic), the NATS server for `nats` and `natss` (see the nats topic), the S3 server for `s3` (see the s3 topic) and the Socket.IO server for `socketio` and `socketios` (see the socketio topic); each one added gets its own topic.",
+            "This build registers five extended protocol servers, the DNS server for `dns` (see the dns topic), the NATS server for `nats` and `natss` (see the nats topic), the S3 server for `s3` (see the s3 topic) the Socket.IO server for `socketio` and `socketios` (see the socketio topic) and the WebTransport server for `webtransport` (see the webtransport topic); each one added gets its own topic.",
         ],
         ["exit-codes"] =
         [
@@ -242,6 +242,13 @@ internal static class AiHelpProse
             "A client reaches it at the path `/socket.io/` with `EIO=4`, over HTTP long-polling or a WebSocket upgrade; any other path is `404`. It serves the main namespace `/` only, because a listen URL has no path to name another.",
             "A session's first Socket.IO packet must be a CONNECT, and its login is judged by the accounts allowed on `socketio` (`--user`, `--user-file`). Without an account a login is refused unless `--allow-anonymous` is given, and a password over plain `socketio` is refused unless `--allow-plaintext-auth` is given.",
             "`socketio` is plain HTTP. `socketios` is the same server inside TLS from the first byte, so a `socketios` listen URL needs `--cert` or `--self-signed` (see the tls topic).",
+        ],
+        ["webtransport"] =
+        [
+            "The WebTransport server answers WebTransport clients for `webtransport` listen URLs, over QUIC and HTTP/3 on UDP. It is an extended server (see the extended topic): it is judged by the WebTransport over HTTP/3 draft, draft-ietf-webtrans-http3-16 (the WTH3 draft), with RFC 9220, RFC 9297 and RFC 9221, not by upstream curl, which has no `webtransport` scheme. The default port is 443.",
+            "A client opens a session with an extended `CONNECT` whose `:protocol` is `webtransport-h3`; every path accepts a session, because a listen URL has no path to name one, and every other request is answered `405`. The server echoes the streams and datagrams a session carries, applies WTH3 flow control, and ends a session with `WT_CLOSE_SESSION`.",
+            "Each `CONNECT` login is judged by the accounts allowed on `webtransport` (`--user`, `--user-file`), as an HTTP request is: without an account a login is refused unless `--allow-anonymous` is given.",
+            "QUIC is always TLS 1.3, so a `webtransport` listen URL needs `--cert` or `--self-signed` (see the tls topic); ALPN offers `h3`. It binds UDP only, and `--idle-timeout` is the QUIC `max_idle_timeout`.",
         ],
         ["security"] =
         [

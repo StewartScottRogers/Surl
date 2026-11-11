@@ -126,7 +126,7 @@ internal sealed class WebTransportSessionDirectory(ExchangeContext context)
     {
         // Neither wait throws: the settlement is only ever given a result, and WhenAny never faults.
         using var timer = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        var timeout = Task.Delay(context.Limits.HeadTimeout, context.TimeProvider, timer.Token);
+        var timeout = Task.Delay(WebTransportHeadTimeoutDelay.For(context.Limits.HeadTimeout), context.TimeProvider, timer.Token);
         var first = await Task.WhenAny(settlement, timeout);
         await timer.CancelAsync();
         lock (gate)

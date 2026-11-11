@@ -223,6 +223,7 @@ public sealed class CommandLineRunnerExtendedProtocolTests
     [DataRow("natss")]
     [DataRow("socketio")]
     [DataRow("socketios")]
+    [DataRow("webtransport")]
     public async Task RunAsync_NatsSchemeWithTheSwitchAtZero_RefusesItAsAnUnknownScheme(string scheme)
     {
         using var output = new StringWriter();
@@ -257,6 +258,49 @@ public sealed class CommandLineRunnerExtendedProtocolTests
     }
 
     [TestMethod]
+    public void ComposeExtendedSchemes_ThisBuild_RegistersWebTransportWithTheSwitchUnsetAndNotWithItAtZero()
+    {
+        var on = CreateRunner(new FakeListenerFactory(), FakeEnvironmentVariableReader.Empty, composeExtendedProtocolServers: null);
+        var off = CreateRunner(new FakeListenerFactory(), FakeEnvironmentVariableReader.ExtensionsTurnedOff, composeExtendedProtocolServers: null);
+
+        CollectionAssert.Contains(on.ComposeExtendedSchemes().ToArray(), "webtransport");
+        CollectionAssert.DoesNotContain(off.ComposeExtendedSchemes().ToArray(), "webtransport");
+    }
+
+    [TestMethod]
+    public async Task RunAsync_WebTransportWithoutACertificate_ExitsWithCertificateProblem()
+    {
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+        var runner = CreateRunner(new FakeListenerFactory(), FakeEnvironmentVariableReader.Empty, composeExtendedProtocolServers: null);
+
+        var exitCode = await runner.RunAsync(["webtransport://127.0.0.1:0/"], output, error, TestContext.CancellationToken);
+
+        Assert.AreEqual(SurlExitCode.CertificateProblem, exitCode);
+        Assert.AreEqual(
+            "surl: (58) webtransport://127.0.0.1:0/ needs a certificate: give --cert <file>, or --self-signed for a throwaway one" + NewLine,
+            error.ToString());
+    }
+
+    [TestMethod]
+    public async Task RunAsync_WebTransportWithSelfSigned_ListensAtItsDefaultPort443()
+    {
+        var factory = new FakeListenerFactory();
+        using var stop = CancellationTokenSource.CreateLinkedTokenSource(TestContext.CancellationToken);
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+        var runner = CreateRunner(factory, FakeEnvironmentVariableReader.Empty, composeExtendedProtocolServers: null);
+
+        var running = runner.RunAsync(["--self-signed", "webtransport://127.0.0.1/"], output, error, stop.Token);
+        await factory.AcceptStarted.Task.WaitAsync(TestContext.CancellationToken);
+        await stop.CancelAsync();
+        var exitCode = await running;
+
+        Assert.AreEqual(SurlExitCode.Ok, exitCode);
+        Assert.AreEqual(new ListenUrl("webtransport", "127.0.0.1", 443), factory.StartedListenUrls.Single());
+    }
+
+    [TestMethod]
     public async Task RunAsync_NatssWithoutACertificate_ExitsWithCertificateProblem()
     {
         using var output = new StringWriter();
@@ -278,7 +322,7 @@ public sealed class CommandLineRunnerExtendedProtocolTests
 
         var schemes = runner.ComposeExtendedSchemes();
 
-        CollectionAssert.AreEqual(new[] { "dns", "nats", "natss", "s3", "socketio", "socketios" }, schemes.ToArray());
+        CollectionAssert.AreEqual(new[] { "dns", "nats", "natss", "s3", "socketio", "socketios", "webtransport" }, schemes.ToArray());
     }
 
     [TestMethod]

@@ -317,7 +317,7 @@ public static partial class SurlServerComposition
             loaded.State.MailStore,
             loaded.State.MessageBus,
             authentication.Policy.Settings.Accounts);
-        return ComposeServing(served, seams, servers, stores, authentication, instruments, dataDirectoryLock);
+        return ComposeServing(served, seams, servers, stores, authentication, instruments, services.QuicCertificate, dataDirectoryLock);
     }
 
     // How the proxies reach origins, over the rule --proxy-allow-origin and the proxy listen URLs make
@@ -335,6 +335,7 @@ public static partial class SurlServerComposition
         ComposedStores stores,
         ComposedAuthentication authentication,
         EventStreamAndFaultPlan instruments,
+        QuicCertificateSource quicCertificateSource,
         IDisposable? dataDirectoryLock)
     {
         ServerTlsComposition tls;
@@ -348,7 +349,8 @@ public static partial class SurlServerComposition
             return Refuse(exitCode, lines);
         }
 
-        IProtocolServer[] served = tls.QuicCertificate is { } quicCertificate
+        quicCertificateSource.Certificate = tls.QuicCertificate;
+        IProtocolServer[] served = commandLine.Http3 && tls.QuicCertificate is { } quicCertificate
             ? [.. servers, ComposeHttp3ProtocolServer(commandLine, stores.Content, authentication.SchemePolicies.For("https"), quicCertificate)]
             : servers;
         return new SurlServerStart(

@@ -2,6 +2,7 @@ using Surl.Extended.Protocol.DnsQuery;
 using Surl.Extended.Protocol.Nats;
 using Surl.Extended.Protocol.S3;
 using Surl.Extended.Protocol.SocketIo;
+using Surl.Extended.Protocol.WebTransport;
 using Surl.Protocol.Abstractions;
 
 namespace Surl.Composition;
@@ -39,7 +40,7 @@ public static class ExtendedProtocolServers
     /// scheme, on the same <see cref="ProtocolServerRegistration"/> as the originals (ADR-0124,
     /// decision 2): today the DNS server for <c>dns</c> over UDP and TCP (BL-1032), the NATS server for
     /// <c>nats</c> and <c>natss</c> (BL-528), the S3 server
-    /// for <c>s3</c> (BL-421) and the Socket.IO server for <c>socketio</c> and <c>socketios</c> (BL-455).
+    /// for <c>s3</c> (BL-421) the Socket.IO server for <c>socketio</c> and <c>socketios</c> (BL-455) and the WebTransport server for <c>webtransport</c> (BL-461).
     /// </summary>
     /// <remarks>
     /// The DNS server is two entries for <c>dns</c>, a <see cref="DnsUdpProtocolServer"/> and a
@@ -60,7 +61,11 @@ public static class ExtendedProtocolServers
     /// namespace <c>/</c> only, because a listen URL has no path to name another (ADR-0120 amendment 2),
     /// and judges CONNECT logins by the policy over the accounts allowed on <c>socketio</c>.
     /// <c>socketios</c> is TLS from the first byte through <see cref="TlsSchemes"/>.
-    /// </remarks>
+    /// The WebTransport server answers <c>webtransport</c> over QUIC and HTTP/3 on UDP, accepting a session
+    /// on every path (a listen URL has no path to name one), judging each <c>CONNECT</c> by the policy over the
+    /// accounts allowed on <c>webtransport</c>. It reads the certificate from
+    /// <see cref="ComposedProtocolServices.QuicCertificate"/>, which the TLS composition fills because a
+    /// <c>webtransport</c> listen URL needs a certificate (<c>--cert</c> or <c>--self-signed</c>).    /// </remarks>
     public static IReadOnlyList<ProtocolServerRegistration> Registrations { get; } =
     [
         new(["dns"], services => new DnsUdpProtocolServer(services.DnsZones, services.AllowsZoneTransfer)),
@@ -77,7 +82,10 @@ public static class ExtendedProtocolServers
             services.ContentStore, services.ObjectMetadataIndex, services.AuthenticationPolicyFor("s3"), services.TimeProvider)),
         new([SocketIoProtocolServer.PlainScheme, SocketIoProtocolServer.TlsScheme], services => new SocketIoProtocolServer(
             SocketIoServedNamespaces.FromListenPath(null), new SocketIoSessions(), services.AuthenticationPolicyFor(SocketIoProtocolServer.PlainScheme))),
-    ];
+        new([WebTransportProtocolServer.Scheme], services => new WebTransportProtocolServer(
+            services.AuthenticationPolicyFor(WebTransportProtocolServer.Scheme),
+            () => services.QuicCertificate.Certificate is { } certificate ? new WebTransportServerCertificate(certificate.Chain, certificate.Key) : null,
+            services.IdleTimeout)),    ];
 
     /// <summary>
     /// Builds every extended protocol server <see cref="Registrations"/> lists, in its order.

@@ -38,9 +38,12 @@ public sealed class ServerTlsComposition : IDisposable
     /// <summary>
     /// The listen URL schemes that start in plain text but whose server requires TLS before a login,
     /// so they need a certificate as a scheme TLS from the first byte does: the extended
-    /// <c>natss</c> (ADR-0113 decision 6).
+    /// <c>natss</c> (ADR-0113 decision 6), and the extended <c>webtransport</c>, which is UDP and
+    /// QUIC, whose TLS 1.3 needs a certificate from its first packet (BL-461).
     /// </summary>
-    private static readonly HashSet<string> UpgradeRequiredSchemes = new(StringComparer.OrdinalIgnoreCase) { "natss" };
+    private static readonly HashSet<string> UpgradeRequiredSchemes = new(StringComparer.OrdinalIgnoreCase) { "natss", WebTransportScheme };
+
+    private const string WebTransportScheme = "webtransport";
 
     /// <summary>
     /// The settings every listener secures its connections with, or <see langword="null"/>
@@ -210,7 +213,7 @@ public sealed class ServerTlsComposition : IDisposable
 
     private static QuicServerCertificate? ComposeQuicCertificate(
         SurlCommandLine commandLine, X509Certificate2 certificate, IReadOnlyList<X509Certificate2> intermediateCertificates) =>
-        commandLine.Http3 ? QuicServerCertificate.From(certificate, intermediateCertificates) : null;
+        (commandLine.Http3 || commandLine.ListenUrls.Any(listenUrl => listenUrl.Scheme == WebTransportScheme)) ? QuicServerCertificate.From(certificate, intermediateCertificates) : null;
 
     private static IEnumerable<IDisposable> OwnedKey(QuicServerCertificate? quicCertificate) =>
         quicCertificate is null ? [] : [quicCertificate.Key];

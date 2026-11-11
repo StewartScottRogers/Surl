@@ -128,6 +128,23 @@ public sealed class ServerTlsCompositionTests
     }
 
     [TestMethod]
+    public void FindListenUrlWithoutCertificate_WebTransportWithoutACertificate_IsTheWebTransportListenUrl()
+    {
+        Assert.AreEqual(
+            new ListenUrl("webtransport", "127.0.0.1", 0),
+            ServerTlsComposition.FindListenUrlWithoutCertificate(ParseWithWebTransport("webtransport://127.0.0.1:0/")));
+    }
+
+    [TestMethod]
+    public void Compose_WebTransportWithSelfSignedAndNoHttp3_HasTheThrowawayCertificateForQuic()
+    {
+        using var composition = ServerTlsComposition.Compose(ParseWithWebTransport("--self-signed", "webtransport://127.0.0.1:0/"), TimeProvider.System);
+
+        var quic = composition.QuicCertificate!;
+        Assert.AreEqual(composition.ThrowawayCertificateFingerprint, Convert.ToHexString(SHA256.HashData(quic.Chain[0].Span)));
+    }
+
+    [TestMethod]
     public void Compose_HttpsWithHttp3AndCert_HasTheCertificateForQuic()
     {
         using var files = TestCertificateFiles.Create();
@@ -225,6 +242,9 @@ public sealed class ServerTlsCompositionTests
 
     private static SurlCommandLine Parse(params string[] args) =>
         CommandLineParser.Parse(args).CommandLine ?? throw new AssertFailedException("The command line was refused.");
+
+    private static SurlCommandLine ParseWithWebTransport(params string[] args) =>
+        CommandLineParser.Parse(args, ["webtransport"]).CommandLine ?? throw new AssertFailedException("The command line was refused.");
 
     private static SurlCommandLine ParseWithNats(params string[] args) =>
         CommandLineParser.Parse(args, ["nats", "natss"]).CommandLine ?? throw new AssertFailedException("The command line was refused.");

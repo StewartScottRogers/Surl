@@ -66,6 +66,12 @@ public sealed class ComposedProtocolServices(
     /// </summary>
     public bool AllowsZoneTransfer { get; init; }
 
+    /// <summary>
+    /// Gets the source of the certificate QUIC's TLS 1.3 serves, which the servers answering over QUIC
+    /// read when a connection arrives and the composition fills once it has made the certificate.
+    /// </summary>
+    public QuicCertificateSource QuicCertificate { get; } = new();
+
     /// <summary>Gets the one policy, over every account.</summary>
     public AuthenticationPolicy AuthenticationPolicy { get; } = authenticationPolicy;
 

@@ -389,3 +389,28 @@ and are not repeated here.
   `QuicApplicationConnection.ReadAsync` returns them, then 0). *Why:* delivering those bytes is the
   whole point of the extension, and holding the reset back until they are read is the order the
   draft asks of a receiver; the smallest Reliable Size is used because a larger one later is ignored.
+
+## Amendment 2 — Serving `webtransport` from the `surl` executable (BL-461, 2026-11-11)
+
+**Decided by Claude under Stewart's delegation**, in BL-461.
+
+- **One server, `WebTransportProtocolServer`.** It is an `IDatagramProtocolServer` (and
+  `IDatagramRefusalWriter`) for the scheme `webtransport`: each datagram flow is one QUIC connection run by
+  a `QuicDatagramFlowServer` offering `h3`, handed to `WebTransportApplicationProtocol` with
+  `max_datagram_frame_size` and `reset_stream_at` set as the remark on that class requires. It binds UDP
+  only; `webtransport` is not in `TlsSchemes`, which names TCP connections.
+- **A session is accepted on every path.** A listen URL has no path to name one (ADR-0120 amendment 2).
+- **A certificate is required.** QUIC is always TLS 1.3, so a `webtransport` listen URL needs `--cert` or
+  `--self-signed`, refused with `(58)` as `natss` is; `ServerTlsComposition` makes the QUIC certificate for
+  it as it does for `--http3`.
+- **The certificate arrives through a `QuicCertificateSource`.** The composition builds its protocol
+  servers before the TLS composition makes the certificate, so the registered server reads it from
+  `ComposedProtocolServices.QuicCertificate` when a flow arrives, and `ComposeServing` fills it. One source
+  belongs to one composed instance, so instances side by side share no certificate. *Why:* reordering the
+  two compositions would change which start failure a bad command line reports first.
+- **The HTTP/3 server is added only with `--http3`.** The QUIC certificate now also exists for a
+  `webtransport` listen URL alone, so its presence no longer means `--http3`.
+- **A head timeout past what a timer can wait is treated as none**, as `Surl.Http3` treats it; the
+  WebTransport `CONNECT` and stream-header timers used `Task.Delay` directly and would have thrown.
+- **`SURL_EXTENSIONS=0`** leaves `webtransport` unregistered: a `webtransport` listen URL is `(1) Protocol
+  "webtransport" not supported`.

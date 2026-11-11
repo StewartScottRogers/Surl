@@ -198,6 +198,16 @@ public static class AiHelpExamples
         Serving("telnet", "Serve TELNET", ["telnet://127.0.0.1:0/"], ["Listening on telnet://127.0.0.1:<port>/"], [], ["curl telnet://127.0.0.1:<port>/"]),
         Serving("tftp", "Serve TFTP", ["tftp://127.0.0.1:0/"], ["Listening on tftp://127.0.0.1:<port>/"], [], ["curl tftp://127.0.0.1:<port>/example.txt"]),
         Serving("websocket", "Serve WebSocket", ["ws://127.0.0.1:0/"], ["Listening on ws://127.0.0.1:<port>/"], [], ["curl ws://127.0.0.1:<port>/example.txt"]),
+        Serving(
+            "webtransport",
+            "For a test: serve WebTransport with a throwaway certificate and no accounts",
+            ["--self-signed", "--allow-anonymous", "webtransport://127.0.0.1:0/"],
+            ["Listening on webtransport://127.0.0.1:<port>/"],
+            [
+                "surl: warning: --allow-anonymous: every request and login is accepted without checking credentials",
+                "surl: warning: --self-signed: serving a throwaway certificate; clients must skip verification (curl -k)",
+            ],
+            []),
         Serving("websocket", "Echo WebSocket messages", ["--ws-echo", "ws://127.0.0.1:0/"], ["Listening on ws://127.0.0.1:<port>/"], [], []),
         Refused(
             "extended",
