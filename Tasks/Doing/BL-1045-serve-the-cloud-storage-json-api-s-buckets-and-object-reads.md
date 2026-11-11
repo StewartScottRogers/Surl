@@ -38,3 +38,4 @@ The `gs` server answers `buckets.list`, `buckets.get`, `objects.list`, `objects.
 ## Log
 
 - 2026-11-11: Created.
+- 2026-11-11: Backlog -> Doing.
