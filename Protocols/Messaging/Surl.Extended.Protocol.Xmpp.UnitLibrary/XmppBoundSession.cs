@@ -6,9 +6,9 @@ namespace Surl.Extended.Protocol.Xmpp;
 /// </summary>
 /// <param name="bareJid">The bare JID the stream logged in as.</param>
 /// <param name="resource">The resource it is bound to.</param>
-/// <param name="tryDeliver">Writes a stanza to the stream; <see langword="false"/> when the stream could not take it.</param>
+/// <param name="deliver">Queues a stanza on the stream's connection and returns.</param>
 /// <param name="end">Asks the stream to end with a stream error condition.</param>
-internal sealed class XmppBoundSession(string bareJid, string resource, Func<string, Task<bool>> tryDeliver, Action<string> end)
+internal sealed class XmppBoundSession(string bareJid, string resource, Action<string> deliver, Action<string> end)
 {
     /// <summary>
     /// Asks the stream to end: its connection writes the stream error and closes.
@@ -35,9 +35,8 @@ internal sealed class XmppBoundSession(string bareJid, string resource, Func<str
     public int Priority { get; set; }
 
     /// <summary>
-    /// Writes a routed stanza to the stream.
+    /// Queues a routed stanza on the stream's connection and returns at once; a stream with too much unsent ends itself.
     /// </summary>
     /// <param name="stanza">The stanza's text.</param>
-    /// <returns><see langword="true"/> when written; <see langword="false"/> when the stream's connection failed or was cancelled.</returns>
-    public Task<bool> TryDeliverAsync(string stanza) => tryDeliver(stanza);
+    public void Deliver(string stanza) => deliver(stanza);
 }

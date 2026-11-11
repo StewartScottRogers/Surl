@@ -27,6 +27,9 @@ internal sealed class XmppServerConnection
 
     private static readonly XName Abort = XNamespace.Get(XmppNamespaces.Sasl) + "abort";
 
+    /// <summary>The most bytes of routed stanzas one stream may hold unsent before it ends with policy-violation (ADR-0114 decision 7).</summary>
+    public const long MaxUnsentRoutedBytes = 16L * 1024 * 1024;
+
     private readonly IConnection connection;
     private readonly ExchangeContext context;
     private readonly XmppServerOptions options;
@@ -47,6 +50,7 @@ internal sealed class XmppServerConnection
     private string streamDomain = string.Empty;
     private bool headerSent;
     private bool connectionUnusable;
+    private long unsentRoutedBytes;
 
     public XmppServerConnection(IConnection connection, ExchangeContext context, XmppServerOptions options, XmppSessionRegistry sessions)
     {
@@ -303,7 +307,7 @@ internal sealed class XmppServerConnection
     // stream bound to the same resource (conflict) unless the account is at its resource cap.
     private bool TryBind(string resource)
     {
-        var candidate = new XmppBoundSession(login.BareJid!, resource, TryDeliverAsync, RequestEnd);
+        var candidate = new XmppBoundSession(login.BareJid!, resource, Deliver, RequestEnd);
         if (!sessions.TryAdd(candidate, out var displaced))
         {
             return false;
@@ -315,21 +319,40 @@ internal sealed class XmppServerConnection
         return true;
     }
 
-    // A stanza another stream routes here: a failed or cancelled write is the sender's to note,
-    // and this stream finds its connection broken on its own next read or write.
-    private async Task<bool> TryDeliverAsync(string stanza)
+    // A stanza another stream routes here is queued behind this stream's other writes and counts as
+    // delivered at once, so a slow reader never holds up the sender. More than MaxUnsentRoutedBytes
+    // queued and not yet taken by the transport ends this stream with policy-violation (ADR-0114
+    // decision 7); the stanza that crossed the limit is dropped and the sender is not told.
+    private void Deliver(string stanza)
+    {
+        var size = Encoding.UTF8.GetByteCount(stanza);
+        if (Interlocked.Add(ref unsentRoutedBytes, size) > MaxUnsentRoutedBytes)
+        {
+            Interlocked.Add(ref unsentRoutedBytes, -size);
+            RequestEnd(XmppStreamErrors.PolicyViolation);
+            return;
+        }
+
+        _ = WriteRoutedAsync(stanza, size);
+    }
+
+    // A failed or cancelled write is not the sender's to know about: this stream finds its
+    // connection broken on its own next read or write.
+    private async Task WriteRoutedAsync(string stanza, int size)
     {
         try
         {
             await WriteAsync(stanza, context.CancellationToken);
-            return true;
         }
         catch (Exception failure) when (failure is IOException or OperationCanceledException)
         {
-            return false;
+            context.Log.Note($"A routed stanza could not be written ({failure.Message}).");
+        }
+        finally
+        {
+            Interlocked.Add(ref unsentRoutedBytes, -size);
         }
     }
-
     // RFC 6120 6.4: each SASL element to the login; on success the binding takes over and a new
     // XML parser reads the stream the client restarts (6.4.6), as after TLS.
     private async Task<ElementOutcome> AnswerSaslAsync(XElement element)

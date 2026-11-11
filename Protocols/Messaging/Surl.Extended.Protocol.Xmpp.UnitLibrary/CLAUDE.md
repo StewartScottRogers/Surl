@@ -83,7 +83,7 @@ Stanzas (BL-539, ADR-0114 decision 5):
 - `XmppServer` holds one `XmppSessionRegistry` per instance (never a static); a stream is added as
   an `XmppBoundSession` once bound and removed when its connection ends. `XmppServerConnection`
   chains its writes, so its own answers and stanzas other streams route to it never interleave;
-  a routed write that fails is noted in the sender's log and nothing else.
+  a routed stanza is queued and the sender never waits for it; a write that fails is noted in the recipient's log and nothing else.
 - `XmppStanzaRouter`: an IQ with no `id` or an unknown `type` is `invalid-xml`; a `from` other
   than the stream's full or bare JID (`XmppJid.HasBare`, the localpart without case) is the stream
   error `invalid-from`; every routed stanza is written as received with `from` stamped
@@ -104,4 +104,4 @@ Stanzas (BL-539, ADR-0114 decision 5):
   `item-not-found`; anything else `service-unavailable`. Results use XEP-0030 example 2's shape
   (`XmppStanzaText.Result`); stanza errors swap `to` and `from`, keep an IQ's children and drop a
   message's or presence's (`XmppStanzaText.Error`). An IQ `result` or `error` to anything but a
-  bound full JID is dropped. The 16 MiB unsent-output limit comes with BL-887.
+  bound full JID is dropped. A stream with more than 16 MiB of routed stanzas queued and unsent ends with `policy-violation` (BL-887); the sender is not told.

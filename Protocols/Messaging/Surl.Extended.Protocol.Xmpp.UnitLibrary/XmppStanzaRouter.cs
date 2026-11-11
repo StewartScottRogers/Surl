@@ -122,7 +122,7 @@ internal sealed class XmppStanzaRouter(
 
         if (registry.Bound(target) is { } bound)
         {
-            return DeliverAsync(message, [bound]);
+            return Deliver(message, [bound]);
         }
 
         if (type is "groupchat" or "error")
@@ -133,7 +133,7 @@ internal sealed class XmppStanzaRouter(
         var recipients = registry.AvailableWithNonNegativePriority(target);
         if (recipients.Count > 0)
         {
-            return DeliverAsync(message, recipients);
+            return Deliver(message, recipients);
         }
 
         return type == "headline" ? DropAsync(message, "no stream of the account is available") : ReplyErrorAsync(message, Cancel, ServiceUnavailable);
@@ -184,7 +184,7 @@ internal sealed class XmppStanzaRouter(
         var bound = registry.Bound(target);
         if ((string)iq.Attribute("type")! is "result" or "error")
         {
-            return bound is null ? DropAsync(iq, "an IQ reply is never answered") : DeliverAsync(iq, [bound]);
+            return bound is null ? DropAsync(iq, "an IQ reply is never answered") : Deliver(iq, [bound]);
         }
 
         if (iq.Elements().Count() != 1)
@@ -194,7 +194,7 @@ internal sealed class XmppStanzaRouter(
 
         if (bound is not null)
         {
-            return DeliverAsync(iq, [bound]);
+            return Deliver(iq, [bound]);
         }
 
         var answer = target.Resource is null ? Answer((string)iq.Attribute("type")!, iq.Elements().Single(), target) : Unavailable;
@@ -254,15 +254,18 @@ internal sealed class XmppStanzaRouter(
         return new(space == XmppStanzaText.DiscoInfo ? info : XmppStanzaText.NoItems, null);
     }
 
-    private async Task DeliverAsync(XElement stanza, IReadOnlyList<XmppBoundSession> recipients)
+    // Delivery queues the stanza on each recipient's connection and returns: the sender never
+    // waits for, or learns of, a slow or failed write (ADR-0114 decision 7).
+    private Task Deliver(XElement stanza, IReadOnlyList<XmppBoundSession> recipients)
     {
         var text = XmppStanzaText.Routed(stanza, session.FullJid);
         foreach (var recipient in recipients)
         {
-            context.Log.Note(await recipient.TryDeliverAsync(text)
-                ? $"Routed a {stanza.Name.LocalName} from {session.FullJid} to {recipient.FullJid}."
-                : $"A {stanza.Name.LocalName} from {session.FullJid} could not be written to {recipient.FullJid}; its connection failed.");
+            recipient.Deliver(text);
+            context.Log.Note($"Routed a {stanza.Name.LocalName} from {session.FullJid} to {recipient.FullJid}.");
         }
+
+        return Task.CompletedTask;
     }
 
     // RFC 6120 8.3.1: a stanza of type error never gets an error back.

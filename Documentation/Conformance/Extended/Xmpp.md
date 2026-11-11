@@ -132,5 +132,5 @@ choice.
 | Xmpp:Surl-Limits-3 | MUST | No bound resource within twice `--head-timeout` of accept is `policy-violation`. | XmppResourceConflictTests.ServeAsync_NoResourceBoundWithinTwiceTheHeadTimeout_IsPolicyViolation (BL-885) |
 | Xmpp:RFC6120-4.9.3.4-1 | MUST | No byte for `--idle-timeout` is `connection-timeout`; the test proves the answer to a limit cancelling the exchange, which `--max-time` also is (ADR-0114 decision 7). | `XmppServerTests.ServeAsync_CancelledWhileOpen_SaysFarewellWithItsError` |
 | Xmpp:RFC6120-4.9.3.17-1 | MUST | A connection over `--max-connections` or `--max-connections-per-address` gets a response header and `resource-constraint`. | `XmppServerTests.WriteRefusalAsync_Refusal_IsAHeaderAndResourceConstraint` |
-| Xmpp:Surl-Limits-4 | MUST | A stream with 16 MiB of routed stanzas unsent ends with `policy-violation`. | BL-887 |
+| Xmpp:Surl-Limits-4 | MUST | A stream with 16 MiB of routed stanzas unsent ends with `policy-violation`. | `XmppStanzaRouterTests.ServeAsync_RecipientWithMoreThan16MiBRoutedUnsent_EndsWithPolicyViolationAndTheSenderGetsNoError`, `XmppStanzaRouterTests.ServeAsync_RecipientWhoseWritesNeverComplete_LeavesTheSenderFreeToSendAndBeAnswered` |
 | Xmpp:RFC6120-4.9.3.20-1 | MUST | A server stopping ends each stream with `system-shutdown`. | `XmppServerTests.ServeAsync_CancelledWhileOpen_SaysFarewellWithItsError` |

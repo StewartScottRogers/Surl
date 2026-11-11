@@ -8,7 +8,7 @@ depends-on: [BL-539]
 touches: [Protocols/Messaging/Surl.Extended.Protocol.Xmpp.UnitLibrary, Protocols/Messaging/Surl.Extended.Protocol.Xmpp.UnitTests, Documentation/Conformance/Extended/Xmpp.md]
 requirement: none
 created: 2026-11-05
-completed:
+completed: 2026-11-11
 ---
 # BL-887 — End an XMPP stream with policy-violation once 16 MiB routed to it is unsent
 
@@ -30,16 +30,18 @@ once, and a stream with more than 16 MiB of routed stanzas not yet taken by its 
 
 ## Acceptance criteria
 
-- [ ] Named tests in `Surl.Extended.Protocol.Xmpp.UnitTests` show:
+- [x] Named tests in `Surl.Extended.Protocol.Xmpp.UnitTests` show:
       - a message to a stream whose writes never complete leaves the sender free to send and be answered;
       - a stream with more than 16 MiB of routed stanzas unsent gets
         `<stream:error><policy-violation xmlns='urn:ietf:params:xml:ns:xmpp-streams'/></stream:error></stream:stream>`
         and is closed, and the sender gets no error.
-- [ ] `Xmpp:Surl-Limits-4` in `Documentation/Conformance/Extended/Xmpp.md` names this task's test.
-- [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and the library keeps 100% line and branch
+- [x] `Xmpp:Surl-Limits-4` in `Documentation/Conformance/Extended/Xmpp.md` names this task's test.
+- [x] `dotnet build -warnaserror` is clean, the fast tests are green, and the library keeps 100% line and branch
       coverage.
 
 ## Notes
+
+Decision: routed delivery is now fire-and-forget (XmppBoundSession.Deliver); the sender no longer notes a failed write, the recipient's own log does. Over-limit stanza is dropped, stream ends via RequestEnd(policy-violation). Limit counts routed bytes queued and not yet written (Interlocked counter).
 
 Filed by BL-539, whose acceptance criteria did not include the unsent-output limit even though the conformance trace
 listed it under BL-539.
@@ -48,3 +50,4 @@ listed it under BL-539.
 
 - 2026-11-05: Created.
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Done. A slow XMPP reader no longer stalls senders; a stream with over 16 MiB of routed stanzas unsent ends with policy-violation
