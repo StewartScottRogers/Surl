@@ -684,10 +684,19 @@ public static class CommandLineParser
             return CommandLineParseResult.Refused(refusedUnixSocket);
         }
 
-        return RefuseHttp3Combination(reading)
+        return RefuseTlsServingCombination(reading)
             ?? CommandLineParseResult.Serve(
                 ResolveLogging(reading.CommandLine) with { ListenUrls = UnixSocketCombination.Apply(reading.CommandLine, reading.ListenUrls) });
     }
+
+    /// <summary>
+    /// Refuses the TLS-SRP options in a combination that cannot work (<see cref="TlsSrpCombination"/>,
+    /// ADR-0122 decision 6), then <c>--http3</c> in one (<see cref="RefuseHttp3Combination"/>); null when neither is.
+    /// </summary>
+    private static CommandLineParseResult? RefuseTlsServingCombination(CommandLineReading reading) =>
+        TlsSrpCombination.Refuse(reading.CommandLine, reading.ListenUrls) is { } refusedTlsSrp
+            ? CommandLineParseResult.Refused(refusedTlsSrp)
+            : RefuseHttp3Combination(reading);
 
     /// <summary>
     /// Refuses <c>--http3</c> with no <c>https</c> listen URL, with <c>--tls-max</c> below 1.3

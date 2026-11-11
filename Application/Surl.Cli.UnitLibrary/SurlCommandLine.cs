@@ -155,6 +155,29 @@ public sealed record SurlCommandLine
     /// </summary>
     public string? CaCertificateFile { get; init; }
 
+    /// <summary><c>--tlsauthtype</c>: how every TLS listener authenticates; none (certificates) by default (ADR-0122 decision 6).</summary>
+    public TlsAuthenticationType? TlsAuthenticationType { get; init; }
+
+    /// <summary><c>--tlsuser</c>: the one TLS-SRP account's user name, as given; none by default (ADR-0122 decision 4).</summary>
+    public string? TlsUser { get; init; }
+
+    /// <summary><c>--tlspassword</c>: the one TLS-SRP account's password, as given; none by default (ADR-0122 decision 4).</summary>
+    public string? TlsPassword { get; init; }
+
+    /// <summary><c>--srp-verifiers</c>: a GnuTLS <c>tpasswd</c> file of TLS-SRP accounts, as given; none by default (ADR-0122 decision 4).</summary>
+    public string? SrpVerifierFile { get; init; }
+
+    /// <summary><c>--srp-groups</c>: the GnuTLS <c>tpasswd.conf</c> file <see cref="SrpVerifierFile"/>'s index column names, as given; none by default.</summary>
+    public string? SrpGroupFile { get; init; }
+
+    /// <summary>
+    /// Whether every TLS listener serves TLS-SRP instead of a certificate: any of <c>--tlsauthtype</c>,
+    /// <c>--tlsuser</c>, <c>--tlspassword</c>, <c>--srp-verifiers</c> and <c>--srp-groups</c> is given
+    /// (ADR-0122 decision 6; <c>--tlsuser</c> with <c>--tlspassword</c> implies <c>--tlsauthtype SRP</c>, as in curl).
+    /// </summary>
+    public bool ServesTlsSrp =>
+        TlsAuthenticationType is not null || TlsUser is not null || TlsPassword is not null || SrpVerifierFile is not null || SrpGroupFile is not null;
+
     /// <summary>
     /// The accounts from every <c>-u</c>/<c>--user</c>, in command-line order: each one adds an
     /// account, and no user name is given twice (ADR-0032 section 1). None by default.

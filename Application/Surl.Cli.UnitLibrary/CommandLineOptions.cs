@@ -189,6 +189,17 @@ internal static class CommandLineOptions
             new("<phrase>", "Passphrase for --key and --hostkey", ["ssh", "tls"], IsInShortList: false, Default: "none")),
         WithArgument<string>("cacert", null, OptionArgumentReader.Path, (c, v) => c with { CaCertificateFile = v },
             new("<file>", "CA certificates for client certs", ["ldap", "tls"], IsInShortList: false, Default: "none")),
+        WithArgument<TlsAuthenticationType>("tlsauthtype", null, OptionArgumentReader.TlsAuthenticationTypeWord, (c, v) => c with { TlsAuthenticationType = v },
+            new("<type>", "Serve TLS-SRP: SRP is the only type", ["tls"], IsInShortList: false, Default: "certificates")),
+        WithArgument<string>("tlsuser", null, OptionArgumentReader.SrpUserName, (c, v) => c with { TlsUser = v },
+            new("<name>", "TLS-SRP user name (needs --tlspassword)", ["auth", "tls"], IsInShortList: false, Default: "none")),
+        WithArgument<string>("tlspassword", null, OptionArgumentReader.Text, (c, v) => c with { TlsPassword = v },
+            new("<password>", "TLS-SRP password (needs --tlsuser)", ["auth", "tls"], IsInShortList: false, Default: "none"))
+            with { ArgumentHoldsSecret = true },
+        WithArgument<string>("srp-verifiers", null, OptionArgumentReader.Path, (c, v) => c with { SrpVerifierFile = v },
+            new("<file>", "TLS-SRP accounts, GnuTLS tpasswd file", ["auth", "tls"], IsInShortList: false, Default: "none")),
+        WithArgument<string>("srp-groups", null, OptionArgumentReader.Path, (c, v) => c with { SrpGroupFile = v },
+            new("<file>", "TLS-SRP groups, GnuTLS tpasswd.conf", ["auth", "tls"], IsInShortList: false, Default: "none")),
         WithArgument<CommandLineAccount>("user", 'u', OptionArgumentReader.Account, (c, v) => c with { Accounts = [.. c.Accounts, v] },
             new("<user:password>", "Add an account (repeatable)", ["auth", "ftp", "http", "imap", "ldap", "mqtt", "nats", "pop3", "rtsp", "s3", "smb", "smtp", "ssh", "websocket"], IsInShortList: true, Default: "no accounts"))
             with { ArgumentHoldsSecret = true },

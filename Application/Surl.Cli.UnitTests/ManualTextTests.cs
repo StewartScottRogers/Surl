@@ -9,7 +9,7 @@ public sealed class ManualTextTests
     private static readonly string[] Headings =
     [
         "NAME", "SYNOPSIS", "DESCRIPTION", "CONFIG FILES", "LISTEN URLS", "DEPLOYMENT CHECKLIST", "DATA DIRECTORY",
-        "IN-MEMORY MODE", "ACCOUNTS", "MAIL", "DNS OPTIONS", "HTTP OPTIONS", "LDAP OPTIONS", "NATS OPTIONS", "PROXY OPTIONS", "RTSP OPTIONS", "S3 OPTIONS", "SMB OPTIONS", "SSH OPTIONS", "WEBSOCKET OPTIONS", "LOOSENING OPTIONS", "CONTROL ENDPOINT", "LOG LEVELS", "LIMITS",
+        "IN-MEMORY MODE", "ACCOUNTS", "MAIL", "DNS OPTIONS", "HTTP OPTIONS", "LDAP OPTIONS", "NATS OPTIONS", "PROXY OPTIONS", "RTSP OPTIONS", "S3 OPTIONS", "SMB OPTIONS", "SSH OPTIONS", "TLS-SRP OPTIONS", "WEBSOCKET OPTIONS", "LOOSENING OPTIONS", "CONTROL ENDPOINT", "LOG LEVELS", "LIMITS",
         "EXIT CODES", "SEE ALSO",
     ];
 
@@ -355,6 +355,17 @@ public sealed class ManualTextTests
             "    Ciphers and MACs do. A name surl does not offer, or a weak one without",
             "    --allow-weak-ssh-algorithms, exits 2, naming it. surl --aihelp ssh lists",
             "    the names.",
+            "",
+            "TLS-SRP OPTIONS",
+            "",
+            "    --tlsauthtype SRP --tlsuser <name> --tlspassword <password> serves every",
+            "    TLS listen URL, and every STARTTLS upgrade, over TLS-SRP (RFC 5054): TLS",
+            "    1.2 with a password instead of a certificate, for curl's --tlsauthtype",
+            "    SRP. No certificate is sent, so curl needs -k. --tlsuser with",
+            "    --tlspassword implies --tlsauthtype SRP. --srp-verifiers <file> with",
+            "    --srp-groups <file> reads GnuTLS tpasswd and tpasswd.conf files instead or",
+            "    as well. --cert, --self-signed, --cacert, --http3 and --tlsv1.3 cannot be",
+            "    used with it. surl --aihelp tls says how each failure is answered.",
             "",
             "WEBSOCKET OPTIONS",
             "",

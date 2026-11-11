@@ -95,6 +95,19 @@ public static class AiHelpExamples
             ["Listening on https://127.0.0.1:<port>/"],
             ["surl: warning: --self-signed: serving a throwaway certificate; clients must skip verification (curl -k)"],
             ["curl -k https://127.0.0.1:<port>/"]),
+        Serving(
+            "tls",
+            "Serve HTTPS over TLS-SRP with one account and no certificate",
+            ["--tlsauthtype", "SRP", "--tlsuser", "jsmith", "--tlspassword", "abc", "https://127.0.0.1:0/"],
+            ["Listening on https://127.0.0.1:<port>/"],
+            [],
+            ["curl -k --tlsauthtype SRP --tlsuser jsmith --tlspassword abc https://127.0.0.1:<port>/"]),
+        Refused(
+            "tls",
+            "TLS-SRP with a user and no password",
+            ["--tlsuser", "jsmith", "https://127.0.0.1:0/"],
+            ["surl: option --tlsuser: needs --tlspassword", "surl: " + CommandLineFailure.TryHelpLine],
+            SurlExitCode.FailedInit),
         Refused(
             "tls",
             "A secure listen URL with no certificate",

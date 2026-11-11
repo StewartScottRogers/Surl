@@ -162,6 +162,14 @@ internal static class OptionArgumentReader
     public static readonly OptionArgumentReading<CertificateFileFormat> CertificateType =
         new(ReadCertificateType, new("word", "PEM, DER or P12, in any case"));
 
+    /// <summary><see cref="ReadTlsAuthenticationType"/> and its argument type (ADR-0046 decision 5).</summary>
+    public static readonly OptionArgumentReading<TlsAuthenticationType> TlsAuthenticationTypeWord =
+        new(ReadTlsAuthenticationType, new("word", "SRP, in any case"));
+
+    /// <summary>A TLS-SRP user name (ADR-0122 decision 6): read as <see cref="ReadPath"/> reads a path.</summary>
+    public static readonly OptionArgumentReading<string> SrpUserName =
+        new(ReadPath, new("user name", "any non-empty text"));
+
     /// <summary><see cref="ReadKeyType"/> and its argument type (ADR-0046 decision 5).</summary>
     public static readonly OptionArgumentReading<CertificateFileFormat> KeyType =
         new(ReadKeyType, new("word", "PEM or DER, in any case"));
@@ -293,6 +301,16 @@ internal static class OptionArgumentReader
     /// <returns>The refusal reason, or <see langword="null"/>.</returns>
     public static string? ReadCertificateType(string argument, out CertificateFileFormat value) =>
         CertificateTypes.TryGetValue(argument, out value) ? null : BadlyUsed;
+
+    /// <summary>Reads the <c>--tlsauthtype</c> word: <c>SRP</c>, in any case (ADR-0122 decision 6).</summary>
+    /// <param name="argument">The argument as given.</param>
+    /// <param name="value">The TLS authentication type.</param>
+    /// <returns>The refusal reason, or <see langword="null"/>.</returns>
+    public static string? ReadTlsAuthenticationType(string argument, out TlsAuthenticationType value)
+    {
+        value = TlsAuthenticationType.Srp;
+        return string.Equals(argument, "SRP", StringComparison.OrdinalIgnoreCase) ? null : BadlyUsed;
+    }
 
     /// <summary>Reads the <c>--key-type</c> word: <c>PEM</c> or <c>DER</c>, in any case.</summary>
     /// <param name="argument">The argument as given.</param>

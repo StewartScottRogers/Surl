@@ -102,6 +102,16 @@ and `Surl.Protocol.Abstractions.UnitLibrary`.
   BL-605), each `option --<name>: <reason>` with exit 2 and the try-help line, then sets the socket
   on the one listen URL's `ListenUrl.UnixSocket`. Binding it, and the 45 refusals, are
   `Surl.Networking`'s.
+- TLS-SRP (ADR-0122 decision 6 and Amendment 2, BL-567), category `tls` (and `auth` for all but
+  `--tlsauthtype`): `--tlsauthtype <SRP>` (`OptionArgumentReader.TlsAuthenticationTypeWord`, any case,
+  into `TlsAuthenticationType`), `--tlsuser <name>` (`SrpUserName` reading), `--tlspassword <password>`
+  (`ArgumentHoldsSecret`), `--srp-verifiers <file>` and `--srp-groups <file>` set the
+  `SurlCommandLine` members of those names; `ServesTlsSrp` is true when any is given. Once the whole
+  line is read `TlsSrpCombination` refuses, in order, an option without its partner, `--tlsauthtype`
+  with no account, no listen URL that uses TLS (implicit TLS or `ftp`, `imap`, `ldap`, `natss`, `pop3`,
+  `smtp`, `xmpp`), then TLS-SRP beside `--http3`, `--cacert`, `--tls-max` below 1.2, `--tlsv1.3`,
+  `--cert` or `--self-signed`, each `FailedInit` with the try-help line. Reading the files is
+  `Surl.Composition`'s.
 - Log levels (ADR-0033 section 2): `-s`, `-v`, `--log-level`, `--trace` and `--trace-ascii`
   each set `SurlCommandLine.LogLevel`, the last one given winning, and `-S` (`ShowError`)
   turns `none` into `error` once the whole line is read. `TraceFile`, `TraceLayout`,
