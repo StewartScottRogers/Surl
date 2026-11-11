@@ -43,3 +43,4 @@ association once it completes (ADR-0087 decision 6, RFC 6347 section 4.2.8).
 ## Log
 
 - 2026-11-05: Created.
+- 2026-11-11: Backlog -> Doing.
