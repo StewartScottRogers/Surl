@@ -47,3 +47,4 @@ on each runtime identifier. Every statement in them is true of the code.
 
 - 2026-11-04: Created.
 - 2026-11-05: depends-on BL-395 replaced by BL-879, the last task of its split (BL-395 deferred: timed out after 120 min; Stewart asked for the split 2026-11-05).
+- 2026-11-11: Backlog -> Doing.
