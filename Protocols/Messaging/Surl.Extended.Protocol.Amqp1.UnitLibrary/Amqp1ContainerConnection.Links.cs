@@ -71,7 +71,7 @@ public sealed partial class Amqp1ContainerConnection
         var terminus = Amqp1Terminus.Read(attach.IsReceiver ? attach.Source : attach.Target);
         if (terminus.IsCoordinator)
         {
-            return (null, Error(Amqp1ErrorCondition.NotImplemented, "transactions are not supported"));
+            return ResolveCoordinator(attach, link);
         }
 
         if (NodeRequest(attach, terminus) is not { } request)
@@ -95,6 +95,19 @@ public sealed partial class Amqp1ContainerConnection
         link.NodeAddress = nodeAddress;
         link.Filters = filters;
         return (NodeTerminus(attach, terminus, nodeAddress, filters.Applied), null);
+    }
+
+    // ADR-0146 decision 1.1: a coordinator target is answered as any receiving link, its capabilities
+    // the container's; a coordinator is never a source.
+    private static (Amqp1Described? NodeTerminus, Amqp1Error? Refusal) ResolveCoordinator(Amqp1Attach attach, Amqp1Link link)
+    {
+        if (attach.IsReceiver)
+        {
+            return (null, Error(Amqp1ErrorCondition.NotAllowed, "a coordinator is only a target"));
+        }
+
+        link.IsCoordinator = true;
+        return (Amqp1Terminus.Coordinator, null);
     }
 
     // What to ask the directory; null when the address names no node.
@@ -240,6 +253,7 @@ public sealed partial class Amqp1ContainerConnection
     {
         link.EndSource();
         DiscardPartial(link);
+        RollBackTransactionsDeclaredBy(link);
         link.Sending = null;
         link.UnsettledCount = 0;
         foreach (var deliveryId in session.Unsettled.Where(entry => entry.Value.Link == link).Select(entry => entry.Key).ToList())

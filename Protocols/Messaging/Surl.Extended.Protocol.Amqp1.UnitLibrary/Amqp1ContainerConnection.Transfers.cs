@@ -73,6 +73,7 @@ public sealed partial class Amqp1ContainerConnection
     {
         var delivery = link.Partial!;
         delivery.Settled |= transfer.Settled == true;
+        delivery.State = transfer.State ?? delivery.State;
         if (transfer.Aborted)
         {
             // Part 2 section 2.7.5: nothing of an aborted delivery is stored or settled.
@@ -95,10 +96,28 @@ public sealed partial class Amqp1ContainerConnection
         if (!transfer.More)
         {
             DiscardPartial(link);
-            await SettleReceivedAsync(session, delivery, await StoreAsync(link, delivery));
+            await CompleteDeliveryAsync(session, link, delivery);
         }
 
         return true;
+    }
+
+    // A whole message: a declare or discharge on a coordinator link, held in a transaction when its
+    // state names one (ADR-0146 decision 1.4), otherwise stored at once.
+    private async ValueTask CompleteDeliveryAsync(Amqp1Session session, Amqp1Link link, Amqp1IncomingDelivery delivery)
+    {
+        if (link.IsCoordinator)
+        {
+            await AnswerUnlessSettledAsync(session, delivery, await ControlAsync(link, Amqp1TransactionControl.Read(delivery.Bytes.WrittenMemory)));
+        }
+        else if (Amqp1DeliveryState.IsTransactional(delivery.State))
+        {
+            await AnswerUnlessSettledAsync(session, delivery, PostInTransaction(link, delivery));
+        }
+        else
+        {
+            await SettleReceivedAsync(session, delivery, await StoreAsync(link, delivery));
+        }
     }
 
     // The credit a client sender has left; none once its delivery-count reaches, or a flow of its passes, the limit given.
@@ -123,33 +142,51 @@ public sealed partial class Amqp1ContainerConnection
             return;
         }
 
-        var state = rejection is null ? Amqp1DeliveryState.Accepted : Amqp1DeliveryState.Rejected(rejection);
-        await WriteAsync(session.OutgoingChannel, new Amqp1Disposition(IsReceiver: true, delivery.DeliveryId) { Settled = true, State = state });
+        await AnswerUnlessSettledAsync(session, delivery, rejection is null ? Amqp1DeliveryState.Accepted : Amqp1DeliveryState.Rejected(rejection));
+    }
+
+    // Part 2 section 2.6.12: a delivery the client settled is answered by nothing.
+    private async ValueTask AnswerUnlessSettledAsync(Amqp1Session session, Amqp1IncomingDelivery delivery, Amqp1Described state)
+    {
+        if (!delivery.Settled)
+        {
+            await WriteAsync(session.OutgoingChannel, new Amqp1Disposition(IsReceiver: true, delivery.DeliveryId) { Settled = true, State = state });
+        }
     }
 
     // Stores the message on its node; null when the bus holds it, or the error that rejects it.
     private async ValueTask<Amqp1Error?> StoreAsync(Amqp1Link link, Amqp1IncomingDelivery delivery)
     {
+        var (entry, refusal) = ReadMessage(link, delivery);
+        if (entry is null)
+        {
+            return refusal;
+        }
+
+        var outcome = entry.QueueName is { } queueName ? bus.PublishToQueue(queueName, entry.Message, accountName) : busConnection.Publish(entry.Message).Outcome;
+        await SaveBusAsync();
+        return StoreRejection(outcome);
+    }
+
+    // The message as the bus entry that stores it on the link's node, or the error that rejects it.
+    private (BusBatchEntry? Entry, Amqp1Error? Refusal) ReadMessage(Amqp1Link link, Amqp1IncomingDelivery delivery)
+    {
         if (delivery.MessageFormat != StandardMessageFormat)
         {
-            return Error(Amqp1ErrorCondition.NotImplemented, "message format not supported");
+            return (null, Error(Amqp1ErrorCondition.NotImplemented, "message format not supported"));
         }
 
         var isTopic = Amqp1NodeAddress.IsTopic(link.NodeAddress);
         var name = link.NodeAddress[(isTopic ? Amqp1NodeAddress.TopicPrefix : Amqp1NodeAddress.QueuePrefix).Length..];
-        BusMessage message;
         try
         {
-            message = Amqp1BusMessages.ToBusMessage(delivery.Bytes.WrittenMemory, name, delivery.Settled, context.TimeProvider.GetUtcNow());
+            var message = Amqp1BusMessages.ToBusMessage(delivery.Bytes.WrittenMemory, name, delivery.Settled, context.TimeProvider.GetUtcNow());
+            return (isTopic ? BusBatchEntry.ToTopic(message) : BusBatchEntry.ToQueue(name, message), null);
         }
         catch (Amqp1DecodeException)
         {
-            return Error(Amqp1ErrorCondition.DecodeError, "a message that does not decode");
+            return (null, Error(Amqp1ErrorCondition.DecodeError, "a message that does not decode"));
         }
-
-        var outcome = isTopic ? busConnection.Publish(message).Outcome : bus.PublishToQueue(name, message, accountName);
-        await SaveBusAsync();
-        return StoreRejection(outcome);
     }
 
     // ADR-0100 decision 3.7: a failed persistence write is noted, never answered as an error.

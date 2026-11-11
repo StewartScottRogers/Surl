@@ -31,6 +31,42 @@ public static class Amqp1DeliveryState
         return new(Amqp1Descriptor.Rejected, new object?[] { error.ToDescribed() });
     }
 
+    /// <summary><c>declared</c> carrying the new transaction's id (Part 4 section 4.5.5).</summary>
+    /// <param name="transactionId">The transaction id.</param>
+    /// <returns>The delivery state.</returns>
+    public static Amqp1Described Declared(byte[] transactionId)
+    {
+        ArgumentNullException.ThrowIfNull(transactionId);
+
+        return new(Amqp1Descriptor.Declared, new object?[] { transactionId });
+    }
+
+    /// <summary><c>transactional-state</c> naming <paramref name="transactionId"/>, with the provisional <paramref name="outcome"/> (Part 4 section 4.5.6).</summary>
+    /// <param name="transactionId">The transaction id.</param>
+    /// <param name="outcome">The outcome, such as <see cref="Accepted"/> or <see cref="Rejected"/>.</param>
+    /// <returns>The delivery state.</returns>
+    public static Amqp1Described TransactionalState(byte[] transactionId, Amqp1Described outcome)
+    {
+        ArgumentNullException.ThrowIfNull(transactionId);
+        ArgumentNullException.ThrowIfNull(outcome);
+
+        return new(Amqp1Descriptor.TransactionalState, new object?[] { transactionId, outcome });
+    }
+
+    /// <summary>Whether a delivery state read is a <c>transactional-state</c>.</summary>
+    /// <param name="state">The <c>state</c> field of a <c>transfer</c> or <c>disposition</c>, as read.</param>
+    /// <returns><see langword="true"/> for a <c>transactional-state</c>, whatever its fields hold.</returns>
+    public static bool IsTransactional(object? state) =>
+        Amqp1Descriptor.CodeOf((state as Amqp1Described)?.Descriptor) == Amqp1Descriptor.TransactionalState;
+
+    /// <summary>The <c>txn-id</c> a <c>transactional-state</c> names.</summary>
+    /// <param name="state">A delivery state, as read.</param>
+    /// <returns>The id; <see langword="null"/> when the state is no <c>transactional-state</c> or its <c>txn-id</c> is not a binary.</returns>
+    public static byte[]? TransactionIdOf(object? state) =>
+        IsTransactional(state) && ((Amqp1Described)state!).Value is IReadOnlyList<object?> fields
+            ? fields.ElementAtOrDefault(0) as byte[]
+            : null;
+
     /// <summary>Which outcome a delivery state read is.</summary>
     /// <param name="state">The <c>state</c> field of a <c>disposition</c> or <c>transfer</c>, as read.</param>
     /// <returns>The outcome; <see cref="Amqp1Outcome.None"/> when absent or not a delivery state.</returns>

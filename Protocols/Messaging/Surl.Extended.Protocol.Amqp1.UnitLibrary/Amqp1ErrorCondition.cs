@@ -1,7 +1,8 @@
 namespace Surl.Extended.Protocol.Amqp1;
 
 /// <summary>
-/// The error conditions of AMQP 1.0 Part 2 sections 2.8.15 to 2.8.18, as the symbols an
+/// The error conditions of AMQP 1.0 Part 2 sections 2.8.15 to 2.8.18 and the transaction errors of
+/// Part 4 section 4.5.8 the container sends, as the symbols an
 /// <see cref="Amqp1Error"/> carries.
 /// </summary>
 public static class Amqp1ErrorCondition
@@ -80,4 +81,10 @@ public static class Amqp1ErrorCondition
 
     /// <summary><c>amqp:link:stolen</c>.</summary>
     public static readonly Amqp1Symbol Stolen = new("amqp:link:stolen");
+
+    /// <summary><c>amqp:transaction:unknown-id</c> (Part 4 section 4.5.8): a transaction id that names no open transaction.</summary>
+    public static readonly Amqp1Symbol TransactionUnknownId = new("amqp:transaction:unknown-id");
+
+    /// <summary><c>amqp:transaction:rollback</c> (Part 4 section 4.5.8): the transaction was rolled back instead of committed.</summary>
+    public static readonly Amqp1Symbol TransactionRollback = new("amqp:transaction:rollback");
 }

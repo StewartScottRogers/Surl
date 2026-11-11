@@ -27,6 +27,9 @@ internal sealed class Amqp1Link(uint containerHandle)
     /// <summary>Whether the client sends on the link and the container receives.</summary>
     public bool ContainerReceives { get; set; }
 
+    /// <summary>Whether the link's target is the transaction coordinator, so what the client sends on it declares and discharges transactions (Part 4 section 4.5.1).</summary>
+    public bool IsCoordinator { get; set; }
+
     /// <summary>The node's canonical address, <c>/topic/&lt;t&gt;</c> or <c>/queue/&lt;q&gt;</c>, once found.</summary>
     public string NodeAddress { get; set; } = string.Empty;
 
