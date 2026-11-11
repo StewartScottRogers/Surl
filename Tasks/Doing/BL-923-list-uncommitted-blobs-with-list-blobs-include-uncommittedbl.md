@@ -40,3 +40,4 @@ committed file, as ADR-0109 decision 5.3 says.
 ## Log
 
 - 2026-11-06: Created.
+- 2026-11-11: Backlog -> Doing.
