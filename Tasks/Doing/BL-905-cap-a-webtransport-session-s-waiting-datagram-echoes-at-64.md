@@ -39,3 +39,4 @@ that, as ADR-0117 decision 8's table says.
 ## Log
 
 - 2026-11-05: Created.
+- 2026-11-11: Backlog -> Doing.
