@@ -250,7 +250,7 @@ public static partial class SurlServerComposition
         IDisposable? dataDirectoryLock,
         CancellationToken cancellationToken)
     {
-        var isCertificateConfigured = ServerTlsComposition.IsCertificateConfigured(commandLine);
+        var isTlsUpgradeAvailable = ServerTlsComposition.IsTlsUpgradeAvailable(commandLine);
         (ServiceState? State, string? FailureMessage) loaded;
         try
         {
@@ -259,7 +259,7 @@ public static partial class SurlServerComposition
                 fileSystem,
                 authentication.SchemePolicies.For("ldap"),
                 authentication.AccountNames,
-                isCertificateConfigured,
+                isTlsUpgradeAvailable,
                 seams.TimeProvider,
                 instruments.Events,
                 instruments.Faults,
@@ -285,7 +285,7 @@ public static partial class SurlServerComposition
             seams.TimeProvider,
             authentication.SshHostKeys.HostKeys,
             SshAlgorithmComposition.Compose(authentication.SshHostKeys.HostKeys.SignatureAlgorithms, commandLine),
-            isCertificateConfigured,
+            isTlsUpgradeAvailable,
             commandLine.WsEcho,
             commandLine.Http3)
         {
@@ -350,6 +350,10 @@ public static partial class SurlServerComposition
         {
             var (exitCode, lines) = ServerTlsComposition.DescribeTlsFileFailure(failure, commandLine.CaCertificateFile);
             return Refuse(exitCode, lines);
+        }
+        catch (TlsSrpAccountsException failure)
+        {
+            return Refuse(failure.ExitCode, failure.Message);
         }
 
         if (CoapsDtlsCertificate.FindRefusal(commandLine, tls.QuicCertificate) is { } certificateRefusal)

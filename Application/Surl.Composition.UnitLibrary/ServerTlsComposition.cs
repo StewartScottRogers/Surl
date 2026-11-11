@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using Surl.Cli;
 using Surl.Networking;
@@ -79,8 +80,22 @@ public sealed class ServerTlsComposition : IDisposable
     /// <returns>That listen URL, or <see langword="null"/> when every listen URL has what it needs.</returns>
     public static ListenUrl? FindListenUrlWithoutCertificate(SurlCommandLine commandLine) =>
         commandLine.CertificateFile is null && !commandLine.SelfSigned
-            ? commandLine.ListenUrls.FirstOrDefault(listenUrl => RequiresCertificate(commandLine, listenUrl.Scheme))
+            ? commandLine.ListenUrls.FirstOrDefault(listenUrl => RequiresCertificate(commandLine, listenUrl.Scheme) && !IsSecuredByTlsSrp(commandLine, listenUrl.Scheme))
             : null;
+
+    // Under TLS-SRP every TCP listener is secured without a certificate (ADR-0122 decisions 2 and 5);
+    // QUIC (webtransport) and DTLS (coaps) are not TLS-SRP's, so they still need one.
+    private static bool IsSecuredByTlsSrp(SurlCommandLine commandLine, string scheme) =>
+        commandLine.ServesTlsSrp && scheme is not (WebTransportScheme or CoapsScheme);
+
+    /// <summary>
+    /// Whether a server that can upgrade a plaintext connection to TLS offers it: a certificate is
+    /// configured, or TLS-SRP is served (ADR-0053 decision 5; ADR-0122 decision 5).
+    /// </summary>
+    /// <param name="commandLine">The parsed command line.</param>
+    /// <returns><see langword="true"/> when either is so.</returns>
+    public static bool IsTlsUpgradeAvailable(SurlCommandLine commandLine) =>
+        IsCertificateConfigured(commandLine) || commandLine.ServesTlsSrp;
 
     /// <summary>
     /// Whether a certificate is configured, <c>--cert</c> or <c>--self-signed</c>: what makes a
@@ -103,11 +118,17 @@ public sealed class ServerTlsComposition : IDisposable
     /// <param name="readFile">Reads a TLS option file's bytes (the <c>ReadStartFile</c> seam); <see langword="null"/> reads the disk.</param>
     /// <returns>The composition, which the caller disposes once serving has ended.</returns>
     /// <exception cref="TlsFileLoadException">A <c>--cert</c>, <c>--key</c> or <c>--cacert</c> file cannot be loaded.</exception>
+    /// <exception cref="TlsSrpAccountsException">A <c>--srp-verifiers</c> or <c>--srp-groups</c> file cannot be read, or a TLS-SRP user is given twice.</exception>
     public static ServerTlsComposition Compose(SurlCommandLine commandLine, TimeProvider timeProvider, Func<string, byte[]>? readFile = null)
     {
         if (!commandLine.ListenUrls.Any(listenUrl => NeedsTls(commandLine, listenUrl.Scheme)))
         {
             return new ServerTlsComposition(null, null, null, []);
+        }
+
+        if (commandLine.ServesTlsSrp)
+        {
+            return ComposeTlsSrp(commandLine, readFile);
         }
 
         var trustAnchors = commandLine.CaCertificateFile is { } caCertificateFile
@@ -129,7 +150,25 @@ public sealed class ServerTlsComposition : IDisposable
 
     private static bool NeedsTls(SurlCommandLine commandLine, string scheme) =>
         RequiresCertificate(commandLine, scheme)
-        || (IsCertificateConfigured(commandLine) && (UpgradableSchemes.Contains(scheme) || scheme == CoapsScheme));
+        || (IsTlsUpgradeAvailable(commandLine) && UpgradableSchemes.Contains(scheme))
+        || (IsCertificateConfigured(commandLine) && scheme == CoapsScheme);
+
+    // TLS-SRP settings (ADR-0122 decisions 4 and 5): the accounts, and one random source for them and
+    // every handshake, owned by the composition.
+    private static ServerTlsComposition ComposeTlsSrp(SurlCommandLine commandLine, Func<string, byte[]>? readFile)
+    {
+        var random = RandomNumberGenerator.Create();
+        try
+        {
+            var accounts = TlsSrpAccountsComposition.Compose(commandLine, random, readFile);
+            return new ServerTlsComposition(ServerTlsSettings.ForTlsSrp(accounts, random), null, null, [random]);
+        }
+        catch (TlsSrpAccountsException)
+        {
+            random.Dispose();
+            throw;
+        }
+    }
 
     // coaps needs a certificate or an account, whose pre-shared key it can handshake with (ADR-0087 decision 3).
     private static bool RequiresCertificate(SurlCommandLine commandLine, string scheme) =>

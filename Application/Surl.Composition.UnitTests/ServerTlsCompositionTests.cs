@@ -95,6 +95,78 @@ public sealed class ServerTlsCompositionTests
     }
 
     [TestMethod]
+    [DataRow(true, new[] { "--self-signed", "smtp://127.0.0.1:0/" })]
+    [DataRow(true, new[] { "--tlsuser", "u", "--tlspassword", "p", "smtp://127.0.0.1:0/" })]
+    [DataRow(false, new[] { "smtp://127.0.0.1:0/" })]
+    public void IsTlsUpgradeAvailable_CommandLine_IsTrueWithACertificateOrTlsSrp(bool expected, string[] args)
+    {
+        Assert.AreEqual(expected, ServerTlsComposition.IsTlsUpgradeAvailable(Parse(args)));
+    }
+
+    [TestMethod]
+    [DataRow("https://127.0.0.1:0/")]
+    [DataRow("smtp://127.0.0.1:0/")]
+    public void Compose_TlsSrp_ServesTheAccountsWithNoCertificate(string listenUrl)
+    {
+        using var composition = ServerTlsComposition.Compose(Parse("--tlsuser", "jsmith", "--tlspassword", "abc", listenUrl), TimeProvider.System);
+
+        Assert.IsNotNull(composition.Settings?.TlsSrpAccounts);
+        Assert.IsNull(composition.ThrowawayCertificateFingerprint);
+        Assert.IsNull(composition.QuicCertificate);
+        Assert.IsFalse(composition.Settings.TlsSrpAccounts.Find("jsmith"u8.ToArray(), RandomNumberGenerator.Create()).IsSimulated);
+    }
+
+    [TestMethod]
+    public void Compose_TlsSrpMalformedGroupFile_ThrowsCouldNotReadFileNamingTheFileAndLine()
+    {
+        var failure = Assert.ThrowsExactly<TlsSrpAccountsException>(() => ServerTlsComposition.Compose(
+            Parse("--srp-verifiers", "db", "--srp-groups", "conf", "https://127.0.0.1:0/"), TimeProvider.System, _ => "bad\n"u8.ToArray()));
+
+        Assert.AreEqual(SurlExitCode.CouldNotReadFile, failure.ExitCode);
+        StringAssert.StartsWith(failure.Message, "(37) Could not read the --srp-groups file 'conf': line 1: ");
+    }
+
+    [TestMethod]
+    public void Compose_TlsSrpGroupFileAccessDenied_ThrowsCouldNotReadFile()
+    {
+        var failure = Assert.ThrowsExactly<TlsSrpAccountsException>(() => ServerTlsComposition.Compose(
+            Parse("--srp-verifiers", "db", "--srp-groups", "conf", "https://127.0.0.1:0/"), TimeProvider.System, _ => throw new UnauthorizedAccessException("denied")));
+
+        Assert.AreEqual("(37) Could not read the --srp-groups file 'conf': denied", failure.Message);
+    }
+
+    [TestMethod]
+    public void ComputeEntry_RandomDrawsASaltStartingWithZero_DrawsAgain()
+    {
+        using var random = new ScriptedRandomNumberGenerator([[0, .. new byte[15]], [7, .. new byte[15]]]);
+
+        var entry = TlsSrpAccountsComposition.ComputeEntry("jsmith", "abc", random);
+
+        Assert.AreEqual((byte)7, entry.Salt[0]);
+        Assert.AreEqual(Cryptography.Srp.SrpGroup.Rfc5054Group2048, entry.Group);
+        CollectionAssert.AreEqual(
+            Cryptography.Srp.Srp6a.ToUnsignedBigEndian(Cryptography.Srp.Srp6a.ComputeVerifier(entry.Group, entry.Salt, "jsmith"u8, "abc"u8)),
+            entry.Verifier);
+    }
+
+    [TestMethod]
+    public void FindListenUrlWithoutCertificate_TlsSrp_IsNullForTcpAndTheWebTransportListenUrlOtherwise()
+    {
+        Assert.IsNull(ServerTlsComposition.FindListenUrlWithoutCertificate(Parse("--tlsuser", "u", "--tlspassword", "p", "https://127.0.0.1:0/")));
+        Assert.AreEqual(
+            new ListenUrl("webtransport", "127.0.0.1", 0),
+            ServerTlsComposition.FindListenUrlWithoutCertificate(
+                ParseWithWebTransport("--tlsuser", "u", "--tlspassword", "p", "https://127.0.0.1:0/", "webtransport://127.0.0.1:0/")));
+    }
+
+    private sealed class ScriptedRandomNumberGenerator(byte[][] draws) : RandomNumberGenerator
+    {
+        private int next;
+
+        public override void GetBytes(byte[] data) => draws[next++].CopyTo(data, 0);
+    }
+
+    [TestMethod]
     public void Compose_HttpsWithoutCert_ServesAThrowawayCertificateWithTheDefaultVersions()
     {
         using var composition = ServerTlsComposition.Compose(Parse("https://127.0.0.1:0/"), TimeProvider.System);

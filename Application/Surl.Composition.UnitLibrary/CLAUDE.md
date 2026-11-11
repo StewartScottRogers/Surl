@@ -163,6 +163,13 @@ rather than writing it, and the warning writers take the log `TextWriter` they w
   refusal (ADR-0066).
 - `ServerTlsComposition` - the server TLS settings (`--cert`, `--self-signed`, `--cacert`), and
   `DescribeTlsFileFailure`, the exit code and lines for a TLS file that cannot be loaded (ADR-0020).
+  Under TLS-SRP (`SurlCommandLine.ServesTlsSrp`, ADR-0122 decisions 4 and 5, BL-567) it builds
+  `ServerTlsSettings.ForTlsSrp` instead, over the accounts `TlsSrpAccountsComposition` reads (the
+  `--srp-groups` then `--srp-verifiers` files through `ReadStartFile`, then the `--tlsuser` account,
+  its salt drawn again while its first byte is zero) and one `RandomNumberGenerator` it owns; a file
+  that cannot be read is `TlsSrpAccountsException` `(37)`, a user given twice `(2)`. No certificate is
+  needed then except for `webtransport` and `coaps`, and `IsTlsUpgradeAvailable` (a certificate, or
+  TLS-SRP) is what makes the STARTTLS-style servers offer their upgrade.
 - `DataDirectoryProbe`, `DataDirectoryLock` and `DataDirectoryLockOutcome` - the `--directory`
   probe and its `.surl/lock` (ADR-0031 decision 7).
 
