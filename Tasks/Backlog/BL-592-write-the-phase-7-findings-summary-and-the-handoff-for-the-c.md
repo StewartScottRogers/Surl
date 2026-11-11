@@ -4,7 +4,7 @@ title: Write the Phase 7 findings summary and the handoff for the Curl port's bo
 priority: Normal
 assignee: Claude
 pipeline: docs
-depends-on: [BL-580, BL-581, BL-582, BL-583, BL-584, BL-585, BL-586, BL-587, BL-588, BL-589, BL-590, BL-591, BL-937]
+depends-on: [BL-580, BL-581, BL-582, BL-583, BL-584, BL-585, BL-586, BL-587, BL-588, BL-589, BL-590, BL-591, BL-937, BL-1035]
 touches: [Documentation/Conformance/CurlPort/README.md, Documentation/Conformance/CurlPort/Port-Board-Handoff.md, Documentation/Conformance/CurlPort/Extended.md]
 requirement: none
 created: 2026-11-04
@@ -53,6 +53,12 @@ are planning names; use the ones BL-576's ADR decision 7 chose.
 
 ## Notes
 
+- 2026-11-11 (lane 2): The docs are written and complete on branch factory/BL-592-lane-3-20261111-060243
+  (commit a323bbb4: README.md, Port-Board-Handoff.md with 17 findings, Extended.md). Integration needs
+  `dotnet build`, which cannot start: global.json pins SDK 10.0.401 and only 10.0.100-rc.1, 11.0.100-rc.2
+  and 11.0.100 are installed. Added BL-1035 to depends-on. Next run: `git cherry-pick --no-commit a323bbb4`,
+  move the task file back from Done to Doing (the commit moves it), build, test, move to Done.
+
 ## Log
 
 - 2026-11-04: Created.
@@ -60,3 +66,4 @@ are planning names; use the ones BL-576's ADR decision 7 chose.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Lane 3 could not integrate: build failed after rebasing onto the other lanes' work. The work is on branch factory/BL-592-lane-3-20261111-060243; start with git cherry-pick --no-commit factory/BL-592-lane-3-20261111-060243 and fix it.
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Backlog. Waiting on BL-1035 - pinned .NET SDK 10.0.401 is not installed, so dotnet build cannot start; docs are done on factory/BL-592-lane-3-20261111-060243
