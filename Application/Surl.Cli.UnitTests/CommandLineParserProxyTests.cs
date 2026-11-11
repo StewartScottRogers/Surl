@@ -58,7 +58,7 @@ public sealed class CommandLineParserProxyTests
     }
 
     [TestMethod]
-    [DataRow("socks5://127.0.0.1:1080", "socks5")]
+
     [DataRow("ftp://127.0.0.1:21", "ftp")]
     public void Parse_ProxyWithAnotherScheme_IsUnsupportedProtocol(string argument, string scheme) =>
         AssertRefused(["-x", argument, Url], SurlExitCode.UnsupportedProtocol, $"(1) Protocol \"{scheme}\" not supported");

@@ -30,6 +30,7 @@ internal static class HelpCategories
         new("smb", "SMB and SMBS protocol", ["smb", "smbs"]),
         new("smtp", "SMTP and SMTPS protocol", ["smtp", "smtps"]),
         new("socketio", "Socket.IO and Socket.IO over TLS protocol (extended)", ["socketio", "socketios"]),
+        new("socks", "SOCKS4, SOCKS4a, SOCKS5 and SOCKS5h proxy protocol", ["socks4", "socks4a", "socks5", "socks5h"]),
         new("ssh","SSH protocol", ["scp", "sftp"]),
         new("surl", "The command line tool itself", []),
         new("telnet", "TELNET protocol", ["telnet"]),

@@ -59,6 +59,10 @@ public sealed class ListenUrlParserTests
     [DataRow("smbs", 445)]
     [DataRow("smtp", 25)]
     [DataRow("smtps", 465)]
+    [DataRow("socks4", 1080)]
+    [DataRow("socks4a", 1080)]
+    [DataRow("socks5", 1080)]
+    [DataRow("socks5h", 1080)]
     [DataRow("telnet", 23)]
     [DataRow("tftp", 69)]
     [DataRow("ws", 80)]
@@ -71,11 +75,11 @@ public sealed class ListenUrlParserTests
     }
 
     [TestMethod]
-    public void Schemes_AreTheTwentySixWireSchemes()
+    public void Schemes_AreTheThirtyWireSchemes()
     {
         var schemes = SchemeDefaultPorts.Schemes;
 
-        Assert.HasCount(26, schemes);
+        Assert.HasCount(30, schemes);
     }
 
     [TestMethod]
@@ -99,6 +103,7 @@ public sealed class ListenUrlParserTests
     [DataRow("1http://127.0.0.1/", "Malformed input to a URL function", DisplayName = "Scheme starting with a digit")]
     [DataRow("ht_tp://127.0.0.1/", "Malformed input to a URL function", DisplayName = "Scheme with a bad character")]
     [DataRow("http://user@127.0.0.1/", "A listen URL cannot have a user name or password", DisplayName = "User name")]
+    [DataRow("socks5h://alice@127.0.0.1/", "A listen URL cannot have a user name or password", DisplayName = "SOCKS user name")]
     [DataRow("http://user:secret@127.0.0.1:8080/", "A listen URL cannot have a user name or password", DisplayName = "User name and password")]
     [DataRow("http://[::1/", "Bad IPv6 address", DisplayName = "No closing bracket")]
     [DataRow("http://[127.0.0.1]/", "Bad IPv6 address", DisplayName = "IPv4 inside brackets")]
@@ -125,6 +130,8 @@ public sealed class ListenUrlParserTests
     [DataRow("http://127.0.0.1:-1/", "Port number was not a decimal number between 0 and 65535", DisplayName = "Signed port")]
     [DataRow("http://[::1]:abc/", "Port number was not a decimal number between 0 and 65535", DisplayName = "Non-numeric port after IPv6")]
     [DataRow("http://127.0.0.1:8080/x", "A listen URL cannot have a path, query or fragment", DisplayName = "Path")]
+    [DataRow("socks5://127.0.0.1:1080/x", "A listen URL cannot have a path, query or fragment", DisplayName = "SOCKS path")]
+    [DataRow("socks4://127.0.0.1:1080?q", "A listen URL cannot have a path, query or fragment", DisplayName = "SOCKS query")]
     [DataRow("http://127.0.0.1:8080//", "A listen URL cannot have a path, query or fragment", DisplayName = "Two slashes")]
     [DataRow("http://127.0.0.1:8080?q", "A listen URL cannot have a path, query or fragment", DisplayName = "Query")]
     [DataRow("http://127.0.0.1:8080/#f", "A listen URL cannot have a path, query or fragment", DisplayName = "Fragment")]
@@ -187,6 +194,8 @@ public sealed class ListenUrlParserTests
     [DataRow("http://127.0.0.1", "http", "127.0.0.1", 1080, DisplayName = "http proxy default port is curl's 1080")]
     [DataRow("HTTPS://[::1]/", "https", "::1", 443, DisplayName = "https proxy default port is 443, scheme lower-cased")]
     [DataRow("http://localhost:0", "http", "localhost", 0, DisplayName = "Port 0 asks for an ephemeral port")]
+    [DataRow("socks5://127.0.0.1", "socks5", "127.0.0.1", 1080, DisplayName = "socks5 proxy default port is curl's 1080")]
+    [DataRow("SOCKS4A://127.0.0.1:1081", "socks4a", "127.0.0.1", 1081, DisplayName = "socks4a, scheme lower-cased")]
     public void ParseProxy_HttpOrHttpsListenUrl_ReturnsProxyListenUrl(string argument, string scheme, string host, int port)
     {
         var result = ListenUrlParser.ParseProxy(argument);
@@ -198,7 +207,6 @@ public sealed class ListenUrlParserTests
 
     [TestMethod]
     [DataRow("ftp://127.0.0.1/", "ftp", DisplayName = "An origin scheme is no proxy")]
-    [DataRow("socks5://127.0.0.1/", "socks5", DisplayName = "SOCKS is BL-560's")]
     [DataRow("ws://127.0.0.1/", "ws", DisplayName = "ws is no proxy")]
     public void ParseProxy_OtherScheme_RefusesAsUnsupportedProtocol(string argument, string scheme)
     {

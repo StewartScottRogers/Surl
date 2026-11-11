@@ -13,7 +13,7 @@ public sealed partial class AiHelpTextTests
     private static readonly string[] AdrTopicNames =
     [
         "auth", "coap", "content", "control", "dict", "dns", "exit-codes", "extended", "ftp", "gopher", "http", "imap", "ldap", "limits", "listen-urls",
-        "logging", "mail", "mqtt", "nats", "pop3", "proxy", "rtsp", "s3", "security", "smb", "smtp", "socketio", "ssh", "surl", "telnet", "testing", "tftp", "tls", "websocket", "webtransport", "xmpp",
+        "logging", "mail", "mqtt", "nats", "pop3", "proxy", "rtsp", "s3", "security", "smb", "smtp", "socketio", "socks", "ssh", "surl", "telnet", "testing", "tftp", "tls", "websocket", "webtransport", "xmpp",
     ];
 
     // ADR-0046 decision 4's section headings, in order, on every topic page.
@@ -50,6 +50,7 @@ public sealed partial class AiHelpTextTests
         "| `smb` | SMB and SMBS protocol |",
         "| `smtp` | SMTP and SMTPS protocol |",
         "| `socketio` | Socket.IO and Socket.IO over TLS protocol (extended) |",
+        "| `socks` | SOCKS4, SOCKS4a, SOCKS5 and SOCKS5h proxy protocol |",
         "| `ssh` | SSH protocol |",
         "| `surl` | The command line tool itself |",
         "| `telnet` | TELNET protocol |",
@@ -588,7 +589,7 @@ public sealed partial class AiHelpTextTests
     {
         // surl's SSH host-key note and --throwaway-hostkey warning name the curl options that pin
         // the key (ADR-0051, decisions 8 and 11).
-        string[] curlOptionsSurlNames = ["hostpubsha256", "hostpubmd5"];
+        string[] curlOptionsSurlNames = ["hostpubsha256", "hostpubmd5", "socks4", "socks4a", "socks5", "socks5-hostname", "proxy-auth"];
 
         foreach (var name in NamedLongOptions().Except(curlOptionsSurlNames))
         {

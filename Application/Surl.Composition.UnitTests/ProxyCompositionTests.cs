@@ -239,6 +239,17 @@ public sealed class ProxyCompositionTests
     }
 
     [TestMethod]
+    public void ComposeAllowedOriginRule_APositionalSocksListenUrl_NeverAdmitsTheSocksServerItself()
+    {
+        var listenUrl = ListenUrlParser.Parse("socks5://127.0.0.1:1080").ListenUrl!;
+
+        var rule = ProxyComposition.ComposeAllowedOriginRule(new SurlCommandLine { ListenUrls = [listenUrl, new ListenUrl("http", "127.0.0.1", 8080)] });
+
+        Assert.IsFalse(rule.Admits(new IPEndPoint(IPAddress.Loopback, 1080)));
+        Assert.IsTrue(rule.Admits(new IPEndPoint(IPAddress.Loopback, 8080)));
+    }
+
+    [TestMethod]
     public void ComposeAllowedOriginRule_AProxyOnPortZero_RefusesNoPort()
     {
         var rule = ProxyComposition.ComposeAllowedOriginRule(CommandLine("http://127.0.0.1:0"));

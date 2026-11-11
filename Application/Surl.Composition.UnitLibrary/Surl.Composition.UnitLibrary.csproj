@@ -34,6 +34,7 @@
     <ProjectReference Include="..\..\Protocols\Http\Surl.Protocol.Rtsp.UnitLibrary\Surl.Protocol.Rtsp.UnitLibrary.csproj" />
     <ProjectReference Include="..\..\Protocols\FileTransfer\Surl.Protocol.Smb.UnitLibrary\Surl.Protocol.Smb.UnitLibrary.csproj" />
     <ProjectReference Include="..\..\Protocols\Mail\Surl.Protocol.Smtp.UnitLibrary\Surl.Protocol.Smtp.UnitLibrary.csproj" />
+    <ProjectReference Include="..\..\Protocols\Proxy\Surl.Protocol.Socks.UnitLibrary\Surl.Protocol.Socks.UnitLibrary.csproj" />
     <ProjectReference Include="..\..\Protocols\FileTransfer\Surl.Protocol.Ssh.UnitLibrary\Surl.Protocol.Ssh.UnitLibrary.csproj" />
     <ProjectReference Include="..\..\Protocols\Terminal\Surl.Protocol.Telnet.UnitLibrary\Surl.Protocol.Telnet.UnitLibrary.csproj" />
     <ProjectReference Include="..\..\Protocols\FileTransfer\Surl.Protocol.Tftp.UnitLibrary\Surl.Protocol.Tftp.UnitLibrary.csproj" />

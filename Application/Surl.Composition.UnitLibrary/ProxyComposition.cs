@@ -29,7 +29,8 @@ internal static class ProxyComposition
             rule = origin.AdmitsEveryAddress ? AllowedOriginRule.EveryAddress : rule.WithRange(origin.Network, origin.PrefixLength);
         }
 
-        foreach (var listenUrl in commandLine.ProxyListenUrls.Where(listenUrl => listenUrl.Port > 0))
+        var proxyListenUrls = commandLine.ProxyListenUrls.Concat(commandLine.ListenUrls.Where(listenUrl => listenUrl.Scheme.StartsWith("socks", StringComparison.Ordinal))).Distinct();
+        foreach (var listenUrl in proxyListenUrls.Where(listenUrl => listenUrl.Port > 0))
         {
             var address = IPAddress.TryParse(listenUrl.Host, out var parsed) ? parsed : IPAddress.Any;
             rule = rule.WithProxyEndPoint(new IPEndPoint(address, listenUrl.Port));

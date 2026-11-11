@@ -32,6 +32,12 @@ horizontal library may reference it (ADR-0099 decision 11, held by
   over `ProxyComposition.ComposeAllowedOriginRule`, or `SurlServerCompositionSeams.CreateOriginConnector`) and judges
   `Proxy-Authorization` by `ComposedProtocolServices.ProxyAuthenticationPolicy`
   (`AuthenticationComposition.ComposeProxyPolicy`, over `-U` and `--proxy-user-file` alone); `--proxy-allow-origin '*'` warns.
+- SOCKS (ADR-0121 decision 5, BL-560): one `ProtocolServerRegistrations.Original` entry for `socks4`, `socks4a`,
+  `socks5` and `socks5h`, a `SocksProtocolServer` over the same `ComposedProtocolServices.OriginConnector` and
+  `ProxyAuthenticationPolicy` as the HTTP proxy (so `-U`, `--proxy-user-file` and `--proxy-allow-origin` apply).
+  A SOCKS listen URL, positional or from `--proxy`, is listened on like any other, and
+  `ProxyComposition.ComposeAllowedOriginRule` refuses its own end point too. The unserved services and the
+  long `ComposeProtocolServers` overload give it an `InMemoryOriginConnector`, since nothing is served through them.
 - `SurlServerCompositionSeams.AdditionalProtocolServers` (`AdditionalProtocolServer`: a registration
   and its already-parsed `ListenUrl`s) are composed after the extended servers and served on their
   listen URLs after the command line's: how `Surl.Api` serves a test's own server (BL-813).

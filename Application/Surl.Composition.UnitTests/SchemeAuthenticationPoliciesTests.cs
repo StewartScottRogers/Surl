@@ -82,6 +82,7 @@ public sealed class SchemeAuthenticationPoliciesTests
                 advertisesHttp3: false)
             {
                 AuthenticationPolicyForScheme = _ => view,
+                OriginConnector = new InMemoryOriginConnector(),
             });
 
         Assert.IsNull(services.AuthenticationPolicyForScheme);

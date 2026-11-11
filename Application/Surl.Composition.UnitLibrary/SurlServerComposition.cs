@@ -537,7 +537,7 @@ public static partial class SurlServerComposition
     /// <summary>
     /// Builds every original protocol server surl registers, over TCP or (TFTP) UDP, in
     /// registration order: <see cref="ProtocolServerRegistrations.Original"/>, each entry built
-    /// over the services given (ADR-0124, decision 2).
+    /// over the services given (ADR-0124, decision 2). The SOCKS server it builds reaches no origin: this overload composes no outbound connector.
     /// </summary>
     /// <param name="contentStore">The one content store.</param>
     /// <param name="serviceState">The message bus, the mail store and the LDAP server.</param>
@@ -582,6 +582,7 @@ public static partial class SurlServerComposition
                 advertisesHttp3)
             {
                 AuthenticationPolicyForScheme = authenticationPolicyForScheme,
+                OriginConnector = new InMemoryOriginConnector(),
             });
     }
 
@@ -644,6 +645,10 @@ public static partial class SurlServerComposition
             SshAlgorithmOffer.Default([], AesGcm.IsSupported),
             isTlsUpgradeAvailable: false,
             echoesWebSocketMessages: false,
-            advertisesHttp3: false);
+            advertisesHttp3: false)
+        {
+            // Nothing is served through these services, so the SOCKS server is built over a connector that connects nowhere.
+            OriginConnector = new InMemoryOriginConnector(),
+        };
     }
 }

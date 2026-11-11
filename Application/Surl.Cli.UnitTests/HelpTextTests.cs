@@ -30,6 +30,7 @@ public sealed class HelpTextTests
         " smb           SMB and SMBS protocol",
         " smtp          SMTP and SMTPS protocol",
         " socketio      Socket.IO and Socket.IO over TLS protocol (extended)",
+        " socks         SOCKS4, SOCKS4a, SOCKS5 and SOCKS5h proxy protocol",
         " ssh           SSH protocol",
         " surl          The command line tool itself",
         " telnet        TELNET protocol",
@@ -190,7 +191,8 @@ public sealed class HelpTextTests
             "Use \"--help category\" to get an overview of all categories, which are:",
             "auth, coap, content, dict, dns, ftp, gopher, http, imap, ldap, limits,",
             "logging, mail, mqtt, nats, pop3, proxy, rtsp, s3, security, smb, smtp,",
-            "socketio, ssh, surl, telnet, testing, tftp, tls, websocket, webtransport, xmpp.",
+            "socketio, socks, ssh, surl, telnet, testing, tftp, tls, websocket,",
+            "webtransport, xmpp.",
             "Use \"--help all\" to list all options",
             "Use \"--help [option]\" to view documentation for a given option");
     }

@@ -168,6 +168,7 @@ public sealed class AiHelpFactsTests
     [DataRow("smb", new[] { "smb", "smbs" })]
     [DataRow("smtp", new[] { "smtp", "smtps" })]
     [DataRow("socketio", new[] { "socketio", "socketios" })]
+    [DataRow("socks", new[] { "socks4", "socks4a", "socks5", "socks5h" })]
     [DataRow("telnet", new[] { "telnet" })]
     [DataRow("tftp", new[] { "tftp" })]
     [DataRow("webtransport", new[] { "webtransport" })]
@@ -184,7 +185,7 @@ public sealed class AiHelpFactsTests
     {
         var withSchemes = HelpCategories.All.Where(category => category.Schemes.Count > 0).Select(category => category.Name);
 
-        CollectionAssert.AreEqual(new[] { "coap", "dict", "dns", "ftp", "gopher", "http", "imap", "ldap", "mqtt", "nats", "pop3", "rtsp", "s3", "smb", "smtp", "socketio", "ssh", "telnet", "tftp", "websocket", "webtransport", "xmpp" }, withSchemes.ToArray());
+        CollectionAssert.AreEqual(new[] { "coap", "dict", "dns", "ftp", "gopher", "http", "imap", "ldap", "mqtt", "nats", "pop3", "rtsp", "s3", "smb", "smtp", "socketio", "socks", "ssh", "telnet", "tftp", "websocket", "webtransport", "xmpp" }, withSchemes.ToArray());
     }
 
     [TestMethod]
