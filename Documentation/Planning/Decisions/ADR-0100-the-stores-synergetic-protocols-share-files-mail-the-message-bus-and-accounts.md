@@ -29,6 +29,10 @@
 - **Amended:** decision 2.3 by its own section 2.3.1 (2026-11-06, BL-685): the object metadata
   index's byte format and the choices BL-636 made building it, among them that stale entries are
   dropped lazily rather than on every write.
+- **Amended:** decision 2.3.1 by its own text (2026-11-11, BL-970, recording BL-736): the index
+  writes header `SURL-OBJECT-INDEX-2` with six header fields per entry, `Content-MD5` the sixth,
+  still reads a `SURL-OBJECT-INDEX-1` index with five, and `Content-MD5` counts toward
+  `MaxMetadataBytes`.
 - **Amended:** decision 3.2's NATS and Kafka rows and "What does not survive a mapping" by its own
   section 3.2.1 (2026-11-06, BL-691, recording BL-630): NATS's last `>` becomes `+/#` (one or more
   levels), not `#`, and Kafka names empty levels (`a..b` is `a//b`); only `.` and `..` are refused.
@@ -207,7 +211,8 @@ object-storage servers' ADRs (BL-417, BL-423, BL-429, BL-435) cite one source. T
 **Byte format** of `<path>/.surl/objects/index`. Every integer is big-endian. A string is its UTF-8
 length (2 bytes, unsigned) then its UTF-8 bytes; an empty string means absent.
 
-1. The header: the 20 ASCII bytes `SURL-OBJECT-INDEX-1` and a line feed.
+1. The header: the 20 ASCII bytes `SURL-OBJECT-INDEX-2` and a line feed (version 2, since BL-736;
+   see "Amendment: version 2 keeps `Content-MD5`" below for version 1).
 2. The entry count (4 bytes, unsigned).
 3. That many entries, in strictly ascending ordinal order of key. An entry is:
    - its key (a string: the path relative to the served root, segments joined by `/`);
@@ -216,17 +221,31 @@ length (2 bytes, unsigned) then its UTF-8 bytes; an empty string means absent.
      than seconds, so the stamp matches the file system's time exactly;
    - the generation (8 bytes, signed);
    - the ETag (a string, not empty);
-   - `Content-Type`, `Content-Encoding`, `Content-Disposition`, `Cache-Control` and
-     `Content-Language` (five strings);
+   - `Content-Type`, `Content-Encoding`, `Content-Disposition`, `Cache-Control`,
+     `Content-Language` and `Content-MD5` (six strings);
    - the user metadata count (2 bytes, unsigned), then that many name and value pairs (two strings
      each) in strictly ascending ordinal order of name.
 4. Then the end of the file. Anything else - a wrong header, keys or names out of order, a bound
    passed, bytes left over, invalid UTF-8 - is malformed: `CouldNotReadFile` (37), `not an object
    metadata index`.
 
+**Amendment: version 2 keeps `Content-MD5`** (2026-11-11, BL-970, recording BL-736). Decided by
+Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions") in BL-736, which could not edit
+this ADR while BL-718 held `Documentation/Planning/Decisions`. BL-736 added `Content-MD5` (Azure's
+unchecked `x-ms-blob-content-md5`, ADR-0109 decision 5.6) to the stored header fields, so the
+index writes header `SURL-OBJECT-INDEX-2` and six header fields per entry, `Content-MD5` the sixth.
+An index starting `SURL-OBJECT-INDEX-1` and a line feed, written before BL-736, is still read: its
+entries hold the first five header fields only and read back with no `Content-MD5`; the next write
+rewrites the whole index as version 2. A new header rather than an unversioned extra field, so an
+old index is never misread as malformed. `ObjectMetadataIndexTests.StoreAsync_PersistingIndex_WritesThePinnedBytes`
+pins the version 2 bytes and
+`LoadAsync_IndexWrittenBeforeContentMd5WasKept_ReadsItsFiveHeaderFieldsAndNoContentMd5` the
+version 1 read.
+
 **Choices:**
 
-- **What counts toward `MaxMetadataBytes`:** the UTF-8 bytes of the five header fields and of every
+- **What counts toward `MaxMetadataBytes`:** the UTF-8 bytes of the six header fields (`Content-MD5`
+  among them, since BL-736) and of every
   user metadata name and value. The ETag does not count; it has its own bound. `MaxMetadataBytes`
   is capped at 65535, so every string fits its 2-byte length.
 - **`MaxETagBytes` is 1024** UTF-8 bytes; an ETag that is empty or longer is refused.

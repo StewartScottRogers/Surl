@@ -8,7 +8,7 @@ depends-on: [BL-736]
 touches: [Documentation/Planning/Decisions/ADR-0100-the-stores-synergetic-protocols-share-files-mail-the-message-bus-and-accounts.md]
 requirement: none
 created: 2026-11-06
-completed:
+completed: 2026-11-11
 ---
 # BL-970 — Record the object metadata index's version 2 byte format in ADR-0100
 
@@ -24,12 +24,15 @@ ADR-0100 decision 2.3.1 describes the object metadata index's byte format as the
 
 ## Acceptance criteria
 
-- [ ] ADR-0100 decision 2.3.1's byte format names header `SURL-OBJECT-INDEX-2`, six header fields with `Content-MD5` sixth, and states that a `SURL-OBJECT-INDEX-1` index is read with five fields and no `Content-MD5` - as an amendment dated and marked "Decided by Claude under Stewart's delegation", citing BL-736.
-- [ ] Its "What counts toward `MaxMetadataBytes`" choice names six header fields.
+- [x] ADR-0100 decision 2.3.1's byte format names header `SURL-OBJECT-INDEX-2`, six header fields with `Content-MD5` sixth, and states that a `SURL-OBJECT-INDEX-1` index is read with five fields and no `Content-MD5` - as an amendment dated and marked "Decided by Claude under Stewart's delegation", citing BL-736.
+- [x] Its "What counts toward `MaxMetadataBytes`" choice names six header fields.
 
 ## Notes
+
+- Amendment written inline in decision 2.3.1 (byte format step 1 and the six-string bullet updated in place, with a dated "Amendment: version 2 keeps `Content-MD5`" paragraph after the format) plus a line in the ADR header's amendment list, so a reader of the format sees the current bytes first. Facts checked against `ObjectMetadataIndexFormat.cs` (`Header`, `HeaderWithoutContentMd5`, `headerFieldCount`) and `ObjectMetadataEntry.HeaderFields` (six fields counted toward `MaxMetadataBytes`). Docs only; no `.cs` or project file changed, so no build was needed.
 
 ## Log
 
 - 2026-11-06: Created.
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Done. ADR-0100 decision 2.3.1 records the version 2 object metadata index: SURL-OBJECT-INDEX-2, six header fields with Content-MD5, version 1 still read
