@@ -32,3 +32,4 @@ ADR-0108 records, as Amendment 4, the decision BL-729 built: S3's `EntityTooLarg
 ## Log
 
 - 2026-11-06: Created.
+- 2026-11-11: Backlog -> Doing.
