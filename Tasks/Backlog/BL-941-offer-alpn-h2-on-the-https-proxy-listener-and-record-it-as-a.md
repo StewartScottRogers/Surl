@@ -4,7 +4,7 @@ title: Offer ALPN h2 on the HTTPS proxy listener and record it as ADR-0088 Amend
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-940]
+depends-on: [BL-940, BL-1035]
 touches: [Foundation/Surl.Networking.UnitLibrary, Foundation/Surl.Networking.UnitTests, Foundation/Surl.Protocol.Abstractions.UnitLibrary, Documentation/Planning/Decisions/ADR-0088-how-surl-serves-the-http-connect-proxy-and-the-https-proxy.md]
 requirement: none
 created: 2026-11-06
@@ -58,15 +58,15 @@ HTTP/2 path, and ADR-0088 records the change as Amendment 5.
 
 ## Acceptance criteria
 
-- [ ] `TlsApplicationProtocolsTests.ForListener_OffersTheSchemesListForAProxyListenerToo` passes with the
+- [x] `TlsApplicationProtocolsTests.ForListener_OffersTheSchemesListForAProxyListenerToo` passes with the
       `("https", true)` row expecting `h2,http/1.1`.
-- [ ] `ServerTlsHandshakeHttpsProxyTests` passes with: the proxy listener offering `h2` then `http/1.1`;
+- [x] `ServerTlsHandshakeHttpsProxyTests` passes with: the proxy listener offering `h2` then `http/1.1`;
       a client offering only `http/1.1` agreeing `http/1.1` and proxied as before; a client offering
       `h2,http/1.1` agreeing `h2` and answered over HTTP/2; and no test left asserting a handshake
       failure for an `h2`-only client.
-- [ ] `ListenUrl.IsProxy`'s doc comment and `Foundation/Surl.Networking.UnitLibrary/CLAUDE.md` say an
+- [x] `ListenUrl.IsProxy`'s doc comment and `Foundation/Surl.Networking.UnitLibrary/CLAUDE.md` say an
       `https` proxy listener offers `h2` then `http/1.1` (ADR-0088 Amendment 5).
-- [ ] `Documentation/Planning/Decisions/ADR-0088-how-surl-serves-the-http-connect-proxy-and-the-https-proxy.md`
+- [x] `Documentation/Planning/Decisions/ADR-0088-how-surl-serves-the-http-connect-proxy-and-the-https-proxy.md`
       has `## Amendment 5` stating that the HTTPS proxy offers `h2` then `http/1.1`, serves `CONNECT`
       and forwarded requests over HTTP/2 when `h2` is agreed (BL-940), that this supersedes decision 6's
       and Amendment 2's `http/1.1`-only offer, and the measurement it rests on; its `Date` line names
@@ -76,7 +76,23 @@ HTTP/2 path, and ADR-0088 records the change as Amendment 5.
 
 ## Notes
 
+- 2026-11-11 (lane 4): Work is written and was left uncommitted for the shift to stash: `ForListener`
+  is `ForScheme(listenUrl.Scheme)`; `TlsApplicationProtocolsTests` row and rename; `ListenUrl.IsProxy`
+  doc comment; Networking `CLAUDE.md`; `ServerTlsHandshakeHttpsProxyTests` rewritten
+  (`ForListener_HttpsProxy_OffersH2ThenHttp11`, the `http/1.1`-only test, and
+  `ServeAsync_HttpsProxyHandshakeOfferingH2_AgreesH2AndForwardsOneGetOverHttp2` with rows `h2,http/1.1`
+  and `h2`, sending curl's 132-byte first burst from `https-proxy-h2-forward` as a hex constant because
+  the Networking tests cannot read HttpProxy's fixtures; the `h2`-only failure test is gone); ADR-0088
+  Amendment 5 written and its `Date` line updated. The stash from the main checkout's BL-595 run
+  could not be listed from the lane (`git stash list` denied), so it was rewritten by hand.
+- Verified only by a temporary `global.json` pinned to 11.0.100 (reverted at once): the 17 tests in
+  `ServerTlsHandshakeHttpsProxyTests` and `TlsApplicationProtocolsTests` pass. The pinned SDK 10.0.401
+  is not installed on this machine, so `dotnet build` fails with "A compatible .NET SDK was not
+  found" and the last criterion cannot be checked; the task waits on BL-1035 (Stewart's reinstall).
+  The next run applies the stash, builds, runs the fast tests and checks coverage.
+
 ## Log
 
 - 2026-11-06: Created.
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Backlog. Waits on BL-1035: pinned .NET SDK 10.0.401 is not installed, so dotnet build cannot run; code and ADR Amendment 5 written and left for the shift's stash
