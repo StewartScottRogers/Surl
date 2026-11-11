@@ -168,6 +168,32 @@ public sealed record SurlCommandLine
     public string? UserFile { get; init; }
 
     /// <summary>
+    /// The proxy listen URLs from every <c>-x</c>/<c>--proxy</c>, in command-line order, each read by
+    /// <see cref="ListenUrlParser.ParseProxy"/> and so <c>http</c> or <c>https</c> with
+    /// <see cref="ListenUrl.IsProxy"/> set (ADR-0088 decision 7). None by default.
+    /// </summary>
+    public IReadOnlyList<ListenUrl> ProxyListenUrls { get; init; } = [];
+
+    /// <summary>
+    /// The proxy's accounts from every <c>-U</c>/<c>--proxy-user</c>, in command-line order, read as <c>-u</c>
+    /// reads (ADR-0088 decision 5). They are the proxy's alone, separate from <see cref="Accounts"/>. None by
+    /// default, when the proxy takes no login.
+    /// </summary>
+    public IReadOnlyList<CommandLineAccount> ProxyAccounts { get; init; } = [];
+
+    /// <summary>
+    /// <c>--proxy-user-file</c>: the file of more proxy accounts in ADR-0032 section 2's format, as given; none by
+    /// default. It is read when surl starts serving, not while parsing (ADR-0088 decision 5).
+    /// </summary>
+    public string? ProxyUserFile { get; init; }
+
+    /// <summary>
+    /// The ranges from every <c>--proxy-allow-origin</c>, in command-line order, that widen the proxy's
+    /// loopback-only origin rule (ADR-0088 decisions 2 and 7). None by default.
+    /// </summary>
+    public IReadOnlyList<ProxyAllowedOrigin> ProxyAllowedOrigins { get; init; } = [];
+
+    /// <summary>
     /// The groups from every <c>--group</c>, in command-line order; no group name is given twice
     /// (ADR-0101 decisions 4 and 5). None by default. <c>Surl.Composition</c> expands them to
     /// account names at start (ADR-0102 decision 4.1).

@@ -33,6 +33,12 @@ and `Surl.Protocol.Abstractions.UnitLibrary`.
   `--allow-plaintext-auth`, `--auth <methods>` (`GivenAuthenticationMethods`, matched
   case-insensitively, in ADR-0032 section 3's order) and `--self-signed` are parsed here;
   `--self-signed` with `--cert` is refused.
+- Proxy configuration (ADR-0088 decision 7 and Amendment 5, BL-1002): `SurlCommandLine.ProxyListenUrls`,
+  `ProxyAccounts`, `ProxyUserFile` and `ProxyAllowedOrigins`, with their readers:
+  `ListenUrlParser.ParseProxy` (`http` or `https` only, `ProxyDefaultPorts` 1080 and 443, `ListenUrl.IsProxy`
+  set; any other scheme `UnsupportedProtocol`), `OptionArgumentReader.ProxyListenUrlText`, `ReadAccount` and
+  `ReadPath` reused for `-U` and `--proxy-user-file`, and `ReadProxyAllowedOrigin` / `AllowedOrigin` reading
+  `*` or a strict `address[/prefix]` into a `ProxyAllowedOrigin`. No option row uses them yet (BL-1004).
 - SSH server options (ADR-0051 decisions 4 to 6): `--hostkey` and `--hostcert` each add a path
   to `HostKeyFiles` and `HostCertificateFiles`; `--authorized-keys <user:file>` adds a
   `CommandLineAuthorizedKeys` to `AuthorizedKeys`, split at the first `:`, a user given twice

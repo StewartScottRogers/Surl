@@ -1,5 +1,8 @@
+using System.Buffers;
 using System.Collections.Frozen;
 using System.Globalization;
+using System.Net;
+using System.Net.Sockets;
 using System.Security.Authentication;
 using Surl.Output;
 
@@ -41,6 +44,18 @@ internal static class OptionArgumentReader
 
     /// <summary>A <c>&lt;user:file&gt;</c> argument with nothing before its first <c>:</c>.</summary>
     public const string EmptyUserName = "the user name is empty";
+
+    /// <summary>A <c>--proxy-allow-origin</c> argument that is neither <c>*</c> nor an IP address with an optional <c>/prefix</c>.</summary>
+    public const string ExpectedOriginAddress = "expected an IPv4 or IPv6 address, an address/prefix, or *";
+
+    /// <summary>A <c>--proxy-allow-origin</c> prefix length that is not digits from 0 to 32 (IPv4) or 0 to 128 (IPv6).</summary>
+    public const string PrefixLengthOutOfRange = "the prefix length is not 0 to 32 for IPv4 or 0 to 128 for IPv6";
+
+    /// <summary>The <c>--proxy-allow-origin</c> argument that admits every origin address.</summary>
+    private const string EveryOriginAddress = "*";
+
+    /// <summary>The characters an IPv6 address may be written with; brackets, a zone and a port are not.</summary>
+    private static readonly SearchValues<char> Ipv6AddressCharacters = SearchValues.Create("0123456789abcdefABCDEF:.");
 
     /// <summary>
     /// The <c>--auth</c> words in ADR-0032 section 3's listing order, as ADR-0049 section 3 grows
@@ -175,6 +190,22 @@ internal static class OptionArgumentReader
         new(ReadAuthenticationMethods, new(
             "word list",
             "comma-separated, in any case, no empty item: " + string.Join(", ", AuthenticationMethodWords)));
+
+    /// <summary>
+    /// <c>-x</c>/<c>--proxy</c>'s argument (ADR-0088 decision 7): any non-empty text, which the parser then
+    /// reads with <see cref="ListenUrlParser.ParseProxy"/>.
+    /// </summary>
+    public static readonly OptionArgumentReading<string> ProxyListenUrlText =
+        new(ReadPath, new(
+            "proxy listen URL",
+            "an http or https listen URL, as a bare argument takes it; default port 1080 for http and 443 for https"));
+
+    /// <summary><see cref="ReadProxyAllowedOrigin"/> and its argument type (ADR-0046 decision 5, ADR-0088 decision 7).</summary>
+    public static readonly OptionArgumentReading<ProxyAllowedOrigin> AllowedOrigin =
+        new(ReadProxyAllowedOrigin, new(
+            "address[/prefix]",
+            "* for every address, or an IPv4 address in four decimal parts or an IPv6 address without brackets or zone, "
+            + "with an optional /prefix of 0 to 32 or 0 to 128 bits; no prefix is the one address"));
 
     /// <summary><see cref="ReadSshAlgorithmNames"/> and its argument type (ADR-0046 decision 5, ADR-0066).</summary>
     public static readonly OptionArgumentReading<IReadOnlyList<string>> SshAlgorithmNames =
@@ -376,6 +407,88 @@ internal static class OptionArgumentReader
 
         return names.Contains(string.Empty) ? BadlyUsed : null;
     }
+
+    /// <summary>
+    /// Reads a <c>--proxy-allow-origin</c> argument (ADR-0088 decisions 2 and 7): <c>*</c> for every address,
+    /// or an address with an optional <c>/prefix</c>. An IPv4 address is four decimal parts of 0 to 255 (no
+    /// shorthand such as <c>127.1</c>); an IPv6 address has no brackets, zone or port, and an IPv4-mapped one is
+    /// taken as IPv4. No prefix is the one address (32 or 128 bits). An empty argument is blank.
+    /// </summary>
+    /// <param name="argument">The argument as given.</param>
+    /// <param name="value">The range, or <see cref="ProxyAllowedOrigin.EveryAddress"/>.</param>
+    /// <returns>The refusal reason, or <see langword="null"/>.</returns>
+    public static string? ReadProxyAllowedOrigin(string argument, out ProxyAllowedOrigin value)
+    {
+        value = Cli.ProxyAllowedOrigin.EveryAddress;
+        if (argument.Length == 0)
+        {
+            return Blank;
+        }
+
+        if (argument == EveryOriginAddress)
+        {
+            return null;
+        }
+
+        var slash = argument.IndexOf('/', StringComparison.Ordinal);
+        if (!TryReadOriginAddress(slash < 0 ? argument : argument[..slash], out var address))
+        {
+            return ExpectedOriginAddress;
+        }
+
+        var prefixLength = Cli.ProxyAllowedOrigin.HighestPrefixLength(address);
+        if (slash >= 0 && !TryReadPrefixLength(argument[(slash + 1)..], prefixLength, out prefixLength))
+        {
+            return PrefixLengthOutOfRange;
+        }
+
+        value = Cli.ProxyAllowedOrigin.Range(address, prefixLength);
+        return null;
+    }
+
+    /// <summary>Reads an IPv4 address in four decimal parts or an IPv6 address, an IPv4-mapped one as IPv4.</summary>
+    private static bool TryReadOriginAddress(string text, out IPAddress address)
+    {
+        var read = text.Contains(':', StringComparison.Ordinal) ? TryReadIpv6Address(text, out address) : TryReadIpv4Address(text, out address);
+        if (read && address.IsIPv4MappedToIPv6)
+        {
+            address = address.MapToIPv4();
+        }
+
+        return read;
+    }
+
+    private static bool TryReadIpv6Address(string text, out IPAddress address)
+    {
+        address = IPAddress.IPv6None;
+        if (text.AsSpan().ContainsAnyExcept(Ipv6AddressCharacters)
+            || !IPAddress.TryParse(text, out var parsed)
+            || parsed.AddressFamily != AddressFamily.InterNetworkV6)
+        {
+            return false;
+        }
+
+        address = parsed;
+        return true;
+    }
+
+    private static bool TryReadIpv4Address(string text, out IPAddress address)
+    {
+        address = IPAddress.None;
+        var parts = text.Split('.');
+        var bytes = new byte[parts.Length];
+        var read = parts.Length == 4
+            && parts.Select((part, index) => byte.TryParse(part, NumberStyles.None, CultureInfo.InvariantCulture, out bytes[index])).All(parsed => parsed);
+        if (read)
+        {
+            address = new IPAddress(bytes);
+        }
+
+        return read;
+    }
+
+    private static bool TryReadPrefixLength(string text, int highest, out int prefixLength) =>
+        int.TryParse(text, NumberStyles.None, CultureInfo.InvariantCulture, out prefixLength) && prefixLength <= highest;
 
     private static int IndexOfAuthenticationMethodWord(string item)
     {
