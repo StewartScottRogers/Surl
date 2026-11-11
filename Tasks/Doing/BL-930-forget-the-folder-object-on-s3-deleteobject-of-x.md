@@ -33,3 +33,4 @@ A DeleteObject of `x/` removes the folder object `x/` from the object metadata i
 ## Log
 
 - 2026-11-06: Created.
+- 2026-11-11: Backlog -> Doing.
