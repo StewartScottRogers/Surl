@@ -58,3 +58,4 @@ matching `attach` with the chosen error condition and description on the `detach
 
 - 2026-11-06: Created.
 - 2026-11-06: Split from BL-834 (timed out after 120 min); reuses its AMQP 1.0 work from stash `darkfactory BL-834 20261106-033059`.
+- 2026-11-11: Backlog -> Doing.
