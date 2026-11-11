@@ -47,3 +47,4 @@ AMQP 0-9-1 server-generated queue and consumer names, AMQP 1.0 dynamic queue nam
 ## Log
 
 - 2026-11-05: Created.
+- 2026-11-11: Backlog -> Doing.
