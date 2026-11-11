@@ -40,3 +40,4 @@ resume the same connection within 30 s, with no message lost or repeated to the 
 ## Log
 
 - 2026-11-05: Created.
+- 2026-11-11: Backlog -> Doing.
