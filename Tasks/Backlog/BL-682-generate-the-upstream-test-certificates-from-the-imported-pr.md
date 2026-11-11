@@ -4,7 +4,7 @@ title: Generate the upstream test certificates from the imported .prm files
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-392]
+depends-on: [BL-392, BL-1035]
 touches: [Conformance/Surl.Conformance.UnitLibrary, Conformance/Surl.Conformance.UnitTests]
 requirement: none
 created: 2026-11-04
@@ -64,7 +64,28 @@ localhost certificate.
 
 ## Notes
 
+- 2026-11-11 (lane 3): parked behind BL-1035. `global.json` pins SDK 10.0.401 and this machine
+  has only 10.0.100-rc.1, 11.0.100-rc.2 and 11.0.100, so `dotnet build` cannot run. Work in
+  progress (uncommitted, stashed by the shift): `UpstreamTestCertificateDescription` (reads a
+  `.prm`), `UpstreamTestCertificateGenerator` and `UpstreamTestCertificates` in the library; no
+  unit tests and no test wiring yet.
+- What the cases name under `%CERTDIR/certs/` (searched 2026-11-11): `test-ca.crt`,
+  `test-ca.cacert`, `test-localhost.{crt,der,pem,pub.der,pub.pem,crl}`,
+  `test-localhost.nn.pub.der`, `test-client-cert.{crt,key}`, `test-client-eku-only.{crt,key}`.
+  The task's `UpstreamTestCasesOverHttpTests` is now `UpstreamTestCasesAgainstSurlTests`; its
+  `CaseRun.WriteCertificates` makes the stand-in CA. `%strippemfile`/`%sha256b64file` read the
+  generated files through `ImportedFileReader` (`Path.Combine(Root, absolute)` is the absolute
+  path), so the files must be written before a case is parsed, as they already are.
+- Choices so far: ECDSA P-256 keys (what upstream's `genserv.pl` asks `openssl` for, from memory -
+  check when the SDK is back), SHA-256, 365 days; `.pem` is key then certificate with no
+  `PUBLIC KEY` block (case 2038 wants 90 from it); `.crl` revokes its own certificate (case 313
+  wants 60); the server sends the leaf only (case 417's `%{certs}` lists one certificate). The
+  library returns the files as bytes and the test writes them, so the generator needs no disk.
+- Follow-up to file once building: the `<server>` line's second word (`https
+  test-localhost-san-first.pem`, cases 3000 and 3001) picks the server's certificate.
+
 ## Log
 
 - 2026-11-04: Created.
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Backlog. Waiting on BL-1035: pinned .NET SDK 10.0.401 is not installed, so nothing builds
