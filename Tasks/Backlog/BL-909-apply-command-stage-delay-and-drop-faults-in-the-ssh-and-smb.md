@@ -4,7 +4,7 @@ title: Apply command-stage delay and drop faults in the SSH and SMB servers
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-795, BL-901]
+depends-on: [BL-795, BL-901, BL-1035]
 touches: [Protocols/FileTransfer/Surl.Protocol.Ssh.UnitLibrary, Protocols/FileTransfer/Surl.Protocol.Ssh.UnitTests, Protocols/FileTransfer/Surl.Protocol.Smb.UnitLibrary, Protocols/FileTransfer/Surl.Protocol.Smb.UnitTests]
 requirement: none
 created: 2026-11-05
@@ -40,7 +40,25 @@ applied.
 
 ## Notes
 
+2026-11-11 (dark factory lane 4), first attempt - returned to Backlog behind BL-1035: `dotnet build` fails with
+"A compatible .NET SDK was not found" (global.json pins 10.0.401; only 10.0.100-rc.1, 11.0.100-rc.2 and 11.0.100
+are installed). Nothing can be built or tested until Stewart reinstalls it. Work so far was left uncommitted for the
+shift to stash; the plan, so the next run can redo or resume it:
+
+- Seam: none new. BL-901 already added `CommandStageFaults.FindAndApplyAsync` and `ExchangeContext.IdleClock`
+  (ADR-0141); both servers call it with the connection to abort, and keep answering `error` in their own shape.
+- SMB (written, unbuilt): `SmbCommandFaults.FindErrorAsync` became `FindAndApplyAsync(context, connection, account,
+  command, path)`, returning the fitting error rule or the drop rule (null after a delay); its private
+  `FormatListenUrl` is gone for `ReportedListenUrl.Format`. `SmbAnswer.Dropped` (`WasDropped`) makes `SmbExchange`
+  write nothing and stop reading. Tests `Create_UnderADelayRule_IsHeldUntilTheClockAdvances500Ms_WithTheIdleClockPaused`
+  and `Create_UnderADropRule_AbortsTheConnectionWithNoAnswer`; `Rule_OfAnotherKind_...` now RefuseLogin/OutOfSpace.
+- SSH (not started): the handlers have no `IConnection`. Plan: add `IConnection Connection { get; }` to
+  `ISshChannelDataStream` (the connection the channel rides on), fed `SshSessionChannel` <- `SshConnectionProtocol` <-
+  `SshTransportHandshake`'s connection; test channels expose an `InMemoryConnection`. SFTP ends the session on a drop
+  (`SftpSessionEndedException`, exit 1); SCP returns 1 with nothing written. Drop the SSH `FormatListenUrl` copy too.
+
 ## Log
 
 - 2026-11-05: Created.
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Backlog. Waits on BL-1035: pinned .NET SDK 10.0.401 is not installed, so nothing builds
