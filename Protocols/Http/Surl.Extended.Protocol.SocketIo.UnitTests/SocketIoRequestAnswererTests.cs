@@ -27,7 +27,6 @@ public sealed class SocketIoRequestAnswererTests
 
     [TestMethod]
     [DataRow("GET", "/socket.io/?EIO=4", "{\"code\":0,\"message\":\"Transport unknown\"}")]
-    [DataRow("GET", "/socket.io/?EIO=4&transport=polling", "{\"code\":0,\"message\":\"Transport unknown\"}")]
     [DataRow("GET", "/socket.io/?EIO=4&transport=webtransport", "{\"code\":0,\"message\":\"Transport unknown\"}")]
     [DataRow("GET", "/socket.io/?EIO=4&transport=websocket&sid=lv_VI97HAXpY6yYWAAAC", "{\"code\":1,\"message\":\"Session ID unknown\"}")]
     [DataRow("POST", "/socket.io/?EIO=4&transport=websocket", "{\"code\":2,\"message\":\"Bad handshake method\"}")]

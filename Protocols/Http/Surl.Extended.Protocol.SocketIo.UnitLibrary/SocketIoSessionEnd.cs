@@ -1,9 +1,10 @@
 namespace Surl.Extended.Protocol.SocketIo;
 
 /// <summary>
-/// How a session's WebSocket ends (ADR-0120, decisions 2, 3, 4 and 7): a WebSocket Close with
-/// <paramref name="CloseCode"/>, or nothing at all when the client is gone or the exchange was
-/// cancelled.
+/// How a session ends (ADR-0120, decisions 2, 3, 4 and 7, and amendment 2): on a WebSocket, a
+/// WebSocket Close with <paramref name="CloseCode"/>, or nothing at all when the client is gone or the
+/// exchange was cancelled; on HTTP long-polling, the next poll is answered <c>1</c> (close) whatever
+/// the code.
 /// </summary>
 /// <param name="CloseCode">The WebSocket Close's code, or <see langword="null"/> when nothing more is written.</param>
 /// <param name="Why">Why, for the exchange log.</param>

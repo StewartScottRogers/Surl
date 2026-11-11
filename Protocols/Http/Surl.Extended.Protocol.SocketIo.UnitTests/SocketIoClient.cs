@@ -54,6 +54,20 @@ internal sealed class SocketIoClient
     }
 
     /// <summary>
+    /// Upgrades a polling session's WebSocket (EIO "Upgrade") and waits for the <c>101</c>'s head only:
+    /// nothing is sent before the probe.
+    /// </summary>
+    public static async Task<SocketIoClient> ProbeAsync(SocketIoServerHarness harness, string sessionId)
+    {
+        var connection = new UnitTestDuplexConnection();
+        connection.Send(Encoding.ASCII.GetBytes(UpgradeRequest(WebSocketTarget + "&sid=" + sessionId)));
+        var client = new SocketIoClient(connection, harness.Server.ServeAsync(connection, harness.Context()));
+        await connection.WaitForWrittenAsync(bytes => HeadLength(bytes) > 0);
+
+        return client;
+    }
+
+    /// <summary>
     /// Upgrades, then connects <paramref name="name"/> with <paramref name="payload"/>, and waits for the answer.
     /// </summary>
     public static async Task<SocketIoClient> ConnectNamespaceAsync(SocketIoServerHarness harness, string name = "/", string payload = "")

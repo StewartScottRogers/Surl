@@ -1,14 +1,15 @@
 using System.Threading.Channels;
-using Surl.Protocol.Abstractions;
 
 namespace Surl.Extended.Protocol.SocketIo;
 
 /// <summary>
-/// The bytes waiting to be written to one session's connection, in the order they were queued, at
-/// most <paramref name="maxUnsentBytes"/> at a time (ADR-0120, decision 7). Each queued item is
-/// written whole, so an event and its attachments are never split by another session's broadcast.
+/// What waits to be sent to one session, in the order it was queued, at most
+/// <paramref name="maxUnsentBytes"/> at a time (ADR-0120, decision 7). Each item is sent whole, so
+/// an event and its attachments are never split by another session's broadcast. A WebSocket writes
+/// the items as frames (<see cref="WriteAllAsync"/>); HTTP long-polling takes every queued packet into
+/// one response (<see cref="WaitToTakeAsync"/>, <see cref="TakeAll"/>).
 /// </summary>
-/// <param name="maxUnsentBytes">The most bytes queued and not yet written.</param>
+/// <param name="maxUnsentBytes">The most bytes queued and not yet sent.</param>
 internal sealed class SocketIoOutbox(long maxUnsentBytes)
 {
     /// <summary>
@@ -16,42 +17,67 @@ internal sealed class SocketIoOutbox(long maxUnsentBytes)
     /// </summary>
     public const long MaxUnsentBytes = 1048576;
 
-    private readonly Channel<byte[]> queue = Channel.CreateUnbounded<byte[]>(new UnboundedChannelOptions { SingleReader = true });
+    // Several readers: a held poll left waiting when a noop answered it must not stop the next one.
+    private readonly Channel<SocketIoOutboxItem> queue = Channel.CreateUnbounded<SocketIoOutboxItem>();
     private long unsentBytes;
 
     /// <summary>
-    /// Queues <paramref name="bytes"/>, unless that would leave more than the limit unsent.
+    /// Queues <paramref name="item"/>, unless that would leave more than the limit unsent.
     /// </summary>
     /// <returns><see langword="false"/> when the limit refused it.</returns>
-    public bool TryQueue(byte[] bytes)
+    public bool TryQueue(SocketIoOutboxItem item)
     {
-        if (Interlocked.Add(ref unsentBytes, bytes.Length) > maxUnsentBytes)
+        var size = item.Size;
+        if (Interlocked.Add(ref unsentBytes, size) > maxUnsentBytes)
         {
-            Interlocked.Add(ref unsentBytes, -bytes.Length);
+            Interlocked.Add(ref unsentBytes, -size);
 
             return false;
         }
 
         // Once completed, the session is ending and what comes after is dropped.
-        queue.Writer.TryWrite(bytes);
+        queue.Writer.TryWrite(item);
 
         return true;
     }
 
     /// <summary>
-    /// Takes no more: <see cref="WriteAllAsync"/> returns once what is queued is written.
+    /// Takes no more: <see cref="WriteAllAsync"/> returns once what is queued is written, and
+    /// <see cref="WaitToTakeAsync"/> answers <see langword="false"/> once it is taken.
     /// </summary>
     public void Complete() => queue.Writer.TryComplete();
 
     /// <summary>
-    /// Writes each queued item to <paramref name="connection"/> until <see cref="Complete"/>.
+    /// Writes each queued item through <paramref name="write"/> until <see cref="Complete"/>.
     /// </summary>
-    public async Task WriteAllAsync(IConnection connection, CancellationToken cancellationToken)
+    public async Task WriteAllAsync(Func<SocketIoOutboxItem, CancellationToken, Task> write, CancellationToken cancellationToken)
     {
-        await foreach (var bytes in queue.Reader.ReadAllAsync(cancellationToken))
+        await foreach (var item in queue.Reader.ReadAllAsync(cancellationToken))
         {
-            await connection.WriteAsync(bytes, cancellationToken);
-            Interlocked.Add(ref unsentBytes, -bytes.Length);
+            await write(item, cancellationToken);
+            Interlocked.Add(ref unsentBytes, -item.Size);
         }
+    }
+
+    /// <summary>
+    /// Waits until an item is queued, or the outbox is completed and empty.
+    /// </summary>
+    /// <returns><see langword="false"/> when nothing more will come.</returns>
+    public Task<bool> WaitToTakeAsync(CancellationToken cancellationToken) =>
+        queue.Reader.WaitToReadAsync(cancellationToken).AsTask();
+
+    /// <summary>
+    /// Takes every queued item's packets, in order.
+    /// </summary>
+    public List<EngineIoPacket> TakeAll()
+    {
+        var packets = new List<EngineIoPacket>();
+        while (queue.Reader.TryRead(out var item))
+        {
+            packets.AddRange(item.Packets);
+            Interlocked.Add(ref unsentBytes, -item.Size);
+        }
+
+        return packets;
     }
 }

@@ -49,10 +49,10 @@ internal sealed class SocketIoServerHarness
     public Task<string> SendAsync(string method, string target, params string[] fields) =>
         SendRawAsync($"{method} {target} HTTP/1.1\r\nHost: 127.0.0.1:5000\r\n{string.Concat(fields.Select(field => field + "\r\n"))}Connection: close\r\n\r\n");
 
-    public async Task<string> SendRawAsync(string request)
+    public async Task<string> SendRawAsync(string request, ExchangeContext? context = null)
     {
         var connection = new InMemoryConnection([Encoding.Latin1.GetBytes(request)]);
-        await Server.ServeAsync(connection, Context());
+        await Server.ServeAsync(connection, context ?? Context());
 
         return Encoding.UTF8.GetString(connection.WrittenBytes);
     }

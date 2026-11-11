@@ -10,7 +10,7 @@ namespace Surl.Extended.Protocol.SocketIo;
 /// curl, which has no Socket.IO.
 /// </summary>
 /// <remarks>
-/// Sessions open over the WebSocket transport; HTTP long-polling is answered code 0 until BL-762.
+/// Sessions open over HTTP long-polling, and may move to a WebSocket, or open over the WebSocket directly.
 /// Each session connects namespaces after judging the CONNECT payload's credentials through the
 /// <see cref="IAuthenticationPolicy"/>, echoes events, broadcasts <c>broadcast</c>, acknowledges
 /// events that ask, and carries binary attachments. <c>socketios</c> is <c>socketio</c> inside the
@@ -55,6 +55,6 @@ public sealed class SocketIoProtocolServer : IConnectionProtocolServer
         ArgumentNullException.ThrowIfNull(connection);
         ArgumentNullException.ThrowIfNull(context);
 
-        return new Http1ConnectionServer(new SocketIoRequestAnswerer(listener, context), context).ServeAsync(connection);
+        return new Http1ConnectionServer(new SocketIoRequestAnswerer(listener, context, connection.TlsSession), context).ServeAsync(connection);
     }
 }

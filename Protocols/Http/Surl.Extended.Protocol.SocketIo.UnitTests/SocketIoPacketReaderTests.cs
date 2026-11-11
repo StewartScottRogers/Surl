@@ -56,6 +56,7 @@ public sealed class SocketIoPacketReaderTests
     [DataRow("", DisplayName = "empty")]
     [DataRow("7[\"a\"]", DisplayName = "type 7")]
     [DataRow("x", DisplayName = "type not a digit")]
+    [DataRow("/[\"a\"]", DisplayName = "type character below 0")]
     [DataRow("5[\"a\",{\"_placeholder\":true,\"num\":0}]", DisplayName = "binary without count")]
     [DataRow("51[\"a\",{\"_placeholder\":true,\"num\":0}]", DisplayName = "count without dash")]
     [DataRow("51", DisplayName = "count at end")]
