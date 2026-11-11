@@ -47,3 +47,4 @@ WebTransport sessions. The `--aihelp` topic and help category exist, and the ext
 - 2026-11-04: Created.
 - 2026-11-05: Backlog -> Doing.
 - 2026-11-05: Doing -> Backlog. Needs Application/Surl.Composition.UnitLibrary and .UnitTests (ExtendedProtocolServers.Registrations), which BL-803 in Doing touches; retry once BL-803 is Done
+- 2026-11-11: Backlog -> Doing.
