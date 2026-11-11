@@ -68,6 +68,20 @@ public static class AiHelpExamples
             ["curl -u ann@example.com:secret imap://127.0.0.1:<port>/"])
             with { Precondition = AiHelpExamplePrecondition.MailboxFileExists },
         Serving(
+            "proxy",
+            "Serve an HTTP proxy",
+            ["--proxy", "http://127.0.0.1:0/"],
+            ["Listening on http://127.0.0.1:<port>/"],
+            [],
+            ["curl -x http://127.0.0.1:<port>/ http://127.0.0.1:<origin-port>/"]),
+        Serving(
+            "proxy",
+            "Ask the proxy's clients to log in",
+            ["--proxy", "http://127.0.0.1:0/", "-U", "alice:secret"],
+            ["Listening on http://127.0.0.1:<port>/"],
+            [],
+            ["curl -x http://127.0.0.1:<port>/ -U alice:secret http://127.0.0.1:<origin-port>/"]),
+        Serving(
             "testing",
             "For a test: accept a password over plain HTTP",
             ["--allow-plaintext-auth", "-u", "alice:secret", HttpListenUrl],

@@ -129,7 +129,7 @@ public sealed class CommandLineParserConfigFileTests
     [DataRow("-v 1", "option -v: does not take a parameter")]
     [DataRow("--log-file=a.log b.log", "text follows the value of --log-file; quote a value that holds a space")]
     [DataRow("-m30 b", "text follows the value of -m; quote a value that holds a space")]
-    [DataRow("-xv a b", "text follows the value of -xv; quote a value that holds a space")]
+    [DataRow("-Xv a b", "text follows the value of -Xv; quote a value that holds a space")]
     [DataRow("--verbose=1", "option --verbose=1: does not take a parameter")]
     public void Parse_BadOptionLine_IsRefusedAtItsLine(string line, string reason) =>
         AssertRefused(

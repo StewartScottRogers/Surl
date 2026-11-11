@@ -48,6 +48,7 @@ public static class CommandLineParser
     private const string ConfigOption = "--config";
     private const string UrlLongName = "url";
     private const string ControlLongName = "control";
+    private const string ProxyLongName = "proxy";
     private const string StandardInputPath = "-";
     private const string StandardInputName = "<stdin>";
 
@@ -182,6 +183,22 @@ public static class CommandLineParser
         }
 
         reading.ListenUrls.Add(parsed.ListenUrl);
+        return null;
+    }
+
+    /// <summary>
+    /// Reads a <c>-x</c>/<c>--proxy</c> listen URL with <see cref="ListenUrlParser.ParseProxy"/> and adds it to
+    /// <see cref="SurlCommandLine.ProxyListenUrls"/> in command-line order, or refuses it (ADR-0088 decision 7).
+    /// </summary>
+    private static CommandLineParseResult? ReadProxyListenUrl(CommandLineReading reading, string argument)
+    {
+        var parsed = ListenUrlParser.ParseProxy(argument);
+        if (!parsed.Succeeded)
+        {
+            return CommandLineParseResult.Refused(parsed.Failure);
+        }
+
+        reading.CommandLine = reading.CommandLine with { ProxyListenUrls = [.. reading.CommandLine.ProxyListenUrls, parsed.ListenUrl] };
         return null;
     }
 
@@ -363,6 +380,7 @@ public static class CommandLineParser
             ConfigLongName => ReadConfigFile(reading, argument),
             UrlLongName => ReadListenUrl(reading, argument),
             ControlLongName => ReadControlListenUrl(reading, argument),
+            ProxyLongName => ReadProxyListenUrl(reading, argument),
             _ => null,
         };
 
@@ -653,13 +671,14 @@ public static class CommandLineParser
             return CommandLineParseResult.Refused(refusedControl);
         }
 
-        if (reading.ListenUrls.Count == 0)
+        if (reading.ListenUrls.Count == 0 && reading.CommandLine.ProxyListenUrls.Count == 0)
         {
             return CommandLineParseResult.Refused(
                 new CommandLineFailure(SurlExitCode.FailedInit, NoUrlSpecified, FollowedByTryHelpLine: true));
         }
 
-        var refusedUnixSocket = UnixSocketCombination.Refuse(reading.CommandLine, reading.ListenUrls);
+        var refusedUnixSocket = UnixSocketCombination.RefuseProxy(reading.CommandLine)
+            ?? UnixSocketCombination.Refuse(reading.CommandLine, reading.ListenUrls);
         if (refusedUnixSocket is not null)
         {
             return CommandLineParseResult.Refused(refusedUnixSocket);

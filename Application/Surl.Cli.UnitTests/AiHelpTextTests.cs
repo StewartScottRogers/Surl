@@ -13,7 +13,7 @@ public sealed partial class AiHelpTextTests
     private static readonly string[] AdrTopicNames =
     [
         "auth", "content", "control", "dict", "dns", "exit-codes", "extended", "ftp", "gopher", "http", "imap", "ldap", "limits", "listen-urls",
-        "logging", "mail", "mqtt", "nats", "pop3", "rtsp", "s3", "security", "smb", "smtp", "socketio", "ssh", "surl", "telnet", "testing", "tftp", "tls", "websocket",
+        "logging", "mail", "mqtt", "nats", "pop3", "proxy", "rtsp", "s3", "security", "smb", "smtp", "socketio", "ssh", "surl", "telnet", "testing", "tftp", "tls", "websocket",
     ];
 
     // ADR-0046 decision 4's section headings, in order, on every topic page.
@@ -42,6 +42,7 @@ public sealed partial class AiHelpTextTests
         "| `mqtt` | MQTT and MQTTS protocol |",
         "| `nats` | NATS and NATSS protocol (extended) |",
         "| `pop3` | POP3 and POP3S protocol |",
+        "| `proxy` | HTTP and HTTPS proxy |",
         "| `rtsp` | RTSP protocol |",
         "| `s3` | Amazon S3 protocol (extended) |",
         "| `security` | Options that widen what a peer may do |",
@@ -630,6 +631,7 @@ public sealed partial class AiHelpTextTests
             "surl: (6) Could not resolve host: <host>",
             "surl: (58) <url> needs a certificate: give --cert <file>, or --self-signed for a throwaway one",
             "surl: warning: --self-signed: serving a throwaway certificate; clients must skip verification (curl -k)",
+            "surl: warning: --proxy-allow-origin: the proxy connects to every origin address, not only loopback",
             "surl: (37) Could not read host certificate <file>",
             "surl: (2) Host certificate <file>: not an OpenSSH host certificate",
             "surl: (2) Host certificate <file>: certifies no --hostkey key",

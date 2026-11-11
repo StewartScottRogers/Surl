@@ -22,6 +22,7 @@ public sealed class HelpTextTests
         " mqtt       MQTT and MQTTS protocol",
         " nats       NATS and NATSS protocol (extended)",
         " pop3       POP3 and POP3S protocol",
+        " proxy      HTTP and HTTPS proxy",
         " rtsp       RTSP protocol",
         " s3         Amazon S3 protocol (extended)",
         " security   Options that widen what a peer may do",
@@ -185,8 +186,8 @@ public sealed class HelpTextTests
             "This is not the full help; this menu is split into categories.",
             "Use \"--help category\" to get an overview of all categories, which are:",
             "auth, content, dict, dns, ftp, gopher, http, imap, ldap, limits, logging,",
-            "mail, mqtt, nats, pop3, rtsp, s3, security, smb, smtp, socketio, ssh, surl,",
-            "telnet, testing, tftp, tls, websocket.",
+            "mail, mqtt, nats, pop3, proxy, rtsp, s3, security, smb, smtp, socketio, ssh,",
+            "surl, telnet, testing, tftp, tls, websocket.",
             "Use \"--help all\" to list all options",
             "Use \"--help [option]\" to view documentation for a given option");
     }
@@ -245,6 +246,10 @@ public sealed class HelpTextTests
             Row(38, "    --max-request-head <bytes>", "Largest HTTP or RTSP request head"),
             Row(38, "-m, --max-time <seconds>", "Longest time one exchange may take"),
             Row(38, "    --pass <phrase>", "Passphrase for --key and --hostkey"),
+            Row(38, "-x, --proxy <listen URL>", "Add a proxy listener (repeatable)"),
+            Row(38, "    --proxy-allow-origin <address>", "Let the proxy reach more origins"),
+            Row(38, "-U, --proxy-user <user:password>", "Add a proxy account (repeatable)"),
+            Row(38, "    --proxy-user-file <file>", "Read proxy accounts from a file"),
             Row(38, "    --self-signed", "Throwaway certificate (warns)"),
             Row(38, "    --serve-dot-files", "Serve names that start with a dot"),
             Row(38, "-S, --show-error", "Show error even when -s is used"),
@@ -302,6 +307,8 @@ public sealed class HelpTextTests
             Row(35, "    --keytab <file>", "Read Kerberos service keys from a keytab file"),
             Row(38, "    --mailbox <address>:<password>[;...]", "Add a mailbox and login (repeatable)"),
             Row(38, "    --mailbox-file <file>", "Read mailboxes from CSV (repeatable)"),
+            Row(38, "-U, --proxy-user <user:password>", "Add a proxy account (repeatable)"),
+            Row(38, "    --proxy-user-file <file>", "Read proxy accounts from a file"),
             Row(38, "-u, --user <user:password>", "Add an account (repeatable)"),
             Row(38, "    --user-file <file>", "Read accounts from a file"));
 
@@ -750,6 +757,7 @@ public sealed class HelpTextTests
             Row(38, "    --fault <kind>[;<key>=<value>]", "Misbehave on purpose (repeatable)"),
             Row(38, "    --follow-symlinks", "Follow links that stay in the root"),
             Row(38, "    --list-directories", "Answer directory listings"),
+            Row(38, "    --proxy-allow-origin <address>", "Let the proxy reach more origins"),
             Row(38, "    --self-signed", "Throwaway certificate (warns)"),
             Row(38, "    --serve-dot-files", "Serve names that start with a dot"),
             Row(38, "    --throwaway-hostkey", "Throwaway SSH host key (warns)"),
@@ -869,7 +877,7 @@ public sealed class HelpTextTests
     [DataRow("--")]
     [DataRow("-")]
     [DataRow("-sv", DisplayName = "A bundle")]
-    [DataRow("-x", DisplayName = "An unknown short name")]
+    [DataRow("-X", DisplayName = "An unknown short name")]
     [DataRow("--max-time=x", DisplayName = "With a value")]
     [DataRow("--no-tlsv1.2", DisplayName = "Negating an option that cannot be negated")]
     [DataRow("--no-nosuch", DisplayName = "Negating an unknown option")]

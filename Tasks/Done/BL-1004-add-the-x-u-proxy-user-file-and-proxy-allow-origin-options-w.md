@@ -8,7 +8,7 @@ depends-on: [BL-1003]
 touches: [Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests, Application/Surl.Console, Application/Surl.Console.UnitTests]
 requirement: none
 created: 2026-11-06
-completed:
+completed: 2026-11-11
 ---
 # BL-1004 — Add the -x, -U, --proxy-user-file and --proxy-allow-origin options with the proxy's help and aihelp topic
 
@@ -34,19 +34,28 @@ and HTTPS proxies from the command line as ADR-0088 decision 7 fixes, with their
 
 ## Acceptance criteria
 
-- [ ] `Surl.Cli.UnitTests` has named tests for each new option and listen form, and for each parse-time refusal the
+- [x] `Surl.Cli.UnitTests` has named tests for each new option and listen form, and for each parse-time refusal the
       ADR names, each returning its `SurlExitCode`.
-- [ ] `Surl.Console.UnitTests` has named tests that run `CommandLineRunner` as the HTTP proxy and as the HTTPS
+- [x] `Surl.Console.UnitTests` has named tests that run `CommandLineRunner` as the HTTP proxy and as the HTTPS
       proxy, forward one request and tunnel one `CONNECT` to an origin started in the test on loopback, without
       `TestCategory=Integration`.
-- [ ] The proxy's `--aihelp` topic, facts and example exist and the completeness tests named in Context pass;
+- [x] The proxy's `--aihelp` topic, facts and example exist and the completeness tests named in Context pass;
       `surl --help` and `surl --manual` list the new options.
-- [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and `Surl.Console` and `Surl.Cli.UnitLibrary`
+- [x] `dotnet build -warnaserror` is clean, the fast tests are green, and `Surl.Console` and `Surl.Cli.UnitLibrary`
       keep 100% line and branch coverage.
 
 ## Notes
 
+- Decisions are ADR-0088 amendment 7: `-x` is read where given (so `-K` lines work), a proxy-only command
+  line is served, a Unix socket beside `--proxy` is refused `(2)`, the `proxy` category claims no scheme,
+  `--proxy-allow-origin` is in `security` (no loosening explanation), help argument shown as `<address>`.
+- Added `--manual` "PROXY OPTIONS" and the security-topic paragraph; `CommandLineParserProxyTests` (Cli) and
+  `CommandLineRunnerProxyTests` (Console: HTTP and HTTPS proxy, forward and CONNECT against a loopback
+  origin started in the test, no Integration category).
+- Fast tests all green; new code in `Surl.Cli.UnitLibrary` fully covered (two partial branches elsewhere
+  predate this task).
 ## Log
 
 - 2026-11-06: Created.
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Done. -x, -U, --proxy-user-file and --proxy-allow-origin serve the HTTP and HTTPS proxies from the command line, with help, manual and aihelp proxy topic

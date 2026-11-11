@@ -17,7 +17,7 @@ public sealed class AiHelpExamplesTests
     {
         string[] topics =
         [
-            "overview", "listen-urls", "listen-urls", "surl", "surl", "surl", "content", "content", "content", "auth", "auth", "mail", "testing", "tls", "tls",
+            "overview", "listen-urls", "listen-urls", "surl", "surl", "surl", "content", "content", "content", "auth", "auth", "mail", "proxy", "proxy", "testing", "tls", "tls",
             "logging", "limits", "dict", "dns", "ftp", "gopher", "http", "http", "imap", "ldap", "mqtt", "nats", "pop3", "rtsp", "s3", "smb", "smtp", "socketio", "ssh", "telnet", "tftp",
             "websocket", "websocket", "extended", "control",
         ];
@@ -58,7 +58,7 @@ public sealed class AiHelpExamplesTests
             var commandLine = parsed.CommandLine!;
             var expected = commandLine.LogLevel == Surl.Output.LogLevel.None
                 ? []
-                : commandLine.ListenUrls
+                : commandLine.ListenUrls.Concat(commandLine.ProxyListenUrls)
                     .Select(listenUrl => Surl.Output.ListenerStatusLine.Format(listenUrl.WithBoundPort(boundPort)).Replace(":49731/", ":<port>/", StringComparison.Ordinal))
                     .ToArray();
             CollectionAssert.AreEqual(expected, example.Output.ToArray(), example.Title);

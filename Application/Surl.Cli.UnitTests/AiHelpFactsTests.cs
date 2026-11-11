@@ -110,7 +110,7 @@ public sealed class AiHelpFactsTests
             .ToArray();
 
         CollectionAssert.AreEquivalent(
-            new[] { "allow-uploads", "list-directories", "follow-symlinks", "serve-dot-files", "allow-zone-transfer", "tlsv1.0", "tlsv1.1", "allow-weak-ssh-algorithms" },
+            new[] { "allow-uploads", "list-directories", "follow-symlinks", "serve-dot-files", "allow-zone-transfer", "tlsv1.0", "tlsv1.1", "allow-weak-ssh-algorithms", "proxy-allow-origin" },
             widening);
     }
 

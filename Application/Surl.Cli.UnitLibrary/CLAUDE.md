@@ -135,3 +135,7 @@ and `Surl.Protocol.Abstractions.UnitLibrary`.
 Never touch the console here; `Surl.Console` hands this library its arguments and writers.
 Any change to an option's behaviour updates its `OptionHelp` and the `ManualText` section
 that describes it in the same change (ADR-0034 decision 6).
+
+`-x`/`--proxy` is read where it is given (`CommandLineParser.ReadProxyListenUrl`) into
+`SurlCommandLine.ProxyListenUrls`, not into `ListenUrls`, and is refused beside a Unix socket
+(`UnixSocketCombination.RefuseProxy`); the `proxy` help category claims no scheme (ADR-0088 amendment 7).

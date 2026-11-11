@@ -9,7 +9,7 @@ public sealed class ManualTextTests
     private static readonly string[] Headings =
     [
         "NAME", "SYNOPSIS", "DESCRIPTION", "CONFIG FILES", "LISTEN URLS", "DEPLOYMENT CHECKLIST", "DATA DIRECTORY",
-        "IN-MEMORY MODE", "ACCOUNTS", "MAIL", "DNS OPTIONS", "HTTP OPTIONS", "LDAP OPTIONS", "NATS OPTIONS", "RTSP OPTIONS", "S3 OPTIONS", "SMB OPTIONS", "SSH OPTIONS", "WEBSOCKET OPTIONS", "LOOSENING OPTIONS", "CONTROL ENDPOINT", "LOG LEVELS", "LIMITS",
+        "IN-MEMORY MODE", "ACCOUNTS", "MAIL", "DNS OPTIONS", "HTTP OPTIONS", "LDAP OPTIONS", "NATS OPTIONS", "PROXY OPTIONS", "RTSP OPTIONS", "S3 OPTIONS", "SMB OPTIONS", "SSH OPTIONS", "WEBSOCKET OPTIONS", "LOOSENING OPTIONS", "CONTROL ENDPOINT", "LOG LEVELS", "LIMITS",
         "EXIT CODES", "SEE ALSO",
     ];
 
@@ -283,6 +283,18 @@ public sealed class ManualTextTests
             "    CONNECT needs an account, or --allow-anonymous; a password over nats needs",
             "    --allow-plaintext-auth. natss requires TLS before CONNECT and needs --cert",
             "    or --self-signed. surl --aihelp nats says how each operation is answered.",
+            "",
+            "PROXY OPTIONS",
+            "",
+            "    -x, --proxy <listen URL> makes one listener an HTTP proxy (http://) or an",
+            "    HTTPS proxy (https://, which needs --cert and --key or --self-signed), and",
+            "    may be given again; a bare http:// listen URL stays the HTTP server. The",
+            "    default ports are curl's: 1080 for http:// and 443 for https://. The proxy",
+            "    forwards absolute-form requests and tunnels CONNECT, to loopback origins",
+            "    only, unless --proxy-allow-origin <address[/prefix]> adds a range (*",
+            "    admits every origin and warns). -U, --proxy-user <user:password> and",
+            "    --proxy-user-file <file> are the proxy's accounts, apart from --user's;",
+            "    with none the proxy asks for no login. surl --aihelp proxy says more.",
             "",
             "RTSP OPTIONS",
             "",

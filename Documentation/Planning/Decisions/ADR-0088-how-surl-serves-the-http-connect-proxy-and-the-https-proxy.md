@@ -504,3 +504,27 @@ measured.
   taken. BL-1040's `--proxy-auth` will replace the default method set.
 - **`--proxy-allow-origin '*'`** writes `surl: warning: --proxy-allow-origin: the proxy connects to every
   origin address, not only loopback` from the info level up, with the other loosening warnings.
+
+## Amendment 7 - the option rows and the proxy topic, settled by BL-1004 (2026-11-11)
+
+Decided by Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), in BL-1004, the last of the
+three tasks BL-555 was split into. Nothing here is a byte curl sends or expects, so nothing was measured.
+
+- **Rows.** `CommandLineOptions` gains `-x`/`--proxy`, `-U`/`--proxy-user`, `--proxy-user-file` and
+  `--proxy-allow-origin`, filling the `SurlCommandLine` members Amendment 5 added. `--proxy` is read
+  where it is given, as `--url` is: the parser adds the `ListenUrlParser.ParseProxy` result to
+  `ProxyListenUrls`, so a `-K` config line `proxy = http://127.0.0.1:3128` reads the same. `-U` has
+  `ArgumentHoldsSecret`, as `-u` has.
+- **A proxy is a listen URL.** A command line with only proxy listen URLs is served: the "no URL
+  specified" refusal needs neither `ListenUrls` nor `ProxyListenUrls`.
+- **No Unix socket.** `--unix-socket` and `--abstract-unix-socket` serve one listen URL on one socket;
+  with a proxy listen URL they are refused `(2) option --unix-socket: cannot be used with --proxy`
+  (`--abstract-unix-socket` likewise), because the composed proxy is a second listener on TCP. The
+  narrowest reading; a later task may lift it.
+- **Help.** A `proxy` help category and `--aihelp` topic with no schemes (the proxy is chosen by
+  `--proxy`, not by a scheme, so no scheme topic claims it); `--proxy`, `--proxy-user`,
+  `--proxy-user-file` and `--proxy-allow-origin` are in it, the two accounts options also in `auth`. A
+  `PROXY OPTIONS` section joins `--manual`. `--proxy-allow-origin` is in `security`, not `testing`: it
+  widens what the proxy may reach, warns only for `*`, and is a deployment choice like `--allow-uploads`,
+  so it has no loosening explanation. Its argument is `<address>` in the help rows to keep the help
+  columns as they were; its allowed values state the full form.

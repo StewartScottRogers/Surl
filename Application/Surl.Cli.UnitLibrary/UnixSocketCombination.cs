@@ -43,6 +43,16 @@ internal static class UnixSocketCombination
             : RefuseScheme(commandLine, listenUrls[0].Scheme, optionName);
     }
 
+    /// <summary>
+    /// Refuses a Unix socket given with a <c>-x</c>/<c>--proxy</c> listen URL: the socket serves one listen
+    /// URL and a proxy's is not one it can take (ADR-0088 amendment 7); null otherwise.
+    /// </summary>
+    /// <param name="commandLine">The command line read so far.</param>
+    /// <returns>The refusal, or <see langword="null"/>.</returns>
+    public static CommandLineFailure? RefuseProxy(SurlCommandLine commandLine) =>
+        commandLine.UnixSocket is { } unixSocket && commandLine.ProxyListenUrls.Count > 0
+            ? Refused(unixSocket.IsAbstract ? "--abstract-unix-socket" : "--unix-socket", "cannot be used with --proxy")
+            : null;
     // Refuses the one listen URL's scheme, or --http3, where a Unix stream socket cannot serve it.
     private static CommandLineFailure? RefuseScheme(SurlCommandLine commandLine, string scheme, string optionName)
     {
