@@ -46,3 +46,4 @@ request in `Surl.Protocol.Abstractions` carries its exchange ID and listen URL.
 ## Log
 
 - 2026-11-05: Created.
+- 2026-11-11: Backlog -> Doing.
