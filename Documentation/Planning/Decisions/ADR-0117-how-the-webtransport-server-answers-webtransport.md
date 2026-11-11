@@ -7,7 +7,7 @@
   BL-459 registers with `Surl.Http3`, establishes sessions and echoes streams and datagrams
   (decisions 0 to 3 and 6), BL-460 applies flow control, the session limit, authentication and the
   limits (decisions 4, 5, 7 and 8), and BL-748 gives `Surl.Quic` the `RESET_STREAM_AT` frame
-  decision 0 needs.
+  decision 0 needs; Amendment 1 (BL-769, 2026-11-11) records the choices BL-748 made in it.
 - **Builds on:** [ADR-0083](ADR-0083-how-surl-serves-the-curl-ports-extended-protocols-and-how-they-are-tested.md)
   (the oracle is the specification; the Curl port is never proof; default ports; one matrix per
   server), [ADR-0086](ADR-0086-how-the-extended-servers-share-http-2-http-3-and-quic.md) decisions 3
@@ -343,3 +343,49 @@ No new option is added: ADR-0006's options cover what a test harness tunes.
   `Integration` tests (ADR-0083).
 - The requirement matrix [`WebTransport.md`](../../Conformance/Extended/WebTransport.md) traces each
   server-side requirement to BL-458, BL-459 or BL-460; each task replaces its ID with the named test.
+
+## Amendment 1 (2026-11-11): how `Surl.Quic` sends and receives `RESET_STREAM_AT`
+
+Decided by Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), recording the choices
+BL-748 made where draft-ietf-quic-reliable-stream-reset-09 (4 July 2026, the revision WTH3 -16
+cites; below "the draft") leaves the server one. BL-769 wrote them here because BL-557 held this
+folder when BL-748 finished. `Protocols/Http/Surl.Quic.UnitLibrary/CLAUDE.md` ("`RESET_STREAM_AT`")
+describes the behaviour; the draft's fixed rules (transport parameter `0x1d`, empty; frame type
+`0x24`; a Reliable Size above the Final Size `FRAME_ENCODING_ERROR`; a larger Reliable Size later
+ignored; another error code `STREAM_STATE_ERROR`; `RESET_STREAM` as Reliable Size 0) are not choices
+and are not repeated here.
+
+- **Off by default** (draft section 3). `QuicServerConnectionOptions.ResetStreamAt` is false, and
+  only when it is set does the server send the empty `reset_stream_at` transport parameter. *Why:*
+  the draft is an extension a server may leave out, and secure by default means nothing widens what
+  a peer may send until asked for; the HTTP server and DNS over QUIC never set it, so their bytes
+  are what they were before BL-748. The WebTransport server sets it (decision 0).
+- **Sent only when both sides sent the parameter** (draft section 3). `QuicStream.ResetAt` (and
+  `QuicApplicationConnection.ResetAtAsync`) sends `RESET_STREAM_AT` only when the option is set and
+  the client sent `reset_stream_at`; otherwise it is `Reset`, a plain `RESET_STREAM`. *Why:* the
+  draft only requires the peer's parameter, but gating on the option too keeps a server that did not
+  ask byte-identical to one built before BL-748, and a plain `RESET_STREAM` is what the draft says a
+  `RESET_STREAM_AT` with Reliable Size 0 means, so callers need no second path.
+- **Received while the option is off: `FRAME_ENCODING_ERROR`** (RFC 9000 section 12.4). The draft
+  names no error for a `RESET_STREAM_AT` from a peer that was not offered the extension, so frame
+  type `0x24` is then what any unknown frame type is: `CONNECTION_CLOSE` `FRAME_ENCODING_ERROR`
+  naming frame type `0x24`. *Why:* it is the answer RFC 9000 gives and what the server sent before
+  BL-748, so turning the extension off changes nothing a client sees.
+- **The frame waits for the reliable bytes** (draft section 5). Unsent bytes from the Reliable Size
+  on are dropped, with any `FIN` written; the `RESET_STREAM_AT` is sent once every byte below the
+  Reliable Size has been sent, and its Final Size is the number of bytes sent by then. *Why:* the
+  draft lets the Final Size be anything from the Reliable Size up to what the stream could carry;
+  sending what was actually sent keeps the Final Size within the client's flow-control credit, so a
+  client never sees a `FLOW_CONTROL_ERROR` or `FINAL_SIZE_ERROR` the server caused. Lost `STREAM`
+  data of the stream is sent again only below the Reliable Size (a frame straddling it is cut,
+  without `FIN`), and a lost `RESET_STREAM_AT` goes again as it was.
+- **One reset per sending part** (draft section 5.1). Once a sending part has been reset, a later
+  `ResetAt`, `Reset` or `STOP_SENDING` sends nothing more, never a second frame with a lower Reliable
+  Size. *Why:* the draft allows, and never requires, a lower second frame; one frame per part is the
+  simplest behaviour that stays correct, and a test sees exactly the reset its server asked for.
+- **A received reset takes effect after the reliable bytes are read** (draft section 5). Bytes
+  below the smallest Reliable Size received stay readable; `QuicStream.ResetErrorCode` is set, and
+  the reader told of the reset, only once `Read` has returned every one of them (so
+  `QuicApplicationConnection.ReadAsync` returns them, then 0). *Why:* delivering those bytes is the
+  whole point of the extension, and holding the reset back until they are read is the order the
+  draft asks of a receiver; the smallest Reliable Size is used because a larger one later is ignored.

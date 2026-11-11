@@ -8,7 +8,7 @@ depends-on: [BL-748]
 touches: [Documentation/Planning/Decisions]
 requirement: none
 created: 2026-11-05
-completed:
+completed: 2026-11-11
 ---
 # BL-769 — Record Surl.Quic's RESET_STREAM_AT choices in ADR-0117
 
@@ -32,13 +32,15 @@ draft-ietf-quic-reliable-stream-reset-09 leaves Surl.Quic a choice.
 
 ## Acceptance criteria
 
-- [ ] ADR-0117 has an amendment (or a new decision) stating each choice in Context, with the reason
+- [x] ADR-0117 has an amendment (or a new decision) stating each choice in Context, with the reason
       and the draft section it rests on, marked "Decided by Claude under Stewart's delegation".
-- [ ] The ADR index (`Documentation/Planning/Decisions/README.md`) still describes ADR-0117 truly.
+- [x] The ADR index (`Documentation/Planning/Decisions/README.md`) still describes ADR-0117 truly.
 
 ## Notes
 
 - Filed by BL-748 (lane 4, 2026-11-05).
+- 2026-11-11: Written as ADR-0117 Amendment 1 (six choices, each with reason and draft section) and the
+  README row for 0117 updated; recovered from lane 6's branch. Documentation only, no code changed.
 
 ## Log
 
@@ -46,3 +48,4 @@ draft-ietf-quic-reliable-stream-reset-09 leaves Surl.Quic a choice.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Lane 6 could not integrate: build failed after rebasing onto the other lanes' work. The work is on branch factory/BL-769-lane-6-20261111-060243; start with git cherry-pick --no-commit factory/BL-769-lane-6-20261111-060243 and fix it.
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Done. ADR-0117 Amendment 1 records Surl.Quic's RESET_STREAM_AT choices; ADR index row updated
