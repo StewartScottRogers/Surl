@@ -53,3 +53,4 @@ password, as BL-563's ADR decision 7 says; both rows of the server-name table in
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-11: Backlog -> Doing.
