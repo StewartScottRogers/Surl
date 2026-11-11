@@ -40,3 +40,4 @@ say the service does, so a later Put Block List cannot commit blocks staged befo
 ## Log
 
 - 2026-11-06: Created.
+- 2026-11-11: Backlog -> Doing.
