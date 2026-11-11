@@ -59,3 +59,4 @@ and 795 run instead of skipping `servercmd-unsupported:AUTH`.
 ## Log
 
 - 2026-11-05: Created.
+- 2026-11-11: Backlog -> Doing.
