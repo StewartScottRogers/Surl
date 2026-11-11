@@ -4,7 +4,7 @@ title: Make CoapFlowObserversTests.ServeAsync_DeleteFromAnotherFlow_Notifies404W
 priority: Normal
 assignee: Claude
 pipeline: direct
-depends-on: []
+depends-on: [BL-1035]
 touches: [Protocols/Http/Surl.Extended.Protocol.Coap.UnitTests, Protocols/Http/Surl.Extended.Protocol.Coap.UnitLibrary]
 requirement: none
 created: 2026-11-06
@@ -35,7 +35,20 @@ completed:
 
 ## Notes
 
+- 2026-11-11 (lane 3): race found. `CoapFlowObservers.NotifyOnceAsync` wrote the
+  `Observation ended: ...` note and returned, and only then did `NotifyAsync`'s `finally` remove
+  the entry from `CoapObservations`. The test waits on that note, so under load it could read
+  `Observations.Count` as 1 between the note and the removal. Fix (written, unverified, left
+  uncommitted for the shift to stash): `NotifyOnceAsync` returns the ending note (`string?`, null
+  to keep observing) and `NotifyAsync` writes it after the `finally` has removed and disposed the
+  entry, so the awaited note now signals that the removal is done. The test itself needs no change;
+  the GivenUp and Reset tests (lines 97 and 113) wait on the same note and gain the same guarantee.
+- Could not build: `global.json` pins SDK 10.0.401, which is not installed on this machine
+  (installed: 10.0.100-rc.1, 11.0.100-rc.2, 11.0.100). Back to Backlog behind BL-1035, as BL-920
+  and BL-928 were.
+
 ## Log
 
 - 2026-11-06: Created.
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Backlog. Waits on BL-1035 - pinned .NET SDK 10.0.401 is not installed; race fix written in CoapFlowObservers, uncommitted
