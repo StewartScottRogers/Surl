@@ -57,6 +57,40 @@ internal sealed class GcsReply(HttpRequest request, DateTimeOffset now)
             new HttpAnswerBody.Bytes(xml));
 
     /// <summary>
+    /// A <c>200</c> JSON answer with its <c>Content-Type</c> and <c>Content-Length</c>.
+    /// </summary>
+    /// <param name="json">The body's bytes.</param>
+    /// <returns>The answer.</returns>
+    public HttpAnswer Json(byte[] json) =>
+        Answer(
+            HttpStatus.Ok,
+            [new("Content-Type", GcsJson.ContentType), new("Content-Length", json.Length.ToString(CultureInfo.InvariantCulture))],
+            new HttpAnswerBody.Bytes(json));
+
+    /// <summary>
+    /// A JSON error answer (ADR-0148, decision 5): its status, <paramref name="extraFields"/>, and the
+    /// one-line error body - also to a <c>HEAD</c>, which the JSON API does not have - except for
+    /// <c>304</c>, which has none.
+    /// </summary>
+    /// <param name="error">The error.</param>
+    /// <param name="extraFields">Fields sent before the body's, such as <c>WWW-Authenticate</c>.</param>
+    /// <returns>The answer.</returns>
+    public HttpAnswer JsonError(GcsJsonError error, params KeyValuePair<string, string>[] extraFields)
+    {
+        if (!error.HasBody)
+        {
+            return Answer(error.Status, extraFields, HttpAnswerBody.None);
+        }
+
+        var body = GcsJsonErrorBody.Render(error);
+
+        return Answer(
+            error.Status,
+            [.. extraFields, new("Content-Type", GcsJson.ContentType), new("Content-Length", body.Length.ToString(CultureInfo.InvariantCulture))],
+            new HttpAnswerBody.Bytes(body));
+    }
+
+    /// <summary>
     /// An error answer: its status, <paramref name="extraFields"/>, and the <c>Error</c> body
     /// unless the request is a <c>HEAD</c> ("HTTP status and error codes").
     /// </summary>

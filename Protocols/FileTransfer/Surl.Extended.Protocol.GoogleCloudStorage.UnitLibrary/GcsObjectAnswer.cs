@@ -47,11 +47,11 @@ internal static class GcsObjectAnswer
 
         return range is { IsSatisfiable: false }
             ? reply.Error(GcsError.InvalidRange)
-            : ObjectAnswer(reply, properties, digests, wholeObject, range);
+            : ServeObject(reply, properties, digests, wholeObject, range);
     }
 
     // 200 with the whole object, or 206 with the one range selected; a HEAD without the bytes.
-    private static HttpAnswer ObjectAnswer(GcsReply reply, ObjectProperties properties, GcsObjectDigests digests, HttpAnswerBody.ContentFile wholeObject, ContentByteRange? range)
+    internal static HttpAnswer ServeObject(GcsReply reply, ObjectProperties properties, GcsObjectDigests digests, HttpAnswerBody.ContentFile wholeObject, ContentByteRange? range)
     {
         var selected = range ?? wholeObject.Range;
         var fields = ObjectFields(properties, digests);
@@ -83,7 +83,7 @@ internal static class GcsObjectAnswer
         AddStored(fields, "Content-Language", properties.ContentLanguage);
         fields.AddRange(properties.UserMetadata.Select(entry => new KeyValuePair<string, string>(UserMetadataPrefix + entry.Key, entry.Value)));
         fields.Add(new("x-goog-generation", properties.Generation.ToString(CultureInfo.InvariantCulture)));
-        fields.Add(new("x-goog-metageneration", GcsGeneration.Metageneration.ToString(CultureInfo.InvariantCulture)));
+        fields.Add(new("x-goog-metageneration", properties.Metageneration.ToString(CultureInfo.InvariantCulture)));
         fields.Add(new("x-goog-stored-content-encoding", properties.ContentEncoding ?? "identity"));
         fields.Add(new("x-goog-stored-content-length", properties.Length.ToString(CultureInfo.InvariantCulture)));
         fields.Add(new("x-goog-storage-class", "STANDARD"));

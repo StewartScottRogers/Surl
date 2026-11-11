@@ -26,31 +26,53 @@ internal sealed class GcsListBuckets(ContentStore store)
     /// <returns>The answer.</returns>
     public HttpAnswer Answer(GcsReply reply, ContentCaller caller, CancellationToken cancellationToken)
     {
+        if (Entries(caller, cancellationToken) is not { } buckets)
+        {
+            return reply.Error(GcsError.AccessDenied);
+        }
+
+        var xml = new StringBuilder($"{GcsErrorBody.Declaration}<ListAllMyBucketsResult xmlns=\"{GcsXml.Namespace}\"><Owner>");
+        GcsXml.Append(xml, "ID", caller.AccountName ?? "anonymous");
+        xml.Append("</Owner><Buckets>");
+        foreach (var bucket in buckets)
+        {
+            xml.Append("<Bucket>");
+            GcsXml.Append(xml, "Name", bucket.Name);
+            GcsXml.Append(xml, "CreationDate", GcsXml.Time(bucket.LastModifiedUtc));
+            xml.Append("</Bucket>");
+        }
+
+        return reply.Xml(Encoding.UTF8.GetBytes(xml.Append("</Buckets></ListAllMyBucketsResult>").ToString()));
+    }
+
+    /// <summary>
+    /// The buckets the caller may read, in UTF-8 byte order of name; shared by both grammars.
+    /// </summary>
+    /// <param name="caller">Who lists, and on which scheme.</param>
+    /// <param name="cancellationToken">Cancels listing the root.</param>
+    /// <returns>The buckets, or <see langword="null"/> when the root cannot be listed.</returns>
+    public IReadOnlyList<GcsBucketEntry>? Entries(ContentCaller caller, CancellationToken cancellationToken)
+    {
         var root = store.ListDirectory(store.MapBucketRequestPathForCaller("/", caller), cancellationToken);
         if (!root.IsListed)
         {
-            return reply.Error(GcsError.AccessDenied);
+            return null;
         }
 
         var names = root.Entries.Where(entry => entry.Kind == ContentEntryKind.Directory).Select(entry => entry.Name)
             .Concat(store.Buckets.Select(bucket => bucket.Name))
             .Distinct(StringComparer.Ordinal)
             .Order(GcsNameOrder.Instance);
-        var xml = new StringBuilder($"{GcsErrorBody.Declaration}<ListAllMyBucketsResult xmlns=\"{GcsXml.Namespace}\"><Owner>");
-        GcsXml.Append(xml, "ID", caller.AccountName ?? "anonymous");
-        xml.Append("</Owner><Buckets>");
+        List<GcsBucketEntry> buckets = [];
         foreach (var name in names)
         {
             var folder = store.MapBucketRequestPathForCaller($"/{Uri.EscapeDataString(name)}/", caller);
             if (folder.IsMapped && store.GetEntryStatus(folder) is { Kind: ContentEntryKind.Directory } status)
             {
-                xml.Append("<Bucket>");
-                GcsXml.Append(xml, "Name", name);
-                GcsXml.Append(xml, "CreationDate", GcsXml.Time(status.LastModifiedUtc));
-                xml.Append("</Bucket>");
+                buckets.Add(new GcsBucketEntry(name, status.LastModifiedUtc));
             }
         }
 
-        return reply.Xml(Encoding.UTF8.GetBytes(xml.Append("</Buckets></ListAllMyBucketsResult>").ToString()));
+        return buckets;
     }
 }

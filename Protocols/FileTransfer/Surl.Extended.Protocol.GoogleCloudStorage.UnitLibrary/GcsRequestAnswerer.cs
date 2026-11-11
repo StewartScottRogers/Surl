@@ -35,6 +35,7 @@ internal sealed class GcsRequestAnswerer : IHttpRequestHandler
     private readonly GcsMultipartUpload multipartUpload;
     private readonly GcsCompleteMultipartUpload completeMultipartUpload;
     private readonly GcsResumableUpload resumableUpload;
+    private readonly GcsJsonRequestAnswerer jsonAnswerer;
 
     /// <summary>
     /// Creates the answerer for one exchange.
@@ -58,13 +59,22 @@ internal sealed class GcsRequestAnswerer : IHttpRequestHandler
         multipartUpload = new GcsMultipartUpload(staging);
         completeMultipartUpload = new GcsCompleteMultipartUpload(staging, login);
         resumableUpload = new GcsResumableUpload(staging);
+        jsonAnswerer = new GcsJsonRequestAnswerer(store, properties, listBuckets, new GcsLoginJudge(authentication, context.Log, isJson: true), context, isOverTls);
     }
 
     /// <inheritdoc/>
     public async Task<HttpAnswer> AnswerAsync(HttpRequest request, CancellationToken cancellationToken)
     {
-        var target = GcsRequestTarget.Parse(request.Target, GcsVirtualHost.BucketOf(request.Authority, context.ListenUrl.Host));
+        var hostBucket = GcsVirtualHost.BucketOf(request.Authority, context.ListenUrl.Host);
+        var target = GcsRequestTarget.Parse(request.Target, hostBucket);
         var reply = new GcsReply(request, context.TimeProvider.GetUtcNow());
+
+        // ADR-0148 decision 1: after the head and before the login, a path-style request under the JSON prefixes is the JSON API.
+        if (hostBucket is null && GcsJsonRoute.IsJsonPath(target.Path))
+        {
+            return await jsonAnswerer.AnswerAsync(request, target, reply, cancellationToken);
+        }
+
         var loggedIn = await login.LogInAsync(request, reply, cancellationToken);
         if (loggedIn.Refusal is { } refusal)
         {

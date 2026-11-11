@@ -288,7 +288,7 @@ internal sealed class GcsPutObject(ContentStore store, ObjectMetadataIndex index
     }
 
     /// <summary>
-    /// The answer to a stored object: <c>200</c> with its ETag, generation and <c>x-goog-hash</c>.
+    /// The answer to a stored object: <c>200</c> with its ETag, generation, metageneration 1 (new data resets it; ADR-0148, decision 3) and <c>x-goog-hash</c>.
     /// </summary>
     /// <param name="reply">The request's answers.</param>
     /// <param name="digests">The object's digests.</param>
@@ -300,7 +300,7 @@ internal sealed class GcsPutObject(ContentStore store, ObjectMetadataIndex index
             [
                 new("ETag", digests.ETag),
                 new("x-goog-generation", generation.ToString(CultureInfo.InvariantCulture)),
-                new("x-goog-metageneration", GcsGeneration.Metageneration.ToString(CultureInfo.InvariantCulture)),
+                new("x-goog-metageneration", "1"),
                 new("x-goog-hash", digests.HashField),
                 new("Content-Length", "0"),
             ],

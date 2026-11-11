@@ -16,7 +16,9 @@ namespace Surl.Extended.Protocol.GoogleCloudStorage;
 /// </summary>
 /// <param name="authentication">The connection's authentication session.</param>
 /// <param name="log">Where each checked login's note is written.</param>
-internal sealed class GcsLoginJudge(IHttpAuthenticationSession authentication, IExchangeLog log)
+/// <param name="isJson">Whether the judge serves the JSON API (ADR-0148, decision 4): Bearer tokens only, a
+/// <c>GOOG4-HMAC-SHA256</c> header refused like any other scheme, every refusal in the JSON error body.</param>
+internal sealed class GcsLoginJudge(IHttpAuthenticationSession authentication, IExchangeLog log, bool isJson = false)
 {
     /// <summary>
     /// The challenge a missing credential is answered with (RFC 6750, section 3).
@@ -48,10 +50,10 @@ internal sealed class GcsLoginJudge(IHttpAuthenticationSession authentication, I
     public async Task<GcsLogin> LogInAsync(HttpRequest request, GcsReply reply, CancellationToken cancellationToken)
     {
         var authorization = GcsRequestFields.Value(request.Fields, "Authorization");
-        var isSigned = authorization is not null && IsSignature(authorization);
+        var isSigned = !isJson && authorization is not null && IsSignature(authorization);
         if (authorization is not null && !isSigned && !IsBearer(authorization))
         {
-            return GcsLogin.Refused(reply.Error(GcsError.UnsupportedAuthentication));
+            return GcsLogin.Refused(Fail(reply, GcsError.UnsupportedAuthentication, GcsJsonError.InvalidAuthentication));
         }
 
         var isWrite = request.Method is not ("GET" or "HEAD");
@@ -121,7 +123,7 @@ internal sealed class GcsLoginJudge(IHttpAuthenticationSession authentication, I
         _ => GcsError.AccessDenied,
     };
 
-    private static HttpAnswer RefusalOf(HttpAuthenticationVerdict verdict, string? authorization, bool isSigned, GcsReply reply)
+    private HttpAnswer RefusalOf(HttpAuthenticationVerdict verdict, string? authorization, bool isSigned, GcsReply reply)
     {
         if (isSigned)
         {
@@ -130,7 +132,7 @@ internal sealed class GcsLoginJudge(IHttpAuthenticationSession authentication, I
 
         return authorization is null
             ? MissingCredential(reply)
-            : reply.Error(GcsError.InvalidBearerToken, new KeyValuePair<string, string>("WWW-Authenticate", InvalidTokenChallenge));
+            : Fail(reply, GcsError.InvalidBearerToken, GcsJsonError.InvalidCredentials, new KeyValuePair<string, string>("WWW-Authenticate", InvalidTokenChallenge));
     }
 
     private void NoteLogin(HttpAuthenticationVerdict verdict)
@@ -141,8 +143,12 @@ internal sealed class GcsLoginJudge(IHttpAuthenticationSession authentication, I
         }
     }
 
-    private static HttpAnswer MissingCredential(GcsReply reply) =>
-        reply.Error(GcsError.AuthenticationRequired, new KeyValuePair<string, string>("WWW-Authenticate", BearerChallenge));
+    private HttpAnswer MissingCredential(GcsReply reply) =>
+        Fail(reply, GcsError.AuthenticationRequired, GcsJsonError.AuthenticationRequired, new KeyValuePair<string, string>("WWW-Authenticate", BearerChallenge));
+
+    // The refusal in the grammar the judge serves.
+    private HttpAnswer Fail(GcsReply reply, GcsError xmlError, GcsJsonError jsonError, params KeyValuePair<string, string>[] extraFields) =>
+        isJson ? reply.JsonError(jsonError, extraFields) : reply.Error(xmlError, extraFields);
 
     // The bearer method logs in as the empty name, which stands for no named account.
     private static ContentCaller CallerOf(string? accountName) =>

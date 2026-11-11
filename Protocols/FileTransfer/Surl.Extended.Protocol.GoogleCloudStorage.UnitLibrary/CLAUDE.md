@@ -1,6 +1,7 @@
 # Surl.Extended.Protocol.GoogleCloudStorage.UnitLibrary
 
-The `gs` server (ADR-0110): answers Google Cloud Storage XML API requests over HTTP/1.1 on the shared
+The `gs` server (ADR-0110, ADR-0148): answers Google Cloud Storage XML API requests - and, on the JSON paths, the
+JSON API's reads and delete (BL-1045, below) - over HTTP/1.1 on the shared
 `ContentStore`, whose top-level folders are the buckets (ADR-0100 decision 2). An extended server (ADR-0083):
 judged by the Cloud Storage XML API pages, never by upstream curl (which has no `gs`) and never by the Curl
 port. Namespace `Surl.Extended.Protocol.GoogleCloudStorage`. Its requirement matrix is
@@ -12,7 +13,8 @@ listen URL's host when it is a DNS name, `localhost` and `storage.googleapis.com
 - GET Object and HEAD Object (`?generation=` the current one only, any other `404 NoSuchKey`) - one `Range`
   (`206`, `416 InvalidRange`), the HTTP conditional fields (`GcsConditions`), `x-goog-if-generation-match` and
   `x-goog-if-metageneration-match` (`GcsGenerationConditions`), the stored header fields, `x-goog-meta-*`,
-  `x-goog-generation`, `x-goog-metageneration: 1`, `x-goog-stored-content-*`, `x-goog-storage-class: STANDARD`
+  `x-goog-generation`, `x-goog-metageneration` (the index's recorded value, 1 unless a JSON patch or update raised it,
+BL-1041), `x-goog-stored-content-*`, `x-goog-storage-class: STANDARD`
   and `x-goog-hash` (`crc32c=…,md5=…` of the whole object, computed by `GcsObjectHashes` with
   `BitOperations.Crc32C`, read from the file on every request until BL-773 caches it in the index).
 - PUT Object (`GcsPutObject`): needs `--allow-uploads` (`403 AccessDenied`), `Content-Length` (`411
@@ -64,6 +66,24 @@ listen URL's host when it is a DNS name, `localhost` and `storage.googleapis.com
   (`503 SlowDown`) is answered with that status and code in the `Error` body (the server's own message for a
   code it sends, else `GcsRequestFaults.ChosenErrorMessage`) and publishes one `FaultAppliedEvent`; a reply
   that does not fit, or a delay or drop rule at a request, is noted and the request is served.
+
+- The JSON API (BL-1045, ADR-0148 decisions 1 to 6 and the limits of 8; matrix
+  `Documentation/Conformance/Extended/GoogleCloudStorage-Json.md`). `GcsRequestAnswerer` hands a path-style request
+  whose path begins `/storage/v1/`, `/upload/storage/v1/` or `/download/storage/v1/` (`GcsJsonRoute.IsJsonPath`) to
+  `GcsJsonRequestAnswerer` before any login; a virtual-hosted request is always the XML API. `GcsJsonRoute` recognises
+  `buckets.list` (`project` required), `buckets.get`, `objects.list` (`prefix`, `delimiter`, `startOffset`, `endOffset`,
+  `maxResults`, `pageToken`; `includeTrailingDelimiter` is validated and changes nothing, no file name ending in the
+  delimiter being listed), `objects.get` (resource, or bytes for `alt=media` and the download path; `generation`,
+  `if*Match`, `If-*`, one `Range`; `GcsJsonObjectQuery`, `GcsJsonConditions`) and `objects.delete`, by method, path
+  and the exact query parameters (`%2F` and `/` both separate folders); anything else, the upload path and `HEAD`
+  included, is `501 notImplemented` after the login. `GcsLoginJudge(isJson: true)` takes Bearer only (a
+  `GOOG4-HMAC-SHA256` header is `400 invalid`) and refuses in `GcsJsonError` rows (`401 required`, `401 authError`,
+  `400 invalid`). Resources are written by `GcsJsonResources` with `Utf8JsonWriter` (`GcsJson`, member order as
+  ADR-0148 decision 3, `etag` the base64 of `<generation>/<metageneration>`, `timeCreated` the generation as a
+  time); errors by `GcsJsonErrorBody`, one line, fixed text. A chosen fault (`GcsJsonFaults`) asks the plan with the
+  Google method id as command (`storage.objects.get`) and the percent-decoded path; its status picks the row, else
+  `backendError`. The metageneration is `ObjectMetadata.Metageneration` in `ObjectMetadataIndex` (BL-1045); a
+  connection refused past a limit is still the XML `503 SlowDown`, the grammar not being known before a request.
 
 Every other request - another method, a subresource or unlisted query parameter, a copy, a `POST` that is no
 upload, `x-goog-encryption-*` - is `400 NotImplemented`, judged after the login. Every error is `GcsError`'s fixed
