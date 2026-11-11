@@ -64,3 +64,4 @@ recorded upstream curl ClientHello for `--curves ffdhe2048` or `--curves ffdhe30
 
 - 2026-11-06: Created.
 - 2026-11-06: Split from BL-545 (timed out after 120 min); reuses its ffdhe work and recorded fixtures from stash `darkfactory BL-545 20261106-033059`.
+- 2026-11-11: Backlog -> Doing.
