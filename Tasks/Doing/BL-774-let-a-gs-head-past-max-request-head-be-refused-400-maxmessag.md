@@ -37,3 +37,4 @@ A request head past `--max-request-head` on the `gs` server is answered `400 Bad
 ## Log
 
 - 2026-11-05: Created.
+- 2026-11-11: Backlog -> Doing.
