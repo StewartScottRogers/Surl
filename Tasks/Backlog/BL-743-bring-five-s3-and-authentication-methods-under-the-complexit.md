@@ -4,7 +4,7 @@ title: Bring five S3 and Authentication methods under the complexity gate
 priority: Normal
 assignee: Claude
 pipeline: direct
-depends-on: []
+depends-on: [BL-1035]
 touches: [Protocols/FileTransfer/Surl.Extended.Protocol.S3.UnitLibrary, Protocols/FileTransfer/Surl.Extended.Protocol.S3.UnitTests, Foundation/Surl.Authentication.UnitLibrary, Foundation/Surl.Authentication.UnitTests]
 requirement: none
 created: 2026-11-05
@@ -46,7 +46,10 @@ completed:
 
 ## Notes
 
+- 2026-11-11 (lane 3): parked behind BL-1035. `Measure-CodeQuality.ps1` and `dotnet build` both stop at "A compatible .NET SDK was not found": `global.json` pins 10.0.401 and the machine has only 10.0.100-rc.1, 11.0.100-rc.2 and 11.0.100. No code was changed; the gates cannot be measured until the pinned SDK is back.
+
 ## Log
 
 - 2026-11-05: Created.
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Backlog. Waits on BL-1035: pinned .NET SDK 10.0.401 is not installed, so build and Measure-CodeQuality.ps1 cannot run
