@@ -4,7 +4,7 @@ title: Close a DTLS association with close_notify before its 48-bit sequence num
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: []
+depends-on: [BL-1035]
 touches: [Cryptography/Surl.Dtls.UnitLibrary, Cryptography/Surl.Dtls.UnitTests]
 requirement: none
 created: 2026-11-05
@@ -41,3 +41,4 @@ sends a warning `close_notify` with it and ends the association, instead of `Sen
 
 - 2026-11-05: Created.
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Backlog. Waits on BL-1035: pinned .NET SDK 10.0.401 is not installed, so dotnet build cannot run
