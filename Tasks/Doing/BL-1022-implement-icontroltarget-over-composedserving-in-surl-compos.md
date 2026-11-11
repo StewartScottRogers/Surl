@@ -63,3 +63,4 @@ accounts, and reset, snapshot and restore - each refusal mapped to its `ControlR
 
 - 2026-11-06: Created.
 - 2026-11-06: Split from BL-816 (timed out after 120 min); reuses its control target from stash `darkfactory BL-816 20261106-033059`.
+- 2026-11-11: Backlog -> Doing.
