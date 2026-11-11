@@ -47,16 +47,16 @@ choice.
 
 | ID | Level | Requirement | Covered by |
 | --- | --- | --- | --- |
-| Xmpp:RFC6120-5.3.1-1 | MUST | On `xmpp` with a certificate, the first features are `<starttls><required/></starttls>` alone. | BL-537 |
-| Xmpp:Surl-Tls-1 | MUST | Under `--allow-plaintext-auth`, STARTTLS is offered without `<required/>`, beside the plain-text mechanisms. | BL-537 |
-| Xmpp:RFC6120-6.5.4-1 | MUST | `<auth/>` before TLS when TLS is required is `<failure><encryption-required/></failure>`, the stream kept. | BL-537 |
-| Xmpp:RFC6120-5.3.1-2 | MUST | A stanza before TLS is `not-authorized`; any other element is `policy-violation`. | BL-537 |
-| Xmpp:RFC6120-5.4.2.3-1 | MUST | `<starttls/>` is answered `<proceed/>`, then the TLS handshake through the listener seam. | BL-537 |
-| Xmpp:RFC6120-5.4.2.2-1 | MUST | When the upgrade is unavailable, or `<starttls/>` is repeated, the answer is the TLS `<failure/>`, then `</stream:stream>` and close. | BL-537 |
-| Xmpp:RFC6120-5.4.3.2-1 | MUST | A failed handshake closes the connection with no bytes. | BL-537 |
-| Xmpp:RFC6120-5.4.3.3-1 | MUST | After TLS the client's new stream header is answered with a new `id`, and STARTTLS is not offered again. | BL-537 |
-| Xmpp:XEP0368-1 | MUST | On `xmpps` the TLS handshake runs from the first byte, before any XML, and STARTTLS is never offered. | BL-537 |
-| Xmpp:Surl-Tls-2 | MUST | `xmpps` without a certificate, and `xmpp` without one and without `--allow-plaintext-auth` or `--allow-anonymous`, fail at start with `CertificateProblem` (58). | BL-537 |
+| Xmpp:RFC6120-5.3.1-1 | MUST | On `xmpp` with a certificate, the first features are `<starttls><required/></starttls>` alone. | `ServeAsync_CertificateConfigured_OffersRequiredStartTlsAlone` |
+| Xmpp:Surl-Tls-1 | MUST | Under `--allow-plaintext-auth`, STARTTLS is offered without `<required/>`, beside the plain-text mechanisms. | `ServeAsync_AllowPlaintextAuthentication_OffersVoluntaryStartTlsBesideThePlainTextMechanisms` |
+| Xmpp:RFC6120-6.5.4-1 | MUST | `<auth/>` before TLS when TLS is required is `<failure><encryption-required/></failure>`, the stream kept. | `ServeAsync_SaslAuthBeforeTlsWhileRequired_IsEncryptionRequiredAndTheStreamKept` |
+| Xmpp:RFC6120-5.3.1-2 | MUST | A stanza before TLS is `not-authorized`; any other element is `policy-violation`. | `ServeAsync_OtherElementBeforeTls_EndsTheStreamAsSection5Says` |
+| Xmpp:RFC6120-5.4.2.3-1 | MUST | `<starttls/>` is answered `<proceed/>`, then the TLS handshake through the listener seam. | `ServeAsync_StartTls_IsAnsweredProceedThenTheUpgrade` |
+| Xmpp:RFC6120-5.4.2.2-1 | MUST | When the upgrade is unavailable, or `<starttls/>` is repeated, the answer is the TLS `<failure/>`, then `</stream:stream>` and close. | `ServeAsync_StartTlsWithoutACertificate_IsTheTlsFailureAndClose`, `ServeAsync_StartTlsRepeatedAfterTls_IsTheTlsFailureAndClose` |
+| Xmpp:RFC6120-5.4.3.2-1 | MUST | A failed handshake closes the connection with no bytes. | `ServeAsync_HandshakeFails_ClosesWithNoMoreBytes` |
+| Xmpp:RFC6120-5.4.3.3-1 | MUST | After TLS the client's new stream header is answered with a new `id`, and STARTTLS is not offered again. | `ServeAsync_StreamRestartedAfterTls_HasANewIdAndOffersSaslAndNotStartTls` |
+| Xmpp:XEP0368-1 | MUST | On `xmpps` the TLS handshake runs from the first byte, before any XML, and STARTTLS is never offered. | BL-540 (composition wraps `xmpps` in `ImplicitTlsSchemeServer`); server half: `ServeAsync_ConnectionTlsFromItsFirstByte_OffersSaslAndRefusesStartTls` |
+| Xmpp:Surl-Tls-2 | MUST | `xmpps` without a certificate, and `xmpp` without one and without `--allow-plaintext-auth` or `--allow-anonymous`, fail at start with `CertificateProblem` (58). | BL-540 (composition checks certificates at start) |
 
 ## SASL (RFC 6120 section 6; RFC 4616, RFC 4505, RFC 5802, RFC 7677)
 

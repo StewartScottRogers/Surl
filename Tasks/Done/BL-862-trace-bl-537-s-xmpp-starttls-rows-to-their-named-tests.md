@@ -8,7 +8,7 @@ depends-on: [BL-537]
 touches: [Documentation/Conformance/Extended/Xmpp.md]
 requirement: none
 created: 2026-11-05
-completed:
+completed: 2026-11-11
 ---
 # BL-862 — Trace BL-537's XMPP STARTTLS rows to their named tests
 
@@ -39,12 +39,15 @@ and the two rows it did not deliver name the task that does.
 
 ## Acceptance criteria
 
-- [ ] Each row above names the test(s) listed, in the matrix's existing style.
-- [ ] `Xmpp:XEP0368-1` and `Xmpp:Surl-Tls-2` name BL-540 (the first also the server-side test above).
+- [x] Each row above names the test(s) listed, in the matrix's existing style.
+- [x] `Xmpp:XEP0368-1` and `Xmpp:Surl-Tls-2` name BL-540 (the first also the server-side test above).
 
 ## Notes
+
+Rows now name BL-537's tests (backticked, comma-separated); matrix style had only task IDs so far.
 
 ## Log
 
 - 2026-11-05: Created.
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Done. XMPP STARTTLS matrix rows name their tests; XEP0368-1 and Surl-Tls-2 name BL-540
