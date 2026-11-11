@@ -50,3 +50,4 @@ nodes. The `--aihelp` topic and help category exist, and the extension switch tu
 - 2026-11-04: Amended for Stewart's shared-stores approval of 2026-11-04: waits on BL-635; composed with the one shared bus.
 - 2026-11-05: Backlog -> Doing.
 - 2026-11-05: Doing -> Backlog. Needs Application/Surl.Composition.UnitLibrary and Surl.Composition.UnitTests, which BL-803 in Doing touches; resumes once BL-803 releases them
+- 2026-11-11: Backlog -> Doing.
