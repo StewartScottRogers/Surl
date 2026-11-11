@@ -4,7 +4,7 @@ title: Read the upstream test-case exclusions file into the selection rules
 priority: Low
 assignee: Claude
 pipeline: feature
-depends-on: [BL-393]
+depends-on: [BL-393, BL-1035]
 touches: [Conformance/Surl.Conformance.UnitLibrary, Conformance/Surl.Conformance.UnitTests]
 requirement: none
 created: 2026-11-04
@@ -33,6 +33,8 @@ into `TestServerChoices`, so a listed case skips `test-server-choice`.
 
 ## Notes
 
+- 2026-11-11 (lane 4): The build cannot run here - `global.json` pins SDK 10.0.401 and only 10.0.100-rc.1, 11.0.100-rc.2 and 11.0.100 are installed, so the integration build fails. Depends on BL-1035 (Stewart reinstalls the SDK). Finished work exists on branch factory/BL-689-lane-1-20261111-060243 (commits 9d0b688d and 73523a10); resume with `git cherry-pick --no-commit 9d0b688d`, then build and test.
+
 ## Log
 
 - 2026-11-04: Created.
@@ -41,3 +43,4 @@ into `TestServerChoices`, so a listed case skips `test-server-choice`.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Lane 1 could not integrate: build failed after rebasing onto the other lanes' work. The work is on branch factory/BL-689-lane-1-20261111-060243; start with git cherry-pick --no-commit factory/BL-689-lane-1-20261111-060243 and fix it.
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Backlog. Waiting on BL-1035 - pinned .NET SDK 10.0.401 is not installed, so nothing builds; finished work is on factory/BL-689-lane-1-20261111-060243
