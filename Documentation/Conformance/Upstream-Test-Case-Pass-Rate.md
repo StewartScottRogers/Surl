@@ -33,7 +33,7 @@ decision 5). This is success criterion 2 of the
 
 | Platform | Commit | Date | Reference pin SHA-256 | Total | Runnable | Passed | Failed | Skipped | test-server-choice | Pass rate |
 | --- | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| `win-x64` | `153bbc14` + BL-549 + BL-855 + BL-896 + BL-897 | 2026-11-11 | `0E773709C3A44DB47B88B71351D902027682ED87C3BD3821009E454BACCA8778` | 2,013 | 1,126 | 1,070 | 56 | 887 | 0 | 95.0% |
+| `win-x64` | `153bbc14` + BL-549 + BL-855 + BL-896 + BL-897 + BL-898 | 2026-11-11 | `0E773709C3A44DB47B88B71351D902027682ED87C3BD3821009E454BACCA8778` | 2,013 | 1,128 | 1,072 | 56 | 885 | 0 | 95.0% |
 | `linux-x64` | `8eb0301b` | 2026-11-06 | `153CA463957609117D21A848BE29B70691B85F9E5CC9370C7DAA037B839A4E45` | 2,013 | 1,237 | 1,154 | 83 | 776 | 0 | 93.3% |
 | `osx-arm64` | `8eb0301b` | 2026-11-06 | `04E0E69BCD3BD814EC093551A0447AC14EDEEA9D395B468A2025DCB3F766EEBF` | 2,013 | 1,237 | 1,153 | 84 | 776 | 0 | 93.2% |
 
@@ -47,7 +47,11 @@ and fails `errorcode` on macOS. Both skip fewer cases than Windows, chiefly `fea
 8 in `data`, 7 in `errorcode`, 4 each in `stdout` and `timeout`, 3 in `stderr` and 1 each in
 `file` and `upload`.
 
-Windows: the run of BL-549's changes on top of commit `153bbc14`, the first with the `http-unix`
+Windows: the run of BL-898's changes: a case naming several servers is no longer skipped for a
+`<servercmd>` word that one of them implements (cases 779 and 795, `http` then `imap`, `AUTH`), and each
+server half gets the lines its own row implements. Both pass; none that passed fails.
+
+The run before, of BL-549's changes on top of commit `153bbc14`, the first with the `http-unix`
 server half composed: the plaintext HTTP server half also listens on a Unix domain socket file in
 a short folder of its own under the temporary folder, named to curl as `%HTTPUNIXPATH`. Both
 `http-unix` cases, 1435 and 1436, pass, and none that passed fails; `server-not-built` falls by
@@ -98,7 +102,7 @@ upstream's test-server greeting banner in a `-D` file, BL-776), TFTP 15 ran, 13 
 | `precheck` | 19 | 19 | 19 |
 | `server-half-not-composed:<name>` | 12 | 15 | 15 |
 | `server-not-built:<name>` | 65 | 67 | 67 |
-| `servercmd-unsupported:<command>` | 32 | 35 | 35 |
+| `servercmd-unsupported:<command>` | 30 | 35 | 35 |
 | `strippart-unsupported` | 1 | 1 | 1 |
 | `unittest` | 81 | 81 | 81 |
 | `unparsable` | 4 | 4 | 4 |

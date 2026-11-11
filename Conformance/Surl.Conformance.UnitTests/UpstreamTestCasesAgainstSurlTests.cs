@@ -414,9 +414,12 @@ public sealed class UpstreamTestCasesAgainstSurlTests
             MqttUpstreamTestCaseReplies mqttReplies;
             TftpUpstreamTestCaseReplies tftpReplies;
             MailUpstreamTestCaseReplies mailReplies;
-            // The case's <servercmd> is its first server's; each other server half gets none.
+            // Upstream's runtests writes one servercmd file every server reads and each ignores the words
+            // it does not know (BL-898); a server half here throws on one, so each gets the lines its own row implements.
             var families = ServerNames(testCase).Select(name => ServerFamilies[name]).Distinct().ToList();
-            IEnumerable<string> CommandsFor(string family) => families[0] == family ? ServerCommandLines(testCase) : [];
+            IEnumerable<string> CommandsFor(string family) => ServerCommandLines(testCase)
+                .Where(line => IsComment(line) || ServerNames(testCase).Any(
+                    name => ServerFamilies[name] == family && UpstreamTestCaseServerCommands.IsSupported(name, line.Split(' ', '\t')[0].Trim())));
             try
             {
                 commandLine = UpstreamTestCaseCommandLine.Build(number, testCase, logDirectory);
@@ -658,6 +661,8 @@ public sealed class UpstreamTestCasesAgainstSurlTests
                 .Where(part => part.Name.StartsWith("data", StringComparison.Ordinal))
                 .GroupBy(part => part.Name, StringComparer.Ordinal)
                 .ToDictionary(group => group.Key, group => group.First().ContentWithNewlineAttributes(UpstreamTestCaseNewlineRule.CutThenCrlf), StringComparer.Ordinal);
+
+        private static bool IsComment(string line) => line.Trim().Length == 0 || line.TrimStart().StartsWith('#');
 
         private static IEnumerable<string> ServerCommandLines(UpstreamTestCase testCase) =>
             (testCase.FindPart("reply", "servercmd")?.Lines ?? []).Select(line => line.TrimEnd('\n'));

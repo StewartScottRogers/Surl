@@ -307,6 +307,26 @@ public sealed class UpstreamTestCaseSelectorTests
         Assert.AreEqual(expected, reason);
     }
 
+    // BL-898: a command is supported when any named server's row implements it.
+    [TestMethod]
+    [DataRow("http\nimap", "AUTH", null)]
+    [DataRow("http\nimap", "upgrade", "servercmd-unsupported:upgrade")]
+    [DataRow("imap\nhttp", "swsclose", null)]
+    [DataRow("http\nimap", "DELAY", "servercmd-unsupported:DELAY")]
+    public void FindSkipReason_SeveralServers_SupportsACommandAnyNamedServerImplements(string servers, string word, string? expected)
+    {
+        var rules = Rules() with
+        {
+            SupportsServerCommand = UpstreamTestCaseServerCommands.IsSupported,
+            Protocols = new HashSet<string>(["http", "imap"], StringComparer.Ordinal),
+        };
+        var testCase = Case(client: Server(servers), reply: $"<servercmd>\n{word}\n</servercmd>\n");
+
+        var reason = new UpstreamTestCaseSelector(rules).FindSkipReason(Number, testCase);
+
+        Assert.AreEqual(expected, reason);
+    }
+
     // BL-397: the file-system servers' cases, inline, on Windows' reference build (no smb) and on
     // the supplementary build ADR-0030 pinned for SMB, each excluded class with its named reason.
     [TestMethod]

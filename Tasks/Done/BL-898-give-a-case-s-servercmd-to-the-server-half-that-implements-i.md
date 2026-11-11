@@ -8,7 +8,7 @@ depends-on: []
 touches: [Conformance/Surl.Conformance.UnitLibrary, Conformance/Surl.Conformance.UnitTests, Documentation/Conformance]
 requirement: none
 created: 2026-11-05
-completed:
+completed: 2026-11-11
 ---
 # BL-898 — Give a case's servercmd to the server half that implements it when the case names several servers
 
@@ -39,24 +39,29 @@ and 795 run instead of skipping `servercmd-unsupported:AUTH`.
 
 ## Acceptance criteria
 
-- [ ] `UpstreamTestCaseSelectorTests` has a test that a two-server case whose `<servercmd>` word is implemented
+- [x] `UpstreamTestCaseSelectorTests` has a test that a two-server case whose `<servercmd>` word is implemented
       only by the second server's row is not skipped, and one that a word no named server implements still
       skips `servercmd-unsupported:<word>`.
-- [ ] Cases 779 and 795 are no longer skipped as `servercmd-unsupported:AUTH` in a Windows run of
+- [x] Cases 779 and 795 are no longer skipped as `servercmd-unsupported:AUTH` in a Windows run of
       `UpstreamTestCasesAgainstSurlTests` (`TestCategory=Integration`) with the reference pin from
       `UpstreamCurlBuilds.json`, and pass; Notes record the pin's SHA-256, the date and the decision taken.
-- [ ] `779` and `795` are added to `Documentation/Conformance/upstream-test-cases-passing.win-x64.txt`, and the
+- [x] `779` and `795` are added to `Documentation/Conformance/upstream-test-cases-passing.win-x64.txt`, and the
       `win-x64` row and skip table of `Documentation/Conformance/Upstream-Test-Case-Pass-Rate.md` state the new
       counts; the fast pass-rate guard test is green.
-- [ ] Any server half whose behaviour the run shows must change for these cases is filed as a new task with its
+- [x] Any server half whose behaviour the run shows must change for these cases is filed as a new task with its
       ID in Notes, rather than changed here.
-- [ ] `dotnet build Conformance/Surl.Conformance.UnitTests -warnaserror` is clean,
+- [x] `dotnet build Conformance/Surl.Conformance.UnitTests -warnaserror` is clean,
       `dotnet test --filter "TestCategory!=Integration"` is green, and `Surl.Conformance.UnitLibrary` keeps 100%
       line and branch coverage.
 
 ## Notes
 
+- Decision: a command is supported when any named server's row implements it (selector). Each half receives only the <servercmd> lines its own row implements (plus comments/blanks), because every half throws NotSupportedException on a word it lacks, unlike upstream's servers which ignore them. Postcmd rule unchanged.
+- Windows run, reference pin SHA-256 0E773709C3A44DB47B88B71351D902027682ED87C3BD3821009E454BACCA8778, 2026-11-11: test779 and test795 pass; win-x64 now 1,072 passed of 1,128 runnable, 885 skipped.
+- No server half needed changing; no follow-up tasks filed.
+
 ## Log
 
 - 2026-11-05: Created.
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Done. Several-server cases run with a servercmd word any named server implements; cases 779 and 795 pass
