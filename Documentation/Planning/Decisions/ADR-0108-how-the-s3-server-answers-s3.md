@@ -452,10 +452,10 @@ BL-419, and recorded here by BL-727 (BL-419 could not edit this folder while BL-
    `400 IncompleteBody`** ("List of error codes": `IncompleteBody`, 400; Message `You did not
    provide the number of bytes specified by the Content-Length HTTP header.`), and the upload
    session is not committed, so the old object stands. Why: it is S3's own code for exactly this
-   case; decision 1.1's table now lists it. `Surl.HttpServing` drops a refusal's body, so
-   `IncompleteBody` and `EntityTooLarge` are ordinary error answers: an announced body past the
-   limit is left unread, which closes the connection after the lingering drain. Closing without
-   the drain is BL-729.
+   case; decision 1.1's table now lists it. When BL-419 built it, `Surl.HttpServing` dropped a
+   refusal's body, so `IncompleteBody` and `EntityTooLarge` were ordinary error answers that closed
+   the connection after the lingering drain. BL-729 made both refusals that keep their XML body and
+   close without the drain (Amendment 4).
 5. **A `PUT` with `Transfer-Encoding: chunked` and no `x-amz-decoded-content-length` is `400
    InvalidRequest`;** one with it is `aws-chunked`, answered `501 NotImplemented` until BL-711
    serves decision 4.5. Why: S3 has no plain chunked upload, and a chunked body without a decoded
@@ -511,3 +511,35 @@ BL-728. It builds decision 6's last point: a folder a client put as `x/` is list
 5. **DeleteObject of `x/` does not forget the folder object;** it removes the folder only when empty,
    and an empty folder's removal drops the folder object at the next listing. A non-empty folder's
    `x/` still lists after its DeleteObject: BL-930 makes DeleteObject forget it.
+
+## Amendment 4 - `EntityTooLarge` and `IncompleteBody` close without the drain, as BL-729 built it (BL-933, 2026-11-11)
+
+Decided by Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), 2026-11-06, in
+BL-729, and recorded here by BL-933 (BL-729 could not edit this folder while BL-701 held it). It
+builds decision 7's "then close (the body is not drained)" and replaces the drain Amendment 2,
+point 4 described.
+
+1. **`HttpAnswer.DrainsBeforeClose`** (in `Surl.HttpServing`; an optional positional parameter,
+   default `true`) says whether an answer that closes the connection is followed by ADR-0024's
+   lingering drain. `Http1AnswerWriter.DrainBeforeCloseAsync` honours it after a refusal and after
+   any other answer that closes. Why a flag rather than a new answer kind: every existing server
+   keeps its bytes and its drain by default, and the writer stays the only place that decides how
+   a connection ends.
+2. **`S3Error.ClosesWithoutDrain` marks `EntityTooLarge` and `IncompleteBody`;** `S3Reply.Error`
+   turns either into an answer with `IsRefusal: true` and `DrainsBeforeClose: false`. Wherever
+   PutObject, UploadPart or CompleteMultipartUpload answer them, they carry the XML `Error` body
+   (BL-720 made `Http1AnswerWriter.WriteRefusalAsync` write a refusal's `HttpAnswerBody.Bytes`
+   body), `Connection: close`, within the one-second refusal write deadline, and leave the rest of
+   the request body unread. Why: decision 7 says the body is not drained - reading up to
+   `--max-filesize`'s worth of a body already refused only spends the server's time - and it also
+   closes an UploadPart whose staged bytes ran past the limit after its body was read whole, which
+   until BL-729 kept the connection open.
+3. **The close is left to the transport.** On TCP, ADR-0021's lingering close for every connection
+   still runs after the exchange, so the `400` is not lost to a reset while the client is still
+   sending. Why that is enough: ADR-0021 already protects the answer at the transport, so the HTTP
+   layer's drain only duplicated it for these two answers. The stated cost: on a transport without
+   ADR-0021's lingering close, a client still sending may see a reset instead of the `400`.
+4. **Tests:** `S3PutObjectTests.ServeAsync_KeepAlivePutObjectAnnouncedPastMaxFilesize_Is400EntityTooLargeClosedWithTheBodyUnread`,
+   `S3PutObjectTests.ServeAsync_KeepAlivePutObjectWhoseBodyEndsEarly_Is400IncompleteBodyAndCloses`,
+   and `Http1AnswerWriterTests`' refusal without the drain, refusal with it, and closing
+   non-refusal without it.
