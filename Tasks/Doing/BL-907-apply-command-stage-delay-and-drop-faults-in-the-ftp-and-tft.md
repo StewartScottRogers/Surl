@@ -46,3 +46,4 @@ Filed by BL-794 (dark factory lane 8), which scoped itself to the chosen error i
 ## Log
 
 - 2026-11-05: Created.
+- 2026-11-11: Backlog -> Doing.
