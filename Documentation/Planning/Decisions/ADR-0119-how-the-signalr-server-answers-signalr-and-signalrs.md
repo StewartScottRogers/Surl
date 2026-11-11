@@ -21,7 +21,7 @@
   checks and refusals), [ADR-0006](ADR-0006-hardening-for-internet-facing-use.md) (limits and fixed
   error text) and [ADR-0059](ADR-0059-how-a-protocol-server-tells-a-limit-from-shutdown.md)
   (shutdown grace).
-- **Amends:** nothing.
+- **Amends:** [ADR-0059](ADR-0059-how-a-protocol-server-tells-a-limit-from-shutdown.md) decision 4, for this server only (Amendment 1, BL-772: a farewell at shutdown).
 
 ## Context
 
@@ -334,3 +334,40 @@ No new option is added: ADR-0006's options cover what a test harness tunes.
 - The requirement matrix [`SignalR.md`](../../Conformance/Extended/SignalR.md) traces each
   server-side requirement to BL-448, BL-449 or a later task; each task replaces its ID with the
   named test.
+
+## Amendment 1 - what decisions 1 and 7 leave open for `Broadcast`, `Collect` and shutdown (BL-772, 2026-11-11)
+
+Decided by Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), 2026-11-11, judged by
+HUB "Upload streaming", "Cancellation" and "Completion and results" and by ADR-0059.
+
+1. **The shutdown farewell rides the exchange's cancellation.** `Surl.Core` gives a server no signal
+   when the grace begins: it cancels `ShutdownToken` once the grace is over, then waits for
+   `ServeAsync` to end (ADR-0059 decisions 1 and 3). So "within the grace" is read as: when the
+   exchange is cancelled at shutdown, the session writes Close `{"type":7}` and WebSocket Close `1001`
+   on a one-second deadline of its own (ADR-0006 section 5's limit-reply deadline) and ends without a
+   lingering close. This is a deliberate exception to ADR-0059 decision 4 (no farewell at shutdown):
+   a SignalR client tells a server going away from a broken connection only by the Close. An
+   exchange cancelled for a limit (`IsCancelledForALimit`) gets the same farewell, its deadline also
+   cut short by shutdown, then the lingering close on `ShutdownToken`. A farewell not written in time
+   is noted and the connection closed without it. A hub-wide signal before the grace would need a
+   `Surl.Core` change; it is not needed for a test to see the farewell.
+2. **The unsent-bytes cap counts every record queued and not yet written**, its WebSocket frame
+   header included: records the session sends itself are always queued; a broadcast that would
+   take the count past 1048576 is not queued, and the connection ends with the protocol-error Close
+   and WebSocket `1008`. A broadcast is queued for each receiver without waiting for its write, in
+   the order the receivers finished their handshakes, so one slow connection never holds up the
+   caller or the others; the caller's own copy is queued before its Completion.
+3. **`Collect`'s upload limit is "past", not "at"**: the items' JSON bytes may total
+   `--max-filesize` exactly; `0` means no limit, as for every other `--max-filesize` use.
+4. **A `Collect` already completed - past the limit, or cancelled - drops the rest of its upload**:
+   the server reads and ignores the stream's items until the client's Completion of it, so a client
+   that keeps streaming after the server's Completion (HUB lets it finish its stream) is not a
+   protocol error. The stream still counts toward the 100 invocations in progress until the
+   client's Completion. A `Collect` refused as one too many registers no stream, so items sent for
+   it are the protocol error decision 3 names.
+5. **A client Completion of an upload carrying `error`** ends the upload like one without: the
+   `Collect` completes with the items received so far. The specifications give the server's method
+   no other way to learn of it, and a fixed text for it would add nothing a test can use.
+6. **A `Collect` naming a stream ID already being uploaded on the connection** is a protocol error,
+   as an `invocationId` already in progress is (decision 3): the server could not tell whose items
+   are whose.
