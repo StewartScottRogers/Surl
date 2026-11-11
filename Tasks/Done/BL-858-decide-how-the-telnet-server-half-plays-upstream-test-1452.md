@@ -8,7 +8,7 @@ depends-on: []
 touches: [Documentation/Planning/Decisions, Documentation/Conformance]
 requirement: none
 created: 2026-11-05
-completed:
+completed: 2026-11-11
 ---
 # BL-858 — Decide how the TELNET server half plays upstream test 1452
 
@@ -32,14 +32,19 @@ listed as a `test-server-choice` exclusion, and files the work it needs.
 
 ## Acceptance criteria
 
-- [ ] An ADR (or an amendment to ADR-0080) records the decision, marked "Decided by Claude under
+- [x] An ADR (or an amendment to ADR-0080) records the decision, marked "Decided by Claude under
       Stewart's delegation".
-- [ ] The work it needs is filed as tasks, or the exclusion row is in
+- [x] The work it needs is filed as tasks, or the exclusion row is in
       `Documentation/Conformance/Upstream-Test-Case-Exclusions.md`.
 
 ## Notes
+
+- Decision: amendment to ADR-0080 decision 2 (an amendment avoids ADR-number collisions between
+  lanes): play the case with an echo-and-close seam, not an exclusion. Work filed as BL-1050.
+- Measurement: relied on BL-396's recorded run (Surl's server times out at 60 s); Record-CurlExchange.ps1 has no telnet mode, so no new measurement was made.
 
 ## Log
 
 - 2026-11-05: Created.
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Done. ADR-0080 amended: TELNET server half plays test 1452 via an echo-and-close seam; build filed as BL-1050
