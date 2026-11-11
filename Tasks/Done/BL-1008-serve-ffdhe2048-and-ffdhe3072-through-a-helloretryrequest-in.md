@@ -8,7 +8,7 @@ depends-on: [BL-1005]
 touches: [Cryptography/Surl.Tls13.UnitLibrary, Cryptography/Surl.Tls13.UnitTests]
 requirement: FR-055
 created: 2026-11-06
-completed:
+completed: 2026-11-11
 ---
 # BL-1008 — Serve ffdhe2048 and ffdhe3072 through a HelloRetryRequest in Surl.Tls13
 
@@ -48,20 +48,39 @@ recorded upstream curl ClientHello for `--curves ffdhe2048` or `--curves ffdhe30
 
 ## Acceptance criteria
 
-- [ ] `Receive_ClientHelloOfferingOnlyOneRemainingGroupWithNoShare_RetriesForItAndCompletesOnTheSecondClientHello`
+- [x] `Receive_ClientHelloOfferingOnlyOneRemainingGroupWithNoShare_RetriesForItAndCompletesOnTheSecondClientHello`
       passes for `0x0100` and `0x0101`.
-- [ ] `Receive_RecordedUpstreamCurlClientHelloForOneCurve_AnswersItsShareAndCompletesWithoutARetry` passes for the
+- [x] `Receive_RecordedUpstreamCurlClientHelloForOneCurve_AnswersItsShareAndCompletesWithoutARetry` passes for the
       four `ffdhe2048` and `ffdhe3072` fixtures (Windows and Linux).
-- [ ] `Receive_RemainingGroupShareOfTheWrongLength_FailsWithIllegalParameter` passes for `(0x0100, 255)` and
+- [x] `Receive_RemainingGroupShareOfTheWrongLength_FailsWithIllegalParameter` passes for `(0x0100, 255)` and
       `(0x0101, 385)`, and a share Y of 1 or p - 1 fails with `illegal_parameter`.
-- [ ] `TlsFiniteFieldGroupTests` passes, and every existing `Surl.Tls13.UnitTests` test passes.
-- [ ] `dotnet build Cryptography/Surl.Tls13.UnitTests -warnaserror` is clean, the fast tests are green, and
+- [x] `TlsFiniteFieldGroupTests` passes, and every existing `Surl.Tls13.UnitTests` test passes.
+- [x] `dotnet build Cryptography/Surl.Tls13.UnitTests -warnaserror` is clean, the fast tests are green, and
       `Surl.Tls13.UnitLibrary` keeps 100% line and branch coverage.
 
 ## Notes
+
+- 2026-11-11 (lane 4): restored from stash commit `e132aaaa` with `git show "S^3:<path>" > <path>` (lane
+  permissions refuse `git checkout <rev> -- <path>`): `TlsFiniteFieldGroup.cs`, `TlsFiniteFieldGroupTests.cs`,
+  `UnitTestFiniteFieldPrimes.cs`, `TlsServerHandshakeTests.Groups.cs` (cut to the `0x0100`/`0x0101` rows and the
+  ffdhe range test) and all fourteen `Fixtures/ClientHello/Curves/*.bin` (sizes match the stash). The three test
+  files' tracked diffs were applied whole with `git apply`; `TlsNamedGroup`, `TlsServerNegotiation`,
+  `TlsKeyExchange` (an `AgreeClassical` dispatch ahead of `AgreeFiniteField`) and `UnitTestTlsClient`
+  (`WithFiniteFieldShare`, `Padded`) got only their ffdhe parts by hand. The stash's ADR-0142 is BL-1005's
+  ADR-0147 on the shared branch, so every citation says ADR-0147.
+- Choice: the range test also gains `(0x0100, -2)`, i.e. Y = p - 1 for ffdhe2048, so both groups pin Y = 1 and
+  Y = p - 1 as the acceptance criterion asks (the stash only had p - 1 for ffdhe3072).
+- Toolchain: the pinned SDK 10.0.401 (`global.json`) is no longer installed on this machine - only 10.0.100-rc.1
+  and 11.0.100 (installed 2026-11-10) are, so a bare `dotnet build` fails SDK resolution. Gates were run with
+  SDK 11.0.100 from a scratch directory whose own `global.json` names it (`net10.0` targets, runtime 10.0.15):
+  `dotnet build Surl.slnx` 0 warnings 0 errors, `-warnaserror` build of `Surl.Tls13.UnitTests` clean, fast tests
+  green solution-wide, `Surl.Tls13.UnitTests` 167/167 with `Surl.Tls13.UnitLibrary` at line 1.0 and branch 1.0,
+  and `dotnet format whitespace --folder --verify-no-changes` clean (the MSBuild-based `dotnet format` cannot
+  locate an SDK while the pinned one is missing). Reinstalling SDK 10.0.4xx is Stewart's machine to change.
 
 ## Log
 
 - 2026-11-06: Created.
 - 2026-11-06: Split from BL-545 (timed out after 120 min); reuses its ffdhe work and recorded fixtures from stash `darkfactory BL-545 20261106-033059`.
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Done. Surl.Tls13 serves ffdhe2048 and ffdhe3072 (RFC 7919) after the five ADR-0082 groups, by HelloRetryRequest or from upstream curl's recorded --curves ClientHellos
