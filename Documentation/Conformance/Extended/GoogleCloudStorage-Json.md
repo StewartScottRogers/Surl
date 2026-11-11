@@ -99,11 +99,11 @@ IDs are:
 
 | ID | Level | Requirement | Covered by |
 | --- | --- | --- | --- |
-| GCSJ:ObjectsCopy-1 | MUST | `POST …/copyTo/b/<destBucket>/o/<destObject>` stores a new generation, metageneration 1, with the source's stored fields unless the body names new metadata. | BL-1043 |
-| GCSJ:ObjectsRewrite-1 | MUST | `rewriteTo` answers `storage#rewriteResponse` with `done` true, `totalBytesRewritten`, `objectSize` and `resource`, in one call. | BL-1043 |
+| GCSJ:ObjectsCopy-1 | MUST | `POST …/copyTo/b/<destBucket>/o/<destObject>` stores a new generation, metageneration 1, with the source's stored fields unless the body names new metadata. | GcsJsonObjectCopyTests: .ServeAsync_Copy_StoresANewObjectWithTheSourcesBytesAndFieldsAndMetagenerationOne, .ServeAsync_CopyToAnotherBucket_WorksAndMakesTheFolders, .ServeAsync_CopyWithABody_TakesTheMetadataTheBodyNamesAndTheSourcesTypeWhenItNamesNone, .ServeAsync_CopyOntoItself_IsANewGenerationOfTheSameBytes |
+| GCSJ:ObjectsRewrite-1 | MUST | `rewriteTo` answers `storage#rewriteResponse` with `done` true, `totalBytesRewritten`, `objectSize` and `resource`, in one call. | GcsJsonObjectCopyTests: .ServeAsync_Rewrite_AnswersTheFinishedRewriteResponseAndIgnoresTheTokenAndTheBound |
 | GCSJ:ObjectsRewrite-2 | MAY | `rewriteToken` and `maxBytesRewrittenPerCall` continue or bound a rewrite. | n/a: ignored, a rewrite always finishes in one call (ADR-0148 decision 7) |
-| GCSJ:ObjectsCompose-1 | MUST | `compose` concatenates 1 to 32 `sourceObjects` in order into the destination; 33 is `400 invalid`, a missing source `404 notFound`. | BL-1043 |
-| GCSJ:Surl-Copy-1 | MUST | The source must be readable and the destination writable by the caller; `ifGenerationMatch=0` and source preconditions give `412 conditionNotMet`; a result past `--max-filesize` is `413 uploadTooLarge`. | BL-1043 |
+| GCSJ:ObjectsCompose-1 | MUST | `compose` concatenates 1 to 32 `sourceObjects` in order into the destination; 33 is `400 invalid`, a missing source `404 notFound`. | GcsJsonObjectComposeTests: .ServeAsync_Compose_ConcatenatesTheSourcesInOrderIntoOneNewGeneration, .ServeAsync_ComposeWith33Sources_Is400Invalid, .ServeAsync_ComposeWithAMissingSource_Is404NotFoundAndStoresNothing |
+| GCSJ:Surl-Copy-1 | MUST | The source must be readable and the destination writable by the caller; `ifGenerationMatch=0` and source preconditions give `412 conditionNotMet`; a result past `--max-filesize` is `413 uploadTooLarge`. | GcsJsonObjectCopyTests: .ServeAsync_CopyWhoseConditionFails_Is412AndChangesNothing, .ServeAsync_CopyPastMaxFilesize_Is413UploadTooLargeAndStoresNothing, .ServeAsync_CopyIntoAReadOnlyShare_Is403Forbidden, .ServeAsync_CopyOfWhatIsNotThere_Is404NotFound; GcsJsonObjectComposeTests: .ServeAsync_ComposeWithAFailingSourcePrecondition_Is412, .ServeAsync_ComposePastMaxFilesize_Is413UploadTooLarge |
 
 ## Surl's own help (ADR-0148 decision 9)
 

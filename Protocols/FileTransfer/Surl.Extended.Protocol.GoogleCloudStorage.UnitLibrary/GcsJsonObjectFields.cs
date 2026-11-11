@@ -45,7 +45,7 @@ internal sealed class GcsJsonObjectFields
         {
             using var document = JsonDocument.Parse(json);
 
-            return document.RootElement.ValueKind == JsonValueKind.Object ? ReadObject(document.RootElement) : null;
+            return From(document.RootElement);
         }
         catch (JsonException)
         {
@@ -68,6 +68,13 @@ internal sealed class GcsJsonObjectFields
         ContentLanguage = Member("contentLanguage", current?.ContentLanguage),
         UserMetadata = UserMetadataOf(current),
     };
+
+    /// <summary>
+    /// Reads the fields of a JSON value already parsed, such as a compose request's <c>destination</c>.
+    /// </summary>
+    /// <param name="element">The value.</param>
+    /// <returns>The fields, or <see langword="null"/> as <see cref="Read"/> gives.</returns>
+    public static GcsJsonObjectFields? From(JsonElement element) => element.ValueKind == JsonValueKind.Object ? ReadObject(element) : null;
 
     private static GcsJsonObjectFields? ReadObject(JsonElement root)
     {

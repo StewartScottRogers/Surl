@@ -10,7 +10,9 @@ namespace Surl.Extended.Protocol.GoogleCloudStorage;
 /// <param name="RawName">The object name as sent, with <c>%2F</c> read as <c>/</c> (decision 2), still
 /// percent-encoded otherwise; empty when none is named.</param>
 /// <param name="IsDownload">Whether the path is under <c>/download/storage/v1/</c>, which serves the bytes.</param>
-internal sealed record GcsJsonRoute(GcsJsonOperation Operation, string RawBucket, string RawName, bool IsDownload)
+/// <param name="RawDestinationBucket">The bucket a copy or rewrite writes to, as sent; empty for every other operation.</param>
+/// <param name="RawDestinationName">The object a copy or rewrite writes to, as sent; empty for every other operation.</param>
+internal sealed record GcsJsonRoute(GcsJsonOperation Operation, string RawBucket, string RawName, bool IsDownload, string RawDestinationBucket = "", string RawDestinationName = "")
 {
     private const string StoragePrefix = "/storage/v1/";
     private const string DownloadPrefix = "/download/storage/v1/";
@@ -34,6 +36,29 @@ internal sealed record GcsJsonRoute(GcsJsonOperation Operation, string RawBucket
     private static readonly HashSet<string> UploadSessionParameters =
         new([.. Common, "uploadType", "upload_id"], StringComparer.Ordinal);
 
+    private static readonly HashSet<string> CopyParameters =
+        new([.. ObjectParameters, "ifSourceGenerationMatch", "ifSourceGenerationNotMatch", "ifSourceMetagenerationMatch", "ifSourceMetagenerationNotMatch", "sourceGeneration"], StringComparer.Ordinal);
+
+    private static readonly HashSet<string> RewriteParameters =
+        new([.. CopyParameters, "maxBytesRewrittenPerCall", "rewriteToken"], StringComparer.Ordinal);
+
+    private static readonly HashSet<string> ComposeParameters =
+        new([.. Common, "ifGenerationMatch", "ifMetagenerationMatch"], StringComparer.Ordinal);
+
+    // The parameters each operation takes; the object operations that name none here take ObjectParameters.
+    private static readonly Dictionary<GcsJsonOperation, HashSet<string>> ParametersOf = new()
+    {
+        [GcsJsonOperation.ListBuckets] = BucketsListParameters,
+        [GcsJsonOperation.GetBucket] = BucketsGetParameters,
+        [GcsJsonOperation.ListObjects] = ObjectsListParameters,
+        [GcsJsonOperation.InsertObject] = InsertParameters,
+        [GcsJsonOperation.ResumeUpload] = UploadSessionParameters,
+        [GcsJsonOperation.CancelUpload] = UploadSessionParameters,
+        [GcsJsonOperation.CopyObject] = CopyParameters,
+        [GcsJsonOperation.RewriteObject] = RewriteParameters,
+        [GcsJsonOperation.ComposeObject] = ComposeParameters,
+    };
+
     private static readonly GcsJsonRoute UnlistedRoute = new(GcsJsonOperation.Unlisted, string.Empty, string.Empty, false);
 
     /// <summary>
@@ -54,6 +79,9 @@ internal sealed record GcsJsonRoute(GcsJsonOperation Operation, string RawBucket
         GcsJsonOperation.InsertObject or GcsJsonOperation.ResumeUpload or GcsJsonOperation.CancelUpload => "storage.objects.insert",
         GcsJsonOperation.PatchObject => "storage.objects.patch",
         GcsJsonOperation.UpdateObject => "storage.objects.update",
+        GcsJsonOperation.CopyObject => "storage.objects.copy",
+        GcsJsonOperation.RewriteObject => "storage.objects.rewrite",
+        GcsJsonOperation.ComposeObject => "storage.objects.compose",
         _ => "storage.unlisted",
     };
 
@@ -107,9 +135,14 @@ internal sealed record GcsJsonRoute(GcsJsonOperation Operation, string RawBucket
     private static GcsJsonRoute Of(string method, string rest, bool isDownload)
     {
         var parts = rest.Split('/', 4);
-        if (method is not ("GET" or "DELETE" or "PATCH" or "PUT") || parts[0] != "b" || (parts.Length > 1 && parts[1].Length == 0))
+        if (method is not ("GET" or "DELETE" or "PATCH" or "PUT" or "POST") || parts[0] != "b" || (parts.Length > 1 && parts[1].Length == 0))
         {
             return UnlistedRoute;
+        }
+
+        if (method == "POST")
+        {
+            return isDownload ? UnlistedRoute : OfPost(parts);
         }
 
         var operation = OperationOf(parts, method);
@@ -121,6 +154,38 @@ internal sealed record GcsJsonRoute(GcsJsonOperation Operation, string RawBucket
             ? new GcsJsonRoute(operation, parts.Length > 1 ? parts[1] : string.Empty, name, isDownload)
             : UnlistedRoute;
     }
+
+    // A POST of b/<bucket>/o/<object>/compose, or of b/<bucket>/o/<object>/copyTo|rewriteTo/b/<bucket>/o/<object>; names may hold unencoded slashes, so the markers are found from the end.
+    private static GcsJsonRoute OfPost(string[] parts)
+    {
+        if (parts.Length < 4 || parts[2] != "o")
+        {
+            return UnlistedRoute;
+        }
+
+        var tail = parts[3];
+        if (tail.EndsWith("/compose", StringComparison.Ordinal) && tail.Length > "/compose".Length)
+        {
+            return new GcsJsonRoute(GcsJsonOperation.ComposeObject, parts[1], Decoded(tail[..^"/compose".Length]), false);
+        }
+
+        var isCopy = tail.Contains("/copyTo/b/", StringComparison.Ordinal);
+
+        return OfCopy(parts[1], tail, isCopy ? "/copyTo/b/" : "/rewriteTo/b/", isCopy ? GcsJsonOperation.CopyObject : GcsJsonOperation.RewriteObject);
+    }
+
+    // <object><marker><destBucket>/o/<destObject>
+    private static GcsJsonRoute OfCopy(string bucket, string tail, string marker, GcsJsonOperation operation)
+    {
+        var at = tail.LastIndexOf(marker, StringComparison.Ordinal);
+        var destination = at > 0 ? tail[(at + marker.Length)..].Split('/', 3) : [];
+
+        return destination.Length == 3 && destination[0].Length > 0 && destination[1] == "o" && destination[2].Length > 0
+            ? new GcsJsonRoute(operation, bucket, Decoded(tail[..at]), false, destination[0], Decoded(destination[2]))
+            : UnlistedRoute;
+    }
+
+    private static string Decoded(string name) => name.Replace("%2F", "/", StringComparison.OrdinalIgnoreCase);
 
     // The operation the parts of b, b/<bucket>, b/<bucket>/o or b/<bucket>/o/<object> name; a DELETE of anything but an object is refused by IsServed.
     private static GcsJsonOperation OperationOf(string[] parts, string method)
@@ -168,15 +233,7 @@ internal sealed record GcsJsonRoute(GcsJsonOperation Operation, string RawBucket
 
     private static bool AreParametersOfTheOperation(GcsJsonOperation operation, GcsRequestTarget target)
     {
-        var allowed = operation switch
-        {
-            GcsJsonOperation.ListBuckets => BucketsListParameters,
-            GcsJsonOperation.GetBucket => BucketsGetParameters,
-            GcsJsonOperation.ListObjects => ObjectsListParameters,
-            GcsJsonOperation.InsertObject => InsertParameters,
-            GcsJsonOperation.ResumeUpload or GcsJsonOperation.CancelUpload => UploadSessionParameters,
-            _ => ObjectParameters,
-        };
+        var allowed = ParametersOf.GetValueOrDefault(operation, ObjectParameters);
 
         return target.Parameters.All(parameter => allowed.Contains(parameter.Key));
     }

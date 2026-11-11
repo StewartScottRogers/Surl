@@ -510,8 +510,6 @@ public sealed class GcsJsonRequestAnswererTests
     [DataRow("POST", "/download/storage/v1/b/photos/o/a.txt", DisplayName = "POST to the download path")]
     [DataRow("PATCH", "/download/storage/v1/b/photos/o/a.txt", DisplayName = "PATCH to the download path")]
     [DataRow("PATCH", "/storage/v1/b/photos/o", DisplayName = "PATCH of a listing")]
-    [DataRow("POST", "/storage/v1/b/photos/o/a.txt/compose", DisplayName = "compose")]
-    [DataRow("POST", "/storage/v1/b/photos/o/a.txt/copyTo/b/photos/o/b.txt", DisplayName = "copyTo")]
     [DataRow("POST", "/storage/v1/b?project=p", DisplayName = "bucket creation")]
     [DataRow("DELETE", "/storage/v1/b/photos", DisplayName = "bucket deletion")]
     [DataRow("PUT", "/storage/v1/b/photos", DisplayName = "bucket update")]

@@ -59,4 +59,19 @@ internal enum GcsJsonOperation
     /// <c>PUT …/o/&lt;object&gt;</c>: <c>storage.objects.update</c>.
     /// </summary>
     UpdateObject,
+
+    /// <summary>
+    /// <c>POST …/o/&lt;object&gt;/copyTo/b/&lt;bucket&gt;/o/&lt;object&gt;</c>: <c>storage.objects.copy</c>.
+    /// </summary>
+    CopyObject,
+
+    /// <summary>
+    /// <c>POST …/o/&lt;object&gt;/rewriteTo/b/&lt;bucket&gt;/o/&lt;object&gt;</c>: <c>storage.objects.rewrite</c>.
+    /// </summary>
+    RewriteObject,
+
+    /// <summary>
+    /// <c>POST …/o/&lt;object&gt;/compose</c>: <c>storage.objects.compose</c>.
+    /// </summary>
+    ComposeObject,
 }

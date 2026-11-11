@@ -25,8 +25,10 @@ namespace Surl.Extended.Protocol.GoogleCloudStorage;
 /// <param name="insert">Answers <c>objects.insert</c>, media and multipart.</param>
 /// <param name="resumable">Answers <c>objects.insert</c>, resumable: opening, chunks, status checks and cancels.</param>
 /// <param name="update">Answers <c>objects.patch</c> and <c>objects.update</c>.</param>
+/// <param name="copy">Answers <c>objects.copy</c> and <c>objects.rewrite</c>.</param>
+/// <param name="compose">Answers <c>objects.compose</c>.</param>
 /// <param name="isOverTls">Whether the connection is TLS, for the links the resources carry.</param>
-internal sealed class GcsJsonRequestAnswerer(ContentStore store, GcsObjectPropertiesReader properties, GcsListBuckets listBuckets, GcsLoginJudge login, ExchangeContext context, GcsJsonObjectInsert insert, GcsJsonResumableUpload resumable, GcsJsonObjectUpdate update, bool isOverTls)
+internal sealed class GcsJsonRequestAnswerer(ContentStore store, GcsObjectPropertiesReader properties, GcsListBuckets listBuckets, GcsLoginJudge login, ExchangeContext context, GcsJsonObjectInsert insert, GcsJsonResumableUpload resumable, GcsJsonObjectUpdate update, GcsJsonObjectCopy copy, GcsJsonObjectCompose compose, bool isOverTls)
 {
     private static readonly HttpStatus NoContent = new(204, "No Content");
 
@@ -108,9 +110,17 @@ internal sealed class GcsJsonRequestAnswerer(ContentStore store, GcsObjectProper
             GcsJsonOperation.GetObject => await GetObjectAsync(reply, request, target, route, caller, resources, cancellationToken),
             GcsJsonOperation.InsertObject or GcsJsonOperation.ResumeUpload or GcsJsonOperation.CancelUpload => await AnswerUploadAsync(reply, request, target, route, caller, resources, cancellationToken),
             GcsJsonOperation.DeleteObject => await DeleteObjectAsync(reply, request, target, route, caller, cancellationToken),
-            _ => await ChangeMetadataAsync(reply, request, target, route, caller, resources, cancellationToken),
+            _ => await ChangeOrAssembleAsync(reply, request, target, route, caller, resources, cancellationToken),
         };
     }
+
+    // objects.patch and objects.update change metadata; objects.copy, rewrite and compose write a new generation from other objects.
+    private Task<HttpAnswer> ChangeOrAssembleAsync(GcsReply reply, HttpRequest request, GcsRequestTarget target, GcsJsonRoute route, ContentCaller caller, GcsJsonResources resources, CancellationToken cancellationToken) => route.Operation switch
+    {
+        GcsJsonOperation.CopyObject or GcsJsonOperation.RewriteObject => copy.AnswerAsync(reply, request, target, route, caller, resources, cancellationToken),
+        GcsJsonOperation.ComposeObject => compose.AnswerAsync(reply, request, target, route, caller, resources, cancellationToken),
+        _ => ChangeMetadataAsync(reply, request, target, route, caller, resources, cancellationToken),
+    };
 
     // objects.insert: media and multipart in one request; resumable opened, resumed or cancelled.
     private Task<HttpAnswer> AnswerUploadAsync(GcsReply reply, HttpRequest request, GcsRequestTarget target, GcsJsonRoute route, ContentCaller caller, GcsJsonResources resources, CancellationToken cancellationToken) => route.Operation switch

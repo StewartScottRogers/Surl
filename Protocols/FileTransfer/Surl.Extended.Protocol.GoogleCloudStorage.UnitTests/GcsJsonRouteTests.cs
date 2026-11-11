@@ -19,6 +19,9 @@ public sealed class GcsJsonRouteTests
     [DataRow("/upload/storage/v1/b/photos/o?uploadType=resumable", "POST", "InsertObject", "photos", "", "storage.objects.insert")]
     [DataRow("/upload/storage/v1/b/photos/o?uploadType=resumable&upload_id=x", "PUT", "ResumeUpload", "photos", "", "storage.objects.insert")]
     [DataRow("/upload/storage/v1/b/photos/o?uploadType=resumable&upload_id=x", "DELETE", "CancelUpload", "photos", "", "storage.objects.insert")]
+    [DataRow("/storage/v1/b/photos/o/a%2Fb.txt/copyTo/b/other/o/c.txt", "POST", "CopyObject", "photos", "a/b.txt", "storage.objects.copy")]
+    [DataRow("/storage/v1/b/photos/o/a.txt/rewriteTo/b/other/o/c.txt?rewriteToken=t", "POST", "RewriteObject", "photos", "a.txt", "storage.objects.rewrite")]
+    [DataRow("/storage/v1/b/photos/o/d/e.txt/compose", "POST", "ComposeObject", "photos", "d/e.txt", "storage.objects.compose")]
     public void Recognise_AListedRequest_IsItsOperationBucketAndName(string target, string method, string operation, string bucket, string name, string methodId)
     {
         var route = Recognise(method, target);
@@ -41,6 +44,19 @@ public sealed class GcsJsonRouteTests
     [DataRow("/upload/storage/v1/b/photos/o", "PATCH", DisplayName = "a patch of the upload path")]
     [DataRow("/upload/storage/v1/b/photos/o?upload_id=x&name=y&versions=1", "PUT", DisplayName = "an unlisted parameter on a session request")]
     [DataRow("/download/storage/v1/b/photos", "GET", DisplayName = "a bucket on the download path")]
+    [DataRow("/storage/v1/b/photos/o/a.txt", "POST", DisplayName = "a post of an object")]
+    [DataRow("/storage/v1/b/photos", "POST", DisplayName = "a post of a bucket")]
+    [DataRow("/storage/v1/b/photos/x/a.txt/compose", "POST", DisplayName = "a compose with no o")]
+    [DataRow("/storage/v1/b/photos/o//compose", "POST", DisplayName = "a compose of no name")]
+    [DataRow("/download/storage/v1/b/photos/o/a.txt/compose", "POST", DisplayName = "a compose on the download path")]
+    [DataRow("/storage/v1/b/photos/o/a.txt/copyTo/b/other/o/c.txt?versions=1", "POST", DisplayName = "a copy with an unlisted parameter")]
+    [DataRow("/storage/v1/b/photos/o/a.txt/compose?rewriteToken=t", "POST", DisplayName = "a compose with a rewrite parameter")]
+    [DataRow("/storage/v1/b/photos/o/a.txt/copyTo/b/other/o/", "POST", DisplayName = "a copy with no destination name")]
+    [DataRow("/storage/v1/b/photos/o/a.txt/copyTo/b//o/c.txt", "POST", DisplayName = "a copy with no destination bucket")]
+    [DataRow("/storage/v1/b/photos/o/a.txt/copyTo/b/other/x/c.txt", "POST", DisplayName = "a copy with no destination o")]
+    [DataRow("/storage/v1/b/photos/o/a.txt/copyTo/b/other", "POST", DisplayName = "a copy with a bucket only")]
+    [DataRow("/storage/v1/b/photos/o/copyTo/b/other/o/c.txt", "POST", DisplayName = "a copy of no source name")]
+    [DataRow("/storage/v1/b/photos/o/a.txt/copyFrom/b/other/o/c.txt", "POST", DisplayName = "a post with no marker")]
     [DataRow("/storage/v1/b/photos/o?versions=true", "GET", DisplayName = "an unlisted parameter")]
     public void Recognise_AnythingElse_IsUnlisted(string target, string method)
     {
@@ -49,6 +65,16 @@ public sealed class GcsJsonRouteTests
         Assert.AreEqual(GcsJsonOperation.Unlisted, route.Operation);
         Assert.IsFalse(route.IsListed);
         Assert.AreEqual("storage.unlisted", route.MethodId);
+    }
+
+    [TestMethod]
+    public void Recognise_ACopyOrRewrite_NamesItsDestination()
+    {
+        var copy = Recognise("POST", "/storage/v1/b/photos/o/a.txt/copyTo/b/other/o/d%2Fe.txt");
+        var rewrite = Recognise("POST", "/storage/v1/b/photos/o/a.txt/rewriteTo/b/other/o/x");
+
+        Assert.AreEqual(("other", "d/e.txt"), (copy.RawDestinationBucket, copy.RawDestinationName));
+        Assert.AreEqual(("other", "x"), (rewrite.RawDestinationBucket, rewrite.RawDestinationName));
     }
 
     [TestMethod]

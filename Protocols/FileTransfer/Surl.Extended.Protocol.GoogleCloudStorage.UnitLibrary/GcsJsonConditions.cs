@@ -19,12 +19,21 @@ internal sealed record GcsJsonConditions(long? GenerationMatch, long? Generation
     /// </summary>
     /// <param name="parameters">The query's parameters.</param>
     /// <returns>The conditions, or <see langword="null"/> when a value given is not a whole number.</returns>
-    public static GcsJsonConditions? Read(IReadOnlyList<KeyValuePair<string, string>> parameters)
+    public static GcsJsonConditions? Read(IReadOnlyList<KeyValuePair<string, string>> parameters) => Read(parameters, "");
+
+    /// <summary>
+    /// Reads the four parameters a copy or rewrite puts on its source: <c>ifSourceGenerationMatch</c> and the three like it.
+    /// </summary>
+    /// <param name="parameters">The query's parameters.</param>
+    /// <returns>The conditions, or <see langword="null"/> when a value given is not a whole number.</returns>
+    public static GcsJsonConditions? ReadSource(IReadOnlyList<KeyValuePair<string, string>> parameters) => Read(parameters, "Source");
+
+    private static GcsJsonConditions? Read(IReadOnlyList<KeyValuePair<string, string>> parameters, string infix)
     {
-        if (TryRead(parameters, "ifGenerationMatch", out var generationMatch)
-            && TryRead(parameters, "ifGenerationNotMatch", out var generationNotMatch)
-            && TryRead(parameters, "ifMetagenerationMatch", out var metagenerationMatch)
-            && TryRead(parameters, "ifMetagenerationNotMatch", out var metagenerationNotMatch))
+        if (TryRead(parameters, $"if{infix}GenerationMatch", out var generationMatch)
+            && TryRead(parameters, $"if{infix}GenerationNotMatch", out var generationNotMatch)
+            && TryRead(parameters, $"if{infix}MetagenerationMatch", out var metagenerationMatch)
+            && TryRead(parameters, $"if{infix}MetagenerationNotMatch", out var metagenerationNotMatch))
         {
             return new GcsJsonConditions(generationMatch, generationNotMatch, metagenerationMatch, metagenerationNotMatch);
         }

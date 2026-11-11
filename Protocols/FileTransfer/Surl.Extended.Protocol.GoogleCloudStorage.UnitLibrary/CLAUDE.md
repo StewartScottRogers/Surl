@@ -112,7 +112,9 @@ BL-1041), `x-goog-stored-content-*`, `x-goog-storage-class: STANDARD`
   (`GcsStagedUploads.FindJson`), so an XML ID on a JSON URL, or the reverse, is `404 notFound`. `GcsStagedUpload.Metadata` holds the
   opening's `ObjectMetadata`, which `GcsUploadStaging.CommitAsync` stores in place of the XML opening's fields.
 
-Every other request - another method, a subresource or unlisted query parameter, a copy, a `POST` that is no
+- JSON copy, rewrite and compose (BL-1043, ADR-0148 decision 7 and amendment 3). `GcsJsonRoute` recognises `POST …/o/<object>/copyTo/b/<bucket>/o/<object>`, `…/rewriteTo/b/…` (route members `RawDestinationBucket`, `RawDestinationName`) and `…/o/<object>/compose`; `GcsJsonObjectCopy` answers copy and rewrite (source read, `sourceGeneration` and `ifSource…` judged, body metadata optional, `storage#object` or the finished `storage#rewriteResponse`; `rewriteToken` ignored) and `GcsJsonObjectCompose` compose (`GcsJsonComposeRequest` reads 1 to 32 sources and the destination's fields). Both write through `GcsJsonObjectAssembly`: name, `--max-filesize` on the sources' total, destination conditions, folders, then the sources' bytes through the hashes into an upload session committed last and kept in the index with metageneration 1.
+
+Every other request - another method, a subresource or unlisted query parameter, an XML API copy, a `POST` that is no
 upload, `x-goog-encryption-*` - is `400 NotImplemented`, judged after the login. Every error is `GcsError`'s fixed
 code and message in the one-line XML body (`GcsErrorBody`); no client byte is echoed, and a `HEAD` error has
 no body. A connection past a limit is `503 SlowDown` (`WriteRefusalAsync`). A head past `--max-request-head`

@@ -27,6 +27,26 @@ internal sealed class GcsJsonResources(string origin)
         GcsJson.Write(writer => WriteObject(writer, bucket, name, properties, digests));
 
     /// <summary>
+    /// A finished <c>storage#rewriteResponse</c> as a document: <c>done</c> true, the size twice and the object written.
+    /// </summary>
+    /// <param name="bucket">The destination bucket's name.</param>
+    /// <param name="name">The destination object's name.</param>
+    /// <param name="properties">What the object written answers with.</param>
+    /// <param name="digests">The object's digests.</param>
+    /// <returns>The document's bytes.</returns>
+    public byte[] Rewrite(string bucket, string name, ObjectProperties properties, GcsObjectDigests digests) => GcsJson.Write(writer =>
+    {
+        writer.WriteStartObject();
+        writer.WriteString("kind", "storage#rewriteResponse");
+        writer.WriteString("totalBytesRewritten", Number(properties.Length));
+        writer.WriteString("objectSize", Number(properties.Length));
+        writer.WriteBoolean("done", true);
+        writer.WritePropertyName("resource");
+        WriteObject(writer, bucket, name, properties, digests);
+        writer.WriteEndObject();
+    });
+
+    /// <summary>
     /// A <c>storage#bucket</c> as a document.
     /// </summary>
     /// <param name="name">The bucket's name.</param>
