@@ -9,21 +9,21 @@ namespace Surl.Cryptography.MlKem;
 public static class MlKem768
 {
     /// <summary>The bytes of an encapsulation key: 1184.</summary>
-    public const int EncapsulationKeySize = KPke.EncryptionKeySize;
+    public const int EncapsulationKeySize = 1184;
 
     /// <summary>The bytes of a decapsulation key: 2400.</summary>
-    public const int DecapsulationKeySize = KPke.DecryptionKeySize + KPke.EncryptionKeySize + 64;
+    public const int DecapsulationKeySize = 2400;
 
     /// <summary>The bytes of a ciphertext: 1088.</summary>
-    public const int CiphertextSize = KPke.CiphertextSize;
+    public const int CiphertextSize = 1088;
 
     /// <summary>The bytes of a shared secret: 32.</summary>
-    public const int SharedSecretSize = 32;
+    public const int SharedSecretSize = MlKemKeyEncapsulation.SecretSize;
 
     /// <summary>The bytes of each random seed: d and z for key generation, m for encapsulation.</summary>
-    public const int SeedSize = 32;
+    public const int SeedSize = MlKemKeyEncapsulation.SecretSize;
 
-    private const int HashOffset = KPke.DecryptionKeySize + KPke.EncryptionKeySize;
+    private static readonly MlKemKeyEncapsulation KeyEncapsulation = new(KPke.ForMlKem768);
 
     /// <summary>ML-KEM.KeyGen_internal (FIPS 203 Algorithm 16) from the seeds <paramref name="d"/> and <paramref name="z"/>.</summary>
     /// <param name="d">The 32-byte seed of K-PKE's key.</param>
@@ -31,17 +31,8 @@ public static class MlKem768
     /// <param name="encapsulationKey">Receives the 1184-byte encapsulation key.</param>
     /// <param name="decapsulationKey">Receives the 2400-byte decapsulation key.</param>
     /// <exception cref="ArgumentException">A span is not its size.</exception>
-    public static void GenerateKey(ReadOnlySpan<byte> d, ReadOnlySpan<byte> z, Span<byte> encapsulationKey, Span<byte> decapsulationKey)
-    {
-        RequireSize(d, SeedSize, nameof(d));
-        RequireSize(z, SeedSize, nameof(z));
-        RequireSize(encapsulationKey, EncapsulationKeySize, nameof(encapsulationKey));
-        RequireSize(decapsulationKey, DecapsulationKeySize, nameof(decapsulationKey));
-        KPke.GenerateKey(d, encapsulationKey, decapsulationKey[..KPke.DecryptionKeySize]);
-        encapsulationKey.CopyTo(decapsulationKey[KPke.DecryptionKeySize..]);
-        Sha3.Sha3_256(encapsulationKey).CopyTo(decapsulationKey[HashOffset..]);
-        z.CopyTo(decapsulationKey[(HashOffset + 32)..]);
-    }
+    public static void GenerateKey(ReadOnlySpan<byte> d, ReadOnlySpan<byte> z, Span<byte> encapsulationKey, Span<byte> decapsulationKey) =>
+        KeyEncapsulation.GenerateKey(d, z, encapsulationKey, decapsulationKey);
 
     /// <summary>
     /// ML-KEM.Encaps_internal (FIPS 203 Algorithm 17) with the randomness <paramref name="m"/>,
@@ -53,22 +44,8 @@ public static class MlKem768
     /// <param name="sharedSecret">Receives the 32-byte shared secret.</param>
     /// <returns>False, writing nothing, when the key fails the modulus check.</returns>
     /// <exception cref="ArgumentException">A span is not its size.</exception>
-    public static bool TryEncapsulate(ReadOnlySpan<byte> encapsulationKey, ReadOnlySpan<byte> m, Span<byte> ciphertext, Span<byte> sharedSecret)
-    {
-        RequireSize(encapsulationKey, EncapsulationKeySize, nameof(encapsulationKey));
-        RequireSize(m, SeedSize, nameof(m));
-        RequireSize(ciphertext, CiphertextSize, nameof(ciphertext));
-        RequireSize(sharedSecret, SharedSecretSize, nameof(sharedSecret));
-        if (!KPke.HasReducedCoefficients(encapsulationKey))
-        {
-            return false;
-        }
-
-        var keyAndRandomness = Sha3.Sha3_512([.. m, .. Sha3.Sha3_256(encapsulationKey)]);
-        KPke.Encrypt(encapsulationKey, m, keyAndRandomness.AsSpan(32), ciphertext);
-        keyAndRandomness.AsSpan(0, SharedSecretSize).CopyTo(sharedSecret);
-        return true;
-    }
+    public static bool TryEncapsulate(ReadOnlySpan<byte> encapsulationKey, ReadOnlySpan<byte> m, Span<byte> ciphertext, Span<byte> sharedSecret) =>
+        KeyEncapsulation.TryEncapsulate(encapsulationKey, m, ciphertext, sharedSecret);
 
     /// <summary>
     /// ML-KEM.Decaps_internal (FIPS 203 Algorithm 18), after section 7.3's hash check of
@@ -80,44 +57,6 @@ public static class MlKem768
     /// <param name="sharedSecret">Receives the 32-byte shared secret.</param>
     /// <returns>False, writing nothing, when the key's stored hash is not H of its encapsulation key.</returns>
     /// <exception cref="ArgumentException">A span is not its size.</exception>
-    public static bool TryDecapsulate(ReadOnlySpan<byte> decapsulationKey, ReadOnlySpan<byte> ciphertext, Span<byte> sharedSecret)
-    {
-        RequireSize(decapsulationKey, DecapsulationKeySize, nameof(decapsulationKey));
-        RequireSize(ciphertext, CiphertextSize, nameof(ciphertext));
-        RequireSize(sharedSecret, SharedSecretSize, nameof(sharedSecret));
-        var encryptionKey = decapsulationKey[KPke.DecryptionKeySize..HashOffset];
-        var hash = decapsulationKey.Slice(HashOffset, 32);
-        if (!Sha3.Sha3_256(encryptionKey).AsSpan().SequenceEqual(hash))
-        {
-            return false;
-        }
-
-        Span<byte> m = stackalloc byte[SeedSize];
-        KPke.Decrypt(decapsulationKey[..KPke.DecryptionKeySize], ciphertext, m);
-        var keyAndRandomness = Sha3.Sha3_512([.. m, .. hash]);
-        var rejection = Sha3.Shake256([.. decapsulationKey[(HashOffset + 32)..], .. ciphertext], SharedSecretSize);
-        var reencrypted = new byte[CiphertextSize];
-        KPke.Encrypt(encryptionKey, m, keyAndRandomness.AsSpan(32), reencrypted);
-        var difference = 0;
-        for (var index = 0; index < CiphertextSize; index++)
-        {
-            difference |= ciphertext[index] ^ reencrypted[index];
-        }
-
-        var keep = (byte)((difference - 1) >> 8);
-        for (var index = 0; index < SharedSecretSize; index++)
-        {
-            sharedSecret[index] = (byte)((keyAndRandomness[index] & keep) | (rejection[index] & ~keep));
-        }
-
-        return true;
-    }
-
-    private static void RequireSize(ReadOnlySpan<byte> span, int size, string name)
-    {
-        if (span.Length != size)
-        {
-            throw new ArgumentException($"{name} is {size} bytes, not {span.Length}.", name);
-        }
-    }
+    public static bool TryDecapsulate(ReadOnlySpan<byte> decapsulationKey, ReadOnlySpan<byte> ciphertext, Span<byte> sharedSecret) =>
+        KeyEncapsulation.TryDecapsulate(decapsulationKey, ciphertext, sharedSecret);
 }
