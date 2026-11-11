@@ -4,7 +4,7 @@ title: Draw the STOMP CONNECTED session header from the exchange's seedable iden
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-822, BL-851]
+depends-on: [BL-822, BL-851, BL-1035]
 touches: [Protocols/Messaging/Surl.Extended.Protocol.Stomp.UnitLibrary, Protocols/Messaging/Surl.Extended.Protocol.Stomp.UnitTests]
 requirement: none
 created: 2026-11-05
@@ -35,7 +35,22 @@ instance sends the same session ID every run.
 
 ## Notes
 
+- 2026-11-11 (lane 4): Change made and left in the lane's working tree (the shift stashes it):
+  `StompServerConnection.Connected` fills 16 bytes from `context.Identifiers` and writes them with
+  `Convert.ToHexStringLower` - still 32 lowercase hex digits, so the existing `session:[0-9a-f]{32}`
+  masks hold. The test project gains `SeededTestIdentifierRandom` (a `System.Random(seed)` source,
+  standing in for `--random-seed`; the test project does not reference `Surl.Core`, so its
+  `SeededIdentifierRandom` was not used) and the test
+  `Connected_SameSeededIdentifiers_SendsTheSameSessionHeader` (seeds 7, 7, 8). The library's
+  CLAUDE.md says where the session comes from.
+- Verified with the installed SDK 11.0.100 from outside the repository (so `global.json` was not
+  read): the Stomp library and tests build clean and all 176 tests pass. The new code has no
+  branches, so coverage stays at 100%.
+- Not finished: `dotnet build` in the repository fails because `global.json` pins SDK 10.0.401,
+  which is not installed on the dark factory machine. Waiting on BL-1035 (Stewart), as BL-843 does.
+
 ## Log
 
 - 2026-11-05: Created.
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Backlog. Waiting on BL-1035: pinned .NET SDK 10.0.401 is not installed, so dotnet build cannot run; change verified with SDK 11 (176 Stomp tests pass) and left in the working tree
