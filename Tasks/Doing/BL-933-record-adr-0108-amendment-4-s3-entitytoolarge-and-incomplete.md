@@ -36,3 +36,4 @@ ADR-0108 records, as Amendment 4, the decision BL-729 built: S3's `EntityTooLarg
 - 2026-11-11: Doing -> Backlog. Lane 6 could not integrate: build failed after rebasing onto the other lanes' work. The work is on branch factory/BL-933-lane-6-20261111-060243; start with git cherry-pick --no-commit factory/BL-933-lane-6-20261111-060243 and fix it.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Lane 3 could not integrate: build failed after rebasing onto the other lanes' work. The work is on branch factory/BL-933-lane-3-20261111-060243; start with git cherry-pick --no-commit factory/BL-933-lane-3-20261111-060243 and fix it.
+- 2026-11-11: Backlog -> Doing.
