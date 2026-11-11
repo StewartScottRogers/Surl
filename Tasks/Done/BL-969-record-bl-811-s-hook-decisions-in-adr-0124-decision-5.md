@@ -8,7 +8,7 @@ depends-on: [BL-811]
 touches: [Documentation/Planning/Decisions/ADR-0124-surl-is-a-stand-in-for-tests.md]
 requirement: none
 created: 2026-11-06
-completed:
+completed: 2026-11-11
 ---
 # BL-969 — Record BL-811's hook decisions in ADR-0124 decision 5
 
@@ -34,14 +34,18 @@ Stewart's delegation", so the ADR says what the code does.
 
 ## Acceptance criteria
 
-- [ ] ADR-0124 decision 5 has an amendment paragraph stating each decision listed in Context, marked "Decided by
+- [x] ADR-0124 decision 5 has an amendment paragraph stating each decision listed in Context, marked "Decided by
       Claude under Stewart's delegation", naming BL-811.
-- [ ] Every statement in the amendment is true of `Application/Surl.Api/ResponseOverrideHook.cs`,
+- [x] Every statement in the amendment is true of `Application/Surl.Api/ResponseOverrideHook.cs`,
       `EventCallbackHook.cs` and `Foundation/Surl.Core.UnitLibrary/FaultPlan.cs` as they are.
 
 ## Notes
+
+- Docs-only, one paragraph: written in the session rather than through align-and-document, since the task is a single ADR amendment. Each statement checked against `ResponseOverrideHook.cs` (ToRule drops scope and Times, takes the point's scheme for errors; a refusal or wrong stage throws ArgumentException, published as `Threw`), `FaultPlan.cs` (overrides share the `f<n>` sequence and MaxRules 256, `Rules` lists only `PlannedRule`; `AskAsync` passes `planned.Id` as the hook ID), `FaultOverrideScope`/`SurlFaultScope` (null Stage matches anything), `EventCallbackHook.cs` (no failure on its own HookFailedEvent or after disposal; token cancelled on Dispose) and `SurlServer.StopCallbacks`.
+- No `.cs` or project file changed, so the verify skill was not needed.
 
 ## Log
 
 - 2026-11-06: Created.
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Done. ADR-0124 decision 5 records BL-811's hook decisions in an amendment, each checked against the code
