@@ -1,4 +1,4 @@
-﻿---
+---
 id: BL-1049
 title: Prove the two XMPP matrix rows no test proves: a stanza with no to, a message of unknown type
 priority: Low
@@ -30,3 +30,4 @@ Found by BL-541: `XmppStanzaRouterTests` has no test for either row. Add them be
 ## Log
 
 - 2026-11-11: Created.
+- 2026-11-11: Backlog -> Doing.
