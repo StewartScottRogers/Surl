@@ -4,7 +4,7 @@ title: Create Surl.Cryptography.Curve448 with X448
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-1005]
+depends-on: [BL-1005, BL-1035]
 touches: [Cryptography/Surl.Cryptography.Curve448.UnitLibrary, Cryptography/Surl.Cryptography.Curve448.UnitTests, Surl.slnx, Foundation/Surl.Protocol.Abstractions.UnitTests]
 requirement: FR-055
 created: 2026-11-06
@@ -51,6 +51,13 @@ public keys and shared secrets, with its `.UnitTests` twin, registered in `Surl.
 
 ## Notes
 
+- 2026-11-11, lane 6: `git cherry-pick --no-commit factory/BL-1007-lane-3-20261111-060243` applies cleanly
+  apart from this task file (the seven Curve448 files, two `Surl.slnx` lines, four `ProtocolIsolationTests`
+  lines). Lane 3's integration build did not fail on this code: `dotnet --list-sdks` lists only
+  10.0.100-rc.1, 11.0.100-rc.2 and 11.0.100, so no build runs under `global.json`'s pinned 10.0.401. Parked
+  behind BL-1035 (Stewart reinstalls the SDK). When it is Done, cherry-pick that commit again (skip its task
+  file), build, run the fast tests and coverage, and finish.
+
 ## Log
 
 - 2026-11-06: Created.
@@ -58,3 +65,4 @@ public keys and shared secrets, with its `.UnitTests` twin, registered in `Surl.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Lane 3 could not integrate: build failed after rebasing onto the other lanes' work. The work is on branch factory/BL-1007-lane-3-20261111-060243; start with git cherry-pick --no-commit factory/BL-1007-lane-3-20261111-060243 and fix it.
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Backlog. Waiting on BL-1035: pinned .NET SDK 10.0.401 is not installed, so no build runs; the code on factory/BL-1007-lane-3-20261111-060243 is ready to cherry-pick
