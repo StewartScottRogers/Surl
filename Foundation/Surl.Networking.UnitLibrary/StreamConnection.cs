@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Security;
 using System.Net.Sockets;
 using Surl.Protocol.Abstractions;
+using Surl.TlsSrp;
 
 namespace Surl.Networking;
 
@@ -38,7 +39,7 @@ internal sealed class StreamConnection : IConnection
     private readonly TimeProvider timeProvider;
     private readonly byte[] peekedByte = new byte[1];
     private Stream stream;
-    private SslStream? securedStream;
+    private Stream? securedStream;
     private bool writesCompleted;
     private bool aborted;
     private bool disposed;
@@ -183,11 +184,7 @@ internal sealed class StreamConnection : IConnection
             return;
         }
 
-        if (securedStream is not null)
-        {
-            await securedStream.ShutdownAsync();
-        }
-
+        await SendCloseNotifyAsync(cancellationToken);
         await stream.FlushAsync(cancellationToken);
 
         try
@@ -291,6 +288,14 @@ internal sealed class StreamConnection : IConnection
 
         await transportStream.DisposeAsync();
     }
+
+    // The TLS close_notify, from whichever secured stream the handshake returned (ADR-0122 decision 5).
+    private Task SendCloseNotifyAsync(CancellationToken cancellationToken) => securedStream switch
+    {
+        SslStream sslStream => sslStream.ShutdownAsync(),
+        TlsSrpStream tlsSrpStream => tlsSrpStream.ShutdownAsync(cancellationToken),
+        _ => Task.CompletedTask,
+    };
 
     private static IOException AbortedException(Exception? innerException) =>
         new("The connection was aborted.", innerException);

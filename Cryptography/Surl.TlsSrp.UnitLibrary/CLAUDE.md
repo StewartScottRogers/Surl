@@ -29,8 +29,9 @@ The handshake:
   `TlsAlerts` writes and reads alert bodies.
 - `TlsSrpStream` is the plaintext application data afterwards, and is asynchronous only. A
   ClientHello gets the warning `no_renegotiation`. `close_notify` or the end of the connection is
-  the end of the stream. A fatal alert from the client throws. `DisposeAsync` sends `close_notify`
-  and closes the connection.
+  the end of the stream. A fatal alert from the client throws. `ShutdownAsync` sends `close_notify`
+  once and leaves the connection open, so `Surl.Networking` can half-close and linger (BL-567).
+  `DisposeAsync` sends `close_notify` unless `ShutdownAsync` already did, and closes the connection.
 
 The record layer:
 - `TlsPseudorandomFunction` is RFC 5246 section 5's PRF with SHA-256 (every RFC 5054 suite uses

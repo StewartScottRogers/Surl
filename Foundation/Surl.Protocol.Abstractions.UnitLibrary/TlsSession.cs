@@ -24,4 +24,11 @@ public sealed record TlsSession(
     TlsCipherSuite CipherSuite,
     string? ApplicationProtocol,
     string? ServerName,
-    X509Certificate2? ClientCertificate);
+    X509Certificate2? ClientCertificate)
+{
+    /// <summary>
+    /// The SRP user the client proved its password for, on a TLS-SRP session (ADR-0122 decision 5);
+    /// <see langword="null"/> on any other session.
+    /// </summary>
+    public string? SrpUserName { get; init; }
+}

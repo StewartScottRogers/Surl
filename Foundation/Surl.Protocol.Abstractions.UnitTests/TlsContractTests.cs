@@ -74,6 +74,16 @@ public sealed class TlsContractTests
         Assert.AreEqual("http/1.1", session.ApplicationProtocol);
         Assert.AreEqual("localhost", session.ServerName);
         Assert.IsNull(session.ClientCertificate);
+        Assert.IsNull(session.SrpUserName);
         Assert.AreEqual(session with { }, session);
+    }
+
+    [TestMethod]
+    public void TlsSession_WithSrpUserName_KeepsItAndComparesByIt()
+    {
+        var session = new TlsSession(SslProtocols.Tls12, TlsCipherSuite.TLS_SRP_SHA_WITH_AES_256_CBC_SHA, null, null, null) { SrpUserName = "jsmith" };
+
+        Assert.AreEqual("jsmith", session.SrpUserName);
+        Assert.AreNotEqual(session with { SrpUserName = null }, session);
     }
 }

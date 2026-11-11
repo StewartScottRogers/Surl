@@ -13,5 +13,13 @@
     <ProjectReference Include="..\Surl.Networking.UnitLibrary\Surl.Networking.UnitLibrary.csproj" />
     <ProjectReference Include="..\..\Protocols\Http\Surl.Protocol.HttpProxy.UnitLibrary\Surl.Protocol.HttpProxy.UnitLibrary.csproj" />
   </ItemGroup>
+  <!--
+    Upstream curl 8.21.0's TLS-SRP client bytes, recorded by BL-566 against Surl.TlsSrp
+    (Cryptography/Surl.TlsSrp.UnitTests/Fixtures/README.md), linked rather than copied so there is
+    one recording. Each is named TlsSrp/<case>/client.bin.
+  -->
+  <ItemGroup>
+    <EmbeddedResource Include="..\..\Cryptography\Surl.TlsSrp.UnitTests\Fixtures\*\client.bin" LogicalName="TlsSrp/$([System.IO.Path]::GetFileName($([System.IO.Path]::GetDirectoryName('%(FullPath)'))))/client.bin" Link="Fixtures\TlsSrp\%(RecursiveDir)%(Filename)%(Extension)" />
+  </ItemGroup>
 
 </Project>

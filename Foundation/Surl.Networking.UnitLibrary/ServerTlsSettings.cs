@@ -1,12 +1,16 @@
 using System.Net.Security;
+using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
+using Surl.TlsSrp;
 
 namespace Surl.Networking;
 
 /// <summary>
-/// The process's server-side TLS settings (ADR-0010, sections 3 and 5): the certificate every
-/// listener serves, its intermediates, and the trust anchors that verify a client certificate.
-/// Every <see cref="System.Net.Security.SslStream"/> handshake Surl runs uses one instance.
+/// The process's server-side TLS settings (ADR-0010, sections 3 and 5; ADR-0122 decision 5): either
+/// the certificate every listener serves through <see cref="System.Net.Security.SslStream"/>, its
+/// intermediates, and the trust anchors that verify a client certificate; or, made by
+/// <see cref="ForTlsSrp"/>, the SRP accounts every listener serves TLS-SRP with instead, through
+/// <see cref="TlsSrpServer"/>. Every handshake Surl runs over TCP uses one instance.
 /// </summary>
 /// <remarks>
 /// The certificate is exported to PKCS#12 in memory and re-imported for serving (ADR-0010,
@@ -15,8 +19,8 @@ namespace Surl.Networking;
 /// </remarks>
 public sealed class ServerTlsSettings : IDisposable
 {
-    private readonly X509Certificate2 servingCertificate;
-    private readonly SslStreamCertificateContext certificateContext;
+    private readonly X509Certificate2? servingCertificate;
+    private readonly SslStreamCertificateContext? certificateContext;
     private readonly ClientCertificateVerifier? clientCertificateVerifier;
 
     /// <summary>
@@ -58,14 +62,48 @@ public sealed class ServerTlsSettings : IDisposable
             : new ClientCertificateVerifier(clientTrustAnchors, timeProvider);
     }
 
+    private ServerTlsSettings(TlsSrpAccounts accounts, RandomNumberGenerator random)
+    {
+        TlsSrpAccounts = accounts;
+        TlsSrpRandom = random;
+    }
+
     /// <summary>
-    /// Whether every handshake requires a client certificate (ADR-0010, section 5).
+    /// Creates the settings for serving TLS-SRP on every listener (ADR-0122 decisions 2 and 5): no
+    /// certificate, the three unsigned SRP suites, TLS 1.2 only, no client certificate.
+    /// </summary>
+    /// <param name="accounts">The SRP accounts a client may log in as.</param>
+    /// <param name="random">
+    /// The source of each handshake's server random, <c>b</c> and explicit IVs, shared by every
+    /// handshake: <see cref="RandomNumberGenerator.Create()"/> in production.
+    /// </param>
+    /// <returns>The settings, which own nothing to dispose.</returns>
+    /// <exception cref="ArgumentNullException">An argument is <see langword="null"/>.</exception>
+    public static ServerTlsSettings ForTlsSrp(TlsSrpAccounts accounts, RandomNumberGenerator random)
+    {
+        ArgumentNullException.ThrowIfNull(accounts);
+        ArgumentNullException.ThrowIfNull(random);
+
+        return new ServerTlsSettings(accounts, random);
+    }
+
+    /// <summary>
+    /// The SRP accounts every handshake serves TLS-SRP with, or <see langword="null"/> when the
+    /// settings serve a certificate through <see cref="System.Net.Security.SslStream"/>.
+    /// </summary>
+    public TlsSrpAccounts? TlsSrpAccounts { get; }
+
+    /// <summary>The random source <see cref="ForTlsSrp"/> was given; <see langword="null"/> otherwise.</summary>
+    internal RandomNumberGenerator? TlsSrpRandom { get; }
+
+    /// <summary>
+    /// Whether every handshake requires a client certificate (ADR-0010, section 5); never under TLS-SRP.
     /// </summary>
     public bool RequiresClientCertificate => clientCertificateVerifier is not null;
 
     /// <summary>
     /// The TLS versions every handshake accepts (ADR-0006, section 4); TLS 1.2 and TLS 1.3
-    /// unless set.
+    /// unless set. TLS-SRP ignores it: it is TLS 1.2 only.
     /// </summary>
     /// <exception cref="ArgumentNullException">The value is <see langword="null"/>.</exception>
     public TlsVersionRange AcceptedVersions
@@ -79,16 +117,17 @@ public sealed class ServerTlsSettings : IDisposable
     } = TlsVersionRange.Default;
 
     /// <summary>
-    /// Disposes the re-imported serving certificate. Calling it twice is harmless.
+    /// Disposes the re-imported serving certificate, if any. Calling it twice is harmless.
     /// </summary>
-    public void Dispose() => servingCertificate.Dispose();
+    public void Dispose() => servingCertificate?.Dispose();
 
     /// <summary>
     /// The options for one server handshake: the certificate context, the ALPN protocol IDs
     /// offered, client-certificate verification when it is on, the <see cref="AcceptedVersions"/>,
     /// and renegotiation refused (ADR-0006, section 4: client-initiated renegotiation is a
     /// CPU-exhaustion lever). Cipher suites are the operating system's defaults, so
-    /// <see cref="SslServerAuthenticationOptions.CipherSuitesPolicy"/> is never set.
+    /// <see cref="SslServerAuthenticationOptions.CipherSuitesPolicy"/> is never set. Only for
+    /// settings that serve a certificate.
     /// </summary>
     /// <param name="applicationProtocols">The ALPN protocol IDs offered; empty offers none.</param>
     /// <returns>Fresh options, safe to hand to one handshake.</returns>

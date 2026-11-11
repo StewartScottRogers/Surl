@@ -21,6 +21,41 @@ public sealed class ServerTlsSettingsTests
     }
 
     [TestMethod]
+    public void ForTlsSrp_NullArgument_Throws()
+    {
+        var accounts = new Surl.TlsSrp.TlsSrpAccounts([], new byte[Surl.TlsSrp.TlsSrpAccounts.SimulationSecretLength]);
+        using var random = System.Security.Cryptography.RandomNumberGenerator.Create();
+
+        Assert.ThrowsExactly<ArgumentNullException>(() => ServerTlsSettings.ForTlsSrp(null!, random));
+        Assert.ThrowsExactly<ArgumentNullException>(() => ServerTlsSettings.ForTlsSrp(accounts, null!));
+    }
+
+    [TestMethod]
+    public void ForTlsSrp_Accounts_CarriesThemAsksForNoClientCertificateAndDisposesHarmlessly()
+    {
+        var accounts = new Surl.TlsSrp.TlsSrpAccounts([], new byte[Surl.TlsSrp.TlsSrpAccounts.SimulationSecretLength]);
+        using var random = System.Security.Cryptography.RandomNumberGenerator.Create();
+
+        using var settings = ServerTlsSettings.ForTlsSrp(accounts, random);
+        settings.Dispose();
+
+        Assert.AreSame(accounts, settings.TlsSrpAccounts);
+        Assert.AreSame(random, settings.TlsSrpRandom);
+        Assert.IsFalse(settings.RequiresClientCertificate);
+    }
+
+    [TestMethod]
+    public void TlsSrpAccounts_CertificateSettings_IsNull()
+    {
+        using var certificate = TestCertificates.CreateEcdsaServerCertificate();
+
+        using var settings = new ServerTlsSettings(certificate, [], [], Time);
+
+        Assert.IsNull(settings.TlsSrpAccounts);
+        Assert.IsNull(settings.TlsSrpRandom);
+    }
+
+    [TestMethod]
     public void Constructor_CertificateWithoutPrivateKey_Throws()
     {
         using var certificate = TestCertificates.CreateEcdsaServerCertificate();
