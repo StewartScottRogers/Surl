@@ -33,3 +33,4 @@ Azure Put Block List answers the conditional fields as ADR-0109 decision 1 says 
 ## Log
 
 - 2026-11-06: Created.
+- 2026-11-11: Backlog -> Doing.
