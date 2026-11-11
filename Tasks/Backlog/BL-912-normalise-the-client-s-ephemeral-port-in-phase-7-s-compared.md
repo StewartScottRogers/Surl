@@ -4,7 +4,7 @@ title: Normalise the client's ephemeral port in Phase 7's compared standard erro
 priority: Low
 assignee: Claude
 pipeline: feature
-depends-on: []
+depends-on: [BL-1035]
 touches: [Conformance/Surl.Conformance.UnitLibrary, Conformance/Surl.Conformance.UnitTests/CurlPortResultNormaliserTests.cs]
 requirement: none
 created: 2026-11-05
@@ -39,7 +39,10 @@ completed:
 
 ## Notes
 
+- 2026-11-11 (lane 1): Change written (LoopbackPort applied to each kept stderr line in `NormaliseStandardError`, test `NormaliseStandardError_ReplacesTheClientsEphemeralPortBesideALoopbackAddress`, library CLAUDE.md line) but not verified: `dotnet build` fails because the .NET SDK 10.0.401 that global.json pins is not installed (only 10.0.100-rc.1, 11.0.x). Left uncommitted for the shift to stash; waits on BL-1035.
+
 ## Log
 
 - 2026-11-05: Created.
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Backlog. Waits on BL-1035 - pinned .NET SDK 10.0.401 is not installed, so the build cannot run
