@@ -335,6 +335,32 @@ handshake reports who the peer is (decision 3) and how much one record carries (
   completes, when no suite is fixed. Rejected: a second property beside the 2^14 one, because two
   limits for one send invite the larger being used.
 
+**Amendment (2026-11-11, BL-779; decided by Claude under Stewart's delegation).** The details decision
+6's third bullet, a new hello on an established association, leaves open:
+
+- **Which hello it is.** A datagram whose first record is a whole, unfragmented epoch 0 `ClientHello`,
+  read by `DtlsCookieExchange` as on a new endpoint. Without a valid cookie it is answered with a
+  `HelloVerifyRequest` and nothing else changes. Any other epoch 0 handshake record is still the
+  client's final flight sent again.
+- **Where the new handshake lives.** `DtlsServerSession` keeps each association's records, keys and
+  handshake state apart, and a valid-cookie hello starts a new one with its own epoch 0 sequence
+  space and replay window, because a restarted client numbers its records from 0 again and the old
+  window would drop them as replays. The new handshake runs inside `ReceiveAsync`, under the same
+  `HandshakeTimeout` and retransmission timer as the first.
+- **The old association's records meanwhile.** Each epoch 1 record of a datagram is first offered to
+  the old association: its application data is queued for `ReceiveAsync`, anything else it
+  authenticates (an alert, a renegotiating hello) is dropped, and the rest of the datagram goes to
+  the new handshake. So an old-key record can never count as the new handshake's failed `Finished`
+  tag, and an old association's alert cannot end the new handshake.
+- **The outcome.** A completed new handshake replaces the old association: application data then
+  travels under the new keys and an old-key record is dropped silently. A new handshake that fails,
+  times out or is cut off leaves the old association as it was; its fatal alert, if any, goes in the
+  new handshake's epoch 0 only. No alert is ever sent on the old association.
+- Rejected: refusing a valid-cookie hello while established (RFC 6347 section 4.2.8 says the server
+  should proceed, and a restarted client would otherwise wait out the idle timeout), and dropping the
+  old association as soon as the cookie verifies (an off-path sender replaying a stale cookie hello
+  inside the cookie's lifetime could then cut an association off).
+
 ## Alternatives considered
 
 - **The client's suite order.** Rejected: CoAP clients often list the mandated CCM_8 first, and the
