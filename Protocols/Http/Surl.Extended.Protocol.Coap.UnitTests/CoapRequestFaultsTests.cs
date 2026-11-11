@@ -46,7 +46,7 @@ public sealed class CoapRequestFaultsTests
 
         var (sent, events, log) = await ServeAsync(faults, GetHello);
 
-        byte[] expected = [0x62, 0xA3, 0x7D, 0x34, 0xA1, 0xA2, 0xFF, .. "try later"u8];
+        byte[] expected = [0x62, 0xA3, 0x7D, 0x34, 0xA1, 0xA2, 0xD1, 0x01, 0x01, 0xFF, .. "try later"u8];
         CollectionAssert.AreEqual(expected, sent);
         Assert.AreEqual(new FaultAppliedEvent("f1", FaultKind.Error, FaultStage.Command, 1, "/hello.txt"), events.Events.Single());
         Assert.AreEqual(
@@ -132,6 +132,16 @@ public sealed class CoapRequestFaultsTests
         Assert.AreEqual(new CoapCode(code), response.Code);
         Assert.AreEqual(payload, Encoding.UTF8.GetString(response.Payload.Span));
         Assert.IsEmpty(response.Options);
+    }
+
+    [TestMethod]
+    public void TryParse_503_CarriesMaxAgeAsTheSecondsAfterWhichToRetry()
+    {
+        Assert.IsTrue(CoapRequestFaults.TryParse("5.03", out var response));
+
+        var maxAge = response.Options.Single();
+        Assert.AreEqual(CoapOptionNumber.MaxAge, maxAge.Number);
+        Assert.AreEqual(CoapRequestFaults.ServiceUnavailableRetryAfterSeconds, maxAge.ReadUInt());
     }
 
     [TestMethod]

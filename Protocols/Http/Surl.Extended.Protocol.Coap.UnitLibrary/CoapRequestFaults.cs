@@ -20,6 +20,14 @@ namespace Surl.Extended.Protocol.Coap;
 internal static class CoapRequestFaults
 {
     /// <summary>
+    /// The Max-Age a <c>5.03</c> carries: the seconds after which the client may retry (RFC 7252
+    /// section 5.9.3.4), short so a test that retries does not wait.
+    /// </summary>
+    public const uint ServiceUnavailableRetryAfterSeconds = 1;
+
+    private static readonly CoapCode ServiceUnavailable = CoapCode.From(5, 3);
+
+    /// <summary>
     /// Finds the chosen error response for a request, publishing its <see cref="FaultAppliedEvent"/>.
     /// </summary>
     /// <param name="context">The exchange: its fault plan, event stream and listen URL.</param>
@@ -94,10 +102,13 @@ internal static class CoapRequestFaults
         }
 
         var code = CoapCode.From(reply[0] - '0', detail);
-        response = reply.Length > 4 ? new CoapResponse(code, [], Encoding.UTF8.GetBytes(reply[5..])) : CoapResponse.Bare(code);
+        response = ResponseOf(code, reply.Length > 4 ? Encoding.UTF8.GetBytes(reply[5..]) : ReadOnlyMemory<byte>.Empty);
 
         return true;
     }
+
+    private static CoapResponse ResponseOf(CoapCode code, ReadOnlyMemory<byte> payload) =>
+        new(code, code == ServiceUnavailable ? [CoapOption.FromUInt(CoapOptionNumber.MaxAge, ServiceUnavailableRetryAfterSeconds)] : [], payload);
 
     // 4.00 to 4.31, and 5.00 to 5.05.
     private static bool IsErrorCode(char codeClass, int detail) => codeClass switch

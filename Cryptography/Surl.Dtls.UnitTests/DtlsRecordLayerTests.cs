@@ -115,5 +115,28 @@ public sealed class DtlsRecordLayerTests
         Assert.ThrowsExactly<ObjectDisposedException>(() => reading.Seal(default, [0x01]));
     }
 
+    [TestMethod]
+    public async Task SendRecordAsync_ARetransmittedMessage_IsSealedAgainInTheCurrentEpochAndTheEpochNeverMovesBack()
+    {
+        var flow = new InMemoryDatagramFlow(Array.Empty<byte>());
+        using var layer = new DtlsRecordLayer(flow);
+        layer.StartProtectedWriteEpoch(new DtlsRecordProtection(DtlsAeadAlgorithm.AesGcm, Key, Salt));
+        byte[] message = [0x41, 0x01, 0x00, 0x01, 0xC0];
+
+        await layer.SendRecordAsync(DtlsContentType.ApplicationData, message, TestContext.CancellationToken);
+        await layer.SendRecordAsync(DtlsContentType.ApplicationData, message, TestContext.CancellationToken);
+
+        Assert.HasCount(2, flow.SentDatagrams);
+        foreach (var sent in flow.SentDatagrams)
+        {
+            DtlsRecordHeader.TryRead(sent, out var header);
+            Assert.AreEqual((ushort)1, header.Epoch);
+        }
+
+        CollectionAssert.AreNotEqual(flow.SentDatagrams[0], flow.SentDatagrams[1]);
+        Assert.ThrowsExactly<InvalidOperationException>(() => layer.StartProtectedWriteEpoch(new DtlsRecordProtection(DtlsAeadAlgorithm.AesGcm, Key, Salt)));
+        Assert.AreEqual((ushort)1, layer.WriteEpoch);
+    }
+
     public TestContext TestContext { get; set; } = null!;
 }

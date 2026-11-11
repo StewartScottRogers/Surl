@@ -55,7 +55,7 @@ public sealed class CoapBlock1UploadsTests
         var repeatedWithAnotherLength = await SendAfterTwoBlocksAsync(exchange, Body(8));
 
         Assert.AreEqual(CoapCode.RequestEntityIncomplete, repeatedWithoutMore.Code);
-        Assert.AreEqual(CoapCode.RequestEntityIncomplete, repeatedWithAnotherLength.Code);
+        Assert.AreEqual(CoapCode.BadRequest, repeatedWithAnotherLength.Code);
     }
 
     [TestMethod]
@@ -221,6 +221,64 @@ public sealed class CoapBlock1UploadsTests
 
         Assert.AreEqual(CoapCode.RequestEntityIncomplete, other.Code);
         Assert.AreEqual(CoapCode.Continue, same.Code);
+    }
+
+    [TestMethod]
+    public async Task SendAsync_ABlock1WithMSetAndAnotherSizeThanSzx_Is400AndAMoreBlockOfTheSizeIsAccepted()
+    {
+        await using var exchange = new CoapTestExchange(new CoapTestStore(CoapTestStore.Uploads));
+
+        var shortBlock = await exchange.SendWithBodyAsync(CoapCode.Put, "f", Body(8), Block(CoapOptionNumber.Block1, "0/1/16"));
+        var longBlock = await exchange.SendWithBodyAsync(CoapCode.Put, "f", Body(17), Block(CoapOptionNumber.Block1, "0/1/16"));
+        var exact = await exchange.SendWithBodyAsync(CoapCode.Put, "f", Body(16), Block(CoapOptionNumber.Block1, "0/1/16"));
+
+        Assert.AreEqual(CoapCode.BadRequest, shortBlock.Code);
+        Assert.AreEqual(CoapCode.BadRequest, longBlock.Code);
+        Assert.AreEqual(CoapCode.Continue, exact.Code);
+    }
+
+    [TestMethod]
+    public async Task SendAsync_ABlock1TwiceOrABlock2Twice_IsUnrecognisedAnd402()
+    {
+        await using var exchange = new CoapTestExchange(new CoapTestStore(CoapTestStore.Uploads).WithFile("g", "x"));
+
+        var block1 = await exchange.SendWithBodyAsync(CoapCode.Put, "f", Body(16), Block(CoapOptionNumber.Block1, "0/1/16"), Block(CoapOptionNumber.Block1, "0/1/16"));
+        var block2 = await exchange.SendAsync(CoapCode.Get, "g", Block(CoapOptionNumber.Block2, "0/0/16"), Block(CoapOptionNumber.Block2, "0/0/16"));
+
+        Assert.AreEqual(CoapCode.BadOption, block1.Code);
+        Assert.AreEqual(CoapCode.BadOption, block2.Code);
+    }
+
+    [TestMethod]
+    public async Task SendAsync_BlockResponses_CarryEachBlockOptionAtMostOnceAndA231CarriesNoBlock2OrPayload()
+    {
+        await using var exchange = new CoapTestExchange(new CoapTestStore(CoapTestStore.Uploads).WithFile("g", Body(40)));
+
+        var continued = await exchange.SendWithBodyAsync(CoapCode.Put, "f", Body(16), Block(CoapOptionNumber.Block1, "0/1/16"));
+        var block = await exchange.SendAsync(CoapCode.Get, "g", Block(CoapOptionNumber.Block2, "0/0/16"));
+
+        Assert.AreEqual(CoapCode.Continue, continued.Code);
+        Assert.IsEmpty(continued.Payload.ToArray());
+        CollectionAssert.AreEqual(new[] { CoapOptionNumber.Block1 }, continued.Options.Select(option => option.Number).ToArray());
+        Assert.AreEqual(1, block.Options.Count(option => option.Number == CoapOptionNumber.Block2));
+        Assert.AreEqual(0, block.Options.Count(option => option.Number == CoapOptionNumber.Block1));
+    }
+
+    [TestMethod]
+    public async Task SendAsync_ConditionalOptions_AreEvaluatedOnBlock0OnlyAndIfNoneMatchOnBlock0Only()
+    {
+        var store = new CoapTestStore(CoapTestStore.Uploads).WithFile("taken", "x");
+        await using var exchange = new CoapTestExchange(store);
+        var ifNoneMatch = new CoapOption(CoapOptionNumber.IfNoneMatch, ReadOnlyMemory<byte>.Empty);
+        var wrongIfMatch = new CoapOption(CoapOptionNumber.IfMatch, new byte[] { 9 });
+
+        var refused = await exchange.SendWithBodyAsync(CoapCode.Put, "taken", Body(16), Block(CoapOptionNumber.Block1, "0/1/16"), ifNoneMatch);
+        var opened = await exchange.SendWithBodyAsync(CoapCode.Put, "f", Body(16), Block(CoapOptionNumber.Block1, "0/1/16"), ifNoneMatch);
+        var last = await exchange.SendWithBodyAsync(CoapCode.Put, "f", "end", Block(CoapOptionNumber.Block1, "1/0/16"), wrongIfMatch);
+
+        Assert.AreEqual(CoapCode.PreconditionFailed, refused.Code);
+        Assert.AreEqual(CoapCode.Continue, opened.Code);
+        Assert.AreEqual(CoapCode.Created, last.Code);
     }
 
     private static async Task<CoapResponse> SendAfterTwoBlocksAsync(CoapTestExchange exchange, string repeated)

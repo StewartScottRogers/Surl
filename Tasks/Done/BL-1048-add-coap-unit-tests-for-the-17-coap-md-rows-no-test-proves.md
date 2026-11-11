@@ -5,10 +5,10 @@ priority: Low
 assignee: Claude
 pipeline: direct
 depends-on: []
-touches: [Protocols/Http/Surl.Extended.Protocol.Coap.UnitTests, Protocols/Http/Surl.Extended.Protocol.Coap.UnitLibrary, Documentation/Conformance/Extended/Coap.md]
+touches: [Cryptography/Surl.Dtls.UnitTests, Protocols/Http/Surl.Extended.Protocol.Coap.UnitTests, Protocols/Http/Surl.Extended.Protocol.Coap.UnitLibrary, Documentation/Conformance/Extended/Coap.md]
 requirement: none
 created: 2026-11-11
-completed:
+completed: 2026-11-11
 ---
 # BL-1048 — Add CoAP unit tests for the 17 Coap.md rows no test proves
 
@@ -26,12 +26,16 @@ fix the server or amend ADR-0097 and the row, deciding under Stewart's delegatio
 
 ## Acceptance criteria
 
-- [ ] No row of Coap.md names `BL-1048`; each names a test that exists or is `n/a` with a reason.
-- [ ] The fast tests are green, and `dotnet build -warnaserror` is clean.
+- [x] No row of Coap.md names `BL-1048`; each names a test that exists or is `n/a` with a reason.
+- [x] The fast tests are green, and `dotnet build -warnaserror` is clean.
 
 ## Notes
+
+- Server defects found and fixed: a Block1 block with M set and a payload not the SZX size was accepted (now 4.00; two existing tests sent short M-set blocks and were corrected); a fault-injected 5.03 carried no Max-Age (now Max-Age 1). Amended, not fixed: Max-Age 60 stays explicit, no separate 8-request bound, Proxy-Uri never local. See ADR-0097 amendment 1.
+- Added `Cryptography/Surl.Dtls.UnitTests` to touches for the 9.1.1-3 test; no task in Doing names it.
 
 ## Log
 
 - 2026-11-11: Created.
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Done. All 17 Coap.md rows name a test or an n/a reason; fixed 4.00 for wrong-size M-set Block1 and Max-Age on fault 5.03

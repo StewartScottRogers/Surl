@@ -55,7 +55,7 @@ internal sealed class CoapResourceAnswerer(
         CoapBlock1Uploads uploads,
         CancellationToken cancellationToken)
     {
-        var refusal = Refusal(request.Code, options, peerIsAuthenticated);
+        var refusal = Refusal(request, options, peerIsAuthenticated);
 
         if (refusal is not null)
         {
@@ -77,14 +77,14 @@ internal sealed class CoapResourceAnswerer(
         }
     }
 
-    private CoapResponse? Refusal(CoapCode method, CoapRequestOptions options, bool peerIsAuthenticated)
+    private CoapResponse? Refusal(CoapMessage request, CoapRequestOptions options, bool peerIsAuthenticated)
     {
         if (options.UnrecognisedCriticalOption is { } number)
         {
             return new CoapResponse(CoapCode.BadOption, [], Encoding.UTF8.GetBytes($"Unrecognized option {number}"));
         }
 
-        if (IsABadRequest(options))
+        if (IsABadRequest(request, options))
         {
             return CoapResponse.Bare(CoapCode.BadRequest);
         }
@@ -94,14 +94,19 @@ internal sealed class CoapResourceAnswerer(
             return CoapResponse.Bare(CoapCode.ProxyingNotSupported);
         }
 
-        return AccessRefusal(method, peerIsAuthenticated);
+        return AccessRefusal(request.Code, peerIsAuthenticated);
     }
 
-    // 4.00: a Uri-Path segment of . or .., or a block of SZX 7, which RFC 7959 section 2.2 reserves.
-    private static bool IsABadRequest(CoapRequestOptions options) =>
+    // 4.00: a Uri-Path segment of . or .., a block of SZX 7, which RFC 7959 section 2.2 reserves, or
+    // a Block1 block with M set whose payload is not the size SZX gives (section 2.3).
+    private static bool IsABadRequest(CoapMessage request, CoapRequestOptions options) =>
         options.UriPath.Any(segment => segment is "." or "..")
+        || IsShortMoreBlock(request, options.Block1)
         || IsReservedSize(options.Block1)
         || IsReservedSize(options.Block2);
+
+    private static bool IsShortMoreBlock(CoapMessage request, CoapBlockOption? block) =>
+        block is { More: true } more && request.Payload.Length != more.Size;
 
     private static bool IsReservedSize(CoapBlockOption? block) =>
         block?.SizeExponent == CoapBlockOption.ReservedSizeExponent;
@@ -356,7 +361,13 @@ internal sealed class CoapResourceAnswerer(
     public string? LocationOf(CoapRequestOptions options, string scheme) =>
         store.MapRequestPathForScheme(RequestPathOf(options), scheme).Location;
 
-    private static string RequestPathOf(CoapRequestOptions options) =>
+    /// <summary>
+    /// The request path the content store is handed: the Uri-Path segments each percent-encoded with
+    /// upper-case hex digits (RFC 7252 section 6.5), joined by <c>/</c> under a leading one.
+    /// </summary>
+    /// <param name="options">The request's options.</param>
+    /// <returns>The path.</returns>
+    internal static string RequestPathOf(CoapRequestOptions options) =>
         "/" + string.Join('/', options.UriPath.Select(Uri.EscapeDataString));
 
     private sealed record Representation(byte[] EntityTag, uint Format, long Length);

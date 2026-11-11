@@ -473,3 +473,19 @@ left open:
   `MayLogInOn("coaps")`. A pre-shared key cannot come from the hashes the account book keeps, so
   `ComposedAuthentication.PreSharedKeyAccounts` keeps those accounts with their passwords in memory, for `coaps`
   alone; `--mailbox` accounts are not included.
+
+**Amendment 1 (2026-11-11, BL-1048; decided by Claude under Stewart's delegation).** What tracing the matrix's
+last 17 rows to tests settled:
+
+- **Max-Age 60 stays explicit (decision 1).** RFC 7252 section 5.4.4 says an option at its default SHOULD NOT be
+  sent; the server still sends Max-Age 60 on `2.05` and `2.03`, because the observation timer re-notifies at the same
+  60 seconds, so the number the client is told is the interval it will see, and tests can read it off the wire A SHOULD NOT,
+  so the exception is allowed and is pinned by a test.
+- **A `5.03` carries Max-Age 1 (decision 7; RFC 7252 section 5.9.3.4).** Fault rules answer `5.03`; the
+  response now names 1 second as the time after which to retry, short so a test that retries does not wait.
+- **A Block1 block with M set must be exactly the size SZX gives (decision 3; RFC 7959 section 2.3).** A shorter
+  or longer one is `4.00`; before, it was accepted.
+- **The "8 requests in progress per flow" bound of decision 7 is not a separate limit.** A flow handles one
+  datagram at a time, so one request is read at a time and the one outstanding CON (NSTART 1) paces the rest.
+- **A Proxy-Uri request is never served as local.** The server is an origin server, not a proxy: Proxy-Uri and
+  Proxy-Scheme are `5.05` whatever their authority, and take precedence over the Uri-* options.
