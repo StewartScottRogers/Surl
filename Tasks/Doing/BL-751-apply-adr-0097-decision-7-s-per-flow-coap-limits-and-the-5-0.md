@@ -47,3 +47,4 @@ Filed by BL-472, which left decision 7's limits beyond the duplicate cache out o
 ## Log
 
 - 2026-11-05: Created.
+- 2026-11-11: Backlog -> Doing.
