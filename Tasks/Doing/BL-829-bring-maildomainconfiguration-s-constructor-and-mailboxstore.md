@@ -32,3 +32,4 @@ only the measurement shows it. Both came in with BL-648/BL-675. Extract private 
 ## Log
 
 - 2026-11-05: Created.
+- 2026-11-11: Backlog -> Doing.
