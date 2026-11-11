@@ -4,7 +4,7 @@ title: Deliver one copy per owner when two SMTP aliases partly overlap
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-675, BL-676]
+depends-on: [BL-675, BL-676, BL-1035]
 touches: [Protocols/Mail/Surl.MailStore.UnitLibrary, Protocols/Mail/Surl.MailStore.UnitTests, Protocols/Mail/Surl.Protocol.Smtp.UnitLibrary, Protocols/Mail/Surl.Protocol.Smtp.UnitTests]
 requirement: none
 created: 2026-11-05
@@ -40,7 +40,10 @@ one (`team` -> ann, bob; `pair` -> bob, cat), every owner receives exactly one c
 
 ## Notes
 
+- 2026-11-11: Implemented (uncommitted, stashed by the shift): public `MailRecipient.WithoutOwners(IEnumerable<string>)` returns the owners not yet reached (null when none); `SmtpMailTransaction.KeepNamedRecipient` replaces kept recipients the new one covers, then keeps only the new one's unreached owners. Chosen over a merge (`Union`) so the "Message stored ... for N recipients" note keeps its count for the existing tests. Tests: `MailboxStoreMailDomainTests.WithoutOwners_*`, `SmtpMailDomainTests.ServeAsync_PartlyOverlappingAliases_GiveEveryOwnerExactlyOneCopy` (renamed from the BL-676 test). Not built: `global.json` pins SDK 10.0.401, not installed on the lane machine - waits for BL-1035.
+
 ## Log
 
 - 2026-11-05: Created.
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Backlog. Waits for BL-1035: pinned .NET SDK 10.0.401 is not installed, so dotnet build cannot run; code is written and left for the shift to stash
