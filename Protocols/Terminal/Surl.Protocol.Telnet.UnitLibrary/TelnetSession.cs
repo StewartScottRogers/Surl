@@ -22,6 +22,7 @@ internal sealed class TelnetSession
 
     private readonly IExchangeLog log;
     private readonly long maxLineBytes;
+    private readonly bool echoesVerbatim;
     private readonly TelnetInboundParser parser;
     private readonly TelnetLineAssembler lines;
     private readonly TelnetOptionNegotiator negotiator = new();
@@ -36,14 +37,22 @@ internal sealed class TelnetSession
     /// </summary>
     /// <param name="log">Where the session's notes go.</param>
     /// <param name="maxLineBytes">The most bytes a line or a subnegotiation may hold; 0 means no limit.</param>
-    public TelnetSession(IExchangeLog log, long maxLineBytes)
+    /// <param name="echoesVerbatim">
+    /// Echo-and-close mode (<see cref="TelnetUpstreamTestCaseReplies"/>): no banner, and every data byte
+    /// is echoed as it comes, with no line handling and no <c>quit</c>.
+    /// </param>
+    public TelnetSession(IExchangeLog log, long maxLineBytes, bool echoesVerbatim = false)
     {
         this.log = log;
         this.maxLineBytes = maxLineBytes;
+        this.echoesVerbatim = echoesVerbatim;
         parser = new TelnetInboundParser(maxLineBytes);
         lines = new TelnetLineAssembler(maxLineBytes);
         negotiator.WriteOpening(outbound);
-        outbound.Write(Banner);
+        if (!echoesVerbatim)
+        {
+            outbound.Write(Banner);
+        }
     }
 
     /// <summary>
@@ -149,6 +158,13 @@ internal sealed class TelnetSession
 
     private void AnswerData(byte value)
     {
+        if (echoesVerbatim)
+        {
+            WriteEscapedData([value]);
+
+            return;
+        }
+
         if (quitReceived)
         {
             return;
