@@ -40,3 +40,4 @@ sends a warning `close_notify` with it and ends the association, instead of `Sen
 ## Log
 
 - 2026-11-05: Created.
+- 2026-11-11: Backlog -> Doing.
