@@ -1,6 +1,7 @@
 using Surl.Extended.Protocol.DnsQuery;
 using Surl.Extended.Protocol.Nats;
 using Surl.Extended.Protocol.S3;
+using Surl.Extended.Protocol.SocketIo;
 using Surl.Protocol.Abstractions;
 
 namespace Surl.Composition;
@@ -37,8 +38,8 @@ public static class ExtendedProtocolServers
     /// Gets every extended protocol server's entry this build has, in ordinal order of its first
     /// scheme, on the same <see cref="ProtocolServerRegistration"/> as the originals (ADR-0124,
     /// decision 2): today the DNS server for <c>dns</c> over UDP and TCP (BL-1032), the NATS server for
-    /// <c>nats</c> and <c>natss</c> (BL-528) and the S3 server
-    /// for <c>s3</c> (BL-421).
+    /// <c>nats</c> and <c>natss</c> (BL-528), the S3 server
+    /// for <c>s3</c> (BL-421) and the Socket.IO server for <c>socketio</c> and <c>socketios</c> (BL-455).
     /// </summary>
     /// <remarks>
     /// The DNS server is two entries for <c>dns</c>, a <see cref="DnsUdpProtocolServer"/> and a
@@ -54,6 +55,11 @@ public static class ExtendedProtocolServers
     /// The S3 server answers <c>s3</c> over the one content store, its object metadata index and the
     /// policy over the accounts allowed on <c>s3</c> (ADR-0108; ADR-0102 decision 4.3); <c>s3</c> is TLS from the first byte (ADR-0108, decision 5), which
     /// the serving engine reads from <see cref="TlsSchemes"/>, so it needs no second registration.
+    /// The Socket.IO server answers <c>socketio</c> and <c>socketios</c> as one server, so its
+    /// sessions and <c>broadcast</c> span every Socket.IO listen URL of the run; it serves the main
+    /// namespace <c>/</c> only, because a listen URL has no path to name another (ADR-0120 amendment 2),
+    /// and judges CONNECT logins by the policy over the accounts allowed on <c>socketio</c>.
+    /// <c>socketios</c> is TLS from the first byte through <see cref="TlsSchemes"/>.
     /// </remarks>
     public static IReadOnlyList<ProtocolServerRegistration> Registrations { get; } =
     [
@@ -69,6 +75,8 @@ public static class ExtendedProtocolServers
             })),
         new(["s3"], services => new S3ProtocolServer(
             services.ContentStore, services.ObjectMetadataIndex, services.AuthenticationPolicyFor("s3"), services.TimeProvider)),
+        new([SocketIoProtocolServer.PlainScheme, SocketIoProtocolServer.TlsScheme], services => new SocketIoProtocolServer(
+            SocketIoServedNamespaces.FromListenPath(null), new SocketIoSessions(), services.AuthenticationPolicyFor(SocketIoProtocolServer.PlainScheme))),
     ];
 
     /// <summary>

@@ -168,6 +168,13 @@ public static class AiHelpExamples
             ["Listening on smtp://127.0.0.1:<port>/"],
             ["surl: warning: --allow-anonymous: every request and login is accepted without checking credentials"],
             ["curl --mail-from a@example.com --mail-rcpt b@example.com -T mail.txt smtp://127.0.0.1:<port>/example.com"]),
+        Serving(
+            "socketio",
+            "For a test: serve Socket.IO without accounts",
+            ["--allow-anonymous", "socketio://127.0.0.1:0/"],
+            ["Listening on socketio://127.0.0.1:<port>/"],
+            ["surl: warning: --allow-anonymous: every request and login is accepted without checking credentials"],
+            []),
         Refused(
             "ssh",
             "An SFTP listen URL with no host key",

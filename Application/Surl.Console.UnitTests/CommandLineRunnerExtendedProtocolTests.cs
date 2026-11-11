@@ -209,18 +209,20 @@ public sealed class CommandLineRunnerExtendedProtocolTests
     }
 
     [TestMethod]
-    public void ComposeExtendedSchemes_ThisBuildWithTheSwitchUnset_RegistersNatsAndNatss()
+    public void ComposeExtendedSchemes_ThisBuildWithTheSwitchUnset_RegistersNatsNatssSocketioAndSocketios()
     {
         var runner = CreateRunner(new FakeListenerFactory(), FakeEnvironmentVariableReader.Empty, composeExtendedProtocolServers: null);
 
         var schemes = runner.ComposeExtendedSchemes();
 
-        CollectionAssert.IsSubsetOf(new[] { "nats", "natss" }, schemes.ToArray());
+        CollectionAssert.IsSubsetOf(new[] { "nats", "natss", "socketio", "socketios" }, schemes.ToArray());
     }
 
     [TestMethod]
     [DataRow("nats")]
     [DataRow("natss")]
+    [DataRow("socketio")]
+    [DataRow("socketios")]
     public async Task RunAsync_NatsSchemeWithTheSwitchAtZero_RefusesItAsAnUnknownScheme(string scheme)
     {
         using var output = new StringWriter();
@@ -276,7 +278,7 @@ public sealed class CommandLineRunnerExtendedProtocolTests
 
         var schemes = runner.ComposeExtendedSchemes();
 
-        CollectionAssert.AreEqual(new[] { "dns", "nats", "natss", "s3" }, schemes.ToArray());
+        CollectionAssert.AreEqual(new[] { "dns", "nats", "natss", "s3", "socketio", "socketios" }, schemes.ToArray());
     }
 
     [TestMethod]

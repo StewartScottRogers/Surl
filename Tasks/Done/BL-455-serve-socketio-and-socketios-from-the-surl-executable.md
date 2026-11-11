@@ -5,10 +5,10 @@ priority: Normal
 assignee: Claude
 pipeline: feature
 depends-on: [BL-454, BL-405]
-touches: [Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests, Application/Surl.Console, Application/Surl.Console.UnitTests, Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests]
+touches: [Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests, Application/Surl.Console, Application/Surl.Console.UnitTests, Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests, Foundation/Surl.Protocol.Abstractions.UnitLibrary, Foundation/Surl.Protocol.Abstractions.UnitTests]
 requirement: none
 created: 2026-11-04
-completed:
+completed: 2026-11-11
 ---
 # BL-455 — Serve socketio and socketios from the surl executable
 
@@ -27,14 +27,16 @@ topic and help category exist, and the extension switch turns both off.
 
 ## Acceptance criteria
 
-- [ ] A named test finds `socketio` and `socketios` registered when the switch is on, and absent when it is off.
-- [ ] The `--aihelp` completeness tests named in root `CLAUDE.md` pass.
-- [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and `Surl.Console` and `Surl.Cli` keep 100%
+- [x] A named test finds `socketio` and `socketios` registered when the switch is on, and absent when it is off.
+- [x] The `--aihelp` completeness tests named in root `CLAUDE.md` pass.
+- [x] `dotnet build -warnaserror` is clean, the fast tests are green, and `Surl.Console` and `Surl.Cli` keep 100%
       line and branch coverage.
 
 ## Notes
 
 - 2026-11-05 (lane 4): Extended servers are registered in `Application/Surl.Composition.UnitLibrary/ExtendedProtocolServers.cs` (`Registrations`, ADR-0124), not in `Surl.Console`'s `CommandLineRunner` as Context says; the s3 precedent (BL-421, commit efa2f1bc) changed `ExtendedProtocolServers`, `ExtendedProtocolServerServices` and `Surl.Composition.UnitTests`. Added both Composition projects to `touches`. BL-803 (in Doing) touches them, so the task returns to Backlog until BL-803 frees them. `socketios` should join `TlsSchemes` the way `s3` does rather than a second registration.
+
+- 2026-11-11 (lane 2): Added the two Foundation/Surl.Protocol.Abstractions projects to `touches` for `TlsSchemes` (`socketios`); no task in Doing names them. Chose a `socketio` help category with no per-option rows (options apply by name in the topic prose), served namespace `/` only (ADR-0120 amendment 2).
 
 ## Log
 
@@ -42,3 +44,4 @@ topic and help category exist, and the extension switch turns both off.
 - 2026-11-05: Backlog -> Doing.
 - 2026-11-05: Doing -> Backlog. Needs Application/Surl.Composition.UnitLibrary and .UnitTests (extended server registration), which BL-803 in Doing holds
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Done. socketio and socketios served, aihelp topic added, fast tests green

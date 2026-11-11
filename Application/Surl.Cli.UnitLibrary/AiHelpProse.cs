@@ -102,7 +102,7 @@ internal static class AiHelpProse
             "The extended protocol servers answer schemes the Curl port (https://github.com/StewartScottRogers/Curl) adds and upstream curl does not have. Each is judged by its protocol's specification and is not validated against upstream curl, unlike every other protocol topic's server.",
             "They are on unless the environment variable `SURL_EXTENSIONS` is `0`; unset, empty or any other value leaves them on. With `SURL_EXTENSIONS=0` no extended server is registered, and a listen URL naming an extended scheme writes `surl: (1) Protocol \"<scheme>\" not supported` and exits 1, as any scheme this build does not serve does. No command-line option turns them off.",
             "An extended scheme never changes how an original scheme is served, and has its own default port, which its topic's Schemes section lists. `surl --version` lists the extended schemes this build serves on an `Extended:` line after the `Protocols:` line; with none registered, or with `SURL_EXTENSIONS=0`, there is no such line.",
-            "This build registers three extended protocol servers, the DNS server for `dns` (see the dns topic), the NATS server for `nats` and `natss` (see the nats topic) and the S3 server for `s3` (see the s3 topic); each one added gets its own topic.",
+            "This build registers four extended protocol servers, the DNS server for `dns` (see the dns topic), the NATS server for `nats` and `natss` (see the nats topic), the S3 server for `s3` (see the s3 topic) and the Socket.IO server for `socketio` and `socketios` (see the socketio topic); each one added gets its own topic.",
         ],
         ["exit-codes"] =
         [
@@ -228,6 +228,13 @@ internal static class AiHelpProse
             "Requests are addressed path style (`/<bucket>/<key>`) or virtual-hosted style (`Host: <bucket>.<domain>`, where the domain is the listen URL's host when it is a DNS name, `localhost`, `s3.amazonaws.com` or `s3.<region>.amazonaws.com`). It serves GetObject and HeadObject, with one `Range` and the conditional fields; PutObject, which needs `--allow-uploads`; and ListObjectsV2 (`GET /<bucket>?list-type=2`), which needs `--list-directories`. Without the option each is `403 AccessDenied`, and every other request is `501 NotImplemented`. Every error carries S3's XML `Error` body.",
             "Every request must be signed with AWS Signature Version 4 for the service `s3` by an account (`--user`, `--user-file`): the user name is the access key ID and the password the secret access key. An unsigned request is `403 AccessDenied`, an unknown key `403 InvalidAccessKeyId`, a bad signature `403 SignatureDoesNotMatch` and a date more than 15 minutes off `403 RequestTimeTooSkewed`. With `--allow-anonymous` unsigned reads are served and unsigned writes are still refused. `--auth` does not apply to `s3`, and no `401` or `WWW-Authenticate` is ever sent.",
             "`s3` is TLS from the first byte, as every S3 endpoint is, so an `s3` listen URL needs `--cert` or `--self-signed` (see the tls topic); ALPN offers `http/1.1` only. A request head is bounded by `--max-request-head` (answered `400 RequestHeaderSectionTooLarge`) and `--head-timeout`, and an upload by `--max-filesize` (`400 EntityTooLarge`).",
+        ],
+        ["socketio"] =
+        [
+            "The Socket.IO server answers Socket.IO clients for `socketio` and `socketios` listen URLs. It is an extended server (see the extended topic): it is judged by the Engine.IO protocol, 4th version, and the Socket.IO protocol, 5th version, not by upstream curl, which has no `socketio` scheme. One server answers both schemes, so its sessions and broadcasts span every Socket.IO listen URL of the run.",
+            "A client reaches it at the path `/socket.io/` with `EIO=4`, over HTTP long-polling or a WebSocket upgrade; any other path is `404`. It serves the main namespace `/` only, because a listen URL has no path to name another.",
+            "A session's first Socket.IO packet must be a CONNECT, and its login is judged by the accounts allowed on `socketio` (`--user`, `--user-file`). Without an account a login is refused unless `--allow-anonymous` is given, and a password over plain `socketio` is refused unless `--allow-plaintext-auth` is given.",
+            "`socketio` is plain HTTP. `socketios` is the same server inside TLS from the first byte, so a `socketios` listen URL needs `--cert` or `--self-signed` (see the tls topic).",
         ],
         ["security"] =
         [

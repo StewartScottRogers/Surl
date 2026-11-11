@@ -4,6 +4,7 @@ using Surl.Content;
 using Surl.Extended.Protocol.DnsQuery;
 using Surl.Extended.Protocol.Nats;
 using Surl.Extended.Protocol.S3;
+using Surl.Extended.Protocol.SocketIo;
 using Surl.Protocol.Abstractions;
 using Surl.Protocol.Mqtt;
 
@@ -39,20 +40,21 @@ public sealed class ExtendedProtocolServersTests
     }
 
     [TestMethod]
-    public void Compose_ThisBuild_IsTheDnsUdpAndTcpServersThenTheNatsServerThenTheS3Server()
+    public void Compose_ThisBuild_IsTheDnsUdpAndTcpServersThenTheNatsServerThenTheS3ServerThenTheSocketIoServer()
     {
         var services = SurlServerComposition.ComposeUnservedExtendedServices(TimeProvider.System);
 
         var servers = ExtendedProtocolServers.Compose(services);
 
-        Assert.HasCount(4, servers);
+        Assert.HasCount(5, servers);
         Assert.IsInstanceOfType<DnsUdpProtocolServer>(servers[0]);
         Assert.IsInstanceOfType<DnsTcpProtocolServer>(servers[1]);
         Assert.IsInstanceOfType<NatsServer>(servers[2]);
         Assert.IsInstanceOfType<S3ProtocolServer>(servers[3]);
-        CollectionAssert.AreEqual(new[] { "dns", "dns", "nats", "natss", "s3" }, servers.SelectMany(server => server.Schemes).ToArray());
+        Assert.IsInstanceOfType<SocketIoProtocolServer>(servers[4]);
+        CollectionAssert.AreEqual(new[] { "dns", "dns", "nats", "natss", "s3", "socketio", "socketios" }, servers.SelectMany(server => server.Schemes).ToArray());
         CollectionAssert.AreEqual(
-            new[] { "dns", "dns", "nats", "natss", "s3" }, ExtendedProtocolServers.Registrations.SelectMany(registration => registration.Schemes).ToArray());
+            new[] { "dns", "dns", "nats", "natss", "s3", "socketio", "socketios" }, ExtendedProtocolServers.Registrations.SelectMany(registration => registration.Schemes).ToArray());
     }
 
     [TestMethod]

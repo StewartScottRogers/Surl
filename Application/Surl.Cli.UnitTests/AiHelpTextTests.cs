@@ -13,7 +13,7 @@ public sealed partial class AiHelpTextTests
     private static readonly string[] AdrTopicNames =
     [
         "auth", "content", "control", "dict", "dns", "exit-codes", "extended", "ftp", "gopher", "http", "imap", "ldap", "limits", "listen-urls",
-        "logging", "mail", "mqtt", "nats", "pop3", "rtsp", "s3", "security", "smb", "smtp", "ssh", "surl", "telnet", "testing", "tftp", "tls", "websocket",
+        "logging", "mail", "mqtt", "nats", "pop3", "rtsp", "s3", "security", "smb", "smtp", "socketio", "ssh", "surl", "telnet", "testing", "tftp", "tls", "websocket",
     ];
 
     // ADR-0046 decision 4's section headings, in order, on every topic page.
@@ -47,6 +47,7 @@ public sealed partial class AiHelpTextTests
         "| `security` | Options that widen what a peer may do |",
         "| `smb` | SMB and SMBS protocol |",
         "| `smtp` | SMTP and SMTPS protocol |",
+        "| `socketio` | Socket.IO and Socket.IO over TLS protocol (extended) |",
         "| `ssh` | SSH protocol |",
         "| `surl` | The command line tool itself |",
         "| `telnet` | TELNET protocol |",

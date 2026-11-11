@@ -27,6 +27,7 @@ public sealed class HelpTextTests
         " security   Options that widen what a peer may do",
         " smb        SMB and SMBS protocol",
         " smtp       SMTP and SMTPS protocol",
+        " socketio   Socket.IO and Socket.IO over TLS protocol (extended)",
         " ssh        SSH protocol",
         " surl       The command line tool itself",
         " telnet     TELNET protocol",
@@ -184,8 +185,8 @@ public sealed class HelpTextTests
             "This is not the full help; this menu is split into categories.",
             "Use \"--help category\" to get an overview of all categories, which are:",
             "auth, content, dict, dns, ftp, gopher, http, imap, ldap, limits, logging,",
-            "mail, mqtt, nats, pop3, rtsp, s3, security, smb, smtp, ssh, surl, telnet,",
-            "testing, tftp, tls, websocket.",
+            "mail, mqtt, nats, pop3, rtsp, s3, security, smb, smtp, socketio, ssh, surl,",
+            "telnet, testing, tftp, tls, websocket.",
             "Use \"--help all\" to list all options",
             "Use \"--help [option]\" to view documentation for a given option");
     }
