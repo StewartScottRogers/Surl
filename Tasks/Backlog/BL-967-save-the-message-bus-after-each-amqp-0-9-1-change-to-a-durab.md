@@ -4,7 +4,7 @@ title: Save the message bus after each AMQP 0-9-1 change to a durable queue
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-732]
+depends-on: [BL-732, BL-1035]
 touches: [Protocols/Messaging/Surl.Extended.Protocol.Amqp0.UnitLibrary, Protocols/Messaging/Surl.Extended.Protocol.Amqp0.UnitTests]
 requirement: none
 created: 2026-11-06
@@ -38,7 +38,17 @@ bus's files (`.surl/bus`) after the frame that changed it, so it survives a rest
 
 ## Notes
 
+- 2026-11-11 (lane 6): Code and tests written but not built: `dotnet` refuses to run because `global.json` pins SDK
+  10.0.401, which this machine does not have (installed: 10.0.100-rc.1, 11.0.100-rc.2, 11.0.100). Returned to Backlog
+  behind BL-1035, as BL-941 was. The uncommitted work, stashed by the shift: `SaveBusAsync` in
+  `Amqp0BrokerConnection.Exchanges.cs`, called after `SaveExchangesAsync` in `AnswerChannelFrameAsync`, noting
+  `StorageFailed` as "The message bus could not save its files (<reason>); the change is kept in memory."; a bullet in
+  the library's `CLAUDE.md`; and `Amqp0BrokerConnectionTests.BusFiles.cs` with the two named tests. Choice: a no-ack
+  consumer delivery (made on the bus's thread) is written by the next channel frame's save, not from `Deliver`,
+  which must never block.
+
 ## Log
 
 - 2026-11-06: Created.
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Backlog. Waiting on BL-1035: pinned .NET SDK 10.0.401 is not installed, so nothing builds or tests
