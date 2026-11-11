@@ -312,13 +312,23 @@ public sealed class ObjectMetadataIndex
         return IsFolderObjectKey(key) && IsValidKey(key[..^1]);
     }
 
-    private async Task<ObjectMetadataStoreResult> StoreEntryAsync(string key, ObjectMetadata metadata, CancellationToken cancellationToken)
+    private static void RequireValidMetadata(ObjectMetadata metadata)
     {
         ArgumentNullException.ThrowIfNull(metadata);
         if (metadata.ETag is not null && !IsValidETag(metadata.ETag))
         {
             throw new ArgumentException("The ETag is empty or longer than the index keeps.", nameof(metadata));
         }
+
+        if (metadata.Metageneration < 1)
+        {
+            throw new ArgumentException("The metageneration is less than 1.", nameof(metadata));
+        }
+    }
+
+    private async Task<ObjectMetadataStoreResult> StoreEntryAsync(string key, ObjectMetadata metadata, CancellationToken cancellationToken)
+    {
+        RequireValidMetadata(metadata);
 
         string?[] fields = [.. new[] { metadata.ContentType, metadata.ContentEncoding, metadata.ContentDisposition, metadata.CacheControl, metadata.ContentLanguage, metadata.ContentMd5 }
             .Select(field => string.IsNullOrEmpty(field) ? null : field)];
@@ -343,7 +353,7 @@ public sealed class ObjectMetadataIndex
 
             var eTag = metadata.ETag ?? await DefaultETagAsync(key, cancellationToken);
             var entry = new ObjectMetadataEntry(
-                length, lastWriteTicks, metadata.Generation ?? GenerationOf(lastWriteTicks), eTag,
+                length, lastWriteTicks, metadata.Generation ?? GenerationOf(lastWriteTicks), metadata.Metageneration ?? 1, eTag,
                 fields[0], fields[1], fields[2], fields[3], fields[4], fields[5], userMetadata);
             entries[key] = entry;
             var failure = await WriteIndexAsync(cancellationToken);
@@ -384,7 +394,7 @@ public sealed class ObjectMetadataIndex
 
             entries.Remove(key);
             var entry = new ObjectMetadataEntry(
-                length, lastWriteTicks, GenerationOf(lastWriteTicks), await ComputeETagAsync(FullPathOf(key), cancellationToken),
+                length, lastWriteTicks, GenerationOf(lastWriteTicks), 1, await ComputeETagAsync(FullPathOf(key), cancellationToken),
                 null, null, null, null, null, null, []);
             string? failure = null;
             if (entries.Count < MaxEntries)
@@ -467,6 +477,7 @@ public sealed class ObjectMetadataIndex
         new DateTimeOffset(entry.LastWriteTicks, TimeSpan.Zero))
     {
         ContentMd5 = entry.ContentMd5,
+        Metageneration = entry.Metageneration,
     };
 
     private Dictionary<string, ObjectMetadataEntry> DecodeIndex(string indexPath, byte[] bytes)

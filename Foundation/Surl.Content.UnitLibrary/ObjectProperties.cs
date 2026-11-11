@@ -35,4 +35,9 @@ public sealed record ObjectProperties(
     /// <see langword="null"/> when none was.
     /// </summary>
     public string? ContentMd5 { get; init; }
+
+    /// <summary>
+    /// The GCS <c>metageneration</c> (ADR-0148, decision 3): the one set at upload, else 1.
+    /// </summary>
+    public long Metageneration { get; init; } = 1;
 }
