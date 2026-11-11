@@ -453,3 +453,23 @@ left open:
 - BL-475 needs `Surl.Dtls`'s session to report its usable record size and the peer's PSK identity
   or verified client certificate; BL-414 and BL-415 build those reports (ADR-0087 decision 3, "Who
   the peer is").
+
+**Amendment (2026-11-11, BL-476; decided by Claude under Stewart's delegation).** How `surl` composes
+`coap` and `coaps`:
+
+- **Two registrations in `ExtendedProtocolServers.Registrations`**, `coap` (a `CoapProtocolServer`) and
+  `coaps` (a `DeferredCoapsProtocolServer`), over one `CoapObservations` on `ComposedProtocolServices`, so a
+  change notifies an observer over either scheme (decision 0). Both use one `CoapAccessRules`: `--allow-anonymous`
+  and whether any account is allowed on `coap`.
+- **`coaps` is built on its first flow.** Servers are composed before server TLS has made the certificate,
+  and `SecureCoapProtocolServer` takes its credentials at construction, so `DeferredCoapsProtocolServer` builds it
+  from `ComposedProtocolServices.QuicCertificate` (the one source of the served certificate; it also holds the
+  `--cacert` anchors) when the first flow arrives.
+- **The certificate rule is ADR-0087 decision 3's.** A `coaps` listen URL with no `--cert`, no `--self-signed`
+  and no `--user` or `--user-file` account is refused `(58)` like an implicit-TLS one. With an account and no
+  certificate it serves the PreSharedKey mode alone. A certificate whose key DTLS cannot sign with (not RSA of 2048
+  bits or more, nor ECDSA P-256 or P-384) is `(58) Could not load the server certificate: ...` at start.
+- **PSK identities are user names, keys are their passwords**, from the `--user` and `--user-file` accounts that
+  `MayLogInOn("coaps")`. A pre-shared key cannot come from the hashes the account book keeps, so
+  `ComposedAuthentication.PreSharedKeyAccounts` keeps those accounts with their passwords in memory, for `coaps`
+  alone; `--mailbox` accounts are not included.

@@ -202,6 +202,7 @@ public static partial class SurlServerComposition
                 new SchemeAuthenticationPolicies(policy, seams.TimeProvider, instruments.Events, instruments.Faults))
             {
                 ProxyPolicy = proxyPolicy,
+                PreSharedKeyAccounts = AuthenticationComposition.ReadPreSharedKeyAccounts(commandLine, readStartFile),
             }, null);
     }
 
@@ -295,6 +296,7 @@ public static partial class SurlServerComposition
             AllowsZoneTransfer = commandLine.AllowZoneTransfer,
             OriginConnector = originConnector,
             ProxyAuthenticationPolicy = authentication.ProxyPolicy,
+            PreSharedKeyAccounts = authentication.PreSharedKeyAccounts,
         };
         IProtocolServer[] servers =
         [
@@ -349,7 +351,14 @@ public static partial class SurlServerComposition
             return Refuse(exitCode, lines);
         }
 
+        if (CoapsDtlsCertificate.FindRefusal(commandLine, tls.QuicCertificate) is { } certificateRefusal)
+        {
+            tls.Dispose();
+            return Refuse(SurlExitCode.CertificateProblem, certificateRefusal);
+        }
+
         quicCertificateSource.Certificate = tls.QuicCertificate;
+        quicCertificateSource.ClientTrustAnchors = tls.ClientTrustAnchors;
         IProtocolServer[] served = commandLine.Http3 && tls.QuicCertificate is { } quicCertificate
             ? [.. servers, ComposeHttp3ProtocolServer(commandLine, stores.Content, authentication.SchemePolicies.For("https"), quicCertificate)]
             : servers;

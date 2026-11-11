@@ -72,6 +72,12 @@ public sealed class ComposedProtocolServices(
     /// </summary>
     public QuicCertificateSource QuicCertificate { get; } = new();
 
+    /// <summary>Gets the accounts <c>coaps</c> handshakes with as pre-shared keys: each identity is a user name and its key the password (ADR-0097 decision 6); none unless set.</summary>
+    public IReadOnlyList<Account> PreSharedKeyAccounts { get; init; } = [];
+
+    /// <summary>Gets the observers of the process, which <c>coap</c> and <c>coaps</c> share so a change notifies an observer over either (ADR-0097 decision 0).</summary>
+    public Surl.Extended.Protocol.Coap.CoapObservations CoapObservations { get; } = new();
+
     /// <summary>Gets the one policy, over every account.</summary>
     public AuthenticationPolicy AuthenticationPolicy { get; } = authenticationPolicy;
 

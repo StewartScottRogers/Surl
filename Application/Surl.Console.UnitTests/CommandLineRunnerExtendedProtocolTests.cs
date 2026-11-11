@@ -221,6 +221,8 @@ public sealed class CommandLineRunnerExtendedProtocolTests
     [TestMethod]
     [DataRow("nats")]
     [DataRow("natss")]
+    [DataRow("coap")]
+    [DataRow("coaps")]
     [DataRow("socketio")]
     [DataRow("socketios")]
     [DataRow("webtransport")]
@@ -301,6 +303,71 @@ public sealed class CommandLineRunnerExtendedProtocolTests
     }
 
     [TestMethod]
+    public void ComposeExtendedSchemes_ThisBuild_RegistersCoapAndCoapsWithTheSwitchUnsetAndNotWithItAtZero()
+    {
+        var on = CreateRunner(new FakeListenerFactory(), FakeEnvironmentVariableReader.Empty, composeExtendedProtocolServers: null);
+        var off = CreateRunner(new FakeListenerFactory(), FakeEnvironmentVariableReader.ExtensionsTurnedOff, composeExtendedProtocolServers: null);
+
+        CollectionAssert.IsSubsetOf(new[] { "coap", "coaps" }, on.ComposeExtendedSchemes().ToArray());
+        CollectionAssert.DoesNotContain(off.ComposeExtendedSchemes().ToArray(), "coap");
+        CollectionAssert.DoesNotContain(off.ComposeExtendedSchemes().ToArray(), "coaps");
+    }
+
+    [TestMethod]
+    public async Task RunAsync_CoapsWithoutACertificateOrAnAccount_ExitsWithCertificateProblem()
+    {
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+        var runner = CreateRunner(new FakeListenerFactory(), FakeEnvironmentVariableReader.Empty, composeExtendedProtocolServers: null);
+
+        var exitCode = await runner.RunAsync(["coaps://127.0.0.1:0/"], output, error, TestContext.CancellationToken);
+
+        Assert.AreEqual(SurlExitCode.CertificateProblem, exitCode);
+        Assert.AreEqual(
+            "surl: (58) coaps://127.0.0.1:0/ needs a certificate: give --cert <file>, or --self-signed for a throwaway one" + NewLine,
+            error.ToString());
+    }
+
+    [TestMethod]
+    [DataRow(new[] { "coap://127.0.0.1/" }, "coap", 5683)]
+    [DataRow(new[] { "--self-signed", "coaps://127.0.0.1/" }, "coaps", 5684)]
+    [DataRow(new[] { "--user", "alice:pw", "coaps://127.0.0.1/" }, "coaps", 5684)]
+    public async Task RunAsync_CoapListenUrl_ListensAtItsDefaultPort(string[] arguments, string scheme, int port)
+    {
+        var factory = new FakeListenerFactory();
+        using var stop = CancellationTokenSource.CreateLinkedTokenSource(TestContext.CancellationToken);
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+        var runner = CreateRunner(factory, FakeEnvironmentVariableReader.Empty, composeExtendedProtocolServers: null);
+
+        var running = runner.RunAsync(arguments, output, error, stop.Token);
+        await factory.AcceptStarted.Task.WaitAsync(TestContext.CancellationToken);
+        await stop.CancelAsync();
+        var exitCode = await running;
+
+        Assert.AreEqual(SurlExitCode.Ok, exitCode);
+        Assert.AreEqual(new ListenUrl(scheme, "127.0.0.1", port), factory.StartedListenUrls.Single());
+    }
+
+    [TestMethod]
+    public async Task RunAsync_CoapsWithAnUnusableCertificateKey_ExitsWithCertificateProblem()
+    {
+        // A P-521 key: TLS serves it, DTLS cannot sign with it (ADR-0087 decision 3).
+        using var key = System.Security.Cryptography.ECDsa.Create(System.Security.Cryptography.ECCurve.NamedCurves.nistP521);
+        var request = new System.Security.Cryptography.X509Certificates.CertificateRequest("CN=localhost", key, System.Security.Cryptography.HashAlgorithmName.SHA256);
+        using var certificate = request.CreateSelfSigned(DateTimeOffset.UtcNow.AddDays(-1), DateTimeOffset.UtcNow.AddDays(1));
+        var pem = certificate.ExportCertificatePem() + key.ExportPkcs8PrivateKeyPem();
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+        var runner = CreateRunner(new FakeListenerFactory(), FakeEnvironmentVariableReader.Empty, composeExtendedProtocolServers: null, readStartFile: _ => System.Text.Encoding.ASCII.GetBytes(pem));
+
+        var exitCode = await runner.RunAsync(["--cert", "server.pem", "coaps://127.0.0.1:0/"], output, error, TestContext.CancellationToken);
+
+        Assert.AreEqual(SurlExitCode.CertificateProblem, exitCode);
+        StringAssert.StartsWith(error.ToString(), "surl: (58) Could not load the server certificate: ");
+    }
+
+    [TestMethod]
     public async Task RunAsync_NatssWithoutACertificate_ExitsWithCertificateProblem()
     {
         using var output = new StringWriter();
@@ -322,7 +389,7 @@ public sealed class CommandLineRunnerExtendedProtocolTests
 
         var schemes = runner.ComposeExtendedSchemes();
 
-        CollectionAssert.AreEqual(new[] { "dns", "nats", "natss", "s3", "socketio", "socketios", "webtransport" }, schemes.ToArray());
+        CollectionAssert.AreEqual(new[] { "coap", "coaps", "dns", "nats", "natss", "s3", "socketio", "socketios", "webtransport" }, schemes.ToArray());
     }
 
     [TestMethod]
@@ -366,7 +433,8 @@ public sealed class CommandLineRunnerExtendedProtocolTests
     private static CommandLineRunner CreateRunner(
         FakeListenerFactory factory,
         IEnvironmentVariableReader environmentVariables,
-        Func<ExtendedProtocolServerServices, IReadOnlyList<IProtocolServer>>? composeExtendedProtocolServers) =>
+        Func<ExtendedProtocolServerServices, IReadOnlyList<IProtocolServer>>? composeExtendedProtocolServers,
+        Func<string, byte[]>? readStartFile = null) =>
         new(
             _ => factory,
             _ => true,
@@ -374,5 +442,6 @@ public sealed class CommandLineRunnerExtendedProtocolTests
             TimeProvider.System,
             new UnitTestReadOnlyContentFileSystem(),
             environmentVariables: environmentVariables,
-            composeExtendedProtocolServers: composeExtendedProtocolServers);
+            composeExtendedProtocolServers: composeExtendedProtocolServers,
+            readStartFile: readStartFile);
 }

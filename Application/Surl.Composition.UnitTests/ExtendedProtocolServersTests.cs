@@ -1,6 +1,7 @@
 using Surl.Authentication;
 using Surl.Cli;
 using Surl.Content;
+using Surl.Extended.Protocol.Coap;
 using Surl.Extended.Protocol.DnsQuery;
 using Surl.Extended.Protocol.Nats;
 using Surl.Extended.Protocol.S3;
@@ -41,22 +42,24 @@ public sealed class ExtendedProtocolServersTests
     }
 
     [TestMethod]
-    public void Compose_ThisBuild_IsTheDnsUdpAndTcpServersThenTheNatsServerThenTheS3ServerThenTheSocketIoServerThenTheWebTransportServer()
+    public void Compose_ThisBuild_IsTheDnsUdpAndTcpServersThenTheNatsServerThenTheS3ServerThenTheSocketIoServerThenTheWebTransportServerAfterTheCoapServers()
     {
         var services = SurlServerComposition.ComposeUnservedExtendedServices(TimeProvider.System);
 
         var servers = ExtendedProtocolServers.Compose(services);
 
-        Assert.HasCount(6, servers);
-        Assert.IsInstanceOfType<DnsUdpProtocolServer>(servers[0]);
-        Assert.IsInstanceOfType<DnsTcpProtocolServer>(servers[1]);
-        Assert.IsInstanceOfType<NatsServer>(servers[2]);
-        Assert.IsInstanceOfType<S3ProtocolServer>(servers[3]);
-        Assert.IsInstanceOfType<SocketIoProtocolServer>(servers[4]);
-        Assert.IsInstanceOfType<WebTransportProtocolServer>(servers[5]);
-        CollectionAssert.AreEqual(new[] { "dns", "dns", "nats", "natss", "s3", "socketio", "socketios", "webtransport" }, servers.SelectMany(server => server.Schemes).ToArray());
+        Assert.HasCount(8, servers);
+        Assert.IsInstanceOfType<CoapProtocolServer>(servers[0]);
+        CollectionAssert.AreEqual(new[] { "coaps" }, servers[1].Schemes.ToArray());
+        Assert.IsInstanceOfType<DnsUdpProtocolServer>(servers[2]);
+        Assert.IsInstanceOfType<DnsTcpProtocolServer>(servers[3]);
+        Assert.IsInstanceOfType<NatsServer>(servers[4]);
+        Assert.IsInstanceOfType<S3ProtocolServer>(servers[5]);
+        Assert.IsInstanceOfType<SocketIoProtocolServer>(servers[6]);
+        Assert.IsInstanceOfType<WebTransportProtocolServer>(servers[7]);
+        CollectionAssert.AreEqual(new[] { "coap", "coaps", "dns", "dns", "nats", "natss", "s3", "socketio", "socketios", "webtransport" }, servers.SelectMany(server => server.Schemes).ToArray());
         CollectionAssert.AreEqual(
-            new[] { "dns", "dns", "nats", "natss", "s3", "socketio", "socketios", "webtransport" }, ExtendedProtocolServers.Registrations.SelectMany(registration => registration.Schemes).ToArray());
+            new[] { "coap", "coaps", "dns", "dns", "nats", "natss", "s3", "socketio", "socketios", "webtransport" }, ExtendedProtocolServers.Registrations.SelectMany(registration => registration.Schemes).ToArray());
     }
 
     [TestMethod]

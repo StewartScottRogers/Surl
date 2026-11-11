@@ -155,6 +155,7 @@ public sealed class AiHelpFactsTests
     }
 
     [TestMethod]
+    [DataRow("coap", new[] { "coap", "coaps" })]
     [DataRow("dict", new[] { "dict" })]
     [DataRow("dns", new[] { "dns" })]
     [DataRow("gopher", new[] { "gopher", "gophers" })]
@@ -182,7 +183,7 @@ public sealed class AiHelpFactsTests
     {
         var withSchemes = HelpCategories.All.Where(category => category.Schemes.Count > 0).Select(category => category.Name);
 
-        CollectionAssert.AreEqual(new[] { "dict", "dns", "ftp", "gopher", "http", "imap", "ldap", "mqtt", "nats", "pop3", "rtsp", "s3", "smb", "smtp", "socketio", "ssh", "telnet", "tftp", "websocket", "webtransport" }, withSchemes.ToArray());
+        CollectionAssert.AreEqual(new[] { "coap", "dict", "dns", "ftp", "gopher", "http", "imap", "ldap", "mqtt", "nats", "pop3", "rtsp", "s3", "smb", "smtp", "socketio", "ssh", "telnet", "tftp", "websocket", "webtransport" }, withSchemes.ToArray());
     }
 
     [TestMethod]

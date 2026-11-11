@@ -8,7 +8,7 @@ depends-on: [BL-475, BL-405]
 touches: [Application/Surl.Console, Application/Surl.Console.UnitTests, Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests, Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests]
 requirement: none
 created: 2026-11-04
-completed:
+completed: 2026-11-11
 ---
 # BL-476 — Serve coap and coaps from the surl executable
 
@@ -28,9 +28,9 @@ and the extension switch turns both off.
 
 ## Acceptance criteria
 
-- [ ] A named test finds `coap` and `coaps` registered when the switch is on, and absent when it is off.
-- [ ] The `--aihelp` completeness tests named in root `CLAUDE.md` pass.
-- [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and `Surl.Console` and `Surl.Cli` keep 100%
+- [x] A named test finds `coap` and `coaps` registered when the switch is on, and absent when it is off.
+- [x] The `--aihelp` completeness tests named in root `CLAUDE.md` pass.
+- [x] `dotnet build -warnaserror` is clean, the fast tests are green, and `Surl.Console` and `Surl.Cli` keep 100%
       line and branch coverage.
 
 ## Notes
@@ -43,9 +43,16 @@ and the extension switch turns both off.
   Backlog until BL-803 frees them. `ExtendedSchemeDefaultPorts` in `Surl.Cli` already lists `coap` 5683 and
   `coaps` 5684. The CoAP server lives in `Protocols/Http/Surl.Extended.Protocol.Coap.UnitLibrary`.
 
+- 2026-11-11 (lane 1): `coap` and `coaps` are two entries in `ExtendedProtocolServers.Registrations`; `coaps` is
+  built on its first flow (`DeferredCoapsProtocolServer`) because server TLS makes the certificate after the
+  servers are composed. A `coaps` listen URL needs `--cert`/`--self-signed` or an account (PSK identity = user
+  name, key = password; `PreSharedKeyAccounts` keeps those accounts with passwords). Recorded as an amendment
+  to ADR-0097.
+
 ## Log
 
 - 2026-11-04: Created.
 - 2026-11-05: Backlog -> Doing.
 - 2026-11-05: Doing -> Backlog. Needs Application/Surl.Composition.UnitLibrary and .UnitTests, which BL-803 in Doing touches
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Done. surl serves coap and coaps (DTLS PSK/certificate), with the coap help category and --aihelp topic

@@ -8,6 +8,7 @@ public sealed class HelpTextTests
     private static readonly string[] CategoryListLines =
     [
         " auth          Accounts and authentication methods",
+        " coap          CoAP and CoAPS protocol (extended)",
         " content       Served files and the data directory",
         " dict          DICT protocol",
         " dns           DNS protocol (extended)",
@@ -186,9 +187,9 @@ public sealed class HelpTextTests
             "",
             "This is not the full help; this menu is split into categories.",
             "Use \"--help category\" to get an overview of all categories, which are:",
-            "auth, content, dict, dns, ftp, gopher, http, imap, ldap, limits, logging,",
-            "mail, mqtt, nats, pop3, proxy, rtsp, s3, security, smb, smtp, socketio, ssh,",
-            "surl, telnet, testing, tftp, tls, websocket, webtransport.",
+            "auth, coap, content, dict, dns, ftp, gopher, http, imap, ldap, limits,",
+            "logging, mail, mqtt, nats, pop3, proxy, rtsp, s3, security, smb, smtp,",
+            "socketio, ssh, surl, telnet, testing, tftp, tls, websocket, webtransport.",
             "Use \"--help all\" to list all options",
             "Use \"--help [option]\" to view documentation for a given option");
     }

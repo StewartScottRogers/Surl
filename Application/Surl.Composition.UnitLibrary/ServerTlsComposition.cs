@@ -18,8 +18,10 @@ public sealed class ServerTlsComposition : IDisposable
     private readonly IReadOnlyList<IDisposable> owned;
 
     private ServerTlsComposition(
-        ServerTlsSettings? settings, string? throwawayCertificateFingerprint, QuicServerCertificate? quicCertificate, IReadOnlyList<IDisposable> owned)
+        ServerTlsSettings? settings, string? throwawayCertificateFingerprint, QuicServerCertificate? quicCertificate, IReadOnlyList<IDisposable> owned,
+        IReadOnlyList<X509Certificate2>? clientTrustAnchors = null)
     {
+        ClientTrustAnchors = clientTrustAnchors ?? [];
         Settings = settings;
         QuicCertificate = quicCertificate;
         ThrowawayCertificateFingerprint = throwawayCertificateFingerprint;
@@ -38,12 +40,14 @@ public sealed class ServerTlsComposition : IDisposable
     /// <summary>
     /// The listen URL schemes that start in plain text but whose server requires TLS before a login,
     /// so they need a certificate as a scheme TLS from the first byte does: the extended
-    /// <c>natss</c> (ADR-0113 decision 6), and the extended <c>webtransport</c>, which is UDP and
+    /// <c>natss</c> (ADR-0113 decision 6), the extended <c>coaps</c> when no account gives it a pre-shared key (ADR-0087 decision 3, BL-476), and the extended <c>webtransport</c>, which is UDP and
     /// QUIC, whose TLS 1.3 needs a certificate from its first packet (BL-461).
     /// </summary>
     private static readonly HashSet<string> UpgradeRequiredSchemes = new(StringComparer.OrdinalIgnoreCase) { "natss", WebTransportScheme };
 
     private const string WebTransportScheme = "webtransport";
+
+    private const string CoapsScheme = "coaps";
 
     /// <summary>
     /// The settings every listener secures its connections with, or <see langword="null"/>
@@ -63,6 +67,9 @@ public sealed class ServerTlsComposition : IDisposable
     /// </summary>
     public QuicServerCertificate? QuicCertificate { get; }
 
+    /// <summary>The <c>--cacert</c> anchors a <c>coaps</c> client certificate must chain to; none when <c>--cacert</c> is not given.</summary>
+    public IReadOnlyList<X509Certificate2> ClientTrustAnchors { get; }
+
     /// <summary>
     /// Finds the first listen URL, in command-line order, that is TLS from the first byte or
     /// requires TLS before a login (<c>natss</c>, ADR-0113 decision 6), and has no certificate to serve because neither <c>--cert</c> nor <c>--self-signed</c> was
@@ -72,7 +79,7 @@ public sealed class ServerTlsComposition : IDisposable
     /// <returns>That listen URL, or <see langword="null"/> when every listen URL has what it needs.</returns>
     public static ListenUrl? FindListenUrlWithoutCertificate(SurlCommandLine commandLine) =>
         commandLine.CertificateFile is null && !commandLine.SelfSigned
-            ? commandLine.ListenUrls.FirstOrDefault(listenUrl => RequiresCertificate(listenUrl.Scheme))
+            ? commandLine.ListenUrls.FirstOrDefault(listenUrl => RequiresCertificate(commandLine, listenUrl.Scheme))
             : null;
 
     /// <summary>
@@ -121,10 +128,14 @@ public sealed class ServerTlsComposition : IDisposable
     }
 
     private static bool NeedsTls(SurlCommandLine commandLine, string scheme) =>
-        RequiresCertificate(scheme) || (IsCertificateConfigured(commandLine) && UpgradableSchemes.Contains(scheme));
+        RequiresCertificate(commandLine, scheme)
+        || (IsCertificateConfigured(commandLine) && (UpgradableSchemes.Contains(scheme) || scheme == CoapsScheme));
 
-    private static bool RequiresCertificate(string scheme) =>
-        TlsSchemes.IsImplicitTls(scheme) || UpgradeRequiredSchemes.Contains(scheme);
+    // coaps needs a certificate or an account, whose pre-shared key it can handshake with (ADR-0087 decision 3).
+    private static bool RequiresCertificate(SurlCommandLine commandLine, string scheme) =>
+        TlsSchemes.IsImplicitTls(scheme)
+        || UpgradeRequiredSchemes.Contains(scheme)
+        || (scheme == CoapsScheme && commandLine.Accounts.Count == 0 && commandLine.UserFile is null);
 
     /// <summary>
     /// Formats the message for a TLS option file that could not be loaded, after the
@@ -192,7 +203,7 @@ public sealed class ServerTlsComposition : IDisposable
 
         var quicCertificate = ComposeQuicCertificate(commandLine, loaded.Certificate, loaded.IntermediateCertificates);
 
-        return new ServerTlsComposition(settings, null, quicCertificate, [loaded, .. trustAnchors, .. OwnedKey(quicCertificate)]);
+        return new ServerTlsComposition(settings, null, quicCertificate, [loaded, .. trustAnchors, .. OwnedKey(quicCertificate)], trustAnchors);
     }
 
     private static ServerTlsComposition ComposeWithThrowaway(
@@ -208,12 +219,13 @@ public sealed class ServerTlsComposition : IDisposable
             settings,
             ThrowawayServerCertificate.Sha256FingerprintOf(throwaway),
             quicCertificate,
-            [throwaway, .. trustAnchors, .. OwnedKey(quicCertificate)]);
+            [throwaway, .. trustAnchors, .. OwnedKey(quicCertificate)],
+            trustAnchors);
     }
 
     private static QuicServerCertificate? ComposeQuicCertificate(
         SurlCommandLine commandLine, X509Certificate2 certificate, IReadOnlyList<X509Certificate2> intermediateCertificates) =>
-        (commandLine.Http3 || commandLine.ListenUrls.Any(listenUrl => listenUrl.Scheme == WebTransportScheme)) ? QuicServerCertificate.From(certificate, intermediateCertificates) : null;
+        (commandLine.Http3 || commandLine.ListenUrls.Any(listenUrl => listenUrl.Scheme is WebTransportScheme or CoapsScheme)) ? QuicServerCertificate.From(certificate, intermediateCertificates) : null;
 
     private static IEnumerable<IDisposable> OwnedKey(QuicServerCertificate? quicCertificate) =>
         quicCertificate is null ? [] : [quicCertificate.Key];

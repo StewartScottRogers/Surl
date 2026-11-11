@@ -84,6 +84,13 @@ internal static class AiHelpProse
             "`--control-token-file <file>` names the file whose first line, without its line end, is the bearer token every request must send as `Authorization: Bearer <token>`. surl never generates a token, so `--control` without it writes `surl: (2) --control needs --control-token-file`, and the token file without `--control` writes `surl: (2) --control-token-file without --control`. Each of these refusals exits 2 before anything starts.",
             "This build reads and checks both options; it does not yet serve the endpoint or read the token file.",
         ],
+        ["coap"] =
+        [
+            "The CoAP server answers CoAP clients for `coap` listen URLs, and CoAP over DTLS 1.2 for `coaps` ones, on UDP. It is an extended server (see the extended topic): it is judged by RFC 7252, with RFC 7959 for block-wise transfers and RFC 7641 for observation, not by upstream curl, which has no `coap` scheme. The default ports are 5683 for `coap` and 5684 for `coaps`.",
+            "It serves the files of the served root as resources: `GET` reads one with an ETag, Max-Age 60 and a Content-Format, and answers `2.03` to a current ETag; `PUT`, `POST` and `DELETE` write them, and need `--allow-uploads`. A `GET` of `/.well-known/core` lists the files (RFC 6690) under `--list-directories`. Block1 and Block2 split a transfer, and a `GET` with Observe 0 registers an observer that is notified when the file changes, whichever protocol changed it.",
+            "`coap` is NoSec: no peer is authenticated. A read is served unless an account makes the server private (see the auth topic) or `--allow-anonymous` is given, and a write needs `--allow-anonymous` as well as `--allow-uploads`; a refusal is `4.01`.",
+            "`coaps` handshakes DTLS 1.2 in three modes. The PreSharedKey mode takes each account as a key: the PSK identity is the user name and the key is its password (`--user`, `--user-file`). The Certificate and RawPublicKey modes serve `--cert` or `--self-signed` (see the tls topic); a client certificate is checked against `--cacert` when it is given. A `coaps` listen URL needs a certificate or an account, else it exits 58. A PSK peer or one with a verified client certificate is authenticated; one that only encrypts is not.",
+        ],
         ["dict"] =
         [
             "The DICT server (RFC 2229) answers the `DEFINE`, `MATCH` and `SHOW` requests upstream curl sends for `dict://` URLs, and the rest of RFC 2229's commands.",
@@ -102,7 +109,7 @@ internal static class AiHelpProse
             "The extended protocol servers answer schemes the Curl port (https://github.com/StewartScottRogers/Curl) adds and upstream curl does not have. Each is judged by its protocol's specification and is not validated against upstream curl, unlike every other protocol topic's server.",
             "They are on unless the environment variable `SURL_EXTENSIONS` is `0`; unset, empty or any other value leaves them on. With `SURL_EXTENSIONS=0` no extended server is registered, and a listen URL naming an extended scheme writes `surl: (1) Protocol \"<scheme>\" not supported` and exits 1, as any scheme this build does not serve does. No command-line option turns them off.",
             "An extended scheme never changes how an original scheme is served, and has its own default port, which its topic's Schemes section lists. `surl --version` lists the extended schemes this build serves on an `Extended:` line after the `Protocols:` line; with none registered, or with `SURL_EXTENSIONS=0`, there is no such line.",
-            "This build registers five extended protocol servers, the DNS server for `dns` (see the dns topic), the NATS server for `nats` and `natss` (see the nats topic), the S3 server for `s3` (see the s3 topic) the Socket.IO server for `socketio` and `socketios` (see the socketio topic) and the WebTransport server for `webtransport` (see the webtransport topic); each one added gets its own topic.",
+            "This build registers six extended protocol servers, the CoAP server for `coap` and `coaps` (see the coap topic), the DNS server for `dns` (see the dns topic), the NATS server for `nats` and `natss` (see the nats topic), the S3 server for `s3` (see the s3 topic) the Socket.IO server for `socketio` and `socketios` (see the socketio topic) and the WebTransport server for `webtransport` (see the webtransport topic); each one added gets its own topic.",
         ],
         ["exit-codes"] =
         [

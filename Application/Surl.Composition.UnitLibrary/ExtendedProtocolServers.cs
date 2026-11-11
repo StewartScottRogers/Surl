@@ -1,3 +1,4 @@
+using Surl.Extended.Protocol.Coap;
 using Surl.Extended.Protocol.DnsQuery;
 using Surl.Extended.Protocol.Nats;
 using Surl.Extended.Protocol.S3;
@@ -40,7 +41,7 @@ public static class ExtendedProtocolServers
     /// scheme, on the same <see cref="ProtocolServerRegistration"/> as the originals (ADR-0124,
     /// decision 2): today the DNS server for <c>dns</c> over UDP and TCP (BL-1032), the NATS server for
     /// <c>nats</c> and <c>natss</c> (BL-528), the S3 server
-    /// for <c>s3</c> (BL-421) the Socket.IO server for <c>socketio</c> and <c>socketios</c> (BL-455) and the WebTransport server for <c>webtransport</c> (BL-461).
+    /// for <c>s3</c> (BL-421) the Socket.IO server for <c>socketio</c> and <c>socketios</c> (BL-455) the WebTransport server for <c>webtransport</c> (BL-461) and the CoAP servers for <c>coap</c> and <c>coaps</c> (BL-476).
     /// </summary>
     /// <remarks>
     /// The DNS server is two entries for <c>dns</c>, a <see cref="DnsUdpProtocolServer"/> and a
@@ -68,6 +69,8 @@ public static class ExtendedProtocolServers
     /// <c>webtransport</c> listen URL needs a certificate (<c>--cert</c> or <c>--self-signed</c>).    /// </remarks>
     public static IReadOnlyList<ProtocolServerRegistration> Registrations { get; } =
     [
+        new(["coap"], services => new CoapProtocolServer(services.ContentStore, CoapAccessRulesFor(services), services.CoapObservations)),
+        new(["coaps"], services => new DeferredCoapsProtocolServer(services)),
         new(["dns"], services => new DnsUdpProtocolServer(services.DnsZones, services.AllowsZoneTransfer)),
         new(["dns"], services => new DnsTcpProtocolServer(services.DnsZones, services.AllowsZoneTransfer)),
         new(["nats", NatsServer.TlsScheme], services => new NatsServer(
@@ -85,7 +88,14 @@ public static class ExtendedProtocolServers
         new([WebTransportProtocolServer.Scheme], services => new WebTransportProtocolServer(
             services.AuthenticationPolicyFor(WebTransportProtocolServer.Scheme),
             () => services.QuicCertificate.Certificate is { } certificate ? new WebTransportServerCertificate(certificate.Chain, certificate.Key) : null,
-            services.IdleTimeout)),    ];
+            services.IdleTimeout)),
+    ];
+
+    /// <summary>
+    /// Who may read and write over <c>coap</c> and <c>coaps</c> (ADR-0097 decision 6): <c>--allow-anonymous</c>, and whether any account is allowed on <c>coap</c>.
+    /// </summary>
+    internal static CoapAccessRules CoapAccessRulesFor(ComposedProtocolServices services) => new(
+        services.AuthenticationPolicy.Settings.AllowAnonymous, services.AuthenticationPolicyFor("coap").Settings.Accounts.HasAccounts);
 
     /// <summary>
     /// Builds every extended protocol server <see cref="Registrations"/> lists, in its order.

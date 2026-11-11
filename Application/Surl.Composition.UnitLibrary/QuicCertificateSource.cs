@@ -10,4 +10,7 @@ public sealed class QuicCertificateSource
 {
     /// <summary>Gets the certificate, or <see langword="null"/> until the composition has made it and when none is served.</summary>
     public QuicServerCertificate? Certificate { get; internal set; }
+
+    /// <summary>Gets the <c>--cacert</c> anchors a <c>coaps</c> client certificate must chain to, empty until the composition has loaded them.</summary>
+    public IReadOnlyList<System.Security.Cryptography.X509Certificates.X509Certificate2> ClientTrustAnchors { get; internal set; } = [];
 }

@@ -211,6 +211,10 @@ public static class AuthenticationComposition
             : (null, SurlExitCode.FailedInit, $"(2) option --mailbox: mailbox {taken.UserName} is also a --user-file account");
     }
 
+    /// <summary>The <c>--user</c> and <c>--user-file</c> accounts with their passwords, for the <c>coaps</c> pre-shared keys; none when the file cannot be read, which the policy's own read has already refused.</summary>
+    internal static IReadOnlyList<Account> ReadPreSharedKeyAccounts(SurlCommandLine commandLine, Func<string, byte[]> readFile) =>
+        ReadUserAccounts(commandLine, readFile).Accounts ?? [];
+
     private static (IReadOnlyList<Account>? Accounts, SurlExitCode ExitCode, string? FailureMessage) ReadUserAccounts(
         SurlCommandLine commandLine, Func<string, byte[]> readUserFile)
     {
