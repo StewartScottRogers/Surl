@@ -79,3 +79,4 @@ HTTP/2 path, and ADR-0088 records the change as Amendment 5.
 ## Log
 
 - 2026-11-06: Created.
+- 2026-11-11: Backlog -> Doing.
