@@ -40,3 +40,4 @@ ADR-0101 decision 5 row 18 and ADR-0102 decisions 4 and 5 state exactly what BL-
 ## Log
 
 - 2026-11-05: Created.
+- 2026-11-11: Backlog -> Doing.
