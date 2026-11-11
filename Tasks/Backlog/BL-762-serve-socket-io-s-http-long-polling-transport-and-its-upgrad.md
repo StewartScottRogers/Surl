@@ -4,7 +4,7 @@ title: Serve Socket.IO's HTTP long-polling transport and its upgrade to WebSocke
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-454, BL-407]
+depends-on: [BL-454, BL-407, BL-1035]
 touches: [Protocols/Http/Surl.Extended.Protocol.SocketIo.UnitLibrary, Protocols/Http/Surl.Extended.Protocol.SocketIo.UnitTests, Documentation/Conformance/Extended/SocketIo.md]
 requirement: none
 created: 2026-11-05
@@ -44,9 +44,12 @@ ADR-0120 decision 2 decides.
 
 ## Notes
 
+- 2026-11-11 (lane 1): cherry-picked b329047e from factory/BL-762-lane-3-20261111-060243 cleanly onto the current head, but `dotnet build` cannot run: global.json pins SDK 10.0.401 and only 10.0.100-rc.1, 11.0.100-rc.2 and 11.0.100 are installed. Waiting on BL-1035. Next run: cherry-pick b329047e and 1ff773e0 (1ff773e0 also edits the ADR-0120 file under Documentation/Planning/Decisions, which is not in this task's touches; add it once BL-671 leaves Doing), then build and fix.
+
 ## Log
 
 - 2026-11-05: Created.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Lane 3 could not integrate: build failed after rebasing onto the other lanes' work. The work is on branch factory/BL-762-lane-3-20261111-060243; start with git cherry-pick --no-commit factory/BL-762-lane-3-20261111-060243 and fix it.
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Backlog. Waiting on BL-1035: the pinned .NET SDK 10.0.401 is not installed, so dotnet build cannot run
