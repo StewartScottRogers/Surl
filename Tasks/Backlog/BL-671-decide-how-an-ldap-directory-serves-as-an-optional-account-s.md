@@ -56,3 +56,4 @@ methods that can serve, and how it stays secure by default.
 
 - 2026-11-04: Created.
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Backlog. Lane 6 could not integrate: build failed after rebasing onto the other lanes' work. The work is on branch factory/BL-671-lane-6-20261111-060243; start with git cherry-pick --no-commit factory/BL-671-lane-6-20261111-060243 and fix it.
