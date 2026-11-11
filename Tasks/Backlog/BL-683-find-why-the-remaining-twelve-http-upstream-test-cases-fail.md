@@ -4,7 +4,7 @@ title: Find why the remaining twelve http upstream test cases fail against Surl
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-392]
+depends-on: [BL-392, BL-1035]
 touches: [Conformance/Surl.Conformance.UnitLibrary, Conformance/Surl.Conformance.UnitTests, Protocols/Http/Surl.Protocol.Http.UnitLibrary, Protocols/Http/Surl.Protocol.Http.UnitTests]
 requirement: none
 created: 2026-11-04
@@ -69,7 +69,12 @@ or is listed in Notes with the reason it cannot pass.
 
 ## Notes
 
+- 2026-11-11 (lane 3): parked behind BL-1035. `global.json` pins SDK 10.0.401 and this machine
+  has only 10.0.100-rc.1, 11.0.100-rc.2 and 11.0.100, so `dotnet build` and the integration run
+  this task needs cannot start. No work begun.
+
 ## Log
 
 - 2026-11-04: Created.
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Backlog. Waiting on BL-1035: pinned .NET SDK 10.0.401 is not installed, so nothing builds
