@@ -37,6 +37,46 @@ public sealed class RedisReplyWriterTests
     }
 
     [TestMethod]
+    public void Deliver_AfterTheConnectionWasAborted_ClosesTheConnection()
+    {
+        var connection = Connection([], peerHalfCloses: false);
+        var writer = new RedisReplyWriter(connection, 100, TestContext.CancellationToken);
+        connection.Abort();
+
+        writer.Deliver("x"u8.ToArray());
+
+        Assert.IsTrue(writer.IsClosedByWriter);
+        Assert.IsEmpty(Written(connection));
+    }
+
+    [TestMethod]
+    public async Task Deliver_AfterTheConnectionWasDisposed_ClosesTheConnection()
+    {
+        var connection = Connection([], peerHalfCloses: false);
+        var writer = new RedisReplyWriter(connection, 100, TestContext.CancellationToken);
+        await connection.DisposeAsync();
+
+        writer.Deliver("x"u8.ToArray());
+
+        Assert.IsTrue(writer.IsClosedByWriter);
+        Assert.IsEmpty(Written(connection));
+    }
+
+    [TestMethod]
+    public void Deliver_AfterTheExchangeWasCancelled_ClosesTheConnection()
+    {
+        var connection = Connection([], peerHalfCloses: false);
+        using var exchange = new CancellationTokenSource();
+        var writer = new RedisReplyWriter(connection, 100, exchange.Token);
+        exchange.Cancel();
+
+        writer.Deliver("x"u8.ToArray());
+
+        Assert.IsTrue(writer.IsClosedByWriter);
+        Assert.IsEmpty(Written(connection));
+    }
+
+    [TestMethod]
     public void Deliver_PastTheBound_ClosesTheConnectionWithoutWriting()
     {
         var connection = Connection([], peerHalfCloses: false);
