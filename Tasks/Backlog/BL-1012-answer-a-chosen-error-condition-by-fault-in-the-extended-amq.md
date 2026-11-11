@@ -4,7 +4,7 @@ title: Answer a chosen error condition by fault in the extended AMQP 1.0 contain
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-823, BL-785]
+depends-on: [BL-823, BL-785, BL-1035]
 touches: [Protocols/Messaging/Surl.Extended.Protocol.Amqp1.UnitLibrary, Protocols/Messaging/Surl.Extended.Protocol.Amqp1.UnitTests]
 requirement: FR-062
 created: 2026-11-06
@@ -54,8 +54,16 @@ matching `attach` with the chosen error condition and description on the `detach
 
 ## Notes
 
+- 2026-11-11 (lane 4): restored the four stashed files from `S^3` (via `git show`) and applied the stash's
+  two-hunk diff to `Amqp1ContainerConnection.Links.cs` and `.Transfers.cs` cleanly; this work is left
+  uncommitted for the shift to stash. Dropped the doc comments' "ADR-0142" reference: ADR-0142 is about
+  media types, not faults.
+- Could not build: `dotnet` finds no SDK matching `global.json`'s 10.0.401 (installed: 10.0.100-rc.1,
+  11.0.100-rc.2, 11.0.100). Depends on BL-1035 (Stewart reinstalls the SDK), as BL-1011 already does.
+
 ## Log
 
 - 2026-11-06: Created.
 - 2026-11-06: Split from BL-834 (timed out after 120 min); reuses its AMQP 1.0 work from stash `darkfactory BL-834 20261106-033059`.
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Backlog. Waits on BL-1035: pinned .NET SDK 10.0.401 is not installed, so nothing builds
