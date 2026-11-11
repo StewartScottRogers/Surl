@@ -5,7 +5,7 @@ priority: Normal
 assignee: Claude
 pipeline: feature
 depends-on: [BL-566]
-touches: [Application/Surl.Console, Application/Surl.Console.UnitTests, Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests, Foundation/Surl.Networking.UnitLibrary, Foundation/Surl.Networking.UnitTests, Foundation/Surl.Protocol.Abstractions.UnitLibrary, Foundation/Surl.Protocol.Abstractions.UnitTests]
+touches: [Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests, Application/Surl.Console, Application/Surl.Console.UnitTests, Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests, Foundation/Surl.Networking.UnitLibrary, Foundation/Surl.Networking.UnitTests, Foundation/Surl.Protocol.Abstractions.UnitLibrary, Foundation/Surl.Protocol.Abstractions.UnitTests]
 requirement: none
 created: 2026-11-04
 completed:
@@ -63,7 +63,13 @@ options.
   .AuthenticateAsync(stream, ct)`, which returns a `TlsSrpSession` whose asynchronous-only
   `TlsSrpStream` carries the plaintext.
 
+- 2026-11-11 (lane 2): ServerTlsComposition, which builds the process's TLS settings, now lives in
+  `Application/Surl.Composition.UnitLibrary` (not Surl.Console as Context says), and TLS-SRP needs it to
+  build no-certificate settings and the SRP accounts. Added Composition to `touches`; BL-1003 holds it in
+  Doing, so this task goes back to Backlog until they no longer overlap. Surl.Api's
+  `SurlServerHostSeams` may also need a touch.
 ## Log
 
 - 2026-11-04: Created.
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Backlog. touches Application/Surl.Composition.UnitLibrary (ServerTlsComposition), which BL-1003 holds in Doing; retry once BL-1003 is Done
