@@ -17,31 +17,31 @@ choice.
 
 | ID | Level | Requirement | Covered by |
 | --- | --- | --- | --- |
-| Xmpp:RFC6120-4.1-1 | MUST | The stream is read as XML however its bytes are split across reads, one first-level element at a time. | BL-536 |
-| Xmpp:RFC6120-4.2-1 | MUST | The server answers the client's stream header with its own response header. | BL-536 |
-| Xmpp:RFC6120-4.7.1-1 | MUST | The response header's `from` is the stream's domain. | BL-536 |
-| Xmpp:RFC6120-4.7.3-1 | MUST | The response header carries a new, unpredictable `id` for every stream, each restart included. | BL-536 |
-| Xmpp:RFC6120-4.7.4-1 | SHOULD | The response header's `xml:lang` is the client's, else `en`. | BL-536 |
-| Xmpp:RFC6120-4.7.5-1 | MUST | The response `version` is `1.0`, the lower of the two; a missing version or major below 1 is `unsupported-version`. | BL-536 |
-| Xmpp:RFC6120-4.8-1 | MUST | A stream namespace other than `http://etherx.jabber.org/streams` or a content namespace other than `jabber:client` is `invalid-namespace`. | BL-536 |
-| Xmpp:RFC6120-4.4-1 | MUST | `</stream:stream>` from the client is answered `</stream:stream>`, then the connection is closed. | BL-536 |
-| Xmpp:RFC6120-4.6.1-1 | MUST | Whitespace between first-level elements is accepted as a keepalive. | BL-536 |
-| Xmpp:RFC6120-4.9.1.1-1 | MUST | A stream error before the client's header is complete is preceded by the server's response header. | BL-536 |
-| Xmpp:RFC6120-4.9.1.2-1 | MUST | After a stream error the server sends `</stream:stream>` and closes. | BL-536 |
-| Xmpp:RFC6120-4.9.3.13-1 | MUST | Bytes that are not well-formed XML, or a first element that is not a stream, are `not-well-formed`. | BL-536 |
-| Xmpp:RFC6120-11.1-1 | MUST | A DTD, comment, processing instruction (other than a header's XML declaration) or non-predefined entity reference is `restricted-xml`. | BL-536 |
-| Xmpp:RFC6120-11.6-1 | MUST | An encoding other than UTF-8 is `unsupported-encoding`. | BL-536 |
-| Xmpp:RFC6120-4.9.3.24-1 | MUST | A first-level element in `jabber:client` that is not a stanza is `unsupported-stanza-type`. | BL-536 |
-| Xmpp:Surl-Errors-1 | MUST NOT | No stream or stanza error carries `<text/>`, an account name, a path, an exception or a version. | BL-536 |
+| Xmpp:RFC6120-4.1-1 | MUST | The stream is read as XML however its bytes are split across reads, one first-level element at a time. | `XmppStreamReaderTests.ReadElementAsync_ElementSplitAcrossReads_IsDeliveredWhole` |
+| Xmpp:RFC6120-4.2-1 | MUST | The server answers the client's stream header with its own response header. | `XmppServerTests.ServeAsync_Rfc6120OpeningHeader_IsAnsweredWithTheRfcsResponseHeaderShape` |
+| Xmpp:RFC6120-4.7.1-1 | MUST | The response header's `from` is the stream's domain. | `XmppServerTests.ServeAsync_ToNamingADomainServed_OpensAStreamForIt` |
+| Xmpp:RFC6120-4.7.3-1 | MUST | The response header carries a new, unpredictable `id` for every stream, each restart included. | `XmppServerTests.ServeAsync_EachStream_GetsANewId` |
+| Xmpp:RFC6120-4.7.4-1 | SHOULD | The response header's `xml:lang` is the client's, else `en`. | `XmppServerTests.ServeAsync_ClientLanguageAndHigherMinorVersion_AreAnsweredWithItsLanguageAndVersion10` |
+| Xmpp:RFC6120-4.7.5-1 | MUST | The response `version` is `1.0`, the lower of the two; a major other than 1, a missing version or a malformed one is `unsupported-version`. | `XmppServerTests.ServeAsync_ClientLanguageAndHigherMinorVersion_AreAnsweredWithItsLanguageAndVersion10`, `XmppServerTests.ServeAsync_VersionOtherThanMajor1_IsUnsupportedVersion` |
+| Xmpp:RFC6120-4.8-1 | MUST | A stream namespace other than `http://etherx.jabber.org/streams` or a content namespace other than `jabber:client` is `invalid-namespace`. | `XmppServerTests.ServeAsync_RefusedXml_EndsTheStreamWithItsError`, `XmppStreamReaderTests.ReadHeaderAsync_RefusedHeader_ThrowsItsStreamError` |
+| Xmpp:RFC6120-4.4-1 | MUST | `</stream:stream>` from the client is answered `</stream:stream>`, then the connection is closed. | `XmppServerTests.ServeAsync_ClientClosesTheStream_IsAnsweredWithTheServersClose` |
+| Xmpp:RFC6120-4.6.1-1 | MUST | Whitespace between first-level elements is accepted as a keepalive. | `XmppStreamReaderTests.ReadElementAsync_WhitespaceKeepalivesThenEndTag_ReturnsNullAsAClientClose` |
+| Xmpp:RFC6120-4.9.1.1-1 | MUST | A stream error before the client's header is complete is preceded by the server's response header. | `XmppServerTests.ServeAsync_RefusedXml_EndsTheStreamWithItsError` |
+| Xmpp:RFC6120-4.9.1.2-1 | MUST | After a stream error the server sends `</stream:stream>` and closes. | `XmppServerTests.ServeAsync_ElementBeforeAuthentication_EndsTheStreamWithItsError` |
+| Xmpp:RFC6120-4.9.3.13-1 | MUST | Bytes that are not well-formed XML, or a first element that is not a stream, are `not-well-formed`. | `XmppServerTests.ServeAsync_RefusedXml_EndsTheStreamWithItsError`, `XmppStreamReaderTests.ReadHeaderAsync_RefusedHeader_ThrowsItsStreamError` |
+| Xmpp:RFC6120-11.1-1 | MUST | A DTD, comment, processing instruction (other than a header's XML declaration) or non-predefined entity reference is `restricted-xml`. | `XmppServerTests.ServeAsync_RefusedXml_EndsTheStreamWithItsError` |
+| Xmpp:RFC6120-11.6-1 | MUST | An encoding other than UTF-8 is `unsupported-encoding`. | `XmppStreamReaderTests.ReadHeaderAsync_BytesThatAreNotUtf8_IsUnsupportedEncoding`, `XmppStreamReaderTests.ReadHeaderAsync_RefusedHeader_ThrowsItsStreamError` |
+| Xmpp:RFC6120-4.9.3.24-1 | MUST | A first-level element in `jabber:client` that is not a stanza is `unsupported-stanza-type`. | `XmppServerTests.ServeAsync_ElementBeforeAuthentication_EndsTheStreamWithItsError` |
+| Xmpp:Surl-Errors-1 | MUST NOT | No stream or stanza error carries `<text/>`, an account name, a path, an exception or a version. | `XmppServerTests.ServeAsync_ElementBeforeAuthentication_EndsTheStreamWithItsError` |
 
 ## The domain (RFC 6120 4.7.2, RFC 7622)
 
 | ID | Level | Requirement | Covered by |
 | --- | --- | --- | --- |
-| Xmpp:RFC6120-4.9.3.6-1 | MUST | A `to` naming a domain not served is `host-unknown`. | BL-536 |
-| Xmpp:Surl-Domain-1 | MUST | The listen URL's host is served; on a wildcard listen address, the connection's local address; on a loopback listen, both `localhost` and the loopback literal. | BL-536 |
-| Xmpp:Surl-Domain-2 | MUST | Every `--mail-domain` is served too. | BL-536 |
-| Xmpp:Surl-Domain-3 | MUST | A header with no `to` opens a stream for the first domain served. | BL-536 |
+| Xmpp:RFC6120-4.9.3.6-1 | MUST | A `to` naming a domain not served is `host-unknown`. | `XmppServerTests.ServeAsync_WrongTo_IsHostUnknown` |
+| Xmpp:Surl-Domain-1 | MUST | The listen URL's host is served; on a wildcard listen address, the connection's local address; on a loopback listen, both `localhost` and the loopback literal. | `XmppDomainsTests.Served_ListenHost_ServesTheDecisionsDomains` |
+| Xmpp:Surl-Domain-2 | MUST | Every `--mail-domain` is served too. | `XmppDomainsTests.Served_MailDomains_FollowTheListenDomainsLowerCasedWithoutDuplicates` |
+| Xmpp:Surl-Domain-3 | MUST | A header with no `to` opens a stream for the first domain served. | `XmppServerTests.ServeAsync_NoTo_OpensAStreamForTheFirstDomainServed` |
 
 ## STARTTLS and direct TLS (RFC 6120 section 5; XEP-0368)
 
@@ -126,11 +126,11 @@ choice.
 
 | ID | Level | Requirement | Covered by |
 | --- | --- | --- | --- |
-| Xmpp:RFC6120-13.12-1 | MUST | A stanza over `--max-message` bytes is `policy-violation`, then close. | BL-536 |
-| Xmpp:Surl-Limits-1 | MUST | Nesting past 32 levels, more than 64 attributes on an element, or a value over `--max-message` is `policy-violation`. | BL-536 |
-| Xmpp:Surl-Limits-2 | MUST | A stream header not complete within `--head-timeout` is `connection-timeout`. | BL-536 |
+| Xmpp:RFC6120-13.12-1 | MUST | A stanza over `--max-message` bytes is `policy-violation`, then close. | `XmppServerTests.ServeAsync_ElementOverTheSizeLimit_IsPolicyViolation` |
+| Xmpp:Surl-Limits-1 | MUST | Nesting past 32 levels, more than 64 attributes on an element, or a value over `--max-message` is `policy-violation`. | `XmppStreamReaderTests.ReadElementAsync_Nesting_IsRefusedPast32Levels`, `XmppStreamReaderTests.ReadElementAsync_Attributes_AreRefusedPast64`, `XmppStreamReaderTests.ReadElementAsync_ValueOverTheSizeBoundAcrossTheStartTag_IsPolicyViolation` |
+| Xmpp:Surl-Limits-2 | MUST | A stream header not complete within `--head-timeout` is `connection-timeout`. | `XmppServerTests.ServeAsync_NoHeaderWithinTheHeadTimeout_IsConnectionTimeout` |
 | Xmpp:Surl-Limits-3 | MUST | No bound resource within twice `--head-timeout` of accept is `policy-violation`. | BL-885 |
-| Xmpp:RFC6120-4.9.3.4-1 | MUST | No byte for `--idle-timeout` is `connection-timeout`. | BL-536 |
-| Xmpp:RFC6120-4.9.3.17-1 | MUST | A connection over `--max-connections` or `--max-connections-per-address` gets a response header and `resource-constraint`. | BL-536 |
+| Xmpp:RFC6120-4.9.3.4-1 | MUST | No byte for `--idle-timeout` is `connection-timeout`; the test proves the answer to a limit cancelling the exchange, which `--max-time` also is (ADR-0114 decision 7). | `XmppServerTests.ServeAsync_CancelledWhileOpen_SaysFarewellWithItsError` |
+| Xmpp:RFC6120-4.9.3.17-1 | MUST | A connection over `--max-connections` or `--max-connections-per-address` gets a response header and `resource-constraint`. | `XmppServerTests.WriteRefusalAsync_Refusal_IsAHeaderAndResourceConstraint` |
 | Xmpp:Surl-Limits-4 | MUST | A stream with 16 MiB of routed stanzas unsent ends with `policy-violation`. | BL-887 |
-| Xmpp:RFC6120-4.9.3.20-1 | MUST | A server stopping ends each stream with `system-shutdown`. | BL-536 |
+| Xmpp:RFC6120-4.9.3.20-1 | MUST | A server stopping ends each stream with `system-shutdown`. | `XmppServerTests.ServeAsync_CancelledWhileOpen_SaysFarewellWithItsError` |

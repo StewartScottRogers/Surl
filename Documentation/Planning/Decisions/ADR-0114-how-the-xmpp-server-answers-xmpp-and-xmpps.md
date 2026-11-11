@@ -91,9 +91,11 @@ no expected byte comes from it.
   the client has no address until it binds (4.7.2 says the server SHOULD echo a `from` the client
   gave; a client stream header's `from` is accepted and not echoed, because before authentication
   it is only a claim). The header is preceded by `<?xml version='1.0'?>`.
-- **`version`.** `1.0`, or a higher major or minor, opens a `1.0` stream (4.7.5: the lower of the
-  two). A missing `version` or a major below 1 is `unsupported-version` (4.9.3.25): this server
-  speaks no pre-RFC protocol.
+- **`version`.** A major version of 1 with any minor opens a `1.0` stream (4.7.5: the lower of the
+  two). A different major (below or above 1, as in 4.9.3.25's example refusing `version='11.0'`),
+  a missing `version` or a malformed one is `unsupported-version` (4.9.3.25): this server speaks
+  no pre-RFC protocol. (Amended by BL-840: the first text said a higher major also opened a `1.0`
+  stream; the RFC and BL-536's build say it does not.)
 - **Namespaces.** A stream element in a namespace other than `http://etherx.jabber.org/streams`,
   or a default namespace other than `jabber:client`, is `invalid-namespace` (4.9.3.10). A first
   element that is not `stream` is `not-well-formed` (4.9.3.13): it is not a stream at all.
@@ -304,7 +306,7 @@ first-level elements (4.6.1, whitespace keepalives) is accepted and resets the i
 | resources a bare JID | 10 (decision 4) | `resource-constraint` stanza error |
 | unsent output to a stream (a slow reader) | 16 MiB of stanzas routed to it and not yet taken by the transport | that stream ends with `policy-violation`; the sender is not told (the stanza counts as delivered) |
 | `--idle-timeout` (120 s) | no byte from the client, whitespace keepalives included | `connection-timeout`, then close |
-| `--max-time` (3600 s) | `Surl.Core`'s | close with no bytes |
+| `--max-time` (3600 s) | `Surl.Core`'s, which cancels the exchange the same way the idle timeout does, so the server cannot tell the two apart (amended by BL-840) | `connection-timeout`, then close |
 | `--max-connections`, `--max-connections-per-address` | `Surl.Core`'s, through the server's refusal writer | decision 6's `resource-constraint` |
 
 No new option is added: ADR-0006's options cover what a test harness tunes.
