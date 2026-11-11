@@ -5,10 +5,10 @@ priority: Normal
 assignee: Claude
 pipeline: feature
 depends-on: [BL-553, BL-554]
-touches: [Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests, Application/Surl.Mcp.UnitLibrary, Application/Surl.Mcp.UnitTests]
+touches: [Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests, Application/Surl.Mcp.UnitLibrary, Application/Surl.Mcp.UnitTests, Documentation/Planning/Decisions/ADR-0088-how-surl-serves-the-http-connect-proxy-and-the-https-proxy.md]
 requirement: none
 created: 2026-11-06
-completed:
+completed: 2026-11-11
 ---
 # BL-1002 — Read proxy listen URLs, proxy accounts and allowed origins into the Surl.Cli configuration model
 
@@ -38,14 +38,22 @@ readers yet; BL-1004 adds the rows.
 
 ## Acceptance criteria
 
-- [ ] Named tests in `Application/Surl.Cli.UnitTests` read each form (an `http` and an `https` proxy listen URL with
+- [x] Named tests in `Application/Surl.Cli.UnitTests` read each form (an `http` and an `https` proxy listen URL with
       `IsProxy` set and its default port, an account, a user file path, an origin list) and refuse each malformed
       value the ADR names with its `SurlExitCode`, none echoing a password.
-- [ ] `Table_EverySurlCommandLineMember_IsClassifiedExactlyOnce` passes.
-- [ ] `dotnet build Application/Surl.Cli.UnitLibrary -warnaserror` is clean, the fast tests are green, and
+- [x] `Table_EverySurlCommandLineMember_IsClassifiedExactlyOnce` passes.
+- [x] `dotnet build Application/Surl.Cli.UnitLibrary -warnaserror` is clean, the fast tests are green, and
       `Surl.Cli.UnitLibrary` keeps 100% line and branch coverage.
 
 ## Notes
+
+- Work cherry-picked from branch factory/BL-1002-lane-2-20261111-060243 (code, Mcp classification, ADR-0088
+  Amendment 5); rebuilt clean and fast tests green on this lane.
+- Decisions in ADR-0088 Amendment 5 (Decided by Claude under Stewart's delegation): `ListenUrlParser.ParseProxy`
+  (http 1080, https 443, `IsProxy` set); `-U`/`--proxy-user-file` reuse `ReadAccount`/`ReadPath`;
+  `--proxy-allow-origin` is `*` or a literal `address[/prefix]`. Refusals are `FailedInit`; none echoes a password.
+- Touches widened to ADR-0088 for the amendment; no Doing task names it.
+- Follow-up: BL-1037 (`--proxy-auth`) filed on the prior branch; restored to Backlog.
 
 ## Log
 
@@ -53,3 +61,4 @@ readers yet; BL-1004 adds the rows.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Lane 2 could not integrate: build failed after rebasing onto the other lanes' work. The work is on branch factory/BL-1002-lane-2-20261111-060243; start with git cherry-pick --no-commit factory/BL-1002-lane-2-20261111-060243 and fix it.
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Done. Surl.Cli reads proxy listen URLs, accounts, user file and allowed origins into SurlCommandLine
