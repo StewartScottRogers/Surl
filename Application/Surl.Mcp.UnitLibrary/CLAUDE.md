@@ -77,7 +77,7 @@ with one `McpServerRegistry.AddTool` line and holds nothing else of the tools.
 - `StartServerSafetyCheck` - ADR-0103 decision 4: `-K`/`--config` refused outright; the words parsed with
   `Surl.Cli`'s `CommandLineParser` (accepting every extended scheme, so they parse whenever `Surl.Api`'s own
   parse would; words `surl` refuses are left to `Surl.Api` to refuse with `surl`'s exit code); every listen
-  URL on loopback (`localhost`, `127.0.0.0/8`, `::1`, or a Unix domain socket) unless `AllowNonLoopback`; and
+  URL and every proxy listen URL (`--proxy`) on loopback (`localhost`, `127.0.0.0/8`, `::1`, or a Unix domain socket) unless `AllowNonLoopback`; and
   every local path inside the root.
 - `CommandLinePathMembers` - which `SurlCommandLine` members hold local paths, with the option a refusal
   names. `CommandLinePathMembersTests` enumerates `SurlCommandLine` by reflection and fails on a member the
