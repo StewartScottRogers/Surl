@@ -4,7 +4,7 @@ title: Bring ImapSession.AnswerNextCommandAsync under cyclomatic complexity 10
 priority: Normal
 assignee: Claude
 pipeline: direct
-depends-on: []
+depends-on: [BL-1035]
 touches: [Protocols/Mail/Surl.Protocol.Imap.UnitLibrary, Protocols/Mail/Surl.Protocol.Imap.UnitTests]
 requirement: none
 created: 2026-11-06
@@ -36,7 +36,13 @@ members.
 
 Filed by BL-901 (2026-11-06, dark factory lane 9).
 
+2026-11-11 (lane 6): split `AnswerNextCommandAsync` into `AnsweredByTheUpstreamTestCaseAsync` (returns `bool?`;
+null falls through) and `AnswerReadOutcomeAsync` (the outcome chain), no behaviour change. Left uncommitted for the
+shift to stash: `dotnet build` cannot run because the pinned SDK 10.0.401 is not installed (BL-1035), so the
+change is unverified. Returned to Backlog behind BL-1035.
+
 ## Log
 
 - 2026-11-06: Created.
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Backlog. Waiting on BL-1035 - pinned .NET SDK 10.0.401 is not installed, so nothing builds
