@@ -42,3 +42,4 @@ listed as a `test-server-choice` exclusion, and files the work it needs.
 ## Log
 
 - 2026-11-05: Created.
+- 2026-11-11: Backlog -> Doing.
