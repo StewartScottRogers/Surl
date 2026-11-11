@@ -4,7 +4,7 @@ title: Run the Curl port's webtransport client against a live surl
 priority: Low
 assignee: Claude
 pipeline: feature
-depends-on: [BL-461, BL-406]
+depends-on: [BL-461, BL-406, BL-1047]
 touches: [Conformance/Surl.Conformance.UnitTests, Documentation/Conformance/Extended/WebTransport.md]
 requirement: none
 created: 2026-11-04
@@ -34,7 +34,13 @@ assertion comes from WTH3, and the matrix is fully covered.
 
 ## Notes
 
+- 2026-11-11: Wrote `PinnedCurlPortClientTalksToSurlOverWebTransportTests` (uncommitted, stashed by the shift). Run with the pinned client on Windows, with `--allow-anonymous --self-signed`: the bidirectional echo and the datagram echo pass.
+- The unidirectional exchange (`?wt=uni`) hangs until the harness's 30 s timeout. surl's `-v` log shows the session accepted and no refusal. Neither side is proven at fault, and the fix may be in surl's `Surl.Http3` or `Surl.Extended.Protocol.WebTransport`, outside this task's `touches`, so BL-1047 finds the cause and this task depends on it.
+- Port defect to report (ADR-0083): without `--allow-anonymous` surl answers the CONNECT `401` (`WebTransport:Surl-7-1`, proved by unit tests), yet the port's client exits 0 with empty stdout. The refusal test must therefore assert only that nothing is echoed, never the exit code.
+- To finish: apply that change to the refusal test, add the four-exchange coverage table to `WebTransport.md` as BL-456 did for `SocketIo.md`, and mark the rows with no live test `n/a`.
+
 ## Log
 
 - 2026-11-04: Created.
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Backlog. Waiting on BL-1047: the live unidirectional exchange hangs, and its cause may be in Surl.Http3 or the WebTransport server, outside this task's touches
