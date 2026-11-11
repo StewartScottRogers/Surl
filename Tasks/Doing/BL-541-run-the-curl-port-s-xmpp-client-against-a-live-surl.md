@@ -37,3 +37,4 @@ assertion comes from RFC 6120 and XEP-0030, and the matrix is fully covered.
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-11: Backlog -> Doing.
