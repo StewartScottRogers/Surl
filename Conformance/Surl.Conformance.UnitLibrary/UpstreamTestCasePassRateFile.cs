@@ -25,8 +25,9 @@ public sealed record UpstreamTestCasePassRateFile(
 
     /// <summary>
     /// Reads the file's two tables. Columns are found by their header: <c>Platform</c> and
-    /// <c>Passed</c> in both, and <c>Version</c> in the releases table. A number may hold
-    /// thousands separators (<c>1,327</c>).
+    /// <c>Passed</c> in both, and <c>Version</c> in the releases table; a
+    /// <c>test-server-choice</c> column is read when present. A number may hold thousands
+    /// separators (<c>1,327</c>).
     /// </summary>
     /// <param name="markdown">The file's text.</param>
     /// <returns>The tables' rows.</returns>
@@ -74,6 +75,7 @@ public sealed record UpstreamTestCasePassRateFile(
         var platform = Column(header, "Platform", heading);
         var passed = Column(header, "Passed", heading);
         var version = hasVersion ? Column(header, "Version", heading) : -1;
+        var testServerChoice = header.IndexOf(UpstreamTestCaseSkipReasons.TestServerChoice);
 
         if (table.Skip(2).FirstOrDefault(cells => cells.Count != header.Count) is { } ragged)
         {
@@ -83,7 +85,8 @@ public sealed record UpstreamTestCasePassRateFile(
         return [.. table.Skip(2).Select(cells => new UpstreamTestCasePassRateRow(
             hasVersion ? cells[version] : null,
             cells[platform],
-            ReadPassed(cells[passed])))];
+            ReadCount(cells[passed], "Passed"),
+            testServerChoice >= 0 ? ReadCount(cells[testServerChoice], UpstreamTestCaseSkipReasons.TestServerChoice) : null))];
     }
 
     private static List<List<string>> ReadTableCells(List<string> lines, string heading)
@@ -113,7 +116,7 @@ public sealed record UpstreamTestCasePassRateFile(
         return index >= 0 ? index : throw new FormatException($"The pass-rate file's '{heading}' table has no '{name}' column.");
     }
 
-    private static int? ReadPassed(string cell)
+    private static int? ReadCount(string cell, string column)
     {
         if (cell == NotRun)
         {
@@ -122,6 +125,6 @@ public sealed record UpstreamTestCasePassRateFile(
 
         return int.TryParse(cell, NumberStyles.AllowThousands, CultureInfo.InvariantCulture, out var number)
             ? number
-            : throw new FormatException($"The pass-rate file's Passed cell '{cell}' is neither a number nor '{NotRun}'.");
+            : throw new FormatException($"The pass-rate file's {column} cell '{cell}' is neither a number nor '{NotRun}'.");
     }
 }

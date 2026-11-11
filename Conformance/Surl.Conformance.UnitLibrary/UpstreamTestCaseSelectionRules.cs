@@ -30,13 +30,14 @@ public sealed record UpstreamTestCaseSelectionRules(
     /// The rules for <paramref name="build"/> as Surl stands today: the server commands
     /// <see cref="UpstreamTestCaseServerCommands"/> lists for each built server half (BL-391 to
     /// BL-397 add their rows), the strip lines <see cref="UpstreamTestCaseStripLine.IsSupported"/>
-    /// accepts, and nothing excluded.
+    /// accepts, and the cases decision 5's exclusion list names (<see cref="UpstreamTestCaseExclusions.Parse"/>).
     /// </summary>
     /// <param name="build">The pinned build.</param>
     /// <param name="disabledCases">The case numbers <c>tests/data/DISABLED</c> lists.</param>
+    /// <param name="testServerChoices">The case numbers <c>Upstream-Test-Case-Exclusions.md</c> lists.</param>
     /// <returns>The rules.</returns>
-    public static UpstreamTestCaseSelectionRules ForBuild(PinnedUpstreamCurlBuild build, IReadOnlySet<int> disabledCases) =>
-        ForClient(CurlVersionReport.FromPin(build), disabledCases);
+    public static UpstreamTestCaseSelectionRules ForBuild(PinnedUpstreamCurlBuild build, IReadOnlySet<int> disabledCases, IReadOnlySet<int> testServerChoices) =>
+        ForClient(CurlVersionReport.FromPin(build), disabledCases, testServerChoices);
 
     /// <summary>
     /// The rules for the client <paramref name="report"/> describes, as <see cref="ForBuild"/> gives
@@ -46,11 +47,13 @@ public sealed record UpstreamTestCaseSelectionRules(
     /// </summary>
     /// <param name="report">What the client's <c>--version</c> says.</param>
     /// <param name="disabledCases">The case numbers <c>tests/data/DISABLED</c> lists.</param>
+    /// <param name="testServerChoices">The case numbers <c>Upstream-Test-Case-Exclusions.md</c> lists.</param>
     /// <returns>The rules.</returns>
-    public static UpstreamTestCaseSelectionRules ForClient(CurlVersionReport report, IReadOnlySet<int> disabledCases)
+    public static UpstreamTestCaseSelectionRules ForClient(CurlVersionReport report, IReadOnlySet<int> disabledCases, IReadOnlySet<int> testServerChoices)
     {
         ArgumentNullException.ThrowIfNull(report);
         ArgumentNullException.ThrowIfNull(disabledCases);
+        ArgumentNullException.ThrowIfNull(testServerChoices);
 
         return new UpstreamTestCaseSelectionRules(
             disabledCases,
@@ -58,6 +61,6 @@ public sealed record UpstreamTestCaseSelectionRules(
             UpstreamCurlBuildFeatures.For(report),
             UpstreamTestCaseServerCommands.IsSupported,
             UpstreamTestCaseStripLine.IsSupported,
-            new HashSet<int>());
+            testServerChoices);
     }
 }

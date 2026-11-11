@@ -33,9 +33,16 @@ decision 5). This is success criterion 2 of the
 
 | Platform | Commit | Date | Reference pin SHA-256 | Total | Runnable | Passed | Failed | Skipped | test-server-choice | Pass rate |
 | --- | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| `win-x64` | `5ac86cca` + BL-681 | 2026-11-06 | `0E773709C3A44DB47B88B71351D902027682ED87C3BD3821009E454BACCA8778` | 2,013 | 1,124 | 1,063 | 61 | 889 | 0 | 94.6% |
-| `linux-x64` | `8eb0301b` | 2026-11-06 | `153CA463957609117D21A848BE29B70691B85F9E5CC9370C7DAA037B839A4E45` | 2,013 | 1,237 | 1,154 | 83 | 776 | 0 | 93.3% |
-| `osx-arm64` | `8eb0301b` | 2026-11-06 | `04E0E69BCD3BD814EC093551A0447AC14EDEEA9D395B468A2025DCB3F766EEBF` | 2,013 | 1,237 | 1,153 | 84 | 776 | 0 | 93.2% |
+| `win-x64` | `5ac86cca` + BL-681 | 2026-11-06 | `0E773709C3A44DB47B88B71351D902027682ED87C3BD3821009E454BACCA8778` | 2,013 | 1,120 | 1,063 | 57 | 893 | 4 | 94.9% |
+| `linux-x64` | `8eb0301b` | 2026-11-06 | `153CA463957609117D21A848BE29B70691B85F9E5CC9370C7DAA037B839A4E45` | 2,013 | 1,233 | 1,154 | 79 | 780 | 4 | 93.6% |
+| `osx-arm64` | `8eb0301b` | 2026-11-06 | `04E0E69BCD3BD814EC093551A0447AC14EDEEA9D395B468A2025DCB3F766EEBF` | 2,013 | 1,233 | 1,153 | 80 | 780 | 4 | 93.5% |
+
+BL-689 (2026-11-11) made the selection rules read the exclusions file's 4 rows (802, 818, 861,
+897). On every reference pin each of them reaches decision 5's check
+(`UpstreamTestCaseCorpusTests`) and none is on a passing list, so each was one of the runs'
+failures below; the rows move them from **Failed** and **Runnable** to **Skipped** and
+**test-server-choice** without a new run. The failure counts quoted below are the runs' own,
+those 4 included.
 
 Linux and macOS: CI run
 [42203619501](https://github.com/StewartScottRogers/Surl/actions/runs/42203619501) (`master`,
@@ -93,9 +100,10 @@ upstream's test-server greeting banner in a `-D` file, BL-776), TFTP 15 ran, 13 
 | `server-not-built:<name>` | 67 | 67 | 67 |
 | `servercmd-unsupported:<command>` | 32 | 35 | 35 |
 | `strippart-unsupported` | 1 | 1 | 1 |
+| `test-server-choice` | 4 | 4 | 4 |
 | `unittest` | 81 | 81 | 81 |
 | `unparsable` | 4 | 4 | 4 |
-| **Total** | **889** | **776** | **776** |
+| **Total** | **893** | **780** | **780** |
 
 ## Releases
 
