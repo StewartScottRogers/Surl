@@ -49,3 +49,4 @@ session - proving the whole host end to end with upstream curl as the only judge
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-11: Backlog -> Doing.
