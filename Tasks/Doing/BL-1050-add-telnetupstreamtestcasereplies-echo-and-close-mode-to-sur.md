@@ -32,3 +32,4 @@ Decided in ADR-0080's 2026-11-11 amendment (BL-858). 1452 (`telnet://... --uploa
 ## Log
 
 - 2026-11-11: Created.
+- 2026-11-11: Backlog -> Doing.
