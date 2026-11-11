@@ -34,3 +34,4 @@ Say whether surl or the Curl port client is at fault when `curl -k -d "hello uni
 ## Log
 
 - 2026-11-11: Created.
+- 2026-11-11: Backlog -> Doing.
