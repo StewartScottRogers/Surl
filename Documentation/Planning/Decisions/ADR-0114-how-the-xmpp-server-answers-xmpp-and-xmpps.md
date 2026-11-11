@@ -21,6 +21,9 @@
   [ADR-0069](ADR-0069-one-name-for-the-tls-upgrade-flag-istlsupgradeavailable.md) (TLS and its in-band upgrade
   through the listener seam).
 - **Amends:** nothing.
+- **Amended:** in place by BL-840 (2026-11-11), to say what BL-536 built: decision 1's `version`
+  rule (only a major version of 1 opens a stream, RFC 6120 4.9.3.25) and decision 7's `--max-time`
+  answer (`connection-timeout`, like the idle timeout). See "Amendment 1" below.
 
 ## Context
 
@@ -91,9 +94,10 @@ no expected byte comes from it.
   the client has no address until it binds (4.7.2 says the server SHOULD echo a `from` the client
   gave; a client stream header's `from` is accepted and not echoed, because before authentication
   it is only a claim). The header is preceded by `<?xml version='1.0'?>`.
-- **`version`.** `1.0`, or a higher major or minor, opens a `1.0` stream (4.7.5: the lower of the
-  two). A missing `version` or a major below 1 is `unsupported-version` (4.9.3.25): this server
-  speaks no pre-RFC protocol.
+- **`version`.** A major version of 1, with any minor (`1.0`, `1.1`, ...), opens a `1.0` stream
+  (4.7.5: the lower of the two minors). Any other major (`0.9`, `2.0`, `11.0`), a missing `version`
+  or a malformed one is `unsupported-version` (4.9.3.25, whose example refuses `version='11.0'`): a
+  different major is a different protocol, and this server speaks no pre-RFC protocol.
 - **Namespaces.** A stream element in a namespace other than `http://etherx.jabber.org/streams`,
   or a default namespace other than `jabber:client`, is `invalid-namespace` (4.9.3.10). A first
   element that is not `stream` is `not-well-formed` (4.9.3.13): it is not a stream at all.
@@ -273,14 +277,14 @@ complete, the server first sends its own response header (4.9.1.1).
 | an XML declaration naming an encoding other than UTF-8, or bytes that are not UTF-8 (11.6) | `unsupported-encoding` (4.9.3.22) |
 | a stream namespace or content namespace other than decision 1's | `invalid-namespace` (4.9.3.10) |
 | a `to` naming a domain not served | `host-unknown` (4.9.3.6) |
-| a missing `version`, or a major below 1 | `unsupported-version` (4.9.3.25) |
+| a missing or malformed `version`, or a major other than 1 | `unsupported-version` (4.9.3.25) |
 | a stanza before authentication or before binding | `not-authorized` (4.9.3.12) |
 | a first-level element in `jabber:client` that is not a stanza | `unsupported-stanza-type` (4.9.3.24) |
 | a client `from` not its own | `invalid-from` (4.9.3.9) |
 | an IQ with no `id` or an unknown `type` | `invalid-xml` (4.9.3.11) |
 | an element the phase does not allow (decision 2), SASL failures past three, a stanza over the size bound, nesting past the depth bound, too slow a stream (decision 7) | `policy-violation` (4.9.3.14) |
 | the same resource bound by a newer stream | `conflict` (4.9.3.3), to the older stream |
-| no data for `--idle-timeout` | `connection-timeout` (4.9.3.4) |
+| no data for `--idle-timeout`, or `--max-time` reached (decision 7) | `connection-timeout` (4.9.3.4) |
 | `--max-connections`, `--max-connections-per-address` | `resource-constraint` (4.9.3.17), after a response header and before any feature |
 | the server stopping | `system-shutdown` (4.9.3.20) |
 
@@ -304,7 +308,7 @@ first-level elements (4.6.1, whitespace keepalives) is accepted and resets the i
 | resources a bare JID | 10 (decision 4) | `resource-constraint` stanza error |
 | unsent output to a stream (a slow reader) | 16 MiB of stanzas routed to it and not yet taken by the transport | that stream ends with `policy-violation`; the sender is not told (the stanza counts as delivered) |
 | `--idle-timeout` (120 s) | no byte from the client, whitespace keepalives included | `connection-timeout`, then close |
-| `--max-time` (3600 s) | `Surl.Core`'s | close with no bytes |
+| `--max-time` (3600 s) | `Surl.Core`'s | `connection-timeout`, then close, like the idle timeout: both cancel the exchange token, and the exchange context cannot tell one from the other (only shutdown has its own token, ADR-0059) |
 | `--max-connections`, `--max-connections-per-address` | `Surl.Core`'s, through the server's refusal writer | decision 6's `resource-constraint` |
 
 No new option is added: ADR-0006's options cover what a test harness tunes.
@@ -339,3 +343,21 @@ No new option is added: ADR-0006's options cover what a test harness tunes.
   to it as a live client in `Integration` tests (ADR-0083).
 - The requirement matrix [`Xmpp.md`](../../Conformance/Extended/Xmpp.md) traces each server-side
   requirement to BL-536, BL-537, BL-538 or BL-539; each task replaces its ID with the named test.
+
+## Amendment 1 (2026-11-11, BL-840): the version rule and `--max-time`
+
+Decided by Claude under Stewart's delegation. Decision 1 first said "`1.0`, or a higher major or
+minor, opens a `1.0` stream". RFC 6120 4.9.3.25 says otherwise for a major version: its example
+refuses `version='11.0'` with `unsupported-version`, and 4.7.5 lets the two sides settle only on the
+lower minor of a shared major. BL-536 built the RFC's rule, pinned by
+`XmppServerTests.ServeAsync_VersionOtherThanMajor1_IsUnsupportedVersion`, and decisions 1 and 6 now
+say it.
+
+Decision 7 first said `--max-time` closes with no bytes. `Surl.Core` ends an exchange at
+`--max-time` by cancelling the same exchange token the idle timeout cancels, and the server's
+`ExchangeContext` carries no way to tell those two limits apart (ADR-0059 separates only shutdown).
+So the server answers both `connection-timeout` (4.9.3.4), which is also a truthful condition for a
+stream the server has held long enough, as
+`XmppServerTests.ServeAsync_CancelledWhileOpen_SaysFarewellWithItsError` pins. Decisions 6 and 7 now
+say it. Giving `--max-time` its own answer would need the context to name the limit, which no client
+of an XMPP stand-in has needed.
