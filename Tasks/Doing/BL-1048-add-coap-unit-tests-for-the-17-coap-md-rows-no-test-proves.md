@@ -34,3 +34,4 @@ fix the server or amend ADR-0097 and the row, deciding under Stewart's delegatio
 ## Log
 
 - 2026-11-11: Created.
+- 2026-11-11: Backlog -> Doing.
