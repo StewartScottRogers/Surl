@@ -4,7 +4,7 @@ title: Hold a Surl.Quic flow open through the closing and draining states
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-608]
+depends-on: [BL-608, BL-1035]
 touches: [Surl.Quic.UnitLibrary, Surl.Quic.UnitTests]
 requirement: none
 created: 2026-11-05
@@ -44,9 +44,12 @@ again, while the application is told the connection ended as soon as it closes.
 
 ## Notes
 
+- 2026-11-11 (lane 3): `dotnet build` fails before any work - "A compatible .NET SDK was not found"; global.json pins 10.0.401 and only 10.0.100-rc.1, 11.0.100-rc.2 and 11.0.100 are installed. Depends on BL-1035. The finished work is still on branch factory/BL-867-lane-4-20261111-060243 (feat 26bcaf69); resume with git cherry-pick --no-commit of it and fix the post-rebase build break.
+
 ## Log
 
 - 2026-11-05: Created.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Lane 4 could not integrate: build failed after rebasing onto the other lanes' work. The work is on branch factory/BL-867-lane-4-20261111-060243; start with git cherry-pick --no-commit factory/BL-867-lane-4-20261111-060243 and fix it.
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Backlog. Waiting on BL-1035 - pinned .NET SDK 10.0.401 is not installed, so dotnet build cannot run
