@@ -50,3 +50,4 @@ readers yet; BL-1004 adds the rows.
 ## Log
 
 - 2026-11-06: Created.
+- 2026-11-11: Backlog -> Doing.
