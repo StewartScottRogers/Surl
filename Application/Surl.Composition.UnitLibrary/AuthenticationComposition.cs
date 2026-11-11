@@ -94,6 +94,36 @@ public static class AuthenticationComposition
     }
 
     /// <summary>
+    /// Builds the policy the HTTP proxy judges <c>Proxy-Authorization</c> by (ADR-0088 decision 5): over
+    /// the <c>-U</c> accounts and then the <c>--proxy-user-file</c> alone, never the origin's accounts,
+    /// with the default method set and the loosening switches <c>--allow-anonymous</c> and
+    /// <c>--allow-plaintext-auth</c>; one asking for no login when no proxy account is given.
+    /// </summary>
+    internal static (IAuthenticationPolicy? Policy, SurlExitCode ExitCode, string? FailureMessage) ComposeProxyPolicy(
+        SurlCommandLine commandLine,
+        Func<string, byte[]> readFile,
+        TimeProvider timeProvider,
+        ISurlEventPublisher? events,
+        IFaultPlan? faults)
+    {
+        if (commandLine.ProxyAccounts.Count == 0 && commandLine.ProxyUserFile is null)
+        {
+            return (new AnonymousAuthenticationPolicy(), SurlExitCode.Ok, null);
+        }
+
+        var proxyView = commandLine with
+        {
+            Accounts = commandLine.ProxyAccounts,
+            UserFile = commandLine.ProxyUserFile,
+            GivenAuthenticationMethods = null,
+        };
+        var (accounts, exitCode, failureMessage) = ReadUserAccounts(proxyView, readFile);
+        return accounts is null
+            ? (null, exitCode, failureMessage)
+            : (ComposePolicy(ComposeSettings(proxyView, accounts, events), timeProvider, events, faults), SurlExitCode.Ok, null);
+    }
+
+    /// <summary>
     /// Builds the policy of a command line with no accounts and no loosening option: what the
     /// servers are composed with when only their schemes are wanted.
     /// </summary>

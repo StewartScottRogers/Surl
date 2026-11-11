@@ -1,5 +1,6 @@
 using Surl.Authentication;
 using Surl.Kerberos;
+using Surl.Protocol.Abstractions;
 
 namespace Surl.Composition;
 
@@ -21,4 +22,8 @@ internal sealed record ComposedAuthentication(
     IReadOnlyList<KerberosKeytabSkippedEntry> SkippedKeytabEntries,
     SshHostKeyComposition SshHostKeys,
     MailboxComposition Mailboxes,
-    SchemeAuthenticationPolicies SchemePolicies);
+    SchemeAuthenticationPolicies SchemePolicies)
+{
+    /// <summary>The policy the HTTP proxy judges logins by (ADR-0088 decision 5); one asking for no login unless set.</summary>
+    public IAuthenticationPolicy ProxyPolicy { get; init; } = new AnonymousAuthenticationPolicy();
+}

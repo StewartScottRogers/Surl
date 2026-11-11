@@ -472,3 +472,35 @@ was measured; each choice is the narrowest reading of decision 7.
 - **`surl-mcp`** (ADR-0103 decision 4): `start_server`'s loopback rule covers `ProxyListenUrls` as
   it covers listen URLs, and `--proxy-user-file` is a path confined to the host's root, so an agent
   cannot open a proxy beyond loopback or read a file outside the root once BL-1004's rows exist.
+
+## Amendment 6 - how `Surl.Composition` composes the proxies, settled by BL-1003 (2026-11-11)
+
+Decided by Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), in BL-1003, the second
+of the three tasks BL-555 was split into. Nothing here is a byte curl sends or expects, so nothing was
+measured.
+
+- **One server per scheme, chosen per listen URL.** The serving engine maps a scheme to one server, and
+  `http` and `https` already name the HTTP server, so `ProxyRoutingProtocolServer` wraps every server
+  answering them (the `http` entry and the `https` `ImplicitTlsSchemeServer`) and hands an exchange to
+  the one `HttpProxyProtocolServer` when `ExchangeContext.ListenUrl.IsProxy`, else to the wrapped server.
+  Nothing is wrapped when no `--proxy` is given, so every start without one is as before. A connection
+  refused over a connection limit is written by the origin server's refusal writer, because the refusal
+  is written before any request is read and the listen URL is not known there.
+- **Proxy listen URLs are listen URLs.** `ComposeAsync` appends `ProxyListenUrls` to `ListenUrls`, so the
+  certificate refusal `(58)` for an `https` proxy without `--cert` or `--self-signed`, the status lines,
+  the bind failures and the TLS handshake with ALPN `http/1.1` (Amendment 2, by `IsProxy`) are the existing
+  ones.
+- **The allowed-origin rule** is `AllowedOriginRule.LoopbackOnly`, widened by each `--proxy-allow-origin`
+  (`*` is `EveryAddress`) and narrowed by each proxy listen URL's own end point. A proxy host that is not
+  an address refuses its port on every address, the safe reading; a proxy on port 0 has no port to refuse
+  until it binds, so a request to the proxy's own ephemeral port is not refused (a test that needs the
+  loop refused gives the proxy a port). The connector is a `SocketOriginConnector` on the instance's
+  `TimeProvider`, replaceable through `SurlServerCompositionSeams.CreateOriginConnector`, and rides on
+  `ComposedProtocolServices.OriginConnector` for the SOCKS server (BL-560).
+- **Proxy accounts** are `-U` then `--proxy-user-file`, alone, with the default method set and the two
+  loosening switches `--allow-anonymous` and `--allow-plaintext-auth`; none gives a policy that asks for no
+  login (`ComposedProtocolServices.ProxyAuthenticationPolicy`). An unreadable proxy user file is `(37)` and a
+  malformed one `(2)`, worded as the `--user-file`'s are (`Could not read user file <file>`), before the lock is
+  taken. BL-1040's `--proxy-auth` will replace the default method set.
+- **`--proxy-allow-origin '*'`** writes `surl: warning: --proxy-allow-origin: the proxy connects to every
+  origin address, not only loopback` from the info level up, with the other loosening warnings.

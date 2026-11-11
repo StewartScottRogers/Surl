@@ -108,6 +108,18 @@ public sealed class ComposedProtocolServices(
     /// </summary>
     public TimeSpan IdleTimeout { get; init; } = TimeSpan.FromSeconds(120);
 
+    /// <summary>
+    /// Gets how the proxies reach origins (ADR-0088 decision 2): the connector over the allowed-origin
+    /// rule the start composed, which the SOCKS server shares; <see langword="null"/> when none is composed.
+    /// </summary>
+    public IOriginConnector? OriginConnector { get; init; }
+
+    /// <summary>
+    /// Gets the policy the HTTP proxy judges <c>Proxy-Authorization</c> by (ADR-0088 decision 5): over
+    /// the proxy's own accounts, or one that asks for no login when it has none.
+    /// </summary>
+    public IAuthenticationPolicy ProxyAuthenticationPolicy { get; init; } = new AnonymousAuthenticationPolicy();
+
     /// <summary>Gets the SSH server's host keys.</summary>
     public SshHostKeySet SshHostKeys { get; } = sshHostKeys;
 

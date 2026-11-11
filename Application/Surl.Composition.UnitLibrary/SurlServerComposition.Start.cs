@@ -38,6 +38,10 @@ public static partial class SurlServerComposition
         ArgumentNullException.ThrowIfNull(commandLine);
         ArgumentNullException.ThrowIfNull(seams);
 
+        // Every --proxy listen URL is listened on and checked like any other (a certificate for an https
+        // one, ADR-0088 decision 6); its IsProxy mark sends its exchanges to the proxy server.
+        commandLine = commandLine with { ListenUrls = [.. commandLine.ListenUrls, .. commandLine.ProxyListenUrls] };
+
         if (FindOptionRefusal(commandLine) is { } optionRefusal)
         {
             return Refuse(SurlExitCode.FailedInit, optionRefusal);
@@ -177,6 +181,14 @@ public static partial class SurlServerComposition
             return (null, new SurlStartFailure(SurlExitCode.FailedInit, [groupFailureMessage!]));
         }
 
+        // The proxy's own accounts, never the origin's (ADR-0088 decision 5).
+        var (proxyPolicy, proxyExitCode, proxyFailureMessage) = AuthenticationComposition.ComposeProxyPolicy(
+            commandLine, readStartFile, seams.TimeProvider, instruments.Events, instruments.Faults);
+        if (proxyPolicy is null)
+        {
+            return (null, new SurlStartFailure(proxyExitCode, [proxyFailureMessage!]));
+        }
+
         var (sshHostKeys, hostKeyExitCode, hostKeyFailureMessage) = SshHostKeyComposition.Compose(commandLine, readStartFile);
         return sshHostKeys is null
             ? (null, new SurlStartFailure(hostKeyExitCode, [hostKeyFailureMessage!]))
@@ -187,7 +199,10 @@ public static partial class SurlServerComposition
                 skippedKeytabEntries,
                 sshHostKeys,
                 mailboxes,
-                new SchemeAuthenticationPolicies(policy, seams.TimeProvider, instruments.Events, instruments.Faults)), null);
+                new SchemeAuthenticationPolicies(policy, seams.TimeProvider, instruments.Events, instruments.Faults))
+            {
+                ProxyPolicy = proxyPolicy,
+            }, null);
     }
 
     private static async Task<SurlServerStart> LockThenComposeAsync(
@@ -261,6 +276,7 @@ public static partial class SurlServerComposition
             return Refuse(SurlExitCode.CouldNotReadFile, loaded.FailureMessage!);
         }
 
+        var originConnector = ComposeOriginConnector(commandLine, seams);
         var services = new ComposedProtocolServices(
             contentStore,
             loaded.State,
@@ -277,10 +293,13 @@ public static partial class SurlServerComposition
             AuthenticationPolicyForScheme = authentication.SchemePolicies.For,
             IdleTimeout = ComposeConnectionLimits(commandLine).IdleTimeout,
             AllowsZoneTransfer = commandLine.AllowZoneTransfer,
+            OriginConnector = originConnector,
+            ProxyAuthenticationPolicy = authentication.ProxyPolicy,
         };
         IProtocolServer[] servers =
         [
-            .. ComposeProtocolServers(ProtocolServerRegistrations.Original, services),
+            .. ProxyComposition.RouteProxyListeners(
+                ComposeProtocolServers(ProtocolServerRegistrations.Original, services), commandLine, originConnector, authentication.ProxyPolicy),
             .. ComposeExtendedProtocolServers(
                 seams.AreExtensionsTurnedOn,
                 seams.ComposeExtendedProtocolServers,
@@ -299,6 +318,14 @@ public static partial class SurlServerComposition
             loaded.State.MessageBus,
             authentication.Policy.Settings.Accounts);
         return ComposeServing(served, seams, servers, stores, authentication, instruments, dataDirectoryLock);
+    }
+
+    // How the proxies reach origins, over the rule --proxy-allow-origin and the proxy listen URLs make
+    // (ADR-0088 decision 2); the host's seam when it gives one.
+    private static IOriginConnector ComposeOriginConnector(SurlCommandLine commandLine, SurlServerCompositionSeams seams)
+    {
+        var rule = ProxyComposition.ComposeAllowedOriginRule(commandLine);
+        return seams.CreateOriginConnector is { } create ? create(rule) : new SocketOriginConnector(rule, seams.TimeProvider);
     }
 
     private static SurlServerStart ComposeServing(

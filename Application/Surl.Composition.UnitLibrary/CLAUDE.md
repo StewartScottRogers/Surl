@@ -25,6 +25,13 @@ horizontal library may reference it (ADR-0099 decision 11, held by
   server is two entries, `scp` and `sftp`, each a `SingleSchemeServer`; the LDAP server is loaded
   with `For("ldap")`, the HTTP/3 server composed with `For("https")`, the S3 server with
   `AuthenticationPolicyFor("s3")` (`ExtendedProtocolServerServices` forwards both members).
+- The HTTP and HTTPS proxies (ADR-0088 Amendment 6, BL-1003): `ComposeAsync` appends `SurlCommandLine.ProxyListenUrls`
+  to the listen URLs, and `ProxyComposition.RouteProxyListeners` wraps each server answering `http` or `https` in a
+  `ProxyRoutingProtocolServer`, which serves a listen URL with `IsProxy` by one `HttpProxyProtocolServer` and any other by
+  the wrapped server. The proxy reaches origins through `ComposedProtocolServices.OriginConnector` (a `SocketOriginConnector`
+  over `ProxyComposition.ComposeAllowedOriginRule`, or `SurlServerCompositionSeams.CreateOriginConnector`) and judges
+  `Proxy-Authorization` by `ComposedProtocolServices.ProxyAuthenticationPolicy`
+  (`AuthenticationComposition.ComposeProxyPolicy`, over `-U` and `--proxy-user-file` alone); `--proxy-allow-origin '*'` warns.
 - `SurlServerCompositionSeams.AdditionalProtocolServers` (`AdditionalProtocolServer`: a registration
   and its already-parsed `ListenUrl`s) are composed after the extended servers and served on their
   listen URLs after the command line's: how `Surl.Api` serves a test's own server (BL-813).
