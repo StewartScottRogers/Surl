@@ -4,7 +4,7 @@ title: Answer a chosen reply code by fault in the extended AMQP 0-9-1 broker
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-823, BL-785]
+depends-on: [BL-823, BL-785, BL-1035]
 touches: [Protocols/Messaging/Surl.Extended.Protocol.Amqp0.UnitLibrary, Protocols/Messaging/Surl.Extended.Protocol.Amqp0.UnitTests]
 requirement: FR-062
 created: 2026-11-06
@@ -57,8 +57,17 @@ says - instead of serving it, and publish one `FaultAppliedEvent`.
 
 ## Notes
 
+- 2026-11-11 (lane 4): restored the four stashed files from `S^3` and re-made the hook at the top of
+  `AnswerChannelFrameAsync`; this work is left uncommitted for the shift to stash. Checked against the
+  methods the broker now serves: `tx.select`, `tx.commit`, `tx.rollback` and `confirm.select` name no
+  exchange or queue, so they stay outside `FaultCommands` and need no path test. Dropped the doc
+  comments' "ADR-0142" reference: ADR-0142 is about media types, not faults.
+- Could not build: `dotnet` finds no SDK matching `global.json`'s 10.0.401 (installed: 10.0.100-rc.1,
+  11.0.100-rc.2, 11.0.100). Depends on BL-1035 (Stewart reinstalls the SDK), as BL-1006 already does.
+
 ## Log
 
 - 2026-11-06: Created.
 - 2026-11-06: Split from BL-834 (timed out after 120 min); reuses its AMQP 0-9-1 work from stash `darkfactory BL-834 20261106-033059`.
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Backlog. Waits on BL-1035: pinned .NET SDK 10.0.401 is not installed, so nothing builds
