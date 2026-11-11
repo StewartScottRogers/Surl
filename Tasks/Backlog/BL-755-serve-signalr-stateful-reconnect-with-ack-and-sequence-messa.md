@@ -4,7 +4,7 @@ title: Serve SignalR stateful reconnect with Ack and Sequence messages
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-449]
+depends-on: [BL-449, BL-1035]
 touches: [Protocols/Http/Surl.Extended.Protocol.SignalR.UnitLibrary, Protocols/Http/Surl.Extended.Protocol.SignalR.UnitTests, Documentation/Conformance/Extended/SignalR.md]
 requirement: none
 created: 2026-11-05
@@ -37,7 +37,10 @@ resume the same connection within 30 s, with no message lost or repeated to the 
 
 ## Notes
 
+- 2026-11-11 (lane 2): parked behind BL-1035. `dotnet build` fails with "A compatible .NET SDK was not found": global.json pins 10.0.401 and only 10.0.100-rc.1, 11.0.100-rc.2 and 11.0.100 are installed, so no test can be built or run. Work starts again once BL-1035 is Done.
+
 ## Log
 
 - 2026-11-05: Created.
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Backlog. Waits on BL-1035: pinned .NET SDK 10.0.401 is not installed, so nothing builds
