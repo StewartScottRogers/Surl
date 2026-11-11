@@ -52,3 +52,4 @@ RFC 5054 suites (`C0 1B`, `C0 1E`, `C0 21` for RSA; `C0 1C`, `C0 1F`, `C0 22` fo
 ## Log
 
 - 2026-11-05: Created.
+- 2026-11-11: Backlog -> Doing.
