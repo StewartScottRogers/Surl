@@ -4,7 +4,7 @@ title: Record a passing release.yml dry run of the NuGet pack job
 priority: Normal
 assignee: Claude
 pipeline: direct
-depends-on: [BL-643]
+depends-on: [BL-643, BL-1035]
 touches: [.github/workflows/release.yml]
 requirement: none
 created: 2026-11-05
@@ -30,11 +30,21 @@ reached `master` shows the `Pack the NuGet packages` job green and the `nuget-pa
 
 ## Acceptance criteria
 
-- [ ] A `release.yml` run whose `Pack the NuGet packages` job passed is linked under Notes, with the commit it ran.
-- [ ] Its `nuget-packages` artifact holds `Surl.Api.<version>.nupkg` and `Surl.Mcp.<version>.nupkg` (checked with
+- [x] A `release.yml` run whose `Pack the NuGet packages` job passed is linked under Notes, with the commit it ran.
+- [x] Its `nuget-packages` artifact holds `Surl.Api.<version>.nupkg` and `Surl.Mcp.<version>.nupkg` (checked with
       `gh run download <id> -n nuget-packages`).
 
 ## Notes
+
+- Run: https://github.com/StewartScottRogers/Surl/actions/runs/43034425678 (`workflow_dispatch` on `master`,
+  2026-11-11, commit `424106dd2db755da45afd990fc5fd075d89c51b7`, which contains BL-643's `1b3fbd4c`). Its
+  `Pack the NuGet packages` job passed (rechecked with `gh run view` on lane 6, 2026-11-11).
+- `gh run download 43034425678 -n nuget-packages` gave `Surl.Api.0.0.0-dev.427.nupkg` and
+  `Surl.Mcp.0.0.0-dev.427.nupkg`.
+- The run as a whole failed: `Publish linux-x64` and `Publish linux-arm64` stopped at `Install the native
+  toolchain` (apt, exit code 100), outside the `pack` job and tracked by BL-783; `release.yml` was not changed.
+- Both boxes are verified; only the build gate is missing: this machine lacks the .NET SDK 10.0.401 that
+  `global.json` pins, so `dotnet build` cannot run. Waiting on BL-1035, then move straight to Done.
 
 ## Log
 
@@ -42,3 +52,4 @@ reached `master` shows the `Pack the NuGet packages` job green and the `nuget-pa
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Lane 5 could not integrate: build failed after rebasing onto the other lanes' work. The work is on branch factory/BL-824-lane-5-20261111-060243; start with git cherry-pick --no-commit factory/BL-824-lane-5-20261111-060243 and fix it.
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Backlog. Waiting on BL-1035: pinned .NET SDK 10.0.401 is not installed, so dotnet build cannot run; both criteria are already verified (run 43034425678)
