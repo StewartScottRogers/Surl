@@ -57,3 +57,4 @@ public keys and shared secrets, with its `.UnitTests` twin, registered in `Surl.
 - 2026-11-06: Split from BL-545 (timed out after 120 min); reuses its Curve448 projects from stash `darkfactory BL-545 20261106-033059`.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Lane 3 could not integrate: build failed after rebasing onto the other lanes' work. The work is on branch factory/BL-1007-lane-3-20261111-060243; start with git cherry-pick --no-commit factory/BL-1007-lane-3-20261111-060243 and fix it.
+- 2026-11-11: Backlog -> Doing.
