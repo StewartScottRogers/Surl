@@ -52,7 +52,7 @@ What the Blob endpoint serves now (BL-424, BL-425, BL-715, BL-716), on `az`:
   never checked, becomes the blob's `Content-MD5` on Get Blob, Get Blob Properties and List Blobs
   (BL-736; a rename and Path - Update `setProperties` keep it, a flush drops it); an index refusal removes the blob (`400
   MetadataTooLarge`, `503 ServerBusy`). `201` with `ETag`, `Last-Modified`, `Content-MD5` and
-  `x-ms-request-server-encrypted: false`.
+  `x-ms-request-server-encrypted: false`; a `201` discards the blob's uncommitted blocks (BL-924).
 - The conditional fields on Put Blob and Delete Blob (BL-735, `AzureConditions.WriteRefusal`),
   checked against the blob at the name once the name maps, before folders are created or the body
   is read: every condition counts, none decides over another. On an existing blob, `If-None-Match`
@@ -86,7 +86,8 @@ What the Blob endpoint serves now (BL-424, BL-425, BL-715, BL-716), on `az`:
   (case-insensitive; another `400 InvalidQueryParameterValue`): `200` with the one-line
   `BlockList` XML of the page's example, `Last-Modified` and `ETag` when the blob exists, and
   `x-ms-blob-content-length`; no blob and no uncommitted block is `404 BlobNotFound`.
-- Delete Blob on `DELETE /<container>/<blob>`: `202`; a missing blob `404 BlobNotFound`; uploads
+- Delete Blob on `DELETE /<container>/<blob>`: `202`, discarding the blob's uncommitted blocks
+  (BL-924; an error keeps them); a missing blob `404 BlobNotFound`; uploads
   off or share access refusing it `403 AuthorizationPermissionMismatch`.
 - List Blobs (`AzureListBlobs`) on `GET /<container>?restype=container&comp=list`: a listing in
   ADR-0006's sense, as ADR-0108 holds for S3's, so it needs `--list-directories` (off: `403

@@ -45,6 +45,7 @@ internal sealed class AzureBlobRequestAnswerer : IHttpRequestHandler, IHttpHeadN
     private readonly AzurePutBlockList putBlockList;
     private readonly AzureGetBlockList getBlockList;
     private readonly AzureListContainers listContainers;
+    private readonly AzureStagingArea staging;
 
     /// <summary>
     /// Creates the answerer for one exchange.
@@ -60,6 +61,7 @@ internal sealed class AzureBlobRequestAnswerer : IHttpRequestHandler, IHttpHeadN
     {
         this.store = store;
         this.pathStyle = pathStyle;
+        this.staging = staging;
         login = new AzureLoginJudge(authentication, AzureStorageProtocolServer.BlobScheme, AzureStorageProtocolServer.PeerAddressOf(context));
         this.context = context;
         properties = new AzureBlobPropertiesReader(store, index, context.Log);
@@ -132,14 +134,27 @@ internal sealed class AzureBlobRequestAnswerer : IHttpRequestHandler, IHttpHeadN
         return operation switch
         {
             AzureOperation.ListBlobs => await listBlobs.AnswerAsync(reply, request, target, caller, cancellationToken),
-            AzureOperation.PutBlob => await putBlob.AnswerAsync(reply, request, target, caller, cancellationToken),
-            AzureOperation.DeleteBlob => await DeleteBlobAsync(reply, request, target, caller, cancellationToken),
+            AzureOperation.PutBlob => await DiscardingStagedBlocksAsync(await putBlob.AnswerAsync(reply, request, target, caller, cancellationToken), target, cancellationToken),
+            AzureOperation.DeleteBlob => await DiscardingStagedBlocksAsync(await DeleteBlobAsync(reply, request, target, caller, cancellationToken), target, cancellationToken),
             AzureOperation.PutBlock => await putBlock.AnswerAsync(reply, request, target, caller, cancellationToken),
             AzureOperation.PutBlockList => await putBlockList.AnswerAsync(reply, request, target, caller, cancellationToken),
             AzureOperation.GetBlockList => await getBlockList.AnswerAsync(reply, target, caller, cancellationToken),
             AzureOperation.GetContainerProperties => AzureFolderProperties.Container(reply, store.GetEntryStatus(container)!.LastModifiedUtc),
             _ => await ReadBlobAsync(reply, request, target, caller, cancellationToken),
         };
+    }
+
+    // Put Blob and Delete Blob discard the blob's uncommitted blocks once they succeed - 201 or 202
+    // ("Put Blob", "Delete Blob") - so a later Put Block List cannot commit blocks staged before them
+    // (BL-924). An error answer keeps them; AzureReply.Error does not mark its answers as refusals.
+    private async Task<HttpAnswer> DiscardingStagedBlocksAsync(HttpAnswer answer, AzureBlobTarget target, CancellationToken cancellationToken)
+    {
+        if (answer.Status.Code < 300)
+        {
+            await staging.DiscardInTurnAsync(AzureStagedBlocks.KeyOf(target), cancellationToken);
+        }
+
+        return answer;
     }
 
     // Get Blob and Get Blob Properties of a blob in an existing container.
