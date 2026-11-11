@@ -42,3 +42,4 @@ recording, marked "Decided by Claude under Stewart's delegation", every decision
 ## Log
 
 - 2026-11-06: Created.
+- 2026-11-11: Backlog -> Doing.
