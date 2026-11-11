@@ -4,7 +4,7 @@ using Surl.Cryptography.MlKem;
 namespace Surl.Tls13;
 
 [TestClass]
-public sealed class TlsServerHandshakeTests
+public sealed partial class TlsServerHandshakeTests
 {
     private static readonly byte[] HelloRetryRequestRandom = Convert.FromHexString(
         "cf21ad74e59a6111be1d8c021e65b891c2a211167abb8c5e079e09e2c8a8339c");
@@ -200,8 +200,8 @@ public sealed class TlsServerHandshakeTests
         using var handshake = EcdsaHandshake();
         var clientHello = new UnitTestClientHelloBuilder
         {
-            SupportedGroups = [0x001E, 0x11EC, 0x001D],
-            KeyShares = [(0x001E, new byte[56])],
+            SupportedGroups = [0x0102, 0x11EC, 0x001D],
+            KeyShares = [(0x0102, new byte[512])],
         }.Write();
 
         var output = handshake.Receive(TlsEncryptionLevel.Initial, clientHello);
@@ -217,13 +217,13 @@ public sealed class TlsServerHandshakeTests
         using var handshake = new TlsServerHandshake(UnitTestCertificates.QuicOptions(key), RandomNumberGenerator.Create());
         var clientHello1 = new UnitTestClientHelloBuilder
         {
-            SupportedGroups = [0x001E, 0x0017],
-            KeyShares = [(0x001E, new byte[56])],
+            SupportedGroups = [0x0102, 0x0017],
+            KeyShares = [(0x0102, new byte[512])],
         }.Write();
         var client = UnitTestTlsClient.WithEllipticCurveShare(0x0017, ECCurve.NamedCurves.nistP256);
         var clientHello2 = new UnitTestClientHelloBuilder
         {
-            SupportedGroups = [0x001E, 0x0017],
+            SupportedGroups = [0x0102, 0x0017],
             KeyShares = [(0x0017, client.PublicShare)],
         }.Write();
         byte[] expectedRetry =
@@ -390,7 +390,7 @@ public sealed class TlsServerHandshakeTests
     public void Receive_NoSupportedGroupTheServerServes_FailsWithHandshakeFailure()
     {
         using var handshake = EcdsaHandshake();
-        var clientHello = new UnitTestClientHelloBuilder { SupportedGroups = [0x001E], KeyShares = [(0x001E, new byte[56])] }.Write();
+        var clientHello = new UnitTestClientHelloBuilder { SupportedGroups = [0x0102], KeyShares = [(0x0102, new byte[512])] }.Write();
 
         AssertAlert(TlsAlert.HandshakeFailure, () => handshake.Receive(TlsEncryptionLevel.Initial, clientHello));
     }
