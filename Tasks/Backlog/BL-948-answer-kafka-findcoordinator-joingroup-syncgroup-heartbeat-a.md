@@ -4,7 +4,7 @@ title: Answer Kafka FindCoordinator, JoinGroup, SyncGroup, Heartbeat and LeaveGr
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-946, BL-947]
+depends-on: [BL-946, BL-947, BL-1035]
 touches: [Protocols/Messaging/Surl.Extended.Protocol.Kafka.UnitLibrary, Protocols/Messaging/Surl.Extended.Protocol.Kafka.UnitTests, Documentation/Conformance/Extended/Kafka.md]
 requirement: none
 created: 2026-11-06
@@ -66,6 +66,7 @@ Heartbeat v0-v3 and LeaveGroup v0-v3 are answered and listed by ApiVersions.
 ## Notes
 
 - Filed by BL-701 (ADR-0145).
+- 2026-11-11 (lane 3): lane 5's work on factory/BL-948-lane-5-20261111-060243 cherry-picks cleanly onto this branch, but nothing builds: global.json pins SDK 10.0.401 and only 10.0.100-rc.1, 11.0.100-rc.2 and 11.0.100 are installed. Parked behind BL-1035; resume with the same cherry-pick of eee15681 and d504712e.
 
 ## Log
 
@@ -73,3 +74,4 @@ Heartbeat v0-v3 and LeaveGroup v0-v3 are answered and listed by ApiVersions.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Lane 5 could not integrate: build failed after rebasing onto the other lanes' work. The work is on branch factory/BL-948-lane-5-20261111-060243; start with git cherry-pick --no-commit factory/BL-948-lane-5-20261111-060243 and fix it.
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Backlog. Waiting on BL-1035: pinned .NET SDK 10.0.401 is not installed, so the cherry-picked lane-5 work cannot be built or tested
