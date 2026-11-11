@@ -26,11 +26,11 @@ internal sealed partial class AzureServerHarness
     /// </summary>
     public static readonly string[] Bearer = ["x-ms-version: 2025-01-05", $"Authorization: Bearer {UnitTestBearerAuthenticationPolicy.Token}"];
 
-    public AzureServerHarness(bool allowsAnonymous = false, long maxTotalBytes = InMemoryContentFileSystem.DefaultMaxTotalBytes, bool persistsIndex = false, IReadOnlyList<ContentShare>? shares = null, string accountName = "", ContentExposureOptions? exposure = null, IReadOnlyList<ContentBucket>? buckets = null, int maxIndexEntries = ObjectMetadataIndex.DefaultMaxEntries)
+    public AzureServerHarness(bool allowsAnonymous = false, long maxTotalBytes = InMemoryContentFileSystem.DefaultMaxTotalBytes, bool persistsIndex = false, IReadOnlyList<ContentShare>? shares = null, string accountName = "", ContentExposureOptions? exposure = null, IReadOnlyList<ContentBucket>? buckets = null, int maxIndexEntries = ObjectMetadataIndex.DefaultMaxEntries, IFaultPlan? storeFaults = null)
     {
         TimeProvider = new FixedTimeProvider(Now);
         FileSystem = new InMemoryContentFileSystem(TimeProvider, maxTotalBytes);
-        Store = new ContentStore(InMemoryContentFileSystem.RootPath, FileSystem, exposure ?? new ContentExposureOptions(), shares ?? [], buckets ?? []);
+        Store = new ContentStore(InMemoryContentFileSystem.RootPath, FileSystem, exposure ?? new ContentExposureOptions(), shares ?? [], buckets ?? [], faults: storeFaults);
         Index = new ObjectMetadataIndex(FileSystem, InMemoryContentFileSystem.RootPath, persistsIndex, maxIndexEntries);
         Policy = new UnitTestBearerAuthenticationPolicy(allowsAnonymous) { AccountName = accountName };
         Server = new AzureStorageProtocolServer(Store, Index, Policy, TimeProvider);

@@ -18,7 +18,9 @@ namespace Surl.Extended.Protocol.AzureStorage;
 /// MissingRequiredQueryParameter</c>); <c>maxResults</c> is 1 to 5000, default and cap 5000, below 1
 /// <c>400 OutOfRangeQueryParameterValue</c>; a <c>directory</c> that is no directory is <c>404
 /// PathNotFound</c>. <c>continuation</c> is <see cref="AzureListMarker"/>'s base64url of the last
-/// sort key returned. <c>upn</c> is accepted and changes nothing: owners are <c>$superuser</c>.
+/// sort key returned. <c>beginFrom</c>, a path relative to the folder listed, starts the listing
+/// after that path in the walk's order (a directory's contents come after it); a continuation
+/// decides over it. <c>upn</c> is accepted and changes nothing: owners are <c>$superuser</c>.
 /// </remarks>
 /// <param name="store">The content store the filesystem is read from.</param>
 /// <param name="properties">Reads each listed file's properties.</param>
@@ -57,6 +59,7 @@ internal sealed class AzurePathList(ContentStore store, AzureBlobPropertiesReade
             return reply.Error(AzureRefusal.Of(AzureError.PathNotFound));
         }
 
+        after ??= BeginFromKey(target, folderPath, namePrefix, caller);
         var found = new AzureFilesystemWalk(store, caller).Paths(folderPath, namePrefix, isRecursive, after, cancellationToken).Take(maxResults + 1).ToList();
 
         return await PageAsync(reply, Uri.UnescapeDataString(target.RawContainer), found, maxResults, cancellationToken);
@@ -75,6 +78,21 @@ internal sealed class AzurePathList(ContentStore store, AzureBlobPropertiesReade
 
         namePrefix = $"{directory}/";
         return $"/{target.RawContainer}/{string.Join('/', directory.Split('/').Select(Uri.EscapeDataString))}/";
+    }
+
+    // The sort key beginFrom names: its path under the folder listed, and / after a directory's,
+    // so the listing starts after it; null when beginFrom is not sent or is empty.
+    private string? BeginFromKey(AzureBlobTarget target, string folderPath, string namePrefix, ContentCaller caller)
+    {
+        var beginFrom = (AzureDataLakeOperationRecognition.Parameter(target, "beginFrom") ?? string.Empty).Trim('/');
+        if (beginFrom.Length == 0)
+        {
+            return null;
+        }
+
+        var mapping = store.MapBucketRequestPathForCaller(folderPath + Uri.EscapeDataString(beginFrom).Replace("%2F", "/", StringComparison.Ordinal), caller);
+
+        return IsDirectory(mapping) ? $"{namePrefix}{beginFrom}/" : namePrefix + beginFrom;
     }
 
     // The first maxResults paths found, and the continuation when more were found.

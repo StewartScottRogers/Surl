@@ -595,3 +595,32 @@ this folder when BL-425 finished:
   element, as the operation page's example writes them. Blobs and `BlobPrefix` elements come interleaved in
   name order. `include=metadata` writes `<Metadata />` for a blob with none, and the page's other `include`
   values (and `deletedwithversions`) are accepted and add nothing.
+
+## Amendment, 2026-11-11 (BL-758)
+
+Decided by Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), while serving the Data
+Lake options BL-426 left out, on points decisions 1, 5.2, 5.4 and 5.5 left open:
+
+- **A connection refused past a limit learns its listen scheme.** `Surl.Core`'s serving engine called
+  `IConnectionRefusalWriter.WriteRefusalAsync` with the connection and the limit only, so one server
+  instance listening on `az` and `abfs` could not tell which body decision 5.2 wants. The contract gains
+  an overload that also takes the listen URL's scheme, a default interface member that writes the
+  scheme-blind refusal, so every other server is unchanged; the engine calls it. The Azure Storage
+  server writes the XML `Error` on `az` and the JSON error on `abfs` and `abfss`. Rejected: guessing the
+  scheme from the connection's local end point (ports are shared and a wildcard listener's local
+  address varies), and two server instances per scheme (they would stage appends and blocks apart).
+- **The conditional fields on Path - Create, append and flush** are checked against the entry at the
+  path before anything changes: a file's ETag and last write time, or a directory's `"0x<ticks>"` ETag.
+  Every condition counts, as on Put Blob; `If-None-Match: *` on an existing file or directory is `409
+  PathAlreadyExists`, any other failing condition `412 ConditionNotMet`. On an append or a flush they are
+  judged against the committed file, never the staged bytes.
+- **`x-ms-properties` on Path - Create** reads as on `setProperties`; one that does not read is `400
+  InvalidHeaderValue` before anything is created. On `resource=directory` it is read and kept nowhere,
+  because the index keeps files only.
+- **`retainUncommittedData=true`** keeps the staged bytes past the flush position: the staging's upload
+  session is copied whole into a new session before the commit, and the staging continues in the copy
+  with its committed length at the flush position and only the parts of its ranges past it. With nothing
+  staged past the position, the staging ends as without it. A commit that is refused drops the staging.
+- **`beginFrom`** is relative to the folder listed (`directory`, else the filesystem), as the page says,
+  and the listing starts after it in the walk's order: a directory named is left out and its contents
+  follow; a path that is not there starts where it would sort. A `continuation` decides over it.
