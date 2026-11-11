@@ -65,3 +65,4 @@ recorded upstream curl ClientHello for `--curves ffdhe2048` or `--curves ffdhe30
 - 2026-11-06: Created.
 - 2026-11-06: Split from BL-545 (timed out after 120 min); reuses its ffdhe work and recorded fixtures from stash `darkfactory BL-545 20261106-033059`.
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Backlog. Lane 4 could not integrate: build failed after rebasing onto the other lanes' work. The work is on branch factory/BL-1008-lane-4-20261111-060243; start with git cherry-pick --no-commit factory/BL-1008-lane-4-20261111-060243 and fix it.
