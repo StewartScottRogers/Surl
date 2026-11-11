@@ -4,7 +4,7 @@ title: Order a multi-server upstream test case's protocol log by arrival
 priority: Low
 assignee: Claude
 pipeline: feature
-depends-on: []
+depends-on: [BL-1035]
 touches: [Conformance/Surl.Conformance.UnitTests]
 requirement: none
 created: 2026-11-05
@@ -39,7 +39,18 @@ tests 2002 and 2003 can pass.
 
 ## Notes
 
+- 2026-11-11 (lane 4): Design chosen and written, left uncommitted for the shift to stash:
+  `ArrivalOrderedReceivedLog` (test project) reads each server half's `ReceivedBytes` and
+  appends what each added since its last look. `UpstreamTestCaseServerHalves.Play` takes it and
+  wraps every connection and datagram flow so it looks before each read, peek, write, receive,
+  send and dispose. A half's own log already holds what it received before its next read or
+  reply, so TFTP's lines land before FTP's late `QUIT`. Growth in several halves between two
+  looks keeps the case's server order, which is the old behaviour. `ArrivalOrderedReceivedLogTests`
+  covers it with hand-written fakes. No protocol library changes. Not yet built: the pinned
+  SDK 10.0.401 is missing (BL-1035).
+
 ## Log
 
 - 2026-11-05: Created.
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Backlog. Waits on BL-1035: pinned .NET SDK 10.0.401 is not installed, dotnet build cannot start
