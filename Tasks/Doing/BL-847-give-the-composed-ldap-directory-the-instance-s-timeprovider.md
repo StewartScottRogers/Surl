@@ -41,3 +41,4 @@ The LDAP server `surl` and `Surl.Api` compose measures a search's `timeLimit` by
 ## Log
 
 - 2026-11-05: Created.
+- 2026-11-11: Backlog -> Doing.
