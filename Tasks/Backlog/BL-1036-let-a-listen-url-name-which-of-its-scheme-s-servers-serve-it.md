@@ -4,7 +4,7 @@ title: Let a listen URL name which of its scheme's servers serve it so dns can b
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: []
+depends-on: [BL-1035]
 touches: [Foundation/Surl.Protocol.Abstractions.UnitLibrary, Foundation/Surl.Protocol.Abstractions.UnitTests, Foundation/Surl.Core.UnitLibrary, Foundation/Surl.Core.UnitTests]
 requirement: none
 created: 2026-11-11
@@ -54,7 +54,12 @@ one `dns` listen URL can serve UDP alone while another in the same process serve
 
 ## Notes
 
+- 2026-11-11, lane 6: `dotnet --list-sdks` lists only 10.0.100-rc.1, 11.0.100-rc.2 and 11.0.100; `global.json`
+  pins 10.0.401 with `rollForward: latestFeature`, so `dotnet` finds no compatible SDK and no build or test runs.
+  No code written. Parked behind BL-1035 (Stewart reinstalls the SDK), as BL-985 and BL-1007 are.
+
 ## Log
 
 - 2026-11-11: Created.
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Backlog. Waiting on BL-1035: pinned .NET SDK 10.0.401 is not installed, so no build or test runs
