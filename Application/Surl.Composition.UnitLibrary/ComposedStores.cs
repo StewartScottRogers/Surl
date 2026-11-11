@@ -124,6 +124,16 @@ public sealed class ComposedStores
         content.SeedFileAsync(requestPath, contents, cancellationToken);
 
     /// <summary>
+    /// Deletes a file from the content store as <see cref="ContentStore.DeleteFileForTheTest"/> does:
+    /// never consults the fault plan; publishes <see cref="StoreChange.Deleted"/>.
+    /// </summary>
+    /// <param name="requestPath">The file's path, as a request path.</param>
+    /// <returns>Done, or Absent when no file is there.</returns>
+    /// <exception cref="ArgumentException"><paramref name="requestPath"/> is a path a request may not name.</exception>
+    public Task<ContentChangeResult> DeleteFileAsync(string requestPath) =>
+        Task.FromResult(content.DeleteFileForTheTest(requestPath));
+
+    /// <summary>
     /// Creates a folder in the content store as <see cref="ContentStore.SeedFolder"/> does.
     /// </summary>
     /// <param name="requestPath">Where the folder goes, as a request path.</param>

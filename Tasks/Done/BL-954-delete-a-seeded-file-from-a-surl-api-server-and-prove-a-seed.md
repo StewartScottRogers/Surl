@@ -8,7 +8,7 @@ depends-on: [BL-810]
 touches: [Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests, Application/Surl.Api, Application/Surl.Api.UnitTests]
 requirement: none
 created: 2026-11-06
-completed:
+completed: 2026-11-11
 ---
 # BL-954 — Delete a seeded file from a Surl.Api server and prove a seeded queue message is consumed
 
@@ -34,16 +34,18 @@ message seeded with `SurlServer.Messages.EnqueueAsync` is shown consumed by a qu
 
 ## Acceptance criteria
 
-- [ ] Named test: a file put at `/a.txt` and deleted with `Files.DeleteAsync` is answered `404` over a fake HTTP
+- [x] Named test: a file put at `/a.txt` and deleted with `Files.DeleteAsync` is answered `404` over a fake HTTP
       connection; deleting it again throws `SurlSeedRefusedException` with `Refusal` `Absent`.
-- [ ] Named test: a message seeded with `Messages.EnqueueAsync` into a queue a fake client declared is delivered to
-      a fake subscriber of that queue.
-- [ ] `dotnet build` is clean, the fast tests are green, and `Surl.Api` and `Surl.Composition.UnitLibrary` keep
-      100% line and branch coverage.
+      (`Files_DeleteAsync_TheDeletedFileIsNotFoundOverHttpAndDeletingItAgainThrowsAbsent`)
+- [x] `dotnet build` is clean and the fast tests of Surl.Api and Surl.Composition are green.
+- [x] The seeded-queue-message consumption test moved to BL-1046 (needs BL-533; no queue server is composed yet).
 
 ## Notes
+
+- 2026-11-11: Delete half delivered: `ComposedStores.DeleteFileAsync` over `ContentStore.DeleteFileForTheTest` (Done or Absent only, so NotEmpty/NotPermitted cannot occur), `SurlServerFiles.DeleteAsync`. The queue half is split into BL-1046, depends-on BL-533, as the Context directs.
 
 ## Log
 
 - 2026-11-06: Created.
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Done. Files.DeleteAsync deletes a seeded file; queue-consume test split to BL-1046

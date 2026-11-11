@@ -69,7 +69,7 @@ measures it by name.
   `ResetAsync`, `SnapshotAsync` (a `SurlSnapshot` wrapping `ComposedSnapshot` and its owning
   server) and `RestoreAsync` (another server's snapshot is an `ArgumentException`) go straight to
   `ComposedStores`, whose `ComposedStoreException` is the `InvalidOperationException` a refused
-  reset or snapshot throws. No file delete yet: `ComposedStores` has none. Tests bring clients in
+  reset or snapshot throws. `Files.DeleteAsync` (BL-954) is `ComposedStores.DeleteFileAsync` over `ContentStore.DeleteFileForTheTest`: no fault plan, publishes `Deleted`; no file there is `Absent`. Tests bring clients in
   on one listener of several with `FakeListenerFactory.Accept(scheme, connection)`.
 - Hooks (BL-811, ADR-0124 decision 5): `SurlServer.OnEvent` makes an `EventCallbackHook`
   (`h1`, `h2` ...): its own `SurlEventStream` subscription at the default capacity without bytes, a

@@ -36,4 +36,23 @@ public sealed class SurlServerFiles
             throw new SurlSeedRefusedException(StoreKind.Content, result.ToString(), $"The file {path}");
         }
     }
+
+    /// <summary>
+    /// Deletes the file at <paramref name="path"/> as the test's own delete: no client permission is needed and the
+    /// fault plan is not consulted. Publishes a <see cref="StoreChangedEvent"/> with <see cref="StoreChange.Deleted"/>.
+    /// </summary>
+    /// <param name="path">The file's request path, such as <c>/reports/a.txt</c>.</param>
+    /// <returns>A task that completes once the file is gone.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="path"/> is null.</exception>
+    /// <exception cref="SurlSeedRefusedException">No file is there (<c>Absent</c>: nothing, a folder, or a hidden
+    /// path).</exception>
+    public async Task DeleteAsync(string path)
+    {
+        ArgumentNullException.ThrowIfNull(path);
+        var result = await stores.DeleteFileAsync(path);
+        if (result != ContentChangeResult.Done)
+        {
+            throw new SurlSeedRefusedException(StoreKind.Content, result.ToString(), $"Deleting the file {path}");
+        }
+    }
 }

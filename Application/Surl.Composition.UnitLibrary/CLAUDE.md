@@ -99,7 +99,7 @@ horizontal library may reference it (ADR-0099 decision 11, held by
   three-argument overload builds over the instance's stream, so account changes are published too).
   Seeds go through each store's own seed path: `SeedMailAsync` and `SeedPublishAsync`/`SeedEnqueueAsync`
   then save the store (a bus save that fails throws `IOException` with its message), `SeedFileAsync`,
-  `SeedFolder`, `AddAccount`, `RemoveAccount`. `ResetAsync`, `TakeSnapshotAsync` and `RestoreAsync` work on
+  `DeleteFileAsync` (BL-954; Done or Absent, never the fault plan), `SeedFolder`, `AddAccount`, `RemoveAccount`. `ResetAsync`, `TakeSnapshotAsync` and `RestoreAsync` work on
   every store in `ComposedStores.StoreOrder` (content, mail, bus, accounts), or on one `StoreKind`; the
   first refusal stops a whole-instance operation with a `ComposedStoreException`
   (an `InvalidOperationException` whose `Store` names the store, the store's own refusal inner). A

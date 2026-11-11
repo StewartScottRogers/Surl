@@ -52,6 +52,23 @@ public sealed partial class SurlServerTests
     }
 
     [TestMethod]
+    public async Task Files_DeleteAsync_TheDeletedFileIsNotFoundOverHttpAndDeletingItAgainThrowsAbsent()
+    {
+        var seams = new ApiTestSeams();
+        await using var server = await SurlServer.StartAsync(ApiTestSeams.Options(Http), seams.Host, TestContext.CancellationToken);
+        await server.Files.PutAsync("/a.txt", "seeded file"u8.ToArray(), TestContext.CancellationToken);
+
+        await server.Files.DeleteAsync("/a.txt");
+        var written = await ServeAsync(seams, "http", HttpGet("/a.txt", null));
+        var again = await Assert.ThrowsExactlyAsync<SurlSeedRefusedException>(() => server.Files.DeleteAsync("/a.txt"));
+        await Assert.ThrowsExactlyAsync<ArgumentNullException>(() => server.Files.DeleteAsync(null!));
+
+        StringAssert.StartsWith(written, "HTTP/1.1 404 ");
+        Assert.AreEqual(StoreKind.Content, again.Store);
+        Assert.AreEqual("Absent", again.Refusal);
+    }
+
+    [TestMethod]
     public async Task Messages_PublishAsyncRetained_IsDeliveredToAnMqttSubscriber()
     {
         var seams = new ApiTestSeams();
