@@ -4,7 +4,7 @@ title: Record what BL-411 settled for extended CONNECT and HTTP datagrams in ADR
 priority: Normal
 assignee: Claude
 pipeline: docs
-depends-on: [BL-411]
+depends-on: [BL-411, BL-1035]
 touches: [Documentation/Planning/Decisions/ADR-0086-how-the-extended-servers-share-http-2-http-3-and-quic.md, Documentation/Planning/Decisions/README.md]
 requirement: none
 created: 2026-11-05
@@ -58,9 +58,17 @@ the library's `CLAUDE.md`; this task copies them into the ADR, checking each aga
 
 ## Notes
 
+- 2026-11-11 (lane 6): the ADR-0086 Amendment 2 and README row are written and re-checked against
+  `Surl.Http3` (`ulong?` signals, `ServeStreamWithoutSessionAsync`, `ReadClientSettingsAsync`,
+  `ReceivedDatagramCapacity` 128, BL-894's `HeldDatagramCapacity` 64). They are on branch
+  `factory/BL-830-lane-4-20261111-060243` (commit afec1d51): cherry-pick its two Documentation files.
+  Not finished only because `dotnet build` cannot run: `global.json` pins SDK 10.0.401, not
+  installed (BL-1035), so the task waits on BL-1035.
+
 ## Log
 
 - 2026-11-05: Created.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Lane 4 could not integrate: build failed after rebasing onto the other lanes' work. The work is on branch factory/BL-830-lane-4-20261111-060243; start with git cherry-pick --no-commit factory/BL-830-lane-4-20261111-060243 and fix it.
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Backlog. Waits on BL-1035: pinned .NET SDK 10.0.401 is not installed, so dotnet build cannot run; the ADR text is ready on factory/BL-830-lane-4-20261111-060243
