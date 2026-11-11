@@ -35,3 +35,4 @@ The `gs` server answers `objects.insert` with `uploadType=resumable` on the JSON
 ## Log
 
 - 2026-11-11: Created.
+- 2026-11-11: Backlog -> Doing.
