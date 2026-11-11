@@ -78,8 +78,10 @@ public sealed partial class QuicDatagramFlowServerTests
         var serving = client.Server(DoqOptions(key), protocol).ServeAsync(client.Flow, TestContext.CancellationToken);
         await client.FinishAsync(serving, TestContext.CancellationToken);
 
-        var close = client.Client.FramesReceived[QuicPacketType.Initial].OfType<QuicConnectionCloseFrame>().Single();
-        Assert.AreEqual(0x0178UL, close.ErrorCode);
+        // The client's later Initials may reach the closing state, which answers with the same close again.
+        var closes = client.Client.FramesReceived[QuicPacketType.Initial].OfType<QuicConnectionCloseFrame>().ToList();
+        Assert.IsNotEmpty(closes);
+        Assert.IsTrue(closes.All(close => close.ErrorCode == 0x0178UL));
         Assert.AreEqual(0, protocol.Calls);
     }
 
@@ -170,6 +172,66 @@ public sealed partial class QuicDatagramFlowServerTests
 
         Assert.IsTrue(protocol.Connection!.Ended.IsCancellationRequested);
         Assert.IsFalse(client.OneRttFrames<QuicConnectionCloseFrame>().Any());
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_ClientSendsInTheClosingState_AnswersWithTheConnectionCloseAgainAndEndsOnceTheClockPassesTheStatesEnd()
+    {
+        using var key = RSA.Create(2048);
+        using var client = new UnitTestFlowClient();
+        var protocol = new UnitTestApplicationProtocol((connection, token) => connection.CloseAsync(0x100, token).AsTask());
+
+        var serving = client.Server(UnitTestCertificates.Options(key), protocol).ServeAsync(client.Flow, TestContext.CancellationToken);
+        await client.CompleteHandshakeAsync(TestContext.CancellationToken);
+        await client.UntilAsync(() => client.OneRttFrames<QuicConnectionCloseFrame>().Any(), TestContext.CancellationToken);
+        var sentBeforeTheLostClose = client.Flow.SentDatagrams.Count;
+        client.SendOneRtt(new QuicPingFrame());
+        await client.UntilAsync(() => client.Flow.SentDatagrams.Count > sentBeforeTheLostClose, TestContext.CancellationToken);
+        var completedBeforeTheStateEnded = serving.IsCompleted;
+        client.Time.Advance(TimeSpan.FromMinutes(1));
+        await serving.WaitAsync(TimeSpan.FromSeconds(30), TestContext.CancellationToken);
+
+        var sent = client.Flow.SentDatagrams;
+        CollectionAssert.AreEqual(sent[sentBeforeTheLostClose - 1], sent[sentBeforeTheLostClose]);
+        Assert.HasCount(sentBeforeTheLostClose + 1, sent);
+        Assert.IsFalse(completedBeforeTheStateEnded);
+        Assert.AreEqual(0x100UL, client.OneRttFrames<QuicConnectionCloseFrame>().First().ErrorCode);
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_ClientClosesTheConnection_CancelsEndedBeforeTheDrainingStateEnds()
+    {
+        using var key = RSA.Create(2048);
+        using var client = new UnitTestFlowClient();
+        var protocol = new UnitTestApplicationProtocol((connection, _) => Task.Delay(Timeout.InfiniteTimeSpan, connection.Ended));
+
+        var serving = client.Server(UnitTestCertificates.Options(key), protocol).ServeAsync(client.Flow, TestContext.CancellationToken);
+        await client.CompleteHandshakeAsync(TestContext.CancellationToken);
+        await client.UntilAsync(() => protocol.Calls == 1, TestContext.CancellationToken);
+        client.SendOneRtt(new QuicConnectionCloseFrame(true, 0, 0, ReadOnlyMemory<byte>.Empty));
+        await client.UntilAsync(() => protocol.Connection!.Ended.IsCancellationRequested, TestContext.CancellationToken);
+        var completedWhenEnded = serving.IsCompleted;
+        client.Time.Advance(TimeSpan.FromMinutes(1));
+        await serving.WaitAsync(TimeSpan.FromSeconds(30), TestContext.CancellationToken);
+
+        Assert.IsFalse(completedWhenEnded);
+        Assert.IsFalse(client.OneRttFrames<QuicConnectionCloseFrame>().Any());
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_CancelledInTheClosingState_ThrowsOperationCanceledAtOnce()
+    {
+        using var key = RSA.Create(2048);
+        using var client = new UnitTestFlowClient();
+        using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(TestContext.CancellationToken);
+        var protocol = new UnitTestApplicationProtocol((connection, token) => connection.CloseAsync(0x100, token).AsTask());
+
+        var serving = client.Server(UnitTestCertificates.Options(key), protocol).ServeAsync(client.Flow, cancellation.Token);
+        await client.CompleteHandshakeAsync(TestContext.CancellationToken);
+        await client.UntilAsync(() => client.OneRttFrames<QuicConnectionCloseFrame>().Any(), TestContext.CancellationToken);
+        await cancellation.CancelAsync();
+
+        await Assert.ThrowsAsync<OperationCanceledException>(() => serving.WaitAsync(TimeSpan.FromSeconds(30), TestContext.CancellationToken));
     }
 
     [TestMethod]

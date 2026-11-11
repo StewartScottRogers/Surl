@@ -6,7 +6,7 @@ QUIC version 1 for Surl's HTTP/3 server and DNS over QUIC, hand-built on every p
 and 4). What it holds now is the codec, in the clear (BL-373), packet protection (BL-374) and the
 server connection through its handshake (BL-377), streams and flow control (BL-378, ADR-0096), and
 loss recovery and congestion control (BL-379), the flow loop an application protocol rides (BL-572), `DATAGRAM` frames (BL-573), `RESET_STREAM_AT` (BL-748), following the client's key updates (BL-606), and keeping and retiring the client's connection IDs (BL-607),
-and the closing and draining states (BL-608); the flow loop holding a flow open through them comes with BL-867.
+and the closing and draining states (BL-608), which the flow loop holds a served flow open through (BL-867).
 
 - `QuicServerConnection` - one connection, no I/O: `ReceiveDatagram` takes the client's datagram
   and returns a `QuicConnectionOutput` (datagrams to send, each at most 1200 bytes, and the
@@ -60,8 +60,10 @@ and the closing and draining states (BL-608); the flow loop holding a flow open 
   the same `CONNECTION_CLOSE` datagrams, within the anti-amplification limit (one the limit held back
   goes when it allows). On the client's `CONNECTION_CLOSE`, `IsDraining` is true for as long and
   nothing is sent. `NextDeadline` is the state's end; `HandleTimeout` there discards the state, and
-  `NextDeadline` is null and nothing is answered after. `QuicDatagramFlowLoop` still returns when
-  `IsClosed` turns true (BL-867 holds it open).
+  `NextDeadline` is null and nothing is answered after. `QuicDatagramFlowLoop` holds a served flow
+  open through the state (BL-867, ADR-0082 amendment 5): it ends the application's side as soon as
+  `IsClosed` turns true, keeps answering the client's datagrams and acting on `NextDeadline`, and
+  returns once the state ends; server stop ends it at once.
 - `DATAGRAM` frames (BL-573, RFC 9221, ADR-0086 decision 4): off unless
   `QuicServerConnectionOptions.MaxDatagramFrameSize` is set; then `max_datagram_frame_size` (0x20) is
   sent, and each `QuicDatagramFrame` (type `0x30` to the end of the packet, `0x31` with a Length) the
@@ -118,7 +120,9 @@ and the closing and draining states (BL-608); the flow loop holding a flow open 
   so an answer of any size holds at most that plus the client's outstanding credit; a reset stream
   throws `InvalidOperationException`, an ended connection `OperationCanceledException`. The application returning
   closes the connection with application error code 0; the connection ending (either side's
-  close, idle, the server's token) cancels `Ended`, the application's token, after which reads
+  close, idle, the server's token) cancels `Ended`, the application's token, at the close and not
+  at the end of the closing or draining state, and only once the application's side is marked ended
+  (it is not linked to the server's token), after which reads
   return what is left then 0, datagram receives what is left then null, accepts null, and other
   calls throw `OperationCanceledException`.
   An exception the application throws closes the connection with code 0 and is thrown from
