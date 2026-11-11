@@ -595,3 +595,45 @@ this folder when BL-425 finished:
   element, as the operation page's example writes them. Blobs and `BlobPrefix` elements come interleaved in
   name order. `include=metadata` writes `<Metadata />` for a blob with none, and the page's other `include`
   values (and `deletedwithversions`) are accepted and add nothing.
+
+## Amendment, 2026-11-11 (BL-717)
+
+Decided by Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), while building Shared Key and
+shared access signatures, on points decision 3 left open. BL-717 could not change this folder, so BL-842
+records them here:
+
+- **The contract.** `HttpAuthenticationRequest` carries an `AzureStorageScope` (the account the request
+  names, the resource path, the permission letters the operation needs and the peer), as it carries BL-420's
+  `AwsSigV4Service` for S3. A request with the scope set is judged by
+  `HttpAuthenticationSession.JudgeAzureStorageAsync` through `Surl.Authentication`'s `AzureStorageVerifier`
+  (Bearer, `SharedKey`, `SharedKeyLite`, service and account SAS), whatever `--auth` says. The server's
+  `AzureLoginJudge` fills the scope and maps each refusal to decision 3.4's code; it still references neither
+  `Surl.Authentication` nor an account (ADR-0084 decision 4). Eight `HttpAuthenticationRefusal` members are
+  added: `MissingRequestDate`, `SignatureExpired`, `SignatureNotYetValid`, `AddressNotAllowed`,
+  `ProtocolNotAllowed`, `UnservedSignatureKind`, `UnreadableSignatureFields` and `PermissionNotGranted`.
+- **The SAS permission letter each operation needs** (decision 3.3): a listing `l`, a read `r`, a delete `d`,
+  a Data Lake append `a` or `w`, any other write `w`. **`c` alone never grants a write**: the login is judged
+  before the server knows whether the name exists, and serving an overwrite on `c` would serve what Azure
+  refuses.
+- **The signed resources served** (decision 3.3): a service SAS with `sr=c`, `b`, or `d` with `sdd` from 1 to
+  the path's depth. `sr=bs`, `sr=bv`, no `sr`, a signed resource the request does not address, an `sdd` out
+  of that range, an `sv` before 2020-12-06, a stored access policy (`si`) and a user delegation SAS (`skoid`)
+  are each `UnservedSignatureKind`, answered `403 AuthenticationFailed`; a SAS whose `sv`, `sp`, `se` or `st`
+  does not read is `UnreadableSignatureFields`, answered the same. The canonicalized resource is built from
+  the request, never from the query, so a signature made for another resource never verifies.
+- **`AuthenticationErrorDetail` is a fixed sentence per refusal** (decision 3.4). An unknown account reads
+  `Signature did not match.`, exactly as a wrong signature does, so a peer cannot probe which accounts exist.
+- **An account whose password is not base64 text has no key.** Shared Key and SAS naming it are checked
+  against the dummy key, as an unknown account is (ADR-0100 decision 4.1 makes the password the key's base64).
+- **`+` in the query reads as a space** when the SAS fields and the canonicalized query are read, as the
+  server's `AzureBlobTarget` already reads the query.
+- **Which refusals wait.** A `SharedKey` header that does not parse, and another `Authorization` scheme, are
+  refused after the failed-login delay with no login note, since nothing was checked. A request with no
+  credentials at all is refused without the delay, as S3's is (ADR-0108): decision 3.1's delay is for a
+  login that failed, and no login was tried.
+- **Credentials are checked under `--allow-anonymous` for every Azure method** (decision 3.1), so a bad
+  bearer token there is `401 InvalidAuthenticationInfo`, never served as anonymous. BL-725 builds on this
+  and names the path-style account segment the scope's account (decision 2).
+
+The conformance matrix names `AzureStorageVerifierTests` and `AzureLoginJudgeTests` against the Shared Key
+and SAS rows.
