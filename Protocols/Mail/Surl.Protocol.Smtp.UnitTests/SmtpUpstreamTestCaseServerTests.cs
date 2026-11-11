@@ -255,6 +255,35 @@ public sealed class SmtpUpstreamTestCaseServerTests
         Assert.AreEqual(Greeting + EhloReply + "530 5.7.0 Authentication required\r\n", Utf8(connection.WrittenBytes));
     }
 
+    // Client bytes of upstream cases 913 and 916; reply text from ftpserver.pl at curl-8_21_0.
+    [TestMethod]
+    public async Task ServeAsync_MailSizePastTheCapaSize_IsRefusedAsUpstreamsServerRefusesIt()
+    {
+        var written = await ServeAsync(Case("CAPA \"SIZE 32\""), "EHLO 913\r\nMAIL FROM:<sender@example.com> SIZE=38\r\nQUIT\r\n");
+
+        Assert.AreEqual(Greeting + "250-surl Hello\r\n250 SIZE 32\r\n552 Message size too large\r\n221 2.0.0 Bye\r\n", written);
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_MailSizeWithinTheCapaSize_OrWithNoSizeParameter_OrWithNoCapaSize_IsAccepted()
+    {
+        var withinTheSize = await ServeAsync(Case("CAPA \"SIZE 32\""), "EHLO c\r\nMAIL FROM:<a@x> SIZE=32\r\nQUIT\r\n");
+        var withoutASize = await ServeAsync(Case("CAPA \"SIZE 32\""), "EHLO c\r\nMAIL FROM:<a@x>\r\nQUIT\r\n");
+        var withoutACapaSize = await ServeAsync(Case(), "EHLO c\r\nMAIL FROM:<a@x> SIZE=99999\r\nQUIT\r\n");
+
+        Assert.Contains("250 2.1.0 Sender OK\r\n", withinTheSize);
+        Assert.Contains("250 2.1.0 Sender OK\r\n", withoutASize);
+        Assert.Contains("250 2.1.0 Sender OK\r\n", withoutACapaSize);
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_RecipientWithoutAnAtSign_IsRefusedAsUpstreamsServerRefusesIt()
+    {
+        var written = await ServeAsync(Case(), "EHLO 916\r\nMAIL FROM:<sender@example.com>\r\nRCPT TO:<invalid>\r\nRCPT\r\nQUIT\r\n");
+
+        Assert.AreEqual(Greeting + "250 surl Hello\r\n250 2.1.0 Sender OK\r\n501 Invalid address\r\n501 Invalid address\r\n221 2.0.0 Bye\r\n", written);
+    }
+
     private static MailUpstreamTestCaseReplies Case(params string[] serverCommands) => new(NoParts, serverCommands);
 
     private static MailUpstreamTestCaseReplies Case(Dictionary<string, byte[]> parts) => new(parts, []);

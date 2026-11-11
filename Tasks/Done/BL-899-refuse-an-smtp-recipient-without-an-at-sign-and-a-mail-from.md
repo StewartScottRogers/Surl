@@ -8,7 +8,7 @@ depends-on: []
 touches: [Protocols/Mail/Surl.Protocol.Smtp.UnitLibrary, Protocols/Mail/Surl.Protocol.Smtp.UnitTests, Documentation/Conformance]
 requirement: none
 created: 2026-11-05
-completed:
+completed: 2026-11-11
 ---
 # BL-899 — Refuse an SMTP recipient without an at sign and a MAIL FROM whose SIZE exceeds CAPA SIZE in the SMTP server half
 
@@ -41,22 +41,27 @@ instead of carrying on to RCPT or DATA, as upstream's test server makes it do.
 
 ## Acceptance criteria
 
-- [ ] Cases 913, 916, 918, 3006 and 3007 pass in a Windows run of `UpstreamTestCasesAgainstSurlTests`
+- [x] Cases 913, 916, 918, 3006 and 3007 pass in a Windows run of `UpstreamTestCasesAgainstSurlTests`
       (`TestCategory=Integration`) with the reference pin from `UpstreamCurlBuilds.json`; Notes record the
       pin's SHA-256 and the date.
-- [ ] The five case numbers are added to `Documentation/Conformance/upstream-test-cases-passing.win-x64.txt`,
+- [x] The five case numbers are added to `Documentation/Conformance/upstream-test-cases-passing.win-x64.txt`,
       and the `win-x64` row of `Documentation/Conformance/Upstream-Test-Case-Pass-Rate.md` states the new counts;
       the fast pass-rate guard test is green.
-- [ ] `Surl.Protocol.Smtp.UnitTests` has a unit test per refusal (oversize `SIZE=`, recipient without `@`)
+- [x] `Surl.Protocol.Smtp.UnitTests` has a unit test per refusal (oversize `SIZE=`, recipient without `@`)
       replaying the client bytes of cases 913 and 916 from their case files and asserting the reply codes read
       from `ftpserver.pl`.
-- [ ] `dotnet build Protocols/Mail/Surl.Protocol.Smtp.UnitTests -warnaserror` is clean,
+- [x] `dotnet build Protocols/Mail/Surl.Protocol.Smtp.UnitTests -warnaserror` is clean,
       `dotnet test --filter "TestCategory!=Integration"` is green, and `Surl.Protocol.Smtp.UnitLibrary` keeps
       100% line and branch coverage.
 
 ## Notes
 
+- Decided by Claude under Stewart's delegation (no ADR; a small conformance-half detail): replies are ftpserver.pl's own at curl-8_21_0, `501 Invalid address` for a RCPT without `@` (or without an argument) and `552 Message size too large` for MAIL SIZE= past the case CAPA SIZE; the check is only the at sign, not upstream's full address regex. Only the upstream-test-case half changes (`SmtpSession.UpstreamTestCase.cs`).
+- Windows run 2026-11-11, reference pin SHA-256 `0E773709C3A44DB47B88B71351D902027682ED87C3BD3821009E454BACCA8778`: 913, 916, 918, 3006, 3007 newly pass (ran 1128, pass 1077, fail 51). Pass-rate row and win-x64 list updated.
+- Unit tests added in SmtpUpstreamTestCaseServerTests; fast suite green, build clean.
+
 ## Log
 
 - 2026-11-05: Created.
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Done. Upstream-test-case SMTP half refuses RCPT without @ and MAIL SIZE past CAPA SIZE; cases 913, 916, 918, 3006, 3007 pass

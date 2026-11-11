@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text;
 using Surl.LineProtocol;
 
@@ -8,16 +9,38 @@ namespace Surl.Protocol.Smtp;
 /// ADR-0080 decision 2): the greeting <c>REPLY welcome</c> gives, a <c>REPLY</c>'d line answered
 /// with the case's text and not run, <c>EHLO</c>'s extensions from <c>CAPA</c> and <c>AUTH</c>,
 /// mail sent without a login, a <c>DATA</c> body recorded rather than delivered, and <c>VRFY</c>
-/// and <c>EXPN</c> answered with the case's data. Every other answer is the session's own.
+/// and <c>EXPN</c> answered with the case's data, a <c>RCPT</c> with no at sign refused, and a <c>MAIL</c>
+/// whose <c>SIZE=</c> exceeds the <c>SIZE</c> the case's <c>CAPA</c> advertised refused, as upstream's
+/// <c>MAIL_smtp</c> and <c>RCPT_smtp</c> do. Every other answer is the session's own.
 /// </summary>
 internal sealed partial class SmtpSession
 {
+    // ftpserver.pl at curl-8_21_0, subs MAIL_smtp and RCPT_smtp.
+    private const string UpstreamInvalidAddress = "501 Invalid address";
+    private const string UpstreamMessageSizeTooLarge = "552 Message size too large";
+
     private void AnswerAsTheUpstreamTestCaseSays(MailUpstreamTestCaseReplies replies)
     {
+        commands["MAIL"] = argument => AnswerUpstreamTestCaseMailAsync(argument, replies);
+        var answerRecipient = commands["RCPT"];
+        commands["RCPT"] = argument => HasAtSign(argument) ? answerRecipient(argument) : ReplyAsync(UpstreamInvalidAddress);
         commands["DATA"] = argument => AnswerUpstreamTestCaseDataAsync(argument, replies);
         commands["VRFY"] = argument => AnswerFromTheUpstreamTestCaseDataAsync(argument, replies, SmtpReplies.VrfySyntax, SmtpReplies.VrfyAnswer);
         commands["EXPN"] = argument => AnswerFromTheUpstreamTestCaseDataAsync(argument, replies, SmtpReplies.ExpnSyntax, SmtpReplies.ExpnAnswer);
     }
+
+    private static bool HasAtSign(byte[]? argument) => argument is not null && argument.AsSpan().Contains((byte)'@');
+
+    // MAIL_smtp: a SIZE= past the SIZE the case advertised is refused, else the session answers.
+    private ValueTask<bool> AnswerUpstreamTestCaseMailAsync(byte[]? argument, MailUpstreamTestCaseReplies replies)
+    {
+        var advertised = replies.Capabilities.Select(capability => ReadNumberAfter(capability, "SIZE ")).FirstOrDefault(size => size is not null);
+        var requested = Encoding.Latin1.GetString(argument ?? []).Split(' ').Select(parameter => ReadNumberAfter(parameter, "SIZE=")).FirstOrDefault(size => size is not null);
+        return advertised < requested ? ReplyAsync(UpstreamMessageSizeTooLarge) : AnswerMailAsync(argument);
+    }
+
+    private static long? ReadNumberAfter(string text, string prefix) =>
+        text.StartsWith(prefix, StringComparison.Ordinal) && long.TryParse(text.AsSpan(prefix.Length), NumberStyles.None, CultureInfo.InvariantCulture, out var number) ? number : null;
 
     private async Task GreetAsync()
     {
