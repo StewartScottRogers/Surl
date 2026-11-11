@@ -42,6 +42,46 @@ public sealed class UpstreamTestCasePassRateStatementTests
         Assert.IsEmpty(falls, string.Join("; ", falls));
     }
 
+    [TestMethod]
+    public void ExclusionsFile_NoExcludedCase_IsOnAPassingList()
+    {
+        var excluded = CommittedExclusions();
+        var bothExcludedAndPassing = new List<string>();
+
+        foreach (var list in Directory.EnumerateFiles(Folder, UpstreamTestCasePassingList.FileNameFor("*")).Order(StringComparer.Ordinal))
+        {
+            bothExcludedAndPassing.AddRange(UpstreamTestCasePassingList.Parse(File.ReadAllText(list))
+                .Where(excluded.Contains)
+                .Select(number => $"{number} in {Path.GetFileName(list)}"));
+        }
+
+        Assert.IsEmpty(
+            bothExcludedAndPassing,
+            "Excluded as test-server-choice yet listed as passing; drop the exclusions row or the list line: " + string.Join(", ", bothExcludedAndPassing));
+    }
+
+    [TestMethod]
+    public void CurrentTable_EachPlatformsTestServerChoiceCount_IsTheExclusionsFilesRowCount()
+    {
+        var excluded = CommittedExclusions();
+
+        foreach (var row in ReadPassRateFile().Current)
+        {
+            Assert.AreEqual(
+                excluded.Count,
+                row.TestServerChoice,
+                $"{row.Platform}: the current table's test-server-choice and {UpstreamTestCaseExclusions.Path}'s row count differ; update both together.");
+        }
+    }
+
+    /// <summary>
+    /// The case numbers the committed <c>Upstream-Test-Case-Exclusions.md</c> lists, which every
+    /// run's selection rules take as <see cref="UpstreamTestCaseSelectionRules.TestServerChoices"/>.
+    /// </summary>
+    /// <returns>The excluded case numbers.</returns>
+    internal static IReadOnlySet<int> CommittedExclusions() =>
+        UpstreamTestCaseExclusions.Parse(File.ReadAllText(Path.Combine(PinnedUpstreamCurl.RepositoryRoot(), UpstreamTestCaseExclusions.Path)));
+
     private static UpstreamTestCasePassRateFile ReadPassRateFile() =>
         UpstreamTestCasePassRateFile.Parse(File.ReadAllText(Path.Combine(PinnedUpstreamCurl.RepositoryRoot(), UpstreamTestCasePassRateFile.Path)));
 }

@@ -102,6 +102,35 @@ public sealed class UpstreamTestCasePassRateFileTests
         Assert.ThrowsExactly<ArgumentNullException>(() => UpstreamTestCasePassRateFile.Parse(null!));
     }
 
+    [TestMethod]
+    public void Parse_TestServerChoiceColumn_ReadsEachRowsCount()
+    {
+        const string current = """
+            ## Current
+
+            | Platform | Passed | test-server-choice |
+            | --- | ---: | ---: |
+            | `win-x64` | 1,063 | 4 |
+            | `linux-x64` | not run | not run |
+
+            """;
+
+        var file = UpstreamTestCasePassRateFile.Parse(current + Releases());
+
+        Assert.AreEqual(new UpstreamTestCasePassRateRow(null, "win-x64", 1063, 4), file.Current[0]);
+        Assert.AreEqual(new UpstreamTestCasePassRateRow(null, "linux-x64", null, null), file.Current[1]);
+    }
+
+    [TestMethod]
+    public void Parse_TestServerChoiceNeitherNumberNorNotRun_ThrowsNamingTheColumn()
+    {
+        const string current = "## Current\n\n| Platform | Passed | test-server-choice |\n| --- | ---: | ---: |\n| win-x64 | 1 | some |\n\n";
+
+        var exception = Assert.ThrowsExactly<FormatException>(() => UpstreamTestCasePassRateFile.Parse(current + Releases()));
+
+        Assert.Contains("test-server-choice cell 'some'", exception.Message);
+    }
+
     private static string Releases(params string[] rows) =>
         "## Releases\n\n| Version | Platform | Passed |\n| --- | --- | ---: |\n" + string.Concat(rows.Select(row => row + "\n")) + "\nAfter the table.\n";
 }

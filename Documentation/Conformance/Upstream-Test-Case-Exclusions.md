@@ -8,9 +8,12 @@ decision 5). Anything else that fails is a Surl defect until measurement shows o
 becomes a task.
 
 One row per case. The rows below were found by BL-879's Windows run of the mail cases
-(2026-11-05). Until BL-689 reads this file into `UpstreamTestCaseSelectionRules.TestServerChoices`,
-these cases still run, fail and count as failed, and the pass-rate file's `test-server-choice`
-column stays 0.
+(2026-11-05). Since BL-689, `UpstreamTestCaseExclusions.Parse` reads the `Case` column (`test<N>`
+or `<N>`) and every run passes the set to `UpstreamTestCaseSelectionRules.ForBuild` and `ForClient`
+as `TestServerChoices`, so these cases skip `test-server-choice`. Fast tests
+(`UpstreamTestCasePassRateStatementTests`) fail when a case here is also on a passing list, and
+when a platform's `test-server-choice` in the pass-rate file is not this table's row count; the
+upstream test-case run fails when its own `test-server-choice` count is not.
 
 | Case | Byte verified | Upstream's choice | Surl's answer | Why a correct server need not send upstream's |
 | --- | --- | --- | --- | --- |

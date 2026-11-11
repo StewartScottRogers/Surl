@@ -192,9 +192,9 @@ Selection is built (BL-389):
 - `UpstreamTestCaseDisabledList.Parse` reads `DISABLED`, its `%if` lines against those features.
 - `UpstreamTestCaseSelector.FindSkipReason(number, case)` gives the first of decision 3's
   `UpstreamTestCaseSkipReasons` that applies, or `null` when the case can run, under
-  `UpstreamTestCaseSelectionRules`. `ForBuild(pin, disabled)` is Surl as it stands: the server
-  commands `UpstreamTestCaseServerCommands` lists for each built server half, and the strip lines
-  the verify checker interprets. `UpstreamTestCaseServerCommands` has one row per server name,
+  `UpstreamTestCaseSelectionRules`. `ForBuild(pin, disabled, testServerChoices)` is Surl as it stands: the server
+  commands `UpstreamTestCaseServerCommands` lists for each built server half, the strip lines
+  the verify checker interprets, and the cases the exclusions file lists. `UpstreamTestCaseServerCommands` has one row per server name,
   the same words the protocol library's server half accepts (a test pins the HTTP row to
   `HttpUpstreamTestCaseReplies.SupportedServerCommands`); a server half that lands adds its row. A
   case with a `<postcmd>` asks for `postcmd`, which no row has, so it skips
@@ -312,17 +312,25 @@ The stated pass rate and its guard are built (BL-393):
   to add). The suite asserts no regressions and writes the newly passing to its log.
 - `UpstreamTestCasePassRateFile.Parse` reads `Upstream-Test-Case-Pass-Rate.md`'s `## Current` and
   `## Releases` tables into `UpstreamTestCasePassRateRow`s (platform, version, passed or
-  `not run`); `FindFallingReleases` names each fall of a platform's count between releases.
+  `not run`, and the `test-server-choice` count where the table has that column);
+  `FindFallingReleases` names each fall of a platform's count between releases.
+- `UpstreamTestCaseExclusions.Parse` reads decision 5's exclusion list,
+  `Upstream-Test-Case-Exclusions.md`: the `Case` column (`test<N>` or `<N>`) of its first table
+  with that column, into the set every run passes to `ForBuild` or `ForClient` as
+  `TestServerChoices` (BL-689); a malformed or repeated case, a ragged row or no such table is a
+  `FormatException`.
   `Surl.Conformance.UnitTests`' `UpstreamTestCasePassRateStatementTests` (fast) holds each current
-  row's Passed to its list's line count and the releases to never falling.
+  row's Passed to its list's line count and its test-server-choice to the exclusions' row count,
+  no excluded case to a passing list, and the releases to never falling;
+  `UpstreamTestCaseCorpusTests` holds every excluded case to reaching decision 5's check on every
+  reference pin, and the upstream test-case run its own test-server-choice count to the row count.
 
 The rest is intent until its task lands. This library will also hold, with no reference but
 Abstractions:
 - each `<server>` name's port variable, beside its `UpstreamTestCaseServers` row;
 - generating the test certificates from the imported `.prm` files with `CertificateRequest`
   (BL-682; BL-392's run uses a stand-in CA and `localhost` certificate), and the SSH keys and
-  `%SSHSRVMD5`/`%SSHSRVSHA256`;
-- reading `Upstream-Test-Case-Exclusions.md` into `TestServerChoices` (BL-689).
+  `%SSHSRVMD5`/`%SSHSRVSHA256`.
 
 It does not hold the server halves: each protocol library carries its own optional seam for a
 case's reply, and `Surl.Conformance.UnitTests` composes it. It hands a reply over as BCL types

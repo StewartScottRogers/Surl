@@ -74,7 +74,8 @@ public sealed class UpstreamTestCaseCorpusTests
         var features = UpstreamCurlBuildFeatures.For(pin);
         var environment = SelectionEnvironment(features);
         var disabled = UpstreamTestCaseDisabledList.Parse(File.ReadAllBytes(Path.Combine(Root, "data", "DISABLED")), environment);
-        var today = UpstreamTestCaseSelectionRules.ForBuild(pin, disabled);
+        var exclusions = UpstreamTestCasePassRateStatementTests.CommittedExclusions();
+        var today = UpstreamTestCaseSelectionRules.ForBuild(pin, disabled, exclusions);
         var everythingBuilt = today with { SupportsServerCommand = static (_, _) => true, SupportsStripLine = static (_, _) => true };
 
         var todayCounts = CountSkipReasons(new UpstreamTestCaseSelector(today), environment);
@@ -85,6 +86,10 @@ public sealed class UpstreamTestCaseCorpusTests
         Assert.AreEqual(2013, todayCounts.Values.Sum());
         Assert.AreEqual(2013, everythingBuiltCounts.Values.Sum());
         Assert.IsGreaterThan(0, todayCounts["disabled-upstream"]);
+
+        // Every excluded case reaches decision 5's check on every reference pin, so a run's
+        // test-server-choice count, and the pass-rate file's, is the exclusion set's size.
+        Assert.AreEqual(exclusions.Count, todayCounts.GetValueOrDefault(UpstreamTestCaseSkipReasons.TestServerChoice));
         Assert.IsGreaterThan(0, everythingBuiltCounts["runnable"]);
     }
 
