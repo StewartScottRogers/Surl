@@ -4,7 +4,7 @@ title: Pin the linux-arm64, win-arm64 and osx-x64 upstream curl builds and run t
 priority: Normal
 assignee: Claude
 pipeline: direct
-depends-on: [BL-357, BL-360]
+depends-on: [BL-357, BL-360, BL-1035]
 touches: [UpstreamCurlBuilds.json, Documentation/Planning/Decisions, .github/workflows/ci.yml, .github/workflows/release.yml, Conformance/Surl.Conformance.UnitLibrary, Conformance/Surl.Conformance.UnitTests]
 requirement: none
 created: 2026-11-04
@@ -46,7 +46,13 @@ those three runtime identifiers using them.
 
 ## Notes
 
+- 2026-11-11 (lane 4): not started - `dotnet` cannot resolve the SDK `global.json` pins (10.0.401; installed are
+  10.0.100-rc.1, 11.0.100-rc.2 and 11.0.100, and `rollForward: latestFeature` does not cross a major version), so
+  `UpstreamCurlBuildPinsTests` and `UpstreamCurlLocatorTests` cannot be run. BL-357's approval is on record, so
+  the downloads themselves are cleared. The task waits on BL-1035. Nothing was changed, so nothing is left to stash.
+
 ## Log
 
 - 2026-11-04: Created.
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Backlog. Waits on BL-1035: pinned .NET SDK 10.0.401 is not installed, so nothing can be built or tested
