@@ -250,7 +250,9 @@ there is no token service, and the signature with the account's secret is the pr
 | Signature that does not verify | `403 SignatureDoesNotMatch` |
 | `x-amz-date` more than 15 minutes off | `403 RequestTimeTooSkewed` |
 | Body not hashing to `x-amz-content-sha256` | `400 XAmzContentSHA256Mismatch` |
-| Presigned URL past `X-Amz-Date` + `X-Amz-Expires` | `403 AccessDenied`, Message `Request has expired` |
+| Presigned URL past `X-Amz-Date` + `X-Amz-Expires` (`SignatureExpired`) | `403 AccessDenied`, Message `Request has expired` |
+| Presigned URL with an `Authorization` header too (`ConflictingCredentials`) | `400 InvalidArgument`, Message `Only one auth mechanism allowed; only the X-Amz-Algorithm query parameter, Signature query string parameter or the Authorization header should be specified` |
+| `X-Amz-Expires` not a number of seconds from 1 to 604800 (`ExpiryOutOfRange`) | `400 InvalidArgument`, Message `X-Amz-Expires must be a number of seconds from 1 to 604800` |
 
 - **`InvalidAccessKeyId` is sent, as S3 sends it.** ADR-0043's HTTP check answers an unknown key as
   a bad signature, against a random secret, so an HTTP peer cannot tell which names exist. S3's
@@ -459,7 +461,9 @@ BL-419, and recorded here by BL-727 (BL-419 could not edit this folder while BL-
 5. **A `PUT` with `Transfer-Encoding: chunked` and no `x-amz-decoded-content-length` is `400
    InvalidRequest`;** one with it is `aws-chunked`, answered `501 NotImplemented` until BL-711
    serves decision 4.5. Why: S3 has no plain chunked upload, and a chunked body without a decoded
-   length gives no object length to check against `--max-filesize` before reading.
+   length gives no object length to check against `--max-filesize` before reading. BL-711 changed
+   the second half: a chunked body with a decoded length but no `STREAMING-` hash is now `400
+   InvalidRequest` too, not `501`, because it is not `aws-chunked` (Amendment 4, point 10).
 6. **The object metadata index keys an object by its path under the served root, with a
    `--bucket` name replaced by that bucket's content path** (`S3IndexKey`); **a file in a share has
    no index key,** so PutObject keeps no metadata for it and GetObject and HeadObject answer the
@@ -511,3 +515,73 @@ BL-728. It builds decision 6's last point: a folder a client put as `x/` is list
 5. **DeleteObject of `x/` does not forget the folder object;** it removes the folder only when empty,
    and an empty folder's removal drops the folder object at the next listing. A non-empty folder's
    `x/` still lists after its DeleteObject: BL-930 makes DeleteObject forget it.
+
+## Amendment 4 - presigned URLs, `aws-chunked` and checksums, as BL-711 built them (BL-962, 2026-11-11)
+
+Decided by Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), 2026-11-06, in
+BL-711, and recorded here by BL-962 (BL-711 could not edit this folder while BL-701 held it). It
+builds decision 4.5. The code is `Surl.Authentication`'s `AwsSigV4QueryString`,
+`AwsSigV4AuthenticationMethod.VerifyQueryString` and `AwsSigV4ChunkSignatureChain`, and the S3
+server's `S3ObjectBodyReader`, `S3AwsChunkedDecoder` and `S3ChecksumRequest`.
+
+1. **Contract.** `IHttpChunkSignatureChain` (`Surl.Protocol.Abstractions`), with
+   `VerifyNextChunk(chunkSha256, chunkSignature)`, rides on an accepted
+   `HttpAuthenticationVerdict.ChunkSignatures` (and `HttpCredentialCheck.ChunkSignatures`). Why:
+   the signing key is the account's secret, which only `Surl.Authentication` holds (ADR-0084
+   decision 4); the server decodes the framing and asks per chunk, and never sees a key.
+2. **Refusals.** `HttpAuthenticationRefusal` gains `ExpiryOutOfRange` and `ConflictingCredentials`;
+   an expired presigned URL reuses `SignatureExpired` (Azure's), whose doc now says both. The S3
+   server maps them to `403 AccessDenied` `Request has expired`, `400 InvalidArgument` `X-Amz-Expires
+   must be a number of seconds from 1 to 604800`, and `400 InvalidArgument` with S3's "Only one auth
+   mechanism allowed…" text (decision 4.3's table). Decision 4.4's planned `Expired` is not added:
+   `SignatureExpired` already says it.
+3. **The presigned check** (`AwsSigV4QueryString`, `AwsSigV4AuthenticationMethod.VerifyQueryString`):
+   a query with `X-Amz-Algorithm` on any service but `storage` is a presigned URL, checked even
+   under `--allow-anonymous`. Order: parameters read; algorithm the scope provider's
+   (`AWS4-HMAC-SHA256`); scope service the request's; `host` signed; date read and the scope's
+   (`MalformedCredentials`, answered `AuthorizationHeaderMalformed`); expiry 1 to 604800; now past
+   date + expiry (`SignatureExpired`) or more than 15 minutes before the date (`ClockSkew`, the
+   header form's window as leeway for a fast client clock); then the signature over
+   `UNSIGNED-PAYLOAD` and the canonical query without `X-Amz-Signature`. With an `Authorization`
+   too it is refused unchecked and undelayed, as another scheme is. No body is bound. Why: the
+   "Using Query Parameters" page's rules; time before signature, as in the header form.
+4. **The S3 target sets presigned parameters aside** (`S3RequestTarget`: the seven `X-Amz-*` names,
+   the security token included), so a presigned GetObject or PutObject is recognised as the
+   operation it would be without the query.
+5. **Streaming hashes are not bound to the body** on an `s3` request naming its service; only
+   `STREAMING-AWS4-HMAC-SHA256-PAYLOAD` gets a chain. Plain HTTP and Cloud Storage keep binding the
+   value as a hash, so their behaviour does not change. The server refuses every `STREAMING-` form
+   it does not serve (`STREAMING-AWS4-ECDSA-P256-SHA256-PAYLOAD`, the signed `-TRAILER` forms) `501
+   NotImplemented` before reading. Signed chunks with no chain (a presigned or anonymous request
+   claiming them) are `403 SignatureDoesNotMatch`.
+6. **`aws-chunked` framing** (`S3AwsChunkedDecoder`): accepted under `Content-Length` or HTTP
+   chunked; each chunk header `<hex>[;chunk-signature=<64 hex>]`, the signature required exactly
+   when signed; lines at most 4096 bytes, CRLF only; data may not pass
+   `x-amz-decoded-content-length`; after the final chunk, `name:value` trailer lines (none when
+   signed) up to the blank line. Malformed, cut short, or data not the decoded length is `400
+   IncompleteBody` (Amendment 2, point 4: S3's code for a body that is not what the head announced);
+   no decoded length is `411 MissingContentLength` (decision 4.5). `--max-filesize` is judged on the
+   decoded length.
+7. **`aws-chunked` is left out of the stored `Content-Encoding`,** which describes the object, not
+   the upload.
+8. **Checksums** (`S3ChecksumRequest`, `S3Checksum`): one of `x-amz-checksum-crc32`, `-crc32c`,
+   `-sha1`, `-sha256`, or the one `x-amz-trailer` names on the unsigned-trailer form. `crc64nvme`
+   is `501 NotImplemented`; two named are `400 InvalidRequest` (S3's "Expecting a single
+   x-amz-checksum- header…"); a value that is not the digest's base64, a trailer on another form or
+   naming no checksum, or a trailer that does not carry it, is `400 InvalidRequest` `Value for
+   x-amz-checksum header is invalid.` The checksum is checked after the signed hash and
+   `Content-MD5`; a mismatch is `400 BadDigest` `The <ALG> you specified did not match the
+   calculated checksum.` with nothing committed; the computed value is echoed after `ETag` on
+   PutObject and UploadPart. CompleteMultipartUpload's checksum fields describe the whole object
+   (`<base64>-<n>`) and are not checked; an `aws-chunked` completion is `501 NotImplemented`.
+9. **CRC-32C uses the BCL's `BitOperations.Crc32C`** (as the Kafka and Cloud Storage servers already
+   do), so nothing is moved between libraries; only CRC-32 (ISO-HDLC) is written by hand, in
+   `S3Crc32`. This corrects decision 4.5's "CRC-32 and CRC-32C are written by hand". Why: a shared
+   CRC library would touch Kafka and Cloud Storage for a four-line loop the BCL already gives.
+10. **A chunked body with a decoded length but no `STREAMING-` hash is `400 InvalidRequest`** (it
+    was `501` while `aws-chunked` was unserved, Amendment 2, point 5): it is not `aws-chunked`, and
+    a plain chunked body has no object length.
+
+Error message texts the S3 error-code table does not give (the expiry range, the checksum
+messages) are written from AWS's documented responses where known and otherwise worded plainly; no
+S3 client parses them.
