@@ -58,6 +58,28 @@ internal sealed class AzureStagingArea(TimeProvider timeProvider)
         where TStaging : class, IAzureStaging => staged.GetValueOrDefault(key) as TStaging;
 
     /// <summary>
+    /// The blobs of <paramref name="container"/> whose names start with <paramref name="prefix"/>
+    /// and that hold uncommitted blocks, in name order: what <c>include=uncommittedblobs</c> adds to
+    /// List Blobs. The caller is inside <see cref="EnterAsync"/>.
+    /// </summary>
+    /// <param name="container">The container, percent-decoded.</param>
+    /// <param name="prefix">The prefix every name starts with; empty for every name.</param>
+    /// <returns>The blobs, each with no mapping and the time a block was last put.</returns>
+    public IReadOnlyList<AzureListedBlob> UncommittedBlobs(string container, string prefix)
+    {
+        var keyPrefix = $"{AzureStagedBlocks.KeyPrefix}{container}/{prefix}";
+
+        // Only a blob's blocks have a key that starts with the blocks key prefix.
+        return
+        [
+            .. staged
+                .Where(entry => entry.Key.StartsWith(keyPrefix, StringComparison.Ordinal) && ((AzureStagedBlocks)entry.Value).Uncommitted.Count > 0)
+                .Select(entry => new AzureListedBlob(entry.Key[(AzureStagedBlocks.KeyPrefix.Length + container.Length + 1)..], null, entry.Value.LastTouched))
+                .OrderBy(blob => blob.Name, AzureNameOrder.Instance),
+        ];
+    }
+
+    /// <summary>
     /// Begins a staging at <paramref name="key"/>, after discarding each staging past
     /// <see cref="StagedLifetime"/> and, when <see cref="MaxStagings"/> are held, forgetting the
     /// least recently touched one that holds no staged bytes.

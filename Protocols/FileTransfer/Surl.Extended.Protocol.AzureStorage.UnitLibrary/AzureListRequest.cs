@@ -13,6 +13,7 @@ namespace Surl.Extended.Protocol.AzureStorage;
 /// <param name="SentMaxResults">Whether <c>maxresults</c> was sent.</param>
 /// <param name="Marker">The <c>marker</c> as sent, or <see langword="null"/>.</param>
 /// <param name="IncludesMetadata">Whether <c>include</c> names <c>metadata</c>.</param>
+/// <param name="IncludesUncommittedBlobs">Whether <c>include</c> names <c>uncommittedblobs</c>.</param>
 /// <param name="ResumesAfter">The name the marker resumes after, or <see langword="null"/>.</param>
 internal sealed record AzureListRequest(
     string Prefix,
@@ -22,6 +23,7 @@ internal sealed record AzureListRequest(
     bool SentMaxResults,
     string? Marker,
     bool IncludesMetadata,
+    bool IncludesUncommittedBlobs,
     string? ResumesAfter)
 {
     /// <summary>
@@ -29,9 +31,9 @@ internal sealed record AzureListRequest(
     /// </summary>
     public const int MaxPageSize = 5000;
 
-    // The include values the page lists: metadata is served, the rest are accepted and add nothing,
-    // because Surl keeps no snapshots, versions, deleted blobs, tags, copies, policies, holds or
-    // staged blocks (BL-715 lists the staged ones).
+    // The include values the page lists: metadata and uncommittedblobs are served, the rest are
+    // accepted and add nothing, because Surl keeps no snapshots, versions, deleted blobs, tags,
+    // copies, policies or holds.
     private static readonly string[] IncludeValues =
     [
         "metadata", "uncommittedblobs", "snapshots", "versions", "deleted", "deletedwithversions", "tags", "copy",
@@ -73,6 +75,7 @@ internal sealed record AzureListRequest(
             maxResultsText is not null,
             marker,
             Includes(include).Contains("metadata"),
+            Includes(include).Contains("uncommittedblobs"),
             resumesAfter);
     }
 

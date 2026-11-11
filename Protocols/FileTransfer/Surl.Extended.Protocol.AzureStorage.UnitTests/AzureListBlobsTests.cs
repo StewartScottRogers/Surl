@@ -22,6 +22,16 @@ public sealed partial class AzureListBlobsTests
         + "<BlobType>BlockBlob</BlobType><AccessTier>Hot</AccessTier><AccessTierInferred>true</AccessTierInferred>"
         + "<LeaseStatus>unlocked</LeaseStatus><LeaseState>available</LeaseState><ServerEncrypted>false</ServerEncrypted></Properties>";
 
+    // The block ID every staged block in these tests has: "AAA" in base64.
+    private const string StagedBlockId = "QUFB";
+
+    // The Properties of a blob with only staged blocks: no committed content, its times the last block's.
+    private const string UncommittedProperties =
+        $"<Properties><Creation-Time>{AzureServerHarness.NowHttpDate}</Creation-Time><Last-Modified>{AzureServerHarness.NowHttpDate}</Last-Modified>"
+        + "<Etag /><Content-Length>0</Content-Length><Content-Type /><Content-Encoding /><Content-Language /><Content-MD5 /><Cache-Control /><Content-Disposition />"
+        + "<BlobType>BlockBlob</BlobType><AccessTier>Hot</AccessTier><AccessTierInferred>true</AccessTierInferred>"
+        + "<LeaseStatus>unlocked</LeaseStatus><LeaseState>available</LeaseState><ServerEncrypted>false</ServerEncrypted></Properties>";
+
     [TestMethod]
     public async Task ServeAsync_ListBlobs_AnswersThePagesEnumerationResults()
     {
@@ -276,6 +286,44 @@ public sealed partial class AzureListBlobsTests
     }
 
     [TestMethod]
+    public async Task ServeAsync_IncludeUncommittedBlobs_ListsABlobWithOnlyStagedBlocksInNameOrder()
+    {
+        var harness = new AzureServerHarness(exposure: AzureServerHarness.Writable);
+        harness.CreateFolder("photos");
+        harness.CreateFolder("docs");
+        harness.WriteFile("photos/a.txt", "a");
+        harness.WriteFile("photos/c.txt", "c");
+        await PutBlockAsync(harness, "/photos/b.bin");
+        await PutBlockAsync(harness, "/photos/c.txt");
+        await PutBlockAsync(harness, "/photos/d.txt");
+        await harness.SendWithBearerAndBodyAsync("PUT", "/photos/d.txt?comp=blocklist", $"<?xml version=\"1.0\" encoding=\"utf-8\"?><BlockList><Latest>{StagedBlockId}</Latest></BlockList>");
+        await PutBlockAsync(harness, "/photos/z.bin");
+        await PutBlockAsync(harness, "/docs/other.bin");
+
+        var withUncommitted = await harness.SendWithBearerAsync("GET", "/photos?restype=container&comp=list&include=uncommittedblobs");
+        var without = await harness.SendWithBearerAsync("GET", "/photos?restype=container&comp=list");
+
+        CollectionAssert.AreEqual(new[] { "a.txt", "b.bin", "c.txt", "d.txt", "z.bin" }, BlobNamesOf(withUncommitted));
+        CollectionAssert.AreEqual(new[] { "a.txt", "c.txt", "d.txt" }, BlobNamesOf(without));
+        StringAssert.Contains(withUncommitted, $"<Blob><Name>b.bin</Name>{UncommittedProperties}</Blob><Blob><Name>c.txt</Name><Properties>");
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_IncludeUncommittedBlobsAndMetadataWithAPrefix_ListsTheStagedBlobUnderThePrefixWithEmptyMetadata()
+    {
+        var harness = new AzureServerHarness(exposure: AzureServerHarness.Writable);
+        harness.CreateFolder("photos");
+        await PutBlockAsync(harness, "/photos/2026/b.bin");
+        await PutBlockAsync(harness, "/photos/2025/a.bin");
+        harness.WriteFile("photos/2026/c.txt", "c");
+
+        var response = await harness.SendWithBearerAsync("GET", "/photos?restype=container&comp=list&prefix=2026/&include=uncommittedblobs,metadata");
+
+        CollectionAssert.AreEqual(new[] { "2026/b.bin", "2026/c.txt" }, BlobNamesOf(response));
+        StringAssert.Contains(response, $"<Blobs><Blob><Name>2026/b.bin</Name>{UncommittedProperties}<Metadata /></Blob><Blob><Name>2026/c.txt</Name>");
+    }
+
+    [TestMethod]
     public void NameOrder_NullNames_SortAsEmpty()
     {
         Assert.AreEqual(0, AzureNameOrder.Instance.Compare(null, string.Empty));
@@ -299,6 +347,9 @@ public sealed partial class AzureListBlobsTests
 
         return harness;
     }
+
+    private static Task<string> PutBlockAsync(AzureServerHarness harness, string blobPath) =>
+        harness.SendWithBearerAndBodyAsync("PUT", $"{blobPath}?comp=block&blockid={Uri.EscapeDataString(StagedBlockId)}", "staged");
 
     private static string[] BlobNamesOf(string response) =>
         [.. BlobName().Matches(response).Select(match => match.Groups[1].Value)];

@@ -94,7 +94,11 @@ What the Blob endpoint serves now (BL-424, BL-425, BL-715, BL-716), on `az`:
   `AzureListPage` takes `maxresults` (default and cap 5000, below 1 `400
   OutOfRangeQueryParameterValue`, no integer `400 InvalidQueryParameterValue`) blobs and
   `BlobPrefix`es after the `marker` (`AzureListMarker`: base64url of the last name returned).
-  `prefix` and `delimiter` filter and roll up; `include=metadata` adds `Metadata`, the page's other
+  `prefix` and `delimiter` filter and roll up; `include=metadata` adds `Metadata`;
+  `include=uncommittedblobs` (BL-923) also lists each blob whose `AzureStagedBlocks` holds uncommitted
+  blocks and that has no file, merged in name order (`AzureStagingArea.UncommittedBlobs`,
+  `AzureListBlobs.Merged`), with `Content-Length` 0, an empty `Etag` and content fields, and the last
+  block's time; the page's other
   `include` values add nothing, any other is `400 InvalidQueryParameterValue`. The
   `EnumerationResults` follows the page's example: `ServiceEndpoint` (`https` over TLS, else
   `http`, and the `Host`), `ContainerName`, the sent `Prefix`, `Marker`, `MaxResults` and
@@ -199,7 +203,7 @@ served as without it.
 
 Not yet: the conditional fields on Put Block List; `retainUncommittedData=true`, `beginFrom`, `x-ms-properties` on Path - Create, the conditional fields on
 the Data Lake writes and the JSON body on a Data Lake connection refused past a limit (BL-758);
-List Blobs' `include=uncommittedblobs`, properties on a directory or a filesystem.
+properties on a directory or a filesystem.
 
 The path-style form (BL-725, ADR-0109 decision 2), on both endpoints: `AzurePathStyle.Read` runs
 before anything else. When the `Host` (port removed) is an IP literal (`127.0.0.1`, `[::1]`; four

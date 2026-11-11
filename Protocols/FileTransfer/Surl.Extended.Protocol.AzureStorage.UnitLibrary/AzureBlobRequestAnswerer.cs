@@ -64,7 +64,7 @@ internal sealed class AzureBlobRequestAnswerer : IHttpRequestHandler, IHttpHeadN
         this.context = context;
         properties = new AzureBlobPropertiesReader(store, index, context.Log);
         putBlob = new AzurePutBlob(store, index, context.Log);
-        listBlobs = new AzureListBlobs(store, properties, endpointScheme);
+        listBlobs = new AzureListBlobs(store, properties, staging, endpointScheme);
         putBlock = new AzurePutBlock(store, putBlob, staging);
         putBlockList = new AzurePutBlockList(store, putBlob, staging);
         getBlockList = new AzureGetBlockList(store, properties, staging);
