@@ -34,22 +34,17 @@ public sealed class DtlsServerSession(IDatagramFlow flow, DtlsServerOptions opti
         [HandshakeState.AwaitingFinished] = (DtlsHandshakeType.Finished, (session, message) => session.AcceptFinished(message)),
     };
 
-    private readonly DtlsAssociationRecords records = new(flow);
-    private readonly List<byte> transcript = [];
     private readonly Queue<byte[]> applicationData = new();
     private HandshakeState state = HandshakeState.NotStarted;
-    private DtlsServerNegotiation? negotiation;
-    private DtlsEphemeralKey? ephemeralKey;
-    private DtlsHandshakeReassembler? reassembler;
-    private DtlsRecordProtection? clientProtection;
-    private DtlsRecordProtection? serverProtection;
-    private byte[] clientRandom = [];
-    private byte[] serverRandom = [];
-    private byte[] masterSecret = [];
-    private ushort nextServerMessageSeq;
-    private DtlsClientCertificate? clientCertificate;
-    private byte[]? clientPreSharedKeyIdentity;
-    private bool finalFlightAcknowledged;
+
+    /// <summary>The association application data travels in: the first, or the last one to complete a handshake.</summary>
+    private Association current = new(flow);
+
+    /// <summary>
+    /// The association the running handshake builds: <see cref="current"/> for the first handshake, and
+    /// a new one while an epoch 0 hello with a valid cookie replaces an established association.
+    /// </summary>
+    private Association handshaking = null!;
     private bool closeNotifyOwed;
     private int renegotiationRefusalsOwed;
     private bool established;
@@ -68,7 +63,7 @@ public sealed class DtlsServerSession(IDatagramFlow flow, DtlsServerOptions opti
     }
 
     /// <summary>The suite negotiated, once the server's first flight is built.</summary>
-    public DtlsCipherSuite? CipherSuite => negotiation?.Suite;
+    public DtlsCipherSuite? CipherSuite => current.Negotiation?.Suite;
 
     /// <summary>
     /// The most plaintext <see cref="SendAsync"/> carries in one record, which travels as one datagram:
@@ -83,8 +78,8 @@ public sealed class DtlsServerSession(IDatagramFlow flow, DtlsServerOptions opti
         get
         {
             ThrowIfNotEstablished();
-            var datagramRoom = DtlsHandshakeFragmenter.MaximumDatagramLength - DtlsRecordHeader.Size - serverProtection!.Overhead;
-            return Math.Min(datagramRoom, records.MaximumPlaintextLength);
+            var datagramRoom = DtlsHandshakeFragmenter.MaximumDatagramLength - DtlsRecordHeader.Size - current.ServerProtection!.Overhead;
+            return Math.Min(datagramRoom, current.Records.MaximumPlaintextLength);
         }
     }
 
@@ -95,7 +90,7 @@ public sealed class DtlsServerSession(IDatagramFlow flow, DtlsServerOptions opti
     /// or unknown one ends it with <c>decrypt_error</c>. Bytes that are not UTF-8 read as U+FFFD.
     /// </summary>
     public string? ClientPreSharedKeyIdentity =>
-        established && clientPreSharedKeyIdentity is not null ? Encoding.UTF8.GetString(clientPreSharedKeyIdentity) : null;
+        established && current.ClientPreSharedKeyIdentity is { } identity ? Encoding.UTF8.GetString(identity) : null;
 
     /// <summary>
     /// The certificate the client presented, once a certificate handshake under
@@ -103,7 +98,7 @@ public sealed class DtlsServerSession(IDatagramFlow flow, DtlsServerOptions opti
     /// before then, after a handshake that asked for none, and after a PSK handshake. It stays the
     /// session's and is disposed with it.
     /// </summary>
-    public X509Certificate2? ClientCertificate => established ? clientCertificate?.Leaf : null;
+    public X509Certificate2? ClientCertificate => established ? current.ClientCertificate?.Leaf : null;
 
     /// <summary>
     /// Whether <see cref="ClientCertificate"/> chained to a <see cref="DtlsServerOptions.ClientCertificateAuthorities"/>
@@ -128,7 +123,17 @@ public sealed class DtlsServerSession(IDatagramFlow flow, DtlsServerOptions opti
             throw new InvalidOperationException("A DTLS session handshakes once.");
         }
 
+        handshaking = current;
         var opening = await AwaitVerifiedClientHelloAsync(cancellationToken).ConfigureAwait(false);
+        return await CompleteHandshakeAsync(opening, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Completes the handshake <paramref name="opening"/> starts, into <see cref="handshaking"/>, within
+    /// <see cref="DtlsServerOptions.HandshakeTimeout"/>.
+    /// </summary>
+    private async Task<DtlsHandshakeOutcome> CompleteHandshakeAsync(DtlsVerifiedClientHello opening, CancellationToken cancellationToken)
+    {
         using var limit = new CancellationTokenSource(options.HandshakeTimeout, options.TimeProvider);
         using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, limit.Token);
         try
@@ -162,7 +167,9 @@ public sealed class DtlsServerSession(IDatagramFlow flow, DtlsServerOptions opti
 
     /// <summary>
     /// Waits for the next application data record. The client's final flight arriving again
-    /// before its first application data is answered with the server's final flight again.
+    /// before its first application data is answered with the server's final flight again. An epoch 0
+    /// <c>ClientHello</c>, as from a restarted client, goes through the cookie exchange, and one with a
+    /// valid cookie runs a new handshake here that replaces the association once it completes.
     /// </summary>
     /// <param name="cancellationToken">Cuts the wait off.</param>
     /// <returns>
@@ -177,11 +184,16 @@ public sealed class DtlsServerSession(IDatagramFlow flow, DtlsServerOptions opti
         while (applicationData.Count == 0 && state == HandshakeState.Established)
         {
             var datagram = await flow.ReceiveAsync(cancellationToken).ConfigureAwait(false);
+            if (await AnswerNewClientHelloAsync(datagram, cancellationToken).ConfigureAwait(false))
+            {
+                continue;
+            }
+
             var finalFlightAgain = AcceptEstablishedDatagram(datagram);
             await RefuseRenegotiationsAsync(cancellationToken).ConfigureAwait(false);
             if (finalFlightAgain)
             {
-                await records.SendFlightAsync(cancellationToken).ConfigureAwait(false);
+                await current.Records.SendFlightAsync(cancellationToken).ConfigureAwait(false);
             }
         }
 
@@ -209,7 +221,7 @@ public sealed class DtlsServerSession(IDatagramFlow flow, DtlsServerOptions opti
 
         ArgumentOutOfRangeException.ThrowIfGreaterThan(plaintext.Length, MaximumApplicationDataLength, nameof(plaintext));
 
-        return records.SendAsync(DtlsContentType.ApplicationData, plaintext.ToArray(), cancellationToken);
+        return current.Records.SendAsync(DtlsContentType.ApplicationData, plaintext.ToArray(), cancellationToken);
     }
 
     /// <summary>
@@ -232,11 +244,7 @@ public sealed class DtlsServerSession(IDatagramFlow flow, DtlsServerOptions opti
     /// <summary>Disposes the ephemeral key and the record protections. The flow stays the caller's.</summary>
     public void Dispose()
     {
-        ephemeralKey?.Dispose();
-        clientCertificate?.Dispose();
-        clientProtection?.Dispose();
-        serverProtection?.Dispose();
-        CryptographicOperations.ZeroMemory(masterSecret);
+        current.Dispose();
     }
 
     /// <summary>
@@ -263,7 +271,7 @@ public sealed class DtlsServerSession(IDatagramFlow flow, DtlsServerOptions opti
     {
         for (; renegotiationRefusalsOwed > 0; renegotiationRefusalsOwed--)
         {
-            await records.SendAsync(
+            await current.Records.SendAsync(
                 DtlsContentType.Alert, new DtlsAlert(IsFatal: false, DtlsAlertDescription.NoRenegotiation).Write(), cancellationToken)
                 .ConfigureAwait(false);
         }
@@ -272,7 +280,7 @@ public sealed class DtlsServerSession(IDatagramFlow flow, DtlsServerOptions opti
     private ValueTask SendCloseNotifyAsync(CancellationToken cancellationToken)
     {
         closeNotifyOwed = false;
-        return records.SendAsync(
+        return current.Records.SendAsync(
             DtlsContentType.Alert, new DtlsAlert(IsFatal: false, DtlsAlertDescription.CloseNotify).Write(), cancellationToken);
     }
 
@@ -307,29 +315,29 @@ public sealed class DtlsServerSession(IDatagramFlow flow, DtlsServerOptions opti
 
     private async ValueTask SendServerFlightAsync(DtlsVerifiedClientHello opening, CancellationToken cancellationToken)
     {
-        records.ContinueEpoch0WritesFrom(opening.RecordSequenceNumber);
+        handshaking.Records.ContinueEpoch0WritesFrom(opening.RecordSequenceNumber);
         AddToTranscript(opening.Message);
         state = HandshakeState.AwaitingClientKeyExchange;
         var requestsClientCertificate = options.ClientCertificateAuthorities is not null;
-        negotiation = DtlsServerNegotiation.Negotiate(
+        handshaking.Negotiation = DtlsServerNegotiation.Negotiate(
             opening.Hello, options.Certificate, options.PreSharedKeys is not null, options.AesCcmSupported, requestsClientCertificate);
-        records.MaximumPlaintextLength = negotiation.MaximumFragmentLength ?? DtlsRecordWriter.MaximumPlaintextLength;
-        clientRandom = opening.Hello.Random;
-        serverRandom = RandomNumberGenerator.GetBytes(DtlsClientHello.RandomLength);
-        nextServerMessageSeq = opening.Message.MessageSeq;
-        records.StartFlight();
+        handshaking.Records.MaximumPlaintextLength = handshaking.Negotiation.MaximumFragmentLength ?? DtlsRecordWriter.MaximumPlaintextLength;
+        handshaking.ClientRandom = opening.Hello.Random;
+        handshaking.ServerRandom = RandomNumberGenerator.GetBytes(DtlsClientHello.RandomLength);
+        handshaking.NextServerMessageSeq = opening.Message.MessageSeq;
+        handshaking.Records.StartFlight();
         var serverHello = new DtlsServerHello(
-            DtlsRecordHeader.Dtls12Version, serverRandom, [], negotiation.Suite.Code, 0, negotiation.ServerExtensions);
+            DtlsRecordHeader.Dtls12Version, handshaking.ServerRandom, [], handshaking.Negotiation.Suite.Code, 0, handshaking.Negotiation.ServerExtensions);
         AddServerMessage(DtlsHandshakeType.ServerHello, serverHello.Write());
-        if (!negotiation.Suite.UsesPreSharedKey)
+        if (!handshaking.Negotiation.Suite.UsesPreSharedKey)
         {
-            AddCertificateAndServerKeyExchange(options.Certificate!, negotiation.Group!.Value, negotiation.SignatureScheme!.Value);
+            AddCertificateAndServerKeyExchange(options.Certificate!, handshaking.Negotiation.Group!.Value, handshaking.Negotiation.SignatureScheme!.Value);
             AddCertificateRequestWhenRequired(requestsClientCertificate);
         }
 
         AddServerMessage(DtlsHandshakeType.ServerHelloDone, DtlsServerHelloDone.Write());
-        reassembler = new DtlsHandshakeReassembler(options.MaximumMessageLength, (ushort)(opening.Message.MessageSeq + 1));
-        await records.SendFlightAsync(cancellationToken).ConfigureAwait(false);
+        handshaking.Reassembler = new DtlsHandshakeReassembler(options.MaximumMessageLength, (ushort)(opening.Message.MessageSeq + 1));
+        await handshaking.Records.SendFlightAsync(cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -338,10 +346,10 @@ public sealed class DtlsServerSession(IDatagramFlow flow, DtlsServerOptions opti
     /// </summary>
     private void AddCertificateAndServerKeyExchange(DtlsServerCertificate certificate, DtlsNamedGroup group, DtlsSignatureScheme scheme)
     {
-        ephemeralKey = DtlsEphemeralKey.Create(group);
-        var unsigned = new DtlsEcdheServerKeyExchange((ushort)group, ephemeralKey.PublicPoint, (ushort)scheme, []);
-        var signature = certificate.Sign(scheme, unsigned.SignedContent(clientRandom, serverRandom));
-        var certificateBody = negotiation!.UsesRawPublicKey
+        handshaking.EphemeralKey = DtlsEphemeralKey.Create(group);
+        var unsigned = new DtlsEcdheServerKeyExchange((ushort)group, handshaking.EphemeralKey.PublicPoint, (ushort)scheme, []);
+        var signature = certificate.Sign(scheme, unsigned.SignedContent(handshaking.ClientRandom, handshaking.ServerRandom));
+        var certificateBody = handshaking.Negotiation!.UsesRawPublicKey
             ? new DtlsRawPublicKeyCertificate(certificate.SubjectPublicKeyInfo).Write()
             : new DtlsCertificate(certificate.Chain).Write();
         AddServerMessage(DtlsHandshakeType.Certificate, certificateBody);
@@ -370,11 +378,11 @@ public sealed class DtlsServerSession(IDatagramFlow flow, DtlsServerOptions opti
             if (datagram is null)
             {
                 timeout = TimeSpan.FromTicks(Math.Min(timeout.Ticks * 2, DtlsServerOptions.MaximumRetransmissionTimeout.Ticks));
-                await records.SendFlightAsync(cancellationToken).ConfigureAwait(false);
+                await handshaking.Records.SendFlightAsync(cancellationToken).ConfigureAwait(false);
             }
             else if (AcceptHandshakeDatagram(datagram.Value))
             {
-                await records.SendFlightAsync(cancellationToken).ConfigureAwait(false);
+                await handshaking.Records.SendFlightAsync(cancellationToken).ConfigureAwait(false);
             }
         }
     }
@@ -385,7 +393,8 @@ public sealed class DtlsServerSession(IDatagramFlow flow, DtlsServerOptions opti
         using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timer.Token);
         try
         {
-            return await flow.ReceiveAsync(linked.Token).ConfigureAwait(false);
+            var datagram = await flow.ReceiveAsync(linked.Token).ConfigureAwait(false);
+            return handshaking == current ? datagram : SetAsideCurrentAssociationRecords(datagram);
         }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
@@ -400,7 +409,7 @@ public sealed class DtlsServerSession(IDatagramFlow flow, DtlsServerOptions opti
     private bool AcceptHandshakeDatagram(ReadOnlyMemory<byte> datagram)
     {
         var retransmitted = false;
-        foreach (var record in records.Read(datagram))
+        foreach (var record in handshaking.Records.Read(datagram))
         {
             retransmitted |= AcceptHandshakeRecord(record);
             if (state == HandshakeState.ClientFinished)
@@ -409,7 +418,7 @@ public sealed class DtlsServerSession(IDatagramFlow flow, DtlsServerOptions opti
             }
         }
 
-        if (records.Epoch1AuthenticationFailures > 0)
+        if (handshaking.Records.Epoch1AuthenticationFailures > 0)
         {
             // The only epoch 1 record a client sends before the server's Finished is its own
             // Finished; failing its tag means the client derived other keys, which is how a wrong
@@ -461,7 +470,7 @@ public sealed class DtlsServerSession(IDatagramFlow flow, DtlsServerOptions opti
             throw new DtlsDecodeErrorException("A ChangeCipherSpec carries the single byte 1.");
         }
 
-        records.StartProtectedReads(clientProtection!);
+        handshaking.Records.StartProtectedReads(handshaking.ClientProtection!);
         state = HandshakeState.AwaitingFinished;
         return false;
     }
@@ -477,13 +486,13 @@ public sealed class DtlsServerSession(IDatagramFlow flow, DtlsServerOptions opti
         var fragments = record.Plaintext.AsSpan();
         while (!fragments.IsEmpty)
         {
-            var outcome = reassembler!.Accept(fragments, out var consumed);
+            var outcome = handshaking.Reassembler!.Accept(fragments, out var consumed);
             fragments = fragments[consumed..];
             stale |= outcome == DtlsHandshakeFragmentOutcome.Stale;
             ThrowIfRefused(outcome);
         }
 
-        while (state != HandshakeState.ClientFinished && reassembler!.TryTakeNext(out var message))
+        while (state != HandshakeState.ClientFinished && handshaking.Reassembler!.TryTakeNext(out var message))
         {
             AcceptMessage(message);
         }
@@ -522,7 +531,7 @@ public sealed class DtlsServerSession(IDatagramFlow flow, DtlsServerOptions opti
     private void AcceptClientCertificate(DtlsHandshakeMessage message)
     {
         var chain = DtlsCertificate.Read(message.Body).Certificates;
-        clientCertificate = DtlsClientCertificate.Validate(
+        handshaking.ClientCertificate = DtlsClientCertificate.Validate(
             chain, options.ClientCertificateAuthorities!, options.TimeProvider.GetUtcNow());
         AddToTranscript(message);
         state = HandshakeState.AwaitingClientKeyExchange;
@@ -535,7 +544,7 @@ public sealed class DtlsServerSession(IDatagramFlow flow, DtlsServerOptions opti
     private void AcceptCertificateVerify(DtlsHandshakeMessage message)
     {
         var verify = DtlsCertificateVerify.Read(message.Body);
-        if (!clientCertificate!.Verifies(verify, [.. transcript]))
+        if (!handshaking.ClientCertificate!.Verifies(verify, [.. handshaking.Transcript]))
         {
             throw new DtlsAlertException(DtlsAlertDescription.DecryptError, "The client's CertificateVerify does not verify.");
         }
@@ -546,28 +555,28 @@ public sealed class DtlsServerSession(IDatagramFlow flow, DtlsServerOptions opti
 
     private void AcceptClientKeyExchange(DtlsHandshakeMessage message)
     {
-        var suite = negotiation!.Suite;
+        var suite = handshaking.Negotiation!.Suite;
         var preMasterSecret = suite.UsesPreSharedKey
             ? PreSharedKeyPreMasterSecret(DtlsPskClientKeyExchange.Read(message.Body).Identity)
-            : ephemeralKey!.DeriveSharedSecret(DtlsEcdheClientKeyExchange.Read(message.Body).PublicPoint);
+            : handshaking.EphemeralKey!.DeriveSharedSecret(DtlsEcdheClientKeyExchange.Read(message.Body).PublicPoint);
         AddToTranscript(message);
-        masterSecret = negotiation.UsesExtendedMasterSecret
+        handshaking.MasterSecret = handshaking.Negotiation.UsesExtendedMasterSecret
             ? DtlsPseudorandomFunction.ExtendedMasterSecret(suite.PrfHash, preMasterSecret, TranscriptHash())
-            : DtlsPseudorandomFunction.MasterSecret(suite.PrfHash, preMasterSecret, clientRandom, serverRandom);
+            : DtlsPseudorandomFunction.MasterSecret(suite.PrfHash, preMasterSecret, handshaking.ClientRandom, handshaking.ServerRandom);
         CryptographicOperations.ZeroMemory(preMasterSecret);
 
         var keyBlock = DtlsPseudorandomFunction.KeyBlock(
-            suite.PrfHash, masterSecret, clientRandom, serverRandom, suite.KeyBlockLength);
+            suite.PrfHash, handshaking.MasterSecret, handshaking.ClientRandom, handshaking.ServerRandom, suite.KeyBlockLength);
         var keyLength = suite.KeyLength;
         var salts = 2 * keyLength;
-        clientProtection = new DtlsRecordProtection(
+        handshaking.ClientProtection = new DtlsRecordProtection(
             suite.Aead, keyBlock.AsSpan(0, keyLength), keyBlock.AsSpan(salts, DtlsRecordProtection.SaltSize));
-        serverProtection = new DtlsRecordProtection(
+        handshaking.ServerProtection = new DtlsRecordProtection(
             suite.Aead,
             keyBlock.AsSpan(keyLength, keyLength),
             keyBlock.AsSpan(salts + DtlsRecordProtection.SaltSize, DtlsRecordProtection.SaltSize));
         CryptographicOperations.ZeroMemory(keyBlock);
-        state = clientCertificate is null ? HandshakeState.AwaitingChangeCipherSpec : HandshakeState.AwaitingCertificateVerify;
+        state = handshaking.ClientCertificate is null ? HandshakeState.AwaitingChangeCipherSpec : HandshakeState.AwaitingCertificateVerify;
     }
 
     /// <summary>
@@ -580,7 +589,7 @@ public sealed class DtlsServerSession(IDatagramFlow flow, DtlsServerOptions opti
     /// </summary>
     private byte[] PreSharedKeyPreMasterSecret(byte[] identity)
     {
-        clientPreSharedKeyIdentity = identity;
+        handshaking.ClientPreSharedKeyIdentity = identity;
         var key = options.PreSharedKeys!(identity) is { Length: > 0 and <= ushort.MaxValue } known ? known : RandomNumberGenerator.GetBytes(UnknownIdentityKeyLength);
         var preMasterSecret = new byte[4 + (2 * key.Length)];
         var length = (ushort)key.Length;
@@ -593,7 +602,7 @@ public sealed class DtlsServerSession(IDatagramFlow flow, DtlsServerOptions opti
     private void AcceptFinished(DtlsHandshakeMessage message)
     {
         var finished = DtlsFinished.Read(message.Body);
-        var expected = DtlsPseudorandomFunction.ClientFinishedVerifyData(negotiation!.Suite.PrfHash, masterSecret, TranscriptHash());
+        var expected = DtlsPseudorandomFunction.ClientFinishedVerifyData(handshaking.Negotiation!.Suite.PrfHash, handshaking.MasterSecret, TranscriptHash());
         if (!CryptographicOperations.FixedTimeEquals(expected, finished.VerifyData))
         {
             throw new DtlsAlertException(DtlsAlertDescription.DecryptError, "The client's Finished does not verify.");
@@ -605,18 +614,18 @@ public sealed class DtlsServerSession(IDatagramFlow flow, DtlsServerOptions opti
 
     private async ValueTask SendFinalFlightAsync(CancellationToken cancellationToken)
     {
-        var verifyData = DtlsPseudorandomFunction.ServerFinishedVerifyData(negotiation!.Suite.PrfHash, masterSecret, TranscriptHash());
-        records.StartFlight();
-        records.AddChangeCipherSpecToFlight();
-        records.StartProtectedWrites(serverProtection!);
-        records.AddToFlight(new DtlsHandshakeMessage(DtlsHandshakeType.Finished, nextServerMessageSeq, new DtlsFinished(verifyData).Write()));
-        await records.SendFlightAsync(cancellationToken).ConfigureAwait(false);
+        var verifyData = DtlsPseudorandomFunction.ServerFinishedVerifyData(handshaking.Negotiation!.Suite.PrfHash, handshaking.MasterSecret, TranscriptHash());
+        handshaking.Records.StartFlight();
+        handshaking.Records.AddChangeCipherSpecToFlight();
+        handshaking.Records.StartProtectedWrites(handshaking.ServerProtection!);
+        handshaking.Records.AddToFlight(new DtlsHandshakeMessage(DtlsHandshakeType.Finished, handshaking.NextServerMessageSeq, new DtlsFinished(verifyData).Write()));
+        await handshaking.Records.SendFlightAsync(cancellationToken).ConfigureAwait(false);
     }
 
     private async ValueTask<DtlsHandshakeOutcome> FailAsync(DtlsAlertDescription description, CancellationToken cancellationToken)
     {
         state = HandshakeState.Closed;
-        await records.SendAsync(DtlsContentType.Alert, new DtlsAlert(IsFatal: true, description).Write(), cancellationToken)
+        await handshaking.Records.SendAsync(DtlsContentType.Alert, new DtlsAlert(IsFatal: true, description).Write(), cancellationToken)
             .ConfigureAwait(false);
         return new DtlsHandshakeOutcome(DtlsHandshakeResult.AlertSent, description);
     }
@@ -628,7 +637,7 @@ public sealed class DtlsServerSession(IDatagramFlow flow, DtlsServerOptions opti
     private bool AcceptEstablishedDatagram(ReadOnlyMemory<byte> datagram)
     {
         var retransmitted = false;
-        foreach (var record in records.Read(datagram))
+        foreach (var record in current.Records.Read(datagram))
         {
             if (record.Header.ContentType == DtlsContentType.Alert && IsClosingAlert(record, out var isCloseNotify))
             {
@@ -640,7 +649,95 @@ public sealed class DtlsServerSession(IDatagramFlow flow, DtlsServerOptions opti
             retransmitted |= AcceptEstablishedRecord(record);
         }
 
-        return retransmitted && !finalFlightAcknowledged;
+        return retransmitted && !current.FinalFlightAcknowledged;
+    }
+
+    /// <summary>
+    /// Answers a datagram on an established association whose first record is a whole epoch 0
+    /// <c>ClientHello</c>, as when the client restarts (ADR-0087 decision 6, RFC 6347 section 4.2.8):
+    /// through the cookie exchange like any other hello, and one with a valid cookie starts a new
+    /// handshake that replaces the association once it completes. No alert goes on the old association.
+    /// </summary>
+    /// <returns>Whether the datagram was such a hello.</returns>
+    private async ValueTask<bool> AnswerNewClientHelloAsync(ReadOnlyMemory<byte> datagram, CancellationToken cancellationToken)
+    {
+        var verified = DtlsCookieExchange.Answer(datagram.Span, flow.RemoteEndPoint, options.CookieSecrets, out var helloVerifyRequest);
+        if (helloVerifyRequest is not null)
+        {
+            await flow.SendAsync(helloVerifyRequest, cancellationToken).ConfigureAwait(false);
+            return true;
+        }
+
+        if (verified is null)
+        {
+            return false;
+        }
+
+        await ReplaceAssociationAsync(verified, cancellationToken).ConfigureAwait(false);
+        return true;
+    }
+
+    /// <summary>
+    /// Runs the new handshake <paramref name="opening"/> starts into a new association, while the old
+    /// one's epoch 1 records are still accepted. A completed handshake replaces the old association,
+    /// whose keys are then no longer read; one that fails, times out or is cut off leaves the old
+    /// association as it was, its alert sent in the new handshake's epoch 0 only.
+    /// </summary>
+    private async ValueTask ReplaceAssociationAsync(DtlsVerifiedClientHello opening, CancellationToken cancellationToken)
+    {
+        var replacement = new Association(flow);
+        handshaking = replacement;
+        var completed = false;
+        try
+        {
+            var outcome = await CompleteHandshakeAsync(opening, cancellationToken).ConfigureAwait(false);
+            completed = outcome.Result == DtlsHandshakeResult.Completed;
+        }
+        finally
+        {
+            (completed ? current : replacement).Dispose();
+            current = completed ? replacement : current;
+            handshaking = current;
+            state = HandshakeState.Established;
+        }
+    }
+
+    /// <summary>
+    /// While a new handshake replaces an established association, takes out of
+    /// <paramref name="datagram"/> each epoch 1 record the old association authenticates, queueing its
+    /// application data and dropping anything else, and returns the rest for the new handshake.
+    /// </summary>
+    private byte[] SetAsideCurrentAssociationRecords(ReadOnlyMemory<byte> datagram)
+    {
+        var rest = new List<byte>(datagram.Length);
+        while (DtlsRecordHeader.TryRead(datagram.Span, out var header))
+        {
+            var record = datagram[..Math.Min(DtlsRecordHeader.Size + header.Length, datagram.Length)];
+            if (header.Epoch == 0 || !AcceptCurrentAssociationRecord(record))
+            {
+                rest.AddRange(record.Span);
+            }
+
+            datagram = datagram[record.Length..];
+        }
+
+        rest.AddRange(datagram.Span);
+        return [.. rest];
+    }
+
+    private bool AcceptCurrentAssociationRecord(ReadOnlyMemory<byte> record)
+    {
+        var accepted = false;
+        foreach (var read in current.Records.Read(record))
+        {
+            accepted = true;
+            if (read.Header.ContentType == DtlsContentType.ApplicationData)
+            {
+                applicationData.Enqueue(read.Plaintext);
+            }
+        }
+
+        return accepted;
     }
 
     /// <summary>
@@ -655,7 +752,7 @@ public sealed class DtlsServerSession(IDatagramFlow flow, DtlsServerOptions opti
         var type = record.Header.ContentType;
         if (record.Header.Epoch == 1 && type == DtlsContentType.ApplicationData)
         {
-            finalFlightAcknowledged = true;
+            current.FinalFlightAcknowledged = true;
             applicationData.Enqueue(record.Plaintext);
             return false;
         }
@@ -674,14 +771,59 @@ public sealed class DtlsServerSession(IDatagramFlow flow, DtlsServerOptions opti
 
     private void AddServerMessage(DtlsHandshakeType type, byte[] body)
     {
-        var message = new DtlsHandshakeMessage(type, nextServerMessageSeq++, body);
+        var message = new DtlsHandshakeMessage(type, handshaking.NextServerMessageSeq++, body);
         AddToTranscript(message);
-        records.AddToFlight(message);
+        handshaking.Records.AddToFlight(message);
     }
 
-    private void AddToTranscript(DtlsHandshakeMessage message) => transcript.AddRange(message.ToUnfragmentedBytes());
+    private void AddToTranscript(DtlsHandshakeMessage message) => handshaking.Transcript.AddRange(message.ToUnfragmentedBytes());
 
-    private byte[] TranscriptHash() => CryptographicOperations.HashData(negotiation!.Suite.PrfHash, [.. transcript]);
+    private byte[] TranscriptHash() => CryptographicOperations.HashData(handshaking.Negotiation!.Suite.PrfHash, [.. handshaking.Transcript]);
+
+    /// <summary>
+    /// One association's records, handshake state and keys: what a new handshake on an established
+    /// session builds afresh while the old association still carries application data.
+    /// </summary>
+    private sealed class Association(IDatagramFlow flow) : IDisposable
+    {
+        public DtlsAssociationRecords Records { get; } = new(flow);
+
+        public List<byte> Transcript { get; } = [];
+
+        public DtlsServerNegotiation? Negotiation { get; set; }
+
+        public DtlsEphemeralKey? EphemeralKey { get; set; }
+
+        public DtlsHandshakeReassembler? Reassembler { get; set; }
+
+        public DtlsRecordProtection? ClientProtection { get; set; }
+
+        public DtlsRecordProtection? ServerProtection { get; set; }
+
+        public byte[] ClientRandom { get; set; } = [];
+
+        public byte[] ServerRandom { get; set; } = [];
+
+        public byte[] MasterSecret { get; set; } = [];
+
+        public ushort NextServerMessageSeq { get; set; }
+
+        public DtlsClientCertificate? ClientCertificate { get; set; }
+
+        public byte[]? ClientPreSharedKeyIdentity { get; set; }
+
+        /// <summary>Whether the client's first application data has shown it holds the server's final flight.</summary>
+        public bool FinalFlightAcknowledged { get; set; }
+
+        public void Dispose()
+        {
+            EphemeralKey?.Dispose();
+            ClientCertificate?.Dispose();
+            ClientProtection?.Dispose();
+            ServerProtection?.Dispose();
+            CryptographicOperations.ZeroMemory(MasterSecret);
+        }
+    }
 
     private sealed class PeerAlertException(DtlsAlertDescription description) : Exception($"The client sent fatal alert {description}.")
     {

@@ -15,16 +15,18 @@ internal sealed class UnitTestDatagramFlow : IDatagramFlow
 {
     public static readonly TimeSpan SilenceLimit = TimeSpan.FromMinutes(15);
 
-    private readonly UnitTestDtlsClient client;
     private readonly Queue<byte[]> toServer = new();
     private TimeSpan silence;
 
     public UnitTestDatagramFlow(UnitTestDtlsClient client, ManualTimeProvider clock, byte[]? firstDatagram = null)
     {
-        this.client = client;
+        Client = client;
         Clock = clock;
         FirstDatagram = firstDatagram ?? client.FirstHelloDatagram();
     }
+
+    /// <summary>The client the server's datagrams reach; a test swaps it for a client that restarted on the same endpoint.</summary>
+    public UnitTestDtlsClient Client { get; set; }
 
     public ManualTimeProvider Clock { get; }
 
@@ -74,7 +76,7 @@ internal sealed class UnitTestDatagramFlow : IDatagramFlow
         Sent.Add(bytes);
         if (!DroppedSends.Contains(Sent.Count - 1))
         {
-            foreach (var answer in client.OnServerDatagram(bytes))
+            foreach (var answer in Client.OnServerDatagram(bytes))
             {
                 toServer.Enqueue(answer);
             }
