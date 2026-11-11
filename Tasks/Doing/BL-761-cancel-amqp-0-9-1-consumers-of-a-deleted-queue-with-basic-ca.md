@@ -33,3 +33,4 @@ Deleting a queue ends every consumer of it on every AMQP 0-9-1 connection, and a
 ## Log
 
 - 2026-11-05: Created.
+- 2026-11-11: Backlog -> Doing.
