@@ -40,3 +40,4 @@ An agent driving `surl-mcp` can call `list_faults` with a `server_id` and see ea
 ## Log
 
 - 2026-11-06: Created.
+- 2026-11-11: Backlog -> Doing.
