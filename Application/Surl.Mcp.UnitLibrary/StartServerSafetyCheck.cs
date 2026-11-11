@@ -46,9 +46,15 @@ internal sealed class StartServerSafetyCheck(SurlMcpHostSettings settings, PathC
     private static bool IsConfigFileOption(string word) =>
         word == "--config" || word.StartsWith("--config=", StringComparison.Ordinal) || word.StartsWith("-K", StringComparison.Ordinal);
 
-    private string? FindListenHostRefusal(SurlCommandLine commandLine)
+    /// <summary>
+    /// The listen-host rule: every listen URL and every proxy listen URL (<c>--proxy</c>, ADR-0088 decision 7) is
+    /// local unless the host allows otherwise.
+    /// </summary>
+    /// <param name="commandLine">The parsed words.</param>
+    /// <returns>The rule broken, or <see langword="null"/>.</returns>
+    internal string? FindListenHostRefusal(SurlCommandLine commandLine)
     {
-        var nonLoopback = commandLine.ListenUrls.FirstOrDefault(listenUrl => !IsLocal(listenUrl));
+        var nonLoopback = commandLine.ListenUrls.Concat(commandLine.ProxyListenUrls).FirstOrDefault(listenUrl => !IsLocal(listenUrl));
         return nonLoopback is null || settings.AllowNonLoopback
             ? null
             : $"the listen host {nonLoopback.Host} is not loopback; only whoever starts surl-mcp can allow it, with --allow-non-loopback";
