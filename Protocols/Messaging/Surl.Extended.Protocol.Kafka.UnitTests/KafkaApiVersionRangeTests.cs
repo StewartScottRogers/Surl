@@ -43,6 +43,11 @@ public sealed class KafkaApiVersionRangeTests
             (KafkaApiKey.Fetch, 4, 11),
             (KafkaApiKey.ListOffsets, 1, 5),
             (KafkaApiKey.Metadata, 0, 8),
+            (KafkaApiKey.FindCoordinator, 0, 2),
+            (KafkaApiKey.JoinGroup, 0, 5),
+            (KafkaApiKey.Heartbeat, 0, 3),
+            (KafkaApiKey.LeaveGroup, 0, 3),
+            (KafkaApiKey.SyncGroup, 0, 3),
             (KafkaApiKey.SaslHandshake, 0, 1),
             (KafkaApiKey.ApiVersions, 0, 3),
             (KafkaApiKey.CreateTopics, 2, 4),
@@ -56,7 +61,7 @@ public sealed class KafkaApiVersionRangeTests
     }
 
     [TestMethod]
-    public void Find_UnservedApiKey_IsNull() => Assert.IsNull(KafkaServedApis.Find(11));
+    public void Find_UnservedApiKey_IsNull() => Assert.IsNull(KafkaServedApis.Find(68));
 
     private static KafkaApiVersionRange Range(KafkaApiKey apiKey) => KafkaServedApis.Find((short)apiKey)!;
 }

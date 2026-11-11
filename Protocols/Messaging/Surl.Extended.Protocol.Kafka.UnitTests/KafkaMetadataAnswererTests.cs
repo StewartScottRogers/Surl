@@ -48,7 +48,7 @@ public sealed class KafkaMetadataAnswererTests
     public async Task AnswerAsync_NullArguments_Throw()
     {
         var answerer = EmptyBusMetadata();
-        var request = new KafkaRequest(new KafkaRequestHeader(3, 0, 1, null), KafkaServedApis.Ranges[3], new KafkaPrimitiveReader(Array.Empty<byte>()), new KafkaConnectionState(null), new InMemoryConnection([]));
+        var request = new KafkaRequest(new KafkaRequestHeader(3, 0, 1, null), KafkaServedApis.Find(3)!, new KafkaPrimitiveReader(Array.Empty<byte>()), new KafkaConnectionState(null), new InMemoryConnection([]));
 
         await Assert.ThrowsExactlyAsync<ArgumentNullException>(async () => await answerer.AnswerAsync(null!, Context(TestContext.CancellationToken)));
         await Assert.ThrowsExactlyAsync<ArgumentNullException>(async () => await answerer.AnswerAsync(request, null!));
