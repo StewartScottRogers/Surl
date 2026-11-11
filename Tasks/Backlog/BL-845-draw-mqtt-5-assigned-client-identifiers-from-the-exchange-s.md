@@ -4,7 +4,7 @@ title: Draw MQTT 5 assigned client identifiers from the exchange's seedable iden
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-822, BL-851]
+depends-on: [BL-822, BL-851, BL-1035]
 touches: [Protocols/Messaging/Surl.Extended.Protocol.Mqtt5.UnitLibrary, Protocols/Messaging/Surl.Extended.Protocol.Mqtt5.UnitTests]
 requirement: none
 created: 2026-11-05
@@ -36,7 +36,18 @@ identifier comes from `ExchangeContext.Identifiers`, so a seeded instance assign
 
 ## Notes
 
+- 2026-11-11 (lane 6): the change is written but not built - the shift stashes it uncommitted.
+  `Mqtt5BrokerState.NewAssignedClientIdentifier(IIdentifierRandom)` draws 16 bytes from the source
+  (`surl-` + 32 lower-case hex kept); `RegisterAssignedClient(IIdentifierRandom, out ...)` redraws on
+  collision; the internal `Func<string>` constructor is gone; `Mqtt5BrokerConnection` passes
+  `context.Identifiers`. Tests: a test-only `SeededIdentifierRandom(int seed)` over `System.Random`
+  (Surl.Core's `Sha256CounterIdentifierRandom` is internal and not referenced), and the two named tests
+  replace `RegisterAssignedClient_CandidateInUse_DrawsAnother`. If the stash is lost, redo exactly this.
+- Not finished: `dotnet build` fails - global.json pins SDK 10.0.401, which is not installed on the
+  machine. Added BL-1035 (Stewart reinstalls it) to `depends-on`; back to Backlog until it is Done.
+
 ## Log
 
 - 2026-11-05: Created.
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Backlog. Waiting on BL-1035: pinned .NET SDK 10.0.401 is not installed, so dotnet build cannot run
