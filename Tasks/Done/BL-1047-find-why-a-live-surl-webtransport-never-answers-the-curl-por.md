@@ -8,7 +8,7 @@ depends-on: []
 touches: [Protocols/Http/Surl.Extended.Protocol.WebTransport.UnitLibrary, Protocols/Http/Surl.Extended.Protocol.WebTransport.UnitTests, Protocols/Http/Surl.Http3.UnitLibrary, Protocols/Http/Surl.Http3.UnitTests]
 requirement: none
 created: 2026-11-11
-completed:
+completed: 2026-11-11
 ---
 # BL-1047 — Find why a live surl webtransport never answers the Curl port client's unidirectional stream
 
@@ -25,13 +25,17 @@ Say whether surl or the Curl port client is at fault when `curl -k -d "hello uni
 
 ## Acceptance criteria
 
-- [ ] A failing test in `Surl.Extended.Protocol.WebTransport.UnitTests` or `Surl.Http3.UnitTests` reproduces the defect, or Notes says why the cause is the Curl port client's and names its evidence from the packets.
-- [ ] If surl's: the fix, with the unit test passing and the 100% gates held.
-- [ ] The fast tests are green, and `dotnet build -warnaserror` is clean.
+- [x] A failing test in `Surl.Extended.Protocol.WebTransport.UnitTests` or `Surl.Http3.UnitTests` reproduces the defect, or Notes says why the cause is the Curl port client's and names its evidence from the packets.
+- [x] If surl's: the fix, with the unit test passing and the 100% gates held.
+- [x] The fast tests are green, and `dotnet build -warnaserror` is clean.
 
 ## Notes
+
+Cause was surl's, not the port client's. `WebTransportProtocolServer` left `QuicServerConnectionOptions.InitialMaxStreamsUni` at its default 3, which the client's HTTP/3 control and two QPACK streams use up, so its WebTransport unidirectional stream (the fourth, stream 14) was past the QUIC stream limit and never reached the session (a debug trace showed `AcceptStreamAsync` never returned it). The in-memory test sent that stream on the QPACK encoder stream ID, so it missed this. Fix: `InitialMaxStreamsUni` = 3 + `WebTransportFlowControlSettings.Default.InitialMaxStreams` (103). Test: `WebTransportProtocolServerTests.ServeAsync_ClientsFourthUnidirectionalStream_IsTakenAndAnswered` (failed before, passes after). Live: `curl -k -d "hello uni" webtransport://127.0.0.1:<port>/?wt=uni` against `surl --allow-anonymous --self-signed` now prints `hello uni`, exit 0. No ADR needed (a transport parameter value, not a behaviour choice).
+
 
 ## Log
 
 - 2026-11-11: Created.
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Done. surl now allows the client's WebTransport unidirectional streams (QUIC initial_max_streams_uni 103, was 3); live port client wt=uni echoes

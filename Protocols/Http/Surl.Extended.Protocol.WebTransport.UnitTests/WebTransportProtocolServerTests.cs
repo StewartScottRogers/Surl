@@ -60,6 +60,21 @@ public sealed class WebTransportProtocolServerTests
     }
 
     [TestMethod]
+    public async Task ServeAsync_ClientsFourthUnidirectionalStream_IsTakenAndAnswered()
+    {
+        using var client = new Http3TestQuicClient();
+        var serving = StartServing(client, NewContext(new ManualTimeProvider(Now), Token), TimeSpan.FromSeconds(30));
+        await client.OpenAsync(Token, UnitTestWebTransport.WebTransportSettings);
+        await UnitTestWebTransport.OpenSessionAsync(client, Token);
+
+        client.Send(14, Convert.FromHexString(UnitTestWebTransport.UnidirectionalHeaderHex + "64617461"), fin: true);
+        await client.UntilAsync(() => client.StreamSent(UnitTestWebTransport.ServerAnswerStreamId).Fin, Token);
+
+        Assert.AreEqual(UnitTestWebTransport.UnidirectionalHeaderHex + "64617461", UnitTestWebTransport.SentHex(client, UnitTestWebTransport.ServerAnswerStreamId), "The control and two QPACK streams are the client's first three; a session's stream is its fourth.");
+        Assert.IsFalse(serving.IsCompleted);
+    }
+
+    [TestMethod]
     [DataRow(-1, DisplayName = "No head timeout")]
     [DataRow(0, DisplayName = "A head timeout longer than a timer can wait")]
     [DataRow(30, DisplayName = "A head timeout")]

@@ -73,6 +73,8 @@ public sealed class WebTransportProtocolServer : IDatagramProtocolServer, IDatag
             HandshakeTimeout = headTimeout == Timeout.InfiniteTimeSpan ? null : headTimeout,
             MaxDatagramFrameSize = WebTransportApplicationProtocol.MaxDatagramFrameSize,
             ResetStreamAt = true,
+            // HTTP/3's control and two QPACK streams, then the session streams the server announces it takes.
+            InitialMaxStreamsUni = 3 + WebTransportFlowControlSettings.Default.InitialMaxStreams,
         };
         using var random = RandomNumberGenerator.Create();
         var application = new StartedApplication(new WebTransportApplicationProtocol(string.Empty, authenticationPolicy, context));
