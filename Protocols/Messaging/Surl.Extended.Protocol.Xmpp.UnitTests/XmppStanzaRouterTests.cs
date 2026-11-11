@@ -109,6 +109,37 @@ public sealed class XmppStanzaRouterTests
     }
 
     [TestMethod]
+    public async Task AnswerAsync_MessageWithNoTo_IsHandledAsAddressedToTheSendersBareJid()
+    {
+        var server = NewServer();
+        var juliet = await OpenAsync(server, "juliet", "balcony");
+        var chamber = await OpenAsync(server, "juliet", "chamber");
+
+        var answers = await SendAsync(juliet, "<message><body>Note to self</body></message>");
+
+        Assert.AreEqual(
+            "<message from=\"juliet@im.example.com/balcony\" xmlns=\"jabber:client\"><body>Note to self</body></message>", answers);
+        StringAssert.Contains(Received(chamber), "<body>Note to self</body>");
+        await CloseAsync(juliet, chamber);
+    }
+
+    [TestMethod]
+    public async Task AnswerAsync_MessageOfUnknownType_IsTreatedAsNormalAndDeliveredToTheBareJidsStreams()
+    {
+        var server = NewServer();
+        var juliet = await OpenAsync(server, "juliet", "balcony");
+        var romeo = await OpenAsync(server, "romeo", "orchard");
+
+        var answers = await SendAsync(romeo, "<message to='juliet@im.example.com' type='gossip'><body>Hi</body></message>");
+
+        Assert.AreEqual(string.Empty, answers);
+        StringAssert.Contains(Received(juliet), "<body>Hi</body>");
+        var unanswered = await SendAsync(romeo, "<message to='nobody@im.example.com' type='gossip'><body>Hi</body></message>");
+        StringAssert.Contains(unanswered, $"<service-unavailable {Stanzas} />");
+        await CloseAsync(juliet, romeo);
+    }
+
+    [TestMethod]
     [DataRow("headline")]
     [DataRow("error")]
     public async Task AnswerAsync_HeadlineOrErrorToAUserWithNoStream_IsDropped(string type)

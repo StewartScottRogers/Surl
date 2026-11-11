@@ -8,7 +8,7 @@ depends-on: []
 touches: [Protocols/Messaging/Surl.Extended.Protocol.Xmpp.UnitTests, Documentation/Conformance/Extended/Xmpp.md]
 requirement: none
 created: 2026-11-11
-completed:
+completed: 2026-11-11
 ---
 # BL-1049 â€” Prove the two XMPP matrix rows no test proves: a stanza with no to, a message of unknown type
 
@@ -22,8 +22,8 @@ Found by BL-541: `XmppStanzaRouterTests` has no test for either row. Add them be
 
 ## Acceptance criteria
 
-- [ ] A router test for a stanza with no `to` and one for a message of unknown `type` pass.
-- [ ] Both rows in `Documentation/Conformance/Extended/Xmpp.md` name their test instead of BL-1049.
+- [x] A router test for a stanza with no `to` and one for a message of unknown `type` pass.
+- [x] Both rows in `Documentation/Conformance/Extended/Xmpp.md` name their test instead of BL-1049.
 
 ## Notes
 
@@ -31,3 +31,4 @@ Found by BL-541: `XmppStanzaRouterTests` has no test for either row. Add them be
 
 - 2026-11-11: Created.
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Done. Router tests prove no-to and unknown-type XMPP matrix rows
