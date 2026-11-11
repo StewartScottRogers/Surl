@@ -234,6 +234,25 @@ public sealed class SmtpUpstreamTestCaseServerTests
     }
 
     [TestMethod]
+    public async Task ServeAsync_HelpWithCaseData_AnswersTheCaseDataByteForByte()
+    {
+        var data = "214-This server supports the following commands:\r\n214 HELO EHLO MAIL RCPT DATA\r\n";
+        var replies = Case(new Dictionary<string, byte[]> { ["data"] = Encoding.ASCII.GetBytes(data) });
+
+        var written = await ServeAsync(replies, "HELP\r\n");
+
+        Assert.AreEqual(Greeting + data, written);
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_HelpWithoutCaseData_AnswersAsTheServerDoes()
+    {
+        var written = await ServeAsync(Case(), "HELP\r\n");
+
+        Assert.AreEqual(Greeting + SmtpReplies.Help + "\r\n", written);
+    }
+
+    [TestMethod]
     public async Task ServeAsync_EveryCommandLine_IsRecordedWithCrlf()
     {
         var replies = Case("REPLY NOOP 250 scripted");

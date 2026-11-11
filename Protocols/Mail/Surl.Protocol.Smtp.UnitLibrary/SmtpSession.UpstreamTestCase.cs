@@ -8,8 +8,8 @@ namespace Surl.Protocol.Smtp;
 /// What an upstream test case's reply changes in a session (<see cref="SmtpUpstreamTestCaseServer"/>;
 /// ADR-0080 decision 2): the greeting <c>REPLY welcome</c> gives, a <c>REPLY</c>'d line answered
 /// with the case's text and not run, <c>EHLO</c>'s extensions from <c>CAPA</c> and <c>AUTH</c>,
-/// mail sent without a login, a <c>DATA</c> body recorded rather than delivered, and <c>VRFY</c>
-/// and <c>EXPN</c> answered with the case's data, a <c>RCPT</c> with no at sign refused, and a <c>MAIL</c>
+/// mail sent without a login, a <c>DATA</c> body recorded rather than delivered, <c>VRFY</c>,
+/// <c>EXPN</c> and <c>HELP</c> answered with the case's data, a <c>RCPT</c> with no at sign refused, and a <c>MAIL</c>
 /// whose <c>SIZE=</c> exceeds the <c>SIZE</c> the case's <c>CAPA</c> advertised refused, as upstream's
 /// <c>MAIL_smtp</c> and <c>RCPT_smtp</c> do. Every other answer is the session's own.
 /// </summary>
@@ -27,6 +27,20 @@ internal sealed partial class SmtpSession
         commands["DATA"] = argument => AnswerUpstreamTestCaseDataAsync(argument, replies);
         commands["VRFY"] = argument => AnswerFromTheUpstreamTestCaseDataAsync(argument, replies, SmtpReplies.VrfySyntax, SmtpReplies.VrfyAnswer);
         commands["EXPN"] = argument => AnswerFromTheUpstreamTestCaseDataAsync(argument, replies, SmtpReplies.ExpnSyntax, SmtpReplies.ExpnAnswer);
+        commands["HELP"] = _ => AnswerHelpFromTheUpstreamTestCaseDataAsync(replies);
+    }
+
+    // Upstream's HELP_smtp sends the case's data as the whole reply; without any, the session's own line.
+    private async ValueTask<bool> AnswerHelpFromTheUpstreamTestCaseDataAsync(MailUpstreamTestCaseReplies replies)
+    {
+        var data = replies.FindData(Encoding.Latin1.GetString(heloDomain ?? []));
+        if (data.Length == 0)
+        {
+            return await ReplyAsync(SmtpReplies.Help);
+        }
+
+        await connection.WriteAsync(data, CancellationToken);
+        return true;
     }
 
     private static bool HasAtSign(byte[]? argument) => argument is not null && argument.AsSpan().Contains((byte)'@');
