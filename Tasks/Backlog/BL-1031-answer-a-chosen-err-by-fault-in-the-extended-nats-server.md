@@ -4,7 +4,7 @@ title: Answer a chosen -ERR by fault in the extended NATS server
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-823, BL-785]
+depends-on: [BL-823, BL-785, BL-1035]
 touches: [Protocols/Messaging/Surl.Extended.Protocol.Nats.UnitLibrary, Protocols/Messaging/Surl.Extended.Protocol.Nats.UnitTests]
 requirement: FR-062
 created: 2026-11-06
@@ -52,8 +52,16 @@ publish one `FaultAppliedEvent`.
 
 ## Notes
 
+- 2026-11-11 (lane 4): restored the four stashed files from `S^3` (via `git show`, since `git checkout` of a
+  stash commit was refused in the lane) and applied the stash's `NatsServerConnection.cs` diff cleanly with
+  `git apply`. Nothing could be built: `dotnet build` fails with "A compatible .NET SDK was not found" -
+  `global.json` pins 10.0.401 and the machine has only 10.0.100-rc.1, 11.0.100-rc.2 and 11.0.100. Parked
+  behind BL-1035 (Stewart reinstalls the pinned SDK), as BL-1012 and BL-1007 were. The restored work is left
+  uncommitted for the shift to stash; next run, redo the restore above if it is gone, then build and test.
+
 ## Log
 
 - 2026-11-06: Created.
 - 2026-11-06: Split from BL-834 (timed out after 120 min); reuses its NATS work from stash `darkfactory BL-834 20261106-033059`.
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Backlog. Waiting on BL-1035: pinned .NET SDK 10.0.401 is not installed, so nothing builds
