@@ -17,15 +17,10 @@ internal static class UnixSocketCombination
     public static readonly FrozenSet<string> DatagramSchemes =
         FrozenSet.Create(StringComparer.Ordinal, "tftp", "coap", "coaps", "dns");
 
-    /// <summary>
-    /// The schemes not served over a Unix socket until BL-605: FTP's data connections are TCP
-    /// connections to the address a passive reply names (ADR-0094, decision 2).
-    /// </summary>
-    public static readonly FrozenSet<string> FtpSchemes = FrozenSet.Create(StringComparer.Ordinal, "ftp", "ftps");
 
     /// <summary>
     /// Refuses a Unix socket given with more than one listen URL, with a scheme that listens on UDP,
-    /// with <c>--http3</c>, or with <c>ftp</c> or <c>ftps</c>, in that order, each
+    /// or with <c>--http3</c>, in that order, each
     /// <see cref="SurlExitCode.FailedInit"/> followed by the try-help line; null otherwise, and
     /// whenever no Unix socket is given.
     /// </summary>
@@ -61,9 +56,7 @@ internal static class UnixSocketCombination
             return Refused(optionName, "--http3 listens on UDP");
         }
 
-        return FtpSchemes.Contains(scheme)
-            ? Refused(optionName, $"{scheme} is not served over a Unix socket: its data connections are TCP")
-            : null;
+        return null;
     }
 
     /// <summary>

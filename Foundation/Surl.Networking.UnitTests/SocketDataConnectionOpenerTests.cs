@@ -48,6 +48,17 @@ public sealed class SocketDataConnectionOpenerTests
     }
 
     [TestMethod]
+    public async Task StartPassiveListenerAsync_UnixSocketControlConnection_BindsIpv4Loopback()
+    {
+        var sockets = new FakeDataConnectionSockets();
+        var opener = new SocketDataConnectionOpener(null, new ManualTimeProvider(), sockets);
+
+        await using var listener = await opener.StartPassiveListenerAsync(
+            new UnixDomainSocketEndPoint("/tmp/surl.sock"), UnnamedUnixSocketPeer.Instance, TestContext.CancellationToken);
+
+        CollectionAssert.AreEqual(new[] { IPAddress.Loopback }, sockets.ListenedAddresses.ToArray());
+    }
+    [TestMethod]
     public async Task StartPassiveListenerAsync_BindFails_IsUnreachable()
     {
         var sockets = new FakeDataConnectionSockets { ListenFailure = new SocketException((int)SocketError.AddressNotAvailable) };
@@ -292,6 +303,22 @@ public sealed class SocketDataConnectionOpenerTests
         Assert.IsEmpty(sockets.ConnectTargets);
     }
 
+    [TestMethod]
+    public async Task ConnectActiveAsync_UnixSocketControlConnection_ConnectsToALoopbackTargetOnly()
+    {
+        var loopbackTarget = new IPEndPoint(IPAddress.Loopback, 50002);
+        var transport = InMemoryDataTransport.Create(new IPEndPoint(IPAddress.Loopback, 60000), loopbackTarget);
+        var sockets = new FakeDataConnectionSockets { Connect = (_, _) => Task.FromResult(transport.Transport) };
+        var opener = new SocketDataConnectionOpener(null, new ManualTimeProvider(), sockets);
+
+        var connection = await opener.ConnectActiveAsync(UnnamedUnixSocketPeer.Instance, loopbackTarget, Timeout, TestContext.CancellationToken);
+        var exception = await Assert.ThrowsExactlyAsync<DataConnectionException>(
+            () => opener.ConnectActiveAsync(UnnamedUnixSocketPeer.Instance, StrangerDataEnd, Timeout, TestContext.CancellationToken).AsTask());
+
+        Assert.AreEqual(loopbackTarget, connection.RemoteEndPoint);
+        CollectionAssert.AreEqual(new[] { loopbackTarget }, sockets.ConnectTargets.ToArray());
+        Assert.AreEqual(DataConnectionFailure.Refused, exception.Failure);
+    }
     [TestMethod]
     public async Task ConnectActiveAsync_NotOpenWithinTheTimeout_TimesOut()
     {

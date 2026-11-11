@@ -1,4 +1,6 @@
 using System.Net;
+using System.Net.Sockets;
+using Surl.Protocol.Abstractions;
 
 namespace Surl.Networking;
 
@@ -46,6 +48,27 @@ public sealed class DataConnectionPeerTests
         Assert.IsFalse(DataConnectionPeer.IsPeer(Peer, new DnsEndPoint("localhost", 21)));
     }
 
+    [TestMethod]
+    [DataRow("127.0.0.1", true)]
+    [DataRow("127.0.0.9", true)]
+    [DataRow("::1", true)]
+    [DataRow("::ffff:127.0.0.1", true)]
+    [DataRow("192.0.2.7", false)]
+    public void IsPeer_UnixSocketPeer_IsAnyLoopbackAddress(string candidate, bool expected)
+    {
+        var candidateEndPoint = new IPEndPoint(IPAddress.Parse(candidate), 2000);
+
+        Assert.AreEqual(expected, DataConnectionPeer.IsPeer(UnnamedUnixSocketPeer.Instance, candidateEndPoint));
+        Assert.AreEqual(expected, DataConnectionPeer.IsPeer(new UnixDomainSocketEndPoint("/tmp/client.sock"), candidateEndPoint));
+    }
+
+    [TestMethod]
+    public void IsAllowedActiveTarget_UnixSocketPeer_IsLoopbackFromPort1024()
+    {
+        Assert.IsTrue(DataConnectionPeer.IsAllowedActiveTarget(UnnamedUnixSocketPeer.Instance, new IPEndPoint(IPAddress.Loopback, 1024)));
+        Assert.IsFalse(DataConnectionPeer.IsAllowedActiveTarget(UnnamedUnixSocketPeer.Instance, new IPEndPoint(IPAddress.Loopback, 1023)));
+        Assert.IsFalse(DataConnectionPeer.IsAllowedActiveTarget(UnnamedUnixSocketPeer.Instance, new IPEndPoint(IPAddress.Parse("192.0.2.7"), 2000)));
+    }
     [TestMethod]
     [DataRow("192.0.2.7", 1024, true)]
     [DataRow("192.0.2.7", 65535, true)]

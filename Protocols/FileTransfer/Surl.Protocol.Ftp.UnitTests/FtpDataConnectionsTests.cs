@@ -1,4 +1,5 @@
 using System.Net;
+using System.Net.Sockets;
 using System.Text;
 using Surl.Protocol.Abstractions;
 using static Surl.Protocol.Ftp.FtpTestExchange;
@@ -145,6 +146,61 @@ public sealed class FtpDataConnectionsTests
         Assert.AreEqual(Greeting + AnonymousLoginReplies + NotYourAddress, Text(control.WrittenBytes));
     }
 
+    // BL-605: upstream curl 8.21.0 over --unix-socket cannot use a passive reply (it resolves the
+    // socket path as a host name, exit 6), but the reply still names a loopback listener; active
+    // mode with --ftp-port 127.0.0.1 sent PORT 127,0,0,1,p1,p2 and EPRT |1|127.0.0.1|port|.
+    [TestMethod]
+    public async Task Pasv_OnAUnixSocketControlConnection_NamesTheLoopbackAddressAndTheListenersPort()
+    {
+        var written = await ServeWithLocalEndPointAsync(new UnixDomainSocketEndPoint("/tmp/surl.sock"), "PASV\r\n");
+
+        Assert.AreEqual("227 Entering Passive Mode (127,0,0,1,195,180)\r\n", written);
+    }
+
+    [TestMethod]
+    public async Task Epsv_OnAUnixSocketControlConnection_NamesTheListenersPort()
+    {
+        var written = await ServeWithLocalEndPointAsync(new UnixDomainSocketEndPoint("/tmp/surl.sock"), "EPSV\r\n");
+
+        Assert.AreEqual(ExtendedPassiveReply, written);
+    }
+
+    [TestMethod]
+    [DataRow("EPRT |1|127.0.0.1|50200|", 50200)]
+    [DataRow("PORT 127,0,0,1,195,200", 50120)]
+    public async Task ActiveCommand_OnAUnixSocketControlConnection_DialsALoopbackAddress(string command, int port)
+    {
+        var dataConnection = new InMemoryConnection([]);
+        var dataConnections = new InMemoryDataConnections().ScriptActiveConnection(dataConnection);
+        var control = new InMemoryConnection(Ascii(AnonymousLogin + command + "\r\nRETR a.txt\r\n"), remoteEndPoint: UnnamedUnixSocketPeer.Instance);
+
+        await Server().ServeAsync(control, Context(new ManualTimeProvider(), TestContext.CancellationToken, dataConnections: dataConnections));
+
+        Assert.AreEqual(port, dataConnections.ActiveRequests.Single().Target.Port);
+        Assert.AreEqual(FileText, Text(dataConnection.WrittenBytes));
+    }
+
+    [TestMethod]
+    public async Task ActiveCommand_OnAUnixSocketControlConnectionToANonLoopbackAddress_IsRefused()
+    {
+        var control = new InMemoryConnection(Ascii(AnonymousLogin + "EPRT |1|10.0.0.9|50200|\r\n"), remoteEndPoint: UnnamedUnixSocketPeer.Instance);
+
+        await Server().ServeAsync(control, Context(new ManualTimeProvider(), TestContext.CancellationToken));
+
+        Assert.AreEqual(Greeting + AnonymousLoginReplies + NotYourAddress, Text(control.WrittenBytes));
+    }
+
+    [TestMethod]
+    public async Task ActiveCommand_OnANamedUnixSocketPeer_DialsALoopbackAddress()
+    {
+        var dataConnections = new InMemoryDataConnections().ScriptActiveConnection(new InMemoryConnection([]));
+        var control = new InMemoryConnection(
+            Ascii(AnonymousLogin + "EPRT |1|127.0.0.1|50200|\r\nRETR a.txt\r\n"), remoteEndPoint: new UnixDomainSocketEndPoint("/tmp/client.sock"));
+
+        await Server().ServeAsync(control, Context(new ManualTimeProvider(), TestContext.CancellationToken, dataConnections: dataConnections));
+
+        Assert.AreEqual(1, dataConnections.ActiveRequests.Count);
+    }
     [TestMethod]
     public async Task EpsvAll_AnswersOnlyEpsvFromThenOn()
     {

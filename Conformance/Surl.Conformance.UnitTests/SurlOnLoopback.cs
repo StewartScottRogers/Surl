@@ -13,6 +13,7 @@ namespace Surl.Conformance;
 internal sealed class SurlOnLoopback : IAsyncDisposable
 {
     private const string StatusLinePrefix = "Listening on ";
+    private const string UnixSocketSeparator = " over unix://";
 
     private static readonly TimeSpan StartTimeout = TimeSpan.FromSeconds(30);
 
@@ -25,7 +26,8 @@ internal sealed class SurlOnLoopback : IAsyncDisposable
         this.servedDirectory = servedDirectory;
         this.readLog = readLog;
         this.stopSurlAsync = stopSurlAsync;
-        BaseUrls = [.. statusLines.Select(line => new Uri(line[StatusLinePrefix.Length..]))];
+        // A listener on a Unix socket says so after its URL: "Listening on ftp://localhost:21/ over unix://<path>".
+        BaseUrls = [.. statusLines.Select(line => new Uri(line[StatusLinePrefix.Length..].Split(UnixSocketSeparator)[0]))];
     }
 
     /// <summary>
@@ -103,8 +105,35 @@ internal sealed class SurlOnLoopback : IAsyncDisposable
     }
 
     /// <summary>
-    /// Starts surl on <c><paramref name="scheme"/>://127.0.0.1:0/</c> with <paramref name="options"/>
-    /// and no <c>--directory</c>, so it serves a new, empty in-memory file system, returning once
+    /// Writes <paramref name="files"/> into a new temporary directory and starts surl serving it
+    /// on <c><paramref name="scheme"/>://localhost/</c> with the control connection on the Unix
+    /// socket file <paramref name="socketPath"/> (<c>--unix-socket</c>), returning once surl has
+    /// written its status line. <see cref="BaseUrl"/> names <c>localhost</c> and the scheme's
+    /// default port, which nothing listens on.
+    /// </summary>
+    public static async Task<SurlOnLoopback> StartOverUnixSocketAsync(
+        string scheme,
+        string socketPath,
+        IReadOnlyDictionary<string, byte[]> files,
+        IReadOnlyList<string> subdirectories,
+        IReadOnlyList<string> options,
+        CancellationToken cancellationToken)
+    {
+        var directory = Directory.CreateTempSubdirectory("surl-conformance-");
+        foreach (var subdirectory in subdirectories)
+        {
+            directory.CreateSubdirectory(subdirectory);
+        }
+
+        foreach (var (name, contents) in files)
+        {
+            await File.WriteAllBytesAsync(Path.Combine(directory.FullName, name), contents, cancellationToken);
+        }
+
+        return await StartServingAsync(
+            directory, [.. options, "--unix-socket", socketPath, "--directory", directory.FullName, $"{scheme}://localhost/"], cancellationToken);
+    }
+
     /// surl has written its status line.
     /// </summary>
     public static Task<SurlOnLoopback> StartInMemoryAsync(
