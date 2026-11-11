@@ -72,3 +72,4 @@ or is listed in Notes with the reason it cannot pass.
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-11: Backlog -> Doing.
