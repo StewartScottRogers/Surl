@@ -1,7 +1,7 @@
 # ADR-0088 — How Surl serves the HTTP `CONNECT` proxy and the HTTPS proxy
 
 - **Status:** Accepted
-- **Date:** 2026-11-04; Amendment 1 (BL-552) 2026-11-05; Amendment 2 (BL-554) 2026-11-05; Amendment 3 (BL-553) 2026-11-05; Amendment 4 (BL-594) 2026-11-06
+- **Date:** 2026-11-04; Amendment 1 (BL-552) 2026-11-05; Amendment 2 (BL-554) 2026-11-05; Amendment 3 (BL-553) 2026-11-05; Amendment 4 (BL-594) 2026-11-06; Amendment 5 (BL-1002) 2026-11-11
 - **Decided by:** Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), 2026-11-04,
   in BL-550. Built by BL-551 (decision 2's contract), BL-552 (decisions 1, 3, 4 and the limits of
   decision 7), BL-553 (decision 5), BL-554 (decision 6), BL-555 (decision 7's command line) and
@@ -441,3 +441,34 @@ Windows reference build (`Surl.Protocol.HttpProxy.UnitTests/Fixtures`, `ftp-forw
   curl's connection, as a relayed body that ends early does.
 - **Methods:** only `GET`; any other method to an `ftp` target stays `501` (curl's `-I` and uploads
   through an HTTP proxy are not served yet). Every scheme but `http` and `ftp` stays `501`.
+
+## Amendment 5 - how `Surl.Cli` reads decision 7's arguments, settled by BL-1002 (2026-11-11)
+
+Decided by Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), in BL-1002, the first
+of the three tasks BL-555 was split into. Nothing here is a byte curl sends or expects, so nothing
+was measured; each choice is the narrowest reading of decision 7.
+
+- **Members.** `SurlCommandLine` gains `ProxyListenUrls`, `ProxyAccounts`, `ProxyUserFile` and
+  `ProxyAllowedOrigins`, each empty or `null` by default, so a command line without the options
+  keeps today's behaviour. BL-1004 adds the option rows that fill them; BL-1003 composes them.
+- **`--proxy <url>`** is read by `ListenUrlParser.ParseProxy`: ADR-0007 section 4's rules
+  unchanged, schemes and default ports from `ProxyDefaultPorts` (`http` 1080, `https` 443), and
+  `ListenUrl.IsProxy` set on every result (Amendment 2). Any other scheme is
+  `UnsupportedProtocol` (1) with the listen URL text `(1) Protocol "<scheme>" not supported`; a
+  malformed one is `MalformedUrl` (3) as a bare listen URL is.
+- **`-U`/`--proxy-user`** reuses `-u`'s `OptionArgumentReader.ReadAccount` and its refusals, and
+  `--proxy-user-file` reuses `ReadPath`; no refusal text holds the password. Their exit code, as for
+  every option argument refused, is `FailedInit` (2) with `option <name>: <reason>`.
+- **`--proxy-allow-origin`** is `*` or an address with an optional `/prefix`, read into a
+  `ProxyAllowedOrigin`. Strictly literal, so a range means one thing on every platform: an IPv4
+  address is exactly four decimal parts of 0 to 255 (no `127.1` or hexadecimal shorthand, which
+  `IPAddress.TryParse` accepts); an IPv6 address is hexadecimal digits, `:` and `.` only (no
+  brackets, zone or port); an IPv4-mapped IPv6 address is taken as IPv4, as `AllowedOriginRule`
+  compares it, and its prefix is then IPv4's. No prefix is the one address (32 or 128 bits).
+  Refusals: empty `blank argument where content is expected`, a bad address `expected an IPv4 or
+  IPv6 address, an address/prefix, or *`, a bad prefix `the prefix length is not 0 to 32 for IPv4
+  or 0 to 128 for IPv6`, each `FailedInit` (2). A host name is refused: decision 2 checks
+  addresses after resolution, so a name in the rule would decide nothing.
+- **`surl-mcp`** (ADR-0103 decision 4): `start_server`'s loopback rule covers `ProxyListenUrls` as
+  it covers listen URLs, and `--proxy-user-file` is a path confined to the host's root, so an agent
+  cannot open a proxy beyond loopback or read a file outside the root once BL-1004's rows exist.
