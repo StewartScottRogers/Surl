@@ -478,6 +478,15 @@ The codes the server sends, each with the status its page gives it:
 
 No other new option is added.
 
+**Where blocks are staged** (amended 2026-11-11 by BL-922, recording BL-715's decision, decided by
+Claude under Stewart's delegation): each blob's uncommitted blocks sit, one after another, in a
+`ContentUploadSession` opened at the blob and never committed - the content store's own hidden
+dot-file beside the blob, which no protocol serves or lists - exactly as decision 5.5 stages Data Lake
+appends, not under ADR-0100's `.surl/objects/uploads/`, where the content store refuses every write.
+The blob stays invisible until Put Block List writes it afresh through a new upload session from the
+blocks in order and commits that. The other choices BL-715 made are in the amendment of 2026-11-11
+below.
+
 ### 8. `--aihelp`
 
 The topic is `azure-storage` (ADR-0083 decision 8 names it). Its about text says the server answers
@@ -595,3 +604,45 @@ this folder when BL-425 finished:
   element, as the operation page's example writes them. Blobs and `BlobPrefix` elements come interleaved in
   name order. `include=metadata` writes `<Metadata />` for a blob with none, and the page's other `include`
   values (and `deletedwithversions`) are accepted and add nothing.
+
+## Amendment, 2026-11-11 (BL-715)
+
+Decided by Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), while building Put Block, Put
+Block List and Get Block List, on points decisions 1, 5 and 7 left open. BL-922 recorded them here, because
+BL-715 touched only the server's library:
+
+- **Where blocks are staged** (decision 7): in an upload session opened at the blob and never committed, a
+  hidden dot-file beside it, as Data Lake appends are (decision 5.5). `ContentStore` refuses every write under
+  `/.surl`, so ADR-0100's `.surl/objects/uploads/` cannot hold them, and one staging mechanism for appends and
+  blocks keeps one invisibility rule, one size bound and one atomic commit.
+- **The blob's folders are created at its first Put Block**, because the staging file must sit in the folder
+  the blob will be committed to.
+- **A blob's staged bytes together are held to `--max-filesize`** (decision 7), the upload session's own
+  limit. Past it every uncommitted block of the blob is discarded and the answer is `413
+  RequestBodyTooLarge`: the committed blob could never exceed that size anyway (decision 7's "the largest
+  blob"), and discarding the whole staging frees the space at once rather than leaving a half-usable list.
+- **A block put again under the same ID replaces the old one**, so a client that retries a block commits
+  the retry. Its old bytes stay in the staging file until commit and still count
+  toward `--max-filesize`, because the upload session only appends; rewriting the file on every repeat would
+  cost a copy per block.
+- **The committed block list is remembered in memory** against the file's length and last-write time, and
+  treated as gone once the blob has been written any other way (Put Blob, a Data Lake flush, or another
+  protocol). The content store has no per-file field to hold it, and comparing length and last-write time
+  detects another protocol's write without each of them telling the Azure server. **Get Block List of a blob
+  written whole** therefore lists no committed blocks, and a `Committed` entry naming one is `400
+  InvalidBlockList`: Surl never cut such a blob into blocks, so it has none to name.
+- **The 1000-staging cap is shared** by Data Lake appends and blobs' blocks (decision 7's "1000 blobs with
+  staged blocks or appends per server"), as one `AzureStagingArea` holds both. At the cap, the least recently
+  touched staging that holds only a remembered committed list - no staged bytes - is forgotten to make room,
+  so a remembered list never causes `503 ServerBusy`; only stagings with uncommitted data count against the
+  peer.
+- **`blocklisttype` is matched case-insensitively** (`committed`, `uncommitted`, `all`) and echoed as sent
+  when refused (`400 InvalidQueryParameterValue`): the page writes the values in lower case but does not say
+  case matters, so the lenient reading accepts every client that follows it. Get Block
+  List sends `Last-Modified` and `ETag` only when the blob exists; with no blob and no uncommitted block it is
+  `404 BlobNotFound`.
+- **Put Block List answers** `ETag` (the blob's MD5, as Put Blob's), `Last-Modified` and
+  `x-ms-request-server-encrypted: false`, and keeps the blob's `x-ms-blob-*` and `x-ms-meta-*` as Put Blob
+  does. Its body is read with `XmlReader`, DTDs prohibited and no resolver, so a hostile document can neither
+  expand entities nor fetch one; an unknown child element, text in the root or an element inside an entry is
+  `400 InvalidXmlDocument`.

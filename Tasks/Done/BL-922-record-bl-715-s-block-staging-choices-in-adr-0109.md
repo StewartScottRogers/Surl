@@ -8,7 +8,7 @@ depends-on: [BL-715]
 touches: [Documentation/Planning/Decisions/ADR-0109-how-the-azure-storage-server-answers-az-abfs-and-abfss.md]
 requirement: none
 created: 2026-11-06
-completed:
+completed: 2026-11-11
 ---
 # BL-922 — Record BL-715's block staging choices in ADR-0109
 
@@ -35,15 +35,18 @@ Stewart's delegation".
 
 ## Acceptance criteria
 
-- [ ] ADR-0109 decision 1 or 7 states where blocks are staged, and the BL-715 Context line no longer says
+- [x] ADR-0109 decision 1 or 7 states where blocks are staged, and the BL-715 Context line no longer says
       `.surl/objects/uploads/`.
-- [ ] ADR-0109 records each of the other choices listed in Context, with its reason.
+- [x] ADR-0109 records each of the other choices listed in Context, with its reason.
 
 ## Notes
 
 - Filed by BL-715.
+- Done (2026-11-11): decision 7 gains "Where blocks are staged" (the never-committed upload session beside the blob, as decision 5.5 stages appends), and a new "Amendment, 2026-11-11 (BL-715)" records the other choices with their reasons: folders at the first block, the `--max-filesize` bound and discard, a repeated block ID, the in-memory committed list, the shared 1000-staging cap, `blocklisttype`, and the Put Block List answer and XML reading. The BL-715 Context line already no longer said `.surl/objects/uploads/` (BL-759 rewrote decision 5.5); the only remaining mention says why it is not used.
+- `dotnet build` could not run: the pinned SDK 10.0.401 is not installed (BL-1035), which fails every build at HEAD whatever the task. The diff is one Markdown file inside the Documentation shared project, so it cannot change the build or test result; finished rather than parked behind BL-1035.
 
 ## Log
 
 - 2026-11-06: Created.
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Done. ADR-0109 records where Put Block stages blocks and BL-715's other block choices with their reasons
