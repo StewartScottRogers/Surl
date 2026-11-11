@@ -8,7 +8,7 @@ depends-on: [BL-748]
 touches: [Documentation/Planning/Decisions]
 requirement: none
 created: 2026-11-05
-completed:
+completed: 2026-11-11
 ---
 # BL-769 — Record Surl.Quic's RESET_STREAM_AT choices in ADR-0117
 
@@ -32,15 +32,17 @@ draft-ietf-quic-reliable-stream-reset-09 leaves Surl.Quic a choice.
 
 ## Acceptance criteria
 
-- [ ] ADR-0117 has an amendment (or a new decision) stating each choice in Context, with the reason
+- [x] ADR-0117 has an amendment (or a new decision) stating each choice in Context, with the reason
       and the draft section it rests on, marked "Decided by Claude under Stewart's delegation".
-- [ ] The ADR index (`Documentation/Planning/Decisions/README.md`) still describes ADR-0117 truly.
+- [x] The ADR index (`Documentation/Planning/Decisions/README.md`) still describes ADR-0117 truly.
 
 ## Notes
 
 - Filed by BL-748 (lane 4, 2026-11-05).
+- Lane 6, 2026-11-11: written as ADR-0117 Amendment 1 (appended, as ADR-0010 Amendment 1 does), one bullet per choice with its reason and draft section (3, 5, 5.1; RFC 9000 section 12.4 for the unknown-frame answer). The header's "Decided by" line and the index row name it. Docs only: no `.cs` or project file changed, so the docs pipeline runs no verify. `dotnet build` could not run on this machine anyway: `global.json` pins SDK 10.0.401, which is not installed (BL-1035); nothing in this diff can affect the build.
 
 ## Log
 
 - 2026-11-05: Created.
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Done. ADR-0117 Amendment 1 records Surl.Quic's RESET_STREAM_AT choices with their reasons and draft sections
