@@ -40,3 +40,4 @@ invocation is applied there, instead of being noted as not applied.
 
 - 2026-11-06: Created.
 - 2026-11-06: Filed by BL-835 (ADR-0144), which applies only the `error` kind at these points.
+- 2026-11-11: Backlog -> Doing.
