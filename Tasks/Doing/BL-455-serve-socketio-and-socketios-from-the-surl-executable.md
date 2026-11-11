@@ -41,3 +41,4 @@ topic and help category exist, and the extension switch turns both off.
 - 2026-11-04: Created.
 - 2026-11-05: Backlog -> Doing.
 - 2026-11-05: Doing -> Backlog. Needs Application/Surl.Composition.UnitLibrary and .UnitTests (extended server registration), which BL-803 in Doing holds
+- 2026-11-11: Backlog -> Doing.
