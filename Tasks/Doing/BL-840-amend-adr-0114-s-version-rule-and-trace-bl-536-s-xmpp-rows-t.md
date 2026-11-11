@@ -47,3 +47,4 @@ BL-536 covers names its test instead of `BL-536`.
 ## Log
 
 - 2026-11-05: Created.
+- 2026-11-11: Backlog -> Doing.
