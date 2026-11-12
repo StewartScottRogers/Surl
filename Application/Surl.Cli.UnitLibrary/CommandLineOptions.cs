@@ -35,7 +35,7 @@ internal static class CommandLineOptions
     private const string AuthExplanation =
         "Sets the authentication methods surl accepts and offers, a comma-separated list in any case. For HTTP: "
         + "negotiate, ntlm, digest, basic, bearer and aws-sigv4. For SMTP, IMAP and POP3 logins, each SASL "
-        + "mechanism by its name in lower case, as curl's login option AUTH=<mech> names it: gssapi, scram-sha-256, scram-sha-1, ntlm, digest-md5, "
+        + "mechanism by its name in lower case, as curl's login option AUTH=<mech> names it: gssapi, scram-sha-256, scram-sha-512, scram-sha-1, ntlm, digest-md5, "
         + "cram-md5, plain, login, oauthbearer, xoauth2 and external, and apop for POP3's APOP. For SMB: ntlmv1, "
         + "the only login curl makes in an SMB session setup; accepting ntlm never accepts it. "
         + "external logs in as the TLS client certificate --cacert verifies, so it is "

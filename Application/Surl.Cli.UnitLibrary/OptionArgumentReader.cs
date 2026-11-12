@@ -63,7 +63,7 @@ internal static class OptionArgumentReader
     /// </summary>
     public static readonly IReadOnlyList<string> AuthenticationMethodWords =
     [
-        "negotiate", "gssapi", "ntlm", "ntlmv1", "digest", "scram-sha-256", "scram-sha-1", "digest-md5", "cram-md5", "apop", "basic", "plain", "login",
+        "negotiate", "gssapi", "ntlm", "ntlmv1", "digest", "scram-sha-256", "scram-sha-512", "scram-sha-1", "digest-md5", "cram-md5", "apop", "basic", "plain", "login",
         "bearer", "oauthbearer", "xoauth2", "external", "aws-sigv4",
     ];
 
