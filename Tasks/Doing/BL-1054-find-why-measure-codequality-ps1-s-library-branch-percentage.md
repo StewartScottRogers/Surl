@@ -38,3 +38,4 @@ library line and branch percentages, or the script's header says why they cannot
 ## Log
 
 - 2026-11-11: Created.
+- 2026-11-11: Backlog -> Doing.
