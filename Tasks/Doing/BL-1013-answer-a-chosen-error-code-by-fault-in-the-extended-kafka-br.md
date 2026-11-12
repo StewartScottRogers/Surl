@@ -74,3 +74,4 @@ appending nothing, and for `Fetch` without waiting - instead of serving it, and 
 - 2026-11-06: Split from BL-834 (timed out after 120 min); reuses its Kafka work from stash `darkfactory BL-834 20261106-033059`.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waits on BL-1035: pinned .NET SDK 10.0.401 is not installed, so dotnet build cannot run; code re-made and left for the shift to stash
+- 2026-11-11: Backlog -> Doing.
