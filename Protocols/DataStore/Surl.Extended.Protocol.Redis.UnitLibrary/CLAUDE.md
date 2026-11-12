@@ -87,6 +87,17 @@ Hashes, lists, sets and pub/sub (BL-491, decisions 1, 2 and 6):
   of unsent messages, or when one cannot be written, it cancels its `Token`, which every read
   and write of the connection uses, so the connection closes with no more bytes.
 
+Faults (BL-985, ADR-0124 decisions 4 and 9):
+
+- `RedisCommandFaults` asks `ExchangeContext.Faults` at `FaultStage.Command` for each command
+  about to run - after the unknown-command, argument-count, login and subscribed checks, so a
+  fault never masks a refusal. The point names the scheme, listener, account logged in as, the
+  command's name upper-cased (`GET`, `CLIENT|SETNAME`) and its first key - or a pub/sub
+  command's first channel - as `path`; connection and whole-database commands name none.
+  Delay and drop go through `CommandStageFaults`; an `error` rule answers `-<reply>` in place of
+  running the command and publishes one `FaultAppliedEvent` (path, else command). A reply that is
+  empty or holds CR or LF is noted as not applied. `RedisCommandFaultOutcome` says which.
+
 The command line (BL-492) serves the server.
 
 This library references `Surl.Protocol.Abstractions.UnitLibrary` and `Surl.MessageBus.UnitLibrary`
