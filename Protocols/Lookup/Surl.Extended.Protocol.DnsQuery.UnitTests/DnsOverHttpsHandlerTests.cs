@@ -267,6 +267,31 @@ public sealed partial class DnsOverHttpsHandlerTests
         $"POST /dns-query HTTP/1.1\r\nHost: a\r\nContent-Type: {contentType}\r\nContent-Length: {contentLength}\r\nConnection: close\r\n\r\n";
 
     // An HTTP/1.1 answer that keeps the connection open carries no Connection field.
+    [TestMethod]
+    public async Task AnswerAsync_PostWhoseOptCarriesAnEmptyPaddingOption_AnswersAMultipleOf468WithOnePaddingOptionOfZeros()
+    {
+        var query = DnsTestQueries.Query("www.example.com", 1, id: 0, additionals: DnsTestQueries.PaddedOpt(1232));
+
+        var (_, body) = Split(await SendAsync(PostHead("application/dns-message", query.Length), query));
+
+        Assert.AreEqual(0, body.Length % 468);
+        var message = ReadWhole(body);
+        var options = DnsOptRecord.FromResourceRecord(message.Additionals[^1]).Options;
+        var padding = options.Single(option => option.Code == DnsOption.PaddingCode);
+        Assert.IsTrue(padding.Data.ToArray().All(octet => octet == 0));
+        Assert.IsGreaterThan(0, padding.Data.Length);
+    }
+
+    [TestMethod]
+    public async Task AnswerAsync_PostWhoseOptCarriesNoPadding_AnswersUnpadded()
+    {
+        var query = DnsTestQueries.Query("www.example.com", 1, id: 0, additionals: DnsTestQueries.Opt(1232));
+
+        var (_, body) = Split(await SendAsync(PostHead("application/dns-message", query.Length), query));
+
+        Assert.AreNotEqual(0, body.Length % 468);
+        Assert.IsEmpty(DnsOptRecord.FromResourceRecord(ReadWhole(body).Additionals[^1]).Options);
+    }
     private static byte[] Answer200(byte[] message, uint maxAge, bool closes = true) =>
     [
         .. Encoding.ASCII.GetBytes(

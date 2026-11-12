@@ -8,7 +8,7 @@ depends-on: [BL-483, BL-1035]
 touches: [Protocols/Lookup/Surl.Extended.Protocol.DnsQuery.UnitLibrary, Protocols/Lookup/Surl.Extended.Protocol.DnsQuery.UnitTests]
 requirement: none
 created: 2026-11-05
-completed:
+completed: 2026-11-11
 ---
 # BL-826 — Pad DNS responses on the encrypted transports
 
@@ -28,10 +28,10 @@ answers are never padded.
 
 ## Acceptance criteria
 
-- [ ] A named test sends a DoH `POST` whose OPT carries an empty Padding option and checks the answer's length is a
+- [x] A named test sends a DoH `POST` whose OPT carries an empty Padding option and checks the answer's length is a
       multiple of 468 and its OPT holds one Padding option of zero bytes making it so (RFC 7830 section 3).
-- [ ] A named test shows a DoH query without Padding gets an unpadded answer, and the UDP and TCP servers never pad.
-- [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and the library keeps 100% line and branch
+- [x] A named test shows a DoH query without Padding gets an unpadded answer, and the UDP and TCP servers never pad.
+- [x] `dotnet build -warnaserror` is clean, the fast tests are green, and the library keeps 100% line and branch
       coverage.
 
 ## Notes
@@ -54,7 +54,7 @@ Filed by BL-483, which built DoH without padding to keep to its acceptance crite
     and `..._PostWhoseOptCarriesNoPadding_AnswersUnpadded`, `ServeAsync_QueryWhoseOptCarriesPadding_IsAnsweredUnpadded`
     in the UDP and TCP server tests, and a DoQ padding test; `DnsTestQueries.PaddedOpt` writes the query's OPT.
   - Still to do once it builds: the library's CLAUDE.md "Not yet: EDNS(0) padding" line.
-- 2026-11-11: `dotnet build` cannot run: `global.json` pins SDK 10.0.401 and only 10.0.100-rc.1, 11.0.100-rc.2
+- 2026-11-11: SDK 10.0.404 now installed; the stashed code was unreachable, so it was rewritten to the design above. Empty-padding past the limit and padding rounding as described; build, format and 398 fast tests pass.
   and 11.0.100 are installed. Waits on BL-1035, as BL-774 and BL-778 do.
 
 ## Log
@@ -63,3 +63,4 @@ Filed by BL-483, which built DoH without padding to keep to its acceptance crite
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waiting on BL-1035: pinned .NET SDK 10.0.401 is not installed, so dotnet build cannot run; the code is written and left for the shift to stash
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Done. Padding on DoH and DoQ, never UDP or TCP; build and 398 tests green

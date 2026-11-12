@@ -146,7 +146,7 @@ public sealed class DnsOverQuicConnectionServer : IQuicApplicationProtocol
         var responses = await AnswerAsync(query, stream.Id);
         for (var index = 0; index < responses.Count; index++)
         {
-            await connection.WriteAsync(stream, DnsTcpResponseWriter.Write(responses[index]), index == responses.Count - 1, cancellationToken);
+            await connection.WriteAsync(stream, DnsTcpResponseWriter.WritePadded(responses[index]), index == responses.Count - 1, cancellationToken);
         }
 
         if (await connection.ReadAsync(stream, new byte[1], cancellationToken) > 0)

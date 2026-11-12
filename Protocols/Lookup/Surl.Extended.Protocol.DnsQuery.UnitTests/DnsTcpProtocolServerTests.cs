@@ -34,6 +34,13 @@ public sealed class DnsTcpProtocolServerTests
     }
 
     [TestMethod]
+    public async Task ServeAsync_QueryWhoseOptCarriesPadding_IsAnsweredUnpadded()
+    {
+        var connection = await ServeAsync([Frame(Query("web.example.test", TypeA, additionals: PaddedOpt(1232)))]);
+
+        Assert.IsEmpty(DnsOptRecord.FromResourceRecord(ReadWhole(connection.WrittenBytes[2..]).Additionals[^1]).Options);
+    }
+    [TestMethod]
     public async Task ServeAsync_OneQuery_AnswersWithItsLengthPrefix()
     {
         var connection = await ServeAsync([Frame(Query("web.example.test", TypeA, id: 0x0A0B))]);

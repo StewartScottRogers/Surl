@@ -13,6 +13,44 @@ namespace Surl.Extended.Protocol.DnsQuery;
 /// </remarks>
 public static class DnsResponseWriter
 {
+    /// <summary>The block length padded answers are rounded up to (RFC 8467 section 4.1's recommended response policy).</summary>
+    public const int PaddingBlockLength = 468;
+
+    /// <summary>
+    /// Returns the message <see cref="WriteWithin"/> writes, padded for an encrypted transport (RFC 7830):
+    /// when the query's OPT carried a Padding option and the response has an OPT, the response's OPT ends
+    /// with a Padding option that makes the message a multiple of <see cref="PaddingBlockLength"/> bytes.
+    /// Otherwise it is <see cref="WriteWithin"/>'s message.
+    /// </summary>
+    /// <remarks>
+    /// Padding only lengthens the OPT, which every cut keeps, so it is counted after the cut. When the
+    /// padded message would pass <paramref name="limit"/> the Padding option is kept empty: RFC 7830
+    /// section 3 allows any length, and an empty one still tells the client padding is understood.
+    /// </remarks>
+    public static byte[] WritePaddedWithin(DnsResponse response, int limit)
+    {
+        ArgumentNullException.ThrowIfNull(response);
+
+        if (response.ResponseOpt is not { } responseOpt
+            || response.QueryOpt is not { } queryOpt
+            || !queryOpt.Options.Any(option => option.Code == DnsOption.PaddingCode))
+        {
+            return WriteWithin(response, limit);
+        }
+
+        var empty = WriteWithin(response with { ResponseOpt = WithPadding(responseOpt, 0) }, limit);
+        var padding = ((PaddingBlockLength - (empty.Length % PaddingBlockLength)) % PaddingBlockLength);
+        if (empty.Length + padding > limit)
+        {
+            return empty;
+        }
+
+        return WriteWithin(response with { ResponseOpt = WithPadding(responseOpt, padding) }, limit);
+    }
+
+    private static DnsOptRecord WithPadding(DnsOptRecord opt, int length) =>
+        opt with { Options = [.. opt.Options, new DnsOption(DnsOption.PaddingCode, new byte[length])] };
+
     /// <summary>Returns the message that answers with <paramref name="response"/>, no longer than <paramref name="limit"/>, cut to fit as the remarks say.</summary>
     public static byte[] WriteWithin(DnsResponse response, int limit)
     {

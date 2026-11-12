@@ -70,6 +70,12 @@ internal static class DnsTestQueries
         0x00, 0x00,
     ];
 
+    /// <summary>An OPT record whose one option is an empty Padding option (RFC 7830 section 3).</summary>
+    public static byte[] PaddedOpt(ushort payloadSize) =>
+    [
+        0, 0x00, 0x29, (byte)(payloadSize >> 8), (byte)payloadSize, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x04, 0x00, 0x0C, 0x00, 0x00,
+    ];
     /// <summary>A name's wire form, uncompressed (RFC 1035 section 3.1).</summary>
     public static byte[] Name(string name)
     {

@@ -81,7 +81,8 @@ DNS over HTTPS (BL-483, ADR-0092 decision 5; RFC 8484):
   `Cache-Control: max-age` from `DnsOverHttpsCacheLifetime` (the smallest answer TTL, else the
   negative answer's SOA TTL, else 0).
 - `DnsQueryAnswerer.AnswerOverHttp` answers one query; allowed AXFR and IXFR are `NOTIMP` there.
-- Not yet: EDNS(0) padding on the encrypted transports and the optional DoH login (ADR-0092
+- EDNS(0) padding is answered on DoH and DoQ (`DnsResponseWriter.WritePaddedWithin`, multiples of 468; UDP and TCP never pad).
+- Not yet: the optional DoH login (ADR-0092
   decisions 2 and 5); see the tasks filed for them.
 
 DNS over QUIC (BL-484, ADR-0092 decision 5; RFC 9250):
