@@ -163,7 +163,10 @@ internal sealed partial class StompServerConnection
             headers.Add(new("heart-beat", options.HeartBeatOffer.ToString()));
         }
 
-        headers.Add(new("session", RandomNumberGenerator.GetHexString(SessionHexDigits, lowercase: true)));
+        // Informational only (no later frame presents it), so it comes from the seedable source (ADR-0124 decision 6).
+        Span<byte> sessionBytes = stackalloc byte[SessionHexDigits / 2];
+        context.Identifiers.NextBytes(sessionBytes);
+        headers.Add(new("session", Convert.ToHexStringLower(sessionBytes)));
         headers.Add(new("server", "surl"));
         return new StompFrame("CONNECTED", headers, ReadOnlyMemory<byte>.Empty);
     }

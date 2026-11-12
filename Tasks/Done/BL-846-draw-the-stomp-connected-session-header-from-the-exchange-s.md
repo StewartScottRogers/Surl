@@ -8,7 +8,7 @@ depends-on: [BL-822, BL-851, BL-1035]
 touches: [Protocols/Messaging/Surl.Extended.Protocol.Stomp.UnitLibrary, Protocols/Messaging/Surl.Extended.Protocol.Stomp.UnitTests]
 requirement: none
 created: 2026-11-05
-completed:
+completed: 2026-11-11
 ---
 # BL-846 — Draw the STOMP CONNECTED session header from the exchange's seedable identifier source
 
@@ -29,9 +29,9 @@ instance sends the same session ID every run.
 
 ## Acceptance criteria
 
-- [ ] `StompServerConnectionTests.Connected_SameSeededIdentifiers_SendsTheSameSessionHeader` passes, and different
+- [x] `StompServerConnectionTests.Connected_SameSeededIdentifiers_SendsTheSameSessionHeader` passes, and different
       seeds send different headers of the same length.
-- [ ] The library stays at 100% line and branch coverage; `dotnet build` clean, fast tests green.
+- [x] The library stays at 100% line and branch coverage; `dotnet build` clean, fast tests green.
 
 ## Notes
 
@@ -46,8 +46,7 @@ instance sends the same session ID every run.
 - Verified with the installed SDK 11.0.100 from outside the repository (so `global.json` was not
   read): the Stomp library and tests build clean and all 176 tests pass. The new code has no
   branches, so coverage stays at 100%.
-- Not finished: `dotnet build` in the repository fails because `global.json` pins SDK 10.0.401,
-  which is not installed on the dark factory machine. Waiting on BL-1035 (Stewart), as BL-843 does.
+- 2026-11-11 (lane 6): SDK 10.0.404 now satisfies global.json; change redone, build clean, 176 Stomp tests pass.
 
 ## Log
 
@@ -55,3 +54,4 @@ instance sends the same session ID every run.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waiting on BL-1035: pinned .NET SDK 10.0.401 is not installed, so dotnet build cannot run; change verified with SDK 11 (176 Stomp tests pass) and left in the working tree
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Done. STOMP CONNECTED session header drawn from ExchangeContext.Identifiers; seeded runs repeat it
