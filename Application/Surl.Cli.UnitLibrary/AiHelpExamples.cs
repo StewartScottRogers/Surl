@@ -130,7 +130,14 @@ public static class AiHelpExamples
             ["--max-time", "abc", HttpListenUrl],
             ["surl: option --max-time: " + OptionArgumentReader.NotANumber, "surl: " + CommandLineFailure.TryHelpLine],
             SurlExitCode.FailedInit),
-        Serving("coap", "Serve CoAP", ["coap://127.0.0.1:0/"], ["Listening on coap://127.0.0.1:<port>/"], [], []),
+        Serving(
+            "azure-storage",
+            "For a test: serve Azure Blob Storage over HTTPS with a throwaway certificate",
+            ["--self-signed", "-u", "devstoreaccount1:c2VjcmV0", "az://127.0.0.1:0/"],
+            ["Listening on az://127.0.0.1:<port>/"],
+            ["surl: warning: --self-signed: serving a throwaway certificate; clients must skip verification (curl -k)"],
+            []),
+        Serving("coap", "Serve CoAP",["coap://127.0.0.1:0/"], ["Listening on coap://127.0.0.1:<port>/"], [], []),
         Serving("dict", "Serve DICT", ["dict://127.0.0.1:0/"], ["Listening on dict://127.0.0.1:<port>/"], [], ["curl dict://127.0.0.1:<port>/d:surl"]),
         Serving("dns", "Serve DNS over UDP and TCP, zone transfers allowed", ["--allow-zone-transfer", "dns://127.0.0.1:0/"], ["Listening on dns://127.0.0.1:<port>/"], [], []),
         Serving(

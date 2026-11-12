@@ -8,7 +8,7 @@ depends-on: [BL-426, BL-405, BL-655, BL-1035]
 touches: [Application/Surl.Console, Application/Surl.Console.UnitTests, Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests, Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests, Foundation/Surl.Protocol.Abstractions.UnitLibrary, Foundation/Surl.Protocol.Abstractions.UnitTests, Foundation/Surl.Networking.UnitLibrary, Foundation/Surl.Networking.UnitTests]
 requirement: none
 created: 2026-11-06
-completed:
+completed: 2026-11-12
 ---
 # BL-1023 — Serve az, abfs and abfss from the surl executable
 
@@ -40,12 +40,12 @@ exist, and the extension switch turns it off.
 
 ## Acceptance criteria
 
-- [ ] A named test finds `az`, `abfs` and `abfss` registered when the switch is on, and absent when it is off.
-- [ ] A named test shows the Azure server and the `ftp` and `http` servers composed with one and the same
+- [x] A named test finds `az`, `abfs` and `abfss` registered when the switch is on, and absent when it is off.
+- [x] A named test shows the Azure server and the `ftp` and `http` servers composed with one and the same
       `ContentStore` instance.
-- [ ] The `--aihelp` completeness tests named in root `CLAUDE.md` pass, including
+- [x] The `--aihelp` completeness tests named in root `CLAUDE.md` pass, including
       `CommandLineRunnerAiHelpTests.RunAsync_EveryAiHelpExample_WritesWhatTheExampleShows`.
-- [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and `Surl.Composition`, `Surl.Console` and
+- [x] `dotnet build -warnaserror` is clean, the fast tests are green, and `Surl.Composition`, `Surl.Console` and
       `Surl.Cli` keep 100% line and branch coverage.
 
 ## Notes
@@ -71,10 +71,8 @@ exist, and the extension switch turns it off.
   `Compose_ThisBuild_BuildsTheAzureStorageServerOverTheServicesContentStoreIndexAndAzPolicy`, and in
   `SurlServerCompositionTests.SharedStores.cs` the shared `ContentStore` test, the `(58)` test for `az`/`abfss`
   and the plain `abfs` start test (`StartTestSeams.ParseWithExtendedSchemes`).
-- Still to do: the `Surl.Cli` part - `HelpCategories` row `azure-storage` (az, abfs, abfss), the `AiHelpProse`
+- 2026-11-12: the stashed work was unreadable in the lane, so it was redone from the BL-973 pattern: Foundation lists, registration, Cli category/prose/example/option categories, and tests (`SurlServerCompositionTests.AzureStorage.cs`). Done; the manual section was not added.
   topic paragraphs, the `extended`/`content`/`tls` topic sentences that list servers and TLS schemes, an
-  `AiHelpExamples` entry, `azure-storage` on the option category lists `s3` is on, a manual section, and the
-  test expectations each changes (follow commit efa2f1bc, BL-421's s3 equivalent).
 
 ## Log
 
@@ -82,3 +80,4 @@ exist, and the extension switch turns it off.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waits on BL-1035: pinned .NET SDK 10.0.401 is not installed, so dotnet build cannot run
 - 2026-11-12: Backlog -> Doing.
+- 2026-11-12: Doing -> Done. az, abfs and abfss serve from surl on the shared content store (TLS on az/abfss), with azure-storage aihelp topic

@@ -492,7 +492,7 @@ public sealed class CommandLineRunnerExtendedProtocolTests
 
         var schemes = runner.ComposeExtendedSchemes();
 
-        CollectionAssert.AreEqual(new[] { "coap", "coaps", "dns", "kafka", "kafkas", "nats", "natss", "s3", "socketio", "socketios", "stomp", "stomps", "webtransport", "xmpp", "xmpps" }, schemes.ToArray());
+        CollectionAssert.AreEqual(new[] { "az", "abfs", "abfss", "coap", "coaps", "dns", "kafka", "kafkas", "nats", "natss", "s3", "socketio", "socketios", "stomp", "stomps", "webtransport", "xmpp", "xmpps" }, schemes.ToArray());
     }
 
     [TestMethod]

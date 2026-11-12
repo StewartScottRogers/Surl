@@ -1,3 +1,4 @@
+using Surl.Extended.Protocol.AzureStorage;
 using Surl.Extended.Protocol.Coap;
 using Surl.Extended.Protocol.DnsQuery;
 using Surl.Extended.Protocol.Kafka;
@@ -77,6 +78,8 @@ public static class ExtendedProtocolServers
     /// </remarks>
     public static IReadOnlyList<ProtocolServerRegistration> Registrations { get; } =
     [
+        new(["az", "abfs", "abfss"], services => new AzureStorageProtocolServer(
+            services.ContentStore, services.ObjectMetadataIndex, services.AuthenticationPolicyFor("az"), services.TimeProvider)),
         new(["coap"], services => new CoapProtocolServer(services.ContentStore, CoapAccessRulesFor(services), services.CoapObservations)),
         new(["coaps"], services => new DeferredCoapsProtocolServer(services)),
         new(["dns"], services => new DnsDatagramRoutingProtocolServer(

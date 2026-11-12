@@ -45,6 +45,10 @@ internal sealed class StartTestSeams
     public static SurlCommandLine ParseWithS3(params string[] args) =>
         CommandLineParser.Parse(args, ["s3"]).CommandLine ?? throw new AssertFailedException("The command line was refused.");
 
+    /// <summary>Parses <paramref name="args"/> with the <c>az</c>, <c>abfs</c> and <c>abfss</c> extended schemes accepted, failing the test when the command line is refused.</summary>
+    public static SurlCommandLine ParseWithAzureStorage(params string[] args) =>
+        CommandLineParser.Parse(args, ["az", "abfs", "abfss"]).CommandLine ?? throw new AssertFailedException("The command line was refused.");
+
     /// <summary>Parses <paramref name="args"/> with the <c>kafka</c> and <c>kafkas</c> extended schemes accepted, failing the test when the command line is refused.</summary>
     public static SurlCommandLine ParseWithKafka(params string[] args) =>
         CommandLineParser.Parse(args, ["kafka", "kafkas"]).CommandLine ?? throw new AssertFailedException("The command line was refused.");

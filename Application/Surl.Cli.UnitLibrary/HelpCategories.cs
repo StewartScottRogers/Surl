@@ -8,6 +8,7 @@ internal static class HelpCategories
     private static readonly HelpCategory[] Table =
     [
         new("auth", "Accounts and authentication methods", []),
+        new("azure-storage", "Azure Blob and Data Lake Storage protocol (extended)", ["az", "abfs", "abfss"]),
         new("coap", "CoAP and CoAPS protocol (extended)", ["coap", "coaps"]),
         new("content", "Served files and the data directory", []),
         new("dict", "DICT protocol", ["dict"]),

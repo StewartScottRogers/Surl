@@ -12,7 +12,7 @@ public sealed partial class AiHelpTextTests
     // ADR-0046 decision 3's sixteen topics, smtp (BL-207), imap (BL-208), pop3 (BL-209), websocket (BL-303), smb (BL-299), rtsp (BL-317), ldap (BL-310), extended (BL-405), nats (BL-528), s3 (BL-421), control (BL-815), mail (BL-653, ADR-0101 decision 7) dns (BL-1032) and messages (BL-992, ADR-0101 decision 7), in ordinal order.
     private static readonly string[] AdrTopicNames =
     [
-        "auth", "coap", "content", "control", "dict", "dns", "exit-codes", "extended", "ftp", "gopher", "http", "imap", "kafka", "ldap", "limits", "listen-urls",
+        "auth", "azure-storage", "coap", "content", "control", "dict", "dns", "exit-codes", "extended", "ftp", "gopher", "http", "imap", "kafka", "ldap", "limits", "listen-urls",
         "logging", "mail", "messages", "mqtt", "nats", "pop3", "proxy", "rtsp", "s3", "security", "smb", "smtp", "socketio", "socks", "ssh", "stomp", "surl", "telnet", "testing", "tftp", "tls", "websocket", "webtransport", "xmpp",
     ];
 
@@ -24,6 +24,7 @@ public sealed partial class AiHelpTextTests
         "| Topic | Covers |",
         "| --- | --- |",
         "| `auth` | Accounts and authentication methods |",
+        "| `azure-storage` | Azure Blob and Data Lake Storage protocol (extended) |",
         "| `coap` | CoAP and CoAPS protocol (extended) |",
         "| `content` | Served files and the data directory |",
         "| `control` | The loopback test control endpoint |",

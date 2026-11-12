@@ -15,6 +15,7 @@
     <ProjectReference Include="..\..\Foundation\Surl.Output.UnitLibrary\Surl.Output.UnitLibrary.csproj" />
     <ProjectReference Include="..\..\Foundation\Surl.Protocol.Abstractions.UnitLibrary\Surl.Protocol.Abstractions.UnitLibrary.csproj" />
     <ProjectReference Include="..\..\Cryptography\Surl.Dtls.UnitLibrary\Surl.Dtls.UnitLibrary.csproj" />
+    <ProjectReference Include="..\..\Protocols\FileTransfer\Surl.Extended.Protocol.AzureStorage.UnitLibrary\Surl.Extended.Protocol.AzureStorage.UnitLibrary.csproj" />
     <ProjectReference Include="..\..\Protocols\Http\Surl.Extended.Protocol.Coap.UnitLibrary\Surl.Extended.Protocol.Coap.UnitLibrary.csproj" />
     <ProjectReference Include="..\..\Protocols\Lookup\Surl.Extended.Protocol.DnsQuery.UnitLibrary\Surl.Extended.Protocol.DnsQuery.UnitLibrary.csproj" />
     <ProjectReference Include="..\..\Protocols\Messaging\Surl.Extended.Protocol.Kafka.UnitLibrary\Surl.Extended.Protocol.Kafka.UnitLibrary.csproj" />

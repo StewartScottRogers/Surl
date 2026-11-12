@@ -26,11 +26,11 @@ internal static class TlsApplicationProtocols
     /// The ALPN protocol IDs offered for <paramref name="scheme"/>, in the server's order of preference.
     /// </summary>
     /// <param name="scheme">The listen URL's scheme, lower-cased.</param>
-    /// <returns><c>h2</c> and <c>http/1.1</c> for <c>https</c>; <c>http/1.1</c> for <c>wss</c> and <c>s3</c>; <c>xmpp-client</c> for <c>xmpps</c>; otherwise empty.</returns>
+    /// <returns><c>h2</c> and <c>http/1.1</c> for <c>https</c>; <c>http/1.1</c> for <c>wss</c>, <c>s3</c>, <c>az</c> and <c>abfss</c>; <c>xmpp-client</c> for <c>xmpps</c>; otherwise empty.</returns>
     public static IReadOnlyList<SslApplicationProtocol> ForScheme(string scheme) => scheme switch
     {
         "https" => Https,
-        "wss" or "s3" => Http11Only,
+        "wss" or "s3" or "az" or "abfss" => Http11Only,
         "xmpps" => XmppClient,
         _ => [],
     };

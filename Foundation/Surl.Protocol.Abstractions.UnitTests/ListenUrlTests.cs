@@ -122,6 +122,9 @@ public sealed class ListenUrlTests
     [DataRow("mqtts", true)]
     [DataRow("smbs", true)]
     [DataRow("s3", true)]
+    [DataRow("az", true)]
+    [DataRow("abfss", true)]
+    [DataRow("abfs", false)]
     [DataRow("http", false)]
     [DataRow("ftp", false)]
     public void IsImplicitTls_Unset_IsWhatTlsSchemesSaysOfTheScheme(string scheme, bool expected)
