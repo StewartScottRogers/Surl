@@ -63,3 +63,4 @@ twin, registered in `Surl.slnx` and in `ProtocolIsolationTests`' table, so `Surl
 - 2026-11-06: Split from BL-545 (timed out after 120 min); reuses its Sm2 projects from stash `darkfactory BL-545 20261106-033059`.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waits on BL-1035: pinned .NET SDK 10.0.401 is not installed, so nothing can be built or tested
+- 2026-11-11: Backlog -> Doing.
