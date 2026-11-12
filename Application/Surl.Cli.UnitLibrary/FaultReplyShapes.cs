@@ -9,7 +9,7 @@ namespace Surl.Cli;
 /// reply tables), so a chosen error is one the protocol allows. A code and its text are separated
 /// by the first space. Of the extended schemes, <c>coap</c>, <c>mcp</c> and <c>signalr</c> and
 /// their secure twins have rows (ADR-0144), as do <c>s3</c>, <c>az</c>, <c>abfs</c>, <c>abfss</c>
-/// and <c>gs</c> (BL-983); the others have none yet (BL-834, BL-836).
+/// and <c>gs</c> (BL-983), and <c>dns</c>, <c>redis</c> and <c>rediss</c> (BL-986); the others have none yet (BL-834).
 /// </summary>
 internal static class FaultReplyShapes
 {
@@ -21,6 +21,7 @@ internal static class FaultReplyShapes
         ["coap"] = IsCoapResponseCode,
         ["coaps"] = IsCoapResponseCode,
         ["dict"] = reply => IsCodeWithText(reply, 500, 599),
+        ["dns"] = IsDnsResponseCode,
         ["ftp"] = reply => IsCodeWithText(reply, 400, 599),
         ["ftps"] = reply => IsCodeWithText(reply, 400, 599),
         ["gopher"] = IsText,
@@ -38,6 +39,8 @@ internal static class FaultReplyShapes
         ["mqtts"] = IsMqttReasonCode,
         ["pop3"] = IsText,
         ["pop3s"] = IsText,
+        ["redis"] = IsText,
+        ["rediss"] = IsText,
         ["rtsp"] = reply => IsCodeWithOptionalText(reply, 400, 599),
         ["signalr"] = IsText,
         ["signalrs"] = IsText,
@@ -109,6 +112,9 @@ internal static class FaultReplyShapes
     /// <summary>A resultCode 1 to 80 other than referral (10) and saslBindInProgress (14), and diagnostic text.</summary>
     private static bool IsLdapResult(string reply) =>
         IsCodeWithText(reply, 1, 80) && TrySplitCode(reply, out var code, out _) && code is not (10 or 14);
+
+    /// <summary>A DNS RCODE 1 to 5 (FORMERR to REFUSED), a single digit, alone.</summary>
+    private static bool IsDnsResponseCode(string reply) => reply.Length == 1 && reply[0] is >= '1' and <= '5';
 
     /// <summary>An MQTT 5 reason code 128 to 255, alone.</summary>
     private static bool IsMqttReasonCode(string reply) =>

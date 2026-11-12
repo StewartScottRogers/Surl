@@ -135,6 +135,10 @@ public sealed class CommandLineParserFaultTests
     [DataRow("abfs", "400 InvalidUri")]
     [DataRow("abfss", "599 x")]
     [DataRow("gs", "503 backendError")]
+    [DataRow("dns", "1")]
+    [DataRow("dns", "5")]
+    [DataRow("redis", "ERR boom")]
+    [DataRow("rediss", "LOADING Redis is loading")]
     public void Parse_ErrorReplyFittingItsScheme_IsServed(string scheme, string reply) =>
         Assert.AreEqual(reply, Served("--fault", $"error;scheme={scheme};reply={reply}", Url).Faults.Single().Reply);
 
@@ -180,6 +184,11 @@ public sealed class CommandLineParserFaultTests
     [DataRow("error;scheme=az;reply=600 x", "option --fault: key reply does not fit the az error shape", DisplayName = "Azure past 599")]
     [DataRow("error;scheme=abfss;reply=399 x", "option --fault: key reply does not fit the abfss error shape", DisplayName = "ABFSS below 400")]
     [DataRow("error;scheme=gs;reply=SlowDown", "option --fault: key reply does not fit the gs error shape", DisplayName = "GCS without a status")]
+    [DataRow("error;scheme=dns;reply=0", "option --fault: key reply does not fit the dns error shape", DisplayName = "DNS NOERROR")]
+    [DataRow("error;scheme=dns;reply=6", "option --fault: key reply does not fit the dns error shape", DisplayName = "DNS past 5")]
+    [DataRow("error;scheme=dns;reply=12", "option --fault: key reply does not fit the dns error shape", DisplayName = "DNS two digits")]
+    [DataRow("error;scheme=redis;reply=ERR%0D%0Aboom", "option --fault: a control character", DisplayName = "Redis CR LF")]
+    [DataRow("error;scheme=rediss;reply=ERR%0Aboom", "option --fault: a control character", DisplayName = "Rediss LF")]
     [DataRow("error;scheme=http;reply=200 OK", "option --fault: key reply does not fit the http error shape", DisplayName = "HTTP success")]
     [DataRow("error;scheme=http;reply=503 ", "option --fault: key reply does not fit the http error shape", DisplayName = "HTTP empty reason")]
     [DataRow("error;scheme=http;reply=five", "option --fault: key reply does not fit the http error shape", DisplayName = "HTTP no code")]

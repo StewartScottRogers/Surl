@@ -8,7 +8,7 @@ depends-on: [BL-984, BL-985, BL-785]
 touches: [Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests]
 requirement: FR-062
 created: 2026-11-06
-completed:
+completed: 2026-11-11
 ---
 # BL-986 — Accept dns, redis and rediss error replies in the --fault reply check
 
@@ -26,13 +26,16 @@ now that both servers answer it.
 
 ## Acceptance criteria
 
-- [ ] Named `Surl.Cli` tests: one accepted and one refused `reply` per scheme (`dns`, `redis`, `rediss`).
-- [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and `Surl.Cli.UnitLibrary` keeps 100% line
+- [x] Named `Surl.Cli` tests: one accepted and one refused `reply` per scheme (`dns`, `redis`, `rediss`).
+- [x] `dotnet build -warnaserror` is clean, the fast tests are green, and `Surl.Cli.UnitLibrary` keeps 100% line
       and branch coverage.
 
 ## Notes
+
+- dns: a single digit 1 to 5 (matches DnsQueryFaults.TryParse). redis, rediss: any non-empty text; the reply decoder already refuses CR and LF ("a control character"), so no second check lives in the shape (it would be unreachable, breaking 100% branch coverage). The redis and rediss refused tests therefore pin that decoder refusal. Coverage not measured separately; every new branch is exercised by the added tests.
 
 ## Log
 
 - 2026-11-06: Created.
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Done. --fault error rules naming dns, redis and rediss are accepted with their reply shapes
