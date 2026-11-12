@@ -111,6 +111,65 @@ public sealed class ProxyCompositionTests
     }
 
     [TestMethod]
+    public async Task Start_ProxyAccountsWithoutProxyAuth_ChallengeWithDigestAndBasicOnly()
+    {
+        var client = new FakeConnection(Bytes(ForwardedRequest));
+        var commandLine = CommandLine("http://127.0.0.1:3128") with
+        {
+            ProxyAccounts = [new CommandLineAccount("alice", "secret")],
+            AllowPlaintextAuthentication = true,
+        };
+
+        await ServeAsync(commandLine, new InMemoryOriginConnector(), "http", client);
+
+        CollectionAssert.AreEqual(new[] { "Digest", "Basic" }, ProxyChallengeSchemes(Text(client.WrittenBytes)));
+    }
+
+    [TestMethod]
+    public async Task Start_ProxyAuth_SetsTheProxysChallengesAndLeavesTheOriginsMethodsAlone()
+    {
+        var client = new FakeConnection(Bytes(ForwardedRequest));
+        var commandLine = CommandLine("http://127.0.0.1:3128") with
+        {
+            ProxyAccounts = [new CommandLineAccount("alice", "secret")],
+            GivenProxyAuthenticationMethods = ["ntlm"],
+            GivenAuthenticationMethods = ["basic"],
+        };
+
+        await ServeAsync(commandLine, new InMemoryOriginConnector(), "http", client);
+
+        CollectionAssert.AreEqual(new[] { "NTLM" }, ProxyChallengeSchemes(Text(client.WrittenBytes)));
+    }
+
+    [TestMethod]
+    public void WriteLooseningWarnings_ProxyAuth_WritesItsOwnWarningAfterTheAuthOne()
+    {
+        using var log = new StringWriter();
+        var commandLine = CommandLine("http://127.0.0.1:3128") with
+        {
+            GivenAuthenticationMethods = ["basic"],
+            GivenProxyAuthenticationMethods = ["basic", "ntlm"],
+        };
+
+        AuthenticationComposition.WriteLooseningWarnings(commandLine, log);
+
+        Assert.AreEqual(
+            "surl: warning: --auth: accepted methods are basic" + Environment.NewLine
+            + "surl: warning: --proxy-auth: accepted proxy methods are basic, ntlm" + Environment.NewLine,
+            log.ToString());
+    }
+
+    [TestMethod]
+    public void WriteLooseningWarnings_NoProxyAuth_WritesNoProxyAuthWarning()
+    {
+        using var log = new StringWriter();
+
+        AuthenticationComposition.WriteLooseningWarnings(CommandLine("http://127.0.0.1:3128"), log);
+
+        Assert.AreEqual(string.Empty, log.ToString());
+    }
+
+    [TestMethod]
     public async Task Start_TheOriginsAccounts_DoNotMakeTheProxyAskForALogin()
     {
         var origin = new InMemoryOriginConnector();
@@ -361,4 +420,10 @@ public sealed class ProxyCompositionTests
     private static byte[] Bytes(string text) => Encoding.ASCII.GetBytes(text);
 
     private static string Text(byte[] bytes) => Encoding.ASCII.GetString(bytes);
+
+    private static string[] ProxyChallengeSchemes(string response) =>
+        [.. response.Split("\r\n")
+            .Where(line => line.StartsWith("Proxy-Authenticate: ", StringComparison.Ordinal))
+            .Select(line => line["Proxy-Authenticate: ".Length..].Split(' ')[0])
+            .Distinct(StringComparer.Ordinal)];
 }
