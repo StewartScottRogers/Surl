@@ -62,3 +62,4 @@ start timeout.
 - 2026-11-11: Doing -> Backlog. Waits on BL-1035: pinned .NET SDK 10.0.401 is not installed, so surl cannot be published or built to reproduce the timeouts
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Cause fixed (thread-pool starvation); the clean full runs wait on BL-1059, the HTTP/3 UDP bind on a Windows-excluded port
+- 2026-11-12: Backlog -> Doing.
