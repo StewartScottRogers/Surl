@@ -119,9 +119,11 @@ and the closing and draining states (BL-608), which the flow loop holds a served
   streams (`AcceptStreamAsync`), reads waiting for bytes (`ReadAsync`), receives `DATAGRAM` data
   (`ReceiveDatagramAsync`), and writes, resets, stops sending, sends `DATAGRAM` frames, opens
   unidirectional streams and closes, each sent at once. `WriteAsync` never lets a stream's
-  `UnsentLength` pass `MaxUnsentLength` (64 KiB; BL-710, ADR-0082 amendment 3): it queues what fits
-  and waits for the client's `MAX_STREAM_DATA`, `MAX_DATA` or acknowledgements before queuing more,
-  so an answer of any size holds at most that plus the client's outstanding credit; a reset stream
+  bytes not yet in a sent packet (`UnsentLength` plus its waiting `STREAM` frames,
+  `QuicServerConnection.NotYetInAPacketLength`) pass `MaxUnsentLength` (64 KiB; BL-710, ADR-0082
+  amendment 3, BL-932): it queues what fits and waits for the client's `MAX_STREAM_DATA`, `MAX_DATA`
+  or acknowledgements before queuing more, so an answer of any size holds about that much,
+  whatever credit the client grants; a reset stream
   throws `InvalidOperationException`, an ended connection `OperationCanceledException`. The application returning
   closes the connection with application error code 0; the connection ending (either side's
   close, idle, the server's token) cancels `Ended`, the application's token, at the close and not

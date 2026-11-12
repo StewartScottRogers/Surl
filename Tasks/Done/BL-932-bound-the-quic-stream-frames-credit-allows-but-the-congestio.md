@@ -8,7 +8,7 @@ depends-on: [BL-710, BL-1035]
 touches: [Protocols/Http/Surl.Quic.UnitLibrary, Protocols/Http/Surl.Quic.UnitTests]
 requirement: none
 created: 2026-11-06
-completed:
+completed: 2026-11-12
 ---
 # BL-932 — Bound the QUIC stream frames credit allows but the congestion window holds back
 
@@ -32,10 +32,10 @@ but not yet sent, not only on `QuicStream.UnsentLength`.
 
 ## Acceptance criteria
 
-- [ ] A named `Surl.Quic.UnitTests` test: with the client's credit far larger than
+- [x] A named `Surl.Quic.UnitTests` test: with the client's credit far larger than
       `MaxUnsentLength` and no acknowledgements, a write waits once the bytes not yet sent in a
       packet pass the bound, and completes once acknowledgements open the congestion window.
-- [ ] Every existing `Surl.Quic.UnitTests` test still passes; `dotnet build -warnaserror` is clean,
+- [x] Every existing `Surl.Quic.UnitTests` test still passes; `dotnet build -warnaserror` is clean,
       the fast tests are green, and `Surl.Quic.UnitLibrary` keeps 100% line and branch coverage.
 
 ## Notes
@@ -58,9 +58,12 @@ but not yet sent, not only on `QuicStream.UnsentLength`.
     update the `WriteAsync` paragraph in the project's `CLAUDE.md`. It still says "at most that plus the
     client's outstanding credit".
 
+- 2026-11-12 (lane 2): The stashed code was not reachable, so rewrote it as described above: NotYetInAPacketLength, the bound in QueueWhatFitsAsync, the test (fails on the old line, passes now) and the CLAUDE.md paragraph. Built and 503 Quic tests green.
+
 ## Log
 
 - 2026-11-06: Created.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waits on BL-1035: the pinned .NET SDK 10.0.401 is not installed, so nothing builds; the fix and its test are written, not built
 - 2026-11-12: Backlog -> Doing.
+- 2026-11-12: Doing -> Done. QuicApplicationConnection.WriteAsync now bounds bytes not yet in a packet

@@ -150,7 +150,7 @@ public sealed class QuicApplicationConnection
     /// <summary>
     /// Queues <paramref name="data"/> on <paramref name="stream"/>, with <paramref name="fin"/> ending
     /// it, and sends what the client's credit allows, never letting the stream's
-    /// <see cref="QuicStream.UnsentLength"/> pass <see cref="MaxUnsentLength"/>: it queues what fits,
+    /// bytes not yet in a sent packet (<see cref="QuicStream.UnsentLength"/> plus its waiting <c>STREAM</c> frames) pass <see cref="MaxUnsentLength"/>: it queues what fits,
     /// then waits for the client's <c>MAX_STREAM_DATA</c>, <c>MAX_DATA</c> or acknowledgements to let
     /// some go before it queues more.
     /// </summary>
@@ -337,7 +337,7 @@ public sealed class QuicApplicationConnection
                 throw new OperationCanceledException("The QUIC connection has ended.", Ended);
             }
 
-            var queued = Math.Min(Math.Max(MaxUnsentLength - stream.UnsentLength, 0), rest.Length);
+            var queued = Math.Min(Math.Max(MaxUnsentLength - connection.NotYetInAPacketLength(stream), 0), rest.Length);
             var isLast = queued == rest.Length;
             stream.Write(rest.Span[..queued], fin && isLast);
             await SendAsync(connection.Transmit(), cancellationToken);
