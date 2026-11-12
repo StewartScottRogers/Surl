@@ -8,7 +8,7 @@ depends-on: [BL-513, BL-1035]
 touches: [Documentation/Conformance/Extended/Amqp1.md]
 requirement: none
 created: 2026-11-05
-completed:
+completed: 2026-11-12
 ---
 # BL-782 — Trace the AMQP 1.0 matrix rows BL-513 owns to their named tests
 
@@ -33,7 +33,7 @@ ADR-0107's Consequences ask ("each task replaces its ID with the named test").
 
 - [x] `Select-String -Path Documentation/Conformance/Extended/Amqp1.md -Pattern 'BL-513'` finds no row
       whose evidence column is only `BL-513`; each names one or more tests as `Class.Method`.
-- [ ] Each named test exists (`dotnet test --list-tests` on the Amqp1 test project lists it).
+- [x] Each named test exists (`dotnet test --list-tests` on the Amqp1 test project lists it).
 - [x] The Surl-Message-1 row states that a `reply-to` naming a queue travels only in the native form.
 
 ## Notes
@@ -55,9 +55,19 @@ ADR-0107's Consequences ask ("each task replaces its ID with the named test").
   which asserts delivery ids 0, 1, 2 on the link's handle; it does not assert tag uniqueness or
   `message-format` 0 on the container's transfers.
 
+- 2026-11-12 (lane 1): the earlier doc edit was lost with the shift stash, so it was redone from the
+  tests' assertions. SDK 10.0.404 is installed now; `dotnet test --list-tests` on the Amqp1 test project
+  lists every named method except data-row tests, which it lists by display name; those were checked in
+  the test sources (`public (async Task|void) <Method>(`). No `BL-513` is left in the matrix.
+  The rows' choices above (Surl-Delivery-2, Core-2.6.12-1) stand. Also: Core-2.8.3-1 names the
+  attach test that asserts the answer's `ReceiverSettleMode` 0 against a client's 1; Core-2.7.6-1 names
+  the settle-second test, whose `disposition` carries `Last = 1`; Core-2.7.5-1's `disposition` clause
+  names the nearest case, as no test sends a `disposition` on an unattached handle.
+
 ## Log
 
 - 2026-11-05: Created.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Behind BL-1035: pinned .NET SDK 10.0.401 is not installed, so dotnet test --list-tests cannot check the named tests; matrix edit is done and left for the shift's stash
 - 2026-11-12: Backlog -> Doing.
+- 2026-11-12: Doing -> Done. Amqp1 matrix rows BL-513 owned now name their Class.Method tests; Surl-Message-1 states queue reply-to travels only in the native form
