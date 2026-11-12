@@ -642,6 +642,8 @@ public sealed partial class AiHelpTextTests
             "surl: (58) <url> needs a certificate: give --cert <file>, or --self-signed for a throwaway one",
             // Written by Surl.Composition's DnsTransportComposition, whose tests pin it (BL-1017).
             "surl: --dns-transport tcp and tls cannot share port <n>",
+            "surl: --dns-transport udp and quic cannot share port <n>",
+            "surl: --dns-transport quic cannot use port 53",
             "surl: warning: --self-signed: serving a throwaway certificate; clients must skip verification (curl -k)",
             "surl: warning: --proxy-allow-origin: the proxy connects to every origin address, not only loopback",
             "surl: warning: --s3-plaintext: s3 is served as plain HTTP, without TLS",

@@ -8,7 +8,7 @@ depends-on: [BL-1017, BL-484, BL-384]
 touches: [Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests, Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests]
 requirement: none
 created: 2026-11-06
-completed:
+completed: 2026-11-12
 ---
 # BL-1019 — Serve DNS over QUIC for --dns-transport quic
 
@@ -34,17 +34,20 @@ ADR-0092 decision 5 says.
 
 ## Acceptance criteria
 
-- [ ] A named `Surl.Cli.UnitTests` test reads `--dns-transport udp,tcp,quic`; the option's allowed values in its
+- [x] A named `Surl.Cli.UnitTests` test reads `--dns-transport udp,tcp,quic`; the option's allowed values in its
       `--aihelp` facts list `quic`.
-- [ ] Named `Surl.Composition.UnitTests` tests show `quic` composing a QUIC listener with ALPN `doq` whose flows
+- [x] Named `Surl.Composition.UnitTests` tests show `quic` composing a QUIC listener with ALPN `doq` whose flows
       reach `DnsOverQuicProtocolServer`, `udp,quic` on one explicit port and `quic` on port 53 each refused with
       the decision's text.
-- [ ] The `--aihelp` completeness tests named in root `CLAUDE.md` pass; `dotnet build -warnaserror` is clean, the
+- [x] The `--aihelp` completeness tests named in root `CLAUDE.md` pass; `dotnet build -warnaserror` is clean, the
       fast tests are green, and the touched libraries keep 100% line and branch coverage.
 
 ## Notes
+
+- Decision: the engine allows one datagram server per scheme and dns has UDP and DoQ, so the dns datagram registration is a DnsDatagramRoutingProtocolServer: a dns datagram listen URL with IsImplicitTls (set only by DnsTransportComposition for quic) is DoQ, the rest UDP. DoQ is built lazily from QuicCertificate; ALPN doq is the server's own. No Abstractions change. quic defaults to port 853 like tls.
 
 ## Log
 
 - 2026-11-06: Created.
 - 2026-11-12: Backlog -> Doing.
+- 2026-11-12: Doing -> Done. quic transport composes DoQ on a routed datagram listener

@@ -294,7 +294,12 @@ public sealed class ServerTlsComposition : IDisposable
 
     private static QuicServerCertificate? ComposeQuicCertificate(
         SurlCommandLine commandLine, X509Certificate2 certificate, IReadOnlyList<X509Certificate2> intermediateCertificates) =>
-        (commandLine.Http3 || commandLine.ListenUrls.Any(listenUrl => listenUrl.Scheme is WebTransportScheme or CoapsScheme)) ? QuicServerCertificate.From(certificate, intermediateCertificates) : null;
+        (commandLine.Http3 || commandLine.ListenUrls.Any(NeedsQuicCertificate)) ? QuicServerCertificate.From(certificate, intermediateCertificates) : null;
+
+    // webtransport, coaps, and the datagram side of dns that is TLS from the first byte (DNS over QUIC, BL-1019).
+    private static bool NeedsQuicCertificate(ListenUrl listenUrl) =>
+        listenUrl.Scheme is WebTransportScheme or CoapsScheme
+        || (listenUrl.Scheme == "dns" && listenUrl.IsImplicitTls && listenUrl.OnlyTransport == ListenTransport.Datagrams);
 
     private static IEnumerable<IDisposable> OwnedKey(QuicServerCertificate? quicCertificate) =>
         quicCertificate is null ? [] : [quicCertificate.Key];

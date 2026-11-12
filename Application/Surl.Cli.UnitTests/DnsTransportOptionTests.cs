@@ -40,7 +40,16 @@ public sealed class DnsTransportOptionTests
     public void ReadDnsTransports_Empty_IsBlankAndAWordNotListedIsBadlyUsed()
     {
         Assert.AreEqual(OptionArgumentReader.Blank, OptionArgumentReader.ReadDnsTransports(string.Empty, out _));
-        Assert.AreEqual(OptionArgumentReader.BadlyUsed, OptionArgumentReader.ReadDnsTransports("quic", out _));
+        Assert.AreEqual(OptionArgumentReader.BadlyUsed, OptionArgumentReader.ReadDnsTransports("https", out _));
+    }
+
+    [TestMethod]
+    public void Parse_DnsTransportUdpTcpQuic_ReadsTheListAndTheAllowedValuesListQuic()
+    {
+        CollectionAssert.AreEqual(
+            new[] { "udp", "tcp", "quic" },
+            Served("--dns-transport", "udp,tcp,quic", "dns://127.0.0.1:5300").DnsTransports.ToArray());
+        StringAssert.Contains(OptionArgumentReader.DnsTransports.Type.AllowedValues, "quic");
     }
 
     [TestMethod]

@@ -71,6 +71,7 @@ horizontal library may reference it (ADR-0099 decision 11, held by
   through an `IEnvironmentVariableReader` (`ProcessEnvironmentVariableReader` in `surl`); `0`
   turns them off (ADR-0083 decisions 6 to 8). `SurlServerComposition.ComposeExtendedProtocolServers`
   never calls the composer while they are off.
+- DNS over QUIC (ADR-0092 decision 5, BL-1019): `--dns-transport quic` expands a `dns` listen URL to a datagram-only one with `IsImplicitTls` on 853 (`DnsTransportComposition`; refused beside `udp` on one explicit port and on port 53, exit 2); the `dns` datagram registration is a `DnsDatagramRoutingProtocolServer` sending that listen URL to a `DnsOverQuicProtocolServer` (built on its first flow from `QuicCertificate`) and every other to `DnsUdpProtocolServer`. It needs `--cert` or `--self-signed` (58).
 - `ComposeRegisteredSchemes` and `ComposeExtendedSchemes` list the registered schemes, built over
   `ComposeUnservedProtocolServers` with a policy of no accounts and no HTTP method
   (`ComposePolicyWithoutAccounts`), since nothing is served through them: `--version`'s

@@ -53,7 +53,7 @@ public sealed class ExtendedProtocolServersTests
         Assert.HasCount(12, servers);
         Assert.IsInstanceOfType<CoapProtocolServer>(servers[0]);
         CollectionAssert.AreEqual(new[] { "coaps" }, servers[1].Schemes.ToArray());
-        Assert.IsInstanceOfType<DnsUdpProtocolServer>(servers[2]);
+        Assert.IsInstanceOfType<DnsUdpProtocolServer>(Assert.IsInstanceOfType<DnsDatagramRoutingProtocolServer>(servers[2]).UdpServer);
         Assert.IsInstanceOfType<DnsTcpProtocolServer>(servers[3]);
         Assert.IsInstanceOfType<NatsServer>(servers[4]);
         Assert.IsInstanceOfType<S3ProtocolServer>(servers[5]);
@@ -141,7 +141,7 @@ public sealed class ExtendedProtocolServersTests
 
         var servers = ExtendedProtocolServers.Compose(services);
 
-        foreach (var server in new IProtocolServer[] { servers.OfType<DnsUdpProtocolServer>().Single(), servers.OfType<DnsTcpProtocolServer>().Single() })
+        foreach (var server in new IProtocolServer[] { servers.OfType<DnsDatagramRoutingProtocolServer>().Single().UdpServer, servers.OfType<DnsTcpProtocolServer>().Single() })
         {
             var answerer = ComposedServerFields.Single<DnsQueryAnswerer>(server);
             Assert.AreSame(zones, ComposedServerFields.Single<DnsZoneSet>(answerer));

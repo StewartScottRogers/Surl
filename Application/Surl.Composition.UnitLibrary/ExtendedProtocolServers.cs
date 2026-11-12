@@ -78,7 +78,8 @@ public static class ExtendedProtocolServers
     [
         new(["coap"], services => new CoapProtocolServer(services.ContentStore, CoapAccessRulesFor(services), services.CoapObservations)),
         new(["coaps"], services => new DeferredCoapsProtocolServer(services)),
-        new(["dns"], services => new DnsUdpProtocolServer(services.DnsZones, services.AllowsZoneTransfer)),
+        new(["dns"], services => new DnsDatagramRoutingProtocolServer(
+            new DnsUdpProtocolServer(services.DnsZones, services.AllowsZoneTransfer), () => ComposeDnsOverQuic(services))),
         new(["dns"], services => new DnsTcpProtocolServer(services.DnsZones, services.AllowsZoneTransfer)),
         new(["nats", NatsServer.TlsScheme], services => new NatsServer(
             services.AuthenticationPolicyFor("nats"),
@@ -110,6 +111,16 @@ public static class ExtendedProtocolServers
         })),
         ProtocolServerRegistration.ImplicitTls("xmpps", "xmpp"),
     ];
+
+    // DNS over QUIC (ADR-0092 decision 5) over the served certificate; built on its first flow, once server
+    // TLS has filled the source. --dns-transport quic without a certificate is refused (58) before any listener binds.
+    internal static DnsOverQuicProtocolServer ComposeDnsOverQuic(ComposedProtocolServices services)
+    {
+        var certificate = services.QuicCertificate.Certificate
+            ?? throw new InvalidOperationException("DNS over QUIC needs the served certificate, which the start refuses to go without.");
+        return new DnsOverQuicProtocolServer(
+            services.DnsZones, certificate.Chain, certificate.Key, services.IdleTimeout, services.AllowsZoneTransfer);
+    }
 
     /// <summary>
     /// Who may read and write over <c>coap</c> and <c>coaps</c> (ADR-0097 decision 6): <c>--allow-anonymous</c>, and whether any account is allowed on <c>coap</c>.
