@@ -8,7 +8,7 @@ depends-on: [BL-782]
 touches: [Protocols/Messaging/Surl.Extended.Protocol.Amqp1.UnitTests, Documentation/Conformance/Extended/Amqp1.md]
 requirement: none
 created: 2026-11-11
-completed:
+completed: 2026-11-12
 ---
 # BL-1037 — Test the AMQP 1.0 queue link's bound of 1000 unacknowledged deliveries
 
@@ -33,11 +33,11 @@ A unit test in `Amqp1ContainerConnectionTests` shows that a queue link holds at 
 
 ## Acceptance criteria
 
-- [ ] `Amqp1ContainerConnectionTests.ServeAsync_ThousandUnsettledQueueDeliveries_HoldTheNextUntilOneIsSettled`
+- [x] `Amqp1ContainerConnectionTests.ServeAsync_ThousandUnsettledQueueDeliveries_HoldTheNextUntilOneIsSettled`
       exists and passes: 1001 enqueued, 1000 transfers written while none is settled, 1001 after one
       `accepted` disposition.
-- [ ] The `Amqp1:Surl-Delivery-2` row names that test.
-- [ ] `dotnet build` is clean and the fast tests pass.
+- [x] The `Amqp1:Surl-Delivery-2` row names that test.
+- [x] `dotnet build` is clean and the fast tests pass.
 
 ## Notes
 
@@ -45,3 +45,4 @@ A unit test in `Amqp1ContainerConnectionTests` shows that a queue link holds at 
 
 - 2026-11-11: Created.
 - 2026-11-12: Backlog -> Doing.
+- 2026-11-12: Doing -> Done. Queue-link 1000 bound test added; conformance row names it
