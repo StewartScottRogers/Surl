@@ -41,3 +41,4 @@ completed:
 - 2026-11-06: Created.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. waits on BL-1035 - pinned .NET SDK 10.0.401 is not installed, so nothing builds or measures
+- 2026-11-12: Backlog -> Doing.
