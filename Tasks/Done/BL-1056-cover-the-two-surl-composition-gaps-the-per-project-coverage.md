@@ -36,6 +36,17 @@ completed: 2026-11-11
 
 ## Notes
 
+- Tests only; no production code changed.
+- `SurlServerCompositionTests.ComposeAsync_CoapsWithACertificateDtlsCannotServe_FailsWithCertificateProblemAndReleasesTheLock`
+  (new `SurlServerCompositionTests.Coaps.cs`): a P-521 ECDSA `--cert`/`--key` served through the `ReadStartFile` seam, so no
+  file is written; the start is refused `(58) Could not load the server certificate: ...` and the lock is released.
+- `WriteHttp3Note`'s missing branch was the `BoundPort ?? Port` fallback, not the scheme check.
+  `ComposedServingTests.ServeAsync_Http3DatagramListenerReportingNoBoundPort_NamesItsListenUrlsPortInTheHttp3Note` covers it
+  over a new `FakeListenerFactory.ReportsDatagramBoundPort` switch (default `true`). The shared-port pair hands the datagram
+  listener the connection listener's bound port as `Port`, so the fallback still names the right port.
+  `ServeAsync_VerboseDnsOnASharedPort_WritesNoHttp3Note` pins the non-https side (a verbose dns start writes no HTTP/3 note).
+- `Measure-CodeQuality.ps1 -Library 'Surl.Composition.UnitLibrary'`: 100% line, 100% branch, 0 failing members, worst CRAP 8.
+
 ## Log
 
 - 2026-11-11: Created.
