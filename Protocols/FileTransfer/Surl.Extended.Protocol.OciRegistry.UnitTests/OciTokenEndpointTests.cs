@@ -29,6 +29,18 @@ public sealed class OciTokenEndpointTests
     }
 
     [TestMethod]
+    public async Task AnswerAsync_NoQueryAtAll_IssuesATokenForNoScope()
+    {
+        var harness = new H();
+
+        var response = await harness.SendAsync("GET", "/token", P.BasicAuthorization);
+
+        var token = CountingIdentifierRandom.TokenOf(1);
+        var body = $"{{\"token\":\"{token}\",\"access_token\":\"{token}\",\"expires_in\":300,\"issued_at\":\"2026-11-05T12:00:00Z\"}}";
+        Assert.AreEqual($"HTTP/1.1 200 OK\r\n{H.CommonFields}Content-Type: application/json\r\nContent-Length: {body.Length}\r\nConnection: close\r\n\r\n{body}", response);
+    }
+
+    [TestMethod]
     public async Task AnswerAsync_GoodCredentials_TokenServesAPushAsTheAccount()
     {
         var harness = H.AllowingUploads();

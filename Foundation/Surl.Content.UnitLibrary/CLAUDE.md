@@ -140,3 +140,11 @@ last write time when stored. It lasts while the folder exists, whatever is writt
 full index drops them first. The index file holds them as ordinary entries; `ReadAsync` and
 `StoreAsync` never take a folder key. `ForgetFolderObjectAsync` (BL-930) drops one whether or not its
 folder holds keys, rewrites the index file and publishes `Deleted` (`/` and the key).
+
+Verified digests (ADR-0115 decision 2.1, BL-865): `RecordVerifiedDigestAsync(key, digest, hashedStatus)`
+records that a file hashed to a content digest, only while the file's stamp still equals the
+`ContentFileStatus` read before hashing; `IsDigestVerifiedAsync(key, digest)` answers true while the
+stamp still matches, and drops a stale record. They sit beside the entries in memory only - never in
+the index file, never counted in `Count` - at most `MaxEntries` of them (stale ones dropped first,
+then a new key is not recorded), and a reset or restore forgets them. The OCI registry uses them so a
+blob is hashed once per stamp.

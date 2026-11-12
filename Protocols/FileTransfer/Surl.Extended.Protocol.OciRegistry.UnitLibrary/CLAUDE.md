@@ -22,8 +22,13 @@ Reads (BL-436, ADR-0115 decisions 1, 2, 3 and 5):
   `OCI-Filters-Applied: artifactType`), ordered by digest; an invalid digest is `400 DIGEST_INVALID`.
 
 Every file is served only after its bytes hash to the digest its name claims (`sha256` or `sha512`);
-one that does not is `BLOB_UNKNOWN` or `MANIFEST_UNKNOWN` and noted. The check runs on every read;
-caching it in `ObjectMetadataIndex` is follow-up work. Manifests are read up to 4 MiB and
+one that does not is `BLOB_UNKNOWN` or `MANIFEST_UNKNOWN` and noted. With an `ObjectMetadataIndex`
+(the public constructor that takes one, as `S3ProtocolServer` does) the check runs once per file stamp
+(length and last write time): a passed check is recorded with `RecordVerifiedDigestAsync` against the
+status read before hashing, and `IsDigestVerifiedAsync` answers later reads, so a blob pulled twice is
+read whole once to hash and once per serve (BL-865, ADR-0115 decision 2.1). A file changed through the
+store gets a new stamp and is checked again. A repository in a share (outside the root the index keys)
+and a server built without an index check on every read. Manifests are read up to 4 MiB and
 `index.json` up to 16 MiB; an `index.json` that does not parse is read as empty and noted.
 
 Every other request: a path no endpoint matches `404 UNSUPPORTED`; an endpoint's path with another

@@ -46,12 +46,47 @@ internal sealed class OciRegistryServerHarness
     {
     }
 
-    private OciRegistryServerHarness(int maxLiveTokens, ContentExposureOptions options, Func<InMemoryContentFileSystem, ContentShare>[] shares)
+    private OciRegistryServerHarness(int maxLiveTokens, ContentExposureOptions options, Func<InMemoryContentFileSystem, ContentShare>[] shares, bool keepsMetadataIndex = true)
     {
         TimeProvider = new FixedTimeProvider(Now);
         FileSystem = new InMemoryContentFileSystem(TimeProvider);
-        Store = new ContentStore(InMemoryContentFileSystem.RootPath, FileSystem, options, [.. shares.Select(share => share(FileSystem))], []);
-        Server = new OciRegistryProtocolServer(Store, Policy, TimeProvider, () => Guid.Parse(SessionId(Interlocked.Increment(ref sessionCount))), maxLiveTokens);
+        CountingFileSystem = new UnitTestCountingContentFileSystem(FileSystem);
+        Store = new ContentStore(InMemoryContentFileSystem.RootPath, CountingFileSystem, options, [.. shares.Select(share => share(FileSystem))], []);
+        MetadataIndex = keepsMetadataIndex ? new ObjectMetadataIndex(CountingFileSystem, InMemoryContentFileSystem.RootPath, persists: false) : null;
+        Server = new OciRegistryProtocolServer(Store, Policy, TimeProvider, () => Guid.Parse(SessionId(Interlocked.Increment(ref sessionCount))), maxLiveTokens, MetadataIndex);
+    }
+
+    /// <summary>
+    /// A registry with no object metadata index, so it hashes every file on every read.
+    /// </summary>
+    public static OciRegistryServerHarness WithoutMetadataIndex() => new(OciTokenBook.MaxLiveTokens, new ContentExposureOptions(), [], keepsMetadataIndex: false);
+
+    /// <summary>
+    /// The root file system as the store sees it, counting each file's reads.
+    /// </summary>
+    public UnitTestCountingContentFileSystem CountingFileSystem { get; }
+
+    /// <summary>
+    /// The object metadata index the server caches verified digests in; <see langword="null"/>
+    /// for <see cref="WithoutMetadataIndex"/>.
+    /// </summary>
+    public ObjectMetadataIndex? MetadataIndex { get; }
+
+    /// <summary>
+    /// How many times the file at <paramref name="relativePath"/> of the root was opened for reading.
+    /// </summary>
+    public int ReadsOf(string relativePath) => CountingFileSystem.ReadsOf(Path.Join([InMemoryContentFileSystem.RootPath, .. relativePath.Split('/')]));
+
+    /// <summary>
+    /// Replaces the file at <paramref name="relativePath"/> through the content store, as another
+    /// protocol's upload would.
+    /// </summary>
+    public async Task ReplaceThroughStoreAsync(string relativePath, byte[] content)
+    {
+        var store = new ContentStore(InMemoryContentFileSystem.RootPath, CountingFileSystem, new ContentExposureOptions { AllowUploads = true });
+        using var source = new MemoryStream(content);
+
+        Assert.AreEqual(ContentUploadResult.Written, await store.WriteUploadAsync(store.MapRequestPath("/" + relativePath), source, CancellationToken.None));
     }
 
     /// <summary>

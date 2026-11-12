@@ -40,7 +40,7 @@ internal sealed class OciBlobUploads(ContentStore store, OciServerState state, O
     /// <returns>The answer.</returns>
     public async Task<HttpAnswer> OpenAsync(OciReply reply, HttpRequest request, OciRequestTarget target, CancellationToken cancellationToken)
     {
-        var (repository, refusal) = await OciRepositoryCreation.OpenOrCreateAsync(store, caller, target.Name, context.Log, cancellationToken);
+        var (repository, refusal) = await OciRepositoryCreation.OpenOrCreateAsync(store, caller, target.Name, context.Log, state.MetadataIndex, cancellationToken);
         if (repository is null)
         {
             return reply.Error(refusal!);
@@ -66,7 +66,7 @@ internal sealed class OciBlobUploads(ContentStore store, OciServerState state, O
     /// <returns>The answer.</returns>
     public async Task<HttpAnswer> AnswerSessionAsync(OciReply reply, HttpRequest request, OciRequestTarget target, CancellationToken cancellationToken)
     {
-        if (OciRepository.Open(store, caller, target.Name, context.Log) is not { } repository)
+        if (OciRepository.Open(store, caller, target.Name, context.Log, state.MetadataIndex) is not { } repository)
         {
             return reply.Error(OciError.NameUnknown);
         }
@@ -213,7 +213,7 @@ internal sealed class OciBlobUploads(ContentStore store, OciServerState state, O
             return reply.Error(OciError.DigestInvalid);
         }
 
-        var source = from is not null && token.Allows(from, OciActions.Pull) ? OciRepository.Open(store, caller, from, context.Log) : null;
+        var source = from is not null && token.Allows(from, OciActions.Pull) ? OciRepository.Open(store, caller, from, context.Log, state.MetadataIndex) : null;
         var blob = source is null ? null : await source.FindBlobAsync(digest, cancellationToken);
         if (blob is null)
         {

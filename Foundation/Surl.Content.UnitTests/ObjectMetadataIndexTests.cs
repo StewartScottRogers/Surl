@@ -828,6 +828,108 @@ public sealed class ObjectMetadataIndexTests
         Assert.IsNull(exception.InnerException);
     }
 
+    [TestMethod]
+    public async Task IsDigestVerifiedAsync_DigestRecordedForTheFileAsItIs_IsTrueOnlyForThatDigest()
+    {
+        var fixture = new Fixture(persists: true);
+        await fixture.UploadAsync("r/blobs/sha256/aa", "hello"u8.ToArray());
+        var status = fixture.Store.GetFileStatus(fixture.Store.MapRequestPath("/r/blobs/sha256/aa"))!;
+
+        var recorded = await fixture.Index.RecordVerifiedDigestAsync("r/blobs/sha256/aa", "sha256:aa", status, CancellationToken.None);
+
+        Assert.IsTrue(recorded);
+        Assert.IsTrue(await fixture.Index.IsDigestVerifiedAsync("r/blobs/sha256/aa", "sha256:aa", CancellationToken.None));
+        Assert.IsFalse(await fixture.Index.IsDigestVerifiedAsync("r/blobs/sha256/aa", "sha256:bb", CancellationToken.None));
+        Assert.IsFalse(await fixture.Index.IsDigestVerifiedAsync("r/blobs/sha256/other", "sha256:aa", CancellationToken.None));
+        Assert.AreEqual(0, fixture.Index.Count);
+        Assert.AreEqual(ContentEntryKind.None, fixture.FileSystem.GetEntryKind(IndexPath));
+    }
+
+    [TestMethod]
+    public async Task IsDigestVerifiedAsync_FileOverwrittenOrDeletedThroughTheStore_IsFalse()
+    {
+        var fixture = new Fixture(persists: false);
+        await fixture.UploadAsync("over.bin", "hello"u8.ToArray());
+        await fixture.UploadAsync("gone.bin", "hello"u8.ToArray());
+        foreach (var key in new[] { "over.bin", "gone.bin" })
+        {
+            var status = fixture.Store.GetFileStatus(fixture.Store.MapRequestPath("/" + key))!;
+            Assert.IsTrue(await fixture.Index.RecordVerifiedDigestAsync(key, "sha256:aa", status, CancellationToken.None));
+        }
+
+        fixture.Time.Now = Start.AddSeconds(1);
+        await fixture.UploadAsync("over.bin", "hello"u8.ToArray());
+        fixture.Store.DeleteFile(fixture.Store.MapRequestPath("/gone.bin"));
+
+        Assert.IsFalse(await fixture.Index.IsDigestVerifiedAsync("over.bin", "sha256:aa", CancellationToken.None));
+        Assert.IsFalse(await fixture.Index.IsDigestVerifiedAsync("over.bin", "sha256:aa", CancellationToken.None));
+        Assert.IsFalse(await fixture.Index.IsDigestVerifiedAsync("gone.bin", "sha256:aa", CancellationToken.None));
+    }
+
+    [TestMethod]
+    public async Task RecordVerifiedDigestAsync_FileChangedSinceItWasHashed_RecordsNothing()
+    {
+        var fixture = new Fixture(persists: false);
+        await fixture.UploadAsync("x.bin", "hello"u8.ToArray());
+        var hashed = fixture.Store.GetFileStatus(fixture.Store.MapRequestPath("/x.bin"))!;
+        await fixture.UploadAsync("x.bin", "changed"u8.ToArray());
+
+        var recorded = await fixture.Index.RecordVerifiedDigestAsync("x.bin", "sha256:aa", hashed, CancellationToken.None);
+        var missing = await fixture.Index.RecordVerifiedDigestAsync("missing.bin", "sha256:aa", hashed, CancellationToken.None);
+
+        Assert.IsFalse(recorded);
+        Assert.IsFalse(missing);
+        Assert.IsFalse(await fixture.Index.IsDigestVerifiedAsync("x.bin", "sha256:aa", CancellationToken.None));
+    }
+
+    [TestMethod]
+    public async Task RecordVerifiedDigestAsync_FullOfCurrentRecords_RefusesANewKeyButReplacesAKeptOneAndDropsStaleOnes()
+    {
+        var fixture = new Fixture(persists: false, maxEntries: 1);
+        await fixture.UploadAsync("a.bin", "hello"u8.ToArray());
+        await fixture.UploadAsync("b.bin", "hello"u8.ToArray());
+        var a = fixture.Store.GetFileStatus(fixture.Store.MapRequestPath("/a.bin"))!;
+        var b = fixture.Store.GetFileStatus(fixture.Store.MapRequestPath("/b.bin"))!;
+        await fixture.Index.RecordVerifiedDigestAsync("a.bin", "sha256:aa", a, CancellationToken.None);
+
+        var refused = await fixture.Index.RecordVerifiedDigestAsync("b.bin", "sha256:bb", b, CancellationToken.None);
+        var replaced = await fixture.Index.RecordVerifiedDigestAsync("a.bin", "sha256:cc", a, CancellationToken.None);
+        fixture.Store.DeleteFile(fixture.Store.MapRequestPath("/a.bin"));
+        var afterStaleDropped = await fixture.Index.RecordVerifiedDigestAsync("b.bin", "sha256:bb", b, CancellationToken.None);
+
+        Assert.IsFalse(refused);
+        Assert.IsTrue(replaced);
+        Assert.IsTrue(afterStaleDropped);
+        Assert.IsTrue(await fixture.Index.IsDigestVerifiedAsync("b.bin", "sha256:bb", CancellationToken.None));
+    }
+
+    [TestMethod]
+    public async Task ReplaceEntriesAsync_ResetOrRestore_ForgetsVerifiedDigests()
+    {
+        var fixture = new Fixture(persists: false);
+        await fixture.UploadAsync("x.bin", "hello"u8.ToArray());
+        var status = fixture.Store.GetFileStatus(fixture.Store.MapRequestPath("/x.bin"))!;
+        await fixture.Index.RecordVerifiedDigestAsync("x.bin", "sha256:aa", status, CancellationToken.None);
+        var contents = await fixture.Index.CaptureEntriesAsync(CancellationToken.None);
+
+        await fixture.Index.ReplaceEntriesAsync(contents, CancellationToken.None);
+
+        Assert.IsFalse(await fixture.Index.IsDigestVerifiedAsync("x.bin", "sha256:aa", CancellationToken.None));
+    }
+
+    [TestMethod]
+    public async Task VerifiedDigestMethods_InvalidArguments_Throw()
+    {
+        var fixture = new Fixture(persists: false);
+        var status = new ContentFileStatus(0, Start);
+
+        await Assert.ThrowsExactlyAsync<ArgumentException>(() => fixture.Index.IsDigestVerifiedAsync("../x", "sha256:aa", CancellationToken.None));
+        await Assert.ThrowsExactlyAsync<ArgumentNullException>(() => fixture.Index.IsDigestVerifiedAsync("x", null!, CancellationToken.None));
+        await Assert.ThrowsExactlyAsync<ArgumentException>(() => fixture.Index.RecordVerifiedDigestAsync("../x", "sha256:aa", status, CancellationToken.None));
+        await Assert.ThrowsExactlyAsync<ArgumentNullException>(() => fixture.Index.RecordVerifiedDigestAsync("x", null!, status, CancellationToken.None));
+        await Assert.ThrowsExactlyAsync<ArgumentNullException>(() => fixture.Index.RecordVerifiedDigestAsync("x", "sha256:aa", null!, CancellationToken.None));
+    }
+
     private static async Task AssertMalformedAsync(byte[] indexBytes)
     {
         var fixture = new Fixture(persists: true, maxEntries: 2, maxMetadataBytes: 4);

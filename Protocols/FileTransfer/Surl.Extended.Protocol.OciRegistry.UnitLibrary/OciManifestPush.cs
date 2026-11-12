@@ -43,7 +43,7 @@ internal sealed class OciManifestPush(ContentStore store, OciServerState state, 
             return reply.Error(headRefusal);
         }
 
-        var (repository, refusal) = await OciRepositoryCreation.OpenOrCreateAsync(store, caller, target.Name, context.Log, cancellationToken);
+        var (repository, refusal) = await OciRepositoryCreation.OpenOrCreateAsync(store, caller, target.Name, context.Log, state.MetadataIndex, cancellationToken);
         if (repository is null)
         {
             return reply.Error(refusal!);

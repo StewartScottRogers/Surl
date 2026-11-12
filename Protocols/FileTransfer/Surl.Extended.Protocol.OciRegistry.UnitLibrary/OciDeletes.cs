@@ -28,7 +28,7 @@ internal sealed class OciDeletes(ContentStore store, OciServerState state, Conte
     /// <returns>The answer.</returns>
     public async Task<HttpAnswer> DeleteManifestAsync(OciReply reply, OciRequestTarget target, CancellationToken cancellationToken)
     {
-        if (OciRepository.Open(store, caller, target.Name, context.Log) is not { } repository)
+        if (OciRepository.Open(store, caller, target.Name, context.Log, state.MetadataIndex) is not { } repository)
         {
             return reply.Error(OciError.NameUnknown);
         }
@@ -61,7 +61,7 @@ internal sealed class OciDeletes(ContentStore store, OciServerState state, Conte
     /// <returns>The answer.</returns>
     public async Task<HttpAnswer> DeleteBlobAsync(OciReply reply, OciRequestTarget target, CancellationToken cancellationToken)
     {
-        if (OciRepository.Open(store, caller, target.Name, context.Log) is not { } repository)
+        if (OciRepository.Open(store, caller, target.Name, context.Log, state.MetadataIndex) is not { } repository)
         {
             return reply.Error(OciError.NameUnknown);
         }
