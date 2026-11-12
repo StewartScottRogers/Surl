@@ -49,3 +49,4 @@ is now: the measured port commit, where the findings and the handoff are, and wh
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-12: Backlog -> Doing.
