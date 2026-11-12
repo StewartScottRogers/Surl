@@ -511,3 +511,39 @@ BL-728. It builds decision 6's last point: a folder a client put as `x/` is list
 5. **DeleteObject of `x/` does not forget the folder object;** it removes the folder only when empty,
    and an empty folder's removal drops the folder object at the next listing. A non-empty folder's
    `x/` still lists after its DeleteObject: BL-930 makes DeleteObject forget it.
+
+## Amendment 4 - DeleteObject, HeadBucket and ListBuckets as BL-712 built them (BL-918, 2026-11-11)
+
+Decided by Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), 2026-11-06, in
+BL-712, and recorded here by BL-918 (BL-712 could not edit this folder while BL-687 held it).
+`S3OperationRecognition` recognises the three operations; `S3DeleteObject`, `S3ListBuckets` and
+`S3XmlElement` (the XML escaping `S3ListObjectsV2` already used, now shared) serve them.
+
+1. **Recognition.** ListBuckets is `GET /` path style with no query; any query (`prefix`,
+   `max-buckets`, `continuation-token`, `bucket-region`) and any other method on `/` is `501
+   NotImplemented`. HeadBucket is `HEAD /<bucket>` with no query; DeleteObject is
+   `DELETE /<bucket>/<key>` with no query (`?versionId` stays `501`). Why: an unfiltered list
+   answering a filtered request would be untrue, and the server keeps no versions.
+2. **ListBuckets needs `--list-directories`;** off, it is **`403 AccessDenied`**, as ListObjectsV2
+   is (Amendment 2, point 1). Why: a list of buckets is a listing in ADR-0006's sense; secure by
+   default. `S3RequestAnswerer` answers it before the bucket check. The buckets are every name the
+   root listing gives the caller (shares included) plus every `--bucket`, kept when it maps for the
+   caller to a folder - a top-level file, `.surl`, a share the caller may not read and a `--bucket`
+   whose folder is missing are left out - once each, in UTF-8 binary order.
+3. **The body** follows the API Reference page's example order: `Buckets`, with each `Bucket`'s
+   `CreationDate` then `Name`, then `Owner` with `DisplayName` then `ID` (the signed account, or
+   `anonymous`, as ListObjectsV2's `fetch-owner` names it), in the 2006-03-01 namespace
+   `ListBucketResult` uses. `CreationDate` is the folder's last write time in `LastModified`'s form,
+   because the store keeps no folder creation time.
+4. **HeadBucket** is `200` with the common fields and no body; a missing bucket, a top-level file or
+   a share the caller may not read is `404` with no body (decision 1's rule for every `HEAD` error).
+5. **DeleteObject** checks `--allow-uploads` first (off: `403 AccessDenied`); an unsigned `DELETE`
+   is refused by `S3Login` as every unsigned write is, even with `--allow-anonymous`; then the
+   bucket, then `KeyTooLongError`. A file key goes to the store's `DeleteFile`; a key ending in `/`
+   to `RemoveEmptyDirectory`, so a non-empty folder stays. Every outcome but `NotPermitted` is
+   **`204 No Content`** - no entry, a folder named without the `/`, a key that does not map, a
+   non-empty folder - as S3 answers a delete of a missing key; `NotPermitted` (a read-only file or a
+   read-only share) is `403 AccessDenied`.
+6. **The object metadata index needs no removal on DeleteObject:** the deleted file's entry keeps a
+   stamp that no longer matches any file, so it reads as absent and a later PutObject of the same key
+   replaces it. A folder object is the exception Amendment 3, point 5 states.
