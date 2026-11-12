@@ -32,3 +32,4 @@ A message seeded with SurlServer.Messages.EnqueueAsync into a queue a fake STOMP
 ## Log
 
 - 2026-11-11: Created.
+- 2026-11-12: Backlog -> Doing.
