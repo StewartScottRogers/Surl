@@ -8,7 +8,7 @@ depends-on: [BL-617, BL-1035]
 touches: [Conformance/Surl.Conformance.UnitTests]
 requirement: none
 created: 2026-11-04
-completed:
+completed: 2026-11-12
 ---
 # BL-618 — Prove a Surl.Api server against pinned upstream curl over HTTP and FTP
 
@@ -34,12 +34,12 @@ the API's exchange record holds the bytes curl sent.
 
 ## Acceptance criteria
 
-- [ ] A test class `UpstreamCurlFetchesFromSurlApiServerTests` exists with an HTTP/1.1 `GET` test and an FTP
+- [x] A test class `UpstreamCurlFetchesFromSurlApiServerTests` exists with an HTTP/1.1 `GET` test and an FTP
       `RETR` test, each passing on Windows with the pinned reference build present.
-- [ ] Each test asserts what its `surl` counterpart asserts (curl's exit code 0 and the served file's bytes), and
+- [x] Each test asserts what its `surl` counterpart asserts (curl's exit code 0 and the served file's bytes), and
       that the `Surl.Api` exchange record's received bytes for the exchange begin with the request curl sent:
       `GET /<file> HTTP/1.1` for HTTP, and `USER <account>` as the first command for FTP.
-- [ ] `dotnet build -warnaserror` is clean and the fast tests are green.
+- [x] `dotnet build -warnaserror` is clean and the fast tests are green.
 
 ## Notes
 
@@ -48,6 +48,11 @@ the API's exchange record holds the bytes curl sent.
   recorded exchange's `Received` starting `GET /hello.txt HTTP/1.1` or `USER anonymous`) and the project reference to
   `Surl.Api`. Not built: `dotnet build` fails with "A compatible .NET SDK was not found" (10.0.401 pinned, not
   installed), so the work waits on BL-1035; the code is left uncommitted for the shift to stash.
+- 2026-11-12 (lane 1): SDK 10.0.404 now builds. The earlier lane's uncommitted work was not in the tree, so the class
+  was rewritten: HTTP `GET` plus the four FTP data-connection modes, each started through `SurlServer.StartAsync`
+  on `127.0.0.1` port 0 with `RecordExchanges`, asserting exit 0, the bytes and the first exchange's `Received`
+  starting `GET /hello.txt HTTP/1.1` or `USER anonymous`. Five tests ran (not skipped) and passed against the pin;
+  `dotnet build -warnaserror` clean, fast tests green. Reference to `Surl.Api` added to the test project.
 
 ## Log
 
@@ -55,3 +60,4 @@ the API's exchange record holds the bytes curl sent.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waits on BL-1035: .NET SDK 10.0.401 that global.json pins is not installed, so nothing builds
 - 2026-11-12: Backlog -> Doing.
+- 2026-11-12: Doing -> Done. Surl.Api servers proven against pinned upstream curl over HTTP GET and FTP RETR, exchange record holds curl's request bytes
