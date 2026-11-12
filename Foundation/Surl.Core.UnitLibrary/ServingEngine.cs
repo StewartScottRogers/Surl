@@ -19,7 +19,8 @@ namespace Surl.Core;
 /// connection listener; one whose scheme belongs to an <see cref="IDatagramProtocolServer"/>
 /// gets a datagram listener (ADR-0004, section 4). A scheme that an <see cref="IConnectionProtocolServer"/>
 /// and an <see cref="IDatagramProtocolServer"/> both list (https with HTTP/3) gets both, bound on one
-/// port through <see cref="IListenerFactory.StartSharedPortListenersAsync"/> (ADR-0082, decision 6).
+/// port through <see cref="IListenerFactory.StartSharedPortListenersAsync"/> (ADR-0082, decision 6), unless the listen URL's
+/// <see cref="ListenUrl.OnlyTransport"/> names one of the two (ADR-0092, Amendment 1).
 /// Datagram flows are served in <c>ServingEngine.Datagrams.cs</c>.
 /// </remarks>
 public sealed partial class ServingEngine
@@ -309,7 +310,8 @@ public sealed partial class ServingEngine
     /// <returns>
     /// <see cref="SurlExitCode.Ok"/> once stopped, cancellation during startup included;
     /// <see cref="SurlExitCode.UnsupportedProtocol"/>, before any listener starts, when a listen
-    /// URL's scheme has no connection or datagram server; <see cref="SurlExitCode.CouldNotResolveHost"/> or
+    /// URL's scheme has no connection or datagram server, or none for the listener its
+    /// <see cref="ListenUrl.OnlyTransport"/> names; <see cref="SurlExitCode.CouldNotResolveHost"/> or
     /// <see cref="SurlExitCode.BindFailed"/> when a listener cannot bind, after stopping every
     /// listener already started.
     /// </returns>
@@ -486,47 +488,66 @@ public sealed partial class ServingEngine
     private static string FormatSeconds(TimeSpan duration) =>
         duration.TotalSeconds.ToString(CultureInfo.InvariantCulture);
 
-    // Each listen URL's server, or null when a scheme has none that takes connections or flows.
-    private IProtocolServer[]? FindServers(IReadOnlyList<ListenUrl> listenUrls)
+    // Each listen URL's servers, or null when one listen URL is left with no listener to bind.
+    private ListenUrlServers[]? FindServers(IReadOnlyList<ListenUrl> listenUrls)
     {
-        var servers = new IProtocolServer[listenUrls.Count];
+        var servers = new ListenUrlServers[listenUrls.Count];
 
         for (var index = 0; index < servers.Length; index++)
         {
-            var server = serversByScheme.GetValueOrDefault(listenUrls[index].Scheme);
-
-            if (server is not (IConnectionProtocolServer or IDatagramProtocolServer))
+            if (FindServers(listenUrls[index]) is not { } found)
             {
                 return null;
             }
 
-            servers[index] = server;
+            servers[index] = found;
         }
 
         return servers;
     }
 
+    // The servers one listen URL binds a listener for: every one its scheme has, or only the one
+    // its OnlyTransport names (ADR-0092, Amendment 1); null when that leaves none.
+    private ListenUrlServers? FindServers(ListenUrl listenUrl)
+    {
+        var server = serversByScheme.GetValueOrDefault(listenUrl.Scheme);
+        var connectionServer = listenUrl.OnlyTransport is null or ListenTransport.Connections
+            ? server as IConnectionProtocolServer
+            : null;
+        var datagramServer = listenUrl.OnlyTransport is null or ListenTransport.Datagrams
+            ? server as IDatagramProtocolServer ?? sharedPortDatagramServersByScheme.GetValueOrDefault(listenUrl.Scheme)
+            : null;
+
+        return connectionServer is null && datagramServer is null
+            ? null
+            : new ListenUrlServers(connectionServer, datagramServer);
+    }
+
     private async Task StartListenersAsync(
         IReadOnlyList<ListenUrl> listenUrls,
-        IProtocolServer[] servers,
+        ListenUrlServers[] servers,
         List<StartedListener> started,
         CancellationToken cancellationToken)
     {
         for (var index = 0; index < servers.Length; index++)
         {
             var listenUrl = listenUrls[index];
-            if (sharedPortDatagramServersByScheme.TryGetValue(listenUrl.Scheme, out var sharedPortServer))
+            var (connectionServer, datagramServer) = servers[index];
+            if (connectionServer is not null && datagramServer is not null)
             {
-                started.AddRange(await StartSharedPortListenersAsync(
-                    listenUrl, (IConnectionProtocolServer)servers[index], sharedPortServer, cancellationToken));
+                started.AddRange(await StartSharedPortListenersAsync(listenUrl, connectionServer, datagramServer, cancellationToken));
                 continue;
             }
 
-            started.Add(servers[index] is IDatagramProtocolServer datagramServer
+            started.Add(datagramServer is not null
                 ? await StartDatagramListenerAsync(listenUrl, datagramServer, cancellationToken)
-                : await StartConnectionListenerAsync(listenUrl, (IConnectionProtocolServer)servers[index], cancellationToken));
+                : await StartConnectionListenerAsync(listenUrl, connectionServer!, cancellationToken));
         }
     }
+
+    // The servers a listen URL binds listeners for; at least one is set, and both share one port.
+    private readonly record struct ListenUrlServers(
+        IConnectionProtocolServer? ConnectionServer, IDatagramProtocolServer? DatagramServer);
 
     // The connection listener and, on its port, the datagram listener of a scheme two servers
     // share (ADR-0082, decision 6).

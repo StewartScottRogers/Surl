@@ -1,7 +1,7 @@
 # ADR-0092 — How the DNS server answers `dns` and its encrypted transports
 
 - **Status:** Accepted
-- **Date:** 2026-11-04
+- **Date:** 2026-11-04; Amendment 1 (BL-1036) 2026-11-11
 - **Decided by:** Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), 2026-11-04,
   in BL-478. BL-479 builds the message and record codec (decision 2), BL-480 the zones and the
   authoritative answer (decisions 1 and 2), BL-481 UDP (decision 3), BL-482 TCP and zone transfer
@@ -376,3 +376,44 @@ Costs and caveats:
   1232: fragmentation avoidance, decision 3.
 - **Response-rate limiting.** Rejected for now, decision 6.
 - **DoH over HTTP/3.** Rejected for now, decision 5.
+
+## Amendment 1 - a listen URL names the one listener it binds (2026-11-11)
+
+- **Decided by:** Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), 2026-11-11, in
+  BL-1036, found by BL-1017.
+- **Amends:** decision 5's "every `dns://` listen URL serves every transport in the list" for the
+  engine's part, and [ADR-0082](ADR-0082-how-surl-serves-http-3-over-quic.md) decision 6, which
+  binds a scheme's connection and datagram servers together on every listen URL of the scheme.
+
+**Context.** `dns` has a connection server (`DnsTcpProtocolServer`) and a datagram server
+(`DnsUdpProtocolServer`), so the engine bound both on every `dns` listen URL. `--dns-transport
+udp,tls` needs a plain listen URL that binds UDP and no TCP beside a DoT listen URL that binds TCP
+with TLS from the first byte and no UDP. Nothing on a listen URL could say so.
+
+**Decision.**
+
+1. `ListenUrl` gains the init-only `OnlyTransport`, a `ListenTransport?`: `Connections`,
+   `Datagrams`, or `null` (the default). It is per listen URL, as `IsImplicitTls` and `IsProxy`
+   are, and part of the record's equality.
+2. `null` keeps the behaviour from before exactly: the connection listener, the datagram listener,
+   or both on one port through `IListenerFactory.StartSharedPortListenersAsync` for a scheme with a
+   server of each (`https` with `--http3`).
+3. `Connections` binds only the connection listener, `Datagrams` only the datagram listener, each
+   through `StartConnectionListenerAsync` or `StartDatagramListenerAsync` as a scheme with one server
+   is bound.
+4. A listen URL naming a listener its scheme has no server for (`tftp` with `Connections`) is
+   refused before any listener binds, `UnsupportedProtocol` (1), as a scheme with no server is.
+5. **The member names a transport, not a server.** BL-1018 (DoH) and BL-1019 (DoQ) add a second
+   connection server and a second datagram server for `dns`, and this member does not choose
+   between two servers of one transport. They will either fold the second protocol into one server
+   for the transport, chosen per connection by what the listen URL and the handshake already say
+   (`IsImplicitTls`, the agreed ALPN `dot` or `h2`/`http/1.1`), or add one more init-only member
+   naming the server. Either way is additive: the configuration model only grows (root
+   `CLAUDE.md`), so this member keeps its meaning and no caller is rewritten. A label now would
+   be a guess at their design before either is planned.
+
+**Consequences.** The composition (BL-1017) can turn one `dns://` URL and `--dns-transport` into one
+listen URL per transport: `udp` with `Datagrams`, `tcp` with `Connections`, `tls` with
+`Connections` and `IsImplicitTls = true`. Every other scheme is bound as before. A test sees which
+listeners a listen URL asked for in the in-memory listener factory's start requests
+(`ServingEngineTests.OnlyTransport.cs`).

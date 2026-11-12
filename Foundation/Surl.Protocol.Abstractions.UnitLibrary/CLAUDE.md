@@ -10,7 +10,10 @@ What it holds:
   and `UnixSocket`, a `UnixSocketAddress` (a path, or a Linux abstract name, with its
   `unix://` form) to listen on instead of a TCP port (ADR-0094, decision 6). A connection from
   a Unix socket client that bound no name has `UnnamedUnixSocketPeer.Instance` (`unix peer`)
-  as its remote endpoint.
+  as its remote endpoint. `OnlyTransport` (a `ListenTransport?`: `Connections`, `Datagrams`,
+  or `null` for every listener its scheme's servers take) names the one listener a listen URL
+  binds, so one `dns` listen URL serves UDP alone beside another serving TCP (ADR-0092,
+  Amendment 1; BL-1036).
 - The transports a protocol server receives: `IConnection` (stream-oriented) and
   `IDatagramFlow` (TFTP, and HTTP/3 over QUIC).
 - The protocol server contracts: `IProtocolServer`, `IConnectionProtocolServer` and
