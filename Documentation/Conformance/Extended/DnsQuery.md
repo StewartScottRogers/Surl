@@ -126,7 +126,7 @@ needs no test.
 | DnsQuery:RFC9250-4.2-2 | MUST | Each query is answered on its own client-initiated bidirectional stream, independently. | BL-484 |
 | DnsQuery:RFC9250-4.2.1-1 | MUST | A query with a non-zero Message ID is a protocol error. | BL-484 |
 | DnsQuery:RFC9250-4.3.3-1 | SHOULD | A protocol error closes the connection with `DOQ_PROTOCOL_ERROR`. | BL-484 |
-| DnsQuery:RFC9250-4.3-1 | MAY | Excessive load closes the connection with `DOQ_EXCESSIVE_LOAD`. | BL-484 |
+| DnsQuery:RFC9250-4.3-1 | MAY | Excessive load closes the connection with `DOQ_EXCESSIVE_LOAD`. | BL-484; a flow refused before the handshake gets `CONNECTION_REFUSED` instead (ADR-0092 amendment 2, BL-832) |
 | DnsQuery:RFC9250-4.3.1-1 | MUST | A stream the client cancels is not answered. | BL-484 |
 | DnsQuery:RFC9250-4.2.2-1 | MUST | A zone transfer over DoQ sends all its responses on the query's stream. | BL-484 |
 | DnsQuery:RFC9250-4.5-1 | MUST NOT | A query that changes state is not answered from 0-RTT data. | n/a: ADR-0082 issues no session tickets and accepts no 0-RTT, so no early data ever arrives |

@@ -311,7 +311,7 @@ column):
 
 | Limit (ADR-0006 section 1) | UDP | TCP, DoT | DoH | DoQ |
 | --- | --- | --- | --- | --- |
-| `--max-connections`, `--max-connections-per-address` | the flow is not created; the datagram dropped | close with no bytes | as the HTTP server: `503` and close (HTTP/1.1), `GOAWAY` (HTTP/2, ADR-0081 decision 5) | `CONNECTION_CLOSE` `DOQ_EXCESSIVE_LOAD` |
+| `--max-connections`, `--max-connections-per-address` | the flow is not created; the datagram dropped | close with no bytes | as the HTTP server: `503` and close (HTTP/1.1), `GOAWAY` (HTTP/2, ADR-0081 decision 5) | `CONNECTION_CLOSE` `CONNECTION_REFUSED` (amendment 2) |
 | `--idle-timeout` (120 s) | the flow ends | close with no bytes | as the HTTP server | `DOQ_NO_ERROR` (and QUIC's own idle timeout) |
 | `--max-time` (3600 s) | the flow ends | close with no bytes after the answer being written | as the HTTP server | `DOQ_NO_ERROR` |
 | `--head-timeout` (30 s) | n/a: a datagram arrives whole | a message begun and not finished: close with no bytes; the TLS handshake, as ADR-0010 | the request head, as the HTTP server | the QUIC handshake, as ADR-0082 decision 7 |
@@ -417,3 +417,25 @@ listen URL per transport: `udp` with `Datagrams`, `tcp` with `Connections`, `tls
 `Connections` and `IsImplicitTls = true`. Every other scheme is bound as before. A test sees which
 listeners a listen URL asked for in the in-memory listener factory's start requests
 (`ServingEngineTests.OnlyTransport.cs`).
+
+## Amendment 2 - a DoQ flow past a connection limit is refused with CONNECTION_REFUSED (2026-11-12)
+
+- **Decided by:** Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), 2026-11-12, in
+  BL-832.
+- **Amends:** decision 6's limits table, the DoQ column of the `--max-connections` and
+  `--max-connections-per-address` row, which said `CONNECTION_CLOSE` `DOQ_EXCESSIVE_LOAD`.
+
+**Context.** A flow past a connection limit is refused on its first datagram, before any handshake.
+`DOQ_EXCESSIVE_LOAD` (4) is an application error code, and RFC 9000 section 10.2.3 says a
+`CONNECTION_CLOSE` of type 0x1d sent in an Initial packet is sent as a transport close with
+`APPLICATION_ERROR` (0x0c) and no reason, so the client would never see the 4. Completing the
+handshake first would spend the very CPU and memory the limit protects.
+
+**Decision.** `DnsOverQuicProtocolServer` implements `IDatagramRefusalWriter` and answers the first
+Initial exactly as `Http3ProtocolServer` does (ADR-0082 decision 7): one Initial packet holding
+`CONNECTION_CLOSE` (0x1c) `CONNECTION_REFUSED` (0x02), through `QuicConnectionRefusal`, no reason
+phrase. A first datagram that starts no connection gets no bytes. `DOQ_EXCESSIVE_LOAD` stays the code
+for a connection already past its handshake that is closed for load.
+
+**Consequences.** `Surl.Quic` needs no change. `DnsOverQuicProtocolServerTests`
+`WriteRefusalAsync_*` pin the packet.

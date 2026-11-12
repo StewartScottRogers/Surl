@@ -14,9 +14,13 @@ namespace Surl.Extended.Protocol.DnsQuery;
 /// <c>initial_max_streams_uni</c> 0, <c>max_idle_timeout</c> the idle timeout it is given, and no
 /// <c>max_datagram_frame_size</c>. The handshake must complete within the exchange's head timeout
 /// (ADR-0092 decision 6). No session ticket is issued, so no 0-RTT query is ever accepted (RFC 9250
-/// section 4.5).
+/// section 4.5). A flow past a connection limit is answered, through <see cref="IDatagramRefusalWriter"/>,
+/// with one Initial packet holding <c>CONNECTION_CLOSE</c> <c>CONNECTION_REFUSED</c> (0x02), because
+/// <c>DOQ_EXCESSIVE_LOAD</c> is an application error and RFC 9000 section 10.2.3 turns it into
+/// <c>APPLICATION_ERROR</c> (0x0c) with no reason before the handshake (ADR-0092 amendment); any other
+/// first datagram gets no bytes (<see cref="QuicConnectionRefusal"/>).
 /// </remarks>
-public sealed class DnsOverQuicProtocolServer : IDatagramProtocolServer
+public sealed class DnsOverQuicProtocolServer : IDatagramProtocolServer, IDatagramRefusalWriter
 {
     /// <summary>The one ALPN protocol offered (RFC 9250 section 4.1.1).</summary>
     public const string ApplicationProtocol = "doq";
@@ -86,6 +90,25 @@ public sealed class DnsOverQuicProtocolServer : IDatagramProtocolServer
             }
         });
         await new QuicDatagramFlowServer(Options(context), started, context.TimeProvider, random).ServeAsync(flow, stopBeforeServing.Token);
+    }
+
+    /// <summary>
+    /// Answers a flow refused for a connection limit with one Initial packet holding <c>CONNECTION_CLOSE</c>
+    /// <c>CONNECTION_REFUSED</c>, or with nothing when its first datagram starts no connection.
+    /// </summary>
+    /// <param name="flow">The refused flow.</param>
+    /// <param name="refusal">Which limit it is past.</param>
+    /// <param name="cancellationToken">Cancelled when the engine gives up on the refusal.</param>
+    /// <returns>A task that completes when the refusal is sent, or at once when nothing is.</returns>
+    public async ValueTask WriteRefusalAsync(IDatagramFlow flow, ConnectionRefusal refusal, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(flow);
+
+        using var random = RandomNumberGenerator.Create();
+        if (QuicConnectionRefusal.Write(flow.FirstDatagram, random) is { } datagram)
+        {
+            await flow.SendAsync(datagram, cancellationToken);
+        }
     }
 
     /// <summary>The QUIC options for one connection, ADR-0092 decision 5's transport parameters.</summary>

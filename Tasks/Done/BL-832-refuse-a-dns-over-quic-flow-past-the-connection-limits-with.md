@@ -8,7 +8,7 @@ depends-on: [BL-484, BL-1019]
 touches: [Protocols/Lookup/Surl.Extended.Protocol.DnsQuery.UnitLibrary, Protocols/Lookup/Surl.Extended.Protocol.DnsQuery.UnitTests, Protocols/Http/Surl.Quic.UnitLibrary, Protocols/Http/Surl.Quic.UnitTests]
 requirement: none
 created: 2026-11-05
-completed:
+completed: 2026-11-12
 ---
 # BL-832 — Refuse a DNS over QUIC flow past the connection limits with DOQ_EXCESSIVE_LOAD
 
@@ -32,13 +32,15 @@ instead of being disposed with no reply.
 
 ## Acceptance criteria
 
-- [ ] `DnsOverQuicProtocolServer` implements `IDatagramRefusalWriter`, and a named test over the
+- [x] `DnsOverQuicProtocolServer` implements `IDatagramRefusalWriter`, and a named test over the
       in-memory QUIC test connection (`DnsOverQuicTestClient`) shows a refused flow receives the
       decided `CONNECTION_CLOSE`.
-- [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and the touched libraries keep
+- [x] `dotnet build -warnaserror` is clean, the fast tests are green, and the touched libraries keep
       100% line and branch coverage.
 
 ## Notes
+
+Decision (BL-832): CONNECTION_REFUSED (0x02) in the first Initial, shared with HTTP/3 via QuicConnectionRefusal; ADR-0092 amendment 2. DOQ_EXCESSIVE_LOAD cannot reach a client before the handshake (RFC 9000 10.2.3).
 
 Filed by BL-484 (dark factory lane 6, 2026-11-05): BL-484 built the DoQ server; the limit refusal
 sits in the engine's refusal seam, which BL-484's acceptance criteria did not cover.
@@ -48,3 +50,4 @@ sits in the engine's refusal seam, which BL-484's acceptance criteria did not co
 - 2026-11-05: Created.
 - 2026-11-06: depends-on BL-485 replaced by BL-1019 (BL-485 split for the 60-minute size limit; Stewart asked for a backlog audit 2026-11-06).
 - 2026-11-12: Backlog -> Doing.
+- 2026-11-12: Doing -> Done. DoQ flows past connection limits get a CONNECTION_REFUSED Initial via IDatagramRefusalWriter (ADR-0092 amendment 2)
