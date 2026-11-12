@@ -42,3 +42,4 @@ board that makes it, so no server built after ADR-0124 is left without it.
 - 2026-11-06: depends-on BL-833 replaced by BL-980, BL-981, BL-982, BL-983 (BL-833 split for the 60-minute size limit; Stewart asked for a backlog audit 2026-11-06).
 - 2026-11-06: depends-on BL-836 replaced by BL-984, BL-985, BL-986 (BL-836 split for the 60-minute size limit; Stewart asked for a backlog audit 2026-11-06).
 - 2026-11-06: depends-on BL-834 replaced by BL-1015 (BL-834 split into BL-1011 to BL-1015 after timing out; BL-1015 depends on the five broker tasks; Stewart asked for the split 2026-11-06).
+- 2026-11-12: Backlog -> Doing.
