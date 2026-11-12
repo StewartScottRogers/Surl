@@ -11,7 +11,15 @@
       * Coverage - Microsoft.Testing.Extensions.CodeCoverage, which the MSTest
         meta-package already pulls into every .UnitTests project. It is asked for
         Cobertura, whose <method> elements carry each line's hits and condition
-        coverage.
+        coverage. The script sets VSTEST_DISABLE_ARTIFACTS_POSTPROCESSING=1 for the
+        test run, so each test project keeps its own report and this script does the
+        merging (below). Left to itself, dotnet test merges every project's report
+        into one, and that merge drops a line's conditions whenever two test
+        processes' data for it do not merge cleanly - the line stays branch="True"
+        with no condition-coverage - and which lines lose them changes run to run.
+        Surl.Cli.UnitLibrary, covered from six test projects, lost them on 188 lines
+        in one run and 238 in another, so one commit read 99.89% and 100% branch
+        (BL-1054). Each single project's report is the same on every run.
       * Complexity - the SDK's CA1502 analyzer, the same rule that gates the build at
         the threshold in CodeMetricsConfig.txt. After the tests, the script builds the
         production projects once more with a probe CodeMetricsConfig.txt whose CA1502
@@ -35,7 +43,8 @@
         which is why the default CRAP limit of 30 only ever bites on a method that is
         both complex and undertested.
 
-    A library covered by more than one test project is merged line by line, taking the
+    A library covered by more than one test project (one Cobertura file each) is
+    merged line by line, taking the
     best hit count and the best condition count seen for each line, so a helper in
     Surl.Protocol.Abstractions.UnitLibrary exercised from another protocol's tests is
     credited for it.
@@ -138,7 +147,16 @@ if (-not $SkipTestRun) {
     if (-not $IncludeIntegration) { $testArguments += @('--filter', 'TestCategory!=Integration') }
 
     Write-Host "Running tests with coverage into $ResultsDirectory ..." -ForegroundColor Cyan
-    & dotnet @testArguments | Write-Host
+    # One report per test project, merged below rather than by the collector (see the
+    # header): the collector's merge loses conditions on different lines each run.
+    $previousPostProcessing = $env:VSTEST_DISABLE_ARTIFACTS_POSTPROCESSING
+    $env:VSTEST_DISABLE_ARTIFACTS_POSTPROCESSING = '1'
+    try {
+        & dotnet @testArguments | Write-Host
+    }
+    finally {
+        $env:VSTEST_DISABLE_ARTIFACTS_POSTPROCESSING = $previousPostProcessing
+    }
     if ($LASTEXITCODE -ne 0) {
         throw "dotnet test failed with exit code $LASTEXITCODE. Fix the tests before measuring quality."
     }
