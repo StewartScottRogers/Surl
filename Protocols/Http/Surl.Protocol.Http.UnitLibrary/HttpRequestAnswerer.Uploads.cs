@@ -107,8 +107,14 @@ internal sealed partial class HttpRequestAnswerer
             return UploadNotOpened(request, ContentUploadOpeningResult.NotPermitted, challenges, leavesBodyUnread: false);
         }
 
+        return CommittedUploadAnswer(request, target, session.Length, challenges);
+    }
+
+    // The 201 or 204 for an upload that was written.
+    private HttpAnswer CommittedUploadAnswer(HttpRequest request, PutTarget target, long storedLength, IReadOnlyList<string> challenges)
+    {
         var status = target.Replaces ? NoContent : Created;
-        context.Log.Note($"{request.Method} {request.Target}: {status.Code}, {session.Length} bytes stored at {target.Mapping.Location}");
+        context.Log.Note($"{request.Method} {request.Target}: {status.Code}, {storedLength} bytes stored at {target.Mapping.Location}");
         List<KeyValuePair<string, string>> fields = [new("Date", FormatHttpDate(Now())), new("Server", HttpResponseHead.ServerName)];
         if (!target.Replaces)
         {

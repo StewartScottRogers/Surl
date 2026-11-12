@@ -8,7 +8,7 @@ depends-on: [BL-1035]
 touches: [Protocols/Http/Surl.Protocol.Http.UnitLibrary, Protocols/Http/Surl.Protocol.Http.UnitTests]
 requirement: none
 created: 2026-11-06
-completed:
+completed: 2026-11-12
 ---
 # BL-917 — Split HttpRequestAnswerer.FileAnswer and StoreUploadAsync under complexity 10
 
@@ -28,9 +28,9 @@ completed:
 
 ## Acceptance criteria
 
-- [ ] `powershell -NoProfile -File Measure-CodeQuality.ps1 -Library Surl.Protocol.Http.UnitLibrary`
+- [x] `powershell -NoProfile -File Measure-CodeQuality.ps1 -Library Surl.Protocol.Http.UnitLibrary`
       ends with no failing member, at 100% line and branch coverage.
-- [ ] `dotnet build -warnaserror` is clean and `dotnet test --filter "TestCategory!=Integration"` is green.
+- [x] `dotnet build -warnaserror` is clean and `dotnet test --filter "TestCategory!=Integration"` is green.
 
 ## Notes
 
@@ -42,3 +42,4 @@ completed:
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. waits on BL-1035 - pinned .NET SDK 10.0.401 is not installed, so nothing builds or measures
 - 2026-11-12: Backlog -> Doing.
+- 2026-11-12: Doing -> Done. Split FileAnswer and StoreUploadAsync; Measure-CodeQuality reports 0 failing members, build and fast tests green

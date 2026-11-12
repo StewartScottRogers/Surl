@@ -299,7 +299,13 @@ internal sealed partial class HttpRequestAnswerer : IHttpRequestHandler
             return RangeNotSatisfiableAnswer(request, status.Length, challenges);
         }
 
-        var servedRange = range ?? ContentByteRange.WholeFile(status.Length);
+        return ServedFileAnswer(request, mapping, now, lastModified, range, status.Length, challenges);
+    }
+
+    // The 200 or 206 for a file: the range selected, or the whole file.
+    private HttpAnswer ServedFileAnswer(HttpRequest request, ContentPathMapping mapping, DateTimeOffset now, string lastModified, ContentByteRange? range, long fileLength, IReadOnlyList<string> challenges)
+    {
+        var servedRange = range ?? ContentByteRange.WholeFile(fileLength);
         List<KeyValuePair<string, string>> fields =
         [
             new("Date", FormatHttpDate(now)),
