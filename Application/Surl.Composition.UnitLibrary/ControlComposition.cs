@@ -1,6 +1,7 @@
 using System.Text;
 using Surl.Cli;
 using Surl.Control;
+using Surl.Output;
 using Surl.Protocol.Abstractions;
 
 namespace Surl.Composition;
@@ -52,6 +53,31 @@ internal static class ControlComposition
                 $"(2) Control token file {path} must hold {ControlToken.MinLength} to {ControlToken.MaxLength} visible ASCII bytes on its first line");
         }
     }
+
+    /// <summary>The most control connections served at once: its own, not counted toward <c>--max-connections</c>.</summary>
+    public const int MaxConnections = 8;
+
+    /// <summary>
+    /// Writes ADR-0124 decision 7's warning, from the info level up as the other loosening warnings are.
+    /// </summary>
+    /// <param name="logLevel">The log level.</param>
+    /// <param name="boundControlUrl">The control listener's bound listen URL.</param>
+    /// <param name="log">The log stream.</param>
+    public static void WriteWarning(LogLevel logLevel, ListenUrl boundControlUrl, TextWriter log)
+    {
+        if (logLevel >= LogLevel.Info)
+        {
+            log.WriteLine(
+                $"surl: warning: --control: a test control endpoint on {ListenerStatusLine.FormatBoundListenUrl(boundControlUrl)} "
+                + "can change this server's files, mail, messages, accounts and faults");
+        }
+    }
+
+    /// <summary>The control listener's status line, beside the <c>Listening on</c> lines.</summary>
+    /// <param name="boundControlUrl">The control listener's bound listen URL.</param>
+    /// <returns><c>Control endpoint listening on &lt;bound URL&gt;</c>.</returns>
+    public static string FormatStatusLine(ListenUrl boundControlUrl) =>
+        "Control endpoint listening on " + ListenerStatusLine.FormatBoundListenUrl(boundControlUrl);
 
     // Latin-1, so a byte past ASCII reaches ControlToken as one character and is refused there.
     private static string FirstLine(byte[] content)

@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Net;
+using System.Threading.Channels;
 using Surl.Protocol.Abstractions;
 
 namespace Surl.Composition;
@@ -34,8 +35,22 @@ internal sealed class FakeListenerFactory : IListenerFactory
         init => connectionsByScheme = new(value, StringComparer.Ordinal);
     }
 
+    private readonly ConcurrentDictionary<string, Channel<FakeConnection>> connectionQueues = new(StringComparer.Ordinal);
+
+    /// <summary>
+    /// The queue every connection listener started on <paramref name="listenUrl"/> (<c>scheme://host:port</c>, as
+    /// given before binding) accepts from, in order, ahead of <see cref="ConnectionsByScheme"/>: so a test can hand
+    /// two listeners of one scheme, such as the HTTP server's and the control endpoint's, their own connections, as
+    /// many as it likes, one after another.
+    /// </summary>
+    /// <param name="listenUrl">The listen URL as given before binding.</param>
+    /// <returns>The writer of that listen URL's queue.</returns>
+    public ChannelWriter<FakeConnection> ConnectionsFor(string listenUrl) =>
+        connectionQueues.GetOrAdd(listenUrl, _ => Channel.CreateUnbounded<FakeConnection>()).Writer;
+
     public ValueTask<IConnectionListener> StartConnectionListenerAsync(ListenUrl listenUrl, CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         ThrowBindFailureWhenSet();
         return ValueTask.FromResult<IConnectionListener>(new FakeConnectionListener(listenUrl.WithBoundPort(BoundPort), this));
     }
@@ -80,14 +95,27 @@ internal sealed class FakeListenerFactory : IListenerFactory
 
         public async ValueTask<IConnection> AcceptAsync(CancellationToken cancellationToken)
         {
+            if (factory.connectionQueues.TryGetValue(QueueKey(ListenUrl), out var queue))
+            {
+                return await queue.Reader.ReadAsync(cancellationToken);
+            }
+
             if (factory.connectionsByScheme.TryRemove(ListenUrl.Scheme, out var schemeConnection))
             {
                 return await schemeConnection.WaitAsync(cancellationToken);
             }
 
-            await factory.WaitUntilCancelledAsync(cancellationToken);
-            throw new UnreachableException();
+            if (factory.AcceptFailure is not null)
+            {
+                throw factory.AcceptFailure;
+            }
+
+            // Waits on this listen URL's queue, made now if a test has not yet, so a connection handed over later arrives.
+            var waitingQueue = factory.connectionQueues.GetOrAdd(QueueKey(ListenUrl), _ => Channel.CreateUnbounded<FakeConnection>());
+            return await waitingQueue.Reader.ReadAsync(cancellationToken);
         }
+
+        private static string QueueKey(ListenUrl listenUrl) => $"{listenUrl.Scheme}://{listenUrl.Host}:{listenUrl.Port}";
 
         public ValueTask DisposeAsync() => ValueTask.CompletedTask;
     }

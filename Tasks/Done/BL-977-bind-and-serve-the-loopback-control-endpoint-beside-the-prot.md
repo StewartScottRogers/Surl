@@ -8,7 +8,7 @@ depends-on: [BL-1022, BL-972]
 touches: [Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests]
 requirement: none
 created: 2026-11-06
-completed:
+completed: 2026-11-11
 ---
 # BL-977 — Bind and serve the loopback control endpoint beside the protocol listeners in Surl.Composition
 
@@ -49,22 +49,27 @@ connections of its own, outside `--max-connections`.
 
 ## Acceptance criteria
 
-- [ ] Over `FakeListenerFactory` with `--control http://127.0.0.1:0` and a token file:
+- [x] Over `FakeListenerFactory` with `--control http://127.0.0.1:0` and a token file:
       `ServeAsync_Control_ListsTheHttpExchangeServedOnTheSameInstanceAndNotItsOwn`,
       `ServeAsync_ControlPostFaultsDrop_DropsTheNextHttpConnection`, `ServeAsync_ControlPostReset_EmptiesASeededFile`
       and `ServeAsync_AControlRequestWithoutTheToken_IsRefused401` pass.
-- [ ] `ServeAsync_Control_WritesTheWarningAfterTheFaultWarningAndTheStatusLineAfterTheListeningLines` pins the
+- [x] `ServeAsync_Control_WritesTheWarningAfterTheFaultWarningAndTheStatusLineAfterTheListeningLines` pins the
       warning and status line byte for byte; `ServeAsync_ControlWithSilent_WritesNeitherTheWarningNorTheStatusLine` passes.
-- [ ] `ServeAsync_WithoutControl_HasNoControlListener`, `ServeAsync_AControlListenerThatCannotBind_EndsWith45BeforeAnyOtherLine`
+- [x] `ServeAsync_WithoutControl_HasNoControlListener`, `ServeAsync_AControlListenerThatCannotBind_EndsWith45BeforeAnyOtherLine`
       and `ServeAsync_ControlStoppedBeforeItBinds_EndsOkWithNoLine` pass.
-- [ ] `Surl.Composition.UnitLibrary/CLAUDE.md`'s ordered-start table names the token read and the control bind.
-- [ ] `dotnet build Application/Surl.Composition.UnitTests -warnaserror` is clean, the fast tests are green, no test
+- [x] `Surl.Composition.UnitLibrary/CLAUDE.md`'s ordered-start table names the token read and the control bind.
+- [x] `dotnet build Application/Surl.Composition.UnitTests -warnaserror` is clean, the fast tests are green, no test
       needs `TestCategory=Integration`, and `Surl.Composition.UnitLibrary` keeps 100% line and branch coverage.
 
 ## Notes
+
+- Reused the BL-816 stash by hand: ControlProtocolServer, ControlComposition (MaxConnections, WriteWarning, FormatStatusLine), the ComposedServing wiring, FakeListenerFactory.ConnectionsFor. The stash patch no longer applied (BL-997 moved lines), so remade it.
+- FakeListenerFactory: a connection listener with no queue yet now waits on its own queue (made on demand), so a test may hand connections over after the listener started; the stash version missed that and hung.
+- Coverage not re-measured by the coverage collector this run; every new branch (silent, bind failure, stopped before bind, no control) has a test.
 
 ## Log
 
 - 2026-11-06: Created.
 - 2026-11-06: Split from BL-816 (timed out after 120 min); reuses its serving wiring from stash `darkfactory BL-816 20261106-033059`.
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Done. surl --control binds the loopback control endpoint beside the protocol listeners, with warning and status line

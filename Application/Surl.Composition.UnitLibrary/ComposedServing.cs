@@ -1,4 +1,5 @@
 using Surl.Cli;
+using Surl.Control;
 using Surl.Core;
 using Surl.Networking;
 using Surl.Output;
@@ -98,6 +99,12 @@ public sealed class ComposedServing : IAsyncDisposable
     public ComposedStores Stores { get; }
 
     /// <summary>
+    /// The loopback control endpoint's bound listen URL once <see cref="ServeAsync"/> has bound it, port 0 replaced by
+    /// the port bound; <see langword="null"/> without <c>--control</c> or before it binds (ADR-0124, decision 7).
+    /// </summary>
+    public ListenUrl? ControlListenUrl { get; private set; }
+
+    /// <summary>
     /// The protocol servers the serving engine routes each listen URL to, original and extended, in
     /// registration order.
     /// </summary>
@@ -121,45 +128,14 @@ public sealed class ComposedServing : IAsyncDisposable
     public async Task<SurlServingOutcome> ServeAsync(SurlServingOutputs outputs, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(outputs);
-        WriteStartUpLines(outputs.Log);
-
-        // The status lines are written from the info level up (ADR-0033, section 1).
-        var statusOutput = commandLine.LogLevel >= LogLevel.Info ? outputs.StatusOutput : TextWriter.Null;
-        var reporter = new ListenerStartReporter(
-            seams.CreateListenerFactory(tls.Settings),
-            new ListenerStatusLine(statusOutput),
-            commandLine.ListenUrls.Count,
-            outputs.AllListenersBound,
-            listenUrl => WriteHttp3Note(listenUrl, outputs.Log));
-        var engine = new ServingEngine(
-            reporter,
-            servers,
-            outputs.ExchangeLogFactory,
-            seams.TimeProvider,
-            ServingEngine.DefaultShutdownGracePeriod,
-            SurlServerComposition.ComposeConnectionLimits(commandLine),
-            CreateDataConnectionOpener(),
-            commandLine.Limits,
-            instruments.Events,
-            instruments.Faults)
+        var listenerFactory = seams.CreateListenerFactory(tls.Settings);
+        if (authentication.ControlToken is { } controlToken)
         {
-            IdentifiersForExchange = IdentifiersForExchange,
-        };
-
-        try
-        {
-            var exitCode = await engine.ServeAsync(commandLine.ListenUrls, cancellationToken);
-            return reporter.BindFailure is { } bindFailure
-                ? new SurlServingOutcome(exitCode, new SurlStartFailure(exitCode, [SurlServerComposition.FormatBindFailure(bindFailure)]))
-                : new SurlServingOutcome(exitCode, null);
+            return await ServeWithControlAsync(listenerFactory, controlToken, outputs, cancellationToken);
         }
-        catch (Exception exception)
-        {
-            // Any failure while serving ends surl with (125) (ADR-0007, section 5).
-            return new SurlServingOutcome(
-                SurlExitCode.InternalError,
-                new SurlStartFailure(SurlExitCode.InternalError, [$"(125) Internal error: {exception.Message}"]));
-        }
+
+        WriteStartUpLines(outputs.Log, null);
+        return await ServeProtocolsAsync(listenerFactory, outputs, outputs.AllListenersBound, cancellationToken);
     }
 
     /// <summary>Releases the TLS certificates and then the data-directory lock.</summary>
@@ -176,7 +152,120 @@ public sealed class ComposedServing : IAsyncDisposable
             ? create(tls.Settings)
             : new SocketDataConnectionOpener(tls.Settings, seams.TimeProvider);
 
-    private void WriteStartUpLines(TextWriter log)
+    // The status lines are written from the info level up (ADR-0033, section 1).
+    private TextWriter StatusOutputOf(SurlServingOutputs outputs) =>
+        commandLine.LogLevel >= LogLevel.Info ? outputs.StatusOutput : TextWriter.Null;
+
+    private Task<SurlServingOutcome> ServeProtocolsAsync(
+        IListenerFactory listenerFactory,
+        SurlServingOutputs outputs,
+        Action<IReadOnlyList<ListenUrl>> allListenersBound,
+        CancellationToken cancellationToken)
+    {
+        var reporter = new ListenerStartReporter(
+            listenerFactory,
+            new ListenerStatusLine(StatusOutputOf(outputs)),
+            commandLine.ListenUrls.Count,
+            allListenersBound,
+            listenUrl => WriteHttp3Note(listenUrl, outputs.Log));
+        var engine = new ServingEngine(
+            reporter,
+            servers,
+            outputs.ExchangeLogFactory,
+            seams.TimeProvider,
+            ServingEngine.DefaultShutdownGracePeriod,
+            SurlServerComposition.ComposeConnectionLimits(commandLine),
+            CreateDataConnectionOpener(),
+            commandLine.Limits,
+            instruments.Events,
+            instruments.Faults)
+        {
+            IdentifiersForExchange = IdentifiersForExchange,
+        };
+        return RunEngineAsync(engine, reporter, commandLine.ListenUrls, cancellationToken);
+    }
+
+    // The control listener binds first, through the same listener factory, on its own serving engine: at most 8
+    // connections of its own, never --max-connections, no fault plan, and nothing published or logged, so watching
+    // the stream does not record the watching and no log holds the token (ADR-0124 decision 7). Its warning names
+    // its bound URL, so the start-up lines follow its bind; its status line follows the Listening on lines.
+    private async Task<SurlServingOutcome> ServeWithControlAsync(
+        IListenerFactory listenerFactory, ControlToken controlToken, SurlServingOutputs outputs, CancellationToken cancellationToken)
+    {
+        using var stopControl = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        var endpoint = new ControlEndpoint(new ComposedControlTarget(Events, Faults, Stores), controlToken);
+        var feed = endpoint.FeedEventsAsync(stopControl.Token);
+        var bound = new TaskCompletionSource<ListenUrl>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var controlReporter = new ListenerStartReporter(
+            listenerFactory, new ListenerStatusLine(TextWriter.Null), 1, listenUrls => bound.TrySetResult(listenUrls[0]), _ => { });
+        var controlServing = RunEngineAsync(
+            ComposeControlEngine(controlReporter, endpoint), controlReporter, [commandLine.ControlListenUrl!], stopControl.Token);
+        try
+        {
+            if (await Task.WhenAny(bound.Task, controlServing) != bound.Task)
+            {
+                // Not bound: the bind failure (45, 6), or a stop before it bound.
+                return await controlServing;
+            }
+
+            ControlListenUrl = await bound.Task;
+            WriteStartUpLines(outputs.Log, ControlListenUrl);
+            var statusOutput = StatusOutputOf(outputs);
+            return await ServeProtocolsAsync(
+                listenerFactory,
+                outputs,
+                listenUrls =>
+                {
+                    statusOutput.WriteLine(ControlComposition.FormatStatusLine(ControlListenUrl));
+                    outputs.AllListenersBound(listenUrls);
+                },
+                cancellationToken);
+        }
+        finally
+        {
+            await stopControl.CancelAsync();
+            await controlServing;
+            await feed;
+        }
+    }
+
+    private ServingEngine ComposeControlEngine(ListenerStartReporter controlReporter, ControlEndpoint endpoint) =>
+        new(
+            controlReporter,
+            [new ControlProtocolServer(endpoint)],
+            new LevelledExchangeLogFactory(TextWriter.Null, LogLevel.None, false, seams.TimeProvider),
+            seams.TimeProvider,
+            ServingEngine.DefaultShutdownGracePeriod,
+            ConnectionLimits.Default with
+            {
+                MaxConnections = ControlComposition.MaxConnections,
+                MaxConnectionsPerAddress = ControlComposition.MaxConnections,
+            },
+            RefusingDataConnectionOpener.Instance,
+            ExchangeLimits.Default,
+            DiscardingSurlEventPublisher.Instance,
+            EmptyFaultPlan.Instance);
+
+    private static async Task<SurlServingOutcome> RunEngineAsync(
+        ServingEngine engine, ListenerStartReporter reporter, IReadOnlyList<ListenUrl> listenUrls, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var exitCode = await engine.ServeAsync(listenUrls, cancellationToken);
+            return reporter.BindFailure is { } bindFailure
+                ? new SurlServingOutcome(exitCode, new SurlStartFailure(exitCode, [SurlServerComposition.FormatBindFailure(bindFailure)]))
+                : new SurlServingOutcome(exitCode, null);
+        }
+        catch (Exception exception)
+        {
+            // Any failure while serving ends surl with (125) (ADR-0007, section 5).
+            return new SurlServingOutcome(
+                SurlExitCode.InternalError,
+                new SurlStartFailure(SurlExitCode.InternalError, [$"(125) Internal error: {exception.Message}"]));
+        }
+    }
+
+    private void WriteStartUpLines(TextWriter log, ListenUrl? boundControlUrl)
     {
         // Each loosening option's warning (ADR-0032, section 9).
         AuthenticationComposition.WriteLooseningWarnings(commandLine, log);
@@ -184,6 +273,12 @@ public sealed class ComposedServing : IAsyncDisposable
 
         // The --fault warning, once, with the other loosening warnings (ADR-0124, decision 4).
         FaultPlanComposition.WriteWarning(commandLine, log);
+
+        // The --control warning, naming the bound control URL (ADR-0124, decision 7).
+        if (boundControlUrl is not null)
+        {
+            ControlComposition.WriteWarning(commandLine.LogLevel, boundControlUrl, log);
+        }
 
         // Each share granting @everyone, with the other widening warnings (ADR-0102 decision 2.2).
         ContentShareComposition.WriteWarnings(commandLine.LogLevel, Stores.Content, log);

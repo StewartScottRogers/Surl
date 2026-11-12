@@ -126,8 +126,17 @@ horizontal library may reference it (ADR-0099 decision 11, held by
   refuses an invalid address `BadRequest`, no such account or a recipient outside the mail domains `NotFound`, a
   failed delivery `Conflict`; a file path a request may not name is `BadRequest`; a bus refusal maps by
   `RefusalKindOf`; a store on disk refused reset, snapshot or restore is `Conflict`. `ReadEventsAsync` reads its own
-  subscription, bytes included, and ends without throwing when cancelled. Nothing binds it yet (BL-977).
+  subscription, bytes included, and ends without throwing when cancelled.
   Tests: `ComposedControlTargetTests`, `FaultItemTextTests`.
+- Serving the control endpoint (ADR-0124 decision 7, BL-977): with `--control`, `ControlComposition.ReadToken` has read
+  the token (`ComposedAuthentication.ControlToken`), and `ComposedServing.ServeAsync` first binds the control listener
+  through the same `IListenerFactory`, on its own `ServingEngine` over a `ControlProtocolServer` (a `ControlEndpoint`
+  over `ComposedControlTarget`): at most `ControlComposition.MaxConnections` (8) connections of its own, outside
+  `--max-connections`, no fault plan, nothing published or logged. Its bound URL is `ControlListenUrl`; the start-up
+  warnings then follow, with `ControlComposition.WriteWarning` after the `--fault` one, and
+  `Control endpoint listening on <bound URL>` is written after the `Listening on` lines (info up). A bind failure
+  ends the start with its exit code (45) before any other line; a stop before it binds ends `Ok` with no line. The
+  control engine stops with the instance. Tests: `SurlServerCompositionTests.Control.cs`.
 
 - Identifier sources per instance (ADR-0124 decision 6, BL-997): `ComposedServing` builds a
   `SeededIdentifierRandom` from `SurlCommandLine.RandomSeed` when present (none otherwise) and hands the
@@ -143,8 +152,10 @@ The ordered start lives here (ADR-0099 decision 2, BL-614); which project runs e
 | Step | Run by |
 | --- | --- |
 | Parse the command line, answer help and version, read `SURL_EXTENSIONS` | the host (`Surl.Console`'s `CommandLineRunner`) |
+| With `--control`: read the token file (37, 2), after every other start file and before the data-directory lock | `SurlServerComposition.ComposeAsync` through `ControlComposition.ReadToken` |
 | `--auth gssapi` without `--keytab` and the `--ssh-ciphers`/`--ssh-macs` refusal (2), the data directory probe (37), the content file system (`ContentWithoutDataDirectory` or a new `InMemoryContentFileSystem` without `--directory`), the TLS-first listen URL without a certificate (58) and the `scp`/`sftp` one without a host key (2), authentication, groups and host keys, the shares and buckets (2, 37) and the content store, the lock (124, 23), the service state (37), the protocol servers, server TLS (58, 2, 77) | `SurlServerComposition.ComposeAsync`, from a `SurlCommandLine` and a `SurlServerCompositionSeams`, returning a `SurlServerStart`: a `SurlStartFailure` (exit code and lines after `surl: `; a start cancelled while loading the service state is `Ok` with no lines) or a `ComposedServing` |
 | Open the log streams (`--log-file`, trace file) | the host, which disposes the `ComposedServing` on failure to release the lock |
+| With `--control`: bind the control listener first (45, 6 before any other line), then the start-up warnings (the control one after the `--fault` one), the protocol listeners, and the control status line after the `Listening on` lines | `ComposedServing.ServeAsync` |
 | Start-up warnings and notes, the status lines, the `ServingEngine`, the bound listen URLs, bind failures (45, 6) and `(125)` | `ComposedServing.ServeAsync`, given `SurlServingOutputs`; `ListenerStartReporter` calls `AllListenersBound` once with every bound `ListenUrl`, never after a bind failure; it returns a `SurlServingOutcome` |
 | Write each `surl: ` line and return the exit code | the host |
 
