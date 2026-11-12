@@ -112,3 +112,5 @@ that refuses a second start on a held data directory with 124 as `DataDirectoryL
 `SURL_EXTENSIONS=0`. `SurlServerHostSeams.Production` is what the public `StartAsync` uses:
 socket listeners, `DataDirectoryProbe.CanOpen`, `DataDirectoryLock.Take` and the process's
 environment.
+
+A test that needs an extended server (STOMP) sets `AreExtensionsTurnedOn = true` on its options, which overrides the seams' `SURL_EXTENSIONS=0`. The STOMP broker refuses a CONNECT without `login`/`passcode` when no policy loosens it, so such a test seeds an account (`StoreOptions`) and logs in as it; a queue exists for `Messages.EnqueueAsync` only after a client SENDs or SUBSCRIBEs to `/queue/<name>`.
