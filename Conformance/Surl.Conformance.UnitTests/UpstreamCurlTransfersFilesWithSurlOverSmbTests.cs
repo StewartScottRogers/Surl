@@ -217,6 +217,27 @@ public sealed class UpstreamCurlTransfersFilesWithSurlOverSmbTests
         Assert.AreEqual(60, result.ExitCode, result.StandardError);
     }
 
+    [TestMethod]
+    public async Task Download_ChosenNtStatus_Exits78()
+    {
+        await using var surl = await StartSurlAsync([.. AccountOptions, "--fault", "error;scheme=smb;command=CREATE;path=/files/hello.txt;reply=C0000022"]);
+
+        var result = await RunCurlAsync("-u", Account, surl.UrlOf("files/hello.txt"));
+
+        Assert.AreEqual(78, result.ExitCode, result.StandardError);
+    }
+
+    [TestMethod]
+    public async Task Upload_ChosenNtStatus_Exits78AndStoresNothing()
+    {
+        await using var surl = await StartSurlAsync([.. AccountOptions, "--allow-uploads", "--fault", "error;scheme=smb;command=CREATE;path=/files/up.txt;reply=C0000022"]);
+        var upload = await curlHome.WriteFileAsync("up.txt", UploadText, TestContext.CancellationToken);
+
+        var result = await RunCurlAsync("-u", Account, "-T", upload, surl.UrlOf("files/up.txt"));
+
+        Assert.AreEqual(78, result.ExitCode, result.StandardError);
+        Assert.IsFalse(File.Exists(ServedPath(surl, "files/up.txt")));
+    }
     private static string ServedPath(SurlOnLoopback surl, string path) =>
         Path.Combine(surl.ServedDirectory!, path.Replace('/', Path.DirectorySeparatorChar));
 

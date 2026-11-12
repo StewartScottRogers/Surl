@@ -64,10 +64,13 @@ The bytes are those a natural refusal already sends, which pinned upstream curl 
 against in `Surl.Conformance.UnitTests`: SFTP `NO_SUCH_FILE` exits 78, `PERMISSION_DENIED` 9 and `FAILURE` 79
 (`UpstreamCurlTransfersFilesWithSurlOverSftpTests`); an SCP error line exits 78 on a download and 25 on an
 upload (`UpstreamCurlTransfersFilesWithSurlOverScpTests`); an SMB `CREATE` refused with any status but
-`ERRDOS/ERRnoaccess` exits 78 (`UpstreamCurlTransfersFilesWithSurlOverSmbTests`). The fault's own exchanges
-against a live `surl` wait on BL-803, which composes the fault plan into the running server; BL-910 measures
-them then, including the two not yet seen - an SCP upload refused before its first `\0`, and an NTSTATUS
-rather than a DOS-class status.
+`ERRDOS/ERRnoaccess` exits 78 (`UpstreamCurlTransfersFilesWithSurlOverSmbTests`). The fault's own exchanges against a live `surl` (composed by BL-803), measured by BL-910 with pinned upstream curl
+8.21.0 in the same three test classes, give the same codes: an SFTP download under `reply=3 No` exits 9 and an
+SFTP upload under `reply=2 No` 78 (`Upload failed: No such file or directory`); an SCP download under an
+error line exits 78 (`Failed to recv file`) and an SCP upload refused before its first `\0` exits 25
+(`Invalid ACK response from remote`); an SMB download and an SMB upload whose `CREATE` is answered
+`C0000022` as an NTSTATUS with `SMB_FLAGS2_NT_STATUS` set both exit 78 (`Remote file not found`). No
+upload stores a file.
 
 ## Consequences
 
