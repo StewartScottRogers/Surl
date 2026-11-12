@@ -61,3 +61,4 @@ partition") and requirement `Kafka:Surl-Produce-1` say.
 - 2026-11-05: Created.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waits on BL-1035: pinned .NET SDK 10.0.401 is not installed, so the build gate cannot run; code is written and passes under SDK 11
+- 2026-11-11: Backlog -> Doing.
