@@ -36,3 +36,4 @@ here, as BL-371's went to BL-724. Read runs with `gh run list --workflow CI` and
 
 - 2026-11-12: Created.
 - 2026-11-12: Backlog -> Doing.
+- 2026-11-12: Doing -> Deferred. No CI run contains BL-568's commit d8640ec7 yet (latest CI runs c5ad69c1 and 6eb8657d are not descendants); look again after the shift merges it to master and CI passes
