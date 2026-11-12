@@ -45,6 +45,7 @@ public sealed class DnsOverHttpsHandler : IHttpRequestHandler, IHttp2StreamHandl
     private readonly DnsQueryAnswerer answerer;
     private readonly TimeProvider timeProvider;
     private readonly ExchangeContext? exchange;
+    private readonly IHttpAuthenticationSession? authentication;
 
     /// <summary>
     /// Creates a DNS over HTTPS handler that answers from <paramref name="zones"/>, dating its
@@ -63,12 +64,15 @@ public sealed class DnsOverHttpsHandler : IHttpRequestHandler, IHttp2StreamHandl
     /// Creates a DNS over HTTPS handler for one exchange: it answers from <paramref name="zones"/>
     /// as the other constructor says, dates its answers by the exchange's clock, and offers each
     /// query to the exchange's fault plan first (<see cref="DnsQueryFaults"/>), whose chosen RCODE
-    /// is answered <c>200</c> in place of the zones' answer.
+    /// is answered <c>200</c> in place of the zones' answer. Given an <paramref name="authentication"/>
+    /// session, it judges every request to <see cref="Path"/> by it before the method is looked at
+    /// (<c>401</c> with the session's challenges, or <c>403</c>); <see langword="null"/> asks no login.
     /// </summary>
-    public DnsOverHttpsHandler(DnsZoneSet zones, ExchangeContext exchange, bool allowZoneTransfer = false)
+    public DnsOverHttpsHandler(DnsZoneSet zones, ExchangeContext exchange, bool allowZoneTransfer = false, IHttpAuthenticationSession? authentication = null)
         : this(zones, (exchange ?? throw new ArgumentNullException(nameof(exchange))).TimeProvider, allowZoneTransfer)
     {
         this.exchange = exchange;
+        this.authentication = authentication;
     }
 
     /// <summary>Decides the answer to one DNS over HTTPS request, as the remarks say.</summary>
@@ -83,6 +87,11 @@ public sealed class DnsOverHttpsHandler : IHttpRequestHandler, IHttp2StreamHandl
         if (target[0] != Path)
         {
             return Empty(request, HttpStatus.NotFound);
+        }
+
+        if (authentication is not null && await authentication.JudgeAsync(new HttpAuthenticationRequest(request.Method, request.Target, IsWrite: false, request.Fields), cancellationToken) is { Outcome: not HttpAuthenticationOutcome.Proceed } verdict)
+        {
+            return Unauthenticated(request, verdict);
         }
 
         return await (request.Method switch
@@ -120,6 +129,13 @@ public sealed class DnsOverHttpsHandler : IHttpRequestHandler, IHttp2StreamHandl
             await stream.WriteDataAsync(body, endStream: true);
         }
     }
+
+    // A POST only asks a question, so no request is a write: with no account configured the session proceeds.
+    // The session's refusal: 401 with its challenges, one WWW-Authenticate field each, or 403.
+    private HttpAnswer Unauthenticated(HttpRequest request, HttpAuthenticationVerdict verdict) =>
+        verdict.Outcome == HttpAuthenticationOutcome.Challenge
+            ? Empty(request, HttpStatus.Unauthorized, [.. verdict.WwwAuthenticateValues.Select(value => new KeyValuePair<string, string>("WWW-Authenticate", value))])
+            : Empty(request, HttpStatus.Forbidden);
 
     private async Task<HttpAnswer> AnswerGetAsync(HttpRequest request, string query) =>
         DnsOverHttpsQueryParameter.Decode(query) is { } message ? await AnswerQueryAsync(request, message) : Empty(request, HttpStatus.BadRequest);

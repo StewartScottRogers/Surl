@@ -1,6 +1,7 @@
 using System.Net;
 using System.Security.Authentication;
 using System.Text;
+using Surl.Authentication;
 using Surl.Extended.Protocol.DnsQuery;
 using Surl.Protocol.Abstractions;
 
@@ -89,6 +90,50 @@ public sealed class DnsConnectionRoutingProtocolServerTests
         Assert.IsEmpty(connection.WrittenBytes);
     }
 
+
+    private static AuthenticationPolicy PolicyWithAlice()
+    {
+        var accounts = new AccountBook([new Account("alice", "secret")]);
+        return new AuthenticationPolicy(
+            new AuthenticationSettings(accounts, AllowAnonymous: false, AllowPlaintextAuthentication: true, AuthenticationMethods.DefaultAccepted),
+            [new BasicAuthenticationMethod(accounts)],
+            TimeProvider.System);
+    }
+
+    [TestMethod]
+    [DataRow(null, "HTTP/1.1 401")]
+    [DataRow("Authorization: Basic YWxpY2U6c2VjcmV0\r\n", "HTTP/1.1 200")]
+    public async Task ServeAsync_DnsOverHttpsWithAnAccount_ChallengesWithoutBasicCredentialsAndAnswersWithThem(string? authorization, string status)
+    {
+        var request = $"GET /dns-query?dns={ExampleGetParameter} HTTP/1.1\r\nHost: dnsserver.example.net\r\n{authorization}Connection: close\r\n\r\n";
+        await using var connection = new InMemoryConnection([Encoding.ASCII.GetBytes(request)], initialTlsSession: Session("http/1.1"));
+        var server = new DnsConnectionRoutingProtocolServer(new RecordingConnectionServer(), new DnsZoneSet(), allowZoneTransfer: false, PolicyWithAlice());
+
+        await server.ServeAsync(connection, ContextFor(DnsOverHttps));
+
+        var written = Encoding.ASCII.GetString(connection.WrittenBytes);
+        StringAssert.StartsWith(written, status);
+        Assert.AreEqual(authorization is null, written.Contains("WWW-Authenticate: Basic realm=\"surl\"", StringComparison.Ordinal));
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_DnsOverHttpsPostWithNoAccount_AnswersWithoutAskingForALogin()
+    {
+        byte[] query = [0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 3, 119, 119, 119, 7, 101, 120, 97, 109, 112, 108, 101, 3, 99, 111, 109, 0, 0, 1, 0, 1];
+        var head = Encoding.ASCII.GetBytes("POST /dns-query HTTP/1.1\r\nHost: a\r\nContent-Type: application/dns-message\r\nContent-Length: 33\r\nConnection: close\r\n\r\n");
+        await using var connection = new InMemoryConnection([(byte[])[.. head, .. query]], initialTlsSession: Session("http/1.1"));
+        var noAccounts = new AuthenticationPolicy(
+            new AuthenticationSettings(new AccountBook([]), AllowAnonymous: false, AllowPlaintextAuthentication: false, AuthenticationMethods.DefaultAccepted),
+            [new BasicAuthenticationMethod(new AccountBook([]))],
+            TimeProvider.System);
+        var server = new DnsConnectionRoutingProtocolServer(new RecordingConnectionServer(), new DnsZoneSet(), allowZoneTransfer: false, noAccounts);
+
+        await server.ServeAsync(connection, ContextFor(DnsOverHttps));
+
+        var written = Encoding.ASCII.GetString(connection.WrittenBytes);
+        StringAssert.StartsWith(written, "HTTP/1.1 200");
+        Assert.DoesNotContain("WWW-Authenticate", written);
+    }
     [TestMethod]
     public void ServeAsync_NullArguments_Throw()
     {

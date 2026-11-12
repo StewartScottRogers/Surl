@@ -82,8 +82,9 @@ DNS over HTTPS (BL-483, ADR-0092 decision 5; RFC 8484):
   negative answer's SOA TTL, else 0).
 - `DnsQueryAnswerer.AnswerOverHttp` answers one query; allowed AXFR and IXFR are `NOTIMP` there.
 - EDNS(0) padding is answered on DoH and DoQ (`DnsResponseWriter.WritePaddedWithin`, multiples of 468; UDP and TCP never pad).
-- Not yet: the optional DoH login (ADR-0092
-  decisions 2 and 5); see the tasks filed for them.
+- The optional login (BL-827; ADR-0092 decision 5): a handler made with an `IHttpAuthenticationSession` (the exchange constructor's
+  `authentication`) judges every request to `/dns-query` by it, before the method, as a read: `401` with one
+  `WWW-Authenticate` per challenge, or `403`. `DnsConnectionRoutingProtocolServer` starts it from the `dns` policy; no account, no challenge.
 
 DNS over QUIC (BL-484, ADR-0092 decision 5; RFC 9250):
 

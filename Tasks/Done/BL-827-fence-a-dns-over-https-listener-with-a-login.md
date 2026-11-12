@@ -8,7 +8,7 @@ depends-on: [BL-483, BL-1018]
 touches: [Protocols/Lookup/Surl.Extended.Protocol.DnsQuery.UnitLibrary, Protocols/Lookup/Surl.Extended.Protocol.DnsQuery.UnitTests, Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests]
 requirement: none
 created: 2026-11-05
-completed:
+completed: 2026-11-12
 ---
 # BL-827 — Fence a DNS over HTTPS listener with a login
 
@@ -26,18 +26,21 @@ ADR-0032's rules and the `--auth` methods before it is answered; with no account
 
 ## Acceptance criteria
 
-- [ ] A named test with an account configured answers a DoH `GET` without credentials `401` with the challenge the
+- [x] A named test with an account configured answers a DoH `GET` without credentials `401` with the challenge the
       configured `--auth` methods give, and the same request with Basic credentials `200`.
-- [ ] A named test with no account configured answers the RFC 8484 example `GET` `200` with no `Authorization`.
-- [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and the library keeps 100% line and branch
+- [x] A named test with no account configured answers the RFC 8484 example `GET` `200` with no `Authorization`.
+- [x] `dotnet build -warnaserror` is clean, the fast tests are green, and the library keeps 100% line and branch
       coverage.
 
 ## Notes
 
 Filed by BL-483, which built DoH without the optional login to keep to its acceptance criteria.
 
+Done: handler takes an optional `IHttpAuthenticationSession` (judged as a read, so a POST with no account is not challenged); `DnsConnectionRoutingProtocolServer` starts it from `AuthenticationPolicyFor("dns")`. Tests: `DnsOverHttpsHandlerLoginTests`, and the real Basic policy in `DnsConnectionRoutingProtocolServerTests`. No ADR needed: ADR-0092 decision 5 already decides it.
+
 ## Log
 
 - 2026-11-05: Created.
 - 2026-11-06: depends-on BL-485 replaced by BL-1018 (BL-485 split for the 60-minute size limit; Stewart asked for a backlog audit 2026-11-06).
 - 2026-11-12: Backlog -> Doing.
+- 2026-11-12: Doing -> Done. DNS over HTTPS answers 401 with the --auth challenge without a login and 200 with Basic credentials once an account is configured; none configured, none asked

@@ -19,7 +19,8 @@ namespace Surl.Composition;
 internal sealed class DnsConnectionRoutingProtocolServer(
     IConnectionProtocolServer streamServer,
     DnsZoneSet zones,
-    bool allowZoneTransfer) : IConnectionProtocolServer
+    bool allowZoneTransfer,
+    IAuthenticationPolicy? authenticationPolicy = null) : IConnectionProtocolServer
 {
     private const string Http2ApplicationProtocol = "h2";
 
@@ -39,7 +40,7 @@ internal sealed class DnsConnectionRoutingProtocolServer(
             return streamServer.ServeAsync(connection, context);
         }
 
-        var handler = new DnsOverHttpsHandler(zones, context, allowZoneTransfer);
+        var handler = new DnsOverHttpsHandler(zones, context, allowZoneTransfer, authenticationPolicy?.StartHttpConnection(connection.TlsSession, LoginExchange.Of(context)));
         return connection.TlsSession is { ApplicationProtocol: Http2ApplicationProtocol }
             ? ServeHttp2Async(handler, connection, context)
             : new Http1ConnectionServer(handler, context).ServeAsync(connection);
