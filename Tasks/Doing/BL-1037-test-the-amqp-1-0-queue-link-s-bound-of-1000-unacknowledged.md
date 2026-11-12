@@ -44,3 +44,4 @@ A unit test in `Amqp1ContainerConnectionTests` shows that a queue link holds at 
 ## Log
 
 - 2026-11-11: Created.
+- 2026-11-12: Backlog -> Doing.
