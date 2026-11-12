@@ -60,6 +60,8 @@ they serve the whole file with `200`.
 - Returned to Backlog behind BL-1035: `dotnet build` fails, the pinned .NET SDK 10.0.401 is not
   installed (installed: 10.0.100-rc.1, 11.0.100-rc.2, 11.0.100).
 
+- 2026-11-12: The unfinished work is recovered on branch `origin/recover/BL-888` (commit 94889012), already rebased onto the shift branch with its two conflicts settled (`HttpAnswerBody.cs` keeps both `Streamed` and `ContentFileParts`; `FileAnswer` hands `ranges` to `ServedFileAnswer`). Lanes may not run `git merge`, `fetch` or `stash`: in your worktree run `git cherry-pick -n origin/recover/BL-888`. What is left: `HttpRangeSelectionTests.cs` (lines 23, 24, 38, 39) still uses the old single-range `HttpRangeSelection.Select`, which now returns a list, so `Surl.Protocol.Http.UnitTests` does not compile until it is updated. Then add unit tests for `HttpByteRangesBody`, `ContentFilePart` and `ContentFileParts` (the project needs 100% line and branch coverage), run the fast tests, and check the two `range-*-206` fixtures against upstream curl.
+
 ## Log
 
 - 2026-11-05: Created.
@@ -67,3 +69,4 @@ they serve the whole file with `200`.
 - 2026-11-11: Doing -> Backlog. Waits on BL-1035: pinned .NET SDK 10.0.401 is not installed, so dotnet build fails
 - 2026-11-12: Backlog -> Doing.
 - 2026-11-12: Doing -> Blocked. Stewart: lane 4's uncommitted BL-888 code is in a git stash this lane may not read (git stash/status commands were denied); allow stash access to recover it, or say to rewrite it from scratch
+- 2026-11-12: Blocked -> Backlog. Stewart asked for the stash to be recovered on 2026-11-12: the work is on origin/recover/BL-888, rebased; the remaining test work is in Notes.
