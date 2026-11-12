@@ -40,3 +40,4 @@ With `-v`, surl notes once at start each TLS-SRP group from `--srp-groups` that 
 ## Log
 
 - 2026-11-11: Created.
+- 2026-11-11: Backlog -> Doing.
