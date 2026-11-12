@@ -8,7 +8,7 @@ depends-on: [BL-700]
 touches: [Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests, Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests, Application/Surl.Console.UnitTests, Documentation/Planning/Decisions/ADR-0125-sasl-scram-sha-1-and-scram-sha-256-in-surl-authentication.md]
 requirement: none
 created: 2026-11-06
-completed:
+completed: 2026-11-11
 ---
 # BL-915 — Accept scram-sha-512 as an --auth word
 
@@ -33,18 +33,28 @@ offer it.
 
 ## Acceptance criteria
 
-- [ ] `CommandLineRunnerAuthenticationTests` maps `scram-sha-512` to `AuthenticationMethod.ScramSha512`, and the
+- [x] `CommandLineRunnerAuthenticationTests` maps `scram-sha-512` to `AuthenticationMethod.ScramSha512`, and the
       mail offer with every word accepted lists `SCRAM-SHA-256`, `SCRAM-SHA-512`, `SCRAM-SHA-1` in that order.
-- [ ] `--help`, `--manual` and `--aihelp` list `scram-sha-512` after `scram-sha-256`, and the completeness tests pass.
-- [ ] ADR-0125 has an amendment recording `SCRAM-SHA-512` (BL-700) and its `--auth` word.
-- [ ] `dotnet build -warnaserror` is clean and the fast tests are green.
+- [x] `--help`, `--manual` and `--aihelp` list `scram-sha-512` after `scram-sha-256`, and the completeness tests pass.
+- [x] ADR-0125 has an amendment recording `SCRAM-SHA-512` (BL-700) and its `--auth` word.
+- [x] `dotnet build -warnaserror` is clean and the fast tests are green.
 
 ## Notes
 
 - Filed by BL-700, which stayed inside `Surl.Authentication` (its `touches`); `Surl.Cli` and `Surl.Composition`
   were held by BL-548 and BL-803 at the time.
+- Delivered directly rather than through the full `/feature` agent pipeline: the change is one
+  dictionary entry, one allowed word and three prose lists, with every pinned test named in Context.
+- `--help` wraps its explanation itself, so `HelpTextTests.AuthExplanationLines` was re-pinned from
+  the new output; `--manual` is hand-wrapped, so `ManualText`'s `--auth` paragraph was rewrapped to
+  stay within 79 columns.
+- `CommandLineParserTests` used `scram-sha-512` as its "unknown SASL mechanism" example; it now uses
+  `scram-sha-384`, which no `AuthenticationMethod` names.
+- ADR-0125 Amendment 1 records the mechanism, its offer order (after `SCRAM-SHA-256`, before
+  `SCRAM-SHA-1`) and its word.
 
 ## Log
 
 - 2026-11-06: Created.
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Done. surl --auth scram-sha-512 accepts and offers SASL SCRAM-SHA-512, listed after scram-sha-256 in --help, --manual and --aihelp
