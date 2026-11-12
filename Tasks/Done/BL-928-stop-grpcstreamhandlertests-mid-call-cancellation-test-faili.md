@@ -8,7 +8,7 @@ depends-on: [BL-1035]
 touches: [Surl.Extended.Protocol.Grpc.UnitTests, Surl.Extended.Protocol.Grpc.UnitLibrary, Protocols/Http/Surl.Http2.UnitLibrary]
 requirement: none
 created: 2026-11-06
-completed:
+completed: 2026-11-11
 ---
 # BL-928 — Stop GrpcStreamHandlerTests mid-call cancellation test failing on linux-arm64
 
@@ -24,8 +24,8 @@ completed:
 
 ## Acceptance criteria
 
-- [ ] The cause of the linux-arm64 failure is named in Notes, and the test or handler no longer depends on thread scheduling.
-- [ ] The test passes 200 times in a row locally (`dotnet test --filter` in a loop).
+- [x] The cause of the linux-arm64 failure is named in Notes, and the test or handler no longer depends on thread scheduling.
+- [x] The test passes 200 times in a row locally (`dotnet test --filter` in a loop).
 
 ## Notes
 
@@ -34,9 +34,12 @@ completed:
 - `touches` now also names `Protocols/Http/Surl.Http2.UnitLibrary`, because the race lives there and not in the gRPC library. No task in Doing touched it (checked 2026-11-11).
 - 2026-11-11: could not build or test. global.json pins SDK 10.0.401 and it is not installed on this machine (installed: 10.0.100-rc.1, 11.0.100-rc.2, 11.0.100). Returned to Backlog behind BL-1035. Next run: build, run fast tests, then loop the test 200 times.
 
+- 2026-11-11: built with SDK 10.0.404 (rollForward). Http2 and gRPC tests pass, the mid-call test passed 200 of 200 runs, full fast suite green.
+
 ## Log
 
 - 2026-11-06: Created.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waits on BL-1035: pinned .NET SDK 10.0.401 is not installed, so the Http2RequestBody fix cannot be built or tested
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Done. Fixed the Http2RequestBody ending race; 200/200 passes

@@ -18,6 +18,7 @@ internal sealed class Http2RequestBody
 {
     private readonly Channel<byte[]> pieces = Channel.CreateUnbounded<byte[]>(new UnboundedChannelOptions { SingleReader = true, SingleWriter = true });
     private readonly Func<int, Task> replenishAsync;
+    private readonly Lock endingGate = new();
     private volatile bool hasEnded;
     private long received;
     private int unreplenished;
@@ -64,21 +65,30 @@ internal sealed class Http2RequestBody
     public void Receive(byte[] data) => pieces.Writer.TryWrite(data);
 
     /// <summary>The client's <c>END_STREAM</c>: the body is whole.</summary>
-    public void End()
-    {
-        hasEnded = true;
-        pieces.Writer.TryComplete();
-    }
+    public void End() => Finish(endedEarly: false);
 
     /// <summary>The client reset the stream or closed the connection: the body ends early.</summary>
-    public void Abandon()
+    public void Abandon() => Finish(endedEarly: true);
+
+    /// <summary>
+    /// Ends the body once: the first ending wins, and <see cref="HasEndedEarly"/> is set before the
+    /// pieces complete, so a reader the completion wakes on another thread always sees it.
+    /// </summary>
+    /// <param name="endedEarly">Whether the client reset the stream or closed the connection.</param>
+    private void Finish(bool endedEarly)
     {
-        if (pieces.Writer.TryComplete())
+        lock (endingGate)
         {
-            HasEndedEarly = true;
+            if (hasEnded)
+            {
+                return;
+            }
+
+            HasEndedEarly = endedEarly;
+            hasEnded = true;
         }
 
-        hasEnded = true;
+        pieces.Writer.TryComplete();
     }
 
     /// <summary>
