@@ -70,3 +70,4 @@ request in `Surl.Protocol.Abstractions` carries its exchange ID and listen URL.
 - 2026-11-05: Created.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waits on BL-1035: the pinned .NET SDK 10.0.401 is not installed, so nothing builds; the first pass of the contract and policy is in the shift's stash
+- 2026-11-12: Backlog -> Doing.
