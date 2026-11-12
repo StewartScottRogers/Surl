@@ -36,3 +36,4 @@ The Windows upstream test-case run passes its guard: case 1548 passes again and 
 - 2026-11-12: Created.
 - 2026-11-12: Backlog -> Doing.
 - 2026-11-12: Doing -> Backlog. Clean checkout passes; failure only appears with BL-570 (f8fb6a37), so it waits on BL-570 landing
+- 2026-11-12: Backlog -> Doing.
