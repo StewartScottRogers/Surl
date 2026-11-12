@@ -36,3 +36,4 @@ An `error` fault rule naming `stomp` or `stomps` (or a listener of one) makes th
 ## Log
 
 - 2026-11-12: Created.
+- 2026-11-12: Backlog -> Doing.
