@@ -8,7 +8,7 @@ depends-on: [BL-715, BL-1035]
 touches: [Documentation/Planning/Decisions/ADR-0109-how-the-azure-storage-server-answers-az-abfs-and-abfss.md]
 requirement: none
 created: 2026-11-06
-completed:
+completed: 2026-11-12
 ---
 # BL-922 — Record BL-715's block staging choices in ADR-0109
 
@@ -35,14 +35,16 @@ Stewart's delegation".
 
 ## Acceptance criteria
 
-- [ ] ADR-0109 decision 1 or 7 states where blocks are staged, and the BL-715 Context line no longer says
+- [x] ADR-0109 decision 1 or 7 states where blocks are staged, and the BL-715 Context line no longer says
       `.surl/objects/uploads/`.
-- [ ] ADR-0109 records each of the other choices listed in Context, with its reason.
+- [x] ADR-0109 records each of the other choices listed in Context, with its reason.
 
 ## Notes
 
 - Filed by BL-715.
 - 2026-11-11 (lane 4): the ADR-0109 edit is finished and sits on branch factory/BL-922-lane-6-20261111-060243 (commit 86dba2a3; take only its ADR file, the task file there is in Done). `dotnet build` fails at HEAD for every task because global.json pins SDK 10.0.401, which is not installed (BL-1035), so the shift cannot integrate even this Markdown-only change. Returned to Backlog behind BL-1035, as BL-920 and BL-927 were.
+
+- 2026-11-12 (lane 1): the old branch's ADR file predated the BL-758 and BL-717 amendments, so its patch was applied with a three-way merge and both sides kept. Remaining `.surl/objects/uploads/` mentions only say why it is not used. Markdown-only change; no code touched.
 
 ## Log
 
@@ -52,3 +54,4 @@ Stewart's delegation".
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waits on BL-1035: pinned .NET SDK 10.0.401 is not installed, so dotnet build fails; ADR edit is ready on factory/BL-922-lane-6-20261111-060243
 - 2026-11-12: Backlog -> Doing.
+- 2026-11-12: Doing -> Done. ADR-0109 records where Put Block stages blocks and BL-715's other block choices
