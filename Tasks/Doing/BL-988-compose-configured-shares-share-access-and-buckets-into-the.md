@@ -47,3 +47,4 @@ server and object-storage server shares, with each share's path checked at start
 ## Log
 
 - 2026-11-06: Created.
+- 2026-11-11: Backlog -> Doing.
