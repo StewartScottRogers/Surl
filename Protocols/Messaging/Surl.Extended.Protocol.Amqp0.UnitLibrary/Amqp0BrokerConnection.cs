@@ -13,6 +13,11 @@ internal sealed partial class Amqp0BrokerConnection
 {
     private const string TheVirtualHost = "/";
 
+    /// <summary>The longest the farewell <c>connection.close</c> 320 may take to write.</summary>
+    public static readonly TimeSpan FarewellWriteDeadline = TimeSpan.FromSeconds(1);
+
+    private const string ForcedCloseText = "CONNECTION_FORCED - idle timeout, maximum time or shutdown";
+
     private static readonly TimeSpan CloseOkWait = TimeSpan.FromSeconds(1);
 
     private readonly IConnection connection;
@@ -28,6 +33,7 @@ internal sealed partial class Amqp0BrokerConnection
     private Channel<byte[]>? outbound;
     private Task outboundPumping = Task.CompletedTask;
     private BusConnection? busConnection;
+    private bool closeSent;
     private long lastWrittenUtcTicks;
     private int frameMax = Amqp0FrameLimits.FrameMinSize;
     private ushort channelMax = Amqp0Broker.ChannelMax;
@@ -81,7 +87,38 @@ internal sealed partial class Amqp0BrokerConnection
             busConnection = bus.Connect(AccountName);
             outbound = Channel.CreateUnbounded<byte[]>(new UnboundedChannelOptions { SingleReader = true });
             outboundPumping = WriteOutboundAsync(outbound.Reader);
+            await ServeOpenedUntilCancelledAsync();
+        }
+    }
+
+    // ADR-0112 decisions 3 and 7: an open connection the engine cancels - for a limit or at
+    // shutdown - is told connection.close 320 on a short deadline of its own, never on the
+    // cancelled token (ADR-0006 section 5; ADR-0059); the cancellation then still escapes.
+    private async Task ServeOpenedUntilCancelledAsync()
+    {
+        try
+        {
             await ServeOpenedAsync();
+        }
+        catch (OperationCanceledException) when (!closeSent)
+        {
+            await WriteForcedCloseAsync();
+            throw;
+        }
+    }
+
+    private async Task WriteForcedCloseAsync()
+    {
+        using var deadline = new CancellationTokenSource(FarewellWriteDeadline, context.TimeProvider);
+        var close = new Amqp0ConnectionClose((ushort)Amqp0ReplyCode.ConnectionForced, ForcedCloseText, 0, 0);
+        try
+        {
+            await WriteNowAsync(Amqp0Frame.ForMethod(0, close.ToMethod()).Encode(), deadline.Token);
+            context.Log.Note($"Closed the connection with 320 ({ForcedCloseText}).");
+        }
+        catch (OperationCanceledException)
+        {
+            context.Log.Note($"The connection.close 320 was not written within its {FarewellWriteDeadline.TotalSeconds}-second write deadline.");
         }
     }
 

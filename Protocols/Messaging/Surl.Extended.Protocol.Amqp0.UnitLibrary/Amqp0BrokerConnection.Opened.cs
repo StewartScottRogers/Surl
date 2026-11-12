@@ -90,6 +90,7 @@ internal sealed partial class Amqp0BrokerConnection
     // Sends connection.close, then discards every frame until close-ok or close, for one second at most.
     private async ValueTask CloseAsync(Amqp0ReplyCode replyCode, string replyText, ushort classId, ushort methodId)
     {
+        closeSent = true;
         context.Log.Note($"Closed the connection with {(ushort)replyCode} ({replyText}).");
         var close = new Amqp0ConnectionClose((ushort)replyCode, replyText, classId, methodId);
         await WriteMethodAsync(close.ToMethod(), context.CancellationToken);

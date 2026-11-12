@@ -167,7 +167,7 @@ Nothing below is taken from the port's output, and no expected byte comes from i
     `FRAME_ERROR`** (section 4.2.7).
 - **`--idle-timeout`** applies as well, with or without heartbeats: when no frame of any kind (a
   heartbeat counts) arrives for that long, the broker sends `connection.close` `320`
-  `CONNECTION_FORCED`, text `CONNECTION_FORCED - idle timeout`, and closes as decision 7 says.
+  `CONNECTION_FORCED`, text `CONNECTION_FORCED - idle timeout, maximum time or shutdown` (BL-749: the context does not say which limit fired, so one fixed text serves the idle timeout, `--max-time` and shutdown), and closes as decision 7 says.
 - Every timer runs on `ExchangeContext.TimeProvider`; never `Thread.Sleep` or polling.
 
 ### 4. Virtual hosts (section 3.1.2; XML `connection.open`)

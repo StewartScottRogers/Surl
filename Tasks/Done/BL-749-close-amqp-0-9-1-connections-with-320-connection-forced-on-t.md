@@ -8,7 +8,7 @@ depends-on: [BL-505, BL-1035]
 touches: [Protocols/Messaging/Surl.Extended.Protocol.Amqp0.UnitLibrary, Protocols/Messaging/Surl.Extended.Protocol.Amqp0.UnitTests, Documentation/Conformance/Extended/Amqp0.md]
 requirement: none
 created: 2026-11-05
-completed:
+completed: 2026-11-11
 ---
 # BL-749 — Close AMQP 0-9-1 connections with 320 CONNECTION_FORCED on the idle timeout, max-time and shutdown
 
@@ -36,16 +36,18 @@ before it closes, as ADR-0112 decisions 3 and 7 and rows `Amqp0:Surl-Idle-1` and
 
 ## Acceptance criteria
 
-- [ ] Named tests show `connection.close` 320 with the decided fixed text, class 0 and method 0,
+- [x] Named tests show `connection.close` 320 with the decided fixed text, class 0 and method 0,
       written after `open-ok` when the exchange is cancelled for a limit, and for shutdown.
-- [ ] Before `open-ok`, a cancelled exchange still writes no bytes.
-- [ ] Rows `Amqp0:Surl-Idle-1` and `Amqp0:Surl-Limits-2` of `Amqp0.md` name those tests.
-- [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and the library keeps 100%
+- [x] Before `open-ok`, a cancelled exchange still writes no bytes.
+- [x] Rows `Amqp0:Surl-Idle-1` and `Amqp0:Surl-Limits-2` of `Amqp0.md` name those tests.
+- [x] `dotnet build -warnaserror` is clean, the fast tests are green, and the library keeps 100%
       line and branch coverage.
 
 ## Notes
 
 - 2026-11-11 (lane 2): Parked before any code. `dotnet build` fails: global.json pins SDK 10.0.401 and only 10.0.100-rc.1, 11.0.100-rc.2 and 11.0.100 are installed. Depends on BL-1035 (Stewart reinstalls the SDK).
+
+- 2026-11-11 (lane 6): Decided one fixed text, `CONNECTION_FORCED - idle timeout, maximum time or shutdown`, because the context does not say which limit fired; ADR-0112 decision 3 amended. Any cancellation after open-ok (limit or shutdown) writes connection.close 320 (class 0, method 0) on a 1-second `FarewellWriteDeadline` of its own, then rethrows; skipped if a close was already sent. Idle-timer vs broker heartbeats: the idle timer is the engine's, not changed here.
 
 ## Log
 
@@ -53,3 +55,4 @@ before it closes, as ADR-0112 decisions 3 and 7 and rows `Amqp0:Surl-Idle-1` and
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waits on BL-1035: pinned .NET SDK 10.0.401 is not installed, so dotnet build cannot run
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Done. Open AMQP 0-9-1 connections cancelled for a limit or shutdown get connection.close 320 before closing

@@ -92,8 +92,9 @@ The headers exchange and durable exchanges across restarts (BL-732, ADR-0112 dec
   the composition answers 37. `Amqp0ExchangeTable` counts changes to durable declared exchanges and
   their bindings, and the connection saves them after each channel frame, noting a failed write.
 
-The 320 `CONNECTION_FORCED` close on the idle timeout, `--max-time` and shutdown is BL-749; the
-command line and composition BL-507, which also hands the broker its `Amqp0ExchangeFiles`.
+An open connection the engine cancels (limit or shutdown) is told `connection.close` 320 on a one-second deadline of its own (BL-749).
+
+The command line and composition are BL-507, which also hands the broker its `Amqp0ExchangeFiles`.
 
 This library references `Surl.Protocol.Abstractions.UnitLibrary`, and may also reference the
 horizontal libraries ADR-0112 decision 0 names (`Surl.MessageBus`, `Surl.Content`) - never
