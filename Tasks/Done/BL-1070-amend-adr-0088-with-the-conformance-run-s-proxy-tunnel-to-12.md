@@ -8,7 +8,7 @@ depends-on: []
 touches: [Documentation/Planning/Decisions]
 requirement: none
 created: 2026-11-12
-completed:
+completed: 2026-11-12
 ---
 # BL-1070 — Amend ADR-0088 with the conformance run's proxy tunnel to 127.0.0.1
 
@@ -32,9 +32,9 @@ the origin's. This task was filed because BL-671 (in Doing) touches `Documentati
 
 ## Acceptance criteria
 
-- [ ] ADR-0088 has an amendment stating the above, marked "Decided by Claude under Stewart's delegation".
-- [ ] The amendment says it supersedes decision 8's in-memory connector for the conformance run only.
-- [ ] `Protocols/Http/Surl.Protocol.HttpProxy.UnitLibrary/CLAUDE.md` is untouched by this task (BL-556 updated it).
+- [x] ADR-0088 has an amendment stating the above, marked "Decided by Claude under Stewart's delegation".
+- [x] The amendment says it supersedes decision 8's in-memory connector for the conformance run only.
+- [x] `Protocols/Http/Surl.Protocol.HttpProxy.UnitLibrary/CLAUDE.md` is untouched by this task (BL-556 updated it).
 
 ## Notes
 
@@ -42,3 +42,4 @@ the origin's. This task was filed because BL-671 (in Doing) touches `Documentati
 
 - 2026-11-12: Created.
 - 2026-11-12: Backlog -> Doing.
+- 2026-11-12: Doing -> Done. ADR-0088 Amendment 10 records the conformance run's loopback proxy tunnel

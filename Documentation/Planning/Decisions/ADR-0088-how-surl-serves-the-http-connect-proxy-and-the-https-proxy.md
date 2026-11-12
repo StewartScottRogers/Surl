@@ -1,7 +1,7 @@
 # ADR-0088 — How Surl serves the HTTP `CONNECT` proxy and the HTTPS proxy
 
 - **Status:** Accepted
-- **Date:** 2026-11-04; Amendment 1 (BL-552) 2026-11-05; Amendment 2 (BL-554) 2026-11-05; Amendment 3 (BL-553) 2026-11-05; Amendment 4 (BL-594) 2026-11-06; Amendment 5 (BL-1002) 2026-11-11; Amendment 9 (BL-941) 2026-11-12
+- **Date:** 2026-11-04; Amendment 1 (BL-552) 2026-11-05; Amendment 2 (BL-554) 2026-11-05; Amendment 3 (BL-553) 2026-11-05; Amendment 4 (BL-594) 2026-11-06; Amendment 5 (BL-1002) 2026-11-11; Amendment 9 (BL-941) 2026-11-12; Amendment 10 (BL-1070) 2026-11-12
 - **Decided by:** Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), 2026-11-04,
   in BL-550. Built by BL-551 (decision 2's contract), BL-552 (decisions 1, 3, 4 and the limits of
   decision 7), BL-553 (decision 5), BL-554 (decision 6), BL-555 (decision 7's command line) and
@@ -572,3 +572,20 @@ called this "Amendment 5"; that number went to BL-1002 (above) while the task wa
 - **Tests.** `TlsApplicationProtocolsTests.ForListener_OffersTheSchemesListForAProxyListenerToo` and
   `ServerTlsHandshakeHttpsProxyTests` (offer, `http/1.1` client, `h2,http/1.1` and `h2` clients served one
   forwarded GET over HTTP/2).
+
+## Amendment 10 - how the conformance run's proxy reaches the origin, settled by BL-556 (2026-11-12)
+
+Decided by Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), recorded by BL-1070. BL-671 held
+`Documentation/Planning/Decisions` when BL-556 ran, so this amendment was filed afterwards.
+
+- **Supersedes decision 8 for the conformance run only.** Decision 8 said the proxy reaches the HTTP half through an
+  in-memory connector. BL-556 built otherwise: `HttpProxyUpstreamTestCaseServer` (in `Surl.Protocol.HttpProxy`) takes
+  an `IOriginConnector`, and `UpstreamTestCaseServerHalves` hands it `Surl.Networking`'s `SocketOriginConnector` with
+  `AllowedOriginRule.LoopbackOnly`. Decision 8 still stands elsewhere.
+- **Why.** The server connects every tunnel to `127.0.0.1` at the `CONNECT`'s port whatever host the request names,
+  because upstream's `sws` does that: test 80 sends `CONNECT test.80:%HTTPPORT`, and test 1631 sends `CONNECT` to the
+  FTP control port and then to the EPSV data port. An in-memory connector could reach only the HTTP half.
+- **When the tunnel opens.** Only when the case's `connect` part is a `2xx` response. The proxy's `<proxy>` record
+  stops, per connection, when its tunnel opens.
+- **Which listener.** The HTTPS proxy is the `https` scheme with `ListenUrl.IsProxy`; the plaintext one is the
+  `http-proxy` scheme with `IsImplicitTls = false`, since `http` is the origin's.
