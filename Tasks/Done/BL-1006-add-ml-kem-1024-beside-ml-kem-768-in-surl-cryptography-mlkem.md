@@ -8,7 +8,7 @@ depends-on: [BL-1005, BL-1035]
 touches: [Cryptography/Surl.Cryptography.MlKem.UnitLibrary, Cryptography/Surl.Cryptography.MlKem.UnitTests]
 requirement: FR-055
 created: 2026-11-06
-completed:
+completed: 2026-11-11
 ---
 # BL-1006 — Add ML-KEM-1024 beside ML-KEM-768 in Surl.Cryptography.MlKem
 
@@ -38,16 +38,17 @@ sharing K-PKE through a parameter set, so `Surl.Tls13` can serve SecP384r1MLKEM1
 
 ## Acceptance criteria
 
-- [ ] `MlKem1024Tests` exists and passes, including
+- [x] `MlKem1024Tests` exists and passes, including
       `GenerateKey_AcvpKeyGenCases_WriteTheVectorsKeys`, `TryEncapsulate_AcvpEncapsulationCases_WriteTheVectorsCiphertextAndSecret`,
       `TryDecapsulate_AcvpDecapsulationCases_WriteTheVectorsSecret` and the two `...KeyChecks_RejectOnlyTheKeysTheVectorsFail` tests.
-- [ ] Every existing `MlKem768Tests` test passes unchanged in what it asserts.
-- [ ] `dotnet build Cryptography/Surl.Cryptography.MlKem.UnitTests -warnaserror` is clean and the fast tests are green.
-- [ ] `Surl.Cryptography.MlKem.UnitLibrary` keeps 100% line and branch coverage.
+- [x] Every existing `MlKem768Tests` test passes unchanged in what it asserts.
+- [x] `dotnet build Cryptography/Surl.Cryptography.MlKem.UnitTests -warnaserror` is clean and the fast tests are green.
+- [x] `Surl.Cryptography.MlKem.UnitLibrary` keeps 100% line and branch coverage.
 
 ## Notes
 
 - 2026-11-11 (lane 4): The code is finished on branch `factory/BL-1006-lane-3-20261111-060243` (commit `04a3712c`). Cherry-picked onto lane 4; with `global.json` moved aside for the run only (SDK 11.0.100 building `net10.0`), `dotnet build Cryptography/Surl.Cryptography.MlKem.UnitTests -warnaserror` is clean and the 42 MlKem tests pass. With `global.json` in place no build can run: SDK 10.0.401 is not installed, which is why lane 3's integration build failed. Waits on BL-1035 (Stewart reinstalls the SDK); then `git cherry-pick 04a3712c`, build, run the fast tests and finish.
+- 2026-11-11 (lane 1): SDK 10.0.404 is now installed, so `global.json`'s `rollForward: latestFeature` resolves and builds run with it in place. Cherry-picked `04a3712c` cleanly. `dotnet build Cryptography/Surl.Cryptography.MlKem.UnitTests -warnaserror` clean; full `dotnet build` 0 warnings, 0 errors; fast tests green in all 79 test projects (42 MlKem tests). Coverage via the built-in `Code Coverage` collector (cobertura): `Surl.Cryptography.MlKem.UnitLibrary` line-rate 1, branch-rate 1. The library's `CLAUDE.md` already names ADR-0147, BL-1005's ADR.
 
 ## Log
 
@@ -58,3 +59,4 @@ sharing K-PKE through a parameter set, so `Surl.Tls13` can serve SecP384r1MLKEM1
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waits on BL-1035: pinned .NET SDK 10.0.401 is not installed, so no build runs; code is done on factory/BL-1006-lane-3-20261111-060243 (04a3712c).
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Done. MlKem1024 (FIPS 203) passes every NIST ACVP ML-KEM-1024 vector beside MlKem768, sharing K-PKE; library at 100% line and branch
