@@ -1,5 +1,6 @@
 using Surl.Authentication;
 using Surl.Content;
+using Surl.Core;
 using Surl.Extended.Protocol.DnsQuery;
 using Surl.MailStore;
 using Surl.Protocol.Abstractions;
@@ -119,6 +120,13 @@ public sealed class ComposedProtocolServices(
     /// (ADR-0113 decision 5); 120 seconds, the option's default, unless set.
     /// </summary>
     public TimeSpan IdleTimeout { get; init; } = TimeSpan.FromSeconds(120);
+
+    /// <summary>
+    /// Gets the source of identifiers a server draws once, when it is created, named by the server (ADR-0124
+    /// decision 6, BL-1001): from <c>--random-seed</c> and the name alone when a seed is given, so the Kafka cluster ID
+    /// and the NATS <c>server_id</c> repeat every run; the cryptographic source unless set.
+    /// </summary>
+    public Func<string, IIdentifierRandom> IdentifiersForServer { get; init; } = _ => CryptographicIdentifierRandom.Instance;
 
     /// <summary>
     /// Gets every <c>--mail-domain</c>, which the XMPP server serves beside the listen URL host (ADR-0114 decision 1); none unless set.

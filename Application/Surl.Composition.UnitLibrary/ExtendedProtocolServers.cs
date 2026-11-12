@@ -149,7 +149,8 @@ public static class ExtendedProtocolServers
             {
                 IdleTimeout = services.IdleTimeout,
                 AllowsAnonymous = services.AuthenticationPolicy.Settings.AllowAnonymous,
-            })),
+            },
+            services.IdentifiersForServer("nats"))),
         // The Redis server (ADR-0106, BL-492): one keyspace for redis and rediss, memory only; rediss is TLS from the first byte through TlsSchemes.
         new(["redis", "rediss"], services => new RedisServer(services.AuthenticationPolicyFor("redis"), services.MessageBus)),
         new(["s3"], services => new S3ProtocolServer(
@@ -193,7 +194,7 @@ public static class ExtendedProtocolServers
         return new KafkaBroker(policy,
         [
             new KafkaApiVersionsAnswerer(),
-            new KafkaMetadataAnswerer(bus),
+            ComposeKafkaMetadataAnswerer(services),
             new KafkaSaslHandshakeAnswerer(policy),
             new KafkaSaslAuthenticateAnswerer(),
             new KafkaProduceAnswerer(bus, producerStates),
@@ -212,6 +213,11 @@ public static class ExtendedProtocolServers
             new KafkaListGroupsAnswerer(coordinator, bus),
         ]);
     }
+
+    // The Metadata answerer draws the cluster ID once from the "kafka" server-life source (ADR-0124 decision 6, BL-1001),
+    // so a seeded instance announces the same cluster_id every run.
+    internal static KafkaMetadataAnswerer ComposeKafkaMetadataAnswerer(ComposedProtocolServices services) =>
+        new(services.MessageBus, services.IdentifiersForServer("kafka"));
 
     // DNS over QUIC (ADR-0092 decision 5) over the served certificate; built on its first flow, once server
     // TLS has filled the source. --dns-transport quic without a certificate is refused (58) before any listener binds.

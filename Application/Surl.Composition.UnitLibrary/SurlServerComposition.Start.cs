@@ -350,6 +350,9 @@ public static partial class SurlServerComposition
             ProxyAuthenticationPolicy = authentication.ProxyPolicy,
             PreSharedKeyAccounts = authentication.PreSharedKeyAccounts,
             MailDomains = commandLine.MailDomains,
+            IdentifiersForServer = commandLine.RandomSeed is { } seed
+                ? new SeededIdentifierRandom(seed).ForServer
+                : _ => CryptographicIdentifierRandom.Instance,
         };
         IProtocolServer[] servers =
         [

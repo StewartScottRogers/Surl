@@ -27,12 +27,14 @@ completed:
 
 ## Acceptance criteria
 
-- [ ] A composition test shows two compositions with seed 42 announce the same NATS `server_id` and Kafka
+- [x] A composition test shows two compositions with seed 42 announce the same NATS `server_id` and Kafka
       `cluster_id`, and two unseeded ones announce different ones.
-- [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and `Surl.Composition.UnitLibrary` keeps 100%
+- [x] `dotnet build -warnaserror` is clean, the fast tests are green, and `Surl.Composition.UnitLibrary` keeps 100%
       line and branch coverage.
 
 ## Notes
+
+- Added `ComposedProtocolServices.IdentifiersForServer` (Func, seeded by the start from `--random-seed` and the server name); Kafka uses name `kafka`, NATS `nats`. Tests: `ServerLifeIdentifiersCompositionTests`.
 
 ## Log
 

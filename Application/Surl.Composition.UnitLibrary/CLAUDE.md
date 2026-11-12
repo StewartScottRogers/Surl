@@ -161,6 +161,9 @@ horizontal library may reference it (ADR-0099 decision 11, held by
   `ServingEngine` `IdentifiersForExchange`, which stamps `ExchangeContext.Identifiers` with
   `ForExchange(exchangeId)` (the cryptographic source unseeded). `IdentifiersForServer(name)` is the
   server-life source for per-server fixes (BL-850); no static state, so instances never share one.
+  BL-1001: the start also sets `ComposedProtocolServices.IdentifiersForServer` (the same derivation), which the
+  Kafka `KafkaMetadataAnswerer` (`ComposeKafkaMetadataAnswerer`, name `kafka`) and the `NatsServer` (name `nats`) draw
+  their cluster ID and `server_id` from, so a seeded instance repeats them. Tests: `ServerLifeIdentifiersCompositionTests`.
 
 The types are `public` because more than one host calls them, but they are not a supported
 programming interface and may change in any release.
