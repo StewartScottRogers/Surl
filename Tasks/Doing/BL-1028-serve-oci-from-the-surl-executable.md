@@ -85,3 +85,4 @@ its `--aihelp` topic and help category exist, and the extension switch turns it 
 - 2026-11-12: Backlog -> Doing.
 - 2026-11-12: Doing -> Blocked. Stewart: the oci code from lane 2 sits in a git stash and this lane may not read the stash (permission denied); allow git stash list/apply, or say to rewrite it from the Notes (SDK 10.0.404 now builds, so BL-1035 no longer blocks)
 - 2026-11-12: Blocked -> Backlog. Stewart asked for the stashes to be recovered on 2026-11-12; see Notes for what is done and what is left.
+- 2026-11-12: Backlog -> Doing.
