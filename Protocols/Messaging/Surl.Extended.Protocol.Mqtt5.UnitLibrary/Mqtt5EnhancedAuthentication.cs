@@ -73,7 +73,7 @@ internal sealed class Mqtt5EnhancedAuthentication
         SaslLoginStep step;
         if (exchange is null)
         {
-            exchange = policy.StartSaslExchange(new SaslExchangeStart(context.Scheme, Method, response, tlsSession));
+            exchange = policy.StartSaslExchange(new SaslExchangeStart(context.Scheme, Method, response, tlsSession, Exchange: LoginExchange.Of(context)));
             step = await exchange.BeginAsync(context.CancellationToken);
         }
         else

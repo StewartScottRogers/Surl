@@ -382,6 +382,19 @@ public sealed class MqttProtocolServerTests
     }
 
     [TestMethod]
+    public async Task ServeAsync_RecordedConnectWithUserAndPassword_PassesTheExchangeToThePolicy()
+    {
+        var policy = new UnitTestRecordingAuthenticationPolicy(PasswordLoginVerdict.Accepted);
+
+        await ServeAsync(RecordedFixture.Whole(RecordedFixture.ReadRequestBytes("connect-user-and-password")), RetainedFor("subscribe-t"), policy: policy);
+
+        var exchange = policy.Logins.Single().Exchange;
+        Assert.IsNotNull(exchange);
+        Assert.AreEqual(1, exchange.ExchangeId);
+        Assert.AreEqual("mqtt", exchange.Scheme);
+    }
+
+    [TestMethod]
     [DataRow("connect-user-and-password", false)]
     [DataRow("connect-user-and-password", true)]
     public async Task ServeAsync_RecordedConnectWithUserAndPassword_HandsThePolicyTheExactCredentials(string caseName, bool oneBytePerRead)

@@ -47,7 +47,10 @@ public sealed class KafkaSaslAuthenticateAnswererTests
         byte[] metadataZero = Response([0, 0, 0, 1, 0, 0, 0, 0, .. String("127.0.0.1"), 0, 0, 0x23, 0x84, 0, 0, 0, 0]);
         CollectionAssert.AreEqual(HandshakeAccepted.Concat(Response(Accepted)).Concat(metadataZero).ToArray(), written);
         Assert.AreEqual("Login accepted: PLAIN alice", log.Notes.Single());
-        Assert.AreEqual(new SaslExchangeStart("kafka", "PLAIN", policy.Starts.Single().InitialResponse, null), policy.Starts.Single());
+        var start = policy.Starts.Single();
+        Assert.AreEqual(new SaslExchangeStart("kafka", "PLAIN", start.InitialResponse, null, Exchange: start.Exchange), start);
+        Assert.AreEqual(1, start.Exchange!.ExchangeId);
+        Assert.AreEqual("kafka", start.Exchange.Scheme);
         Assert.AreEqual(1, policy.AnonymousChecks);
     }
 

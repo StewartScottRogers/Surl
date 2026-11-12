@@ -99,7 +99,7 @@ internal sealed partial class Amqp0BrokerConnection
     private async ValueTask<LoginEnd> RunSaslExchangeAsync(string mechanism, ReadOnlyMemory<byte> response, CancellationToken cancellationToken)
     {
         var initialResponse = response.IsEmpty ? (ReadOnlyMemory<byte>?)null : response;
-        var exchange = policy.StartSaslExchange(new SaslExchangeStart(context.Scheme, mechanism, initialResponse, connection.TlsSession));
+        var exchange = policy.StartSaslExchange(new SaslExchangeStart(context.Scheme, mechanism, initialResponse, connection.TlsSession, Exchange: LoginExchange.Of(context)));
         var step = await exchange.BeginAsync(cancellationToken);
         while (step.Outcome == SaslLoginOutcome.Challenge)
         {

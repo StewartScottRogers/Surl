@@ -94,7 +94,7 @@ internal sealed class LdapSaslBindJudge(ISaslAuthenticationPolicy saslAuthentica
         }
 
         var exchange = saslAuthenticationPolicy.StartSaslExchange(
-            new SaslExchangeStart(context.Scheme, mechanism, response, connection.TlsSession, CanCarrySecurityLayer: true));
+            new SaslExchangeStart(context.Scheme, mechanism, response, connection.TlsSession, CanCarrySecurityLayer: true, Exchange: LoginExchange.Of(context)));
         return Answer(await exchange.BeginAsync(context.CancellationToken), exchange, mechanism, isSicily);
     }
 

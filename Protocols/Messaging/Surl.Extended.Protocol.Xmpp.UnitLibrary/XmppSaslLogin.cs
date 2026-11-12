@@ -70,7 +70,7 @@ internal sealed class XmppSaslLogin(
         }
 
         var start = new SaslExchangeStart(
-            context.Scheme, mechanism, auth.Value.Length == 0 ? null : (ReadOnlyMemory<byte>?)initialResponse, tlsSession, CanCarrySecurityLayer: true);
+            context.Scheme, mechanism, auth.Value.Length == 0 ? null : (ReadOnlyMemory<byte>?)initialResponse, tlsSession, CanCarrySecurityLayer: true, Exchange: LoginExchange.Of(context));
         exchange = policy.StartSaslExchange(start);
         await AnswerStepAsync(await exchange.BeginAsync(context.CancellationToken));
     }

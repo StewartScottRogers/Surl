@@ -202,7 +202,7 @@ internal sealed partial class Mqtt5BrokerConnection
             password = passwordBytes;
         }
 
-        var login = new PasswordLogin(context.Scheme, connect.UserName, password, connection.TlsSession);
+        var login = new PasswordLogin(context.Scheme, connect.UserName, password, connection.TlsSession, LoginExchange.Of(context));
         var verdict = await authenticationPolicy.CheckPasswordLoginAsync(login, context.CancellationToken);
         if (verdict is PasswordLoginVerdict.Accepted or PasswordLoginVerdict.RefusedCredentials)
         {

@@ -94,10 +94,10 @@ internal sealed class NatsConnectOptions
     /// <c>auth_token</c> as the password of the account with an empty name, else no credentials
     /// (ADR-0113 decision 2; ADR-0100 decision 4).
     /// </summary>
-    public PasswordLogin ToPasswordLogin(string scheme, TlsSession? tlsSession) =>
-        User is not null ? new PasswordLogin(scheme, User, Encode(Pass), tlsSession)
-        : AuthToken is not null ? new PasswordLogin(scheme, string.Empty, Encode(AuthToken), tlsSession)
-        : new PasswordLogin(scheme, null, null, tlsSession);
+    public PasswordLogin ToPasswordLogin(string scheme, TlsSession? tlsSession, LoginExchange? exchange = null) =>
+        User is not null ? new PasswordLogin(scheme, User, Encode(Pass), tlsSession, exchange)
+        : AuthToken is not null ? new PasswordLogin(scheme, string.Empty, Encode(AuthToken), tlsSession, exchange)
+        : new PasswordLogin(scheme, null, null, tlsSession, exchange);
 
     private static ReadOnlyMemory<byte>? Encode(string? text) =>
         text is null ? null : (ReadOnlyMemory<byte>?)Encoding.UTF8.GetBytes(text);

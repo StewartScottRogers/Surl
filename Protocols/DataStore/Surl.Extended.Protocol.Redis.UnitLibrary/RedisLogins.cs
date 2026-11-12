@@ -24,7 +24,7 @@ internal sealed class RedisLogins(IAuthenticationPolicy authenticationPolicy, Ex
     {
         var user = Encoding.UTF8.GetString(userName);
         var verdict = await authenticationPolicy.CheckPasswordLoginAsync(
-            new PasswordLogin(context.Scheme, user, password, tlsSession), context.CancellationToken);
+            new PasswordLogin(context.Scheme, user, password, tlsSession, LoginExchange.Of(context)), context.CancellationToken);
         if (verdict is PasswordLoginVerdict.Accepted or PasswordLoginVerdict.AcceptedUnchecked)
         {
             session.LogIn(user);

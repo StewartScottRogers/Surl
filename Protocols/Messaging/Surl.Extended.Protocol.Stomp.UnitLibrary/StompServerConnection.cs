@@ -144,7 +144,7 @@ internal sealed partial class StompServerConnection
         var userName = frame.Header("login");
         var password = userName is null ? null : (ReadOnlyMemory<byte>?)Encoding.UTF8.GetBytes(frame.Header("passcode") ?? string.Empty);
         var verdict = await policy.CheckPasswordLoginAsync(
-            new PasswordLogin(context.Scheme, userName, password, connection.TlsSession), context.CancellationToken);
+            new PasswordLogin(context.Scheme, userName, password, connection.TlsSession, LoginExchange.Of(context)), context.CancellationToken);
         if (verdict is not (PasswordLoginVerdict.Accepted or PasswordLoginVerdict.AcceptedUnchecked))
         {
             throw new StompProtocolViolationException(

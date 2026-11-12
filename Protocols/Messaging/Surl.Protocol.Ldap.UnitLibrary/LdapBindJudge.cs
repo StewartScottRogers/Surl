@@ -93,7 +93,7 @@ internal sealed class LdapBindJudge
             passwordBytes = password;
         }
 
-        var login = new PasswordLogin(context.Scheme, userName, passwordBytes, connection.TlsSession);
+        var login = new PasswordLogin(context.Scheme, userName, passwordBytes, connection.TlsSession, LoginExchange.Of(context));
         return Answer(userName, await authenticationPolicy.CheckPasswordLoginAsync(login, context.CancellationToken));
     }
 

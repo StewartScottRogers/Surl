@@ -118,7 +118,7 @@ public sealed class Amqp1SecurityNegotiation(
 
         // Written out, because a bare null would bind through byte[]'s conversion and read as an empty response.
         var initialResponse = init.InitialResponse is { } response ? new ReadOnlyMemory<byte>(response) : (ReadOnlyMemory<byte>?)null;
-        var exchange = policy.StartSaslExchange(new SaslExchangeStart(context.Scheme, mechanism, initialResponse, connection.TlsSession));
+        var exchange = policy.StartSaslExchange(new SaslExchangeStart(context.Scheme, mechanism, initialResponse, connection.TlsSession, Exchange: LoginExchange.Of(context)));
         var step = await exchange.BeginAsync(CancellationToken);
         Note(step);
         return await FollowChallengesAsync(exchange, step, mechanism);
