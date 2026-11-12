@@ -49,3 +49,4 @@ folder. So staged OCI blobs, S3, Azure and GCS uploads do not pile up as hidden 
 - 2026-11-05: Created.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waits on BL-1035 - pinned .NET SDK 10.0.401 is not installed, so dotnet build cannot run
+- 2026-11-12: Backlog -> Doing.
