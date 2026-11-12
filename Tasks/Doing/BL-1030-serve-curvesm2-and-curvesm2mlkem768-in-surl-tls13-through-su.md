@@ -58,3 +58,4 @@ either completes without a retry. With this, every group BL-545 named is served.
 
 - 2026-11-06: Created.
 - 2026-11-06: Split from BL-545 (timed out after 120 min); reuses its curveSM2 key exchange from stash `darkfactory BL-545 20261106-033059`.
+- 2026-11-12: Backlog -> Doing.
