@@ -30,3 +30,4 @@ BL-871 (ADR-0128 Amendment 1) added `IAuthenticationPolicy.StartHttpConnection(T
 ## Log
 
 - 2026-11-12: Created.
+- 2026-11-12: Backlog -> Doing.
