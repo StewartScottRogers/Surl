@@ -1,3 +1,4 @@
+using Surl.Control;
 using Surl.Protocol.Abstractions;
 
 namespace Surl.Composition;
@@ -13,7 +14,7 @@ namespace Surl.Composition;
 /// Public because more than one host calls it, but not a supported programming interface: it may
 /// change in any release (ADR-0099, decision 1).
 /// </remarks>
-public sealed class ComposedSnapshot
+public sealed class ComposedSnapshot : IControlSnapshot
 {
     internal ComposedSnapshot(ComposedStores owner, IReadOnlyList<TakenSnapshot> taken)
     {

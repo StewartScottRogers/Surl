@@ -119,6 +119,15 @@ horizontal library may reference it (ADR-0099 decision 11, held by
   disk), the mail store and the bus refuse reset, snapshot and restore, so a whole-instance reset or
   snapshot stops at `Content`; seeding them is allowed, and accounts stay controllable. Tests:
   `ComposedStoresTests`.
+- The control endpoint's target (ADR-0124 decision 7, BL-1022): the internal `ComposedControlTarget` is
+  `Surl.Control`'s `IControlTarget` over a start's `Events`, `Faults` and `Stores`, and `ComposedSnapshot` is its
+  `IControlSnapshot`. `AddFault` reads one item as `--fault` does (a bad item `BadRequest` with the reader's text, a
+  full plan `Conflict`); `ListFaults` writes each rule back in that grammar through `FaultItemText`. Seeding mail
+  refuses an invalid address `BadRequest`, no such account or a recipient outside the mail domains `NotFound`, a
+  failed delivery `Conflict`; a file path a request may not name is `BadRequest`; a bus refusal maps by
+  `RefusalKindOf`; a store on disk refused reset, snapshot or restore is `Conflict`. `ReadEventsAsync` reads its own
+  subscription, bytes included, and ends without throwing when cancelled. Nothing binds it yet (BL-977).
+  Tests: `ComposedControlTargetTests`, `FaultItemTextTests`.
 
 The types are `public` because more than one host calls them, but they are not a supported
 programming interface and may change in any release.

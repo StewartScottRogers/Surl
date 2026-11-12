@@ -7,6 +7,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\Foundation\Surl.Authentication.UnitLibrary\Surl.Authentication.UnitLibrary.csproj" />
     <ProjectReference Include="..\Surl.Cli.UnitLibrary\Surl.Cli.UnitLibrary.csproj" />
+    <ProjectReference Include="..\Surl.Control.UnitLibrary\Surl.Control.UnitLibrary.csproj" />
     <ProjectReference Include="..\..\Foundation\Surl.Content.UnitLibrary\Surl.Content.UnitLibrary.csproj" />
     <ProjectReference Include="..\..\Foundation\Surl.Core.UnitLibrary\Surl.Core.UnitLibrary.csproj" />
     <ProjectReference Include="..\..\Cryptography\Surl.Kerberos.UnitLibrary\Surl.Kerberos.UnitLibrary.csproj" />
