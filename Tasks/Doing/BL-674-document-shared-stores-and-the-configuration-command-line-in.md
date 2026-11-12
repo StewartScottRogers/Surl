@@ -56,3 +56,4 @@ one `surl` and the configuration command line and config file for real servers.
 
 - 2026-11-04: Created.
 - 2026-11-05: Notes amended: test control of the stores is BL-821's to document; link, do not duplicate.
+- 2026-11-12: Backlog -> Doing.
