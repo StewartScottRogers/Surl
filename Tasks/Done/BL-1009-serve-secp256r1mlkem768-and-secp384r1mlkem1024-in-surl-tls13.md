@@ -8,7 +8,7 @@ depends-on: [BL-1006, BL-1008]
 touches: [Cryptography/Surl.Tls13.UnitLibrary, Cryptography/Surl.Tls13.UnitTests]
 requirement: FR-055
 created: 2026-11-06
-completed:
+completed: 2026-11-11
 ---
 # BL-1009 — Serve SecP256r1MLKEM768 and SecP384r1MLKEM1024 in Surl.Tls13
 
@@ -40,20 +40,33 @@ one gets a HelloRetryRequest naming it and then completes, and the recorded upst
 
 ## Acceptance criteria
 
-- [ ] `Receive_ClientHelloOfferingOnlyOneRemainingGroupWithNoShare_RetriesForItAndCompletesOnTheSecondClientHello`
+- [x] `Receive_ClientHelloOfferingOnlyOneRemainingGroupWithNoShare_RetriesForItAndCompletesOnTheSecondClientHello`
       passes for `0x11EB` and `0x11ED`.
-- [ ] `Receive_RecordedUpstreamCurlClientHelloForOneCurve_AnswersItsShareAndCompletesWithoutARetry` passes for the
+- [x] `Receive_RecordedUpstreamCurlClientHelloForOneCurve_AnswersItsShareAndCompletesWithoutARetry` passes for the
       four `SecP256r1MLKEM768` and `SecP384r1MLKEM1024` fixtures (Windows and Linux).
-- [ ] `Receive_RemainingGroupShareOfTheWrongLength_FailsWithIllegalParameter` passes for `(0x11EB, 1248)`,
+- [x] `Receive_RemainingGroupShareOfTheWrongLength_FailsWithIllegalParameter` passes for `(0x11EB, 1248)`,
       `(0x11EB, 1184)` and `(0x11ED, 1666)`.
-- [ ] Every existing `Surl.Tls13.UnitTests` test passes.
-- [ ] `dotnet build Cryptography/Surl.Tls13.UnitTests -warnaserror` is clean, the fast tests are green, and
+- [x] Every existing `Surl.Tls13.UnitTests` test passes.
+- [x] `dotnet build Cryptography/Surl.Tls13.UnitTests -warnaserror` is clean, the fast tests are green, and
       `Surl.Tls13.UnitLibrary` keeps 100% line and branch coverage.
 
 ## Notes
+
+- Re-made by hand from stash `darkfactory BL-545 20261106-033059` (`e132aaaa`): `TlsMlKem`, `MlKem768Kem`,
+  `MlKem1024Kem`, `Encapsulate`, `AgreeClassicalFirstHybrid`, `EncapsulateTo` and `Combine` in `TlsKeyExchange`,
+  dispatching only `0x11EB` and `0x11ED`. X25519MLKEM768 now shares `EncapsulateTo` and `Combine`; its
+  modulus-check refusal message names `group 0x11EC` instead of `X25519MLKEM768` (no test pins the text).
+- `GroupPreference`: the two hybrids sit right after `Secp521r1`, before ffdhe2048 and ffdhe3072.
+- Test side: `WithClassicalFirstHybridShare` takes only `0x11EB` and `0x11ED` (curveSM2MLKEM768 is not this
+  task). Kept the stash's two refusal tests as well (SecP384r1MLKEM1024 failing the modulus check,
+  SecP256r1MLKEM768 with a point off the curve) so `EncapsulateTo`'s failure branch is covered.
+- Server shares answering the recorded upstream curl ClientHellos: 1153 bytes (65 + 1088) and 1665 bytes (97 + 1568).
+- Verified 2026-11-11: Tls13 tests 178/178, `Surl.Tls13.UnitLibrary` 100% line and branch, solution build clean,
+  fast tests green.
 
 ## Log
 
 - 2026-11-06: Created.
 - 2026-11-06: Split from BL-545 (timed out after 120 min); reuses its hybrid key exchange from stash `darkfactory BL-545 20261106-033059`.
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Done. Surl.Tls13 serves SecP256r1MLKEM768 and SecP384r1MLKEM1024, retrying for them and completing recorded upstream curl ClientHellos
