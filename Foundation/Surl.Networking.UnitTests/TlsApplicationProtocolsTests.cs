@@ -17,14 +17,14 @@ public sealed class TlsApplicationProtocolsTests
         Assert.AreEqual(expected, string.Join(",", TlsApplicationProtocols.ForScheme(scheme)));
 
     [TestMethod]
-    [DataRow("https", true, "http/1.1")]
+    [DataRow("https", true, "h2,http/1.1")]
     [DataRow("http", true, "")]
     [DataRow("https", false, "h2,http/1.1")]
     [DataRow("wss", false, "http/1.1")]
     [DataRow("xmpps", false, "xmpp-client")]
     [DataRow("ftps", false, "")]
     [DataRow("dns", false, "")]
-    public void ForListener_OffersHttp11OnlyForAnHttpsProxyAndTheSchemesListOtherwise(string scheme, bool isProxy, string expected) =>
+    public void ForListener_OffersTheSchemesListForAProxyListenerToo(string scheme, bool isProxy, string expected) =>
         Assert.AreEqual(
             expected,
             string.Join(",", TlsApplicationProtocols.ForListener(new ListenUrl(scheme, "127.0.0.1", 0) { IsProxy = isProxy })));

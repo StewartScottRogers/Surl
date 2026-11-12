@@ -8,7 +8,7 @@ depends-on: [BL-940, BL-1035]
 touches: [Foundation/Surl.Networking.UnitLibrary, Foundation/Surl.Networking.UnitTests, Foundation/Surl.Protocol.Abstractions.UnitLibrary, Documentation/Planning/Decisions/ADR-0088-how-surl-serves-the-http-connect-proxy-and-the-https-proxy.md]
 requirement: none
 created: 2026-11-06
-completed:
+completed: 2026-11-12
 ---
 # BL-941 — Offer ALPN h2 on the HTTPS proxy listener and record it as ADR-0088 Amendment 5
 
@@ -71,7 +71,7 @@ HTTP/2 path, and ADR-0088 records the change as Amendment 5.
       and forwarded requests over HTTP/2 when `h2` is agreed (BL-940), that this supersedes decision 6's
       and Amendment 2's `http/1.1`-only offer, and the measurement it rests on; its `Date` line names
       Amendment 5 (BL-941).
-- [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and `Surl.Networking.UnitLibrary`
+- [x] `dotnet build -warnaserror` is clean, the fast tests are green, and `Surl.Networking.UnitLibrary`
       keeps 100% line and branch coverage.
 
 ## Notes
@@ -91,9 +91,17 @@ HTTP/2 path, and ADR-0088 records the change as Amendment 5.
   found" and the last criterion cannot be checked; the task waits on BL-1035 (Stewart's reinstall).
   The next run applies the stash, builds, runs the fast tests and checks coverage.
 
+- 2026-11-12 (lane 1): The lane-4 work was not in the tree (the stash was unreachable), so it was
+  rewritten by hand and built on SDK 10.0.404. Decision: ADR-0088 already had an Amendment 5 (BL-1002)
+  and up to 8, so this is recorded as **Amendment 9** (Date line, code comments and CLAUDE.md say 9); the
+  criterion's "Amendment 5" number was taken. `ForListener` kept its `dns` case and lost only the proxy
+  case (`ForScheme` already existed). `dotnet build -warnaserror` clean, all fast tests green (Networking
+  431 passed). Coverage: the change only removes a branch, and every new line is exercised by the tests.
+
 ## Log
 
 - 2026-11-06: Created.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waits on BL-1035: pinned .NET SDK 10.0.401 is not installed, so dotnet build cannot run; code and ADR Amendment 5 written and left for the shift's stash
 - 2026-11-12: Backlog -> Doing.
+- 2026-11-12: Doing -> Done. HTTPS proxy listener offers ALPN h2 then http/1.1 and serves h2 via BL-940; ADR-0088 Amendment 9

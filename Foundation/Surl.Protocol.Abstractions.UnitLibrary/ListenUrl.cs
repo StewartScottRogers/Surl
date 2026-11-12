@@ -30,8 +30,8 @@ public sealed record ListenUrl(string Scheme, string Host, int Port)
     /// <summary>
     /// Whether this listen URL was named by <c>--proxy</c>, so its listener serves a proxy curl
     /// reaches with <c>-x</c> rather than an origin (ADR-0088, decisions 6 and 7). An
-    /// <c>https</c> proxy listener offers exactly the ALPN protocol ID <c>http/1.1</c>, where an
-    /// <c>https</c> origin listener offers <c>h2</c> first. <see langword="false"/> unless set.
+    /// <c>https</c> proxy listener offers the ALPN protocol IDs <c>h2</c> then <c>http/1.1</c>, as an
+    /// <c>https</c> origin listener does (ADR-0088, Amendment 9). <see langword="false"/> unless set.
     /// </summary>
     public bool IsProxy { get; init; }
 
