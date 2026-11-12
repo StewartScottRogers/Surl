@@ -67,3 +67,4 @@ accounts, and reset, snapshot and restore - each refusal mapped to its `ControlR
 - 2026-11-06: Split from BL-816 (timed out after 120 min); reuses its control target from stash `darkfactory BL-816 20261106-033059`.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waits on BL-1035: pinned .NET SDK 10.0.401 is not installed, so nothing builds
+- 2026-11-11: Backlog -> Doing.
