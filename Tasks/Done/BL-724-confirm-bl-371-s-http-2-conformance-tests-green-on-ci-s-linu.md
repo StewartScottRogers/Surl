@@ -8,7 +8,7 @@ depends-on: [BL-371, BL-1035]
 touches: [Conformance/Surl.Conformance.UnitTests]
 requirement: none
 created: 2026-11-05
-completed:
+completed: 2026-11-12
 ---
 # BL-724 — Confirm BL-371's HTTP/2 conformance tests green on CI's Linux and macOS legs
 
@@ -34,7 +34,7 @@ Linux and macOS conformance legs, and its URL is recorded here.
 
 - [x] The URL of a `CI` run containing BL-371's commits, with every `UpstreamCurlFetchesFromSurlOverHttp2Tests`
       test passing on the Linux and macOS legs, is in Notes.
-- [ ] Any test changed to make a leg green pins that platform's measured answer, and
+- [x] Any test changed to make a leg green pins that platform's measured answer, and
       `dotnet build -warnaserror` is clean and the fast tests are green.
 
 ## Notes
@@ -87,6 +87,9 @@ because `dotnet build` cannot resolve global.json's SDK 10.0.401 on this machine
 work. Criterion 2 stays unticked until a build and the fast tests can run, so this task now depends on
 BL-1035. When BL-1035 is Done: run `dotnet build` and the fast tests, tick criterion 2, move to Done.
 
+**2026-11-12 (dark factory lane 2):** SDK 10.0.404 now resolves (BL-1035 done). No test changed;
+`dotnet build` clean (0 warnings, 0 errors) and the fast tests pass with 0 failures. Criterion 2 ticked.
+
 ## Log
 
 - 2026-11-05: Created.
@@ -97,3 +100,4 @@ BL-1035. When BL-1035 is Done: run `dotnet build` and the fast tests, tick crite
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waits on BL-1035: dotnet build cannot resolve global.json's SDK 10.0.401; the CI evidence is recorded in Notes
 - 2026-11-12: Backlog -> Doing.
+- 2026-11-12: Doing -> Done. HTTP/2 conformance tests confirmed passing on CI Linux and macOS (run 42324374116); build clean, fast tests green
