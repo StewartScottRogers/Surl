@@ -86,8 +86,10 @@ and `Surl.Protocol.Abstractions.UnitLibrary`.
   and checked by `ConfiguredMailboxReader.IsAnySurlScheme`) and `ConfiguredTopicAccessReader`
   (`<filter>=<member>:<pub|sub|pubsub>,...`, a member twice refused) read into
   `SurlCommandLine.Topics`, `Queues`, `TopicMaps` and `TopicAccess`. `ConfiguredMessagingConflicts.Find`
-  holds the whole-line checks (a topic, queue, map source or access filter given twice). No option
-  row uses them yet: BL-992 adds the rows and calls `Find`; BL-991 composes them.
+  holds the whole-line checks (a topic, queue, map source or access filter given twice).
+  BL-992 added the four option rows (category `messages`, which owns the `messages` `--aihelp` topic and the
+  manual's TOPICS AND QUEUES section), counts each like `--group` and calls `Find` once the line is read;
+  `Surl.Composition` composes them (BL-991).
 - Mail items beyond the mailbox (ADR-0101 decision 4, ADR-0102 decisions 1.3, 1.4 and 1.6; BL-993):
   `ConfiguredMailAliasReader` (`<address>=<address>,...`, each address one `MailDomainNames.ReadAddress`
   accepts, a target twice refused), `ConfiguredMailCatchAllReader` (`<domain>=<address>`) and

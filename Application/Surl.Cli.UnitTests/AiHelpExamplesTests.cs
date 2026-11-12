@@ -17,7 +17,7 @@ public sealed class AiHelpExamplesTests
     {
         string[] topics =
         [
-            "overview", "listen-urls", "listen-urls", "surl", "surl", "surl", "content", "content", "content", "content", "auth", "auth", "mail", "proxy", "proxy", "testing", "tls", "tls", "tls", "tls",
+            "overview", "listen-urls", "listen-urls", "surl", "surl", "surl", "content", "content", "content", "content", "auth", "auth", "mail", "messages", "proxy", "proxy", "testing", "tls", "tls", "tls", "tls",
             "logging", "limits", "coap", "dict", "dns", "ftp", "gopher", "http", "http", "imap", "ldap", "mqtt", "nats", "pop3", "rtsp", "s3", "s3", "smb", "smtp", "socketio", "socks", "socks", "ssh", "telnet", "tftp",
             "websocket", "webtransport", "websocket", "xmpp", "extended", "control",
         ];

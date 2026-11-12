@@ -70,6 +70,13 @@ public static class AiHelpExamples
             ["curl -u ann@example.com:secret imap://127.0.0.1:<port>/"])
             with { Precondition = AiHelpExamplePrecondition.MailboxFileExists },
         Serving(
+            "messages",
+            "Retain everything published under a topic",
+            ["--allow-anonymous", "--topic", "shop/#;retain", "mqtt://127.0.0.1:0/"],
+            ["Listening on mqtt://127.0.0.1:<port>/"],
+            ["surl: warning: --allow-anonymous: every request and login is accepted without checking credentials"],
+            ["curl -d paid mqtt://127.0.0.1:<port>/shop/orders", "curl mqtt://127.0.0.1:<port>/shop/orders"]),
+        Serving(
             "proxy",
             "Serve an HTTP proxy",
             ["--proxy", "http://127.0.0.1:0/"],

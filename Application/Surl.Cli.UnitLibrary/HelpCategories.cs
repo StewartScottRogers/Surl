@@ -20,6 +20,7 @@ internal static class HelpCategories
         new("limits", "Connection, time and size limits", []),
         new("logging", "Log levels, tracing and the log file", []),
         new("mail", "Mail domains, mailboxes and aliases", []),
+        new("messages", "Topics, queues and topic access", []),
         new("mqtt", "MQTT and MQTTS protocol", ["mqtt", "mqtts"]),
         new("nats", "NATS and NATSS protocol (extended)", ["nats", "natss"]),
         new("pop3","POP3 and POP3S protocol", ["pop3", "pop3s"]),

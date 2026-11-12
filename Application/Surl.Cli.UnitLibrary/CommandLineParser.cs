@@ -47,6 +47,10 @@ public static class CommandLineParser
     private const string ShareLongName = "share";
     private const string ShareAccessLongName = "share-access";
     private const string BucketLongName = "bucket";
+    private const string TopicLongName = "topic";
+    private const string QueueLongName = "queue";
+    private const string TopicMapLongName = "topic-map";
+    private const string TopicAccessLongName = "topic-access";
     private const string ConfigLongName = "config";
     private const string ConfigOption = "--config";
     private const string UrlLongName = "url";
@@ -374,6 +378,7 @@ public static class CommandLineParser
         CommandLineReading reading, string longName, string reportedName, string argument) =>
         ActOnAcceptedMailOption(reading, longName, reportedName, argument)
         ?? ActOnAcceptedContentOption(reading, longName, reportedName)
+        ?? ActOnAcceptedMessagingOption(reading, longName, reportedName)
         ?? longName switch
         {
             FaultLongName => CountFault(reading, reportedName),
@@ -557,6 +562,39 @@ public static class CommandLineParser
             [.. line.Buckets.Select((bucket, index) => (reading.BucketOptionNames[index], bucket))]);
         return refusal is null ? null : RefusedOption(refusal.OptionName, refusal.Reason);
     }
+
+    /// <summary>
+    /// What an accepted <c>--topic</c>, <c>--queue</c>, <c>--topic-map</c> or <c>--topic-access</c> does besides
+    /// setting its value: keeps the name it was written with and refuses the one past
+    /// <see cref="ConfigurationItemReader.MaxOccurrences"/>; null to read on, and for every other option.
+    /// </summary>
+    private static CommandLineParseResult? ActOnAcceptedMessagingOption(
+        CommandLineReading reading, string longName, string reportedName) =>
+        longName switch
+        {
+            TopicLongName => CountItemOption(reading.TopicOptionNames, reportedName),
+            QueueLongName => CountItemOption(reading.QueueOptionNames, reportedName),
+            TopicMapLongName => CountItemOption(reading.TopicMapOptionNames, reportedName),
+            TopicAccessLongName => CountItemOption(reading.TopicAccessOptionNames, reportedName),
+            _ => null,
+        };
+
+    /// <summary>
+    /// Refuses, once the whole line is read, the first topic filter, queue, topic-map source or
+    /// <c>--topic-access</c> filter given twice (<see cref="ConfiguredMessagingConflicts.Find"/>, ADR-0101
+    /// decision 5 row 14); null when none.
+    /// </summary>
+    private static CommandLineParseResult? RefuseMessagingCombination(CommandLineReading reading)
+    {
+        var line = reading.CommandLine;
+        var refusal = ConfiguredMessagingConflicts.Find(
+            [.. line.Topics.Select((topic, index) => (reading.TopicOptionNames[index], topic))],
+            [.. line.Queues.Select((queue, index) => (reading.QueueOptionNames[index], queue))],
+            [.. line.TopicMaps.Select((map, index) => (reading.TopicMapOptionNames[index], map))],
+            [.. line.TopicAccess.Select((access, index) => (reading.TopicAccessOptionNames[index], access))]);
+        return refusal is null ? null : RefusedOption(refusal.OptionName, refusal.Reason);
+    }
+
     /// <summary>
     /// Keeps the name a <c>--group</c>, <c>--mail-domain</c> or <c>--mailbox</c> was written with, in
     /// <paramref name="optionNames"/>, and refuses the one past
@@ -789,7 +827,8 @@ public static class CommandLineParser
         ?? RefuseRepeatedName(reading.CommandLine.AuthorizedKeys.Select(keys => keys.UserName), reading.AuthorizedKeysOptionNames, name => UserGivenTwice(name))
         ?? RefuseRepeatedName(reading.CommandLine.Groups.Select(group => group.Name), reading.GroupOptionNames, name => ConfiguredGroupReader.GroupGivenTwice(name))
         ?? RefuseMailCombination(reading)
-        ?? RefuseContentCombination(reading);
+        ?? RefuseContentCombination(reading)
+        ?? RefuseMessagingCombination(reading);
 
     private static string UserGivenTwice(string userName) => $"user {userName} is given twice";
 
@@ -934,6 +973,18 @@ public static class CommandLineParser
 
         /// <summary>The name each accepted <c>--bucket</c> was written with, one per bucket, in order.</summary>
         public List<string> BucketOptionNames { get; } = [];
+
+        /// <summary>The name each accepted <c>--topic</c> was written with, one per topic, in order.</summary>
+        public List<string> TopicOptionNames { get; } = [];
+
+        /// <summary>The name each accepted <c>--queue</c> was written with, one per queue, in order.</summary>
+        public List<string> QueueOptionNames { get; } = [];
+
+        /// <summary>The name each accepted <c>--topic-map</c> was written with, one per map, in order.</summary>
+        public List<string> TopicMapOptionNames { get; } = [];
+
+        /// <summary>The name each accepted <c>--topic-access</c> was written with, one per item, in order.</summary>
+        public List<string> TopicAccessOptionNames { get; } = [];
 
         /// <summary>The written names of <c>--user</c> (<paramref name="longName"/> <c>user</c>) or <c>--authorized-keys</c>.</summary>
         public List<string> OptionNamesByUser(string longName) =>
