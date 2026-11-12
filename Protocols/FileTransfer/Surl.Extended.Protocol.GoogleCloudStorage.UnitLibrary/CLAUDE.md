@@ -16,7 +16,7 @@ listen URL's host when it is a DNS name, `localhost` and `storage.googleapis.com
   `x-goog-generation`, `x-goog-metageneration` (the index's recorded value, 1 unless a JSON patch or update raised it,
 BL-1041), `x-goog-stored-content-*`, `x-goog-storage-class: STANDARD`
   and `x-goog-hash` (`crc32c=…,md5=…` of the whole object, computed by `GcsObjectHashes` with
-  `BitOperations.Crc32C`, read from the file on every request until BL-773 caches it in the index).
+  `BitOperations.Crc32C`, cached in the index entry beside the ETag since BL-773: `GcsObjectDigests.Cached` builds it from the cached CRC-32C and the MD5 a quoted-hex ETag names, and `GcsObjectPropertiesReader.DigestsAsync` reads the file only when there is no cached CRC-32C or the ETag is a multipart one).
 - PUT Object (`GcsPutObject`): needs `--allow-uploads` (`403 AccessDenied`), `Content-Length` (`411
   MissingContentLength`), checks `Content-MD5` (`400 InvalidDigest`, `400 BadDigest`) and `x-goog-hash`
   (`400 InvalidHash`, `400 BadDigest`, `GcsSentDigests`), `x-goog-meta-*` at most 8 KiB (`400

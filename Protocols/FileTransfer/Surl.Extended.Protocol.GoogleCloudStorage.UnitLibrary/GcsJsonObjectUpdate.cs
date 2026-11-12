@@ -55,6 +55,7 @@ internal sealed class GcsJsonObjectUpdate(ContentStore store, ObjectMetadataInde
         {
             ContentMd5 = found.ContentMd5,
             ETag = found.ETag,
+            Crc32c = found.Crc32c,
             Generation = found.Generation,
             Metageneration = found.Metageneration + 1,
         };
@@ -67,7 +68,7 @@ internal sealed class GcsJsonObjectUpdate(ContentStore store, ObjectMetadataInde
 
         // The file was found a moment ago, so what the index refuses is the fields' size or its own room.
         return stored.Properties is { } updated
-            ? reply.Json(resources.Object(Uri.UnescapeDataString(route.RawBucket), Uri.UnescapeDataString(route.RawName), updated, await properties.HashAsync(mapping, updated.Length, cancellationToken)))
+            ? reply.Json(resources.Object(Uri.UnescapeDataString(route.RawBucket), Uri.UnescapeDataString(route.RawName), updated, await properties.DigestsAsync(mapping, updated, cancellationToken)))
             : reply.JsonError(stored.Outcome == ObjectMetadataStoreOutcome.MetadataTooLarge ? GcsJsonError.Invalid : GcsJsonError.QuotaExceeded);
     }
 }

@@ -33,7 +33,10 @@ internal sealed class GcsObjectPropertiesReader(ContentStore store, ObjectMetada
             var digests = await HashAsync(mapping, status.Length, cancellationToken);
 
             return new ObjectProperties(
-                ContentMediaTypes.Of(mapping.Location!), null, null, null, null, [], digests.ETag, GcsGeneration.Of(status.LastModifiedUtc), status.Length, status.LastModifiedUtc);
+                ContentMediaTypes.Of(mapping.Location!), null, null, null, null, [], digests.ETag, GcsGeneration.Of(status.LastModifiedUtc), status.Length, status.LastModifiedUtc)
+            {
+                Crc32c = digests.Crc32cValue,
+            };
         }
 
         var reading = await index.ReadAsync(indexKey, cancellationToken);
@@ -44,6 +47,17 @@ internal sealed class GcsObjectPropertiesReader(ContentStore store, ObjectMetada
 
         return reading.Properties;
     }
+
+    /// <summary>
+    /// The object's digests for <c>x-goog-hash</c>: the CRC-32C and MD5 its properties cache
+    /// (<see cref="GcsObjectDigests.Cached"/>), else read from its bytes.
+    /// </summary>
+    /// <param name="mapping">The object's mapped location.</param>
+    /// <param name="found">The object's properties, as <see cref="ReadAsync"/> answered.</param>
+    /// <param name="cancellationToken">Cancels reading the file.</param>
+    /// <returns>The digests.</returns>
+    public async Task<GcsObjectDigests> DigestsAsync(ContentPathMapping mapping, ObjectProperties found, CancellationToken cancellationToken) =>
+        GcsObjectDigests.Cached(found.ETag, found.Crc32c) ?? await HashAsync(mapping, found.Length, cancellationToken);
 
     /// <summary>
     /// The object's CRC-32C and MD5, read from its bytes.

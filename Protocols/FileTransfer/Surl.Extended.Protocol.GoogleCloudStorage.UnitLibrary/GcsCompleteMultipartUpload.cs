@@ -146,7 +146,7 @@ internal sealed class GcsCompleteMultipartUpload(GcsUploadStaging staging, GcsLo
                 await GcsUploadStaging.CopyAsync(upload.Session, part.Offset, part.Size, sink, cancellationToken);
             }
 
-            return (await staging.CommitAsync(session!, upload, target, caller, eTag, cancellationToken)).Refusal;
+            return (await staging.CommitAsync(session!, upload, target, caller, eTag, hashes.Finish().Crc32cValue, cancellationToken)).Refusal;
         }
     }
 }

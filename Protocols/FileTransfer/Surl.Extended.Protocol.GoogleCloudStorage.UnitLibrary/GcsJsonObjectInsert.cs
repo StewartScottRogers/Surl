@@ -256,7 +256,7 @@ internal sealed class GcsJsonObjectInsert(ContentStore store, GcsObjectPropertie
             return insertion.Reply.JsonError(GcsJsonError.Forbidden);
         }
 
-        var (refusal, _) = await putObject.StoreMetadataAsync(upload.RawBucket, upload.RawName, upload.Mapping, metadata, digests.ETag, insertion.Reply.Now, cancellationToken);
+        var (refusal, _) = await putObject.StoreMetadataAsync(upload.RawBucket, upload.RawName, upload.Mapping, metadata, digests.ETag, digests.Crc32cValue, insertion.Reply.Now, cancellationToken);
         if (refusal is not null)
         {
             return insertion.Reply.JsonError(refusal == GcsError.MetadataTooLarge ? GcsJsonError.Invalid : GcsJsonError.QuotaExceeded);

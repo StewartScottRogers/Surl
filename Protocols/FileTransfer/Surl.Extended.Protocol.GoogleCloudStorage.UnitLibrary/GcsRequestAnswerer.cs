@@ -190,7 +190,7 @@ internal sealed class GcsRequestAnswerer : IHttpRequestHandler, IHttpHeadNotRead
             return reply.Error(generationRefusal);
         }
 
-        var digests = await properties.HashAsync(mapping, found.Length, cancellationToken);
+        var digests = await properties.DigestsAsync(mapping, found, cancellationToken);
 
         return GcsObjectAnswer.Answer(reply, request.Fields, found, digests, new HttpAnswerBody.ContentFile(store, mapping, ContentByteRange.WholeFile(found.Length)));
     }
