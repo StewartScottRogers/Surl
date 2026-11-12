@@ -267,6 +267,8 @@ path and command known at that point. `FaultRule` carries `Id`, `Kind`, its scop
 | `dict` | a status 500 to 599 and text |
 | `gopher` | text, sent as a Gopher error item (`3`) |
 | `telnet` | one line of text, sent and then the connection closed |
+| `socks4`, `socks4a` | a reply code 91 to 93, alone, sent as the failed `CONNECT`'s `00 5B` to `00 5D` reply (BL-1061; curl exits 97, ADR-0121 row 4) |
+| `socks5`, `socks5h` | a reply code 1 to 8, alone, sent as the failed `CONNECT`'s `05 <code>` reply (BL-1061; curl exits 97, ADR-0121 row 11) |
 
 The extended servers (decision 9), each judged by its own specification (ADR-0083):
 

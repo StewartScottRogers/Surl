@@ -10,7 +10,7 @@ namespace Surl.Cli;
 /// by the first space. Of the extended schemes, <c>coap</c>, <c>mcp</c> and <c>signalr</c> and
 /// their secure twins have rows (ADR-0144), as do <c>s3</c>, <c>az</c>, <c>abfs</c>, <c>abfss</c>
 /// and <c>gs</c> (BL-983), and <c>dns</c>, <c>redis</c> and <c>rediss</c> (BL-986), and <c>amqp</c>, <c>amqp1</c>, <c>kafka</c>,
-/// <c>mqtt5</c> and <c>nats</c> with their secure twins (BL-1015, ADR-0124 decision 9); the others have none yet (BL-834).
+/// <c>mqtt5</c> and <c>nats</c> with their secure twins (BL-1015, ADR-0124 decision 9), and <c>socks4</c>, <c>socks4a</c>, <c>socks5</c> and <c>socks5h</c> (BL-1061); the others have none yet (BL-834).
 /// </summary>
 internal static class FaultReplyShapes
 {
@@ -61,6 +61,10 @@ internal static class FaultReplyShapes
         ["sftp"] = reply => IsCodeWithText(reply, 2, 8),
         ["smb"] = IsNtStatusError,
         ["smbs"] = IsNtStatusError,
+        ["socks4"] = reply => IsSocksReplyCode(reply, 91, 93),
+        ["socks4a"] = reply => IsSocksReplyCode(reply, 91, 93),
+        ["socks5"] = reply => IsSocksReplyCode(reply, 1, 8),
+        ["socks5h"] = reply => IsSocksReplyCode(reply, 1, 8),
         ["smtp"] = reply => IsCodeWithText(reply, 400, 599),
         ["smtps"] = reply => IsCodeWithText(reply, 400, 599),
         ["telnet"] = IsText,
@@ -157,6 +161,10 @@ internal static class FaultReplyShapes
 
     /// <summary>NATS <c>-ERR</c> text with no apostrophe, carriage return or line feed (BL-1031); the reply is never empty.</summary>
     private static bool IsNatsErrorText(string reply) => reply.IndexOfAny(['\'', '\r', '\n']) < 0;
+
+    /// <summary>A SOCKS reply code alone: SOCKS4's 91 to 93, SOCKS5's <c>REP</c> 1 to 8 (BL-1061).</summary>
+    private static bool IsSocksReplyCode(string reply, int lowest, int highest) =>
+        TrySplitCode(reply, out var code, out var text) && text is null && code >= lowest && code <= highest;
 
     /// <summary>An MQTT 5 reason code 128 to 255, alone.</summary>
     private static bool IsMqttReasonCode(string reply) =>

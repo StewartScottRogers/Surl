@@ -223,6 +223,13 @@ internal sealed class Socks5Exchange(
         var target = request.Address is { AddressFamily: System.Net.Sockets.AddressFamily.InterNetworkV6 }
             ? string.Create(CultureInfo.InvariantCulture, $"[{request.Host}]:{request.Port}")
             : string.Create(CultureInfo.InvariantCulture, $"{request.Host}:{request.Port}");
+        if (await SocksCommandFaults.FindAsync(context, client, target) is { } fault)
+        {
+            await AnswerFaultAsync(fault, target);
+
+            return;
+        }
+
         IConnection origin;
         try
         {
@@ -241,6 +248,17 @@ internal sealed class Socks5Exchange(
             await client.WriteAsync(Socks5Reply.Succeeded(origin.LocalEndPoint), Cancellation);
             await SocksRelay.RelayAndLogAsync(client, reader, origin, target, context.Log, Cancellation);
         }
+    }
+
+    private async Task AnswerFaultAsync(FaultRule fault, string target)
+    {
+        if (fault.Kind == FaultKind.Drop)
+        {
+            return;
+        }
+
+        SocksCommandFaults.TryReadReplyCode(context.Scheme, fault.Reply, out var code);
+        await RefuseAsync((Socks5ReplyCode)code, $"CONNECT {target} answered by fault rule {fault.Id}");
     }
 
     private async Task RefuseAsync(Socks5ReplyCode code, string why)
