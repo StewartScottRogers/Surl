@@ -8,7 +8,7 @@ depends-on: [BL-602]
 touches: [Application/Surl.Cli.UnitLibrary, Documentation/Planning/Decisions/ADR-0090-how-the-http-2-prior-knowledge-connection-reads-ends-and-answers.md, Documentation/Product/Requirements.md]
 requirement: none
 created: 2026-11-05
-completed:
+completed: 2026-11-11
 ---
 # BL-839 — Say in --aihelp http and ADR-0090 that HTTP/2 resets NTLM and Negotiate with HTTP_1_1_REQUIRED
 
@@ -24,13 +24,17 @@ completed:
 
 ## Acceptance criteria
 
-- [ ] `AiHelpProse.cs`'s `http` topic says an HTTP/2 stream whose `authorization` names NTLM or Negotiate, or whose `401` would offer only them, is reset `HTTP_1_1_REQUIRED` and curl retries over HTTP/1.1; the "not refused ... yet" sentence is gone.
-- [ ] ADR-0090 decision 6 records that BL-602 built the `HTTP_1_1_REQUIRED` reset.
-- [ ] `dotnet build -warnaserror` is clean and the fast tests are green.
+- [x] `AiHelpProse.cs`'s `http` topic says an HTTP/2 stream whose `authorization` names NTLM or Negotiate, or whose `401` would offer only them, is reset `HTTP_1_1_REQUIRED` and curl retries over HTTP/1.1; the "not refused ... yet" sentence is gone.
+- [x] ADR-0090 decision 6 records that BL-602 built the `HTTP_1_1_REQUIRED` reset.
+- [x] `dotnet build -warnaserror` is clean and the fast tests are green.
 
 ## Notes
+
+- ADR-0090: decision 6 gets a one-line pointer and a new Amendment 2 records what BL-602 built (both cases: an `authorization` naming NTLM or Negotiate, and a `401` offering only them), checked against `ConnectionBoundLogins`.
+- `Documentation/Product/Requirements.md` FR-054 already says NTLM and Negotiate are answered `RST_STREAM HTTP_1_1_REQUIRED`, so it is left unchanged.
 
 ## Log
 
 - 2026-11-05: Created.
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Done. surl --aihelp http and ADR-0090 Amendment 2 say HTTP/2 resets NTLM and Negotiate streams HTTP_1_1_REQUIRED

@@ -72,7 +72,9 @@ bytes, the same frames as ADR-0081's "Measured" table with `:path /file.txt`.
 6. **What waits for later tasks.** The `503` refusal of a connection past a connection limit is
    still written as HTTP/1.1 bytes (ADR-0081's "Too many connections" row; BL-601), and NTLM and
    Negotiate over HTTP/2 are not yet answered `HTTP_1_1_REQUIRED` (decision 7; BL-602). Both are
-   filed as their own tasks, and `surl --aihelp http` says what is answered today.
+   filed as their own tasks, and `surl --aihelp http` says what is answered today. Both are now
+   built: the `503` by BL-601 (Amendment 1) and the `HTTP_1_1_REQUIRED` reset by BL-602
+   (Amendment 2).
 
 ## Alternatives considered
 
@@ -108,3 +110,17 @@ HTTP/1.1 bytes, unchanged.
 Decision 6 therefore no longer says the `503` is "still written as HTTP/1.1 bytes" for an HTTP/2
 client. What still waits is `HTTP_1_1_REQUIRED` for NTLM and Negotiate over HTTP/2 (decision 7;
 BL-602). BL-859 files this amendment because BL-574 held this folder while BL-601 ran.
+
+## Amendment 2 - NTLM and Negotiate over HTTP/2 are reset `HTTP_1_1_REQUIRED` (BL-602, 2026-11-05)
+
+Decided by Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), 2026-11-11.
+
+The last half of decision 6 is done. BL-602 (2026-11-05) made `Http2StreamAnswerWriter` in
+`Surl.Protocol.Http` reset a stream `RST_STREAM` `HTTP_1_1_REQUIRED`, as ADR-0081 decision 7 says,
+in two cases: its `authorization` field names NTLM or Negotiate (`ConnectionBoundLogins.AreCarriedBy`),
+checked before the answerer sees the request, so no handshake starts; or its answer is a `401`
+whose challenges offer only NTLM or Negotiate (`ConnectionBoundLogins.AreTheOnlyLoginsOfferedBy`).
+Curl then retries the request over HTTP/1.1, where the login goes ahead; the HTTP/2 connection
+carries on. ADR-0081 decision 7 is unchanged, and nothing in decision 6 still waits.
+`surl --aihelp http` says so (BL-839, which files this amendment because
+`Documentation/Planning/Decisions` was held by BL-569 while BL-602 ran).
