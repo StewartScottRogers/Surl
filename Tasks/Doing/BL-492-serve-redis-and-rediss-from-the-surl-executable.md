@@ -79,3 +79,4 @@ switch turns both off.
 - 2026-11-05: Doing -> Backlog. Needs Application/Surl.Composition.UnitLibrary and .UnitTests (where extended servers are registered), which BL-803 in Doing touches
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waits on BL-1035: global.json pins .NET SDK 10.0.401, which is not installed, so nothing builds; code written and described under Notes
+- 2026-11-12: Backlog -> Doing.
