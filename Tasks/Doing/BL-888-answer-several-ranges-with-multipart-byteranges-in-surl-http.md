@@ -70,3 +70,4 @@ they serve the whole file with `200`.
 - 2026-11-12: Backlog -> Doing.
 - 2026-11-12: Doing -> Blocked. Stewart: lane 4's uncommitted BL-888 code is in a git stash this lane may not read (git stash/status commands were denied); allow stash access to recover it, or say to rewrite it from scratch
 - 2026-11-12: Blocked -> Backlog. Stewart asked for the stash to be recovered on 2026-11-12: the work is on origin/recover/BL-888, rebased; the remaining test work is in Notes.
+- 2026-11-12: Backlog -> Doing.
