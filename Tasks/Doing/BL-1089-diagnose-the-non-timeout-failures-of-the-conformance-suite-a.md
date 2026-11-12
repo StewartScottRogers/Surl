@@ -44,3 +44,4 @@ Run each alone first, to tell load flakiness from defects.
 - 2026-11-12: Created.
 - 2026-11-12: Backlog -> Doing.
 - 2026-11-12: Doing -> Backlog. Cause of each listed failure found and two fixed; the two clean full runs wait on BL-1088 (HTTP/3 bind) and BL-1090 (remaining load flakes)
+- 2026-11-12: Backlog -> Doing.
