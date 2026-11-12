@@ -16,7 +16,10 @@ internal static class GopherMenu
     /// The error menu: one item of type <c>3</c> with fixed text, an empty selector, the
     /// conventional host <c>error.host</c> and port 1, then the <c>.</c> line.
     /// </summary>
-    public static readonly byte[] NothingServedHere =
+    public static ReadOnlyMemory<byte> NothingServedHere => NothingServedHereBytes;
+
+    // Private so no caller can write the bytes; NothingServedHere hands out a read-only view.
+    private static readonly byte[] NothingServedHereBytes =
         "3Nothing is served at this selector.\t\terror.host\t1\r\n.\r\n"u8.ToArray();
 
     // Item types by file extension (RFC 1436 section 3.8, and the widely used h and I);

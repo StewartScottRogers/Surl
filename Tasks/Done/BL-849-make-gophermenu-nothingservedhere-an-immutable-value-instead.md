@@ -8,7 +8,7 @@ depends-on: [BL-822, BL-1035]
 touches: [Protocols/Lookup/Surl.Protocol.Gopher.UnitLibrary, Protocols/Lookup/Surl.Protocol.Gopher.UnitTests]
 requirement: none
 created: 2026-11-05
-completed:
+completed: 2026-11-12
 ---
 # BL-849 — Make GopherMenu.NothingServedHere an immutable value instead of a public byte array
 
@@ -29,13 +29,15 @@ another instance in the same process answers.
 
 ## Acceptance criteria
 
-- [ ] `GopherMenu.NothingServedHere` is a `ReadOnlySpan<byte>` or `ReadOnlyMemory<byte>`, and the existing Gopher
+- [x] `GopherMenu.NothingServedHere` is a `ReadOnlySpan<byte>` or `ReadOnlyMemory<byte>`, and the existing Gopher
       tests that pin its bytes still pass unchanged.
-- [ ] The library stays at 100% line and branch coverage; `dotnet build` clean, fast tests green.
+- [x] The library stays at 100% line and branch coverage; `dotnet build` clean, fast tests green.
 
 ## Notes
 
 - 2026-11-11 (lane 4): `dotnet build` fails - "A compatible .NET SDK was not found"; global.json pins 10.0.401 and only 10.0.100-rc.1, 11.0.100-rc.2 and 11.0.100 are installed. Added BL-1035 to depends-on and returned to Backlog; no code changed.
+
+- 2026-11-12: Chose `ReadOnlyMemory<byte>` (a Span property cannot be passed to the async write); the array is now private. `SendAndCloseAsync` takes `ReadOnlyMemory<byte>`. Gopher tests 94/94 green; no new branches, so coverage is unchanged.
 
 ## Log
 
@@ -43,3 +45,4 @@ another instance in the same process answers.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. behind BL-1035 - pinned .NET SDK 10.0.401 is not installed
 - 2026-11-12: Backlog -> Doing.
+- 2026-11-12: Doing -> Done. GopherMenu.NothingServedHere is a ReadOnlyMemory<byte> over a private array
