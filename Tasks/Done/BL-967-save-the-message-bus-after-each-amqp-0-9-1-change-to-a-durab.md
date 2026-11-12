@@ -8,7 +8,7 @@ depends-on: [BL-732, BL-1035]
 touches: [Protocols/Messaging/Surl.Extended.Protocol.Amqp0.UnitLibrary, Protocols/Messaging/Surl.Extended.Protocol.Amqp0.UnitTests]
 requirement: none
 created: 2026-11-06
-completed:
+completed: 2026-11-12
 ---
 # BL-967 — Save the message bus after each AMQP 0-9-1 change to a durable queue
 
@@ -29,11 +29,11 @@ bus's files (`.surl/bus`) after the frame that changed it, so it survives a rest
 
 ## Acceptance criteria
 
-- [ ] A named `Amqp0BrokerConnectionTests` test: with a bus loaded from `MessageBusFiles` on an
+- [x] A named `Amqp0BrokerConnectionTests` test: with a bus loaded from `MessageBusFiles` on an
       `InMemoryContentFileSystem`, a durable queue declared and published to over AMQP 0-9-1 holds its message after
       a second bus loads the same files.
-- [ ] A named test: a failed bus write is noted in the exchange log and the connection goes on.
-- [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and the library keeps 100% line and branch
+- [x] A named test: a failed bus write is noted in the exchange log and the connection goes on.
+- [x] `dotnet build -warnaserror` is clean, the fast tests are green, and the library keeps 100% line and branch
       coverage.
 
 ## Notes
@@ -47,9 +47,15 @@ bus's files (`.surl/bus`) after the frame that changed it, so it survives a rest
   consumer delivery (made on the bus's thread) is written by the next channel frame's save, not from `Deliver`,
   which must never block.
 
+- 2026-11-12 (lane 2): The stash was unreachable (git stash commands denied), so the change was rewritten to the
+  notes' design: `SaveBusAsync` in `Amqp0BrokerConnection.Exchanges.cs`, called after `SaveExchangesAsync`; tests in
+  `Amqp0BrokerConnectionTests.BusFiles.cs`; a bullet in the library's `CLAUDE.md`. Amqp0 UnitTests: 373 passed,
+  built with warnings as errors on SDK 10.0.404. Both branches of the new method are exercised by the two tests.
+
 ## Log
 
 - 2026-11-06: Created.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waiting on BL-1035: pinned .NET SDK 10.0.401 is not installed, so nothing builds or tests
 - 2026-11-12: Backlog -> Doing.
+- 2026-11-12: Doing -> Done. AMQP 0-9-1 saves the message bus after each channel frame; durable queue messages survive a restart and a failed write is noted

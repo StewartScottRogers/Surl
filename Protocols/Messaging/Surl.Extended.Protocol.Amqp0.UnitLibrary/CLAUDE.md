@@ -98,6 +98,12 @@ The headers exchange and durable exchanges across restarts (BL-732, ADR-0112 dec
   the composition answers 37. `Amqp0ExchangeTable` counts changes to durable declared exchanges and
   their bindings, and the connection saves them after each channel frame, noting a failed write.
 
+Durable queues across restarts (BL-967, ADR-0112 decision 6):
+
+- After each channel frame the connection calls `MessageBus.SaveChangesAsync` (beside the exchange save),
+  noting `StorageFailed` and going on. A no-ack consumer delivery, made on the bus's thread, is written by
+  the next channel frame's save, never from `Deliver`, which must not block.
+
 An open connection the engine cancels (limit or shutdown) is told `connection.close` 320 on a one-second deadline of its own (BL-749).
 
 The command line and composition are BL-507, which also hands the broker its `Amqp0ExchangeFiles`.

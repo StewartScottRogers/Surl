@@ -322,6 +322,16 @@ internal sealed partial class Amqp0BrokerConnection
         }
     }
 
+    // ADR-0100 decision 3.7: a failed write is noted; the change stays in memory and serving goes on.
+    private async Task SaveBusAsync()
+    {
+        var saved = await bus.SaveChangesAsync(context.CancellationToken);
+        if (saved.Outcome == MessageBusOutcome.StorageFailed)
+        {
+            context.Log.Note($"The message bus could not save its files ({saved.FailureMessage}); the change is kept in memory.");
+        }
+    }
+
     private void SendCountUnlessNoWait(Amqp0Channel channel, ushort methodId, int count, bool noWait)
     {
         if (!noWait)

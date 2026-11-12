@@ -81,6 +81,7 @@ internal sealed partial class Amqp0BrokerConnection
         {
             AnswerOnChannel(frame);
             await SaveExchangesAsync();
+            await SaveBusAsync();
             return true;
         }
         catch (Amqp0ConnectionException exception)
