@@ -61,3 +61,4 @@ every run.
 - 2026-11-11: Doing -> Backlog. Waits on BL-1035: pinned .NET SDK 10.0.401 is not installed, so nothing builds; code is written and stashed
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. returned by the shift starting 20261111-212123: it was in Doing but no stopped lane held it; look for its work in 'git stash list' and in factory/BL-1000-* branches before redoing it
+- 2026-11-11: Backlog -> Doing.
