@@ -62,3 +62,4 @@ The AMQP 0-9-1 broker bounds outstanding deliveries as `basic.qos` says - `prefe
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Blocked. Stewart: the finished BL-760 work sits in a git stash and this session is denied permission to run git stash, so it cannot be recovered; allow git stash list/apply in lane 1, or approve re-implementing it from the Notes design
 - 2026-11-12: Blocked -> Backlog. Stewart asked for the stashes to be recovered on 2026-11-12: the finished work is on origin/recover/BL-760; a lane merges it, see Notes.
+- 2026-11-12: Backlog -> Doing.
