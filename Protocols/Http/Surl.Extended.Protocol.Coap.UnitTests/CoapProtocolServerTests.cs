@@ -258,6 +258,49 @@ public sealed class CoapProtocolServerTests
         }
     }
 
+    [TestMethod]
+    public async Task ServeAsync_ProxyUriNamingTheListener_IsServedAsALocalRequest()
+    {
+        var store = new CoapTestStore().WithFile("f.txt", "hi");
+
+        var sent = await ServeAsync(store, null, 1, ProxyGet("coap://127.0.0.1:5683/f.txt"));
+
+        Assert.AreEqual(CoapCode.Content, CoapMessageReader.Read(sent.Single()).Message!.Code);
+        Assert.AreEqual("hi", System.Text.Encoding.UTF8.GetString(CoapMessageReader.Read(sent.Single()).Message!.Payload.Span));
+    }
+
+    [TestMethod]
+    [DataRow("coap://127.0.0.1:5684/f.txt")]
+    [DataRow("coap://10.0.0.9:5683/f.txt")]
+    [DataRow("coaps://127.0.0.1:5683/f.txt")]
+    public async Task ServeAsync_ProxyUriNamingAnotherListener_Is505(string proxyUri)
+    {
+        var store = new CoapTestStore().WithFile("f.txt", "hi");
+
+        var sent = await ServeAsync(store, null, 1, ProxyGet(proxyUri));
+
+        Assert.AreEqual(CoapCode.ProxyingNotSupported, CoapMessageReader.Read(sent.Single()).Message!.Code);
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_ProxySchemeCoapWithoutAUriHost_IsServedAsALocalRequest()
+    {
+        var store = new CoapTestStore().WithFile("f.txt", "hi");
+        var request = new CoapMessage(
+            CoapMessageType.Confirmable,
+            CoapCode.Get,
+            1,
+            default,
+            [CoapOption.FromString(CoapOptionNumber.UriPath, "f.txt"), CoapOption.FromString(CoapOptionNumber.ProxyScheme, "coap")]);
+
+        var sent = await ServeAsync(store, null, 1, CoapMessageWriter.Write(request));
+
+        Assert.AreEqual(CoapCode.Content, CoapMessageReader.Read(sent.Single()).Message!.Code);
+    }
+
+    private static byte[] ProxyGet(string proxyUri) =>
+        CoapMessageWriter.Write(new CoapMessage(CoapMessageType.Confirmable, CoapCode.Get, 1, default, [CoapOption.FromString(CoapOptionNumber.ProxyUri, proxyUri)]));
+
     internal static ExchangeContext Context(IExchangeLog log, TimeProvider clock, CancellationToken cancellationToken) => new(
         1,
         new ListenUrl("coap", "127.0.0.1", 5683).WithBoundPort(5683),

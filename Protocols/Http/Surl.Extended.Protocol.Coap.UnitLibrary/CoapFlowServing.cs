@@ -51,8 +51,8 @@ internal static class CoapFlowServing
         await using var observers = new CoapFlowObservers(
             observations,
             context,
-            (request, options, cancellationToken) => answerer.AnswerAsync(request, options, context.Scheme, peerIsAuthenticated, uploads, cancellationToken),
-            options => answerer.LocationOf(options, context.Scheme),
+            (request, options, cancellationToken) => answerer.AnswerAsync(request, options.ResolveLocalProxy(context.ListenUrl), context.Scheme, peerIsAuthenticated, uploads, cancellationToken),
+            options => answerer.LocationOf(options.ResolveLocalProxy(context.ListenUrl), context.Scheme),
             (what, compose, cancellationToken) => session!.SendConfirmableAsync(what, compose, cancellationToken));
         session = new CoapFlowSession(
             flow,
