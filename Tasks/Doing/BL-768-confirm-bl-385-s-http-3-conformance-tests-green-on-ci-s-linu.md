@@ -68,3 +68,4 @@ class is Inconclusive ("either pinned binary is absent"); the skipped lines are 
 - 2026-11-05: Created.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waits on BL-1035: dotnet build cannot resolve global.json's SDK 10.0.401; the CI evidence (run 42324374116, all 13 HTTP/3 tests passed on Linux and macOS) is in Notes
+- 2026-11-12: Backlog -> Doing.
