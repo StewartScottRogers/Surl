@@ -55,3 +55,4 @@ otherwise, instead of every such rule being refused at configuration.
 
 - 2026-11-06: Created.
 - 2026-11-06: Split from BL-834 (timed out after 120 min); its stash `darkfactory BL-834 20261106-033059` holds only the scheme rows.
+- 2026-11-11: Backlog -> Doing.
