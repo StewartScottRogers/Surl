@@ -44,3 +44,4 @@ into `TestServerChoices`, so a listed case skips `test-server-choice`.
 - 2026-11-11: Doing -> Backlog. Lane 1 could not integrate: build failed after rebasing onto the other lanes' work. The work is on branch factory/BL-689-lane-1-20261111-060243; start with git cherry-pick --no-commit factory/BL-689-lane-1-20261111-060243 and fix it.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waiting on BL-1035 - pinned .NET SDK 10.0.401 is not installed, so nothing builds; finished work is on factory/BL-689-lane-1-20261111-060243
+- 2026-11-12: Backlog -> Doing.
