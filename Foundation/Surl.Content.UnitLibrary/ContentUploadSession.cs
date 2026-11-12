@@ -220,7 +220,7 @@ public sealed class ContentUploadSession : IAsyncDisposable
             throw;
         }
 
-        eventsAndFaults.PublishChange(StoreChange.Written, target.PublishedName, Length);
+        eventsAndFaults.PublishChange(StoreChange.Written, target.PublishedName, Length, exchangeId: target.Caller.ExchangeId);
         return ContentUploadResult.Written;
     }
 

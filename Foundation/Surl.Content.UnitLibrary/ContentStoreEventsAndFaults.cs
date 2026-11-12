@@ -20,9 +20,12 @@ internal sealed class ContentStoreEventsAndFaults
         this.faults = faults ?? EmptyFaultPlan.Instance;
     }
 
-    /// <summary>Publishes one change to the content store; no store change carries an exchange.</summary>
-    internal void PublishChange(StoreChange change, string name, long? byteCount, string? previousName = null) =>
-        events.Publish(new StoreChangedEvent(StoreKind.Content, change, name, byteCount, null) { PreviousName = previousName });
+    /// <summary>
+    /// Publishes one change to the content store, naming <paramref name="exchangeId"/> when a caller's
+    /// exchange made it (null for a seed, reset or restore).
+    /// </summary>
+    internal void PublishChange(StoreChange change, string name, long? byteCount, string? previousName = null, long? exchangeId = null) =>
+        events.Publish(new StoreChangedEvent(StoreKind.Content, change, name, byteCount, exchangeId) { PreviousName = previousName });
 
     /// <summary>
     /// Asks the plan at the <see cref="FaultStage.StoreWrite"/> point for <paramref name="name"/>;
@@ -31,14 +34,14 @@ internal sealed class ContentStoreEventsAndFaults
     /// </summary>
     internal async ValueTask<bool> RunsOutOfSpaceAsync(string name, ContentCaller caller, CancellationToken cancellationToken)
     {
-        var point = new FaultPoint(FaultStage.StoreWrite) { Path = name, Scheme = caller.Scheme, Account = caller.AccountName };
+        var point = new FaultPoint(FaultStage.StoreWrite) { Path = name, Scheme = caller.Scheme, Account = caller.AccountName, ExchangeId = caller.ExchangeId };
         FaultRule? rule = await faults.FindAsync(point, cancellationToken);
         if (rule is not { Kind: FaultKind.OutOfSpace })
         {
             return false;
         }
 
-        events.Publish(new FaultAppliedEvent(rule.Id, FaultKind.OutOfSpace, FaultStage.StoreWrite, null, name));
+        events.Publish(new FaultAppliedEvent(rule.Id, FaultKind.OutOfSpace, FaultStage.StoreWrite, caller.ExchangeId, name));
         return true;
     }
 }

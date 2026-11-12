@@ -742,7 +742,7 @@ public sealed partial class ContentStore
         }
 
         FileSystemOf(mapping).DeleteFile(location);
-        eventsAndFaults.PublishChange(StoreChange.Deleted, PublishedNameOf(mapping, location), null);
+        eventsAndFaults.PublishChange(StoreChange.Deleted, PublishedNameOf(mapping, location), null, exchangeId: mapping.Caller!.ExchangeId);
         return ContentChangeResult.Done;
     }
 
@@ -869,7 +869,7 @@ public sealed partial class ContentStore
         }
 
         fileSystem.CreateDirectory(location);
-        eventsAndFaults.PublishChange(StoreChange.Created, PublishedNameOf(mapping, location), null);
+        eventsAndFaults.PublishChange(StoreChange.Created, PublishedNameOf(mapping, location), null, exchangeId: mapping.Caller!.ExchangeId);
         return ContentChangeResult.Done;
     }
 
@@ -907,7 +907,7 @@ public sealed partial class ContentStore
         }
 
         fileSystem.RemoveEmptyDirectory(location);
-        eventsAndFaults.PublishChange(StoreChange.Deleted, PublishedNameOf(mapping, location), null);
+        eventsAndFaults.PublishChange(StoreChange.Deleted, PublishedNameOf(mapping, location), null, exchangeId: mapping.Caller!.ExchangeId);
         return ContentChangeResult.Done;
     }
 
@@ -933,7 +933,7 @@ public sealed partial class ContentStore
         }
 
         MoveEntry(FileSystemOf(source), sourceKind, from, to, replacingAFile);
-        eventsAndFaults.PublishChange(StoreChange.Renamed, PublishedNameOf(destination, to), null, PublishedNameOf(source, from));
+        eventsAndFaults.PublishChange(StoreChange.Renamed, PublishedNameOf(destination, to), null, PublishedNameOf(source, from), source.Caller!.ExchangeId);
         return ContentChangeResult.Done;
     }
 
@@ -1028,7 +1028,7 @@ public sealed partial class ContentStore
             return ContentUploadResult.TooLarge;
         }
 
-        eventsAndFaults.PublishChange(StoreChange.Written, name, writtenLength);
+        eventsAndFaults.PublishChange(StoreChange.Written, name, writtenLength, exchangeId: mapping.Caller!.ExchangeId);
         return ContentUploadResult.Written;
     }
 

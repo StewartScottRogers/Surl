@@ -8,7 +8,7 @@ depends-on: [BL-789, BL-1035]
 touches: [Foundation/Surl.Content.UnitLibrary, Foundation/Surl.Content.UnitTests]
 requirement: none
 created: 2026-11-05
-completed:
+completed: 2026-11-12
 ---
 # BL-872 — Carry the exchange ID to the content store so its events and fault points name the exchange
 
@@ -30,10 +30,10 @@ the change, so a test can tie an upload's store change to the FTP or HTTP exchan
 
 ## Acceptance criteria
 
-- [ ] Named `ContentStoreTests` show a write, delete, rename, folder change and out-of-space refusal made
+- [x] Named `ContentStoreTests` show a write, delete, rename, folder change and out-of-space refusal made
       through a caller with exchange ID 7 publish events with `ExchangeId` 7 and ask the plan with
       `ExchangeId` 7; a caller with none still publishes `null`.
-- [ ] `dotnet build` is clean, the fast tests are green, and `Surl.Content.UnitLibrary` keeps 100% line
+- [x] `dotnet build` is clean, the fast tests are green, and `Surl.Content.UnitLibrary` keeps 100% line
       and branch coverage.
 
 ## Notes
@@ -49,6 +49,9 @@ the change, so a test can tie an upload's store change to the FTP or HTTP exchan
   `ForAccountAndAnonymous_NameNoExchange`, `ContentStoreTests.Changes_ThroughACallerOnExchange7_*`,
   `Upload_OutOfSpaceThroughACallerOnExchange7_*` and `Upload_OutOfSpaceThroughACallerOnNoExchange_*`;
   the library's CLAUDE.md updated.
+- 2026-11-12 (lane 3): Redone (the stash was unreadable) on SDK 10.0.404, which now satisfies `global.json`.
+  Build clean, 720 fast tests green. Tests: `Changes_ThroughACallerOnExchange7_*`, `CommitAsync_ThroughACallerOnExchange7_*`,
+  `Upload_OutOfSpaceThroughACallerOnExchange7_*`, `WriteUploadAsync_ACallerOnExchange7_*`, `ContentCallerTests.WithExchange_*`.
 - The ADR-0129 amendment is outside `touches`, and BL-671 in Doing holds `Documentation/Planning/Decisions`;
   file it as a docs task when this lands, with the per-server wiring tasks.
 
@@ -58,3 +61,4 @@ the change, so a test can tie an upload's store change to the FTP or HTTP exchan
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waits on BL-1035: pinned .NET SDK 10.0.401 is not installed, so dotnet build cannot run
 - 2026-11-12: Backlog -> Doing.
+- 2026-11-12: Doing -> Done. ContentCaller.WithExchange carries the exchange ID onto store events and fault points

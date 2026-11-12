@@ -137,6 +137,69 @@ public sealed partial class ContentStoreTests
         Assert.AreEqual(new FaultPoint(FaultStage.StoreWrite) { Path = "/a.txt", Scheme = "ftp", Account = "alice" }, faults.Points.Single());
     }
 
+    [TestMethod]
+    public async Task Changes_ThroughACallerOnExchange7_PublishEventsNamingExchange7WhileACallerOnNoneNamesNull()
+    {
+        var events = new RecordingSurlEventPublisher();
+        ContentStore store = EventStore(inMemory: true, events, faults: null);
+        ContentCaller onSeven = ContentCaller.ForAccount("alice", "ftp").WithExchange(7);
+        ContentPathMapping Map(string path) => store.MapRequestPathForCaller(path, onSeven);
+
+        store.CreateDirectory(Map("/d"));
+        await store.WriteUploadAsync(Map("/d/a.txt"), Bytes("hi"), CancellationToken.None);
+        store.RenameEntry(Map("/d/a.txt"), Map("/d/b.txt"));
+        store.DeleteFile(Map("/d/b.txt"));
+        store.RemoveEmptyDirectory(Map("/d"));
+        await store.WriteUploadAsync(store.MapRequestPath("/n.txt"), Bytes("x"), CancellationToken.None);
+
+        long?[] exchangeIds = [.. events.Events.OfType<StoreChangedEvent>().Select(e => e.ExchangeId)];
+        CollectionAssert.AreEqual(new long?[] { 7, 7, 7, 7, 7, null }, exchangeIds);
+    }
+
+    [TestMethod]
+    public async Task CommitAsync_ThroughACallerOnExchange7_PublishesTheChangeNamingExchange7()
+    {
+        var events = new RecordingSurlEventPublisher();
+        ContentStore store = EventStore(inMemory: true, events, faults: null);
+        ContentCaller onSeven = ContentCaller.Anonymous("sftp").WithExchange(7);
+
+        ContentUploadOpeningOutcome outcome = await store.OpenUploadAsync(store.MapRequestPathForCaller("/s.txt", onSeven), CreateOrTruncate, CancellationToken.None);
+        await using ContentUploadSession session = outcome.Session!;
+        await session.WriteAtAsync(0, Bytes("ab").ToArray(), CancellationToken.None);
+        await session.CommitAsync(CancellationToken.None);
+
+        Assert.AreEqual(7L, ((StoreChangedEvent)events.Events.Single()).ExchangeId);
+    }
+
+    [TestMethod]
+    public async Task Upload_OutOfSpaceThroughACallerOnExchange7_AsksAndPublishesWithExchange7()
+    {
+        var events = new RecordingSurlEventPublisher();
+        var faults = new UnitTestPathPrefixFaultPlan(new FaultRule("f7", FaultKind.OutOfSpace) { Path = "/u" });
+        ContentStore store = EventStore(inMemory: true, events, faults);
+        store.CreateDirectory(store.MapRequestPath("/u"));
+        ContentCaller onSeven = ContentCaller.ForAccount("alice", "ftp").WithExchange(7);
+
+        await store.WriteUploadAsync(store.MapRequestPathForCaller("/u/a.txt", onSeven), Bytes("x"), CancellationToken.None);
+        await store.WriteUploadAsync(store.MapRequestPath("/u/b.txt"), Bytes("x"), CancellationToken.None);
+
+        FaultAppliedEvent[] applied = [.. events.Events.OfType<FaultAppliedEvent>()];
+        Assert.AreEqual(7L, applied[0].ExchangeId);
+        Assert.IsNull(applied[1].ExchangeId);
+    }
+
+    [TestMethod]
+    public async Task WriteUploadAsync_ACallerOnExchange7_AsksThePlanWithAPointOnExchange7()
+    {
+        var faults = new ScriptedFaultPlan(new FaultRule("f3", FaultKind.Delay));
+        ContentStore store = EventStore(inMemory: true, new RecordingSurlEventPublisher(), faults);
+
+        await store.WriteUploadAsync(
+            store.MapRequestPathForCaller("/a.txt", ContentCaller.ForAccount("alice", "ftp").WithExchange(7)), Bytes("abc"), CancellationToken.None);
+
+        Assert.AreEqual(7L, faults.Points.Single().ExchangeId);
+    }
+
     private static ContentStore EventStore(bool inMemory, ISurlEventPublisher events, IFaultPlan? faults) =>
         inMemory
             ? new ContentStore(MemoryRoot, new InMemoryContentFileSystem(TimeProvider.System), UploadsOn, [], [], events, faults)
