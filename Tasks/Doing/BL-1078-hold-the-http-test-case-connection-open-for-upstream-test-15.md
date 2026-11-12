@@ -30,3 +30,4 @@ BL-683 (8b24ef3d) closes the HTTP case server connection when its reply part is 
 ## Log
 
 - 2026-11-12: Created.
+- 2026-11-12: Backlog -> Doing.
