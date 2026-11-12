@@ -149,6 +149,9 @@ public static partial class SurlServerComposition
     /// <param name="faults">The instance's fault plan.</param>
     /// <param name="shares">The composed shares.</param>
     /// <param name="buckets">The composed buckets.</param>
+    /// <param name="sweepClock">The clock the store sweeps abandoned <c>.surl-upload-</c> files with
+    /// at construction (ADR-0150); used only with <c>--directory</c>, since memory holds none;
+    /// <see langword="null"/> sweeps nothing.</param>
     /// <returns>The content store.</returns>
     public static ContentStore ComposeContentStore(
         SurlCommandLine commandLine,
@@ -156,8 +159,17 @@ public static partial class SurlServerComposition
         ISurlEventPublisher events,
         IFaultPlan faults,
         IReadOnlyList<ContentShare> shares,
-        IReadOnlyList<ContentBucket> buckets) =>
-        new(ComposeServedRoot(commandLine), fileSystem, MapExposureOptions(commandLine), shares, buckets, events, faults);
+        IReadOnlyList<ContentBucket> buckets,
+        TimeProvider? sweepClock = null) =>
+        new(
+            ComposeServedRoot(commandLine),
+            fileSystem,
+            MapExposureOptions(commandLine),
+            shares,
+            buckets,
+            events,
+            faults,
+            commandLine.DataDirectory is null ? null : sweepClock);
 
     private static string ComposeServedRoot(SurlCommandLine commandLine) =>
         commandLine.DataDirectory is { } dataDirectory ? Path.GetFullPath(dataDirectory) : InMemoryContentFileSystem.RootPath;

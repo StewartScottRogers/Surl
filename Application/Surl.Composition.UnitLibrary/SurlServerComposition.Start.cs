@@ -173,7 +173,7 @@ public static partial class SurlServerComposition
             return Refuse(SurlExitCode.FailedInit, busFailureMessage!);
         }
 
-        var contentStore = ComposeContentStore(commandLine, fileSystem, instruments.Events, instruments.Faults, shares, buckets!);
+        var contentStore = ComposeContentStore(commandLine, fileSystem, instruments.Events, instruments.Faults, shares, buckets!, seams.TimeProvider);
         return await LockThenComposeAsync(
             commandLine, seams, fileSystem, contentStore, authentication, busConfiguration, instruments, cancellationToken);
     }
