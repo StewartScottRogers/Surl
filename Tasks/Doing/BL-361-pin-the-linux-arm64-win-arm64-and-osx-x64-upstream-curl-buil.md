@@ -70,3 +70,4 @@ those three runtime identifiers using them.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Blocked. Stewart: needs a way to run the linux-arm64, win-arm64 and osx-x64 curl builds (arm64/Intel-mac runners) to measure their version/protocols/features lines and get a green CI URL; lane 5 is x64 Windows. Hashes are in Notes.
 - 2026-11-12: Blocked -> Backlog. Stewart said go on BL-361 on 2026-11-12: the three builds are measured and pinned; the ADR and CI steps are left for a lane, see Notes.
+- 2026-11-12: Backlog -> Doing.
