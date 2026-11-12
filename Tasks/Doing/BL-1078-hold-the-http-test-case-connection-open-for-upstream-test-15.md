@@ -35,3 +35,4 @@ BL-683 (8b24ef3d) closes the HTTP case server connection when its reply part is 
 - 2026-11-12: Backlog -> Doing.
 - 2026-11-12: Doing -> Blocked. Stewart: this session's permissions deny reading Conformance/Surl.Conformance.UnitTests/UpstreamTestCases/data/test*, so I cannot see which empty-reply cases (1548 vs 470/1244) need the connection held; allow reading that folder and move this back to Backlog.
 - 2026-11-12: Blocked -> Backlog. Stewart said yes on 2026-11-12: lanes may read UpstreamTestCases/data now; see Notes.
+- 2026-11-12: Backlog -> Doing.
