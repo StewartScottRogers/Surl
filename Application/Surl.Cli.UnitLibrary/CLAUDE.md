@@ -38,7 +38,10 @@ and `Surl.Protocol.Abstractions.UnitLibrary`.
   `ListenUrlParser.ParseProxy` (`http` or `https` only, `ProxyDefaultPorts` 1080 and 443, `ListenUrl.IsProxy`
   set; any other scheme `UnsupportedProtocol`), `OptionArgumentReader.ProxyListenUrlText`, `ReadAccount` and
   `ReadPath` reused for `-U` and `--proxy-user-file`, and `ReadProxyAllowedOrigin` / `AllowedOrigin` reading
-  `*` or a strict `address[/prefix]` into a `ProxyAllowedOrigin`. No option row uses them yet (BL-1004).
+  `*` or a strict `address[/prefix]` into a `ProxyAllowedOrigin`; their option rows are BL-1004's.
+  `--proxy-auth <methods>` (BL-1040, ADR-0088 Amendment 8) reads `--auth`'s words into
+  `GivenProxyAuthenticationMethods`, apart from `--auth`; `AcceptedProxyAuthenticationMethods` defaults to
+  `digest`, `basic`.
 - SSH server options (ADR-0051 decisions 4 to 6): `--hostkey` and `--hostcert` each add a path
   to `HostKeyFiles` and `HostCertificateFiles`; `--authorized-keys <user:file>` adds a
   `CommandLineAuthorizedKeys` to `AuthorizedKeys`, split at the first `:`, a user given twice

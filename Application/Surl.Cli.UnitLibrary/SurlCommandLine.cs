@@ -218,6 +218,21 @@ public sealed record SurlCommandLine
     public string? ProxyUserFile { get; init; }
 
     /// <summary>
+    /// The <c>--proxy-auth</c> words of the last <c>--proxy-auth</c>, lower-case and in ADR-0032 section 3's order,
+    /// the methods the proxy accepts and offers (ADR-0088 decision 5); <see langword="null"/> when
+    /// <c>--proxy-auth</c> was not given. They are the proxy's alone, separate from
+    /// <see cref="GivenAuthenticationMethods"/>.
+    /// </summary>
+    public IReadOnlyList<string>? GivenProxyAuthenticationMethods { get; init; }
+
+    /// <summary>
+    /// The methods the proxy accepts: <see cref="GivenProxyAuthenticationMethods"/>, or ADR-0088 decision 5's
+    /// default set (<c>digest</c> and <c>basic</c>) when <c>--proxy-auth</c> was not given, in ADR-0032 section 3's
+    /// order.
+    /// </summary>
+    public IReadOnlyList<string> AcceptedProxyAuthenticationMethods => GivenProxyAuthenticationMethods ?? DefaultProxyAuthenticationMethods;
+
+    /// <summary>
     /// The ranges from every <c>--proxy-allow-origin</c>, in command-line order, that widen the proxy's
     /// loopback-only origin rule (ADR-0088 decisions 2 and 7). None by default.
     /// </summary>
@@ -372,4 +387,7 @@ public sealed record SurlCommandLine
     /// <summary>The methods accepted without <c>--auth</c>, in ADR-0032 section 3's order.</summary>
     private static readonly IReadOnlyList<string> DefaultAuthenticationMethods =
         ["digest", "cram-md5", "basic", "plain", "login", "bearer", "oauthbearer", "xoauth2", "external", "aws-sigv4"];
+
+    /// <summary>The methods the proxy accepts without <c>--proxy-auth</c>, in ADR-0032 section 3's order.</summary>
+    private static readonly IReadOnlyList<string> DefaultProxyAuthenticationMethods = ["digest", "basic"];
 }

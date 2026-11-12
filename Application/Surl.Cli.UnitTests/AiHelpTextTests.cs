@@ -589,7 +589,7 @@ public sealed partial class AiHelpTextTests
     {
         // surl's SSH host-key note and --throwaway-hostkey warning name the curl options that pin
         // the key (ADR-0051, decisions 8 and 11).
-        string[] curlOptionsSurlNames = ["hostpubsha256", "hostpubmd5", "socks4", "socks4a", "socks5", "socks5-hostname", "proxy-auth"];
+        string[] curlOptionsSurlNames = ["hostpubsha256", "hostpubmd5", "socks4", "socks4a", "socks5", "socks5-hostname"];
 
         foreach (var name in NamedLongOptions().Except(curlOptionsSurlNames))
         {
@@ -637,6 +637,7 @@ public sealed partial class AiHelpTextTests
             "surl: warning: --self-signed: serving a throwaway certificate; clients must skip verification (curl -k)",
             "surl: warning: --proxy-allow-origin: the proxy connects to every origin address, not only loopback",
             "surl: warning: --s3-plaintext: s3 is served as plain HTTP, without TLS",
+            "surl: warning: --proxy-auth: accepted proxy methods are basic, ntlm",
             "surl: (37) Could not read host certificate <file>",
             "surl: (2) Host certificate <file>: not an OpenSSH host certificate",
             "surl: (2) Host certificate <file>: certifies no --hostkey key",

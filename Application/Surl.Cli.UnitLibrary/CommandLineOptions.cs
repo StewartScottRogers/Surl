@@ -121,6 +121,8 @@ internal static class CommandLineOptions
             new("<file>", "Read proxy accounts from a file", ["auth", "proxy"], IsInShortList: false, Default: "none")),
         WithArgument<ProxyAllowedOrigin>("proxy-allow-origin", null, OptionArgumentReader.AllowedOrigin, (c, v) => c with { ProxyAllowedOrigins = [.. c.ProxyAllowedOrigins, v] },
             new("<address>", "Let the proxy reach more origins", ["proxy", "security"], IsInShortList: false, Default: "loopback only")),
+        WithArgument<IReadOnlyList<string>>("proxy-auth", null, OptionArgumentReader.AuthenticationMethods, (c, v) => c with { GivenProxyAuthenticationMethods = v },
+            new("<methods>", "Methods the proxy accepts", ["auth", "proxy"], IsInShortList: false, Default: "digest,basic")),
         WithArgument<string>("unix-socket", null, OptionArgumentReader.Path,
             (c, v) => c with { UnixSocket = new UnixSocketAddress(v, isAbstract: false) },
             new("<path>", "Listen on a Unix domain socket file", ["surl"], IsInShortList: false, Default: "TCP")),

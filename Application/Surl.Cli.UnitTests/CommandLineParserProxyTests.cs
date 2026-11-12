@@ -112,6 +112,61 @@ public sealed class CommandLineParserProxyTests
         AssertRefused(["--proxy-user-file"], SurlExitCode.FailedInit, "option --proxy-user-file: requires parameter", followedByTryHelpLine: true);
 
     [TestMethod]
+    public void Parse_NoProxyAuth_AcceptsDigestAndBasicForTheProxy()
+    {
+        var commandLine = Served("-x", "http://127.0.0.1:3128", "-U", "u:p");
+
+        Assert.IsNull(commandLine.GivenProxyAuthenticationMethods);
+        CollectionAssert.AreEqual(new[] { "digest", "basic" }, commandLine.AcceptedProxyAuthenticationMethods.ToArray());
+    }
+
+    [TestMethod]
+    [DataRow("basic,ntlm", new[] { "ntlm", "basic" }, DisplayName = "Two words, in ADR-0032 section 3's order")]
+    [DataRow("NTLM,Negotiate", new[] { "negotiate", "ntlm" }, DisplayName = "Any case")]
+    [DataRow("digest", new[] { "digest" }, DisplayName = "One word")]
+    public void Parse_ProxyAuth_ReadsItsWordsIntoTheProxysMethods(string argument, string[] methods)
+    {
+        var commandLine = Served("--proxy", "http://127.0.0.1:3128", "-U", "u:p", "--proxy-auth", argument);
+
+        CollectionAssert.AreEqual(methods, commandLine.GivenProxyAuthenticationMethods!.ToArray());
+        CollectionAssert.AreEqual(methods, commandLine.AcceptedProxyAuthenticationMethods.ToArray());
+    }
+
+    [TestMethod]
+    public void Parse_ProxyAuthGivenTwice_TheLastOneWins() =>
+        CollectionAssert.AreEqual(
+            new[] { "ntlm" },
+            Served("--proxy-auth", "basic", "--proxy-auth=ntlm", Url).AcceptedProxyAuthenticationMethods.ToArray());
+
+    [TestMethod]
+    public void Parse_AuthAndProxyAuth_StayIndependent()
+    {
+        var both = Served("--auth", "bearer", "--proxy-auth", "ntlm", Url);
+        var authOnly = Served("--auth", "bearer", Url);
+        var proxyAuthOnly = Served("--proxy-auth", "ntlm", Url);
+
+        CollectionAssert.AreEqual(new[] { "bearer" }, both.AcceptedAuthenticationMethods.ToArray());
+        CollectionAssert.AreEqual(new[] { "ntlm" }, both.AcceptedProxyAuthenticationMethods.ToArray());
+        CollectionAssert.AreEqual(new[] { "digest", "basic" }, authOnly.AcceptedProxyAuthenticationMethods.ToArray());
+        Assert.IsNull(proxyAuthOnly.GivenAuthenticationMethods);
+    }
+
+    [TestMethod]
+    [DataRow("kerberos", DisplayName = "An unknown word")]
+    [DataRow("basic,,digest", DisplayName = "An empty item")]
+    [DataRow("", DisplayName = "Empty argument")]
+    public void Parse_ProxyAuthWithABadWord_IsRefusedAsFailedInit(string argument) =>
+        AssertRefused(
+            ["--proxy-auth", argument, Url],
+            SurlExitCode.FailedInit,
+            "option --proxy-auth: " + OptionArgumentReader.ReadAuthenticationMethods(argument, out _),
+            followedByTryHelpLine: true);
+
+    [TestMethod]
+    public void Parse_ProxyAuthWithoutAnArgument_RequiresParameter() =>
+        AssertRefused(["--proxy-auth"], SurlExitCode.FailedInit, "option --proxy-auth: requires parameter", followedByTryHelpLine: true);
+
+    [TestMethod]
     public void Parse_ProxyAllowOrigin_AddsEachRangeInOrder()
     {
         var origins = Served("--proxy-allow-origin", "10.0.0.0/8", "--proxy-allow-origin=*", "--proxy-allow-origin", "::1", Url).ProxyAllowedOrigins;

@@ -79,6 +79,8 @@ internal static class CommandLinePathMembers
         nameof(SurlCommandLine.AllowPlaintextAuthentication),
         nameof(SurlCommandLine.GivenAuthenticationMethods),
         nameof(SurlCommandLine.AcceptedAuthenticationMethods),
+        nameof(SurlCommandLine.GivenProxyAuthenticationMethods),
+        nameof(SurlCommandLine.AcceptedProxyAuthenticationMethods),
         nameof(SurlCommandLine.SelfSigned),
         nameof(SurlCommandLine.S3Plaintext),
         nameof(SurlCommandLine.ThrowawayHostKey),
