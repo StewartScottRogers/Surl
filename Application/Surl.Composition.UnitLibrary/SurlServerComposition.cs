@@ -135,7 +135,29 @@ public static partial class SurlServerComposition
     /// <returns>The content store.</returns>
     public static ContentStore ComposeContentStore(
         SurlCommandLine commandLine, IContentFileSystem fileSystem, ISurlEventPublisher events, IFaultPlan faults) =>
-        new(ComposeServedRoot(commandLine), fileSystem, MapExposureOptions(commandLine), [], [], events, faults);
+        ComposeContentStore(commandLine, fileSystem, events, faults, [], []);
+
+    /// <summary>
+    /// Builds the one content store over <paramref name="fileSystem"/>, as
+    /// <see cref="ComposeContentStore(SurlCommandLine, IContentFileSystem, ISurlEventPublisher, IFaultPlan)"/>
+    /// does, serving <paramref name="shares"/> beside the root and mapping <paramref name="buckets"/>
+    /// (ADR-0102 decisions 2.1 and 2.4), as <see cref="ContentShareComposition.Compose"/> composed them.
+    /// </summary>
+    /// <param name="commandLine">The parsed command line.</param>
+    /// <param name="fileSystem">The file system <see cref="ComposeContentFileSystem"/> chose.</param>
+    /// <param name="events">The instance's event stream.</param>
+    /// <param name="faults">The instance's fault plan.</param>
+    /// <param name="shares">The composed shares.</param>
+    /// <param name="buckets">The composed buckets.</param>
+    /// <returns>The content store.</returns>
+    public static ContentStore ComposeContentStore(
+        SurlCommandLine commandLine,
+        IContentFileSystem fileSystem,
+        ISurlEventPublisher events,
+        IFaultPlan faults,
+        IReadOnlyList<ContentShare> shares,
+        IReadOnlyList<ContentBucket> buckets) =>
+        new(ComposeServedRoot(commandLine), fileSystem, MapExposureOptions(commandLine), shares, buckets, events, faults);
 
     private static string ComposeServedRoot(SurlCommandLine commandLine) =>
         commandLine.DataDirectory is { } dataDirectory ? Path.GetFullPath(dataDirectory) : InMemoryContentFileSystem.RootPath;

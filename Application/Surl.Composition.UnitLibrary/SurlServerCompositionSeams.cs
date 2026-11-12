@@ -99,4 +99,17 @@ public sealed record SurlServerCompositionSeams(
     /// serves a test's own server. None, which is what <c>surl</c> passes, by default.
     /// </summary>
     public IReadOnlyList<AdditionalProtocolServer> AdditionalProtocolServers { get; init; } = [];
+
+    /// <summary>
+    /// Tells whether a <c>--share</c>'s full path opens as a directory (ADR-0101 decision 5 row 19);
+    /// <see cref="DataDirectoryProbe.CanOpen"/> when <see langword="null"/>, which is what <c>surl</c> passes.
+    /// </summary>
+    public Func<string, bool>? CanOpenShareDirectory { get; init; }
+
+    /// <summary>
+    /// The file system every <c>--share</c> is read and written through (ADR-0102 decision 2.1: a share is
+    /// always on disk); a <see cref="DiskContentFileSystem"/> when <see langword="null"/>, which is what
+    /// <c>surl</c> passes.
+    /// </summary>
+    public IContentFileSystem? ShareFileSystem { get; init; }
 }

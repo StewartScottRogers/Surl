@@ -137,7 +137,7 @@ The ordered start lives here (ADR-0099 decision 2, BL-614); which project runs e
 | Step | Run by |
 | --- | --- |
 | Parse the command line, answer help and version, read `SURL_EXTENSIONS` | the host (`Surl.Console`'s `CommandLineRunner`) |
-| `--auth gssapi` without `--keytab` and the `--ssh-ciphers`/`--ssh-macs` refusal (2), the data directory probe (37), the content store (`ContentWithoutDataDirectory` or a new `InMemoryContentFileSystem` without `--directory`), the TLS-first listen URL without a certificate (58) and the `scp`/`sftp` one without a host key (2), authentication and host keys, the lock (124, 23), the service state (37), the protocol servers, server TLS (58, 2, 77) | `SurlServerComposition.ComposeAsync`, from a `SurlCommandLine` and a `SurlServerCompositionSeams`, returning a `SurlServerStart`: a `SurlStartFailure` (exit code and lines after `surl: `; a start cancelled while loading the service state is `Ok` with no lines) or a `ComposedServing` |
+| `--auth gssapi` without `--keytab` and the `--ssh-ciphers`/`--ssh-macs` refusal (2), the data directory probe (37), the content file system (`ContentWithoutDataDirectory` or a new `InMemoryContentFileSystem` without `--directory`), the TLS-first listen URL without a certificate (58) and the `scp`/`sftp` one without a host key (2), authentication, groups and host keys, the shares and buckets (2, 37) and the content store, the lock (124, 23), the service state (37), the protocol servers, server TLS (58, 2, 77) | `SurlServerComposition.ComposeAsync`, from a `SurlCommandLine` and a `SurlServerCompositionSeams`, returning a `SurlServerStart`: a `SurlStartFailure` (exit code and lines after `surl: `; a start cancelled while loading the service state is `Ok` with no lines) or a `ComposedServing` |
 | Open the log streams (`--log-file`, trace file) | the host, which disposes the `ComposedServing` on failure to release the lock |
 | Start-up warnings and notes, the status lines, the `ServingEngine`, the bound listen URLs, bind failures (45, 6) and `(125)` | `ComposedServing.ServeAsync`, given `SurlServingOutputs`; `ListenerStartReporter` calls `AllListenersBound` once with every bound `ListenUrl`, never after a bind failure; it returns a `SurlServingOutcome` |
 | Write each `surl: ` line and return the exit code | the host |
@@ -174,6 +174,19 @@ rather than writing it, and the warning writers take the log `TextWriter` they w
   group and a group that includes itself (ADR-0101 decision 5 row 18), each `(2)`; `Expand` turns a
   later option's member list into account names, and `WriteStartLines` writes each group's `-v`
   note after the other start lines. It rides on the start's `ComposedAuthentication`.
+- `ContentShareComposition` - every `--share`, `--share-access` and `--bucket` composed into the one
+  `ContentStore`'s shares and buckets (ADR-0102 decisions 2, 4 and 5, BL-988), after the groups:
+  a `--share-access` member naming nothing `(2)`, then per share a name that is not one path segment
+  or is `.surl` `(2) option --share: share <name> is not a valid folder name`, a path that does not
+  open through `SurlServerCompositionSeams.CanOpenShareDirectory` (`DataDirectoryProbe.CanOpen` by
+  default) `(37) Could not open directory <path> for share <name>`, and a path overlapping
+  `--directory` or an earlier share, compared ignoring case, `(2) option --share: share <name> overlaps
+  <other>`; then a bucket's name or content path `(2)`. Shares are read through
+  `SurlServerCompositionSeams.ShareFileSystem` (a `DiskContentFileSystem` by default); `protocols=`
+  gains each TLS twin (`WithTlsTwins`); groups expand to account names, `@everyone` stays its marker,
+  and a member granted twice keeps the wider access. `ComposedServing` writes `WriteWarnings`' `@everyone`
+  warning after the `--fault` one and `WriteStartLines`' `-v` notes after the mailboxes'.
+  Bucket folders are not yet checked or created at start (BL-988's follow-up).
 - `KeytabComposition` - the `--keytab` file and its `KerberosAcceptor` (ADR-0057 decision 1),
   with `RandomKerberosRandomSource`; `WriteStartLines`.
 - `SshHostKeyComposition` - the `--hostkey`, `--throwaway-hostkey` and `--hostcert` host keys

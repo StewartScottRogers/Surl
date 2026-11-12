@@ -22,7 +22,8 @@ public static partial class SurlServerComposition
     /// the service state, opening no file for writing: <c>--auth gssapi</c> without
     /// <c>--keytab</c> and an <c>--ssh-ciphers</c> or <c>--ssh-macs</c> name surl cannot offer (2),
     /// a data directory that cannot be opened (37), a TLS-first listen URL with no certificate (58)
-    /// or an <c>scp</c> or <c>sftp</c> one with no host key (2), the start files, the data
+    /// or an <c>scp</c> or <c>sftp</c> one with no host key (2), the start files, the shares and
+    /// buckets (2, or 37 for a share directory that cannot be opened), the data
     /// directory's lock (124 or 23), the service state (37) and the TLS files (58, 2 or 77), in
     /// that order.
     /// </summary>
@@ -139,16 +140,30 @@ public static partial class SurlServerComposition
         // One event stream and one fault plan per instance, never static (ADR-0124, decisions 1 and 4).
         var instruments = new EventStreamAndFaultPlan(
             new SurlEventStream(seams.TimeProvider), FaultPlanComposition.Compose(commandLine.Faults));
-        var contentStore = ComposeContentStore(commandLine, fileSystem, instruments.Events, instruments.Faults);
         if (FindListenUrlRefusal(commandLine) is { } refusal)
         {
             return refusal;
         }
 
         var (authentication, failure) = ComposeAuthentication(commandLine, seams, instruments);
-        return authentication is null
-            ? new SurlServerStart(failure, null)
-            : await LockThenComposeAsync(commandLine, seams, fileSystem, contentStore, authentication, instruments, cancellationToken);
+        if (authentication is null)
+        {
+            return new SurlServerStart(failure, null);
+        }
+
+        // The shares, their access and the buckets, once the groups are expanded (ADR-0102 decision 5).
+        var (shares, buckets, shareExitCode, shareFailureMessage) = ContentShareComposition.Compose(
+            commandLine,
+            authentication.AccountGroups,
+            seams.CanOpenShareDirectory ?? DataDirectoryProbe.CanOpen,
+            seams.ShareFileSystem ?? new DiskContentFileSystem());
+        if (shares is null)
+        {
+            return Refuse(shareExitCode, shareFailureMessage!);
+        }
+
+        var contentStore = ComposeContentStore(commandLine, fileSystem, instruments.Events, instruments.Faults, shares, buckets!);
+        return await LockThenComposeAsync(commandLine, seams, fileSystem, contentStore, authentication, instruments, cancellationToken);
     }
 
     // The --auth words, the --user-file, the --authorized-keys and --keytab files, then the --hostkey

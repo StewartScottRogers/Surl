@@ -155,6 +155,9 @@ public sealed class ComposedServing : IAsyncDisposable
         // The --fault warning, once, with the other loosening warnings (ADR-0124, decision 4).
         FaultPlanComposition.WriteWarning(commandLine, log);
 
+        // Each share granting @everyone, with the other widening warnings (ADR-0102 decision 2.2).
+        ContentShareComposition.WriteWarnings(commandLine.LogLevel, Stores.Content, log);
+
         // Each -K file, then the --user-file, readable by other users, at the warnings' level (ADR-0101, decision 5).
         ReadableByOthersWarning.WriteForFilesThatMayHoldPasswords(
             commandLine, seams.ReadStartFileUnixMode ?? ReadableByOthersWarning.ReadDiskMode, log);
@@ -181,6 +184,9 @@ public sealed class ComposedServing : IAsyncDisposable
 
         // The mail domains' and each mailbox's note, after the groups' (ADR-0102 decision 5).
         authentication.Mailboxes.WriteStartLines(commandLine, log);
+
+        // Each share's and bucket's note, after the mailboxes' (ADR-0102 decision 5).
+        ContentShareComposition.WriteStartLines(commandLine.LogLevel, Stores.Content, log);
     }
 
     // From verbose up, unstamped, once per https listen URL served over HTTP/3 too (ADR-0082,
