@@ -8,7 +8,7 @@ depends-on: [BL-598, BL-1035]
 touches: [Conformance/Surl.Conformance.UnitLibrary, Conformance/Surl.Conformance.UnitTests]
 requirement: none
 created: 2026-11-06
-completed:
+completed: 2026-11-12
 ---
 ## Goal
 
@@ -118,3 +118,4 @@ needs only a green `dotnet build` and fast tests, then the move to Done.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waits on BL-1035 - pinned .NET SDK 10.0.401 is not installed, so dotnet build cannot run; CI probe notes recorded, no option disproved
 - 2026-11-12: Backlog -> Doing.
+- 2026-11-12: Doing -> Done. CI Linux and macOS build option probes recorded, none disproved; build and fast tests green
