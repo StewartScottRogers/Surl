@@ -43,3 +43,4 @@ with exit 37), and is created empty when it lies in the in-memory root, as ADR-0
 ## Log
 
 - 2026-11-11: Created.
+- 2026-11-12: Backlog -> Doing.
