@@ -40,3 +40,4 @@ Filed by BL-483, which built DoH without the optional login to keep to its accep
 
 - 2026-11-05: Created.
 - 2026-11-06: depends-on BL-485 replaced by BL-1018 (BL-485 split for the 60-minute size limit; Stewart asked for a backlog audit 2026-11-06).
+- 2026-11-12: Backlog -> Doing.
