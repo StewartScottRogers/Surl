@@ -299,3 +299,35 @@ already reaches every case curl has (1467, 1468, 1470 connect with `--proxy sock
 or `--socks5 localhost/<path>`, both client-side), and keeping amendment 7's single rule means one
 refusal for every proxy listen URL instead of a per-scheme exception. The `socks` `--aihelp` topic
 says so, with an example of the positional form.
+
+## Amendment 2 (BL-765): GSS-API is selected when the listener has a keytab
+
+Decided by Claude under Stewart's delegation.
+
+Decision 3's table gains a first row: **when the listener has a Kerberos keytab and the greeting
+offers `01`, the server selects `01`, before `00` and `02`.** A keytab means the operator wants clients
+authenticated, so choosing `00` (which curl also offers on every greeting, row 5) would make the
+keytab unreachable. Without a keytab nothing changes: `01` is never selected, and the table's other
+rows stand. `Surl.Protocol.Socks.UnitLibrary` references `Surl.Kerberos.UnitLibrary`, already one of
+ADR-0002 decision 3's horizontal libraries a protocol server may reference.
+
+The sub-negotiation (RFC 1961 sections 3 to 5; curl's `socks_sspi.c` and `socks_gssapi.c` at tag
+`curl-8_21_0` read as the specification of what curl sends and accepts):
+
+1. Curl sends `01 01 LEN16 TOKEN`, the Kerberos AP-REQ in an RFC 1964 initial context token. The
+   acceptor checks it for the service named by `--socks5-gssapi-service` (curl's default `rcmd`;
+   `SocksGssApiLogin.DefaultService`). If the AP-REQ asked for mutual authentication the server answers
+   `01 01 LEN16 AP-REP`; otherwise it sends nothing, as curl then expects no reply.
+2. Curl sends `01 02 LEN16 TOKEN`: its desired protection level, one byte, as an RFC 4121 wrap token
+   (the default) or raw (`--socks5-gssapi-nec`, length 1). The server answers `01 02 LEN16 TOKEN` with
+   level `00`, no protection, in the same form (a wrap token of the acceptor, or one raw byte).
+   Curl logs "protection granted BUT NOT USED" and sends the SOCKS request in the clear, so the
+   request and the relay are never wrapped.
+3. Every failure is `01 FF` and a closed connection: a refused Kerberos token (bad ticket, wrong
+   service, replay, clock skew), a context or protection message with the wrong version, type, a zero
+   length or a bad wrap token, or a protection level that is not one byte. A client that ends the
+   stream early gets the same `01 FF`, as the RFC has no other failure message. The log names the
+   client principal and never a token.
+
+Wiring a keytab option to `SocksGssApiLogin` in the command line and composition is outside BL-765's
+projects and is filed as a follow-up task.

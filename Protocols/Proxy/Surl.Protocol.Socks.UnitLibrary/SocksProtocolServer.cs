@@ -32,8 +32,8 @@ namespace Surl.Protocol.Socks;
 /// SOCKS5 (RFC 1928): the greeting's methods select <c>00</c> when the listener has no proxy
 /// accounts, or when it has them and the policy accepts an anonymous login unchecked
 /// (<c>--allow-anonymous</c>); otherwise <c>02</c>, RFC 1929 username and password, when offered
-/// and the listener has accounts; otherwise <c>05 FF</c> and close. GSS-API (<c>01</c>) is never
-/// selected (BL-765). The RFC 1929 login is judged by the policy, which refuses a clear password
+/// and the listener has accounts; otherwise <c>05 FF</c> and close. GSS-API (<c>01</c>) is chosen first when the listener has a keytab and curl offers it, and is never
+/// selected without one (RFC 1961: the AP-REQ is checked, the AP-REP is sent when the client asked for mutual authentication, the protection-level message is answered with level 0, and any failure is <c>01 FF</c> and close). The RFC 1929 login is judged by the policy, which refuses a clear password
 /// without <c>--allow-plaintext-auth</c> and delays a wrong one; it is answered <c>01 00</c>, or
 /// <c>01 01</c> and close. The request's <c>ATYP</c> <c>01</c>, <c>03</c> (a domain name, which
 /// the connector resolves) and <c>04</c> are each connected; success is
@@ -58,6 +58,7 @@ public sealed class SocksProtocolServer : IConnectionProtocolServer
 {
     private readonly IOriginConnector originConnector;
     private readonly IAuthenticationPolicy? proxyAccounts;
+    private readonly SocksGssApiLogin? gssApi;
 
     /// <summary>
     /// Creates the SOCKS server for a listener with no proxy accounts: every client may use it
@@ -87,6 +88,22 @@ public sealed class SocksProtocolServer : IConnectionProtocolServer
     }
 
     /// <summary>
+    /// Creates the SOCKS server with proxy accounts and, optionally, RFC 1961 GSS-API
+    /// authentication.
+    /// </summary>
+    /// <param name="originConnector">How origins are reached: the composition root's, which applies the allowed-origin rule.</param>
+    /// <param name="proxyAccounts">The proxy accounts that judge RFC 1929 logins, or <see langword="null"/> when the listener has none.</param>
+    /// <param name="gssApi">
+    /// The keytab-backed Kerberos acceptor and service name that let the listener select method
+    /// <c>01</c>; <see langword="null"/> when it has no keytab, and then <c>01</c> is never selected.
+    /// </param>
+    public SocksProtocolServer(IOriginConnector originConnector, IAuthenticationPolicy? proxyAccounts, SocksGssApiLogin? gssApi)
+        : this(originConnector, proxyAccounts)
+    {
+        this.gssApi = gssApi;
+    }
+
+    /// <summary>
     /// The SOCKS listen URL's schemes this server answers: <c>socks4</c> and <c>socks4a</c>, which
     /// serve SOCKS4 and SOCKS4a alike, and <c>socks5</c> and <c>socks5h</c>, which serve SOCKS5
     /// alike (ADR-0121 decision 5).
@@ -107,7 +124,7 @@ public sealed class SocksProtocolServer : IConnectionProtocolServer
 
         try
         {
-            await new SocksExchange(connection, context, originConnector, proxyAccounts).ServeAsync();
+            await new SocksExchange(connection, context, originConnector, proxyAccounts, gssApi).ServeAsync();
         }
         catch (IOException)
         {
