@@ -495,3 +495,22 @@ server starts it with `CanCarrySecurityLayer` (BL-329, below), and is `RefusedMe
 - The `AccountBook(accounts, events)` constructor publishes `StoreChangedEvent` (`Accounts`): `AccountAdded`
   and `AccountRemoved` with the user name, `Reset` and `Restored` with an empty name, under the change lock;
   never a secret. Tests: `AccountBookTests.Changes.cs`, and the live-view cases in `SchemeAccountViewTests`.
+
+## The LDAP account source (BL-672, ADR-0149)
+
+- `LdapAccountSource` checks a password login the account book does not hold against an external LDAP
+  directory: it searches for the user's entry and binds as that entry with the password sent (one connection
+  per login, no cache, no pool). `AuthenticationSettings.LdapAccountSource` carries it (`null` without
+  `--user-ldap`); `AuthenticationPolicy.CheckPasswordLoginAsync` consults it after the book, only for a
+  non-empty name the whole book (`AccountBook.HoldsAccountNamed`, ignoring scheme views) does not hold.
+- The directory is reached through `ILdapDirectoryConnector` / `ILdapDirectoryConnection` (the seam
+  BL-1068's `Surl.Networking` connector and BL-673's composition adapt): no socket is built here. StartTLS is
+  asked for on `ldap://` unless `IsPlaintext`; an `AuthenticationException` from the seam is `TLS failed`.
+- `LdapMessageCodec` writes and reads the nine messages on `System.Formats.Asn1` (BER); `LdapFilterEncoder`
+  turns an RFC 4515 filter into the BER `Filter`; `LdapDirectoryUrl.TryParse` is the RFC 4516 parser whose
+  `LdapDirectoryUrlFailure` `Surl.Composition` words as ADR-0149 decision 7's start-up refusals.
+- Every failure is one refusal to the peer; `LdapLoginResult.Reason` (and the `note` callback's line,
+  `Login refused: password <user> (directory: <reason>)`) is for the operator and never holds a password, the
+  bind password, a DN or the URL. The refusal delay counts from the check's start.
+- Only `CheckPasswordLoginAsync` consults it so far; HTTP Basic, SASL `PLAIN`/`LOGIN` and SSH `password` do
+  not yet (a follow-up task).

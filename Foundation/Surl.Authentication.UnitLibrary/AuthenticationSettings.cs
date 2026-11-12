@@ -32,6 +32,13 @@ public sealed record AuthenticationSettings(
     public KerberosAcceptor? KerberosAcceptor { get; init; }
 
     /// <summary>
+    /// The LDAP directory that checks a password login the accounts do not hold (ADR-0149, decision 6);
+    /// <see langword="null"/> when <c>--user-ldap</c> is not given. Only the password check
+    /// (<see cref="AuthenticationPolicy.CheckPasswordLoginAsync"/>) consults it.
+    /// </summary>
+    public LdapAccountSource? LdapAccountSource { get; init; }
+
+    /// <summary>
     /// The settings a server answering <paramref name="scheme"/> is composed with (ADR-0102,
     /// decision 4.3): <see cref="Accounts"/> as <see cref="AccountBook.ForScheme"/> views them,
     /// and <see cref="AuthorizedKeys"/> without the keys of the accounts that view leaves out, so

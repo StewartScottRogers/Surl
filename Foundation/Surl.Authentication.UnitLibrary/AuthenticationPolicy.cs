@@ -174,7 +174,15 @@ public sealed class AuthenticationPolicy : IAuthenticationPolicy, IMailAuthentic
         ArgumentNullException.ThrowIfNull(login);
         cancellationToken.ThrowIfCancellationRequested();
 
+        var checkStartedAt = timeProvider.GetUtcNow();
         var verdict = JudgePasswordLogin(login);
+        if (verdict == PasswordLoginVerdict.RefusedCredentials && IsForTheDirectory(login))
+        {
+            var directory = await settings.LdapAccountSource!
+                .CheckAsync(login.Scheme, login.UserName!, login.Password!.Value, cancellationToken).ConfigureAwait(false);
+            verdict = directory.IsAccepted ? PasswordLoginVerdict.Accepted : PasswordLoginVerdict.RefusedCredentials;
+        }
+
         if (verdict is PasswordLoginVerdict.Accepted or PasswordLoginVerdict.RefusedCredentials)
         {
             var acceptedAccountName = verdict == PasswordLoginVerdict.Accepted ? login.UserName : null;
@@ -186,11 +194,23 @@ public sealed class AuthenticationPolicy : IAuthenticationPolicy, IMailAuthentic
 
         if (verdict == PasswordLoginVerdict.RefusedCredentials)
         {
-            await WaitRefusalDelayAsync(cancellationToken).ConfigureAwait(false);
+            // Counted from the check's start, so a slow directory does not stack its latency on the delay.
+            var remaining = RefusalDelay - (timeProvider.GetUtcNow() - checkStartedAt);
+            if (remaining > TimeSpan.Zero)
+            {
+                await Task.Delay(remaining, timeProvider, cancellationToken).ConfigureAwait(false);
+            }
         }
 
         return verdict;
     }
+
+    // A password login the account book cannot settle, for a name the book does not hold (ADR-0149, decision 6).
+    private bool IsForTheDirectory(PasswordLogin login) =>
+        settings.LdapAccountSource is not null
+        && !string.IsNullOrEmpty(login.UserName)
+        && login.Password is not null
+        && !settings.Accounts.HoldsAccountNamed(login.UserName);
 
     /// <summary>
     /// Ends the judgement of a login whose credentials were checked (ADR-0124, decisions 1 and 4):

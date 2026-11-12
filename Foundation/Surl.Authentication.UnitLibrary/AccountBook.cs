@@ -236,6 +236,15 @@ public sealed class AccountBook
     internal bool HasNamedAccount(string userName) => userName.Length > 0 && Current.PasswordHashes.ContainsKey(userName);
 
     /// <summary>
+    /// Whether an account of exactly <paramref name="userName"/> exists in the whole book, whatever scheme
+    /// a view leaves it out of: a name the book holds is judged by the book alone and never by an LDAP
+    /// directory (ADR-0149, decision 6).
+    /// </summary>
+    /// <param name="userName">The name, compared ordinally.</param>
+    /// <returns><see langword="true"/> when the book holds an account of that name.</returns>
+    internal bool HoldsAccountNamed(string userName) => store.Current.PasswordHashes.ContainsKey(userName);
+
+    /// <summary>
     /// The account a Digest <c>username</c> names, as received (one character per byte). A name
     /// is found by the UTF-8 bytes of an account's name, with that account's user hashes over
     /// UTF-8; or, for an account whose name and password are all ISO-8859-1, by those bytes,
