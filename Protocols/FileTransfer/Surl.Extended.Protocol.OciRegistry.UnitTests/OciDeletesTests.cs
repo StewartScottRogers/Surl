@@ -1,3 +1,4 @@
+using System.Text;
 using H = Surl.Extended.Protocol.OciRegistry.OciRegistryServerHarness;
 
 namespace Surl.Extended.Protocol.OciRegistry;
@@ -146,6 +147,19 @@ public sealed class OciDeletesTests
 
         Assert.AreEqual(H.ExpectedError("403 Forbidden", "DENIED", "requested access to the resource is denied"), response);
     }
+    [TestMethod]
+    public async Task DeleteManifestAsync_ByTag_KeepsTheExtraFieldsOfTheDescriptorLeftUntagged()
+    {
+        var harness = RepositoryWithLatest();
+        const string extra = "\"platform\":{\"architecture\":\"arm64\",\"os\":\"linux\"},\"urls\":[\"https://example.test/a\"]";
+        var tagged = H.Descriptor(H.ManifestMediaType, Manifest, "latest");
+        harness.WriteIndex("app", tagged[..^1] + "," + extra + "}");
+
+        await harness.SendAsync("DELETE", "/v2/app/manifests/latest");
+
+        StringAssert.EndsWith(Encoding.UTF8.GetString(harness.ReadFile("app/index.json")!), "\"size\":" + Manifest.Length + "," + extra + "}]}");
+    }
+
 
     private static H RepositoryWithLatest()
     {

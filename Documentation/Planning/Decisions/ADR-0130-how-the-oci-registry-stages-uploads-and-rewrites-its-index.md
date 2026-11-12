@@ -46,9 +46,10 @@ how `index.json` is written. The oracle is the OCI Distribution and Image specif
 6. **`index.json` is rewritten whole** through `ContentStore.WriteUploadAsync`, which writes a
    temporary file and renames it over the old one. One request at a time per server holds the
    index lock while it reads, changes and writes. Each descriptor is written with `mediaType`,
-   `digest`, `size`, `artifactType` and `annotations`. Other descriptor fields that a layout tool
-   wrote (such as `platform`) are not kept when Surl rewrites the index; keeping them is follow-up
-   work.
+   `digest`, `size`, `artifactType` and `annotations`, followed by every other field the descriptor
+   held when it was read (such as `platform`, `urls` or `data`), each written back as the raw JSON
+   value it had (BL-873). Only the `org.opencontainers.image.ref.name` annotation changes when a
+   tag moves or is deleted.
 7. **Upload session UUIDs** come from `Guid.NewGuid`, a version 4 UUID from the operating system's
    cryptographic random source. A test injects its own through the server's internal constructor.
 

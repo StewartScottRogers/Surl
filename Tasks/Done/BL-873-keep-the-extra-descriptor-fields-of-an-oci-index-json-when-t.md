@@ -8,7 +8,7 @@ depends-on: [BL-437, BL-1035]
 touches: [Protocols/FileTransfer/Surl.Extended.Protocol.OciRegistry.UnitLibrary, Protocols/FileTransfer/Surl.Extended.Protocol.OciRegistry.UnitTests]
 requirement: none
 created: 2026-11-05
-completed:
+completed: 2026-11-12
 ---
 # BL-873 — Keep the extra descriptor fields of an OCI index.json when the registry rewrites it
 
@@ -29,15 +29,17 @@ only `mediaType`, `digest`, `size`, `artifactType` and `annotations` survive.
 
 ## Acceptance criteria
 
-- [ ] A named test in `Surl.Extended.Protocol.OciRegistry.UnitTests` pushes a manifest by tag
+- [x] A named test in `Surl.Extended.Protocol.OciRegistry.UnitTests` pushes a manifest by tag
       into a repository whose `index.json` lists a descriptor with `platform` and `urls`, and
       `index.json` afterwards still holds that descriptor's `platform` and `urls` byte for byte.
-- [ ] A named test shows that deleting a tag keeps the other fields of the descriptor left untagged.
-- [ ] ADR-0130 decision 6 is amended to say the extra fields are kept.
-- [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and the library keeps 100%
+- [x] A named test shows that deleting a tag keeps the other fields of the descriptor left untagged.
+- [x] ADR-0130 decision 6 is amended to say the extra fields are kept.
+- [x] `dotnet build -warnaserror` is clean, the fast tests are green, and the library keeps 100%
       line and branch coverage.
 
 ## Notes
+
+Kept each extra descriptor field as raw JSON in `OciDescriptor.ExtraFields`; written after the known fields, so platform/urls survive byte for byte. ADR-0130 decision 6 amended.
 
 ## Log
 
@@ -45,3 +47,4 @@ only `mediaType`, `digest`, `size`, `artifactType` and `annotations` survive.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waiting on BL-1035: pinned .NET SDK 10.0.401 is not installed, so dotnet build cannot run
 - 2026-11-12: Backlog -> Doing.
+- 2026-11-12: Doing -> Done. OCI index.json rewrites keep platform, urls and other extra descriptor fields

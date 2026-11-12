@@ -64,9 +64,15 @@ internal static class OciManifestJson
         var digest = StringProperty(entry, "digest");
         if (mediaType is not null && digest is not null && SizeOf(entry) is { } size)
         {
-            descriptors.Add(new OciDescriptor(mediaType, digest, size, StringProperty(entry, "artifactType"), AnnotationsOf(entry)));
+            descriptors.Add(new OciDescriptor(mediaType, digest, size, StringProperty(entry, "artifactType"), AnnotationsOf(entry)) { ExtraFields = ExtraFieldsOf(entry) });
         }
     }
+
+    private static List<KeyValuePair<string, string>> ExtraFieldsOf(JsonElement entry) =>
+        entry.EnumerateObject()
+            .Where(property => property.Name is not ("mediaType" or "digest" or "size" or "artifactType" or "annotations"))
+            .Select(property => new KeyValuePair<string, string>(property.Name, property.Value.GetRawText()))
+            .ToList();
 
     private static long? SizeOf(JsonElement entry) =>
         entry.TryGetProperty("size", out var size) && size.ValueKind == JsonValueKind.Number && size.TryGetInt64(out var value) && value >= 0
