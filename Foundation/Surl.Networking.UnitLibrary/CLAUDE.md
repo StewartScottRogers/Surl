@@ -66,7 +66,7 @@ protocol server.
   `SharedPortListenerPair` (public) - `StartAsync(ListenUrl, ServerTlsSettings?, CancellationToken)`
   binds a `TcpConnectionListener` and then a `UdpDatagramListener` on the same addresses and the
   port the TCP one got (an `https` listen URL serving HTTP/3). With port 0 a taken UDP port
-  releases both and the pair is tried again, up to `MaxBindAttempts` (10) times in all; any other
+  releases both and the pair is tried again, up to `MaxBindAttempts` (2048, enough to cross Windows' adjacent excluded UDP blocks, since rebinding walks consecutive TCP ports; BL-1088) times in all; any other
   UDP failure, or a taken UDP port with a fixed port, releases the TCP listener and is thrown as
   the `ListenerBindException` it was. The UDP listener's listen URL names the shared port as its
   port. Fast-tested over fake starts; `SharedPortListenerPairIntegrationTests` bind `127.0.0.1:0`.

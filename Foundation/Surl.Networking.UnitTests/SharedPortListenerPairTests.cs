@@ -81,6 +81,19 @@ public sealed class SharedPortListenerPairTests
     }
 
     [TestMethod]
+    public async Task StartAsync_PortZeroAndTheUdpPortRefusedAcrossAWholeExcludedBlock_StartsOnThePortAfterIt()
+    {
+        // Windows hands out consecutive ephemeral TCP ports and excludes UDP blocks of 100 ports
+        // that sit side by side (BL-1088); 700 refusals in a row must not end the start.
+        var starts = new ListenerStarts { UdpPortsTaken = 700, UdpFailure = ListenerBindFailure.PermissionDenied };
+
+        await using var pair = await StartAsync(PortZero, starts);
+
+        Assert.HasCount(701, starts.ConnectionListeners);
+        Assert.AreEqual(40700, pair.ConnectionListener.ListenUrl.BoundPort);
+    }
+
+    [TestMethod]
     public async Task StartAsync_FixedPortAndTheUdpPortRefused_ThrowsPermissionDeniedWithoutRetrying()
     {
         var starts = new ListenerStarts { UdpPortsTaken = 1, UdpFailure = ListenerBindFailure.PermissionDenied };

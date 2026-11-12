@@ -23,7 +23,12 @@ public sealed class SharedPortListenerPair : IAsyncDisposable
     /// <summary>
     /// How many times, at most, a port-0 pair is bound before a taken UDP port ends the start.
     /// </summary>
-    public const int MaxBindAttempts = 10;
+    /// <remarks>
+    /// Windows hands out consecutive ephemeral TCP ports on rebinding, and its excluded UDP
+    /// ranges come in adjacent blocks of 100 ports (700 in a row were measured on 2026-11-12), so
+    /// the count must outlast a whole run of excluded blocks (BL-1088).
+    /// </remarks>
+    public const int MaxBindAttempts = 2048;
 
     private SharedPortListenerPair(IConnectionListener connectionListener, IDatagramListener datagramListener)
     {
