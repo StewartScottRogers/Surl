@@ -114,6 +114,27 @@ public sealed class UpstreamCurlSearchesSurlOverLdapTests
     }
 
     [TestMethod]
+    public async Task Search_ChosenErrorBusy_Exits39LikeEveryOtherNonSuccessResultCode()
+    {
+        await using var surl = await StartSurlAsync([.. AccountOptions, "--allow-plaintext-auth", "--fault", "error;scheme=ldap;command=search;reply=51 busy"]);
+
+        var result = await RunCurlAsync("-u", Account, BaseUrl(surl));
+
+        Assert.AreEqual(39, result.ExitCode, result.StandardError);
+        StringAssert.Contains(result.StandardError, "Busy");
+    }
+
+    [TestMethod]
+    public async Task Search_ChosenErrorSizeLimitExceeded_Exits0()
+    {
+        await using var surl = await StartSurlAsync([.. AccountOptions, "--allow-plaintext-auth", "--fault", "error;scheme=ldap;command=search;reply=4 limit"]);
+
+        var result = await RunCurlAsync("-u", Account, BaseUrl(surl));
+
+        Assert.AreEqual(0, result.ExitCode, result.StandardError);
+    }
+
+    [TestMethod]
     public async Task Bind_WrongPassword_Exits38InvalidCredentials()
     {
         await using var surl = await StartSurlAsync([.. AccountOptions, "--allow-plaintext-auth"]);

@@ -8,7 +8,7 @@ depends-on: [BL-797, BL-803, BL-1035]
 touches: [Conformance/Surl.Conformance.UnitTests, Documentation/Planning/Decisions/ADR-0139-how-the-mqtt-and-ldap-servers-answer-a-chosen-error.md]
 requirement: none
 created: 2026-11-05
-completed:
+completed: 2026-11-12
 ---
 # BL-913 — Prove with pinned upstream curl the exit codes of chosen-error faults on MQTT and LDAP
 
@@ -31,16 +31,18 @@ Integration tests run the pinned upstream curl 8.21.0 against a live `surl` give
 
 ## Acceptance criteria
 
-- [ ] Named integration tests: an MQTT subscribe to `a/b` under `error;scheme=mqtt;command=SUBSCRIBE;path=a/b;reply=135`,
+- [x] Named integration tests: an MQTT subscribe to `a/b` under `error;scheme=mqtt;command=SUBSCRIBE;path=a/b;reply=135`,
       an MQTT connect under a `CONNECT` rule with reply `136` (CONNACK 3), an MQTT `-d` publish under a
       `PUBLISH` rule, an LDAP search under `error;scheme=ldap;command=search;reply=51 busy` and one with
       `reply=4 limit`, each asserting the exit code as measured with the curl version stated.
-- [ ] ADR-0139's "What upstream curl does with these answers" states the measured codes.
-- [ ] `dotnet build -warnaserror` is clean and the fast tests are green.
+- [x] ADR-0139's "What upstream curl does with these answers" states the measured codes.
+- [x] `dotnet build -warnaserror` is clean and the fast tests are green.
 
 ## Notes
 
 - 2026-11-11 (lane 4): `dotnet --list-sdks` shows no 10.0.4xx SDK (only 10.0.100-rc.1, 11.0.x), so `global.json` (10.0.401, rollForward latestFeature) cannot resolve and `dotnet build` fails before any integration test can run. Added BL-1035 to depends-on and returned the task to Backlog, as BL-895 and BL-910 were.
+
+- 2026-11-12 (lane 2): measured with pinned curl 8.21.0 (Windows reference, WinLDAP for LDAP): SUBACK 135 exit 8, CONNACK 3 exit 8, PUBLISH fault exit 0, LDAP busy exit 39 (not 51: curl maps every non-success code to 39), sizeLimitExceeded exit 0. SDK 10.0.404 is installed now, so BL-1035 no longer blocks.
 
 ## Log
 
@@ -48,3 +50,4 @@ Integration tests run the pinned upstream curl 8.21.0 against a live `surl` give
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waits on BL-1035: pinned .NET SDK 10.0.401 is not installed, so dotnet build cannot run
 - 2026-11-12: Backlog -> Doing.
+- 2026-11-12: Doing -> Done. Pinned curl 8.21.0 exit codes of chosen-error faults on MQTT (8, 8, 0) and LDAP (busy 39, sizeLimit 0) are pinned in integration tests and ADR-0139

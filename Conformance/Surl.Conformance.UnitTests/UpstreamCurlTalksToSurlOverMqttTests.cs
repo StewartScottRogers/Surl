@@ -70,6 +70,39 @@ public sealed class UpstreamCurlTalksToSurlOverMqttTests
         CollectionAssert.AreEqual(subscribeOutput, subscribe.StandardOutput);
     }
 
+    [TestMethod]
+    public async Task Subscribe_ChosenErrorSubackReply135_Exits8()
+    {
+        await using var surl = await StartWithFaultAsync("error;scheme=mqtt;command=SUBSCRIBE;path=a/b;reply=135");
+
+        var result = await PinnedUpstreamCurl.RunAsync(TestContext, "-sS", "-m", "20", $"mqtt://{surl.BaseUrl.Host}:{surl.BaseUrl.Port}/a/b");
+
+        Assert.AreEqual(8, result.ExitCode, result.StandardError);
+    }
+
+    [TestMethod]
+    public async Task Connect_ChosenErrorConnackReply136_Exits8()
+    {
+        await using var surl = await StartWithFaultAsync("error;scheme=mqtt;command=CONNECT;reply=136");
+
+        var result = await PinnedUpstreamCurl.RunAsync(TestContext, "-sS", "-m", "20", "-d", "hi", TopicUrl(surl));
+
+        Assert.AreEqual(8, result.ExitCode, result.StandardError);
+    }
+
+    [TestMethod]
+    public async Task Publish_ChosenErrorOnPublish_Exits0BecauseQos0WaitsOnNothing()
+    {
+        await using var surl = await StartWithFaultAsync("error;scheme=mqtt;command=PUBLISH;reply=135");
+
+        var result = await PinnedUpstreamCurl.RunAsync(TestContext, "-sS", "-m", "20", "-d", "hi", TopicUrl(surl));
+
+        Assert.AreEqual(0, result.ExitCode, result.StandardError);
+    }
+
+    private Task<SurlOnLoopback> StartWithFaultAsync(string fault) =>
+        SurlOnLoopback.StartInMemoryAsync("mqtt", [.. AnonymousMqtt, "--fault", fault], TestContext.CancellationToken);
+
     // Publishes to t on one surl, stops it, and subscribes to t on a second surl started the
     // same way. The second surl binds a new ephemeral port: the first one's is not reserved.
     private async Task<(UpstreamCurlRunResult Publish, UpstreamCurlRunResult Subscribe)> PublishRestartSubscribeAsync(
