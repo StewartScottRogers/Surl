@@ -50,3 +50,4 @@ error table lists the two error texts BL-491 added.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waiting on BL-1035: pinned .NET SDK 10.0.401 is not installed, so dotnet build cannot run; the docs work is on factory/BL-771-lane-1-20261111-060243
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-12: Doing -> Backlog. returned by the shift starting 20261112-052315: it was in Doing but no stopped lane held it; look for its work in 'git stash list' and in factory/BL-771-* branches before redoing it
