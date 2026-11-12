@@ -8,7 +8,7 @@ depends-on: [BL-713, BL-1035]
 touches: [Documentation/Planning/Decisions/ADR-0108-how-the-s3-server-answers-s3.md]
 requirement: none
 created: 2026-11-06
-completed:
+completed: 2026-11-12
 ---
 # BL-927 — Record BL-713's multipart staging choices in ADR-0108
 
@@ -36,15 +36,17 @@ Claude under Stewart's delegation".
 
 ## Acceptance criteria
 
-- [ ] ADR-0108 decision 3 states where multipart parts are staged, and no longer says `.surl/objects/uploads/`
+- [x] ADR-0108 decision 3 states where multipart parts are staged, and no longer says `.surl/objects/uploads/`
       for S3.
-- [ ] ADR-0108 records each of the other choices listed in Context, with its reason.
+- [x] ADR-0108 records each of the other choices listed in Context, with its reason.
 
 ## Notes
 
 Filed by BL-713.
 
 Lane 6, 2026-11-11: the ADR-0108 text from lane 3 (commit 0981f45d on factory/BL-927-lane-3-20261111-060243) cherry-picks cleanly onto the ADR; only the task file conflicted. It is left uncommitted for the shift to stash. `dotnet build` cannot run: `global.json` pins SDK 10.0.401 and only 10.0.100-rc.1, 11.0.100-rc.2 and 11.0.100 are installed, so the shift's integration build fails whatever the task. Waiting on BL-1035 (reinstall the SDK). Restart with `git cherry-pick --no-commit 0981f45d`, keep the ADR change, and finish the task file.
+
+Lane 1, 2026-11-12: ADR-0108 had since gained Amendments 4 to 6, so the text from 0981f45d went in as Amendment 7 (not 4) and decision 3 points to it. SDK 10.0.404 is now installed and `dotnet build` is clean.
 
 ## Log
 
@@ -54,3 +56,4 @@ Lane 6, 2026-11-11: the ADR-0108 text from lane 3 (commit 0981f45d on factory/BL
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waits on BL-1035: pinned .NET SDK 10.0.401 is not installed, so no build can pass; ADR text is ready on factory/BL-927-lane-3-20261111-060243 (0981f45d).
 - 2026-11-12: Backlog -> Doing.
+- 2026-11-12: Doing -> Done. ADR-0108 decision 3 and Amendment 7 record BL-713's multipart staging choices
