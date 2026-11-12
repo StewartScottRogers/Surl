@@ -59,3 +59,4 @@ exist, and the extension switch turns all three off.
 - 2026-11-11: Doing -> Backlog. Waits on BL-1035: pinned .NET SDK 10.0.401 is not installed, so dotnet build cannot run
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Needs Foundation/Surl.Protocol.Abstractions.UnitLibrary (add mqtt5s to TlsSchemes), which BL-902 in Doing touches; waits on BL-902
+- 2026-11-12: Backlog -> Doing.
