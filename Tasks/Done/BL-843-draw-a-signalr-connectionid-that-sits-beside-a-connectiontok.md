@@ -8,7 +8,7 @@ depends-on: [BL-822, BL-851, BL-1035]
 touches: [Protocols/Http/Surl.Extended.Protocol.SignalR.UnitLibrary, Protocols/Http/Surl.Extended.Protocol.SignalR.UnitTests]
 requirement: none
 created: 2026-11-05
-completed:
+completed: 2026-11-11
 ---
 # BL-843 — Draw a SignalR connectionId that sits beside a connectionToken from the seedable identifier source
 
@@ -33,11 +33,11 @@ A SignalR negotiate response that carries a `connectionToken` draws its `connect
 
 ## Acceptance criteria
 
-- [ ] `SignalRHubConnectionsTests.Negotiate_Version1_SameSeededIdentifiers_GiveTheSameConnectionIdAndDifferentTokens`
+- [x] `SignalRHubConnectionsTests.Negotiate_Version1_SameSeededIdentifiers_GiveTheSameConnectionIdAndDifferentTokens`
       passes.
-- [ ] `SignalRHubConnectionsTests.Negotiate_Version0_ConnectionIdIsNotSeeded` passes: two version 0 negotiates with
+- [x] `SignalRHubConnectionsTests.Negotiate_Version0_ConnectionIdIsNotSeeded` passes: two version 0 negotiates with
       the same seeded source get different `connectionId`s.
-- [ ] The library stays at 100% line and branch coverage; `dotnet build` clean, fast tests green.
+- [x] The library stays at 100% line and branch coverage; `dotnet build` clean, fast tests green.
 
 ## Notes
 
@@ -49,3 +49,4 @@ A SignalR negotiate response that carries a `connectionToken` draws its `connect
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waits on BL-1035: pinned .NET SDK 10.0.401 is not installed, so dotnet build and the fast tests cannot run
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Done. SignalR connectionId beside a connectionToken now comes from the seedable identifier source; tokens and upgrade ids stay cryptographic

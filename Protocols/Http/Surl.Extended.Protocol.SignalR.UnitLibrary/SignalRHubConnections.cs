@@ -1,5 +1,6 @@
 using System.Buffers.Text;
 using System.Security.Cryptography;
+using Surl.Protocol.Abstractions;
 
 namespace Surl.Extended.Protocol.SignalR;
 
@@ -225,8 +226,16 @@ public sealed class SignalRHubConnections(TimeProvider timeProvider)
     /// </param>
     /// <returns>The connection, or <see langword="null"/> when the hub is full.</returns>
     /// <param name="isStateful">Whether the negotiate asked for stateful reconnect, so the connection survives a lost WebSocket.</param>
-    public SignalRNegotiatedConnection? Negotiate(string? accountName, bool sendsConnectionToken, TimeSpan upgradeWindow, bool isStateful = false)
+    /// <param name="identifiers">
+    /// The seedable source a <c>connectionId</c> is drawn from when a <c>connectionToken</c> is also issued, since
+    /// it then admits nobody (ADR-0124, decision 6); a token, and a <c>connectionId</c> that is the upgrade id, stay on
+    /// <see cref="RandomNumberGenerator"/>.
+    /// </param>
+    public SignalRNegotiatedConnection? Negotiate(
+        string? accountName, bool sendsConnectionToken, TimeSpan upgradeWindow, IIdentifierRandom identifiers, bool isStateful = false)
     {
+        ArgumentNullException.ThrowIfNull(identifiers);
+
         var now = timeProvider.GetUtcNow();
         var expiresAt = upgradeWindow == Timeout.InfiniteTimeSpan ? DateTimeOffset.MaxValue : now + upgradeWindow;
         lock (gate)
@@ -238,7 +247,11 @@ public sealed class SignalRHubConnections(TimeProvider timeProvider)
             }
 
             var connection = new SignalRNegotiatedConnection(
-                NewId(), sendsConnectionToken ? NewId() : null, accountName, expiresAt, isStateful ? new SignalRReconnectState() : null);
+                sendsConnectionToken ? NewSeedableId(identifiers) : NewId(),
+                sendsConnectionToken ? NewId() : null,
+                accountName,
+                expiresAt,
+                isStateful ? new SignalRReconnectState() : null);
             negotiated.Add(connection.UpgradeId, connection);
 
             return connection;
@@ -246,6 +259,14 @@ public sealed class SignalRHubConnections(TimeProvider timeProvider)
     }
 
     private static string NewId() => Base64Url.EncodeToString(RandomNumberGenerator.GetBytes(IdBytes));
+
+    private static string NewSeedableId(IIdentifierRandom identifiers)
+    {
+        Span<byte> bytes = stackalloc byte[IdBytes];
+        identifiers.NextBytes(bytes);
+
+        return Base64Url.EncodeToString(bytes);
+    }
 
     private void ForgetExpired()
     {

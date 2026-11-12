@@ -13,7 +13,7 @@ public sealed class SignalRHubConnectionsTests
     {
         var connections = new SignalRHubConnections(new SteppingTimeProvider(Now));
 
-        var connection = connections.Negotiate("alice", sendsConnectionToken: true, TimeSpan.FromSeconds(30))!;
+        var connection = connections.Negotiate("alice", sendsConnectionToken: true, TimeSpan.FromSeconds(30), new UnitTestIdentifierRandom(1))!;
 
         Assert.MatchesRegex("^[A-Za-z0-9_-]{22}$", connection.ConnectionId);
         Assert.MatchesRegex("^[A-Za-z0-9_-]{22}$", connection.ConnectionToken!);
@@ -28,7 +28,7 @@ public sealed class SignalRHubConnectionsTests
     {
         var connections = new SignalRHubConnections(new SteppingTimeProvider(Now));
 
-        var connection = connections.Negotiate(null, sendsConnectionToken: false, TimeSpan.FromSeconds(30))!;
+        var connection = connections.Negotiate(null, sendsConnectionToken: false, TimeSpan.FromSeconds(30), new UnitTestIdentifierRandom(1))!;
 
         Assert.IsNull(connection.ConnectionToken);
         Assert.AreEqual(connection.ConnectionId, connection.UpgradeId);
@@ -39,8 +39,8 @@ public sealed class SignalRHubConnectionsTests
     {
         var connections = new SignalRHubConnections(new SteppingTimeProvider(Now));
 
-        var first = connections.Negotiate(null, true, TimeSpan.FromSeconds(30))!;
-        var second = connections.Negotiate(null, true, TimeSpan.FromSeconds(30))!;
+        var first = connections.Negotiate(null, true, TimeSpan.FromSeconds(30), new UnitTestIdentifierRandom(1))!;
+        var second = connections.Negotiate(null, true, TimeSpan.FromSeconds(30), new UnitTestIdentifierRandom(2))!;
 
         Assert.AreNotEqual(first.ConnectionId, second.ConnectionId);
         Assert.AreNotEqual(first.ConnectionToken, second.ConnectionToken);
@@ -48,11 +48,42 @@ public sealed class SignalRHubConnectionsTests
     }
 
     [TestMethod]
+    public void Negotiate_Version1_SameSeededIdentifiers_GiveTheSameConnectionIdAndDifferentTokens()
+    {
+        var connections = new SignalRHubConnections(new SteppingTimeProvider(Now));
+
+        var first = connections.Negotiate(null, true, TimeSpan.FromSeconds(30), new UnitTestIdentifierRandom(7))!;
+        var second = connections.Negotiate(null, true, TimeSpan.FromSeconds(30), new UnitTestIdentifierRandom(7))!;
+
+        Assert.AreEqual(first.ConnectionId, second.ConnectionId);
+        Assert.AreNotEqual(first.ConnectionToken, second.ConnectionToken);
+    }
+
+    [TestMethod]
+    public void Negotiate_Version0_ConnectionIdIsNotSeeded()
+    {
+        var connections = new SignalRHubConnections(new SteppingTimeProvider(Now));
+
+        var first = connections.Negotiate(null, false, TimeSpan.FromSeconds(30), new UnitTestIdentifierRandom(7))!;
+        var second = connections.Negotiate(null, false, TimeSpan.FromSeconds(30), new UnitTestIdentifierRandom(7))!;
+
+        Assert.AreNotEqual(first.ConnectionId, second.ConnectionId);
+    }
+
+    [TestMethod]
+    public void Negotiate_NullIdentifiers_Throws()
+    {
+        var connections = new SignalRHubConnections(new SteppingTimeProvider(Now));
+
+        Assert.ThrowsExactly<ArgumentNullException>(() => connections.Negotiate(null, true, TimeSpan.FromSeconds(30), null!));
+    }
+
+    [TestMethod]
     public void Negotiate_InfiniteWindow_NeverExpires()
     {
         var connections = new SignalRHubConnections(new SteppingTimeProvider(Now));
 
-        var connection = connections.Negotiate(null, true, Timeout.InfiniteTimeSpan)!;
+        var connection = connections.Negotiate(null, true, Timeout.InfiniteTimeSpan, new UnitTestIdentifierRandom(1))!;
 
         Assert.AreEqual(DateTimeOffset.MaxValue, connection.ExpiresAt);
     }
@@ -62,15 +93,15 @@ public sealed class SignalRHubConnectionsTests
     {
         var clock = new SteppingTimeProvider(Now);
         var connections = new SignalRHubConnections(clock);
-        connections.Negotiate(null, true, TimeSpan.FromSeconds(10));
+        connections.Negotiate(null, true, TimeSpan.FromSeconds(10), new UnitTestIdentifierRandom(1));
         for (var index = 1; index < SignalRHubConnections.MaxConnections; index++)
         {
-            connections.Negotiate(null, true, TimeSpan.FromSeconds(60));
+            connections.Negotiate(null, true, TimeSpan.FromSeconds(60), new UnitTestIdentifierRandom(1));
         }
 
-        var refused = connections.Negotiate(null, true, TimeSpan.FromSeconds(60));
+        var refused = connections.Negotiate(null, true, TimeSpan.FromSeconds(60), new UnitTestIdentifierRandom(1));
         clock.Advance(TimeSpan.FromSeconds(10));
-        var afterExpiry = connections.Negotiate(null, true, TimeSpan.FromSeconds(60));
+        var afterExpiry = connections.Negotiate(null, true, TimeSpan.FromSeconds(60), new UnitTestIdentifierRandom(1));
 
         Assert.IsNull(refused);
         Assert.IsNotNull(afterExpiry);
@@ -82,7 +113,7 @@ public sealed class SignalRHubConnectionsTests
     {
         var clock = new SteppingTimeProvider(Now);
         var connections = new SignalRHubConnections(clock);
-        connections.Negotiate(null, true, TimeSpan.FromSeconds(30));
+        connections.Negotiate(null, true, TimeSpan.FromSeconds(30), new UnitTestIdentifierRandom(1));
 
         clock.Advance(TimeSpan.FromSeconds(29));
         var beforeExpiry = connections.Count;
@@ -96,7 +127,7 @@ public sealed class SignalRHubConnectionsTests
     public void TakeUp_NegotiatedTokenBySameCaller_HandsOverTheConnectionOnce()
     {
         var connections = new SignalRHubConnections(new SteppingTimeProvider(Now));
-        var negotiated = connections.Negotiate("alice", true, TimeSpan.FromSeconds(30))!;
+        var negotiated = connections.Negotiate("alice", true, TimeSpan.FromSeconds(30), new UnitTestIdentifierRandom(1))!;
 
         var first = connections.TakeUp(negotiated.UpgradeId, "alice", out var taken);
         var second = connections.TakeUp(negotiated.UpgradeId, "alice", out var again);
@@ -112,7 +143,7 @@ public sealed class SignalRHubConnectionsTests
     public void TakeUp_AfterEnd_IsNotFound()
     {
         var connections = new SignalRHubConnections(new SteppingTimeProvider(Now));
-        var negotiated = connections.Negotiate(null, true, TimeSpan.FromSeconds(30))!;
+        var negotiated = connections.Negotiate(null, true, TimeSpan.FromSeconds(30), new UnitTestIdentifierRandom(1))!;
         connections.TakeUp(negotiated.UpgradeId, null, out _);
 
         connections.End(negotiated);
@@ -126,7 +157,7 @@ public sealed class SignalRHubConnectionsTests
     {
         var clock = new SteppingTimeProvider(Now);
         var connections = new SignalRHubConnections(clock);
-        var negotiated = connections.Negotiate(null, true, TimeSpan.FromSeconds(30))!;
+        var negotiated = connections.Negotiate(null, true, TimeSpan.FromSeconds(30), new UnitTestIdentifierRandom(1))!;
 
         clock.Advance(TimeSpan.FromSeconds(30));
 
@@ -137,7 +168,7 @@ public sealed class SignalRHubConnectionsTests
     public void TakeUp_ByAnotherAccount_IsRefusedAndLeavesTheConnectionWaiting()
     {
         var connections = new SignalRHubConnections(new SteppingTimeProvider(Now));
-        var negotiated = connections.Negotiate("alice", true, TimeSpan.FromSeconds(30))!;
+        var negotiated = connections.Negotiate("alice", true, TimeSpan.FromSeconds(30), new UnitTestIdentifierRandom(1))!;
 
         var outcome = connections.TakeUp(negotiated.UpgradeId, "bob", out var taken);
 
@@ -163,7 +194,7 @@ public sealed class SignalRHubConnectionsTests
         Assert.AreEqual(DateTimeOffset.MaxValue, taken.ExpiresAt);
         Assert.AreEqual(SignalRUpgradeOutcome.HubFull, connections.TakeUp(null, "alice", out var refused));
         Assert.IsNull(refused);
-        Assert.IsNull(connections.Negotiate("alice", true, TimeSpan.FromSeconds(30)));
+        Assert.IsNull(connections.Negotiate("alice", true, TimeSpan.FromSeconds(30), new UnitTestIdentifierRandom(1)));
     }
 
     [TestMethod]
@@ -179,8 +210,8 @@ public sealed class SignalRHubConnectionsTests
     {
         var connections = new SignalRHubConnections(new SteppingTimeProvider(Now));
 
-        Assert.IsNotNull(connections.Negotiate(null, true, TimeSpan.FromSeconds(30), isStateful: true)!.Reconnect);
-        Assert.IsNull(connections.Negotiate(null, true, TimeSpan.FromSeconds(30))!.Reconnect);
+        Assert.IsNotNull(connections.Negotiate(null, true, TimeSpan.FromSeconds(30), new UnitTestIdentifierRandom(1), isStateful: true)!.Reconnect);
+        Assert.IsNull(connections.Negotiate(null, true, TimeSpan.FromSeconds(30), new UnitTestIdentifierRandom(1))!.Reconnect);
     }
 
     [TestMethod]
@@ -188,7 +219,7 @@ public sealed class SignalRHubConnectionsTests
     {
         var clock = new ManualTimeProvider();
         var connections = new SignalRHubConnections(clock);
-        var negotiated = connections.Negotiate("alice", true, TimeSpan.FromSeconds(30), isStateful: true)!;
+        var negotiated = connections.Negotiate("alice", true, TimeSpan.FromSeconds(30), new UnitTestIdentifierRandom(1), isStateful: true)!;
         connections.TakeUp(negotiated.UpgradeId, "alice", out var first);
 
         connections.Suspend(first!);
@@ -206,7 +237,7 @@ public sealed class SignalRHubConnectionsTests
     {
         var clock = new ManualTimeProvider();
         var connections = new SignalRHubConnections(clock);
-        var negotiated = connections.Negotiate("alice", true, TimeSpan.FromSeconds(30), isStateful: true)!;
+        var negotiated = connections.Negotiate("alice", true, TimeSpan.FromSeconds(30), new UnitTestIdentifierRandom(1), isStateful: true)!;
         connections.TakeUp(negotiated.UpgradeId, "alice", out var first);
         connections.Suspend(first!);
 
@@ -221,7 +252,7 @@ public sealed class SignalRHubConnectionsTests
     {
         var clock = new ManualTimeProvider();
         var connections = new SignalRHubConnections(clock);
-        var negotiated = connections.Negotiate("alice", true, TimeSpan.FromSeconds(30), isStateful: true)!;
+        var negotiated = connections.Negotiate("alice", true, TimeSpan.FromSeconds(30), new UnitTestIdentifierRandom(1), isStateful: true)!;
         connections.TakeUp(negotiated.UpgradeId, "alice", out var first);
         connections.Suspend(first!);
 

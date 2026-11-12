@@ -184,7 +184,7 @@ public sealed class SignalRHttpTransportsTests
     public async Task AnswerAsync_LongPollingOfAnotherCallersConnection_IsForbidden()
     {
         var harness = new SignalRServerHarness(allowsAnonymous: true);
-        var negotiated = harness.Connections.Negotiate(null, true, TimeSpan.FromSeconds(30))!;
+        var negotiated = harness.Connections.Negotiate(null, true, TimeSpan.FromSeconds(30), new UnitTestIdentifierRandom(1))!;
         harness.Connections.TakeUp(negotiated.UpgradeId, null, out _);
         negotiated.HttpTransport = new SignalRHttpTransportState(new SignalRPostedPayloads(), null);
 
@@ -197,7 +197,7 @@ public sealed class SignalRHttpTransportsTests
     public async Task AnswerAsync_LongPollingFirstGetByAnotherCaller_IsForbidden()
     {
         var harness = new SignalRServerHarness(allowsAnonymous: true);
-        var negotiated = harness.Connections.Negotiate(null, true, TimeSpan.FromSeconds(30))!;
+        var negotiated = harness.Connections.Negotiate(null, true, TimeSpan.FromSeconds(30), new UnitTestIdentifierRandom(1))!;
 
         var response = await harness.SendAsync("GET", "/chat?id=" + negotiated.UpgradeId, SignalRServerHarness.BearerField);
 
@@ -223,7 +223,7 @@ public sealed class SignalRHttpTransportsTests
     public async Task AnswerAsync_PollOfAWebSocketConnection_IsBadRequest()
     {
         var harness = new SignalRServerHarness();
-        var negotiated = harness.Connections.Negotiate(string.Empty, true, TimeSpan.FromSeconds(30))!;
+        var negotiated = harness.Connections.Negotiate(string.Empty, true, TimeSpan.FromSeconds(30), new UnitTestIdentifierRandom(1))!;
         harness.Connections.TakeUp(negotiated.UpgradeId, string.Empty, out _);
 
         var response = await harness.SendAsync("GET", "/chat?id=" + negotiated.UpgradeId, SignalRServerHarness.BearerField);
@@ -296,7 +296,7 @@ public sealed class SignalRHttpTransportsTests
     public async Task AnswerAsync_PostToAWebSocketConnection_IsBadRequest()
     {
         var harness = new SignalRServerHarness();
-        var negotiated = harness.Connections.Negotiate(string.Empty, true, TimeSpan.FromSeconds(30))!;
+        var negotiated = harness.Connections.Negotiate(string.Empty, true, TimeSpan.FromSeconds(30), new UnitTestIdentifierRandom(1))!;
         harness.Connections.TakeUp(negotiated.UpgradeId, string.Empty, out _);
 
         var response = await harness.SendRawAsync(Post(negotiated.UpgradeId, "x"));
@@ -308,7 +308,7 @@ public sealed class SignalRHttpTransportsTests
     public async Task AnswerAsync_DeleteOfAWebSocketConnection_IsBadRequest()
     {
         var harness = new SignalRServerHarness();
-        var negotiated = harness.Connections.Negotiate(string.Empty, true, TimeSpan.FromSeconds(30))!;
+        var negotiated = harness.Connections.Negotiate(string.Empty, true, TimeSpan.FromSeconds(30), new UnitTestIdentifierRandom(1))!;
         harness.Connections.TakeUp(negotiated.UpgradeId, string.Empty, out _);
 
         var response = await Delete(harness, negotiated.UpgradeId);
@@ -387,11 +387,11 @@ public sealed class SignalRHttpTransportsTests
     }
 
     private static string Negotiate(SignalRServerHarness harness) =>
-        harness.Connections.Negotiate(string.Empty, true, TimeSpan.FromSeconds(30))!.UpgradeId;
+        harness.Connections.Negotiate(string.Empty, true, TimeSpan.FromSeconds(30), new UnitTestIdentifierRandom(1))!.UpgradeId;
 
     private static SignalRPostedPayloads TakeUpWithoutASession(SignalRServerHarness harness, out string id)
     {
-        var negotiated = harness.Connections.Negotiate(string.Empty, true, TimeSpan.FromSeconds(30))!;
+        var negotiated = harness.Connections.Negotiate(string.Empty, true, TimeSpan.FromSeconds(30), new UnitTestIdentifierRandom(1))!;
         harness.Connections.TakeUp(negotiated.UpgradeId, string.Empty, out _);
         var posts = new SignalRPostedPayloads();
         negotiated.HttpTransport = new SignalRHttpTransportState(posts, null);

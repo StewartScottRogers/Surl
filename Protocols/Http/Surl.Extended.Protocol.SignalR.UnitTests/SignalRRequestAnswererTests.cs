@@ -227,7 +227,7 @@ public sealed partial class SignalRRequestAnswererTests
         var harness = new SignalRServerHarness();
         for (var index = 0; index < SignalRHubConnections.MaxConnections; index++)
         {
-            harness.Connections.Negotiate(null, true, TimeSpan.FromSeconds(30));
+            harness.Connections.Negotiate(null, true, TimeSpan.FromSeconds(30), new UnitTestIdentifierRandom(1));
         }
 
         var response = await harness.SendAsync("POST", "/chat/negotiate?negotiateVersion=1", SignalRServerHarness.BearerField);
@@ -293,7 +293,7 @@ public sealed partial class SignalRRequestAnswererTests
     public async Task AnswerAsync_UpgradeNamingANegotiatedConnection_Switches(bool isVersionOne)
     {
         var harness = new SignalRServerHarness();
-        var negotiated = harness.Connections.Negotiate(string.Empty, isVersionOne, TimeSpan.FromSeconds(30))!;
+        var negotiated = harness.Connections.Negotiate(string.Empty, isVersionOne, TimeSpan.FromSeconds(30), new UnitTestIdentifierRandom(1))!;
 
         var response = await harness.SendRawAsync(SignalRHubClient.UpgradeRequest("/chat?id=" + Uri.EscapeDataString(negotiated.UpgradeId)));
 
@@ -317,7 +317,7 @@ public sealed partial class SignalRRequestAnswererTests
     public async Task AnswerAsync_UpgradeWithAConnectionTokenNotFromNegotiate_IsNotFound(string target, int status, string reason)
     {
         var harness = new SignalRServerHarness();
-        harness.Connections.Negotiate(string.Empty, true, TimeSpan.FromSeconds(30));
+        harness.Connections.Negotiate(string.Empty, true, TimeSpan.FromSeconds(30), new UnitTestIdentifierRandom(1));
 
         var response = await harness.SendRawAsync(SignalRHubClient.UpgradeRequest(target));
 
@@ -328,7 +328,7 @@ public sealed partial class SignalRRequestAnswererTests
     public async Task AnswerAsync_UpgradeWithAVersionOneConnectionsId_IsNotFound()
     {
         var harness = new SignalRServerHarness();
-        var negotiated = harness.Connections.Negotiate(string.Empty, true, TimeSpan.FromSeconds(30))!;
+        var negotiated = harness.Connections.Negotiate(string.Empty, true, TimeSpan.FromSeconds(30), new UnitTestIdentifierRandom(1))!;
 
         var response = await harness.SendRawAsync(SignalRHubClient.UpgradeRequest("/chat?id=" + negotiated.ConnectionId));
 
@@ -339,7 +339,7 @@ public sealed partial class SignalRRequestAnswererTests
     public async Task AnswerAsync_UpgradeOfAConnectionAlreadyTakenUp_IsConflict()
     {
         var harness = new SignalRServerHarness();
-        var negotiated = harness.Connections.Negotiate(string.Empty, true, TimeSpan.FromSeconds(30))!;
+        var negotiated = harness.Connections.Negotiate(string.Empty, true, TimeSpan.FromSeconds(30), new UnitTestIdentifierRandom(1))!;
         harness.Connections.TakeUp(negotiated.UpgradeId, string.Empty, out _);
 
         var response = await harness.SendRawAsync(SignalRHubClient.UpgradeRequest("/chat?id=" + negotiated.UpgradeId));
@@ -351,7 +351,7 @@ public sealed partial class SignalRRequestAnswererTests
     public async Task AnswerAsync_UpgradeByACallerOtherThanTheNegotiator_IsForbidden()
     {
         var harness = new SignalRServerHarness(allowsAnonymous: true);
-        var negotiated = harness.Connections.Negotiate(null, true, TimeSpan.FromSeconds(30))!;
+        var negotiated = harness.Connections.Negotiate(null, true, TimeSpan.FromSeconds(30), new UnitTestIdentifierRandom(1))!;
 
         var response = await harness.SendRawAsync(SignalRHubClient.UpgradeRequest("/chat?id=" + negotiated.UpgradeId));
 
@@ -364,7 +364,7 @@ public sealed partial class SignalRRequestAnswererTests
         var harness = new SignalRServerHarness();
         for (var index = 0; index < SignalRHubConnections.MaxConnections; index++)
         {
-            harness.Connections.Negotiate(string.Empty, true, TimeSpan.FromSeconds(30));
+            harness.Connections.Negotiate(string.Empty, true, TimeSpan.FromSeconds(30), new UnitTestIdentifierRandom(1));
         }
 
         var response = await harness.SendRawAsync(SignalRHubClient.UpgradeRequest("/chat"));

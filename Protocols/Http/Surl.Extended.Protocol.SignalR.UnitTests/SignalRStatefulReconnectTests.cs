@@ -25,7 +25,7 @@ public sealed class SignalRStatefulReconnectTests
     private static string Target(SignalRNegotiatedConnection connection) => "/chat?id=" + Uri.EscapeDataString(connection.UpgradeId);
 
     private static SignalRNegotiatedConnection Negotiate(SignalRServerHarness harness) =>
-        harness.Connections.Negotiate(string.Empty, true, TimeSpan.FromSeconds(30), isStateful: true)!;
+        harness.Connections.Negotiate(string.Empty, true, TimeSpan.FromSeconds(30), new UnitTestIdentifierRandom(1), isStateful: true)!;
 
     private static Task<SignalRHubClient> ConnectAsync(SignalRServerHarness harness, SignalRNegotiatedConnection connection) =>
         SignalRHubClient.ConnectAsync(harness, target: Target(connection));

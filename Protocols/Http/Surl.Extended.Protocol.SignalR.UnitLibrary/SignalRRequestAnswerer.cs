@@ -117,7 +117,7 @@ internal sealed partial class SignalRRequestAnswerer(
             return bodyRefusal;
         }
 
-        var connection = connections.Negotiate(accountName, isVersionOne, context.Limits.HeadTimeout, AsksForStatefulReconnect(target));
+        var connection = connections.Negotiate(accountName, isVersionOne, context.Limits.HeadTimeout, context.Identifiers, AsksForStatefulReconnect(target));
         if (connection is null)
         {
             context.Log.Note($"Negotiate refused: the hub holds {SignalRHubConnections.MaxConnections} connections.");
