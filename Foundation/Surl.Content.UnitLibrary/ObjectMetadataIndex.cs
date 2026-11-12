@@ -272,6 +272,43 @@ public sealed class ObjectMetadataIndex
     }
 
     /// <summary>
+    /// Drops the folder object at <paramref name="key"/> (<see cref="StoreFolderObjectAsync"/>)
+    /// from the index, whether or not its folder still holds keys, as a client's DeleteObject of
+    /// <c>x/</c> forgets the object <c>x/</c> and leaves the keys under it. A key with no entry
+    /// changes nothing.
+    /// </summary>
+    /// <param name="key">The folder's path relative to the served root and a final <c>/</c>; see
+    /// <see cref="IsValidFolderObjectKey"/>.</param>
+    /// <param name="cancellationToken">Cancels writing the index.</param>
+    /// <returns>The failure to rewrite the index file, or <see langword="null"/>.</returns>
+    /// <exception cref="ArgumentException"><paramref name="key"/> is not valid.</exception>
+    public async Task<string?> ForgetFolderObjectAsync(string key, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(key);
+        if (!IsValidFolderObjectKey(key))
+        {
+            throw new ArgumentException("The key is not a folder the content store can hold and a final '/'.", nameof(key));
+        }
+
+        await gate.WaitAsync(cancellationToken);
+        try
+        {
+            if (!entries.Remove(key))
+            {
+                return null;
+            }
+
+            var failure = await WriteIndexAsync(cancellationToken);
+            events.Publish(new StoreChangedEvent(StoreKind.Content, StoreChange.Deleted, "/" + key, null, null));
+            return failure;
+        }
+        finally
+        {
+            gate.Release();
+        }
+    }
+
+    /// <summary>
     /// Every folder object (<see cref="StoreFolderObjectAsync"/>) whose folder still exists, by
     /// its key; one whose folder is gone is dropped.
     /// </summary>

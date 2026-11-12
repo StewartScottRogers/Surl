@@ -138,4 +138,5 @@ client put as an object (S3's zero-byte `x/`) under the folder's key and a final
 last write time when stored. It lasts while the folder exists, whatever is written inside;
 `ReadFolderObjectsAsync` answers every one whose folder is still there and drops the rest, and a
 full index drops them first. The index file holds them as ordinary entries; `ReadAsync` and
-`StoreAsync` never take a folder key.
+`StoreAsync` never take a folder key. `ForgetFolderObjectAsync` (BL-930) drops one whether or not its
+folder holds keys, rewrites the index file and publishes `Deleted` (`/` and the key).

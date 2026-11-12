@@ -515,9 +515,11 @@ BL-728. It builds decision 6's last point: a folder a client put as `x/` is list
    creates the folder and answers `200`, but nothing is recorded and ListObjectsV2 does not list it.
    A folder object the index refuses (the index full) is `503 ServiceUnavailable`; the folder stays,
    as a folder, because it may already hold other keys.
-5. **DeleteObject of `x/` does not forget the folder object;** it removes the folder only when empty,
-   and an empty folder's removal drops the folder object at the next listing. A non-empty folder's
-   `x/` still lists after its DeleteObject: BL-930 makes DeleteObject forget it.
+5. **DeleteObject of `x/` forgets the folder object (BL-930).** It removes the folder when empty, and
+   either way drops the folder object from the object metadata index (`ObjectMetadataIndex.ForgetFolderObjectAsync`),
+   so ListObjectsV2 stops listing `x/` while the keys under a non-empty folder stay listed, as S3 does.
+   A refused delete (`403`) forgets nothing; a folder in a share has no index key. The index publishes
+   `StoreChange.Deleted` for the forgotten folder object, so deleting an empty folder publishes two.
 
 ## Amendment 4 - DeleteObject, HeadBucket and ListBuckets as BL-712 built them (BL-918, 2026-11-11)
 

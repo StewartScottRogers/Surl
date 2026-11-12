@@ -595,6 +595,44 @@ public sealed class ObjectMetadataIndexTests
     }
 
     [TestMethod]
+    public async Task ForgetFolderObjectAsync_FolderStillHoldsKeys_DropsTheFolderObjectAndRewritesTheIndexFile()
+    {
+        var fixture = new Fixture(persists: true);
+        fixture.FileSystem.CreateDirectory(Path.Join(Root, "b", "x"));
+        await fixture.UploadAsync("b/x/inside.txt", "hello"u8.ToArray());
+        await fixture.Index.StoreAsync("b/x/inside.txt", new ObjectMetadata(), CancellationToken.None);
+        await fixture.Index.StoreFolderObjectAsync("b/x/", new ObjectMetadata(), CancellationToken.None);
+
+        var failure = await fixture.Index.ForgetFolderObjectAsync("b/x/", CancellationToken.None);
+        var reloaded = await fixture.ReloadAsync();
+
+        Assert.IsNull(failure);
+        Assert.IsEmpty(await fixture.Index.ReadFolderObjectsAsync(CancellationToken.None));
+        Assert.AreEqual(1, fixture.Index.Count);
+        Assert.AreEqual(1, reloaded.Count);
+        Assert.IsEmpty(await reloaded.ReadFolderObjectsAsync(CancellationToken.None));
+    }
+
+    [TestMethod]
+    public async Task ForgetFolderObjectAsync_NoEntry_ChangesNothing()
+    {
+        var fixture = new Fixture(persists: false);
+
+        var failure = await fixture.Index.ForgetFolderObjectAsync("b/x/", CancellationToken.None);
+
+        Assert.IsNull(failure);
+        Assert.AreEqual(0, fixture.Index.Count);
+    }
+
+    [TestMethod]
+    public async Task ForgetFolderObjectAsync_KeyNotAFolderObjectKey_Throws()
+    {
+        var fixture = new Fixture(persists: false);
+
+        await Assert.ThrowsExactlyAsync<ArgumentException>(() => fixture.Index.ForgetFolderObjectAsync("b/x", CancellationToken.None));
+        await Assert.ThrowsExactlyAsync<ArgumentNullException>(() => fixture.Index.ForgetFolderObjectAsync(null!, CancellationToken.None));
+    }
+    [TestMethod]
     public async Task ReadFolderObjectsAsync_FolderRemoved_DropsItsFolderObjectAndLeavesFileEntries()
     {
         var fixture = new Fixture(persists: false);

@@ -49,7 +49,7 @@ internal sealed class S3RequestAnswerer : IHttpRequestHandler, IHttpHeadNotReadR
         properties = new S3ObjectPropertiesReader(store, index, context.Log);
         putObject = new S3PutObject(store, index, login, context.Log);
         listObjects = new S3ListObjectsV2(store, properties);
-        deleteObject = new S3DeleteObject(store);
+        deleteObject = new S3DeleteObject(store, index, context.Log);
         listBuckets = new S3ListBuckets(store);
         createMultipartUpload = new S3CreateMultipartUpload(store, putObject, uploads);
         uploadPart = new S3UploadPart(store, putObject, uploads);
@@ -110,7 +110,7 @@ internal sealed class S3RequestAnswerer : IHttpRequestHandler, IHttpHeadNotReadR
             S3Operation.HeadBucket => reply.Answer(HttpStatus.Ok, [], HttpAnswerBody.None),
             S3Operation.ListObjectsV2 => await listObjects.AnswerAsync(reply, target, S3QueryParameters.Parse(target.Query!), caller, cancellationToken),
             S3Operation.PutObject => await PutObjectAsync(reply, request, target, loginResult, cancellationToken),
-            S3Operation.DeleteObject => deleteObject.Answer(reply, target, caller),
+            S3Operation.DeleteObject => await deleteObject.AnswerAsync(reply, target, caller, cancellationToken),
             S3Operation.ReadObject => await ReadObjectAsync(reply, request, target, caller, cancellationToken),
             _ => await MultipartAsync(reply, request, target, operation, loginResult, cancellationToken),
         };
