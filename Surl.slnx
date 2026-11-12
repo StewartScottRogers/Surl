@@ -88,6 +88,8 @@
     <Project Path="Cryptography/Surl.Cryptography.ChaCha20.UnitTests/Surl.Cryptography.ChaCha20.UnitTests.csproj" />
     <Project Path="Cryptography/Surl.Cryptography.Curve25519.UnitLibrary/Surl.Cryptography.Curve25519.UnitLibrary.csproj" />
     <Project Path="Cryptography/Surl.Cryptography.Curve25519.UnitTests/Surl.Cryptography.Curve25519.UnitTests.csproj" />
+    <Project Path="Cryptography/Surl.Cryptography.Curve448.UnitLibrary/Surl.Cryptography.Curve448.UnitLibrary.csproj" />
+    <Project Path="Cryptography/Surl.Cryptography.Curve448.UnitTests/Surl.Cryptography.Curve448.UnitTests.csproj" />
     <Project Path="Cryptography/Surl.Cryptography.Ed25519.UnitLibrary/Surl.Cryptography.Ed25519.UnitLibrary.csproj" />
     <Project Path="Cryptography/Surl.Cryptography.Ed25519.UnitTests/Surl.Cryptography.Ed25519.UnitTests.csproj" />
     <Project Path="Cryptography/Surl.Cryptography.MlKem.UnitLibrary/Surl.Cryptography.MlKem.UnitLibrary.csproj" />

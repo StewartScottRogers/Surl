@@ -22,6 +22,7 @@ public sealed class ProtocolIsolationTests
     private const string Cast128 = "Surl.Cryptography.Cast128.UnitLibrary";
     private const string ChaCha20 = "Surl.Cryptography.ChaCha20.UnitLibrary";
     private const string Curve25519 = "Surl.Cryptography.Curve25519.UnitLibrary";
+    private const string Curve448 = "Surl.Cryptography.Curve448.UnitLibrary";
     private const string Ed25519 = "Surl.Cryptography.Ed25519.UnitLibrary";
     private const string Poly1305 = "Surl.Cryptography.Poly1305.UnitLibrary";
     private const string Rc4 = "Surl.Cryptography.Rc4.UnitLibrary";
@@ -71,6 +72,7 @@ public sealed class ProtocolIsolationTests
         [Cast128] = [],
         [ChaCha20] = [],
         [Curve25519] = [],
+        [Curve448] = [],
         [Ed25519] = [Curve25519],
         [MlKem] = [],
         [Poly1305] = [],
@@ -224,6 +226,7 @@ public sealed class ProtocolIsolationTests
     [DataRow(Cast128)]
     [DataRow(ChaCha20)]
     [DataRow(Curve25519)]
+    [DataRow(Curve448)]
     [DataRow(Ed25519)]
     [DataRow(MlKem)]
     [DataRow(Poly1305)]
@@ -307,6 +310,7 @@ public sealed class ProtocolIsolationTests
     [DataRow(Cryptography, "Surl.Core.UnitLibrary")]
     [DataRow(Curve25519, Ed25519)]
     [DataRow(MlKem, Curve25519)]
+    [DataRow(Curve448, Curve25519)]
     [DataRow(ChaCha20, Poly1305)]
     [DataRow(Poly1305, ChaCha20)]
     [DataRow(Blowfish, BcryptPbkdf)]
