@@ -75,3 +75,4 @@ and fault plan, and shares the instance's stores if it asks for them.
 - 2026-11-12: Backlog -> Doing.
 - 2026-11-12: Doing -> Backlog. Lane 3's finished code for this task is in a shift stash, not in this worktree, and I was denied access to git stash; SDK 10.0.404 is now installed so BL-1035's blocker is gone. Next run should restore the stash, re-verify, tick box 2 and commit.
 - 2026-11-12: Backlog -> Doing.
+- 2026-11-12: Doing -> Blocked. Stewart: allow lane 3 to read git stash (git stash list / apply) so the finished BL-813 code in the shift stash can be restored and re-verified on SDK 10.0.404; it was denied twice.
