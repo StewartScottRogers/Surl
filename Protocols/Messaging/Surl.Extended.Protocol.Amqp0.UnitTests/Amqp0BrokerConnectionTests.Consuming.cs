@@ -100,6 +100,201 @@ public sealed partial class Amqp0BrokerConnectionTests
     }
 
     [TestMethod]
+    public async Task Qos_PrefetchCountOneWithTwoConsumers_HoldsOneDeliveryBetweenThem()
+    {
+        var written = await ServeAsync(
+            NewBroker(NewBus()),
+            Qos(1, 1),
+            QueueDeclare(1, "q"),
+            PublishText(1, string.Empty, "q", "1"),
+            PublishText(1, string.Empty, "q", "2"),
+            Consume(1, "q", "c1"),
+            Consume(1, "q", "c2"),
+            QueueDeclare(1, "r"),
+            Ack(1, 1));
+
+        AssertAnswered(
+            written,
+            QosOk(1),
+            QueueDeclareOk(1, "q"),
+            ConsumeOk(1, "c1"),
+            Deliver(1, "c1", 1, false, string.Empty, "q"),
+            TextContent(1, "1"),
+            ConsumeOk(1, "c2"),
+            QueueDeclareOk(1, "r"),
+            Deliver(1, "c2", 2, false, string.Empty, "q"),
+            TextContent(1, "2"));
+    }
+
+    [TestMethod]
+    public async Task Qos_GlobalPrefetchCountOne_BoundsTwoChannelsTogether()
+    {
+        var written = await ServeAsync(
+            NewBroker(NewBus()),
+            ChannelOpen(2),
+            Qos(1, 1, global: true),
+            Qos(1, 1),
+            QueueDeclare(1, "q"),
+            PublishText(1, string.Empty, "q", "1"),
+            PublishText(1, string.Empty, "q", "2"),
+            PublishText(1, string.Empty, "q", "3"),
+            PublishText(1, string.Empty, "q", "4"),
+            Consume(1, "q", "c1"),
+            Consume(2, "q", "c2"),
+            QueueDeclare(1, "r"),
+            Ack(1, 1),
+            Ack(2, 1));
+
+        AssertAnswered(
+            written,
+            ChannelOpenOk(2),
+            QosOk(1),
+            QosOk(1),
+            QueueDeclareOk(1, "q"),
+            ConsumeOk(1, "c1"),
+            Deliver(1, "c1", 1, false, string.Empty, "q"),
+            TextContent(1, "1"),
+            ConsumeOk(2, "c2"),
+            QueueDeclareOk(1, "r"),
+            Deliver(2, "c2", 1, false, string.Empty, "q"),
+            TextContent(2, "2"),
+            Deliver(2, "c2", 2, false, string.Empty, "q"),
+            TextContent(2, "3"));
+    }
+
+    [TestMethod]
+    public async Task Qos_PrefetchSize_HoldsASecondDeliveryPastItButNeverTheFirst()
+    {
+        var written = await ServeAsync(
+            NewBroker(NewBus()),
+            Qos(1, 0, prefetchSize: 3),
+            QueueDeclare(1, "q"),
+            PublishText(1, string.Empty, "q", "abcd"),
+            PublishText(1, string.Empty, "q", "ef"),
+            Consume(1, "q", "c1"),
+            QueueDeclare(1, "r"),
+            Ack(1, 1));
+
+        AssertAnswered(
+            written,
+            QosOk(1),
+            QueueDeclareOk(1, "q"),
+            ConsumeOk(1, "c1"),
+            Deliver(1, "c1", 1, false, string.Empty, "q"),
+            TextContent(1, "abcd"),
+            QueueDeclareOk(1, "r"),
+            Deliver(1, "c1", 2, false, string.Empty, "q"),
+            TextContent(1, "ef"));
+    }
+
+    [TestMethod]
+    public async Task Cancel_ConsumerWithAWaitingDelivery_PutsItBackForTheOthers()
+    {
+        var written = await ServeAsync(
+            NewBroker(NewBus()),
+            Qos(1, 1),
+            QueueDeclare(1, "q"),
+            PublishText(1, string.Empty, "q", "1"),
+            PublishText(1, string.Empty, "q", "2"),
+            Consume(1, "q", "c1"),
+            Consume(1, "q", "c2"),
+            Cancel(1, "c2"),
+            Ack(1, 1));
+
+        AssertAnswered(
+            written,
+            QosOk(1),
+            QueueDeclareOk(1, "q"),
+            ConsumeOk(1, "c1"),
+            Deliver(1, "c1", 1, false, string.Empty, "q"),
+            TextContent(1, "1"),
+            ConsumeOk(1, "c2"),
+            CancelOk(1, "c2"),
+            Deliver(1, "c1", 2, true, string.Empty, "q"),
+            TextContent(1, "2"));
+    }
+
+    [TestMethod]
+    public async Task ChannelClose_WithAWaitingDelivery_PutsItBackOnTheQueue()
+    {
+        var written = await ServeAsync(
+            NewBroker(NewBus()),
+            ChannelOpen(2),
+            Qos(1, 1),
+            QueueDeclare(1, "q"),
+            PublishText(1, string.Empty, "q", "1"),
+            PublishText(1, string.Empty, "q", "2"),
+            Consume(1, "q", "c1"),
+            Consume(1, "q", "c2"),
+            ChannelClose(1),
+            Get(2, "q", noAck: true));
+
+        AssertAnswered(
+            written,
+            ChannelOpenOk(2),
+            QosOk(1),
+            QueueDeclareOk(1, "q"),
+            ConsumeOk(1, "c1"),
+            Deliver(1, "c1", 1, false, string.Empty, "q"),
+            TextContent(1, "1"),
+            ConsumeOk(1, "c2"),
+            ChannelCloseOk(1),
+            GetOk(2, 1, true, string.Empty, "q", 1),
+            TextContent(2, "1"));
+    }
+
+    [TestMethod]
+    public async Task Recover_WithoutRequeue_RedeliversToTheSameConsumerUnderANewTagAndRequeuesAGet()
+    {
+        var written = await ServeAsync(
+            NewBroker(NewBus()),
+            QueueDeclare(1, "q"),
+            PublishText(1, string.Empty, "q", "x"),
+            Get(1, "q"),
+            PublishText(1, string.Empty, "q", "y"),
+            Consume(1, "q", "c1"),
+            Recover(1, requeue: false));
+
+        AssertAnswered(
+            written,
+            QueueDeclareOk(1, "q"),
+            GetOk(1, 1, false, string.Empty, "q", 0),
+            TextContent(1, "x"),
+            ConsumeOk(1, "c1"),
+            Deliver(1, "c1", 2, false, string.Empty, "q"),
+            TextContent(1, "y"),
+            Deliver(1, "c1", 3, true, string.Empty, "q"),
+            TextContent(1, "y"),
+            Deliver(1, "c1", 4, true, string.Empty, "q"),
+            TextContent(1, "x"),
+            RecoverOk(1));
+    }
+
+    [TestMethod]
+    public async Task Recover_WithoutRequeueAfterCancel_PutsTheCancelledConsumersDeliveryBack()
+    {
+        var written = await ServeAsync(
+            NewBroker(NewBus()),
+            QueueDeclare(1, "q"),
+            PublishText(1, string.Empty, "q", "x"),
+            Consume(1, "q", "c1"),
+            Cancel(1, "c1"),
+            Recover(1, requeue: false),
+            Get(1, "q", noAck: true));
+
+        AssertAnswered(
+            written,
+            QueueDeclareOk(1, "q"),
+            ConsumeOk(1, "c1"),
+            Deliver(1, "c1", 1, false, string.Empty, "q"),
+            TextContent(1, "x"),
+            CancelOk(1, "c1"),
+            RecoverOk(1),
+            GetOk(1, 2, true, string.Empty, "q", 0),
+            TextContent(1, "x"));
+    }
+
+    [TestMethod]
     public async Task Cancel_KnownUnknownAndNoWait_EndsDeliveriesAndKeepsTheOutstandingOnes()
     {
         var written = await ServeAsync(

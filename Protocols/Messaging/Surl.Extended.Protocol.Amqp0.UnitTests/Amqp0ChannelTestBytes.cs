@@ -75,7 +75,8 @@ internal static class Amqp0ChannelTestBytes
 
     public static byte[] QueueDeleteOk(int channel, int messages) => Method(channel, 50, 41, Long(messages));
 
-    public static byte[] Qos(int channel, int prefetchCount) => Method(channel, 60, 10, [.. Long(0), .. Short(prefetchCount), 0]);
+    public static byte[] Qos(int channel, int prefetchCount, long prefetchSize = 0, bool global = false) =>
+        Method(channel, 60, 10, [.. Long(prefetchSize), .. Short(prefetchCount), Bits(global)]);
 
     public static byte[] QosOk(int channel) => Method(channel, 60, 11);
 

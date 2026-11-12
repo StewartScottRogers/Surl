@@ -9,4 +9,6 @@ namespace Surl.Extended.Protocol.Amqp0;
 /// <param name="Consumer">The bus consumer that delivered it; <see langword="null"/> for a get.</param>
 /// <param name="QueueName">The queue it came from.</param>
 /// <param name="BusDeliveryTag">The bus's delivery tag for it.</param>
-internal sealed record Amqp0OutstandingDelivery(BusQueueConsumer? Consumer, string QueueName, long BusDeliveryTag);
+/// <param name="Windowed">The consumer delivery as its <c>basic.qos</c> windows count it, which
+/// <c>basic.recover</c> without <c>requeue</c> writes again; <see langword="null"/> for a get.</param>
+internal sealed record Amqp0OutstandingDelivery(BusQueueConsumer? Consumer, string QueueName, long BusDeliveryTag, Amqp0WindowedDelivery? Windowed = null);

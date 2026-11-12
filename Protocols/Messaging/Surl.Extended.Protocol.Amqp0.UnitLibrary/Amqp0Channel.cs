@@ -24,8 +24,8 @@ internal sealed class Amqp0Channel(ushort number)
     /// <summary>The publish whose content is arriving, if any.</summary>
     public Amqp0PendingPublish? Publish { get; set; }
 
-    /// <summary><c>basic.qos</c>'s prefetch count; 0 for the broker's own bound.</summary>
-    public ushort PrefetchCount { get; set; }
+    /// <summary>The channel's <c>basic.qos</c> window, all its consumers together; guarded by the connection's window gate.</summary>
+    public Amqp0DeliveryWindow Window { get; } = new();
 
     public bool FlowActive { get; set; } = true;
 
