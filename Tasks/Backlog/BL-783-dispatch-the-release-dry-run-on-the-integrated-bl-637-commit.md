@@ -52,9 +52,15 @@ Notes record its run URL.
   the same blocker that sent BL-758 and BL-778 behind BL-1035. Added BL-1035 to depends-on. Next run:
   commit the fix, and once it is on master, dispatch again and tick the box.
 
+- 2026-11-11 (lane 4): SDK 10.0.404 is now installed (rollForward latestFeature), dotnet build is clean.
+  Re-applied the apt-guard fix in release.yml ("Install the native toolchain") and committed it. A lane
+  cannot push or dispatch, so the final dispatch on the commit holding this fix is still to do: once it is
+  on master, `gh workflow run release.yml --ref master`, `gh run watch`, record the URL, tick the box.
+
 ## Log
 
 - 2026-11-05: Created.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waits on BL-1035: pinned .NET SDK 10.0.401 is not installed, so dotnet build cannot run; linux release legs also hit an apt mirror outage (fix written, stashed)
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Backlog. Fix committed; a lane cannot push or dispatch. Needs release.yml dispatched on master once this commit is integrated
