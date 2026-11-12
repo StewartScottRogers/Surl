@@ -51,3 +51,4 @@ reply headers.
 - 2026-11-06: Created.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waits on BL-928 (lane 3, Doing), which fixes the same test in Surl.Extended.Protocol.Grpc.UnitTests/UnitLibrary
+- 2026-11-12: Backlog -> Doing.
