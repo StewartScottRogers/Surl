@@ -45,8 +45,10 @@ block-wise transfers (BL-473) and observation (BL-474), ADR-0097 decisions 0 to 
 - `CoapResourceDirectory` writes `/.well-known/core` under `--list-directories`:
   `</path>;ct=..;sz=..;obs` per visible file, ordinal order, at most 1000 links, 16 directories
   deep, filtered by the first `name=value` or `name=prefix*` query.
-- `ICoapRandomSource` (`CryptographicCoapRandomSource` in production) draws Message IDs, the
-  ACK_RANDOM_FACTOR fraction and POST names; tests inject a fixed one.
+- `ICoapRandomSource` draws Message IDs, the ACK_RANDOM_FACTOR fraction and POST names. In production
+  it is an `IdentifierCoapRandomSource` over the exchange's `ExchangeContext.Identifiers`, so a seeded
+  instance repeats them (ADR-0124 decision 6); `CryptographicCoapRandomSource` only draws the Message ID of
+  a connection-limit refusal, which has no exchange. Tests inject a fixed source.
 
 - Block-wise transfers (RFC 7959; ADR-0097 decision 4). `CoapBlockOption` is NUM/M/SZX in one
   uint option; SZX 7 in a request is `4.00`. `CoapBlock2Window` picks what a `2.05` carries: the

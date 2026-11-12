@@ -29,15 +29,16 @@ namespace Surl.Extended.Protocol.Coap;
 /// </remarks>
 public sealed class CoapProtocolServer : IDatagramProtocolServer, IDatagramRefusalWriter
 {
-    private readonly CoapResourceAnswerer answerer;
-    private readonly ICoapRandomSource random;
+    private readonly CoapAccessRules accessRules;
+    private readonly int preferredBlockSizeExponent;
+    private readonly ICoapRandomSource? random;
     private readonly ContentStore contentStore;
     private readonly CoapObservations observations;
 
     /// <summary>
     /// Creates a CoAP server that serves <paramref name="contentStore"/> under
-    /// <paramref name="accessRules"/>, drawing every random value from
-    /// <see cref="System.Security.Cryptography.RandomNumberGenerator"/>.
+    /// <paramref name="accessRules"/>, drawing Message IDs, retransmission jitter and posted names from each
+    /// exchange's seedable identifier source.
     /// </summary>
     /// <param name="contentStore">The resources: every visible file of the store.</param>
     /// <param name="accessRules">Who may read and write.</param>
@@ -49,28 +50,28 @@ public sealed class CoapProtocolServer : IDatagramProtocolServer, IDatagramRefus
     /// <summary>
     /// Creates a CoAP server that serves <paramref name="contentStore"/> under
     /// <paramref name="accessRules"/> and shares <paramref name="observations"/> with every other
-    /// CoAP server of the process, drawing every random value from
-    /// <see cref="System.Security.Cryptography.RandomNumberGenerator"/>.
+    /// CoAP server of the process, drawing every random value from each exchange's seedable identifier source.
     /// </summary>
     /// <param name="contentStore">The resources: every visible file of the store.</param>
     /// <param name="accessRules">Who may read and write.</param>
     /// <param name="observations">Every observer of the process (ADR-0097 decision 0).</param>
     public CoapProtocolServer(ContentStore contentStore, CoapAccessRules accessRules, CoapObservations observations)
-        : this(contentStore, accessRules, CryptographicCoapRandomSource.Instance, observations: observations)
+        : this(contentStore, accessRules, random: null, observations: observations)
     {
     }
 
     internal CoapProtocolServer(
         ContentStore contentStore,
         CoapAccessRules accessRules,
-        ICoapRandomSource random,
+        ICoapRandomSource? random,
         int preferredBlockSizeExponent = CoapBlockOption.LargestSizeExponent,
         CoapObservations? observations = null)
     {
         ArgumentNullException.ThrowIfNull(contentStore);
         ArgumentNullException.ThrowIfNull(accessRules);
 
-        answerer = new CoapResourceAnswerer(contentStore, accessRules, random, preferredBlockSizeExponent);
+        this.accessRules = accessRules;
+        this.preferredBlockSizeExponent = preferredBlockSizeExponent;
         this.contentStore = contentStore;
         this.random = random;
         this.observations = observations ?? new CoapObservations();
@@ -97,7 +98,7 @@ public sealed class CoapProtocolServer : IDatagramProtocolServer, IDatagramRefus
         CoapMessage? answer = outcome.Message switch
         {
             { Code.IsRequest: true, Type: CoapMessageType.Confirmable } request => CoapRefusals.ServiceUnavailableAck(request),
-            { Code.IsRequest: true, Type: CoapMessageType.NonConfirmable } request => CoapRefusals.ServiceUnavailableNon(request, random.DrawMessageId()),
+            { Code.IsRequest: true, Type: CoapMessageType.NonConfirmable } request => CoapRefusals.ServiceUnavailableNon(request, (random ?? CryptographicCoapRandomSource.Instance).DrawMessageId()),
             _ => null,
         };
 
@@ -119,6 +120,8 @@ public sealed class CoapProtocolServer : IDatagramProtocolServer, IDatagramRefus
         ArgumentNullException.ThrowIfNull(flow);
         ArgumentNullException.ThrowIfNull(context);
 
-        return CoapFlowServing.ServeAsync(flow, context, answerer, contentStore, observations, random, peerIsAuthenticated: false);
+        var source = random ?? new IdentifierCoapRandomSource(context.Identifiers);
+        var answerer = new CoapResourceAnswerer(contentStore, accessRules, source, preferredBlockSizeExponent);
+        return CoapFlowServing.ServeAsync(flow, context, answerer, contentStore, observations, source, peerIsAuthenticated: false);
     }
 }

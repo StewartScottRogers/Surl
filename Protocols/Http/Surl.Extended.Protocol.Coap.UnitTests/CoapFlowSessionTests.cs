@@ -34,6 +34,36 @@ public sealed class CoapFlowSessionTests
     }
 
     [TestMethod]
+    public async Task FirstMessageIdAndJitter_SameSeededIdentifiers_AreTheSameEveryRun()
+    {
+        var first = await SeparateResponseRunAsync();
+        var second = await SeparateResponseRunAsync();
+
+        Assert.HasCount(1, first.Random.Fractions);
+        CollectionAssert.AreEqual(first.Random.Fractions, second.Random.Fractions);
+        CollectionAssert.AreEqual(first.Random.MessageIds, second.Random.MessageIds);
+        CollectionAssert.AreEqual(first.SeparateResponse, second.SeparateResponse);
+        Assert.AreEqual(first.Random.MessageIds[0], (ushort)((first.SeparateResponse[2] << 8) | first.SeparateResponse[3]));
+        Assert.AreEqual(
+            CoapTransmissionParameters.InitialTimeout(first.Random.Fractions[0]),
+            CoapTransmissionParameters.InitialTimeout(second.Random.Fractions[0]));
+    }
+
+    private static async Task<(RecordingCoapRandomSource Random, byte[] SeparateResponse)> SeparateResponseRunAsync()
+    {
+        var random = new RecordingCoapRandomSource(new IdentifierCoapRandomSource(new Surl.Core.SeededIdentifierRandom(2024).ForExchange(1)));
+        await using var harness = new Harness(SlowRequest, random: random);
+        await harness.WaitForTimersAsync(1);
+        harness.Clock.Advance(TimeSpan.FromSeconds(1));
+        await harness.WaitForSendsAsync(1);
+        harness.Answers.Dequeue().SetResult(CoapResponse.Bare(CoapCode.Content));
+        await harness.WaitForSendsAsync(2);
+        var response = harness.Flow.SentDatagrams[1];
+        await harness.StopAsync();
+        return (random, response);
+    }
+
+    [TestMethod]
     public async Task ServeAsync_SlowAnswer_IsAnEmptyAckThenASeparateConAndADuplicateGetsTheEmptyAckAgain()
     {
         await using var harness = new Harness(SlowRequest);
@@ -307,12 +337,12 @@ public sealed class CoapFlowSessionTests
         private readonly Task serving;
         private readonly bool completeAnswers;
 
-        public Harness(byte[] firstDatagram, bool completeAnswers = false, ExchangeLimits? limits = null)
+        public Harness(byte[] firstDatagram, bool completeAnswers = false, ExchangeLimits? limits = null, ICoapRandomSource? random = null)
         {
             this.completeAnswers = completeAnswers;
             Flow = new InMemoryDatagramFlow(firstDatagram);
             var context = CoapProtocolServerTests.Context(Log, Clock, exchange.Token) with { Limits = limits ?? ExchangeLimits.Default };
-            session = new CoapFlowSession(Flow, context, AnswerAsync, new UnitTestCoapRandomSource());
+            session = new CoapFlowSession(Flow, context, AnswerAsync, random ?? new UnitTestCoapRandomSource());
             serving = Task.Run(session.ServeAsync);
         }
 

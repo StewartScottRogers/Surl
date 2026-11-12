@@ -44,14 +44,14 @@ public sealed class SecureCoapProtocolServer : IDatagramProtocolServer
     private readonly CoapAccessRules accessRules;
     private readonly CoapObservations observations;
     private readonly CoapDtlsCredentials credentials;
-    private readonly ICoapRandomSource random;
+    private readonly ICoapRandomSource? random;
     private DtlsCookieSecrets? cookieSecrets;
 
     /// <summary>
     /// Creates a <c>coaps</c> server that serves <paramref name="contentStore"/> under
     /// <paramref name="accessRules"/>, shares <paramref name="observations"/> with every other CoAP
     /// server of the process, and handshakes with <paramref name="credentials"/>, drawing every
-    /// random value from <see cref="System.Security.Cryptography.RandomNumberGenerator"/>.
+    /// random value (not the DTLS handshake's) from each exchange's seedable identifier source.
     /// </summary>
     /// <param name="contentStore">The resources: every visible file of the store.</param>
     /// <param name="accessRules">Who may read and write.</param>
@@ -60,7 +60,7 @@ public sealed class SecureCoapProtocolServer : IDatagramProtocolServer
     /// <exception cref="ArgumentException"><paramref name="credentials"/> has neither a certificate nor pre-shared keys.</exception>
     public SecureCoapProtocolServer(
         ContentStore contentStore, CoapAccessRules accessRules, CoapObservations observations, CoapDtlsCredentials credentials)
-        : this(contentStore, accessRules, observations, credentials, CryptographicCoapRandomSource.Instance, cookieSecrets: null)
+        : this(contentStore, accessRules, observations, credentials, random: null, cookieSecrets: null)
     {
     }
 
@@ -69,7 +69,7 @@ public sealed class SecureCoapProtocolServer : IDatagramProtocolServer
         CoapAccessRules accessRules,
         CoapObservations observations,
         CoapDtlsCredentials credentials,
-        ICoapRandomSource random,
+        ICoapRandomSource? random,
         DtlsCookieSecrets? cookieSecrets)
     {
         ArgumentNullException.ThrowIfNull(contentStore);
@@ -170,8 +170,9 @@ public sealed class SecureCoapProtocolServer : IDatagramProtocolServer
 
     private Task ServeMessagesAsync(CoapDtlsFlow messages, ExchangeContext context, int blockSizeExponent, bool peerIsAuthenticated)
     {
-        var answerer = new CoapResourceAnswerer(contentStore, accessRules, random, blockSizeExponent);
-        return CoapFlowServing.ServeAsync(messages, context, answerer, contentStore, observations, random, peerIsAuthenticated);
+        var source = random ?? new IdentifierCoapRandomSource(context.Identifiers);
+        var answerer = new CoapResourceAnswerer(contentStore, accessRules, source, blockSizeExponent);
+        return CoapFlowServing.ServeAsync(messages, context, answerer, contentStore, observations, source, peerIsAuthenticated);
     }
 
     private static Task NoteAssociationEnded(ExchangeContext context)
