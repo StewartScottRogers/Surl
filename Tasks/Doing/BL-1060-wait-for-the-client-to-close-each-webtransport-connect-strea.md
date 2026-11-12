@@ -32,3 +32,4 @@ At shutdown the WebTransport server waits, within the grace, for the client to c
 ## Log
 
 - 2026-11-11: Created.
+- 2026-11-12: Backlog -> Doing.
