@@ -27,7 +27,7 @@ namespace Surl.Extended.Protocol.Coap;
 /// NoSec: every peer over <c>coap</c> is unauthenticated.
 /// </para>
 /// </remarks>
-public sealed class CoapProtocolServer : IDatagramProtocolServer
+public sealed class CoapProtocolServer : IDatagramProtocolServer, IDatagramRefusalWriter
 {
     private readonly CoapResourceAnswerer answerer;
     private readonly ICoapRandomSource random;
@@ -78,6 +78,34 @@ public sealed class CoapProtocolServer : IDatagramProtocolServer
 
     /// <summary>The one scheme answered: <c>coap</c>.</summary>
     public IReadOnlyList<string> Schemes { get; } = Array.AsReadOnly(["coap"]);
+
+    /// <summary>
+    /// Refuses a flow past a connection limit in CoAP's words (ADR-0097 decision 7): a first datagram
+    /// that is a CON request gets an ACK with <c>5.03</c> and Max-Age 5, a NON request a NON
+    /// <c>5.03</c>, and anything else nothing.
+    /// </summary>
+    /// <param name="flow">The flow past the limit.</param>
+    /// <param name="refusal">Which limit it is past.</param>
+    /// <param name="cancellationToken">Cancelled when the engine gives up on the refusal.</param>
+    /// <returns>A task that completes when the refusal is sent, or at once when there is none.</returns>
+    public async ValueTask WriteRefusalAsync(IDatagramFlow flow, ConnectionRefusal refusal, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(flow);
+
+        var outcome = CoapMessageReader.Read(flow.FirstDatagram.Span);
+
+        CoapMessage? answer = outcome.Message switch
+        {
+            { Code.IsRequest: true, Type: CoapMessageType.Confirmable } request => CoapRefusals.ServiceUnavailableAck(request),
+            { Code.IsRequest: true, Type: CoapMessageType.NonConfirmable } request => CoapRefusals.ServiceUnavailableNon(request, random.DrawMessageId()),
+            _ => null,
+        };
+
+        if (answer is not null)
+        {
+            await flow.SendAsync(CoapMessageWriter.Write(answer), cancellationToken);
+        }
+    }
 
     /// <summary>
     /// Answers the message that opened <paramref name="flow"/> and every later one, until the

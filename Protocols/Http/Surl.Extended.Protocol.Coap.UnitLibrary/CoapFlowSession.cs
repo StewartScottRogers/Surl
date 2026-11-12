@@ -123,9 +123,48 @@ internal sealed class CoapFlowSession
                 await RejectAsync(outcome.Type, outcome.MessageId, $"a message format error: {outcome.Fault}");
                 break;
             default:
-                await HandleMessageAsync(outcome.Message!);
+                await HandleReadMessageAsync(outcome.Message!, datagram.Length);
                 break;
         }
+    }
+
+    private async Task HandleReadMessageAsync(CoapMessage message, int datagramLength)
+    {
+        var maxMessageBytes = context.Limits.MaxMessageBytes;
+
+        if (maxMessageBytes == 0 || datagramLength <= maxMessageBytes)
+        {
+            await HandleMessageAsync(message);
+        }
+        else if (message.Code.IsRequest && message.Type == CoapMessageType.Confirmable)
+        {
+            context.Log.Note($"Refused with 4.13: a CON with Message ID {message.MessageId} of {datagramLength} bytes, past --max-message.");
+            await flow.SendAsync(CoapMessageWriter.Write(CoapRefusals.TooLargeAck(message, context.Limits)), Cancellation);
+        }
+        else
+        {
+            context.Log.Note($"Ignored: a {message.Type} with Message ID {message.MessageId} of {datagramLength} bytes, past --max-message.");
+        }
+    }
+
+    private int RequestsInProgress()
+    {
+        lock (gate)
+        {
+            return separateResponses.Count(response => !response.IsCompleted);
+        }
+    }
+
+    private async Task RefuseBusyAsync(CoapMessage request)
+    {
+        if (request.Type == CoapMessageType.Confirmable)
+        {
+            context.Log.Note($"Refused with 5.03: a CON with Message ID {request.MessageId} while {CoapRefusals.RequestsInProgressPerFlow} requests are in progress.");
+            await flow.SendAsync(CoapMessageWriter.Write(CoapRefusals.ServiceUnavailableAck(request)), Cancellation);
+            return;
+        }
+
+        context.Log.Note($"Ignored: a NonConfirmable with Message ID {request.MessageId} while {CoapRefusals.RequestsInProgressPerFlow} requests are in progress.");
     }
 
     private async Task HandleMessageAsync(CoapMessage message)
@@ -141,6 +180,10 @@ internal sealed class CoapFlowSession
         else if (duplicates.TryRecall(message.MessageId, Now, out var answered))
         {
             await AnswerDuplicateAsync(message, answered);
+        }
+        else if (RequestsInProgress() >= CoapRefusals.RequestsInProgressPerFlow)
+        {
+            await RefuseBusyAsync(message);
         }
         else if (message.Type == CoapMessageType.Confirmable)
         {

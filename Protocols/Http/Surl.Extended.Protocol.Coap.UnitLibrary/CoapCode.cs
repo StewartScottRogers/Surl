@@ -71,6 +71,9 @@ public readonly record struct CoapCode(byte Value)
     /// <summary>5.00 Internal Server Error (section 5.9.3.1).</summary>
     public static CoapCode InternalServerError { get; } = new(0xA0);
 
+    /// <summary>5.03 Service Unavailable (section 5.9.3.4).</summary>
+    public static CoapCode ServiceUnavailable { get; } = new(0xA3);
+
     /// <summary>5.05 Proxying Not Supported (section 5.9.3.6).</summary>
     public static CoapCode ProxyingNotSupported { get; } = new(0xA5);
 

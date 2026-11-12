@@ -96,7 +96,7 @@ block-wise transfers (BL-473) and observation (BL-474), ADR-0097 decisions 0 to 
   client's `close_notify` or fatal alert ends serving normally; a limit sends one warning
   `close_notify` on a 1-second deadline; shutdown sends nothing.
 
-Decision 7's other limits and the `5.03` refusal are BL-751. The command line (BL-476) builds on it.
+Decision 7 (BL-751): `CoapRefusals` builds the `5.03` (Max-Age 5) and `4.13` (Size1, Block1 hint) answers; `CoapFlowSession` refuses a ninth request in progress (CON `5.03`, NON ignored) and a datagram over `--max-message` (CON `4.13`, else ignored); `CoapProtocolServer` is an `IDatagramRefusalWriter`. See ADR-0097 amendment 2.
 
 This library references `Surl.Protocol.Abstractions.UnitLibrary`, `Surl.Content.UnitLibrary` and
 `Surl.Dtls.UnitLibrary` (ADR-0084 decision 3, ADR-0097 decision 0) - never another protocol server,

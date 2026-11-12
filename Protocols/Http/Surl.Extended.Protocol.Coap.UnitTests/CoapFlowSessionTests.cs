@@ -186,6 +186,120 @@ public sealed class CoapFlowSessionTests
         await harness.StopAsync();
     }
 
+    // CON GET with Message ID <id> and token C0+id.
+    private static byte[] SlowRequestWithId(byte id) => [0x41, 0x01, 0x00, id, (byte)(0xC0 + id)];
+
+    private static async Task FillTheFlowWithEightRequestsInProgressAsync(Harness harness)
+    {
+        for (var sent = 1; sent <= 8; sent++)
+        {
+            await harness.WaitForTimersAsync(1);
+            harness.Clock.Advance(TimeSpan.FromSeconds(1));
+            await harness.WaitForSendsAsync(sent);
+
+            if (sent < 8)
+            {
+                harness.Flow.DeliverFromClient(SlowRequestWithId((byte)(sent + 1)));
+            }
+        }
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_NinthRequestInProgress_IsAnAckWith503AndMaxAge5()
+    {
+        await using var harness = new Harness(SlowRequestWithId(1));
+        await FillTheFlowWithEightRequestsInProgressAsync(harness);
+
+        harness.Flow.DeliverFromClient(SlowRequestWithId(9));
+        await harness.WaitForSendsAsync(9);
+
+        CollectionAssert.AreEqual(new byte[] { 0x61, 0xA3, 0x00, 0x09, 0xC9, 0xD1, 0x01, 0x05 }, harness.Flow.SentDatagrams[8]);
+        Assert.HasCount(8, harness.AnswersRequested);
+        await harness.StopAsync();
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_NonInPlaceOfTheNinthRequestInProgress_IsIgnored()
+    {
+        await using var harness = new Harness(SlowRequestWithId(1));
+        await FillTheFlowWithEightRequestsInProgressAsync(harness);
+
+        harness.Flow.DeliverFromClient(new byte[] { 0x51, 0x01, 0x00, 0x20, 0xC5 });
+        await harness.WaitForNoteAsync("Ignored: a NonConfirmable with Message ID 32 while 8 requests are in progress.");
+
+        Assert.HasCount(8, harness.Flow.SentDatagrams);
+        Assert.HasCount(8, harness.AnswersRequested);
+        await harness.StopAsync();
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_ADuplicateWhileEightRequestsAreInProgress_IsStillAnsweredFromTheCache()
+    {
+        await using var harness = new Harness(SlowRequestWithId(1));
+        await FillTheFlowWithEightRequestsInProgressAsync(harness);
+
+        harness.Flow.DeliverFromClient(SlowRequestWithId(1));
+        await harness.WaitForSendsAsync(9);
+
+        CollectionAssert.AreEqual(EmptyAck, harness.Flow.SentDatagrams[8]);
+        await harness.StopAsync();
+    }
+
+    private static byte[] DatagramOf(byte[] header, int payloadLength) =>
+        [.. header, 0xFF, .. Enumerable.Repeat((byte)'x', payloadLength)];
+
+    [TestMethod]
+    public async Task ServeAsync_ConOverMaxMessage_Is413WithSize1AndTheBlock1Hint()
+    {
+        var limits = new ExchangeLimits(TimeSpan.FromSeconds(30), 0, 0, maxMessageBytes: 200, maxUploadBytes: 1000);
+        await using var harness = new Harness(DatagramOf(SlowRequest, 250), limits: limits);
+
+        await harness.WaitForSendsAsync(1);
+
+        // ACK 4.13, Block1 0/0/64 (SZX 2: 64 + 128 fits 200, 128 + 128 does not), Size1 1000.
+        CollectionAssert.AreEqual(new byte[] { 0x61, 0x8D, 0x00, 0x01, 0xC0, 0xD1, 0x0E, 0x02, 0xD2, 0x14, 0x03, 0xE8 }, harness.Flow.SentDatagrams.Single());
+        Assert.IsEmpty(harness.AnswersRequested);
+        await harness.StopAsync();
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_ConOverAMaxMessageTooSmallForAnyBlockAndNoMaxFilesize_Is413WithNoOption()
+    {
+        var limits = new ExchangeLimits(TimeSpan.FromSeconds(30), 0, 0, maxMessageBytes: 100, maxUploadBytes: 0);
+        await using var harness = new Harness(DatagramOf(SlowRequest, 150), limits: limits);
+
+        await harness.WaitForSendsAsync(1);
+
+        CollectionAssert.AreEqual(new byte[] { 0x61, 0x8D, 0x00, 0x01, 0xC0 }, harness.Flow.SentDatagrams.Single());
+        await harness.StopAsync();
+    }
+
+    [TestMethod]
+    [DataRow(new byte[] { 0x51, 0x01, 0x00, 0x05, 0xC5 }, "NonConfirmable")]
+    [DataRow(new byte[] { 0x41, 0x45, 0x00, 0x05, 0xC5 }, "Confirmable")]
+    public async Task ServeAsync_NonOrNonRequestOverMaxMessage_IsIgnored(byte[] header, string type)
+    {
+        var limits = new ExchangeLimits(TimeSpan.FromSeconds(30), 0, 0, maxMessageBytes: 100, maxUploadBytes: 0);
+        await using var harness = new Harness(DatagramOf(header, 150), limits: limits);
+
+        await harness.WaitForNoteAsync($"Ignored: a {type} with Message ID 5 of 156 bytes, past --max-message.");
+
+        Assert.IsEmpty(harness.Flow.SentDatagrams);
+        await harness.StopAsync();
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_ConOfAnySizeWithNoMaxMessage_IsServed()
+    {
+        var limits = new ExchangeLimits(TimeSpan.FromSeconds(30), 0, 0, maxMessageBytes: 0, maxUploadBytes: 0);
+        await using var harness = new Harness(DatagramOf(SlowRequest, 5000), limits: limits, completeAnswers: true);
+
+        await harness.WaitForSendsAsync(1);
+
+        CollectionAssert.AreEqual(new byte[] { 0x61, 0x45, 0x00, 0x01, 0xC0 }, harness.Flow.SentDatagrams.Single());
+        await harness.StopAsync();
+    }
+
     private sealed class Harness : IAsyncDisposable
     {
         private readonly CancellationTokenSource exchange = new();
@@ -193,11 +307,11 @@ public sealed class CoapFlowSessionTests
         private readonly Task serving;
         private readonly bool completeAnswers;
 
-        public Harness(byte[] firstDatagram, bool completeAnswers = false)
+        public Harness(byte[] firstDatagram, bool completeAnswers = false, ExchangeLimits? limits = null)
         {
             this.completeAnswers = completeAnswers;
             Flow = new InMemoryDatagramFlow(firstDatagram);
-            var context = CoapProtocolServerTests.Context(Log, Clock, exchange.Token);
+            var context = CoapProtocolServerTests.Context(Log, Clock, exchange.Token) with { Limits = limits ?? ExchangeLimits.Default };
             session = new CoapFlowSession(Flow, context, AnswerAsync, new UnitTestCoapRandomSource());
             serving = Task.Run(session.ServeAsync);
         }
