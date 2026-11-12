@@ -8,7 +8,7 @@ depends-on: [BL-928]
 touches: [Protocols/Http/Surl.Extended.Protocol.Grpc.UnitLibrary, Protocols/Http/Surl.Extended.Protocol.Grpc.UnitTests]
 requirement: none
 created: 2026-11-06
-completed:
+completed: 2026-11-12
 ---
 # BL-929 — Make GrpcStreamHandlerTests.ServeStreamAsync_ClientClosesTheConnectionMidCall_WritesNothingAndLogsCancelled deterministic
 
@@ -33,9 +33,9 @@ reply headers.
 
 ## Acceptance criteria
 
-- [ ] The test (or its corrected form) passes 200 times in a row locally:
+- [x] The test (or its corrected form) passes 200 times in a row locally:
       `dotnet test Protocols/Http/Surl.Extended.Protocol.Grpc.UnitTests --filter "Name~ClientClosesTheConnectionMidCall"` in a loop.
-- [ ] Notes record which side was wrong and why, from the gRPC over HTTP/2 specification.
+- [x] Notes record which side was wrong and why, from the gRPC over HTTP/2 specification.
 
 ## Notes
 
@@ -46,9 +46,12 @@ reply headers.
   once BL-928 is Done, this task only has to confirm the 200-run loop and record which side was wrong
   per the gRPC over HTTP/2 specification (or be closed as covered by BL-928).
 
+- 2026-11-12: Covered by BL-928. The handler side was wrong: Http2RequestBody.Abandon completed the body channel before setting HasEndedEarly, so a woken gRPC reader could see an open client and treat a closed connection mid-message as a clean half-close, writing trailers (gRPC over HTTP/2: a stream reset or connection loss mid-message is a cancellation, not an END_STREAM half-close). The test was right. Fixed by BL-928 (single Finish under a lock). Confirmed 200/200 passes here.
+
 ## Log
 
 - 2026-11-06: Created.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waits on BL-928 (lane 3, Doing), which fixes the same test in Surl.Extended.Protocol.Grpc.UnitTests/UnitLibrary
 - 2026-11-12: Backlog -> Doing.
+- 2026-11-12: Doing -> Done. Covered by BL-928's Http2RequestBody fix; test passes 200/200
