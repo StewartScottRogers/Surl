@@ -65,3 +65,4 @@ Notes record its run URL.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Fix committed; a lane cannot push or dispatch. Needs release.yml dispatched on master once this commit is integrated
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Blocked. Stewart: once the apt-guard commit in release.yml is on master, run 'gh workflow run release.yml --ref master' and record the URL in BL-783 (a lane cannot push or dispatch)
