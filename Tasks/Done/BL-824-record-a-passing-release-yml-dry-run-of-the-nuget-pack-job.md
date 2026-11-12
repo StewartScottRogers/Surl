@@ -8,7 +8,7 @@ depends-on: [BL-643, BL-1035]
 touches: [.github/workflows/release.yml]
 requirement: none
 created: 2026-11-05
-completed:
+completed: 2026-11-11
 ---
 # BL-824 — Record a passing release.yml dry run of the NuGet pack job
 
@@ -43,8 +43,7 @@ reached `master` shows the `Pack the NuGet packages` job green and the `nuget-pa
   `Surl.Mcp.0.0.0-dev.427.nupkg`.
 - The run as a whole failed: `Publish linux-x64` and `Publish linux-arm64` stopped at `Install the native
   toolchain` (apt, exit code 100), outside the `pack` job and tracked by BL-783; `release.yml` was not changed.
-- Both boxes are verified; only the build gate is missing: this machine lacks the .NET SDK 10.0.401 that
-  `global.json` pins, so `dotnet build` cannot run. Waiting on BL-1035, then move straight to Done.
+- Both boxes are verified. Lane 4 (2026-11-11) had SDK 10.0.404: `dotnet build` clean, fast tests green.
 
 ## Log
 
@@ -54,3 +53,4 @@ reached `master` shows the `Pack the NuGet packages` job green and the `nuget-pa
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waiting on BL-1035: pinned .NET SDK 10.0.401 is not installed, so dotnet build cannot run; both criteria are already verified (run 43034425678)
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Done. Run 43034425678 pack job green; artifact holds both nupkgs; build clean, fast tests green
