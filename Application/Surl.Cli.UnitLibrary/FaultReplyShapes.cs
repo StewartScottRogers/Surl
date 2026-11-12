@@ -89,9 +89,12 @@ internal static class FaultReplyShapes
     /// <summary>The most UTF-8 bytes a close reason may take: a control frame's 125 less the two-byte code.</summary>
     private const int MaximumWebSocketCloseReasonBytes = 123;
 
-    /// <summary>Whether a close code 1000 to 4999 is one RFC 6455 section 7.4 lets an endpoint send.</summary>
+    /// <summary>
+    /// Whether a close code 1000 to 4999 is one RFC 6455 section 7.4 lets an endpoint send. The caller has
+    /// already bounded the code to 1000 to 4999, so no lower or upper bound is tested again here.
+    /// </summary>
     private static bool IsWebSocketCloseCodeAllowedOnTheWire(int code) =>
-        code is (>= 1000 and <= 1003) or (>= 1007 and <= 1014) or >= 3000;
+        code is <= 1003 or (>= 1007 and <= 1014) or >= 3000;
 
     /// <summary><c>NO</c> or <c>BAD</c>, in any case, and text.</summary>
     private static bool IsImapResponse(string reply)
