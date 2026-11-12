@@ -30,3 +30,4 @@ Left over from BL-908, which folded the original servers' copies into `ReportedL
 ## Log
 
 - 2026-11-12: Created.
+- 2026-11-12: Backlog -> Doing.
