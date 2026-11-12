@@ -288,6 +288,32 @@ public sealed record SurlCommandLine
     public IReadOnlyList<ConfiguredBucket> Buckets { get; init; } = [];
 
     /// <summary>
+    /// The topic filters declared to the message bus (<see cref="ConfiguredTopicReader"/>, ADR-0102 decision
+    /// 3.1), in configuration order; no filter is given twice (ADR-0101 decision 5). None by default.
+    /// </summary>
+    public IReadOnlyList<ConfiguredTopic> Topics { get; init; } = [];
+
+    /// <summary>
+    /// The named queues the message bus creates at start (<see cref="ConfiguredQueueReader"/>, ADR-0102
+    /// decision 3.2), in configuration order; no name is given twice (ADR-0101 decision 5). None by default.
+    /// </summary>
+    public IReadOnlyList<ConfiguredQueue> Queues { get; init; } = [];
+
+    /// <summary>
+    /// The topic maps between protocols (<see cref="ConfiguredTopicMapReader"/>, ADR-0102 decision 3.3), in
+    /// configuration order; no source is given twice (ADR-0101 decision 5). None by default, so ADR-0100
+    /// decision 3.2's default mapping applies.
+    /// </summary>
+    public IReadOnlyList<ConfiguredTopicMap> TopicMaps { get; init; } = [];
+
+    /// <summary>
+    /// Who may publish or subscribe on each filter (<see cref="ConfiguredTopicAccessReader"/>, ADR-0102 decision
+    /// 3.4), in configuration order; no filter is given twice (ADR-0101 decision 5). None by default, so every
+    /// caller may publish and subscribe.
+    /// </summary>
+    public IReadOnlyList<ConfiguredTopicAccess> TopicAccess { get; init; } = [];
+
+    /// <summary>
     /// The fault rules from every <c>--fault</c>, in command-line order, at most 256 (ADR-0124
     /// decision 4). None by default. <c>Surl.Composition</c> adds them to the fault plan at start.
     /// </summary>

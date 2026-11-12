@@ -79,6 +79,15 @@ and `Surl.Protocol.Abstractions.UnitLibrary`.
   `ConfiguredContentConflicts.Find` holds the whole-line checks (a share, bucket or access share
   twice, a bucket named as a share, an access naming no share). No option row uses them yet:
   BL-989 adds the rows and calls `Find`; BL-988 composes them.
+- Messaging items (ADR-0101 decision 4, ADR-0102 decision 3; BL-990): `ConfiguredTopicReader`
+  (`<filter>[;retain][;qos=<0|1|2>]`, `qos` exactly `0`, `1` or `2` else `is badly used here`),
+  `ConfiguredQueueReader` (`<name>[;durable]`), `ConfiguredTopicMapReader`
+  (`<scheme>:<name>=<scheme>:<name>`, each decoded side split at its first `:`, the scheme lower-cased
+  and checked by `ConfiguredMailboxReader.IsAnySurlScheme`) and `ConfiguredTopicAccessReader`
+  (`<filter>=<member>:<pub|sub|pubsub>,...`, a member twice refused) read into
+  `SurlCommandLine.Topics`, `Queues`, `TopicMaps` and `TopicAccess`. `ConfiguredMessagingConflicts.Find`
+  holds the whole-line checks (a topic, queue, map source or access filter given twice). No option
+  row uses them yet: BL-992 adds the rows and calls `Find`; BL-991 composes them.
 - Mail options (ADR-0101 decisions 4, 5 and 7, ADR-0102 decision 1; BL-883), category `mail`:
   `--mail-domain <domain>` (`MailDomainNames.Reading`, kept as written in `MailDomains`),
   `--mailbox <address>:<password>[;protocols=...]` (`ConfiguredMailboxReader.Reading`, the address
