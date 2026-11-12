@@ -52,6 +52,36 @@ public sealed class ServerTlsCompositionTests
     }
 
     [TestMethod]
+    public void FindListenUrlWithoutCertificate_Amqp1sWithoutACertificate_IsTheAmqp1sListenUrl()
+    {
+        Assert.AreEqual(
+            new ListenUrl("amqp1s", "127.0.0.1", 0),
+            ServerTlsComposition.FindListenUrlWithoutCertificate(ParseWithAmqp1("amqp1://127.0.0.1:0/", "amqp1s://127.0.0.1:0/")));
+    }
+
+    [TestMethod]
+    public void FindListenUrlWithoutCertificate_Amqp1WithoutACertificate_IsNull()
+    {
+        Assert.IsNull(ServerTlsComposition.FindListenUrlWithoutCertificate(ParseWithAmqp1("amqp1://127.0.0.1:0/")));
+    }
+
+    [TestMethod]
+    public void Compose_Amqp1WithSelfSigned_ServesAThrowawayCertificateForItsTlsHeader()
+    {
+        using var composition = ServerTlsComposition.Compose(ParseWithAmqp1("--self-signed", "amqp1://127.0.0.1:0/"), TimeProvider.System);
+
+        Assert.IsNotNull(composition.Settings);
+    }
+
+    [TestMethod]
+    public void Compose_Amqp1WithoutACertificate_HasNoSettings()
+    {
+        using var composition = ServerTlsComposition.Compose(ParseWithAmqp1("amqp1://127.0.0.1:0/"), TimeProvider.System);
+
+        Assert.IsNull(composition.Settings);
+    }
+
+    [TestMethod]
     public void Compose_NatsWithSelfSigned_HasNoSettings()
     {
         using var composition = ServerTlsComposition.Compose(ParseWithNats("--self-signed", "nats://127.0.0.1:0/"), TimeProvider.System);
@@ -378,4 +408,7 @@ public sealed class ServerTlsCompositionTests
 
     private static SurlCommandLine ParseWithNats(params string[] args) =>
         CommandLineParser.Parse(args, ["nats", "natss"]).CommandLine ?? throw new AssertFailedException("The command line was refused.");
+
+    private static SurlCommandLine ParseWithAmqp1(params string[] args) =>
+        CommandLineParser.Parse(args, ["amqp1", "amqp1s"]).CommandLine ?? throw new AssertFailedException("The command line was refused.");
 }

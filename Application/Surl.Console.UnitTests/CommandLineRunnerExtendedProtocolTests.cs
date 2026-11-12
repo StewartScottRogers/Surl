@@ -636,7 +636,69 @@ public sealed class CommandLineRunnerExtendedProtocolTests
 
         var schemes = runner.ComposeExtendedSchemes();
 
-        CollectionAssert.AreEqual(new[] { "amqp", "amqps", "az", "abfs", "abfss", "coap", "coaps", "dns", "gs", "kafka", "kafkas", "mqtt5", "mqtt5s", "mqtt5+ws", "nats", "natss", "redis", "rediss", "s3", "signalr", "signalrs", "socketio", "socketios", "stomp", "stomps", "webtransport", "xmpp", "xmpps" }, schemes.ToArray());
+        CollectionAssert.AreEqual(new[] { "amqp", "amqps", "amqp1", "amqp1s", "az", "abfs", "abfss", "coap", "coaps", "dns", "gs", "kafka", "kafkas", "mqtt5", "mqtt5s", "mqtt5+ws", "nats", "natss", "redis", "rediss", "s3", "signalr", "signalrs", "socketio", "socketios", "stomp", "stomps", "webtransport", "xmpp", "xmpps" }, schemes.ToArray());
+    }
+
+    [TestMethod]
+    public void ComposeExtendedSchemes_ThisBuildWithTheSwitchAtZero_RegistersNeitherAmqp1NorAmqp1s()
+    {
+        var runner = CreateRunner(new FakeListenerFactory(), FakeEnvironmentVariableReader.ExtensionsTurnedOff, composeExtendedProtocolServers: null);
+
+        var schemes = runner.ComposeExtendedSchemes();
+
+        CollectionAssert.DoesNotContain(schemes.ToArray(), "amqp1");
+        CollectionAssert.DoesNotContain(schemes.ToArray(), "amqp1s");
+    }
+
+    [TestMethod]
+    [DataRow("amqp1")]
+    [DataRow("amqp1s")]
+    public async Task RunAsync_Amqp1SchemeWithTheSwitchAtZero_RefusesItAsAnUnknownScheme(string scheme)
+    {
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+        var runner = CreateRunner(new FakeListenerFactory(), FakeEnvironmentVariableReader.ExtensionsTurnedOff, composeExtendedProtocolServers: null);
+
+        var exitCode = await runner.RunAsync(["--self-signed", $"{scheme}://127.0.0.1:0/"], output, error, TestContext.CancellationToken);
+
+        Assert.AreEqual(SurlExitCode.UnsupportedProtocol, exitCode);
+        Assert.AreEqual($"surl: (1) Protocol \"{scheme}\" not supported" + NewLine, error.ToString());
+    }
+
+    [TestMethod]
+    [DataRow("amqp1", 5672, new string[0])]
+    [DataRow("amqp1s", 5671, new[] { "--self-signed" })]
+    public async Task RunAsync_Amqp1SchemeWithTheSwitchUnset_ListensAtItsDefaultPort(string scheme, int port, string[] options)
+    {
+        var factory = new FakeListenerFactory();
+        using var stop = CancellationTokenSource.CreateLinkedTokenSource(TestContext.CancellationToken);
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+        var runner = CreateRunner(factory, FakeEnvironmentVariableReader.Empty, composeExtendedProtocolServers: null);
+
+        var running = runner.RunAsync([.. options, $"{scheme}://127.0.0.1/"], output, error, stop.Token);
+        await factory.AcceptStarted.Task.WaitAsync(TestContext.CancellationToken);
+        await stop.CancelAsync();
+        var exitCode = await running;
+
+        Assert.AreEqual(SurlExitCode.Ok, exitCode);
+        Assert.AreEqual(new ListenUrl(scheme, "127.0.0.1", port), factory.StartedListenUrls.Single());
+        Assert.AreEqual($"Listening on {scheme}://127.0.0.1:{FakeListenerFactory.BoundPort}/" + NewLine, output.ToString());
+    }
+
+    [TestMethod]
+    public async Task RunAsync_Amqp1sWithoutACertificate_ExitsWithCertificateProblem()
+    {
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+        var runner = CreateRunner(new FakeListenerFactory(), FakeEnvironmentVariableReader.Empty, composeExtendedProtocolServers: null);
+
+        var exitCode = await runner.RunAsync(["amqp1s://127.0.0.1:0/"], output, error, TestContext.CancellationToken);
+
+        Assert.AreEqual(SurlExitCode.CertificateProblem, exitCode);
+        Assert.AreEqual(
+            "surl: (58) amqp1s://127.0.0.1:0/ needs a certificate: give --cert <file>, or --self-signed for a throwaway one" + NewLine,
+            error.ToString());
     }
 
     [TestMethod]

@@ -171,6 +171,7 @@ public sealed class AiHelpFactsTests
 
     [TestMethod]
     [DataRow("amqp", new[] { "amqp", "amqps" })]
+    [DataRow("amqp1", new[] { "amqp1", "amqp1s" })]
     [DataRow("azure-storage", new[] { "az", "abfs", "abfss" })]
     [DataRow("coap", new[] { "coap", "coaps" })]
     [DataRow("dict", new[] { "dict" })]
@@ -208,7 +209,7 @@ public sealed class AiHelpFactsTests
     {
         var withSchemes = HelpCategories.All.Where(category => category.Schemes.Count > 0).Select(category => category.Name);
 
-        CollectionAssert.AreEqual(new[] { "amqp", "azure-storage", "coap", "dict", "dns", "ftp", "gopher", "gs", "http", "imap", "kafka", "ldap", "mqtt", "mqtt5", "nats", "pop3", "redis", "rtsp", "s3", "signalr", "smb", "smtp", "socketio", "socks", "ssh", "stomp", "telnet", "tftp", "websocket", "webtransport", "xmpp" }, withSchemes.ToArray());
+        CollectionAssert.AreEqual(new[] { "amqp", "amqp1", "azure-storage", "coap", "dict", "dns", "ftp", "gopher", "gs", "http", "imap", "kafka", "ldap", "mqtt", "mqtt5", "nats", "pop3", "redis", "rtsp", "s3", "signalr", "smb", "smtp", "socketio", "socks", "ssh", "stomp", "telnet", "tftp", "websocket", "webtransport", "xmpp" }, withSchemes.ToArray());
     }
 
     [TestMethod]

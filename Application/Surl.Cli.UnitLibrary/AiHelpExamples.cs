@@ -138,6 +138,13 @@ public static class AiHelpExamples
             ["surl: warning: --allow-anonymous: every request and login is accepted without checking credentials"],
             []),
         Serving(
+            "amqp1",
+            "For a test: serve AMQP 1.0 without accounts",
+            ["--allow-anonymous", "amqp1://127.0.0.1:0/"],
+            ["Listening on amqp1://127.0.0.1:<port>/"],
+            ["surl: warning: --allow-anonymous: every request and login is accepted without checking credentials"],
+            []),
+        Serving(
             "azure-storage",
             "For a test: serve Azure Blob Storage over HTTPS with a throwaway certificate",
             ["--self-signed", "-u", "devstoreaccount1:c2VjcmV0", "az://127.0.0.1:0/"],

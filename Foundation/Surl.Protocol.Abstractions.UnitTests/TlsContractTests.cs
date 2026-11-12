@@ -27,6 +27,7 @@ public sealed class TlsContractTests
     [DataRow("rediss", DisplayName = "The extended rediss is RESP inside TLS (ADR-0106, decision 7)")]
     [DataRow("socketios", DisplayName = "The extended socketios is Socket.IO inside TLS (ADR-0120)")]
     [DataRow("xmpps", DisplayName = "The extended xmpps is XMPP with direct TLS (XEP-0368)")]
+    [DataRow("amqp1s", DisplayName = "The extended amqp1s is AMQP 1.0 behind implicit TLS (ADR-0107, decision 7)")]
     [DataRow("HTTPS")]
     public void IsImplicitTls_ImplicitTlsScheme_IsTrue(string scheme)
     {
@@ -49,6 +50,7 @@ public sealed class TlsContractTests
     [DataRow("signalr", DisplayName = "The extended signalr is plain HTTP (ADR-0119, decision 0)")]
     [DataRow("redis", DisplayName = "The extended redis is RESP in plain text (ADR-0106, decision 7)")]
     [DataRow("socketio", DisplayName = "The extended socketio is plain HTTP (ADR-0120)")]
+    [DataRow("amqp1")]
     [DataRow("oci", DisplayName = "An extended scheme no ADR serves over TLS")]
     [DataRow("")]
     public void IsImplicitTls_PlaintextOrUpgradeScheme_IsFalse(string scheme)

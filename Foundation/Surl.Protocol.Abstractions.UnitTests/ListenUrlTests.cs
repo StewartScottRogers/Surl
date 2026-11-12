@@ -128,6 +128,8 @@ public sealed class ListenUrlTests
     [DataRow("gs", true)]
     [DataRow("abfss", true)]
     [DataRow("abfs", false)]
+    [DataRow("amqp1s", true)]
+    [DataRow("amqp1", false)]
     [DataRow("http", false)]
     [DataRow("ftp", false)]
     public void IsImplicitTls_Unset_IsWhatTlsSchemesSaysOfTheScheme(string scheme, bool expected)

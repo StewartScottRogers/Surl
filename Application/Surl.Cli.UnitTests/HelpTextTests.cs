@@ -8,6 +8,7 @@ public sealed class HelpTextTests
     private static readonly string[] CategoryListLines =
     [
         " amqp           AMQP 0-9-1 and AMQPS protocol (extended)",
+        " amqp1          AMQP 1.0 protocol (extended)",
         " auth           Accounts and authentication methods",
         " azure-storage  Azure Blob and Data Lake Storage protocol (extended)",
         " coap           CoAP and CoAPS protocol (extended)",
@@ -212,10 +213,10 @@ public sealed class HelpTextTests
             "",
             "This is not the full help; this menu is split into categories.",
             "Use \"--help category\" to get an overview of all categories, which are:",
-            "amqp, auth, azure-storage, coap, content, dict, dns, ftp, gopher, gs, http,",
-            "imap, kafka, ldap, limits, logging, mail, messages, mqtt, mqtt5, nats, pop3,",
-            "proxy, redis, rtsp, s3, security, signalr, smb, smtp, socketio, socks, ssh,",
-            "stomp, surl, telnet, testing, tftp, tls, websocket, webtransport, xmpp.",
+            "amqp, amqp1, auth, azure-storage, coap, content, dict, dns, ftp, gopher, gs,",
+            "http, imap, kafka, ldap, limits, logging, mail, messages, mqtt, mqtt5, nats,",
+            "pop3, proxy, redis, rtsp, s3, security, signalr, smb, smtp, socketio, socks,",
+            "ssh, stomp, surl, telnet, testing, tftp, tls, websocket, webtransport, xmpp.",
             "Use \"--help all\" to list all options",
             "Use \"--help [option]\" to view documentation for a given option");
     }
@@ -545,8 +546,8 @@ public sealed class HelpTextTests
             "    -u, --user <user:password>",
             "        Add an account (repeatable). Default: no accounts.",
             "",
-            "        Categories: amqp, auth, azure-storage, ftp, gs, http, imap, ldap, mqtt,",
-            "        nats, pop3, rtsp, s3, smb, smtp, ssh, stomp, websocket.",
+            "        Categories: amqp, amqp1, auth, azure-storage, ftp, gs, http, imap,",
+            "        ldap, mqtt, nats, pop3, rtsp, s3, smb, smtp, ssh, stomp, websocket.",
             "");
 
     [TestMethod]
@@ -556,8 +557,8 @@ public sealed class HelpTextTests
             "    --user-file <file>",
             "        Read accounts from a file. Default: none.",
             "",
-            "        Categories: amqp, auth, azure-storage, ftp, gs, http, imap, ldap, mqtt,",
-            "        nats, pop3, rtsp, s3, smb, smtp, ssh, stomp, websocket.",
+            "        Categories: amqp, amqp1, auth, azure-storage, ftp, gs, http, imap,",
+            "        ldap, mqtt, nats, pop3, rtsp, s3, smb, smtp, ssh, stomp, websocket.",
             "");
 
     [TestMethod]
@@ -570,9 +571,9 @@ public sealed class HelpTextTests
                 "",
                 .. AllowAnonymousExplanationLines,
                 "",
-                "        Categories: amqp, auth, azure-storage, ftp, gs, http, imap, ldap, mqtt,",
-                "        nats, pop3, rtsp, s3, security, smb, smtp, ssh, stomp, testing,",
-                "        websocket.",
+                "        Categories: amqp, amqp1, auth, azure-storage, ftp, gs, http, imap,",
+                "        ldap, mqtt, nats, pop3, rtsp, s3, security, smb, smtp, ssh, stomp,",
+                "        testing, websocket.",
                 "",
             ]);
 
@@ -588,7 +589,7 @@ public sealed class HelpTextTests
                 "",
                 .. AllowPlaintextAuthExplanationLines,
                 "",
-                "        Categories: auth, ftp, http, imap, ldap, mqtt, nats, pop3, rtsp,",
+                "        Categories: amqp1, auth, ftp, http, imap, ldap, mqtt, nats, pop3, rtsp,",
                 "        security, smtp, stomp, testing, websocket.",
                 "",
             ]);
@@ -618,8 +619,8 @@ public sealed class HelpTextTests
                 "",
                 .. AuthExplanationLines,
                 "",
-                "        Categories: auth, http, imap, ldap, pop3, rtsp, security, smb, smtp,",
-                "        testing, websocket.",
+                "        Categories: amqp1, auth, http, imap, ldap, pop3, rtsp, security, smb,",
+                "        smtp, testing, websocket.",
                 "",
             ]);
 

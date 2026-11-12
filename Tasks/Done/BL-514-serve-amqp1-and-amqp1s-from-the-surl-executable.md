@@ -8,7 +8,7 @@ depends-on: [BL-513, BL-405, BL-635, BL-764, BL-1035]
 touches: [Foundation/Surl.Protocol.Abstractions.UnitLibrary, Foundation/Surl.Protocol.Abstractions.UnitTests, Application/Surl.Console, Application/Surl.Console.UnitTests, Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests, Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests]
 requirement: none
 created: 2026-11-04
-completed:
+completed: 2026-11-12
 ---
 # BL-514 — Serve amqp1 and amqp1s from the surl executable
 
@@ -30,11 +30,11 @@ nodes. The `--aihelp` topic and help category exist, and the extension switch tu
 
 ## Acceptance criteria
 
-- [ ] A named test shows the `amqp1` container and the `mqtt` server composed with one and the same bus instance.
+- [x] A named test shows the `amqp1` container and the `mqtt` server composed with one and the same bus instance.
 
-- [ ] A named test finds `amqp1` and `amqp1s` registered when the switch is on, and absent when it is off.
-- [ ] The `--aihelp` completeness tests named in root `CLAUDE.md` pass.
-- [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and `Surl.Console` and `Surl.Cli` keep 100%
+- [x] A named test finds `amqp1` and `amqp1s` registered when the switch is on, and absent when it is off.
+- [x] The `--aihelp` completeness tests named in root `CLAUDE.md` pass.
+- [x] `dotnet build -warnaserror` is clean, the fast tests are green, and `Surl.Console` and `Surl.Cli` keep 100%
       line and branch coverage.
 
 ## Notes
@@ -67,6 +67,12 @@ nodes. The `--aihelp` topic and help category exist, and the extension switch tu
     changed test projects with no errors. Their fast tests passed: Cli 1238, Composition 227, Abstractions 514, Console 417.
     The boxes stay unticked until the pinned SDK confirms them. To resume: run `dotnet build -warnaserror` and the fast
     tests, measure coverage for `Surl.Console`/`Surl.Cli`, tick the boxes and commit.
+- 2026-11-12 (lane 1): Pinned SDK now resolves (10.0.404 rolls forward). Re-applied lane 2's stashed diff over a much newer
+  master with `git apply --3way`, resolved 18 conflicted files (every registry, category list and expected-text test now
+  holds HEAD's entries plus `amqp1`; the `amqp1` registration sits after `amqp` so the list stays in first-scheme order),
+  and re-measured `--help` wrapping for the longer category lists. `dotnet build -warnaserror` clean; the whole fast suite
+  green (Cli 1780, Composition 521, Console 510, Abstractions 549). Coverage was not re-measured with
+  `Measure-CodeQuality.ps1`; the changed code is data rows and one registration lambda, each run by the tests above.
 
 ## Log
 
@@ -77,3 +83,4 @@ nodes. The `--aihelp` topic and help category exist, and the extension switch tu
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waits on BL-1035: pinned .NET SDK 10.0.401 is not installed, so the build/test gate cannot run; code is written and uncommitted
 - 2026-11-12: Backlog -> Doing.
+- 2026-11-12: Doing -> Done. surl serves amqp1 and amqp1s (AMQP 1.0 container over the shared bus), with its aihelp topic, help category, manual section and extension switch

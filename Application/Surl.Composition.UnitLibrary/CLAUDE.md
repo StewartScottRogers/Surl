@@ -51,6 +51,11 @@ horizontal library may reference it (ADR-0099 decision 11, held by
   same anchors, so every QUIC handshake requires a client certificate as TCP does (BL-741,
   ADR-0082 Amendment 5).
 - `ExtendedProtocolServers.Compose` builds the extended servers (`Surl.Extended.Protocol.*`: today
+  the AMQP 1.0 container for `amqp1` and `amqp1s` (BL-514) - one `Amqp1Container` over the one
+  `MessageBus`, `AuthenticationPolicyFor("amqp1")`, an `Amqp1ContainerOptions` of `IdleTimeout` and an
+  `Amqp1SecurityNegotiationOptions` of the policy's `AllowAnonymous` and `IsTlsUpgradeAvailable`;
+  `amqp1s` is in `TlsSchemes` as `mqtts` is, and `amqp1` is one of `ServerTlsComposition`'s
+  upgradable schemes for its TLS header (ADR-0107 decisions 1 and 7) -
   the DNS server for `dns` (BL-1032), two entries - `DnsUdpProtocolServer` and `DnsTcpProtocolServer` -
   so the engine binds UDP and TCP on one port, both over `ComposedProtocolServices.DnsZones` and
   `AllowsZoneTransfer` (`--allow-zone-transfer`, ADR-0092 decision 4),

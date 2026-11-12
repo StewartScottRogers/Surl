@@ -9,7 +9,7 @@ public sealed class ManualTextTests
     private static readonly string[] Headings =
     [
         "NAME", "SYNOPSIS", "DESCRIPTION", "CONFIG FILES", "LISTEN URLS", "DEPLOYMENT CHECKLIST", "DATA DIRECTORY",
-        "IN-MEMORY MODE", "SHARES AND BUCKETS", "TOPICS AND QUEUES", "ACCOUNTS", "MAIL", "AMQP OPTIONS", "DNS OPTIONS", "HTTP OPTIONS", "LDAP OPTIONS", "NATS OPTIONS", "PROXY OPTIONS", "RTSP OPTIONS", "S3 OPTIONS", "SMB OPTIONS", "SSH OPTIONS", "STOMP OPTIONS", "TLS-SRP OPTIONS", "WEBSOCKET OPTIONS", "LOOSENING OPTIONS", "CONTROL ENDPOINT", "LOG LEVELS", "LIMITS",
+        "IN-MEMORY MODE", "SHARES AND BUCKETS", "TOPICS AND QUEUES", "ACCOUNTS", "MAIL", "AMQP OPTIONS", "AMQP 1.0 OPTIONS", "DNS OPTIONS", "HTTP OPTIONS", "LDAP OPTIONS", "NATS OPTIONS", "PROXY OPTIONS", "RTSP OPTIONS", "S3 OPTIONS", "SMB OPTIONS", "SSH OPTIONS", "STOMP OPTIONS", "TLS-SRP OPTIONS", "WEBSOCKET OPTIONS", "LOOSENING OPTIONS", "CONTROL ENDPOINT", "LOG LEVELS", "LIMITS",
         "EXIT CODES", "SEE ALSO",
     ];
 
@@ -331,6 +331,14 @@ public sealed class ManualTextTests
             "    0-9-1 over the message bus the MQTT server shares. Every connection needs",
             "    an account, or --allow-anonymous. amqps is TLS from the first byte and",
             "    needs --cert or --self-signed. surl --aihelp amqp says more.",
+            "",
+            "AMQP 1.0 OPTIONS",
+            "",
+            "    The extended AMQP 1.0 container answers amqp1 and amqp1s listen URLs with",
+            "    OASIS AMQP 1.0 over the message bus the MQTT and NATS servers share. Every",
+            "    connection logs in with SASL, or needs --allow-anonymous; PLAIN over amqp1",
+            "    needs --allow-plaintext-auth. amqp1s needs --cert or --self-signed, which",
+            "    also let amqp1 answer a TLS header. surl --aihelp amqp1 says more.",
             "",
             "DNS OPTIONS",
             "",

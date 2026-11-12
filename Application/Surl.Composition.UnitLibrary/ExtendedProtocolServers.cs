@@ -1,4 +1,5 @@
 using Surl.Extended.Protocol.Amqp0;
+using Surl.Extended.Protocol.Amqp1;
 using Surl.Extended.Protocol.AzureStorage;
 using Surl.Extended.Protocol.Coap;
 using Surl.Extended.Protocol.DnsQuery;
@@ -48,11 +49,17 @@ public static class ExtendedProtocolServers
     /// <summary>
     /// Gets every extended protocol server's entry this build has, in ordinal order of its first
     /// scheme, on the same <see cref="ProtocolServerRegistration"/> as the originals (ADR-0124,
-    /// decision 2): today the DNS server for <c>dns</c> over UDP and TCP (BL-1032), the NATS server for
+    /// decision 2): today the AMQP 1.0 container for <c>amqp1</c> and <c>amqp1s</c> (BL-514), the DNS server for <c>dns</c> over UDP and TCP (BL-1032), the NATS server for
     /// <c>nats</c> and <c>natss</c> (BL-528), the S3 server
     /// for <c>s3</c> (BL-421) the Socket.IO server for <c>socketio</c> and <c>socketios</c> (BL-455) the WebTransport server for <c>webtransport</c> (BL-461) the CoAP servers for <c>coap</c> and <c>coaps</c> (BL-476) the STOMP broker for <c>stomp</c> and <c>stomps</c> (BL-533) and the XMPP server for <c>xmpp</c> and <c>xmpps</c> (BL-540).
     /// </summary>
     /// <remarks>
+    /// The AMQP 1.0 container answers <c>amqp1</c> and <c>amqp1s</c> with the one message bus the MQTT
+    /// and NATS servers share as its nodes (ADR-0107; ADR-0100 decision 3), judging logins by the policy
+    /// over the accounts allowed on <c>amqp1</c>, with <c>--idle-timeout</c> and <c>--allow-anonymous</c>,
+    /// and answering a TLS header on <c>amqp1</c> only when a certificate is configured (ADR-0107
+    /// decision 1). <c>amqp1s</c> is TLS from the first byte through <see cref="TlsSchemes"/>
+    /// (ADR-0107 decision 7), so, like <c>mqtts</c>, it needs no second registration.
     /// The DNS server is two entries for <c>dns</c>, a <see cref="DnsUdpProtocolServer"/> and a
     /// <see cref="DnsTcpProtocolServer"/>, so the serving engine binds UDP and TCP on the one port of
     /// each <c>dns</c> listen URL (ADR-0092 decisions 3 and 4); both answer from the one
@@ -90,6 +97,15 @@ public static class ExtendedProtocolServers
             {
                 IdleTimeout = services.IdleTimeout,
                 OffersAnonymous = services.AuthenticationPolicy.Settings.AllowAnonymous,
+            })),
+        new(["amqp1", "amqp1s"], services => new Amqp1Container(
+            services.AuthenticationPolicyFor("amqp1"),
+            services.MessageBus,
+            new Amqp1ContainerOptions { IdleTimeout = services.IdleTimeout },
+            new Amqp1SecurityNegotiationOptions
+            {
+                AllowsAnonymous = services.AuthenticationPolicy.Settings.AllowAnonymous,
+                CanUpgradeToTls = services.IsTlsUpgradeAvailable,
             })),
         new(["az", "abfs", "abfss"], services => new AzureStorageProtocolServer(
             services.ContentStore, services.ObjectMetadataIndex, services.AuthenticationPolicyFor("az"), services.TimeProvider)),

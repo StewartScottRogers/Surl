@@ -9,10 +9,10 @@ public sealed partial class AiHelpTextTests
 {
     private static readonly string NewLine = Environment.NewLine;
 
-    // ADR-0046 decision 3's sixteen topics, smtp (BL-207), imap (BL-208), pop3 (BL-209), websocket (BL-303), smb (BL-299), rtsp (BL-317), ldap (BL-310), extended (BL-405), nats (BL-528), s3 (BL-421), control (BL-815), mail (BL-653, ADR-0101 decision 7) dns (BL-1032) and messages (BL-992, ADR-0101 decision 7), in ordinal order.
+    // ADR-0046 decision 3's sixteen topics, smtp (BL-207), imap (BL-208), pop3 (BL-209), websocket (BL-303), smb (BL-299), rtsp (BL-317), ldap (BL-310), extended (BL-405), nats (BL-528), s3 (BL-421), control (BL-815), mail (BL-653, ADR-0101 decision 7) dns (BL-1032), amqp1 (BL-514) and messages (BL-992, ADR-0101 decision 7), in ordinal order.
     private static readonly string[] AdrTopicNames =
     [
-        "amqp", "auth", "azure-storage", "coap", "content", "control", "dict", "dns", "exit-codes", "extended", "ftp", "gopher", "gs", "http", "imap", "kafka", "ldap", "limits", "listen-urls",
+        "amqp", "amqp1", "auth", "azure-storage", "coap", "content", "control", "dict", "dns", "exit-codes", "extended", "ftp", "gopher", "gs", "http", "imap", "kafka", "ldap", "limits", "listen-urls",
         "logging", "mail", "messages", "mqtt", "mqtt5", "nats", "pop3", "proxy", "redis", "rtsp", "s3", "security", "signalr", "smb", "smtp", "socketio", "socks", "ssh", "stomp", "surl", "telnet", "testing", "tftp", "tls", "websocket", "webtransport", "xmpp",
     ];
 
@@ -24,6 +24,7 @@ public sealed partial class AiHelpTextTests
         "| Topic | Covers |",
         "| --- | --- |",
         "| `amqp` | AMQP 0-9-1 and AMQPS protocol (extended) |",
+        "| `amqp1` | AMQP 1.0 protocol (extended) |",
         "| `auth` | Accounts and authentication methods |",
         "| `azure-storage` | Azure Blob and Data Lake Storage protocol (extended) |",
         "| `coap` | CoAP and CoAPS protocol (extended) |",
