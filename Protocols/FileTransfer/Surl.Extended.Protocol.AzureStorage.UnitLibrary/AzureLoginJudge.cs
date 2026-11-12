@@ -19,7 +19,8 @@ namespace Surl.Extended.Protocol.AzureStorage;
 /// <param name="authentication">The connection's authentication session.</param>
 /// <param name="scheme">The listen scheme every store call names as the caller's.</param>
 /// <param name="peerAddress">The address the connection came from, which a signature's <c>sip</c> must admit.</param>
-internal sealed class AzureLoginJudge(IHttpAuthenticationSession authentication, string scheme, IPAddress peerAddress)
+/// <param name="refusesBearerToken">Whether a bearer token is refused unchecked, because the connection is plain text and plain-text logins are not allowed (ADR-0109, decision 6).</param>
+internal sealed class AzureLoginJudge(IHttpAuthenticationSession authentication, string scheme, IPAddress peerAddress, bool refusesBearerToken = false)
 {
     /// <summary>
     /// The challenge every <c>401</c> carries ("Authorize with Microsoft Entra ID", "Bearer Challenge").
@@ -46,6 +47,11 @@ internal sealed class AzureLoginJudge(IHttpAuthenticationSession authentication,
         if (IsBearerBeforeItsVersion(request, authorization))
         {
             return AzureLogin.Refused(reply.Error(AzureRefusal.AuthenticationFailed("Bearer authorization needs x-ms-version 2017-11-09 or later.")));
+        }
+
+        if (refusesBearerToken && IsBearer(authorization))
+        {
+            return AzureLogin.Refused(ChallengeAnswer(reply, AzureError.InvalidBearerToken));
         }
 
         var isWrite = request.Method is not ("GET" or "HEAD");

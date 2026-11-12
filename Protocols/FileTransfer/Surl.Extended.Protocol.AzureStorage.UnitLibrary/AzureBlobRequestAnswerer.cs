@@ -57,12 +57,13 @@ internal sealed class AzureBlobRequestAnswerer : IHttpRequestHandler, IHttpHeadN
     /// <param name="endpointScheme">How the connection is served, <c>https</c> or <c>http</c>.</param>
     /// <param name="staging">The server's staged uploads, where Put Block keeps blocks until Put Block List commits them.</param>
     /// <param name="pathStyle">Removes a path-style request's account segment.</param>
-    public AzureBlobRequestAnswerer(ContentStore store, ObjectMetadataIndex index, IHttpAuthenticationSession authentication, ExchangeContext context, string endpointScheme, AzureStagingArea staging, AzurePathStyle pathStyle)
+    /// <param name="refusesBearerToken">Whether a bearer token is refused, the connection being plain text without <c>--allow-plaintext-auth</c>.</param>
+    public AzureBlobRequestAnswerer(ContentStore store, ObjectMetadataIndex index, IHttpAuthenticationSession authentication, ExchangeContext context, string endpointScheme, AzureStagingArea staging, AzurePathStyle pathStyle, bool refusesBearerToken = false)
     {
         this.store = store;
         this.pathStyle = pathStyle;
         this.staging = staging;
-        login = new AzureLoginJudge(authentication, AzureStorageProtocolServer.BlobScheme, AzureStorageProtocolServer.PeerAddressOf(context));
+        login = new AzureLoginJudge(authentication, AzureStorageProtocolServer.BlobScheme, AzureStorageProtocolServer.PeerAddressOf(context), refusesBearerToken);
         this.context = context;
         properties = new AzureBlobPropertiesReader(store, index, context.Log);
         putBlob = new AzurePutBlob(store, index, context.Log);

@@ -42,13 +42,14 @@ internal sealed class AzureDataLakeRequestAnswerer : IHttpRequestHandler, IHttpH
     /// <param name="context">The exchange: its scheme, clock and log.</param>
     /// <param name="staging">The server's staged appends.</param>
     /// <param name="pathStyle">Removes a path-style request's account segment.</param>
-    public AzureDataLakeRequestAnswerer(ContentStore store, ObjectMetadataIndex index, IHttpAuthenticationSession authentication, ExchangeContext context, AzureStagingArea staging, AzurePathStyle pathStyle)
+    /// <param name="refusesBearerToken">Whether a bearer token is refused, the connection being plain text without <c>--allow-plaintext-auth</c>.</param>
+    public AzureDataLakeRequestAnswerer(ContentStore store, ObjectMetadataIndex index, IHttpAuthenticationSession authentication, ExchangeContext context, AzureStagingArea staging, AzurePathStyle pathStyle, bool refusesBearerToken = false)
     {
         this.store = store;
         this.pathStyle = pathStyle;
         this.context = context;
         this.staging = staging;
-        login = new AzureLoginJudge(authentication, context.Scheme, AzureStorageProtocolServer.PeerAddressOf(context));
+        login = new AzureLoginJudge(authentication, context.Scheme, AzureStorageProtocolServer.PeerAddressOf(context), refusesBearerToken);
         properties = new AzureBlobPropertiesReader(store, index, context.Log);
         create = new AzurePathCreate(store, index, properties, staging, context.Log);
         update = new AzurePathUpdate(store, index, properties, staging, context.Log);

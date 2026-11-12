@@ -328,6 +328,22 @@ public sealed class ExtendedProtocolServersTests
     }
 
     [TestMethod]
+    [DataRow(false, DisplayName = "off")]
+    [DataRow(true, DisplayName = "--allow-plaintext-auth")]
+    public void Compose_AzureStorageServer_IsToldWhetherPlaintextLoginsAreAllowed(bool allowPlaintextAuthentication)
+    {
+        var services = new ExtendedProtocolServerServices(
+            ComposeServices(false, TimeSpan.FromSeconds(40), allowPlaintextAuthentication: allowPlaintextAuthentication));
+
+        var server = ExtendedProtocolServers.Compose(services).OfType<AzureStorageProtocolServer>().Single();
+
+        var field = typeof(AzureStorageProtocolServer)
+            .GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+            .Single(candidate => candidate.FieldType == typeof(bool));
+        Assert.AreEqual(allowPlaintextAuthentication, (bool)field.GetValue(server)!);
+    }
+
+    [TestMethod]
     public void Compose_NullServices_ThrowsArgumentNullException()
     {
         Assert.ThrowsExactly<ArgumentNullException>(() => ExtendedProtocolServers.Compose(null!));
@@ -339,7 +355,7 @@ public sealed class ExtendedProtocolServersTests
             .Single(field => field.FieldType == typeof(bool))
             .GetValue(answerer)!;
 
-    private static ComposedProtocolServices ComposeServices(bool allowAnonymous, TimeSpan idleTimeout, bool isTlsUpgradeAvailable = false)
+    private static ComposedProtocolServices ComposeServices(bool allowAnonymous, TimeSpan idleTimeout, bool isTlsUpgradeAvailable = false, bool allowPlaintextAuthentication = false)
     {
         var unserved = SurlServerComposition.ComposeUnservedProtocolServices(
             SurlServerComposition.ComposeContentStore(new SurlCommandLine(), TimeProvider.System), TimeProvider.System);
@@ -347,7 +363,7 @@ public sealed class ExtendedProtocolServersTests
             unserved.ContentStore,
             new ServiceState(unserved.MessageBus, unserved.MailStore, unserved.LdapServer, unserved.ObjectMetadataIndex),
             new AuthenticationPolicy(
-                new AuthenticationSettings(new AccountBook([]), allowAnonymous, AllowPlaintextAuthentication: false, AuthenticationMethods.DefaultAccepted),
+                new AuthenticationSettings(new AccountBook([]), allowAnonymous, AllowPlaintextAuthentication: allowPlaintextAuthentication, AuthenticationMethods.DefaultAccepted),
                 [],
                 TimeProvider.System),
             TimeProvider.System,

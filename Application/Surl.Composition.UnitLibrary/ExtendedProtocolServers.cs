@@ -118,7 +118,8 @@ public static class ExtendedProtocolServers
                 CanUpgradeToTls = services.IsTlsUpgradeAvailable,
             })),
         new(["az", "abfs", "abfss"], services => new AzureStorageProtocolServer(
-            services.ContentStore, services.ObjectMetadataIndex, services.AuthenticationPolicyFor("az"), services.TimeProvider)),
+            services.ContentStore, services.ObjectMetadataIndex, services.AuthenticationPolicyFor("az"), services.TimeProvider,
+            allowsPlaintextAuthentication: services.AuthenticationPolicy.Settings.AllowPlaintextAuthentication)),
         new(["coap"], services => new CoapProtocolServer(services.ContentStore, CoapAccessRulesFor(services), services.CoapObservations)),
         new(["coaps"], services => new DeferredCoapsProtocolServer(services)),
         new(["dns"], services => new DnsDatagramRoutingProtocolServer(

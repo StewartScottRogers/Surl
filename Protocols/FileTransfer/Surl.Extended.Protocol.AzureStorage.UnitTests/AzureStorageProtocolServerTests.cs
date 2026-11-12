@@ -214,6 +214,57 @@ public sealed class AzureStorageProtocolServerTests
             response);
     }
 
+    private const string PlainBearerRequest =
+        "GET /photos/a.txt HTTP/1.1\r\nHost: account.blob.core.windows.net\r\nx-ms-version: 2025-01-05\r\nAuthorization: Bearer secret-token\r\nConnection: close\r\n\r\n";
+
+    private static AzureServerHarness ReadableWithoutPlaintextAuthentication()
+    {
+        var harness = new AzureServerHarness(allowsPlaintextAuthentication: false);
+        harness.CreateFolder("photos");
+        harness.WriteFile("photos/a.txt", "hello world");
+
+        return harness;
+    }
+
+    [TestMethod]
+    [DataRow(AzureStorageProtocolServer.BlobScheme, DisplayName = "az")]
+    [DataRow(AzureStorageProtocolServer.DataLakeScheme, DisplayName = "abfs")]
+    public async Task ServeAsync_BearerTokenOverPlainText_Is401InvalidAuthenticationInfoWithTheChallenge(string scheme)
+    {
+        var harness = ReadableWithoutPlaintextAuthentication();
+        harness.Scheme = scheme;
+
+        var response = await harness.SendRawAsync(PlainBearerRequest);
+
+        StringAssert.StartsWith(response, "HTTP/1.1 401 Unauthorized\r\n");
+        StringAssert.Contains(response, "x-ms-error-code: InvalidAuthenticationInfo\r\n");
+        StringAssert.Contains(response, $"WWW-Authenticate: {AzureLoginJudge.BearerChallenge}\r\n");
+        Assert.DoesNotContain("hello world", response);
+        Assert.IsEmpty(harness.Policy.Requests);
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_BearerTokenOverPlainTextWhenPlaintextLoginsAreAllowed_IsServed()
+    {
+        var harness = new AzureServerHarness();
+        harness.CreateFolder("photos");
+        harness.WriteFile("photos/a.txt", "hello world");
+
+        var response = await harness.SendRawAsync(PlainBearerRequest);
+
+        StringAssert.EndsWith(response, "hello world");
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_BearerTokenOverTlsWithoutPlaintextLogins_IsServed()
+    {
+        var harness = ReadableWithoutPlaintextAuthentication();
+
+        var response = await harness.SendRawOverTlsAsync(PlainBearerRequest);
+
+        StringAssert.EndsWith(response, "hello world");
+    }
+
     [TestMethod]
     public async Task ServeAsync_WrongBearerToken_Is401InvalidAuthenticationInfoWithTheChallenge()
     {
