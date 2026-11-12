@@ -22,7 +22,8 @@ namespace Surl.Content;
 /// <b>Defaults.</b> A file with no current entry answers with
 /// the <c>Content-Type</c> <see cref="ContentMediaTypes.Of"/> names from its key's extension
 /// (<see cref="DefaultContentType"/> when the extension names none), no other header field, no user metadata, the quoted
-/// lower-case hexadecimal MD5 of its bytes as its ETag - computed on first read and cached in the
+/// lower-case hexadecimal MD5 of its bytes as its ETag - computed on first read, with its CRC-32C
+/// (<see cref="Crc32cChecksum"/>) from the same read, and cached in the
 /// index with the file's stamp - and its last write time in microseconds since the Unix epoch as
 /// its generation.
 /// </para>
@@ -91,6 +92,8 @@ public sealed class ObjectMetadataIndex
     public const string MalformedIndexReason = "not an object metadata index";
 
     private const string TemporaryIndexPrefix = ".index-";
+
+    private const int DigestBufferBytes = 81920;
 
     // The quoted MD5 of no bytes: a folder object's default ETag.
     private const string EmptyETag = "\"d41d8cd98f00b204e9800998ecf8427e\"";
@@ -351,10 +354,10 @@ public sealed class ObjectMetadataIndex
                 return new ObjectMetadataStoreResult(ObjectMetadataStoreOutcome.MetadataIndexFull, null, null);
             }
 
-            var eTag = metadata.ETag ?? await DefaultETagAsync(key, cancellationToken);
+            var (eTag, crc32c) = metadata.ETag is null ? await DefaultDigestsAsync(key, cancellationToken) : (metadata.ETag, metadata.Crc32c);
             var entry = new ObjectMetadataEntry(
                 length, lastWriteTicks, metadata.Generation ?? GenerationOf(lastWriteTicks), metadata.Metageneration ?? 1, eTag,
-                fields[0], fields[1], fields[2], fields[3], fields[4], fields[5], userMetadata);
+                fields[0], fields[1], fields[2], fields[3], fields[4], fields[5], userMetadata, crc32c);
             entries[key] = entry;
             var failure = await WriteIndexAsync(cancellationToken);
             events.Publish(new StoreChangedEvent(StoreKind.Content, StoreChange.MetadataStored, "/" + key, null, null));
@@ -393,9 +396,10 @@ public sealed class ObjectMetadataIndex
             }
 
             entries.Remove(key);
+            var (eTag, crc32c) = await ComputeDigestsAsync(FullPathOf(key), cancellationToken);
             var entry = new ObjectMetadataEntry(
-                length, lastWriteTicks, GenerationOf(lastWriteTicks), 1, await ComputeETagAsync(FullPathOf(key), cancellationToken),
-                null, null, null, null, null, null, []);
+                length, lastWriteTicks, GenerationOf(lastWriteTicks), 1, eTag,
+                null, null, null, null, null, null, [], crc32c);
             string? failure = null;
             if (entries.Count < MaxEntries)
             {
@@ -478,6 +482,7 @@ public sealed class ObjectMetadataIndex
     {
         ContentMd5 = entry.ContentMd5,
         Metageneration = entry.Metageneration,
+        Crc32c = entry.Crc32c,
     };
 
     private Dictionary<string, ObjectMetadataEntry> DecodeIndex(string indexPath, byte[] bytes)
@@ -537,8 +542,9 @@ public sealed class ObjectMetadataIndex
     private bool IsCurrent(string key, ObjectMetadataEntry entry) =>
         StampOf(key) is var (length, lastWriteTicks) && (IsFolderObjectKey(key) || entry.Describes(length, lastWriteTicks));
 
-    private Task<string> DefaultETagAsync(string key, CancellationToken cancellationToken) =>
-        IsFolderObjectKey(key) ? Task.FromResult(EmptyETag) : ComputeETagAsync(FullPathOf(key), cancellationToken);
+    // A folder object's are those of no bytes: the empty-body MD5 and a CRC-32C of 0.
+    private Task<(string ETag, uint? Crc32c)> DefaultDigestsAsync(string key, CancellationToken cancellationToken) =>
+        IsFolderObjectKey(key) ? Task.FromResult<(string, uint?)>((EmptyETag, 0u)) : ComputeDigestsAsync(FullPathOf(key), cancellationToken);
 
     private bool HasRoomAfterDroppingStaleEntries()
     {
@@ -558,11 +564,21 @@ public sealed class ObjectMetadataIndex
         return entries.Count < MaxEntries;
     }
 
-    private async Task<string> ComputeETagAsync(string path, CancellationToken cancellationToken)
+    // The quoted lower-case hexadecimal MD5 and the CRC-32C of the file's bytes, in one read.
+    private async Task<(string ETag, uint? Crc32c)> ComputeDigestsAsync(string path, CancellationToken cancellationToken)
     {
         await using var stream = fileSystem.OpenFileForAsyncRead(path);
-        var digest = await MD5.HashDataAsync(stream, cancellationToken);
-        return "\"" + Convert.ToHexStringLower(digest) + "\"";
+        using var md5 = IncrementalHash.CreateHash(HashAlgorithmName.MD5);
+        var buffer = new byte[DigestBufferBytes];
+        var crc32c = 0u;
+        int read;
+        while ((read = await stream.ReadAsync(buffer, cancellationToken)) > 0)
+        {
+            md5.AppendData(buffer, 0, read);
+            crc32c = Crc32cChecksum.Append(crc32c, buffer.AsSpan(0, read));
+        }
+
+        return ("\"" + Convert.ToHexStringLower(md5.GetHashAndReset()) + "\"", crc32c);
     }
 
     private async Task<string?> WriteIndexAsync(CancellationToken cancellationToken)

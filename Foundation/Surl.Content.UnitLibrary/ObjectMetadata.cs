@@ -68,4 +68,11 @@ public sealed record ObjectMetadata
     /// Must be at least 1.
     /// </summary>
     public long? Metageneration { get; init; }
+
+    /// <summary>
+    /// The CRC-32C (<see cref="Crc32cChecksum"/>) of the file's bytes, cached beside the ETag so
+    /// Cloud Storage need not read the file to answer <c>x-goog-hash</c>. Used only with a given
+    /// <see cref="ETag"/>; without one the index computes both. <see langword="null"/> when not known.
+    /// </summary>
+    public uint? Crc32c { get; init; }
 }

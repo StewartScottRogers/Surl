@@ -18,7 +18,10 @@ namespace Surl.Content;
 /// <c>Content-Encoding</c>, <c>Content-Disposition</c>, <c>Cache-Control</c>,
 /// <c>Content-Language</c> and <c>Content-MD5</c> (six strings), the user metadata count (2 bytes,
 /// unsigned) and that many name and value pairs (two strings each) in strictly ascending ordinal
-/// order of name. Then the end of the file. An index starting with
+/// order of name, then the cached CRC-32C (1 byte: 0 for none, or 1 and then 4 bytes, unsigned; version 4 on).
+/// Then the end of the file. An index starting with
+/// <see cref="HeaderWithoutCrc32c"/> (version 3, written before BL-773) is read too: its entries
+/// hold no CRC-32C. An index starting with
 /// <see cref="HeaderWithoutContentMd5"/> instead, written before BL-736, is read too: its entries
 /// hold the first five header fields only, and read back with no <c>Content-MD5</c>. One starting
 /// <see cref="HeaderWithoutMetageneration"/> (version 2, written before BL-1045) is read too: its entries
@@ -36,10 +39,19 @@ internal static class ObjectMetadataIndexFormat
     public static ReadOnlySpan<byte> HeaderWithoutMetageneration => "SURL-OBJECT-INDEX-2\n"u8;
 
     /// <summary>
-    /// The 20 ASCII bytes every index written now starts with: <c>SURL-OBJECT-INDEX-3</c> and a
-    /// line feed. Each entry holds the metageneration (8 bytes, signed, at least 1) after the generation (ADR-0148, BL-1045).
+    /// The 20 ASCII bytes an index written before the CRC-32C was cached starts with:
+    /// <c>SURL-OBJECT-INDEX-3</c> and a line feed. Its entries hold the metageneration (8 bytes,
+    /// signed, at least 1) after the generation (ADR-0148, BL-1045) and read back with no CRC-32C;
+    /// it is never written.
     /// </summary>
-    public static ReadOnlySpan<byte> Header => "SURL-OBJECT-INDEX-3\n"u8;
+    public static ReadOnlySpan<byte> HeaderWithoutCrc32c => "SURL-OBJECT-INDEX-3\n"u8;
+
+    /// <summary>
+    /// The 20 ASCII bytes every index written now starts with: <c>SURL-OBJECT-INDEX-4</c> and a
+    /// line feed. Each entry ends with the cached CRC-32C: one byte, 0 for none or 1 and then the
+    /// CRC-32C (4 bytes, unsigned) (ADR-0110, decision 1.1, BL-773).
+    /// </summary>
+    public static ReadOnlySpan<byte> Header => "SURL-OBJECT-INDEX-4\n"u8;
 
     /// <summary>
     /// The 20 ASCII bytes an index written before <c>Content-MD5</c> was kept starts with:
@@ -75,6 +87,8 @@ internal static class ObjectMetadataIndexFormat
                 writer.WriteString(name);
                 writer.WriteString(value);
             }
+
+            writer.WriteCrc32c(entry.Crc32c);
         }
 
         return writer.ToArray();
@@ -105,14 +119,28 @@ internal static class ObjectMetadataIndexFormat
         return entries;
     }
 
-    // The format version a header names: 1 (five header fields), 2 (six) or 3 (six, and a metageneration).
+    // The format version a header names: 1 (five header fields), 2 (six), 3 (six, and a metageneration)
+    // or 4 (and a cached CRC-32C).
     private static int VersionOf(ReadOnlySpan<byte> header)
     {
-        var version = header.SequenceEqual(Header) ? 3 : header.SequenceEqual(HeaderWithoutMetageneration) ? 2 : 1;
+        var version = 4;
+        while (version > 1 && !header.SequenceEqual(HeaderOf(version)))
+        {
+            version--;
+        }
+
         Require(version > 1 || header.SequenceEqual(HeaderWithoutContentMd5));
 
         return version;
     }
+
+    private static ReadOnlySpan<byte> HeaderOf(int version) => version switch
+    {
+        4 => Header,
+        3 => HeaderWithoutCrc32c,
+        2 => HeaderWithoutMetageneration,
+        _ => HeaderWithoutContentMd5,
+    };
 
     private static bool AreValid(long length, long lastWriteTicks, long metageneration, string eTag) =>
         length >= 0 && lastWriteTicks >= 0 && lastWriteTicks <= DateTime.MaxValue.Ticks && metageneration >= 1 && ObjectMetadataIndex.IsValidETag(eTag);
@@ -135,7 +163,8 @@ internal static class ObjectMetadataIndexFormat
 
         var userMetadata = DecodeUserMetadata(reader);
         Require(ObjectMetadataEntry.CountMetadataBytes(fields, userMetadata) <= maxMetadataBytes);
-        return new ObjectMetadataEntry(length, lastWriteTicks, generation, metageneration, eTag, fields[0], fields[1], fields[2], fields[3], fields[4], fields[5], userMetadata);
+        var crc32c = version >= 4 ? reader.ReadCrc32c() : null;
+        return new ObjectMetadataEntry(length, lastWriteTicks, generation, metageneration, eTag, fields[0], fields[1], fields[2], fields[3], fields[4], fields[5], userMetadata, crc32c);
     }
 
     private static List<KeyValuePair<string, string>> DecodeUserMetadata(IndexReader reader)
@@ -199,6 +228,15 @@ internal static class ObjectMetadataIndexFormat
             Write(utf8);
         }
 
+        public void WriteCrc32c(uint? crc32c)
+        {
+            bytes.WriteByte(crc32c is null ? (byte)0 : (byte)1);
+            if (crc32c is { } value)
+            {
+                WriteUInt32(value);
+            }
+        }
+
         public byte[] ToArray() => bytes.ToArray();
     }
 
@@ -225,6 +263,13 @@ internal static class ObjectMetadataIndexFormat
         public uint ReadUInt32() => BinaryPrimitives.ReadUInt32BigEndian(Take(sizeof(uint)));
 
         public long ReadInt64() => BinaryPrimitives.ReadInt64BigEndian(Take(sizeof(long)));
+
+        public uint? ReadCrc32c()
+        {
+            var presence = Take(1)[0];
+            Require(presence <= 1);
+            return presence == 0 ? null : ReadUInt32();
+        }
 
         public string ReadString()
         {
