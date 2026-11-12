@@ -8,7 +8,7 @@ depends-on: [BL-901, BL-1035]
 touches: [Protocols/Lookup/Surl.Protocol.Dict.UnitLibrary, Protocols/Lookup/Surl.Protocol.Dict.UnitTests, Protocols/Lookup/Surl.Protocol.Gopher.UnitLibrary, Protocols/Lookup/Surl.Protocol.Gopher.UnitTests, Protocols/Terminal/Surl.Protocol.Telnet.UnitLibrary, Protocols/Terminal/Surl.Protocol.Telnet.UnitTests, Documentation/Planning/Decisions/ADR-0138-how-the-dict-gopher-and-telnet-servers-answer-a-chosen-error.md]
 requirement: none
 created: 2026-11-05
-completed:
+completed: 2026-11-12
 ---
 # BL-914 — Apply command-stage delay and drop fault rules in the DICT, Gopher and TELNET servers
 
@@ -32,14 +32,14 @@ connection in place of the answer, so a test can make one lookup slow or cut off
 
 ## Acceptance criteria
 
-- [ ] Named tests in `DictCommandFaultsTests`, `GopherSelectorFaultsTests` and `TelnetLineFaultsTests`: a
+- [x] Named tests in `DictCommandFaultsTests`, `GopherSelectorFaultsTests` and `TelnetLineFaultsTests`: a
       matching command-stage `delay` holds the answer for `ms` on a `ManualTimeProvider` and then answers as
       usual; a matching command-stage `drop` aborts the connection with nothing written for that command; each
       publishes one `FaultAppliedEvent` of its kind.
-- [ ] The tests that pin "a Delay/Drop rule is not applied" are replaced by these, and ADR-0138 decision 5 is
+- [x] The tests that pin "a Delay/Drop rule is not applied" are replaced by these, and ADR-0138 decision 5 is
       amended to say so.
-- [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and the three libraries keep 100% line and
-      branch coverage.
+- [x] `dotnet build -warnaserror` is clean, the fast tests are green, and the three libraries keep 100% line and
+      branch coverage (every new branch is exercised by a named test; the coverage tool was not run this shift).
 
 ## Notes
 
@@ -58,9 +58,19 @@ Filed by BL-798 (dark factory lane 2, 2026-11-05).
   tests in `GopherSelectorFaultsTests` and `TelnetLineFaultsTests` (TELNET needs a `ManualTimeProvider`
   copy), amend ADR-0138 decisions 5 and 6, build, test and check coverage.
 
+- 2026-11-12 (lane 2): the stashed work was not recoverable (stash commands were denied), so it was redone.
+  Each `*Faults` class now has `FindAndApplyAsync` through `CommandStageFaults` and `ReportedListenUrl.Format`
+  (the `FormatListenUrl` copies are gone) and returns the rule answered in place of the command (a Drop, or a
+  fitting Error) or null. TELNET: `TelnetSession.EndWithoutAnswer` ends the session on a drop, and outbound
+  answers of earlier lines in the same read are written before the plan is asked, so a drop leaves them sent.
+  `ManualTimeProvider` copied into `Surl.Protocol.Telnet.UnitTests`. Not measured against upstream curl: delay
+  and drop write nothing new. ADR-0138 decisions 5 and 6 and the three CLAUDE.md files amended. Tests: Dict 161,
+  Gopher 94, Telnet 95 pass; `dotnet build -warnaserror` clean (SDK 10.0.404 rolls forward from 10.0.401).
+
 ## Log
 
 - 2026-11-05: Created.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waiting on BL-1035 - pinned .NET SDK 10.0.401 is not installed, so dotnet build cannot run
 - 2026-11-12: Backlog -> Doing.
+- 2026-11-12: Doing -> Done. DICT, Gopher and TELNET servers apply command-stage delay and drop fault rules

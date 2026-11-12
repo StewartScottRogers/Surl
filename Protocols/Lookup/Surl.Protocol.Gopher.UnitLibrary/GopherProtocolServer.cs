@@ -115,10 +115,15 @@ public sealed class GopherProtocolServer : IConnectionProtocolServer
         }
 
         // ADR-0138: a chosen-error rule for the selector is answered before the content store is asked.
-        if (await GopherSelectorFaults.FindErrorAsync(context, requestPath) is { } chosenError)
+        // A delay holds the answer first, and a drop aborts the connection with nothing written.
+        if (await GopherSelectorFaults.FindAndApplyAsync(context, connection, requestPath) is { } fault)
         {
-            await connection.WriteAsync(GopherSelectorFaults.ErrorMenu(chosenError), context.CancellationToken);
-            await connection.CompleteWritesAsync(context.CancellationToken);
+            if (fault.Kind == FaultKind.Error)
+            {
+                await connection.WriteAsync(GopherSelectorFaults.ErrorMenu(fault.Reply!), context.CancellationToken);
+                await connection.CompleteWritesAsync(context.CancellationToken);
+            }
+
             return;
         }
 

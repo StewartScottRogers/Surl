@@ -18,25 +18,37 @@ namespace Surl.Protocol.Telnet;
 internal static class TelnetLineFaults
 {
     /// <summary>
-    /// Finds the chosen error text for a line, publishing its <see cref="FaultAppliedEvent"/>.
+    /// Finds and applies the fault for a line: a delay holds it, a drop aborts the connection, and
+    /// each publishes its <see cref="FaultAppliedEvent"/>.
     /// </summary>
     /// <param name="context">The exchange: its fault plan, event stream and listen URL.</param>
+    /// <param name="connection">The connection a drop aborts.</param>
     /// <param name="lineNumber">The line's number in the session, counted from 1.</param>
-    /// <returns>The text to send as one line before closing, or <see langword="null"/> to answer as usual.</returns>
-    public static async ValueTask<string?> FindErrorAsync(ExchangeContext context, int lineNumber)
+    /// <returns>
+    /// The <see cref="FaultKind.Drop"/> rule (write nothing, end the session) or the fitting
+    /// <see cref="FaultKind.Error"/> rule (send its reply as one line before closing), or
+    /// <see langword="null"/> to answer as usual.
+    /// </returns>
+    public static async ValueTask<FaultRule?> FindAndApplyAsync(ExchangeContext context, IConnection connection, int lineNumber)
     {
         var point = new FaultPoint(FaultStage.Command)
         {
             ExchangeId = context.ExchangeId,
-            ListenUrl = FormatListenUrl(context.ListenUrl),
+            ListenUrl = ReportedListenUrl.Format(context.ListenUrl),
             Scheme = context.Scheme,
         };
-        if (await context.Faults.FindAsync(point, context.CancellationToken) is not { } rule)
+        var target = string.Create(CultureInfo.InvariantCulture, $"line {lineNumber}");
+        var rule = await CommandStageFaults.FindAndApplyAsync(context, connection, point, target);
+        if (rule is null or { Kind: FaultKind.Delay })
         {
             return null;
         }
 
-        var target = string.Create(CultureInfo.InvariantCulture, $"line {lineNumber}");
+        if (rule.Kind == FaultKind.Drop)
+        {
+            return rule;
+        }
+
         if (rule.Kind != FaultKind.Error || !Fits(rule.Reply))
         {
             var why = rule.Kind == FaultKind.Error ? "its reply does not fit the telnet error shape" : $"a {rule.Kind} rule is not applied at a line";
@@ -48,7 +60,7 @@ internal static class TelnetLineFaults
         context.Log.Note($"{target} was answered with the chosen error of fault rule {rule.Id}; the connection was closed.");
         context.Events.Publish(new FaultAppliedEvent(rule.Id, FaultKind.Error, FaultStage.Command, context.ExchangeId, target));
 
-        return rule.Reply;
+        return rule;
     }
 
     /// <summary>
@@ -59,19 +71,4 @@ internal static class TelnetLineFaults
     /// <returns>Whether the reply fits.</returns>
     public static bool Fits(string? reply) =>
         reply is { Length: > 0 } && reply.AsSpan().IndexOfAny('\r', '\n') < 0;
-
-    /// <summary>
-    /// The listen URL as the fault plan matches it, as the serving engine names it: the scheme, the
-    /// host (an IPv6 address in brackets, its zone's <c>%</c> encoded) and the bound port.
-    /// </summary>
-    /// <param name="listenUrl">The exchange's listen URL.</param>
-    /// <returns><c>telnet://127.0.0.1:23/</c>.</returns>
-    public static string FormatListenUrl(ListenUrl listenUrl)
-    {
-        var host = listenUrl.Host.Contains(':', StringComparison.Ordinal)
-            ? "[" + listenUrl.Host.Replace("%", "%25", StringComparison.Ordinal) + "]"
-            : listenUrl.Host;
-
-        return $"{listenUrl.Scheme}://{host}:{listenUrl.BoundPort ?? listenUrl.Port}/";
-    }
 }

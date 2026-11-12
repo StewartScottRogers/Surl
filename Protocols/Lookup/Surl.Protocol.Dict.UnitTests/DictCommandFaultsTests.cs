@@ -125,28 +125,60 @@ public sealed class DictCommandFaultsTests
         Assert.Contains("Fault rule f1 not applied to DICT STATUS: its reply does not fit the dict error shape.", log.Notes);
     }
 
-    // Only an Error rule is answered by the server; command-stage delay and drop are BL-912's.
+    // ADR-0138 decision 5 as amended (BL-914): a command-stage delay holds the command's answer on
+    // the exchange's clock, with the idle clock paused, then answers it as usual.
     [TestMethod]
-    public async Task ServeAsync_CommandStageDelayRule_IsNotAppliedAndIsNoted()
+    public async Task ServeAsync_CommandStageDelayRule_HoldsTheAnswerFor500MsThenAnswersAsUsual()
     {
-        var delay = new FaultRule("f1", FaultKind.Delay) { Stage = FaultStage.Command, DelayMilliseconds = 10 };
+        var delay = new FaultRule("f1", FaultKind.Delay) { Stage = FaultStage.Command, Command = "STATUS", DelayMilliseconds = 500 };
+        var clock = new ManualTimeProvider();
+        var idleClock = new RecordingIdleClock();
+        var events = new RecordingSurlEventPublisher();
+        var connection = new InMemoryConnection(Ascii("STATUS\r\nQUIT\r\n"));
+        var serving = Server().ServeAsync(
+            connection,
+            Context(clock, TestContext.CancellationToken) with { Faults = new ScriptedFaultPlan(delay), Events = events, IdleClock = idleClock });
 
-        var (written, events, log) = await ServeAsync(Ascii("STATUS\r\n"), new ScriptedFaultPlan(delay));
+        await idleClock.FirstPause.WaitAsync(TimeSpan.FromSeconds(30), TestContext.CancellationToken);
+        var writtenAtTheHold = Utf8(connection.WrittenBytes);
+        clock.Advance(TimeSpan.FromMilliseconds(499));
+        var writtenAfter499Ms = Utf8(connection.WrittenBytes);
+        clock.Advance(TimeSpan.FromMilliseconds(1));
+        await serving.WaitAsync(TimeSpan.FromSeconds(30), TestContext.CancellationToken);
 
-        Assert.AreEqual(Banner + "210 status ok\r\n", written);
-        Assert.IsEmpty(events.Events);
-        Assert.Contains("Fault rule f1 not applied to DICT STATUS: a Delay rule is not applied at a command.", log.Notes);
+        Assert.AreEqual(Banner, writtenAtTheHold);
+        Assert.AreEqual(Banner, writtenAfter499Ms);
+        Assert.IsFalse(idleClock.IsPaused);
+        Assert.AreEqual(Banner + "210 status ok\r\n221 bye\r\n", Utf8(connection.WrittenBytes));
+        Assert.AreEqual(new FaultAppliedEvent("f1", FaultKind.Delay, FaultStage.Command, 1, "STATUS"), events.Events.Single());
     }
 
     [TestMethod]
-    [DataRow("dict", "127.0.0.1", 2628, null, "dict://127.0.0.1:2628/")]
-    [DataRow("dict", "127.0.0.1", 0, 41000, "dict://127.0.0.1:41000/")]
-    [DataRow("dict", "fe80::1%12", 2628, null, "dict://[fe80::1%2512]:2628/")]
-    public void FormatListenUrl_GivesTheFormTheEngineReports(string scheme, string host, int port, int? boundPort, string expected)
+    public async Task ServeAsync_CommandStageDropRule_AbortsTheConnectionWithNothingWrittenForTheCommand()
     {
-        var listenUrl = new ListenUrl(scheme, host, port);
-        listenUrl = boundPort is { } bound ? listenUrl.WithBoundPort(bound) : listenUrl;
+        var drop = new FaultRule("f1", FaultKind.Drop) { Stage = FaultStage.Command, Command = "DEFINE", Path = "hello" };
+        var events = new RecordingSurlEventPublisher();
+        var connection = new InMemoryConnection(Ascii("STATUS\r\nDEFINE ! hello\r\nSTATUS\r\n"));
 
-        Assert.AreEqual(expected, DictCommandFaults.FormatListenUrl(listenUrl));
+        await Server().ServeAsync(
+            connection,
+            Context(new ManualTimeProvider(), TestContext.CancellationToken) with { Faults = new ScriptedFaultPlan(drop), Events = events });
+
+        Assert.IsTrue(connection.Aborted);
+        Assert.AreEqual(Banner + "210 status ok\r\n", Utf8(connection.WrittenBytes));
+        Assert.AreEqual(new FaultAppliedEvent("f1", FaultKind.Drop, FaultStage.Command, 1, "hello"), events.Events.Single());
+    }
+
+    // The kinds a command does not apply are noted and the command is answered as without them.
+    [TestMethod]
+    public async Task ServeAsync_CommandStageRuleOfAnotherKind_IsNotAppliedAndIsNoted()
+    {
+        var other = new FaultRule("f1", FaultKind.OutOfSpace) { Stage = FaultStage.Command };
+
+        var (written, events, log) = await ServeAsync(Ascii("STATUS\r\n"), new ScriptedFaultPlan(other));
+
+        Assert.AreEqual(Banner + "210 status ok\r\n", written);
+        Assert.IsEmpty(events.Events);
+        Assert.Contains("Fault rule f1 not applied to DICT STATUS: a OutOfSpace rule is not applied at a command.", log.Notes);
     }
 }

@@ -115,7 +115,7 @@ public sealed class TelnetProtocolServer : IConnectionProtocolServer
             }
 
             upstreamTestCaseReplies?.Record(buffer.AsSpan(0, read.Value));
-            await ReceiveAsync(session, buffer.AsMemory(0, read.Value), context);
+            await ReceiveAsync(connection, session, buffer.AsMemory(0, read.Value), context);
             await WriteOutboundAsync(connection, session, cancellationToken);
         }
     }
@@ -144,14 +144,25 @@ public sealed class TelnetProtocolServer : IConnectionProtocolServer
 
     // Hands the session what was read, asking the fault plan about each line it completes before
     // the line is answered; stops once the session is over.
-    private static async Task ReceiveAsync(TelnetSession session, ReadOnlyMemory<byte> bytes, ExchangeContext context)
+    // What earlier lines of the read were answered is written before the plan is asked, so a delay
+    // holds only this line's answer and a drop leaves those answers sent.
+    private static async Task ReceiveAsync(IConnection connection, TelnetSession session, ReadOnlyMemory<byte> bytes, ExchangeContext context)
     {
         while (!bytes.IsEmpty && !session.IsOver)
         {
             bytes = bytes[session.Receive(bytes.Span)..];
             if (session.LineAwaitingAnswer is not null)
             {
-                session.AnswerAwaitingLine(await TelnetLineFaults.FindErrorAsync(context, session.CompletedLineCount));
+                await WriteOutboundAsync(connection, session, context.CancellationToken);
+                var rule = await TelnetLineFaults.FindAndApplyAsync(context, connection, session.CompletedLineCount);
+                if (rule is { Kind: FaultKind.Drop })
+                {
+                    session.EndWithoutAnswer();
+                }
+                else
+                {
+                    session.AnswerAwaitingLine(rule?.Reply);
+                }
             }
         }
     }

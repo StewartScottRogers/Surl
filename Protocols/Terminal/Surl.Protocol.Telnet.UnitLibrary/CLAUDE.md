@@ -29,5 +29,7 @@ sends no banner, negotiates as usual, echoes every data byte verbatim (no CRLF, 
 (`LineAwaitingAnswer`) until `TelnetProtocolServer` has asked `ExchangeContext.Faults` through
 `TelnetLineFaults` - scheme only, TELNET has no command, path or account - and a matching `error` rule's
 text is sent as one line in place of the echo, then the session ends, publishing `FaultAppliedEvent`
-with target `line <n>`. A reply that does not fit, or a `delay` or `drop` rule, is noted and not applied
-(BL-914).
+with target `line <n>`. A reply that does not fit, or a rule of another kind, is noted and not applied. A `delay` rule
+holds the line's answer for its `ms` on `ExchangeContext.TimeProvider` with the idle clock paused, and a `drop` rule
+aborts the connection with nothing written for the line (`TelnetSession.EndWithoutAnswer`), each through
+`CommandStageFaults.FindAndApplyAsync` with one `FaultAppliedEvent` (BL-914).

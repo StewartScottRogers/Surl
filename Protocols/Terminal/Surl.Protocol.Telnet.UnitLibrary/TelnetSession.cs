@@ -114,6 +114,16 @@ internal sealed class TelnetSession
     }
 
     /// <summary>
+    /// Ends the session with <see cref="LineAwaitingAnswer"/> unanswered, because a drop rule aborted
+    /// the connection in place of its answer (BL-914): nothing is written for the line.
+    /// </summary>
+    public void EndWithoutAnswer()
+    {
+        LineAwaitingAnswer = null;
+        cutShort = true;
+    }
+
+    /// <summary>
     /// Notes that the client closed the connection, and whether it cut a command short.
     /// </summary>
     public void ReceiveClose()
