@@ -57,3 +57,4 @@ The AMQP 0-9-1 broker bounds outstanding deliveries as `basic.qos` says - `prefe
 - 2026-11-05: Created.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waits on BL-1035: pinned .NET SDK 10.0.401 is not installed, so dotnet build fails; code and 7 new tests done and stashed, green on SDK 11
+- 2026-11-11: Backlog -> Doing.
