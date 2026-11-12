@@ -94,6 +94,13 @@ public sealed partial class QuicServerConnection : IDisposable
     /// <summary>The TLS 1.3 cipher suite agreed, or null before it is.</summary>
     public TlsCipherSuite? CipherSuite => tls?.CipherSuite;
 
+    /// <summary>
+    /// The client's certificate chain (DER, end-entity certificate first) once the handshake has
+    /// trusted and verified it; null when <see cref="QuicServerConnectionOptions.TrustsClientCertificateChain"/>
+    /// asks for none, or before then.
+    /// </summary>
+    public IReadOnlyList<ReadOnlyMemory<byte>>? ClientCertificateChain => tls?.ClientCertificateChain;
+
     /// <summary>The client's transport parameters, or null before its ClientHello is accepted.</summary>
     public QuicTransportParameters? PeerTransportParameters { get; private set; }
 
@@ -369,6 +376,7 @@ public sealed partial class QuicServerConnection : IDisposable
                 CertificateKey = options.CertificateKey,
                 ApplicationProtocols = options.ApplicationProtocols,
                 QuicTransportParameters = ServerTransportParameters().ToBytes(),
+                TrustsClientCertificateChain = options.TrustsClientCertificateChain,
             },
             random);
     }

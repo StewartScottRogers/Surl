@@ -56,6 +56,12 @@ public sealed class QuicApplicationConnection
     /// <summary>The TLS 1.3 cipher suite the handshake agreed.</summary>
     public Surl.Tls13.TlsCipherSuite CipherSuite => connection.CipherSuite!.Value;
 
+    /// <summary>
+    /// The client's certificate chain (DER, end-entity certificate first), trusted and verified by
+    /// the handshake, or null when the options asked for no client certificate.
+    /// </summary>
+    public IReadOnlyList<ReadOnlyMemory<byte>>? ClientCertificateChain => connection.ClientCertificateChain;
+
     /// <summary>The client's transport parameters.</summary>
     public QuicTransportParameters PeerTransportParameters => connection.PeerTransportParameters!;
 

@@ -19,7 +19,11 @@ and the closing and draining states (BL-608); the flow loop holding a flow open 
   size with Version Negotiation, and drops everything else before it starts. The handshake is
   `Surl.Tls13`'s `TlsServerHandshake` in `CRYPTO` frames, reassembled by `QuicCryptoReassembly`
   (64 KiB ahead at most); the client's transport parameters are checked (RFC 9000 sections 7.3 and
-  18.2, RFC 9368) and the server's are its options' (ADR-0082 decision 4's by default). Every ack-eliciting packet is
+  18.2, RFC 9368) and the server's are its options' (ADR-0082 decision 4's by default).
+  `QuicServerConnectionOptions.TrustsClientCertificateChain`, when set, is the handshake's
+  `TrustsClientCertificateChain` (BL-741, ADR-0082 Amendment 5): it asks for a client certificate,
+  ends without one or with an untrusted one as `CRYPTO_ERROR`, and `ClientCertificateChain` (on the
+  connection and on `QuicApplicationConnection`) is the verified chain. Every ack-eliciting packet is
   acknowledged at once, ACK Delay 0 (`QuicReceivedPacketNumbers`, 32 ranges kept). Before a
   Handshake packet opens, it sends at most three times what it received; Initial keys go when that
   packet opens, Handshake keys when the handshake completes. 1-RTT packets wait for the handshake
