@@ -8,7 +8,7 @@ depends-on: [BL-645, BL-646, BL-1035]
 touches: [Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests, Application/Surl.Mcp.UnitLibrary, Application/Surl.Mcp.UnitTests]
 requirement: none
 created: 2026-11-06
-completed:
+completed: 2026-11-11
 ---
 # BL-990 — Read --topic, --queue, --topic-map and --topic-access items into the Surl.Cli configuration model
 
@@ -36,14 +36,26 @@ fully unit tested. No option row uses the readers yet; BL-992 adds the rows.
 
 ## Acceptance criteria
 
-- [ ] Named tests in `Application/Surl.Cli.UnitTests` read each item form (`retain`, `qos=`, `durable`, a map, an
+- [x] Named tests in `Application/Surl.Cli.UnitTests` read each item form (`retain`, `qos=`, `durable`, a map, an
       `@group` access) and refuse each malformed or duplicate item with the ADR's text.
-- [ ] `Table_EverySurlCommandLineMember_IsClassifiedExactlyOnce` passes.
-- [ ] `dotnet build Application/Surl.Cli.UnitLibrary -warnaserror` is clean, the fast tests are green, and
+- [x] `Table_EverySurlCommandLineMember_IsClassifiedExactlyOnce` passes.
+- [x] `dotnet build Application/Surl.Cli.UnitLibrary -warnaserror` is clean, the fast tests are green, and
       `Surl.Cli.UnitLibrary` keeps 100% line and branch coverage.
 
 ## Notes
 
+- 2026-11-11 (lane 2): the SDK is now installed (10.0.404 rolls forward from the pin), so the stashed work
+  was not needed: it was rewritten from scratch on BL-987's pattern. Delivered: the four records and
+  readers below; `ConfiguredMessagingConflicts.Find` for the whole-line duplicates (topic filter, queue,
+  map source, access filter), as BL-987 built `ConfiguredContentConflicts`, so BL-992 only calls it;
+  `SurlCommandLine.Topics`, `Queues`, `TopicMaps`, `TopicAccess` classified in
+  `CommandLinePathMembers.MembersWithoutPaths`. Tests in one `<Class>Tests` file per class. Verified:
+  `dotnet build` clean, all fast tests green (Surl.Cli.UnitTests 1563, Surl.Mcp.UnitTests 245),
+  `Surl.Cli.UnitLibrary` 100% line and branch. `ConfiguredMessagingConflicts` holds its reason
+  delegates in static readonly fields, because the compiler's cached method-group delegates left one
+  branch to test order. `--topic-map` sides are split after the head is decoded (an encoded `:` can
+  only land in the scheme, which is then refused as unknown either way); an empty scheme or name is
+  `an empty field`.
 - 2026-11-11 (lane 4): code written but unverified. `dotnet build` fails with "A compatible .NET SDK was
   not found": `global.json` pins 10.0.401 and the machine has only 10.0.100-rc.1, 11.0.100-rc.2 and
   11.0.100. Returned to Backlog behind BL-1035, as BL-987 was. The uncommitted work is left for the
@@ -79,3 +91,4 @@ fully unit tested. No option row uses the readers yet; BL-992 adds the rows.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waits on BL-1035: the pinned .NET SDK 10.0.401 is not installed, so dotnet build cannot run; code is written and left uncommitted for the shift's stash
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Done. Surl.Cli reads --topic, --queue, --topic-map and --topic-access items into SurlCommandLine and refuses malformed and duplicate ones as ADR-0101 says
