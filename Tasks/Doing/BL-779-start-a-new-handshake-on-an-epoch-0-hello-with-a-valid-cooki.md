@@ -55,3 +55,4 @@ association once it completes (ADR-0087 decision 6, RFC 6347 section 4.2.8).
 - 2026-11-11: Doing -> Backlog. Lane 6 could not integrate: build failed after rebasing onto the other lanes' work. The work is on branch factory/BL-779-lane-6-20261111-060243; start with git cherry-pick --no-commit factory/BL-779-lane-6-20261111-060243 and fix it.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waits on BL-1035: pinned .NET SDK 10.0.401 is not installed, so no build under global.json can run; the work is ready on factory/BL-779-lane-6-20261111-060243 (6bb00f42, 4eebd3fe) and passes under SDK 11.
+- 2026-11-11: Backlog -> Doing.
