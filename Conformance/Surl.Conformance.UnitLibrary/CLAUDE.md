@@ -308,6 +308,15 @@ and `UpstreamTestCaseServer.PortVariable` names `%PROXYPORT` and `%HTTPSPROXYPOR
 tunnelling through `Surl.Networking`'s `SocketOriginConnector` limited to loopback; `<proxy>` reads the proxy's record and
 `<protocol>` the origin half's. 715 and 2055 keep `server-not-built:socks5` and 1230 `server-half-not-composed:http-ipv6`.
 
+The upstream test certificates are generated (BL-682): `UpstreamTestCertificateDescription.Parse`
+reads a `tests/certs/*.prm` file (subject, `DNS:` or `DER:` subject alternative name, key usage,
+extended key usage, `CA:true`; the `authorityInfoAccess` and `crlDistributionPoints` extensions are
+not read) and `UpstreamTestCertificateGenerator.Generate` makes, with ECDSA P-256 keys and
+SHA-256, the authority `test-ca` (`.crt`, `.cacert`, `.key`) and for every other description `.crt`,
+`.der`, `.key`, `.pem` (key then certificate), `.pub.der`, `.pub.pem` and `.crl` (revoking it), all
+as bytes. `UpstreamTestCasesAgainstSurlTests` writes them under the run's `%CERTDIR/certs/` and
+serves `https` with `test-localhost`.
+
 The stated pass rate and its guard are built (BL-393):
 
 - `UpstreamTestCasePassingList` reads and writes a platform's passing list,
@@ -326,9 +335,7 @@ The stated pass rate and its guard are built (BL-393):
 The rest is intent until its task lands. This library will also hold, with no reference but
 Abstractions:
 - each `<server>` name's port variable, beside its `UpstreamTestCaseServers` row;
-- generating the test certificates from the imported `.prm` files with `CertificateRequest`
-  (BL-682; BL-392's run uses a stand-in CA and `localhost` certificate), and the SSH keys and
-  `%SSHSRVMD5`/`%SSHSRVSHA256`;
+- the SSH keys and `%SSHSRVMD5`/`%SSHSRVSHA256`;
 - reading `Upstream-Test-Case-Exclusions.md` into `TestServerChoices` (BL-689).
 
 It does not hold the server halves: each protocol library carries its own optional seam for a

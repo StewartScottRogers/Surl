@@ -498,29 +498,19 @@ public sealed class UpstreamTestCasesAgainstSurlTests
         private ServerTlsSettings WriteCertificates()
         {
             var certs = Directory.CreateDirectory(Path.Combine(certificateDirectory, "certs"));
-            var now = DateTimeOffset.UtcNow;
+            var descriptions = Directory.GetFiles(Path.Combine(Root, "certs"), "*.prm").ToDictionary(
+                file => Path.GetFileNameWithoutExtension(file), File.ReadAllText, StringComparer.Ordinal);
+            var files = UpstreamTestCertificateGenerator.Generate(descriptions, TimeProvider.System);
+            foreach (var (name, bytes) in files)
+            {
+                File.WriteAllBytes(Path.Combine(certs.FullName, name), bytes);
+            }
 
-            using var caKey = RSA.Create(2048);
-            var caRequest = new CertificateRequest("CN=Surl upstream test case CA", caKey, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
-            caRequest.CertificateExtensions.Add(new X509BasicConstraintsExtension(true, false, 0, true));
-            caRequest.CertificateExtensions.Add(new X509KeyUsageExtension(X509KeyUsageFlags.KeyCertSign | X509KeyUsageFlags.CrlSign, true));
-            using var ca = caRequest.CreateSelfSigned(now.AddHours(-1), now.AddDays(2));
-
-            using var serverKey = RSA.Create(2048);
-            var serverRequest = new CertificateRequest("CN=localhost", serverKey, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
-            serverRequest.CertificateExtensions.Add(new X509BasicConstraintsExtension(false, false, 0, true));
-            serverRequest.CertificateExtensions.Add(new X509KeyUsageExtension(X509KeyUsageFlags.DigitalSignature | X509KeyUsageFlags.KeyEncipherment, true));
-            serverRequest.CertificateExtensions.Add(new X509EnhancedKeyUsageExtension([new Oid("1.3.6.1.5.5.7.3.1")], false));
-            var names = new SubjectAlternativeNameBuilder();
-            names.AddDnsName("localhost");
-            names.AddIpAddress(IPAddress.Loopback);
-            names.AddIpAddress(IPAddress.IPv6Loopback);
-            serverRequest.CertificateExtensions.Add(names.Build());
-            using var issued = serverRequest.Create(ca, now.AddMinutes(-30), now.AddDays(1), RandomNumberGenerator.GetBytes(16));
-            using var server = issued.CopyWithPrivateKey(serverKey);
-
-            File.WriteAllText(Path.Combine(certs.FullName, "test-ca.crt"), ca.ExportCertificatePem());
-            File.WriteAllText(Path.Combine(certs.FullName, "test-ca.cacert"), ca.ExportCertificatePem());
+            // The key is imported into an ECDsa object, whose key stays exportable for ServerTlsSettings' re-import.
+            using var key = ECDsa.Create();
+            key.ImportFromPem(System.Text.Encoding.ASCII.GetString(files["test-localhost.key"]));
+            using var issued = X509CertificateLoader.LoadCertificate(files["test-localhost.der"]);
+            using var server = issued.CopyWithPrivateKey(key);
 
             return new ServerTlsSettings(server, [], [], TimeProvider.System);
         }

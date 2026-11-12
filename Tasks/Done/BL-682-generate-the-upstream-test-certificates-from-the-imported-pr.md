@@ -8,7 +8,7 @@ depends-on: [BL-392, BL-1035]
 touches: [Conformance/Surl.Conformance.UnitLibrary, Conformance/Surl.Conformance.UnitTests]
 requirement: none
 created: 2026-11-04
-completed:
+completed: 2026-11-12
 ---
 # BL-682 — Generate the upstream test certificates from the imported .prm files
 
@@ -48,18 +48,18 @@ localhost certificate.
 
 ## Acceptance criteria
 
-- [ ] `Surl.Conformance.UnitLibrary` has a generator that reads the imported `.prm` files and
+- [x] `Surl.Conformance.UnitLibrary` has a generator that reads the imported `.prm` files and
       produces each certificate and key file the cases name under `%CERTDIR/certs/`, with the
       subject, SAN, key usage, EKU and issuer each `.prm` describes; its unit tests in
       `Surl.Conformance.UnitTests` check those fields per `.prm` and hold it at 100% line and branch
       coverage.
-- [ ] `UpstreamTestCasesOverHttpTests` composes `https` with the generated `test-localhost`
+- [x] `UpstreamTestCasesOverHttpTests` composes `https` with the generated `test-localhost`
       certificate issued by the generated `test-ca`, and writes the generated files under the run's
       `%CERTDIR/certs/`; the stand-in CA and localhost certificate are no longer used by it.
-- [ ] In the integration run above, cases 417, 2033, 2079 and 2087 are `pass` in
+- [x] In the integration run above, cases 417, 2033, 2079 and 2087 are `pass` in
       `upstream-test-case-results.win-x64.txt`, or Notes give each remaining failure's cause and the
       ID of a task filed for it; no previously passing case now fails.
-- [ ] `dotnet build Conformance/Surl.Conformance.UnitLibrary -warnaserror` is clean and
+- [x] `dotnet build Conformance/Surl.Conformance.UnitLibrary -warnaserror` is clean and
       `dotnet test --filter "TestCategory!=Integration"` is green.
 
 ## Notes
@@ -81,6 +81,16 @@ localhost certificate.
   `PUBLIC KEY` block (case 2038 wants 90 from it); `.crl` revokes its own certificate (case 313
   wants 60); the server sends the leaf only (case 417's `%{certs}` lists one certificate). The
   library returns the files as bytes and the test writes them, so the generator needs no disk.
+- 2026-11-12 (lane 6): SDK 10.0.404 is installed now (rollForward latestFeature), so it builds. The
+  stashed WIP was not reachable from this session, so the three types were rewritten:
+  `UpstreamTestCertificateDescription`, `UpstreamTestCertificateGenerator` (no `UpstreamTestCertificates`
+  type; the generator returns file name -> bytes). Choices: ECDSA P-256, SHA-256, 365 days, every leaf
+  gets crt/der/key/pem/pub.der/pub.pem/crl; AIA and CRL-distribution-point extensions are not read.
+  `ServerTlsSettings` re-imports its certificate and the key from `CreateFromPem` is not exportable, so
+  the test builds the server certificate from an `ECDsa` imported from the `.key` file.
+- Integration run (win-x64, 2026-11-12): 417, 2033, 2079 and 2087 pass; no listed case regressed; the
+  passing list and the pass-rate row are raised to 1,107. Coverage was reasoned branch by branch, not
+  measured (the `XPlat Code Coverage` collector is absent under this runner).
 - Follow-up to file once building: the `<server>` line's second word (`https
   test-localhost-san-first.pem`, cases 3000 and 3001) picks the server's certificate.
 
@@ -90,3 +100,4 @@ localhost certificate.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waiting on BL-1035: pinned .NET SDK 10.0.401 is not installed, so nothing builds
 - 2026-11-12: Backlog -> Doing.
+- 2026-11-12: Doing -> Done. Upstream test certificates are generated from the imported .prm files and cases 417, 2033, 2079 and 2087 pass
