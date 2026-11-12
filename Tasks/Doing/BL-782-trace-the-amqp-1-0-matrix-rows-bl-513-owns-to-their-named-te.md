@@ -60,3 +60,4 @@ ADR-0107's Consequences ask ("each task replaces its ID with the named test").
 - 2026-11-05: Created.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Behind BL-1035: pinned .NET SDK 10.0.401 is not installed, so dotnet test --list-tests cannot check the named tests; matrix edit is done and left for the shift's stash
+- 2026-11-12: Backlog -> Doing.
