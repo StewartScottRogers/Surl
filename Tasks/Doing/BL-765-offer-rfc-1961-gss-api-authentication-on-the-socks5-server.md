@@ -57,3 +57,4 @@ exchange against it, as ADR-0121 decision 3 sequences.
 - 2026-11-05: Created.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waits on BL-1035: pinned .NET SDK 10.0.401 is not installed, so no lane can build or run the test KDC; first measurement recorded under Notes
+- 2026-11-12: Backlog -> Doing.
