@@ -361,6 +361,11 @@ public static partial class SurlServerComposition
                 new ExtendedProtocolServerServices(services)),
             .. ComposeProtocolServers([.. seams.AdditionalProtocolServers.Select(additional => additional.Registration)], services),
         ];
+        if (await LoadAmqp0ExchangesAsync(servers, commandLine, fileSystem, cancellationToken) is { } exchangeFailure)
+        {
+            return Refuse(SurlExitCode.CouldNotReadFile, exchangeFailure);
+        }
+
         var served = commandLine with
         {
             ListenUrls = [.. commandLine.ListenUrls, .. seams.AdditionalProtocolServers.SelectMany(additional => additional.ListenUrls)],

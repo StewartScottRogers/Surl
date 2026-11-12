@@ -3,6 +3,7 @@ using Surl.Authentication;
 using Surl.Cli;
 using Surl.Content;
 using Surl.Core;
+using Surl.Extended.Protocol.Amqp0;
 using Surl.Extended.Protocol.DnsQuery;
 using Surl.MailStore;
 using Surl.MessageBus;
@@ -438,6 +439,46 @@ public static partial class SurlServerComposition
         catch (MessageBusLoadException failure)
         {
             return (null, $"(37) Could not read {failure.FilePath}: {failure.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Hands each AMQP 0-9-1 broker among <paramref name="servers"/> its <see cref="Amqp0ExchangeFiles"/>
+    /// in <c>&lt;data directory's full path&gt;/.surl</c>, so durable declared exchanges and their bindings
+    /// survive a restart (ADR-0112, decision 6). Without <c>--directory</c> nothing is loaded and the
+    /// exchanges last the server's life.
+    /// </summary>
+    /// <param name="servers">The composed protocol servers.</param>
+    /// <param name="commandLine">The parsed command line.</param>
+    /// <param name="fileSystem">The file system the content store serves.</param>
+    /// <param name="cancellationToken">Cancels the read.</param>
+    /// <returns><see langword="null"/>, or the message after the <c>surl: </c> prefix when an exchange file cannot be loaded.</returns>
+    public static async Task<string?> LoadAmqp0ExchangesAsync(
+        IEnumerable<IProtocolServer> servers,
+        SurlCommandLine commandLine,
+        IContentFileSystem fileSystem,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(servers);
+        ArgumentNullException.ThrowIfNull(commandLine);
+        if (commandLine.DataDirectory is not { } dataDirectory)
+        {
+            return null;
+        }
+
+        var files = new Amqp0ExchangeFiles(fileSystem, Path.Join(Path.GetFullPath(dataDirectory), ".surl"));
+        try
+        {
+            foreach (var broker in servers.OfType<Amqp0Broker>())
+            {
+                await broker.LoadExchangesAsync(files, cancellationToken);
+            }
+
+            return null;
+        }
+        catch (Amqp0ExchangeLoadException failure)
+        {
+            return $"(37) Could not read {failure.FilePath}: {failure.Message}";
         }
     }
 

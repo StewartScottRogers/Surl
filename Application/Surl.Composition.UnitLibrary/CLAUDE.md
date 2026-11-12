@@ -102,6 +102,11 @@ horizontal library may reference it (ADR-0099 decision 11, held by
   `--directory`, none without it; `LoadDnsZonesAsync`, held on `ServiceState.DnsZones`); the first that cannot be loaded returns its
   `(37)` message, which the host writes after `surl: `.
 
+- AMQP 0-9-1 exchanges on disk (BL-966): after the extended servers are composed and before any listener binds,
+  `ComposeUnderTheLockAsync` calls `LoadAmqp0ExchangesAsync`, which with `--directory` hands each `Amqp0Broker` an
+  `Amqp0ExchangeFiles` over `<path>/.surl` (`.surl/amqp0/exchanges`); a malformed file is `(37) Could not read <file>: <reason>`.
+  Without `--directory` nothing is loaded. Tests: `SurlServerCompositionTests.Amqp0Exchanges.cs`.
+
 - One event stream and one fault plan per start (ADR-0124 decisions 1 and 4, BL-803):
   `ComposeAsync` creates a `SurlEventStream` and, through `FaultPlanComposition.Compose`, a
   `FaultPlan` holding `SurlCommandLine.Faults` in order (`f1`, `f2` ...), never static, carried as
