@@ -61,14 +61,36 @@ public sealed class SharedPortListenerPairTests
     [TestMethod]
     public async Task StartAsync_PortZeroAndAnotherUdpBindFailure_ReleasesTheTcpListenerAndThrowsWithoutRetrying()
     {
-        var starts = new ListenerStarts { UdpPortsTaken = 1, UdpFailure = ListenerBindFailure.PermissionDenied };
+        var starts = new ListenerStarts { UdpPortsTaken = 1, UdpFailure = ListenerBindFailure.Other };
 
         var exception = await Assert.ThrowsExactlyAsync<ListenerBindException>(() => StartAsync(PortZero, starts).AsTask());
 
-        Assert.AreEqual(ListenerBindFailure.PermissionDenied, exception.Failure);
+        Assert.AreEqual(ListenerBindFailure.Other, exception.Failure);
         Assert.AreEqual(1, starts.ConnectionListeners.Single().DisposeCount);
     }
 
+    [TestMethod]
+    public async Task StartAsync_PortZeroAndTheUdpPortRefusedTwice_StartsOnTheThirdPort()
+    {
+        var starts = new ListenerStarts { UdpPortsTaken = 2, UdpFailure = ListenerBindFailure.PermissionDenied };
+
+        await using var pair = await StartAsync(PortZero, starts);
+
+        Assert.HasCount(3, starts.ConnectionListeners);
+        Assert.AreEqual(40002, pair.ConnectionListener.ListenUrl.BoundPort);
+    }
+
+    [TestMethod]
+    public async Task StartAsync_FixedPortAndTheUdpPortRefused_ThrowsPermissionDeniedWithoutRetrying()
+    {
+        var starts = new ListenerStarts { UdpPortsTaken = 1, UdpFailure = ListenerBindFailure.PermissionDenied };
+
+        var exception = await Assert.ThrowsExactlyAsync<ListenerBindException>(
+            () => StartAsync(new ListenUrl("https", "127.0.0.1", 8443), starts).AsTask());
+
+        Assert.AreEqual(ListenerBindFailure.PermissionDenied, exception.Failure);
+        Assert.HasCount(1, starts.ConnectionListeners);
+    }
     [TestMethod]
     public async Task StartAsync_UdpStartCancelled_ReleasesTheTcpListenerAndThrows()
     {
