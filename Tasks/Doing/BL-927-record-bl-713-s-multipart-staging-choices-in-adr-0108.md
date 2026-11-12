@@ -53,3 +53,4 @@ Lane 6, 2026-11-11: the ADR-0108 text from lane 3 (commit 0981f45d on factory/BL
 - 2026-11-11: Doing -> Backlog. Lane 3 could not integrate: build failed after rebasing onto the other lanes' work. The work is on branch factory/BL-927-lane-3-20261111-060243; start with git cherry-pick --no-commit factory/BL-927-lane-3-20261111-060243 and fix it.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waits on BL-1035: pinned .NET SDK 10.0.401 is not installed, so no build can pass; ADR text is ready on factory/BL-927-lane-3-20261111-060243 (0981f45d).
+- 2026-11-12: Backlog -> Doing.
