@@ -8,7 +8,7 @@ depends-on: [BL-823, BL-785, BL-1035]
 touches: [Protocols/Messaging/Surl.Extended.Protocol.Mqtt5.UnitLibrary, Protocols/Messaging/Surl.Extended.Protocol.Mqtt5.UnitTests]
 requirement: FR-062
 created: 2026-11-06
-completed:
+completed: 2026-11-11
 ---
 # BL-1014 — Answer a chosen reason code by fault in the extended MQTT 5 broker
 
@@ -43,14 +43,14 @@ answer a matching `SUBSCRIBE` or `PUBLISH` with the chosen reason code (128 to 2
 
 ## Acceptance criteria
 
-- [ ] `Mqtt5BrokerTests.Faults` exists and passes, including
+- [x] `Mqtt5BrokerTests.Faults` exists and passes, including
       `ServeAsync_SubscribeToABAndCDUnderARuleOnAB_AnswersTheChosenCodeForABAndGrantsCD`,
       `ServeAsync_PublishUnderARule_AcknowledgesWithTheChosenCodeAndPublishesNothing`,
       `ServeAsync_QualityOfServiceZeroPublishUnderARule_DisconnectsWithTheChosenCode` and
       `ServeAsync_PublishOutsideTheRulesTopic_IsPublished`.
-- [ ] Each applied rule publishes exactly one `FaultAppliedEvent`; `ServeAsync_ARuleWhoseReplyIsNotAReasonCode_IsNotedAndNotApplied` passes.
-- [ ] With no rule, every existing `Surl.Extended.Protocol.Mqtt5.UnitTests` test passes unchanged.
-- [ ] `dotnet build Protocols/Messaging/Surl.Extended.Protocol.Mqtt5.UnitTests -warnaserror` is clean, the fast
+- [x] Each applied rule publishes exactly one `FaultAppliedEvent`; `ServeAsync_ARuleWhoseReplyIsNotAReasonCode_IsNotedAndNotApplied` passes.
+- [x] With no rule, every existing `Surl.Extended.Protocol.Mqtt5.UnitTests` test passes unchanged.
+- [x] `dotnet build Protocols/Messaging/Surl.Extended.Protocol.Mqtt5.UnitTests -warnaserror` is clean, the fast
       tests are green, and the library keeps 100% line and branch coverage.
 
 ## Notes
@@ -62,6 +62,8 @@ answer a matching `SUBSCRIBE` or `PUBLISH` with the chosen reason code (128 to 2
   task waits on BL-1035. The restored files are left uncommitted for the shift to stash; next run, re-apply them
   the same way, then build and test.
 
+- 2026-11-11 (lane 2): the SDK now resolves (10.0.404 under global.json's roll-forward), so BL-1035 no longer stops it. Re-restored the four files from `S^3` and applied the `Mqtt5BrokerConnection.cs` diff cleanly; `-warnaserror` build clean, 389 MQTT 5 tests pass, cobertura shows the library at line-rate 1 and branch-rate 1, and the whole fast suite is green. No design change from BL-834's work: a code a packet may not carry becomes 0x80, non-reason-code replies and command-stage delays are noted and not applied.
+
 ## Log
 
 - 2026-11-06: Created.
@@ -69,3 +71,4 @@ answer a matching `SUBSCRIBE` or `PUBLISH` with the chosen reason code (128 to 2
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waits on BL-1035: pinned .NET SDK 10.0.401 is not installed, so nothing builds; BL-834's MQTT 5 fault work is restored and needs only build and test
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Done. MQTT 5 broker answers SUBSCRIBE/PUBLISH under an error fault rule with the chosen reason code (SUBACK, PUBACK, or DISCONNECT for QoS 0) and publishes one FaultAppliedEvent
