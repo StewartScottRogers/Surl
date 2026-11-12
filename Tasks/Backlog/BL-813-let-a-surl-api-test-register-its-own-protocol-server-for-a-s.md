@@ -81,3 +81,4 @@ and fault plan, and shares the instance's stores if it asks for them.
 - 2026-11-12: Blocked -> Backlog. Stewart asked for the stashes to be recovered on 2026-11-12: the finished work is on origin/recover/BL-813; a lane merges it, see Notes.
 - 2026-11-12: Backlog -> Doing.
 - 2026-11-12: Doing -> Blocked. Stewart: allow lane 1 to run git merge --no-commit (or cherry-pick) of origin/recover/BL-813 in the lane worktree; git fetch and git merge were denied, so the recovered work cannot be applied.
+- 2026-11-12: Blocked -> Backlog. Stewart: the first note told the lane to git merge, which lanes may not run; the note now says git cherry-pick -n origin/recover/BL-813.
