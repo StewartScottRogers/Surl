@@ -355,6 +355,13 @@ public sealed record SurlCommandLine
     public string? ControlTokenFile { get; init; }
 
     /// <summary>
+    /// <c>--random-seed</c>: the seed, 0 to <see cref="long.MaxValue"/>, for the non-secret identifiers an
+    /// instance draws, so a test gets the same ones every run (ADR-0124 decision 6); null, the default, leaves
+    /// them unseeded. The last one given wins. Nothing secret is ever drawn from it.
+    /// </summary>
+    public long? RandomSeed { get; init; }
+
+    /// <summary>
     /// <c>--keytab</c>: the MIT keytab file of Kerberos service keys, as given; none by default.
     /// It is read when surl starts serving, not while parsing (ADR-0057 decision 1).
     /// </summary>

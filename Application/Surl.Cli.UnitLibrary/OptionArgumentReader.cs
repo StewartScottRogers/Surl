@@ -123,6 +123,10 @@ internal static class OptionArgumentReader
             "digits with an optional decimal point and more digits, then at most one suffix k, m, g, t or p in either case, "
             + "each 1024 times the one before; at most 9223372036854775807 bytes"));
 
+    /// <summary><see cref="ReadSeed"/> and its argument type (ADR-0124 decision 6).</summary>
+    public static readonly OptionArgumentReading<long> Seed =
+        new(ReadSeed, new("number", "0 to 9223372036854775807, digits only"));
+
     /// <summary>
     /// <c>--url</c>'s argument (ADR-0101 decision 1 row 12): any non-empty text, which the parser
     /// then reads as a listen URL exactly as a bare argument.
@@ -247,6 +251,13 @@ internal static class OptionArgumentReader
     /// <returns>The refusal reason, or <see langword="null"/>.</returns>
     public static string? ReadNumber(string argument, out int value) =>
         int.TryParse(argument, NumberStyles.None, CultureInfo.InvariantCulture, out value) ? null : NotANumber;
+
+    /// <summary>Reads <c>--random-seed</c>'s <c>&lt;number&gt;</c>: digits only, 0 to <see cref="long.MaxValue"/>.</summary>
+    /// <param name="argument">The argument as given.</param>
+    /// <param name="value">The seed.</param>
+    /// <returns>The refusal reason, or <see langword="null"/>.</returns>
+    public static string? ReadSeed(string argument, out long value) =>
+        long.TryParse(argument, NumberStyles.None, CultureInfo.InvariantCulture, out value) ? null : NotANumber;
 
     /// <summary>
     /// Reads <c>&lt;bytes&gt;</c>: a <c>&lt;seconds&gt;</c>-shaped number and at most one suffix,

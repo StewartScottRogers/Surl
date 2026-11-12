@@ -85,6 +85,7 @@ internal static class CommandLinePathMembers
         nameof(SurlCommandLine.TopicAccess),
         nameof(SurlCommandLine.Faults),
         nameof(SurlCommandLine.ControlListenUrl),
+        nameof(SurlCommandLine.RandomSeed),
         nameof(SurlCommandLine.AllowAnonymous),
         nameof(SurlCommandLine.AllowPlaintextAuthentication),
         nameof(SurlCommandLine.GivenAuthenticationMethods),

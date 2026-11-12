@@ -54,6 +54,7 @@ public sealed class AiHelpFactsTests
     [DataRow("idle-timeout", "seconds")]
     [DataRow("head-timeout", "seconds")]
     [DataRow("max-connections", "number")]
+    [DataRow("random-seed", "number")]
     [DataRow("max-connections-per-address", "number")]
     [DataRow("max-request-head", "bytes")]
     [DataRow("max-line", "bytes")]
@@ -87,9 +88,23 @@ public sealed class AiHelpFactsTests
     }
 
     [TestMethod]
+    public void TestingOptionsLoosenNothing_AreExactlyRandomSeed()
+    {
+        var loosensNothing = CommandLineOptions.All
+            .Where(option => option.Help.Categories.Contains("testing") && !option.Help.Categories.Contains("security"))
+            .ToArray();
+
+        CollectionAssert.AreEqual(new[] { "random-seed" }, loosensNothing.Select(option => option.LongName).ToArray());
+        Assert.IsNull(loosensNothing[0].Help.Explanation);
+        StringAssert.Contains(AiHelpText.Answer("testing").Output, "| no | testing |");
+    }
+
+    [TestMethod]
     public void LoosensSecurityForTestsOnly_IsExactlyTheNineTestingOptions()
     {
-        var testing = CommandLineOptions.All.Where(option => option.Help.Categories.Contains("testing")).ToArray();
+        var testing = CommandLineOptions.All
+            .Where(option => option.Help.Categories.Contains("testing") && option.Help.Categories.Contains("security"))
+            .ToArray();
 
         CollectionAssert.AreEquivalent(
             new[] { "allow-anonymous", "allow-plaintext-auth", "auth", "control", "control-token-file", "fault", "s3-plaintext", "self-signed", "throwaway-hostkey" },

@@ -34,7 +34,7 @@ internal static class HelpCategories
         new("ssh","SSH protocol", ["scp", "sftp"]),
         new("surl", "The command line tool itself", []),
         new("telnet", "TELNET protocol", ["telnet"]),
-        new("testing", "Loosening options for tests (warned)", []),
+        new("testing", "Options for tests; loosening ones warn", []),
         new("tftp", "TFTP protocol", ["tftp"]),
         new("tls", "TLS certificates and versions", []),
         new("websocket", "WebSocket protocol", ["ws", "wss"]),

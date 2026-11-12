@@ -257,6 +257,8 @@ internal static class CommandLineOptions
         WithArgument<string>("control-token-file", null, OptionArgumentReader.Path, (c, v) => c with { ControlTokenFile = v },
             new("<file>", "Bearer token file for --control", ["security", "testing"], IsInShortList: false, Default: "none",
                 ControlTokenFileExplanation)),
+        WithArgument<long>("random-seed", null, OptionArgumentReader.Seed, (c, v) => c with { RandomSeed = v },
+            new("<n>", "Seed non-secret identifiers", ["testing"], IsInShortList: false, Default: "unseeded")),
         WithArgument<CommandLineAuthorizedKeys>("authorized-keys", null, OptionArgumentReader.AuthorizedKeys,
             (c, v) => c with { AuthorizedKeys = [.. c.AuthorizedKeys, v] },
             new("<user:file>", "SSH public keys a user may use", ["auth", "ssh"], IsInShortList: false, Default: "none")),
