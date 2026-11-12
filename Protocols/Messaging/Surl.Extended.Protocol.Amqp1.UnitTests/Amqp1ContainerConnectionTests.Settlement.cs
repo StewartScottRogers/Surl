@@ -157,6 +157,27 @@ public sealed partial class Amqp1ContainerConnectionTests
     }
 
     [TestMethod]
+    [DataRow(false, 1000, DisplayName = "none settled")]
+    [DataRow(true, 1001, DisplayName = "one settled")]
+    public async Task ServeAsync_ThousandUnsettledQueueDeliveries_HoldTheNextUntilOneIsSettled(bool settleOne, int expectedTransfers)
+    {
+        var bus = Bus();
+        Enqueue(bus, "orders", [.. Enumerable.Range(0, Amqp1ContainerConnection.MaxWaitingDeliveries + 1).Select(index => $"message-{index}")]);
+
+        var (written, _) = await ServeOnBusAsync(
+            bus,
+            [
+                Open(),
+                BusFrame(new Amqp1Begin(0, 5000, 5000)),
+                BusFrame(ReceiverAttach(0, "orders")),
+                BusFrame(Credit(0, deliveryCount: 0, credit: 2000) with { IncomingWindow = 5000 }),
+                .. (settleOne ? [BusFrame(new Amqp1Disposition(true, 0) { Settled = true, State = Amqp1DeliveryState.Accepted })] : Array.Empty<byte[]>()),
+            ]);
+
+        Assert.HasCount(expectedTransfers, Transfers(written));
+    }
+
+    [TestMethod]
     public async Task ServeAsync_MessageLargerThanTheClientsFrames_IsSentInMoreFrames()
     {
         var bus = Bus();
