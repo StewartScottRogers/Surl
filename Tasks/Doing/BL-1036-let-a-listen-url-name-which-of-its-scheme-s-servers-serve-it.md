@@ -63,3 +63,4 @@ one `dns` listen URL can serve UDP alone while another in the same process serve
 - 2026-11-11: Created.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waiting on BL-1035: pinned .NET SDK 10.0.401 is not installed, so no build or test runs
+- 2026-11-11: Backlog -> Doing.
