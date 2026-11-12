@@ -254,7 +254,13 @@ internal sealed partial class Amqp0BrokerConnection
 
         channel.Stopped.ForEach(stopped => stopped.Dispose());
         channel.Stopped.Clear();
-        foreach (var get in TakeOutstanding(channel, 0, multiple: true).Values.Where(delivery => delivery.Consumer is null))
+
+        // The disposed consumers put their waiting and outstanding deliveries back on the bus;
+        // the connection's window lets the outstanding ones go.
+        DropWaitingDeliveries(channel);
+        var outstanding = TakeOutstanding(channel, 0, multiple: true).Values;
+        LeaveWindows(outstanding);
+        foreach (var get in outstanding.Where(delivery => delivery.Consumer is null))
         {
             Bus.RejectGet(get.QueueName, get.BusDeliveryTag, requeue: true);
         }

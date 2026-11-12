@@ -66,9 +66,11 @@ Channels, exchanges, queues and the basic class (BL-506, ADR-0112 decisions 5, 6
   built from its fields (`ToOutgoingContent`). `Amqp0BasicProperties` reads and writes the 14
   `basic` properties.
 - Delivery tags run from 1 per channel; `Amqp0Channel.Outstanding` maps each to its bus delivery.
-  `basic.qos`'s prefetch-count bounds each consumer the channel makes afterwards; the
-  channel-wide and `global` bounds, `prefetch-size`, and `recover` to the original consumer are
-  BL-760.
+  `basic.qos` (`Amqp0BrokerConnection.Prefetch`, BL-760) sets the channel's `Amqp0DeliveryWindow`,
+  or with `global` the connection's: `prefetch-count` and `prefetch-size` bound the outstanding
+  deliveries of every consumer that acknowledges; one past a window waits as an
+  `Amqp0WindowedDelivery`, unacknowledged on the bus, until a settlement makes room. `recover`
+  without `requeue` writes each outstanding delivery again to its consumer, ahead of those waiting.
 - `Amqp0ConsumerRegistry` (one per broker, shared by its connections) records each consumer by queue
   and owner. `queue.delete` calls `EndConsumersOf`, which ends every consumer of the queue on every
   connection (the bus ends its own side silently); a client whose `start-ok` announced
