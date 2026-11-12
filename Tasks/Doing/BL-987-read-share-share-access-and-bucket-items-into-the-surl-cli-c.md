@@ -79,3 +79,4 @@ tested. No option row uses the readers yet; BL-989 adds the rows.
 - 2026-11-06: Created.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waits on BL-1035: pinned .NET SDK 10.0.401 is not installed, so the build gate cannot run; code is written, verified on SDK 11 and left for the shift to stash
+- 2026-11-11: Backlog -> Doing.
