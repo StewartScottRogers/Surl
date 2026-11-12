@@ -72,3 +72,4 @@ result in `ObjectMetadataIndex`, instead of hashing the whole file on every pull
 - 2026-11-12: Doing -> Backlog. returned by the shift starting 20261112-052315: it was in Doing but no stopped lane held it; look for its work in 'git stash list' and in factory/BL-865-* branches before redoing it
 - 2026-11-12: Backlog -> Doing.
 - 2026-11-12: Doing -> Backlog. Work sits in git stash 338a2122 (darkfactory BL-865 20261111-212123); this lane may not run git stash commands, so a session allowed to apply it must, then rebuild on SDK 10.0.404, tick the last box and commit
+- 2026-11-12: Backlog -> Doing.
