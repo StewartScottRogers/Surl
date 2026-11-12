@@ -73,16 +73,30 @@ public sealed class WebTransportConnectHandlerTests
     [DataRow("AC7CF00001", DisplayName = "No SETTINGS_H3_DATAGRAM")]
     [DataRow("3301", DisplayName = "No SETTINGS_WT_ENABLED")]
     [DataRow("3300AC7CF00001", DisplayName = "SETTINGS_H3_DATAGRAM = 0")]
-    public async Task ServeSessionAsync_ClientSettingsLackARequirement_ResetsTheConnectWithRequirementsNotMet(string settingsHex)
+    public async Task ServeSessionAsync_ClientSettingsLackARequirement_ClosesTheConnectionWithRequirementsNotMet(string settingsHex)
     {
         using var client = new Http3TestQuicClient();
         await UnitTestWebTransport.StartAsync(client, Token, clientSettings: UnitTestWebTransport.Settings(settingsHex));
 
-        await UnitTestWebTransport.ConnectAsync(client, Token);
-        await client.UntilAsync(() => client.StopSendingCode(0) is not null, Token);
+        client.Send(0, UnitTestWebTransport.Connect(client));
+        await client.UntilAsync(() => client.CloseCode is not null, Token);
 
-        Assert.AreEqual(WebTransportHttp3Codes.RequirementsNotMet, client.ResetCode(0));
-        Assert.AreEqual(WebTransportHttp3Codes.RequirementsNotMet, client.StopSendingCode(0));
+        Assert.AreEqual(WebTransportHttp3Codes.RequirementsNotMet, client.CloseCode, "WTH3 3.1: the whole connection closes WT_REQUIREMENTS_NOT_MET.");
+        Assert.IsNull(client.ResetCode(0), "The CONNECT stream is not reset on its own.");
+    }
+
+    [TestMethod]
+    public async Task ServeSessionAsync_ConnectWithAnHttpScheme_IsAnswered400AndFin()
+    {
+        using var client = new Http3TestQuicClient();
+        await UnitTestWebTransport.StartAsync(client, Token);
+
+        client.Send(0, client.Headers([(":method", "CONNECT"), (":protocol", "webtransport-h3"), (":scheme", "http"), (":authority", "127.0.0.1:18050"), (":path", "/echo")]));
+        await client.UntilAsync(() => client.Response(0).Fin, Token);
+
+        Assert.AreEqual("400", client.Response(0).Status);
+        Assert.IsEmpty(client.Response(0).RegularFields);
+        Assert.IsEmpty(client.Response(0).Body);
     }
 
     [TestMethod]

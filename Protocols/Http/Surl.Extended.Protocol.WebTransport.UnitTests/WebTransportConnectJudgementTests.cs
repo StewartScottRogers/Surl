@@ -61,6 +61,18 @@ public sealed class WebTransportConnectJudgementTests
         Assert.IsTrue(own);
     }
 
+    [TestMethod]
+    [DataRow("https", true)]
+    [DataRow("HTTPS", true)]
+    [DataRow("http", false)]
+    [DataRow(null, false)]
+    public void IsSecureScheme_Scheme_IsAcceptedOnlyWhenItIsHttps(string? scheme, bool expected)
+    {
+        var secure = WebTransportConnectJudgement.IsSecureScheme(Head("example.com") with { Scheme = scheme });
+
+        Assert.AreEqual(expected, secure);
+    }
+
     private static Http3RequestHead Head(string? authority, params (string Name, string Value)[] fields) =>
         new("CONNECT", "/echo", authority, [.. fields.Select(field => new KeyValuePair<string, string>(field.Name, field.Value))], null, false) { Protocol = "webtransport-h3" };
 }

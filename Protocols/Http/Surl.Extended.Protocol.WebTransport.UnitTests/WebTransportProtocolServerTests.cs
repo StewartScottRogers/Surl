@@ -119,7 +119,7 @@ public sealed class WebTransportProtocolServerTests
         await UnitTestWebTransport.OpenSessionAsync(client, Token);
 
         await exchange.CancelAsync();
-        await client.UntilAsync(() => client.CloseCode is not null, Token);
+        await UnitTestWebTransport.AdvanceUntilAsync(client, time, () => client.CloseCode is not null, Token);
         time.Advance(TimeSpan.FromMinutes(1));
         await serving.WaitAsync(TimeSpan.FromSeconds(30), Token);
 

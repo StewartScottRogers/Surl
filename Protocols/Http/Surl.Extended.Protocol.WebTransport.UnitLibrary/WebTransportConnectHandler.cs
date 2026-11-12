@@ -91,7 +91,8 @@ internal sealed class WebTransportConnectHandler(
 
         if (!MeetsRequirements(settings))
         {
-            await session.RequestStream.ResetAsync((Http3ErrorCode)WebTransportHttp3Codes.RequirementsNotMet, "the client's SETTINGS lack SETTINGS_H3_DATAGRAM = 1 or SETTINGS_WT_ENABLED = 1", cancellationToken);
+            // WTH3 3.1: the client cannot use WebTransport at all, so the connection closes, not just the request.
+            session.CloseConnection((Http3ErrorCode)WebTransportHttp3Codes.RequirementsNotMet, "the client's SETTINGS lack SETTINGS_H3_DATAGRAM = 1 or SETTINGS_WT_ENABLED = 1");
             return true;
         }
 
@@ -112,9 +113,10 @@ internal sealed class WebTransportConnectHandler(
         return false;
     }
 
-    // ADR-0117 decision 1's order: the origin, then the login (decision 7), then the path, so an unauthenticated client learns nothing of the paths served.
+    // ADR-0117 decision 1's order: the scheme (WTH3 3.2: https only), the origin, then the login (decision 7), then the path, so an unauthenticated client learns nothing of the paths served.
     private async Task<QpackFieldLine[]?> JudgeAsync(Http3RequestHead head, CancellationToken cancellationToken) =>
-        !WebTransportConnectJudgement.IsOwnOrigin(head) ? AnswerFields(WebTransportConnectJudgement.Forbidden)
+        !WebTransportConnectJudgement.IsSecureScheme(head) ? AnswerFields(WebTransportConnectJudgement.BadRequest)
+        : !WebTransportConnectJudgement.IsOwnOrigin(head) ? AnswerFields(WebTransportConnectJudgement.Forbidden)
         : await authentication.RefuseAsync(head, cancellationToken) is { } refusal ? refusal
         : !WebTransportConnectJudgement.IsAcceptedPath(head.Target, acceptedPath) ? AnswerFields(WebTransportConnectJudgement.MethodNotAllowed)
         : null;
