@@ -79,3 +79,4 @@ The `--aihelp` topic and help category exist, and the extension switch turns bot
 - 2026-11-05: Doing -> Backlog. Needs Application/Surl.Composition.UnitLibrary, which BL-803 (Doing) touches
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waits on BL-1035: the pinned .NET SDK 10.0.401 is not installed, so dotnet build cannot pass; the stomp/stomps work is done and stashed by the shift
+- 2026-11-11: Backlog -> Doing.
