@@ -4,7 +4,7 @@ title: Stop conformance tests against a published win-x64 surl timing out before
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-1035, BL-1059]
+depends-on: [BL-1035, BL-1059, BL-1088, BL-1089]
 touches: [Conformance/Surl.Conformance.UnitTests]
 requirement: none
 created: 2026-11-04
@@ -55,6 +55,9 @@ start timeout.
 - 2026-11-11, lane 5, cause found: thread-pool starvation in the test host, not surl. BL-1035's SDK worry is gone (10.0.404 rolls forward), so the win-x64 publish worked. One surl starts in ~100 ms and 32 at once all print `Listening on` within 0.5 s, so process start cost and antivirus are ruled out; both pipes are drained, so no deadlock. With 32 method-level workers blocking threads, the pool's callbacks that read surl's output ran late: the timeout message (now carrying stdout, stderr and process state) showed `Listening on ...` already in stdout, or nothing, while surl was alive. Raising the pool's minimum threads (`ThreadPoolSetup`, assembly initialize) took the FTP and DICT classes from 28 failures in 65 s to 0 in 9 s, and the full suite from 31 failures to 3-5.
 - The remaining 3-5 failures per full run are all HTTP/3 `Could not bind https://127.0.0.1:<port>/: Permission denied` (exit 45): the TCP port surl draws on port 0 sits in a Windows UDP excluded range (`netsh int ipv4 show excludedportrange protocol=udp`). A surl defect outside this task's `touches`, filed as BL-1059; this task depends on it for the two clean runs. Runs after the fix: 5 and 3 failures of 1916, all HTTP/3, none a start timeout.
 
+- 2026-11-12 (lane 3): built. `SocksGssApiLogin` (acceptor + service, default `rcmd`) and `Socks5GssApiNegotiation` (`01 01` context message, AP-REP only when mutual auth was asked, `01 02` protection message answered with level 0 in the same form it came - wrapped or raw for `--socks5-gssapi-nec`; any failure `01 FF` and close). With a keytab, `01` is chosen before `00`/`02` when offered (ADR-0121 amendment 2); without one it is never selected. Tests use the Kerberos tests' hand-made AP-REQs (linked `ApRequestBuilder`/`InitiatorTokens`, as `Surl.Authentication.UnitTests` does), so added the Socks tests to `Surl.Kerberos.UnitLibrary`'s `InternalsVisibleTo` (csproj added to `touches`; no other Doing task names it). Protocol bytes come from reading curl's `socks_sspi.c`; a live curl run still needs the SDK-pinned TestKdc and stored Windows credentials (see the 2026-11-11 note) and was not run. Wiring the keytab option is BL-1061. Socks library coverage: 100% lines, branches.
+- 2026-11-12, lane 2: full runs on a fresh win-x64 publish after BL-1059 and the thread-pool fix: 4 and 2 failures of 1993, then 9 on a third run. No start timeout in any. Left: HTTP/3 port-0 bind still exits 45 (BL-1088) and unrelated failures (BL-1089). Cause criterion is met; the two clean runs wait on those.
+
 ## Log
 
 - 2026-11-04: Created.
@@ -63,3 +66,4 @@ start timeout.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Cause fixed (thread-pool starvation); the clean full runs wait on BL-1059, the HTTP/3 UDP bind on a Windows-excluded port
 - 2026-11-12: Backlog -> Doing.
+- 2026-11-12: Doing -> Backlog. Cause fixed; clean full runs wait on BL-1088 (HTTP/3 port-0 bind) and BL-1089 (other failures)
