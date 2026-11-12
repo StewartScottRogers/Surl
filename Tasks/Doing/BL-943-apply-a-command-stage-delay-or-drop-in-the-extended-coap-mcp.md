@@ -57,3 +57,4 @@ returned the task to Backlog. Design worked out before stopping, for the next ru
 - 2026-11-06: Filed by BL-835 (ADR-0144), which applies only the `error` kind at these points.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waits on BL-1035 - pinned .NET SDK 10.0.401 is not installed, so nothing builds
+- 2026-11-12: Backlog -> Doing.
