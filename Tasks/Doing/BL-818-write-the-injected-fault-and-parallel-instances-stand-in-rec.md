@@ -47,3 +47,4 @@ handling, and how several independent stand-ins run side by side in one test pro
 ## Log
 
 - 2026-11-05: Created.
+- 2026-11-12: Backlog -> Doing.
