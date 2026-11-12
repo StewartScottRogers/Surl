@@ -65,3 +65,4 @@ RFC 7858) on that port's protocols as ADR-0092 decision 5 says, with the DoT han
 - 2026-11-06: Doing -> Backlog. Released by the interactive session unstarted: it needs a TLS-from-the-first-byte dns listener, which BL-1020 builds, so it should depend on BL-1020; no work done
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waits on BL-1036: the serving engine must let a dns listen URL bind only its UDP or only its TLS listener before DoT can be served
+- 2026-11-11: Backlog -> Doing.
