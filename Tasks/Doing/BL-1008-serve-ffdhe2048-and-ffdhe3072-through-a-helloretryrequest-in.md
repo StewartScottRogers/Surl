@@ -70,3 +70,4 @@ recorded upstream curl ClientHello for `--curves ffdhe2048` or `--curves ffdhe30
 - 2026-11-11: Doing -> Backlog. Lane 4 could not integrate: build failed after rebasing onto the other lanes' work. The work is on branch factory/BL-1008-lane-4-20261111-060243; start with git cherry-pick --no-commit factory/BL-1008-lane-4-20261111-060243 and fix it.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waits on BL-1035: pinned .NET SDK 10.0.401 is not installed, so dotnet build cannot run
+- 2026-11-11: Backlog -> Doing.
