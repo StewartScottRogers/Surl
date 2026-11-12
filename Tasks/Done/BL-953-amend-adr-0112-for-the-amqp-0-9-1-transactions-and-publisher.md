@@ -8,7 +8,7 @@ depends-on: [BL-731, BL-1035]
 touches: [Documentation/Planning/Decisions/ADR-0112-how-the-amqp-0-9-1-broker-answers-amqp-and-amqps.md]
 requirement: none
 created: 2026-11-06
-completed:
+completed: 2026-11-12
 ---
 # BL-953 — Amend ADR-0112 for the AMQP 0-9-1 transactions and publisher confirms BL-731 serves
 
@@ -58,3 +58,4 @@ ADR-0112 states what the broker now does for `tx` and `confirm` (BL-731) instead
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waiting on BL-1035: dotnet build fails because the pinned .NET SDK 10.0.401 is not installed; the ADR amendment itself is ready on factory/BL-953-lane-6-20261111-060243.
 - 2026-11-12: Backlog -> Doing.
+- 2026-11-12: Doing -> Done. ADR-0112 now records the AMQP 0-9-1 tx and confirm behaviour BL-731 serves
