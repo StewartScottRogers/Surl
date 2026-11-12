@@ -8,7 +8,7 @@ depends-on: [BL-671]
 touches: [Foundation/Surl.Networking.UnitLibrary, Foundation/Surl.Networking.UnitTests]
 requirement: none
 created: 2026-11-11
-completed:
+completed: 2026-11-12
 ---
 # BL-1068 — Open TLS client connections to an LDAP account source in Surl.Networking
 
@@ -34,20 +34,30 @@ port, runs a verified TLS 1.2 or 1.3 client handshake at once (`ldaps`) or later
 
 ## Acceptance criteria
 
-- [ ] Named tests in `Foundation/Surl.Networking.UnitTests`, against an in-process loopback `SslStream` server, show:
+- [x] Named tests in `Foundation/Surl.Networking.UnitTests`, against an in-process loopback `SslStream` server, show:
       a handshake at connect accepted for a certificate trusted through given PEM certificates; a handshake run later
       on the same open stream (StartTLS) after clear bytes were exchanged; an untrusted chain refused; a certificate
       not naming the host refused; a refused connection and a timeout each reported as a distinct failure.
-- [ ] No failure's message holds anything the caller sent over the connection.
-- [ ] `dotnet build -warnaserror` is clean, `dotnet test --filter "TestCategory!=Integration"` is green on all three
+- [x] No failure's message holds anything the caller sent over the connection.
+- [x] `dotnet build -warnaserror` is clean, `dotnet test --filter "TestCategory!=Integration"` is green on all three
       platforms' rules (no Windows-only certificate store use outside an `[OSCondition]` test), and the library keeps
       100% line and branch coverage.
 
 ## Notes
 
 - Filed by BL-671 (ADR-0149 decision 11). BL-673 depends on it.
+- Delivered as `TlsClientConnector`, `TlsClientConnection`, `TlsServerIdentityCheck`, `TlsClientFailure`,
+  `TlsClientException` in `Surl.Networking.UnitLibrary`; tests in `TlsClientConnectorTests` (19 tests,
+  in-memory `SslStream` server plus one loopback-socket case). Library keeps 100% line and branch coverage;
+  every method is far below complexity 10.
+- Choices (defaults taken, within ADR-0149 decision 5): the chain is first judged by the platform against the
+  system roots; only if that fails is it rebuilt with `CustomRootTrust` over the given certificates (union of
+  trust); name mismatch is reported after chain trust. Revocation is not checked (no CRL/OCSP traffic to a
+  test directory). The handshake after StartTLS takes the caller's token; the timeout covers connect plus
+  handshake only for `secureAtOnce`. Test certificates carry a DNS and a 127.0.0.1 SAN.
 
 ## Log
 
 - 2026-11-11: Created.
 - 2026-11-12: Backlog -> Doing.
+- 2026-11-12: Doing -> Done. Surl.Networking offers TlsClientConnector: verified TLS 1.2/1.3 client connections to an operator-named host, at once or via StartTLS
