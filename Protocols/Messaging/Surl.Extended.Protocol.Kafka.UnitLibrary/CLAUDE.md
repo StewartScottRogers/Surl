@@ -107,6 +107,24 @@ InitProducerId and idempotent producers (BL-951, ADR-0145 decisions 8 to 10):
   offset and nothing appended, one past the last taken is taken, anything else is 45; a partition
   mixing repeats and new batches is 45. `producerId` -1 is not checked.
 
+Consumer groups (BL-948, ADR-0145 decisions 1 to 3, 6, 9 and 10):
+
+- `KafkaGroupCoordinator` runs every group in memory on its injected `TimeProvider`: members in
+  join order, pending `MEMBER_ID_REQUIRED` ids, static instance ids, generation, leader, protocol
+  and assignments. The join phase has no initial delay and ends when every member has a JoinGroup
+  waiting or the largest rebalance timeout passes; the leader stays leader when it rejoins; the
+  protocol is the leader's first that every member lists; sessions remove a member and rebalance;
+  a group with no members and none pending is forgotten. Bounds `DefaultMaxGroups` (44),
+  `DefaultMaxMembersPerGroup` (81) and `DefaultMaxGroupStateBytes` (44). Each change is a
+  `ConsumerGroupChangedEvent` on the publisher of the group's latest request; a timer's carry no
+  exchange id.
+- `KafkaFindCoordinatorAnswerer` (v0 to v2), `KafkaJoinGroupAnswerer` (v0 to v5),
+  `KafkaSyncGroupAnswerer`, `KafkaHeartbeatAnswerer` and `KafkaLeaveGroupAnswerer` (v0 to v3) ask
+  the fault plan first through `KafkaCommandFault` (command the API name, path the group id or
+  key; an `error` rule's code is the top-level `error_code`), then group access through
+  `MessageBus.MayUseGroup` (30), then the coordinator. `KafkaHeldAnswer` pauses
+  `ExchangeContext.IdleClock` while a JoinGroup or SyncGroup is held.
+
 Each served API gets an `IKafkaApiAnswerer`, passed to `KafkaBroker`'s constructor; the command
 line (`--kafka-fetch-compression`) and composition are BL-522.
 

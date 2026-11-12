@@ -18,6 +18,21 @@ public enum KafkaApiKey : short
     /// <summary>Metadata: the brokers, topics and partitions.</summary>
     Metadata = 3,
 
+    /// <summary>FindCoordinator: find the broker coordinating a consumer group.</summary>
+    FindCoordinator = 10,
+
+    /// <summary>JoinGroup: join a consumer group and wait for its join phase to end.</summary>
+    JoinGroup = 11,
+
+    /// <summary>Heartbeat: keep a group member's session alive.</summary>
+    Heartbeat = 12,
+
+    /// <summary>LeaveGroup: leave a consumer group.</summary>
+    LeaveGroup = 13,
+
+    /// <summary>SyncGroup: hand out (leader) or receive (member) the partition assignments.</summary>
+    SyncGroup = 14,
+
     /// <summary>SaslHandshake: choose a SASL mechanism.</summary>
     SaslHandshake = 17,
 

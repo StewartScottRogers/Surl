@@ -31,7 +31,7 @@ public sealed class KafkaProduceAnswererTests
     public async Task AnswerAsync_NullArguments_Throw()
     {
         var answerer = new KafkaProduceAnswerer(new Surl.MessageBus.MessageBus(clock));
-        var request = new KafkaRequest(new KafkaRequestHeader(0, 3, 1, null), KafkaServedApis.Ranges[0], new KafkaPrimitiveReader(Array.Empty<byte>()), new KafkaConnectionState(null), new InMemoryConnection([]));
+        var request = new KafkaRequest(new KafkaRequestHeader(0, 3, 1, null), KafkaServedApis.Find(0)!, new KafkaPrimitiveReader(Array.Empty<byte>()), new KafkaConnectionState(null), new InMemoryConnection([]));
 
         Assert.AreEqual(KafkaApiKey.Produce, answerer.ApiKey);
         await Assert.ThrowsExactlyAsync<ArgumentNullException>(async () => await answerer.AnswerAsync(null!, Context(TestContext.CancellationToken)));

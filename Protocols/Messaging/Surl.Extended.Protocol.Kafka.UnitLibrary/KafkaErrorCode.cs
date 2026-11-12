@@ -27,8 +27,29 @@ public enum KafkaErrorCode : short
     /// <summary><c>INVALID_REQUIRED_ACKS</c>: <c>acks</c> is not 0, 1 or -1.</summary>
     InvalidRequiredAcks = 21,
 
+    /// <summary><c>ILLEGAL_GENERATION</c>: the request names a generation other than the group's.</summary>
+    IllegalGeneration = 22,
+
+    /// <summary><c>INCONSISTENT_GROUP_PROTOCOL</c>: an empty protocol type or list, or one the group's members do not share.</summary>
+    InconsistentGroupProtocol = 23,
+
+    /// <summary><c>INVALID_GROUP_ID</c>: the group id is empty.</summary>
+    InvalidGroupId = 24,
+
+    /// <summary><c>UNKNOWN_MEMBER_ID</c>: the group does not hold the member id.</summary>
+    UnknownMemberId = 25,
+
+    /// <summary><c>INVALID_SESSION_TIMEOUT</c>: the session timeout is outside 6000 to 1800000 milliseconds.</summary>
+    InvalidSessionTimeout = 26,
+
+    /// <summary><c>REBALANCE_IN_PROGRESS</c>: the group is preparing a rebalance; the member must rejoin.</summary>
+    RebalanceInProgress = 27,
+
     /// <summary><c>TOPIC_AUTHORIZATION_FAILED</c>: the caller may not use the topic.</summary>
     TopicAuthorizationFailed = 29,
+
+    /// <summary><c>GROUP_AUTHORIZATION_FAILED</c>: the caller may not use the consumer group.</summary>
+    GroupAuthorizationFailed = 30,
 
     /// <summary><c>UNSUPPORTED_SASL_MECHANISM</c>: the mechanism is not offered.</summary>
     UnsupportedSaslMechanism = 33,
@@ -68,4 +89,13 @@ public enum KafkaErrorCode : short
 
     /// <summary><c>FETCH_SESSION_ID_NOT_FOUND</c>: the broker keeps no fetch sessions.</summary>
     FetchSessionIdNotFound = 70,
+
+    /// <summary><c>MEMBER_ID_REQUIRED</c>: a dynamic member must rejoin with the member id the answer carries.</summary>
+    MemberIdRequired = 79,
+
+    /// <summary><c>GROUP_MAX_SIZE_REACHED</c>: the group holds the most members it may.</summary>
+    GroupMaxSizeReached = 81,
+
+    /// <summary><c>FENCED_INSTANCE_ID</c>: a newer member id holds the request's group instance id.</summary>
+    FencedInstanceId = 82,
 }
