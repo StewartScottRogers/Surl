@@ -50,6 +50,11 @@ public sealed class SurlServer : IAsyncDisposable
         stopping = new Lazy<Task<SurlExitCode>>(StopServingAsync);
     }
 
+    /// <summary>The source of the non-secret identifiers exchange <paramref name="exchangeId"/> draws, seeded by <see cref="SurlServerOptions.RandomSeed"/>.</summary>
+    /// <param name="exchangeId">The exchange.</param>
+    /// <returns>The source.</returns>
+    internal IIdentifierRandom IdentifiersForExchange(long exchangeId) => composedServing.IdentifiersForExchange(exchangeId);
+
     /// <summary>
     /// Every exchange recorded so far, oldest first, at most <see cref="SurlServerOptions.MaxRecordedExchanges"/>
     /// of them (ADR-0099, decision 7): a snapshot that later exchanges and bytes do not change. Safe to

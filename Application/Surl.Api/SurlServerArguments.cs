@@ -232,6 +232,7 @@ internal static class SurlServerArguments
         AddValue(arguments, FormatSeconds(options.IdleTimeout), "--idle-timeout");
         AddValue(arguments, FormatSeconds(options.MaxTime), "--max-time");
         AddValue(arguments, FormatInvariant(options.MaxFileSize), "--max-filesize");
+        AddValue(arguments, FormatInvariant(options.RandomSeed), "--random-seed");
     }
 
     private static string? FormatInvariant<T>(T? value)

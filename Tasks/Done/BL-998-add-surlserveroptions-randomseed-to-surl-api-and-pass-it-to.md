@@ -8,7 +8,7 @@ depends-on: [BL-997]
 touches: [Application/Surl.Api, Application/Surl.Api.UnitTests]
 requirement: none
 created: 2026-11-06
-completed:
+completed: 2026-11-12
 ---
 # BL-998 — Add SurlServerOptions.RandomSeed to Surl.Api and pass it to the composition
 
@@ -28,14 +28,18 @@ decision 4) and reaches the composition, so a .NET test seeds an in-process serv
 
 ## Acceptance criteria
 
-- [ ] A named `Surl.Api` test shows `SurlServerOptions.RandomSeed` reaching the composition, and two servers started
+- [x] A named `Surl.Api` test shows `SurlServerOptions.RandomSeed` reaching the composition, and two servers started
       side by side with different seeds draw different identifier bytes while two with the same seed draw equal ones.
-- [ ] `dotnet build Application/Surl.Api -warnaserror` is clean, the fast tests are green, and `Surl.Api` keeps 100%
+- [x] `dotnet build Application/Surl.Api -warnaserror` is clean, the fast tests are green, and `Surl.Api` keeps 100%
       line and branch coverage.
 
 ## Notes
+
+- `RandomSeed` composes as `--random-seed` after `--max-filesize`; an internal `SurlServer.IdentifiersForExchange`
+  lets tests observe the composed source. Tests: `SurlServerTests.RandomSeed.cs`; README options table updated.
 
 ## Log
 
 - 2026-11-06: Created.
 - 2026-11-12: Backlog -> Doing.
+- 2026-11-12: Doing -> Done. SurlServerOptions.RandomSeed reaches the composition as --random-seed
