@@ -31,3 +31,4 @@ BL-361 wired those three legs (ADR-0151) but a lane cannot push, so no run of th
 
 - 2026-11-12: Created.
 - 2026-11-12: Backlog -> Doing.
+- 2026-11-12: Doing -> Blocked. Needs a pushed branch and a GitHub Actions Release dry run; a lane cannot push or run workflows, so nobody can record the green URL until the shift integrates and someone runs it
