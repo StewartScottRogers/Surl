@@ -82,13 +82,22 @@ public sealed class ProtobufReader
     {
         var begin = position;
         var tag = ReadVarint();
+        return ReadFieldBody(begin, ReadFieldNumber(tag), tag, groupDepth);
+    }
+
+    private static int ReadFieldNumber(ulong tag)
+    {
         var fieldNumber = tag >> 3;
         if (fieldNumber is 0 or > MaximumFieldNumber)
         {
             throw new ProtobufFormatException($"A tag names field number {fieldNumber}.");
         }
 
-        var number = (int)fieldNumber;
+        return (int)fieldNumber;
+    }
+
+    private ProtobufField ReadFieldBody(int begin, int number, ulong tag, int groupDepth)
+    {
         return (ProtobufWireType)(tag & 7) switch
         {
             ProtobufWireType.Varint => Scalar(begin, number, ProtobufWireType.Varint, ReadVarint()),

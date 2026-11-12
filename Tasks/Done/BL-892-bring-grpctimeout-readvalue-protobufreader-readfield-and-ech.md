@@ -8,7 +8,7 @@ depends-on: [BL-1035]
 touches: [Protocols/Http/Surl.Extended.Protocol.Grpc.UnitLibrary, Protocols/Http/Surl.Extended.Protocol.Grpc.UnitTests]
 requirement: none
 created: 2026-11-05
-completed:
+completed: 2026-11-11
 ---
 # BL-892 — Bring GrpcTimeout.ReadValue, ProtobufReader.ReadField and EchoRequest.Read to cyclomatic complexity 10 or less
 
@@ -25,9 +25,9 @@ completed:
 
 ## Acceptance criteria
 
-- [ ] `powershell -NoProfile -File Measure-CodeQuality.ps1 -Library Surl.Extended.Protocol.Grpc.UnitLibrary`
+- [x] `powershell -NoProfile -File Measure-CodeQuality.ps1 -Library Surl.Extended.Protocol.Grpc.UnitLibrary`
       reports 0 failing members, with 100% line and branch coverage.
-- [ ] `dotnet build -warnaserror` is clean and the fast tests are green.
+- [x] `dotnet build -warnaserror` is clean and the fast tests are green.
 
 ## Notes
 
@@ -39,3 +39,4 @@ completed:
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waits on BL-1035 - pinned .NET SDK 10.0.401 is not installed, so nothing can be built or measured
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Done. Grpc library has 0 failing members at 100% coverage after splitting the three methods
