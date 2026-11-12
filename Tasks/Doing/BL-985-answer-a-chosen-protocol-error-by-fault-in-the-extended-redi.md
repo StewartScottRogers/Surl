@@ -45,3 +45,4 @@ command with the chosen text as a RESP error `-<text>`.
 - 2026-11-11: Doing -> Backlog. Lane 6 could not integrate: build failed after rebasing onto the other lanes' work. The work is on branch factory/BL-985-lane-6-20261111-060243; start with git cherry-pick --no-commit factory/BL-985-lane-6-20261111-060243 and fix it.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waiting on BL-1035: pinned .NET SDK 10.0.401 is not installed, so the root dotnet build fails; the code builds and its 389 tests pass with SDK 11 (branch factory/BL-985-lane-6-20261111-060243).
+- 2026-11-11: Backlog -> Doing.
