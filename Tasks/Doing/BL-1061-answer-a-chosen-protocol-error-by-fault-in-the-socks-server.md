@@ -36,3 +36,4 @@ An `error` fault rule naming `socks4`, `socks4a`, `socks5` or `socks5h` (or a li
 ## Log
 
 - 2026-11-12: Created.
+- 2026-11-12: Backlog -> Doing.
