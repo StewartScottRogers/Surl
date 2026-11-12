@@ -8,7 +8,7 @@ depends-on: [BL-645, BL-646, BL-1035]
 touches: [Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests, Application/Surl.Mcp.UnitLibrary, Application/Surl.Mcp.UnitTests]
 requirement: none
 created: 2026-11-06
-completed:
+completed: 2026-11-11
 ---
 # BL-987 — Read --share, --share-access and --bucket items into the Surl.Cli configuration model
 
@@ -37,13 +37,20 @@ tested. No option row uses the readers yet; BL-989 adds the rows.
 
 ## Acceptance criteria
 
-- [ ] Named tests in `Application/Surl.Cli.UnitTests` read each item form (one, many, `readonly`, `protocols=`,
+- [x] Named tests in `Application/Surl.Cli.UnitTests` read each item form (one, many, `readonly`, `protocols=`,
       `@group` access) and refuse each malformed or duplicate item with the ADR's text.
-- [ ] `Table_EverySurlCommandLineMember_IsClassifiedExactlyOnce` passes.
-- [ ] `dotnet build Application/Surl.Cli.UnitLibrary -warnaserror` is clean, the fast tests are green, and
+- [x] `Table_EverySurlCommandLineMember_IsClassifiedExactlyOnce` passes.
+- [x] `dotnet build Application/Surl.Cli.UnitLibrary -warnaserror` is clean, the fast tests are green, and
       `Surl.Cli.UnitLibrary` keeps 100% line and branch coverage.
 
 ## Notes
+
+- 2026-11-11 (lane 2): restored lane 4's work from its darkfactory stash (`5dd519c3`) by patch, without
+  popping the shared stash. `global.json`'s `rollForward: latestFeature` resolves the pin 10.0.401 to the
+  installed SDK 10.0.404, so the gates ran on the pinned SDK line: `dotnet build -warnaserror` clean, every
+  fast test green (`Surl.Cli.UnitTests` 1482/1482, `Surl.Mcp.UnitTests` 245/245, including
+  `Table_EverySurlCommandLineMember_IsClassifiedExactlyOnce`), and `Surl.Cli.UnitLibrary` at 100% line and
+  100% branch coverage.
 
 - 2026-11-11 (lane 4): the code is written and was verified, but **left uncommitted** (the shift stashes it)
   because the pinned .NET SDK 10.0.401 is not installed (BL-1035), so the gate `dotnet build` cannot run
@@ -80,3 +87,4 @@ tested. No option row uses the readers yet; BL-989 adds the rows.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waits on BL-1035: pinned .NET SDK 10.0.401 is not installed, so the build gate cannot run; code is written, verified on SDK 11 and left for the shift to stash
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Done. Surl.Cli reads --share, --share-access and --bucket items into SurlCommandLine.Shares, ShareAccess and Buckets, refusing malformed, duplicate and conflicting items as ADR-0101 says
