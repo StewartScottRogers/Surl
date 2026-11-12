@@ -17,6 +17,9 @@ internal sealed class Amqp1IncomingDelivery(uint deliveryId, byte[]? deliveryTag
     /// <summary>Whether the client sent the delivery settled, on any of its transfers or by its link's mode.</summary>
     public bool Settled { get; set; }
 
+    /// <summary>The delivery state the client's transfers last carried, as read; <see langword="null"/> when none carried one.</summary>
+    public object? State { get; set; }
+
     /// <summary>The message bytes so far.</summary>
     public ArrayBufferWriter<byte> Bytes { get; } = new();
 

@@ -209,21 +209,6 @@ public sealed partial class Amqp1ContainerConnectionTests
     }
 
     [TestMethod]
-    public async Task ServeAsync_AttachToACoordinator_IsRefusedWithNotImplemented()
-    {
-        var attach = new Amqp1Attach("txn", 0, IsReceiver: false)
-        {
-            Target = new Amqp1Described(Amqp1Descriptor.Coordinator, new List<object?>()),
-        };
-
-        var (written, _) = await ServeAsync(ClientOpen, Frame(0, ClientBegin()), Frame(0, attach));
-
-        Assert.AreEqual(
-            new Amqp1Error(Amqp1ErrorCondition.NotImplemented) { Description = "transactions are not supported" },
-            ((Amqp1Detach)written[3].Performative!).Error);
-    }
-
-    [TestMethod]
     public async Task ServeAsync_FrameOnAChannelWithNoSession_ClosesWithFramingError()
     {
         var (written, log) = await ServeAsync(ClientOpen, Frame(0, ClientBegin()), Frame(5, new Amqp1Attach("stray", 0, IsReceiver: false)));

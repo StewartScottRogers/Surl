@@ -35,7 +35,7 @@ The type system and the frame codec (BL-510; ADR-0107 Part 1 and decision
   or any field of the wrong type is `amqp:decode-error`. A `symbol` field with `multiple="true"`
   reads a single symbol or an array, and writes one symbol as itself and more as an array.
   `source`, `target` and delivery states are kept as the described values read; `Amqp1Terminus` reads source,
-  target and coordinator (BL-512), and `Amqp1DeliveryState` writes `accepted` and `rejected` and reads
+  target and coordinator (BL-512), and `Amqp1DeliveryState` writes `accepted` and `rejected` (and, for BL-956, `declared` and `transactional-state`) and reads
   each delivery state as an `Amqp1Outcome` (BL-513).
 - `Amqp1MessageSection.ReadAll` splits a message into its Part 3 section 3.2 sections, each with its
   bytes exactly as they arrived; `Amqp1Header` and `Amqp1Properties` read the two sections that are
@@ -79,7 +79,7 @@ Connections, sessions and links (BL-512; ADR-0107 decisions 3, 4 and 7):
   `--max-filesize` and `rcv-settle-mode` `first` when it receives; the client's other terminus is
   echoed and no `unsettled` map is sent. `Amqp1NodeAddress` maps the address (one leading `/`
   dropped, `topic/<t>`, `queue/<q>`, any other name a queue) and `IAmqp1NodeDirectory` finds or
-  creates the node and judges access; a coordinator, an address naming no node, or the directory's
+  creates the node and judges access; a coordinator as a source, an address naming no node, or the directory's
   refusal gets an `attach` with a null terminus then a closing `detach` with the error. `detach` is
   answered with the same `closed`, unless the container already detached the link. `flow` and
   `transfer` on an unattached handle end the session with `amqp:session:unattached-handle`.
@@ -174,6 +174,30 @@ Source filters (BL-959; ADR-0146 decisions 2.1 and 2.4):
   the queue's name (sent straight to it) has none. A topic link filters before a message waits, so a
   filtered one never counts against the 1000; a queue link hands `QueuePredicate` to the bus as its
   consumer predicate, so a message no consumer accepts stays ready.
+
+Local transactions (BL-956; ADR-0146 decisions 1.1 to 1.4 and 1.6 to 1.8):
+
+- A `coordinator` target is answered as a receiving link with credit 100 and the container's
+  `coordinator` (`Amqp1Terminus.Coordinator`), whose capabilities are exactly `amqp:local-transactions`,
+  `amqp:multi-txns-per-ssn` and `amqp:multi-ssns-per-txn`; a coordinator as a source is refused with
+  `amqp:not-allowed`. `Amqp1TransactionControl` reads what a coordinator link receives: one `amqp-value`
+  holding a `declare` or a `discharge`; anything else is `rejected` with `amqp:decode-error`.
+- A transaction (`Amqp1Transaction`) belongs to the connection, so any link of any session may post in
+  it. `declare` answers `declared` with `txn-id` `00 00 00 01`, `00 00 00 02`, ... per connection, never
+  reused; one with a `global-id` is `rejected` with `amqp:not-implemented`, and past 100 open
+  (`MaxOpenTransactions`) with `amqp:resource-limit-exceeded`.
+- A transfer whose state is `transactional-state` naming an open transaction is judged as any transfer
+  (format, decode), held unpublished and answered `transactional-state` with `accepted`, or with
+  `rejected` and the error; held messages count with partial deliveries against `--max-filesize`
+  (`amqp:resource-limit-exceeded` past it). Access was judged at attach. A `txn-id` naming no open
+  transaction (not four bytes, discharged, rolled back, from another connection) is `rejected` with
+  `amqp:transaction:unknown-id`.
+- `discharge` with `fail` true drops the held messages; with `fail` false publishes them all or none
+  through `BusConnection.PublishBatch`, and a refusal rolls back and answers `rejected` with
+  `amqp:transaction:rollback`. Either way the id is never valid again. A coordinator link ending
+  (detach, its session's end, the connection's end) rolls back what it declared, with no frame. A
+  pre-settled `declare`, `discharge` or transactional transfer is applied and answered by nothing.
+  Transactional retirement and acquisition (ADR-0146 decision 1.5) are BL-957.
 
 `Amqp1Container` is the one `IConnectionProtocolServer`: it runs `Amqp1SecurityNegotiation`, then
 `Amqp1ContainerConnection` for the account SASL logged in. The head timeout runs from accept until the

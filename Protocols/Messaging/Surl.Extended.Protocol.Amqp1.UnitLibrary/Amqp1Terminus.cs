@@ -49,5 +49,14 @@ internal sealed record Amqp1Terminus(string? Address, bool IsDynamic, bool IsCoo
         Amqp1Descriptor.Target,
         Amqp1Fields.WithoutTrailingNulls([address, null, null, null, DynamicField(isDynamic)]));
 
+    /// <summary>
+    /// The container's <c>coordinator</c> (Part 4 sections 4.5.1 and 4.5.7): its <c>capabilities</c> are the
+    /// ones the container serves, local transactions, several a session and several sessions a
+    /// transaction (ADR-0146 decision 1.1).
+    /// </summary>
+    public static Amqp1Described Coordinator { get; } = new(
+        Amqp1Descriptor.Coordinator,
+        new object?[] { Amqp1Fields.SymbolsField([new("amqp:local-transactions"), new("amqp:multi-txns-per-ssn"), new("amqp:multi-ssns-per-txn")]) });
+
     private static object? DynamicField(bool isDynamic) => isDynamic ? true : null;
 }
