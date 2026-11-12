@@ -14,11 +14,12 @@ public sealed class SocketIoSessionsTests
         var sessionId = sessions.TryReserve()!;
 
         Assert.AreEqual(20, sessionId.Length);
-        Assert.IsTrue(sessions.Contains(sessionId));
+        Assert.IsTrue(sessions.TryFind(sessionId, out var reserved));
+        Assert.IsNull(reserved);
         Assert.AreEqual(1, sessions.Count);
         Assert.IsEmpty(sessions.Attached());
         sessions.Remove(sessionId);
-        Assert.IsFalse(sessions.Contains(sessionId));
+        Assert.IsFalse(sessions.TryFind(sessionId, out _));
         Assert.AreEqual(0, sessions.Count);
     }
 

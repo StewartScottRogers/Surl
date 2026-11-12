@@ -17,7 +17,7 @@ internal static class EngineIoRefusal
     /// <summary>Code 2: a request without <c>sid</c> whose method is not <c>GET</c>.</summary>
     public const int BadHandshakeMethod = 2;
 
-    /// <summary>Code 3: a second WebSocket for a session, or a WebSocket request that is not an upgrade.</summary>
+    /// <summary>Code 3: a second WebSocket for a session, a second concurrent poll or post, a polling request for a session on a WebSocket, a malformed post, or a WebSocket request that is not an upgrade.</summary>
     public const int BadRequest = 3;
 
     /// <summary>Code 5: <c>EIO</c> absent or not <c>4</c>.</summary>
