@@ -53,7 +53,7 @@ public sealed class KafkaProduceAnswerer(MessageBus.MessageBus bus, KafkaProduce
     public KafkaApiKey ApiKey => KafkaApiKey.Produce;
 
     /// <inheritdoc/>
-    public ValueTask<KafkaAnswer> AnswerAsync(KafkaRequest request, ExchangeContext context)
+    public async ValueTask<KafkaAnswer> AnswerAsync(KafkaRequest request, ExchangeContext context)
     {
         ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(context);
@@ -63,20 +63,30 @@ public sealed class KafkaProduceAnswerer(MessageBus.MessageBus bus, KafkaProduce
             : produce.TransactionalId is not null ? KafkaErrorCode.UnsupportedForMessageFormat
             : KafkaErrorCode.None;
         var account = request.Connection.AccountName;
+
+        // A request refused as a whole asks the fault plan nothing (ADR-0124 decision 9).
+        var chosen = requestError == KafkaErrorCode.None
+            ? await KafkaChosenErrorFault.FindAsync(ApiKey, produce.Topics.Select(topic => topic.Name), account, context)
+            : [];
         var answered = produce.Topics.Select(topic => new TopicAnswer(
             topic.Name,
-            [.. topic.Partitions.Select(partition => requestError == KafkaErrorCode.None
-                ? Append(topic.Name, partition, account, context)
-                : PartitionAnswer.Failed(partition.Index, requestError))])).ToList();
+            [.. topic.Partitions.Select(partition => AnswerPartition(topic.Name, partition, requestError, chosen, account, context))])).ToList();
 
         if (produce.Acks == 0)
         {
             NoteErrors(answered, context);
-            return ValueTask.FromResult(KafkaAnswer.NoResponse);
+            return KafkaAnswer.NoResponse;
         }
 
-        return ValueTask.FromResult(KafkaAnswer.Respond(Encode(answered, request.Header.ApiVersion)));
+        return KafkaAnswer.Respond(Encode(answered, request.Header.ApiVersion));
     }
+
+    // The request's own error first, then a chosen-error rule's code, else the append.
+    private PartitionAnswer AnswerPartition(
+        string name, PartitionData partition, KafkaErrorCode requestError, Dictionary<string, KafkaErrorCode> chosen, string? account, ExchangeContext context) =>
+        requestError != KafkaErrorCode.None ? PartitionAnswer.Failed(partition.Index, requestError)
+        : chosen.TryGetValue(name, out var chosenError) ? PartitionAnswer.Failed(partition.Index, chosenError)
+        : Append(name, partition, account, context);
 
     private PartitionAnswer Append(string name, PartitionData partition, string? account, ExchangeContext context)
     {
