@@ -42,6 +42,10 @@ public static partial class SurlServerComposition
         // one, ADR-0088 decision 6); its IsProxy mark sends its exchanges to the proxy server.
         commandLine = commandLine with { ListenUrls = [.. commandLine.ListenUrls, .. commandLine.ProxyListenUrls] };
 
+        // --s3-plaintext marks every s3 listen URL plain, so it needs no certificate and the engine
+        // serves it without a handshake (ADR-0108 decision 5).
+        commandLine = S3PlaintextComposition.MarkS3ListenUrlsPlain(commandLine);
+
         if (FindOptionRefusal(commandLine) is { } optionRefusal)
         {
             return Refuse(SurlExitCode.FailedInit, optionRefusal);

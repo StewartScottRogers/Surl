@@ -190,6 +190,11 @@ public static class AuthenticationComposition
         {
             log.WriteLine(WarningPrefix + $"--auth: accepted methods are {string.Join(", ", words)}");
         }
+
+        if (commandLine.S3Plaintext)
+        {
+            log.WriteLine(WarningPrefix + "--s3-plaintext: s3 is served as plain HTTP, without TLS");
+        }
     }
 
     // The --user accounts, then the --user-file's (ADR-0032, section 2): a file that cannot be

@@ -57,7 +57,9 @@ horizontal library may reference it (ADR-0099 decision 11, held by
   `ProtocolServerRegistration` record, each joining with one entry; its `ExtendedProtocolServerServices`
   wraps the start's `ComposedProtocolServices` (the S3 server reads its content store, policy, object
   metadata index and clock); `s3` is TLS from the first byte through `TlsSchemes` (ADR-0108 decision 5),
-  so it needs no `ImplicitTls` entry. The NATS server is built over the one `MessageBus` the MQTT
+  so it needs no `ImplicitTls` entry; under `--s3-plaintext` `S3PlaintextComposition.MarkS3ListenUrlsPlain` sets
+  each `s3` listen URL's `ListenUrl.IsImplicitTls` to `false` at the start of `ComposeAsync`, and
+  `ServerTlsComposition` reads that per-listen-URL answer, so a plain `s3` needs no certificate (ADR-0108 Amendment 5). The NATS server is built over the one `MessageBus` the MQTT
   server shares, `AuthenticationPolicyFor("nats")`, and a `NatsServerOptions` of
   `ComposedProtocolServices.IdleTimeout` (the start sets it to `ComposeConnectionLimits`' idle timeout)
   and the policy's `AllowAnonymous`. `natss` starts in plain text and upgrades (ADR-0113 decision 6),
