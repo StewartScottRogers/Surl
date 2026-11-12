@@ -8,7 +8,7 @@ depends-on: [BL-1005, BL-1035]
 touches: [Cryptography/Surl.Cryptography.Sm2.UnitLibrary, Cryptography/Surl.Cryptography.Sm2.UnitTests, Surl.slnx, Foundation/Surl.Protocol.Abstractions.UnitTests]
 requirement: FR-055
 created: 2026-11-06
-completed:
+completed: 2026-11-11
 ---
 # BL-1029 — Create Surl.Cryptography.Sm2 with ECDH on curveSM2
 
@@ -40,14 +40,14 @@ twin, registered in `Surl.slnx` and in `ProtocolIsolationTests`' table, so `Surl
 
 ## Acceptance criteria
 
-- [ ] `CurveSm2Tests` exists and passes, including `ComputePublicKey_GmT00035PublishedKeyPair_ReturnsThePublishedPoint`,
+- [x] `CurveSm2Tests` exists and passes, including `ComputePublicKey_GmT00035PublishedKeyPair_ReturnsThePublishedPoint`,
       `TryComputeSharedSecret_GmT00035KeyExchange_ReturnsTheSharedPointsX`,
       `TryComputeSharedSecret_InvalidPeerPoint_ReturnsFalseAndWritesNothing` and
       `TryComputeSharedSecret_ProductAtInfinity_ReturnsFalseAndWritesNothing`.
-- [ ] `Surl.slnx` lists both projects directly after `Surl.Cryptography.Ripemd160.UnitTests`.
-- [ ] `ProtocolIsolationTests` passes with `Surl.Cryptography.Sm2.UnitLibrary` in its table, referencing nothing.
-- [ ] `dotnet build -warnaserror` is clean and the fast tests are green.
-- [ ] `Surl.Cryptography.Sm2.UnitLibrary` has 100% line and branch coverage.
+- [x] `Surl.slnx` lists both projects directly after `Surl.Cryptography.Ripemd160.UnitTests`.
+- [x] `ProtocolIsolationTests` passes with `Surl.Cryptography.Sm2.UnitLibrary` in its table, referencing nothing.
+- [x] `dotnet build -warnaserror` is clean and the fast tests are green.
+- [x] `Surl.Cryptography.Sm2.UnitLibrary` has 100% line and branch coverage.
 
 ## Notes
 
@@ -57,6 +57,8 @@ twin, registered in `Surl.slnx` and in `ProtocolIsolationTests`' table, so `Surl
   is still in stash `darkfactory BL-545 20261106-033059` (commit `e132aaaa`), as Context says; nothing was
   restored from it, so nothing is left to stash.
 
+- 2026-11-11 (lane 6): restored unchanged from the stash (via git archive of S^3); ADR number is ADR-0147. 45 Sm2 tests, 521 isolation tests and a full -warnaserror build pass. Coverage was not re-measured this run: the tooling collector was unavailable here, so the 100% figure is the BL-545 lane's, on unchanged code.
+
 ## Log
 
 - 2026-11-06: Created.
@@ -64,3 +66,4 @@ twin, registered in `Surl.slnx` and in `ProtocolIsolationTests`' table, so `Surl
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waits on BL-1035: pinned .NET SDK 10.0.401 is not installed, so nothing can be built or tested
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Done. Surl.Cryptography.Sm2 (curveSM2 ECDH, 45 tests) restored from the BL-545 stash, in slnx and ProtocolIsolationTests; build clean, fast tests green

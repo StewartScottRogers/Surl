@@ -100,6 +100,8 @@
     <Project Path="Cryptography/Surl.Cryptography.Rc4.UnitTests/Surl.Cryptography.Rc4.UnitTests.csproj" />
     <Project Path="Cryptography/Surl.Cryptography.Ripemd160.UnitLibrary/Surl.Cryptography.Ripemd160.UnitLibrary.csproj" />
     <Project Path="Cryptography/Surl.Cryptography.Ripemd160.UnitTests/Surl.Cryptography.Ripemd160.UnitTests.csproj" />
+    <Project Path="Cryptography/Surl.Cryptography.Sm2.UnitLibrary/Surl.Cryptography.Sm2.UnitLibrary.csproj" />
+    <Project Path="Cryptography/Surl.Cryptography.Sm2.UnitTests/Surl.Cryptography.Sm2.UnitTests.csproj" />
     <Project Path="Cryptography/Surl.Cryptography.Srp.UnitLibrary/Surl.Cryptography.Srp.UnitLibrary.csproj" />
     <Project Path="Cryptography/Surl.Cryptography.Srp.UnitTests/Surl.Cryptography.Srp.UnitTests.csproj" />
     <Project Path="Cryptography/Surl.Cryptography.UnitLibrary/Surl.Cryptography.UnitLibrary.csproj" />
