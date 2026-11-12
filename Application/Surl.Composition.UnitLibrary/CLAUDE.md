@@ -54,7 +54,7 @@ horizontal library may reference it (ADR-0099 decision 11, held by
   the DNS server for `dns` (BL-1032), two entries - `DnsUdpProtocolServer` and `DnsTcpProtocolServer` -
   so the engine binds UDP and TCP on one port, both over `ComposedProtocolServices.DnsZones` and
   `AllowsZoneTransfer` (`--allow-zone-transfer`, ADR-0092 decision 4),
-  the NATS server for `nats` and `natss`, BL-528, the S3 server for `s3`, BL-421, and the Socket.IO server for `socketio` and `socketios`, BL-455, one server over one `SocketIoSessions`; `socketios` is TLS through `TlsSchemes`) from
+  the NATS server for `nats` and `natss`, BL-528, the STOMP broker for `stomp` and `stomps` over the one `MessageBus` (`stomps` is TLS through `TlsSchemes`, BL-533), the S3 server for `s3`, BL-421, and the Socket.IO server for `socketio` and `socketios`, BL-455, one server over one `SocketIoSessions`; `socketios` is TLS through `TlsSchemes`) from
   `ExtendedProtocolServers.Registrations`, the same
   `ProtocolServerRegistration` record, each joining with one entry; its `ExtendedProtocolServerServices`
   wraps the start's `ComposedProtocolServices` (the S3 server reads its content store, policy, object

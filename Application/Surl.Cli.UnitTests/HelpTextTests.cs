@@ -33,6 +33,7 @@ public sealed class HelpTextTests
         " socketio      Socket.IO and Socket.IO over TLS protocol (extended)",
         " socks         SOCKS4, SOCKS4a, SOCKS5 and SOCKS5h proxy protocol",
         " ssh           SSH protocol",
+        " stomp         STOMP and STOMPS protocol (extended)",
         " surl          The command line tool itself",
         " telnet        TELNET protocol",
         " testing       Options for tests; loosening ones warn",
@@ -206,8 +207,8 @@ public sealed class HelpTextTests
             "Use \"--help category\" to get an overview of all categories, which are:",
             "auth, coap, content, dict, dns, ftp, gopher, http, imap, ldap, limits,",
             "logging, mail, messages, mqtt, nats, pop3, proxy, rtsp, s3, security, smb,",
-            "smtp, socketio, socks, ssh, surl, telnet, testing, tftp, tls, websocket,",
-            "webtransport, xmpp.",
+            "smtp, socketio, socks, ssh, stomp, surl, telnet, testing, tftp, tls,",
+            "websocket, webtransport, xmpp.",
             "Use \"--help all\" to list all options",
             "Use \"--help [option]\" to view documentation for a given option");
     }
@@ -537,7 +538,7 @@ public sealed class HelpTextTests
             "        Add an account (repeatable). Default: no accounts.",
             "",
             "        Categories: auth, ftp, http, imap, ldap, mqtt, nats, pop3, rtsp, s3,",
-            "        smb, smtp, ssh, websocket.",
+            "        smb, smtp, ssh, stomp, websocket.",
             "");
 
     [TestMethod]
@@ -548,7 +549,7 @@ public sealed class HelpTextTests
             "        Read accounts from a file. Default: none.",
             "",
             "        Categories: auth, ftp, http, imap, ldap, mqtt, nats, pop3, rtsp, s3,",
-            "        smb, smtp, ssh, websocket.",
+            "        smb, smtp, ssh, stomp, websocket.",
             "");
 
     [TestMethod]
@@ -562,7 +563,7 @@ public sealed class HelpTextTests
                 .. AllowAnonymousExplanationLines,
                 "",
                 "        Categories: auth, ftp, http, imap, ldap, mqtt, nats, pop3, rtsp, s3,",
-                "        security, smb, smtp, ssh, testing, websocket.",
+                "        security, smb, smtp, ssh, stomp, testing, websocket.",
                 "",
             ]);
 
@@ -579,7 +580,7 @@ public sealed class HelpTextTests
                 .. AllowPlaintextAuthExplanationLines,
                 "",
                 "        Categories: auth, ftp, http, imap, ldap, mqtt, nats, pop3, rtsp,",
-                "        security, smtp, testing, websocket.",
+                "        security, smtp, stomp, testing, websocket.",
                 "",
             ]);
 
@@ -882,7 +883,8 @@ public sealed class HelpTextTests
             "    --max-line <bytes>",
             "        Longest command line accepted. Default: 8192.",
             "",
-            "        Categories: dict, ftp, gopher, imap, limits, nats, pop3, smtp, telnet.",
+            "        Categories: dict, ftp, gopher, imap, limits, nats, pop3, smtp, stomp,",
+            "        telnet.",
             "");
 
     [TestMethod]

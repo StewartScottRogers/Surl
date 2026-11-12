@@ -33,6 +33,7 @@ internal static class HelpCategories
         new("socketio", "Socket.IO and Socket.IO over TLS protocol (extended)", ["socketio", "socketios"]),
         new("socks", "SOCKS4, SOCKS4a, SOCKS5 and SOCKS5h proxy protocol", ["socks4", "socks4a", "socks5", "socks5h"]),
         new("ssh","SSH protocol", ["scp", "sftp"]),
+        new("stomp", "STOMP and STOMPS protocol (extended)", ["stomp", "stomps"]),
         new("surl", "The command line tool itself", []),
         new("telnet", "TELNET protocol", ["telnet"]),
         new("testing", "Options for tests; loosening ones warn", []),

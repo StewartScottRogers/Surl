@@ -3,6 +3,7 @@ using Surl.Extended.Protocol.DnsQuery;
 using Surl.Extended.Protocol.Nats;
 using Surl.Extended.Protocol.S3;
 using Surl.Extended.Protocol.SocketIo;
+using Surl.Extended.Protocol.Stomp;
 using Surl.Extended.Protocol.WebTransport;
 using Surl.Extended.Protocol.Xmpp;
 using Surl.Protocol.Abstractions;
@@ -42,7 +43,7 @@ public static class ExtendedProtocolServers
     /// scheme, on the same <see cref="ProtocolServerRegistration"/> as the originals (ADR-0124,
     /// decision 2): today the DNS server for <c>dns</c> over UDP and TCP (BL-1032), the NATS server for
     /// <c>nats</c> and <c>natss</c> (BL-528), the S3 server
-    /// for <c>s3</c> (BL-421) the Socket.IO server for <c>socketio</c> and <c>socketios</c> (BL-455) the WebTransport server for <c>webtransport</c> (BL-461) the CoAP servers for <c>coap</c> and <c>coaps</c> (BL-476) and the XMPP server for <c>xmpp</c> and <c>xmpps</c> (BL-540).
+    /// for <c>s3</c> (BL-421) the Socket.IO server for <c>socketio</c> and <c>socketios</c> (BL-455) the WebTransport server for <c>webtransport</c> (BL-461) the CoAP servers for <c>coap</c> and <c>coaps</c> (BL-476) the STOMP broker for <c>stomp</c> and <c>stomps</c> (BL-533) and the XMPP server for <c>xmpp</c> and <c>xmpps</c> (BL-540).
     /// </summary>
     /// <remarks>
     /// The DNS server is two entries for <c>dns</c>, a <see cref="DnsUdpProtocolServer"/> and a
@@ -68,6 +69,7 @@ public static class ExtendedProtocolServers
     /// accounts allowed on <c>webtransport</c>. It reads the certificate from
     /// <see cref="ComposedProtocolServices.QuicCertificate"/>, which the TLS composition fills because a
     /// <c>webtransport</c> listen URL needs a certificate (<c>--cert</c> or <c>--self-signed</c>).
+    /// The STOMP broker answers <c>stomp</c> over the one message bus the MQTT server shares, judging logins by the policy over the accounts allowed on <c>stomp</c>, with <c>--idle-timeout</c>; <c>stomps</c> is TLS from the first byte through <see cref="TlsSchemes"/> and an <c>ImplicitTls</c> entry.
     /// The XMPP server answers <c>xmpp</c> (STARTTLS offered when a certificate is configured, required unless
     /// <c>--allow-plaintext-auth</c>), serving the listen URL host and every <c>--mail-domain</c>, and <c>xmpps</c>, the same server
     /// over a connection TLS from the first byte (XEP-0368, ALPN <c>xmpp-client</c>), judging logins by the policy over the accounts allowed on <c>xmpp</c>.
@@ -90,6 +92,11 @@ public static class ExtendedProtocolServers
             services.ContentStore, services.ObjectMetadataIndex, services.AuthenticationPolicyFor("s3"), services.TimeProvider)),
         new([SocketIoProtocolServer.PlainScheme, SocketIoProtocolServer.TlsScheme], services => new SocketIoProtocolServer(
             SocketIoServedNamespaces.FromListenPath(null), new SocketIoSessions(), services.AuthenticationPolicyFor(SocketIoProtocolServer.PlainScheme))),
+        new(["stomp"], services => new StompServer(
+            services.AuthenticationPolicyFor("stomp"),
+            services.MessageBus,
+            new StompServerOptions { IdleTimeout = services.IdleTimeout })),
+        ProtocolServerRegistration.ImplicitTls("stomps", "stomp"),
         new([WebTransportProtocolServer.Scheme], services => new WebTransportProtocolServer(
             services.AuthenticationPolicyFor(WebTransportProtocolServer.Scheme),
             () => services.QuicCertificate.Certificate is { } certificate ? new WebTransportServerCertificate(certificate.Chain, certificate.Key) : null,

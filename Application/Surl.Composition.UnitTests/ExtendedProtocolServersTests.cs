@@ -4,6 +4,7 @@ using Surl.Content;
 using Surl.Extended.Protocol.Coap;
 using Surl.Extended.Protocol.DnsQuery;
 using Surl.Extended.Protocol.Nats;
+using Surl.Extended.Protocol.Stomp;
 using Surl.Extended.Protocol.S3;
 using Surl.Extended.Protocol.SocketIo;
 using Surl.Extended.Protocol.WebTransport;
@@ -49,7 +50,7 @@ public sealed class ExtendedProtocolServersTests
 
         var servers = ExtendedProtocolServers.Compose(services);
 
-        Assert.HasCount(10, servers);
+        Assert.HasCount(12, servers);
         Assert.IsInstanceOfType<CoapProtocolServer>(servers[0]);
         CollectionAssert.AreEqual(new[] { "coaps" }, servers[1].Schemes.ToArray());
         Assert.IsInstanceOfType<DnsUdpProtocolServer>(servers[2]);
@@ -57,12 +58,14 @@ public sealed class ExtendedProtocolServersTests
         Assert.IsInstanceOfType<NatsServer>(servers[4]);
         Assert.IsInstanceOfType<S3ProtocolServer>(servers[5]);
         Assert.IsInstanceOfType<SocketIoProtocolServer>(servers[6]);
-        Assert.IsInstanceOfType<WebTransportProtocolServer>(servers[7]);
-        Assert.IsInstanceOfType<XmppServer>(servers[8]);
-        CollectionAssert.AreEqual(new[] { "xmpps" }, servers[9].Schemes.ToArray());
-        CollectionAssert.AreEqual(new[] { "coap", "coaps", "dns", "dns", "nats", "natss", "s3", "socketio", "socketios", "webtransport", "xmpp", "xmpps" }, servers.SelectMany(server => server.Schemes).ToArray());
+        Assert.IsInstanceOfType<StompServer>(servers[7]);
+        CollectionAssert.AreEqual(new[] { "stomps" }, servers[8].Schemes.ToArray());
+        Assert.IsInstanceOfType<WebTransportProtocolServer>(servers[9]);
+        Assert.IsInstanceOfType<XmppServer>(servers[10]);
+        CollectionAssert.AreEqual(new[] { "xmpps" }, servers[11].Schemes.ToArray());
+        CollectionAssert.AreEqual(new[] { "coap", "coaps", "dns", "dns", "nats", "natss", "s3", "socketio", "socketios", "stomp", "stomps", "webtransport", "xmpp", "xmpps" }, servers.SelectMany(server => server.Schemes).ToArray());
         CollectionAssert.AreEqual(
-            new[] { "coap", "coaps", "dns", "dns", "nats", "natss", "s3", "socketio", "socketios", "webtransport", "xmpp", "xmpps" }, ExtendedProtocolServers.Registrations.SelectMany(registration => registration.Schemes).ToArray());
+            new[] { "coap", "coaps", "dns", "dns", "nats", "natss", "s3", "socketio", "socketios", "stomp", "stomps", "webtransport", "xmpp", "xmpps" }, ExtendedProtocolServers.Registrations.SelectMany(registration => registration.Schemes).ToArray());
     }
 
     [TestMethod]
@@ -167,6 +170,31 @@ public sealed class ExtendedProtocolServersTests
         var bus = ComposedServerFields.Single<MessageBus.MessageBus>(natsServer);
         Assert.AreSame(services.ComposedServices.MessageBus, bus);
         Assert.AreSame(bus, ComposedServerFields.Single<MessageBus.MessageBus>(mqttServer));
+    }
+
+    [TestMethod]
+    public void Compose_ThisBuild_BuildsTheStompBrokerOverTheOneBusTheMqttServerIsBuiltOver()
+    {
+        var services = SurlServerComposition.ComposeUnservedExtendedServices(TimeProvider.System);
+
+        var stompServer = ExtendedProtocolServers.Compose(services).OfType<StompServer>().Single();
+        var mqttServer = SurlServerComposition.ComposeProtocolServers(ProtocolServerRegistrations.Original, services.ComposedServices)
+            .OfType<MqttProtocolServer>().Single();
+
+        var bus = ComposedServerFields.Single<MessageBus.MessageBus>(stompServer);
+        Assert.AreSame(services.ComposedServices.MessageBus, bus);
+        Assert.AreSame(bus, ComposedServerFields.Single<MessageBus.MessageBus>(mqttServer));
+    }
+
+    [TestMethod]
+    public void Compose_ThisBuild_BuildsTheStompBrokerWithTheIdleTimeout()
+    {
+        var services = new ExtendedProtocolServerServices(ComposeServices(false, TimeSpan.FromSeconds(40)));
+
+        var stompServer = ExtendedProtocolServers.Compose(services).OfType<StompServer>().Single();
+
+        var options = ComposedServerFields.Single<StompServerOptions>(stompServer);
+        Assert.AreEqual(TimeSpan.FromSeconds(40), options.IdleTimeout);
     }
 
     [TestMethod]

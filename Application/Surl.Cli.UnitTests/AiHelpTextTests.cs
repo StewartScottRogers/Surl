@@ -13,7 +13,7 @@ public sealed partial class AiHelpTextTests
     private static readonly string[] AdrTopicNames =
     [
         "auth", "coap", "content", "control", "dict", "dns", "exit-codes", "extended", "ftp", "gopher", "http", "imap", "ldap", "limits", "listen-urls",
-        "logging", "mail", "messages", "mqtt", "nats", "pop3", "proxy", "rtsp", "s3", "security", "smb", "smtp", "socketio", "socks", "ssh", "surl", "telnet", "testing", "tftp", "tls", "websocket", "webtransport", "xmpp",
+        "logging", "mail", "messages", "mqtt", "nats", "pop3", "proxy", "rtsp", "s3", "security", "smb", "smtp", "socketio", "socks", "ssh", "stomp", "surl", "telnet", "testing", "tftp", "tls", "websocket", "webtransport", "xmpp",
     ];
 
     // ADR-0046 decision 4's section headings, in order, on every topic page.
@@ -53,6 +53,7 @@ public sealed partial class AiHelpTextTests
         "| `socketio` | Socket.IO and Socket.IO over TLS protocol (extended) |",
         "| `socks` | SOCKS4, SOCKS4a, SOCKS5 and SOCKS5h proxy protocol |",
         "| `ssh` | SSH protocol |",
+        "| `stomp` | STOMP and STOMPS protocol (extended) |",
         "| `surl` | The command line tool itself |",
         "| `telnet` | TELNET protocol |",
         "| `testing` | Options for tests; loosening ones warn |",
@@ -402,7 +403,7 @@ public sealed partial class AiHelpTextTests
             "| --- | --- | --- | --- | --- | --- | --- |",
             "| `--max-line <bytes>` | bytes | 8192 | digits with an optional decimal point and more digits, then at most one suffix "
                 + "k, m, g, t or p in either case, each 1024 times the one before; at most 9223372036854775807 bytes; 0 means no limit "
-                + "| no | dict, ftp, gopher, imap, limits, nats, pop3, smtp, telnet | Longest command line accepted |",
+                + "| no | dict, ftp, gopher, imap, limits, nats, pop3, smtp, stomp, telnet | Longest command line accepted |",
             "",
             "## Exit codes",
             "",
