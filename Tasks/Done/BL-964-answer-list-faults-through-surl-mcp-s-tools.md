@@ -8,7 +8,7 @@ depends-on: [BL-963, BL-1035]
 touches: [Application/Surl.Mcp.UnitLibrary, Application/Surl.Mcp, Application/Surl.Mcp.UnitTests]
 requirement: none
 created: 2026-11-06
-completed:
+completed: 2026-11-12
 ---
 # BL-964 — Answer list_faults through Surl.Mcp's tools
 
@@ -27,12 +27,12 @@ An agent driving `surl-mcp` can call `list_faults` with a `server_id` and see ea
 
 ## Acceptance criteria
 
-- [ ] Named tests: `list_faults` after a start `--fault` and an `add_fault` lists both with `f1`, `f2`, their items
+- [x] Named tests: `list_faults` after a start `--fault` and an `add_fault` lists both with `f1`, `f2`, their items
       and `remaining`; `remaining` drops after a fake request applies a `times` rule; after `remove_fault` the rule
       is gone; an unknown server ID is `isError` with `stop_server`'s text.
-- [ ] `ProgramTests`' `tools/list` order test lists `list_faults` between `add_fault` and `remove_fault`, with a
+- [x] `ProgramTests`' `tools/list` order test lists `list_faults` between `add_fault` and `remove_fault`, with a
       JSON object input schema and a description.
-- [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and `Surl.Mcp.UnitLibrary` keeps 100% line
+- [x] `dotnet build -warnaserror` is clean, the fast tests are green, and `Surl.Mcp.UnitLibrary` keeps 100% line
       and branch coverage.
 
 ## Notes
@@ -45,9 +45,14 @@ An agent driving `surl-mcp` can call `list_faults` with a `server_id` and see ea
   files, with five `ListFaults_*` tests in `FaultToolsTests` and the `ProgramTests` order and schema rows. If the
   stash is lost, redo it from this note.
 
+- 2026-11-12 (lane 3): the stashed code was gone, so `ListFaultsTool` was rewritten from the 2026-11-11 note; SDK
+  10.0.404 now builds. Mcp.UnitTests: 250 passed. Test `ListFaults_*` x3 in `FaultToolsTests`, plus `list_faults` rows
+  in `ProgramTests` and `StoreToolsTests`.
+
 ## Log
 
 - 2026-11-06: Created.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waits on BL-1035: pinned .NET SDK 10.0.401 is not installed, so the build cannot run
 - 2026-11-12: Backlog -> Doing.
+- 2026-11-12: Doing -> Done. surl-mcp answers list_faults with each fault rule's ID, item and remaining count

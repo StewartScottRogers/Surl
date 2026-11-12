@@ -86,10 +86,49 @@ public sealed class FaultToolsTests
         StoreToolsTests.AssertFailure(result, "server s1 has no fault rule f7");
     }
 
-    private async Task<McpTestHost> StartHttpHostAsync()
+    [TestMethod]
+    public async Task ListFaults_AfterAStartFaultAndAnAddFault_ListsBothInPlanOrder()
+    {
+        await using var host = await StartHttpHostAsync("""["--fault", "drop;scheme=http;times=2"]""");
+        await CallAsync(host.AddFault, """{"server_id": "s1", "fault": "refuse-login;account=alice"}""");
+
+        var result = await CallAsync(host.ListFaults, """{"server_id": "s1"}""");
+
+        StoreToolsTests.AssertResult(
+            result,
+            """{"faults":[{"fault_id":"f1","item":"drop;scheme=http","remaining":2},{"fault_id":"f2","item":"refuse-login;account=alice","remaining":null}]}""");
+    }
+
+    [TestMethod]
+    public async Task ListFaults_AfterAFakeRequestAppliesATimesRule_RemainingDrops()
+    {
+        await using var host = await StartHttpHostAsync();
+        await CallAsync(host.AddFault, """{"server_id": "s1", "fault": "drop;scheme=http;times=2"}""");
+        await ServeAsync(host);
+
+        var result = await CallAsync(host.ListFaults, """{"server_id": "s1"}""");
+
+        StoreToolsTests.AssertResult(result, """{"faults":[{"fault_id":"f1","item":"drop;scheme=http","remaining":1}]}""");
+    }
+
+    [TestMethod]
+    public async Task ListFaults_AfterRemoveFault_NoLongerListsTheRule()
+    {
+        await using var host = await StartHttpHostAsync();
+        await CallAsync(host.AddFault, """{"server_id": "s1", "fault": "drop;scheme=http"}""");
+        await CallAsync(host.RemoveFault, """{"server_id": "s1", "fault_id": "f1"}""");
+
+        var result = await CallAsync(host.ListFaults, """{"server_id": "s1"}""");
+
+        StoreToolsTests.AssertResult(result, """{"faults":[]}""");
+    }
+
+    private async Task<McpTestHost> StartHttpHostAsync(string arguments = "[]")
     {
         var host = new McpTestHost();
-        var started = await CallAsync(host.StartServer, """{"listen_urls": ["http://127.0.0.1:0"], "files": {"hello.txt": "hello"}}""");
+        var started = await CallAsync(
+            host.StartServer,
+            $$$"""{"listen_urls": ["http://127.0.0.1:0"], "arguments": {{{arguments}}}, "files": {"hello.txt": "hello"}}""");
         Assert.IsFalse(started.IsError, started.TextContent.FirstOrDefault());
         return host;
     }

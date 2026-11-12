@@ -57,10 +57,10 @@ with one `McpServerRegistry.AddTool` line and holds nothing else of the tools.
       an ID not kept is `server <id> has no snapshot <p>; only its newest 4 snapshots are kept`.
     - `AddFaultTool` (`add_fault`): `fault`, one `--fault` item, read by `Surl.Cli`'s `CommandLineParser` (a bad
       item is `isError` with `surl`'s `option --fault: ...` text) and added as a `SurlFault` -> `{fault_id}`.
+    - `ListFaultsTool` (`list_faults`, BL-964): `server_id` -> `{faults: [{fault_id, item, remaining}]}` in plan
+      order, read from `SurlServer.Faults.List`; `remaining` is `null` for a rule without `times`.
     - `RemoveFaultTool` (`remove_fault`): `fault_id` -> `{fault_id}`; one the plan does not hold is
       `server <id> has no fault rule <f>`.
-    - `list_faults` is not here yet: `Surl.Api` has no listing of a server's fault plan to read `remaining` from
-      (BL-812's Notes name the follow-up tasks).
   - `SeededContent` reads the content those tools take: exactly one of the text and the base64 property, at most
     16 MiB decoded; no local path is ever read.
   - `ServerSnapshots` - each `RunningSurlServer`'s snapshots, IDs `p1`, `p2` ... per server, never reused, the
