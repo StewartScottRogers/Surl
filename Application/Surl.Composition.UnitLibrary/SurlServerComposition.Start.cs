@@ -49,10 +49,13 @@ public static partial class SurlServerComposition
         // serves it without a handshake (ADR-0108 decision 5).
         commandLine = S3PlaintextComposition.MarkS3ListenUrlsPlain(commandLine);
 
-        if (FindOptionRefusal(commandLine) is { } optionRefusal)
+        if ((FindOptionRefusal(commandLine) ?? DnsTransportComposition.FindRefusal(commandLine)) is { } optionRefusal)
         {
             return Refuse(SurlExitCode.FailedInit, optionRefusal);
         }
+
+        // --dns-transport turns each dns listen URL into one per transport (ADR-0092 decision 5).
+        commandLine = DnsTransportComposition.ExpandDnsListenUrls(commandLine);
 
         if (commandLine.DataDirectory is { } dataDirectory && !seams.CanOpenDataDirectory(dataDirectory))
         {

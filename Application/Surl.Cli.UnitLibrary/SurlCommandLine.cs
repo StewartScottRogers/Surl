@@ -406,6 +406,22 @@ public sealed record SurlCommandLine
     public bool S3Plaintext { get; init; }
 
     /// <summary>
+    /// <c>--dns-transport</c>: the transports every <c>dns</c> listen URL serves, <c>udp</c>, <c>tcp</c>
+    /// and <c>tls</c>, in the order given (ADR-0092 decision 5). <c>udp</c> then <c>tcp</c> by default.
+    /// </summary>
+    public IReadOnlyList<string> DnsTransports { get; init; } = DefaultDnsTransports;
+
+    /// <summary>The transports <c>--dns-transport</c> defaults to; one shared list, so two default command lines are equal.</summary>
+    public static readonly IReadOnlyList<string> DefaultDnsTransports = ["udp", "tcp"];
+
+    /// <summary>
+    /// The <c>dns</c> listen URLs written with a port, which <c>--dns-transport</c> puts every
+    /// transport on (ADR-0092 decision 5); the others take each transport's own default port.
+    /// None by default.
+    /// </summary>
+    public IReadOnlyList<ListenUrl> DnsListenUrlsWithPort { get; init; } = [];
+
+    /// <summary>
     /// The SSH host private key files from every <c>--hostkey</c>, as given, in command-line order:
     /// each one adds a key (ADR-0051 decision 4). None by default.
     /// </summary>

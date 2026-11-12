@@ -19,6 +19,9 @@ internal static class TlsApplicationProtocols
     // XEP-0368 section 3: direct-TLS XMPP clients name the ALPN protocol xmpp-client.
     private static readonly SslApplicationProtocol[] XmppClient = [new SslApplicationProtocol("xmpp-client")];
 
+    // RFC 7858 section 3.1 and RFC 7301: DNS over TLS names its ALPN protocol dot.
+    private static readonly SslApplicationProtocol[] DnsOverTls = [new SslApplicationProtocol("dot")];
+
     /// <summary>
     /// The ALPN protocol IDs offered for <paramref name="scheme"/>, in the server's order of preference.
     /// </summary>
@@ -41,6 +44,10 @@ internal static class TlsApplicationProtocols
     /// </summary>
     /// <param name="listenUrl">The listener's listen URL; its scheme is lower-cased.</param>
     /// <returns>The ALPN protocol IDs offered, in the server's order of preference.</returns>
-    public static IReadOnlyList<SslApplicationProtocol> ForListener(ListenUrl listenUrl) =>
-        listenUrl is { IsProxy: true, Scheme: "https" } ? Http11Only : ForScheme(listenUrl.Scheme);
+    public static IReadOnlyList<SslApplicationProtocol> ForListener(ListenUrl listenUrl) => listenUrl switch
+    {
+        { IsProxy: true, Scheme: "https" } => Http11Only,
+        { IsImplicitTls: true, Scheme: "dns" } => DnsOverTls,
+        _ => ForScheme(listenUrl.Scheme),
+    };
 }

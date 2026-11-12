@@ -203,6 +203,15 @@ internal static class OptionArgumentReader
             "word list",
             "comma-separated, in any case, no empty item: " + string.Join(", ", AuthenticationMethodWords)));
 
+    /// <summary>The <c>--dns-transport</c> words this build serves (ADR-0092 decision 5); BL-1018 and BL-1019 add <c>https</c> and <c>quic</c>.</summary>
+    public static readonly IReadOnlyList<string> DnsTransportWords = ["udp", "tcp", "tls"];
+
+    /// <summary><see cref="ReadDnsTransports"/> and its argument type (ADR-0046 decision 5).</summary>
+    public static readonly OptionArgumentReading<IReadOnlyList<string>> DnsTransports =
+        new(ReadDnsTransports, new(
+            "word list",
+            "comma-separated, in any case, no empty or repeated item: " + string.Join(", ", DnsTransportWords)));
+
     /// <summary>
     /// <c>-x</c>/<c>--proxy</c>'s argument (ADR-0088 decision 7): any non-empty text, which the parser then
     /// reads with <see cref="ListenUrlParser.ParseProxy"/>.
@@ -415,6 +424,26 @@ internal static class OptionArgumentReader
 
         value = [.. AuthenticationMethodWords.Where((_, index) => named[index])];
         return null;
+    }
+
+    /// <summary>
+    /// Reads the <c>--dns-transport</c> list (ADR-0092 decision 5): comma-separated words from
+    /// <see cref="DnsTransportWords"/>, in any case, kept in the order given. An empty argument is
+    /// blank; an empty, unknown or repeated item is refused.
+    /// </summary>
+    /// <param name="argument">The argument as given.</param>
+    /// <param name="value">The words named, lower-case, in the order given.</param>
+    /// <returns>The refusal reason, or <see langword="null"/>.</returns>
+    public static string? ReadDnsTransports(string argument, out IReadOnlyList<string> value)
+    {
+        var words = argument.Split(',').Select(item => item.ToLowerInvariant()).ToArray();
+        value = words;
+        if (argument.Length == 0)
+        {
+            return Blank;
+        }
+
+        return words.Any(word => !DnsTransportWords.Contains(word)) || words.Distinct().Count() != words.Length ? BadlyUsed : null;
     }
 
     /// <summary>

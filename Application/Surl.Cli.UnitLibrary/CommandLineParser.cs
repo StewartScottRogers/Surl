@@ -76,6 +76,7 @@ public static class CommandLineParser
     private const string ThrowawayHostKeyOption = "--throwaway-hostkey";
     private const string Http3Option = "--http3";
     private const string HttpsScheme = "https";
+    private const string DnsScheme = "dns";
 
     /// <summary><c>--http3</c> given with no <c>https</c> listen URL (ADR-0082 decision 6).</summary>
     public const string NeedsAnHttpsListenUrl = "needs an https listen URL";
@@ -190,7 +191,21 @@ public static class CommandLineParser
         }
 
         reading.ListenUrls.Add(parsed.ListenUrl);
+        if (parsed.ListenUrl.Scheme == DnsScheme && GivesPort(argument))
+        {
+            reading.CommandLine = reading.CommandLine with { DnsListenUrlsWithPort = [.. reading.CommandLine.DnsListenUrlsWithPort, parsed.ListenUrl] };
+        }
+
         return null;
+    }
+
+    /// <summary>Whether a listen URL's authority ends in <c>:port</c>, after an IPv6 literal's bracket when it has one.</summary>
+    private static bool GivesPort(string listenUrlText)
+    {
+        var afterScheme = listenUrlText[(listenUrlText.IndexOf("://", StringComparison.Ordinal) + 3)..];
+        var authorityEnd = afterScheme.AsSpan().IndexOfAny('/', '?', '#');
+        var authority = afterScheme.AsSpan(0, authorityEnd < 0 ? afterScheme.Length : authorityEnd);
+        return authority.StartsWith('[') ? authority[(authority.IndexOf(']') + 1)..].Contains(':') : authority.Contains(':');
     }
 
     /// <summary>
