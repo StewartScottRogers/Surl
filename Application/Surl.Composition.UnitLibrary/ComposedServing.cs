@@ -158,6 +158,9 @@ public sealed class ComposedServing : IAsyncDisposable
         // Each share granting @everyone, with the other widening warnings (ADR-0102 decision 2.2).
         ContentShareComposition.WriteWarnings(commandLine.LogLevel, Stores.Content, log);
 
+        // Each topic filter granting @everyone, with the other widening warnings (ADR-0102 decision 3.4).
+        MessageBusComposition.WriteWarnings(commandLine.LogLevel, Stores.Bus.Configuration, log);
+
         // Each -K file, then the --user-file, readable by other users, at the warnings' level (ADR-0101, decision 5).
         ReadableByOthersWarning.WriteForFilesThatMayHoldPasswords(
             commandLine, seams.ReadStartFileUnixMode ?? ReadableByOthersWarning.ReadDiskMode, log);
@@ -187,6 +190,9 @@ public sealed class ComposedServing : IAsyncDisposable
 
         // Each share's and bucket's note, after the mailboxes' (ADR-0102 decision 5).
         ContentShareComposition.WriteStartLines(commandLine.LogLevel, Stores.Content, log);
+
+        // Each topic's, queue's and topic map's note and the topic access count, after the shares' (ADR-0102 decision 5).
+        MessageBusComposition.WriteStartLines(commandLine.LogLevel, Stores.Bus.Configuration, log);
     }
 
     // From verbose up, unstamped, once per https listen URL served over HTTP/3 too (ADR-0082,

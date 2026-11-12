@@ -3,6 +3,7 @@ using System.Security.Cryptography.X509Certificates;
 using Surl.Cli;
 using Surl.Content;
 using Surl.Core;
+using Surl.MessageBus;
 using Surl.Networking;
 using Surl.Output;
 using Surl.Protocol.Abstractions;
@@ -162,8 +163,16 @@ public static partial class SurlServerComposition
             return Refuse(shareExitCode, shareFailureMessage!);
         }
 
+        // The topics, queues, topic maps and topic access, once the groups are expanded (ADR-0102 decision 5).
+        var (busConfiguration, busFailureMessage) = MessageBusComposition.Compose(commandLine, authentication.AccountGroups);
+        if (busConfiguration is null)
+        {
+            return Refuse(SurlExitCode.FailedInit, busFailureMessage!);
+        }
+
         var contentStore = ComposeContentStore(commandLine, fileSystem, instruments.Events, instruments.Faults, shares, buckets!);
-        return await LockThenComposeAsync(commandLine, seams, fileSystem, contentStore, authentication, instruments, cancellationToken);
+        return await LockThenComposeAsync(
+            commandLine, seams, fileSystem, contentStore, authentication, busConfiguration, instruments, cancellationToken);
     }
 
     // The --auth words, the --user-file, the --authorized-keys and --keytab files, then the --hostkey
@@ -232,6 +241,7 @@ public static partial class SurlServerComposition
         IContentFileSystem fileSystem,
         ContentStore contentStore,
         ComposedAuthentication authentication,
+        MessageBusConfiguration busConfiguration,
         EventStreamAndFaultPlan instruments,
         CancellationToken cancellationToken)
     {
@@ -248,7 +258,7 @@ public static partial class SurlServerComposition
         try
         {
             start = await ComposeUnderTheLockAsync(
-                commandLine, seams, fileSystem, contentStore, authentication, instruments, dataDirectoryLock.Holder, cancellationToken);
+                commandLine, seams, fileSystem, contentStore, authentication, busConfiguration, instruments, dataDirectoryLock.Holder, cancellationToken);
             return start;
         }
         finally
@@ -266,6 +276,7 @@ public static partial class SurlServerComposition
         IContentFileSystem fileSystem,
         ContentStore contentStore,
         ComposedAuthentication authentication,
+        MessageBusConfiguration busConfiguration,
         EventStreamAndFaultPlan instruments,
         IDisposable? dataDirectoryLock,
         CancellationToken cancellationToken)
@@ -284,7 +295,8 @@ public static partial class SurlServerComposition
                 instruments.Events,
                 instruments.Faults,
                 cancellationToken,
-                authentication.Mailboxes.MailDomains);
+                authentication.Mailboxes.MailDomains,
+                busConfiguration);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {

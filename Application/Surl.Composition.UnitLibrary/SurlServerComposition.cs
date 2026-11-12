@@ -228,6 +228,8 @@ public static partial class SurlServerComposition
     /// <param name="faults">The instance's fault plan, whose out-of-space rules the bus and the mail store apply.</param>
     /// <param name="cancellationToken">Cancels the reads.</param>
     /// <param name="mailDomains">The mail domains and mailboxes the mail store resolves recipients against (ADR-0102, decision 1); none without <c>--mail-domain</c>.</param>
+    /// <param name="busConfiguration">The topics, queues, topic maps and access grants the bus is made with
+    /// (<see cref="MessageBusComposition.Compose"/>, ADR-0102 decision 3); none when <see langword="null"/>.</param>
     /// <returns>The state, or the message after the <c>surl: </c> prefix when part of it cannot be loaded.</returns>
     public static async Task<(ServiceState? State, string? FailureMessage)> LoadServiceStateAsync(
         SurlCommandLine commandLine,
@@ -239,10 +241,11 @@ public static partial class SurlServerComposition
         ISurlEventPublisher events,
         IFaultPlan faults,
         CancellationToken cancellationToken,
-        MailDomainConfiguration? mailDomains = null)
+        MailDomainConfiguration? mailDomains = null,
+        MessageBusConfiguration? busConfiguration = null)
     {
         var (messageBus, messageBusFailure) = await LoadMessageBusAsync(
-            ComposeMessageBusFiles(commandLine, fileSystem), commandLine, timeProvider, events, faults, cancellationToken);
+            ComposeMessageBusFiles(commandLine, fileSystem), commandLine, timeProvider, events, faults, cancellationToken, busConfiguration);
         if (messageBus is null)
         {
             return (null, messageBusFailure);
@@ -390,6 +393,8 @@ public static partial class SurlServerComposition
     /// <param name="events">The instance's event stream, which the bus publishes its changes on.</param>
     /// <param name="faults">The instance's fault plan, whose out-of-space rules the bus applies.</param>
     /// <param name="cancellationToken">Cancels the read.</param>
+    /// <param name="configuration">The topics, queues, topic maps and access grants the bus is made with
+    /// (ADR-0102 decision 3); none when <see langword="null"/>.</param>
     /// <returns>The bus, or the message after the <c>surl: </c> prefix when it cannot be loaded.</returns>
     public static async Task<(MessageBus.MessageBus? MessageBus, string? FailureMessage)> LoadMessageBusAsync(
         MessageBusFiles? files,
@@ -397,12 +402,17 @@ public static partial class SurlServerComposition
         TimeProvider timeProvider,
         ISurlEventPublisher events,
         IFaultPlan faults,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        MessageBusConfiguration? configuration = null)
     {
         ArgumentNullException.ThrowIfNull(commandLine);
         var maxUploadBytes = commandLine.Limits.MaxUploadBytes;
         var bus = new MessageBus.MessageBus(
-            timeProvider, maxMessageBytes: maxUploadBytes > 0 ? maxUploadBytes : long.MaxValue, events: events, faults: faults);
+            timeProvider,
+            maxMessageBytes: maxUploadBytes > 0 ? maxUploadBytes : long.MaxValue,
+            configuration: configuration,
+            events: events,
+            faults: faults);
         if (files is null)
         {
             return (bus, null);

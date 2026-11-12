@@ -187,6 +187,15 @@ rather than writing it, and the warning writers take the log `TextWriter` they w
   and a member granted twice keeps the wider access. `ComposedServing` writes `WriteWarnings`' `@everyone`
   warning after the `--fault` one and `WriteStartLines`' `-v` notes after the mailboxes'.
   Bucket folders are not yet checked or created at start (BL-988's follow-up).
+- `MessageBusComposition` - every `--topic`, `--queue`, `--topic-map` and `--topic-access` composed into the
+  one bus's `MessageBusConfiguration` (ADR-0102 decisions 3, 3.6 and 5, BL-991), after the shares and before the
+  lock: a filter that is not canonical, more than 1000 queues, a map scheme `TopicNameLookup` does not know, a
+  name not valid on its scheme or aliased twice on one scheme family (a scheme and its TLS twin), and a member
+  naming nothing, each `(2)`. Groups expand to account names, `@everyone` becomes `TopicAccessGrant.Everyone`,
+  and a member reached twice in a row keeps the union of its rights. `ComposeAsync` hands the configuration
+  through `LoadServiceStateAsync` to `LoadMessageBusAsync`, both taking it as an optional last parameter
+  (`None` without one). `ComposedServing` writes `WriteWarnings`' `@everyone` warning after the share one and
+  `WriteStartLines`' `-v` notes after the shares', both read from `Stores.Bus.Configuration`.
 - `KeytabComposition` - the `--keytab` file and its `KerberosAcceptor` (ADR-0057 decision 1),
   with `RandomKerberosRandomSource`; `WriteStartLines`.
 - `SshHostKeyComposition` - the `--hostkey`, `--throwaway-hostkey` and `--hostcert` host keys
