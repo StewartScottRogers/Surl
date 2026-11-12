@@ -73,3 +73,4 @@ and fault plan, and shares the instance's stores if it asks for them.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waits on BL-1035: pinned .NET SDK 10.0.401 is not installed, so dotnet build cannot run; code is done and verified on SDK 11, left in the worktree
 - 2026-11-12: Backlog -> Doing.
+- 2026-11-12: Doing -> Backlog. Lane 3's finished code for this task is in a shift stash, not in this worktree, and I was denied access to git stash; SDK 10.0.404 is now installed so BL-1035's blocker is gone. Next run should restore the stash, re-verify, tick box 2 and commit.
