@@ -8,7 +8,7 @@ depends-on: [BL-492, BL-678]
 touches: [Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests, Protocols/Messaging/Surl.MessageBus.UnitLibrary, Protocols/Messaging/Surl.MessageBus.UnitTests, Protocols/DataStore/Surl.Extended.Protocol.Redis.UnitLibrary, Protocols/DataStore/Surl.Extended.Protocol.Redis.UnitTests]
 requirement: FR-058
 created: 2026-11-05
-completed:
+completed: 2026-11-12
 ---
 # BL-866 — Hand the Redis server the shared MessageBus in composition and map its channels through MessageBus.Names
 
@@ -30,19 +30,21 @@ every other messaging scheme.
 
 ## Acceptance criteria
 
-- [ ] A `Surl.Composition.UnitTests` test composes `redis` and `mqtt` and shows the Redis server and
+- [x] A `Surl.Composition.UnitTests` test composes `redis` and `mqtt` and shows the Redis server and
       the MQTT server hold the same `MessageBus` instance.
-- [ ] `TopicNameLookup` maps the `redis` and `rediss` schemes, with a unit test of a `--topic-map`
+- [x] `TopicNameLookup` maps the `redis` and `rediss` schemes, with a unit test of a `--topic-map`
       alias applied both ways to a Redis channel.
-- [ ] The `Surl.MessageBus.UnitLibrary/CLAUDE.md` line "Redis waits for BL-678" is replaced by what is true.
-- [ ] `dotnet build` is clean and the fast tests are green; the touched libraries keep 100% line and
+- [x] The `Surl.MessageBus.UnitLibrary/CLAUDE.md` line "Redis waits for BL-678" is replaced by what is true.
+- [x] `dotnet build` is clean and the fast tests are green; the touched libraries keep 100% line and
       branch coverage.
 
 ## Notes
 
 - Filed by BL-678.
+- BL-492 had already registered Redis with `services.MessageBus`; this task added the `redis`/`rediss` identity family to `TopicNameLookup` and routed `RedisChannelNames` (channel in, and pattern `pmessage` channel out) through `bus.Names`. Composition test reads the bus by reflection like the Kafka one.
 
 ## Log
 
 - 2026-11-05: Created.
 - 2026-11-12: Backlog -> Doing.
+- 2026-11-12: Doing -> Done. Redis and MQTT share one MessageBus in composition; redis/rediss channels map through MessageBus.Names so --topic-map aliases apply

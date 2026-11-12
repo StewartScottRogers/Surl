@@ -14,7 +14,7 @@ namespace Surl.MessageBus;
 /// (AMQP 0-9-1 topic exchange routing and binding keys); <c>amqp1</c> and <c>amqp1s</c>, and
 /// <c>stomp</c> and <c>stomps</c> (a <c>/topic/&lt;t&gt;</c> address or destination); <c>kafka</c>
 /// and <c>kafkas</c> (Kafka topic names, which have no filters); and <c>nats</c> and
-/// <c>natss</c> (subjects). An alias names one exact name: a filter with wildcards is mapped by
+/// <c>natss</c> (subjects); and <c>redis</c> and <c>rediss</c> (channels, canonical as they stand). An alias names one exact name: a filter with wildcards is mapped by
 /// the default rules alone, and maps do not chain.
 /// </remarks>
 public sealed class TopicNameLookup
@@ -36,6 +36,8 @@ public sealed class TopicNameLookup
         ["natss"] = SchemeFamily.Nats,
         ["stomp"] = SchemeFamily.Stomp,
         ["stomps"] = SchemeFamily.Stomp,
+        ["redis"] = SchemeFamily.Redis,
+        ["rediss"] = SchemeFamily.Redis,
     };
 
     private readonly Dictionary<(SchemeFamily Family, string Name), string> canonicalTopicByName = [];
@@ -75,6 +77,7 @@ public sealed class TopicNameLookup
         Kafka,
         Nats,
         Stomp,
+        Redis,
     }
 
     /// <summary>
@@ -158,6 +161,7 @@ public sealed class TopicNameLookup
         SchemeFamily.Amqp0 => AmqpTopicExchangeNames.ToCanonicalTopic(name),
         SchemeFamily.Kafka => KafkaTopicNames.ToCanonicalTopic(name),
         SchemeFamily.Nats => NatsSubjectNames.ToCanonicalTopic(name),
+        SchemeFamily.Redis => IdentityTopic(name),
         _ => SlashPrefixedTopicOf(name, isFilter: false),
     };
 
@@ -168,6 +172,7 @@ public sealed class TopicNameLookup
         SchemeFamily.Amqp0 => AmqpTopicExchangeNames.ToCanonicalFilter(filter),
         SchemeFamily.Kafka => KafkaTopicNames.ToCanonicalTopic(filter),
         SchemeFamily.Nats => NatsSubjectNames.ToCanonicalFilter(filter),
+        SchemeFamily.Redis => IdentityTopic(filter),
         _ => SlashPrefixedTopicOf(filter, isFilter: true),
     };
 
@@ -177,8 +182,14 @@ public sealed class TopicNameLookup
         SchemeFamily.Amqp0 => AmqpTopicExchangeNames.FromCanonicalTopic(topic),
         SchemeFamily.Kafka => KafkaTopicNames.FromCanonicalTopic(topic),
         SchemeFamily.Nats => NatsSubjectNames.FromCanonicalTopic(topic),
+        SchemeFamily.Redis => IdentityTopic(topic),
         _ => SlashPrefixedTopic(topic),
     };
+
+    /// <summary>A Redis channel (ADR-0126 decision 1): a canonical topic name, the same text on both
+    /// sides; a channel with a wildcard, empty or too long is <see cref="TopicNameMappingOutcome.InvalidName"/>.</summary>
+    private static TopicNameMapping IdentityTopic(string? name) =>
+        CanonicalTopicName.IsValidTopic(name) ? TopicNameMapping.Of(name) : TopicNameMapping.Refused(TopicNameMappingOutcome.InvalidName);
 
     /// <summary>An AMQP 1.0 address or STOMP destination naming a topic: <c>/topic/&lt;t&gt;</c>
     /// is <c>&lt;t&gt;</c>; a <c>/queue/</c> one, or one with neither prefix, is
