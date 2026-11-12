@@ -49,10 +49,11 @@ Streamable HTTP (BL-466, ADR-0111 decisions 4, 6 and 7), on `Surl.HttpServing`'s
   `initialize`, binds it to the login, expires it after 30 idle minutes and holds at most 1000 (`503
   Retry-After: 60` past that). `McpHttpSession` runs at most 16 requests at once, cancels on
   `notifications/cancelled` and on `DELETE`.
-- `tools/call` is answered as `text/event-stream` with one `data:` event (`McpEventStream`); every other
-  request as `application/json`. The event is written as one `Content-Length` body: the 15-second
-  `: keep-alive` comments of decision 4.3 need a streaming answer body in `Surl.HttpServing` first (see the
-  task board).
+- `tools/call` is answered as `text/event-stream` (`McpEventStream`); every other request as
+  `application/json`. The head goes out at once as an `HttpAnswerBody.Streamed` answer, chunked by
+  `Surl.HttpServing`; while the call runs, a `: keep-alive` comment and blank line every 15 seconds on the
+  injected `TimeProvider`, then the one `data:` event; a cancelled call ends the stream with no event
+  (decision 4.3, BL-777).
 
 The OAuth 2.1 authorization server (BL-722, ADR-0111 decisions 6.3 and 6.4), at the issuer
 `<scheme>://<authority>`. Every answer is written by `McpHttpAnswerWriter`; `McpHttpFields` reads header fields.

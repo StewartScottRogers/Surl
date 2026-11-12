@@ -80,6 +80,41 @@ public sealed class Http1AnswerWriterTests
         Assert.AreEqual("unread body", await ReadRestAsync(connection));
     }
 
+    [TestMethod]
+    public async Task WriteAsync_StreamedBodyOverHttp11_WritesEachPieceAsAChunkThenTheLastChunk()
+    {
+        var connection = new InMemoryConnection([]);
+        var answer = new HttpAnswer(HttpStatus.Ok, [new("Content-Type", "text/plain")], Streamed("Wiki", string.Empty, "pedia in\r\n\r\nchunks."), IsRefusal: false, LeavesRequestBodyUnread: false);
+
+        var keepsConnectionOpen = await Writer(connection).WriteAsync(answer, new HttpRequestHead("GET", "/", new Version(1, 1), [new HttpRequestField("Host", "a")]));
+
+        // RFC 9112 section 7.1: size in hexadecimal, CRLF, data, CRLF; the last chunk 0 and the empty trailer section.
+        Assert.IsTrue(keepsConnectionOpen);
+        Assert.AreEqual(
+            "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nTransfer-Encoding: chunked\r\n\r\n4\r\nWiki\r\n13\r\npedia in\r\n\r\nchunks.\r\n0\r\n\r\n",
+            Latin1(connection.WrittenBytes));
+    }
+
+    [TestMethod]
+    public async Task WriteAsync_StreamedBodyOverHttp10_WritesThePiecesAsTheyAreAndClosesTheConnection()
+    {
+        var connection = new InMemoryConnection([]);
+        var answer = new HttpAnswer(HttpStatus.Ok, [], Streamed("ab", "c"), IsRefusal: false, LeavesRequestBodyUnread: false);
+
+        var keepsConnectionOpen = await Writer(connection).WriteAsync(answer, new HttpRequestHead("GET", "/", new Version(1, 0), [new HttpRequestField("Connection", "keep-alive")]));
+
+        Assert.IsFalse(keepsConnectionOpen);
+        Assert.AreEqual("HTTP/1.1 200 OK\r\nConnection: close\r\n\r\nabc", Latin1(connection.WrittenBytes));
+    }
+
+    private static HttpAnswerBody.Streamed Streamed(params string[] pieces) => new(async (writeAsync, cancellationToken) =>
+    {
+        foreach (var piece in pieces)
+        {
+            await writeAsync(Ascii(piece), cancellationToken);
+        }
+    });
+
     // What the client sent that the writer left unread, read until the client half-closes.
     private async Task<string> ReadRestAsync(InMemoryConnection connection)
     {

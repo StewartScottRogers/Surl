@@ -51,6 +51,22 @@ internal sealed class McpHttpAnswerWriter(TimeProvider timeProvider)
             IsRefusal: false,
             LeavesRequestBodyUnread: request.Body.IsAnnounced);
 
+    /// <summary>
+    /// A <c>200</c> whose body is written while it is produced: no <c>Content-Length</c>, so the HTTP/1.1 writer
+    /// sends it chunked (RFC 9112 section 7.1) and the head goes out before the body is ready.
+    /// </summary>
+    /// <param name="request">The request answered.</param>
+    /// <param name="mediaType">The body's <c>Content-Type</c>.</param>
+    /// <param name="writeAsync">Produces the body.</param>
+    /// <returns>The answer.</returns>
+    public HttpAnswer Streamed(HttpRequest request, string mediaType, Func<HttpAnswerChunkWriter, CancellationToken, Task> writeAsync) =>
+        new(
+            HttpStatus.Ok,
+            [.. CommonFields(), new("Content-Type", mediaType)],
+            new HttpAnswerBody.Streamed(writeAsync),
+            IsRefusal: false,
+            LeavesRequestBodyUnread: request.Body.IsAnnounced);
+
     /// <summary>An answer with no body.</summary>
     /// <param name="request">The request answered.</param>
     /// <param name="status">The status.</param>

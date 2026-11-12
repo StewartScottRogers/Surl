@@ -36,7 +36,7 @@ public sealed class McpRequestFaultsTests
         (McpHttpHarness harness, ScriptedFaultPlan faults, string response) = await CallAsync(ErrorRule(), EchoCall, $"Authorization: Bearer {UnitTestBearerAuthenticationPolicy.AliceToken}");
 
         Assert.AreEqual(
-            BodyAnswer("200 OK", "text/event-stream", "data: {\"jsonrpc\":\"2.0\",\"id\":2,\"error\":{\"code\":-32000,\"message\":\"try later\"}}\n\n"),
+            EventStreamAnswer("data: {\"jsonrpc\":\"2.0\",\"id\":2,\"error\":{\"code\":-32000,\"message\":\"try later\"}}\n\n"),
             response);
         Assert.AreEqual(new FaultAppliedEvent("f1", FaultKind.Error, FaultStage.Command, 1, "/mcp"), harness.Events.Events.Single());
         Assert.AreEqual(
@@ -60,7 +60,7 @@ public sealed class McpRequestFaultsTests
         (McpHttpHarness harness, ScriptedFaultPlan faults, string response) = await CallAsync(ErrorRule(command: "read_file"), EchoCall);
 
         Assert.AreEqual(
-            BodyAnswer("200 OK", "text/event-stream", "data: {\"jsonrpc\":\"2.0\",\"id\":2,\"result\":{\"content\":[{\"type\":\"text\",\"text\":\"hi\"}],\"isError\":false}}\n\n"),
+            EventStreamAnswer("data: {\"jsonrpc\":\"2.0\",\"id\":2,\"result\":{\"content\":[{\"type\":\"text\",\"text\":\"hi\"}],\"isError\":false}}\n\n"),
             response);
         Assert.IsEmpty(harness.Events.Events);
         Assert.IsNull(faults.Points.Single().Account);

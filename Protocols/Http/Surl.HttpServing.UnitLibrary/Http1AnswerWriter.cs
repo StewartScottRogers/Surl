@@ -1,3 +1,5 @@
+using System.Globalization;
+using System.Text;
 using Surl.Content;
 using Surl.HttpMessage;
 using Surl.Protocol.Abstractions;
@@ -57,10 +59,16 @@ internal sealed class Http1AnswerWriter
             return false;
         }
 
-        var keepsConnectionOpen = HttpConnectionPersistence.KeepsConnectionOpen(head) && !answer.LeavesRequestBodyUnread;
-        await connection.WriteAsync(ResponseHead(answer, HttpConnectionPersistence.ConnectionFieldValue(keepsConnectionOpen, head.Version)).ToBytes(), context.CancellationToken);
+        // A streamed body is chunked over HTTP/1.1; HTTP/1.0 has no chunked coding, so there the close ends it.
+        var isStreamed = answer.Body is HttpAnswerBody.Streamed;
+        var isChunked = isStreamed && head.Version.Minor >= 1;
+        var keepsConnectionOpen = HttpConnectionPersistence.KeepsConnectionOpen(head) && !answer.LeavesRequestBodyUnread && isStreamed == isChunked;
+        var responseHead = ResponseHead(answer, null)
+            .AddField("Transfer-Encoding", isChunked ? "chunked" : null)
+            .AddField("Connection", HttpConnectionPersistence.ConnectionFieldValue(keepsConnectionOpen, head.Version));
+        await connection.WriteAsync(responseHead.ToBytes(), context.CancellationToken);
 
-        if (!await WriteBodyAsync(answer.Body))
+        if (!await WriteBodyAsync(answer.Body, isChunked))
         {
             connection.Abort();
 
@@ -149,7 +157,7 @@ internal sealed class Http1AnswerWriter
     }
 
     // False when the body could not be sent whole and the connection must be aborted.
-    private async Task<bool> WriteBodyAsync(HttpAnswerBody body)
+    private async Task<bool> WriteBodyAsync(HttpAnswerBody body, bool isChunked)
     {
         if (body is HttpAnswerBody.ContentFile file)
         {
@@ -161,8 +169,41 @@ internal sealed class Http1AnswerWriter
             await connection.WriteAsync(bytes.Content, context.CancellationToken);
         }
 
+        if (body is HttpAnswerBody.Streamed streamed)
+        {
+            await StreamAsync(streamed, isChunked);
+        }
+
         return true;
     }
+
+    // RFC 9112 section 7.1: each piece is one chunk - its size in hexadecimal, CRLF, the bytes, CRLF - and the
+    // last chunk, size 0, then the CRLF that ends the empty trailer section. An empty piece is skipped, because
+    // a chunk of size 0 would end the body.
+    private async Task StreamAsync(HttpAnswerBody.Streamed streamed, bool isChunked)
+    {
+        await streamed.WriteAsync(isChunked ? WriteChunkAsync : connection.WriteAsync, context.CancellationToken);
+        if (isChunked)
+        {
+            await connection.WriteAsync(LastChunk, context.CancellationToken);
+        }
+    }
+
+    private async ValueTask WriteChunkAsync(ReadOnlyMemory<byte> piece, CancellationToken cancellationToken)
+    {
+        if (piece.IsEmpty)
+        {
+            return;
+        }
+
+        await connection.WriteAsync(Encoding.ASCII.GetBytes(piece.Length.ToString("x", CultureInfo.InvariantCulture) + "\r\n"), cancellationToken);
+        await connection.WriteAsync(piece, cancellationToken);
+        await connection.WriteAsync(ChunkEnd, cancellationToken);
+    }
+
+    private static readonly byte[] ChunkEnd = "\r\n"u8.ToArray();
+
+    private static readonly byte[] LastChunk = "0\r\n\r\n"u8.ToArray();
 
     // After the head the Content-Length is promised, so a file that shrinks or cannot be
     // read any more can only be answered by aborting the connection; a reset tells curl the

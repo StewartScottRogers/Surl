@@ -119,6 +119,14 @@ internal sealed class McpHttpHarness
     public static string EmptyAnswer(string status, string extraFields = "") =>
         $"HTTP/1.1 {status}\r\nDate: {NowHttpDate}\r\nServer: surl\r\n{extraFields}Content-Length: 0\r\nConnection: close\r\n\r\n";
 
+    /// <summary>
+    /// A <c>tools/call</c>'s <c>200</c>: Date, Server, <c>Content-Type: text/event-stream</c>, <c>Transfer-Encoding:
+    /// chunked</c> and Connection: close, then the event as one chunk and the last chunk (RFC 9112 section 7.1).
+    /// </summary>
+    public static string EventStreamAnswer(string streamedEvent) =>
+        $"HTTP/1.1 200 OK\r\nDate: {NowHttpDate}\r\nServer: surl\r\nContent-Type: text/event-stream\r\nTransfer-Encoding: chunked\r\nConnection: close\r\n\r\n"
+        + $"{Encoding.UTF8.GetByteCount(streamedEvent):x}\r\n{streamedEvent}\r\n0\r\n\r\n";
+
     /// <summary>An answer with a body: the status line, Date, Server, Content-Type, the extra fields, Content-Length and Connection: close.</summary>
     public static string BodyAnswer(string status, string mediaType, string body, string extraFields = "") =>
         $"HTTP/1.1 {status}\r\nDate: {NowHttpDate}\r\nServer: surl\r\nContent-Type: {mediaType}\r\n{extraFields}"

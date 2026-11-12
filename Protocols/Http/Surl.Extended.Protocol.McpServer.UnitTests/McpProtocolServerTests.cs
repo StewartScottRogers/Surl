@@ -171,7 +171,7 @@ public sealed class McpProtocolServerTests
 
         // One event of the default type: its data line, then the blank line that dispatches it; no id: field.
         Assert.AreEqual(
-            BodyAnswer("200 OK", "text/event-stream", "data: {\"jsonrpc\":\"2.0\",\"id\":2,\"result\":{\"content\":[{\"type\":\"text\",\"text\":\"hi\"}],\"isError\":false}}\n\n"),
+            EventStreamAnswer("data: {\"jsonrpc\":\"2.0\",\"id\":2,\"result\":{\"content\":[{\"type\":\"text\",\"text\":\"hi\"}],\"isError\":false}}\n\n"),
             response);
     }
 
