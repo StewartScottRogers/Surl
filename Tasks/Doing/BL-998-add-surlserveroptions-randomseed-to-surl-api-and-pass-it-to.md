@@ -38,3 +38,4 @@ decision 4) and reaches the composition, so a .NET test seeds an in-process serv
 ## Log
 
 - 2026-11-06: Created.
+- 2026-11-12: Backlog -> Doing.
