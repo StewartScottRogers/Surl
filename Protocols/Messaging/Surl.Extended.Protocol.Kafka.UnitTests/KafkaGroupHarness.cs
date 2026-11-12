@@ -22,12 +22,17 @@ internal sealed class KafkaGroupHarness
         CancellationToken cancellationToken,
         Func<TimeProvider, KafkaGroupCoordinator>? coordinator = null,
         MessageBusConfiguration? busConfiguration = null,
-        TimeProvider? clock = null)
+        TimeProvider? clock = null,
+        int maxCommittedOffsets = Surl.MessageBus.MessageBus.DefaultMaxCommittedOffsets)
     {
         this.cancellationToken = cancellationToken;
         Clock = clock ?? new ManualTimeProvider();
         Coordinator = coordinator?.Invoke(Clock) ?? new KafkaGroupCoordinator(Clock);
-        Bus = new Surl.MessageBus.MessageBus(new ManualTimeProvider(), configuration: busConfiguration);
+        Bus = new Surl.MessageBus.MessageBus(
+            new ManualTimeProvider(),
+            configuration: busConfiguration,
+            events: Events,
+            maxCommittedOffsets: maxCommittedOffsets);
     }
 
     public TimeProvider Clock { get; }
@@ -89,6 +94,10 @@ internal sealed class KafkaGroupHarness
             new KafkaSyncGroupAnswerer(Coordinator, Bus),
             new KafkaHeartbeatAnswerer(Coordinator, Bus),
             new KafkaLeaveGroupAnswerer(Coordinator, Bus),
+            new KafkaOffsetCommitAnswerer(Coordinator, Bus),
+            new KafkaOffsetFetchAnswerer(Bus),
+            new KafkaDescribeGroupsAnswerer(Coordinator, Bus),
+            new KafkaListGroupsAnswerer(Coordinator, Bus),
         ]);
 
     /// <summary>Joins a dynamic member with v3 (no MEMBER_ID_REQUIRED), answered at once or held.</summary>
@@ -203,6 +212,167 @@ internal sealed class KafkaGroupHarness
             .. Int32(members.Length),
             .. members.SelectMany(member => (byte[])[.. String(member.MemberId), .. NullableString(member.InstanceId), .. Int16(member.Error)]),
         ]);
+
+    // ---- Committed offsets, DescribeGroups and ListGroups ---------------------------------
+
+    /// <summary>One partition of an OffsetCommit: index, offset, leader epoch (v6+), metadata.</summary>
+    public sealed record Commit(int Index, long Offset, int Epoch = -1, string? Metadata = null);
+
+    /// <summary>OffsetCommit v2 to v7: group_id, generation_id, member_id, group_instance_id (v7),
+    /// retention_time_ms (v2 to v4), topics [name, partitions [index, offset, leader_epoch (v6+), metadata]].</summary>
+    public static byte[] OffsetCommit(
+        short version,
+        string group,
+        int generationId,
+        string memberId,
+        string? instanceId,
+        params (string Name, Commit[] Partitions)[] topics) =>
+        Request(
+            KafkaApiKey.OffsetCommit,
+            version,
+            [
+                .. String(group),
+                .. Int32(generationId),
+                .. String(memberId),
+                .. version >= 7 ? NullableString(instanceId) : [],
+                .. version <= 4 ? Long(86400000) : [],
+                .. Int32(topics.Length),
+                .. topics.SelectMany(topic => (byte[])
+                [
+                    .. String(topic.Name),
+                    .. Int32(topic.Partitions.Length),
+                    .. topic.Partitions.SelectMany(partition => (byte[])
+                    [
+                        .. Int32(partition.Index),
+                        .. Long(partition.Offset),
+                        .. version >= 6 ? Int32(partition.Epoch) : [],
+                        .. NullableString(partition.Metadata),
+                    ]),
+                ]),
+            ]);
+
+    /// <summary>A simple commit of offset <paramref name="offset"/> on partition 0 of topic <paramref name="topic"/> (v2).</summary>
+    public static byte[] SimpleCommit(string group, string topic, long offset, string? metadata = null) =>
+        OffsetCommit(2, group, -1, "", null, (topic, [new Commit(0, offset, -1, metadata)]));
+
+    /// <summary>An OffsetCommit answer: throttle_time_ms (v3+), topics [name, partitions [index, error_code]].</summary>
+    public static byte[] OffsetCommitAnswer(short version, params (string Name, (int Index, short Error)[] Partitions)[] topics) =>
+        Response(
+        [
+            .. version >= 3 ? Int32(0) : [],
+            .. Int32(topics.Length),
+            .. topics.SelectMany(topic => (byte[])
+            [
+                .. String(topic.Name),
+                .. Int32(topic.Partitions.Length),
+                .. topic.Partitions.SelectMany(partition => (byte[])[.. Int32(partition.Index), .. Int16(partition.Error)]),
+            ]),
+        ]);
+
+    /// <summary>An OffsetCommit answer for partition 0 of one topic.</summary>
+    public static byte[] OffsetCommitAnswer(short version, string topic, short error) => OffsetCommitAnswer(version, (topic, [(0, error)]));
+
+    /// <summary>OffsetFetch v1 to v5: group_id, topics [name, partition_indexes]; null topics is length -1.</summary>
+    public static byte[] OffsetFetch(short version, string group, params (string Name, int[] Partitions)[]? topics) =>
+        Request(
+            KafkaApiKey.OffsetFetch,
+            version,
+            [
+                .. String(group),
+                .. topics is null ? Int32(-1) : Int32(topics.Length),
+                .. (topics ?? []).SelectMany(topic => (byte[])
+                [
+                    .. String(topic.Name),
+                    .. Int32(topic.Partitions.Length),
+                    .. topic.Partitions.SelectMany(partition => Int32(partition)),
+                ]),
+            ]);
+
+    /// <summary>One partition of an OffsetFetch answer.</summary>
+    public sealed record Fetched(int Index, long Offset, int Epoch, string Metadata, short Error);
+
+    /// <summary>An OffsetFetch answer: throttle_time_ms (v3+), topics [name, partitions [index, offset,
+    /// leader_epoch (v5), metadata, error_code]], error_code (v2+).</summary>
+    public static byte[] OffsetFetchAnswer(short version, short error, params (string Name, Fetched[] Partitions)[] topics) =>
+        Response(
+        [
+            .. version >= 3 ? Int32(0) : [],
+            .. Int32(topics.Length),
+            .. topics.SelectMany(topic => (byte[])
+            [
+                .. String(topic.Name),
+                .. Int32(topic.Partitions.Length),
+                .. topic.Partitions.SelectMany(partition => (byte[])
+                [
+                    .. Int32(partition.Index),
+                    .. Long(partition.Offset),
+                    .. version >= 5 ? Int32(partition.Epoch) : [],
+                    .. String(partition.Metadata),
+                    .. Int16(partition.Error),
+                ]),
+            ]),
+            .. version >= 2 ? Int16(error) : [],
+        ]);
+
+    /// <summary>OffsetFetch's answer for partition 0 of one topic that is not committed.</summary>
+    public static Fetched NotCommitted(short error = 0) => new(0, -1, -1, "", error);
+
+    /// <summary>DescribeGroups: groups, include_authorized_operations (v3+).</summary>
+    public static byte[] DescribeGroups(short version, bool includeOperations, params string[] groups) =>
+        Request(
+            KafkaApiKey.DescribeGroups,
+            version,
+            [.. Int32(groups.Length), .. groups.SelectMany(group => String(group)), .. version >= 3 ? new[] { (byte)(includeOperations ? 1 : 0) } : Array.Empty<byte>()]);
+
+    /// <summary>One member of a DescribeGroups answer.</summary>
+    public sealed record Described(string MemberId, string? InstanceId, string ClientId, string ClientHost, string Metadata, string Assignment);
+
+    /// <summary>One group of a DescribeGroups answer.</summary>
+    public sealed record DescribedGroup(short Error, string Group, string State, string ProtocolType, string ProtocolData, Described[] Members);
+
+    /// <summary>A DescribeGroups answer: throttle_time_ms (v1+), groups [error_code, group_id, group_state,
+    /// protocol_type, protocol_data, members [member_id, group_instance_id (v4), client_id, client_host,
+    /// member_metadata, member_assignment], authorized_operations (v3+)].</summary>
+    public static byte[] DescribeGroupsAnswer(short version, int operations, params DescribedGroup[] groups) =>
+        Response(
+        [
+            .. version >= 1 ? Int32(0) : [],
+            .. Int32(groups.Length),
+            .. groups.SelectMany(group => (byte[])
+            [
+                .. Int16(group.Error),
+                .. String(group.Group),
+                .. String(group.State),
+                .. String(group.ProtocolType),
+                .. String(group.ProtocolData),
+                .. Int32(group.Members.Length),
+                .. group.Members.SelectMany(member => (byte[])
+                [
+                    .. String(member.MemberId),
+                    .. version >= 4 ? NullableString(member.InstanceId) : [],
+                    .. String(member.ClientId),
+                    .. String(member.ClientHost),
+                    .. Bytes(member.Metadata),
+                    .. Bytes(member.Assignment),
+                ]),
+                .. version >= 3 ? Int32(operations) : [],
+            ]),
+        ]);
+
+    /// <summary>ListGroups: an empty request body.</summary>
+    public static byte[] ListGroups(short version) => Request(KafkaApiKey.ListGroups, version);
+
+    /// <summary>A ListGroups answer: throttle_time_ms (v1+), error_code, groups [group_id, protocol_type].</summary>
+    public static byte[] ListGroupsAnswer(short version, short error, params (string Group, string ProtocolType)[] groups) =>
+        Response(
+        [
+            .. version >= 1 ? Int32(0) : [],
+            .. Int16(error),
+            .. Int32(groups.Length),
+            .. groups.SelectMany(group => (byte[])[.. String(group.Group), .. String(group.ProtocolType)]),
+        ]);
+
+    private static byte[] Long(long value) => [.. Int32((int)(value >> 32)), .. Int32((int)value)];
 
     public static byte[] NullableString(string? value) => value is null ? [0xFF, 0xFF] : String(value);
 

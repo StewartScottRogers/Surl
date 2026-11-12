@@ -18,6 +18,12 @@ public enum KafkaApiKey : short
     /// <summary>Metadata: the brokers, topics and partitions.</summary>
     Metadata = 3,
 
+    /// <summary>OffsetCommit: store a consumer group's committed offsets.</summary>
+    OffsetCommit = 8,
+
+    /// <summary>OffsetFetch: read a consumer group's committed offsets.</summary>
+    OffsetFetch = 9,
+
     /// <summary>FindCoordinator: find the broker coordinating a consumer group.</summary>
     FindCoordinator = 10,
 
@@ -32,6 +38,12 @@ public enum KafkaApiKey : short
 
     /// <summary>SyncGroup: hand out (leader) or receive (member) the partition assignments.</summary>
     SyncGroup = 14,
+
+    /// <summary>DescribeGroups: describe consumer groups and their members.</summary>
+    DescribeGroups = 15,
+
+    /// <summary>ListGroups: list the consumer groups.</summary>
+    ListGroups = 16,
 
     /// <summary>SaslHandshake: choose a SASL mechanism.</summary>
     SaslHandshake = 17,

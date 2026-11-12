@@ -1,3 +1,4 @@
+using System.Net;
 using Surl.Protocol.Abstractions;
 
 namespace Surl.Extended.Protocol.Kafka;
@@ -12,12 +13,14 @@ namespace Surl.Extended.Protocol.Kafka;
 /// <param name="Account">The caller's account; null for an anonymous one.</param>
 /// <param name="Events">Where the group's changes are published (<see cref="ExchangeContext.Events"/>).</param>
 /// <param name="Identifiers">Where a new member id's 16 bytes come from (<see cref="ExchangeContext.Identifiers"/>).</param>
+/// <param name="ClientHost">The remote address as DescribeGroups writes <c>client_host</c>: <c>/&lt;address&gt;</c>.</param>
 internal sealed record KafkaGroupCaller(
     long ExchangeId,
     string Scheme,
     string? Account,
     ISurlEventPublisher Events,
-    IIdentifierRandom Identifiers)
+    IIdentifierRandom Identifiers,
+    string ClientHost)
 {
     /// <summary>The caller of <paramref name="request"/> on the exchange <paramref name="context"/>.</summary>
     /// <param name="request">The request.</param>
@@ -28,5 +31,6 @@ internal sealed record KafkaGroupCaller(
         context.Scheme,
         request.Connection.AccountName,
         context.Events,
-        context.Identifiers);
+        context.Identifiers,
+        "/" + (context.RemoteEndPoint is IPEndPoint address ? address.Address.ToString() : context.RemoteEndPoint.ToString()));
 }

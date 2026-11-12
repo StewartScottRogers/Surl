@@ -125,6 +125,27 @@ Consumer groups (BL-948, ADR-0145 decisions 1 to 3, 6, 9 and 10):
   `MessageBus.MayUseGroup` (30), then the coordinator. `KafkaHeldAnswer` pauses
   `ExchangeContext.IdleClock` while a JoinGroup or SyncGroup is held.
 
+Committed offsets and group listing (BL-949, ADR-0145 decisions 4 to 6 and 10):
+
+- `KafkaOffsetCommitAnswerer` answers v2 to v7: fault plan first (command `OffsetCommit`, path the
+  group id; an `error` rule's code answers every partition and stores nothing), then an empty group id
+  24, group access 30 and `KafkaGroupCoordinator.CheckCommit` (a simple commit, generation -1 with an
+  empty member id, is taken only while the group has no members, else 25; 25, 82, 22; 27 while
+  completing a rebalance; a member's commit refreshes its session). Each partition then stands alone:
+  `KafkaFetchableTopic.Find` (17, 3, 29, 3 - access before "no log", as Metadata and Fetch answer it),
+  metadata over 4096 UTF-8 bytes 12, the bus's `CommitOffset` refusal 44, else 0.
+- `KafkaOffsetFetchAnswerer` answers v1 to v5 from the bus: group denied 30 (top level from v2, every
+  partition asked in v1), per partition 17, 29, 3, else the committed entry or offset -1, leader epoch -1
+  and empty metadata with 0. Null `topics` (v2 on) lists the group's committed topics Kafka can name
+  (`/` written `.`) that the caller may subscribe to, ordinal by Kafka name; v1's null array asks for none.
+- `KafkaDescribeGroupsAnswerer` (v0 to v4) answers each group asked from `KafkaGroupCoordinator.Describe`
+  (state name, protocol type, the chosen protocol in `CompletingRebalance` and `Stable`, members with
+  client id, `/<address>` client host, metadata and, when `Stable`, assignment), `Empty` for a group
+  known only by its offsets, `Dead` for none, 30 when denied; `authorized_operations` is -2147483648
+  unless asked, then 264 (READ and DESCRIBE). `KafkaListGroupsAnswerer` (v0 to v2) lists the groups with
+  a member or an offset the caller may use, ordinal, with their protocol types.
+- Not wired into `Surl.Composition` yet (BL-522 composes the broker's answerers).
+
 Each served API gets an `IKafkaApiAnswerer`, passed to `KafkaBroker`'s constructor; the command
 line (`--kafka-fetch-compression`) and composition are BL-522.
 

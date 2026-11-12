@@ -51,6 +51,8 @@ public sealed class KafkaGroupCoordinator
     /// <summary>The longest session timeout a JoinGroup may ask for, and the longest rebalance timeout: Kafka's default <c>group.max.session.timeout.ms</c>.</summary>
     public const int MaxSessionTimeoutMs = 1_800_000;
 
+    private const int SimpleCommitGeneration = -1;
+
     private readonly Lock gate = new();
     private readonly Dictionary<string, Group> groups = new(StringComparer.Ordinal);
     private readonly TimeProvider timeProvider;
@@ -220,6 +222,77 @@ public sealed class KafkaGroupCoordinator
             AfterRemoval(held!, caller);
             return KafkaErrorCode.None;
         }
+    }
+
+    /// <summary>
+    /// Decides whether OffsetCommit may store offsets for a group (ADR-0145 decision 4). A simple
+    /// commit (generation -1, empty member id) is taken while the group has no members and is 25
+    /// while it has some. Otherwise the member must be known (25), not fenced (82) and of the
+    /// current generation (22), its session is refreshed as a heartbeat refreshes it, and a group
+    /// completing a rebalance is 27.
+    /// </summary>
+    /// <param name="group">The group id.</param>
+    /// <param name="generationId">The generation the member names; -1 for a simple commit.</param>
+    /// <param name="memberId">The member id; empty for a simple commit.</param>
+    /// <param name="instanceId">The group instance id (v7); null for a dynamic member.</param>
+    /// <returns>The error code every partition is answered with, or <see cref="KafkaErrorCode.None"/>.</returns>
+    internal KafkaErrorCode CheckCommit(string group, int generationId, string memberId, string? instanceId)
+    {
+        lock (gate)
+        {
+            if (generationId == SimpleCommitGeneration && memberId.Length == 0)
+            {
+                return groups.TryGetValue(group, out var simple) && simple.Members.Count > 0 ? KafkaErrorCode.UnknownMemberId : KafkaErrorCode.None;
+            }
+
+            var refusal = GenerationRefusal(group, generationId, memberId, instanceId, out var held, out var member);
+            if (refusal != KafkaErrorCode.None)
+            {
+                return refusal;
+            }
+
+            Refresh(member!);
+            return held!.State == KafkaGroupState.CompletingRebalance ? KafkaErrorCode.RebalanceInProgress : KafkaErrorCode.None;
+        }
+    }
+
+    /// <summary>Describes a group that has members, as DescribeGroups writes it.</summary>
+    /// <param name="group">The group id.</param>
+    /// <returns>The group, or null when it has no member (it may still hold committed offsets).</returns>
+    internal KafkaGroupDescription? Describe(string group)
+    {
+        lock (gate)
+        {
+            return groups.TryGetValue(group, out var held) && held.Members.Count > 0 ? Describe(held) : null;
+        }
+    }
+
+    /// <summary>Lists the groups that have members, with their protocol types.</summary>
+    /// <returns>Each group id and its protocol type, in no particular order.</returns>
+    internal IReadOnlyList<KeyValuePair<string, string>> ListMemberedGroups()
+    {
+        lock (gate)
+        {
+            return [.. groups.Values.Where(group => group.Members.Count > 0).Select(group => KeyValuePair.Create(group.Id, group.ProtocolType))];
+        }
+    }
+
+    private static KafkaGroupDescription Describe(Group group)
+    {
+        var isChosen = group.State is KafkaGroupState.CompletingRebalance or KafkaGroupState.Stable;
+        var protocol = isChosen ? group.ProtocolName : "";
+        var isAssigned = group.State == KafkaGroupState.Stable;
+        return new KafkaGroupDescription(
+            group.State.ToString(),
+            group.ProtocolType,
+            protocol,
+            [.. group.Members.Select(member => new KafkaGroupMemberDescription(
+                member.Id,
+                member.InstanceId,
+                member.ClientId,
+                member.ClientHost,
+                isChosen ? member.MetadataFor(protocol) : ReadOnlyMemory<byte>.Empty,
+                isAssigned ? member.Assignment : ReadOnlyMemory<byte>.Empty))]);
     }
 
     private static string HolderOf(Group group, string? instanceId) =>
@@ -459,6 +532,7 @@ public sealed class KafkaGroupCoordinator
         }
 
         group.State = KafkaGroupState.CompletingRebalance;
+        group.ProtocolName = protocol;
         group.Assignments = new(TaskCreationOptions.RunContinuationsAsynchronously);
         Publish(group, ConsumerGroupChange.GenerationStarted, null, caller?.ExchangeId, caller?.Account);
         group.Phase.TrySetResult(new JoinPhase(
@@ -535,7 +609,8 @@ public sealed class KafkaGroupCoordinator
     private void Empty(Group group)
     {
         group.State = KafkaGroupState.Empty;
-        group.ProtocolType = null;
+        group.ProtocolType = "";
+        group.ProtocolName = "";
         group.Assignments.TrySetResult(null);
         ForgetIfIdle(group);
     }
@@ -608,7 +683,10 @@ public sealed class KafkaGroupCoordinator
 
         public string? LeaderId { get; set; }
 
-        public string? ProtocolType { get; set; }
+        public string ProtocolType { get; set; } = "";
+
+        // The protocol the latest join phase chose; empty before the first phase ends and once empty.
+        public string ProtocolName { get; set; } = "";
 
         public ISurlEventPublisher Events { get; set; } = DiscardingSurlEventPublisher.Instance;
 
@@ -636,6 +714,10 @@ public sealed class KafkaGroupCoordinator
 
         public string? Account { get; private set; }
 
+        public string ClientId { get; private set; } = "";
+
+        public string ClientHost { get; private set; } = "";
+
         public IReadOnlyList<KafkaGroupProtocol> Protocols { get; private set; } = [];
 
         public long MetadataBytes { get; private set; }
@@ -656,6 +738,8 @@ public sealed class KafkaGroupCoordinator
         {
             InstanceId = request.InstanceId;
             Account = caller.Account;
+            ClientId = request.ClientId ?? "";
+            ClientHost = caller.ClientHost;
             Protocols = request.Protocols;
             MetadataBytes = ProtocolBytes(request.Protocols);
             SessionTimeout = TimeSpan.FromMilliseconds(request.SessionTimeoutMs);

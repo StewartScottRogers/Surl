@@ -21,6 +21,9 @@ public enum KafkaErrorCode : short
     /// <summary><c>MESSAGE_TOO_LARGE</c>: a record or batch is over a limit.</summary>
     MessageTooLarge = 10,
 
+    /// <summary><c>OFFSET_METADATA_TOO_LARGE</c>: a committed offset's metadata is over 4096 bytes in UTF-8.</summary>
+    OffsetMetadataTooLarge = 12,
+
     /// <summary><c>INVALID_TOPIC_EXCEPTION</c>: the topic name is not a valid Kafka name.</summary>
     InvalidTopicException = 17,
 
