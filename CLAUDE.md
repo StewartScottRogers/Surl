@@ -240,7 +240,9 @@ Surl/
 │   └── Terminal/          ← Telnet
 ├── Documentation/         ← shared project (docs and planning)
 ├── Tasks/                 ← shared project (task board)
-├── data/                  ← local runtime data (gitignored, never read or modify)
+├── data/                  ← local runtime data (gitignored, never read or modify). Only this root folder:
+│                            Conformance/Surl.Conformance.UnitTests/UpstreamTestCases/data/ is tracked
+│                            upstream test input and is read freely (Stewart, 2026-11-12)
 └── .claude/               ← Claude Code configuration
 ```
 For example, `Protocols/Mail/Surl.Protocol.Smtp.UnitLibrary/` sits beside
