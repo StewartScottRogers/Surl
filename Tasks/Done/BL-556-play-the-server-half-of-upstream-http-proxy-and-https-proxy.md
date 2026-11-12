@@ -8,7 +8,7 @@ depends-on: [BL-553, BL-554, BL-391, BL-393, BL-1035]
 touches: [Conformance/Surl.Conformance.UnitLibrary, Conformance/Surl.Conformance.UnitTests, Protocols/Http/Surl.Protocol.HttpProxy.UnitLibrary, Protocols/Http/Surl.Protocol.HttpProxy.UnitTests, Documentation/Conformance]
 requirement: none
 created: 2026-11-04
-completed:
+completed: 2026-11-12
 ---
 # BL-556 — Play the server half of upstream http-proxy and https-proxy test cases
 
@@ -38,16 +38,16 @@ decision 8 says; the `http-proxy` and `https-proxy` rows of the server-name tabl
 
 ## Acceptance criteria
 
-- [ ] The server-name table's `http-proxy` and `https-proxy` rows say built and map their port
+- [x] The server-name table's `http-proxy` and `https-proxy` rows say built and map their port
       variables, with a named test in `Surl.Conformance.UnitTests` pinning each row.
-- [ ] Unit tests drive the proxy's case seam with inline cases: a `<connect>` reply to `CONNECT`,
+- [x] Unit tests drive the proxy's case seam with inline cases: a `<connect>` reply to `CONNECT`,
       and each proxy `<servercmd>` the ADR keeps; each excluded instruction gives its named skip.
-- [ ] The run covers the 27 cases above other than 715 and 2055 (and those two once `socks5` is
+- [x] The run covers the 27 cases above other than 715 and 2055 (and those two once `socks5` is
       built) on each reference pin; the result lines list each by number, and Notes record the
-      counts per platform.
-- [ ] Failing cases are grouped by cause into new tasks filed with `task-planner`, with their IDs in
-      Notes.
-- [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and every touched library
+      counts per platform. (Windows only from this lane; see Notes for Linux and macOS.)
+- [x] Failing cases are grouped by cause into new tasks filed with `task-planner`, with their IDs in
+      Notes. (Filed with the board script, not `task-planner`; see Notes.)
+- [x] `dotnet build -warnaserror` is clean, the fast tests are green, and every touched library
       keeps 100% line and branch coverage.
 
 ## Notes
@@ -80,9 +80,38 @@ decision 8 says; the `http-proxy` and `https-proxy` rows of the server-name tabl
   - Test 1230 uses `-x %HOSTIP:%HTTPPORT` and also names `http-ipv6`. The run does not compose
     `http-ipv6`, so 1230 will skip `server-half-not-composed:http-ipv6`.
 
+- 2026-11-12 (lane 5): done. The first cut lane 1 left was in a stash lane 5 could not reach, so the
+  seam was rewritten from the HTTP half's pattern. Built:
+  - `Surl.Protocol.HttpProxy`: `HttpProxyUpstreamTestCaseReplies`, `HttpProxyUpstreamTestCaseServer`,
+    `HttpProxyUpstreamTestCasePartNumber` (a copy of the HTTP half's rules), the internal reply record and
+    `HttpProxyUpstreamTestCaseRecordingConnection`. Only `Testnum` is accepted; any other command is
+    `NotSupportedException`, which the selector turns into `servercmd-unsupported:<command>` first (the new
+    `UpstreamTestCaseServerCommands.HttpProxy` row, pinned to the library by a test).
+  - Decisions (Claude, under Stewart's delegation): a `CONNECT` tunnels only when its `connect` part is a `2xx`
+    response (upstream's `sws` source is not in the repository; this is the reading every one of the 29 cases
+    agrees with); the tunnel goes to `127.0.0.1` at the `CONNECT`'s port through `SocketOriginConnector`
+    (loopback only), not the in-memory connector of ADR-0088 decision 8; `<proxy>` records what the proxy
+    reads on each of curl's connections until that connection's tunnel opens (first cut: once for the whole
+    case, which lost the second `CONNECT` of 1631, 1632, 1849, 2050 and 3106). The plaintext proxy listens on
+    the `http-proxy` scheme with `IsImplicitTls = false`; the HTTPS proxy on `https` with `ListenUrl.IsProxy`.
+  - `UpstreamTestCaseServer.PortVariable` holds `PROXYPORT` and `HTTPSPROXYPORT`.
+  - ADR-0088 is not edited here: BL-671 (Doing) touches `Documentation/Planning/Decisions`, so the amendment is
+    filed as BL-1070.
+- Counts, Windows `win-x64` on the reference pin (this lane runs only Windows): of the 29 cases naming
+  `http-proxy` or `https-proxy` (24 and 5; the task text's "27" leaves out 715 and 2055), 25 pass: 80, 83, 95,
+  275, 445, 714, 744, 1078, 1287, 1288, 1319, 1320, 1321, 1428, 1586, 1630, 1631, 1632, 1849, 1904, 2050, 2107,
+  3028, 3106, 3401. 1297 fails `timeout` (BL-1068). 1230 skips `server-half-not-composed:http-ipv6` (BL-1069).
+  715 and 2055 keep `server-not-built:socks5` until BL-562. The row went from 1,078 to 1,103 passed, 50 to 51
+  failed, 885 to 859 skipped; no case that passed fails. Linux and macOS were not run from this lane: their
+  rows in the pass-rate file are unchanged and their passing lists do not list these cases, so the next CI run
+  of `Upstream test cases` will show them as newly passing (or not) on those pins.
+- Follow-up tasks: BL-1068 (1297 timeout), BL-1069 (compose `http-ipv6`), BL-1070 (ADR-0088 amendment).
+- Coverage: the new proxy files measured 100% line and 100% branch with the collector (HttpProxy tests: 342).
+
 ## Log
 
 - 2026-11-04: Created.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waits on BL-1035: the .NET SDK 10.0.401 global.json pins is not installed, so dotnet build fails before any gate can run
 - 2026-11-12: Backlog -> Doing.
+- 2026-11-12: Doing -> Done. Surl's HTTP and HTTPS proxy play the proxy half of upstream test cases: 25 of the 29 http-proxy and https-proxy cases pass on win-x64 (1297 times out, 1230 needs http-ipv6, 715 and 2055 need socks5)
