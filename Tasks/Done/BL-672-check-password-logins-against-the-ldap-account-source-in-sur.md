@@ -8,7 +8,7 @@ depends-on: [BL-671]
 touches: [Foundation/Surl.Authentication.UnitLibrary, Foundation/Surl.Authentication.UnitTests]
 requirement: none
 created: 2026-11-04
-completed:
+completed: 2026-11-12
 ---
 # BL-672 — Check password logins against the LDAP account source in Surl.Authentication
 
@@ -33,11 +33,11 @@ verdicts, notes and refusal delay as an account from `--user-file`.
 
 ## Acceptance criteria
 
-- [ ] Named tests show: a password login accepted when the directory accepts it; refused when it refuses, with the
+- [x] Named tests show: a password login accepted when the directory accepts it; refused when it refuses, with the
       same verdict and delay as an unknown `--user-file` account; a directory timeout refused the same way and
       noted; each method the ADR excludes never consults the directory; the directory's own bind password never
       appears in a note or exception message.
-- [ ] `dotnet build -warnaserror` is clean, `dotnet test --filter "TestCategory!=Integration"` is green, and the
+- [x] `dotnet build -warnaserror` is clean, `dotnet test --filter "TestCategory!=Integration"` is green, and the
       library keeps 100% line and branch coverage.
 
 ## Notes
@@ -46,3 +46,4 @@ verdicts, notes and refusal delay as an account from `--user-file`.
 
 - 2026-11-04: Created.
 - 2026-11-12: Backlog -> Doing.
+- 2026-11-12: Doing -> Done. LdapAccountSource checks password logins against an LDAP directory behind an injected connector, with ADR-0149's verdicts, notes, bounds and refusal delay
