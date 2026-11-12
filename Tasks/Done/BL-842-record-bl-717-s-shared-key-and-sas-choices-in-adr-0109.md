@@ -8,7 +8,7 @@ depends-on: [BL-717, BL-1035]
 touches: [Documentation/Planning/Decisions/ADR-0109-how-the-azure-storage-server-answers-az-abfs-and-abfss.md, Documentation/Conformance/Extended/AzureStorage.md]
 requirement: none
 created: 2026-11-05
-completed:
+completed: 2026-11-11
 ---
 # BL-842 — Record BL-717's Shared Key and SAS choices in ADR-0109
 
@@ -31,9 +31,9 @@ cover Shared Key and shared access signatures.
 
 ## Acceptance criteria
 
-- [ ] ADR-0109 has an amendment naming BL-717 that states each choice in Context, marked "Decided by Claude
+- [x] ADR-0109 has an amendment naming BL-717 that states each choice in Context, marked "Decided by Claude
       under Stewart's delegation".
-- [ ] `Documentation/Conformance/Extended/AzureStorage.md` names `AzureStorageVerifierTests` and
+- [x] `Documentation/Conformance/Extended/AzureStorage.md` names `AzureStorageVerifierTests` and
       `AzureLoginJudgeTests` against the Shared Key and SAS rows.
 
 ## Notes
@@ -63,3 +63,4 @@ cover Shared Key and shared access signatures.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waits on BL-1035: dotnet build cannot find the .NET SDK 10.0.401 that global.json pins; the docs are done in commit 254b2d66
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Done. ADR-0109 records BL-717's Shared Key and SAS choices; AzureStorage matrix names AzureStorageVerifierTests and AzureLoginJudgeTests
