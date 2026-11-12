@@ -6,7 +6,8 @@ namespace Surl.Cli;
 /// <summary>
 /// Reads <c>--mailbox-file</c>s (ADR-0101 decisions 4 to 6): RFC 4180 CSV in UTF-8, a byte-order
 /// mark skipped, records ending in CR LF or LF, fields optionally double-quoted with <c>""</c> for a
-/// quote, a header row naming the columns, then one mailbox per record, each read as
+/// quote, a header row naming the columns (<c>address</c>, <c>password</c>, <c>protocols</c>, <c>quota</c>,
+/// <c>folders</c>; an empty field means the key was not given), then one mailbox per record, each read as
 /// <c>--mailbox</c> reads the same keys with no percent-encoding. One reader reads every file of a
 /// start in order, so an address given twice - by a <c>--mailbox</c>, the same file or another -
 /// is refused. It reads bytes it is handed and never the disk.
@@ -34,7 +35,7 @@ public sealed class MailboxFileReader
     private const string AddressColumn = "address";
     private const string PasswordColumn = "password";
 
-    private static readonly string[] KnownColumns = [AddressColumn, PasswordColumn, ConfiguredMailboxReader.ProtocolsKey];
+    private static readonly string[] KnownColumns = [AddressColumn, PasswordColumn, ConfiguredMailboxReader.ProtocolsKey, ConfiguredMailboxReader.QuotaKey, ConfiguredMailboxReader.FoldersKey];
 
     private readonly IReadOnlyCollection<string> extendedSchemes;
     private readonly HashSet<string> mailDomains;
@@ -157,13 +158,15 @@ public sealed class MailboxFileReader
         var byColumn = columns.Zip(fields).ToDictionary(pair => pair.First, pair => pair.Second, StringComparer.Ordinal);
         var address = byColumn[AddressColumn];
         var password = byColumn[PasswordColumn];
-        var protocols = SplitProtocols(byColumn.GetValueOrDefault(ConfiguredMailboxReader.ProtocolsKey, string.Empty));
-        if (protocols?.Length > ConfigurationItemReader.MaxListMembers)
+        var protocols = SplitList(byColumn.GetValueOrDefault(ConfiguredMailboxReader.ProtocolsKey, string.Empty));
+        var folders = SplitList(byColumn.GetValueOrDefault(ConfiguredMailboxReader.FoldersKey, string.Empty));
+        if (HoldsTooManyMembers(protocols) || HoldsTooManyMembers(folders))
         {
             return ConfigurationItemReader.TooManyMembers;
         }
 
-        var failure = ConfiguredMailboxReader.Build(address, password, protocols, null, null, IsServedScheme, out var mailbox)
+        var quota = byColumn.GetValueOrDefault(ConfiguredMailboxReader.QuotaKey, string.Empty);
+        var failure = ConfiguredMailboxReader.Build(address, password, protocols, quota.Length == 0 ? null : quota, folders, IsServedScheme, out var mailbox)
             ?? ConfiguredMailboxReader.FindConflict(address, mailbox, mailDomains, userNames)
             ?? (addresses.Add(mailbox.Address) ? null : ConfiguredMailboxReader.MailboxGivenTwice(address));
         if (failure is null)
@@ -174,10 +177,12 @@ public sealed class MailboxFileReader
         return failure;
     }
 
+    private static bool HoldsTooManyMembers(string[]? list) => list?.Length > ConfigurationItemReader.MaxListMembers;
+
     private bool IsServedScheme(string scheme) => ConfiguredMailboxReader.IsServedScheme(scheme, extendedSchemes);
 
-    // An empty protocols field means the key was not given (ADR-0101 decision 4).
-    private static string[]? SplitProtocols(string field) => field.Length == 0 ? null : field.Split(',');
+    // An empty protocols, quota or folders field means the key was not given (ADR-0101 decision 4).
+    private static string[]? SplitList(string field) => field.Length == 0 ? null : field.Split(',');
 
     private static ReadOnlySpan<byte> SkipByteOrderMark(byte[] content) =>
         content.AsSpan().StartsWith((ReadOnlySpan<byte>)[0xEF, 0xBB, 0xBF]) ? content.AsSpan(3) : content;

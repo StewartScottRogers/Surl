@@ -97,12 +97,13 @@ and `Surl.Protocol.Abstractions.UnitLibrary`.
   most 1024 UTF-8 bytes - and never `INBOX`, a member twice refused) read into `SurlCommandLine.MailAliases`,
   `MailCatchAlls` and `SharedFolders`, each record holding what was written, decoded.
   `ConfiguredMailboxReader.ReadWithSettings` (`ShapeWithSettings`) also reads `quota=<bytes>` (at least one
-  byte) and `folders=<name>,...` into `ConfiguredMailbox.QuotaBytes` and `Folders`; the `--mailbox` row and
-  `MailboxFileReader` still use `Read` and refuse both keys. `ConfiguredMailConflicts.Find` holds the
-  whole-line checks (an alias, catch-all domain or shared folder twice; an alias or catch-all domain with no
-  `--mail-domain` or outside every one; an alias that is also a mailbox). No option row uses them yet: BL-995
-  adds the rows, moves `--mailbox` and the file's columns onto the settings and calls `Find`; BL-994
-  composes them.
+  byte) and `folders=<name>,...` into `ConfiguredMailbox.QuotaBytes` and `Folders`; `ConfiguredMailboxReader.Read`
+  (`Shape`) is the one `--mailbox` reader, and `MailboxFileReader` reads `quota` and `folders` columns too (an
+  empty field means the key was not given). `ConfiguredMailConflicts.Find` holds the whole-line checks (an
+  alias, catch-all domain or shared folder twice; an alias or catch-all domain with no `--mail-domain` or
+  outside every one; an alias that is also a mailbox). BL-995 added the rows `--mail-alias`,
+  `--mail-catch-all` and `--shared-folder` (category `mail`), counts each like `--group` and calls `Find` from
+  `RefuseMailCombination`; `Surl.Composition` composes them (BL-994).
 - Mail options (ADR-0101 decisions 4, 5 and 7, ADR-0102 decision 1; BL-883), category `mail`:
   `--mail-domain <domain>` (`MailDomainNames.Reading`, kept as written in `MailDomains`),
   `--mailbox <address>:<password>[;protocols=...]` (`ConfiguredMailboxReader.Reading`, the address

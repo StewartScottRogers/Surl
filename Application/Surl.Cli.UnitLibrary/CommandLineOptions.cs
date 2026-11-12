@@ -222,6 +222,12 @@ internal static class CommandLineOptions
         WithArgument<ConfiguredMailbox>("mailbox", null, ConfiguredMailboxReader.Reading, (c, v) => c with { Mailboxes = [.. c.Mailboxes, v] },
             new("<address>:<password>[;...]", "Add a mailbox and login (repeatable)", ["auth", "mail"], IsInShortList: false, Default: "no mailboxes"))
             with { ArgumentHoldsSecret = true },
+        WithArgument<ConfiguredMailAlias>("mail-alias", null, ConfiguredMailAliasReader.Reading, (c, v) => c with { MailAliases = [.. c.MailAliases, v] },
+            new("<alias>=<to>,...", "Forward an address (repeatable)", ["mail"], IsInShortList: false, Default: "none")),
+        WithArgument<ConfiguredMailCatchAll>("mail-catch-all", null, ConfiguredMailCatchAllReader.Reading, (c, v) => c with { MailCatchAlls = [.. c.MailCatchAlls, v] },
+            new("<domain>=<to>", "Catch unknown addresses (repeatable)", ["mail"], IsInShortList: false, Default: "none: mail to an unknown address is discarded")),
+        WithArgument<ConfiguredSharedFolder>("shared-folder", null, ConfiguredSharedFolderReader.Reading, (c, v) => c with { SharedFolders = [.. c.SharedFolders, v] },
+            new("<name>=<who>,...", "Share an IMAP folder (repeatable)", ["mail"], IsInShortList: false, Default: "none")),
         WithArgument<string>("mailbox-file", null, OptionArgumentReader.Path, (c, v) => c with { MailboxFiles = [.. c.MailboxFiles, v] },
             new("<file>", "Read mailboxes from CSV (repeatable)", ["auth", "mail"], IsInShortList: false, Default: "none")),
         WithArgument<ConfiguredShare>("share", null, ConfiguredShareReader.Reading, (c, v) => c with { Shares = [.. c.Shares, v] },

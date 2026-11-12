@@ -3,7 +3,7 @@ namespace Surl.Cli;
 public sealed partial class ConfiguredMailboxReaderTests
 {
     [TestMethod]
-    public void ReadWithSettings_NoSettings_HasNoQuotaAndNoFolders()
+    public void Read_NoSettings_HasNoQuotaAndNoFolders()
     {
         var mailbox = AcceptedWithSettings("ann@example.com:pw");
 
@@ -16,17 +16,17 @@ public sealed partial class ConfiguredMailboxReaderTests
     [DataRow("1", 1L, DisplayName = "One byte")]
     [DataRow("10M", 10L * 1024 * 1024, DisplayName = "Suffix")]
     [DataRow("1.5k", 1536L, DisplayName = "Decimal")]
-    public void ReadWithSettings_Quota_IsReadAsBytes(string quota, long bytes) =>
+    public void Read_Quota_IsReadAsBytes(string quota, long bytes) =>
         Assert.AreEqual(bytes, AcceptedWithSettings($"ann@example.com:pw;quota={quota}").QuotaBytes);
 
     [TestMethod]
-    public void ReadWithSettings_Folders_AreKeptInOrderAsWritten() =>
+    public void Read_Folders_AreKeptInOrderAsWritten() =>
         CollectionAssert.AreEqual(
             new[] { "Archive", "Work/2026", "INBOX", "a,b" },
             AcceptedWithSettings("ann@example.com:pw;folders=Archive,Work/2026,INBOX,a%2Cb").Folders.ToArray());
 
     [TestMethod]
-    public void ReadWithSettings_EveryKey_IsReadInAnyOrderAndCase()
+    public void Read_EveryKey_IsReadInAnyOrderAndCase()
     {
         var mailbox = AcceptedWithSettings("Ann@Example.com:pw;FOLDERS=Sent;Quota=2k;protocols=imap");
 
@@ -47,26 +47,26 @@ public sealed partial class ConfiguredMailboxReaderTests
     [DataRow("ann@example.com:pw;folders=Sent,", "an empty field", DisplayName = "Empty folder")]
     [DataRow("ann@example.com:pw;folders=a%09b", "a control character", DisplayName = "Control character in a folder")]
     [DataRow("ann@example.com:pw;folders=a;nosuch=1", "unknown key nosuch", DisplayName = "Unknown key")]
-    public void ReadWithSettings_RefusedItem_GivesTheReasonAndAnEmptyMailbox(string argument, string reason)
+    public void Read_RefusedSettingsItem_GivesTheReasonAndAnEmptyMailbox(string argument, string reason)
     {
-        var failure = ConfiguredMailboxReader.ReadWithSettings(argument, out var mailbox);
+        var failure = ConfiguredMailboxReader.Read(argument, out var mailbox);
 
         Assert.AreEqual(reason, failure);
         Assert.AreSame(ConfiguredMailboxReader.Empty, mailbox);
     }
 
     [TestMethod]
-    public void ReadWithSettings_FolderPastTheStoreBound_IsRefused() =>
+    public void Read_FolderPastTheStoreBound_IsRefused() =>
         Assert.AreEqual(
             "a folder name is longer than 1024 bytes",
-            ConfiguredMailboxReader.ReadWithSettings("ann@example.com:pw;folders=" + new string('é', 513), out _));
+            ConfiguredMailboxReader.Read("ann@example.com:pw;folders=" + new string('é', 513), out _));
 
     [TestMethod]
-    public void ReadWithSettings_RefusalOfAnyKey_NeverHoldsThePassword()
+    public void Read_RefusalOfAnyKey_NeverHoldsThePassword()
     {
         foreach (var settings in new[] { ";quota=0", ";quota=x", ";folders=a,a", ";folders=" + new string('x', 1025) })
         {
-            var failure = ConfiguredMailboxReader.ReadWithSettings("ann@example.com:hunter2" + settings, out _);
+            var failure = ConfiguredMailboxReader.Read("ann@example.com:hunter2" + settings, out _);
 
             Assert.IsNotNull(failure);
             Assert.DoesNotContain("hunter2", failure);
@@ -80,21 +80,17 @@ public sealed partial class ConfiguredMailboxReaderTests
             ConfiguredMailboxReader.Build("ann@example.com", "pw", null, null, ["a\uD800"], ConfiguredMailboxReader.IsAnySurlScheme, out _));
 
     [TestMethod]
-    public void ReadingWithSettings_IsNamedByTheWholeItemShape()
+    public void Reading_IsNamedByTheWholeItemShape()
     {
         Assert.AreEqual(
             "<address>:<password>[;protocols=<scheme>,...][;quota=<bytes>][;folders=<name>,...]",
-            ConfiguredMailboxReader.ReadingWithSettings.Type.Name);
-        Assert.IsNull(ConfiguredMailboxReader.ReadingWithSettings.Read("ann@example.com:pw;quota=1", out _));
+            ConfiguredMailboxReader.Reading.Type.Name);
+        Assert.IsNull(ConfiguredMailboxReader.Reading.Read("ann@example.com:pw;quota=1", out _));
     }
-
-    [TestMethod]
-    public void Read_TheRowsShape_StillRefusesQuotaUntilBl995() =>
-        Assert.AreEqual("unknown key folders", ConfiguredMailboxReader.Read("ann@example.com:pw;folders=a", out _));
 
     private static ConfiguredMailbox AcceptedWithSettings(string argument)
     {
-        var failure = ConfiguredMailboxReader.ReadWithSettings(argument, out var mailbox);
+        var failure = ConfiguredMailboxReader.Read(argument, out var mailbox);
 
         Assert.IsNull(failure);
         return mailbox;

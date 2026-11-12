@@ -48,7 +48,6 @@ public sealed partial class ConfiguredMailboxReaderTests
     [DataRow("ann@example.com:a%00b", "a control character", DisplayName = "U+0000 in the password")]
     [DataRow("ann:pw", "not a mail address", DisplayName = "No @")]
     [DataRow("ann@exa_mple.com:pw", "not a domain name", DisplayName = "Not a domain")]
-    [DataRow("ann@example.com:pw;quota=1", "unknown key quota", DisplayName = "quota, BL-654's")]
     public void Read_RefusedItem_GivesTheReasonAndAnEmptyMailbox(string argument, string reason)
     {
         var failure = ConfiguredMailboxReader.Read(argument, out var mailbox);
@@ -127,13 +126,6 @@ public sealed partial class ConfiguredMailboxReaderTests
     [TestMethod]
     public void MailboxGivenTwice_NamesTheAddress() =>
         Assert.AreEqual("mailbox ann@example.com is given twice", ConfiguredMailboxReader.MailboxGivenTwice("ann@example.com"));
-
-    [TestMethod]
-    public void Reading_IsNamedByTheItemShape()
-    {
-        Assert.AreEqual("<address>:<password>[;protocols=<scheme>,...]", ConfiguredMailboxReader.Reading.Type.Name);
-        Assert.IsNull(ConfiguredMailboxReader.Reading.Read("ann@example.com:pw", out _));
-    }
 
     [TestMethod]
     public void ToString_NeverShowsThePassword()

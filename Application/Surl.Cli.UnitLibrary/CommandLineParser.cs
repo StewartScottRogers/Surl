@@ -44,6 +44,9 @@ public static class CommandLineParser
     private const string FaultLongName = "fault";
     private const string MailDomainLongName = "mail-domain";
     private const string MailboxLongName = "mailbox";
+    private const string MailAliasLongName = "mail-alias";
+    private const string MailCatchAllLongName = "mail-catch-all";
+    private const string SharedFolderLongName = "shared-folder";
     private const string ShareLongName = "share";
     private const string ShareAccessLongName = "share-access";
     private const string BucketLongName = "bucket";
@@ -396,15 +399,16 @@ public static class CommandLineParser
     /// and for every other option.
     /// </summary>
     private static CommandLineParseResult? ActOnAcceptedMailOption(
-        CommandLineReading reading, string longName, string reportedName, string argument)
-    {
-        if (longName == MailDomainLongName)
+        CommandLineReading reading, string longName, string reportedName, string argument) =>
+        longName switch
         {
-            return CountItemOption(reading.MailDomainOptionNames, reportedName);
-        }
-
-        return longName == MailboxLongName ? ReadMailbox(reading, reportedName, argument) : null;
-    }
+            MailDomainLongName => CountItemOption(reading.MailDomainOptionNames, reportedName),
+            MailboxLongName => ReadMailbox(reading, reportedName, argument),
+            MailAliasLongName => CountItemOption(reading.MailAliasOptionNames, reportedName),
+            MailCatchAllLongName => CountItemOption(reading.MailCatchAllOptionNames, reportedName),
+            SharedFolderLongName => CountItemOption(reading.SharedFolderOptionNames, reportedName),
+            _ => null,
+        };
 
     /// <summary>
     /// Reads <c>--control</c>'s argument into <see cref="SurlCommandLine.ControlListenUrl"/>, the
@@ -643,7 +647,25 @@ public static class CommandLineParser
         var domains = reading.CommandLine.MailDomains.Select(ComparedMailDomain).ToList();
         return RefuseMailDomainGivenTwice(reading, domains)
             ?? RefuseMailboxGivenTwice(reading)
-            ?? RefuseMailboxConflict(reading, domains.ToHashSet(StringComparer.Ordinal));
+            ?? RefuseMailboxConflict(reading, domains.ToHashSet(StringComparer.Ordinal))
+            ?? RefuseMailRoutingCombination(reading);
+    }
+
+    /// <summary>
+    /// Refuses the first <c>--mail-alias</c>, <c>--mail-catch-all</c> or <c>--shared-folder</c> given twice, then an
+    /// alias or catch-all outside the mail domains, or an alias that is also a mailbox
+    /// (<see cref="ConfiguredMailConflicts.Find"/>, ADR-0101 decision 5 rows 14 and 15); null when none.
+    /// </summary>
+    private static CommandLineParseResult? RefuseMailRoutingCombination(CommandLineReading reading)
+    {
+        var line = reading.CommandLine;
+        var refusal = ConfiguredMailConflicts.Find(
+            line.MailDomains,
+            line.Mailboxes,
+            [.. line.MailAliases.Select((alias, index) => (reading.MailAliasOptionNames[index], alias))],
+            [.. line.MailCatchAlls.Select((catchAll, index) => (reading.MailCatchAllOptionNames[index], catchAll))],
+            [.. line.SharedFolders.Select((folder, index) => (reading.SharedFolderOptionNames[index], folder))]);
+        return refusal is null ? null : RefusedOption(refusal.OptionName, refusal.Reason);
     }
 
     /// <summary>Refuses the first <c>--mail-domain</c> an earlier one already gave; null when none.</summary>
@@ -961,6 +983,15 @@ public static class CommandLineParser
 
         /// <summary>The name each accepted <c>--mailbox</c> was written with, one per mailbox, in order.</summary>
         public List<string> MailboxOptionNames { get; } = [];
+
+        /// <summary>The name each accepted <c>--mail-alias</c> was written with, one per alias, in order.</summary>
+        public List<string> MailAliasOptionNames { get; } = [];
+
+        /// <summary>The name each accepted <c>--mail-catch-all</c> was written with, one per catch-all, in order.</summary>
+        public List<string> MailCatchAllOptionNames { get; } = [];
+
+        /// <summary>The name each accepted <c>--shared-folder</c> was written with, one per folder, in order.</summary>
+        public List<string> SharedFolderOptionNames { get; } = [];
 
         /// <summary>The address each accepted <c>--mailbox</c> was written with, decoded, one per mailbox, in order.</summary>
         public List<string> MailboxWrittenAddresses { get; } = [];

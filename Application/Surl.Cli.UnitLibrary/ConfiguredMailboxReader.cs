@@ -8,26 +8,11 @@ namespace Surl.Cli;
 /// </summary>
 internal static class ConfiguredMailboxReader
 {
-    /// <summary>The <c>--mailbox</c> item: an address, <c>:</c> and a password, with the list key <c>protocols</c>.</summary>
-    public static readonly ConfigurationItemShape Shape = new(
-        "<address>:<password>[;protocols=<scheme>,...]",
-        ':',
-        ConfigurationItemValueKind.Text,
-        new Dictionary<string, ConfigurationItemAttributeKind>(StringComparer.Ordinal)
-        {
-            [ProtocolsKey] = ConfigurationItemAttributeKind.List,
-        },
-        []);
-
-    /// <summary><see cref="Read"/> with the item's argument type (ADR-0046 decision 6).</summary>
-    public static readonly OptionArgumentReading<ConfiguredMailbox> Reading = new(Read, Shape.Reading.Type);
-
     /// <summary>
-    /// The whole <c>--mailbox</c> item of ADR-0101 decision 4: <see cref="Shape"/> with the keys <c>quota</c> and
-    /// <c>folders</c> as well. No option row reads it yet; BL-995 moves <c>--mailbox</c> onto it, once BL-994
-    /// composes the quota and folders into the mail store.
+    /// The whole <c>--mailbox</c> item of ADR-0101 decision 4: an address, <c>:</c> and a password, with the list
+    /// key <c>protocols</c>, the value key <c>quota</c> and the list key <c>folders</c>.
     /// </summary>
-    public static readonly ConfigurationItemShape ShapeWithSettings = new(
+    public static readonly ConfigurationItemShape Shape = new(
         "<address>:<password>[;protocols=<scheme>,...][;quota=<bytes>][;folders=<name>,...]",
         ':',
         ConfigurationItemValueKind.Text,
@@ -39,8 +24,8 @@ internal static class ConfiguredMailboxReader
         },
         []);
 
-    /// <summary><see cref="ReadWithSettings"/> with the item's argument type (ADR-0046 decision 6).</summary>
-    public static readonly OptionArgumentReading<ConfiguredMailbox> ReadingWithSettings = new(ReadWithSettings, ShapeWithSettings.Reading.Type);
+    /// <summary><see cref="Read"/> with the item's argument type (ADR-0046 decision 6).</summary>
+    public static readonly OptionArgumentReading<ConfiguredMailbox> Reading = new(Read, Shape.Reading.Type);
 
     /// <summary>An address holding <c>:</c>, possible only percent-encoded (ADR-0102 decision 1.2).</summary>
     public const string AddressHoldsColon = "the address holds a colon";
@@ -55,8 +40,8 @@ internal static class ConfiguredMailboxReader
     public const string FoldersKey = "folders";
 
     /// <summary>
-    /// <see cref="IsAnySurlScheme"/> as one delegate, made once, so <see cref="Read"/> and <see cref="ReadWithSettings"/>
-    /// share it rather than each testing the compiler's lazily filled cache.
+    /// <see cref="IsAnySurlScheme"/> as one delegate, made once, so <see cref="Read"/> does not test the
+    /// compiler's lazily filled cache.
     /// </summary>
     private static readonly Func<string, bool> AnySurlScheme = IsAnySurlScheme;
 
@@ -116,25 +101,14 @@ internal static class ConfiguredMailboxReader
     /// <returns><c>unknown scheme &lt;scheme&gt;</c>.</returns>
     public static string UnknownScheme(string scheme) => $"unknown scheme {scheme}";
 
-    /// <summary>Reads one <c>--mailbox</c> argument.</summary>
-    /// <param name="argument">The argument as given.</param>
-    /// <param name="value">The mailbox, when accepted; an empty one otherwise.</param>
-    /// <returns>The refusal reason after <c>option &lt;name&gt;: </c>, or <see langword="null"/>.</returns>
-    public static string? Read(string argument, out ConfiguredMailbox value)
-    {
-        var failure = ConfigurationItemReader.Read(Shape, argument, out var item);
-        value = Empty;
-        return failure ?? Build(item.Name, item.Value!, item.Lists.GetValueOrDefault(ProtocolsKey), null, null, AnySurlScheme, out value);
-    }
-
-    /// <summary>Reads one <c>--mailbox</c> argument by <see cref="ShapeWithSettings"/>, <c>quota</c> and <c>folders</c> included.</summary>
+    /// <summary>Reads one <c>--mailbox</c> argument by <see cref="Shape"/>, <c>protocols</c>, <c>quota</c> and <c>folders</c> included.</summary>
     /// <param name="argument">The argument as given.</param>
     /// <param name="value">The mailbox, when accepted; <see cref="Empty"/> otherwise.</param>
     /// <returns>The refusal reason after <c>option &lt;name&gt;: </c>, or <see langword="null"/>.</returns>
-    public static string? ReadWithSettings(string argument, out ConfiguredMailbox value)
+    public static string? Read(string argument, out ConfiguredMailbox value)
     {
         value = Empty;
-        if (ConfigurationItemReader.Read(ShapeWithSettings, argument, out var item) is string failure)
+        if (ConfigurationItemReader.Read(Shape, argument, out var item) is string failure)
         {
             return failure;
         }
@@ -237,7 +211,8 @@ internal static class ConfiguredMailboxReader
     {
         foreach (var folder in folders)
         {
-            var failure = ConfiguredSharedFolderReader.CheckFolderName(folder)
+            var failure = (folder.Length == 0 ? ConfigurationItemReader.EmptyField : null)
+                ?? ConfiguredSharedFolderReader.CheckFolderName(folder)
                 ?? (folderNames.Contains(folder, StringComparer.Ordinal) ? ConfiguredGroupReader.MemberGivenTwice(folder) : null);
             if (failure is not null)
             {
