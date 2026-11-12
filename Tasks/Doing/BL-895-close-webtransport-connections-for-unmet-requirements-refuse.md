@@ -41,3 +41,4 @@ using what BL-894 adds.
 - 2026-11-05: Created.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waiting on BL-1035 - pinned .NET SDK 10.0.401 is not installed, so dotnet build cannot run
+- 2026-11-11: Backlog -> Doing.
