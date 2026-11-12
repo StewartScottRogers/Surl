@@ -78,3 +78,4 @@ fully unit tested. No option row uses the readers yet; BL-992 adds the rows.
 - 2026-11-06: Created.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waits on BL-1035: the pinned .NET SDK 10.0.401 is not installed, so dotnet build cannot run; code is written and left uncommitted for the shift's stash
+- 2026-11-11: Backlog -> Doing.
