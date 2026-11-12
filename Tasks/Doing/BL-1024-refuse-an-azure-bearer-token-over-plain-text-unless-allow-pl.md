@@ -45,3 +45,4 @@ A request on a plain-text Azure connection (`abfs`, or `az` under `--az-plaintex
 ## Log
 
 - 2026-11-06: Created.
+- 2026-11-12: Backlog -> Doing.
