@@ -284,7 +284,7 @@ public sealed partial class NatsServerConnectionTests
         await AdvanceToNextWriteAsync(connection, clock, "PING\r\nPING\r\n");
 
         connection.Send("PONG\r\nPING\r\n");
-        await WaitUntilAsync(() => AfterInfo(connection.Written) == "PING\r\nPING\r\nPONG\r\n");
+        await WaitUntilAsync(() => Answers(connection.Written) == "PING\r\nPING\r\nPONG\r\n");
         await AdvanceToNextWriteAsync(connection, clock, "PING\r\nPING\r\nPONG\r\nPING\r\n");
         connection.Close();
         await serving.WaitAsync(TimeSpan.FromSeconds(30), TestContext.CancellationToken);
@@ -309,7 +309,9 @@ public sealed partial class NatsServerConnectionTests
     private async Task ConnectAsync(UnitTestNatsClientConnection connection, ManualTimeProvider clock, RecordingExchangeLog log)
     {
         connection.Send(AliceConnect);
-        await WaitUntilAsync(() => log.Notes.Any(note => note.StartsWith("CONNECT accepted", StringComparison.Ordinal)) && clock.PendingTimerCount == 1);
+        // INFO is written by the outbox's own writer, so it may still be unwritten when CONNECT is
+        // accepted; later reads of what was written after INFO need it there.
+        await WaitUntilAsync(() => connection.Written.Length > 0 && log.Notes.Any(note => note.StartsWith("CONNECT accepted", StringComparison.Ordinal)) && clock.PendingTimerCount == 1);
     }
 
     // Moves the clock the last second of an interval and waits for the written answers to be
@@ -318,7 +320,7 @@ public sealed partial class NatsServerConnectionTests
     {
         await WaitUntilAsync(() => clock.PendingTimerCount == 1);
         clock.Advance(TimeSpan.FromSeconds(1));
-        await WaitUntilAsync(() => AfterInfo(connection.Written) == expectedAnswers && clock.PendingTimerCount == 1);
+        await WaitUntilAsync(() => Answers(connection.Written) == expectedAnswers && clock.PendingTimerCount == 1);
         clock.Advance(TimeSpan.FromSeconds(29));
     }
 
