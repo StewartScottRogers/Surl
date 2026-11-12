@@ -8,7 +8,7 @@ depends-on: [BL-822, BL-851, BL-1035]
 touches: [Protocols/Messaging/Surl.Extended.Protocol.Kafka.UnitLibrary, Protocols/Messaging/Surl.Extended.Protocol.Kafka.UnitTests]
 requirement: none
 created: 2026-11-06
-completed:
+completed: 2026-11-11
 ---
 # BL-999 — Draw the Kafka cluster ID from an injected identifier source
 
@@ -31,10 +31,10 @@ given (defaulting to `CryptographicIdentifierRandom`), so a seeded source announ
 
 ## Acceptance criteria
 
-- [ ] `KafkaMetadataAnswererTests.ClusterId_SameSeededSource_IsTheSameEveryRun` passes; different seeds give
+- [x] `KafkaMetadataAnswererTests.ClusterId_SameSeededSource_IsTheSameEveryRun` passes; different seeds give
       different IDs; the ID is 16 bytes base64url.
-- [ ] No `RandomNumberGenerator` call is left for the cluster ID.
-- [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and the library keeps 100% line and branch
+- [x] No `RandomNumberGenerator` call is left for the cluster ID.
+- [x] `dotnet build -warnaserror` is clean, the fast tests are green, and the library keeps 100% line and branch
       coverage.
 
 ## Notes
@@ -54,9 +54,12 @@ given (defaulting to `CryptographicIdentifierRandom`), so a seeded source announ
     `new KafkaMetadataAnswerer(bus)` and `EmptyBusMetadata()` passes a seeded source. CLAUDE.md updated.
   - If the stash is lost, redo it from these notes: about 15 minutes.
 
+- 2026-11-11 (lane 4): Redone after the SDK returned (10.0.404). Choice changed from the lane-5 note: two constructors, `(bus)` using the internal `KafkaUnseededIdentifierRandom` (the Nats pattern, since Kafka may not reference Surl.Core) and `(bus, IIdentifierRandom)`; existing callers unchanged. Tests: Constructor_NullIdentifiers_Throws, ClusterId_Is16BytesOfTheSourceInBase64Url, ClusterId_SameSeededSource_IsTheSameEveryRun, ClusterId_DifferentSeeds_Differ. 581 pass; build -warnaserror clean.
+
 ## Log
 
 - 2026-11-06: Created.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waits on BL-1035: pinned .NET SDK 10.0.401 is not installed, so nothing builds or tests
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Done. Kafka cluster id drawn once from an injected IIdentifierRandom; seeded source repeats it

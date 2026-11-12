@@ -35,7 +35,7 @@ ApiVersions, Metadata and SASL (BL-518, ADR-0105 decisions 1, 2 and 5):
   pending `KafkaSaslLogin`, the account logged in); every `KafkaRequest` carries it.
 - `KafkaApiVersionsAnswerer` answers v0 to v3 with `KafkaServedApis`' ranges.
 - `KafkaMetadataAnswerer` answers v0 to v8 from `Surl.MessageBus`: node 0 as broker and
-  controller, a random 22-character cluster id, one partition a topic, auto-creation through
+  controller, a 22-character cluster id drawn once from an `IIdentifierRandom` (a seeded one repeats it; the one-argument constructor uses the library's `KafkaUnseededIdentifierRandom`), one partition a topic, auto-creation through
   `MessageBus.CreateLog`, topic access through `MessageBus.GetTopicAccess`.
 - `KafkaSaslHandshakeAnswerer` offers the policy's `PLAIN`, `SCRAM-SHA-256` and `SCRAM-SHA-512`,
   matched exactly; `KafkaSaslAuthenticateAnswerer` carries each step in `auth_bytes`, and a v0

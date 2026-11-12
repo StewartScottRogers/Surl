@@ -34,6 +34,37 @@ public sealed class KafkaMetadataAnswererTests
         Assert.ThrowsExactly<ArgumentNullException>(() => new KafkaMetadataAnswerer(null!));
 
     [TestMethod]
+    public void Constructor_NullIdentifiers_Throws() =>
+        Assert.ThrowsExactly<ArgumentNullException>(() => new KafkaMetadataAnswerer(new Surl.MessageBus.MessageBus(clock), null!));
+
+    [TestMethod]
+    public void ClusterId_Is16BytesOfTheSourceInBase64Url()
+    {
+        var answerer = new KafkaMetadataAnswerer(new Surl.MessageBus.MessageBus(clock), new FilledIdentifierRandom(0xFB));
+
+        Assert.AreEqual(Convert.ToBase64String(Enumerable.Repeat((byte)0xFB, 16).ToArray()).TrimEnd('=').Replace('+', '-').Replace('/', '_'), answerer.ClusterId);
+        Assert.AreEqual(22, answerer.ClusterId.Length);
+    }
+
+    [TestMethod]
+    public void ClusterId_SameSeededSource_IsTheSameEveryRun()
+    {
+        var first = new KafkaMetadataAnswerer(new Surl.MessageBus.MessageBus(clock), new SeededIdentifierRandom(7)).ClusterId;
+        var second = new KafkaMetadataAnswerer(new Surl.MessageBus.MessageBus(clock), new SeededIdentifierRandom(7)).ClusterId;
+
+        Assert.AreEqual(first, second);
+    }
+
+    [TestMethod]
+    public void ClusterId_DifferentSeeds_Differ()
+    {
+        var first = new KafkaMetadataAnswerer(new Surl.MessageBus.MessageBus(clock), new SeededIdentifierRandom(7)).ClusterId;
+        var second = new KafkaMetadataAnswerer(new Surl.MessageBus.MessageBus(clock), new SeededIdentifierRandom(8)).ClusterId;
+
+        Assert.AreNotEqual(first, second);
+    }
+
+    [TestMethod]
     public void ClusterId_Is22Base64UrlCharactersAndDiffersPerAnswerer()
     {
         var first = EmptyBusMetadata().ClusterId;

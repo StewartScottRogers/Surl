@@ -1,6 +1,5 @@
 using System.Buffers.Text;
 using System.Net;
-using System.Security.Cryptography;
 using Surl.MessageBus;
 using Surl.Protocol.Abstractions;
 
@@ -15,8 +14,8 @@ namespace Surl.Extended.Protocol.Kafka;
 /// <b>The cluster.</b> One broker, node 0, which is also the controller (v1), advertised at the
 /// host and port the client reached: the listener's bound address and port, or the connection's
 /// local address when the listener is bound to a wildcard address. <c>rack</c> (v1) is null.
-/// <c>cluster_id</c> (v2) is 16 random bytes in base64url, 22 characters, fixed for the
-/// answerer's life. <c>throttle_time_ms</c> (v3) is 0.
+/// <c>cluster_id</c> (v2) is 16 bytes drawn once from an <see cref="IIdentifierRandom"/> (unseeded
+/// unless given one, so a seeded source repeats it) in base64url, 22 characters, fixed for the answerer's life. <c>throttle_time_ms</c> (v3) is 0.
 /// </para>
 /// <para>
 /// <b>Topics.</b> A request naming no topics - null from v1, an empty array in v0 - lists every
@@ -49,14 +48,25 @@ public sealed class KafkaMetadataAnswerer : IKafkaApiAnswerer
 
     private readonly MessageBus.MessageBus bus;
 
-    /// <summary>Creates an answerer over <paramref name="bus"/>, with a new cluster id.</summary>
+    /// <summary>Creates an answerer over <paramref name="bus"/>, with a cluster id different every run.</summary>
     /// <param name="bus">The shared message bus whose topics are listed and created.</param>
     public KafkaMetadataAnswerer(MessageBus.MessageBus bus)
+        : this(bus, KafkaUnseededIdentifierRandom.Instance)
+    {
+    }
+
+    /// <summary>Creates an answerer over <paramref name="bus"/>, drawing the cluster id once from <paramref name="identifiers"/>.</summary>
+    /// <param name="bus">The shared message bus whose topics are listed and created.</param>
+    /// <param name="identifiers">The source of the 16 cluster id bytes; a seeded one repeats the id every run.</param>
+    public KafkaMetadataAnswerer(MessageBus.MessageBus bus, IIdentifierRandom identifiers)
     {
         ArgumentNullException.ThrowIfNull(bus);
+        ArgumentNullException.ThrowIfNull(identifiers);
 
         this.bus = bus;
-        ClusterId = Base64Url.EncodeToString(RandomNumberGenerator.GetBytes(16));
+        Span<byte> clusterId = stackalloc byte[16];
+        identifiers.NextBytes(clusterId);
+        ClusterId = Base64Url.EncodeToString(clusterId);
     }
 
     /// <inheritdoc/>
