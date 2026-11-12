@@ -5,10 +5,10 @@ priority: Normal
 assignee: Claude
 pipeline: feature
 depends-on: [BL-1035]
-touches: [Foundation/Surl.Protocol.Abstractions.UnitLibrary, Foundation/Surl.Protocol.Abstractions.UnitTests, Foundation/Surl.Core.UnitLibrary, Foundation/Surl.Core.UnitTests]
+touches: [Foundation/Surl.Protocol.Abstractions.UnitLibrary, Foundation/Surl.Protocol.Abstractions.UnitTests, Foundation/Surl.Core.UnitLibrary, Foundation/Surl.Core.UnitTests, Documentation/Planning/Decisions/ADR-0092-how-the-dns-server-answers-dns-and-its-encrypted-transports.md]
 requirement: none
 created: 2026-11-11
-completed:
+completed: 2026-11-11
 ---
 # BL-1036 — Let a listen URL name which of its scheme's servers serve it so dns can bind each transport apart
 
@@ -42,14 +42,14 @@ one `dns` listen URL can serve UDP alone while another in the same process serve
 
 ## Acceptance criteria
 
-- [ ] A named `Surl.Protocol.Abstractions.UnitTests` test pins the new member's default and that it is part of
+- [x] A named `Surl.Protocol.Abstractions.UnitTests` test pins the new member's default and that it is part of
       the listen URL's equality, as `IsImplicitTls` is.
-- [ ] A named `Surl.Core.UnitTests` test shows a scheme with a connection and a datagram server binding only the
+- [x] A named `Surl.Core.UnitTests` test shows a scheme with a connection and a datagram server binding only the
       datagram listener on a listen URL that asks for datagrams, only the connection listener on one that asks for
       connections, and the shared-port pair on one that leaves it unset.
-- [ ] A named `Surl.Core.UnitTests` test shows a listen URL asking for a listener its scheme has no server for
+- [x] A named `Surl.Core.UnitTests` test shows a listen URL asking for a listener its scheme has no server for
       refused before any listener binds.
-- [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and both libraries keep 100% line and branch
+- [x] `dotnet build -warnaserror` is clean, the fast tests are green, and both libraries keep 100% line and branch
       coverage.
 
 ## Notes
@@ -57,6 +57,19 @@ one `dns` listen URL can serve UDP alone while another in the same process serve
 - 2026-11-11, lane 6: `dotnet --list-sdks` lists only 10.0.100-rc.1, 11.0.100-rc.2 and 11.0.100; `global.json`
   pins 10.0.401 with `rollForward: latestFeature`, so `dotnet` finds no compatible SDK and no build or test runs.
   No code written. Parked behind BL-1035 (Stewart reinstalls the SDK), as BL-985 and BL-1007 are.
+- 2026-11-11, lane 1: `ListenUrl.OnlyTransport` (`ListenTransport?`: `Connections`, `Datagrams`, null = every
+  listener, the old behaviour). `ServingEngine.FindServers` now resolves each listen URL to a private
+  `ListenUrlServers` pair filtered by it; both set binds the shared-port pair, one set binds that listener alone,
+  none set is `UnsupportedProtocol` before any bind. Decision (ADR-0092 Amendment 1, decision 5): the member names a
+  transport, not a server; BL-1018/BL-1019 either dispatch inside one server per transport (by `IsImplicitTls` and
+  the agreed ALPN) or add one more init-only member, both additive. Added the ADR-0092 file to `touches` to record
+  the amendment; no task in Doing names it (BL-1034 touches only WebTransport).
+- Tests: `ListenUrlTests.OnlyTransport_Unset_IsNullSoEveryListenerOfTheSchemeBinds`,
+  `ListenUrlTests.OnlyTransport_Set_IsPartOfEqualityAndSurvivesTheBoundPort`,
+  `ServingEngineTests.ServeAsync_OnlyTransportOnEachListenUrl_BindsOnlyTheListenersEachAsksFor`,
+  `ServingEngineTests.ServeAsync_ListenUrlAskingForConnectionsOfADatagramOnlyScheme_IsUnsupportedBeforeAnyListenerBinds`
+  and `..._ListenUrlAskingForDatagramsOfAConnectionOnlyScheme_...`. `Measure-CodeQuality.ps1 -Library` reports
+  both libraries 100% line, 100% branch, 0 failing members.
 
 ## Log
 
@@ -64,3 +77,4 @@ one `dns` listen URL can serve UDP alone while another in the same process serve
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waiting on BL-1035: pinned .NET SDK 10.0.401 is not installed, so no build or test runs
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Done. A listen URL's OnlyTransport binds only its connection or datagram listener, so one dns URL can serve UDP alone beside another serving TCP
