@@ -5,6 +5,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- The Conformance suite caps its workers in its own MSTestSettings.cs (BL-1090). -->
+    <Compile Remove="$(MSBuildThisFileDirectory)..\..\MSTestSettings.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Using Include="Microsoft.VisualStudio.TestTools.UnitTesting" />
   </ItemGroup>
 
