@@ -225,8 +225,15 @@ public static partial class SurlServerComposition
         }
 
         var (sshHostKeys, hostKeyExitCode, hostKeyFailureMessage) = SshHostKeyComposition.Compose(commandLine, readStartFile);
-        return sshHostKeys is null
-            ? (null, new SurlStartFailure(hostKeyExitCode, [hostKeyFailureMessage!]))
+        if (sshHostKeys is null)
+        {
+            return (null, new SurlStartFailure(hostKeyExitCode, [hostKeyFailureMessage!]));
+        }
+
+        // The control token file, last of the start files (ADR-0124 decision 7).
+        var (controlToken, controlExitCode, controlFailureMessage) = ControlComposition.ReadToken(commandLine, readStartFile);
+        return controlFailureMessage is not null
+            ? (null, new SurlStartFailure(controlExitCode, [controlFailureMessage]))
             : (new ComposedAuthentication(
                 policy,
                 accountNames,
@@ -237,6 +244,7 @@ public static partial class SurlServerComposition
                 new SchemeAuthenticationPolicies(policy, seams.TimeProvider, instruments.Events, instruments.Faults))
             {
                 ProxyPolicy = proxyPolicy,
+                ControlToken = controlToken,
                 PreSharedKeyAccounts = AuthenticationComposition.ReadPreSharedKeyAccounts(commandLine, readStartFile),
             }, null);
     }

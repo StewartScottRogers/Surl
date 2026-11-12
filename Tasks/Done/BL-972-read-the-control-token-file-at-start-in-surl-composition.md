@@ -8,7 +8,7 @@ depends-on: [BL-1022, BL-815]
 touches: [Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests]
 requirement: none
 created: 2026-11-06
-completed:
+completed: 2026-11-11
 ---
 # BL-972 — Read the --control-token-file at start in Surl.Composition
 
@@ -44,19 +44,28 @@ and an accepted token (the first line without its line end) is carried on `Compo
 
 ## Acceptance criteria
 
-- [ ] `ComposeAsync_AnUnreadableControlTokenFile_IsRefused37BeforeTheLockIsTaken` passes.
-- [ ] `ComposeAsync_AControlTokenOutsideItsBounds_IsRefused2WithoutTheToken` passes for a too-short, a too-long and a
+- [x] `ComposeAsync_AnUnreadableControlTokenFile_IsRefused37BeforeTheLockIsTaken` passes.
+- [x] `ComposeAsync_AControlTokenOutsideItsBounds_IsRefused2WithoutTheToken` passes for a too-short, a too-long and a
       non-ASCII token.
-- [ ] `ServeAsync_AControlTokenFile_AcceptsItsFirstLineWithoutTheLineEndAsTheToken` (or a `ComposeAsync_` test of
+- [x] `ServeAsync_AControlTokenFile_AcceptsItsFirstLineWithoutTheLineEndAsTheToken` (or a `ComposeAsync_` test of
       the same) passes for `\n` and `\r\n` line ends and a file with no line end.
-- [ ] Without `--control`, no token file is read (a test whose `ReadStartFile` throws for any token path still starts).
-- [ ] `dotnet build Application/Surl.Composition.UnitTests -warnaserror` is clean, the fast tests are green, and
+- [x] Without `--control`, no token file is read (a test whose `ReadStartFile` throws for any token path still starts).
+- [x] `dotnet build Application/Surl.Composition.UnitTests -warnaserror` is clean, the fast tests are green, and
       `Surl.Composition.UnitLibrary` keeps 100% line and branch coverage.
 
 ## Notes
+
+- The stash was not needed: `ControlComposition.ReadToken` (internal, only token reading) and the tests were written
+  fresh from the task text. The token test is `ComposeAsync_AControlTokenFile_AcceptsItsFirstLineWithoutTheLineEndAsTheToken`
+  (a `ComposeAsync_` test, as the criterion allows); it checks the token through `ReadToken` and `IsPresentedIn`,
+  since `ComposedAuthentication` is internal.
+- `ReadToken` runs in `ComposeAuthentication` right after the SSH host keys (last start file, before the lock).
+  The refusal test checks the data-directory lock is never taken.
+- Composition tests: 435 passed.
 
 ## Log
 
 - 2026-11-06: Created.
 - 2026-11-06: Split from BL-816 (timed out after 120 min); reuses its token reading from stash `darkfactory BL-816 20261106-033059`.
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Done. With --control the composition reads --control-token-file at start (37 unreadable, 2 out of bounds, first line carried on ComposedAuthentication.ControlToken)
