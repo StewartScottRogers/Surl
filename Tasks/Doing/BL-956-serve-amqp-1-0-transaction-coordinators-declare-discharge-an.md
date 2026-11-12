@@ -60,3 +60,4 @@ messages posted in a transaction until a commit publishes them all or none.
 - 2026-11-11: Doing -> Backlog. Lane 6 could not integrate: build failed after rebasing onto the other lanes' work. The work is on branch factory/BL-956-lane-6-20261111-060243; start with git cherry-pick --no-commit factory/BL-956-lane-6-20261111-060243 and fix it.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waits on BL-1035: the pinned .NET SDK 10.0.401 is not installed, so the in-repo build fails; the finished work is commit 5359ac2e on factory/BL-956-lane-6-20261111-060243 and passes on SDK 11 (Amqp1 730 tests).
+- 2026-11-11: Backlog -> Doing.
