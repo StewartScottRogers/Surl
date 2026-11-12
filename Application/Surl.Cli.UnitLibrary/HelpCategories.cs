@@ -21,6 +21,7 @@ internal static class HelpCategories
         new("mail", "Mail domains, mailboxes and aliases", []),
         new("mqtt", "MQTT and MQTTS protocol", ["mqtt", "mqtts"]),
         new("nats", "NATS and NATSS protocol (extended)", ["nats", "natss"]),
+        new("oci", "OCI registry protocol (extended)", ["oci"]),
         new("pop3","POP3 and POP3S protocol", ["pop3", "pop3s"]),
         new("rtsp", "RTSP protocol", ["rtsp"]),
         new("s3", "Amazon S3 protocol (extended)", ["s3"]),

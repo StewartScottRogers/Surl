@@ -3,6 +3,7 @@ using Surl.Cli;
 using Surl.Content;
 using Surl.Extended.Protocol.DnsQuery;
 using Surl.Extended.Protocol.Nats;
+using Surl.Extended.Protocol.OciRegistry;
 using Surl.Extended.Protocol.S3;
 using Surl.Protocol.Abstractions;
 using Surl.Protocol.Mqtt;
@@ -39,20 +40,21 @@ public sealed class ExtendedProtocolServersTests
     }
 
     [TestMethod]
-    public void Compose_ThisBuild_IsTheDnsUdpAndTcpServersThenTheNatsServerThenTheS3Server()
+    public void Compose_ThisBuild_IsTheDnsUdpAndTcpServersThenTheNatsOciAndS3Servers()
     {
         var services = SurlServerComposition.ComposeUnservedExtendedServices(TimeProvider.System);
 
         var servers = ExtendedProtocolServers.Compose(services);
 
-        Assert.HasCount(4, servers);
+        Assert.HasCount(5, servers);
         Assert.IsInstanceOfType<DnsUdpProtocolServer>(servers[0]);
         Assert.IsInstanceOfType<DnsTcpProtocolServer>(servers[1]);
         Assert.IsInstanceOfType<NatsServer>(servers[2]);
-        Assert.IsInstanceOfType<S3ProtocolServer>(servers[3]);
-        CollectionAssert.AreEqual(new[] { "dns", "dns", "nats", "natss", "s3" }, servers.SelectMany(server => server.Schemes).ToArray());
+        Assert.IsInstanceOfType<OciRegistryProtocolServer>(servers[3]);
+        Assert.IsInstanceOfType<S3ProtocolServer>(servers[4]);
+        CollectionAssert.AreEqual(new[] { "dns", "dns", "nats", "natss", "oci", "s3" }, servers.SelectMany(server => server.Schemes).ToArray());
         CollectionAssert.AreEqual(
-            new[] { "dns", "dns", "nats", "natss", "s3" }, ExtendedProtocolServers.Registrations.SelectMany(registration => registration.Schemes).ToArray());
+            new[] { "dns", "dns", "nats", "natss", "oci", "s3" }, ExtendedProtocolServers.Registrations.SelectMany(registration => registration.Schemes).ToArray());
     }
 
     [TestMethod]
@@ -153,6 +155,33 @@ public sealed class ExtendedProtocolServersTests
 
         Assert.AreSame(services.ComposedServices.ContentStore, ComposedServerFields.Single<ContentStore>(server));
         Assert.AreSame(services.ComposedServices.ObjectMetadataIndex, ComposedServerFields.Single<ObjectMetadataIndex>(server));
+    }
+
+    [TestMethod]
+    public void Compose_ThisBuild_BuildsTheOciServerOverTheServicesContentStoreAndThePolicyForOci()
+    {
+        var unserved = SurlServerComposition.ComposeUnservedProtocolServices(
+            SurlServerComposition.ComposeContentStore(new SurlCommandLine(), TimeProvider.System), TimeProvider.System);
+        var ociPolicy = SurlServerComposition.ComposeUnservedProtocolServices(
+            SurlServerComposition.ComposeContentStore(new SurlCommandLine(), TimeProvider.System), TimeProvider.System).AuthenticationPolicy;
+        var services = new ExtendedProtocolServerServices(new ComposedProtocolServices(
+            unserved.ContentStore,
+            new ServiceState(unserved.MessageBus, unserved.MailStore, unserved.LdapServer, unserved.ObjectMetadataIndex),
+            unserved.AuthenticationPolicy,
+            TimeProvider.System,
+            unserved.SshHostKeys,
+            unserved.SshAlgorithms,
+            isTlsUpgradeAvailable: false,
+            echoesWebSocketMessages: false,
+            advertisesHttp3: false)
+        {
+            AuthenticationPolicyForScheme = scheme => scheme == "oci" ? ociPolicy : unserved.AuthenticationPolicy,
+        });
+
+        var server = ExtendedProtocolServers.Compose(services).OfType<OciRegistryProtocolServer>().Single();
+
+        Assert.AreSame(unserved.ContentStore, ComposedServerFields.Single<ContentStore>(server));
+        Assert.AreSame(ociPolicy, ComposedServerFields.Single<IAuthenticationPolicy>(server));
     }
 
     [TestMethod]

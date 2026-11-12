@@ -1,5 +1,6 @@
 using Surl.Extended.Protocol.DnsQuery;
 using Surl.Extended.Protocol.Nats;
+using Surl.Extended.Protocol.OciRegistry;
 using Surl.Extended.Protocol.S3;
 using Surl.Protocol.Abstractions;
 
@@ -37,7 +38,7 @@ public static class ExtendedProtocolServers
     /// Gets every extended protocol server's entry this build has, in ordinal order of its first
     /// scheme, on the same <see cref="ProtocolServerRegistration"/> as the originals (ADR-0124,
     /// decision 2): today the DNS server for <c>dns</c> over UDP and TCP (BL-1032), the NATS server for
-    /// <c>nats</c> and <c>natss</c> (BL-528) and the S3 server
+    /// <c>nats</c> and <c>natss</c> (BL-528), the OCI registry server for <c>oci</c> (BL-1028) and the S3 server
     /// for <c>s3</c> (BL-421).
     /// </summary>
     /// <remarks>
@@ -54,6 +55,10 @@ public static class ExtendedProtocolServers
     /// The S3 server answers <c>s3</c> over the one content store, its object metadata index and the
     /// policy over the accounts allowed on <c>s3</c> (ADR-0108; ADR-0102 decision 4.3); <c>s3</c> is TLS from the first byte (ADR-0108, decision 5), which
     /// the serving engine reads from <see cref="TlsSchemes"/>, so it needs no second registration.
+    /// The OCI registry server answers <c>oci</c> over the same content store, judging its token
+    /// endpoint's logins by the policy over the accounts allowed on <c>oci</c> (ADR-0115 decisions 2 and 4);
+    /// its upload sessions and tokens live in memory only, so it loads no service state. <c>oci</c> is
+    /// TLS from the first byte through <see cref="TlsSchemes"/> as <c>s3</c> is (ADR-0115, decision 6).
     /// </remarks>
     public static IReadOnlyList<ProtocolServerRegistration> Registrations { get; } =
     [
@@ -67,6 +72,8 @@ public static class ExtendedProtocolServers
                 IdleTimeout = services.IdleTimeout,
                 AllowsAnonymous = services.AuthenticationPolicy.Settings.AllowAnonymous,
             })),
+        new([OciRegistryProtocolServer.Scheme], services => new OciRegistryProtocolServer(
+            services.ContentStore, services.AuthenticationPolicyFor(OciRegistryProtocolServer.Scheme), services.TimeProvider)),
         new(["s3"], services => new S3ProtocolServer(
             services.ContentStore, services.ObjectMetadataIndex, services.AuthenticationPolicyFor("s3"), services.TimeProvider)),
     ];

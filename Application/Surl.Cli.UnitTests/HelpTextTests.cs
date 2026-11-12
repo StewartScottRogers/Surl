@@ -21,6 +21,7 @@ public sealed class HelpTextTests
         " mail       Mail domains, mailboxes and aliases",
         " mqtt       MQTT and MQTTS protocol",
         " nats       NATS and NATSS protocol (extended)",
+        " oci        OCI registry protocol (extended)",
         " pop3       POP3 and POP3S protocol",
         " rtsp       RTSP protocol",
         " s3         Amazon S3 protocol (extended)",
@@ -184,7 +185,7 @@ public sealed class HelpTextTests
             "This is not the full help; this menu is split into categories.",
             "Use \"--help category\" to get an overview of all categories, which are:",
             "auth, content, dict, dns, ftp, gopher, http, imap, ldap, limits, logging,",
-            "mail, mqtt, nats, pop3, rtsp, s3, security, smb, smtp, ssh, surl, telnet,",
+            "mail, mqtt, nats, oci, pop3, rtsp, s3, security, smb, smtp, ssh, surl, telnet,",
             "testing, tftp, tls, websocket.",
             "Use \"--help all\" to list all options",
             "Use \"--help [option]\" to view documentation for a given option");
@@ -477,8 +478,8 @@ public sealed class HelpTextTests
             "    -u, --user <user:password>",
             "        Add an account (repeatable). Default: no accounts.",
             "",
-            "        Categories: auth, ftp, http, imap, ldap, mqtt, nats, pop3, rtsp, s3,",
-            "        smb, smtp, ssh, websocket.",
+            "        Categories: auth, ftp, http, imap, ldap, mqtt, nats, oci, pop3, rtsp,",
+            "        s3, smb, smtp, ssh, websocket.",
             "");
 
     [TestMethod]
@@ -488,8 +489,8 @@ public sealed class HelpTextTests
             "    --user-file <file>",
             "        Read accounts from a file. Default: none.",
             "",
-            "        Categories: auth, ftp, http, imap, ldap, mqtt, nats, pop3, rtsp, s3,",
-            "        smb, smtp, ssh, websocket.",
+            "        Categories: auth, ftp, http, imap, ldap, mqtt, nats, oci, pop3, rtsp,",
+            "        s3, smb, smtp, ssh, websocket.",
             "");
 
     [TestMethod]
@@ -502,8 +503,8 @@ public sealed class HelpTextTests
                 "",
                 .. AllowAnonymousExplanationLines,
                 "",
-                "        Categories: auth, ftp, http, imap, ldap, mqtt, nats, pop3, rtsp, s3,",
-                "        security, smb, smtp, ssh, testing, websocket.",
+                "        Categories: auth, ftp, http, imap, ldap, mqtt, nats, oci, pop3, rtsp,",
+                "        s3, security, smb, smtp, ssh, testing, websocket.",
                 "",
             ]);
 

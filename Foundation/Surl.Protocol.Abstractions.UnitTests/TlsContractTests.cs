@@ -18,6 +18,7 @@ public sealed class TlsContractTests
     [DataRow("mqtts")]
     [DataRow("smbs")]
     [DataRow("s3", DisplayName = "The extended s3 is HTTPS (ADR-0108, decision 5)")]
+    [DataRow("oci", DisplayName = "The extended oci is HTTPS by default (ADR-0115, decision 6)")]
     [DataRow("HTTPS")]
     public void IsImplicitTls_ImplicitTlsScheme_IsTrue(string scheme)
     {
@@ -36,7 +37,7 @@ public sealed class TlsContractTests
     [DataRow("mqtt")]
     [DataRow("smb")]
     [DataRow("tftp")]
-    [DataRow("oci", DisplayName = "An extended scheme no ADR serves over TLS")]
+    [DataRow("redis", DisplayName = "An extended scheme no ADR serves over TLS")]
     [DataRow("")]
     public void IsImplicitTls_PlaintextOrUpgradeScheme_IsFalse(string scheme)
     {

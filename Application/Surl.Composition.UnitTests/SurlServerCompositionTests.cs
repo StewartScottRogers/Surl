@@ -43,6 +43,16 @@ public sealed partial class SurlServerCompositionTests
     }
 
     [TestMethod]
+    [DataRow(true)]
+    [DataRow(false)]
+    public void ComposeExtendedSchemes_ThisBuildWithTheSwitchOnOrOff_ListsOciOnlyWhenOn(bool areExtensionsTurnedOn)
+    {
+        var schemes = SurlServerComposition.ComposeExtendedSchemes(areExtensionsTurnedOn, null, TimeProvider.System);
+
+        Assert.AreEqual(areExtensionsTurnedOn, schemes.Contains("oci"));
+    }
+
+    [TestMethod]
     public void ComposeExtendedProtocolServers_TurnedOff_NeverCallsTheSeam()
     {
         var servers = SurlServerComposition.ComposeExtendedProtocolServers(
