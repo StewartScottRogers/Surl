@@ -51,9 +51,19 @@ those three runtime identifiers using them.
   `UpstreamCurlBuildPinsTests` and `UpstreamCurlLocatorTests` cannot be run. BL-357's approval is on record, so
   the downloads themselves are cleared. The task waits on BL-1035. Nothing was changed, so nothing is left to stash.
 
+- 2026-11-11 (lane 5): BL-357, BL-360 and BL-1035 are Done; `dotnet` 10.0.404 now resolves. Downloaded the three
+  assets (approved by BL-357) and hashed them with `Get-FileHash`. Extracted `curl` SHA-256 (archive SHA-256 in brackets):
+  - linux-arm64 `curl-linux-aarch64-musl-8.21.0.tar.xz`: `1CD1DF1734854A9A427EA012E36306980F256C1A03AFED1F1F552D790FF474AE` [`D3F10502A9C6EAD9BC3763FDE3D12467DB03661A263E11FEC2EF2EDC70E98E9F`]
+  - win-arm64 `curl-windows-aarch64-8.21.0.tar.xz`, `curl.exe`: `AC672E4AF690B313C58CFB63537783604A7F28BF681CEA55B21F880D55D9736E` [`46C59D2A71AB27A384E3BDB323D1148F1B8E1A592E20C0AF1C8F2929ECBCEE44`]
+  - osx-x64 `curl-macos-x86_64-8.21.0.tar.xz`: `D7FF98407835D4D54B6F6AA2164B63956073342E14A354C48166F01D169F4EBA` [`967E9B38C886B90933FC7144DFD9C8E6A54C7A4E1BA64A7786B9A116AC887AF4`]
+  Not pinned: this lane is x64 Windows and cannot run any of the three, so the `version`, `protocols` and `features`
+  lines cannot be measured, and the rule is to measure before pinning. The green CI run also needs a push, which a lane
+  may not do. Needs arm64 Windows/Linux and Intel macOS runs (CI runners) to print `--version`; nothing was changed in the repo.
+
 ## Log
 
 - 2026-11-04: Created.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waits on BL-1035: pinned .NET SDK 10.0.401 is not installed, so nothing can be built or tested
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Blocked. Stewart: needs a way to run the linux-arm64, win-arm64 and osx-x64 curl builds (arm64/Intel-mac runners) to measure their version/protocols/features lines and get a green CI URL; lane 5 is x64 Windows. Hashes are in Notes.
