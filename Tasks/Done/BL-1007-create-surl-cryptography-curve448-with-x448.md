@@ -8,7 +8,7 @@ depends-on: [BL-1005, BL-1035]
 touches: [Cryptography/Surl.Cryptography.Curve448.UnitLibrary, Cryptography/Surl.Cryptography.Curve448.UnitTests, Surl.slnx, Foundation/Surl.Protocol.Abstractions.UnitTests]
 requirement: FR-055
 created: 2026-11-06
-completed:
+completed: 2026-11-11
 ---
 # BL-1007 — Create Surl.Cryptography.Curve448 with X448
 
@@ -40,14 +40,14 @@ public keys and shared secrets, with its `.UnitTests` twin, registered in `Surl.
 
 ## Acceptance criteria
 
-- [ ] `X448Tests` exists and passes, including `ScalarMultiply_Rfc7748Section52FirstVector_ReturnsTheRfcOutput`,
+- [x] `X448Tests` exists and passes, including `ScalarMultiply_Rfc7748Section52FirstVector_ReturnsTheRfcOutput`,
       `ScalarMultiply_Rfc7748Section52IteratedAThousandTimes_ReturnsTheRfcOutput`,
       `ScalarMultiply_Rfc7748Section62KeyPair_ReturnsTheSharedSecret` and
       `ScalarMultiply_LowOrderPointZero_ReturnsTheAllZeroResultAsComputed`.
-- [ ] `Surl.slnx` lists both projects directly after `Surl.Cryptography.Curve25519.UnitTests`.
-- [ ] `ProtocolIsolationTests` passes with `Surl.Cryptography.Curve448.UnitLibrary` in its table, referencing nothing.
-- [ ] `dotnet build -warnaserror` is clean and the fast tests are green.
-- [ ] `Surl.Cryptography.Curve448.UnitLibrary` has 100% line and branch coverage.
+- [x] `Surl.slnx` lists both projects directly after `Surl.Cryptography.Curve25519.UnitTests`.
+- [x] `ProtocolIsolationTests` passes with `Surl.Cryptography.Curve448.UnitLibrary` in its table, referencing nothing.
+- [x] `dotnet build -warnaserror` is clean and the fast tests are green.
+- [x] `Surl.Cryptography.Curve448.UnitLibrary` has 100% line and branch coverage.
 
 ## Notes
 
@@ -57,6 +57,10 @@ public keys and shared secrets, with its `.UnitTests` twin, registered in `Surl.
   10.0.100-rc.1, 11.0.100-rc.2 and 11.0.100, so no build runs under `global.json`'s pinned 10.0.401. Parked
   behind BL-1035 (Stewart reinstalls the SDK). When it is Done, cherry-pick that commit again (skip its task
   file), build, run the fast tests and coverage, and finish.
+- 2026-11-11, lane 4: SDK 10.0.404 is now installed and `global.json` rolls forward to it, so BL-1035 (Done) cleared the blocker.
+  Cherry-picked lane 3's commit
+  `ad7e5e4d` without its task file; `dotnet build -warnaserror` clean, fast tests green (Curve448: 20 passed),
+  coverage 100% line and branch on `Surl.Cryptography.Curve448.UnitLibrary`. Its `CLAUDE.md` already cites ADR-0147.
 
 ## Log
 
@@ -67,3 +71,4 @@ public keys and shared secrets, with its `.UnitTests` twin, registered in `Surl.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waiting on BL-1035: pinned .NET SDK 10.0.401 is not installed, so no build runs; the code on factory/BL-1007-lane-3-20261111-060243 is ready to cherry-pick
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Done. Surl.Cryptography.Curve448 computes X448 per RFC 7748, every vector passing at 100% line and branch coverage
