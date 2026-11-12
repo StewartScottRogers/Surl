@@ -8,7 +8,7 @@ depends-on: [BL-961, BL-1035]
 touches: [Protocols/Messaging/Surl.Extended.Protocol.Amqp1.UnitLibrary, Protocols/Messaging/Surl.Extended.Protocol.Amqp1.UnitTests, Documentation/Conformance/Extended/Amqp1.md]
 requirement: none
 created: 2026-11-06
-completed:
+completed: 2026-11-11
 ---
 # BL-956 — Serve AMQP 1.0 transaction coordinators, declare, discharge and transactional posting
 
@@ -30,18 +30,18 @@ messages posted in a transaction until a commit publishes them all or none.
 
 ## Acceptance criteria
 
-- [ ] A coordinator attach is answered with a receiving link and a `coordinator` listing exactly
+- [x] A coordinator attach is answered with a receiving link and a `coordinator` listing exactly
       `amqp:local-transactions`, `amqp:multi-txns-per-ssn` and `amqp:multi-ssns-per-txn`; `Amqp1:Surl-Nodes-6`
       is removed and its test replaced.
-- [ ] `declare` answers `declared` with ids `00 00 00 01`, `00 00 00 02`, ...; a `global-id`, a 101st open
+- [x] `declare` answers `declared` with ids `00 00 00 01`, `00 00 00 02`, ...; a `global-id`, a 101st open
       transaction and any other body are rejected with the conditions ADR-0146 decision 1.3 names.
-- [ ] A transactional transfer is held and answered `transactional-state`/`accepted`; a refused one
+- [x] A transactional transfer is held and answered `transactional-state`/`accepted`; a refused one
       `transactional-state`/`rejected`; an unknown `txn-id` `rejected` with `amqp:transaction:unknown-id`.
-- [ ] `discharge` commits all or none (a test with the bus refusing the second message shows none published and
+- [x] `discharge` commits all or none (a test with the bus refusing the second message shows none published and
       `amqp:transaction:rollback`), rolls back with `fail` true, and answers an unknown id
       `amqp:transaction:unknown-id`.
-- [ ] Coordinator detach, session end and connection end roll back an open transaction (a test each).
-- [ ] Each row above names its tests in `Amqp1.md`; 100% line and branch coverage holds.
+- [x] Coordinator detach, session end and connection end roll back an open transaction (a test each).
+- [x] Each row above names its tests in `Amqp1.md`; 100% line and branch coverage holds.
 
 ## Notes
 
@@ -53,6 +53,8 @@ messages posted in a transaction until a commit publishes them all or none.
   (BL-1035), so the task waits on BL-1035. Next run: `git cherry-pick --no-commit 5359ac2e`, build,
   test, finish.
 
+- 2026-11-11 (lane 6): cherry-picked 5359ac2e onto the shift branch. One conflict in `Amqp1ContainerConnection.Transfers.cs` against BL-1031-era fault rules (d8209bcc): the chosen-error lookup for `transfer` now sits in `CompleteDeliveryAsync`'s plain-store branch, so a fault rule rejects a plain transfer as before; coordinator control messages and transactional posts are not subject to it (choice: fault rules predate transactions and name a node, not a transaction). SDK 10.0.404 now rolls forward from the pin, so BL-1035 no longer blocks. Amqp1 tests 742 pass; library line and branch coverage 100%.
+
 ## Log
 
 - 2026-11-06: Created.
@@ -61,3 +63,4 @@ messages posted in a transaction until a commit publishes them all or none.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waits on BL-1035: the pinned .NET SDK 10.0.401 is not installed, so the in-repo build fails; the finished work is commit 5359ac2e on factory/BL-956-lane-6-20261111-060243 and passes on SDK 11 (Amqp1 730 tests).
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Done. AMQP 1.0 container serves coordinator links, declare, discharge and transactional posting with all-or-none commit
