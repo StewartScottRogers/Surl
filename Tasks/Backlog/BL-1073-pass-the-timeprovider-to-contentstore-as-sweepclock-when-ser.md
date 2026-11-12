@@ -1,5 +1,5 @@
 ---
-id: BL-1068
+id: BL-1073
 title: Pass the TimeProvider to ContentStore as sweepClock when serving --directory
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-12
 completed:
 ---
-# BL-1068 — Pass the TimeProvider to ContentStore as sweepClock when serving --directory
+# BL-1073 — Pass the TimeProvider to ContentStore as sweepClock when serving --directory
 
 ## Goal
 
