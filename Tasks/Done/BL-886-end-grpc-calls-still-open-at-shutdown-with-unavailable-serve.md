@@ -5,10 +5,10 @@ priority: Normal
 assignee: Claude
 pipeline: feature
 depends-on: [BL-443, BL-1035]
-touches: [Protocols/Http/Surl.Http2.UnitLibrary, Protocols/Http/Surl.Http2.UnitTests, Protocols/Http/Surl.Extended.Protocol.Grpc.UnitLibrary, Protocols/Http/Surl.Extended.Protocol.Grpc.UnitTests, Documentation/Conformance/Extended/Grpc.md]
+touches: [Protocols/Http/Surl.Http2.UnitLibrary, Protocols/Http/Surl.Http2.UnitTests, Protocols/Http/Surl.Extended.Protocol.Grpc.UnitLibrary, Protocols/Http/Surl.Extended.Protocol.Grpc.UnitTests, Documentation/Conformance/Extended/Grpc.md, Documentation/Planning/Decisions/ADR-0116-how-the-grpc-server-answers-grpc-and-grpcs.md]
 requirement: none
 created: 2026-11-05
-completed:
+completed: 2026-11-11
 ---
 # BL-886 — End gRPC calls still open at shutdown with UNAVAILABLE server shutting down
 
@@ -32,13 +32,13 @@ ADR-0116 decision 4 says, instead of the stream being cut off with nothing writt
 
 ## Acceptance criteria
 
-- [ ] A named `GrpcStreamHandlerTests` test shuts the exchange down while a `Chat` call is open and
+- [x] A named `GrpcStreamHandlerTests` test shuts the exchange down while a `Chat` call is open and
       shows trailers `grpc-status: 14`, `grpc-message: server shutting down` on its stream, followed by
       the connection's `GOAWAY` `NO_ERROR`.
-- [ ] A named `Http2ConnectionServerTests` test pins the new seam, and the existing `Surl.Http2`,
+- [x] A named `Http2ConnectionServerTests` test pins the new seam, and the existing `Surl.Http2`,
       `Surl.Protocol.Http` and DNS over HTTPS tests still pass unchanged.
-- [ ] `Grpc.md` rows `Grpc:HTTP2-GoAway-2` and `Grpc:HTTP2-Errors-1` name the tests.
-- [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and both libraries keep 100% line
+- [x] `Grpc.md` rows `Grpc:HTTP2-GoAway-2` and `Grpc:HTTP2-Errors-1` name the tests.
+- [x] `dotnet build -warnaserror` is clean, the fast tests are green, and both libraries keep 100% line
       and branch coverage.
 
 ## Notes
@@ -71,9 +71,19 @@ fails SDK resolution. Returned to Backlog behind BL-1035, as BL-911 and BL-762 w
   `touches`; no task in Doing names it); name the tests in `Grpc.md` rows `Grpc:HTTP2-GoAway-2` and
   `Grpc:HTTP2-Errors-1`; update both libraries' `CLAUDE.md` (gRPC's "What it does not do yet" line).
 
+2026-11-11 (dark factory lane 1): SDK 10.0.404 is now installed (rolls forward from 10.0.401). Restored
+lane 5's work from its shift stash and built it unchanged: `Surl.Http2.UnitTests` 164, gRPC 210,
+`Surl.Protocol.Http` 578, HTTPS proxy 295, DNS query 398 tests pass. Coverage measured with
+`Measure-CodeQuality.ps1 -SkipTestRun` over those five projects' reports: `Surl.Http2.UnitLibrary` and
+`Surl.Extended.Protocol.Grpc.UnitLibrary` both 100% line and branch, no failing member. Added ADR-0116
+amendment 1 (the ADR added to `touches`: no task in Doing names it), named the tests in `Grpc.md`, and
+updated both `CLAUDE.md` files. `Grpc:HTTP2-Errors-1`'s deadline half needs nothing: a passed deadline is
+`DEADLINE_EXCEEDED` trailers after a whole reply, since replies are written whole.
+
 ## Log
 
 - 2026-11-05: Created.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waits on BL-1035: pinned .NET SDK 10.0.401 is not installed, so the written code and tests cannot be built
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Done. gRPC calls open at shutdown end UNAVAILABLE server shutting down (or RST_STREAM CANCEL mid-reply) before the GOAWAY, through Surl.Http2's farewell writes

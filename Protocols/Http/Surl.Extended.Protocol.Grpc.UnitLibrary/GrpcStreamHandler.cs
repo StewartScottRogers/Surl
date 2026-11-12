@@ -23,6 +23,10 @@ namespace Surl.Extended.Protocol.Grpc;
 /// <c>DEADLINE_EXCEEDED</c>. A failure the method throws ends it with
 /// <see cref="GrpcStatus.FromException" />'s status, an unexpected one logged. A client that resets
 /// the stream or closes the connection first gets nothing more, and the log says <c>CANCELLED</c>.
+/// A call still open when the exchange is cancelled - shutdown, <c>--idle-timeout</c> or
+/// <c>--max-time</c> - ends <see cref="GrpcStatus.ServerShuttingDown" /> (<c>UNAVAILABLE</c>), or
+/// <c>RST_STREAM</c> <c>CANCEL</c> when a reply was cut off mid-write, before the connection's
+/// <c>GOAWAY</c> (ADR-0116 decision 4 and amendment 1).
 /// </para>
 /// </remarks>
 public sealed class GrpcStreamHandler : IHttp2StreamHandler
@@ -101,6 +105,12 @@ public sealed class GrpcStreamHandler : IHttp2StreamHandler
         catch (GrpcCallException failure)
         {
             end = failure;
+        }
+        catch (OperationCanceledException) when (stream.IsExchangeCancelled)
+        {
+            context.Log.Note($"gRPC call {stream.Head.Target} ended UNAVAILABLE: the exchange was cancelled while it was open.");
+            await writer.FinishAtShutdownAsync();
+            return;
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested || stream.HasRequestBodyEndedEarly)
         {

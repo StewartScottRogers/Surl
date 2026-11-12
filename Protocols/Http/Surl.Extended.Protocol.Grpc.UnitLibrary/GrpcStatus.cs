@@ -62,6 +62,9 @@ public sealed record GrpcStatus(GrpcStatusCode Code, string Message)
     /// <summary><c>DEADLINE_EXCEEDED</c>: the call's <c>grpc-timeout</c> passed before it ended (ADR-0116 decision 5).</summary>
     public static GrpcStatus DeadlineExceeded { get; } = new(GrpcStatusCode.DeadlineExceeded, "deadline exceeded");
 
+    /// <summary><c>UNAVAILABLE</c>: a call still open when the exchange was cancelled - shutdown, <c>--idle-timeout</c> or <c>--max-time</c> (ADR-0116 decision 4).</summary>
+    public static GrpcStatus ServerShuttingDown { get; } = new(GrpcStatusCode.Unavailable, "server shutting down");
+
     /// <summary><c>INVALID_ARGUMENT</c>: a <c>surl.test.Echo</c> request whose <c>count</c>, <c>status_code</c> or <c>delay_milliseconds</c> is out of range (ADR-0116 decision 1).</summary>
     public static GrpcStatus RequestFieldOutOfRange { get; } = new(GrpcStatusCode.InvalidArgument, "request field out of range");
 
