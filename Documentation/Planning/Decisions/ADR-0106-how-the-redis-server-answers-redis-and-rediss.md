@@ -302,3 +302,12 @@ text); none names a path, an account, an exception or a version:
   BL-493 runs the Curl port's client against it as a live client (ADR-0083).
 - The requirement matrix [`Redis.md`](../../Conformance/Extended/Redis.md) traces each server-side
   requirement to BL-488 to BL-491; each task replaces its ID with the named test.
+
+## Amendment 1 (2026-11-12): `rediss` is TLS through `TlsSchemes`, not a wrapper
+
+Decided by Claude under Stewart's delegation (BL-492). Decision 7 said BL-492 would wrap `rediss` in
+`ImplicitTlsSchemeServer`. It does not: `RedisServer.Schemes` already claims both `redis` and `rediss`, so one
+`ExtendedProtocolServers.Registrations` entry serves both, and `rediss` is added to `TlsSchemes`
+(`Surl.Protocol.Abstractions`), which the serving engine reads to start TLS from the first byte and which
+`ServerTlsComposition` reads to refuse a `rediss` listen URL without `--cert` or `--self-signed` `(58)`. This is
+how `s3`, `signalrs` and `socketios` are served, and it needs no second registration.

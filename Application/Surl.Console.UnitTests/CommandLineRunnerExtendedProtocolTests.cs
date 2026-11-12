@@ -311,6 +311,8 @@ public sealed class CommandLineRunnerExtendedProtocolTests
     [DataRow("coaps")]
     [DataRow("signalr")]
     [DataRow("signalrs")]
+    [DataRow("redis")]
+    [DataRow("rediss")]
     [DataRow("socketio")]
     [DataRow("socketios")]
     [DataRow("webtransport")]
@@ -337,6 +339,8 @@ public sealed class CommandLineRunnerExtendedProtocolTests
     [TestMethod]
     [DataRow("signalr", new string[0], 80)]
     [DataRow("signalrs", new[] { "--self-signed" }, 443)]
+    [DataRow("redis", new string[0], 6379)]
+    [DataRow("rediss", new[] { "--self-signed" }, 6379)]
     public async Task RunAsync_SignalRSchemeWithTheSwitchUnset_ListensAtItsDefaultPort(string scheme, string[] options, int port)
     {
         var factory = new FakeListenerFactory();
@@ -632,7 +636,7 @@ public sealed class CommandLineRunnerExtendedProtocolTests
 
         var schemes = runner.ComposeExtendedSchemes();
 
-        CollectionAssert.AreEqual(new[] { "amqp", "amqps", "az", "abfs", "abfss", "coap", "coaps", "dns", "gs", "kafka", "kafkas", "mqtt5", "mqtt5s", "mqtt5+ws", "nats", "natss", "s3", "signalr", "signalrs", "socketio", "socketios", "stomp", "stomps", "webtransport", "xmpp", "xmpps" }, schemes.ToArray());
+        CollectionAssert.AreEqual(new[] { "amqp", "amqps", "az", "abfs", "abfss", "coap", "coaps", "dns", "gs", "kafka", "kafkas", "mqtt5", "mqtt5s", "mqtt5+ws", "nats", "natss", "redis", "rediss", "s3", "signalr", "signalrs", "socketio", "socketios", "stomp", "stomps", "webtransport", "xmpp", "xmpps" }, schemes.ToArray());
     }
 
     [TestMethod]

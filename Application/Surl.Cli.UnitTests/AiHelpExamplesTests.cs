@@ -8,7 +8,7 @@ public sealed class AiHelpExamplesTests
 {
     // The file AiHelpExamplePrecondition.ConfigFileExists names.
     // The extended schemes the nats and s3 topics' examples serve, as surl registers them (BL-528, BL-421).
-    private static readonly string[] ExtendedSchemesServed = ["abfs", "abfss", "amqp", "amqps", "az", "coap", "coaps", "dns", "gs", "kafka", "kafkas", "mqtt5", "mqtt5+ws", "mqtt5s", "nats", "natss", "s3", "signalr", "signalrs", "socketio", "socketios", "stomp", "stomps", "webtransport", "xmpp", "xmpps"];
+    private static readonly string[] ExtendedSchemesServed = ["abfs", "abfss", "amqp", "amqps", "az", "coap", "coaps", "dns", "gs", "kafka", "kafkas", "mqtt5", "mqtt5+ws", "mqtt5s", "nats", "natss", "redis", "rediss", "s3", "signalr", "signalrs", "socketio", "socketios", "stomp", "stomps", "webtransport", "xmpp", "xmpps"];
 
     private static readonly FakeConfigFileSource ExampleConfigFiles = new(("surl.cfg", "url = http://127.0.0.1:0/\n"));
 
@@ -18,7 +18,7 @@ public sealed class AiHelpExamplesTests
         string[] topics =
         [
             "overview", "listen-urls", "listen-urls", "surl", "surl", "surl", "content", "content", "content", "content", "auth", "auth", "mail", "messages", "proxy", "proxy", "testing", "tls", "tls", "tls", "tls",
-            "logging", "limits", "amqp", "azure-storage", "coap", "dict", "dns", "ftp", "gopher", "gs", "http", "http", "imap", "kafka", "ldap", "mqtt", "mqtt5", "nats", "pop3", "rtsp", "s3", "s3", "smb", "smtp", "signalr", "socketio", "socks", "socks", "ssh", "stomp", "telnet", "tftp",
+            "logging", "limits", "amqp", "azure-storage", "coap", "dict", "dns", "ftp", "gopher", "gs", "http", "http", "imap", "kafka", "ldap", "mqtt", "mqtt5", "nats", "pop3", "redis", "rtsp", "s3", "s3", "smb", "smtp", "signalr", "socketio", "socks", "socks", "ssh", "stomp", "telnet", "tftp",
             "websocket", "webtransport", "websocket", "xmpp", "extended", "control",
         ];
 

@@ -23,6 +23,7 @@
     <ProjectReference Include="..\..\Protocols\Messaging\Surl.Extended.Protocol.Amqp0.UnitLibrary\Surl.Extended.Protocol.Amqp0.UnitLibrary.csproj" />
     <ProjectReference Include="..\..\Protocols\Messaging\Surl.Extended.Protocol.Mqtt5.UnitLibrary\Surl.Extended.Protocol.Mqtt5.UnitLibrary.csproj" />
     <ProjectReference Include="..\..\Protocols\Messaging\Surl.Extended.Protocol.Nats.UnitLibrary\Surl.Extended.Protocol.Nats.UnitLibrary.csproj" />
+    <ProjectReference Include="..\..\Protocols\DataStore\Surl.Extended.Protocol.Redis.UnitLibrary\Surl.Extended.Protocol.Redis.UnitLibrary.csproj" />
     <ProjectReference Include="..\..\Protocols\Messaging\Surl.Extended.Protocol.Stomp.UnitLibrary\Surl.Extended.Protocol.Stomp.UnitLibrary.csproj" />
     <ProjectReference Include="..\..\Protocols\Messaging\Surl.Extended.Protocol.Xmpp.UnitLibrary\Surl.Extended.Protocol.Xmpp.UnitLibrary.csproj" />
     <ProjectReference Include="..\..\Protocols\FileTransfer\Surl.Extended.Protocol.S3.UnitLibrary\Surl.Extended.Protocol.S3.UnitLibrary.csproj" />

@@ -13,7 +13,7 @@ public sealed partial class AiHelpTextTests
     private static readonly string[] AdrTopicNames =
     [
         "amqp", "auth", "azure-storage", "coap", "content", "control", "dict", "dns", "exit-codes", "extended", "ftp", "gopher", "gs", "http", "imap", "kafka", "ldap", "limits", "listen-urls",
-        "logging", "mail", "messages", "mqtt", "mqtt5", "nats", "pop3", "proxy", "rtsp", "s3", "security", "signalr", "smb", "smtp", "socketio", "socks", "ssh", "stomp", "surl", "telnet", "testing", "tftp", "tls", "websocket", "webtransport", "xmpp",
+        "logging", "mail", "messages", "mqtt", "mqtt5", "nats", "pop3", "proxy", "redis", "rtsp", "s3", "security", "signalr", "smb", "smtp", "socketio", "socks", "ssh", "stomp", "surl", "telnet", "testing", "tftp", "tls", "websocket", "webtransport", "xmpp",
     ];
 
     // ADR-0046 decision 4's section headings, in order, on every topic page.
@@ -50,6 +50,7 @@ public sealed partial class AiHelpTextTests
         "| `nats` | NATS and NATSS protocol (extended) |",
         "| `pop3` | POP3 and POP3S protocol |",
         "| `proxy` | HTTP and HTTPS proxy |",
+        "| `redis` | Redis and Rediss protocol (extended) |",
         "| `rtsp` | RTSP protocol |",
         "| `s3` | Amazon S3 protocol (extended) |",
         "| `security` | Options that widen what a peer may do |",

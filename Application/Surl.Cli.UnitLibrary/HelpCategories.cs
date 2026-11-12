@@ -30,6 +30,7 @@ internal static class HelpCategories
         new("nats", "NATS and NATSS protocol (extended)", ["nats", "natss"]),
         new("pop3","POP3 and POP3S protocol", ["pop3", "pop3s"]),
         new("proxy", "HTTP and HTTPS proxy", []),
+        new("redis", "Redis and Rediss protocol (extended)", ["redis", "rediss"]),
         new("rtsp", "RTSP protocol", ["rtsp"]),
         new("s3", "Amazon S3 protocol (extended)", ["s3"]),
         new("security", "Options that widen what a peer may do", []),

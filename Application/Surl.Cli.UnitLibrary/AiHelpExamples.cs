@@ -218,6 +218,13 @@ public static class AiHelpExamples
             ["Listening on pop3://127.0.0.1:<port>/"],
             ["surl: warning: --allow-anonymous: every request and login is accepted without checking credentials"],
             ["curl pop3://127.0.0.1:<port>/"]),
+        Serving(
+            "redis",
+            "For a test: serve Redis without accounts",
+            ["--allow-anonymous", "redis://127.0.0.1:0/"],
+            ["Listening on redis://127.0.0.1:<port>/"],
+            ["surl: warning: --allow-anonymous: every request and login is accepted without checking credentials"],
+            []),
         Serving("rtsp", "Serve RTSP", ["rtsp://127.0.0.1:0/"], ["Listening on rtsp://127.0.0.1:<port>/"], [], ["curl rtsp://127.0.0.1:<port>/"]),
         Serving(
             "s3",

@@ -5,10 +5,10 @@ priority: Normal
 assignee: Claude
 pipeline: feature
 depends-on: [BL-491, BL-405, BL-1035]
-touches: [Application/Surl.Console, Application/Surl.Console.UnitTests, Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests, Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests, Documentation/Planning/Decisions/ADR-0106-how-the-redis-server-answers-redis-and-rediss.md]
+touches: [Application/Surl.Console, Application/Surl.Console.UnitTests, Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests, Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests, Documentation/Planning/Decisions/ADR-0106-how-the-redis-server-answers-redis-and-rediss.md, Foundation/Surl.Protocol.Abstractions.UnitLibrary/TlsSchemes.cs, Foundation/Surl.Protocol.Abstractions.UnitTests/TlsContractTests.cs]
 requirement: none
 created: 2026-11-04
-completed:
+completed: 2026-11-12
 ---
 # BL-492 — Serve redis and rediss from the surl executable
 
@@ -29,9 +29,9 @@ switch turns both off.
 
 ## Acceptance criteria
 
-- [ ] A named test finds `redis` and `rediss` registered when the switch is on, and absent when it is off.
-- [ ] The `--aihelp` completeness tests named in root `CLAUDE.md` pass.
-- [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and `Surl.Console` and `Surl.Cli` keep 100%
+- [x] A named test finds `redis` and `rediss` registered when the switch is on, and absent when it is off.
+- [x] The `--aihelp` completeness tests named in root `CLAUDE.md` pass.
+- [x] `dotnet build -warnaserror` is clean, the fast tests are green, and `Surl.Console` and `Surl.Cli` keep 100%
       line and branch coverage.
 
 ## Notes
@@ -72,6 +72,8 @@ switch turns both off.
     scheme lists and a redis/rediss on/off test, CommandLineRunnerTests `--version`), then build,
     fast tests and coverage.
 
+- 2026-11-12 (lane 1): redone on SDK 10.0.404. Chose TlsSchemes (add `rediss`, as BL-450 did `signalrs`) over the earlier `ExtendedImplicitTlsSchemes` design; no other task in Doing touches Surl.Protocol.Abstractions, so touches gained TlsSchemes.cs and TlsContractTests.cs. ADR-0106 Amendment 1 records it. Keyspace is memory only, nothing loaded in ServiceState. Tests: SurlServerCompositionTests.Redis.cs (on/off), runner default-port and (1) off tests, aihelp/help pinned lists. Fast tests green.
+
 ## Log
 
 - 2026-11-04: Created.
@@ -80,3 +82,4 @@ switch turns both off.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waits on BL-1035: global.json pins .NET SDK 10.0.401, which is not installed, so nothing builds; code written and described under Notes
 - 2026-11-12: Backlog -> Doing.
+- 2026-11-12: Doing -> Done. surl serves redis and rediss (TLS via TlsSchemes), with aihelp topic, help category and SURL_EXTENSIONS switch

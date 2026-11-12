@@ -6,6 +6,7 @@ using Surl.Extended.Protocol.GoogleCloudStorage;
 using Surl.Extended.Protocol.Kafka;
 using Surl.Extended.Protocol.Mqtt5;
 using Surl.Extended.Protocol.Nats;
+using Surl.Extended.Protocol.Redis;
 using Surl.Extended.Protocol.S3;
 using Surl.Extended.Protocol.SignalR;
 using Surl.Extended.Protocol.SocketIo;
@@ -114,6 +115,8 @@ public static class ExtendedProtocolServers
                 IdleTimeout = services.IdleTimeout,
                 AllowsAnonymous = services.AuthenticationPolicy.Settings.AllowAnonymous,
             })),
+        // The Redis server (ADR-0106, BL-492): one keyspace for redis and rediss, memory only; rediss is TLS from the first byte through TlsSchemes.
+        new(["redis", "rediss"], services => new RedisServer(services.AuthenticationPolicyFor("redis"), services.MessageBus)),
         new(["s3"], services => new S3ProtocolServer(
             services.ContentStore, services.ObjectMetadataIndex, services.AuthenticationPolicyFor("s3"), services.TimeProvider)),
         // The SignalR hub (ADR-0119, BL-450) at /, since a listen URL carries no path (BL-1039); signalrs is TLS from the
