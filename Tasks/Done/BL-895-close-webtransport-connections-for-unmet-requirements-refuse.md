@@ -8,7 +8,7 @@ depends-on: [BL-894, BL-460, BL-1035]
 touches: [Protocols/Http/Surl.Extended.Protocol.WebTransport.UnitLibrary, Protocols/Http/Surl.Extended.Protocol.WebTransport.UnitTests, Documentation/Conformance/Extended/WebTransport.md]
 requirement: none
 created: 2026-11-05
-completed:
+completed: 2026-11-11
 ---
 # BL-895 — Close WebTransport connections for unmet requirements, refuse non-https schemes, hold early datagrams and drain through the shutdown grace
 
@@ -28,13 +28,15 @@ using what BL-894 adds.
 
 ## Acceptance criteria
 
-- [ ] Named tests show: a client without `SETTINGS_H3_DATAGRAM` = 1 or `SETTINGS_WT_ENABLED` = 1 has its connection closed `WT_REQUIREMENTS_NOT_MET` (`0x212c0d48`) when it sends a WebTransport CONNECT; a CONNECT with `:scheme http` answered `:status 400` and FIN; a datagram sent before its CONNECT echoed once the session is accepted; at shutdown `WT_DRAIN_SESSION`, then `GOAWAY`, the session still echoing during the grace, then `WT_CLOSE_SESSION` code 0.
-- [ ] Each matrix row naming BL-889 names its test instead.
-- [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and the library keeps 100% line and branch coverage.
+- [x] Named tests show: a client without `SETTINGS_H3_DATAGRAM` = 1 or `SETTINGS_WT_ENABLED` = 1 has its connection closed `WT_REQUIREMENTS_NOT_MET` (`0x212c0d48`) when it sends a WebTransport CONNECT; a CONNECT with `:scheme http` answered `:status 400` and FIN; a datagram sent before its CONNECT echoed once the session is accepted; at shutdown `WT_DRAIN_SESSION`, then `GOAWAY`, the session still echoing during the grace, then `WT_CLOSE_SESSION` code 0.
+- [x] Each matrix row naming BL-889 names its test instead.
+- [x] `dotnet build -warnaserror` is clean, the fast tests are green, and the library keeps 100% line and branch coverage.
 
 ## Notes
 
 - 2026-11-11: Not started. `dotnet build` fails with "A compatible .NET SDK was not found": `global.json` pins 10.0.401 and only 10.0.100-rc.1, 11.0.100-rc.2 and 11.0.100 are installed. Added BL-1035 (Stewart reinstalls the SDK) to `depends-on`; the board restarts this task once it is Done.
+
+- 2026-11-11: Done. SDK 10.0.404 is installed again, so the build runs. Unmet client SETTINGS call `Http3ExtendedConnectSession.CloseConnection` with WT_REQUIREMENTS_NOT_MET; `:scheme` other than https is answered 400 before the origin, login and path (decision: checked first, so it reveals nothing); datagrams before their CONNECT are held by `Surl.Http3` (BL-894), so only a test was needed; WT_DRAIN_SESSION goes out through `AddShutdownWrite` (once, guarded by a flag) and WT_CLOSE_SESSION code 0 plus FIN after the grace. The grace is `WebTransportApplicationProtocol.ShutdownGrace` = 5 s, the serving engine's default; BL-461's composition may pass another later. `max_datagram_frame_size` is not checked: the handler sees only HTTP/3 SETTINGS. Matrix row WTH3-6-5 (wait for the client's FIN) is not done here and moved to BL-1060.
 
 ## Log
 
@@ -42,3 +44,4 @@ using what BL-894 adds.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waiting on BL-1035 - pinned .NET SDK 10.0.401 is not installed, so dotnet build cannot run
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Done. WebTransport closes the connection for unmet requirements, refuses non-https schemes, echoes early datagrams and drains through the shutdown grace
