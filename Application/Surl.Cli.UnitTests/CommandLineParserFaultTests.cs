@@ -95,6 +95,11 @@ public sealed class CommandLineParserFaultTests
     [DataRow("rtsp", "599 x")]
     [DataRow("ws", "1000")]
     [DataRow("wss", "4999 going")]
+    [DataRow("ws", "1014")]
+    [DataRow("ws", "3000")]
+    [DataRow("ws", "4999 bye")]
+    [DataRow("ws", "1003 x")]
+    [DataRow("ws", "1007 x")]
     [DataRow("ftp", "421 bye")]
     [DataRow("ftps", "550 no")]
     [DataRow("smtp", "400 x")]
@@ -180,6 +185,12 @@ public sealed class CommandLineParserFaultTests
     [DataRow("error;scheme=http;reply=five", "option --fault: key reply does not fit the http error shape", DisplayName = "HTTP no code")]
     [DataRow("error;scheme=ws;reply=1006", "option --fault: key reply does not fit the ws error shape", DisplayName = "WebSocket 1006")]
     [DataRow("error;scheme=ws;reply=999", "option --fault: key reply does not fit the ws error shape", DisplayName = "WebSocket too small")]
+    [DataRow("error;scheme=ws;reply=1004", "option --fault: key reply does not fit the ws error shape", DisplayName = "WebSocket reserved 1004")]
+    [DataRow("error;scheme=ws;reply=1005", "option --fault: key reply does not fit the ws error shape", DisplayName = "WebSocket 1005")]
+    [DataRow("error;scheme=wss;reply=1015", "option --fault: key reply does not fit the wss error shape", DisplayName = "WebSocket 1015")]
+    [DataRow("error;scheme=ws;reply=1016", "option --fault: key reply does not fit the ws error shape", DisplayName = "WebSocket reserved 1016")]
+    [DataRow("error;scheme=ws;reply=2999 x", "option --fault: key reply does not fit the ws error shape", DisplayName = "WebSocket reserved 2999")]
+    [DataRow("error;scheme=ws;reply=5000", "option --fault: key reply does not fit the ws error shape", DisplayName = "WebSocket past 4999")]
     [DataRow("error;scheme=ftp;reply=451", "option --fault: key reply does not fit the ftp error shape", DisplayName = "FTP without text")]
     [DataRow("error;scheme=smtp;reply=250 ok", "option --fault: key reply does not fit the smtp error shape", DisplayName = "SMTP success")]
     [DataRow("error;scheme=imap;reply=OK fine", "option --fault: key reply does not fit the imap error shape", DisplayName = "IMAP OK")]
@@ -212,6 +223,20 @@ public sealed class CommandLineParserFaultTests
     [DataRow("error;scheme=http;reply=503 a%0Ab", "option --fault: a control character", DisplayName = "A control character in the reply")]
     public void Parse_FaultRefused_IsRefusedWithItsReason(string item, string message) =>
         AssertOptionRefused(["--fault", item, Url], message);
+
+    [TestMethod]
+    public void Parse_WebSocketCloseReasonOf123Utf8Bytes_IsServed()
+    {
+        var reply = "1000 " + new string('é', 61) + "a";
+
+        Assert.AreEqual(reply, Served("--fault", $"error;scheme=ws;reply={reply}", Url).Faults.Single().Reply);
+    }
+
+    [TestMethod]
+    public void Parse_WebSocketCloseReasonOver123Utf8Bytes_IsRefused() =>
+        AssertOptionRefused(
+            ["--fault", "error;scheme=ws;reply=1000 " + new string('é', 62), Url],
+            "option --fault: key reply does not fit the ws error shape");
 
     [TestMethod]
     public void Parse_FaultMissingItsArgument_RequiresParameter() =>

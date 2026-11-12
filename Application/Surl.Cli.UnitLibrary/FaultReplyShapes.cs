@@ -1,5 +1,6 @@
 using System.Collections.Frozen;
 using System.Globalization;
+using System.Text;
 
 namespace Surl.Cli;
 
@@ -75,9 +76,22 @@ internal static class FaultReplyShapes
     private static bool IsCodeWithOptionalText(string reply, int lowest, int highest) =>
         TrySplitCode(reply, out var code, out var text) && code >= lowest && code <= highest && text != string.Empty;
 
-    /// <summary>A close code 1000 to 4999 other than the three never sent (RFC 6455 section 7.4.1), and an optional reason.</summary>
+    /// <summary>
+    /// A close code RFC 6455 section 7.4 allows on the wire - 1000 to 1014 less 1004 to 1006, and
+    /// 3000 to 4999 - and an optional non-empty reason of at most 123 UTF-8 bytes (ADR-0134 decision 4).
+    /// </summary>
     private static bool IsWebSocketClose(string reply) =>
-        IsCodeWithOptionalText(reply, 1000, 4999) && TrySplitCode(reply, out var code, out _) && code is not (1005 or 1006 or 1015);
+        IsCodeWithOptionalText(reply, 1000, 4999)
+        && TrySplitCode(reply, out var code, out var reason)
+        && IsWebSocketCloseCodeAllowedOnTheWire(code)
+        && (reason is null || Encoding.UTF8.GetByteCount(reason) <= MaximumWebSocketCloseReasonBytes);
+
+    /// <summary>The most UTF-8 bytes a close reason may take: a control frame's 125 less the two-byte code.</summary>
+    private const int MaximumWebSocketCloseReasonBytes = 123;
+
+    /// <summary>Whether a close code 1000 to 4999 is one RFC 6455 section 7.4 lets an endpoint send.</summary>
+    private static bool IsWebSocketCloseCodeAllowedOnTheWire(int code) =>
+        code is (>= 1000 and <= 1003) or (>= 1007 and <= 1014) or >= 3000;
 
     /// <summary><c>NO</c> or <c>BAD</c>, in any case, and text.</summary>
     private static bool IsImapResponse(string reply)
