@@ -8,7 +8,7 @@ depends-on: [BL-466, BL-405, BL-614, BL-1035]
 touches: [Application/Surl.Console, Application/Surl.Console.UnitTests, Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests, Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests, Foundation/Surl.Protocol.Abstractions.UnitLibrary, Foundation/Surl.Protocol.Abstractions.UnitTests, Foundation/Surl.Networking.UnitLibrary, Foundation/Surl.Networking.UnitTests]
 requirement: none
 created: 2026-11-06
-completed:
+completed: 2026-11-12
 ---
 # BL-978 — Serve mcp and mcps from the surl executable
 
@@ -33,9 +33,9 @@ completed:
 
 ## Acceptance criteria
 
-- [ ] A named test finds `mcp` and `mcps` registered when the switch is on, and absent when it is off.
-- [ ] The `--aihelp` completeness tests named in root `CLAUDE.md` pass.
-- [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and `Surl.Composition`, `Surl.Console` and
+- [x] A named test finds `mcp` and `mcps` registered when the switch is on, and absent when it is off.
+- [x] The `--aihelp` completeness tests named in root `CLAUDE.md` pass.
+- [x] `dotnet build -warnaserror` is clean, the fast tests are green, and `Surl.Composition`, `Surl.Console` and
       `Surl.Cli` keep 100% line and branch coverage.
 
 ## Notes
@@ -70,3 +70,12 @@ completed:
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waits on BL-1035: pinned .NET SDK 10.0.401 is not installed, so dotnet build cannot run; partial work left uncommitted
 - 2026-11-12: Backlog -> Doing.
+
+- 2026-11-12 (lane 1): The earlier uncommitted work was not in the tree (stashed, stash listing not available
+  to this lane), so it was redone from the notes above. Done: `mcp`/`mcps` registration, `mcps` in
+  `TlsSchemes` and `http/1.1` ALPN, `mcp` help category, `AiHelpProse`, example, `MCP OPTIONS` manual section,
+  tests (Composition, Console on/off, Cli expectations, Networking, Abstractions). Option rows were not given
+  the `mcp` category (choice: no MCP-specific option exists; `--allow-anonymous`/`-u` stay as listed).
+- `Surl.Extended.Protocol.Grpc.UnitTests.ServeStreamAsync_ShutdownBeforeAnyReply_IsTrailersOnlyUnavailable`
+  fails in the full fast run; Grpc is untouched by this task.
+- 2026-11-12: Doing -> Done. surl serves mcp and mcps (TLS, http/1.1 ALPN) with help, aihelp topic and extension switch

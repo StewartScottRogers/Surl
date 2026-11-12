@@ -18,6 +18,7 @@ public sealed class TlsContractTests
     [DataRow("mqtts")]
     [DataRow("smbs")]
     [DataRow("s3", DisplayName = "The extended s3 is HTTPS (ADR-0108, decision 5)")]
+    [DataRow("mcps", DisplayName = "The extended mcps is MCP over implicit TLS (ADR-0111, decision 4)")]
     [DataRow("amqps", DisplayName = "The extended amqps is AMQP 0-9-1 over implicit TLS (ADR-0112, decision 8)")]
     [DataRow("mqtt5s", DisplayName = "The extended mqtt5s is MQTT 5.0 over implicit TLS (ADR-0093, decision 7)")]
     [DataRow("gs", DisplayName = "The extended gs is Google Cloud Storage over HTTPS (ADR-0110, decision 5)")]

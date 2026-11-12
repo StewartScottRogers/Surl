@@ -241,6 +241,12 @@ internal static class AiHelpProse
             "`--topic-access <filter>=<member>:<pub|sub|pubsub>,...` says who may publish or subscribe, and may be given again. A member is an account name from `--user` or `--user-file`, or `@` and a group name from `--group`. Once one is given every publish and subscribe needs a grant, and an account with none, like every anonymous caller, is refused; a queue is named as the filter `$queue/<name>`. The member `@everyone` grants every caller, anonymous ones included, which widens access and is warned at start. A member naming no account or group exits 2 at start.",
             "A topic, a queue, a topic-map source (`topic map <scheme>:<name> is given twice`) or a `--topic-access` filter given twice exits 2 as the command line is read (`topic <filter> is given twice`, `queue <name> is given twice`). With `-v`, surl notes `* Topic <filter>`, `* Queue <name>`, `* Topic map <from> = <to>` and `* Topic access: <n> grants` at start.",
         ],
+        ["mcp"] =
+        [
+            "The MCP server answers the Model Context Protocol over Streamable HTTP for `mcp` and `mcps` listen URLs. It is an extended server (see the extended topic): it is judged by the MCP specification of 2025-06-18 (https://modelcontextprotocol.io/specification/2025-06-18), not by upstream curl, which has no `mcp` scheme and reaches it as `http://` or `https://`.",
+            "The endpoint is `/mcp` on the listen URL's host and port (a listen URL carries no path). A client POSTs JSON-RPC messages there, starting with `initialize`, which answers the session ID in `Mcp-Session-Id` that every later request carries; `serverInfo` names `surl` and its version. The tools it offers read and write the one content store the other servers share.",
+            "`mcp` is plain HTTP/1.1 on port 80 and has no plaintext option, the scheme is the plain one. `mcps` is TLS from the first byte on port 443 with ALPN `http/1.1` only, so an `mcps` listen URL needs `--cert` or `--self-signed` (see the tls topic), else surl exits 58. Logins are judged by the policy over the accounts allowed on `mcp` (see the auth topic).",
+        ],
         ["nats"] =
         [
             "The NATS server answers the NATS client protocol (INFO, CONNECT, PUB, HPUB, SUB, UNSUB, MSG, HMSG, PING and PONG) for `nats` and `natss` listen URLs. It is an extended server (see the extended topic): it is judged by the NATS client protocol page (https://docs.nats.io/reference/reference-protocols/nats-protocol), not by upstream curl, which has no `nats` scheme.",

@@ -13,7 +13,7 @@ public sealed partial class AiHelpTextTests
     private static readonly string[] AdrTopicNames =
     [
         "amqp", "amqp1", "auth", "azure-storage", "coap", "content", "control", "dict", "dns", "exit-codes", "extended", "ftp", "gopher", "gs", "http", "imap", "kafka", "ldap", "limits", "listen-urls",
-        "logging", "mail", "messages", "mqtt", "mqtt5", "nats", "pop3", "proxy", "redis", "rtsp", "s3", "security", "signalr", "smb", "smtp", "socketio", "socks", "ssh", "stomp", "surl", "telnet", "testing", "tftp", "tls", "websocket", "webtransport", "xmpp",
+        "logging", "mail", "mcp", "messages", "mqtt", "mqtt5", "nats", "pop3", "proxy", "redis", "rtsp", "s3", "security", "signalr", "smb", "smtp", "socketio", "socks", "ssh", "stomp", "surl", "telnet", "testing", "tftp", "tls", "websocket", "webtransport", "xmpp",
     ];
 
     // ADR-0046 decision 4's section headings, in order, on every topic page.
@@ -45,6 +45,7 @@ public sealed partial class AiHelpTextTests
         "| `listen-urls` | Listen URLs, ports and the Listening on line |",
         "| `logging` | Log levels, tracing and the log file |",
         "| `mail` | Mail domains, mailboxes and aliases |",
+        "| `mcp` | MCP over Streamable HTTP and over TLS protocol (extended) |",
         "| `messages` | Topics, queues and topic access |",
         "| `mqtt` | MQTT and MQTTS protocol |",
         "| `mqtt5` | MQTT 5.0 protocol: mqtt5, mqtt5s and mqtt5+ws (extended) |",

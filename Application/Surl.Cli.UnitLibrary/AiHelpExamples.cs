@@ -198,6 +198,13 @@ public static class AiHelpExamples
             ["surl: warning: --allow-plaintext-auth: passwords and tokens are accepted over unencrypted connections"],
             ["curl -u alice:secret ldap://127.0.0.1:<port>/"]),
         Serving(
+            "mcp",
+            "For a test: serve MCP without accounts",
+            ["--allow-anonymous", "mcp://127.0.0.1:0/"],
+            ["Listening on mcp://127.0.0.1:<port>/"],
+            ["surl: warning: --allow-anonymous: every request and login is accepted without checking credentials"],
+            []),
+        Serving(
             "mqtt",
             "For a test: serve MQTT without accounts",
             ["--allow-anonymous", "mqtt://127.0.0.1:0/"],

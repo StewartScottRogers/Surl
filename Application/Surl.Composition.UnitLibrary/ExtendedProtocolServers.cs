@@ -5,6 +5,7 @@ using Surl.Extended.Protocol.Coap;
 using Surl.Extended.Protocol.DnsQuery;
 using Surl.Extended.Protocol.GoogleCloudStorage;
 using Surl.Extended.Protocol.Kafka;
+using Surl.Extended.Protocol.McpServer;
 using Surl.Extended.Protocol.Mqtt5;
 using Surl.Extended.Protocol.Nats;
 using Surl.Extended.Protocol.Redis;
@@ -14,6 +15,8 @@ using Surl.Extended.Protocol.SocketIo;
 using Surl.Extended.Protocol.Stomp;
 using Surl.Extended.Protocol.WebTransport;
 using Surl.Extended.Protocol.Xmpp;
+using System.Reflection;
+using System.Security.Cryptography;
 using Surl.Protocol.Abstractions;
 
 namespace Surl.Composition;
@@ -30,6 +33,13 @@ namespace Surl.Composition;
 /// </remarks>
 public static class ExtendedProtocolServers
 {
+    /// <summary>
+    /// The version the MCP server reports as <c>serverInfo.version</c>: this assembly's informational
+    /// version without build metadata (every surl assembly shares it).
+    /// </summary>
+    public static string SurlVersion { get; } = typeof(ExtendedProtocolServers).Assembly
+        .GetCustomAttribute<AssemblyInformationalVersionAttribute>()!.InformationalVersion.Split('+')[0];
+
     /// <summary>The environment variable whose value <see cref="TurnedOffValue"/> turns every extended server off.</summary>
     public const string SwitchVariable = "SURL_EXTENSIONS";
 
@@ -117,6 +127,11 @@ public static class ExtendedProtocolServers
         new(["gs"], services => new GoogleCloudStorageProtocolServer(
             services.ContentStore, services.ObjectMetadataIndex, services.AuthenticationPolicyFor("gs"), services.TimeProvider)),
         new(["kafka", "kafkas"], ComposeKafkaBroker),
+        // The MCP server (ADR-0111, BL-978) at /mcp, since a listen URL carries no path; mcps is TLS from the first byte
+        // through TlsSchemes with ALPN http/1.1, so the one registration claims both schemes.
+        new([McpProtocolServer.PlainScheme, McpProtocolServer.SecureScheme], services => new McpProtocolServer(
+            services.ContentStore, services.AuthenticationPolicyFor(McpProtocolServer.PlainScheme), SurlVersion,
+            services.TimeProvider, RandomNumberGenerator.Create())),
         // The MQTT 5.0 broker (ADR-0093, BL-975) over the one message bus the MQTT server shares, so retained messages
         // persist where the bus persists them; only session state is the broker's. mqtt5s is TLS from the first byte through
         // TlsSchemes. mqtt5+ws is the same broker behind a WebSocket upgrade. mqtt stays the 3.1.1 server.
