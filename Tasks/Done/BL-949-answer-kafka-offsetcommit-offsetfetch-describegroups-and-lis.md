@@ -8,7 +8,7 @@ depends-on: [BL-947, BL-948]
 touches: [Protocols/Messaging/Surl.Extended.Protocol.Kafka.UnitLibrary, Protocols/Messaging/Surl.Extended.Protocol.Kafka.UnitTests, Documentation/Conformance/Extended/Kafka.md]
 requirement: none
 created: 2026-11-06
-completed:
+completed: 2026-11-11
 ---
 # BL-949 — Answer Kafka OffsetCommit, OffsetFetch, DescribeGroups and ListGroups
 
@@ -38,24 +38,37 @@ ApiVersions.
 
 ## Acceptance criteria
 
-- [ ] `KafkaApiVersionsAnswererTests` pins OffsetCommit 2-7, OffsetFetch 1-5, DescribeGroups 0-4 and ListGroups 0-2.
-- [ ] Named OffsetCommit tests: a member's commit stored and fetched back; a simple commit into an empty group
+- [x] `KafkaApiVersionsAnswererTests` pins OffsetCommit 2-7, OffsetFetch 1-5, DescribeGroups 0-4 and ListGroups 0-2.
+- [x] Named OffsetCommit tests: a member's commit stored and fetched back; a simple commit into an empty group
       accepted and into a group with members 25; 22 for another generation; 27 while completing a rebalance; each
       per-partition error 17, 3, 29, 12 and 44; one `StoreChange.Committed` event per stored partition.
-- [ ] Named OffsetFetch tests: v1 named topics, v2 null topics listing every committed topic, -1 for none, v5's
+- [x] Named OffsetFetch tests: v1 named topics, v2 null topics listing every committed topic, -1 for none, v5's
       leader epoch, a denied group 30 top-level on v2 and per partition on v1.
-- [ ] Named DescribeGroups and ListGroups tests: a `Stable` group described with its members, metadata and
+- [x] Named DescribeGroups and ListGroups tests: a `Stable` group described with its members, metadata and
       assignments; `Dead` for an unknown group; 30 for a denied one; ListGroups in ordinal order including a group
       known only by its offsets and leaving out a denied one.
-- [ ] A test with `ScriptedFaultPlan` shows an `error` rule on `OffsetCommit` answered in every partition with
+- [x] A test with `ScriptedFaultPlan` shows an `error` rule on `OffsetCommit` answered in every partition with
       nothing stored.
-- [ ] `Kafka.md`'s committed offsets and group listing rows name these tests in place of BL-949.
-- [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and the library keeps 100% line and branch
+- [x] `Kafka.md`'s committed offsets and group listing rows name these tests in place of BL-949.
+- [x] `dotnet build -warnaserror` is clean, the fast tests are green, and the library keeps 100% line and branch
       coverage.
 
 ## Notes
 
 - Filed by BL-701 (ADR-0145).
+- Decisions (under Stewart's delegation, within ADR-0145): OffsetCommit per-partition checks reuse
+  `KafkaFetchableTopic.Find`, so a topic the caller may not subscribe to is 29 even when it has no log (the task
+  text lists "no log 3" before 29); this matches Metadata and Fetch and does not reveal which topics exist
+  (ADR-0006 section 3). An empty group id is `INVALID_GROUP_ID` (24) in every partition. A group known only by
+  committed offsets is described `Empty` with an empty protocol type; `Dead` is for a group with neither members
+  nor offsets. v1 OffsetFetch with a null array asks for no topics. A `/` in a canonical topic is written `.` in
+  the null-topics listing, as Metadata does. `OFFSET_METADATA_TOO_LARGE` (12) was added to `KafkaErrorCode`;
+  `KafkaGroupCaller` gained `ClientHost`, and the coordinator keeps each member's client id and host for
+  DescribeGroups. The answerers are not yet registered in `Surl.Composition` (BL-522).
+- Verified: 577 Kafka unit tests green, `dotnet build -warnaserror` clean, `Measure-CodeQuality.ps1` shows 100%
+  line and branch coverage for the library.
+- Decisions (under Stewart's delegation, within ADR-0145): OffsetCommit per-partition checks reuse `KafkaFetchableTopic.Find`, so a topic the caller may not subscribe to is 29 even when it has no log (the task text lists "no log 3" before 29); this matches Metadata and Fetch and does not reveal which topics exist (ADR-0006 section 3). An empty group id is `INVALID_GROUP_ID` (24) in every partition. A group known only by committed offsets is described `Empty` with an empty protocol type; `Dead` is for a group with neither members nor offsets. v1 OffsetFetch with a null array asks for no topics. `/` in a canonical topic is written `.` in the listing, as Metadata does. `OFFSET_METADATA_TOO_LARGE` (12) was added to `KafkaErrorCode`. `KafkaGroupCaller` gained `ClientHost` and the coordinator keeps each member's client id and host for DescribeGroups. Answerers are not yet registered in `Surl.Composition` (BL-522).
+- Verified: 577 Kafka unit tests green, `dotnet build -warnaserror` clean, `Measure-CodeQuality.ps1` shows 100% line and branch for the library.
 
 ## Log
 
@@ -63,3 +76,4 @@ ApiVersions.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. returned by the shift starting 20261111-212123: it was in Doing but no stopped lane held it; look for its work in 'git stash list' and in factory/BL-949-* branches before redoing it
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Done. Kafka broker answers OffsetCommit v2-7, OffsetFetch v1-5, DescribeGroups v0-4 and ListGroups v0-2 from the bus and group coordinator, listed by ApiVersions
