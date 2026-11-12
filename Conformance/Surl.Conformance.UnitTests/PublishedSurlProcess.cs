@@ -23,6 +23,7 @@ internal sealed class PublishedSurlProcess : IAsyncDisposable
     private readonly Process process;
     private readonly int statusLineCount;
     private readonly List<string> statusLines = [];
+    private readonly List<string> standardOutput = [];
     private readonly StringBuilder standardError = new();
     private readonly TaskCompletionSource<string[]> listening = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
@@ -121,7 +122,18 @@ internal sealed class PublishedSurlProcess : IAsyncDisposable
         process.BeginOutputReadLine();
         process.BeginErrorReadLine();
         var exited = process.WaitForExitAsync(cancellationToken);
-        if (await Task.WhenAny(listening.Task, exited).WaitAsync(startTimeout, cancellationToken) != listening.Task)
+        Task first;
+        try
+        {
+            first = await Task.WhenAny(listening.Task, exited).WaitAsync(startTimeout, cancellationToken);
+        }
+        catch (TimeoutException)
+        {
+            throw new TimeoutException(
+                $"surl (process {process.Id}, exited: {process.HasExited}) wrote no 'Listening on' line within {startTimeout}. Standard output: [{string.Join(" | ", AllStandardOutput())}] Log: {Log}");
+        }
+
+        if (first != listening.Task)
         {
             // The parameterless wait returns once the redirected streams have been read to their end.
             process.WaitForExit();
@@ -172,8 +184,24 @@ internal sealed class PublishedSurlProcess : IAsyncDisposable
         }
     }
 
+    private string[] AllStandardOutput()
+    {
+        lock (statusLines)
+        {
+            return [.. standardOutput];
+        }
+    }
+
     private void OnStandardOutputLine(string? line)
     {
+        if (line is not null)
+        {
+            lock (statusLines)
+            {
+                standardOutput.Add(line);
+            }
+        }
+
         if (line is null || !line.StartsWith(StatusLinePrefix, StringComparison.Ordinal))
         {
             return;
