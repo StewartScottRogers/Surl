@@ -79,8 +79,9 @@ Flow control, the session limit, authentication and the limits (BL-460, ADR-0117
   is closed `WT_CLOSE_SESSION` code 1 `session data limit reached`, then FIN.
 - `WebTransportDatagramEchoQueue` (BL-905, decision 8) holds at most 64 HTTP datagrams a session waiting for their echo and drops the newest past that, noting it in the log.
 
-Still to come: waiting for the client to close each
-CONNECT stream before `CONNECTION_CLOSE` at shutdown (BL-1060).
+At shutdown the CONNECT stream stays open through the grace, so `Surl.Http3` closes the connection only
+once the client has FINed it (the session then answers with its own FIN) or the grace has passed (BL-1060,
+WTH3-6-5).
 
 `Surl.Extended.Protocol.WebTransport.UnitTests` drives the server over `Surl.Http3.UnitTests`' in-memory
 HTTP/3 test client, compiled in by link, with `UnitTestWebTransport` writing the client's side.

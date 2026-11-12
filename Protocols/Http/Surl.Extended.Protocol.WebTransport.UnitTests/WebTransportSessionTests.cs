@@ -313,6 +313,25 @@ public sealed class WebTransportSessionTests
     }
 
     [TestMethod]
+    public async Task ServeAsync_ClientFinishesTheConnectStreamWithinTheShutdownGrace_ClosesTheConnectionAtOnce()
+    {
+        using var shutdown = new CancellationTokenSource();
+        using var client = new Http3TestQuicClient();
+        await UnitTestWebTransport.StartAsync(client, Token, exchangeToken: shutdown.Token);
+        await UnitTestWebTransport.OpenSessionAsync(client, Token);
+        await shutdown.CancelAsync();
+        await client.UntilAsync(() => FrameIndex(client, 3, "070104") >= 0, Token);
+        Assert.IsNull(client.CloseCode, "WTH3 6: the connection waits for the client's FIN while the grace runs.");
+
+        client.Send(0, [], fin: true);
+        await client.UntilAsync(() => client.CloseCode is not null, Token);
+
+        Assert.IsTrue(client.StreamSent(0).Fin, "The server finishes its side of the CONNECT stream.");
+        Assert.AreEqual(UnitTestWebTransport.DrainSessionCapsuleHex, Convert.ToHexString([.. client.Response(0).Body]), "The grace never passed, so no shutdown WT_CLOSE_SESSION.");
+        Assert.AreEqual(0x100UL, client.CloseCode);
+    }
+
+    [TestMethod]
     public async Task ServeAsync_DatagramBeforeItsConnect_IsEchoedOnceTheSessionIsAccepted()
     {
         using var client = new Http3TestQuicClient(UnitTestWebTransport.ClientOfferingDatagramFrames);
