@@ -93,7 +93,7 @@ public sealed partial class SurlServerArgumentsTests
         options.AdditionalArguments.Add("later.example");
         byte[] Read(string path) => path == "a.conf" ? Encoding.UTF8.GetBytes("mail-domain = \"first.example\"\n") : throw new FileNotFoundException(path);
 
-        var actual = SurlServerArguments.Parse(options, [], Read);
+        var actual = SurlServerArguments.Parse(options, [], Read, CustomProtocolServers.Of(options));
 
         CollectionAssert.AreEqual(new[] { "first.example", "later.example" }, actual.MailDomains.ToArray());
     }
@@ -106,22 +106,34 @@ public sealed partial class SurlServerArgumentsTests
         var expected = CommandLineParser.Parse([HttpListenUrl, "--config", "missing.conf"]).Failure!;
 
         var exception = Assert.ThrowsExactly<SurlServerStartException>(
-            () => SurlServerArguments.Parse(options, [], _ => throw new FileNotFoundException()));
+            () => SurlServerArguments.Parse(options, [], _ => throw new FileNotFoundException(), CustomProtocolServers.Of(options)));
 
         Assert.AreEqual(expected.ExitCode, exception.ExitCode);
     }
 
     [TestMethod]
-    public void Parse_ATooLongConfigFile_IsCutAtTheParsersLimit()
+    public void Parse_WithoutAFileReader_ReadsConfigFilesFromDisk()
+    {
+        var options = ApiTestSeams.Options(HttpListenUrl);
+        options.ConfigFiles.Add("no-such-directory-surl/missing.conf");
+        var expected = CommandLineParser.Parse([HttpListenUrl, "--config", "no-such-directory-surl/missing.conf"]).Failure!;
+
+        var exception = Assert.ThrowsExactly<SurlServerStartException>(
+            () => SurlServerArguments.Parse(options, [], null, CustomProtocolServers.Of(options)));
+
+        Assert.AreEqual(expected.ExitCode, exception.ExitCode);
+    }
+
+    [TestMethod]
+    public void Parse_ATooLongConfigFile_IsRefusedAsSurlRefusesIt()
     {
         var options = ApiTestSeams.Options(HttpListenUrl);
         options.ConfigFiles.Add("big.conf");
-        var big = new byte[10_000_000];
+        var big = new byte[17_000_000];
         Array.Fill(big, (byte)'\n');
 
-        var actual = SurlServerArguments.Parse(options, [], _ => big);
-
-        Assert.HasCount(1, actual.ListenUrls);
+        Assert.ThrowsExactly<SurlServerStartException>(
+            () => SurlServerArguments.Parse(options, [], _ => big, CustomProtocolServers.Of(options)));
     }
 
     [TestMethod]

@@ -8,7 +8,7 @@ depends-on: [BL-804, BL-811, BL-1035]
 touches: [Application/Surl.Api, Application/Surl.Api.UnitTests]
 requirement: none
 created: 2026-11-05
-completed:
+completed: 2026-11-12
 ---
 # BL-813 — Let a Surl.Api test register its own protocol server for a scheme
 
@@ -44,7 +44,7 @@ and fault plan, and shares the instance's stores if it asks for them.
 - [x] Named tests (fake listeners and connections): a test server registered for scheme `echo` answers on its
       listen URL beside `http`; its exchange is recorded with its listen URL; a drop fault on its listen URL drops
       it; registering a built-in scheme is refused as the ADR says.
-- [ ] `dotnet build Application/Surl.Api -warnaserror` is clean, the fast tests are green, and `Surl.Api` keeps
+- [x] `dotnet build Application/Surl.Api -warnaserror` is clean, the fast tests are green, and `Surl.Api` keeps
       100% line and branch coverage.
 
 ## Notes
@@ -83,3 +83,4 @@ and fault plan, and shares the instance's stores if it asks for them.
 - 2026-11-12: Doing -> Blocked. Stewart: allow lane 1 to run git merge --no-commit (or cherry-pick) of origin/recover/BL-813 in the lane worktree; git fetch and git merge were denied, so the recovered work cannot be applied.
 - 2026-11-12: Blocked -> Backlog. Stewart: the first note told the lane to git merge, which lanes may not run; the note now says git cherry-pick -n origin/recover/BL-813.
 - 2026-11-12: Backlog -> Doing.
+- 2026-11-12: Doing -> Done. Surl.Api tests register their own IProtocolServer per scheme via SurlServerOptions.ProtocolServers; recovered work merged, SDK 10.0.404, 100% coverage, fast tests green

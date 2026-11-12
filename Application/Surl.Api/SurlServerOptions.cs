@@ -19,6 +19,16 @@ public sealed class SurlServerOptions
     public IList<string> ListenUrls { get; } = [];
 
     /// <summary>
+    /// The test's own protocol servers (ADR-0124, decision 2), each served on every listen URL in
+    /// <see cref="ListenUrls"/> that names its scheme, written <c>scheme://host:port</c> with the port (0 for an
+    /// ephemeral one); none by default. Add only: a scheme an original or extended server claims, turned on or not,
+    /// or one given twice, is an <see cref="ArgumentException"/> at start. A custom scheme may scope a fault rule in
+    /// <see cref="Faults"/> or <see cref="SurlServerFaults.Add"/>, except an <c>error</c> rule, but not one in
+    /// <see cref="AdditionalArguments"/>. May not hold null.
+    /// </summary>
+    public IList<SurlProtocolServer> ProtocolServers { get; } = [];
+
+    /// <summary>
     /// The data directory served and its service state kept in (<c>--directory</c>, ADR-0031), or
     /// <see langword="null"/> to serve <see cref="Files"/> in memory. Not set together with
     /// <see cref="Files"/>.

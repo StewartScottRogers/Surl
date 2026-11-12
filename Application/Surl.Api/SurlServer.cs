@@ -33,16 +33,15 @@ public sealed class SurlServer : IAsyncDisposable
         CancellationTokenSource stop,
         Task<SurlServingOutcome> serving,
         IReadOnlyList<Uri> boundUrls,
-        ExchangeRecordSubscriber? record,
-        TimeProvider timeProvider,
-        TimeSpan hookTimeLimit)
+        ServerInstruments instruments)
     {
         this.composedServing = composedServing;
         this.stop = stop;
         this.serving = serving;
-        this.record = record;
+        record = instruments.Record;
         BoundUrls = boundUrls;
-        Faults = new SurlServerFaults(composedServing.Faults, composedServing.Events, timeProvider, hookTimeLimit);
+        Faults = new SurlServerFaults(
+            composedServing.Faults, composedServing.Events, instruments.TimeProvider, instruments.HookTimeLimit, instruments.Custom);
         Mail = new SurlServerMail(composedServing.Stores);
         Files = new SurlServerFiles(composedServing.Stores);
         Messages = new SurlServerMessages(composedServing.Stores);
@@ -277,8 +276,9 @@ public sealed class SurlServer : IAsyncDisposable
         SurlServerArguments.ThrowIfMisused(options);
         var timeProvider = options.TimeProvider;
         var areExtensionsTurnedOn = options.AreExtensionsTurnedOn ?? ExtendedProtocolServers.AreTurnedOn(host.EnvironmentVariables);
+        var custom = CustomProtocolServers.Of(options);
         var commandLine = SurlServerArguments.Parse(
-            options, SurlServerComposition.ComposeExtendedSchemes(areExtensionsTurnedOn, null, timeProvider), host.ReadStartFile);
+            options, SurlServerComposition.ComposeExtendedSchemes(areExtensionsTurnedOn, null, timeProvider), host.ReadStartFile, custom);
         var seams = new SurlServerCompositionSeams(
             tlsSettings => host.CreateListenerFactory(tlsSettings, timeProvider), host.CanOpenDataDirectory, host.TakeDataDirectoryLock, timeProvider, areExtensionsTurnedOn)
         {
@@ -286,6 +286,7 @@ public sealed class SurlServer : IAsyncDisposable
             ReadStartFile = host.ReadStartFile,
             CanOpenShareDirectory = host.CanOpenDataDirectory,
             ContentWithoutDataDirectory = await InMemoryFiles.ComposeAsync(options.Files, timeProvider, cancellationToken),
+            AdditionalProtocolServers = custom.AdditionalProtocolServers,
         };
 
         var start = await SurlServerComposition.ComposeAsync(commandLine, seams, cancellationToken);
@@ -299,7 +300,7 @@ public sealed class SurlServer : IAsyncDisposable
         var record = options.RecordExchanges
             ? new ExchangeRecordSubscriber(start.Serving!.Events, timeProvider, ExchangeRecordBounds.Of(options))
             : null;
-        return await ServeUntilBoundAsync(commandLine, start.Serving!, options, record, cancellationToken);
+        return await ServeUntilBoundAsync(commandLine, start.Serving!, options, custom, record, cancellationToken);
     }
 
     /// <summary>The exchange log <c>surl</c> would write at the command line's level, to <paramref name="log"/>.</summary>
@@ -316,6 +317,7 @@ public sealed class SurlServer : IAsyncDisposable
         SurlCommandLine commandLine,
         ComposedServing composedServing,
         SurlServerOptions options,
+        CustomProtocolServers custom,
         ExchangeRecordSubscriber? record,
         CancellationToken cancellationToken)
     {
@@ -337,7 +339,12 @@ public sealed class SurlServer : IAsyncDisposable
 
         if (bound.Task.IsCompletedSuccessfully)
         {
-            return new SurlServer(composedServing, stop, serving, [.. bound.Task.Result.Select(ToUri)], record, timeProvider, options.HookTimeLimit);
+            return new SurlServer(
+                composedServing,
+                stop,
+                serving,
+                custom.InOrderGiven([.. bound.Task.Result.Select(ToUri)]),
+                new ServerInstruments(record, custom, timeProvider, options.HookTimeLimit));
         }
 
         // Serving ended before every listener bound: cancelled, or a bind failure (45 or 6).
@@ -371,6 +378,10 @@ public sealed class SurlServer : IAsyncDisposable
     }
 
     private static Uri ToUri(ListenUrl boundUrl) => new(ListenerStatusLine.FormatBoundListenUrl(boundUrl));
+
+    // What a started server observes and controls with, beside what it serves.
+    private sealed record ServerInstruments(
+        ExchangeRecordSubscriber? Record, CustomProtocolServers Custom, TimeProvider TimeProvider, TimeSpan HookTimeLimit);
 
     private async Task<SurlExitCode> StopServingAsync()
     {
