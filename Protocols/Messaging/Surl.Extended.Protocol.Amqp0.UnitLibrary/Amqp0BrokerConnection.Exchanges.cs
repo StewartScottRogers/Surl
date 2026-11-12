@@ -304,6 +304,7 @@ internal sealed partial class Amqp0BrokerConnection
         var deleted = Bus.DeleteQueue(queue, ifUnused: bits[0], ifEmpty: bits[1]);
         Refuse(deleted.Outcome);
         exchanges.RemoveQueue(queue);
+        consumers.EndConsumersOf(queue);
         SendCountUnlessNoWait(channel, Amqp0QueueMethodId.DeleteOk, deleted.RemovedMessageCount, bits[2]);
     }
 

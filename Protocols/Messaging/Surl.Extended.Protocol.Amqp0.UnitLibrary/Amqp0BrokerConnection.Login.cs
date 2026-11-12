@@ -58,6 +58,7 @@ internal sealed partial class Amqp0BrokerConnection
             return false;
         }
 
+        clientAcceptsConsumerCancel = startOk.AnnouncesConsumerCancelNotify;
         if (!offered.Contains(startOk.Mechanism))
         {
             // Rule start-ok/mechanism: close "without sending any further data".

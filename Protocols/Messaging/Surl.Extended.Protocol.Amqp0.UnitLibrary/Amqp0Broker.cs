@@ -99,6 +99,7 @@ public sealed class Amqp0Broker : IConnectionProtocolServer
     private readonly MessageBus.MessageBus bus;
     private readonly Amqp0BrokerOptions options;
     private readonly Amqp0ExchangeTable exchanges;
+    private readonly Amqp0ConsumerRegistry consumers = new();
 
     /// <summary>Creates a broker over <paramref name="bus"/> whose logins <paramref name="policy"/> judges.</summary>
     /// <param name="policy">Offers the mechanisms and judges each login.</param>
@@ -154,6 +155,6 @@ public sealed class Amqp0Broker : IConnectionProtocolServer
         ArgumentNullException.ThrowIfNull(connection);
         ArgumentNullException.ThrowIfNull(context);
 
-        return new Amqp0BrokerConnection(connection, context, policy, options, bus, exchanges).ServeAsync();
+        return new Amqp0BrokerConnection(connection, context, policy, options, bus, exchanges, consumers).ServeAsync();
     }
 }

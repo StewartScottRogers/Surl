@@ -26,6 +26,7 @@ internal sealed partial class Amqp0BrokerConnection
     private readonly Amqp0BrokerOptions options;
     private readonly MessageBus.MessageBus bus;
     private readonly Amqp0ExchangeTable exchanges;
+    private readonly Amqp0ConsumerRegistry consumers;
     private readonly Amqp0FrameReader reader;
     private readonly SemaphoreSlim writeGate = new(1, 1);
     private readonly CancellationTokenSource heartbeatsCancellation = new();
@@ -34,6 +35,7 @@ internal sealed partial class Amqp0BrokerConnection
     private Task outboundPumping = Task.CompletedTask;
     private BusConnection? busConnection;
     private bool closeSent;
+    private bool clientAcceptsConsumerCancel;
     private long lastWrittenUtcTicks;
     private int frameMax = Amqp0FrameLimits.FrameMinSize;
     private ushort channelMax = Amqp0Broker.ChannelMax;
@@ -46,9 +48,12 @@ internal sealed partial class Amqp0BrokerConnection
     /// <param name="options">The idle timeout and whether <c>ANONYMOUS</c> is offered.</param>
     /// <param name="bus">The shared message bus: the queues and the topic space.</param>
     /// <param name="exchanges">The broker's exchanges, shared by its connections.</param>
+    /// <param name="consumers">The broker's consumers by queue, shared by its connections.</param>
     public Amqp0BrokerConnection(
-        IConnection connection, ExchangeContext context, ISaslAuthenticationPolicy policy, Amqp0BrokerOptions options, MessageBus.MessageBus bus, Amqp0ExchangeTable exchanges)
+        IConnection connection, ExchangeContext context, ISaslAuthenticationPolicy policy, Amqp0BrokerOptions options, MessageBus.MessageBus bus, Amqp0ExchangeTable exchanges,
+        Amqp0ConsumerRegistry consumers)
     {
+        this.consumers = consumers;
         this.connection = connection;
         this.context = context;
         this.policy = policy;
@@ -74,6 +79,7 @@ internal sealed partial class Amqp0BrokerConnection
 
         // Ending the bus connection requeues every unsettled delivery and stops the consumers,
         // so nothing more is queued for writing; then what was queued is written out.
+        consumers.RemoveOwnedBy(this);
         busConnection?.Dispose();
         outbound?.Writer.TryComplete();
         var writeFailure = await CaptureFailureAsync(() => outboundPumping);

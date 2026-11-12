@@ -68,7 +68,13 @@ Channels, exchanges, queues and the basic class (BL-506, ADR-0112 decisions 5, 6
 - Delivery tags run from 1 per channel; `Amqp0Channel.Outstanding` maps each to its bus delivery.
   `basic.qos`'s prefetch-count bounds each consumer the channel makes afterwards; the
   channel-wide and `global` bounds, `prefetch-size`, and `recover` to the original consumer are
-  BL-760. `basic.cancel` to the consumers of a deleted queue is BL-761.
+  BL-760.
+- `Amqp0ConsumerRegistry` (one per broker, shared by its connections) records each consumer by queue
+  and owner. `queue.delete` calls `EndConsumersOf`, which ends every consumer of the queue on every
+  connection (the bus ends its own side silently); a client whose `start-ok` announced
+  `consumer_cancel_notify` (`Amqp0ConnectionStartOk.AnnouncesConsumerCancelNotify`) is sent
+  `basic.cancel` (60.30) with `no-wait` set. Another connection's thread ends a consumer, so
+  `Amqp0Channel.Consumers` changes under the channel's `Gate`.
 
 Transactions and publisher confirms (BL-731, ADR-0112 decision 6):
 

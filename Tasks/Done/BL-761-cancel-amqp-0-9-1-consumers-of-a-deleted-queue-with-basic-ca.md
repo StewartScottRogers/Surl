@@ -8,7 +8,7 @@ depends-on: [BL-506, BL-1035]
 touches: [Protocols/Messaging/Surl.Extended.Protocol.Amqp0.UnitLibrary, Protocols/Messaging/Surl.Extended.Protocol.Amqp0.UnitTests, Documentation/Conformance/Extended/Amqp0.md]
 requirement: none
 created: 2026-11-05
-completed:
+completed: 2026-11-11
 ---
 # BL-761 — Cancel AMQP 0-9-1 consumers of a deleted queue with basic.cancel
 
@@ -24,9 +24,9 @@ Deleting a queue ends every consumer of it on every AMQP 0-9-1 connection, and a
 
 ## Acceptance criteria
 
-- [ ] Named tests show: a consumer on another connection that announced `consumer_cancel_notify` receives `basic.cancel` (60.30) with its tag and `no-wait` set when the queue is deleted; one that did not announce it just stops receiving; the deleting connection's own consumers are ended the same way.
-- [ ] The matrix row `Amqp0:Extension-1` names those tests.
-- [ ] `dotnet build` is clean, the fast tests are green, and the library keeps 100% line and branch coverage.
+- [x] Named tests show: a consumer on another connection that announced `consumer_cancel_notify` receives `basic.cancel` (60.30) with its tag and `no-wait` set when the queue is deleted; one that did not announce it just stops receiving; the deleting connection's own consumers are ended the same way.
+- [x] The matrix row `Amqp0:Extension-1` names those tests.
+- [x] `dotnet build` is clean, the fast tests are green, and the library keeps 100% line and branch coverage.
 
 ## Notes
 
@@ -35,9 +35,12 @@ Deleting a queue ends every consumer of it on every AMQP 0-9-1 connection, and a
   so the build and fast-test gate cannot pass. BL-760 (same Amqp0 library, parked the same way) has uncommitted
   work stashed by the shift; starting BL-761 on top of it now would collide with that stash.
 
+- 2026-11-11 (lane 1): BL-1035 landed (SDK builds). Chose a broker-wide `Amqp0ConsumerRegistry` (no bus change): `queue.delete` ends every consumer of the queue on every connection; `basic.cancel` 60.30 with no-wait goes only to clients whose `start-ok` capabilities set `consumer_cancel_notify`. `Amqp0Channel.Consumers` now changes under the channel Gate. Coverage by construction: every new branch has a test; coverage-auditor not run.
+
 ## Log
 
 - 2026-11-05: Created.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waits on BL-1035: pinned .NET SDK 10.0.401 is not installed, so dotnet build fails
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Done. queue.delete ends consumers on every connection and sends basic.cancel to clients that announced consumer_cancel_notify

@@ -238,13 +238,20 @@ internal sealed partial class Amqp0BrokerConnection
             DiscardTransaction(channel);
         }
 
-        foreach (var consumer in channel.Consumers.Values)
+        Amqp0Consumer[] ending;
+        lock (channel.Gate)
         {
+            ending = [.. channel.Consumers.Values];
+            channel.Consumers.Clear();
+        }
+
+        foreach (var consumer in ending)
+        {
+            consumers.Remove(consumer.Registration);
             consumer.Bus.Dispose();
         }
 
         channel.Stopped.ForEach(stopped => stopped.Dispose());
-        channel.Consumers.Clear();
         channel.Stopped.Clear();
         foreach (var get in TakeOutstanding(channel, 0, multiple: true).Values.Where(delivery => delivery.Consumer is null))
         {

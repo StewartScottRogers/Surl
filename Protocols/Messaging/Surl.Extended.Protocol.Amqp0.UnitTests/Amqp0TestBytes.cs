@@ -40,7 +40,18 @@ internal static class Amqp0TestBytes
     public static byte[] StartOk(string mechanism, byte[] response) =>
         Method(0, 10, 11, [.. Long(0), .. ShortString(mechanism), .. LongString(response), .. ShortString("en_US")]);
 
-    /// <summary>A <c>PLAIN</c> response: <c>NUL user NUL password</c>.</summary>
+    /// <summary>
+    /// <c>connection.start-ok</c> whose client properties hold a <c>capabilities</c> table with
+    /// <c>consumer_cancel_notify</c> set to <paramref name="announced"/>.
+    /// </summary>
+    public static byte[] StartOkAnnouncingConsumerCancel(string mechanism, byte[] response, bool announced = true)
+    {
+        byte[] capabilities = [.. ShortString("consumer_cancel_notify"), (byte)'t', (byte)(announced ? 1 : 0)];
+        byte[] properties = [.. ShortString("capabilities"), (byte)'F', .. Long(capabilities.Length), .. capabilities];
+        return Method(0, 10, 11, [.. Long(properties.Length), .. properties, .. ShortString(mechanism), .. LongString(response), .. ShortString("en_US")]);
+    }
+
+    /// <summary>A <c>PLAIN</c> response:<c>NUL user NUL password</c>.</summary>
     public static byte[] PlainResponse(string user, string password) => Encoding.UTF8.GetBytes($"\0{user}\0{password}");
 
     /// <summary>An <c>AMQPLAIN</c> response: <c>LOGIN</c> and <c>PASSWORD</c> long strings, no table size.</summary>

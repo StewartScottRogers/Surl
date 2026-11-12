@@ -43,7 +43,13 @@ internal sealed partial class Amqp0BrokerConnection
         var consumed = Bus.Consume(queue, delivery => Deliver(channel, consumer, delivery), window, exclusive: bits[2]);
         Refuse(consumed.Outcome);
         consumer.Bus = consumed.Consumer!;
-        channel.Consumers.Add(tag, consumer);
+        consumer.Registration = new(queue, this, () => EndConsumerOfDeletedQueue(channel, consumer));
+        lock (channel.Gate)
+        {
+            channel.Consumers.Add(tag, consumer);
+        }
+
+        consumers.Add(consumer.Registration);
         if (!bits[3])
         {
             SendMethod(channel.Number, TaggedMethod(Amqp0BasicMethodId.ConsumeOk, tag));
@@ -63,8 +69,9 @@ internal sealed partial class Amqp0BrokerConnection
     {
         var tag = arguments.ReadShortString();
         var noWait = arguments.ReadBits(1)[0];
-        if (channel.Consumers.Remove(tag, out var consumer))
+        if (TakeConsumer(channel, tag) is { } consumer)
         {
+            consumers.Remove(consumer.Registration);
             consumer.Bus.Stop();
             channel.Stopped.Add(consumer.Bus);
         }
@@ -72,6 +79,35 @@ internal sealed partial class Amqp0BrokerConnection
         if (!noWait)
         {
             SendMethod(channel.Number, TaggedMethod(Amqp0BasicMethodId.CancelOk, tag));
+        }
+    }
+
+    // Another connection's thread may end a consumer too (a deleted queue), so the channel's gate guards its consumers.
+    private static Amqp0Consumer? TakeConsumer(Amqp0Channel channel, string tag)
+    {
+        lock (channel.Gate)
+        {
+            return channel.Consumers.Remove(tag, out var consumer) ? consumer : null;
+        }
+    }
+
+    // The bus already ended the consumer with its queue. A client that announced consumer_cancel_notify
+    // is told with basic.cancel (60.30), no-wait set; any other just stops receiving.
+    internal void EndConsumerOfDeletedQueue(Amqp0Channel channel, Amqp0Consumer consumer)
+    {
+        if (TakeConsumer(channel, consumer.Tag) is null)
+        {
+            return;
+        }
+
+        consumer.Bus.Dispose();
+        if (clientAcceptsConsumerCancel)
+        {
+            SendMethod(channel.Number, MethodOf(Amqp0BasicMethodId.ClassId, Amqp0BasicMethodId.Cancel, writer =>
+            {
+                writer.WriteShortString(consumer.Tag);
+                writer.WriteBits([true]);
+            }));
         }
     }
 
