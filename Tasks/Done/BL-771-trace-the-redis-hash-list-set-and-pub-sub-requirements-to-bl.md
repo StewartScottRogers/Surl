@@ -8,7 +8,7 @@ depends-on: [BL-491, BL-1035]
 touches: [Documentation/Conformance/Extended/Redis.md, Documentation/Planning/Decisions/ADR-0106-how-the-redis-server-answers-redis-and-rediss.md]
 requirement: none
 created: 2026-11-05
-completed:
+completed: 2026-11-12
 ---
 # BL-771 — Trace the Redis hash, list, set and pub/sub requirements to BL-491's tests and record its two error texts
 
@@ -32,10 +32,10 @@ error table lists the two error texts BL-491 added.
 
 ## Acceptance criteria
 
-- [ ] Every `Documentation/Conformance/Extended/Redis.md` row reading `BL-491` (WRONGTYPE-1, HSET-1, HGETALL-1,
+- [x] Every `Documentation/Conformance/Extended/Redis.md` row reading `BL-491` (WRONGTYPE-1, HSET-1, HGETALL-1,
       LPUSH-1, LRANGE-1, LPOP-1, SADD-1, SMEMBERS-1, Surl-Collections-1, PubSub-1 to PubSub-7, Surl-Limits-10,
       Surl-Limits-11), and the notes on RESET-1 and TYPE-1, names the test that proves it.
-- [ ] ADR-0106 decision 5's table has rows for `hash value is not an integer` and
+- [x] ADR-0106 decision 5's table has rows for `hash value is not an integer` and
       `value is out of range, must be positive`, marked as added by BL-491 on 2026-11-05.
 
 ## Notes
@@ -52,3 +52,4 @@ error table lists the two error texts BL-491 added.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-12: Doing -> Backlog. returned by the shift starting 20261112-052315: it was in Doing but no stopped lane held it; look for its work in 'git stash list' and in factory/BL-771-* branches before redoing it
 - 2026-11-12: Backlog -> Doing.
+- 2026-11-12: Doing -> Done. Redis.md rows name BL-491's tests; ADR-0106 decision 5 lists both error texts; build clean on SDK 10.0.404

@@ -110,7 +110,8 @@ Command names are case-insensitive (the RESP page). The commands served:
   and the next cursor (the last number returned plus one), or `0` once no key is left. So, as the
   page guarantees, every key present for a whole iteration is returned, and a key recreated during
   one may be returned twice. A cursor that is not an unsigned integer is `-ERR invalid cursor`.
-- **`KEYS`, `SMEMBERS`, `HGETALL` and the like** answer in insertion order; the pages promise no
+- **`KEYS`, `SMEMBERS`, `HGETALL` and the like** answer in insertion order, and `SPOP` takes the
+  member added first rather than a random one (BL-491); the pages promise no
   order, and a fixed one makes tests pin bytes.
 - **Pub/sub** (the "Pub/Sub" page): channels and patterns are byte strings. `SUBSCRIBE` and
   `PSUBSCRIBE` answer one confirmation per channel or pattern
@@ -212,9 +213,11 @@ text); none names a path, an account, an exception or a version:
 | `ERR` | `syntax error` | an unknown or conflicting option |
 | `ERR` | `value is not an integer or out of range` | an integer argument |
 | `ERR` | `increment or decrement would overflow` | `INCR` family overflow |
+| `ERR` | `hash value is not an integer` | `HINCRBY` on a field whose value is not an integer (added by BL-491, 2026-11-05) |
 | `ERR` | `invalid expire time in '<command>' command` | `SET`, `EXPIRE` family |
 | `ERR` | `no such key` | `RENAME`, `LSET` of a missing key |
 | `ERR` | `index out of range` | `LSET` |
+| `ERR` | `value is out of range, must be positive` | a negative count to `LPOP`, `RPOP`, `SPOP` (added by BL-491, 2026-11-05) |
 | `ERR` | `invalid cursor` | `SCAN` |
 | `ERR` | `DB index is out of range` | `SELECT` |
 | `ERR` | `Client names cannot contain spaces, newlines or special characters.` | `CLIENT SETNAME`, `HELLO … SETNAME` |
