@@ -59,3 +59,4 @@ every run.
 - 2026-11-06: Created.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waits on BL-1035: pinned .NET SDK 10.0.401 is not installed, so nothing builds; code is written and stashed
+- 2026-11-11: Backlog -> Doing.
