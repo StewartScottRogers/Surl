@@ -71,3 +71,4 @@ the MD5").
 - 2026-11-11: Doing -> Backlog. Waiting on BL-1035: pinned .NET SDK 10.0.401 is not installed, so dotnet build cannot run; the code is written and left for the shift to stash
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Lane 4's unverified BL-773 code sits in a shared git stash this run was denied access to (git stash list refused) and a cherry-pick is mid-flight in the lane worktree; SDK 10.0.404 is now installed so the build works - rerun to recover the stash or rewrite
+- 2026-11-11: Backlog -> Doing.
