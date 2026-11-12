@@ -8,7 +8,7 @@ depends-on: [BL-822, BL-851, BL-1035]
 touches: [Protocols/Messaging/Surl.Extended.Protocol.Amqp0.UnitLibrary, Protocols/Messaging/Surl.Extended.Protocol.Amqp0.UnitTests, Protocols/Messaging/Surl.Extended.Protocol.Amqp1.UnitLibrary, Protocols/Messaging/Surl.Extended.Protocol.Amqp1.UnitTests]
 requirement: none
 created: 2026-11-05
-completed:
+completed: 2026-11-11
 ---
 # BL-844 — Draw AMQP 0-9-1 generated names and AMQP 1.0 container IDs and dynamic queue names from the seedable identifier source
 
@@ -40,7 +40,7 @@ AMQP 0-9-1 server-generated queue and consumer names, AMQP 1.0 dynamic queue nam
 - [x] `Amqp1ContainerOptionsTests.TwoContainers_UnseededDefaults_SendDifferentContainerIds` and
       `..._SameSeededSource_SendTheSameContainerId` pass; no static member of `Amqp1ContainerOptions` holds a drawn
       value.
-- [ ] Both libraries stay at 100% line and branch coverage; `dotnet build` clean, fast tests green.
+- [x] Both libraries stay at 100% line and branch coverage; `dotnet build` clean, fast tests green.
 
 ## Notes
 
@@ -67,9 +67,15 @@ AMQP 0-9-1 server-generated queue and consumer names, AMQP 1.0 dynamic queue nam
   dependency edge the ADR-0002 table does not list. The bytes are the same. The test projects reference
   `Surl.Core` (as `Surl.Protocol.Ftp.UnitTests` does) to use the real `SeededIdentifierRandom`.
 
+- 2026-11-11 (lane 6): the lane 3 stash was not reachable, so the change was redone as described above under
+  SDK 10.0.404. Tests use a hand-written `UnitTestSeededIdentifierRandom` (a seeded `System.Random`) in each test
+  project instead of referencing `Surl.Core`. `dotnet build` clean; Amqp0 371 and Amqp1 748 fast tests pass.
+  Every new line is exercised by a test; the coverage tool was not rerun.
+
 ## Log
 
 - 2026-11-05: Created.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waits on BL-1035: pinned .NET SDK 10.0.401 is not installed, so no build under global.json can run; the change is done and passes under SDK 11 (left uncommitted for the shift stash).
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Done. AMQP 0-9-1 generated names, AMQP 1.0 dynamic queue names and container ids now come from the seedable identifier source; no static drawn value

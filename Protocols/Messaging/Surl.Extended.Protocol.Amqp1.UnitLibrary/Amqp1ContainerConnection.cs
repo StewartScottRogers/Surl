@@ -68,23 +68,30 @@ public sealed partial class Amqp1ContainerConnection
         Amqp1ContainerOptions options,
         MessageBus.MessageBus bus,
         string? accountName)
-        : this(connection, context, options, bus, accountName, busConnection => new Amqp1BusNodeDirectory(bus, busConnection))
+        : this(connection, context, options, bus, accountName, null)
     {
     }
 
-    /// <summary>Prepares to serve one connection, its nodes resolved by the directory <paramref name="nodesFor"/> makes.</summary>
+    /// <summary>
+    /// Prepares to serve one connection, its nodes resolved by the directory <paramref name="nodesFor"/> makes;
+    /// when it is <see langword="null"/>, a bus directory drawing from <see cref="ExchangeContext.Identifiers"/>.
+    /// </summary>
     internal Amqp1ContainerConnection(
         IConnection connection,
         ExchangeContext context,
         Amqp1ContainerOptions options,
         MessageBus.MessageBus bus,
         string? accountName,
-        Func<BusConnection, IAmqp1NodeDirectory> nodesFor)
+        Func<BusConnection, IAmqp1NodeDirectory>? nodesFor)
     {
         ArgumentNullException.ThrowIfNull(connection);
         ArgumentNullException.ThrowIfNull(context);
         ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(bus);
+        if (options.ContainerId is null)
+        {
+            throw new ArgumentException("The options carry no container id; the container draws it.", nameof(options));
+        }
 
         this.connection = connection;
         this.context = context;
@@ -92,7 +99,7 @@ public sealed partial class Amqp1ContainerConnection
         this.bus = bus;
         this.accountName = accountName;
         busConnection = bus.Connect(accountName);
-        nodes = nodesFor(busConnection);
+        nodes = nodesFor is null ? new Amqp1BusNodeDirectory(bus, busConnection, context.Identifiers) : nodesFor(busConnection);
         reader = new Amqp1FrameReader(connection);
         offeredMaxFrameSize = Amqp1FrameLimits.OfferedMaxFrameSize(context.Limits.MaxMessageBytes);
     }

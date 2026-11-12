@@ -32,19 +32,21 @@ public sealed class Amqp1Container : IConnectionProtocolServer
     private readonly MessageBus.MessageBus bus;
     private readonly Amqp1ContainerOptions containerOptions;
     private readonly Amqp1SecurityNegotiationOptions negotiationOptions;
-    private readonly Func<BusConnection, IAmqp1NodeDirectory> nodesFor;
+    private readonly Func<BusConnection, IAmqp1NodeDirectory>? nodesFor;
 
     /// <summary>Creates the container over <paramref name="bus"/>, whose logins <paramref name="policy"/> judges.</summary>
     /// <param name="policy">Offers the SASL mechanisms and runs each login but <c>ANONYMOUS</c>.</param>
     /// <param name="bus">The process's shared message bus: its topics and queues are the container's nodes.</param>
     /// <param name="containerOptions">The container id and the idle timeout; <see cref="Amqp1ContainerOptions.Default"/> when omitted.</param>
     /// <param name="negotiationOptions">Whether anonymous logins and the TLS header are allowed; <see cref="Amqp1SecurityNegotiationOptions.Default"/> when omitted.</param>
+    /// <param name="identifiers">Where the container id is drawn from when the options give none; random when omitted.</param>
     public Amqp1Container(
         ISaslAuthenticationPolicy policy,
         MessageBus.MessageBus bus,
         Amqp1ContainerOptions? containerOptions = null,
-        Amqp1SecurityNegotiationOptions? negotiationOptions = null)
-        : this(policy, bus, containerOptions, negotiationOptions, null)
+        Amqp1SecurityNegotiationOptions? negotiationOptions = null,
+        IIdentifierRandom? identifiers = null)
+        : this(policy, bus, containerOptions, negotiationOptions, null, identifiers)
     {
     }
 
@@ -54,17 +56,24 @@ public sealed class Amqp1Container : IConnectionProtocolServer
         MessageBus.MessageBus bus,
         Amqp1ContainerOptions? containerOptions,
         Amqp1SecurityNegotiationOptions? negotiationOptions,
-        Func<BusConnection, IAmqp1NodeDirectory>? nodesFor)
+        Func<BusConnection, IAmqp1NodeDirectory>? nodesFor,
+        IIdentifierRandom? identifiers = null)
     {
         ArgumentNullException.ThrowIfNull(policy);
         ArgumentNullException.ThrowIfNull(bus);
 
         this.policy = policy;
         this.bus = bus;
-        this.containerOptions = containerOptions ?? Amqp1ContainerOptions.Default;
+        var options = containerOptions ?? Amqp1ContainerOptions.Default;
+        this.containerOptions = options.ContainerId is null
+            ? options with { ContainerId = Amqp1ContainerOptions.NewContainerId(identifiers ?? new Amqp1UnseededIdentifierRandom()) }
+            : options;
         this.negotiationOptions = negotiationOptions ?? Amqp1SecurityNegotiationOptions.Default;
-        this.nodesFor = nodesFor ?? (busConnection => new Amqp1BusNodeDirectory(bus, busConnection));
+        this.nodesFor = nodesFor;
     }
+
+    /// <summary>The <c>container-id</c> every connection's <c>open</c> carries, drawn once when the container was created unless the options gave one.</summary>
+    public string ContainerId => containerOptions.ContainerId!;
 
     /// <summary>
     /// The schemes answered: <c>amqp1</c>, and <c>amqp1s</c>, the same exchange behind implicit TLS,

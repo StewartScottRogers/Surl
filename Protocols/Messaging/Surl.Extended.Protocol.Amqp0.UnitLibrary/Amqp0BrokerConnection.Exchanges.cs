@@ -1,5 +1,4 @@
 using System.Buffers.Text;
-using System.Security.Cryptography;
 using Surl.MessageBus;
 
 namespace Surl.Extended.Protocol.Amqp0;
@@ -54,8 +53,14 @@ internal sealed partial class Amqp0BrokerConnection
     internal static bool IsValidName(string name) =>
         name.All(character => char.IsAsciiLetterOrDigit(character) || character is '-' or '_' or '.' or ':');
 
-    // A server-made name: the prefix and 22 base64url characters of 16 random bytes.
-    private static string GenerateName(string prefix) => prefix + Base64Url.EncodeToString(RandomNumberGenerator.GetBytes(16));
+    // A server-made name: the prefix and 22 base64url characters of 16 bytes from the exchange's
+    // identifier source (seedable, ADR-0124 decision 6).
+    private string GenerateName(string prefix)
+    {
+        Span<byte> bytes = stackalloc byte[16];
+        context.Identifiers.NextBytes(bytes);
+        return prefix + Base64Url.EncodeToString(bytes);
+    }
 
     private void DeclareExchange(Amqp0Channel channel, Amqp0WireReader arguments)
     {

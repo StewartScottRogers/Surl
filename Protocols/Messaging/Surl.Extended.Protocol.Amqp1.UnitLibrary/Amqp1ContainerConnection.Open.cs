@@ -41,7 +41,7 @@ public sealed partial class Amqp1ContainerConnection
         _ => Error(Amqp1ErrorCondition.FramingError, "a frame other than open before open"),
     };
 
-    private Amqp1Open ContainerOpen() => new(options.ContainerId)
+    private Amqp1Open ContainerOpen() => new(options.ContainerId!)
     {
         MaxFrameSize = offeredMaxFrameSize,
         ChannelMax = ContainerChannelMax,
