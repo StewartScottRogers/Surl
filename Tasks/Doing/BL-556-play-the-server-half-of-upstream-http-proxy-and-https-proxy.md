@@ -85,3 +85,4 @@ decision 8 says; the `http-proxy` and `https-proxy` rows of the server-name tabl
 - 2026-11-04: Created.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waits on BL-1035: the .NET SDK 10.0.401 global.json pins is not installed, so dotnet build fails before any gate can run
+- 2026-11-12: Backlog -> Doing.
