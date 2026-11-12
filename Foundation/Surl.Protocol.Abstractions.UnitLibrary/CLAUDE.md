@@ -147,7 +147,7 @@ What it holds:
   sets the exchange's own. `CommandStageFaults.FindAndApplyAsync(context, connection, point, target)`
   asks the plan and applies a `Delay` (hold `ms` on the context's clock with the idle clock paused)
   or a `Drop` (`IConnection.Abort()`), each noted and published once as a `FaultAppliedEvent`, and
-  hands any other kind back. `RecordingIdleClock` is its test double. `ReportedListenUrl.Format` is
+  hands any other kind back. An overload without a connection (ADR-0141 amendment 1) leaves ending a dropped exchange to the caller, as the HTTP servers do. `RecordingIdleClock` is its test double. `ReportedListenUrl.Format` is
   the listen URL as the instance reports it, for events and a rule's `listener`.
 
 - The seedable identifier source (ADR-0124, decision 6; BL-851): `IIdentifierRandom.NextBytes`,

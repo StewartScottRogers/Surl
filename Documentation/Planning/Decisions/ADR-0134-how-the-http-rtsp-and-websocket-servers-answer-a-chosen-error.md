@@ -51,10 +51,10 @@ them; the recordings are the `fault-*` fixtures of the three test projects.
    reserved and are not sent. A reply that does not fit, which a `Surl.Api` hook could hand over unchecked, is
    noted in the exchange log and not applied: the request is answered as without the rule and no event is
    published.
-5. **Only the `error` kind.** These servers apply `Error` at the `Command` stage. A `delay` or `drop` rule
-   given `stage=command` that matches is noted as not applied here and the request goes on; applying those at
-   the command stage needs the engine's idle clock paused (delay) and a way to abort from an HTTP answer
-   (drop), filed as follow-up work.
+5. **`error`, `delay` and `drop`.** These servers apply `Error` at the `Command` stage, and, since BL-902,
+   `Delay` and `Drop` as [ADR-0141](ADR-0141-how-a-server-applies-a-command-stage-delay-or-drop.md) amendment 1
+   says. Any other kind that matches (`RefuseLogin`, `OutOfSpace`) is noted as not applied here and the request
+   goes on.
 6. **Events and the point.** Each application publishes one `FaultAppliedEvent` (stage `Command`, the
    exchange's ID, the path as its target, or the method when there is no path) and notes the answer in the
    exchange log. The `FaultPoint` carries the exchange ID, the listen URL formatted as the serving engine

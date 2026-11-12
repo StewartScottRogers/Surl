@@ -40,6 +40,20 @@ public sealed class Http2StreamAnswerWriterTests
         Assert.AreEqual("its DATA did not add up to its content-length", test.Resets.Single().Reason);
     }
 
+    [TestMethod]
+    public async Task ServeStreamAsync_AnswerThatDropsTheExchange_ResetsTheStreamInternalErrorUnanswered()
+    {
+        var test = new Http2TestStream(Http2TestStream.Get(), isBodyAnnounced: false, TestContext.CancellationToken);
+        var answer = new HttpAnswer(HttpStatus.Ok, [], HttpAnswerBody.None, IsRefusal: true, LeavesRequestBodyUnread: false, DropsExchange: true);
+        var writer = new Http2StreamAnswerWriter(new FixedAnswerHandler(answer), Context());
+
+        await writer.ServeStreamAsync(test.Stream, TestContext.CancellationToken);
+
+        var response = Http2TestClient.Responses(test.Connection.WrittenBytes)[1];
+        Assert.AreEqual(Http2ErrorCode.InternalError, response.ResetCode);
+        Assert.IsEmpty(response.HeaderBlocks);
+        Assert.AreEqual("a fault rule dropped the exchange", test.Resets.Single().Reason);
+    }
     private ExchangeContext Context() => HttpServerHarness.Context(new RecordingExchangeLog(), TimeProvider.System, TestContext.CancellationToken);
 
     private sealed class FixedAnswerHandler(HttpAnswer answer, bool readsBody = false) : IHttpRequestHandler

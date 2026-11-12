@@ -9,23 +9,23 @@ public sealed class HttpCommandFaultsTests
     public TestContext TestContext { get; set; } = null!;
 
     [TestMethod]
-    public async Task FindChosenErrorAsync_NoRuleMatches_ReturnsNullAndAsksOneCommandPoint()
+    public async Task FindAndApplyAsync_NoRuleMatches_ReturnsNullAndAsksOneCommandPoint()
     {
         var plan = new ScriptedFaultPlan();
 
-        var rule = await HttpCommandFaults.FindChosenErrorAsync(Context(plan, new ListenUrl("http", "127.0.0.1", 0).WithBoundPort(8080)), "GET", "/a", "");
+        var rule = await HttpCommandFaults.FindAndApplyAsync(Context(plan, new ListenUrl("http", "127.0.0.1", 0).WithBoundPort(8080)), "GET", "/a", "");
 
         Assert.IsNull(rule);
         Assert.AreEqual(new FaultPoint(FaultStage.Command) { ExchangeId = 7, ListenUrl = "http://127.0.0.1:8080/", Scheme = "http", Path = "/a", Command = "GET" }, plan.Points.Single());
     }
 
     [TestMethod]
-    public async Task FindChosenErrorAsync_AnErrorRuleMatches_ReturnsItWithTheAccountAsked()
+    public async Task FindAndApplyAsync_AnErrorRuleMatches_ReturnsItWithTheAccountAsked()
     {
         var error = new FaultRule("f2", FaultKind.Error) { Reply = "503" };
         var plan = new ScriptedFaultPlan(error);
 
-        var rule = await HttpCommandFaults.FindChosenErrorAsync(Context(plan, new ListenUrl("rtsp", "fe80::1%eth0", 554)), "DESCRIBE", null, "alice");
+        var rule = await HttpCommandFaults.FindAndApplyAsync(Context(plan, new ListenUrl("rtsp", "fe80::1%eth0", 554)), "DESCRIBE", null, "alice");
 
         Assert.AreSame(error, rule);
         Assert.AreEqual("alice", plan.Points.Single().Account);
@@ -33,20 +33,71 @@ public sealed class HttpCommandFaultsTests
     }
 
     [TestMethod]
-    public async Task FindChosenErrorAsync_ARuleOfAnotherKind_IsNotAppliedAndIsNoted()
+    public async Task FindAndApplyAsync_ARuleOfAnotherKind_IsNotAppliedAndIsNoted()
     {
         var log = new RecordingExchangeLog();
-        var plan = new ScriptedFaultPlan(new FaultRule("f3", FaultKind.Drop) { Stage = FaultStage.Command });
+        var plan = new ScriptedFaultPlan(new FaultRule("f3", FaultKind.OutOfSpace) { Stage = FaultStage.Command });
 
-        var rule = await HttpCommandFaults.FindChosenErrorAsync(Context(plan, log: log), "GET", "/a", null);
+        var rule = await HttpCommandFaults.FindAndApplyAsync(Context(plan, log: log), "GET", "/a", null);
 
         Assert.IsNull(rule);
-        Assert.AreEqual("GET /a: fault rule f3 asks for Drop at the command stage, which this server does not apply; answered as without it.", log.Notes.Single());
+        Assert.AreEqual("GET /a: fault rule f3 asks for OutOfSpace at the command stage, which this server does not apply; answered as without it.", log.Notes.Single());
+    }
+
+    [TestMethod]
+    public async Task FindAndApplyAsync_ADropRuleMatches_IsPublishedAndHandedBackForTheServerToEnd()
+    {
+        var drop = new FaultRule("f4", FaultKind.Drop) { Stage = FaultStage.Command };
+        var events = new RecordingSurlEventPublisher();
+
+        var rule = await HttpCommandFaults.FindAndApplyAsync(Context(new ScriptedFaultPlan(drop), events: events), "GET", "/a", null);
+
+        Assert.AreSame(drop, rule);
+        Assert.AreEqual(new FaultAppliedEvent("f4", FaultKind.Drop, FaultStage.Command, 7, "/a"), events.Events.Single());
+    }
+
+    [TestMethod]
+    public async Task FindAndApplyAsync_ADelayRuleMatches_HoldsTheRequestAndReturnsNull()
+    {
+        var delay = new FaultRule("f5", FaultKind.Delay) { Stage = FaultStage.Command };
+        var events = new RecordingSurlEventPublisher();
+
+        var rule = await HttpCommandFaults.FindAndApplyAsync(Context(new ScriptedFaultPlan(delay), events: events), "GET", null, null);
+
+        Assert.IsNull(rule);
+        Assert.AreEqual(new FaultAppliedEvent("f5", FaultKind.Delay, FaultStage.Command, 7, "GET"), events.Events.Single());
+    }
+
+    [TestMethod]
+    public async Task FindChosenErrorAsync_ErrorRuleOrNone_IsReturned()
+    {
+        var error = new FaultRule("f6", FaultKind.Error) { Reply = "503" };
+
+        Assert.AreSame(error, await HttpCommandFaults.FindChosenErrorAsync(Context(new ScriptedFaultPlan(error)), "GET", "/a", null));
+        Assert.IsNull(await HttpCommandFaults.FindChosenErrorAsync(Context(new ScriptedFaultPlan()), "GET", "/a", null));
+    }
+
+    [TestMethod]
+    public async Task FindChosenErrorAsync_DelayOrDropRule_IsNotAppliedAndIsNoted()
+    {
+        var log = new RecordingExchangeLog();
+        var events = new RecordingSurlEventPublisher();
+        var plan = new ScriptedFaultPlan(new FaultRule("f7", FaultKind.Drop) { Stage = FaultStage.Command });
+
+        var rule = await HttpCommandFaults.FindChosenErrorAsync(Context(plan, log: log, events: events), "GET", "/a", null);
+
+        Assert.IsNull(rule);
+        Assert.IsEmpty(events.Events);
+        Assert.AreEqual("GET /a: fault rule f7 asks for Drop at the command stage, which this server does not apply; answered as without it.", log.Notes.Single());
     }
 
     [TestMethod]
     public async Task FindChosenErrorAsync_NoContext_Throws() =>
         await Assert.ThrowsExactlyAsync<ArgumentNullException>(async () => await HttpCommandFaults.FindChosenErrorAsync(null!, "GET", "/a", null));
+
+    [TestMethod]
+    public async Task FindAndApplyAsync_NoContext_Throws() =>
+        await Assert.ThrowsExactlyAsync<ArgumentNullException>(async () => await HttpCommandFaults.FindAndApplyAsync(null!, "GET", "/a", null));
 
     [TestMethod]
     [DataRow("503", 503, null)]

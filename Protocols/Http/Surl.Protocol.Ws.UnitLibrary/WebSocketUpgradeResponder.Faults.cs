@@ -15,10 +15,9 @@ internal sealed partial class WebSocketUpgradeResponder
     // The chosen close a fault rule names for an upgrade let in, or null when none applies or its
     // reply is not a close code RFC 6455 section 7.4 allows on the wire with a reason that fits a
     // CLOSE frame.
-    private async Task<ChosenClose?> FindChosenCloseAsync(HttpRequestHead head, string path, string? accountName)
+    private ChosenClose? ChosenCloseOf(FaultRule? rule, string path)
     {
-        var rule = await HttpCommandFaults.FindChosenErrorAsync(context, head.Method, path, accountName);
-        if (rule is null)
+        if (rule is not { Kind: FaultKind.Error })
         {
             return null;
         }

@@ -8,7 +8,7 @@ depends-on: [BL-793, BL-901, BL-1035]
 touches: [Foundation/Surl.Protocol.Abstractions.UnitLibrary, Foundation/Surl.Protocol.Abstractions.UnitTests, Foundation/Surl.Core.UnitLibrary, Foundation/Surl.Core.UnitTests, Protocols/Http/Surl.HttpServing.UnitLibrary, Protocols/Http/Surl.HttpServing.UnitTests, Protocols/Http/Surl.HttpMessage.UnitLibrary, Protocols/Http/Surl.HttpMessage.UnitTests, Protocols/Http/Surl.Protocol.Http.UnitLibrary, Protocols/Http/Surl.Protocol.Http.UnitTests, Protocols/Http/Surl.Protocol.Rtsp.UnitLibrary, Protocols/Http/Surl.Protocol.Rtsp.UnitTests, Protocols/Http/Surl.Protocol.Ws.UnitLibrary, Protocols/Http/Surl.Protocol.Ws.UnitTests]
 requirement: none
 created: 2026-11-05
-completed:
+completed: 2026-11-12
 ---
 # BL-902 — Apply delay and drop fault rules at the command stage in the HTTP, RTSP and WebSocket servers
 
@@ -38,12 +38,12 @@ or the connection is aborted - instead of being noted as not applied.
 
 ## Acceptance criteria
 
-- [ ] A named test per server shows a `delay;stage=command;ms=500` rule holds the matching request 500 ms on a
+- [x] A named test per server shows a `delay;stage=command;ms=500` rule holds the matching request 500 ms on a
       manual `TimeProvider` and then answers it as without the rule, publishing one `FaultAppliedEvent`.
-- [ ] A named test per server shows a `drop;stage=command` rule aborts the connection (`InMemoryConnection.Aborted`)
+- [x] A named test per server shows a `drop;stage=command` rule aborts the connection (`InMemoryConnection.Aborted`)
       before any byte of the answer, publishing one `FaultAppliedEvent`.
-- [ ] A named test in `Surl.Core.UnitTests` shows the idle timeout does not fire during a command-stage delay.
-- [ ] The ADR decision is recorded (an amendment to ADR-0134 or a new ADR), and `dotnet build -warnaserror`
+- [x] A named test in `Surl.Core.UnitTests` shows the idle timeout does not fire during a command-stage delay.
+- [x] The ADR decision is recorded (an amendment to ADR-0134 or a new ADR), and `dotnet build -warnaserror`
       is clean, the fast tests are green and every touched library keeps 100% line and branch coverage.
 
 ## Notes
@@ -58,3 +58,4 @@ Filed by BL-793 (2026-11-05), which applied the `error` kind only.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waits on BL-1035 - pinned .NET SDK 10.0.401 is not installed, so nothing builds
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-12: Doing -> Done. HTTP, RTSP and WebSocket servers apply delay and drop fault rules at the command stage (ADR-0141 amendment 1)

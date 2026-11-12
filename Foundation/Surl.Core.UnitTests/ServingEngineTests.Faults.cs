@@ -366,6 +366,40 @@ public sealed partial class ServingEngineTests
         Assert.IsTrue(cancelledAfterTheRestart);
     }
 
+    // The HTTP, RTSP and WebSocket servers hold a request through CommandStageFaults (BL-902,
+    // ADR-0141 amendment 1): a command-stage delay longer than the idle timeout leaves the exchange
+    // running, and the held command is then served.
+    [TestMethod]
+    public async Task ServeAsync_CommandStageDelayLongerThanTheIdleTimeout_IdleTimeoutDoesNotFireDuringIt()
+    {
+        var factory = new FakeListenerFactory();
+        var time = new ManualTimeProvider();
+        var plan = new ScriptedFaultPlan(new FaultRule("c1", FaultKind.Delay) { Stage = FaultStage.Command, DelayMilliseconds = 5000 });
+        var held = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var server = new FakeConnectionProtocolServer(
+            async (_, context) =>
+            {
+                await CommandStageFaults.FindAndApplyAsync(context, new FaultPoint(FaultStage.Command) { Command = "GET" }, "/a");
+                held.SetResult(context.CancellationToken.IsCancellationRequested);
+            },
+            "http");
+        var limits = ConnectionLimits.None with { IdleTimeout = TimeSpan.FromSeconds(1) };
+        var engine = new ServingEngine(
+            factory, [server], new FakeExchangeLogFactory(), time, GracePeriod, limits,
+            RefusingDataConnectionOpener.Instance, ExchangeLimits.Default, DiscardingSurlEventPublisher.Instance, plan);
+        using var stop = new CancellationTokenSource();
+        var serving = engine.ServeAsync([Http], stop.Token);
+
+        factory.ListenerFor(Http).Connect(new InMemoryConnection([]));
+        await time.TimersCreated(2).WaitAsync(Patience.Timeout);
+        time.Advance(TimeSpan.FromSeconds(5));
+        var cancelledAfterTheHold = await held.Task.WaitAsync(Patience.Timeout);
+        await stop.CancelAsync();
+        await serving.WaitAsync(Patience.Timeout);
+
+        Assert.IsFalse(cancelledAfterTheHold);
+    }
+
     private static ServingEngine CreateFaultingEngine(
         FakeListenerFactory factory,
         TimeProvider time,

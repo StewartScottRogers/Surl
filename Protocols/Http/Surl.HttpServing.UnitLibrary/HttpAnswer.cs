@@ -27,6 +27,11 @@ namespace Surl.HttpServing;
 /// leaves an unread request body unread and the close to the transport, as the S3 server's
 /// <c>EntityTooLarge</c> and <c>IncompleteBody</c> close (ADR-0108, decision 7).
 /// </param>
+/// <param name="DropsExchange">
+/// Whether a fault rule drops the exchange instead of answering (ADR-0141, amendment 1): nothing of
+/// the answer is written. HTTP/1.x aborts the connection; HTTP/2 and HTTP/3 reset the request's
+/// stream, since other streams share the connection. The rest of the answer is not used.
+/// </param>
 public sealed record HttpAnswer(
     HttpStatus Status,
     IReadOnlyList<KeyValuePair<string, string>> Fields,
@@ -34,4 +39,5 @@ public sealed record HttpAnswer(
     bool IsRefusal,
     bool LeavesRequestBodyUnread,
     IHttpConnectionTakeover? Takeover = null,
-    bool DrainsBeforeClose = true);
+    bool DrainsBeforeClose = true,
+    bool DropsExchange = false);

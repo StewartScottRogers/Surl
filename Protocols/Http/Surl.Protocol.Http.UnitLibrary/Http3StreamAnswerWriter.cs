@@ -59,6 +59,12 @@ internal sealed class Http3StreamAnswerWriter(IHttpRequestHandler answerer, Exch
             return;
         }
 
+        if (answer.DropsExchange)
+        {
+            await stream.ResetAsync(Http3ErrorCode.InternalError, "a fault rule dropped the exchange", cancellationToken);
+            return;
+        }
+
         await WriteAnswerAsync(stream, answer, cancellationToken);
     }
 

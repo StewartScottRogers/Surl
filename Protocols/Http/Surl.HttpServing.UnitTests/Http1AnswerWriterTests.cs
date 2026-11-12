@@ -32,6 +32,18 @@ public sealed class Http1AnswerWriterTests
     }
 
     [TestMethod]
+    public async Task WriteAsync_AnswerThatDropsTheExchange_AbortsTheConnectionWritingNothing()
+    {
+        var connection = new InMemoryConnection([]);
+        var answer = new HttpAnswer(HttpStatus.Ok, [], HttpAnswerBody.None, IsRefusal: true, LeavesRequestBodyUnread: false, DropsExchange: true);
+
+        var keepsConnectionOpen = await Writer(connection).WriteAsync(answer, new HttpRequestHead("GET", "/", new Version(1, 1), [new HttpRequestField("Host", "a")]));
+
+        Assert.IsFalse(keepsConnectionOpen);
+        Assert.IsTrue(connection.Aborted);
+        Assert.AreEqual(0, connection.WrittenBytes.Length);
+    }
+    [TestMethod]
     public async Task WriteRefusalAsync_AnswerThatDrainsNothingBeforeClose_WritesTheBodyAndLeavesTheRequestBodyUnread()
     {
         var connection = new InMemoryConnection([Ascii("unread body")]);

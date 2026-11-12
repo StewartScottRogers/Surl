@@ -36,10 +36,17 @@ internal sealed class Http3TestClient(Func<byte[], byte[]>? editClientHello = nu
     /// <summary>The idle timeout <see cref="Http3ProtocolServer"/> is given.</summary>
     public TimeSpan IdleTimeout { get; set; } = TimeSpan.FromSeconds(30);
 
+    /// <summary>The fault plan the exchange asks, when a test sets one before starting the server.</summary>
+    public IFaultPlan? Faults { get; set; }
+
     /// <summary>Starts the server with <paramref name="limits"/> and a content store holding <c>file.txt</c>.</summary>
     public Task Serve(CancellationToken cancellationToken, ExchangeLimits? limits = null, IContentFileSystem? fileSystem = null, bool allowUploads = false)
     {
         var context = HttpServerHarness.Context(Log, Time, Exchange.Token, limits);
+        if (Faults is { } faults)
+        {
+            context = context with { Faults = faults };
+        }
         var exposure = ContentExposureOptions.ServeEverythingInsideTheRoot with { AllowUploads = allowUploads };
         var store = new ContentStore(HttpServerHarness.Root, fileSystem ?? HttpServerHarness.StandardFileSystem(), exposure);
         if (ProtocolServerPolicy is { } policy)

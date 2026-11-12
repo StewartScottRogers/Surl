@@ -47,6 +47,13 @@ internal sealed class Http1AnswerWriter
     /// <returns><see langword="true"/> when the connection stays open for another request.</returns>
     public async Task<bool> WriteAsync(HttpAnswer answer, HttpRequestHead head)
     {
+        if (answer.DropsExchange)
+        {
+            connection.Abort();
+
+            return false;
+        }
+
         if (answer.IsRefusal)
         {
             return await WriteRefusalAsync(answer);

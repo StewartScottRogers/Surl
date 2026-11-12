@@ -90,17 +90,64 @@ public sealed partial class HttpRequestAnswererTests
     }
 
     [TestMethod]
-    public async Task AnswerAsync_DelayRuleAtTheCommandStage_IsNotAppliedAndIsNoted()
+    public async Task AnswerAsync_OtherKindAtTheCommandStage_IsNotAppliedAndIsNoted()
     {
         var log = new RecordingExchangeLog();
-        var answerer = FaultAnswerer(new ScriptedFaultPlan(new FaultRule("f1", FaultKind.Delay) { Stage = FaultStage.Command, DelayMilliseconds = 10 }), log: log);
+        var answerer = FaultAnswerer(new ScriptedFaultPlan(new FaultRule("f1", FaultKind.OutOfSpace) { Stage = FaultStage.Command }), log: log);
 
         var answer = await answerer.AnswerAsync(Request("GET", "/file.txt"), TestContext.CancellationToken);
 
         Assert.AreEqual(HttpStatus.Ok, answer.Status);
-        Assert.Contains("GET /file.txt: fault rule f1 asks for Delay at the command stage, which this server does not apply; answered as without it.", log.Notes);
+        Assert.Contains("GET /file.txt: fault rule f1 asks for OutOfSpace at the command stage, which this server does not apply; answered as without it.", log.Notes);
     }
 
+    [TestMethod]
+    public async Task AnswerAsync_DropRuleAtTheCommandStage_AnswersWithAnAnswerThatDropsTheExchange()
+    {
+        var events = new RecordingSurlEventPublisher();
+        var answerer = FaultAnswerer(new ScriptedFaultPlan(new FaultRule("f1", FaultKind.Drop) { Stage = FaultStage.Command }), events);
+
+        var answer = await answerer.AnswerAsync(Request("GET", "/file.txt"), TestContext.CancellationToken);
+
+        Assert.IsTrue(answer.DropsExchange);
+        Assert.AreEqual(new FaultAppliedEvent("f1", FaultKind.Drop, FaultStage.Command, 1, "/file.txt"), events.Events.OfType<FaultAppliedEvent>().Single());
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_DelayRuleAtTheCommandStage_HoldsTheRequestForItsMillisecondsThenAnswersAsWithoutIt()
+    {
+        var rule = new FaultRule("f1", FaultKind.Delay) { Stage = FaultStage.Command, DelayMilliseconds = 500 };
+        var time = new ManualTimeProvider(Now);
+        var idleClock = new RecordingIdleClock();
+        var request = Ascii("GET /file.txt HTTP/1.1\r\nHost: 127.0.0.1:18050\r\nConnection: close\r\n\r\n");
+
+        var serving = ServeWithFaultsAsync(request, new ScriptedFaultPlan(rule), time: time, idleClock: idleClock);
+        await idleClock.FirstPause;
+        var completedWhileHeld = serving.IsCompleted;
+        time.Advance(TimeSpan.FromMilliseconds(499));
+        var completedEarly = serving.IsCompleted;
+        time.Advance(TimeSpan.FromMilliseconds(1));
+        var (connection, _, events, _) = await serving;
+
+        Assert.IsFalse(completedWhileHeld);
+        Assert.IsFalse(completedEarly);
+        Assert.StartsWith("HTTP/1.1 200 OK\r\n", Latin1(connection.WrittenBytes));
+        Assert.IsFalse(idleClock.IsPaused);
+        Assert.AreEqual(new FaultAppliedEvent("f1", FaultKind.Delay, FaultStage.Command, 1, "/file.txt"), events.Events.OfType<FaultAppliedEvent>().Single());
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_DropRuleAtTheCommandStage_AbortsTheConnectionBeforeAnyByteOfTheAnswer()
+    {
+        var rule = new FaultRule("f1", FaultKind.Drop) { Stage = FaultStage.Command };
+        var request = Ascii("GET /file.txt HTTP/1.1\r\nHost: 127.0.0.1:18050\r\n\r\n");
+
+        var (connection, _, events, _) = await ServeWithFaultsAsync(request, new ScriptedFaultPlan(rule));
+
+        Assert.IsTrue(connection.Aborted);
+        Assert.AreEqual(0, connection.WrittenBytes.Length);
+        Assert.AreEqual(new FaultAppliedEvent("f1", FaultKind.Drop, FaultStage.Command, 1, "/file.txt"), events.Events.OfType<FaultAppliedEvent>().Single());
+    }
     [TestMethod]
     public async Task ServeAsync_ChosenErrorScopedToAlice_FiresOnlyOnceAliceLoggedIn()
     {
@@ -152,14 +199,14 @@ public sealed partial class HttpRequestAnswererTests
     }
 
     private async Task<(InMemoryConnection Connection, RecordingExchangeLog Log, RecordingSurlEventPublisher Events, ScriptedFaultPlan Plan)> ServeWithFaultsAsync(
-        byte[] request, ScriptedFaultPlan plan, IAuthenticationPolicy? policy = null)
+        byte[] request, ScriptedFaultPlan plan, IAuthenticationPolicy? policy = null, ManualTimeProvider? time = null, RecordingIdleClock? idleClock = null)
     {
         var fileSystem = StandardFileSystem().AddFile(Path.Join(Root, "b"), Ascii(FileBody), FileTime);
         var store = new ContentStore(Root, fileSystem, ContentExposureOptions.ServeEverythingInsideTheRoot);
         var connection = new InMemoryConnection(RecordedFixture.Whole(request));
         var log = new RecordingExchangeLog();
         var events = new RecordingSurlEventPublisher();
-        var context = Context(log, new ManualTimeProvider(Now), TestContext.CancellationToken) with { Faults = plan, Events = events };
+        var context = Context(log, time ?? new ManualTimeProvider(Now), TestContext.CancellationToken) with { Faults = plan, Events = events, IdleClock = idleClock ?? (IIdleClock)NoIdleClock.Instance };
 
         await new HttpProtocolServer(store, policy ?? new AnonymousAuthenticationPolicy()).ServeAsync(connection, context);
 
