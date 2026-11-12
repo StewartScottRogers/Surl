@@ -60,3 +60,4 @@ A `Surl.Api` response override (BL-811) that answers asynchronously can make an 
 - 2026-11-05: Created by BL-788.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. waiting on BL-1035: pinned .NET SDK 10.0.401 is not installed, so nothing builds; code is written and stashed by the shift
+- 2026-11-12: Backlog -> Doing.
