@@ -8,7 +8,7 @@ depends-on: [BL-723]
 touches: [Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests]
 requirement: none
 created: 2026-11-05
-completed:
+completed: 2026-11-11
 ---
 # BL-889 — Say in surl --aihelp how http answers Range and PUT under --allow-uploads
 
@@ -31,13 +31,16 @@ ADR-0133 decides.
 
 ## Acceptance criteria
 
-- [ ] The `http` topic's prose in `AiHelpProse` states the Range and PUT answers ADR-0133 gives, and
+- [x] The `http` topic's prose in `AiHelpProse` states the Range and PUT answers ADR-0133 gives, and
       the `405` sentence says it applies to PUT only without `--allow-uploads`.
-- [ ] `dotnet build -warnaserror` is clean and the fast tests are green.
+- [x] `dotnet build -warnaserror` is clean and the fast tests are green.
 
 ## Notes
+
+- 2026-11-11: Small prose change, made directly rather than through align-and-document. Added two paragraphs to the `http` topic (Range: 206, 416, ignored cases and `If-Range`; PUT: 201, 204, 403, 409, 413, login and `--allow-uploads`), qualified the `405` sentence (`Allow: GET, HEAD, PUT` under `--allow-uploads`), and added "HTTP PUT" to the content topic's `--allow-uploads` list so it stays true. `dotnet build -warnaserror` clean; fast tests green (Surl.Cli.UnitTests 1391 passed).
 
 ## Log
 
 - 2026-11-05: Created.
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Done. surl --aihelp http now states the Range (206/416) and --allow-uploads PUT (201/204/403/409/413) answers of ADR-0133
