@@ -41,6 +41,14 @@ BL-654 set out to do.
 
 ## Notes
 
+- 2026-11-11 (from BL-993): the readers are `ConfiguredMailAliasReader.Reading`, `ConfiguredMailCatchAllReader.Reading`
+  and `ConfiguredSharedFolderReader.Reading`; the whole-line checks are `ConfiguredMailConflicts.Find` (it needs each
+  item's option name as written, so keep them as `MailboxOptionNames` is kept). For `quota=` and `folders=`, move the
+  `--mailbox` row (and `CommandLineParser.ReadMailbox`) from `ConfiguredMailboxReader.Reading`/`Shape` to
+  `ReadingWithSettings`/`ShapeWithSettings`, then drop the old pair; and add `quota` and `folders` columns to
+  `MailboxFileReader` (ADR-0101 decision 4: an empty field means the key was not given), passing them to `Build`.
+  The refusal texts are ADR-0101 Amendment 1.
+
 ## Log
 
 - 2026-11-06: Created.

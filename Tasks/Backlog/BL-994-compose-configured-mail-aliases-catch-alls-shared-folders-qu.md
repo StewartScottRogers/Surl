@@ -42,6 +42,11 @@ store, with `@group` members expanded and the catch-all warned at start.
 
 ## Notes
 
+- 2026-11-11 (from BL-993): `SurlCommandLine.MailAliases`, `MailCatchAlls` and `SharedFolders` hold what was written
+  (addresses and domains not normalised; `MailDomainConfiguration` normalises them), and `ConfiguredMailbox.QuotaBytes`
+  (null for none, else at least 1) and `Folders` (empty for none) hold the settings. `@everyone` as a `--shared-folder`
+  member is not refused by the reader: refuse it here with ADR-0102 decision 1.6's text, as `--group`'s is.
+
 ## Log
 
 - 2026-11-06: Created.

@@ -5,10 +5,10 @@ priority: Normal
 assignee: Claude
 pipeline: feature
 depends-on: [BL-883, BL-646, BL-1035]
-touches: [Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests, Application/Surl.Mcp.UnitLibrary, Application/Surl.Mcp.UnitTests]
+touches: [Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests, Application/Surl.Mcp.UnitLibrary, Application/Surl.Mcp.UnitTests, Documentation/Planning/Decisions/ADR-0101-surls-configuration-surface-the-config-file-repeatable-item-options-and-one-configuration-model.md]
 requirement: none
 created: 2026-11-06
-completed:
+completed: 2026-11-11
 ---
 # BL-993 — Read --mail-alias, --mail-catch-all and --shared-folder items and the --mailbox quota and folders keys into the Surl.Cli configuration model
 
@@ -37,15 +37,33 @@ unit tested. No option row uses the new readers yet; BL-995 adds the rows.
 
 ## Acceptance criteria
 
-- [ ] Named tests in `Application/Surl.Cli.UnitTests` read each item and key and refuse each malformed or
+- [x] Named tests in `Application/Surl.Cli.UnitTests` read each item and key and refuse each malformed or
       conflicting item with the ADR's text, none echoing a password.
-- [ ] `Table_EverySurlCommandLineMember_IsClassifiedExactlyOnce` passes.
-- [ ] `dotnet build Application/Surl.Cli.UnitLibrary -warnaserror` is clean, the fast tests are green, and
+- [x] `Table_EverySurlCommandLineMember_IsClassifiedExactlyOnce` passes.
+- [x] `dotnet build Application/Surl.Cli.UnitLibrary -warnaserror` is clean, the fast tests are green, and
       `Surl.Cli.UnitLibrary` keeps 100% line and branch coverage.
 
 ## Notes
 
 - 2026-11-11 (lane 2): `dotnet build` fails with "A compatible .NET SDK was not found" - `global.json` pins 10.0.401 and only 10.0.100-rc.1, 11.0.100-rc.2 and 11.0.100 are installed. No gate can run, so the task waits on BL-1035 (Stewart reinstalls the SDK), as BL-766 and BL-990 do.
+- 2026-11-11 (lane 1): SDK 10.0.404 is installed now and rolls forward from the pin; every gate ran.
+- Delivered: `ConfiguredMailAlias`, `ConfiguredMailCatchAll`, `ConfiguredSharedFolder` and their readers over
+  `ConfigurationItemReader`; `ConfiguredMailbox` gains `QuotaBytes` and `Folders` (a three-argument constructor
+  keeps every existing caller, `Surl.Composition`'s included, unchanged); `ConfiguredMailboxReader.ReadWithSettings`
+  reads `quota=` and `folders=`; `ConfiguredMailConflicts.Find` holds the whole-line duplicates and conflicts;
+  `SurlCommandLine.MailAliases`, `MailCatchAlls`, `SharedFolders`, classified in `CommandLinePathMembers`.
+- Choice: the `--mailbox` row and `MailboxFileReader` stay on the old shape, so `quota=` and `folders=` are still
+  refused on the command line until BL-995 moves them (its Goal says that task makes them accepted) - otherwise
+  surl would accept settings nothing composes before BL-994 and its help would not describe them.
+- Choice: alias, catch-all and shared-folder records keep what was written, as ADR-0101 decision 4 says
+  ("the records hold what was written, decoded"), so refusals quote it; comparisons normalise.
+- Choice: where `MailDomainConfiguration` throws, the reader refuses first: a malformed address or domain, a
+  folder or shared-folder name past 1024 UTF-8 bytes or not UTF-8, `INBOX` as a shared folder, a quota below 1,
+  a repeated alias/catch-all/shared folder, an alias also a mailbox, an address or catch-all outside every
+  domain. Targets resolving and `@everyone` are left to the store and composition, where ADR-0102 puts them.
+  New texts recorded in ADR-0101 Amendment 1 (Decided by Claude under Stewart's delegation).
+- Followers: notes added to BL-994 and BL-995 naming what each now does.
+- touches gains ADR-0101 for Amendment 1 (the new refusal texts); no task in Doing names it.
 
 ## Log
 
@@ -53,3 +71,4 @@ unit tested. No option row uses the new readers yet; BL-995 adds the rows.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waits on BL-1035 - pinned .NET SDK 10.0.401 is not installed, so dotnet build fails
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Done. Surl.Cli reads --mail-alias, --mail-catch-all, --shared-folder items and --mailbox quota=/folders= into the configuration model, refused as ADR-0101 says
