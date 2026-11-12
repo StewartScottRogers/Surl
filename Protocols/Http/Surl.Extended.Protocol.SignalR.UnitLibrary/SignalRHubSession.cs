@@ -51,24 +51,15 @@ internal sealed class SignalRHubSession : IDisposable
     /// </summary>
     public static readonly TimeSpan CountItemInterval = TimeSpan.FromMilliseconds(100);
 
-    // The longest header a client frame can have; --max-message bounds the payload alone.
-    private const int MaxClientFrameHeaderBytes = 14;
-
     private static readonly TimeSpan MaxTimerDelay = TimeSpan.FromMilliseconds(uint.MaxValue - 1.0);
 
-    // The answer to a frame after which the connection goes on.
-    private static readonly Task<SignalRSessionEnd?> Continues = Task.FromResult<SignalRSessionEnd?>(null);
-
-    private readonly IConnection connection;
+    private readonly ISignalRHubTransport transport;
     private readonly ExchangeContext context;
     private readonly SignalRInvocationFaults invocationFaults;
     private readonly SignalRReconnectState? reconnect;
-    private readonly WebSocketFrameReader frameReader;
-    private readonly WebSocketMessageReassembler reassembler;
     private readonly HubRecordReader recordReader;
     private readonly HubMessagePackRecordReader messagePackRecordReader;
-    private readonly WebSocketLingeringClose lingeringClose;
-    private readonly SemaphoreSlim writeGate = new(1, 1);
+    private readonly SemaphoreSlim writeGate;
     private readonly CancellationTokenSource ending = new();
     private readonly TaskCompletionSource<SignalRSessionEnd> ended = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private readonly TaskCompletionSource handshakeAccepted = new(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -82,25 +73,22 @@ internal sealed class SignalRHubSession : IDisposable
     private bool isMessagePack;
 
     /// <summary>
-    /// Creates the session that follows one <c>101</c>.
+    /// Creates the session that runs a hub over one transport. Disposing it disposes the transport.
     /// </summary>
-    /// <param name="connection">Where frames are written.</param>
-    /// <param name="reader">The reader that read the upgrade request, so bytes it already buffered come first.</param>
+    /// <param name="transport">What carries the connection's bytes.</param>
     /// <param name="context">The exchange: its clock, limits, log and cancellation.</param>
     /// <param name="invocationFaults">Asks the exchange's fault plan for a chosen Completion error per invocation (ADR-0144).</param>
     /// <param name="reconnect">The connection's numbering when it negotiated stateful reconnect (ADR-0119, decision 6), else <see langword="null"/>.</param>
-    public SignalRHubSession(IConnection connection, HttpConnectionReader reader, ExchangeContext context, SignalRInvocationFaults invocationFaults, SignalRReconnectState? reconnect = null)
+    public SignalRHubSession(ISignalRHubTransport transport, ExchangeContext context, SignalRInvocationFaults invocationFaults, SignalRReconnectState? reconnect = null)
     {
         this.reconnect = reconnect;
-        this.connection = connection;
+        this.transport = transport;
+        writeGate = transport.WriteGate;
         this.context = context;
         this.invocationFaults = invocationFaults;
         var maxMessageBytes = context.Limits.MaxMessageBytes;
-        frameReader = new WebSocketFrameReader(reader.ReadAsync, maxMessageBytes == 0 ? 0 : maxMessageBytes + MaxClientFrameHeaderBytes);
-        reassembler = new WebSocketMessageReassembler(maxMessageBytes);
         recordReader = new HubRecordReader(maxMessageBytes);
         messagePackRecordReader = new HubMessagePackRecordReader(maxMessageBytes);
-        lingeringClose = new WebSocketLingeringClose(reader, context);
     }
 
     /// <summary>
@@ -135,21 +123,8 @@ internal sealed class SignalRHubSession : IDisposable
         }
 
         ending.Dispose();
-        writeGate.Dispose();
+        transport.Dispose();
     }
-
-    private static SignalRSessionEnd FrameNotRead(WebSocketFrameReadOutcome outcome) => outcome switch
-    {
-        WebSocketFrameReadOutcome.ConnectionClosed => SignalRSessionEnd.Silent("the client closed the connection without a WebSocket Close"),
-        WebSocketFrameReadOutcome.FrameTooLarge => SignalRSessionEnd.WebSocketClose(SignalRSessionEnd.MessageTooBig, "a client frame is past --max-message"),
-        WebSocketFrameReadOutcome.CloseReasonNotUtf8 => SignalRSessionEnd.WebSocketClose(SignalRSessionEnd.InvalidPayload, "a client Close's reason is not valid UTF-8"),
-        _ => SignalRSessionEnd.WebSocketClose(SignalRSessionEnd.ProtocolError, $"a client frame is malformed ({outcome})"),
-    };
-
-    // Every client frame is masked and sets no reserved bit, since no extension was agreed (RFC 6455 section 5).
-    private static bool IsUnmaskedOrReserved(WebSocketFrame frame) => !frame.Masked || frame.Rsv1 || frame.Rsv2 || frame.Rsv3;
-
-    private WebSocketOpcode MessageOpcode => isMessagePack ? WebSocketOpcode.Binary : WebSocketOpcode.Text;
 
     private void Decide(SignalRSessionEnd end) => ended.TrySetResult(end);
 
@@ -201,8 +176,8 @@ internal sealed class SignalRHubSession : IDisposable
     {
         while (true)
         {
-            var result = await frameReader.ReadFrameAsync(token);
-            var end = result.Frame is { } frame ? await AcceptFrameAsync(frame, token) : FrameNotRead(result.Outcome);
+            var read = await transport.ReadAsync(token);
+            var end = read.Payload is { } payload ? await AcceptPayloadAsync(payload, token) : read.End;
             if (end is not null)
             {
                 Decide(end);
@@ -210,55 +185,6 @@ internal sealed class SignalRHubSession : IDisposable
                 return;
             }
         }
-    }
-
-    private Task<SignalRSessionEnd?> AcceptFrameAsync(WebSocketFrame frame, CancellationToken token)
-    {
-        if (IsUnmaskedOrReserved(frame))
-        {
-            return Ends(SignalRSessionEnd.WebSocketClose(SignalRSessionEnd.ProtocolError, "a client frame is unmasked or sets a reserved bit"));
-        }
-
-        var step = reassembler.Accept(frame);
-        if (step.Outcome == WebSocketReassemblyOutcome.FragmentHeld)
-        {
-            return Continues;
-        }
-
-        if (step.Outcome == WebSocketReassemblyOutcome.MessageComplete)
-        {
-            return AcceptPayloadAsync(step.Message!.Payload, token);
-        }
-
-        return step.Outcome == WebSocketReassemblyOutcome.ControlFrame
-            ? AcceptControlFrameAsync(step.ControlFrame!, token)
-            : Ends(ReassemblyFailure(step.Outcome));
-    }
-
-    private static SignalRSessionEnd ReassemblyFailure(WebSocketReassemblyOutcome outcome) => outcome switch
-    {
-        WebSocketReassemblyOutcome.MessageTooLarge => SignalRSessionEnd.WebSocketClose(SignalRSessionEnd.MessageTooBig, "a client message is past --max-message"),
-        WebSocketReassemblyOutcome.TextNotUtf8 => SignalRSessionEnd.WebSocketClose(SignalRSessionEnd.InvalidPayload, "a client text message is not valid UTF-8"),
-        _ => SignalRSessionEnd.WebSocketClose(SignalRSessionEnd.ProtocolError, $"a client frame is out of its message's order ({outcome})"),
-    };
-
-    private static Task<SignalRSessionEnd?> Ends(SignalRSessionEnd end) => Task.FromResult<SignalRSessionEnd?>(end);
-
-    // A WebSocket Ping is answered with a Pong and a Pong ignored; neither is a hub record, so
-    // neither restarts the client timeout (ADR-0119, decision 4).
-    private async Task<SignalRSessionEnd?> AcceptControlFrameAsync(WebSocketFrame frame, CancellationToken token)
-    {
-        if (frame.Opcode == WebSocketOpcode.Close)
-        {
-            return SignalRSessionEnd.WebSocketClose(SignalRSessionEnd.NormalClosure, "the client sent a WebSocket Close");
-        }
-
-        if (frame.Opcode == WebSocketOpcode.Ping)
-        {
-            await WriteFrameAsync(WebSocketFrameEncoder.EncodeFrame(true, WebSocketOpcode.Pong, frame.Payload), token);
-        }
-
-        return null;
     }
 
     private async Task<SignalRSessionEnd?> AcceptPayloadAsync(byte[] payload, CancellationToken token)
@@ -298,6 +224,12 @@ internal sealed class SignalRHubSession : IDisposable
     private async Task<SignalRSessionEnd?> AcceptHandshakeAsync(ReadOnlyMemory<byte> record, CancellationToken token)
     {
         var outcome = HubHandshake.Judge(record);
+        if (outcome == HubHandshakeOutcome.AcceptedMessagePack && !transport.CarriesBinary)
+        {
+            // MessagePack is a Binary transfer format; Server-Sent Events carries Text only.
+            outcome = HubHandshakeOutcome.ProtocolNotAvailable;
+        }
+
         await SendRecordAsync(HubHandshake.Response(outcome), token);
         if (outcome is not (HubHandshakeOutcome.Accepted or HubHandshakeOutcome.AcceptedMessagePack))
         {
@@ -554,7 +486,7 @@ internal sealed class SignalRHubSession : IDisposable
 
     private async Task SendRecordAsync(byte[] record, CancellationToken token)
     {
-        await WriteFrameAsync(WebSocketFrameEncoder.EncodeFrame(true, MessageOpcode, record), token);
+        await WriteLockedAsync(record, token);
         NoteSent();
     }
 
@@ -579,7 +511,7 @@ internal sealed class SignalRHubSession : IDisposable
                 return;
             }
 
-            await connection.WriteAsync(WebSocketFrameEncoder.EncodeFrame(true, MessageOpcode, record), token);
+            await transport.WriteRecordAsync(record, isMessagePack, token);
         }
         finally
         {
@@ -597,12 +529,12 @@ internal sealed class SignalRHubSession : IDisposable
         }
     }
 
-    private async Task WriteFrameAsync(byte[] frame, CancellationToken token)
+    private async Task WriteLockedAsync(byte[] record, CancellationToken token)
     {
         await writeGate.WaitAsync(token);
         try
         {
-            await connection.WriteAsync(frame, token);
+            await transport.WriteRecordAsync(record, isMessagePack, token);
         }
         finally
         {
@@ -612,19 +544,7 @@ internal sealed class SignalRHubSession : IDisposable
 
     private async Task WriteEndAsync(SignalRSessionEnd end)
     {
-        if (end.CloseCode is not { } code)
-        {
-            return;
-        }
-
-        var token = context.CancellationToken;
-        if (end.HubCloseMessage is { } close)
-        {
-            await connection.WriteAsync(WebSocketFrameEncoder.EncodeFrame(true, MessageOpcode, Encode(close)), token);
-        }
-
-        await connection.WriteAsync(WebSocketFrameEncoder.EncodeClose(code, string.Empty), token);
-        await connection.CompleteWritesAsync(token);
-        await lingeringClose.LingerAsync(token);
+        var hubClose = end.HubCloseMessage is { } close ? Encode(close) : null;
+        await transport.WriteEndAsync(end, hubClose, isMessagePack, context.CancellationToken);
     }
 }

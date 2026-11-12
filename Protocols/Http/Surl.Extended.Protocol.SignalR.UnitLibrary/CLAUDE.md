@@ -44,8 +44,21 @@ What is here so far (BL-448 and BL-449, ADR-0119 decisions 0 to 5 and most of 7)
 
 Still to come: `Broadcast`, `Collect` uploads, the shutdown farewell and the unsent-bytes cap
 (BL-772; until then `Broadcast` and `Collect` are `Unknown hub method.`, a client StreamItem or
-Completion is a protocol error, and a cancelled exchange writes nothing), the command line (BL-450),
-Server-Sent Events and Long Polling (BL-757).
+Completion is a protocol error, and a cancelled exchange writes nothing), the command line (BL-450).
+
+**Transports** (BL-757, ADR-0119 decision 2 and amendment 1): `SignalRHubSession` runs the hub over an
+`ISignalRHubTransport` (`ReadAsync` for the client's next payload, `WriteRecordAsync`, `WriteEndAsync`, a `WriteGate`
+the session holds around writes) and knows nothing of what carries it. `SignalRWebSocketTransport` is the frames, the
+Pong and the WebSocket Close; `SignalRServerSentEventsTransport` writes each record as an event on the open
+`HttpAnswerBody.Streamed` response (`Text` only: a MessagePack handshake is refused); `SignalRLongPollingTransport`
+queues records for `PollAsync` (`SignalRPollResult`: `200` with the records or, after 90 s, none; `204` for a
+superseded poll or an ended connection) and `Delete`. The client's half of both is HTTP Post: `SignalRPostedPayloads`
+hands each body to the session and completes its request when the session asks for the next payload; a second
+outstanding post is `409`. `SignalRRequestAnswerer` (its `.HttpTransports.cs` part) answers every request to
+`[endpoint-base]` without `Upgrade: websocket`: `id` mandatory (`400`), `404` unknown, `403` another account's,
+`400` on another transport's connection; `SignalRHttpTransportState`, set on the `SignalRNegotiatedConnection` when a
+transport takes it up, is how a later request finds its posts and poll. A Long Polling session outlives its first
+request, so it runs on `ExchangeContext.ShutdownToken` alone. Stateful reconnect stays WebSockets only.
 
 **Stateful reconnect** (BL-755, ADR-0119 decision 6): a negotiate with `useStatefulReconnect=true` or
 `useAck=true` is answered with `"useStatefulReconnect":true` and gives the connection a

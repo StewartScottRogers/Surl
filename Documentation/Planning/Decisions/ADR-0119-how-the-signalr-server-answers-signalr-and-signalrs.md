@@ -21,7 +21,7 @@
   checks and refusals), [ADR-0006](ADR-0006-hardening-for-internet-facing-use.md) (limits and fixed
   error text) and [ADR-0059](ADR-0059-how-a-protocol-server-tells-a-limit-from-shutdown.md)
   (shutdown grace).
-- **Amends:** nothing.
+- **Amends:** nothing. Amendment 1 (BL-757) adds the Server-Sent Events and Long Polling transports to decision 2.
 
 ## Context
 
@@ -339,3 +339,49 @@ No new option is added: ADR-0006's options cover what a test harness tunes.
 - The requirement matrix [`SignalR.md`](../../Conformance/Extended/SignalR.md) traces each
   server-side requirement to BL-448, BL-449 or a later task; each task replaces its ID with the
   named test.
+
+## Amendment 1 — the Server-Sent Events and Long Polling transports (BL-757)
+
+Decided by Claude under Stewart's delegation, 2026-11-11, in BL-757. Decision 2's list of transports grows by
+two, each with HTTP Post for the client's half (TP "HTTP Post", "Server-Sent Events", "Long Polling"); defaults
+keep today's behaviour, since a client that asks for WebSockets sees no change.
+
+1. **What is a WebSocket request.** A request to `[endpoint-base]` naming `Upgrade: websocket` takes decision
+   2's WebSocket path unchanged (`Surl.WebSocket`'s checks, then the `id`). Any other request there is read as
+   one of the transports below, so a `GET` without an upgrade is no longer `426`; a method other than `GET`,
+   `POST` and `DELETE` is `405` with `Allow: GET, POST, DELETE`.
+2. **The `id`.** Every such request names its connection by the `id` the negotiate gave (the token for version 1):
+   none is `400`, an unknown or ended one `404`, one another account negotiated `403`, one on another transport
+   `400`. Unlike a WebSocket upgrade, an HTTP request without `id` never creates a connection.
+3. **Server-Sent Events.** `GET` with `Accept: text/event-stream` takes the connection up and is answered `200`,
+   `Content-Type: text/event-stream`, `Cache-Control: no-cache`, as a streamed body (`HttpAnswerBody.Streamed`, so
+   `Surl.HttpServing` needed no change) that starts with the comment line `:` and a blank line, then carries each
+   hub record as one event whose `data` lines are the record's lines, a blank line after each. A second `GET` for a
+   taken-up connection is `409`. The stream ends with the connection: the hub Close, if any, is its last event.
+   It carries the Text transfer format only: a MessagePack handshake is answered
+   `{"error":"Requested protocol is not available."}` and the connection ends.
+4. **Long Polling.** The first `GET` without that `Accept` takes the connection up and is answered `200` with no
+   content at once; the session then runs on the engine's shutdown token alone, since it outlives the request.
+   Every later `GET` is a poll answered `200` `application/octet-stream` with the records waiting joined as they
+   are (each already ends with its `0x1E`, or is one MessagePack message), or held until one is sent. A poll that
+   waits 90 s is answered `200` with no content; one a newer poll supersedes, or one on an ended connection, `204`
+   with no body. Records sent while no poll waits queue until the next poll; a connection whose client stops
+   posting ends on decision 4's client timeout, which is what forgets an abandoned one.
+5. **HTTP Post.** `POST` hands its body to the session as one payload and is answered `200` once the session has
+   processed it, `409` while an earlier post is unprocessed, `404` when the connection ended meanwhile, `413`
+   when the announced or read body is past `--max-message` and `400` when it is not readable or not read whole.
+   Each record in the payload is still bounded by `--max-message` as a hub record.
+6. **`DELETE`.** Ends the connection (the session ends without writing anything), completes a waiting poll with
+   `204` and is answered `202`; the `id` is then `404`.
+7. **Pings, the client timeout and stateful reconnect.** The keep-alive Ping (15 s) and client timeout (30 s) of
+   decision 4 apply to every transport. Stateful reconnect (decision 6) is WebSockets only: a connection that
+   negotiated it keeps its `useStatefulReconnect` answer but its Server-Sent Events or Long Polling session numbers
+   and acknowledges nothing, and a lost HTTP transport ends the connection.
+8. **Structure.** The session (`SignalRHubSession`) runs the hub over an `ISignalRHubTransport`, with
+   `SignalRWebSocketTransport`, `SignalRServerSentEventsTransport` and `SignalRLongPollingTransport` beside it;
+   HTTP Post's bodies reach it through `SignalRPostedPayloads`, whose being asked again for the next payload is the
+   acknowledgement that the last was processed.
+
+Why: the specification lists the three transports and a test of a client configured for Server-Sent Events or
+Long Polling needs them; `Accept` and `Upgrade` are the specification's own discriminators. Measured against no
+upstream curl, since upstream curl has no SignalR client; the bytes come from TransportProtocols.md.

@@ -26,7 +26,10 @@ internal sealed class SignalRWebSocketTakeover(
         try
         {
             using var session = new SignalRHubSession(
-                connection, reader, context, new SignalRInvocationFaults(context, hubPath, hubConnection.AccountName), hubConnection.Reconnect);
+                new SignalRWebSocketTransport(connection, reader, context),
+                context,
+                new SignalRInvocationFaults(context, hubPath, hubConnection.AccountName),
+                hubConnection.Reconnect);
             var end = await session.RunAsync();
 
             // A stateful-reconnect connection whose WebSocket was lost, with no Close from either side,

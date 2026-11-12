@@ -95,6 +95,36 @@ public sealed class SignalRHubConnections(TimeProvider timeProvider)
     }
 
     /// <summary>
+    /// Finds a connection a transport has already taken up, for the request that follows on it: an HTTP
+    /// Post, a Long Polling poll or a <c>DELETE</c>.
+    /// </summary>
+    /// <param name="upgradeId">The query's <c>id</c>.</param>
+    /// <param name="accountName">The account the request was judged as, or <see langword="null"/> for the anonymous caller.</param>
+    /// <param name="connection">The connection, or <see langword="null"/> when the outcome is a refusal.</param>
+    /// <returns><see cref="SignalRUpgradeOutcome.TakenUp"/> when found, <see cref="SignalRUpgradeOutcome.NotFound"/> for an unknown or ended one, <see cref="SignalRUpgradeOutcome.NegotiatedByAnotherCaller"/> for one another account holds.</returns>
+    public SignalRUpgradeOutcome FindTakenUp(string upgradeId, string? accountName, out SignalRNegotiatedConnection? connection)
+    {
+        lock (gate)
+        {
+            upgraded.TryGetValue(upgradeId, out connection);
+        }
+
+        if (connection is null)
+        {
+            return SignalRUpgradeOutcome.NotFound;
+        }
+
+        if (connection.AccountName == accountName)
+        {
+            return SignalRUpgradeOutcome.TakenUp;
+        }
+
+        connection = null;
+
+        return SignalRUpgradeOutcome.NegotiatedByAnotherCaller;
+    }
+
+    /// <summary>
     /// Forgets a connection whose WebSocket has ended, so its <c>id</c> is then <c>404</c>.
     /// </summary>
     /// <param name="connection">The connection <see cref="TakeUp"/> handed out.</param>

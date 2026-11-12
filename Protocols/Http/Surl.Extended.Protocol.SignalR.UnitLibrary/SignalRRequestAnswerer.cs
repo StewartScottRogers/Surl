@@ -34,7 +34,7 @@ namespace Surl.Extended.Protocol.SignalR;
 /// <c>404</c>.
 /// </para>
 /// </remarks>
-internal sealed class SignalRRequestAnswerer(
+internal sealed partial class SignalRRequestAnswerer(
     SignalRHubPath hubPath,
     SignalRHubConnections connections,
     IHttpAuthenticationSession authentication,
@@ -64,10 +64,19 @@ internal sealed class SignalRRequestAnswerer(
             return await NegotiateAsync(request, target, verdict.AccountName, cancellationToken);
         }
 
-        return target.Path == hubPath.EndpointBase
-            ? AnswerEndpointBase(request, target, verdict.AccountName)
-            : Answer(request, HttpStatus.NotFound);
+        if (target.Path != hubPath.EndpointBase)
+        {
+            return Answer(request, HttpStatus.NotFound);
+        }
+
+        return IsWebSocketUpgrade(request)
+            ? AnswerWebSocketUpgrade(request, target, verdict.AccountName)
+            : await AnswerHttpTransportAsync(request, target, verdict.AccountName, cancellationToken);
     }
+
+    private static bool IsWebSocketUpgrade(HttpRequest request) =>
+        request.Fields.Any(field => field.Key.Equals("Upgrade", StringComparison.OrdinalIgnoreCase)
+            && field.Value.Contains("websocket", StringComparison.OrdinalIgnoreCase));
 
     // access_token stands in for an Authorization field a browser's WebSocket cannot set.
     private static IReadOnlyList<KeyValuePair<string, string>> FieldsWithAccessToken(
@@ -192,12 +201,28 @@ internal sealed class SignalRRequestAnswerer(
         writer.WriteStringValue("Binary");
         writer.WriteEndArray();
         writer.WriteEndObject();
+        WriteTransport(writer, "ServerSentEvents", "Text");
+        WriteTransport(writer, "LongPolling", "Text", "Binary");
         writer.WriteEndArray();
+    }
+
+    private static void WriteTransport(Utf8JsonWriter writer, string name, params string[] transferFormats)
+    {
+        writer.WriteStartObject();
+        writer.WriteString("transport", name);
+        writer.WriteStartArray("transferFormats");
+        foreach (var format in transferFormats)
+        {
+            writer.WriteStringValue(format);
+        }
+
+        writer.WriteEndArray();
+        writer.WriteEndObject();
     }
 
     // ADR-0071's checks in order (a method other than GET is 405 Allow: GET, a GET without an
     // upgrade 426), then the id: the connection it names, or a new one when it names none.
-    private HttpAnswer AnswerEndpointBase(HttpRequest request, SignalRRequestTarget target, string? accountName)
+    private HttpAnswer AnswerWebSocketUpgrade(HttpRequest request, SignalRRequestTarget target, string? accountName)
     {
         // Http1ConnectionServer, the only server of this handler, always sets the version.
         var head = new HttpRequestHead(request.Method, request.Target, request.Http1Version!, request.Fields.Select(field => new HttpRequestField(field.Key, field.Value)));

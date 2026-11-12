@@ -27,4 +27,10 @@ public sealed record SignalRNegotiatedConnection(
     /// connection ID for version 0.
     /// </summary>
     public string UpgradeId => ConnectionToken ?? ConnectionId;
+
+    /// <summary>
+    /// What the request that follows a Server-Sent Events <c>GET</c> or a first Long Polling poll finds: the
+    /// posted payloads and, for Long Polling, its transport. <see langword="null"/> for a WebSocket connection.
+    /// </summary>
+    internal SignalRHttpTransportState? HttpTransport { get; set; }
 }

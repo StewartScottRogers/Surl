@@ -46,8 +46,13 @@ internal sealed class SignalRServerHarness
         Clock,
         cancellationToken)
     {
-        Limits = limits ?? ExchangeLimits.Default,
+        Limits = limits ?? DefaultLimits ?? ExchangeLimits.Default,
     };
+
+    /// <summary>
+    /// The limits every exchange gets unless a test names others, or <see langword="null"/> for <see cref="ExchangeLimits.Default"/>.
+    /// </summary>
+    public ExchangeLimits? DefaultLimits { get; set; }
 
     /// <summary>
     /// Sends one request head, <c>Host</c> and <c>Connection: close</c> added, and returns what
