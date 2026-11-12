@@ -410,4 +410,27 @@ Decided by Claude under Stewart's delegation, in BL-567.
   listener's ALPN list is not consulted. curl offers ALPN only for HTTP schemes, so nothing else
   sees it.
 - **Not yet:** the verbose notes decision 4 asks for (a group outside Appendix A; which of user and
-  password was wrong) - filed as follow-up work.
+  password was wrong) - filed as follow-up work, and built by BL-1052 (Amendment 3).
+
+## Amendment 3 (2026-11-11): decision 4's verbose notes as BL-1052 built them
+
+Decided by Claude under Stewart's delegation, in BL-1052.
+
+- **A group outside Appendix A** is noted once per group at start, from `-v` up, unstamped, after the
+  `--self-signed` lines: `* --srp-groups: the group with index <index> is not one of RFC 5054
+  Appendix A's; OpenSSL's client refuses it`, in the file's order (`ServerTlsComposition.WriteStartLines`
+  over `SrpGroupIndexesOutsideRfc5054`, which `TlsSrpAccountsComposition` fills with
+  `SrpGroup.IsRfc5054Group`). Every group in the file is judged, used by a verifier or not: an unused
+  odd group is still a sign the files were made for another client. Below `-v` nothing is written;
+  the start is not refused, since decision 4 accepts any group.
+- **Which login failed** is said in the `TlsAlertException`'s message, which `ServerTlsHandshake`
+  carries into `TlsHandshakeException` and the serving engine already logs:
+  `The TLS-SRP login failed: unknown user '<name>'. <record failure>` for a simulated account, and
+  `The TLS-SRP login failed: wrong password for '<name>'. <record failure>` for a known one. It is
+  decided where the account is known, in `Surl.TlsSrp`'s `TlsSrpServer`, when the client's `Finished`
+  record fails its MAC (`bad_record_mac`): the keys then differ, and nothing but the verifier makes
+  them differ for a client that got that far. Any other alert there keeps its own message. The alert
+  sent is `bad_record_mac` either way, so the bytes on the wire are unchanged (pinned upstream curl's
+  `CurlTlsSrpJsmithBadpass` and `CurlTlsSrpBaduserBadpass` replays in `Surl.Networking.UnitTests`).
+  Naming the user in the server's own log is no leak: the log is the operator's, and the user name is
+  what the client sent in clear in its ClientHello.
