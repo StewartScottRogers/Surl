@@ -8,7 +8,7 @@ depends-on: [BL-736, BL-1035]
 touches: [Documentation/Planning/Decisions/ADR-0100-the-stores-synergetic-protocols-share-files-mail-the-message-bus-and-accounts.md]
 requirement: none
 created: 2026-11-06
-completed:
+completed: 2026-11-12
 ---
 # BL-970 — Record the object metadata index's version 2 byte format in ADR-0100
 
@@ -39,3 +39,4 @@ ADR-0100 decision 2.3.1 describes the object metadata index's byte format as the
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waiting on BL-1035: pinned .NET SDK 10.0.401 is not installed, so dotnet build cannot run; ADR edit is ready on factory/BL-970-lane-6-20261111-060243
 - 2026-11-12: Backlog -> Doing.
+- 2026-11-12: Doing -> Done. ADR-0100 decision 2.3.1 records the object index version 2 byte format (six header fields, Content-MD5 sixth, version 1 still read)
