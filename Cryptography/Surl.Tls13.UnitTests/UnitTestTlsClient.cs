@@ -4,6 +4,7 @@ using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using Surl.Cryptography.Curve25519;
+using Surl.Cryptography.Curve448;
 using Surl.Cryptography.MlKem;
 
 namespace Surl.Tls13;
@@ -34,6 +35,20 @@ internal sealed class UnitTestTlsClient
 
     /// <summary>The server's key_exchange value from the last ServerHello this client verified.</summary>
     public byte[] ServerShare { get; private set; } = [];
+
+    /// <summary>A client with an x448 share (RFC 7748 section 6.2).</summary>
+    public static UnitTestTlsClient WithX448Share()
+    {
+        var privateKey = RandomNumberGenerator.GetBytes(X448.KeySize);
+        var publicKey = new byte[X448.KeySize];
+        X448.ComputePublicKey(privateKey, publicKey);
+        return new UnitTestTlsClient(0x001E, publicKey, serverShare =>
+        {
+            var shared = new byte[X448.KeySize];
+            X448.ScalarMultiply(privateKey, serverShare, shared);
+            return shared;
+        });
+    }
 
     public static UnitTestTlsClient WithX25519Share() => WithX25519PrivateKey(RandomNumberGenerator.GetBytes(X25519.KeySize));
 

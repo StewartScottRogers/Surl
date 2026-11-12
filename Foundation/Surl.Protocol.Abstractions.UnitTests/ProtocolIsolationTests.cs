@@ -92,7 +92,7 @@ public sealed class ProtocolIsolationTests
         [MessageBus] = [Abstractions, Content],
         [Qpack] = [Hpack],
         [Quic] = [Abstractions, Tls13, ChaCha20, Poly1305],
-        [Tls13] = [Curve25519, MlKem],
+        [Tls13] = [Curve25519, Curve448, MlKem],
         [TlsSrp] = [Srp],
         [WebSocket] = [Abstractions, HttpMessage],
     };
@@ -294,6 +294,7 @@ public sealed class ProtocolIsolationTests
     [DataRow(Quic, ChaCha20)]
     [DataRow(Quic, Poly1305)]
     [DataRow(Tls13, Curve25519)]
+    [DataRow(Tls13, Curve448)]
     [DataRow(Tls13, MlKem)]
     [DataRow(TlsSrp, Srp)]
     public void ForbiddenHorizontalReferences_ReferenceInItsRow_IsNotForbidden(

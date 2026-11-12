@@ -15,6 +15,7 @@ public sealed partial class TlsServerHandshakeTests
     [TestMethod]
     [DataRow(0x11EB)]
     [DataRow(0x11ED)]
+    [DataRow(0x001E)]
     [DataRow(0x0100)]
     [DataRow(0x0101)]
     public void Receive_ClientHelloOfferingOnlyOneRemainingGroupWithNoShare_RetriesForItAndCompletesOnTheSecondClientHello(int group)
@@ -45,10 +46,12 @@ public sealed partial class TlsServerHandshakeTests
     [TestMethod]
     [DataRow("static-8.21.0-win-curves-SecP256r1MLKEM768.bin", 0x11EB, 1249, 1153)]
     [DataRow("static-8.21.0-win-curves-SecP384r1MLKEM1024.bin", 0x11ED, 1665, 1665)]
+    [DataRow("static-8.21.0-win-curves-X448.bin", 0x001E, 56, 56)]
     [DataRow("static-8.21.0-win-curves-ffdhe2048.bin", 0x0100, 256, 256)]
     [DataRow("static-8.21.0-win-curves-ffdhe3072.bin", 0x0101, 384, 384)]
     [DataRow("static-8.21.0-linux-curves-SecP256r1MLKEM768.bin", 0x11EB, 1249, 1153)]
     [DataRow("static-8.21.0-linux-curves-SecP384r1MLKEM1024.bin", 0x11ED, 1665, 1665)]
+    [DataRow("static-8.21.0-linux-curves-X448.bin", 0x001E, 56, 56)]
     [DataRow("static-8.21.0-linux-curves-ffdhe2048.bin", 0x0100, 256, 256)]
     [DataRow("static-8.21.0-linux-curves-ffdhe3072.bin", 0x0101, 384, 384)]
     public void Receive_RecordedUpstreamCurlClientHelloForOneCurve_AnswersItsShareAndCompletesWithoutARetry(
@@ -77,6 +80,7 @@ public sealed partial class TlsServerHandshakeTests
     [DataRow(0x11EB, 1248)]
     [DataRow(0x11EB, 1184)]
     [DataRow(0x11ED, 1666)]
+    [DataRow(0x001E, 55)]
     [DataRow(0x0100, 255)]
     [DataRow(0x0101, 385)]
     public void Receive_RemainingGroupShareOfTheWrongLength_FailsWithIllegalParameter(int group, int length)
@@ -120,8 +124,15 @@ public sealed partial class TlsServerHandshakeTests
         AssertShareRefused(0x11EB, [.. point, .. encapsulationKey]);
     }
 
+    [TestMethod]
+    public void Receive_X448ShareOfZero_FailsWithIllegalParameterForTheAllZeroSecret()
+    {
+        AssertShareRefused(0x001E, new byte[56]);
+    }
+
     private static UnitTestTlsClient ClientFor(ushort group) => group switch
     {
+        0x001E => UnitTestTlsClient.WithX448Share(),
         0x0100 or 0x0101 => UnitTestTlsClient.WithFiniteFieldShare(group),
         _ => UnitTestTlsClient.WithClassicalFirstHybridShare(group),
     };

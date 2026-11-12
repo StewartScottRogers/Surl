@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using Surl.Cryptography.Curve25519;
+using Surl.Cryptography.Curve448;
 using Surl.Cryptography.MlKem;
 
 namespace Surl.Tls13;
@@ -50,6 +51,7 @@ internal static class TlsKeyExchange
         group switch
         {
             TlsNamedGroup.X25519 => AgreeX25519(share, random),
+            TlsNamedGroup.X448 => AgreeX448(share, random),
             TlsNamedGroup.Ffdhe2048 or TlsNamedGroup.Ffdhe3072 => AgreeFiniteField(group, share, random),
             _ => AgreeEllipticCurve(group, share),
         };
@@ -128,9 +130,31 @@ internal static class TlsKeyExchange
         X25519.ComputePublicKey(privateKey, serverPublicKey);
         X25519.ScalarMultiply(privateKey, clientPublicKey, sharedSecret);
         CryptographicOperations.ZeroMemory(privateKey);
+        return RequireNonZero(serverPublicKey, sharedSecret, "x25519");
+    }
+
+    private static TlsKeyAgreement AgreeX448(ReadOnlySpan<byte> clientPublicKey, RandomNumberGenerator random)
+    {
+        if (clientPublicKey.Length != X448.KeySize)
+        {
+            throw IllegalShare($"An x448 key share is {X448.KeySize} bytes, not {clientPublicKey.Length}.");
+        }
+
+        var privateKey = new byte[X448.KeySize];
+        random.GetBytes(privateKey);
+        var serverPublicKey = new byte[X448.KeySize];
+        var sharedSecret = new byte[X448.KeySize];
+        X448.ComputePublicKey(privateKey, serverPublicKey);
+        X448.ScalarMultiply(privateKey, clientPublicKey, sharedSecret);
+        CryptographicOperations.ZeroMemory(privateKey);
+        return RequireNonZero(serverPublicKey, sharedSecret, "x448");
+    }
+
+    private static TlsKeyAgreement RequireNonZero(byte[] serverPublicKey, byte[] sharedSecret, string group)
+    {
         if (sharedSecret.AsSpan().IndexOfAnyExcept((byte)0) < 0)
         {
-            throw IllegalShare("The x25519 key share is a low-order point: the shared secret is all zeros.");
+            throw IllegalShare($"The {group} key share is a low-order point: the shared secret is all zeros.");
         }
 
         return new TlsKeyAgreement(serverPublicKey, sharedSecret);

@@ -18,7 +18,7 @@ internal sealed record TlsServerNegotiation(
     public static IReadOnlyList<TlsNamedGroup> GroupPreference { get; } =
     [
         TlsNamedGroup.X25519MlKem768, TlsNamedGroup.X25519, TlsNamedGroup.Secp256r1, TlsNamedGroup.Secp384r1, TlsNamedGroup.Secp521r1,
-        TlsNamedGroup.SecP256r1MlKem768, TlsNamedGroup.SecP384r1MlKem1024, TlsNamedGroup.Ffdhe2048, TlsNamedGroup.Ffdhe3072,
+        TlsNamedGroup.SecP256r1MlKem768, TlsNamedGroup.SecP384r1MlKem1024, TlsNamedGroup.X448, TlsNamedGroup.Ffdhe2048, TlsNamedGroup.Ffdhe3072,
     ];
 
     private static readonly TlsCipherSuite[] SupportedCipherSuites =

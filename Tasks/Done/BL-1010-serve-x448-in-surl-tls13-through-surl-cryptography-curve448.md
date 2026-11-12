@@ -8,7 +8,7 @@ depends-on: [BL-1007, BL-1009]
 touches: [Cryptography/Surl.Tls13.UnitLibrary, Cryptography/Surl.Tls13.UnitTests, Foundation/Surl.Protocol.Abstractions.UnitTests]
 requirement: FR-055
 created: 2026-11-06
-completed:
+completed: 2026-11-11
 ---
 # BL-1010 — Serve x448 in Surl.Tls13 through Surl.Cryptography.Curve448
 
@@ -37,17 +37,19 @@ a retry.
 
 ## Acceptance criteria
 
-- [ ] `Receive_ClientHelloOfferingOnlyOneRemainingGroupWithNoShare_RetriesForItAndCompletesOnTheSecondClientHello`
+- [x] `Receive_ClientHelloOfferingOnlyOneRemainingGroupWithNoShare_RetriesForItAndCompletesOnTheSecondClientHello`
       passes for `0x001E`.
-- [ ] `Receive_RecordedUpstreamCurlClientHelloForOneCurve_AnswersItsShareAndCompletesWithoutARetry` passes for both
+- [x] `Receive_RecordedUpstreamCurlClientHelloForOneCurve_AnswersItsShareAndCompletesWithoutARetry` passes for both
       `X448` fixtures (Windows and Linux).
-- [ ] `Receive_RemainingGroupShareOfTheWrongLength_FailsWithIllegalParameter` passes for `(0x001E, 55)`, and
+- [x] `Receive_RemainingGroupShareOfTheWrongLength_FailsWithIllegalParameter` passes for `(0x001E, 55)`, and
       `Receive_X448ShareOfZero_FailsWithIllegalParameterForTheAllZeroSecret` passes.
-- [ ] `ProtocolIsolationTests` passes with `Surl.Tls13.UnitLibrary` referencing `Curve25519`, `Curve448` and `MlKem`.
-- [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and `Surl.Tls13.UnitLibrary` keeps 100% line
+- [x] `ProtocolIsolationTests` passes with `Surl.Tls13.UnitLibrary` referencing `Curve25519`, `Curve448` and `MlKem`.
+- [x] `dotnet build -warnaserror` is clean, the fast tests are green, and `Surl.Tls13.UnitLibrary` keeps 100% line
       and branch coverage.
 
 ## Notes
+
+- Re-made by hand from the BL-545 stash: x448 after the hybrids in GroupPreference, AgreeX448 and RequireNonZero in TlsKeyExchange, tests, CLAUDE.md. Full build with -warnaserror clean; fast tests all green.
 
 ## Log
 
@@ -56,3 +58,4 @@ a retry.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. returned by the shift starting 20261111-212123: it was in Doing but no stopped lane held it; look for its work in 'git stash list' and in factory/BL-1010-* branches before redoing it
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Done. Surl.Tls13 serves x448 (0x001E) through Curve448, with retry, recorded curl ClientHellos and the all-zero check
