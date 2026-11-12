@@ -10,14 +10,25 @@
 
       * Coverage - Microsoft.Testing.Extensions.CodeCoverage, which the MSTest
         meta-package already pulls into every .UnitTests project. It is asked for
-        Cobertura, whose <method> elements carry line-rate, branch-rate and a
-        complexity attribute.
-      * Complexity - that same Cobertura complexity attribute. The build itself is
-        gated separately by the SDK's CA1502 analyzer at the threshold in
-        CodeMetricsConfig.txt. CA1502 measures the source and Cobertura measures the
-        compiled method, so on a method full of pattern matching the two can differ by
-        one or two. CA1502 is the one that breaks the build; this is the one that
-        feeds CRAP, because it arrives in the same file as the coverage it pairs with.
+        Cobertura, whose <method> elements carry each line's hits and condition
+        coverage.
+      * Complexity - the SDK's CA1502 analyzer, the same rule that gates the build at
+        the threshold in CodeMetricsConfig.txt. After the tests, the script builds the
+        production projects once more with a probe CodeMetricsConfig.txt whose CA1502
+        threshold is 1 and warnings not treated as errors, so every method above 1
+        gets a "warning CA1502: '<name>' has a cyclomatic complexity of '<n>'" line
+        with its file and declaration line. Each Cobertura method takes the figure of
+        the diagnostic in its source file with the same name whose declaration line is
+        the last one at or above the method's first covered line; a method with no
+        diagnostic has complexity 1. A lambda (<Owner>b__0), local function
+        (<Owner>g__Name|0_0) or async or iterator state machine (<Owner>d__0.MoveNext)
+        takes its owner method's figure, as CA1502 counts it inside the owner.
+        CA1502 counts the source, so the figure is the same on every run of one
+        commit. The Cobertura complexity attribute is not used: it counts the
+        compiled method, and the collector attributes lambda bodies and the
+        compiler's cached-delegate null checks to the enclosing method on some runs
+        and not on others (BL-1053), so one unchanged tree reported different
+        failing members run to run.
       * CRAP - produced by no tool at all, so it is computed here:
             CRAP(m) = comp(m)^2 * (1 - cov(m))^3 + comp(m)
         At full coverage the middle term vanishes and CRAP is just the complexity,
@@ -35,7 +46,9 @@
     assembly is named surl, and is reported and matched here as Surl.Console.
 
 .PARAMETER SkipTestRun
-    Reuse the Cobertura files already in ResultsDirectory instead of running tests.
+    Reuse the Cobertura files already in ResultsDirectory instead of running tests,
+    and the CA1502 probe log (ca1502-probe.log) beside them when there is one; without
+    one, the probe build still runs.
     Without -ResultsDirectory these are the reports this checkout's last run left in
     its own default directory (see ResultsDirectory).
 
@@ -136,6 +149,89 @@ if ($coverageFiles.Count -eq 0) {
     throw "No Cobertura report found under $ResultsDirectory."
 }
 
+# --- 1b. Measure complexity with CA1502 -----------------------------------------------
+
+# A probe build of the production projects with CA1502's threshold at 1, so the analyzer
+# reports every method above 1. Its log is kept beside the coverage for -SkipTestRun.
+$probeLog = Join-Path $ResultsDirectory 'ca1502-probe.log'
+
+if (-not ($SkipTestRun -and (Test-Path $probeLog))) {
+    $probeConfig = Join-Path $ResultsDirectory 'CodeMetricsConfig.txt'
+    'CA1502: 1' | Out-File -FilePath $probeConfig -Encoding utf8
+
+    # Without -Library, one build of the solution; with it, only the matching projects
+    # (and what they reference).
+    if ($Library) {
+        $probeProjects = @(Get-ChildItem -Path $repositoryRoot -Filter '*.csproj' -Recurse |
+            Where-Object { $_.FullName -notmatch '[\\/](bin|obj|data)[\\/]' } |
+            Where-Object {
+                $name = $_.BaseName
+                ($name -like '*.UnitLibrary' -or $name -in 'Surl.Console', 'Surl.Api') -and
+                @($Library | Where-Object { $name -like $_ }).Count -gt 0
+            } |
+            Sort-Object FullName)
+    }
+    else {
+        $probeProjects = @(Get-Item (Join-Path $repositoryRoot 'Surl.slnx'))
+    }
+
+    $probeLines = New-Object System.Collections.Generic.List[string]
+    foreach ($project in $probeProjects) {
+        Write-Host "Measuring complexity of $($project.BaseName) with CA1502 ..." -ForegroundColor Cyan
+        $output = & dotnet build $project.FullName -p:TreatWarningsAsErrors=false "-p:CodeMetricsConfigFile=$probeConfig" -clp:NoSummary 2>&1
+        if ($LASTEXITCODE -ne 0) {
+            $output | Write-Host
+            throw "The CA1502 probe build of $($project.BaseName) failed with exit code $LASTEXITCODE."
+        }
+        foreach ($line in $output) { $probeLines.Add([string] $line) }
+    }
+    $probeLines | Out-File -FilePath $probeLog -Encoding utf8
+}
+
+# File (lower case, full path) -> the CA1502 diagnostics in it: name, line, complexity.
+$complexityByFile = @{}
+$diagnosticPattern = "^\s*(?<file>.+?)\((?<line>\d+),\d+\): warning CA1502: '(?<name>[^']+)' has a cyclomatic complexity of '(?<complexity>\d+)'"
+foreach ($line in (Get-Content -Path $probeLog | Sort-Object -Unique)) {
+    if ($line -notmatch $diagnosticPattern) { continue }
+    $file = [System.IO.Path]::GetFullPath($Matches['file']).ToLowerInvariant()
+    $diagnostic = [pscustomobject]@{
+        Name       = $Matches['name']
+        Line       = [int] $Matches['line']
+        Complexity = [int] $Matches['complexity']
+    }
+    if (-not $complexityByFile.ContainsKey($file)) { $complexityByFile[$file] = New-Object System.Collections.Generic.List[object] }
+    $complexityByFile[$file].Add($diagnostic)
+}
+
+# The name CA1502 knows a Cobertura method by: a lambda or local function
+# (<Owner>b__0_0, <Owner>g__Local|0_0) and a state machine's MoveNext (class <Owner>d__3)
+# are counted inside their owner.
+function Get-SourceMethodName {
+    param([string] $ClassName, [string] $MethodName)
+
+    if ($MethodName -match '^<(?<owner>[^>]+)>') { return $Matches['owner'] }
+    $lastSegment = @($ClassName -split '[./]')[-1]
+    if ($lastSegment -match '^<(?<owner>[^>]+)>d__\d+$') { return $Matches['owner'] }
+    return $MethodName
+}
+
+function Get-SourceComplexity {
+    param([string] $SourceFile, [string] $Name, [int] $FirstLine)
+
+    $file = ''
+    if ($SourceFile) { $file = [System.IO.Path]::GetFullPath($SourceFile).ToLowerInvariant() }
+    $candidates = @()
+    if ($complexityByFile.ContainsKey($file)) {
+        $candidates = @($complexityByFile[$file] | Where-Object { $_.Name -ceq $Name })
+    }
+    if ($candidates.Count -gt 0) {
+        $declared = @($candidates | Where-Object { $_.Line -le $FirstLine } | Sort-Object -Property Line)
+        if ($declared.Count -gt 0) { return $declared[-1].Complexity }
+        return ($candidates | Sort-Object -Property Line)[0].Complexity
+    }
+    return 1
+}
+
 # --- 2. Merge every report into one table of production methods -------------------
 
 function Test-IsProductionAssembly {
@@ -178,17 +274,12 @@ foreach ($file in $coverageFiles) {
                         Assembly   = $assembly
                         Class      = $className
                         Member     = $member
+                        SourceName = Get-SourceMethodName $className $method.GetAttribute('name')
                         SourceFile = $sourceFile
-                        Complexity = 0
                         Lines      = @{}
                     }
                 }
                 $entry = $methods[$key]
-
-                # Complexity is a property of the code, not of the run, so every report
-                # that saw this method agrees on it and the maximum is simply the value.
-                $complexity = [int] $method.GetAttribute('complexity')
-                if ($complexity -gt $entry.Complexity) { $entry.Complexity = $complexity }
 
                 foreach ($line in $method.SelectNodes('lines/line')) {
                     $number = [int] $line.GetAttribute('number')
@@ -241,7 +332,8 @@ foreach ($entry in $methods.Values) {
     }
     if ($branchTotal -eq 0) { $branchRate = 1.0 } else { $branchRate = $branchCovered / $branchTotal }
 
-    $complexity = $entry.Complexity
+    $firstLine = ($lineNumbers | Measure-Object -Minimum).Minimum
+    $complexity = Get-SourceComplexity -SourceFile $entry.SourceFile -Name $entry.SourceName -FirstLine $firstLine
     $crap = ($complexity * $complexity) * [math]::Pow(1 - $lineRate, 3) + $complexity
 
     $failures = New-Object System.Collections.Generic.List[string]
@@ -260,7 +352,7 @@ foreach ($entry in $methods.Values) {
             Class         = $entry.Class
             Member        = $entry.Member
             SourceFile    = $relativeFile
-            FirstLine     = ($lineNumbers | Measure-Object -Minimum).Minimum
+            FirstLine     = $firstLine
             LinesCovered  = $lineTotal - $missing.Count
             LinesTotal    = $lineTotal
             BranchCovered = $branchCovered

@@ -16,7 +16,7 @@ Surl takes no package beyond MSTest (`CLAUDE.md`). Nothing here needs one:
 | --- | --- |
 | Line and branch coverage | `Microsoft.Testing.Extensions.CodeCoverage`, already transitive via the MSTest meta-package |
 | Cyclomatic complexity, enforced | the SDK's `CA1502` analyzer, threshold in `CodeMetricsConfig.txt`, an error because warnings are errors |
-| Cyclomatic complexity, per method | the `complexity` attribute in the Cobertura report |
+| Cyclomatic complexity, per method | the same `CA1502` analyzer: `Measure-CodeQuality.ps1` builds the production projects once more with a probe threshold of 1 and reads every method's figure from the warnings (log kept as `ca1502-probe.log` beside the Cobertura reports). The Cobertura `complexity` attribute is not used: it changes from run to run on one commit (BL-1053) |
 | CRAP score | computed in `Measure-CodeQuality.ps1` — no tool produces it |
 
 If you ever find yourself wanting a package, you have taken a wrong turn. Say so and stop.
@@ -35,26 +35,29 @@ It exits 1 when anything is outside the thresholds — line 100%, branch 100%, c
 complexity 10, CRAP 30 — and prints a markdown report ranked worst CRAP first. Read
 `Measure-CodeQuality.ps1 -?` before passing anything unusual.
 
-For the complexity of *every* method rather than only those over the gate, run a probe
-build against a copy of the config with the threshold dropped to 1:
+The script's `Cx` column is the CA1502 figure. It runs this probe build itself, after the
+tests, against a copy of the config with the threshold dropped to 1:
 
 ```powershell
 "CA1502: 1" | Out-File "$env:TEMP\probe\CodeMetricsConfig.txt" -Encoding utf8
-dotnet build -t:Rebuild -p:TreatWarningsAsErrors=false -p:CodeMetricsConfigFile="$env:TEMP\probe\CodeMetricsConfig.txt"
+dotnet build -p:TreatWarningsAsErrors=false -p:CodeMetricsConfigFile="$env:TEMP\probe\CodeMetricsConfig.txt"
 ```
 
-Every `warning CA1502` line then carries one method's exact source-level complexity.
+Every `warning CA1502` line carries one method's source-level complexity; a method with
+no line is 1. A lambda, local function or async/iterator state machine is shown with its
+owner method's figure, because CA1502 counts it inside the owner. With `-SkipTestRun`
+the script reuses the probe log from the last run instead of building again.
 
 ## Reading the report honestly
 
 Four things will mislead you if you report them at face value:
 
-1. **Two complexity numbers, and they differ.** CA1502 counts the source; Cobertura
-   counts the compiled method. On code heavy with pattern matching or `await`, Cobertura
-   runs a few higher — a method can be 9 to CA1502 and 12 to Cobertura. **CA1502 is
-   authoritative**, because it is the one that breaks the build. A method over the limit
-   on the Cobertura number only is a refactor candidate, not a violation; say which
-   number you are quoting.
+1. **Ignore the Cobertura `complexity` attribute.** It counts the compiled method, and
+   the collector attributes lambda bodies and cached-delegate null checks to the
+   enclosing method on some runs and not others — `ReadHeader` was 5 to CA1502 and 16 to
+   Cobertura on one run. The report's `Cx` is CA1502's, the number that breaks the build,
+   and it is the same on every run of one commit. Since the build gate holds every method
+   to 10, a `complexity` failure in the report means the build itself is failing.
 2. **`<Name>d__12.MoveNext()` is an async method.** The state machine is the compiler's,
    not a class anyone wrote. Report it as the `async` method `Name` and give the source
    line, or nobody will find it.
