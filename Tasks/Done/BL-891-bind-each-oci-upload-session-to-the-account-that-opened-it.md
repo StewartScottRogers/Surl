@@ -8,7 +8,7 @@ depends-on: [BL-1035]
 touches: [Protocols/FileTransfer/Surl.Extended.Protocol.OciRegistry.UnitLibrary, Protocols/FileTransfer/Surl.Extended.Protocol.OciRegistry.UnitTests]
 requirement: none
 created: 2026-11-05
-completed:
+completed: 2026-11-12
 ---
 # BL-891 — Bind each OCI upload session to the account that opened it
 
@@ -25,9 +25,9 @@ token opened it is `404 BLOB_UPLOAD_UNKNOWN`, as ADR-0115 code-3 says ("another 
 
 ## Acceptance criteria
 
-- [ ] A named test shows a session opened by one account answered `404 BLOB_UPLOAD_UNKNOWN` to another account's
+- [x] A named test shows a session opened by one account answered `404 BLOB_UPLOAD_UNKNOWN` to another account's
       token with push in the same repository, and served to the account that opened it.
-- [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and the library keeps 100% line and branch
+- [x] `dotnet build -warnaserror` is clean, the fast tests are green, and the library keeps 100% line and branch
       coverage.
 
 ## Notes
@@ -40,3 +40,4 @@ token opened it is `404 BLOB_UPLOAD_UNKNOWN`, as ADR-0115 code-3 says ("another 
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waits on BL-1035 - pinned .NET SDK 10.0.401 is not installed, so dotnet build cannot run
 - 2026-11-12: Backlog -> Doing.
+- 2026-11-12: Doing -> Done. OCI upload sessions answer only the account whose token opened them

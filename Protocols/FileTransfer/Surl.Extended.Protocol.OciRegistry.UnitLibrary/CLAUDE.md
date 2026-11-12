@@ -75,8 +75,10 @@ Token authentication (BL-438, ADR-0115 decision 4 and Amendment 1):
   is a DNS name, else the connection's local address - never `Host`. The order is endpoint, method, name, uploads
   off, token. A mount reads `from` only where the token grants `pull`.
 
-Not yet: Bearer tokens over plain text refused without `--allow-plaintext-auth` (BL-890), upload sessions bound
-to their account (BL-891), and serving `oci` from `surl` with TLS (BL-439).
+An upload session answers only the account whose token opened it; another account's token gets
+`404 BLOB_UPLOAD_UNKNOWN` (BL-891).
+
+Not yet: Bearer tokens over plain text refused without `--allow-plaintext-auth` (BL-890), and serving `oci` from `surl` with TLS (BL-439).
 
 - `OciRegistryProtocolServer` (public) - `IConnectionProtocolServer` over `Http1ConnectionServer`.
 - `OciRequestAnswerer` - the `IHttpRequestHandler`: endpoint, method, name, repository, endpoint.

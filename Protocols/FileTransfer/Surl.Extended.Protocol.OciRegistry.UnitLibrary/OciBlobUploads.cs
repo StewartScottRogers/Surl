@@ -71,7 +71,7 @@ internal sealed class OciBlobUploads(ContentStore store, OciServerState state, O
             return reply.Error(OciError.NameUnknown);
         }
 
-        if (await state.Sessions.TakeAsync(target.Reference, target.Name) is not { } session)
+        if (await state.Sessions.TakeAsync(target.Reference, target.Name, token.AccountName) is not { } session)
         {
             return reply.Error(OciError.BlobUploadUnknown);
         }
@@ -241,6 +241,7 @@ internal sealed class OciBlobUploads(ContentStore store, OciServerState state, O
             return reply.Error(OciError.Denied);
         }
 
+        session.OwnerAccountName = token.AccountName;
         if (!await state.Sessions.TryAddAsync(session))
         {
             await session.DisposeAsync();

@@ -273,10 +273,17 @@ internal sealed class OciRegistryServerHarness
     /// Fetches a token as <see cref="UnitTestAuthenticationPolicy.UserName"/> for
     /// <paramref name="scopes"/>, each a whole <c>scope</c> value.
     /// </summary>
-    public async Task<string> FetchTokenAsync(params string[] scopes)
+    public Task<string> FetchTokenAsync(params string[] scopes) =>
+        FetchTokenAsAsync(UnitTestAuthenticationPolicy.BasicAuthorization, scopes);
+
+    /// <summary>
+    /// Fetches a token with <paramref name="authorization"/> (a whole <c>Authorization</c> field)
+    /// for <paramref name="scopes"/>, each a whole <c>scope</c> value.
+    /// </summary>
+    public async Task<string> FetchTokenAsAsync(string authorization, params string[] scopes)
     {
         var query = string.Join('&', scopes.Select(scope => "scope=" + Uri.EscapeDataString(scope)));
-        var answer = await ServeAsync($"GET /token?service=surl&{query} HTTP/1.1\r\nHost: registry.test\r\n{UnitTestAuthenticationPolicy.BasicAuthorization}\r\nConnection: close\r\n\r\n");
+        var answer = await ServeAsync($"GET /token?service=surl&{query} HTTP/1.1\r\nHost: registry.test\r\n{authorization}\r\nConnection: close\r\n\r\n");
         StringAssert.StartsWith(answer, "HTTP/1.1 200 OK\r\n");
         using var json = System.Text.Json.JsonDocument.Parse(answer[(answer.IndexOf("\r\n\r\n", StringComparison.Ordinal) + 4)..]);
 

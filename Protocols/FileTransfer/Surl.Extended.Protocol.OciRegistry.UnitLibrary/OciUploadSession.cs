@@ -44,6 +44,12 @@ internal sealed class OciUploadSession : IAsyncDisposable
     public string RepositoryName { get; }
 
     /// <summary>
+    /// The account whose token opened the session (<see langword="null"/> for an anonymous token);
+    /// a token of another account is answered <c>BLOB_UPLOAD_UNKNOWN</c> (ADR-0115, code-3).
+    /// </summary>
+    public string? OwnerAccountName { get; set; }
+
+    /// <summary>
     /// The request path the staged bytes are committed to before they are renamed into place.
     /// </summary>
     public string StagingPath { get; }

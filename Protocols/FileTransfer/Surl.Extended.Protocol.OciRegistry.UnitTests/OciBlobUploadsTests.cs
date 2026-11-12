@@ -314,6 +314,24 @@ public sealed class OciBlobUploadsTests
     }
 
     [TestMethod]
+    public async Task AnswerSessionAsync_SessionOfAnotherAccount_Returns404BlobUploadUnknownAndServesTheOpener()
+    {
+        var harness = H.AllowingUploads();
+        harness.Policy.Accounts["other"] = "pw";
+        var otherAuthorization = "Authorization: Basic " + Convert.ToBase64String("other:pw"u8);
+        var otherToken = await harness.FetchTokenAsAsync(otherAuthorization, "repository:app:pull,push,delete");
+        await harness.SendAsync("POST", "/v2/app/blobs/uploads/", "Content-Length: 0");
+
+        var refused = await harness.SendAsync("GET", $"/v2/app/blobs/uploads/{Session1}", $"Authorization: Bearer {otherToken}");
+        var cancelRefused = await harness.SendAsync("DELETE", $"/v2/app/blobs/uploads/{Session1}", $"Authorization: Bearer {otherToken}");
+        var served = await harness.SendAsync("GET", $"/v2/app/blobs/uploads/{Session1}");
+
+        Assert.AreEqual(H.ExpectedError("404 Not Found", "BLOB_UPLOAD_UNKNOWN", "blob upload unknown to registry"), refused);
+        Assert.AreEqual(refused, cancelRefused);
+        StringAssert.StartsWith(served, "HTTP/1.1 204 No Content\r\n");
+    }
+
+    [TestMethod]
     public async Task AnswerSessionAsync_NoRepository_Returns404NameUnknown()
     {
         var harness = H.AllowingUploads();
