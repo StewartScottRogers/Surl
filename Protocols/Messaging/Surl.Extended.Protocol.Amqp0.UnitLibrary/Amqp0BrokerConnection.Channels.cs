@@ -72,6 +72,11 @@ internal sealed partial class Amqp0BrokerConnection
     // Answers one frame on a channel other than 0; returns whether the connection stays open.
     private async ValueTask<bool> AnswerChannelFrameAsync(Amqp0Frame frame)
     {
+        if (await AnswerByAFaultAsync(frame) is { } staysOpen)
+        {
+            return staysOpen;
+        }
+
         try
         {
             AnswerOnChannel(frame);
