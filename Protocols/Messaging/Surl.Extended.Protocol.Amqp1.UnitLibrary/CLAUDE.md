@@ -197,7 +197,7 @@ Local transactions (BL-956; ADR-0146 decisions 1.1 to 1.4 and 1.6 to 1.8):
   `amqp:transaction:rollback`. Either way the id is never valid again. A coordinator link ending
   (detach, its session's end, the connection's end) rolls back what it declared, with no frame. A
   pre-settled `declare`, `discharge` or transactional transfer is applied and answered by nothing.
-  Transactional retirement and acquisition (ADR-0146 decision 1.5) are BL-957.
+  Transactional retirement and acquisition (BL-957; ADR-0146 decision 1.5 and its amendment): a client `disposition` in `transactional-state` holds its outcome until the commit applies it (a rollback unsettles it again; an unknown `txn-id` is answered `rejected` with `amqp:transaction:unknown-id`), and a `flow` whose `properties` carry `txn-id` makes the container's transfers carry `transactional-state` naming it; a rollback returns those queue deliveries, still unsettled, to their queue redelivered.
 
 `Amqp1Container` is the one `IConnectionProtocolServer`: it runs `Amqp1SecurityNegotiation`, then
 `Amqp1ContainerConnection` for the account SASL logged in. The head timeout runs from accept until the

@@ -53,6 +53,24 @@ public static class Amqp1DeliveryState
         return new(Amqp1Descriptor.TransactionalState, new object?[] { transactionId, outcome });
     }
 
+    /// <summary><c>transactional-state</c> naming <paramref name="transactionId"/> with no outcome: how a transfer says its delivery is acquired in that transaction (Part 4 section 4.4.3).</summary>
+    /// <param name="transactionId">The transaction id.</param>
+    /// <returns>The delivery state.</returns>
+    public static Amqp1Described TransactionalAcquisition(byte[] transactionId)
+    {
+        ArgumentNullException.ThrowIfNull(transactionId);
+
+        return new(Amqp1Descriptor.TransactionalState, new object?[] { transactionId });
+    }
+
+    /// <summary>The outcome a <c>transactional-state</c> carries.</summary>
+    /// <param name="state">A delivery state, as read.</param>
+    /// <returns>The outcome as read; <see langword="null"/> when the state is no <c>transactional-state</c> or carries none.</returns>
+    public static object? TransactionalOutcomeOf(object? state) =>
+        IsTransactional(state) && ((Amqp1Described)state!).Value is IReadOnlyList<object?> fields
+            ? fields.ElementAtOrDefault(1)
+            : null;
+
     /// <summary>Whether a delivery state read is a <c>transactional-state</c>.</summary>
     /// <param name="state">The <c>state</c> field of a <c>transfer</c> or <c>disposition</c>, as read.</param>
     /// <returns><see langword="true"/> for a <c>transactional-state</c>, whatever its fields hold.</returns>

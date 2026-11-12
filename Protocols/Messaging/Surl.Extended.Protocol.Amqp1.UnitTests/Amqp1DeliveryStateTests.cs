@@ -82,4 +82,37 @@ public sealed class Amqp1DeliveryStateTests
         Assert.IsFalse(Amqp1DeliveryState.IsUndeliverableHere(new Amqp1Described(Amqp1Descriptor.Modified, "not a list")));
         Assert.IsFalse(Amqp1DeliveryState.IsUndeliverableHere(new Amqp1Described(Amqp1Descriptor.Released, new List<object?> { true, true })));
     }
+
+    [TestMethod]
+    public void TransactionalAcquisition_NamesTheTransactionWithNoOutcome()
+    {
+        var state = Amqp1DeliveryState.TransactionalAcquisition([0, 0, 0, 1]);
+
+        Assert.IsTrue(Amqp1DeliveryState.IsTransactional(state));
+        CollectionAssert.AreEqual(new byte[] { 0, 0, 0, 1 }, Amqp1DeliveryState.TransactionIdOf(state));
+        Assert.IsNull(Amqp1DeliveryState.TransactionalOutcomeOf(state));
+        Assert.ThrowsExactly<ArgumentNullException>(() => Amqp1DeliveryState.TransactionalAcquisition(null!));
+    }
+
+    [TestMethod]
+    public void TransactionalOutcomeOf_TransactionalStateWithAnOutcome_IsThatOutcome()
+    {
+        var state = Amqp1DeliveryState.TransactionalState([0, 0, 0, 1], Amqp1DeliveryState.Accepted);
+
+        Assert.AreEqual(Amqp1DeliveryState.Accepted, Amqp1DeliveryState.TransactionalOutcomeOf(state));
+        Assert.IsNull(Amqp1DeliveryState.TransactionalOutcomeOf(Amqp1DeliveryState.Accepted));
+        Assert.IsNull(Amqp1DeliveryState.TransactionalOutcomeOf(new Amqp1Described(Amqp1Descriptor.TransactionalState, "not a list")));
+        Assert.IsNull(Amqp1DeliveryState.TransactionalOutcomeOf(null));
+    }
+
+    [TestMethod]
+    public void FlowTransactionId_ReadsTheTxnIdPropertyOnly()
+    {
+        var carrying = new Amqp1Flow(1, 0, 1) { Properties = new Amqp1Map([new("txn-id", 2), new(new Amqp1Symbol("x"), 1), new(new Amqp1Symbol("txn-id"), new byte[] { 1, 2, 3, 4 })]) };
+        var other = new Amqp1Flow(1, 0, 1) { Properties = new Amqp1Map([new(new Amqp1Symbol("x"), 1)]) };
+
+        CollectionAssert.AreEqual(new byte[] { 1, 2, 3, 4 }, carrying.TransactionId);
+        Assert.IsNull(other.TransactionId);
+        Assert.IsNull(new Amqp1Flow(1, 0, 1).TransactionId);
+    }
 }

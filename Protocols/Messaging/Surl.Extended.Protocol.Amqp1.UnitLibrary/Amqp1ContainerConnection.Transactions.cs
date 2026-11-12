@@ -55,20 +55,91 @@ public sealed partial class Amqp1ContainerConnection
         }
 
         transactions.Remove(transaction.Id);
-        if (discharge.Fail)
-        {
-            return Amqp1DeliveryState.Accepted;
-        }
-
-        var published = busConnection.PublishBatch(transaction.Held);
-        if (published.Outcome != MessageBusOutcome.Succeeded)
+        var published = discharge.Fail ? null : busConnection.PublishBatch(transaction.Held);
+        if (published is not null && published.Outcome != MessageBusOutcome.Succeeded)
         {
             context.Log.Note($"A transaction was rolled back: the bus refused its message {published.RefusedIndex} with {published.Outcome}.");
+            RollBack(transaction);
             return Amqp1DeliveryState.Rejected(Error(Amqp1ErrorCondition.TransactionRollback, "the transaction was rolled back"));
         }
 
+        if (published is null)
+        {
+            RollBack(transaction);
+            return Amqp1DeliveryState.Accepted;
+        }
+
+        await CommitOutcomesAsync(transaction);
         await SaveBusAsync();
         return Amqp1DeliveryState.Accepted;
+    }
+
+    // ADR-0146 decision 1.5: a transactional disposition holds its outcome until the commit; an unknown
+    // txn-id is answered rejected, and the deliveries stay as they were.
+    private async ValueTask RetireInTransactionAsync(Amqp1Session session, Amqp1Disposition disposition, List<KeyValuePair<uint, Amqp1OutgoingDelivery>> deliveries)
+    {
+        if (OpenTransaction(Amqp1DeliveryState.TransactionIdOf(disposition.State)) is not { } transaction)
+        {
+            await WriteAsync(session.OutgoingChannel, new Amqp1Disposition(IsReceiver: false, disposition.First)
+            {
+                Last = disposition.Last,
+                State = Amqp1DeliveryState.Rejected(UnknownTransaction()),
+            });
+            return;
+        }
+
+        var outcome = Amqp1DeliveryState.TransactionalOutcomeOf(disposition.State);
+        foreach (var (deliveryId, delivery) in deliveries)
+        {
+            transaction.HoldOutcome(delivery, outcome, disposition.Settled);
+            if (disposition.Settled && session.Unsettled.Remove(deliveryId))
+            {
+                delivery.Link.UnsettledCount--;
+            }
+        }
+    }
+
+    // The held outcomes are applied in the order stated; under rcv-settle-mode second the container then
+    // settles the deliveries the client left unsettled.
+    private async ValueTask CommitOutcomesAsync(Amqp1Transaction transaction)
+    {
+        transaction.Acquired.Clear();
+        foreach (var held in transaction.HeldOutcomes)
+        {
+            var delivery = held.Delivery;
+            delivery.Held = null;
+            delivery.OutcomeApplied = ApplyOutcome(delivery, held.Outcome) || delivery.OutcomeApplied;
+            if (!held.Settled && delivery.Link.ClientSettlesSecond && delivery.Session.Unsettled.Remove(delivery.DeliveryId))
+            {
+                delivery.Link.UnsettledCount--;
+                await WriteAsync(delivery.Session.OutgoingChannel, new Amqp1Disposition(IsReceiver: false, delivery.DeliveryId) { Settled = true, State = held.Outcome });
+            }
+        }
+    }
+
+    // ADR-0146 decisions 1.5 and 1.6: held outcomes are forgotten, their settled deliveries unsettled again;
+    // deliveries acquired in the transaction and not retired outside it go back to their queue, redelivered.
+    private static void RollBack(Amqp1Transaction transaction)
+    {
+        foreach (var held in transaction.HeldOutcomes)
+        {
+            var delivery = held.Delivery;
+            delivery.Held = null;
+            if (held.Settled && !delivery.Link.IsEnded)
+            {
+                delivery.Session.Unsettled.Add(delivery.DeliveryId, delivery);
+                delivery.Link.UnsettledCount++;
+            }
+        }
+
+        foreach (var delivery in transaction.Acquired.Where(acquired => acquired.Session.Unsettled.Remove(acquired.DeliveryId)))
+        {
+            delivery.Link.UnsettledCount--;
+            if (delivery.QueueDeliveryTag is { } tag)
+            {
+                delivery.Link.Consumer!.Reject(tag, requeue: true);
+            }
+        }
     }
 
     // ADR-0146 decision 1.4: judged at once, then held and answered transactional-state with the
@@ -119,6 +190,7 @@ public sealed partial class Amqp1ContainerConnection
         foreach (var transaction in transactions.Values.Where(open => open.Coordinator == coordinator).ToList())
         {
             transactions.Remove(transaction.Id);
+            RollBack(transaction);
         }
     }
 }

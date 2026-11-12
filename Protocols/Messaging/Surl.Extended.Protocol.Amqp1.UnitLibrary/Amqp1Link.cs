@@ -30,6 +30,12 @@ internal sealed class Amqp1Link(uint containerHandle)
     /// <summary>Whether the link's target is the transaction coordinator, so what the client sends on it declares and discharges transactions (Part 4 section 4.5.1).</summary>
     public bool IsCoordinator { get; set; }
 
+    /// <summary>Whether the link has ended, so nothing it held is the bus's to settle any more.</summary>
+    public bool IsEnded { get; set; }
+
+    /// <summary>When the container sends: the <c>txn-id</c> the client's last <c>flow</c> carried, whose transaction the deliveries sent now are acquired in; <see langword="null"/> when it carried none.</summary>
+    public byte[]? AcquiringTransactionId { get; set; }
+
     /// <summary>The node's canonical address, <c>/topic/&lt;t&gt;</c> or <c>/queue/&lt;q&gt;</c>, once found.</summary>
     public string NodeAddress { get; set; } = string.Empty;
 

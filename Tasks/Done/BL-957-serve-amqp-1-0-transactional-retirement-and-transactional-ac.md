@@ -8,7 +8,7 @@ depends-on: [BL-956]
 touches: [Protocols/Messaging/Surl.Extended.Protocol.Amqp1.UnitLibrary, Protocols/Messaging/Surl.Extended.Protocol.Amqp1.UnitTests, Documentation/Conformance/Extended/Amqp1.md]
 requirement: none
 created: 2026-11-06
-completed:
+completed: 2026-11-12
 ---
 # BL-957 — Serve AMQP 1.0 transactional retirement and transactional acquisition
 
@@ -30,15 +30,15 @@ acquires in a transaction return to their queue when it rolls back.
 
 ## Acceptance criteria
 
-- [ ] A `disposition` in `transactional-state` with `accepted` leaves the queue delivery unacknowledged until a
+- [x] A `disposition` in `transactional-state` with `accepted` leaves the queue delivery unacknowledged until a
       commit acknowledges it; a test shows the same for `rejected`, `released` and `modified` at commit.
-- [ ] After a rollback a retired delivery is unsettled on its link again, and goes back to its queue when the
+- [x] After a rollback a retired delivery is unsettled on its link again, and goes back to its queue when the
       link ends.
-- [ ] After a `flow` carrying `txn-id`, the container's transfers carry `transactional-state` naming it; a
+- [x] After a `flow` carrying `txn-id`, the container's transfers carry `transactional-state` naming it; a
       `flow` without it stops that; a rollback returns those deliveries not retired to their queue marked
       redelivered.
-- [ ] A `disposition` naming an unknown `txn-id` is answered `rejected` with `amqp:transaction:unknown-id`.
-- [ ] Each row above names its tests in `Amqp1.md`; 100% line and branch coverage holds.
+- [x] A `disposition` naming an unknown `txn-id` is answered `rejected` with `amqp:transaction:unknown-id`.
+- [x] Each row above names its tests in `Amqp1.md`; 100% line and branch coverage holds.
 
 ## Notes
 
@@ -48,3 +48,4 @@ acquires in a transaction return to their queue when it rolls back.
 
 - 2026-11-06: Created.
 - 2026-11-12: Backlog -> Doing.
+- 2026-11-12: Doing -> Done. AMQP 1.0 container holds transactional dispositions until commit and acquires deliveries in a transaction via flow txn-id

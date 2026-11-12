@@ -252,6 +252,7 @@ public sealed partial class Amqp1ContainerConnection
     private void EndLink(Amqp1Session session, Amqp1Link link)
     {
         link.EndSource();
+        link.IsEnded = true;
         DiscardPartial(link);
         RollBackTransactionsDeclaredBy(link);
         link.Sending = null;

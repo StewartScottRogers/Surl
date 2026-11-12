@@ -43,6 +43,8 @@ public sealed partial class Amqp1ContainerConnection
     // Part 2 section 2.6.7: link-credit(snd) = delivery-count(rcv) + link-credit(rcv) - delivery-count(snd).
     private async ValueTask AnswerReceiverFlowAsync(Amqp1Session session, Amqp1Link link, Amqp1Flow flow)
     {
+        // Part 4 section 4.4.3: a txn-id in the flow's properties acquires what is sent next in that transaction.
+        link.AcquiringTransactionId = flow.TransactionId;
         if (flow.LinkCredit is { } credit)
         {
             var left = unchecked((int)((flow.DeliveryCount ?? 0) + credit - link.DeliveryCount));
@@ -118,14 +120,17 @@ public sealed partial class Amqp1ContainerConnection
 
         var pending = link.Take();
         var deliveryId = session.NextDeliveryId++;
-        var sending = new Amqp1OutgoingTransfer(DeliveryFrames(session, link, pending, deliveryId), pending.QueueDeliveryTag);
+        var transaction = OpenTransaction(link.AcquiringTransactionId); 
+        var sending = new Amqp1OutgoingTransfer(DeliveryFrames(session, link, pending, deliveryId, transaction), pending.QueueDeliveryTag);
         link.NextDeliveryTag++;
         link.DeliveryCount++;
         link.Credit--;
         if (!link.SenderSettles)
         {
-            session.Unsettled.Add(deliveryId, new Amqp1OutgoingDelivery(link, pending.QueueDeliveryTag));
+            var delivery = new Amqp1OutgoingDelivery(session, deliveryId, link, pending.QueueDeliveryTag);
+            session.Unsettled.Add(deliveryId, delivery);
             link.UnsettledCount++;
+            transaction?.Acquired.Add(delivery);
         }
 
         link.Sending = sending;
@@ -144,7 +149,7 @@ public sealed partial class Amqp1ContainerConnection
 
     // The transfers of one delivery, each at most the client's max-frame-size, more on all but the last
     // (Part 2 section 2.6.14).
-    private List<Amqp1Frame> DeliveryFrames(Amqp1Session session, Amqp1Link link, Amqp1PendingMessage pending, uint deliveryId)
+    private List<Amqp1Frame> DeliveryFrames(Amqp1Session session, Amqp1Link link, Amqp1PendingMessage pending, uint deliveryId, Amqp1Transaction? transaction)
     {
         var payload = Amqp1BusMessages.ToTransferPayload(pending.Message, pending.Address, pending.Redelivered, context.TimeProvider.GetUtcNow());
         var tag = new byte[sizeof(ulong)];
@@ -155,6 +160,7 @@ public sealed partial class Amqp1ContainerConnection
             DeliveryTag = tag,
             MessageFormat = StandardMessageFormat,
             Settled = link.SenderSettles,
+            State = transaction is null ? null : Amqp1DeliveryState.TransactionalAcquisition(transaction.TransactionId),
         };
         var maxFrameSize = (int)Math.Min(clientMaxFrameSize, offeredMaxFrameSize);
         List<Amqp1Frame> frames = [];
@@ -184,6 +190,12 @@ public sealed partial class Amqp1ContainerConnection
 
         var span = unchecked((disposition.Last ?? disposition.First) - disposition.First);
         var settled = session.Unsettled.Where(entry => unchecked(entry.Key - disposition.First) <= span).ToList();
+        if (Amqp1DeliveryState.IsTransactional(disposition.State))
+        {
+            await RetireInTransactionAsync(session, disposition, settled);
+            return true;
+        }
+
         foreach (var (deliveryId, delivery) in settled)
         {
             await SettleSentAsync(session, deliveryId, delivery, disposition);
@@ -194,6 +206,7 @@ public sealed partial class Amqp1ContainerConnection
 
     private async ValueTask SettleSentAsync(Amqp1Session session, uint deliveryId, Amqp1OutgoingDelivery delivery, Amqp1Disposition disposition)
     {
+        delivery.ForgetHeldOutcome();
         delivery.OutcomeApplied = delivery.OutcomeApplied || ApplyOutcome(delivery, disposition.State);
         if (disposition.Settled)
         {

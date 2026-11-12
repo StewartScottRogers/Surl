@@ -22,6 +22,12 @@ internal sealed class Amqp1Transaction(uint id, Amqp1Link coordinator)
     /// <summary>The messages posted in it, in posting order.</summary>
     public IReadOnlyList<BusBatchEntry> Held => held;
 
+    /// <summary>The outcomes clients stated in it for the container's deliveries, in the order stated (Part 4 section 4.4.2).</summary>
+    public List<Amqp1HeldOutcome> HeldOutcomes { get; } = [];
+
+    /// <summary>The deliveries the container sent in it (Part 4 section 4.4.3), in sending order.</summary>
+    public List<Amqp1OutgoingDelivery> Acquired { get; } = [];
+
     /// <summary>The bytes of the messages posted in it, as they arrived.</summary>
     public long HeldBytes { get; private set; }
 
@@ -39,6 +45,14 @@ internal sealed class Amqp1Transaction(uint id, Amqp1Link coordinator)
     /// <summary>The number a <c>txn-id</c> names; <see langword="null"/> when it is not four bytes.</summary>
     public static uint? IdOf(byte[]? transactionId) =>
         transactionId is { Length: sizeof(uint) } ? System.Buffers.Binary.BinaryPrimitives.ReadUInt32BigEndian(transactionId) : null;
+
+    /// <summary>Holds a client's outcome for a delivery, replacing any outcome held for it.</summary>
+    public void HoldOutcome(Amqp1OutgoingDelivery delivery, object? outcome, bool settled)
+    {
+        delivery.ForgetHeldOutcome();
+        delivery.Held = new Amqp1HeldOutcome(this, delivery, outcome, settled);
+        HeldOutcomes.Add(delivery.Held);
+    }
 
     /// <summary>Holds a message posted in the transaction.</summary>
     public void Hold(BusBatchEntry entry, long bytes)
