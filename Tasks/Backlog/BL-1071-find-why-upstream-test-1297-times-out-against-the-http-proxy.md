@@ -1,5 +1,5 @@
 ---
-id: BL-1068
+id: BL-1071
 title: Find why upstream test 1297 times out against the http-proxy server half
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-12
 completed:
 ---
-# BL-1068 — Find why upstream test 1297 times out against the http-proxy server half
+# BL-1071 — Find why upstream test 1297 times out against the http-proxy server half
 
 ## Goal
 

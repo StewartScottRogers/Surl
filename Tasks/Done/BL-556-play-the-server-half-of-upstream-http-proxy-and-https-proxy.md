@@ -100,12 +100,12 @@ decision 8 says; the `http-proxy` and `https-proxy` rows of the server-name tabl
 - Counts, Windows `win-x64` on the reference pin (this lane runs only Windows): of the 29 cases naming
   `http-proxy` or `https-proxy` (24 and 5; the task text's "27" leaves out 715 and 2055), 25 pass: 80, 83, 95,
   275, 445, 714, 744, 1078, 1287, 1288, 1319, 1320, 1321, 1428, 1586, 1630, 1631, 1632, 1849, 1904, 2050, 2107,
-  3028, 3106, 3401. 1297 fails `timeout` (BL-1068). 1230 skips `server-half-not-composed:http-ipv6` (BL-1069).
+  3028, 3106, 3401. 1297 fails `timeout` (BL-1071). 1230 skips `server-half-not-composed:http-ipv6` (BL-1072).
   715 and 2055 keep `server-not-built:socks5` until BL-562. The row went from 1,078 to 1,103 passed, 50 to 51
   failed, 885 to 859 skipped; no case that passed fails. Linux and macOS were not run from this lane: their
   rows in the pass-rate file are unchanged and their passing lists do not list these cases, so the next CI run
   of `Upstream test cases` will show them as newly passing (or not) on those pins.
-- Follow-up tasks: BL-1068 (1297 timeout), BL-1069 (compose `http-ipv6`), BL-1070 (ADR-0088 amendment).
+- Follow-up tasks: BL-1071 (1297 timeout), BL-1072 (compose `http-ipv6`), BL-1070 (ADR-0088 amendment).
 - Coverage: the new proxy files measured 100% line and 100% branch with the collector (HttpProxy tests: 342).
 
 ## Log

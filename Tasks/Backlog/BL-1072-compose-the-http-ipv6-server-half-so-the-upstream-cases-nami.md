@@ -1,5 +1,5 @@
 ---
-id: BL-1069
+id: BL-1072
 title: Compose the http-ipv6 server half so the upstream cases naming it run
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-12
 completed:
 ---
-# BL-1069 — Compose the http-ipv6 server half so the upstream cases naming it run
+# BL-1072 — Compose the http-ipv6 server half so the upstream cases naming it run
 
 ## Goal
 
