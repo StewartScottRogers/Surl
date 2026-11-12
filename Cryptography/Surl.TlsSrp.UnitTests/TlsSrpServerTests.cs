@@ -150,6 +150,7 @@ public sealed class TlsSrpServerTests
         var alert = await Assert.ThrowsExactlyAsync<TlsAlertException>(() => UnitTestSrpClient.Server().AuthenticateAsync(transport, CancellationToken.None));
 
         Assert.AreEqual(TlsAlertDescription.BadRecordMac, alert.Description);
+        StringAssert.StartsWith(alert.Message, "The TLS-SRP login failed: unknown user 'nobody'. ");
         CollectionAssert.AreEqual(Convert.FromHexString("15030300020214"), transport.Written.ToArray()[^7..]);
     }
 
@@ -162,6 +163,7 @@ public sealed class TlsSrpServerTests
         var alert = await Assert.ThrowsExactlyAsync<TlsAlertException>(() => UnitTestSrpClient.Server().AuthenticateAsync(transport, CancellationToken.None));
 
         Assert.AreEqual(TlsAlertDescription.BadRecordMac, alert.Description);
+        StringAssert.StartsWith(alert.Message, "The TLS-SRP login failed: wrong password for 'jsmith'. ");
         CollectionAssert.AreEqual(Convert.FromHexString("15030300020214"), transport.Written.ToArray()[^7..]);
     }
 
@@ -176,6 +178,18 @@ public sealed class TlsSrpServerTests
 
         Assert.AreEqual(TlsAlertDescription.DecryptError, alert.Description);
         CollectionAssert.AreEqual(Convert.FromHexString("15030300020233"), transport.Written.ToArray()[^7..]);
+    }
+
+    [TestMethod]
+    public async Task AuthenticateAsync_ProtectedClientKeyExchangeInsteadOfFinished_SendsUnexpectedMessageWithoutALoginNote()
+    {
+        var handshake = new UnitTestSrpHandshake();
+        using var transport = new UnitTestScriptedStream(handshake.ClientBytes(handshake.KeyExchange));
+
+        var alert = await Assert.ThrowsExactlyAsync<TlsAlertException>(() => UnitTestSrpClient.Server().AuthenticateAsync(transport, CancellationToken.None));
+
+        Assert.AreEqual(TlsAlertDescription.UnexpectedMessage, alert.Description);
+        Assert.DoesNotContain("TLS-SRP login", alert.Message);
     }
 
     [TestMethod]

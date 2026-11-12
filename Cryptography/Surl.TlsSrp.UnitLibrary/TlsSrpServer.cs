@@ -81,7 +81,16 @@ public sealed class TlsSrpServer(TlsSrpAccounts accounts, RandomNumberGenerator 
         await messages.ReadChangeCipherSpecAsync(cancellationToken).ConfigureAwait(false);
         var readProtection = keys.ClientWriteProtection(negotiation.EncryptThenMac, random);
         reader.ChangeProtection(readProtection);
-        var finished = await messages.ReadAsync(TlsHandshakeType.Finished, cancellationToken).ConfigureAwait(false);
+        TlsHandshakeMessage finished;
+        try
+        {
+            finished = await messages.ReadAsync(TlsHandshakeType.Finished, cancellationToken).ConfigureAwait(false);
+        }
+        catch (TlsAlertException alert) when (alert.Description == TlsAlertDescription.BadRecordMac)
+        {
+            throw LoginFailed(account, alert);
+        }
+
         VerifyClientFinished(finished.Body, TlsPseudorandomFunction.ClientFinishedVerifyData(masterSecret, SHA256.HashData([.. transcript])));
         transcript.AddRange(finished.Framed);
 
@@ -124,6 +133,16 @@ public sealed class TlsSrpServer(TlsSrpAccounts accounts, RandomNumberGenerator 
 
         return premasterSecret;
     }
+
+    /// <summary>
+    /// The client's <c>Finished</c> record failed its MAC: the keys differ, because the user is unknown
+    /// (a simulated account) or the password is wrong. The message says which, for the verbose log; the
+    /// alert sent is the same <c>bad_record_mac</c> either way (ADR-0122 decision 4).
+    /// </summary>
+    private static TlsAlertException LoginFailed(TlsSrpAccount account, TlsAlertException alert) =>
+        new(alert.Description, account.IsSimulated
+            ? $"The TLS-SRP login failed: unknown user '{account.UserName}'. {alert.Message}"
+            : $"The TLS-SRP login failed: wrong password for '{account.UserName}'. {alert.Message}");
 
     private static void VerifyClientFinished(byte[] body, byte[] expected)
     {

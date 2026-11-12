@@ -23,7 +23,9 @@ The handshake:
 - `TlsSrpAccounts` finds an account by the exact bytes of the user name. An unknown user gets a
   simulated `TlsSrpAccount`: a salt from HMAC-SHA256 under a secret drawn once, the 2048-bit group
   and a random verifier. The handshake then fails at the client's `Finished` with `bad_record_mac`,
-  exactly as a wrong password does.
+  exactly as a wrong password does. Only the thrown `TlsAlertException`'s message tells them apart
+  (`The TLS-SRP login failed: unknown user '<name>'.` or `... wrong password for '<name>'.`, ADR-0122
+  Amendment 3), for the verbose log; the wire never does.
 - `TlsHandshakeMessageReader` reassembles handshake messages across records. `TlsMessageReader`
   reads fixed fields and vectors, and refuses short or overlong input with `decode_error`.
   `TlsAlerts` writes and reads alert bodies.

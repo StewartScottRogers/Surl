@@ -66,9 +66,10 @@ public sealed class StreamConnectionTlsSrpTests
     }
 
     [TestMethod]
-    [DataRow("CurlTlsSrpJsmithBadpass")]
-    [DataRow("CurlTlsSrpBaduserBadpass")]
-    public async Task UpgradeToTlsAsync_RecordedUpstreamCurlWrongPasswordOrUnknownUser_ThrowsTlsHandshakeExceptionAfterBadRecordMac(string caseName)
+    [DataRow("CurlTlsSrpJsmithBadpass", "wrong password for 'jsmith'")]
+    [DataRow("CurlTlsSrpBaduserBadpass", "unknown user 'baduser'")]
+    public async Task UpgradeToTlsAsync_RecordedUpstreamCurlWrongPasswordOrUnknownUser_ThrowsTlsHandshakeExceptionSayingWhichAfterBadRecordMac(
+        string caseName, string which)
     {
         var (connection, client) = Create(RecordedSettings());
         await using var _ = connection;
@@ -78,6 +79,7 @@ public sealed class StreamConnectionTlsSrpTests
         var failure = await Assert.ThrowsExactlyAsync<TlsHandshakeException>(() => connection.UpgradeToTlsAsync(TestContext.CancellationToken).AsTask());
 
         Assert.IsInstanceOfType<TlsAlertException>(failure.InnerException);
+        StringAssert.StartsWith(failure.Message, $"The TLS-SRP login failed: {which}. ");
         Assert.IsNull(connection.TlsSession);
         await connection.DisposeAsync();
         var written = await ReadToEndAsync(client);
