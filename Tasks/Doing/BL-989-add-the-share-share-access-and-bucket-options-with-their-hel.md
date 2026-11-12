@@ -44,3 +44,4 @@ and buckets end to end. This completes what BL-663 set out to do.
 ## Log
 
 - 2026-11-06: Created.
+- 2026-11-11: Backlog -> Doing.
