@@ -501,7 +501,7 @@ measured.
   loosening switches `--allow-anonymous` and `--allow-plaintext-auth`; none gives a policy that asks for no
   login (`ComposedProtocolServices.ProxyAuthenticationPolicy`). An unreadable proxy user file is `(37)` and a
   malformed one `(2)`, worded as the `--user-file`'s are (`Could not read user file <file>`), before the lock is
-  taken. BL-1040's `--proxy-auth` will replace the default method set.
+  taken. BL-1040's `--proxy-auth` replaces the default method set (Amendment 8).
 - **`--proxy-allow-origin '*'`** writes `surl: warning: --proxy-allow-origin: the proxy connects to every
   origin address, not only loopback` from the info level up, with the other loosening warnings.
 
@@ -528,3 +528,25 @@ three tasks BL-555 was split into. Nothing here is a byte curl sends or expects,
   widens what the proxy may reach, warns only for `*`, and is a deployment choice like `--allow-uploads`,
   so it has no loosening explanation. Its argument is `<address>` in the help rows to keep the help
   columns as they were; its allowed values state the full form.
+
+## Amendment 8 - `--proxy-auth`, settled by BL-1040 (2026-11-11)
+
+Decided by Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), in BL-1040:
+
+- **Reading.** `--proxy-auth <methods>` reads ADR-0032 section 3's words with the same reader as `--auth`
+  (`OptionArgumentReader.AuthenticationMethods`): any case, comma-separated, kept lower-case in that
+  section's order, the last one given winning, and an unknown word, an empty item or an empty argument
+  refused `(2) option --proxy-auth: is badly used here` with the try-help line. It lands in
+  `SurlCommandLine.GivenProxyAuthenticationMethods` (null when not given), and
+  `AcceptedProxyAuthenticationMethods` is that or decision 5's default, `digest` and `basic`. It never changes
+  `--auth`'s members, nor `--auth` its.
+- **Composing.** `AuthenticationComposition.ComposeProxyPolicy` builds the proxy's policy over
+  `AcceptedProxyAuthenticationMethods`, replacing Amendment 6's default method set. With no `--proxy-auth`
+  the proxy's `407` is as before, Digest then Basic. It does not apply to SOCKS, whose RFC 1929 login reads
+  only the accounts.
+- **Warning.** Like `--auth`, `--proxy-auth` writes `surl: warning: --proxy-auth: accepted proxy methods are
+  <words>` from the info level up, right after the `--auth` line, because it can switch on a method (NTLM,
+  Negotiate) the default leaves off. It has no loosening explanation of its own, as `--proxy-allow-origin` has
+  none: the `--help --auth` page already explains the words.
+- **Help.** The option row is `--proxy-auth <methods>`, "Methods the proxy accepts", in the `auth` and `proxy`
+  categories, default `digest,basic`; the proxy topic's paragraph and `--manual`'s `PROXY OPTIONS` name it.
