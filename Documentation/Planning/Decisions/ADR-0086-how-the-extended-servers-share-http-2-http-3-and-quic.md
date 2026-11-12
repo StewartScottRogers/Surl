@@ -359,3 +359,54 @@ Decided by Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), in
    forbids `Surl.Http3` to reference `Surl.Http2`, where `Http2RequestHeadMapping` lives, and RFC
    9114 sections 4.2 and 4.3 repeat RFC 9113's rules, so the mapping is copied, with its tests,
    over QPACK's `QpackFieldLine`. Its log text is unchanged.
+
+## Amendment 2 - what BL-411 built for decision 3 (2026-11-11)
+
+Decided by Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), in BL-411, and
+recorded here by BL-830 because BL-569 held this folder while BL-411 ran. Decision 3 stands; nine
+details were settled as the code in `Protocols/Http/Surl.Http3.UnitLibrary` was written, and each
+is stated as that code does it now:
+
+1. **Signals and stream types are `ulong?`.** `IHttp3ExtendedConnectHandler.BidirectionalStreamSignal`
+   and `UnidirectionalStreamType` are `ulong?`, not decision 3's planning `long?`: they are QUIC
+   variable-length integers, as `QuicStream.Id` is.
+2. **Streams naming no open session go to the handler.** The interface gains
+   `ServeStreamWithoutSessionAsync(Http3SessionStream, CancellationToken)`: a claimed stream whose
+   session ID names no open session of the handler whose signal or type opened it - not arrived
+   yet, ended, or another handler's - is handed to that handler, read past its header, so the
+   WebTransport server (ADR-0117 decision 3) holds or resets it with its own codes. `Surl.Http3`
+   knows no WebTransport code.
+3. **An unregistered `:protocol` is answered `501`.** RFC 9220 section 3: "the server SHOULD
+   respond to the request with a 501 (Not Implemented) status code". The connection writes
+   `:status 501`, then the `server` field when `Http3ServerOptions.ServerFieldValue` names one, then
+   `content-length: 0`, with FIN, and then, as after every handler while the request side is still
+   open, `STOP_SENDING` `H3_NO_ERROR`.
+4. **When `:protocol` is accepted.** Only with a handler registered (with none, `:protocol` stays
+   an unknown pseudo-header field), only on `CONNECT`, and only with `:scheme`, `:authority` and a
+   non-empty `:path` (`Http3RequestHeadMapping`); otherwise the request is malformed and reset
+   `H3_MESSAGE_ERROR`, as before.
+5. **`SETTINGS` order.** `SETTINGS_MAX_FIELD_SECTION_SIZE` (left out when `--max-message` is 0, as
+   before), then `SETTINGS_ENABLE_CONNECT_PROTOCOL` (0x08) = 1 and `SETTINGS_H3_DATAGRAM` (0x33) =
+   1 when a handler is registered, then `Http3ServerOptions.FurtherSettings` in their order.
+6. **HTTP datagrams.** A quarter stream ID cut short or past 2^60 - 1 closes the connection
+   `H3_DATAGRAM_ERROR` (0x33, RFC 9297 section 2.1). A session is open from its `CONNECT`'s arrival
+   until `ServeSessionAsync` returns, so datagrams that arrive before the handler's answer wait in
+   the session (`ReceiveDatagramAsync`, 128, oldest dropped). One naming a stream that is decided
+   and is no open session - an ordinary request, a refused or ended session - is dropped with a log
+   note (section 2.1 allows dropping). As BL-411 built it, a datagram arriving before its `CONNECT`
+   was dropped too, narrowing ADR-0117 decision 3's 64-datagram hold to nothing; BL-894 has since
+   built that hold: one naming a stream not accepted yet, or accepted and not yet decided, is held,
+   64 a connection, each for at most `--head-timeout`, handed over in order when its session opens,
+   and dropped with a log note past either or once the stream turns out no session.
+7. **ID and frame errors.** A claimed stream's session ID that is not a client-initiated
+   bidirectional stream ID closes `H3_ID_ERROR` (0x108). A registered bidirectional signal anywhere
+   but a request stream's first integer - after an unknown frame, or as a frame type after
+   `HEADERS` - closes `H3_FRAME_ERROR` (0x106).
+8. **Capsules.** `Http3ExtendedConnectSession.ReadCapsuleAsync` returns every type and the handler
+   drops the ones it does not know (RFC 9297 section 3.2); a capsule longer than `--max-message`
+   resets the stream `H3_EXCESSIVE_LOAD`, and a FIN inside one resets it `H3_MESSAGE_ERROR`
+   (section 3.3).
+9. **The client's `SETTINGS` are kept.** The connection keeps the client's `SETTINGS` once its
+   control stream delivers them and exposes them as
+   `Http3ExtendedConnectSession.ReadClientSettingsAsync`, so a protocol can wait for and check them
+   (ADR-0117 decision 0).

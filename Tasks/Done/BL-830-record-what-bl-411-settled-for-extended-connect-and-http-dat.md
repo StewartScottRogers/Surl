@@ -8,7 +8,7 @@ depends-on: [BL-411, BL-1035]
 touches: [Documentation/Planning/Decisions/ADR-0086-how-the-extended-servers-share-http-2-http-3-and-quic.md, Documentation/Planning/Decisions/README.md]
 requirement: none
 created: 2026-11-05
-completed:
+completed: 2026-11-11
 ---
 # BL-830 — Record what BL-411 settled for extended CONNECT and HTTP datagrams in ADR-0086
 
@@ -52,9 +52,9 @@ the library's `CLAUDE.md`; this task copies them into the ADR, checking each aga
 
 ## Acceptance criteria
 
-- [ ] ADR-0086 has an "Amendment 2" section stating items 1 to 9, each true of
+- [x] ADR-0086 has an "Amendment 2" section stating items 1 to 9, each true of
       `Protocols/Http/Surl.Http3.UnitLibrary` as it is.
-- [ ] `Documentation/Planning/Decisions/README.md` needs no change, or is updated if it lists amendments.
+- [x] `Documentation/Planning/Decisions/README.md` needs no change, or is updated if it lists amendments.
 
 ## Notes
 
@@ -73,3 +73,4 @@ the library's `CLAUDE.md`; this task copies them into the ADR, checking each aga
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waits on BL-1035: pinned .NET SDK 10.0.401 is not installed, so dotnet build cannot run; the ADR text is ready on factory/BL-830-lane-4-20261111-060243
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Done. ADR-0086 Amendment 2 records BL-411's extended CONNECT and HTTP datagram decisions, checked against Surl.Http3
