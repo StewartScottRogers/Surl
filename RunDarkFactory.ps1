@@ -2089,8 +2089,12 @@ function Get-ToolLabel {
         'Agent' { return @('agent', "$($in.subagent_type): $($in.description)") }
         'Task' { return @('agent', "$($in.subagent_type): $($in.description)") }
         'Skill' { return @('skill', "$($in.skill) $($in.args)") }
-        'Edit' { return @('edit', (Split-Path "$($in.file_path)" -Leaf)) }
-        'Write' { return @('write', (Split-Path "$($in.file_path)" -Leaf)) }
+        # A model sometimes names the argument `path`; the tool refuses that call, but the label
+        # must not throw: Split-Path on '' ended whole lanes with "script error". GetFileName takes ''.
+        { $_ -in 'Edit', 'Write' } {
+            $file = if ($in.file_path) { "$($in.file_path)" } else { "$($in.path)" }
+            return @($Tool.name.ToLowerInvariant(), [IO.Path]::GetFileName($file))
+        }
         { $_ -in 'Bash', 'PowerShell' } {
             $c = "$($in.command)"
             if ($c -match 'task-board\.ps1\s+move\b.*-To\s+(\w+)') { return @('move', $Matches[1]) }
