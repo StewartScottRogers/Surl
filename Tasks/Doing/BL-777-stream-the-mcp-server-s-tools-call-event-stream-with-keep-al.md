@@ -59,3 +59,4 @@ the one `data:` event, as ADR-0111 decision 4.3 says.
 - 2026-11-05: Created.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waits on BL-1035: pinned .NET SDK 10.0.401 is not installed, so the pinned build, fast tests and coverage cannot run; code is written and stashed by the shift
+- 2026-11-11: Backlog -> Doing.
