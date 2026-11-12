@@ -440,6 +440,31 @@ while building 3.1 to 3.4 into `Surl.MessageBus.UnitLibrary`; recorded here by B
   now declared without `durable` is made again empty at load, as a non-durable declared queue is at
   every start; `LoadAsync` accepts a bus holding only its still-empty declarations.
 
+#### 3.6 What BL-991 settled in `Surl.Composition`
+
+Decided by Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), 2026-11-11, in BL-991,
+while composing 3.1 to 3.4 into the bus (`MessageBusComposition`). No byte any server sends changes.
+
+- **Refused at start, exit 2, in this order:** a `--topic` filter that is not a canonical filter,
+  `(2) option --topic: topic <filter> is not a valid topic filter`; more than 1000 `--queue`s (the
+  bus's `DefaultMaxQueues`), `(2) option --queue: more than 1000 queues`; a `--topic-map` scheme
+  `TopicNameLookup` does not know, `(2) option --topic-map: <scheme> is not a messaging scheme`; a
+  name not valid on its scheme, 3.3's `(2) option --topic-map: not a valid name for <scheme>` naming
+  the left scheme when the left name is the bad one, else the right; a name a map on the same scheme
+  or its TLS twin already aliases (`mqtt:a` then `mqtts:a`), row 14's
+  `(2) option --topic-map: topic map <scheme>:<name> is given twice`; a `--topic-access` filter that
+  is not a canonical filter, `(2) option --topic-access: topic <filter> is not a valid topic filter`;
+  then row 18's member naming no account or group. **Why:** each would otherwise reach the bus's
+  constructor as an `ArgumentException`; a filter and a scheme are names, never secrets, so they may
+  be quoted, as row 14 quotes names.
+- **A member reached twice in one row keeps the union of its rights** (`@staff:pub` and `alice:sub`
+  give a `staff` member `alice` `pubsub`), one `TopicAccessGrant` per member per filter, as a share
+  member keeps its wider access (2.2).
+- **The `-v` notes** of decision 5 put `: ` before a topic's first attribute and `, ` between them:
+  `* Topic shop/#: retained, QoS at most 1`, `* Topic news: QoS at most 0`; `Topic access: <n> grants`
+  counts the grants after group expansion. They follow the share notes; the `@everyone` warning
+  follows the share warning.
+
 ### 4. Accounts and groups
 
 #### 4.1 `--group <name>=<member>,...`
