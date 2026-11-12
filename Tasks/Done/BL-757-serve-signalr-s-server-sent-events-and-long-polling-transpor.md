@@ -5,10 +5,10 @@ priority: Normal
 assignee: Claude
 pipeline: feature
 depends-on: [BL-449, BL-1035]
-touches: [Protocols/Http/Surl.Extended.Protocol.SignalR.UnitLibrary, Protocols/Http/Surl.Extended.Protocol.SignalR.UnitTests, Documentation/Conformance/Extended/SignalR.md]
+touches: [Protocols/Http/Surl.Extended.Protocol.SignalR.UnitLibrary, Protocols/Http/Surl.Extended.Protocol.SignalR.UnitTests, Documentation/Conformance/Extended/SignalR.md, Documentation/Planning/Decisions/ADR-0119-how-the-signalr-server-answers-signalr-and-signalrs.md]
 requirement: none
 created: 2026-11-05
-completed:
+completed: 2026-11-11
 ---
 # BL-757 — Serve SignalR's Server-Sent Events and Long Polling transports with HTTP Post
 
@@ -30,14 +30,14 @@ client's half, and negotiate lists them in `availableTransports`.
 
 ## Acceptance criteria
 
-- [ ] Negotiate's `availableTransports` lists WebSockets, `{"transport":"ServerSentEvents","transferFormats":["Text"]}`
+- [x] Negotiate's `availableTransports` lists WebSockets, `{"transport":"ServerSentEvents","transferFormats":["Text"]}`
       and `{"transport":"LongPolling","transferFormats":["Text","Binary"]}`, pinned by a named test.
-- [ ] Named tests show, from TransportProtocols.md: SSE `GET` with `Accept: text/event-stream` answered
+- [x] Named tests show, from TransportProtocols.md: SSE `GET` with `Accept: text/event-stream` answered
       `Content-Type: text/event-stream` and each record as an event's `data`; `400` without `id`, `404` for an unknown
       one; a Long Polling `GET` answered with the waiting records, `200` with no content on the server's poll timeout,
       `204` for a superseded poll; HTTP Post `200` once processed, `409` for a second outstanding post, `404` for an
       ended connection; `DELETE` ending the connection and completing the poll with `204`.
-- [ ] The matrix rows are replaced by rows naming those tests; `dotnet build -warnaserror` is clean, the fast tests
+- [x] The matrix rows are replaced by rows naming those tests; `dotnet build -warnaserror` is clean, the fast tests
       are green, and the library keeps 100% line and branch coverage.
 
 ## Notes
@@ -63,9 +63,17 @@ client's half, and negotiate lists them in `availableTransports`.
     or ended; `400` without `id` on any non-upgrade request, `400` for a transport mismatch; other methods `405
     Allow: GET, POST, DELETE`. Record these as an amendment to ADR-0119 decision 2 (add the ADR to touches).
 
+- 2026-11-11 (lane 2, finished): the pinned SDK now rolls forward to 10.0.404, so the work built and tested. Done as
+  designed above with two changes, both recorded in ADR-0119 amendment 1 (added to touches): Server-Sent Events is a
+  `HttpAnswerBody.Streamed` answer, not a takeover, and a Long Polling session runs on the shutdown token in the
+  background after its first poll. Choices taken: an event stream starts with the comment line `:`; an SSE
+  MessagePack handshake is refused as an unavailable protocol (Text only); stateful reconnect stays WebSockets only;
+  a `GET` without `Upgrade: websocket` is no longer `426` (matrix row Surl-2-3 reworded). Library at 100% line and
+  branch, complexity within limits.
 ## Log
 
 - 2026-11-05: Created.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waits on BL-1035: pinned .NET SDK 10.0.401 is not installed, so nothing builds
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Done. SSE, Long Polling and HTTP Post transports served; build clean, fast tests green, library at 100%
