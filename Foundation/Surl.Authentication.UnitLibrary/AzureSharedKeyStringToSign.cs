@@ -1,5 +1,4 @@
 using System.Text;
-using System.Text.RegularExpressions;
 
 namespace Surl.Authentication;
 
@@ -7,7 +6,7 @@ namespace Surl.Authentication;
 /// The string a Shared Key or Shared Key Lite signature is made over, for the Blob and Data Lake
 /// services at version 2009-09-19 and later ("Authorize with Shared Key").
 /// </summary>
-internal static partial class AzureSharedKeyStringToSign
+internal static class AzureSharedKeyStringToSign
 {
     // The twelve standard fields of Shared Key's string, after the verb, in the page's order.
     private static readonly string[] SharedKeyFields =
@@ -61,7 +60,7 @@ internal static partial class AzureSharedKeyStringToSign
             .OrderBy(group => group.Key, StringComparer.Ordinal);
         foreach (var header in headers)
         {
-            var values = header.Select(field => WhiteSpaceRun().Replace(field.Value.Trim(), " "));
+            var values = header.Select(field => CollapseWhiteSpace(field.Value));
             text.Append(header.Key).Append(':').Append(string.Join(',', values)).Append('\n');
         }
     }
@@ -90,6 +89,7 @@ internal static partial class AzureSharedKeyStringToSign
         return comp is null ? text.ToString() : text.Append("?comp=").Append(comp).ToString();
     }
 
-    [GeneratedRegex(@"\s+")]
-    private static partial Regex WhiteSpaceRun();
+    // Trims the value and folds each run of white space into one space.
+    private static string CollapseWhiteSpace(string value) =>
+        string.Join(' ', value.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
 }

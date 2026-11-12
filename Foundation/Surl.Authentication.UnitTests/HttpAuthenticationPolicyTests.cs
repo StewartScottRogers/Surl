@@ -115,6 +115,28 @@ public sealed class HttpAuthenticationPolicyTests
     }
 
     [TestMethod]
+    public async Task UndefinedOutcome_IsAnsweredAsARefusal()
+    {
+        var ntlm = new ScriptedHttpAuthenticationMethod(
+            AuthenticationMethod.Ntlm, ["NTLM"], new HttpCredentialCheck((HttpCredentialOutcome)99, null, []));
+        var policy = PolicyFixture.Create(
+            PolicyFixture.AliceAndToken, clock, acceptedMethods: new HashSet<AuthenticationMethod> { AuthenticationMethod.Ntlm }, httpMethods: ntlm);
+
+        AssertVerdict(HttpAuthenticationOutcome.Challenge, ["NTLM"], null, await JudgeAsync(policy, null, PolicyFixture.Get("NTLM type1")));
+    }
+
+    [TestMethod]
+    public async Task AcceptedUnchecked_ProceedsWithoutAnAccountOrLoginNote()
+    {
+        var ntlm = new ScriptedHttpAuthenticationMethod(
+            AuthenticationMethod.Ntlm, ["NTLM"], new HttpCredentialCheck(HttpCredentialOutcome.AcceptedUnchecked, null, ["NTLM final"]));
+        var policy = PolicyFixture.Create(
+            PolicyFixture.AliceAndToken, clock, acceptedMethods: new HashSet<AuthenticationMethod> { AuthenticationMethod.Ntlm }, httpMethods: ntlm);
+
+        AssertVerdict(HttpAuthenticationOutcome.Proceed, ["NTLM final"], null, await JudgeAsync(policy, null, PolicyFixture.Get("NTLM type3")));
+    }
+
+    [TestMethod]
     public async Task AwaitingBodyWithoutABodyCheck_IsAnsweredAsARefusal()
     {
         var ntlm = new ScriptedHttpAuthenticationMethod(
