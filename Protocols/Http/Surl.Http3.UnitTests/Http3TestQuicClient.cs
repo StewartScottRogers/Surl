@@ -29,6 +29,9 @@ internal class Http3TestQuicClient : IDisposable
     public const ulong ServerControlStreamId = 3;
 
     private static readonly TimeSpan Patience = TimeSpan.FromSeconds(30);
+
+    /// <summary>Longer than any closing or draining state the tests reach: three probe timeouts from the initial 333 ms RTT are about 3 s.</summary>
+    private static readonly TimeSpan ClosingStateBound = TimeSpan.FromMinutes(1);
     private readonly Dictionary<ulong, ulong> sendOffsets = [];
     private int taken;
 
@@ -64,9 +67,16 @@ internal class Http3TestQuicClient : IDisposable
             CertificateKey = Key,
             MaxDatagramFrameSize = maxDatagramFrameSize,
         };
-        Serving = new QuicDatagramFlowServer(options, application, time, RandomNumberGenerator.Create()).ServeAsync(Flow, cancellationToken);
+        Clock = time as IMovableClock;
+        Serving = new QuicDatagramFlowServer(options, new RecordingApplicationProtocol(this, application), time, RandomNumberGenerator.Create()).ServeAsync(Flow, cancellationToken);
         return Serving;
     }
+
+    /// <summary>The connection the server handed its application, once it has.</summary>
+    public QuicApplicationConnection? ApplicationConnection { get; private set; }
+
+    /// <summary>The server's clock, when a test moves it: <see cref="FinishAsync"/> moves it past the closing or draining state.</summary>
+    protected IMovableClock? Clock { get; set; }
 
     /// <summary>Completes the handshake, and opens the client's control stream with <paramref name="settings"/> and its two QPACK streams.</summary>
     /// <remarks>
@@ -128,17 +138,37 @@ internal class Http3TestQuicClient : IDisposable
         }
     }
 
-    /// <summary>Waits for the server's run to end, then opens everything it sent.</summary>
+    /// <summary>
+    /// Waits for the server's run to end, then opens everything it sent. Once the connection has
+    /// closed - the client has opened the server's <c>CONNECTION_CLOSE</c>, or the application was
+    /// told the connection ended - it moves a <see cref="Clock"/> past the closing or draining state,
+    /// which holds the run open until then (RFC 9000 section 10.2).
+    /// </summary>
     public async Task FinishAsync(CancellationToken cancellationToken)
     {
-        await Serving!.WaitAsync(Patience, cancellationToken);
+        var serving = Serving!;
+        await UntilAsync(() => serving.IsCompleted || HasClosed(), cancellationToken);
+        await UntilAsync(
+            () =>
+            {
+                Clock?.Advance(ClosingStateBound);
+                return serving.IsCompleted;
+            },
+            cancellationToken);
+        await serving;
         TakeSent();
     }
+
+    /// <summary>Whether the connection has closed: the server's <c>CONNECTION_CLOSE</c> reached the client, or the application's side has ended.</summary>
+    public bool HasClosed() =>
+        ApplicationConnection?.Ended.IsCancellationRequested == true
+        || Quic.FramesReceived.Values.Any(frames => frames.OfType<QuicConnectionCloseFrame>().Any());
 
     public IEnumerable<T> OneRttFrames<T>() where T : QuicFrame => Quic.FramesReceived[QuicPacketType.OneRtt].OfType<T>();
 
     /// <summary>The application <c>CONNECTION_CLOSE</c>'s error code, or null when none came.</summary>
-    public ulong? CloseCode => OneRttFrames<QuicConnectionCloseFrame>().SingleOrDefault()?.ErrorCode;
+    /// <remarks>The closing state may answer the client's later datagrams with the same frame again, so repeats count once.</remarks>
+    public ulong? CloseCode => OneRttFrames<QuicConnectionCloseFrame>().Select(frame => (ulong?)frame.ErrorCode).Distinct().SingleOrDefault();
 
     /// <summary>The server's <c>RESET_STREAM</c> code on <paramref name="streamId"/>, or null.</summary>
     public ulong? ResetCode(ulong streamId) => OneRttFrames<QuicResetStreamFrame>().SingleOrDefault(frame => frame.StreamId == streamId)?.ApplicationErrorCode;
@@ -248,5 +278,15 @@ internal class Http3TestQuicClient : IDisposable
         var sent = Flow.SentDatagrams;
         Quic.Receive(sent.Skip(taken));
         taken = sent.Count;
+    }
+
+    /// <summary>Records the connection the server hands its application, then runs the test's application.</summary>
+    private sealed class RecordingApplicationProtocol(Http3TestQuicClient client, IQuicApplicationProtocol inner) : IQuicApplicationProtocol
+    {
+        public Task ServeAsync(QuicApplicationConnection connection, CancellationToken cancellationToken)
+        {
+            client.ApplicationConnection = connection;
+            return inner.ServeAsync(connection, cancellationToken);
+        }
     }
 }

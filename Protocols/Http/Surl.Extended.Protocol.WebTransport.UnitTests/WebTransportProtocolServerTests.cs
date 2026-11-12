@@ -113,13 +113,15 @@ public sealed class WebTransportProtocolServerTests
     {
         using var client = new Http3TestQuicClient();
         using var exchange = new CancellationTokenSource();
-        var serving = StartServing(client, NewContext(new ManualTimeProvider(Now), exchange.Token), TimeSpan.Zero);
+        var time = new ManualTimeProvider(Now);
+        var serving = StartServing(client, NewContext(time, exchange.Token), TimeSpan.Zero);
         await client.OpenAsync(Token, UnitTestWebTransport.WebTransportSettings);
         await UnitTestWebTransport.OpenSessionAsync(client, Token);
 
         await exchange.CancelAsync();
-        await serving.WaitAsync(TimeSpan.FromSeconds(30), Token);
         await client.UntilAsync(() => client.CloseCode is not null, Token);
+        time.Advance(TimeSpan.FromMinutes(1));
+        await serving.WaitAsync(TimeSpan.FromSeconds(30), Token);
 
         Assert.AreEqual(0x100UL, client.CloseCode);
     }

@@ -11,7 +11,7 @@ namespace Surl.Protocol.Http;
 /// advances the clock can never see a timer whose due time is still being set on another, which
 /// would miss the advance and wait forever.
 /// </remarks>
-internal sealed class ManualTimeProvider(DateTimeOffset start) : TimeProvider
+internal sealed class ManualTimeProvider(DateTimeOffset start) : TimeProvider, IMovableClock
 {
     private readonly List<ManualTimer> timers = [];
     private DateTimeOffset utcNow = start;

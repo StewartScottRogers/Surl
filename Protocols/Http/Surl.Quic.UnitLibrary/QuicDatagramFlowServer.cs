@@ -45,10 +45,12 @@ public sealed class QuicDatagramFlowServer
     /// <summary>
     /// Serves the connection <paramref name="flow"/>'s first datagram starts, until it ends: closed
     /// by either side, discarded at the idle timeout, or by the application returning (which closes
-    /// it with application error code 0).
+    /// it with application error code 0). A connection closed by either side is held in its closing
+    /// or draining state (RFC 9000 section 10.2) until that state ends on the clock; the application
+    /// is told the connection ended as soon as it closes.
     /// </summary>
     /// <param name="flow">The client's datagrams, starting with its first Initial.</param>
-    /// <param name="cancellationToken">Stops serving; the application's token is cancelled with it.</param>
+    /// <param name="cancellationToken">Stops serving at once, in the closing or draining state too; the application's token is cancelled with it.</param>
     /// <returns>A task that completes when the connection has ended and the application has returned; an exception the application threw is thrown from it.</returns>
     public Task ServeAsync(IDatagramFlow flow, CancellationToken cancellationToken)
     {
@@ -60,13 +62,15 @@ public sealed class QuicDatagramFlowServer
     private async Task ServeFlowAsync(IDatagramFlow flow, CancellationToken cancellationToken)
     {
         var connection = new QuicServerConnection(options, timeProvider, random);
-        var ending = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        // Not linked to cancellationToken: Ended is cancelled only once the application's side has
+        // ended, so a call the application makes on seeing it is always refused.
+        var ending = new CancellationTokenSource();
         var loop = new QuicDatagramFlowLoop(
             new QuicApplicationConnection(connection, flow, ending), flow, applicationProtocol, timeProvider);
         ExceptionDispatchInfo? loopFailure = null;
         try
         {
-            await loop.RunAsync(ending.Token);
+            await loop.RunAsync(cancellationToken);
         }
         catch (Exception exception)
         {

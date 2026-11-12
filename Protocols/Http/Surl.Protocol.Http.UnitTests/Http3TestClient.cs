@@ -44,6 +44,7 @@ internal sealed class Http3TestClient(Func<byte[], byte[]>? editClientHello = nu
         var store = new ContentStore(HttpServerHarness.Root, fileSystem ?? HttpServerHarness.StandardFileSystem(), exposure);
         if (ProtocolServerPolicy is { } policy)
         {
+            Clock = Time;
             Serving = new Http3ProtocolServer(store, policy, [SelfSignedCertificate()], Key, IdleTimeout, TrustsClientCertificateChain).ServeAsync(Flow, context);
             return Serving;
         }

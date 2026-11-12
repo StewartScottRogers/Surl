@@ -13,6 +13,7 @@
   <ItemGroup>
     <Compile Include="..\Surl.Http3.UnitTests\Http3TestQuicClient.cs" Link="Http3TestQuicClient.cs" />
     <Compile Include="..\Surl.Http3.UnitTests\Http3TestResponse.cs" Link="Http3TestResponse.cs" />
+    <Compile Include="..\Surl.Http3.UnitTests\IMovableClock.cs" Link="IMovableClock.cs" />
     <Compile Include="..\Surl.Http3.UnitTests\ManualTimeProvider.cs" Link="ManualTimeProvider.cs" />
     <Compile Include="..\Surl.Http3.UnitTests\UnitTestQuicClient.cs" Link="UnitTestQuicClient.cs" />
     <Compile Include="..\Surl.Http3.UnitTests\UnitTestTls13Client.cs" Link="UnitTestTls13Client.cs" />

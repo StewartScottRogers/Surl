@@ -28,8 +28,11 @@ internal sealed class UnitTestFlowClient : IDisposable
 
     public UnitTestTimeProvider Time { get; } = new();
 
+    /// <summary>The connection the server handed its application, once it has.</summary>
+    public QuicApplicationConnection? ApplicationConnection { get; private set; }
+
     public QuicDatagramFlowServer Server(QuicServerConnectionOptions options, IQuicApplicationProtocol applicationProtocol) =>
-        new(options, applicationProtocol, Time, RandomNumberGenerator.Create());
+        new(options, new RecordingApplicationProtocol(this, applicationProtocol), Time, RandomNumberGenerator.Create());
 
     /// <summary>The frames of every 1-RTT packet the client has opened.</summary>
     public IEnumerable<T> OneRttFrames<T>() where T : QuicFrame => Client.FramesReceived[QuicPacketType.OneRtt].OfType<T>();
@@ -74,14 +77,45 @@ internal sealed class UnitTestFlowClient : IDisposable
     /// <summary>Sends 1-RTT frames from the client.</summary>
     public void SendOneRtt(params QuicFrame[] frames) => Flow.DeliverFromClient(Client.SealOneRtt(frames));
 
-    /// <summary>Waits for <paramref name="serving"/> to end, then opens everything the server sent.</summary>
+    /// <summary>
+    /// Waits for <paramref name="serving"/> to end, then opens everything the server sent. Once the
+    /// connection has closed - the client has opened the server's <c>CONNECTION_CLOSE</c>, or the
+    /// application was told the connection ended - it moves the clock past the closing or draining
+    /// state, which holds the flow open until then (RFC 9000 section 10.2).
+    /// </summary>
     public async Task FinishAsync(Task serving, CancellationToken cancellationToken)
     {
-        await serving.WaitAsync(Patience, cancellationToken);
+        await UntilAsync(() => serving.IsCompleted || HasClosed(), cancellationToken);
+        await UntilAsync(
+            () =>
+            {
+                Time.Advance(ClosingStateBound);
+                return serving.IsCompleted;
+            },
+            cancellationToken);
+        await serving;
         TakeSent();
     }
 
+    /// <summary>Whether the connection has closed: the server's <c>CONNECTION_CLOSE</c> reached the client, or the application's side has ended.</summary>
+    public bool HasClosed() =>
+        ApplicationConnection?.Ended.IsCancellationRequested == true
+        || Client.FramesReceived.Values.Any(frames => frames.OfType<QuicConnectionCloseFrame>().Any());
+
     public void Dispose() => Client.Dispose();
+
+    /// <summary>Longer than any closing or draining state the tests reach: three probe timeouts from the initial 333 ms RTT are about 3 s.</summary>
+    private static readonly TimeSpan ClosingStateBound = TimeSpan.FromMinutes(1);
+
+    /// <summary>Records the connection the server hands its application, then runs the test's application.</summary>
+    private sealed class RecordingApplicationProtocol(UnitTestFlowClient client, IQuicApplicationProtocol inner) : IQuicApplicationProtocol
+    {
+        public Task ServeAsync(QuicApplicationConnection connection, CancellationToken cancellationToken)
+        {
+            client.ApplicationConnection = connection;
+            return inner.ServeAsync(connection, cancellationToken);
+        }
+    }
 
     private void TakeSent()
     {
