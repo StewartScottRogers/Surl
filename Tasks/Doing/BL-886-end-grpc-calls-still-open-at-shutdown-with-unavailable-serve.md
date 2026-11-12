@@ -76,3 +76,4 @@ fails SDK resolution. Returned to Backlog behind BL-1035, as BL-911 and BL-762 w
 - 2026-11-05: Created.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waits on BL-1035: pinned .NET SDK 10.0.401 is not installed, so the written code and tests cannot be built
+- 2026-11-11: Backlog -> Doing.
