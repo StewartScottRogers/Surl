@@ -62,3 +62,4 @@ cover Shared Key and shared access signatures.
 - 2026-11-11: Doing -> Backlog. Lane 1 could not integrate: build failed after rebasing onto the other lanes' work. The work is on branch factory/BL-842-lane-1-20261111-060243; start with git cherry-pick --no-commit factory/BL-842-lane-1-20261111-060243 and fix it.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waits on BL-1035: dotnet build cannot find the .NET SDK 10.0.401 that global.json pins; the docs are done in commit 254b2d66
+- 2026-11-11: Backlog -> Doing.
