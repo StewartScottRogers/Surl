@@ -166,14 +166,15 @@ internal sealed class Http1AnswerWriter
     // False when the body could not be sent whole and the connection must be aborted.
     private async Task<bool> WriteBodyAsync(HttpAnswerBody body, bool isChunked)
     {
-        if (body is HttpAnswerBody.ContentFile file)
+        switch (body)
         {
-            return await CopyFileAsync(file.Store, file.Mapping, file.Range);
-        }
-
-        if (body is HttpAnswerBody.Bytes bytes)
-        {
-            await connection.WriteAsync(bytes.Content, context.CancellationToken);
+            case HttpAnswerBody.ContentFile file:
+                return await CopyFileAsync(HttpAnswerBody.ContentFileParts.Of(file));
+            case HttpAnswerBody.ContentFileParts parts:
+                return await CopyFileAsync(parts);
+            case HttpAnswerBody.Bytes bytes:
+                await connection.WriteAsync(bytes.Content, context.CancellationToken);
+                break;
         }
 
         if (body is HttpAnswerBody.Streamed streamed)
@@ -215,22 +216,22 @@ internal sealed class Http1AnswerWriter
     // After the head the Content-Length is promised, so a file that shrinks or cannot be
     // read any more can only be answered by aborting the connection; a reset tells curl the
     // transfer failed. A failure of the connection itself is not the file's and is rethrown.
-    private async Task<bool> CopyFileAsync(ContentStore contentStore, ContentPathMapping mapping, ContentByteRange range)
+    private async Task<bool> CopyFileAsync(HttpAnswerBody.ContentFileParts parts)
     {
         await using var body = new ConnectionWriteStream(connection);
         try
         {
-            var copied = await contentStore.CopyFileBytesAsync(mapping, range, body, context.CancellationToken);
-            if (copied < range.ByteCount)
+            var copied = await parts.CopyToAsync(body, context.CancellationToken);
+            if (copied < parts.FileByteCount)
             {
-                context.Log.Note($"{mapping.Location} shrank to {copied} bytes while it was sent; the connection was aborted.");
+                context.Log.Note($"{parts.Mapping.Location} shrank to {copied} bytes while it was sent; the connection was aborted.");
             }
 
-            return copied == range.ByteCount;
+            return copied == parts.FileByteCount;
         }
         catch (Exception failure) when (failure is IOException or UnauthorizedAccessException && !body.HasFailedWrite)
         {
-            context.Log.Note($"{mapping.Location} could not be read after the 200 head was sent ({failure.GetType().Name}: {failure.Message}); the connection was aborted.");
+            context.Log.Note($"{parts.Mapping.Location} could not be read after the 200 head was sent ({failure.GetType().Name}: {failure.Message}); the connection was aborted.");
 
             return false;
         }

@@ -664,6 +664,22 @@ public sealed class Http2ConnectionServerTests
     }
 
     [TestMethod]
+    public async Task ServeAsync_GetWithSeveralRanges_AnswersTheMultipartByteRangesHttp11Answers()
+    {
+        var client = new Http2TestClient();
+        var request = Concat(Start(), client.Get(1, "/file.txt", true, ("range", "bytes=0-1,3-4")));
+
+        var (connection, _) = await ServeAsync(request);
+
+        var response = Responses(connection.WrittenBytes)[1];
+        var (http11Fields, http11Body) = Http11Answer(RecordedResponse("range-multiple-206"));
+        Assert.AreEqual("206", response.Status);
+        CollectionAssert.AreEqual(http11Fields, RegularFields(response));
+        Assert.AreEqual(http11Body, response.BodyText);
+        Assert.IsTrue(response.EndedOnData);
+    }
+
+    [TestMethod]
     [DataRow("shrinks")]
     [DataRow("cannot be read")]
     [DataRow("access denied")]

@@ -34,7 +34,9 @@ decisions 2.2, 2.3).
 
 A `GET`'s `Range` is read by `HttpRangeSelection` (ADR-0133 decision 1): one satisfiable `bytes`
 range is answered `206` with `Content-Range`, one naming no byte `416` with
-`Content-Range: bytes */<length>`, and several ranges, other units, bad syntax or an `If-Range` that
+`Content-Range: bytes */<length>`, several ranges `206` as `multipart/byteranges` with the fixed
+boundary `SURL_BYTERANGES` (`HttpByteRangesBody`; overlapping ranges coalesce; ADR-0133 Amendment 1),
+and other units, bad syntax, more than 100 ranges or an `If-Range` that
 is not the exact `Last-Modified` get the whole file `200`. Under `--allow-uploads` a `PUT` is
 answered by `HttpRequestAnswerer.Uploads.cs` (ADR-0133 decision 2), mapped for the same caller: the
 body is copied through `HttpUploadStream` into a content-store upload session, hashed when a login

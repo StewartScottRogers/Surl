@@ -285,34 +285,41 @@ internal sealed partial class HttpRequestAnswerer : IHttpRequestHandler
     }
 
     // A file is answered 200 with its length; a GET carries its bytes, a HEAD none. A GET whose
-    // Range selects bytes is answered 206 with them, or 416 when they are past the end
-    // (ADR-0133, decision 1).
+    // Range selects bytes is answered 206 with them - several ranges as multipart/byteranges - or
+    // 416 when they are all past the end (ADR-0133, decision 1 and Amendment 1).
     private HttpAnswer FileAnswer(HttpRequest request, ContentPathMapping mapping, ContentFileStatus status, IReadOnlyList<string> challenges)
     {
         var now = Now();
         var lastModified = FormatHttpDate(status.LastModifiedUtc < now ? status.LastModifiedUtc : now);
-        var range = request.Method == "GET" ? SelectedRange(request, lastModified, status.Length) : null;
-        if (range is { IsSatisfiable: false })
+        var ranges = request.Method == "GET" ? SelectedRanges(request, lastModified, status.Length) : null;
+        if (ranges is { Count: 0 })
         {
             context.Log.Note($"{request.Method} {request.Target}: 416, the range is past the end of the {status.Length}-byte {mapping.Location}");
 
             return RangeNotSatisfiableAnswer(request, status.Length, challenges);
         }
 
-        return ServedFileAnswer(request, mapping, now, lastModified, range, status.Length, challenges);
+        return ServedFileAnswer(request, mapping, now, lastModified, ranges, status.Length, challenges);
     }
 
-    // The 200 or 206 for a file: the range selected, or the whole file.
-    private HttpAnswer ServedFileAnswer(HttpRequest request, ContentPathMapping mapping, DateTimeOffset now, string lastModified, ContentByteRange? range, long fileLength, IReadOnlyList<string> challenges)
+    // The 200 or 206 for a file: the ranges selected, or the whole file.
+    private HttpAnswer ServedFileAnswer(HttpRequest request, ContentPathMapping mapping, DateTimeOffset now, string lastModified, IReadOnlyList<ContentByteRange>? ranges, long fileLength, IReadOnlyList<string> challenges)
     {
-        var servedRange = range ?? ContentByteRange.WholeFile(fileLength);
         List<KeyValuePair<string, string>> fields =
         [
             new("Date", FormatHttpDate(now)),
             new("Server", HttpResponseHead.ServerName),
             new("Last-Modified", lastModified),
-            new("Content-Type", ContentMediaTypes.Of(mapping.Location!)),
         ];
+        var mediaType = ContentMediaTypes.Of(mapping.Location!);
+        if (ranges is { Count: > 1 })
+        {
+            return ByteRangesAnswer(request, HttpByteRangesBody.Of(contentStore, mapping, mediaType, ranges), fields, challenges);
+        }
+
+        var range = ranges?[0];
+        var servedRange = range ?? ContentByteRange.WholeFile(fileLength);
+        fields.Add(new("Content-Type", mediaType));
         if (range is not null)
         {
             fields.Add(new("Content-Range", FormattableString.Invariant($"bytes {range.FirstByte}-{range.LastByte}/{range.FileLength}")));
@@ -331,7 +338,7 @@ internal sealed partial class HttpRequestAnswerer : IHttpRequestHandler
     // The range a GET's Range asks for, when its If-Range (if any) is the Last-Modified the
     // answer carries, character for character; the server sends no ETag, so an entity-tag
     // If-Range never matches and the whole file is served (RFC 9110, section 13.1.5).
-    private static ContentByteRange? SelectedRange(HttpRequest request, string lastModified, long fileLength)
+    private static IReadOnlyList<ContentByteRange>? SelectedRanges(HttpRequest request, string lastModified, long fileLength)
     {
         var ifRange = FieldValue(request, "If-Range");
         if (ifRange is not null && !string.Equals(ifRange.Trim(' ', '\t'), lastModified, StringComparison.Ordinal))
@@ -340,6 +347,17 @@ internal sealed partial class HttpRequestAnswerer : IHttpRequestHandler
         }
 
         return HttpRangeSelection.Select(FieldValue(request, "Range"), fileLength);
+    }
+
+    // Several ranges: 206 with a multipart/byteranges body, the file's own media type moved into
+    // each part (RFC 9110, section 14.6; ADR-0133, Amendment 1).
+    private HttpAnswer ByteRangesAnswer(HttpRequest request, HttpAnswerBody.ContentFileParts body, List<KeyValuePair<string, string>> fields, IReadOnlyList<string> challenges)
+    {
+        fields.Add(new("Content-Type", HttpByteRangesBody.ContentType));
+        fields.Add(new("Content-Length", body.Length.ToString(CultureInfo.InvariantCulture)));
+        context.Log.Note($"{request.Method} {request.Target}: 206, {body.Parts.Count} ranges, {body.FileByteCount} bytes of {body.Mapping.Location}");
+
+        return new HttpAnswer(PartialContent, AddChallenges(fields, challenges), body, IsRefusal: false, LeavesRequestBodyUnread: request.Body.IsAnnounced);
     }
 
     // The value of a field sent once; a field sent more than once is not one the server reads.

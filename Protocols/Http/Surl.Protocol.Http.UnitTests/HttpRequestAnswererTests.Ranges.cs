@@ -7,8 +7,8 @@ namespace Surl.Protocol.Http;
 
 /// <summary>
 /// A <c>GET</c>'s <c>Range</c> is answered <c>206</c> with the bytes it selects, or <c>416</c> when
-/// it names none, and several ranges or an <c>If-Range</c> that is not the file's
-/// <c>Last-Modified</c> get the whole file with <c>200</c> (ADR-0133, decision 1), as the bytes
+/// it names none, several ranges as <c>multipart/byteranges</c>; an <c>If-Range</c> that is not the file's
+/// <c>Last-Modified</c> gets the whole file with <c>200</c> (ADR-0133, decision 1), as the bytes
 /// recorded from pinned upstream curl 8.21.0 show (<c>Fixtures/range-*</c>).
 /// </summary>
 public sealed partial class HttpRequestAnswererTests
@@ -17,7 +17,8 @@ public sealed partial class HttpRequestAnswererTests
     [DataRow("range-206")]
     [DataRow("range-suffix-206")]
     [DataRow("range-unsatisfiable-416")]
-    [DataRow("range-multiple-200")]
+    [DataRow("range-multiple-206")]
+    [DataRow("range-overlapping-206")]
     [DataRow("range-if-range-206")]
     public async Task ServeAsync_RecordedRangeRequest_SendsTheRecordedResponseAndKeepsTheConnection(string caseName)
     {

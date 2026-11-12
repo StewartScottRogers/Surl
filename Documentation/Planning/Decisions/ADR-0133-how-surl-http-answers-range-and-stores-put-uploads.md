@@ -29,7 +29,7 @@ and `put-*`, each with the `response.bin` fed to curl:
 | `-r 0-9` | `Range: bytes=0-9` after `Host` | `206`, `Content-Range: bytes 0-9/17`, 10 bytes | writes the 10 bytes, exits 0 |
 | `-r -5` | `Range: bytes=-5` | `206`, `Content-Range: bytes 12-16/17`, 5 bytes | writes the 5 bytes, exits 0 |
 | `-r 100-200` | `Range: bytes=100-200` | `416`, `Content-Range: bytes */17`, empty | writes nothing, exits 0 |
-| `-r 0-1,3-4` | `Range: bytes=0-1,3-4` | `200` with the whole 17-byte file | writes the 17 bytes, exits 0 |
+| `-r 0-1,3-4` | `Range: bytes=0-1,3-4` | `200` with the whole 17-byte file (before Amendment 1) | writes the 17 bytes, exits 0 |
 | `-r 0-9 -H "If-Range: <Last-Modified>"` | the field as given, after `Accept` | `206` as for `-r 0-9` | writes the 10 bytes, exits 0 |
 | `-u user:secret -T <16 bytes>` (new file) | `PUT`, `Authorization`, `Content-Length: 16`, the body; no `Expect` | `201 Created`, `Content-Length: 0` | exits 0 |
 | the same over an existing file | the same | `204 No Content`, no `Content-Length` | exits 0 |
@@ -52,10 +52,9 @@ under `--allow-uploads` with a login with `201` and the stored file
       `Content-Range: bytes */<length>` and `Content-Length: 0`. It is not a refusal: the connection
       is kept as a `404` keeps it.
    4. **Ignored, so the whole file is served `200`:** another unit, a syntax RFC 9110 does not give (a
-      sign, a non-digit, a last before the first), a `Range` sent more than once, and **several
-      ranges**. RFC 9110 section 14.2 lets a server ignore a `Range`, and curl takes the `200` and
-      exits 0. Answering several ranges with `multipart/byteranges` is BL-888: it needs a body kind
-      each version's writer sends, and stays wanted.
+      sign, a non-digit, a last before the first) and a `Range` sent more than once. RFC 9110
+      section 14.2 lets a server ignore a `Range`, and curl takes the `200` and exits 0. Several
+      ranges are answered `206` as `multipart/byteranges` (Amendment 1).
    5. **`If-Range`**: the range is served only when the field, trimmed, is the `Last-Modified` the
       answer carries, character for character; otherwise the whole file is served `200`. The server
       sends no `ETag`, so an entity-tag `If-Range` never matches (RFC 9110 section 13.1.5).
@@ -95,7 +94,7 @@ under `--allow-uploads` with a login with `201` and the stored file
   HTTP/2 and HTTP/3, so a test can upload over HTTP and read back over any protocol that shares the
   content store, or the reverse.
 - `--aihelp`'s `http` topic still describes the old `405`; BL-889 brings it up to date.
-- Several ranges stay a whole-file `200` until BL-888.
+- Several ranges are answered `206` as `multipart/byteranges` (Amendment 1, BL-888).
 
 ## Alternatives considered
 
@@ -107,3 +106,32 @@ under `--allow-uploads` with a login with `201` and the stored file
 - **Answer every store refusal `403`.** Rejected: a missing directory or a directory at the target is
   a conflict with the resource's state (RFC 9110 section 15.5.10), which a client can fix by creating
   the directory, not a question of permission.
+
+## Amendment 1 — several ranges as `multipart/byteranges` (BL-888)
+
+Decided by Claude under Stewart's delegation (2026-11-12). It replaces the "several ranges" clause of
+decision 1.4.
+
+Measured with `Record-CurlExchange.ps1` against pinned upstream curl 8.21.0 (fixtures
+`Fixtures/range-multiple-206` and `Fixtures/range-overlapping-206`): `-r 0-1,3-4` sends
+`Range: bytes=0-1,3-4` and, given a canned `206` with `Content-Type: multipart/byteranges;
+boundary=SURL_BYTERANGES`, writes the 181-byte multipart body verbatim to stdout and exits 0; `-r 0-4,2-6`
+sends `Range: bytes=0-4,2-6` and, given a single-part `206 bytes 0-6/17`, writes `Hello f` and exits 0.
+curl neither parses nor rejects the body, so the choices below come from RFC 9110 section 14.6 and
+RFC 2046 section 5.1.
+
+1. **Boundary:** the fixed `SURL_BYTERANGES`, so every answer is the same bytes every run (a test
+   stand-in must be deterministic).
+2. **Part fields:** each part carries the file's own `Content-Type`, then `Content-Range: bytes
+   <first>-<last>/<length>`, an empty line and the bytes; parts are joined by CRLF `--SURL_BYTERANGES`
+   and the body ends with CRLF `--SURL_BYTERANGES--` CRLF. The answer's `Content-Type` is
+   `multipart/byteranges; boundary=SURL_BYTERANGES` and its `Content-Length` is the body's length.
+3. **Unsatisfiable ranges** are dropped; if none is left the answer is `416` as for one range.
+4. **Coalescing:** ranges that overlap or touch become one range, sorted by first byte (RFC 9110
+   section 14.2 permits it). A set that coalesces to one is a plain single-part `206`. Otherwise the
+   ranges keep the order sent.
+5. **Cap:** more than 100 ranges, or any malformed range, ignores the field and serves the whole file
+   `200`, as for one malformed range.
+6. **Mechanism:** `HttpAnswerBody.ContentFileParts` (preamble plus range per part, then an epilogue) is
+   written by `Http1AnswerWriter`, `Http2StreamAnswerWriter` and `Http3StreamAnswerWriter` alike; the
+   writers know nothing of MIME.

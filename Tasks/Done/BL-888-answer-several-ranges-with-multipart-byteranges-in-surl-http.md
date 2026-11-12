@@ -8,7 +8,7 @@ depends-on: [BL-723, BL-1035]
 touches: [Protocols/Http/Surl.Protocol.Http.UnitLibrary, Protocols/Http/Surl.Protocol.Http.UnitTests, Protocols/Http/Surl.HttpServing.UnitLibrary, Protocols/Http/Surl.HttpServing.UnitTests]
 requirement: none
 created: 2026-11-05
-completed:
+completed: 2026-11-12
 ---
 # BL-888 — Answer several ranges with multipart/byteranges in surl http and https
 
@@ -31,11 +31,11 @@ they serve the whole file with `200`.
 
 ## Acceptance criteria
 
-- [ ] ADR-0133 has an amendment deciding the boundary, part fields, coalescing of overlapping
+- [x] ADR-0133 has an amendment deciding the boundary, part fields, coalescing of overlapping
       ranges and a cap on the number of ranges, citing measured curl bytes.
-- [ ] Unit tests in `Surl.Protocol.Http.UnitTests` replay the measured request and pin the
+- [x] Unit tests in `Surl.Protocol.Http.UnitTests` replay the measured request and pin the
       `206` `multipart/byteranges` answer byte for byte, over HTTP/1.1, HTTP/2 and HTTP/3.
-- [ ] `dotnet build -warnaserror` is clean and the fast tests are green.
+- [x] `dotnet build -warnaserror` is clean and the fast tests are green.
 
 ## Notes
 
@@ -62,6 +62,8 @@ they serve the whole file with `200`.
 
 - 2026-11-12: The unfinished work is recovered on branch `origin/recover/BL-888` (commit 94889012), already rebased onto the shift branch with its two conflicts settled (`HttpAnswerBody.cs` keeps both `Streamed` and `ContentFileParts`; `FileAnswer` hands `ranges` to `ServedFileAnswer`). Lanes may not run `git merge`, `fetch` or `stash`: in your worktree run `git cherry-pick -n origin/recover/BL-888`. What is left: `HttpRangeSelectionTests.cs` (lines 23, 24, 38, 39) still uses the old single-range `HttpRangeSelection.Select`, which now returns a list, so `Surl.Protocol.Http.UnitTests` does not compile until it is updated. Then add unit tests for `HttpByteRangesBody`, `ContentFilePart` and `ContentFileParts` (the project needs 100% line and branch coverage), run the fast tests, and check the two `range-*-206` fixtures against upstream curl.
 
+- 2026-11-12 (lane 1): finished. Cherry-picked origin/recover/BL-888; rewrote HttpRangeSelectionTests for the list result; added response.bin for both range-*-206 fixtures; HTTP/2 and HTTP/3 multipart tests replay the HTTP/1.1 bytes; HttpByteRangesBodyTests cover the body and the short-copy branch; ADR-0133 Amendment 1, project CLAUDE.md and Fixtures/README updated. The range-multiple-200 fixture stays (curl's request bytes) but no test replays its response.bin.
+
 ## Log
 
 - 2026-11-05: Created.
@@ -71,3 +73,4 @@ they serve the whole file with `200`.
 - 2026-11-12: Doing -> Blocked. Stewart: lane 4's uncommitted BL-888 code is in a git stash this lane may not read (git stash/status commands were denied); allow stash access to recover it, or say to rewrite it from scratch
 - 2026-11-12: Blocked -> Backlog. Stewart asked for the stash to be recovered on 2026-11-12: the work is on origin/recover/BL-888, rebased; the remaining test work is in Notes.
 - 2026-11-12: Backlog -> Doing.
+- 2026-11-12: Doing -> Done. surl http/https answer several ranges 206 multipart/byteranges on HTTP/1.1, 2 and 3 (ADR-0133 Amendment 1)
