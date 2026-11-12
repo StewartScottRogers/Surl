@@ -120,7 +120,7 @@ public sealed partial class Amqp1ContainerConnection
 
         var pending = link.Take();
         var deliveryId = session.NextDeliveryId++;
-        var transaction = OpenTransaction(link.AcquiringTransactionId); 
+        var transaction = OpenTransaction(link.AcquiringTransactionId);
         var sending = new Amqp1OutgoingTransfer(DeliveryFrames(session, link, pending, deliveryId, transaction), pending.QueueDeliveryTag);
         link.NextDeliveryTag++;
         link.DeliveryCount++;
