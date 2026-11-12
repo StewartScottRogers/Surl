@@ -73,6 +73,16 @@ or is listed in Notes with the reason it cannot pass.
   has only 10.0.100-rc.1, 11.0.100-rc.2 and 11.0.100, so `dotnet build` and the integration run
   this task needs cannot start. No work begun.
 
+- 2026-11-12 (lane 4): SDK 10.0.404 is installed now; build and integration run work (~2 min).
+  Causes, from the run's logged first differences:
+  - 1064, 1065, 2081: now pass.
+  - 30, 37: still `curl stopped after 60 s`; cause open -> BL-1075. (An unproven server-half
+    change was tried, did not help.)
+  - 60 (chunked upload line 9 `13` missing), 173 (multipart Content-Length 372 vs 378), 329 (Cookie
+    lacks `tester=yes`) -> BL-1076.
+  - 433 (config-file note path, harness), 470 (extra `curl: (52)` stderr), 1147 (output file
+    empty), 1244 (exit 52 vs 56) -> BL-1077.
+
 ## Log
 
 - 2026-11-04: Created.

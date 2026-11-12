@@ -222,6 +222,18 @@ public sealed class HttpUpstreamTestCaseServerTests
     }
 
     [TestMethod]
+    public async Task EmptyPart_ClosesWithNoBytesInsteadOfHoldingTheConnectionOpen()
+    {
+        var replies = Replies(("data", string.Empty));
+
+        var (connection, log) = await ServeAsync(replies, [Ascii("GET /30 HTTP/1.1\r\nHost: h\r\n\r\n")]);
+
+        Assert.IsEmpty(connection.WrittenBytes);
+        Assert.IsTrue(connection.WritesCompleted);
+        Assert.IsTrue(log.Notes.Any(note => note.Contains("or it is empty", StringComparison.Ordinal)));
+    }
+
+    [TestMethod]
     public async Task MissingPart_ClosesWithNoBytesAndNotesThePart()
     {
         var replies = Replies(("data", Data));
