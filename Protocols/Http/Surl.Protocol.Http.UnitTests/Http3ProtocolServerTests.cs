@@ -1,5 +1,6 @@
 using System.Security.Authentication;
 using System.Security.Cryptography;
+using System.Security.Cryptography.X509Certificates;
 using Surl.Content;
 using Surl.Protocol.Abstractions;
 using Surl.Quic;
@@ -25,6 +26,19 @@ public sealed class Http3ProtocolServerTests
         var server = new Http3ProtocolServer(Store(), new AnonymousAuthenticationPolicy(), [], key, TimeSpan.Zero);
 
         CollectionAssert.AreEqual(new[] { "https" }, server.Schemes.ToArray());
+    }
+
+    [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public void RequiresClientCertificate_IsWhetherATrustCheckWasGiven(bool givesTrustCheck)
+    {
+        using var key = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+        Func<IReadOnlyList<ReadOnlyMemory<byte>>, bool>? trusts = givesTrustCheck ? _ => true : null;
+
+        var server = new Http3ProtocolServer(Store(), new AnonymousAuthenticationPolicy(), [], key, TimeSpan.Zero, trusts);
+
+        Assert.AreEqual(givesTrustCheck, server.RequiresClientCertificate);
     }
 
     [TestMethod]
@@ -172,6 +186,27 @@ public sealed class Http3ProtocolServerTests
     }
 
     [TestMethod]
+    public async Task ServeAsync_TrustCheckAndATrustedClientCertificate_JudgesRequestsWithThatCertificate()
+    {
+        var policy = new UnitTestAuthenticationPolicy(_ => new HttpAuthenticationVerdict(HttpAuthenticationOutcome.Proceed, [], null));
+        using var certificate = ClientCertificate();
+        using var client = new Http3TestClient
+        {
+            ProtocolServerPolicy = policy,
+            TrustsClientCertificateChain = chain => chain[0].Span.SequenceEqual(certificate.RawData),
+        };
+        client.Quic.Tls.ClientCertificate = certificate;
+        await client.StartAsync(Token);
+
+        client.Send(0, client.Request("GET", "/file.txt"), fin: true);
+        await client.UntilAsync(() => client.HasEnded(0), Token);
+
+        Assert.IsTrue(client.Quic.Tls.ReceivedCertificateRequest);
+        Assert.AreEqual("200", client.Response(0).Status);
+        CollectionAssert.AreEqual(certificate.RawData, policy.StartedTlsSessions.Single()!.ClientCertificate!.RawData);
+    }
+
+    [TestMethod]
     public async Task ServeAsync_NoHeadTimeout_StillCompletesTheHandshake()
     {
         using var client = new Http3TestClient { ProtocolServerPolicy = new AnonymousAuthenticationPolicy(), IdleTimeout = TimeSpan.Zero };
@@ -181,6 +216,15 @@ public sealed class Http3ProtocolServerTests
         await client.UntilAsync(() => client.HasEnded(0), Token);
 
         Assert.AreEqual("200", client.Response(0).Status);
+    }
+
+    // A 1024-bit key keeps the client's Certificate, CertificateVerify and Finished inside one datagram.
+    private static X509Certificate2 ClientCertificate()
+    {
+        using var clientKey = RSA.Create(1024);
+        var request = new CertificateRequest("CN=client", clientKey, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
+        using var created = request.CreateSelfSigned(Now.AddDays(-1), Now.AddDays(1));
+        return X509CertificateLoader.LoadPkcs12(created.Export(X509ContentType.Pfx), null);
     }
 
     private static ContentStore Store() => new(Root, StandardFileSystem(), ContentExposureOptions.ServeEverythingInsideTheRoot);

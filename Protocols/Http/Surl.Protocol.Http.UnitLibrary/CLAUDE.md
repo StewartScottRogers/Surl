@@ -77,7 +77,9 @@ control and QPACK streams, `SETTINGS`, `GOAWAY` and request streams - lives in
 `https`'s UDP side: one `Surl.Quic` `QuicDatagramFlowServer` per flow with the server certificate,
 `--idle-timeout` as QUIC's idle timeout and the head timeout as the handshake's, and
 `Http3ApplicationProtocol`, which starts the connection's authentication session with the TLS 1.3
-session QUIC agreed and serves the connection with `Surl.Http3`'s `Http3ConnectionServer`, its
+session QUIC agreed - its `ClientCertificate` the one the handshake verified when the server was
+given a client-certificate trust check (`--cacert`, BL-741, ADR-0082 Amendment 5;
+`RequiresClientCertificate`) - and serves the connection with `Surl.Http3`'s `Http3ConnectionServer`, its
 `Http3ServerOptions` naming `server: surl` for the `431` the connection writes itself. Cancelling
 the exchange before the handshake completes stops the flow at once; after it, the HTTP/3 server
 answers it. A flow past `--max-connections` or `--max-connections-per-address` is refused

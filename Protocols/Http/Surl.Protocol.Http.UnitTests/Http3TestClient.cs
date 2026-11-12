@@ -30,6 +30,9 @@ internal sealed class Http3TestClient(Func<byte[], byte[]>? editClientHello = nu
     /// </summary>
     public IAuthenticationPolicy? ProtocolServerPolicy { get; set; }
 
+    /// <summary>The client-certificate trust check <see cref="Http3ProtocolServer"/> is given; null asks for no client certificate.</summary>
+    public Func<IReadOnlyList<ReadOnlyMemory<byte>>, bool>? TrustsClientCertificateChain { get; set; }
+
     /// <summary>The idle timeout <see cref="Http3ProtocolServer"/> is given.</summary>
     public TimeSpan IdleTimeout { get; set; } = TimeSpan.FromSeconds(30);
 
@@ -41,7 +44,7 @@ internal sealed class Http3TestClient(Func<byte[], byte[]>? editClientHello = nu
         var store = new ContentStore(HttpServerHarness.Root, fileSystem ?? HttpServerHarness.StandardFileSystem(), exposure);
         if (ProtocolServerPolicy is { } policy)
         {
-            Serving = new Http3ProtocolServer(store, policy, [SelfSignedCertificate()], Key, IdleTimeout).ServeAsync(Flow, context);
+            Serving = new Http3ProtocolServer(store, policy, [SelfSignedCertificate()], Key, IdleTimeout, TrustsClientCertificateChain).ServeAsync(Flow, context);
             return Serving;
         }
 
