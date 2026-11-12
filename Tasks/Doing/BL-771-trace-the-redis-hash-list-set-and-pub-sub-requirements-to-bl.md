@@ -49,3 +49,4 @@ error table lists the two error texts BL-491 added.
 - 2026-11-11: Doing -> Backlog. Lane 1 could not integrate: build failed after rebasing onto the other lanes' work. The work is on branch factory/BL-771-lane-1-20261111-060243; start with git cherry-pick --no-commit factory/BL-771-lane-1-20261111-060243 and fix it.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waiting on BL-1035: pinned .NET SDK 10.0.401 is not installed, so dotnet build cannot run; the docs work is on factory/BL-771-lane-1-20261111-060243
+- 2026-11-11: Backlog -> Doing.
