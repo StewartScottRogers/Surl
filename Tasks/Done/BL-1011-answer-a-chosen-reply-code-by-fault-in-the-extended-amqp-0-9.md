@@ -8,7 +8,7 @@ depends-on: [BL-823, BL-785, BL-1035]
 touches: [Protocols/Messaging/Surl.Extended.Protocol.Amqp0.UnitLibrary, Protocols/Messaging/Surl.Extended.Protocol.Amqp0.UnitTests]
 requirement: FR-062
 created: 2026-11-06
-completed:
+completed: 2026-11-11
 ---
 # BL-1011 — Answer a chosen reply code by fault in the extended AMQP 0-9-1 broker
 
@@ -46,13 +46,13 @@ says - instead of serving it, and publish one `FaultAppliedEvent`.
 
 ## Acceptance criteria
 
-- [ ] `Amqp0BrokerConnectionTests.Faults` exists and passes, including
+- [x] `Amqp0BrokerConnectionTests.Faults` exists and passes, including
       `QueueDeclare_UnderARuleOnItsQueue_ClosesTheChannelWithTheChosenExceptionAndAnotherQueueIsServed`,
       `Publish_ToTheDefaultExchangeUnderARuleOnItsQueue_ClosesTheChannelAndDiscardsTheContent` and
       `Consume_UnderARuleWithAConnectionException_ClosesTheConnection`.
-- [ ] Each applied rule publishes exactly one `FaultAppliedEvent`; `ExchangeDeclare_UnderARuleWhoseReplyIsNotAnException_IsNotedAndServed` passes.
-- [ ] With no rule, every existing `Surl.Extended.Protocol.Amqp0.UnitTests` test passes unchanged.
-- [ ] `dotnet build Protocols/Messaging/Surl.Extended.Protocol.Amqp0.UnitTests -warnaserror` is clean, the fast
+- [x] Each applied rule publishes exactly one `FaultAppliedEvent`; `ExchangeDeclare_UnderARuleWhoseReplyIsNotAnException_IsNotedAndServed` passes.
+- [x] With no rule, every existing `Surl.Extended.Protocol.Amqp0.UnitTests` test passes unchanged.
+- [x] `dotnet build Protocols/Messaging/Surl.Extended.Protocol.Amqp0.UnitTests -warnaserror` is clean, the fast
       tests are green, and the library keeps 100% line and branch coverage.
 
 ## Notes
@@ -62,6 +62,12 @@ says - instead of serving it, and publish one `FaultAppliedEvent`.
   methods the broker now serves: `tx.select`, `tx.commit`, `tx.rollback` and `confirm.select` name no
   exchange or queue, so they stay outside `FaultCommands` and need no path test. Dropped the doc
   comments' "ADR-0142" reference: ADR-0142 is about media types, not faults.
+- 2026-11-11 (lane 2): SDK 10.0.404 is now installed and satisfies `global.json`, so the build runs.
+  Re-made lane 4's work from stash `darkfactory BL-1011 20261111-060243` (`51bc13f3`): the four files
+  from its untracked parent and the five-line hook. Added
+  `QueueDeclare_UnderARuleThatIsNotAnError_IsNotedAndServed` (`delay`, `drop`) to cover the last branch:
+  a non-`error` rule at the command stage is noted and not applied, as ADR-0124 says. 350 tests pass;
+  the library is at 100% line and branch coverage; the solution builds clean and the fast tests are green.
 - Could not build: `dotnet` finds no SDK matching `global.json`'s 10.0.401 (installed: 10.0.100-rc.1,
   11.0.100-rc.2, 11.0.100). Depends on BL-1035 (Stewart reinstalls the SDK), as BL-1006 already does.
 
@@ -72,3 +78,4 @@ says - instead of serving it, and publish one `FaultAppliedEvent`.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waits on BL-1035: pinned .NET SDK 10.0.401 is not installed, so nothing builds
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Done. The extended AMQP 0-9-1 broker answers a matching method with a chosen reply code by error fault rule (channel.close or connection.close) and publishes one FaultAppliedEvent
