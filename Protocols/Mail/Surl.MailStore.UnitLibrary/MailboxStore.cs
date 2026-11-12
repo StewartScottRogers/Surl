@@ -424,6 +424,83 @@ public sealed partial class MailboxStore
         }
     }
 
+    /// <summary>
+    /// As <see cref="Deliver"/>, but awaits the fault plan's answer before the store's lock, so a
+    /// <see cref="Surl.Protocol.Abstractions.IFaultPlan"/> that answers later can refuse the write with
+    /// <see cref="MailStoreOutcome.QuotaExceeded"/> (BL-868, ADR-0127 decision 5).
+    /// </summary>
+    /// <param name="recipients">The recipients <see cref="LookUpRecipient"/> found.</param>
+    /// <param name="message">The pending message, its bytes all written; disposed whatever the outcome.</param>
+    /// <param name="cancellationToken">Cancels the wait for the plan; nothing is stored then.</param>
+    /// <returns>As <see cref="Deliver"/> returns.</returns>
+    /// <exception cref="ArgumentNullException">An argument is <see langword="null"/>.</exception>
+    /// <exception cref="InvalidOperationException"><paramref name="message"/> was stored, refused
+    /// or disposed already.</exception>
+    /// <exception cref="OperationCanceledException">The token was cancelled.</exception>
+    public async Task<MailStoreOutcome> DeliverAsync(
+        IReadOnlyList<MailRecipient> recipients,
+        PendingMessage message,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(recipients);
+        ArgumentNullException.ThrowIfNull(message);
+        message.Close();
+        using (message)
+        {
+            var outcome = CheckPending(message);
+            if (outcome != MailStoreOutcome.Succeeded || recipients.Count == 0)
+            {
+                return outcome;
+            }
+
+            var inboxOwners = recipients.SelectMany(recipient => recipient.Owners).ToList();
+            var targets = inboxOwners.Select(owner => owner.Name).Distinct(StringComparer.Ordinal).Select(name => (name, MailboxName.Inbox));
+            return await IsOutOfSpaceAsync(targets, cancellationToken).ConfigureAwait(false)
+                ? MailStoreOutcome.QuotaExceeded
+                : DeliverPending(inboxOwners, message, StoreChange.Delivered);
+        }
+    }
+
+    /// <summary>
+    /// As <see cref="Append(MailView, string, PendingMessage, MailFlags, DateTimeOffset?, out MailStoredUid)"/>,
+    /// but awaits the fault plan's answer before the store's lock (BL-868, ADR-0127 decision 5).
+    /// </summary>
+    /// <param name="view">The session's view.</param>
+    /// <param name="mailboxName">The mailbox's name.</param>
+    /// <param name="message">The pending message, its bytes all written; disposed whatever the outcome.</param>
+    /// <param name="flags">The message's flags.</param>
+    /// <param name="internalDate">The date <c>APPEND</c> gave, or <see langword="null"/> for now.</param>
+    /// <param name="cancellationToken">Cancels the wait for the plan; nothing is stored then.</param>
+    /// <returns>The outcome and, when it is <see cref="MailStoreOutcome.Succeeded"/>, where the message was stored.</returns>
+    /// <exception cref="ArgumentNullException">An argument is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="flags"/> holds a bit that is no flag.</exception>
+    /// <exception cref="InvalidOperationException"><paramref name="message"/> was stored, refused
+    /// or disposed already.</exception>
+    /// <exception cref="OperationCanceledException">The token was cancelled.</exception>
+    public async Task<MailAppendResult> AppendAsync(
+        MailView view,
+        string mailboxName,
+        PendingMessage message,
+        MailFlags flags,
+        DateTimeOffset? internalDate,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(message);
+        message.Close();
+        using (message)
+        {
+            ThrowIfNotFlags(flags);
+            if (CheckPending(message) == MailStoreOutcome.Succeeded
+                && await IsOutOfSpaceAsync(TargetOf(view, mailboxName), cancellationToken).ConfigureAwait(false))
+            {
+                return new MailAppendResult(MailStoreOutcome.QuotaExceeded, default);
+            }
+
+            var outcome = AppendPending(view, mailboxName, message, flags, internalDate, out var stored);
+            return new MailAppendResult(outcome, stored);
+        }
+    }
+
     private MailStoreOutcome DeliverUnlessOutOfSpace(List<OwnerMailboxes> inboxOwners, PendingMessage message) =>
         IsOutOfSpace(inboxOwners.Select(owner => owner.Name).Distinct(StringComparer.Ordinal).Select(name => (name, MailboxName.Inbox)))
             ? MailStoreOutcome.QuotaExceeded

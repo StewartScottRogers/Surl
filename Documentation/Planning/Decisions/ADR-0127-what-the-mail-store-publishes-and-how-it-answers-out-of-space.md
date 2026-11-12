@@ -71,3 +71,13 @@ would make every store and subscriber wait on a contract task.
 - BL-803 passes the instance's stream and plan to `MailboxStore`'s new optional `events` and `faults`
   parameters; without them the store publishes nothing and faults nothing, as before.
 - `Surl.Api` (BL-807) and the control endpoint match mail events by `MailStoreChangeName`.
+
+## Amendment 1 (BL-868, 2026-11-12) - async writes
+
+Decided by Claude under Stewart's delegation. Decision 5 stands for the synchronous `Deliver` and
+`Append`, kept for existing callers. `MailboxStore.DeliverAsync` and `AppendAsync` (returning
+`MailAppendResult(Outcome, Stored)`, since an async method cannot have an `out` parameter) await the plan
+before the store's lock, so a `Surl.Api` response override that answers later can refuse a write with
+`QuotaExceeded`. An answer that throws is served as no rule (as decision 5 and ADR-0124 decision 5 serve a
+failed hook); an `OperationCanceledException` propagates, so a closing session stores nothing and the pending
+message is disposed. `SmtpSession` and `ImapSession` call the async methods with the session's token.
