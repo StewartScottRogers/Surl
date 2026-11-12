@@ -47,3 +47,4 @@ acquires in a transaction return to their queue when it rolls back.
 ## Log
 
 - 2026-11-06: Created.
+- 2026-11-12: Backlog -> Doing.
