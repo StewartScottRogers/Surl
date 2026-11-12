@@ -8,8 +8,10 @@ namespace Surl.Protocol.Abstractions;
 /// <param name="SignatureAlgorithm">The algorithm name the request carries, e.g. <c>rsa-sha2-256</c>.</param>
 /// <param name="PublicKeyBlob">The public key blob as sent (RFC 4253 section 6.6).</param>
 /// <param name="Proof">Whether the request is a query or signed, and whether the server verified its signature.</param>
+/// <param name="Exchange">The exchange the login was made in, or <see langword="null"/> when unknown.</param>
 public sealed record SshPublicKeyLogin(
     string? UserName,
     string SignatureAlgorithm,
     ReadOnlyMemory<byte> PublicKeyBlob,
-    SshPublicKeyProof Proof);
+    SshPublicKeyProof Proof,
+    LoginExchange? Exchange = null);

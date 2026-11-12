@@ -12,8 +12,10 @@ namespace Surl.Protocol.Abstractions;
 /// <see langword="null"/> means unencrypted, and a server that upgrades (<c>AUTH TLS</c>,
 /// <c>STARTTLS</c>) passes the session it has by then.
 /// </param>
+/// <param name="Exchange">The exchange the login was made in, or <see langword="null"/> when unknown.</param>
 public sealed record PasswordLogin(
     string Scheme,
     string? UserName,
     ReadOnlyMemory<byte>? Password,
-    TlsSession? TlsSession);
+    TlsSession? TlsSession,
+    LoginExchange? Exchange = null);

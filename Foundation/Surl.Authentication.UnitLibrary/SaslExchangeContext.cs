@@ -1,5 +1,6 @@
 using System.Security.Cryptography.X509Certificates;
 using Surl.Kerberos;
+using Surl.Protocol.Abstractions;
 
 namespace Surl.Authentication;
 
@@ -19,13 +20,15 @@ namespace Surl.Authentication;
 /// Whether the server carries a security layer after the login (LDAP), so NTLM grants and negotiates one
 /// and is never accepted unchecked (ADR-0072, decision 4).
 /// </param>
+/// <param name="Exchange">The exchange the login was made in, or <see langword="null"/> when unknown.</param>
 internal sealed record SaslExchangeContext(
     AuthenticationPolicy Policy,
     string Scheme,
     string Mechanism,
     ReadOnlyMemory<byte>? InitialResponse,
     X509Certificate2? ClientCertificate,
-    bool CanCarrySecurityLayer = false)
+    bool CanCarrySecurityLayer = false,
+    LoginExchange? Exchange = null)
 {
     /// <summary>
     /// The configured accounts.

@@ -3,7 +3,7 @@ using Surl.Protocol.Abstractions;
 namespace Surl.Authentication;
 
 /// <summary>
-/// One HTTP connection's authentication, from <see cref="AuthenticationPolicy.StartHttpConnection"/>.
+/// One HTTP connection's authentication, from <see cref="AuthenticationPolicy.StartHttpConnection(TlsSession?)"/>.
 /// It answers each request in ADR-0032 section 4's order and holds each accepted method's
 /// per-connection verifier, so NTLM's and Negotiate's handshakes die with the connection. The
 /// account NTLM or Negotiate accepts is remembered for the connection's later requests without an
@@ -25,10 +25,13 @@ internal sealed class HttpAuthenticationSession : IHttpAuthenticationSession
     // The account a connection-authenticating method (NTLM, Negotiate) last accepted on this connection.
     private string? connectionAccountName;
 
-    public HttpAuthenticationSession(AuthenticationPolicy policy, bool isEncrypted)
+    private readonly LoginExchange? exchange;
+
+    public HttpAuthenticationSession(AuthenticationPolicy policy, bool isEncrypted, LoginExchange? exchange = null)
     {
         this.policy = policy;
         this.isEncrypted = isEncrypted;
+        this.exchange = exchange;
         verifiers = policy.HttpMethods.ToDictionary(method => method.Method, method => method.StartConnection());
     }
 
@@ -215,7 +218,7 @@ internal sealed class HttpAuthenticationSession : IHttpAuthenticationSession
     // ADR-0124 decision 4: a refuse-login fault refuses accepted credentials as wrong ones are refused.
     private ValueTask<bool> IsRefusedByFaultAsync(HttpCredentialCheck check, CancellationToken cancellationToken) =>
         check.Outcome == HttpCredentialOutcome.Accepted
-            ? policy.IsRefusedByFaultAsync(AuthenticationPolicy.HttpLoginScheme, check.AccountName!, cancellationToken)
+            ? policy.IsRefusedByFaultAsync(AuthenticationPolicy.HttpLoginScheme, check.AccountName!, exchange, cancellationToken)
             : ValueTask.FromResult(false);
 
     // The check a wrong credential of the same method comes to: refused, no account, nothing to send.
@@ -231,7 +234,7 @@ internal sealed class HttpAuthenticationSession : IHttpAuthenticationSession
     {
         if (verdict.CheckedLogin is { } login)
         {
-            policy.PublishJudgedLogin(AuthenticationPolicy.HttpLoginScheme, login.User, login.Method, login.IsAccepted, isRefusedByFault);
+            policy.PublishJudgedLogin(AuthenticationPolicy.HttpLoginScheme, login.User, login.Method, login.IsAccepted, isRefusedByFault, exchange);
         }
 
         return verdict;

@@ -54,3 +54,23 @@ exchange ID or the listen URL. BL-791 may change only `Surl.Authentication`.
   protocol, with no protocol server changed.
 - Until BL-871, a test cannot tell `sftp` from `scp`, or `https` from `http`, in a login event, and cannot
   scope `refuse-login` by listener.
+
+## Amendment 1 (BL-871): the exchange and the real scheme
+
+Decided by Claude under Stewart's delegation.
+
+1. **The contract.** `LoginExchange(ExchangeId, ListenUrl)` in `Surl.Protocol.Abstractions` carries what
+   decision 3 lacked. It is an optional last parameter (`Exchange`, default `null`) of `PasswordLogin`,
+   `ApopLogin`, `SshPasswordLogin`, `SshPublicKeyLogin`, `SmbNtlmV1Login` and `SaslExchangeStart`, so every
+   existing caller compiles. `LoginExchange.Of(ExchangeContext)` builds it. `SshNoneLogin` is never published and
+   gets none. Exchange IDs are per connection, so HTTP carries the exchange on the session:
+   `IAuthenticationPolicy.StartHttpConnection(tlsSession, exchange)`, a default member that ignores the
+   exchange, instead of a field on each `HttpAuthenticationRequest`.
+2. **What the policy publishes.** With an exchange, `LoginJudgedEvent.ExchangeId` is its ID and
+   `LoginJudgedEvent.Scheme` is its listen URL's scheme (`sftp`, `https`), which wins over the request's or
+   the family's scheme. The `FaultPoint` gets `ExchangeId`, `ListenUrl` (the reported form) and `Scheme`, so a
+   `refuse-login` rule scoped by `listener=` matches a login, and `FaultAppliedEvent.ExchangeId` is set.
+   Without an exchange the behaviour is decision 3's: null ID, family scheme, no listen URL.
+3. **The servers.** This amendment lands the contract and the policy. Each server family passes
+   `LoginExchange.Of(context)` on its login requests in its own task, so until a server does, its logins are
+   published as decision 3 says.

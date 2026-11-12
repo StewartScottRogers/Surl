@@ -168,15 +168,15 @@ internal abstract class SaslMechanismExchange : ISaslExchange
     {
         var policy = Context.Policy;
         if (!judged.IsAccepted
-            || !await policy.IsRefusedByFaultAsync(Context.Scheme, judgedAccountName!, cancellationToken).ConfigureAwait(false))
+            || !await policy.IsRefusedByFaultAsync(Context.Scheme, judgedAccountName!, Context.Exchange, cancellationToken).ConfigureAwait(false))
         {
-            policy.PublishJudgedLogin(Context.Scheme, judged.User, judged.Method, judged.IsAccepted, false);
+            policy.PublishJudgedLogin(Context.Scheme, judged.User, judged.Method, judged.IsAccepted, false, Context.Exchange);
             return step;
         }
 
         var refused = await RefuseByFaultAsync(judged.User, cancellationToken).ConfigureAwait(false);
         judgedLogin = null;
-        policy.PublishJudgedLogin(Context.Scheme, judged.User, judged.Method, false, true);
+        policy.PublishJudgedLogin(Context.Scheme, judged.User, judged.Method, false, true, Context.Exchange);
 
         return refused;
     }

@@ -473,7 +473,10 @@ server starts it with `CanCarrySecurityLayer` (BL-329, below), and is `RefusedMe
   `CheckPasswordLoginAsync`'s `Accepted`/`RefusedCredentials` as `password` - publishes a `LoginJudgedEvent`
   with the user as noted and the note's method; never a secret. HTTP, SSH and SMB logins are named
   `HttpLoginScheme`, `SshLoginScheme` and `SmbLoginScheme` (`http`, `ssh`, `smb`) and every `ExchangeId` is
-  null until BL-871 puts both on the login requests.
+  null, unless the login request carries a `LoginExchange` (BL-871, ADR-0128 Amendment 1): then the event
+  names that exchange and its listen URL's real scheme (`sftp`, `https`), and the `FaultPoint` carries the
+  exchange ID, reported listen URL and scheme, so `listener=` matches. A server that does not yet pass one
+  keeps the family names.
 - Once credentials match, `IsRefusedByFaultAsync` asks the plan at `FaultStage.Login` with the scheme and the
   account matched; a `RefuseLogin` rule publishes a `FaultAppliedEvent` and the login is refused as the same
   method refuses a wrong credential (`ConcludeCheckedLoginAsync` for password, APOP, SSH and SMB;
