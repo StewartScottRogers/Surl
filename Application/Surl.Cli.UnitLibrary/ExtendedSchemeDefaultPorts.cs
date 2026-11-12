@@ -34,7 +34,7 @@ namespace Surl.Cli;
 /// <item><c>redis</c>, <c>rediss</c> 6379: IANA <c>redis</c>; Redis serves TLS on a port of its own choosing and documents 6379.</item>
 /// </list>
 /// <c>mcp+stdio</c> has no row: it is served on <c>surl</c>'s own standard input and output, its
-/// listen URL names no port, and the MCP server's ADR decides its form.
+/// listen URL names no port (ADR-0111 decision 5), and <see cref="ListenUrlParser"/> reads it apart.
 /// </remarks>
 public static class ExtendedSchemeDefaultPorts
 {

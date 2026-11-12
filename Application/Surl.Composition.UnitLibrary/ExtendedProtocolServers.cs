@@ -133,6 +133,8 @@ public static class ExtendedProtocolServers
         new([McpProtocolServer.PlainScheme, McpProtocolServer.SecureScheme], services => new McpProtocolServer(
             services.ContentStore, services.AuthenticationPolicyFor(McpProtocolServer.PlainScheme), SurlVersion,
             services.TimeProvider, RandomNumberGenerator.Create())),
+        // mcp+stdio (ADR-0111 decision 5, BL-979) claims its scheme only; McpStdioComposition serves it on standard input and output.
+        new(["mcp+stdio"], _ => new McpStdioListenUrlServer()),
         // The MQTT 5.0 broker (ADR-0093, BL-975) over the one message bus the MQTT server shares, so retained messages
         // persist where the bus persists them; only session state is the broker's. mqtt5s is TLS from the first byte through
         // TlsSchemes. mqtt5+ws is the same broker behind a WebSocket upgrade. mqtt stays the 3.1.1 server.

@@ -8,7 +8,7 @@ depends-on: [BL-978, BL-467]
 touches: [Application/Surl.Console, Application/Surl.Console.UnitTests, Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests, Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests]
 requirement: none
 created: 2026-11-06
-completed:
+completed: 2026-11-12
 ---
 # BL-979 — Serve mcp+stdio on surl's own standard input and output
 
@@ -29,16 +29,21 @@ with logging on standard error only, and the extension switch turns it off.
 
 ## Acceptance criteria
 
-- [ ] A named test finds `mcp+stdio` registered when the switch is on, and absent when it is off.
-- [ ] A named test runs `surl` with the stdio URL over in-memory standard streams, answers `initialize`, and finds
+- [x] A named test finds `mcp+stdio` registered when the switch is on, and absent when it is off.
+- [x] A named test runs `surl` with the stdio URL over in-memory standard streams, answers `initialize`, and finds
       standard output holding only MCP messages, even with `--verbose`.
-- [ ] The `--aihelp` completeness tests named in root `CLAUDE.md` pass.
-- [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and `Surl.Composition`, `Surl.Console` and
+- [x] The `--aihelp` completeness tests named in root `CLAUDE.md` pass.
+- [x] `dotnet build -warnaserror` is clean, the fast tests are green, and `Surl.Composition`, `Surl.Console` and
       `Surl.Cli` keep 100% line and branch coverage.
 
 ## Notes
+
+- Choice: `mcp+stdio` is a registration (`McpStdioListenUrlServer` claims the scheme, never serves) so `SURL_EXTENSIONS=0` and the parser's claimed-scheme list work unchanged; `ListenUrlParser` reads `mcp+stdio:` and `mcp+stdio://` apart (empty host, port 0, no `ExtendedSchemeDefaultPorts` row). `McpStdioComposition` serves it, outside the engine, over the runner's stream seams.
+- Choice: the `--aihelp` example for the stdio form is a refusal (beside another listen URL), since a serving example would read real standard input.
+- Choice: `--directory` and exposure options apply to the content store; no fault plan or event stream is composed for stdio (one session per process, no shared store).
 
 ## Log
 
 - 2026-11-06: Created.
 - 2026-11-12: Backlog -> Doing.
+- 2026-11-12: Doing -> Done. surl mcp+stdio: serves one MCP session on standard input and output, log on stderr only, switch turns it off

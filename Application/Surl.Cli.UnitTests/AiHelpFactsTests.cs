@@ -163,7 +163,8 @@ public sealed class AiHelpFactsTests
         var schemes = HelpCategories.All.SelectMany(category => category.Schemes).ToArray();
 
         CollectionAssert.AllItemsAreUnique(schemes);
-        foreach (var scheme in schemes)
+        // mcp+stdio names no port: it is served on standard input and output (ADR-0111 decision 5).
+        foreach (var scheme in schemes.Where(scheme => scheme != ListenUrlParser.StdioScheme))
         {
             Assert.IsTrue(SchemeDefaultPorts.TryGetDefaultPort(scheme, out _) || ExtendedSchemeDefaultPorts.TryGetDefaultPort(scheme, out _), scheme);
         }

@@ -204,6 +204,12 @@ public static class AiHelpExamples
             ["Listening on mcp://127.0.0.1:<port>/"],
             ["surl: warning: --allow-anonymous: every request and login is accepted without checking credentials"],
             []),
+        Refused(
+            "mcp",
+            "mcp+stdio: serves standard input and output alone",
+            ["mcp+stdio:", "mcp://127.0.0.1:0/"],
+            ["surl: mcp+stdio: serves standard input and output and cannot be combined with another listen URL"],
+            SurlExitCode.FailedInit),
         Serving(
             "mqtt",
             "For a test: serve MQTT without accounts",

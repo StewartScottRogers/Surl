@@ -172,12 +172,43 @@ public sealed class ListenUrlParserTests
     [TestMethod]
     [DataRow("s3", new string[0], DisplayName = "No extended server registered")]
     [DataRow("s3", new[] { "redis" }, DisplayName = "Another extended scheme registered")]
-    [DataRow("mcp+stdio", new[] { "mcp+stdio" }, DisplayName = "A claimed scheme with no extended default port")]
     public void Parse_ExtendedSchemeNotAccepted_IsRefusedAsAnUnknownSchemeIs(string scheme, string[] extendedSchemes)
     {
         var result = ListenUrlParser.Parse($"{scheme}://127.0.0.1/", extendedSchemes);
 
         AssertRefused(result, SurlExitCode.UnsupportedProtocol, $"(1) Protocol \"{scheme}\" not supported");
+    }
+
+    [TestMethod]
+    [DataRow("mcp+stdio:")]
+    [DataRow("mcp+stdio://")]
+    [DataRow("MCP+STDIO:")]
+    public void Parse_McpStdioClaimed_IsAListenUrlWithNoHostAndNoPort(string argument)
+    {
+        var result = ListenUrlParser.Parse(argument, ["mcp+stdio"]);
+
+        Assert.AreEqual(new ListenUrl("mcp+stdio", string.Empty, 0), result.ListenUrl);
+    }
+
+    [TestMethod]
+    [DataRow("mcp+stdio://localhost/")]
+    [DataRow("mcp+stdio:surl")]
+    [DataRow("mcp+stdio://:80")]
+    public void Parse_McpStdioWithAPart_IsMalformed(string argument)
+    {
+        var result = ListenUrlParser.Parse(argument, ["mcp+stdio"]);
+
+        AssertRefused(result, SurlExitCode.MalformedUrl, "(3) URL rejected: mcp+stdio: names no host, port, path, query or fragment");
+    }
+
+    [TestMethod]
+    [DataRow("mcp+stdio:", new string[0])]
+    [DataRow("mcp+stdio://", new[] { "mcp" })]
+    public void Parse_McpStdioNotClaimed_IsRefusedAsAnUnknownSchemeIs(string argument, string[] extendedSchemes)
+    {
+        var result = ListenUrlParser.Parse(argument, extendedSchemes);
+
+        AssertRefused(result, SurlExitCode.UnsupportedProtocol, "(1) Protocol \"mcp+stdio\" not supported");
     }
 
     [TestMethod]

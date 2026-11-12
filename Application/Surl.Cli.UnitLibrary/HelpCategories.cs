@@ -25,7 +25,7 @@ internal static class HelpCategories
         new("limits", "Connection, time and size limits", []),
         new("logging", "Log levels, tracing and the log file", []),
         new("mail", "Mail domains, mailboxes and aliases", []),
-        new("mcp", "MCP over Streamable HTTP and over TLS protocol (extended)", ["mcp", "mcps"]),
+        new("mcp", "MCP over Streamable HTTP and over TLS protocol (extended)", ["mcp", "mcp+stdio", "mcps"]),
         new("messages", "Topics, queues and topic access", []),
         new("mqtt", "MQTT and MQTTS protocol", ["mqtt", "mqtts"]),
         new("mqtt5", "MQTT 5.0 protocol: mqtt5, mqtt5s and mqtt5+ws (extended)", ["mqtt5", "mqtt5s", "mqtt5+ws"]),

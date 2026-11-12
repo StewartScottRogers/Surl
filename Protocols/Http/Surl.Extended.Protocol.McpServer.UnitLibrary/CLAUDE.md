@@ -77,7 +77,7 @@ maximumMessageBytes, cancellationToken)` serves one session over the stream pair
 `McpStreamSession` (newline framing, the line limit, cancellation and ending on a closed input are the core's), with
 this server's identity and tools run as the anonymous caller on scheme `mcp+stdio`. It never touches `Console`.
 
-Still to come: the command line (BL-468), which binds `McpStdioSession` to surl's standard streams.
+`surl mcp+stdio:` binds `McpStdioSession` to surl's standard streams (BL-979, `Surl.Composition`'s `McpStdioComposition`).
 
 **Chosen-error fault** (ADR-0144, BL-835): `McpHttpRequestAnswerer` offers every JSON-RPC request inside a session
 to `McpRequestFaults` before the core, with `account` the login, `path` the endpoint path and `command` the tool's

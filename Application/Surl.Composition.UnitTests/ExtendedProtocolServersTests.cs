@@ -59,7 +59,7 @@ public sealed class ExtendedProtocolServersTests
 
         var servers = ExtendedProtocolServers.Compose(services);
 
-        Assert.HasCount(22, servers);
+        Assert.HasCount(23, servers);
         Assert.IsInstanceOfType<Amqp0Broker>(servers[0]);
         Assert.IsInstanceOfType<Amqp1Container>(servers[1]);
         Assert.IsInstanceOfType<AzureStorageProtocolServer>(servers[2]);
@@ -71,21 +71,22 @@ public sealed class ExtendedProtocolServersTests
         Assert.IsInstanceOfType<KafkaBroker>(servers[8]);
         var mcp = Assert.IsInstanceOfType<McpProtocolServer>(servers[9]);
         CollectionAssert.AreEqual(new[] { "mcp", "mcps" }, mcp.Schemes.ToArray());
-        Assert.IsInstanceOfType<Mqtt5Broker>(servers[10]);
-        Assert.IsInstanceOfType<Mqtt5WebSocketServer>(servers[11]);
-        Assert.IsInstanceOfType<NatsServer>(servers[12]);
-        Assert.IsInstanceOfType<RedisServer>(servers[13]);
-        Assert.IsInstanceOfType<S3ProtocolServer>(servers[14]);
-        Assert.IsInstanceOfType<SignalRProtocolServer>(servers[15]);
-        Assert.IsInstanceOfType<SocketIoProtocolServer>(servers[16]);
-        Assert.IsInstanceOfType<StompServer>(servers[17]);
-        CollectionAssert.AreEqual(new[] { "stomps" }, servers[18].Schemes.ToArray());
-        Assert.IsInstanceOfType<WebTransportProtocolServer>(servers[19]);
-        Assert.IsInstanceOfType<XmppServer>(servers[20]);
-        CollectionAssert.AreEqual(new[] { "xmpps" }, servers[21].Schemes.ToArray());
-        CollectionAssert.AreEqual(new[] { "amqp", "amqps", "amqp1", "amqp1s", "az", "abfs", "abfss", "coap", "coaps", "dns", "dns", "gs", "kafka", "kafkas", "mcp", "mcps", "mqtt5", "mqtt5s", "mqtt5+ws", "nats", "natss", "redis", "rediss", "s3", "signalr", "signalrs", "socketio", "socketios", "stomp", "stomps", "webtransport", "xmpp", "xmpps" }, servers.SelectMany(server => server.Schemes).ToArray());
+        Assert.IsInstanceOfType<McpStdioListenUrlServer>(servers[10]);
+        Assert.IsInstanceOfType<Mqtt5Broker>(servers[11]);
+        Assert.IsInstanceOfType<Mqtt5WebSocketServer>(servers[12]);
+        Assert.IsInstanceOfType<NatsServer>(servers[13]);
+        Assert.IsInstanceOfType<RedisServer>(servers[14]);
+        Assert.IsInstanceOfType<S3ProtocolServer>(servers[15]);
+        Assert.IsInstanceOfType<SignalRProtocolServer>(servers[16]);
+        Assert.IsInstanceOfType<SocketIoProtocolServer>(servers[17]);
+        Assert.IsInstanceOfType<StompServer>(servers[18]);
+        CollectionAssert.AreEqual(new[] { "stomps" }, servers[19].Schemes.ToArray());
+        Assert.IsInstanceOfType<WebTransportProtocolServer>(servers[20]);
+        Assert.IsInstanceOfType<XmppServer>(servers[21]);
+        CollectionAssert.AreEqual(new[] { "xmpps" }, servers[22].Schemes.ToArray());
+        CollectionAssert.AreEqual(new[] { "amqp", "amqps", "amqp1", "amqp1s", "az", "abfs", "abfss", "coap", "coaps", "dns", "dns", "gs", "kafka", "kafkas", "mcp", "mcps", "mcp+stdio", "mqtt5", "mqtt5s", "mqtt5+ws", "nats", "natss", "redis", "rediss", "s3", "signalr", "signalrs", "socketio", "socketios", "stomp", "stomps", "webtransport", "xmpp", "xmpps" }, servers.SelectMany(server => server.Schemes).ToArray());
         CollectionAssert.AreEqual(
-            new[] { "amqp", "amqps", "amqp1", "amqp1s", "az", "abfs", "abfss", "coap", "coaps", "dns", "dns", "gs", "kafka", "kafkas", "mcp", "mcps", "mqtt5", "mqtt5s", "mqtt5+ws", "nats", "natss", "redis", "rediss", "s3", "signalr", "signalrs", "socketio", "socketios", "stomp", "stomps", "webtransport", "xmpp", "xmpps" }, ExtendedProtocolServers.Registrations.SelectMany(registration => registration.Schemes).ToArray());
+            new[] { "amqp", "amqps", "amqp1", "amqp1s", "az", "abfs", "abfss", "coap", "coaps", "dns", "dns", "gs", "kafka", "kafkas", "mcp", "mcps", "mcp+stdio", "mqtt5", "mqtt5s", "mqtt5+ws", "nats", "natss", "redis", "rediss", "s3", "signalr", "signalrs", "socketio", "socketios", "stomp", "stomps", "webtransport", "xmpp", "xmpps" }, ExtendedProtocolServers.Registrations.SelectMany(registration => registration.Schemes).ToArray());
     }
 
     [TestMethod]
