@@ -88,6 +88,19 @@ and `Surl.Protocol.Abstractions.UnitLibrary`.
   `SurlCommandLine.Topics`, `Queues`, `TopicMaps` and `TopicAccess`. `ConfiguredMessagingConflicts.Find`
   holds the whole-line checks (a topic, queue, map source or access filter given twice). No option
   row uses them yet: BL-992 adds the rows and calls `Find`; BL-991 composes them.
+- Mail items beyond the mailbox (ADR-0101 decision 4, ADR-0102 decisions 1.3, 1.4 and 1.6; BL-993):
+  `ConfiguredMailAliasReader` (`<address>=<address>,...`, each address one `MailDomainNames.ReadAddress`
+  accepts, a target twice refused), `ConfiguredMailCatchAllReader` (`<domain>=<address>`) and
+  `ConfiguredSharedFolderReader` (`<name>=<member>,...`, the name a mailbox name by `CheckFolderName` - at
+  most 1024 UTF-8 bytes - and never `INBOX`, a member twice refused) read into `SurlCommandLine.MailAliases`,
+  `MailCatchAlls` and `SharedFolders`, each record holding what was written, decoded.
+  `ConfiguredMailboxReader.ReadWithSettings` (`ShapeWithSettings`) also reads `quota=<bytes>` (at least one
+  byte) and `folders=<name>,...` into `ConfiguredMailbox.QuotaBytes` and `Folders`; the `--mailbox` row and
+  `MailboxFileReader` still use `Read` and refuse both keys. `ConfiguredMailConflicts.Find` holds the
+  whole-line checks (an alias, catch-all domain or shared folder twice; an alias or catch-all domain with no
+  `--mail-domain` or outside every one; an alias that is also a mailbox). No option row uses them yet: BL-995
+  adds the rows, moves `--mailbox` and the file's columns onto the settings and calls `Find`; BL-994
+  composes them.
 - Mail options (ADR-0101 decisions 4, 5 and 7, ADR-0102 decision 1; BL-883), category `mail`:
   `--mail-domain <domain>` (`MailDomainNames.Reading`, kept as written in `MailDomains`),
   `--mailbox <address>:<password>[;protocols=...]` (`ConfiguredMailboxReader.Reading`, the address

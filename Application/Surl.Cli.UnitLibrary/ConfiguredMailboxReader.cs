@@ -22,11 +22,46 @@ internal static class ConfiguredMailboxReader
     /// <summary><see cref="Read"/> with the item's argument type (ADR-0046 decision 6).</summary>
     public static readonly OptionArgumentReading<ConfiguredMailbox> Reading = new(Read, Shape.Reading.Type);
 
+    /// <summary>
+    /// The whole <c>--mailbox</c> item of ADR-0101 decision 4: <see cref="Shape"/> with the keys <c>quota</c> and
+    /// <c>folders</c> as well. No option row reads it yet; BL-995 moves <c>--mailbox</c> onto it, once BL-994
+    /// composes the quota and folders into the mail store.
+    /// </summary>
+    public static readonly ConfigurationItemShape ShapeWithSettings = new(
+        "<address>:<password>[;protocols=<scheme>,...][;quota=<bytes>][;folders=<name>,...]",
+        ':',
+        ConfigurationItemValueKind.Text,
+        new Dictionary<string, ConfigurationItemAttributeKind>(StringComparer.Ordinal)
+        {
+            [ProtocolsKey] = ConfigurationItemAttributeKind.List,
+            [QuotaKey] = ConfigurationItemAttributeKind.Value,
+            [FoldersKey] = ConfigurationItemAttributeKind.List,
+        },
+        []);
+
+    /// <summary><see cref="ReadWithSettings"/> with the item's argument type (ADR-0046 decision 6).</summary>
+    public static readonly OptionArgumentReading<ConfiguredMailbox> ReadingWithSettings = new(ReadWithSettings, ShapeWithSettings.Reading.Type);
+
     /// <summary>An address holding <c>:</c>, possible only percent-encoded (ADR-0102 decision 1.2).</summary>
     public const string AddressHoldsColon = "the address holds a colon";
 
     /// <summary>The key, and the <c>--mailbox-file</c> column, naming the schemes a mailbox logs in on.</summary>
     public const string ProtocolsKey = "protocols";
+
+    /// <summary>The key bounding the bytes of the owner's own mailboxes (ADR-0102 decision 1.4).</summary>
+    public const string QuotaKey = "quota";
+
+    /// <summary>The key naming the mailboxes created for the owner at start (ADR-0102 decision 1.4).</summary>
+    public const string FoldersKey = "folders";
+
+    /// <summary>
+    /// <see cref="IsAnySurlScheme"/> as one delegate, made once, so <see cref="Read"/> and <see cref="ReadWithSettings"/>
+    /// share it rather than each testing the compiler's lazily filled cache.
+    /// </summary>
+    private static readonly Func<string, bool> AnySurlScheme = IsAnySurlScheme;
+
+    /// <summary>A <c>quota=</c> of no whole byte (ADR-0102 decision 1.4, ADR-0101 decision 5 row 10).</summary>
+    public const string QuotaNeedsValueAboveZero = "key quota needs a value above 0";
 
     /// <summary>A mailbox address given twice, compared case-insensitively (ADR-0101 decision 5 row 14).</summary>
     /// <param name="address">The address as written.</param>
@@ -89,7 +124,29 @@ internal static class ConfiguredMailboxReader
     {
         var failure = ConfigurationItemReader.Read(Shape, argument, out var item);
         value = Empty;
-        return failure ?? Build(item.Name, item.Value!, item.Lists.GetValueOrDefault(ProtocolsKey), IsAnySurlScheme, out value);
+        return failure ?? Build(item.Name, item.Value!, item.Lists.GetValueOrDefault(ProtocolsKey), null, null, AnySurlScheme, out value);
+    }
+
+    /// <summary>Reads one <c>--mailbox</c> argument by <see cref="ShapeWithSettings"/>, <c>quota</c> and <c>folders</c> included.</summary>
+    /// <param name="argument">The argument as given.</param>
+    /// <param name="value">The mailbox, when accepted; <see cref="Empty"/> otherwise.</param>
+    /// <returns>The refusal reason after <c>option &lt;name&gt;: </c>, or <see langword="null"/>.</returns>
+    public static string? ReadWithSettings(string argument, out ConfiguredMailbox value)
+    {
+        value = Empty;
+        if (ConfigurationItemReader.Read(ShapeWithSettings, argument, out var item) is string failure)
+        {
+            return failure;
+        }
+
+        return Build(
+            item.Name,
+            item.Value!,
+            item.Lists.GetValueOrDefault(ProtocolsKey),
+            item.Values.GetValueOrDefault(QuotaKey),
+            item.Lists.GetValueOrDefault(FoldersKey),
+            AnySurlScheme,
+            out value);
     }
 
     /// <summary>
@@ -119,28 +176,78 @@ internal static class ConfiguredMailboxReader
     /// Checks one mailbox's decoded fields and builds it: the address non-empty, free of control
     /// characters and <c>:</c>, and normalised by <see cref="MailDomainNames.ReadAddress"/>; the
     /// password non-empty and free of U+0000; each scheme non-empty, free of control characters,
-    /// lower-cased, served by surl and given once.
+    /// lower-cased, served by surl and given once; the quota <c>&lt;bytes&gt;</c> of at least one whole byte; each
+    /// folder a mailbox name (<see cref="ConfiguredSharedFolderReader.CheckFolderName"/>) given once.
     /// </summary>
     /// <param name="address">The address, decoded.</param>
     /// <param name="password">The password, decoded.</param>
     /// <param name="protocols">The schemes as given, or <see langword="null"/> when <c>protocols</c> was not given.</param>
+    /// <param name="quota">The quota as given, or <see langword="null"/> when <c>quota</c> was not given.</param>
+    /// <param name="folders">The folder names as given, or <see langword="null"/> when <c>folders</c> was not given.</param>
     /// <param name="isServedScheme">Whether a lower-case scheme is one a server surl runs speaks.</param>
     /// <param name="mailbox">The mailbox, when accepted; <see cref="Empty"/> otherwise.</param>
     /// <returns>The refusal reason, or <see langword="null"/>.</returns>
     public static string? Build(
-        string address, string password, IReadOnlyList<string>? protocols, Func<string, bool> isServedScheme, out ConfiguredMailbox mailbox)
+        string address,
+        string password,
+        IReadOnlyList<string>? protocols,
+        string? quota,
+        IReadOnlyList<string>? folders,
+        Func<string, bool> isServedScheme,
+        out ConfiguredMailbox mailbox)
     {
         mailbox = Empty;
         var schemes = new List<string>();
+        var folderNames = new List<string>();
+        long? quotaBytes = null;
         var failure = CheckAddress(address, out var normalised)
             ?? CheckPassword(password)
-            ?? CheckProtocols(protocols ?? [], isServedScheme, schemes);
+            ?? CheckProtocols(protocols ?? [], isServedScheme, schemes)
+            ?? CheckQuota(quota, out quotaBytes)
+            ?? CheckFolders(folders ?? [], folderNames);
         if (failure is null)
         {
-            mailbox = new(normalised, password, protocols is null ? null : schemes);
+            // The empty list is the one Array.Empty, so a mailbox with no folders equals one made without them.
+            IReadOnlyList<string> givenFolders = folders is null ? Array.Empty<string>() : folderNames;
+            mailbox = new(normalised, password, protocols is null ? null : schemes, quotaBytes, givenFolders);
         }
 
         return failure;
+    }
+
+    private static string? CheckQuota(string? quota, out long? quotaBytes)
+    {
+        quotaBytes = null;
+        if (quota is null)
+        {
+            return null;
+        }
+
+        var failure = OptionArgumentReader.ReadBytes(quota, out var bytes);
+        if (failure is not null)
+        {
+            return failure;
+        }
+
+        quotaBytes = bytes;
+        return bytes < 1 ? QuotaNeedsValueAboveZero : null;
+    }
+
+    private static string? CheckFolders(IReadOnlyList<string> folders, List<string> folderNames)
+    {
+        foreach (var folder in folders)
+        {
+            var failure = ConfiguredSharedFolderReader.CheckFolderName(folder)
+                ?? (folderNames.Contains(folder, StringComparer.Ordinal) ? ConfiguredGroupReader.MemberGivenTwice(folder) : null);
+            if (failure is not null)
+            {
+                return failure;
+            }
+
+            folderNames.Add(folder);
+        }
+
+        return null;
     }
 
     private static string? CheckAddress(string address, out string normalised)

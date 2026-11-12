@@ -267,6 +267,28 @@ public sealed record SurlCommandLine
     public IReadOnlyList<string> MailboxFiles { get; init; } = [];
 
     /// <summary>
+    /// The mail aliases (<see cref="ConfiguredMailAliasReader"/>, ADR-0102 decision 1.3), in configuration order;
+    /// no alias address is given twice, outside every mail domain or also a mailbox (ADR-0101 decision 5,
+    /// <see cref="ConfiguredMailConflicts"/>). None by default. <c>Surl.Composition</c> hands them to the mail
+    /// store, which checks their targets at start (BL-994).
+    /// </summary>
+    public IReadOnlyList<ConfiguredMailAlias> MailAliases { get; init; } = [];
+
+    /// <summary>
+    /// The mail catch-alls (<see cref="ConfiguredMailCatchAllReader"/>, ADR-0102 decision 1.3), in configuration
+    /// order; no domain is given twice or is outside the mail domains (ADR-0101 decision 5,
+    /// <see cref="ConfiguredMailConflicts"/>). None by default, so mail to an unknown address is discarded.
+    /// </summary>
+    public IReadOnlyList<ConfiguredMailCatchAll> MailCatchAlls { get; init; } = [];
+
+    /// <summary>
+    /// The shared IMAP folders (<see cref="ConfiguredSharedFolderReader"/>, ADR-0102 decision 1.6), in
+    /// configuration order; no name is given twice (ADR-0101 decision 5, <see cref="ConfiguredMailConflicts"/>).
+    /// None by default. <c>Surl.Composition</c> expands their members at start (BL-994).
+    /// </summary>
+    public IReadOnlyList<ConfiguredSharedFolder> SharedFolders { get; init; } = [];
+
+    /// <summary>
     /// The shares, each a top-level content folder on disk (<see cref="ConfiguredShareReader"/>, ADR-0102
     /// decision 2.1), in configuration order; no share name is given twice (ADR-0101 decision 5). None by
     /// default. <c>Surl.Composition</c> opens each path and expands each scheme to its TLS twin at start (BL-988).

@@ -5,7 +5,7 @@ namespace Surl.Cli;
 /// items (ADR-0101 decisions 3 to 5, ADR-0102 decisions 1.2 and 1.4).
 /// </summary>
 [TestClass]
-public sealed class ConfiguredMailboxReaderTests
+public sealed partial class ConfiguredMailboxReaderTests
 {
     private static readonly IReadOnlySet<string> Domains = new HashSet<string>(StringComparer.Ordinal) { "example.com" };
 
@@ -67,15 +67,15 @@ public sealed class ConfiguredMailboxReaderTests
     [TestMethod]
     public void Build_EmptyFields_AreRefusedAsEmpty()
     {
-        Assert.AreEqual("an empty field", ConfiguredMailboxReader.Build(string.Empty, "pw", null, ConfiguredMailboxReader.IsAnySurlScheme, out _));
-        Assert.AreEqual("an empty field", ConfiguredMailboxReader.Build("ann@example.com", string.Empty, null, ConfiguredMailboxReader.IsAnySurlScheme, out _));
-        Assert.AreEqual("an empty field", ConfiguredMailboxReader.Build("ann@example.com", "pw", [string.Empty], ConfiguredMailboxReader.IsAnySurlScheme, out _));
+        Assert.AreEqual("an empty field", ConfiguredMailboxReader.Build(string.Empty, "pw", null, null, null, ConfiguredMailboxReader.IsAnySurlScheme, out _));
+        Assert.AreEqual("an empty field", ConfiguredMailboxReader.Build("ann@example.com", string.Empty, null, null, null, ConfiguredMailboxReader.IsAnySurlScheme, out _));
+        Assert.AreEqual("an empty field", ConfiguredMailboxReader.Build("ann@example.com", "pw", [string.Empty], null, null, ConfiguredMailboxReader.IsAnySurlScheme, out _));
     }
 
     [TestMethod]
     public void Build_PasswordWithOtherControlCharacters_IsAccepted()
     {
-        var failure = ConfiguredMailboxReader.Build("ann@example.com", "a\tb", [], ConfiguredMailboxReader.IsAnySurlScheme, out var mailbox);
+        var failure = ConfiguredMailboxReader.Build("ann@example.com", "a\tb", [], null, null, ConfiguredMailboxReader.IsAnySurlScheme, out var mailbox);
 
         Assert.IsNull(failure);
         Assert.AreEqual("a\tb", mailbox.Password);

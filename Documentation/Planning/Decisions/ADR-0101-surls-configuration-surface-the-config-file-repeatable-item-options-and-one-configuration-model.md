@@ -402,3 +402,24 @@ anything that strains a start. Each bound is a constant in `Surl.Cli`, not an op
   option's row by the task that builds it, under this grammar.
 - `surl` deliberately differs from curl where the rows say so; an operator moving a curl config habit
   over meets a refusal naming the line, never silently different behaviour.
+
+## Amendment 1 — the texts BL-993 adds to rows 10 and 15 (2026-11-11)
+
+Decided by Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), in BL-993, where decision 5
+left a refusal's words open:
+
+- **Row 10** gains, for `--shared-folder` and `--mailbox`'s `folders=`: `a folder name is longer than 1024
+  bytes` (the mail store's mailbox-name bound, ADR-0050 decision 3) and `a folder name is not UTF-8` (a lone
+  UTF-16 surrogate, possible only in an argument the operating system hands over); for `--shared-folder`,
+  `shared folder <name> cannot be INBOX`, the name as written, because every owner has an `INBOX` already
+  (ADR-0102 decision 1.6). A folder named twice in one `folders=` list and a target named twice in one
+  `--mail-alias` list are row 14's `member <name> is given twice`, as a scheme twice in `protocols=` is; a
+  target compares as `MailDomainNames` normalises it.
+- **Row 15**'s nouns for an alias and a catch-all are `alias <address>` and `catch-all domain <domain>`:
+  `alias <address> needs --mail-domain`, `alias <address> is not in any --mail-domain`,
+  `alias <address> is also a mailbox` (compared without regard to case, as two mailboxes are),
+  `catch-all domain <domain> needs --mail-domain` and `catch-all domain <domain> is not in any --mail-domain`.
+  A catch-all's target and an alias's targets are not checked here: ADR-0102 decision 1.3 gives them to the
+  mail store at start.
+- `@everyone` in a `--shared-folder` member list is refused at composition (BL-994) with ADR-0102 decision
+  1.6's text, where `--group`'s is, not as the item is read.

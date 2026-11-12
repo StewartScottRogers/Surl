@@ -163,7 +163,7 @@ public sealed class MailboxFileReader
             return ConfigurationItemReader.TooManyMembers;
         }
 
-        var failure = ConfiguredMailboxReader.Build(address, password, protocols, IsServedScheme, out var mailbox)
+        var failure = ConfiguredMailboxReader.Build(address, password, protocols, null, null, IsServedScheme, out var mailbox)
             ?? ConfiguredMailboxReader.FindConflict(address, mailbox, mailDomains, userNames)
             ?? (addresses.Add(mailbox.Address) ? null : ConfiguredMailboxReader.MailboxGivenTwice(address));
         if (failure is null)
