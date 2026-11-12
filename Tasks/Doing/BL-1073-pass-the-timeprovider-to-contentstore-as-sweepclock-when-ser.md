@@ -29,3 +29,4 @@ ADR-0150 (BL-874) added the opt-in `sweepClock` argument; nothing passes it yet.
 ## Log
 
 - 2026-11-12: Created.
+- 2026-11-12: Backlog -> Doing.
