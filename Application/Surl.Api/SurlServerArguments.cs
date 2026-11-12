@@ -46,9 +46,10 @@ internal static class SurlServerArguments
 
     private static void ThrowIfHoldsNull(SurlServerOptions options)
     {
-        if (options.ListenUrls.Contains(null!) || options.AdditionalArguments.Contains(null!) || options.Faults.Contains(null!))
+        if (options.ListenUrls.Contains(null!) || options.AdditionalArguments.Contains(null!) || options.Faults.Contains(null!)
+            || options.ProtocolServers.Contains(null!))
         {
-            throw new ArgumentException("ListenUrls, AdditionalArguments and Faults may not hold null.", nameof(options));
+            throw new ArgumentException("ListenUrls, AdditionalArguments, Faults and ProtocolServers may not hold null.", nameof(options));
         }
     }
 
@@ -88,9 +89,19 @@ internal static class SurlServerArguments
     /// <summary>Composes the arguments <c>surl</c> would be given for <paramref name="options"/>.</summary>
     /// <param name="options">The options.</param>
     /// <returns>The arguments, in order.</returns>
-    public static IReadOnlyList<string> Compose(SurlServerOptions options)
+    public static IReadOnlyList<string> Compose(SurlServerOptions options) =>
+        Compose(options, CustomProtocolServers.Of(options));
+
+    /// <summary>
+    /// Composes the arguments <c>surl</c> would be given for <paramref name="options"/>, less the listen URLs of
+    /// <paramref name="custom"/>'s servers, and with any fault rule scoped to a custom scheme readable by <c>surl</c>.
+    /// </summary>
+    /// <param name="options">The options.</param>
+    /// <param name="custom">The test's own protocol servers.</param>
+    /// <returns>The arguments, in order.</returns>
+    public static IReadOnlyList<string> Compose(SurlServerOptions options, CustomProtocolServers custom)
     {
-        List<string> arguments = [.. options.ListenUrls];
+        List<string> arguments = [.. custom.ListenUrlsToParse];
         if (options.DataDirectory is { } dataDirectory)
         {
             arguments.AddRange(["--directory", dataDirectory]);
@@ -105,7 +116,7 @@ internal static class SurlServerArguments
         AddLimits(arguments, options);
         foreach (var fault in options.Faults)
         {
-            arguments.AddRange(["--fault", fault.ToItem()]);
+            arguments.AddRange(["--fault", custom.ToReadable(fault, nameof(options)).ToItem()]);
         }
 
         if (options.LogLevel != LogLevel.Info)
@@ -126,17 +137,44 @@ internal static class SurlServerArguments
     /// <returns>The command line to compose.</returns>
     /// <exception cref="SurlServerStartException"><c>surl</c> would refuse the command line.</exception>
     /// <exception cref="ArgumentException">The arguments ask for help, the version, a log file or a trace file.</exception>
-    public static SurlCommandLine Parse(SurlServerOptions options, IReadOnlyCollection<string> extendedSchemes)
+    public static SurlCommandLine Parse(SurlServerOptions options, IReadOnlyCollection<string> extendedSchemes) =>
+        Parse(options, extendedSchemes, CustomProtocolServers.Of(options));
+
+    /// <summary>
+    /// Parses <paramref name="options"/>' arguments as <c>surl</c> parses them, with <paramref name="extendedSchemes"/>,
+    /// leaving <paramref name="custom"/>'s listen URLs to the composition and putting each fault rule's own listener and
+    /// scheme back.
+    /// </summary>
+    /// <param name="options">The options.</param>
+    /// <param name="extendedSchemes">The extended schemes served, none while extensions are off.</param>
+    /// <param name="custom">The test's own protocol servers.</param>
+    /// <returns>The command line to compose.</returns>
+    /// <exception cref="SurlServerStartException"><c>surl</c> would refuse the command line.</exception>
+    /// <exception cref="ArgumentException">The arguments ask for help, the version, a log file or a trace file.</exception>
+    public static SurlCommandLine Parse(
+        SurlServerOptions options, IReadOnlyCollection<string> extendedSchemes, CustomProtocolServers custom)
     {
-        var parsed = CommandLineParser.Parse(Compose(options), extendedSchemes);
+        var parsed = CommandLineParser.Parse(Compose(options, custom), extendedSchemes);
         return parsed.Outcome switch
         {
-            CommandLineOutcome.Serve => RefuseHostOwnedFiles(parsed.CommandLine!),
+            CommandLineOutcome.Serve => WithCustomScopes(RefuseHostOwnedFiles(parsed.CommandLine!), options, custom),
             CommandLineOutcome.Refused => throw new SurlServerStartException(ToStartFailure(parsed.Failure!)),
             _ => throw new ArgumentException(
                 "--help, --aihelp, --manual and --version start no server.", nameof(options)),
         };
     }
+
+    // The stand-in listen URL is not served, and each SurlServerOptions.Faults rule, read first, gets its own scope back.
+    private static SurlCommandLine WithCustomScopes(SurlCommandLine commandLine, SurlServerOptions options, CustomProtocolServers custom) =>
+        options.ProtocolServers.Count == 0 ? commandLine : commandLine with
+        {
+            ListenUrls = custom.BuiltInListenUrls.Count == 0 ? [] : commandLine.ListenUrls,
+            Faults =
+            [
+                .. options.Faults.Select((fault, index) => CustomProtocolServers.WithScopeOf(commandLine.Faults[index], fault)),
+                .. commandLine.Faults.Skip(options.Faults.Count),
+            ],
+        };
 
     /// <summary>The refusal as <c>surl</c> writes it: the message, then the try-help line when it has one.</summary>
     /// <param name="failure">The refusal.</param>

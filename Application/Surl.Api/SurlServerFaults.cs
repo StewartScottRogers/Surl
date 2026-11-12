@@ -21,13 +21,15 @@ public sealed class SurlServerFaults
     private readonly ISurlEventPublisher events;
     private readonly TimeProvider timeProvider;
     private readonly TimeSpan hookTimeLimit;
+    private readonly CustomProtocolServers custom;
 
-    internal SurlServerFaults(FaultPlan plan, ISurlEventPublisher events, TimeProvider timeProvider, TimeSpan hookTimeLimit)
+    internal SurlServerFaults(FaultPlan plan, ISurlEventPublisher events, TimeProvider timeProvider, TimeSpan hookTimeLimit, CustomProtocolServers custom)
     {
         this.plan = plan;
         this.events = events;
         this.timeProvider = timeProvider;
         this.hookTimeLimit = hookTimeLimit;
+        this.custom = custom;
     }
 
     /// <summary>
@@ -37,12 +39,12 @@ public sealed class SurlServerFaults
     /// <param name="fault">The rule.</param>
     /// <returns>The rule's identifier, <c>f&lt;n&gt;</c>, never reused by this server.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="fault"/> is null.</exception>
-    /// <exception cref="ArgumentException"><c>surl</c> would refuse the rule; the message is <c>surl</c>'s, e.g. <c>option --fault: kind error needs key scheme or key listener</c>.</exception>
+    /// <exception cref="ArgumentException"><c>surl</c> would refuse the rule; the message is <c>surl</c>'s, e.g. <c>option --fault: kind error needs key scheme or key listener</c>, or an <c>error</c> rule is scoped to a custom protocol server's scheme (<see cref="SurlServerOptions.ProtocolServers"/>).</exception>
     /// <exception cref="InvalidOperationException">The plan already holds 256 rules.</exception>
     public string Add(SurlFault fault)
     {
         ArgumentNullException.ThrowIfNull(fault);
-        return plan.Add(Read(fault, nameof(fault))).Id;
+        return plan.Add(custom.Read(fault, nameof(fault))).Id;
     }
 
     /// <summary>

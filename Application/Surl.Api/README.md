@@ -222,5 +222,28 @@ next command. Each seed, reset and restore is a `StoreChanged` event the queries
 `DataDirectory` the files, mail and messages are on disk, and reset and snapshot throw
 `InvalidOperationException` so a fixture never empties a real directory; seeding them still works.
 
+## Your own protocol server
+
+A test that needs a protocol Surl does not serve, or a deliberately odd one, registers its own
+`IConnectionProtocolServer` or `IDatagramProtocolServer` for a new scheme (ADR-0124 decision 2). It
+is served beside the built-in servers, through the same listeners, limits, event stream and fault
+plan, so its exchanges are recorded and its listen URL can be faulted like any other:
+
+```csharp
+var options = new SurlServerOptions { ListenUrls = { "http://127.0.0.1:0", "echo://127.0.0.1:0" } };
+options.ProtocolServers.Add(new SurlProtocolServer("echo", services => new EchoServer(services.ContentStore)));
+options.Faults.Add(SurlFault.DropConnection() with { Listener = "echo://127.0.0.1:0", Times = 1 });
+await using var server = await SurlServer.StartAsync(options);
+// server.BoundUrls[1] is echo://127.0.0.1:<port>/
+```
+
+- The factory gets `SurlProtocolServices`: the instance's content store, mail store, message bus,
+  authentication policy and clock, the same ones the built-in servers share.
+- Add only: a scheme any original or extended server claims, turned on or not, or one given twice,
+  is an `ArgumentException` at start.
+- A custom listen URL names its port (0 for an ephemeral one), `scheme://host:port`, nothing more.
+- A fault rule in `Faults` or `server.Faults.Add` may name the custom listener or scheme, except an
+  `error` rule, which has no reply shape for it; `AdditionalArguments` cannot name it.
+
 `Surl.Composition`'s public types, which this package carries, are not a supported programming
 interface and may change in any release.
