@@ -52,6 +52,8 @@ Filed by BL-793 (2026-11-05), which applied the `error` kind only.
 
 2026-11-11 (lane 6): `dotnet build` cannot run - global.json pins SDK 10.0.401 and only 10.0.100-rc.1, 11.0.100-rc.2 and 11.0.100 are installed. Added BL-1035 (Stewart reinstalls the SDK) to depends-on and returned the task to Backlog.
 
+2026-11-12 (lane 2): Decisions are in ADR-0141 amendment 1 (ADR-0134 decision 5 now points at it). `CommandStageFaults` gained an overload without a connection; `HttpCommandFaults.FindAndApplyAsync` applies a delay and hands back an error or drop rule. `FindChosenErrorAsync` stays for the S3, Azure Storage and Google Cloud Storage servers, which are outside `touches` and still apply only `error`. A drop aborts the connection for HTTP/1.x (through the new `HttpAnswer.DropsExchange`), RTSP and WebSocket; HTTP/2 and HTTP/3 reset the request's stream with INTERNAL_ERROR so other streams survive. The Core test is `ServeAsync_CommandStageDelayLongerThanTheIdleTimeout_IdleTimeoutDoesNotFireDuringIt`. Not done: the exit codes upstream curl gives a dropped or delayed request (expected 52 or 56) were not measured, because `Record-CurlExchange.ps1` has no fault-injecting server. No byte Surl sends changed.
+
 ## Log
 
 - 2026-11-05: Created.
