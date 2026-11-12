@@ -50,3 +50,4 @@ port, runs a verified TLS 1.2 or 1.3 client handshake at once (`ldaps`) or later
 ## Log
 
 - 2026-11-11: Created.
+- 2026-11-12: Backlog -> Doing.
