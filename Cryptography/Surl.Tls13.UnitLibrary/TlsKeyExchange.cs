@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using Surl.Cryptography.Curve25519;
 using Surl.Cryptography.Curve448;
 using Surl.Cryptography.MlKem;
+using Surl.Cryptography.Sm2;
 
 namespace Surl.Tls13;
 
@@ -43,6 +44,7 @@ internal static class TlsKeyExchange
             TlsNamedGroup.X25519MlKem768 => AgreeX25519MlKem768(share, random),
             TlsNamedGroup.SecP256r1MlKem768 => AgreeClassicalFirstHybrid(clientShare.Group, TlsNamedGroup.Secp256r1, MlKem768Kem, share, random),
             TlsNamedGroup.SecP384r1MlKem1024 => AgreeClassicalFirstHybrid(clientShare.Group, TlsNamedGroup.Secp384r1, MlKem1024Kem, share, random),
+            TlsNamedGroup.CurveSm2MlKem768 => AgreeClassicalFirstHybrid(clientShare.Group, TlsNamedGroup.CurveSm2, MlKem768Kem, share, random),
             _ => AgreeClassical(clientShare.Group, share, random),
         };
     }
@@ -52,6 +54,7 @@ internal static class TlsKeyExchange
         {
             TlsNamedGroup.X25519 => AgreeX25519(share, random),
             TlsNamedGroup.X448 => AgreeX448(share, random),
+            TlsNamedGroup.CurveSm2 => AgreeCurveSm2(share, random),
             TlsNamedGroup.Ffdhe2048 or TlsNamedGroup.Ffdhe3072 => AgreeFiniteField(group, share, random),
             _ => AgreeEllipticCurve(group, share),
         };
@@ -161,6 +164,29 @@ internal static class TlsKeyExchange
     }
 
     /// <summary>ffdhe2048 and ffdhe3072 (RFC 7919): Y padded to the length of p, checked 1 &lt; Y &lt; p - 1 (RFC 8446 section 4.2.8.1).</summary>
+    /// <summary>curveSM2 (RFC 8998, with RFC 8446 sections 4.2.8.2 and 7.4.2): an uncompressed point, and the x-coordinate of the product as the shared secret.</summary>
+    private static TlsKeyAgreement AgreeCurveSm2(ReadOnlySpan<byte> clientPoint, RandomNumberGenerator random)
+    {
+        if (clientPoint.Length != CurveSm2.PublicKeySize)
+        {
+            throw IllegalShare($"A curveSM2 key share is {CurveSm2.PublicKeySize} bytes, not {clientPoint.Length}.");
+        }
+
+        var privateKey = new byte[CurveSm2.PrivateKeySize];
+        random.GetBytes(privateKey);
+        var serverPoint = new byte[CurveSm2.PublicKeySize];
+        var sharedSecret = new byte[CurveSm2.SharedSecretSize];
+        CurveSm2.ComputePublicKey(privateKey, serverPoint);
+        var agreed = CurveSm2.TryComputeSharedSecret(privateKey, clientPoint, sharedSecret);
+        CryptographicOperations.ZeroMemory(privateKey);
+        if (!agreed)
+        {
+            throw IllegalShare("The curveSM2 key share is not an uncompressed point on the curve (RFC 8446 section 4.2.8.2).");
+        }
+
+        return new TlsKeyAgreement(serverPoint, sharedSecret);
+    }
+
     private static TlsKeyAgreement AgreeFiniteField(TlsNamedGroup group, ReadOnlySpan<byte> clientPublicValue, RandomNumberGenerator random)
     {
         var field = TlsFiniteFieldGroup.Of(group);

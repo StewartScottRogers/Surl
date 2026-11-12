@@ -6,6 +6,7 @@ using System.Text;
 using Surl.Cryptography.Curve25519;
 using Surl.Cryptography.Curve448;
 using Surl.Cryptography.MlKem;
+using Surl.Cryptography.Sm2;
 
 namespace Surl.Tls13;
 
@@ -46,6 +47,20 @@ internal sealed class UnitTestTlsClient
         {
             var shared = new byte[X448.KeySize];
             X448.ScalarMultiply(privateKey, serverShare, shared);
+            return shared;
+        });
+    }
+
+    /// <summary>A client with a curveSM2 share (RFC 8998): an uncompressed point, and the x-coordinate of the product as the secret.</summary>
+    public static UnitTestTlsClient WithCurveSm2Share()
+    {
+        var privateKey = RandomNumberGenerator.GetBytes(CurveSm2.PrivateKeySize);
+        var publicKey = new byte[CurveSm2.PublicKeySize];
+        CurveSm2.ComputePublicKey(privateKey, publicKey);
+        return new UnitTestTlsClient(0x0029, publicKey, serverShare =>
+        {
+            var shared = new byte[CurveSm2.SharedSecretSize];
+            Assert.IsTrue(CurveSm2.TryComputeSharedSecret(privateKey, serverShare, shared));
             return shared;
         });
     }
@@ -96,8 +111,13 @@ internal sealed class UnitTestTlsClient
     /// </summary>
     public static UnitTestTlsClient WithClassicalFirstHybridShare(ushort group)
     {
-        var classical = WithEllipticCurveShare(group == 0x11EB ? (ushort)0x0017 : (ushort)0x0018);
-        var (encapsulationKey, decapsulate) = group == 0x11EB ? MlKem768Key() : MlKem1024Key();
+        var classical = group switch
+        {
+            0x11EB => WithEllipticCurveShare(0x0017),
+            0x11EE => WithCurveSm2Share(),
+            _ => WithEllipticCurveShare(0x0018),
+        };
+        var (encapsulationKey, decapsulate) = group == 0x11ED ? MlKem1024Key() : MlKem768Key();
         return new UnitTestTlsClient(group, [.. classical.PublicShare, .. encapsulationKey], serverShare =>
         {
             var split = classical.PublicShare.Length;

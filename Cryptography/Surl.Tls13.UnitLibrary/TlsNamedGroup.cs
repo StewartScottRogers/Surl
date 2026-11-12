@@ -23,6 +23,9 @@ public enum TlsNamedGroup : ushort
     /// <summary>x448 (0x001E).</summary>
     X448 = 0x001E,
 
+    /// <summary>curveSM2 (0x0029, RFC 8998).</summary>
+    CurveSm2 = 0x0029,
+
     /// <summary>ffdhe2048 (0x0100, RFC 7919).</summary>
     Ffdhe2048 = 0x0100,
 
@@ -37,4 +40,7 @@ public enum TlsNamedGroup : ushort
 
     /// <summary>SecP384r1MLKEM1024 (0x11ED, draft-ietf-tls-ecdhe-mlkem).</summary>
     SecP384r1MlKem1024 = 0x11ED,
+
+    /// <summary>curveSM2MLKEM768 (0x11EE, draft-yang-tls-hybrid-sm2-mlkem).</summary>
+    CurveSm2MlKem768 = 0x11EE,
 }

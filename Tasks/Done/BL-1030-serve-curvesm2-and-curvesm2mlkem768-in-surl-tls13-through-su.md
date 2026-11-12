@@ -8,7 +8,7 @@ depends-on: [BL-1029, BL-1010]
 touches: [Cryptography/Surl.Tls13.UnitLibrary, Cryptography/Surl.Tls13.UnitTests, Foundation/Surl.Protocol.Abstractions.UnitTests]
 requirement: FR-055
 created: 2026-11-06
-completed:
+completed: 2026-11-12
 ---
 # BL-1030 — Serve curveSM2 and curveSM2MLKEM768 in Surl.Tls13 through Surl.Cryptography.Sm2
 
@@ -41,21 +41,25 @@ either completes without a retry. With this, every group BL-545 named is served.
 
 ## Acceptance criteria
 
-- [ ] `Receive_ClientHelloOfferingOnlyOneRemainingGroupWithNoShare_RetriesForItAndCompletesOnTheSecondClientHello`
+- [x] `Receive_ClientHelloOfferingOnlyOneRemainingGroupWithNoShare_RetriesForItAndCompletesOnTheSecondClientHello`
       passes for `0x11EE` and `0x0029`.
-- [ ] `Receive_RecordedUpstreamCurlClientHelloForOneCurve_AnswersItsShareAndCompletesWithoutARetry` passes for the
+- [x] `Receive_RecordedUpstreamCurlClientHelloForOneCurve_AnswersItsShareAndCompletesWithoutARetry` passes for the
       four `curveSM2` and `curveSM2MLKEM768` fixtures (Windows and Linux).
-- [ ] `Receive_RemainingGroupShareOfTheWrongLength_FailsWithIllegalParameter` passes for `(0x11EE, 1250)` and
+- [x] `Receive_RemainingGroupShareOfTheWrongLength_FailsWithIllegalParameter` passes for `(0x11EE, 1250)` and
       `(0x0029, 64)`, and a curveSM2 point off the curve fails with `illegal_parameter`.
-- [ ] `ProtocolIsolationTests` passes with `Surl.Tls13.UnitLibrary` referencing `Curve25519`, `Curve448`, `MlKem` and `Sm2`.
-- [ ] `TlsServerNegotiation.GroupPreference` is the twelve groups in the ADR's order.
-- [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and `Surl.Tls13.UnitLibrary` keeps 100% line
+- [x] `ProtocolIsolationTests` passes with `Surl.Tls13.UnitLibrary` referencing `Curve25519`, `Curve448`, `MlKem` and `Sm2`.
+- [x] `TlsServerNegotiation.GroupPreference` is the twelve groups in the ADR's order.
+- [x] `dotnet build -warnaserror` is clean, the fast tests are green, and `Surl.Tls13.UnitLibrary` keeps 100% line
       and branch coverage.
 
 ## Notes
+
+- Most of the stash was already on master (x448, ffdhe, SecP hybrids); only the curveSM2 pieces remained: Sm2 reference, two `TlsNamedGroup` members, `GroupPreference` (now twelve), `AgreeCurveSm2`, the 0x11EE dispatch, test client, test rows and isolation rows.
+- Task text says a 1250-byte curveSM2MLKEM768 share; measured fixtures show 1249 in (65 + 1184) and 1153 out, so 1250 is the wrong-length case. ADR-0147 is the decision record.
 
 ## Log
 
 - 2026-11-06: Created.
 - 2026-11-06: Split from BL-545 (timed out after 120 min); reuses its curveSM2 key exchange from stash `darkfactory BL-545 20261106-033059`.
 - 2026-11-12: Backlog -> Doing.
+- 2026-11-12: Doing -> Done. Surl.Tls13 serves curveSM2 (0x0029) and curveSM2MLKEM768 (0x11EE) through Surl.Cryptography.Sm2, retry and recorded-curl paths tested
