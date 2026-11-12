@@ -74,3 +74,20 @@ rather than a DOS-class status.
 A test can make one SFTP request, SCP command or SMB command fail on purpose and see it on the event stream,
 with the session going on (SFTP, SMB) or the command ending (SCP) as for any other refusal. No store changes.
 The command-stage delay and drop (BL-909) and the live measurement (BL-910) are follow-up tasks.
+
+## Amendment 1 (BL-909, 2026-11-12): delay and drop at a command are applied
+
+Decided by Claude under Stewart's delegation. Decision 5 is superseded: the SSH and SMB servers now ask
+`CommandStageFaults.FindAndApplyAsync` (ADR-0141) and keep answering an `error` rule in their own shape. No new
+seam in `Surl.Protocol.Abstractions` was needed; the two servers pass what a drop must abort.
+
+1. **`delay`.** The command's answer is held for the rule's milliseconds on `ExchangeContext.TimeProvider` with
+   the idle clock paused, one `FaultAppliedEvent` is published, and the command is then answered as usual.
+2. **`drop`.** The connection is aborted and one `FaultAppliedEvent` is published. SFTP ends the session without
+   an answer (`SftpSessionEndedException`, exit status 1); SCP returns 1 and writes nothing; SMB writes nothing
+   and stops reading (`SmbAnswer.WasDropped`).
+3. **Reaching the connection.** `ISshChannelDataStream` gains `Connection`, the connection the channel rides on
+   (`SshSessionChannel` takes it from `SshConnectionProtocol`, which takes it from `SshTransportHandshake`).
+   `SmbSession` already held its connection.
+4. **One listen-URL formatter.** Both servers' private `FormatListenUrl` copies are gone for
+   `ReportedListenUrl.Format`.

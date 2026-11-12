@@ -1,4 +1,5 @@
 using System.Buffers.Binary;
+using Surl.Protocol.Abstractions;
 
 namespace Surl.Protocol.Ssh;
 
@@ -11,6 +12,10 @@ internal sealed class SftpTestChannel(params byte[][] inbound) : ISshChannelData
 {
     private readonly Queue<ReadOnlyMemory<byte>> chunks = new(inbound.Select(chunk => (ReadOnlyMemory<byte>)chunk));
     private int taken;
+
+    public InMemoryConnection Connection { get; } = new([]);
+
+    IConnection ISshChannelDataStream.Connection => Connection;
 
     public List<byte> Written { get; } = [];
 

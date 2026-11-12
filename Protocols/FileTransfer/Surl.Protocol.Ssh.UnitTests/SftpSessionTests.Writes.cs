@@ -1,3 +1,4 @@
+using Surl.Protocol.Abstractions;
 using Surl.Content;
 using static Surl.Protocol.Ssh.SftpTestPackets;
 using static Surl.Protocol.Ssh.SshTestExchange;
@@ -699,6 +700,8 @@ public sealed partial class SftpSessionTests
     /// </summary>
     private sealed class FailingChannel(params byte[][] inbound) : ISshChannelDataStream
     {
+        public IConnection Connection { get; } = new InMemoryConnection([]);
+
         private readonly SftpTestChannel inner = new(inbound);
 
         public async ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken)

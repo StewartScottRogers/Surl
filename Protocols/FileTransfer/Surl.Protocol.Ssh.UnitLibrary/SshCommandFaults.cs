@@ -6,73 +6,77 @@ using Surl.Protocol.Abstractions;
 namespace Surl.Protocol.Ssh;
 
 /// <summary>
-/// Asks the exchange's fault plan, at one SFTP request or SCP command, whether to answer it with a
-/// chosen error (ADR-0124 decision 4; ADR-0135): the point names the scheme (<c>sftp</c> or
-/// <c>scp</c>), the account logged in, the command (the SFTP packet name, or <c>scp</c>) and the
-/// canonical path.
+/// Asks the exchange's fault plan, at one SFTP request or SCP command, whether to hold it, drop
+/// the connection or answer it with a chosen error (ADR-0124 decision 4; ADR-0135; ADR-0141): the
+/// point names the scheme (<c>sftp</c> or <c>scp</c>), the account logged in, the command (the SFTP
+/// packet name, or <c>scp</c>) and the canonical path.
 /// </summary>
 /// <remarks>
-/// Only a <see cref="FaultKind.Error"/> rule whose reply fits its scheme's error shape is applied,
-/// and applying it publishes one <see cref="FaultAppliedEvent"/> naming the path, or the command
-/// when the request names none. A rule of any other kind, or a reply that does not fit, is noted as
-/// not applied and the request is answered as without it.
+/// A <see cref="FaultKind.Delay"/> or <see cref="FaultKind.Drop"/> rule is applied through
+/// <see cref="CommandStageFaults"/>. A <see cref="FaultKind.Error"/> rule whose reply fits its
+/// scheme's error shape is applied, and applying it publishes one <see cref="FaultAppliedEvent"/>
+/// naming the path, or the command when the request names none. A rule of any other kind, or a
+/// reply that does not fit, is noted as not applied and the request is answered as without it.
 /// </remarks>
 internal static class SshCommandFaults
 {
     /// <summary>
-    /// Finds the chosen error for an SFTP request, publishing its <see cref="FaultAppliedEvent"/>.
+    /// Finds the fault for an SFTP request, applying a delay or a drop and publishing the
+    /// <see cref="FaultAppliedEvent"/> of a chosen error.
     /// </summary>
-    /// <param name="context">The exchange: its fault plan, event stream, listen URL and log.</param>
+    /// <param name="context">The exchange: its fault plan, clocks, event stream, listen URL and log.</param>
+    /// <param name="connection">The connection a drop aborts.</param>
     /// <param name="accountName">The account logged in, or <see langword="null"/> for an anonymous caller.</param>
     /// <param name="command">The SFTP packet name (<c>OPEN</c>).</param>
     /// <param name="path">The canonical path the request concerns, or <see langword="null"/> when it names none.</param>
-    /// <param name="cancellationToken">Cancels the plan's search.</param>
-    /// <returns>The rule's identifier, status and message, or <see langword="null"/> to answer as usual.</returns>
-    public static async ValueTask<(string RuleId, SftpStatusCode Code, string Message)?> FindSftpErrorAsync(
-        ExchangeContext context, string? accountName, string command, string? path, CancellationToken cancellationToken)
-    {
-        var rule = await FindErrorAsync(context, "sftp", accountName, command, path, reply => TryReadSftpStatus(reply, out _, out _), cancellationToken);
-        if (rule is null)
-        {
-            return null;
-        }
-
-        TryReadSftpStatus(rule.Reply, out var code, out var message);
-
-        return (rule.Id, code, message);
-    }
+    /// <returns>
+    /// The error rule, or the drop rule (the connection is already aborted), or <see langword="null"/>
+    /// to answer as usual - after a delay too.
+    /// </returns>
+    public static ValueTask<FaultRule?> FindSftpFaultAsync(
+        ExchangeContext context, IConnection connection, string? accountName, string command, string? path) =>
+        FindFaultAsync(context, connection, "sftp", accountName, command, path, reply => TryReadSftpStatus(reply, out _, out _));
 
     /// <summary>
-    /// Finds the chosen error for an SCP command - command <c>scp</c>, the path it names
-    /// canonicalised - publishing its <see cref="FaultAppliedEvent"/>.
+    /// Finds the fault for an SCP command - command <c>scp</c>, the path it names canonicalised -
+    /// applying a delay or a drop and publishing the <see cref="FaultAppliedEvent"/> of a chosen error.
     /// </summary>
     /// <param name="context">The exchange.</param>
+    /// <param name="connection">The connection a drop aborts.</param>
     /// <param name="caller">Who logged in, on <c>scp</c>.</param>
     /// <param name="command">The SCP command.</param>
-    /// <param name="cancellationToken">Cancels the plan's search.</param>
-    /// <returns>The rule, whose reply is the message line, or <see langword="null"/> to answer as usual.</returns>
-    public static ValueTask<FaultRule?> FindScpErrorAsync(
-        ExchangeContext context, ContentCaller caller, SshScpCommand command, CancellationToken cancellationToken)
+    /// <returns>
+    /// The error rule, whose reply is the message line, or the drop rule (the connection is already
+    /// aborted), or <see langword="null"/> to answer as usual - after a delay too.
+    /// </returns>
+    public static ValueTask<FaultRule?> FindScpFaultAsync(
+        ExchangeContext context, IConnection connection, ContentCaller caller, SshScpCommand command)
     {
         var canonical = SshContentPath.Canonicalise(Encoding.UTF8.GetBytes(command.Path));
         var path = canonical is null ? null : SshContentPath.WithoutTrailingSlash(canonical);
 
-        return FindErrorAsync(context, "scp", caller.AccountName, "scp", path, IsScpMessageLine, cancellationToken);
+        return FindFaultAsync(context, connection, "scp", caller.AccountName, "scp", path, IsScpMessageLine);
     }
 
     /// <summary>
     /// Answers an SCP command with a rule's chosen error line - byte 1, the reply, LF - noting it,
-    /// and ends the command with exit status 1, as every other SCP refusal does.
+    /// and ends the command with exit status 1, as every other SCP refusal does. A drop rule writes
+    /// nothing: the connection is already aborted.
     /// </summary>
     /// <param name="channel">The channel's data both ways.</param>
     /// <param name="context">The exchange: its log.</param>
     /// <param name="subject">What the note names: <c>SCP upload /up/a</c>.</param>
-    /// <param name="rule">The rule <see cref="FindScpErrorAsync"/> found.</param>
+    /// <param name="rule">The rule <see cref="FindScpFaultAsync"/> found.</param>
     /// <param name="cancellationToken">Cancels the write.</param>
     /// <returns>1, the exit status.</returns>
-    public static async Task<uint> AnswerScpErrorAsync(
+    public static async Task<uint> AnswerScpFaultAsync(
         ISshChannelDataStream channel, ExchangeContext context, string subject, FaultRule rule, CancellationToken cancellationToken)
     {
+        if (rule.Kind == FaultKind.Drop)
+        {
+            return 1;
+        }
+
         context.Log.Note($"{subject} refused by fault rule {rule.Id}: {rule.Reply}");
         await channel.WriteAsync(ScpReply.ChosenError(rule.Reply!), cancellationToken);
 
@@ -115,39 +119,30 @@ internal static class SshCommandFaults
     public static bool IsScpMessageLine(string? reply) =>
         !string.IsNullOrEmpty(reply) && reply.AsSpan().IndexOfAny('\r', '\n') < 0;
 
-    /// <summary>
-    /// The listen URL as the fault plan matches it, as the serving engine names it: the scheme, the
-    /// host (an IPv6 address in brackets, its zone's <c>%</c> encoded) and the bound port.
-    /// </summary>
-    /// <param name="listenUrl">The exchange's listen URL.</param>
-    /// <returns><c>sftp://127.0.0.1:2222/</c>.</returns>
-    public static string FormatListenUrl(ListenUrl listenUrl)
-    {
-        var host = listenUrl.Host.Contains(':', StringComparison.Ordinal)
-            ? "[" + listenUrl.Host.Replace("%", "%25", StringComparison.Ordinal) + "]"
-            : listenUrl.Host;
-
-        return $"{listenUrl.Scheme}://{host}:{listenUrl.BoundPort ?? listenUrl.Port}/";
-    }
-
-    // Asks the plan; a chosen-error rule whose reply fits is published and handed back, anything
-    // else the plan found is noted as not applied.
-    private static async ValueTask<FaultRule?> FindErrorAsync(
-        ExchangeContext context, string scheme, string? accountName, string command, string? path, Func<string?, bool> fits, CancellationToken cancellationToken)
+    // Asks the plan; a delay is held and a drop aborts the connection, each published by
+    // CommandStageFaults. A chosen-error rule whose reply fits is published and handed back,
+    // anything else the plan found is noted as not applied.
+    private static async ValueTask<FaultRule?> FindFaultAsync(
+        ExchangeContext context, IConnection connection, string scheme, string? accountName, string command, string? path, Func<string?, bool> fits)
     {
         var point = new FaultPoint(FaultStage.Command)
         {
             ExchangeId = context.ExchangeId,
-            ListenUrl = FormatListenUrl(context.ListenUrl),
+            ListenUrl = ReportedListenUrl.Format(context.ListenUrl),
             Scheme = scheme,
             Account = accountName,
             Path = path,
             Command = command,
         };
-        var rule = await context.Faults.FindAsync(point, cancellationToken);
-        if (rule is null)
+        var rule = await CommandStageFaults.FindAndApplyAsync(context, connection, point, path ?? command);
+        if (rule is null or { Kind: FaultKind.Delay })
         {
             return null;
+        }
+
+        if (rule.Kind == FaultKind.Drop)
+        {
+            return rule;
         }
 
         if (rule.Kind != FaultKind.Error || !fits(rule.Reply))

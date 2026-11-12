@@ -60,6 +60,11 @@ internal sealed class SshTransportHandshake(
     private bool loggedIn;
 
     /// <summary>
+    /// The connection being served.
+    /// </summary>
+    public IConnection Connection => connection;
+
+    /// <summary>
     /// The reader of the client's packets, which reads on after the key exchange; set once the
     /// identification lines are exchanged.
     /// </summary>

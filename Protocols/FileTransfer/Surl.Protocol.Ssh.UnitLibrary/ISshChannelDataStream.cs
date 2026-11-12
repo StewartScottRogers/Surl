@@ -1,3 +1,5 @@
+using Surl.Protocol.Abstractions;
+
 namespace Surl.Protocol.Ssh;
 
 /// <summary>
@@ -6,6 +8,11 @@ namespace Surl.Protocol.Ssh;
 /// </summary>
 internal interface ISshChannelDataStream
 {
+    /// <summary>
+    /// The connection the channel rides on, which a <c>drop</c> fault rule aborts.
+    /// </summary>
+    IConnection Connection { get; }
+
     /// <summary>
     /// Reads the client's next channel data into <paramref name="buffer"/>, waiting for some if
     /// none is buffered; the bytes read are granted back to the client once half the window is used.

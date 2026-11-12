@@ -1,4 +1,5 @@
 using System.Buffers.Binary;
+using Surl.Protocol.Abstractions;
 
 namespace Surl.Protocol.Ssh;
 
@@ -51,6 +52,11 @@ internal sealed class SshSessionChannel : ISshChannelDataStream
         this.clientWindow = clientWindow;
         this.clientMaxPacket = Math.Max(1u, clientMaxPacket);
     }
+
+    /// <summary>
+    /// The connection the channel rides on.
+    /// </summary>
+    public IConnection Connection => connection.Connection;
 
     /// <summary>
     /// The server's number for the channel.

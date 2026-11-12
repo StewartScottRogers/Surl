@@ -111,6 +111,28 @@ public sealed class SshConnectionProtocolTests
     }
 
     [TestMethod]
+    public async Task Handler_AskedForTheChannelsConnection_IsGivenTheConnectionBeingServed()
+    {
+        IConnection? seen = null;
+        var handlers = new SshTestChannelHandlers
+        {
+            Run = (channel, _) =>
+            {
+                seen = channel.Connection;
+
+                return Task.FromResult(0u);
+            },
+        };
+        var (client, serving) = await OpenSessionAsync(handlers);
+
+        client.Send(ChannelRequest("exec", wantsReply: false, String("scp -f /x")));
+
+        await AssertEndedAsync(client, 0);
+        await CloseAsync(client, serving);
+        Assert.AreSame(client.Connection, seen);
+    }
+
+    [TestMethod]
     public async Task Subsystem_Sftp_IsHandedToTheHandler()
     {
         var handlers = new SshTestChannelHandlers

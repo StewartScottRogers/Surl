@@ -10,10 +10,12 @@ namespace Surl.Protocol.Smb;
 /// with the share and the name's backslash-separated parts joined by <c>/</c>.
 /// </summary>
 /// <remarks>
-/// Only a <see cref="FaultKind.Error"/> rule whose reply fits (<see cref="TryReadNtStatus"/>) is
-/// applied, and applying it publishes one <see cref="FaultAppliedEvent"/> naming the path, or the
-/// command when the request names none. A rule of any other kind, or a reply that does not fit, is
-/// noted as not applied and the request is answered as without it (ADR-0135).
+/// A <see cref="FaultKind.Delay"/> or <see cref="FaultKind.Drop"/> rule is applied through
+/// <see cref="CommandStageFaults"/> (ADR-0135, amendment 1). A <see cref="FaultKind.Error"/> rule
+/// whose reply fits (<see cref="TryReadNtStatus"/>) is applied, and applying it publishes one
+/// <see cref="FaultAppliedEvent"/> naming the path, or the command when the request names none. A
+/// rule of any other kind, or a reply that does not fit, is noted as not applied and the request is
+/// answered as without it.
 /// </remarks>
 internal static class SmbCommandFaults
 {
@@ -23,28 +25,40 @@ internal static class SmbCommandFaults
     public const ushort NtStatusFlag = 0x4000;
 
     /// <summary>
-    /// Finds the chosen-error rule for a command, publishing its <see cref="FaultAppliedEvent"/>.
+    /// Finds the rule for a command and applies a delay or a drop through
+    /// <see cref="CommandStageFaults"/>; a chosen-error rule is handed back, publishing its
+    /// <see cref="FaultAppliedEvent"/>.
     /// </summary>
-    /// <param name="context">The exchange: its fault plan, event stream and listen URL.</param>
+    /// <param name="context">The exchange: its fault plan, clocks, event stream and listen URL.</param>
+    /// <param name="connection">The connection a drop aborts.</param>
     /// <param name="accountName">The account logged in, or <see langword="null"/> for an anonymous caller.</param>
     /// <param name="command">The command's name (<c>CREATE</c>).</param>
     /// <param name="path">The path the command concerns, or <see langword="null"/> when it names none.</param>
-    /// <returns>The rule to answer with, or <see langword="null"/> to answer as usual.</returns>
-    public static async ValueTask<FaultRule?> FindErrorAsync(ExchangeContext context, string? accountName, string command, string? path)
+    /// <returns>
+    /// The error rule to answer with, or the drop rule (the connection is already aborted), or
+    /// <see langword="null"/> to answer as usual - after a delay too.
+    /// </returns>
+    public static async ValueTask<FaultRule?> FindAndApplyAsync(
+        ExchangeContext context, IConnection connection, string? accountName, string command, string? path)
     {
         var point = new FaultPoint(FaultStage.Command)
         {
             ExchangeId = context.ExchangeId,
-            ListenUrl = FormatListenUrl(context.ListenUrl),
+            ListenUrl = ReportedListenUrl.Format(context.ListenUrl),
             Scheme = context.Scheme,
             Account = accountName,
             Path = path,
             Command = command,
         };
-        var rule = await context.Faults.FindAsync(point, context.CancellationToken);
-        if (rule is null)
+        var rule = await CommandStageFaults.FindAndApplyAsync(context, connection, point, path ?? command);
+        if (rule is null or { Kind: FaultKind.Delay })
         {
             return null;
+        }
+
+        if (rule.Kind == FaultKind.Drop)
+        {
+            return rule;
         }
 
         if (rule.Kind != FaultKind.Error || !TryReadNtStatus(rule.Reply, out _))
@@ -105,20 +119,5 @@ internal static class SmbCommandFaults
         status = parsed;
 
         return true;
-    }
-
-    /// <summary>
-    /// The listen URL as the fault plan matches it, as the serving engine names it: the scheme, the
-    /// host (an IPv6 address in brackets, its zone's <c>%</c> encoded) and the bound port.
-    /// </summary>
-    /// <param name="listenUrl">The exchange's listen URL.</param>
-    /// <returns><c>smb://127.0.0.1:445/</c>.</returns>
-    public static string FormatListenUrl(ListenUrl listenUrl)
-    {
-        var host = listenUrl.Host.Contains(':', StringComparison.Ordinal)
-            ? "[" + listenUrl.Host.Replace("%", "%25", StringComparison.Ordinal) + "]"
-            : listenUrl.Host;
-
-        return $"{listenUrl.Scheme}://{host}:{listenUrl.BoundPort ?? listenUrl.Port}/";
     }
 }

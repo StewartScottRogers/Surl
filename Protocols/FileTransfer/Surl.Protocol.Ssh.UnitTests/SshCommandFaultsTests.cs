@@ -103,8 +103,6 @@ public sealed class SshCommandFaultsTests
     }
 
     [TestMethod]
-    [DataRow(FaultKind.Delay)]
-    [DataRow(FaultKind.Drop)]
     [DataRow(FaultKind.RefuseLogin)]
     public async Task SftpRule_OfAnotherKind_IsNotAppliedAtACommand(FaultKind kind)
     {
@@ -213,11 +211,80 @@ public sealed class SshCommandFaultsTests
         Assert.AreEqual((fits, (SftpStatusCode)code, message), (read, readCode, readMessage));
     }
 
+    // ADR-0141: a command-stage delay holds OPEN's answer until the clock advances, idle clock paused.
     [TestMethod]
-    [DataRow("fe80::1%4", 2222, "sftp://[fe80::1%254]:2222/")]
-    [DataRow("localhost", 22, "sftp://localhost:22/")]
-    public void FormatListenUrl_NamesTheListenUrlAsTheEngineDoes(string host, int port, string expected) =>
-        Assert.AreEqual(expected, SshCommandFaults.FormatListenUrl(new ListenUrl("sftp", host, port)));
+    public async Task SftpOpen_UnderADelayRule_IsHeldUntilTheClockAdvances500Ms_WithTheIdleClockPaused()
+    {
+        var delay = new FaultRule("f1", FaultKind.Delay) { Stage = FaultStage.Command, Command = "OPEN", DelayMilliseconds = 500 };
+        var idleClock = new RecordingIdleClock();
+        var events = new RecordingSurlEventPublisher();
+        var channel = new SftpTestChannel(Init3, Open(1, "/a.txt"));
+        var context = FaultedContext(new ScriptedFaultPlan(delay), new RecordingExchangeLog(), events) with { IdleClock = idleClock };
+        var serving = new SftpSession(Store(new(), clock), ContentCaller.Anonymous("sftp"), context).RunAsync(channel, TestContext.CancellationToken);
+
+        await idleClock.FirstPause.WaitAsync(TimeSpan.FromSeconds(30), TestContext.CancellationToken);
+        var packetsAtTheHold = channel.WrittenPackets().Count;
+        clock.Advance(TimeSpan.FromMilliseconds(499));
+        var packetsAfter499Ms = channel.WrittenPackets().Count;
+        var pausedAfter499Ms = idleClock.IsPaused;
+        clock.Advance(TimeSpan.FromMilliseconds(1));
+        var exit = await serving.WaitAsync(TimeSpan.FromSeconds(30), TestContext.CancellationToken);
+
+        Assert.AreEqual(0u, exit);
+        Assert.AreEqual(1, packetsAtTheHold);
+        Assert.AreEqual(1, packetsAfter499Ms);
+        Assert.IsTrue(pausedAfter499Ms);
+        Assert.IsFalse(idleClock.IsPaused);
+        CollectionAssert.AreEqual(HandleReply(1, 0), channel.WrittenPackets()[1]);
+        Assert.AreEqual(new FaultAppliedEvent("f1", FaultKind.Delay, FaultStage.Command, 1, "/a.txt"), events.Events.Single());
+    }
+
+    // ADR-0141: a command-stage drop aborts the connection in place of OPEN's answer and ends the session.
+    [TestMethod]
+    public async Task SftpOpen_UnderADropRule_AbortsTheConnectionWithNoAnswerAndEndsTheSession()
+    {
+        var drop = new FaultRule("f1", FaultKind.Drop) { Stage = FaultStage.Command, Command = "OPEN" };
+        var log = new RecordingExchangeLog();
+        var events = new RecordingSurlEventPublisher();
+        var channel = new SftpTestChannel(Init3, Open(1, "/a.txt"), Open(2, "/b.txt"));
+
+        var exit = await new SftpSession(Store(new(), clock), ContentCaller.Anonymous("sftp"), FaultedContext(new ScriptedFaultPlan(drop), log, events))
+            .RunAsync(channel, TestContext.CancellationToken);
+
+        Assert.AreEqual(1u, exit);
+        Assert.IsTrue(channel.Connection.Aborted);
+        Assert.HasCount(1, channel.WrittenPackets());
+        Assert.AreEqual(new FaultAppliedEvent("f1", FaultKind.Drop, FaultStage.Command, 1, "/a.txt"), events.Events.Single());
+        CollectionAssert.Contains(log.Notes.ToList(), "SFTP session ended: dropped by fault rule f1");
+    }
+
+    [TestMethod]
+    public async Task ScpUpload_UnderADropRule_AbortsTheConnectionAndWritesNothing()
+    {
+        var (store, fileSystem) = StoreWithUpDirectory();
+        var drop = new FaultRule("f1", FaultKind.Drop) { Stage = FaultStage.Command, Command = "scp" };
+
+        var run = await RunScpAsync(store, new ScriptedFaultPlan(drop), new SshScpCommand(false, false, false, "/up/a"), Ascii("C0644 5 a\n"), Ascii("hello"));
+
+        Assert.AreEqual(1u, run.Exit);
+        Assert.AreEqual(string.Empty, run.Text);
+        Assert.IsTrue(run.Aborted);
+        Assert.AreEqual(ContentEntryKind.None, fileSystem.GetEntryKind(Path.Join(InMemoryContentFileSystem.RootPath, "up", "a")));
+        Assert.AreEqual(new FaultAppliedEvent("f1", FaultKind.Drop, FaultStage.Command, 1, "/up/a"), run.Events.Single());
+    }
+
+    [TestMethod]
+    public async Task ScpDownload_UnderADropRule_AbortsTheConnectionAfterTheStartAcknowledgement()
+    {
+        var drop = new FaultRule("f1", FaultKind.Drop) { Stage = FaultStage.Command, Command = "scp" };
+
+        var run = await RunScpAsync(Store(new(), clock), new ScriptedFaultPlan(drop), new SshScpCommand(true, false, false, "/a.txt"), [0]);
+
+        Assert.AreEqual(1u, run.Exit);
+        Assert.AreEqual(string.Empty, run.Text);
+        Assert.IsTrue(run.Aborted);
+        Assert.AreEqual(new FaultAppliedEvent("f1", FaultKind.Drop, FaultStage.Command, 1, "/a.txt"), run.Events.Single());
+    }
 
     private (ContentStore Store, InMemoryContentFileSystem FileSystem) StoreWithUpDirectory()
     {
@@ -261,10 +328,10 @@ public sealed class SshCommandFaultsTests
 
         var exit = await handler.RunAsync(channel, TestContext.CancellationToken);
 
-        return new ScpRun(exit, Encoding.UTF8.GetString([.. channel.Written]), [.. log.Notes], [.. events.Events]);
+        return new ScpRun(exit, Encoding.UTF8.GetString([.. channel.Written]), [.. log.Notes], [.. events.Events], channel.Connection.Aborted);
     }
 
     private sealed record SftpRun(List<byte[]> Replies, string[] Notes, SurlEvent[] Events);
 
-    private sealed record ScpRun(uint Exit, string Text, string[] Notes, SurlEvent[] Events);
+    private sealed record ScpRun(uint Exit, string Text, string[] Notes, SurlEvent[] Events, bool Aborted);
 }

@@ -8,7 +8,7 @@ depends-on: [BL-795, BL-901, BL-1035]
 touches: [Protocols/FileTransfer/Surl.Protocol.Ssh.UnitLibrary, Protocols/FileTransfer/Surl.Protocol.Ssh.UnitTests, Protocols/FileTransfer/Surl.Protocol.Smb.UnitLibrary, Protocols/FileTransfer/Surl.Protocol.Smb.UnitTests]
 requirement: none
 created: 2026-11-05
-completed:
+completed: 2026-11-12
 ---
 # BL-909 — Apply command-stage delay and drop faults in the SSH and SMB servers
 
@@ -31,11 +31,11 @@ applied.
 
 ## Acceptance criteria
 
-- [ ] Named tests: a `delay` rule at `stage=command` on SFTP `OPEN` and on SMB `CREATE` holds the answer until a
+- [x] Named tests: a `delay` rule at `stage=command` on SFTP `OPEN` and on SMB `CREATE` holds the answer until a
       `ManualTimeProvider` advances by the rule's milliseconds, and publishes one `FaultAppliedEvent`.
-- [ ] Named tests: a `drop` rule at `stage=command` on SFTP `OPEN`, SCP and SMB `CREATE` aborts the connection
+- [x] Named tests: a `drop` rule at `stage=command` on SFTP `OPEN`, SCP and SMB `CREATE` aborts the connection
       and publishes one `FaultAppliedEvent`.
-- [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and both libraries keep 100% line and
+- [x] `dotnet build -warnaserror` is clean, the fast tests are green, and both libraries keep 100% line and
       branch coverage.
 
 ## Notes
@@ -57,9 +57,19 @@ shift to stash; the plan, so the next run can redo or resume it:
   `SshTransportHandshake`'s connection; test channels expose an `InMemoryConnection`. SFTP ends the session on a drop
   (`SftpSessionEndedException`, exit 1); SCP returns 1 with nothing written. Drop the SSH `FormatListenUrl` copy too.
 
+2026-11-12 (dark factory lane 3), second attempt - done. The pinned SDK is back (BL-1035), so the plan above was
+redone and built. No new seam: both servers call BL-901's `CommandStageFaults.FindAndApplyAsync`. Decisions are
+recorded as ADR-0135 amendment 1 (Decided by Claude under Stewart's delegation). SMB: `SmbCommandFaults.FindAndApplyAsync`,
+`SmbAnswer.WasDropped`. SSH: `ISshChannelDataStream.Connection` (from `SshTransportHandshake` through
+`SshConnectionProtocol` and `SshSessionChannel`); `SshCommandFaults.FindSftpFaultAsync` / `FindScpFaultAsync` /
+`AnswerScpFaultAsync`; an SFTP drop ends the session (exit 1), an SCP drop returns 1 and writes nothing. Both
+libraries' `FormatListenUrl` copies are gone for `ReportedListenUrl.Format`. Tests: SMB 221, SSH 1090, full fast
+run green; coverage was reasoned from the tests added (each new branch has one), not measured.
+
 ## Log
 
 - 2026-11-05: Created.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waits on BL-1035: pinned .NET SDK 10.0.401 is not installed, so nothing builds
 - 2026-11-12: Backlog -> Doing.
+- 2026-11-12: Doing -> Done. SFTP/SCP/SMB command-stage delay and drop faults are applied, not noted

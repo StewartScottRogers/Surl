@@ -36,8 +36,10 @@ What exists (BL-290, BL-296 to BL-298, ADR-0073 decisions 1 to 8):
 - `SmbCommandFaults` - the chosen-error fault (ADR-0135): after the session setup each request asks
   `ExchangeContext.Faults` at the `Command` stage, named `TREE_CONNECT`, `CREATE`, `READ`, `WRITE`,
   `CLOSE` or `TREE_DISCONNECT` with the path `/<share>/<name>`, and a matching `error` rule is answered
-  with its NTSTATUS and `SMB_FLAGS2_NT_STATUS` set, publishing `FaultAppliedEvent`. A reply that does
-  not fit, or a `delay` or `drop` rule, is noted and not applied (BL-909).
+  with its NTSTATUS and `SMB_FLAGS2_NT_STATUS` set, publishing `FaultAppliedEvent`. A `delay` rule holds the
+  answer on the exchange's clock with the idle clock paused, and a `drop` rule aborts the connection with no
+  answer (BL-909, ADR-0135 amendment 1, through `CommandStageFaults`); a reply that does not fit is noted and
+  not applied.
 - The codec: `SmbRequestDecoder` decodes the eight requests curl sends (`SmbNegotiateRequest`,
   `SmbSessionSetupRequest`, `SmbTreeConnectRequest`, `SmbNtCreateRequest`, `SmbReadRequest`,
   `SmbWriteRequest`, `SmbCloseRequest`, `SmbTreeDisconnectRequest`), reporting a malformed one as

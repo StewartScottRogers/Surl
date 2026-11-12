@@ -122,6 +122,12 @@ internal sealed class SmbExchange
 
     private async Task<bool> WriteAnswerAsync(SmbAnswer answer)
     {
+        if (answer.WasDropped)
+        {
+            requestBeingAnswered = null;
+            return false;
+        }
+
         await connection.WriteAsync(answer.Response, context.CancellationToken);
         requestBeingAnswered = null;
         if (answer.ClosesConnection)
