@@ -38,7 +38,7 @@ public sealed partial class Amqp1ContainerConnection
         var point = new FaultPoint(FaultStage.Command)
         {
             ExchangeId = context.ExchangeId,
-            ListenUrl = FaultListenUrl.Text(context.ListenUrl),
+            ListenUrl = ReportedListenUrl.Format(context.ListenUrl),
             Scheme = context.Scheme,
             Account = accountName,
             Path = nodeAddress,
