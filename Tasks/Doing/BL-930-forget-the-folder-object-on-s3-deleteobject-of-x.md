@@ -42,3 +42,4 @@ A DeleteObject of `x/` removes the folder object `x/` from the object metadata i
 - 2026-11-06: Created.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waits on BL-1035: dotnet build cannot find the .NET SDK 10.0.401 that global.json pins; the code is written, but not built or tested
+- 2026-11-12: Backlog -> Doing.
