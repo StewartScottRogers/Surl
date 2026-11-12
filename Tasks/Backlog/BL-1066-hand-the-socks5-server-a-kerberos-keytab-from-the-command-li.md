@@ -1,5 +1,5 @@
 ---
-id: BL-1061
+id: BL-1066
 title: Hand the SOCKS5 server a Kerberos keytab from the command line
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-12
 completed:
 ---
-# BL-1061 — Hand the SOCKS5 server a Kerberos keytab from the command line
+# BL-1066 — Hand the SOCKS5 server a Kerberos keytab from the command line
 
 ## Goal
 
