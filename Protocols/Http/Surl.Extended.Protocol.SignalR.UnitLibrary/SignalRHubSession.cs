@@ -402,8 +402,16 @@ internal sealed class SignalRHubSession : IDisposable, ISignalRBroadcastReceiver
             return SignalRSessionEnd.HubProtocolError("an invocationId already in progress was used again");
         }
 
-        // ADR-0144: a chosen-error fault rule completes the invocation in place of the hub method.
-        var call = invocation.InvocationId is not null && await invocationFaults.FindErrorAsync(invocation) is { } chosenError
+        // ADR-0144: a chosen-error fault rule completes the invocation in place of the hub method; a
+        // delay rule holds it; a drop rule ends the connection with nothing written (BL-943).
+        var fault = invocation.InvocationId is null ? SignalRInvocationFaultOutcome.CalledAsUsual : await invocationFaults.ApplyAsync(invocation);
+
+        if (fault.IsDropped)
+        {
+            return SignalRSessionEnd.Silent("a drop fault rule ended the connection");
+        }
+
+        var call = fault.ChosenError is { } chosenError
             ? SignalRHubCall.Failed(chosenError)
             : SignalRHubMethods.Call(invocation, isMessagePack);
 

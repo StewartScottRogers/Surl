@@ -77,15 +77,56 @@ public sealed class McpRequestFaultsTests
     }
 
     [TestMethod]
-    public async Task ServeAsync_CommandStageDelayRule_IsNotAppliedAndIsNoted()
+    public async Task ServeAsync_CommandStageRefuseLoginRule_IsNotAppliedAndIsNoted()
     {
-        FaultRule delay = new("f1", FaultKind.Delay) { Stage = FaultStage.Command, DelayMilliseconds = 5 };
+        FaultRule rule = new("f1", FaultKind.RefuseLogin) { Stage = FaultStage.Command };
 
-        (McpHttpHarness harness, _, string response) = await CallAsync(delay, EchoCall);
+        (McpHttpHarness harness, _, string response) = await CallAsync(rule, EchoCall);
 
         StringAssert.Contains(response, "\"result\"");
         Assert.IsEmpty(harness.Events.Events);
-        Assert.Contains("Fault rule f1 not applied to the request: a Delay rule is not applied at a request.", harness.Log.Notes);
+        Assert.Contains("Fault rule f1 not applied to the request: a RefuseLogin rule is not applied at a request.", harness.Log.Notes);
+    }
+
+    [TestMethod]
+    [DataRow(EchoCall, "result", DisplayName = "tools/call")]
+    [DataRow("""{"jsonrpc":"2.0","id":"a","method":"ping"}""", "result", DisplayName = "ping")]
+    public async Task ServeAsync_CommandStageDelayRule_HoldsTheAnswerForItsMillisecondsOnTheInjectedClock(string message, string expected)
+    {
+        McpHttpHarness harness = new();
+        string sessionId = await harness.InitializeAsync();
+        FaultRule delay = new("f1", FaultKind.Delay) { Stage = FaultStage.Command, DelayMilliseconds = 400 };
+        RecordingIdleClock idleClock = new();
+        ManualTimeProvider clock = new();
+        harness.Faults = new ScriptedFaultPlan(delay);
+        harness.ExchangeClock = clock;
+        harness.IdleClock = idleClock;
+
+        Task<string> sending = harness.SendAsync("POST", "/mcp", message, BearerField, AcceptField, JsonField, $"Mcp-Session-Id: {sessionId}");
+        await idleClock.FirstPause;
+        clock.Advance(TimeSpan.FromMilliseconds(399));
+        bool completedEarly = sending.IsCompleted;
+        clock.Advance(TimeSpan.FromMilliseconds(1));
+        string response = await sending;
+
+        Assert.IsFalse(completedEarly);
+        StringAssert.Contains(response, $"\"{expected}\"");
+        Assert.IsFalse(idleClock.IsPaused);
+        Assert.AreEqual(new FaultAppliedEvent("f1", FaultKind.Delay, FaultStage.Command, 1, "/mcp"), harness.Events.Events.Single());
+    }
+
+    [TestMethod]
+    [DataRow(EchoCall, DisplayName = "tools/call")]
+    [DataRow("""{"jsonrpc":"2.0","id":"a","method":"ping"}""", DisplayName = "ping")]
+    public async Task ServeAsync_CommandStageDropRule_AbortsTheConnectionAndWritesNothing(string message)
+    {
+        FaultRule drop = new("f1", FaultKind.Drop) { Stage = FaultStage.Command };
+
+        (McpHttpHarness harness, _, string response) = await CallAsync(drop, message);
+
+        Assert.AreEqual(string.Empty, response);
+        Assert.IsTrue(harness.LastConnection!.Aborted);
+        Assert.AreEqual(new FaultAppliedEvent("f1", FaultKind.Drop, FaultStage.Command, 1, "/mcp"), harness.Events.Events.Single());
     }
 
     [TestMethod]

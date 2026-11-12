@@ -30,7 +30,7 @@ internal sealed class CoapFlowSession
 
     private readonly IDatagramFlow flow;
     private readonly ExchangeContext context;
-    private readonly Func<CoapMessage, CoapRequestOptions, CancellationToken, Task<CoapResponse>> answer;
+    private readonly Func<CoapMessage, CoapRequestOptions, CancellationToken, Task<CoapResponse?>> answer;
     private readonly ICoapRandomSource random;
     private readonly CoapDuplicateCache duplicates = new(CoapTransmissionParameters.DuplicateCacheCapacity);
     private readonly SemaphoreSlim outstandingSlot = new(1, 1);
@@ -49,7 +49,7 @@ internal sealed class CoapFlowSession
     public CoapFlowSession(
         IDatagramFlow flow,
         ExchangeContext context,
-        Func<CoapMessage, CoapRequestOptions, CancellationToken, Task<CoapResponse>> answer,
+        Func<CoapMessage, CoapRequestOptions, CancellationToken, Task<CoapResponse?>> answer,
         ICoapRandomSource random)
     {
         this.flow = flow;
@@ -250,7 +250,13 @@ internal sealed class CoapFlowSession
             return;
         }
 
-        var response = await answering;
+        if (await answering is not { } response)
+        {
+            context.Log.Note($"The request with Message ID {request.MessageId} is dropped: no answer is sent.");
+            duplicates.Remember(request.MessageId, null, Now + CoapTransmissionParameters.ExchangeLifetime);
+            return;
+        }
+
         await SendRememberedAsync(
             request.MessageId,
             new CoapMessage(CoapMessageType.Acknowledgement, response.Code, request.MessageId, request.Token, response.Options, response.Payload));
@@ -267,7 +273,12 @@ internal sealed class CoapFlowSession
             return;
         }
 
-        var response = await answer(request, options, Cancellation);
+        if (await answer(request, options, Cancellation) is not { } response)
+        {
+            context.Log.Note($"The NonConfirmable with Message ID {request.MessageId} is dropped: no answer is sent.");
+            return;
+        }
+
         var message = new CoapMessage(CoapMessageType.NonConfirmable, response.Code, DrawNextMessageId(), request.Token, response.Options, response.Payload);
         await flow.SendAsync(CoapMessageWriter.Write(message), Cancellation);
     }
@@ -279,7 +290,7 @@ internal sealed class CoapFlowSession
         await flow.SendAsync(bytes, Cancellation);
     }
 
-    private void StartSeparateResponse(Task<CoapResponse> answering, ReadOnlyMemory<byte> token)
+    private void StartSeparateResponse(Task<CoapResponse?> answering, ReadOnlyMemory<byte> token)
     {
         lock (gate)
         {
@@ -288,9 +299,14 @@ internal sealed class CoapFlowSession
         }
     }
 
-    private async Task SendSeparateResponseAsync(Task<CoapResponse> answering, ReadOnlyMemory<byte> token)
+    private async Task SendSeparateResponseAsync(Task<CoapResponse?> answering, ReadOnlyMemory<byte> token)
     {
-        var response = await answering;
+        if (await answering is not { } response)
+        {
+            context.Log.Note("The separate response is dropped: none is sent.");
+            return;
+        }
+
         await SendConfirmableAsync(
             "the separate response",
             (messageId, _) => Task.FromResult(new CoapMessage(CoapMessageType.Confirmable, response.Code, messageId, token, response.Options, response.Payload)),

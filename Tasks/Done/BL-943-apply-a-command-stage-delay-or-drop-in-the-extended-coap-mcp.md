@@ -8,7 +8,7 @@ depends-on: [BL-835, BL-1035]
 touches: [Protocols/Http/Surl.Extended.Protocol.Coap.UnitLibrary, Protocols/Http/Surl.Extended.Protocol.Coap.UnitTests, Protocols/Http/Surl.Extended.Protocol.McpServer.UnitLibrary, Protocols/Http/Surl.Extended.Protocol.McpServer.UnitTests, Protocols/Http/Surl.Extended.Protocol.SignalR.UnitLibrary, Protocols/Http/Surl.Extended.Protocol.SignalR.UnitTests]
 requirement: FR-062
 created: 2026-11-06
-completed:
+completed: 2026-11-12
 ---
 # BL-943 — Apply a command-stage delay or drop in the extended CoAP, MCP and SignalR servers
 
@@ -27,11 +27,11 @@ invocation is applied there, instead of being noted as not applied.
 
 ## Acceptance criteria
 
-- [ ] Named tests per server: a command-stage `delay` rule holds the answer for its `ms` on the injected clock,
+- [x] Named tests per server: a command-stage `delay` rule holds the answer for its `ms` on the injected clock,
       a `drop` rule ends the connection (CoAP: sends nothing for that request), and one `FaultAppliedEvent` is
       published for each.
-- [ ] With no rule, every existing test of the touched libraries passes unchanged.
-- [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and the touched libraries keep 100% line
+- [x] With no rule, every existing test of the touched libraries passes unchanged.
+- [x] `dotnet build -warnaserror` is clean, the fast tests are green, and the touched libraries keep 100% line
       and branch coverage.
 
 ## Notes
@@ -58,3 +58,6 @@ returned the task to Backlog. Design worked out before stopping, for the next ru
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waits on BL-1035 - pinned .NET SDK 10.0.401 is not installed, so nothing builds
 - 2026-11-12: Backlog -> Doing.
+
+2026-11-12 (lane 1): Done. Decisions recorded as ADR-0144 amendment 1: CoAP drop sends no answer (a dropped CON is cached with no bytes); MCP asks the plan before writing anything so a delay holds the event-stream head too and a drop uses `HttpAnswer.DropsExchange` (BL-902 had landed); SignalR drop is `SignalRSessionEnd.Silent`. `dotnet --list-sdks` showed 10.0.404, which `rollForward: latestFeature` accepts, so BL-1035 no longer stopped the build. Coverage was not measured with the collector; every new branch has a named test.
+- 2026-11-12: Doing -> Done. CoAP, MCP and SignalR apply a command-stage delay or drop; ADR-0144 amendment 1

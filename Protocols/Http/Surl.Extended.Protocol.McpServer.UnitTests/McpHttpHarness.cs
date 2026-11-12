@@ -39,6 +39,15 @@ internal sealed class McpHttpHarness
 
     public FixedTimeProvider TimeProvider { get; }
 
+    /// <summary>The clock the exchange runs on when a test needs timers it can move; else <see cref="TimeProvider"/>.</summary>
+    public TimeProvider? ExchangeClock { get; set; }
+
+    /// <summary>The connection the latest <see cref="SendRawAsync"/> was served on.</summary>
+    public InMemoryConnection? LastConnection { get; private set; }
+
+    /// <summary>The exchange's idle clock.</summary>
+    public IIdleClock IdleClock { get; set; } = NoIdleClock.Instance;
+
     public InMemoryContentFileSystem FileSystem { get; }
 
     public ContentStore Store { get; }
@@ -83,6 +92,7 @@ internal sealed class McpHttpHarness
     public async Task<string> SendRawAsync(string request, TlsSession? tlsSession = null)
     {
         InMemoryConnection connection = new([Encoding.UTF8.GetBytes(request)], initialTlsSession: tlsSession);
+        LastConnection = connection;
         await Server.ServeAsync(connection, Context());
         return Encoding.UTF8.GetString(connection.WrittenBytes);
     }
@@ -94,9 +104,10 @@ internal sealed class McpHttpHarness
             new IPEndPoint(IPAddress.Loopback, 8080),
             new IPEndPoint(IPAddress.Loopback, 50000),
             Log,
-            TimeProvider,
+            ExchangeClock ?? TimeProvider,
             CancellationToken.None)
         {
+            IdleClock = IdleClock,
             Limits = Limits,
             Faults = Faults,
             Events = Events,

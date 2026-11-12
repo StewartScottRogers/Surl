@@ -101,30 +101,67 @@ public sealed class SignalRInvocationFaultsTests
     }
 
     [TestMethod]
-    public async Task RunAsync_CommandStageDropRule_IsNotAppliedAndIsNoted()
+    public async Task RunAsync_RefuseLoginRule_IsNotAppliedAndIsNoted()
     {
         var harness = new SignalRServerHarness();
-        var drop = new FaultRule("f1", FaultKind.Drop) { Stage = FaultStage.Command };
-        var (client, events) = await ConnectAsync(harness, new ScriptedFaultPlan(drop));
+        var rule = new FaultRule("f1", FaultKind.RefuseLogin) { Stage = FaultStage.Command };
+        var (client, events) = await ConnectAsync(harness, new ScriptedFaultPlan(rule));
 
         client.SendRecords("{\"type\":1,\"invocationId\":\"1\",\"target\":\"Echo\",\"arguments\":[\"hi\"]}");
 
         Assert.AreEqual("{\"type\":3,\"invocationId\":\"1\",\"result\":\"hi\"}\u001e", (await client.WaitForRecordsAsync(2))[1]);
         await client.EndAsync();
         Assert.IsEmpty(events.Events);
-        Assert.Contains("Fault rule f1 not applied to the invocation: a Drop rule is not applied at an invocation.", harness.Log.Notes);
+        Assert.Contains("Fault rule f1 not applied to the invocation: a RefuseLogin rule is not applied at an invocation.", harness.Log.Notes);
     }
 
     [TestMethod]
-    public async Task FindErrorAsync_NamedAccount_IsThePointsAccount()
+    public async Task RunAsync_CommandStageDelayRule_HoldsTheCompletionForItsMillisecondsOnTheInjectedClock()
+    {
+        var harness = new SignalRServerHarness();
+        var delay = new FaultRule("f1", FaultKind.Delay) { Stage = FaultStage.Command, DelayMilliseconds = 300 };
+        var idleClock = new RecordingIdleClock();
+        var events = new RecordingSurlEventPublisher();
+        var client = await SignalRHubClient.ConnectAsync(harness, harness.Context() with { Faults = new ScriptedFaultPlan(delay), Events = events, IdleClock = idleClock });
+
+        client.SendRecords("{\"type\":1,\"invocationId\":\"1\",\"target\":\"Echo\",\"arguments\":[\"hi\"]}");
+        await idleClock.FirstPause;
+        harness.Clock.Advance(TimeSpan.FromMilliseconds(299));
+        var recordsEarly = client.Records().Length;
+        harness.Clock.Advance(TimeSpan.FromMilliseconds(1));
+
+        Assert.AreEqual("{\"type\":3,\"invocationId\":\"1\",\"result\":\"hi\"}\u001e", (await client.WaitForRecordsAsync(2))[1]);
+        await client.EndAsync();
+        Assert.AreEqual(1, recordsEarly);
+        Assert.IsFalse(idleClock.IsPaused);
+        Assert.AreEqual(new FaultAppliedEvent("f1", FaultKind.Delay, FaultStage.Command, 1, "/chat"), events.Events.Single());
+    }
+
+    [TestMethod]
+    public async Task RunAsync_CommandStageDropRule_EndsTheConnectionWithNoCompletion()
+    {
+        var harness = new SignalRServerHarness();
+        var drop = new FaultRule("f1", FaultKind.Drop) { Stage = FaultStage.Command };
+        var (client, events) = await ConnectAsync(harness, new ScriptedFaultPlan(drop));
+
+        client.SendRecords("{\"type\":1,\"invocationId\":\"1\",\"target\":\"Echo\",\"arguments\":[\"hi\"]}");
+        await client.EndAsync();
+
+        Assert.HasCount(1, client.Records());
+        Assert.AreEqual(new FaultAppliedEvent("f1", FaultKind.Drop, FaultStage.Command, 1, "/chat"), events.Events.Single());
+        Assert.Contains("SignalR connection ended: a drop fault rule ended the connection.", harness.Log.Notes);
+    }
+
+    [TestMethod]
+    public async Task ApplyAsync_NamedAccount_IsThePointsAccount()
     {
         var harness = new SignalRServerHarness();
         var faults = new ScriptedFaultPlan(ErrorRule() with { Account = "alice" });
         var invocation = new HubInvocation(false, "1", "Echo", [], []);
 
-        var error = await new SignalRInvocationFaults(harness.Context() with { Faults = faults }, "/chat", "alice").FindErrorAsync(invocation);
+        var outcome = await new SignalRInvocationFaults(harness.Context() with { Faults = faults }, "/chat", "alice").ApplyAsync(invocation);
 
-        Assert.AreEqual("try later", error);
+        Assert.AreEqual("try later", outcome.ChosenError);
         Assert.AreEqual("alice", faults.Points.Single().Account);
     }
 }

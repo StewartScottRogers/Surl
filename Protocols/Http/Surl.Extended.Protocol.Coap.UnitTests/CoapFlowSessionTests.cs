@@ -89,6 +89,62 @@ public sealed class CoapFlowSessionTests
     }
 
     [TestMethod]
+    public async Task ServeAsync_ConDroppedAtOnce_GetsNothingAndItsDuplicateGetsNothing()
+    {
+        await using var harness = new Harness(SlowRequest);
+
+        await harness.WaitForTimersAsync(1);
+        harness.Answers.Dequeue().SetResult(null);
+        await harness.WaitForNoteAsync("The request with Message ID 1 is dropped: no answer is sent.");
+        harness.Flow.DeliverFromClient(SlowRequest);
+        await harness.WaitForNoteAsync("A duplicate Confirmable with Message ID 1: not served again.");
+
+        Assert.IsEmpty(harness.Flow.SentDatagrams);
+        Assert.HasCount(1, harness.AnswersRequested);
+        await harness.StopAsync();
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_ConDroppedAfterTheEmptyAck_SendsNoSeparateResponse()
+    {
+        await using var harness = new Harness(SlowRequest);
+
+        await harness.WaitForTimersAsync(1);
+        harness.Clock.Advance(TimeSpan.FromSeconds(1));
+        await harness.WaitForSendsAsync(1);
+        harness.Answers.Dequeue().SetResult(null);
+        await harness.WaitForNoteAsync("The separate response is dropped: none is sent.");
+
+        Assert.HasCount(1, harness.Flow.SentDatagrams);
+        CollectionAssert.AreEqual(EmptyAck, harness.Flow.SentDatagrams[0]);
+        await harness.StopAsync();
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_NonDropped_GetsNothing()
+    {
+        await using var harness = new Harness([0x51, 0x01, 0x00, 0x01, 0xC0]);
+
+        await WaitUntilQueuedAsync(harness);
+        harness.Answers.Dequeue().SetResult(null);
+        await harness.WaitForNoteAsync("The NonConfirmable with Message ID 1 is dropped: no answer is sent.");
+
+        Assert.IsEmpty(harness.Flow.SentDatagrams);
+        await harness.StopAsync();
+    }
+
+    private static async Task WaitUntilQueuedAsync(Harness harness)
+    {
+        var started = DateTime.UtcNow;
+
+        while (harness.Answers.Count == 0)
+        {
+            Assert.IsLessThan(PatienceLimit, DateTime.UtcNow - started, "Waited for the answer to be asked for.");
+            await Task.Delay(5);
+        }
+    }
+
+    [TestMethod]
     public async Task ServeAsync_UnacknowledgedSeparateResponse_IsRetransmittedWithDoublingTimeoutsThenGivenUp()
     {
         await using var harness = new Harness(SlowRequest);
@@ -352,7 +408,7 @@ public sealed class CoapFlowSessionTests
 
         public RecordingExchangeLog Log { get; } = new();
 
-        public Queue<TaskCompletionSource<CoapResponse>> Answers { get; } = new();
+        public Queue<TaskCompletionSource<CoapResponse?>> Answers { get; } = new();
 
         public List<CoapMessage> AnswersRequested { get; } = [];
 
@@ -406,7 +462,7 @@ public sealed class CoapFlowSessionTests
             }
         }
 
-        private Task<CoapResponse> AnswerAsync(CoapMessage request, CoapRequestOptions options, CancellationToken cancellationToken)
+        private Task<CoapResponse?> AnswerAsync(CoapMessage request, CoapRequestOptions options, CancellationToken cancellationToken)
         {
             lock (AnswersRequested)
             {
@@ -415,10 +471,10 @@ public sealed class CoapFlowSessionTests
 
             if (completeAnswers)
             {
-                return Task.FromResult(CoapResponse.Bare(CoapCode.Content));
+                return Task.FromResult<CoapResponse?>(CoapResponse.Bare(CoapCode.Content));
             }
 
-            var answer = new TaskCompletionSource<CoapResponse>(TaskCreationOptions.RunContinuationsAsynchronously);
+            var answer = new TaskCompletionSource<CoapResponse?>(TaskCreationOptions.RunContinuationsAsynchronously);
             cancellationToken.Register(() => answer.TrySetCanceled(cancellationToken));
             Answers.Enqueue(answer);
             return answer.Task;

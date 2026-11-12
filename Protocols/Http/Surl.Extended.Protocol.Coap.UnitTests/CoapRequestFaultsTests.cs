@@ -87,15 +87,79 @@ public sealed class CoapRequestFaultsTests
     }
 
     [TestMethod]
-    public async Task ServeAsync_CommandStageDropRule_IsNotAppliedAndIsNoted()
+    public async Task ServeAsync_RefuseLoginRule_IsNotAppliedAndIsNoted()
     {
-        var drop = new FaultRule("f1", FaultKind.Drop) { Stage = FaultStage.Command };
+        var rule = new FaultRule("f1", FaultKind.RefuseLogin) { Stage = FaultStage.Command };
 
-        var (sent, events, log) = await ServeAsync(new ScriptedFaultPlan(drop), GetHello);
+        var (sent, events, log) = await ServeAsync(new ScriptedFaultPlan(rule), GetHello);
 
         Assert.AreEqual((byte)0x45, sent[1]);
         Assert.IsEmpty(events.Events);
-        Assert.Contains("Fault rule f1 not applied to the request: a Drop rule is not applied at a request.", log.Notes);
+        Assert.Contains("Fault rule f1 not applied to the request: a RefuseLogin rule is not applied at a request.", log.Notes);
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_CommandStageDelayRule_HoldsTheAnswerForItsMillisecondsOnTheInjectedClock()
+    {
+        var rule = new FaultRule("f1", FaultKind.Delay) { Stage = FaultStage.Command, DelayMilliseconds = 400 };
+        var events = new RecordingSurlEventPublisher();
+        var idleClock = new RecordingIdleClock();
+        var time = new ManualTimeProvider();
+        var server = new CoapProtocolServer(new CoapTestStore().WithFile("hello.txt", "hi").Store, Anonymous, new UnitTestCoapRandomSource());
+        await using var flow = new InMemoryDatagramFlow(GetHello);
+        using var exchange = CancellationTokenSource.CreateLinkedTokenSource(TestContext.CancellationToken);
+        var context = CoapProtocolServerTests.Context(new RecordingExchangeLog(), time, exchange.Token)
+            with
+        { Faults = new ScriptedFaultPlan(rule), Events = events, IdleClock = idleClock };
+
+        var serving = server.ServeAsync(flow, context);
+        await idleClock.FirstPause;
+        time.Advance(TimeSpan.FromMilliseconds(399));
+        var sentEarly = flow.SentDatagrams.Count;
+        time.Advance(TimeSpan.FromMilliseconds(1));
+        await CoapProtocolServerTests.WaitForSendsAsync(flow, 1);
+        await exchange.CancelAsync();
+        await Assert.ThrowsAsync<OperationCanceledException>(() => serving);
+
+        Assert.AreEqual(0, sentEarly);
+        Assert.AreEqual((byte)0x45, flow.SentDatagrams.Single()[1]);
+        Assert.IsFalse(idleClock.IsPaused);
+        Assert.AreEqual(new FaultAppliedEvent("f1", FaultKind.Delay, FaultStage.Command, 1, "/hello.txt"), events.Events.Single());
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_CommandStageDropRule_SendsNothingForThatRequestAndItsRetransmissionGetsNothing()
+    {
+        var drop = new FaultRule("f1", FaultKind.Drop) { Stage = FaultStage.Command };
+        var events = new RecordingSurlEventPublisher();
+        var log = new RecordingExchangeLog();
+        var server = new CoapProtocolServer(new CoapTestStore().WithFile("hello.txt", "hi").Store, Anonymous, new UnitTestCoapRandomSource());
+        await using var flow = new InMemoryDatagramFlow(GetHello);
+        using var exchange = CancellationTokenSource.CreateLinkedTokenSource(TestContext.CancellationToken);
+        var context = CoapProtocolServerTests.Context(log, new ManualTimeProvider(), exchange.Token)
+            with
+        { Faults = new ScriptedFaultPlan(drop), Events = events };
+
+        var serving = server.ServeAsync(flow, context);
+        await WaitForNoteAsync(log, "The request with Message ID 32052 is dropped: no answer is sent.");
+        flow.DeliverFromClient(GetHello);
+        await WaitForNoteAsync(log, "A duplicate Confirmable with Message ID 32052: not served again.");
+        await exchange.CancelAsync();
+        await Assert.ThrowsAsync<OperationCanceledException>(() => serving);
+
+        Assert.IsEmpty(flow.SentDatagrams);
+        Assert.AreEqual(new FaultAppliedEvent("f1", FaultKind.Drop, FaultStage.Command, 1, "/hello.txt"), events.Events.Single());
+    }
+
+    private static async Task WaitForNoteAsync(RecordingExchangeLog log, string note)
+    {
+        var started = DateTime.UtcNow;
+
+        while (!log.Notes.Contains(note))
+        {
+            Assert.IsLessThan(TimeSpan.FromSeconds(10), DateTime.UtcNow - started, $"Waited for: {note}");
+            await Task.Delay(5);
+        }
     }
 
     [TestMethod]

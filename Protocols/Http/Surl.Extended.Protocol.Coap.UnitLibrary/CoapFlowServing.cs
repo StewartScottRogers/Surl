@@ -57,8 +57,12 @@ internal static class CoapFlowServing
         session = new CoapFlowSession(
             flow,
             context,
-            async (request, options, cancellationToken) =>
-                await CoapRequestFaults.FindErrorAsync(context, request, options) ?? await observers.AnswerAsync(request, options, cancellationToken),
+            async (request, options, cancellationToken) => await CoapRequestFaults.ApplyAsync(context, request, options) switch
+            {
+                { IsDropped: true } => null,
+                { ChosenError: { } error } => error,
+                _ => await observers.AnswerAsync(request, options, cancellationToken),
+            },
             random);
         var serving = session.ServeAsync();
         await Task.WhenAny(serving);

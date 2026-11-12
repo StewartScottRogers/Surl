@@ -111,3 +111,5 @@ the observers and the resource answerer, with `command` the method (`GET`; anoth
 Uri-Path (`/a/b`, `/` for none). A matching `error` rule whose reply is `4.00` to `5.05` (`c.dd`, an optional
 diagnostic text after a space as the UTF-8 payload) is the response, publishing `FaultAppliedEvent`; a reply
 that does not fit, or another kind, is noted and not applied.
+
+**Command-stage delay and drop** (ADR-0144 amendment 1, BL-943): `CoapRequestFaults.ApplyAsync` also applies a `delay` rule (held on the exchange's clock, idle clock paused) and a `drop` rule (no answer is sent for that request; a dropped CON is cached with no bytes so its retransmissions get nothing). The answer delegate of `CoapFlowSession` returns `null` for a drop.

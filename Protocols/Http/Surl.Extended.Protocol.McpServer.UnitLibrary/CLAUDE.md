@@ -84,3 +84,5 @@ to `McpRequestFaults` before the core, with `account` the login, `path` the endp
 `name` for `tools/call`, the method otherwise. A matching `error` rule whose reply is `<code> <message>` is answered
 with the core's `JsonRpcResponseWriter.WriteError`, in the request's usual media type, publishing
 `FaultAppliedEvent`; `initialize`, notifications and responses are never offered. `Surl.McpServing` is untouched.
+
+**Command-stage delay and drop** (ADR-0144 amendment 1, BL-943): `McpRequestFaults.ApplyAsync` asks the plan before anything is written. A `delay` rule holds the whole answer; a `drop` rule answers with an `HttpAnswer` whose `DropsExchange` is set, so nothing is written and the connection is aborted.

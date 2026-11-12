@@ -73,3 +73,12 @@ each answer is judged by its own specification (ADR-0083) and there is nothing t
   empty plan answers at once.
 - Command-stage `delay` and `drop` for these servers are not applied here; they follow ADR-0141's
   `CommandStageFaults` in a later task.
+
+## Amendment 1 — command-stage `delay` and `drop` at these points (BL-943)
+
+*Decided by Claude under Stewart's delegation, 2026-11-12, in BL-943.* Decision 5 and the last Consequences bullet no longer hold: a `delay` or `drop` rule is applied, through `CommandStageFaults.FindAndApplyAsync`'s overload without a connection (ADR-0141, amendment 1).
+
+1. **CoAP.** A `delay` holds the request's answer on the exchange's clock with the idle clock paused, so a CON held past `SeparateResponseAfter` gets the Empty ACK and a separate response as any slow answer does. A `drop` is a datagram flow with no connection to abort: the request gets no answer at all, noted and published once. A dropped CON is remembered in the duplicate cache with no bytes, so its retransmissions get nothing either; a dropped separate response sends nothing after the Empty ACK; a dropped NON sends nothing.
+2. **MCP.** The plan is asked before anything is written, so a `delay` holds the whole answer (a `tools/call`'s event-stream head too) and a `drop` answers with an `HttpAnswer` whose `DropsExchange` is set, which HTTP/1.x writes as an aborted connection and nothing else.
+3. **SignalR.** A `delay` holds the Completion; a `drop` ends the connection with `SignalRSessionEnd.Silent`, writing no Completion and no Close. A non-blocking Invocation is still never offered.
+4. Each application publishes one `FaultAppliedEvent` (stage `Command`, the path as target). Other kinds (`RefuseLogin`, `OutOfSpace`) are still noted as not applied.

@@ -284,20 +284,31 @@ internal sealed class McpHttpRequestAnswerer : IHttpRequestHandler
             return _writer.Empty(request, Accepted);
         }
 
+        // ADR-0144, BL-943: the fault plan is asked before anything is written, so a delay holds the whole
+        // answer (the event-stream head too) and a drop writes nothing.
+        McpFaultOutcome fault = await McpRequestFaults.ApplyAsync(_context, call, login, _settings.EndpointPath).ConfigureAwait(false);
+        if (fault.IsDropped)
+        {
+            return DroppedAnswer;
+        }
+
         // Decision 4.3: a tools/call's event-stream head goes out at once and the call runs while it is streamed.
         return call.Method == ToolsCallMethod
             ? _writer.Streamed(
                 request,
                 McpEventStream.MediaType,
                 (writeAsync, streamCancellation) => McpEventStream.WriteAsync(
-                    AnswerRequestAsync(session, call, login, message, streamCancellation), writeAsync, _context.TimeProvider, streamCancellation))
-            : _writer.Json(request, HttpStatus.Ok, (await AnswerRequestAsync(session, call, login, message, cancellationToken).ConfigureAwait(false))!);
+                    AnswerRequestAsync(session, call, fault, message, streamCancellation), writeAsync, _context.TimeProvider, streamCancellation))
+            : _writer.Json(request, HttpStatus.Ok, (await AnswerRequestAsync(session, call, fault, message, cancellationToken).ConfigureAwait(false))!);
     }
 
+    // What a drop rule answers with: nothing is written and the connection is aborted (ADR-0141, amendment 1).
+    private static readonly HttpAnswer DroppedAnswer = new(
+        new HttpStatus(500, string.Empty), [], HttpAnswerBody.None, IsRefusal: true, LeavesRequestBodyUnread: false, DropsExchange: true);
+
     // ADR-0144: a chosen-error fault rule answers the request in place of the core.
-    private async Task<byte[]?> AnswerRequestAsync(McpHttpSession session, JsonRpcRequest call, string? login, byte[] message, CancellationToken cancellationToken) =>
-        await McpRequestFaults.FindErrorAsync(_context, call, login, _settings.EndpointPath).ConfigureAwait(false)
-            ?? await session.AnswerRequestAsync(call, message, cancellationToken).ConfigureAwait(false);
+    private static async Task<byte[]?> AnswerRequestAsync(McpHttpSession session, JsonRpcRequest call, McpFaultOutcome fault, byte[] message, CancellationToken cancellationToken) =>
+        fault.ChosenError ?? await session.AnswerRequestAsync(call, message, cancellationToken).ConfigureAwait(false);
 
     private HttpAnswer AnswerDelete(HttpRequest request, string? login)
     {

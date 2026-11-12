@@ -89,3 +89,5 @@ A `HubJsonValue` on such a connection holds one MessagePack value's bytes (its m
 `SignalRHubMethods.Call` takes `isMessagePack` to read `Count`'s argument. Bytes after a MessagePack handshake in the
 same WebSocket message are read as MessagePack. A connection that resumes (BL-755) with another protocol than it
 began with is not guarded: its kept records stay in the first encoding.
+
+**Command-stage delay and drop** (ADR-0144 amendment 1, BL-943): `SignalRInvocationFaults.ApplyAsync` also applies a `delay` rule (holds the Completion) and a `drop` rule (`SignalRSessionEnd.Silent`: the connection ends, no Completion, no Close). Non-blocking Invocations are still never offered.
