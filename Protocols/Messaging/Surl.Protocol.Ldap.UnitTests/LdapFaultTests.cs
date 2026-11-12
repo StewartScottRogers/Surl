@@ -177,12 +177,105 @@ public sealed class LdapFaultTests
             log.Notes.ToArray(), "LDAP search dc=example,dc=com: fault rule f1 is not an error with an LDAP resultCode and diagnostic text; not applied.");
     }
 
+    // ADR-0141: a command-stage delay holds the search's response on the exchange's clock, with
+    // the idle clock paused for the whole hold, then answers it from the directory as usual.
     [TestMethod]
-    public async Task ServeAsync_ADelayRuleAtTheCommandStage_IsNotedAndNotApplied()
+    public async Task ServeAsync_SearchDelayRule_HoldsTheResponseUntilTheClockAdvances500Ms_WithTheIdleClockPaused()
+    {
+        var delay = new FaultRule("f1", FaultKind.Delay) { Stage = FaultStage.Command, Command = "search", DelayMilliseconds = 500 };
+        var clock = new ManualTimeProvider();
+        var idleClock = new RecordingIdleClock();
+        var (serving, connection, events) = StartServing(
+            new ScriptedFaultPlan(delay), clock, idleClock, AliceBind, Message(2, Search(Present("objectClass"), scope: 0)));
+
+        await idleClock.FirstPause.WaitAsync(TimeSpan.FromSeconds(30), TestContext.CancellationToken);
+        var writtenAtTheHold = LdapResponseTranscript.Of(connection.WrittenBytes).ToArray();
+        clock.Advance(TimeSpan.FromMilliseconds(499));
+        var writtenAfter499Ms = LdapResponseTranscript.Of(connection.WrittenBytes).ToArray();
+        var pausedAfter499Ms = idleClock.IsPaused;
+        clock.Advance(TimeSpan.FromMilliseconds(1));
+        await serving.WaitAsync(TimeSpan.FromSeconds(30), TestContext.CancellationToken);
+
+        CollectionAssert.AreEqual(new[] { "#1 bindResponse success" }, writtenAtTheHold);
+        CollectionAssert.AreEqual(new[] { "#1 bindResponse success" }, writtenAfter499Ms);
+        Assert.IsTrue(pausedAfter499Ms);
+        Assert.IsFalse(idleClock.IsPaused);
+        Assert.AreEqual("#2 searchResultDone success", LdapResponseTranscript.Of(connection.WrittenBytes)[^1]);
+        Assert.AreEqual(new FaultAppliedEvent("f1", FaultKind.Delay, FaultStage.Command, 1, "search dc=example,dc=com"), events.Events.Single());
+    }
+
+    // ADR-0141: a command-stage drop aborts the connection in place of the search's response.
+    [TestMethod]
+    public async Task ServeAsync_SearchDropRule_AbortsTheConnectionWithNoResponse()
+    {
+        var drop = new FaultRule("f1", FaultKind.Drop) { Stage = FaultStage.Command, Command = "search" };
+        var (serving, connection, events) = StartServing(
+            new ScriptedFaultPlan(drop), new ManualTimeProvider(), new RecordingIdleClock(), [.. RecordedFixture.ReadRequestMessages("simple-bind-base-search")]);
+
+        await serving.WaitAsync(TimeSpan.FromSeconds(30), TestContext.CancellationToken);
+
+        Assert.IsTrue(connection.Aborted);
+        CollectionAssert.AreEqual(new[] { "#1 bindResponse success" }, LdapResponseTranscript.Of(connection.WrittenBytes).ToArray());
+        Assert.AreEqual(new FaultAppliedEvent("f1", FaultKind.Drop, FaultStage.Command, 1, "search dc=example,dc=com"), events.Events.Single());
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_CompareDropRule_AbortsTheConnectionWithNoResponse()
+    {
+        var drop = new FaultRule("f1", FaultKind.Drop) { Stage = FaultStage.Command, Command = "compare" };
+        var compare = Message(
+            3,
+            writer =>
+            {
+                using var request = writer.PushSequence(LdapTags.CompareRequest);
+                Text(writer, "cn=alice,dc=example,dc=com");
+                using var assertion = writer.PushSequence();
+                Text(writer, "sn");
+                Text(writer, "Smith");
+            });
+        var (serving, connection, events) = StartServing(new ScriptedFaultPlan(drop), new ManualTimeProvider(), new RecordingIdleClock(), AliceBind, compare);
+
+        await serving.WaitAsync(TimeSpan.FromSeconds(30), TestContext.CancellationToken);
+
+        Assert.IsTrue(connection.Aborted);
+        CollectionAssert.AreEqual(new[] { "#1 bindResponse success" }, LdapResponseTranscript.Of(connection.WrittenBytes).ToArray());
+        Assert.AreEqual(FaultKind.Drop, events.Events.OfType<FaultAppliedEvent>().Single().Kind);
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_AddDropRule_AbortsTheConnectionWithNoResponse()
+    {
+        var drop = new FaultRule("f1", FaultKind.Drop) { Stage = FaultStage.Command, Command = "add" };
+        var add = Message(4, writer =>
+        {
+            using var request = writer.PushSequence(new Asn1Tag(TagClass.Application, 8, isConstructed: true));
+            Text(writer, "cn=carol,dc=example,dc=com");
+        });
+        var (serving, connection, events) = StartServing(new ScriptedFaultPlan(drop), new ManualTimeProvider(), new RecordingIdleClock(), AliceBind, add);
+
+        await serving.WaitAsync(TimeSpan.FromSeconds(30), TestContext.CancellationToken);
+
+        Assert.IsTrue(connection.Aborted);
+        CollectionAssert.AreEqual(new[] { "#1 bindResponse success" }, LdapResponseTranscript.Of(connection.WrittenBytes).ToArray());
+        Assert.AreEqual(new FaultAppliedEvent("f1", FaultKind.Drop, FaultStage.Command, 1, "add"), events.Events.Single());
+    }
+
+    private (Task Serving, InMemoryConnection Connection, RecordingSurlEventPublisher Events) StartServing(
+        IFaultPlan plan, ManualTimeProvider clock, RecordingIdleClock idleClock, params byte[][] messages)
+    {
+        var events = new RecordingSurlEventPublisher();
+        var connection = new InMemoryConnection(messages.Select(message => new ReadOnlyMemory<byte>(message)));
+        var context = Context(TestContext.CancellationToken, timeProvider: clock) with { Faults = plan, Events = events, IdleClock = idleClock };
+
+        return (Server(new UnitTestAuthenticationPolicy(PasswordLoginVerdict.Accepted)).ServeAsync(connection, context), connection, events);
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_AnOutOfSpaceRuleAtTheCommandStage_IsNotedAndNotApplied()
     {
         var events = new RecordingSurlEventPublisher();
         var log = new RecordingExchangeLog();
-        var plan = new ScriptedFaultPlan(new FaultRule("f1", FaultKind.Delay) { Command = "search", DelayMilliseconds = 10 });
+        var plan = new ScriptedFaultPlan(new FaultRule("f1", FaultKind.OutOfSpace) { Command = "search" });
 
         var written = await ServeAsync(plan, events, log, AliceBind, Message(2, Search(Present("objectClass"), scope: 0)));
 

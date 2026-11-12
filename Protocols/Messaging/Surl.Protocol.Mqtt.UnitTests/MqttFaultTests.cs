@@ -181,16 +181,100 @@ public sealed class MqttFaultTests
     }
 
     [TestMethod]
-    public async Task ServeAsync_ADelayRuleAtTheCommandStage_IsNotedAndNotApplied()
+    public async Task ServeAsync_AnOutOfSpaceRuleAtTheCommandStage_IsNotedAndNotApplied()
     {
         var events = new RecordingSurlEventPublisher();
-        var plan = new ScriptedFaultPlan(new FaultRule("f1", FaultKind.Delay) { Command = "CONNECT", DelayMilliseconds = 10 });
+        var plan = new ScriptedFaultPlan(new FaultRule("f1", FaultKind.OutOfSpace) { Command = "CONNECT" });
 
         var (written, log) = await ServeAsync(TestMessageBus.New(), plan, events, LoginAs("ann"), ClientPackets.Disconnect);
 
         CollectionAssert.AreEqual(ConnackAccepted, written);
         Assert.IsEmpty(events.Events);
         CollectionAssert.Contains(log.Notes.ToArray(), "CONNECT: fault rule f1 is not an error with an MQTT reason code 128 to 255; not applied.");
+    }
+
+    // ADR-0141: a command-stage delay holds the SUBACK on the exchange's clock, with the idle
+    // clock paused for the whole hold, then answers the SUBSCRIBE as usual.
+    [TestMethod]
+    public async Task ServeAsync_SubscribeDelayRule_HoldsTheSubAckUntilTheClockAdvances500Ms_WithTheIdleClockPaused()
+    {
+        var delay = new FaultRule("f1", FaultKind.Delay) { Stage = FaultStage.Command, Command = "SUBSCRIBE", DelayMilliseconds = 500 };
+        var clock = new ManualTimeProvider();
+        var idleClock = new RecordingIdleClock();
+        var (serving, connection, events) = StartServing(TestMessageBus.New(), new ScriptedFaultPlan(delay), clock, idleClock, LoginAs("ann"), CurlSubscribeToAB);
+
+        await idleClock.FirstPause.WaitAsync(TimeSpan.FromSeconds(30), TestContext.CancellationToken);
+        var writtenAtTheHold = connection.WrittenBytes;
+        clock.Advance(TimeSpan.FromMilliseconds(499));
+        var writtenAfter499Ms = connection.WrittenBytes;
+        var pausedAfter499Ms = idleClock.IsPaused;
+        clock.Advance(TimeSpan.FromMilliseconds(1));
+        await serving.WaitAsync(TimeSpan.FromSeconds(30), TestContext.CancellationToken);
+
+        CollectionAssert.AreEqual(ConnackAccepted, writtenAtTheHold);
+        CollectionAssert.AreEqual(ConnackAccepted, writtenAfter499Ms);
+        Assert.IsTrue(pausedAfter499Ms);
+        Assert.IsFalse(idleClock.IsPaused);
+        CollectionAssert.AreEqual(SubAckThenDisconnect(0x00), connection.WrittenBytes);
+        Assert.AreEqual(new FaultAppliedEvent("f1", FaultKind.Delay, FaultStage.Command, 1, "SUBSCRIBE a/b"), events.Events.Single());
+    }
+
+    // ADR-0141: a command-stage drop aborts the connection in place of anything the PUBLISH
+    // would have caused, and nothing is published.
+    [TestMethod]
+    public async Task ServeAsync_PublishDropRule_AbortsTheConnectionWithNothingPublished()
+    {
+        var bus = TestMessageBus.New();
+        var drop = new FaultRule("f1", FaultKind.Drop) { Stage = FaultStage.Command, Command = "PUBLISH" };
+        var (serving, connection, events) = StartServing(
+            bus, new ScriptedFaultPlan(drop), new ManualTimeProvider(), new RecordingIdleClock(), LoginAs("ann"), ClientPackets.Publish(0x32, "a/b", 1, "hi"), ClientPackets.PingRequest);
+
+        await serving.WaitAsync(TimeSpan.FromSeconds(30), TestContext.CancellationToken);
+
+        Assert.IsTrue(connection.Aborted);
+        CollectionAssert.AreEqual(ConnackAccepted, connection.WrittenBytes);
+        Assert.IsEmpty(bus.MatchingAny(["#"]));
+        Assert.AreEqual(new FaultAppliedEvent("f1", FaultKind.Drop, FaultStage.Command, 1, "PUBLISH a/b"), events.Events.Single());
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_ConnectDropRule_AbortsTheConnectionWithNoConnAck()
+    {
+        var drop = new FaultRule("f1", FaultKind.Drop) { Stage = FaultStage.Command, Command = "CONNECT" };
+        var (serving, connection, events) = StartServing(
+            TestMessageBus.New(), new ScriptedFaultPlan(drop), new ManualTimeProvider(), new RecordingIdleClock(), LoginAs("ann"), CurlSubscribeToAB);
+
+        await serving.WaitAsync(TimeSpan.FromSeconds(30), TestContext.CancellationToken);
+
+        Assert.IsTrue(connection.Aborted);
+        Assert.IsEmpty(connection.WrittenBytes);
+        Assert.AreEqual(new FaultAppliedEvent("f1", FaultKind.Drop, FaultStage.Command, 1, "CONNECT"), events.Events.Single());
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_SubscribeDropRuleOnTheFirstFilter_AbortsWithNoSubAckAndAsksNoFurtherFilter()
+    {
+        var plan = new ScriptedFaultPlan(new FaultRule("f1", FaultKind.Drop) { Stage = FaultStage.Command, Command = "SUBSCRIBE", Path = "a/b" });
+        var (serving, connection, events) = StartServing(
+            TestMessageBus.New(), plan, new ManualTimeProvider(), new RecordingIdleClock(), LoginAs("ann"), ClientPackets.Subscribe(1, ("a/b", 0), ("c/d", 0)));
+
+        await serving.WaitAsync(TimeSpan.FromSeconds(30), TestContext.CancellationToken);
+
+        Assert.IsTrue(connection.Aborted);
+        CollectionAssert.AreEqual(ConnackAccepted, connection.WrittenBytes);
+        CollectionAssert.AreEqual(new[] { "CONNECT", "SUBSCRIBE" }, plan.Points.Select(point => point.Command).ToArray());
+        Assert.AreEqual(new FaultAppliedEvent("f1", FaultKind.Drop, FaultStage.Command, 1, "SUBSCRIBE a/b"), events.Events.Single());
+    }
+
+    private (Task Serving, InMemoryConnection Connection, RecordingSurlEventPublisher Events) StartServing(
+        MessageBus.MessageBus bus, IFaultPlan plan, ManualTimeProvider clock, RecordingIdleClock idleClock, byte[] connect, params byte[][] packets)
+    {
+        var events = new RecordingSurlEventPublisher();
+        var server = new MqttProtocolServer(bus, new UnitTestRecordingAuthenticationPolicy(PasswordLoginVerdict.Accepted));
+        var connection = new InMemoryConnection(RecordedFixture.Whole(ClientPackets.Join([connect, .. packets])));
+        var context = MqttTestExchange.Context(clock, TestContext.CancellationToken) with { Faults = plan, Events = events, IdleClock = idleClock };
+
+        return (server.ServeAsync(connection, context), connection, events);
     }
 
     // CONNACK 0, a SUBACK for packet identifier 1 with one return code, then DISCONNECT.

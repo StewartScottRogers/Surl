@@ -250,7 +250,8 @@ internal sealed partial class MqttPacketResponder
     }
 
     // A publish a chosen-error rule matches closes the connection with nothing published, since
-    // MQTT 3.1.1 has no negative acknowledgement (ADR-0139, decision 1).
+    // MQTT 3.1.1 has no negative acknowledgement (ADR-0139, decision 1); a drop rule aborts it
+    // with nothing published (ADR-0141).
     private async ValueTask<bool> PublishUnlessAFaultAnswersAsync(string topic, int qualityOfService, ushort packetIdentifier, byte[] payload)
     {
         if (await IsPublishAnsweredByAFaultAsync(topic))
@@ -340,6 +341,11 @@ internal sealed partial class MqttPacketResponder
     private async ValueTask<bool> DeliverRetainedAsync(ushort packetIdentifier, List<string?> filters)
     {
         await RefuseChosenFiltersAsync(filters);
+        if (isDroppedByAFault)
+        {
+            return false;
+        }
+
         var reading = MqttBusRetainedMessages.Read(bus, account, [.. filters.OfType<string>()]);
         await WriteAsync(MqttPacketEncoder.SubscribeAcknowledgement(packetIdentifier, ReturnCodesFor(filters, reading.Granted)));
         foreach (var (topic, payload) in reading.Matching)

@@ -52,7 +52,9 @@ The chosen-error fault (ADR-0124 decision 4, ADR-0139; `LdapSession.Faults.cs`):
 bind check lets it read, and at each write (no path), with the account the last bind proved
 (`LdapBindAnswer.Account`), before the directory. A matching `error` rule's `<resultCode> <text>` is the
 operation's response, with no entry and an empty `matchedDN`, and publishes one `FaultAppliedEvent`. A
-reply that does not fit, or another kind, is noted and not applied.
+`delay` or `drop` rule there is applied through `CommandStageFaults` (ADR-0141, BL-920): a delay holds the
+response its `ms` with the idle clock paused, a drop aborts the connection with no response and ends the
+session. A reply that does not fit, or another kind, is noted and not applied.
 
 The directory's file (BL-307, ADR-0072 decision 1): the public `LdapDirectoryFile` names
 `directory.ldif` in the state folder it is given (`<path>/.surl/ldap`) and reads it once

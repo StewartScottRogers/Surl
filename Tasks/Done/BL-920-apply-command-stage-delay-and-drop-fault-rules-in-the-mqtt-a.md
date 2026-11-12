@@ -8,7 +8,7 @@ depends-on: [BL-901, BL-797, BL-1035]
 touches: [Protocols/Messaging/Surl.Protocol.Mqtt.UnitLibrary, Protocols/Messaging/Surl.Protocol.Mqtt.UnitTests, Protocols/Messaging/Surl.Protocol.Ldap.UnitLibrary, Protocols/Messaging/Surl.Protocol.Ldap.UnitTests, Documentation/Planning/Decisions/ADR-0139-how-the-mqtt-and-ldap-servers-answer-a-chosen-error.md]
 requirement: none
 created: 2026-11-06
-completed:
+completed: 2026-11-12
 ---
 # BL-920 — Apply command-stage delay and drop fault rules in the MQTT and LDAP servers
 
@@ -30,13 +30,13 @@ makes the server hold its answer `ms` on the injected `TimeProvider`, or abort t
 
 ## Acceptance criteria
 
-- [ ] Named tests: an MQTT `delay;stage=command;command=SUBSCRIBE;ms=500` and an LDAP `...command=search;ms=500`
+- [x] Named tests: an MQTT `delay;stage=command;command=SUBSCRIBE;ms=500` and an LDAP `...command=search;ms=500`
       hold the answer until the clock advances 500 ms, with the idle clock paused throughout, and publish one
       `FaultAppliedEvent` with kind `Delay`.
-- [ ] Named tests: a `drop;stage=command` rule at an MQTT `PUBLISH` and at an LDAP `search` aborts the connection
+- [x] Named tests: a `drop;stage=command` rule at an MQTT `PUBLISH` and at an LDAP `search` aborts the connection
       with no answer and publishes one `FaultAppliedEvent` with kind `Drop`.
-- [ ] ADR-0139 says what now happens to a command-stage `delay` or `drop`.
-- [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and every touched library keeps 100% line
+- [x] ADR-0139 says what now happens to a command-stage `delay` or `drop`.
+- [x] `dotnet build -warnaserror` is clean, the fast tests are green, and every touched library keeps 100% line
       and branch coverage.
 
 ## Notes
@@ -64,3 +64,4 @@ MQTT and LDAP had none.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waiting on BL-1035: the pinned .NET SDK 10.0.401 is not installed, so nothing builds; code written and left for the shift to stash
 - 2026-11-12: Backlog -> Doing.
+- 2026-11-12: Doing -> Done. MQTT and LDAP servers apply command-stage delay and drop fault rules; built clean, 722 tests green, 100% line/branch
