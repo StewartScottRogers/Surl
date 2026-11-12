@@ -8,7 +8,7 @@ depends-on: [BL-738, BL-1035]
 touches: [Cryptography/Surl.Dtls.UnitLibrary, Cryptography/Surl.Dtls.UnitTests, Documentation/Planning/Decisions/ADR-0087-how-surls-dtls-1-2-server-handshakes-for-coaps.md]
 requirement: none
 created: 2026-11-05
-completed:
+completed: 2026-11-11
 ---
 # BL-779 — Start a new handshake on an epoch 0 hello with a valid cookie on an established Surl.Dtls association
 
@@ -31,11 +31,11 @@ association once it completes (ADR-0087 decision 6, RFC 6347 section 4.2.8).
 
 ## Acceptance criteria
 
-- [ ] Named tests show: an epoch 0 `ClientHello` without a cookie on an established association answered
+- [x] Named tests show: an epoch 0 `ClientHello` without a cookie on an established association answered
       with `HelloVerifyRequest` and the old association still carrying application data; one with a valid
       cookie completing a new handshake, after which application data flows under the new keys and the old
       epoch 1 keys are no longer accepted; no alert sent on the old association.
-- [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and the library keeps 100% line and
+- [x] `dotnet build -warnaserror` is clean, the fast tests are green, and the library keeps 100% line and
       branch coverage.
 
 ## Notes
@@ -56,3 +56,5 @@ association once it completes (ADR-0087 decision 6, RFC 6347 section 4.2.8).
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waits on BL-1035: pinned .NET SDK 10.0.401 is not installed, so no build under global.json can run; the work is ready on factory/BL-779-lane-6-20261111-060243 (6bb00f42, 4eebd3fe) and passes under SDK 11.
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Integrated on lane 1: cherry-picked 6bb00f42 and 4eebd3fe, resolved a conflict with BL-745's close_notify at the last sequence number (kept both; it uses current.Records). Build -warnaserror clean, 273 Dtls tests pass, Surl.Dtls.UnitLibrary at 100% line and branch.
+- 2026-11-11: Doing -> Done. An epoch 0 hello with a valid cookie on an established Surl.Dtls association starts a new handshake that replaces the old one
