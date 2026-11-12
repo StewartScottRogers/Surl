@@ -81,3 +81,4 @@ its `--aihelp` topic and help category exist, and the extension switch turns it 
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waits on BL-1035: the pinned .NET SDK 10.0.401 is not installed, so dotnet build cannot run; the code is written and passed under SDK 11.0.100 (left for the shift to stash)
 - 2026-11-12: Backlog -> Doing.
+- 2026-11-12: Doing -> Blocked. Stewart: the oci code from lane 2 sits in a git stash and this lane may not read the stash (permission denied); allow git stash list/apply, or say to rewrite it from the Notes (SDK 10.0.404 now builds, so BL-1035 no longer blocks)
