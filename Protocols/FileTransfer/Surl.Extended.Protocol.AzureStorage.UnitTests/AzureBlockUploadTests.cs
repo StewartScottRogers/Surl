@@ -135,6 +135,56 @@ public sealed class AzureBlockUploadTests
     }
 
     [TestMethod]
+    public async Task ServeAsync_PutBlobAfterStagedBlocks_DiscardsTheUncommittedBlocks()
+    {
+        var harness = Writable();
+        await PutBlockAsync(harness, BlockA, "one ");
+
+        var put = await harness.SendWithBearerAndBodyAsync("PUT", "/photos/big.bin", "whole", "x-ms-blob-type: BlockBlob");
+        var uncommitted = await GetBlockListAsync(harness, "uncommitted");
+        var committed = await PutBlockListAsync(harness, $"<Uncommitted>{BlockA}</Uncommitted>");
+
+        StringAssert.StartsWith(put, "HTTP/1.1 201 Created\r\n");
+        StringAssert.EndsWith(uncommitted, $"{BlockListHead}<UncommittedBlocks></UncommittedBlocks></BlockList>");
+        Assert.AreEqual(
+            AzureServerHarness.ExpectedError(committed, "400 Bad Request", "InvalidBlockList", "The specified block list is invalid."),
+            committed);
+        Assert.AreEqual("whole", harness.ReadFile("photos/big.bin"));
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_DeleteBlobAfterStagedBlocks_DiscardsTheUncommittedBlocks()
+    {
+        var harness = Writable();
+        harness.WriteFile("photos/big.bin", "hello");
+        await PutBlockAsync(harness, BlockA, "one ");
+
+        var deleted = await harness.SendWithBearerAsync("DELETE", "/photos/big.bin");
+        var uncommitted = await GetBlockListAsync(harness, "uncommitted");
+        var committed = await PutBlockListAsync(harness, $"<Uncommitted>{BlockA}</Uncommitted>");
+
+        StringAssert.StartsWith(deleted, "HTTP/1.1 202 Accepted\r\n");
+        StringAssert.Contains(uncommitted, "<Code>BlobNotFound</Code>");
+        Assert.AreEqual(
+            AzureServerHarness.ExpectedError(committed, "400 Bad Request", "InvalidBlockList", "The specified block list is invalid."),
+            committed);
+        Assert.AreEqual(ContentEntryKind.None, harness.Store.GetEntryKind(harness.Store.MapRequestPath("/photos/big.bin")));
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_RefusedDeleteBlob_KeepsTheUncommittedBlocks()
+    {
+        var harness = Writable();
+        await PutBlockAsync(harness, BlockA, "one ");
+
+        var deleted = await harness.SendWithBearerAsync("DELETE", "/photos/big.bin");
+        var uncommitted = await GetBlockListAsync(harness, "uncommitted");
+
+        StringAssert.Contains(deleted, "<Code>BlobNotFound</Code>");
+        StringAssert.EndsWith(uncommitted, $"{BlockListHead}<UncommittedBlocks><Block><Name>{BlockA}</Name><Size>4</Size></Block></UncommittedBlocks></BlockList>");
+    }
+
+    [TestMethod]
     [DataRow("Q", DisplayName = "not base64")]
     [DataRow("", DisplayName = "empty")]
     [DataRow("QUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFB", DisplayName = "past 64 bytes")]

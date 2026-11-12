@@ -8,7 +8,7 @@ depends-on: [BL-715, BL-1035]
 touches: [Protocols/FileTransfer/Surl.Extended.Protocol.AzureStorage.UnitLibrary, Protocols/FileTransfer/Surl.Extended.Protocol.AzureStorage.UnitTests]
 requirement: none
 created: 2026-11-06
-completed:
+completed: 2026-11-12
 ---
 # BL-924 — Discard a blob's uncommitted blocks on Put Blob and Delete Blob
 
@@ -28,9 +28,9 @@ say the service does, so a later Put Block List cannot commit blocks staged befo
 
 ## Acceptance criteria
 
-- [ ] Named tests show Get Block List `uncommitted` empty, and Put Block List of a previously staged block
+- [x] Named tests show Get Block List `uncommitted` empty, and Put Block List of a previously staged block
       `400 InvalidBlockList`, after a Put Blob and after a Delete Blob.
-- [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and the library keeps 100% line and
+- [x] `dotnet build -warnaserror` is clean, the fast tests are green, and the library keeps 100% line and
       branch coverage.
 
 ## Notes
@@ -46,3 +46,4 @@ say the service does, so a later Put Block List cannot commit blocks staged befo
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waiting on BL-1035 - pinned .NET SDK 10.0.401 is not installed, so dotnet build cannot run; the work is on branch factory/BL-924-lane-6-20261111-060243
 - 2026-11-12: Backlog -> Doing.
+- 2026-11-12: Doing -> Done. Put Blob and Delete Blob discard a blob's uncommitted blocks; 551 Azure tests green
