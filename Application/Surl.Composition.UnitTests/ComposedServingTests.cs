@@ -1,3 +1,4 @@
+using Surl.Cli;
 using Surl.Networking;
 using Surl.Protocol.Abstractions;
 
@@ -123,6 +124,48 @@ public sealed class ComposedServingTests
         CollectionAssert.AreEqual(new[] { $"Listening on https://127.0.0.1:{FakeListenerFactory.BoundPort}/" }, lines.Where(line => line.StartsWith("Listening", StringComparison.Ordinal)).ToArray());
         Assert.AreEqual(writesNote, lines.Contains($"* Serving HTTP/3 over QUIC on UDP port {FakeListenerFactory.BoundPort}"));
         Assert.HasCount(1, boundListenUrls);
+    }
+
+    // A datagram listener that reports no bound port: the note names its listen URL's port, which the shared-port
+    // pair set to the connection listener's bound port (BL-1056).
+    [TestMethod]
+    public async Task ServeAsync_Http3DatagramListenerReportingNoBoundPort_NamesItsListenUrlsPortInTheHttp3Note()
+    {
+        using var log = new StringWriter();
+        using var stop = CancellationTokenSource.CreateLinkedTokenSource(TestContext.CancellationToken);
+        var bound = new TaskCompletionSource<IReadOnlyList<ListenUrl>>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var seams = new StartTestSeams(new FakeListenerFactory { ReportsDatagramBoundPort = false });
+        await using var serving = await ComposeAsync(seams, "-v", "--self-signed", "--http3", "https://127.0.0.1:0");
+
+        var serve = serving.ServeAsync(StartTestSeams.Outputs(log, bound.SetResult), stop.Token);
+        await bound.Task.WaitAsync(TestContext.CancellationToken);
+        await stop.CancelAsync();
+        await serve;
+
+        StringAssert.Contains(log.ToString(), $"* Serving HTTP/3 over QUIC on UDP port {FakeListenerFactory.BoundPort}" + Environment.NewLine);
+    }
+
+    // A dns listen URL binds UDP beside TCP on one port too (ADR-0092), so the shared-port note is asked
+    // for, but it is no HTTP/3: verbose writes no HTTP/3 note for it (BL-1056).
+    [TestMethod]
+    public async Task ServeAsync_VerboseDnsOnASharedPort_WritesNoHttp3Note()
+    {
+        using var log = new StringWriter();
+        using var stop = CancellationTokenSource.CreateLinkedTokenSource(TestContext.CancellationToken);
+        var bound = new TaskCompletionSource<IReadOnlyList<ListenUrl>>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var seams = new StartTestSeams().Seams with { AreExtensionsTurnedOn = true };
+        var start = await SurlServerComposition.ComposeAsync(
+            CommandLineParser.Parse(["-v", "dns://127.0.0.1:0"], ["dns"]).CommandLine!, seams, TestContext.CancellationToken);
+        await using var serving = start.Serving ?? throw new AssertFailedException($"The start was refused: {string.Join(" ", start.Failure!.Lines)}");
+
+        var serve = serving.ServeAsync(StartTestSeams.Outputs(log, bound.SetResult), stop.Token);
+        var boundListenUrls = await bound.Task.WaitAsync(TestContext.CancellationToken);
+        await stop.CancelAsync();
+        var outcome = await serve;
+
+        Assert.AreEqual(SurlExitCode.Ok, outcome.ExitCode);
+        Assert.HasCount(1, boundListenUrls);
+        Assert.DoesNotContain("HTTP/3", log.ToString());
     }
 
     [TestMethod]

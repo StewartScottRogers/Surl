@@ -8,7 +8,7 @@ depends-on: [BL-1054]
 touches: [Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests]
 requirement: none
 created: 2026-11-11
-completed:
+completed: 2026-11-11
 ---
 # BL-1056 — Cover the two Surl.Composition gaps the per-project coverage merge shows
 
@@ -30,9 +30,9 @@ completed:
 
 ## Acceptance criteria
 
-- [ ] A named `Surl.Composition.UnitTests` test reaches the `CoapsDtlsCertificate.FindRefusal` refusal in `ComposeServing`.
-- [ ] `WriteHttp3Note` has every branch covered by a named test.
-- [ ] `Measure-CodeQuality.ps1 -Library 'Surl.Composition.UnitLibrary'` reports no failing member, and the fast tests are green.
+- [x] A named `Surl.Composition.UnitTests` test reaches the `CoapsDtlsCertificate.FindRefusal` refusal in `ComposeServing`.
+- [x] `WriteHttp3Note` has every branch covered by a named test.
+- [x] `Measure-CodeQuality.ps1 -Library 'Surl.Composition.UnitLibrary'` reports no failing member, and the fast tests are green.
 
 ## Notes
 
@@ -40,3 +40,4 @@ completed:
 
 - 2026-11-11: Created.
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Done. Surl.Composition.UnitLibrary measures 100% line and branch with no failing member

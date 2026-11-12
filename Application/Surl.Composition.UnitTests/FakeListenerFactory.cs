@@ -43,8 +43,15 @@ internal sealed class FakeListenerFactory : IListenerFactory
     public ValueTask<IDatagramListener> StartDatagramListenerAsync(ListenUrl listenUrl, CancellationToken cancellationToken)
     {
         ThrowBindFailureWhenSet();
-        return ValueTask.FromResult<IDatagramListener>(new FakeDatagramListener(listenUrl.WithBoundPort(BoundPort), this));
+        var reported = ReportsDatagramBoundPort ? listenUrl.WithBoundPort(BoundPort) : listenUrl;
+        return ValueTask.FromResult<IDatagramListener>(new FakeDatagramListener(reported, this));
     }
+
+    /// <summary>
+    /// Whether each datagram listener reports <see cref="BoundPort"/> on its listen URL; when
+    /// <see langword="false"/>, it reports the listen URL as given, with no bound port.
+    /// </summary>
+    public bool ReportsDatagramBoundPort { get; init; } = true;
 
     private void ThrowBindFailureWhenSet()
     {
