@@ -140,6 +140,11 @@ rather than writing it, and the warning writers take the log `TextWriter` they w
 
 - `AuthenticationComposition` - the accounts (`--user`, `--user-file`), `--authorized-keys`, the
   `--auth` methods and the `AuthenticationPolicy` (ADR-0032); `WriteLooseningWarnings`.
+- `ReadableByOthersWarning` - `surl: warning: <file> is readable by other users and may hold
+  passwords` (ADR-0101 decision 5, BL-684), written by `ComposedServing` for the `--user-file`
+  right after the `--fault` warning, from info up, when the mode read through
+  `SurlServerCompositionSeams.ReadStartFileUnixMode` (`ReadDiskMode` by default: `null` on Windows
+  or when unreadable) grants group or other read. BL-780 reuses it for `-K` files.
 - `MailboxComposition` - the mail domains and mailboxes (ADR-0102 decisions 1.1, 1.2, 1.4 and 5,
   BL-882): every `SurlCommandLine.Mailboxes` then each `MailboxFiles` record (read through
   `ReadStartFile` with `Surl.Cli`'s `MailboxFileReader`; unreadable `(37) Could not read mailbox
