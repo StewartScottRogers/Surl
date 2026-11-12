@@ -8,7 +8,7 @@ depends-on: [BL-637, BL-1035]
 touches: [.github/workflows/release.yml, Test-PublishedSurl.ps1]
 requirement: none
 created: 2026-11-05
-completed:
+completed: 2026-11-12
 ---
 # BL-783 — Dispatch the release dry run on the integrated BL-637 commit and record surl-mcp green on all six runtime identifiers
 
@@ -68,3 +68,6 @@ Notes record its run URL.
 - 2026-11-11: Doing -> Backlog. Fix committed; a lane cannot push or dispatch. Needs release.yml dispatched on master once this commit is integrated
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Blocked. Stewart: once the apt-guard commit in release.yml is on master, run 'gh workflow run release.yml --ref master' and record the URL in BL-783 (a lane cannot push or dispatch)
+- 2026-11-12: Blocked -> Backlog. Stewart ran the dispatch on 2026-11-12; closing through Backlog and Doing, the only route to Done.
+- 2026-11-12: Backlog -> Doing.
+- 2026-11-12: Doing -> Done. Stewart ran the release dry run on 2026-11-12: green on all six Publish legs with both artifacts; run URL in Notes.
