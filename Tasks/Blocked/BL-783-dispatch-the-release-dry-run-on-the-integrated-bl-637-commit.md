@@ -31,7 +31,7 @@ Notes record its run URL.
 
 ## Acceptance criteria
 
-- [ ] A `workflow_dispatch` run of `release.yml` is green on all six `Publish` legs, each uploading both
+- [x] A `workflow_dispatch` run of `release.yml` is green on all six `Publish` legs, each uploading both
       `surl-<rid>` and `surl-mcp-<rid>` artifacts, and Notes record its run URL.
 
 ## Notes
@@ -56,6 +56,8 @@ Notes record its run URL.
   Re-applied the apt-guard fix in release.yml ("Install the native toolchain") and committed it. A lane
   cannot push or dispatch, so the final dispatch on the commit holding this fix is still to do: once it is
   on master, `gh workflow run release.yml --ref master`, `gh run watch`, record the URL, tick the box.
+
+- 2026-11-12: Stewart dispatched `release.yml` on master (`gh workflow run release.yml --ref master`): https://github.com/StewartScottRogers/Surl/actions/runs/43195425203 - green. All six `Publish` legs (linux-x64, linux-arm64, osx-x64, osx-arm64, win-x64, win-arm64) succeeded and each uploaded both `surl-<rid>` and `surl-mcp-<rid>`; the two conformance jobs, the NuGet pack and the pass-rate job also passed; `Create the GitHub release` was skipped, as a dry run does. The run was on master without the apt-guard commit (76b275f8), so the earlier apt-mirror failure was an outage, not a fault in release.yml.
 
 ## Log
 
