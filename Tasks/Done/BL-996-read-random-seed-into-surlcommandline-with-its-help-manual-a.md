@@ -8,7 +8,7 @@ depends-on: [BL-822, BL-851, BL-1035]
 touches: [Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests, Application/Surl.Mcp.UnitLibrary, Application/Surl.Mcp.UnitTests]
 requirement: none
 created: 2026-11-06
-completed:
+completed: 2026-11-11
 ---
 # BL-996 — Read --random-seed into SurlCommandLine with its help, manual and aihelp text
 
@@ -37,11 +37,11 @@ in `--help`, the manual and `--aihelp` on the `testing` page.
 
 ## Acceptance criteria
 
-- [ ] `surl --random-seed 42 ...` and a `-K` file line `random-seed = 42` set `SurlCommandLine.RandomSeed` to 42;
+- [x] `surl --random-seed 42 ...` and a `-K` file line `random-seed = 42` set `SurlCommandLine.RandomSeed` to 42;
       `--random-seed -1` and `--random-seed x` exit `FailedInit` (2) with the existing option-error message form.
-- [ ] The `--aihelp` completeness tests (`AiHelpFactsTests`, `AiHelpTextTests`) pass with the option on the
+- [x] The `--aihelp` completeness tests (`AiHelpFactsTests`, `AiHelpTextTests`) pass with the option on the
       `testing` page, and `Table_EverySurlCommandLineMember_IsClassifiedExactlyOnce` passes.
-- [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and `Surl.Cli.UnitLibrary` keeps 100% line and
+- [x] `dotnet build -warnaserror` is clean, the fast tests are green, and `Surl.Cli.UnitLibrary` keeps 100% line and
       branch coverage.
 
 ## Notes
@@ -54,3 +54,4 @@ in `--help`, the manual and `--aihelp` on the `testing` page.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waits on BL-1035: pinned .NET SDK 10.0.401 is not installed, so dotnet build cannot run
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Done. --random-seed read into SurlCommandLine.RandomSeed with help, manual, aihelp; Mcp member classified
