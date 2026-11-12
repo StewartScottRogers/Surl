@@ -8,7 +8,7 @@ depends-on: [BL-823, BL-785]
 touches: [Protocols/Messaging/Surl.Extended.Protocol.Stomp.UnitLibrary, Protocols/Messaging/Surl.Extended.Protocol.Stomp.UnitTests, Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests, Documentation/Planning/Decisions/ADR-0124-surl-is-a-stand-in-for-tests.md]
 requirement: FR-062
 created: 2026-11-12
-completed:
+completed: 2026-11-12
 ---
 # BL-1062 — Answer a chosen protocol error by fault in the extended STOMP broker
 
@@ -25,15 +25,18 @@ An `error` fault rule naming `stomp` or `stomps` (or a listener of one) makes th
 
 ## Acceptance criteria
 
-- [ ] Named tests: a request matching an `error` rule gets exactly the chosen error, a non-matching one is served, and one `FaultAppliedEvent` is published.
-- [ ] Named `Surl.Cli` tests: one accepted and one refused `reply` per scheme.
-- [ ] ADR-0124's reply table has this family's row.
-- [ ] With no rule, every existing test of the touched libraries passes unchanged.
-- [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and the touched libraries keep 100% line and branch coverage.
+- [x] Named tests: a request matching an `error` rule gets exactly the chosen error, a non-matching one is served, and one `FaultAppliedEvent` is published.
+- [x] Named `Surl.Cli` tests: one accepted and one refused `reply` per scheme.
+- [x] ADR-0124's reply table has this family's row.
+- [x] With no rule, every existing test of the touched libraries passes unchanged.
+- [x] `dotnet build -warnaserror` is clean, the fast tests are green, and the touched libraries keep 100% line and branch coverage.
 
 ## Notes
+
+- Decided by Claude under Stewart's delegation: the reply is one line of text (no CR, LF or NUL; the CLI already refuses control characters), sent as ERROR `message`; a drop ends the connection after queued frames are written; faults apply to every frame after login, `path` being the `destination` header. Recorded in ADR-0124's reply table.
 
 ## Log
 
 - 2026-11-12: Created.
 - 2026-11-12: Backlog -> Doing.
+- 2026-11-12: Doing -> Done. STOMP broker answers a chosen error by fault

@@ -283,6 +283,7 @@ The extended servers (decision 9), each judged by its own specification (ADR-008
 | `coap`, `coaps` | a response code 4.00 to 5.05 |
 | `mcp`, `mcps` | a JSON-RPC error code and message |
 | `signalr`, `signalrs` | text, sent as the invocation's completion `error` |
+| `stomp`, `stomps` | text, sent as an `ERROR` frame's `message` header, after which the connection closes (BL-1062) |
 | `dns` | an RCODE 1 to 5 |
 | `redis`, `rediss` | text, sent as a RESP error (`-<text>`) |
 

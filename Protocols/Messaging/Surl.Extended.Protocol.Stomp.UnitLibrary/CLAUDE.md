@@ -60,3 +60,8 @@ Routing through the bus (BL-532, ADR-0118 decisions 4 to 8):
 - `StompServerConnection.HeartBeats.cs` sends an EOL every `max(1000, cy)` ms in which nothing
   else was queued, and closes with no bytes when nothing arrived for twice `max(cx, sy)` ms,
   timed from `StompFrameReader.LastReceivedAt`.
+
+Faults (BL-1062, ADR-0124 decisions 4 and 9): `StompFrameFaults` asks `ExchangeContext.Faults` for each
+frame after login (`command` the frame's command, `path` its `destination`, the account). A delay holds the
+frame; a drop ends the connection once what is queued is written; an `error` rule whose reply is one line of
+text answers ERROR with it as `message` (and `receipt-id`) and closes. Each publishes a `FaultAppliedEvent`.
