@@ -40,16 +40,17 @@ internal sealed class LoginSaslExchange(SaslExchangeContext context) : SaslMecha
             return ValueTask.FromResult(Challenge(PasswordPrompt));
         }
 
-        return Context.IsUnchecked ? ValueTask.FromResult(AcceptedUnchecked) : CheckAsync(message.Span, cancellationToken);
+        return Context.IsUnchecked ? ValueTask.FromResult(AcceptedUnchecked) : CheckAsync(message, cancellationToken);
     }
 
-    private ValueTask<SaslLoginStep> CheckAsync(ReadOnlySpan<byte> password, CancellationToken cancellationToken)
+    private async ValueTask<SaslLoginStep> CheckAsync(ReadOnlyMemory<byte> password, CancellationToken cancellationToken)
     {
+        var checkStartedAt = Context.Policy.StartCheck();
         var userName = Utf8.IsValid(userNameBytes) ? Encoding.UTF8.GetString(userNameBytes!) : null;
         var user = string.IsNullOrEmpty(userName) ? null : userName;
 
-        return Context.Accounts.CheckPassword(user, password)
-            ? ValueTask.FromResult(Accept(user!, user))
-            : RefuseAsync(user, cancellationToken);
+        return await Context.CheckPasswordAsync(user, password, cancellationToken).ConfigureAwait(false)
+            ? Accept(user!, user)
+            : await RefuseAsync(user, cancellationToken, checkStartedAt: checkStartedAt).ConfigureAwait(false);
     }
 }

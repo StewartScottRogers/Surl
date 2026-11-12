@@ -154,9 +154,11 @@ public sealed class AuthenticationPolicy : IAuthenticationPolicy, IMailAuthentic
 
         this.settings = settings;
         this.httpMethods = [.. implemented
+            .Select(method => AskingTheDirectory(method, settings.LdapAccountSource))
             .Where(method => settings.AcceptedMethods.Contains(method.Method))
             .OrderBy(method => method.Method)];
         this.timeProvider = timeProvider;
+        PasswordCheck = new AccountBookAndDirectoryPasswordCheck(settings.Accounts, settings.LdapAccountSource);
         ServiceSignatureVerifier = new AwsSigV4AuthenticationMethod(settings.Accounts, timeProvider);
         AzureStorageVerifier = new AzureStorageVerifier(settings.Accounts, timeProvider);
         GoogleV4HmacVerifier = new GoogleV4HmacAuthenticationMethod(settings.Accounts, timeProvider);
@@ -466,9 +468,11 @@ public sealed class AuthenticationPolicy : IAuthenticationPolicy, IMailAuthentic
             return SshAcceptedUnchecked;
         }
 
-        var isAccepted = settings.Accounts.CheckPassword(login.UserName, login.Password.Span);
+        var checkStartedAt = timeProvider.GetUtcNow();
+        var isAccepted = await PasswordCheck
+            .CheckAsync(SshLoginScheme, login.UserName, login.Password, cancellationToken).ConfigureAwait(false);
 
-        return await DecideSshLoginAsync(isAccepted, login.Method, login.UserName, cancellationToken).ConfigureAwait(false);
+        return await DecideSshLoginAsync(isAccepted, login.Method, login.UserName, cancellationToken, checkStartedAt).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -507,7 +511,7 @@ public sealed class AuthenticationPolicy : IAuthenticationPolicy, IMailAuthentic
     }
 
     private async ValueTask<SshLoginVerdict> DecideSshLoginAsync(
-        bool isAccepted, string method, string? userName, CancellationToken cancellationToken)
+        bool isAccepted, string method, string? userName, CancellationToken cancellationToken, DateTimeOffset? checkStartedAt = null)
     {
         var acceptedAccountName = isAccepted ? userName : null;
         if (await ConcludeCheckedLoginAsync(SshLoginScheme, method, userName, acceptedAccountName, cancellationToken).ConfigureAwait(false))
@@ -515,7 +519,7 @@ public sealed class AuthenticationPolicy : IAuthenticationPolicy, IMailAuthentic
             return new SshLoginVerdict(SshLoginOutcome.Accepted, userName, new CheckedLogin(method, userName, true));
         }
 
-        await WaitRefusalDelayAsync(cancellationToken).ConfigureAwait(false);
+        await WaitRefusalDelayAsync(cancellationToken, checkStartedAt).ConfigureAwait(false);
 
         return new SshLoginVerdict(SshLoginOutcome.Refused, null, new CheckedLogin(method, userName, false));
     }
@@ -571,6 +575,14 @@ public sealed class AuthenticationPolicy : IAuthenticationPolicy, IMailAuthentic
     /// </summary>
     public AuthenticationSettings Settings => settings;
 
+    /// <summary>
+    /// The password check of the logins that ask the accounts and then the LDAP account source (ADR-0149, decision 2).
+    /// </summary>
+    internal AccountBookAndDirectoryPasswordCheck PasswordCheck { get; }
+
+    /// <summary>
+    /// Where a SASL challenge's random bytes come from.
+    /// </summary>
     internal ISaslNonceSource NonceSource { get; }
 
     internal INtlmServerChallengeSource NtlmServerChallenges { get; }
@@ -626,8 +638,29 @@ public sealed class AuthenticationPolicy : IAuthenticationPolicy, IMailAuthentic
             : null;
     }
 
-    internal Task WaitRefusalDelayAsync(CancellationToken cancellationToken) =>
-        Task.Delay(RefusalDelay, timeProvider, cancellationToken);
+    // HTTP Basic asks the directory too, so a method list that holds Basic is rebuilt around the source (ADR-0149, decision 2).
+    private static IHttpAuthenticationMethod AskingTheDirectory(IHttpAuthenticationMethod method, LdapAccountSource? directory) =>
+        directory is not null && method is BasicAuthenticationMethod basic ? basic.WithDirectory(directory) : method;
+
+    /// <summary>
+    /// When a password check starts, which the refusal delay is counted from.
+    /// </summary>
+    /// <returns>The clock's time now.</returns>
+    internal DateTimeOffset StartCheck() => timeProvider.GetUtcNow();
+
+    /// <summary>
+    /// Waits <see cref="RefusalDelay"/>, counted from <paramref name="checkStartedAt"/> when given, so a
+    /// slow directory does not stack its latency on the delay (ADR-0149, decision 6).
+    /// </summary>
+    /// <param name="cancellationToken">Cancels the wait.</param>
+    /// <param name="checkStartedAt">When the check started, or <see langword="null"/> for the whole delay.</param>
+    /// <returns>The wait.</returns>
+    internal Task WaitRefusalDelayAsync(CancellationToken cancellationToken, DateTimeOffset? checkStartedAt = null)
+    {
+        var remaining = checkStartedAt is { } started ? RefusalDelay - (timeProvider.GetUtcNow() - started) : RefusalDelay;
+
+        return remaining > TimeSpan.Zero ? Task.Delay(remaining, timeProvider, cancellationToken) : Task.CompletedTask;
+    }
 
     internal bool OffersPlaintextSecrets(bool isEncrypted) => isEncrypted || settings.AllowPlaintextAuthentication;
 

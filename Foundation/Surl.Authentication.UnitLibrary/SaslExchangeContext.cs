@@ -64,7 +64,18 @@ internal sealed record SaslExchangeContext(
     /// Waits the refusal delay on the policy's clock (ADR-0032, section 8).
     /// </summary>
     /// <param name="cancellationToken">Cancels the wait.</param>
+    /// <param name="checkStartedAt">When the check started, or <see langword="null"/> for the whole delay.</param>
     /// <returns>The wait.</returns>
-    public Task WaitRefusalDelayAsync(CancellationToken cancellationToken) =>
-        Policy.WaitRefusalDelayAsync(cancellationToken);
+    public Task WaitRefusalDelayAsync(CancellationToken cancellationToken, DateTimeOffset? checkStartedAt = null) =>
+        Policy.WaitRefusalDelayAsync(cancellationToken, checkStartedAt);
+
+    /// <summary>
+    /// Checks a password against the accounts and, for a name they do not hold, the LDAP account source.
+    /// </summary>
+    /// <param name="userName">The user name, or <see langword="null"/> when none could be read.</param>
+    /// <param name="password">The password bytes as sent.</param>
+    /// <param name="cancellationToken">Cancels the directory's check.</param>
+    /// <returns>Whether the password is right.</returns>
+    public ValueTask<bool> CheckPasswordAsync(string? userName, ReadOnlyMemory<byte> password, CancellationToken cancellationToken) =>
+        Policy.PasswordCheck.CheckAsync(Scheme, userName, password, cancellationToken);
 }

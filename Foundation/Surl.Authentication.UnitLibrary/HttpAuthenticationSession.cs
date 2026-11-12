@@ -183,10 +183,11 @@ internal sealed class HttpAuthenticationSession : IHttpAuthenticationSession
         HttpAuthenticationRequest request,
         CancellationToken cancellationToken)
     {
+        var checkStartedAt = policy.StartCheck();
         var verified = await verifier.VerifyAsync(authorization.Credentials, request, cancellationToken)
             .ConfigureAwait(false);
 
-        return await ConcludeAsync(verified, authorization.Method, request, cancellationToken).ConfigureAwait(false);
+        return await ConcludeAsync(verified, authorization.Method, request, cancellationToken, checkStartedAt).ConfigureAwait(false);
     }
 
     // A checked credential, through the refuse-login fault, the connection's login and the answer.
@@ -194,7 +195,8 @@ internal sealed class HttpAuthenticationSession : IHttpAuthenticationSession
         HttpCredentialCheck verified,
         AuthenticationMethod method,
         HttpAuthenticationRequest request,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        DateTimeOffset? checkStartedAt = null)
     {
         var isRefusedByFault = await IsRefusedByFaultAsync(verified, cancellationToken).ConfigureAwait(false);
         var check = isRefusedByFault ? RefusedByFault(verified, WrongCredentialsRefusal(method)) : verified;
@@ -205,7 +207,7 @@ internal sealed class HttpAuthenticationSession : IHttpAuthenticationSession
             connectionAccountName = check.Outcome == HttpCredentialOutcome.Accepted ? check.AccountName : null;
         }
 
-        var verdict = await AnswerCheckAsync(check, method, request.AwsSigV4Service is not null, cancellationToken).ConfigureAwait(false);
+        var verdict = await AnswerCheckAsync(check, method, request.AwsSigV4Service is not null, cancellationToken, checkStartedAt).ConfigureAwait(false);
 
         return Published(verdict, isRefusedByFault);
     }
@@ -238,7 +240,7 @@ internal sealed class HttpAuthenticationSession : IHttpAuthenticationSession
     // Accepted and refused credentials carry the login note (ADR-0032, section 8); a
     // continuation step, and a login waiting for the body, checked nothing yet, so they carry none.
     private ValueTask<HttpAuthenticationVerdict> AnswerCheckAsync(
-        HttpCredentialCheck check, AuthenticationMethod method, bool isServiceSignature, CancellationToken cancellationToken)
+        HttpCredentialCheck check, AuthenticationMethod method, bool isServiceSignature, CancellationToken cancellationToken, DateTimeOffset? checkStartedAt = null)
     {
         // A continuation step with no value to send would be a 401 without a challenge, which
         // RFC 9110 section 11.6.1 forbids; it is answered as a refusal, as is a login waiting
@@ -255,7 +257,7 @@ internal sealed class HttpAuthenticationSession : IHttpAuthenticationSession
                 return ValueTask.FromResult(new HttpAuthenticationVerdict(
                     HttpAuthenticationOutcome.Proceed, [], check.AccountName, BodyCheck: new RequestBodyCheck(this, method, isServiceSignature, check.CheckBody)));
             default:
-                return RefuseAsync(check, method, isServiceSignature, cancellationToken);
+                return RefuseAsync(check, method, isServiceSignature, cancellationToken, checkStartedAt);
         }
     }
 
@@ -263,9 +265,9 @@ internal sealed class HttpAuthenticationSession : IHttpAuthenticationSession
         new(HttpAuthenticationOutcome.Proceed, check.WwwAuthenticateValues, check.AccountName, LoginChecked(method, check, true), ChunkSignatures: check.ChunkSignatures);
 
     private async ValueTask<HttpAuthenticationVerdict> RefuseAsync(
-        HttpCredentialCheck check, AuthenticationMethod method, bool isServiceSignature, CancellationToken cancellationToken)
+        HttpCredentialCheck check, AuthenticationMethod method, bool isServiceSignature, CancellationToken cancellationToken, DateTimeOffset? checkStartedAt = null)
     {
-        await policy.WaitRefusalDelayAsync(cancellationToken).ConfigureAwait(false);
+        await policy.WaitRefusalDelayAsync(cancellationToken, checkStartedAt).ConfigureAwait(false);
 
         var refusal = isServiceSignature ? Forbidden : Challenge();
 
