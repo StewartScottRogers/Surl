@@ -26,6 +26,7 @@ public sealed class HelpTextTests
         " mail           Mail domains, mailboxes and aliases",
         " messages       Topics, queues and topic access",
         " mqtt           MQTT and MQTTS protocol",
+        " mqtt5          MQTT 5.0 protocol: mqtt5, mqtt5s and mqtt5+ws (extended)",
         " nats           NATS and NATSS protocol (extended)",
         " pop3           POP3 and POP3S protocol",
         " proxy          HTTP and HTTPS proxy",
@@ -210,9 +211,9 @@ public sealed class HelpTextTests
             "This is not the full help; this menu is split into categories.",
             "Use \"--help category\" to get an overview of all categories, which are:",
             "amqp, auth, azure-storage, coap, content, dict, dns, ftp, gopher, gs, http,",
-            "imap, kafka, ldap, limits, logging, mail, messages, mqtt, nats, pop3, proxy,",
-            "rtsp, s3, security, smb, smtp, socketio, socks, ssh, stomp, surl, telnet,",
-            "testing, tftp, tls, websocket, webtransport, xmpp.",
+            "imap, kafka, ldap, limits, logging, mail, messages, mqtt, mqtt5, nats, pop3,",
+            "proxy, rtsp, s3, security, smb, smtp, socketio, socks, ssh, stomp, surl,",
+            "telnet, testing, tftp, tls, websocket, webtransport, xmpp.",
             "Use \"--help all\" to list all options",
             "Use \"--help [option]\" to view documentation for a given option");
     }

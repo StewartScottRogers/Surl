@@ -445,6 +445,19 @@ public sealed class CommandLineRunnerExtendedProtocolTests
     }
 
     [TestMethod]
+    public void ComposeExtendedSchemes_ThisBuild_RegistersMqtt5Mqtt5sAndMqtt5WsWithTheSwitchUnsetAndNoneWithItAtZeroWhileMqttStays()
+    {
+        var on = CreateRunner(new FakeListenerFactory(), FakeEnvironmentVariableReader.Empty, composeExtendedProtocolServers: null);
+        var off = CreateRunner(new FakeListenerFactory(), FakeEnvironmentVariableReader.ExtensionsTurnedOff, composeExtendedProtocolServers: null);
+
+        CollectionAssert.IsSubsetOf(new[] { "mqtt5", "mqtt5s", "mqtt5+ws" }, on.ComposeExtendedSchemes().ToArray());
+        CollectionAssert.DoesNotContain(off.ComposeExtendedSchemes().ToArray(), "mqtt5");
+        CollectionAssert.DoesNotContain(off.ComposeExtendedSchemes().ToArray(), "mqtt5s");
+        CollectionAssert.DoesNotContain(off.ComposeExtendedSchemes().ToArray(), "mqtt5+ws");
+        CollectionAssert.IsSubsetOf(new[] { "mqtt", "mqtts" }, off.ComposeRegisteredSchemes().ToArray());
+    }
+
+    [TestMethod]
     public void ComposeExtendedSchemes_ThisBuild_RegistersStompAndStompsWithTheSwitchUnsetAndNeitherWithItAtZero()
     {
         var on = CreateRunner(new FakeListenerFactory(), FakeEnvironmentVariableReader.Empty, composeExtendedProtocolServers: null);
@@ -585,7 +598,7 @@ public sealed class CommandLineRunnerExtendedProtocolTests
 
         var schemes = runner.ComposeExtendedSchemes();
 
-        CollectionAssert.AreEqual(new[] { "amqp", "amqps", "az", "abfs", "abfss", "coap", "coaps", "dns", "gs", "kafka", "kafkas", "nats", "natss", "s3", "socketio", "socketios", "stomp", "stomps", "webtransport", "xmpp", "xmpps" }, schemes.ToArray());
+        CollectionAssert.AreEqual(new[] { "amqp", "amqps", "az", "abfs", "abfss", "coap", "coaps", "dns", "gs", "kafka", "kafkas", "mqtt5", "mqtt5s", "mqtt5+ws", "nats", "natss", "s3", "socketio", "socketios", "stomp", "stomps", "webtransport", "xmpp", "xmpps" }, schemes.ToArray());
     }
 
     [TestMethod]

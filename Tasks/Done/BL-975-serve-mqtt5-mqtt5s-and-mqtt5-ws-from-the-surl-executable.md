@@ -8,7 +8,7 @@ depends-on: [BL-500, BL-405, BL-635, BL-1035, BL-902]
 touches: [Foundation/Surl.Protocol.Abstractions.UnitLibrary, Foundation/Surl.Protocol.Abstractions.UnitTests, Application/Surl.Console, Application/Surl.Console.UnitTests, Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests, Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests]
 requirement: none
 created: 2026-11-06
-completed:
+completed: 2026-11-12
 ---
 # BL-975 — Serve mqtt5, mqtt5s and mqtt5+ws from the surl executable
 
@@ -39,18 +39,20 @@ exist, and the extension switch turns all three off.
 
 ## Acceptance criteria
 
-- [ ] A named test shows the `mqtt5` broker and the `mqtt` server composed with one and the same bus instance.
-- [ ] A named test finds `mqtt5`, `mqtt5s` and `mqtt5+ws` registered when the switch is on, and absent when it is
+- [x] A named test shows the `mqtt5` broker and the `mqtt` server composed with one and the same bus instance.
+- [x] A named test finds `mqtt5`, `mqtt5s` and `mqtt5+ws` registered when the switch is on, and absent when it is
       off, with `mqtt` and `mqtts` registered either way.
-- [ ] The `--aihelp` completeness tests named in root `CLAUDE.md` pass. `surl --aihelp mqtt` is unchanged except for
+- [x] The `--aihelp` completeness tests named in root `CLAUDE.md` pass. `surl --aihelp mqtt` is unchanged except for
       a cross-reference, if the ADR adds one.
-- [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and `Surl.Composition`, `Surl.Console` and
+- [x] `dotnet build -warnaserror` is clean, the fast tests are green, and `Surl.Composition`, `Surl.Console` and
       `Surl.Cli` keep 100% line and branch coverage.
 
 ## Notes
 
 - 2026-11-11 (second look): the SDK now resolves (10.0.404, rollForward). Plan: register `["mqtt5","mqtt5s"]` Mqtt5Broker over `services.MessageBus` plus `["mqtt5+ws"]` Mqtt5WebSocketServer over the same broker via `ComposedServerFor("mqtt5")`; add the Mqtt5 project reference to Composition; add `mqtt5s` to `TlsSchemes` (Foundation/Surl.Protocol.Abstractions, so the engine does the TLS handshake and `ListenUrl.IsImplicitTls` is true), which BL-902 (Doing) also touches, so it is now in `touches` and `depends-on`; then HelpCategories row, AiHelpProse, AiHelpExamples, topic-list test.
 - 2026-11-11: Not started. `dotnet build` fails with "A compatible .NET SDK was not found": global.json pins 10.0.401 and only 10.0.100-rc.1, 11.0.100-rc.2 and 11.0.100 are installed. Added BL-1035 (reinstall the pinned SDK) to depends-on, as BL-507 and BL-1023 did.
+
+- 2026-11-12: Done. Registered mqtt5+mqtt5s (Mqtt5Broker over services.MessageBus, policy for "mqtt5") and mqtt5+ws (same broker via ComposedServerFor); mqtt5s joined TlsSchemes; help category, aihelp prose, example and tests added. Chose "mqtt5" as the one help category and policy scheme (decision within ADR-0093 decisions 0 and 7; no new ADR needed). Option category lists (--user etc.) were not extended with mqtt5.
 
 ## Log
 
@@ -60,3 +62,4 @@ exist, and the extension switch turns all three off.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Needs Foundation/Surl.Protocol.Abstractions.UnitLibrary (add mqtt5s to TlsSchemes), which BL-902 in Doing touches; waits on BL-902
 - 2026-11-12: Backlog -> Doing.
+- 2026-11-12: Doing -> Done. mqtt5, mqtt5s and mqtt5+ws are served from surl over the shared message bus

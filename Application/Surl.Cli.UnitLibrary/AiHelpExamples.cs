@@ -198,6 +198,13 @@ public static class AiHelpExamples
             ["surl: warning: --allow-anonymous: every request and login is accepted without checking credentials"],
             ["curl mqtt://127.0.0.1:<port>/example"]),
         Serving(
+            "mqtt5",
+            "For a test: serve an MQTT 5.0 broker without accounts",
+            ["--allow-anonymous", "mqtt5://127.0.0.1:0/"],
+            ["Listening on mqtt5://127.0.0.1:<port>/"],
+            ["surl: warning: --allow-anonymous: every request and login is accepted without checking credentials"],
+            []),
+        Serving(
             "nats",
             "For a test: serve NATS without accounts",
             ["--allow-anonymous", "nats://127.0.0.1:0/"],

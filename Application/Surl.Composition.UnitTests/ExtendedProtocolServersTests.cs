@@ -7,6 +7,7 @@ using Surl.Extended.Protocol.Coap;
 using Surl.Extended.Protocol.DnsQuery;
 using Surl.Extended.Protocol.GoogleCloudStorage;
 using Surl.Extended.Protocol.Kafka;
+using Surl.Extended.Protocol.Mqtt5;
 using Surl.Extended.Protocol.Nats;
 using Surl.Extended.Protocol.Stomp;
 using Surl.Extended.Protocol.S3;
@@ -54,7 +55,7 @@ public sealed class ExtendedProtocolServersTests
 
         var servers = ExtendedProtocolServers.Compose(services);
 
-        Assert.HasCount(16, servers);
+        Assert.HasCount(18, servers);
         Assert.IsInstanceOfType<Amqp0Broker>(servers[0]);
         Assert.IsInstanceOfType<AzureStorageProtocolServer>(servers[1]);
         Assert.IsInstanceOfType<CoapProtocolServer>(servers[2]);
@@ -63,17 +64,19 @@ public sealed class ExtendedProtocolServersTests
         Assert.IsInstanceOfType<DnsTcpProtocolServer>(servers[5]);
         Assert.IsInstanceOfType<GoogleCloudStorageProtocolServer>(servers[6]);
         Assert.IsInstanceOfType<KafkaBroker>(servers[7]);
-        Assert.IsInstanceOfType<NatsServer>(servers[8]);
-        Assert.IsInstanceOfType<S3ProtocolServer>(servers[9]);
-        Assert.IsInstanceOfType<SocketIoProtocolServer>(servers[10]);
-        Assert.IsInstanceOfType<StompServer>(servers[11]);
-        CollectionAssert.AreEqual(new[] { "stomps" }, servers[12].Schemes.ToArray());
-        Assert.IsInstanceOfType<WebTransportProtocolServer>(servers[13]);
-        Assert.IsInstanceOfType<XmppServer>(servers[14]);
-        CollectionAssert.AreEqual(new[] { "xmpps" }, servers[15].Schemes.ToArray());
-        CollectionAssert.AreEqual(new[] { "amqp", "amqps", "az", "abfs", "abfss", "coap", "coaps", "dns", "dns", "gs", "kafka", "kafkas", "nats", "natss", "s3", "socketio", "socketios", "stomp", "stomps", "webtransport", "xmpp", "xmpps" }, servers.SelectMany(server => server.Schemes).ToArray());
+        Assert.IsInstanceOfType<Mqtt5Broker>(servers[8]);
+        Assert.IsInstanceOfType<Mqtt5WebSocketServer>(servers[9]);
+        Assert.IsInstanceOfType<NatsServer>(servers[10]);
+        Assert.IsInstanceOfType<S3ProtocolServer>(servers[11]);
+        Assert.IsInstanceOfType<SocketIoProtocolServer>(servers[12]);
+        Assert.IsInstanceOfType<StompServer>(servers[13]);
+        CollectionAssert.AreEqual(new[] { "stomps" }, servers[14].Schemes.ToArray());
+        Assert.IsInstanceOfType<WebTransportProtocolServer>(servers[15]);
+        Assert.IsInstanceOfType<XmppServer>(servers[16]);
+        CollectionAssert.AreEqual(new[] { "xmpps" }, servers[17].Schemes.ToArray());
+        CollectionAssert.AreEqual(new[] { "amqp", "amqps", "az", "abfs", "abfss", "coap", "coaps", "dns", "dns", "gs", "kafka", "kafkas", "mqtt5", "mqtt5s", "mqtt5+ws", "nats", "natss", "s3", "socketio", "socketios", "stomp", "stomps", "webtransport", "xmpp", "xmpps" }, servers.SelectMany(server => server.Schemes).ToArray());
         CollectionAssert.AreEqual(
-            new[] { "amqp", "amqps", "az", "abfs", "abfss", "coap", "coaps", "dns", "dns", "gs", "kafka", "kafkas", "nats", "natss", "s3", "socketio", "socketios", "stomp", "stomps", "webtransport", "xmpp", "xmpps" }, ExtendedProtocolServers.Registrations.SelectMany(registration => registration.Schemes).ToArray());
+            new[] { "amqp", "amqps", "az", "abfs", "abfss", "coap", "coaps", "dns", "dns", "gs", "kafka", "kafkas", "mqtt5", "mqtt5s", "mqtt5+ws", "nats", "natss", "s3", "socketio", "socketios", "stomp", "stomps", "webtransport", "xmpp", "xmpps" }, ExtendedProtocolServers.Registrations.SelectMany(registration => registration.Schemes).ToArray());
     }
 
     [TestMethod]
@@ -206,6 +209,32 @@ public sealed class ExtendedProtocolServersTests
         var bus = ComposedServerFields.Single<MessageBus.MessageBus>(amqpBroker);
         Assert.AreSame(services.ComposedServices.MessageBus, bus);
         Assert.AreSame(bus, ComposedServerFields.Single<MessageBus.MessageBus>(mqttServer));
+    }
+
+    [TestMethod]
+    public void Compose_ThisBuild_BuildsTheMqtt5BrokerOverTheOneBusTheMqttServerIsBuiltOver()
+    {
+        var services = SurlServerComposition.ComposeUnservedExtendedServices(TimeProvider.System);
+
+        var mqtt5Broker = ExtendedProtocolServers.Compose(services).OfType<Mqtt5Broker>().Single();
+        var mqttServer = SurlServerComposition.ComposeProtocolServers(ProtocolServerRegistrations.Original, services.ComposedServices)
+            .OfType<MqttProtocolServer>().Single();
+
+        var bus = ComposedServerFields.Single<MessageBus.MessageBus>(mqttServer);
+        Assert.AreSame(services.ComposedServices.MessageBus, bus);
+        var state = ComposedServerFields.Single<Mqtt5BrokerState>(mqtt5Broker);
+        Assert.AreSame(bus, ComposedServerFields.Single<MessageBus.MessageBus>(state));
+    }
+
+    [TestMethod]
+    public void Compose_ThisBuild_BuildsTheMqtt5WebSocketServerOverTheBrokerThatAnswersMqtt5()
+    {
+        var services = SurlServerComposition.ComposeUnservedExtendedServices(TimeProvider.System);
+
+        var servers = ExtendedProtocolServers.Compose(services);
+
+        var broker = servers.OfType<Mqtt5Broker>().Single();
+        Assert.AreSame(broker, ComposedServerFields.Single<Mqtt5Broker>(servers.OfType<Mqtt5WebSocketServer>().Single()));
     }
 
     [TestMethod]

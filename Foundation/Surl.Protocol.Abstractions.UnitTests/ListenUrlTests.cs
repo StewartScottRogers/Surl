@@ -124,6 +124,7 @@ public sealed class ListenUrlTests
     [DataRow("s3", true)]
     [DataRow("az", true)]
     [DataRow("amqps", true)]
+    [DataRow("mqtt5s", true)]
     [DataRow("gs", true)]
     [DataRow("abfss", true)]
     [DataRow("abfs", false)]

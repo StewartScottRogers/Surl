@@ -4,6 +4,7 @@ using Surl.Extended.Protocol.Coap;
 using Surl.Extended.Protocol.DnsQuery;
 using Surl.Extended.Protocol.GoogleCloudStorage;
 using Surl.Extended.Protocol.Kafka;
+using Surl.Extended.Protocol.Mqtt5;
 using Surl.Extended.Protocol.Nats;
 using Surl.Extended.Protocol.S3;
 using Surl.Extended.Protocol.SocketIo;
@@ -98,6 +99,12 @@ public static class ExtendedProtocolServers
         new(["gs"], services => new GoogleCloudStorageProtocolServer(
             services.ContentStore, services.ObjectMetadataIndex, services.AuthenticationPolicyFor("gs"), services.TimeProvider)),
         new(["kafka", "kafkas"], ComposeKafkaBroker),
+        // The MQTT 5.0 broker (ADR-0093, BL-975) over the one message bus the MQTT server shares, so retained messages
+        // persist where the bus persists them; only session state is the broker's. mqtt5s is TLS from the first byte through
+        // TlsSchemes. mqtt5+ws is the same broker behind a WebSocket upgrade. mqtt stays the 3.1.1 server.
+        new(["mqtt5", "mqtt5s"], services => new Mqtt5Broker(
+            new Mqtt5BrokerState(services.MessageBus), services.AuthenticationPolicyFor("mqtt5"))),
+        new(["mqtt5+ws"], services => new Mqtt5WebSocketServer((Mqtt5Broker)services.ComposedServerFor("mqtt5"))),
         new(["nats", NatsServer.TlsScheme], services => new NatsServer(
             services.AuthenticationPolicyFor("nats"),
             services.MessageBus,

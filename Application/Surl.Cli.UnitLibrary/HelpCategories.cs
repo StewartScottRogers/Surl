@@ -26,6 +26,7 @@ internal static class HelpCategories
         new("mail", "Mail domains, mailboxes and aliases", []),
         new("messages", "Topics, queues and topic access", []),
         new("mqtt", "MQTT and MQTTS protocol", ["mqtt", "mqtts"]),
+        new("mqtt5", "MQTT 5.0 protocol: mqtt5, mqtt5s and mqtt5+ws (extended)", ["mqtt5", "mqtt5s", "mqtt5+ws"]),
         new("nats", "NATS and NATSS protocol (extended)", ["nats", "natss"]),
         new("pop3","POP3 and POP3S protocol", ["pop3", "pop3s"]),
         new("proxy", "HTTP and HTTPS proxy", []),
