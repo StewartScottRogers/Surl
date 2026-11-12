@@ -42,3 +42,4 @@ chains to the `--cacert` anchors, as the TCP listener does (ADR-0010 section 5).
 ## Log
 
 - 2026-11-05: Created.
+- 2026-11-11: Backlog -> Doing.
