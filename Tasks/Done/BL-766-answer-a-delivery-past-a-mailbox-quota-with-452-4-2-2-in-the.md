@@ -8,7 +8,7 @@ depends-on: [BL-675, BL-1035]
 touches: [Protocols/Mail/Surl.Protocol.Smtp.UnitLibrary, Protocols/Mail/Surl.Protocol.Smtp.UnitTests]
 requirement: none
 created: 2026-11-05
-completed:
+completed: 2026-11-11
 ---
 # BL-766 — Answer a delivery past a mailbox quota with 452 4.2.2 in the SMTP server
 
@@ -29,10 +29,10 @@ When `MailboxStore.Deliver` returns `MailStoreOutcome.QuotaExceeded` after `DATA
 
 ## Acceptance criteria
 
-- [ ] A named test in `Surl.Protocol.Smtp.UnitTests` delivers past a recipient's quota and pins the reply
+- [x] A named test in `Surl.Protocol.Smtp.UnitTests` delivers past a recipient's quota and pins the reply
       `452 4.2.2 Mailbox full`, that no recipient's `INBOX` holds the message, and the session's log line.
-- [ ] `RCPT TO` an over-quota mailbox is still answered as any known recipient (named test).
-- [ ] `dotnet build -warnaserror` is clean, `dotnet test --filter "TestCategory!=Integration"` is green, and the
+- [x] `RCPT TO` an over-quota mailbox is still answered as any known recipient (named test).
+- [x] `dotnet build -warnaserror` is clean, `dotnet test --filter "TestCategory!=Integration"` is green, and the
       library keeps 100% line and branch coverage.
 
 ## Notes
@@ -52,3 +52,4 @@ When `MailboxStore.Deliver` returns `MailStoreOutcome.QuotaExceeded` after `DATA
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waiting on BL-1035: pinned .NET SDK 10.0.401 is not installed, so nothing can build or test
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Done. SMTP answers 452 4.2.2 Mailbox full past a recipient quota after DATA, nothing delivered

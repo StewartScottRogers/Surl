@@ -49,7 +49,8 @@ glossary's, sections "Mail: SMTP, IMAP and POP3" and "Authentication".
   with a data directory the message goes straight into the store's pending file. A message past
   `--max-filesize` (trace fields and body together) or a peer that closes mid-body disposes it,
   deleting the pending file; otherwise `MailboxStore.Deliver(..., PendingMessage)` stores it
-  and `SaveChangesAsync` writes the index. `StoreFull` is answered `452 4.3.1`,
+  and `SaveChangesAsync` writes the index. `StoreFull` is answered `452 4.3.1`, `QuotaExceeded` (checked only after `DATA`, never at `RCPT`;
+  ADR-0102 decision 1.4) `452 4.2.2 Mailbox full` with nothing delivered to any recipient,
   `MessageTooLarge` `552 5.3.4`, and `StorageFailed` `451 4.3.0 Local error in processing` with
   `Mail store: <reason>` noted; each stores nothing and the session goes on. An index save
   that throws after a delivered message is noted and still answered `250`.
