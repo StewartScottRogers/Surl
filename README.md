@@ -76,6 +76,10 @@ The work is on the board and is being built now. None of it is finished.
    `Surl.Mcp` lets AI agents start, list and stop servers and see what a client sent.
 6. **Phase 7: measuring the Curl port.** The port and pinned upstream curl run the same
    command lines against the same `surl`, and wherever they disagree, upstream curl is right.
+   This is built for `win-x64`: the port at commit `b42c319b` agreed in 1,420 of 1,518 cases,
+   and the 96 port-defect cases come down to 18 findings, none of them a Surl defect. The findings and the handoff to
+   the port's board are in [Documentation/Conformance/CurlPort](Documentation/Conformance/CurlPort/README.md);
+   other platforms and 15 of the extended clients are not yet measured.
 
 ## What this is
 

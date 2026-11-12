@@ -8,7 +8,7 @@ depends-on: [BL-592]
 touches: [Documentation/Product/Product-Overview.md, Documentation/Planning/Roadmap.md, Documentation/Product/Requirements.md, Documentation/Wiki/Glossary.md, README.md]
 requirement: none
 created: 2026-11-04
-completed:
+completed: 2026-11-12
 ---
 # BL-593 — Document Phase 7 in the product overview, roadmap, requirements, glossary and README
 
@@ -35,14 +35,14 @@ is now: the measured port commit, where the findings and the handoff are, and wh
 
 ## Acceptance criteria
 
-- [ ] `Roadmap.md` has a "Milestone 7 — Phase 7" section with Status, Delivers, Exit criteria and Decisions,
+- [x] `Roadmap.md` has a "Milestone 7 — Phase 7" section with Status, Delivers, Exit criteria and Decisions,
       and "Later" no longer describes Phase 7 as future work.
-- [ ] `Product-Overview.md` has a "Built for Phase 7" section naming the measured port commit and linking
+- [x] `Product-Overview.md` has a "Built for Phase 7" section naming the measured port commit and linking
       `Documentation/Conformance/CurlPort/README.md`.
-- [ ] The Phase 7 requirement row names the tasks and tests that satisfy it and what is not yet measured
+- [x] The Phase 7 requirement row names the tasks and tests that satisfy it and what is not yet measured
       (for example, platforms with no port pin).
-- [ ] `Glossary.md` defines every Phase 7 type or term used in those documents.
-- [ ] `README.md` links the Phase 7 findings.
+- [x] `Glossary.md` defines every Phase 7 type or term used in those documents.
+- [x] `README.md` links the Phase 7 findings.
 
 ## Notes
 
@@ -50,3 +50,4 @@ is now: the measured port commit, where the findings and the handoff are, and wh
 
 - 2026-11-04: Created.
 - 2026-11-12: Backlog -> Doing.
+- 2026-11-12: Doing -> Done. Phase 7 documented in the overview, roadmap, requirements, glossary and README

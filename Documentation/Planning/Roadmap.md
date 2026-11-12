@@ -182,8 +182,33 @@ task board in `Tasks/`, never here.
   (`Upgrade: h2c`), ADR-0096 (QUIC streams and flow control), ADR-0140 (QUIC loss detection and
   congestion control) and ADR-0147 (the remaining TLS 1.3 groups curl offers over QUIC).
 
+## Milestone 7 — Phase 7
+
+- **Status:** Built for `win-x64` and measured once; not closed (2026-11-12). The Curl port was
+  measured at commit `b42c319ba940f66452b2b6f3e9910d46825b08fe`, the one commit every family
+  file measured: 1,518 cases, 1,420 agreements, 96 port defects behind 18 findings, 2 cases not
+  comparable, and no Surl defect. Still open: off Windows every Phase 7 test is Inconclusive,
+  because `CurlPortBuilds.json` pins the port for `win-x64` alone; the 47 `OpenLdap_` cases wait
+  for a `linux-x64` port pin; 15 of the extended clients' `Integration` tasks have not run, so
+  `Extended.md` records 4 of the 19 extended clients; and Stewart has not yet filed the 18
+  findings on the port's board.
+- **Delivers:** the harness in `Surl.Conformance` (`CurlPortClientPins`, `CurlPortClientLocator`,
+  `CurlPortClientRunner`, `CurlPortResultNormaliser`, `CurlPortComparison`, `CurlPortVerdict`,
+  `CurlPortFinding`, `CurlPortLibcurlComparison` and `CurlPortTestCaseClient`); one
+  `CurlPortBesideUpstreamCurlOver<Family>Tests` class per family, running the port beside the
+  pinned upstream build against a fresh `surl` each; the findings files and their summary in
+  `Documentation/Conformance/CurlPort/`; and `Port-Board-Handoff.md`, the 18 findings as tasks
+  in the port's own task shape. What was measured and found is in the product overview, "Built
+  for Phase 7: the Curl port measured beside pinned upstream curl".
+- **Exit criteria:** the Phase 7 row's "Proves", success criterion 5: the Curl port measured
+  beside pinned upstream curl with every disagreement written down as a finding a test reads
+  and handed to the port's board. Met for `win-x64` and the original protocols. Not met for
+  other platforms, the `OpenLdap_` cases or the remaining extended clients (above).
+- **Decisions:** ADR-0003 decision 6 (Phase 7 is a measurement of the port, never a check of
+  Surl) and ADR-0089 (how Phase 7 measures it: the normalisation, the verdicts, the findings,
+  the handoff and the single port commit).
+
 ## Later
 
-Phase 7, the last, turns Surl on the Curl port:
-the port runs the same conversations against Surl beside pinned upstream curl, and every
-disagreement is filed as the port's defect on the port's own board (ADR-0003).
+Phase 7 is the last phase in the product overview's phasing, so no later milestone is planned. What is still open is listed in the milestone it belongs to,
+and the work itself is on the task board.

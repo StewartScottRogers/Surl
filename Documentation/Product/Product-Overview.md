@@ -600,6 +600,47 @@ it. A release dry run on 2026-11-06 (CI run 42225649001, BL-603) was green on al
   `FRAME_SIZE_ERROR`, `FLOW_CONTROL_ERROR` and idle `GOAWAY` cases (BL-371's notes), and for
   HTTP/3 curl past each decision 7 limit and `Alt-Svc` with `--alt-svc` (BL-385's notes).
 
+### Built for Phase 7: the Curl port measured beside pinned upstream curl
+
+Phase 7 measures the Curl port; it does not validate Surl
+([ADR-0003](../Planning/Decisions/ADR-0003-upstream-curl-is-surls-only-oracle.md) decision 6,
+[ADR-0089](../Planning/Decisions/ADR-0089-how-phase-7-measures-the-curl-port-against-surl-beside-pinned-upstream-curl.md)).
+The port's `curl` and the pinned upstream build run the same conversation, each against its own fresh
+`surl`, and the two results are compared after the normalisation of ADR-0089 decision 4. Where upstream
+curl completed the exchange as the mirrored conformance test asserts and the port's run differs, the
+verdict is a **port defect**; it is written as a **Phase 7 finding**, and Surl does not change to make the
+port pass. The terms are defined in the [glossary](../Wiki/Glossary.md), section "Two programs named curl".
+
+- **Measured:** the Curl port at commit `b42c319ba940f66452b2b6f3e9910d46825b08fe` (`curl.exe` SHA-256
+  `F28D1417807AA862BA2A6D5B0BF0CF1200673BE45B959B1A78E1E4B476EF8FA7`, pinned in `CurlPortBuilds.json`),
+  on `win-x64` only, on 2026-11-05, 2026-11-06 and, for the extended clients, up to 2026-11-11.
+- **Result:** 1,518 cases, 1,420 agreements, 96 port defects behind 18 findings, 2 cases not
+  comparable, and no Surl defect. The per-family numbers, the Surl commit each family was measured at
+  and the findings themselves are in
+  [`Documentation/Conformance/CurlPort/README.md`](../Conformance/CurlPort/README.md) and the family
+  files beside it.
+- **Harness** (`Surl.Conformance`): `CurlPortClientPins` and `CurlPortClientLocator` find the pinned port
+  binary, `CurlPortClientRunner` runs it, `CurlPortResultNormaliser` and `CurlPortComparison` compare
+  the runs, `CurlPortVerdict` and `CurlPortFinding` record the outcome, `CurlPortLibcurlComparison`
+  does the same for the libcurl rows, and `CurlPortTestCaseClient` lets the port play the client of
+  upstream's own test cases. One `CurlPortBesideUpstreamCurlOver<Family>Tests` class per family reads its
+  family file's findings table, so a finding that appears unlisted or a listed one that disappears
+  fails the test.
+- **Handoff:** [`Port-Board-Handoff.md`](../Conformance/CurlPort/Port-Board-Handoff.md) holds the 18
+  findings as tasks in the port's own task shape. Stewart files them on the port's board himself; no
+  Surl session writes into the port's repository (ADR-0089 decision 7).
+
+**What is not measured.**
+
+- Every platform but `win-x64`: `CurlPortBuilds.json` pins the port for `win-x64` alone, so off Windows
+  every Phase 7 test is Inconclusive (ADR-0089 decision 8).
+- The 47 `OpenLdap_` cases, Inconclusive until a `linux-x64` port pin exists, and the cases excluded
+  on Windows by their `[OSCondition]` (6 SSH cases, 3 FTP listing twins).
+- The extended clients beyond `socketio`, `webtransport`, `coap` and `xmpp`: the other 15 `Integration`
+  tasks have not run (`Extended.md`). They are judged by their specifications, not beside upstream
+  curl (ADR-0089 decision 9).
+- Phase 7 is a snapshot at one port commit; a later port commit needs a new measurement.
+
 ### Also in scope
 
 - **HTTP versions:** 1.0, 1.1, 2 and 3 over QUIC, on the server side.
