@@ -582,8 +582,13 @@ public sealed class CommandLineParserTests
         AssertOptionRefused(["--http3", "--tls-max", tlsMax, "https://127.0.0.1:0/"], "option --http3: needs --tls-max 1.3: QUIC is TLS 1.3 only");
 
     [TestMethod]
-    public void Parse_Http3WithCacert_IsRefused() =>
-        AssertOptionRefused(["--http3", "--cacert", "ca.pem", "https://127.0.0.1:0/"], "option --http3: cannot be used with --cacert");
+    public void Parse_Http3WithCacert_IsServedWithHttp3AndTheTrustAnchors()
+    {
+        var commandLine = Served("--http3", "--self-signed", "--cacert", "ca.pem", "https://127.0.0.1:0/");
+
+        Assert.IsTrue(commandLine.Http3);
+        Assert.AreEqual("ca.pem", commandLine.CaCertificateFile);
+    }
 
     [TestMethod]
     public void Parse_Http3WithNoListenUrl_IsRefusedForTheMissingUrl()

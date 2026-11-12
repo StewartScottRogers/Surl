@@ -452,7 +452,7 @@ BL-739 wrote it here, because BL-417 held this folder when BL-384 finished.
 
 1. **`--http3` with `--cacert` is refused**, exit 2 (`option --http3: cannot be used with --cacert`):
    `Surl.Quic` asks for no client certificate, so serving HTTP/3 would skip the check the TCP side
-   enforces (secure by default). BL-741 lifts it.
+   enforces (secure by default). BL-741 lifted it: see Amendment 5.
 2. **Refusal order**, after the no-URL refusal: no `https` listen URL (`needs an https listen URL`),
    then `--tls-max` below 1.3 (`needs --tls-max 1.3: QUIC is TLS 1.3 only`), then `--cacert`. Each is
    `FailedInit` (2) with the try-help line, as option refusals are. `--tls-max 1.0` or `1.1` with the
@@ -477,3 +477,31 @@ BL-739 wrote it here, because BL-417 held this folder when BL-384 finished.
 8. **No `IDatagramRefusalWriter` then**: BL-384 wrote no refusal for a QUIC flow past a connection
    limit; BL-740 has since added `IDatagramRefusalWriter`, which the engine uses when the datagram
    server implements it.
+
+## Amendment 5 (2026-11-11, BL-741): `--http3` with `--cacert` requires a client certificate over QUIC
+
+Decided by Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"). It replaces Amendment 4
+item 1; the rest of Amendment 4 stands, and its refusal order loses its last step.
+
+1. **Accepted, not refused.** `surl --http3 --cacert <file> https://...` serves HTTP/3, and every QUIC
+   handshake requires a client certificate chaining to the `--cacert` anchors, as the TCP listener
+   does (ADR-0010 section 5). `option --http3: cannot be used with --cacert` is gone.
+2. **Where the check lives.** `QuicServerConnectionOptions.TrustsClientCertificateChain` is passed
+   to `Surl.Tls13`'s `TlsServerHandshakeOptions.TrustsClientCertificateChain`, so the handshake sends
+   a CertificateRequest; an empty client Certificate ends with `certificate_required` and an untrusted
+   chain with `bad_certificate`, each closing the connection `CRYPTO_ERROR` (0x0174, 0x012a).
+   `Http3ProtocolServer` takes the check as an optional argument, and `Surl.Composition` builds it
+   (`QuicClientCertificateTrust`) only when `--cacert` gave anchors. It judges the end-entity
+   certificate exactly as `Surl.Networking`'s TCP verifier does: those anchors only, no revocation
+   check, no download, the injected `TimeProvider`'s time, and the client-authentication extended
+   key usage when the certificate carries one. Intermediates the client sends are not used, as on TCP.
+3. **The session carries it.** `Http3ApplicationProtocol` starts the authentication session with
+   the verified end-entity certificate on `TlsSession.ClientCertificate`, so the `external`
+   mechanism reads it over HTTP/3 as over TCP.
+4. **Measured against pinned upstream curl 8.21.0** (`static-curl-8.21.0-windows-x86_64`, through
+   `Record-CurlExchange.ps1 -NoServer` against a live `surl --http3 --cert --key --cacert`):
+   `curl --http3-only --cacert ca.pem --cert client.pem --key client.key` exits 0 with the file;
+   without `--cert` it exits 55 (`ngtcp2_conn_writev_stream returned error: ERR_DRAINING`), and with
+   a certificate lacking the client-authentication usage it exits 55 the same way. Over TCP the same
+   missing certificate is curl's 56, so the exit code a refused client sees differs by transport;
+   that is curl's reading of a QUIC `CONNECTION_CLOSE`, not something Surl chooses.

@@ -47,7 +47,9 @@ horizontal library may reference it (ADR-0099 decision 11, held by
   registration, so the serving engine binds TCP and UDP on one port; the HTTP server then adds
   `Alt-Svc`. `ListenerStartReporter` counts such a pair as its connection listener alone (one
   status line) and `ComposedServing` writes `* Serving HTTP/3 over QUIC on UDP port <port>` from
-  verbose up.
+  verbose up. With `--cacert` it gives the HTTP/3 server a `QuicClientCertificateTrust` over the
+  same anchors, so every QUIC handshake requires a client certificate as TCP does (BL-741,
+  ADR-0082 Amendment 5).
 - `ExtendedProtocolServers.Compose` builds the extended servers (`Surl.Extended.Protocol.*`: today
   the DNS server for `dns` (BL-1032), two entries - `DnsUdpProtocolServer` and `DnsTcpProtocolServer` -
   so the engine binds UDP and TCP on one port, both over `ComposedProtocolServices.DnsZones` and

@@ -73,9 +73,6 @@ public static class CommandLineParser
     /// <summary><c>--http3</c> given with <c>--tls-max</c> below 1.3 (ADR-0082 decision 6).</summary>
     public const string NeedsTls13 = "needs --tls-max 1.3: QUIC is TLS 1.3 only";
 
-    /// <summary><c>--http3</c> given with <c>--cacert</c> (ADR-0082 amendment 4).</summary>
-    public const string CannotBeUsedWithCacert = "cannot be used with --cacert";
-
     /// <summary><c>--self-signed</c> given with <c>--cert</c> (ADR-0032 section 1).</summary>
     public const string CannotBeUsedWithCert = "cannot be used with --cert";
 
@@ -699,9 +696,10 @@ public static class CommandLineParser
             : RefuseHttp3Combination(reading);
 
     /// <summary>
-    /// Refuses <c>--http3</c> with no <c>https</c> listen URL, with <c>--tls-max</c> below 1.3
-    /// (QUIC is TLS 1.3 only), or with <c>--cacert</c> (the QUIC handshake asks for no client
-    /// certificate), in that order (ADR-0082 decision 6 and its amendment 2); null otherwise.
+    /// Refuses <c>--http3</c> with no <c>https</c> listen URL, or with <c>--tls-max</c> below 1.3
+    /// (QUIC is TLS 1.3 only), in that order (ADR-0082 decision 6 and its amendment 4); null
+    /// otherwise. With <c>--cacert</c> the QUIC handshake requires a client certificate as the TCP
+    /// listener does (ADR-0082 amendment 5).
     /// </summary>
     private static CommandLineParseResult? RefuseHttp3Combination(CommandLineReading reading)
     {
@@ -716,12 +714,9 @@ public static class CommandLineParser
             return RefusedOption(Http3Option, NeedsAnHttpsListenUrl);
         }
 
-        if (commandLine.HighestTlsVersion != System.Security.Authentication.SslProtocols.Tls13)
-        {
-            return RefusedOption(Http3Option, NeedsTls13);
-        }
-
-        return commandLine.CaCertificateFile is not null ? RefusedOption(Http3Option, CannotBeUsedWithCacert) : null;
+        return commandLine.HighestTlsVersion != System.Security.Authentication.SslProtocols.Tls13
+            ? RefusedOption(Http3Option, NeedsTls13)
+            : null;
     }
 
     /// <summary>

@@ -1,4 +1,5 @@
 using System.Net;
+using System.Security.Cryptography.X509Certificates;
 using Surl.Cli;
 using Surl.Content;
 using Surl.Core;
@@ -369,7 +370,7 @@ public static partial class SurlServerComposition
         quicCertificateSource.Certificate = tls.QuicCertificate;
         quicCertificateSource.ClientTrustAnchors = tls.ClientTrustAnchors;
         IProtocolServer[] served = commandLine.Http3 && tls.QuicCertificate is { } quicCertificate
-            ? [.. servers, ComposeHttp3ProtocolServer(commandLine, stores.Content, authentication.SchemePolicies.For("https"), quicCertificate)]
+            ? [.. servers, ComposeHttp3ProtocolServer(commandLine, stores.Content, authentication.SchemePolicies.For("https"), quicCertificate, tls.ClientTrustAnchors, seams.TimeProvider)]
             : servers;
         return new SurlServerStart(
             null, new ComposedServing(commandLine, seams, served, authentication, instruments, stores, tls, dataDirectoryLock));
@@ -377,7 +378,19 @@ public static partial class SurlServerComposition
 
     // --http3: the HTTP/3 server on every https listen URL's UDP side, sharing the scheme with the
     // HTTP server's https registration, so the engine binds both on one port (ADR-0082, decision 6).
+    // With --cacert its handshakes require a client certificate chaining to those anchors (BL-741).
     private static Http3ProtocolServer ComposeHttp3ProtocolServer(
-        SurlCommandLine commandLine, ContentStore contentStore, IAuthenticationPolicy policy, QuicServerCertificate quicCertificate) =>
-        new(contentStore, policy, quicCertificate.Chain, quicCertificate.Key, ComposeConnectionLimits(commandLine).IdleTimeout);
+        SurlCommandLine commandLine,
+        ContentStore contentStore,
+        IAuthenticationPolicy policy,
+        QuicServerCertificate quicCertificate,
+        IReadOnlyList<X509Certificate2> clientTrustAnchors,
+        TimeProvider timeProvider) =>
+        new(
+            contentStore,
+            policy,
+            quicCertificate.Chain,
+            quicCertificate.Key,
+            ComposeConnectionLimits(commandLine).IdleTimeout,
+            clientTrustAnchors.Count == 0 ? null : new QuicClientCertificateTrust(clientTrustAnchors, timeProvider).Trusts);
 }
