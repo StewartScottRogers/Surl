@@ -78,7 +78,11 @@ internal sealed class Http3StreamAnswerWriter(IHttpRequestHandler answerer, Exch
                 break;
             case HttpAnswerBody.ContentFile { Range.ByteCount: > 0 } file:
                 await stream.WriteHeadersAsync(FieldLines(answer), endStream: false, cancellationToken);
-                await CopyFileAsync(stream, file, cancellationToken);
+                await CopyFileAsync(stream, HttpAnswerBody.ContentFileParts.Of(file), cancellationToken);
+                break;
+            case HttpAnswerBody.ContentFileParts parts:
+                await stream.WriteHeadersAsync(FieldLines(answer), endStream: false, cancellationToken);
+                await CopyFileAsync(stream, parts, cancellationToken);
                 break;
             default:
                 await stream.WriteHeadersAsync(FieldLines(answer), endStream: true, cancellationToken);
@@ -91,15 +95,15 @@ internal sealed class Http3StreamAnswerWriter(IHttpRequestHandler answerer, Exch
             .Select(field => new QpackFieldLine(field.Key.ToLowerInvariant(), field.Value))
             .Prepend(new QpackFieldLine(":status", answer.Status.Code.ToString(CultureInfo.InvariantCulture)));
 
-    private async Task CopyFileAsync(Http3RequestStream stream, HttpAnswerBody.ContentFile file, CancellationToken cancellationToken)
+    private async Task CopyFileAsync(Http3RequestStream stream, HttpAnswerBody.ContentFileParts file, CancellationToken cancellationToken)
     {
         // Writes to a QUIC stream throw no IOException, so one here is the file's.
         await using var data = stream.CreateResponseBodyStream();
         string? failure;
         try
         {
-            var copied = await file.Store.CopyFileBytesAsync(file.Mapping, file.Range, data, cancellationToken);
-            failure = copied < file.Range.ByteCount ? $"shrank to {copied} bytes while it was sent" : null;
+            var copied = await file.CopyToAsync(data, cancellationToken);
+            failure = copied < file.FileByteCount ? $"shrank to {copied} bytes while it was sent" : null;
         }
         catch (Exception readFailure) when (readFailure is IOException or UnauthorizedAccessException)
         {
