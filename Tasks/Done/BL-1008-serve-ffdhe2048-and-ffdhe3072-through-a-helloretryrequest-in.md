@@ -8,7 +8,7 @@ depends-on: [BL-1005, BL-1035]
 touches: [Cryptography/Surl.Tls13.UnitLibrary, Cryptography/Surl.Tls13.UnitTests]
 requirement: FR-055
 created: 2026-11-06
-completed:
+completed: 2026-11-11
 ---
 # BL-1008 — Serve ffdhe2048 and ffdhe3072 through a HelloRetryRequest in Surl.Tls13
 
@@ -48,19 +48,21 @@ recorded upstream curl ClientHello for `--curves ffdhe2048` or `--curves ffdhe30
 
 ## Acceptance criteria
 
-- [ ] `Receive_ClientHelloOfferingOnlyOneRemainingGroupWithNoShare_RetriesForItAndCompletesOnTheSecondClientHello`
+- [x] `Receive_ClientHelloOfferingOnlyOneRemainingGroupWithNoShare_RetriesForItAndCompletesOnTheSecondClientHello`
       passes for `0x0100` and `0x0101`.
-- [ ] `Receive_RecordedUpstreamCurlClientHelloForOneCurve_AnswersItsShareAndCompletesWithoutARetry` passes for the
+- [x] `Receive_RecordedUpstreamCurlClientHelloForOneCurve_AnswersItsShareAndCompletesWithoutARetry` passes for the
       four `ffdhe2048` and `ffdhe3072` fixtures (Windows and Linux).
-- [ ] `Receive_RemainingGroupShareOfTheWrongLength_FailsWithIllegalParameter` passes for `(0x0100, 255)` and
+- [x] `Receive_RemainingGroupShareOfTheWrongLength_FailsWithIllegalParameter` passes for `(0x0100, 255)` and
       `(0x0101, 385)`, and a share Y of 1 or p - 1 fails with `illegal_parameter`.
-- [ ] `TlsFiniteFieldGroupTests` passes, and every existing `Surl.Tls13.UnitTests` test passes.
-- [ ] `dotnet build Cryptography/Surl.Tls13.UnitTests -warnaserror` is clean, the fast tests are green, and
+- [x] `TlsFiniteFieldGroupTests` passes, and every existing `Surl.Tls13.UnitTests` test passes.
+- [x] `dotnet build Cryptography/Surl.Tls13.UnitTests -warnaserror` is clean, the fast tests are green, and
       `Surl.Tls13.UnitLibrary` keeps 100% line and branch coverage.
 
 ## Notes
 
 - 2026-11-11 (lane 6): `git cherry-pick --no-commit fd3f336f` (lane 4's work) applies cleanly onto lane 6's base, but `dotnet build` cannot run: global.json pins SDK 10.0.401 and only 10.0.100-rc.1, 11.0.100-rc.2 and 11.0.100 are installed. Parked behind BL-1035 (reinstall the SDK). Resume with `git cherry-pick --no-commit fd3f336f` (branch factory/BL-1008-lane-4-20261111-060243) and build.
+
+- 2026-11-11 (lane 1): SDK 10.0.404 is now installed, so global.json's 10.0.401 rolls forward (latestFeature). `git cherry-pick --no-commit fd3f336f` applied cleanly; `dotnet build -warnaserror` clean, 167 Surl.Tls13 tests and all 79 fast test assemblies green, Surl.Tls13.UnitLibrary 100% line and branch coverage.
 
 ## Log
 
@@ -71,3 +73,4 @@ recorded upstream curl ClientHello for `--curves ffdhe2048` or `--curves ffdhe30
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waits on BL-1035: pinned .NET SDK 10.0.401 is not installed, so dotnet build cannot run
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Done. Surl.Tls13 serves ffdhe2048 and ffdhe3072 through a HelloRetryRequest and completes pinned upstream curl's --curves ffdhe ClientHellos
