@@ -96,3 +96,4 @@ BL-1035. When BL-1035 is Done: run `dotnet build` and the fast tests, tick crite
 - 2026-11-11: Doing -> Backlog. Lane 3 could not integrate: build failed after rebasing onto the other lanes' work. The work is on branch factory/BL-724-lane-3-20261111-060243; start with git cherry-pick --no-commit factory/BL-724-lane-3-20261111-060243 and fix it.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waits on BL-1035: dotnet build cannot resolve global.json's SDK 10.0.401; the CI evidence is recorded in Notes
+- 2026-11-12: Backlog -> Doing.
