@@ -69,3 +69,4 @@ completed:
 - 2026-11-06: Created.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waits on BL-1035: pinned .NET SDK 10.0.401 is not installed, so dotnet build cannot run; partial work left uncommitted
+- 2026-11-12: Backlog -> Doing.
