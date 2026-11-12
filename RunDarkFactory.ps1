@@ -206,7 +206,9 @@ param(
     [int]$TaskMinutes = 120,
     # Model for each run. "sonnet" by default to save tokens (Stewart, 2026-11-11); the
     # stronger -EscalationModel is used only for a run that got into trouble.
-    [string]$Model = $(if ($env:CLAUDE_MODEL) { $env:CLAUDE_MODEL } else { 'sonnet' }),
+    # Not CLAUDE_MODEL: RunClaude.cmd sets that to opus for interactive sessions, and a shift
+    # started from one would silently run every lane on Opus. The variable is CLAUDE_FACTORY_MODEL.
+    [string]$Model = $(if ($env:CLAUDE_FACTORY_MODEL) { $env:CLAUDE_FACTORY_MODEL } else { 'sonnet' }),
     # Model for a second try when a run on -Model got into trouble: a task run that ended
     # still in Doing, a split after a timeout, and a rebase resolver's second and third try.
     # '' (or the same model as -Model) turns escalation off.
