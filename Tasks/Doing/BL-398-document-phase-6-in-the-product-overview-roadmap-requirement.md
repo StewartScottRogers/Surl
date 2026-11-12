@@ -80,3 +80,4 @@ on each runtime identifier. Every statement in them is true of the code.
 - 2026-11-05: depends-on BL-395 replaced by BL-879, the last task of its split (BL-395 deferred: timed out after 120 min; Stewart asked for the split 2026-11-05).
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. behind BL-1035 - pinned .NET SDK 10.0.401 is not installed, so the build gate cannot run; docs edits written, left uncommitted
+- 2026-11-12: Backlog -> Doing.
