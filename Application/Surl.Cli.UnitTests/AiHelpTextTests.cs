@@ -662,6 +662,8 @@ public sealed partial class AiHelpTextTests
             "surl: (2) Mailbox file <file>, line <n>: <reason>",
             // Written by Surl.Composition's LoadDnsZonesAsync, whose tests pin it (BL-1032).
             "surl: (37) Could not read <file>: <reason>",
+            // Written by Surl.Composition's ReadableByOthersWarning, whose tests pin it (BL-684).
+            "surl: warning: <file> is readable by other users and may hold passwords",
         ];
 
         foreach (var (template, written) in writtenByTheParser)
