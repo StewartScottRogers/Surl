@@ -22,7 +22,7 @@ to anonymous, or limited to other schemes, is a missing file (ERROR 1); a write 
 anonymous may only read, or a `readonly` share, is the store's `NotPermitted` (ERROR 2).
 Command-stage faults (ADR-0124 decision 4, ADR-0141, BL-794, BL-907): `TftpCommandStageFault` asks the exchange's fault
 plan about each well-formed request at a `Command`-stage point (`RRQ` or `WRQ`, the decoded file
-name as path, no account, the listen URL in the engine's form from `FaultListenUrl`); a matching
+name as path, no account, the listen URL in the engine's form from `ReportedListenUrl.Format`); a matching
 `error` rule's `<code> <text>` reply is sent as that ERROR from the transfer port before the store
 is touched, and one `FaultAppliedEvent` is published. A `delay` rule holds the request for its `ms` on
 `ExchangeContext.TimeProvider` with `ExchangeContext.IdleClock` paused, then serves it as usual; a

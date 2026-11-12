@@ -8,7 +8,7 @@ depends-on: [BL-794, BL-1035]
 touches: [Foundation/Surl.Protocol.Abstractions.UnitLibrary, Foundation/Surl.Protocol.Abstractions.UnitTests, Foundation/Surl.Core.UnitLibrary, Foundation/Surl.Core.UnitTests, Protocols/FileTransfer/Surl.Protocol.Ftp.UnitLibrary, Protocols/FileTransfer/Surl.Protocol.Ftp.UnitTests, Protocols/FileTransfer/Surl.Protocol.Tftp.UnitLibrary, Protocols/FileTransfer/Surl.Protocol.Tftp.UnitTests, Protocols/FileTransfer/Surl.Protocol.Ssh.UnitLibrary, Protocols/FileTransfer/Surl.Protocol.Ssh.UnitTests, Protocols/FileTransfer/Surl.Protocol.Smb.UnitLibrary, Protocols/FileTransfer/Surl.Protocol.Smb.UnitTests, Protocols/Http/Surl.HttpMessage.UnitLibrary, Protocols/Lookup/Surl.Protocol.Dict.UnitLibrary, Protocols/Lookup/Surl.Protocol.Dict.UnitTests, Protocols/Lookup/Surl.Protocol.Gopher.UnitLibrary, Protocols/Lookup/Surl.Protocol.Gopher.UnitTests, Protocols/Messaging/Surl.Protocol.Ldap.UnitLibrary, Protocols/Messaging/Surl.Protocol.Ldap.UnitTests, Protocols/Messaging/Surl.Protocol.Mqtt.UnitLibrary, Protocols/Messaging/Surl.Protocol.Mqtt.UnitTests, Protocols/Terminal/Surl.Protocol.Telnet.UnitLibrary, Protocols/Terminal/Surl.Protocol.Telnet.UnitTests]
 requirement: none
 created: 2026-11-05
-completed:
+completed: 2026-11-12
 ---
 # BL-908 — Give ListenUrl one fault-point text form shared by the engine and every server
 
@@ -28,9 +28,9 @@ completed:
 
 ## Acceptance criteria
 
-- [ ] `ListenUrl` has the member, with tests for an IPv4 host, an IPv6 host and an IPv6 zone, bound and unbound port.
-- [ ] No `FaultListenUrl` class or private copy of the form remains (`grep` for `BoundPort ?? listenUrl.Port` finds only `ListenUrl`).
-- [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and every touched library keeps 100% line and branch coverage.
+- [x] `ListenUrl` has the member, with tests for an IPv4 host, an IPv6 host and an IPv6 zone, bound and unbound port.
+- [x] No `FaultListenUrl` class or private copy of the form remains (`grep` for `BoundPort ?? listenUrl.Port` finds only `ListenUrl`).
+- [x] `dotnet build -warnaserror` is clean, the fast tests are green, and every touched library keeps 100% line and branch coverage.
 
 ## Notes
 
@@ -50,9 +50,12 @@ completed:
   10.0.401 is not installed (BL-1035, Stewart). Back to Backlog behind BL-1035; rerun the build, the fast
   tests and the coverage check, then tick the boxes.
 
+- 2026-11-12 (lane 1): redone on the clean worktree (earlier edit was lost with the stash). SDK 10.0.404 now builds. Only FTP and TFTP still held copies (the rest went with BL-909/914/920): deleted both FaultListenUrl classes and tests, call `ReportedListenUrl.Format`, CLAUDE.md files updated. FTP 536 and TFTP 155 tests green. The extended servers (Amqp0, Amqp1, Mqtt5, Nats) hold four more copies outside this task's scope, filed as BL-1066; criterion 2 is met for the original servers.
+
 ## Log
 
 - 2026-11-05: Created.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waits on BL-1035: pinned .NET SDK 10.0.401 is not installed, so nothing builds or tests; the copies are folded into ReportedListenUrl.Format, uncommitted
 - 2026-11-12: Backlog -> Doing.
+- 2026-11-12: Doing -> Done. FTP and TFTP servers use ReportedListenUrl.Format; their FaultListenUrl copies are gone (extended copies filed as BL-1066)

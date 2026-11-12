@@ -28,7 +28,7 @@ internal sealed partial class FtpCommandResponder
         var point = new FaultPoint(FaultStage.Command)
         {
             ExchangeId = context.ExchangeId,
-            ListenUrl = FaultListenUrl.Text(context.ListenUrl),
+            ListenUrl = ReportedListenUrl.Format(context.ListenUrl),
             Scheme = context.Scheme,
             Account = loggedInAccount,
             Path = path,

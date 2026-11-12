@@ -38,7 +38,7 @@ handshake before `ServeAsync`, so `FtpProtocolServer` claims `ftps` itself.
   `FaultPoint` before it runs - its verb, the path it names resolved against the current directory
   (`LIST`/`NLST` without ls options; none for a command naming no path), the account a checked
   login named (none after an unchecked anonymous login), the scheme and the listen URL in the
-  engine's form (`FaultListenUrl`). A matching `error` rule's reply is sent in place of running it,
+  engine's form (`ReportedListenUrl.Format`). A matching `error` rule's reply is sent in place of running it,
   so a transfer command opens no data connection and the store is untouched; the log notes it and
   one `FaultAppliedEvent` is published. A `delay` rule holds the command for its `ms` on
 `ExchangeContext.TimeProvider` with the idle clock paused, and a `drop` rule aborts the control
