@@ -48,3 +48,4 @@ configuration model the command line fills, with the same defaults, refusals and
 - 2026-11-06: depends-on BL-663 replaced by BL-989 (BL-663 split for the 60-minute size limit; Stewart asked for a backlog audit 2026-11-06).
 - 2026-11-06: depends-on BL-666 replaced by BL-992 (BL-666 split for the 60-minute size limit; Stewart asked for a backlog audit 2026-11-06).
 - 2026-11-06: depends-on BL-654 replaced by BL-995 (BL-654 split for the 60-minute size limit; Stewart asked for a backlog audit 2026-11-06).
+- 2026-11-11: Backlog -> Doing.
