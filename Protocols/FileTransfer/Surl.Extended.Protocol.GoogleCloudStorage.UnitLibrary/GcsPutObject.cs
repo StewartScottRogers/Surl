@@ -194,7 +194,7 @@ internal sealed class GcsPutObject(ContentStore store, ObjectMetadataIndex index
     {
         if (target.RawName.EndsWith('/'))
         {
-            return await StoreFolderAsync(reply, request, checks.BodyCheck, cancellationToken);
+            return await StoreFolderAsync(reply, request, target, checks.BodyCheck, cancellationToken);
         }
 
         var opening = await store.OpenUploadAsync(mapping, new ContentUploadOpening(StartsFromExistingBytes: false, CreatesMissingFile: true, RefusesExistingFile: false), cancellationToken);
@@ -211,7 +211,7 @@ internal sealed class GcsPutObject(ContentStore store, ObjectMetadataIndex index
 
     // A zero-byte PUT of a name ending in / creates the folder, once a signature binding the
     // empty body is finished; a body is 400 InvalidObjectName.
-    private async Task<HttpAnswer> StoreFolderAsync(GcsReply reply, HttpRequest request, IHttpRequestBodyCheck? bodyCheck, CancellationToken cancellationToken)
+    private async Task<HttpAnswer> StoreFolderAsync(GcsReply reply, HttpRequest request, GcsRequestTarget target, IHttpRequestBodyCheck? bodyCheck, CancellationToken cancellationToken)
     {
         if (request.Body.IsAnnounced)
         {
@@ -224,8 +224,23 @@ internal sealed class GcsPutObject(ContentStore store, ObjectMetadataIndex index
         }
 
         using var empty = new GcsObjectHashes();
+        var digests = empty.Finish();
+        var generation = GcsGeneration.Of(reply.Now);
 
-        return Stored(reply, empty.Finish(), GcsGeneration.Of(reply.Now));
+        // The folder, already created, is recorded as an object so List Objects lists it as x/
+        // (ADR-0110, decision 6). A folder in a share has no index key, so it stands as a folder only.
+        if (GcsIndexKey.OfFolderObject(store, Uri.UnescapeDataString(target.RawBucket), Uri.UnescapeDataString(target.RawName)) is not { } indexKey)
+        {
+            return Stored(reply, digests, generation);
+        }
+
+        var stored = await index.StoreFolderObjectAsync(indexKey, MetadataOf(request.Fields) with { ETag = digests.ETag, Crc32c = digests.Crc32cValue, Generation = generation }, cancellationToken);
+        if (stored.StorageFailure is { } failure)
+        {
+            log.Note($"The object metadata index could not be written: {failure}");
+        }
+
+        return MetadataRefusal(stored.Outcome) is { } refusal ? reply.Error(refusal) : Stored(reply, digests, generation);
     }
 
     // The body goes into the upload session, which is committed only once the body is the one

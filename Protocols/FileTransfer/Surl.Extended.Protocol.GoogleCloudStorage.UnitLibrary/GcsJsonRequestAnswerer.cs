@@ -154,7 +154,7 @@ internal sealed class GcsJsonRequestAnswerer(ContentStore store, GcsObjectProper
             return reply.JsonError(GcsJsonError.InvalidParameter);
         }
 
-        var files = new GcsBucketWalk(store, caller).Files(route.RawBucket, request.List.Prefix, cancellationToken).Where(file => request.Includes(file.Key));
+        var files = new GcsBucketWalk(store, caller, new Dictionary<string, ObjectProperties>()).Files(route.RawBucket, request.List.Prefix, cancellationToken).Where(file => request.Includes(file.Key));
         var page = GcsListPage.Take(files, request.List);
         var bucket = Uri.UnescapeDataString(route.RawBucket);
         var objects = new List<(string Name, ObjectProperties Properties, GcsObjectDigests Digests)>();

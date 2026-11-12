@@ -1,3 +1,5 @@
+using Surl.Content;
+
 namespace Surl.Extended.Protocol.GoogleCloudStorage;
 
 /// <summary>
@@ -193,4 +195,75 @@ public sealed class GcsListObjectsTests
 
         StringAssert.Contains(BodyOf(response), $"<Prefix>2026/</Prefix><MaxKeys>1000</MaxKeys><IsTruncated>false</IsTruncated>{Contents("2026/c.txt")}</ListBucketResult>");
     }
+
+    private const string EmptyETag = "\"d41d8cd98f00b204e9800998ecf8427e\"";
+
+    [TestMethod]
+    public async Task ServeAsync_FolderPutAsAnObject_IsListedAsItsNameWithSizeZero()
+    {
+        var harness = new GcsServerHarness(exposure: GcsServerHarness.Writable);
+        harness.CreateFolder("photos");
+
+        var put = await harness.SendWithBearerAndBodyAsync("PUT", "/photos/x/", string.Empty);
+        var response = await harness.SendWithBearerAsync("GET", "/photos");
+
+        StringAssert.StartsWith(put, "HTTP/1.1 200 OK\r\n");
+        StringAssert.Contains(BodyOf(response), "<Key>x/</Key>");
+        Assert.AreEqual(
+            $"{Head}<Name>photos</Name><Prefix></Prefix><MaxKeys>1000</MaxKeys><IsTruncated>false</IsTruncated>{Contents("x/", "0", EmptyETag)}</ListBucketResult>",
+            BodyOf(response));
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_FolderMadeByAnotherProtocol_IsNotListed()
+    {
+        var harness = new GcsServerHarness(exposure: GcsServerHarness.Writable);
+        harness.CreateFolder("photos");
+        Assert.AreEqual(ContentChangeResult.Done, harness.Store.CreateDirectory(harness.Store.MapRequestPathForScheme("/photos/made-over-ftp", "ftp")));
+        harness.CreateFolder("photos/filled-over-ftp");
+        harness.WriteFile("photos/filled-over-ftp/a.txt", "1");
+
+        var response = await harness.SendWithBearerAsync("GET", "/photos");
+
+        Assert.AreEqual(
+            $"{Head}<Name>photos</Name><Prefix></Prefix><MaxKeys>1000</MaxKeys><IsTruncated>false</IsTruncated>{Contents("filled-over-ftp/a.txt")}</ListBucketResult>",
+            BodyOf(response));
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_FolderObjectAndItsNames_SortFolderFirstAndHonourPrefix()
+    {
+        var harness = new GcsServerHarness(exposure: GcsServerHarness.Writable);
+        harness.CreateFolder("photos");
+        await harness.SendWithBearerAndBodyAsync("PUT", "/photos/x/", string.Empty);
+        harness.WriteFile("photos/x/a.txt", "1");
+        harness.WriteFile("photos/x.txt", "1");
+
+        var everything = await harness.SendWithBearerAsync("GET", "/photos");
+        var underThePrefix = await harness.SendWithBearerAsync("GET", "/photos?prefix=x/");
+        var pastTheFolder = await harness.SendWithBearerAsync("GET", "/photos?prefix=x/a");
+        var rolledUp = await harness.SendWithBearerAsync("GET", "/photos?delimiter=/");
+
+        CollectionAssert.AreEqual(new[] { "x.txt", "x/", "x/a.txt" }, KeysOf(everything));
+        CollectionAssert.AreEqual(new[] { "x/", "x/a.txt" }, KeysOf(underThePrefix));
+        CollectionAssert.AreEqual(new[] { "x/a.txt" }, KeysOf(pastTheFolder));
+        CollectionAssert.AreEqual(new[] { "x.txt" }, KeysOf(rolledUp));
+        StringAssert.EndsWith(BodyOf(rolledUp), "<CommonPrefixes><Prefix>x/</Prefix></CommonPrefixes></ListBucketResult>");
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_FolderObjectWhoseFolderWasRemoved_IsNotListed()
+    {
+        var harness = new GcsServerHarness(exposure: GcsServerHarness.Writable);
+        harness.CreateFolder("photos");
+        await harness.SendWithBearerAndBodyAsync("PUT", "/photos/x/", string.Empty);
+        harness.Store.RemoveEmptyDirectory(harness.Store.MapRequestPathForScheme("/photos/x", "ftp"));
+
+        var response = await harness.SendWithBearerAsync("GET", "/photos");
+
+        Assert.IsEmpty(KeysOf(response));
+    }
+
+    private static string[] KeysOf(string response) =>
+        [.. System.Text.RegularExpressions.Regex.Matches(BodyOf(response), "<Key>([^<]*)</Key>").Select(match => match.Groups[1].Value)];
 }

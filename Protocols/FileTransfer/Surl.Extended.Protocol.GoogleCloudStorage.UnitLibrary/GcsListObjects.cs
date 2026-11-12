@@ -38,12 +38,13 @@ internal sealed class GcsListObjects(ContentStore store, GcsObjectPropertiesRead
             return reply.Error(GcsError.InvalidArgument);
         }
 
-        var page = GcsListPage.Take(new GcsBucketWalk(store, caller).Files(target.RawBucket, request.Prefix, cancellationToken), request);
+        var folderObjects = await properties.ReadFolderObjectsAsync(cancellationToken);
+        var page = GcsListPage.Take(new GcsBucketWalk(store, caller, folderObjects).Files(target.RawBucket, request.Prefix, cancellationToken), request);
         var bucket = Uri.UnescapeDataString(target.RawBucket);
         var objects = new List<(string Name, ObjectProperties Properties)>();
         foreach (var file in page.Contents)
         {
-            if (await properties.ReadAsync(file.Mapping, GcsIndexKey.Of(store, bucket, file.Key), cancellationToken) is { } found)
+            if ((file.FolderObject ?? await properties.ReadAsync(file.Mapping, GcsIndexKey.Of(store, bucket, file.Key), cancellationToken)) is { } found)
             {
                 objects.Add((file.Key, found));
             }

@@ -49,6 +49,15 @@ internal sealed class GcsObjectPropertiesReader(ContentStore store, ObjectMetada
     }
 
     /// <summary>
+    /// Every folder a client put as an object whose folder still exists, by its index key
+    /// (<see cref="GcsIndexKey.OfFolderObject"/>).
+    /// </summary>
+    /// <param name="cancellationToken">Cancels the wait for the index.</param>
+    /// <returns>Each folder object's properties.</returns>
+    public Task<IReadOnlyDictionary<string, ObjectProperties>> ReadFolderObjectsAsync(CancellationToken cancellationToken) =>
+        index.ReadFolderObjectsAsync(cancellationToken);
+
+    /// <summary>
     /// The object's digests for <c>x-goog-hash</c>: the CRC-32C and MD5 its properties cache
     /// (<see cref="GcsObjectDigests.Cached"/>), else read from its bytes.
     /// </summary>

@@ -263,6 +263,44 @@ public sealed class GcsPutObjectTests
     }
 
     [TestMethod]
+    public async Task ServeAsync_ZeroBytePutOfAFolderInAShare_StandsAsAFolderAndIsNotListed()
+    {
+        var shareFileSystem = new InMemoryContentFileSystem(new FixedTimeProvider(GcsServerHarness.Now));
+        var harness = new GcsServerHarness(exposure: GcsServerHarness.Writable, shares: [new ContentShare("shared", GcsServerHarness.Root, shareFileSystem)]);
+
+        var put = await harness.SendWithBearerAndBodyAsync("PUT", "/shared/x/", string.Empty);
+        var response = await harness.SendWithBearerAsync("GET", "/shared");
+
+        StringAssert.StartsWith(put, "HTTP/1.1 200 OK\r\n");
+        Assert.AreEqual(ContentEntryKind.Directory, shareFileSystem.GetEntryKind(Path.Join(GcsServerHarness.Root, "x")));
+        Assert.DoesNotContain("<Key>", response);
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_ZeroBytePutOfAFolderWithTheIndexFull_Is403InsufficientQuota()
+    {
+        var harness = new GcsServerHarness(exposure: GcsServerHarness.Writable, maxIndexEntries: 0);
+        harness.CreateFolder("photos");
+
+        var response = await harness.SendWithBearerAndBodyAsync("PUT", "/photos/2026/", string.Empty);
+
+        StringAssert.StartsWith(response, "HTTP/1.1 403 Forbidden\r\n");
+        StringAssert.Contains(response, "<Code>InsufficientQuota</Code>");
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_ZeroBytePutOfAFolderWithAnIndexThatCannotBeWritten_StoresItAndNotesTheFailure()
+    {
+        var harness = new GcsServerHarness(maxTotalBytes: 0, persistsIndex: true, exposure: GcsServerHarness.Writable);
+        harness.CreateFolder("photos");
+
+        var response = await harness.SendWithBearerAndBodyAsync("PUT", "/photos/2026/", string.Empty);
+
+        StringAssert.StartsWith(response, "HTTP/1.1 200 OK\r\n");
+        Assert.IsTrue(harness.Log.Notes.Any(note => note.StartsWith("The object metadata index could not be written: ", StringComparison.Ordinal)));
+    }
+
+    [TestMethod]
     public async Task ServeAsync_NonEmptyPutOfANameEndingInSlash_Is400InvalidObjectName()
     {
         var harness = new GcsServerHarness(exposure: GcsServerHarness.Writable);
