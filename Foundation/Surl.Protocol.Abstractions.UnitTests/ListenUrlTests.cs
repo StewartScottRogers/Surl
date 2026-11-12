@@ -180,4 +180,15 @@ public sealed class ListenUrlTests
 
         Assert.IsTrue(listenUrl.IsImplicitTls);
     }
+
+    [TestMethod]
+    public void IsDnsOverHttps_NewListenUrl_IsFalseAndTakesPartInEquality()
+    {
+        var plain = new ListenUrl("dns", "127.0.0.1", 443);
+        var overHttps = plain with { IsDnsOverHttps = true };
+
+        Assert.IsFalse(plain.IsDnsOverHttps);
+        Assert.IsTrue(overHttps.IsDnsOverHttps);
+        Assert.AreNotEqual(plain, overHttps);
+    }
 }

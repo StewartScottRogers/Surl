@@ -33,4 +33,14 @@ public sealed class TlsApplicationProtocolsTests
         Assert.AreEqual(
             expected,
             string.Join(",", TlsApplicationProtocols.ForListener(new ListenUrl(scheme, "127.0.0.1", 0) { IsProxy = isProxy })));
+
+
+    [TestMethod]
+    [DataRow(true, true, "h2,http/1.1")]
+    [DataRow(true, false, "dot")]
+    [DataRow(false, true, "")]
+    public void ForListener_DnsListenerOffersH2ThenHttp11ForDnsOverHttpsAndDotForDnsOverTls(bool isImplicitTls, bool isDnsOverHttps, string expected) =>
+        Assert.AreEqual(
+            expected,
+            string.Join(",", TlsApplicationProtocols.ForListener(new ListenUrl("dns", "127.0.0.1", 443) { IsImplicitTls = isImplicitTls, IsDnsOverHttps = isDnsOverHttps })));
 }

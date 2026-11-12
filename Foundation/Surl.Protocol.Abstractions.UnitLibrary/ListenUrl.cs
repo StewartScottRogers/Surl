@@ -45,6 +45,14 @@ public sealed record ListenUrl(string Scheme, string Host, int Port)
     /// </summary>
     public ListenTransport? OnlyTransport { get; init; }
 
+    /// <summary>
+    /// Whether this <c>dns</c> listen URL serves DNS over HTTPS (RFC 8484) rather than DNS over TLS,
+    /// both of which are TLS from the first byte: the composition sets it for
+    /// <c>--dns-transport https</c> (ADR-0092, decision 5 and Amendment 1), so the listener offers
+    /// ALPN <c>h2</c> then <c>http/1.1</c> and the server answers HTTP. <see langword="false"/> unless set.
+    /// </summary>
+    public bool IsDnsOverHttps { get; init; }
+
     private readonly bool? isImplicitTls;
 
     /// <summary>

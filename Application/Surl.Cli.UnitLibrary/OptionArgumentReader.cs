@@ -203,8 +203,8 @@ internal static class OptionArgumentReader
             "word list",
             "comma-separated, in any case, no empty item: " + string.Join(", ", AuthenticationMethodWords)));
 
-    /// <summary>The <c>--dns-transport</c> words this build serves (ADR-0092 decision 5); BL-1018 adds <c>https</c>.</summary>
-    public static readonly IReadOnlyList<string> DnsTransportWords = ["udp", "tcp", "tls", "quic"];
+    /// <summary>The <c>--dns-transport</c> words this build serves (ADR-0092 decision 5).</summary>
+    public static readonly IReadOnlyList<string> DnsTransportWords = ["udp", "tcp", "tls", "quic", "https"];
 
     /// <summary><see cref="ReadDnsTransports"/> and its argument type (ADR-0046 decision 5).</summary>
     public static readonly OptionArgumentReading<IReadOnlyList<string>> DnsTransports =

@@ -653,6 +653,8 @@ public sealed partial class AiHelpTextTests
             "surl: --dns-transport tcp and tls cannot share port <n>",
             "surl: --dns-transport udp and quic cannot share port <n>",
             "surl: --dns-transport quic cannot use port 53",
+            "surl: --dns-transport tcp and https cannot share port <n>",
+            "surl: --dns-transport tls and https cannot share port <n>",
             "surl: warning: --self-signed: serving a throwaway certificate; clients must skip verification (curl -k)",
             "surl: warning: --proxy-allow-origin: the proxy connects to every origin address, not only loopback",
             "surl: warning: --s3-plaintext: s3 is served as plain HTTP, without TLS",

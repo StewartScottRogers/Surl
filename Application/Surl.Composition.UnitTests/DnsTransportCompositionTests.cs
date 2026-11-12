@@ -144,4 +144,41 @@ public sealed class DnsTransportCompositionTests
         Assert.IsTrue(boundUrls.Single(listenUrl => listenUrl.Port == 853).IsImplicitTls);
         Assert.IsFalse(boundUrls.Single(listenUrl => listenUrl.Port == 53).IsImplicitTls);
     }
+
+    [TestMethod]
+    [DataRow("https", "dns://127.0.0.1:5300", 5300)]
+    [DataRow("https", "dns://127.0.0.1", 443)]
+    public void ExpandDnsListenUrls_Https_IsOneConnectionListenerThatIsTlsFromTheFirstByteMarkedDnsOverHttps(string transport, string listenUrlText, int port)
+    {
+        var listenUrl = Expanded("--dns-transport", transport, listenUrlText).Single();
+
+        Assert.AreEqual(port, listenUrl.Port);
+        Assert.IsTrue(listenUrl.IsImplicitTls);
+        Assert.IsTrue(listenUrl.IsDnsOverHttps);
+        Assert.AreEqual(ListenTransport.Connections, listenUrl.OnlyTransport);
+    }
+
+    [TestMethod]
+    public void ExpandDnsListenUrls_UdpTcpHttpsWithNoPort_IsThePairOn53AndDnsOverHttpsOn443()
+    {
+        var listenUrls = Expanded("--dns-transport", "udp,tcp,https", "dns://127.0.0.1");
+
+        CollectionAssert.AreEqual(new[] { 53, 443 }, listenUrls.Select(listenUrl => listenUrl.Port).ToArray());
+        CollectionAssert.AreEqual(new[] { false, true }, listenUrls.Select(listenUrl => listenUrl.IsDnsOverHttps).ToArray());
+    }
+
+    [TestMethod]
+    [DataRow("tcp,https", "tcp and https")]
+    [DataRow("tls,https", "tls and https")]
+    public void FindRefusal_HttpsWithTcpOrTlsOnOneExplicitPort_NamesBothAndThePort(string transports, string pair) =>
+        Assert.AreEqual(
+            $"--dns-transport {pair} cannot share port 5300",
+            DnsTransportComposition.FindRefusal(Parse("--dns-transport", transports, "dns://127.0.0.1:5300")));
+
+    [TestMethod]
+    public void FindRefusal_HttpsWithTcpOnNoPortOrPortZero_IsNone()
+    {
+        Assert.IsNull(DnsTransportComposition.FindRefusal(Parse("--dns-transport", "tcp,https", "dns://127.0.0.1")));
+        Assert.IsNull(DnsTransportComposition.FindRefusal(Parse("--dns-transport", "tls,https", "dns://127.0.0.1:0")));
+    }
 }

@@ -123,7 +123,8 @@ public static class ExtendedProtocolServers
         new(["coaps"], services => new DeferredCoapsProtocolServer(services)),
         new(["dns"], services => new DnsDatagramRoutingProtocolServer(
             new DnsUdpProtocolServer(services.DnsZones, services.AllowsZoneTransfer), () => ComposeDnsOverQuic(services))),
-        new(["dns"], services => new DnsTcpProtocolServer(services.DnsZones, services.AllowsZoneTransfer)),
+        new(["dns"], services => new DnsConnectionRoutingProtocolServer(
+            new DnsTcpProtocolServer(services.DnsZones, services.AllowsZoneTransfer), services.DnsZones, services.AllowsZoneTransfer)),
         new(["gs"], services => new GoogleCloudStorageProtocolServer(
             services.ContentStore, services.ObjectMetadataIndex, services.AuthenticationPolicyFor("gs"), services.TimeProvider)),
         new(["kafka", "kafkas"], ComposeKafkaBroker),

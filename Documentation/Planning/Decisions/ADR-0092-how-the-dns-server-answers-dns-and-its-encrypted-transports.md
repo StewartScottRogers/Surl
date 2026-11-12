@@ -439,3 +439,23 @@ for a connection already past its handshake that is closed for load.
 
 **Consequences.** `Surl.Quic` needs no change. `DnsOverQuicProtocolServerTests`
 `WriteRefusalAsync_*` pin the packet.
+
+## Amendment 4 (2026-11-12, BL-1018): how `--dns-transport https` is composed
+
+Decided by Claude under Stewart's delegation.
+
+**Context.** Decision 5 serves DNS over HTTPS through `DnsOverHttpsHandler`, but a `dns` listen URL
+that is TLS from the first byte is also DNS over TLS, and `TlsApplicationProtocols.ForListener` keys on
+scheme and `IsImplicitTls` alone, so it could only offer `dot`.
+
+**Decision.** `ListenUrl` gains one init-only member, `IsDnsOverHttps` (default `false`, part of
+equality; additive, as Amendment 1 point 5 allows). `DnsTransportComposition` expands `https` to a
+connection-only, `IsImplicitTls`, `IsDnsOverHttps` listen URL on the given port or 443, and refuses
+`tcp` or `tls` with `https` on one explicit non-zero port (`surl: --dns-transport <a> and <b> cannot
+share port <n>`, exit 2). `ForListener` offers `h2` then `http/1.1` for it. The one connection
+server the engine allows per scheme is `DnsConnectionRoutingProtocolServer` in `Surl.Composition`:
+a listen URL with `IsDnsOverHttps` goes to `Http2ConnectionServer` when ALPN agreed `h2` (after reading the
+client preface) and to `Http1ConnectionServer` otherwise, both over one `DnsOverHttpsHandler`; every other
+goes to `DnsTcpProtocolServer`. A certificate is needed as for DoT (exit 58).
+
+**Consequences.** No DoH over HTTP/3 (ADR-0086 decision 6). Logins on DoH stay BL-827's.

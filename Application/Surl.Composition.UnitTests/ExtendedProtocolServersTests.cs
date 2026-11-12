@@ -66,7 +66,7 @@ public sealed class ExtendedProtocolServersTests
         Assert.IsInstanceOfType<CoapProtocolServer>(servers[3]);
         CollectionAssert.AreEqual(new[] { "coaps" }, servers[4].Schemes.ToArray());
         Assert.IsInstanceOfType<DnsUdpProtocolServer>(Assert.IsInstanceOfType<DnsDatagramRoutingProtocolServer>(servers[5]).UdpServer);
-        Assert.IsInstanceOfType<DnsTcpProtocolServer>(servers[6]);
+        Assert.IsInstanceOfType<DnsTcpProtocolServer>(Assert.IsInstanceOfType<DnsConnectionRoutingProtocolServer>(servers[6]).StreamServer);
         Assert.IsInstanceOfType<GoogleCloudStorageProtocolServer>(servers[7]);
         Assert.IsInstanceOfType<KafkaBroker>(servers[8]);
         var mcp = Assert.IsInstanceOfType<McpProtocolServer>(servers[9]);
@@ -161,7 +161,7 @@ public sealed class ExtendedProtocolServersTests
 
         var servers = ExtendedProtocolServers.Compose(services);
 
-        foreach (var server in new IProtocolServer[] { servers.OfType<DnsDatagramRoutingProtocolServer>().Single().UdpServer, servers.OfType<DnsTcpProtocolServer>().Single() })
+        foreach (var server in new IProtocolServer[] { servers.OfType<DnsDatagramRoutingProtocolServer>().Single().UdpServer, servers.OfType<DnsConnectionRoutingProtocolServer>().Single().StreamServer })
         {
             var answerer = ComposedServerFields.Single<DnsQueryAnswerer>(server);
             Assert.AreSame(zones, ComposedServerFields.Single<DnsZoneSet>(answerer));

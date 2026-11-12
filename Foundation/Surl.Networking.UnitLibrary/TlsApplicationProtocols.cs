@@ -39,13 +39,15 @@ internal static class TlsApplicationProtocols
     /// The ALPN protocol IDs a listener on <paramref name="listenUrl"/> offers: for a proxy
     /// listener (<see cref="ListenUrl.IsProxy"/>) too, <c>h2</c> then <c>http/1.1</c> when its scheme is
     /// <c>https</c>, because the HTTPS proxy serves HTTP/2 for curl's <c>--proxy-http2</c>
-    /// (ADR-0088, Amendment 9, superseding decision 6 and Amendment 2); a DNS-over-TLS listener
+    /// (ADR-0088, Amendment 9, superseding decision 6 and Amendment 2); a DNS-over-HTTPS listener
+    /// (<see cref="ListenUrl.IsDnsOverHttps"/>) offers the same two; a DNS-over-TLS listener
     /// offers <c>dot</c>; otherwise <see cref="ForScheme"/>.
     /// </summary>
     /// <param name="listenUrl">The listener's listen URL; its scheme is lower-cased.</param>
     /// <returns>The ALPN protocol IDs offered, in the server's order of preference.</returns>
     public static IReadOnlyList<SslApplicationProtocol> ForListener(ListenUrl listenUrl) => listenUrl switch
     {
+        { IsImplicitTls: true, Scheme: "dns", IsDnsOverHttps: true } => Https,
         { IsImplicitTls: true, Scheme: "dns" } => DnsOverTls,
         _ => ForScheme(listenUrl.Scheme),
     };

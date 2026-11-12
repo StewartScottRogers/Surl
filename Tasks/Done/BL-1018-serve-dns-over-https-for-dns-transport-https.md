@@ -8,7 +8,7 @@ depends-on: [BL-1017, BL-483, BL-902]
 touches: [Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests, Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests, Foundation/Surl.Protocol.Abstractions.UnitLibrary, Foundation/Surl.Protocol.Abstractions.UnitTests, Foundation/Surl.Networking.UnitLibrary, Foundation/Surl.Networking.UnitTests]
 requirement: none
 created: 2026-11-06
-completed:
+completed: 2026-11-12
 ---
 # BL-1018 — Serve DNS over HTTPS for --dns-transport https
 
@@ -33,12 +33,12 @@ over HTTP/2 and HTTP/1.1, as ADR-0092 decision 5 says.
 
 ## Acceptance criteria
 
-- [ ] A named `Surl.Cli.UnitTests` test reads `--dns-transport udp,tcp,https`; the option's allowed values in its
+- [x] A named `Surl.Cli.UnitTests` test reads `--dns-transport udp,tcp,https`; the option's allowed values in its
       `--aihelp` facts list `https`.
-- [ ] Named `Surl.Composition.UnitTests` tests show `https` composing a TLS listener offering `h2` then `http/1.1`
+- [x] Named `Surl.Composition.UnitTests` tests show `https` composing a TLS listener offering `h2` then `http/1.1`
       whose requests reach `DnsOverHttpsHandler`, and `tls,https` on one explicit port refused with the decision's
       text.
-- [ ] The `--aihelp` completeness tests named in root `CLAUDE.md` pass; `dotnet build -warnaserror` is clean, the
+- [x] The `--aihelp` completeness tests named in root `CLAUDE.md` pass; `dotnet build -warnaserror` is clean, the
       fast tests are green, and the touched libraries keep 100% line and branch coverage.
 
 ## Notes
@@ -58,9 +58,12 @@ over HTTP/2 and HTTP/1.1, as ADR-0092 decision 5 says.
   4. `Surl.Cli`: `DnsTransportWords` gains `https`; `--aihelp`/manual text and the `AiHelpTextTests` refusal list.
   Blocked on BL-902, which touches `Foundation/Surl.Protocol.Abstractions.UnitLibrary`.
 
+- 2026-11-12: Done as planned above; ADR-0092 Amendment 4 records it. Routing server `DnsConnectionRoutingProtocolServer` lives in Surl.Composition (no change to the DnsQuery or Http libraries).
+
 ## Log
 
 - 2026-11-06: Created.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. needs Surl.Protocol.Abstractions (a ListenUrl member so Surl.Networking can offer h2 then http/1.1 for DoH) which BL-902 touches; and Surl.Networking
 - 2026-11-12: Backlog -> Doing.
+- 2026-11-12: Doing -> Done. dns-transport https serves DNS over HTTPS (h2 then http/1.1) at /dns-query
