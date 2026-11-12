@@ -2,8 +2,18 @@
 
 The HTTP proxy server: what curl's `-x`/`--proxy` and `-p`/`--proxytunnel` talk to. Decided in
 ADR-0088 (decisions 1 to 6 and 7's limits) and its Amendments 1 to 4. Built by BL-552, BL-554 (the
-HTTPS proxy), BL-553 (`Proxy-Authorization`) and BL-594 (`ftp://` forwarding); the command line and composition (BL-555) and
-the upstream cases' server half (BL-556) are still to come, so nothing composes it yet.
+HTTPS proxy), BL-553 (`Proxy-Authorization`) and BL-594 (`ftp://` forwarding); the upstream cases' server half (BL-556) is built, but the command line and composition (BL-555) are still to come, so `surl` composes nothing of it yet.
+
+**The upstream test cases' proxy half** (ADR-0080 decision 2; BL-556) is a test seam the shipped `surl` never
+composes: `Surl.Conformance.UnitTests` composes `HttpProxyUpstreamTestCaseServer` with one case's
+`HttpProxyUpstreamTestCaseReplies` (its `<data*>` and `<connect*>` parts by name, and its `<servercmd>` lines; only
+`Testnum` is accepted, since no case naming `http-proxy` or `https-proxy` has another) and an `IOriginConnector`. It
+reads each request head with `Surl.HttpMessage`'s reader and its body as framed, then sends the part
+`HttpProxyUpstreamTestCasePartNumber` picks (a copy of the HTTP half's rules: the protocol libraries may not reference each
+other) verbatim; `swsbounce` and `swsclose` act as in the HTTP half. A `CONNECT` whose part is a `2xx` response opens a
+tunnel to `127.0.0.1` at the `CONNECT`'s port, whatever host it names, as upstream's `sws` does, and relays with
+`ProxyTunnel`; any other part is just sent. `HttpProxyUpstreamTestCaseRecordingConnection` records what the proxy reads, on
+each connection until its tunnel opens, as `HttpProxyUpstreamTestCaseReplies.ReceivedBytes`: the case's `<proxy>`.
 
 **Proxy login** (Amendment 3) is `HttpProxyExchange.Login.cs`: one `IHttpAuthenticationSession`
 per curl connection, from the `IAuthenticationPolicy` the two-argument constructor takes (the
