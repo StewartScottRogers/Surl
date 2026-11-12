@@ -45,7 +45,7 @@ public sealed class SignalRHubSessionTests
     }
 
     [TestMethod]
-    [DataRow("{\"protocol\":\"messagepack\",\"version\":1}", "Requested protocol is not available.")]
+    [DataRow("{\"protocol\":\"protobuf\",\"version\":1}", "Requested protocol is not available.")]
     [DataRow("{\"protocol\":\"json\",\"version\":2}", "Requested protocol is not available.")]
     [DataRow("not json", "The handshake request is invalid.")]
     public async Task RunAsync_HandshakeRefused_AnswersTheHandshakeErrorThenClosesNormally(string request, string error)

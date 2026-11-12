@@ -31,7 +31,7 @@ internal sealed class SignalRWebSocketTakeover(
 
             // A stateful-reconnect connection whose WebSocket was lost, with no Close from either side,
             // waits for a new one; any other end forgets it.
-            isSuspended = hubConnection.Reconnect is not null && end is { HubCloseRecord: null, CloseCode: null };
+            isSuspended = hubConnection.Reconnect is not null && end is { HubCloseMessage: null, CloseCode: null };
         }
         finally
         {

@@ -42,15 +42,16 @@ public static class SignalRHubMethods
     /// Decides what <paramref name="invocation"/> is answered with.
     /// </summary>
     /// <param name="invocation">The Invocation or StreamInvocation.</param>
+    /// <param name="isMessagePack">Whether its arguments are MessagePack values rather than JSON.</param>
     /// <returns>Its answer.</returns>
-    public static SignalRHubCall Call(HubInvocation invocation)
+    public static SignalRHubCall Call(HubInvocation invocation, bool isMessagePack = false)
     {
         ArgumentNullException.ThrowIfNull(invocation);
 
         return invocation.Target switch
         {
             "Echo" => Echo(invocation),
-            "Count" => Count(invocation),
+            "Count" => Count(invocation, isMessagePack),
             "Fail" => SignalRHubCall.Failed(FailText),
             _ => SignalRHubCall.Failed(UnknownMethodText),
         };
@@ -68,14 +69,14 @@ public static class SignalRHubMethods
             : SignalRHubCall.Failed(InvalidArgumentsText);
     }
 
-    private static SignalRHubCall Count(HubInvocation invocation)
+    private static SignalRHubCall Count(HubInvocation invocation, bool isMessagePack)
     {
         if (!invocation.IsStreaming)
         {
             return SignalRHubCall.Failed(WrongMessageTypeText);
         }
 
-        return HasOneArgumentAndNoStreams(invocation) && TryReadCount(invocation.Arguments[0], out var count)
+        return HasOneArgumentAndNoStreams(invocation) && TryReadCount(invocation.Arguments[0], isMessagePack, out var count)
             ? new SignalRHubCall(null, null, count)
             : SignalRHubCall.Failed(InvalidArgumentsText);
     }
@@ -84,8 +85,15 @@ public static class SignalRHubMethods
         invocation.Arguments.Count == 1 && invocation.StreamIds.Count == 0;
 
     // An integer from 0 to MaxCount; the reader has already found the value well-formed JSON.
-    private static bool TryReadCount(HubJsonValue argument, out int count)
+    private static bool TryReadCount(HubJsonValue argument, bool isMessagePack, out int count)
     {
+        if (isMessagePack)
+        {
+            var cursor = new MessagePackCursor(argument.Utf8Json);
+
+            return cursor.TryReadInt(out count) && cursor.IsAtEnd && count is >= 0 and <= MaxCount;
+        }
+
         var reader = new Utf8JsonReader(argument.Utf8Json.Span);
         reader.Read();
         count = 0;

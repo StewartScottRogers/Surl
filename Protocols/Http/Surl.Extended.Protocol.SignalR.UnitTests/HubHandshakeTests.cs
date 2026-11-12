@@ -17,7 +17,16 @@ public sealed class HubHandshakeTests
     }
 
     [TestMethod]
-    [DataRow("{\n    \"protocol\": \"messagepack\",\n    \"version\": 1\n}", DisplayName = "HubProtocol.md's example, messagepack until BL-756")]
+    public void Judge_HubProtocolMdsMessagePackExample_IsAcceptedAsMessagePack()
+    {
+        Assert.AreEqual(
+            HubHandshakeOutcome.AcceptedMessagePack,
+            HubHandshake.Judge(Utf8("{\n    \"protocol\": \"messagepack\",\n    \"version\": 1\n}")));
+    }
+
+    [TestMethod]
+    [DataRow("{\"protocol\":\"messagepack\",\"version\":2}", DisplayName = "messagepack version 2")]
+    [DataRow("{\"protocol\":\"MessagePack\",\"version\":1}", DisplayName = "messagepack compared case-sensitively")]
     [DataRow("{\"protocol\":\"JSON\",\"version\":1}", DisplayName = "protocol name compared case-sensitively")]
     [DataRow("{\"protocol\":\"json\",\"version\":2}", DisplayName = "version 2")]
     [DataRow("{\"protocol\":\"json\",\"version\":1.5}", DisplayName = "version not an integer")]

@@ -11,7 +11,13 @@ public enum HubHandshakeOutcome
     Accepted,
 
     /// <summary>
-    /// A protocol other than <c>json</c>, or a version other than 1: answered
+    /// <c>{"protocol":"messagepack","version":1}</c>: answered <c>{}</c>, then every message is binary
+    /// (BL-756).
+    /// </summary>
+    AcceptedMessagePack,
+
+    /// <summary>
+    /// A protocol other than <c>json</c> or <c>messagepack</c>, or a version other than 1: answered
     /// <see cref="HubHandshake.ProtocolNotAvailableText"/>.
     /// </summary>
     ProtocolNotAvailable,

@@ -56,8 +56,6 @@ internal sealed class SignalRHubSession : IDisposable
 
     private static readonly TimeSpan MaxTimerDelay = TimeSpan.FromMilliseconds(uint.MaxValue - 1.0);
 
-    private static readonly byte[] PingRecord = HubMessageJsonWriter.Write(new HubPing());
-
     // The answer to a frame after which the connection goes on.
     private static readonly Task<SignalRSessionEnd?> Continues = Task.FromResult<SignalRSessionEnd?>(null);
 
@@ -68,6 +66,7 @@ internal sealed class SignalRHubSession : IDisposable
     private readonly WebSocketFrameReader frameReader;
     private readonly WebSocketMessageReassembler reassembler;
     private readonly HubRecordReader recordReader;
+    private readonly HubMessagePackRecordReader messagePackRecordReader;
     private readonly WebSocketLingeringClose lingeringClose;
     private readonly SemaphoreSlim writeGate = new(1, 1);
     private readonly CancellationTokenSource ending = new();
@@ -80,6 +79,7 @@ internal sealed class SignalRHubSession : IDisposable
     private DateTimeOffset lastSentAt;
     private DateTimeOffset lastReceivedAt;
     private bool isHandshakeDone;
+    private bool isMessagePack;
 
     /// <summary>
     /// Creates the session that follows one <c>101</c>.
@@ -99,6 +99,7 @@ internal sealed class SignalRHubSession : IDisposable
         frameReader = new WebSocketFrameReader(reader.ReadAsync, maxMessageBytes == 0 ? 0 : maxMessageBytes + MaxClientFrameHeaderBytes);
         reassembler = new WebSocketMessageReassembler(maxMessageBytes);
         recordReader = new HubRecordReader(maxMessageBytes);
+        messagePackRecordReader = new HubMessagePackRecordReader(maxMessageBytes);
         lingeringClose = new WebSocketLingeringClose(reader, context);
     }
 
@@ -148,7 +149,29 @@ internal sealed class SignalRHubSession : IDisposable
     // Every client frame is masked and sets no reserved bit, since no extension was agreed (RFC 6455 section 5).
     private static bool IsUnmaskedOrReserved(WebSocketFrame frame) => !frame.Masked || frame.Rsv1 || frame.Rsv2 || frame.Rsv3;
 
+    private WebSocketOpcode MessageOpcode => isMessagePack ? WebSocketOpcode.Binary : WebSocketOpcode.Text;
+
     private void Decide(SignalRSessionEnd end) => ended.TrySetResult(end);
+
+    private byte[] Encode(HubMessage message) =>
+        isMessagePack ? HubMessagePackWriter.Write(message) : HubMessageJsonWriter.Write(message);
+
+    private bool TryReadMessage(ReadOnlyMemory<byte> record, out HubMessage? message) =>
+        isMessagePack ? HubMessagePackReader.TryRead(record, out message) : HubMessageJsonReader.TryRead(record, out message);
+
+    // One of Count's items: the integer as JSON text, or as a MessagePack integer.
+    private byte[] CountItem(int item)
+    {
+        if (!isMessagePack)
+        {
+            return Encoding.ASCII.GetBytes(item.ToString(CultureInfo.InvariantCulture));
+        }
+
+        var writer = new MessagePackWriter();
+        writer.WriteUnsigned(item);
+
+        return writer.Written.ToArray();
+    }
 
     private Task[] StreamTasks()
     {
@@ -241,7 +264,7 @@ internal sealed class SignalRHubSession : IDisposable
     private async Task<SignalRSessionEnd?> AcceptPayloadAsync(byte[] payload, CancellationToken token)
     {
         var records = new List<ReadOnlyMemory<byte>>();
-        var isWithinLimit = recordReader.TryAppend(payload, records);
+        var isWithinLimit = isMessagePack ? messagePackRecordReader.TryAppend(payload, records) : recordReader.TryAppend(payload, records);
         foreach (var record in records)
         {
             if (await AcceptRecordAsync(record, token) is { } end)
@@ -267,7 +290,7 @@ internal sealed class SignalRHubSession : IDisposable
             return await AcceptHandshakeAsync(record, token);
         }
 
-        return HubMessageJsonReader.TryRead(record, out var message)
+        return TryReadMessage(record, out var message)
             ? await AcceptMessageAsync(message!, token)
             : SignalRSessionEnd.HubProtocolError("a client record is not a message the server reads");
     }
@@ -276,11 +299,13 @@ internal sealed class SignalRHubSession : IDisposable
     {
         var outcome = HubHandshake.Judge(record);
         await SendRecordAsync(HubHandshake.Response(outcome), token);
-        if (outcome != HubHandshakeOutcome.Accepted)
+        if (outcome is not (HubHandshakeOutcome.Accepted or HubHandshakeOutcome.AcceptedMessagePack))
         {
             return SignalRSessionEnd.WebSocketClose(SignalRSessionEnd.NormalClosure, $"the handshake was refused ({outcome})");
         }
 
+        // The response above is JSON; every message after it is in the encoding the client chose.
+        isMessagePack = outcome == HubHandshakeOutcome.AcceptedMessagePack;
         isHandshakeDone = true;
         handshakeAccepted.TrySetResult();
         if (reconnect is { IsResumption: true })
@@ -295,7 +320,7 @@ internal sealed class SignalRHubSession : IDisposable
     private async Task ResendAsync(SignalRReconnectState state, CancellationToken token)
     {
         var (firstSequenceId, records) = state.Resend();
-        await SendRecordAsync(HubMessageJsonWriter.Write(new HubSequence(firstSequenceId)), token);
+        await SendRecordAsync(Encode(new HubSequence(firstSequenceId)), token);
         foreach (var record in records)
         {
             await SendRecordAsync(record, token);
@@ -316,7 +341,7 @@ internal sealed class SignalRHubSession : IDisposable
             return false;
         }
 
-        await SendRecordAsync(HubMessageJsonWriter.Write(new HubAck(received)), token);
+        await SendRecordAsync(Encode(new HubAck(received)), token);
 
         return true;
     }
@@ -370,7 +395,7 @@ internal sealed class SignalRHubSession : IDisposable
         // ADR-0144: a chosen-error fault rule completes the invocation in place of the hub method.
         var call = invocation.InvocationId is not null && await invocationFaults.FindErrorAsync(invocation) is { } chosenError
             ? SignalRHubCall.Failed(chosenError)
-            : SignalRHubMethods.Call(invocation);
+            : SignalRHubMethods.Call(invocation, isMessagePack);
         if (call.StreamItemCount is { } count)
         {
             // Only a StreamInvocation streams, and it always has an invocationId.
@@ -378,7 +403,7 @@ internal sealed class SignalRHubSession : IDisposable
         }
         else if (invocation.InvocationId is { } completed)
         {
-            await SendNumberedAsync(HubMessageJsonWriter.Write(new HubCompletion(completed, call.Result, call.Error)), token);
+            await SendNumberedAsync(Encode(new HubCompletion(completed, call.Result, call.Error)), token);
         }
 
         return null;
@@ -396,7 +421,7 @@ internal sealed class SignalRHubSession : IDisposable
     {
         if (TryRegisterStream(id, token) is not { } cancellation)
         {
-            await SendNumberedAsync(HubMessageJsonWriter.Write(new HubCompletion(id, null, TooManyInvocationsText)), token);
+            await SendNumberedAsync(Encode(new HubCompletion(id, null, TooManyInvocationsText)), token);
 
             return;
         }
@@ -438,8 +463,7 @@ internal sealed class SignalRHubSession : IDisposable
                     await Task.Delay(CountItemInterval, context.TimeProvider, cancelled);
                 }
 
-                var itemJson = Encoding.ASCII.GetBytes(item.ToString(CultureInfo.InvariantCulture));
-                await SendNumberedAsync(HubMessageJsonWriter.Write(new HubStreamItem(id, new HubJsonValue(itemJson))), ending.Token);
+                await SendNumberedAsync(Encode(new HubStreamItem(id, new HubJsonValue(CountItem(item)))), ending.Token);
             }
         }
         catch (OperationCanceledException) when (!ending.IsCancellationRequested)
@@ -452,7 +476,7 @@ internal sealed class SignalRHubSession : IDisposable
             streams.Remove(id);
         }
 
-        await SendNumberedAsync(HubMessageJsonWriter.Write(new HubCompletion(id, null, null)), ending.Token);
+        await SendNumberedAsync(Encode(new HubCompletion(id, null, null)), ending.Token);
     }
 
     // A CancelInvocation naming no stream in progress is ignored (HubProtocol.md "Cancellation").
@@ -492,7 +516,7 @@ internal sealed class SignalRHubSession : IDisposable
 
             if (now >= sendDue)
             {
-                await SendRecordAsync(PingRecord, token);
+                await SendRecordAsync(Encode(new HubPing()), token);
 
                 continue;
             }
@@ -530,7 +554,7 @@ internal sealed class SignalRHubSession : IDisposable
 
     private async Task SendRecordAsync(byte[] record, CancellationToken token)
     {
-        await WriteFrameAsync(WebSocketFrameEncoder.EncodeFrame(true, WebSocketOpcode.Text, record), token);
+        await WriteFrameAsync(WebSocketFrameEncoder.EncodeFrame(true, MessageOpcode, record), token);
         NoteSent();
     }
 
@@ -555,7 +579,7 @@ internal sealed class SignalRHubSession : IDisposable
                 return;
             }
 
-            await connection.WriteAsync(WebSocketFrameEncoder.EncodeFrame(true, WebSocketOpcode.Text, record), token);
+            await connection.WriteAsync(WebSocketFrameEncoder.EncodeFrame(true, MessageOpcode, record), token);
         }
         finally
         {
@@ -594,9 +618,9 @@ internal sealed class SignalRHubSession : IDisposable
         }
 
         var token = context.CancellationToken;
-        if (end.HubCloseRecord is { } record)
+        if (end.HubCloseMessage is { } close)
         {
-            await connection.WriteAsync(WebSocketFrameEncoder.EncodeFrame(true, WebSocketOpcode.Text, record), token);
+            await connection.WriteAsync(WebSocketFrameEncoder.EncodeFrame(true, MessageOpcode, Encode(close)), token);
         }
 
         await connection.WriteAsync(WebSocketFrameEncoder.EncodeClose(code, string.Empty), token);

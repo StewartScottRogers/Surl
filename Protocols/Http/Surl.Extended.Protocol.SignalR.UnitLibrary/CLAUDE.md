@@ -45,7 +45,7 @@ What is here so far (BL-448 and BL-449, ADR-0119 decisions 0 to 5 and most of 7)
 Still to come: `Broadcast`, `Collect` uploads, the shutdown farewell and the unsent-bytes cap
 (BL-772; until then `Broadcast` and `Collect` are `Unknown hub method.`, a client StreamItem or
 Completion is a protocol error, and a cancelled exchange writes nothing), the command line (BL-450),
-Server-Sent Events and Long Polling (BL-757) and MessagePack (BL-756).
+Server-Sent Events and Long Polling (BL-757).
 
 **Stateful reconnect** (BL-755, ADR-0119 decision 6): a negotiate with `useStatefulReconnect=true` or
 `useAck=true` is answered with `"useStatefulReconnect":true` and gives the connection a
@@ -62,3 +62,13 @@ a connection that did not ask.
 StreamInvocation with an `invocationId` is offered to it before the hub method, `command` the target. A matching
 `error` rule's text completes it as the Completion's `error` (no StreamItem), publishing `FaultAppliedEvent`; a
 non-blocking Invocation is never offered.
+
+**MessagePack hub protocol** (BL-756, ADR-0119 decision 3): a handshake of `{"protocol":"messagepack","version":1}` is
+answered `{}` (still JSON, a text message) and `SignalRHubSession` then reads and writes binary WebSocket messages.
+`MessagePackCursor` reads the subset the hub needs (every format, skipped without recursion), `MessagePackWriter`
+writes it in shortest forms, `HubMessagePackRecordReader` cuts messages by their VarInt length across WebSocket
+messages within `--max-message`, `HubMessagePackReader` and `HubMessagePackWriter` read and write types 1 to 9.
+A `HubJsonValue` on such a connection holds one MessagePack value's bytes (its member is still named `Utf8Json`).
+`SignalRHubMethods.Call` takes `isMessagePack` to read `Count`'s argument. Bytes after a MessagePack handshake in the
+same WebSocket message are read as MessagePack. A connection that resumes (BL-755) with another protocol than it
+began with is not guarded: its kept records stay in the first encoding.

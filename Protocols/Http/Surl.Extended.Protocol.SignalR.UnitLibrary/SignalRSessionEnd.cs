@@ -5,10 +5,10 @@ namespace Surl.Extended.Protocol.SignalR;
 /// sent first, if any, then a WebSocket Close with <paramref name="CloseCode"/>, or nothing at all
 /// when the client is gone or the exchange was cancelled.
 /// </summary>
-/// <param name="HubCloseRecord">The Close (type 7) record sent before the WebSocket Close, or <see langword="null"/>.</param>
+/// <param name="HubCloseMessage">The Close (type 7) message, written in the connection's encoding, sent before the WebSocket Close, or <see langword="null"/>.</param>
 /// <param name="CloseCode">The WebSocket Close's code, or <see langword="null"/> when nothing more is written.</param>
 /// <param name="Why">Why, for the exchange log.</param>
-internal sealed record SignalRSessionEnd(byte[]? HubCloseRecord, ushort? CloseCode, string Why)
+internal sealed record SignalRSessionEnd(HubClose? HubCloseMessage, ushort? CloseCode, string Why)
 {
     /// <summary>
     /// The text of the Close sent for a protocol error (HubProtocol.md "Errors").
@@ -39,7 +39,7 @@ internal sealed record SignalRSessionEnd(byte[]? HubCloseRecord, ushort? CloseCo
     /// A hub Close carrying <paramref name="error"/>, then a WebSocket Close with <paramref name="code"/>.
     /// </summary>
     public static SignalRSessionEnd HubClose(string error, ushort code, string why) =>
-        new(HubMessageJsonWriter.Write(new HubClose(error, AllowReconnect: false)), code, why);
+        new(new HubClose(error, AllowReconnect: false), code, why);
 
     /// <summary>
     /// The hub protocol error close: <see cref="ProtocolErrorText"/>, then <c>1002</c>.
