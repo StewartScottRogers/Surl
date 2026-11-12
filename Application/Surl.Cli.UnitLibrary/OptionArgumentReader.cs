@@ -566,7 +566,7 @@ internal static class OptionArgumentReader
             return EmptyUserName;
         }
 
-        if (authorizedKeys.UserName.Any(IsControlCharacter))
+        if (authorizedKeys.UserName.Any(character => IsControlCharacter(character)))
         {
             return ControlCharacterInUserName;
         }

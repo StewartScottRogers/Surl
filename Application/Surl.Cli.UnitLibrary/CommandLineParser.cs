@@ -757,9 +757,9 @@ public static class CommandLineParser
     private static CommandLineParseResult? RefuseCombination(CommandLineReading reading) =>
         RefuseTlsCombination(reading)
         ?? RefuseThrowawayHostKeyWithHostKey(reading)
-        ?? RefuseRepeatedName(reading.CommandLine.Accounts.Select(account => account.UserName), reading.AccountOptionNames, UserGivenTwice)
-        ?? RefuseRepeatedName(reading.CommandLine.AuthorizedKeys.Select(keys => keys.UserName), reading.AuthorizedKeysOptionNames, UserGivenTwice)
-        ?? RefuseRepeatedName(reading.CommandLine.Groups.Select(group => group.Name), reading.GroupOptionNames, ConfiguredGroupReader.GroupGivenTwice)
+        ?? RefuseRepeatedName(reading.CommandLine.Accounts.Select(account => account.UserName), reading.AccountOptionNames, name => UserGivenTwice(name))
+        ?? RefuseRepeatedName(reading.CommandLine.AuthorizedKeys.Select(keys => keys.UserName), reading.AuthorizedKeysOptionNames, name => UserGivenTwice(name))
+        ?? RefuseRepeatedName(reading.CommandLine.Groups.Select(group => group.Name), reading.GroupOptionNames, name => ConfiguredGroupReader.GroupGivenTwice(name))
         ?? RefuseMailCombination(reading);
 
     private static string UserGivenTwice(string userName) => $"user {userName} is given twice";

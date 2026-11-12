@@ -69,7 +69,7 @@ internal static class TlsSrpCombination
             : null;
 
     private static CommandLineFailure? RefuseWithoutTlsListenUrl(SurlCommandLine commandLine, IReadOnlyList<ListenUrl> listenUrls) =>
-        listenUrls.Any(UsesTls) || commandLine.ProxyListenUrls.Any(UsesTls)
+        listenUrls.Any(listenUrl => UsesTls(listenUrl)) || commandLine.ProxyListenUrls.Any(listenUrl => UsesTls(listenUrl))
             ? null
             : Refused(FirstOptionName(commandLine), NeedsATlsListenUrl);
 

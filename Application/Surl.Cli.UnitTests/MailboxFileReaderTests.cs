@@ -42,6 +42,14 @@ public sealed class MailboxFileReaderTests
     }
 
     [TestMethod]
+    public void Read_QuotedFieldClosingAtEndOfText_IsRead()
+    {
+        var mailbox = Accepted("address,password\nann@example.com,\"secret\"").Single();
+
+        Assert.AreEqual("secret", mailbox.Password);
+    }
+
+    [TestMethod]
     public void Read_ByteOrderMarkAndBlankRecords_AreSkipped() =>
         Assert.HasCount(2, Accepted("﻿\naddress,password\n\nann@example.com,a\n\r\nbob@example.com,b"));
 
