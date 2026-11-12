@@ -5,7 +5,7 @@ priority: Normal
 assignee: Claude
 pipeline: feature
 depends-on: [BL-444, BL-405, BL-1035]
-touches: [Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests, Application/Surl.Console, Application/Surl.Console.UnitTests, Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests, Foundation/Surl.Networking.UnitLibrary, Foundation/Surl.Networking.UnitTests]
+touches: [Protocols/Http/Surl.Extended.Protocol.Grpc.UnitLibrary, Protocols/Http/Surl.Extended.Protocol.Grpc.UnitTests, Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests, Application/Surl.Console, Application/Surl.Console.UnitTests, Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests, Foundation/Surl.Networking.UnitLibrary, Foundation/Surl.Networking.UnitTests]
 requirement: none
 created: 2026-11-04
 completed:
@@ -50,6 +50,15 @@ and help category exist, and the extension switch turns both off.
   global.json pins .NET SDK 10.0.401 and this machine has only 10.0.100-rc.1 and 11.0.x, so no gate can be
   checked. No code was written.
 
+- 2026-11-12 (lane 1): The SDK is fixed (10.0.404 builds). But `Surl.Extended.Protocol.Grpc.UnitLibrary` (BL-443/444)
+  has only `GrpcStreamHandler` (an `IHttp2StreamHandler`) and no `IConnectionProtocolServer`, so there is nothing to
+  register for grpc/grpcs. The task needs a `GrpcProtocolServer` there (prior-knowledge preface check,
+  `Http2ConnectionServer` with `GrpcStreamHandler`, `EchoService` and `ServerReflectionService`, per ADR-0116
+  decisions 0-1), so the Grpc projects are added to `touches`. BL-871 in Doing touches `Protocols` whole, so this
+  waits for it. Plan once free: `GrpcProtocolServer` + tests, register grpc/grpcs in `ExtendedProtocolServers`
+  (grpcs `ImplicitTls`), grpcs h2-only in `TlsApplicationProtocols`, default ports, `HelpCategories`,
+  `AiHelpProse`, `AiHelpExamples`.
+
 ## Log
 
 - 2026-11-04: Created.
@@ -58,3 +67,4 @@ and help category exist, and the extension switch turns both off.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waiting on BL-1035: pinned .NET SDK 10.0.401 is not installed, so dotnet build cannot run
 - 2026-11-12: Backlog -> Doing.
+- 2026-11-12: Doing -> Backlog. Needs Protocols/Http/Surl.Extended.Protocol.Grpc.UnitLibrary and .UnitTests (a GrpcProtocolServer does not exist yet), which BL-871 in Doing touches via Protocols; resume once BL-871 is done
