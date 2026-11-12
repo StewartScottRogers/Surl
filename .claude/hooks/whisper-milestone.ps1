@@ -19,6 +19,9 @@
 #>
 $ErrorActionPreference = 'Stop'
 try {
+    # Audio off (Stewart, 2026-11-11): while this file exists, nothing is spoken, in any
+    # session or lane. Delete the file to hear whispers again.
+    if (Test-Path (Join-Path $HOME '.claude\whisper.off')) { exit 0 }
     $hook = [Console]::In.ReadToEnd() | ConvertFrom-Json
     $command = "$($hook.tool_input.command)"
     $response = $hook.tool_response
