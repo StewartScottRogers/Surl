@@ -44,3 +44,4 @@ start as the other loosening options do (ADR-0108 decision 5).
 ## Log
 
 - 2026-11-06: Created.
+- 2026-11-11: Backlog -> Doing.
