@@ -1,5 +1,6 @@
 using Surl.Extended.Protocol.Coap;
 using Surl.Extended.Protocol.DnsQuery;
+using Surl.Extended.Protocol.Kafka;
 using Surl.Extended.Protocol.Nats;
 using Surl.Extended.Protocol.S3;
 using Surl.Extended.Protocol.SocketIo;
@@ -81,6 +82,7 @@ public static class ExtendedProtocolServers
         new(["dns"], services => new DnsDatagramRoutingProtocolServer(
             new DnsUdpProtocolServer(services.DnsZones, services.AllowsZoneTransfer), () => ComposeDnsOverQuic(services))),
         new(["dns"], services => new DnsTcpProtocolServer(services.DnsZones, services.AllowsZoneTransfer)),
+        new(["kafka", "kafkas"], ComposeKafkaBroker),
         new(["nats", NatsServer.TlsScheme], services => new NatsServer(
             services.AuthenticationPolicyFor("nats"),
             services.MessageBus,
@@ -111,6 +113,38 @@ public static class ExtendedProtocolServers
         })),
         ProtocolServerRegistration.ImplicitTls("xmpps", "xmpp"),
     ];
+
+    // The Kafka broker (ADR-0105, BL-973) over the one message bus the MQTT server shares. kafkas is TLS from the
+    // first byte through TlsSchemes, so the one registration claims both schemes. Fetch is served uncompressed
+    // (BL-974 adds --kafka-fetch-compression); Produce and InitProducerId share one KafkaProducerStates.
+    internal static KafkaBroker ComposeKafkaBroker(ComposedProtocolServices services)
+    {
+        var bus = services.MessageBus;
+        var policy = services.AuthenticationPolicyFor("kafka");
+        var producerStates = new KafkaProducerStates();
+        var coordinator = new KafkaGroupCoordinator(services.TimeProvider);
+        return new KafkaBroker(policy,
+        [
+            new KafkaApiVersionsAnswerer(),
+            new KafkaMetadataAnswerer(bus),
+            new KafkaSaslHandshakeAnswerer(policy),
+            new KafkaSaslAuthenticateAnswerer(),
+            new KafkaProduceAnswerer(bus, producerStates),
+            new KafkaInitProducerIdAnswerer(producerStates),
+            new KafkaFetchAnswerer(bus),
+            new KafkaListOffsetsAnswerer(bus),
+            new KafkaCreateTopicsAnswerer(bus),
+            new KafkaFindCoordinatorAnswerer(bus),
+            new KafkaJoinGroupAnswerer(coordinator, bus),
+            new KafkaSyncGroupAnswerer(coordinator, bus),
+            new KafkaHeartbeatAnswerer(coordinator, bus),
+            new KafkaLeaveGroupAnswerer(coordinator, bus),
+            new KafkaOffsetCommitAnswerer(coordinator, bus),
+            new KafkaOffsetFetchAnswerer(bus),
+            new KafkaDescribeGroupsAnswerer(coordinator, bus),
+            new KafkaListGroupsAnswerer(coordinator, bus),
+        ]);
+    }
 
     // DNS over QUIC (ADR-0092 decision 5) over the served certificate; built on its first flow, once server
     // TLS has filled the source. --dns-transport quic without a certificate is refused (58) before any listener binds.

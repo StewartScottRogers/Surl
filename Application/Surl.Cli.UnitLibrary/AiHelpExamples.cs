@@ -156,6 +156,13 @@ public static class AiHelpExamples
             ["surl: warning: --allow-anonymous: every request and login is accepted without checking credentials"],
             ["curl imap://127.0.0.1:<port>/"]),
         Serving(
+            "kafka",
+            "For a test: serve a Kafka broker without accounts",
+            ["--allow-anonymous", "kafka://127.0.0.1:0/"],
+            ["Listening on kafka://127.0.0.1:<port>/"],
+            ["surl: warning: --allow-anonymous: every request and login is accepted without checking credentials"],
+            []),
+        Serving(
             "ldap",
             "For a test: accept a simple bind over plain LDAP",
             ["--allow-plaintext-auth", "-u", "alice:secret", "ldap://127.0.0.1:0/"],

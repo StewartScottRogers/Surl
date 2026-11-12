@@ -3,6 +3,7 @@ using Surl.Cli;
 using Surl.Content;
 using Surl.Extended.Protocol.Coap;
 using Surl.Extended.Protocol.DnsQuery;
+using Surl.Extended.Protocol.Kafka;
 using Surl.Extended.Protocol.Nats;
 using Surl.Extended.Protocol.Stomp;
 using Surl.Extended.Protocol.S3;
@@ -50,22 +51,23 @@ public sealed class ExtendedProtocolServersTests
 
         var servers = ExtendedProtocolServers.Compose(services);
 
-        Assert.HasCount(12, servers);
+        Assert.HasCount(13, servers);
         Assert.IsInstanceOfType<CoapProtocolServer>(servers[0]);
         CollectionAssert.AreEqual(new[] { "coaps" }, servers[1].Schemes.ToArray());
         Assert.IsInstanceOfType<DnsUdpProtocolServer>(Assert.IsInstanceOfType<DnsDatagramRoutingProtocolServer>(servers[2]).UdpServer);
         Assert.IsInstanceOfType<DnsTcpProtocolServer>(servers[3]);
-        Assert.IsInstanceOfType<NatsServer>(servers[4]);
-        Assert.IsInstanceOfType<S3ProtocolServer>(servers[5]);
-        Assert.IsInstanceOfType<SocketIoProtocolServer>(servers[6]);
-        Assert.IsInstanceOfType<StompServer>(servers[7]);
-        CollectionAssert.AreEqual(new[] { "stomps" }, servers[8].Schemes.ToArray());
-        Assert.IsInstanceOfType<WebTransportProtocolServer>(servers[9]);
-        Assert.IsInstanceOfType<XmppServer>(servers[10]);
-        CollectionAssert.AreEqual(new[] { "xmpps" }, servers[11].Schemes.ToArray());
-        CollectionAssert.AreEqual(new[] { "coap", "coaps", "dns", "dns", "nats", "natss", "s3", "socketio", "socketios", "stomp", "stomps", "webtransport", "xmpp", "xmpps" }, servers.SelectMany(server => server.Schemes).ToArray());
+        Assert.IsInstanceOfType<KafkaBroker>(servers[4]);
+        Assert.IsInstanceOfType<NatsServer>(servers[5]);
+        Assert.IsInstanceOfType<S3ProtocolServer>(servers[6]);
+        Assert.IsInstanceOfType<SocketIoProtocolServer>(servers[7]);
+        Assert.IsInstanceOfType<StompServer>(servers[8]);
+        CollectionAssert.AreEqual(new[] { "stomps" }, servers[9].Schemes.ToArray());
+        Assert.IsInstanceOfType<WebTransportProtocolServer>(servers[10]);
+        Assert.IsInstanceOfType<XmppServer>(servers[11]);
+        CollectionAssert.AreEqual(new[] { "xmpps" }, servers[12].Schemes.ToArray());
+        CollectionAssert.AreEqual(new[] { "coap", "coaps", "dns", "dns", "kafka", "kafkas", "nats", "natss", "s3", "socketio", "socketios", "stomp", "stomps", "webtransport", "xmpp", "xmpps" }, servers.SelectMany(server => server.Schemes).ToArray());
         CollectionAssert.AreEqual(
-            new[] { "coap", "coaps", "dns", "dns", "nats", "natss", "s3", "socketio", "socketios", "stomp", "stomps", "webtransport", "xmpp", "xmpps" }, ExtendedProtocolServers.Registrations.SelectMany(registration => registration.Schemes).ToArray());
+            new[] { "coap", "coaps", "dns", "dns", "kafka", "kafkas", "nats", "natss", "s3", "socketio", "socketios", "stomp", "stomps", "webtransport", "xmpp", "xmpps" }, ExtendedProtocolServers.Registrations.SelectMany(registration => registration.Schemes).ToArray());
     }
 
     [TestMethod]

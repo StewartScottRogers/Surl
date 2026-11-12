@@ -250,6 +250,8 @@ public sealed class CommandLineRunnerExtendedProtocolTests
     [DataRow("xmpps")]
     [DataRow("stomp")]
     [DataRow("stomps")]
+    [DataRow("kafka")]
+    [DataRow("kafkas")]
     public async Task RunAsync_NatsSchemeWithTheSwitchAtZero_RefusesItAsAnUnknownScheme(string scheme)
     {
         using var output = new StringWriter();
@@ -318,7 +320,9 @@ public sealed class CommandLineRunnerExtendedProtocolTests
     [TestMethod]
     [DataRow("stomp", 61613, new string[0])]
     [DataRow("stomps", 61614, new[] { "--self-signed" })]
-    public async Task RunAsync_StompSchemeWithTheSwitchUnset_ListensAtItsDefaultPort(string scheme, int port, string[] options)
+    [DataRow("kafka", 9092, new string[0])]
+    [DataRow("kafkas", 9093, new[] { "--self-signed" })]
+    public async Task RunAsync_StompOrKafkaSchemeWithTheSwitchUnset_ListensAtItsDefaultPort(string scheme, int port, string[] options)
     {
         var factory = new FakeListenerFactory();
         using var stop = CancellationTokenSource.CreateLinkedTokenSource(TestContext.CancellationToken);
@@ -488,7 +492,7 @@ public sealed class CommandLineRunnerExtendedProtocolTests
 
         var schemes = runner.ComposeExtendedSchemes();
 
-        CollectionAssert.AreEqual(new[] { "coap", "coaps", "dns", "nats", "natss", "s3", "socketio", "socketios", "stomp", "stomps", "webtransport", "xmpp", "xmpps" }, schemes.ToArray());
+        CollectionAssert.AreEqual(new[] { "coap", "coaps", "dns", "kafka", "kafkas", "nats", "natss", "s3", "socketio", "socketios", "stomp", "stomps", "webtransport", "xmpp", "xmpps" }, schemes.ToArray());
     }
 
     [TestMethod]

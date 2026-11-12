@@ -45,6 +45,10 @@ internal sealed class StartTestSeams
     public static SurlCommandLine ParseWithS3(params string[] args) =>
         CommandLineParser.Parse(args, ["s3"]).CommandLine ?? throw new AssertFailedException("The command line was refused.");
 
+    /// <summary>Parses <paramref name="args"/> with the <c>kafka</c> and <c>kafkas</c> extended schemes accepted, failing the test when the command line is refused.</summary>
+    public static SurlCommandLine ParseWithKafka(params string[] args) =>
+        CommandLineParser.Parse(args, ["kafka", "kafkas"]).CommandLine ?? throw new AssertFailedException("The command line was refused.");
+
     /// <summary>Outputs that write the log and the status lines to <paramref name="log"/> and record the bound URLs.</summary>
     public static SurlServingOutputs Outputs(TextWriter log, Action<IReadOnlyList<ListenUrl>>? allListenersBound = null) =>
         new(log, log, new LevelledExchangeLogFactory(log, LogLevel.Info, false, TimeProvider.System), allListenersBound ?? (_ => { }));

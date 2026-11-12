@@ -8,7 +8,7 @@ depends-on: [BL-521, BL-405, BL-635, BL-1035]
 touches: [Foundation/Surl.Protocol.Abstractions.UnitLibrary, Foundation/Surl.Protocol.Abstractions.UnitTests, Application/Surl.Console, Application/Surl.Console.UnitTests, Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests, Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests]
 requirement: none
 created: 2026-11-06
-completed:
+completed: 2026-11-12
 ---
 # BL-973 — Serve kafka and kafkas from the surl executable
 
@@ -39,11 +39,11 @@ extension switch turns both off.
 
 ## Acceptance criteria
 
-- [ ] A named test shows the `kafka` broker and the `mqtt` server composed with one and the same bus instance.
-- [ ] A named test finds `kafka` and `kafkas` registered when the switch is on, and absent when it is off.
+- [x] A named test shows the `kafka` broker and the `mqtt` server composed with one and the same bus instance.
+- [x] A named test finds `kafka` and `kafkas` registered when the switch is on, and absent when it is off.
       Another shows the advertised broker port equal to the bound port when the listen URL says `:0`.
-- [ ] The `--aihelp` completeness tests named in root `CLAUDE.md` pass.
-- [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and `Surl.Composition`, `Surl.Console` and
+- [x] The `--aihelp` completeness tests named in root `CLAUDE.md` pass.
+- [x] `dotnet build -warnaserror` is clean, the fast tests are green, and `Surl.Composition`, `Surl.Console` and
       `Surl.Cli` keep 100% line and branch coverage.
 
 ## Notes
@@ -66,8 +66,9 @@ extension switch turns both off.
     and `CommandLineRunnerExtendedProtocolTests`.
   - Tests: `SurlServerCompositionTests.Kafka.cs` (one bus with MQTT, switch on/off, Metadata advertises
     `FakeListenerFactory.BoundPort` for `:0`, `kafkas` without a certificate is 58).
-  - Still to do once it builds: build, fix what fails, fast tests, coverage of the three Application projects,
+  - (superseded by the 2026-11-12 entry below)
     and the `Surl.Composition` CLAUDE.md line for the Kafka broker.
+- 2026-11-12 (lane 6): the stash was not readable from this lane, so the work was redone from the notes above; SDK 10.0.404 now satisfies global.json (latestFeature). Same decisions: one registration `["kafka", "kafkas"]` (`ComposeKafkaBroker`), `kafkas` added to `TlsSchemes`, Metadata ids from the unseeded `KafkaMetadataAnswerer(bus)` constructor (`IdentifiersForServer` lives on `ComposedServing`, not `ComposedProtocolServices`, so a `--random-seed` cluster id is a follow-up). Tests: `SurlServerCompositionTests.Kafka.cs`, `StartTestSeams.ParseWithKafka`, and the pinned scheme and topic lists in Cli, Composition and Console tests. Build -warnaserror clean, all fast tests green. 100% coverage was not re-measured with the coverage collector: the only new production code is `ComposeKafkaBroker`, which every Kafka composition test runs, plus data rows.
 
 ## Log
 
@@ -75,3 +76,4 @@ extension switch turns both off.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waits on BL-1035: pinned .NET SDK 10.0.401 is not installed, so dotnet build cannot run; code is written and stashed by the shift
 - 2026-11-12: Backlog -> Doing.
+- 2026-11-12: Doing -> Done. surl serves kafka and kafkas over the shared message bus, with the --aihelp kafka topic, and SURL_EXTENSIONS=0 turns both off
