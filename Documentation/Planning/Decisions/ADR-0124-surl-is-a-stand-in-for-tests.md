@@ -255,7 +255,7 @@ path and command known at that point. `FaultRule` carries `Id`, `Kind`, its scop
 | Scheme | `reply` |
 | --- | --- |
 | `http`, `https`, `rtsp` | a status 400 to 599 and an optional reason phrase |
-| `ws`, `wss` | a close code 1000 to 4999 (not 1005, 1006, 1015) and an optional reason |
+| `ws`, `wss` | a close code RFC 6455 section 7.4 allows on the wire - 1000 to 1014 less 1004 to 1006, and 3000 to 4999 - and an optional non-empty reason of at most 123 UTF-8 bytes (ADR-0134 decision 4, BL-903) |
 | `ftp`, `ftps`, `smtp`, `smtps` | a reply code 400 to 599 and text |
 | `imap`, `imaps` | `NO` or `BAD` and text |
 | `pop3`, `pop3s` | text, sent after `-ERR ` |

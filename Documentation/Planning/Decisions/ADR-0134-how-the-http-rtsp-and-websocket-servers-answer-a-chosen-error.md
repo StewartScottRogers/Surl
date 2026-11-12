@@ -47,7 +47,7 @@ them; the recordings are the `fault-*` fixtures of the three test projects.
    section 7.1.1's (RTSP) phrase for the code, or an empty one for a code neither names, which curl accepts
    (`HTTP/1.1 599 ` and `RTSP/1.0 599 ` both measured, exit 0). WebSocket reads a code RFC 6455 section 7.4
    allows on the wire - 1000 to 1014 less 1004 to 1006, and 3000 to 4999 - and an optional non-empty reason
-   of at most 123 UTF-8 bytes; the codes 1004 and 1016 to 2999 that ADR-0124's reply table lets through are
+   of at most 123 UTF-8 bytes; the codes 1004 and 1016 to 2999 that ADR-0124's reply table let through until BL-903 are
    reserved and are not sent. A reply that does not fit, which a `Surl.Api` hook could hand over unchecked, is
    noted in the exchange log and not applied: the request is answered as without the rule and no event is
    published.
