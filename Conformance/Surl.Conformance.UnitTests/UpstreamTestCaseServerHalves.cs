@@ -14,6 +14,7 @@ using Surl.Protocol.Imap;
 using Surl.Protocol.Mqtt;
 using Surl.Protocol.Pop3;
 using Surl.Protocol.Smtp;
+using Surl.Protocol.Socks;
 using Surl.Protocol.Telnet;
 using Surl.Protocol.Tftp;
 
@@ -84,6 +85,8 @@ internal sealed class UpstreamTestCaseServerHalves : IAsyncDisposable
         ("smtp", [LoopbackIPv4, LoopbackIPv6]),
         (HttpProxyScheme, [LoopbackIPv4]),
         (HttpsProxyScheme, [LoopbackIPv4]),
+        ("socks4", [LoopbackIPv4]),
+        ("socks5", [LoopbackIPv4]),
     ];
 
     private readonly CaseServer[] servers;
@@ -173,6 +176,12 @@ internal sealed class UpstreamTestCaseServerHalves : IAsyncDisposable
     /// <summary>The HTTPS proxy listener's port: <c>%HTTPSPROXYPORT</c>.</summary>
     public int HttpsProxyPort => ports[PortKey(HttpsProxyScheme, LoopbackIPv4)];
 
+    /// <summary>The SOCKS4 listener's port: <c>%SOCKSPORT</c> for a case naming <c>socks4</c>.</summary>
+    public int Socks4Port => ports[PortKey("socks4", LoopbackIPv4)];
+
+    /// <summary>The SOCKS5 listener's port: <c>%SOCKSPORT</c> for any other case naming a SOCKS server.</summary>
+    public int Socks5Port => ports[PortKey("socks5", LoopbackIPv4)];
+
     /// <summary>The notes the server halves wrote to their exchange logs so far.</summary>
     public string Notes => log.Text;
 
@@ -199,9 +208,10 @@ internal sealed class UpstreamTestCaseServerHalves : IAsyncDisposable
     /// The socket file the plaintext HTTP server half also listens on, for an <c>http-unix</c>
     /// case's <c>%HTTPUNIXPATH</c>, or <see langword="null"/> for none.
     /// </param>
+    /// <param name="socksUnixSocketPath">The socket file the SOCKS5 server half also listens on, for a <c>socks5unix</c> case's <c>%SOCKSUNIXPATH</c>, or <see langword="null"/> for none.</param>
     /// <param name="cancellationToken">Stops the serving engine.</param>
     public static async Task<UpstreamTestCaseServerHalves> StartAsync(
-        ServerTlsSettings tlsSettings, string? httpUnixSocketPath, CancellationToken cancellationToken)
+        ServerTlsSettings tlsSettings, string? httpUnixSocketPath, string? socksUnixSocketPath, CancellationToken cancellationToken)
     {
         CaseServer[] servers = [.. Listeners.Select(listener => new CaseServer(listener.Scheme))];
         var tftp = new CaseDatagramServer("tftp");
@@ -210,6 +220,7 @@ internal sealed class UpstreamTestCaseServerHalves : IAsyncDisposable
             .. Listeners.SelectMany(listener => listener.Hosts.Select(host => ListenUrlFor(listener.Scheme, host))),
             new("tftp", LoopbackIPv4, 0),
             .. HttpUnixSocketListenUrls(httpUnixSocketPath),
+            .. SocksUnixSocketListenUrls(socksUnixSocketPath),
         ];
         var listeners = new BoundPortRecordingListenerFactory(new SocketListenerFactory(tlsSettings), urls.Length);
         var log = new NoteCollectingExchangeLogFactory();
@@ -240,11 +251,13 @@ internal sealed class UpstreamTestCaseServerHalves : IAsyncDisposable
         IConnectionProtocolServer ssh,
         IConnectionProtocolServer smb,
         MailUpstreamTestCaseReplies mailReplies,
-        HttpProxyUpstreamTestCaseReplies proxyReplies)
+        HttpProxyUpstreamTestCaseReplies proxyReplies,
+        SocksUpstreamTestCaseReplies socksReplies)
     {
         // Upstream's sws sends every tunnel to 127.0.0.1 at the CONNECT's port (BL-556), so the proxy
         // reaches real loopback sockets, whatever host the request names.
         var proxy = new HttpProxyUpstreamTestCaseServer(proxyReplies, new SocketOriginConnector(AllowedOriginRule.LoopbackOnly));
+        var socks = new SocksUpstreamTestCaseServer(socksReplies, new SocketOriginConnector(AllowedOriginRule.LoopbackOnly));
         var http = new HttpUpstreamTestCaseServer(httpReplies);
         var ftp = new FtpUpstreamTestCaseServer(ftpReplies, new AnonymousAuthenticationPolicy());
         var gopher = new GopherUpstreamTestCaseServer(gopherReplies);
@@ -254,7 +267,7 @@ internal sealed class UpstreamTestCaseServerHalves : IAsyncDisposable
         IConnectionProtocolServer[] playing = [http, http, ftp, ftp, gopher, gopher, mqtt, mqtt, new DictProtocolServer(noDefinitions), new TelnetProtocolServer(), ssh, smb,
             new ImapUpstreamTestCaseServer(mailReplies, new AnonymousAuthenticationPolicy()),
             new Pop3UpstreamTestCaseServer(mailReplies, new AnonymousAuthenticationPolicy()),
-            new SmtpUpstreamTestCaseServer(mailReplies, new AnonymousAuthenticationPolicy()), proxy, proxy];
+            new SmtpUpstreamTestCaseServer(mailReplies, new AnonymousAuthenticationPolicy()), proxy, proxy, socks, socks];
         for (var index = 0; index < servers.Length; index++)
         {
             servers[index].Current = playing[index];
@@ -284,6 +297,10 @@ internal sealed class UpstreamTestCaseServerHalves : IAsyncDisposable
     // answers it; its host only keys its row apart from the TCP listener's, as nothing binds it.
     private static ListenUrl[] HttpUnixSocketListenUrls(string? path) =>
         path is null ? [] : [new ListenUrl("http", "localhost", 0) { UnixSocket = new UnixSocketAddress(path, isAbstract: false) }];
+
+    // The SOCKS5 listener on a Unix socket shares the socks5 scheme, so the SOCKS case server answers it.
+    private static ListenUrl[] SocksUnixSocketListenUrls(string? path) =>
+        path is null ? [] : [new ListenUrl("socks5", "localhost", 0) { UnixSocket = new UnixSocketAddress(path, isAbstract: false) }];
 
     /// <summary>
     /// Registers one scheme for whichever case server <see cref="Play"/> set.

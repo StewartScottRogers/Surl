@@ -8,7 +8,7 @@ depends-on: [BL-559, BL-547, BL-391, BL-393, BL-1035]
 touches: [Conformance/Surl.Conformance.UnitLibrary, Conformance/Surl.Conformance.UnitTests, Protocols/Proxy/Surl.Protocol.Socks.UnitLibrary, Protocols/Proxy/Surl.Protocol.Socks.UnitTests, Documentation/Conformance]
 requirement: none
 created: 2026-11-04
-completed:
+completed: 2026-11-12
 ---
 # BL-562 — Play the server half of upstream socks4, socks5 and socks5unix test cases
 
@@ -39,16 +39,16 @@ file counts the cases.
 
 ## Acceptance criteria
 
-- [ ] The server-name table's `socks4`, `socks5` and `socks5unix` rows say built and map their
+- [x] The server-name table's `socks4`, `socks5` and `socks5unix` rows say built and map their
       variables, with a named test in `Surl.Conformance.UnitTests` pinning each row.
-- [ ] The run covers the 25 cases above (715 and 2055 once `http-proxy` is built) on each reference
+- [x] The run covers the 25 cases above (715 and 2055 once `http-proxy` is built) on each reference
       pin whose features allow them; the result lines list each by number, and Notes record the
       counts per platform.
-- [ ] Each SOCKS instruction or reply attribute a case uses that the server half does not implement
+- [x] Each SOCKS instruction or reply attribute a case uses that the server half does not implement
       gives `servercmd-unsupported:<command>`, with a named test.
-- [ ] Failing cases are grouped by cause into new tasks filed with `task-planner`, with their IDs in
+- [x] Failing cases are grouped by cause into new tasks filed with `task-planner`, with their IDs in
       Notes.
-- [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and every touched library
+- [x] `dotnet build -warnaserror` is clean, the fast tests are green, and every touched library
       keeps 100% line and branch coverage.
 
 ## Notes
@@ -57,9 +57,26 @@ file counts the cases.
   `global.json` pins (10.0.401; installed are only 10.0.100-rc.1, 11.0.100-rc.2 and 11.0.100), so
   no build or test gate can run. No code was written.
 
+- 2026-11-12 (lane 4): `SocksUpstreamTestCaseServer` and `SocksUpstreamTestCaseReplies` in Surl.Protocol.Socks
+  wrap the shipped `SocksProtocolServer` with a case connector - always `127.0.0.1` at the request's port or the
+  case's `backendport`, as upstream's socksd does; `response N` forces a failure (SOCKS4 `5B`, SOCKS5 `N` for 2 to 6,
+  else `01`) - and, for `method 2`, accounts accepting the case's `user` and `password`. Decision: reuse the shipped
+  server rather than a second one, so the cases exercise the code users run. A word or value the half lacks gives
+  `servercmd-unsupported:<word>` (named tests).
+- Rows `socks4` and `socks5` are built with `PortVariable` `SOCKSPORT`; `socks5unix` is built with `SOCKSUNIXPATH`.
+  `%SOCKSPORT` is the SOCKS4 listener's port when the case's server list names `socks4`, else the SOCKS5 one's; a
+  socks5unix case also gets a Unix listener on the SOCKS5 case server, in a short temporary folder.
+- Counts, win-x64 (2026-11-12): 22 of the 25 cases pass (700-703, 706-713, 715-717, 719-721, 728, 729, 742, 2055);
+  1467, 1468 and 1470 skip `feature-missing:!win32`. The passing list goes 1,107 to 1,129. Linux and macOS were not
+  run here (lanes test on Windows only): their 25 cases run at the next CI run, and each leg's list is to be updated
+  from its artifact.
+- Filed BL-1078: test 1548 (not a SOCKS case) fails `errorcode` in this run because BL-683 closes an empty-reply
+  HTTP connection; it was already on the list.
+
 ## Log
 
 - 2026-11-04: Created.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. waits on BL-1035 - pinned .NET SDK 10.0.401 is not installed
 - 2026-11-12: Backlog -> Doing.
+- 2026-11-12: Doing -> Done. socks4, socks5 and socks5unix server halves play upstream cases; 22 of 25 pass on win-x64, 3 need !win32

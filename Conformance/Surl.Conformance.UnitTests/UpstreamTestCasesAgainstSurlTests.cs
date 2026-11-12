@@ -3,6 +3,7 @@ using System.Globalization;
 using System.Net;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
+using System.Text;
 using Surl.LineProtocol;
 using Surl.Networking;
 using Surl.Protocol.Ftp;
@@ -10,6 +11,7 @@ using Surl.Protocol.Gopher;
 using Surl.Protocol.Http;
 using Surl.Protocol.HttpProxy;
 using Surl.Protocol.Mqtt;
+using Surl.Protocol.Socks;
 using Surl.Protocol.Tftp;
 
 namespace Surl.Conformance;
@@ -57,9 +59,13 @@ public sealed class UpstreamTestCasesAgainstSurlTests
     private const string SmbFamily = "smb";
     private const string MailFamily = "mail";
     private const string HttpProxyFamily = "http-proxy";
+    private const string SocksFamily = "socks";
 
     // The variable the http-unix row of UpstreamTestCaseServers names its socket path with.
     private static readonly string HttpUnixPathVariable = UpstreamTestCaseServers.Find("http-unix")!.UnixSocketPathVariable!;
+
+    // The variable the socks5unix row names its socket path with.
+    private static readonly string SocksUnixPathVariable = UpstreamTestCaseServers.Find("socks5unix")!.UnixSocketPathVariable!;
 
     // Each composed server name and the server half that plays it; a case naming any other is
     // skipped server-half-not-composed. dict and telnet are Surl's own servers, which keep no log.
@@ -87,6 +93,9 @@ public sealed class UpstreamTestCasesAgainstSurlTests
         ["smtp"] = MailFamily,
         ["http-proxy"] = HttpProxyFamily,
         ["https-proxy"] = HttpProxyFamily,
+        ["socks4"] = SocksFamily,
+        ["socks5"] = SocksFamily,
+        ["socks5unix"] = SocksFamily,
     };
 
     // The port variable the server-name table gives a proxy row.
@@ -387,15 +396,15 @@ public sealed class UpstreamTestCasesAgainstSurlTests
         private async Task<UpstreamTestCaseResult> RunInItsSocketFolderAsync(
             int number, byte[] source, CaseClient client, ServerTlsSettings tlsSettings, IEnumerable<string> serverNames, CancellationToken cancellationToken)
         {
-            if (!serverNames.Any(name => UpstreamTestCaseServers.Find(name)?.UnixSocketPathVariable == HttpUnixPathVariable))
+            if (!serverNames.Any(name => UpstreamTestCaseServers.Find(name)?.UnixSocketPathVariable is not null))
             {
-                return await RunSelectedCaseAsync(number, source, client, tlsSettings, null, cancellationToken);
+                return await RunSelectedCaseAsync(number, source, client, tlsSettings, null, null, cancellationToken);
             }
 
             var socketFolder = Directory.CreateDirectory(Path.Combine(Path.GetTempPath(), "surl-" + Path.GetRandomFileName()));
             try
             {
-                return await RunSelectedCaseAsync(number, source, client, tlsSettings, Path.Combine(socketFolder.FullName, "http.sock"), cancellationToken);
+                return await RunSelectedCaseAsync(number, source, client, tlsSettings, Path.Combine(socketFolder.FullName, "http.sock"), Path.Combine(socketFolder.FullName, "socks.sock"), cancellationToken);
             }
             finally
             {
@@ -404,16 +413,16 @@ public sealed class UpstreamTestCasesAgainstSurlTests
         }
 
         private async Task<UpstreamTestCaseResult> RunSelectedCaseAsync(
-            int number, byte[] source, CaseClient client, ServerTlsSettings tlsSettings, string? httpUnixSocketPath, CancellationToken cancellationToken)
+            int number, byte[] source, CaseClient client, ServerTlsSettings tlsSettings, string? httpUnixSocketPath, string? socksUnixSocketPath, CancellationToken cancellationToken)
         {
             // The case's folder stands for runtests' own: curl's working directory, %PWD and
             // HOME, with %LOGDIR the relative "log" inside it, as runtests runs one case at a time.
             var caseDirectory = Directory.CreateDirectory(Path.Combine(work, $"{client.LogPrefix}test{number}")).FullName;
             const string logDirectory = "log";
             Directory.CreateDirectory(Path.Combine(caseDirectory, logDirectory));
-            await using var serverHalves = await UpstreamTestCaseServerHalves.StartAsync(tlsSettings, httpUnixSocketPath, cancellationToken);
+            await using var serverHalves = await UpstreamTestCaseServerHalves.StartAsync(tlsSettings, httpUnixSocketPath, socksUnixSocketPath, cancellationToken);
 
-            var testCase = UpstreamTestCaseParser.Parse(source, RunEnvironment(number, caseDirectory, logDirectory, serverHalves, client, httpUnixSocketPath));
+            var testCase = UpstreamTestCaseParser.Parse(source, RunEnvironment(number, caseDirectory, logDirectory, serverHalves, client, httpUnixSocketPath, socksUnixSocketPath, source));
             UpstreamTestCaseCommandLine commandLine;
             HttpUpstreamTestCaseReplies replies;
             FtpUpstreamTestCaseReplies ftpReplies;
@@ -422,6 +431,7 @@ public sealed class UpstreamTestCasesAgainstSurlTests
             TftpUpstreamTestCaseReplies tftpReplies;
             MailUpstreamTestCaseReplies mailReplies;
             HttpProxyUpstreamTestCaseReplies proxyReplies;
+            SocksUpstreamTestCaseReplies socksReplies;
             // Upstream's runtests writes one servercmd file every server reads and each ignores the words
             // it does not know (BL-898); a server half here throws on one, so each gets the lines its own row implements.
             var families = ServerNames(testCase).Select(name => ServerFamilies[name]).Distinct().ToList();
@@ -438,6 +448,7 @@ public sealed class UpstreamTestCasesAgainstSurlTests
                 tftpReplies = new TftpUpstreamTestCaseReplies(FtpReplyParts(testCase), CommandsFor(TftpFamily));
                 mailReplies = new MailUpstreamTestCaseReplies(MailReplyParts(testCase), CommandsFor(MailFamily));
                 proxyReplies = new HttpProxyUpstreamTestCaseReplies(ReplyParts(testCase), CommandsFor(HttpProxyFamily));
+                socksReplies = new SocksUpstreamTestCaseReplies(CommandsFor(SocksFamily));
             }
             catch (FormatException exception)
             {
@@ -450,7 +461,7 @@ public sealed class UpstreamTestCasesAgainstSurlTests
             await WriteFileServerFilesAsync(number, testCase, families, Path.Combine(caseDirectory, logDirectory), smbRoot, cancellationToken);
             serverHalves.Play(
                 replies, ftpReplies, gopherReplies, mqttReplies, tftpReplies,
-                fileServers.CreateSsh(caseDirectory, sshUser), UpstreamTestCaseFileServers.CreateSmb(smbRoot), mailReplies, proxyReplies);
+                fileServers.CreateSsh(caseDirectory, sshUser), UpstreamTestCaseFileServers.CreateSmb(smbRoot), mailReplies, proxyReplies, socksReplies);
             var curl = await client.Client.RunAsync(
                 commandLine.Arguments, commandLine.StandardInput, CurlEnvironment(Slashes(caseDirectory), commandLine), caseDirectory, cancellationToken);
             if (curl.TimedOut)
@@ -516,8 +527,8 @@ public sealed class UpstreamTestCasesAgainstSurlTests
         }
 
         private UpstreamTestCaseEnvironment RunEnvironment(
-            int number, string caseDirectory, string logDirectory, UpstreamTestCaseServerHalves serverHalves, CaseClient client, string? httpUnixSocketPath) => new(
-            WithHttpUnixSocketPath(new Dictionary<string, string>(StringComparer.Ordinal)
+            int number, string caseDirectory, string logDirectory, UpstreamTestCaseServerHalves serverHalves, CaseClient client, string? httpUnixSocketPath, string? socksUnixSocketPath, byte[] source) => new(
+            WithUnixSocketPaths(new Dictionary<string, string>(StringComparer.Ordinal)
             {
                 ["HOSTIP"] = "127.0.0.1",
                 ["CLIENTIP"] = "127.0.0.1",
@@ -544,6 +555,7 @@ public sealed class UpstreamTestCasesAgainstSurlTests
                 ["SMTP6PORT"] = serverHalves.SmtpIPv6Port.ToString(CultureInfo.InvariantCulture),
                 [PortVariableOf("http-proxy")] = serverHalves.ProxyPort.ToString(CultureInfo.InvariantCulture),
                 [PortVariableOf("https-proxy")] = serverHalves.HttpsProxyPort.ToString(CultureInfo.InvariantCulture),
+                [PortVariableOf("socks5")] = SocksPortFor(serverHalves, source).ToString(CultureInfo.InvariantCulture),
                 // The SSH server half's root is the case's folder (UpstreamTestCaseFileServers).
                 ["SFTP_PWD"] = string.Empty,
                 ["SCP_PWD"] = string.Empty,
@@ -569,7 +581,7 @@ public sealed class UpstreamTestCasesAgainstSurlTests
                 // Only SCP and SFTP cases name %USER, as the login the SSH server half lets in.
                 ["USER"] = sshUser,
                 ["DEV_NULL"] = OperatingSystem.IsWindows() ? "NUL" : "/dev/null",
-            }, httpUnixSocketPath),
+            }, httpUnixSocketPath, socksUnixSocketPath),
             client.Features,
             new ImportedFileReader(),
             TimeProvider.System);
@@ -577,15 +589,25 @@ public sealed class UpstreamTestCasesAgainstSurlTests
         // %HTTPUNIXPATH appears only in a command line, which runtests' shell splits; single quotes
         // keep a blank in the temporary folder's path (C:\Users\First Last\...) and its
         // backslashes in one word.
-        private static Dictionary<string, string> WithHttpUnixSocketPath(Dictionary<string, string> variables, string? httpUnixSocketPath)
+        private static Dictionary<string, string> WithUnixSocketPaths(
+            Dictionary<string, string> variables, string? httpUnixSocketPath, string? socksUnixSocketPath)
         {
             if (httpUnixSocketPath is not null)
             {
                 variables[HttpUnixPathVariable] = $"'{httpUnixSocketPath}'";
             }
 
+            if (socksUnixSocketPath is not null)
+            {
+                variables[SocksUnixPathVariable] = $"'{socksUnixSocketPath}'";
+            }
+
             return variables;
         }
+
+        // A case names its SOCKS server, and so which listener %SOCKSPORT is, in its <server> part.
+        private static int SocksPortFor(UpstreamTestCaseServerHalves serverHalves, byte[] source) =>
+            Encoding.Latin1.GetString(source).Contains("\nsocks4\n", StringComparison.Ordinal) ? serverHalves.Socks4Port : serverHalves.Socks5Port;
 
         private static Dictionary<string, string> CurlEnvironment(string home, UpstreamTestCaseCommandLine commandLine)
         {

@@ -306,7 +306,9 @@ row (`Testnum`, the same words as `Surl.Protocol.HttpProxy`'s `HttpProxyUpstream
 and `UpstreamTestCaseServer.PortVariable` names `%PROXYPORT` and `%HTTPSPROXYPORT`. The tests' server halves add
 `HttpProxyUpstreamTestCaseServer` on the `http-proxy` scheme (plaintext) and on `https` with `ListenUrl.IsProxy` (behind TLS),
 tunnelling through `Surl.Networking`'s `SocketOriginConnector` limited to loopback; `<proxy>` reads the proxy's record and
-`<protocol>` the origin half's. 715 and 2055 keep `server-not-built:socks5` and 1230 `server-half-not-composed:http-ipv6`.
+`<protocol>` the origin half's. 1230 skips `server-half-not-composed:http-ipv6`.
+
+Playing the socks4, socks5 and socks5unix cases is built (BL-562): `UpstreamTestCaseServerCommands.Socks` is their row (`Testnum`, `response`, `method`, `user`, `password`, `backendport`, the same words as `Surl.Protocol.Socks`'s `SocksUpstreamTestCaseReplies.SupportedServerCommands`), and the `socks4` and `socks5` rows name `%SOCKSPORT` (the run gives the SOCKS4 listener's port to a case naming `socks4`, else the SOCKS5 one's); `socks5unix` keeps `%SOCKSUNIXPATH`. 1467, 1468 and 1470 need `!win32` and run on the Linux and macOS pins only.
 
 The upstream test certificates are generated (BL-682): `UpstreamTestCertificateDescription.Parse`
 reads a `tests/certs/*.prm` file (subject, `DNS:` or `DER:` subject alternative name, key usage,

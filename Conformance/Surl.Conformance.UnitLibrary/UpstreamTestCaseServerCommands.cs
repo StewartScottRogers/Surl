@@ -63,6 +63,13 @@ public static class UpstreamTestCaseServerCommands
     /// </summary>
     public static readonly IReadOnlySet<string> HttpProxy = new HashSet<string>(["Testnum"], StringComparer.Ordinal);
 
+    /// <summary>
+    /// The SOCKS server halves' commands (BL-562), the words upstream's <c>socksd</c> reads and
+    /// <c>Surl.Protocol.Socks</c>'s <c>SocksUpstreamTestCaseReplies</c> accepts.
+    /// </summary>
+    public static readonly IReadOnlySet<string> Socks = new HashSet<string>(
+        ["Testnum", "response", "method", "user", "password", "backendport"], StringComparer.Ordinal);
+
     /// <summary>The name a case's <c>&lt;postcmd&gt;</c> is checked under; no server half implements it.</summary>
     public const string PostCommand = "postcmd";
 
@@ -74,6 +81,9 @@ public static class UpstreamTestCaseServerCommands
         ["https-mtls"] = Http,
         ["http-proxy"] = HttpProxy,
         ["https-proxy"] = HttpProxy,
+        ["socks4"] = Socks,
+        ["socks5"] = Socks,
+        ["socks5unix"] = Socks,
         ["ftp"] = Ftp,
         ["ftp-ipv6"] = Ftp,
         ["ftps"] = Ftp,

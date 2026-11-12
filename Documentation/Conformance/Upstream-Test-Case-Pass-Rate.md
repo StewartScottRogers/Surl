@@ -33,7 +33,7 @@ decision 5). This is success criterion 2 of the
 
 | Platform | Commit | Date | Reference pin SHA-256 | Total | Runnable | Passed | Failed | Skipped | test-server-choice | Pass rate |
 | --- | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| `win-x64` | `153bbc14` + BL-549 + BL-855 + BL-896 + BL-897 + BL-898 + BL-899 + BL-900 + BL-556 + BL-682 | 2026-11-12 | `0E773709C3A44DB47B88B71351D902027682ED87C3BD3821009E454BACCA8778` | 2,013 | 1,154 | 1,107 | 47 | 859 | 0 | 95.9% |
+| `win-x64` | `153bbc14` + BL-549 + BL-855 + BL-896 + BL-897 + BL-898 + BL-899 + BL-900 + BL-556 + BL-682 + BL-562 | 2026-11-12 | `0E773709C3A44DB47B88B71351D902027682ED87C3BD3821009E454BACCA8778` | 2,013 | 1,176 | 1,129 | 47 | 837 | 0 | 96.0% |
 | `linux-x64` | `8eb0301b` | 2026-11-06 | `153CA463957609117D21A848BE29B70691B85F9E5CC9370C7DAA037B839A4E45` | 2,013 | 1,237 | 1,154 | 83 | 776 | 0 | 93.3% |
 | `osx-arm64` | `8eb0301b` | 2026-11-06 | `04E0E69BCD3BD814EC093551A0447AC14EDEEA9D395B468A2025DCB3F766EEBF` | 2,013 | 1,237 | 1,153 | 84 | 776 | 0 | 93.2% |
 
@@ -47,7 +47,16 @@ and fails `errorcode` on macOS. Both skip fewer cases than Windows, chiefly `fea
 8 in `data`, 7 in `errorcode`, 4 each in `stdout` and `timeout`, 3 in `stderr` and 1 each in
 `file` and `upload`.
 
-Windows: the run of BL-556's changes, the first with the `http-proxy` and `https-proxy` server halves
+Windows: the run of BL-562's changes, the first with the `socks4`, `socks5` and `socks5unix` server halves
+composed (`SocksUpstreamTestCaseServer` on `%SOCKSPORT`, a SOCKS4 and a SOCKS5 listener, and on `%SOCKSUNIXPATH`;
+every request goes to `127.0.0.1`, or to the case's `backendport`, as upstream's `socksd` does). All 22 cases that
+run on Windows pass: 700, 701, 702, 703, 706, 707, 708, 709, 710, 711, 712, 713, 715, 716, 717, 719, 720, 721, 728, 729,
+742 and 2055 (715 and 2055 now that BL-556 built `http-proxy`). 1467, 1468 and 1470 skip `feature-missing:!win32`
+and run on the Linux and macOS pins at their next CI run. The same run found 1548 failing `errorcode` (curl exits 0,
+the case expects 28): BL-683 made the HTTP half close a connection whose reply part is empty, which 1548 relied on
+being held open - not a SOCKS change; its number stays in the list.
+
+The run before, of BL-556's changes, the first with the `http-proxy` and `https-proxy` server halves
 composed (`HttpProxyUpstreamTestCaseServer` on `%PROXYPORT`, and on `%HTTPSPROXYPORT` behind TLS; every
 tunnel goes to `127.0.0.1` at the `CONNECT`'s port, as upstream's `sws` sends it). Of the 29 cases that
 named them, 25 pass (80, 83, 95, 275, 445, 714, 744, 1078, 1287, 1288, 1319, 1320, 1321, 1428, 1586, 1630,

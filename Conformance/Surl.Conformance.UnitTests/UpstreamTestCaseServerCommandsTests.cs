@@ -4,6 +4,7 @@ using Surl.Protocol.Gopher;
 using Surl.Protocol.Http;
 using Surl.Protocol.HttpProxy;
 using Surl.Protocol.Mqtt;
+using Surl.Protocol.Socks;
 using Surl.Protocol.Tftp;
 
 namespace Surl.Conformance;
@@ -94,6 +95,24 @@ public sealed class UpstreamTestCaseServerCommandsTests
     [DataRow("http-proxy", "swsclose", false)]
     [DataRow("https-proxy", "idle", false)]
     public void IsSupported_ProxyRows_AcceptOnlyTestnum(string server, string command, bool expected)
+    {
+        Assert.AreEqual(expected, UpstreamTestCaseServerCommands.IsSupported(server, command));
+    }
+
+    [TestMethod]
+    public void Socks_IsTheCommandsTheSocksServerHalfAccepts()
+    {
+        var table = UpstreamTestCaseServerCommands.Socks.Order(StringComparer.Ordinal).ToArray();
+
+        CollectionAssert.AreEqual(SocksUpstreamTestCaseReplies.SupportedServerCommands.Order(StringComparer.Ordinal).ToArray(), table);
+    }
+
+    [TestMethod]
+    [DataRow("socks4", "response", true)]
+    [DataRow("socks5", "backendport", true)]
+    [DataRow("socks5unix", "method", true)]
+    [DataRow("socks5", "reply", false)]
+    public void IsSupported_SocksRows_AcceptTheSocksCommands(string server, string command, bool expected)
     {
         Assert.AreEqual(expected, UpstreamTestCaseServerCommands.IsSupported(server, command));
     }

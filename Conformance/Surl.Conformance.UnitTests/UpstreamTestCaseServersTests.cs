@@ -14,7 +14,7 @@ public sealed class UpstreamTestCaseServersTests
     [DataRow("https-mtls", "https", true)]
     [DataRow("smb", "smb", true)]
     [DataRow("http/2", "http", false)]
-    [DataRow("socks5", "http", false)]
+    [DataRow("dns", "http", false)]
     public void Find_KnownName_GivesItsRow(string name, string protocol, bool isBuilt)
     {
         var server = UpstreamTestCaseServers.Find(name);
@@ -53,7 +53,7 @@ public sealed class UpstreamTestCaseServersTests
             .Where(server => server.PortVariable is not null)
             .Select(server => $"{server.Name} %{server.PortVariable}");
 
-        CollectionAssert.AreEqual(new[] { "http-proxy %PROXYPORT", "https-proxy %HTTPSPROXYPORT" }, mapped.ToArray());
+        CollectionAssert.AreEqual(new[] { "http-proxy %PROXYPORT", "https-proxy %HTTPSPROXYPORT", "socks4 %SOCKSPORT", "socks5 %SOCKSPORT" }, mapped.ToArray());
         Assert.IsTrue(UpstreamTestCaseServers.All.Where(server => server.PortVariable is not null)
             .All(server => UpstreamTestCaseVariables.Names.Contains(server.PortVariable!)));
     }
@@ -83,7 +83,7 @@ public sealed class UpstreamTestCaseServersTests
         var unbuilt = UpstreamTestCaseServers.All.Where(server => !server.IsBuilt).Select(server => server.Name);
 
         CollectionAssert.AreEquivalent(
-            new[] { "http/2", "http/3", "socks4", "socks5", "socks5unix", "httptls+srp", "httptls+srp-ipv6", "dns" },
+            new[] { "http/2", "http/3", "httptls+srp", "httptls+srp-ipv6", "dns" },
             unbuilt.ToArray());
     }
 }
