@@ -199,6 +199,28 @@ Local transactions (BL-956; ADR-0146 decisions 1.1 to 1.4 and 1.6 to 1.8):
   pre-settled `declare`, `discharge` or transactional transfer is applied and answered by nothing.
   Transactional retirement and acquisition (BL-957; ADR-0146 decision 1.5 and its amendment): a client `disposition` in `transactional-state` holds its outcome until the commit applies it (a rollback unsettles it again; an unknown `txn-id` is answered `rejected` with `amqp:transaction:unknown-id`), and a `flow` whose `properties` carry `txn-id` makes the container's transfers carry `transactional-state` naming it; a rollback returns those queue deliveries, still unsettled, to their queue redelivered.
 
+Durable and shared topic subscriptions (BL-960; ADR-0146 decision 3):
+
+- A client receiver's topic source with `durable` above none and an `expiry-policy` other than
+  `link-detach` (an absent or unknown policy is `session-end`, Part 3 section 3.5.6's default) is a kept
+  subscription (`Amqp1KeptSubscription`): a bus queue named `surl-subscription-` and the hex SHA-256 of
+  the client's `container-id`, a zero byte and the link name, bound to the topic filter and carrying a
+  description (hex of the encoded client address, canonical filter, applied filters, policy and sharing).
+  `never` is a durable queue the bus persists; `session-end` and `connection-close` an exclusive one,
+  deleted with its session (`Amqp1Session.SessionSubscriptionQueues`) or connection. It is answered
+  `durable` 1, the policy applied, the `timeout` asked for `never` and none otherwise, and the
+  `shared`/`global` capabilities applied.
+- Each attach judges the Subscribe right first (a live subscription made and ended at once), then
+  inspects the queue: another link or connection holding it is `amqp:resource-locked` (a shared one is
+  held only by a different description), another description replaces it, the same resumes it. Filters
+  run as a message leaves the queue; a message they refuse, or the client cannot name, is acknowledged.
+  No-local is not applied to a kept subscription. An attach with no source finds the subscription by
+  link name (plain, shared, shared and global) and is answered its stored source; with none it is
+  `amqp:not-found`. A `closed` detach deletes the queue unless another consumer still takes from it.
+  `Amqp1BusNodeDirectory` refuses `/queue/surl-subscription-...` with `amqp:not-found`.
+- Known gap: the bus's `Consume` also judges `sub` on `$queue/<name>`, so under `--topic-access` grants
+  covering the topic but not `$queue/surl-subscription-*` a durable attach gets `amqp:unauthorized-access`.
+
 `Amqp1Container` is the one `IConnectionProtocolServer`: it runs `Amqp1SecurityNegotiation`, then
 `Amqp1ContainerConnection` for the account SASL logged in. The head timeout runs from accept until the
 client's `open` is read (headers and SASL included) and closes with no bytes. An exchange cancelled for

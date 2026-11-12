@@ -28,6 +28,7 @@ public sealed partial class Amqp1ContainerConnection
         }
 
         var open = (Amqp1Open)performative!;
+        clientContainerId = open.ContainerId;
         clientChannelMax = open.ChannelMax;
         clientMaxFrameSize = open.MaxFrameSize;
         StartEmptyFrames(open.IdleTimeOut);

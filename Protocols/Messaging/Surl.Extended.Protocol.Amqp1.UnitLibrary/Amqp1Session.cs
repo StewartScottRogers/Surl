@@ -24,6 +24,9 @@ internal sealed class Amqp1Session(ushort incomingChannel, ushort outgoingChanne
     /// </summary>
     public bool IsEnding { get; set; }
 
+    /// <summary>The queues of the subscriptions kept until this session ends (<c>expiry-policy</c> <c>session-end</c>).</summary>
+    public HashSet<string> SessionSubscriptionQueues { get; } = [];
+
     /// <summary>The transfer-id the client's next transfer carries (Part 2 section 2.5.6).</summary>
     public uint NextIncomingId { get; set; }
 

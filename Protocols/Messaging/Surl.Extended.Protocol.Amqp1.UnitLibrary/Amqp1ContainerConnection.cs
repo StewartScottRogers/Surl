@@ -51,6 +51,7 @@ public sealed partial class Amqp1ContainerConnection
     private Task emptyFramesRunning = Task.CompletedTask;
     private Task pumping = Task.CompletedTask;
     private long lastWrittenUtcTicks;
+    private string clientContainerId = string.Empty;
     private ushort clientChannelMax;
     private uint clientMaxFrameSize;
     private CancellationToken openDeadline;

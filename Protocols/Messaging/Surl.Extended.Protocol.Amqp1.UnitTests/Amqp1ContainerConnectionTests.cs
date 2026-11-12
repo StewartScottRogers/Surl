@@ -110,8 +110,8 @@ public sealed partial class Amqp1ContainerConnectionTests
         {
             SenderSettleMode = 0,
             ReceiverSettleMode = 1,
-            // A durable source with a filter map and an unsettled map: neither is served (ADR-0107 decision 5).
-            Source = new Amqp1Described(Amqp1Descriptor.Source, new List<object?> { address, 2u, null, null, null, null, null, new Amqp1Map([]) }),
+            // A source asking durability but ending with the link, with a filter map, and an unsettled map: none is kept.
+            Source = new Amqp1Described(Amqp1Descriptor.Source, new List<object?> { address, 2u, new Amqp1Symbol("link-detach"), null, null, null, null, new Amqp1Map([]) }),
             Target = Terminus(Amqp1Descriptor.Target, "client-target"),
             Unsettled = new Amqp1Map([new KeyValuePair<object?, object?>(new byte[] { 1 }, null)]),
         };

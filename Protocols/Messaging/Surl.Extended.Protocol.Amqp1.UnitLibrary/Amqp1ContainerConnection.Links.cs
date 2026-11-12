@@ -47,10 +47,11 @@ public sealed partial class Amqp1ContainerConnection
     private async ValueTask AttachLinkAsync(Amqp1Session session, Amqp1Link link, Amqp1Attach attach)
     {
         var (nodeTerminus, refusal) = ResolveNode(attach, link);
-        refusal ??= await FindChosenErrorAsync("attach", link.NodeAddress) ?? OpenNode(link);
+        refusal ??= await FindChosenErrorAsync("attach", link.NodeAddress) ?? OpenNode(session, link);
         await WriteAsync(session.OutgoingChannel, AnsweringAttach(attach, link.ContainerHandle, refusal is null ? nodeTerminus : null));
         if (refusal is not null)
         {
+            link.Kept = null;
             // Part 2 section 2.6.3: a null terminus, then at once a closing detach with the error.
             link.IsDetachedByContainer = true;
             link.EndSource();
@@ -74,13 +75,19 @@ public sealed partial class Amqp1ContainerConnection
             return ResolveCoordinator(attach, link);
         }
 
+        var source = attach.Source;
+        if (LookKeptSubscriptionUp(attach, link) is { } stored)
+        {
+            (terminus, source) = stored;
+        }
+
         if (NodeRequest(attach, terminus) is not { } request)
         {
             return (null, NodeRefusal(Amqp1NodeOutcome.NotFound));
         }
 
         // ADR-0146 decision 2.2: a refused selector refuses the attach before any node is made.
-        var filters = attach.IsReceiver ? Amqp1SourceFilters.Read(attach.Source, request.IsTopic) : Amqp1SourceFilters.None;
+        var filters = attach.IsReceiver ? Amqp1SourceFilters.Read(source, request.IsTopic) : Amqp1SourceFilters.None;
         if (filters is null)
         {
             return (null, Error(Amqp1ErrorCondition.InvalidField, "selector not valid"));
@@ -94,7 +101,34 @@ public sealed partial class Amqp1ContainerConnection
 
         link.NodeAddress = nodeAddress;
         link.Filters = filters;
-        return (NodeTerminus(attach, terminus, nodeAddress, filters.Applied), null);
+        link.Kept = PlanKeptSubscription(attach, terminus, nodeAddress, filters);
+        return (NodeTerminus(attach, terminus, nodeAddress, filters.Applied, link.Kept), null);
+    }
+
+    // ADR-0146 decision 3.1: only a client receiver's topic source asking durability keeps a subscription.
+    private Amqp1KeptSubscription? PlanKeptSubscription(Amqp1Attach attach, Amqp1Terminus terminus, string nodeAddress, Amqp1SourceFilters filters) =>
+        attach.IsReceiver && Amqp1NodeAddress.IsTopic(nodeAddress) && Amqp1KeptSubscription.IsAskedFor(terminus)
+            ? Amqp1KeptSubscription.Plan(clientContainerId, attach.Name, terminus, nodeAddress[Amqp1NodeAddress.TopicPrefix.Length..], filters.Applied)
+            : null;
+
+    // ADR-0146 decision 3.3: a client receiver's attach with no source asks for the kept subscription of
+    // its name; the terminus and source that subscription was made with, or null when it asks for none.
+    private (Amqp1Terminus Terminus, Amqp1Described Source)? LookKeptSubscriptionUp(Amqp1Attach attach, Amqp1Link link)
+    {
+        if (!attach.IsReceiver || attach.Source is not null || FindKeptSubscription(attach) is not { } stored)
+        {
+            return null;
+        }
+
+        link.IsSubscriptionLookup = true;
+        var terminus = new Amqp1Terminus(stored.ClientAddress, false, false)
+        {
+            Durable = 1,
+            ExpiryPolicy = stored.ExpiryPolicy.Value,
+            IsShared = stored.IsShared,
+            IsGlobal = stored.IsGlobal,
+        };
+        return (terminus, Amqp1Terminus.Source(stored.ClientAddress, false, true, stored.Filters));
     }
 
     // ADR-0146 decision 1.1: a coordinator target is answered as any receiving link, its capabilities
@@ -124,11 +158,11 @@ public sealed partial class Amqp1ContainerConnection
     }
 
     // A dynamic node is answered with the address the directory gave it; any other echoes the client's.
-    private static Amqp1Described NodeTerminus(Amqp1Attach attach, Amqp1Terminus terminus, string nodeAddress, Amqp1Map? appliedFilters)
+    private static Amqp1Described NodeTerminus(Amqp1Attach attach, Amqp1Terminus terminus, string nodeAddress, Amqp1Map? appliedFilters, Amqp1KeptSubscription? kept)
     {
         var answeredAddress = terminus.IsDynamic ? nodeAddress : terminus.Address!;
         return attach.IsReceiver
-            ? Amqp1Terminus.Source(answeredAddress, terminus.IsDynamic, Amqp1NodeAddress.IsTopic(nodeAddress), appliedFilters)
+            ? Amqp1Terminus.Source(answeredAddress, terminus.IsDynamic, Amqp1NodeAddress.IsTopic(nodeAddress), appliedFilters, kept)
             : Amqp1Terminus.Target(answeredAddress, terminus.IsDynamic);
     }
 
@@ -163,11 +197,16 @@ public sealed partial class Amqp1ContainerConnection
 
     // A client receiver's link becomes the topic's live subscription or the queue's consumer; null
     // when it may, or the error that refuses the attach.
-    private Amqp1Error? OpenNode(Amqp1Link link)
+    private Amqp1Error? OpenNode(Amqp1Session session, Amqp1Link link)
     {
         if (link.ContainerReceives)
         {
             return null;
+        }
+
+        if (link.Kept is { } kept)
+        {
+            return OpenKeptSubscription(session, link, kept);
         }
 
         var outcome = Amqp1NodeAddress.IsTopic(link.NodeAddress) ? Subscribe(link) : Consume(link);
@@ -227,6 +266,11 @@ public sealed partial class Amqp1ContainerConnection
 
         NoteClientError("detach", detach.Error);
         EndLink(session, link);
+        if (detach.Closed)
+        {
+            DestroyKeptSubscription(session, link);
+        }
+
         if (!link.IsDetachedByContainer)
         {
             // Nothing of a link is kept for resumption, so a suspending detach ends it all the same.
@@ -276,6 +320,7 @@ public sealed partial class Amqp1ContainerConnection
         }
 
         session.LinksByClientHandle.Clear();
+        EndSessionSubscriptions(session);
     }
 
     // The attached link a frame names; null, with the session ended, when the handle is not attached.

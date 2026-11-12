@@ -76,6 +76,12 @@ public sealed class Amqp1BusNodeDirectory(MessageBus.MessageBus bus, BusConnecti
 
     private Amqp1NodeResolution ResolveQueue(string queue, bool clientIsReceiver)
     {
+        // ADR-0146 decision 3.4: only the subscriber reaches a kept subscription's queue.
+        if (queue.StartsWith(Amqp1KeptSubscription.QueueNamePrefix, StringComparison.Ordinal))
+        {
+            return Amqp1NodeResolution.NotFound;
+        }
+
         var right = clientIsReceiver ? TopicAccessRights.Subscribe : TopicAccessRights.Publish;
         if (!bus.GetTopicAccess(connection.Account, QueueAccessLevel + queue).HasFlag(right))
         {

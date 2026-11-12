@@ -8,7 +8,7 @@ depends-on: [BL-955, BL-959, BL-1035]
 touches: [Protocols/Messaging/Surl.Extended.Protocol.Amqp1.UnitLibrary, Protocols/Messaging/Surl.Extended.Protocol.Amqp1.UnitTests, Documentation/Conformance/Extended/Amqp1.md]
 requirement: none
 created: 2026-11-06
-completed:
+completed: 2026-11-12
 ---
 # BL-960 — Serve AMQP 1.0 durable and shared topic subscriptions
 
@@ -32,18 +32,18 @@ says, and may be shared; `session-end` and `connection-close` keep one until tha
 
 ## Acceptance criteria
 
-- [ ] A durable attach is answered `durable` `configuration`, `expiry-policy` `never`; messages published while
+- [x] A durable attach is answered `durable` `configuration`, `expiry-policy` `never`; messages published while
       it is detached (`closed` false) are delivered when the same `container-id` and link name attach again,
       and after a save and load of the bus.
-- [ ] A reattach with a different selector replaces the subscription (old messages gone); a reattach with a null
+- [x] A reattach with a different selector replaces the subscription (old messages gone); a reattach with a null
       source is answered with the stored source; a `closed` detach deletes the queue.
-- [ ] A second attach while the first holds it is refused with `amqp:resource-locked`; with `shared` both links
+- [x] A second attach while the first holds it is refused with `amqp:resource-locked`; with `shared` both links
       compete, keyed by the name before `|`, and `global` drops the `container-id` from the key.
-- [ ] `session-end` and `connection-close` keep an unpersisted subscription until that event, answered
+- [x] `session-end` and `connection-close` keep an unpersisted subscription until that event, answered
       `timeout` 0; `link-detach` is answered `durable` `none`.
-- [ ] Topic access is judged at every attach, `/queue/surl-subscription-...` is refused with `amqp:not-found`,
+- [x] Topic access is judged at every attach, `/queue/surl-subscription-...` is refused with `amqp:not-found`,
       and the bus's queue bound gives `amqp:resource-limit-exceeded`.
-- [ ] Each row above names its tests in `Amqp1.md`; 100% line and branch coverage holds.
+- [x] Each row above names its tests in `Amqp1.md`; 100% line and branch coverage holds.
 
 ## Notes
 
@@ -81,3 +81,4 @@ says, and may be shared; `session-end` and `connection-close` keep one until tha
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waits on BL-1035: pinned .NET SDK 10.0.401 is not installed, so dotnet build cannot run
 - 2026-11-12: Backlog -> Doing.
+- 2026-11-12: Doing -> Done. AMQP 1.0 container keeps durable, session-end, connection-close and shared topic subscriptions as bus queues (resume, replace, null-source lookup, closed-detach delete, resource-locked, access, 100% coverage)
