@@ -72,6 +72,26 @@ public sealed class BusConnectionPublishBatchTests
     }
 
     [TestMethod]
+    public void PublishBatch_OneTopicsListPassingMaxLogBytesOnItsLast_IsRefusedWholeAndLeavesTheHighWatermark()
+    {
+        // Each one-byte record counts 17 bytes, so two fit in 40 and the third does not.
+        var events = new RecordingSurlEventPublisher();
+        var (bus, connection, received) = Watched(events, maxLogBytes: 40);
+        bus.CreateLog("t3");
+
+        var result = connection.PublishBatch(
+        [
+            BusBatchEntry.ToTopic(Message("t3", "1")),
+            BusBatchEntry.ToTopic(Message("t3", "2")),
+            BusBatchEntry.ToTopic(Message("t3", "3")),
+        ]);
+
+        AssertRefused(MessageBusOutcome.StoreFull, 2, result);
+        Assert.AreEqual(0, bus.GetLogOffsets("t3").HighWatermark);
+        Assert.IsEmpty(received);
+    }
+
+    [TestMethod]
     public void PublishBatch_ThirdEntryQueueFullOnADirectQueue_PublishesNothing()
     {
         var events = new RecordingSurlEventPublisher();

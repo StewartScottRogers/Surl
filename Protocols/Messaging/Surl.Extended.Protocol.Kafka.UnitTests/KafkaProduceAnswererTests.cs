@@ -272,6 +272,18 @@ public sealed class KafkaProduceAnswererTests
     }
 
     [TestMethod]
+    public async Task ServeAsync_ABatchOfThreeWhoseThirdPassesTheBusLogBound_IsPolicyViolationAndAppendsNone()
+    {
+        // Each one-byte record counts 17 bytes, so two fit in 40 and the third does not.
+        var bus = new Surl.MessageBus.MessageBus(clock, maxLogBytes: 40);
+
+        var (written, _) = await ServeAsync(bus, Produce(3, -1, "orders", 0, Batch([Record(0, "a"), Record(1, "b"), Record(2, "c")])));
+
+        CollectionAssert.AreEqual(Response(Answer("orders", 0, 44, NoOffset, NoOffset)), written);
+        Assert.AreEqual(0, bus.GetLogOffsets("orders").HighWatermark);
+    }
+
+    [TestMethod]
     public async Task ServeAsync_VersionEight_AnswersTheLogStartOffsetEmptyRecordErrorsAndANullErrorMessage()
     {
         // Each one-byte record counts 17 bytes; a 40-byte topic log keeps two of three.

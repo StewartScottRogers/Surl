@@ -51,7 +51,8 @@ Produce (BL-519, ADR-0105 decisions 3, 4, 6 and 7, and its BL-519 amendment):
   Compressed batches are decoded first (below).
 - `KafkaProduceAnswerer` answers v3 to v8: `acks` 0, 1 and -1 (0 writes no response), the topic
   checks (17, 3, 29), the batch checks, the record size limit (10) and the bus bounds (44), then
-  publishes each record on `Surl.MessageBus` (value as payload, key, UTF-8 headers, QoS 1), so live
+  publishes a partition's records on `Surl.MessageBus` all or nothing through
+  `BusConnection.PublishBatch` (value as payload, key, UTF-8 headers, QoS 1; BL-754), so live
   subscribers of the mapped topic receive it, and answers the first record's log offset.
 
 Fetch and ListOffsets (BL-520, ADR-0105 decisions 1, 3, 4 and 6):

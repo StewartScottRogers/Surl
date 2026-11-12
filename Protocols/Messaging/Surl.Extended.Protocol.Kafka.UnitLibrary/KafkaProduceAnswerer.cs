@@ -134,21 +134,19 @@ public sealed class KafkaProduceAnswerer(MessageBus.MessageBus bus, KafkaProduce
     private PartitionAnswer Duplicate(string topic, int index, long baseOffset) =>
         new(index, KafkaErrorCode.None, baseOffset, NoOffset, bus.GetLogOffsets(topic).LogStartOffset);
 
-    // Publishes each record in turn; a store bound met part of the way is POLICY_VIOLATION, the
-    // records before it staying appended (the bus has no all-or-nothing append yet).
+    // Publishes the partition's records as one all-or-nothing bus batch (ADR-0105 decision 4); a
+    // store bound met by any of them is POLICY_VIOLATION and none is appended.
     private PartitionAnswer Publish(string topic, int index, KafkaRecordBatchReadResult batches, string? account, ExchangeContext context)
     {
-        var offsets = new List<long>(batches.Records.Count);
-        foreach (var record in batches.Records)
+        using var connection = bus.Connect(account);
+        var entries = batches.Records.Select(record => BusBatchEntry.ToTopic(ToBusMessage(topic, record))).ToList();
+        var published = connection.PublishBatch(entries);
+        if (published.Outcome != MessageBusOutcome.Succeeded)
         {
-            var published = bus.Publish(ToBusMessage(topic, record), account);
-            if (published.Outcome != MessageBusOutcome.Succeeded)
-            {
-                return PartitionAnswer.Failed(index, KafkaErrorCode.PolicyViolation);
-            }
-
-            offsets.Add(published.LogOffset.GetValueOrDefault());
+            return PartitionAnswer.Failed(index, KafkaErrorCode.PolicyViolation);
         }
+
+        var offsets = published.Results.Select(result => result.LogOffset.GetValueOrDefault()).ToList();
 
         producerStates.Record(topic, batches.Batches, BatchBaseOffsets(batches.Batches, offsets));
 
