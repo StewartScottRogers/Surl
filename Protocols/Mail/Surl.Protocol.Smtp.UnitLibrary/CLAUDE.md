@@ -41,15 +41,16 @@ glossary's, sections "Mail: SMTP, IMAP and POP3" and "Authentication".
   with `MailboxStore.LookUpRecipient`, one that names no account discarded at delivery. With a
   `--mail-domain` configured (ADR-0102 decision 1), a recipient outside every domain
   (`RelayingDenied`) is answered `550 5.7.1 Relaying denied`, noted, and not counted; an owner
-  reached by several `RCPT`s, aliases or catch-alls gets one copy, unless two aliases each name
-  an owner the other does not and share one, which then gets two (a `MailRecipient` cannot be
-  split from this library).
+  reached by several `RCPT`s, aliases or catch-alls gets one copy, also when two aliases each
+  name an owner the other does not and share one (`MailRecipient.WithoutOwners` keeps the later
+  alias's unreached owners only; BL-767).
   `DATA` streams into a `PendingMessage` from `MailboxStore.CreatePendingMessage`: first
   `SmtpTraceFields`, then the body as `CrlfLineReader.ReadDotStuffedBodyAsync` unstuffs it, so
   with a data directory the message goes straight into the store's pending file. A message past
   `--max-filesize` (trace fields and body together) or a peer that closes mid-body disposes it,
   deleting the pending file; otherwise `MailboxStore.Deliver(..., PendingMessage)` stores it
-  and `SaveChangesAsync` writes the index. `StoreFull` is answered `452 4.3.1`,
+  and `SaveChangesAsync` writes the index. `StoreFull` is answered `452 4.3.1`, `QuotaExceeded` (checked only after `DATA`, never at `RCPT`;
+  ADR-0102 decision 1.4) `452 4.2.2 Mailbox full` with nothing delivered to any recipient,
   `MessageTooLarge` `552 5.3.4`, and `StorageFailed` `451 4.3.0 Local error in processing` with
   `Mail store: <reason>` noted; each stores nothing and the session goes on. An index save
   that throws after a delivered message is noted and still answered `250`.

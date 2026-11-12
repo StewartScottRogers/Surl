@@ -1,0 +1,66 @@
+---
+id: BL-956
+title: Serve AMQP 1.0 transaction coordinators, declare, discharge and transactional posting
+priority: Normal
+assignee: Claude
+pipeline: feature
+depends-on: [BL-961, BL-1035]
+touches: [Protocols/Messaging/Surl.Extended.Protocol.Amqp1.UnitLibrary, Protocols/Messaging/Surl.Extended.Protocol.Amqp1.UnitTests, Documentation/Conformance/Extended/Amqp1.md]
+requirement: none
+created: 2026-11-06
+completed: 2026-11-11
+---
+# BL-956 — Serve AMQP 1.0 transaction coordinators, declare, discharge and transactional posting
+
+## Goal
+
+The AMQP 1.0 container answers a `coordinator` link, declares and discharges local transactions, and holds
+messages posted in a transaction until a commit publishes them all or none.
+
+## Context
+
+- ADR-0146 decisions 1.1 to 1.4 and 1.6 to 1.8; AMQP 1.0 Part 4 sections 4.2, 4.3, 4.4.1 and 4.5.1 to 4.5.8
+  (descriptors `coordinator` 0x30, `declare` 0x31, `discharge` 0x32, `declared` 0x33,
+  `transactional-state` 0x34).
+- Ends ADR-0107 decision 4's refusal of a coordinator (`Amqp1:Surl-Nodes-6`,
+  `Amqp1ContainerConnectionTests.ServeAsync_AttachToACoordinator_IsRefusedWithNotImplemented`).
+- The commit uses BL-961's all-or-none batch publish.
+- Matrix rows: `Amqp1:Transactions-4.5.1-1`, `-4.2-1`, `-4.2-2`, `-4.4.1-1`, `-4.4.1-2` (transfer, discharge),
+  `-4.3-1`, `-4.3-2`, `-4.4-1`, `Amqp1:Surl-Transactions-1` in `Documentation/Conformance/Extended/Amqp1.md`.
+
+## Acceptance criteria
+
+- [x] A coordinator attach is answered with a receiving link and a `coordinator` listing exactly
+      `amqp:local-transactions`, `amqp:multi-txns-per-ssn` and `amqp:multi-ssns-per-txn`; `Amqp1:Surl-Nodes-6`
+      is removed and its test replaced.
+- [x] `declare` answers `declared` with ids `00 00 00 01`, `00 00 00 02`, ...; a `global-id`, a 101st open
+      transaction and any other body are rejected with the conditions ADR-0146 decision 1.3 names.
+- [x] A transactional transfer is held and answered `transactional-state`/`accepted`; a refused one
+      `transactional-state`/`rejected`; an unknown `txn-id` `rejected` with `amqp:transaction:unknown-id`.
+- [x] `discharge` commits all or none (a test with the bus refusing the second message shows none published and
+      `amqp:transaction:rollback`), rolls back with `fail` true, and answers an unknown id
+      `amqp:transaction:unknown-id`.
+- [x] Coordinator detach, session end and connection end roll back an open transaction (a test each).
+- [x] Each row above names its tests in `Amqp1.md`; 100% line and branch coverage holds.
+
+## Notes
+
+- Filed by BL-707 (ADR-0146 decision 1).
+- 2026-11-11 (lane 2): the finished work is commit 5359ac2e on branch
+  `factory/BL-956-lane-6-20261111-060243`. It cherry-picks cleanly onto the shift branch; built with
+  SDK 11.0.100 from outside the repository it is clean and the Amqp1 fast tests pass (730). The
+  shift's in-repo build fails only because `global.json` pins SDK 10.0.401, which is not installed
+  (BL-1035), so the task waits on BL-1035. Next run: `git cherry-pick --no-commit 5359ac2e`, build,
+  test, finish.
+
+- 2026-11-11 (lane 6): cherry-picked 5359ac2e onto the shift branch. One conflict in `Amqp1ContainerConnection.Transfers.cs` against BL-1031-era fault rules (d8209bcc): the chosen-error lookup for `transfer` now sits in `CompleteDeliveryAsync`'s plain-store branch, so a fault rule rejects a plain transfer as before; coordinator control messages and transactional posts are not subject to it (choice: fault rules predate transactions and name a node, not a transaction). SDK 10.0.404 now rolls forward from the pin, so BL-1035 no longer blocks. Amqp1 tests 742 pass; library line and branch coverage 100%.
+
+## Log
+
+- 2026-11-06: Created.
+- 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Backlog. Lane 6 could not integrate: build failed after rebasing onto the other lanes' work. The work is on branch factory/BL-956-lane-6-20261111-060243; start with git cherry-pick --no-commit factory/BL-956-lane-6-20261111-060243 and fix it.
+- 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Backlog. Waits on BL-1035: the pinned .NET SDK 10.0.401 is not installed, so the in-repo build fails; the finished work is commit 5359ac2e on factory/BL-956-lane-6-20261111-060243 and passes on SDK 11 (Amqp1 730 tests).
+- 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Done. AMQP 1.0 container serves coordinator links, declare, discharge and transactional posting with all-or-none commit

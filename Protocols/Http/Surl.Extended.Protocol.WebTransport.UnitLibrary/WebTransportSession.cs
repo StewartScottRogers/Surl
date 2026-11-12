@@ -60,6 +60,7 @@ internal sealed class WebTransportSession : IDisposable
     private readonly List<Task> echoes = [];
     private Func<Task>? serverEnd;
     private long received;
+    private int drainSent;
 
     /// <summary>Creates the session's server.</summary>
     /// <param name="session">The session <c>Surl.Http3</c> opened, answered <c>200</c> already.</param>
@@ -80,6 +81,7 @@ internal sealed class WebTransportSession : IDisposable
     {
         using var linked = cancellationToken.Register(ending.Cancel);
         using var readingToken = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, endingByServer.Token);
+        _ = session.AddShutdownWrite(SendDrainAsync);
         var accepting = AcceptStreamsAsync();
         var datagrams = EchoDatagramsAsync();
         var reading = ReadCapsulesAsync(readingToken.Token);
@@ -143,7 +145,28 @@ internal sealed class WebTransportSession : IDisposable
         }
     }
 
+    // ADR-0117 decision 8: at most WebTransportDatagramEchoQueue.Capacity datagrams wait for their echo, the newest dropped.
     private async Task EchoDatagramsAsync()
+    {
+        var waiting = new WebTransportDatagramEchoQueue();
+        using var echoingToken = CancellationTokenSource.CreateLinkedTokenSource(endingToken, endingByServer.Token);
+        var receiving = QueueDatagramsAsync(waiting);
+        try
+        {
+            await foreach (var payload in waiting.TakeAsync(echoingToken.Token))
+            {
+                await SendDatagramAsync(payload);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // The session has ended.
+        }
+
+        await receiving;
+    }
+
+    private async Task QueueDatagramsAsync(WebTransportDatagramEchoQueue waiting)
     {
         try
         {
@@ -152,12 +175,16 @@ internal sealed class WebTransportSession : IDisposable
             {
                 ReadOnlyMemory<byte> payload = await session.ReceiveDatagramAsync(endingToken);
                 CountReceived(payload.Length);
-                await SendDatagramAsync(payload);
+                waiting.Enqueue(payload, context.Log, session.Id);
             }
         }
         catch (OperationCanceledException)
         {
             // The session has ended.
+        }
+        finally
+        {
+            waiting.Complete();
         }
     }
 
@@ -266,11 +293,20 @@ internal sealed class WebTransportSession : IDisposable
         await FinishConnectStreamAsync(cancellationToken);
     }
 
-    // WTH3 4.7 and 6: WT_DRAIN_SESSION, then WT_CLOSE_SESSION 0 and FIN; GOAWAY follows from Surl.Http3.
+    // WTH3 4.7: WT_DRAIN_SESSION goes out once, before GOAWAY (Surl.Http3 awaits this write), or at the close when shutdown left no time for it.
+    private async Task SendDrainAsync(CancellationToken cancellationToken)
+    {
+        if (Interlocked.Exchange(ref drainSent, 1) == 0)
+        {
+            await session.WriteCapsuleAsync(ToHttp3Capsule(new WebTransportDrainSessionCapsule()), cancellationToken);
+        }
+    }
+
+    // WTH3 4.7 and 6: once the shutdown grace has passed, WT_CLOSE_SESSION 0 and FIN (WT_DRAIN_SESSION first if it has not gone).
     private async Task CloseForShutdownAsync()
     {
         context.Log.Note($"Session {session.Id} was drained and closed for shutdown.");
-        await session.WriteCapsuleAsync(ToHttp3Capsule(new WebTransportDrainSessionCapsule()), CancellationToken.None);
+        await SendDrainAsync(CancellationToken.None);
         await session.WriteCapsuleAsync(ToHttp3Capsule(new WebTransportCloseSessionCapsule(0, ShutdownMessage)), CancellationToken.None);
         await session.RequestStream.WriteDataAsync(ReadOnlyMemory<byte>.Empty, endStream: true, CancellationToken.None);
     }

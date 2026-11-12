@@ -112,6 +112,11 @@ internal sealed record GcsError(string Code, HttpStatus Status, string Message)
     public static GcsError KeyTooLong { get; } = new("KeyTooLong", HttpStatus.BadRequest, "Your key is too long.");
 
     /// <summary>
+    /// <c>400 MaxMessageLengthExceeded</c>: a request head past <c>--max-request-head</c> (decision 7).
+    /// </summary>
+    public static GcsError MaxMessageLengthExceeded { get; } = new("MaxMessageLengthExceeded", HttpStatus.BadRequest, "Your request was too big.");
+
+    /// <summary>
     /// <c>400 MetadataTooLarge</c>: <c>x-goog-meta-*</c> names and values past 8 KiB.
     /// </summary>
     public static GcsError MetadataTooLarge { get; } = new("MetadataTooLarge", HttpStatus.BadRequest, "Your metadata headers exceed the maximum allowed metadata size.");

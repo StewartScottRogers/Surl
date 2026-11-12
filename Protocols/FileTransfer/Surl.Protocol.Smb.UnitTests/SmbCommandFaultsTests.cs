@@ -87,8 +87,7 @@ public sealed class SmbCommandFaultsTests
     }
 
     [TestMethod]
-    [DataRow(FaultKind.Delay)]
-    [DataRow(FaultKind.Drop)]
+    [DataRow(FaultKind.RefuseLogin)]
     [DataRow(FaultKind.OutOfSpace)]
     public async Task Rule_OfAnotherKind_IsNotAppliedAtACommand(FaultKind kind)
     {
@@ -99,6 +98,45 @@ public sealed class SmbCommandFaultsTests
         Assert.AreEqual(NtCreateResponseHex(1, 10), run.Written);
         Assert.IsEmpty(run.Events);
         CollectionAssert.Contains(run.Notes, $"Fault rule f1 not applied to SMB CREATE: a {kind} rule is not applied at a command");
+    }
+
+    // ADR-0141: a command-stage delay holds CREATE's answer until the clock advances, idle clock paused.
+    [TestMethod]
+    public async Task Create_UnderADelayRule_IsHeldUntilTheClockAdvances500Ms_WithTheIdleClockPaused()
+    {
+        var delay = new FaultRule("f1", FaultKind.Delay) { Stage = FaultStage.Command, Command = "CREATE", DelayMilliseconds = 500 };
+        var clock = new ManualTimeProvider();
+        var idleClock = new RecordingIdleClock();
+        var (serving, connection, events) = StartServing(new ScriptedFaultPlan(delay), clock, idleClock, NtCreateHex(1, "file.txt"));
+
+        await idleClock.FirstPause.WaitAsync(TimeSpan.FromSeconds(30), TestContext.CancellationToken);
+        var writtenAtTheHold = Convert.ToHexString(connection.WrittenBytes);
+        clock.Advance(TimeSpan.FromMilliseconds(499));
+        var writtenAfter499Ms = Convert.ToHexString(connection.WrittenBytes);
+        var pausedAfter499Ms = idleClock.IsPaused;
+        clock.Advance(TimeSpan.FromMilliseconds(1));
+        await serving.WaitAsync(TimeSpan.FromSeconds(30), TestContext.CancellationToken);
+
+        Assert.DoesNotContain(NtCreateResponseHex(1, 10), writtenAtTheHold);
+        Assert.AreEqual(writtenAtTheHold, writtenAfter499Ms);
+        Assert.IsTrue(pausedAfter499Ms);
+        Assert.IsFalse(idleClock.IsPaused);
+        Assert.EndsWith(NtCreateResponseHex(1, 10), Convert.ToHexString(connection.WrittenBytes));
+        Assert.AreEqual(new FaultAppliedEvent("f1", FaultKind.Delay, FaultStage.Command, 1, "/share/file.txt"), events.Events.Single());
+    }
+
+    // ADR-0141: a command-stage drop aborts the connection in place of CREATE's answer.
+    [TestMethod]
+    public async Task Create_UnderADropRule_AbortsTheConnectionWithNoAnswer()
+    {
+        var drop = new FaultRule("f1", FaultKind.Drop) { Stage = FaultStage.Command, Command = "CREATE" };
+        var (serving, connection, events) = StartServing(new ScriptedFaultPlan(drop), new ManualTimeProvider(), new RecordingIdleClock(), NtCreateHex(1, "file.txt"), ReadHex(1, 1, 0));
+
+        await serving.WaitAsync(TimeSpan.FromSeconds(30), TestContext.CancellationToken);
+
+        Assert.IsTrue(connection.Aborted);
+        Assert.AreEqual(NegotiateResponseHex + SessionSetupResponseHex + TreeConnectResponseHex(1), Convert.ToHexString(connection.WrittenBytes));
+        Assert.AreEqual(new FaultAppliedEvent("f1", FaultKind.Drop, FaultStage.Command, 1, "/share/file.txt"), events.Events.Single());
     }
 
     [TestMethod]
@@ -127,12 +165,6 @@ public sealed class SmbCommandFaultsTests
         Assert.AreEqual((fits, status), (read, readStatus));
     }
 
-    [TestMethod]
-    [DataRow("fe80::1%4", 445, "smb://[fe80::1%254]:445/")]
-    [DataRow("localhost", 4450, "smb://localhost:4450/")]
-    public void FormatListenUrl_NamesTheListenUrlAsTheEngineDoes(string host, int port, string expected) =>
-        Assert.AreEqual(expected, SmbCommandFaults.FormatListenUrl(new ListenUrl("smb", host, port)));
-
     // An error response whose Flags2 has SMB_FLAGS2_NT_STATUS (0x4000) beside curl's 0x0041.
     private static string FaultErrorHex(byte command, uint status, ushort treeId = 1) =>
         ErrorHex(command, status, treeId).Replace("984100", "984140", StringComparison.Ordinal);
@@ -150,6 +182,16 @@ public sealed class SmbCommandFaultsTests
         var prefix = NegotiateResponseHex + SessionSetupResponseHex + TreeConnectResponseHex(1);
         Assert.StartsWith(prefix, written);
         return new FaultRun(written[prefix.Length..], [.. log.Notes], [.. events.Events]);
+    }
+
+    private (Task Serving, InMemoryConnection Connection, RecordingSurlEventPublisher Events) StartServing(
+        IFaultPlan plan, ManualTimeProvider clock, RecordingIdleClock idleClock, params string[] requestsHex)
+    {
+        var events = new RecordingSurlEventPublisher();
+        var connection = new InMemoryConnection([Hex(string.Concat([NegotiateHex, SessionSetupHex, TreeConnectHex("share"), .. requestsHex]))]);
+        var context = Context(clock, TestContext.CancellationToken) with { Faults = plan, Events = events, IdleClock = idleClock };
+
+        return (Server(contentStore: StandardContentStore()).ServeAsync(connection, context), connection, events);
     }
 
     private sealed record FaultRun(string Written, string[] Notes, SurlEvent[] Events);

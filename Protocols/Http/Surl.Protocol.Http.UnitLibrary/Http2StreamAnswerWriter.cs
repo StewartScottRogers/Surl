@@ -65,6 +65,13 @@ internal sealed class Http2StreamAnswerWriter(IHttpRequestHandler answerer, Exch
             return;
         }
 
+        if (answer.DropsExchange)
+        {
+            await stream.ResetAsync(Http2ErrorCode.InternalError, "a fault rule dropped the exchange");
+
+            return;
+        }
+
         await WriteAsync(stream, answer, cancellationToken);
     }
 
@@ -85,28 +92,33 @@ internal sealed class Http2StreamAnswerWriter(IHttpRequestHandler answerer, Exch
             return;
         }
 
-        await CopyFileAsync(stream, (HttpAnswerBody.ContentFile)answer.Body, data, cancellationToken);
+        await CopyFileAsync(stream, FileParts(answer.Body), data, cancellationToken);
     }
 
     private static long BodyLength(HttpAnswerBody body) => body switch
     {
         HttpAnswerBody.Bytes bytes => bytes.Content.Length,
         HttpAnswerBody.ContentFile file => file.Range.ByteCount,
+        HttpAnswerBody.ContentFileParts parts => parts.Length,
         _ => 0,
     };
+
+    // A body with bytes that is not Bytes is a file: one range, or several as parts.
+    private static HttpAnswerBody.ContentFileParts FileParts(HttpAnswerBody body) =>
+        body as HttpAnswerBody.ContentFileParts ?? HttpAnswerBody.ContentFileParts.Of((HttpAnswerBody.ContentFile)body);
 
     private static IEnumerable<HpackHeaderField> HeaderFields(HttpAnswer answer) =>
         answer.Fields
             .Select(field => new HpackHeaderField(field.Key.ToLowerInvariant(), field.Value))
             .Prepend(new HpackHeaderField(":status", answer.Status.Code.ToString(CultureInfo.InvariantCulture)));
 
-    private async Task CopyFileAsync(Http2RequestStream stream, HttpAnswerBody.ContentFile file, Http2DataStream data, CancellationToken cancellationToken)
+    private async Task CopyFileAsync(Http2RequestStream stream, HttpAnswerBody.ContentFileParts file, Http2DataStream data, CancellationToken cancellationToken)
     {
         string? failure;
         try
         {
-            var copied = await file.Store.CopyFileBytesAsync(file.Mapping, file.Range, data, cancellationToken);
-            failure = copied < file.Range.ByteCount ? $"shrank to {copied} bytes while it was sent" : null;
+            var copied = await file.CopyToAsync(data, cancellationToken);
+            failure = copied < file.FileByteCount ? $"shrank to {copied} bytes while it was sent" : null;
         }
         catch (Exception readFailure) when (readFailure is IOException or UnauthorizedAccessException && !data.HasFailedWrite)
         {

@@ -2,7 +2,7 @@
 
 - **Status:** Draft. Written for the Phase 0 shell and kept true as the phases are built; the
   numbers below are measured, not estimated. No section is awaiting a decision.
-- **Last updated:** 2026-11-04
+- **Last updated:** 2026-11-12
 - **Measured against:** upstream curl 8.21.0 (released 2026-06-24), tag `curl-8_21_0` of
   https://github.com/curl/curl, and the builds pinned in `UpstreamCurlBuilds.json`
 
@@ -474,6 +474,173 @@ run each case against a live `surl` on loopback.
   ([ADR-0026](../Planning/Decisions/ADR-0026-rtsp-conformance-on-macos-where-the-pinned-build-has-no-rtsp.md)).
   NTLM and Negotiate over RTSP have no row in decision 11.
 
+### Built for Phase 6: HTTP/2, HTTP/3, upstream's test cases and native publishing
+
+Phase 6 has four parts: `surl` serves HTTP/2 and, with `--http3`, HTTP/3 over a QUIC it builds
+by hand; `Surl.Conformance` plays the server half of upstream curl's own test cases; and a
+published native `surl` is proven on six runtime identifiers. The terms below are defined in
+the [glossary](../Wiki/Glossary.md), sections "HTTP/2", "HTTP/3 and QUIC", "Upstream test
+cases" and "Native publishing". Phase 6 is built, not closed: "What is not proven" below lists
+what is open, and no release is tagged.
+
+**HTTP/2** ([ADR-0081](../Planning/Decisions/ADR-0081-how-surl-serves-http-2.md), with
+[ADR-0090](../Planning/Decisions/ADR-0090-how-the-http-2-prior-knowledge-connection-reads-ends-and-answers.md)
+and [ADR-0091](../Planning/Decisions/ADR-0091-how-an-upgrade-h2c-request-becomes-http-2-stream-1.md);
+the frames, streams and connection live in `Surl.Http2` since
+[ADR-0086](../Planning/Decisions/ADR-0086-how-the-extended-servers-share-http-2-http-3-and-quic.md)):
+
+- **How a connection becomes HTTP/2.** An `https` listener offers ALPN `h2`, then `http/1.1`
+  (`TlsApplicationProtocols`), and serves HTTP/2 on a connection that agreed `h2`; `wss` offers
+  only `http/1.1`. The `http` listener serves HTTP/2 when the connection opens with the 24-byte
+  connection preface (prior knowledge, `Http2ConnectionPreface`), and upgrades a body-less
+  `Upgrade: h2c` request: `101 Switching Protocols`, then the request is stream 1
+  (`Http2CleartextUpgrade`). No `surl` option turns HTTP/2 off; the client chooses, and curl's
+  `--http1.1` offers only HTTP/1.1.
+- **What it answers.** The same answers as HTTP/1.x: `HttpRequestAnswerer` decides, and
+  `Http2StreamAnswerWriter` writes them as `HEADERS`, `CONTINUATION` and `DATA` frames, so the
+  content store, request-bound logins and uploads carry over per stream. A stream whose login
+  is NTLM or Negotiate, which are bound to a connection, is reset `HTTP_1_1_REQUIRED` and curl
+  retries it over HTTP/1.1. The server's `SETTINGS` carry `MAX_CONCURRENT_STREAMS` 100 and
+  `MAX_HEADER_LIST_SIZE`, and each limit of ADR-0006 ends with the `GOAWAY` or `RST_STREAM` code
+  ADR-0081 decision 5 names. HPACK is hand-built in `Surl.Hpack`. There is no server push and no
+  WebSocket over HTTP/2.
+
+**HTTP/3** ([ADR-0082](../Planning/Decisions/ADR-0082-how-surl-serves-http-3-over-quic.md) and its
+amendments; [ADR-0096](../Planning/Decisions/ADR-0096-how-a-surl-quic-connection-carries-streams-and-flow-control.md)
+for streams and flow control and
+[ADR-0140](../Planning/Decisions/ADR-0140-how-surl-quic-detects-loss-and-controls-congestion.md)
+for loss detection and congestion control):
+
+- **How it is turned on.** `surl --http3 https://...` also listens on UDP at the `https`
+  listener's address and port; it is off without `--http3`, and the status line still names one
+  port. `--http3` with no `https` listen URL, or with `--tls-max` below 1.3, exits 2. With
+  `--cacert`, the QUIC handshake requires a client certificate that chains to those anchors, as
+  the TCP listener does (ADR-0082 Amendment 5). With `--http3`, every answer over HTTP/1.x and
+  HTTP/2 carries `Alt-Svc: h3=":<port>"; ma=86400`.
+- **What is hand-built.** QUIC version 1 (`Surl.Quic`), the TLS 1.3 handshake for it
+  (`Surl.Tls13`), QPACK (`Surl.Qpack`), ML-KEM (`Surl.Cryptography.MlKem`), and for the key
+  exchange groups curl offers only when told `--curves` one alone (ADR-0147) x448
+  (`Surl.Cryptography.Curve448`) and curveSM2 (`Surl.Cryptography.Sm2`); never `System.Net.Quic`.
+  `TlsServerNegotiation.GroupPreference` serves twelve groups: the five of ADR-0082 decision 3,
+  then the seven of ADR-0147. ALPN is `h3` only; there are no session tickets, no 0-RTT, no
+  Retry and no connection migration.
+- **What it answers.** The same answers as HTTP/1.x and HTTP/2 through `HttpRequestAnswerer`
+  and `Http3StreamAnswerWriter`; `Http3ProtocolServer` is the protocol server and
+  `Http3ConnectionServer` (in `Surl.Http3`) serves each connection. A stream whose login is
+  NTLM or Negotiate is reset `H3_VERSION_FALLBACK`.
+
+**Upstream's test cases** ([ADR-0080](../Planning/Decisions/ADR-0080-how-surl-plays-the-server-half-of-upstream-curls-test-cases.md)):
+`Surl.Conformance` parses each of the 2,013 cases at tag `curl-8_21_0`, skips each one a
+platform's pinned reference build cannot run with one named reason, and runs the rest with
+that build as the client against Surl's own protocol server for the case's scheme
+(`UpstreamTestCasesAgainstSurlTests`, categories `Integration` and `UpstreamTestCases`). The
+server halves are composed in the test project, never in `Surl.Composition`, so the shipped
+`surl` has no replay mode. Server halves exist for the HTTP and HTTPS family (including
+`http-unix`), RTSP, FTP and FTPS, IMAP, POP3 and SMTP in plaintext, DICT, Gopher, TELNET, MQTT,
+TFTP, SCP, SFTP and SMB. The table in `UpstreamTestCaseServers` marks `http/2`, `http/3`,
+the proxies, `httptls+srp` and `dns` as not built, so those cases skip as
+`server-not-built:<name>`. The pass rate, stated per platform and per release, is in
+[Upstream-Test-Case-Pass-Rate.md](../Conformance/Upstream-Test-Case-Pass-Rate.md), the passing
+cases are listed beside it, and a fast test fails when the table and the lists disagree, so
+the rate only rises. As of 2026-11-12:
+
+| Platform | Runnable | Passed | Failed | Skipped | Pass rate |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| `win-x64` | 1,128 | 1,078 | 50 | 885 | 95.6% |
+| `linux-x64` | 1,237 | 1,154 | 83 | 776 | 93.3% |
+| `osx-arm64` | 1,237 | 1,153 | 84 | 776 | 93.2% |
+
+The Windows row is from a local run on 2026-11-11 (CI has no pinned Windows reference build);
+the Linux and macOS rows are CI run 42203619501 of 2026-11-06. The pass-rate file's
+"Releases" table has no row, because no release is tagged.
+
+**What pinned upstream curl has proven for HTTP/2 and HTTP/3.**
+`UpstreamCurlFetchesFromSurlOverHttp2Tests` (15 tests) and
+`UpstreamCurlFetchesFromSurlOverHttp3Tests` (13 tests) run the static-curl 8.21.0 build
+(ADR-0081 decision 1, ADR-0082 decision 1) on Windows and the reference build elsewhere
+against a live `surl`. They cover prior knowledge, the `h2c` upgrade, ALPN, `-I`, a range,
+Basic and Digest, an upload under `--allow-uploads`, a file larger than the initial window (a
+10 MiB file over HTTP/3), two URLs reusing one connection, and, for HTTP/3, `--http3-only` and
+`--http3` with HTTP/3 off (the exit code, and the fall back to HTTP/2). They passed on Windows
+when the tasks were done (BL-371, BL-385).
+
+**Native publishing** ([ADR-0085](../Planning/Decisions/ADR-0085-what-proves-the-native-surl-on-each-published-runtime-identifier.md)):
+every leg of `.github/workflows/release.yml` publishes `surl` natively and runs
+`Test-PublishedSurl.ps1` on a runner of its own operating system and architecture: one native
+file and no `runtimeconfig.json` or `*.dll`, `--version` exits 0 naming the version and the
+runtime identifier, one file served byte for byte, a stop on SIGTERM, and no .NET shown by an
+`ubuntu:22.04` container on Linux or a scrubbed `DOTNET_*` and `PATH` plus import checks
+elsewhere. `Surl.Conformance` runs against the published binary when `SURL_EXECUTABLE` names
+it. A release dry run on 2026-11-06 (CI run 42225649001, BL-603) was green on all six legs.
+
+| Runtime identifier | Runner | Proven by | Upstream curl completes an exchange with the binary |
+| --- | --- | --- | --- |
+| `linux-x64` | `ubuntu-22.04` | the smoke test and the conformance job | yes, in CI |
+| `osx-arm64` | `macos-latest` | the smoke test and the conformance job | yes, in CI |
+| `win-x64` | `windows-latest` | the smoke test; conformance runs locally only (CI has no pinned Windows reference build) | locally; a clean full run is open (BL-604, BL-1059) |
+| `win-arm64` | `windows-11-arm` | the smoke test and the fast tests | not shown: no pinned upstream curl build (BL-361) |
+| `linux-arm64` | `ubuntu-22.04-arm` | the smoke test and the fast tests | not shown: no pinned upstream curl build (BL-361) |
+| `osx-x64` | `macos-15-intel` | the smoke test and the fast tests | not shown: no pinned upstream curl build (BL-361) |
+
+**What is not proven.**
+
+- No release is tagged, so there are no downloadable binaries and no release row in the
+  pass-rate file.
+- `win-arm64`, `linux-arm64` and `osx-x64` have no pinned upstream curl build, so they have the
+  smoke test and the fast tests but neither conformance nor a pass rate. BL-361 would pin
+  them; it is Blocked until arm64 and Intel-macOS runners can measure the builds.
+- `win-x64` conformance against the published binary runs only locally. BL-604 found the start
+  timeouts were thread-pool starvation in the test host; a clean full run still waits on
+  BL-1059 (the HTTP/3 UDP bind when the TCP port drawn sits in a Windows UDP excluded range).
+- The HTTP/2 and HTTP/3 conformance tests are recorded passing on Linux and macOS only by
+  elimination from CI run 42324374116, since the CI logger prints a skipped Curl-port test of
+  the same name; BL-724 and BL-768 are to confirm them.
+- No upstream test case runs over HTTP/2 or HTTP/3 yet: their server halves are not built.
+- Some behaviour the ADRs ask to be measured is unmeasured: for HTTP/2 the `413`,
+  `FRAME_SIZE_ERROR`, `FLOW_CONTROL_ERROR` and idle `GOAWAY` cases (BL-371's notes), and for
+  HTTP/3 curl past each decision 7 limit and `Alt-Svc` with `--alt-svc` (BL-385's notes).
+
+### Built for Phase 7: the Curl port measured beside pinned upstream curl
+
+Phase 7 measures the Curl port; it does not validate Surl
+([ADR-0003](../Planning/Decisions/ADR-0003-upstream-curl-is-surls-only-oracle.md) decision 6,
+[ADR-0089](../Planning/Decisions/ADR-0089-how-phase-7-measures-the-curl-port-against-surl-beside-pinned-upstream-curl.md)).
+The port's `curl` and the pinned upstream build run the same conversation, each against its own fresh
+`surl`, and the two results are compared after the normalisation of ADR-0089 decision 4. Where upstream
+curl completed the exchange as the mirrored conformance test asserts and the port's run differs, the
+verdict is a **port defect**; it is written as a **Phase 7 finding**, and Surl does not change to make the
+port pass. The terms are defined in the [glossary](../Wiki/Glossary.md), section "Two programs named curl".
+
+- **Measured:** the Curl port at commit `b42c319ba940f66452b2b6f3e9910d46825b08fe` (`curl.exe` SHA-256
+  `F28D1417807AA862BA2A6D5B0BF0CF1200673BE45B959B1A78E1E4B476EF8FA7`, pinned in `CurlPortBuilds.json`),
+  on `win-x64` only, on 2026-11-05, 2026-11-06 and, for the extended clients, up to 2026-11-11.
+- **Result:** 1,518 cases, 1,420 agreements, 96 port defects behind 18 findings, 2 cases not
+  comparable, and no Surl defect. The per-family numbers, the Surl commit each family was measured at
+  and the findings themselves are in
+  [`Documentation/Conformance/CurlPort/README.md`](../Conformance/CurlPort/README.md) and the family
+  files beside it.
+- **Harness** (`Surl.Conformance`): `CurlPortClientPins` and `CurlPortClientLocator` find the pinned port
+  binary, `CurlPortClientRunner` runs it, `CurlPortResultNormaliser` and `CurlPortComparison` compare
+  the runs, `CurlPortVerdict` and `CurlPortFinding` record the outcome, `CurlPortLibcurlComparison`
+  does the same for the libcurl rows, and `CurlPortTestCaseClient` lets the port play the client of
+  upstream's own test cases. One `CurlPortBesideUpstreamCurlOver<Family>Tests` class per family reads its
+  family file's findings table, so a finding that appears unlisted or a listed one that disappears
+  fails the test.
+- **Handoff:** [`Port-Board-Handoff.md`](../Conformance/CurlPort/Port-Board-Handoff.md) holds the 18
+  findings as tasks in the port's own task shape. Stewart files them on the port's board himself; no
+  Surl session writes into the port's repository (ADR-0089 decision 7).
+
+**What is not measured.**
+
+- Every platform but `win-x64`: `CurlPortBuilds.json` pins the port for `win-x64` alone, so off Windows
+  every Phase 7 test is Inconclusive (ADR-0089 decision 8).
+- The 47 `OpenLdap_` cases, Inconclusive until a `linux-x64` port pin exists, and the cases excluded
+  on Windows by their `[OSCondition]` (6 SSH cases, 3 FTP listing twins).
+- The extended clients beyond `socketio`, `webtransport`, `coap` and `xmpp`: the other 15 `Integration`
+  tasks have not run (`Extended.md`). They are judged by their specifications, not beside upstream
+  curl (ADR-0089 decision 9).
+- Phase 7 is a snapshot at one port commit; a later port commit needs a new measurement.
+
 ### Also in scope
 
 - **HTTP versions:** 1.0, 1.1, 2 and 3 over QUIC, on the server side.
@@ -546,13 +713,14 @@ server references `Surl.Protocol.Abstractions` and the horizontal libraries ADR-
 lists, as later ADRs amend it (`Surl.Content`, `Surl.Cryptography`, the four SSH primitive
 libraries of ADR-0048, the two of ADR-0051 decision 3 and the three of ADR-0061, and the mail
 servers' `Surl.MailStore` and `Surl.LineProtocol` of ADR-0050, and the HTTP, WebSocket and RTSP
-servers' `Surl.HttpMessage` of ADR-0070); referencing another protocol
+servers' `Surl.HttpMessage` of ADR-0070, and the HTTP server's HTTP/2 and HTTP/3 libraries
+of ADR-0081, ADR-0082 and ADR-0086); referencing another protocol
 server is a build break, and `Surl.Protocol.Abstractions.UnitTests` asserts the reference graph.
 The same rule holds the extended servers (`Surl.Extended.Protocol.*`, ADR-0083), which never
 reference an original server either. What they share with one is decided into three more
 horizontal libraries by
 [ADR-0084](../Planning/Decisions/ADR-0084-the-libraries-the-extended-servers-share-for-http-1-1-websocket-and-dtls.md),
-not yet built: `Surl.HttpServing` (HTTP/1.1 request answering: bodies, response writing,
+all three built: `Surl.HttpServing` (HTTP/1.1 request answering: bodies, response writing,
 keep-alive, draining, the lingering close and the `IHttpRequestHandler` shape; BL-407),
 `Surl.WebSocket` (RFC 6455 handshake, framing and closing; BL-408) and the hand-built
 `Surl.Dtls` (DTLS 1.2 for `coaps`; BL-412 to BL-415).
@@ -587,8 +755,10 @@ in its own `Surl.<Area>.UnitLibrary` (`CLAUDE.md`, "Decisions").
 | Services | `Surl.Networking`, `Surl.Authentication`, `Surl.Cookies`, `Surl.Output`, `Surl.Content` | Abstractions; `Surl.Authentication` also `Surl.Cryptography`, for MD4 and SHA-512/256 (ADR-0032 decision 7) and for the DES of SMB's NTLMv1 (ADR-0073 decision 10), `Surl.Cryptography.Rc4`, for NTLM's key exchange and the LDAP security layers (ADR-0072 decision 4), and `Surl.Kerberos` (ADR-0057 decision 6) |
 | Mail servers' shared libraries | `Surl.MailStore` (the mail store: mailboxes per account, messages with UIDs, bounds, persistence under `<path>/.surl/mail`) and `Surl.LineProtocol` (bounded CRLF command lines, dot-stuffing, the `STARTTLS` discard, SASL continuation lines), decided by [ADR-0050](../Planning/Decisions/ADR-0050-the-mail-store-and-the-line-machinery-the-mail-servers-share.md) | Abstractions; `Surl.MailStore` also `Surl.Content`, for `IContentFileSystem` |
 | HTTP message library | `Surl.HttpMessage` (the bounded HTTP/1.x request-head reader and its head timeout, request-line and field-line parsing for `HTTP/1.x` and `RTSP/1.0`, response heads and `WWW-Authenticate` challenge fields), used by `Surl.Protocol.Http`, `Surl.Protocol.Ws` and `Surl.Protocol.Rtsp`, decided by [ADR-0070](../Planning/Decisions/ADR-0070-the-http-message-library-the-http-websocket-and-rtsp-servers-share.md) | Abstractions |
-| HTTP serving and WebSocket libraries (decided, not yet built) | `Surl.HttpServing` (answering HTTP/1.1 requests on a connection: `HttpRequest`, `HttpAnswer`, request bodies with `100 Continue`, response writing, keep-alive, draining, the lingering close, `IHttpRequestHandler` and `Http1ConnectionServer`; BL-407) and `Surl.WebSocket` (RFC 6455 upgrade checks and `101` answer with an optional subprotocol, framing, reassembly, close codes, lingering close; BL-408), in `Protocols/Http/`, for `Surl.Protocol.Http`, `Surl.Protocol.Ws` and the extended servers, decided by [ADR-0084](../Planning/Decisions/ADR-0084-the-libraries-the-extended-servers-share-for-http-1-1-websocket-and-dtls.md) | Abstractions and `Surl.HttpMessage`; `Surl.HttpServing` also `Surl.Content` |
-| Hand-built DTLS (decided, not yet built) | `Surl.Dtls` (DTLS 1.2 server for `coaps`), in `Cryptography/`, decided by [ADR-0084](../Planning/Decisions/ADR-0084-the-libraries-the-extended-servers-share-for-http-1-1-websocket-and-dtls.md) decision 3; BL-412 to BL-415 | Abstractions, for `IDatagramFlow` |
+| HTTP serving and WebSocket libraries | `Surl.HttpServing` (answering HTTP/1.1 requests on a connection: `HttpRequest`, `HttpAnswer`, request bodies with `100 Continue`, response writing, keep-alive, draining, the lingering close, `IHttpRequestHandler` and `Http1ConnectionServer`; BL-407) and `Surl.WebSocket` (RFC 6455 upgrade checks and `101` answer with an optional subprotocol, framing, reassembly, close codes, lingering close; BL-408), in `Protocols/Http/`, for `Surl.Protocol.Http`, `Surl.Protocol.Ws` and the extended servers, decided by [ADR-0084](../Planning/Decisions/ADR-0084-the-libraries-the-extended-servers-share-for-http-1-1-websocket-and-dtls.md) | Abstractions and `Surl.HttpMessage`; `Surl.HttpServing` also `Surl.Content` |
+| Hand-built DTLS | `Surl.Dtls` (DTLS 1.2 server for `coaps`), in `Cryptography/`, decided by [ADR-0084](../Planning/Decisions/ADR-0084-the-libraries-the-extended-servers-share-for-http-1-1-websocket-and-dtls.md) decision 3; BL-412 to BL-415 | Abstractions, for `IDatagramFlow` |
+| HTTP/2 and HTTP/3 libraries | `Surl.Hpack` (HPACK, RFC 7541), `Surl.Http2` (frames, streams, flow control and the connection; [ADR-0086](../Planning/Decisions/ADR-0086-how-the-extended-servers-share-http-2-http-3-and-quic.md) decision 1), `Surl.Qpack` (QPACK, RFC 9204), `Surl.Quic` (QUIC version 1 for a server: packets, protection, streams, flow control, loss detection and congestion control, no I/O; [ADR-0082](../Planning/Decisions/ADR-0082-how-surl-serves-http-3-over-quic.md) decision 2) and `Surl.Http3` (HTTP/3 frames, the control and QPACK streams and the connection; ADR-0086 decision 2), in `Protocols/Http/`; used by `Surl.Protocol.Http` and, for HTTP/2 and HTTP/3, by the extended servers | `Surl.Hpack`: nothing; `Surl.Http2`: Abstractions and `Surl.Hpack`; `Surl.Qpack`: `Surl.Hpack`; `Surl.Quic`: Abstractions, `Surl.Tls13`, `Surl.Cryptography.ChaCha20` and `Surl.Cryptography.Poly1305`; `Surl.Http3`: Abstractions, `Surl.Qpack` and `Surl.Quic` |
+| Hand-built TLS 1.3 for QUIC | `Surl.Tls13` (the TLS 1.3 server handshake without a record layer, ADR-0082 decision 2) and the key exchange primitives it uses: `Surl.Cryptography.MlKem` (ML-KEM-768 and ML-KEM-1024), `Surl.Cryptography.Curve448` (x448) and `Surl.Cryptography.Sm2` (curveSM2), the last two decided by [ADR-0147](../Planning/Decisions/ADR-0147-the-remaining-tls-1-3-groups-curl-offers-over-quic.md), in `Cryptography/` | `Surl.Tls13`: `Surl.Cryptography.Curve25519`, `Surl.Cryptography.Curve448`, `Surl.Cryptography.MlKem` and `Surl.Cryptography.Sm2`; the other three: nothing |
 | Hand-built primitives | `Surl.Cryptography`; for SSH, `Surl.Cryptography.ChaCha20`, `Surl.Cryptography.Curve25519`, `Surl.Cryptography.Ed25519` and `Surl.Cryptography.Poly1305` ([ADR-0048](../Planning/Decisions/ADR-0048-the-hand-built-ssh-primitive-libraries.md)), `Surl.Cryptography.Rc4` and `Surl.Cryptography.BcryptPbkdf` ([ADR-0051](../Planning/Decisions/ADR-0051-the-ssh-transport-host-keys-and-user-authentication.md) decision 3), and `Surl.Cryptography.Blowfish`, `Surl.Cryptography.Cast128` and `Surl.Cryptography.Ripemd160` ([ADR-0061](../Planning/Decisions/ADR-0061-blowfish-cast-128-and-ripemd-160-for-curls-openssl-builds.md)); for Kerberos, `Surl.Kerberos` ([ADR-0057](../Planning/Decisions/ADR-0057-surls-kerberos-keytab-and-ap-req-check-for-negotiate-and-sasl-gssapi.md)) | nothing; `Surl.Cryptography.Ed25519` references `Surl.Cryptography.Curve25519`, and `Surl.Cryptography.BcryptPbkdf` references `Surl.Cryptography.Blowfish` |
 | Test fixtures | `Surl.Kerberos.TestKdc`, the hand-built loopback KDC for realm `SURL.TEST` ([ADR-0065](../Planning/Decisions/ADR-0065-kerberos-logins-are-proved-against-pinned-upstream-curl-through-a-hand-built-loopback-kdc.md) decision 1). Not a protocol server and not a horizontal library of ADR-0002's table: only test code references it - its own test project, `Surl.Conformance.UnitTests` (ADR-0065 decision 1 allows test projects to) and the `Run-KerberosTestKdc.cs` file-based app behind `Record-CurlExchange.ps1 -KerberosTestKdc` - and `Surl.Console` never does | `Surl.Kerberos`, Abstractions |
 | Contracts | `Surl.Protocol.Abstractions` | nothing |
@@ -608,7 +778,11 @@ decision 1 for the SOCKS server, `Surl.Protocol.Socks`, created with it (BL-558)
 project of ADR-0002's map exists from the first commit; the nine hand-built SSH primitive
 libraries (four of ADR-0048, two of ADR-0051 and three of ADR-0061), the Kerberos library of
 ADR-0057, the mail servers' two shared libraries of ADR-0050, the loopback test KDC of
-ADR-0065 and the HTTP message library of ADR-0070 were added later, each with its twin:
+ADR-0065 and the HTTP message library of ADR-0070 were added later, each with its twin, and so
+were Phase 6's nine: `Surl.Hpack`, `Surl.Http2`, `Surl.Http3`, `Surl.Qpack`, `Surl.Quic`,
+`Surl.Tls13` and the three hand-built key exchange primitives `Surl.Cryptography.MlKem`,
+`Surl.Cryptography.Curve448` and `Surl.Cryptography.Sm2` (ADR-0081, ADR-0082, ADR-0086,
+ADR-0147):
 
 | Production | Tests |
 | --- | --- |
@@ -624,11 +798,17 @@ ADR-0065 and the HTTP message library of ADR-0070 were added later, each with it
 | `Surl.Cryptography.Cast128.UnitLibrary` | `Surl.Cryptography.Cast128.UnitTests` |
 | `Surl.Cryptography.ChaCha20.UnitLibrary` | `Surl.Cryptography.ChaCha20.UnitTests` |
 | `Surl.Cryptography.Curve25519.UnitLibrary` | `Surl.Cryptography.Curve25519.UnitTests` |
+| `Surl.Cryptography.Curve448.UnitLibrary` (ADR-0147) | `Surl.Cryptography.Curve448.UnitTests` |
 | `Surl.Cryptography.Ed25519.UnitLibrary` | `Surl.Cryptography.Ed25519.UnitTests` |
+| `Surl.Cryptography.MlKem.UnitLibrary` (ADR-0082) | `Surl.Cryptography.MlKem.UnitTests` |
 | `Surl.Cryptography.Poly1305.UnitLibrary` | `Surl.Cryptography.Poly1305.UnitTests` |
 | `Surl.Cryptography.Rc4.UnitLibrary` | `Surl.Cryptography.Rc4.UnitTests` |
 | `Surl.Cryptography.Ripemd160.UnitLibrary` | `Surl.Cryptography.Ripemd160.UnitTests` |
+| `Surl.Cryptography.Sm2.UnitLibrary` (ADR-0147) | `Surl.Cryptography.Sm2.UnitTests` |
 | `Surl.Cryptography.UnitLibrary` | `Surl.Cryptography.UnitTests` |
+| `Surl.Hpack.UnitLibrary` (ADR-0081) | `Surl.Hpack.UnitTests` |
+| `Surl.Http2.UnitLibrary` (ADR-0086) | `Surl.Http2.UnitTests` |
+| `Surl.Http3.UnitLibrary` (ADR-0086) | `Surl.Http3.UnitTests` |
 | `Surl.HttpMessage.UnitLibrary` (ADR-0070) | `Surl.HttpMessage.UnitTests` |
 | `Surl.Kerberos.TestKdc.UnitLibrary` (test fixture: only test code references it) | `Surl.Kerberos.TestKdc.UnitTests` |
 | `Surl.Kerberos.UnitLibrary` | `Surl.Kerberos.UnitTests` |
@@ -638,6 +818,9 @@ ADR-0065 and the HTTP message library of ADR-0070 were added later, each with it
 | `Surl.Output.UnitLibrary` | `Surl.Output.UnitTests` |
 | `Surl.Protocol.Abstractions.UnitLibrary` | `Surl.Protocol.Abstractions.UnitTests` |
 | `Surl.Protocol.<Name>.UnitLibrary`, one per server above | `Surl.Protocol.<Name>.UnitTests` |
+| `Surl.Qpack.UnitLibrary` (ADR-0082) | `Surl.Qpack.UnitTests` |
+| `Surl.Quic.UnitLibrary` (ADR-0082) | `Surl.Quic.UnitTests` |
+| `Surl.Tls13.UnitLibrary` (ADR-0082) | `Surl.Tls13.UnitTests` |
 
 ## Success criteria
 

@@ -18,8 +18,8 @@ The server (BL-459, ADR-0117 decisions 0 to 3 and 6):
   to its `MaxDatagramFrameSize` (65535) and `ResetStreamAt`.
 - `WebTransportConnectHandler` - waits for the client's `SETTINGS` within `--head-timeout` (else
   resets the CONNECT `H3_REQUEST_INCOMPLETE`), requires `SETTINGS_H3_DATAGRAM` = 1 and
-  `SETTINGS_WT_ENABLED` = 1 (else resets it `WT_REQUIREMENTS_NOT_MET`), judges it by
-  `WebTransportConnectJudgement`'s rules (`403` for another origin, then the login, then `405` with
+  `SETTINGS_WT_ENABLED` = 1 (else closes the connection `WT_REQUIREMENTS_NOT_MET`, BL-895), judges it by
+  `WebTransportConnectJudgement`'s rules (`400` for a `:scheme` other than `https`, `403` for another origin, then the login, then `405` with
   `allow: CONNECT` for a path outside the listen path, a query ignored) and the session limit, and
   answers `200` and serves the session.
 - `WebTransportRequestStreamHandler` - every other request: `405`, `allow: CONNECT`, FIN.
@@ -30,8 +30,11 @@ The server (BL-459, ADR-0117 decisions 0 to 3 and 6):
   client's `WT_CLOSE_SESSION`, FIN or reset of the CONNECT stream ends every stream of the session
   `WT_SESSION_GONE`, then FIN (a reset for a reset); a malformed capsule or one after
   `WT_CLOSE_SESSION` resets the CONNECT stream `H3_MESSAGE_ERROR`; `WT_DRAIN_SESSION`, flow-control
-  and unknown capsules are ignored. Shutdown sends `WT_DRAIN_SESSION`, `WT_CLOSE_SESSION` code 0
-  `server shutting down` and FIN, before `Surl.Http3`'s `GOAWAY`.
+  and unknown capsules are ignored. Shutdown (BL-895; `WebTransportApplicationProtocol.ShutdownGrace`, 5 seconds, set as
+  `Http3ServerOptions.ShutdownGrace`) sends `WT_DRAIN_SESSION` through `AddShutdownWrite` before
+  `Surl.Http3`'s `GOAWAY`, keeps echoing through the grace, then sends `WT_CLOSE_SESSION` code 0
+  `server shutting down` and FIN. Datagrams that arrive before their CONNECT are held by `Surl.Http3`
+  and echoed once the session is accepted.
 - `WebTransportSessionDirectory` - one connection's sessions as the streams naming them see them
   (WTH3 4.6): a stream for a session not answered yet is held (16 at once, `--head-timeout`) and
   served once it is accepted; refused, timed out, past the 16 or naming an ordinary request it gets
@@ -74,10 +77,11 @@ Flow control, the session limit, authentication and the limits (BL-460, ADR-0117
   `WT_FLOW_CONTROL_ERROR`; `WT_MAX_STREAM_DATA` and `WT_STREAM_DATA_BLOCKED` are `H3_MESSAGE_ERROR`.
 - Whatever the flow control, a session whose stream payload and HTTP datagrams reach `--max-filesize`
   is closed `WT_CLOSE_SESSION` code 1 `session data limit reached`, then FIN.
+- `WebTransportDatagramEchoQueue` (BL-905, decision 8) holds at most 64 HTTP datagrams a session waiting for their echo and drops the newest past that, noting it in the log.
 
-Still to come: the 64-datagram echo queue a session (BL-905); closing the
-connection for unmet requirements, the `:scheme` check, datagrams held before their CONNECT and
-serving through the shutdown grace, once `Surl.Http3` offers them (BL-894, BL-895).
+At shutdown the CONNECT stream stays open through the grace, so `Surl.Http3` closes the connection only
+once the client has FINed it (the session then answers with its own FIN) or the grace has passed (BL-1060,
+WTH3-6-5).
 
 `Surl.Extended.Protocol.WebTransport.UnitTests` drives the server over `Surl.Http3.UnitTests`' in-memory
 HTTP/3 test client, compiled in by link, with `UnitTestWebTransport` writing the client's side.

@@ -58,3 +58,32 @@ duplication: the listen URL as the instance reports it was formatted by the engi
   `Surl.Core` or the abstractions changes for them.
 - No byte Surl sends changed: a delay sends the usual answer later and a drop sends none. Upstream curl's
   reaction is its own timeout or a connection error, measured where a conformance test needs it.
+
+## Amendment 1 â€” the HTTP, RTSP and WebSocket servers (BL-902)
+
+- **Decided by:** Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), 2026-11-11, in BL-902.
+- **Acted on by:** BL-902 (HTTP, including HTTP/2 and HTTP/3, RTSP, WebSocket). [ADR-0134](ADR-0134-how-the-http-rtsp-and-websocket-servers-answer-a-chosen-error.md) decision 5 is superseded: these servers now apply `delay` and `drop` at the command stage.
+
+1. **A helper without a connection.** `CommandStageFaults.FindAndApplyAsync(context, point, target)` does what
+   the connection overload does except that a `Drop` is noted, published and handed back without an
+   abort; the connection overload calls it and then aborts. A server that cannot reach the connection from
+   where it asks, or that must not abort a connection other exchanges share, ends the dropped exchange itself.
+2. **Where the three servers ask.** At the point they asked for a chosen error (ADR-0134 decision 1 to 3), through
+   `HttpCommandFaults.FindAndApplyAsync` (the renamed `FindChosenErrorAsync`), which builds the same
+   `FaultPoint`, using `ReportedListenUrl` in place of its own copy. `Delay` holds the request and returns no rule,
+   so the request is answered as without the rule; `Drop` and `Error` are returned; any other kind is noted as
+   not applied. The WebSocket upgrade is held and dropped before its `101`; a drop sends not one byte.
+3. **How a drop ends the exchange.**
+   - RTSP and WebSocket call `IConnection.Abort()` and end the connection.
+   - HTTP/1.x: `HttpAnswer` gains `DropsExchange` (default `false`, so no other caller changes). The answerer
+     returns one for a drop and `Http1AnswerWriter` aborts the connection and writes nothing.
+   - HTTP/2 and HTTP/3 **reset the request's stream** with `INTERNAL_ERROR` (`H2 INTERNAL_ERROR` and `H3_INTERNAL_ERROR`,
+     `0x102`) before any header block, and the connection carries on. Aborting would cut every other stream a test has
+     in flight on the connection, which a fault on one request must not do; `rule` scope (`path`, `command`,
+     `account`) is how a test picks the request, and a stream reset is how a multiplexed server drops one request
+     (the same reset the writers already give a file that cannot be sent whole).
+4. **Idle clock and delay.** The delay pauses `ExchangeContext.IdleClock` as ADR-0141 decision 1 says, so the idle
+   timeout does not fire during it; the maximum exchange duration keeps running. The head timeout is not running once
+   the head was read, which is where the command is asked.
+5. **Not measured against upstream curl byte for byte.** A delayed request sends the usual answer later, and a drop
+   sends no byte, so no new byte is pinned; the tests replay the recorded request bytes of the existing fixtures.

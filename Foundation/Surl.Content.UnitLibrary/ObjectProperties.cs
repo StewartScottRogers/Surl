@@ -40,4 +40,10 @@ public sealed record ObjectProperties(
     /// The GCS <c>metageneration</c> (ADR-0148, decision 3): the one set at upload, else 1.
     /// </summary>
     public long Metageneration { get; init; } = 1;
+
+    /// <summary>
+    /// The CRC-32C (<see cref="Crc32cChecksum"/>) of the file's bytes when the index has cached it
+    /// with the current stamp, else <see langword="null"/>.
+    /// </summary>
+    public uint? Crc32c { get; init; }
 }

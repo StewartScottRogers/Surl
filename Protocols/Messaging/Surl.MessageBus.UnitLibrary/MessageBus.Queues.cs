@@ -234,8 +234,9 @@ public sealed partial class MessageBus
             }
 
             var holder = queue.GetHolderOf(connection) ?? AddGetHolder(connection, queue);
-            var (delivery, droppedBytes) = queue.TakeOne(holder, timeProvider.GetUtcNow());
+            var (delivery, droppedBytes, droppedLengths) = queue.TakeOne(holder, timeProvider.GetUtcNow());
             queuedBytes -= droppedBytes;
+            PublishExpiredDrops(queueName, droppedLengths);
             queuesVersion++;
             if (delivery is not null)
             {
@@ -389,14 +390,24 @@ public sealed partial class MessageBus
         return MessageBusOutcome.Succeeded;
     }
 
+    // One Deleted change per expired message dropped, named for the queue, with its payload length.
+    private void PublishExpiredDrops(string queueName, List<int> payloadLengths)
+    {
+        foreach (var length in payloadLengths)
+        {
+            PublishQueueChange(StoreChange.Deleted, queueName, length);
+        }
+    }
+
     private void Dispatch(NamedQueue queue, DateTimeOffset now)
     {
         queuesVersion++;
-        var (deliveries, droppedBytes) = queue.Dispatch(now);
+        var (deliveries, droppedBytes, droppedLengths) = queue.Dispatch(now);
         queuedBytes -= droppedBytes;
+        PublishExpiredDrops(queue.Name, droppedLengths);
         if (deliveries.Count > 0)
         {
-            waitingDeliveries.Enqueue(() => DeliverToConsumers(deliveries));
+            EnqueueDelivery(() => DeliverToConsumers(deliveries));
         }
     }
 

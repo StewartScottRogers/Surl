@@ -135,7 +135,29 @@ public static partial class SurlServerComposition
     /// <returns>The content store.</returns>
     public static ContentStore ComposeContentStore(
         SurlCommandLine commandLine, IContentFileSystem fileSystem, ISurlEventPublisher events, IFaultPlan faults) =>
-        new(ComposeServedRoot(commandLine), fileSystem, MapExposureOptions(commandLine), [], [], events, faults);
+        ComposeContentStore(commandLine, fileSystem, events, faults, [], []);
+
+    /// <summary>
+    /// Builds the one content store over <paramref name="fileSystem"/>, as
+    /// <see cref="ComposeContentStore(SurlCommandLine, IContentFileSystem, ISurlEventPublisher, IFaultPlan)"/>
+    /// does, serving <paramref name="shares"/> beside the root and mapping <paramref name="buckets"/>
+    /// (ADR-0102 decisions 2.1 and 2.4), as <see cref="ContentShareComposition.Compose"/> composed them.
+    /// </summary>
+    /// <param name="commandLine">The parsed command line.</param>
+    /// <param name="fileSystem">The file system <see cref="ComposeContentFileSystem"/> chose.</param>
+    /// <param name="events">The instance's event stream.</param>
+    /// <param name="faults">The instance's fault plan.</param>
+    /// <param name="shares">The composed shares.</param>
+    /// <param name="buckets">The composed buckets.</param>
+    /// <returns>The content store.</returns>
+    public static ContentStore ComposeContentStore(
+        SurlCommandLine commandLine,
+        IContentFileSystem fileSystem,
+        ISurlEventPublisher events,
+        IFaultPlan faults,
+        IReadOnlyList<ContentShare> shares,
+        IReadOnlyList<ContentBucket> buckets) =>
+        new(ComposeServedRoot(commandLine), fileSystem, MapExposureOptions(commandLine), shares, buckets, events, faults);
 
     private static string ComposeServedRoot(SurlCommandLine commandLine) =>
         commandLine.DataDirectory is { } dataDirectory ? Path.GetFullPath(dataDirectory) : InMemoryContentFileSystem.RootPath;
@@ -206,6 +228,8 @@ public static partial class SurlServerComposition
     /// <param name="faults">The instance's fault plan, whose out-of-space rules the bus and the mail store apply.</param>
     /// <param name="cancellationToken">Cancels the reads.</param>
     /// <param name="mailDomains">The mail domains and mailboxes the mail store resolves recipients against (ADR-0102, decision 1); none without <c>--mail-domain</c>.</param>
+    /// <param name="busConfiguration">The topics, queues, topic maps and access grants the bus is made with
+    /// (<see cref="MessageBusComposition.Compose"/>, ADR-0102 decision 3); none when <see langword="null"/>.</param>
     /// <returns>The state, or the message after the <c>surl: </c> prefix when part of it cannot be loaded.</returns>
     public static async Task<(ServiceState? State, string? FailureMessage)> LoadServiceStateAsync(
         SurlCommandLine commandLine,
@@ -217,10 +241,11 @@ public static partial class SurlServerComposition
         ISurlEventPublisher events,
         IFaultPlan faults,
         CancellationToken cancellationToken,
-        MailDomainConfiguration? mailDomains = null)
+        MailDomainConfiguration? mailDomains = null,
+        MessageBusConfiguration? busConfiguration = null)
     {
         var (messageBus, messageBusFailure) = await LoadMessageBusAsync(
-            ComposeMessageBusFiles(commandLine, fileSystem), commandLine, timeProvider, events, faults, cancellationToken);
+            ComposeMessageBusFiles(commandLine, fileSystem), commandLine, timeProvider, events, faults, cancellationToken, busConfiguration);
         if (messageBus is null)
         {
             return (null, messageBusFailure);
@@ -368,6 +393,8 @@ public static partial class SurlServerComposition
     /// <param name="events">The instance's event stream, which the bus publishes its changes on.</param>
     /// <param name="faults">The instance's fault plan, whose out-of-space rules the bus applies.</param>
     /// <param name="cancellationToken">Cancels the read.</param>
+    /// <param name="configuration">The topics, queues, topic maps and access grants the bus is made with
+    /// (ADR-0102 decision 3); none when <see langword="null"/>.</param>
     /// <returns>The bus, or the message after the <c>surl: </c> prefix when it cannot be loaded.</returns>
     public static async Task<(MessageBus.MessageBus? MessageBus, string? FailureMessage)> LoadMessageBusAsync(
         MessageBusFiles? files,
@@ -375,12 +402,17 @@ public static partial class SurlServerComposition
         TimeProvider timeProvider,
         ISurlEventPublisher events,
         IFaultPlan faults,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        MessageBusConfiguration? configuration = null)
     {
         ArgumentNullException.ThrowIfNull(commandLine);
         var maxUploadBytes = commandLine.Limits.MaxUploadBytes;
         var bus = new MessageBus.MessageBus(
-            timeProvider, maxMessageBytes: maxUploadBytes > 0 ? maxUploadBytes : long.MaxValue, events: events, faults: faults);
+            timeProvider,
+            maxMessageBytes: maxUploadBytes > 0 ? maxUploadBytes : long.MaxValue,
+            configuration: configuration,
+            events: events,
+            faults: faults);
         if (files is null)
         {
             return (bus, null);
@@ -460,14 +492,14 @@ public static partial class SurlServerComposition
     {
         ArgumentNullException.ThrowIfNull(commandLine);
         var maxMessageBytes = commandLine.Limits.MaxUploadBytes;
-        if (files is null)
-        {
-            return (new MailboxStore(
-                accountNames, commandLine.AllowAnonymous, timeProvider, maxMessageBytes, mailDomains: mailDomains, events: events, faults: faults), null);
-        }
-
         try
         {
+            if (files is null)
+            {
+                return (new MailboxStore(
+                    accountNames, commandLine.AllowAnonymous, timeProvider, maxMessageBytes, mailDomains: mailDomains, events: events, faults: faults), null);
+            }
+
             return (await MailboxStore.LoadAsync(
                 files,
                 accountNames,
@@ -482,6 +514,10 @@ public static partial class SurlServerComposition
         catch (MailStoreLoadException failure)
         {
             return (null, $"(37) Could not read {failure.FilePath}: {failure.Message}");
+        }
+        catch (MailRouteException failure)
+        {
+            return (null, MailboxComposition.DescribeRouteFailure(failure));
         }
     }
 
@@ -537,7 +573,7 @@ public static partial class SurlServerComposition
     /// <summary>
     /// Builds every original protocol server surl registers, over TCP or (TFTP) UDP, in
     /// registration order: <see cref="ProtocolServerRegistrations.Original"/>, each entry built
-    /// over the services given (ADR-0124, decision 2).
+    /// over the services given (ADR-0124, decision 2). The SOCKS server it builds reaches no origin: this overload composes no outbound connector.
     /// </summary>
     /// <param name="contentStore">The one content store.</param>
     /// <param name="serviceState">The message bus, the mail store and the LDAP server.</param>
@@ -582,6 +618,7 @@ public static partial class SurlServerComposition
                 advertisesHttp3)
             {
                 AuthenticationPolicyForScheme = authenticationPolicyForScheme,
+                OriginConnector = new InMemoryOriginConnector(),
             });
     }
 
@@ -644,6 +681,10 @@ public static partial class SurlServerComposition
             SshAlgorithmOffer.Default([], AesGcm.IsSupported),
             isTlsUpgradeAvailable: false,
             echoesWebSocketMessages: false,
-            advertisesHttp3: false);
+            advertisesHttp3: false)
+        {
+            // Nothing is served through these services, so the SOCKS server is built over a connector that connects nowhere.
+            OriginConnector = new InMemoryOriginConnector(),
+        };
     }
 }

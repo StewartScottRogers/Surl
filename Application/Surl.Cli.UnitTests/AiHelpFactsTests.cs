@@ -54,6 +54,7 @@ public sealed class AiHelpFactsTests
     [DataRow("idle-timeout", "seconds")]
     [DataRow("head-timeout", "seconds")]
     [DataRow("max-connections", "number")]
+    [DataRow("random-seed", "number")]
     [DataRow("max-connections-per-address", "number")]
     [DataRow("max-request-head", "bytes")]
     [DataRow("max-line", "bytes")]
@@ -87,12 +88,26 @@ public sealed class AiHelpFactsTests
     }
 
     [TestMethod]
-    public void LoosensSecurityForTestsOnly_IsExactlyTheEightTestingOptions()
+    public void TestingOptionsLoosenNothing_AreExactlyRandomSeed()
     {
-        var testing = CommandLineOptions.All.Where(option => option.Help.Categories.Contains("testing")).ToArray();
+        var loosensNothing = CommandLineOptions.All
+            .Where(option => option.Help.Categories.Contains("testing") && !option.Help.Categories.Contains("security"))
+            .ToArray();
+
+        CollectionAssert.AreEqual(new[] { "random-seed" }, loosensNothing.Select(option => option.LongName).ToArray());
+        Assert.IsNull(loosensNothing[0].Help.Explanation);
+        StringAssert.Contains(AiHelpText.Answer("testing").Output, "| no | testing |");
+    }
+
+    [TestMethod]
+    public void LoosensSecurityForTestsOnly_IsExactlyTheNineTestingOptions()
+    {
+        var testing = CommandLineOptions.All
+            .Where(option => option.Help.Categories.Contains("testing") && option.Help.Categories.Contains("security"))
+            .ToArray();
 
         CollectionAssert.AreEquivalent(
-            new[] { "allow-anonymous", "allow-plaintext-auth", "auth", "control", "control-token-file", "fault", "self-signed", "throwaway-hostkey" },
+            new[] { "allow-anonymous", "allow-plaintext-auth", "auth", "control", "control-token-file", "fault", "s3-plaintext", "self-signed", "throwaway-hostkey" },
             testing.Select(option => option.LongName).ToArray());
         foreach (var option in testing)
         {
@@ -166,8 +181,10 @@ public sealed class AiHelpFactsTests
     [DataRow("pop3", new[] { "pop3", "pop3s" })]
     [DataRow("s3", new[] { "s3" })]
     [DataRow("smb", new[] { "smb", "smbs" })]
+    [DataRow("stomp", new[] { "stomp", "stomps" })]
     [DataRow("smtp", new[] { "smtp", "smtps" })]
     [DataRow("socketio", new[] { "socketio", "socketios" })]
+    [DataRow("socks", new[] { "socks4", "socks4a", "socks5", "socks5h" })]
     [DataRow("telnet", new[] { "telnet" })]
     [DataRow("tftp", new[] { "tftp" })]
     [DataRow("webtransport", new[] { "webtransport" })]
@@ -184,7 +201,7 @@ public sealed class AiHelpFactsTests
     {
         var withSchemes = HelpCategories.All.Where(category => category.Schemes.Count > 0).Select(category => category.Name);
 
-        CollectionAssert.AreEqual(new[] { "coap", "dict", "dns", "ftp", "gopher", "http", "imap", "ldap", "mqtt", "nats", "pop3", "rtsp", "s3", "smb", "smtp", "socketio", "ssh", "telnet", "tftp", "websocket", "webtransport", "xmpp" }, withSchemes.ToArray());
+        CollectionAssert.AreEqual(new[] { "coap", "dict", "dns", "ftp", "gopher", "http", "imap", "ldap", "mqtt", "nats", "pop3", "rtsp", "s3", "smb", "smtp", "socketio", "socks", "ssh", "stomp", "telnet", "tftp", "websocket", "webtransport", "xmpp" }, withSchemes.ToArray());
     }
 
     [TestMethod]
@@ -247,7 +264,7 @@ public sealed class AiHelpFactsTests
     public void Auth_AllowedValues_AreTheMethodWordsTheReaderAccepts()
     {
         Assert.AreEqual(
-            "comma-separated, in any case, no empty item: negotiate, gssapi, ntlm, ntlmv1, digest, scram-sha-256, scram-sha-1, digest-md5, cram-md5, apop, basic, plain, login, bearer, oauthbearer, xoauth2, external, aws-sigv4",
+            "comma-separated, in any case, no empty item: negotiate, gssapi, ntlm, ntlmv1, digest, scram-sha-256, scram-sha-512, scram-sha-1, digest-md5, cram-md5, apop, basic, plain, login, bearer, oauthbearer, xoauth2, external, aws-sigv4",
             AllowedValuesOf("auth"));
 
         foreach (var word in OptionArgumentReader.AuthenticationMethodWords)

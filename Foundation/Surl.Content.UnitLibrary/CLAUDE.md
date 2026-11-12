@@ -123,14 +123,14 @@ fields and user metadata names and values, `MetadataTooLarge`). With a data dire
 `MoveFileReplacing`, loaded by `LoadAsync` (malformed: `ObjectMetadataIndexLoadException`,
 reason `not an object metadata index`); a failed write is returned as `StorageFailure`, never
 thrown. Its byte format is pinned in `ObjectMetadataIndexFormat`'s remarks: the header
-`SURL-OBJECT-INDEX-3` and LF, a 4-byte entry count, then entries in strictly ascending ordinal
+`SURL-OBJECT-INDEX-4` and LF, a 4-byte entry count, then entries in strictly ascending ordinal
 key order - key, length (8, signed), last write UTC ticks (8, signed), generation (8, signed),
 metageneration (8, signed, at least 1), ETag, the six header fields (empty is absent), a 2-byte user-metadata count and its name and
-value pairs in strictly ascending ordinal order of name; every string is a 2-byte UTF-8
+value pairs in strictly ascending ordinal order of name, then the cached CRC-32C (1 byte: 0 for none, or 1 and 4 bytes, unsigned; `Crc32cChecksum`, `ObjectMetadata.Crc32c`, `ObjectProperties.Crc32c`; BL-773); every string is a 2-byte UTF-8
 length then its bytes, every integer big-endian. An index written before BL-736 starts
 `SURL-OBJECT-INDEX-1`, holds five header fields per entry and is still read, its entries with
-no `Content-MD5`; one starting `SURL-OBJECT-INDEX-2` has no metageneration and reads back as 1; the next
-write rewrites either as version 3.
+no `Content-MD5`; one starting `SURL-OBJECT-INDEX-2` has no metageneration and reads back as 1; one starting `SURL-OBJECT-INDEX-3` has no CRC-32C and reads back with none; the next
+write rewrites any of them as version 4. A first read computes the MD5 and CRC-32C in one read of the file; a store that names an ETag keeps the CRC-32C it names, else none.
 
 Folder objects (ADR-0108 Amendment 3, BL-728): `StoreFolderObjectAsync` records a folder a
 client put as an object (S3's zero-byte `x/`) under the folder's key and a final `/`

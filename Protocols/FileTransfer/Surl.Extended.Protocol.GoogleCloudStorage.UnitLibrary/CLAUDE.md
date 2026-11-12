@@ -16,7 +16,7 @@ listen URL's host when it is a DNS name, `localhost` and `storage.googleapis.com
   `x-goog-generation`, `x-goog-metageneration` (the index's recorded value, 1 unless a JSON patch or update raised it,
 BL-1041), `x-goog-stored-content-*`, `x-goog-storage-class: STANDARD`
   and `x-goog-hash` (`crc32c=…,md5=…` of the whole object, computed by `GcsObjectHashes` with
-  `BitOperations.Crc32C`, read from the file on every request until BL-773 caches it in the index).
+  `BitOperations.Crc32C`, cached in the index entry beside the ETag since BL-773: `GcsObjectDigests.Cached` builds it from the cached CRC-32C and the MD5 a quoted-hex ETag names, and `GcsObjectPropertiesReader.DigestsAsync` reads the file only when there is no cached CRC-32C or the ETag is a multipart one).
 - PUT Object (`GcsPutObject`): needs `--allow-uploads` (`403 AccessDenied`), `Content-Length` (`411
   MissingContentLength`), checks `Content-MD5` (`400 InvalidDigest`, `400 BadDigest`) and `x-goog-hash`
   (`400 InvalidHash`, `400 BadDigest`, `GcsSentDigests`), `x-goog-meta-*` at most 8 KiB (`400
@@ -118,7 +118,9 @@ Every other request - another method, a subresource or unlisted query parameter,
 upload, `x-goog-encryption-*` - is `400 NotImplemented`, judged after the login. Every error is `GcsError`'s fixed
 code and message in the one-line XML body (`GcsErrorBody`); no client byte is echoed, and a `HEAD` error has
 no body. A connection past a limit is `503 SlowDown` (`WriteRefusalAsync`). A head past `--max-request-head`
-is still `Surl.HttpServing`'s `431` until BL-774.
+is `400 MaxMessageLengthExceeded` with the `Error` body, then closed (ADR-0110 decision 7; BL-774):
+`GcsRequestAnswerer` is also `Surl.HttpServing`'s `IHttpHeadNotReadRefuser`, and every other head that
+could not be read keeps the standard refusal.
 
 This library references `Surl.Protocol.Abstractions`, `Surl.Content` and `Surl.HttpServing` (and through it
 `Surl.HttpMessage`), nothing else (`ProtocolIsolationTests`). It never constructs a transport type. Tests

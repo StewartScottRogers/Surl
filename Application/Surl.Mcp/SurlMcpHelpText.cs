@@ -12,7 +12,7 @@ internal static class SurlMcpHelpText
         "Usage: surl-mcp [options]",
         "Serves Surl's MCP tools, which start, list and stop Surl protocol servers and show what their clients",
         "sent, show and wait for their events (exchanges, logins, store changes, faults), seed, reset, snapshot",
-        "and restore their stores, and add and remove fault rules, as an MCP server on standard input and",
+        "and restore their stores, and add, list and remove fault rules, as an MCP server on standard input and",
         "output. Standard output carries only MCP messages; every log",
         "line goes to standard error.",
         " --allow-non-loopback  Let a listen URL name a host other than loopback",

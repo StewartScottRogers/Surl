@@ -61,6 +61,18 @@ public static class Amqp1Descriptor
     /// <summary><c>amqp:coordinator:list</c> (Part 4 section 4.5.1), the target of a transaction controller.</summary>
     public const ulong Coordinator = 0x30;
 
+    /// <summary><c>amqp:declare:list</c> (Part 4 section 4.5.2), the message that declares a transaction.</summary>
+    public const ulong Declare = 0x31;
+
+    /// <summary><c>amqp:discharge:list</c> (Part 4 section 4.5.3), the message that commits or rolls back a transaction.</summary>
+    public const ulong Discharge = 0x32;
+
+    /// <summary><c>amqp:declared:list</c> (Part 4 section 4.5.5), the outcome carrying a declared transaction's id.</summary>
+    public const ulong Declared = 0x33;
+
+    /// <summary><c>amqp:transactional-state:list</c> (Part 4 section 4.5.6), a delivery state naming a transaction.</summary>
+    public const ulong TransactionalState = 0x34;
+
     /// <summary><c>amqp:sasl-mechanisms:list</c> (Part 5 section 5.3.3.1).</summary>
     public const ulong SaslMechanisms = 0x40;
 
@@ -123,6 +135,10 @@ public static class Amqp1Descriptor
         ["amqp:source:list"] = Source,
         ["amqp:target:list"] = Target,
         ["amqp:coordinator:list"] = Coordinator,
+        ["amqp:declare:list"] = Declare,
+        ["amqp:discharge:list"] = Discharge,
+        ["amqp:declared:list"] = Declared,
+        ["amqp:transactional-state:list"] = TransactionalState,
         ["amqp:sasl-mechanisms:list"] = SaslMechanisms,
         ["amqp:sasl-init:list"] = SaslInit,
         ["amqp:sasl-challenge:list"] = SaslChallenge,

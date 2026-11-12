@@ -27,6 +27,27 @@ public sealed class TlsServerMessagesTests
     }
 
     [TestMethod]
+    public void SignedServerKeyExchange_ParamsSchemeAndSignature_AppendsTheDigitallySignedStruct()
+    {
+        var parameters = TlsServerMessages.ServerSrpParams(SrpGroup.Rfc5054Group1024, [0xAA], [0x01, 0x02]);
+
+        var message = TlsServerMessages.SignedServerKeyExchange(parameters, TlsSignatureScheme.RsaPssRsaeSha256, [0x11, 0x22, 0x33]);
+
+        CollectionAssert.AreEqual(Convert.FromHexString("0C"), message[..1]);
+        Assert.AreEqual(message.Length - 4, (message[2] << 8) | message[3]);
+        CollectionAssert.AreEqual(parameters, message[4..^7]);
+        CollectionAssert.AreEqual(Convert.FromHexString("0804" + "0003" + "112233"), message[^7..]);
+    }
+
+    [TestMethod]
+    public void Certificate_TwoCertificates_AreNestedInThreeByteLengths()
+    {
+        var message = TlsServerMessages.Certificate([[0xAA, 0xBB], [0xCC]]);
+
+        CollectionAssert.AreEqual(Convert.FromHexString("0B00000C" + "000009" + "000002AABB" + "000001CC"), message);
+    }
+
+    [TestMethod]
     public void ServerHelloDoneAndFinished_AreFramedWithTheirTypes()
     {
         CollectionAssert.AreEqual(Convert.FromHexString("0E000000"), TlsServerMessages.ServerHelloDone());
@@ -38,5 +59,7 @@ public sealed class TlsServerMessagesTests
     {
         Assert.ThrowsExactly<ArgumentNullException>(() => TlsServerMessages.ServerHello(null!, new byte[32]));
         Assert.ThrowsExactly<ArgumentNullException>(() => TlsServerMessages.ServerKeyExchange(null!, [1], [1]));
+        Assert.ThrowsExactly<ArgumentNullException>(() => TlsServerMessages.ServerSrpParams(null!, [1], [1]));
+        Assert.ThrowsExactly<ArgumentNullException>(() => TlsServerMessages.Certificate(null!));
     }
 }

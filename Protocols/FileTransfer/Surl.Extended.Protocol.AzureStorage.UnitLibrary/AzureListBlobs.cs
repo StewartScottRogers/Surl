@@ -9,6 +9,8 @@ namespace Surl.Extended.Protocol.AzureStorage;
 /// <summary>
 /// Answers List Blobs ("List Blobs"; ADR-0109, decision 5.3): one page of a container's blobs and
 /// blob prefixes as an <c>EnumerationResults</c>, its elements in the order of the page's example.
+/// With <c>include=uncommittedblobs</c> a blob that has only blocks staged by Put Block is listed
+/// too, in name order among the files, with a <c>Content-Length</c> of 0.
 /// </summary>
 /// <remarks>
 /// A listing is a directory listing in ADR-0006's terms, as ADR-0108 holds for S3's, so it needs
@@ -17,9 +19,11 @@ namespace Surl.Extended.Protocol.AzureStorage;
 /// </remarks>
 /// <param name="store">The content store the container is read from.</param>
 /// <param name="properties">Reads each listed blob's properties.</param>
+/// <param name="staging">The server's staged uploads, whose blobs with only staged blocks
+/// <c>include=uncommittedblobs</c> lists.</param>
 /// <param name="scheme">How the endpoint is served, <c>https</c> or <c>http</c>, as
 /// <c>ServiceEndpoint</c> names it.</param>
-internal sealed class AzureListBlobs(ContentStore store, AzureBlobPropertiesReader properties, string scheme)
+internal sealed class AzureListBlobs(ContentStore store, AzureBlobPropertiesReader properties, AzureStagingArea staging, string scheme)
 {
     /// <summary>
     /// Answers a List Blobs whose container exists.
@@ -42,8 +46,12 @@ internal sealed class AzureListBlobs(ContentStore store, AzureBlobPropertiesRead
             return reply.Error(refusal!);
         }
 
-        var page = AzureListPage.Take(new AzureContainerWalk(store, caller).Blobs(target.RawContainer, listRequest.Prefix, cancellationToken), listRequest);
         var container = Uri.UnescapeDataString(target.RawContainer);
+        var files = new AzureContainerWalk(store, caller).Blobs(target.RawContainer, listRequest.Prefix, cancellationToken);
+        var blobs = listRequest.IncludesUncommittedBlobs
+            ? Merged(files, await UncommittedBlobsAsync(container, listRequest.Prefix, cancellationToken))
+            : files;
+        var page = AzureListPage.Take(blobs, listRequest);
         var xml = new StringBuilder("<?xml version=\"1.0\" encoding=\"utf-8\"?>");
         xml.Append("<EnumerationResults ServiceEndpoint=\"").Append(Escaped($"{scheme}://{AzureRequestFields.Value(request.Fields, "Host")}/"))
             .Append("\" ContainerName=\"").Append(Escaped(container)).Append("\">");
@@ -67,8 +75,52 @@ internal sealed class AzureListBlobs(ContentStore store, AzureBlobPropertiesRead
             new HttpAnswerBody.Bytes(body));
     }
 
+    // The blobs with only staged blocks, read in turn with the uploads that stage them.
+    private async Task<IReadOnlyList<AzureListedBlob>> UncommittedBlobsAsync(string container, string prefix, CancellationToken cancellationToken)
+    {
+        await staging.EnterAsync(cancellationToken);
+        try
+        {
+            return staging.UncommittedBlobs(container, prefix);
+        }
+        finally
+        {
+            staging.Exit();
+        }
+    }
+
+    /// <summary>
+    /// The files and the blobs with staged blocks together, in name order; a name that is both is
+    /// the file, its committed blob.
+    /// </summary>
+    /// <param name="files">The files, in name order.</param>
+    /// <param name="uncommitted">The blobs with staged blocks, in name order.</param>
+    /// <returns>Every blob once, in name order.</returns>
+    internal static IEnumerable<AzureListedBlob> Merged(IEnumerable<AzureListedBlob> files, IReadOnlyList<AzureListedBlob> uncommitted)
+    {
+        var next = 0;
+        foreach (var file in files)
+        {
+            for (; next < uncommitted.Count && AzureNameOrder.Instance.Compare(uncommitted[next].Name, file.Name) <= 0; next++)
+            {
+                if (uncommitted[next].Name != file.Name)
+                {
+                    yield return uncommitted[next];
+                }
+            }
+
+            yield return file;
+        }
+
+        for (; next < uncommitted.Count; next++)
+        {
+            yield return uncommitted[next];
+        }
+    }
+
     // A blob prefix is its Name; a blob is its Name and Properties, and Metadata when asked. A file
-    // gone between the walk and the read is left out.
+    // gone between the walk and the read is left out; a blob with only staged blocks has no
+    // committed properties and no metadata.
     private async Task AppendEntryAsync(StringBuilder xml, string container, AzureListPageEntry entry, bool includesMetadata, CancellationToken cancellationToken)
     {
         if (entry.Blob is not { } blob)
@@ -79,17 +131,27 @@ internal sealed class AzureListBlobs(ContentStore store, AzureBlobPropertiesRead
             return;
         }
 
-        if (await properties.ReadAsync(blob.Mapping, AzureIndexKey.Of(store, container, blob.Name), cancellationToken) is not { } found)
+        if (blob.Mapping is not { } mapping)
         {
+            AppendBlob(xml, blob.Name, includesMetadata ? [] : null, properties => AppendUncommittedProperties(properties, blob.LastStaged));
             return;
         }
 
-        xml.Append("<Blob>");
-        Append(xml, "Name", blob.Name);
-        AppendProperties(xml, found);
-        if (includesMetadata)
+        if (await properties.ReadAsync(mapping, AzureIndexKey.Of(store, container, blob.Name), cancellationToken) is { } found)
         {
-            AppendMetadata(xml, found.UserMetadata);
+            AppendBlob(xml, blob.Name, includesMetadata ? found.UserMetadata : null, properties => AppendProperties(properties, found));
+        }
+    }
+
+    // A Blob element: its Name, its Properties, and its Metadata when asked for.
+    private static void AppendBlob(StringBuilder xml, string name, IReadOnlyList<KeyValuePair<string, string>>? metadata, Action<StringBuilder> appendProperties)
+    {
+        xml.Append("<Blob>");
+        Append(xml, "Name", name);
+        appendProperties(xml);
+        if (metadata is not null)
+        {
+            AppendMetadata(xml, metadata);
         }
 
         xml.Append("</Blob>");
@@ -111,6 +173,12 @@ internal sealed class AzureListBlobs(ContentStore store, AzureBlobPropertiesRead
         Append(xml, "Content-MD5", AzureBlobAnswer.StoredMd5(properties));
         Append(xml, "Cache-Control", properties.CacheControl);
         Append(xml, "Content-Disposition", properties.ContentDisposition);
+        AppendTail(xml);
+    }
+
+    // What every listed blob's Properties end with.
+    private static void AppendTail(StringBuilder xml)
+    {
         Append(xml, "BlobType", "BlockBlob");
         Append(xml, "AccessTier", "Hot");
         Append(xml, "AccessTierInferred", "true");
@@ -118,6 +186,24 @@ internal sealed class AzureListBlobs(ContentStore store, AzureBlobPropertiesRead
         Append(xml, "LeaseState", "available");
         Append(xml, "ServerEncrypted", "false");
         xml.Append("</Properties>");
+    }
+
+    // The Properties of a blob with only staged blocks, in the same order: no committed content, so
+    // Content-Length 0, no Etag and no content fields, and its times the last block's.
+    private static void AppendUncommittedProperties(StringBuilder xml, DateTimeOffset lastStaged)
+    {
+        var lastModified = lastStaged.ToUniversalTime().ToString("r", CultureInfo.InvariantCulture);
+        xml.Append("<Properties>");
+        Append(xml, "Creation-Time", lastModified);
+        Append(xml, "Last-Modified", lastModified);
+        Append(xml, "Etag", null);
+        Append(xml, "Content-Length", "0");
+        foreach (var name in (string[])["Content-Type", "Content-Encoding", "Content-Language", "Content-MD5", "Cache-Control", "Content-Disposition"])
+        {
+            Append(xml, name, null);
+        }
+
+        AppendTail(xml);
     }
 
     private static void AppendMetadata(StringBuilder xml, IReadOnlyList<KeyValuePair<string, string>> metadata)

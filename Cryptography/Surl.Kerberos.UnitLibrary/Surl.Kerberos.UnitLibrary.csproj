@@ -7,6 +7,8 @@
     <!-- The hand-built test KDC encrypts and reads RFC 4120 messages with the same profiles and DER readers (ADR-0065, decision 1). -->
     <InternalsVisibleTo Include="Surl.Kerberos.TestKdc.UnitLibrary" />
     <InternalsVisibleTo Include="Surl.Kerberos.TestKdc.UnitTests" />
+    <!-- The SOCKS server's GSS-API tests encrypt their hand-made tickets with the same profiles (BL-765). -->
+    <InternalsVisibleTo Include="Surl.Protocol.Socks.UnitTests" />
   </ItemGroup>
 
 </Project>

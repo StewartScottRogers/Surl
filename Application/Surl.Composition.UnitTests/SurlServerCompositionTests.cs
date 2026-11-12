@@ -17,7 +17,7 @@ public sealed partial class SurlServerCompositionTests
             new[]
             {
                 "http", "https", "dict", "ftp", "ftps", "gopher", "gophers", "imap", "imaps", "ldap", "ldaps",
-                "mqtt", "mqtts", "pop3", "pop3s", "rtsp", "smb", "smbs", "smtp", "smtps", "scp", "sftp",
+                "mqtt", "mqtts", "pop3", "pop3s", "rtsp", "smb", "smbs", "smtp", "smtps", "scp", "sftp", "socks4", "socks4a", "socks5", "socks5h",
                 "telnet", "tftp", "ws", "wss",
             },
             schemes.ToArray());

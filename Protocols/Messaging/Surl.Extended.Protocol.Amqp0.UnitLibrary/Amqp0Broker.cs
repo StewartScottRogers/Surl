@@ -59,8 +59,11 @@ namespace Surl.Extended.Protocol.Amqp0;
 /// <c>immediate</c> one no consumer took with 313. <c>basic.get</c> answers <c>get-ok</c> or
 /// <c>get-empty</c>; <c>basic.consume</c> answers <c>consume-ok</c> before the first
 /// <c>basic.deliver</c>. Delivery tags run from 1 per channel; <c>ack</c>, <c>reject</c>,
-/// <c>nack</c> and <c>recover</c> settle them, and a tag not outstanding is 406. <c>basic.qos</c>'s
-/// prefetch-count bounds each consumer the channel makes afterwards, 1000 when it is 0 or larger.
+/// <c>nack</c> and <c>recover</c> settle them, and a tag not outstanding is 406; <c>recover</c>
+/// without <c>requeue</c> redelivers each to its consumer under a new tag. <c>basic.qos</c>'s
+/// prefetch-count and prefetch-size bound the outstanding deliveries of the channel's consumers
+/// together, or with <c>global</c> the connection's, never stopping a first one and never a
+/// no-ack consumer; each consumer takes at most 1000 at once.
 /// Topic access refusals are 403.
 /// </para>
 /// <para>
@@ -99,6 +102,7 @@ public sealed class Amqp0Broker : IConnectionProtocolServer
     private readonly MessageBus.MessageBus bus;
     private readonly Amqp0BrokerOptions options;
     private readonly Amqp0ExchangeTable exchanges;
+    private readonly Amqp0ConsumerRegistry consumers = new();
 
     /// <summary>Creates a broker over <paramref name="bus"/> whose logins <paramref name="policy"/> judges.</summary>
     /// <param name="policy">Offers the mechanisms and judges each login.</param>
@@ -154,6 +158,6 @@ public sealed class Amqp0Broker : IConnectionProtocolServer
         ArgumentNullException.ThrowIfNull(connection);
         ArgumentNullException.ThrowIfNull(context);
 
-        return new Amqp0BrokerConnection(connection, context, policy, options, bus, exchanges).ServeAsync();
+        return new Amqp0BrokerConnection(connection, context, policy, options, bus, exchanges, consumers).ServeAsync();
     }
 }

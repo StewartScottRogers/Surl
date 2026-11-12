@@ -42,8 +42,37 @@ public sealed class MailboxFileReaderTests
     }
 
     [TestMethod]
+    public void Read_QuotedFieldClosingAtEndOfText_IsRead()
+    {
+        var mailbox = Accepted("address,password\nann@example.com,\"secret\"").Single();
+
+        Assert.AreEqual("secret", mailbox.Password);
+    }
+
+    [TestMethod]
     public void Read_ByteOrderMarkAndBlankRecords_AreSkipped() =>
         Assert.HasCount(2, Accepted("﻿\naddress,password\n\nann@example.com,a\n\r\nbob@example.com,b"));
+
+    [TestMethod]
+    public void Read_QuotaAndFoldersColumns_AreReadAndEmptyFieldsMeanNotGiven()
+    {
+        var mailboxes = Accepted("address,password,quota,folders\nann@example.com,a,2k,\"Sent,Work\"\nbob@example.com,b,,\n");
+
+        Assert.AreEqual(2048L, mailboxes[0].QuotaBytes);
+        CollectionAssert.AreEqual(new[] { "Sent", "Work" }, mailboxes[0].Folders.ToArray());
+        Assert.IsNull(mailboxes[1].QuotaBytes);
+        Assert.IsEmpty(mailboxes[1].Folders);
+    }
+
+    [TestMethod]
+    public void Read_MoreThanAThousandFolders_IsRefused()
+    {
+        var folders = string.Join(',', Enumerable.Range(0, 1001).Select(index => "f" + index));
+
+        Assert.AreEqual(
+            $"(2) Mailbox file {File}, line 2: {ConfigurationItemReader.TooManyMembers}",
+            Refused($"address,password,folders\nann@example.com,a,\"{folders}\"\n"));
+    }
 
     [TestMethod]
     public void Read_FiveHundredRows_ReadsEveryMailbox()
@@ -65,7 +94,11 @@ public sealed class MailboxFileReaderTests
     [DataRow("\n\n", 3, "expected a header row with address and password", DisplayName = "Only blank lines")]
     [DataRow("address\nann@example.com\n", 1, "expected a header row with address and password", DisplayName = "No password column")]
     [DataRow("password,protocols\n", 1, "expected a header row with address and password", DisplayName = "No address column")]
-    [DataRow("address,password,quota\n", 1, "unknown column quota", DisplayName = "quota, BL-654's")]
+    [DataRow("address,password,nosuch\n", 1, "unknown column nosuch", DisplayName = "An unknown column")]
+    [DataRow("address,password,quota\nann@example.com,a,0\n", 2, "key quota needs a value above 0", DisplayName = "Quota zero")]
+    [DataRow("address,password,quota\nann@example.com,a,lots\n", 2, "expected a proper numerical parameter", DisplayName = "Quota not bytes")]
+    [DataRow("address,password,folders\nann@example.com,a,\"Sent,Sent\"\n", 2, "member Sent is given twice", DisplayName = "A folder twice")]
+    [DataRow("address,password,folders\nann@example.com,a,\"Sent,\"\n", 2, "an empty field", DisplayName = "An empty folder")]
     [DataRow("address,password,Address\n", 1, "column address is given twice", DisplayName = "A column twice")]
     [DataRow("address,password\nann@example.com\n", 2, "expected 2 fields", DisplayName = "Too few fields")]
     [DataRow("address,password\n\nann@example.com,a,b\n", 3, "expected 2 fields", DisplayName = "Too many fields")]

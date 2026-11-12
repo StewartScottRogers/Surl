@@ -13,6 +13,12 @@ public sealed partial class SignalRRequestAnswererTests
 {
     private const string Id = "[A-Za-z0-9_-]{22}";
 
+    // TransportProtocols.md "negotiate": the transports the hub lists, in order, as the available ones.
+    private const string TransportsPattern =
+        "\"availableTransports\":\\[\\{\"transport\":\"WebSockets\",\"transferFormats\":\\[\"Text\",\"Binary\"\\]\\},"
+        + "\\{\"transport\":\"ServerSentEvents\",\"transferFormats\":\\[\"Text\"\\]\\},"
+        + "\\{\"transport\":\"LongPolling\",\"transferFormats\":\\[\"Text\",\"Binary\"\\]\\}\\]";
+
     [TestMethod]
     public async Task AnswerAsync_NegotiateVersionOne_AnswersAFreshIdAndTokenAndTheWebSocketsTransport()
     {
@@ -24,7 +30,7 @@ public sealed partial class SignalRRequestAnswererTests
             response,
             "^HTTP/1\\.1 200 OK\r\nDate: " + SignalRServerHarness.NowHttpDate + "\r\nContent-Length: (\\d+)\r\nContent-Type: application/json\r\nConnection: close\r\n\r\n"
                 + "(\\{\"negotiateVersion\":1,\"connectionId\":\"(" + Id + ")\",\"connectionToken\":\"(" + Id + ")\","
-                + "\"availableTransports\":\\[\\{\"transport\":\"WebSockets\",\"transferFormats\":\\[\"Text\",\"Binary\"\\]\\}\\]\\})$");
+                + TransportsPattern + "\\})$");
         Assert.IsTrue(match.Success, response);
         Assert.AreEqual(match.Groups[2].Length.ToString(System.Globalization.CultureInfo.InvariantCulture), match.Groups[1].Value);
         Assert.AreNotEqual(match.Groups[3].Value, match.Groups[4].Value);
@@ -54,10 +60,27 @@ public sealed partial class SignalRRequestAnswererTests
         var response = await harness.SendAsync("POST", target, SignalRServerHarness.BearerField);
 
         Assert.MatchesRegex(
-            "^\\{\"negotiateVersion\":0,\"connectionId\":\"" + Id + "\",\"availableTransports\":\\[\\{\"transport\":\"WebSockets\",\"transferFormats\":\\[\"Text\",\"Binary\"\\]\\}\\]\\}$",
+            "^\\{\"negotiateVersion\":0,\"connectionId\":\"" + Id + "\"," + TransportsPattern + "\\}$",
             SignalRServerHarness.BodyOf(response));
     }
 
+    [TestMethod]
+    [DataRow("useStatefulReconnect=true", true)]
+    [DataRow("useAck=true", true)]
+    [DataRow("useAck=TRUE", true)]
+    [DataRow("useAck=false", false)]
+    [DataRow("useStatefulReconnect=yes", false)]
+    [DataRow("negotiateVersion=1", false)]
+    public async Task AnswerAsync_NegotiateAskingForStatefulReconnect_OffersItAfterTheTransportsOnly(string query, bool isOffered)
+    {
+        var harness = new SignalRServerHarness();
+
+        var response = await harness.SendAsync("POST", "/chat/negotiate?negotiateVersion=1&" + query, SignalRServerHarness.BearerField);
+
+        var body = SignalRServerHarness.BodyOf(response);
+        Assert.AreEqual(isOffered, body.EndsWith("],\"useStatefulReconnect\":true}", StringComparison.Ordinal), body);
+        Assert.AreEqual(isOffered, harness.Connections.Count == 1 && body.Contains("useStatefulReconnect", StringComparison.Ordinal));
+    }
     [TestMethod]
     [DataRow("2")]
     [DataRow("99999999999999999999")]
@@ -204,7 +227,7 @@ public sealed partial class SignalRRequestAnswererTests
         var harness = new SignalRServerHarness();
         for (var index = 0; index < SignalRHubConnections.MaxConnections; index++)
         {
-            harness.Connections.Negotiate(null, true, TimeSpan.FromSeconds(30));
+            harness.Connections.Negotiate(null, true, TimeSpan.FromSeconds(30), new UnitTestIdentifierRandom(1));
         }
 
         var response = await harness.SendAsync("POST", "/chat/negotiate?negotiateVersion=1", SignalRServerHarness.BearerField);
@@ -253,14 +276,14 @@ public sealed partial class SignalRRequestAnswererTests
     }
 
     [TestMethod]
-    public async Task AnswerAsync_GetOnTheEndpointBaseWithoutAnUpgrade_IsUpgradeRequired()
+    public async Task AnswerAsync_GetOnTheEndpointBaseNamingAWebSocketUpgradeWithoutItsFields_IsBadRequest()
     {
         var harness = new SignalRServerHarness();
 
-        var response = await harness.SendAsync("GET", "/chat?id=x", SignalRServerHarness.BearerField);
+        var response = await harness.SendAsync("GET", "/chat?id=x", SignalRServerHarness.BearerField, "Upgrade: websocket");
 
         Assert.AreEqual(
-            "HTTP/1.1 426 Upgrade Required\r\nDate: " + SignalRServerHarness.NowHttpDate + "\r\nContent-Length: 0\r\nUpgrade: websocket\r\nSec-WebSocket-Version: 13\r\nConnection: close\r\n\r\n",
+            "HTTP/1.1 400 Bad Request\r\nDate: " + SignalRServerHarness.NowHttpDate + "\r\nContent-Length: 0\r\nConnection: close\r\n\r\n",
             response);
     }
 
@@ -270,7 +293,7 @@ public sealed partial class SignalRRequestAnswererTests
     public async Task AnswerAsync_UpgradeNamingANegotiatedConnection_Switches(bool isVersionOne)
     {
         var harness = new SignalRServerHarness();
-        var negotiated = harness.Connections.Negotiate(string.Empty, isVersionOne, TimeSpan.FromSeconds(30))!;
+        var negotiated = harness.Connections.Negotiate(string.Empty, isVersionOne, TimeSpan.FromSeconds(30), new UnitTestIdentifierRandom(1))!;
 
         var response = await harness.SendRawAsync(SignalRHubClient.UpgradeRequest("/chat?id=" + Uri.EscapeDataString(negotiated.UpgradeId)));
 
@@ -294,7 +317,7 @@ public sealed partial class SignalRRequestAnswererTests
     public async Task AnswerAsync_UpgradeWithAConnectionTokenNotFromNegotiate_IsNotFound(string target, int status, string reason)
     {
         var harness = new SignalRServerHarness();
-        harness.Connections.Negotiate(string.Empty, true, TimeSpan.FromSeconds(30));
+        harness.Connections.Negotiate(string.Empty, true, TimeSpan.FromSeconds(30), new UnitTestIdentifierRandom(1));
 
         var response = await harness.SendRawAsync(SignalRHubClient.UpgradeRequest(target));
 
@@ -305,7 +328,7 @@ public sealed partial class SignalRRequestAnswererTests
     public async Task AnswerAsync_UpgradeWithAVersionOneConnectionsId_IsNotFound()
     {
         var harness = new SignalRServerHarness();
-        var negotiated = harness.Connections.Negotiate(string.Empty, true, TimeSpan.FromSeconds(30))!;
+        var negotiated = harness.Connections.Negotiate(string.Empty, true, TimeSpan.FromSeconds(30), new UnitTestIdentifierRandom(1))!;
 
         var response = await harness.SendRawAsync(SignalRHubClient.UpgradeRequest("/chat?id=" + negotiated.ConnectionId));
 
@@ -316,7 +339,7 @@ public sealed partial class SignalRRequestAnswererTests
     public async Task AnswerAsync_UpgradeOfAConnectionAlreadyTakenUp_IsConflict()
     {
         var harness = new SignalRServerHarness();
-        var negotiated = harness.Connections.Negotiate(string.Empty, true, TimeSpan.FromSeconds(30))!;
+        var negotiated = harness.Connections.Negotiate(string.Empty, true, TimeSpan.FromSeconds(30), new UnitTestIdentifierRandom(1))!;
         harness.Connections.TakeUp(negotiated.UpgradeId, string.Empty, out _);
 
         var response = await harness.SendRawAsync(SignalRHubClient.UpgradeRequest("/chat?id=" + negotiated.UpgradeId));
@@ -328,7 +351,7 @@ public sealed partial class SignalRRequestAnswererTests
     public async Task AnswerAsync_UpgradeByACallerOtherThanTheNegotiator_IsForbidden()
     {
         var harness = new SignalRServerHarness(allowsAnonymous: true);
-        var negotiated = harness.Connections.Negotiate(null, true, TimeSpan.FromSeconds(30))!;
+        var negotiated = harness.Connections.Negotiate(null, true, TimeSpan.FromSeconds(30), new UnitTestIdentifierRandom(1))!;
 
         var response = await harness.SendRawAsync(SignalRHubClient.UpgradeRequest("/chat?id=" + negotiated.UpgradeId));
 
@@ -341,7 +364,7 @@ public sealed partial class SignalRRequestAnswererTests
         var harness = new SignalRServerHarness();
         for (var index = 0; index < SignalRHubConnections.MaxConnections; index++)
         {
-            harness.Connections.Negotiate(string.Empty, true, TimeSpan.FromSeconds(30));
+            harness.Connections.Negotiate(string.Empty, true, TimeSpan.FromSeconds(30), new UnitTestIdentifierRandom(1));
         }
 
         var response = await harness.SendRawAsync(SignalRHubClient.UpgradeRequest("/chat"));
@@ -356,7 +379,7 @@ public sealed partial class SignalRRequestAnswererTests
     {
         var harness = new SignalRServerHarness();
 
-        var response = await harness.SendAsync(method, "/chat?id=x", SignalRServerHarness.BearerField);
+        var response = await harness.SendAsync(method, "/chat?id=x", SignalRServerHarness.BearerField, "Upgrade: websocket");
 
         Assert.AreEqual(
             "HTTP/1.1 405 Method Not Allowed\r\nDate: " + SignalRServerHarness.NowHttpDate + "\r\nContent-Length: 0\r\nAllow: GET\r\nConnection: close\r\n\r\n",

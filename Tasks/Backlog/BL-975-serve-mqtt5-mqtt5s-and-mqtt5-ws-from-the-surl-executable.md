@@ -4,8 +4,8 @@ title: Serve mqtt5, mqtt5s and mqtt5+ws from the surl executable
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-500, BL-405, BL-635, BL-1035]
-touches: [Application/Surl.Console, Application/Surl.Console.UnitTests, Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests, Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests]
+depends-on: [BL-500, BL-405, BL-635, BL-1035, BL-902]
+touches: [Foundation/Surl.Protocol.Abstractions.UnitLibrary, Foundation/Surl.Protocol.Abstractions.UnitTests, Application/Surl.Console, Application/Surl.Console.UnitTests, Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests, Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests]
 requirement: none
 created: 2026-11-06
 completed:
@@ -49,6 +49,7 @@ exist, and the extension switch turns all three off.
 
 ## Notes
 
+- 2026-11-11 (second look): the SDK now resolves (10.0.404, rollForward). Plan: register `["mqtt5","mqtt5s"]` Mqtt5Broker over `services.MessageBus` plus `["mqtt5+ws"]` Mqtt5WebSocketServer over the same broker via `ComposedServerFor("mqtt5")`; add the Mqtt5 project reference to Composition; add `mqtt5s` to `TlsSchemes` (Foundation/Surl.Protocol.Abstractions, so the engine does the TLS handshake and `ListenUrl.IsImplicitTls` is true), which BL-902 (Doing) also touches, so it is now in `touches` and `depends-on`; then HelpCategories row, AiHelpProse, AiHelpExamples, topic-list test.
 - 2026-11-11: Not started. `dotnet build` fails with "A compatible .NET SDK was not found": global.json pins 10.0.401 and only 10.0.100-rc.1, 11.0.100-rc.2 and 11.0.100 are installed. Added BL-1035 (reinstall the pinned SDK) to depends-on, as BL-507 and BL-1023 did.
 
 ## Log
@@ -56,3 +57,5 @@ exist, and the extension switch turns all three off.
 - 2026-11-06: Created.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waits on BL-1035: pinned .NET SDK 10.0.401 is not installed, so dotnet build cannot run
+- 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Backlog. Needs Foundation/Surl.Protocol.Abstractions.UnitLibrary (add mqtt5s to TlsSchemes), which BL-902 in Doing touches; waits on BL-902

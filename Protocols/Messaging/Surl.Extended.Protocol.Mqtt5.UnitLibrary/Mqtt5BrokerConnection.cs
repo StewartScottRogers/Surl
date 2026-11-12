@@ -8,7 +8,7 @@ namespace Surl.Extended.Protocol.Mqtt5;
 /// Answers one connection to the <see cref="Mqtt5Broker"/>, from its <c>CONNECT</c> to its end.
 /// <see cref="Mqtt5Broker"/> documents the answers.
 /// </summary>
-internal sealed class Mqtt5BrokerConnection
+internal sealed partial class Mqtt5BrokerConnection
 {
     private const double KeepAliveGraceFactor = 1.5;
 
@@ -372,7 +372,7 @@ internal sealed class Mqtt5BrokerConnection
     {
         if (connect.ClientIdentifier.Length == 0)
         {
-            assignedClientIdentifier = state.RegisterAssignedClient(out var registration);
+            assignedClientIdentifier = state.RegisterAssignedClient(context.Identifiers, out var registration);
             return registration;
         }
 
@@ -561,6 +561,11 @@ internal sealed class Mqtt5BrokerConnection
             return await DisconnectAsync(fault.ReasonCode, $"A PUBLISH was refused ({fault.Statement})");
         }
 
+        if (verdict.Message is { } chosen && await AnswerPublishByAFaultAsync(publish, chosen) is { } answered)
+        {
+            return answered;
+        }
+
         var reasonCode = verdict.Message is { } message ? await PublishAsync(message) : verdict.Answer;
         return reasonCode == Mqtt5ReasonCode.PacketTooLarge
             ? await DisconnectAsync(reasonCode, "A PUBLISH payload is larger than the message bus takes")
@@ -650,7 +655,7 @@ internal sealed class Mqtt5BrokerConnection
         }
 
         var retained = new List<Mqtt5Delivery>();
-        var reasonCodes = SubscribeEach(subscribe, subscriptionIdentifier, retained);
+        var reasonCodes = await SubscribeEachAsync(subscribe, subscriptionIdentifier, retained);
         await WriteAsync(new Mqtt5ReasonCodeListPacket(Mqtt5PacketType.SubscribeAcknowledgement, subscribe.PacketIdentifier, [], reasonCodes));
         foreach (var delivery in retained)
         {
@@ -675,10 +680,22 @@ internal sealed class Mqtt5BrokerConnection
     private static bool IsNoLocalShared(Mqtt5Subscription subscription) =>
         subscription.NoLocal && subscription.TopicFilter.StartsWith(SharedSubscriptionPrefix, StringComparison.Ordinal);
 
-    private List<Mqtt5ReasonCode> SubscribeEach(Mqtt5SubscribePacket subscribe, uint? subscriptionIdentifier, List<Mqtt5Delivery> retained) =>
-        inbound!.IsAwaitingRelease(subscribe.PacketIdentifier)
-            ? [.. subscribe.Subscriptions.Select(_ => Mqtt5ReasonCode.PacketIdentifierInUse)]
-            : [.. subscribe.Subscriptions.Select(subscription => session!.Subscriptions.Subscribe(subscription, subscriptionIdentifier, retained))];
+    private async ValueTask<List<Mqtt5ReasonCode>> SubscribeEachAsync(Mqtt5SubscribePacket subscribe, uint? subscriptionIdentifier, List<Mqtt5Delivery> retained)
+    {
+        if (inbound!.IsAwaitingRelease(subscribe.PacketIdentifier))
+        {
+            return [.. subscribe.Subscriptions.Select(_ => Mqtt5ReasonCode.PacketIdentifierInUse)];
+        }
+
+        var reasonCodes = new List<Mqtt5ReasonCode>(subscribe.Subscriptions.Count);
+        foreach (var subscription in subscribe.Subscriptions)
+        {
+            reasonCodes.Add(await FindChosenSubscribeCodeAsync(subscription)
+                ?? session!.Subscriptions.Subscribe(subscription, subscriptionIdentifier, retained));
+        }
+
+        return reasonCodes;
+    }
 
     // Section 3.10.4: each filter identical to a subscription deletes it; UNSUBACK has one code a filter.
     private async ValueTask<Mqtt5ConnectionEnd> AnswerUnsubscribeAsync(Mqtt5UnsubscribePacket unsubscribe)

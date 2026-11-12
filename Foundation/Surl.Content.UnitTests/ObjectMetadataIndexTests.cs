@@ -203,14 +203,14 @@ public sealed class ObjectMetadataIndexTests
 
         byte[] expected =
         [
-            .. "SURL-OBJECT-INDEX-3\n"u8,
+            .. "SURL-OBJECT-INDEX-4\n"u8,
             .. Convert.FromHexString("00000001" + "0007"),
             .. "b/x.txt"u8,
             .. Convert.FromHexString("0000000000000005" + "08df3a5a63755000" + "0000000000000007" + "0000000000000005" + "0022"),
             .. "\"5d41402abc4b2a76b9719d911017c592\""u8,
             .. Convert.FromHexString("000a"),
             .. "text/plain"u8,
-            .. Convert.FromHexString("0000" + "0000" + "0000" + "0000" + "0000" + "0001" + "0001" + "6b" + "0001" + "76"),
+            .. Convert.FromHexString("0000" + "0000" + "0000" + "0000" + "0000" + "0001" + "0001" + "6b" + "0001" + "76" + "01" + "9a71bb4c"),
         ];
         Assert.IsNull(stored.StorageFailure);
         Assert.AreEqual(IndexPath, fixture.Index.IndexPath);
@@ -302,6 +302,95 @@ public sealed class ObjectMetadataIndexTests
     }
 
     [TestMethod]
+    public async Task LoadAsync_IndexWrittenBeforeTheCrc32cWasKept_ReadsItWithNoCrc32c()
+    {
+        var fixture = new Fixture(persists: true);
+        await fixture.UploadAsync("b/x.txt", "hello"u8.ToArray());
+        byte[] versionThree =
+        [
+            .. "SURL-OBJECT-INDEX-3\n"u8,
+            .. Convert.FromHexString("00000001" + "0007"),
+            .. "b/x.txt"u8,
+            .. Convert.FromHexString("0000000000000005" + "08df3a5a63755000" + "0000000000000007" + "0000000000000003" + "0022"),
+            .. "\"5d41402abc4b2a76b9719d911017c592\""u8,
+            .. Convert.FromHexString("0000" + "0000" + "0000" + "0000" + "0000" + "0000" + "0000"),
+        ];
+        await fixture.WriteFileAsync(IndexPath, versionThree);
+
+        await fixture.Index.LoadAsync(CancellationToken.None);
+        var reading = await fixture.Index.ReadAsync("b/x.txt", CancellationToken.None);
+
+        Assert.IsNull(reading.Properties!.Crc32c);
+        Assert.AreEqual(3, reading.Properties.Metageneration);
+        Assert.AreEqual(7, reading.Properties.Generation);
+    }
+
+    [TestMethod]
+    public async Task LoadAsync_Crc32cPresenceByteAbove1_IsMalformed()
+    {
+        byte[] bytes =
+        [
+            .. "SURL-OBJECT-INDEX-4\n"u8,
+            .. Convert.FromHexString("00000001" + "0001" + "61" + "0000000000000005" + "0000000000000000" + "0000000000000000" + "0000000000000001" + "0001" + "41" + "00000000000000000000" + "0000" + "02" + "00000000"),
+        ];
+
+        await AssertMalformedAsync(bytes);
+    }
+
+    [TestMethod]
+    public async Task ReadAsync_FileWithNoEntry_ComputesAndCachesTheCrc32cBesideTheETag()
+    {
+        var fixture = new Fixture(persists: true);
+        await fixture.UploadAsync("x.txt", "hello"u8.ToArray());
+
+        var first = await fixture.Index.ReadAsync("x.txt", CancellationToken.None);
+        var reloaded = await fixture.ReloadAsync();
+        var second = await reloaded.ReadAsync("x.txt", CancellationToken.None);
+
+        Assert.AreEqual(0x9a71bb4cu, first.Properties!.Crc32c);
+        Assert.AreEqual(0x9a71bb4cu, second.Properties!.Crc32c);
+        Assert.AreEqual(HelloETag, second.Properties.ETag);
+    }
+
+    [TestMethod]
+    public async Task StoreAsync_GivenETagAndCrc32c_KeepsThemWithoutReadingTheFile()
+    {
+        var fixture = new Fixture(persists: true);
+        await fixture.UploadAsync("x.txt", "hello"u8.ToArray());
+
+        var stored = await fixture.Index.StoreAsync("x.txt", new ObjectMetadata { ETag = "\"given\"", Crc32c = 12345 }, CancellationToken.None);
+        var reloaded = await fixture.ReloadAsync();
+        var reading = await reloaded.ReadAsync("x.txt", CancellationToken.None);
+
+        Assert.AreEqual(12345u, stored.Properties!.Crc32c);
+        Assert.AreEqual(12345u, reading.Properties!.Crc32c);
+        Assert.AreEqual("\"given\"", reading.Properties.ETag);
+    }
+
+    [TestMethod]
+    public async Task StoreAsync_GivenETagAndNoCrc32c_KeepsNoCrc32c()
+    {
+        var fixture = new Fixture(persists: true);
+        await fixture.UploadAsync("x.txt", "hello"u8.ToArray());
+
+        var stored = await fixture.Index.StoreAsync("x.txt", new ObjectMetadata { ETag = "\"given\"" }, CancellationToken.None);
+
+        Assert.IsNull(stored.Properties!.Crc32c);
+    }
+
+    [TestMethod]
+    public async Task StoreAsync_NoETag_ComputesBothDigestsFromTheFile()
+    {
+        var fixture = new Fixture(persists: false);
+        await fixture.UploadAsync("x.txt", "hello"u8.ToArray());
+
+        var stored = await fixture.Index.StoreAsync("x.txt", new ObjectMetadata { Crc32c = 1 }, CancellationToken.None);
+
+        Assert.AreEqual(0x9a71bb4cu, stored.Properties!.Crc32c);
+        Assert.AreEqual(HelloETag, stored.Properties.ETag);
+    }
+
+    [TestMethod]
     public async Task StoreAsync_Metageneration_IsKeptAcrossAReloadAndDefaultsTo1()
     {
         var fixture = new Fixture(persists: true);
@@ -354,7 +443,7 @@ public sealed class ObjectMetadataIndexTests
     [TestMethod]
     [DataRow("", DisplayName = "empty")]
     [DataRow("53555246", DisplayName = "truncated header")]
-    [DataRow("5355524c2d4f424a4543542d494e4445582d340a00000000", DisplayName = "wrong header")]
+    [DataRow("5355524c2d4f424a4543542d494e4445582d350a00000000", DisplayName = "wrong header")]
     [DataRow("5355524c2d4f424a4543542d494e4445582d310a0000000000", DisplayName = "trailing byte")]
     [DataRow("5355524c2d4f424a4543542d494e4445582d310a00000003", DisplayName = "more entries than the bound")]
     [DataRow("5355524c2d4f424a4543542d494e4445582d310a00000001", DisplayName = "truncated entry")]

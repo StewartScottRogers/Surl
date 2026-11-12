@@ -489,3 +489,13 @@ last 17 rows to tests settled:
   datagram at a time, so one request is read at a time and the one outstanding CON (NSTART 1) paces the rest.
 - **A Proxy-Uri request is never served as local.** The server is an origin server, not a proxy: Proxy-Uri and
   Proxy-Scheme are `5.05` whatever their authority, and take precedence over the Uri-* options.
+
+**Amendment 2 (2026-11-11, BL-751; decided by Claude under Stewart's delegation).** Decision 7's per-flow limits as built:
+
+- **Requests in progress per flow is a real limit after all** (it corrects Amendment 1's last-but-one bullet): a CON
+  whose answer takes over a second is answered with an Empty ACK and the flow carries on reading while the separate
+  response is pending, so up to 8 such requests can be in progress. The ninth and later CON is an ACK with `5.03` and Max-Age 5,
+  a NON is ignored. A duplicate of an answered CON is still served from the cache at the limit.
+- **`CoapProtocolServer` implements `IDatagramRefusalWriter`** as the decision 7 table says; `SecureCoapProtocolServer` does not.
+- **`--max-message`** is the whole datagram. A CON request over it is `4.13` in an ACK with Block1 `0/0/<size>` (the largest
+  SZX whose block plus 128 bytes fit, when one does) and Size1 (`--max-filesize`, when it is set); anything else over it is ignored.

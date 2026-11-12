@@ -1,6 +1,7 @@
 using System.Globalization;
 using Surl.HttpMessage;
 using Surl.HttpServing;
+using Surl.Protocol.Abstractions;
 
 namespace Surl.Extended.Protocol.AzureStorage;
 
@@ -72,10 +73,16 @@ internal sealed class AzureReply
     ];
 
     /// <summary>
-    /// A fresh request ID: a lower-case GUID from the cryptographic random number generator.
+    /// A fresh request ID: a lower-case GUID drawn from an identifier source, so a seeded exchange answers the same ID every run.
     /// </summary>
+    /// <param name="identifiers">Where the ID's 16 bytes come from.</param>
     /// <returns>The ID.</returns>
-    public static string NewRequestId() => new Guid(System.Security.Cryptography.RandomNumberGenerator.GetBytes(16)).ToString("D");
+    public static string NewRequestId(IIdentifierRandom identifiers)
+    {
+        Span<byte> bytes = stackalloc byte[16];
+        identifiers.NextBytes(bytes);
+        return new Guid(bytes).ToString("D");
+    }
 
     /// <summary>
     /// The refusal of a head the server could not read (ADR-0109, decision 7): one past
@@ -87,10 +94,11 @@ internal sealed class AzureReply
     /// <param name="outcome">Why no head was read.</param>
     /// <param name="standardRefusal">The refusal written when the server words it no other way.</param>
     /// <param name="now">When the refusal is made.</param>
+    /// <param name="identifiers">Where the request ID is drawn from.</param>
     /// <param name="writesJsonErrors">Whether the body is the Data Lake endpoint's JSON error
     /// rather than the Blob endpoint's XML <c>Error</c>.</param>
     /// <returns>The refusal.</returns>
-    public static HttpAnswer HeadNotReadRefusal(HttpRequestHeadReadOutcome outcome, HttpAnswer standardRefusal, DateTimeOffset now, bool writesJsonErrors)
+    public static HttpAnswer HeadNotReadRefusal(HttpRequestHeadReadOutcome outcome, HttpAnswer standardRefusal, DateTimeOffset now, IIdentifierRandom identifiers, bool writesJsonErrors)
     {
         if (outcome != HttpRequestHeadReadOutcome.HeadTooLarge)
         {
@@ -98,7 +106,7 @@ internal sealed class AzureReply
         }
 
         var error = AzureError.InvalidInput;
-        var requestId = NewRequestId();
+        var requestId = NewRequestId(identifiers);
         var body = writesJsonErrors ? AzureDataLakeErrorBody.Render(error, requestId, now) : AzureErrorBody.Render(AzureRefusal.Of(error), requestId, now);
         List<KeyValuePair<string, string>> fields =
         [

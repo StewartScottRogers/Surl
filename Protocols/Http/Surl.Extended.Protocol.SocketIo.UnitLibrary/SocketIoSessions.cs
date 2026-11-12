@@ -8,9 +8,10 @@ namespace Surl.Extended.Protocol.SocketIo;
 /// <c>sid</c>, and the set a <c>broadcast</c> event reaches.
 /// </summary>
 /// <remarks>
-/// A session's <c>sid</c> is reserved when its upgrade is decided, so the limit counts it from the
-/// <c>101</c> on, and its <see cref="SocketIoSession"/> is attached once the connection is taken
-/// over. Each <c>sid</c> is <see cref="SocketIoRandomId"/>'s 15 bytes from
+/// A session's <c>sid</c> is reserved when its upgrade or polling handshake is decided, so the limit
+/// counts it from the <c>101</c> or the open packet on, and its <see cref="SocketIoSession"/> is
+/// attached once it is created.
+/// Each <c>sid</c> is <see cref="SocketIoRandomId"/>'s 15 bytes from
 /// <see cref="RandomNumberGenerator"/>: it names a session, so it is never drawn from a seeded source.
 /// </remarks>
 public sealed class SocketIoSessions
@@ -38,13 +39,14 @@ public sealed class SocketIoSessions
     }
 
     /// <summary>
-    /// Whether a live or reserved session has <paramref name="sessionId"/>.
+    /// Whether a live or reserved session has <paramref name="sessionId"/>, and its
+    /// <see cref="SocketIoSession"/> once one is attached.
     /// </summary>
-    internal bool Contains(string sessionId)
+    internal bool TryFind(string sessionId, out SocketIoSession? session)
     {
         lock (gate)
         {
-            return sessions.ContainsKey(sessionId);
+            return sessions.TryGetValue(sessionId, out session);
         }
     }
 

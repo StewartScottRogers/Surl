@@ -64,4 +64,14 @@ public sealed class QuicServerConnectionOptions
     /// <c>RESET_STREAM</c>, as it does when the client did not send the parameter.
     /// </summary>
     public bool ResetStreamAt { get; init; }
+
+    /// <summary>
+    /// Decides whether a client's certificate chain (DER, end-entity certificate first) is trusted,
+    /// as ADR-0010 section 5 does for <c>--cacert</c>; passed to the TLS handshake as
+    /// <c>TlsServerHandshakeOptions.TrustsClientCertificateChain</c>. When set, the handshake sends a
+    /// CertificateRequest and requires a client certificate this returns true for; without one the
+    /// connection ends with the TLS alert as a <c>CRYPTO_ERROR</c>. Null - the default - asks for
+    /// no client certificate.
+    /// </summary>
+    public Func<IReadOnlyList<ReadOnlyMemory<byte>>, bool>? TrustsClientCertificateChain { get; init; }
 }

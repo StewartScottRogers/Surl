@@ -258,7 +258,7 @@ internal sealed class GcsPutObject(ContentStore store, ObjectMetadataIndex index
             return reply.Error(GcsError.AccessDenied);
         }
 
-        var (refusal, generation) = await StoreMetadataAsync(request.Fields, target, mapping, digests.ETag, reply.Now, cancellationToken);
+        var (refusal, generation) = await StoreMetadataAsync(request.Fields, target, mapping, digests.ETag, digests.Crc32cValue, reply.Now, cancellationToken);
 
         return refusal is null ? Stored(reply, digests, generation) : reply.Error(refusal);
     }
@@ -271,11 +271,12 @@ internal sealed class GcsPutObject(ContentStore store, ObjectMetadataIndex index
     /// <param name="target">The object's bucket and name.</param>
     /// <param name="mapping">Where the object's file is.</param>
     /// <param name="eTag">The ETag the object is kept with.</param>
+    /// <param name="crc32c">The object's CRC-32C, kept with the ETag.</param>
     /// <param name="now">The upload time, which becomes the generation.</param>
     /// <param name="cancellationToken">Cancels writing the index.</param>
     /// <returns>The refusal, or <see langword="null"/> and the object's generation.</returns>
-    internal Task<(GcsError? Refusal, long Generation)> StoreMetadataAsync(IReadOnlyList<KeyValuePair<string, string>> fields, GcsRequestTarget target, ContentPathMapping mapping, string eTag, DateTimeOffset now, CancellationToken cancellationToken) =>
-        StoreMetadataAsync(target.RawBucket, target.RawName, mapping, MetadataOf(fields), eTag, now, cancellationToken);
+    internal Task<(GcsError? Refusal, long Generation)> StoreMetadataAsync(IReadOnlyList<KeyValuePair<string, string>> fields, GcsRequestTarget target, ContentPathMapping mapping, string eTag, uint crc32c, DateTimeOffset now, CancellationToken cancellationToken) =>
+        StoreMetadataAsync(target.RawBucket, target.RawName, mapping, MetadataOf(fields), eTag, crc32c, now, cancellationToken);
 
     /// <summary>
     /// Keeps a written object's metadata, as built, in the index, for a file the index keys; refused there,
@@ -286,10 +287,11 @@ internal sealed class GcsPutObject(ContentStore store, ObjectMetadataIndex index
     /// <param name="mapping">Where the object's file is.</param>
     /// <param name="metadata">The metadata; its ETag and generation are set here.</param>
     /// <param name="eTag">The ETag the object is kept with.</param>
+    /// <param name="crc32c">The object's CRC-32C, kept with the ETag.</param>
     /// <param name="now">The upload time, which becomes the generation.</param>
     /// <param name="cancellationToken">Cancels writing the index.</param>
     /// <returns>The refusal, or <see langword="null"/> and the object's generation.</returns>
-    internal async Task<(GcsError? Refusal, long Generation)> StoreMetadataAsync(string rawBucket, string rawName, ContentPathMapping mapping, ObjectMetadata metadata, string eTag, DateTimeOffset now, CancellationToken cancellationToken)
+    internal async Task<(GcsError? Refusal, long Generation)> StoreMetadataAsync(string rawBucket, string rawName, ContentPathMapping mapping, ObjectMetadata metadata, string eTag, uint crc32c, DateTimeOffset now, CancellationToken cancellationToken)
     {
         if (GcsIndexKey.OfRaw(store, rawBucket, rawName) is not { } indexKey)
         {
@@ -297,7 +299,7 @@ internal sealed class GcsPutObject(ContentStore store, ObjectMetadataIndex index
         }
 
         var generation = GcsGeneration.Of(now);
-        var stored = await index.StoreAsync(indexKey, metadata with { ETag = eTag, Generation = generation }, cancellationToken);
+        var stored = await index.StoreAsync(indexKey, metadata with { ETag = eTag, Crc32c = crc32c, Generation = generation }, cancellationToken);
         if (stored.StorageFailure is { } failure)
         {
             log.Note($"The object metadata index could not be written: {failure}");

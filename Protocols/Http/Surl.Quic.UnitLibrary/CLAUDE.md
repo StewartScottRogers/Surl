@@ -6,7 +6,7 @@ QUIC version 1 for Surl's HTTP/3 server and DNS over QUIC, hand-built on every p
 and 4). What it holds now is the codec, in the clear (BL-373), packet protection (BL-374) and the
 server connection through its handshake (BL-377), streams and flow control (BL-378, ADR-0096), and
 loss recovery and congestion control (BL-379), the flow loop an application protocol rides (BL-572), `DATAGRAM` frames (BL-573), `RESET_STREAM_AT` (BL-748), following the client's key updates (BL-606), and keeping and retiring the client's connection IDs (BL-607),
-and the closing and draining states (BL-608); the flow loop holding a flow open through them comes with BL-867.
+and the closing and draining states (BL-608), which the flow loop holds a served flow open through (BL-867).
 
 - `QuicServerConnection` - one connection, no I/O: `ReceiveDatagram` takes the client's datagram
   and returns a `QuicConnectionOutput` (datagrams to send, each at most 1200 bytes, and the
@@ -19,7 +19,11 @@ and the closing and draining states (BL-608); the flow loop holding a flow open 
   size with Version Negotiation, and drops everything else before it starts. The handshake is
   `Surl.Tls13`'s `TlsServerHandshake` in `CRYPTO` frames, reassembled by `QuicCryptoReassembly`
   (64 KiB ahead at most); the client's transport parameters are checked (RFC 9000 sections 7.3 and
-  18.2, RFC 9368) and the server's are its options' (ADR-0082 decision 4's by default). Every ack-eliciting packet is
+  18.2, RFC 9368) and the server's are its options' (ADR-0082 decision 4's by default).
+  `QuicServerConnectionOptions.TrustsClientCertificateChain`, when set, is the handshake's
+  `TrustsClientCertificateChain` (BL-741, ADR-0082 Amendment 5): it asks for a client certificate,
+  ends without one or with an untrusted one as `CRYPTO_ERROR`, and `ClientCertificateChain` (on the
+  connection and on `QuicApplicationConnection`) is the verified chain. Every ack-eliciting packet is
   acknowledged at once, ACK Delay 0 (`QuicReceivedPacketNumbers`, 32 ranges kept). Before a
   Handshake packet opens, it sends at most three times what it received; Initial keys go when that
   packet opens, Handshake keys when the handshake completes. 1-RTT packets wait for the handshake
@@ -60,8 +64,10 @@ and the closing and draining states (BL-608); the flow loop holding a flow open 
   the same `CONNECTION_CLOSE` datagrams, within the anti-amplification limit (one the limit held back
   goes when it allows). On the client's `CONNECTION_CLOSE`, `IsDraining` is true for as long and
   nothing is sent. `NextDeadline` is the state's end; `HandleTimeout` there discards the state, and
-  `NextDeadline` is null and nothing is answered after. `QuicDatagramFlowLoop` still returns when
-  `IsClosed` turns true (BL-867 holds it open).
+  `NextDeadline` is null and nothing is answered after. `QuicDatagramFlowLoop` holds a served flow
+  open through the state (BL-867, ADR-0082 amendment 5): it ends the application's side as soon as
+  `IsClosed` turns true, keeps answering the client's datagrams and acting on `NextDeadline`, and
+  returns once the state ends; server stop ends it at once.
 - `DATAGRAM` frames (BL-573, RFC 9221, ADR-0086 decision 4): off unless
   `QuicServerConnectionOptions.MaxDatagramFrameSize` is set; then `max_datagram_frame_size` (0x20) is
   sent, and each `QuicDatagramFrame` (type `0x30` to the end of the packet, `0x31` with a Length) the
@@ -113,12 +119,16 @@ and the closing and draining states (BL-608); the flow loop holding a flow open 
   streams (`AcceptStreamAsync`), reads waiting for bytes (`ReadAsync`), receives `DATAGRAM` data
   (`ReceiveDatagramAsync`), and writes, resets, stops sending, sends `DATAGRAM` frames, opens
   unidirectional streams and closes, each sent at once. `WriteAsync` never lets a stream's
-  `UnsentLength` pass `MaxUnsentLength` (64 KiB; BL-710, ADR-0082 amendment 3): it queues what fits
-  and waits for the client's `MAX_STREAM_DATA`, `MAX_DATA` or acknowledgements before queuing more,
-  so an answer of any size holds at most that plus the client's outstanding credit; a reset stream
+  bytes not yet in a sent packet (`UnsentLength` plus its waiting `STREAM` frames,
+  `QuicServerConnection.NotYetInAPacketLength`) pass `MaxUnsentLength` (64 KiB; BL-710, ADR-0082
+  amendment 3, BL-932): it queues what fits and waits for the client's `MAX_STREAM_DATA`, `MAX_DATA`
+  or acknowledgements before queuing more, so an answer of any size holds about that much,
+  whatever credit the client grants; a reset stream
   throws `InvalidOperationException`, an ended connection `OperationCanceledException`. The application returning
   closes the connection with application error code 0; the connection ending (either side's
-  close, idle, the server's token) cancels `Ended`, the application's token, after which reads
+  close, idle, the server's token) cancels `Ended`, the application's token, at the close and not
+  at the end of the closing or draining state, and only once the application's side is marked ended
+  (it is not linked to the server's token), after which reads
   return what is left then 0, datagram receives what is left then null, accepts null, and other
   calls throw `OperationCanceledException`.
   An exception the application throws closes the connection with code 0 and is thrown from

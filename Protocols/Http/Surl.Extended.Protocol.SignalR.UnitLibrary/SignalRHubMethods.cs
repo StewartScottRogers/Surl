@@ -4,13 +4,11 @@ namespace Surl.Extended.Protocol.SignalR;
 
 /// <summary>
 /// The hub's methods, by <c>target</c> compared case-sensitively (HubProtocol.md "Invocations",
-/// "Streaming" and "Completion and results"; ADR-0119, decision 1): <c>Echo</c> completes with its
-/// one argument byte for byte, <c>Count</c> streams <c>1</c> to <c>n</c>, and <c>Fail</c> completes
-/// with an error. Every error text is fixed and never repeats the client's bytes (ADR-0006).
+/// "Streaming", "Upload streaming" and "Completion and results"; ADR-0119, decision 1): <c>Echo</c>
+/// completes with its one argument byte for byte, <c>Broadcast</c> sends its arguments to the hub,
+/// <c>Count</c> streams <c>1</c> to <c>n</c>, <c>Collect</c> reads one upload, and <c>Fail</c>
+/// completes with an error. Every error text is fixed and never repeats the client's bytes (ADR-0006).
 /// </summary>
-/// <remarks>
-/// <c>Broadcast</c> and <c>Collect</c> are not served yet, so they are answered as unknown methods.
-/// </remarks>
 public static class SignalRHubMethods
 {
     /// <summary>
@@ -39,18 +37,26 @@ public static class SignalRHubMethods
     public const string FailText = "An unexpected error occurred invoking 'Fail' on the server.";
 
     /// <summary>
+    /// The <c>error</c> for a <c>Collect</c> whose items' JSON bytes pass <c>--max-filesize</c>.
+    /// </summary>
+    public const string UploadTooLargeText = "The upload stream is too large.";
+
+    /// <summary>
     /// Decides what <paramref name="invocation"/> is answered with.
     /// </summary>
     /// <param name="invocation">The Invocation or StreamInvocation.</param>
+    /// <param name="isMessagePack">Whether its arguments are MessagePack values rather than JSON.</param>
     /// <returns>Its answer.</returns>
-    public static SignalRHubCall Call(HubInvocation invocation)
+    public static SignalRHubCall Call(HubInvocation invocation, bool isMessagePack = false)
     {
         ArgumentNullException.ThrowIfNull(invocation);
 
         return invocation.Target switch
         {
             "Echo" => Echo(invocation),
-            "Count" => Count(invocation),
+            "Broadcast" => Broadcast(invocation),
+            "Count" => Count(invocation, isMessagePack),
+            "Collect" => Collect(invocation),
             "Fail" => SignalRHubCall.Failed(FailText),
             _ => SignalRHubCall.Failed(UnknownMethodText),
         };
@@ -68,14 +74,31 @@ public static class SignalRHubMethods
             : SignalRHubCall.Failed(InvalidArgumentsText);
     }
 
-    private static SignalRHubCall Count(HubInvocation invocation)
+    // Any number of arguments, and no upload.
+    private static SignalRHubCall Broadcast(HubInvocation invocation)
+    {
+        if (invocation.IsStreaming)
+        {
+            return SignalRHubCall.Failed(WrongMessageTypeText);
+        }
+
+        return invocation.StreamIds.Count == 0 ? SignalRHubCall.Broadcast() : SignalRHubCall.Failed(InvalidArgumentsText);
+    }
+
+    // No arguments and exactly one upload, as an Invocation or a StreamInvocation.
+    private static SignalRHubCall Collect(HubInvocation invocation) =>
+        invocation.Arguments.Count == 0 && invocation.StreamIds.Count == 1
+            ? SignalRHubCall.Upload(invocation.StreamIds[0])
+            : SignalRHubCall.Failed(InvalidArgumentsText);
+
+    private static SignalRHubCall Count(HubInvocation invocation, bool isMessagePack)
     {
         if (!invocation.IsStreaming)
         {
             return SignalRHubCall.Failed(WrongMessageTypeText);
         }
 
-        return HasOneArgumentAndNoStreams(invocation) && TryReadCount(invocation.Arguments[0], out var count)
+        return HasOneArgumentAndNoStreams(invocation) && TryReadCount(invocation.Arguments[0], isMessagePack, out var count)
             ? new SignalRHubCall(null, null, count)
             : SignalRHubCall.Failed(InvalidArgumentsText);
     }
@@ -84,8 +107,15 @@ public static class SignalRHubMethods
         invocation.Arguments.Count == 1 && invocation.StreamIds.Count == 0;
 
     // An integer from 0 to MaxCount; the reader has already found the value well-formed JSON.
-    private static bool TryReadCount(HubJsonValue argument, out int count)
+    private static bool TryReadCount(HubJsonValue argument, bool isMessagePack, out int count)
     {
+        if (isMessagePack)
+        {
+            var cursor = new MessagePackCursor(argument.Utf8Json);
+
+            return cursor.TryReadInt(out count) && cursor.IsAtEnd && count is >= 0 and <= MaxCount;
+        }
+
         var reader = new Utf8JsonReader(argument.Utf8Json.Span);
         reader.Read();
         count = 0;

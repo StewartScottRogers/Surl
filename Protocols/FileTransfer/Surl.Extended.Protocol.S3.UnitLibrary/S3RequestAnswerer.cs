@@ -1,4 +1,3 @@
-using System.Security.Cryptography;
 using Surl.Content;
 using Surl.HttpMessage;
 using Surl.HttpServing;
@@ -62,7 +61,7 @@ internal sealed class S3RequestAnswerer : IHttpRequestHandler, IHttpHeadNotReadR
     public async Task<HttpAnswer> AnswerAsync(HttpRequest request, CancellationToken cancellationToken)
     {
         var target = S3RequestTarget.Parse(request.Target, S3VirtualHost.BucketOf(request.Authority, context.ListenUrl.Host));
-        var reply = new S3Reply(request, target.Path, RandomNumberGenerator.GetHexString(16), context.TimeProvider.GetUtcNow());
+        var reply = new S3Reply(request, target.Path, S3RequestId.Draw(context.Identifiers), context.TimeProvider.GetUtcNow());
         var loginResult = await login.JudgeHeadAsync(request, cancellationToken);
         if (loginResult.Refusal is { } loginRefusal)
         {
@@ -144,7 +143,7 @@ internal sealed class S3RequestAnswerer : IHttpRequestHandler, IHttpHeadNotReadR
     /// <returns>The refusal to write.</returns>
     public HttpAnswer RefuseHeadNotRead(HttpRequestHeadReadOutcome outcome, HttpAnswer standardRefusal) =>
         outcome == HttpRequestHeadReadOutcome.HeadTooLarge
-            ? S3Reply.UnreadRequestError(S3Error.RequestHeaderSectionTooLarge, RandomNumberGenerator.GetHexString(16), context.TimeProvider.GetUtcNow())
+            ? S3Reply.UnreadRequestError(S3Error.RequestHeaderSectionTooLarge, S3RequestId.Draw(context.Identifiers), context.TimeProvider.GetUtcNow())
             : standardRefusal;
 
     // A signature binding a body that only PutObject, UploadPart and CompleteMultipartUpload read:

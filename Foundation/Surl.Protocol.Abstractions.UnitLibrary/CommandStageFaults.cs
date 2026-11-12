@@ -29,8 +29,31 @@ public static class CommandStageFaults
     public static async ValueTask<FaultRule?> FindAndApplyAsync(
         ExchangeContext context, IConnection connection, FaultPoint point, string target)
     {
-        ArgumentNullException.ThrowIfNull(context);
         ArgumentNullException.ThrowIfNull(connection);
+
+        var rule = await FindAndApplyAsync(context, point, target);
+        if (rule is { Kind: FaultKind.Drop })
+        {
+            connection.Abort();
+        }
+
+        return rule;
+    }
+
+    /// <summary>
+    /// <see cref="FindAndApplyAsync(ExchangeContext, IConnection, FaultPoint, string)"/> for a server
+    /// that ends a dropped exchange itself - an HTTP/2 or HTTP/3 server resets the request's stream
+    /// instead of aborting a connection other streams share (ADR-0141, amendment 1). A <see cref="FaultKind.Drop"/>
+    /// rule is noted and published here and handed back; the caller sends nothing and ends the exchange.
+    /// </summary>
+    /// <param name="context">The exchange: its fault plan, clock, idle clock, log and events.</param>
+    /// <param name="point">The command's fault point, at <see cref="FaultStage.Command"/>.</param>
+    /// <param name="target">What a published <see cref="FaultAppliedEvent"/> names: the path, or else the verb.</param>
+    /// <returns>The matching rule, or <see langword="null"/> when none matched.</returns>
+    /// <exception cref="OperationCanceledException">The exchange was cancelled during a delay.</exception>
+    public static async ValueTask<FaultRule?> FindAndApplyAsync(ExchangeContext context, FaultPoint point, string target)
+    {
+        ArgumentNullException.ThrowIfNull(context);
         ArgumentNullException.ThrowIfNull(point);
 
         var rule = await context.Faults.FindAsync(point, context.CancellationToken);
@@ -42,7 +65,6 @@ public static class CommandStageFaults
         {
             context.Log.Note($"{point.Command} dropped the connection, unanswered, by fault rule {rule.Id}.");
             Publish(context, rule, target);
-            connection.Abort();
         }
 
         return rule;

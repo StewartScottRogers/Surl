@@ -3,6 +3,8 @@
 - **Status:** Accepted
 - **Amended by:** [ADR-0147](ADR-0147-the-remaining-tls-1-3-groups-curl-offers-over-quic.md) (2026-11-06, BL-1005): the six groups curl lists only in `supported_groups`, and SecP384r1MLKEM1024 (`11ED`), are served after decision 3's five; the table's `11EE` is curveSM2MLKEM768.
 - **Amended by:** Amendment 1 below (2026-11-05, BL-383: the HTTP/3 server where this ADR is silent);
+- **Amended by:** Amendment 5 below (2026-11-11, BL-867): the QUIC flow loop holds a closed connection
+  through its closing and draining states; the application is told at the close; server stop ends at once.
 - **Amended by:** Amendment 4 below (2026-11-05, BL-384, written by BL-739): how `surl --http3` binds, refuses
   and advertises.
   Amendment 3 below (2026-11-06, BL-710: writes wait for the client's credit past a bound);
@@ -418,7 +420,7 @@ only when it sends one again, so there is nothing of upstream curl's to measure 
 5. **`IsClosed` keeps its meaning** - the connection has ended for the application - so
    `QuicApplicationConnection` and `QuicDatagramFlowLoop` are unchanged, and the flow loop still
    returns when the connection closes. Holding the flow open through the closing and draining
-   states is filed as its own task.
+   states is filed as its own task (BL-867; amendment 5 now does it).
 
 ## Amendment 3 (2026-11-06, BL-710): writes wait for the client's credit past a bound
 
@@ -452,7 +454,7 @@ BL-739 wrote it here, because BL-417 held this folder when BL-384 finished.
 
 1. **`--http3` with `--cacert` is refused**, exit 2 (`option --http3: cannot be used with --cacert`):
    `Surl.Quic` asks for no client certificate, so serving HTTP/3 would skip the check the TCP side
-   enforces (secure by default). BL-741 lifts it.
+   enforces (secure by default). BL-741 lifted it: see Amendment 5.
 2. **Refusal order**, after the no-URL refusal: no `https` listen URL (`needs an https listen URL`),
    then `--tls-max` below 1.3 (`needs --tls-max 1.3: QUIC is TLS 1.3 only`), then `--cacert`. Each is
    `FailedInit` (2) with the try-help line, as option refusals are. `--tls-max 1.0` or `1.1` with the
@@ -477,3 +479,62 @@ BL-739 wrote it here, because BL-417 held this folder when BL-384 finished.
 8. **No `IDatagramRefusalWriter` then**: BL-384 wrote no refusal for a QUIC flow past a connection
    limit; BL-740 has since added `IDatagramRefusalWriter`, which the engine uses when the datagram
    server implements it.
+
+## Amendment 5 (2026-11-11, BL-741): `--http3` with `--cacert` requires a client certificate over QUIC
+
+Decided by Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"). It replaces Amendment 4
+item 1; the rest of Amendment 4 stands, and its refusal order loses its last step.
+
+1. **Accepted, not refused.** `surl --http3 --cacert <file> https://...` serves HTTP/3, and every QUIC
+   handshake requires a client certificate chaining to the `--cacert` anchors, as the TCP listener
+   does (ADR-0010 section 5). `option --http3: cannot be used with --cacert` is gone.
+2. **Where the check lives.** `QuicServerConnectionOptions.TrustsClientCertificateChain` is passed
+   to `Surl.Tls13`'s `TlsServerHandshakeOptions.TrustsClientCertificateChain`, so the handshake sends
+   a CertificateRequest; an empty client Certificate ends with `certificate_required` and an untrusted
+   chain with `bad_certificate`, each closing the connection `CRYPTO_ERROR` (0x0174, 0x012a).
+   `Http3ProtocolServer` takes the check as an optional argument, and `Surl.Composition` builds it
+   (`QuicClientCertificateTrust`) only when `--cacert` gave anchors. It judges the end-entity
+   certificate exactly as `Surl.Networking`'s TCP verifier does: those anchors only, no revocation
+   check, no download, the injected `TimeProvider`'s time, and the client-authentication extended
+   key usage when the certificate carries one. Intermediates the client sends are not used, as on TCP.
+3. **The session carries it.** `Http3ApplicationProtocol` starts the authentication session with
+   the verified end-entity certificate on `TlsSession.ClientCertificate`, so the `external`
+   mechanism reads it over HTTP/3 as over TCP.
+4. **Measured against pinned upstream curl 8.21.0** (`static-curl-8.21.0-windows-x86_64`, through
+   `Record-CurlExchange.ps1 -NoServer` against a live `surl --http3 --cert --key --cacert`):
+   `curl --http3-only --cacert ca.pem --cert client.pem --key client.key` exits 0 with the file;
+   without `--cert` it exits 55 (`ngtcp2_conn_writev_stream returned error: ERR_DRAINING`), and with
+   a certificate lacking the client-authentication usage it exits 55 the same way. Over TCP the same
+   missing certificate is curl's 56, so the exit code a refused client sees differs by transport;
+   that is curl's reading of a QUIC `CONNECTION_CLOSE`, not something Surl chooses.
+
+## Amendment 6 (2026-11-11, BL-867): the flow loop holds a closed connection through its closing and draining states
+
+Decided by Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), in BL-867, which
+builds what amendment 2 item 5 left out. No byte the server sends changes - the closing state's
+answers are amendment 2's - only how long a served flow lives, so there is nothing of upstream
+curl's to measure first.
+
+1. **The loop runs until the state ends.** `QuicDatagramFlowLoop.RunAsync` no longer returns when
+   `IsClosed` turns true. It keeps feeding the client's datagrams to the connection, sending what
+   the closing state answers, and waiting for `NextDeadline`, and returns once the connection is
+   closed and `NextDeadline` is null: at the end of the closing or draining state, or at once when
+   the connection was discarded with no such state (the idle timeout). `ServeAsync` completes then,
+   so a client whose `CONNECTION_CLOSE` was lost is answered again, as RFC 9000 section 10.2.1 asks.
+2. **The application is told at the close, not at the state's end.** The first time the loop sees
+   the connection closed it ends the application's side (`QuicApplicationConnection.EndAsync`:
+   accepts return null, reads 0, other calls throw, `Ended` cancelled), and from then on the
+   application returning no longer wakes the loop. HTTP/3, WebTransport and DNS over QUIC stop
+   their work at the close, as before.
+3. **Server stop ends at once.** Cancelling `ServeAsync`'s token stops the loop at once, in the
+   closing or draining state too, and `ServeAsync` throws `OperationCanceledException` as before.
+   The server is going away and will answer nothing more; holding a flow for three probe timeouts
+   would only delay shutdown, and RFC 9000 section 10.2 lets an endpoint discard the state early.
+4. **`Ended` is cancelled only by ending the application's side.** It is no longer linked to
+   `ServeAsync`'s token: on server stop the loop ends the application's side, which marks it ended
+   and then cancels `Ended`, so a call the application makes on seeing `Ended` is always refused,
+   never sent. Before, the linked token could wake the application a beat before its side ended.
+5. **Tests move the clock.** The in-memory test clients of `Surl.Quic`, `Surl.Http3`,
+   `Surl.Protocol.Http` and the WebTransport server move their manual clocks past the closing state
+   once the connection has closed, so no test waits three probe timeouts on a clock that stands
+   still; DNS over QUIC's tests run on the system clock and wait the state out (about 3 s at most).

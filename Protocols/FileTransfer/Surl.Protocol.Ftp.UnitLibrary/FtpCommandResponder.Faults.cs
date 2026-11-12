@@ -28,18 +28,25 @@ internal sealed partial class FtpCommandResponder
         var point = new FaultPoint(FaultStage.Command)
         {
             ExchangeId = context.ExchangeId,
-            ListenUrl = FaultListenUrl.Text(context.ListenUrl),
+            ListenUrl = ReportedListenUrl.Format(context.ListenUrl),
             Scheme = context.Scheme,
             Account = loggedInAccount,
             Path = path,
             Command = commandLine.Command,
         };
-        if (await context.Faults.FindAsync(point, context.CancellationToken) is not { Kind: FaultKind.Error, Reply: { } reply } rule)
+        var target = path is null ? commandLine.Command : $"{commandLine.Command} {path}";
+        var found = await CommandStageFaults.FindAndApplyAsync(context, connection, point, target);
+        if (found is { Kind: FaultKind.Drop })
+        {
+            // The connection is aborted with no reply; the session ends (ADR-0141).
+            return false;
+        }
+
+        if (found is not { Kind: FaultKind.Error, Reply: { } reply } rule)
         {
             return await answer(commandLine.Argument);
         }
 
-        var target = path is null ? commandLine.Command : $"{commandLine.Command} {path}";
         context.Log.Note($"{target} answered by fault rule {rule.Id}: {reply}");
         context.Events.Publish(new FaultAppliedEvent(rule.Id, rule.Kind, FaultStage.Command, context.ExchangeId, target));
         return await ReplyAsync(reply);

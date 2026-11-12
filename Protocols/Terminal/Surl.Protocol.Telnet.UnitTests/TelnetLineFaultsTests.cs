@@ -103,18 +103,78 @@ public sealed class TelnetLineFaultsTests
         Assert.Contains("Fault rule f1 not applied to line 1: its reply does not fit the telnet error shape.", log.Notes);
     }
 
-    // Only an Error rule is answered by the server; command-stage delay and drop are BL-912's.
+    // ADR-0138 decision 5 as amended (BL-914): a command-stage delay holds the line's answer on the
+    // exchange's clock, with the idle clock paused, then answers it as usual.
     [TestMethod]
-    public async Task ServeAsync_CommandStageDelayRule_IsNotAppliedAndIsNoted()
+    public async Task ServeAsync_CommandStageDelayRule_HoldsTheLinesAnswerFor500MsThenAnswersAsUsual()
     {
-        var delay = new FaultRule("f1", FaultKind.Delay) { Stage = FaultStage.Command, DelayMilliseconds = 10 };
+        var delay = new FaultRule("f1", FaultKind.Delay) { Stage = FaultStage.Command, DelayMilliseconds = 500 };
+        var clock = new ManualTimeProvider();
+        var idleClock = new RecordingIdleClock();
+        var events = new RecordingSurlEventPublisher();
+        var connection = new InMemoryConnection(
+            RecordedFixture.Whole(RecordedFixture.ReadRequestBytes("plain-session")), peerHalfClosesWhenExhausted: false);
+        var serving = new TelnetProtocolServer().ServeAsync(
+            connection,
+            ContextFor(new FirstAskOnlyFaultPlan(delay), clock, TestContext.CancellationToken) with { Events = events, IdleClock = idleClock });
 
-        var (written, events, log) = await ServeAsync(RecordedFixture.Whole(RecordedFixture.ReadRequestBytes("plain-session")), new ScriptedFaultPlan(delay));
+        await idleClock.FirstPause.WaitAsync(TimeSpan.FromSeconds(30), TestContext.CancellationToken);
+        var writtenAtTheHold = connection.WrittenBytes;
+        clock.Advance(TimeSpan.FromMilliseconds(499));
+        var writtenAfter499Ms = connection.WrittenBytes;
+        clock.Advance(TimeSpan.FromMilliseconds(1));
+        await serving.WaitAsync(TimeSpan.FromSeconds(30), TestContext.CancellationToken);
+
+        var replies = RecordedFixture.ReadBytes("plain-session", "replies.bin");
+        Assert.IsLessThan(replies.Length, writtenAtTheHold.Length);
+        CollectionAssert.AreEqual(writtenAtTheHold, writtenAfter499Ms);
+        Assert.IsFalse(idleClock.IsPaused);
+        CollectionAssert.AreEqual(replies, connection.WrittenBytes);
+        Assert.AreEqual(new FaultAppliedEvent("f1", FaultKind.Delay, FaultStage.Command, 1, "line 1"), events.Events.Single());
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_CommandStageDropRule_AbortsTheConnectionWithNothingWrittenForTheLine()
+    {
+        var drop = new FaultRule("f1", FaultKind.Drop) { Stage = FaultStage.Command };
+        var events = new RecordingSurlEventPublisher();
+        var connection = new InMemoryConnection(RecordedFixture.Whole("one\ntwo\nthree\n"u8.ToArray()), peerHalfClosesWhenExhausted: false);
+
+        await new TelnetProtocolServer().ServeAsync(
+            connection,
+            ContextFor(new OnceSkippingFaultPlan(drop), TimeProvider.System, TestContext.CancellationToken) with { Events = events });
+
+        var written = Encoding.UTF8.GetString(connection.WrittenBytes);
+        Assert.IsTrue(connection.Aborted);
+        StringAssert.EndsWith(written, "one\r\n");
+        Assert.DoesNotContain("two", written);
+        Assert.AreEqual(new FaultAppliedEvent("f1", FaultKind.Drop, FaultStage.Command, 1, "line 2"), events.Events.Single());
+    }
+
+    // The kinds a line does not apply are noted and it is answered as without them.
+    [TestMethod]
+    public async Task ServeAsync_CommandStageRuleOfAnotherKind_IsNotAppliedAndIsNoted()
+    {
+        var other = new FaultRule("f1", FaultKind.OutOfSpace) { Stage = FaultStage.Command };
+
+        var (written, events, log) = await ServeAsync(RecordedFixture.Whole(RecordedFixture.ReadRequestBytes("plain-session")), new ScriptedFaultPlan(other));
 
         CollectionAssert.AreEqual(RecordedFixture.ReadBytes("plain-session", "replies.bin"), written);
         Assert.IsEmpty(events.Events);
-        Assert.Contains("Fault rule f1 not applied to line 2: a Delay rule is not applied at a line.", log.Notes);
+        Assert.Contains("Fault rule f1 not applied to line 2: a OutOfSpace rule is not applied at a line.", log.Notes);
     }
+
+    private static ExchangeContext ContextFor(IFaultPlan faults, TimeProvider clock, CancellationToken cancellationToken) => new(
+        1,
+        new ListenUrl("telnet", "127.0.0.1", 18623).WithBoundPort(18623),
+        new IPEndPoint(IPAddress.Loopback, 18623),
+        new IPEndPoint(IPAddress.Loopback, 50000),
+        new RecordingExchangeLog(),
+        clock,
+        cancellationToken)
+    {
+        Faults = faults,
+    };
 
     [TestMethod]
     public async Task ServeAsync_RuleScopedToACommand_NeverMatches()
@@ -127,16 +187,13 @@ public sealed class TelnetLineFaultsTests
         Assert.IsEmpty(events.Events);
     }
 
-    [TestMethod]
-    [DataRow("telnet", "127.0.0.1", 23, null, "telnet://127.0.0.1:23/")]
-    [DataRow("telnet", "127.0.0.1", 0, 41000, "telnet://127.0.0.1:41000/")]
-    [DataRow("telnet", "fe80::1%12", 23, null, "telnet://[fe80::1%2512]:23/")]
-    public void FormatListenUrl_GivesTheFormTheEngineReports(string scheme, string host, int port, int? boundPort, string expected)
+    // A plan whose one rule matches the first point only.
+    private sealed class FirstAskOnlyFaultPlan(FaultRule rule) : IFaultPlan
     {
-        var listenUrl = new ListenUrl(scheme, host, port);
-        listenUrl = boundPort is { } bound ? listenUrl.WithBoundPort(bound) : listenUrl;
+        private int askedCount;
 
-        Assert.AreEqual(expected, TelnetLineFaults.FormatListenUrl(listenUrl));
+        public ValueTask<FaultRule?> FindAsync(FaultPoint point, CancellationToken cancellationToken) =>
+            ValueTask.FromResult(Interlocked.Increment(ref askedCount) == 1 ? rule : null);
     }
 
     // A plan whose one rule matches every point but the first, as a rule that skips one line would.

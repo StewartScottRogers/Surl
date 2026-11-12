@@ -38,6 +38,8 @@ public sealed class CommandLinePathMembersTests
             CertificateFile = "cert.pem",
             KeyFile = "key.pem",
             CaCertificateFile = "ca.pem",
+            SrpVerifierFile = "srp-verifier-db",
+            SrpGroupFile = "srp-verifier-conf",
             UserFile = "users.txt",
             ProxyUserFile = "proxy-users.txt",
             KeytabFile = "surl.keytab",
@@ -45,6 +47,7 @@ public sealed class CommandLinePathMembersTests
             HostCertificateFiles = ["host-cert.pub"],
             AuthorizedKeys = [new CommandLineAuthorizedKeys("alice", "alice.pub")],
             MailboxFiles = ["mailboxes.csv"],
+            Shares = [new ConfiguredShare("team", "shares/team", IsReadOnly: false, Protocols: null)],
             ControlTokenFile = "control.token",
         };
 
@@ -60,6 +63,8 @@ public sealed class CommandLinePathMembersTests
                 ("--cert", "cert.pem"),
                 ("--key", "key.pem"),
                 ("--cacert", "ca.pem"),
+                ("--srp-verifiers", "srp-verifier-db"),
+                ("--srp-groups", "srp-verifier-conf"),
                 ("--user-file", "users.txt"),
                 ("--proxy-user-file", "proxy-users.txt"),
                 ("--keytab", "surl.keytab"),
@@ -68,6 +73,7 @@ public sealed class CommandLinePathMembersTests
                 ("--hostcert", "host-cert.pub"),
                 ("--authorized-keys", "alice.pub"),
                 ("--mailbox-file", "mailboxes.csv"),
+                ("--share", "shares/team"),
                 ("--control-token-file", "control.token"),
             },
             paths);

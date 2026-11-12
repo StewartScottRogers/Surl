@@ -77,7 +77,7 @@ internal sealed class GopherSelectorResponder(IConnection connection, ExchangeCo
         return SendAndCloseAsync(GopherMenu.NothingServedHere);
     }
 
-    private async Task SendAndCloseAsync(byte[] reply)
+    private async Task SendAndCloseAsync(ReadOnlyMemory<byte> reply)
     {
         await connection.WriteAsync(reply, context.CancellationToken);
         await connection.CompleteWritesAsync(context.CancellationToken);

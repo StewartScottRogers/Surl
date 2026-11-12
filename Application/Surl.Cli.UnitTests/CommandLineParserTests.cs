@@ -19,6 +19,7 @@ public sealed class CommandLineParserTests
         ["allow-zone-transfer"] = c => c.AllowZoneTransfer,
         ["allow-anonymous"] = c => c.AllowAnonymous,
         ["allow-plaintext-auth"] = c => c.AllowPlaintextAuthentication,
+        ["s3-plaintext"] = c => c.S3Plaintext,
         ["self-signed"] = c => c.SelfSigned,
         ["throwaway-hostkey"] = c => c.ThrowawayHostKey,
         ["allow-weak-ssh-algorithms"] = c => c.AllowWeakSshAlgorithms,
@@ -306,6 +307,7 @@ public sealed class CommandLineParserTests
     [DataRow("allow-zone-transfer", "--allow-zone-transfer")]
     [DataRow("allow-anonymous", "--allow-anonymous")]
     [DataRow("allow-plaintext-auth", "--allow-plaintext-auth")]
+    [DataRow("s3-plaintext", "--s3-plaintext")]
     [DataRow("self-signed", "--self-signed")]
     [DataRow("throwaway-hostkey", "--throwaway-hostkey")]
     [DataRow("allow-weak-ssh-algorithms", "--allow-weak-ssh-algorithms")]
@@ -321,6 +323,7 @@ public sealed class CommandLineParserTests
     [DataRow("allow-zone-transfer")]
     [DataRow("allow-anonymous")]
     [DataRow("allow-plaintext-auth")]
+    [DataRow("s3-plaintext")]
     [DataRow("self-signed")]
     [DataRow("throwaway-hostkey")]
     [DataRow("allow-weak-ssh-algorithms")]
@@ -372,6 +375,7 @@ public sealed class CommandLineParserTests
         Assert.IsFalse(defaults.AllowAnonymous);
         Assert.IsFalse(defaults.AllowPlaintextAuthentication);
         Assert.IsFalse(defaults.SelfSigned);
+        Assert.IsFalse(defaults.S3Plaintext);
         Assert.IsNull(defaults.GivenAuthenticationMethods);
         CollectionAssert.AreEqual(new[] { "digest", "cram-md5", "basic", "plain", "login", "bearer", "oauthbearer", "xoauth2", "external", "aws-sigv4" }, defaults.AcceptedAuthenticationMethods.ToArray());
         CollectionAssert.DoesNotContain(defaults.AcceptedAuthenticationMethods.ToArray(), "gssapi", "gssapi needs --keytab, so it is never a default (ADR-0049, section 3)");
@@ -512,10 +516,10 @@ public sealed class CommandLineParserTests
     [DataRow("External", new[] { "external" }, DisplayName = "external, any case")]
     [DataRow("plain,PLAIN,cram-md5,Plain", new[] { "cram-md5", "plain" }, DisplayName = "A mechanism word given twice counts once")]
     [DataRow(
-        "aws-sigv4,external,xoauth2,oauthbearer,bearer,login,plain,basic,apop,cram-md5,digest-md5,scram-sha-1,scram-sha-256,digest,ntlmv1,ntlm,gssapi,negotiate",
+        "aws-sigv4,external,xoauth2,oauthbearer,bearer,login,plain,basic,apop,cram-md5,digest-md5,scram-sha-1,scram-sha-512,scram-sha-256,digest,ntlmv1,ntlm,gssapi,negotiate",
         new[]
         {
-            "negotiate", "gssapi", "ntlm", "ntlmv1", "digest", "scram-sha-256", "scram-sha-1", "digest-md5", "cram-md5", "apop", "basic", "plain", "login",
+            "negotiate", "gssapi", "ntlm", "ntlmv1", "digest", "scram-sha-256", "scram-sha-512", "scram-sha-1", "digest-md5", "cram-md5", "apop", "basic", "plain", "login",
             "bearer", "oauthbearer", "xoauth2", "external", "aws-sigv4",
         },
         DisplayName = "Every word, in ADR-0049 section 3's order")]
@@ -533,7 +537,7 @@ public sealed class CommandLineParserTests
 
     [TestMethod]
     [DataRow("--auth", "kerberos", DisplayName = "An unknown word")]
-    [DataRow("--auth", "scram-sha-512", DisplayName = "An unknown SASL mechanism")]
+    [DataRow("--auth", "scram-sha-384", DisplayName = "An unknown SASL mechanism")]
     [DataRow("--auth", "plain,cram_md5", DisplayName = "An unknown word after a mechanism word")]
     [DataRow("--auth", "basic,,digest", DisplayName = "An empty item")]
     [DataRow("--auth", "basic,", DisplayName = "A trailing comma")]
@@ -578,8 +582,13 @@ public sealed class CommandLineParserTests
         AssertOptionRefused(["--http3", "--tls-max", tlsMax, "https://127.0.0.1:0/"], "option --http3: needs --tls-max 1.3: QUIC is TLS 1.3 only");
 
     [TestMethod]
-    public void Parse_Http3WithCacert_IsRefused() =>
-        AssertOptionRefused(["--http3", "--cacert", "ca.pem", "https://127.0.0.1:0/"], "option --http3: cannot be used with --cacert");
+    public void Parse_Http3WithCacert_IsServedWithHttp3AndTheTrustAnchors()
+    {
+        var commandLine = Served("--http3", "--self-signed", "--cacert", "ca.pem", "https://127.0.0.1:0/");
+
+        Assert.IsTrue(commandLine.Http3);
+        Assert.AreEqual("ca.pem", commandLine.CaCertificateFile);
+    }
 
     [TestMethod]
     public void Parse_Http3WithNoListenUrl_IsRefusedForTheMissingUrl()

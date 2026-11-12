@@ -41,6 +41,7 @@ internal sealed class McpTestHost : IAsyncDisposable
         SnapshotServer = SnapshotServerTool.Create(Servers);
         RestoreServer = RestoreServerTool.Create(Servers);
         AddFault = AddFaultTool.Create(Servers);
+        ListFaults = ListFaultsTool.Create(Servers);
         RemoveFault = RemoveFaultTool.Create(Servers);
     }
 
@@ -77,6 +78,8 @@ internal sealed class McpTestHost : IAsyncDisposable
     public McpTool RestoreServer { get; }
 
     public McpTool AddFault { get; }
+
+    public McpTool ListFaults { get; }
 
     public McpTool RemoveFault { get; }
 

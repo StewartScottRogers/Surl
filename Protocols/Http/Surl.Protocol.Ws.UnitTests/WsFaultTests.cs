@@ -116,24 +116,58 @@ public sealed class WsFaultTests
     }
 
     [TestMethod]
-    public async Task DelayRuleAtTheCommandStage_IsNotAppliedAndIsNoted()
+    public async Task DelayRuleAtTheCommandStage_HoldsTheUpgradeForItsMillisecondsThenAnswersAsWithoutIt()
     {
         var rule = new FaultRule("f1", FaultKind.Delay) { Stage = FaultStage.Command, DelayMilliseconds = 500 };
+        var time = new ManualTimeProvider(Now);
+        var idleClock = new RecordingIdleClock();
+
+        var serving = ServeWithFaultsAsync(RecordedFixture.ReadRequestBytes("upgrade-101"), new ScriptedFaultPlan(rule), time: time, idleClock: idleClock);
+        await idleClock.FirstPause;
+        var completedWhileHeld = serving.IsCompleted;
+        time.Advance(TimeSpan.FromMilliseconds(499));
+        var completedEarly = serving.IsCompleted;
+        time.Advance(TimeSpan.FromMilliseconds(1));
+        var (connection, _, events, _) = await serving;
+
+        Assert.IsFalse(completedWhileHeld);
+        Assert.IsFalse(completedEarly);
+        Assert.AreEqual(Recorded101Response, Latin1(connection.WrittenBytes));
+        Assert.IsFalse(idleClock.IsPaused);
+        Assert.AreEqual(new FaultAppliedEvent("f1", FaultKind.Delay, FaultStage.Command, 1, "/chat"), events.Events.OfType<FaultAppliedEvent>().Single());
+    }
+
+    [TestMethod]
+    public async Task DropRuleAtTheCommandStage_AbortsTheConnectionBeforeAnyByteOfTheAnswer()
+    {
+        var rule = new FaultRule("f1", FaultKind.Drop) { Stage = FaultStage.Command };
+
+        var (connection, _, events, _) = await ServeWithFaultsAsync(RecordedFixture.ReadRequestBytes("upgrade-101"), new ScriptedFaultPlan(rule));
+
+        Assert.IsTrue(connection.Aborted);
+        Assert.AreEqual(0, connection.WrittenBytes.Length);
+        Assert.AreEqual(new FaultAppliedEvent("f1", FaultKind.Drop, FaultStage.Command, 1, "/chat"), events.Events.OfType<FaultAppliedEvent>().Single());
+    }
+
+    [TestMethod]
+    public async Task OtherKindAtTheCommandStage_IsNotAppliedAndIsNoted()
+    {
+        var rule = new FaultRule("f1", FaultKind.OutOfSpace) { Stage = FaultStage.Command };
 
         var (connection, log, events, _) = await ServeWithFaultsAsync(RecordedFixture.ReadRequestBytes("upgrade-101"), new ScriptedFaultPlan(rule));
 
         Assert.AreEqual(Recorded101Response, Latin1(connection.WrittenBytes));
         Assert.IsEmpty(events.Events.ToList());
-        Assert.Contains("GET /chat: fault rule f1 asks for Delay at the command stage, which this server does not apply; answered as without it.", log.Notes);
+        Assert.Contains("GET /chat: fault rule f1 asks for OutOfSpace at the command stage, which this server does not apply; answered as without it.", log.Notes);
     }
-
     private async Task<(InMemoryConnection Connection, RecordingExchangeLog Log, RecordingSurlEventPublisher Events, ScriptedFaultPlan Plan)> ServeWithFaultsAsync(
-        byte[] request, ScriptedFaultPlan plan, IAuthenticationPolicy? policy = null)
+        byte[] request, ScriptedFaultPlan plan, IAuthenticationPolicy? policy = null,
+        ManualTimeProvider? time = null, RecordingIdleClock? idleClock = null)
     {
         var connection = new InMemoryConnection([request]);
         var log = new RecordingExchangeLog();
         var events = new RecordingSurlEventPublisher();
-        var context = Context(log, new ManualTimeProvider(Now), TestContext.CancellationToken) with { Faults = plan, Events = events };
+        var context = Context(log, time ?? new ManualTimeProvider(Now), TestContext.CancellationToken) with { Faults = plan, Events = events, IdleClock = idleClock ?? (IIdleClock)NoIdleClock.Instance };
 
         await WithinTimeout(Server(policy).ServeAsync(connection, context));
 

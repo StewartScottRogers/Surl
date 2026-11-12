@@ -38,7 +38,10 @@ and `Surl.Protocol.Abstractions.UnitLibrary`.
   `ListenUrlParser.ParseProxy` (`http` or `https` only, `ProxyDefaultPorts` 1080 and 443, `ListenUrl.IsProxy`
   set; any other scheme `UnsupportedProtocol`), `OptionArgumentReader.ProxyListenUrlText`, `ReadAccount` and
   `ReadPath` reused for `-U` and `--proxy-user-file`, and `ReadProxyAllowedOrigin` / `AllowedOrigin` reading
-  `*` or a strict `address[/prefix]` into a `ProxyAllowedOrigin`. No option row uses them yet (BL-1004).
+  `*` or a strict `address[/prefix]` into a `ProxyAllowedOrigin`; their option rows are BL-1004's.
+  `--proxy-auth <methods>` (BL-1040, ADR-0088 Amendment 8) reads `--auth`'s words into
+  `GivenProxyAuthenticationMethods`, apart from `--auth`; `AcceptedProxyAuthenticationMethods` defaults to
+  `digest`, `basic`.
 - SSH server options (ADR-0051 decisions 4 to 6): `--hostkey` and `--hostcert` each add a path
   to `HostKeyFiles` and `HostCertificateFiles`; `--authorized-keys <user:file>` adds a
   `CommandLineAuthorizedKeys` to `AuthorizedKeys`, split at the first `:`, a user given twice
@@ -68,6 +71,39 @@ and `Surl.Protocol.Abstractions.UnitLibrary`.
   the 10001st `--group` is refused (`GivenTooOften`). Whether members name accounts or groups,
   cycles and the reserved `everyone` are checked at start by `Surl.Composition`'s
   `AccountGroupExpansion`. BL-653, BL-654, BL-663 and BL-666 add the other item options.
+- Content items (ADR-0101 decision 4, ADR-0102 decision 2; BL-987): `ConfiguredShareReader`
+  (`<name>=<path>[;readonly][;protocols=...]`, schemes checked by
+  `ConfiguredMailboxReader.CheckProtocols`, TLS twins not added), `ConfiguredShareAccessReader`
+  (`<share>=<member>:<r|rw>,...`, a member twice refused) and `ConfiguredBucketReader`
+  (`<name>=<path>`) read into `SurlCommandLine.Shares`, `ShareAccess` and `Buckets`.
+  `ConfiguredContentConflicts.Find` holds the whole-line checks (a share, bucket or access share
+  twice, a bucket named as a share, an access naming no share). No option row uses them yet:
+  BL-989 adds the rows and calls `Find`; BL-988 composes them.
+- Messaging items (ADR-0101 decision 4, ADR-0102 decision 3; BL-990): `ConfiguredTopicReader`
+  (`<filter>[;retain][;qos=<0|1|2>]`, `qos` exactly `0`, `1` or `2` else `is badly used here`),
+  `ConfiguredQueueReader` (`<name>[;durable]`), `ConfiguredTopicMapReader`
+  (`<scheme>:<name>=<scheme>:<name>`, each decoded side split at its first `:`, the scheme lower-cased
+  and checked by `ConfiguredMailboxReader.IsAnySurlScheme`) and `ConfiguredTopicAccessReader`
+  (`<filter>=<member>:<pub|sub|pubsub>,...`, a member twice refused) read into
+  `SurlCommandLine.Topics`, `Queues`, `TopicMaps` and `TopicAccess`. `ConfiguredMessagingConflicts.Find`
+  holds the whole-line checks (a topic, queue, map source or access filter given twice).
+  BL-992 added the four option rows (category `messages`, which owns the `messages` `--aihelp` topic and the
+  manual's TOPICS AND QUEUES section), counts each like `--group` and calls `Find` once the line is read;
+  `Surl.Composition` composes them (BL-991).
+- Mail items beyond the mailbox (ADR-0101 decision 4, ADR-0102 decisions 1.3, 1.4 and 1.6; BL-993):
+  `ConfiguredMailAliasReader` (`<address>=<address>,...`, each address one `MailDomainNames.ReadAddress`
+  accepts, a target twice refused), `ConfiguredMailCatchAllReader` (`<domain>=<address>`) and
+  `ConfiguredSharedFolderReader` (`<name>=<member>,...`, the name a mailbox name by `CheckFolderName` - at
+  most 1024 UTF-8 bytes - and never `INBOX`, a member twice refused) read into `SurlCommandLine.MailAliases`,
+  `MailCatchAlls` and `SharedFolders`, each record holding what was written, decoded.
+  `ConfiguredMailboxReader.ReadWithSettings` (`ShapeWithSettings`) also reads `quota=<bytes>` (at least one
+  byte) and `folders=<name>,...` into `ConfiguredMailbox.QuotaBytes` and `Folders`; `ConfiguredMailboxReader.Read`
+  (`Shape`) is the one `--mailbox` reader, and `MailboxFileReader` reads `quota` and `folders` columns too (an
+  empty field means the key was not given). `ConfiguredMailConflicts.Find` holds the whole-line checks (an
+  alias, catch-all domain or shared folder twice; an alias or catch-all domain with no `--mail-domain` or
+  outside every one; an alias that is also a mailbox). BL-995 added the rows `--mail-alias`,
+  `--mail-catch-all` and `--shared-folder` (category `mail`), counts each like `--group` and calls `Find` from
+  `RefuseMailCombination`; `Surl.Composition` composes them (BL-994).
 - Mail options (ADR-0101 decisions 4, 5 and 7, ADR-0102 decision 1; BL-883), category `mail`:
   `--mail-domain <domain>` (`MailDomainNames.Reading`, kept as written in `MailDomains`),
   `--mailbox <address>:<password>[;protocols=...]` (`ConfiguredMailboxReader.Reading`, the address
@@ -102,6 +138,16 @@ and `Surl.Protocol.Abstractions.UnitLibrary`.
   BL-605), each `option --<name>: <reason>` with exit 2 and the try-help line, then sets the socket
   on the one listen URL's `ListenUrl.UnixSocket`. Binding it, and the 45 refusals, are
   `Surl.Networking`'s.
+- TLS-SRP (ADR-0122 decision 6 and Amendment 2, BL-567), category `tls` (and `auth` for all but
+  `--tlsauthtype`): `--tlsauthtype <SRP>` (`OptionArgumentReader.TlsAuthenticationTypeWord`, any case,
+  into `TlsAuthenticationType`), `--tlsuser <name>` (`SrpUserName` reading), `--tlspassword <password>`
+  (`ArgumentHoldsSecret`), `--srp-verifiers <file>` and `--srp-groups <file>` set the
+  `SurlCommandLine` members of those names; `ServesTlsSrp` is true when any is given. Once the whole
+  line is read `TlsSrpCombination` refuses, in order, an option without its partner, `--tlsauthtype`
+  with no account, no listen URL that uses TLS (implicit TLS or `ftp`, `imap`, `ldap`, `natss`, `pop3`,
+  `smtp`, `xmpp`), then TLS-SRP beside `--http3`, `--cacert`, `--tls-max` below 1.2, `--tlsv1.3`,
+  `--cert` or `--self-signed`, each `FailedInit` with the try-help line. Reading the files is
+  `Surl.Composition`'s.
 - Log levels (ADR-0033 section 2): `-s`, `-v`, `--log-level`, `--trace` and `--trace-ascii`
   each set `SurlCommandLine.LogLevel`, the last one given winning, and `-S` (`ShowError`)
   turns `none` into `error` once the whole line is read. `TraceFile`, `TraceLayout`,

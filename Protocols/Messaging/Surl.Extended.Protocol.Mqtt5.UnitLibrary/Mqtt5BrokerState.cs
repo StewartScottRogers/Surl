@@ -1,5 +1,5 @@
-using System.Security.Cryptography;
 using Surl.MessageBus;
+using Surl.Protocol.Abstractions;
 
 namespace Surl.Extended.Protocol.Mqtt5;
 
@@ -13,8 +13,9 @@ namespace Surl.Extended.Protocol.Mqtt5;
 /// <para>
 /// <b>Client identifiers.</b> Each accepted connection registers its identifier, and an
 /// identifier the broker assigns (section 3.1.3.1) is <c>surl-</c> followed by 32 lower-case hex
-/// digits of 16 bytes from <see cref="RandomNumberGenerator"/>, drawn again until it names no
-/// connected client (<c>[MQTT-3.2.2-16]</c>).
+/// digits of 16 bytes from the exchange's <see cref="ExchangeContext.Identifiers"/> (ADR-0124
+/// decision 6, so a seeded instance assigns the same identifiers every run), drawn again until it
+/// names no connected client (<c>[MQTT-3.2.2-16]</c>).
 /// </para>
 /// <para>
 /// <b>Wills.</b> A Will whose publication is delayed (section 3.1.2.5) waits on a timer of the
@@ -43,7 +44,6 @@ public sealed class Mqtt5BrokerState
     private const int AssignedClientIdentifierRandomBytes = 16;
     private const int DefaultMaxKeptSessions = 1000;
 
-    private readonly Func<string> assignedClientIdentifierSource;
     private readonly Dictionary<string, Mqtt5ClientRegistration> connectedClients = new(StringComparer.Ordinal);
     private readonly Lock connectedClientsGate = new();
     private readonly Dictionary<string, PendingWill> pendingWills = new(StringComparer.Ordinal);
@@ -57,21 +57,9 @@ public sealed class Mqtt5BrokerState
     /// </summary>
     /// <param name="bus">The message bus the messaging servers of the run share.</param>
     public Mqtt5BrokerState(Surl.MessageBus.MessageBus bus)
-        : this(bus, NewAssignedClientIdentifier)
-    {
-    }
-
-    /// <summary>
-    /// Creates the state of a broker whose assigned client identifiers come from
-    /// <paramref name="assignedClientIdentifierSource"/>.
-    /// </summary>
-    /// <param name="bus">The message bus the messaging servers of the run share.</param>
-    /// <param name="assignedClientIdentifierSource">Draws one candidate identifier per call.</param>
-    internal Mqtt5BrokerState(Surl.MessageBus.MessageBus bus, Func<string> assignedClientIdentifierSource)
     {
         ArgumentNullException.ThrowIfNull(bus);
         Bus = bus;
-        this.assignedClientIdentifierSource = assignedClientIdentifierSource;
     }
 
     /// <summary>
@@ -212,8 +200,13 @@ public sealed class Mqtt5BrokerState
     /// A fresh <c>surl-</c> identifier: 32 lower-case hex digits of 16 random bytes.
     /// </summary>
     /// <returns>The identifier.</returns>
-    internal static string NewAssignedClientIdentifier() =>
-        AssignedClientIdentifierPrefix + Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(AssignedClientIdentifierRandomBytes));
+    /// <param name="identifiers">The exchange's identifier source (ADR-0124 decision 6), seedable.</param>
+    internal static string NewAssignedClientIdentifier(IIdentifierRandom identifiers)
+    {
+        Span<byte> drawn = stackalloc byte[AssignedClientIdentifierRandomBytes];
+        identifiers.NextBytes(drawn);
+        return AssignedClientIdentifierPrefix + Convert.ToHexStringLower(drawn);
+    }
 
     /// <summary>
     /// Registers a connection for the identifier its client sent. A connection already registered
@@ -241,15 +234,16 @@ public sealed class Mqtt5BrokerState
     /// <summary>
     /// Assigns an identifier no connected client has and registers a connection for it.
     /// </summary>
+    /// <param name="identifiers">The exchange's identifier source each candidate is drawn from.</param>
     /// <param name="registration">The registration, which <see cref="UnregisterClient"/> takes back.</param>
     /// <returns>The assigned identifier.</returns>
-    internal string RegisterAssignedClient(out Mqtt5ClientRegistration registration)
+    internal string RegisterAssignedClient(IIdentifierRandom identifiers, out Mqtt5ClientRegistration registration)
     {
         registration = new Mqtt5ClientRegistration(Task.CompletedTask);
         string clientIdentifier;
         do
         {
-            clientIdentifier = assignedClientIdentifierSource();
+            clientIdentifier = NewAssignedClientIdentifier(identifiers);
         }
         while (!TryAddClient(clientIdentifier, registration));
 

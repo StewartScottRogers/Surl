@@ -73,6 +73,13 @@ public sealed class DnsUdpProtocolServerTests
     }
 
     [TestMethod]
+    public async Task ServeAsync_QueryWhoseOptCarriesPadding_IsAnsweredUnpadded()
+    {
+        var response = (await ServeAsync(Query("web.example.test", TypeA, additionals: PaddedOpt(1232)))).Single();
+
+        Assert.IsEmpty(DnsOptRecord.FromResourceRecord(ReadWhole(response).Additionals[^1]).Options);
+    }
+    [TestMethod]
     public async Task ServeAsync_ResponseMessage_IsIgnoredAndNoted()
     {
         var log = new RecordingExchangeLog();

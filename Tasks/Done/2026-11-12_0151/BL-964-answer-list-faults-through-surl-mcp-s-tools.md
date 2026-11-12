@@ -1,0 +1,58 @@
+---
+id: BL-964
+title: Answer list_faults through Surl.Mcp's tools
+priority: Normal
+assignee: Claude
+pipeline: feature
+depends-on: [BL-963, BL-1035]
+touches: [Application/Surl.Mcp.UnitLibrary, Application/Surl.Mcp, Application/Surl.Mcp.UnitTests]
+requirement: none
+created: 2026-11-06
+completed: 2026-11-12
+---
+# BL-964 — Answer list_faults through Surl.Mcp's tools
+
+## Goal
+
+An agent driving `surl-mcp` can call `list_faults` with a `server_id` and see each fault rule of that server as
+`{"faults": [{"fault_id", "item", "remaining"}]}`, in plan order.
+
+## Context
+
+- ADR-0124 decision 8's table row for `list_faults`; the other nine store and fault tools landed in BL-812
+  (`Application/Surl.Mcp.UnitLibrary/CLAUDE.md`). Build it like them, with `RunningServerTool.Create`, and
+  register it in `Application/Surl.Mcp/Program.cs` between `add_fault` and `remove_fault`, the ADR's order.
+- Reads BL-963's `SurlServerFaults` listing. `remaining` is `null` for a rule without `times`.
+- Mention `list_faults` in `Program.Instructions`, `SurlMcpHelpText.Help` and both projects' `CLAUDE.md`.
+
+## Acceptance criteria
+
+- [x] Named tests: `list_faults` after a start `--fault` and an `add_fault` lists both with `f1`, `f2`, their items
+      and `remaining`; `remaining` drops after a fake request applies a `times` rule; after `remove_fault` the rule
+      is gone; an unknown server ID is `isError` with `stop_server`'s text.
+- [x] `ProgramTests`' `tools/list` order test lists `list_faults` between `add_fault` and `remove_fault`, with a
+      JSON object input schema and a description.
+- [x] `dotnet build -warnaserror` is clean, the fast tests are green, and `Surl.Mcp.UnitLibrary` keeps 100% line
+      and branch coverage.
+
+## Notes
+
+- 2026-11-11 (lane 4): code written but not built - `dotnet build` cannot resolve the SDK `global.json` pins
+  (10.0.401; only 10.0.100-rc.1, 11.0.100-rc.2 and 11.0.100 are installed), so this waits on BL-1035 as BL-941
+  and BL-943 do. The unbuilt work is left uncommitted for the shift's stash: `ListFaultsTool` (`RunningServerTool`,
+  `SurlServer.Faults.List`, `remaining` written as `null` without `times`), registered in `Program.cs` between
+  `add_fault` and `remove_fault`, named in `Program.Instructions`, `SurlMcpHelpText.Help` and both `CLAUDE.md`
+  files, with five `ListFaults_*` tests in `FaultToolsTests` and the `ProgramTests` order and schema rows. If the
+  stash is lost, redo it from this note.
+
+- 2026-11-12 (lane 3): the stashed code was gone, so `ListFaultsTool` was rewritten from the 2026-11-11 note; SDK
+  10.0.404 now builds. Mcp.UnitTests: 250 passed. Test `ListFaults_*` x3 in `FaultToolsTests`, plus `list_faults` rows
+  in `ProgramTests` and `StoreToolsTests`.
+
+## Log
+
+- 2026-11-06: Created.
+- 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Backlog. Waits on BL-1035: pinned .NET SDK 10.0.401 is not installed, so the build cannot run
+- 2026-11-12: Backlog -> Doing.
+- 2026-11-12: Doing -> Done. surl-mcp answers list_faults with each fault rule's ID, item and remaining count

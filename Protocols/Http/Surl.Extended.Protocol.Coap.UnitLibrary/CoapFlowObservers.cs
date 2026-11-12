@@ -218,9 +218,10 @@ internal sealed class CoapFlowObservers : IAsyncDisposable
 
     private async Task NotifyAsync(CoapObservation observation)
     {
+        string? endingNote = null;
         try
         {
-            while (await NotifyOnceAsync(observation, observation.Stopping.Token))
+            while ((endingNote = await NotifyOnceAsync(observation, observation.Stopping.Token)) is null)
             {
             }
         }
@@ -240,10 +241,16 @@ internal sealed class CoapFlowObservers : IAsyncDisposable
 
             observation.Dispose();
         }
+
+        // Written only after the entry is removed, so the note signals that the removal is done.
+        if (endingNote is not null)
+        {
+            context.Log.Note(endingNote);
+        }
     }
 
-    // Waits for a change or for Max-Age to lapse, then sends one notification. False ends observing.
-    private async Task<bool> NotifyOnceAsync(CoapObservation observation, CancellationToken cancellationToken)
+    // Waits for a change or for Max-Age to lapse, then sends one notification. Null keeps observing; a note ends it.
+    private async Task<string?> NotifyOnceAsync(CoapObservation observation, CancellationToken cancellationToken)
     {
         await ChangeOrMaxAgeAsync(observation, cancellationToken);
         observation.ClearChanged();
@@ -261,11 +268,10 @@ internal sealed class CoapFlowObservers : IAsyncDisposable
 
         if (delivery == CoapDelivery.Acknowledged && sent!.Value.Class == 2)
         {
-            return true;
+            return null;
         }
 
-        context.Log.Note($"Observation ended: token {Convert.ToHexString(observation.Token.Span)}, notification {sent} {delivery}.");
-        return false;
+        return $"Observation ended: token {Convert.ToHexString(observation.Token.Span)}, notification {sent} {delivery}.";
     }
 
     private async Task ChangeOrMaxAgeAsync(CoapObservation observation, CancellationToken cancellationToken)

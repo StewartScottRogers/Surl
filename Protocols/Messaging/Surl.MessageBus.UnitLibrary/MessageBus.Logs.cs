@@ -197,6 +197,11 @@ public sealed partial class MessageBus
         }
 
         log.DropOldest(append.DropCount, append.DroppedBytes);
+        if (append.DropCount > 0)
+        {
+            PublishChange(StoreChange.Deleted, published.Topic, append.DroppedBytes);
+        }
+
         logBytes += append.RecordBytes - append.DroppedBytes;
         return log.Append(published, append.RecordBytes);
     }

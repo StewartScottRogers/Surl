@@ -145,6 +145,26 @@ public sealed class ListenUrlTests
     }
 
     [TestMethod]
+    public void OnlyTransport_Unset_IsNullSoEveryListenerOfTheSchemeBinds()
+    {
+        var listenUrl = new ListenUrl("dns", "127.0.0.1", 53);
+
+        Assert.IsNull(listenUrl.OnlyTransport);
+    }
+
+    [TestMethod]
+    public void OnlyTransport_Set_IsPartOfEqualityAndSurvivesTheBoundPort()
+    {
+        var datagrams = new ListenUrl("dns", "127.0.0.1", 0) { OnlyTransport = ListenTransport.Datagrams };
+        var connections = new ListenUrl("dns", "127.0.0.1", 0) { OnlyTransport = ListenTransport.Connections };
+
+        Assert.AreEqual(ListenTransport.Datagrams, datagrams.WithBoundPort(5300).OnlyTransport);
+        Assert.AreEqual(new ListenUrl("dns", "127.0.0.1", 0) { OnlyTransport = ListenTransport.Datagrams }, datagrams);
+        Assert.AreNotEqual(connections, datagrams);
+        Assert.AreNotEqual(new ListenUrl("dns", "127.0.0.1", 0), datagrams);
+    }
+
+    [TestMethod]
     public void IsImplicitTls_SetToTrueForAPlainScheme_IsTls()
     {
         var listenUrl = new ListenUrl("http", "127.0.0.1", 0) { IsImplicitTls = true };

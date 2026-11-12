@@ -11,6 +11,7 @@ using Surl.Protocol.Pop3;
 using Surl.Protocol.Rtsp;
 using Surl.Protocol.Smb;
 using Surl.Protocol.Smtp;
+using Surl.Protocol.Socks;
 using Surl.Protocol.Ssh;
 using Surl.Protocol.Telnet;
 using Surl.Protocol.Tftp;
@@ -34,7 +35,7 @@ public sealed class ProtocolServerRegistrationsTests
                 typeof(ImplicitTlsSchemeServer), typeof(LdapProtocolServer), typeof(ImplicitTlsSchemeServer),
                 typeof(MqttProtocolServer), typeof(Pop3ProtocolServer), typeof(ImplicitTlsSchemeServer),
                 typeof(RtspProtocolServer), typeof(SmbProtocolServer), typeof(SmtpProtocolServer),
-                typeof(ImplicitTlsSchemeServer), typeof(SingleSchemeServer), typeof(SingleSchemeServer), typeof(TelnetProtocolServer),
+                typeof(ImplicitTlsSchemeServer), typeof(SingleSchemeServer), typeof(SingleSchemeServer), typeof(SocksProtocolServer), typeof(TelnetProtocolServer),
                 typeof(TftpProtocolServer), typeof(WsProtocolServer), typeof(ImplicitTlsSchemeServer),
             },
             servers.Select(server => server.GetType()).ToArray());
@@ -42,7 +43,7 @@ public sealed class ProtocolServerRegistrationsTests
             new[]
             {
                 "http", "https", "dict", "ftp ftps", "gopher gophers", "imap", "imaps", "ldap", "ldaps", "mqtt mqtts",
-                "pop3", "pop3s", "rtsp", "smb smbs", "smtp", "smtps", "scp", "sftp", "telnet", "tftp", "ws", "wss",
+                "pop3", "pop3s", "rtsp", "smb smbs", "smtp", "smtps", "scp", "sftp", "socks4 socks4a socks5 socks5h", "telnet", "tftp", "ws", "wss",
             },
             servers.Select(server => string.Join(' ', server.Schemes)).ToArray());
     }

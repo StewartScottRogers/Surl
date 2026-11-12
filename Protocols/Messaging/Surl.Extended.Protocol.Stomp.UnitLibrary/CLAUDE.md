@@ -17,7 +17,7 @@ Frame codec and connection negotiation (BL-531, ADR-0118 decisions 0 to 3, 6 and
   `Too many connections`); its remarks list every answer.
 - `StompServerConnection` answers one connection: CONNECT or STOMP within the head timeout
   (closed with no bytes without one), the version, `heart-beat` and login checked in that order,
-  CONNECTED (`version`, `heart-beat` but in 1.0, a random 32-hex-digit `session`, `server:surl`),
+  CONNECTED (`version`, `heart-beat` but in 1.0, a 32-hex-digit `session` drawn from `ExchangeContext.Identifiers`, so a seeded instance repeats it, `server:surl`),
   then frames until DISCONNECT (RECEIPT first when it carries `receipt`), the client's close, a
   silent heart-beating client, a slow consumer or an ERROR. Every ERROR is written escaped by
   the negotiated version, writes are completed, and the server lingers up to `Linger` (1 s) on

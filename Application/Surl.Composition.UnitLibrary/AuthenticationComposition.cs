@@ -26,6 +26,7 @@ public static class AuthenticationComposition
         ["ntlmv1"] = AuthenticationMethod.NtlmV1,
         ["digest"] = AuthenticationMethod.Digest,
         ["scram-sha-256"] = AuthenticationMethod.ScramSha256,
+        ["scram-sha-512"] = AuthenticationMethod.ScramSha512,
         ["scram-sha-1"] = AuthenticationMethod.ScramSha1,
         ["digest-md5"] = AuthenticationMethod.DigestMd5,
         ["cram-md5"] = AuthenticationMethod.CramMd5,
@@ -96,7 +97,7 @@ public static class AuthenticationComposition
     /// <summary>
     /// Builds the policy the HTTP proxy judges <c>Proxy-Authorization</c> by (ADR-0088 decision 5): over
     /// the <c>-U</c> accounts and then the <c>--proxy-user-file</c> alone, never the origin's accounts,
-    /// with the default method set and the loosening switches <c>--allow-anonymous</c> and
+    /// with the <c>--proxy-auth</c> methods (Digest and Basic by default) and the loosening switches <c>--allow-anonymous</c> and
     /// <c>--allow-plaintext-auth</c>; one asking for no login when no proxy account is given.
     /// </summary>
     internal static (IAuthenticationPolicy? Policy, SurlExitCode ExitCode, string? FailureMessage) ComposeProxyPolicy(
@@ -115,7 +116,7 @@ public static class AuthenticationComposition
         {
             Accounts = commandLine.ProxyAccounts,
             UserFile = commandLine.ProxyUserFile,
-            GivenAuthenticationMethods = null,
+            GivenAuthenticationMethods = commandLine.AcceptedProxyAuthenticationMethods,
         };
         var (accounts, exitCode, failureMessage) = ReadUserAccounts(proxyView, readFile);
         return accounts is null
@@ -188,6 +189,16 @@ public static class AuthenticationComposition
         if (commandLine.GivenAuthenticationMethods is { } words)
         {
             log.WriteLine(WarningPrefix + $"--auth: accepted methods are {string.Join(", ", words)}");
+        }
+
+        if (commandLine.GivenProxyAuthenticationMethods is { } proxyWords)
+        {
+            log.WriteLine(WarningPrefix + $"--proxy-auth: accepted proxy methods are {string.Join(", ", proxyWords)}");
+        }
+
+        if (commandLine.S3Plaintext)
+        {
+            log.WriteLine(WarningPrefix + "--s3-plaintext: s3 is served as plain HTTP, without TLS");
         }
     }
 

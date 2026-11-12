@@ -1,7 +1,9 @@
 using System.Net;
+using System.Security.Cryptography.X509Certificates;
 using Surl.Cli;
 using Surl.Content;
 using Surl.Core;
+using Surl.MessageBus;
 using Surl.Networking;
 using Surl.Output;
 using Surl.Protocol.Abstractions;
@@ -21,7 +23,8 @@ public static partial class SurlServerComposition
     /// the service state, opening no file for writing: <c>--auth gssapi</c> without
     /// <c>--keytab</c> and an <c>--ssh-ciphers</c> or <c>--ssh-macs</c> name surl cannot offer (2),
     /// a data directory that cannot be opened (37), a TLS-first listen URL with no certificate (58)
-    /// or an <c>scp</c> or <c>sftp</c> one with no host key (2), the start files, the data
+    /// or an <c>scp</c> or <c>sftp</c> one with no host key (2), the start files, the shares and
+    /// buckets (2, or 37 for a share directory that cannot be opened), the data
     /// directory's lock (124 or 23), the service state (37) and the TLS files (58, 2 or 77), in
     /// that order.
     /// </summary>
@@ -42,10 +45,17 @@ public static partial class SurlServerComposition
         // one, ADR-0088 decision 6); its IsProxy mark sends its exchanges to the proxy server.
         commandLine = commandLine with { ListenUrls = [.. commandLine.ListenUrls, .. commandLine.ProxyListenUrls] };
 
-        if (FindOptionRefusal(commandLine) is { } optionRefusal)
+        // --s3-plaintext marks every s3 listen URL plain, so it needs no certificate and the engine
+        // serves it without a handshake (ADR-0108 decision 5).
+        commandLine = S3PlaintextComposition.MarkS3ListenUrlsPlain(commandLine);
+
+        if ((FindOptionRefusal(commandLine) ?? DnsTransportComposition.FindRefusal(commandLine)) is { } optionRefusal)
         {
             return Refuse(SurlExitCode.FailedInit, optionRefusal);
         }
+
+        // --dns-transport turns each dns listen URL into one per transport (ADR-0092 decision 5).
+        commandLine = DnsTransportComposition.ExpandDnsListenUrls(commandLine);
 
         if (commandLine.DataDirectory is { } dataDirectory && !seams.CanOpenDataDirectory(dataDirectory))
         {
@@ -134,16 +144,38 @@ public static partial class SurlServerComposition
         // One event stream and one fault plan per instance, never static (ADR-0124, decisions 1 and 4).
         var instruments = new EventStreamAndFaultPlan(
             new SurlEventStream(seams.TimeProvider), FaultPlanComposition.Compose(commandLine.Faults));
-        var contentStore = ComposeContentStore(commandLine, fileSystem, instruments.Events, instruments.Faults);
         if (FindListenUrlRefusal(commandLine) is { } refusal)
         {
             return refusal;
         }
 
         var (authentication, failure) = ComposeAuthentication(commandLine, seams, instruments);
-        return authentication is null
-            ? new SurlServerStart(failure, null)
-            : await LockThenComposeAsync(commandLine, seams, fileSystem, contentStore, authentication, instruments, cancellationToken);
+        if (authentication is null)
+        {
+            return new SurlServerStart(failure, null);
+        }
+
+        // The shares, their access and the buckets, once the groups are expanded (ADR-0102 decision 5).
+        var (shares, buckets, shareExitCode, shareFailureMessage) = ContentShareComposition.Compose(
+            commandLine,
+            authentication.AccountGroups,
+            seams.CanOpenShareDirectory ?? DataDirectoryProbe.CanOpen,
+            seams.ShareFileSystem ?? new DiskContentFileSystem());
+        if (shares is null)
+        {
+            return Refuse(shareExitCode, shareFailureMessage!);
+        }
+
+        // The topics, queues, topic maps and topic access, once the groups are expanded (ADR-0102 decision 5).
+        var (busConfiguration, busFailureMessage) = MessageBusComposition.Compose(commandLine, authentication.AccountGroups);
+        if (busConfiguration is null)
+        {
+            return Refuse(SurlExitCode.FailedInit, busFailureMessage!);
+        }
+
+        var contentStore = ComposeContentStore(commandLine, fileSystem, instruments.Events, instruments.Faults, shares, buckets!);
+        return await LockThenComposeAsync(
+            commandLine, seams, fileSystem, contentStore, authentication, busConfiguration, instruments, cancellationToken);
     }
 
     // The --auth words, the --user-file, the --authorized-keys and --keytab files, then the --hostkey
@@ -181,6 +213,12 @@ public static partial class SurlServerComposition
             return (null, new SurlStartFailure(SurlExitCode.FailedInit, [groupFailureMessage!]));
         }
 
+        // The shared folders' members, expanded now the groups are (ADR-0102 decision 1.6).
+        if (mailboxes.ComposeSharedFolders(commandLine, accountGroups) is { } sharedFolderFailure)
+        {
+            return (null, new SurlStartFailure(SurlExitCode.FailedInit, [sharedFolderFailure]));
+        }
+
         // The proxy's own accounts, never the origin's (ADR-0088 decision 5).
         var (proxyPolicy, proxyExitCode, proxyFailureMessage) = AuthenticationComposition.ComposeProxyPolicy(
             commandLine, readStartFile, seams.TimeProvider, instruments.Events, instruments.Faults);
@@ -190,8 +228,15 @@ public static partial class SurlServerComposition
         }
 
         var (sshHostKeys, hostKeyExitCode, hostKeyFailureMessage) = SshHostKeyComposition.Compose(commandLine, readStartFile);
-        return sshHostKeys is null
-            ? (null, new SurlStartFailure(hostKeyExitCode, [hostKeyFailureMessage!]))
+        if (sshHostKeys is null)
+        {
+            return (null, new SurlStartFailure(hostKeyExitCode, [hostKeyFailureMessage!]));
+        }
+
+        // The control token file, last of the start files (ADR-0124 decision 7).
+        var (controlToken, controlExitCode, controlFailureMessage) = ControlComposition.ReadToken(commandLine, readStartFile);
+        return controlFailureMessage is not null
+            ? (null, new SurlStartFailure(controlExitCode, [controlFailureMessage]))
             : (new ComposedAuthentication(
                 policy,
                 accountNames,
@@ -202,6 +247,7 @@ public static partial class SurlServerComposition
                 new SchemeAuthenticationPolicies(policy, seams.TimeProvider, instruments.Events, instruments.Faults))
             {
                 ProxyPolicy = proxyPolicy,
+                ControlToken = controlToken,
                 PreSharedKeyAccounts = AuthenticationComposition.ReadPreSharedKeyAccounts(commandLine, readStartFile),
             }, null);
     }
@@ -212,6 +258,7 @@ public static partial class SurlServerComposition
         IContentFileSystem fileSystem,
         ContentStore contentStore,
         ComposedAuthentication authentication,
+        MessageBusConfiguration busConfiguration,
         EventStreamAndFaultPlan instruments,
         CancellationToken cancellationToken)
     {
@@ -228,7 +275,7 @@ public static partial class SurlServerComposition
         try
         {
             start = await ComposeUnderTheLockAsync(
-                commandLine, seams, fileSystem, contentStore, authentication, instruments, dataDirectoryLock.Holder, cancellationToken);
+                commandLine, seams, fileSystem, contentStore, authentication, busConfiguration, instruments, dataDirectoryLock.Holder, cancellationToken);
             return start;
         }
         finally
@@ -246,11 +293,12 @@ public static partial class SurlServerComposition
         IContentFileSystem fileSystem,
         ContentStore contentStore,
         ComposedAuthentication authentication,
+        MessageBusConfiguration busConfiguration,
         EventStreamAndFaultPlan instruments,
         IDisposable? dataDirectoryLock,
         CancellationToken cancellationToken)
     {
-        var isCertificateConfigured = ServerTlsComposition.IsCertificateConfigured(commandLine);
+        var isTlsUpgradeAvailable = ServerTlsComposition.IsTlsUpgradeAvailable(commandLine);
         (ServiceState? State, string? FailureMessage) loaded;
         try
         {
@@ -259,12 +307,13 @@ public static partial class SurlServerComposition
                 fileSystem,
                 authentication.SchemePolicies.For("ldap"),
                 authentication.AccountNames,
-                isCertificateConfigured,
+                isTlsUpgradeAvailable,
                 seams.TimeProvider,
                 instruments.Events,
                 instruments.Faults,
                 cancellationToken,
-                authentication.Mailboxes.MailDomains);
+                authentication.Mailboxes.MailDomains,
+                busConfiguration);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -274,7 +323,10 @@ public static partial class SurlServerComposition
 
         if (loaded.State is null)
         {
-            return Refuse(SurlExitCode.CouldNotReadFile, loaded.FailureMessage!);
+            // A route the mail store refuses is a mistake in the options (2), not a file it could not read (37).
+            return Refuse(
+                loaded.FailureMessage!.StartsWith("(2)", StringComparison.Ordinal) ? SurlExitCode.FailedInit : SurlExitCode.CouldNotReadFile,
+                loaded.FailureMessage);
         }
 
         var originConnector = ComposeOriginConnector(commandLine, seams);
@@ -285,7 +337,7 @@ public static partial class SurlServerComposition
             seams.TimeProvider,
             authentication.SshHostKeys.HostKeys,
             SshAlgorithmComposition.Compose(authentication.SshHostKeys.HostKeys.SignatureAlgorithms, commandLine),
-            isCertificateConfigured,
+            isTlsUpgradeAvailable,
             commandLine.WsEcho,
             commandLine.Http3)
         {
@@ -351,6 +403,10 @@ public static partial class SurlServerComposition
             var (exitCode, lines) = ServerTlsComposition.DescribeTlsFileFailure(failure, commandLine.CaCertificateFile);
             return Refuse(exitCode, lines);
         }
+        catch (TlsSrpAccountsException failure)
+        {
+            return Refuse(failure.ExitCode, failure.Message);
+        }
 
         if (CoapsDtlsCertificate.FindRefusal(commandLine, tls.QuicCertificate) is { } certificateRefusal)
         {
@@ -361,7 +417,7 @@ public static partial class SurlServerComposition
         quicCertificateSource.Certificate = tls.QuicCertificate;
         quicCertificateSource.ClientTrustAnchors = tls.ClientTrustAnchors;
         IProtocolServer[] served = commandLine.Http3 && tls.QuicCertificate is { } quicCertificate
-            ? [.. servers, ComposeHttp3ProtocolServer(commandLine, stores.Content, authentication.SchemePolicies.For("https"), quicCertificate)]
+            ? [.. servers, ComposeHttp3ProtocolServer(commandLine, stores.Content, authentication.SchemePolicies.For("https"), quicCertificate, tls.ClientTrustAnchors, seams.TimeProvider)]
             : servers;
         return new SurlServerStart(
             null, new ComposedServing(commandLine, seams, served, authentication, instruments, stores, tls, dataDirectoryLock));
@@ -369,7 +425,19 @@ public static partial class SurlServerComposition
 
     // --http3: the HTTP/3 server on every https listen URL's UDP side, sharing the scheme with the
     // HTTP server's https registration, so the engine binds both on one port (ADR-0082, decision 6).
+    // With --cacert its handshakes require a client certificate chaining to those anchors (BL-741).
     private static Http3ProtocolServer ComposeHttp3ProtocolServer(
-        SurlCommandLine commandLine, ContentStore contentStore, IAuthenticationPolicy policy, QuicServerCertificate quicCertificate) =>
-        new(contentStore, policy, quicCertificate.Chain, quicCertificate.Key, ComposeConnectionLimits(commandLine).IdleTimeout);
+        SurlCommandLine commandLine,
+        ContentStore contentStore,
+        IAuthenticationPolicy policy,
+        QuicServerCertificate quicCertificate,
+        IReadOnlyList<X509Certificate2> clientTrustAnchors,
+        TimeProvider timeProvider) =>
+        new(
+            contentStore,
+            policy,
+            quicCertificate.Chain,
+            quicCertificate.Key,
+            ComposeConnectionLimits(commandLine).IdleTimeout,
+            clientTrustAnchors.Count == 0 ? null : new QuicClientCertificateTrust(clientTrustAnchors, timeProvider).Trusts);
 }

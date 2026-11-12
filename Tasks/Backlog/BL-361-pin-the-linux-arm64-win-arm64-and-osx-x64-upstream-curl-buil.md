@@ -51,8 +51,22 @@ those three runtime identifiers using them.
   `UpstreamCurlBuildPinsTests` and `UpstreamCurlLocatorTests` cannot be run. BL-357's approval is on record, so
   the downloads themselves are cleared. The task waits on BL-1035. Nothing was changed, so nothing is left to stash.
 
+- 2026-11-11 (lane 5): BL-357, BL-360 and BL-1035 are Done; `dotnet` 10.0.404 now resolves. Downloaded the three
+  assets (approved by BL-357) and hashed them with `Get-FileHash`. Extracted `curl` SHA-256 (archive SHA-256 in brackets):
+  - linux-arm64 `curl-linux-aarch64-musl-8.21.0.tar.xz`: `1CD1DF1734854A9A427EA012E36306980F256C1A03AFED1F1F552D790FF474AE` [`D3F10502A9C6EAD9BC3763FDE3D12467DB03661A263E11FEC2EF2EDC70E98E9F`]
+  - win-arm64 `curl-windows-aarch64-8.21.0.tar.xz`, `curl.exe`: `AC672E4AF690B313C58CFB63537783604A7F28BF681CEA55B21F880D55D9736E` [`46C59D2A71AB27A384E3BDB323D1148F1B8E1A592E20C0AF1C8F2929ECBCEE44`]
+  - osx-x64 `curl-macos-x86_64-8.21.0.tar.xz`: `D7FF98407835D4D54B6F6AA2164B63956073342E14A354C48166F01D169F4EBA` [`967E9B38C886B90933FC7144DFD9C8E6A54C7A4E1BA64A7786B9A116AC887AF4`]
+  Not pinned: this lane is x64 Windows and cannot run any of the three, so the `version`, `protocols` and `features`
+  lines cannot be measured, and the rule is to measure before pinning. The green CI run also needs a push, which a lane
+  may not do. Needs arm64 Windows/Linux and Intel macOS runs (CI runners) to print `--version`; nothing was changed in the repo.
+
+- 2026-11-12 (Claude, with Stewart's go-ahead): measured the three builds on runners of their own architecture with a one-off workflow on branch `probe/bl-361` (run https://github.com/StewartScottRogers/Surl/actions/runs/43201794572, green; branch and workflow since deleted). Every archive and binary SHA-256 matched the lane's measurement. The three entries are now in `UpstreamCurlBuilds.json` (`pinned` 2026-11-12) with the `version`, `protocols` and `features` lines as printed, and `UpstreamCurlBuildPinsTests` and `UpstreamCurlLocatorTests` pass (77 tests). Seen while measuring: osx-x64's protocols lack `rtsp` (the macOS build has none, which the osx-arm64 pin already shows); linux-arm64 prints `aarch64-pc-linux-gnu` though the asset is musl. Left for a lane: the ADR under `Documentation/Planning/Decisions` and its README line, and the CI steps that download, cache and verify each build and run `Surl.Conformance` on its runner (copy `ci.yml`'s steps from `Read the upstream curl pin` to `Verify the upstream curl build`). The green CI URL for that last criterion comes from the push the shift makes.
+
 ## Log
 
 - 2026-11-04: Created.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waits on BL-1035: pinned .NET SDK 10.0.401 is not installed, so nothing can be built or tested
+- 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Blocked. Stewart: needs a way to run the linux-arm64, win-arm64 and osx-x64 curl builds (arm64/Intel-mac runners) to measure their version/protocols/features lines and get a green CI URL; lane 5 is x64 Windows. Hashes are in Notes.
+- 2026-11-12: Blocked -> Backlog. Stewart said go on BL-361 on 2026-11-12: the three builds are measured and pinned; the ADR and CI steps are left for a lane, see Notes.

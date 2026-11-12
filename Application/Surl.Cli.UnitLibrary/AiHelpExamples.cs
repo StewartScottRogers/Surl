@@ -43,6 +43,8 @@ public static class AiHelpExamples
         Serving("content", "Serve in memory, with listings", ["--list-directories", HttpListenUrl], [ListeningOnHttp], [], ["curl http://127.0.0.1:<port>/"]),
         Serving("content", "Serve a data directory", ["--directory", "<path>", HttpListenUrl], [ListeningOnHttp], [], ["curl http://127.0.0.1:<port>/<file>"])
             with { Precondition = AiHelpExamplePrecondition.DataDirectoryExists },
+        Serving("content", "Serve a folder as a read-only share", ["--share", "docs=<path>;readonly", HttpListenUrl], [ListeningOnHttp], [], ["curl http://127.0.0.1:<port>/docs/<file>"])
+            with { Precondition = AiHelpExamplePrecondition.DirectoryExists },
         Refused(
             "content",
             "A data directory another surl holds",
@@ -67,6 +69,13 @@ public static class AiHelpExamples
             [],
             ["curl -u ann@example.com:secret imap://127.0.0.1:<port>/"])
             with { Precondition = AiHelpExamplePrecondition.MailboxFileExists },
+        Serving(
+            "messages",
+            "Retain everything published under a topic",
+            ["--allow-anonymous", "--topic", "shop/#;retain", "mqtt://127.0.0.1:0/"],
+            ["Listening on mqtt://127.0.0.1:<port>/"],
+            ["surl: warning: --allow-anonymous: every request and login is accepted without checking credentials"],
+            ["curl -d paid mqtt://127.0.0.1:<port>/shop/orders", "curl mqtt://127.0.0.1:<port>/shop/orders"]),
         Serving(
             "proxy",
             "Serve an HTTP proxy",
@@ -95,6 +104,19 @@ public static class AiHelpExamples
             ["Listening on https://127.0.0.1:<port>/"],
             ["surl: warning: --self-signed: serving a throwaway certificate; clients must skip verification (curl -k)"],
             ["curl -k https://127.0.0.1:<port>/"]),
+        Serving(
+            "tls",
+            "Serve HTTPS over TLS-SRP with one account and no certificate",
+            ["--tlsauthtype", "SRP", "--tlsuser", "jsmith", "--tlspassword", "abc", "https://127.0.0.1:0/"],
+            ["Listening on https://127.0.0.1:<port>/"],
+            [],
+            ["curl -k --tlsauthtype SRP --tlsuser jsmith --tlspassword abc https://127.0.0.1:<port>/"]),
+        Refused(
+            "tls",
+            "TLS-SRP with a user and no password",
+            ["--tlsuser", "jsmith", "https://127.0.0.1:0/"],
+            ["surl: option --tlsuser: needs --tlspassword", "surl: " + CommandLineFailure.TryHelpLine],
+            SurlExitCode.FailedInit),
         Refused(
             "tls",
             "A secure listen URL with no certificate",
@@ -170,6 +192,13 @@ public static class AiHelpExamples
             ["surl: warning: --self-signed: serving a throwaway certificate; clients must skip verification (curl -k)"],
             ["curl -k --aws-sigv4 aws:amz:us-east-1:s3 -u AKIAIOSFODNN7EXAMPLE:secret https://127.0.0.1:<port>/<bucket>/<key>"]),
         Serving(
+            "s3",
+            "For a test: serve S3 as plain HTTP for an http:// endpoint",
+            ["--s3-plaintext", "-u", "AKIAIOSFODNN7EXAMPLE:secret", "s3://127.0.0.1:0/"],
+            ["Listening on s3://127.0.0.1:<port>/"],
+            ["surl: warning: --s3-plaintext: s3 is served as plain HTTP, without TLS"],
+            ["curl --aws-sigv4 aws:amz:us-east-1:s3 -u AKIAIOSFODNN7EXAMPLE:secret http://127.0.0.1:<port>/<bucket>/<key>"]),
+        Serving(
             "smb",
             "Serve SMB shares to an NTLMv1 login",
             ["--auth", "ntlmv1", "-u", "alice:secret", "--directory", "<path>", "smb://127.0.0.1:0/"],
@@ -190,12 +219,27 @@ public static class AiHelpExamples
             ["Listening on socketio://127.0.0.1:<port>/"],
             ["surl: warning: --allow-anonymous: every request and login is accepted without checking credentials"],
             []),
+        Serving("socks", "Serve SOCKS5", ["socks5://127.0.0.1:0/"], ["Listening on socks5://127.0.0.1:<port>/"], [], ["curl --socks5 127.0.0.1:<port> http://<origin>/"]),
+        Serving(
+            "socks",
+            "Serve SOCKS5 on a Unix domain socket file",
+            ["--unix-socket", "surl-socks.sock", "socks5h://localhost"],
+            ["Listening on socks5h://localhost:1080/ over unix://surl-socks.sock"],
+            [],
+            ["curl --proxy socks5h://localhost/surl-socks.sock http://<origin>/"]),
         Refused(
             "ssh",
             "An SFTP listen URL with no host key",
             ["sftp://127.0.0.1:0/"],
             ["surl: (2) sftp://127.0.0.1:0/ needs a host key: give --hostkey <file>, or --throwaway-hostkey for a throwaway one"],
             SurlExitCode.FailedInit),
+        Serving(
+            "stomp",
+            "For a test: serve a STOMP broker without accounts",
+            ["--allow-anonymous", "stomp://127.0.0.1:0/"],
+            ["Listening on stomp://127.0.0.1:<port>/"],
+            ["surl: warning: --allow-anonymous: every request and login is accepted without checking credentials"],
+            []),
         Serving("telnet", "Serve TELNET", ["telnet://127.0.0.1:0/"], ["Listening on telnet://127.0.0.1:<port>/"], [], ["curl telnet://127.0.0.1:<port>/"]),
         Serving("tftp", "Serve TFTP", ["tftp://127.0.0.1:0/"], ["Listening on tftp://127.0.0.1:<port>/"], [], ["curl tftp://127.0.0.1:<port>/example.txt"]),
         Serving("websocket", "Serve WebSocket", ["ws://127.0.0.1:0/"], ["Listening on ws://127.0.0.1:<port>/"], [], ["curl ws://127.0.0.1:<port>/example.txt"]),

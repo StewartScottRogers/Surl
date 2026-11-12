@@ -17,8 +17,12 @@ Public, because a server uses them:
   malformed (`505`, `431`, `408`, `400`, a missing or repeated `Host`, an invalid
   `Content-Length`) with `Date`, `Server: surl`, `Content-Length: 0` and `Connection: close`
   before the handler sees it, answers the rest through the handler, and keeps or closes.
-- `IHttpRequestHandler`, `HttpRequest`, `HttpAnswer`, `HttpAnswerBody` (none, bytes, or a range
-  of a content-store file; a `ContentFile` names the `ContentStore` it is copied from),
+- `IHttpRequestHandler`, `HttpRequest`, `HttpAnswer`, `HttpAnswerBody` (none, bytes, a range
+  of a content-store file - a `ContentFile` names the `ContentStore` it is copied from - or
+  `Streamed`, produced after the head through an `HttpAnswerChunkWriter`: chunked over HTTP/1.1
+  with `Transfer-Encoding: chunked` added by the writer, each non-empty piece one chunk, then
+  `0\r\n\r\n` (RFC 9112 section 7.1); over HTTP/1.0 unframed, ended by closing the connection.
+  Only `Http1AnswerWriter` writes one; the HTTP server's HTTP/2 and HTTP/3 writers never get one, BL-777),
   `IHttpRequestBody` (`DiscardAsync`, optionally hashing, and `CopyToAsync`, which keeps the
   body), `HttpRequestBodyDiscardOutcome`.
 - `IHttpHeadNotReadRefuser` - a handler that also implements it words the refusal of a head that

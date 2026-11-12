@@ -9,6 +9,9 @@ public enum AiHelpExamplePrecondition
     /// <summary><c>&lt;path&gt;</c> is an existing directory no other surl holds.</summary>
     DataDirectoryExists,
 
+    /// <summary><c>&lt;path&gt;</c> is an existing directory; no surl need serve it.</summary>
+    DirectoryExists,
+
     /// <summary>Another surl is serving <c>&lt;path&gt;</c> with <c>--directory</c>.</summary>
     DataDirectoryHeldByAnotherSurl,
 

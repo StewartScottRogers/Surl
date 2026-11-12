@@ -104,6 +104,43 @@ public sealed class CommandStageFaultsTests
             () => CommandStageFaults.FindAndApplyAsync(context, connection, null!, "RETR").AsTask());
     }
 
+    [TestMethod]
+    public async Task FindAndApplyAsync_WithoutAConnection_DropRule_IsNotedPublishedAndHandedBack()
+    {
+        var drop = new FaultRule("f5", FaultKind.Drop) { Stage = FaultStage.Command };
+        var (context, events, idleClock, log) = NewContext(new ScriptedFaultPlan(drop), TimeProvider.System, TestContext.CancellationToken);
+
+        var rule = await CommandStageFaults.FindAndApplyAsync(context, RetrPoint, "/a");
+
+        Assert.AreSame(drop, rule);
+        Assert.AreEqual(new FaultAppliedEvent("f5", FaultKind.Drop, FaultStage.Command, 7, "/a"), events.Events.Single());
+        CollectionAssert.AreEqual(new[] { "RETR dropped the connection, unanswered, by fault rule f5." }, log.Notes.ToArray());
+        Assert.AreEqual(0, idleClock.PauseCount);
+    }
+
+    [TestMethod]
+    public async Task FindAndApplyAsync_WithoutAConnection_DelayAndNoRule_HoldAndDoNothing()
+    {
+        var delay = new FaultRule("f6", FaultKind.Delay) { Stage = FaultStage.Command };
+        var (held, heldEvents, heldIdleClock, _) = NewContext(new ScriptedFaultPlan(delay), TimeProvider.System, TestContext.CancellationToken);
+        var (unheld, unheldEvents, _, _) = NewContext(new ScriptedFaultPlan(), TimeProvider.System, TestContext.CancellationToken);
+
+        Assert.AreSame(delay, await CommandStageFaults.FindAndApplyAsync(held, RetrPoint, "RETR"));
+        Assert.IsNull(await CommandStageFaults.FindAndApplyAsync(unheld, RetrPoint, "RETR"));
+
+        Assert.AreEqual((1, 1), (heldIdleClock.PauseCount, heldIdleClock.RestartCount));
+        Assert.HasCount(1, heldEvents.Events);
+        Assert.IsEmpty(unheldEvents.Events);
+    }
+
+    [TestMethod]
+    public async Task FindAndApplyAsync_WithoutAConnection_NoContextOrPoint_Throws()
+    {
+        var (context, _, _, _) = NewContext(new ScriptedFaultPlan(), TimeProvider.System, TestContext.CancellationToken);
+
+        await Assert.ThrowsExactlyAsync<ArgumentNullException>(() => CommandStageFaults.FindAndApplyAsync(null!, RetrPoint, "RETR").AsTask());
+        await Assert.ThrowsExactlyAsync<ArgumentNullException>(() => CommandStageFaults.FindAndApplyAsync(context, null!, "RETR").AsTask());
+    }
     private static (ExchangeContext Context, RecordingSurlEventPublisher Events, RecordingIdleClock IdleClock, RecordingExchangeLog Log) NewContext(
         IFaultPlan faults, TimeProvider timeProvider, CancellationToken cancellationToken)
     {

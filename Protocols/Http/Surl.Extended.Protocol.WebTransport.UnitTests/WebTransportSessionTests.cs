@@ -265,17 +265,17 @@ public sealed class WebTransportSessionTests
     }
 
     [TestMethod]
-    public async Task ServeAsync_Shutdown_SendsDrainSessionAndCloseSessionThenGoAway()
+    public async Task ServeAsync_Shutdown_SendsDrainSessionThenGoAwayAndCloseSessionAfterTheGrace()
     {
         using var shutdown = new CancellationTokenSource();
         using var client = new Http3TestQuicClient();
-        await UnitTestWebTransport.StartAsync(client, Token, exchangeToken: shutdown.Token);
+        var (_, time) = await UnitTestWebTransport.StartAsync(client, Token, exchangeToken: shutdown.Token);
         await UnitTestWebTransport.OpenSessionAsync(client, Token);
         client.Send(4, Convert.FromHexString(UnitTestWebTransport.BidirectionalHeaderHex + "61"));
         await client.UntilAsync(() => client.StreamSent(4).Data.Length == 1, Token);
 
         await shutdown.CancelAsync();
-        await client.UntilAsync(() => client.CloseCode is not null, Token);
+        await UnitTestWebTransport.AdvanceUntilAsync(client, time, () => client.CloseCode is not null, Token);
 
         var close = "6843" + "18" + "00000000" + Convert.ToHexString(Encoding.ASCII.GetBytes("server shutting down"));
         Assert.AreEqual(UnitTestWebTransport.DrainSessionCapsuleHex + close, Convert.ToHexString([.. client.Response(0).Body]));
@@ -284,6 +284,65 @@ public sealed class WebTransportSessionTests
         Assert.EndsWith("070108", UnitTestWebTransport.SentHex(client, Http3TestQuicClient.ServerControlStreamId), "GOAWAY naming stream 8, after the client's streams 0 and 4.");
         Assert.IsLessThan(FrameIndex(client, 3, "070108"), FrameIndex(client, 0, UnitTestWebTransport.DrainSessionCapsuleHex), "WT_DRAIN_SESSION goes before GOAWAY.");
         Assert.AreEqual(0x100UL, client.CloseCode);
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_ShutdownGrace_KeepsEchoingUntilTheCloseSession()
+    {
+        using var shutdown = new CancellationTokenSource();
+        using var client = new Http3TestQuicClient();
+        var (_, time) = await UnitTestWebTransport.StartAsync(client, Token, exchangeToken: shutdown.Token);
+        await UnitTestWebTransport.OpenSessionAsync(client, Token);
+        client.Send(4, Convert.FromHexString(UnitTestWebTransport.BidirectionalHeaderHex + "61"));
+        await client.UntilAsync(() => client.StreamSent(4).Data.Length == 1, Token);
+
+        await shutdown.CancelAsync();
+        await client.UntilAsync(() => FrameIndex(client, 3, "070108") >= 0, Token);
+        client.Send(4, Convert.FromHexString("62"));
+        await client.UntilAsync(() => client.StreamSent(4).Data.Length == 2, Token);
+
+        Assert.AreEqual("6162", Convert.ToHexString(client.StreamSent(4).Data), "The session still echoes after WT_DRAIN_SESSION and GOAWAY.");
+        Assert.IsNull(client.CloseCode, "The connection stays open through the grace.");
+        Assert.AreEqual(UnitTestWebTransport.DrainSessionCapsuleHex, Convert.ToHexString([.. client.Response(0).Body]), "No WT_CLOSE_SESSION yet.");
+        Assert.IsFalse(client.StreamSent(0).Fin);
+
+        await UnitTestWebTransport.AdvanceUntilAsync(client, time, () => client.CloseCode is not null, Token);
+
+        Assert.StartsWith(UnitTestWebTransport.DrainSessionCapsuleHex + "6843", Convert.ToHexString([.. client.Response(0).Body]));
+        Assert.IsTrue(client.StreamSent(0).Fin);
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_ClientFinishesTheConnectStreamWithinTheShutdownGrace_ClosesTheConnectionAtOnce()
+    {
+        using var shutdown = new CancellationTokenSource();
+        using var client = new Http3TestQuicClient();
+        await UnitTestWebTransport.StartAsync(client, Token, exchangeToken: shutdown.Token);
+        await UnitTestWebTransport.OpenSessionAsync(client, Token);
+        await shutdown.CancelAsync();
+        await client.UntilAsync(() => FrameIndex(client, 3, "070104") >= 0, Token);
+        Assert.IsNull(client.CloseCode, "WTH3 6: the connection waits for the client's FIN while the grace runs.");
+
+        client.Send(0, [], fin: true);
+        await client.UntilAsync(() => client.CloseCode is not null, Token);
+
+        Assert.IsTrue(client.StreamSent(0).Fin, "The server finishes its side of the CONNECT stream.");
+        Assert.AreEqual(UnitTestWebTransport.DrainSessionCapsuleHex, Convert.ToHexString([.. client.Response(0).Body]), "The grace never passed, so no shutdown WT_CLOSE_SESSION.");
+        Assert.AreEqual(0x100UL, client.CloseCode);
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_DatagramBeforeItsConnect_IsEchoedOnceTheSessionIsAccepted()
+    {
+        using var client = new Http3TestQuicClient(UnitTestWebTransport.ClientOfferingDatagramFrames);
+        await UnitTestWebTransport.StartAsync(client, Token, openControlStream: false);
+        client.Send(Http3TestQuicClient.ControlStreamId, [0x00, .. UnitTestWebTransport.WebTransportSettings]);
+
+        UnitTestWebTransport.SendDatagram(client, "00" + "6869");
+        client.Send(0, UnitTestWebTransport.Connect(client));
+        await client.UntilAsync(() => client.OneRttFrames<QuicDatagramFrame>().Any(), Token);
+
+        Assert.AreEqual("006869", Convert.ToHexString(client.OneRttFrames<QuicDatagramFrame>().Single().Data.Span), "WTH3 4.6: held, then echoed once, with its quarter stream ID.");
     }
 
     [TestMethod]

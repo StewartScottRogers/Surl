@@ -12,23 +12,28 @@ namespace Surl.Extended.Protocol.McpServer;
 /// <c>command</c> the tool's name for <c>tools/call</c> and the method for every other request.
 /// </summary>
 /// <remarks>
-/// Only a <see cref="FaultKind.Error"/> rule whose reply fits (<see cref="TryParse"/>) is applied, and
-/// applying it publishes one <see cref="FaultAppliedEvent"/> naming the path. A rule of any other kind,
-/// or a reply that does not fit, is noted as not applied and the request is answered as without it.
+/// A <see cref="FaultKind.Delay"/> or <see cref="FaultKind.Drop"/> rule is applied, and so is an
+/// <see cref="FaultKind.Error"/> rule whose reply fits (<see cref="TryParse"/>); each publishes one
+/// <see cref="FaultAppliedEvent"/> naming the path. A rule of any other kind, or a reply that does not
+/// fit, is noted as not applied and the request is answered as without it.
 /// </remarks>
 internal static class McpRequestFaults
 {
     private const string ToolsCallMethod = "tools/call";
 
     /// <summary>
-    /// Finds the chosen error response for a request, publishing its <see cref="FaultAppliedEvent"/>.
+    /// Offers a request to the fault plan and applies what it finds, publishing the
+    /// <see cref="FaultAppliedEvent"/>: a <see cref="FaultKind.Delay"/> rule holds the answer for its
+    /// <c>ms</c> on the exchange's clock with the idle clock paused, a <see cref="FaultKind.Drop"/> rule
+    /// drops the exchange, and an <see cref="FaultKind.Error"/> rule gives its chosen JSON-RPC error.
     /// </summary>
     /// <param name="context">The exchange: its fault plan, event stream and listen URL.</param>
     /// <param name="request">The request as parsed.</param>
     /// <param name="login">The session's login, or <see langword="null" /> for the anonymous caller.</param>
     /// <param name="endpointPath">The endpoint's path (<c>/mcp</c>).</param>
-    /// <returns>The JSON-RPC error response's bytes, or <see langword="null" /> to answer as usual.</returns>
-    public static async Task<byte[]?> FindErrorAsync(ExchangeContext context, JsonRpcRequest request, string? login, string endpointPath)
+    /// <returns>What the request is answered with.</returns>
+    /// <exception cref="OperationCanceledException">The exchange was cancelled during a delay.</exception>
+    public static async Task<McpFaultOutcome> ApplyAsync(ExchangeContext context, JsonRpcRequest request, string? login, string endpointPath)
     {
         FaultPoint point = new(FaultStage.Command)
         {
@@ -39,21 +44,28 @@ internal static class McpRequestFaults
             Path = endpointPath,
             Command = CommandOf(request),
         };
-        if (await context.Faults.FindAsync(point, context.CancellationToken).ConfigureAwait(false) is not { } rule)
-        {
-            return null;
-        }
+        FaultRule? rule = await CommandStageFaults.FindAndApplyAsync(context, point, endpointPath).ConfigureAwait(false);
 
+        return rule?.Kind switch
+        {
+            null or FaultKind.Delay => McpFaultOutcome.AnsweredAsUsual,
+            FaultKind.Drop => McpFaultOutcome.Dropped,
+            _ => ChooseError(context, rule, request, endpointPath),
+        };
+    }
+
+    private static McpFaultOutcome ChooseError(ExchangeContext context, FaultRule rule, JsonRpcRequest request, string endpointPath)
+    {
         if (rule.Kind != FaultKind.Error || !TryParse(rule.Reply, out JsonRpcError? error))
         {
             string why = rule.Kind == FaultKind.Error ? "its reply does not fit the mcp error shape" : $"a {rule.Kind} rule is not applied at a request";
             context.Log.Note($"Fault rule {rule.Id} not applied to the request: {why}.");
-            return null;
+            return McpFaultOutcome.AnsweredAsUsual;
         }
 
         context.Log.Note($"The request was answered with JSON-RPC error {error.Code} by fault rule {rule.Id}.");
         context.Events.Publish(new FaultAppliedEvent(rule.Id, FaultKind.Error, FaultStage.Command, context.ExchangeId, endpointPath));
-        return JsonRpcResponseWriter.WriteError(request.Id, error);
+        return new McpFaultOutcome(JsonRpcResponseWriter.WriteError(request.Id, error), false);
     }
 
     /// <summary>

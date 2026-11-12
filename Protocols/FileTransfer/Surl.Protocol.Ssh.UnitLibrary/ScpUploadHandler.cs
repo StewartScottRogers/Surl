@@ -52,9 +52,9 @@ internal sealed class ScpUploadHandler(ContentStore store, ContentCaller caller,
     /// <inheritdoc/>
     public async Task<uint> RunAsync(ISshChannelDataStream channel, CancellationToken cancellationToken)
     {
-        if (await SshCommandFaults.FindScpErrorAsync(context, caller, command, cancellationToken) is { } rule)
+        if (await SshCommandFaults.FindScpFaultAsync(context, channel.Connection, caller, command) is { } rule)
         {
-            return await SshCommandFaults.AnswerScpErrorAsync(channel, context, $"SCP upload {path}", rule, cancellationToken);
+            return await SshCommandFaults.AnswerScpFaultAsync(channel, context, $"SCP upload {path}", rule, cancellationToken);
         }
 
         var reader = new ScpChannelReader(channel);

@@ -105,7 +105,7 @@ internal sealed class GcsJsonObjectAssembly(ContentStore store, GcsObjectPropert
             return (GcsJsonError.Forbidden, null, null);
         }
 
-        var (refusal, _) = await putObject.StoreMetadataAsync(destination.RawBucket, destination.RawName, mapping, destination.Metadata, digests.ETag, now, cancellationToken);
+        var (refusal, _) = await putObject.StoreMetadataAsync(destination.RawBucket, destination.RawName, mapping, destination.Metadata, digests.ETag, digests.Crc32cValue, now, cancellationToken);
         if (refusal is not null)
         {
             return (refusal == GcsError.MetadataTooLarge ? GcsJsonError.Invalid : GcsJsonError.QuotaExceeded, null, null);

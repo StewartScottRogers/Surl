@@ -180,6 +180,7 @@ public sealed partial class SurlServerArgumentsTests
         options.IdleTimeout = TimeSpan.FromSeconds(3);
         options.MaxTime = TimeSpan.FromSeconds(4);
         options.MaxFileSize = 5;
+        options.RandomSeed = 6;
         options.LogLevel = LogLevel.Verbose;
 
         var arguments = SurlServerArguments.Compose(options);
@@ -191,7 +192,7 @@ public sealed partial class SurlServerArgumentsTests
                 "--allow-anonymous", "--allow-plaintext-auth", "--cert", "cert.pem", "--key", "key.pem", "--pass", "phrase",
                 "--self-signed", "--cacert", "ca.pem", "--hostkey", "host.key", "--throwaway-hostkey", "--max-connections", "1",
                 "--max-connections-per-address", "2", "--idle-timeout", "3", "--max-time", "4", "--max-filesize", "5",
-                "--log-level", "verbose",
+                "--random-seed", "6", "--log-level", "verbose",
             },
             arguments.ToArray());
     }

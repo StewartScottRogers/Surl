@@ -12,10 +12,10 @@ namespace Surl.Extended.Protocol.Coap;
 /// <c>/</c> for none). CoAP has no account, so the point names none.
 /// </summary>
 /// <remarks>
-/// Only a <see cref="FaultKind.Error"/> rule whose reply fits (<see cref="TryParse"/>) is applied, and
-/// applying it publishes one <see cref="FaultAppliedEvent"/> naming the path. A rule of any other
-/// kind, or a reply that does not fit, is noted as not applied and the request is answered as
-/// without it.
+/// A <see cref="FaultKind.Delay"/> or <see cref="FaultKind.Drop"/> rule is applied, and so is an
+/// <see cref="FaultKind.Error"/> rule whose reply fits (<see cref="TryParse"/>); each publishes one
+/// <see cref="FaultAppliedEvent"/> naming the path. A rule of any other kind, or a reply that does
+/// not fit, is noted as not applied and the request is answered as without it.
 /// </remarks>
 internal static class CoapRequestFaults
 {
@@ -28,13 +28,18 @@ internal static class CoapRequestFaults
     private static readonly CoapCode ServiceUnavailable = CoapCode.From(5, 3);
 
     /// <summary>
-    /// Finds the chosen error response for a request, publishing its <see cref="FaultAppliedEvent"/>.
+    /// Offers a request to the fault plan and applies what it finds, publishing the
+    /// <see cref="FaultAppliedEvent"/>: a <see cref="FaultKind.Delay"/> rule holds the answer for its
+    /// <c>ms</c> on the exchange's clock with the idle clock paused, a <see cref="FaultKind.Drop"/>
+    /// rule leaves the request without any answer (CoAP has no connection to abort; ADR-0144
+    /// amendment 1), and an <see cref="FaultKind.Error"/> rule gives its chosen response.
     /// </summary>
-    /// <param name="context">The exchange: its fault plan, event stream and listen URL.</param>
+    /// <param name="context">The exchange: its fault plan, clock, event stream and listen URL.</param>
     /// <param name="request">The request: its code is a method.</param>
     /// <param name="options">Its options, read.</param>
-    /// <returns>The chosen response, or <see langword="null"/> to answer as usual.</returns>
-    public static async Task<CoapResponse?> FindErrorAsync(ExchangeContext context, CoapMessage request, CoapRequestOptions options)
+    /// <returns>What the request is answered with.</returns>
+    /// <exception cref="OperationCanceledException">The exchange was cancelled during a delay.</exception>
+    public static async Task<CoapFaultOutcome> ApplyAsync(ExchangeContext context, CoapMessage request, CoapRequestOptions options)
     {
         var path = "/" + string.Join('/', options.UriPath);
         var point = new FaultPoint(FaultStage.Command)
@@ -45,23 +50,30 @@ internal static class CoapRequestFaults
             Path = path,
             Command = CommandOf(request.Code),
         };
-        if (await context.Faults.FindAsync(point, context.CancellationToken) is not { } rule)
-        {
-            return null;
-        }
+        var rule = await CommandStageFaults.FindAndApplyAsync(context, point, path);
 
+        return rule?.Kind switch
+        {
+            null or FaultKind.Delay => CoapFaultOutcome.AnsweredAsUsual,
+            FaultKind.Drop => CoapFaultOutcome.Dropped,
+            _ => ChooseError(context, rule, path),
+        };
+    }
+
+    private static CoapFaultOutcome ChooseError(ExchangeContext context, FaultRule rule, string path)
+    {
         if (rule.Kind != FaultKind.Error || !TryParse(rule.Reply, out var response))
         {
             var why = rule.Kind == FaultKind.Error ? "its reply does not fit the coap error shape" : $"a {rule.Kind} rule is not applied at a request";
             context.Log.Note($"Fault rule {rule.Id} not applied to the request: {why}.");
 
-            return null;
+            return CoapFaultOutcome.AnsweredAsUsual;
         }
 
         context.Log.Note($"The request was answered {response.Code} by fault rule {rule.Id}.");
         context.Events.Publish(new FaultAppliedEvent(rule.Id, FaultKind.Error, FaultStage.Command, context.ExchangeId, path));
 
-        return response;
+        return new CoapFaultOutcome(response, false);
     }
 
     /// <summary>

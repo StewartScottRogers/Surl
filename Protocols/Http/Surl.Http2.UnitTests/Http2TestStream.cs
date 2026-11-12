@@ -11,7 +11,7 @@ internal sealed class Http2TestStream
 {
     private readonly Http2Stream stream;
 
-    public Http2TestStream(Http2RequestHead head, bool isBodyAnnounced, CancellationToken cancellationToken, uint? initialWindowSize = null)
+    public Http2TestStream(Http2RequestHead head, bool isBodyAnnounced, CancellationToken cancellationToken, uint? initialWindowSize = null, TimeProvider? timeProvider = null)
     {
         Connection = new InMemoryConnection([]);
         var frames = new Http2FrameWriter(Connection);
@@ -41,7 +41,8 @@ internal sealed class Http2TestStream
 
                 return frames.WriteAsync(new Http2RstStreamFrame(1, code), cancellationToken);
             },
-            cancellationToken);
+            cancellationToken,
+            timeProvider ?? TimeProvider.System);
     }
 
     public InMemoryConnection Connection { get; }

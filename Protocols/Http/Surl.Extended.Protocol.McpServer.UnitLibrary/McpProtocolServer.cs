@@ -1,5 +1,7 @@
+using System.Globalization;
 using System.Security.Cryptography;
 using Surl.Content;
+using Surl.HttpMessage;
 using Surl.HttpServing;
 using Surl.Protocol.Abstractions;
 
@@ -20,7 +22,7 @@ namespace Surl.Extended.Protocol.McpServer;
 /// HTTP/1.1 framing, the head limit and timeouts are <see cref="Http1ConnectionServer" />'s. <c>mcps</c> is
 /// the same server behind the host's implicit TLS (decision 4.9); the host composes it (BL-468).
 /// </remarks>
-public sealed class McpProtocolServer : IConnectionProtocolServer
+public sealed class McpProtocolServer : IConnectionProtocolServer, IConnectionRefusalWriter
 {
     /// <summary>The plain HTTP/1.1 scheme.</summary>
     public const string PlainScheme = "mcp";
@@ -34,6 +36,8 @@ public sealed class McpProtocolServer : IConnectionProtocolServer
     private readonly McpHttpServerSettings _settings;
 
     private readonly IAuthenticationPolicy _authenticationPolicy;
+
+    private readonly TimeProvider _timeProvider;
 
     /// <summary>Initializes a new instance of the <see cref="McpProtocolServer" /> class.</summary>
     /// <param name="store">The shared content store the tools serve.</param>
@@ -58,6 +62,7 @@ public sealed class McpProtocolServer : IConnectionProtocolServer
         ArgumentNullException.ThrowIfNull(timeProvider);
         ArgumentNullException.ThrowIfNull(randomSource);
         _authenticationPolicy = authenticationPolicy;
+        _timeProvider = timeProvider;
         _settings = new McpHttpServerSettings(
             store,
             surlVersion,
@@ -79,6 +84,25 @@ public sealed class McpProtocolServer : IConnectionProtocolServer
         ArgumentNullException.ThrowIfNull(context);
         McpHttpRequestAnswerer answerer = new(_settings, _authenticationPolicy, context, connection.TlsSession);
         return new Http1ConnectionServer(answerer, context).ServeAsync(connection);
+    }
+
+    /// <inheritdoc />
+    /// <remarks>
+    /// <c>503 Service Unavailable</c> with no body, then closed (ADR-0111 decision 7.3): <c>Date</c>,
+    /// <c>Server</c>, <c>Content-Length: 0</c> and <c>Connection: close</c>.
+    /// </remarks>
+    public async ValueTask WriteRefusalAsync(IConnection connection, ConnectionRefusal refusal, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(connection);
+
+        byte[] head = new HttpResponseHead(HttpStatus.ServiceUnavailable)
+            .AddField("Date", _timeProvider.GetUtcNow().ToString("r", CultureInfo.InvariantCulture))
+            .AddField("Server", HttpResponseHead.ServerName)
+            .AddField("Content-Length", "0")
+            .AddField("Connection", "close")
+            .ToBytes();
+        await connection.WriteAsync(head, cancellationToken);
+        await connection.CompleteWritesAsync(cancellationToken);
     }
 
     private static string EndpointPathFor(string? listenPath)

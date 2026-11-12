@@ -6,8 +6,8 @@ namespace Surl.MessageBus;
 /// What the bus publishes on its instance's event stream and how it answers an out-of-space
 /// fault rule (ADR-0124 decisions 1 and 4). Every change is a <see cref="StoreChangedEvent"/>
 /// with <see cref="StoreKind.Bus"/>, named by the canonical topic or by
-/// <see cref="QueueChangeName"/>; the bus is never told which exchange made a change, so
-/// <see cref="StoreChangedEvent.ExchangeId"/> is always <see langword="null"/>.
+/// <see cref="QueueChangeName"/>; a change carries the exchange of the <see cref="BusConnection"/> whose operation made it
+/// (<see cref="StoreChangedEvent.ExchangeId"/>), and <see langword="null"/> when none did.
 /// </summary>
 public sealed partial class MessageBus
 {
@@ -20,6 +20,44 @@ public sealed partial class MessageBus
 
     private readonly ISurlEventPublisher events;
     private readonly IFaultPlan faults;
+    private readonly ThreadLocal<BusExchange?> currentExchange = new();
+
+    /// <summary>
+    /// Runs <paramref name="operation"/> with <paramref name="exchange"/> as the exchange the changes
+    /// and faults it causes are named for on this thread, then puts back the one before.
+    /// </summary>
+    internal T RunAs<T>(BusExchange? exchange, Func<T> operation)
+    {
+        var previous = currentExchange.Value;
+        currentExchange.Value = exchange;
+        try
+        {
+            return operation();
+        }
+        finally
+        {
+            currentExchange.Value = previous;
+        }
+    }
+
+    /// <summary>
+    /// Queues a delivery to run later, outside the lock, as the exchange that caused it.
+    /// </summary>
+    private void EnqueueDelivery(Action delivery)
+    {
+        var exchange = currentExchange.Value;
+        waitingDeliveries.Enqueue(() => RunAs(exchange, delivery));
+    }
+
+    /// <summary>
+    /// Runs <paramref name="operation"/> as <see cref="RunAs{T}(BusExchange?, Func{T})"/> does, for one
+    /// that returns nothing.
+    /// </summary>
+    internal void RunAs(BusExchange? exchange, Action operation) => RunAs(exchange, () =>
+    {
+        operation();
+        return 0;
+    });
 
     /// <summary>
     /// The name a queue's changes are published under, and the path an out-of-space rule names
@@ -35,12 +73,12 @@ public sealed partial class MessageBus
     }
 
     /// <summary>
-    /// Publishes one change to the bus with no exchange named. Called under the bus's lock, or
+    /// Publishes one change to the bus, naming the exchange running on this thread, if any. Called under the bus's lock, or
     /// from the one delivering thread, so a topic's or queue's events keep the order in which its
     /// changes happened.
     /// </summary>
     private void PublishChange(StoreChange change, string name, long? byteCount) =>
-        events.Publish(new StoreChangedEvent(StoreKind.Bus, change, name, byteCount, ExchangeId: null));
+        events.Publish(new StoreChangedEvent(StoreKind.Bus, change, name, byteCount, currentExchange.Value?.ExchangeId));
 
     private void PublishQueueChange(StoreChange change, string queueName, long? byteCount) =>
         PublishChange(change, QueueChangeName(queueName), byteCount);
@@ -54,14 +92,32 @@ public sealed partial class MessageBus
     /// </summary>
     private bool IsOutOfSpace(string? account, string path)
     {
-        var rule = FindOutOfSpaceRule(new FaultPoint(FaultStage.StoreWrite) { Account = account, Path = path });
+        var exchange = currentExchange.Value;
+        var rule = FindOutOfSpaceRule(new FaultPoint(FaultStage.StoreWrite) { ExchangeId = exchange?.ExchangeId, ListenUrl = exchange?.ListenUrl, Scheme = exchange?.Scheme, Account = account, Path = path });
         if (rule is null)
         {
             return false;
         }
 
-        events.Publish(new FaultAppliedEvent(rule.Id, FaultKind.OutOfSpace, FaultStage.StoreWrite, ExchangeId: null, path));
+        events.Publish(new FaultAppliedEvent(rule.Id, FaultKind.OutOfSpace, FaultStage.StoreWrite, exchange?.ExchangeId, path));
         return true;
+    }
+
+    /// <summary>
+    /// The names of the queues bound to <paramref name="topic"/> whose <see cref="QueueChangeName"/> an
+    /// out-of-space rule matches, so each refuses only its own copy of a publish. Asked before the
+    /// bus's lock is taken, since the plan may run a test's code.
+    /// </summary>
+    private List<string> BoundQueueNamesRefusedByFault(string topic, string? account)
+    {
+        var topicLevels = CanonicalTopicName.SplitLevels(topic);
+        string[] boundNames;
+        lock (stateLock)
+        {
+            boundNames = [.. queues.Values.Where(queue => queue.IsBoundTo(topicLevels)).Select(queue => queue.Name)];
+        }
+
+        return [.. boundNames.Where(name => IsOutOfSpace(account, QueueChangeName(name)))];
     }
 
     /// <summary>

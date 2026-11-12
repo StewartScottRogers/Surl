@@ -35,7 +35,7 @@ internal static class CommandLineOptions
     private const string AuthExplanation =
         "Sets the authentication methods surl accepts and offers, a comma-separated list in any case. For HTTP: "
         + "negotiate, ntlm, digest, basic, bearer and aws-sigv4. For SMTP, IMAP and POP3 logins, each SASL "
-        + "mechanism by its name in lower case, as curl's login option AUTH=<mech> names it: gssapi, scram-sha-256, scram-sha-1, ntlm, digest-md5, "
+        + "mechanism by its name in lower case, as curl's login option AUTH=<mech> names it: gssapi, scram-sha-256, scram-sha-512, scram-sha-1, ntlm, digest-md5, "
         + "cram-md5, plain, login, oauthbearer, xoauth2 and external, and apop for POP3's APOP. For SMB: ntlmv1, "
         + "the only login curl makes in an SMB session setup; accepting ntlm never accepts it. "
         + "external logs in as the TLS client certificate --cacert verifies, so it is "
@@ -66,6 +66,14 @@ internal static class CommandLineOptions
         + "because no client can know the key beforehand, so a client cannot tell surl from anyone else on the path. "
         + "It cannot be used with --hostkey. surl warns when it makes the key, from the info log level up, naming "
         + "the hash to pin.";
+
+    private const string S3PlaintextExplanation =
+        "Serves every s3 listen URL as plain HTTP/1.1 instead of TLS from the first byte, so it needs no --cert "
+        + "or --self-signed. A test uses it for an S3 client pointed at an http:// custom endpoint "
+        + "(AWS_ENDPOINT_URL=http://...). Requests are still signed and checked with AWS Signature Version 4, which "
+        + "sends no secret, so --allow-plaintext-auth is not needed with it. It is not the default because every "
+        + "S3 endpoint is HTTPS, and anyone who can watch the network reads every object as it is sent. "
+        + "surl warns on every start while it is on, from the info log level up.";
 
     private const string FaultExplanation =
         "Adds a fault rule that makes surl misbehave on purpose: delay (ms=<0-600000>, at accept or stage=command), "
@@ -100,7 +108,7 @@ internal static class CommandLineOptions
             new(null, "Show version number and quit", ["surl"], IsInShortList: true, Default: null)),
         new("manual", 'M', CommandLineOptionKind.Manual, Negatable: false, SetFlag: null, ApplyArgument: null, OptionArgumentType.None,
             new(null, "Display the full manual", ["surl"], IsInShortList: false, Default: null)),
-        WithArgument<string>("config", 'K', OptionArgumentReader.Path, (c, _) => c,
+        WithArgument<string>("config", 'K', OptionArgumentReader.Path, (c, v) => c with { ConfigFiles = [.. c.ConfigFiles, v] },
             new("<file>", "Read options from a file (repeatable)", ["surl"], IsInShortList: false, Default: "none read")),
         WithArgument<string>("url", null, OptionArgumentReader.ListenUrlText, (c, _) => c,
             new("<listen URL>", "Add a listen URL (repeatable)", ["surl"], IsInShortList: false, Default: "none")),
@@ -113,6 +121,8 @@ internal static class CommandLineOptions
             new("<file>", "Read proxy accounts from a file", ["auth", "proxy"], IsInShortList: false, Default: "none")),
         WithArgument<ProxyAllowedOrigin>("proxy-allow-origin", null, OptionArgumentReader.AllowedOrigin, (c, v) => c with { ProxyAllowedOrigins = [.. c.ProxyAllowedOrigins, v] },
             new("<address>", "Let the proxy reach more origins", ["proxy", "security"], IsInShortList: false, Default: "loopback only")),
+        WithArgument<IReadOnlyList<string>>("proxy-auth", null, OptionArgumentReader.AuthenticationMethods, (c, v) => c with { GivenProxyAuthenticationMethods = v },
+            new("<methods>", "Methods the proxy accepts", ["auth", "proxy"], IsInShortList: false, Default: "digest,basic")),
         WithArgument<string>("unix-socket", null, OptionArgumentReader.Path,
             (c, v) => c with { UnixSocket = new UnixSocketAddress(v, isAbstract: false) },
             new("<path>", "Listen on a Unix domain socket file", ["surl"], IsInShortList: false, Default: "TCP")),
@@ -149,24 +159,26 @@ internal static class CommandLineOptions
             new(null, "Serve names that start with a dot", ["content", "dict", "ftp", "gopher", "http", "security", "smb", "ssh", "tftp"], IsInShortList: false, Default: "off")),
         Flag("allow-zone-transfer", null, negatable: true, (c, on) => c with { AllowZoneTransfer = on },
             new(null, "Answer DNS zone transfers (AXFR, IXFR)", ["dns", "security"], IsInShortList: false, Default: "off")),
+        WithArgument<IReadOnlyList<string>>("dns-transport", null, OptionArgumentReader.DnsTransports, (c, v) => c with { DnsTransports = v },
+            new("<list>", "DNS transports to serve", ["dns", "tls"], IsInShortList: false, Default: "udp,tcp")),
         WithArgument<int>("max-connections", null, OptionArgumentReader.Number, (c, v) => c with { MaxConnections = v },
             new("<number>", "Connections at once, all listeners", ["limits"], IsInShortList: false, Default: "1024")),
         WithArgument<int>("max-connections-per-address", null, OptionArgumentReader.Number, (c, v) => c with { MaxConnectionsPerAddress = v },
             new("<number>", "Connections at once per address", ["limits"], IsInShortList: false, Default: "100")),
         WithArgument<TimeSpan>("idle-timeout", null, OptionArgumentReader.Seconds, (c, v) => c with { IdleTimeout = v },
-            new("<seconds>", "Close an exchange idle this long", ["limits", "nats"], IsInShortList: false, Default: "120")),
+            new("<seconds>", "Close an exchange idle this long", ["limits", "nats", "stomp"], IsInShortList: false, Default: "120")),
         WithArgument<TimeSpan>("max-time", 'm', OptionArgumentReader.Seconds, (c, v) => c with { MaxTime = v },
             new("<seconds>", "Longest time one exchange may take", ["limits"], IsInShortList: false, Default: "3600")),
         WithArgument<TimeSpan>("head-timeout", null, OptionArgumentReader.Seconds, (c, v) => c with { Limits = c.Limits with { HeadTimeout = v } },
-            new("<seconds>", "Time to send a request head", ["dict", "ftp", "gopher", "http", "imap", "ldap", "limits", "mqtt", "nats", "pop3", "rtsp", "s3", "smb", "smtp", "ssh", "websocket"], IsInShortList: false, Default: "30")),
+            new("<seconds>", "Time to send a request head", ["dict", "ftp", "gopher", "http", "imap", "ldap", "limits", "mqtt", "nats", "pop3", "rtsp", "s3", "smb", "smtp", "ssh", "stomp", "websocket"], IsInShortList: false, Default: "30")),
         WithArgument<long>("max-request-head", null, OptionArgumentReader.Bytes, (c, v) => c with { Limits = c.Limits with { MaxRequestHeadBytes = v } },
             new("<bytes>", "Largest HTTP or RTSP request head", ["http", "limits", "rtsp", "s3", "websocket"], IsInShortList: false, Default: "100k")),
         WithArgument<long>("max-line", null, OptionArgumentReader.Bytes, (c, v) => c with { Limits = c.Limits with { MaxLineBytes = v } },
-            new("<bytes>", "Longest command line accepted", ["dict", "ftp", "gopher", "imap", "limits", "nats", "pop3", "smtp", "telnet"], IsInShortList: false, Default: "8192")),
+            new("<bytes>", "Longest command line accepted", ["dict", "ftp", "gopher", "imap", "limits", "nats", "pop3", "smtp", "stomp", "telnet"], IsInShortList: false, Default: "8192")),
         WithArgument<long>("max-message", null, OptionArgumentReader.Bytes, (c, v) => c with { Limits = c.Limits with { MaxMessageBytes = v } },
-            new("<bytes>", "Largest framed message accepted", ["ldap", "limits", "mqtt", "nats", "smb", "ssh", "websocket"], IsInShortList: false, Default: "1M")),
+            new("<bytes>", "Largest framed message accepted", ["ldap", "limits", "mqtt", "nats", "smb", "ssh", "stomp", "websocket"], IsInShortList: false, Default: "1M")),
         WithArgument<long>("max-filesize", null, OptionArgumentReader.Bytes, (c, v) => c with { Limits = c.Limits with { MaxUploadBytes = v } },
-            new("<bytes>", "Largest upload accepted", ["ftp", "http", "imap", "limits", "mqtt", "nats", "rtsp", "s3", "smb", "smtp", "ssh", "tftp"], IsInShortList: false, Default: "100M")),
+            new("<bytes>", "Largest upload accepted", ["ftp", "http", "imap", "limits", "mqtt", "nats", "rtsp", "s3", "smb", "smtp", "ssh", "stomp", "tftp"], IsInShortList: false, Default: "100M")),
         Flag("tlsv1.0", null, negatable: false, (c, _) => c with { LowestTlsVersion = SslProtocols.Tls },
             new(null, "Accept TLS 1.0 or later", ["security", "tls"], IsInShortList: false, Default: null)),
         Flag("tlsv1.1", null, negatable: false, (c, _) => c with { LowestTlsVersion = SslProtocols.Tls11 },
@@ -189,11 +201,22 @@ internal static class CommandLineOptions
             new("<phrase>", "Passphrase for --key and --hostkey", ["ssh", "tls"], IsInShortList: false, Default: "none")),
         WithArgument<string>("cacert", null, OptionArgumentReader.Path, (c, v) => c with { CaCertificateFile = v },
             new("<file>", "CA certificates for client certs", ["ldap", "tls"], IsInShortList: false, Default: "none")),
+        WithArgument<TlsAuthenticationType>("tlsauthtype", null, OptionArgumentReader.TlsAuthenticationTypeWord, (c, v) => c with { TlsAuthenticationType = v },
+            new("<type>", "Serve TLS-SRP: SRP is the only type", ["tls"], IsInShortList: false, Default: "certificates")),
+        WithArgument<string>("tlsuser", null, OptionArgumentReader.SrpUserName, (c, v) => c with { TlsUser = v },
+            new("<name>", "TLS-SRP user name (needs --tlspassword)", ["auth", "tls"], IsInShortList: false, Default: "none")),
+        WithArgument<string>("tlspassword", null, OptionArgumentReader.Text, (c, v) => c with { TlsPassword = v },
+            new("<password>", "TLS-SRP password (needs --tlsuser)", ["auth", "tls"], IsInShortList: false, Default: "none"))
+            with { ArgumentHoldsSecret = true },
+        WithArgument<string>("srp-verifiers", null, OptionArgumentReader.Path, (c, v) => c with { SrpVerifierFile = v },
+            new("<file>", "TLS-SRP accounts, GnuTLS tpasswd file", ["auth", "tls"], IsInShortList: false, Default: "none")),
+        WithArgument<string>("srp-groups", null, OptionArgumentReader.Path, (c, v) => c with { SrpGroupFile = v },
+            new("<file>", "TLS-SRP groups, GnuTLS tpasswd.conf", ["auth", "tls"], IsInShortList: false, Default: "none")),
         WithArgument<CommandLineAccount>("user", 'u', OptionArgumentReader.Account, (c, v) => c with { Accounts = [.. c.Accounts, v] },
-            new("<user:password>", "Add an account (repeatable)", ["auth", "ftp", "http", "imap", "ldap", "mqtt", "nats", "pop3", "rtsp", "s3", "smb", "smtp", "ssh", "websocket"], IsInShortList: true, Default: "no accounts"))
+            new("<user:password>", "Add an account (repeatable)", ["auth", "ftp", "http", "imap", "ldap", "mqtt", "nats", "pop3", "rtsp", "s3", "smb", "smtp", "ssh", "stomp", "websocket"], IsInShortList: true, Default: "no accounts"))
             with { ArgumentHoldsSecret = true },
         WithArgument<string>("user-file", null, OptionArgumentReader.Path, (c, v) => c with { UserFile = v },
-            new("<file>", "Read accounts from a file", ["auth", "ftp", "http", "imap", "ldap", "mqtt", "nats", "pop3", "rtsp", "s3", "smb", "smtp", "ssh", "websocket"], IsInShortList: true, Default: "none")),
+            new("<file>", "Read accounts from a file", ["auth", "ftp", "http", "imap", "ldap", "mqtt", "nats", "pop3", "rtsp", "s3", "smb", "smtp", "ssh", "stomp", "websocket"], IsInShortList: true, Default: "none")),
         WithArgument<ConfiguredGroup>("group", null, ConfiguredGroupReader.Reading, (c, v) => c with { Groups = [.. c.Groups, v] },
             new("<name>=<member>,...", "Name a group of accounts (repeatable)", ["auth"], IsInShortList: false, Default: "no groups")),
         WithArgument<string>("mail-domain", null, MailDomainNames.Reading, (c, v) => c with { MailDomains = [.. c.MailDomains, v] },
@@ -201,15 +224,35 @@ internal static class CommandLineOptions
         WithArgument<ConfiguredMailbox>("mailbox", null, ConfiguredMailboxReader.Reading, (c, v) => c with { Mailboxes = [.. c.Mailboxes, v] },
             new("<address>:<password>[;...]", "Add a mailbox and login (repeatable)", ["auth", "mail"], IsInShortList: false, Default: "no mailboxes"))
             with { ArgumentHoldsSecret = true },
+        WithArgument<ConfiguredMailAlias>("mail-alias", null, ConfiguredMailAliasReader.Reading, (c, v) => c with { MailAliases = [.. c.MailAliases, v] },
+            new("<alias>=<to>,...", "Forward an address (repeatable)", ["mail"], IsInShortList: false, Default: "none")),
+        WithArgument<ConfiguredMailCatchAll>("mail-catch-all", null, ConfiguredMailCatchAllReader.Reading, (c, v) => c with { MailCatchAlls = [.. c.MailCatchAlls, v] },
+            new("<domain>=<to>", "Catch unknown addresses (repeatable)", ["mail"], IsInShortList: false, Default: "none: mail to an unknown address is discarded")),
+        WithArgument<ConfiguredSharedFolder>("shared-folder", null, ConfiguredSharedFolderReader.Reading, (c, v) => c with { SharedFolders = [.. c.SharedFolders, v] },
+            new("<name>=<who>,...", "Share an IMAP folder (repeatable)", ["mail"], IsInShortList: false, Default: "none")),
         WithArgument<string>("mailbox-file", null, OptionArgumentReader.Path, (c, v) => c with { MailboxFiles = [.. c.MailboxFiles, v] },
             new("<file>", "Read mailboxes from CSV (repeatable)", ["auth", "mail"], IsInShortList: false, Default: "none")),
+        WithArgument<ConfiguredShare>("share", null, ConfiguredShareReader.Reading, (c, v) => c with { Shares = [.. c.Shares, v] },
+            new("<name>=<path>[;...]", "Serve a folder as a share (repeatable)", ["content"], IsInShortList: false, Default: "none: one served root")),
+        WithArgument<ConfiguredShareAccess>("share-access", null, ConfiguredShareAccessReader.Reading, (c, v) => c with { ShareAccess = [.. c.ShareAccess, v] },
+            new("<share>=<member>:<r/rw>,...", "Share grants (repeatable)", ["content"], IsInShortList: false, Default: "none: a share is open")),
+        WithArgument<ConfiguredBucket>("bucket", null, ConfiguredBucketReader.Reading, (c, v) => c with { Buckets = [.. c.Buckets, v] },
+            new("<name>=<path>", "Map a bucket to a path (repeatable)", ["content", "s3"], IsInShortList: false, Default: "none")),
+        WithArgument<ConfiguredTopic>("topic", null, ConfiguredTopicReader.Reading, (c, v) => c with { Topics = [.. c.Topics, v] },
+            new("<filter>[;...]", "Declare a message topic (repeatable)", ["messages"], IsInShortList: false, Default: "none")),
+        WithArgument<ConfiguredQueue>("queue", null, ConfiguredQueueReader.Reading, (c, v) => c with { Queues = [.. c.Queues, v] },
+            new("<name>[;durable]", "Create a named message queue (repeatable)", ["messages"], IsInShortList: false, Default: "none")),
+        WithArgument<ConfiguredTopicMap>("topic-map", null, ConfiguredTopicMapReader.Reading, (c, v) => c with { TopicMaps = [.. c.TopicMaps, v] },
+            new("<scheme>:<name>=<scheme>:<name>", "Alias a topic (repeatable)", ["messages"], IsInShortList: false, Default: "none: the default name mapping")),
+        WithArgument<ConfiguredTopicAccess>("topic-access", null, ConfiguredTopicAccessReader.Reading, (c, v) => c with { TopicAccess = [.. c.TopicAccess, v] },
+            new("<filter>=<member>:<right>,...", "Topic grants (repeatable)", ["messages"], IsInShortList: false, Default: "none: every caller may publish and subscribe")),
         WithArgument<string>("keytab", null, OptionArgumentReader.Path, (c, v) => c with { KeytabFile = v },
             new("<file>", "Read Kerberos service keys from a keytab file", ["auth", "ldap"], IsInShortList: false, Default: "none")),
         Flag("allow-anonymous", null, negatable: true, (c, on) => c with { AllowAnonymous = on },
-            new(null, "Accept any login, or none (warns)", ["auth", "ftp", "http", "imap", "ldap", "mqtt", "nats", "pop3", "rtsp", "s3", "security", "smb", "smtp", "ssh", "testing", "websocket"], IsInShortList: false, Default: "off",
+            new(null, "Accept any login, or none (warns)", ["auth", "ftp", "http", "imap", "ldap", "mqtt", "nats", "pop3", "rtsp", "s3", "security", "smb", "smtp", "ssh", "stomp", "testing", "websocket"], IsInShortList: false, Default: "off",
                 AllowAnonymousExplanation)),
         Flag("allow-plaintext-auth", null, negatable: true, (c, on) => c with { AllowPlaintextAuthentication = on },
-            new(null, "Accept passwords in clear (warns)", ["auth", "ftp", "http", "imap", "ldap", "mqtt", "nats", "pop3", "rtsp", "security", "smtp", "testing", "websocket"], IsInShortList: false, Default: "off",
+            new(null, "Accept passwords in clear (warns)", ["auth", "ftp", "http", "imap", "ldap", "mqtt", "nats", "pop3", "rtsp", "security", "smtp", "stomp", "testing", "websocket"], IsInShortList: false, Default: "off",
                 AllowPlaintextAuthExplanation)),
         WithArgument<IReadOnlyList<string>>("auth", null, OptionArgumentReader.AuthenticationMethods, (c, v) => c with { GivenAuthenticationMethods = v },
             new("<methods>", "Authentication methods accepted", ["auth", "http", "imap", "ldap", "pop3", "rtsp", "security", "smb", "smtp", "testing", "websocket"], IsInShortList: false, Default: "digest,cram-md5,basic,plain,login,bearer,oauthbearer,xoauth2,external,aws-sigv4",
@@ -217,6 +260,9 @@ internal static class CommandLineOptions
         Flag("self-signed", null, negatable: true, (c, on) => c with { SelfSigned = on },
             new(null, "Throwaway certificate (warns)", ["ldap", "security", "smb", "testing", "tls"], IsInShortList: false, Default: "off",
                 SelfSignedExplanation)),
+        Flag("s3-plaintext", null, negatable: true, (c, on) => c with { S3Plaintext = on },
+            new(null, "Serve s3 as plain HTTP (warns)", ["s3", "security", "testing"], IsInShortList: false, Default: "off",
+                S3PlaintextExplanation)),
         WithArgument<string>("hostkey", null, OptionArgumentReader.Path, (c, v) => c with { HostKeyFiles = [.. c.HostKeyFiles, v] },
             new("<file>", "SSH host private key file", ["auth", "ssh"], IsInShortList: false, Default: "none")),
         WithArgument<string>("hostcert", null, OptionArgumentReader.Path, (c, v) => c with { HostCertificateFiles = [.. c.HostCertificateFiles, v] },
@@ -233,6 +279,8 @@ internal static class CommandLineOptions
         WithArgument<string>("control-token-file", null, OptionArgumentReader.Path, (c, v) => c with { ControlTokenFile = v },
             new("<file>", "Bearer token file for --control", ["security", "testing"], IsInShortList: false, Default: "none",
                 ControlTokenFileExplanation)),
+        WithArgument<long>("random-seed", null, OptionArgumentReader.Seed, (c, v) => c with { RandomSeed = v },
+            new("<n>", "Seed non-secret identifiers", ["testing"], IsInShortList: false, Default: "unseeded")),
         WithArgument<CommandLineAuthorizedKeys>("authorized-keys", null, OptionArgumentReader.AuthorizedKeys,
             (c, v) => c with { AuthorizedKeys = [.. c.AuthorizedKeys, v] },
             new("<user:file>", "SSH public keys a user may use", ["auth", "ssh"], IsInShortList: false, Default: "none")),

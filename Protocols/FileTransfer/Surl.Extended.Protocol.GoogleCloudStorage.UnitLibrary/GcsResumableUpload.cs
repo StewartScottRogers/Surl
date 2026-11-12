@@ -163,7 +163,7 @@ internal sealed class GcsResumableUpload(GcsUploadStaging staging)
         using var hashes = new GcsObjectHashes();
         await GcsUploadStaging.CopyAsync(upload.Session, 0, upload.Session.Length, new GcsHashingStream(hashes, null), cancellationToken);
         var digests = hashes.Finish();
-        var (refusal, generation) = await staging.CommitAsync(upload.Session, upload, target, caller, digests.ETag, cancellationToken);
+        var (refusal, generation) = await staging.CommitAsync(upload.Session, upload, target, caller, digests.ETag, digests.Crc32cValue, cancellationToken);
         await staging.Uploads.RemoveAsync(upload);
 
         return refusal is null ? GcsPutObject.Stored(reply, digests, generation) : reply.Error(refusal);

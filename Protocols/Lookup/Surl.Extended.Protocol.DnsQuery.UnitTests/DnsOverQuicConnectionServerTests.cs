@@ -45,6 +45,18 @@ public sealed class DnsOverQuicConnectionServerTests
     }
 
     [TestMethod]
+    public async Task ServeAsync_QueryWhoseOptCarriesPadding_IsAnsweredWithAPaddingOption()
+    {
+        using var client = await StartAsync(Server());
+
+        client.SendQuery(0, Query("web.example.test", TypeA, id: 0, additionals: PaddedOpt(1232)));
+        await client.UntilAsync(() => client.HasEnded(0), Token);
+
+        var options = DnsOptRecord.FromResourceRecord(client.Answers(0).Single().Additionals[^1]).Options;
+        Assert.AreEqual(DnsOption.PaddingCode, options.Single().Code);
+    }
+
+    [TestMethod]
     public async Task ServeAsync_TwoStreams_AreAnsweredIndependently()
     {
         using var client = await StartAsync(Server());

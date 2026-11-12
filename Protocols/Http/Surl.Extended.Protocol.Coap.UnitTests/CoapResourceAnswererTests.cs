@@ -187,6 +187,25 @@ public sealed class CoapResourceAnswererTests
     }
 
     [TestMethod]
+    public async Task PostIntoDirectory_SameSeededIdentifiers_CreatesTheSameName()
+    {
+        var names = new List<string>();
+        for (var run = 0; run < 2; run++)
+        {
+            var store = new CoapTestStore(CoapTestStore.Uploads).WithDirectory("box");
+            var random = new IdentifierCoapRandomSource(new Surl.Core.SeededIdentifierRandom(77).ForExchange(1));
+
+            var response = await AnswerAsync(store, CoapCode.Post, Path("box", string.Empty), body: "posted", random: random);
+
+            Assert.AreEqual(CoapCode.Created, response.Code);
+            names.Add(Encoding.UTF8.GetString(response.Options.Last().Value.Span));
+        }
+
+        Assert.AreEqual(names[0], names[1]);
+        Assert.AreEqual(32, names[0].Length);
+    }
+
+    [TestMethod]
     public async Task AnswerAsync_PostToTheRootOverTheLimitOrWithIfMatch_IsRefused()
     {
         var store = new CoapTestStore(new ContentExposureOptions { AllowUploads = true, MaxUploadBytes = 1 });
@@ -401,9 +420,9 @@ public sealed class CoapResourceAnswererTests
     private static CoapMessage Request(CoapCode method, CoapOption[] options, string? body = null) =>
         new(CoapMessageType.Confirmable, method, 1, new byte[] { 0xC0 }, options, body is null ? default : Encoding.UTF8.GetBytes(body));
 
-    private static async Task<CoapResponse> AnswerAsync(CoapTestStore store, CoapCode method, CoapOption[] options, CoapAccessRules? rules = null, string? body = null)
+    private static async Task<CoapResponse> AnswerAsync(CoapTestStore store, CoapCode method, CoapOption[] options, CoapAccessRules? rules = null, string? body = null, ICoapRandomSource? random = null)
     {
-        var answerer = new CoapResourceAnswerer(store.Store, rules ?? Anonymous, new UnitTestCoapRandomSource());
+        var answerer = new CoapResourceAnswerer(store.Store, rules ?? Anonymous, random ?? new UnitTestCoapRandomSource());
         await using var uploads = new CoapBlock1Uploads(store.Store, new ManualTimeProvider(), CoapBlockOption.LargestSizeExponent);
         var request = Request(method, options, body);
         return await answerer.AnswerAsync(request, CoapRequestOptions.Read(request), "coap", peerIsAuthenticated: false, uploads, CancellationToken.None);

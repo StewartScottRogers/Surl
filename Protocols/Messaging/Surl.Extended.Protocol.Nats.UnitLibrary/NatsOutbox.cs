@@ -27,14 +27,17 @@ internal sealed class NatsOutbox(long maxPendingBytes) : IDisposable
     /// </summary>
     public void Enqueue(byte[] bytes)
     {
-        if (Interlocked.Add(ref pendingBytes, bytes.Length) <= maxPendingBytes && queued.Writer.TryWrite(bytes))
+        var pending = Interlocked.Add(ref pendingBytes, bytes.Length);
+        if (pending <= maxPendingBytes && queued.Writer.TryWrite(bytes))
         {
             return;
         }
 
+        // Dropped: past the bound it overflows; after Complete it is only too late.
         Interlocked.Add(ref pendingBytes, -bytes.Length);
-        if (Interlocked.Exchange(ref overflowed, 1) == 0 && queued.Writer.TryComplete())
+        if (pending > maxPendingBytes && Interlocked.Exchange(ref overflowed, 1) == 0)
         {
+            queued.Writer.TryComplete();
             // Cancelled off this thread: a bus delivery calls Enqueue and must not run the writer.
             _ = overflow.CancelAsync();
         }

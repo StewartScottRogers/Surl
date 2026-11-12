@@ -26,5 +26,27 @@ public sealed class MailRecipient
     /// </summary>
     public IReadOnlyList<string> OwnerNames { get; }
 
+    /// <summary>
+    /// The part of this recipient that names owners not in <paramref name="reachedOwnerNames"/>:
+    /// what one copy per owner still has to reach (ADR-0102, decision 1.3).
+    /// </summary>
+    /// <param name="reachedOwnerNames">Owner names that already get a copy.</param>
+    /// <returns>
+    /// This recipient when none of its owners was reached, a recipient of the others when some
+    /// were, and <see langword="null"/> when all were.
+    /// </returns>
+    public MailRecipient? WithoutOwners(IEnumerable<string> reachedOwnerNames)
+    {
+        ArgumentNullException.ThrowIfNull(reachedOwnerNames);
+        var reached = new HashSet<string>(reachedOwnerNames, StringComparer.Ordinal);
+        var remaining = Owners.Where(owner => !reached.Contains(owner.Name)).ToList();
+        if (remaining.Count == Owners.Count)
+        {
+            return this;
+        }
+
+        return remaining.Count == 0 ? null : new MailRecipient(remaining);
+    }
+
     internal IReadOnlyList<OwnerMailboxes> Owners { get; }
 }

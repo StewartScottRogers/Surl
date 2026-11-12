@@ -402,6 +402,8 @@ public sealed class ScpUploadHandlerTests
 
         public SftpTestChannel Inner => inner;
 
+        public IConnection Connection => inner.Connection;
+
         public ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken)
         {
             if (++reads == actBeforeRead)

@@ -68,6 +68,27 @@ internal sealed class GcsReply(HttpRequest request, DateTimeOffset now)
             new HttpAnswerBody.Bytes(json));
 
     /// <summary>
+    /// The refusal of a request whose head could not be read: <c>Date</c>, <c>Server</c>,
+    /// <c>Content-Type</c>, <c>Content-Length</c> and the <c>Error</c> body.
+    /// </summary>
+    /// <param name="error">The error.</param>
+    /// <param name="now">When the refusal is made, sent as <c>Date</c>.</param>
+    /// <returns>The refusal.</returns>
+    public static HttpAnswer UnreadRequestError(GcsError error, DateTimeOffset now)
+    {
+        var body = GcsErrorBody.Render(error);
+        KeyValuePair<string, string>[] fields =
+        [
+            new("Date", now.ToString("r", CultureInfo.InvariantCulture)),
+            new("Server", HttpResponseHead.ServerName),
+            new("Content-Type", XmlContentType),
+            new("Content-Length", body.Length.ToString(CultureInfo.InvariantCulture)),
+        ];
+
+        return new HttpAnswer(error.Status, fields, new HttpAnswerBody.Bytes(body), IsRefusal: true, LeavesRequestBodyUnread: false);
+    }
+
+    /// <summary>
     /// A JSON error answer (ADR-0148, decision 5): its status, <paramref name="extraFields"/>, and the
     /// one-line error body - also to a <c>HEAD</c>, which the JSON API does not have - except for
     /// <c>304</c>, which has none.

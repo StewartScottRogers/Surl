@@ -8,6 +8,7 @@ using Surl.Protocol.Pop3;
 using Surl.Protocol.Rtsp;
 using Surl.Protocol.Smb;
 using Surl.Protocol.Smtp;
+using Surl.Protocol.Socks;
 using Surl.Protocol.Ssh;
 using Surl.Protocol.Telnet;
 using Surl.Protocol.Tftp;
@@ -63,6 +64,7 @@ public static class ProtocolServerRegistrations
         ProtocolServerRegistration.ImplicitTls("smtps", "smtp"),
         new(["scp"], services => ComposeSshServer(services, "scp")),
         new(["sftp"], services => ComposeSshServer(services, "sftp")),
+        new(["socks4", "socks4a", "socks5", "socks5h"], services => new SocksProtocolServer(services.OriginConnector!, services.ProxyAuthenticationPolicy)),
         new(["telnet"], _ => new TelnetProtocolServer()),
         new(["tftp"], services => new TftpProtocolServer(services.ContentStore)),
         new(["ws"], services => new WsProtocolServer(services.ContentStore, services.AuthenticationPolicyFor("ws"), services.EchoesWebSocketMessages)),

@@ -11,24 +11,36 @@ It references `Surl.Protocol.Abstractions`, `Surl.HttpMessage`, `Surl.HttpServin
 decision 1) and `Surl.WebSocket` (ADR-0084 decision 2). JSON goes through
 `Utf8JsonReader`/`Utf8JsonWriter` and `JsonDocument` only, so it stays native-AOT safe.
 
-The server (BL-454, ADR-0120 decisions 1 to 7 and amendment 1), over the WebSocket transport:
+The server (BL-454 and BL-762, ADR-0120 decisions 1 to 7 and amendments 1 and 2), over HTTP
+long-polling and the WebSocket:
 
 - `SocketIoProtocolServer` serves each connection through `Http1ConnectionServer` with a
   `SocketIoRequestAnswerer`. It is given its `SocketIoServedNamespaces` (`/` and the listen URL's
   path; `ListenUrl` carries no path, so BL-455 passes it), its listener's `SocketIoSessions` and the
   `IAuthenticationPolicy`; the three travel together as the internal `SocketIoListener`.
 - `SocketIoRequestAnswerer` answers `/socket.io/` only (`404` elsewhere), refuses a bad query `400`
-  with `EngineIoRefusal`'s coded bodies (transport 0, `sid` 1 or 3, method 2, `EIO` 5, no upgrade
-  3), then `Surl.WebSocket`'s checks, then `503` past `SocketIoSessions.MaxSessions` (1024); the
-  `101` hands the connection to `SocketIoWebSocketTakeover`. `SocketIoRequestTarget` reads the query.
-- `SocketIoSession` runs one Engine.IO session: the open packet (`upgrades` `[]`, `maxPayload`
-  `--max-message`), the read loop (frames, Engine.IO packets, Socket.IO packets and the attachments
-  a `SocketIoPendingBinaryPacket` collects), the clock (ping every 25 s, close `1000` without a pong
-  within 20 s, close `1000` with no namespace for `--head-timeout`), CONNECT judged through the policy
-  from `SocketIoConnectCredentials`, echo, `broadcast` and ACK (`SocketIoEventPayload` reads the name
-  and the arguments), and its end as a `SocketIoSessionEnd`. Everything it sends goes through its
-  `SocketIoOutbox`, in order, at most 1048576 bytes unsent (else close `1008`). A limit's
-  cancellation gets a DISCONNECT per namespace then Close `1001`; shutdown gets nothing.
+  with `EngineIoRefusal`'s coded bodies (transport 0, unknown `sid` 1, method 2, `EIO` 5, no upgrade
+  or a session already on or probing a WebSocket 3), written by `SocketIoAnswers`. Polling requests
+  go to `SocketIoPollingAnswerer`; a WebSocket request goes through `Surl.WebSocket`'s checks, then
+  `503` past `SocketIoSessions.MaxSessions` (1024) for a new session, and its `101` hands the
+  connection to `SocketIoWebSocketTakeover`. `SocketIoRequestTarget` reads the query.
+- `SocketIoPollingAnswerer` opens a polling session (the open packet with `upgrades`
+  `["websocket"]`, `text/plain; charset=UTF-8`), answers a held `GET` with every queued packet joined
+  by `0x1E` (`6` during an upgrade, `1` once ended), and reads a `POST` within `--max-message` into a
+  `SocketIoPollingBodyBuffer` (`413` past it; code 3 for a malformed body or a second concurrent
+  `GET` or `POST`, which closes the session), answering `text/html` `ok`. A polling session lives on
+  no connection: its heartbeat, connect timeout or shutdown ends it.
+- `SocketIoSession` is one Engine.IO session whatever carries it (`SocketIoTransportState`): the open
+  packet (`maxPayload` `--max-message`), Engine.IO packets in (Socket.IO packets and the attachments
+  a `SocketIoPendingBinaryPacket` collects), the clock (ping every 25 s, end without a pong within
+  20 s, end with no namespace for `--head-timeout`), CONNECT judged through the policy from
+  `SocketIoConnectCredentials`, echo, `broadcast` and ACK (`SocketIoEventPayload` reads the name and
+  the arguments), its polls, posts and upgrade state, and its end as a `SocketIoSessionEnd`.
+  Everything it sends goes through its `SocketIoOutbox` of `SocketIoOutboxItem`s, in order, at most
+  1048576 bytes unsent (else close `1008`).
+- `SocketIoWebSocketTransport` carries a session over a WebSocket: frames to packets and back, the
+  probe of a polling session's WebSocket (`2probe` answered `3probe`, then `5`), and the end's Close;
+  a limit's cancellation gets a DISCONNECT per namespace then Close `1001`; shutdown gets nothing.
 
 The codecs (BL-453, ADR-0120 decisions 0, 3 and 6 and the packet limits of 7):
 
@@ -48,5 +60,4 @@ The codecs (BL-453, ADR-0120 decisions 0, 3 and 6 and the packet limits of 7):
 - `SocketIoRandomId` makes the 20-character base64url ids for an Engine.IO `sid` and a namespace
   connection's `sid`.
 
-Still to come: the command line (BL-455) and HTTP long-polling with its upgrade (BL-762; until
-then `transport=polling` is code 0).
+Still to come: the command line (BL-455).

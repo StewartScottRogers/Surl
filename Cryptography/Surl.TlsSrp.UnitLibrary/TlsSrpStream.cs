@@ -10,7 +10,8 @@ namespace Surl.TlsSrp;
 /// the <see cref="TlsAlertException"/>. Writes go out as <c>application_data</c> records.
 /// The stream is asynchronous only: the synchronous <see cref="Read(byte[], int, int)"/> and
 /// <see cref="Write(byte[], int, int)"/> throw <see cref="NotSupportedException"/>. Disposing it
-/// asynchronously sends <c>close_notify</c> first; either way it closes the connection.
+/// asynchronously sends <c>close_notify</c> first, unless <see cref="ShutdownAsync"/> already sent
+/// it; either way it closes the connection.
 /// </summary>
 public sealed class TlsSrpStream : Stream
 {
@@ -23,6 +24,7 @@ public sealed class TlsSrpStream : Stream
     private int receivedOffset;
     private bool ended;
     private bool disposed;
+    private bool closeNotifySent;
 
     internal TlsSrpStream(Stream transport, TlsRecordReader reader, TlsRecordWriter writer, IReadOnlyList<IDisposable> protections)
     {
@@ -110,11 +112,30 @@ public sealed class TlsSrpStream : Stream
     /// <inheritdoc />
     public override void SetLength(long value) => throw new NotSupportedException();
 
-    /// <summary>Sends <c>close_notify</c> (unless the connection is already gone), then closes the connection.</summary>
+    /// <summary>
+    /// Sends <c>close_notify</c> once, so the server's side of the stream ends while the connection
+    /// stays open for the client's (RFC 5246 section 7.2.1); nothing may be written after it. A
+    /// second call, and a later <see cref="DisposeAsync"/>, send nothing more.
+    /// </summary>
+    /// <param name="cancellationToken">Cancels the write.</param>
+    /// <returns>A task that completes once the alert is written.</returns>
+    /// <exception cref="IOException">The connection is gone.</exception>
+    public async Task ShutdownAsync(CancellationToken cancellationToken = default)
+    {
+        if (closeNotifySent)
+        {
+            return;
+        }
+
+        closeNotifySent = true;
+        await WriteRecordAsync(TlsContentType.Alert, TlsAlerts.Warning(TlsAlertDescription.CloseNotify), cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>Sends <c>close_notify</c> (unless the connection is already gone or it was sent already), then closes the connection.</summary>
     /// <returns>A task that completes once the connection is closed.</returns>
     public override async ValueTask DisposeAsync()
     {
-        if (!disposed)
+        if (!disposed && !closeNotifySent)
         {
             await TrySendAlertAsync(writer, TlsAlerts.Warning(TlsAlertDescription.CloseNotify), CancellationToken.None).ConfigureAwait(false);
         }

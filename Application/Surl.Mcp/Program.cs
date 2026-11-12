@@ -23,7 +23,7 @@ internal static class Program
         "These tools start, list and stop Surl protocol servers and show what their clients sent; get_events and "
         + "wait_for_event show and wait for each server's events (exchanges, logins, store changes, faults); seed_mail, "
         + "put_file, publish_message and add_account seed a server's stores, reset_server, snapshot_server and "
-        + "restore_server control them, and add_fault and remove_fault make it misbehave on purpose. The servers "
+        + "restore_server control them, and add_fault, list_faults and remove_fault make it misbehave on purpose. The servers "
         + "listen on loopback addresses unless whoever started surl-mcp allowed others. "
         + "The surl://aihelp resources explain the listen URLs and options start_server takes.";
 
@@ -152,6 +152,7 @@ internal static class Program
         registry.AddTool(SnapshotServerTool.Create(servers));
         registry.AddTool(RestoreServerTool.Create(servers));
         registry.AddTool(AddFaultTool.Create(servers));
+        registry.AddTool(ListFaultsTool.Create(servers));
         registry.AddTool(RemoveFaultTool.Create(servers));
         registry.AddResources(new AiHelpResourceProvider());
         var options = new McpSessionOptions(new McpServerInfo(ServerName, ServerTitle, SurlMcpHelpText.Version), Instructions);

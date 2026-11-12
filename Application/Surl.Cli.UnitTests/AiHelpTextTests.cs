@@ -9,11 +9,11 @@ public sealed partial class AiHelpTextTests
 {
     private static readonly string NewLine = Environment.NewLine;
 
-    // ADR-0046 decision 3's sixteen topics, smtp (BL-207), imap (BL-208), pop3 (BL-209), websocket (BL-303), smb (BL-299), rtsp (BL-317), ldap (BL-310), extended (BL-405), nats (BL-528), s3 (BL-421), control (BL-815), mail (BL-653, ADR-0101 decision 7) and dns (BL-1032), in ordinal order.
+    // ADR-0046 decision 3's sixteen topics, smtp (BL-207), imap (BL-208), pop3 (BL-209), websocket (BL-303), smb (BL-299), rtsp (BL-317), ldap (BL-310), extended (BL-405), nats (BL-528), s3 (BL-421), control (BL-815), mail (BL-653, ADR-0101 decision 7) dns (BL-1032) and messages (BL-992, ADR-0101 decision 7), in ordinal order.
     private static readonly string[] AdrTopicNames =
     [
         "auth", "coap", "content", "control", "dict", "dns", "exit-codes", "extended", "ftp", "gopher", "http", "imap", "ldap", "limits", "listen-urls",
-        "logging", "mail", "mqtt", "nats", "pop3", "proxy", "rtsp", "s3", "security", "smb", "smtp", "socketio", "ssh", "surl", "telnet", "testing", "tftp", "tls", "websocket", "webtransport", "xmpp",
+        "logging", "mail", "messages", "mqtt", "nats", "pop3", "proxy", "rtsp", "s3", "security", "smb", "smtp", "socketio", "socks", "ssh", "stomp", "surl", "telnet", "testing", "tftp", "tls", "websocket", "webtransport", "xmpp",
     ];
 
     // ADR-0046 decision 4's section headings, in order, on every topic page.
@@ -40,6 +40,7 @@ public sealed partial class AiHelpTextTests
         "| `listen-urls` | Listen URLs, ports and the Listening on line |",
         "| `logging` | Log levels, tracing and the log file |",
         "| `mail` | Mail domains, mailboxes and aliases |",
+        "| `messages` | Topics, queues and topic access |",
         "| `mqtt` | MQTT and MQTTS protocol |",
         "| `nats` | NATS and NATSS protocol (extended) |",
         "| `pop3` | POP3 and POP3S protocol |",
@@ -50,10 +51,12 @@ public sealed partial class AiHelpTextTests
         "| `smb` | SMB and SMBS protocol |",
         "| `smtp` | SMTP and SMTPS protocol |",
         "| `socketio` | Socket.IO and Socket.IO over TLS protocol (extended) |",
+        "| `socks` | SOCKS4, SOCKS4a, SOCKS5 and SOCKS5h proxy protocol |",
         "| `ssh` | SSH protocol |",
+        "| `stomp` | STOMP and STOMPS protocol (extended) |",
         "| `surl` | The command line tool itself |",
         "| `telnet` | TELNET protocol |",
-        "| `testing` | Loosening options for tests (warned) |",
+        "| `testing` | Options for tests; loosening ones warn |",
         "| `tftp` | TFTP protocol |",
         "| `tls` | TLS certificates and versions |",
         "| `websocket` | WebSocket protocol |",
@@ -400,7 +403,7 @@ public sealed partial class AiHelpTextTests
             "| --- | --- | --- | --- | --- | --- | --- |",
             "| `--max-line <bytes>` | bytes | 8192 | digits with an optional decimal point and more digits, then at most one suffix "
                 + "k, m, g, t or p in either case, each 1024 times the one before; at most 9223372036854775807 bytes; 0 means no limit "
-                + "| no | dict, ftp, gopher, imap, limits, nats, pop3, smtp, telnet | Longest command line accepted |",
+                + "| no | dict, ftp, gopher, imap, limits, nats, pop3, smtp, stomp, telnet | Longest command line accepted |",
             "",
             "## Exit codes",
             "",
@@ -578,6 +581,7 @@ public sealed partial class AiHelpTextTests
 
         StringAssert.Contains(page, NewLine + "Given: `<path>` is an existing directory no other surl holds." + NewLine);
         StringAssert.Contains(page, NewLine + "Given: another surl is serving `<path>` with `--directory`." + NewLine);
+        StringAssert.Contains(page, NewLine + "Given: `<path>` is an existing directory." + NewLine);
         StringAssert.Contains(page, NewLine + "stdout: nothing." + NewLine);
         StringAssert.Contains(page, NewLine + "stderr: nothing." + NewLine);
         StringAssert.Contains(page, NewLine + "Exit code: 124 (`DataDirectoryInUse`)." + NewLine);
@@ -588,7 +592,7 @@ public sealed partial class AiHelpTextTests
     {
         // surl's SSH host-key note and --throwaway-hostkey warning name the curl options that pin
         // the key (ADR-0051, decisions 8 and 11).
-        string[] curlOptionsSurlNames = ["hostpubsha256", "hostpubmd5"];
+        string[] curlOptionsSurlNames = ["hostpubsha256", "hostpubmd5", "socks4", "socks4a", "socks5", "socks5-hostname"];
 
         foreach (var name in NamedLongOptions().Except(curlOptionsSurlNames))
         {
@@ -617,6 +621,7 @@ public sealed partial class AiHelpTextTests
             ["surl: (2) --control must listen on loopback (127.0.0.0/8, ::1 or localhost): <url>"] = "surl: " + CommandLineParser.Parse(["--control", "http://0.0.0.0:0"]).Failure!.Message,
             ["surl: (2) --control needs --control-token-file"] = "surl: " + CommandLineParser.Parse(["--control", "http://127.0.0.1:0", "http://127.0.0.1:0/"]).Failure!.Message,
             ["surl: option --unix-socket: <reason>"] = "surl: " + CommandLineParser.Parse(["--unix-socket", "s", "tftp://localhost/"]).Failure!.Message,
+            ["surl: option --random-seed: expected a proper numerical parameter"] = "surl: " + CommandLineParser.Parse(["--random-seed", "-1", "http://127.0.0.1:0/"]).Failure!.Message,
             ["surl: (2) --control-token-file without --control"] = "surl: " + CommandLineParser.Parse(["--control-token-file", "t", "http://127.0.0.1:0/"]).Failure!.Message,
         };
 
@@ -629,12 +634,18 @@ public sealed partial class AiHelpTextTests
             "surl: warning:",
             "surl: (124) Directory <path> is in use by another surl process",
             "surl: (37) Could not open directory <path>",
+            // Written by Surl.Composition when it opens a --share folder, whose tests pin it (BL-988).
+            "surl: (37) Could not open directory <path> for share <name>",
             "surl: (37) Could not read <file>: line <n>: <what>",
             "surl: (45) Could not bind <scheme>://<address>:<port>/: <reason>",
             "surl: (6) Could not resolve host: <host>",
             "surl: (58) <url> needs a certificate: give --cert <file>, or --self-signed for a throwaway one",
+            // Written by Surl.Composition's DnsTransportComposition, whose tests pin it (BL-1017).
+            "surl: --dns-transport tcp and tls cannot share port <n>",
             "surl: warning: --self-signed: serving a throwaway certificate; clients must skip verification (curl -k)",
             "surl: warning: --proxy-allow-origin: the proxy connects to every origin address, not only loopback",
+            "surl: warning: --s3-plaintext: s3 is served as plain HTTP, without TLS",
+            "surl: warning: --proxy-auth: accepted proxy methods are basic, ntlm",
             "surl: (37) Could not read host certificate <file>",
             "surl: (2) Host certificate <file>: not an OpenSSH host certificate",
             "surl: (2) Host certificate <file>: certifies no --hostkey key",
@@ -661,6 +672,8 @@ public sealed partial class AiHelpTextTests
             "surl: (2) Mailbox file <file>, line <n>: <reason>",
             // Written by Surl.Composition's LoadDnsZonesAsync, whose tests pin it (BL-1032).
             "surl: (37) Could not read <file>: <reason>",
+            // Written by Surl.Composition's ReadableByOthersWarning, whose tests pin it (BL-684).
+            "surl: warning: <file> is readable by other users and may hold passwords",
         ];
 
         foreach (var (template, written) in writtenByTheParser)

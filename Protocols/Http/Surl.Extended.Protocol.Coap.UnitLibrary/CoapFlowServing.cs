@@ -51,14 +51,18 @@ internal static class CoapFlowServing
         await using var observers = new CoapFlowObservers(
             observations,
             context,
-            (request, options, cancellationToken) => answerer.AnswerAsync(request, options, context.Scheme, peerIsAuthenticated, uploads, cancellationToken),
-            options => answerer.LocationOf(options, context.Scheme),
+            (request, options, cancellationToken) => answerer.AnswerAsync(request, options.ResolveLocalProxy(context.ListenUrl), context.Scheme, peerIsAuthenticated, uploads, cancellationToken),
+            options => answerer.LocationOf(options.ResolveLocalProxy(context.ListenUrl), context.Scheme),
             (what, compose, cancellationToken) => session!.SendConfirmableAsync(what, compose, cancellationToken));
         session = new CoapFlowSession(
             flow,
             context,
-            async (request, options, cancellationToken) =>
-                await CoapRequestFaults.FindErrorAsync(context, request, options) ?? await observers.AnswerAsync(request, options, cancellationToken),
+            async (request, options, cancellationToken) => await CoapRequestFaults.ApplyAsync(context, request, options) switch
+            {
+                { IsDropped: true } => null,
+                { ChosenError: { } error } => error,
+                _ => await observers.AnswerAsync(request, options, cancellationToken),
+            },
             random);
         var serving = session.ServeAsync();
         await Task.WhenAny(serving);

@@ -6,7 +6,9 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Surl.Cryptography.Curve25519.UnitLibrary\Surl.Cryptography.Curve25519.UnitLibrary.csproj" />
+    <ProjectReference Include="..\Surl.Cryptography.Curve448.UnitLibrary\Surl.Cryptography.Curve448.UnitLibrary.csproj" />
     <ProjectReference Include="..\Surl.Cryptography.MlKem.UnitLibrary\Surl.Cryptography.MlKem.UnitLibrary.csproj" />
+    <ProjectReference Include="..\Surl.Cryptography.Sm2.UnitLibrary\Surl.Cryptography.Sm2.UnitLibrary.csproj" />
   </ItemGroup>
 
 </Project>

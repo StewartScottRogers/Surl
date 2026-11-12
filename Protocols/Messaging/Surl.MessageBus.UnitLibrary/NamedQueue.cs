@@ -135,18 +135,19 @@ internal sealed class NamedQueue(string name, BusQueueFlags flags, BusConnection
     /// after it are still offered (ADR-0146, decision 2.4).
     /// </summary>
     /// <returns>The deliveries made, for the bus to hand over outside its lock, and the payload
-    /// and native-form bytes of the expired messages dropped.</returns>
-    public (List<(BusQueueConsumer Consumer, BusQueueDelivery Delivery)> Deliveries, long DroppedBytes) Dispatch(DateTimeOffset now)
+    /// and native-form bytes of the expired messages dropped, and each one's payload length.</returns>
+    public (List<(BusQueueConsumer Consumer, BusQueueDelivery Delivery)> Deliveries, long DroppedBytes, List<int> DroppedPayloadLengths) Dispatch(DateTimeOffset now)
     {
         var deliveries = new List<(BusQueueConsumer Consumer, BusQueueDelivery Delivery)>();
-        var droppedBytes = DropExpiredAtHead(now);
+        var droppedLengths = new List<int>();
+        var droppedBytes = DropExpiredAtHead(now, droppedLengths);
         if (consumers.Any(consumer => consumer.HasRoom))
         {
-            droppedBytes += DispatchLevel(readyHighPriority, now, deliveries);
-            droppedBytes += DispatchLevel(readyNormalPriority, now, deliveries);
+            droppedBytes += DispatchLevel(readyHighPriority, now, deliveries, droppedLengths);
+            droppedBytes += DispatchLevel(readyNormalPriority, now, deliveries, droppedLengths);
         }
 
-        return (deliveries, droppedBytes);
+        return (deliveries, droppedBytes, droppedLengths);
     }
 
     /// <summary>
@@ -154,11 +155,12 @@ internal sealed class NamedQueue(string name, BusQueueFlags flags, BusConnection
     /// <see cref="Dispatch"/> would to a consumer, dropping the expired ones before it.
     /// </summary>
     /// <returns>The delivery, or <see langword="null"/> when no message is ready, and the bytes of
-    /// the expired messages dropped.</returns>
-    public (BusQueueDelivery? Delivery, long DroppedBytes) TakeOne(BusQueueConsumer holder, DateTimeOffset now)
+    /// the expired messages dropped, and each one's payload length.</returns>
+    public (BusQueueDelivery? Delivery, long DroppedBytes, List<int> DroppedPayloadLengths) TakeOne(BusQueueConsumer holder, DateTimeOffset now)
     {
-        var droppedBytes = DropExpiredAtHead(now);
-        return (ReadyCount > 0 ? TakeFirstReady(holder) : null, droppedBytes);
+        var droppedLengths = new List<int>();
+        var droppedBytes = DropExpiredAtHead(now, droppedLengths);
+        return (ReadyCount > 0 ? TakeFirstReady(holder) : null, droppedBytes, droppedLengths);
     }
 
     public static long QueuedBytes(IEnumerable<QueuedMessage> messages) =>
@@ -170,7 +172,7 @@ internal sealed class NamedQueue(string name, BusQueueFlags flags, BusConnection
     private SortedDictionary<long, QueuedMessage> FirstReadyLevel =>
         readyHighPriority.Count > 0 ? readyHighPriority : readyNormalPriority;
 
-    private long DropExpiredAtHead(DateTimeOffset now)
+    private long DropExpiredAtHead(DateTimeOffset now, List<int> droppedPayloadLengths)
     {
         long droppedBytes = 0;
         while (ReadyCount > 0)
@@ -184,6 +186,7 @@ internal sealed class NamedQueue(string name, BusQueueFlags flags, BusConnection
 
             level.Remove(sequence);
             droppedBytes += first.Message.PayloadAndNativeFormBytes;
+            droppedPayloadLengths.Add(first.Message.Payload.Length);
         }
 
         return droppedBytes;
@@ -199,7 +202,7 @@ internal sealed class NamedQueue(string name, BusQueueFlags flags, BusConnection
 
     // Offers each message of one level, first to last, until no consumer has room; returns the
     // bytes of the expired messages it dropped.
-    private long DispatchLevel(SortedDictionary<long, QueuedMessage> level, DateTimeOffset now, List<(BusQueueConsumer Consumer, BusQueueDelivery Delivery)> deliveries)
+    private long DispatchLevel(SortedDictionary<long, QueuedMessage> level, DateTimeOffset now, List<(BusQueueConsumer Consumer, BusQueueDelivery Delivery)> deliveries, List<int> droppedPayloadLengths)
     {
         long droppedBytes = 0;
         foreach (var (sequence, queued) in level.ToList())
@@ -208,6 +211,7 @@ internal sealed class NamedQueue(string name, BusQueueFlags flags, BusConnection
             {
                 level.Remove(sequence);
                 droppedBytes += queued.Message.PayloadAndNativeFormBytes;
+                droppedPayloadLengths.Add(queued.Message.Payload.Length);
             }
             else if (!consumers.Any(consumer => consumer.HasRoom))
             {

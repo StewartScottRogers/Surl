@@ -283,6 +283,7 @@ public sealed class StoreToolsTests
     [DataRow(SnapshotServerTool.Name, """{"server_id": "s9"}""")]
     [DataRow(RestoreServerTool.Name, """{"server_id": "s9", "snapshot_id": "p1"}""")]
     [DataRow(AddFaultTool.Name, """{"server_id": "s9", "fault": "drop"}""")]
+    [DataRow(ListFaultsTool.Name, """{"server_id": "s9"}""")]
     [DataRow(RemoveFaultTool.Name, """{"server_id": "s9", "fault_id": "f1"}""")]
     public async Task EveryNewTool_AnUnknownServerId_IsStopServersError(string toolName, string arguments)
     {
@@ -290,7 +291,7 @@ public sealed class StoreToolsTests
         McpTool[] tools =
         [
             host.SeedMail, host.PutFile, host.PublishMessage, host.AddAccount, host.ResetServer, host.SnapshotServer,
-            host.RestoreServer, host.AddFault, host.RemoveFault,
+            host.RestoreServer, host.AddFault, host.ListFaults, host.RemoveFault,
         ];
 
         var result = await CallAsync(tools.Single(tool => tool.Name == toolName), arguments);
@@ -304,7 +305,7 @@ public sealed class StoreToolsTests
         Func<RunningSurlServers, McpTool>[] creates =
         [
             SeedMailTool.Create, PutFileTool.Create, PublishMessageTool.Create, AddAccountTool.Create, ResetServerTool.Create,
-            SnapshotServerTool.Create, RestoreServerTool.Create, AddFaultTool.Create, RemoveFaultTool.Create,
+            SnapshotServerTool.Create, RestoreServerTool.Create, AddFaultTool.Create, ListFaultsTool.Create, RemoveFaultTool.Create,
         ];
 
         foreach (var create in creates)

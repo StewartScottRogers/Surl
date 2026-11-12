@@ -352,3 +352,32 @@ No new option is added: ADR-0006's options cover what a test harness tunes.
   `Integration` tests (BL-446, ADR-0083).
 - The requirement matrix [`Grpc.md`](../../Conformance/Extended/Grpc.md) traces each server-side
   requirement to BL-442, BL-443 or BL-444; each task replaces its ID with the named test.
+
+## Amendment 1 - how a call open at shutdown is ended (BL-886, 2026-11-11)
+
+Decided by Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), 2026-11-11.
+
+Decision 4's shutdown bullet needs `Surl.Http2` to let a handler write once more after the
+exchange is cancelled, because the exchange's cancellation (shutdown, `--idle-timeout`,
+`--max-time`; ADR-0059) cuts every stream write off. The seam:
+
+- **No change to `IHttp2StreamHandler` or `ExchangeContext`**, so `Surl.Protocol.Http`, the HTTPS
+  proxy and DNS over HTTPS behave exactly as before; a handler that does nothing new is cut off
+  as it always was.
+- **`Http2RequestStream.IsExchangeCancelled`** says the connection's token is cancelled, which
+  tells a handler's `OperationCanceledException` from the exchange apart from the client's
+  `RST_STREAM` or close (which leave it false).
+- **`Http2RequestStream.WriteFarewellTrailersAsync(fields)`** (a header block with `END_STREAM`)
+  and **`WriteFarewellResetAsync(code)`** (`RST_STREAM`) are each written on a deadline token of
+  their own, `Http2ConnectionServer.FarewellWriteDeadline` on the exchange's `TimeProvider` - the
+  same bound as the connection's farewell `GOAWAY` (ADR-0059 decision 3). `ServeAsync` already
+  awaits every handler before that `GOAWAY`, so a handler's farewell lands first.
+- **gRPC** catches the cancellation `when (stream.IsExchangeCancelled)` before its client-`CANCELLED`
+  catch and ends the call with `GrpcStatus.ServerShuttingDown` (`UNAVAILABLE`, `server shutting
+  down`) as Trailers, or Trailers-Only when nothing was sent, or `RST_STREAM` `CANCEL` when a reply
+  was cut off mid-write (`GrpcResponseWriter.IsWritingReply`). The log says `ended UNAVAILABLE`.
+
+Rejected: a separate `ExchangeContext.ShutdownToken`-driven signal to every handler before the
+writes are cut off. It would change when `Surl.Protocol.Http` and DNS over HTTPS stop writing,
+and `--idle-timeout` and `--max-time` would need their own grace; ending the call after the
+cut-off, on its own short deadline, needs neither.

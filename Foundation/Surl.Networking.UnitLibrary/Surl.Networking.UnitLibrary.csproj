@@ -6,6 +6,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Surl.Protocol.Abstractions.UnitLibrary\Surl.Protocol.Abstractions.UnitLibrary.csproj" />
+    <ProjectReference Include="..\..\Cryptography\Surl.TlsSrp.UnitLibrary\Surl.TlsSrp.UnitLibrary.csproj" />
   </ItemGroup>
 
 </Project>

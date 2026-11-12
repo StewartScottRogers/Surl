@@ -103,14 +103,24 @@ protocol server.
   (public) makes the certificate served without `--cert`. `TcpConnectionListener.StartAsync`
   takes the settings and gives each connection a `ServerTlsHandshake` with the ALPN IDs
   `TlsApplicationProtocols.ForListener` names for the listen URL (`h2` then `http/1.1` for
-  `https`, `http/1.1` for `wss`, none otherwise; ADR-0081 decision 2), except that an `https`
-  listen URL with `ListenUrl.IsProxy` - the HTTPS proxy - offers exactly `http/1.1` (ADR-0088
-  Amendment 2). `ServerTlsHandshakeHttpsProxyTests` shake hands as curl does with such a
+  `https`, `http/1.1` for `wss`, none otherwise; ADR-0081 decision 2), and an `https`
+  listen URL with `ListenUrl.IsProxy` - the HTTPS proxy - offers `h2` then `http/1.1` too
+  (ADR-0088 Amendment 9, which supersedes Amendment 2's `http/1.1`-only offer). `ServerTlsHandshakeHttpsProxyTests` shake hands as curl does with such a
   listener and serve one request through `Surl.Protocol.HttpProxy`, which is why
   `Surl.Networking.UnitTests` references that library. `StreamConnection.UpgradeToTlsAsync` runs it: a failed handshake is
   `TlsHandshakeException`, and a failed or cancelled one leaves the connection unusable, so
   disposing it writes nothing; `CompleteWritesAsync` on a secured connection sends
   close_notify before FIN.
+- TLS-SRP (ADR-0122 decision 5; BL-567). `ServerTlsSettings.ForTlsSrp(accounts, random)` makes
+  settings with no certificate whose `TlsSrpAccounts` is set; `ServerTlsHandshake` then runs
+  `Surl.TlsSrp`'s `TlsSrpServer` over the transport instead of `SslStream`, on every listener and
+  every `UpgradeToTlsAsync`. The session is TLS 1.2, the agreed SRP suite (IANA numbers, as
+  `TlsCipherSuite` has them), ALPN `http/1.1` or none, SNI, no client certificate, and
+  `TlsSession.SrpUserName`. A `TlsAlertException` or an `IOException` (a client alert, the client
+  closing) is `TlsHandshakeException`. `CompleteWritesAsync` sends close_notify through
+  `TlsSrpStream.ShutdownAsync`. `StreamConnectionTlsSrpTests` replay upstream curl's recorded
+  bytes, linked from `Cryptography/Surl.TlsSrp.UnitTests/Fixtures`. This is why the project
+  references `Surl.TlsSrp.UnitLibrary`.
 - The peek (ADR-0113, decision 6; BL-734). `StreamConnection.PeekByteAsync` starts one
   one-byte read on the current stream and waits for it up to `wait` on the injected
   `TimeProvider`; the read is never cancelled, so a byte arriving after the wait is kept for the

@@ -31,14 +31,8 @@ public static class GrpcTimeout
 
     private static TimeSpan ReadValue(string value)
     {
-        var digits = value.Length - 1;
-        if (digits is < 1 or > MaximumDigits || value.AsSpan(0, digits).ContainsAnyExceptInRange('0', '9'))
-        {
-            throw Malformed();
-        }
-
-        var amount = long.Parse(value.AsSpan(0, digits), provider: System.Globalization.CultureInfo.InvariantCulture);
-        return value[digits] switch
+        var amount = ReadAmount(value);
+        return value[^1] switch
         {
             'H' => TimeSpan.FromHours(amount),
             'M' => TimeSpan.FromMinutes(amount),
@@ -48,6 +42,17 @@ public static class GrpcTimeout
             'n' => TimeSpan.FromTicks((amount + NanosecondsPerTick - 1) / NanosecondsPerTick),
             _ => throw Malformed(),
         };
+    }
+
+    private static long ReadAmount(string value)
+    {
+        var digits = value.Length - 1;
+        if (digits is < 1 or > MaximumDigits || value.AsSpan(0, digits).ContainsAnyExceptInRange('0', '9'))
+        {
+            throw Malformed();
+        }
+
+        return long.Parse(value.AsSpan(0, digits), provider: System.Globalization.CultureInfo.InvariantCulture);
     }
 
     private static GrpcCallException Malformed() => new(GrpcStatus.MalformedGrpcTimeout);

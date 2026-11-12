@@ -181,6 +181,26 @@ public sealed class CommandLineRunnerExtendedProtocolTests
     }
 
     [TestMethod]
+    public async Task RunAsync_S3WithS3PlaintextAndNoCertificate_ServesItPlainAndWarns()
+    {
+        var factory = new FakeListenerFactory();
+        using var stop = CancellationTokenSource.CreateLinkedTokenSource(TestContext.CancellationToken);
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+        var runner = CreateRunner(factory, FakeEnvironmentVariableReader.Empty, composeExtendedProtocolServers: null);
+
+        var running = runner.RunAsync(["--s3-plaintext", "s3://127.0.0.1:0/"], output, error, stop.Token);
+        await factory.AcceptStarted.Task.WaitAsync(TestContext.CancellationToken);
+        await stop.CancelAsync();
+        var exitCode = await running;
+
+        Assert.AreEqual(SurlExitCode.Ok, exitCode);
+        Assert.AreEqual(new ListenUrl("s3", "127.0.0.1", 0) { IsImplicitTls = false }, factory.StartedListenUrls.Single());
+        Assert.AreEqual($"Listening on s3://127.0.0.1:{FakeListenerFactory.BoundPort}/" + NewLine, output.ToString());
+        Assert.AreEqual("surl: warning: --s3-plaintext: s3 is served as plain HTTP, without TLS" + NewLine, error.ToString());
+    }
+
+    [TestMethod]
     public async Task RunAsync_S3WithoutACertificate_ExitsWithCertificateProblem()
     {
         using var output = new StringWriter();
@@ -228,6 +248,8 @@ public sealed class CommandLineRunnerExtendedProtocolTests
     [DataRow("webtransport")]
     [DataRow("xmpp")]
     [DataRow("xmpps")]
+    [DataRow("stomp")]
+    [DataRow("stomps")]
     public async Task RunAsync_NatsSchemeWithTheSwitchAtZero_RefusesItAsAnUnknownScheme(string scheme)
     {
         using var output = new StringWriter();
@@ -291,6 +313,49 @@ public sealed class CommandLineRunnerExtendedProtocolTests
         Assert.AreEqual(SurlExitCode.Ok, exitCode);
         Assert.AreEqual(new ListenUrl(scheme, "127.0.0.1", 4222), factory.StartedListenUrls.Single());
         Assert.AreEqual($"Listening on {scheme}://127.0.0.1:{FakeListenerFactory.BoundPort}/" + NewLine, output.ToString());
+    }
+
+    [TestMethod]
+    [DataRow("stomp", 61613, new string[0])]
+    [DataRow("stomps", 61614, new[] { "--self-signed" })]
+    public async Task RunAsync_StompSchemeWithTheSwitchUnset_ListensAtItsDefaultPort(string scheme, int port, string[] options)
+    {
+        var factory = new FakeListenerFactory();
+        using var stop = CancellationTokenSource.CreateLinkedTokenSource(TestContext.CancellationToken);
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+        var runner = CreateRunner(factory, FakeEnvironmentVariableReader.Empty, composeExtendedProtocolServers: null);
+
+        var running = runner.RunAsync([.. options, $"{scheme}://127.0.0.1/"], output, error, stop.Token);
+        await factory.AcceptStarted.Task.WaitAsync(TestContext.CancellationToken);
+        await stop.CancelAsync();
+        var exitCode = await running;
+
+        Assert.AreEqual(SurlExitCode.Ok, exitCode);
+        Assert.AreEqual(new ListenUrl(scheme, "127.0.0.1", port), factory.StartedListenUrls.Single());
+    }
+
+    [TestMethod]
+    public async Task RunAsync_StompsWithoutACertificate_ExitsWithCertificateProblem()
+    {
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+        var runner = CreateRunner(new FakeListenerFactory(), FakeEnvironmentVariableReader.Empty, composeExtendedProtocolServers: null);
+
+        var exitCode = await runner.RunAsync(["stomps://127.0.0.1:0/"], output, error, TestContext.CancellationToken);
+
+        Assert.AreEqual(SurlExitCode.CertificateProblem, exitCode);
+    }
+
+    [TestMethod]
+    public void ComposeExtendedSchemes_ThisBuild_RegistersStompAndStompsWithTheSwitchUnsetAndNeitherWithItAtZero()
+    {
+        var on = CreateRunner(new FakeListenerFactory(), FakeEnvironmentVariableReader.Empty, composeExtendedProtocolServers: null);
+        var off = CreateRunner(new FakeListenerFactory(), FakeEnvironmentVariableReader.ExtensionsTurnedOff, composeExtendedProtocolServers: null);
+
+        CollectionAssert.IsSubsetOf(new[] { "stomp", "stomps" }, on.ComposeExtendedSchemes().ToArray());
+        CollectionAssert.DoesNotContain(off.ComposeExtendedSchemes().ToArray(), "stomp");
+        CollectionAssert.DoesNotContain(off.ComposeExtendedSchemes().ToArray(), "stomps");
     }
 
     [TestMethod]
@@ -423,7 +488,7 @@ public sealed class CommandLineRunnerExtendedProtocolTests
 
         var schemes = runner.ComposeExtendedSchemes();
 
-        CollectionAssert.AreEqual(new[] { "coap", "coaps", "dns", "nats", "natss", "s3", "socketio", "socketios", "webtransport", "xmpp", "xmpps" }, schemes.ToArray());
+        CollectionAssert.AreEqual(new[] { "coap", "coaps", "dns", "nats", "natss", "s3", "socketio", "socketios", "stomp", "stomps", "webtransport", "xmpp", "xmpps" }, schemes.ToArray());
     }
 
     [TestMethod]

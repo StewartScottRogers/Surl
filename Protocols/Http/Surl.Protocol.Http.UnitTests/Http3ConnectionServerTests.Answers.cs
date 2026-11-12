@@ -27,6 +27,24 @@ public sealed partial class Http3ConnectionServerTests
     }
 
     [TestMethod]
+    public async Task ServeAsync_GetWithSeveralRanges_AnswersTheMultipartByteRangesHttp11Answers()
+    {
+        using var client = new Http3TestClient();
+        await client.StartAsync(Token);
+
+        client.Send(0, client.Request("GET", "/file.txt", ("range", "bytes=0-1,3-4")), fin: true);
+        await client.UntilAsync(() => client.HasEnded(0), Token);
+
+        var response = client.Response(0);
+        var (http11Fields, http11Body) = Http11Answer(RecordedResponse("range-multiple-206"));
+        Assert.AreEqual("206", response.Status);
+        CollectionAssert.AreEqual(http11Fields, response.RegularFields);
+        Assert.AreEqual(http11Body, response.BodyText);
+        Assert.AreEqual(Latin1(RecordedFixture.ReadBytes("range-multiple-206", "stdout.bin")), response.BodyText);
+        Assert.IsTrue(response.Fin);
+    }
+
+    [TestMethod]
     public async Task ServeAsync_ClientStopsTheStreamBeforeItsAnswer_NotesItAndTheConnectionCarriesOn()
     {
         var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);

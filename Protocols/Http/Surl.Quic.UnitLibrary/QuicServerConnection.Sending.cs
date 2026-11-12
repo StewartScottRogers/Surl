@@ -37,6 +37,13 @@ public sealed partial class QuicServerConnection
     }
 
     /// <summary>
+    /// How many of the stream's bytes are not yet in a sent packet: its <see cref="QuicStream.UnsentLength"/>
+    /// plus the data of its <c>STREAM</c> frames waiting for room in a packet, lost ones included.
+    /// </summary>
+    internal int NotYetInAPacketLength(QuicStream stream) =>
+        stream.UnsentLength + application.FramesToSend.OfType<QuicStreamFrame>().Where(frame => frame.StreamId == stream.Id).Sum(frame => frame.Data.Length);
+
+    /// <summary>
     /// The most the next datagram may hold: 1200 bytes, and before the client's address is
     /// validated no more than three times what was received less what was sent (RFC 9000 section 8.1).
     /// </summary>

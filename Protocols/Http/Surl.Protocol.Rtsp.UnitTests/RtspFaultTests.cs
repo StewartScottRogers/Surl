@@ -108,24 +108,59 @@ public sealed class RtspFaultTests
     }
 
     [TestMethod]
-    public async Task DelayRuleAtTheCommandStage_IsNotAppliedAndIsNoted()
+    public async Task DelayRuleAtTheCommandStage_HoldsTheRequestForItsMillisecondsThenAnswersAsWithoutIt()
     {
         var rule = new FaultRule("f1", FaultKind.Delay) { Stage = FaultStage.Command, DelayMilliseconds = 500 };
+        var time = new ManualTimeProvider(Now);
+        var idleClock = new RecordingIdleClock();
+        var connection = new InMemoryConnection([RecordedRequest("libcurl-describe")]);
+
+        var serving = ServeWithFaultsAsync([], new ScriptedFaultPlan(rule), connection: connection, time: time, idleClock: idleClock);
+        await idleClock.FirstPause;
+        var writtenWhileHeld = connection.WrittenBytes.Length;
+        time.Advance(TimeSpan.FromMilliseconds(499));
+        var completedEarly = serving.IsCompleted;
+        time.Advance(TimeSpan.FromMilliseconds(1));
+        var (_, _, events, _) = await serving;
+
+        Assert.AreEqual(0, writtenWhileHeld);
+        Assert.IsFalse(completedEarly);
+        Assert.AreEqual(Latin1(RecordedResponse("libcurl-describe")), Latin1(connection.WrittenBytes));
+        Assert.IsFalse(idleClock.IsPaused);
+        Assert.AreEqual(new FaultAppliedEvent("f1", FaultKind.Delay, FaultStage.Command, 1, "/clip.bin"), events.Events.OfType<FaultAppliedEvent>().Single());
+    }
+
+    [TestMethod]
+    public async Task DropRuleAtTheCommandStage_AbortsTheConnectionBeforeAnyByteOfTheAnswer()
+    {
+        var rule = new FaultRule("f1", FaultKind.Drop) { Stage = FaultStage.Command };
+
+        var (connection, _, events, _) = await ServeWithFaultsAsync([RecordedRequest("libcurl-describe")], new ScriptedFaultPlan(rule));
+
+        Assert.IsTrue(connection.Aborted);
+        Assert.AreEqual(0, connection.WrittenBytes.Length);
+        Assert.AreEqual(new FaultAppliedEvent("f1", FaultKind.Drop, FaultStage.Command, 1, "/clip.bin"), events.Events.OfType<FaultAppliedEvent>().Single());
+    }
+
+    [TestMethod]
+    public async Task OtherKindAtTheCommandStage_IsNotAppliedAndIsNoted()
+    {
+        var rule = new FaultRule("f1", FaultKind.OutOfSpace) { Stage = FaultStage.Command };
 
         var (connection, log, events, _) = await ServeWithFaultsAsync([RecordedRequest("libcurl-describe")], new ScriptedFaultPlan(rule));
 
         Assert.AreEqual(Latin1(RecordedResponse("libcurl-describe")), Latin1(connection.WrittenBytes));
         Assert.IsEmpty(events.Events.ToList());
-        Assert.Contains("DESCRIBE /clip.bin: fault rule f1 asks for Delay at the command stage, which this server does not apply; answered as without it.", log.Notes);
+        Assert.Contains("DESCRIBE /clip.bin: fault rule f1 asks for OutOfSpace at the command stage, which this server does not apply; answered as without it.", log.Notes);
     }
-
     private async Task<(InMemoryConnection Connection, RecordingExchangeLog Log, RecordingSurlEventPublisher Events, ScriptedFaultPlan Plan)> ServeWithFaultsAsync(
-        IEnumerable<ReadOnlyMemory<byte>> chunks, ScriptedFaultPlan plan, IAuthenticationPolicy? policy = null, Content.IContentFileSystem? fileSystem = null, Content.ContentExposureOptions? exposureOptions = null)
+        IEnumerable<ReadOnlyMemory<byte>> chunks, ScriptedFaultPlan plan, IAuthenticationPolicy? policy = null, Content.IContentFileSystem? fileSystem = null, Content.ContentExposureOptions? exposureOptions = null,
+        InMemoryConnection? connection = null, ManualTimeProvider? time = null, RecordingIdleClock? idleClock = null)
     {
-        var connection = new InMemoryConnection(chunks);
+        connection ??= new InMemoryConnection(chunks);
         var log = new RecordingExchangeLog();
         var events = new RecordingSurlEventPublisher();
-        var context = Context(log, new ManualTimeProvider(Now), TestContext.CancellationToken) with { Faults = plan, Events = events };
+        var context = Context(log, time ?? new ManualTimeProvider(Now), TestContext.CancellationToken) with { Faults = plan, Events = events, IdleClock = idleClock ?? (IIdleClock)NoIdleClock.Instance };
 
         await Server(fileSystem, policy, exposureOptions).ServeAsync(connection, context);
 

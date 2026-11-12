@@ -40,8 +40,10 @@ subsystem) are the glossary's, section "SSH, SCP and SFTP".
 - **Chosen-error faults** (`SshCommandFaults`, ADR-0135): each SFTP request and SCP command asks
   `ExchangeContext.Faults` at the `Command` stage before the content store, and a matching `error`
   rule is answered `SSH_FXP_STATUS` with its code and text (SFTP) or byte 1, its line and LF (SCP),
-  publishing `FaultAppliedEvent`. A reply that does not fit, or a `delay` or `drop` rule, is noted
-  and not applied (BL-909).
+  publishing `FaultAppliedEvent`. A `delay` rule holds the answer on the exchange's clock with the
+  idle clock paused; a `drop` rule aborts the connection (`ISshChannelDataStream.Connection`), ending an SFTP
+  session or an SCP command with no answer (BL-909, ADR-0135 amendment 1, through `CommandStageFaults`); a reply
+  that does not fit is noted and not applied.
 - **The weak algorithms** of ADR-0051 decision 2 and ADR-0061, offered only when
   `SshAlgorithmOffer.Default` is given `allowWeakAlgorithms`, as `Surl.Console` does under
   `--allow-weak-ssh-algorithms`. `SshAlgorithmOffer.Narrowed` narrows an offer's ciphers and MACs

@@ -8,7 +8,8 @@ namespace Surl.Extended.Protocol.SignalR;
 /// </summary>
 /// <remarks>
 /// The request is accepted when it is a JSON object whose <c>protocol</c> is the string
-/// <c>json</c> and whose <c>version</c> is the number 1; other members are ignored. The texts of a
+/// <c>json</c> or <c>messagepack</c> and whose <c>version</c> is the number 1 (the handshake itself is
+/// always JSON, ended by <c>0x1E</c>); other members are ignored. The texts of a
 /// refusal are fixed and never repeat the client's protocol name (ADR-0006).
 /// </remarks>
 public static class HubHandshake
@@ -50,7 +51,7 @@ public static class HubHandshake
     /// <returns>The response's bytes.</returns>
     public static byte[] Response(HubHandshakeOutcome outcome) => outcome switch
     {
-        HubHandshakeOutcome.Accepted => HubMessageJsonWriter.WriteRecord(_ => { }),
+        HubHandshakeOutcome.Accepted or HubHandshakeOutcome.AcceptedMessagePack => HubMessageJsonWriter.WriteRecord(_ => { }),
         HubHandshakeOutcome.ProtocolNotAvailable => ErrorResponse(ProtocolNotAvailableText),
         _ => ErrorResponse(InvalidRequestText),
     };
@@ -65,11 +66,17 @@ public static class HubHandshake
             return HubHandshakeOutcome.Invalid;
         }
 
-        var isVersionOne = version.TryGetInt32(out var number) && number == 1;
+        if (!version.TryGetInt32(out var number) || number != 1)
+        {
+            return HubHandshakeOutcome.ProtocolNotAvailable;
+        }
 
-        return protocol.ValueEquals("json") && isVersionOne
-            ? HubHandshakeOutcome.Accepted
-            : HubHandshakeOutcome.ProtocolNotAvailable;
+        if (protocol.ValueEquals("messagepack"))
+        {
+            return HubHandshakeOutcome.AcceptedMessagePack;
+        }
+
+        return protocol.ValueEquals("json") ? HubHandshakeOutcome.Accepted : HubHandshakeOutcome.ProtocolNotAvailable;
     }
 
     // An object with a string protocol and a number version.

@@ -28,7 +28,7 @@ internal sealed record EventToolFilter(SurlEventQuery Query, IReadOnlySet<string
             "after_sequence": { "type": "integer", "minimum": 0,
               "description": "Only events with a larger sequence; pass the last one seen to ask for the rest" },
             "kinds": { "type": "array", "minItems": 1,
-              "items": { "type": "string", "enum": ["exchange_started", "exchange_ended", "login_judged", "store_changed", "fault_applied", "hook_failed"] },
+              "items": { "type": "string", "enum": ["exchange_started", "exchange_ended", "login_judged", "store_changed", "fault_applied", "hook_failed", "consumer_group_changed"] },
               "description": "Only events of these kinds" },
         """ + SchemeAndListenUrlProperties + """
         ,

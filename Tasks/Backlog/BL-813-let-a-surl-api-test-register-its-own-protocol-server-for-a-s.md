@@ -66,9 +66,19 @@ and fault plan, and shares the instance's stores if it asks for them.
 - Choice: when every listen URL is custom, `surl` parses the stand-in `http://127.0.0.1:0` (it refuses a command
   line without one) and the parsed `ListenUrls` is emptied, so only the custom server is served.
 
+- 2026-11-12: The finished work is recovered on branch `origin/recover/BL-813` (commit ff906f39, from the 2026-11-11 08:07 shift stash; it was 608 commits behind). Do not use `git stash`. In your worktree run `git merge --no-commit origin/recover/BL-813` or cherry-pick it, settle the conflicts in `Application/Surl.Api/CLAUDE.md`, `SurlServer.cs` and `SurlServerArguments.cs` (other lanes changed them since), then rebuild on SDK 10.0.404 and rerun the Surl.Api tests before moving the task to Done.
+
 ## Log
 
 - 2026-11-05: Created.
 - 2026-11-05: Amended by ADR-0124 (BL-822): custom listen URLs read by `Surl.Api`, composition input from BL-804.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waits on BL-1035: pinned .NET SDK 10.0.401 is not installed, so dotnet build cannot run; code is done and verified on SDK 11, left in the worktree
+- 2026-11-12: Backlog -> Doing.
+- 2026-11-12: Doing -> Backlog. Lane 3's finished code for this task is in a shift stash, not in this worktree, and I was denied access to git stash; SDK 10.0.404 is now installed so BL-1035's blocker is gone. Next run should restore the stash, re-verify, tick box 2 and commit.
+- 2026-11-12: Backlog -> Doing.
+- 2026-11-12: Doing -> Blocked. Stewart: allow lane 3 to read git stash (git stash list / apply) so the finished BL-813 code in the shift stash can be restored and re-verified on SDK 10.0.404; it was denied twice.
+- 2026-11-12: Blocked -> Backlog. Stewart asked for the stashes to be recovered on 2026-11-12: the finished work is on origin/recover/BL-813; a lane merges it, see Notes.
+- 2026-11-12: Backlog -> Doing.
+- 2026-11-12: Doing -> Blocked. Stewart: allow lane 1 to run git merge --no-commit (or cherry-pick) of origin/recover/BL-813 in the lane worktree; git fetch and git merge were denied, so the recovered work cannot be applied.
+- 2026-11-12: Blocked -> Backlog. Stewart: the first note told the lane to git merge, which lanes may not run; the note now says git cherry-pick -n origin/recover/BL-813.

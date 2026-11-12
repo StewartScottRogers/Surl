@@ -18,7 +18,7 @@ namespace Surl.Extended.Protocol.GoogleCloudStorage;
 /// operation (<see cref="GcsOperationRecognition"/>), the bucket (<c>404 NoSuchBucket</c>), the
 /// name's length (<c>400 KeyTooLong</c>), and then the operation itself.
 /// </remarks>
-internal sealed class GcsRequestAnswerer : IHttpRequestHandler
+internal sealed class GcsRequestAnswerer : IHttpRequestHandler, IHttpHeadNotReadRefuser
 {
     private static readonly HttpStatus NoContent = new(204, "No Content");
 
@@ -73,6 +73,12 @@ internal sealed class GcsRequestAnswerer : IHttpRequestHandler
             new GcsJsonObjectCompose(store, properties, assembly),
             isOverTls);
     }
+
+    /// <inheritdoc/>
+    public HttpAnswer RefuseHeadNotRead(HttpRequestHeadReadOutcome outcome, HttpAnswer standardRefusal) =>
+        outcome == HttpRequestHeadReadOutcome.HeadTooLarge
+            ? GcsReply.UnreadRequestError(GcsError.MaxMessageLengthExceeded, context.TimeProvider.GetUtcNow())
+            : standardRefusal;
 
     /// <inheritdoc/>
     public async Task<HttpAnswer> AnswerAsync(HttpRequest request, CancellationToken cancellationToken)
@@ -184,7 +190,7 @@ internal sealed class GcsRequestAnswerer : IHttpRequestHandler
             return reply.Error(generationRefusal);
         }
 
-        var digests = await properties.HashAsync(mapping, found.Length, cancellationToken);
+        var digests = await properties.DigestsAsync(mapping, found, cancellationToken);
 
         return GcsObjectAnswer.Answer(reply, request.Fields, found, digests, new HttpAnswerBody.ContentFile(store, mapping, ContentByteRange.WholeFile(found.Length)));
     }

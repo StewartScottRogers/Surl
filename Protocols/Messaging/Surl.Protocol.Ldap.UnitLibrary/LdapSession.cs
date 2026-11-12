@@ -194,7 +194,7 @@ internal sealed partial class LdapSession
                 return await AnswerUnrecognizedAsync(messageId, unrecognized.Tag);
             default:
                 await AnswerRequestAsync(messageId, operation);
-                return true;
+                return !isDroppedByAFault;
         }
     }
 
@@ -269,6 +269,11 @@ internal sealed partial class LdapSession
         var outcome = search.BaseObject.Length == 0 ? await SearchUnlessAFaultAnswersAsync(search, RootDseFacts())
             : await MayReadAsync() ? await SearchUnlessAFaultAnswersAsync(search, UnusedRootDseFacts)
             : new LdapSearchOutcome([], BindFirst());
+        if (outcome is null)
+        {
+            return;
+        }
+
         foreach (var entry in outcome.Entries)
         {
             await SendAsync(LdapMessageEncoder.EncodeSearchResultEntry(messageId, entry.ObjectName, entry.Attributes));
@@ -282,8 +287,13 @@ internal sealed partial class LdapSession
     private async ValueTask AnswerCompareAsync(int messageId, LdapCompareRequest compare)
     {
         var result = await MayReadAsync()
-            ? await FindChosenResultAsync(CompareOperationName, compare.Entry) ?? directory.Compare(compare)
+            ? await CompareUnlessAFaultAnswersAsync(compare)
             : BindFirst();
+        if (result is null)
+        {
+            return;
+        }
+
         await SendAsync(LdapMessageEncoder.EncodeResultResponse(messageId, LdapTags.CompareResponse, result));
     }
 
@@ -297,7 +307,13 @@ internal sealed partial class LdapSession
             return false;
         }
 
-        var refusal = await FindChosenResultAsync(operationName, null) ?? ReadOnlyRefusal(operationName);
+        var chosen = await FindChosenResultAsync(operationName, null);
+        if (isDroppedByAFault)
+        {
+            return false;
+        }
+
+        var refusal = chosen ?? ReadOnlyRefusal(operationName);
         await SendAsync(LdapMessageEncoder.EncodeResultResponse(messageId, new Asn1Tag(TagClass.Application, tag.TagValue + 1, isConstructed: true), refusal));
         return true;
     }

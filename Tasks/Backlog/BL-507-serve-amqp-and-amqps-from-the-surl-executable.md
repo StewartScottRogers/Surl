@@ -5,7 +5,7 @@ priority: Normal
 assignee: Claude
 pipeline: feature
 depends-on: [BL-506, BL-405, BL-635, BL-1035]
-touches: [Application/Surl.Console, Application/Surl.Console.UnitTests, Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests, Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests]
+touches: [Foundation/Surl.Protocol.Abstractions.UnitLibrary, Foundation/Surl.Protocol.Abstractions.UnitTests, Protocols/Messaging/Surl.Extended.Protocol.Amqp0.UnitLibrary, Application/Surl.Console, Application/Surl.Console.UnitTests, Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests, Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests]
 requirement: none
 created: 2026-11-04
 completed:
@@ -48,6 +48,8 @@ state. The `--aihelp` topic and help category exist, and the extension switch tu
   and no 10.0.4xx SDK is installed (BL-1035, Stewart). No gate can be checked, so BL-1035 is added to
   `depends-on` and the task returns to Backlog. No code was written.
 
+- 2026-11-11 (lane 6): SDK 10.0.404 is now installed, so BL-1035 is cleared. Plan: mirror BL-533 (STOMP) - register `new(["amqp","amqps"], ...)` over `Amqp0Broker` with `services.MessageBus`, `IdleTimeout` and `OffersAnonymous`, add a Composition project reference, `amqps` to `TlsSchemes` (Foundation/Surl.Protocol.Abstractions, new in `touches` with the broker library), a `amqp` help category, `--aihelp` prose and example, manual section, option categories. `TlsSchemes` is held by BL-902 in Doing, so the task returns to Backlog. No code written.
+
 ## Log
 
 - 2026-11-04: Created.
@@ -56,3 +58,5 @@ state. The `--aihelp` topic and help category exist, and the extension switch tu
 - 2026-11-05: Doing -> Backlog. Needs Application/Surl.Composition.UnitLibrary and Surl.Composition.UnitTests, which BL-803 in Doing touches; resumes once BL-803 releases them
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waits on BL-1035: pinned .NET SDK 10.0.401 is not installed, so dotnet build cannot run
+- 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Backlog. Needs Foundation/Surl.Protocol.Abstractions.UnitLibrary (amqps in TlsSchemes), which BL-902 in Doing touches; resumes once BL-902 releases it

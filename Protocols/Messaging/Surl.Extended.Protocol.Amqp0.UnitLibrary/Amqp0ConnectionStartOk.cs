@@ -14,6 +14,14 @@ public sealed record Amqp0ConnectionStartOk(
     ReadOnlyMemory<byte> Response,
     string Locale)
 {
+    /// <summary>
+    /// Whether <c>client-properties</c> has a <c>capabilities</c> table that sets
+    /// <c>consumer_cancel_notify</c> true, so the broker may send <c>basic.cancel</c> (ADR-0112 decision 5).
+    /// </summary>
+    public bool AnnouncesConsumerCancelNotify =>
+        ClientProperties.Find("capabilities") is { Type: Amqp0FieldValueType.Table, Value: Amqp0FieldTable capabilities }
+        && capabilities.Find("consumer_cancel_notify") is { Type: Amqp0FieldValueType.Boolean, Value: true };
+
     /// <summary>Reads the method's arguments.</summary>
     /// <param name="arguments">The arguments after the class and method IDs.</param>
     /// <returns>The method.</returns>

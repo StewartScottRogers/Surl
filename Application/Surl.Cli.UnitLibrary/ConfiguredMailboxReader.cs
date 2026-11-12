@@ -8,14 +8,19 @@ namespace Surl.Cli;
 /// </summary>
 internal static class ConfiguredMailboxReader
 {
-    /// <summary>The <c>--mailbox</c> item: an address, <c>:</c> and a password, with the list key <c>protocols</c>.</summary>
+    /// <summary>
+    /// The whole <c>--mailbox</c> item of ADR-0101 decision 4: an address, <c>:</c> and a password, with the list
+    /// key <c>protocols</c>, the value key <c>quota</c> and the list key <c>folders</c>.
+    /// </summary>
     public static readonly ConfigurationItemShape Shape = new(
-        "<address>:<password>[;protocols=<scheme>,...]",
+        "<address>:<password>[;protocols=<scheme>,...][;quota=<bytes>][;folders=<name>,...]",
         ':',
         ConfigurationItemValueKind.Text,
         new Dictionary<string, ConfigurationItemAttributeKind>(StringComparer.Ordinal)
         {
             [ProtocolsKey] = ConfigurationItemAttributeKind.List,
+            [QuotaKey] = ConfigurationItemAttributeKind.Value,
+            [FoldersKey] = ConfigurationItemAttributeKind.List,
         },
         []);
 
@@ -27,6 +32,21 @@ internal static class ConfiguredMailboxReader
 
     /// <summary>The key, and the <c>--mailbox-file</c> column, naming the schemes a mailbox logs in on.</summary>
     public const string ProtocolsKey = "protocols";
+
+    /// <summary>The key bounding the bytes of the owner's own mailboxes (ADR-0102 decision 1.4).</summary>
+    public const string QuotaKey = "quota";
+
+    /// <summary>The key naming the mailboxes created for the owner at start (ADR-0102 decision 1.4).</summary>
+    public const string FoldersKey = "folders";
+
+    /// <summary>
+    /// <see cref="IsAnySurlScheme"/> as one delegate, made once, so <see cref="Read"/> does not test the
+    /// compiler's lazily filled cache.
+    /// </summary>
+    private static readonly Func<string, bool> AnySurlScheme = IsAnySurlScheme;
+
+    /// <summary>A <c>quota=</c> of no whole byte (ADR-0102 decision 1.4, ADR-0101 decision 5 row 10).</summary>
+    public const string QuotaNeedsValueAboveZero = "key quota needs a value above 0";
 
     /// <summary>A mailbox address given twice, compared case-insensitively (ADR-0101 decision 5 row 14).</summary>
     /// <param name="address">The address as written.</param>
@@ -81,15 +101,26 @@ internal static class ConfiguredMailboxReader
     /// <returns><c>unknown scheme &lt;scheme&gt;</c>.</returns>
     public static string UnknownScheme(string scheme) => $"unknown scheme {scheme}";
 
-    /// <summary>Reads one <c>--mailbox</c> argument.</summary>
+    /// <summary>Reads one <c>--mailbox</c> argument by <see cref="Shape"/>, <c>protocols</c>, <c>quota</c> and <c>folders</c> included.</summary>
     /// <param name="argument">The argument as given.</param>
-    /// <param name="value">The mailbox, when accepted; an empty one otherwise.</param>
+    /// <param name="value">The mailbox, when accepted; <see cref="Empty"/> otherwise.</param>
     /// <returns>The refusal reason after <c>option &lt;name&gt;: </c>, or <see langword="null"/>.</returns>
     public static string? Read(string argument, out ConfiguredMailbox value)
     {
-        var failure = ConfigurationItemReader.Read(Shape, argument, out var item);
         value = Empty;
-        return failure ?? Build(item.Name, item.Value!, item.Lists.GetValueOrDefault(ProtocolsKey), IsAnySurlScheme, out value);
+        if (ConfigurationItemReader.Read(Shape, argument, out var item) is string failure)
+        {
+            return failure;
+        }
+
+        return Build(
+            item.Name,
+            item.Value!,
+            item.Lists.GetValueOrDefault(ProtocolsKey),
+            item.Values.GetValueOrDefault(QuotaKey),
+            item.Lists.GetValueOrDefault(FoldersKey),
+            AnySurlScheme,
+            out value);
     }
 
     /// <summary>
@@ -119,28 +150,79 @@ internal static class ConfiguredMailboxReader
     /// Checks one mailbox's decoded fields and builds it: the address non-empty, free of control
     /// characters and <c>:</c>, and normalised by <see cref="MailDomainNames.ReadAddress"/>; the
     /// password non-empty and free of U+0000; each scheme non-empty, free of control characters,
-    /// lower-cased, served by surl and given once.
+    /// lower-cased, served by surl and given once; the quota <c>&lt;bytes&gt;</c> of at least one whole byte; each
+    /// folder a mailbox name (<see cref="ConfiguredSharedFolderReader.CheckFolderName"/>) given once.
     /// </summary>
     /// <param name="address">The address, decoded.</param>
     /// <param name="password">The password, decoded.</param>
     /// <param name="protocols">The schemes as given, or <see langword="null"/> when <c>protocols</c> was not given.</param>
+    /// <param name="quota">The quota as given, or <see langword="null"/> when <c>quota</c> was not given.</param>
+    /// <param name="folders">The folder names as given, or <see langword="null"/> when <c>folders</c> was not given.</param>
     /// <param name="isServedScheme">Whether a lower-case scheme is one a server surl runs speaks.</param>
     /// <param name="mailbox">The mailbox, when accepted; <see cref="Empty"/> otherwise.</param>
     /// <returns>The refusal reason, or <see langword="null"/>.</returns>
     public static string? Build(
-        string address, string password, IReadOnlyList<string>? protocols, Func<string, bool> isServedScheme, out ConfiguredMailbox mailbox)
+        string address,
+        string password,
+        IReadOnlyList<string>? protocols,
+        string? quota,
+        IReadOnlyList<string>? folders,
+        Func<string, bool> isServedScheme,
+        out ConfiguredMailbox mailbox)
     {
         mailbox = Empty;
         var schemes = new List<string>();
+        var folderNames = new List<string>();
+        long? quotaBytes = null;
         var failure = CheckAddress(address, out var normalised)
             ?? CheckPassword(password)
-            ?? CheckProtocols(protocols ?? [], isServedScheme, schemes);
+            ?? CheckProtocols(protocols ?? [], isServedScheme, schemes)
+            ?? CheckQuota(quota, out quotaBytes)
+            ?? CheckFolders(folders ?? [], folderNames);
         if (failure is null)
         {
-            mailbox = new(normalised, password, protocols is null ? null : schemes);
+            // The empty list is the one Array.Empty, so a mailbox with no folders equals one made without them.
+            IReadOnlyList<string> givenFolders = folders is null ? Array.Empty<string>() : folderNames;
+            mailbox = new(normalised, password, protocols is null ? null : schemes, quotaBytes, givenFolders);
         }
 
         return failure;
+    }
+
+    private static string? CheckQuota(string? quota, out long? quotaBytes)
+    {
+        quotaBytes = null;
+        if (quota is null)
+        {
+            return null;
+        }
+
+        var failure = OptionArgumentReader.ReadBytes(quota, out var bytes);
+        if (failure is not null)
+        {
+            return failure;
+        }
+
+        quotaBytes = bytes;
+        return bytes < 1 ? QuotaNeedsValueAboveZero : null;
+    }
+
+    private static string? CheckFolders(IReadOnlyList<string> folders, List<string> folderNames)
+    {
+        foreach (var folder in folders)
+        {
+            var failure = (folder.Length == 0 ? ConfigurationItemReader.EmptyField : null)
+                ?? ConfiguredSharedFolderReader.CheckFolderName(folder)
+                ?? (folderNames.Contains(folder, StringComparer.Ordinal) ? ConfiguredGroupReader.MemberGivenTwice(folder) : null);
+            if (failure is not null)
+            {
+                return failure;
+            }
+
+            folderNames.Add(folder);
+        }
+
+        return null;
     }
 
     private static string? CheckAddress(string address, out string normalised)
@@ -166,7 +248,15 @@ internal static class ConfiguredMailboxReader
         return password.Contains('\0', StringComparison.Ordinal) ? ConfigurationItemReader.ControlCharacter : null;
     }
 
-    private static string? CheckProtocols(IReadOnlyList<string> protocols, Func<string, bool> isServedScheme, List<string> schemes)
+    /// <summary>
+    /// Checks each scheme of a <c>protocols=</c> list (ADR-0101 decision 4): non-empty, no control character,
+    /// lower-cased, served by surl and given once; <c>--mailbox</c> and <c>--share</c> share it.
+    /// </summary>
+    /// <param name="protocols">The schemes as given.</param>
+    /// <param name="isServedScheme">Whether a lower-case scheme is one a server surl runs speaks.</param>
+    /// <param name="schemes">Receives each accepted scheme, lower-cased, in order.</param>
+    /// <returns>The refusal reason, or <see langword="null"/>.</returns>
+    public static string? CheckProtocols(IReadOnlyList<string> protocols, Func<string, bool> isServedScheme, List<string> schemes)
     {
         foreach (var given in protocols)
         {

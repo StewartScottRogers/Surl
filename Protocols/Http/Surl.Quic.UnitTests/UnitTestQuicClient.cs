@@ -373,7 +373,7 @@ internal sealed class UnitTestQuicClient : IDisposable
             handshakeReceive = QuicPacketProtection.FromTrafficSecret(suite, Tls.ServerHandshakeSecret);
         }
 
-        if (ClientFinished is null && handshakeReceive is not null && TryReassemble(QuicPacketType.Handshake) is { } flight && HoldsWholeMessages(flight, 4))
+        if (ClientFinished is null && handshakeReceive is not null && TryReassemble(QuicPacketType.Handshake) is { } flight && HoldsWholeMessages(flight, ServerFlightMessageCount(flight)))
         {
             ClientFinished = Tls.ReceiveServerFlight(flight);
             var suite = (TlsCipherSuite)Tls.CipherSuite;
@@ -382,6 +382,16 @@ internal sealed class UnitTestQuicClient : IDisposable
             oneRttSend = QuicPacketProtection.FromTrafficSecret(suite, Tls.ClientApplicationSecret);
             oneRttReceive = QuicPacketProtection.FromTrafficSecret(suite, Tls.ServerApplicationSecret);
         }
+    }
+
+    /// <summary>
+    /// How many messages the server's Handshake flight holds: EncryptedExtensions, Certificate,
+    /// CertificateVerify and Finished, and a CertificateRequest (type 13) after EncryptedExtensions when it asks for a client certificate.
+    /// </summary>
+    private static int ServerFlightMessageCount(byte[] flight)
+    {
+        var second = flight.Length < 4 ? flight.Length : 4 + ((flight[1] << 16) | (flight[2] << 8) | flight[3]);
+        return second < flight.Length && flight[second] == 13 ? 5 : 4;
     }
 
     /// <summary>Whether the bytes are exactly <paramref name="messages"/> whole handshake messages.</summary>

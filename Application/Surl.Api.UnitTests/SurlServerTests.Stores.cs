@@ -9,6 +9,8 @@ public sealed partial class SurlServerTests
 {
     private const string Pop3 = "pop3://127.0.0.1:0";
     private const string Mqtt = "mqtt://127.0.0.1:0";
+    private const string Stomp = "stomp://127.0.0.1:0";
+    private const string StompConnect = "CONNECT\naccept-version:1.2\nhost:localhost\nlogin:alice\npasscode:secret\n\n\0";
     private const string SeededMail = "Subject: seeded\r\n\r\nseeded for alice\r\n";
 
     // MQTT 3.1.1 CONNECT (clean session, client "c", user "alice", password "secret"), SUBSCRIBE packet 1 to "t/1"
@@ -78,6 +80,24 @@ public sealed partial class SurlServerTests
         var written = await ServeBytesAsync(seams, "mqtt", MqttSubscribeToT1AsAlice);
 
         Assert.IsTrue(Contains(written, RetainedHiOnT1), Convert.ToHexString(written));
+    }
+
+    [TestMethod]
+    public async Task Messages_EnqueueAsync_IsDeliveredToAStompSubscriberOfTheQueueAFakeClientDeclared()
+    {
+        var seams = new ApiTestSeams();
+        var options = StoreOptions(Stomp);
+        options.AreExtensionsTurnedOn = true;
+        await using var server = await SurlServer.StartAsync(options, seams.Host, TestContext.CancellationToken);
+
+        // A SEND to /queue/q1 declares it durable (STOMP 1.2, "SEND"); the seed then joins it behind "declared".
+        await ServeAsync(seams, "stomp", StompConnect + "SEND\ndestination:/queue/q1\n\ndeclared\0");
+        await server.Messages.EnqueueAsync("q1", "seeded"u8.ToArray(), TestContext.CancellationToken);
+        var written = await ServeAsync(seams, "stomp", StompConnect + "SUBSCRIBE\nid:0\ndestination:/queue/q1\n\n\0");
+
+        StringAssert.Contains(written, "\n\ndeclared\0");
+        StringAssert.Contains(written, "\n\nseeded\0");
+        StringAssert.Contains(written, "destination:/queue/q1\n");
     }
 
     [TestMethod]

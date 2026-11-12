@@ -1,8 +1,8 @@
 namespace Surl.Cli;
 
 /// <summary>
-/// One mailbox from a <c>--mailbox &lt;address&gt;:&lt;password&gt;[;protocols=&lt;scheme&gt;,...]</c> item or a
-/// <c>--mailbox-file</c> record (ADR-0101 decision 4, ADR-0102 decisions 1.2 and 1.4): an account and a
+/// One mailbox from a <c>--mailbox &lt;address&gt;:&lt;password&gt;[;protocols=&lt;scheme&gt;,...][;quota=&lt;bytes&gt;][;folders=&lt;name&gt;,...]</c>
+/// item or a <c>--mailbox-file</c> record (ADR-0101 decision 4, ADR-0102 decisions 1.2 and 1.4): an account and a
 /// mail owner, both named by <see cref="Address"/>. Read by <see cref="ConfiguredMailboxReader"/> and
 /// <see cref="MailboxFileReader"/>.
 /// </summary>
@@ -16,8 +16,26 @@ namespace Surl.Cli;
 /// <c>protocols=</c> was not given, which <c>Surl.Composition</c> reads as the mail schemes only
 /// (ADR-0102 decision 1.4).
 /// </param>
-public sealed record ConfiguredMailbox(string Address, string Password, IReadOnlyList<string>? Protocols)
+/// <param name="QuotaBytes">
+/// The <c>quota=</c> bound on the bytes of the owner's own mailboxes, at least 1; <see langword="null"/> when
+/// not given, so the mailbox has no quota (ADR-0102 decision 1.4).
+/// </param>
+/// <param name="Folders">
+/// The <c>folders=</c> mailbox names, in order and each once, created for the owner at start if missing;
+/// empty when not given (ADR-0102 decision 1.4).
+/// </param>
+public sealed record ConfiguredMailbox(
+    string Address, string Password, IReadOnlyList<string>? Protocols, long? QuotaBytes, IReadOnlyList<string> Folders)
 {
+    /// <summary>Creates a mailbox with no quota and no folders.</summary>
+    /// <param name="address">The normalised address.</param>
+    /// <param name="password">The account's password.</param>
+    /// <param name="protocols">The schemes the account may log in on, or <see langword="null"/> for the mail schemes.</param>
+    public ConfiguredMailbox(string address, string password, IReadOnlyList<string>? protocols)
+        : this(address, password, protocols, QuotaBytes: null, Folders: Array.Empty<string>())
+    {
+    }
+
     /// <summary>
     /// Names the mailbox without its password (ADR-0101 decision 5), so no log or exception text
     /// can hold one.

@@ -116,7 +116,11 @@ internal sealed class RedisServerConnection(
 
     private async ValueTask<bool> AnswerCommandAsync(RedisSubscriber subscriber, IReadOnlyList<byte[]> arguments)
     {
-        var reply = await ReplyToAsync(subscriber, arguments);
+        if (await ReplyToAsync(subscriber, arguments) is not { } reply)
+        {
+            return false;
+        }
+
         await writer.WriteAsync(reply.Encode());
         if (!subscriber.Session.IsQuitting)
         {
@@ -128,8 +132,9 @@ internal sealed class RedisServerConnection(
     }
 
     // As Redis: an unknown command and a wrong argument count are answered before the login
-    // check, which comes before the subscribed-context check, which comes before the command runs.
-    private async ValueTask<RespValue> ReplyToAsync(RedisSubscriber subscriber, IReadOnlyList<byte[]> arguments)
+    // check, which comes before the subscribed-context check, which comes before the fault plan
+    // (ADR-0124), which comes before the command runs. Null when a fault rule dropped the connection.
+    private async ValueTask<RespValue?> ReplyToAsync(RedisSubscriber subscriber, IReadOnlyList<byte[]> arguments)
     {
         if (!RedisCommandTable.TryFind(arguments, out var command, out var refusal))
         {
@@ -145,6 +150,17 @@ internal sealed class RedisServerConnection(
         if (RedisPubSubCommands.RefusalWhileSubscribed(command, subscriber) is { } subscribedRefusal)
         {
             return subscribedRefusal;
+        }
+
+        var fault = await RedisCommandFaults.FindAndApplyAsync(context, connection, command, arguments, session);
+        if (fault.IsDropped)
+        {
+            return null;
+        }
+
+        if (fault.Error is { } chosenError)
+        {
+            return chosenError;
         }
 
         var now = context.TimeProvider.GetUtcNow().ToUnixTimeMilliseconds();

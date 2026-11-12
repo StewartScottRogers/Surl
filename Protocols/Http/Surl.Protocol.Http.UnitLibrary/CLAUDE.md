@@ -34,7 +34,9 @@ decisions 2.2, 2.3).
 
 A `GET`'s `Range` is read by `HttpRangeSelection` (ADR-0133 decision 1): one satisfiable `bytes`
 range is answered `206` with `Content-Range`, one naming no byte `416` with
-`Content-Range: bytes */<length>`, and several ranges, other units, bad syntax or an `If-Range` that
+`Content-Range: bytes */<length>`, several ranges `206` as `multipart/byteranges` with the fixed
+boundary `SURL_BYTERANGES` (`HttpByteRangesBody`; overlapping ranges coalesce; ADR-0133 Amendment 1),
+and other units, bad syntax, more than 100 ranges or an `If-Range` that
 is not the exact `Last-Modified` get the whole file `200`. Under `--allow-uploads` a `PUT` is
 answered by `HttpRequestAnswerer.Uploads.cs` (ADR-0133 decision 2), mapped for the same caller: the
 body is copied through `HttpUploadStream` into a content-store upload session, hashed when a login
@@ -77,7 +79,9 @@ control and QPACK streams, `SETTINGS`, `GOAWAY` and request streams - lives in
 `https`'s UDP side: one `Surl.Quic` `QuicDatagramFlowServer` per flow with the server certificate,
 `--idle-timeout` as QUIC's idle timeout and the head timeout as the handshake's, and
 `Http3ApplicationProtocol`, which starts the connection's authentication session with the TLS 1.3
-session QUIC agreed and serves the connection with `Surl.Http3`'s `Http3ConnectionServer`, its
+session QUIC agreed - its `ClientCertificate` the one the handshake verified when the server was
+given a client-certificate trust check (`--cacert`, BL-741, ADR-0082 Amendment 5;
+`RequiresClientCertificate`) - and serves the connection with `Surl.Http3`'s `Http3ConnectionServer`, its
 `Http3ServerOptions` naming `server: surl` for the `431` the connection writes itself. Cancelling
 the exchange before the handshake completes stops the flow at once; after it, the HTTP/3 server
 answers it. A flow past `--max-connections` or `--max-connections-per-address` is refused

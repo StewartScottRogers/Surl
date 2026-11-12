@@ -15,8 +15,9 @@ namespace Surl.Protocol.Socks;
 /// <param name="context">The exchange: its clock, limits, log and cancellation.</param>
 /// <param name="originConnector">How origins are reached.</param>
 /// <param name="accounts">The listener's proxy accounts, or <see langword="null"/> when it has none.</param>
+/// <param name="gssApi">The listener's GSS-API settings, or <see langword="null"/> when it offers none.</param>
 internal sealed class Socks5Exchange(
-    IConnection client, SocksClientReader reader, ExchangeContext context, IOriginConnector originConnector, IAuthenticationPolicy? accounts)
+    IConnection client, SocksClientReader reader, ExchangeContext context, IOriginConnector originConnector, IAuthenticationPolicy? accounts, SocksGssApiLogin? gssApi = null)
 {
     /// <summary>What the log says when a clear password is refused (ADR-0121 decision 4).</summary>
     public const string PlaintextRefusedNote = "SOCKS5 password refused: sent in clear without --allow-plaintext-auth";
@@ -88,6 +89,12 @@ internal sealed class Socks5Exchange(
             return null;
         }
 
+        if (method == Socks5Reply.GssApiMethod
+            && !await new Socks5GssApiNegotiation(client, reader, context, gssApi!).NegotiateAsync(handshakeToken))
+        {
+            return null;
+        }
+
         return await ReadRequestAsync(handshakeToken);
     }
 
@@ -118,6 +125,12 @@ internal sealed class Socks5Exchange(
 
     private async Task<byte> ChooseMethodAsync(byte[] offered, CancellationToken handshakeToken)
     {
+        // A listener with a keytab means to authenticate: GSS-API is chosen before "no authentication".
+        if (gssApi is not null && offered.Contains(Socks5Reply.GssApiMethod))
+        {
+            return Socks5Reply.GssApiMethod;
+        }
+
         if (offered.Contains(Socks5Reply.NoAuthenticationMethod)
             && await SocksProxyAccounts.AllowAnonymousAsync(accounts, client, context, handshakeToken))
         {

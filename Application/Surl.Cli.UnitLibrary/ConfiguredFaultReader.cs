@@ -266,7 +266,7 @@ internal static class ConfiguredFaultReader
 
         var reply = values[ReplyKey];
         fault = fault with { Reply = reply };
-        var scheme = fault.Scheme ?? (fault.Listener is string listener ? ListenUrlParser.Parse(listener, ExtendedSchemeDefaultPorts.Schemes).ListenUrl!.Scheme : null);
+        var scheme = ReplySchemeOf(fault);
         if (scheme is null)
         {
             return ErrorNeedsSchemeOrListener;
@@ -279,6 +279,10 @@ internal static class ConfiguredFaultReader
 
         return FaultReplyShapes.Fits(scheme, reply) ? null : ReplyDoesNotFit(scheme);
     }
+
+    /// <summary>The scheme whose error shape a reply must fit: the rule's own, else its listener's, else null.</summary>
+    private static string? ReplySchemeOf(ConfiguredFault fault) =>
+        fault.Scheme ?? (fault.Listener is string listener ? ListenUrlParser.Parse(listener, ExtendedSchemeDefaultPorts.Schemes).ListenUrl!.Scheme : null);
 
     /// <summary>One kind's word table row: the kind, the keys it takes besides the scope keys, and the key it needs.</summary>
     private sealed record KindRule(FaultKind Kind, string[] OwnKeys, string? RequiredKey);

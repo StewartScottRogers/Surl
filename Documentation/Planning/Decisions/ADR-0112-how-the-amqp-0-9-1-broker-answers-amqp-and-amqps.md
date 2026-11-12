@@ -13,6 +13,10 @@
 - **Amended:** decisions 5 and 6 by their own text (2026-11-06, BL-965, recording BL-732): the
   headers exchange (decision 5, "Headers exchange") and durable exchanges persisted across restarts
   (decision 6's storage paragraph).
+- **Amended:** decisions 2, 6 and 7 by their own text (2026-11-11, BL-953, recording BL-731;
+  decided by Claude under Stewart's delegation): transactions and publisher confirms are served
+  (decision 6, "Transactions" and "Publisher confirms"), `publisher_confirms` is always announced
+  (decision 2), and `tx` and `confirm` leave the `540` row for `406` (decision 7).
 - **Builds on:** [ADR-0083](ADR-0083-how-surl-serves-the-curl-ports-extended-protocols-and-how-they-are-tested.md)
   (the oracle is the specification; the Curl port is never proof),
   [ADR-0084](ADR-0084-the-libraries-the-extended-servers-share-for-http-1-1-websocket-and-dtls.md)
@@ -98,7 +102,7 @@ Nothing below is taken from the port's output, and no expected byte comes from i
 
   | Field | Value | Why |
   | --- | --- | --- |
-  | `server-properties` | `product` = `surl` (longstr), and `capabilities` = a table of `basic.nack`, `consumer_cancel_notify` and `authentication_failure_close`, and `publisher_confirms` once BL-731 serves confirms, each `true` (`t`) | no version or platform is sent (ADR-0006 section 3); the capabilities name exactly the extensions served (Context) |
+  | `server-properties` | `product` = `surl` (longstr), and `capabilities` = a table of `basic.nack`, `consumer_cancel_notify`, `authentication_failure_close` and `publisher_confirms` (amended 2026-11-11, BL-953: BL-731 serves confirms), each `true` (`t`) | no version or platform is sent (ADR-0006 section 3); the capabilities name exactly the extensions served (Context) |
   | `mechanisms` | the mechanisms `ISaslAuthenticationPolicy.GetSaslMechanisms` returns for the scheme and TLS state, in the policy's order, `AMQPLAIN` right after `PLAIN` whenever `PLAIN` is listed, then `ANONYMOUS` under `--allow-anonymous`; separated by single spaces | ADR-0084 decision 4; `AMQPLAIN` is `PLAIN`'s credentials in a field table |
   | `locales` | `en_US` | reply texts are English |
 
@@ -167,7 +171,7 @@ Nothing below is taken from the port's output, and no expected byte comes from i
     `FRAME_ERROR`** (section 4.2.7).
 - **`--idle-timeout`** applies as well, with or without heartbeats: when no frame of any kind (a
   heartbeat counts) arrives for that long, the broker sends `connection.close` `320`
-  `CONNECTION_FORCED`, text `CONNECTION_FORCED - idle timeout`, and closes as decision 7 says.
+  `CONNECTION_FORCED`, text `CONNECTION_FORCED - idle timeout, maximum time or shutdown` (BL-749: the context does not say which limit fired, so one fixed text serves the idle timeout, `--max-time` and shutdown), and closes as decision 7 says.
 - Every timer runs on `ExchangeContext.TimeProvider`; never `Thread.Sleep` or polling.
 
 ### 4. Virtual hosts (section 3.1.2; XML `connection.open`)
@@ -305,7 +309,7 @@ Nothing below is taken from the port's output, and no expected byte comes from i
 
   | Outcome | Answer |
   | --- | --- |
-  | `Succeeded` | none (publishes are not acknowledged outside confirm mode, BL-731) |
+  | `Succeeded` | none outside confirm mode; in confirm mode `basic.ack` ("Publisher confirms" below) |
   | `AccessDenied` (topic access, or `pub` on `$queue/<q>` for a direct publish) | channel exception **`403`** (ADR-0102 decision 3.4) |
   | `MessageTooLarge` | channel exception **`311`** |
   | `StoreFull`, `TooManyTopics` | connection exception **`506` `RESOURCE_ERROR`** |
@@ -383,9 +387,27 @@ Nothing below is taken from the port's output, and no expected byte comes from i
 - **`channel.flow`** (20.20) from the client with `active` 0 stops deliveries on that channel (they
   wait as above) and `active` 1 resumes them; answered `flow-ok` with the same bit. The broker never
   sends `channel.flow` (basic rule 03 makes it optional), because its bounds refuse instead.
-- **Transactions** (`tx`, 90) and **publisher confirms** (`confirm.select`, 85) are BL-731's; until
-  then each is connection exception **`540` `NOT_IMPLEMENTED`**, and the capability
-  `publisher_confirms` is announced only once BL-731 lands.
+- **Transactions** (`tx`, 90; amended 2026-11-11 by BL-953, recording what BL-731 built; decided
+  by Claude under Stewart's delegation): `tx.select` makes a channel transacted and is answered
+  `select-ok`, a second `select` answered again. A transacted channel buffers its whole publishes
+  and its `basic.ack`, `reject` and `nack`, in order (`Amqp0Transaction`); `tx.commit` routes the
+  publishes and settles the acknowledgements in that order, sending any `basic.return` for
+  `mandatory` then, and is answered `commit-ok`; `tx.rollback`, or the channel's close, discards
+  them (`rollback` answered `rollback-ok`), and the deliveries they would have settled are
+  outstanding again. A tag not outstanding is
+  **`406`** at once, not at commit. Buffered bodies count toward `--max-filesize` with the content in
+  progress, **`506`** above it (decision 8's table). `commit` or `rollback` on a channel not
+  transacted is channel exception **`406`** (rules `commit`/`transacted`, `rollback`/`transacted`).
+- **Publisher confirms** (`confirm.select`, 85, RabbitMQ's extension; same amendment):
+  `confirm.select` puts a channel in confirm mode, answered `select-ok` unless `nowait`. Its
+  publishes are numbered from 1, and each is answered with its own `basic.ack`, `multiple` clear:
+  each publish is routed before the next frame is read, so there is never more than one to
+  confirm. An unroutable publish is acked after its `basic.return`. A publish the bus refuses for a
+  bound - `StoreFull`, `TooManyTopics`, and a persistent message to a full queue, the rows that are
+  connection exception `506` outside confirm mode - is answered **`basic.nack`**, `multiple` and
+  `requeue` clear, and the channel and connection stay open; `403` and `311` stay channel
+  exceptions. `tx.select` on a channel in confirm mode and `confirm.select` on a transacted channel
+  are channel exception **`406`**: a channel is one or the other, never both.
 - **Storage across restarts is the bus's** (ADR-0100 decision 3.7): durable queues, their messages
   (transient ones too) and their `amq.topic` bindings persist under `--directory <path>` in
   `<path>/.surl/bus`, with each message's native form (BL-706); exclusive and auto-delete queues do
@@ -416,7 +438,7 @@ Nothing below is taken from the port's output, and no expected byte comes from i
 | 403 `ACCESS_REFUSED` | channel; connection for a refused login | topic access (ADR-0102 decision 3.4); an `amq.` name; the default exchange; deleting a `--queue` queue; an exclusive consumer refused (the bus's `ExclusiveConsumeRefused`); a refused login (decision 2) |
 | 404 `NOT_FOUND` | channel | a missing exchange or queue; `""` with no queue declared on the channel |
 | 405 `RESOURCE_LOCKED` | channel | another open connection's exclusive queue |
-| 406 `PRECONDITION_FAILED` | channel | bad names; unequal redeclaration; `if-unused`/`if-empty` (the bus's `QueueInUse` and `QueueNotEmpty`); an unknown delivery tag; a bad `expiration` |
+| 406 `PRECONDITION_FAILED` | channel | bad names; unequal redeclaration; `if-unused`/`if-empty` (the bus's `QueueInUse` and `QueueNotEmpty`); an unknown delivery tag; a bad `expiration`; `tx.commit`/`tx.rollback` on a channel not transacted; `tx.select` in confirm mode and `confirm.select` on a transacted channel (decision 6) |
 | 501 `FRAME_ERROR` | connection | a frame-end other than `0xCE`; a frame above frame-max; an unknown frame type; a heartbeat off channel 0 (section 4.2.3, 4.2.7) |
 | 502 `SYNTAX_ERROR` | connection | a method's arguments do not decode (a short field, a bad field-table type octet, a size past the frame) |
 | 503 `COMMAND_INVALID` | connection | a method only a client receives (`basic.deliver`, `connection.start`, ...) sent by the client; an unsupported exchange type |
@@ -424,7 +446,7 @@ Nothing below is taken from the port's output, and no expected byte comes from i
 | 505 `UNEXPECTED_FRAME` | connection | decision 6's content framing faults |
 | 506 `RESOURCE_ERROR` | connection | the bus's `StoreFull`, `TooManyTopics`, `TooManyQueues`, `TooManySubscriptions`; a persistent message a full queue refused; decision 8's broker bounds |
 | 530 `NOT_ALLOWED` | connection | an unknown virtual host; a reused consumer tag; an exchange redeclared with another type |
-| 540 `NOT_IMPLEMENTED` | connection | a class or method the broker does not serve: `tx` and `confirm` until BL-731, `exchange.bind`/`unbind` (40.30, 40.40) and every other extension |
+| 540 `NOT_IMPLEMENTED` | connection | a class or method the broker does not serve: `exchange.bind`/`unbind` (40.30, 40.40) and every other extension |
 | 541 `INTERNAL_ERROR` | connection | a fault inside the broker, also noted with `IExchangeLog.Note` |
 | 320 `CONNECTION_FORCED` | connection | `--idle-timeout`, `--max-time`, or the server stopping, once `open-ok` was sent |
 
@@ -497,7 +519,7 @@ recording BL-730).
 - `Surl.MessageBus` gains queue inspection, purge, single get, conditional delete, exclusive
   consumers, a publish to consumed queues only, a consumer stop that keeps its deliveries, and two
   priority levels (BL-730); BL-506 depends on it and on BL-706's native form.
-- Transactions and publisher confirms wait for BL-731. The headers exchange and durable exchanges
+- Transactions and publisher confirms are served (BL-731; see decision 6). The headers exchange and durable exchanges
   across restarts are served (BL-732; see "Headers exchange" in decision 5 and decision 6's storage
   paragraph).
 - The requirement matrix [`Amqp0.md`](../../Conformance/Extended/Amqp0.md) traces each

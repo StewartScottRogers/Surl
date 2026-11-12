@@ -18,7 +18,9 @@ namespace Surl.Extended.Protocol.AzureStorage;
 /// Uploads need <c>--allow-uploads</c> (off: <c>403 AuthorizationPermissionMismatch</c>). Put Blob's
 /// head checks apply. A body past 4 MiB, or not a <c>BlockList</c> document, is <c>400
 /// InvalidXmlDocument</c>; one past 50000 entries <c>400 BlockListTooLong</c>; an entry naming a
-/// block not in its list <c>400 InvalidBlockList</c>, and nothing changes. The blob is written
+/// block not in its list <c>400 InvalidBlockList</c>, and nothing changes. The conditional fields
+/// are Put Blob's: a failing one is <c>412 ConditionNotMet</c>, <c>If-None-Match: *</c> on an existing
+/// blob <c>409 BlobAlreadyExists</c>, and the blob and its staged blocks are left alone. The blob is written
 /// through an upload session, so it appears whole or not at all, and is held to
 /// <c>--max-filesize</c> (<c>413 RequestBodyTooLarge</c>).
 /// </remarks>
@@ -106,6 +108,11 @@ internal sealed class AzurePutBlockList(ContentStore store, AzurePutBlob putBlob
     // Each entry found in its list, then the blob written from them.
     private async Task<HttpAnswer> CommitAsync(AzureReply reply, HttpRequest request, AzureBlobTarget target, ContentPathMapping mapping, ContentCaller caller, List<AzureBlockListEntry> entries, CancellationToken cancellationToken)
     {
+        if (await putBlob.ConditionRefusalAsync(request, target, mapping, cancellationToken) is { } conditionRefusal)
+        {
+            return reply.Error(AzureRefusal.Of(conditionRefusal));
+        }
+
         var key = AzureStagedBlocks.KeyOf(target);
         var blocks = staging.Find<AzureStagedBlocks>(key);
         var file = store.GetFileStatus(mapping);

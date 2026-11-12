@@ -174,7 +174,15 @@ internal sealed partial class WebSocketUpgradeResponder
             return await RefuseAsync(refusal);
         }
 
-        if (await FindChosenCloseAsync(head, path, accountName) is { } chosenClose)
+        var rule = await HttpCommandFaults.FindAndApplyAsync(context, head.Method, path, accountName);
+        if (rule is { Kind: FaultKind.Drop })
+        {
+            connection.Abort();
+
+            return false;
+        }
+
+        if (ChosenCloseOf(rule, path) is { } chosenClose)
         {
             return await AcceptAndCloseAsync(head, chosenClose);
         }

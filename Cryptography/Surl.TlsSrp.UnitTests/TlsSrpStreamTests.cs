@@ -149,6 +149,24 @@ public sealed class TlsSrpStreamTests
     }
 
     [TestMethod]
+    public async Task ShutdownAsync_CalledTwiceThenDisposed_SendsCloseNotifyOnceAndLeavesTheConnectionOpenUntilDisposed()
+    {
+        var (session, transport, handshake) = await OpenAsync(_ => []);
+
+        await session.Stream.ShutdownAsync();
+        await session.Stream.ShutdownAsync();
+        var openAfterShutdown = !transport.IsDisposed;
+        await session.Stream.DisposeAsync();
+
+        Assert.IsTrue(openAfterShutdown);
+        Assert.IsTrue(transport.IsDisposed);
+        var serverRecords = handshake.ServerRecordsAfterChangeCipherSpec(transport.Written.ToArray());
+        await serverRecords.ReadAsync(CancellationToken.None);
+        CollectionAssert.AreEqual(new byte[] { 1, 0 }, (await serverRecords.ReadAsync(CancellationToken.None))!.Fragment);
+        Assert.IsNull(await serverRecords.ReadAsync(CancellationToken.None));
+    }
+
+    [TestMethod]
     public async Task DisposeAsync_ConnectionAlreadyGone_StillCloses()
     {
         var (session, transport, _) = await OpenAsync(_ => []);

@@ -18,6 +18,10 @@ public sealed class MailboxComposition
     // The schemes a mailbox with no protocols= logs in on, as its note names them (Account.MailSchemes).
     private static readonly string[] DefaultSchemeNames = ["smtp", "imap", "pop3"];
 
+    private const string SharedFolderOption = "shared-folder";
+    private const string MailAliasOption = "mail-alias";
+    private const string MailCatchAllOption = "mail-catch-all";
+
     private readonly IReadOnlyList<ConfiguredMailbox> mailboxes;
 
     private MailboxComposition(IReadOnlyList<ConfiguredMailbox> mailboxes, MailDomainConfiguration? mailDomains)
@@ -32,7 +36,7 @@ public sealed class MailboxComposition
     /// <summary>
     /// The configuration the mail store resolves recipients against; <see langword="null"/> without <c>--mail-domain</c>.
     /// </summary>
-    public MailDomainConfiguration? MailDomains { get; }
+    public MailDomainConfiguration? MailDomains { get; private set; }
 
     /// <summary>
     /// One account per mailbox, in order, named by its normalised address and restricted to its schemes.
@@ -77,11 +81,124 @@ public sealed class MailboxComposition
             mailboxes.AddRange(read);
         }
 
-        var mailDomains = commandLine.MailDomains.Count == 0
-            ? null
-            : new MailDomainConfiguration(commandLine.MailDomains, mailboxes.Select(mailbox => mailbox.Address), [], []);
+        MailDomainConfiguration? mailDomains = null;
+        if (commandLine.MailDomains.Count != 0)
+        {
+            try
+            {
+                mailDomains = BuildConfiguration(commandLine, mailboxes, []);
+            }
+            catch (ArgumentException refusal)
+            {
+                return (null, SurlExitCode.FailedInit, $"(2) mail configuration: {WithoutParameterName(refusal.Message)}");
+            }
+        }
+
         return (new MailboxComposition(mailboxes, mailDomains), SurlExitCode.Ok, null);
     }
+
+    /// <summary>
+    /// Adds every <c>--shared-folder</c> to <see cref="MailDomains"/> once the groups are expanded
+    /// (ADR-0102 decision 1.6): a <c>@group</c> member becomes the account names it holds, and
+    /// <c>@everyone</c> is refused. Shared folders need no mail domain, so a start with only shared
+    /// folders gets a configuration holding them.
+    /// </summary>
+    /// <param name="commandLine">The parsed command line.</param>
+    /// <param name="groups">The groups, expanded over every account.</param>
+    /// <returns>Null, or the refusal after <c>surl: </c>, which exits <see cref="SurlExitCode.FailedInit"/> (2).</returns>
+    public string? ComposeSharedFolders(SurlCommandLine commandLine, AccountGroupExpansion groups)
+    {
+        ArgumentNullException.ThrowIfNull(commandLine);
+        ArgumentNullException.ThrowIfNull(groups);
+        List<MailSharedFolder> folders = [];
+        foreach (var folder in commandLine.SharedFolders)
+        {
+            if (folder.Members.Any(member => member.IsGroup && member.Name == AccountGroupExpansion.Everyone))
+            {
+                return AccountGroupExpansion.EveryoneIsNotAllowed(SharedFolderOption);
+            }
+
+            if (groups.Expand(SharedFolderOption, folder.Members, out var accounts) is { } failure)
+            {
+                return failure;
+            }
+
+            folders.Add(new MailSharedFolder(folder.Name, [.. accounts]));
+        }
+
+        if (folders.Count == 0)
+        {
+            return null;
+        }
+
+        try
+        {
+            MailDomains = BuildConfiguration(commandLine, mailboxes, folders);
+        }
+        catch (ArgumentException refusal)
+        {
+            return $"(2) option --{SharedFolderOption}: {WithoutParameterName(refusal.Message)}";
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Writes ADR-0102 decision 1.3's catch-all warning, <c>surl: warning: --mail-catch-all: &lt;domain&gt; keeps
+    /// mail to every unknown address</c>, for each catch-all, from the info level up (ADR-0101 decision 4).
+    /// </summary>
+    /// <param name="commandLine">The parsed command line.</param>
+    /// <param name="log">The log stream.</param>
+    public static void WriteWarnings(SurlCommandLine commandLine, TextWriter log)
+    {
+        ArgumentNullException.ThrowIfNull(commandLine);
+        ArgumentNullException.ThrowIfNull(log);
+        if (commandLine.LogLevel < LogLevel.Info)
+        {
+            return;
+        }
+
+        foreach (var catchAll in commandLine.MailCatchAlls)
+        {
+            log.WriteLine($"surl: warning: --{MailCatchAllOption}: {MailDomainNormalised(catchAll.Domain)} keeps mail to every unknown address, which would otherwise be discarded");
+        }
+    }
+
+    /// <summary>
+    /// The refusal for a route <see cref="MailRouteException"/> reports at start (ADR-0102 decision 1.3).
+    /// </summary>
+    /// <param name="failure">The store's refusal.</param>
+    /// <returns><c>(2) option --mail-alias: target &lt;address&gt; is not in any --mail-domain</c>,
+    /// <c>... names no mailbox</c> or <c>alias &lt;address&gt; includes itself</c>, naming <c>--mail-catch-all</c> for a catch-all.</returns>
+    public static string DescribeRouteFailure(MailRouteException failure)
+    {
+        ArgumentNullException.ThrowIfNull(failure);
+        var (option, word) = failure.RouteKind == MailRouteKind.CatchAll ? (MailCatchAllOption, "catch-all") : (MailAliasOption, "alias");
+        var problem = failure.Problem switch
+        {
+            MailRouteProblem.TargetOutsideMailDomains => $"target {failure.Address} is not in any --mail-domain",
+            MailRouteProblem.TargetNamesNoMailbox => $"target {failure.Address} names no mailbox",
+            _ => $"{word} {failure.Address} includes itself",
+        };
+        return $"(2) option --{option}: {problem}";
+    }
+
+    private static MailDomainConfiguration BuildConfiguration(
+        SurlCommandLine commandLine, IReadOnlyList<ConfiguredMailbox> mailboxes, IReadOnlyList<MailSharedFolder> sharedFolders) =>
+        new(
+            commandLine.MailDomains,
+            mailboxes.Select(mailbox => mailbox.Address),
+            commandLine.MailAliases.Select(alias => new MailAlias(alias.Address, alias.Targets)),
+            commandLine.MailCatchAlls.Select(catchAll => new MailCatchAll(catchAll.Domain, catchAll.Address)),
+            mailboxes.Where(mailbox => mailbox.QuotaBytes is not null || mailbox.Folders.Count != 0)
+                .Select(mailbox => new MailboxSettings(mailbox.Address, mailbox.QuotaBytes, mailbox.Folders)),
+            sharedFolders);
+
+    private static string QuotaAndFolders(ConfiguredMailbox mailbox) =>
+        (mailbox.QuotaBytes is { } bytes ? $", quota {bytes} bytes" : string.Empty)
+        + (mailbox.Folders.Count == 0 ? string.Empty : $", {mailbox.Folders.Count} folders");
+
+    private static string WithoutParameterName(string message) => message.Split(" (Parameter ")[0];
 
     /// <summary>
     /// Writes ADR-0102 decision 5's notes from the verbose level up: <c>* Mail domains: &lt;domains&gt;</c>,
@@ -99,15 +216,24 @@ public sealed class MailboxComposition
             return;
         }
 
-        log.WriteLine($"* Mail domains: {string.Join(", ", commandLine.MailDomains.Select(MailDomainNormalised))}");
-        if (commandLine.AllowAnonymous)
+        if (commandLine.MailDomains.Count != 0)
+        {
+            log.WriteLine($"* Mail domains: {string.Join(", ", commandLine.MailDomains.Select(MailDomainNormalised))}");
+        }
+
+        if (commandLine.MailDomains.Count != 0 && commandLine.AllowAnonymous)
         {
             log.WriteLine("* Mail domains not applied: --allow-anonymous delivers every recipient to one mailbox set");
         }
 
         foreach (var (account, mailbox) in Accounts.Zip(mailboxes))
         {
-            log.WriteLine($"* Mailbox {account.UserName}: logins on {string.Join(", ", mailbox.Protocols ?? DefaultSchemeNames)}");
+            log.WriteLine($"* Mailbox {account.UserName}: logins on {string.Join(", ", mailbox.Protocols ?? DefaultSchemeNames)}{QuotaAndFolders(mailbox)}");
+        }
+
+        foreach (var folder in MailDomains.SharedFolders)
+        {
+            log.WriteLine($"* Shared folder Shared/{folder.Name}: {folder.Members.Count} members");
         }
     }
 

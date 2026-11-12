@@ -77,7 +77,7 @@ internal sealed class AzurePutBlob(ContentStore store, ObjectMetadataIndex index
     }
 
     // The conditional fields, checked against the blob at the name (ADR-0109, decision 1).
-    private async Task<AzureError?> ConditionRefusalAsync(HttpRequest request, AzureBlobTarget target, ContentPathMapping mapping, CancellationToken cancellationToken)
+    internal async Task<AzureError?> ConditionRefusalAsync(HttpRequest request, AzureBlobTarget target, ContentPathMapping mapping, CancellationToken cancellationToken)
     {
         var existing = await properties.ReadAsync(mapping, AzureIndexKey.OfRaw(store, target.RawContainer, target.RawBlob), cancellationToken);
 

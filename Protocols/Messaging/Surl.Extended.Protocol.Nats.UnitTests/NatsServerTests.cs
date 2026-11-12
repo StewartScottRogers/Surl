@@ -49,6 +49,65 @@ public sealed class NatsServerTests
         Assert.AreNotEqual(first, second);
     }
 
+    private static string SeededServerId(int seed) =>
+        new NatsServer(
+            new UnitTestNatsAuthenticationPolicy(),
+            UnitTestMessageBus.Create(),
+            null,
+            new UnitTestSeededIdentifierRandom(seed)).ServerId;
+
+    [TestMethod]
+    public void ServerId_SameSeededSource_IsTheSameEveryRun()
+    {
+        var first = SeededServerId(7);
+        var second = SeededServerId(7);
+
+        Assert.AreEqual(first, second);
+        Assert.MatchesRegex("^[A-Z0-9]{22}$", first);
+    }
+
+    [TestMethod]
+    public void ServerId_DifferentSeeds_Differ()
+    {
+        Assert.AreNotEqual(SeededServerId(1), SeededServerId(2));
+    }
+
+    [TestMethod]
+    public void ServerId_SourceGivingEachByteBelowTheLimit_DrawsEveryAlphabetCharacter()
+    {
+        var seen = new HashSet<char>();
+        for (var start = 0; start < 252; start += 22)
+        {
+            var bytes = Enumerable.Range(start, 22).Select(value => (byte)(value % 252)).ToArray();
+            seen.UnionWith(NatsServer.DrawServerId(new UnitTestByteSequenceIdentifierRandom(bytes)));
+        }
+
+        Assert.HasCount(36, seen);
+    }
+
+    [TestMethod]
+    public void ServerId_ByteOfEachValue_MapsToItsRemainderModuloTheAlphabet()
+    {
+        const string Alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+
+        for (var value = 0; value < 252; value++)
+        {
+            var id = NatsServer.DrawServerId(new UnitTestByteSequenceIdentifierRandom([(byte)value]));
+
+            Assert.AreEqual(new string(Alphabet[value % 36], 22), id);
+        }
+    }
+
+    [TestMethod]
+    public void ServerId_BytesAtOrAboveTheLimit_AreDrawnAgain()
+    {
+        var source = new UnitTestByteSequenceIdentifierRandom([252, 255, 1]);
+
+        var id = NatsServer.DrawServerId(source);
+
+        Assert.AreEqual(new string('B', 22), id);
+    }
+
     [TestMethod]
     public async Task ServeAsync_NullArguments_Throw()
     {

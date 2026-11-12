@@ -148,6 +148,12 @@ internal sealed partial class ImapSession
             return true;
         }
 
+        return await AnswerReadOutcomeAsync(read);
+    }
+
+    // The answer to one read command by what the reader found: a command, an APPEND literal, a limit or the end.
+    private async ValueTask<bool> AnswerReadOutcomeAsync(ImapCommandReadResult read)
+    {
         if (caseReplies is not null && read.Outcome == ImapCommandReadOutcome.AppendMessage)
         {
             return await AnswerUpstreamTestCaseAppendAsync(caseReplies, read);

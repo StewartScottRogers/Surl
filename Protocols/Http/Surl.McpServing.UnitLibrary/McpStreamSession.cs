@@ -147,7 +147,7 @@ public sealed class McpStreamSession
     {
         try
         {
-            await FinishAsync(answer, key, requestCancellation).ConfigureAwait(false);
+            await WriteAnswerAsync(answer, key, requestCancellation).ConfigureAwait(false);
         }
 #pragma warning disable CA1031 // Kept and rethrown by RunAsync, never swallowed.
         catch (Exception failure)
@@ -155,10 +155,27 @@ public sealed class McpStreamSession
         {
             Interlocked.CompareExchange(ref _runningAnswerFailure, ExceptionDispatchInfo.Capture(failure), null);
         }
+        finally
+        {
+            // Released only after the failure is kept: the session end takes every slot back, then reads it.
+            _requestSlots.Release();
+        }
+    }
+
+    private async Task FinishAsync(Task<byte[]?> answer, string? key, CancellationTokenSource? requestCancellation)
+    {
+        try
+        {
+            await WriteAnswerAsync(answer, key, requestCancellation).ConfigureAwait(false);
+        }
+        finally
+        {
+            _requestSlots.Release();
+        }
     }
 
     // A response to a cancelled request is never written: MCP's Cancellation page says it SHOULD NOT be sent.
-    private async Task FinishAsync(Task<byte[]?> answer, string? key, CancellationTokenSource? requestCancellation)
+    private async Task WriteAnswerAsync(Task<byte[]?> answer, string? key, CancellationTokenSource? requestCancellation)
     {
         try
         {
@@ -171,7 +188,6 @@ public sealed class McpStreamSession
         finally
         {
             EndRequest(key, requestCancellation);
-            _requestSlots.Release();
         }
     }
 
@@ -210,9 +226,7 @@ public sealed class McpStreamSession
     // notifications/cancelled names the request by requestId; one that is unknown, finished or malformed is ignored.
     private void CancelRequest(JsonElement? parameters)
     {
-        if (parameters is not { ValueKind: JsonValueKind.Object } value
-            || !value.TryGetProperty("requestId", out JsonElement requestId)
-            || requestId.ValueKind is not (JsonValueKind.String or JsonValueKind.Number))
+        if (!TryReadRequestId(parameters, out JsonElement requestId))
         {
             return;
         }
@@ -224,6 +238,15 @@ public sealed class McpStreamSession
                 cancellation.Cancel();
             }
         }
+    }
+
+    // Reads params.requestId; false when params is not an object or requestId is missing or not a string or number.
+    private static bool TryReadRequestId(JsonElement? parameters, out JsonElement requestId)
+    {
+        requestId = default;
+        return parameters is { ValueKind: JsonValueKind.Object } value
+            && value.TryGetProperty("requestId", out requestId)
+            && requestId.ValueKind is JsonValueKind.String or JsonValueKind.Number;
     }
 
     // A string id and a number id never match each other; a number matches by its JSON text.

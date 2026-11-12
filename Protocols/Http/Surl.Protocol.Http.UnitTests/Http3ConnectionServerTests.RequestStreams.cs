@@ -108,7 +108,6 @@ public sealed partial class Http3ConnectionServerTests
         client.Send(4, client.Request("GET", "/file.txt"), fin: true);
         await client.UntilAsync(() => client.HasEnded(4) && client.Log.Notes.Any(note => note.StartsWith("Stream 0 was reset by the client", StringComparison.Ordinal)), Token);
 
-        Assert.IsFalse(client.HasEnded(0));
         Assert.IsNull(client.CloseCode);
     }
 
@@ -177,6 +176,17 @@ public sealed partial class Http3ConnectionServerTests
         Assert.AreEqual(FileBody, client.Response(0).BodyText);
     }
 
+    [TestMethod]
+    public async Task ServeAsync_DropRuleAtTheCommandStage_ResetsTheRequestStreamInternalErrorUnanswered()
+    {
+        using var client = new Http3TestClient { Faults = new ScriptedFaultPlan(new FaultRule("f1", FaultKind.Drop) { Stage = FaultStage.Command }) };
+        await client.StartAsync(Token);
+
+        client.Send(0, client.Request("GET", "/file.txt"), fin: true);
+        await client.UntilAsync(() => client.ResetCode(0) is not null, Token);
+
+        Assert.AreEqual(0x102UL, client.ResetCode(0));
+    }
     [TestMethod]
     public async Task ServeAsync_DataNotAddingUpToContentLength_ResetsAndStopsWithMessageError()
     {

@@ -478,6 +478,15 @@ The codes the server sends, each with the status its page gives it:
 
 No other new option is added.
 
+**Where blocks are staged** (amended 2026-11-11 by BL-922, recording BL-715's decision, decided by
+Claude under Stewart's delegation): each blob's uncommitted blocks sit, one after another, in a
+`ContentUploadSession` opened at the blob and never committed - the content store's own hidden
+dot-file beside the blob, which no protocol serves or lists - exactly as decision 5.5 stages Data Lake
+appends, not under ADR-0100's `.surl/objects/uploads/`, where the content store refuses every write.
+The blob stays invisible until Put Block List writes it afresh through a new upload session from the
+blocks in order and commits that. The other choices BL-715 made are in the amendment of 2026-11-11
+below.
+
 ### 8. `--aihelp`
 
 The topic is `azure-storage` (ADR-0083 decision 8 names it). Its about text says the server answers
@@ -595,3 +604,116 @@ this folder when BL-425 finished:
   element, as the operation page's example writes them. Blobs and `BlobPrefix` elements come interleaved in
   name order. `include=metadata` writes `<Metadata />` for a blob with none, and the page's other `include`
   values (and `deletedwithversions`) are accepted and add nothing.
+
+## Amendment, 2026-11-11 (BL-758)
+
+Decided by Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), while serving the Data
+Lake options BL-426 left out, on points decisions 1, 5.2, 5.4 and 5.5 left open:
+
+- **A connection refused past a limit learns its listen scheme.** `Surl.Core`'s serving engine called
+  `IConnectionRefusalWriter.WriteRefusalAsync` with the connection and the limit only, so one server
+  instance listening on `az` and `abfs` could not tell which body decision 5.2 wants. The contract gains
+  an overload that also takes the listen URL's scheme, a default interface member that writes the
+  scheme-blind refusal, so every other server is unchanged; the engine calls it. The Azure Storage
+  server writes the XML `Error` on `az` and the JSON error on `abfs` and `abfss`. Rejected: guessing the
+  scheme from the connection's local end point (ports are shared and a wildcard listener's local
+  address varies), and two server instances per scheme (they would stage appends and blocks apart).
+- **The conditional fields on Path - Create, append and flush** are checked against the entry at the
+  path before anything changes: a file's ETag and last write time, or a directory's `"0x<ticks>"` ETag.
+  Every condition counts, as on Put Blob; `If-None-Match: *` on an existing file or directory is `409
+  PathAlreadyExists`, any other failing condition `412 ConditionNotMet`. On an append or a flush they are
+  judged against the committed file, never the staged bytes.
+- **`x-ms-properties` on Path - Create** reads as on `setProperties`; one that does not read is `400
+  InvalidHeaderValue` before anything is created. On `resource=directory` it is read and kept nowhere,
+  because the index keeps files only.
+- **`retainUncommittedData=true`** keeps the staged bytes past the flush position: the staging's upload
+  session is copied whole into a new session before the commit, and the staging continues in the copy
+  with its committed length at the flush position and only the parts of its ranges past it. With nothing
+  staged past the position, the staging ends as without it. A commit that is refused drops the staging.
+- **`beginFrom`** is relative to the folder listed (`directory`, else the filesystem), as the page says,
+  and the listing starts after it in the walk's order: a directory named is left out and its contents
+  follow; a path that is not there starts where it would sort. A `continuation` decides over it.
+
+## Amendment, 2026-11-11 (BL-717)
+
+Decided by Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), while building Shared Key and
+shared access signatures, on points decision 3 left open. BL-717 could not change this folder, so BL-842
+records them here:
+
+- **The contract.** `HttpAuthenticationRequest` carries an `AzureStorageScope` (the account the request
+  names, the resource path, the permission letters the operation needs and the peer), as it carries BL-420's
+  `AwsSigV4Service` for S3. A request with the scope set is judged by
+  `HttpAuthenticationSession.JudgeAzureStorageAsync` through `Surl.Authentication`'s `AzureStorageVerifier`
+  (Bearer, `SharedKey`, `SharedKeyLite`, service and account SAS), whatever `--auth` says. The server's
+  `AzureLoginJudge` fills the scope and maps each refusal to decision 3.4's code; it still references neither
+  `Surl.Authentication` nor an account (ADR-0084 decision 4). Eight `HttpAuthenticationRefusal` members are
+  added: `MissingRequestDate`, `SignatureExpired`, `SignatureNotYetValid`, `AddressNotAllowed`,
+  `ProtocolNotAllowed`, `UnservedSignatureKind`, `UnreadableSignatureFields` and `PermissionNotGranted`.
+- **The SAS permission letter each operation needs** (decision 3.3): a listing `l`, a read `r`, a delete `d`,
+  a Data Lake append `a` or `w`, any other write `w`. **`c` alone never grants a write**: the login is judged
+  before the server knows whether the name exists, and serving an overwrite on `c` would serve what Azure
+  refuses.
+- **The signed resources served** (decision 3.3): a service SAS with `sr=c`, `b`, or `d` with `sdd` from 1 to
+  the path's depth. `sr=bs`, `sr=bv`, no `sr`, a signed resource the request does not address, an `sdd` out
+  of that range, an `sv` before 2020-12-06, a stored access policy (`si`) and a user delegation SAS (`skoid`)
+  are each `UnservedSignatureKind`, answered `403 AuthenticationFailed`; a SAS whose `sv`, `sp`, `se` or `st`
+  does not read is `UnreadableSignatureFields`, answered the same. The canonicalized resource is built from
+  the request, never from the query, so a signature made for another resource never verifies.
+- **`AuthenticationErrorDetail` is a fixed sentence per refusal** (decision 3.4). An unknown account reads
+  `Signature did not match.`, exactly as a wrong signature does, so a peer cannot probe which accounts exist.
+- **An account whose password is not base64 text has no key.** Shared Key and SAS naming it are checked
+  against the dummy key, as an unknown account is (ADR-0100 decision 4.1 makes the password the key's base64).
+- **`+` in the query reads as a space** when the SAS fields and the canonicalized query are read, as the
+  server's `AzureBlobTarget` already reads the query.
+- **Which refusals wait.** A `SharedKey` header that does not parse, and another `Authorization` scheme, are
+  refused after the failed-login delay with no login note, since nothing was checked. A request with no
+  credentials at all is refused without the delay, as S3's is (ADR-0108): decision 3.1's delay is for a
+  login that failed, and no login was tried.
+- **Credentials are checked under `--allow-anonymous` for every Azure method** (decision 3.1), so a bad
+  bearer token there is `401 InvalidAuthenticationInfo`, never served as anonymous. BL-725 builds on this
+  and names the path-style account segment the scope's account (decision 2).
+
+The conformance matrix names `AzureStorageVerifierTests` and `AzureLoginJudgeTests` against the Shared Key
+and SAS rows.
+
+## Amendment, 2026-11-11 (BL-715)
+
+Decided by Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), while building Put Block, Put
+Block List and Get Block List, on points decisions 1, 5 and 7 left open. BL-922 recorded them here, because
+BL-715 touched only the server's library:
+
+- **Where blocks are staged** (decision 7): in an upload session opened at the blob and never committed, a
+  hidden dot-file beside it, as Data Lake appends are (decision 5.5). `ContentStore` refuses every write under
+  `/.surl`, so ADR-0100's `.surl/objects/uploads/` cannot hold them, and one staging mechanism for appends and
+  blocks keeps one invisibility rule, one size bound and one atomic commit.
+- **The blob's folders are created at its first Put Block**, because the staging file must sit in the folder
+  the blob will be committed to.
+- **A blob's staged bytes together are held to `--max-filesize`** (decision 7), the upload session's own
+  limit. Past it every uncommitted block of the blob is discarded and the answer is `413
+  RequestBodyTooLarge`: the committed blob could never exceed that size anyway (decision 7's "the largest
+  blob"), and discarding the whole staging frees the space at once rather than leaving a half-usable list.
+- **A block put again under the same ID replaces the old one**, so a client that retries a block commits
+  the retry. Its old bytes stay in the staging file until commit and still count
+  toward `--max-filesize`, because the upload session only appends; rewriting the file on every repeat would
+  cost a copy per block.
+- **The committed block list is remembered in memory** against the file's length and last-write time, and
+  treated as gone once the blob has been written any other way (Put Blob, a Data Lake flush, or another
+  protocol). The content store has no per-file field to hold it, and comparing length and last-write time
+  detects another protocol's write without each of them telling the Azure server. **Get Block List of a blob
+  written whole** therefore lists no committed blocks, and a `Committed` entry naming one is `400
+  InvalidBlockList`: Surl never cut such a blob into blocks, so it has none to name.
+- **The 1000-staging cap is shared** by Data Lake appends and blobs' blocks (decision 7's "1000 blobs with
+  staged blocks or appends per server"), as one `AzureStagingArea` holds both. At the cap, the least recently
+  touched staging that holds only a remembered committed list - no staged bytes - is forgotten to make room,
+  so a remembered list never causes `503 ServerBusy`; only stagings with uncommitted data count against the
+  peer.
+- **`blocklisttype` is matched case-insensitively** (`committed`, `uncommitted`, `all`) and echoed as sent
+  when refused (`400 InvalidQueryParameterValue`): the page writes the values in lower case but does not say
+  case matters, so the lenient reading accepts every client that follows it. Get Block
+  List sends `Last-Modified` and `ETag` only when the blob exists; with no blob and no uncommitted block it is
+  `404 BlobNotFound`.
+- **Put Block List answers** `ETag` (the blob's MD5, as Put Blob's), `Last-Modified` and
+  `x-ms-request-server-encrypted: false`, and keeps the blob's `x-ms-blob-*` and `x-ms-meta-*` as Put Blob
+  does. Its body is read with `XmlReader`, DTDs prohibited and no resolver, so a hostile document can neither
+  expand entities nor fetch one; an unknown child element, text in the root or an element inside an entry is
+  `400 InvalidXmlDocument`.

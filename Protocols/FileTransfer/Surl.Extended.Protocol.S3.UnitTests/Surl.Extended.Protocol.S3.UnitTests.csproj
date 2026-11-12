@@ -10,6 +10,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Surl.Extended.Protocol.S3.UnitLibrary\Surl.Extended.Protocol.S3.UnitLibrary.csproj" />
+    <ProjectReference Include="..\..\..\Foundation\Surl.Core.UnitLibrary\Surl.Core.UnitLibrary.csproj" />
   </ItemGroup>
 
 </Project>

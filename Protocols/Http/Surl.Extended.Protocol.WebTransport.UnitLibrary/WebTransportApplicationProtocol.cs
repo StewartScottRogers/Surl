@@ -24,6 +24,9 @@ public sealed class WebTransportApplicationProtocol : IQuicApplicationProtocol
     /// <summary>The <c>max_datagram_frame_size</c> transport parameter the server sends (ADR-0117 decision 0; RFC 9221 section 3).</summary>
     public const ulong MaxDatagramFrameSize = 65535;
 
+    /// <summary>How long the connection keeps serving sessions after shutdown begins, before it closes them (ADR-0117 decision 6): the same five seconds as the serving engine's default.</summary>
+    public static readonly TimeSpan ShutdownGrace = TimeSpan.FromSeconds(5);
+
     private readonly string acceptedPath;
     private readonly IAuthenticationPolicy authenticationPolicy;
     private readonly WebTransportFlowControlSettings flowControlSettings;
@@ -65,6 +68,7 @@ public sealed class WebTransportApplicationProtocol : IQuicApplicationProtocol
         {
             ExtendedConnectHandlers = [new WebTransportConnectHandler(acceptedPath, authentication, flowControlSettings, directory, context)],
             FurtherSettings = [new(WebTransportHttp3Codes.EnabledSetting, 1), .. flowControlSettings.ToHttp3Settings()],
+            ShutdownGrace = ShutdownGrace,
         };
         return new Http3ConnectionServer(new WebTransportRequestStreamHandler(directory), options, context).ServeAsync(connection, cancellationToken);
     }

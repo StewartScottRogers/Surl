@@ -30,8 +30,10 @@ exchange's `IFaultPlan` is asked at an accepted `CONNECT`, at each valid `SUBSCR
 filter as its path) and at each `PUBLISH` (the topic as its path), with the account the login proved,
 before the bus. A matching `error` rule's reason code 128 to 255 is answered `CONNACK` with the 3.1.1
 code of the same meaning (else 3) and a close, `SUBACK` `0x80` for that filter, or a close with nothing
-published; each publishes one `FaultAppliedEvent`. A reply that does not fit, or another kind, is noted
-and not applied.
+published; each publishes one `FaultAppliedEvent`. A `delay` or `drop` rule there is applied through
+`CommandStageFaults` (ADR-0141, BL-920): a delay holds the answer its `ms` with the idle clock paused, a
+drop aborts the connection with no answer and nothing published. A reply that does not fit, or another
+kind, is noted and not applied.
 
 After every publish the server calls the bus's `SaveChangesAsync`; a `StorageFailed` result
 is noted in the exchange log and the change stays in memory. Whether anything is written is

@@ -22,7 +22,7 @@
   error text) and [ADR-0059](ADR-0059-how-a-protocol-server-tells-a-limit-from-shutdown.md)
   (shutdown grace).
 - **Amends:** nothing.
-- **Amended:** 2026-11-05 in BL-454 (amendment 1, below).
+- **Amended:** 2026-11-05 in BL-454 (amendment 1) and 2026-11-11 in BL-762 (amendment 2), below.
 
 ## Context
 
@@ -349,3 +349,39 @@ WebSocket transport. Three points the decisions above left open or that ADR-0059
    one item, so a broadcast never splits another session's binary packet and a slow reader never
    holds up its sender. Queuing past 1048576 unsent bytes drops the packet and closes the session
    `1008`, as decision 7 says.
+
+## Amendment 2 (2026-11-11, BL-762)
+
+Decided by Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), while building the HTTP
+long-polling transport and its upgrade. Decision 2's polling bullets stand; these are the points they
+left open, each judged by EIO "HTTP long-polling" and "Upgrade" at the commit cited above.
+
+1. **A polling session lives on no connection.** Its requests may come over any connection, so it is
+   not tied to the one that opened it: its clock, limits and log are that exchange's, its CONNECT
+   logins are judged with that connection's `TlsSession` (a listener is all TLS or all plain), and it
+   ends by decision 3's heartbeat, decision 4's connect timeout, a client `1`, a refusal below, or
+   shutdown (ADR-0059), with nothing more sent at shutdown. A client that stops polling is therefore
+   gone 45 s after its last pong at most. A WebSocket session, and a polling one once upgraded, ends
+   with its WebSocket's exchange as decision 7 and amendment 1 say.
+2. **The order of refusals** is amendment 1's with `polling` served: `transport` neither `websocket`
+   nor `polling` (code 0); a `sid` no session has (code 1); without `sid`, the method (code 2) and
+   `EIO` (code 5). With a `sid`, a polling request for a session whose WebSocket is reserved, live or
+   moved to is code 3 without closing it; a method other than `GET` or `POST` is code 3. A WebSocket
+   request with a `sid` is code 3 unless its `Upgrade` lists `websocket`, then `Surl.WebSocket`'s
+   checks answer, then it is code 3 unless the session is on polling alone (not WebSocket, not
+   already probing).
+3. **A poll** is answered with every packet queued when it is answered, joined by `0x1E`; once the
+   session has ended it is answered `1` (close), and any later request is code 1. Once `2probe` is
+   answered, the held poll and every poll until `5` is answered `6` at once.
+4. **A post** is read whole within `maxPayload` (`--max-message`, 0 for none, and the upload limit
+   `Surl.HttpServing` applies): past either it is `413 Content Too Large` with no body; a body not read
+   whole (cut short, or a framing `Surl.HttpServing` cannot read) or not Engine.IO packets, and a
+   packet that is a protocol error (decision 2, 4, 5 or 6), are code 3; attachments past `maxPayload`
+   together are `413`. Each of these closes the session. A post whose `1` closes it is still `ok`.
+   An empty post is a protocol error: EIO "Packet encoding" has no empty payload.
+5. **The probe.** The probing WebSocket's first packet must be `2probe`, answered `3probe` on that
+   WebSocket at once; its next must be `5`. Anything else, a WebSocket Close, or the connection going,
+   ends that WebSocket alone (Close `1002`, `1000`, or nothing) and leaves the session on polling, so
+   the client may poll on or probe again; the session ending meanwhile ends the probe with nothing
+   written. A WebSocket Ping during the probe is answered at once. Packets queued between `3probe` and
+   `5` are not polled (the polls are answered `6`) and go over the WebSocket after the `5`.

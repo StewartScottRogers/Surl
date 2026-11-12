@@ -19,6 +19,9 @@ internal static class TlsApplicationProtocols
     // XEP-0368 section 3: direct-TLS XMPP clients name the ALPN protocol xmpp-client.
     private static readonly SslApplicationProtocol[] XmppClient = [new SslApplicationProtocol("xmpp-client")];
 
+    // RFC 7858 section 3.1 and RFC 7301: DNS over TLS names its ALPN protocol dot.
+    private static readonly SslApplicationProtocol[] DnsOverTls = [new SslApplicationProtocol("dot")];
+
     /// <summary>
     /// The ALPN protocol IDs offered for <paramref name="scheme"/>, in the server's order of preference.
     /// </summary>
@@ -34,13 +37,16 @@ internal static class TlsApplicationProtocols
 
     /// <summary>
     /// The ALPN protocol IDs a listener on <paramref name="listenUrl"/> offers: for a proxy
-    /// listener (<see cref="ListenUrl.IsProxy"/>) exactly <c>http/1.1</c> when its scheme is
-    /// <c>https</c>, because the HTTPS proxy serves HTTP/1.1 only and curl's
-    /// <c>--proxy-http2</c> offers <c>h2</c> first (ADR-0088, decision 6 and Amendment 2);
-    /// otherwise <see cref="ForScheme"/>.
+    /// listener (<see cref="ListenUrl.IsProxy"/>) too, <c>h2</c> then <c>http/1.1</c> when its scheme is
+    /// <c>https</c>, because the HTTPS proxy serves HTTP/2 for curl's <c>--proxy-http2</c>
+    /// (ADR-0088, Amendment 9, superseding decision 6 and Amendment 2); a DNS-over-TLS listener
+    /// offers <c>dot</c>; otherwise <see cref="ForScheme"/>.
     /// </summary>
     /// <param name="listenUrl">The listener's listen URL; its scheme is lower-cased.</param>
     /// <returns>The ALPN protocol IDs offered, in the server's order of preference.</returns>
-    public static IReadOnlyList<SslApplicationProtocol> ForListener(ListenUrl listenUrl) =>
-        listenUrl is { IsProxy: true, Scheme: "https" } ? Http11Only : ForScheme(listenUrl.Scheme);
+    public static IReadOnlyList<SslApplicationProtocol> ForListener(ListenUrl listenUrl) => listenUrl switch
+    {
+        { IsImplicitTls: true, Scheme: "dns" } => DnsOverTls,
+        _ => ForScheme(listenUrl.Scheme),
+    };
 }

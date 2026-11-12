@@ -29,10 +29,10 @@ internal sealed class ConfigurationItemShape
         AccessWords = accessWords;
         Reading = new(
             (string item, out ConfigurationItem value) => ConfigurationItemReader.Read(this, item, out value),
-            OptionArgumentType.Item(argument, DescribeAttributes(Attributes)));
+            OptionArgumentType.Item(argument.Replace('|', '/'), DescribeAttributes(Attributes)));
     }
 
-    /// <summary>The Argument column, e.g. <c>&lt;address&gt;:&lt;password&gt;</c>.</summary>
+    /// <summary>The Argument column, e.g. <c>&lt;address&gt;:&lt;password&gt;</c>; <see cref="Reading"/> names its type with each <c>|</c> as <c>/</c>, since a table cell cannot hold one.</summary>
     public string Argument { get; }
 
     /// <summary>The separator the head splits at first, or null when the whole head is the name.</summary>

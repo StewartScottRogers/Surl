@@ -16,10 +16,10 @@ from `Surl.Protocol.Http.UnitLibrary` by BL-293 (ADR-0070 decision 2):
   `HttpRequestBodyFramingKind` - public, because three servers use them. `HttpRequestHead` and
   `HttpResponseHead` default to `Http11` when no protocol is given.
 - `HttpCommandFaults` - public: how the three servers ask `ExchangeContext.Faults` about a request at
-  the `Command` stage (the `FaultPoint`, the listen URL formatted as the serving engine does), read an
+  the `Command` stage (the `FaultPoint`, the listen URL as `ReportedListenUrl` formats it), read an
   HTTP or RTSP chosen-error reply (`TryReadChosenStatus`) or split any `<code> <text>` reply
-  (`TrySplitCode`), and publish the `FaultAppliedEvent` (ADR-0134). Only `Error` rules are returned;
-  any other kind found at that stage is noted and not applied.
+  (`TrySplitCode`), and publish the `FaultAppliedEvent` (ADR-0134). `FindAndApplyAsync` applies a `Delay` itself (the request then goes on),
+  returns an `Error` or `Drop` rule for the server to act on (ADR-0141 amendment 1), and notes any other kind as not applied.
 - `HttpRequestHeadLineReader`, `HttpRequestLineParser`, `HttpFieldLineParser` and `HttpSyntax` -
   internal, visible to `Surl.HttpMessage.UnitTests` only.
 

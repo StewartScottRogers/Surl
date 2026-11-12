@@ -28,6 +28,7 @@ public sealed partial class Amqp1ContainerConnection
         }
 
         var open = (Amqp1Open)performative!;
+        clientContainerId = open.ContainerId;
         clientChannelMax = open.ChannelMax;
         clientMaxFrameSize = open.MaxFrameSize;
         StartEmptyFrames(open.IdleTimeOut);
@@ -41,7 +42,7 @@ public sealed partial class Amqp1ContainerConnection
         _ => Error(Amqp1ErrorCondition.FramingError, "a frame other than open before open"),
     };
 
-    private Amqp1Open ContainerOpen() => new(options.ContainerId)
+    private Amqp1Open ContainerOpen() => new(options.ContainerId!)
     {
         MaxFrameSize = offeredMaxFrameSize,
         ChannelMax = ContainerChannelMax,

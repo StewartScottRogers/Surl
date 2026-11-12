@@ -50,6 +50,11 @@ public sealed class SurlServer : IAsyncDisposable
         stopping = new Lazy<Task<SurlExitCode>>(StopServingAsync);
     }
 
+    /// <summary>The source of the non-secret identifiers exchange <paramref name="exchangeId"/> draws, seeded by <see cref="SurlServerOptions.RandomSeed"/>.</summary>
+    /// <param name="exchangeId">The exchange.</param>
+    /// <returns>The source.</returns>
+    internal IIdentifierRandom IdentifiersForExchange(long exchangeId) => composedServing.IdentifiersForExchange(exchangeId);
+
     /// <summary>
     /// Every exchange recorded so far, oldest first, at most <see cref="SurlServerOptions.MaxRecordedExchanges"/>
     /// of them (ADR-0099, decision 7): a snapshot that later exchanges and bytes do not change. Safe to
@@ -273,12 +278,13 @@ public sealed class SurlServer : IAsyncDisposable
         var timeProvider = options.TimeProvider;
         var areExtensionsTurnedOn = options.AreExtensionsTurnedOn ?? ExtendedProtocolServers.AreTurnedOn(host.EnvironmentVariables);
         var commandLine = SurlServerArguments.Parse(
-            options, SurlServerComposition.ComposeExtendedSchemes(areExtensionsTurnedOn, null, timeProvider));
+            options, SurlServerComposition.ComposeExtendedSchemes(areExtensionsTurnedOn, null, timeProvider), host.ReadStartFile);
         var seams = new SurlServerCompositionSeams(
             tlsSettings => host.CreateListenerFactory(tlsSettings, timeProvider), host.CanOpenDataDirectory, host.TakeDataDirectoryLock, timeProvider, areExtensionsTurnedOn)
         {
             DataDirectoryFileSystem = host.DataDirectoryFileSystem,
             ReadStartFile = host.ReadStartFile,
+            CanOpenShareDirectory = host.CanOpenDataDirectory,
             ContentWithoutDataDirectory = await InMemoryFiles.ComposeAsync(options.Files, timeProvider, cancellationToken),
         };
 

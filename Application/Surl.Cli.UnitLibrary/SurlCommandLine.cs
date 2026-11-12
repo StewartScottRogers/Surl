@@ -19,6 +19,13 @@ public sealed record SurlCommandLine
     public IReadOnlyList<ListenUrl> ListenUrls { get; init; } = [];
 
     /// <summary>
+    /// Every <c>-K</c>/<c>--config</c> file read, as given, in the order each was opened, the ones a
+    /// config file names included and <c>-</c> for standard input, so a file other users can read is
+    /// warned at start (ADR-0101, decision 5). None by default.
+    /// </summary>
+    public IReadOnlyList<string> ConfigFiles { get; init; } = [];
+
+    /// <summary>
     /// The Unix domain socket the one listen URL listens on instead of a TCP port, set by the last
     /// of <c>--unix-socket &lt;path&gt;</c> and <c>--abstract-unix-socket &lt;name&gt;</c>
     /// (ADR-0094, decision 1); <see langword="null"/> by default, when every listen URL listens
@@ -155,6 +162,29 @@ public sealed record SurlCommandLine
     /// </summary>
     public string? CaCertificateFile { get; init; }
 
+    /// <summary><c>--tlsauthtype</c>: how every TLS listener authenticates; none (certificates) by default (ADR-0122 decision 6).</summary>
+    public TlsAuthenticationType? TlsAuthenticationType { get; init; }
+
+    /// <summary><c>--tlsuser</c>: the one TLS-SRP account's user name, as given; none by default (ADR-0122 decision 4).</summary>
+    public string? TlsUser { get; init; }
+
+    /// <summary><c>--tlspassword</c>: the one TLS-SRP account's password, as given; none by default (ADR-0122 decision 4).</summary>
+    public string? TlsPassword { get; init; }
+
+    /// <summary><c>--srp-verifiers</c>: a GnuTLS <c>tpasswd</c> file of TLS-SRP accounts, as given; none by default (ADR-0122 decision 4).</summary>
+    public string? SrpVerifierFile { get; init; }
+
+    /// <summary><c>--srp-groups</c>: the GnuTLS <c>tpasswd.conf</c> file <see cref="SrpVerifierFile"/>'s index column names, as given; none by default.</summary>
+    public string? SrpGroupFile { get; init; }
+
+    /// <summary>
+    /// Whether every TLS listener serves TLS-SRP instead of a certificate: any of <c>--tlsauthtype</c>,
+    /// <c>--tlsuser</c>, <c>--tlspassword</c>, <c>--srp-verifiers</c> and <c>--srp-groups</c> is given
+    /// (ADR-0122 decision 6; <c>--tlsuser</c> with <c>--tlspassword</c> implies <c>--tlsauthtype SRP</c>, as in curl).
+    /// </summary>
+    public bool ServesTlsSrp =>
+        TlsAuthenticationType is not null || TlsUser is not null || TlsPassword is not null || SrpVerifierFile is not null || SrpGroupFile is not null;
+
     /// <summary>
     /// The accounts from every <c>-u</c>/<c>--user</c>, in command-line order: each one adds an
     /// account, and no user name is given twice (ADR-0032 section 1). None by default.
@@ -186,6 +216,21 @@ public sealed record SurlCommandLine
     /// default. It is read when surl starts serving, not while parsing (ADR-0088 decision 5).
     /// </summary>
     public string? ProxyUserFile { get; init; }
+
+    /// <summary>
+    /// The <c>--proxy-auth</c> words of the last <c>--proxy-auth</c>, lower-case and in ADR-0032 section 3's order,
+    /// the methods the proxy accepts and offers (ADR-0088 decision 5); <see langword="null"/> when
+    /// <c>--proxy-auth</c> was not given. They are the proxy's alone, separate from
+    /// <see cref="GivenAuthenticationMethods"/>.
+    /// </summary>
+    public IReadOnlyList<string>? GivenProxyAuthenticationMethods { get; init; }
+
+    /// <summary>
+    /// The methods the proxy accepts: <see cref="GivenProxyAuthenticationMethods"/>, or ADR-0088 decision 5's
+    /// default set (<c>digest</c> and <c>basic</c>) when <c>--proxy-auth</c> was not given, in ADR-0032 section 3's
+    /// order.
+    /// </summary>
+    public IReadOnlyList<string> AcceptedProxyAuthenticationMethods => GivenProxyAuthenticationMethods ?? DefaultProxyAuthenticationMethods;
 
     /// <summary>
     /// The ranges from every <c>--proxy-allow-origin</c>, in command-line order, that widen the proxy's
@@ -222,6 +267,75 @@ public sealed record SurlCommandLine
     public IReadOnlyList<string> MailboxFiles { get; init; } = [];
 
     /// <summary>
+    /// The mail aliases (<see cref="ConfiguredMailAliasReader"/>, ADR-0102 decision 1.3), in configuration order;
+    /// no alias address is given twice, outside every mail domain or also a mailbox (ADR-0101 decision 5,
+    /// <see cref="ConfiguredMailConflicts"/>). None by default. <c>Surl.Composition</c> hands them to the mail
+    /// store, which checks their targets at start (BL-994).
+    /// </summary>
+    public IReadOnlyList<ConfiguredMailAlias> MailAliases { get; init; } = [];
+
+    /// <summary>
+    /// The mail catch-alls (<see cref="ConfiguredMailCatchAllReader"/>, ADR-0102 decision 1.3), in configuration
+    /// order; no domain is given twice or is outside the mail domains (ADR-0101 decision 5,
+    /// <see cref="ConfiguredMailConflicts"/>). None by default, so mail to an unknown address is discarded.
+    /// </summary>
+    public IReadOnlyList<ConfiguredMailCatchAll> MailCatchAlls { get; init; } = [];
+
+    /// <summary>
+    /// The shared IMAP folders (<see cref="ConfiguredSharedFolderReader"/>, ADR-0102 decision 1.6), in
+    /// configuration order; no name is given twice (ADR-0101 decision 5, <see cref="ConfiguredMailConflicts"/>).
+    /// None by default. <c>Surl.Composition</c> expands their members at start (BL-994).
+    /// </summary>
+    public IReadOnlyList<ConfiguredSharedFolder> SharedFolders { get; init; } = [];
+
+    /// <summary>
+    /// The shares, each a top-level content folder on disk (<see cref="ConfiguredShareReader"/>, ADR-0102
+    /// decision 2.1), in configuration order; no share name is given twice (ADR-0101 decision 5). None by
+    /// default. <c>Surl.Composition</c> opens each path and expands each scheme to its TLS twin at start (BL-988).
+    /// </summary>
+    public IReadOnlyList<ConfiguredShare> Shares { get; init; } = [];
+
+    /// <summary>
+    /// Who may read or write in each share (<see cref="ConfiguredShareAccessReader"/>, ADR-0102 decision 2.2), in
+    /// configuration order; each names a <see cref="Shares"/> entry, and no share twice (ADR-0101 decision 5).
+    /// None by default, so every share is open as the root is.
+    /// </summary>
+    public IReadOnlyList<ConfiguredShareAccess> ShareAccess { get; init; } = [];
+
+    /// <summary>
+    /// The buckets the object-storage servers map onto content paths (<see cref="ConfiguredBucketReader"/>,
+    /// ADR-0102 decision 2.4), in configuration order; no bucket name is given twice or is also a share's
+    /// (ADR-0101 decision 5). None by default.
+    /// </summary>
+    public IReadOnlyList<ConfiguredBucket> Buckets { get; init; } = [];
+
+    /// <summary>
+    /// The topic filters declared to the message bus (<see cref="ConfiguredTopicReader"/>, ADR-0102 decision
+    /// 3.1), in configuration order; no filter is given twice (ADR-0101 decision 5). None by default.
+    /// </summary>
+    public IReadOnlyList<ConfiguredTopic> Topics { get; init; } = [];
+
+    /// <summary>
+    /// The named queues the message bus creates at start (<see cref="ConfiguredQueueReader"/>, ADR-0102
+    /// decision 3.2), in configuration order; no name is given twice (ADR-0101 decision 5). None by default.
+    /// </summary>
+    public IReadOnlyList<ConfiguredQueue> Queues { get; init; } = [];
+
+    /// <summary>
+    /// The topic maps between protocols (<see cref="ConfiguredTopicMapReader"/>, ADR-0102 decision 3.3), in
+    /// configuration order; no source is given twice (ADR-0101 decision 5). None by default, so ADR-0100
+    /// decision 3.2's default mapping applies.
+    /// </summary>
+    public IReadOnlyList<ConfiguredTopicMap> TopicMaps { get; init; } = [];
+
+    /// <summary>
+    /// Who may publish or subscribe on each filter (<see cref="ConfiguredTopicAccessReader"/>, ADR-0102 decision
+    /// 3.4), in configuration order; no filter is given twice (ADR-0101 decision 5). None by default, so every
+    /// caller may publish and subscribe.
+    /// </summary>
+    public IReadOnlyList<ConfiguredTopicAccess> TopicAccess { get; init; } = [];
+
+    /// <summary>
     /// The fault rules from every <c>--fault</c>, in command-line order, at most 256 (ADR-0124
     /// decision 4). None by default. <c>Surl.Composition</c> adds them to the fault plan at start.
     /// </summary>
@@ -239,6 +353,13 @@ public sealed record SurlCommandLine
     /// read when surl starts serving, not while parsing (ADR-0124 decision 7).
     /// </summary>
     public string? ControlTokenFile { get; init; }
+
+    /// <summary>
+    /// <c>--random-seed</c>: the seed, 0 to <see cref="long.MaxValue"/>, for the non-secret identifiers an
+    /// instance draws, so a test gets the same ones every run (ADR-0124 decision 6); null, the default, leaves
+    /// them unseeded. The last one given wins. Nothing secret is ever drawn from it.
+    /// </summary>
+    public long? RandomSeed { get; init; }
 
     /// <summary>
     /// <c>--keytab</c>: the MIT keytab file of Kerberos service keys, as given; none by default.
@@ -277,6 +398,28 @@ public sealed record SurlCommandLine
     /// given. Off by default.
     /// </summary>
     public bool SelfSigned { get; init; }
+
+    /// <summary>
+    /// <c>--s3-plaintext</c>: serve every <c>s3</c> listen URL as plain HTTP/1.1, with no TLS and no
+    /// certificate (ADR-0108 decision 5). Off by default.
+    /// </summary>
+    public bool S3Plaintext { get; init; }
+
+    /// <summary>
+    /// <c>--dns-transport</c>: the transports every <c>dns</c> listen URL serves, <c>udp</c>, <c>tcp</c>
+    /// and <c>tls</c>, in the order given (ADR-0092 decision 5). <c>udp</c> then <c>tcp</c> by default.
+    /// </summary>
+    public IReadOnlyList<string> DnsTransports { get; init; } = DefaultDnsTransports;
+
+    /// <summary>The transports <c>--dns-transport</c> defaults to; one shared list, so two default command lines are equal.</summary>
+    public static readonly IReadOnlyList<string> DefaultDnsTransports = ["udp", "tcp"];
+
+    /// <summary>
+    /// The <c>dns</c> listen URLs written with a port, which <c>--dns-transport</c> puts every
+    /// transport on (ADR-0092 decision 5); the others take each transport's own default port.
+    /// None by default.
+    /// </summary>
+    public IReadOnlyList<ListenUrl> DnsListenUrlsWithPort { get; init; } = [];
 
     /// <summary>
     /// The SSH host private key files from every <c>--hostkey</c>, as given, in command-line order:
@@ -336,4 +479,7 @@ public sealed record SurlCommandLine
     /// <summary>The methods accepted without <c>--auth</c>, in ADR-0032 section 3's order.</summary>
     private static readonly IReadOnlyList<string> DefaultAuthenticationMethods =
         ["digest", "cram-md5", "basic", "plain", "login", "bearer", "oauthbearer", "xoauth2", "external", "aws-sigv4"];
+
+    /// <summary>The methods the proxy accepts without <c>--proxy-auth</c>, in ADR-0032 section 3's order.</summary>
+    private static readonly IReadOnlyList<string> DefaultProxyAuthenticationMethods = ["digest", "basic"];
 }

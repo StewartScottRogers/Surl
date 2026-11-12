@@ -30,7 +30,8 @@ namespace Surl.Extended.Protocol.AzureStorage;
 /// <para>
 /// HTTP/1.1 framing, the head limit and timeouts are <see cref="Http1ConnectionServer"/>'s. As an
 /// <see cref="IConnectionRefusalWriter"/>, the server answers a connection past a connection limit
-/// <c>503 ServerBusy</c> with the <c>Error</c> body, then closes it (ADR-0109, decision 7).
+/// <c>503 ServerBusy</c> with the <c>Error</c> body on <c>az</c> and the JSON error on <c>abfs</c> and
+/// <c>abfss</c>, then closes it (ADR-0109, decisions 5.2 and 7).
 /// </para>
 /// </remarks>
 public sealed class AzureStorageProtocolServer : IConnectionProtocolServer, IConnectionRefusalWriter
@@ -65,6 +66,7 @@ public sealed class AzureStorageProtocolServer : IConnectionProtocolServer, ICon
     private readonly IAuthenticationPolicy authenticationPolicy;
     private readonly TimeProvider timeProvider;
     private readonly AzureStagingArea staging;
+    private readonly IIdentifierRandom identifiers;
 
     /// <summary>
     /// Creates the server.
@@ -73,7 +75,8 @@ public sealed class AzureStorageProtocolServer : IConnectionProtocolServer, ICon
     /// <param name="index">The object metadata index of <paramref name="store"/>'s served root.</param>
     /// <param name="authenticationPolicy">The policy whose HTTP session judges each request's login.</param>
     /// <param name="timeProvider">The clock a connection refusal's <c>Date</c> is taken from.</param>
-    public AzureStorageProtocolServer(ContentStore store, ObjectMetadataIndex index, IAuthenticationPolicy authenticationPolicy, TimeProvider timeProvider)
+    /// <param name="identifiers">Where a connection refusal's request ID is drawn from; null draws from the cryptographic random number generator.</param>
+    public AzureStorageProtocolServer(ContentStore store, ObjectMetadataIndex index, IAuthenticationPolicy authenticationPolicy, TimeProvider timeProvider, IIdentifierRandom? identifiers = null)
     {
         ArgumentNullException.ThrowIfNull(store);
         ArgumentNullException.ThrowIfNull(index);
@@ -84,6 +87,7 @@ public sealed class AzureStorageProtocolServer : IConnectionProtocolServer, ICon
         this.index = index;
         this.authenticationPolicy = authenticationPolicy;
         this.timeProvider = timeProvider;
+        this.identifiers = identifiers ?? new AzureUnseededIdentifierRandom();
         staging = new AzureStagingArea(timeProvider);
     }
 
@@ -115,13 +119,25 @@ public sealed class AzureStorageProtocolServer : IConnectionProtocolServer, ICon
     }
 
     /// <inheritdoc/>
-    public async ValueTask WriteRefusalAsync(IConnection connection, ConnectionRefusal refusal, CancellationToken cancellationToken)
+    /// <remarks>Written as the Blob endpoint's refusal, the XML <c>Error</c>.</remarks>
+    public ValueTask WriteRefusalAsync(IConnection connection, ConnectionRefusal refusal, CancellationToken cancellationToken) =>
+        WriteRefusalAsync(connection, refusal, BlobScheme, cancellationToken);
+
+    /// <inheritdoc/>
+    /// <remarks>
+    /// The Blob endpoint's XML <c>Error</c> on <c>az</c>; the Data Lake endpoint's JSON error on
+    /// <c>abfs</c> and <c>abfss</c> (ADR-0109, decision 5.2).
+    /// </remarks>
+    public async ValueTask WriteRefusalAsync(IConnection connection, ConnectionRefusal refusal, string listenScheme, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(connection);
 
-        var requestId = AzureReply.NewRequestId();
+        var requestId = AzureReply.NewRequestId(identifiers);
         var now = timeProvider.GetUtcNow();
-        var body = AzureErrorBody.Render(AzureRefusal.Of(AzureError.ServerBusy), requestId, now);
+        var writesJson = listenScheme != BlobScheme;
+        var body = writesJson
+            ? AzureDataLakeErrorBody.Render(AzureError.ServerBusy, requestId, now)
+            : AzureErrorBody.Render(AzureRefusal.Of(AzureError.ServerBusy), requestId, now);
         var head = new HttpResponseHead(AzureError.ServerBusy.Status);
         foreach (var field in AzureReply.CommonFields(requestId, now))
         {
@@ -129,7 +145,7 @@ public sealed class AzureStorageProtocolServer : IConnectionProtocolServer, ICon
         }
 
         head.AddField("x-ms-error-code", AzureError.ServerBusy.Code)
-            .AddField("Content-Type", "application/xml")
+            .AddField("Content-Type", writesJson ? AzureDataLakeErrorBody.ContentType : "application/xml")
             .AddField("Content-Length", body.Length.ToString(CultureInfo.InvariantCulture))
             .AddField("Connection", "close");
 

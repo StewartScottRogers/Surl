@@ -43,14 +43,29 @@ internal sealed class AzureLoginJudge(IHttpAuthenticationSession authentication,
     public async Task<AzureLogin> LogInAsync(HttpRequest request, AzureBlobTarget target, string? pathStyleAccount, AzureReply reply, CancellationToken cancellationToken)
     {
         var authorization = AzureRequestFields.Value(request.Fields, "Authorization");
-        if (IsBearer(authorization) && AzureRequestChecks.PrecedesBearer(AzureRequestFields.Value(request.Fields, "x-ms-version")!))
+        if (IsBearerBeforeItsVersion(request, authorization))
         {
             return AzureLogin.Refused(reply.Error(AzureRefusal.AuthenticationFailed("Bearer authorization needs x-ms-version 2017-11-09 or later.")));
         }
 
         var isWrite = request.Method is not ("GET" or "HEAD");
+        var verdict = await authentication.JudgeAsync(AuthenticationRequestOf(request, target, pathStyleAccount, isWrite), cancellationToken);
+
+        return LoginOf(verdict, isWrite, reply, authorization);
+    }
+
+    private static bool IsBearerBeforeItsVersion(HttpRequest request, string? authorization) =>
+        IsBearer(authorization) && AzureRequestChecks.PrecedesBearer(AzureRequestFields.Value(request.Fields, "x-ms-version")!);
+
+    private HttpAuthenticationRequest AuthenticationRequestOf(HttpRequest request, AzureBlobTarget target, string? pathStyleAccount, bool isWrite)
+    {
         var scope = new AzureStorageScope(pathStyleAccount ?? AccountNameOf(request.Fields), ResourcePathOf(target), GrantingPermissionsOf(request.Method, target), peerAddress);
-        var verdict = await authentication.JudgeAsync(new HttpAuthenticationRequest(request.Method, request.Target, isWrite, request.Fields, AzureStorage: scope), cancellationToken);
+
+        return new HttpAuthenticationRequest(request.Method, request.Target, isWrite, request.Fields, AzureStorage: scope);
+    }
+
+    private AzureLogin LoginOf(HttpAuthenticationVerdict verdict, bool isWrite, AzureReply reply, string? authorization)
+    {
         if (verdict.Outcome != HttpAuthenticationOutcome.Proceed)
         {
             return AzureLogin.Refused(RefusalAnswer(reply, verdict.Refusal, authorization));
@@ -71,15 +86,25 @@ internal sealed class AzureLoginJudge(IHttpAuthenticationSession authentication,
     /// <param name="method">The request method.</param>
     /// <param name="target">The request target.</param>
     /// <returns>The letters.</returns>
-    public static string GrantingPermissionsOf(string method, AzureBlobTarget target) =>
-        method switch
+    public static string GrantingPermissionsOf(string method, AzureBlobTarget target)
+    {
+        if (method == "GET" && IsListing(target))
         {
-            "GET" when IsListing(target) => "l",
+            return "l";
+        }
+
+        if (method == "PATCH" && QueryValue(target, "action") == "append")
+        {
+            return "aw";
+        }
+
+        return method switch
+        {
             "GET" or "HEAD" => "r",
             "DELETE" => "d",
-            "PATCH" when QueryValue(target, "action") == "append" => "aw",
             _ => "w",
         };
+    }
 
     // 401 with the Bearer challenge.
     private static HttpAnswer ChallengeAnswer(AzureReply reply, AzureError error) =>
@@ -94,15 +119,22 @@ internal sealed class AzureLoginJudge(IHttpAuthenticationSession authentication,
             return ChallengeAnswer(reply, authorization is null ? AzureError.NoAuthenticationInformation : AzureError.InvalidBearerToken);
         }
 
-        return reason switch
+        if (reason == HttpAuthenticationRefusal.UnknownAccount && IsBearer(authorization))
+        {
+            return ChallengeAnswer(reply, AzureError.InvalidBearerToken);
+        }
+
+        return RefusalOf(reply, reason);
+    }
+
+    private static HttpAnswer RefusalOf(AzureReply reply, HttpAuthenticationRefusal reason) =>
+        reason switch
         {
             HttpAuthenticationRefusal.MissingCredentials => ChallengeAnswer(reply, AzureError.NoAuthenticationInformation),
             HttpAuthenticationRefusal.UnsupportedScheme or HttpAuthenticationRefusal.MalformedCredentials => reply.Error(AzureRefusal.Of(AzureError.MalformedAuthorization)),
             HttpAuthenticationRefusal.PermissionNotGranted => reply.Error(AzureRefusal.Of(AzureError.AuthorizationPermissionMismatch)),
-            HttpAuthenticationRefusal.UnknownAccount when IsBearer(authorization) => ChallengeAnswer(reply, AzureError.InvalidBearerToken),
             _ => reply.Error(AzureRefusal.AuthenticationFailed(DetailOf(reason))),
         };
-    }
 
     // A fixed sentence per cause; an unknown account reads as a bad signature, so a peer cannot
     // probe which accounts exist.

@@ -94,7 +94,7 @@ public sealed class SmtpMailDomainTests
     }
 
     [TestMethod]
-    public async Task ServeAsync_AliasesThatEachNameAnotherOwner_KeepEveryOwnersCopy()
+    public async Task ServeAsync_PartlyOverlappingAliases_GiveEveryOwnerExactlyOneCopy()
     {
         var clock = new ManualTimeProvider();
         var store = DomainStore(clock);
@@ -103,7 +103,7 @@ public sealed class SmtpMailDomainTests
 
         Assert.HasCount(1, Inbox(store, Ann));
         Assert.HasCount(1, Inbox(store, Cat));
-        Assert.IsNotEmpty(Inbox(store, Bob));
+        Assert.HasCount(1, Inbox(store, Bob));
     }
 
     [TestMethod]
@@ -160,6 +160,46 @@ public sealed class SmtpMailDomainTests
         var connection = await ServeAsync(store, "EHLO c\r\nMAIL FROM:<a@x>\r\nRCPT TO:<bob@elsewhere.example> NOTIFY=NEVER\r\nQUIT\r\n", clock, TestContext.CancellationToken);
 
         Assert.AreEqual("250 2.1.0 Sender OK\r\n555 5.5.4 Unsupported parameter\r\n221 2.0.0 Bye\r\n", RepliesAfterHello(connection));
+    }
+
+    // Ann's quota is 10 bytes, so any message passes it; Bob has none.
+    private static MailboxStore QuotaStore(TimeProvider clock) => new(
+        [],
+        allowAnonymous: false,
+        clock,
+        mailDomains: new MailDomainConfiguration(
+            ["example.com"],
+            [Ann, Bob],
+            [],
+            [],
+            [new MailboxSettings(Ann, 10, [])]));
+
+    [TestMethod]
+    public async Task ServeAsync_DeliveryPastARecipientsQuota_Answers452MailboxFullAndDeliversToNoRecipient()
+    {
+        var clock = new ManualTimeProvider();
+        var log = new RecordingExchangeLog();
+        var store = QuotaStore(clock);
+
+        var connection = await ServeAsync(store, Session(Ann, Bob), clock, TestContext.CancellationToken, log: log);
+
+        Assert.AreEqual(
+            "250 2.1.0 Sender OK\r\n250 2.1.5 Recipient OK\r\n250 2.1.5 Recipient OK\r\n354 End data with <CR><LF>.<CR><LF>\r\n452 4.2.2 Mailbox full\r\n221 2.0.0 Bye\r\n",
+            RepliesAfterHello(connection));
+        Assert.IsEmpty(Inbox(store, Ann));
+        Assert.IsEmpty(Inbox(store, Bob));
+        Assert.AreEqual("Message refused: a recipient's mailbox would pass its quota", log.Notes[^1]);
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_RcptToAnOverQuotaMailbox_IsAcceptedAsAnyKnownRecipient()
+    {
+        var clock = new ManualTimeProvider();
+        var store = QuotaStore(clock);
+
+        var connection = await ServeAsync(store, "EHLO c\r\nMAIL FROM:<a@x>\r\nRCPT TO:<" + Ann + ">\r\nQUIT\r\n", clock, TestContext.CancellationToken);
+
+        Assert.AreEqual("250 2.1.0 Sender OK\r\n250 2.1.5 Recipient OK\r\n221 2.0.0 Bye\r\n", RepliesAfterHello(connection));
     }
 
     [TestMethod]

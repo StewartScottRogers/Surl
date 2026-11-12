@@ -313,7 +313,7 @@ refusal's text prefixed by `<file>:<line>: `, `<file>` as given to `-K` or `conf
 | 15 | A conflict | 2 | `option <name>: <noun> <value> ` then `is also a --user account`, `is not in any --mail-domain`, `needs --mail-domain`, `is also a mailbox`, `is also a --share`/`--bucket`, `names no --share` | yes |
 | 16 | `--mailbox-file` missing or unreadable | 37 | `(37) Could not read mailbox file <file>` | no |
 | 17 | A malformed `--mailbox-file` record | 2 | `(2) Mailbox file <file>, line <n>: ` then a header problem (`expected a header row with address and password`, `unknown column <name>`, `column <name> is given twice`), `not UTF-8`, `a quoted field has no closing quote`, `expected <k> fields`, or row 10's or 14's reason; `<n>` the physical line the record starts on; past 16 MiB or 10000 records `(2) Mailbox file <file> is larger than 16777216 bytes` / `holds more than 10000 mailboxes` | no |
-| 18 | A member naming no account or group, a group cycle (BL-646) | 2 | `(2) option --<option>: member <member> names no account or group`, `(2) option --group: group <name> includes itself` | no |
+| 18 | A member naming no account or group, a group cycle (BL-646) | 2 | `(2) option --<option>: member <member> names no account or group`, `(2) option --group: group <name> includes itself`, `(2) option --group: group everyone is reserved`, `(2) option --<option>: member @everyone is not allowed here` (the last two from ADR-0102 decision 4.2) | no |
 | 19 | A `--share` path missing or not a directory (BL-663) | 37 | `(37) Could not open directory <path> for share <name>` (as ADR-0007's `--directory` row) | no |
 
 Exit codes: 2 (`FailedInit`) for every configuration `surl` cannot act on and 37
@@ -402,3 +402,24 @@ anything that strains a start. Each bound is a constant in `Surl.Cli`, not an op
   option's row by the task that builds it, under this grammar.
 - `surl` deliberately differs from curl where the rows say so; an operator moving a curl config habit
   over meets a refusal naming the line, never silently different behaviour.
+
+## Amendment 1 — the texts BL-993 adds to rows 10 and 15 (2026-11-11)
+
+Decided by Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), in BL-993, where decision 5
+left a refusal's words open:
+
+- **Row 10** gains, for `--shared-folder` and `--mailbox`'s `folders=`: `a folder name is longer than 1024
+  bytes` (the mail store's mailbox-name bound, ADR-0050 decision 3) and `a folder name is not UTF-8` (a lone
+  UTF-16 surrogate, possible only in an argument the operating system hands over); for `--shared-folder`,
+  `shared folder <name> cannot be INBOX`, the name as written, because every owner has an `INBOX` already
+  (ADR-0102 decision 1.6). A folder named twice in one `folders=` list and a target named twice in one
+  `--mail-alias` list are row 14's `member <name> is given twice`, as a scheme twice in `protocols=` is; a
+  target compares as `MailDomainNames` normalises it.
+- **Row 15**'s nouns for an alias and a catch-all are `alias <address>` and `catch-all domain <domain>`:
+  `alias <address> needs --mail-domain`, `alias <address> is not in any --mail-domain`,
+  `alias <address> is also a mailbox` (compared without regard to case, as two mailboxes are),
+  `catch-all domain <domain> needs --mail-domain` and `catch-all domain <domain> is not in any --mail-domain`.
+  A catch-all's target and an alias's targets are not checked here: ADR-0102 decision 1.3 gives them to the
+  mail store at start.
+- `@everyone` in a `--shared-folder` member list is refused at composition (BL-994) with ADR-0102 decision
+  1.6's text, where `--group`'s is, not as the item is read.

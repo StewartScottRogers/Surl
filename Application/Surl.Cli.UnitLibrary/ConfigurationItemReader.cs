@@ -49,6 +49,12 @@ internal static class ConfigurationItemReader
     /// <summary>An option given more than <see cref="MaxOccurrences"/> times (row 13).</summary>
     public const string GivenTooOften = "given more than 10000 times";
 
+    /// <summary>
+    /// <see cref="ReadName"/> as one delegate, made once, so the two places that read a list of names
+    /// share it rather than each testing the compiler's lazily filled cache.
+    /// </summary>
+    private static readonly ReadArgument<string> ReadNameMember = ReadName;
+
     /// <summary>The separator is missing, or a grant has no <c>:</c> (row 10).</summary>
     /// <param name="shape">The option's Argument column.</param>
     /// <returns><c>expected &lt;shape&gt;</c>.</returns>
@@ -138,7 +144,7 @@ internal static class ConfigurationItemReader
     {
         ConfigurationItemValueKind.Text => ReadText(raw, out built.Value),
         ConfigurationItemValueKind.Name => ReadName(raw, out built.Value),
-        ConfigurationItemValueKind.List => ReadList(raw, ReadName, built.List),
+        ConfigurationItemValueKind.List => ReadList(raw, ReadNameMember, built.List),
         ConfigurationItemValueKind.Members => ReadList(raw, ReadMember, built.Members),
         ConfigurationItemValueKind.Grants => ReadList(raw, (string field, out ConfiguredGrant grant) => ReadGrant(shape, field, out grant), built.Grants),
         _ => null,
@@ -186,7 +192,7 @@ internal static class ConfigurationItemReader
 
         var list = new List<string>();
         built.Lists[key] = list;
-        return ReadList(valueRaw, ReadName, list);
+        return ReadList(valueRaw, ReadNameMember, list);
     }
 
     private static string? ReadList<T>(string raw, ReadArgument<T> readMember, List<T> members)

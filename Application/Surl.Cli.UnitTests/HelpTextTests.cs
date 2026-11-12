@@ -20,6 +20,7 @@ public sealed class HelpTextTests
         " limits        Connection, time and size limits",
         " logging       Log levels, tracing and the log file",
         " mail          Mail domains, mailboxes and aliases",
+        " messages      Topics, queues and topic access",
         " mqtt          MQTT and MQTTS protocol",
         " nats          NATS and NATSS protocol (extended)",
         " pop3          POP3 and POP3S protocol",
@@ -30,10 +31,12 @@ public sealed class HelpTextTests
         " smb           SMB and SMBS protocol",
         " smtp          SMTP and SMTPS protocol",
         " socketio      Socket.IO and Socket.IO over TLS protocol (extended)",
+        " socks         SOCKS4, SOCKS4a, SOCKS5 and SOCKS5h proxy protocol",
         " ssh           SSH protocol",
+        " stomp         STOMP and STOMPS protocol (extended)",
         " surl          The command line tool itself",
         " telnet        TELNET protocol",
-        " testing       Loosening options for tests (warned)",
+        " testing       Options for tests; loosening ones warn",
         " tftp          TFTP protocol",
         " tls           TLS certificates and versions",
         " websocket     WebSocket protocol",
@@ -78,27 +81,41 @@ public sealed class HelpTextTests
         "        comma-separated list in any case. For HTTP: negotiate, ntlm, digest,",
         "        basic, bearer and aws-sigv4. For SMTP, IMAP and POP3 logins, each SASL",
         "        mechanism by its name in lower case, as curl's login option AUTH=<mech>",
-        "        names it: gssapi, scram-sha-256, scram-sha-1, ntlm, digest-md5,",
-        "        cram-md5, plain, login, oauthbearer, xoauth2 and external, and apop for",
-        "        POP3's APOP. For SMB: ntlmv1, the only login curl makes in an SMB",
-        "        session setup; accepting ntlm never accepts it. external logs in as the",
-        "        TLS client certificate --cacert verifies, so it is offered only on a",
-        "        connection that sent one. gssapi logs in with a Kerberos ticket checked",
-        "        against the --keytab keys, as the account named for the ticket's client",
-        "        principal, such as user@EXAMPLE.COM, and is offered first; a start that",
-        "        gives it without --keytab is refused (exit code 2). surl refuses a word",
-        "        outside the list as an option badly used (exit code 2). A test uses it",
-        "        to offer one method alone, such as --auth digest for curl's --digest.",
-        "        ntlm and negotiate are not in the default because an NTLM response is",
-        "        built on MD4 and HMAC-MD5 of the password and is open to relay and",
-        "        offline cracking, and Negotiate carries NTLM; ntlmv1 is not because its",
-        "        responses are DES over the bare MD4 hash of the password, open to",
-        "        offline cracking by anyone who sees one; gssapi is not because it needs",
-        "        --keytab; digest-md5 is not because RFC 6331 made it Historic and curl",
-        "        picks it over every other mechanism; apop is not because its MD5",
-        "        construction leaks password characters to anyone who can choose the",
-        "        timestamp it signs. surl warns on every start while --auth is given,",
-        "        from the info log level up, naming the methods it accepts.",
+        "        names it: gssapi, scram-sha-256, scram-sha-512, scram-sha-1, ntlm,",
+        "        digest-md5, cram-md5, plain, login, oauthbearer, xoauth2 and external,",
+        "        and apop for POP3's APOP. For SMB: ntlmv1, the only login curl makes in",
+        "        an SMB session setup; accepting ntlm never accepts it. external logs in",
+        "        as the TLS client certificate --cacert verifies, so it is offered only",
+        "        on a connection that sent one. gssapi logs in with a Kerberos ticket",
+        "        checked against the --keytab keys, as the account named for the",
+        "        ticket's client principal, such as user@EXAMPLE.COM, and is offered",
+        "        first; a start that gives it without --keytab is refused (exit code 2).",
+        "        surl refuses a word outside the list as an option badly used (exit code",
+        "        2). A test uses it to offer one method alone, such as --auth digest for",
+        "        curl's --digest. ntlm and negotiate are not in the default because an",
+        "        NTLM response is built on MD4 and HMAC-MD5 of the password and is open",
+        "        to relay and offline cracking, and Negotiate carries NTLM; ntlmv1 is",
+        "        not because its responses are DES over the bare MD4 hash of the",
+        "        password, open to offline cracking by anyone who sees one; gssapi is",
+        "        not because it needs --keytab; digest-md5 is not because RFC 6331 made",
+        "        it Historic and curl picks it over every other mechanism; apop is not",
+        "        because its MD5 construction leaks password characters to anyone who",
+        "        can choose the timestamp it signs. surl warns on every start while",
+        "        --auth is given, from the info log level up, naming the methods it",
+        "        accepts.",
+    ];
+
+    private static readonly string[] S3PlaintextExplanationLines =
+    [
+        "        Serves every s3 listen URL as plain HTTP/1.1 instead of TLS from the",
+        "        first byte, so it needs no --cert or --self-signed. A test uses it for",
+        "        an S3 client pointed at an http:// custom endpoint",
+        "        (AWS_ENDPOINT_URL=http://...). Requests are still signed and checked",
+        "        with AWS Signature Version 4, which sends no secret, so",
+        "        --allow-plaintext-auth is not needed with it. It is not the default",
+        "        because every S3 endpoint is HTTPS, and anyone who can watch the",
+        "        network reads every object as it is sent. surl warns on every start",
+        "        while it is on, from the info log level up.",
     ];
 
     private static readonly string[] SelfSignedExplanationLines =
@@ -189,8 +206,9 @@ public sealed class HelpTextTests
             "This is not the full help; this menu is split into categories.",
             "Use \"--help category\" to get an overview of all categories, which are:",
             "auth, coap, content, dict, dns, ftp, gopher, http, imap, ldap, limits,",
-            "logging, mail, mqtt, nats, pop3, proxy, rtsp, s3, security, smb, smtp,",
-            "socketio, ssh, surl, telnet, testing, tftp, tls, websocket, webtransport, xmpp.",
+            "logging, mail, messages, mqtt, nats, pop3, proxy, rtsp, s3, security, smb,",
+            "smtp, socketio, socks, ssh, stomp, surl, telnet, testing, tftp, tls,",
+            "websocket, webtransport, xmpp.",
             "Use \"--help all\" to list all options",
             "Use \"--help [option]\" to view documentation for a given option");
     }
@@ -215,6 +233,7 @@ public sealed class HelpTextTests
             Row(38, "    --allow-zone-transfer", "Answer DNS zone transfers (AXFR, IXFR)"),
             Row(38, "    --auth <methods>", "Authentication methods accepted"),
             Row(38, "    --authorized-keys <user:file>", "SSH public keys a user may use"),
+            Row(38, "    --bucket <name>=<path>", "Map a bucket to a path (repeatable)"),
             Row(38, "    --cacert <file>", "CA certificates for client certs"),
             Row(38, "    --cert <file>", "Server certificate file"),
             Row(38, "    --cert-type <type>", "Format of --cert: PEM, DER or P12"),
@@ -222,6 +241,7 @@ public sealed class HelpTextTests
             Row(38, "    --control <listen URL>", "Serve the test control endpoint"),
             Row(38, "    --control-token-file <file>", "Bearer token file for --control"),
             Row(38, "    --directory <directory>", "Data directory, else in memory"),
+            Row(38, "    --dns-transport <list>", "DNS transports to serve"),
             Row(38, "    --fault <kind>[;<key>=<value>]", "Misbehave on purpose (repeatable)"),
             Row(38, "    --follow-symlinks", "Follow links that stay in the root"),
             Row(38, "    --group <name>=<member>,...", "Name a group of accounts (repeatable)"),
@@ -237,6 +257,8 @@ public sealed class HelpTextTests
             Row(38, "    --list-directories", "Answer directory listings"),
             Row(38, "    --log-file <file>", "Append the log to <file>"),
             Row(38, "    --log-level <level>", "Set the log level"),
+            Row(38, "    --mail-alias <alias>=<to>,...", "Forward an address (repeatable)"),
+            Row(38, "    --mail-catch-all <domain>=<to>", "Catch unknown addresses (repeatable)"),
             Row(38, "    --mail-domain <domain>", "Serve mail for a domain (repeatable)"),
             Row(38, "    --mailbox <address>:<password>[;...]", "Add a mailbox and login (repeatable)"),
             Row(38, "    --mailbox-file <file>", "Read mailboxes from CSV (repeatable)"),
@@ -251,20 +273,35 @@ public sealed class HelpTextTests
             Row(38, "    --pass <phrase>", "Passphrase for --key and --hostkey"),
             Row(38, "-x, --proxy <listen URL>", "Add a proxy listener (repeatable)"),
             Row(38, "    --proxy-allow-origin <address>", "Let the proxy reach more origins"),
+            Row(38, "    --proxy-auth <methods>", "Methods the proxy accepts"),
             Row(38, "-U, --proxy-user <user:password>", "Add a proxy account (repeatable)"),
             Row(38, "    --proxy-user-file <file>", "Read proxy accounts from a file"),
+            Row(38, "    --queue <name>[;durable]", "Create a named message queue (repeatable)"),
+            Row(38, "    --random-seed <n>", "Seed non-secret identifiers"),
+            Row(38, "    --s3-plaintext", "Serve s3 as plain HTTP (warns)"),
             Row(38, "    --self-signed", "Throwaway certificate (warns)"),
             Row(38, "    --serve-dot-files", "Serve names that start with a dot"),
+            Row(38, "    --share <name>=<path>[;...]", "Serve a folder as a share (repeatable)"),
+            Row(38, "    --share-access <share>=<member>:<r/rw>,...", "Share grants (repeatable)"),
+            Row(38, "    --shared-folder <name>=<who>,...", "Share an IMAP folder (repeatable)"),
             Row(38, "-S, --show-error", "Show error even when -s is used"),
             Row(38, "-s, --silent", "Silent mode"),
+            Row(38, "    --srp-groups <file>", "TLS-SRP groups, GnuTLS tpasswd.conf"),
+            Row(38, "    --srp-verifiers <file>", "TLS-SRP accounts, GnuTLS tpasswd file"),
             Row(38, "    --ssh-ciphers <names>", "Offer only these SSH ciphers"),
             Row(38, "    --ssh-macs <names>", "Offer only these SSH MACs"),
             Row(38, "    --throwaway-hostkey", "Throwaway SSH host key (warns)"),
             Row(38, "    --tls-max <version>", "Highest TLS version accepted"),
+            Row(38, "    --tlsauthtype <type>", "Serve TLS-SRP: SRP is the only type"),
+            Row(38, "    --tlspassword <password>", "TLS-SRP password (needs --tlsuser)"),
+            Row(38, "    --tlsuser <name>", "TLS-SRP user name (needs --tlspassword)"),
             Row(38, "    --tlsv1.0", "Accept TLS 1.0 or later"),
             Row(38, "    --tlsv1.1", "Accept TLS 1.1 or later"),
             Row(38, "    --tlsv1.2", "Accept TLS 1.2 or later (default)"),
             Row(38, "    --tlsv1.3", "Accept TLS 1.3 or later"),
+            Row(38, "    --topic <filter>[;...]", "Declare a message topic (repeatable)"),
+            Row(38, "    --topic-access <filter>=<member>:<right>,...", "Topic grants (repeatable)"),
+            Row(38, "    --topic-map <scheme>:<name>=<scheme>:<name>", "Alias a topic (repeatable)"),
             Row(38, "    --trace <file>", "Write a debug trace to <file>"),
             Row(38, "    --trace-ascii <file>", "Like --trace, but without hex"),
             Row(38, "    --trace-time", "Add time stamps to log lines"),
@@ -310,8 +347,13 @@ public sealed class HelpTextTests
             Row(35, "    --keytab <file>", "Read Kerberos service keys from a keytab file"),
             Row(38, "    --mailbox <address>:<password>[;...]", "Add a mailbox and login (repeatable)"),
             Row(38, "    --mailbox-file <file>", "Read mailboxes from CSV (repeatable)"),
+            Row(38, "    --proxy-auth <methods>", "Methods the proxy accepts"),
             Row(38, "-U, --proxy-user <user:password>", "Add a proxy account (repeatable)"),
             Row(38, "    --proxy-user-file <file>", "Read proxy accounts from a file"),
+            Row(38, "    --srp-groups <file>", "TLS-SRP groups, GnuTLS tpasswd.conf"),
+            Row(38, "    --srp-verifiers <file>", "TLS-SRP accounts, GnuTLS tpasswd file"),
+            Row(38, "    --tlspassword <password>", "TLS-SRP password (needs --tlsuser)"),
+            Row(38, "    --tlsuser <name>", "TLS-SRP user name (needs --tlspassword)"),
             Row(38, "-u, --user <user:password>", "Add an account (repeatable)"),
             Row(38, "    --user-file <file>", "Read accounts from a file"));
 
@@ -320,13 +362,15 @@ public sealed class HelpTextTests
         AssertOutput(
             HelpText.Answer("testing"),
             [
-                "testing: Loosening options for tests (warned)",
+                "testing: Options for tests; loosening ones warn",
                 Row(38, "    --allow-anonymous", "Accept any login, or none (warns)"),
                 Row(38, "    --allow-plaintext-auth", "Accept passwords in clear (warns)"),
                 Row(38, "    --auth <methods>", "Authentication methods accepted"),
                 Row(38, "    --control <listen URL>", "Serve the test control endpoint"),
                 Row(38, "    --control-token-file <file>", "Bearer token file for --control"),
                 Row(38, "    --fault <kind>[;<key>=<value>]", "Misbehave on purpose (repeatable)"),
+                Row(38, "    --random-seed <n>", "Seed non-secret identifiers"),
+                Row(38, "    --s3-plaintext", "Serve s3 as plain HTTP (warns)"),
                 Row(38, "    --self-signed", "Throwaway certificate (warns)"),
                 Row(38, "    --throwaway-hostkey", "Throwaway SSH host key (warns)"),
                 "",
@@ -348,6 +392,9 @@ public sealed class HelpTextTests
                 "    --fault <kind>[;<key>=<value>]",
                 .. FaultExplanationLines,
                 "",
+                "    --s3-plaintext",
+                .. S3PlaintextExplanationLines,
+                "",
                 "    --self-signed",
                 .. SelfSignedExplanationLines,
                 "",
@@ -361,11 +408,14 @@ public sealed class HelpTextTests
         AssertOutput(
             HelpText.Answer("content"),
             "content: Served files and the data directory",
-            Row(31, "    --allow-uploads", "Accept uploads into served files"),
-            Row(31, "    --directory <directory>", "Data directory, else in memory"),
-            Row(31, "    --follow-symlinks", "Follow links that stay in the root"),
-            Row(31, "    --list-directories", "Answer directory listings"),
-            Row(31, "    --serve-dot-files", "Serve names that start with a dot"));
+            Row(45, "    --allow-uploads", "Accept uploads into served files"),
+            Row(45, "    --bucket <name>=<path>", "Map a bucket to a path (repeatable)"),
+            Row(45, "    --directory <directory>", "Data directory, else in memory"),
+            Row(45, "    --follow-symlinks", "Follow links that stay in the root"),
+            Row(45, "    --list-directories", "Answer directory listings"),
+            Row(45, "    --serve-dot-files", "Serve names that start with a dot"),
+            Row(42, "    --share <name>=<path>[;...]", "Serve a folder as a share (repeatable)"),
+            Row(45, "    --share-access <share>=<member>:<r/rw>,...", "Share grants (repeatable)"));
 
     [TestMethod]
     public void Answer_Dict_ListsItsOptions() =>
@@ -489,7 +539,7 @@ public sealed class HelpTextTests
             "        Add an account (repeatable). Default: no accounts.",
             "",
             "        Categories: auth, ftp, http, imap, ldap, mqtt, nats, pop3, rtsp, s3,",
-            "        smb, smtp, ssh, websocket.",
+            "        smb, smtp, ssh, stomp, websocket.",
             "");
 
     [TestMethod]
@@ -500,7 +550,7 @@ public sealed class HelpTextTests
             "        Read accounts from a file. Default: none.",
             "",
             "        Categories: auth, ftp, http, imap, ldap, mqtt, nats, pop3, rtsp, s3,",
-            "        smb, smtp, ssh, websocket.",
+            "        smb, smtp, ssh, stomp, websocket.",
             "");
 
     [TestMethod]
@@ -514,7 +564,7 @@ public sealed class HelpTextTests
                 .. AllowAnonymousExplanationLines,
                 "",
                 "        Categories: auth, ftp, http, imap, ldap, mqtt, nats, pop3, rtsp, s3,",
-                "        security, smb, smtp, ssh, testing, websocket.",
+                "        security, smb, smtp, ssh, stomp, testing, websocket.",
                 "",
             ]);
 
@@ -531,7 +581,7 @@ public sealed class HelpTextTests
                 .. AllowPlaintextAuthExplanationLines,
                 "",
                 "        Categories: auth, ftp, http, imap, ldap, mqtt, nats, pop3, rtsp,",
-                "        security, smtp, testing, websocket.",
+                "        security, smtp, stomp, testing, websocket.",
                 "",
             ]);
 
@@ -761,6 +811,7 @@ public sealed class HelpTextTests
             Row(38, "    --follow-symlinks", "Follow links that stay in the root"),
             Row(38, "    --list-directories", "Answer directory listings"),
             Row(38, "    --proxy-allow-origin <address>", "Let the proxy reach more origins"),
+            Row(38, "    --s3-plaintext", "Serve s3 as plain HTTP (warns)"),
             Row(38, "    --self-signed", "Throwaway certificate (warns)"),
             Row(38, "    --serve-dot-files", "Serve names that start with a dot"),
             Row(38, "    --throwaway-hostkey", "Throwaway SSH host key (warns)"),
@@ -806,18 +857,24 @@ public sealed class HelpTextTests
         AssertOutput(
             HelpText.Answer(subject),
             "tls: TLS certificates and versions",
-            "     --cacert <file>      CA certificates for client certs",
-            "     --cert <file>        Server certificate file",
-            "     --cert-type <type>   Format of --cert: PEM, DER or P12",
-            "     --key <file>         Private key for --cert",
-            "     --key-type <type>    Format of --key: PEM or DER",
-            "     --pass <phrase>      Passphrase for --key and --hostkey",
-            "     --self-signed        Throwaway certificate (warns)",
-            "     --tls-max <version>  Highest TLS version accepted",
-            "     --tlsv1.0            Accept TLS 1.0 or later",
-            "     --tlsv1.1            Accept TLS 1.1 or later",
-            "     --tlsv1.2            Accept TLS 1.2 or later (default)",
-            "     --tlsv1.3            Accept TLS 1.3 or later");
+            "     --cacert <file>           CA certificates for client certs",
+            "     --cert <file>             Server certificate file",
+            "     --cert-type <type>        Format of --cert: PEM, DER or P12",
+            "     --dns-transport <list>    DNS transports to serve",
+            "     --key <file>              Private key for --cert",
+            "     --key-type <type>         Format of --key: PEM or DER",
+            "     --pass <phrase>           Passphrase for --key and --hostkey",
+            "     --self-signed             Throwaway certificate (warns)",
+            "     --srp-groups <file>       TLS-SRP groups, GnuTLS tpasswd.conf",
+            "     --srp-verifiers <file>    TLS-SRP accounts, GnuTLS tpasswd file",
+            "     --tls-max <version>       Highest TLS version accepted",
+            "     --tlsauthtype <type>      Serve TLS-SRP: SRP is the only type",
+            "     --tlspassword <password>  TLS-SRP password (needs --tlsuser)",
+            "     --tlsuser <name>          TLS-SRP user name (needs --tlspassword)",
+            "     --tlsv1.0                 Accept TLS 1.0 or later",
+            "     --tlsv1.1                 Accept TLS 1.1 or later",
+            "     --tlsv1.2                 Accept TLS 1.2 or later (default)",
+            "     --tlsv1.3                 Accept TLS 1.3 or later");
 
     // --help <option>.
 
@@ -828,7 +885,8 @@ public sealed class HelpTextTests
             "    --max-line <bytes>",
             "        Longest command line accepted. Default: 8192.",
             "",
-            "        Categories: dict, ftp, gopher, imap, limits, nats, pop3, smtp, telnet.",
+            "        Categories: dict, ftp, gopher, imap, limits, nats, pop3, smtp, stomp,",
+            "        telnet.",
             "");
 
     [TestMethod]
@@ -916,7 +974,7 @@ public sealed class HelpTextTests
     {
         var text = HelpText.Answer("testing").Output;
 
-        foreach (var looseningOption in new[] { "--allow-anonymous", "--allow-plaintext-auth", "--auth <methods>", "--self-signed", "--throwaway-hostkey" })
+        foreach (var looseningOption in new[] { "--allow-anonymous", "--allow-plaintext-auth", "--auth <methods>", "--s3-plaintext", "--self-signed", "--throwaway-hostkey" })
         {
             StringAssert.Contains(text, NewLine + "    " + looseningOption + NewLine, looseningOption);
         }

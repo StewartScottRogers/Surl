@@ -22,6 +22,11 @@ internal sealed class AzureStagedBlocks(DateTimeOffset lastTouched) : IAzureStag
     /// </summary>
     public const int MaxCommittedBlocks = 50000;
 
+    /// <summary>
+    /// What every blob's staging key starts with, before its container and name.
+    /// </summary>
+    public const string KeyPrefix = "blocks ";
+
     private readonly List<AzureBlock> uncommitted = [];
     private readonly Dictionary<string, int> uncommittedPositions = new(StringComparer.Ordinal);
     private List<AzureBlock> committed = [];
@@ -51,7 +56,7 @@ internal sealed class AzureStagedBlocks(DateTimeOffset lastTouched) : IAzureStag
     /// </summary>
     /// <param name="target">The blob.</param>
     /// <returns>The key.</returns>
-    public static string KeyOf(AzureBlobTarget target) => "blocks " + AzurePathUpdate.KeyOf(target);
+    public static string KeyOf(AzureBlobTarget target) => KeyPrefix + AzurePathUpdate.KeyOf(target);
 
     /// <summary>
     /// Begins the blocks of the blob at <paramref name="key"/> in <paramref name="staging"/>, whose

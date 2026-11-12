@@ -20,6 +20,7 @@ internal sealed class GrpcResponseWriter(Http2RequestStream stream, string conte
     /// <returns>A task that completes when the reply is written.</returns>
     public async Task WriteReplyAsync(ReadOnlyMemory<byte> payload)
     {
+        IsWritingReply = true;
         if (!HasWrittenHeaders)
         {
             HasWrittenHeaders = true;
@@ -29,7 +30,11 @@ internal sealed class GrpcResponseWriter(Http2RequestStream stream, string conte
         }
 
         await stream.WriteDataAsync(LengthPrefixedMessage.WriteUncompressed(payload.Span), endStream: false);
+        IsWritingReply = false;
     }
+
+    /// <summary>Whether a reply was being written when the call was cut off, so part of it may be on the wire.</summary>
+    public bool IsWritingReply { get; private set; }
 
     /// <summary>
     /// Ends the call with <paramref name="status" />: Trailers after a reply, else Trailers-Only, either
@@ -38,7 +43,20 @@ internal sealed class GrpcResponseWriter(Http2RequestStream stream, string conte
     /// <param name="status">The status; its <c>grpc-message</c> is sent when its text is not empty.</param>
     /// <param name="metadata">Metadata sent after the status fields.</param>
     /// <returns>A task that completes when the block is written.</returns>
-    public Task FinishAsync(GrpcStatus status, IReadOnlyList<KeyValuePair<string, string>> metadata)
+    public Task FinishAsync(GrpcStatus status, IReadOnlyList<KeyValuePair<string, string>> metadata) =>
+        stream.WriteHeadersAsync(EndFields(status, metadata), endStream: true);
+
+    /// <summary>
+    /// Ends a call still open when the exchange was cancelled (ADR-0116 decision 4): <c>RST_STREAM</c>
+    /// <c>CANCEL</c> when a reply was cut off mid-write, otherwise <see cref="GrpcStatus.ServerShuttingDown" />
+    /// as Trailers or Trailers-Only, within the farewell's own write deadline.
+    /// </summary>
+    /// <returns>A task that completes when the end is written.</returns>
+    public Task FinishAtShutdownAsync() => IsWritingReply
+        ? stream.WriteFarewellResetAsync(Http2ErrorCode.Cancel)
+        : stream.WriteFarewellTrailersAsync(EndFields(GrpcStatus.ServerShuttingDown, []));
+
+    private List<HpackHeaderField> EndFields(GrpcStatus status, IReadOnlyList<KeyValuePair<string, string>> metadata)
     {
         var fields = new List<HpackHeaderField>();
         if (!HasWrittenHeaders)
@@ -59,6 +77,6 @@ internal sealed class GrpcResponseWriter(Http2RequestStream stream, string conte
         }
 
         fields.AddRange(metadata.Select(field => new HpackHeaderField(field.Key, field.Value)));
-        return stream.WriteHeadersAsync(fields, endStream: true);
+        return fields;
     }
 }

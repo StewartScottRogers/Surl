@@ -21,9 +21,19 @@ public static class DnsTcpResponseWriter
     public const int LengthPrefixLength = 2;
 
     /// <summary>Returns the length prefix and the message that answers with <paramref name="response"/>, as one buffer.</summary>
-    public static byte[] Write(DnsResponse response)
+    public static byte[] Write(DnsResponse response) =>
+        Frame(DnsResponseWriter.WriteWithin(response, MaxMessageLength));
+
+    /// <summary>
+    /// Returns the length prefix and the message that answers with <paramref name="response"/>, padded as
+    /// <see cref="DnsResponseWriter.WritePaddedWithin"/> says, as one buffer: the writer for the encrypted
+    /// stream transports, DNS over QUIC and DNS over TLS (RFC 9250 section 5.4, RFC 8467).
+    /// </summary>
+    public static byte[] WritePadded(DnsResponse response) =>
+        Frame(DnsResponseWriter.WritePaddedWithin(response, MaxMessageLength));
+
+    private static byte[] Frame(byte[] message)
     {
-        var message = DnsResponseWriter.WriteWithin(response, MaxMessageLength);
         var frame = new byte[LengthPrefixLength + message.Length];
 
         BinaryPrimitives.WriteUInt16BigEndian(frame, (ushort)message.Length);

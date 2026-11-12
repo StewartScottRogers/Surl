@@ -373,3 +373,64 @@ ignored, and `close_notify` or the end of the connection ends the stream.
 **The returned stream** (`TlsSrpStream`) is asynchronous only. Its synchronous `Read` and `Write`
 throw `NotSupportedException`, and `DisposeAsync` sends `close_notify` before it closes the
 connection. BL-567's seam in `Surl.Networking` reads and writes it asynchronously.
+
+## Amendment 2 (2026-11-11): the command line as BL-567 built it
+
+Decided by Claude under Stewart's delegation, in BL-567.
+
+- **What turns TLS-SRP on.** Any of `--tlsauthtype`, `--tlsuser`, `--tlspassword`, `--srp-verifiers`
+  and `--srp-groups` (`SurlCommandLine.ServesTlsSrp`). The partner checks run first, so in practice it
+  is `--tlsauthtype SRP`, `--tlsuser` with `--tlspassword` (curl's implied `SRP`), or the two files.
+  Every option is refused with `FailedInit` (2) and the try-help line, naming the option:
+  `option --tlsuser: needs --tlspassword` (and each reverse, and the same for the files),
+  `option --tlsauthtype: needs --tlsuser and --tlspassword, or --srp-verifiers and --srp-groups`,
+  `option <first TLS-SRP option>: needs a listen URL that uses TLS`, and
+  `option <first TLS-SRP option>: cannot be used with <option>`.
+- **A listen URL that uses TLS** is one TLS from the first byte (`ListenUrl.IsImplicitTls`, which
+  covers an `https` proxy), or one of the schemes that upgrade: `ftp`, `imap`, `ldap`, `natss`,
+  `pop3`, `smtp` and `xmpp`. Under TLS-SRP those servers offer their upgrade as they do with a
+  certificate (`ServerTlsComposition.IsTlsUpgradeAvailable`).
+- **Refused beside TLS-SRP**, in this order: `--http3`, `--cacert`, `--tls-max` below 1.2 (decision
+  6), and two more: `--tlsv1.3`, because TLS-SRP is TLS 1.2 only (decision 2) and a lowest version of
+  1.3 leaves nothing to serve; and `--cert` and `--self-signed`, because decision 2's signed suites
+  are not built (Amendment 1, BL-911). Serving the unsigned suites while ignoring a certificate the
+  user gave would say one thing and do another; BL-911 lifts this refusal when it adds them.
+- **QUIC and DTLS still need a certificate.** TLS-SRP secures TCP listeners only, so a
+  `webtransport` listen URL, or a `coaps` one with no account, is still refused `(58) ... needs a
+  certificate`.
+- **Start-time failures** (decision 6), after `surl: `: a file that cannot be read,
+  `(37) Could not read the --srp-verifiers file '<path>': <reason>` (or `--srp-groups`), where a
+  malformed line's reason is `line <n>: <what is wrong>`; a user in both sources or twice in the
+  file, `(2) The TLS-SRP user '<name>' is given twice`. The groups file is read before the verifiers
+  file, since the verifiers name its indexes.
+- **One random source per process.** `ServerTlsComposition` makes one `RandomNumberGenerator`, which
+  draws the `--tlsuser` salt (again while its first byte is zero, Amendment 1), the simulation
+  secret, and every handshake's server random, `b` and IVs; it is disposed with the composition.
+- **ALPN** is `Surl.TlsSrp`'s own rule (`http/1.1` when offered), whatever the listener's scheme: the
+  listener's ALPN list is not consulted. curl offers ALPN only for HTTP schemes, so nothing else
+  sees it.
+- **Not yet:** the verbose notes decision 4 asks for (a group outside Appendix A; which of user and
+  password was wrong) - filed as follow-up work, and built by BL-1052 (Amendment 3).
+
+## Amendment 3 (2026-11-11): decision 4's verbose notes as BL-1052 built them
+
+Decided by Claude under Stewart's delegation, in BL-1052.
+
+- **A group outside Appendix A** is noted once per group at start, from `-v` up, unstamped, after the
+  `--self-signed` lines: `* --srp-groups: the group with index <index> is not one of RFC 5054
+  Appendix A's; OpenSSL's client refuses it`, in the file's order (`ServerTlsComposition.WriteStartLines`
+  over `SrpGroupIndexesOutsideRfc5054`, which `TlsSrpAccountsComposition` fills with
+  `SrpGroup.IsRfc5054Group`). Every group in the file is judged, used by a verifier or not: an unused
+  odd group is still a sign the files were made for another client. Below `-v` nothing is written;
+  the start is not refused, since decision 4 accepts any group.
+- **Which login failed** is said in the `TlsAlertException`'s message, which `ServerTlsHandshake`
+  carries into `TlsHandshakeException` and the serving engine already logs:
+  `The TLS-SRP login failed: unknown user '<name>'. <record failure>` for a simulated account, and
+  `The TLS-SRP login failed: wrong password for '<name>'. <record failure>` for a known one. It is
+  decided where the account is known, in `Surl.TlsSrp`'s `TlsSrpServer`, when the client's `Finished`
+  record fails its MAC (`bad_record_mac`): the keys then differ, and nothing but the verifier makes
+  them differ for a client that got that far. Any other alert there keeps its own message. The alert
+  sent is `bad_record_mac` either way, so the bytes on the wire are unchanged (pinned upstream curl's
+  `CurlTlsSrpJsmithBadpass` and `CurlTlsSrpBaduserBadpass` replays in `Surl.Networking.UnitTests`).
+  Naming the user in the server's own log is no leak: the log is the operator's, and the user name is
+  what the client sent in clear in its ClientHello.

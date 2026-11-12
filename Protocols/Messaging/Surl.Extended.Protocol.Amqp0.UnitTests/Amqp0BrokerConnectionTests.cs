@@ -113,6 +113,27 @@ public sealed partial class Amqp0BrokerConnectionTests
     }
 
     [TestMethod]
+    public async Task QueueDeclare_EmptyName_SameSeededIdentifiers_GeneratesTheSameName()
+    {
+        var first = await ServeLoggedAsync(NewBroker(NewBus()), DefaultTuneOk, new UnitTestSeededIdentifierRandom(7), QueueDeclare(1, string.Empty));
+        var second = await ServeLoggedAsync(NewBroker(NewBus()), DefaultTuneOk, new UnitTestSeededIdentifierRandom(7), QueueDeclare(1, string.Empty));
+        var other = await ServeLoggedAsync(NewBroker(NewBus()), DefaultTuneOk, new UnitTestSeededIdentifierRandom(8), QueueDeclare(1, string.Empty));
+
+        CollectionAssert.AreEqual(first.Written, second.Written);
+        CollectionAssert.AreNotEqual(first.Written, other.Written);
+    }
+
+    [TestMethod]
+    public async Task Consume_EmptyTag_SameSeededIdentifiers_GeneratesTheSameTag()
+    {
+        var first = await ServeLoggedAsync(NewBroker(NewBus()), DefaultTuneOk, new UnitTestSeededIdentifierRandom(7), QueueDeclare(1, "q"), Consume(1, "q", string.Empty));
+        var second = await ServeLoggedAsync(NewBroker(NewBus()), DefaultTuneOk, new UnitTestSeededIdentifierRandom(7), QueueDeclare(1, "q"), Consume(1, "q", string.Empty));
+
+        CollectionAssert.AreEqual(first.Written, second.Written);
+        Assert.Contains("amq.ctag-", Encoding.ASCII.GetString(first.Written));
+    }
+
+    [TestMethod]
     public async Task Consume_ThreeMessages_AreDeliveredInPublishOrderAfterConsumeOk()
     {
         var written = await ServeAsync(
@@ -217,13 +238,16 @@ public sealed partial class Amqp0BrokerConnectionTests
         return written;
     }
 
-    private async Task<(byte[] Written, RecordingExchangeLog Log)> ServeLoggedAsync(Amqp0Broker broker, byte[] tuneOk, params byte[][] chunks)
+    private async Task<(byte[] Written, RecordingExchangeLog Log)> ServeLoggedAsync(Amqp0Broker broker, byte[] tuneOk, params byte[][] chunks) =>
+        await ServeLoggedAsync(broker, tuneOk, null, chunks);
+
+    private async Task<(byte[] Written, RecordingExchangeLog Log)> ServeLoggedAsync(Amqp0Broker broker, byte[] tuneOk, IIdentifierRandom? identifiers, params byte[][] chunks)
     {
         var log = new RecordingExchangeLog();
         byte[][] all = [ProtocolHeader, PlainStartOk, tuneOk, Open("/"), ChannelOpen(1), .. chunks, Close()];
         var connection = new InMemoryConnection(all.Select(chunk => (ReadOnlyMemory<byte>)chunk));
 
-        await broker.ServeAsync(connection, Context(log));
+        await broker.ServeAsync(connection, identifiers is null ? Context(log) : Context(log) with { Identifiers = identifiers });
 
         return (connection.WrittenBytes, log);
     }

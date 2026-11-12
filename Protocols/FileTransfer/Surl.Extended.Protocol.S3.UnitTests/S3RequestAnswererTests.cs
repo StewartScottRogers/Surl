@@ -1,4 +1,5 @@
 using Surl.Content;
+using Surl.Protocol.Abstractions;
 
 namespace Surl.Extended.Protocol.S3;
 
@@ -69,5 +70,34 @@ public sealed class S3RequestAnswererTests
         await harness.SendAsync("PATCH", "/photos/a.txt");
 
         CollectionAssert.Contains(harness.Log.Notes.ToArray(), "PATCH is no operation the S3 server serves; answered 501 NotImplemented.");
+    }
+
+    [TestMethod]
+    public async Task RequestId_SameSeededIdentifiers_IsTheSameEveryRun()
+    {
+        var first = new S3ServerHarness { Seed = 7 };
+        var second = new S3ServerHarness { Seed = 7 };
+        var other = new S3ServerHarness { Seed = 8 };
+
+        var firstResponse = await first.SendAsync("PATCH", "/photos/a.txt");
+        var secondResponse = await second.SendAsync("PATCH", "/photos/a.txt");
+        var otherResponse = await other.SendAsync("PATCH", "/photos/a.txt");
+
+        Assert.AreEqual(S3ServerHarness.RequestIdOf(firstResponse), S3ServerHarness.RequestIdOf(secondResponse));
+        Assert.AreNotEqual(S3ServerHarness.RequestIdOf(firstResponse), S3ServerHarness.RequestIdOf(otherResponse));
+    }
+
+    [TestMethod]
+    public async Task RefuseHeadNotRead_SameSeededIdentifiers_IsTheSameEveryRun()
+    {
+        var first = new S3ServerHarness { Seed = 7 };
+        var second = new S3ServerHarness { Seed = 7 };
+        var limits = ExchangeLimits.Default with { MaxRequestHeadBytes = 64 };
+        var request = $"GET /photos/a.txt HTTP/1.1\r\nHost: s3.test\r\nX-Padding: {new string('p', 100)}\r\n\r\n";
+
+        var firstResponse = await first.SendRawAsync(request, limits);
+        var secondResponse = await second.SendRawAsync(request, limits);
+
+        Assert.AreEqual(S3ServerHarness.RequestIdOf(firstResponse), S3ServerHarness.RequestIdOf(secondResponse));
     }
 }

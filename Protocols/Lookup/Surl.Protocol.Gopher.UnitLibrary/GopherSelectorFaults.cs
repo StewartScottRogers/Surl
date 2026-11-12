@@ -18,23 +18,35 @@ namespace Surl.Protocol.Gopher;
 internal static class GopherSelectorFaults
 {
     /// <summary>
-    /// Finds the chosen error text for a selector, publishing its <see cref="FaultAppliedEvent"/>.
+    /// Finds and applies the fault for a selector: a delay holds it, a drop aborts the connection, and
+    /// each publishes its <see cref="FaultAppliedEvent"/>.
     /// </summary>
     /// <param name="context">The exchange: its fault plan, event stream and listen URL.</param>
+    /// <param name="connection">The connection a drop aborts.</param>
     /// <param name="requestPath">The selector as a request path (<c>/a</c>).</param>
-    /// <returns>The error item's text, or <see langword="null"/> to answer as usual.</returns>
-    public static async ValueTask<string?> FindErrorAsync(ExchangeContext context, string requestPath)
+    /// <returns>
+    /// The <see cref="FaultKind.Drop"/> rule (write nothing) or the fitting <see cref="FaultKind.Error"/>
+    /// rule (write its error menu), or <see langword="null"/> to answer as usual.
+    /// </returns>
+    public static async ValueTask<FaultRule?> FindAndApplyAsync(
+        ExchangeContext context, IConnection connection, string requestPath)
     {
         var point = new FaultPoint(FaultStage.Command)
         {
             ExchangeId = context.ExchangeId,
-            ListenUrl = FormatListenUrl(context.ListenUrl),
+            ListenUrl = ReportedListenUrl.Format(context.ListenUrl),
             Scheme = context.Scheme,
             Path = requestPath,
         };
-        if (await context.Faults.FindAsync(point, context.CancellationToken) is not { } rule)
+        var rule = await CommandStageFaults.FindAndApplyAsync(context, connection, point, requestPath);
+        if (rule is null or { Kind: FaultKind.Delay })
         {
             return null;
+        }
+
+        if (rule.Kind == FaultKind.Drop)
+        {
+            return rule;
         }
 
         if (rule.Kind != FaultKind.Error || !Fits(rule.Reply))
@@ -48,7 +60,7 @@ internal static class GopherSelectorFaults
         context.Log.Note($"The selector was answered with the chosen error of fault rule {rule.Id}.");
         context.Events.Publish(new FaultAppliedEvent(rule.Id, FaultKind.Error, FaultStage.Command, context.ExchangeId, requestPath));
 
-        return rule.Reply;
+        return rule;
     }
 
     /// <summary>
@@ -67,19 +79,4 @@ internal static class GopherSelectorFaults
     /// <param name="text">The item's display string, UTF-8 encoded.</param>
     /// <returns><c>3&lt;text&gt;\t\terror.host\t1\r\n.\r\n</c>.</returns>
     public static byte[] ErrorMenu(string text) => Encoding.UTF8.GetBytes($"3{text}\t\terror.host\t1\r\n.\r\n");
-
-    /// <summary>
-    /// The listen URL as the fault plan matches it, as the serving engine names it: the scheme, the
-    /// host (an IPv6 address in brackets, its zone's <c>%</c> encoded) and the bound port.
-    /// </summary>
-    /// <param name="listenUrl">The exchange's listen URL.</param>
-    /// <returns><c>gopher://127.0.0.1:70/</c>.</returns>
-    public static string FormatListenUrl(ListenUrl listenUrl)
-    {
-        var host = listenUrl.Host.Contains(':', StringComparison.Ordinal)
-            ? "[" + listenUrl.Host.Replace("%", "%25", StringComparison.Ordinal) + "]"
-            : listenUrl.Host;
-
-        return $"{listenUrl.Scheme}://{host}:{listenUrl.BoundPort ?? listenUrl.Port}/";
-    }
 }

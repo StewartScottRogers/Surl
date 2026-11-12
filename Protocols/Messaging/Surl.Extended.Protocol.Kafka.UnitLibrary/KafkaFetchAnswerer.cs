@@ -70,7 +70,8 @@ public sealed class KafkaFetchAnswerer(MessageBus.MessageBus bus, KafkaCompressi
         }
 
         var maxBytes = context.Limits.MaxMessageBytes > 0 ? Math.Min(fetch.MaxBytes, context.Limits.MaxMessageBytes) : fetch.MaxBytes;
-        var read = new FetchRead(bus, fetch, maxBytes, servedCompression, request.Connection.AccountName, context.Scheme);
+        var chosen = await KafkaChosenErrorFault.FindAsync(ApiKey, fetch.Topics.Select(topic => topic.Name), request.Connection.AccountName, context);
+        var read = new FetchRead(bus, fetch, maxBytes, servedCompression, request.Connection.AccountName, context.Scheme, chosen);
         var answered = read.Answer();
         var wait = Math.Min(fetch.MaxWaitMilliseconds, MaxWaitMilliseconds);
         if (wait > 0 && IsShort(answered, fetch.MinBytes))
@@ -194,7 +195,8 @@ public sealed class KafkaFetchAnswerer(MessageBus.MessageBus bus, KafkaCompressi
     private sealed record TopicData(string Name, IReadOnlyList<PartitionData> Partitions);
 
     // The answer to one Fetch, read from the bus as often as the wait needs.
-    private sealed class FetchRead(MessageBus.MessageBus bus, FetchRequest fetch, long maxBytes, KafkaCompressionCodec codec, string? account, string scheme)
+    private sealed class FetchRead(
+        MessageBus.MessageBus bus, FetchRequest fetch, long maxBytes, KafkaCompressionCodec codec, string? account, string scheme, Dictionary<string, KafkaErrorCode> chosen)
     {
         // The canonical topics the request may read, which the wait listens on.
         public IEnumerable<string> Topics => fetch.Topics
@@ -227,6 +229,12 @@ public sealed class KafkaFetchAnswerer(MessageBus.MessageBus bus, KafkaCompressi
         // takeFirstWhole holds until some partition of the response has returned records.
         private PartitionAnswer AnswerPartition(string name, PartitionData partition, long remaining, bool takeFirstWhole)
         {
+            // A topic a chosen-error rule answers fails, so the answer does not wait (ADR-0124 decision 9).
+            if (chosen.TryGetValue(name, out var chosenError))
+            {
+                return PartitionAnswer.Failed(partition.Index, chosenError);
+            }
+
             var (topic, error) = KafkaFetchableTopic.Find(bus, name, partition.Index, account, scheme);
             if (topic is null)
             {

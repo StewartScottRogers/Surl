@@ -63,7 +63,7 @@ internal static class OptionArgumentReader
     /// </summary>
     public static readonly IReadOnlyList<string> AuthenticationMethodWords =
     [
-        "negotiate", "gssapi", "ntlm", "ntlmv1", "digest", "scram-sha-256", "scram-sha-1", "digest-md5", "cram-md5", "apop", "basic", "plain", "login",
+        "negotiate", "gssapi", "ntlm", "ntlmv1", "digest", "scram-sha-256", "scram-sha-512", "scram-sha-1", "digest-md5", "cram-md5", "apop", "basic", "plain", "login",
         "bearer", "oauthbearer", "xoauth2", "external", "aws-sigv4",
     ];
 
@@ -123,6 +123,10 @@ internal static class OptionArgumentReader
             "digits with an optional decimal point and more digits, then at most one suffix k, m, g, t or p in either case, "
             + "each 1024 times the one before; at most 9223372036854775807 bytes"));
 
+    /// <summary><see cref="ReadSeed"/> and its argument type (ADR-0124 decision 6).</summary>
+    public static readonly OptionArgumentReading<long> Seed =
+        new(ReadSeed, new("number", "0 to 9223372036854775807, digits only"));
+
     /// <summary>
     /// <c>--url</c>'s argument (ADR-0101 decision 1 row 12): any non-empty text, which the parser
     /// then reads as a listen URL exactly as a bare argument.
@@ -162,6 +166,14 @@ internal static class OptionArgumentReader
     public static readonly OptionArgumentReading<CertificateFileFormat> CertificateType =
         new(ReadCertificateType, new("word", "PEM, DER or P12, in any case"));
 
+    /// <summary><see cref="ReadTlsAuthenticationType"/> and its argument type (ADR-0046 decision 5).</summary>
+    public static readonly OptionArgumentReading<TlsAuthenticationType> TlsAuthenticationTypeWord =
+        new(ReadTlsAuthenticationType, new("word", "SRP, in any case"));
+
+    /// <summary>A TLS-SRP user name (ADR-0122 decision 6): read as <see cref="ReadPath"/> reads a path.</summary>
+    public static readonly OptionArgumentReading<string> SrpUserName =
+        new(ReadPath, new("user name", "any non-empty text"));
+
     /// <summary><see cref="ReadKeyType"/> and its argument type (ADR-0046 decision 5).</summary>
     public static readonly OptionArgumentReading<CertificateFileFormat> KeyType =
         new(ReadKeyType, new("word", "PEM or DER, in any case"));
@@ -190,6 +202,15 @@ internal static class OptionArgumentReader
         new(ReadAuthenticationMethods, new(
             "word list",
             "comma-separated, in any case, no empty item: " + string.Join(", ", AuthenticationMethodWords)));
+
+    /// <summary>The <c>--dns-transport</c> words this build serves (ADR-0092 decision 5); BL-1018 and BL-1019 add <c>https</c> and <c>quic</c>.</summary>
+    public static readonly IReadOnlyList<string> DnsTransportWords = ["udp", "tcp", "tls"];
+
+    /// <summary><see cref="ReadDnsTransports"/> and its argument type (ADR-0046 decision 5).</summary>
+    public static readonly OptionArgumentReading<IReadOnlyList<string>> DnsTransports =
+        new(ReadDnsTransports, new(
+            "word list",
+            "comma-separated, in any case, no empty or repeated item: " + string.Join(", ", DnsTransportWords)));
 
     /// <summary>
     /// <c>-x</c>/<c>--proxy</c>'s argument (ADR-0088 decision 7): any non-empty text, which the parser then
@@ -239,6 +260,13 @@ internal static class OptionArgumentReader
     /// <returns>The refusal reason, or <see langword="null"/>.</returns>
     public static string? ReadNumber(string argument, out int value) =>
         int.TryParse(argument, NumberStyles.None, CultureInfo.InvariantCulture, out value) ? null : NotANumber;
+
+    /// <summary>Reads <c>--random-seed</c>'s <c>&lt;number&gt;</c>: digits only, 0 to <see cref="long.MaxValue"/>.</summary>
+    /// <param name="argument">The argument as given.</param>
+    /// <param name="value">The seed.</param>
+    /// <returns>The refusal reason, or <see langword="null"/>.</returns>
+    public static string? ReadSeed(string argument, out long value) =>
+        long.TryParse(argument, NumberStyles.None, CultureInfo.InvariantCulture, out value) ? null : NotANumber;
 
     /// <summary>
     /// Reads <c>&lt;bytes&gt;</c>: a <c>&lt;seconds&gt;</c>-shaped number and at most one suffix,
@@ -293,6 +321,16 @@ internal static class OptionArgumentReader
     /// <returns>The refusal reason, or <see langword="null"/>.</returns>
     public static string? ReadCertificateType(string argument, out CertificateFileFormat value) =>
         CertificateTypes.TryGetValue(argument, out value) ? null : BadlyUsed;
+
+    /// <summary>Reads the <c>--tlsauthtype</c> word: <c>SRP</c>, in any case (ADR-0122 decision 6).</summary>
+    /// <param name="argument">The argument as given.</param>
+    /// <param name="value">The TLS authentication type.</param>
+    /// <returns>The refusal reason, or <see langword="null"/>.</returns>
+    public static string? ReadTlsAuthenticationType(string argument, out TlsAuthenticationType value)
+    {
+        value = TlsAuthenticationType.Srp;
+        return string.Equals(argument, "SRP", StringComparison.OrdinalIgnoreCase) ? null : BadlyUsed;
+    }
 
     /// <summary>Reads the <c>--key-type</c> word: <c>PEM</c> or <c>DER</c>, in any case.</summary>
     /// <param name="argument">The argument as given.</param>
@@ -389,6 +427,26 @@ internal static class OptionArgumentReader
     }
 
     /// <summary>
+    /// Reads the <c>--dns-transport</c> list (ADR-0092 decision 5): comma-separated words from
+    /// <see cref="DnsTransportWords"/>, in any case, kept in the order given. An empty argument is
+    /// blank; an empty, unknown or repeated item is refused.
+    /// </summary>
+    /// <param name="argument">The argument as given.</param>
+    /// <param name="value">The words named, lower-case, in the order given.</param>
+    /// <returns>The refusal reason, or <see langword="null"/>.</returns>
+    public static string? ReadDnsTransports(string argument, out IReadOnlyList<string> value)
+    {
+        var words = argument.Split(',').Select(item => item.ToLowerInvariant()).ToArray();
+        value = words;
+        if (argument.Length == 0)
+        {
+            return Blank;
+        }
+
+        return words.Any(word => !DnsTransportWords.Contains(word)) || words.Distinct().Count() != words.Length ? BadlyUsed : null;
+    }
+
+    /// <summary>
     /// Reads an <c>--ssh-ciphers</c> or <c>--ssh-macs</c> name list (ADR-0066): comma-separated
     /// names kept as given, in the order given; an empty argument is blank and an empty item is
     /// refused. Whether surl offers each name is <c>Surl.Console</c>'s to check.
@@ -430,6 +488,12 @@ internal static class OptionArgumentReader
             return null;
         }
 
+        return ReadProxyAllowedOriginRange(argument, ref value);
+    }
+
+    /// <summary>Reads an <c>address[/prefix]</c> <c>--proxy-allow-origin</c> argument into <paramref name="value"/>.</summary>
+    private static string? ReadProxyAllowedOriginRange(string argument, ref ProxyAllowedOrigin value)
+    {
         var slash = argument.IndexOf('/', StringComparison.Ordinal);
         if (!TryReadOriginAddress(slash < 0 ? argument : argument[..slash], out var address))
         {
@@ -542,7 +606,7 @@ internal static class OptionArgumentReader
             return EmptyUserName;
         }
 
-        if (authorizedKeys.UserName.Any(IsControlCharacter))
+        if (authorizedKeys.UserName.Any(character => IsControlCharacter(character)))
         {
             return ControlCharacterInUserName;
         }

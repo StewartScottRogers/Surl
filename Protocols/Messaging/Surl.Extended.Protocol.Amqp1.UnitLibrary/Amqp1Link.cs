@@ -27,6 +27,15 @@ internal sealed class Amqp1Link(uint containerHandle)
     /// <summary>Whether the client sends on the link and the container receives.</summary>
     public bool ContainerReceives { get; set; }
 
+    /// <summary>Whether the link's target is the transaction coordinator, so what the client sends on it declares and discharges transactions (Part 4 section 4.5.1).</summary>
+    public bool IsCoordinator { get; set; }
+
+    /// <summary>Whether the link has ended, so nothing it held is the bus's to settle any more.</summary>
+    public bool IsEnded { get; set; }
+
+    /// <summary>When the container sends: the <c>txn-id</c> the client's last <c>flow</c> carried, whose transaction the deliveries sent now are acquired in; <see langword="null"/> when it carried none.</summary>
+    public byte[]? AcquiringTransactionId { get; set; }
+
     /// <summary>The node's canonical address, <c>/topic/&lt;t&gt;</c> or <c>/queue/&lt;q&gt;</c>, once found.</summary>
     public string NodeAddress { get; set; } = string.Empty;
 
@@ -50,6 +59,12 @@ internal sealed class Amqp1Link(uint containerHandle)
 
     /// <summary>When the container sends: the source filters it applies (ADR-0146 decision 2).</summary>
     public Amqp1SourceFilters Filters { get; set; } = Amqp1SourceFilters.None;
+
+    /// <summary>When the container sends from a topic and keeps the subscription: its plan (ADR-0146 decision 3); <see langword="null"/> for a live subscription.</summary>
+    public Amqp1KeptSubscription? Kept { get; set; }
+
+    /// <summary>Whether the link only looked a kept subscription up (an attach with no source), so it consumes nothing.</summary>
+    public bool IsSubscriptionLookup { get; set; }
 
     /// <summary>When the container sends from a topic: the live subscription.</summary>
     public BusSubscription? Subscription { get; set; }

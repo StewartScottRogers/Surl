@@ -561,6 +561,71 @@ public sealed class GrpcStreamHandlerTests
         Assert.Contains("gRPC call /surl.test.Echo/Chat CANCELLED by the client.", log.Notes);
     }
 
+    // ADR-0116 decision 4: a call still open at shutdown ends UNAVAILABLE "server shutting down",
+    // then the connection's GOAWAY NO_ERROR (PROTOCOL-HTTP2 "Connection Management").
+    [TestMethod]
+    public async Task ServeStreamAsync_ShutdownWhileAChatCallIsOpen_EndsItUnavailableServerShuttingDownThenGoAwayNoError()
+    {
+        var client = new GrpcHttp2TestFrames();
+        var log = new RecordingExchangeLog();
+
+        var written = await ShutDownMidCallAsync(
+            log,
+            written => Response(written, 1).Body.Length > 0,
+            Start,
+            client.Call(1, ChatPath, endStream: false),
+            Data(1, Message(Hi), endStream: false));
+
+        var (fields, body, ended, resetCode) = Response(written, 1);
+        Assert.AreEqual(ReplyHeaders + "\ngrpc-status: 14\ngrpc-message: server shutting down", Text(fields));
+        Assert.IsNotEmpty(body);
+        Assert.IsTrue(ended);
+        Assert.IsNull(resetCode);
+        CollectionAssert.AreEqual(GoAwayNoError(1), written[^GoAwayNoError(1).Length..]);
+        Assert.Contains("gRPC call /surl.test.Echo/Chat ended UNAVAILABLE: the exchange was cancelled while it was open.", log.Notes);
+    }
+
+    [TestMethod]
+    public async Task ServeStreamAsync_ShutdownBeforeAnyReply_IsTrailersOnlyUnavailable()
+    {
+        var client = new GrpcHttp2TestFrames();
+
+        var written = await ShutDownMidCallAsync(
+            new RecordingExchangeLog(),
+            HasWrittenAWindowUpdate,
+            Start,
+            client.Call(1, CollectPath, endStream: false),
+            Data(1, Message(Hi), endStream: false));
+
+        var (fields, _, ended, _) = Response(written, 1);
+        Assert.AreEqual(TrailersOnly(14, "server shutting down"), Text(fields));
+        Assert.IsTrue(ended);
+        CollectionAssert.AreEqual(GoAwayNoError(1), written[^GoAwayNoError(1).Length..]);
+    }
+
+    // ADR-0116 decision 4: a reply cut off mid-write is RST_STREAM CANCEL (PROTOCOL-HTTP2 "Errors").
+    // The client's SETTINGS_INITIAL_WINDOW_SIZE 0 (RFC 9113 section 6.5.2) holds the reply's DATA back.
+    [TestMethod]
+    public async Task ServeStreamAsync_ShutdownWhileAReplyWaitsForWindow_ResetsTheStreamCancel()
+    {
+        var client = new GrpcHttp2TestFrames();
+        var zeroWindow = Frame(SettingsType, 0, 0, [0x00, 0x04, 0x00, 0x00, 0x00, 0x00]);
+
+        var written = await ShutDownMidCallAsync(
+            new RecordingExchangeLog(),
+            written => Response(written, 1).Fields.Count > 0,
+            zeroWindow,
+            client.Call(1, EchoPath, endStream: false),
+            Data(1, Message(Hi), endStream: true));
+
+        var (fields, body, ended, resetCode) = Response(written, 1);
+        Assert.AreEqual(ReplyHeaders, Text(fields));
+        Assert.IsEmpty(body);
+        Assert.IsFalse(ended);
+        Assert.AreEqual(0x8u, resetCode);
+        CollectionAssert.AreEqual(GoAwayNoError(1), written[^GoAwayNoError(1).Length..]);
+    }
+
     [TestMethod]
     public async Task ServeStreamAsync_MethodThatThrowsUnexpectedly_IsUnknownServerErrorAndLogged()
     {
@@ -625,6 +690,45 @@ public sealed class GrpcStreamHandlerTests
         await new Http2ConnectionServer(handler, Context(), connection).ServeAsync();
 
         return Response(connection.WrittenBytes, 1);
+    }
+
+    /// <summary><c>GOAWAY</c> naming <paramref name="lastStreamId"/>, <c>NO_ERROR</c>, no debug data (RFC 9113 section 6.8).</summary>
+    private static byte[] GoAwayNoError(int lastStreamId) =>
+        Frame(0x7, 0, 0, [0, 0, 0, (byte)lastStreamId, 0, 0, 0, 0]);
+
+    // The server has answered the request's DATA with a connection WINDOW_UPDATE (type 0x8), so the
+    // call's stream is open and its message has arrived.
+    private static bool HasWrittenAWindowUpdate(byte[] written)
+    {
+        for (var offset = 0; offset + 9 <= written.Length; offset += 9 + ((written[offset] << 16) | (written[offset + 1] << 8) | written[offset + 2]))
+        {
+            if (written[offset + 3] == 0x8)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    // Serves the frames on a connection the client keeps open, shuts the exchange down once what
+    // was written satisfies isAnswering, and returns every byte written by the end.
+    private async Task<byte[]> ShutDownMidCallAsync(RecordingExchangeLog log, Func<byte[], bool> isAnswering, params byte[][] frames)
+    {
+        var connection = new InMemoryConnection([(byte[])[.. frames.SelectMany(frame => frame)]], peerHalfClosesWhenExhausted: false);
+        using var shutdown = CancellationTokenSource.CreateLinkedTokenSource(TestContext.CancellationToken);
+        var context = Context() with { Log = log, CancellationToken = shutdown.Token, ShutdownToken = shutdown.Token };
+        var serving = new Http2ConnectionServer(Handler(context: context, log: log), context, connection).ServeAsync();
+
+        while (!isAnswering(connection.WrittenBytes))
+        {
+            await Task.Delay(TimeSpan.FromMilliseconds(5), TestContext.CancellationToken);
+        }
+
+        await shutdown.CancelAsync();
+        await Assert.ThrowsAsync<OperationCanceledException>(() => serving);
+
+        return connection.WrittenBytes;
     }
 
     private GrpcStreamHandler Handler(

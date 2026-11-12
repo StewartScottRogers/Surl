@@ -13,6 +13,11 @@ internal sealed partial class Amqp0BrokerConnection
 {
     private const string TheVirtualHost = "/";
 
+    /// <summary>The longest the farewell <c>connection.close</c> 320 may take to write.</summary>
+    public static readonly TimeSpan FarewellWriteDeadline = TimeSpan.FromSeconds(1);
+
+    private const string ForcedCloseText = "CONNECTION_FORCED - idle timeout, maximum time or shutdown";
+
     private static readonly TimeSpan CloseOkWait = TimeSpan.FromSeconds(1);
 
     private readonly IConnection connection;
@@ -21,6 +26,7 @@ internal sealed partial class Amqp0BrokerConnection
     private readonly Amqp0BrokerOptions options;
     private readonly MessageBus.MessageBus bus;
     private readonly Amqp0ExchangeTable exchanges;
+    private readonly Amqp0ConsumerRegistry consumers;
     private readonly Amqp0FrameReader reader;
     private readonly SemaphoreSlim writeGate = new(1, 1);
     private readonly CancellationTokenSource heartbeatsCancellation = new();
@@ -28,6 +34,8 @@ internal sealed partial class Amqp0BrokerConnection
     private Channel<byte[]>? outbound;
     private Task outboundPumping = Task.CompletedTask;
     private BusConnection? busConnection;
+    private bool closeSent;
+    private bool clientAcceptsConsumerCancel;
     private long lastWrittenUtcTicks;
     private int frameMax = Amqp0FrameLimits.FrameMinSize;
     private ushort channelMax = Amqp0Broker.ChannelMax;
@@ -40,9 +48,12 @@ internal sealed partial class Amqp0BrokerConnection
     /// <param name="options">The idle timeout and whether <c>ANONYMOUS</c> is offered.</param>
     /// <param name="bus">The shared message bus: the queues and the topic space.</param>
     /// <param name="exchanges">The broker's exchanges, shared by its connections.</param>
+    /// <param name="consumers">The broker's consumers by queue, shared by its connections.</param>
     public Amqp0BrokerConnection(
-        IConnection connection, ExchangeContext context, ISaslAuthenticationPolicy policy, Amqp0BrokerOptions options, MessageBus.MessageBus bus, Amqp0ExchangeTable exchanges)
+        IConnection connection, ExchangeContext context, ISaslAuthenticationPolicy policy, Amqp0BrokerOptions options, MessageBus.MessageBus bus, Amqp0ExchangeTable exchanges,
+        Amqp0ConsumerRegistry consumers)
     {
+        this.consumers = consumers;
         this.connection = connection;
         this.context = context;
         this.policy = policy;
@@ -68,6 +79,7 @@ internal sealed partial class Amqp0BrokerConnection
 
         // Ending the bus connection requeues every unsettled delivery and stops the consumers,
         // so nothing more is queued for writing; then what was queued is written out.
+        consumers.RemoveOwnedBy(this);
         busConnection?.Dispose();
         outbound?.Writer.TryComplete();
         var writeFailure = await CaptureFailureAsync(() => outboundPumping);
@@ -81,7 +93,38 @@ internal sealed partial class Amqp0BrokerConnection
             busConnection = bus.Connect(AccountName);
             outbound = Channel.CreateUnbounded<byte[]>(new UnboundedChannelOptions { SingleReader = true });
             outboundPumping = WriteOutboundAsync(outbound.Reader);
+            await ServeOpenedUntilCancelledAsync();
+        }
+    }
+
+    // ADR-0112 decisions 3 and 7: an open connection the engine cancels - for a limit or at
+    // shutdown - is told connection.close 320 on a short deadline of its own, never on the
+    // cancelled token (ADR-0006 section 5; ADR-0059); the cancellation then still escapes.
+    private async Task ServeOpenedUntilCancelledAsync()
+    {
+        try
+        {
             await ServeOpenedAsync();
+        }
+        catch (OperationCanceledException) when (!closeSent)
+        {
+            await WriteForcedCloseAsync();
+            throw;
+        }
+    }
+
+    private async Task WriteForcedCloseAsync()
+    {
+        using var deadline = new CancellationTokenSource(FarewellWriteDeadline, context.TimeProvider);
+        var close = new Amqp0ConnectionClose((ushort)Amqp0ReplyCode.ConnectionForced, ForcedCloseText, 0, 0);
+        try
+        {
+            await WriteNowAsync(Amqp0Frame.ForMethod(0, close.ToMethod()).Encode(), deadline.Token);
+            context.Log.Note($"Closed the connection with 320 ({ForcedCloseText}).");
+        }
+        catch (OperationCanceledException)
+        {
+            context.Log.Note($"The connection.close 320 was not written within its {FarewellWriteDeadline.TotalSeconds}-second write deadline.");
         }
     }
 

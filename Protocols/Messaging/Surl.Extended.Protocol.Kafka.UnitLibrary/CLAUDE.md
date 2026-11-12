@@ -35,7 +35,7 @@ ApiVersions, Metadata and SASL (BL-518, ADR-0105 decisions 1, 2 and 5):
   pending `KafkaSaslLogin`, the account logged in); every `KafkaRequest` carries it.
 - `KafkaApiVersionsAnswerer` answers v0 to v3 with `KafkaServedApis`' ranges.
 - `KafkaMetadataAnswerer` answers v0 to v8 from `Surl.MessageBus`: node 0 as broker and
-  controller, a random 22-character cluster id, one partition a topic, auto-creation through
+  controller, a 22-character cluster id drawn once from an `IIdentifierRandom` (a seeded one repeats it; the one-argument constructor uses the library's `KafkaUnseededIdentifierRandom`), one partition a topic, auto-creation through
   `MessageBus.CreateLog`, topic access through `MessageBus.GetTopicAccess`.
 - `KafkaSaslHandshakeAnswerer` offers the policy's `PLAIN`, `SCRAM-SHA-256` and `SCRAM-SHA-512`,
   matched exactly; `KafkaSaslAuthenticateAnswerer` carries each step in `auth_bytes`, and a v0
@@ -51,7 +51,8 @@ Produce (BL-519, ADR-0105 decisions 3, 4, 6 and 7, and its BL-519 amendment):
   Compressed batches are decoded first (below).
 - `KafkaProduceAnswerer` answers v3 to v8: `acks` 0, 1 and -1 (0 writes no response), the topic
   checks (17, 3, 29), the batch checks, the record size limit (10) and the bus bounds (44), then
-  publishes each record on `Surl.MessageBus` (value as payload, key, UTF-8 headers, QoS 1), so live
+  publishes a partition's records on `Surl.MessageBus` all or nothing through
+  `BusConnection.PublishBatch` (value as payload, key, UTF-8 headers, QoS 1; BL-754), so live
   subscribers of the mapped topic receive it, and answers the first record's log offset.
 
 Fetch and ListOffsets (BL-520, ADR-0105 decisions 1, 3, 4 and 6):
@@ -106,6 +107,45 @@ InitProducerId and idempotent producers (BL-951, ADR-0145 decisions 8 to 10):
   any sequence, an older epoch is 47, a repeat of one of the last five is answered 0 with its base
   offset and nothing appended, one past the last taken is taken, anything else is 45; a partition
   mixing repeats and new batches is 45. `producerId` -1 is not checked.
+
+Consumer groups (BL-948, ADR-0145 decisions 1 to 3, 6, 9 and 10):
+
+- `KafkaGroupCoordinator` runs every group in memory on its injected `TimeProvider`: members in
+  join order, pending `MEMBER_ID_REQUIRED` ids, static instance ids, generation, leader, protocol
+  and assignments. The join phase has no initial delay and ends when every member has a JoinGroup
+  waiting or the largest rebalance timeout passes; the leader stays leader when it rejoins; the
+  protocol is the leader's first that every member lists; sessions remove a member and rebalance;
+  a group with no members and none pending is forgotten. Bounds `DefaultMaxGroups` (44),
+  `DefaultMaxMembersPerGroup` (81) and `DefaultMaxGroupStateBytes` (44). Each change is a
+  `ConsumerGroupChangedEvent` on the publisher of the group's latest request; a timer's carry no
+  exchange id.
+- `KafkaFindCoordinatorAnswerer` (v0 to v2), `KafkaJoinGroupAnswerer` (v0 to v5),
+  `KafkaSyncGroupAnswerer`, `KafkaHeartbeatAnswerer` and `KafkaLeaveGroupAnswerer` (v0 to v3) ask
+  the fault plan first through `KafkaCommandFault` (command the API name, path the group id or
+  key; an `error` rule's code is the top-level `error_code`), then group access through
+  `MessageBus.MayUseGroup` (30), then the coordinator. `KafkaHeldAnswer` pauses
+  `ExchangeContext.IdleClock` while a JoinGroup or SyncGroup is held.
+
+Committed offsets and group listing (BL-949, ADR-0145 decisions 4 to 6 and 10):
+
+- `KafkaOffsetCommitAnswerer` answers v2 to v7: fault plan first (command `OffsetCommit`, path the
+  group id; an `error` rule's code answers every partition and stores nothing), then an empty group id
+  24, group access 30 and `KafkaGroupCoordinator.CheckCommit` (a simple commit, generation -1 with an
+  empty member id, is taken only while the group has no members, else 25; 25, 82, 22; 27 while
+  completing a rebalance; a member's commit refreshes its session). Each partition then stands alone:
+  `KafkaFetchableTopic.Find` (17, 3, 29, 3 - access before "no log", as Metadata and Fetch answer it),
+  metadata over 4096 UTF-8 bytes 12, the bus's `CommitOffset` refusal 44, else 0.
+- `KafkaOffsetFetchAnswerer` answers v1 to v5 from the bus: group denied 30 (top level from v2, every
+  partition asked in v1), per partition 17, 29, 3, else the committed entry or offset -1, leader epoch -1
+  and empty metadata with 0. Null `topics` (v2 on) lists the group's committed topics Kafka can name
+  (`/` written `.`) that the caller may subscribe to, ordinal by Kafka name; v1's null array asks for none.
+- `KafkaDescribeGroupsAnswerer` (v0 to v4) answers each group asked from `KafkaGroupCoordinator.Describe`
+  (state name, protocol type, the chosen protocol in `CompletingRebalance` and `Stable`, members with
+  client id, `/<address>` client host, metadata and, when `Stable`, assignment), `Empty` for a group
+  known only by its offsets, `Dead` for none, 30 when denied; `authorized_operations` is -2147483648
+  unless asked, then 264 (READ and DESCRIBE). `KafkaListGroupsAnswerer` (v0 to v2) lists the groups with
+  a member or an offset the caller may use, ordinal, with their protocol types.
+- Not wired into `Surl.Composition` yet (BL-522 composes the broker's answerers).
 
 Each served API gets an `IKafkaApiAnswerer`, passed to `KafkaBroker`'s constructor; the command
 line (`--kafka-fetch-compression`) and composition are BL-522.

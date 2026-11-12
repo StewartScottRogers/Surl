@@ -22,14 +22,31 @@ internal sealed class SignalRWebSocketTakeover(
     /// <inheritdoc/>
     public async Task TakeOverAsync(IConnection connection, HttpConnectionReader reader, CancellationToken cancellationToken)
     {
+        var isSuspended = false;
         try
         {
-            using var session = new SignalRHubSession(connection, reader, context, new SignalRInvocationFaults(context, hubPath, hubConnection.AccountName));
-            await session.RunAsync();
+            using var session = new SignalRHubSession(
+                new SignalRWebSocketTransport(connection, reader, context),
+                context,
+                new SignalRInvocationFaults(context, hubPath, hubConnection.AccountName),
+                connections,
+                hubConnection.Reconnect);
+            var end = await session.RunAsync();
+
+            // A stateful-reconnect connection whose WebSocket was lost, with no Close from either side,
+            // waits for a new one; any other end forgets it.
+            isSuspended = hubConnection.Reconnect is not null && end is { HubCloseMessage: null, CloseCode: null };
         }
         finally
         {
-            connections.End(hubConnection);
+            if (isSuspended)
+            {
+                connections.Suspend(hubConnection);
+            }
+            else
+            {
+                connections.End(hubConnection);
+            }
         }
     }
 }

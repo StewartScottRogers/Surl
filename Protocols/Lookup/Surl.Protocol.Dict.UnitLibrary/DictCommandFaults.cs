@@ -4,38 +4,48 @@ using Surl.Protocol.Abstractions;
 namespace Surl.Protocol.Dict;
 
 /// <summary>
-/// Asks the exchange's fault plan, at each DICT command it recognizes, whether to answer it with a
-/// chosen status line (ADR-0124, decision 4; ADR-0138): the point names the scheme, the command in
-/// capitals and the path (<see cref="PathOf"/>). DICT has no login, so the point names no account.
+/// Asks the exchange's fault plan, at each DICT command it recognizes, whether to hold it, drop the
+/// connection or answer it with a chosen status line (ADR-0124, decision 4; ADR-0138): the point
+/// names the scheme, the command in capitals and the path (<see cref="PathOf"/>). DICT has no
+/// login, so the point names no account.
 /// </summary>
 /// <remarks>
-/// Only a <see cref="FaultKind.Error"/> rule whose reply fits (<see cref="Fits"/>) is applied, and
-/// applying it publishes one <see cref="FaultAppliedEvent"/> naming the path, or the command when
-/// there is none. A rule of any other kind, or a reply that does not fit, is noted as not applied
-/// and the command is answered as without it.
+/// A <see cref="FaultKind.Delay"/> rule holds the command for its <c>ms</c> and the command is then
+/// answered as usual; a <see cref="FaultKind.Drop"/> rule aborts the connection; a
+/// <see cref="FaultKind.Error"/> rule whose reply fits (<see cref="Fits"/>) is answered in place of
+/// the command. Each publishes one <see cref="FaultAppliedEvent"/> naming the path, or the command
+/// when there is none. A rule of any other kind, or a reply that does not fit, is noted as not
+/// applied and the command is answered as without it.
 /// </remarks>
 internal static class DictCommandFaults
 {
     /// <summary>
-    /// Finds the chosen status line for a command, publishing its <see cref="FaultAppliedEvent"/>.
+    /// Finds and applies the fault for a command, publishing its <see cref="FaultAppliedEvent"/>.
     /// </summary>
     /// <param name="context">The exchange: its fault plan, event stream and listen URL.</param>
+    /// <param name="connection">The connection a drop aborts.</param>
     /// <param name="command">The command in capitals (<c>DEFINE</c>).</param>
     /// <param name="path">The word or database the command names, or <see langword="null"/>.</param>
-    /// <returns>The status line to answer with, without its line ending, or <see langword="null"/> to answer as usual.</returns>
-    public static async ValueTask<string?> FindErrorAsync(ExchangeContext context, string command, string? path)
+    /// <returns>
+    /// The rule answered in place of the command - a <see cref="FaultKind.Drop"/> (send nothing and
+    /// end the session) or a <see cref="FaultKind.Error"/> (send its reply) - or
+    /// <see langword="null"/> to answer as usual.
+    /// </returns>
+    public static async ValueTask<FaultRule?> FindAndApplyAsync(
+        ExchangeContext context, IConnection connection, string command, string? path)
     {
         var point = new FaultPoint(FaultStage.Command)
         {
             ExchangeId = context.ExchangeId,
-            ListenUrl = FormatListenUrl(context.ListenUrl),
+            ListenUrl = ReportedListenUrl.Format(context.ListenUrl),
             Scheme = context.Scheme,
             Path = path,
             Command = command,
         };
-        if (await context.Faults.FindAsync(point, context.CancellationToken) is not { } rule)
+        var rule = await CommandStageFaults.FindAndApplyAsync(context, connection, point, path ?? command);
+        if (rule is null or { Kind: FaultKind.Delay or FaultKind.Drop })
         {
-            return null;
+            return rule is { Kind: FaultKind.Drop } ? rule : null;
         }
 
         if (rule.Kind != FaultKind.Error || !Fits(rule.Reply))
@@ -49,7 +59,7 @@ internal static class DictCommandFaults
         context.Log.Note($"{command} answered with the chosen error of fault rule {rule.Id}.");
         context.Events.Publish(new FaultAppliedEvent(rule.Id, FaultKind.Error, FaultStage.Command, context.ExchangeId, path ?? command));
 
-        return rule.Reply;
+        return rule;
     }
 
     /// <summary>
@@ -79,19 +89,4 @@ internal static class DictCommandFaults
         && int.TryParse(reply.AsSpan(0, 3), NumberStyles.None, CultureInfo.InvariantCulture, out var status)
         && status is >= 500 and <= 599
         && reply.AsSpan().IndexOfAny('\r', '\n') < 0;
-
-    /// <summary>
-    /// The listen URL as the fault plan matches it, as the serving engine names it: the scheme, the
-    /// host (an IPv6 address in brackets, its zone's <c>%</c> encoded) and the bound port.
-    /// </summary>
-    /// <param name="listenUrl">The exchange's listen URL.</param>
-    /// <returns><c>dict://127.0.0.1:2628/</c>.</returns>
-    public static string FormatListenUrl(ListenUrl listenUrl)
-    {
-        var host = listenUrl.Host.Contains(':', StringComparison.Ordinal)
-            ? "[" + listenUrl.Host.Replace("%", "%25", StringComparison.Ordinal) + "]"
-            : listenUrl.Host;
-
-        return $"{listenUrl.Scheme}://{host}:{listenUrl.BoundPort ?? listenUrl.Port}/";
-    }
 }

@@ -12,6 +12,9 @@ internal static class WebTransportConnectJudgement
     /// <summary>The session is accepted.</summary>
     public const int Accepted = 200;
 
+    /// <summary>The <c>:scheme</c> is not <c>https</c> (WTH3 3.2).</summary>
+    public const int BadRequest = 400;
+
     /// <summary>The <c>origin</c> is not the server's own (WTH3 3.2: SHOULD answer 403).</summary>
     public const int Forbidden = 403;
 
@@ -20,6 +23,12 @@ internal static class WebTransportConnectJudgement
 
     private const string SecureOriginPrefix = "https://";
     private const string DefaultPortSuffix = ":443";
+
+    /// <summary>Whether the request's <c>:scheme</c> is <c>https</c>, the only scheme WebTransport runs over (WTH3 3.2).</summary>
+    /// <param name="head">The request's head.</param>
+    /// <returns><see langword="true"/> when the scheme is <c>https</c>, in any case.</returns>
+    public static bool IsSecureScheme(Http3RequestHead head) =>
+        string.Equals(head.Scheme, "https", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
     /// Whether the request carries no <c>origin</c>, or exactly one naming <c>https://</c> and the

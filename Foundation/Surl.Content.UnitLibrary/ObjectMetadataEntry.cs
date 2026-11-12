@@ -16,6 +16,7 @@ namespace Surl.Content;
 /// <param name="ContentLanguage">The <c>Content-Language</c> set at upload, or <see langword="null"/>.</param>
 /// <param name="ContentMd5">The <c>Content-MD5</c> set at upload, or <see langword="null"/>.</param>
 /// <param name="UserMetadata">The user metadata, in ordinal order of name.</param>
+/// <param name="Crc32c">The CRC-32C of the file's bytes, or <see langword="null"/> when not known.</param>
 internal sealed record ObjectMetadataEntry(
     long Length,
     long LastWriteTicks,
@@ -28,7 +29,8 @@ internal sealed record ObjectMetadataEntry(
     string? CacheControl,
     string? ContentLanguage,
     string? ContentMd5,
-    IReadOnlyList<KeyValuePair<string, string>> UserMetadata)
+    IReadOnlyList<KeyValuePair<string, string>> UserMetadata,
+    uint? Crc32c = null)
 {
     /// <summary>
     /// The six header fields, in the order the index writes them.

@@ -9,6 +9,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\..\Foundation\Surl.Core.UnitLibrary\Surl.Core.UnitLibrary.csproj" />
     <ProjectReference Include="..\Surl.Extended.Protocol.Coap.UnitLibrary\Surl.Extended.Protocol.Coap.UnitLibrary.csproj" />
   </ItemGroup>
 

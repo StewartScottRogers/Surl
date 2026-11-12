@@ -237,6 +237,21 @@ public sealed class CommandLineParserConfigFileTests
         CollectionAssert.AreEqual(new[] { "b", "a" }, commandLine.Accounts.Select(account => account.UserName).ToArray());
     }
 
+    // Decision 5's warning: every file read, nested and standard input included, in the order opened.
+    [TestMethod]
+    public void Parse_ConfigFiles_ListsEveryFileReadInOrderNestedIncluded()
+    {
+        var source = Files(("a.cfg", "config = b.cfg\nconfig = -\n"), ("b.cfg", "user = b:2\n"), ("-", "url = http://127.0.0.1:0/\n"), ("c.cfg", "verbose\n"));
+
+        var commandLine = AssertServes(source, "-K", "a.cfg", "--config", "c.cfg");
+
+        CollectionAssert.AreEqual(new[] { "a.cfg", "b.cfg", "-", "c.cfg" }, commandLine.ConfigFiles.ToArray());
+    }
+
+    [TestMethod]
+    public void Parse_NoConfigFile_ListsNoConfigFiles() =>
+        Assert.IsEmpty(AssertServes(Files(), Url).ConfigFiles);
+
     [TestMethod]
     public void Parse_FilesNestedFiveDeep_AreRead()
     {

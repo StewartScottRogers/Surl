@@ -39,6 +39,7 @@ internal static class RecordedEventWriter
         LoginJudgedEvent login => login.ExchangeId,
         StoreChangedEvent change => change.ExchangeId,
         FaultAppliedEvent fault => fault.ExchangeId,
+        ConsumerGroupChangedEvent group => group.ExchangeId,
         _ => null,
     };
 
@@ -89,6 +90,27 @@ internal static class RecordedEventWriter
             writer.WriteString("hook_id", hook.HookId);
             writer.WriteString("failure", SnakeCase(hook.Failure));
             writer.WriteString("message", hook.Message);
+        }
+        else if (surlEvent is ConsumerGroupChangedEvent group)
+        {
+            WriteConsumerGroupChange(writer, group);
+        }
+    }
+
+    private static void WriteConsumerGroupChange(Utf8JsonWriter writer, ConsumerGroupChangedEvent group)
+    {
+        writer.WriteString("scheme", group.Scheme);
+        writer.WriteString("group", group.Group);
+        writer.WriteString("change", SnakeCase(group.Change));
+        if (group.MemberId is not null)
+        {
+            writer.WriteString("member_id", group.MemberId);
+        }
+
+        writer.WriteNumber("generation_id", group.GenerationId);
+        if (group.Account is not null)
+        {
+            writer.WriteString("account", group.Account);
         }
     }
 

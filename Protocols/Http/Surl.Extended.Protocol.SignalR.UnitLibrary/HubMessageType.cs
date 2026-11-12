@@ -3,7 +3,7 @@ namespace Surl.Extended.Protocol.SignalR;
 /// <summary>
 /// The hub-protocol message types the server reads and writes, numbered as the JSON encoding's
 /// <c>type</c> member numbers them (HubProtocol.md "JSON Encoding"; ADR-0119, decision 3). Ack (8)
-/// and Sequence (9) are BL-755's and read as protocol errors until then.
+/// and Sequence (9) are read on a stateful-reconnect connection only (BL-755), and are protocol errors elsewhere.
 /// </summary>
 public enum HubMessageType
 {
@@ -41,4 +41,14 @@ public enum HubMessageType
     /// Close: ends the connection, with or without an error.
     /// </summary>
     Close = 7,
+
+    /// <summary>
+    /// Ack: tells the peer how many numbered messages arrived (stateful reconnect only).
+    /// </summary>
+    Ack = 8,
+
+    /// <summary>
+    /// Sequence: names the first numbered message that follows a reconnect (stateful reconnect only).
+    /// </summary>
+    Sequence = 9,
 }

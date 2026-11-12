@@ -32,6 +32,12 @@ horizontal library may reference it (ADR-0099 decision 11, held by
   over `ProxyComposition.ComposeAllowedOriginRule`, or `SurlServerCompositionSeams.CreateOriginConnector`) and judges
   `Proxy-Authorization` by `ComposedProtocolServices.ProxyAuthenticationPolicy`
   (`AuthenticationComposition.ComposeProxyPolicy`, over `-U` and `--proxy-user-file` alone); `--proxy-allow-origin '*'` warns.
+- SOCKS (ADR-0121 decision 5, BL-560): one `ProtocolServerRegistrations.Original` entry for `socks4`, `socks4a`,
+  `socks5` and `socks5h`, a `SocksProtocolServer` over the same `ComposedProtocolServices.OriginConnector` and
+  `ProxyAuthenticationPolicy` as the HTTP proxy (so `-U`, `--proxy-user-file` and `--proxy-allow-origin` apply).
+  A SOCKS listen URL, positional or from `--proxy`, is listened on like any other, and
+  `ProxyComposition.ComposeAllowedOriginRule` refuses its own end point too. The unserved services and the
+  long `ComposeProtocolServers` overload give it an `InMemoryOriginConnector`, since nothing is served through them.
 - `SurlServerCompositionSeams.AdditionalProtocolServers` (`AdditionalProtocolServer`: a registration
   and its already-parsed `ListenUrl`s) are composed after the extended servers and served on their
   listen URLs after the command line's: how `Surl.Api` serves a test's own server (BL-813).
@@ -41,17 +47,21 @@ horizontal library may reference it (ADR-0099 decision 11, held by
   registration, so the serving engine binds TCP and UDP on one port; the HTTP server then adds
   `Alt-Svc`. `ListenerStartReporter` counts such a pair as its connection listener alone (one
   status line) and `ComposedServing` writes `* Serving HTTP/3 over QUIC on UDP port <port>` from
-  verbose up.
+  verbose up. With `--cacert` it gives the HTTP/3 server a `QuicClientCertificateTrust` over the
+  same anchors, so every QUIC handshake requires a client certificate as TCP does (BL-741,
+  ADR-0082 Amendment 5).
 - `ExtendedProtocolServers.Compose` builds the extended servers (`Surl.Extended.Protocol.*`: today
   the DNS server for `dns` (BL-1032), two entries - `DnsUdpProtocolServer` and `DnsTcpProtocolServer` -
   so the engine binds UDP and TCP on one port, both over `ComposedProtocolServices.DnsZones` and
   `AllowsZoneTransfer` (`--allow-zone-transfer`, ADR-0092 decision 4),
-  the NATS server for `nats` and `natss`, BL-528, the S3 server for `s3`, BL-421, and the Socket.IO server for `socketio` and `socketios`, BL-455, one server over one `SocketIoSessions`; `socketios` is TLS through `TlsSchemes`) from
+  the NATS server for `nats` and `natss`, BL-528, the STOMP broker for `stomp` and `stomps` over the one `MessageBus` (`stomps` is TLS through `TlsSchemes`, BL-533), the S3 server for `s3`, BL-421, and the Socket.IO server for `socketio` and `socketios`, BL-455, one server over one `SocketIoSessions`; `socketios` is TLS through `TlsSchemes`) from
   `ExtendedProtocolServers.Registrations`, the same
   `ProtocolServerRegistration` record, each joining with one entry; its `ExtendedProtocolServerServices`
   wraps the start's `ComposedProtocolServices` (the S3 server reads its content store, policy, object
   metadata index and clock); `s3` is TLS from the first byte through `TlsSchemes` (ADR-0108 decision 5),
-  so it needs no `ImplicitTls` entry. The NATS server is built over the one `MessageBus` the MQTT
+  so it needs no `ImplicitTls` entry; under `--s3-plaintext` `S3PlaintextComposition.MarkS3ListenUrlsPlain` sets
+  each `s3` listen URL's `ListenUrl.IsImplicitTls` to `false` at the start of `ComposeAsync`, and
+  `ServerTlsComposition` reads that per-listen-URL answer, so a plain `s3` needs no certificate (ADR-0108 Amendment 5). The NATS server is built over the one `MessageBus` the MQTT
   server shares, `AuthenticationPolicyFor("nats")`, and a `NatsServerOptions` of
   `ComposedProtocolServices.IdleTimeout` (the start sets it to `ComposeConnectionLimits`' idle timeout)
   and the policy's `AllowAnonymous`. `natss` starts in plain text and upgrades (ADR-0113 decision 6),
@@ -109,6 +119,30 @@ horizontal library may reference it (ADR-0099 decision 11, held by
   disk), the mail store and the bus refuse reset, snapshot and restore, so a whole-instance reset or
   snapshot stops at `Content`; seeding them is allowed, and accounts stay controllable. Tests:
   `ComposedStoresTests`.
+- The control endpoint's target (ADR-0124 decision 7, BL-1022): the internal `ComposedControlTarget` is
+  `Surl.Control`'s `IControlTarget` over a start's `Events`, `Faults` and `Stores`, and `ComposedSnapshot` is its
+  `IControlSnapshot`. `AddFault` reads one item as `--fault` does (a bad item `BadRequest` with the reader's text, a
+  full plan `Conflict`); `ListFaults` writes each rule back in that grammar through `FaultItemText`. Seeding mail
+  refuses an invalid address `BadRequest`, no such account or a recipient outside the mail domains `NotFound`, a
+  failed delivery `Conflict`; a file path a request may not name is `BadRequest`; a bus refusal maps by
+  `RefusalKindOf`; a store on disk refused reset, snapshot or restore is `Conflict`. `ReadEventsAsync` reads its own
+  subscription, bytes included, and ends without throwing when cancelled.
+  Tests: `ComposedControlTargetTests`, `FaultItemTextTests`.
+- Serving the control endpoint (ADR-0124 decision 7, BL-977): with `--control`, `ControlComposition.ReadToken` has read
+  the token (`ComposedAuthentication.ControlToken`), and `ComposedServing.ServeAsync` first binds the control listener
+  through the same `IListenerFactory`, on its own `ServingEngine` over a `ControlProtocolServer` (a `ControlEndpoint`
+  over `ComposedControlTarget`): at most `ControlComposition.MaxConnections` (8) connections of its own, outside
+  `--max-connections`, no fault plan, nothing published or logged. Its bound URL is `ControlListenUrl`; the start-up
+  warnings then follow, with `ControlComposition.WriteWarning` after the `--fault` one, and
+  `Control endpoint listening on <bound URL>` is written after the `Listening on` lines (info up). A bind failure
+  ends the start with its exit code (45) before any other line; a stop before it binds ends `Ok` with no line. The
+  control engine stops with the instance. Tests: `SurlServerCompositionTests.Control.cs`.
+
+- Identifier sources per instance (ADR-0124 decision 6, BL-997): `ComposedServing` builds a
+  `SeededIdentifierRandom` from `SurlCommandLine.RandomSeed` when present (none otherwise) and hands the
+  `ServingEngine` `IdentifiersForExchange`, which stamps `ExchangeContext.Identifiers` with
+  `ForExchange(exchangeId)` (the cryptographic source unseeded). `IdentifiersForServer(name)` is the
+  server-life source for per-server fixes (BL-850); no static state, so instances never share one.
 
 The types are `public` because more than one host calls them, but they are not a supported
 programming interface and may change in any release.
@@ -118,8 +152,10 @@ The ordered start lives here (ADR-0099 decision 2, BL-614); which project runs e
 | Step | Run by |
 | --- | --- |
 | Parse the command line, answer help and version, read `SURL_EXTENSIONS` | the host (`Surl.Console`'s `CommandLineRunner`) |
-| `--auth gssapi` without `--keytab` and the `--ssh-ciphers`/`--ssh-macs` refusal (2), the data directory probe (37), the content store (`ContentWithoutDataDirectory` or a new `InMemoryContentFileSystem` without `--directory`), the TLS-first listen URL without a certificate (58) and the `scp`/`sftp` one without a host key (2), authentication and host keys, the lock (124, 23), the service state (37), the protocol servers, server TLS (58, 2, 77) | `SurlServerComposition.ComposeAsync`, from a `SurlCommandLine` and a `SurlServerCompositionSeams`, returning a `SurlServerStart`: a `SurlStartFailure` (exit code and lines after `surl: `; a start cancelled while loading the service state is `Ok` with no lines) or a `ComposedServing` |
+| With `--control`: read the token file (37, 2), after every other start file and before the data-directory lock | `SurlServerComposition.ComposeAsync` through `ControlComposition.ReadToken` |
+| `--auth gssapi` without `--keytab` and the `--ssh-ciphers`/`--ssh-macs` refusal (2), the data directory probe (37), the content file system (`ContentWithoutDataDirectory` or a new `InMemoryContentFileSystem` without `--directory`), the TLS-first listen URL without a certificate (58) and the `scp`/`sftp` one without a host key (2), authentication, groups and host keys, the shares and buckets (2, 37) and the content store, the lock (124, 23), the service state (37), the protocol servers, server TLS (58, 2, 77) | `SurlServerComposition.ComposeAsync`, from a `SurlCommandLine` and a `SurlServerCompositionSeams`, returning a `SurlServerStart`: a `SurlStartFailure` (exit code and lines after `surl: `; a start cancelled while loading the service state is `Ok` with no lines) or a `ComposedServing` |
 | Open the log streams (`--log-file`, trace file) | the host, which disposes the `ComposedServing` on failure to release the lock |
+| With `--control`: bind the control listener first (45, 6 before any other line), then the start-up warnings (the control one after the `--fault` one), the protocol listeners, and the control status line after the `Listening on` lines | `ComposedServing.ServeAsync` |
 | Start-up warnings and notes, the status lines, the `ServingEngine`, the bound listen URLs, bind failures (45, 6) and `(125)` | `ComposedServing.ServeAsync`, given `SurlServingOutputs`; `ListenerStartReporter` calls `AllListenersBound` once with every bound `ListenUrl`, never after a bind failure; it returns a `SurlServingOutcome` |
 | Write each `surl: ` line and return the exit code | the host |
 
@@ -134,6 +170,12 @@ rather than writing it, and the warning writers take the log `TextWriter` they w
 
 - `AuthenticationComposition` - the accounts (`--user`, `--user-file`), `--authorized-keys`, the
   `--auth` methods and the `AuthenticationPolicy` (ADR-0032); `WriteLooseningWarnings`.
+- `ReadableByOthersWarning` - `surl: warning: <file> is readable by other users and may hold
+  passwords` (ADR-0101 decision 5, BL-684, BL-780), written by `ComposedServing` through
+  `WriteForFilesThatMayHoldPasswords` for each `SurlCommandLine.ConfigFiles` file in the order read
+  (never `-`, standard input) and then the `--user-file`, right after the `--fault` warning, from
+  info up, when the mode read through `SurlServerCompositionSeams.ReadStartFileUnixMode`
+  (`ReadDiskMode` by default: `null` on Windows or when unreadable) grants group or other read.
 - `MailboxComposition` - the mail domains and mailboxes (ADR-0102 decisions 1.1, 1.2, 1.4 and 5,
   BL-882): every `SurlCommandLine.Mailboxes` then each `MailboxFiles` record (read through
   `ReadStartFile` with `Surl.Cli`'s `MailboxFileReader`; unreadable `(37) Could not read mailbox
@@ -143,12 +185,38 @@ rather than writing it, and the warning writers take the log `TextWriter` they w
   before `AuthenticationComposition.Compose`, which adds its accounts after the `--user-file` ones
   and refuses one named like a `--user-file` account `(2)`; it rides on `ComposedAuthentication.Mailboxes`,
   and `WriteStartLines` writes the `-v` notes after the groups'. With no `MailDomains` it composes
-  nothing and the start is as before.
+  nothing and the start is as before. BL-994: the configuration also carries `MailAliases`,
+  `MailCatchAlls` and each mailbox's `QuotaBytes`/`Folders`; `ComposeSharedFolders` adds the
+  `--shared-folder`s after the groups are expanded (`@group` members become account names, `@everyone`
+  is `(2)`); `WriteWarnings` writes the `--mail-catch-all` warning from info up; `DescribeRouteFailure`
+  gives a `MailRouteException`'s `(2)` text, which `LoadMailStoreAsync` returns and the start maps to exit 2.
 - `AccountGroupExpansion` - every `--group` expanded to account names once the accounts are read
   (ADR-0102 decision 4.1), refusing `everyone` and `@everyone` (4.2), a member naming no account or
   group and a group that includes itself (ADR-0101 decision 5 row 18), each `(2)`; `Expand` turns a
   later option's member list into account names, and `WriteStartLines` writes each group's `-v`
   note after the other start lines. It rides on the start's `ComposedAuthentication`.
+- `ContentShareComposition` - every `--share`, `--share-access` and `--bucket` composed into the one
+  `ContentStore`'s shares and buckets (ADR-0102 decisions 2, 4 and 5, BL-988), after the groups:
+  a `--share-access` member naming nothing `(2)`, then per share a name that is not one path segment
+  or is `.surl` `(2) option --share: share <name> is not a valid folder name`, a path that does not
+  open through `SurlServerCompositionSeams.CanOpenShareDirectory` (`DataDirectoryProbe.CanOpen` by
+  default) `(37) Could not open directory <path> for share <name>`, and a path overlapping
+  `--directory` or an earlier share, compared ignoring case, `(2) option --share: share <name> overlaps
+  <other>`; then a bucket's name or content path `(2)`. Shares are read through
+  `SurlServerCompositionSeams.ShareFileSystem` (a `DiskContentFileSystem` by default); `protocols=`
+  gains each TLS twin (`WithTlsTwins`); groups expand to account names, `@everyone` stays its marker,
+  and a member granted twice keeps the wider access. `ComposedServing` writes `WriteWarnings`' `@everyone`
+  warning after the `--fault` one and `WriteStartLines`' `-v` notes after the mailboxes'.
+  Bucket folders are not yet checked or created at start (BL-988's follow-up).
+- `MessageBusComposition` - every `--topic`, `--queue`, `--topic-map` and `--topic-access` composed into the
+  one bus's `MessageBusConfiguration` (ADR-0102 decisions 3, 3.6 and 5, BL-991), after the shares and before the
+  lock: a filter that is not canonical, more than 1000 queues, a map scheme `TopicNameLookup` does not know, a
+  name not valid on its scheme or aliased twice on one scheme family (a scheme and its TLS twin), and a member
+  naming nothing, each `(2)`. Groups expand to account names, `@everyone` becomes `TopicAccessGrant.Everyone`,
+  and a member reached twice in a row keeps the union of its rights. `ComposeAsync` hands the configuration
+  through `LoadServiceStateAsync` to `LoadMessageBusAsync`, both taking it as an optional last parameter
+  (`None` without one). `ComposedServing` writes `WriteWarnings`' `@everyone` warning after the share one and
+  `WriteStartLines`' `-v` notes after the shares', both read from `Stores.Bus.Configuration`.
 - `KeytabComposition` - the `--keytab` file and its `KerberosAcceptor` (ADR-0057 decision 1),
   with `RandomKerberosRandomSource`; `WriteStartLines`.
 - `SshHostKeyComposition` - the `--hostkey`, `--throwaway-hostkey` and `--hostcert` host keys
@@ -157,6 +225,15 @@ rather than writing it, and the warning writers take the log `TextWriter` they w
   refusal (ADR-0066).
 - `ServerTlsComposition` - the server TLS settings (`--cert`, `--self-signed`, `--cacert`), and
   `DescribeTlsFileFailure`, the exit code and lines for a TLS file that cannot be loaded (ADR-0020).
+  Under TLS-SRP (`SurlCommandLine.ServesTlsSrp`, ADR-0122 decisions 4 and 5, BL-567) it builds
+  `ServerTlsSettings.ForTlsSrp` instead, over the accounts `TlsSrpAccountsComposition` reads (the
+  `--srp-groups` then `--srp-verifiers` files through `ReadStartFile`, then the `--tlsuser` account,
+  its salt drawn again while its first byte is zero) and one `RandomNumberGenerator` it owns; a file
+  that cannot be read is `TlsSrpAccountsException` `(37)`, a user given twice `(2)`. Each
+  `--srp-groups` group outside RFC 5054 Appendix A lands in `SrpGroupIndexesOutsideRfc5054`, and
+  `WriteStartLines` notes it once from `-v` up, after the `--self-signed` lines (ADR-0122 Amendment 3). No certificate is
+  needed then except for `webtransport` and `coaps`, and `IsTlsUpgradeAvailable` (a certificate, or
+  TLS-SRP) is what makes the STARTTLS-style servers offer their upgrade.
 - `DataDirectoryProbe`, `DataDirectoryLock` and `DataDirectoryLockOutcome` - the `--directory`
   probe and its `.surl/lock` (ADR-0031 decision 7).
 

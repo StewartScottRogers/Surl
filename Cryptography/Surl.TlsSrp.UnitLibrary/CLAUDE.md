@@ -2,8 +2,26 @@
 
 Holds Surl's hand-built TLS 1.2 server for RFC 5054's SRP cipher suites, decided in ADR-0122
 decisions 1 to 3 and 6 and its Amendment 1. BL-565 built the record layer and the key derivation;
-BL-566 built the handshake messages, the server's state machine and the alerts on top of them. The
-RSA- and DSS-signed suites are not served yet (BL-911).
+BL-566 built the handshake messages, the server's state machine and the alerts on top of them.
+BL-911 added the RSA- and DSS-signed suites (`C0 1B`, `C0 1E`, `C0 21` and `C0 1C`, `C0 1F`, `C0 22`),
+served only when `TlsSrpServer` is given a `TlsSrpServerCertificate`.
+
+The signed suites (BL-911, ADR-0122 decisions 2 and 3):
+- `TlsSrpServerCertificate(chain, key)` holds the DER chain and an RSA or DSA private key (this
+  library reads no file). `SignedSuites` is the three RSA suites or the three DSS ones.
+  `ChooseScheme` is the first `TlsSignatureScheme` in the client's `signature_algorithms` the key
+  can make (RSA: PKCS#1 with SHA-1, -256 or -384, and RSA-PSS-RSAE with SHA-256 or -384; DSA with
+  SHA-1, -256 or -384); with no extension, SHA-1 with the key's algorithm (`02 01` or `02 02`).
+  `Sign` signs RSA through the BCL; for DSA it hashes and cuts the digest to the length of `q`
+  itself, so a scheme's hash works on every platform.
+- `TlsSrpNegotiation.Negotiate(hello, certificate)` serves the signed suites of the certificate's
+  key only when a scheme was chosen; the suite is still the client's first servable one. Its
+  `SignatureScheme` is null for an unsigned suite. No servable suite is `handshake_failure`; an
+  empty or overlong `signature_algorithms` is `decode_error`.
+- A signed suite's flight is ServerHello, `Certificate`, a ServerKeyExchange whose
+  `ServerSRPParams` are followed by the scheme and the signature over
+  `client_random + server_random + ServerSRPParams`, then ServerHelloDone. DSA tests are skipped on
+  macOS, where the BCL has no DSA.
 
 The handshake:
 - `TlsSrpServer.AuthenticateAsync` runs the server side on the `Stream` it is handed and returns a
@@ -23,14 +41,17 @@ The handshake:
 - `TlsSrpAccounts` finds an account by the exact bytes of the user name. An unknown user gets a
   simulated `TlsSrpAccount`: a salt from HMAC-SHA256 under a secret drawn once, the 2048-bit group
   and a random verifier. The handshake then fails at the client's `Finished` with `bad_record_mac`,
-  exactly as a wrong password does.
+  exactly as a wrong password does. Only the thrown `TlsAlertException`'s message tells them apart
+  (`The TLS-SRP login failed: unknown user '<name>'.` or `... wrong password for '<name>'.`, ADR-0122
+  Amendment 3), for the verbose log; the wire never does.
 - `TlsHandshakeMessageReader` reassembles handshake messages across records. `TlsMessageReader`
   reads fixed fields and vectors, and refuses short or overlong input with `decode_error`.
   `TlsAlerts` writes and reads alert bodies.
 - `TlsSrpStream` is the plaintext application data afterwards, and is asynchronous only. A
   ClientHello gets the warning `no_renegotiation`. `close_notify` or the end of the connection is
-  the end of the stream. A fatal alert from the client throws. `DisposeAsync` sends `close_notify`
-  and closes the connection.
+  the end of the stream. A fatal alert from the client throws. `ShutdownAsync` sends `close_notify`
+  once and leaves the connection open, so `Surl.Networking` can half-close and linger (BL-567).
+  `DisposeAsync` sends `close_notify` unless `ShutdownAsync` already did, and closes the connection.
 
 The record layer:
 - `TlsPseudorandomFunction` is RFC 5246 section 5's PRF with SHA-256 (every RFC 5054 suite uses

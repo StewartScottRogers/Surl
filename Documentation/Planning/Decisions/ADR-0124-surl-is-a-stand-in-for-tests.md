@@ -255,7 +255,7 @@ path and command known at that point. `FaultRule` carries `Id`, `Kind`, its scop
 | Scheme | `reply` |
 | --- | --- |
 | `http`, `https`, `rtsp` | a status 400 to 599 and an optional reason phrase |
-| `ws`, `wss` | a close code 1000 to 4999 (not 1005, 1006, 1015) and an optional reason |
+| `ws`, `wss` | a close code RFC 6455 section 7.4 allows on the wire - 1000 to 1014 less 1004 to 1006, and 3000 to 4999 - and an optional non-empty reason of at most 123 UTF-8 bytes (ADR-0134 decision 4, BL-903) |
 | `ftp`, `ftps`, `smtp`, `smtps` | a reply code 400 to 599 and text |
 | `imap`, `imaps` | `NO` or `BAD` and text |
 | `pop3`, `pop3s` | text, sent after `-ERR ` |
@@ -362,6 +362,28 @@ callbacks.
 - **A throwing hook** is caught; `HookFailedEvent` (`Threw`, the exception's message) is published; the
   point is served as if no hook were registered (an override) or the event is skipped (a callback); the
   hook stays registered.
+
+**Amendment (BL-811, recorded by BL-969). Decided by Claude under Stewart's delegation.** Building hooks
+settled these choices, which `Application/Surl.Api/README.md`, section "Hooks", states for users:
+
+- **An override's answer applies to the point it was asked at.** Its own scope (`Listener`, `Scheme`,
+  `Account`, `Path`, `Command`) and its `Times` are ignored; an `error` answer takes the point's scheme, so
+  its reply has the shape that scheme's server sends. The answer is then read by the same reader as
+  `surl --fault`.
+- **An answer that cannot be applied is a failure, not a fault.** An answer `surl` refuses, or one whose
+  kind cannot act at the point's stage, is published as `HookFailedEvent` (`Threw`, the refusal's message)
+  and ignored: the point is served as if the override were not there.
+- **Hook IDs.** An override's hook ID is its fault rule ID, `f<n>`, from the plan's one sequence, and is
+  what `SurlServer.Faults.Remove` takes; an event callback's is `h<n>`, from the server's own sequence.
+- **Scope.** A `SurlFaultScope` with no `Stage` is asked at every stage, as every other unset scope
+  property matches anything.
+- **The plan's limit and listing.** Overrides count toward the plan's 256 rules (`FaultPlan.MaxRules`) and
+  are not listed in `FaultPlan.Rules`, which holds only rules with a fixed answer.
+- **No feedback loop.** A callback that throws on its own `HookFailedEvent` is not published again, so a
+  callback that always throws cannot feed itself; nor is a failure published once its registration is
+  disposed.
+- **Stopping.** A callback's `CancellationToken` is cancelled when its registration is disposed, and the
+  server disposes every callback registration when it stops.
 
 ### 6. Determinism
 

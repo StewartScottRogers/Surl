@@ -10,7 +10,10 @@ What it holds:
   and `UnixSocket`, a `UnixSocketAddress` (a path, or a Linux abstract name, with its
   `unix://` form) to listen on instead of a TCP port (ADR-0094, decision 6). A connection from
   a Unix socket client that bound no name has `UnnamedUnixSocketPeer.Instance` (`unix peer`)
-  as its remote endpoint.
+  as its remote endpoint. `OnlyTransport` (a `ListenTransport?`: `Connections`, `Datagrams`,
+  or `null` for every listener its scheme's servers take) names the one listener a listen URL
+  binds, so one `dns` listen URL serves UDP alone beside another serving TCP (ADR-0092,
+  Amendment 1; BL-1036).
 - The transports a protocol server receives: `IConnection` (stream-oriented) and
   `IDatagramFlow` (TFTP, and HTTP/3 over QUIC).
 - The protocol server contracts: `IProtocolServer`, `IConnectionProtocolServer` and
@@ -20,7 +23,10 @@ What it holds:
 - The hardening limits every server enforces (ADR-0006, section 6): `ExchangeLimits`, on
   `ExchangeContext.Limits`, and the optional refusal contracts a server implements to
   answer a connection or flow past a connection limit, `IConnectionRefusalWriter` and
-  `IDatagramRefusalWriter` with `ConnectionRefusal`.
+  `IDatagramRefusalWriter` with `ConnectionRefusal`. The engine calls
+  `IConnectionRefusalWriter`'s overload that also takes the listen URL's scheme, a default
+  interface member that writes the scheme-blind refusal, so a server whose refusal differs by
+  scheme (the Azure Storage server's XML on `az`, JSON on `abfs`; BL-758) overrides it.
 - How a server tells a limit's cancellation from shutdown (ADR-0059):
   `ExchangeContext.ShutdownToken`, set by the engine, and `ExchangeContext.IsCancelledForALimit`.
 - The listener seam `Surl.Networking` implements: `IListenerFactory`,
@@ -141,7 +147,7 @@ What it holds:
   sets the exchange's own. `CommandStageFaults.FindAndApplyAsync(context, connection, point, target)`
   asks the plan and applies a `Delay` (hold `ms` on the context's clock with the idle clock paused)
   or a `Drop` (`IConnection.Abort()`), each noted and published once as a `FaultAppliedEvent`, and
-  hands any other kind back. `RecordingIdleClock` is its test double. `ReportedListenUrl.Format` is
+  hands any other kind back. An overload without a connection (ADR-0141 amendment 1) leaves ending a dropped exchange to the caller, as the HTTP servers do. `RecordingIdleClock` is its test double. `ReportedListenUrl.Format` is
   the listen URL as the instance reports it, for events and a rule's `listener`.
 
 - The seedable identifier source (ADR-0124, decision 6; BL-851): `IIdentifierRandom.NextBytes`,

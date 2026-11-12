@@ -1,9 +1,12 @@
 using System.Buffers.Binary;
+using System.Numerics;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using Surl.Cryptography.Curve25519;
+using Surl.Cryptography.Curve448;
 using Surl.Cryptography.MlKem;
+using Surl.Cryptography.Sm2;
 
 namespace Surl.Tls13;
 
@@ -34,6 +37,34 @@ internal sealed class UnitTestTlsClient
     /// <summary>The server's key_exchange value from the last ServerHello this client verified.</summary>
     public byte[] ServerShare { get; private set; } = [];
 
+    /// <summary>A client with an x448 share (RFC 7748 section 6.2).</summary>
+    public static UnitTestTlsClient WithX448Share()
+    {
+        var privateKey = RandomNumberGenerator.GetBytes(X448.KeySize);
+        var publicKey = new byte[X448.KeySize];
+        X448.ComputePublicKey(privateKey, publicKey);
+        return new UnitTestTlsClient(0x001E, publicKey, serverShare =>
+        {
+            var shared = new byte[X448.KeySize];
+            X448.ScalarMultiply(privateKey, serverShare, shared);
+            return shared;
+        });
+    }
+
+    /// <summary>A client with a curveSM2 share (RFC 8998): an uncompressed point, and the x-coordinate of the product as the secret.</summary>
+    public static UnitTestTlsClient WithCurveSm2Share()
+    {
+        var privateKey = RandomNumberGenerator.GetBytes(CurveSm2.PrivateKeySize);
+        var publicKey = new byte[CurveSm2.PublicKeySize];
+        CurveSm2.ComputePublicKey(privateKey, publicKey);
+        return new UnitTestTlsClient(0x0029, publicKey, serverShare =>
+        {
+            var shared = new byte[CurveSm2.SharedSecretSize];
+            Assert.IsTrue(CurveSm2.TryComputeSharedSecret(privateKey, serverShare, shared));
+            return shared;
+        });
+    }
+
     public static UnitTestTlsClient WithX25519Share() => WithX25519PrivateKey(RandomNumberGenerator.GetBytes(X25519.KeySize));
 
     /// <summary>
@@ -54,6 +85,78 @@ internal sealed class UnitTestTlsClient
             Assert.IsTrue(MlKem768.TryDecapsulate(decapsulationKey, serverShare.AsSpan(0, MlKem768.CiphertextSize), mlKemSecret));
             return [.. mlKemSecret, .. x25519.agree(serverShare[MlKem768.CiphertextSize..])];
         });
+    }
+
+    /// <summary>
+    /// A client with an ffdhe2048 or ffdhe3072 share (RFC 7919 appendix A, RFC 8446 section
+    /// 4.2.8.1): Y = 2^x mod p, and the secret Z = Y_server^x mod p, both padded to the length of p.
+    /// </summary>
+    public static UnitTestTlsClient WithFiniteFieldShare(ushort group)
+    {
+        var prime = UnitTestFiniteFieldPrimes.Of(group);
+        var length = (int)((prime.GetBitLength() + 7) / 8);
+        var exponent = new BigInteger(RandomNumberGenerator.GetBytes(40), isUnsigned: true);
+        return new UnitTestTlsClient(group, Padded(BigInteger.ModPow(2, exponent, prime), length), serverShare =>
+        {
+            Assert.HasCount(length, serverShare);
+            return Padded(BigInteger.ModPow(new BigInteger(serverShare, isUnsigned: true, isBigEndian: true), exponent, prime), length);
+        });
+    }
+
+    /// <summary>
+    /// A client with a SecP256r1MLKEM768 (<c>0x11EB</c>) or SecP384r1MLKEM1024 (<c>0x11ED</c>) share
+    /// (draft-ietf-tls-ecdhe-mlkem): the uncompressed point then the ML-KEM encapsulation key. It
+    /// splits the server's share into the point and the ciphertext, and its shared secret is the
+    /// ECDH secret then ML-KEM's.
+    /// </summary>
+    public static UnitTestTlsClient WithClassicalFirstHybridShare(ushort group)
+    {
+        var classical = group switch
+        {
+            0x11EB => WithEllipticCurveShare(0x0017),
+            0x11EE => WithCurveSm2Share(),
+            _ => WithEllipticCurveShare(0x0018),
+        };
+        var (encapsulationKey, decapsulate) = group == 0x11ED ? MlKem1024Key() : MlKem768Key();
+        return new UnitTestTlsClient(group, [.. classical.PublicShare, .. encapsulationKey], serverShare =>
+        {
+            var split = classical.PublicShare.Length;
+            return [.. classical.agree(serverShare[..split]), .. decapsulate(serverShare[split..])];
+        });
+    }
+
+    private static (byte[] EncapsulationKey, Func<byte[], byte[]> Decapsulate) MlKem768Key()
+    {
+        var encapsulationKey = new byte[MlKem768.EncapsulationKeySize];
+        var decapsulationKey = new byte[MlKem768.DecapsulationKeySize];
+        MlKem768.GenerateKey(RandomNumberGenerator.GetBytes(32), RandomNumberGenerator.GetBytes(32), encapsulationKey, decapsulationKey);
+        return (encapsulationKey, ciphertext =>
+        {
+            var secret = new byte[MlKem768.SharedSecretSize];
+            Assert.IsTrue(MlKem768.TryDecapsulate(decapsulationKey, ciphertext, secret));
+            return secret;
+        }
+        );
+    }
+
+    private static (byte[] EncapsulationKey, Func<byte[], byte[]> Decapsulate) MlKem1024Key()
+    {
+        var encapsulationKey = new byte[MlKem1024.EncapsulationKeySize];
+        var decapsulationKey = new byte[MlKem1024.DecapsulationKeySize];
+        MlKem1024.GenerateKey(RandomNumberGenerator.GetBytes(32), RandomNumberGenerator.GetBytes(32), encapsulationKey, decapsulationKey);
+        return (encapsulationKey, ciphertext =>
+        {
+            var secret = new byte[MlKem1024.SharedSecretSize];
+            Assert.IsTrue(MlKem1024.TryDecapsulate(decapsulationKey, ciphertext, secret));
+            return secret;
+        }
+        );
+    }
+
+    private static byte[] Padded(BigInteger value, int length)
+    {
+        var bytes = value.ToByteArray(isUnsigned: true, isBigEndian: true);
+        return [.. new byte[length - bytes.Length], .. bytes];
     }
 
     /// <summary>The client of RFC 8448 section 3, with that trace's x25519 private key.</summary>

@@ -36,10 +36,12 @@ internal sealed record EchoRequest(string Message, uint Count, int StatusCode, s
             request = request.With(field);
         }
 
-        return request.Count > MaximumCount || request.StatusCode is < 0 or > 16 || request.DelayMilliseconds > MaximumDelayMilliseconds
+        return request.IsOutOfRange
             ? throw new GrpcCallException(GrpcStatus.RequestFieldOutOfRange)
             : request;
     }
+
+    private bool IsOutOfRange => Count > MaximumCount || StatusCode is < 0 or > 16 || DelayMilliseconds > MaximumDelayMilliseconds;
 
     /// <summary>Waits <see cref="DelayMilliseconds" /> on <paramref name="timeProvider" />.</summary>
     /// <param name="timeProvider">The clock.</param>

@@ -1,5 +1,5 @@
-using System.Security.Cryptography;
 using Surl.MessageBus;
+using Surl.Protocol.Abstractions;
 
 namespace Surl.Extended.Protocol.Amqp1;
 
@@ -11,7 +11,8 @@ namespace Surl.Extended.Protocol.Amqp1;
 /// </summary>
 /// <param name="bus">The process's message bus.</param>
 /// <param name="connection">The connection's place on the bus; its account is the caller.</param>
-public sealed class Amqp1BusNodeDirectory(MessageBus.MessageBus bus, BusConnection connection) : IAmqp1NodeDirectory
+/// <param name="identifiers">Where a dynamic node's queue name is drawn from (ADR-0124 decision 6).</param>
+public sealed class Amqp1BusNodeDirectory(MessageBus.MessageBus bus, BusConnection connection, IIdentifierRandom identifiers) : IAmqp1NodeDirectory
 {
     /// <summary>The scheme whose names the bus maps for the container.</summary>
     public const string Scheme = "amqp1";
@@ -28,6 +29,8 @@ public sealed class Amqp1BusNodeDirectory(MessageBus.MessageBus bus, BusConnecti
     private readonly MessageBus.MessageBus bus = bus ?? throw new ArgumentNullException(nameof(bus));
 
     private readonly BusConnection connection = connection ?? throw new ArgumentNullException(nameof(connection));
+
+    private readonly IIdentifierRandom identifiers = identifiers ?? throw new ArgumentNullException(nameof(identifiers));
 
     /// <inheritdoc/>
     /// <remarks>
@@ -50,7 +53,9 @@ public sealed class Amqp1BusNodeDirectory(MessageBus.MessageBus bus, BusConnecti
 
     private Amqp1NodeResolution DeclareDynamicQueue()
     {
-        var name = DynamicQueuePrefix + Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(16));
+        Span<byte> bytes = stackalloc byte[16];
+        identifiers.NextBytes(bytes);
+        var name = DynamicQueuePrefix + Convert.ToHexStringLower(bytes);
         return connection.DeclareQueue(name, DynamicQueueFlags).Outcome == MessageBusOutcome.Succeeded
             ? Amqp1NodeResolution.Found(Amqp1NodeAddress.QueuePrefix + name)
             : Amqp1NodeResolution.ResourceLimitExceeded;
@@ -71,6 +76,12 @@ public sealed class Amqp1BusNodeDirectory(MessageBus.MessageBus bus, BusConnecti
 
     private Amqp1NodeResolution ResolveQueue(string queue, bool clientIsReceiver)
     {
+        // ADR-0146 decision 3.4: only the subscriber reaches a kept subscription's queue.
+        if (queue.StartsWith(Amqp1KeptSubscription.QueueNamePrefix, StringComparison.Ordinal))
+        {
+            return Amqp1NodeResolution.NotFound;
+        }
+
         var right = clientIsReceiver ? TopicAccessRights.Subscribe : TopicAccessRights.Publish;
         if (!bus.GetTopicAccess(connection.Account, QueueAccessLevel + queue).HasFlag(right))
         {

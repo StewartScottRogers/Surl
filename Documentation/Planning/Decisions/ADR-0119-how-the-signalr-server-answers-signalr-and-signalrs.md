@@ -21,7 +21,7 @@
   checks and refusals), [ADR-0006](ADR-0006-hardening-for-internet-facing-use.md) (limits and fixed
   error text) and [ADR-0059](ADR-0059-how-a-protocol-server-tells-a-limit-from-shutdown.md)
   (shutdown grace).
-- **Amends:** nothing.
+- **Amends:** [ADR-0059](ADR-0059-how-a-protocol-server-tells-a-limit-from-shutdown.md) decision 4, for this server only (Amendment 2, BL-772: a farewell at shutdown). Amendment 1 (BL-757) adds the Server-Sent Events and Long Polling transports to decision 2.
 
 ## Context
 
@@ -275,6 +275,11 @@ types 8 and 9 are protocol errors (decision 3). What BL-755 builds:
   `{"type":9,"sequenceId":<first unacknowledged>}` and every kept message from there in order. A
   client Sequence makes the server drop received messages numbered below it as duplicates. After
   30 s the connection ends and its token is `404`.
+- **As built (BL-755).** The Ack is sent immediately after each numbered client message, which meets the
+  1 s bound. Streams (`Count`) in progress when the WebSocket is lost are cancelled with it and not
+  resumed; only records already numbered are replayed. A lost WebSocket is one that ends with no Close
+  either way (the client vanished or the read failed); a hub Close or WebSocket Close ends the
+  connection for good.
 - **Bounded.** At most 100000 bytes of unacknowledged records a connection (ASP.NET Core's
   `StatefulReconnectBufferSize` default); more ends the connection with the protocol-error Close of
   decision 3.
@@ -334,3 +339,85 @@ No new option is added: ADR-0006's options cover what a test harness tunes.
 - The requirement matrix [`SignalR.md`](../../Conformance/Extended/SignalR.md) traces each
   server-side requirement to BL-448, BL-449 or a later task; each task replaces its ID with the
   named test.
+
+## Amendment 1 — the Server-Sent Events and Long Polling transports (BL-757)
+
+Decided by Claude under Stewart's delegation, 2026-11-11, in BL-757. Decision 2's list of transports grows by
+two, each with HTTP Post for the client's half (TP "HTTP Post", "Server-Sent Events", "Long Polling"); defaults
+keep today's behaviour, since a client that asks for WebSockets sees no change.
+
+1. **What is a WebSocket request.** A request to `[endpoint-base]` naming `Upgrade: websocket` takes decision
+   2's WebSocket path unchanged (`Surl.WebSocket`'s checks, then the `id`). Any other request there is read as
+   one of the transports below, so a `GET` without an upgrade is no longer `426`; a method other than `GET`,
+   `POST` and `DELETE` is `405` with `Allow: GET, POST, DELETE`.
+2. **The `id`.** Every such request names its connection by the `id` the negotiate gave (the token for version 1):
+   none is `400`, an unknown or ended one `404`, one another account negotiated `403`, one on another transport
+   `400`. Unlike a WebSocket upgrade, an HTTP request without `id` never creates a connection.
+3. **Server-Sent Events.** `GET` with `Accept: text/event-stream` takes the connection up and is answered `200`,
+   `Content-Type: text/event-stream`, `Cache-Control: no-cache`, as a streamed body (`HttpAnswerBody.Streamed`, so
+   `Surl.HttpServing` needed no change) that starts with the comment line `:` and a blank line, then carries each
+   hub record as one event whose `data` lines are the record's lines, a blank line after each. A second `GET` for a
+   taken-up connection is `409`. The stream ends with the connection: the hub Close, if any, is its last event.
+   It carries the Text transfer format only: a MessagePack handshake is answered
+   `{"error":"Requested protocol is not available."}` and the connection ends.
+4. **Long Polling.** The first `GET` without that `Accept` takes the connection up and is answered `200` with no
+   content at once; the session then runs on the engine's shutdown token alone, since it outlives the request.
+   Every later `GET` is a poll answered `200` `application/octet-stream` with the records waiting joined as they
+   are (each already ends with its `0x1E`, or is one MessagePack message), or held until one is sent. A poll that
+   waits 90 s is answered `200` with no content; one a newer poll supersedes, or one on an ended connection, `204`
+   with no body. Records sent while no poll waits queue until the next poll; a connection whose client stops
+   posting ends on decision 4's client timeout, which is what forgets an abandoned one.
+5. **HTTP Post.** `POST` hands its body to the session as one payload and is answered `200` once the session has
+   processed it, `409` while an earlier post is unprocessed, `404` when the connection ended meanwhile, `413`
+   when the announced or read body is past `--max-message` and `400` when it is not readable or not read whole.
+   Each record in the payload is still bounded by `--max-message` as a hub record.
+6. **`DELETE`.** Ends the connection (the session ends without writing anything), completes a waiting poll with
+   `204` and is answered `202`; the `id` is then `404`.
+7. **Pings, the client timeout and stateful reconnect.** The keep-alive Ping (15 s) and client timeout (30 s) of
+   decision 4 apply to every transport. Stateful reconnect (decision 6) is WebSockets only: a connection that
+   negotiated it keeps its `useStatefulReconnect` answer but its Server-Sent Events or Long Polling session numbers
+   and acknowledges nothing, and a lost HTTP transport ends the connection.
+8. **Structure.** The session (`SignalRHubSession`) runs the hub over an `ISignalRHubTransport`, with
+   `SignalRWebSocketTransport`, `SignalRServerSentEventsTransport` and `SignalRLongPollingTransport` beside it;
+   HTTP Post's bodies reach it through `SignalRPostedPayloads`, whose being asked again for the next payload is the
+   acknowledgement that the last was processed.
+
+Why: the specification lists the three transports and a test of a client configured for Server-Sent Events or
+Long Polling needs them; `Accept` and `Upgrade` are the specification's own discriminators. Measured against no
+upstream curl, since upstream curl has no SignalR client; the bytes come from TransportProtocols.md.
+## Amendment 2 - what decisions 1 and 7 leave open for `Broadcast`, `Collect` and shutdown (BL-772, 2026-11-11)
+
+Decided by Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), 2026-11-11, judged by
+HUB "Upload streaming", "Cancellation" and "Completion and results" and by ADR-0059.
+
+1. **The shutdown farewell rides the exchange's cancellation.** `Surl.Core` gives a server no signal
+   when the grace begins: it cancels `ShutdownToken` once the grace is over, then waits for
+   `ServeAsync` to end (ADR-0059 decisions 1 and 3). So "within the grace" is read as: when the
+   exchange is cancelled at shutdown, the session writes Close `{"type":7}` and WebSocket Close `1001`
+   on a one-second deadline of its own (ADR-0006 section 5's limit-reply deadline) and ends without a
+   lingering close. This is a deliberate exception to ADR-0059 decision 4 (no farewell at shutdown):
+   a SignalR client tells a server going away from a broken connection only by the Close. An
+   exchange cancelled for a limit (`IsCancelledForALimit`) gets the same farewell, its deadline also
+   cut short by shutdown, then the lingering close on `ShutdownToken`. A farewell not written in time
+   is noted and the connection closed without it. A hub-wide signal before the grace would need a
+   `Surl.Core` change; it is not needed for a test to see the farewell.
+2. **The unsent-bytes cap counts every record queued and not yet written**, its WebSocket frame
+   header included: records the session sends itself are always queued; a broadcast that would
+   take the count past 1048576 is not queued, and the connection ends with the protocol-error Close
+   and WebSocket `1008`. A broadcast is queued for each receiver without waiting for its write, in
+   the order the receivers finished their handshakes, so one slow connection never holds up the
+   caller or the others; the caller's own copy is queued before its Completion.
+3. **`Collect`'s upload limit is "past", not "at"**: the items' JSON bytes may total
+   `--max-filesize` exactly; `0` means no limit, as for every other `--max-filesize` use.
+4. **A `Collect` already completed - past the limit, or cancelled - drops the rest of its upload**:
+   the server reads and ignores the stream's items until the client's Completion of it, so a client
+   that keeps streaming after the server's Completion (HUB lets it finish its stream) is not a
+   protocol error. The stream still counts toward the 100 invocations in progress until the
+   client's Completion. A `Collect` refused as one too many registers no stream, so items sent for
+   it are the protocol error decision 3 names.
+5. **A client Completion of an upload carrying `error`** ends the upload like one without: the
+   `Collect` completes with the items received so far. The specifications give the server's method
+   no other way to learn of it, and a fixed text for it would add nothing a test can use.
+6. **A `Collect` naming a stream ID already being uploaded on the connection** is a protocol error,
+   as an `invocationId` already in progress is (decision 3): the server could not tell whose items
+   are whose.

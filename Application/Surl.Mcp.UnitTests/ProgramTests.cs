@@ -47,7 +47,7 @@ public sealed class ProgramTests
             {
                 StartServerTool.Name, ListServersTool.Name, StopServerTool.Name, GetExchangesTool.Name, GetEventsTool.Name, WaitForEventTool.Name,
                 SeedMailTool.Name, PutFileTool.Name, PublishMessageTool.Name, AddAccountTool.Name, ResetServerTool.Name,
-                SnapshotServerTool.Name, RestoreServerTool.Name, AddFaultTool.Name, RemoveFaultTool.Name,
+                SnapshotServerTool.Name, RestoreServerTool.Name, AddFaultTool.Name, ListFaultsTool.Name, RemoveFaultTool.Name,
             },
             names);
     }
@@ -61,6 +61,7 @@ public sealed class ProgramTests
     [DataRow(SnapshotServerTool.Name, SnapshotServerTool.Description, new[] { "server_id" })]
     [DataRow(RestoreServerTool.Name, RestoreServerTool.Description, new[] { "server_id", "snapshot_id" })]
     [DataRow(AddFaultTool.Name, AddFaultTool.Description, new[] { "server_id", "fault" })]
+    [DataRow(ListFaultsTool.Name, ListFaultsTool.Description, new[] { "server_id" })]
     [DataRow(RemoveFaultTool.Name, RemoveFaultTool.Description, new[] { "server_id", "fault_id" })]
     public async Task RunAsync_ToolsList_IncludesEachStoreAndFaultToolWithAnObjectInputSchemaAndADescription(string name, string description, string[] properties)
     {

@@ -96,6 +96,30 @@ public sealed class CommandLineParserUnixSocketTests
     }
 
     [TestMethod]
+    [DataRow("--unix-socket", "socks5", false)]
+    [DataRow("--unix-socket", "socks5h", false)]
+    [DataRow("--abstract-unix-socket", "socks5h", true)]
+    public void Parse_UnixSocketWithASocks5ListenUrl_ServesSocks5OnTheSocket(string option, string scheme, bool isAbstract)
+    {
+        var commandLine = Served(option, "surl-socks.sock", $"{scheme}://localhost");
+
+        var expected = new ListenUrl(scheme, "localhost", 1080) { UnixSocket = new UnixSocketAddress("surl-socks.sock", isAbstract) };
+        Assert.AreEqual(expected, commandLine.ListenUrls.Single());
+    }
+
+    [TestMethod]
+    [DataRow("socks4")]
+    [DataRow("socks4a")]
+    public void Parse_UnixSocketWithASocks4ListenUrl_ServesSocks4OnTheSocket(string scheme) =>
+        Assert.AreEqual(
+            new UnixSocketAddress(SocketPath, isAbstract: false),
+            Served("--unix-socket", SocketPath, $"{scheme}://localhost").ListenUrls.Single().UnixSocket);
+
+    [TestMethod]
+    public void Parse_UnixSocketWithASocks5ProxyOptionUrl_IsRefusedAsAProxy() =>
+        AssertRefused(["--unix-socket", SocketPath, "-x", "socks5h://localhost"], "option --unix-socket: cannot be used with --proxy");
+
+    [TestMethod]
     public void Parse_UnixSocketWithNoListenUrl_IsRefusedForTheMissingUrl() =>
         Assert.AreEqual(CommandLineParser.NoUrlSpecified, Refused(["--unix-socket", SocketPath], []).Message);
 

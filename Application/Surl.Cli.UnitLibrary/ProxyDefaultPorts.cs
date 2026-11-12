@@ -5,7 +5,7 @@ namespace Surl.Cli;
 /// <summary>
 /// The schemes a proxy listen URL (<c>-x</c>/<c>--proxy</c>) may name, each with the port one without a
 /// port binds: upstream curl 8.21.0's default proxy port per scheme (curl's manpage, <c>-x</c>; ADR-0088
-/// decision 7). <c>socks*</c> schemes join it in BL-560 (ADR-0121 decision 4).
+/// decision 7), and the four SOCKS schemes, whose default port is 1080 as curl's is (ADR-0121 decision 5).
 /// </summary>
 public static class ProxyDefaultPorts
 {
@@ -13,6 +13,10 @@ public static class ProxyDefaultPorts
     {
         ["http"] = 1080,
         ["https"] = 443,
+        ["socks4"] = 1080,
+        ["socks4a"] = 1080,
+        ["socks5"] = 1080,
+        ["socks5h"] = 1080,
     }.ToFrozenDictionary(StringComparer.Ordinal);
 
     /// <summary>Every scheme a proxy listen URL may name, lower-case, in no particular order.</summary>

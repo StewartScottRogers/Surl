@@ -84,34 +84,66 @@ public sealed class GopherSelectorFaultsTests
         Assert.Contains("Fault rule f1 not applied to the selector: its reply does not fit the gopher error shape.", log.Notes);
     }
 
-    // Only an Error rule is answered by the server; command-stage delay and drop are BL-912's.
+    // ADR-0138 decision 5 as amended (BL-914): a command-stage delay holds the selector's answer on
+    // the exchange's clock, with the idle clock paused, then answers it as usual.
     [TestMethod]
-    public async Task ServeAsync_CommandStageDropRule_IsNotAppliedAndIsNoted()
+    public async Task ServeAsync_CommandStageDelayRule_HoldsTheAnswerFor500MsThenAnswersAsUsual()
+    {
+        var delay = new FaultRule("f1", FaultKind.Delay) { Stage = FaultStage.Command, Path = "/file.txt", DelayMilliseconds = 500 };
+        var clock = new ManualTimeProvider();
+        var idleClock = new RecordingIdleClock();
+        var events = new RecordingSurlEventPublisher();
+        var connection = new InMemoryConnection(RecordedFixture.Whole("/file.txt\r\n"u8.ToArray()));
+        var serving = Server().ServeAsync(
+            connection,
+            Context(clock, new RecordingExchangeLog(), TestContext.CancellationToken) with { Faults = new ScriptedFaultPlan(delay), Events = events, IdleClock = idleClock });
+
+        await idleClock.FirstPause.WaitAsync(TimeSpan.FromSeconds(30), TestContext.CancellationToken);
+        var writtenAtTheHold = Utf8(connection.WrittenBytes);
+        clock.Advance(TimeSpan.FromMilliseconds(499));
+        var writtenAfter499Ms = Utf8(connection.WrittenBytes);
+        clock.Advance(TimeSpan.FromMilliseconds(1));
+        await serving.WaitAsync(TimeSpan.FromSeconds(30), TestContext.CancellationToken);
+
+        Assert.AreEqual(string.Empty, writtenAtTheHold);
+        Assert.AreEqual(string.Empty, writtenAfter499Ms);
+        Assert.IsFalse(idleClock.IsPaused);
+        Assert.AreEqual(FileBody, Utf8(connection.WrittenBytes));
+        Assert.AreEqual(new FaultAppliedEvent("f1", FaultKind.Delay, FaultStage.Command, 1, "/file.txt"), events.Events.Single());
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_CommandStageDropRule_AbortsTheConnectionWithNothingWritten()
     {
         var drop = new FaultRule("f1", FaultKind.Drop) { Stage = FaultStage.Command };
+        var events = new RecordingSurlEventPublisher();
+        var connection = new InMemoryConnection(RecordedFixture.Whole("/file.txt\r\n"u8.ToArray()));
 
-        var (written, events, log) = await ServeAsync(Ascii("/file.txt\r\n"), new ScriptedFaultPlan(drop));
+        await Server().ServeAsync(
+            connection,
+            Context(TimeProvider.System, new RecordingExchangeLog(), TestContext.CancellationToken) with { Faults = new ScriptedFaultPlan(drop), Events = events });
+
+        Assert.IsTrue(connection.Aborted);
+        Assert.IsEmpty(connection.WrittenBytes);
+        Assert.AreEqual(new FaultAppliedEvent("f1", FaultKind.Drop, FaultStage.Command, 1, "/file.txt"), events.Events.Single());
+    }
+
+    // The kinds a selector does not apply are noted and it is answered as without them.
+    [TestMethod]
+    public async Task ServeAsync_CommandStageRuleOfAnotherKind_IsNotAppliedAndIsNoted()
+    {
+        var other = new FaultRule("f1", FaultKind.OutOfSpace) { Stage = FaultStage.Command };
+
+        var (written, events, log) = await ServeAsync(Ascii("/file.txt\r\n"), new ScriptedFaultPlan(other));
 
         Assert.AreEqual(FileBody, written);
         Assert.IsEmpty(events.Events);
-        Assert.Contains("Fault rule f1 not applied to the selector: a Drop rule is not applied at a selector.", log.Notes);
+        Assert.Contains("Fault rule f1 not applied to the selector: a OutOfSpace rule is not applied at a selector.", log.Notes);
     }
 
     [TestMethod]
     public void ErrorMenu_EncodesTheTextAsUtf8()
     {
         Assert.AreEqual("3échec\t\terror.host\t1\r\n.\r\n", Utf8(GopherSelectorFaults.ErrorMenu("échec")));
-    }
-
-    [TestMethod]
-    [DataRow("gopher", "127.0.0.1", 70, null, "gopher://127.0.0.1:70/")]
-    [DataRow("gophers", "127.0.0.1", 0, 41000, "gophers://127.0.0.1:41000/")]
-    [DataRow("gopher", "fe80::1%12", 70, null, "gopher://[fe80::1%2512]:70/")]
-    public void FormatListenUrl_GivesTheFormTheEngineReports(string scheme, string host, int port, int? boundPort, string expected)
-    {
-        var listenUrl = new ListenUrl(scheme, host, port);
-        listenUrl = boundPort is { } bound ? listenUrl.WithBoundPort(bound) : listenUrl;
-
-        Assert.AreEqual(expected, GopherSelectorFaults.FormatListenUrl(listenUrl));
     }
 }

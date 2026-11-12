@@ -164,17 +164,61 @@ public sealed class FtpFaultTests
     }
 
     [TestMethod]
-    [DataRow(FaultKind.Delay, FaultReply, DisplayName = "a rule of another kind")]
-    [DataRow(FaultKind.Error, null, DisplayName = "an error rule without a reply")]
-    public async Task Command_MatchedByARuleWithNoChosenError_RunsAsUsual(FaultKind kind, string? reply)
+    public async Task Command_MatchedByAnErrorRuleWithoutAReply_RunsAsUsual()
     {
         var events = new RecordingSurlEventPublisher();
-        var plan = new ScriptedFaultPlan(new FaultRule("x", kind) { Command = "PWD", Reply = reply, DelayMilliseconds = 0 });
+        var plan = new ScriptedFaultPlan(new FaultRule("x", FaultKind.Error) { Command = "PWD" });
 
         var written = await ServeLoggedInWithFaultsAsync("PWD\r\n", plan, events, StandardContentStore());
 
         Assert.AreEqual("257 \"/\" is the current directory\r\n", written);
         Assert.IsEmpty(events.Events);
+    }
+
+    [TestMethod]
+    public async Task Retr_UnderADelayRule_IsAnsweredOnlyAfterTheClockAdvances()
+    {
+        var clock = new ManualTimeProvider();
+        var idleClock = new RecordingIdleClock();
+        var events = new RecordingSurlEventPublisher();
+        var dataConnection = new InMemoryConnection([]);
+        var plan = new ScriptedFaultPlan(new FaultRule("d1", FaultKind.Delay) { Stage = FaultStage.Command, Command = "RETR", DelayMilliseconds = 500 });
+        var control = new InMemoryConnection(Ascii(AnonymousLogin + "EPSV\r\nRETR /a.txt\r\n"));
+        var context = Context(clock, TestContext.CancellationToken, dataConnections: Passive(dataConnection)) with
+        {
+            Faults = plan,
+            Events = events,
+            IdleClock = idleClock,
+        };
+
+        var serving = Server().ServeAsync(control, context);
+        await idleClock.FirstPause;
+        var writtenWhileHeld = Text(control.WrittenBytes);
+        var pausedWhileHeld = idleClock.IsPaused;
+        clock.Advance(TimeSpan.FromMilliseconds(500));
+        await serving;
+
+        Assert.DoesNotContain("150 ", writtenWhileHeld);
+        Assert.IsTrue(pausedWhileHeld);
+        Assert.IsFalse(idleClock.IsPaused);
+        Assert.AreEqual(FileText, Text(dataConnection.WrittenBytes));
+        Assert.AreEqual(new FaultAppliedEvent("d1", FaultKind.Delay, FaultStage.Command, 1, "RETR /a.txt"), events.Events.Single());
+    }
+
+    [TestMethod]
+    [DataRow("RETR /a.txt", "/a.txt", DisplayName = "RETR")]
+    [DataRow("STOR /b.txt", "/b.txt", DisplayName = "STOR")]
+    public async Task Command_UnderADropRule_WritesNothingMoreAndEndsTheSession(string command, string path)
+    {
+        var events = new RecordingSurlEventPublisher();
+        var plan = new ScriptedFaultPlan(new FaultRule("x1", FaultKind.Drop) { Stage = FaultStage.Command, Command = command[..4] });
+        var control = new InMemoryConnection(Ascii(AnonymousLogin + command + "\r\nNOOP\r\n"));
+
+        await Server(contentStore: StandardContentStore()).ServeAsync(control, FaultedContext(plan, events, Passive(new InMemoryConnection([]))));
+
+        Assert.AreEqual(Greeting + AnonymousLoginReplies, Text(control.WrittenBytes));
+        Assert.IsTrue(control.Aborted);
+        Assert.AreEqual(new FaultAppliedEvent("x1", FaultKind.Drop, FaultStage.Command, 1, command[..4] + " " + path), events.Events.Single());
     }
 
     [TestMethod]

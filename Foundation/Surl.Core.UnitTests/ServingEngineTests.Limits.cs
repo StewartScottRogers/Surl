@@ -39,6 +39,7 @@ public sealed partial class ServingEngineTests
         await WaitUntilDisposedAsync(refused);
 
         Assert.AreEqual(ConnectionRefusal.TooManyConnections, refusal.Refusal);
+        Assert.AreEqual("http", refusal.ListenScheme);
         Assert.AreEqual("refused:TooManyConnections", Encoding.ASCII.GetString(refused.WrittenBytes));
         Assert.IsFalse(refused.Aborted);
         Assert.IsFalse(harness.Server.Inner.TryTakeExchange(out _));

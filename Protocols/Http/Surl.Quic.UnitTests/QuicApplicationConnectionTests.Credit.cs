@@ -98,6 +98,42 @@ public sealed partial class QuicApplicationConnectionTests
         Assert.IsInstanceOfType<OperationCanceledException>(thrown);
     }
 
+    [TestMethod]
+    public async Task WriteAsync_CreditFarPastTheBoundAndNoAcknowledgements_WaitsOnceTheBytesNotYetInAPacketPassTheBoundUntilAcknowledgementsOpenTheWindow()
+    {
+        using var key = RSA.Create(2048);
+        const string clientParameters = "0504be800000" + "060480008000" + "0704be800000" + "0404be800000" + "080480040000" + "090480040000";
+        using var client = new UnitTestFlowClient(UnitTestClientHelloEdits.ReplaceParameters(clientParameters));
+        var body = RandomNumberGenerator.GetBytes((4 * QuicApplicationConnection.MaxUnsentLength) + 1000);
+        var written = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var protocol = new UnitTestApplicationProtocol(async (connection, token) =>
+        {
+            var stream = (await connection.AcceptStreamAsync(token))!;
+            await connection.WriteAsync(stream, body, fin: true, token);
+            written.SetResult();
+            await connection.AcceptStreamAsync(CancellationToken.None);
+        });
+
+        var serving = client.Server(UnitTestCertificates.Options(key), protocol).ServeAsync(client.Flow, TestContext.CancellationToken);
+        await client.CompleteHandshakeAsync(TestContext.CancellationToken);
+        client.SendOneRtt(new QuicStreamFrame(0, 0, "go"u8.ToArray(), Fin: false));
+        await client.UntilAsync(() => client.StreamSent(0).Data.Length > 0, TestContext.CancellationToken);
+        for (var ping = 0; ping < 8; ping++)
+        {
+            var received = client.Client.PacketNumbersReceived[QuicPacketType.OneRtt].Count;
+            client.SendOneRtt(new QuicPingFrame());
+            await client.UntilAsync(() => client.Client.PacketNumbersReceived[QuicPacketType.OneRtt].Count > received, TestContext.CancellationToken);
+        }
+
+        Assert.IsFalse(written.Task.IsCompleted, "The congestion window holds the frames back, so the write waits.");
+        await AcknowledgeUntilAsync(client, () => client.StreamSent(0).Fin, TestContext.CancellationToken);
+        await written.Task.WaitAsync(TestContext.CancellationToken);
+        client.SendOneRtt(new QuicConnectionCloseFrame(true, 0, 0, ReadOnlyMemory<byte>.Empty));
+        await client.FinishAsync(serving, TestContext.CancellationToken);
+
+        CollectionAssert.AreEqual(body, client.StreamSent(0).Data);
+    }
+
     /// <summary>Acknowledges every 1-RTT packet the server sends, so its congestion window keeps opening, until <paramref name="condition"/> holds.</summary>
     private static async Task AcknowledgeUntilAsync(UnitTestFlowClient client, Func<bool> condition, CancellationToken cancellationToken)
     {

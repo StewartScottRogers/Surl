@@ -82,13 +82,12 @@ public sealed class CommandLineParserMailTests
     [DataRow(new[] { "--mail-domain", Domain, "--mailbox", "ann:a" }, "option --mailbox: not a mail address", DisplayName = "No @")]
     [DataRow(new[] { "--mail-domain", Domain, "--mailbox", "@example.com:a" }, "option --mailbox: not a mail address", DisplayName = "Empty local part")]
     [DataRow(new[] { "--mail-domain", Domain, "-u", "ann@example.com:x", "--mailbox", "ann@EXAMPLE.com:a" }, "option --mailbox: mailbox ann@EXAMPLE.com is also a --user account", DisplayName = "A --user name")]
-    [DataRow(new[] { "--mail-domain", Domain, "--mailbox", "ann@example.com" }, "option --mailbox: expected <address>:<password>[;protocols=<scheme>,...]", DisplayName = "No password")]
+    [DataRow(new[] { "--mail-domain", Domain, "--mailbox", "ann@example.com" }, "option --mailbox: expected <address>:<password>[;protocols=<scheme>,...][;quota=<bytes>][;folders=<name>,...]", DisplayName = "No password")]
     [DataRow(new[] { "--mail-domain", Domain, "--mailbox", "ann@example.com:" }, "option --mailbox: an empty field", DisplayName = "Empty password")]
     [DataRow(new[] { "--mail-domain", Domain, "--mailbox", "a%3Ab@example.com:s" }, "option --mailbox: the address holds a colon", DisplayName = "Colon in the address")]
     [DataRow(new[] { "--mail-domain", Domain, "--mailbox", "ann@example.com:s;protocols=imap,gopherz" }, "option --mailbox: unknown scheme gopherz", DisplayName = "Unknown scheme")]
     [DataRow(new[] { "--mail-domain", Domain, "--mailbox", "ann@example.com:s;protocols=coap" }, "option --mailbox: unknown scheme coap", DisplayName = "An extended scheme no registered server claims")]
     [DataRow(new[] { "--mail-domain", Domain, "--mailbox", "ann@example.com:s;protocols=" }, "option --mailbox: key protocols needs a value", DisplayName = "Empty protocols")]
-    [DataRow(new[] { "--mail-domain", Domain, "--mailbox", "ann@example.com:s;quota=10" }, "option --mailbox: unknown key quota", DisplayName = "quota, BL-654's")]
     [DataRow(new[] { "--mailbox-file", "" }, "option --mailbox-file: blank argument where content is expected", DisplayName = "Blank file")]
     public void Parse_MailOptionRefused_IsRefusedWithItsReason(string[] arguments, string message) =>
         AssertOptionRefused([.. arguments, Url], message);

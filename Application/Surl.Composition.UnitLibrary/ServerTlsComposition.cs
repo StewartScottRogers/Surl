@@ -1,6 +1,8 @@
+using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using Surl.Cli;
 using Surl.Networking;
+using Surl.Output;
 using Surl.Protocol.Abstractions;
 
 namespace Surl.Composition;
@@ -19,9 +21,10 @@ public sealed class ServerTlsComposition : IDisposable
 
     private ServerTlsComposition(
         ServerTlsSettings? settings, string? throwawayCertificateFingerprint, QuicServerCertificate? quicCertificate, IReadOnlyList<IDisposable> owned,
-        IReadOnlyList<X509Certificate2>? clientTrustAnchors = null)
+        IReadOnlyList<X509Certificate2>? clientTrustAnchors = null, IReadOnlyList<string>? srpGroupIndexesOutsideRfc5054 = null)
     {
         ClientTrustAnchors = clientTrustAnchors ?? [];
+        SrpGroupIndexesOutsideRfc5054 = srpGroupIndexesOutsideRfc5054 ?? [];
         Settings = settings;
         QuicCertificate = quicCertificate;
         ThrowawayCertificateFingerprint = throwawayCertificateFingerprint;
@@ -71,6 +74,33 @@ public sealed class ServerTlsComposition : IDisposable
     public IReadOnlyList<X509Certificate2> ClientTrustAnchors { get; }
 
     /// <summary>
+    /// The <c>--srp-groups</c> indexes whose group is not one of RFC 5054 Appendix A's, in file order
+    /// (ADR-0122 decision 4); empty when TLS-SRP is not served or every group is Appendix A's.
+    /// </summary>
+    public IReadOnlyList<string> SrpGroupIndexesOutsideRfc5054 { get; }
+
+    /// <summary>
+    /// Writes ADR-0122 decision 4's note, once per <c>--srp-groups</c> group outside RFC 5054
+    /// Appendix A, from the verbose level up: OpenSSL's client, which upstream curl uses for TLS-SRP,
+    /// refuses such a group, so a login against it fails however right the password is.
+    /// </summary>
+    /// <param name="logLevel">The log level.</param>
+    /// <param name="log">The log stream.</param>
+    public void WriteStartLines(LogLevel logLevel, TextWriter log)
+    {
+        ArgumentNullException.ThrowIfNull(log);
+        if (logLevel < LogLevel.Verbose)
+        {
+            return;
+        }
+
+        foreach (var index in SrpGroupIndexesOutsideRfc5054)
+        {
+            log.WriteLine($"* --srp-groups: the group with index {index} is not one of RFC 5054 Appendix A's; OpenSSL's client refuses it");
+        }
+    }
+
+    /// <summary>
     /// Finds the first listen URL, in command-line order, that is TLS from the first byte or
     /// requires TLS before a login (<c>natss</c>, ADR-0113 decision 6), and has no certificate to serve because neither <c>--cert</c> nor <c>--self-signed</c> was
     /// given (ADR-0032, section 10).
@@ -79,8 +109,22 @@ public sealed class ServerTlsComposition : IDisposable
     /// <returns>That listen URL, or <see langword="null"/> when every listen URL has what it needs.</returns>
     public static ListenUrl? FindListenUrlWithoutCertificate(SurlCommandLine commandLine) =>
         commandLine.CertificateFile is null && !commandLine.SelfSigned
-            ? commandLine.ListenUrls.FirstOrDefault(listenUrl => RequiresCertificate(commandLine, listenUrl.Scheme))
+            ? commandLine.ListenUrls.FirstOrDefault(listenUrl => RequiresCertificate(commandLine, listenUrl) && !IsSecuredByTlsSrp(commandLine, listenUrl.Scheme))
             : null;
+
+    // Under TLS-SRP every TCP listener is secured without a certificate (ADR-0122 decisions 2 and 5);
+    // QUIC (webtransport) and DTLS (coaps) are not TLS-SRP's, so they still need one.
+    private static bool IsSecuredByTlsSrp(SurlCommandLine commandLine, string scheme) =>
+        commandLine.ServesTlsSrp && scheme is not (WebTransportScheme or CoapsScheme);
+
+    /// <summary>
+    /// Whether a server that can upgrade a plaintext connection to TLS offers it: a certificate is
+    /// configured, or TLS-SRP is served (ADR-0053 decision 5; ADR-0122 decision 5).
+    /// </summary>
+    /// <param name="commandLine">The parsed command line.</param>
+    /// <returns><see langword="true"/> when either is so.</returns>
+    public static bool IsTlsUpgradeAvailable(SurlCommandLine commandLine) =>
+        IsCertificateConfigured(commandLine) || commandLine.ServesTlsSrp;
 
     /// <summary>
     /// Whether a certificate is configured, <c>--cert</c> or <c>--self-signed</c>: what makes a
@@ -103,11 +147,17 @@ public sealed class ServerTlsComposition : IDisposable
     /// <param name="readFile">Reads a TLS option file's bytes (the <c>ReadStartFile</c> seam); <see langword="null"/> reads the disk.</param>
     /// <returns>The composition, which the caller disposes once serving has ended.</returns>
     /// <exception cref="TlsFileLoadException">A <c>--cert</c>, <c>--key</c> or <c>--cacert</c> file cannot be loaded.</exception>
+    /// <exception cref="TlsSrpAccountsException">A <c>--srp-verifiers</c> or <c>--srp-groups</c> file cannot be read, or a TLS-SRP user is given twice.</exception>
     public static ServerTlsComposition Compose(SurlCommandLine commandLine, TimeProvider timeProvider, Func<string, byte[]>? readFile = null)
     {
-        if (!commandLine.ListenUrls.Any(listenUrl => NeedsTls(commandLine, listenUrl.Scheme)))
+        if (!commandLine.ListenUrls.Any(listenUrl => NeedsTls(commandLine, listenUrl)))
         {
             return new ServerTlsComposition(null, null, null, []);
+        }
+
+        if (commandLine.ServesTlsSrp)
+        {
+            return ComposeTlsSrp(commandLine, readFile);
         }
 
         var trustAnchors = commandLine.CaCertificateFile is { } caCertificateFile
@@ -127,15 +177,34 @@ public sealed class ServerTlsComposition : IDisposable
         }
     }
 
-    private static bool NeedsTls(SurlCommandLine commandLine, string scheme) =>
-        RequiresCertificate(commandLine, scheme)
-        || (IsCertificateConfigured(commandLine) && (UpgradableSchemes.Contains(scheme) || scheme == CoapsScheme));
+    private static bool NeedsTls(SurlCommandLine commandLine, ListenUrl listenUrl) =>
+        RequiresCertificate(commandLine, listenUrl)
+        || (IsTlsUpgradeAvailable(commandLine) && UpgradableSchemes.Contains(listenUrl.Scheme))
+        || (IsCertificateConfigured(commandLine) && listenUrl.Scheme == CoapsScheme);
+
+    // TLS-SRP settings (ADR-0122 decisions 4 and 5): the accounts, and one random source for them and
+    // every handshake, owned by the composition.
+    private static ServerTlsComposition ComposeTlsSrp(SurlCommandLine commandLine, Func<string, byte[]>? readFile)
+    {
+        var random = RandomNumberGenerator.Create();
+        try
+        {
+            var composed = TlsSrpAccountsComposition.Compose(commandLine, random, readFile);
+            return new ServerTlsComposition(
+                ServerTlsSettings.ForTlsSrp(composed.Accounts, random), null, null, [random], null, composed.GroupIndexesOutsideRfc5054);
+        }
+        catch (TlsSrpAccountsException)
+        {
+            random.Dispose();
+            throw;
+        }
+    }
 
     // coaps needs a certificate or an account, whose pre-shared key it can handshake with (ADR-0087 decision 3).
-    private static bool RequiresCertificate(SurlCommandLine commandLine, string scheme) =>
-        TlsSchemes.IsImplicitTls(scheme)
-        || UpgradeRequiredSchemes.Contains(scheme)
-        || (scheme == CoapsScheme && commandLine.Accounts.Count == 0 && commandLine.UserFile is null);
+    private static bool RequiresCertificate(SurlCommandLine commandLine, ListenUrl listenUrl) =>
+        listenUrl.IsImplicitTls
+        || UpgradeRequiredSchemes.Contains(listenUrl.Scheme)
+        || (listenUrl.Scheme == CoapsScheme && commandLine.Accounts.Count == 0 && commandLine.UserFile is null);
 
     /// <summary>
     /// Formats the message for a TLS option file that could not be loaded, after the

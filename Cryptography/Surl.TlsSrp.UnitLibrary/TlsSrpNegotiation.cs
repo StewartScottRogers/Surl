@@ -37,17 +37,25 @@ public sealed record TlsSrpNegotiation(
     private const byte NullCompression = 0;
     private const byte HostNameType = 0;
 
+    /// <summary>
+    /// The scheme the ServerKeyExchange is signed with; <see langword="null"/> for an unsigned suite
+    /// (ADR-0122 decisions 2 and 3).
+    /// </summary>
+    public TlsSignatureScheme? SignatureScheme { get; init; }
+
     /// <summary>Agrees the handshake's parameters from <paramref name="hello"/>.</summary>
     /// <param name="hello">The client's hello.</param>
+    /// <param name="certificate">The server's certificate, or <see langword="null"/> to serve the unsigned suites only.</param>
     /// <returns>What was agreed.</returns>
     /// <exception cref="TlsAlertException">The alert ADR-0122 decision 6 names for the hello's fault.</exception>
-    public static TlsSrpNegotiation Negotiate(TlsClientHello hello)
+    public static TlsSrpNegotiation Negotiate(TlsClientHello hello, TlsSrpServerCertificate? certificate = null)
     {
         ArgumentNullException.ThrowIfNull(hello);
         RequireTls12(hello);
         Require(hello.CompressionMethods.Contains(NullCompression), TlsAlertDescription.IllegalParameter, "The ClientHello does not offer null compression.");
-        var suite = ChooseSuite(hello.CipherSuites);
         var extensions = hello.Extensions;
+        var scheme = certificate?.ChooseScheme(ReadSignatureAlgorithms(extensions));
+        var suite = ChooseSuite(hello.CipherSuites, scheme is null ? UnsignedSuites : [.. UnsignedSuites, .. certificate!.SignedSuites]);
         return new TlsSrpNegotiation(
             suite,
             ReadUserName(extensions),
@@ -55,7 +63,30 @@ public sealed record TlsSrpNegotiation(
             extensions.ContainsKey(TlsExtensionType.EncryptThenMac),
             AnswersRenegotiation(hello),
             ChooseApplicationProtocol(extensions),
-            ReadServerName(extensions));
+            ReadServerName(extensions))
+        {
+            SignatureScheme = UnsignedSuites.Contains(suite) ? null : scheme,
+        };
+    }
+
+    private static List<ushort>? ReadSignatureAlgorithms(IReadOnlyDictionary<ushort, byte[]> extensions)
+    {
+        if (!extensions.TryGetValue(TlsExtensionType.SignatureAlgorithms, out var data))
+        {
+            return null;
+        }
+
+        var reader = new TlsMessageReader(data, "the signature_algorithms extension");
+        var list = new TlsMessageReader(reader.ReadVector16(), "the signature_algorithms list");
+        reader.ExpectEnd();
+        var schemes = new List<ushort>();
+        while (!list.IsAtEnd)
+        {
+            schemes.Add(list.ReadUInt16());
+        }
+
+        Require(schemes.Count > 0, TlsAlertDescription.DecodeError, "The signature_algorithms list is empty.");
+        return schemes;
     }
 
     private static void RequireTls12(TlsClientHello hello)
@@ -84,11 +115,11 @@ public sealed record TlsSrpNegotiation(
         return versions;
     }
 
-    private static TlsSrpCipherSuite ChooseSuite(IReadOnlyList<ushort> offered)
+    private static TlsSrpCipherSuite ChooseSuite(IReadOnlyList<ushort> offered, IReadOnlyList<TlsSrpCipherSuite> servable)
     {
         foreach (var code in offered)
         {
-            if (UnsignedSuites.Contains((TlsSrpCipherSuite)code))
+            if (servable.Contains((TlsSrpCipherSuite)code))
             {
                 return (TlsSrpCipherSuite)code;
             }

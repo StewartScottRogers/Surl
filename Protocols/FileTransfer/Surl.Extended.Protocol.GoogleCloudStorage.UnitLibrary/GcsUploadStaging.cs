@@ -151,9 +151,10 @@ internal sealed class GcsUploadStaging(ContentStore store, GcsPutObject putObjec
     /// <param name="target">The bucket and object.</param>
     /// <param name="caller">Who uploads.</param>
     /// <param name="eTag">The ETag the object is kept with.</param>
+    /// <param name="crc32c">The object's CRC-32C, kept with the ETag.</param>
     /// <param name="cancellationToken">Cancels the commit.</param>
     /// <returns>The refusal, or <see langword="null"/> and the object's generation.</returns>
-    public async Task<(GcsError? Refusal, long Generation)> CommitAsync(ContentUploadSession session, GcsStagedUpload upload, GcsRequestTarget target, ContentCaller caller, string eTag, CancellationToken cancellationToken)
+    public async Task<(GcsError? Refusal, long Generation)> CommitAsync(ContentUploadSession session, GcsStagedUpload upload, GcsRequestTarget target, ContentCaller caller, string eTag, uint crc32c, CancellationToken cancellationToken)
     {
         if (await session.CommitAsync(cancellationToken) != ContentUploadResult.Written)
         {
@@ -163,8 +164,8 @@ internal sealed class GcsUploadStaging(ContentStore store, GcsPutObject putObjec
         var mapping = store.MapBucketRequestPathForCaller(target.ObjectPath, caller);
 
         return upload.Metadata is { } metadata
-            ? await putObject.StoreMetadataAsync(target.RawBucket, target.RawName, mapping, metadata, eTag, uploads.TimeProvider.GetUtcNow(), cancellationToken)
-            : await putObject.StoreMetadataAsync(upload.MetadataFields, target, mapping, eTag, uploads.TimeProvider.GetUtcNow(), cancellationToken);
+            ? await putObject.StoreMetadataAsync(target.RawBucket, target.RawName, mapping, metadata, eTag, crc32c, uploads.TimeProvider.GetUtcNow(), cancellationToken)
+            : await putObject.StoreMetadataAsync(upload.MetadataFields, target, mapping, eTag, crc32c, uploads.TimeProvider.GetUtcNow(), cancellationToken);
     }
 
     /// <summary>

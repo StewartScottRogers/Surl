@@ -49,6 +49,20 @@ internal sealed class DtlsAssociationRecords(IDatagramFlow flow)
     public void StartProtectedWrites(DtlsRecordProtection protection) => epoch1Writer = new DtlsRecordWriter(epoch: 1, protection);
 
     /// <summary>
+    /// Whether the next record in the current write epoch carries the epoch's last sequence number,
+    /// 2^48 - 1, so the association must end with it (RFC 6347 section 4.1).
+    /// </summary>
+    public bool NextRecordIsTheLast => CurrentWriter.NextSequenceNumber >= DtlsRecordHeader.MaximumSequenceNumber;
+
+    /// <summary>
+    /// Restarts the epoch 1 writer at <paramref name="nextSequenceNumber"/> under the same
+    /// protection, so tests reach the end of the sequence space.
+    /// </summary>
+    /// <param name="nextSequenceNumber">The next epoch 1 sequence number.</param>
+    internal void ContinueEpoch1WritesFrom(long nextSequenceNumber) =>
+        epoch1Writer = new DtlsRecordWriter(epoch: 1, epoch1Writer!.Protection, nextSequenceNumber);
+
+    /// <summary>
     /// Reads every record of a datagram in the epoch it names, dropping silently those of an epoch
     /// not (or no longer) read and every invalid one (RFC 6347 section 4.1.2.7).
     /// </summary>

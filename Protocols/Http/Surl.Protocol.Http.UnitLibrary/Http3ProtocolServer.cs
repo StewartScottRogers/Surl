@@ -26,6 +26,7 @@ public sealed class Http3ProtocolServer : IDatagramProtocolServer, IDatagramRefu
     private readonly IReadOnlyList<ReadOnlyMemory<byte>> certificateChain;
     private readonly AsymmetricAlgorithm certificateKey;
     private readonly TimeSpan idleTimeout;
+    private readonly Func<IReadOnlyList<ReadOnlyMemory<byte>>, bool>? trustsClientCertificateChain;
 
     /// <summary>
     /// Creates the server.
@@ -35,12 +36,19 @@ public sealed class Http3ProtocolServer : IDatagramProtocolServer, IDatagramRefu
     /// <param name="certificateChain">The server certificate and its intermediates, DER, leaf first.</param>
     /// <param name="certificateKey">The certificate's private key: RSA, or ECDSA on P-256, P-384 or P-521.</param>
     /// <param name="idleTimeout">QUIC's <c>max_idle_timeout</c>; zero for none.</param>
+    /// <param name="trustsClientCertificateChain">
+    /// Decides whether a client's certificate chain (DER, end-entity certificate first) chains to the
+    /// <c>--cacert</c> anchors (ADR-0010 section 5). When given, every QUIC handshake asks for a
+    /// client certificate and completes only with one it trusts, and the TLS session each request is
+    /// judged with carries that certificate. Null asks for none.
+    /// </param>
     public Http3ProtocolServer(
         ContentStore contentStore,
         IAuthenticationPolicy authenticationPolicy,
         IReadOnlyList<ReadOnlyMemory<byte>> certificateChain,
         AsymmetricAlgorithm certificateKey,
-        TimeSpan idleTimeout)
+        TimeSpan idleTimeout,
+        Func<IReadOnlyList<ReadOnlyMemory<byte>>, bool>? trustsClientCertificateChain = null)
     {
         ArgumentNullException.ThrowIfNull(contentStore);
         ArgumentNullException.ThrowIfNull(authenticationPolicy);
@@ -52,10 +60,14 @@ public sealed class Http3ProtocolServer : IDatagramProtocolServer, IDatagramRefu
         this.certificateChain = certificateChain;
         this.certificateKey = certificateKey;
         this.idleTimeout = idleTimeout;
+        this.trustsClientCertificateChain = trustsClientCertificateChain;
     }
 
     /// <inheritdoc/>
     public IReadOnlyList<string> Schemes { get; } = Array.AsReadOnly(["https"]);
+
+    /// <summary>Whether every QUIC handshake requires a client certificate, as it does when the server was given a trust check.</summary>
+    public bool RequiresClientCertificate => trustsClientCertificateChain is not null;
 
     /// <summary>
     /// Runs one QUIC connection on <paramref name="flow"/> and answers its HTTP/3 requests until
@@ -76,6 +88,7 @@ public sealed class Http3ProtocolServer : IDatagramProtocolServer, IDatagramRefu
             CertificateKey = certificateKey,
             IdleTimeout = idleTimeout,
             HandshakeTimeout = headTimeout == Timeout.InfiniteTimeSpan ? null : headTimeout,
+            TrustsClientCertificateChain = trustsClientCertificateChain,
         };
         using var random = RandomNumberGenerator.Create();
         var application = new Http3ApplicationProtocol(contentStore, authenticationPolicy, context);

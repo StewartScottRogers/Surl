@@ -30,10 +30,20 @@ public sealed record ListenUrl(string Scheme, string Host, int Port)
     /// <summary>
     /// Whether this listen URL was named by <c>--proxy</c>, so its listener serves a proxy curl
     /// reaches with <c>-x</c> rather than an origin (ADR-0088, decisions 6 and 7). An
-    /// <c>https</c> proxy listener offers exactly the ALPN protocol ID <c>http/1.1</c>, where an
-    /// <c>https</c> origin listener offers <c>h2</c> first. <see langword="false"/> unless set.
+    /// <c>https</c> proxy listener offers the ALPN protocol IDs <c>h2</c> then <c>http/1.1</c>, as an
+    /// <c>https</c> origin listener does (ADR-0088, Amendment 9). <see langword="false"/> unless set.
     /// </summary>
     public bool IsProxy { get; init; }
+
+    /// <summary>
+    /// The one listener this listen URL binds, or <see langword="null"/> to bind every listener
+    /// its scheme's servers take: the connection listener, the datagram listener, or both on one
+    /// port for a scheme with a server of each (ADR-0082, decision 6). The composition sets it so
+    /// one <c>dns</c> listen URL serves UDP alone while another serves TCP with TLS from the first
+    /// byte (ADR-0092, Amendment 1). A listen URL naming a listener its scheme has no server for
+    /// is refused before any listener binds. <see langword="null"/> unless set.
+    /// </summary>
+    public ListenTransport? OnlyTransport { get; init; }
 
     private readonly bool? isImplicitTls;
 

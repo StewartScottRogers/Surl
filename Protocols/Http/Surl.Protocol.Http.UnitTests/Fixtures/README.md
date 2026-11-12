@@ -39,7 +39,7 @@ The fixed clock is 2026-09-28 12:00:00 UTC and `file.txt` was last written 2026-
 the first three on 2026-09-29 and recorded the rest the same day, from the repository
 root in Windows PowerShell. BL-686 named `file.txt`'s media type `text/plain` (ADR-0142), so on
 2026-11-06 it re-recorded every fixture whose response carries a `Content-Type` for `file.txt` -
-`get-file`, `head-file`, `expect-continue-get`, `digest-401-then-200` and the four `range-*` cases -
+`get-file`, `head-file`, `expect-continue-get`, `digest-401-then-200` and the six `range-*` cases -
 with the same commands and `Content-Type: text/plain`; each exited 0 as before, and only
 `digest-401-then-200`'s `request.bin` changed (curl's fresh `cnonce`). `<upload>` is a 2048-byte file of `a` bytes in the temporary
 directory; `expect-continue-413` was recorded with `-RespondAfterBodyBytes 0`, so the
@@ -160,7 +160,9 @@ sent the 16-byte body with the head, and no `Expect`.
 | `range-206` | `Hello from` | `.\Record-CurlExchange.ps1 -Port 18723 -OutDirectory <folder> -Response '<head>Content-Range: bytes 0-9/17\r\nContent-Length: 10\r\n\r\nHello from' -CurlArgs '-sS','-r','0-9','http://127.0.0.1:18723/file.txt'` |
 | `range-suffix-206` | `url.\n` | `... -Response '<head>Content-Range: bytes 12-16/17\r\nContent-Length: 5\r\n\r\nurl.\n' -CurlArgs '-sS','-r','-5','http://127.0.0.1:18723/file.txt'` |
 | `range-unsatisfiable-416` | empty | `... -Response 'HTTP/1.1 416 Range Not Satisfiable\r\nDate: Mon, 28 Sep 2026 12:00:00 GMT\r\nServer: surl\r\nContent-Range: bytes */17\r\nContent-Length: 0\r\n\r\n' -CurlArgs '-sS','-r','100-200','http://127.0.0.1:18723/file.txt'` |
-| `range-multiple-200` | the 17-byte file | `... -Response` the `get-file` response `-CurlArgs '-sS','-r','0-1,3-4','http://127.0.0.1:18723/file.txt'` |
+| `range-multiple-200` | the 17-byte file | `... -Response` the `get-file` response `-CurlArgs '-sS','-r','0-1,3-4','http://127.0.0.1:18723/file.txt'` (curl's request bytes; no test replays its `response.bin` since ADR-0133 Amendment 1) |
+| `range-multiple-206` | the 181-byte `multipart/byteranges` body, verbatim | `... -Response` a `206` with `Content-Type: multipart/byteranges; boundary=SURL_BYTERANGES` and that body `-CurlArgs '-sS','-r','0-1,3-4','http://127.0.0.1:18723/file.txt'` |
+| `range-overlapping-206` | `Hello f` | `... -Response` a `206` with `Content-Range: bytes 0-6/17`, 7 bytes `-CurlArgs '-sS','-r','0-4,2-6','http://127.0.0.1:18723/file.txt'` |
 | `range-if-range-206` | `Hello from` | `... -Response` as `range-206` `-CurlArgs '-sS','-r','0-9','-H','If-Range: <lm>','http://127.0.0.1:18723/file.txt'` |
 | `put-created-201` | empty | `... -Response 'HTTP/1.1 201 Created\r\nDate: Mon, 28 Sep 2026 12:00:00 GMT\r\nServer: surl\r\nContent-Length: 0\r\n\r\n' -CurlArgs '-sS','--fail','-u','user:secret','-T','<upload>','http://127.0.0.1:18723/up.bin'` |
 | `put-replaced-204` | empty | `... -Response 'HTTP/1.1 204 No Content\r\nDate: Mon, 28 Sep 2026 12:00:00 GMT\r\nServer: surl\r\n\r\n' -CurlArgs` as `put-created-201` |

@@ -18,8 +18,11 @@ namespace Surl.Extended.Protocol.AzureStorage;
 /// Both need <c>--allow-uploads</c> (off: <c>403 AuthorizationPermissionMismatch</c>) and a file at
 /// the path (<c>404 PathNotFound</c>; a directory <c>409 ResourceTypeMismatch</c>). An append before
 /// the file's committed end is <c>400 InvalidQueryParameterValue</c>: its bytes would overwrite
-/// committed ones. <c>retainUncommittedData=true</c> is <c>400 InvalidQueryParameterValue</c>:
-/// staged bytes past the flush are always dropped. <c>close</c> is accepted and changes nothing.
+/// committed ones. The conditional fields are checked against the committed file before anything
+/// is staged or flushed (<c>If-None-Match: *</c> <c>409 PathAlreadyExists</c>, any other failing
+/// condition <c>412 ConditionNotMet</c>). Staged bytes past a flush are dropped, unless the flush
+/// sends <c>retainUncommittedData=true</c>: then they stay staged for a later flush (ADR-0109,
+/// decision 5.5). <c>close</c> is accepted and changes nothing.
 /// </remarks>
 /// <param name="store">The content store the file is written to.</param>
 /// <param name="index">The object metadata index, whose entry for the file is carried over a flush.</param>
@@ -58,6 +61,11 @@ internal sealed class AzurePathUpdate(ContentStore store, ObjectMetadataIndex in
             return reply.Error(AzureRefusal.Of(pathRefusal));
         }
 
+        if (await AzurePathCreate.ConditionRefusalAsync(store, properties, request, target, mapping, cancellationToken) is { } conditionRefusal)
+        {
+            return reply.Error(AzureRefusal.Of(conditionRefusal));
+        }
+
         await staging.EnterAsync(cancellationToken);
         try
         {
@@ -81,7 +89,7 @@ internal sealed class AzurePathUpdate(ContentStore store, ObjectMetadataIndex in
     // The query, then the body's framing.
     private AzureRefusal? RequestRefusal(HttpRequest request, AzureBlobTarget target, bool isAppend, out long position)
     {
-        if (QueryRefusal(target, isAppend, out position) is { } queryRefusal)
+        if (QueryRefusal(target, out position) is { } queryRefusal)
         {
             return queryRefusal;
         }
@@ -91,8 +99,8 @@ internal sealed class AzurePathUpdate(ContentStore store, ObjectMetadataIndex in
         return bodyRefusal is null ? null : AzureRefusal.Of(bodyRefusal);
     }
 
-    // position is required and a whole number; an append's flush and a flush's retainUncommittedData are checked.
-    private static AzureRefusal? QueryRefusal(AzureBlobTarget target, bool isAppend, out long position)
+    // position is required and a whole number.
+    private static AzureRefusal? QueryRefusal(AzureBlobTarget target, out long position)
     {
         position = 0;
         if (AzureDataLakeOperationRecognition.Parameter(target, "position") is not { } positionText)
@@ -100,14 +108,9 @@ internal sealed class AzurePathUpdate(ContentStore store, ObjectMetadataIndex in
             return AzureRefusal.MissingRequiredQueryParameter("position");
         }
 
-        if (!long.TryParse(positionText, NumberStyles.None, CultureInfo.InvariantCulture, out position))
-        {
-            return AzureRefusal.InvalidQueryParameterValue("position", positionText, "The position must be a whole number of bytes.");
-        }
-
-        return !isAppend && AzureDataLakeOperationRecognition.Parameter(target, "retainUncommittedData") is { } retain && retain.Equals("true", StringComparison.OrdinalIgnoreCase)
-            ? AzureRefusal.InvalidQueryParameterValue("retainUncommittedData", retain, "Retaining uncommitted data is not served by this server.")
-            : null;
+        return long.TryParse(positionText, NumberStyles.None, CultureInfo.InvariantCulture, out position)
+            ? null
+            : AzureRefusal.InvalidQueryParameterValue("position", positionText, "The position must be a whole number of bytes.");
     }
 
     // An append's body must be readable, announced, and within --max-filesize.
@@ -194,6 +197,9 @@ internal sealed class AzurePathUpdate(ContentStore store, ObjectMetadataIndex in
     private static bool IsFlushRequested(AzureBlobTarget target) =>
         string.Equals(AzureDataLakeOperationRecognition.Parameter(target, "flush"), "true", StringComparison.OrdinalIgnoreCase);
 
+    private static bool IsRetainRequested(AzureBlobTarget target) =>
+        string.Equals(AzureDataLakeOperationRecognition.Parameter(target, "retainUncommittedData"), "true", StringComparison.OrdinalIgnoreCase);
+
     private async Task<AzureStagedPath?> BeginStagingAsync(string key, ContentPathMapping mapping, CancellationToken cancellationToken)
     {
         var opening = await store.OpenUploadAsync(mapping, new ContentUploadOpening(StartsFromExistingBytes: true, CreatesMissingFile: false, RefusesExistingFile: false), cancellationToken);
@@ -221,7 +227,7 @@ internal sealed class AzurePathUpdate(ContentStore store, ObjectMetadataIndex in
 
         var indexKey = AzureIndexKey.OfRaw(store, target.RawContainer, target.RawBlob);
         var before = await properties.ReadAsync(mapping, indexKey, cancellationToken);
-        if (staged is not null && await CommitAsync(key, staged, position, cancellationToken) is { } commitRefusal)
+        if (staged is not null && await CommitAsync(key, staged, mapping, position, IsRetainRequested(target), cancellationToken) is { } commitRefusal)
         {
             return reply.Error(AzureRefusal.Of(commitRefusal));
         }
@@ -243,13 +249,40 @@ internal sealed class AzurePathUpdate(ContentStore store, ObjectMetadataIndex in
             HttpAnswerBody.None);
     }
 
-    private async Task<AzureError?> CommitAsync(string key, AzureStagedPath staged, long position, CancellationToken cancellationToken)
+    // The staged bytes up to position committed; with bytes staged past it and retain asked for,
+    // a copy of the whole staging taken first carries the staging on, else the staging ends.
+    private async Task<AzureError?> CommitAsync(string key, AzureStagedPath staged, ContentPathMapping mapping, long position, bool isRetainRequested, CancellationToken cancellationToken)
     {
+        var next = isRetainRequested && staged.Session.Length > position ? await CopyAsync(staged.Session, mapping, cancellationToken) : null;
         await staged.Session.SetLengthAsync(position);
-        var committed = await staged.Session.CommitAsync(cancellationToken);
-        await staging.DiscardAsync(key);
+        var refusal = AzurePutBlob.CommitRefusal(await staged.Session.CommitAsync(cancellationToken));
+        if (next is null || refusal is not null)
+        {
+            await staging.DiscardAsync(key);
+            await (next?.DisposeAsync() ?? ValueTask.CompletedTask);
 
-        return AzurePutBlob.CommitRefusal(committed);
+            return refusal;
+        }
+
+        staged.ContinueAfterFlush(next, position, staging.TimeProvider.GetUtcNow());
+        return null;
+    }
+
+    // A new upload session for the file holding every byte of the staging's session.
+    private async Task<ContentUploadSession> CopyAsync(ContentUploadSession staged, ContentPathMapping mapping, CancellationToken cancellationToken)
+    {
+        var opening = await store.OpenUploadAsync(mapping, new ContentUploadOpening(StartsFromExistingBytes: false, CreatesMissingFile: false, RefusesExistingFile: false), cancellationToken);
+        // The file is there and the caller may write it: the staging was opened on it.
+        var next = opening.Session!;
+        var buffer = new byte[81920];
+        for (long offset = 0; offset < staged.Length; offset += buffer.Length)
+        {
+            var read = await staged.ReadAtAsync(offset, buffer, cancellationToken);
+            // The copy is no longer than the staging, which is within --max-filesize.
+            _ = await next.WriteAtAsync(offset, buffer.AsMemory(0, read), cancellationToken);
+        }
+
+        return next;
     }
 
     // The index forgets an entry whose file changed, so the header fields are stored again and

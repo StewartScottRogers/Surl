@@ -1,6 +1,7 @@
 using System.Collections.Frozen;
 using Surl.HttpMessage;
 using Surl.HttpServing;
+using Surl.Protocol.Abstractions;
 
 namespace Surl.Protocol.Http;
 
@@ -48,6 +49,10 @@ internal sealed partial class HttpRequestAnswerer
         [511] = "Network Authentication Required",
     }.ToFrozenDictionary();
 
+    // What a drop rule answers with: nothing is written, and each HTTP version ends the exchange its own way.
+    private static readonly HttpAnswer DroppedAnswer = new(
+        new HttpStatus(500, string.Empty), [], HttpAnswerBody.None, IsRefusal: true, LeavesRequestBodyUnread: false, DropsExchange: true);
+
     // A request let in is answered with a matching chosen-error rule's status before the content
     // store is touched: an empty answer that keeps the connection as a 404 does, or, when the
     // request announced a body that is never read, a refusal that closes it. Null when no rule
@@ -55,10 +60,15 @@ internal sealed partial class HttpRequestAnswerer
     private async Task<HttpAnswer?> AnswerChosenErrorAsync(HttpRequest request, string? accountName, IReadOnlyList<string> challenges)
     {
         var path = RequestPath(request.Target);
-        var rule = await HttpCommandFaults.FindChosenErrorAsync(context, request.Method, path, accountName);
+        var rule = await HttpCommandFaults.FindAndApplyAsync(context, request.Method, path, accountName);
         if (rule is null)
         {
             return null;
+        }
+
+        if (rule.Kind == FaultKind.Drop)
+        {
+            return DroppedAnswer;
         }
 
         if (!HttpCommandFaults.TryReadChosenStatus(rule.Reply, out var code, out var reasonPhrase))

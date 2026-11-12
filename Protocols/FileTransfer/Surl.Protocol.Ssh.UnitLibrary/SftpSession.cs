@@ -114,6 +114,7 @@ internal sealed partial class SftpSession(ContentStore store, ContentCaller call
 
     private readonly Dictionary<uint, SftpHandle> handles = [];
     private uint nextHandle;
+    private IConnection? connection;
 
     /// <summary>
     /// Serves the session until the client's <c>EOF</c> or a packet that ends it.
@@ -123,6 +124,7 @@ internal sealed partial class SftpSession(ContentStore store, ContentCaller call
     /// <returns>0 when the client ended the session, 1 when the server did.</returns>
     public async Task<uint> RunAsync(ISshChannelDataStream channel, CancellationToken cancellationToken)
     {
+        connection = channel.Connection;
         var framing = new SftpChannelFraming(channel, context.Limits.MaxMessageBytes);
         (uint Exit, string Ending) outcome = default;
         ExceptionDispatchInfo? failure = null;
@@ -235,12 +237,20 @@ internal sealed partial class SftpSession(ContentStore store, ContentCaller call
     private async ValueTask<byte[]?> AnswerByFaultAsync(SftpRequest request, CancellationToken cancellationToken)
     {
         var path = FaultPathOf(request);
-        if (await SshCommandFaults.FindSftpErrorAsync(context, caller.AccountName, request.Name, path, cancellationToken) is not { } error)
+        if (await SshCommandFaults.FindSftpFaultAsync(context, connection!, caller.AccountName, request.Name, path) is not { } rule)
         {
             return null;
         }
 
-        return Refuse(request, path is null ? string.Empty : RenderPath(path), error.Code, error.Message, $"fault rule {error.RuleId}");
+        // A drop has aborted the connection: the session ends without an answer.
+        if (rule.Kind == FaultKind.Drop)
+        {
+            throw new SftpSessionEndedException($"dropped by fault rule {rule.Id}");
+        }
+
+        SshCommandFaults.TryReadSftpStatus(rule.Reply, out var code, out var message);
+
+        return Refuse(request, path is null ? string.Empty : RenderPath(path), code, message, $"fault rule {rule.Id}");
     }
 
     // The canonical path a request names first, or the path its handle was opened on; null for

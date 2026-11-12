@@ -22,6 +22,38 @@ public sealed class Amqp1DeliveryStateTests
     }
 
     [TestMethod]
+    public void Declared_CarriesTheTransactionId()
+    {
+        // declared (0x33), list8 of one field: the binary 00 00 00 01 (Part 4 section 4.5.5).
+        Assert.AreEqual("005333" + "C00701" + "A00400000001", Convert.ToHexString(Amqp1Encoder.Encode(Amqp1DeliveryState.Declared([0, 0, 0, 1]))));
+        Assert.ThrowsExactly<ArgumentNullException>(() => Amqp1DeliveryState.Declared(null!));
+    }
+
+    [TestMethod]
+    public void TransactionalState_CarriesTheTransactionIdAndTheOutcome()
+    {
+        // transactional-state (0x34), list8 of two fields: the binary 00 00 00 01 and accepted (Part 4 section 4.5.6).
+        var expected = "005334" + "C00B02" + "A00400000001" + "00532445";
+
+        Assert.AreEqual(expected, Convert.ToHexString(Amqp1Encoder.Encode(Amqp1DeliveryState.TransactionalState([0, 0, 0, 1], Amqp1DeliveryState.Accepted))));
+        Assert.ThrowsExactly<ArgumentNullException>(() => Amqp1DeliveryState.TransactionalState(null!, Amqp1DeliveryState.Accepted));
+        Assert.ThrowsExactly<ArgumentNullException>(() => Amqp1DeliveryState.TransactionalState([1], null!));
+    }
+
+    [TestMethod]
+    public void TransactionIdOf_TransactionalStates_IsItsBinaryTxnIdOrNull()
+    {
+        var symbolDescriptor = new Amqp1Described(new Amqp1Symbol("amqp:transactional-state:list"), new List<object?> { new byte[] { 0, 0, 0, 7 } });
+
+        CollectionAssert.AreEqual(new byte[] { 0, 0, 0, 7 }, Amqp1DeliveryState.TransactionIdOf(symbolDescriptor));
+        Assert.IsTrue(Amqp1DeliveryState.IsTransactional(symbolDescriptor));
+        Assert.IsNull(Amqp1DeliveryState.TransactionIdOf(new Amqp1Described(Amqp1Descriptor.TransactionalState, "not a list")));
+        Assert.IsNull(Amqp1DeliveryState.TransactionIdOf(new Amqp1Described(Amqp1Descriptor.TransactionalState, new List<object?>())));
+        Assert.IsNull(Amqp1DeliveryState.TransactionIdOf(Amqp1DeliveryState.Accepted));
+        Assert.IsFalse(Amqp1DeliveryState.IsTransactional(null));
+    }
+
+    [TestMethod]
     [DataRow(Amqp1Descriptor.Received, Amqp1Outcome.Received)]
     [DataRow(Amqp1Descriptor.Accepted, Amqp1Outcome.Accepted)]
     [DataRow(Amqp1Descriptor.Rejected, Amqp1Outcome.Rejected)]
@@ -49,5 +81,38 @@ public sealed class Amqp1DeliveryStateTests
         Assert.IsFalse(Amqp1DeliveryState.IsUndeliverableHere(new Amqp1Described(Amqp1Descriptor.Modified, new List<object?> { true })));
         Assert.IsFalse(Amqp1DeliveryState.IsUndeliverableHere(new Amqp1Described(Amqp1Descriptor.Modified, "not a list")));
         Assert.IsFalse(Amqp1DeliveryState.IsUndeliverableHere(new Amqp1Described(Amqp1Descriptor.Released, new List<object?> { true, true })));
+    }
+
+    [TestMethod]
+    public void TransactionalAcquisition_NamesTheTransactionWithNoOutcome()
+    {
+        var state = Amqp1DeliveryState.TransactionalAcquisition([0, 0, 0, 1]);
+
+        Assert.IsTrue(Amqp1DeliveryState.IsTransactional(state));
+        CollectionAssert.AreEqual(new byte[] { 0, 0, 0, 1 }, Amqp1DeliveryState.TransactionIdOf(state));
+        Assert.IsNull(Amqp1DeliveryState.TransactionalOutcomeOf(state));
+        Assert.ThrowsExactly<ArgumentNullException>(() => Amqp1DeliveryState.TransactionalAcquisition(null!));
+    }
+
+    [TestMethod]
+    public void TransactionalOutcomeOf_TransactionalStateWithAnOutcome_IsThatOutcome()
+    {
+        var state = Amqp1DeliveryState.TransactionalState([0, 0, 0, 1], Amqp1DeliveryState.Accepted);
+
+        Assert.AreEqual(Amqp1DeliveryState.Accepted, Amqp1DeliveryState.TransactionalOutcomeOf(state));
+        Assert.IsNull(Amqp1DeliveryState.TransactionalOutcomeOf(Amqp1DeliveryState.Accepted));
+        Assert.IsNull(Amqp1DeliveryState.TransactionalOutcomeOf(new Amqp1Described(Amqp1Descriptor.TransactionalState, "not a list")));
+        Assert.IsNull(Amqp1DeliveryState.TransactionalOutcomeOf(null));
+    }
+
+    [TestMethod]
+    public void FlowTransactionId_ReadsTheTxnIdPropertyOnly()
+    {
+        var carrying = new Amqp1Flow(1, 0, 1) { Properties = new Amqp1Map([new("txn-id", 2), new(new Amqp1Symbol("x"), 1), new(new Amqp1Symbol("txn-id"), new byte[] { 1, 2, 3, 4 })]) };
+        var other = new Amqp1Flow(1, 0, 1) { Properties = new Amqp1Map([new(new Amqp1Symbol("x"), 1)]) };
+
+        CollectionAssert.AreEqual(new byte[] { 1, 2, 3, 4 }, carrying.TransactionId);
+        Assert.IsNull(other.TransactionId);
+        Assert.IsNull(new Amqp1Flow(1, 0, 1).TransactionId);
     }
 }

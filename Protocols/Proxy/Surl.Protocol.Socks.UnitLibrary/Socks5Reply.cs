@@ -13,6 +13,9 @@ internal static class Socks5Reply
     /// <summary>The method-selection reply's <c>METHOD</c> for no authentication.</summary>
     public const byte NoAuthenticationMethod = 0x00;
 
+    /// <summary>The method-selection reply's <c>METHOD</c> for RFC 1961 GSS-API.</summary>
+    public const byte GssApiMethod = 0x01;
+
     /// <summary>The method-selection reply's <c>METHOD</c> for RFC 1929 username/password.</summary>
     public const byte UserPasswordMethod = 0x02;
 

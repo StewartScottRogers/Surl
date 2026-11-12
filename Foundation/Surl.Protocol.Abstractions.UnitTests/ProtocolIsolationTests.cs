@@ -22,10 +22,12 @@ public sealed class ProtocolIsolationTests
     private const string Cast128 = "Surl.Cryptography.Cast128.UnitLibrary";
     private const string ChaCha20 = "Surl.Cryptography.ChaCha20.UnitLibrary";
     private const string Curve25519 = "Surl.Cryptography.Curve25519.UnitLibrary";
+    private const string Curve448 = "Surl.Cryptography.Curve448.UnitLibrary";
     private const string Ed25519 = "Surl.Cryptography.Ed25519.UnitLibrary";
     private const string Poly1305 = "Surl.Cryptography.Poly1305.UnitLibrary";
     private const string Rc4 = "Surl.Cryptography.Rc4.UnitLibrary";
     private const string Ripemd160 = "Surl.Cryptography.Ripemd160.UnitLibrary";
+    private const string Sm2 = "Surl.Cryptography.Sm2.UnitLibrary";
     private const string Srp = "Surl.Cryptography.Srp.UnitLibrary";
     private const string Dtls = "Surl.Dtls.UnitLibrary";
     private const string Hpack = "Surl.Hpack.UnitLibrary";
@@ -71,11 +73,13 @@ public sealed class ProtocolIsolationTests
         [Cast128] = [],
         [ChaCha20] = [],
         [Curve25519] = [],
+        [Curve448] = [],
         [Ed25519] = [Curve25519],
         [MlKem] = [],
         [Poly1305] = [],
         [Rc4] = [],
         [Ripemd160] = [],
+        [Sm2] = [],
         [Srp] = [],
         [Dtls] = [Abstractions, Curve25519],
         [Hpack] = [],
@@ -90,7 +94,7 @@ public sealed class ProtocolIsolationTests
         [MessageBus] = [Abstractions, Content],
         [Qpack] = [Hpack],
         [Quic] = [Abstractions, Tls13, ChaCha20, Poly1305],
-        [Tls13] = [Curve25519, MlKem],
+        [Tls13] = [Curve25519, Curve448, MlKem, Sm2],
         [TlsSrp] = [Srp],
         [WebSocket] = [Abstractions, HttpMessage],
     };
@@ -224,11 +228,13 @@ public sealed class ProtocolIsolationTests
     [DataRow(Cast128)]
     [DataRow(ChaCha20)]
     [DataRow(Curve25519)]
+    [DataRow(Curve448)]
     [DataRow(Ed25519)]
     [DataRow(MlKem)]
     [DataRow(Poly1305)]
     [DataRow(Rc4)]
     [DataRow(Ripemd160)]
+    [DataRow(Sm2)]
     [DataRow(Srp)]
     [DataRow(Dtls)]
     [DataRow(Hpack)]
@@ -291,7 +297,9 @@ public sealed class ProtocolIsolationTests
     [DataRow(Quic, ChaCha20)]
     [DataRow(Quic, Poly1305)]
     [DataRow(Tls13, Curve25519)]
+    [DataRow(Tls13, Curve448)]
     [DataRow(Tls13, MlKem)]
+    [DataRow(Tls13, Sm2)]
     [DataRow(TlsSrp, Srp)]
     public void ForbiddenHorizontalReferences_ReferenceInItsRow_IsNotForbidden(
         string library, string referenced)
@@ -307,6 +315,8 @@ public sealed class ProtocolIsolationTests
     [DataRow(Cryptography, "Surl.Core.UnitLibrary")]
     [DataRow(Curve25519, Ed25519)]
     [DataRow(MlKem, Curve25519)]
+    [DataRow(Curve448, Curve25519)]
+    [DataRow(Sm2, Cryptography)]
     [DataRow(ChaCha20, Poly1305)]
     [DataRow(Poly1305, ChaCha20)]
     [DataRow(Blowfish, BcryptPbkdf)]

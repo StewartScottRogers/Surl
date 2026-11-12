@@ -63,6 +63,15 @@ public sealed record SurlServerCompositionSeams(
     public Func<string, byte[]>? ReadStartFile { get; init; }
 
     /// <summary>
+    /// Reads the Unix mode of a file read at start that may hold passwords, given its path as given,
+    /// so a file other users can read is warned (ADR-0101, decision 5): today the
+    /// <c>-K</c> files and the <c>--user-file</c>. <see langword="null"/> from it means no mode, as on Windows, and no warning.
+    /// <see cref="ReadableByOthersWarning.ReadDiskMode"/> when <see langword="null"/>, which is what
+    /// <c>surl</c> passes.
+    /// </summary>
+    public Func<string, UnixFileMode?>? ReadStartFileUnixMode { get; init; }
+
+    /// <summary>
     /// Creates what opens the FTP server's data connections, given the process's TLS settings
     /// (ADR-0052, decision 9); a <c>SocketDataConnectionOpener</c> on the one clock when
     /// <see langword="null"/>, which is what <c>surl</c> passes.
@@ -90,4 +99,17 @@ public sealed record SurlServerCompositionSeams(
     /// serves a test's own server. None, which is what <c>surl</c> passes, by default.
     /// </summary>
     public IReadOnlyList<AdditionalProtocolServer> AdditionalProtocolServers { get; init; } = [];
+
+    /// <summary>
+    /// Tells whether a <c>--share</c>'s full path opens as a directory (ADR-0101 decision 5 row 19);
+    /// <see cref="DataDirectoryProbe.CanOpen"/> when <see langword="null"/>, which is what <c>surl</c> passes.
+    /// </summary>
+    public Func<string, bool>? CanOpenShareDirectory { get; init; }
+
+    /// <summary>
+    /// The file system every <c>--share</c> is read and written through (ADR-0102 decision 2.1: a share is
+    /// always on disk); a <see cref="DiskContentFileSystem"/> when <see langword="null"/>, which is what
+    /// <c>surl</c> passes.
+    /// </summary>
+    public IContentFileSystem? ShareFileSystem { get; init; }
 }

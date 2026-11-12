@@ -40,6 +40,7 @@ var exitCode = await server.StopAsync();   // SurlExitCode.Ok
   | `MaxConnections`, `MaxConnectionsPerAddress` | `--max-connections`, `--max-connections-per-address` |
   | `IdleTimeout`, `MaxTime` (`TimeSpan.Zero` or `Timeout.InfiniteTimeSpan`: no limit) | `--idle-timeout`, `--max-time`, in seconds |
   | `MaxFileSize` | `--max-filesize`, in bytes |
+  | `RandomSeed` | `--random-seed`, 0 to `long.MaxValue`; same seed, same non-secret identifiers |
   | `Faults` (`SurlFault`, in order) | `--fault <item>`, once each |
 
 - Nothing is looser than `surl`: with only a listen URL and an account, anonymous logins,

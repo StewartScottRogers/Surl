@@ -495,6 +495,60 @@ public sealed class Amqp0BrokerTests
         await Assert.ThrowsAsync<OperationCanceledException>(() => serving);
     }
 
+    private const string ForcedCloseText = "CONNECTION_FORCED - idle timeout, maximum time or shutdown";
+
+    [TestMethod]
+    public async Task ServeAsync_OpenConnectionCancelledForALimit_IsClosedWith320ThenThrows()
+    {
+        using var cancellation = new CancellationTokenSource();
+        var connection = new InMemoryConnection([ProtocolHeader, PlainStartOk, DefaultTuneOk, Open("/")], peerHalfClosesWhenExhausted: false);
+        byte[] opened = Concat(Start("PLAIN AMQPLAIN"), Tune(), OpenOk());
+        var serving = new Amqp0Broker(new UnitTestAmqp0AuthenticationPolicy("PLAIN"), NewBus()).ServeAsync(connection, Context(new ManualTimeProvider(), null, cancellation.Token));
+        await WaitUntilAsync(() => connection.WrittenBytes.Length == opened.Length);
+
+        await cancellation.CancelAsync();
+
+        await Assert.ThrowsAsync<OperationCanceledException>(() => serving);
+        CollectionAssert.AreEqual(Concat(opened, BrokerClose(320, ForcedCloseText, 0, 0)), connection.WrittenBytes);
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_OpenConnectionCancelledAtShutdown_IsClosedWith320ThenThrows()
+    {
+        using var cancellation = new CancellationTokenSource();
+        var connection = new InMemoryConnection([ProtocolHeader, PlainStartOk, DefaultTuneOk, Open("/")], peerHalfClosesWhenExhausted: false);
+        byte[] opened = Concat(Start("PLAIN AMQPLAIN"), Tune(), OpenOk());
+        var context = Context(new ManualTimeProvider(), null, cancellation.Token) with { ShutdownToken = cancellation.Token };
+        var serving = new Amqp0Broker(new UnitTestAmqp0AuthenticationPolicy("PLAIN"), NewBus()).ServeAsync(connection, context);
+        await WaitUntilAsync(() => connection.WrittenBytes.Length == opened.Length);
+
+        await cancellation.CancelAsync();
+
+        await Assert.ThrowsAsync<OperationCanceledException>(() => serving);
+        CollectionAssert.AreEqual(Concat(opened, BrokerClose(320, ForcedCloseText, 0, 0)), connection.WrittenBytes);
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_FarewellStuckPastItsWriteDeadline_IsGivenUpAndThrows()
+    {
+        using var cancellation = new CancellationTokenSource();
+        var clock = new ManualTimeProvider();
+        var log = new RecordingExchangeLog();
+        byte[] opened = Concat(Start("PLAIN AMQPLAIN"), Tune(), OpenOk());
+        var inner = new InMemoryConnection([ProtocolHeader, PlainStartOk, DefaultTuneOk, Open("/")], peerHalfClosesWhenExhausted: false);
+        var connection = new UnitTestOpenOkThenStallingConnection(inner, opened.Length);
+        var serving = new Amqp0Broker(new UnitTestAmqp0AuthenticationPolicy("PLAIN"), NewBus()).ServeAsync(connection, Context(clock, log, cancellation.Token));
+        await WaitUntilAsync(() => inner.WrittenBytes.Length == opened.Length);
+
+        await cancellation.CancelAsync();
+        await WaitUntilAsync(() => connection.Stalled);
+        clock.Advance(Amqp0BrokerConnection.FarewellWriteDeadline);
+
+        await Assert.ThrowsAsync<OperationCanceledException>(() => serving);
+        CollectionAssert.AreEqual(opened, inner.WrittenBytes);
+        CollectionAssert.Contains(log.Notes.ToList(), "The connection.close 320 was not written within its 1-second write deadline.");
+    }
+
     private async Task<(byte[] Written, RecordingExchangeLog Log)> ServeAsync(UnitTestAmqp0AuthenticationPolicy policy, params byte[][] chunks) =>
         await ServeAsync(new Amqp0Broker(policy, NewBus()), chunks);
 

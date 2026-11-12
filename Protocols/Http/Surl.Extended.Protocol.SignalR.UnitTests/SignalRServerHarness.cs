@@ -37,7 +37,7 @@ internal sealed class SignalRServerHarness
 
     public RecordingExchangeLog Log { get; } = new();
 
-    public ExchangeContext Context(ExchangeLimits? limits = null, CancellationToken cancellationToken = default) => new(
+    public ExchangeContext Context(ExchangeLimits? limits = null, CancellationToken cancellationToken = default, CancellationToken shutdownToken = default) => new(
         1,
         new ListenUrl(SignalRProtocolServer.PlainScheme, "127.0.0.1", 5000).WithBoundPort(5000),
         new IPEndPoint(IPAddress.Loopback, 5000),
@@ -46,8 +46,14 @@ internal sealed class SignalRServerHarness
         Clock,
         cancellationToken)
     {
-        Limits = limits ?? ExchangeLimits.Default,
+        Limits = limits ?? DefaultLimits ?? ExchangeLimits.Default,
+        ShutdownToken = shutdownToken,
     };
+
+    /// <summary>
+    /// The limits every exchange gets unless a test names others, or <see langword="null"/> for <see cref="ExchangeLimits.Default"/>.
+    /// </summary>
+    public ExchangeLimits? DefaultLimits { get; set; }
 
     /// <summary>
     /// Sends one request head, <c>Host</c> and <c>Connection: close</c> added, and returns what

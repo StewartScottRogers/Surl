@@ -299,7 +299,7 @@ public sealed partial class MessageBus
         var targets = SelectTargets(topicLevels, publisher);
         if (targets.Count > 0)
         {
-            waitingDeliveries.Enqueue(() => DeliverToSubscriptions(published, targets));
+            EnqueueDelivery(() => DeliverToSubscriptions(published, targets));
         }
 
         var (queuedCount, fullQueueCount, unconsumedQueueCount) = CopyIntoBoundQueues(published, topicLevels, now, onlyToConsumedQueues, queuesFullByPlan);

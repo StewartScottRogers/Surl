@@ -47,10 +47,10 @@ internal sealed class SignalRHubClient
     /// <summary>
     /// Upgrades <c>/chat</c> with no <c>id</c> and, unless told not to, completes the handshake.
     /// </summary>
-    public static async Task<SignalRHubClient> ConnectAsync(SignalRServerHarness harness, ExchangeContext? context = null, bool completesHandshake = true)
+    public static async Task<SignalRHubClient> ConnectAsync(SignalRServerHarness harness, ExchangeContext? context = null, bool completesHandshake = true, string target = "/chat")
     {
         var connection = new UnitTestDuplexConnection();
-        connection.Send(Encoding.ASCII.GetBytes(UpgradeRequest("/chat")));
+        connection.Send(Encoding.ASCII.GetBytes(UpgradeRequest(target)));
         var client = new SignalRHubClient(connection, harness.Server.ServeAsync(connection, context ?? harness.Context()));
         await connection.WaitForWrittenAsync(bytes => HeadLength(bytes) > 0);
         if (completesHandshake)
@@ -86,6 +86,31 @@ internal sealed class SignalRHubClient
         }
 
         return [.. header, .. MaskingKey, .. payload.Select((value, index) => (byte)(value ^ MaskingKey[index % 4]))];
+    }
+
+    /// <summary>
+    /// Upgrades <c>/chat</c>, then completes the handshake asking for <c>messagepack</c>.
+    /// </summary>
+    public static async Task<SignalRHubClient> ConnectMessagePackAsync(SignalRServerHarness harness, ExchangeContext? context = null)
+    {
+        var client = await ConnectAsync(harness, context, completesHandshake: false);
+        client.SendText("{\"protocol\":\"messagepack\",\"version\":1}" + RecordSeparator);
+        await client.WaitForRecordsAsync(1);
+
+        return client;
+    }
+
+    /// <summary>Sends <paramref name="payload"/> as one binary message.</summary>
+    public void SendBinary(byte[] payload) => Connection.Send(ClientFrame(0x82, payload));
+
+    /// <summary>The binary messages the server sent, each with its length prefix.</summary>
+    public byte[][] BinaryMessages() => [.. Frames(Connection.WrittenBytes).Where(frame => frame.Opcode == 0x2).Select(frame => frame.Payload)];
+
+    public async Task<byte[][]> WaitForBinaryMessagesAsync(int count)
+    {
+        await Connection.WaitForWrittenAsync(bytes => Frames(bytes).Count(frame => frame.Opcode == 0x2) >= count);
+
+        return BinaryMessages();
     }
 
     /// <summary>Sends <paramref name="text"/> as one text message.</summary>

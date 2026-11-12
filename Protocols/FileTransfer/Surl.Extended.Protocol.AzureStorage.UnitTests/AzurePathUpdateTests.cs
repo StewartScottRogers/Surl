@@ -178,7 +178,6 @@ public sealed class AzurePathUpdateTests
     [TestMethod]
     [DataRow("/photos/a.txt?action=append&position=-1", DisplayName = "a negative position")]
     [DataRow("/photos/a.txt?action=append&position=x", DisplayName = "no number")]
-    [DataRow("/photos/a.txt?action=flush&position=0&retainUncommittedData=true", DisplayName = "retaining uncommitted data")]
     public async Task ServeAsync_UpdateWithAQueryValueNotServed_Is400InvalidQueryParameterValue(string target)
     {
         var harness = Writable();
@@ -188,6 +187,88 @@ public sealed class AzurePathUpdateTests
 
         StringAssert.StartsWith(response, "HTTP/1.1 400 Bad Request\r\n");
         StringAssert.Contains(response, "{\"error\":{\"code\":\"InvalidQueryParameterValue\",");
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_FlushRetainingUncommittedData_KeepsTheBytesStagedPastItForALaterFlush()
+    {
+        var harness = Writable();
+        harness.WriteFile("photos/a.txt", "");
+        await harness.SendWithBearerAndBodyAsync("PATCH", "/photos/a.txt?action=append&position=0", "hello ");
+        await harness.SendWithBearerAndBodyAsync("PATCH", "/photos/a.txt?action=append&position=6", "world");
+        await harness.SendWithBearerAndBodyAsync("PATCH", "/photos/a.txt?action=append&position=11", "!!");
+
+        var firstFlush = await harness.SendWithBearerAsync("PATCH", "/photos/a.txt?action=flush&position=8&retainUncommittedData=true");
+        var afterFirstFlush = harness.ReadFile("photos/a.txt");
+        var append = await harness.SendWithBearerAndBodyAsync("PATCH", "/photos/a.txt?action=append&position=13", "?");
+        var secondFlush = await harness.SendWithBearerAsync("PATCH", "/photos/a.txt?action=flush&position=14");
+
+        StringAssert.StartsWith(firstFlush, "HTTP/1.1 200 OK\r\n");
+        Assert.AreEqual("hello wo", afterFirstFlush);
+        StringAssert.StartsWith(append, "HTTP/1.1 202 Accepted\r\n");
+        StringAssert.StartsWith(secondFlush, "HTTP/1.1 200 OK\r\n");
+        Assert.AreEqual("hello world!!?", harness.ReadFile("photos/a.txt"));
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_FlushRetainingUncommittedDataWithNothingPastIt_EndsTheStaging()
+    {
+        var harness = Writable();
+        harness.WriteFile("photos/a.txt", "");
+        await harness.SendWithBearerAndBodyAsync("PATCH", "/photos/a.txt?action=append&position=0", "hello");
+
+        var flushed = await harness.SendWithBearerAsync("PATCH", "/photos/a.txt?action=flush&position=5&retainUncommittedData=true");
+        var flushedAgain = await harness.SendWithBearerAsync("PATCH", "/photos/a.txt?action=flush&position=5");
+
+        StringAssert.StartsWith(flushed, "HTTP/1.1 200 OK\r\n");
+        StringAssert.StartsWith(flushedAgain, "HTTP/1.1 200 OK\r\n");
+        Assert.AreEqual("hello", harness.ReadFile("photos/a.txt"));
+        Assert.IsNull(harness.Server.StagingArea.Find<AzureStagedPath>("photos/a.txt"));
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_FlushRetainingUncommittedDataThatCannotCommit_Is403AndDropsTheStaging()
+    {
+        var harness = new AzureServerHarness(exposure: AzureServerHarness.Writable, storeFaults: new ScriptedFaultPlan(new FaultRule("f1", FaultKind.OutOfSpace) { Stage = FaultStage.StoreWrite })).ServingDataLake();
+        harness.CreateFolder("photos");
+        harness.WriteFile("photos/a.txt", "");
+        await harness.SendWithBearerAndBodyAsync("PATCH", "/photos/a.txt?action=append&position=0", "hello world");
+
+        var flushed = await harness.SendWithBearerAsync("PATCH", "/photos/a.txt?action=flush&position=5&retainUncommittedData=true");
+
+        StringAssert.StartsWith(flushed, "HTTP/1.1 403 Forbidden\r\n");
+        Assert.AreEqual(string.Empty, harness.ReadFile("photos/a.txt"));
+        Assert.IsNull(harness.Server.StagingArea.Find<AzureStagedPath>("photos/a.txt"));
+    }
+
+    [TestMethod]
+    [DataRow("new", "/photos/a.txt?action=append&position=3", "If-None-Match: *", "409 Conflict", "PathAlreadyExists", "The specified path already exists.", DisplayName = "append, If-None-Match *")]
+    [DataRow("new", "/photos/a.txt?action=append&position=3", "If-Match: \"other\"", "412 Precondition Failed", "ConditionNotMet", "The condition specified using HTTP conditional header(s) is not met.", DisplayName = "append, If-Match another tag")]
+    [DataRow(null, "/photos/a.txt?action=flush&position=3", "If-Unmodified-Since: Wed, 04 Nov 2026 12:00:00 GMT", "412 Precondition Failed", "ConditionNotMet", "The condition specified using HTTP conditional header(s) is not met.", DisplayName = "flush, modified since")]
+    public async Task ServeAsync_UpdateWhoseConditionFails_IsRefusedAndStagesNothing(string? body, string target, string condition, string status, string code, string message)
+    {
+        var harness = Writable();
+        harness.WriteFile("photos/a.txt", "old");
+
+        var response = body is null
+            ? await harness.SendWithBearerAsync("PATCH", target, condition)
+            : await harness.SendWithBearerAndBodyAsync("PATCH", target, body, condition);
+
+        Assert.AreEqual(AzureServerHarness.ExpectedJsonError(response, status, code, message), response);
+        Assert.IsNull(harness.Server.StagingArea.Find<AzureStagedPath>("photos/a.txt"));
+        Assert.AreEqual("old", harness.ReadFile("photos/a.txt"));
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_AppendWithFlushWhoseConditionHolds_IsCommitted()
+    {
+        var harness = Writable();
+        harness.WriteFile("photos/a.txt", "hello ");
+
+        var response = await harness.SendWithBearerAndBodyAsync("PATCH", "/photos/a.txt?action=append&position=6&flush=true", "world", "If-Match: \"3fc0fa5b4f8d7e1a0e7d8c5a2b6f9e10\", *");
+
+        StringAssert.StartsWith(response, "HTTP/1.1 200 OK\r\n");
+        Assert.AreEqual("hello world", harness.ReadFile("photos/a.txt"));
     }
 
     [TestMethod]

@@ -1,5 +1,6 @@
 using System.Collections.Frozen;
 using Surl.HttpMessage;
+using Surl.Protocol.Abstractions;
 
 namespace Surl.Protocol.Rtsp;
 
@@ -58,7 +59,14 @@ internal sealed partial class RtspRequestResponder
         var path = head.RequestTarget.StartsWith(AbsoluteUrlPrefix, StringComparison.OrdinalIgnoreCase)
             ? PresentationPath(head.RequestTarget)
             : null;
-        var rule = await HttpCommandFaults.FindChosenErrorAsync(context, head.Method, path, accountName);
+        var rule = await HttpCommandFaults.FindAndApplyAsync(context, head.Method, path, accountName);
+        if (rule is { Kind: FaultKind.Drop })
+        {
+            connection.Abort();
+
+            return false;
+        }
+
         if (rule is null)
         {
             return await AnswerMethodAsync(head, cseq);

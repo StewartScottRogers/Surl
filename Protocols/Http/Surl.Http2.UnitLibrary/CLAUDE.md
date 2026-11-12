@@ -27,7 +27,11 @@ Public, what a server uses:
   `HasContentLengthMismatch` and `HasRequestBodyEndedEarly` once it ends), `WriteHeadersAsync`,
   `WriteDataAsync`, `CreateResponseBodyStream` (an `Http2DataStream` that ends the stream on
   the body's last byte), `WriteTrailersAsync` (a `HEADERS` with `END_STREAM` after the `DATA`,
-  RFC 9113 section 8.1) and `ResetAsync`. Reading and writing are independent.
+  RFC 9113 section 8.1) and `ResetAsync`. Reading and writing are independent. When the exchange
+  is cancelled (shutdown, `--idle-timeout`, `--max-time`) every write is cut off;
+  `IsExchangeCancelled` tells a handler so, and it may then end its stream once with
+  `WriteFarewellTrailersAsync` or `WriteFarewellResetAsync`, each on its own
+  `FarewellWriteDeadline`, before the connection's `GOAWAY` (ADR-0116 amendment 1, BL-886).
 - `Http2ConnectionRefusal` - refuses a connection past a connection limit (ADR-0081 decision 5's
   "Too many connections" row; BL-601): `WriteAsync(connection, fields, token)` reads the frames
   after the preface up to the client's first `HEADERS`, then writes an empty `SETTINGS`, the given

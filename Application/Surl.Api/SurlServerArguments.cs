@@ -50,7 +50,25 @@ internal static class SurlServerArguments
         {
             throw new ArgumentException("ListenUrls, AdditionalArguments and Faults may not hold null.", nameof(options));
         }
+
+        if (ItemLists(options).Any(items => items.Contains(null!)))
+        {
+            throw new ArgumentException(
+                "Groups, the mail, share, bucket, topic and queue item lists, and ConfigFiles may not hold null.", nameof(options));
+        }
+
+        if (options.ConfigFiles.Contains("-"))
+        {
+            throw new ArgumentException("ConfigFiles may not name '-': a test process's standard input is not its configuration.", nameof(options));
+        }
     }
+
+    private static IEnumerable<IList<string>> ItemLists(SurlServerOptions options) =>
+    [
+        options.Groups, options.MailDomains, options.Mailboxes, options.MailboxFiles, options.MailAliases,
+        options.MailCatchAlls, options.SharedFolders, options.Shares, options.ShareAccess, options.Buckets,
+        options.Topics, options.Queues, options.TopicMaps, options.TopicAccess, options.ConfigFiles,
+    ];
 
     private static void ThrowIfRecordBoundNotPositive(SurlServerOptions options)
     {
@@ -108,11 +126,26 @@ internal static class SurlServerArguments
             arguments.AddRange(["--fault", fault.ToItem()]);
         }
 
+        AddItems(arguments, "--group", options.Groups);
+        AddItems(arguments, "--mail-domain", options.MailDomains);
+        AddItems(arguments, "--mailbox", options.Mailboxes);
+        AddItems(arguments, "--mailbox-file", options.MailboxFiles);
+        AddItems(arguments, "--mail-alias", options.MailAliases);
+        AddItems(arguments, "--mail-catch-all", options.MailCatchAlls);
+        AddItems(arguments, "--shared-folder", options.SharedFolders);
+        AddItems(arguments, "--share", options.Shares);
+        AddItems(arguments, "--share-access", options.ShareAccess);
+        AddItems(arguments, "--bucket", options.Buckets);
+        AddItems(arguments, "--topic", options.Topics);
+        AddItems(arguments, "--queue", options.Queues);
+        AddItems(arguments, "--topic-map", options.TopicMaps);
+        AddItems(arguments, "--topic-access", options.TopicAccess);
         if (options.LogLevel != LogLevel.Info)
         {
             arguments.AddRange(["--log-level", options.LogLevel.ToString().ToLowerInvariant()]);
         }
 
+        AddItems(arguments, "--config", options.ConfigFiles);
         arguments.AddRange(options.AdditionalArguments);
         return arguments;
     }
@@ -126,9 +159,23 @@ internal static class SurlServerArguments
     /// <returns>The command line to compose.</returns>
     /// <exception cref="SurlServerStartException"><c>surl</c> would refuse the command line.</exception>
     /// <exception cref="ArgumentException">The arguments ask for help, the version, a log file or a trace file.</exception>
-    public static SurlCommandLine Parse(SurlServerOptions options, IReadOnlyCollection<string> extendedSchemes)
+    public static SurlCommandLine Parse(SurlServerOptions options, IReadOnlyCollection<string> extendedSchemes) =>
+        Parse(options, extendedSchemes, null);
+
+    /// <summary>
+    /// Parses <paramref name="options"/>' arguments as <c>surl</c> parses them, reading
+    /// <see cref="SurlServerOptions.ConfigFiles"/> through <paramref name="readFile"/>.
+    /// </summary>
+    /// <param name="options">The options.</param>
+    /// <param name="extendedSchemes">The extended schemes served, none while extensions are off.</param>
+    /// <param name="readFile">Reads a config file's bytes; null reads the disk.</param>
+    /// <returns>The command line to compose.</returns>
+    /// <exception cref="SurlServerStartException"><c>surl</c> would refuse the command line.</exception>
+    /// <exception cref="ArgumentException">The arguments ask for help, the version, a log file or a trace file.</exception>
+    public static SurlCommandLine Parse(
+        SurlServerOptions options, IReadOnlyCollection<string> extendedSchemes, Func<string, byte[]>? readFile)
     {
-        var parsed = CommandLineParser.Parse(Compose(options), extendedSchemes);
+        var parsed = CommandLineParser.Parse(Compose(options), extendedSchemes, new ApiConfigFileSource(readFile));
         return parsed.Outcome switch
         {
             CommandLineOutcome.Serve => RefuseHostOwnedFiles(parsed.CommandLine!),
@@ -185,6 +232,7 @@ internal static class SurlServerArguments
         AddValue(arguments, FormatSeconds(options.IdleTimeout), "--idle-timeout");
         AddValue(arguments, FormatSeconds(options.MaxTime), "--max-time");
         AddValue(arguments, FormatInvariant(options.MaxFileSize), "--max-filesize");
+        AddValue(arguments, FormatInvariant(options.RandomSeed), "--random-seed");
     }
 
     private static string? FormatInvariant<T>(T? value)
@@ -198,6 +246,14 @@ internal static class SurlServerArguments
         { Ticks: <= 0 } => "0",
         { Ticks: var ticks } => (ticks / (decimal)TimeSpan.TicksPerSecond).ToString(CultureInfo.InvariantCulture),
     };
+
+    private static void AddItems(List<string> arguments, string option, IList<string> items)
+    {
+        foreach (var item in items)
+        {
+            arguments.AddRange([option, item]);
+        }
+    }
 
     private static void AddValue(List<string> arguments, string? value, string option)
     {

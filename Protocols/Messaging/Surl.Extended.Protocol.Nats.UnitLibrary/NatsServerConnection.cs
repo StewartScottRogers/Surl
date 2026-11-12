@@ -10,7 +10,7 @@ namespace Surl.Extended.Protocol.Nats;
 /// then operations until the client closes, a protocol error, a stale connection or a slow
 /// consumer. Every byte it sends goes through one <see cref="NatsOutbox"/>, in order.
 /// </summary>
-internal sealed class NatsServerConnection : IDisposable
+internal sealed partial class NatsServerConnection : IDisposable
 {
     private static readonly byte[] OkLine = "+OK\r\n"u8.ToArray();
     private static readonly byte[] PingLine = "PING\r\n"u8.ToArray();
@@ -32,6 +32,7 @@ internal sealed class NatsServerConnection : IDisposable
     private readonly CancellationTokenSource stopPinging = new();
     private readonly CancellationTokenSource headTimeout;
     private BusConnection? busConnection;
+    private string? faultAccount;
     private bool infoWritten;
     private bool handshakeStarted;
     private NatsConnectOptions? connected;
@@ -308,6 +309,8 @@ internal sealed class NatsServerConnection : IDisposable
                 NatsErrors.AuthorizationViolation, $"CONNECT's login was refused ({verdict})");
         }
 
+        // Only a login the policy checked proves an account a fault rule may be scoped to.
+        faultAccount = verdict == PasswordLoginVerdict.Accepted ? login.UserName : null;
         return login.UserName;
     }
 
@@ -351,13 +354,13 @@ internal sealed class NatsServerConnection : IDisposable
                 Interlocked.Exchange(ref unansweredPings, 0);
                 break;
             case "PUB":
-                await PublishAsync(NatsPublishArguments.Parse(line.Arguments, withHeaders: false), cancellationToken);
+                await PublishAsync(line.Operation, NatsPublishArguments.Parse(line.Arguments, withHeaders: false), cancellationToken);
                 break;
             case "HPUB" when Connected.Headers:
-                await PublishAsync(NatsPublishArguments.Parse(line.Arguments, withHeaders: true), cancellationToken);
+                await PublishAsync(line.Operation, NatsPublishArguments.Parse(line.Arguments, withHeaders: true), cancellationToken);
                 break;
             case "SUB":
-                Subscribe(NatsSubscribeArguments.Parse(line.Arguments));
+                await SubscribeUnlessAFaultAnswersAsync(NatsSubscribeArguments.Parse(line.Arguments));
                 break;
             case "UNSUB":
                 Unsubscribe(NatsUnsubscribeArguments.Parse(line.Arguments));
@@ -377,7 +380,7 @@ internal sealed class NatsServerConnection : IDisposable
     }
 
     // ADR-0113 decisions 4 and 7: the size is judged before the payload is read, the subjects after.
-    private async ValueTask PublishAsync(NatsPublishArguments publish, CancellationToken cancellationToken)
+    private async ValueTask PublishAsync(string operation, NatsPublishArguments publish, CancellationToken cancellationToken)
     {
         if (publish.TotalBytes > info.MaxPayload)
         {
@@ -386,9 +389,17 @@ internal sealed class NatsServerConnection : IDisposable
         }
 
         var body = await reader.ReadPayloadAsync((int)publish.TotalBytes, cancellationToken);
-        if (body is not null)
+        if (body is not null && !await IsAnsweredByAFaultAsync(operation, publish.Subject))
         {
             PublishOnBus(publish, body);
+        }
+    }
+
+    private async ValueTask SubscribeUnlessAFaultAnswersAsync(NatsSubscribeArguments subscribe)
+    {
+        if (!await IsAnsweredByAFaultAsync("SUB", subscribe.Subject))
+        {
+            Subscribe(subscribe);
         }
     }
 

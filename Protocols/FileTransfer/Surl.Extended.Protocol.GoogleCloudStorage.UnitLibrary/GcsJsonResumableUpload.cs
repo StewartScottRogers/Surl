@@ -253,7 +253,7 @@ internal sealed class GcsJsonResumableUpload(ContentStore store, GcsObjectProper
         using var hashes = new GcsObjectHashes();
         await GcsUploadStaging.CopyAsync(upload.Session, 0, upload.Session.Length, new GcsHashingStream(hashes, null), cancellationToken);
         var digests = hashes.Finish();
-        var (refusal, _) = await staging.CommitAsync(upload.Session, upload, upload.Target, caller, digests.ETag, cancellationToken);
+        var (refusal, _) = await staging.CommitAsync(upload.Session, upload, upload.Target, caller, digests.ETag, digests.Crc32cValue, cancellationToken);
         await staging.Uploads.RemoveAsync(upload);
         if (refusal is not null)
         {

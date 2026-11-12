@@ -32,6 +32,10 @@ public sealed record Amqp1Flow(uint IncomingWindow, uint NextOutgoingId, uint Ou
     /// <summary>Link state properties; <see langword="null"/> when absent.</summary>
     public Amqp1Map? Properties { get; init; }
 
+    /// <summary>The <c>txn-id</c> the <see cref="Properties"/> carry (Part 4 section 4.4.3); <see langword="null"/> when they carry none.</summary>
+    public byte[]? TransactionId =>
+        Properties?.Entries.FirstOrDefault(entry => entry.Key is Amqp1Symbol { Value: "txn-id" }).Value as byte[];
+
     /// <inheritdoc/>
     public override ulong DescriptorCode => Amqp1Descriptor.Flow;
 

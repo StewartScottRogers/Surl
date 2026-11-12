@@ -1,0 +1,73 @@
+---
+id: BL-1017
+title: Add --dns-transport with udp, tcp and tls and serve DNS over TLS with ALPN dot
+priority: Normal
+assignee: Claude
+pipeline: feature
+depends-on: [BL-1032, BL-1020, BL-1036]
+touches: [Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests, Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests, Foundation/Surl.Networking.UnitLibrary, Foundation/Surl.Networking.UnitTests, Application/Surl.Mcp.UnitLibrary]
+requirement: none
+created: 2026-11-06
+completed: 2026-11-11
+---
+# BL-1017 — Add --dns-transport with udp, tcp and tls and serve DNS over TLS with ALPN dot
+
+## Goal
+
+`surl --dns-transport udp,tcp,tls --self-signed dns://127.0.0.1:5300` serves DNS over UDP, TCP and TLS (DoT,
+RFC 7858) on that port's protocols as ADR-0092 decision 5 says, with the DoT handshake agreeing ALPN `dot`.
+
+## Context
+
+- Second of the four tasks BL-485 was split into (see BL-1032). This task adds the option with the values `udp`,
+  `tcp` and `tls`; BL-1018 adds `https` and BL-1019 adds `quic` to its allowed values.
+- Decision: ADR-0092 decision 5 - `--dns-transport <list>`, default `udp,tcp`, categories `dns` and `tls`; ports
+  (a listen URL with a port puts every transport on it, without one each on its default: 53, 53, 853; port 0
+  gives each its own ephemeral port and status line); `tcp` with `tls` on one explicit non-zero port refused
+  `FailedInit` (2) with `surl: --dns-transport <a> and <b> cannot share port <n>`; a value outside the list, an
+  empty list or a repeated value refused `FailedInit` as ADR-0007 section 5 refuses any bad value; `tls` needs
+  `--cert` or `--self-signed`, else `CertificateProblem` (58).
+- DoT ALPN: the handshake agrees `dot` when offered, accepts a client offering no ALPN, and ends with
+  `no_application_protocol` (120) a client whose list lacks `dot` (RFC 7301 section 3.2). The per-listener ALPN
+  list is `TlsApplicationProtocols` in `Foundation/Surl.Networking.UnitLibrary`; keep every other scheme's offer,
+  which the existing Networking tests pin.
+- After the handshake a DoT connection is `DnsTcpProtocolServer`'s connection exactly (RFC 7858 section 3.3).
+- `--aihelp`: the option's `OptionArgumentType` and allowed values, and the `dns` topic's paragraph names DoT.
+- Stand-in: no store; each transport's exchanges are the engine's events with their own listen URL.
+
+## Acceptance criteria
+
+- [x] Named `Surl.Cli.UnitTests` tests read `--dns-transport udp,tcp,tls` and refuse `bogus`, an empty list and
+      `tcp,tcp`, each with `FailedInit` (2) and the option-error text.
+- [x] Named `Surl.Composition.UnitTests` tests show `tls` composing a TLS-from-the-first-byte listener on 853 or
+      the given port, `tcp,tls` on one explicit port refused with the decision's text, and `tls` without a
+      certificate refused `CertificateProblem` (58).
+- [x] A named `Surl.Networking.UnitTests` test shows a `dns` TLS listener agreeing `dot`, accepting a client with
+      no ALPN, and refusing one offering only `h2` with alert 120.
+- [x] The `--aihelp` completeness tests named in root `CLAUDE.md` pass; `dotnet build -warnaserror` is clean, the
+      fast tests are green, and the touched libraries keep 100% line and branch coverage.
+
+## Notes
+
+- 2026-11-11, dark factory lane 2: released unstarted, no code written. `ServingEngine` binds every server a
+  scheme has on every listen URL of that scheme (`StartListenersAsync`, shared-port pair for `dns` since BL-1032),
+  so a DoT listen URL (`dns`, `IsImplicitTls = true`) would also bind UDP on its port, and `udp,tls` cannot leave
+  TCP off the plain listen URL. The per-listen-URL choice belongs in `Surl.Protocol.Abstractions` and `Surl.Core`,
+  four projects outside this task's six; filed as BL-1036 and added to `depends-on`.
+- For whoever resumes: the DoT ALPN belongs in `TlsApplicationProtocols.ForListener` (`dot` for a `dns` listen
+  URL with `IsImplicitTls`); `ServerTlsHandshakeHttpsProxyTests.UpgradeToTlsAsync_HttpsProxyAndClientOffersOnlyH2_ThrowsTlsHandshakeException`
+  is the pattern for the alert-120 test (Windows and Linux only; macOS not pinned).
+
+- 2026-11-11, lane 6: done on BL-1036's `ListenUrl.OnlyTransport`. `DnsTransportComposition` (Surl.Composition) refuses `tcp` with `tls` on a `dns` listen URL given a non-zero port (`--dns-transport tcp and tls cannot share port <n>`, FailedInit, no `(2)` prefix, as ADR-0092 words it), then expands each `dns` listen URL: `udp` and `tcp` together stay one shared-port pair, alone they bind only the datagram or connection listener, `tls` is its own `IsImplicitTls` connection listener on the given port or 853. Default `udp,tcp` leaves the listen URL untouched. Port 0 keeps the udp+tcp pair on one ephemeral port and gives `tls` its own (the decision's "each its own port" read as per listener).
+- Decision: whether a listen URL gave a port is not in `ListenUrl` (the parser fills the default), so `CommandLineParser` records each `dns` listen URL written with a port in `SurlCommandLine.DnsListenUrlsWithPort`; `DnsTransports` defaults to a shared `DefaultDnsTransports` list so default command lines stay equal. `DnsTransports` and `DnsListenUrlsWithPort` also had to be classified in `Surl.Mcp.UnitLibrary`'s `CommandLinePathMembers` (a test pins every member), so it joined `touches`; no Doing task names it.
+- ALPN: `TlsApplicationProtocols.ForListener` offers `dot` for a `dns` listen URL with `IsImplicitTls`. Tests: `DnsTransportOptionTests`, `DnsTransportCompositionTests`, `ServerTlsHandshakeDnsOverTlsTests` (alert 120 on Windows and Linux only). `--aihelp` dns paragraph and the manual name DoT and the option. BL-1018 and BL-1019 must add `https`/`quic` to `OptionArgumentReader.DnsTransportWords` and extend `DnsTransportComposition`.
+- Measure-CodeQuality: Cli, Networking, Mcp 100/100; Composition's only failing members are in `ComposedServing.ServeWithControlAsync` (not this task's).
+## Log
+
+- 2026-11-06: Created.
+- 2026-11-06: Backlog -> Doing.
+- 2026-11-06: Doing -> Backlog. Released by the interactive session unstarted: it needs a TLS-from-the-first-byte dns listener, which BL-1020 builds, so it should depend on BL-1020; no work done
+- 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Backlog. Waits on BL-1036: the serving engine must let a dns listen URL bind only its UDP or only its TLS listener before DoT can be served
+- 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Done. dns --dns-transport udp,tcp,tls serves DNS over TLS with ALPN dot on 853 or the given port

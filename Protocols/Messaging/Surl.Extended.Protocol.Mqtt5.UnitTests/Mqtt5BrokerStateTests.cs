@@ -1,5 +1,6 @@
 using System.Text.RegularExpressions;
 using Surl.MessageBus;
+using Surl.Protocol.Abstractions;
 using static Surl.Extended.Protocol.Mqtt5.UnitTests.Mqtt5BrokerExchange;
 
 namespace Surl.Extended.Protocol.Mqtt5.UnitTests;
@@ -23,20 +24,33 @@ public sealed partial class Mqtt5BrokerStateTests
     [TestMethod]
     public void NewAssignedClientIdentifier_IsSurlAnd32LowerCaseHexDigits()
     {
-        Assert.IsTrue(AssignedClientIdentifierPattern().IsMatch(Mqtt5BrokerState.NewAssignedClientIdentifier()));
+        Assert.IsTrue(AssignedClientIdentifierPattern().IsMatch(Mqtt5BrokerState.NewAssignedClientIdentifier(new SeededIdentifierRandom(1))));
     }
 
     [TestMethod]
-    public void RegisterAssignedClient_CandidateInUse_DrawsAnother()
+    public void AssignedClientIdentifier_SameSeededIdentifiers_IsTheSameEveryRun()
     {
-        var candidates = new Queue<string>(["surl-taken", "surl-free"]);
-        var state = new Mqtt5BrokerState(new Surl.MessageBus.MessageBus(TimeProvider.System), candidates.Dequeue);
-        state.RegisterClient("surl-taken");
+        var firstRun = NewState().RegisterAssignedClient(new SeededIdentifierRandom(7), out _);
 
-        var assigned = state.RegisterAssignedClient(out _);
+        var secondRun = NewState().RegisterAssignedClient(new SeededIdentifierRandom(7), out _);
 
-        Assert.AreEqual("surl-free", assigned);
-        Assert.IsTrue(state.IsConnected("surl-free"));
+        Assert.AreEqual(firstRun, secondRun);
+        Assert.IsTrue(AssignedClientIdentifierPattern().IsMatch(firstRun));
+    }
+
+    [TestMethod]
+    public void AssignedClientIdentifier_CollidesWithASession_IsDrawnAgain()
+    {
+        var draws = new SeededIdentifierRandom(7);
+        var firstDraw = Mqtt5BrokerState.NewAssignedClientIdentifier(draws);
+        var secondDraw = Mqtt5BrokerState.NewAssignedClientIdentifier(draws);
+        var state = NewState();
+        state.RegisterClient(firstDraw);
+
+        var assigned = state.RegisterAssignedClient(new SeededIdentifierRandom(7), out _);
+
+        Assert.AreEqual(secondDraw, assigned);
+        Assert.IsTrue(state.IsConnected(secondDraw));
     }
 
     [TestMethod]
@@ -159,6 +173,14 @@ public sealed partial class Mqtt5BrokerStateTests
 
         Assert.IsFalse(resumed);
         Assert.IsFalse(state.HasSession("c"));
+    }
+
+    /// <summary>A seeded identifier source: the same seed draws the same bytes every run.</summary>
+    private sealed class SeededIdentifierRandom(int seed) : IIdentifierRandom
+    {
+        private readonly Random random = new(seed);
+
+        public void NextBytes(Span<byte> destination) => random.NextBytes(destination);
     }
 
     private sealed class CallbackCapturingTimeProvider : TimeProvider

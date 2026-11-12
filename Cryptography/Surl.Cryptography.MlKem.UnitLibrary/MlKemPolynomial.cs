@@ -113,7 +113,7 @@ internal static class MlKemPolynomial
     /// <summary>
     /// SamplePolyCBD_2 (FIPS 203 Algorithm 8) of PRF_2(<paramref name="seed"/>, <paramref name="nonce"/>)
     /// = SHAKE256(seed || nonce) to 128 bytes: each coefficient is the sum of two bits minus the
-    /// sum of the next two. ML-KEM-768's eta_1 and eta_2 are both 2.
+    /// sum of the next two. eta_1 and eta_2 are both 2 in ML-KEM-768 and ML-KEM-1024.
     /// </summary>
     public static int[] SampleCenteredBinomial(ReadOnlySpan<byte> seed, byte nonce)
     {

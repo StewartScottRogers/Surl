@@ -12,10 +12,14 @@ internal sealed record TlsServerNegotiation(
     TlsCipherSuite CipherSuite, TlsSignatureScheme SignatureScheme, string? ApplicationProtocol)
 {
     /// <summary>
-    /// The key exchange groups the server serves, in its order of preference (ADR-0082 decision 3).
+    /// The key exchange groups the server serves, in its order of preference: ADR-0082 decision 3's
+    /// five, then the groups a curl offers only when <c>--curves</c> names one alone (ADR-0147).
     /// </summary>
     public static IReadOnlyList<TlsNamedGroup> GroupPreference { get; } =
-        [TlsNamedGroup.X25519MlKem768, TlsNamedGroup.X25519, TlsNamedGroup.Secp256r1, TlsNamedGroup.Secp384r1, TlsNamedGroup.Secp521r1];
+    [
+        TlsNamedGroup.X25519MlKem768, TlsNamedGroup.X25519, TlsNamedGroup.Secp256r1, TlsNamedGroup.Secp384r1, TlsNamedGroup.Secp521r1,
+        TlsNamedGroup.SecP256r1MlKem768, TlsNamedGroup.SecP384r1MlKem1024, TlsNamedGroup.CurveSm2MlKem768, TlsNamedGroup.X448, TlsNamedGroup.CurveSm2, TlsNamedGroup.Ffdhe2048, TlsNamedGroup.Ffdhe3072,
+    ];
 
     private static readonly TlsCipherSuite[] SupportedCipherSuites =
         [TlsCipherSuite.Aes128GcmSha256, TlsCipherSuite.Aes256GcmSha384, TlsCipherSuite.ChaCha20Poly1305Sha256];

@@ -119,9 +119,14 @@ internal sealed class SmbSession : IAsyncDisposable
     {
         var command = SmbCommandFaults.CommandNameOf(request);
         var path = FaultPathOf(request);
-        if (await SmbCommandFaults.FindErrorAsync(context, loggedInCaller!.AccountName, command, path) is not { } rule)
+        if (await SmbCommandFaults.FindAndApplyAsync(context, connection, loggedInCaller!.AccountName, command, path) is not { } rule)
         {
             return null;
+        }
+
+        if (rule.Kind == FaultKind.Drop)
+        {
+            return new SmbAnswer([], WasDropped: true);
         }
 
         SmbCommandFaults.TryReadNtStatus(rule.Reply, out var status);

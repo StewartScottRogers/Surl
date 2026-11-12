@@ -52,8 +52,8 @@ What the Blob endpoint serves now (BL-424, BL-425, BL-715, BL-716), on `az`:
   never checked, becomes the blob's `Content-MD5` on Get Blob, Get Blob Properties and List Blobs
   (BL-736; a rename and Path - Update `setProperties` keep it, a flush drops it); an index refusal removes the blob (`400
   MetadataTooLarge`, `503 ServerBusy`). `201` with `ETag`, `Last-Modified`, `Content-MD5` and
-  `x-ms-request-server-encrypted: false`.
-- The conditional fields on Put Blob and Delete Blob (BL-735, `AzureConditions.WriteRefusal`),
+  `x-ms-request-server-encrypted: false`; a `201` discards the blob's uncommitted blocks (BL-924).
+- The conditional fields on Put Blob, Put Block List (BL-944, checked after the body is read and before the blocks are resolved) and Delete Blob (BL-735, `AzureConditions.WriteRefusal`),
   checked against the blob at the name once the name maps, before folders are created or the body
   is read: every condition counts, none decides over another. On an existing blob, `If-None-Match`
   naming `*` is `409 BlobAlreadyExists`; a failing `If-Match` or `If-Unmodified-Since`, a matching
@@ -86,7 +86,8 @@ What the Blob endpoint serves now (BL-424, BL-425, BL-715, BL-716), on `az`:
   (case-insensitive; another `400 InvalidQueryParameterValue`): `200` with the one-line
   `BlockList` XML of the page's example, `Last-Modified` and `ETag` when the blob exists, and
   `x-ms-blob-content-length`; no blob and no uncommitted block is `404 BlobNotFound`.
-- Delete Blob on `DELETE /<container>/<blob>`: `202`; a missing blob `404 BlobNotFound`; uploads
+- Delete Blob on `DELETE /<container>/<blob>`: `202`, discarding the blob's uncommitted blocks
+  (BL-924; an error keeps them); a missing blob `404 BlobNotFound`; uploads
   off or share access refusing it `403 AuthorizationPermissionMismatch`.
 - List Blobs (`AzureListBlobs`) on `GET /<container>?restype=container&comp=list`: a listing in
   ADR-0006's sense, as ADR-0108 holds for S3's, so it needs `--list-directories` (off: `403
@@ -94,7 +95,11 @@ What the Blob endpoint serves now (BL-424, BL-425, BL-715, BL-716), on `az`:
   `AzureListPage` takes `maxresults` (default and cap 5000, below 1 `400
   OutOfRangeQueryParameterValue`, no integer `400 InvalidQueryParameterValue`) blobs and
   `BlobPrefix`es after the `marker` (`AzureListMarker`: base64url of the last name returned).
-  `prefix` and `delimiter` filter and roll up; `include=metadata` adds `Metadata`, the page's other
+  `prefix` and `delimiter` filter and roll up; `include=metadata` adds `Metadata`;
+  `include=uncommittedblobs` (BL-923) also lists each blob whose `AzureStagedBlocks` holds uncommitted
+  blocks and that has no file, merged in name order (`AzureStagingArea.UncommittedBlobs`,
+  `AzureListBlobs.Merged`), with `Content-Length` 0, an empty `Etag` and content fields, and the last
+  block's time; the page's other
   `include` values add nothing, any other is `400 InvalidQueryParameterValue`. The
   `EnumerationResults` follows the page's example: `ServiceEndpoint` (`https` over TLS, else
   `http`, and the `Host`), `ContainerName`, the sent `Prefix`, `Marker`, `MaxResults` and
@@ -118,7 +123,9 @@ What the Blob endpoint serves now (BL-424, BL-425, BL-715, BL-716), on `az`:
 - Every answer carries `Date`, `Server`, `x-ms-request-id` (a lower-case GUID), `x-ms-version:
   2025-01-05` and the echoed `x-ms-client-request-id`; an error carries `x-ms-error-code` and the
   one-line XML `Error` body, whose `Message` ends with `RequestId:` and `Time:` lines. A `HEAD`
-  error has no body. A connection past a limit is `503 ServerBusy`, then closed. A head past
+  error has no body. A connection past a limit is `503 ServerBusy`, then closed: the XML `Error` on
+  `az`, the JSON error on `abfs` and `abfss` (BL-758), told apart by the listen scheme the engine
+  passes to `IConnectionRefusalWriter`'s scheme-aware overload. A head past
   `--max-request-head` (BL-726) is `400 InvalidInput` with the common fields, `x-ms-error-code` and
   the `Error` body - on `abfs` and `abfss` the JSON error body - then closed: both answerers word
   `Surl.HttpServing`'s refusal through `IHttpHeadNotReadRefuser` (`AzureReply.HeadNotReadRefusal`);
@@ -158,8 +165,11 @@ characters):
   past 8 KiB `400 MetadataTooLarge`; a file in a share keeps nothing.
 - Path - Create (`AzurePathCreate`), `PUT …?resource=file|directory`, under `--allow-uploads`:
   creates every missing parent; `file` writes the file empty (emptying one there), discards its
-  staged appends and keeps `x-ms-content-type`, `-encoding`, `-language`, `-disposition` and
-  `x-ms-cache-control` in `ObjectMetadataIndex`. `201` with `ETag` and `Last-Modified`; a directory's
+  staged appends and keeps `x-ms-content-type`, `-encoding`, `-language`, `-disposition`,
+  `x-ms-cache-control` and `x-ms-properties` (BL-758; one that does not read `400
+  InvalidHeaderValue`) in `ObjectMetadataIndex`. The conditional fields are checked first against
+  the file or directory at the path (`AzurePathCreate.ConditionRefusalAsync`, BL-758): `If-None-Match: *`
+  on one there is `409 PathAlreadyExists`, any other failing condition `412 ConditionNotMet`. `201` with `ETag` and `Last-Modified`; a directory's
   ETag is `"0x<last-write ticks in hexadecimal>"`. A file in the way, a file over a directory or a
   directory over a file is `409 PathConflict`.
 - Path - Update (`AzurePathUpdate`), `PATCH …?action=append|flush&position=<n>`, under
@@ -169,7 +179,10 @@ characters):
   `n` when the staged ranges reach it from the committed length without a gap or an overlap (else
   `400 InvalidFlushPosition`), keeps the stored header fields, and answers `200` with the new
   `ETag`. A flush with a body is `400 ContentLengthMustBeZero`; an append before the committed end
-  or `retainUncommittedData=true` is `400 InvalidQueryParameterValue`. `AzureStagingArea`, shared with the
+  is `400 InvalidQueryParameterValue`. A flush with `retainUncommittedData=true` (BL-758) copies the
+  staging's session whole before committing and carries the staging on in the copy
+  (`AzureStagedPath.ContinueAfterFlush`), so the bytes staged past the flush wait for a later one.
+  Append and flush check the conditional fields against the committed file as Path - Create does. `AzureStagingArea`, shared with the
   blobs' `AzureStagedBlocks`, holds at most 1000 stagings (the next `503 ServerBusy`, unless one with only a
   remembered committed block list can be forgotten), drops one untouched for 7 days when the next
   staging begins, and serves appends, flushes and block requests one at a time across the server, because an upload
@@ -179,7 +192,9 @@ characters):
   `409 DirectoryNotEmpty`; a missing path `404 PathNotFound`.
 - Path - List (`AzurePathList`, `AzureFilesystemWalk`), `GET /<filesystem>?resource=filesystem`,
   under `--list-directories`: `recursive` required, `directory`, `maxResults` (1 to 5000) and
-  `continuation` (base64url of the last sort key, a directory's being its path and `/`); `{"paths":[…]}`
+  `continuation` (base64url of the last sort key, a directory's being its path and `/`) and
+  `beginFrom` (BL-758: a path relative to the folder listed, started after; a continuation decides
+  over it); `{"paths":[…]}`
   in decision 5.4's member order, `x-ms-continuation` while more remain.
 - Errors are the JSON `{"error":{"code":…,"message":…}}` (`AzureDataLakeErrorBody`) with
   `Content-Type: application/json;charset=utf-8`; `code` and `message` only.
@@ -197,9 +212,7 @@ phrase, or none for a code without one), `x-ms-error-code` and the endpoint's er
 reply that does not fit, or a rule of another kind, is noted in the exchange log and the request is
 served as without it.
 
-Not yet: the conditional fields on Put Block List; `retainUncommittedData=true`, `beginFrom`, `x-ms-properties` on Path - Create, the conditional fields on
-the Data Lake writes and the JSON body on a Data Lake connection refused past a limit (BL-758);
-List Blobs' `include=uncommittedblobs`, properties on a directory or a filesystem.
+Not yet: properties on a directory or a filesystem.
 
 The path-style form (BL-725, ADR-0109 decision 2), on both endpoints: `AzurePathStyle.Read` runs
 before anything else. When the `Host` (port removed) is an IP literal (`127.0.0.1`, `[::1]`; four

@@ -43,6 +43,27 @@ And the server handshake (BL-376):
   platform. Randomness comes from an injected `RandomNumberGenerator`, in share order: the server
   random, then for X25519MLKEM768 ML-KEM's 32-byte m, then an x25519 private key. No session ticket.
 
+And the groups a curl offers only when `--curves` names one alone (BL-1008, ADR-0147), served after
+those five in this order:
+
+- SecP256r1MLKEM768 (`11EB`) and SecP384r1MLKEM1024 (`11ED`), draft-ietf-tls-ecdhe-mlkem (BL-1009):
+  the client's share is the uncompressed NIST point then the ML-KEM-768 or ML-KEM-1024
+  encapsulation key (1249 and 1665 bytes), the server's its point then the ciphertext (1153 and
+  1665 bytes), and the secret the ECDH secret then ML-KEM's. The randomness is ML-KEM's m, after
+  the server random; the NIST key is the base class library's `ECDiffieHellman`.
+- curveSM2MLKEM768 (`11EE`), draft-yang-tls-hybrid-sm2-mlkem (BL-1030, ADR-0147): laid out like
+  SecP256r1MLKEM768 with the curveSM2 point in the NIST curve's place (1249 bytes in, 1153 out).
+- x448 (`001E`) through `Surl.Cryptography.Curve448` (BL-1010), RFC 7748 with the all-zero secret
+  refused; the 56-byte private key comes from the injected `RandomNumberGenerator` after the
+  server random.
+- curveSM2 (`0029`), RFC 8998, through `Surl.Cryptography.Sm2` (BL-1030): an uncompressed 65-byte
+  point, the secret the product's x-coordinate, a point off the curve refused; the 32-byte private
+  key comes from the injected `RandomNumberGenerator` after the server random.
+- ffdhe2048 (`0100`) and ffdhe3072 (`0101`), RFC 7919, in `TlsFiniteFieldGroup` with the base
+  class library's `BigInteger.ModPow`: Y and the secret padded to the length of p, Y checked
+  1 < Y < p - 1, and a 256- or 320-bit server exponent drawn from the injected
+  `RandomNumberGenerator` after the server random.
+
 And client certificates (BL-600, ADR-0082 decision 3 by way of ADR-0010 section 5):
 
 - `TlsServerHandshakeOptions.TrustsClientCertificateChain` set means the server requests and
@@ -71,7 +92,7 @@ on the wire, the caller reports it as QUIC error `0x0100` plus the alert (RFC 90
 | no `supported_groups` or `signature_algorithms`; no `quic_transport_parameters` when the server sends its own | `missing_extension` |
 | no shared cipher suite, no offered scheme for the certificate key, no group the server serves | `handshake_failure` |
 | no `h3` (or no ALPN at all) | `no_application_protocol` |
-| a malformed key share, an ML-KEM-768 encapsulation key failing FIPS 203's modulus check, a NIST point off its curve, an x25519 low-order point; a second ClientHello changing the suite or not sending exactly one share for the retry group; a message over `MaximumMessageLength` (128 KiB) | `illegal_parameter` |
+| a malformed key share, an ML-KEM encapsulation key failing FIPS 203's modulus check, a NIST or curveSM2 point off its curve, an x25519 or x448 low-order point, an ffdhe Y outside 1 < Y < p - 1; a second ClientHello changing the suite or not sending exactly one share for the retry group; a message over `MaximumMessageLength` (128 KiB) | `illegal_parameter` |
 | a client Finished that does not verify | `decrypt_error` |
 | an empty client Certificate when one is required | `certificate_required` |
 | a client Certificate whose end-entity certificate is not X.509, or whose chain the delegate does not trust | `bad_certificate` |
@@ -80,8 +101,9 @@ on the wire, the caller reports it as QUIC error `0x0100` plus the alert (RFC 90
 
 After an alert the handshake is over: a later `Receive` throws `InvalidOperationException`.
 
-It references `Surl.Cryptography.Curve25519.UnitLibrary` and
-`Surl.Cryptography.MlKem.UnitLibrary` (ADR-0082 decision 2). Bytes in,
+It references `Surl.Cryptography.Curve25519.UnitLibrary`,
+`Surl.Cryptography.Curve448.UnitLibrary`, `Surl.Cryptography.MlKem.UnitLibrary` and
+`Surl.Cryptography.Sm2.UnitLibrary` (ADR-0082 decision 2, ADR-0147). Bytes in,
 bytes out: never open a socket or a file, and never read a clock.
 
 Every expected value in its tests comes from RFC 8448 (sections 3 and 5) or from ClientHellos

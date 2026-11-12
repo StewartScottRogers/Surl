@@ -123,6 +123,46 @@ public sealed class MessageBusOutOfSpaceTests
         Assert.IsEmpty(plan.Points);
     }
 
+    [TestMethod]
+    public void Publish_ThroughAConnectionGivenAnExchange_PutsItsExchangeIdListenUrlAndSchemeOnTheFaultPointAndEvent()
+    {
+        var plan = new SpendingFaultPlan(new FaultRule("f1", FaultKind.OutOfSpace) { Scheme = "mqtt" });
+        var bus = new MessageBus(clock, events: events, faults: plan);
+        using var connection = bus.Connect("alice", new BusExchange(7, "mqtt://127.0.0.1:1883", "mqtt"));
+
+        var refused = connection.Publish(Message("a/b"));
+
+        Assert.AreEqual(MessageBusOutcome.StoreFull, refused.Outcome);
+        Assert.AreEqual(
+            new FaultPoint(FaultStage.StoreWrite) { ExchangeId = 7, ListenUrl = "mqtt://127.0.0.1:1883", Scheme = "mqtt", Account = "alice", Path = "a/b" },
+            plan.Points[0]);
+        Assert.AreEqual(new FaultAppliedEvent("f1", FaultKind.OutOfSpace, FaultStage.StoreWrite, 7, "a/b"), events.Events[0]);
+    }
+
+    [TestMethod]
+    public void Publish_ARulePathDollarQueueQ_RefusesOnlyQueueQsCopyWhileSubscriptionsAndOtherQueuesGetIt()
+    {
+        var plan = new SpendingFaultPlan(new FaultRule("f1", FaultKind.OutOfSpace) { Path = "$queue/q" });
+        var bus = new MessageBus(clock, events: events, faults: plan);
+        var delivered = new List<BusMessage>();
+        using var connection = bus.Connect();
+        connection.DeclareQueue("q");
+        connection.DeclareQueue("r");
+        connection.BindQueue("q", "a/#");
+        connection.BindQueue("r", "a/#");
+        connection.Subscribe("a/#", delivered.Add);
+
+        var result = bus.Publish(Message("a/b"), "alice");
+
+        Assert.AreEqual(MessageBusOutcome.Succeeded, result.Outcome);
+        Assert.AreEqual(1, result.FullQueueCount);
+        Assert.AreEqual(1, result.QueuedCount);
+        Assert.AreEqual(1, result.DeliveredSubscriptionCount);
+        Assert.HasCount(1, delivered);
+        Assert.AreEqual(0, connection.InspectQueue("q").ReadyMessageCount);
+        Assert.AreEqual(1, connection.InspectQueue("r").ReadyMessageCount);
+        Assert.Contains(new FaultAppliedEvent("f1", FaultKind.OutOfSpace, FaultStage.StoreWrite, null, "$queue/q"), events.Events.ToList());
+    }
     private static StoreChangedEvent Change(StoreChange change, string name) =>
         new(StoreKind.Bus, change, name, 1, ExchangeId: null);
 

@@ -44,6 +44,28 @@ public sealed partial class StompServerConnectionTests
     }
 
     [TestMethod]
+    public async Task Connected_SameSeededIdentifiers_SendsTheSameSessionHeader()
+    {
+        var first = await SeededSessionAsync(7);
+        var second = await SeededSessionAsync(7);
+        var other = await SeededSessionAsync(8);
+
+        Assert.AreEqual(first, second);
+        Assert.AreNotEqual(first, other);
+        Assert.AreEqual(first.Length, other.Length);
+    }
+
+    private async Task<string> SeededSessionAsync(int seed)
+    {
+        var connection = Connection(AliceConnect);
+        var context = Context(new ManualTimeProvider(), cancellation: TestContext.CancellationToken) with { Identifiers = new SeededTestIdentifierRandom(seed) };
+        await new StompServer(new UnitTestStompAuthenticationPolicy(), NewBus()).ServeAsync(connection, context);
+        var written = Encoding.UTF8.GetString(connection.WrittenBytes);
+        Assert.MatchesRegex(SessionHeader(), written);
+        return SessionHeader().Match(written).Value;
+    }
+
+    [TestMethod]
     public async Task ServeAsync_StompFrameAccepting11_IsAnswered11()
     {
         var (answers, _) = await ServeAsync(

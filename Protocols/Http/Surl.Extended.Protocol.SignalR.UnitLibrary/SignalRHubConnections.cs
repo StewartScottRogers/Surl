@@ -1,5 +1,6 @@
 using System.Buffers.Text;
 using System.Security.Cryptography;
+using Surl.Protocol.Abstractions;
 
 namespace Surl.Extended.Protocol.SignalR;
 
@@ -21,11 +22,18 @@ public sealed class SignalRHubConnections(TimeProvider timeProvider)
     /// </summary>
     public const int MaxConnections = 1024;
 
+    /// <summary>
+    /// How long a stateful-reconnect connection waits for a new WebSocket after losing one (ADR-0119, decision 6).
+    /// </summary>
+    public static readonly TimeSpan ReconnectWindow = TimeSpan.FromSeconds(30);
+
     private const int IdBytes = 16;
 
     private readonly Lock gate = new();
+    private readonly Dictionary<string, SignalRNegotiatedConnection> suspended = new(StringComparer.Ordinal);
     private readonly Dictionary<string, SignalRNegotiatedConnection> negotiated = new(StringComparer.Ordinal);
     private readonly Dictionary<string, SignalRNegotiatedConnection> upgraded = new(StringComparer.Ordinal);
+    private readonly List<ISignalRBroadcastReceiver> receivers = [];
 
     /// <summary>
     /// How many connections the hub holds now, the expired ones forgotten first.
@@ -38,7 +46,7 @@ public sealed class SignalRHubConnections(TimeProvider timeProvider)
             {
                 ForgetExpired();
 
-                return negotiated.Count + upgraded.Count;
+                return negotiated.Count + upgraded.Count + suspended.Count;
             }
         }
     }
@@ -68,22 +76,54 @@ public sealed class SignalRHubConnections(TimeProvider timeProvider)
                 return SignalRUpgradeOutcome.AlreadyTakenUp;
             }
 
-            if (!negotiated.TryGetValue(upgradeId, out var found))
+            var isResumption = suspended.TryGetValue(upgradeId, out var found);
+            if (!isResumption && !negotiated.TryGetValue(upgradeId, out found))
             {
                 return SignalRUpgradeOutcome.NotFound;
             }
 
-            if (found.AccountName != accountName)
+            if (found!.AccountName != accountName)
             {
                 return SignalRUpgradeOutcome.NegotiatedByAnotherCaller;
             }
 
             negotiated.Remove(upgradeId);
-            upgraded.Add(upgradeId, found);
+            suspended.Remove(upgradeId);
+            upgraded.Add(upgradeId, found!);
             connection = found;
 
             return SignalRUpgradeOutcome.TakenUp;
         }
+    }
+
+    /// <summary>
+    /// Finds a connection a transport has already taken up, for the request that follows on it: an HTTP
+    /// Post, a Long Polling poll or a <c>DELETE</c>.
+    /// </summary>
+    /// <param name="upgradeId">The query's <c>id</c>.</param>
+    /// <param name="accountName">The account the request was judged as, or <see langword="null"/> for the anonymous caller.</param>
+    /// <param name="connection">The connection, or <see langword="null"/> when the outcome is a refusal.</param>
+    /// <returns><see cref="SignalRUpgradeOutcome.TakenUp"/> when found, <see cref="SignalRUpgradeOutcome.NotFound"/> for an unknown or ended one, <see cref="SignalRUpgradeOutcome.NegotiatedByAnotherCaller"/> for one another account holds.</returns>
+    public SignalRUpgradeOutcome FindTakenUp(string upgradeId, string? accountName, out SignalRNegotiatedConnection? connection)
+    {
+        lock (gate)
+        {
+            upgraded.TryGetValue(upgradeId, out connection);
+        }
+
+        if (connection is null)
+        {
+            return SignalRUpgradeOutcome.NotFound;
+        }
+
+        if (connection.AccountName == accountName)
+        {
+            return SignalRUpgradeOutcome.TakenUp;
+        }
+
+        connection = null;
+
+        return SignalRUpgradeOutcome.NegotiatedByAnotherCaller;
     }
 
     /// <summary>
@@ -100,10 +140,71 @@ public sealed class SignalRHubConnections(TimeProvider timeProvider)
         }
     }
 
+    /// <summary>
+    /// Keeps a stateful-reconnect connection whose WebSocket was lost for <see cref="ReconnectWindow"/>,
+    /// so an upgrade with the same <c>id</c> by the same caller resumes it; after that its <c>id</c>
+    /// is <c>404</c>.
+    /// </summary>
+    /// <param name="connection">The connection <see cref="TakeUp"/> handed out; it must have a <see cref="SignalRNegotiatedConnection.Reconnect"/>.</param>
+    public void Suspend(SignalRNegotiatedConnection connection)
+    {
+        ArgumentNullException.ThrowIfNull(connection);
+
+        lock (gate)
+        {
+            upgraded.Remove(connection.UpgradeId);
+            connection.Reconnect!.MarkSuspended();
+            suspended[connection.UpgradeId] = connection with { ExpiresAt = timeProvider.GetUtcNow() + ReconnectWindow };
+        }
+    }
+
+    /// <summary>
+    /// Adds a connection that has finished its handshake to those <see cref="Broadcast"/> reaches.
+    /// </summary>
+    /// <param name="receiver">The connection.</param>
+    internal void Join(ISignalRBroadcastReceiver receiver)
+    {
+        lock (gate)
+        {
+            receivers.Add(receiver);
+        }
+    }
+
+    /// <summary>
+    /// Removes a connection from those <see cref="Broadcast"/> reaches; one never joined is ignored.
+    /// </summary>
+    /// <param name="receiver">The connection.</param>
+    internal void Leave(ISignalRBroadcastReceiver receiver)
+    {
+        lock (gate)
+        {
+            receivers.Remove(receiver);
+        }
+    }
+
+    /// <summary>
+    /// Hands <paramref name="invocation"/> to every connection that has joined, in the order they joined
+    /// (ADR-0119, decision 1: the caller included); each writes it in its own encoding.
+    /// </summary>
+    /// <param name="invocation">The broadcast Invocation.</param>
+    internal void Broadcast(HubInvocation invocation)
+    {
+        ISignalRBroadcastReceiver[] joined;
+        lock (gate)
+        {
+            joined = [.. receivers];
+        }
+
+        foreach (var receiver in joined)
+        {
+            receiver.ReceiveBroadcast(invocation);
+        }
+    }
+
     private SignalRUpgradeOutcome TakeUpNew(string? accountName, out SignalRNegotiatedConnection? connection)
     {
         connection = null;
-        if (negotiated.Count + upgraded.Count >= MaxConnections)
+        if (negotiated.Count + upgraded.Count + suspended.Count >= MaxConnections)
         {
             return SignalRUpgradeOutcome.HubFull;
         }
@@ -124,19 +225,33 @@ public sealed class SignalRHubConnections(TimeProvider timeProvider)
     /// <see cref="Timeout.InfiniteTimeSpan"/> means it never expires.
     /// </param>
     /// <returns>The connection, or <see langword="null"/> when the hub is full.</returns>
-    public SignalRNegotiatedConnection? Negotiate(string? accountName, bool sendsConnectionToken, TimeSpan upgradeWindow)
+    /// <param name="isStateful">Whether the negotiate asked for stateful reconnect, so the connection survives a lost WebSocket.</param>
+    /// <param name="identifiers">
+    /// The seedable source a <c>connectionId</c> is drawn from when a <c>connectionToken</c> is also issued, since
+    /// it then admits nobody (ADR-0124, decision 6); a token, and a <c>connectionId</c> that is the upgrade id, stay on
+    /// <see cref="RandomNumberGenerator"/>.
+    /// </param>
+    public SignalRNegotiatedConnection? Negotiate(
+        string? accountName, bool sendsConnectionToken, TimeSpan upgradeWindow, IIdentifierRandom identifiers, bool isStateful = false)
     {
+        ArgumentNullException.ThrowIfNull(identifiers);
+
         var now = timeProvider.GetUtcNow();
         var expiresAt = upgradeWindow == Timeout.InfiniteTimeSpan ? DateTimeOffset.MaxValue : now + upgradeWindow;
         lock (gate)
         {
             ForgetExpired();
-            if (negotiated.Count + upgraded.Count >= MaxConnections)
+            if (negotiated.Count + upgraded.Count + suspended.Count >= MaxConnections)
             {
                 return null;
             }
 
-            var connection = new SignalRNegotiatedConnection(NewId(), sendsConnectionToken ? NewId() : null, accountName, expiresAt);
+            var connection = new SignalRNegotiatedConnection(
+                sendsConnectionToken ? NewSeedableId(identifiers) : NewId(),
+                sendsConnectionToken ? NewId() : null,
+                accountName,
+                expiresAt,
+                isStateful ? new SignalRReconnectState() : null);
             negotiated.Add(connection.UpgradeId, connection);
 
             return connection;
@@ -145,14 +260,28 @@ public sealed class SignalRHubConnections(TimeProvider timeProvider)
 
     private static string NewId() => Base64Url.EncodeToString(RandomNumberGenerator.GetBytes(IdBytes));
 
+    private static string NewSeedableId(IIdentifierRandom identifiers)
+    {
+        Span<byte> bytes = stackalloc byte[IdBytes];
+        identifiers.NextBytes(bytes);
+
+        return Base64Url.EncodeToString(bytes);
+    }
+
     private void ForgetExpired()
     {
         var now = timeProvider.GetUtcNow();
-        foreach (var (upgradeId, connection) in negotiated)
+        ForgetExpired(negotiated, now);
+        ForgetExpired(suspended, now);
+    }
+
+    private static void ForgetExpired(Dictionary<string, SignalRNegotiatedConnection> waiting, DateTimeOffset now)
+    {
+        foreach (var (upgradeId, connection) in waiting)
         {
             if (connection.ExpiresAt <= now)
             {
-                negotiated.Remove(upgradeId);
+                waiting.Remove(upgradeId);
             }
         }
     }

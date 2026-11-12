@@ -95,6 +95,11 @@ public sealed class CommandLineParserFaultTests
     [DataRow("rtsp", "599 x")]
     [DataRow("ws", "1000")]
     [DataRow("wss", "4999 going")]
+    [DataRow("ws", "1014")]
+    [DataRow("ws", "3000")]
+    [DataRow("ws", "4999 bye")]
+    [DataRow("ws", "1003 x")]
+    [DataRow("ws", "1007 x")]
     [DataRow("ftp", "421 bye")]
     [DataRow("ftps", "550 no")]
     [DataRow("smtp", "400 x")]
@@ -130,6 +135,21 @@ public sealed class CommandLineParserFaultTests
     [DataRow("abfs", "400 InvalidUri")]
     [DataRow("abfss", "599 x")]
     [DataRow("gs", "503 backendError")]
+    [DataRow("amqp", "404 NOT_FOUND")]
+    [DataRow("amqps", "320 CONNECTION_FORCED")]
+    [DataRow("amqp1", "amqp:not-found no such node")]
+    [DataRow("amqp1s", "amqp:internal-error boom")]
+    [DataRow("kafka", "1")]
+    [DataRow("kafkas", "127")]
+    [DataRow("mqtt5", "128")]
+    [DataRow("mqtt5s", "153")]
+    [DataRow("mqtt5+ws", "255")]
+    [DataRow("nats", "Authorization Violation")]
+    [DataRow("natss", "Permissions Violation")]
+    [DataRow("dns", "1")]
+    [DataRow("dns", "5")]
+    [DataRow("redis", "ERR boom")]
+    [DataRow("rediss", "LOADING Redis is loading")]
     public void Parse_ErrorReplyFittingItsScheme_IsServed(string scheme, string reply) =>
         Assert.AreEqual(reply, Served("--fault", $"error;scheme={scheme};reply={reply}", Url).Faults.Single().Reply);
 
@@ -168,18 +188,44 @@ public sealed class CommandLineParserFaultTests
     [DataRow("delay;ms=1;stage=accept;command=GET", "option --fault: key command cannot be given at stage accept", DisplayName = "Command at a named accept")]
     [DataRow("drop;stage=command;after-bytes=5", "option --fault: key after-bytes cannot be given with stage=command", DisplayName = "After-bytes at command")]
     [DataRow("error;reply=503", "option --fault: kind error needs key scheme or key listener", DisplayName = "Error without scheme")]
-    [DataRow("error;scheme=nats;reply=503 x", "option --fault: scheme nats has no error shape", DisplayName = "Error on an extended scheme")]
-    [DataRow("error;listener=nats://127.0.0.1:0;reply=503 x", "option --fault: scheme nats has no error shape", DisplayName = "Error on an extended listener")]
+    [DataRow("error;scheme=stomp;reply=503 x", "option --fault: scheme stomp has no error shape", DisplayName = "Error on an extended scheme")]
+    [DataRow("error;listener=stomp://127.0.0.1:0;reply=503 x", "option --fault: scheme stomp has no error shape", DisplayName = "Error on an extended listener")]
     [DataRow("error;scheme=s3;reply=200 OK", "option --fault: key reply does not fit the s3 error shape", DisplayName = "S3 success")]
     [DataRow("error;scheme=s3;reply=503", "option --fault: key reply does not fit the s3 error shape", DisplayName = "S3 without an error code")]
     [DataRow("error;scheme=az;reply=600 x", "option --fault: key reply does not fit the az error shape", DisplayName = "Azure past 599")]
     [DataRow("error;scheme=abfss;reply=399 x", "option --fault: key reply does not fit the abfss error shape", DisplayName = "ABFSS below 400")]
     [DataRow("error;scheme=gs;reply=SlowDown", "option --fault: key reply does not fit the gs error shape", DisplayName = "GCS without a status")]
+    [DataRow("error;scheme=amqp;reply=999 nope", "option --fault: key reply does not fit the amqp error shape", DisplayName = "AMQP code off the list")]
+    [DataRow("error;scheme=amqp;reply=404", "option --fault: key reply does not fit the amqp error shape", DisplayName = "AMQP no text")]
+    [DataRow("error;scheme=amqps;reply=404 ", "option --fault: key reply does not fit the amqps error shape", DisplayName = "AMQPS empty text")]
+    [DataRow("error;scheme=amqp;reply=nope text", "option --fault: key reply does not fit the amqp error shape", DisplayName = "AMQP no code")]
+    [DataRow("error;scheme=amqp;reply=404 éééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééé", "option --fault: key reply does not fit the amqp error shape", DisplayName = "AMQP text past 255 bytes")]
+    [DataRow("error;scheme=amqp1;reply=amqp:not-found", "option --fault: key reply does not fit the amqp1 error shape", DisplayName = "AMQP 1.0 no description")]
+    [DataRow("error;scheme=amqp1;reply=amqp:not-found ", "option --fault: key reply does not fit the amqp1 error shape", DisplayName = "AMQP 1.0 empty description")]
+    [DataRow("error;scheme=amqp1;reply= no symbol", "option --fault: key reply does not fit the amqp1 error shape", DisplayName = "AMQP 1.0 no condition")]
+    [DataRow("error;scheme=amqp1s;reply=amqp:é bad", "option --fault: key reply does not fit the amqp1s error shape", DisplayName = "AMQP 1.0 non-printable condition")]
+    [DataRow("error;scheme=kafka;reply=0", "option --fault: key reply does not fit the kafka error shape", DisplayName = "Kafka none")]
+    [DataRow("error;scheme=kafkas;reply=128", "option --fault: key reply does not fit the kafkas error shape", DisplayName = "Kafka past 127")]
+    [DataRow("error;scheme=kafka;reply=OFFSET_OUT_OF_RANGE", "option --fault: key reply does not fit the kafka error shape", DisplayName = "Kafka name")]
+    [DataRow("error;scheme=mqtt5;reply=127", "option --fault: key reply does not fit the mqtt5 error shape", DisplayName = "MQTT5 127")]
+    [DataRow("error;scheme=mqtt5+ws;reply=135 no", "option --fault: key reply does not fit the mqtt5+ws error shape", DisplayName = "MQTT5 with text")]
+    [DataRow("error;scheme=nats;reply=it's bad", "option --fault: key reply does not fit the nats error shape", DisplayName = "NATS apostrophe")]
+    [DataRow("error;scheme=dns;reply=0","option --fault: key reply does not fit the dns error shape", DisplayName = "DNS NOERROR")]
+    [DataRow("error;scheme=dns;reply=6", "option --fault: key reply does not fit the dns error shape", DisplayName = "DNS past 5")]
+    [DataRow("error;scheme=dns;reply=12", "option --fault: key reply does not fit the dns error shape", DisplayName = "DNS two digits")]
+    [DataRow("error;scheme=redis;reply=ERR%0D%0Aboom", "option --fault: a control character", DisplayName = "Redis CR LF")]
+    [DataRow("error;scheme=rediss;reply=ERR%0Aboom", "option --fault: a control character", DisplayName = "Rediss LF")]
     [DataRow("error;scheme=http;reply=200 OK", "option --fault: key reply does not fit the http error shape", DisplayName = "HTTP success")]
     [DataRow("error;scheme=http;reply=503 ", "option --fault: key reply does not fit the http error shape", DisplayName = "HTTP empty reason")]
     [DataRow("error;scheme=http;reply=five", "option --fault: key reply does not fit the http error shape", DisplayName = "HTTP no code")]
     [DataRow("error;scheme=ws;reply=1006", "option --fault: key reply does not fit the ws error shape", DisplayName = "WebSocket 1006")]
     [DataRow("error;scheme=ws;reply=999", "option --fault: key reply does not fit the ws error shape", DisplayName = "WebSocket too small")]
+    [DataRow("error;scheme=ws;reply=1004", "option --fault: key reply does not fit the ws error shape", DisplayName = "WebSocket reserved 1004")]
+    [DataRow("error;scheme=ws;reply=1005", "option --fault: key reply does not fit the ws error shape", DisplayName = "WebSocket 1005")]
+    [DataRow("error;scheme=wss;reply=1015", "option --fault: key reply does not fit the wss error shape", DisplayName = "WebSocket 1015")]
+    [DataRow("error;scheme=ws;reply=1016", "option --fault: key reply does not fit the ws error shape", DisplayName = "WebSocket reserved 1016")]
+    [DataRow("error;scheme=ws;reply=2999 x", "option --fault: key reply does not fit the ws error shape", DisplayName = "WebSocket reserved 2999")]
+    [DataRow("error;scheme=ws;reply=5000", "option --fault: key reply does not fit the ws error shape", DisplayName = "WebSocket past 4999")]
     [DataRow("error;scheme=ftp;reply=451", "option --fault: key reply does not fit the ftp error shape", DisplayName = "FTP without text")]
     [DataRow("error;scheme=smtp;reply=250 ok", "option --fault: key reply does not fit the smtp error shape", DisplayName = "SMTP success")]
     [DataRow("error;scheme=imap;reply=OK fine", "option --fault: key reply does not fit the imap error shape", DisplayName = "IMAP OK")]
@@ -212,6 +258,20 @@ public sealed class CommandLineParserFaultTests
     [DataRow("error;scheme=http;reply=503 a%0Ab", "option --fault: a control character", DisplayName = "A control character in the reply")]
     public void Parse_FaultRefused_IsRefusedWithItsReason(string item, string message) =>
         AssertOptionRefused(["--fault", item, Url], message);
+
+    [TestMethod]
+    public void Parse_WebSocketCloseReasonOf123Utf8Bytes_IsServed()
+    {
+        var reply = "1000 " + new string('é', 61) + "a";
+
+        Assert.AreEqual(reply, Served("--fault", $"error;scheme=ws;reply={reply}", Url).Faults.Single().Reply);
+    }
+
+    [TestMethod]
+    public void Parse_WebSocketCloseReasonOver123Utf8Bytes_IsRefused() =>
+        AssertOptionRefused(
+            ["--fault", "error;scheme=ws;reply=1000 " + new string('é', 62), Url],
+            "option --fault: key reply does not fit the ws error shape");
 
     [TestMethod]
     public void Parse_FaultMissingItsArgument_RequiresParameter() =>

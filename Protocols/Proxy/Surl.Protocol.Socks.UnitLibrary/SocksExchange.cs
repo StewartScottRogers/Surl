@@ -13,7 +13,8 @@ namespace Surl.Protocol.Socks;
 /// <param name="context">The exchange: its clock, limits, log and cancellation.</param>
 /// <param name="originConnector">How origins are reached.</param>
 /// <param name="accounts">The listener's proxy accounts, or <see langword="null"/> when it has none.</param>
-internal sealed class SocksExchange(IConnection client, ExchangeContext context, IOriginConnector originConnector, IAuthenticationPolicy? accounts)
+/// <param name="gssApi">The listener's GSS-API settings, or <see langword="null"/> when it offers none.</param>
+internal sealed class SocksExchange(IConnection client, ExchangeContext context, IOriginConnector originConnector, IAuthenticationPolicy? accounts, SocksGssApiLogin? gssApi = null)
 {
     /// <summary>The SOCKS4 version byte, <c>VN=04</c>.</summary>
     public const byte Socks4Version = 0x04;
@@ -54,7 +55,7 @@ internal sealed class SocksExchange(IConnection client, ExchangeContext context,
                 await ServeSocks4Async();
                 break;
             case Socks5Version when IsSocks5Listener:
-                await new Socks5Exchange(client, reader, context, originConnector, accounts).ServeAsync();
+                await new Socks5Exchange(client, reader, context, originConnector, accounts, gssApi).ServeAsync();
                 break;
             case Socks5Version:
                 await AnswerSocks5GreetingAsync();

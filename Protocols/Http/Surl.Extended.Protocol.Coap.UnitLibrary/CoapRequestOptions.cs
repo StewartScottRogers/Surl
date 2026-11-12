@@ -1,4 +1,5 @@
 using System.Text;
+using Surl.Protocol.Abstractions;
 
 namespace Surl.Extended.Protocol.Coap;
 
@@ -45,8 +46,10 @@ internal sealed class CoapRequestOptions
         [CoapOptionNumber.ETag] = (options, option) => options.entityTags.Add(option.Value),
         [CoapOptionNumber.IfNoneMatch] = (options, _) => options.IfNoneMatch = true,
         [CoapOptionNumber.Accept] = (options, option) => options.Accept = option.ReadUInt(),
-        [CoapOptionNumber.ProxyUri] = (options, _) => options.NamesAProxy = true,
-        [CoapOptionNumber.ProxyScheme] = (options, _) => options.NamesAProxy = true,
+        [CoapOptionNumber.ProxyUri] = (options, option) => options.ProxyUri = Encoding.UTF8.GetString(option.Value.Span),
+        [CoapOptionNumber.ProxyScheme] = (options, option) => options.ProxyScheme = Encoding.UTF8.GetString(option.Value.Span),
+        [CoapOptionNumber.UriHost] = (options, option) => options.UriHost = Encoding.UTF8.GetString(option.Value.Span),
+        [CoapOptionNumber.UriPort] = (options, option) => options.UriPort = option.ReadUInt(),
         [CoapOptionNumber.ContentFormat] = (options, option) => options.ContentFormat = option.ReadUInt(),
         [CoapOptionNumber.Block1] = (options, option) => options.Block1 = CoapBlockOption.Read(option),
         [CoapOptionNumber.Block2] = (options, option) => options.Block2 = CoapBlockOption.Read(option),
@@ -58,8 +61,8 @@ internal sealed class CoapRequestOptions
     // Location-* numbers RFC 7252 section 5.10.7 reserves: a request carrying one is 4.02, though they are even.
     private static readonly HashSet<int> ReservedLocationOptions = [128, 132, 136, 140];
 
-    private readonly List<string> uriPath = [];
-    private readonly List<string> uriQuery = [];
+    private List<string> uriPath = [];
+    private List<string> uriQuery = [];
     private readonly List<ReadOnlyMemory<byte>> ifMatch = [];
     private readonly List<ReadOnlyMemory<byte>> entityTags = [];
 
@@ -86,7 +89,19 @@ internal sealed class CoapRequestOptions
     public uint? Accept { get; private set; }
 
     /// <summary>Whether Proxy-Uri or Proxy-Scheme was sent.</summary>
-    public bool NamesAProxy { get; private set; }
+    public bool NamesAProxy => ProxyUri is not null || ProxyScheme is not null;
+
+    /// <summary>The Proxy-Uri, when sent: the whole URI the client wants fetched (RFC 7252 section 5.10.2).</summary>
+    public string? ProxyUri { get; private set; }
+
+    /// <summary>The Proxy-Scheme, when sent: the scheme of the URI the other options compose.</summary>
+    public string? ProxyScheme { get; private set; }
+
+    /// <summary>The Uri-Host, when sent.</summary>
+    public string? UriHost { get; private set; }
+
+    /// <summary>The Uri-Port, when sent.</summary>
+    public uint? UriPort { get; private set; }
 
     /// <summary>The request's Content-Format, when sent.</summary>
     public uint? ContentFormat { get; private set; }
@@ -135,6 +150,29 @@ internal sealed class CoapRequestOptions
         }
 
         return options;
+    }
+
+    /// <summary>
+    /// These options with a proxy request that names <paramref name="listener"/> itself turned into the
+    /// local request it stands for (RFC 7252 section 5.7.2): Proxy-Uri takes precedence, and its path and
+    /// query replace Uri-Path and Uri-Query (section 5.10.2). Any other proxy request is returned as it is.
+    /// </summary>
+    /// <param name="listener">The listen URL that accepted the exchange.</param>
+    /// <returns>The options of the local request, or these options.</returns>
+    public CoapRequestOptions ResolveLocalProxy(ListenUrl listener)
+    {
+        if (!NamesAProxy || CoapProxyTarget.TryResolve(this, listener) is not { } target)
+        {
+            return this;
+        }
+
+        var local = (CoapRequestOptions)MemberwiseClone();
+        local.ProxyUri = null;
+        local.ProxyScheme = null;
+        local.uriPath = [.. target.Path];
+        local.uriQuery = [.. target.Query];
+
+        return local;
     }
 
     private static bool IsRecognised(CoapOption option, int occurrence, CoapCode method) =>

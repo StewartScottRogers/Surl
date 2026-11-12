@@ -2,6 +2,7 @@ using System.Net.Security;
 using System.Security.Authentication;
 using System.Security.Cryptography.X509Certificates;
 using Surl.Protocol.Abstractions;
+using Surl.TlsSrp;
 
 namespace Surl.Networking;
 
@@ -41,14 +42,39 @@ internal sealed class ServerTlsHandshake
         settings is null ? null : new ServerTlsHandshake(settings, TlsApplicationProtocols.ForListener(listenUrl));
 
     /// <summary>
-    /// Runs the handshake over <paramref name="transport"/>, which stays open whatever happens.
+    /// Runs the handshake over <paramref name="transport"/>: TLS-SRP when the settings carry
+    /// <see cref="ServerTlsSettings.TlsSrpAccounts"/> (ADR-0122 decision 5), otherwise
+    /// <see cref="SslStream"/>. A failed handshake leaves the transport open.
     /// </summary>
     /// <param name="transport">The connection's plaintext stream.</param>
     /// <param name="cancellationToken">Cuts the handshake off.</param>
-    /// <returns>The secured stream, which the caller disposes before the transport, and the negotiated session.</returns>
+    /// <returns>
+    /// The secured stream - an <see cref="SslStream"/> or a <see cref="TlsSrpStream"/> - which the
+    /// caller disposes before the transport, and the negotiated session.
+    /// </returns>
     /// <exception cref="TlsHandshakeException">The handshake failed: an alert, a rejected client certificate, or the peer closing.</exception>
     /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> cut the handshake off.</exception>
-    public async Task<(SslStream Stream, TlsSession Session)> AuthenticateAsync(Stream transport, CancellationToken cancellationToken)
+    public Task<(Stream Stream, TlsSession Session)> AuthenticateAsync(Stream transport, CancellationToken cancellationToken) =>
+        settings.TlsSrpAccounts is { } accounts
+            ? AuthenticateTlsSrpAsync(new TlsSrpServer(accounts, settings.TlsSrpRandom!), transport, cancellationToken)
+            : AuthenticateSslStreamAsync(transport, cancellationToken);
+
+    private static async Task<(Stream Stream, TlsSession Session)> AuthenticateTlsSrpAsync(
+        TlsSrpServer server, Stream transport, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var session = await server.AuthenticateAsync(transport, cancellationToken);
+
+            return (session.Stream, SessionOf(session));
+        }
+        catch (Exception exception) when (exception is TlsAlertException or IOException)
+        {
+            throw new TlsHandshakeException(exception.Message, exception);
+        }
+    }
+
+    private async Task<(Stream Stream, TlsSession Session)> AuthenticateSslStreamAsync(Stream transport, CancellationToken cancellationToken)
     {
         var sslStream = new SslStream(transport, leaveInnerStreamOpen: true);
         var succeeded = false;
@@ -81,6 +107,13 @@ internal sealed class ServerTlsHandshake
             ApplicationProtocolOf(sslStream.NegotiatedApplicationProtocol),
             string.IsNullOrEmpty(sslStream.TargetHostName) ? null : sslStream.TargetHostName,
             CopyOf(sslStream.RemoteCertificate));
+
+    // RFC 5054's suite numbers are IANA's, as TlsCipherSuite's are.
+    private static TlsSession SessionOf(TlsSrpSession session) =>
+        new(SslProtocols.Tls12, (TlsCipherSuite)(ushort)session.CipherSuite, session.ApplicationProtocol, session.ServerName, null)
+        {
+            SrpUserName = session.UserName,
+        };
 
     private static string? ApplicationProtocolOf(SslApplicationProtocol negotiated) =>
         negotiated.Protocol.IsEmpty ? null : negotiated.ToString();

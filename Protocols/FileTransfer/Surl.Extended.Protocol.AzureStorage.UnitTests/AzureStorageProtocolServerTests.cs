@@ -488,10 +488,58 @@ public sealed class AzureStorageProtocolServerTests
     }
 
     [TestMethod]
+    [DataRow("abfs")]
+    [DataRow("abfss")]
+    public async Task WriteRefusalAsync_ConnectionPastALimitOnTheDataLakeEndpoint_Is503ServerBusyInTheJsonError(string scheme)
+    {
+        var harness = new AzureServerHarness();
+        var connection = new InMemoryConnection([]);
+
+        await harness.Server.WriteRefusalAsync(connection, ConnectionRefusal.TooManyConnections, scheme, CancellationToken.None);
+
+        var response = Encoding.UTF8.GetString(connection.WrittenBytes);
+        Assert.AreEqual(
+            AzureServerHarness.ExpectedJsonError(
+                response, "503 Service Unavailable", "ServerBusy", "The server is currently unable to receive requests. Please retry your request."),
+            response);
+    }
+
+    [TestMethod]
+    public async Task WriteRefusalAsync_ConnectionPastALimitOnTheBlobEndpoint_Is503ServerBusyInTheXmlError()
+    {
+        var harness = new AzureServerHarness();
+        var connection = new InMemoryConnection([]);
+
+        await harness.Server.WriteRefusalAsync(connection, ConnectionRefusal.TooManyConnections, "az", CancellationToken.None);
+
+        var response = Encoding.UTF8.GetString(connection.WrittenBytes);
+        Assert.AreEqual(
+            AzureServerHarness.ExpectedError(
+                response, "503 Service Unavailable", "ServerBusy", "The server is currently unable to receive requests. Please retry your request."),
+            response);
+    }
+
+    [TestMethod]
     public async Task WriteRefusalAsync_NullConnection_Throws()
     {
         var harness = new AzureServerHarness();
 
         await Assert.ThrowsExactlyAsync<ArgumentNullException>(() => harness.Server.WriteRefusalAsync(null!, ConnectionRefusal.TooManyConnections, CancellationToken.None).AsTask());
+    }
+
+    [TestMethod]
+    public async Task WriteRefusalAsync_SameSeededServerIdentifiers_IsTheSameRequestIdEveryRun()
+    {
+        var first = new AzureServerHarness(serverIdentifiers: new Surl.Core.SeededIdentifierRandom(7).ForServer("az"));
+        var second = new AzureServerHarness(serverIdentifiers: new Surl.Core.SeededIdentifierRandom(7).ForServer("az"));
+        var firstConnection = new InMemoryConnection([]);
+        var secondConnection = new InMemoryConnection([]);
+
+        await first.Server.WriteRefusalAsync(firstConnection, ConnectionRefusal.TooManyConnections, CancellationToken.None);
+        await second.Server.WriteRefusalAsync(secondConnection, ConnectionRefusal.TooManyConnections, CancellationToken.None);
+
+        Assert.AreEqual(
+            AzureServerHarness.RequestIdOf(Encoding.UTF8.GetString(firstConnection.WrittenBytes)),
+            AzureServerHarness.RequestIdOf(Encoding.UTF8.GetString(secondConnection.WrittenBytes)));
     }
 }

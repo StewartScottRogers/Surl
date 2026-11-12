@@ -5,6 +5,12 @@ The `s3` server (ADR-0108): answers Amazon S3 REST requests over HTTP/1.1 on the
 (ADR-0083): judged by the Amazon S3 API Reference, never by upstream curl (which has no `s3`) and
 never by the Curl port. Namespace `Surl.Extended.Protocol.S3`.
 
+`surl` serves `s3` through `Surl.Composition`'s `ExtendedProtocolServers.Compose`, which builds
+`S3ProtocolServer` over the one content store, the one `ObjectMetadataIndex` of the served root, the
+`s3` authentication policy and the clock. `s3` is an implicit-TLS scheme: the engine handshakes
+(offering `http/1.1` alone) before this server sees the connection, so the server never handles TLS
+(ADR-0108 Amendment 4; BL-421). `--s3-plaintext` is BL-860.
+
 What it serves now (BL-418, BL-419, BL-712, BL-713), path style or virtual-hosted style:
 
 - GetObject and HeadObject with no query - one `Range` (`206`, `416 InvalidRange`, several

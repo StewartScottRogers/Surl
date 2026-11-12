@@ -16,15 +16,6 @@ internal sealed partial class Amqp0BrokerConnection
     private static readonly Amqp0MethodPayload RecoverOk = new(Amqp0BasicMethodId.ClassId, Amqp0BasicMethodId.RecoverOk, ReadOnlyMemory<byte>.Empty);
     private static readonly Amqp0MethodPayload GetEmpty = new(Amqp0BasicMethodId.ClassId, Amqp0BasicMethodId.GetEmpty, new byte[1]);
 
-    // prefetch-count bounds each consumer the channel makes afterwards; prefetch-size and global are read.
-    private void AnswerQos(Amqp0Channel channel, Amqp0WireReader arguments)
-    {
-        arguments.ReadLong();
-        channel.PrefetchCount = arguments.ReadShort();
-        arguments.ReadBits(1);
-        SendMethod(channel.Number, QosOk);
-    }
-
     private void Consume(Amqp0Channel channel, Amqp0WireReader arguments)
     {
         arguments.ReadShort();
@@ -43,7 +34,13 @@ internal sealed partial class Amqp0BrokerConnection
         var consumed = Bus.Consume(queue, delivery => Deliver(channel, consumer, delivery), window, exclusive: bits[2]);
         Refuse(consumed.Outcome);
         consumer.Bus = consumed.Consumer!;
-        channel.Consumers.Add(tag, consumer);
+        consumer.Registration = new(queue, this, () => EndConsumerOfDeletedQueue(channel, consumer));
+        lock (channel.Gate)
+        {
+            channel.Consumers.Add(tag, consumer);
+        }
+
+        consumers.Add(consumer.Registration);
         if (!bits[3])
         {
             SendMethod(channel.Number, TaggedMethod(Amqp0BasicMethodId.ConsumeOk, tag));
@@ -52,8 +49,15 @@ internal sealed partial class Amqp0BrokerConnection
         consumer.Bus.Start();
     }
 
-    private static int WindowOf(Amqp0Channel channel) =>
-        channel.PrefetchCount is 0 or > ConsumerWindow ? ConsumerWindow : channel.PrefetchCount;
+    // The bus consumer takes no more than the channel's window could ever let out at once.
+    private int WindowOf(Amqp0Channel channel)
+    {
+        lock (windowGate)
+        {
+            var prefetchCount = channel.Window.PrefetchCount;
+            return prefetchCount is 0 or > ConsumerWindow ? ConsumerWindow : prefetchCount;
+        }
+    }
 
     private static Amqp0MethodPayload TaggedMethod(ushort methodId, string tag) =>
         MethodOf(Amqp0BasicMethodId.ClassId, methodId, writer => writer.WriteShortString(tag));
@@ -63,10 +67,12 @@ internal sealed partial class Amqp0BrokerConnection
     {
         var tag = arguments.ReadShortString();
         var noWait = arguments.ReadBits(1)[0];
-        if (channel.Consumers.Remove(tag, out var consumer))
+        if (TakeConsumer(channel, tag) is { } consumer)
         {
+            consumers.Remove(consumer.Registration);
             consumer.Bus.Stop();
             channel.Stopped.Add(consumer.Bus);
+            RequeueWaitingDeliveries(consumer);
         }
 
         if (!noWait)
@@ -75,13 +81,56 @@ internal sealed partial class Amqp0BrokerConnection
         }
     }
 
-    // Called on the bus's thread: never blocks, only queues the delivery for writing.
+    // Another connection's thread may end a consumer too (a deleted queue), so the channel's gate guards its consumers.
+    private static Amqp0Consumer? TakeConsumer(Amqp0Channel channel, string tag)
+    {
+        lock (channel.Gate)
+        {
+            return channel.Consumers.Remove(tag, out var consumer) ? consumer : null;
+        }
+    }
+
+    // The bus already ended the consumer with its queue. A client that announced consumer_cancel_notify
+    // is told with basic.cancel (60.30), no-wait set; any other just stops receiving.
+    internal void EndConsumerOfDeletedQueue(Amqp0Channel channel, Amqp0Consumer consumer)
+    {
+        if (TakeConsumer(channel, consumer.Tag) is null)
+        {
+            return;
+        }
+
+        consumer.Bus.Dispose();
+        if (clientAcceptsConsumerCancel)
+        {
+            SendMethod(channel.Number, MethodOf(Amqp0BasicMethodId.ClassId, Amqp0BasicMethodId.Cancel, writer =>
+            {
+                writer.WriteShortString(consumer.Tag);
+                writer.WriteBits([true]);
+            }));
+        }
+    }
+
+    // Called on the bus's thread: never blocks, only queues the delivery for writing. A consumer that
+    // acknowledges is held to the basic.qos windows; a no-ack one is not (the qos fields' text).
     private void Deliver(Amqp0Channel channel, Amqp0Consumer consumer, BusQueueDelivery delivery)
+    {
+        if (!consumer.NoAck)
+        {
+            DeliverWithinWindows(new(channel, consumer, delivery));
+            return;
+        }
+
+        WriteDelivery(channel, consumer, delivery, windowed: null);
+        consumer.Bus.Acknowledge(delivery.DeliveryTag);
+    }
+
+    // Under the channel's gate: a new delivery tag, outstanding unless the consumer is no-ack, and the bytes sent or held by channel.flow.
+    private void WriteDelivery(Amqp0Channel channel, Amqp0Consumer consumer, BusQueueDelivery delivery, Amqp0WindowedDelivery? windowed)
     {
         var content = Amqp0BusMessages.ToOutgoingContent(delivery.Message, delivery.QueueName, context.TimeProvider.GetUtcNow());
         lock (channel.Gate)
         {
-            var tag = NextDeliveryTag(channel, consumer.NoAck ? null : new(consumer.Bus, delivery.QueueName, delivery.DeliveryTag));
+            var tag = NextDeliveryTag(channel, windowed is null ? null : new(consumer.Bus, delivery.QueueName, delivery.DeliveryTag, windowed));
             var method = MethodOf(Amqp0BasicMethodId.ClassId, Amqp0BasicMethodId.Deliver, writer =>
             {
                 writer.WriteShortString(consumer.Tag);
@@ -99,11 +148,6 @@ internal sealed partial class Amqp0BrokerConnection
             {
                 channel.Held.Add(bytes);
             }
-        }
-
-        if (consumer.NoAck)
-        {
-            consumer.Bus.Acknowledge(delivery.DeliveryTag);
         }
     }
 
@@ -174,11 +218,21 @@ internal sealed partial class Amqp0BrokerConnection
         SettleOrBuffer(channel, TakeOutstandingOrRefuse(channel, tag, multiple: bits[0]), acknowledge: false, requeue: bits[1]);
     }
 
-    // Every outstanding delivery of the channel goes back to its queue, marked redelivered.
+    // With requeue every outstanding delivery of the channel goes back to its queue, marked
+    // redelivered; without it each is written again to the consumer that had it.
     private void Recover(Amqp0Channel channel, Amqp0WireReader arguments, bool answer)
     {
-        arguments.ReadBits(1);
-        Settle(TakeOutstanding(channel, 0, multiple: true).Values, acknowledge: false, requeue: true);
+        var requeue = arguments.ReadBits(1)[0];
+        var taken = TakeOutstanding(channel, 0, multiple: true).Values;
+        if (requeue)
+        {
+            Settle(taken, acknowledge: false, requeue: true);
+        }
+        else
+        {
+            RedeliverToOriginalConsumers(channel, taken);
+        }
+
         if (answer)
         {
             SendMethod(channel.Number, RecoverOk);
@@ -234,7 +288,9 @@ internal sealed partial class Amqp0BrokerConnection
     // Settled outside the channel's gate: the bus may deliver again at once, on this thread.
     private void Settle(IEnumerable<Amqp0OutstandingDelivery> deliveries, bool acknowledge, bool requeue)
     {
-        foreach (var delivery in deliveries)
+        var settled = deliveries.ToList();
+        LeaveWindows(settled);
+        foreach (var delivery in settled)
         {
             _ = (delivery.Consumer, acknowledge) switch
             {

@@ -44,15 +44,21 @@ plan, which word a DICT command's path is, how a Gopher error item is framed, or
    A reply that does not fit - a `Surl.Api` hook can hand one over unchecked, and `Surl.Cli`'s check of
    `gopher` and `telnet` replies is only "non-empty" - is noted in the exchange log and not applied: the
    command is answered as without the rule and no event is published (ADR-0135 decision 4).
-5. **Only the `error` kind.** As ADR-0135 decision 5: a `delay` or `drop` rule given `stage=command` that
-   matches is noted as not applied and the command goes on; applying them here is BL-914, after BL-901 adds the seams.
+5. **The `error`, `delay` and `drop` kinds** (amended 2026-11-12, BL-914, after BL-901 added the seams;
+   decided by Claude under Stewart's delegation). Each library's `*Faults` class asks the plan through
+   `CommandStageFaults.FindAndApplyAsync` (ADR-0141): a `delay` rule with `stage=command` holds the
+   command's, selector's or line's answer for its `ms` on `ExchangeContext.TimeProvider` with the idle clock
+   paused and the command is then answered as usual; a `drop` rule aborts the connection with nothing written
+   for that command (DICT and TELNET end the session, Gopher returns), and TELNET first writes what earlier
+   lines of the same read were already answered. Any other kind, such as `outofspace`, is still noted as not
+   applied and the command goes on (ADR-0135 decision 5). Before the amendment, `delay` and `drop` were noted
+   as not applied.
 6. **Events and the point.** Each application publishes one `FaultAppliedEvent` (stage `Command`, the
-   exchange's ID) and notes the answer. Its target is DICT's path, or the command when there is none;
+   exchange's ID) and notes the answer - of the kind applied, `error`, `delay` or `drop`. Its target is DICT's path, or the command when there is none;
    Gopher's path; TELNET's `line <n>` - never the line's text, which may hold anything a person typed. The
    `FaultPoint` carries the exchange ID, the listen URL formatted as the serving engine formats it (bound port
-   included), the scheme, and the path and command where decisions 1 to 3 name them. Each library has its own
-   `FormatListenUrl`, because protocol servers share no code but the horizontal libraries (BL-914 replaces them with BL-901's shared one in
-   `Surl.Protocol.Abstractions`).
+   included), the scheme, and the path and command where decisions 1 to 3 name them. The URL is written by
+   `Surl.Protocol.Abstractions`' `ReportedListenUrl.Format` (BL-914 replaced each library's own copy).
 
 ## What upstream curl does with these answers
 
@@ -73,4 +79,4 @@ not in its exit code.
 
 A test can make one DICT lookup, one Gopher selector or one TELNET session fail on purpose and see it on the
 event stream; no store changes. A TELNET rule cannot pick one line by content, only by `times` and order -
-the protocol gives the plan nothing else to match. The command-stage delay and drop are BL-914.
+the protocol gives the plan nothing else to match. A command-stage delay or drop makes one lookup slow or cut off (decision 5, BL-914).

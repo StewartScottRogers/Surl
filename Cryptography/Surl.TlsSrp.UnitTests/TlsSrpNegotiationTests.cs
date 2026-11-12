@@ -147,6 +147,104 @@ public sealed class TlsSrpNegotiationTests
         Assert.ThrowsExactly<ArgumentNullException>(() => TlsSrpNegotiation.Negotiate(null!));
     }
 
+    [TestMethod]
+    public void Negotiate_RecordedUpstreamCurlHelloAndAnRsaCertificate_ChoosesRsaAes256SignedWithRsaPssSha256()
+    {
+        var hello = RecordedHello();
+
+        var negotiation = TlsSrpNegotiation.Negotiate(hello, UnitTestCertificates.RsaCertificate());
+
+        Assert.AreEqual(TlsSrpCipherSuite.SrpShaRsaAes256CbcSha, negotiation.CipherSuite);
+        Assert.AreEqual(TlsSignatureScheme.RsaPssRsaeSha256, negotiation.SignatureScheme);
+    }
+
+    [TestMethod]
+    [OSCondition(ConditionMode.Exclude, OperatingSystems.OSX)]
+    public void Negotiate_RecordedUpstreamCurlHelloAndADsaCertificate_ChoosesDssAes256SignedWithDsaSha256()
+    {
+        var negotiation = TlsSrpNegotiation.Negotiate(RecordedHello(), UnitTestCertificates.DsaCertificate());
+
+        Assert.AreEqual(TlsSrpCipherSuite.SrpShaDssAes256CbcSha, negotiation.CipherSuite);
+        Assert.AreEqual(TlsSignatureScheme.DsaSha256, negotiation.SignatureScheme);
+    }
+
+    [TestMethod]
+    public void Negotiate_RecordedUpstreamCurlHelloWithoutACertificate_StillChoosesTheUnsignedSuite()
+    {
+        var negotiation = TlsSrpNegotiation.Negotiate(RecordedHello());
+
+        Assert.AreEqual(TlsSrpCipherSuite.SrpShaAes256CbcSha, negotiation.CipherSuite);
+        Assert.IsNull(negotiation.SignatureScheme);
+    }
+
+    [TestMethod]
+    public void Negotiate_CertificateAndAnUnsignedSuiteFirst_KeepsTheClientsOrderAndSignsNothing()
+    {
+        var negotiation = Negotiate(0x0303, [0xC01D, 0xC021], [0], UnitTestCertificates.RsaCertificate(), UnitTestSrpClient.SrpExtension("jsmith"));
+
+        Assert.AreEqual(TlsSrpCipherSuite.SrpShaAes128CbcSha, negotiation.CipherSuite);
+        Assert.IsNull(negotiation.SignatureScheme);
+    }
+
+    [TestMethod]
+    public void Negotiate_CertificateAndNoSignatureAlgorithmsExtension_SignsWithSha1()
+    {
+        var negotiation = Negotiate(0x0303, [0xC01E], [0], UnitTestCertificates.RsaCertificate(), UnitTestSrpClient.SrpExtension("jsmith"));
+
+        Assert.AreEqual(TlsSrpCipherSuite.SrpShaRsaAes128CbcSha, negotiation.CipherSuite);
+        Assert.AreEqual(TlsSignatureScheme.RsaPkcs1Sha1, negotiation.SignatureScheme);
+    }
+
+    [TestMethod]
+    public void Negotiate_SignedSuiteOfTheOtherKeyKind_SendsHandshakeFailure()
+    {
+        var alert = Assert.ThrowsExactly<TlsAlertException>(
+            () => Negotiate(0x0303, [0xC022], [0], UnitTestCertificates.RsaCertificate(), UnitTestSrpClient.SrpExtension("jsmith")));
+
+        Assert.AreEqual(TlsAlertDescription.HandshakeFailure, alert.Description);
+    }
+
+    [TestMethod]
+    public void Negotiate_SignedSuiteButNoSchemeTheKeyCanMake_SendsHandshakeFailure()
+    {
+        var alert = Assert.ThrowsExactly<TlsAlertException>(
+            () => Negotiate(0x0303, [0xC021], [0], UnitTestCertificates.RsaCertificate(), UnitTestSrpClient.SrpExtension("jsmith"), SignatureAlgorithms(0x0403)));
+
+        Assert.AreEqual(TlsAlertDescription.HandshakeFailure, alert.Description);
+    }
+
+    [TestMethod]
+    public void Negotiate_EmptySignatureAlgorithmsList_SendsDecodeError()
+    {
+        var alert = Assert.ThrowsExactly<TlsAlertException>(
+            () => Negotiate(0x0303, [0xC021], [0], UnitTestCertificates.RsaCertificate(), UnitTestSrpClient.SrpExtension("jsmith"), SignatureAlgorithms()));
+
+        Assert.AreEqual(TlsAlertDescription.DecodeError, alert.Description);
+    }
+
+    [TestMethod]
+    public void Negotiate_SignatureAlgorithmsWithTrailingBytes_SendsDecodeError()
+    {
+        var extension = UnitTestSrpClient.Extension(TlsExtensionType.SignatureAlgorithms, [0, 2, 8, 4, 0]);
+
+        var alert = Assert.ThrowsExactly<TlsAlertException>(
+            () => Negotiate(0x0303, [0xC021], [0], UnitTestCertificates.RsaCertificate(), UnitTestSrpClient.SrpExtension("jsmith"), extension));
+
+        Assert.AreEqual(TlsAlertDescription.DecodeError, alert.Description);
+    }
+
+    private static TlsClientHello RecordedHello() =>
+        TlsClientHello.Parse(UnitTestFixtures.Fragments(UnitTestFixtures.Read("CurlTlsSrpJsmithAbc", "client.bin"))[0][4..]);
+
+    private static byte[] SignatureAlgorithms(params ushort[] schemes) =>
+        UnitTestSrpClient.Extension(
+            TlsExtensionType.SignatureAlgorithms,
+            UnitTestSrpClient.Vector16([.. schemes.SelectMany(scheme => new[] { (byte)(scheme >> 8), (byte)scheme })]));
+
+    private static TlsSrpNegotiation Negotiate(
+        ushort version, ushort[] suites, byte[] compression, TlsSrpServerCertificate certificate, params byte[][] extensions) =>
+        TlsSrpNegotiation.Negotiate(TlsClientHello.Parse(UnitTestSrpClient.ClientHelloBody(version, suites, compression, extensions)), certificate);
+
     private static TlsSrpNegotiation Negotiate(ushort version, ushort[] suites, byte[] compression, params byte[][] extensions) =>
         TlsSrpNegotiation.Negotiate(TlsClientHello.Parse(UnitTestSrpClient.ClientHelloBody(version, suites, compression, extensions)));
 

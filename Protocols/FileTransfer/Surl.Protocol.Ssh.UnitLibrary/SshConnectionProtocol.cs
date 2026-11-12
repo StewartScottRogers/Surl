@@ -48,6 +48,11 @@ internal sealed class SshConnectionProtocol(
     /// </summary>
     public const int MaxOpenChannels = 10;
 
+    /// <summary>
+    /// The connection being served, which each channel hands its handler to abort.
+    /// </summary>
+    public IConnection Connection => transport.Connection;
+
     private readonly IExchangeLog log = context.Log;
     private readonly SemaphoreSlim writeGate = new(1, 1);
     private readonly Dictionary<uint, SshSessionChannel> channels = [];

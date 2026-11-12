@@ -110,9 +110,12 @@ internal sealed class DictCommandResponder
         }
 
         var command = words[0].ToUpperInvariant();
-        if (await DictCommandFaults.FindErrorAsync(context, command, DictCommandFaults.PathOf(command, words)) is { } chosenError)
+        switch (await DictCommandFaults.FindAndApplyAsync(context, connection, command, DictCommandFaults.PathOf(command, words)))
         {
-            return await ReplyAsync(chosenError + "\r\n");
+            case { Kind: FaultKind.Drop }:
+                return false;
+            case { } chosenError:
+                return await ReplyAsync(chosenError.Reply + "\r\n");
         }
 
         return await answer(words);

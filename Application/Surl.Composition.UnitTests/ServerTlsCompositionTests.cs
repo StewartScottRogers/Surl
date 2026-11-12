@@ -2,6 +2,7 @@ using System.Security.Authentication;
 using System.Security.Cryptography;
 using Surl.Cli;
 using Surl.Networking;
+using Surl.Output;
 using Surl.Protocol.Abstractions;
 
 namespace Surl.Composition;
@@ -92,6 +93,128 @@ public sealed class ServerTlsCompositionTests
     public void IsCertificateConfigured_CommandLine_IsTrueOnlyWithCertOrSelfSigned(bool expected, string[] args)
     {
         Assert.AreEqual(expected, ServerTlsComposition.IsCertificateConfigured(Parse(args)));
+    }
+
+    [TestMethod]
+    [DataRow(true, new[] { "--self-signed", "smtp://127.0.0.1:0/" })]
+    [DataRow(true, new[] { "--tlsuser", "u", "--tlspassword", "p", "smtp://127.0.0.1:0/" })]
+    [DataRow(false, new[] { "smtp://127.0.0.1:0/" })]
+    public void IsTlsUpgradeAvailable_CommandLine_IsTrueWithACertificateOrTlsSrp(bool expected, string[] args)
+    {
+        Assert.AreEqual(expected, ServerTlsComposition.IsTlsUpgradeAvailable(Parse(args)));
+    }
+
+    [TestMethod]
+    [DataRow("https://127.0.0.1:0/")]
+    [DataRow("smtp://127.0.0.1:0/")]
+    public void Compose_TlsSrp_ServesTheAccountsWithNoCertificate(string listenUrl)
+    {
+        using var composition = ServerTlsComposition.Compose(Parse("--tlsuser", "jsmith", "--tlspassword", "abc", listenUrl), TimeProvider.System);
+
+        Assert.IsNotNull(composition.Settings?.TlsSrpAccounts);
+        Assert.IsNull(composition.ThrowawayCertificateFingerprint);
+        Assert.IsNull(composition.QuicCertificate);
+        Assert.IsFalse(composition.Settings.TlsSrpAccounts.Find("jsmith"u8.ToArray(), RandomNumberGenerator.Create()).IsSimulated);
+    }
+
+    [TestMethod]
+    public void Compose_TlsSrpMalformedGroupFile_ThrowsCouldNotReadFileNamingTheFileAndLine()
+    {
+        var failure = Assert.ThrowsExactly<TlsSrpAccountsException>(() => ServerTlsComposition.Compose(
+            Parse("--srp-verifiers", "db", "--srp-groups", "conf", "https://127.0.0.1:0/"), TimeProvider.System, _ => "bad\n"u8.ToArray()));
+
+        Assert.AreEqual(SurlExitCode.CouldNotReadFile, failure.ExitCode);
+        StringAssert.StartsWith(failure.Message, "(37) Could not read the --srp-groups file 'conf': line 1: ");
+    }
+
+    [TestMethod]
+    public void WriteStartLines_GroupFileWithAGroupOutsideAppendixA_NotesItsIndexOnceAtVerbose()
+    {
+        var groupFile = UnitTestSrpBase64Encoder.GroupLine("1", Cryptography.Srp.SrpGroup.Rfc5054Group2048) + "\n"
+            + UnitTestSrpBase64Encoder.GroupLine("7", new Cryptography.Srp.SrpGroup(251, 2)) + "\n";
+        using var composition = ComposeWithGroupFile(groupFile);
+        using var log = new StringWriter();
+
+        composition.WriteStartLines(LogLevel.Verbose, log);
+
+        CollectionAssert.AreEqual(new[] { "7" }, composition.SrpGroupIndexesOutsideRfc5054.ToArray());
+        Assert.AreEqual(
+            "* --srp-groups: the group with index 7 is not one of RFC 5054 Appendix A's; OpenSSL's client refuses it" + Environment.NewLine,
+            log.ToString());
+    }
+
+    [TestMethod]
+    public void WriteStartLines_GroupFileWithAppendixAGroupsOnly_WritesNothing()
+    {
+        var groupFile = UnitTestSrpBase64Encoder.GroupLine("1", Cryptography.Srp.SrpGroup.Rfc5054Group1024) + "\n"
+            + UnitTestSrpBase64Encoder.GroupLine("3", Cryptography.Srp.SrpGroup.Rfc5054Group2048) + "\n";
+        using var composition = ComposeWithGroupFile(groupFile);
+        using var log = new StringWriter();
+
+        composition.WriteStartLines(LogLevel.Verbose, log);
+
+        Assert.IsEmpty(composition.SrpGroupIndexesOutsideRfc5054);
+        Assert.AreEqual(string.Empty, log.ToString());
+    }
+
+    [TestMethod]
+    public void WriteStartLines_GroupOutsideAppendixABelowVerbose_WritesNothing()
+    {
+        using var composition = ComposeWithGroupFile(UnitTestSrpBase64Encoder.GroupLine("7", new Cryptography.Srp.SrpGroup(251, 2)));
+        using var log = new StringWriter();
+
+        composition.WriteStartLines(LogLevel.Info, log);
+
+        Assert.AreEqual(string.Empty, log.ToString());
+    }
+
+    [TestMethod]
+    public void WriteStartLines_NullLog_Throws()
+    {
+        using var composition = ServerTlsComposition.Compose(Parse("http://127.0.0.1:0/"), TimeProvider.System);
+
+        Assert.IsEmpty(composition.SrpGroupIndexesOutsideRfc5054);
+        Assert.ThrowsExactly<ArgumentNullException>(() => composition.WriteStartLines(LogLevel.Verbose, null!));
+    }
+
+    [TestMethod]
+    public void Compose_TlsSrpGroupFileAccessDenied_ThrowsCouldNotReadFile()
+    {
+        var failure = Assert.ThrowsExactly<TlsSrpAccountsException>(() => ServerTlsComposition.Compose(
+            Parse("--srp-verifiers", "db", "--srp-groups", "conf", "https://127.0.0.1:0/"), TimeProvider.System, _ => throw new UnauthorizedAccessException("denied")));
+
+        Assert.AreEqual("(37) Could not read the --srp-groups file 'conf': denied", failure.Message);
+    }
+
+    [TestMethod]
+    public void ComputeEntry_RandomDrawsASaltStartingWithZero_DrawsAgain()
+    {
+        using var random = new ScriptedRandomNumberGenerator([[0, .. new byte[15]], [7, .. new byte[15]]]);
+
+        var entry = TlsSrpAccountsComposition.ComputeEntry("jsmith", "abc", random);
+
+        Assert.AreEqual((byte)7, entry.Salt[0]);
+        Assert.AreEqual(Cryptography.Srp.SrpGroup.Rfc5054Group2048, entry.Group);
+        CollectionAssert.AreEqual(
+            Cryptography.Srp.Srp6a.ToUnsignedBigEndian(Cryptography.Srp.Srp6a.ComputeVerifier(entry.Group, entry.Salt, "jsmith"u8, "abc"u8)),
+            entry.Verifier);
+    }
+
+    [TestMethod]
+    public void FindListenUrlWithoutCertificate_TlsSrp_IsNullForTcpAndTheWebTransportListenUrlOtherwise()
+    {
+        Assert.IsNull(ServerTlsComposition.FindListenUrlWithoutCertificate(Parse("--tlsuser", "u", "--tlspassword", "p", "https://127.0.0.1:0/")));
+        Assert.AreEqual(
+            new ListenUrl("webtransport", "127.0.0.1", 0),
+            ServerTlsComposition.FindListenUrlWithoutCertificate(
+                ParseWithWebTransport("--tlsuser", "u", "--tlspassword", "p", "https://127.0.0.1:0/", "webtransport://127.0.0.1:0/")));
+    }
+
+    private sealed class ScriptedRandomNumberGenerator(byte[][] draws) : RandomNumberGenerator
+    {
+        private int next;
+
+        public override void GetBytes(byte[] data) => draws[next++].CopyTo(data, 0);
     }
 
     [TestMethod]
@@ -242,6 +365,13 @@ public sealed class ServerTlsCompositionTests
 
     private static SurlCommandLine Parse(params string[] args) =>
         CommandLineParser.Parse(args).CommandLine ?? throw new AssertFailedException("The command line was refused.");
+
+    // An empty --srp-verifiers file beside the given --srp-groups file.
+    private static ServerTlsComposition ComposeWithGroupFile(string groupFile) =>
+        ServerTlsComposition.Compose(
+            Parse("--srp-verifiers", "db", "--srp-groups", "conf", "https://127.0.0.1:0/"),
+            TimeProvider.System,
+            path => path == "conf" ? System.Text.Encoding.UTF8.GetBytes(groupFile) : []);
 
     private static SurlCommandLine ParseWithWebTransport(params string[] args) =>
         CommandLineParser.Parse(args, ["webtransport"]).CommandLine ?? throw new AssertFailedException("The command line was refused.");

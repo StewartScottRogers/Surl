@@ -49,9 +49,9 @@ internal sealed class ScpDownloadHandler(ContentStore store, ContentCaller calle
             return 1;
         }
 
-        if (await SshCommandFaults.FindScpErrorAsync(context, caller, command, cancellationToken) is { } rule)
+        if (await SshCommandFaults.FindScpFaultAsync(context, channel.Connection, caller, command) is { } rule)
         {
-            return await SshCommandFaults.AnswerScpErrorAsync(channel, context, $"SCP download {path}", rule, cancellationToken);
+            return await SshCommandFaults.AnswerScpFaultAsync(channel, context, $"SCP download {path}", rule, cancellationToken);
         }
 
         try

@@ -18,12 +18,47 @@ public static class HttpCommandFaults
 
     /// <summary>
     /// Asks <see cref="ExchangeContext.Faults"/> about a request at the <see cref="FaultStage.Command"/>
-    /// stage and returns the <see cref="FaultKind.Error"/> rule it finds. Any other kind a rule asks
-    /// for at this stage is not applied by these servers (ADR-0134 decision 5): it is noted in the
-    /// exchange log and the request goes on as if no rule matched.
+    /// stage and applies what it finds (ADR-0124 decision 4; ADR-0134; ADR-0141 amendment 1): a
+    /// <see cref="FaultKind.Delay"/> holds the request on the exchange's clock with its idle clock
+    /// paused, and the request then goes on as if no rule matched; a <see cref="FaultKind.Drop"/> is
+    /// noted and published here and handed back, for the server to end the exchange without a byte of
+    /// an answer; a <see cref="FaultKind.Error"/> is handed back for the server to answer. Any other
+    /// kind is not applied by these servers: it is noted in the exchange log and the request goes on.
     /// </summary>
     /// <param name="context">The exchange: its listen URL, plan, log and cancellation.</param>
     /// <param name="method">The request's method, or <c>GET</c> for a WebSocket upgrade.</param>
+    /// <param name="path">The request path without its query, or <see langword="null"/> when the request names none.</param>
+    /// <param name="accountName">The account the request logged in as; <see langword="null"/> or empty when anonymous.</param>
+    /// <returns>The chosen-error or drop rule to act on, or <see langword="null"/>.</returns>
+    /// <exception cref="OperationCanceledException">The exchange was cancelled during a delay.</exception>
+    public static async ValueTask<FaultRule?> FindAndApplyAsync(ExchangeContext context, string method, string? path, string? accountName)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+
+        var rule = await CommandStageFaults.FindAndApplyAsync(context, CommandPoint(context, method, path, accountName), path ?? method);
+        if (rule is null or { Kind: FaultKind.Error or FaultKind.Drop })
+        {
+            return rule;
+        }
+
+        if (rule.Kind == FaultKind.Delay)
+        {
+            return null;
+        }
+
+        context.Log.Note($"{method} {path}: fault rule {rule.Id} asks for {rule.Kind} at the command stage, which this server does not apply; answered as without it.");
+
+        return null;
+    }
+
+    /// <summary>
+    /// <see cref="FindAndApplyAsync"/> for a server that applies only the <see cref="FaultKind.Error"/>
+    /// kind at the command stage (the S3, Azure Storage and Google Cloud Storage servers, ADR-0134
+    /// decision 5 as it stood): any other kind a rule asks for is noted in the exchange log, not
+    /// applied, and the request goes on as if no rule matched.
+    /// </summary>
+    /// <param name="context">The exchange: its listen URL, plan, log and cancellation.</param>
+    /// <param name="method">The request's method.</param>
     /// <param name="path">The request path without its query, or <see langword="null"/> when the request names none.</param>
     /// <param name="accountName">The account the request logged in as; <see langword="null"/> or empty when anonymous.</param>
     /// <returns>The chosen-error rule to answer with, or <see langword="null"/>.</returns>
@@ -31,16 +66,7 @@ public static class HttpCommandFaults
     {
         ArgumentNullException.ThrowIfNull(context);
 
-        var point = new FaultPoint(FaultStage.Command)
-        {
-            ExchangeId = context.ExchangeId,
-            ListenUrl = FormatListenUrl(context.ListenUrl),
-            Scheme = context.Scheme,
-            Account = string.IsNullOrEmpty(accountName) ? null : accountName,
-            Path = path,
-            Command = method,
-        };
-        var rule = await context.Faults.FindAsync(point, context.CancellationToken);
+        var rule = await context.Faults.FindAsync(CommandPoint(context, method, path, accountName), context.CancellationToken);
         if (rule is null or { Kind: FaultKind.Error })
         {
             return rule;
@@ -50,6 +76,17 @@ public static class HttpCommandFaults
 
         return null;
     }
+
+    private static FaultPoint CommandPoint(ExchangeContext context, string method, string? path, string? accountName) =>
+        new(FaultStage.Command)
+        {
+            ExchangeId = context.ExchangeId,
+            ListenUrl = ReportedListenUrl.Format(context.ListenUrl),
+            Scheme = context.Scheme,
+            Account = string.IsNullOrEmpty(accountName) ? null : accountName,
+            Path = path,
+            Command = method,
+        };
 
     /// <summary>
     /// Reads the status an HTTP or RTSP chosen-error reply names: a status code 400 to 599, then,
@@ -116,16 +153,5 @@ public static class HttpCommandFaults
 
         context.Log.Note($"{method} {path}: answered {answer} by fault rule {rule.Id}.");
         context.Events.Publish(new FaultAppliedEvent(rule.Id, rule.Kind, FaultStage.Command, context.ExchangeId, path ?? method));
-    }
-
-    // The listen URL as the serving engine reports it, bound port included, so a rule's listener
-    // matches here as it does at the accept stage.
-    private static string FormatListenUrl(ListenUrl listenUrl)
-    {
-        var host = listenUrl.Host.Contains(':', StringComparison.Ordinal)
-            ? "[" + listenUrl.Host.Replace("%", "%25", StringComparison.Ordinal) + "]"
-            : listenUrl.Host;
-
-        return string.Create(CultureInfo.InvariantCulture, $"{listenUrl.Scheme}://{host}:{listenUrl.BoundPort ?? listenUrl.Port}/");
     }
 }

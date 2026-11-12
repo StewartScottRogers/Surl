@@ -181,6 +181,109 @@ public sealed class MessageBusEventTests
         Assert.ThrowsExactly<ArgumentNullException>(() => MessageBus.QueueChangeName(null!));
     }
 
+    [TestMethod]
+    public void ConnectionGivenAnExchange_PublishSendDeliveryAndAcknowledgement_EachChangeCarriesTheExchangeId()
+    {
+        var bus = new MessageBus(clock, events: events);
+        var exchange = new BusExchange(7, "mqtt://127.0.0.1:1883", "mqtt");
+        using var connection = bus.Connect("alice", exchange);
+        var received = new List<BusQueueDelivery>();
+        connection.DeclareQueue("q");
+        connection.BindQueue("q", "a/b");
+        var consumer = connection.Consume("q", received.Add).Consumer!;
+        consumer.Start();
+        connection.Subscribe("a/b", _ => { });
+        var mark = events.Events.Count;
+
+        connection.Publish(Message("a/b", "hi"));
+        consumer.Acknowledge(received[0].DeliveryTag);
+
+        var changes = events.Events.Skip(mark).OfType<StoreChangedEvent>().ToList();
+        CollectionAssert.AreEquivalent(
+            new[] { StoreChange.Published, StoreChange.Enqueued, StoreChange.Delivered, StoreChange.Delivered, StoreChange.Acknowledged },
+            changes.Select(change => change.Change).ToList());
+        Assert.IsTrue(changes.All(change => change.ExchangeId == 7));
+        Assert.AreEqual(exchange, connection.Exchange);
+    }
+
+    [TestMethod]
+    public void AnonymousForms_PublishAndSend_StillCarryNoExchangeId()
+    {
+        var bus = new MessageBus(clock, events: events);
+        using var connection = bus.Connect();
+        connection.DeclareQueue("q");
+
+        bus.Publish(Message("a/b", "hi"));
+        bus.PublishToQueue("q", Message("t", "x"));
+
+        Assert.IsTrue(events.Events.OfType<StoreChangedEvent>().All(change => change.ExchangeId is null));
+        Assert.IsNull(connection.Exchange);
+    }
+
+    [TestMethod]
+    public void Publish_FromAnotherConnection_NamesTheExchangeThatMadeTheDeliveryHappen()
+    {
+        var bus = new MessageBus(clock, events: events);
+        using var subscriber = bus.Connect("a", new BusExchange(1, "mqtt://h:1", "mqtt"));
+        using var publisher = bus.Connect("b", new BusExchange(2, "amqp://h:2", "amqp"));
+        subscriber.Subscribe("a/b", _ => { });
+
+        publisher.Publish(Message("a/b", "hi"));
+
+        Assert.IsTrue(events.Events.OfType<StoreChangedEvent>().All(change => change.ExchangeId == 2));
+    }
+
+    [TestMethod]
+    public void PublishToQueue_AfterAnEarlierMessageExpired_PublishesDeletedForTheQueueWithItsPayloadLength()
+    {
+        var bus = new MessageBus(clock, events: events);
+        using var connection = bus.Connect();
+        connection.DeclareQueue("q");
+        bus.PublishToQueue("q", Message("t", "abc") with { ExpiresAt = clock.UtcNow.AddSeconds(1) });
+        bus.PublishToQueue("q", Message("t", "de") with { ExpiresAt = clock.UtcNow.AddSeconds(1) });
+        var before = events.Events.Count;
+        clock.UtcNow = clock.UtcNow.AddSeconds(2);
+
+        bus.PublishToQueue("q", Message("t", "fghi"));
+
+        CollectionAssert.AreEqual(
+            new[] { Change(StoreChange.Enqueued, "$queue/q", 4), Change(StoreChange.Deleted, "$queue/q", 3), Change(StoreChange.Deleted, "$queue/q", 2) },
+            events.Events.Skip(before).ToArray());
+    }
+
+    [TestMethod]
+    public void GetFromQueue_ReachingAnExpiredMessage_PublishesItsDeletionBeforeTheDelivery()
+    {
+        var bus = new MessageBus(clock, events: events);
+        using var connection = bus.Connect();
+        connection.DeclareQueue("q");
+        bus.PublishToQueue("q", Message("t", "abc") with { ExpiresAt = clock.UtcNow.AddSeconds(1) });
+        bus.PublishToQueue("q", Message("t", "de"));
+        var before = events.Events.Count;
+        clock.UtcNow = clock.UtcNow.AddSeconds(2);
+
+        connection.GetFromQueue("q");
+
+        CollectionAssert.AreEqual(
+            new[] { Change(StoreChange.Deleted, "$queue/q", 3), Change(StoreChange.Delivered, "$queue/q", 2) },
+            events.Events.Skip(before).ToArray());
+    }
+
+    [TestMethod]
+    public void Publish_PastMaxLogBytesPerTopic_PublishesOneDeletedForTheTopicWithTheDroppedBytes()
+    {
+        var recordBytes = MessageBus.LogRecordBytes(Message("a/b", "abc"));
+        var bus = new MessageBus(clock, maxLogBytesPerTopic: recordBytes * 2, events: events);
+        bus.Publish(Message("a/b", "abc"));
+        bus.Publish(Message("a/b", "abc"));
+        var before = events.Events.Count;
+
+        bus.Publish(Message("a/b", "abc"));
+
+        CollectionAssert.AreEqual(
+            new[] { Change(StoreChange.Deleted, "a/b", recordBytes), Change(StoreChange.Published, "a/b", 3) },
+            events.Events.Skip(before).ToArray());
+    }
     private static StoreChangedEvent Change(StoreChange change, string name, long? byteCount) =>
         new(StoreKind.Bus, change, name, byteCount, ExchangeId: null);
 

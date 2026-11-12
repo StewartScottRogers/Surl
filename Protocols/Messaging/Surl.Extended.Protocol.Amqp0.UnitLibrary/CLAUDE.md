@@ -66,9 +66,17 @@ Channels, exchanges, queues and the basic class (BL-506, ADR-0112 decisions 5, 6
   built from its fields (`ToOutgoingContent`). `Amqp0BasicProperties` reads and writes the 14
   `basic` properties.
 - Delivery tags run from 1 per channel; `Amqp0Channel.Outstanding` maps each to its bus delivery.
-  `basic.qos`'s prefetch-count bounds each consumer the channel makes afterwards; the
-  channel-wide and `global` bounds, `prefetch-size`, and `recover` to the original consumer are
-  BL-760. `basic.cancel` to the consumers of a deleted queue is BL-761.
+  `basic.qos` (`Amqp0BrokerConnection.Prefetch`, BL-760) sets the channel's `Amqp0DeliveryWindow`,
+  or with `global` the connection's: `prefetch-count` and `prefetch-size` bound the outstanding
+  deliveries of every consumer that acknowledges; one past a window waits as an
+  `Amqp0WindowedDelivery`, unacknowledged on the bus, until a settlement makes room. `recover`
+  without `requeue` writes each outstanding delivery again to its consumer, ahead of those waiting.
+- `Amqp0ConsumerRegistry` (one per broker, shared by its connections) records each consumer by queue
+  and owner. `queue.delete` calls `EndConsumersOf`, which ends every consumer of the queue on every
+  connection (the bus ends its own side silently); a client whose `start-ok` announced
+  `consumer_cancel_notify` (`Amqp0ConnectionStartOk.AnnouncesConsumerCancelNotify`) is sent
+  `basic.cancel` (60.30) with `no-wait` set. Another connection's thread ends a consumer, so
+  `Amqp0Channel.Consumers` changes under the channel's `Gate`.
 
 Transactions and publisher confirms (BL-731, ADR-0112 decision 6):
 
@@ -92,8 +100,15 @@ The headers exchange and durable exchanges across restarts (BL-732, ADR-0112 dec
   the composition answers 37. `Amqp0ExchangeTable` counts changes to durable declared exchanges and
   their bindings, and the connection saves them after each channel frame, noting a failed write.
 
-The 320 `CONNECTION_FORCED` close on the idle timeout, `--max-time` and shutdown is BL-749; the
-command line and composition BL-507, which also hands the broker its `Amqp0ExchangeFiles`.
+Durable queues across restarts (BL-967, ADR-0112 decision 6):
+
+- After each channel frame the connection calls `MessageBus.SaveChangesAsync` (beside the exchange save),
+  noting `StorageFailed` and going on. A no-ack consumer delivery, made on the bus's thread, is written by
+  the next channel frame's save, never from `Deliver`, which must not block.
+
+An open connection the engine cancels (limit or shutdown) is told `connection.close` 320 on a one-second deadline of its own (BL-749).
+
+The command line and composition are BL-507, which also hands the broker its `Amqp0ExchangeFiles`.
 
 This library references `Surl.Protocol.Abstractions.UnitLibrary`, and may also reference the
 horizontal libraries ADR-0112 decision 0 names (`Surl.MessageBus`, `Surl.Content`) - never

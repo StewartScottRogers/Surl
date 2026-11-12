@@ -34,7 +34,7 @@ block-wise transfers (BL-473) and observation (BL-474), ADR-0097 decisions 0 to 
   repeated non-repeatable options are unrecognised; an unrecognised critical one (odd, or a
   reserved Location-* number) is `4.02` with `Unrecognized option <n>` for a CON and ignores a NON.
 - `CoapResourceAnswerer` answers, first match wins: `4.02`, `4.00` (Uri-Path `.` or `..`), `5.05`
-  (any Proxy-Uri or Proxy-Scheme; BL-750 serves one naming the listener), `4.05` (any method but
+  (any Proxy-Uri or Proxy-Scheme, unless its scheme, host and port name the listener: `CoapRequestOptions.ResolveLocalProxy` then serves it as local, from the Proxy-Uri's path and query - BL-750), `4.05` (any method but
   the four), `4.01` (`CoapAccessRules`), `4.05` (a write without `--allow-uploads`), then the
   resource: `GET` `2.05` with ETag, Max-Age 60 and Content-Format (`CoapContentFormat`, by
   extension) or `2.03` for a current ETag, `4.04`, `4.12`, `4.06`; `PUT` `2.01`/`2.04`; `POST`
@@ -45,8 +45,10 @@ block-wise transfers (BL-473) and observation (BL-474), ADR-0097 decisions 0 to 
 - `CoapResourceDirectory` writes `/.well-known/core` under `--list-directories`:
   `</path>;ct=..;sz=..;obs` per visible file, ordinal order, at most 1000 links, 16 directories
   deep, filtered by the first `name=value` or `name=prefix*` query.
-- `ICoapRandomSource` (`CryptographicCoapRandomSource` in production) draws Message IDs, the
-  ACK_RANDOM_FACTOR fraction and POST names; tests inject a fixed one.
+- `ICoapRandomSource` draws Message IDs, the ACK_RANDOM_FACTOR fraction and POST names. In production
+  it is an `IdentifierCoapRandomSource` over the exchange's `ExchangeContext.Identifiers`, so a seeded
+  instance repeats them (ADR-0124 decision 6); `CryptographicCoapRandomSource` only draws the Message ID of
+  a connection-limit refusal, which has no exchange. Tests inject a fixed source.
 
 - Block-wise transfers (RFC 7959; ADR-0097 decision 4). `CoapBlockOption` is NUM/M/SZX in one
   uint option; SZX 7 in a request is `4.00`. `CoapBlock2Window` picks what a `2.05` carries: the
@@ -96,7 +98,7 @@ block-wise transfers (BL-473) and observation (BL-474), ADR-0097 decisions 0 to 
   client's `close_notify` or fatal alert ends serving normally; a limit sends one warning
   `close_notify` on a 1-second deadline; shutdown sends nothing.
 
-Decision 7's other limits and the `5.03` refusal are BL-751. The command line (BL-476) builds on it.
+Decision 7 (BL-751): `CoapRefusals` builds the `5.03` (Max-Age 5) and `4.13` (Size1, Block1 hint) answers; `CoapFlowSession` refuses a ninth request in progress (CON `5.03`, NON ignored) and a datagram over `--max-message` (CON `4.13`, else ignored); `CoapProtocolServer` is an `IDatagramRefusalWriter`. See ADR-0097 amendment 2.
 
 This library references `Surl.Protocol.Abstractions.UnitLibrary`, `Surl.Content.UnitLibrary` and
 `Surl.Dtls.UnitLibrary` (ADR-0084 decision 3, ADR-0097 decision 0) - never another protocol server,
@@ -109,3 +111,5 @@ the observers and the resource answerer, with `command` the method (`GET`; anoth
 Uri-Path (`/a/b`, `/` for none). A matching `error` rule whose reply is `4.00` to `5.05` (`c.dd`, an optional
 diagnostic text after a space as the UTF-8 payload) is the response, publishing `FaultAppliedEvent`; a reply
 that does not fit, or another kind, is noted and not applied.
+
+**Command-stage delay and drop** (ADR-0144 amendment 1, BL-943): `CoapRequestFaults.ApplyAsync` also applies a `delay` rule (held on the exchange's clock, idle clock paused) and a `drop` rule (no answer is sent for that request; a dropped CON is cached with no bytes so its retransmissions get nothing). The answer delegate of `CoapFlowSession` returns `null` for a drop.

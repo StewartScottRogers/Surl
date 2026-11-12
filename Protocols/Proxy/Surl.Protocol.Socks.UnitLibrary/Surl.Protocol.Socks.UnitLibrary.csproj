@@ -6,6 +6,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\..\Foundation\Surl.Protocol.Abstractions.UnitLibrary\Surl.Protocol.Abstractions.UnitLibrary.csproj" />
+    <ProjectReference Include="..\..\..\Cryptography\Surl.Kerberos.UnitLibrary\Surl.Kerberos.UnitLibrary.csproj" />
   </ItemGroup>
 
 </Project>

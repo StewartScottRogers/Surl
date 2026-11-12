@@ -52,12 +52,17 @@ the plan, nor what an MQTT 3.1.1 server - whose acknowledgements carry no MQTT 5
 3. **What fits.** MQTT reads a bare decimal 128 to 255; LDAP a resultCode 1 to 80 other than 10 (`referral`,
    which needs a URL) and 14 (`saslBindInProgress`), one space and non-empty text - `Surl.Cli`'s check
    (`FaultReplyShapes`) exactly. A reply that does not fit, which a `Surl.Api` hook could hand over unchecked,
-   and a rule of any kind but `error` matched at the command stage, are noted in the exchange log and not
-   applied: the packet or operation is answered as without the rule and no event is published.
+   and a rule of any kind but `error`, `delay` or `drop` matched at the command stage, are noted in the exchange
+   log and not applied: the packet or operation is answered as without the rule and no event is published. A
+   `delay` or `drop` rule is applied as [ADR-0141](ADR-0141-how-a-server-applies-a-command-stage-delay-or-drop.md)
+   decides, through `CommandStageFaults` (BL-920): a `delay` holds the packet's or operation's answer for its
+   `ms` on the exchange's clock with the idle clock paused, then answers as usual; a `drop` aborts the
+   connection with no answer - no `CONNACK` or `SUBACK`, nothing published, no LDAP response - and no later
+   filter of the same `SUBSCRIBE` is asked. Each publishes one `FaultAppliedEvent` of its kind.
 4. **Events and the point.** Each application publishes one `FaultAppliedEvent` (stage `Command`, the
    exchange's ID, and as target the packet or operation name, followed by a space and the topic or DN when
    the point has one) and notes the answer. The `FaultPoint`'s listen URL is the serving engine's form, built
-   by each library's own `FaultListenUrl` copy until BL-908 gives `ListenUrl` one.
+   by `ReportedListenUrl.Format` (BL-920 retired each library's own `FaultListenUrl` copy).
 
 ## What upstream curl does with these answers
 

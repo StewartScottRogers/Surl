@@ -31,7 +31,7 @@ public sealed class KafkaProduceAnswererTests
     public async Task AnswerAsync_NullArguments_Throw()
     {
         var answerer = new KafkaProduceAnswerer(new Surl.MessageBus.MessageBus(clock));
-        var request = new KafkaRequest(new KafkaRequestHeader(0, 3, 1, null), KafkaServedApis.Ranges[0], new KafkaPrimitiveReader(Array.Empty<byte>()), new KafkaConnectionState(null), new InMemoryConnection([]));
+        var request = new KafkaRequest(new KafkaRequestHeader(0, 3, 1, null), KafkaServedApis.Find(0)!, new KafkaPrimitiveReader(Array.Empty<byte>()), new KafkaConnectionState(null), new InMemoryConnection([]));
 
         Assert.AreEqual(KafkaApiKey.Produce, answerer.ApiKey);
         await Assert.ThrowsExactlyAsync<ArgumentNullException>(async () => await answerer.AnswerAsync(null!, Context(TestContext.CancellationToken)));
@@ -266,6 +266,18 @@ public sealed class KafkaProduceAnswererTests
         var bus = new Surl.MessageBus.MessageBus(clock, maxLogBytes: 20);
 
         var (written, _) = await ServeAsync(bus, Produce(3, -1, "orders", 0, Batch([Record(0, "hello")])));
+
+        CollectionAssert.AreEqual(Response(Answer("orders", 0, 44, NoOffset, NoOffset)), written);
+        Assert.AreEqual(0, bus.GetLogOffsets("orders").HighWatermark);
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_ABatchOfThreeWhoseThirdPassesTheBusLogBound_IsPolicyViolationAndAppendsNone()
+    {
+        // Each one-byte record counts 17 bytes, so two fit in 40 and the third does not.
+        var bus = new Surl.MessageBus.MessageBus(clock, maxLogBytes: 40);
+
+        var (written, _) = await ServeAsync(bus, Produce(3, -1, "orders", 0, Batch([Record(0, "a"), Record(1, "b"), Record(2, "c")])));
 
         CollectionAssert.AreEqual(Response(Answer("orders", 0, 44, NoOffset, NoOffset)), written);
         Assert.AreEqual(0, bus.GetLogOffsets("orders").HighWatermark);

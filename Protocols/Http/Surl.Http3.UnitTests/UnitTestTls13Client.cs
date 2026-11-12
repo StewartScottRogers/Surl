@@ -77,10 +77,17 @@ internal sealed class UnitTestTls13Client
     /// <summary>Checks the server's Handshake-level flight and returns the client's Finished; the application secrets follow.</summary>
     public byte[] ReceiveServerFlight(byte[] handshake)
     {
-        var messages = SplitMessages(handshake);
+        var flight = SplitMessages(handshake);
+        ReceivedCertificateRequest = flight.Count > 1 && flight[1][0] == 13;
+        var messages = ReceivedCertificateRequest ? flight.Where((_, index) => index != 1).ToList() : flight;
         CollectionAssert.AreEqual(new byte[] { 8, 11, 15, 20 }, messages.Select(message => message[0]).ToArray());
         EncryptedExtensions = messages[0];
         transcript.AddRange(messages[0]);
+        if (ReceivedCertificateRequest)
+        {
+            transcript.AddRange(flight[1]);
+        }
+
         transcript.AddRange(messages[1]);
         VerifyCertificateVerify(messages[1], messages[2], TranscriptHash());
         transcript.AddRange(messages[2]);
@@ -91,9 +98,47 @@ internal sealed class UnitTestTls13Client
         var master = HKDF.Extract(hash, new byte[hashLength], ExpandLabel(handshakeSecret, "derived", CryptographicOperations.HashData(hash, []), hashLength));
         ClientApplicationSecret = ExpandLabel(master, "c ap traffic", serverFinishedHash, hashLength);
         ServerApplicationSecret = ExpandLabel(master, "s ap traffic", serverFinishedHash, hashLength);
-        var verifyData = CryptographicOperations.HmacData(hash, ExpandLabel(ClientHandshakeSecret, "finished", [], hashLength), serverFinishedHash);
-        return [20, 0, 0, (byte)hashLength, .. verifyData];
+        byte[] clientAuthentication = ReceivedCertificateRequest ? ClientAuthenticationMessages() : [];
+        var verifyData = CryptographicOperations.HmacData(hash, ExpandLabel(ClientHandshakeSecret, "finished", [], hashLength), TranscriptHash());
+        return [.. clientAuthentication, 20, 0, 0, (byte)hashLength, .. verifyData];
     }
+
+    /// <summary>
+    /// The certificate, with its RSA private key, the client answers a CertificateRequest with
+    /// (RFC 8446 section 4.4.2); null answers with an empty Certificate.
+    /// </summary>
+    public X509Certificate2? ClientCertificate { get; set; }
+
+    /// <summary>Whether the server's flight carried a CertificateRequest.</summary>
+    public bool ReceivedCertificateRequest { get; private set; }
+
+    /// <summary>
+    /// The client's Certificate - empty, or <see cref="ClientCertificate"/> alone - and, with a
+    /// certificate, its CertificateVerify by rsa_pss_rsae_sha256 (RFC 8446 sections 4.4.2 and 4.4.3),
+    /// each appended to the transcript.
+    /// </summary>
+    private byte[] ClientAuthenticationMessages()
+    {
+        byte[] entries = ClientCertificate is { } certificate
+            ? [.. Length24(certificate.RawData.Length), .. certificate.RawData, 0, 0]
+            : [];
+        byte[] certificateMessage = WithHeader(11, [0, .. Length24(entries.Length), .. entries]);
+        transcript.AddRange(certificateMessage);
+        if (ClientCertificate is null)
+        {
+            return certificateMessage;
+        }
+
+        byte[] content = [.. Enumerable.Repeat((byte)0x20, 64), .. Encoding.ASCII.GetBytes("TLS 1.3, client CertificateVerify"), 0, .. TranscriptHash()];
+        var signature = ClientCertificate.GetRSAPrivateKey()!.SignData(content, HashAlgorithmName.SHA256, RSASignaturePadding.Pss);
+        byte[] verifyMessage = WithHeader(15, [0x08, 0x04, (byte)(signature.Length >> 8), (byte)signature.Length, .. signature]);
+        transcript.AddRange(verifyMessage);
+        return [.. certificateMessage, .. verifyMessage];
+    }
+
+    private static byte[] Length24(int length) => [(byte)(length >> 16), (byte)(length >> 8), (byte)length];
+
+    private static byte[] WithHeader(byte type, byte[] body) => [type, .. Length24(body.Length), .. body];
 
     /// <summary>The value of the quic_transport_parameters extension (0x39) in EncryptedExtensions.</summary>
     public byte[] ServerTransportParameters() => EncryptedExtension(0x0039);

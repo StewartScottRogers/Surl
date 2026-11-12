@@ -344,6 +344,7 @@ internal sealed partial class SmtpSession
         var (note, reply) = outcome switch
         {
             MailStoreOutcome.StoreFull => ("Message refused: the mail store is full", SmtpReplies.StoreFull),
+            MailStoreOutcome.QuotaExceeded => ("Message refused: a recipient's mailbox would pass its quota", SmtpReplies.MailboxFull),
             MailStoreOutcome.MessageTooLarge => ($"Message refused: past --max-filesize after {message.Length} bytes", SmtpReplies.MessageTooLarge),
             _ => ($"Mail store: {message.StorageFailure}", SmtpReplies.StorageFailed),
         };

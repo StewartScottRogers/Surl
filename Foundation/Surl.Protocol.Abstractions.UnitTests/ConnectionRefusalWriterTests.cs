@@ -19,6 +19,17 @@ public sealed class ConnectionRefusalWriterTests
     }
 
     [TestMethod]
+    public async Task WriteRefusalAsync_WithAListenScheme_ByDefaultWritesTheSchemeBlindRefusal()
+    {
+        IConnectionRefusalWriter writer = new NamingRefusalWriter();
+        var connection = new InMemoryConnection([]);
+
+        await writer.WriteRefusalAsync(connection, ConnectionRefusal.TooManyConnections, "abfs", TestContext.CancellationToken);
+
+        Assert.AreEqual("TooManyConnections", Encoding.ASCII.GetString(connection.WrittenBytes));
+    }
+
+    [TestMethod]
     public void ConnectionRefusal_HasExactlyTheTwoNamedMembers()
     {
         var names = Enum.GetNames<ConnectionRefusal>();

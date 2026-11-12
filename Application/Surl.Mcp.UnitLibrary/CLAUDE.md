@@ -33,7 +33,7 @@ with one `McpServerRegistry.AddTool` line and holds nothing else of the tools.
     is_truncated}], dropped_exchange_count, has_more}`, oldest first; an unknown ID is `isError` as for
     `stop_server`.
   - `GetEventsTool` (`get_events`): `server_id`, `after_sequence`, `kinds` (`exchange_started`,
-    `exchange_ended`, `login_judged`, `store_changed`, `fault_applied`, `hook_failed`), `scheme`, `listen_url`,
+    `exchange_ended`, `login_judged`, `store_changed`, `fault_applied`, `hook_failed`, `consumer_group_changed`), `scheme`, `listen_url`,
     `account` and `max_events` (1 to 500, default 100), found with `SurlServer.FindEvents`. Result `{events,
     has_more, dropped_event_count}`, oldest first.
   - `WaitForEventTool` (`wait_for_event`): the same filters and `timeout_ms` (1 to 60000, default 10000),
@@ -57,10 +57,10 @@ with one `McpServerRegistry.AddTool` line and holds nothing else of the tools.
       an ID not kept is `server <id> has no snapshot <p>; only its newest 4 snapshots are kept`.
     - `AddFaultTool` (`add_fault`): `fault`, one `--fault` item, read by `Surl.Cli`'s `CommandLineParser` (a bad
       item is `isError` with `surl`'s `option --fault: ...` text) and added as a `SurlFault` -> `{fault_id}`.
+    - `ListFaultsTool` (`list_faults`, BL-964): `server_id` -> `{faults: [{fault_id, item, remaining}]}` in plan
+      order, read from `SurlServer.Faults.List`; `remaining` is `null` for a rule without `times`.
     - `RemoveFaultTool` (`remove_fault`): `fault_id` -> `{fault_id}`; one the plan does not hold is
       `server <id> has no fault rule <f>`.
-    - `list_faults` is not here yet: `Surl.Api` has no listing of a server's fault plan to read `remaining` from
-      (BL-812's Notes name the follow-up tasks).
   - `SeededContent` reads the content those tools take: exactly one of the text and the base64 property, at most
     16 MiB decoded; no local path is ever read.
   - `ServerSnapshots` - each `RunningSurlServer`'s snapshots, IDs `p1`, `p2` ... per server, never reused, the

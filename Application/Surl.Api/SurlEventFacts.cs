@@ -61,14 +61,22 @@ internal static class SurlEventFacts
         && (query.Store is null || (surlEvent is StoreChangedEvent change && change.Store == query.Store));
 
     private static bool IsOfSchemeAndListenUrl(SurlEvent surlEvent, ExchangeFacts? exchange, SurlEventQuery query) =>
-        IsScheme(surlEvent is LoginJudgedEvent login ? login.Scheme : exchange?.Scheme, query)
+        IsScheme(OwnSchemeOf(surlEvent) ?? exchange?.Scheme, query)
         && (query.ListenUrl is null || query.ListenUrl == exchange?.ListenUrl);
+
+    private static string? OwnSchemeOf(SurlEvent surlEvent) => surlEvent switch
+    {
+        LoginJudgedEvent login => login.Scheme,
+        ConsumerGroupChangedEvent group => group.Scheme,
+        _ => null,
+    };
 
     private static SurlEventKind? KindOfAnEventNotOfAnExchange(SurlEvent surlEvent) => surlEvent switch
     {
         StoreChangedEvent => SurlEventKind.StoreChanged,
         FaultAppliedEvent => SurlEventKind.FaultApplied,
         HookFailedEvent => SurlEventKind.HookFailed,
+        ConsumerGroupChangedEvent => SurlEventKind.ConsumerGroupChanged,
         _ => null,
     };
 
@@ -77,6 +85,7 @@ internal static class SurlEventFacts
         LoginJudgedEvent login => login.ExchangeId,
         StoreChangedEvent change => change.ExchangeId,
         FaultAppliedEvent fault => fault.ExchangeId,
+        ConsumerGroupChangedEvent group => group.ExchangeId,
         _ => null,
     };
 
@@ -84,6 +93,7 @@ internal static class SurlEventFacts
         surlEvent switch
         {
             LoginJudgedEvent login => login.Account == account,
+            ConsumerGroupChangedEvent group => group.Account == account,
             StoreChangedEvent { Store: StoreKind.Accounts } change when change.Name == account => true,
             _ => exchange?.HasJudgedLoginFor(account) == true,
         };

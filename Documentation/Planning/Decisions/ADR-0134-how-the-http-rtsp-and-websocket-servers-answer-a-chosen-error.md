@@ -47,14 +47,14 @@ them; the recordings are the `fault-*` fixtures of the three test projects.
    section 7.1.1's (RTSP) phrase for the code, or an empty one for a code neither names, which curl accepts
    (`HTTP/1.1 599 ` and `RTSP/1.0 599 ` both measured, exit 0). WebSocket reads a code RFC 6455 section 7.4
    allows on the wire - 1000 to 1014 less 1004 to 1006, and 3000 to 4999 - and an optional non-empty reason
-   of at most 123 UTF-8 bytes; the codes 1004 and 1016 to 2999 that ADR-0124's reply table lets through are
+   of at most 123 UTF-8 bytes; the codes 1004 and 1016 to 2999 that ADR-0124's reply table let through until BL-903 are
    reserved and are not sent. A reply that does not fit, which a `Surl.Api` hook could hand over unchecked, is
    noted in the exchange log and not applied: the request is answered as without the rule and no event is
    published.
-5. **Only the `error` kind.** These servers apply `Error` at the `Command` stage. A `delay` or `drop` rule
-   given `stage=command` that matches is noted as not applied here and the request goes on; applying those at
-   the command stage needs the engine's idle clock paused (delay) and a way to abort from an HTTP answer
-   (drop), filed as follow-up work.
+5. **`error`, `delay` and `drop`.** These servers apply `Error` at the `Command` stage, and, since BL-902,
+   `Delay` and `Drop` as [ADR-0141](ADR-0141-how-a-server-applies-a-command-stage-delay-or-drop.md) amendment 1
+   says. Any other kind that matches (`RefuseLogin`, `OutOfSpace`) is noted as not applied here and the request
+   goes on.
 6. **Events and the point.** Each application publishes one `FaultAppliedEvent` (stage `Command`, the
    exchange's ID, the path as its target, or the method when there is no path) and notes the answer in the
    exchange log. The `FaultPoint` carries the exchange ID, the listen URL formatted as the serving engine

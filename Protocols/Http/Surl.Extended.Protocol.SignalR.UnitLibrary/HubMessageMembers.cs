@@ -18,6 +18,8 @@ internal sealed class HubMessageMembers
 
     public string? InvocationId { get; private set; }
 
+    public int? SequenceId { get; private set; }
+
     public string? Target { get; private set; }
 
     public string? Error { get; private set; }
@@ -78,6 +80,9 @@ internal sealed class HubMessageMembers
                 break;
             case "invocationId":
                 InvocationId = ReadId(ref reader);
+                break;
+            case "sequenceId":
+                SequenceId = ReadInteger(ref reader);
                 break;
             case "target":
                 Target = ReadString(ref reader);

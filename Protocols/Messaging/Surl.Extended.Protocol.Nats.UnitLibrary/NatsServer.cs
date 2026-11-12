@@ -1,4 +1,3 @@
-using System.Security.Cryptography;
 using Surl.Protocol.Abstractions;
 
 namespace Surl.Extended.Protocol.Nats;
@@ -71,11 +70,16 @@ public sealed class NatsServer : IConnectionProtocolServer, IConnectionRefusalWr
     private readonly NatsServerOptions options;
     private long lastClientId;
 
-    /// <summary>Creates the server with a random <see cref="ServerId"/>.</summary>
+    /// <summary>Creates the server with a <see cref="ServerId"/> drawn from <paramref name="identifiers"/>.</summary>
     /// <param name="policy">Judges each CONNECT's login.</param>
     /// <param name="bus">The message bus every messaging server of the process shares.</param>
     /// <param name="options">The idle timeout and <c>--allow-anonymous</c>; <see cref="NatsServerOptions.Default"/> when null.</param>
-    public NatsServer(IAuthenticationPolicy policy, Surl.MessageBus.MessageBus bus, NatsServerOptions? options = null)
+    /// <param name="identifiers">Where the server ID's bytes come from (ADR-0124, decision 6); a source of random bytes that differ every run when null.</param>
+    public NatsServer(
+        IAuthenticationPolicy policy,
+        Surl.MessageBus.MessageBus bus,
+        NatsServerOptions? options = null,
+        IIdentifierRandom? identifiers = null)
     {
         ArgumentNullException.ThrowIfNull(policy);
         ArgumentNullException.ThrowIfNull(bus);
@@ -83,7 +87,30 @@ public sealed class NatsServer : IConnectionProtocolServer, IConnectionRefusalWr
         this.policy = policy;
         this.bus = bus;
         this.options = options ?? NatsServerOptions.Default;
-        ServerId = RandomNumberGenerator.GetString(ServerIdAlphabet, ServerIdLength);
+        ServerId = DrawServerId(identifiers ?? NatsUnseededIdentifierRandom.Instance);
+    }
+
+    /// <summary>
+    /// Draws <see cref="ServerIdLength"/> characters of the alphabet, one byte each; a byte at or above the
+    /// largest multiple of the alphabet's length is drawn again, so every character is equally likely.
+    /// </summary>
+    internal static string DrawServerId(IIdentifierRandom identifiers)
+    {
+        var limit = 256 - (256 % ServerIdAlphabet.Length);
+        Span<byte> one = stackalloc byte[1];
+        var characters = new char[ServerIdLength];
+        for (var index = 0; index < characters.Length; index++)
+        {
+            do
+            {
+                identifiers.NextBytes(one);
+            }
+            while (one[0] >= limit);
+
+            characters[index] = ServerIdAlphabet[one[0] % ServerIdAlphabet.Length];
+        }
+
+        return new string(characters);
     }
 
     /// <summary>

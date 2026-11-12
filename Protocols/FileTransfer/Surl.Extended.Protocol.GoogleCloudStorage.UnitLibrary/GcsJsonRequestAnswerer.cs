@@ -162,7 +162,7 @@ internal sealed class GcsJsonRequestAnswerer(ContentStore store, GcsObjectProper
         {
             if (await properties.ReadAsync(file.Mapping, GcsIndexKey.Of(store, bucket, file.Key), cancellationToken) is { } found)
             {
-                objects.Add((file.Key, found, await properties.HashAsync(file.Mapping, found.Length, cancellationToken)));
+                objects.Add((file.Key, found, await properties.DigestsAsync(file.Mapping, found, cancellationToken)));
             }
         }
 
@@ -189,7 +189,7 @@ internal sealed class GcsJsonRequestAnswerer(ContentStore store, GcsObjectProper
             return ConditionRefusal(reply, outcome, found);
         }
 
-        var digests = await properties.HashAsync(mapping, found.Length, cancellationToken);
+        var digests = await properties.DigestsAsync(mapping, found, cancellationToken);
         if (!query.IsMedia)
         {
             return reply.Json(resources.Object(Uri.UnescapeDataString(route.RawBucket), Uri.UnescapeDataString(route.RawName), found, digests));

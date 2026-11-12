@@ -1,5 +1,4 @@
 using System.Buffers.Text;
-using System.Security.Cryptography;
 using Surl.MessageBus;
 
 namespace Surl.Extended.Protocol.Amqp0;
@@ -54,8 +53,14 @@ internal sealed partial class Amqp0BrokerConnection
     internal static bool IsValidName(string name) =>
         name.All(character => char.IsAsciiLetterOrDigit(character) || character is '-' or '_' or '.' or ':');
 
-    // A server-made name: the prefix and 22 base64url characters of 16 random bytes.
-    private static string GenerateName(string prefix) => prefix + Base64Url.EncodeToString(RandomNumberGenerator.GetBytes(16));
+    // A server-made name: the prefix and 22 base64url characters of 16 bytes from the exchange's
+    // identifier source (seedable, ADR-0124 decision 6).
+    private string GenerateName(string prefix)
+    {
+        Span<byte> bytes = stackalloc byte[16];
+        context.Identifiers.NextBytes(bytes);
+        return prefix + Base64Url.EncodeToString(bytes);
+    }
 
     private void DeclareExchange(Amqp0Channel channel, Amqp0WireReader arguments)
     {
@@ -304,6 +309,7 @@ internal sealed partial class Amqp0BrokerConnection
         var deleted = Bus.DeleteQueue(queue, ifUnused: bits[0], ifEmpty: bits[1]);
         Refuse(deleted.Outcome);
         exchanges.RemoveQueue(queue);
+        consumers.EndConsumersOf(queue);
         SendCountUnlessNoWait(channel, Amqp0QueueMethodId.DeleteOk, deleted.RemovedMessageCount, bits[2]);
     }
 
@@ -313,6 +319,16 @@ internal sealed partial class Amqp0BrokerConnection
         if (await exchanges.SaveChangesAsync() is { } failure)
         {
             context.Log.Note($"The exchange file was not written: {failure}");
+        }
+    }
+
+    // ADR-0100 decision 3.7: a failed write is noted; the change stays in memory and serving goes on.
+    private async Task SaveBusAsync()
+    {
+        var saved = await bus.SaveChangesAsync(context.CancellationToken);
+        if (saved.Outcome == MessageBusOutcome.StorageFailed)
+        {
+            context.Log.Note($"The message bus could not save its files ({saved.FailureMessage}); the change is kept in memory.");
         }
     }
 

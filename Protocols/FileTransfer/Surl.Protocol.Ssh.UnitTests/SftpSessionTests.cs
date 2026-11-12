@@ -719,6 +719,8 @@ public sealed partial class SftpSessionTests
     /// </summary>
     private sealed class DeletingChannel(InMemoryContentFileSystem fileSystem, string path, params byte[][] inbound) : ISshChannelDataStream
     {
+        public IConnection Connection { get; } = new InMemoryConnection([]);
+
         private readonly SftpTestChannel inner = new(inbound);
         private int reads;
 

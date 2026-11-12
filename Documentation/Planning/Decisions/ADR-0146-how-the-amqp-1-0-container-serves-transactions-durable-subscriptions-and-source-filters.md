@@ -281,3 +281,21 @@ but its flags and bindings.
 - A stand-in test can now run a transacted JMS session, a durable or shared subscriber and a
   selector against Surl, and inspect a durable subscription's queue through `Surl.Api` like any
   other.
+
+## Amendment 1 (BL-957): details of decision 1.5
+
+Decided by Claude under Stewart's delegation.
+
+- A `disposition` in `transactional-state` naming no open transaction is answered with a `disposition`
+  from the container (sender role, same range) whose state is `rejected` with
+  `amqp:transaction:unknown-id`. It is not settled and changes nothing: the deliveries stay as they
+  were, so the client may retire them again outside any transaction.
+- A client that settles in the transactional `disposition` has the delivery removed from the link's
+  unsettled set at once; a rollback puts it back (unless its link has ended), and a commit applies the
+  outcome. Under `rcv-settle-mode` `second`, a commit settles the deliveries the client left unsettled.
+- A later `disposition` for a delivery replaces the outcome held for it; one outside any transaction
+  drops the held outcome and applies as ADR-0107 decision 5 says.
+- A rollback returns every queue delivery acquired in the transaction that is still unsettled on its
+  link, including one retired inside the transaction, to its queue marked redelivered. A delivery the
+  link settled outside the transaction stays retired. A `flow` naming a `txn-id` that is not open
+  acquires nothing.

@@ -169,7 +169,7 @@ public sealed class DnsOverHttpsHandler : IHttpRequestHandler, IHttp2StreamHandl
             return Empty(request, HttpStatus.BadRequest);
         }
 
-        var message = DnsResponseWriter.WriteWithin(response, MaxQueryLength);
+        var message = DnsResponseWriter.WritePaddedWithin(response, MaxQueryLength);
         var maxAge = DnsOverHttpsCacheLifetime.MaxAgeOf(response.Message);
 
         return new HttpAnswer(

@@ -13,6 +13,15 @@
   </ItemGroup>
 
   <!--
+    The hand-made Kerberos AP-REQ and initiator wrap tokens Surl.Kerberos's tests replay
+    (ADR-0057, decision 11), compiled in here too so the GSS-API login is tested with the same bytes (BL-765).
+  -->
+  <ItemGroup>
+    <Compile Include="..\..\..\Cryptography\Surl.Kerberos.UnitTests\ApRequestBuilder.cs" Link="Kerberos\ApRequestBuilder.cs" />
+    <Compile Include="..\..\..\Cryptography\Surl.Kerberos.UnitTests\InitiatorTokens.cs" Link="Kerberos\InitiatorTokens.cs" />
+  </ItemGroup>
+
+  <!--
     Bytes recorded from pinned upstream curl (Fixtures/README.md), embedded so a fast test
     reads them without touching the file system. Each is named Fixtures/<case>/<file>.
   -->
