@@ -63,6 +63,8 @@ result in `ObjectMetadataIndex`, instead of hashing the whole file on every pull
 - Tests: `OciRepositoryTests` (7, including `ServeAsync_BlobPulledTwice_IsHashedOnceAndAgainOnceReplacedThroughTheStore`
   and the tamper tests), `UnitTestCountingContentFileSystem`, and 6 new `ObjectMetadataIndexTests`.
 
+- 2026-11-12 (Claude, at Stewart's request): the finished code is recovered from the shift stash (the real one is `darkfactory BL-865 20261111-060243`; the `212123` one holds only a task file) and is now on the shift branch as commit 309e1df7, rebased with its two conflicts settled (`ObjectMetadataIndex.cs` keeps `HasStamp` and `HasRoomForVerifiedDigest` beside upstream's `ComputeDigestsAsync`; `Surl.Content.UnitLibrary/CLAUDE.md` keeps both paragraphs). `dotnet build` is clean; `Surl.Content.UnitTests` (753 passed) and `Surl.Extended.Protocol.OciRegistry.UnitTests` (358 passed) pass. Not yet checked: 100% line and branch coverage of the new code, complexity at most 10, `dotnet format`, and the acceptance criteria. Do not stash or cherry-pick anything: run those gates, tick the criteria and finish.
+
 ## Log
 
 - 2026-11-05: Created.
@@ -74,3 +76,4 @@ result in `ObjectMetadataIndex`, instead of hashing the whole file on every pull
 - 2026-11-12: Doing -> Backlog. Work sits in git stash 338a2122 (darkfactory BL-865 20261111-212123); this lane may not run git stash commands, so a session allowed to apply it must, then rebuild on SDK 10.0.404, tick the last box and commit
 - 2026-11-12: Backlog -> Doing.
 - 2026-11-12: Doing -> Blocked. Stewart: allow a session to run 'git stash apply 338a2122' (the finished BL-865 work, tagged darkfactory BL-865 20261111-212123); lanes are denied stash commands, so it cannot be recovered, rebuilt on SDK 10.0.404 and committed
+- 2026-11-12: Blocked -> Backlog. Stewart asked for the stashes to be recovered on 2026-11-12; see Notes for what is done and what is left.
