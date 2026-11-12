@@ -76,3 +76,4 @@ nodes. The `--aihelp` topic and help category exist, and the extension switch tu
 - 2026-11-05: Doing -> Backlog. Needs Application/Surl.Composition.UnitLibrary and Surl.Composition.UnitTests, which BL-803 in Doing touches; resumes once BL-803 releases them
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waits on BL-1035: pinned .NET SDK 10.0.401 is not installed, so the build/test gate cannot run; code is written and uncommitted
+- 2026-11-12: Backlog -> Doing.
