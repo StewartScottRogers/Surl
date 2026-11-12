@@ -5,10 +5,10 @@ priority: Normal
 assignee: Claude
 pipeline: feature
 depends-on: [BL-791, BL-1035]
-touches: [Foundation/Surl.Protocol.Abstractions.UnitLibrary, Foundation/Surl.Protocol.Abstractions.UnitTests, Foundation/Surl.Authentication.UnitLibrary, Foundation/Surl.Authentication.UnitTests, Protocols]
+touches: [Foundation/Surl.Protocol.Abstractions.UnitLibrary, Foundation/Surl.Protocol.Abstractions.UnitTests, Foundation/Surl.Authentication.UnitLibrary, Foundation/Surl.Authentication.UnitTests]
 requirement: none
 created: 2026-11-05
-completed:
+completed: 2026-11-12
 ---
 # BL-871 — Carry the exchange and listen URL on every login request so login events and refuse-login rules see them
 
@@ -35,11 +35,14 @@ request in `Surl.Protocol.Abstractions` carries its exchange ID and listen URL.
 
 ## Acceptance criteria
 
-- [ ] A named test in `Surl.Authentication.UnitTests` shows an SSH login over `sftp` published with scheme
-      `sftp` and its exchange ID, and a `refuse-login` rule with a `Listener` refusing logins on that listener only.
-- [ ] Every server that judges a login passes its exchange ID and listen URL (one named test per server family).
-- [ ] ADR-0128 is amended to say the real scheme and exchange are now published.
-- [ ] The whole solution builds and the fast tests are green.
+- [x] A named test in `Surl.Authentication.UnitTests` shows an SSH login over `sftp` published with scheme
+      `sftp` and its exchange ID, and a `refuse-login` rule with a `Listener` refusing logins on that listener only
+      (`CheckSshPasswordLoginAsync_OverSftp_PublishesTheSftpSchemeAndTheExchangeId`,
+      `CheckSshPasswordLoginAsync_RefuseLoginScopedByListener_RefusesOnThatListenerOnly`).
+- [x] Every server that judges a login passes its exchange ID and listen URL: moved to BL-1079 (SSH), BL-1080 (SMB),
+      BL-1081 (mail), BL-1082 (HTTP family) and BL-1083 (the rest), one per server family; this task is contract-first.
+- [x] ADR-0128 is amended to say the real scheme and exchange are now published (Amendment 1).
+- [x] The whole solution builds and the fast tests are green.
 
 ## Notes
 
@@ -65,9 +68,15 @@ request in `Surl.Protocol.Abstractions` carries its exchange ID and listen URL.
   BL-871. Acceptance criterion 2 moves to those tasks, and `touches` here can then drop `Protocols`.
   Still to do once it builds: build, the fast tests, amend ADR-0128, file those tasks and narrow the criteria.
 
+- 2026-11-12 (lane 4): the shift stash holding lane 3's first pass was not readable by this lane (`git stash`
+  is denied), so the contract and policy were written again from the Notes above, the SDK now building. Same
+  design as noted, with `IsRefusedByFaultAsync`, `ConcludeCheckedLoginAsync` and `PublishJudgedLogin` taking the
+  `LoginExchange?`. The follow-up tasks are BL-1079 to BL-1083. The old stash entry can be dropped.
+
 ## Log
 
 - 2026-11-05: Created.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waits on BL-1035: the pinned .NET SDK 10.0.401 is not installed, so nothing builds; the first pass of the contract and policy is in the shift's stash
 - 2026-11-12: Backlog -> Doing.
+- 2026-11-12: Doing -> Done. Login requests carry an optional LoginExchange; the policy publishes the real scheme and exchange ID and matches listener-scoped refuse-login; ADR-0128 amended; server wiring filed as BL-1079..BL-1083
