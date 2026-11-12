@@ -31,3 +31,4 @@ HTTP Basic, SASL `PLAIN` and `LOGIN`, and SSH `password` logins for a name the a
 ## Log
 
 - 2026-11-12: Created.
+- 2026-11-12: Backlog -> Doing.
