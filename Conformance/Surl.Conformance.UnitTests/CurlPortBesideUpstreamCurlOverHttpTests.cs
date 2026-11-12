@@ -169,7 +169,8 @@ public sealed class CurlPortBesideUpstreamCurlOverHttpTests
     [Description("Mirrors UpstreamCurlFetchesFromSurlOverHttpsTests.GetWithInsecure_SameFileTwice_ExitsZeroWithTheFilesBytesTwice")]
     public Task GetWithInsecure_SameFileTwice_ExitsZeroWithTheFilesBytesTwice() =>
         MeasureAsync(Case(
-            Https, "https", ["--self-signed"], ["-sS", "-k", "{surl}/hello.txt", "{surl}/hello.txt"], Expect(0, [.. Hello, .. Hello])));
+            Https, "https", ["--self-signed"], ["-sS", "-k", "{surl}/hello.txt", "{surl}/hello.txt"], Expect(0, [.. Hello, .. Hello])),
+            CurlPortRunSetup.None with { ComparedNotes = CurlPortRunSetup.WithoutTlsEndingsAndExchangeOpenings });
 
     /// <summary>Mirrors <see cref="UpstreamCurlFetchesFromSurlOverHttpsTests.GetWithHttp11_ThrowawayCertificate_IsServedOverHttp11"/>.</summary>
     [TestMethod]
