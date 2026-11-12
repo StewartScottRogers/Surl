@@ -40,3 +40,4 @@ Deleting a queue ends every consumer of it on every AMQP 0-9-1 connection, and a
 - 2026-11-05: Created.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waits on BL-1035: pinned .NET SDK 10.0.401 is not installed, so dotnet build fails
+- 2026-11-11: Backlog -> Doing.
