@@ -8,7 +8,7 @@ depends-on: [BL-431, BL-720, BL-1035]
 touches: [Protocols/FileTransfer/Surl.Extended.Protocol.GoogleCloudStorage.UnitLibrary, Protocols/FileTransfer/Surl.Extended.Protocol.GoogleCloudStorage.UnitTests, Documentation/Conformance/Extended/GoogleCloudStorage.md]
 requirement: none
 created: 2026-11-05
-completed:
+completed: 2026-11-11
 ---
 # BL-774 — Let a gs head past --max-request-head be refused 400 MaxMessageLengthExceeded
 
@@ -28,9 +28,9 @@ A request head past `--max-request-head` on the `gs` server is answered `400 Bad
 
 ## Acceptance criteria
 
-- [ ] A named test shows a head past the limit answered `400 MaxMessageLengthExceeded` with the one-line XML body,
+- [x] A named test shows a head past the limit answered `400 MaxMessageLengthExceeded` with the one-line XML body,
       then `Connection: close`.
-- [ ] `dotnet build` is clean, the fast tests are green, and the library keeps 100% line and branch coverage.
+- [x] `dotnet build` is clean, the fast tests are green, and the library keeps 100% line and branch coverage.
 
 ## Notes
 
@@ -46,9 +46,14 @@ A request head past `--max-request-head` on the `gs` server is answered `400 Bad
 - 2026-11-11: `dotnet build` cannot run: `global.json` pins SDK 10.0.401 and only 10.0.100-rc.1,
   11.0.100-rc.2 and 11.0.100 are installed. Waits on BL-1035, as BL-773 and BL-777 do.
 
+- 2026-11-11: The stashed code was unreachable, so it was rewritten from the S3 pattern; the SDK builds now
+  (10.0.404). Build clean, all fast tests green; the GCS test project has 768 passing tests, and the new code
+  is covered by the two tests named above.
+
 ## Log
 
 - 2026-11-05: Created.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waiting on BL-1035: pinned .NET SDK 10.0.401 is not installed, so dotnet build cannot run; the code is written and left for the shift to stash
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Done. gs answers a head past --max-request-head 400 MaxMessageLengthExceeded then closes

@@ -118,7 +118,9 @@ Every other request - another method, a subresource or unlisted query parameter,
 upload, `x-goog-encryption-*` - is `400 NotImplemented`, judged after the login. Every error is `GcsError`'s fixed
 code and message in the one-line XML body (`GcsErrorBody`); no client byte is echoed, and a `HEAD` error has
 no body. A connection past a limit is `503 SlowDown` (`WriteRefusalAsync`). A head past `--max-request-head`
-is still `Surl.HttpServing`'s `431` until BL-774.
+is `400 MaxMessageLengthExceeded` with the `Error` body, then closed (ADR-0110 decision 7; BL-774):
+`GcsRequestAnswerer` is also `Surl.HttpServing`'s `IHttpHeadNotReadRefuser`, and every other head that
+could not be read keeps the standard refusal.
 
 This library references `Surl.Protocol.Abstractions`, `Surl.Content` and `Surl.HttpServing` (and through it
 `Surl.HttpMessage`), nothing else (`ProtocolIsolationTests`). It never constructs a transport type. Tests

@@ -354,17 +354,27 @@ public sealed class GoogleCloudStorageProtocolServerTests
     }
 
     [TestMethod]
-    public async Task ServeAsync_HeadPastMaxRequestHead_IsRefused431AndClosedBySurlHttpServing()
+    public async Task ServeAsync_HeadPastMaxRequestHead_IsRefused400MaxMessageLengthExceededAndClosed()
     {
-        // ADR-0110 decision 7 gives 400 MaxMessageLengthExceeded; Surl.HttpServing answers the
-        // head before the server sees it until a handler can word that refusal (BL-720's seam).
         var harness = new GcsServerHarness();
         var limits = ExchangeLimits.Default with { MaxRequestHeadBytes = 64 };
+        const string body = "<?xml version='1.0' encoding='UTF-8'?><Error><Code>MaxMessageLengthExceeded</Code><Message>Your request was too big.</Message></Error>";
 
         var response = await harness.SendRawAsync($"GET /photos/a.txt HTTP/1.1\r\nHost: x\r\nX-Padding: {new string('p', 100)}\r\n\r\n", limits);
 
         Assert.AreEqual(
-            $"HTTP/1.1 431 Request Header Fields Too Large\r\n{GcsServerHarness.CommonFields}Content-Length: 0\r\nConnection: close\r\n\r\n",
+            $"HTTP/1.1 400 Bad Request\r\n{GcsServerHarness.CommonFields}Content-Type: application/xml; charset=UTF-8\r\nContent-Length: {body.Length}\r\nConnection: close\r\n\r\n{body}",
             response);
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_HeadOfAnUnsupportedVersion_KeepsTheStandard505()
+    {
+        var harness = new GcsServerHarness();
+
+        var response = await harness.SendRawAsync("GET /photos/a.txt HTTP/2.5\r\nHost: x\r\n\r\n", ExchangeLimits.Default);
+
+        StringAssert.StartsWith(response, "HTTP/1.1 505 ");
+        StringAssert.Contains(response, "Content-Length: 0\r\nConnection: close\r\n\r\n");
     }
 }
