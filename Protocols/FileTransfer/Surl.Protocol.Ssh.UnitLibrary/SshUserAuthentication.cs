@@ -36,13 +36,15 @@ namespace Surl.Protocol.Ssh;
 /// <param name="sessionIdentifier">The first key exchange's hash, which a public-key signature covers.</param>
 /// <param name="stopHeadTimeout">Called once a login succeeds, before <c>USERAUTH_SUCCESS</c> is written (ADR-0051, decision 9).</param>
 /// <param name="allowWeakAlgorithms">Whether <c>ssh-rsa</c> and <c>ssh-dss</c> signatures and RSA keys shorter than 2048 bits are accepted (<c>--allow-weak-ssh-algorithms</c>).</param>
+/// <param name="exchange">The connection's exchange ID and listen URL, carried on every password and public-key login the policy judges (BL-1079).</param>
 internal sealed class SshUserAuthentication(
     SshTransportHandshake transport,
     ISshAuthenticationPolicy policy,
     IExchangeLog log,
     byte[] sessionIdentifier,
     Action stopHeadTimeout,
-    bool allowWeakAlgorithms)
+    bool allowWeakAlgorithms,
+    LoginExchange exchange)
 {
     /// <summary>The service the client asks for before it logs in.</summary>
     public const string UserAuthService = "ssh-userauth";
@@ -279,7 +281,7 @@ internal sealed class SshUserAuthentication(
 
     private async ValueTask<Answer> CheckPasswordAsync(string method, ReadOnlyMemory<byte> password, CancellationToken cancellationToken)
     {
-        var verdict = await policy.CheckSshPasswordLoginAsync(new SshPasswordLogin(method, Utf8OrNull(fixedUser!), password), cancellationToken);
+        var verdict = await policy.CheckSshPasswordLoginAsync(new SshPasswordLogin(method, Utf8OrNull(fixedUser!), password, exchange), cancellationToken);
         WriteLoginNote(verdict);
 
         return Judge(verdict, Answer.Failure);
@@ -330,7 +332,7 @@ internal sealed class SshUserAuthentication(
         var proof = SshUserKeySignature.Verifies(algorithm, keyBlob, reader.ReadString(), SignedData(payload.AsSpan(0, signedLength)))
             ? SshPublicKeyProof.ValidSignature
             : SshPublicKeyProof.InvalidSignature;
-        var verdict = await policy.CheckSshPublicKeyLoginAsync(new SshPublicKeyLogin(Utf8OrNull(fixedUser!), algorithm, keyBlob, proof), cancellationToken);
+        var verdict = await policy.CheckSshPublicKeyLoginAsync(new SshPublicKeyLogin(Utf8OrNull(fixedUser!), algorithm, keyBlob, proof, exchange), cancellationToken);
         WriteLoginNote(verdict);
 
         return Judge(verdict, Answer.Failure);
@@ -338,7 +340,7 @@ internal sealed class SshUserAuthentication(
 
     private async ValueTask<Answer> QueryPublicKeyAsync(ReadOnlyMemory<byte> algorithm, ReadOnlyMemory<byte> keyBlob, CancellationToken cancellationToken)
     {
-        var login = new SshPublicKeyLogin(Utf8OrNull(fixedUser!), Encoding.Latin1.GetString(algorithm.Span), keyBlob, SshPublicKeyProof.None);
+        var login = new SshPublicKeyLogin(Utf8OrNull(fixedUser!), Encoding.Latin1.GetString(algorithm.Span), keyBlob, SshPublicKeyProof.None, exchange);
         var verdict = await policy.CheckSshPublicKeyLoginAsync(login, cancellationToken);
         WriteLoginNote(verdict);
         if (verdict.Outcome != SshLoginOutcome.KeyAcceptable)

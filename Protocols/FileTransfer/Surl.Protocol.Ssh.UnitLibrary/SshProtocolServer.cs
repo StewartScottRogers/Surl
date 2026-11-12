@@ -194,7 +194,8 @@ public sealed class SshProtocolServer : IConnectionProtocolServer
                 context.Log,
                 firstExchange.SessionIdentifier,
                 () => headTimeout.CancelAfter(Timeout.InfiniteTimeSpan),
-                offer.AllowsWeakAlgorithms);
+                offer.AllowsWeakAlgorithms,
+                LoginExchange.Of(context));
             var connectionProtocol = new SshConnectionProtocol(transport, authentication, channelHandlers, context);
 
             // However the message loop ends, every channel ends and its handler returns before
