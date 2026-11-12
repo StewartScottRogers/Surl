@@ -59,6 +59,23 @@ public sealed partial class SignalRRequestAnswererTests
     }
 
     [TestMethod]
+    [DataRow("useStatefulReconnect=true", true)]
+    [DataRow("useAck=true", true)]
+    [DataRow("useAck=TRUE", true)]
+    [DataRow("useAck=false", false)]
+    [DataRow("useStatefulReconnect=yes", false)]
+    [DataRow("negotiateVersion=1", false)]
+    public async Task AnswerAsync_NegotiateAskingForStatefulReconnect_OffersItAfterTheTransportsOnly(string query, bool isOffered)
+    {
+        var harness = new SignalRServerHarness();
+
+        var response = await harness.SendAsync("POST", "/chat/negotiate?negotiateVersion=1&" + query, SignalRServerHarness.BearerField);
+
+        var body = SignalRServerHarness.BodyOf(response);
+        Assert.AreEqual(isOffered, body.EndsWith("],\"useStatefulReconnect\":true}", StringComparison.Ordinal), body);
+        Assert.AreEqual(isOffered, harness.Connections.Count == 1 && body.Contains("useStatefulReconnect", StringComparison.Ordinal));
+    }
+    [TestMethod]
     [DataRow("2")]
     [DataRow("99999999999999999999")]
     public async Task AnswerAsync_NegotiateVersionAboveOne_AnswersVersionOne(string version)

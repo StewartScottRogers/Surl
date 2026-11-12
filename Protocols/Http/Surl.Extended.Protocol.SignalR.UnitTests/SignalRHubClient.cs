@@ -47,10 +47,10 @@ internal sealed class SignalRHubClient
     /// <summary>
     /// Upgrades <c>/chat</c> with no <c>id</c> and, unless told not to, completes the handshake.
     /// </summary>
-    public static async Task<SignalRHubClient> ConnectAsync(SignalRServerHarness harness, ExchangeContext? context = null, bool completesHandshake = true)
+    public static async Task<SignalRHubClient> ConnectAsync(SignalRServerHarness harness, ExchangeContext? context = null, bool completesHandshake = true, string target = "/chat")
     {
         var connection = new UnitTestDuplexConnection();
-        connection.Send(Encoding.ASCII.GetBytes(UpgradeRequest("/chat")));
+        connection.Send(Encoding.ASCII.GetBytes(UpgradeRequest(target)));
         var client = new SignalRHubClient(connection, harness.Server.ServeAsync(connection, context ?? harness.Context()));
         await connection.WaitForWrittenAsync(bytes => HeadLength(bytes) > 0);
         if (completesHandshake)

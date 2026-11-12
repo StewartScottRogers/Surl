@@ -64,6 +64,7 @@ internal sealed class SignalRHubSession : IDisposable
     private readonly IConnection connection;
     private readonly ExchangeContext context;
     private readonly SignalRInvocationFaults invocationFaults;
+    private readonly SignalRReconnectState? reconnect;
     private readonly WebSocketFrameReader frameReader;
     private readonly WebSocketMessageReassembler reassembler;
     private readonly HubRecordReader recordReader;
@@ -87,8 +88,10 @@ internal sealed class SignalRHubSession : IDisposable
     /// <param name="reader">The reader that read the upgrade request, so bytes it already buffered come first.</param>
     /// <param name="context">The exchange: its clock, limits, log and cancellation.</param>
     /// <param name="invocationFaults">Asks the exchange's fault plan for a chosen Completion error per invocation (ADR-0144).</param>
-    public SignalRHubSession(IConnection connection, HttpConnectionReader reader, ExchangeContext context, SignalRInvocationFaults invocationFaults)
+    /// <param name="reconnect">The connection's numbering when it negotiated stateful reconnect (ADR-0119, decision 6), else <see langword="null"/>.</param>
+    public SignalRHubSession(IConnection connection, HttpConnectionReader reader, ExchangeContext context, SignalRInvocationFaults invocationFaults, SignalRReconnectState? reconnect = null)
     {
+        this.reconnect = reconnect;
         this.connection = connection;
         this.context = context;
         this.invocationFaults = invocationFaults;
@@ -102,8 +105,8 @@ internal sealed class SignalRHubSession : IDisposable
     /// <summary>
     /// Serves the connection until its end is decided, then writes that end.
     /// </summary>
-    /// <returns>A task that completes when the connection is done.</returns>
-    public async Task RunAsync()
+    /// <returns>How the connection ended.</returns>
+    public async Task<SignalRSessionEnd> RunAsync()
     {
         SignalRSessionEnd end;
         using (context.CancellationToken.Register(() => Decide(SignalRSessionEnd.Silent("the exchange was cancelled"))))
@@ -118,6 +121,8 @@ internal sealed class SignalRHubSession : IDisposable
 
         context.Log.Note($"SignalR connection ended: {end.Why}.");
         await WriteEndAsync(end);
+
+        return end;
     }
 
     /// <inheritdoc/>
@@ -278,14 +283,69 @@ internal sealed class SignalRHubSession : IDisposable
 
         isHandshakeDone = true;
         handshakeAccepted.TrySetResult();
+        if (reconnect is { IsResumption: true })
+        {
+            await ResendAsync(reconnect, token);
+        }
 
         return null;
     }
 
+    // A resumed connection's Sequence names the first record kept, then every kept record follows in order.
+    private async Task ResendAsync(SignalRReconnectState state, CancellationToken token)
+    {
+        var (firstSequenceId, records) = state.Resend();
+        await SendRecordAsync(HubMessageJsonWriter.Write(new HubSequence(firstSequenceId)), token);
+        foreach (var record in records)
+        {
+            await SendRecordAsync(record, token);
+        }
+    }
+
+    // On a stateful-reconnect connection each Invocation, StreamItem and Completion the client sends is
+    // numbered and acknowledged at once; one the client sends again after a reconnect is dropped.
+    private async Task<bool> IsNewAfterAcknowledgingAsync(HubMessage message, CancellationToken token)
+    {
+        if (reconnect is null || message is not (HubInvocation or HubStreamItem or HubCompletion))
+        {
+            return true;
+        }
+
+        if (reconnect.CountReceived() is not { } received)
+        {
+            return false;
+        }
+
+        await SendRecordAsync(HubMessageJsonWriter.Write(new HubAck(received)), token);
+
+        return true;
+    }
+
+    private static SignalRSessionEnd? AcceptReconnectMessage(SignalRReconnectState state, HubMessage message)
+    {
+        if (message is HubSequence sequence)
+        {
+            state.AcceptClientSequence(sequence.SequenceId);
+
+            return null;
+        }
+
+        return state.TryAcknowledge(((HubAck)message).SequenceId)
+            ? null
+            : SignalRSessionEnd.HubProtocolError("a client Ack is above the last record the server sent");
+    }
+
     private async Task<SignalRSessionEnd?> AcceptMessageAsync(HubMessage message, CancellationToken token)
     {
+        if (!await IsNewAfterAcknowledgingAsync(message, token))
+        {
+            return null;
+        }
+
         switch (message)
         {
+            case HubAck or HubSequence when reconnect is not null:
+                return AcceptReconnectMessage(reconnect, message);
             case HubInvocation invocation:
                 return await InvokeAsync(invocation, token);
             case HubCancelInvocation cancel:
@@ -318,7 +378,7 @@ internal sealed class SignalRHubSession : IDisposable
         }
         else if (invocation.InvocationId is { } completed)
         {
-            await SendRecordAsync(HubMessageJsonWriter.Write(new HubCompletion(completed, call.Result, call.Error)), token);
+            await SendNumberedAsync(HubMessageJsonWriter.Write(new HubCompletion(completed, call.Result, call.Error)), token);
         }
 
         return null;
@@ -336,7 +396,7 @@ internal sealed class SignalRHubSession : IDisposable
     {
         if (TryRegisterStream(id, token) is not { } cancellation)
         {
-            await SendRecordAsync(HubMessageJsonWriter.Write(new HubCompletion(id, null, TooManyInvocationsText)), token);
+            await SendNumberedAsync(HubMessageJsonWriter.Write(new HubCompletion(id, null, TooManyInvocationsText)), token);
 
             return;
         }
@@ -379,7 +439,7 @@ internal sealed class SignalRHubSession : IDisposable
                 }
 
                 var itemJson = Encoding.ASCII.GetBytes(item.ToString(CultureInfo.InvariantCulture));
-                await SendRecordAsync(HubMessageJsonWriter.Write(new HubStreamItem(id, new HubJsonValue(itemJson))), ending.Token);
+                await SendNumberedAsync(HubMessageJsonWriter.Write(new HubStreamItem(id, new HubJsonValue(itemJson))), ending.Token);
             }
         }
         catch (OperationCanceledException) when (!ending.IsCancellationRequested)
@@ -392,7 +452,7 @@ internal sealed class SignalRHubSession : IDisposable
             streams.Remove(id);
         }
 
-        await SendRecordAsync(HubMessageJsonWriter.Write(new HubCompletion(id, null, null)), ending.Token);
+        await SendNumberedAsync(HubMessageJsonWriter.Write(new HubCompletion(id, null, null)), ending.Token);
     }
 
     // A CancelInvocation naming no stream in progress is ignored (HubProtocol.md "Cancellation").
@@ -471,6 +531,42 @@ internal sealed class SignalRHubSession : IDisposable
     private async Task SendRecordAsync(byte[] record, CancellationToken token)
     {
         await WriteFrameAsync(WebSocketFrameEncoder.EncodeFrame(true, WebSocketOpcode.Text, record), token);
+        NoteSent();
+    }
+
+    // An Invocation, StreamItem or Completion: on a stateful-reconnect connection it is numbered and kept
+    // until an Ack covers it, in the order it is written; past the bound the connection ends.
+    private async Task SendNumberedAsync(byte[] record, CancellationToken token)
+    {
+        if (reconnect is null)
+        {
+            await SendRecordAsync(record, token);
+
+            return;
+        }
+
+        await writeGate.WaitAsync(token);
+        try
+        {
+            if (!reconnect.TryKeep(record))
+            {
+                Decide(SignalRSessionEnd.HubProtocolError("the unacknowledged records passed the reconnect buffer's bound"));
+
+                return;
+            }
+
+            await connection.WriteAsync(WebSocketFrameEncoder.EncodeFrame(true, WebSocketOpcode.Text, record), token);
+        }
+        finally
+        {
+            writeGate.Release();
+        }
+
+        NoteSent();
+    }
+
+    private void NoteSent()
+    {
         lock (gate)
         {
             lastSentAt = context.TimeProvider.GetUtcNow();

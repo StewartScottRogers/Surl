@@ -77,6 +77,12 @@ public static class HubMessageJsonWriter
             case HubClose close:
                 WriteClose(writer, close);
                 break;
+            case HubAck ack:
+                writer.WriteNumber("sequenceId", ack.SequenceId);
+                break;
+            case HubSequence sequence:
+                writer.WriteNumber("sequenceId", sequence.SequenceId);
+                break;
         }
     }
 

@@ -9,7 +9,7 @@ namespace Surl.Extended.Protocol.SignalR;
 /// </summary>
 /// <remarks>
 /// A record is a protocol error when it is not one JSON object; when its <c>type</c> is missing,
-/// not an integer, or not 1 to 7; when a member the type requires is missing or a known member is
+/// not an integer, or not 1 to 9; when an Ack or Sequence has no non-negative integer <c>sequenceId</c>; when a member the type requires is missing or a known member is
 /// of the wrong JSON kind; when an <c>invocationId</c> or stream ID passes
 /// <see cref="MaxIdLength"/> characters; when a StreamInvocation has no <c>invocationId</c>; or
 /// when a Completion has both <c>result</c> and <c>error</c>. Members the server does not know,
@@ -54,6 +54,8 @@ public static class HubMessageJsonReader
         (int)HubMessageType.CancelInvocation => BuildCancelInvocation(members),
         (int)HubMessageType.Ping => new HubPing(),
         (int)HubMessageType.Close => new HubClose(members.Error, members.AllowReconnect),
+        (int)HubMessageType.Ack => members.SequenceId is >= 0 and var ack ? new HubAck(ack) : null,
+        (int)HubMessageType.Sequence => members.SequenceId is >= 0 and var next ? new HubSequence(next) : null,
         _ => null,
     };
 

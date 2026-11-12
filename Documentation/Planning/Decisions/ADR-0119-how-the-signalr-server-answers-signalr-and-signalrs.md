@@ -275,6 +275,11 @@ types 8 and 9 are protocol errors (decision 3). What BL-755 builds:
   `{"type":9,"sequenceId":<first unacknowledged>}` and every kept message from there in order. A
   client Sequence makes the server drop received messages numbered below it as duplicates. After
   30 s the connection ends and its token is `404`.
+- **As built (BL-755).** The Ack is sent immediately after each numbered client message, which meets the
+  1 s bound. Streams (`Count`) in progress when the WebSocket is lost are cancelled with it and not
+  resumed; only records already numbered are replayed. A lost WebSocket is one that ends with no Close
+  either way (the client vanished or the read failed); a hub Close or WebSocket Close ends the
+  connection for good.
 - **Bounded.** At most 100000 bytes of unacknowledged records a connection (ASP.NET Core's
   `StatefulReconnectBufferSize` default); more ends the connection with the protocol-error Close of
   decision 3.

@@ -47,6 +47,8 @@ public sealed class HubMessageJsonReaderTests
         "{\n    \"type\": 5,\n    \"invocationId\": \"123\"\n}",
         "{\"type\":5,\"invocationId\":\"123\"}",
         DisplayName = "CancelInvocation")]
+    [DataRow("{\n    \"type\": 8,\n    \"sequenceId\": 1234\n}", "{\"type\":8,\"sequenceId\":1234}", DisplayName = "Ack")]
+    [DataRow("{\n    \"type\": 9,\n    \"sequenceId\": 1234\n}", "{\"type\":9,\"sequenceId\":1234}", DisplayName = "Sequence")]
     [DataRow("{\n    \"type\": 6\n}", "{\"type\":6}", DisplayName = "Ping")]
     [DataRow("{\n    \"type\": 7\n}", "{\"type\":7}", DisplayName = "Close, no error")]
     [DataRow(
@@ -142,8 +144,9 @@ public sealed class HubMessageJsonReaderTests
     [DataRow("{\"type\":\"6\"}", DisplayName = "type a string")]
     [DataRow("{\"type\":6.5}", DisplayName = "type not an integer")]
     [DataRow("{\"type\":0}", DisplayName = "type 0")]
-    [DataRow("{\"type\":8,\"sequenceId\":1}", DisplayName = "Ack, read only from BL-755")]
-    [DataRow("{\"type\":9,\"sequenceId\":1}", DisplayName = "Sequence, read only from BL-755")]
+    [DataRow("{\"type\":8}", DisplayName = "Ack without sequenceId")]
+    [DataRow("{\"type\":9,\"sequenceId\":-1}", DisplayName = "Sequence with a negative sequenceId")]
+    [DataRow("{\"type\":8,\"sequenceId\":\"1\"}", DisplayName = "sequenceId a string")]
     [DataRow("{\"type\":1,\"arguments\":[]}", DisplayName = "Invocation without target")]
     [DataRow("{\"type\":1,\"target\":\"Echo\"}", DisplayName = "Invocation without arguments")]
     [DataRow("{\"type\":1,\"target\":7,\"arguments\":[]}", DisplayName = "target a number")]

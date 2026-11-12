@@ -173,4 +173,69 @@ public sealed class SignalRHubConnectionsTests
 
         Assert.ThrowsExactly<ArgumentNullException>(() => connections.End(null!));
     }
+
+    [TestMethod]
+    public void Negotiate_Stateful_GivesAReconnectStateAndWithoutItNone()
+    {
+        var connections = new SignalRHubConnections(new SteppingTimeProvider(Now));
+
+        Assert.IsNotNull(connections.Negotiate(null, true, TimeSpan.FromSeconds(30), isStateful: true)!.Reconnect);
+        Assert.IsNull(connections.Negotiate(null, true, TimeSpan.FromSeconds(30))!.Reconnect);
+    }
+
+    [TestMethod]
+    public void Suspend_ThenTakeUpWithinThirtySeconds_ResumesTheSameConnectionAndState()
+    {
+        var clock = new ManualTimeProvider();
+        var connections = new SignalRHubConnections(clock);
+        var negotiated = connections.Negotiate("alice", true, TimeSpan.FromSeconds(30), isStateful: true)!;
+        connections.TakeUp(negotiated.UpgradeId, "alice", out var first);
+
+        connections.Suspend(first!);
+        clock.Advance(TimeSpan.FromSeconds(29));
+
+        Assert.AreEqual(1, connections.Count);
+        Assert.AreEqual(SignalRUpgradeOutcome.TakenUp, connections.TakeUp(negotiated.UpgradeId, "alice", out var resumed));
+        Assert.AreSame(first!.Reconnect, resumed!.Reconnect);
+        Assert.IsTrue(resumed.Reconnect!.IsResumption);
+        Assert.AreEqual(SignalRUpgradeOutcome.AlreadyTakenUp, connections.TakeUp(negotiated.UpgradeId, "alice", out _));
+    }
+
+    [TestMethod]
+    public void Suspend_ThenTakeUpAfterThirtySeconds_IsNotFoundAndTheConnectionIsForgotten()
+    {
+        var clock = new ManualTimeProvider();
+        var connections = new SignalRHubConnections(clock);
+        var negotiated = connections.Negotiate("alice", true, TimeSpan.FromSeconds(30), isStateful: true)!;
+        connections.TakeUp(negotiated.UpgradeId, "alice", out var first);
+        connections.Suspend(first!);
+
+        clock.Advance(SignalRHubConnections.ReconnectWindow);
+
+        Assert.AreEqual(SignalRUpgradeOutcome.NotFound, connections.TakeUp(negotiated.UpgradeId, "alice", out _));
+        Assert.AreEqual(0, connections.Count);
+    }
+
+    [TestMethod]
+    public void Suspend_ThenTakeUpByAnotherCaller_IsRefusedAndTheConnectionWaitsOn()
+    {
+        var clock = new ManualTimeProvider();
+        var connections = new SignalRHubConnections(clock);
+        var negotiated = connections.Negotiate("alice", true, TimeSpan.FromSeconds(30), isStateful: true)!;
+        connections.TakeUp(negotiated.UpgradeId, "alice", out var first);
+        connections.Suspend(first!);
+
+        Assert.AreEqual(SignalRUpgradeOutcome.NegotiatedByAnotherCaller, connections.TakeUp(negotiated.UpgradeId, "bob", out var refused));
+
+        Assert.IsNull(refused);
+        Assert.AreEqual(SignalRUpgradeOutcome.TakenUp, connections.TakeUp(negotiated.UpgradeId, "alice", out _));
+    }
+
+    [TestMethod]
+    public void Suspend_NullConnection_Throws()
+    {
+        var connections = new SignalRHubConnections(new SteppingTimeProvider(Now));
+
+        Assert.ThrowsExactly<ArgumentNullException>(() => connections.Suspend(null!));
+    }
 }

@@ -108,7 +108,7 @@ internal sealed class SignalRRequestAnswerer(
             return bodyRefusal;
         }
 
-        var connection = connections.Negotiate(accountName, isVersionOne, context.Limits.HeadTimeout);
+        var connection = connections.Negotiate(accountName, isVersionOne, context.Limits.HeadTimeout, AsksForStatefulReconnect(target));
         if (connection is null)
         {
             context.Log.Note($"Negotiate refused: the hub holds {SignalRHubConnections.MaxConnections} connections.");
@@ -118,6 +118,11 @@ internal sealed class SignalRRequestAnswerer(
 
         return Json(request, NegotiateResponse(connection));
     }
+
+    // useStatefulReconnect is the name ASP.NET Core clients send, useAck the one TransportProtocols.md gives.
+    private static bool AsksForStatefulReconnect(SignalRRequestTarget target) =>
+        string.Equals(target.QueryParameter("useStatefulReconnect"), "true", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(target.QueryParameter("useAck"), "true", StringComparison.OrdinalIgnoreCase);
 
     // Absent is version 0; 0 is 0; any larger non-negative integer is the server's largest, 1.
     private static bool TryReadNegotiateVersion(string? value, out bool isVersionOne)
@@ -168,6 +173,10 @@ internal sealed class SignalRRequestAnswerer(
             }
 
             WriteAvailableTransports(writer);
+            if (connection.Reconnect is not null)
+            {
+                writer.WriteBoolean("useStatefulReconnect", true);
+            }
         });
 
         return record[..^1];

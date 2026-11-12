@@ -45,7 +45,17 @@ What is here so far (BL-448 and BL-449, ADR-0119 decisions 0 to 5 and most of 7)
 Still to come: `Broadcast`, `Collect` uploads, the shutdown farewell and the unsent-bytes cap
 (BL-772; until then `Broadcast` and `Collect` are `Unknown hub method.`, a client StreamItem or
 Completion is a protocol error, and a cancelled exchange writes nothing), the command line (BL-450),
-Server-Sent Events and Long Polling (BL-757), stateful reconnect (BL-755) and MessagePack (BL-756).
+Server-Sent Events and Long Polling (BL-757) and MessagePack (BL-756).
+
+**Stateful reconnect** (BL-755, ADR-0119 decision 6): a negotiate with `useStatefulReconnect=true` or
+`useAck=true` is answered with `"useStatefulReconnect":true` and gives the connection a
+`SignalRReconnectState`. On such a connection the session numbers each Invocation, StreamItem and
+Completion it sends and keeps it until a client Ack covers it (at most 100000 bytes, else the
+protocol-error Close); it Acks each numbered client message at once; a client Sequence makes it drop
+the repeats. A WebSocket lost with no Close is `Suspend`ed in `SignalRHubConnections` for 30 s, and an
+upgrade with the same `id` and caller resumes it: handshake `{}`, a Sequence, then the kept records.
+Streams in progress when the WebSocket is lost are not resumed. Types 8 and 9 stay protocol errors on
+a connection that did not ask.
 
 **Chosen-error fault** (ADR-0144, BL-835): `SignalRWebSocketTakeover` gives each `SignalRHubSession` a
 `SignalRInvocationFaults` (the hub's endpoint base and the negotiating account); every Invocation or
