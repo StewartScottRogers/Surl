@@ -61,6 +61,5 @@ evidence (ADR-0003).
   identity, a channel with an alias is the alias target on the bus, and a bus topic comes back to a
   pattern subscriber as the aliased channel name (sent nothing when its name is aliased elsewhere).
   The composition hands the Redis server the shared bus (BL-492).
-  a follow-up task.
 - Bus messages carry Redis payloads as bytes, QoS 0, never retained; a Redis subscriber sees only
   live fan-out (ADR-0100 decision 3.3).
