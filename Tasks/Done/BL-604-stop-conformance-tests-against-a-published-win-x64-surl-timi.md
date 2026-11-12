@@ -8,7 +8,7 @@ depends-on: [BL-1035, BL-1059, BL-1088, BL-1089]
 touches: [Conformance/Surl.Conformance.UnitTests]
 requirement: none
 created: 2026-11-04
-completed:
+completed: 2026-11-12
 ---
 # BL-604 — Stop conformance tests against a published win-x64 surl timing out before the listening line under parallel load
 
@@ -35,9 +35,9 @@ start timeout.
 ## Acceptance criteria
 
 - [x] Notes name the cause, with the evidence for it.
-- [ ] Two consecutive full runs of the conformance suite with `SURL_EXECUTABLE` naming a `win-x64`
+- [x] Two consecutive full runs of the conformance suite with `SURL_EXECUTABLE` naming a `win-x64`
       publish have no failure, and Notes record their counts.
-- [ ] The fast tests stay green.
+- [x] The fast tests stay green.
 
 ## Notes
 
@@ -57,6 +57,7 @@ start timeout.
 
 - 2026-11-12 (lane 3): built. `SocksGssApiLogin` (acceptor + service, default `rcmd`) and `Socks5GssApiNegotiation` (`01 01` context message, AP-REP only when mutual auth was asked, `01 02` protection message answered with level 0 in the same form it came - wrapped or raw for `--socks5-gssapi-nec`; any failure `01 FF` and close). With a keytab, `01` is chosen before `00`/`02` when offered (ADR-0121 amendment 2); without one it is never selected. Tests use the Kerberos tests' hand-made AP-REQs (linked `ApRequestBuilder`/`InitiatorTokens`, as `Surl.Authentication.UnitTests` does), so added the Socks tests to `Surl.Kerberos.UnitLibrary`'s `InternalsVisibleTo` (csproj added to `touches`; no other Doing task names it). Protocol bytes come from reading curl's `socks_sspi.c`; a live curl run still needs the SDK-pinned TestKdc and stored Windows credentials (see the 2026-11-11 note) and was not run. Wiring the keytab option is BL-1061. Socks library coverage: 100% lines, branches.
 - 2026-11-12, lane 2: full runs on a fresh win-x64 publish after BL-1059 and the thread-pool fix: 4 and 2 failures of 1993, then 9 on a third run. No start timeout in any. Left: HTTP/3 port-0 bind still exits 45 (BL-1088) and unrelated failures (BL-1089). Cause criterion is met; the two clean runs wait on those.
+- 2026-11-12 (lane 1): clean runs are BL-1090's (8-worker cap on the Conformance suite, no code change since): two consecutive full runs with `SURL_EXECUTABLE` on a fresh win-x64 native publish, each Passed 1873, Failed 0, Skipped 120 of 1993. Not re-run here (`dotnet publish` of the native binary needs vswhere on PATH, absent in this lane). Build clean, fast tests all green.
 
 ## Log
 
@@ -68,3 +69,4 @@ start timeout.
 - 2026-11-12: Backlog -> Doing.
 - 2026-11-12: Doing -> Backlog. Cause fixed; clean full runs wait on BL-1088 (HTTP/3 port-0 bind) and BL-1089 (other failures)
 - 2026-11-12: Backlog -> Doing.
+- 2026-11-12: Doing -> Done. Cause (thread-pool starvation) fixed; two consecutive full conformance runs on a win-x64 publish pass (1873 passed each, BL-1090)
