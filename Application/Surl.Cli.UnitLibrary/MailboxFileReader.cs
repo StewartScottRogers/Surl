@@ -287,10 +287,14 @@ public sealed class MailboxFileReader
                 }
                 else
                 {
-                    return position == text.Length || text[position] == ',' || AtRecordEnd() ? null : TextFollowsAQuotedField;
+                    return EndQuotedField();
                 }
             }
         }
+
+        /// <summary>After a field's closing quote: nothing, or the refusal when text follows it before a comma or record end.</summary>
+        private string? EndQuotedField() =>
+            position == text.Length || text[position] == ',' || AtRecordEnd() ? null : TextFollowsAQuotedField;
 
         private bool AtRecordEnd() =>
             text[position] == '\n' || (text[position] == '\r' && position + 1 < text.Length && text[position + 1] == '\n');

@@ -109,8 +109,12 @@ internal static class FaultReplyShapes
             && code[1] == '.'
             && space != reply.Length - 1
             && int.TryParse(code.AsSpan(2), NumberStyles.None, CultureInfo.InvariantCulture, out var detail)
-            && ((code[0] == '4' && detail <= 31) || (code[0] == '5' && detail <= 5));
+            && IsCoapErrorClassDetail(code[0], detail);
     }
+
+    /// <summary>A CoAP error class and detail: 4 with 00 to 31, or 5 with 00 to 05.</summary>
+    private static bool IsCoapErrorClassDetail(char codeClass, int detail) =>
+        (codeClass == '4' && detail <= 31) || (codeClass == '5' && detail <= 5);
 
     /// <summary>A JSON-RPC error code, a whole number with an optional sign, and a message.</summary>
     private static bool IsJsonRpcError(string reply)

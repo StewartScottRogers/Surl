@@ -448,6 +448,12 @@ internal static class OptionArgumentReader
             return null;
         }
 
+        return ReadProxyAllowedOriginRange(argument, ref value);
+    }
+
+    /// <summary>Reads an <c>address[/prefix]</c> <c>--proxy-allow-origin</c> argument into <paramref name="value"/>.</summary>
+    private static string? ReadProxyAllowedOriginRange(string argument, ref ProxyAllowedOrigin value)
+    {
         var slash = argument.IndexOf('/', StringComparison.Ordinal);
         if (!TryReadOriginAddress(slash < 0 ? argument : argument[..slash], out var address))
         {
