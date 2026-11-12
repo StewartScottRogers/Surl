@@ -64,6 +64,18 @@ public sealed class RecordedEventWriterTests
             """{"sequence":9,"at":"2026-11-05T10:00:00.0000000+00:00","kind":"hook_failed","hook_id":"h1","failure":"timed_out","message":"took too long"}""");
 
     [TestMethod]
+    public void WriteEvent_ConsumerGroupChangedWithEveryMember_WritesThemInSnakeCase() =>
+        AssertWritten(
+            new ConsumerGroupChangedEvent(4, "kafka", "g1", ConsumerGroupChange.MemberJoined, "m1", 2, "alice"),
+            """{"sequence":9,"at":"2026-11-05T10:00:00.0000000+00:00","kind":"consumer_group_changed","exchange_id":4,"scheme":"kafka","group":"g1","change":"member_joined","member_id":"m1","generation_id":2,"account":"alice"}""");
+
+    [TestMethod]
+    public void WriteEvent_ConsumerGroupChangedWithNoExchangeMemberOrAccount_LeavesThemOut() =>
+        AssertWritten(
+            new ConsumerGroupChangedEvent(null, "kafka", "g1", ConsumerGroupChange.GenerationStarted, null, 3, null),
+            """{"sequence":9,"at":"2026-11-05T10:00:00.0000000+00:00","kind":"consumer_group_changed","scheme":"kafka","group":"g1","change":"generation_started","generation_id":3}""");
+
+    [TestMethod]
     public void WriteEvent_ExchangeBytesWhichNoServerKeeps_WritesItsHeadAlone() =>
         AssertWritten(
             new ExchangeBytesEvent(4, ExchangeDirection.Received, "x"u8.ToArray()),

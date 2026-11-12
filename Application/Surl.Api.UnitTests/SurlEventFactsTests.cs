@@ -19,6 +19,7 @@ public sealed class SurlEventFactsTests
         [new StoreChangedEvent(StoreKind.Mail, StoreChange.Delivered, "bob/INBOX", 10, 5), SurlEventKind.StoreChanged, 5L],
         [new FaultAppliedEvent("r1", FaultKind.Delay, FaultStage.Accept, 6, "smtp"), SurlEventKind.FaultApplied, 6L],
         [new HookFailedEvent("h1", HookFailure.Threw, "boom"), SurlEventKind.HookFailed, null],
+        [new ConsumerGroupChangedEvent(7, "kafka", "g1", ConsumerGroupChange.MemberJoined, "m1", 1, "bob"), SurlEventKind.ConsumerGroupChanged, 7L],
         [new UnknownEvent(), null, null],
     ];
 
@@ -94,6 +95,18 @@ public sealed class SurlEventFactsTests
         Assert.IsFalse(SurlEventFacts.Matches(Stamped(new StoreChangedEvent(StoreKind.Accounts, StoreChange.AccountAdded, "carol", null, null)), null, query));
         Assert.IsTrue(SurlEventFacts.Matches(Stamped(MailDelivered(1)), exchange, query));
         Assert.IsFalse(SurlEventFacts.Matches(Stamped(MailDelivered(null)), null, query));
+    }
+
+    [TestMethod]
+    public void Matches_ByAccountAndScheme_UsesAConsumerGroupChangesOwnAccountAndScheme()
+    {
+        var change = Stamped(new ConsumerGroupChangedEvent(null, "kafka", "g1", ConsumerGroupChange.MemberRemoved, null, 2, "bob"));
+
+        Assert.IsTrue(SurlEventFacts.Matches(change, null, new SurlEventQuery { Account = "bob" }));
+        Assert.IsFalse(SurlEventFacts.Matches(change, null, new SurlEventQuery { Account = "alice" }));
+        Assert.IsTrue(SurlEventFacts.Matches(change, null, new SurlEventQuery { Scheme = "KAFKA" }));
+        Assert.IsFalse(SurlEventFacts.Matches(change, null, new SurlEventQuery { Scheme = "smtp" }));
+        Assert.IsTrue(SurlEventFacts.Matches(change, null, new SurlEventQuery { Kind = SurlEventKind.ConsumerGroupChanged }));
     }
 
     [TestMethod]

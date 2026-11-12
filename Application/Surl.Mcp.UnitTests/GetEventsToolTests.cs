@@ -129,6 +129,23 @@ public sealed class GetEventsToolTests
     }
 
     [TestMethod]
+    public void Answer_KindsNamingConsumerGroupChanged_ReturnsOnlyThatKind()
+    {
+        const string arguments = """{"server_id": "s1", "kinds": ["consumer_group_changed"]}""";
+        EventToolFilter.TryRead(McpTestHost.Arguments(arguments), out var filter);
+        SurlEvent[] found =
+        [
+            Ended(1),
+            new ConsumerGroupChangedEvent(5, "kafka", "g1", ConsumerGroupChange.MemberJoined, "m1", 2, "alice") { Sequence = 2 },
+        ];
+
+        var structured = GetEventsTool.Answer(found, filter!, 0, McpTestHost.Arguments(arguments)).StructuredContent!.Value;
+
+        CollectionAssert.AreEqual(new[] { "consumer_group_changed" }, Kinds(structured));
+        StringAssert.Contains(EventToolFilter.EventProperties, "\"consumer_group_changed\"");
+    }
+
+    [TestMethod]
     public void Create_NullServers_Throws() =>
         Assert.ThrowsExactly<ArgumentNullException>(() => GetEventsTool.Create(null!));
 

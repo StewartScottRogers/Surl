@@ -26,4 +26,7 @@ public enum SurlEventKind
 
     /// <summary>A <see cref="HookFailedEvent"/>: a hook threw or ran out of time.</summary>
     HookFailed,
+
+    /// <summary>A <see cref="ConsumerGroupChangedEvent"/>: a consumer group's membership or generation changed.</summary>
+    ConsumerGroupChanged,
 }
