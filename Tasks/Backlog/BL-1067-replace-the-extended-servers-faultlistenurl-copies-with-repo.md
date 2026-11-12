@@ -1,5 +1,5 @@
 ---
-id: BL-1066
+id: BL-1067
 title: Replace the extended servers' FaultListenUrl copies with ReportedListenUrl.Format
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-12
 completed:
 ---
-# BL-1066 — Replace the extended servers' FaultListenUrl copies with ReportedListenUrl.Format
+# BL-1067 — Replace the extended servers' FaultListenUrl copies with ReportedListenUrl.Format
 
 ## Goal
 

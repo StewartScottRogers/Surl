@@ -50,7 +50,7 @@ completed: 2026-11-12
   10.0.401 is not installed (BL-1035, Stewart). Back to Backlog behind BL-1035; rerun the build, the fast
   tests and the coverage check, then tick the boxes.
 
-- 2026-11-12 (lane 1): redone on the clean worktree (earlier edit was lost with the stash). SDK 10.0.404 now builds. Only FTP and TFTP still held copies (the rest went with BL-909/914/920): deleted both FaultListenUrl classes and tests, call `ReportedListenUrl.Format`, CLAUDE.md files updated. FTP 536 and TFTP 155 tests green. The extended servers (Amqp0, Amqp1, Mqtt5, Nats) hold four more copies outside this task's scope, filed as BL-1066; criterion 2 is met for the original servers.
+- 2026-11-12 (lane 1): redone on the clean worktree (earlier edit was lost with the stash). SDK 10.0.404 now builds. Only FTP and TFTP still held copies (the rest went with BL-909/914/920): deleted both FaultListenUrl classes and tests, call `ReportedListenUrl.Format`, CLAUDE.md files updated. FTP 536 and TFTP 155 tests green. The extended servers (Amqp0, Amqp1, Mqtt5, Nats) hold four more copies outside this task's scope, filed as BL-1067; criterion 2 is met for the original servers.
 
 ## Log
 
@@ -58,4 +58,4 @@ completed: 2026-11-12
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waits on BL-1035: pinned .NET SDK 10.0.401 is not installed, so nothing builds or tests; the copies are folded into ReportedListenUrl.Format, uncommitted
 - 2026-11-12: Backlog -> Doing.
-- 2026-11-12: Doing -> Done. FTP and TFTP servers use ReportedListenUrl.Format; their FaultListenUrl copies are gone (extended copies filed as BL-1066)
+- 2026-11-12: Doing -> Done. FTP and TFTP servers use ReportedListenUrl.Format; their FaultListenUrl copies are gone (extended copies filed as BL-1067)
