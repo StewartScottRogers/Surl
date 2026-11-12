@@ -273,7 +273,8 @@ internal sealed class SmbSession : IAsyncDisposable
     private async ValueTask<SmbLoginVerdict> CheckLoginAsync(SmbSessionSetupRequest request, byte[] serverChallenge)
     {
         var login = new SmbNtlmV1Login(
-            request.AccountName, request.PrimaryDomain, serverChallenge, request.LmResponse, request.NtResponse, connection.TlsSession);
+            request.AccountName, request.PrimaryDomain, serverChallenge, request.LmResponse, request.NtResponse, connection.TlsSession,
+            LoginExchange.Of(context));
         var verdict = await authenticationPolicy.CheckSmbNtlmV1LoginAsync(login, context.CancellationToken);
         if (verdict.CheckedLogin is { } checkedLogin)
         {
