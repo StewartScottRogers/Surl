@@ -74,3 +74,4 @@ Filed by BL-794 (dark factory lane 8), which scoped itself to the chosen error i
 - 2026-11-05: Created.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waiting on BL-1035: pinned .NET SDK 10.0.401 is not installed; delay/drop code and tests written (stashed), pass under a roll-forward SDK
+- 2026-11-11: Backlog -> Doing.
