@@ -73,6 +73,51 @@ internal sealed class UnitTestTlsClient
         });
     }
 
+    /// <summary>
+    /// A client with a SecP256r1MLKEM768 (<c>0x11EB</c>) or SecP384r1MLKEM1024 (<c>0x11ED</c>) share
+    /// (draft-ietf-tls-ecdhe-mlkem): the uncompressed point then the ML-KEM encapsulation key. It
+    /// splits the server's share into the point and the ciphertext, and its shared secret is the
+    /// ECDH secret then ML-KEM's.
+    /// </summary>
+    public static UnitTestTlsClient WithClassicalFirstHybridShare(ushort group)
+    {
+        var classical = WithEllipticCurveShare(group == 0x11EB ? (ushort)0x0017 : (ushort)0x0018);
+        var (encapsulationKey, decapsulate) = group == 0x11EB ? MlKem768Key() : MlKem1024Key();
+        return new UnitTestTlsClient(group, [.. classical.PublicShare, .. encapsulationKey], serverShare =>
+        {
+            var split = classical.PublicShare.Length;
+            return [.. classical.agree(serverShare[..split]), .. decapsulate(serverShare[split..])];
+        });
+    }
+
+    private static (byte[] EncapsulationKey, Func<byte[], byte[]> Decapsulate) MlKem768Key()
+    {
+        var encapsulationKey = new byte[MlKem768.EncapsulationKeySize];
+        var decapsulationKey = new byte[MlKem768.DecapsulationKeySize];
+        MlKem768.GenerateKey(RandomNumberGenerator.GetBytes(32), RandomNumberGenerator.GetBytes(32), encapsulationKey, decapsulationKey);
+        return (encapsulationKey, ciphertext =>
+        {
+            var secret = new byte[MlKem768.SharedSecretSize];
+            Assert.IsTrue(MlKem768.TryDecapsulate(decapsulationKey, ciphertext, secret));
+            return secret;
+        }
+        );
+    }
+
+    private static (byte[] EncapsulationKey, Func<byte[], byte[]> Decapsulate) MlKem1024Key()
+    {
+        var encapsulationKey = new byte[MlKem1024.EncapsulationKeySize];
+        var decapsulationKey = new byte[MlKem1024.DecapsulationKeySize];
+        MlKem1024.GenerateKey(RandomNumberGenerator.GetBytes(32), RandomNumberGenerator.GetBytes(32), encapsulationKey, decapsulationKey);
+        return (encapsulationKey, ciphertext =>
+        {
+            var secret = new byte[MlKem1024.SharedSecretSize];
+            Assert.IsTrue(MlKem1024.TryDecapsulate(decapsulationKey, ciphertext, secret));
+            return secret;
+        }
+        );
+    }
+
     private static byte[] Padded(BigInteger value, int length)
     {
         var bytes = value.ToByteArray(isUnsigned: true, isBigEndian: true);

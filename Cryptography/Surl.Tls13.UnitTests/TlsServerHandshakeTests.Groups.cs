@@ -1,16 +1,20 @@
 using System.Numerics;
 using System.Security.Cryptography;
+using Surl.Cryptography.MlKem;
 
 namespace Surl.Tls13;
 
 /// <summary>
 /// The groups a pinned upstream curl offers only when <c>--curves</c> names one alone (ADR-0147),
-/// served after ADR-0082 decision 3's five: ffdhe2048 and ffdhe3072. The recorded ClientHellos are
+/// served after ADR-0082 decision 3's five: SecP256r1MLKEM768, SecP384r1MLKEM1024, ffdhe2048 and
+/// ffdhe3072. The recorded ClientHellos are
 /// BL-545's, from the static OpenSSL builds on Windows and Linux.
 /// </summary>
 public sealed partial class TlsServerHandshakeTests
 {
     [TestMethod]
+    [DataRow(0x11EB)]
+    [DataRow(0x11ED)]
     [DataRow(0x0100)]
     [DataRow(0x0101)]
     public void Receive_ClientHelloOfferingOnlyOneRemainingGroupWithNoShare_RetriesForItAndCompletesOnTheSecondClientHello(int group)
@@ -39,8 +43,12 @@ public sealed partial class TlsServerHandshakeTests
     }
 
     [TestMethod]
+    [DataRow("static-8.21.0-win-curves-SecP256r1MLKEM768.bin", 0x11EB, 1249, 1153)]
+    [DataRow("static-8.21.0-win-curves-SecP384r1MLKEM1024.bin", 0x11ED, 1665, 1665)]
     [DataRow("static-8.21.0-win-curves-ffdhe2048.bin", 0x0100, 256, 256)]
     [DataRow("static-8.21.0-win-curves-ffdhe3072.bin", 0x0101, 384, 384)]
+    [DataRow("static-8.21.0-linux-curves-SecP256r1MLKEM768.bin", 0x11EB, 1249, 1153)]
+    [DataRow("static-8.21.0-linux-curves-SecP384r1MLKEM1024.bin", 0x11ED, 1665, 1665)]
     [DataRow("static-8.21.0-linux-curves-ffdhe2048.bin", 0x0100, 256, 256)]
     [DataRow("static-8.21.0-linux-curves-ffdhe3072.bin", 0x0101, 384, 384)]
     public void Receive_RecordedUpstreamCurlClientHelloForOneCurve_AnswersItsShareAndCompletesWithoutARetry(
@@ -66,6 +74,9 @@ public sealed partial class TlsServerHandshakeTests
     }
 
     [TestMethod]
+    [DataRow(0x11EB, 1248)]
+    [DataRow(0x11EB, 1184)]
+    [DataRow(0x11ED, 1666)]
     [DataRow(0x0100, 255)]
     [DataRow(0x0101, 385)]
     public void Receive_RemainingGroupShareOfTheWrongLength_FailsWithIllegalParameter(int group, int length)
@@ -91,7 +102,29 @@ public sealed partial class TlsServerHandshakeTests
         AssertShareRefused((ushort)group, [.. new byte[length - bytes.Length], .. bytes]);
     }
 
-    private static UnitTestTlsClient ClientFor(ushort group) => UnitTestTlsClient.WithFiniteFieldShare(group);
+    [TestMethod]
+    public void Receive_SecP384r1MlKem1024ShareFailingTheModulusCheck_FailsWithIllegalParameter()
+    {
+        var classical = UnitTestTlsClient.WithEllipticCurveShare(0x0018).PublicShare;
+
+        AssertShareRefused(0x11ED, [.. classical, .. Enumerable.Repeat((byte)0xFF, MlKem1024.EncapsulationKeySize)]);
+    }
+
+    [TestMethod]
+    public void Receive_SecP256r1MlKem768ShareWithAPointOffTheCurve_FailsWithIllegalParameter()
+    {
+        var encapsulationKey = new byte[MlKem768.EncapsulationKeySize];
+        MlKem768.GenerateKey(new byte[32], new byte[32], encapsulationKey, new byte[MlKem768.DecapsulationKeySize]);
+        byte[] point = [0x04, .. Enumerable.Repeat((byte)0x01, 64)];
+
+        AssertShareRefused(0x11EB, [.. point, .. encapsulationKey]);
+    }
+
+    private static UnitTestTlsClient ClientFor(ushort group) => group switch
+    {
+        0x0100 or 0x0101 => UnitTestTlsClient.WithFiniteFieldShare(group),
+        _ => UnitTestTlsClient.WithClassicalFirstHybridShare(group),
+    };
 
     private static void AssertShareRefused(ushort group, byte[] share)
     {
