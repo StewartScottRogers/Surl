@@ -51,17 +51,48 @@ public static class TlsServerMessages
     /// <param name="salt">The account's salt.</param>
     /// <param name="serverPublicValue">The server's <c>B</c>.</param>
     /// <returns>The framed message.</returns>
-    public static byte[] ServerKeyExchange(SrpGroup group, ReadOnlySpan<byte> salt, ReadOnlySpan<byte> serverPublicValue)
+    public static byte[] ServerKeyExchange(SrpGroup group, ReadOnlySpan<byte> salt, ReadOnlySpan<byte> serverPublicValue) =>
+        Frame(TlsHandshakeType.ServerKeyExchange, ServerSrpParams(group, salt, serverPublicValue));
+
+    /// <summary>
+    /// The <c>ServerSRPParams</c> (RFC 5054 section 2.8.2): <c>srp_N</c>, <c>srp_g</c>, <c>srp_s</c>
+    /// and <c>srp_B</c>. It is the whole body of an unsigned ServerKeyExchange and the part a signed one signs.
+    /// </summary>
+    /// <param name="group">The account's group.</param>
+    /// <param name="salt">The account's salt.</param>
+    /// <param name="serverPublicValue">The server's <c>B</c>.</param>
+    /// <returns>The parameters, unframed.</returns>
+    public static byte[] ServerSrpParams(SrpGroup group, ReadOnlySpan<byte> salt, ReadOnlySpan<byte> serverPublicValue)
     {
         ArgumentNullException.ThrowIfNull(group);
-        byte[] body =
+        return
         [
             .. Vector16(Srp6a.ToUnsignedBigEndian(group.Prime)),
             .. Vector16(Srp6a.ToUnsignedBigEndian(group.Generator)),
             (byte)salt.Length, .. salt,
             .. Vector16(serverPublicValue),
         ];
-        return Frame(TlsHandshakeType.ServerKeyExchange, body);
+    }
+
+    /// <summary>
+    /// The ServerKeyExchange of a signed suite: the parameters, then the TLS 1.2 <c>digitally-signed</c>
+    /// struct (RFC 5246 section 7.4.3): the scheme and the signature as a vector.
+    /// </summary>
+    /// <param name="serverSrpParams">The parameters from <see cref="ServerSrpParams"/>.</param>
+    /// <param name="scheme">The scheme the signature was made under.</param>
+    /// <param name="signature">The signature.</param>
+    /// <returns>The framed message.</returns>
+    public static byte[] SignedServerKeyExchange(ReadOnlySpan<byte> serverSrpParams, TlsSignatureScheme scheme, ReadOnlySpan<byte> signature) =>
+        Frame(TlsHandshakeType.ServerKeyExchange, [.. serverSrpParams, (byte)((ushort)scheme >> 8), (byte)scheme, .. Vector16(signature)]);
+
+    /// <summary>The Certificate message: a 24-bit-length list of 24-bit-length DER certificates (RFC 5246 section 7.4.2).</summary>
+    /// <param name="chain">The DER certificates, the server's own first.</param>
+    /// <returns>The framed message.</returns>
+    public static byte[] Certificate(IReadOnlyList<byte[]> chain)
+    {
+        ArgumentNullException.ThrowIfNull(chain);
+        byte[] list = [.. chain.SelectMany(certificate => Vector24(certificate))];
+        return Frame(TlsHandshakeType.Certificate, Vector24(list));
     }
 
     /// <summary>The ServerHelloDone: an empty body.</summary>
@@ -100,6 +131,8 @@ public static class TlsServerMessages
     }
 
     private static byte[] Extension(ushort type, ReadOnlySpan<byte> data) => [(byte)(type >> 8), (byte)type, .. Vector16(data)];
+
+    private static byte[] Vector24(ReadOnlySpan<byte> data) => [(byte)(data.Length >> 16), (byte)(data.Length >> 8), (byte)data.Length, .. data];
 
     private static byte[] Vector16(ReadOnlySpan<byte> data) => [(byte)(data.Length >> 8), (byte)data.Length, .. data];
 }

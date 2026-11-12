@@ -8,7 +8,7 @@ depends-on: [BL-566, BL-1035]
 touches: [Cryptography/Surl.TlsSrp.UnitLibrary, Cryptography/Surl.TlsSrp.UnitTests]
 requirement: none
 created: 2026-11-05
-completed:
+completed: 2026-11-12
 ---
 # BL-911 — Serve the RSA- and DSS-signed TLS-SRP suites with a Certificate in Surl.TlsSrp
 
@@ -34,13 +34,13 @@ RFC 5054 suites (`C0 1B`, `C0 1E`, `C0 21` for RSA; `C0 1C`, `C0 1F`, `C0 22` fo
 
 ## Acceptance criteria
 
-- [ ] With an RSA certificate, a named test replays pinned upstream curl 8.21.0's ClientHello and
+- [x] With an RSA certificate, a named test replays pinned upstream curl 8.21.0's ClientHello and
       gets `C0 21`, a `Certificate` message and a ServerKeyExchange whose `rsa_pss_rsae_sha256`
       signature verifies with the certificate's public key.
-- [ ] With a DSA certificate, a named test gets `C0 22` and a `dsa_sha256` signature that verifies.
-- [ ] Without a certificate, the unsigned suites are still the only ones chosen (BL-566's tests
+- [x] With a DSA certificate, a named test gets `C0 22` and a `dsa_sha256` signature that verifies.
+- [x] Without a certificate, the unsigned suites are still the only ones chosen (BL-566's tests
       unchanged).
-- [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and the library keeps 100%
+- [x] `dotnet build -warnaserror` is clean, the fast tests are green, and the library keeps 100%
       line and branch coverage, complexity of at most 10 per method and CRAP of at most 30.
 
 ## Notes
@@ -64,9 +64,12 @@ RFC 5054 suites (`C0 1B`, `C0 1E`, `C0 21` for RSA; `C0 1C`, `C0 1F`, `C0 22` fo
   `C0 22` and `04 02`), coverage, and the CLAUDE.md update. A live check against pinned curl through
   `Run-TlsSrpRelay.cs` would be good but is optional.
 
+- 2026-11-12 (lane 3): Built and tested under SDK 10.0.404 (rolls forward from the pinned 10.0.401). Added TlsSignatureScheme, TlsSrpServerCertificate, signed flight in TlsSrpServer, ServerSrpParams/SignedServerKeyExchange/Certificate in TlsServerMessages. Tests replay the recorded curl hello (offers C022 before C021, so an RSA cert still lands on C021 once DSS is unservable). The recorded Finished cannot match a signed flight, so the replays stop at the client Finished and check the first flight. Per-test key instances because one shared RSA key object failed under parallel tests. DSA tests skip on macOS. Live pinned-curl check via Run-TlsSrpRelay.cs not done (optional). Library 100% line/branch.
+
 ## Log
 
 - 2026-11-05: Created.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waits on BL-1035: pinned .NET SDK 10.0.401 is not installed, so nothing builds
 - 2026-11-12: Backlog -> Doing.
+- 2026-11-12: Doing -> Done. TlsSrp serves the RSA- and DSS-signed SRP suites with a Certificate and signed ServerKeyExchange

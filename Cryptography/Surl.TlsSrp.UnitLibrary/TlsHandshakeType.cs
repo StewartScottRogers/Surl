@@ -11,6 +11,9 @@ public enum TlsHandshakeType : byte
     /// <summary><c>server_hello</c> (2).</summary>
     ServerHello = 2,
 
+    /// <summary><c>certificate</c> (11): the server's chain, for the RSA and DSS suites.</summary>
+    Certificate = 11,
+
     /// <summary><c>server_key_exchange</c> (12): carries <c>N</c>, <c>g</c>, <c>s</c> and <c>B</c>.</summary>
     ServerKeyExchange = 12,
 

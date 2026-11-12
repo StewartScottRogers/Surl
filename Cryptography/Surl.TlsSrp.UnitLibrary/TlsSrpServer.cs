@@ -5,9 +5,9 @@ namespace Surl.TlsSrp;
 
 /// <summary>
 /// The server side of a TLS 1.2 SRP handshake (RFC 5054, RFC 5246; ADR-0122 decisions 2, 3 and 6)
-/// on the stream it is handed: ClientHello with the <c>srp</c> extension; ServerHello,
-/// ServerKeyExchange and ServerHelloDone in one record; ClientKeyExchange; both
-/// <c>ChangeCipherSpec</c>s and <c>Finished</c>s. It serves the three unsigned suites only. A fault
+/// on the stream it is handed: ClientHello with the <c>srp</c> extension; ServerHello, (for a signed
+/// suite) Certificate, ServerKeyExchange and ServerHelloDone in one record; ClientKeyExchange; both
+/// <c>ChangeCipherSpec</c>s and <c>Finished</c>s. It serves the three unsigned suites, and the signed ones too when given a certificate. A fault
 /// in the client's flight sends the fatal alert ADR-0122 decision 6 names and throws the
 /// <see cref="TlsAlertException"/>; an unknown user or a wrong password ends at the client's
 /// <c>Finished</c> with <c>bad_record_mac</c>.
@@ -18,7 +18,11 @@ namespace Surl.TlsSrp;
 /// <c>b</c>, then every record's explicit IV: <see cref="RandomNumberGenerator.Create()"/> in
 /// production, a fixed one in tests.
 /// </param>
-public sealed class TlsSrpServer(TlsSrpAccounts accounts, RandomNumberGenerator random)
+/// <param name="certificate">
+/// The certificate and key for the RSA- and DSS-signed suites; <see langword="null"/> serves the
+/// unsigned suites only.
+/// </param>
+public sealed class TlsSrpServer(TlsSrpAccounts accounts, RandomNumberGenerator random, TlsSrpServerCertificate? certificate = null)
 {
     /// <summary>Runs the handshake on <paramref name="transport"/>.</summary>
     /// <param name="transport">The connection's byte stream. The returned session's stream owns it.</param>
@@ -54,7 +58,7 @@ public sealed class TlsSrpServer(TlsSrpAccounts accounts, RandomNumberGenerator 
         var helloMessage = await messages.ReadAsync(TlsHandshakeType.ClientHello, cancellationToken).ConfigureAwait(false);
         transcript.AddRange(helloMessage.Framed);
         var hello = TlsClientHello.Parse(helloMessage.Body);
-        var negotiation = TlsSrpNegotiation.Negotiate(hello);
+        var negotiation = TlsSrpNegotiation.Negotiate(hello, certificate);
 
         var serverRandom = new byte[TlsClientHello.RandomLength];
         random.GetBytes(serverRandom);
@@ -63,7 +67,7 @@ public sealed class TlsSrpServer(TlsSrpAccounts accounts, RandomNumberGenerator 
         byte[] flight =
         [
             .. TlsServerMessages.ServerHello(negotiation, serverRandom),
-            .. TlsServerMessages.ServerKeyExchange(account.Group, account.Salt, exchange.ServerPublicValue),
+            .. SignedFlightPart(negotiation, certificate, hello.Random, serverRandom, account, exchange.ServerPublicValue),
             .. TlsServerMessages.ServerHelloDone(),
         ];
         transcript.AddRange(flight);
@@ -109,6 +113,23 @@ public sealed class TlsSrpServer(TlsSrpAccounts accounts, RandomNumberGenerator 
             negotiation.ServerName,
             negotiation.ExtendedMasterSecret,
             negotiation.EncryptThenMac);
+    }
+
+    /// <summary>
+    /// The Certificate (signed suites only) and the ServerKeyExchange. A signed one signs
+    /// <c>client_random + server_random + ServerSRPParams</c> (RFC 5054 section 2.8.2, RFC 5246 section 7.4.3).
+    /// </summary>
+    private static byte[] SignedFlightPart(
+        TlsSrpNegotiation negotiation, TlsSrpServerCertificate? certificate, byte[] clientRandom, byte[] serverRandom, TlsSrpAccount account, byte[] serverPublicValue)
+    {
+        if (negotiation.SignatureScheme is not { } scheme)
+        {
+            return TlsServerMessages.ServerKeyExchange(account.Group, account.Salt, serverPublicValue);
+        }
+
+        var parameters = TlsServerMessages.ServerSrpParams(account.Group, account.Salt, serverPublicValue);
+        var signature = certificate!.Sign(scheme, [.. clientRandom, .. serverRandom, .. parameters]);
+        return [.. TlsServerMessages.Certificate(certificate.Chain), .. TlsServerMessages.SignedServerKeyExchange(parameters, scheme, signature)];
     }
 
     /// <summary>

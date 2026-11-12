@@ -12,6 +12,9 @@ public static class TlsExtensionType
     /// <summary><c>srp</c> (12), RFC 5054 section 2.8.1: the user name.</summary>
     public const ushort Srp = 0x000C;
 
+    /// <summary><c>signature_algorithms</c> (13), RFC 5246 section 7.4.1.4.1.</summary>
+    public const ushort SignatureAlgorithms = 0x000D;
+
     /// <summary><c>application_layer_protocol_negotiation</c> (16), RFC 7301.</summary>
     public const ushort ApplicationLayerProtocolNegotiation = 0x0010;
 

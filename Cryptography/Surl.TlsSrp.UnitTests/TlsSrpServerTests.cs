@@ -85,6 +85,27 @@ public sealed class TlsSrpServerTests
     }
 
     [TestMethod]
+    public async Task AuthenticateAsync_RecordedUpstreamCurlHelloAndAnRsaCertificate_SendsRsaAes256CertificateAndAPssSignedKeyExchange()
+    {
+        var (messages, signedContent) = await ReplayRecordedHelloAsync(UnitTestCertificates.RsaCertificate());
+
+        CollectionAssert.AreEqual(new byte[] { 0xC0, 0x21 }, messages[0].Body[35..37]);
+        var signature = SignatureOf(messages[2].Body, 0x0804);
+        Assert.IsTrue(UnitTestCertificates.Rsa.VerifyData(signedContent, signature, HashAlgorithmName.SHA256, RSASignaturePadding.Pss));
+    }
+
+    [TestMethod]
+    [OSCondition(ConditionMode.Exclude, OperatingSystems.OSX)]
+    public async Task AuthenticateAsync_RecordedUpstreamCurlHelloAndADsaCertificate_SendsDssAes256CertificateAndADsaSha256SignedKeyExchange()
+    {
+        var (messages, signedContent) = await ReplayRecordedHelloAsync(UnitTestCertificates.DsaCertificate());
+
+        CollectionAssert.AreEqual(new byte[] { 0xC0, 0x22 }, messages[0].Body[35..37]);
+        var signature = SignatureOf(messages[2].Body, 0x0402);
+        Assert.IsTrue(UnitTestCertificates.Dsa.VerifySignature(SHA256.HashData(signedContent), signature, DSASignatureFormat.Rfc3279DerSequence));
+    }
+
+    [TestMethod]
     [DataRow("CurlTlsSrpJsmithBadpass")]
     [DataRow("CurlTlsSrpBaduserBadpass")]
     public async Task AuthenticateAsync_RecordedUpstreamCurlWithAWrongPasswordOrUnknownUser_SendsBadRecordMac(string caseName)
@@ -330,6 +351,42 @@ public sealed class TlsSrpServerTests
         var alert = await Assert.ThrowsExactlyAsync<TlsAlertException>(() => UnitTestSrpClient.Server().AuthenticateAsync(transport, CancellationToken.None));
 
         Assert.AreEqual(TlsAlertDescription.UnexpectedMessage, alert.Description);
+    }
+
+    /// <summary>
+    /// Replays upstream curl's recorded client bytes against a server holding <paramref name="certificate"/>.
+    /// The handshake ends at the client's Finished (the recorded keys were computed over the unsigned flight),
+    /// but the first flight is complete by then.
+    /// </summary>
+    private static async Task<(List<(TlsHandshakeType Type, byte[] Body)> Messages, byte[] SignedContent)> ReplayRecordedHelloAsync(TlsSrpServerCertificate certificate)
+    {
+        var client = UnitTestFixtures.Read(Recorded, "client.bin");
+        var clientRandom = UnitTestFixtures.Fragments(client)[0][6..38];
+        using var transport = new UnitTestScriptedStream(client);
+        var server = new TlsSrpServer(UnitTestSrpClient.Accounts(), new UnitTestRepeatingRandomNumberGenerator(UnitTestSrpClient.ServerRandomPattern), certificate);
+
+        await Assert.ThrowsExactlyAsync<TlsAlertException>(() => server.AuthenticateAsync(transport, CancellationToken.None));
+
+        var written = transport.Written.ToArray();
+        var flight = UnitTestFixtures.Fragments(written)[0];
+        var messages = UnitTestCertificates.Messages(flight);
+        CollectionAssert.AreEqual(
+            new[] { TlsHandshakeType.ServerHello, TlsHandshakeType.Certificate, TlsHandshakeType.ServerKeyExchange, TlsHandshakeType.ServerHelloDone },
+            messages.Select(message => message.Type).ToArray());
+        CollectionAssert.AreEqual(Convert.FromHexString("000010" + "000005" + "3003020101" + "000005" + "3003020102"), messages[1].Body);
+        var parameters = UnitTestSrpClient.ExpectedServerKeyExchange()[4..];
+        CollectionAssert.AreEqual(parameters, messages[2].Body[..parameters.Length]);
+        return (messages, [.. clientRandom, .. UnitTestSrpClient.ServerRandomPattern, .. parameters]);
+    }
+
+    private static byte[] SignatureOf(byte[] keyExchangeBody, ushort scheme)
+    {
+        var parameters = UnitTestSrpClient.ExpectedServerKeyExchange().Length - 4;
+        var digitallySigned = keyExchangeBody[parameters..];
+        Assert.AreEqual(scheme, (ushort)((digitallySigned[0] << 8) | digitallySigned[1]));
+        var length = (digitallySigned[2] << 8) | digitallySigned[3];
+        Assert.AreEqual(length, digitallySigned.Length - 4);
+        return digitallySigned[4..];
     }
 
     [TestMethod]
