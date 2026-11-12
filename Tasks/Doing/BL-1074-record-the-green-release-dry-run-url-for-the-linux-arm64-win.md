@@ -30,3 +30,4 @@ BL-361 wired those three legs (ADR-0151) but a lane cannot push, so no run of th
 ## Log
 
 - 2026-11-12: Created.
+- 2026-11-12: Backlog -> Doing.
