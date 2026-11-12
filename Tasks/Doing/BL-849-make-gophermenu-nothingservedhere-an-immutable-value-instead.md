@@ -42,3 +42,4 @@ another instance in the same process answers.
 - 2026-11-05: Created.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. behind BL-1035 - pinned .NET SDK 10.0.401 is not installed
+- 2026-11-12: Backlog -> Doing.
