@@ -31,3 +31,4 @@ BL-1089 (2026-11-12) fixed the start-up log race and the Curl-port connection-re
 ## Log
 
 - 2026-11-12: Created.
+- 2026-11-12: Backlog -> Doing.
