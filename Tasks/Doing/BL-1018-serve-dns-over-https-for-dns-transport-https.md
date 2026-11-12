@@ -46,3 +46,4 @@ over HTTP/2 and HTTP/1.1, as ADR-0092 decision 5 says.
 ## Log
 
 - 2026-11-06: Created.
+- 2026-11-11: Backlog -> Doing.
