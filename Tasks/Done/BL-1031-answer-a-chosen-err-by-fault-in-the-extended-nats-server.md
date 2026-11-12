@@ -8,7 +8,7 @@ depends-on: [BL-823, BL-785, BL-1035]
 touches: [Protocols/Messaging/Surl.Extended.Protocol.Nats.UnitLibrary, Protocols/Messaging/Surl.Extended.Protocol.Nats.UnitTests]
 requirement: FR-062
 created: 2026-11-06
-completed:
+completed: 2026-11-11
 ---
 # BL-1031 — Answer a chosen -ERR by fault in the extended NATS server
 
@@ -43,11 +43,11 @@ publish one `FaultAppliedEvent`.
 
 ## Acceptance criteria
 
-- [ ] `NatsFaultTests` exists and passes, including `ServeAsync_PubToARulesSubject_AnswersTheChosenErrAndAnotherSubjectIsServed`,
+- [x] `NatsFaultTests` exists and passes, including `ServeAsync_PubToARulesSubject_AnswersTheChosenErrAndAnotherSubjectIsServed`,
       `ServeAsync_HpubUnderARule_AnswersTheChosenErr` and `ServeAsync_SubUnderARule_AnswersTheChosenErrAndSubscribesNothing`.
-- [ ] Each applied rule publishes exactly one `FaultAppliedEvent`; `ServeAsync_ARuleWhoseReplyIsNotErrText_IsNotedAndNotApplied` passes.
-- [ ] With no rule, every existing `Surl.Extended.Protocol.Nats.UnitTests` test passes unchanged.
-- [ ] `dotnet build Protocols/Messaging/Surl.Extended.Protocol.Nats.UnitTests -warnaserror` is clean, the fast
+- [x] Each applied rule publishes exactly one `FaultAppliedEvent`; `ServeAsync_ARuleWhoseReplyIsNotErrText_IsNotedAndNotApplied` passes.
+- [x] With no rule, every existing `Surl.Extended.Protocol.Nats.UnitTests` test passes unchanged.
+- [x] `dotnet build Protocols/Messaging/Surl.Extended.Protocol.Nats.UnitTests -warnaserror` is clean, the fast
       tests are green, and the library keeps 100% line and branch coverage.
 
 ## Notes
@@ -66,3 +66,4 @@ publish one `FaultAppliedEvent`.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waiting on BL-1035: pinned .NET SDK 10.0.401 is not installed, so nothing builds
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Done. A NATS error fault rule answers a matching PUB, HPUB or SUB with -ERR '<text>' and publishes one FaultAppliedEvent
