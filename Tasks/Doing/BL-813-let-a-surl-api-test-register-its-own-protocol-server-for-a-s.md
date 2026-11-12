@@ -79,3 +79,4 @@ and fault plan, and shares the instance's stores if it asks for them.
 - 2026-11-12: Backlog -> Doing.
 - 2026-11-12: Doing -> Blocked. Stewart: allow lane 3 to read git stash (git stash list / apply) so the finished BL-813 code in the shift stash can be restored and re-verified on SDK 10.0.404; it was denied twice.
 - 2026-11-12: Blocked -> Backlog. Stewart asked for the stashes to be recovered on 2026-11-12: the finished work is on origin/recover/BL-813; a lane merges it, see Notes.
+- 2026-11-12: Backlog -> Doing.
