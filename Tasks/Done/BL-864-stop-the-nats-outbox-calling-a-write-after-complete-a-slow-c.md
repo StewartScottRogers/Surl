@@ -8,7 +8,7 @@ depends-on: [BL-1035]
 touches: [Protocols/Messaging/Surl.Extended.Protocol.Nats.UnitLibrary, Protocols/Messaging/Surl.Extended.Protocol.Nats.UnitTests]
 requirement: none
 created: 2026-11-05
-completed:
+completed: 2026-11-11
 ---
 # BL-864 — Stop the NATS outbox calling a late write after Complete a slow consumer
 
@@ -27,9 +27,9 @@ never answered `-ERR 'Slow Consumer'` unless it really passed the pending-bytes 
 
 ## Acceptance criteria
 
-- [ ] A test named `NatsOutboxTests.Enqueue_AfterComplete_IsDroppedWithoutOverflowing` (or the class's existing
+- [x] A test named `NatsOutboxTests.Enqueue_AfterComplete_IsDroppedWithoutOverflowing` (or the class's existing
       equivalent) passes: `Complete`, then `Enqueue`, leaves `HasOverflowed` false.
-- [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and the library keeps 100% line and branch
+- [x] `dotnet build -warnaserror` is clean, the fast tests are green, and the library keeps 100% line and branch
       coverage.
 
 ## Notes
@@ -49,3 +49,4 @@ never answered `-ERR 'Slow Consumer'` unless it really passed the pending-bytes 
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waits on BL-1035: pinned .NET SDK 10.0.401 is not installed, so dotnet build cannot run; fix is on factory/BL-864-lane-3-20261111-060243
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Done. NatsOutbox.Enqueue after Complete drops bytes without overflowing; only passing the pending-bytes bound sets HasOverflowed
