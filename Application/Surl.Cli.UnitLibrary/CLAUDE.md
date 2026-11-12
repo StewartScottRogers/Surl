@@ -71,6 +71,14 @@ and `Surl.Protocol.Abstractions.UnitLibrary`.
   the 10001st `--group` is refused (`GivenTooOften`). Whether members name accounts or groups,
   cycles and the reserved `everyone` are checked at start by `Surl.Composition`'s
   `AccountGroupExpansion`. BL-653, BL-654, BL-663 and BL-666 add the other item options.
+- Content items (ADR-0101 decision 4, ADR-0102 decision 2; BL-987): `ConfiguredShareReader`
+  (`<name>=<path>[;readonly][;protocols=...]`, schemes checked by
+  `ConfiguredMailboxReader.CheckProtocols`, TLS twins not added), `ConfiguredShareAccessReader`
+  (`<share>=<member>:<r|rw>,...`, a member twice refused) and `ConfiguredBucketReader`
+  (`<name>=<path>`) read into `SurlCommandLine.Shares`, `ShareAccess` and `Buckets`.
+  `ConfiguredContentConflicts.Find` holds the whole-line checks (a share, bucket or access share
+  twice, a bucket named as a share, an access naming no share). No option row uses them yet:
+  BL-989 adds the rows and calls `Find`; BL-988 composes them.
 - Mail options (ADR-0101 decisions 4, 5 and 7, ADR-0102 decision 1; BL-883), category `mail`:
   `--mail-domain <domain>` (`MailDomainNames.Reading`, kept as written in `MailDomains`),
   `--mailbox <address>:<password>[;protocols=...]` (`ConfiguredMailboxReader.Reading`, the address

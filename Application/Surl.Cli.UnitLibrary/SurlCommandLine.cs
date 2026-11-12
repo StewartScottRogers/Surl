@@ -267,6 +267,27 @@ public sealed record SurlCommandLine
     public IReadOnlyList<string> MailboxFiles { get; init; } = [];
 
     /// <summary>
+    /// The shares, each a top-level content folder on disk (<see cref="ConfiguredShareReader"/>, ADR-0102
+    /// decision 2.1), in configuration order; no share name is given twice (ADR-0101 decision 5). None by
+    /// default. <c>Surl.Composition</c> opens each path and expands each scheme to its TLS twin at start (BL-988).
+    /// </summary>
+    public IReadOnlyList<ConfiguredShare> Shares { get; init; } = [];
+
+    /// <summary>
+    /// Who may read or write in each share (<see cref="ConfiguredShareAccessReader"/>, ADR-0102 decision 2.2), in
+    /// configuration order; each names a <see cref="Shares"/> entry, and no share twice (ADR-0101 decision 5).
+    /// None by default, so every share is open as the root is.
+    /// </summary>
+    public IReadOnlyList<ConfiguredShareAccess> ShareAccess { get; init; } = [];
+
+    /// <summary>
+    /// The buckets the object-storage servers map onto content paths (<see cref="ConfiguredBucketReader"/>,
+    /// ADR-0102 decision 2.4), in configuration order; no bucket name is given twice or is also a share's
+    /// (ADR-0101 decision 5). None by default.
+    /// </summary>
+    public IReadOnlyList<ConfiguredBucket> Buckets { get; init; } = [];
+
+    /// <summary>
     /// The fault rules from every <c>--fault</c>, in command-line order, at most 256 (ADR-0124
     /// decision 4). None by default. <c>Surl.Composition</c> adds them to the fault plan at start.
     /// </summary>

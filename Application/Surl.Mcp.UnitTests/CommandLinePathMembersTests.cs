@@ -47,6 +47,7 @@ public sealed class CommandLinePathMembersTests
             HostCertificateFiles = ["host-cert.pub"],
             AuthorizedKeys = [new CommandLineAuthorizedKeys("alice", "alice.pub")],
             MailboxFiles = ["mailboxes.csv"],
+            Shares = [new ConfiguredShare("team", "shares/team", IsReadOnly: false, Protocols: null)],
             ControlTokenFile = "control.token",
         };
 
@@ -72,6 +73,7 @@ public sealed class CommandLinePathMembersTests
                 ("--hostcert", "host-cert.pub"),
                 ("--authorized-keys", "alice.pub"),
                 ("--mailbox-file", "mailboxes.csv"),
+                ("--share", "shares/team"),
                 ("--control-token-file", "control.token"),
             },
             paths);

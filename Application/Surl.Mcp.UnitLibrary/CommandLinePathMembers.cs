@@ -31,6 +31,7 @@ internal static class CommandLinePathMembers
         new(nameof(SurlCommandLine.HostCertificateFiles), "--hostcert", commandLine => commandLine.HostCertificateFiles),
         new(nameof(SurlCommandLine.AuthorizedKeys), "--authorized-keys", commandLine => commandLine.AuthorizedKeys.Select(keys => keys.File)),
         new(nameof(SurlCommandLine.MailboxFiles), "--mailbox-file", commandLine => commandLine.MailboxFiles),
+        new(nameof(SurlCommandLine.Shares), "--share", commandLine => commandLine.Shares.Select(share => share.Path)),
         new(nameof(SurlCommandLine.ControlTokenFile), "--control-token-file", commandLine => OneOrNone(commandLine.ControlTokenFile)),
         new(nameof(SurlCommandLine.ConfigFiles), "--config", commandLine => commandLine.ConfigFiles),
     ];
@@ -73,6 +74,8 @@ internal static class CommandLinePathMembers
         nameof(SurlCommandLine.Groups),
         nameof(SurlCommandLine.MailDomains),
         nameof(SurlCommandLine.Mailboxes),
+        nameof(SurlCommandLine.ShareAccess),
+        nameof(SurlCommandLine.Buckets),
         nameof(SurlCommandLine.Faults),
         nameof(SurlCommandLine.ControlListenUrl),
         nameof(SurlCommandLine.AllowAnonymous),

@@ -166,7 +166,15 @@ internal static class ConfiguredMailboxReader
         return password.Contains('\0', StringComparison.Ordinal) ? ConfigurationItemReader.ControlCharacter : null;
     }
 
-    private static string? CheckProtocols(IReadOnlyList<string> protocols, Func<string, bool> isServedScheme, List<string> schemes)
+    /// <summary>
+    /// Checks each scheme of a <c>protocols=</c> list (ADR-0101 decision 4): non-empty, no control character,
+    /// lower-cased, served by surl and given once; <c>--mailbox</c> and <c>--share</c> share it.
+    /// </summary>
+    /// <param name="protocols">The schemes as given.</param>
+    /// <param name="isServedScheme">Whether a lower-case scheme is one a server surl runs speaks.</param>
+    /// <param name="schemes">Receives each accepted scheme, lower-cased, in order.</param>
+    /// <returns>The refusal reason, or <see langword="null"/>.</returns>
+    public static string? CheckProtocols(IReadOnlyList<string> protocols, Func<string, bool> isServedScheme, List<string> schemes)
     {
         foreach (var given in protocols)
         {
