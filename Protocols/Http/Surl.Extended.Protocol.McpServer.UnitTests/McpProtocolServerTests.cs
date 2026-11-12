@@ -634,4 +634,24 @@ public sealed class McpProtocolServerTests
     private static string ChunkedPost(string body) =>
         $"POST /mcp HTTP/1.1\r\nHost: {Host}\r\n{BearerField}\r\n{AcceptField}\r\n{JsonField}\r\nTransfer-Encoding: chunked\r\nConnection: close\r\n\r\n"
         + $"{Encoding.UTF8.GetByteCount(body):x}\r\n{body}\r\n0\r\n\r\n";
+
+    [TestMethod]
+    public async Task WriteRefusalAsync_Writes503WithNoBodyAndCompletesWrites()
+    {
+        McpHttpHarness harness = new();
+        InMemoryConnection connection = new([]);
+
+        await harness.Server.WriteRefusalAsync(connection, ConnectionRefusal.TooManyConnections, CancellationToken.None);
+
+        Assert.AreEqual(EmptyAnswer("503 Service Unavailable"), Encoding.UTF8.GetString(connection.WrittenBytes));
+        Assert.IsTrue(connection.WritesCompleted);
+    }
+
+    [TestMethod]
+    public async Task WriteRefusalAsync_NullConnection_Throws()
+    {
+        McpHttpHarness harness = new();
+
+        await Assert.ThrowsExactlyAsync<ArgumentNullException>(async () => await harness.Server.WriteRefusalAsync(null!, ConnectionRefusal.TooManyConnections, CancellationToken.None));
+    }
 }
