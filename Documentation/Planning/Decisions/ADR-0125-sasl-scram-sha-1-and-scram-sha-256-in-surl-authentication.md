@@ -117,3 +117,23 @@ byte.
   section 3); `surl --auth scram-sha-256,scram-sha-1` makes SMTP, IMAP and POP3 offer them.
 - `Foundation/Surl.Authentication.UnitLibrary/CLAUDE.md` ("SASL `SCRAM-SHA-1` and
   `SCRAM-SHA-256`") is the library's own summary of this ADR.
+
+## Amendment 1 — `SCRAM-SHA-512` and its `--auth` word (BL-915, 2026-11-11)
+
+Decided by Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions").
+
+- **BL-700** (done) added `SCRAM-SHA-512` - RFC 5802 over SHA-512 (`ScramHash.Sha512`), the IANA
+  SASL registry's name, without channel binding - to `Surl.Authentication` as
+  `AuthenticationMethod.ScramSha512`, for the Kafka broker (ADR-0105 decision 5). Everything
+  decisions 2 to 8 say of the two SCRAM mechanisms holds for it unchanged; only the hash differs.
+- **Offer order.** `SCRAM-SHA-512` is offered after `SCRAM-SHA-256` and before `SCRAM-SHA-1`
+  (`AuthenticationMethod`'s declaration order), so decision 9's SASL offer reads `GSSAPI`,
+  `SCRAM-SHA-256`, `SCRAM-SHA-512`, `SCRAM-SHA-1`, `DIGEST-MD5`, ... Upstream curl's own SASL
+  client picks among the mechanisms it supports and does not speak `SCRAM-SHA-512`, so the
+  position changes nothing curl chooses; keeping `SCRAM-SHA-256` first keeps the mechanism every
+  SCRAM client implements (RFC 7677) at the head, and the stronger hash before the weaker one.
+- **The word.** BL-915 adds the `--auth` word `scram-sha-512`, the mechanism's name in lower case
+  as for every other SASL word (ADR-0049 section 3), listed between `scram-sha-256` and
+  `scram-sha-1` in `--help`, `--manual`, `--aihelp` and `OptionArgumentReader`'s allowed words.
+  It is not in the default set: like the other SCRAM words, a server offers it only when
+  `--auth` names it, so no byte an original server sends changes without it.
