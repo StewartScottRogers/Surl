@@ -429,11 +429,14 @@ public sealed partial class MailboxStore
             ? MailStoreOutcome.QuotaExceeded
             : DeliverPending(inboxOwners, message, StoreChange.Delivered);
 
+    private bool IsAnyOwnerOverQuota(List<OwnerMailboxes> inboxOwners, long messageLength) =>
+        inboxOwners.GroupBy(owner => owner).Any(copies => !WithinQuota(copies.Key, messageLength * copies.Count()));
+
     private MailStoreOutcome DeliverPending(List<OwnerMailboxes> inboxOwners, PendingMessage message, StoreChange change)
     {
         lock (storeLock)
         {
-            if (inboxOwners.GroupBy(owner => owner).Any(copies => !WithinQuota(copies.Key, message.Length * copies.Count())))
+            if (IsAnyOwnerOverQuota(inboxOwners, message.Length))
             {
                 return MailStoreOutcome.QuotaExceeded;
             }

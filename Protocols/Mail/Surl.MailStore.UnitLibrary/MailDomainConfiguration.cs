@@ -49,10 +49,16 @@ public sealed class MailDomainConfiguration
         Aliases = [.. aliases.Select(NormaliseAlias)];
         CatchAlls = catchAlls.Select(NormaliseCatchAll).ToDictionary(catchAll => catchAll.Domain, catchAll => catchAll.Target, StringComparer.Ordinal);
         ThrowIfAddressRepeated();
-        MailboxSettings = (mailboxSettings ?? []).Select(NormaliseSettings).ToDictionary(settings => settings.Address, StringComparer.Ordinal);
-        SharedFolders = [.. (sharedFolders ?? []).Select(NormaliseSharedFolder)];
+        MailboxSettings = NormaliseAllSettings(mailboxSettings);
+        SharedFolders = NormaliseAllSharedFolders(sharedFolders);
         ThrowIfSharedFolderRepeated();
     }
+
+    private Dictionary<string, MailboxSettings> NormaliseAllSettings(IEnumerable<MailboxSettings>? mailboxSettings) =>
+        (mailboxSettings ?? []).Select(NormaliseSettings).ToDictionary(settings => settings.Address, StringComparer.Ordinal);
+
+    private List<MailSharedFolder> NormaliseAllSharedFolders(IEnumerable<MailSharedFolder>? sharedFolders) =>
+        [.. (sharedFolders ?? []).Select(NormaliseSharedFolder)];
 
     /// <summary>
     /// The configured domains, normalised.
