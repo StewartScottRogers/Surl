@@ -526,4 +526,20 @@ public sealed class AzureStorageProtocolServerTests
 
         await Assert.ThrowsExactlyAsync<ArgumentNullException>(() => harness.Server.WriteRefusalAsync(null!, ConnectionRefusal.TooManyConnections, CancellationToken.None).AsTask());
     }
+
+    [TestMethod]
+    public async Task WriteRefusalAsync_SameSeededServerIdentifiers_IsTheSameRequestIdEveryRun()
+    {
+        var first = new AzureServerHarness(serverIdentifiers: new Surl.Core.SeededIdentifierRandom(7).ForServer("az"));
+        var second = new AzureServerHarness(serverIdentifiers: new Surl.Core.SeededIdentifierRandom(7).ForServer("az"));
+        var firstConnection = new InMemoryConnection([]);
+        var secondConnection = new InMemoryConnection([]);
+
+        await first.Server.WriteRefusalAsync(firstConnection, ConnectionRefusal.TooManyConnections, CancellationToken.None);
+        await second.Server.WriteRefusalAsync(secondConnection, ConnectionRefusal.TooManyConnections, CancellationToken.None);
+
+        Assert.AreEqual(
+            AzureServerHarness.RequestIdOf(Encoding.UTF8.GetString(firstConnection.WrittenBytes)),
+            AzureServerHarness.RequestIdOf(Encoding.UTF8.GetString(secondConnection.WrittenBytes)));
+    }
 }

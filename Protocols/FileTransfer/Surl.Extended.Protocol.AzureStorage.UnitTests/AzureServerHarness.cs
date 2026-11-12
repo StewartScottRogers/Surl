@@ -2,6 +2,7 @@ using System.Net;
 using System.Text;
 using System.Text.RegularExpressions;
 using Surl.Content;
+using Surl.Core;
 using Surl.Protocol.Abstractions;
 
 namespace Surl.Extended.Protocol.AzureStorage;
@@ -26,14 +27,14 @@ internal sealed partial class AzureServerHarness
     /// </summary>
     public static readonly string[] Bearer = ["x-ms-version: 2025-01-05", $"Authorization: Bearer {UnitTestBearerAuthenticationPolicy.Token}"];
 
-    public AzureServerHarness(bool allowsAnonymous = false, long maxTotalBytes = InMemoryContentFileSystem.DefaultMaxTotalBytes, bool persistsIndex = false, IReadOnlyList<ContentShare>? shares = null, string accountName = "", ContentExposureOptions? exposure = null, IReadOnlyList<ContentBucket>? buckets = null, int maxIndexEntries = ObjectMetadataIndex.DefaultMaxEntries, IFaultPlan? storeFaults = null)
+    public AzureServerHarness(bool allowsAnonymous = false, long maxTotalBytes = InMemoryContentFileSystem.DefaultMaxTotalBytes, bool persistsIndex = false, IReadOnlyList<ContentShare>? shares = null, string accountName = "", ContentExposureOptions? exposure = null, IReadOnlyList<ContentBucket>? buckets = null, int maxIndexEntries = ObjectMetadataIndex.DefaultMaxEntries, IFaultPlan? storeFaults = null, IIdentifierRandom? serverIdentifiers = null)
     {
         TimeProvider = new FixedTimeProvider(Now);
         FileSystem = new InMemoryContentFileSystem(TimeProvider, maxTotalBytes);
         Store = new ContentStore(InMemoryContentFileSystem.RootPath, FileSystem, exposure ?? new ContentExposureOptions(), shares ?? [], buckets ?? [], faults: storeFaults);
         Index = new ObjectMetadataIndex(FileSystem, InMemoryContentFileSystem.RootPath, persistsIndex, maxIndexEntries);
         Policy = new UnitTestBearerAuthenticationPolicy(allowsAnonymous) { AccountName = accountName };
-        Server = new AzureStorageProtocolServer(Store, Index, Policy, TimeProvider);
+        Server = new AzureStorageProtocolServer(Store, Index, Policy, TimeProvider, serverIdentifiers);
     }
 
     public FixedTimeProvider TimeProvider { get; }
@@ -54,6 +55,11 @@ internal sealed partial class AzureServerHarness
     /// The fault plan each exchange asks: none unless a test sets one.
     /// </summary>
     public IFaultPlan Faults { get; set; } = EmptyFaultPlan.Instance;
+
+    /// <summary>
+    /// The seed every exchange draws its identifiers from; null draws from the cryptographic random number generator.
+    /// </summary>
+    public long? Seed { get; set; }
 
     /// <summary>
     /// The event stream each exchange publishes on.
@@ -98,6 +104,7 @@ internal sealed partial class AzureServerHarness
         Limits = limits ?? ExchangeLimits.Default,
         Faults = Faults,
         Events = Events,
+        Identifiers = Seed is { } seed ? new SeededIdentifierRandom(seed).ForExchange(1) : CryptographicIdentifierRandom.Instance,
     };
 
     /// <summary>

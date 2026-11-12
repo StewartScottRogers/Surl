@@ -61,13 +61,13 @@ internal sealed class AzureDataLakeRequestAnswerer : IHttpRequestHandler, IHttpH
     /// <inheritdoc/>
     /// <remarks>A head past <c>--max-request-head</c> is <c>400 InvalidInput</c> in the JSON error body (ADR-0109, decision 7).</remarks>
     public HttpAnswer RefuseHeadNotRead(HttpRequestHeadReadOutcome outcome, HttpAnswer standardRefusal) =>
-        AzureReply.HeadNotReadRefusal(outcome, standardRefusal, context.TimeProvider.GetUtcNow(), writesJsonErrors: true);
+        AzureReply.HeadNotReadRefusal(outcome, standardRefusal, context.TimeProvider.GetUtcNow(), context.Identifiers, writesJsonErrors: true);
 
     /// <inheritdoc/>
     public async Task<HttpAnswer> AnswerAsync(HttpRequest request, CancellationToken cancellationToken)
     {
         var (target, pathStyleAccount) = pathStyle.Read(request);
-        var reply = new AzureReply(request, AzureReply.NewRequestId(), context.TimeProvider.GetUtcNow(), writesJsonErrors: true);
+        var reply = new AzureReply(request, AzureReply.NewRequestId(context.Identifiers), context.TimeProvider.GetUtcNow(), writesJsonErrors: true);
         if (AzureRequestChecks.CheckRequiredHeaders(request.Fields) is { } headerRefusal)
         {
             return reply.Error(headerRefusal);

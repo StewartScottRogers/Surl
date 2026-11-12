@@ -410,4 +410,20 @@ public sealed class S3ProtocolServerTests
 
         return reader.ReadToEnd();
     }
+
+    [TestMethod]
+    public async Task WriteRefusalAsync_SameSeededServerIdentifiers_IsTheSameRequestIdEveryRun()
+    {
+        var first = new S3ServerHarness(serverIdentifiers: new Surl.Core.SeededIdentifierRandom(7).ForServer("s3"));
+        var second = new S3ServerHarness(serverIdentifiers: new Surl.Core.SeededIdentifierRandom(7).ForServer("s3"));
+        var firstConnection = new InMemoryConnection([]);
+        var secondConnection = new InMemoryConnection([]);
+
+        await first.Server.WriteRefusalAsync(firstConnection, ConnectionRefusal.TooManyConnections, CancellationToken.None);
+        await second.Server.WriteRefusalAsync(secondConnection, ConnectionRefusal.TooManyConnections, CancellationToken.None);
+
+        Assert.AreEqual(
+            S3ServerHarness.RequestIdOf(Encoding.UTF8.GetString(firstConnection.WrittenBytes)),
+            S3ServerHarness.RequestIdOf(Encoding.UTF8.GetString(secondConnection.WrittenBytes)));
+    }
 }

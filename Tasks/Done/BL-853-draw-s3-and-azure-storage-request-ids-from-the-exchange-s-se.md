@@ -8,7 +8,7 @@ depends-on: [BL-822, BL-851, BL-1035]
 touches: [Protocols/FileTransfer/Surl.Extended.Protocol.S3.UnitLibrary, Protocols/FileTransfer/Surl.Extended.Protocol.S3.UnitTests, Protocols/FileTransfer/Surl.Extended.Protocol.AzureStorage.UnitLibrary, Protocols/FileTransfer/Surl.Extended.Protocol.AzureStorage.UnitTests]
 requirement: none
 created: 2026-11-05
-completed:
+completed: 2026-11-11
 ---
 # BL-853 — Draw S3 and Azure Storage request IDs from the exchange's seedable identifier source
 
@@ -29,12 +29,12 @@ seeded instance answers the same request IDs every run.
 
 ## Acceptance criteria
 
-- [ ] No `RandomNumberGenerator` call is left in either library for a request ID.
-- [ ] `S3RequestAnswererTests.RequestId_SameSeededIdentifiers_IsTheSameEveryRun` and
+- [x] No `RandomNumberGenerator` call is left in either library for a request ID.
+- [x] `S3RequestAnswererTests.RequestId_SameSeededIdentifiers_IsTheSameEveryRun` and
       `AzureReplyTests.RequestId_SameSeededIdentifiers_IsTheSameEveryRun` pass: two exchanges given
       `SeededIdentifierRandom` sources with the same seed and exchange ID answer equal request IDs; different seeds
       answer different ones.
-- [ ] Both libraries stay at 100% line and branch coverage; `dotnet build` clean, fast tests green.
+- [x] Both libraries stay at 100% line and branch coverage; `dotnet build` clean, fast tests green.
 
 ## Notes
 
@@ -52,9 +52,12 @@ seeded instance answers the same request IDs every run.
     (`SeededIdentifierRandom.ForServer("s3")`) through Composition is a follow-up for whoever plumbs `--random-seed`.
   - Tests: both test projects reference `Surl.Core.UnitLibrary` for `SeededIdentifierRandom(seed).ForExchange(id)`.
 
+- 2026-11-11 (lane 1): done as designed above. Multipart upload IDs (S3CreateMultipartUpload) are left on RandomNumberGenerator: they are not request IDs and are covered by another task if wanted. Tests drive seeds through a harness `Seed` property; both test projects gained a Surl.Core.UnitLibrary reference.
+
 ## Log
 
 - 2026-11-05: Created.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waits on BL-1035: pinned .NET SDK 10.0.401 is not installed, so dotnet cannot build or test
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Done. S3 and Azure Storage request IDs draw from ExchangeContext.Identifiers (seeded runs repeat)

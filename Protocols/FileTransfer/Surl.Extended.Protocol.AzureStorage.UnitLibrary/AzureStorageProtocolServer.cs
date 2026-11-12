@@ -66,6 +66,7 @@ public sealed class AzureStorageProtocolServer : IConnectionProtocolServer, ICon
     private readonly IAuthenticationPolicy authenticationPolicy;
     private readonly TimeProvider timeProvider;
     private readonly AzureStagingArea staging;
+    private readonly IIdentifierRandom identifiers;
 
     /// <summary>
     /// Creates the server.
@@ -74,7 +75,8 @@ public sealed class AzureStorageProtocolServer : IConnectionProtocolServer, ICon
     /// <param name="index">The object metadata index of <paramref name="store"/>'s served root.</param>
     /// <param name="authenticationPolicy">The policy whose HTTP session judges each request's login.</param>
     /// <param name="timeProvider">The clock a connection refusal's <c>Date</c> is taken from.</param>
-    public AzureStorageProtocolServer(ContentStore store, ObjectMetadataIndex index, IAuthenticationPolicy authenticationPolicy, TimeProvider timeProvider)
+    /// <param name="identifiers">Where a connection refusal's request ID is drawn from; null draws from the cryptographic random number generator.</param>
+    public AzureStorageProtocolServer(ContentStore store, ObjectMetadataIndex index, IAuthenticationPolicy authenticationPolicy, TimeProvider timeProvider, IIdentifierRandom? identifiers = null)
     {
         ArgumentNullException.ThrowIfNull(store);
         ArgumentNullException.ThrowIfNull(index);
@@ -85,6 +87,7 @@ public sealed class AzureStorageProtocolServer : IConnectionProtocolServer, ICon
         this.index = index;
         this.authenticationPolicy = authenticationPolicy;
         this.timeProvider = timeProvider;
+        this.identifiers = identifiers ?? new AzureUnseededIdentifierRandom();
         staging = new AzureStagingArea(timeProvider);
     }
 
@@ -129,7 +132,7 @@ public sealed class AzureStorageProtocolServer : IConnectionProtocolServer, ICon
     {
         ArgumentNullException.ThrowIfNull(connection);
 
-        var requestId = AzureReply.NewRequestId();
+        var requestId = AzureReply.NewRequestId(identifiers);
         var now = timeProvider.GetUtcNow();
         var writesJson = listenScheme != BlobScheme;
         var body = writesJson

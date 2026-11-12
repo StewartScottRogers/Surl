@@ -75,7 +75,7 @@ internal sealed class AzureBlobRequestAnswerer : IHttpRequestHandler, IHttpHeadN
     public async Task<HttpAnswer> AnswerAsync(HttpRequest request, CancellationToken cancellationToken)
     {
         var (target, pathStyleAccount) = pathStyle.Read(request);
-        var reply = new AzureReply(request, AzureReply.NewRequestId(), context.TimeProvider.GetUtcNow());
+        var reply = new AzureReply(request, AzureReply.NewRequestId(context.Identifiers), context.TimeProvider.GetUtcNow());
         if (AzureRequestChecks.CheckRequiredHeaders(request.Fields) is { } headerRefusal)
         {
             return reply.Error(headerRefusal);
@@ -107,7 +107,7 @@ internal sealed class AzureBlobRequestAnswerer : IHttpRequestHandler, IHttpHeadN
     /// <inheritdoc/>
     /// <remarks>A head past <c>--max-request-head</c> is <c>400 InvalidInput</c> in the XML <c>Error</c> body (ADR-0109, decision 7).</remarks>
     public HttpAnswer RefuseHeadNotRead(HttpRequestHeadReadOutcome outcome, HttpAnswer standardRefusal) =>
-        AzureReply.HeadNotReadRefusal(outcome, standardRefusal, context.TimeProvider.GetUtcNow(), writesJsonErrors: false);
+        AzureReply.HeadNotReadRefusal(outcome, standardRefusal, context.TimeProvider.GetUtcNow(), context.Identifiers, writesJsonErrors: false);
 
     // List Containers, which names no container; else the container, then the name's length, then
     // the operation.

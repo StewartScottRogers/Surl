@@ -2,6 +2,7 @@ using System.Net;
 using System.Text;
 using System.Text.RegularExpressions;
 using Surl.Content;
+using Surl.Core;
 using Surl.Protocol.Abstractions;
 
 namespace Surl.Extended.Protocol.S3;
@@ -20,7 +21,7 @@ internal sealed partial class S3ServerHarness
 
     public const string NowHttpDate = "Thu, 05 Nov 2026 12:00:00 GMT";
 
-    public S3ServerHarness(long maxTotalBytes = InMemoryContentFileSystem.DefaultMaxTotalBytes, bool persistsIndex = false, IReadOnlyList<ContentShare>? shares = null, IReadOnlyList<ContentBucket>? buckets = null, ContentExposureOptions? exposure = null, string listenHost = "127.0.0.1", int maxIndexEntries = ObjectMetadataIndex.DefaultMaxEntries, UnitTestS3AuthenticationPolicy? policy = null)
+    public S3ServerHarness(long maxTotalBytes = InMemoryContentFileSystem.DefaultMaxTotalBytes, bool persistsIndex = false, IReadOnlyList<ContentShare>? shares = null, IReadOnlyList<ContentBucket>? buckets = null, ContentExposureOptions? exposure = null, string listenHost = "127.0.0.1", int maxIndexEntries = ObjectMetadataIndex.DefaultMaxEntries, UnitTestS3AuthenticationPolicy? policy = null, IIdentifierRandom? serverIdentifiers = null)
     {
         TimeProvider = new FixedTimeProvider(Now);
         FileSystem = new InMemoryContentFileSystem(TimeProvider, maxTotalBytes);
@@ -28,7 +29,7 @@ internal sealed partial class S3ServerHarness
         ListenHost = listenHost;
         Index = new ObjectMetadataIndex(FileSystem, InMemoryContentFileSystem.RootPath, persistsIndex, maxIndexEntries);
         Policy = policy ?? new UnitTestS3AuthenticationPolicy();
-        Server = new S3ProtocolServer(Store, Index, Policy, TimeProvider);
+        Server = new S3ProtocolServer(Store, Index, Policy, TimeProvider, serverIdentifiers);
     }
 
     /// <summary>
@@ -83,12 +84,18 @@ internal sealed partial class S3ServerHarness
         Limits = limits ?? ExchangeLimits.Default,
         Faults = Faults,
         Events = Events,
+        Identifiers = Seed is { } seed ? new SeededIdentifierRandom(seed).ForExchange(1) : CryptographicIdentifierRandom.Instance,
     };
 
     /// <summary>
     /// The fault plan every exchange asks; by default one with no rule.
     /// </summary>
     public ScriptedFaultPlan Faults { get; set; } = new();
+
+    /// <summary>
+    /// The seed every exchange draws its identifiers from; null draws from the cryptographic random number generator.
+    /// </summary>
+    public long? Seed { get; set; }
 
     /// <summary>
     /// The event stream every exchange publishes to.

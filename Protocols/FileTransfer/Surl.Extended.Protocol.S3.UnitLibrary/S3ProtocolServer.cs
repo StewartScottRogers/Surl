@@ -1,5 +1,4 @@
 using System.Globalization;
-using System.Security.Cryptography;
 using Surl.Content;
 using Surl.HttpMessage;
 using Surl.HttpServing;
@@ -41,6 +40,7 @@ public sealed class S3ProtocolServer : IConnectionProtocolServer, IConnectionRef
     private readonly IAuthenticationPolicy authenticationPolicy;
     private readonly TimeProvider timeProvider;
     private readonly S3MultipartUploads uploads;
+    private readonly IIdentifierRandom identifiers;
 
     /// <summary>
     /// Creates the server.
@@ -50,7 +50,8 @@ public sealed class S3ProtocolServer : IConnectionProtocolServer, IConnectionRef
     /// <param name="authenticationPolicy">The policy whose HTTP session checks each request's Signature Version 4 login.</param>
     /// <param name="timeProvider">The clock a connection refusal's <c>Date</c> is taken from, and the open
     /// multipart uploads' idleness is measured on.</param>
-    public S3ProtocolServer(ContentStore store, ObjectMetadataIndex index, IAuthenticationPolicy authenticationPolicy, TimeProvider timeProvider)
+    /// <param name="identifiers">Where a connection refusal's request ID is drawn from; null draws from the cryptographic random number generator.</param>
+    public S3ProtocolServer(ContentStore store, ObjectMetadataIndex index, IAuthenticationPolicy authenticationPolicy, TimeProvider timeProvider, IIdentifierRandom? identifiers = null)
     {
         ArgumentNullException.ThrowIfNull(store);
         ArgumentNullException.ThrowIfNull(index);
@@ -61,6 +62,7 @@ public sealed class S3ProtocolServer : IConnectionProtocolServer, IConnectionRef
         this.index = index;
         this.authenticationPolicy = authenticationPolicy;
         this.timeProvider = timeProvider;
+        this.identifiers = identifiers ?? new S3RequestId.Unseeded();
         uploads = new S3MultipartUploads(timeProvider);
     }
 
@@ -81,7 +83,7 @@ public sealed class S3ProtocolServer : IConnectionProtocolServer, IConnectionRef
     {
         ArgumentNullException.ThrowIfNull(connection);
 
-        var requestId = RandomNumberGenerator.GetHexString(16);
+        var requestId = S3RequestId.Draw(identifiers);
         var body = S3ErrorBody.Render(S3Error.SlowDown, string.Empty, requestId, []);
         var head = new HttpResponseHead(S3Error.SlowDown.Status)
             .AddField("Date", timeProvider.GetUtcNow().ToString("r", CultureInfo.InvariantCulture))
