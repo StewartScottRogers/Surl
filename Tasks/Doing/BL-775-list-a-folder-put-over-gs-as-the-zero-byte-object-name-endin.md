@@ -42,3 +42,4 @@ size 0"), while a folder another protocol made stays unlisted.
 - 2026-11-05: Created.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waiting on BL-1035 - pinned .NET SDK 10.0.401 is not installed, so nothing can be built or tested
+- 2026-11-12: Backlog -> Doing.
