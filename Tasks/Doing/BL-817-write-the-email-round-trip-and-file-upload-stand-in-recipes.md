@@ -43,12 +43,14 @@ the store change instead of polling, read it back over another protocol, and res
 
 ## Acceptance criteria
 
-- [ ] Both classes exist with the tests named in Context, each `[TestCategory("Integration")]`, passing on Windows
+- [x] Both classes exist with the tests named in Context, each `[TestCategory("Integration")]`, passing on Windows
       with the pinned reference build present, and platform-neutral (no drive-letter path, no Windows-only text).
-- [ ] No test uses `Thread.Sleep`, `Task.Delay` or a polling loop: every wait is a `Surl.Api` wait with a timeout.
-- [ ] `dotnet build -warnaserror` is clean and `dotnet test --filter "TestCategory!=Integration"` is green.
+- [x] No test uses `Thread.Sleep`, `Task.Delay` or a polling loop: every wait is a `Surl.Api` wait with a timeout.
+- [x] `dotnet build -warnaserror` is clean and `dotnet test --filter "TestCategory!=Integration"` is green.
 
 ## Notes
+
+Both classes use Surl.Api options directly; 5 tests pass against the pinned curl 8.21.0 (mail round trip, seed+POP3, reset, FTP upload, SFTP upload). No waits except WaitForEventAsync.
 
 ## Log
 
