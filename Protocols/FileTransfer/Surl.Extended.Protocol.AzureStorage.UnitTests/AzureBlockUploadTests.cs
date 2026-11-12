@@ -573,6 +573,54 @@ public sealed class AzureBlockUploadTests
         StringAssert.Contains(response, "<HeaderName>x-ms-lease-id</HeaderName>");
     }
 
+    [TestMethod]
+    [DataRow("If-Match: \"0123\"", DisplayName = "If-Match failing")]
+    [DataRow("If-Unmodified-Since: Wed, 04 Nov 2026 12:00:00 GMT", DisplayName = "If-Unmodified-Since failing")]
+    [DataRow("If-None-Match: \"5eb63bbbe01eeed093cb22bb8f5acdc3\"", DisplayName = "If-None-Match matching")]
+    [DataRow("If-Modified-Since: Thu, 05 Nov 2026 12:00:00 GMT", DisplayName = "If-Modified-Since unmodified")]
+    public async Task ServeAsync_PutBlockListWithAFailingCondition_Is412ConditionNotMetLeavingTheBlobAndStagedBlocks(string condition)
+    {
+        var harness = Writable();
+        harness.WriteFile("photos/big.bin", "hello world");
+        await PutBlockAsync(harness, BlockA, "one ");
+
+        var response = await harness.SendWithBearerAndBodyAsync("PUT", "/photos/big.bin?comp=blocklist", $"{BlockListHead}<Uncommitted>{BlockA}</Uncommitted></BlockList>", condition);
+
+        Assert.AreEqual(
+            AzureServerHarness.ExpectedError(response, "412 Precondition Failed", "ConditionNotMet", "The condition specified using HTTP conditional header(s) is not met."),
+            response);
+        Assert.AreEqual("hello world", harness.ReadFile("photos/big.bin"));
+        StringAssert.StartsWith(await PutBlockListAsync(harness, $"<Uncommitted>{BlockA}</Uncommitted>"), "HTTP/1.1 201 Created\r\n");
+        Assert.AreEqual("one ", harness.ReadFile("photos/big.bin"));
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_PutBlockListIfNoneMatchAnyOnAnExistingBlob_Is409BlobAlreadyExists()
+    {
+        var harness = Writable();
+        harness.WriteFile("photos/big.bin", "hello world");
+        await PutBlockAsync(harness, BlockA, "one ");
+
+        var response = await harness.SendWithBearerAndBodyAsync("PUT", "/photos/big.bin?comp=blocklist", $"{BlockListHead}<Uncommitted>{BlockA}</Uncommitted></BlockList>", "If-None-Match: *");
+
+        Assert.AreEqual(
+            AzureServerHarness.ExpectedError(response, "409 Conflict", "BlobAlreadyExists", "The specified blob already exists."),
+            response);
+        Assert.AreEqual("hello world", harness.ReadFile("photos/big.bin"));
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_PutBlockListIfNoneMatchAnyOnAMissingBlob_IsCommitted()
+    {
+        var harness = Writable();
+        await PutBlockAsync(harness, BlockA, "one ");
+
+        var response = await harness.SendWithBearerAndBodyAsync("PUT", "/photos/big.bin?comp=blocklist", $"{BlockListHead}<Uncommitted>{BlockA}</Uncommitted></BlockList>", "If-None-Match: *");
+
+        StringAssert.StartsWith(response, "HTTP/1.1 201 Created\r\n");
+        Assert.AreEqual("one ", harness.ReadFile("photos/big.bin"));
+    }
+
     private static async Task FillTheStagingAreaAsync(AzureServerHarness harness)
     {
         for (var file = 0; file < AzureStagingArea.MaxStagings; file++)

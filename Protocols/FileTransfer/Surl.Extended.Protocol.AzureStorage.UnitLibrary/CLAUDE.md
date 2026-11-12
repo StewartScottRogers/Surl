@@ -53,7 +53,7 @@ What the Blob endpoint serves now (BL-424, BL-425, BL-715, BL-716), on `az`:
   (BL-736; a rename and Path - Update `setProperties` keep it, a flush drops it); an index refusal removes the blob (`400
   MetadataTooLarge`, `503 ServerBusy`). `201` with `ETag`, `Last-Modified`, `Content-MD5` and
   `x-ms-request-server-encrypted: false`.
-- The conditional fields on Put Blob and Delete Blob (BL-735, `AzureConditions.WriteRefusal`),
+- The conditional fields on Put Blob, Put Block List (BL-944, checked after the body is read and before the blocks are resolved) and Delete Blob (BL-735, `AzureConditions.WriteRefusal`),
   checked against the blob at the name once the name maps, before folders are created or the body
   is read: every condition counts, none decides over another. On an existing blob, `If-None-Match`
   naming `*` is `409 BlobAlreadyExists`; a failing `If-Match` or `If-Unmodified-Since`, a matching
@@ -207,7 +207,7 @@ phrase, or none for a code without one), `x-ms-error-code` and the endpoint's er
 reply that does not fit, or a rule of another kind, is noted in the exchange log and the request is
 served as without it.
 
-Not yet: the conditional fields on Put Block List; List Blobs' `include=uncommittedblobs`,
+Not yet: List Blobs' `include=uncommittedblobs`,
 properties on a directory or a filesystem.
 
 The path-style form (BL-725, ADR-0109 decision 2), on both endpoints: `AzurePathStyle.Read` runs

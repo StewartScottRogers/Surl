@@ -8,7 +8,7 @@ depends-on: [BL-735, BL-1035]
 touches: [Protocols/FileTransfer/Surl.Extended.Protocol.AzureStorage.UnitLibrary, Protocols/FileTransfer/Surl.Extended.Protocol.AzureStorage.UnitTests]
 requirement: none
 created: 2026-11-06
-completed:
+completed: 2026-11-12
 ---
 # BL-944 — Answer the conditional fields on Azure Put Block List
 
@@ -24,9 +24,9 @@ Azure Put Block List answers the conditional fields as ADR-0109 decision 1 says 
 
 ## Acceptance criteria
 
-- [ ] Named tests in `AzureBlockUploadTests` show a Put Block List with a failing `If-Match`, `If-Unmodified-Since`, `If-None-Match` (a matching tag) and `If-Modified-Since` answered `412 ConditionNotMet`, the blob unchanged and its uncommitted blocks still staged.
-- [ ] A named test shows `If-None-Match: *` on an existing blob answered `409 BlobAlreadyExists`, and on a missing blob committed.
-- [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and the library keeps 100% line and branch coverage.
+- [x] Named tests in `AzureBlockUploadTests` show a Put Block List with a failing `If-Match`, `If-Unmodified-Since`, `If-None-Match` (a matching tag) and `If-Modified-Since` answered `412 ConditionNotMet`, the blob unchanged and its uncommitted blocks still staged.
+- [x] A named test shows `If-None-Match: *` on an existing blob answered `409 BlobAlreadyExists`, and on a missing blob committed.
+- [x] `dotnet build -warnaserror` is clean, the fast tests are green, and the library keeps 100% line and branch coverage.
 
 ## Notes
 
@@ -38,3 +38,4 @@ Azure Put Block List answers the conditional fields as ADR-0109 decision 1 says 
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waiting on BL-1035: pinned .NET SDK 10.0.401 is not installed, so the change cannot be built or tested
 - 2026-11-12: Backlog -> Doing.
+- 2026-11-12: Doing -> Done. Put Block List answers the conditional fields; build clean, 546 tests green
