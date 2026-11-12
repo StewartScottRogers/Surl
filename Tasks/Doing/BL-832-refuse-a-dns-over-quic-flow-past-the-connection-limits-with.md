@@ -47,3 +47,4 @@ sits in the engine's refusal seam, which BL-484's acceptance criteria did not co
 
 - 2026-11-05: Created.
 - 2026-11-06: depends-on BL-485 replaced by BL-1019 (BL-485 split for the 60-minute size limit; Stewart asked for a backlog audit 2026-11-06).
+- 2026-11-12: Backlog -> Doing.
