@@ -97,9 +97,9 @@ public sealed class HttpUpstreamTestCaseServer(HttpUpstreamTestCaseReplies repli
         }
 
         var reply = replies.ChooseReply(head);
-        if (reply.Bytes is null or { Length: 0 })
+        if (reply.Bytes is null)
         {
-            context.Log.Note($"{head.Method} {head.RequestTarget}: the case has no <{reply.PartName}> part, or it is empty; closed with no bytes.");
+            context.Log.Note($"{head.Method} {head.RequestTarget}: the case has no <{reply.PartName}> part; closed with no bytes.");
             await connection.CompleteWritesAsync(context.CancellationToken);
 
             return false;
