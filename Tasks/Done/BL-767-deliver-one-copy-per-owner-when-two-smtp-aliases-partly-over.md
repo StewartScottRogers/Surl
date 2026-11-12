@@ -8,7 +8,7 @@ depends-on: [BL-675, BL-676, BL-1035]
 touches: [Protocols/Mail/Surl.MailStore.UnitLibrary, Protocols/Mail/Surl.MailStore.UnitTests, Protocols/Mail/Surl.Protocol.Smtp.UnitLibrary, Protocols/Mail/Surl.Protocol.Smtp.UnitTests]
 requirement: none
 created: 2026-11-05
-completed:
+completed: 2026-11-11
 ---
 # BL-767 — Deliver one copy per owner when two SMTP aliases partly overlap
 
@@ -32,15 +32,15 @@ one (`team` -> ann, bob; `pair` -> bob, cat), every owner receives exactly one c
 
 ## Acceptance criteria
 
-- [ ] A named test in `Surl.Protocol.Smtp.UnitTests` sends `RCPT`s to two partly overlapping aliases and finds
+- [x] A named test in `Surl.Protocol.Smtp.UnitTests` sends `RCPT`s to two partly overlapping aliases and finds
       exactly one copy in each owner's `INBOX`; the BL-676 test above asserts `HasCount(1, ...)` for bob.
-- [ ] Under `--allow-anonymous`, each recipient still gives the anonymous owner one copy (existing tests pass
+- [x] Under `--allow-anonymous`, each recipient still gives the anonymous owner one copy (existing tests pass
       unchanged).
-- [ ] `dotnet build -warnaserror` clean, fast tests green, both libraries at 100% line and branch coverage.
+- [x] `dotnet build -warnaserror` clean, fast tests green, both libraries at 100% line and branch coverage.
 
 ## Notes
 
-- 2026-11-11: Implemented (uncommitted, stashed by the shift): public `MailRecipient.WithoutOwners(IEnumerable<string>)` returns the owners not yet reached (null when none); `SmtpMailTransaction.KeepNamedRecipient` replaces kept recipients the new one covers, then keeps only the new one's unreached owners. Chosen over a merge (`Union`) so the "Message stored ... for N recipients" note keeps its count for the existing tests. Tests: `MailboxStoreMailDomainTests.WithoutOwners_*`, `SmtpMailDomainTests.ServeAsync_PartlyOverlappingAliases_GiveEveryOwnerExactlyOneCopy` (renamed from the BL-676 test). Not built: `global.json` pins SDK 10.0.401, not installed on the lane machine - waits for BL-1035.
+- 2026-11-11: Implemented (uncommitted, stashed by the shift): public `MailRecipient.WithoutOwners(IEnumerable<string>)` returns the owners not yet reached (null when none); `SmtpMailTransaction.KeepNamedRecipient` replaces kept recipients the new one covers, then keeps only the new one's unreached owners. Chosen over a merge (`Union`) so the "Message stored ... for N recipients" note keeps its count for the existing tests. Tests: `MailboxStoreMailDomainTests.WithoutOwners_*`, `SmtpMailDomainTests.ServeAsync_PartlyOverlappingAliases_GiveEveryOwnerExactlyOneCopy` (renamed from the BL-676 test). The first attempt was lost to the shift's stash, so it was re-implemented on 2026-11-11 and built with SDK 10.0.404 (rolls forward). `KeepNamedRecipient` rebuilds the reached-owner set after replacing covered recipients. Smtp CLAUDE.md updated. Smtp tests 273 and MailStore tests 367 pass; every new branch has a test (WithoutOwners's three outcomes, the null guard).
 
 ## Log
 
@@ -48,3 +48,4 @@ one (`team` -> ann, bob; `pair` -> bob, cat), every owner receives exactly one c
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waits for BL-1035: pinned .NET SDK 10.0.401 is not installed, so dotnet build cannot run; code is written and left for the shift to stash
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Done. Partly overlapping SMTP aliases deliver exactly one copy per owner via MailRecipient.WithoutOwners

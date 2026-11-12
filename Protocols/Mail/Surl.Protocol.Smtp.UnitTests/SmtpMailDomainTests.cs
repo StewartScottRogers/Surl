@@ -94,7 +94,7 @@ public sealed class SmtpMailDomainTests
     }
 
     [TestMethod]
-    public async Task ServeAsync_AliasesThatEachNameAnotherOwner_KeepEveryOwnersCopy()
+    public async Task ServeAsync_PartlyOverlappingAliases_GiveEveryOwnerExactlyOneCopy()
     {
         var clock = new ManualTimeProvider();
         var store = DomainStore(clock);
@@ -103,7 +103,7 @@ public sealed class SmtpMailDomainTests
 
         Assert.HasCount(1, Inbox(store, Ann));
         Assert.HasCount(1, Inbox(store, Cat));
-        Assert.IsNotEmpty(Inbox(store, Bob));
+        Assert.HasCount(1, Inbox(store, Bob));
     }
 
     [TestMethod]

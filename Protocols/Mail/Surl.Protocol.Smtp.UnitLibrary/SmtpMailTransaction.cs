@@ -63,15 +63,19 @@ internal sealed class SmtpMailTransaction(string reversePath)
         }
     }
 
-    // One copy per owner per message (ADR-0102, decision 1.3): a recipient whose owners were all
-    // reached already is dropped, and one kept replaces every kept recipient whose owners it
-    // names all of. A recipient is never split, so only two aliases that each name an owner the
-    // other does not, and share one, give the shared owner two copies.
+    // One copy per owner per message (ADR-0102, decision 1.3): a kept recipient whose owners the
+    // new one names all of is replaced by it, and the new one then keeps only the owners no
+    // kept recipient reaches, so two partly overlapping aliases give the shared owner one copy.
     private void KeepNamedRecipient(MailRecipient recipient)
     {
         var owners = recipient.OwnerNames;
         deliverable.RemoveAll(kept => kept.OwnerNames.All(owners.Contains));
-        deliverable.Add(recipient);
-        deliverableOwners.UnionWith(owners);
+        deliverableOwners.Clear();
+        deliverableOwners.UnionWith(deliverable.SelectMany(kept => kept.OwnerNames));
+        // AddRecipient only calls this when an owner is unreached, and removing kept recipients
+        // only shrinks the reached set, so something remains.
+        var unreached = recipient.WithoutOwners(deliverableOwners)!;
+        deliverable.Add(unreached);
+        deliverableOwners.UnionWith(unreached.OwnerNames);
     }
 }

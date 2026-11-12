@@ -67,6 +67,48 @@ public sealed class MailboxStoreMailDomainTests
     }
 
     [TestMethod]
+    public void WithoutOwners_NoOwnerReached_IsTheSameRecipient()
+    {
+        var recipient = Recipient(AliasStore(), "<team@example.com>");
+
+        Assert.AreSame(recipient, recipient.WithoutOwners(["cat@example.com"]));
+    }
+
+    [TestMethod]
+    public void WithoutOwners_SomeOwnersReached_IsARecipientOfTheOthersInOrder()
+    {
+        var recipient = Recipient(AliasStore(), "<team@example.com>");
+
+        var rest = recipient.WithoutOwners(["ann@example.com"]);
+
+        Assert.IsNotNull(rest);
+        CollectionAssert.AreEqual(new[] { "bob@example.com" }, rest.OwnerNames.ToArray());
+    }
+
+    [TestMethod]
+    public void WithoutOwners_EveryOwnerReached_IsNull()
+    {
+        var recipient = Recipient(AliasStore(), "<team@example.com>");
+
+        Assert.IsNull(recipient.WithoutOwners(["bob@example.com", "ann@example.com"]));
+    }
+
+    [TestMethod]
+    public void WithoutOwners_NullReachedOwners_Throws()
+    {
+        var recipient = Recipient(AliasStore(), "<team@example.com>");
+
+        Assert.ThrowsExactly<ArgumentNullException>(() => recipient.WithoutOwners(null!));
+    }
+
+    private static MailboxStore AliasStore() =>
+        DomainStore(
+            [],
+            Configuration(
+                mailboxes: ["ann@example.com", "bob@example.com"],
+                aliases: [new MailAlias("team@example.com", ["ann@example.com", "bob@example.com"])]));
+
+    [TestMethod]
     public void LookUpRecipient_AliasNamingAnAccountsAddress_TakesPrecedenceOverTheAccount()
     {
         var store = DomainStore(["alice", "bob"], Configuration(aliases: [new MailAlias("alice@example.com", ["bob@example.com"])]));
