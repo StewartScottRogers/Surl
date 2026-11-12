@@ -19,6 +19,13 @@ public sealed record SurlCommandLine
     public IReadOnlyList<ListenUrl> ListenUrls { get; init; } = [];
 
     /// <summary>
+    /// Every <c>-K</c>/<c>--config</c> file read, as given, in the order each was opened, the ones a
+    /// config file names included and <c>-</c> for standard input, so a file other users can read is
+    /// warned at start (ADR-0101, decision 5). None by default.
+    /// </summary>
+    public IReadOnlyList<string> ConfigFiles { get; init; } = [];
+
+    /// <summary>
     /// The Unix domain socket the one listen URL listens on instead of a TCP port, set by the last
     /// of <c>--unix-socket &lt;path&gt;</c> and <c>--abstract-unix-socket &lt;name&gt;</c>
     /// (ADR-0094, decision 1); <see langword="null"/> by default, when every listen URL listens

@@ -100,7 +100,7 @@ internal static class CommandLineOptions
             new(null, "Show version number and quit", ["surl"], IsInShortList: true, Default: null)),
         new("manual", 'M', CommandLineOptionKind.Manual, Negatable: false, SetFlag: null, ApplyArgument: null, OptionArgumentType.None,
             new(null, "Display the full manual", ["surl"], IsInShortList: false, Default: null)),
-        WithArgument<string>("config", 'K', OptionArgumentReader.Path, (c, _) => c,
+        WithArgument<string>("config", 'K', OptionArgumentReader.Path, (c, v) => c with { ConfigFiles = [.. c.ConfigFiles, v] },
             new("<file>", "Read options from a file (repeatable)", ["surl"], IsInShortList: false, Default: "none read")),
         WithArgument<string>("url", null, OptionArgumentReader.ListenUrlText, (c, _) => c,
             new("<listen URL>", "Add a listen URL (repeatable)", ["surl"], IsInShortList: false, Default: "none")),

@@ -32,6 +32,7 @@ internal static class CommandLinePathMembers
         new(nameof(SurlCommandLine.AuthorizedKeys), "--authorized-keys", commandLine => commandLine.AuthorizedKeys.Select(keys => keys.File)),
         new(nameof(SurlCommandLine.MailboxFiles), "--mailbox-file", commandLine => commandLine.MailboxFiles),
         new(nameof(SurlCommandLine.ControlTokenFile), "--control-token-file", commandLine => OneOrNone(commandLine.ControlTokenFile)),
+        new(nameof(SurlCommandLine.ConfigFiles), "--config", commandLine => commandLine.ConfigFiles),
     ];
 
     /// <summary>
