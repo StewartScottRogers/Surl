@@ -45,3 +45,4 @@ verdicts, notes and refusal delay as an account from `--user-file`.
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-12: Backlog -> Doing.
