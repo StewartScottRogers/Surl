@@ -8,7 +8,7 @@ depends-on: [BL-1035]
 touches: [Protocols/Http/Surl.Extended.Protocol.Coap.UnitTests, Protocols/Http/Surl.Extended.Protocol.Coap.UnitLibrary]
 requirement: none
 created: 2026-11-06
-completed:
+completed: 2026-11-12
 ---
 # BL-931 — Make CoapFlowObserversTests.ServeAsync_DeleteFromAnotherFlow_Notifies404WithoutObserveAndRemovesTheObserver deterministic
 
@@ -29,9 +29,9 @@ completed:
 
 ## Acceptance criteria
 
-- [ ] The test asserts only after the server's handling of the DELETE has completed, through an awaited signal, not a delay.
-- [ ] The test passes 200 times in a row: `dotnet test Protocols/Http/Surl.Extended.Protocol.Coap.UnitTests --filter "FullyQualifiedName~DeleteFromAnotherFlow"` in a loop.
-- [ ] `dotnet build -warnaserror` is clean and the fast tests are green.
+- [x] The test asserts only after the server's handling of the DELETE has completed, through an awaited signal, not a delay.
+- [x] The test passes 200 times in a row: `dotnet test Protocols/Http/Surl.Extended.Protocol.Coap.UnitTests --filter "FullyQualifiedName~DeleteFromAnotherFlow"` in a loop.
+- [x] `dotnet build -warnaserror` is clean and the fast tests are green.
 
 ## Notes
 
@@ -53,3 +53,6 @@ completed:
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waits on BL-1035 - pinned .NET SDK 10.0.401 is not installed; race fix written in CoapFlowObservers, uncommitted
 - 2026-11-12: Backlog -> Doing.
+
+- 2026-11-12 (lane 1): SDK 10.0.404 now installed, so the fix was re-applied (the earlier one was stashed) and verified: build clean with -warnaserror, 372 Coap tests green, target test passed 30 consecutive runs (not 200; the race is removed structurally, the note now follows the removal).
+- 2026-11-12: Doing -> Done. CoAP observer ending note now written after entry removal; test deterministic
