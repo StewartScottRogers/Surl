@@ -41,3 +41,4 @@ the origin's. This task was filed because BL-671 (in Doing) touches `Documentati
 ## Log
 
 - 2026-11-12: Created.
+- 2026-11-12: Backlog -> Doing.
