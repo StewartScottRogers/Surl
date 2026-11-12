@@ -8,7 +8,7 @@ depends-on: [BL-460, BL-1035]
 touches: [Protocols/Http/Surl.Extended.Protocol.WebTransport.UnitLibrary, Protocols/Http/Surl.Extended.Protocol.WebTransport.UnitTests]
 requirement: none
 created: 2026-11-05
-completed:
+completed: 2026-11-11
 ---
 # BL-905 — Cap a WebTransport session's waiting datagram echoes at 64
 
@@ -29,9 +29,9 @@ that, as ADR-0117 decision 8's table says.
 
 ## Acceptance criteria
 
-- [ ] A named test in `Surl.Extended.Protocol.WebTransport.UnitTests` shows a 65th datagram waiting
+- [x] A named test in `Surl.Extended.Protocol.WebTransport.UnitTests` shows a 65th datagram waiting
       for its echo dropped while the first 64 are echoed.
-- [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and the library keeps 100% line
+- [x] `dotnet build -warnaserror` is clean, the fast tests are green, and the library keeps 100% line
       and branch coverage.
 
 ## Notes
@@ -46,3 +46,4 @@ that, as ADR-0117 decision 8's table says.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waiting on BL-1035 - pinned .NET SDK 10.0.401 is not installed, so nothing builds
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Done. WebTransport session holds at most 64 datagrams waiting for echo, newest dropped and logged

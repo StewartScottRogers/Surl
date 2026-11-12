@@ -77,8 +77,9 @@ Flow control, the session limit, authentication and the limits (BL-460, ADR-0117
   `WT_FLOW_CONTROL_ERROR`; `WT_MAX_STREAM_DATA` and `WT_STREAM_DATA_BLOCKED` are `H3_MESSAGE_ERROR`.
 - Whatever the flow control, a session whose stream payload and HTTP datagrams reach `--max-filesize`
   is closed `WT_CLOSE_SESSION` code 1 `session data limit reached`, then FIN.
+- `WebTransportDatagramEchoQueue` (BL-905, decision 8) holds at most 64 HTTP datagrams a session waiting for their echo and drops the newest past that, noting it in the log.
 
-Still to come: the 64-datagram echo queue a session (BL-905); waiting for the client to close each
+Still to come: waiting for the client to close each
 CONNECT stream before `CONNECTION_CLOSE` at shutdown (BL-1060).
 
 `Surl.Extended.Protocol.WebTransport.UnitTests` drives the server over `Surl.Http3.UnitTests`' in-memory

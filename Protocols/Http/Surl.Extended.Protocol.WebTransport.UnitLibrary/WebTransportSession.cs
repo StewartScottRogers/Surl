@@ -145,7 +145,28 @@ internal sealed class WebTransportSession : IDisposable
         }
     }
 
+    // ADR-0117 decision 8: at most WebTransportDatagramEchoQueue.Capacity datagrams wait for their echo, the newest dropped.
     private async Task EchoDatagramsAsync()
+    {
+        var waiting = new WebTransportDatagramEchoQueue();
+        using var echoingToken = CancellationTokenSource.CreateLinkedTokenSource(endingToken, endingByServer.Token);
+        var receiving = QueueDatagramsAsync(waiting);
+        try
+        {
+            await foreach (var payload in waiting.TakeAsync(echoingToken.Token))
+            {
+                await SendDatagramAsync(payload);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // The session has ended.
+        }
+
+        await receiving;
+    }
+
+    private async Task QueueDatagramsAsync(WebTransportDatagramEchoQueue waiting)
     {
         try
         {
@@ -154,12 +175,16 @@ internal sealed class WebTransportSession : IDisposable
             {
                 ReadOnlyMemory<byte> payload = await session.ReceiveDatagramAsync(endingToken);
                 CountReceived(payload.Length);
-                await SendDatagramAsync(payload);
+                waiting.Enqueue(payload, context.Log, session.Id);
             }
         }
         catch (OperationCanceledException)
         {
             // The session has ended.
+        }
+        finally
+        {
+            waiting.Complete();
         }
     }
 
