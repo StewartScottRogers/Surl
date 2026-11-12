@@ -66,3 +66,4 @@ they serve the whole file with `200`.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waits on BL-1035: pinned .NET SDK 10.0.401 is not installed, so dotnet build fails
 - 2026-11-12: Backlog -> Doing.
+- 2026-11-12: Doing -> Blocked. Stewart: lane 4's uncommitted BL-888 code is in a git stash this lane may not read (git stash/status commands were denied); allow stash access to recover it, or say to rewrite it from scratch
