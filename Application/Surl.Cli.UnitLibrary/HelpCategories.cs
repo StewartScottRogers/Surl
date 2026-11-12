@@ -33,6 +33,7 @@ internal static class HelpCategories
         new("rtsp", "RTSP protocol", ["rtsp"]),
         new("s3", "Amazon S3 protocol (extended)", ["s3"]),
         new("security", "Options that widen what a peer may do", []),
+        new("signalr", "SignalR and SignalR over TLS protocol (extended)", ["signalr", "signalrs"]),
         new("smb", "SMB and SMBS protocol", ["smb", "smbs"]),
         new("smtp", "SMTP and SMTPS protocol", ["smtp", "smtps"]),
         new("socketio", "Socket.IO and Socket.IO over TLS protocol (extended)", ["socketio", "socketios"]),

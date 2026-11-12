@@ -11,6 +11,7 @@ using Surl.Extended.Protocol.Mqtt5;
 using Surl.Extended.Protocol.Nats;
 using Surl.Extended.Protocol.Stomp;
 using Surl.Extended.Protocol.S3;
+using Surl.Extended.Protocol.SignalR;
 using Surl.Extended.Protocol.SocketIo;
 using Surl.Extended.Protocol.WebTransport;
 using Surl.Extended.Protocol.Xmpp;
@@ -55,7 +56,7 @@ public sealed class ExtendedProtocolServersTests
 
         var servers = ExtendedProtocolServers.Compose(services);
 
-        Assert.HasCount(18, servers);
+        Assert.HasCount(19, servers);
         Assert.IsInstanceOfType<Amqp0Broker>(servers[0]);
         Assert.IsInstanceOfType<AzureStorageProtocolServer>(servers[1]);
         Assert.IsInstanceOfType<CoapProtocolServer>(servers[2]);
@@ -68,15 +69,16 @@ public sealed class ExtendedProtocolServersTests
         Assert.IsInstanceOfType<Mqtt5WebSocketServer>(servers[9]);
         Assert.IsInstanceOfType<NatsServer>(servers[10]);
         Assert.IsInstanceOfType<S3ProtocolServer>(servers[11]);
-        Assert.IsInstanceOfType<SocketIoProtocolServer>(servers[12]);
-        Assert.IsInstanceOfType<StompServer>(servers[13]);
-        CollectionAssert.AreEqual(new[] { "stomps" }, servers[14].Schemes.ToArray());
-        Assert.IsInstanceOfType<WebTransportProtocolServer>(servers[15]);
-        Assert.IsInstanceOfType<XmppServer>(servers[16]);
-        CollectionAssert.AreEqual(new[] { "xmpps" }, servers[17].Schemes.ToArray());
-        CollectionAssert.AreEqual(new[] { "amqp", "amqps", "az", "abfs", "abfss", "coap", "coaps", "dns", "dns", "gs", "kafka", "kafkas", "mqtt5", "mqtt5s", "mqtt5+ws", "nats", "natss", "s3", "socketio", "socketios", "stomp", "stomps", "webtransport", "xmpp", "xmpps" }, servers.SelectMany(server => server.Schemes).ToArray());
+        Assert.IsInstanceOfType<SignalRProtocolServer>(servers[12]);
+        Assert.IsInstanceOfType<SocketIoProtocolServer>(servers[13]);
+        Assert.IsInstanceOfType<StompServer>(servers[14]);
+        CollectionAssert.AreEqual(new[] { "stomps" }, servers[15].Schemes.ToArray());
+        Assert.IsInstanceOfType<WebTransportProtocolServer>(servers[16]);
+        Assert.IsInstanceOfType<XmppServer>(servers[17]);
+        CollectionAssert.AreEqual(new[] { "xmpps" }, servers[18].Schemes.ToArray());
+        CollectionAssert.AreEqual(new[] { "amqp", "amqps", "az", "abfs", "abfss", "coap", "coaps", "dns", "dns", "gs", "kafka", "kafkas", "mqtt5", "mqtt5s", "mqtt5+ws", "nats", "natss", "s3", "signalr", "signalrs", "socketio", "socketios", "stomp", "stomps", "webtransport", "xmpp", "xmpps" }, servers.SelectMany(server => server.Schemes).ToArray());
         CollectionAssert.AreEqual(
-            new[] { "amqp", "amqps", "az", "abfs", "abfss", "coap", "coaps", "dns", "dns", "gs", "kafka", "kafkas", "mqtt5", "mqtt5s", "mqtt5+ws", "nats", "natss", "s3", "socketio", "socketios", "stomp", "stomps", "webtransport", "xmpp", "xmpps" }, ExtendedProtocolServers.Registrations.SelectMany(registration => registration.Schemes).ToArray());
+            new[] { "amqp", "amqps", "az", "abfs", "abfss", "coap", "coaps", "dns", "dns", "gs", "kafka", "kafkas", "mqtt5", "mqtt5s", "mqtt5+ws", "nats", "natss", "s3", "signalr", "signalrs", "socketio", "socketios", "stomp", "stomps", "webtransport", "xmpp", "xmpps" }, ExtendedProtocolServers.Registrations.SelectMany(registration => registration.Schemes).ToArray());
     }
 
     [TestMethod]

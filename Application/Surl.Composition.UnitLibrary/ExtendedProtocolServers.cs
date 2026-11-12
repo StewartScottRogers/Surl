@@ -7,6 +7,7 @@ using Surl.Extended.Protocol.Kafka;
 using Surl.Extended.Protocol.Mqtt5;
 using Surl.Extended.Protocol.Nats;
 using Surl.Extended.Protocol.S3;
+using Surl.Extended.Protocol.SignalR;
 using Surl.Extended.Protocol.SocketIo;
 using Surl.Extended.Protocol.Stomp;
 using Surl.Extended.Protocol.WebTransport;
@@ -115,7 +116,13 @@ public static class ExtendedProtocolServers
             })),
         new(["s3"], services => new S3ProtocolServer(
             services.ContentStore, services.ObjectMetadataIndex, services.AuthenticationPolicyFor("s3"), services.TimeProvider)),
-        new([SocketIoProtocolServer.PlainScheme, SocketIoProtocolServer.TlsScheme], services => new SocketIoProtocolServer(
+        // The SignalR hub (ADR-0119, BL-450) at /, since a listen URL carries no path (BL-1039); signalrs is TLS from the
+        // first byte through TlsSchemes, so the one registration claims both schemes. One SignalRHubConnections per server.
+        new([SignalRProtocolServer.PlainScheme, SignalRProtocolServer.TlsScheme], services => new SignalRProtocolServer(
+            SignalRHubPath.FromListenPath(string.Empty),
+            new SignalRHubConnections(services.TimeProvider),
+            services.AuthenticationPolicyFor(SignalRProtocolServer.PlainScheme))),
+        new([SocketIoProtocolServer.PlainScheme,SocketIoProtocolServer.TlsScheme], services => new SocketIoProtocolServer(
             SocketIoServedNamespaces.FromListenPath(null), new SocketIoSessions(), services.AuthenticationPolicyFor(SocketIoProtocolServer.PlainScheme))),
         new(["stomp"], services => new StompServer(
             services.AuthenticationPolicyFor("stomp"),

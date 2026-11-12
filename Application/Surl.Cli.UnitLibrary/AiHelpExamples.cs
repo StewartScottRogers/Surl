@@ -248,6 +248,13 @@ public static class AiHelpExamples
             ["surl: warning: --allow-anonymous: every request and login is accepted without checking credentials"],
             ["curl --mail-from a@example.com --mail-rcpt b@example.com -T mail.txt smtp://127.0.0.1:<port>/example.com"]),
         Serving(
+            "signalr",
+            "For a test: serve a SignalR hub without accounts",
+            ["--allow-anonymous", "signalr://127.0.0.1:0/"],
+            ["Listening on signalr://127.0.0.1:<port>/"],
+            ["surl: warning: --allow-anonymous: every request and login is accepted without checking credentials"],
+            []),
+        Serving(
             "socketio",
             "For a test: serve Socket.IO without accounts",
             ["--allow-anonymous", "socketio://127.0.0.1:0/"],

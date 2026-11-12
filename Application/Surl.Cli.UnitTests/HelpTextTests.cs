@@ -33,6 +33,7 @@ public sealed class HelpTextTests
         " rtsp           RTSP protocol",
         " s3             Amazon S3 protocol (extended)",
         " security       Options that widen what a peer may do",
+        " signalr        SignalR and SignalR over TLS protocol (extended)",
         " smb            SMB and SMBS protocol",
         " smtp           SMTP and SMTPS protocol",
         " socketio       Socket.IO and Socket.IO over TLS protocol (extended)",
@@ -212,8 +213,8 @@ public sealed class HelpTextTests
             "Use \"--help category\" to get an overview of all categories, which are:",
             "amqp, auth, azure-storage, coap, content, dict, dns, ftp, gopher, gs, http,",
             "imap, kafka, ldap, limits, logging, mail, messages, mqtt, mqtt5, nats, pop3,",
-            "proxy, rtsp, s3, security, smb, smtp, socketio, socks, ssh, stomp, surl,",
-            "telnet, testing, tftp, tls, websocket, webtransport, xmpp.",
+            "proxy, rtsp, s3, security, signalr, smb, smtp, socketio, socks, ssh, stomp,",
+            "surl, telnet, testing, tftp, tls, websocket, webtransport, xmpp.",
             "Use \"--help all\" to list all options",
             "Use \"--help [option]\" to view documentation for a given option");
     }

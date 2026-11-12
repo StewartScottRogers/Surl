@@ -188,6 +188,7 @@ public sealed class AiHelpFactsTests
     [DataRow("smb", new[] { "smb", "smbs" })]
     [DataRow("stomp", new[] { "stomp", "stomps" })]
     [DataRow("smtp", new[] { "smtp", "smtps" })]
+    [DataRow("signalr", new[] { "signalr", "signalrs" })]
     [DataRow("socketio", new[] { "socketio", "socketios" })]
     [DataRow("socks", new[] { "socks4", "socks4a", "socks5", "socks5h" })]
     [DataRow("telnet", new[] { "telnet" })]
@@ -206,7 +207,7 @@ public sealed class AiHelpFactsTests
     {
         var withSchemes = HelpCategories.All.Where(category => category.Schemes.Count > 0).Select(category => category.Name);
 
-        CollectionAssert.AreEqual(new[] { "amqp", "azure-storage", "coap", "dict", "dns", "ftp", "gopher", "gs", "http", "imap", "kafka", "ldap", "mqtt", "mqtt5", "nats", "pop3", "rtsp", "s3", "smb", "smtp", "socketio", "socks", "ssh", "stomp", "telnet", "tftp", "websocket", "webtransport", "xmpp" }, withSchemes.ToArray());
+        CollectionAssert.AreEqual(new[] { "amqp", "azure-storage", "coap", "dict", "dns", "ftp", "gopher", "gs", "http", "imap", "kafka", "ldap", "mqtt", "mqtt5", "nats", "pop3", "rtsp", "s3", "signalr", "smb", "smtp", "socketio", "socks", "ssh", "stomp", "telnet", "tftp", "websocket", "webtransport", "xmpp" }, withSchemes.ToArray());
     }
 
     [TestMethod]

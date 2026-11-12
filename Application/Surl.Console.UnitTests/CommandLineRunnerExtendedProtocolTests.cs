@@ -295,13 +295,13 @@ public sealed class CommandLineRunnerExtendedProtocolTests
         Assert.AreEqual("surl: (1) Protocol \"gs\" not supported" + NewLine, error.ToString());
     }
     [TestMethod]
-    public void ComposeExtendedSchemes_ThisBuildWithTheSwitchUnset_RegistersNatsNatssSocketioAndSocketios()
+    public void ComposeExtendedSchemes_ThisBuildWithTheSwitchUnset_RegistersNatsNatssSignalrSignalrsSocketioAndSocketios()
     {
         var runner = CreateRunner(new FakeListenerFactory(), FakeEnvironmentVariableReader.Empty, composeExtendedProtocolServers: null);
 
         var schemes = runner.ComposeExtendedSchemes();
 
-        CollectionAssert.IsSubsetOf(new[] { "nats", "natss", "socketio", "socketios" }, schemes.ToArray());
+        CollectionAssert.IsSubsetOf(new[] { "nats", "natss", "signalr", "signalrs", "socketio", "socketios" }, schemes.ToArray());
     }
 
     [TestMethod]
@@ -309,6 +309,8 @@ public sealed class CommandLineRunnerExtendedProtocolTests
     [DataRow("natss")]
     [DataRow("coap")]
     [DataRow("coaps")]
+    [DataRow("signalr")]
+    [DataRow("signalrs")]
     [DataRow("socketio")]
     [DataRow("socketios")]
     [DataRow("webtransport")]
@@ -330,6 +332,38 @@ public sealed class CommandLineRunnerExtendedProtocolTests
 
         Assert.AreEqual(SurlExitCode.UnsupportedProtocol, exitCode);
         Assert.AreEqual($"surl: (1) Protocol \"{scheme}\" not supported" + NewLine, error.ToString());
+    }
+
+    [TestMethod]
+    [DataRow("signalr", new string[0], 80)]
+    [DataRow("signalrs", new[] { "--self-signed" }, 443)]
+    public async Task RunAsync_SignalRSchemeWithTheSwitchUnset_ListensAtItsDefaultPort(string scheme, string[] options, int port)
+    {
+        var factory = new FakeListenerFactory();
+        using var stop = CancellationTokenSource.CreateLinkedTokenSource(TestContext.CancellationToken);
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+        var runner = CreateRunner(factory, FakeEnvironmentVariableReader.Empty, composeExtendedProtocolServers: null);
+
+        var running = runner.RunAsync([.. options, $"{scheme}://127.0.0.1/"], output, error, stop.Token);
+        await factory.AcceptStarted.Task.WaitAsync(TestContext.CancellationToken);
+        await stop.CancelAsync();
+        var exitCode = await running;
+
+        Assert.AreEqual(SurlExitCode.Ok, exitCode);
+        Assert.AreEqual(new ListenUrl(scheme, "127.0.0.1", port), factory.StartedListenUrls.Single());
+    }
+
+    [TestMethod]
+    public async Task RunAsync_SignalRsSchemeWithoutACertificate_ExitsWithTheMissingCertificateCode()
+    {
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+        var runner = CreateRunner(new FakeListenerFactory(), FakeEnvironmentVariableReader.Empty, composeExtendedProtocolServers: null);
+
+        var exitCode = await runner.RunAsync(["signalrs://127.0.0.1:0/"], output, error, TestContext.CancellationToken);
+
+        Assert.AreEqual(SurlExitCode.CertificateProblem, exitCode);
     }
 
     [TestMethod]
@@ -598,7 +632,7 @@ public sealed class CommandLineRunnerExtendedProtocolTests
 
         var schemes = runner.ComposeExtendedSchemes();
 
-        CollectionAssert.AreEqual(new[] { "amqp", "amqps", "az", "abfs", "abfss", "coap", "coaps", "dns", "gs", "kafka", "kafkas", "mqtt5", "mqtt5s", "mqtt5+ws", "nats", "natss", "s3", "socketio", "socketios", "stomp", "stomps", "webtransport", "xmpp", "xmpps" }, schemes.ToArray());
+        CollectionAssert.AreEqual(new[] { "amqp", "amqps", "az", "abfs", "abfss", "coap", "coaps", "dns", "gs", "kafka", "kafkas", "mqtt5", "mqtt5s", "mqtt5+ws", "nats", "natss", "s3", "signalr", "signalrs", "socketio", "socketios", "stomp", "stomps", "webtransport", "xmpp", "xmpps" }, schemes.ToArray());
     }
 
     [TestMethod]
