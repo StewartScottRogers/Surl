@@ -1,4 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
+using Surl.Cli;
 using Surl.Output;
 
 namespace Surl.Composition;
@@ -17,6 +18,8 @@ public static class ReadableByOthersWarning
 {
     private const UnixFileMode ReadByOthers = UnixFileMode.GroupRead | UnixFileMode.OtherRead;
 
+    private const string StandardInputPath = "-";
+
     /// <summary>
     /// Writes the warning for <paramref name="file"/> when <paramref name="mode"/> grants group or
     /// other read and <paramref name="logLevel"/> is info or louder; writes nothing otherwise.
@@ -31,6 +34,26 @@ public static class ReadableByOthersWarning
         if (logLevel >= LogLevel.Info && mode is { } given && (given & ReadByOthers) != 0)
         {
             log.WriteLine($"surl: warning: {file} is readable by other users and may hold passwords");
+        }
+    }
+
+    /// <summary>
+    /// Writes the warning for each file <paramref name="commandLine"/> read or will read that may hold
+    /// passwords and other users can read: each <see cref="SurlCommandLine.ConfigFiles"/> file in the
+    /// order read, then the <see cref="SurlCommandLine.UserFile"/>. Standard input (<c>-K -</c>) has
+    /// no file mode of its own and is never warned.
+    /// </summary>
+    /// <param name="commandLine">The parsed command line.</param>
+    /// <param name="readMode">Reads a file's Unix mode by its path as given; <see langword="null"/> for none.</param>
+    /// <param name="log">The log stream.</param>
+    public static void WriteForFilesThatMayHoldPasswords(SurlCommandLine commandLine, Func<string, UnixFileMode?> readMode, TextWriter log)
+    {
+        ArgumentNullException.ThrowIfNull(commandLine);
+        ArgumentNullException.ThrowIfNull(readMode);
+        var files = commandLine.ConfigFiles.Where(file => file != StandardInputPath);
+        foreach (var file in commandLine.UserFile is { } userFile ? files.Append(userFile) : files)
+        {
+            Write(file, readMode(file), commandLine.LogLevel, log);
         }
     }
 

@@ -65,7 +65,7 @@ public sealed record SurlServerCompositionSeams(
     /// <summary>
     /// Reads the Unix mode of a file read at start that may hold passwords, given its path as given,
     /// so a file other users can read is warned (ADR-0101, decision 5): today the
-    /// <c>--user-file</c>. <see langword="null"/> from it means no mode, as on Windows, and no warning.
+    /// <c>-K</c> files and the <c>--user-file</c>. <see langword="null"/> from it means no mode, as on Windows, and no warning.
     /// <see cref="ReadableByOthersWarning.ReadDiskMode"/> when <see langword="null"/>, which is what
     /// <c>surl</c> passes.
     /// </summary>

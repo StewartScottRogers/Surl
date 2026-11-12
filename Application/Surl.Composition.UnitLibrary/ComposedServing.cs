@@ -155,12 +155,9 @@ public sealed class ComposedServing : IAsyncDisposable
         // The --fault warning, once, with the other loosening warnings (ADR-0124, decision 4).
         FaultPlanComposition.WriteWarning(commandLine, log);
 
-        // The --user-file readable by other users, at the warnings' level (ADR-0101, decision 5).
-        if (commandLine.UserFile is { } userFile)
-        {
-            Func<string, UnixFileMode?> readMode = seams.ReadStartFileUnixMode ?? ReadableByOthersWarning.ReadDiskMode;
-            ReadableByOthersWarning.Write(userFile, readMode(userFile), commandLine.LogLevel, log);
-        }
+        // Each -K file, then the --user-file, readable by other users, at the warnings' level (ADR-0101, decision 5).
+        ReadableByOthersWarning.WriteForFilesThatMayHoldPasswords(
+            commandLine, seams.ReadStartFileUnixMode ?? ReadableByOthersWarning.ReadDiskMode, log);
 
         // Each skipped keytab entry's warning, then the unused --keytab one (ADR-0057, decision 1).
         KeytabComposition.WriteStartLines(commandLine, authentication.SkippedKeytabEntries, log);

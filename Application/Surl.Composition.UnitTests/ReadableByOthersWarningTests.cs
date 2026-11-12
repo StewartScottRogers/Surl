@@ -1,3 +1,4 @@
+using Surl.Cli;
 using Surl.Output;
 
 namespace Surl.Composition;
@@ -57,6 +58,61 @@ public sealed class ReadableByOthersWarningTests
     [TestMethod]
     public void Write_NullLog_Throws() =>
         Assert.ThrowsExactly<ArgumentNullException>(() => ReadableByOthersWarning.Write("users.txt", OwnerOnly, LogLevel.Info, null!));
+
+    [TestMethod]
+    public void WriteForFilesThatMayHoldPasswords_ConfigFilesAndUserFile_WarnsEachReadableFileInOrderAndNeverStandardInput()
+    {
+        var commandLine = new SurlCommandLine { ConfigFiles = ["a.cfg", "-", "b.cfg", "c.cfg"], UserFile = "users.txt" };
+        var modes = new Dictionary<string, UnixFileMode?>
+        {
+            ["a.cfg"] = OwnerOnly | UnixFileMode.OtherRead,
+            ["b.cfg"] = OwnerOnly,
+            ["c.cfg"] = OwnerOnly | UnixFileMode.GroupRead,
+            ["users.txt"] = OwnerOnly | UnixFileMode.GroupRead,
+        };
+        using var log = new StringWriter();
+
+        ReadableByOthersWarning.WriteForFilesThatMayHoldPasswords(commandLine, path => modes[path], log);
+
+        Assert.AreEqual(
+            $"surl: warning: a.cfg is readable by other users and may hold passwords{Environment.NewLine}"
+            + $"surl: warning: c.cfg is readable by other users and may hold passwords{Environment.NewLine}"
+            + $"surl: warning: users.txt is readable by other users and may hold passwords{Environment.NewLine}",
+            log.ToString());
+    }
+
+    [TestMethod]
+    [DataRow(OwnerOnly | UnixFileMode.GroupRead)]
+    [DataRow(OwnerOnly | UnixFileMode.OtherRead)]
+    public void WriteForFilesThatMayHoldPasswords_ConfigFileReadableByOthers_WritesTheWarning(UnixFileMode mode)
+    {
+        using var log = new StringWriter();
+
+        ReadableByOthersWarning.WriteForFilesThatMayHoldPasswords(new SurlCommandLine { ConfigFiles = ["a.cfg"] }, _ => mode, log);
+
+        Assert.AreEqual($"surl: warning: a.cfg is readable by other users and may hold passwords{Environment.NewLine}", log.ToString());
+    }
+
+    [TestMethod]
+    [DataRow(OwnerOnly, DisplayName = "0600")]
+    [DataRow(null, DisplayName = "No mode, as on Windows")]
+    public void WriteForFilesThatMayHoldPasswords_ConfigFileOwnerOnlyOrOnWindows_WritesNothing(UnixFileMode? mode)
+    {
+        using var log = new StringWriter();
+
+        ReadableByOthersWarning.WriteForFilesThatMayHoldPasswords(new SurlCommandLine { ConfigFiles = ["a.cfg"] }, _ => mode, log);
+
+        Assert.AreEqual(string.Empty, log.ToString());
+    }
+
+    [TestMethod]
+    public void WriteForFilesThatMayHoldPasswords_NullArguments_Throw()
+    {
+        using var log = new StringWriter();
+
+        Assert.ThrowsExactly<ArgumentNullException>(() => ReadableByOthersWarning.WriteForFilesThatMayHoldPasswords(null!, _ => null, log));
+        Assert.ThrowsExactly<ArgumentNullException>(() => ReadableByOthersWarning.WriteForFilesThatMayHoldPasswords(new SurlCommandLine(), null!, log));
+    }
 
     [TestMethod]
     public async Task ServeAsync_UserFileReadableByGroup_WritesTheWarningBeforeTheStatusLineThroughTheModeSeam()
