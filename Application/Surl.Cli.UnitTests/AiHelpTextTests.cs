@@ -579,6 +579,7 @@ public sealed partial class AiHelpTextTests
 
         StringAssert.Contains(page, NewLine + "Given: `<path>` is an existing directory no other surl holds." + NewLine);
         StringAssert.Contains(page, NewLine + "Given: another surl is serving `<path>` with `--directory`." + NewLine);
+        StringAssert.Contains(page, NewLine + "Given: `<path>` is an existing directory." + NewLine);
         StringAssert.Contains(page, NewLine + "stdout: nothing." + NewLine);
         StringAssert.Contains(page, NewLine + "stderr: nothing." + NewLine);
         StringAssert.Contains(page, NewLine + "Exit code: 124 (`DataDirectoryInUse`)." + NewLine);
@@ -631,6 +632,8 @@ public sealed partial class AiHelpTextTests
             "surl: warning:",
             "surl: (124) Directory <path> is in use by another surl process",
             "surl: (37) Could not open directory <path>",
+            // Written by Surl.Composition when it opens a --share folder, whose tests pin it (BL-988).
+            "surl: (37) Could not open directory <path> for share <name>",
             "surl: (37) Could not read <file>: line <n>: <what>",
             "surl: (45) Could not bind <scheme>://<address>:<port>/: <reason>",
             "surl: (6) Could not resolve host: <host>",

@@ -231,6 +231,7 @@ public sealed class HelpTextTests
             Row(38, "    --allow-zone-transfer", "Answer DNS zone transfers (AXFR, IXFR)"),
             Row(38, "    --auth <methods>", "Authentication methods accepted"),
             Row(38, "    --authorized-keys <user:file>", "SSH public keys a user may use"),
+            Row(38, "    --bucket <name>=<path>", "Map a bucket to a path (repeatable)"),
             Row(38, "    --cacert <file>", "CA certificates for client certs"),
             Row(38, "    --cert <file>", "Server certificate file"),
             Row(38, "    --cert-type <type>", "Format of --cert: PEM, DER or P12"),
@@ -274,6 +275,8 @@ public sealed class HelpTextTests
             Row(38, "    --s3-plaintext", "Serve s3 as plain HTTP (warns)"),
             Row(38, "    --self-signed", "Throwaway certificate (warns)"),
             Row(38, "    --serve-dot-files", "Serve names that start with a dot"),
+            Row(38, "    --share <name>=<path>[;...]", "Serve a folder as a share (repeatable)"),
+            Row(38, "    --share-access <share>=<member>:<r/rw>,...", "Share grants (repeatable)"),
             Row(38, "-S, --show-error", "Show error even when -s is used"),
             Row(38, "-s, --silent", "Silent mode"),
             Row(38, "    --srp-groups <file>", "TLS-SRP groups, GnuTLS tpasswd.conf"),
@@ -395,11 +398,14 @@ public sealed class HelpTextTests
         AssertOutput(
             HelpText.Answer("content"),
             "content: Served files and the data directory",
-            Row(31, "    --allow-uploads", "Accept uploads into served files"),
-            Row(31, "    --directory <directory>", "Data directory, else in memory"),
-            Row(31, "    --follow-symlinks", "Follow links that stay in the root"),
-            Row(31, "    --list-directories", "Answer directory listings"),
-            Row(31, "    --serve-dot-files", "Serve names that start with a dot"));
+            Row(45, "    --allow-uploads", "Accept uploads into served files"),
+            Row(45, "    --bucket <name>=<path>", "Map a bucket to a path (repeatable)"),
+            Row(45, "    --directory <directory>", "Data directory, else in memory"),
+            Row(45, "    --follow-symlinks", "Follow links that stay in the root"),
+            Row(45, "    --list-directories", "Answer directory listings"),
+            Row(45, "    --serve-dot-files", "Serve names that start with a dot"),
+            Row(42, "    --share <name>=<path>[;...]", "Serve a folder as a share (repeatable)"),
+            Row(45, "    --share-access <share>=<member>:<r/rw>,...", "Share grants (repeatable)"));
 
     [TestMethod]
     public void Answer_Dict_ListsItsOptions() =>

@@ -44,6 +44,9 @@ public static class CommandLineParser
     private const string FaultLongName = "fault";
     private const string MailDomainLongName = "mail-domain";
     private const string MailboxLongName = "mailbox";
+    private const string ShareLongName = "share";
+    private const string ShareAccessLongName = "share-access";
+    private const string BucketLongName = "bucket";
     private const string ConfigLongName = "config";
     private const string ConfigOption = "--config";
     private const string UrlLongName = "url";
@@ -370,6 +373,7 @@ public static class CommandLineParser
     private static CommandLineParseResult? ActOnAcceptedArgument(
         CommandLineReading reading, string longName, string reportedName, string argument) =>
         ActOnAcceptedMailOption(reading, longName, reportedName, argument)
+        ?? ActOnAcceptedContentOption(reading, longName, reportedName)
         ?? longName switch
         {
             FaultLongName => CountFault(reading, reportedName),
@@ -524,6 +528,35 @@ public static class CommandLineParser
         return CommandLineParseResult.Refused(failure with { Message = $"{name}:{number}: {failure.Message}" });
     }
 
+    /// <summary>
+    /// What an accepted <c>--share</c>, <c>--share-access</c> or <c>--bucket</c> does besides setting its
+    /// value: keeps the name it was written with and refuses the one past
+    /// <see cref="ConfigurationItemReader.MaxOccurrences"/>; null to read on, and for every other option.
+    /// </summary>
+    private static CommandLineParseResult? ActOnAcceptedContentOption(
+        CommandLineReading reading, string longName, string reportedName) =>
+        longName switch
+        {
+            ShareLongName => CountItemOption(reading.ShareOptionNames, reportedName),
+            ShareAccessLongName => CountItemOption(reading.ShareAccessOptionNames, reportedName),
+            BucketLongName => CountItemOption(reading.BucketOptionNames, reportedName),
+            _ => null,
+        };
+
+    /// <summary>
+    /// Refuses, once the whole line is read, the first share, bucket or <c>--share-access</c> share given
+    /// twice, a bucket named as a share, then a <c>--share-access</c> naming no <c>--share</c>
+    /// (<see cref="ConfiguredContentConflicts.Find"/>, ADR-0101 decision 5 rows 14 and 15); null when none.
+    /// </summary>
+    private static CommandLineParseResult? RefuseContentCombination(CommandLineReading reading)
+    {
+        var line = reading.CommandLine;
+        var refusal = ConfiguredContentConflicts.Find(
+            [.. line.Shares.Select((share, index) => (reading.ShareOptionNames[index], share))],
+            [.. line.ShareAccess.Select((access, index) => (reading.ShareAccessOptionNames[index], access))],
+            [.. line.Buckets.Select((bucket, index) => (reading.BucketOptionNames[index], bucket))]);
+        return refusal is null ? null : RefusedOption(refusal.OptionName, refusal.Reason);
+    }
     /// <summary>
     /// Keeps the name a <c>--group</c>, <c>--mail-domain</c> or <c>--mailbox</c> was written with, in
     /// <paramref name="optionNames"/>, and refuses the one past
@@ -747,7 +780,7 @@ public static class CommandLineParser
     /// Refuses the first option combination that cannot work, in this order: the TLS options,
     /// <c>--throwaway-hostkey</c> with <c>--hostkey</c>, a repeated <c>--user</c> name, then a
     /// repeated <c>--authorized-keys</c> user, then a repeated <c>--group</c> name, then the mail
-    /// options (<see cref="RefuseMailCombination"/>); null when none is.
+    /// options (<see cref="RefuseMailCombination"/>), then the content options (<see cref="RefuseContentCombination"/>); null when none is.
     /// </summary>
     private static CommandLineParseResult? RefuseCombination(CommandLineReading reading) =>
         RefuseTlsCombination(reading)
@@ -755,7 +788,8 @@ public static class CommandLineParser
         ?? RefuseRepeatedName(reading.CommandLine.Accounts.Select(account => account.UserName), reading.AccountOptionNames, name => UserGivenTwice(name))
         ?? RefuseRepeatedName(reading.CommandLine.AuthorizedKeys.Select(keys => keys.UserName), reading.AuthorizedKeysOptionNames, name => UserGivenTwice(name))
         ?? RefuseRepeatedName(reading.CommandLine.Groups.Select(group => group.Name), reading.GroupOptionNames, name => ConfiguredGroupReader.GroupGivenTwice(name))
-        ?? RefuseMailCombination(reading);
+        ?? RefuseMailCombination(reading)
+        ?? RefuseContentCombination(reading);
 
     private static string UserGivenTwice(string userName) => $"user {userName} is given twice";
 
@@ -891,6 +925,15 @@ public static class CommandLineParser
 
         /// <summary>The address each accepted <c>--mailbox</c> was written with, decoded, one per mailbox, in order.</summary>
         public List<string> MailboxWrittenAddresses { get; } = [];
+
+        /// <summary>The name each accepted <c>--share</c> was written with, one per share, in order.</summary>
+        public List<string> ShareOptionNames { get; } = [];
+
+        /// <summary>The name each accepted <c>--share-access</c> was written with, one per item, in order.</summary>
+        public List<string> ShareAccessOptionNames { get; } = [];
+
+        /// <summary>The name each accepted <c>--bucket</c> was written with, one per bucket, in order.</summary>
+        public List<string> BucketOptionNames { get; } = [];
 
         /// <summary>The written names of <c>--user</c> (<paramref name="longName"/> <c>user</c>) or <c>--authorized-keys</c>.</summary>
         public List<string> OptionNamesByUser(string longName) =>

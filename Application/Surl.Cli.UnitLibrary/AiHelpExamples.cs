@@ -43,6 +43,8 @@ public static class AiHelpExamples
         Serving("content", "Serve in memory, with listings", ["--list-directories", HttpListenUrl], [ListeningOnHttp], [], ["curl http://127.0.0.1:<port>/"]),
         Serving("content", "Serve a data directory", ["--directory", "<path>", HttpListenUrl], [ListeningOnHttp], [], ["curl http://127.0.0.1:<port>/<file>"])
             with { Precondition = AiHelpExamplePrecondition.DataDirectoryExists },
+        Serving("content", "Serve a folder as a read-only share", ["--share", "docs=<path>;readonly", HttpListenUrl], [ListeningOnHttp], [], ["curl http://127.0.0.1:<port>/docs/<file>"])
+            with { Precondition = AiHelpExamplePrecondition.DirectoryExists },
         Refused(
             "content",
             "A data directory another surl holds",

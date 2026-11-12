@@ -117,6 +117,7 @@ public static class AiHelpText
     private static string? PreconditionText(AiHelpExamplePrecondition precondition) => precondition switch
     {
         AiHelpExamplePrecondition.DataDirectoryExists => "`<path>` is an existing directory no other surl holds",
+        AiHelpExamplePrecondition.DirectoryExists => "`<path>` is an existing directory",
         AiHelpExamplePrecondition.DataDirectoryHeldByAnotherSurl => "another surl is serving `<path>` with `--directory`",
         AiHelpExamplePrecondition.KeytabAndUserFileExist => "`http.keytab` is a keytab holding an AES key for `HTTP/<host>@<REALM>`, and `users.txt` a `--user-file`",
         _ => null,

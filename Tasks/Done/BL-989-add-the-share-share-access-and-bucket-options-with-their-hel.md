@@ -8,7 +8,7 @@ depends-on: [BL-988]
 touches: [Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests, Application/Surl.Console.UnitTests]
 requirement: none
 created: 2026-11-06
-completed:
+completed: 2026-11-11
 ---
 # BL-989 — Add the --share, --share-access and --bucket options with their help, manual and aihelp text
 
@@ -31,17 +31,26 @@ and buckets end to end. This completes what BL-663 set out to do.
 
 ## Acceptance criteria
 
-- [ ] Named tests in `Application/Surl.Cli.UnitTests` parse each option and refuse each malformed, duplicate or
+- [x] Named tests in `Application/Surl.Cli.UnitTests` parse each option and refuse each malformed, duplicate or
       conflicting item with the ADR's exit code and text.
-- [ ] Each option passes `AiHelpFactsTests.EveryOption_HasAnArgumentTypeAndAllowedValues`,
+- [x] Each option passes `AiHelpFactsTests.EveryOption_HasAnArgumentTypeAndAllowedValues`,
       `AiHelpTextTests.Answer_EveryOption_AppearsInAllAndInEveryTopicItsCategoriesName` and
       `CommandLineRunnerAiHelpTests.RunAsync_EveryAiHelpExample_WritesWhatTheExampleShows`.
-- [ ] `dotnet build -warnaserror` is clean, `dotnet test --filter "TestCategory!=Integration"` is green, and
+- [x] `dotnet build -warnaserror` is clean, `dotnet test --filter "TestCategory!=Integration"` is green, and
       `Surl.Cli.UnitLibrary` keeps 100% line and branch coverage.
 
 ## Notes
+
+- 2026-11-11 (lane 1): added the option rows `--share`, `--share-access`, `--bucket` (category `content`; `--bucket`
+  also `s3`), parser counting (10000 bound) and `ConfiguredContentConflicts.Find` through
+  `RefuseContentCombination` after the mail checks, a `SHARES AND BUCKETS` manual section, three `content`
+  `AiHelpProse` paragraphs, and an `AiHelpExamples` entry with a new `DirectoryExists` precondition (the console
+  test already creates `<path>`). Choice: a `|` cannot sit in an `--aihelp` table cell, so `ConfigurationItemShape`
+  names the argument type with `/` for `|` (`<r/rw>`); refusal texts keep ADR-0101's `<r|rw>`. Tests:
+  `CommandLineParserContentTests`. Build clean, all fast tests green.
 
 ## Log
 
 - 2026-11-06: Created.
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Done. surl accepts --share, --share-access and --bucket with help, manual and aihelp text
