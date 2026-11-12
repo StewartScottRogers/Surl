@@ -44,3 +44,4 @@ The MCP `get_events` tool accepts `consumer_group_changed` in its `kinds` filter
 - 2026-11-06: Created.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waiting on BL-1035 - pinned .NET SDK 10.0.401 is not installed, so nothing builds; code is written and stashed by the shift
+- 2026-11-12: Backlog -> Doing.
