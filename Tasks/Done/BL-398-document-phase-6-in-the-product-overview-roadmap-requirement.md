@@ -8,7 +8,7 @@ depends-on: [BL-360, BL-371, BL-385, BL-394, BL-879, BL-396, BL-397, BL-1035]
 touches: [Documentation/Product/Product-Overview.md, Documentation/Planning/Roadmap.md, Documentation/Product/Requirements.md, Documentation/Wiki/Glossary.md, README.md]
 requirement: none
 created: 2026-11-04
-completed:
+completed: 2026-11-12
 ---
 # BL-398 — Document Phase 6 in the product overview, roadmap, requirements, glossary and README
 
@@ -74,6 +74,8 @@ on each runtime identifier. Every statement in them is true of the code.
   and the next run to resume. Once BL-1035 is Done, re-check the docs against the code, then run
   dotnet build and the fast tests.
 
+- 2026-11-12 (lane 2): the earlier edits were lost with the shift stash, so the five documents were rewritten against the code as it is now. Corrections to the notes above: BL-741 is Done (`--http3` with `--cacert` is accepted); ADR-0147's groups are all served (twelve in `GroupPreference`), so nine libraries were added, not seven; BL-361 is Blocked. Docs only; `dotnet build` clean. Left alone: the pass-rate file's win-x64 skip column sums to 885 but is totalled 887; "no release tagged" rests on the pass-rate file having no release rows.
+
 ## Log
 
 - 2026-11-04: Created.
@@ -81,3 +83,4 @@ on each runtime identifier. Every statement in them is true of the code.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. behind BL-1035 - pinned .NET SDK 10.0.401 is not installed, so the build gate cannot run; docs edits written, left uncommitted
 - 2026-11-12: Backlog -> Doing.
+- 2026-11-12: Doing -> Done. Phase 6 (HTTP/2, HTTP/3, upstream test cases, native publishing) documented in overview, roadmap, requirements, glossary and README

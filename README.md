@@ -47,10 +47,17 @@ Where it stands:
 
 The work is on the board and is being built now. None of it is finished.
 
-1. **Phase 6: everything upstream curl asks.** This covers HTTP/2 and HTTP/3. HTTP is 1.0
-   and 1.1 today, and the HPACK, HTTP/2, QUIC and QPACK libraries exist but are not served
-   yet. It also covers playing the server half of upstream curl's own test cases, and native
-   publishing for Windows, Linux and macOS on x64 and Arm64.
+1. **Phase 6: everything upstream curl asks.** This is built but not closed. `surl` serves
+   HTTP/2 on `https` (ALPN `h2`) and on `http` (prior knowledge and `Upgrade: h2c`), and with
+   `--http3` HTTP/3 over a hand-built QUIC. `Surl.Conformance` plays the server half of
+   upstream curl's own test cases: as of 2026-11-12 the pass rate is 95.6% on `win-x64`,
+   93.3% on `linux-x64` and 93.2% on `osx-arm64`
+   ([the pass-rate file](Documentation/Conformance/Upstream-Test-Case-Pass-Rate.md)), and no
+   case runs over HTTP/2 or HTTP/3 yet. A native `surl` is smoke-tested on all six runtime
+   identifiers (Windows, Linux and macOS on x64 and Arm64), but upstream curl is pinned only
+   for `win-x64`, `linux-x64` and `osx-arm64`, so the other three are not shown to complete an
+   exchange with it, and `win-x64` conformance against the published binary runs only
+   locally. No release is tagged. See the product overview, "Built for Phase 6".
 2. **Extended protocols.** These are servers for the schemes the Curl port adds and upstream
    curl does not have: S3, Azure Storage, Google Cloud Storage, OCI registries, gRPC,
    SignalR, Socket.IO, WebTransport, MCP, CoAP, DNS, Redis, MQTT 5, AMQP 0-9-1 and 1.0,
@@ -97,7 +104,7 @@ curl -k https://127.0.0.1:8443/hello.txt
 ```
 
 The aim is every scheme upstream curl can request. **Today `surl` answers** `http` and
-`https` (HTTP/1.1, `GET` and `HEAD`), `dict`, `ftp` and `ftps`, `gopher` and `gophers`,
+`https` (HTTP/1.0, 1.1 and 2, and on `https` HTTP/3 with `--http3`), `dict`, `ftp` and `ftps`, `gopher` and `gophers`,
 `imap` and `imaps`, `ldap` and `ldaps`, `mqtt` and `mqtts`, `pop3` and `pop3s`, `rtsp`, `scp`
 and `sftp`, `smb` and `smbs`, `smtp` and `smtps`, `telnet`, `tftp`, and `ws` and `wss`
 (WebSocket), until Ctrl+C; any other scheme is refused with exit code 1. `surl --version` lists

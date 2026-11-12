@@ -146,8 +146,44 @@ task board in `Tasks/`, never here.
   for a non-ASCII password) and ADR-0076 (the OpenLDAP upstream curl build, built reproducibly in
   CI).
 
+## Milestone 6 — Phase 6
+
+- **Status:** Built, and proven in part (2026-11-12). Not closed: no release is tagged, and the
+  release row of the pass-rate file is empty. `win-arm64`, `linux-arm64` and `osx-x64` have no
+  pinned upstream curl build, so they have the smoke test and the fast tests but neither
+  conformance nor a pass rate (BL-361, Blocked until arm64 and Intel-macOS runners can measure
+  the builds). `win-x64` conformance against the published binary runs only locally, and a clean
+  full run waits on BL-604 and BL-1059. The HTTP/2 and HTTP/3 conformance passes on Linux and
+  macOS are read by elimination from one CI run, until BL-724 and BL-768 confirm them. No
+  upstream test case runs over HTTP/2 or HTTP/3, since those server halves are not built.
+- **Delivers:** HTTP/2 on `https` by ALPN `h2`, on `http` by prior knowledge and by
+  `Upgrade: h2c`, over the hand-built `Surl.Hpack` and `Surl.Http2`; HTTP/3 over QUIC version 1
+  with `surl --http3`, over the hand-built `Surl.Quic`, `Surl.Tls13`, `Surl.Qpack` and
+  `Surl.Cryptography.MlKem`, serving twelve TLS 1.3 key exchange groups (the last seven with
+  `Surl.Cryptography.Curve448` and `Surl.Cryptography.Sm2`) and requiring a client certificate
+  with `--cacert`; `Surl.Http3`, which with `Surl.Http2` the extended servers share; the
+  upstream test-case suite in `Surl.Conformance` (parser, selector, verify checker, server
+  halves for the HTTP and HTTPS family, RTSP, FTP and FTPS, IMAP, POP3 and SMTP, DICT, Gopher,
+  TELNET, MQTT, TFTP, SCP, SFTP and SMB) with a stated pass rate per platform; and native
+  publishing proven on six runtime identifiers by `Test-PublishedSurl.ps1` and, on `linux-x64`
+  and `osx-arm64`, by `Surl.Conformance` run against the published binary. What each answers,
+  and what pinned upstream curl has proven, is in the product overview, "Built for Phase 6:
+  HTTP/2, HTTP/3, upstream's test cases and native publishing".
+- **Exit criteria:** the Phase 6 row's "Proves", that Surl answers everything upstream curl
+  asks: success criterion 2, every upstream test case a pinned reference build can run passing
+  and the rate stated per release; `UpstreamCurlFetchesFromSurlOverHttp2Tests` and
+  `UpstreamCurlFetchesFromSurlOverHttp3Tests` green against a live `surl` on each platform;
+  and success criterion 4, a release dry run of the commit to be tagged green on all six
+  runtime identifiers with the local `win-x64` conformance run passed (ADR-0085 decision 5).
+- **Decisions:** ADR-0080 (how Surl plays the server half of upstream's test cases), ADR-0081
+  (HTTP/2), ADR-0082 (HTTP/3 over QUIC, with its amendments), ADR-0085 (what proves the native
+  `surl` on each runtime identifier), ADR-0086 (the libraries the extended servers share for
+  HTTP/2, HTTP/3 and QUIC), ADR-0090 (the HTTP/2 prior-knowledge connection), ADR-0091
+  (`Upgrade: h2c`), ADR-0096 (QUIC streams and flow control), ADR-0140 (QUIC loss detection and
+  congestion control) and ADR-0147 (the remaining TLS 1.3 groups curl offers over QUIC).
+
 ## Later
 
-Phase 6 follows the product overview. Phase 7, the last, turns Surl on the Curl port:
+Phase 7, the last, turns Surl on the Curl port:
 the port runs the same conversations against Surl beside pinned upstream curl, and every
 disagreement is filed as the port's defect on the port's own board (ADR-0003).
