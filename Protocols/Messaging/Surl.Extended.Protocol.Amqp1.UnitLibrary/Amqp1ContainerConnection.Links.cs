@@ -47,7 +47,7 @@ public sealed partial class Amqp1ContainerConnection
     private async ValueTask AttachLinkAsync(Amqp1Session session, Amqp1Link link, Amqp1Attach attach)
     {
         var (nodeTerminus, refusal) = ResolveNode(attach, link);
-        refusal ??= OpenNode(link);
+        refusal ??= await FindChosenErrorAsync("attach", link.NodeAddress) ?? OpenNode(link);
         await WriteAsync(session.OutgoingChannel, AnsweringAttach(attach, link.ContainerHandle, refusal is null ? nodeTerminus : null));
         if (refusal is not null)
         {

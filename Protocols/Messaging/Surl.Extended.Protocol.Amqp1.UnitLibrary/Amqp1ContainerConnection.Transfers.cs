@@ -95,7 +95,8 @@ public sealed partial class Amqp1ContainerConnection
         if (!transfer.More)
         {
             DiscardPartial(link);
-            await SettleReceivedAsync(session, delivery, await StoreAsync(link, delivery));
+            var rejection = await FindChosenErrorAsync("transfer", link.NodeAddress) ?? await StoreAsync(link, delivery);
+            await SettleReceivedAsync(session, delivery, rejection);
         }
 
         return true;
