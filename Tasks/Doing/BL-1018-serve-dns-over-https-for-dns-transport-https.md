@@ -63,3 +63,4 @@ over HTTP/2 and HTTP/1.1, as ADR-0092 decision 5 says.
 - 2026-11-06: Created.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. needs Surl.Protocol.Abstractions (a ListenUrl member so Surl.Networking can offer h2 then http/1.1 for DoH) which BL-902 touches; and Surl.Networking
+- 2026-11-12: Backlog -> Doing.
