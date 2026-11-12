@@ -8,7 +8,7 @@ depends-on: []
 touches: [global.json]
 requirement: none
 created: 2026-11-11
-completed:
+completed: 2026-11-11
 ---
 # BL-1035 — Reinstall .NET SDK 10.0.401 that global.json pins on the dark factory machine
 
@@ -29,11 +29,12 @@ completed:
 
 ## Acceptance criteria
 
-- [ ] `dotnet --list-sdks` lists a 10.0.4xx SDK at or above 10.0.401.
-- [ ] `dotnet build` at the repository root is clean with `global.json` unchanged.
+- [x] `dotnet --list-sdks` lists a 10.0.4xx SDK at or above 10.0.401. (10.0.404, seen 2026-11-11)
+- [x] `dotnet build` at the repository root is clean with `global.json` unchanged. (`Application\Surl.Console`: 0 warnings, 0 errors)
 
 ## Notes
 
 ## Log
 
 - 2026-11-11: Created.
+- 2026-11-11: Backlog -> Done. Stewart said close it on 2026-11-11: SDK 10.0.404 is installed, which global.json's latestFeature roll-forward accepts, and dotnet build Application\Surl.Console is clean (0 warnings, 0 errors).
