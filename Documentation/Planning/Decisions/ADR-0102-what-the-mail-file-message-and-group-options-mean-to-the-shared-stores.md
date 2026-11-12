@@ -473,6 +473,10 @@ while composing 3.1 to 3.4 into the bus (`MessageBusComposition`). No byte any s
   **Groups nest**; a cycle is refused at start (ADR-0101 decision 5 row 18). A member naming no
   account or group is refused at start (row 18). A member reached twice through two groups counts
   once.
+- **Amended by BL-646** (`AccountGroupExpansion`): the `everyone` checks (4.2) are made at start with
+  row 18's `(2)` form, not while parsing. Refusals are checked in the order everyone, unknown member,
+  cycle, each at its first instance in command-line order. A cycle names the first group, in
+  command-line order, whose expansion meets itself. Names compare ordinally.
 - **Groups are expanded at composition** (`Surl.Composition`, planning name
   `AccountGroupExpansion`), after `--user-file` is read, into sets of account names; the stores see
   only account names and the `@everyone` marker, never a group. So no store, server or contract in
@@ -527,7 +531,7 @@ password:
 
 | Option | Composed into | `surl -v` note at start |
 | --- | --- | --- |
-| `--group` | `AccountGroupExpansion`: name to account-name set | `Group <name>: <n> accounts` |
+| `--group` | `AccountGroupExpansion`: name to account-name set | `* Group <name>: <n> accounts` |
 | `--mailbox`, `--mailbox-file` | an `Account` per mailbox in the `AccountBook`, restricted by its schemes; an owner, quota and folders in `MailDomainConfiguration` | `Mailbox <address>: logins on <schemes>[, quota <bytes> bytes][, <n> folders]` |
 | `--mail-domain`, `--mail-alias`, `--mail-catch-all` | `MailDomainConfiguration` (domains, aliases resolved to owner sets, catch-alls) handed to `MailboxStore` | `Mail domains: <domains>`; `Alias <address>: <n> owners`; the catch-all warning (ADR-0101); `Mail domains not applied: --allow-anonymous delivers every recipient to one mailbox set` under `--allow-anonymous` |
 | `--shared-folder` | shared folders and their member sets in `MailDomainConfiguration` | `Shared folder Shared/<name>: <n> members` |

@@ -8,7 +8,7 @@ depends-on: [BL-646, BL-1035]
 touches: [Documentation/Planning/Decisions/ADR-0101-surls-configuration-surface-the-config-file-repeatable-item-options-and-one-configuration-model.md, Documentation/Planning/Decisions/ADR-0102-what-the-mail-file-message-and-group-options-mean-to-the-shared-stores.md]
 requirement: none
 created: 2026-11-05
-completed:
+completed: 2026-11-12
 ---
 # BL-733 — Record BL-646's --group refusal texts and start decisions in ADR-0101 and ADR-0102
 
@@ -45,9 +45,12 @@ ADR-0101 decision 5 row 18 and ADR-0102 decisions 4 and 5 state exactly what BL-
   10.0.401, which is not installed (BL-1035). Returned to Backlog behind BL-1035, as BL-824 and BL-970 were; the
   edits are left uncommitted for the shift to stash. On resume: re-apply them if lost, build, run the fast tests, finish.
 
+- 2026-11-12: the stashed edits were gone, so re-applied all three against `AccountGroupExpansion.cs`. Only Markdown changed, so no build was needed.
+
 ## Log
 
 - 2026-11-05: Created.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waits on BL-1035 - pinned .NET SDK 10.0.401 is not installed, so dotnet build cannot run; ADR edits made, uncommitted
 - 2026-11-12: Backlog -> Doing.
+- 2026-11-12: Doing -> Done. ADR-0101 row 18 and ADR-0102 decisions 4.1 and 5 now state BL-646's --group refusal texts, check order and start note

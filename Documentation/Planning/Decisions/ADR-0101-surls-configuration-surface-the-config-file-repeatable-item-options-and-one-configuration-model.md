@@ -313,7 +313,7 @@ refusal's text prefixed by `<file>:<line>: `, `<file>` as given to `-K` or `conf
 | 15 | A conflict | 2 | `option <name>: <noun> <value> ` then `is also a --user account`, `is not in any --mail-domain`, `needs --mail-domain`, `is also a mailbox`, `is also a --share`/`--bucket`, `names no --share` | yes |
 | 16 | `--mailbox-file` missing or unreadable | 37 | `(37) Could not read mailbox file <file>` | no |
 | 17 | A malformed `--mailbox-file` record | 2 | `(2) Mailbox file <file>, line <n>: ` then a header problem (`expected a header row with address and password`, `unknown column <name>`, `column <name> is given twice`), `not UTF-8`, `a quoted field has no closing quote`, `expected <k> fields`, or row 10's or 14's reason; `<n>` the physical line the record starts on; past 16 MiB or 10000 records `(2) Mailbox file <file> is larger than 16777216 bytes` / `holds more than 10000 mailboxes` | no |
-| 18 | A member naming no account or group, a group cycle (BL-646) | 2 | `(2) option --<option>: member <member> names no account or group`, `(2) option --group: group <name> includes itself` | no |
+| 18 | A member naming no account or group, a group cycle (BL-646) | 2 | `(2) option --<option>: member <member> names no account or group`, `(2) option --group: group <name> includes itself`, `(2) option --group: group everyone is reserved`, `(2) option --<option>: member @everyone is not allowed here` (the last two from ADR-0102 decision 4.2) | no |
 | 19 | A `--share` path missing or not a directory (BL-663) | 37 | `(37) Could not open directory <path> for share <name>` (as ADR-0007's `--directory` row) | no |
 
 Exit codes: 2 (`FailedInit`) for every configuration `surl` cannot act on and 37
