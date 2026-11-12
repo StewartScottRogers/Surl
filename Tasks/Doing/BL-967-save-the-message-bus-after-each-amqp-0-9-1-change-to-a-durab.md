@@ -52,3 +52,4 @@ bus's files (`.surl/bus`) after the frame that changed it, so it survives a rest
 - 2026-11-06: Created.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waiting on BL-1035: pinned .NET SDK 10.0.401 is not installed, so nothing builds or tests
+- 2026-11-12: Backlog -> Doing.
