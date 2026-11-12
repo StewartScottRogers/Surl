@@ -104,6 +104,23 @@ public sealed partial class MessageBus
     }
 
     /// <summary>
+    /// The names of the queues bound to <paramref name="topic"/> whose <see cref="QueueChangeName"/> an
+    /// out-of-space rule matches, so each refuses only its own copy of a publish. Asked before the
+    /// bus's lock is taken, since the plan may run a test's code.
+    /// </summary>
+    private List<string> BoundQueueNamesRefusedByFault(string topic, string? account)
+    {
+        var topicLevels = CanonicalTopicName.SplitLevels(topic);
+        string[] boundNames;
+        lock (stateLock)
+        {
+            boundNames = [.. queues.Values.Where(queue => queue.IsBoundTo(topicLevels)).Select(queue => queue.Name)];
+        }
+
+        return [.. boundNames.Where(name => IsOutOfSpace(account, QueueChangeName(name)))];
+    }
+
+    /// <summary>
     /// The plan's out-of-space rule for <paramref name="point"/>, or <see langword="null"/> when it
     /// names none or a rule of another kind. The bus's writes are synchronous, so it takes only an
     /// answer the plan gives at once - every plan does when no hook is registered - and serves a

@@ -232,6 +232,58 @@ public sealed class MessageBusEventTests
 
         Assert.IsTrue(events.Events.OfType<StoreChangedEvent>().All(change => change.ExchangeId == 2));
     }
+
+    [TestMethod]
+    public void PublishToQueue_AfterAnEarlierMessageExpired_PublishesDeletedForTheQueueWithItsPayloadLength()
+    {
+        var bus = new MessageBus(clock, events: events);
+        using var connection = bus.Connect();
+        connection.DeclareQueue("q");
+        bus.PublishToQueue("q", Message("t", "abc") with { ExpiresAt = clock.UtcNow.AddSeconds(1) });
+        bus.PublishToQueue("q", Message("t", "de") with { ExpiresAt = clock.UtcNow.AddSeconds(1) });
+        var before = events.Events.Count;
+        clock.UtcNow = clock.UtcNow.AddSeconds(2);
+
+        bus.PublishToQueue("q", Message("t", "fghi"));
+
+        CollectionAssert.AreEqual(
+            new[] { Change(StoreChange.Enqueued, "$queue/q", 4), Change(StoreChange.Deleted, "$queue/q", 3), Change(StoreChange.Deleted, "$queue/q", 2) },
+            events.Events.Skip(before).ToArray());
+    }
+
+    [TestMethod]
+    public void GetFromQueue_ReachingAnExpiredMessage_PublishesItsDeletionBeforeTheDelivery()
+    {
+        var bus = new MessageBus(clock, events: events);
+        using var connection = bus.Connect();
+        connection.DeclareQueue("q");
+        bus.PublishToQueue("q", Message("t", "abc") with { ExpiresAt = clock.UtcNow.AddSeconds(1) });
+        bus.PublishToQueue("q", Message("t", "de"));
+        var before = events.Events.Count;
+        clock.UtcNow = clock.UtcNow.AddSeconds(2);
+
+        connection.GetFromQueue("q");
+
+        CollectionAssert.AreEqual(
+            new[] { Change(StoreChange.Deleted, "$queue/q", 3), Change(StoreChange.Delivered, "$queue/q", 2) },
+            events.Events.Skip(before).ToArray());
+    }
+
+    [TestMethod]
+    public void Publish_PastMaxLogBytesPerTopic_PublishesOneDeletedForTheTopicWithTheDroppedBytes()
+    {
+        var recordBytes = MessageBus.LogRecordBytes(Message("a/b", "abc"));
+        var bus = new MessageBus(clock, maxLogBytesPerTopic: recordBytes * 2, events: events);
+        bus.Publish(Message("a/b", "abc"));
+        bus.Publish(Message("a/b", "abc"));
+        var before = events.Events.Count;
+
+        bus.Publish(Message("a/b", "abc"));
+
+        CollectionAssert.AreEqual(
+            new[] { Change(StoreChange.Deleted, "a/b", recordBytes), Change(StoreChange.Published, "a/b", 3) },
+            events.Events.Skip(before).ToArray());
+    }
     private static StoreChangedEvent Change(StoreChange change, string name, long? byteCount) =>
         new(StoreKind.Bus, change, name, byteCount, ExchangeId: null);
 

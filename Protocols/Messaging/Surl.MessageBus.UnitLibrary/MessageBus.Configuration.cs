@@ -108,7 +108,8 @@ public sealed partial class MessageBus
         }
 
         var published = WithDeclaredAttributes(Copy(message, now));
-        return ChangeState(() => Accept(published, now, publisher, onlyToConsumedQueues, seed, queuesFullByPlan: null));
+        var refusedQueueNames = seed ? [] : BoundQueueNamesRefusedByFault(published.Topic, account);
+        return ChangeState(() => Accept(published, now, publisher, onlyToConsumedQueues, seed, [.. refusedQueueNames.Select(name => queues.GetValueOrDefault(name)).OfType<NamedQueue>()]));
     }
 
     private static (DeclaredTopic Topic, string[] Levels)[] SplitDeclaredTopics(MessageBusConfiguration configuration) =>

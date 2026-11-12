@@ -199,9 +199,12 @@ What it holds now (BL-629):
   out-of-space rule is asked for at `FaultStage.StoreWrite`, with the caller's account and the
   path, outside the lock: a topic publish (not expired) is `StoreFull`, a direct `PublishToQueue` to
   an existing queue (not expired) is `QueueFull`, nothing changed, and a `FaultAppliedEvent` names
-  the path. Only an answer the plan gives at once counts; a pending one is served as no rule. Not
-  yet: drops by expiry in queues and by log retention, and a bound queue's copy refused by fault
-  (BL-870).
+  the path. Only an answer the plan gives at once counts; a pending one is served as no rule. A topic
+  publish (not a seed) also asks, before the lock, for each bound queue's `$queue/<name>`: a queue a
+  rule matches refuses only its own copy (`FullQueueCount`). A queue message dropped because it
+  expired publishes `Deleted` named for the queue with its payload length, and log records dropped by
+  `MaxLogBytesPerTopic` retention publish one `Deleted` named for the topic with their bytes (BL-870).
+  Not yet: the fault on a bound queue's copy inside `PublishBatch`.
 
 - **Committed offsets and group access (BL-947, ADR-0145 decisions 4, 6, 9 and 10).** A table of
   `BusCommittedOffset` keyed by Kafka consumer group id and canonical topic, which only the Kafka
