@@ -8,7 +8,7 @@ depends-on: [BL-385, BL-1035]
 touches: [Conformance/Surl.Conformance.UnitTests]
 requirement: none
 created: 2026-11-05
-completed:
+completed: 2026-11-12
 ---
 # BL-768 — Confirm BL-385's HTTP/3 conformance tests green on CI's Linux and macOS legs
 
@@ -33,7 +33,7 @@ Linux and macOS conformance legs, and its URL is recorded here.
 
 - [x] The URL of a `CI` run containing BL-385's commits, with every `UpstreamCurlFetchesFromSurlOverHttp3Tests`
       test passing on the Linux and macOS legs, is in Notes.
-- [ ] Any test changed to make a leg green pins that platform's measured answer, and
+- [x] Any test changed to make a leg green pins that platform's measured answer, and
       `dotnet build -warnaserror` is clean and the fast tests are green.
 
 ## Notes
@@ -69,3 +69,4 @@ class is Inconclusive ("either pinned binary is absent"); the skipped lines are 
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waits on BL-1035: dotnet build cannot resolve global.json's SDK 10.0.401; the CI evidence (run 42324374116, all 13 HTTP/3 tests passed on Linux and macOS) is in Notes
 - 2026-11-12: Backlog -> Doing.
+- 2026-11-12: Doing -> Done. HTTP/3 conformance confirmed green on Linux and macOS CI (run 42324374116); build clean, fast tests green
