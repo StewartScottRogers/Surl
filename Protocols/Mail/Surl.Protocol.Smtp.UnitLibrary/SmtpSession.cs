@@ -213,7 +213,7 @@ internal sealed partial class SmtpSession
         }
 
         mailLoginVerdict ??= await authenticationPolicy.CheckPasswordLoginAsync(
-            new PasswordLogin(context.Scheme, null, null, connection.TlsSession), CancellationToken);
+            new PasswordLogin(context.Scheme, null, null, connection.TlsSession, LoginExchange.Of(context)), CancellationToken);
         return mailLoginVerdict == PasswordLoginVerdict.AcceptedUnchecked;
     }
 
@@ -433,7 +433,7 @@ internal sealed partial class SmtpSession
     private async ValueTask<bool> RunSaslExchangeAsync(SmtpAuthArgument auth)
     {
         var exchange = mailAuthenticationPolicy.StartSaslExchange(
-            new SaslExchangeStart(context.Scheme, auth.Mechanism, auth.InitialResponse, connection.TlsSession));
+            new SaslExchangeStart(context.Scheme, auth.Mechanism, auth.InitialResponse, connection.TlsSession, Exchange: LoginExchange.Of(context)));
         var step = await exchange.BeginAsync(CancellationToken);
         while (true)
         {

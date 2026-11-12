@@ -76,7 +76,7 @@ public sealed class SmtpAuthTests
 
         Assert.AreEqual("334 \r\n" + Succeeded, Replies(connection));
         var start = mailPolicy.Starts.Single();
-        Assert.AreEqual(new SaslExchangeStart("smtp", "plain", null, null), start);
+        Assert.AreEqual(new SaslExchangeStart("smtp", "plain", null, null, Exchange: start.Exchange), start);
         Assert.AreEqual("\0user\0secret", Encoding.ASCII.GetString(mailPolicy.Responses.Single()));
         CollectionAssert.AreEqual(new[] { "Login accepted: PLAIN user" }, log.Notes.ToArray());
     }
@@ -91,6 +91,19 @@ public sealed class SmtpAuthTests
         Assert.AreEqual(Succeeded, Replies(connection));
         Assert.AreEqual("\0user\0secret", Encoding.ASCII.GetString(mailPolicy.Starts.Single().InitialResponse!.Value.Span));
         Assert.IsEmpty(mailPolicy.Responses);
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_Auth_HandsThePolicyTheExchangeIdAndScheme()
+    {
+        var mailPolicy = PlainPolicy(Ended(SaslLoginOutcome.Accepted, AcceptedUser));
+
+        await ServeAsync(mailPolicy, $"EHLO c\r\nAUTH PLAIN {PlainResponse}\r\n");
+
+        var exchange = mailPolicy.Starts.Single().Exchange;
+        Assert.IsNotNull(exchange);
+        Assert.AreEqual(1, exchange.ExchangeId);
+        Assert.AreEqual("smtp", exchange.ListenUrl.Scheme);
     }
 
     [TestMethod]

@@ -36,6 +36,21 @@ public sealed class ImapAuthenticateTests
     }
 
     [TestMethod]
+    [DataRow("a LOGIN u p\r\n", true)]
+    [DataRow("a AUTHENTICATE PLAIN =\r\n", false)]
+    public async Task ServeAsync_Login_HandsThePolicyTheExchangeIdAndScheme(string request, bool isPassword)
+    {
+        var policy = Policy(ScriptedLoginPolicy.Ended(SaslLoginOutcome.RefusedCredentials));
+
+        await ServeAsync(policy, request);
+
+        var exchange = isPassword ? policy.Logins.Single().Exchange : policy.Starts.Single().Exchange;
+        Assert.IsNotNull(exchange);
+        Assert.AreEqual(1, exchange.ExchangeId);
+        Assert.AreEqual("imap", exchange.ListenUrl.Scheme);
+    }
+
+    [TestMethod]
     public async Task ServeAsync_AuthenticateWithAnInitialResponse_HandsItToTheExchange()
     {
         var policy = Policy(ScriptedLoginPolicy.Ended(SaslLoginOutcome.AcceptedUnchecked));

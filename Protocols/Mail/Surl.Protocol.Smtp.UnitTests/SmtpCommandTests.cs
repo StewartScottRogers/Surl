@@ -191,7 +191,8 @@ public sealed class SmtpCommandTests
 
         Assert.AreEqual("530 5.7.0 Authentication required\r\n530 5.7.0 Authentication required\r\n", RepliesAfterHello(connection));
         Assert.HasCount(1, policy.Logins);
-        Assert.AreEqual(new PasswordLogin("smtp", null, null, null), policy.Logins[0]);
+        Assert.AreEqual(new PasswordLogin("smtp", null, null, null, policy.Logins[0].Exchange), policy.Logins[0]);
+        Assert.IsNotNull(policy.Logins[0].Exchange);
         Assert.AreEqual("MAIL refused: log in with AUTH first, or give --allow-anonymous", log.Notes[0]);
     }
 
