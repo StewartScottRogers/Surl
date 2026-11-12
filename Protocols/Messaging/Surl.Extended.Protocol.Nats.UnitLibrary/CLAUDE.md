@@ -70,6 +70,18 @@ Publishing and subscribing through the shared bus (BL-526, ADR-0113 decisions 4 
   with `NatsHeaderBlock.NoResponders` on each of the requester's own subscriptions matching the
   reply-to (`NatsSubjects.Matches`), in ordinal order of `sid`.
 
+The chosen-error fault (BL-1031, ADR-0124 decisions 4 and 9):
+
+- `NatsServerConnection.Faults.cs` asks `ExchangeContext.Faults` at a `FaultStage.Command` point for
+  each PUB and HPUB once its payload is read, and each SUB, before the bus is touched: the
+  operation as `Command`, the subject as sent as `Path`, `FaultListenUrl.Text` of the listen URL,
+  and the account only when `IAuthenticationPolicy` accepted the login (a token or login accepted
+  unchecked carries none).
+- A matching `error` rule whose reply is `-ERR` text (not empty, no `'`, CR or LF) answers
+  `-ERR '<reply>'`, publishes or subscribes nothing, keeps the connection and publishes one
+  `FaultAppliedEvent`. Any other rule (another kind, such as `delay`, or unquotable text) is noted
+  in the exchange log and not applied.
+
 `natss` over TLS (BL-527, ADR-0113 decision 6):
 
 - `nats` never offers TLS: INFO says `tls_required: false` and `tls_available: false`, and the
