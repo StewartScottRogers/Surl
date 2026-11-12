@@ -199,7 +199,7 @@ public sealed class DtlsServerSession(IDatagramFlow flow, DtlsServerOptions opti
     /// <returns>A task that completes once the datagram is sent.</returns>
     /// <exception cref="InvalidOperationException">The handshake has not completed, or the association has ended.</exception>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="plaintext"/> is longer than <see cref="MaximumApplicationDataLength"/>.</exception>
-    public ValueTask SendAsync(ReadOnlyMemory<byte> plaintext, CancellationToken cancellationToken)
+    public async ValueTask SendAsync(ReadOnlyMemory<byte> plaintext, CancellationToken cancellationToken)
     {
         ThrowIfNotEstablished();
         if (state == HandshakeState.Closed)
@@ -209,8 +209,20 @@ public sealed class DtlsServerSession(IDatagramFlow flow, DtlsServerOptions opti
 
         ArgumentOutOfRangeException.ThrowIfGreaterThan(plaintext.Length, MaximumApplicationDataLength, nameof(plaintext));
 
-        return records.SendAsync(DtlsContentType.ApplicationData, plaintext.ToArray(), cancellationToken);
+        if (records.NextRecordIsTheLast)
+        {
+            // The last sequence number ends the association with close_notify; the data is not sent.
+            state = HandshakeState.Closed;
+            await SendCloseNotifyAsync(cancellationToken).ConfigureAwait(false);
+            return;
+        }
+
+        await records.SendAsync(DtlsContentType.ApplicationData, plaintext.ToArray(), cancellationToken).ConfigureAwait(false);
     }
+
+    /// <summary>Restarts the epoch 1 sequence numbers at <paramref name="nextSequenceNumber"/>, for tests.</summary>
+    /// <param name="nextSequenceNumber">The next epoch 1 sequence number.</param>
+    internal void ContinueEpoch1WritesFrom(long nextSequenceNumber) => records.ContinueEpoch1WritesFrom(nextSequenceNumber);
 
     /// <summary>
     /// Ends an established association with one warning <c>close_notify</c> in epoch 1 (RFC 5246

@@ -8,7 +8,7 @@ depends-on: [BL-1035]
 touches: [Cryptography/Surl.Dtls.UnitLibrary, Cryptography/Surl.Dtls.UnitTests]
 requirement: none
 created: 2026-11-05
-completed:
+completed: 2026-11-11
 ---
 # BL-745 — Close a DTLS association with close_notify before its 48-bit sequence number wraps
 
@@ -29,13 +29,16 @@ sends a warning `close_notify` with it and ends the association, instead of `Sen
 
 ## Acceptance criteria
 
-- [ ] A named test in `Surl.Dtls.UnitTests` shows an association whose epoch 1 writer is at its last sequence
+- [x] A named test in `Surl.Dtls.UnitTests` shows an association whose epoch 1 writer is at its last sequence
       number answers `SendAsync` by sending `close_notify` with that number, then `ReceiveAsync` returns `null`
       and a further `SendAsync` throws `InvalidOperationException`.
-- [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and the library keeps 100% line and branch
+- [x] `dotnet build -warnaserror` is clean, the fast tests are green, and the library keeps 100% line and branch
       coverage.
 
 ## Notes
+
+- `SendAsync` checks `DtlsAssociationRecords.NextRecordIsTheLast`; if so it closes with `close_notify` and drops the data (no exception). Internal `ContinueEpoch1WritesFrom` lets the test start near the end.
+- Test: `SendAsync_AtTheLastSequenceNumber_SendsCloseNotifyWithItAndEndsTheAssociation`. Dtls tests: 269 pass.
 
 ## Log
 
@@ -43,3 +46,4 @@ sends a warning `close_notify` with it and ends the association, instead of `Sen
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waits on BL-1035: pinned .NET SDK 10.0.401 is not installed, so dotnet build cannot run
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Done. DtlsServerSession.SendAsync closes with close_notify at the last 48-bit sequence number

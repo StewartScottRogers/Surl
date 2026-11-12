@@ -102,8 +102,10 @@ decisions 3, 5, 6 and 10, and its BL-738 amendment):
 - An epoch 1 `ClientHello` on an established association is answered with a warning
   `no_renegotiation`, and the association carries on.
 
-Still to come: closing with `close_notify` before the 48-bit sequence number wraps (BL-745); an
-epoch 0 hello with a valid cookie replacing an established association (BL-779).
+`DtlsServerSession.SendAsync` on an epoch 1 writer whose next sequence number is the last
+(2^48 - 1) sends `close_notify` with it instead of the data and ends the association (BL-745).
+
+Still to come: an epoch 0 hello with a valid cookie replacing an established association (BL-779).
 
 Who the peer is and how much one record carries (BL-650, ADR-0087's BL-650 amendment, for
 ADR-0097 decisions 4, 6 and 7):

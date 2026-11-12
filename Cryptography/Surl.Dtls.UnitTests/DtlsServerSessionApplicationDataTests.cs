@@ -110,6 +110,24 @@ public sealed class DtlsServerSessionApplicationDataTests
     }
 
     [TestMethod]
+    public async Task SendAsync_AtTheLastSequenceNumber_SendsCloseNotifyWithItAndEndsTheAssociation()
+    {
+        var (session, flow, client) = await EstablishAsync();
+        session.ContinueEpoch1WritesFrom(DtlsRecordHeader.MaximumSequenceNumber);
+
+        await session.SendAsync(new byte[] { 1 }, flow.Exhausted.Token);
+        var received = await session.ReceiveAsync(flow.Exhausted.Token);
+
+        Assert.AreEqual(new DtlsAlert(false, DtlsAlertDescription.CloseNotify), client.ReceivedAlerts.Single());
+        var header = UnitTestRecords.Split(flow.Sent[^1]).Single().Header;
+        Assert.AreEqual((ushort)1, header.Epoch);
+        Assert.AreEqual(DtlsRecordHeader.MaximumSequenceNumber, header.SequenceNumber);
+        Assert.IsNull(received);
+        await Assert.ThrowsExactlyAsync<InvalidOperationException>(async () => await session.SendAsync(new byte[1], flow.Exhausted.Token));
+        session.Dispose();
+    }
+
+    [TestMethod]
     public async Task CloseAsync_BeforeTheHandshake_SendsNothing()
     {
         var (session, flow) = DtlsServerSessionTests.Start(new UnitTestDtlsClient());
