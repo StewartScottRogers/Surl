@@ -9,7 +9,8 @@ namespace Surl.Cli;
 /// reply tables), so a chosen error is one the protocol allows. A code and its text are separated
 /// by the first space. Of the extended schemes, <c>coap</c>, <c>mcp</c> and <c>signalr</c> and
 /// their secure twins have rows (ADR-0144), as do <c>s3</c>, <c>az</c>, <c>abfs</c>, <c>abfss</c>
-/// and <c>gs</c> (BL-983), and <c>dns</c>, <c>redis</c> and <c>rediss</c> (BL-986); the others have none yet (BL-834).
+/// and <c>gs</c> (BL-983), and <c>dns</c>, <c>redis</c> and <c>rediss</c> (BL-986), and <c>amqp</c>, <c>amqp1</c>, <c>kafka</c>,
+/// <c>mqtt5</c> and <c>nats</c> with their secure twins (BL-1015, ADR-0124 decision 9); the others have none yet (BL-834).
 /// </summary>
 internal static class FaultReplyShapes
 {
@@ -18,6 +19,10 @@ internal static class FaultReplyShapes
         ["abfs"] = IsObjectStoreError,
         ["abfss"] = IsObjectStoreError,
         ["az"] = IsObjectStoreError,
+        ["amqp"] = IsAmqp0Exception,
+        ["amqp1"] = IsAmqp1Error,
+        ["amqp1s"] = IsAmqp1Error,
+        ["amqps"] = IsAmqp0Exception,
         ["coap"] = IsCoapResponseCode,
         ["coaps"] = IsCoapResponseCode,
         ["dict"] = reply => IsCodeWithText(reply, 500, 599),
@@ -31,12 +36,19 @@ internal static class FaultReplyShapes
         ["https"] = reply => IsCodeWithOptionalText(reply, 400, 599),
         ["imap"] = IsImapResponse,
         ["imaps"] = IsImapResponse,
+        ["kafka"] = IsKafkaErrorCode,
+        ["kafkas"] = IsKafkaErrorCode,
         ["ldap"] = IsLdapResult,
         ["ldaps"] = IsLdapResult,
         ["mcp"] = IsJsonRpcError,
         ["mcps"] = IsJsonRpcError,
         ["mqtt"] = IsMqttReasonCode,
+        ["mqtt5"] = IsMqttReasonCode,
+        ["mqtt5+ws"] = IsMqttReasonCode,
+        ["mqtt5s"] = IsMqttReasonCode,
         ["mqtts"] = IsMqttReasonCode,
+        ["nats"] = IsNatsErrorText,
+        ["natss"] = IsNatsErrorText,
         ["pop3"] = IsText,
         ["pop3s"] = IsText,
         ["redis"] = IsText,
@@ -115,6 +127,36 @@ internal static class FaultReplyShapes
 
     /// <summary>A DNS RCODE 1 to 5 (FORMERR to REFUSED), a single digit, alone.</summary>
     private static bool IsDnsResponseCode(string reply) => reply.Length == 1 && reply[0] is >= '1' and <= '5';
+
+    /// <summary>
+    /// An AMQP 0-9-1 reply code from the specification's channel and connection exception lists
+    /// (BL-1011's <c>TryReadException</c>), a space, and text of 1 to 255 UTF-8 bytes.
+    /// </summary>
+    private static bool IsAmqp0Exception(string reply) =>
+        TrySplitCode(reply, out var code, out var text)
+        && Amqp0ExceptionCodes.Contains(code)
+        && !string.IsNullOrEmpty(text)
+        && Encoding.UTF8.GetByteCount(text) <= byte.MaxValue;
+
+    /// <summary>AMQP 0-9-1 section 1.2's channel (311, 312, 313, 403 to 406) and connection exception codes.</summary>
+    private static readonly FrozenSet<int> Amqp0ExceptionCodes =
+        new[] { 311, 312, 313, 403, 404, 405, 406, 320, 402, 501, 502, 503, 504, 505, 506, 530, 540, 541 }.ToFrozenSet();
+
+    /// <summary>An AMQP 1.0 error condition symbol of printable characters with no space, a space, and a description (BL-1012's <c>ReadChosenError</c>).</summary>
+    private static bool IsAmqp1Error(string reply)
+    {
+        var space = reply.IndexOf(' ', StringComparison.Ordinal);
+        return space > 0
+            && space < reply.Length - 1
+            && !reply.AsSpan(0, space).ContainsAnyExceptInRange('!', '~');
+    }
+
+    /// <summary>A Kafka error code 1 to 127, alone (BL-1013).</summary>
+    private static bool IsKafkaErrorCode(string reply) =>
+        short.TryParse(reply, NumberStyles.None, CultureInfo.InvariantCulture, out var code) && code is >= 1 and <= 127;
+
+    /// <summary>NATS <c>-ERR</c> text with no apostrophe, carriage return or line feed (BL-1031); the reply is never empty.</summary>
+    private static bool IsNatsErrorText(string reply) => reply.IndexOfAny(['\'', '\r', '\n']) < 0;
 
     /// <summary>An MQTT 5 reason code 128 to 255, alone.</summary>
     private static bool IsMqttReasonCode(string reply) =>

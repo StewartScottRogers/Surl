@@ -8,7 +8,7 @@ depends-on: [BL-1011, BL-1012, BL-1013, BL-1014, BL-1031]
 touches: [Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests]
 requirement: FR-062
 created: 2026-11-06
-completed:
+completed: 2026-11-11
 ---
 # BL-1015 — Accept --fault error replies for amqp, amqp1, kafka, mqtt5 and nats in Surl.Cli
 
@@ -41,18 +41,23 @@ otherwise, instead of every such rule being refused at configuration.
 
 ## Acceptance criteria
 
-- [ ] `Parse_ErrorReplyFittingItsScheme_IsServed` has a data row accepting a fitting `reply` for each of the eleven
+- [x] `Parse_ErrorReplyFittingItsScheme_IsServed` has a data row accepting a fitting `reply` for each of the eleven
       schemes, including `amqps`, `amqp1s`, `kafkas`, `mqtt5s`, `mqtt5+ws` and `natss`.
-- [ ] `Parse_FaultRefused_IsRefusedWithItsReason` has, per family (amqp, amqp1, kafka, mqtt5, nats), at least one
+- [x] `Parse_FaultRefused_IsRefusedWithItsReason` has, per family (amqp, amqp1, kafka, mqtt5, nats), at least one
       data row refusing a misfit `reply` with `option --fault: key reply does not fit the <scheme> error shape`.
-- [ ] Every existing `Surl.Cli.UnitTests` test passes.
-- [ ] `dotnet build Application/Surl.Cli.UnitTests -warnaserror` is clean, the fast tests are green, and
+- [x] Every existing `Surl.Cli.UnitTests` test passes.
+- [x] `dotnet build Application/Surl.Cli.UnitTests -warnaserror` is clean, the fast tests are green, and
       `Surl.Cli.UnitLibrary` keeps 100% line and branch coverage.
 
 ## Notes
+
+- Shapes copied from the brokers: AMQP 0-9-1 code list and 1..255 text bytes; AMQP 1.0 printable symbol, space, non-empty description (the broker requires the description, so it is required here); Kafka 1..127; NATS no apostrophe, CR or LF.
+- Two existing refusal rows used nats as the "no error shape" example; they now use stomp.
+- No --aihelp text lists the error-reply schemes, so none changed.
 
 ## Log
 
 - 2026-11-06: Created.
 - 2026-11-06: Split from BL-834 (timed out after 120 min); its stash `darkfactory BL-834 20261106-033059` holds only the scheme rows.
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Done. --fault error replies for amqp, amqp1, kafka, mqtt5 and nats (and secure twins) are checked against each broker's error shape
