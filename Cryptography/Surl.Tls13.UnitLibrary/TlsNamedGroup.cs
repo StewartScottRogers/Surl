@@ -2,7 +2,8 @@ namespace Surl.Tls13;
 
 /// <summary>
 /// Key exchange groups of RFC 8446 section 4.2.7 that ADR-0082 decision 3 names, with
-/// X25519MLKEM768 (draft-ietf-tls-ecdhe-mlkem). A client may offer other values, which are kept
+/// X25519MLKEM768 (draft-ietf-tls-ecdhe-mlkem), and the finite field groups of RFC 7919 that
+/// ADR-0147 adds. A client may offer other values, which are kept
 /// as they came.
 /// </summary>
 public enum TlsNamedGroup : ushort
@@ -22,8 +23,11 @@ public enum TlsNamedGroup : ushort
     /// <summary>x448 (0x001E).</summary>
     X448 = 0x001E,
 
-    /// <summary>ffdhe2048 (0x0100).</summary>
+    /// <summary>ffdhe2048 (0x0100, RFC 7919).</summary>
     Ffdhe2048 = 0x0100,
+
+    /// <summary>ffdhe3072 (0x0101, RFC 7919).</summary>
+    Ffdhe3072 = 0x0101,
 
     /// <summary>X25519MLKEM768 (0x11EC).</summary>
     X25519MlKem768 = 0x11EC,

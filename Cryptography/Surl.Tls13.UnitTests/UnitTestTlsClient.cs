@@ -1,4 +1,5 @@
 using System.Buffers.Binary;
+using System.Numerics;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
@@ -54,6 +55,28 @@ internal sealed class UnitTestTlsClient
             Assert.IsTrue(MlKem768.TryDecapsulate(decapsulationKey, serverShare.AsSpan(0, MlKem768.CiphertextSize), mlKemSecret));
             return [.. mlKemSecret, .. x25519.agree(serverShare[MlKem768.CiphertextSize..])];
         });
+    }
+
+    /// <summary>
+    /// A client with an ffdhe2048 or ffdhe3072 share (RFC 7919 appendix A, RFC 8446 section
+    /// 4.2.8.1): Y = 2^x mod p, and the secret Z = Y_server^x mod p, both padded to the length of p.
+    /// </summary>
+    public static UnitTestTlsClient WithFiniteFieldShare(ushort group)
+    {
+        var prime = UnitTestFiniteFieldPrimes.Of(group);
+        var length = (int)((prime.GetBitLength() + 7) / 8);
+        var exponent = new BigInteger(RandomNumberGenerator.GetBytes(40), isUnsigned: true);
+        return new UnitTestTlsClient(group, Padded(BigInteger.ModPow(2, exponent, prime), length), serverShare =>
+        {
+            Assert.HasCount(length, serverShare);
+            return Padded(BigInteger.ModPow(new BigInteger(serverShare, isUnsigned: true, isBigEndian: true), exponent, prime), length);
+        });
+    }
+
+    private static byte[] Padded(BigInteger value, int length)
+    {
+        var bytes = value.ToByteArray(isUnsigned: true, isBigEndian: true);
+        return [.. new byte[length - bytes.Length], .. bytes];
     }
 
     /// <summary>The client of RFC 8448 section 3, with that trace's x25519 private key.</summary>

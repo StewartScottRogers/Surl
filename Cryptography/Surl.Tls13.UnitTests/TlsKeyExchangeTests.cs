@@ -20,7 +20,7 @@ public sealed class TlsKeyExchangeTests
     [TestMethod]
     public void Agree_GroupTheServerDoesNotServe_ThrowsArgumentOutOfRangeException()
     {
-        var clientShare = new TlsKeyShareEntry(TlsNamedGroup.X448, new byte[56]);
+        var clientShare = new TlsKeyShareEntry((TlsNamedGroup)0x0102, new byte[512]);
 
         Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => TlsKeyExchange.Agree(clientShare, RandomNumberGenerator.Create()));
     }

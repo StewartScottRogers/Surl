@@ -3,7 +3,8 @@ namespace Surl.Tls13;
 /// <summary>
 /// Reads the recorded ClientHellos embedded in this assembly from Fixtures/ClientHello. Each is
 /// the clienthello.bin that Record-CurlExchange.ps1 -QuicInitial (BL-363) decrypted from a
-/// pinned upstream curl's Initial packets on 2026-11-04 (BL-375's Notes say how).
+/// pinned upstream curl's Initial packets: the default offers on 2026-11-04 (BL-375's Notes say how), and in
+/// Fixtures/ClientHello/Curves each `--curves <group>` offer on 2026-11-06 (BL-545's Notes).
 /// </summary>
 internal static class UnitTestFixtures
 {

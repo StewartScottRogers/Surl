@@ -43,6 +43,14 @@ And the server handshake (BL-376):
   platform. Randomness comes from an injected `RandomNumberGenerator`, in share order: the server
   random, then for X25519MLKEM768 ML-KEM's 32-byte m, then an x25519 private key. No session ticket.
 
+And the groups a curl offers only when `--curves` names one alone (BL-1008, ADR-0147), served after
+those five in this order:
+
+- ffdhe2048 (`0100`) and ffdhe3072 (`0101`), RFC 7919, in `TlsFiniteFieldGroup` with the base
+  class library's `BigInteger.ModPow`: Y and the secret padded to the length of p, Y checked
+  1 < Y < p - 1, and a 256- or 320-bit server exponent drawn from the injected
+  `RandomNumberGenerator` after the server random.
+
 And client certificates (BL-600, ADR-0082 decision 3 by way of ADR-0010 section 5):
 
 - `TlsServerHandshakeOptions.TrustsClientCertificateChain` set means the server requests and
@@ -71,7 +79,7 @@ on the wire, the caller reports it as QUIC error `0x0100` plus the alert (RFC 90
 | no `supported_groups` or `signature_algorithms`; no `quic_transport_parameters` when the server sends its own | `missing_extension` |
 | no shared cipher suite, no offered scheme for the certificate key, no group the server serves | `handshake_failure` |
 | no `h3` (or no ALPN at all) | `no_application_protocol` |
-| a malformed key share, an ML-KEM-768 encapsulation key failing FIPS 203's modulus check, a NIST point off its curve, an x25519 low-order point; a second ClientHello changing the suite or not sending exactly one share for the retry group; a message over `MaximumMessageLength` (128 KiB) | `illegal_parameter` |
+| a malformed key share, an ML-KEM-768 encapsulation key failing FIPS 203's modulus check, a NIST point off its curve, an x25519 low-order point, an ffdhe Y outside 1 < Y < p - 1; a second ClientHello changing the suite or not sending exactly one share for the retry group; a message over `MaximumMessageLength` (128 KiB) | `illegal_parameter` |
 | a client Finished that does not verify | `decrypt_error` |
 | an empty client Certificate when one is required | `certificate_required` |
 | a client Certificate whose end-entity certificate is not X.509, or whose chain the delegate does not trust | `bad_certificate` |
