@@ -54,3 +54,4 @@ directory come from `ExchangeContext.Identifiers`, so a seeded instance repeats 
 - 2026-11-05: Created.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waits on BL-1035: pinned .NET SDK 10.0.401 is not installed, so the CoAP change cannot be built or tested
+- 2026-11-11: Backlog -> Doing.
