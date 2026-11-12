@@ -8,7 +8,7 @@ depends-on: [BL-1054]
 touches: [Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests]
 requirement: none
 created: 2026-11-11
-completed:
+completed: 2026-11-11
 ---
 # BL-1055 — Cover the four Surl.Cli branches the per-project coverage merge now shows
 
@@ -34,13 +34,26 @@ with no failing member.
 
 ## Acceptance criteria
 
-- [ ] `Measure-CodeQuality.ps1 -Library 'Surl.Cli*'` prints `| Surl.Cli.UnitLibrary | 100 | 100 |`
+- [x] `Measure-CodeQuality.ps1 -Library 'Surl.Cli*'` prints `| Surl.Cli.UnitLibrary | 100 | 100 |`
       and `0 failing member(s)`.
-- [ ] `dotnet build` is clean and the fast tests pass.
+- [x] `dotnet build` is clean and the fast tests pass.
 
 ## Notes
+
+- Three of the four gaps were the compiler's cached-delegate null check for a method group:
+  Cobertura showed one condition at 50% on a line the test process reaches once.
+  `Any(IsControlCharacter)` in `RefuseAuthorizedKeys`, `Any(UsesTls)` twice in
+  `RefuseWithoutTlsListenUrl`, and the `UserGivenTwice`/`GroupGivenTwice` method groups in
+  `RefuseCombination` are now lambdas, which the collector does not count as a branch.
+  Lambdas were chosen over static readonly delegate fields because each is a one-line change
+  with no new members.
+- `ReadQuoted`'s gap was a real untested branch: no test read a closing quote at the very end
+  of the text. `MailboxFileReaderTests.Read_QuotedFieldClosingAtEndOfText_IsRead` covers it.
+- Measured 2026-11-11: `| Surl.Cli.UnitLibrary | 100 | 100 | 551 | 0 | 8 |`, 0 failing
+  members; 1406 Cli tests pass.
 
 ## Log
 
 - 2026-11-11: Created.
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Done. Surl.Cli.UnitLibrary measures 100% line and branch with no failing member
