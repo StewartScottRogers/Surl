@@ -67,3 +67,4 @@ start timeout.
 - 2026-11-11: Doing -> Backlog. Cause fixed (thread-pool starvation); the clean full runs wait on BL-1059, the HTTP/3 UDP bind on a Windows-excluded port
 - 2026-11-12: Backlog -> Doing.
 - 2026-11-12: Doing -> Backlog. Cause fixed; clean full runs wait on BL-1088 (HTTP/3 port-0 bind) and BL-1089 (other failures)
+- 2026-11-12: Backlog -> Doing.
