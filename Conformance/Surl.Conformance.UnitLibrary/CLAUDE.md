@@ -301,6 +301,13 @@ sharing one `MailUpstreamTestCaseReplies` per case built from its `<data*>` part
 going to the accept-all `AnonymousAuthenticationPolicy`; `<protocol>` reads its `ReceivedBytes` and
 `<upload>` its `UploadedBytes`. `imaps`, `pop3s` and `smtps` are not composed.
 
+Playing the http-proxy and https-proxy cases is built (BL-556): `UpstreamTestCaseServerCommands.HttpProxy` is their
+row (`Testnum`, the same words as `Surl.Protocol.HttpProxy`'s `HttpProxyUpstreamTestCaseReplies.SupportedServerCommands`),
+and `UpstreamTestCaseServer.PortVariable` names `%PROXYPORT` and `%HTTPSPROXYPORT`. The tests' server halves add
+`HttpProxyUpstreamTestCaseServer` on the `http-proxy` scheme (plaintext) and on `https` with `ListenUrl.IsProxy` (behind TLS),
+tunnelling through `Surl.Networking`'s `SocketOriginConnector` limited to loopback; `<proxy>` reads the proxy's record and
+`<protocol>` the origin half's. 715 and 2055 keep `server-not-built:socks5` and 1230 `server-half-not-composed:http-ipv6`.
+
 The stated pass rate and its guard are built (BL-393):
 
 - `UpstreamTestCasePassingList` reads and writes a platform's passing list,

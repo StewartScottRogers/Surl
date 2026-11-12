@@ -55,6 +55,14 @@ public static class UpstreamTestCaseServerCommands
         ["Testnum", "REPLY", "REPLYLF", "COUNT", "CAPA", "AUTH", "POSTFETCH"],
         StringComparer.Ordinal);
 
+    /// <summary>
+    /// The HTTP proxy server halves' commands (BL-556), the same words
+    /// <c>Surl.Protocol.HttpProxy</c>'s <c>HttpProxyUpstreamTestCaseReplies.SupportedServerCommands</c>
+    /// accepts: only <c>Testnum</c>, since none of the cases naming <c>http-proxy</c> or
+    /// <c>https-proxy</c> at the tag has another.
+    /// </summary>
+    public static readonly IReadOnlySet<string> HttpProxy = new HashSet<string>(["Testnum"], StringComparer.Ordinal);
+
     /// <summary>The name a case's <c>&lt;postcmd&gt;</c> is checked under; no server half implements it.</summary>
     public const string PostCommand = "postcmd";
 
@@ -64,6 +72,8 @@ public static class UpstreamTestCaseServerCommands
         ["http-ipv6"] = Http,
         ["https"] = Http,
         ["https-mtls"] = Http,
+        ["http-proxy"] = HttpProxy,
+        ["https-proxy"] = HttpProxy,
         ["ftp"] = Ftp,
         ["ftp-ipv6"] = Ftp,
         ["ftps"] = Ftp,

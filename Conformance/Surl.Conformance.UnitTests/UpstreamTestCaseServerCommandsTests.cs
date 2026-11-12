@@ -2,6 +2,7 @@ using Surl.LineProtocol;
 using Surl.Protocol.Ftp;
 using Surl.Protocol.Gopher;
 using Surl.Protocol.Http;
+using Surl.Protocol.HttpProxy;
 using Surl.Protocol.Mqtt;
 using Surl.Protocol.Tftp;
 
@@ -77,6 +78,24 @@ public sealed class UpstreamTestCaseServerCommandsTests
         Assert.IsEmpty(UpstreamTestCaseServerCommands.None);
         Assert.IsEmpty(GopherUpstreamTestCaseReplies.SupportedServerCommands);
         Assert.IsEmpty(MqttUpstreamTestCaseReplies.SupportedServerCommands);
+    }
+
+    [TestMethod]
+    public void HttpProxy_IsTheCommandsTheProxyServerHalfAccepts()
+    {
+        var table = UpstreamTestCaseServerCommands.HttpProxy.Order(StringComparer.Ordinal).ToArray();
+
+        CollectionAssert.AreEqual(HttpProxyUpstreamTestCaseReplies.SupportedServerCommands.Order(StringComparer.Ordinal).ToArray(), table);
+    }
+
+    [TestMethod]
+    [DataRow("http-proxy", "Testnum", true)]
+    [DataRow("https-proxy", "Testnum", true)]
+    [DataRow("http-proxy", "swsclose", false)]
+    [DataRow("https-proxy", "idle", false)]
+    public void IsSupported_ProxyRows_AcceptOnlyTestnum(string server, string command, bool expected)
+    {
+        Assert.AreEqual(expected, UpstreamTestCaseServerCommands.IsSupported(server, command));
     }
 
     [TestMethod]

@@ -9,6 +9,7 @@ using Surl.Protocol.Dict;
 using Surl.Protocol.Ftp;
 using Surl.Protocol.Gopher;
 using Surl.Protocol.Http;
+using Surl.Protocol.HttpProxy;
 using Surl.Protocol.Imap;
 using Surl.Protocol.Mqtt;
 using Surl.Protocol.Pop3;
@@ -55,6 +56,11 @@ namespace Surl.Conformance;
 internal sealed class UpstreamTestCaseServerHalves : IAsyncDisposable
 {
     private const string HttpTlsScheme = "wss";
+
+    // The plaintext proxy needs a scheme of its own because "http" is the origin's; the HTTPS proxy
+    // is the "https" scheme with ListenUrl.IsProxy, which the HTTP TLS half (on "wss") leaves free.
+    private const string HttpProxyScheme = "http-proxy";
+    private const string HttpsProxyScheme = "https";
     private const string LoopbackIPv4 = "127.0.0.1";
     private const string LoopbackIPv6 = "::1";
 
@@ -76,6 +82,8 @@ internal sealed class UpstreamTestCaseServerHalves : IAsyncDisposable
         ("imap", [LoopbackIPv4, LoopbackIPv6]),
         ("pop3", [LoopbackIPv4, LoopbackIPv6]),
         ("smtp", [LoopbackIPv4, LoopbackIPv6]),
+        (HttpProxyScheme, [LoopbackIPv4]),
+        (HttpsProxyScheme, [LoopbackIPv4]),
     ];
 
     private readonly CaseServer[] servers;
@@ -159,6 +167,12 @@ internal sealed class UpstreamTestCaseServerHalves : IAsyncDisposable
     /// <summary>The SMTP listener's port on <c>[::1]</c>: <c>%SMTP6PORT</c>.</summary>
     public int SmtpIPv6Port => ports[PortKey("smtp", LoopbackIPv6)];
 
+    /// <summary>The plaintext HTTP proxy listener's port: <c>%PROXYPORT</c>.</summary>
+    public int ProxyPort => ports[PortKey(HttpProxyScheme, LoopbackIPv4)];
+
+    /// <summary>The HTTPS proxy listener's port: <c>%HTTPSPROXYPORT</c>.</summary>
+    public int HttpsProxyPort => ports[PortKey(HttpsProxyScheme, LoopbackIPv4)];
+
     /// <summary>The notes the server halves wrote to their exchange logs so far.</summary>
     public string Notes => log.Text;
 
@@ -193,7 +207,7 @@ internal sealed class UpstreamTestCaseServerHalves : IAsyncDisposable
         var tftp = new CaseDatagramServer("tftp");
         ListenUrl[] urls =
         [
-            .. Listeners.SelectMany(listener => listener.Hosts.Select(host => new ListenUrl(listener.Scheme, host, 0))),
+            .. Listeners.SelectMany(listener => listener.Hosts.Select(host => ListenUrlFor(listener.Scheme, host))),
             new("tftp", LoopbackIPv4, 0),
             .. HttpUnixSocketListenUrls(httpUnixSocketPath),
         ];
@@ -225,8 +239,12 @@ internal sealed class UpstreamTestCaseServerHalves : IAsyncDisposable
         TftpUpstreamTestCaseReplies tftpReplies,
         IConnectionProtocolServer ssh,
         IConnectionProtocolServer smb,
-        MailUpstreamTestCaseReplies mailReplies)
+        MailUpstreamTestCaseReplies mailReplies,
+        HttpProxyUpstreamTestCaseReplies proxyReplies)
     {
+        // Upstream's sws sends every tunnel to 127.0.0.1 at the CONNECT's port (BL-556), so the proxy
+        // reaches real loopback sockets, whatever host the request names.
+        var proxy = new HttpProxyUpstreamTestCaseServer(proxyReplies, new SocketOriginConnector(AllowedOriginRule.LoopbackOnly));
         var http = new HttpUpstreamTestCaseServer(httpReplies);
         var ftp = new FtpUpstreamTestCaseServer(ftpReplies, new AnonymousAuthenticationPolicy());
         var gopher = new GopherUpstreamTestCaseServer(gopherReplies);
@@ -236,7 +254,7 @@ internal sealed class UpstreamTestCaseServerHalves : IAsyncDisposable
         IConnectionProtocolServer[] playing = [http, http, ftp, ftp, gopher, gopher, mqtt, mqtt, new DictProtocolServer(noDefinitions), new TelnetProtocolServer(), ssh, smb,
             new ImapUpstreamTestCaseServer(mailReplies, new AnonymousAuthenticationPolicy()),
             new Pop3UpstreamTestCaseServer(mailReplies, new AnonymousAuthenticationPolicy()),
-            new SmtpUpstreamTestCaseServer(mailReplies, new AnonymousAuthenticationPolicy())];
+            new SmtpUpstreamTestCaseServer(mailReplies, new AnonymousAuthenticationPolicy()), proxy, proxy];
         for (var index = 0; index < servers.Length; index++)
         {
             servers[index].Current = playing[index];
@@ -254,6 +272,13 @@ internal sealed class UpstreamTestCaseServerHalves : IAsyncDisposable
     }
 
     private static string PortKey(string scheme, string host) => $"{scheme} {host}";
+
+    private static ListenUrl ListenUrlFor(string scheme, string host) => scheme switch
+    {
+        HttpProxyScheme => new ListenUrl(scheme, host, 0) { IsImplicitTls = false },
+        HttpsProxyScheme => new ListenUrl(scheme, host, 0) { IsProxy = true },
+        _ => new ListenUrl(scheme, host, 0),
+    };
 
     // The HTTP listener on a Unix socket shares the http scheme, so the plaintext HTTP case server
     // answers it; its host only keys its row apart from the TCP listener's, as nothing binds it.

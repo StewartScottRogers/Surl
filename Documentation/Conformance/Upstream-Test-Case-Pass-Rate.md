@@ -33,7 +33,7 @@ decision 5). This is success criterion 2 of the
 
 | Platform | Commit | Date | Reference pin SHA-256 | Total | Runnable | Passed | Failed | Skipped | test-server-choice | Pass rate |
 | --- | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| `win-x64` | `153bbc14` + BL-549 + BL-855 + BL-896 + BL-897 + BL-898 + BL-899 + BL-900 | 2026-11-11 | `0E773709C3A44DB47B88B71351D902027682ED87C3BD3821009E454BACCA8778` | 2,013 | 1,128 | 1,078 | 50 | 885 | 0 | 95.6% |
+| `win-x64` | `153bbc14` + BL-549 + BL-855 + BL-896 + BL-897 + BL-898 + BL-899 + BL-900 + BL-556 | 2026-11-12 | `0E773709C3A44DB47B88B71351D902027682ED87C3BD3821009E454BACCA8778` | 2,013 | 1,154 | 1,103 | 51 | 859 | 0 | 95.6% |
 | `linux-x64` | `8eb0301b` | 2026-11-06 | `153CA463957609117D21A848BE29B70691B85F9E5CC9370C7DAA037B839A4E45` | 2,013 | 1,237 | 1,154 | 83 | 776 | 0 | 93.3% |
 | `osx-arm64` | `8eb0301b` | 2026-11-06 | `04E0E69BCD3BD814EC093551A0447AC14EDEEA9D395B468A2025DCB3F766EEBF` | 2,013 | 1,237 | 1,153 | 84 | 776 | 0 | 93.2% |
 
@@ -47,7 +47,15 @@ and fails `errorcode` on macOS. Both skip fewer cases than Windows, chiefly `fea
 8 in `data`, 7 in `errorcode`, 4 each in `stdout` and `timeout`, 3 in `stderr` and 1 each in
 `file` and `upload`.
 
-Windows: the run of BL-898's changes: a case naming several servers is no longer skipped for a
+Windows: the run of BL-556's changes, the first with the `http-proxy` and `https-proxy` server halves
+composed (`HttpProxyUpstreamTestCaseServer` on `%PROXYPORT`, and on `%HTTPSPROXYPORT` behind TLS; every
+tunnel goes to `127.0.0.1` at the `CONNECT`'s port, as upstream's `sws` sends it). Of the 29 cases that
+named them, 25 pass (80, 83, 95, 275, 445, 714, 744, 1078, 1287, 1288, 1319, 1320, 1321, 1428, 1586, 1630,
+1631, 1632, 1849, 1904, 2050, 2107, 3028, 3106, 3401), 1297 fails `timeout`, 1230 skips
+`server-half-not-composed:http-ipv6`, and 715 and 2055 keep `server-not-built:socks5`. No case that passed
+fails. Linux and macOS keep their rows above until their next CI run.
+
+The run before, of BL-898's changes: a case naming several servers is no longer skipped for a
 `<servercmd>` word that one of them implements (cases 779 and 795, `http` then `imap`, `AUTH`), and each
 server half gets the lines its own row implements. Both pass; none that passed fails.
 
@@ -100,13 +108,13 @@ upstream's test-server greeting banner in a `-D` file, BL-776), TFTP 15 ran, 13 
 | `perl-command` | 27 | 27 | 27 |
 | `postcheck` | 14 | 14 | 14 |
 | `precheck` | 19 | 19 | 19 |
-| `server-half-not-composed:<name>` | 12 | 15 | 15 |
-| `server-not-built:<name>` | 65 | 67 | 67 |
+| `server-half-not-composed:<name>` | 13 | 15 | 15 |
+| `server-not-built:<name>` | 38 | 67 | 67 |
 | `servercmd-unsupported:<command>` | 30 | 35 | 35 |
 | `strippart-unsupported` | 1 | 1 | 1 |
 | `unittest` | 81 | 81 | 81 |
 | `unparsable` | 4 | 4 | 4 |
-| **Total** | **887** | **776** | **776** |
+| **Total** | **859** | **776** | **776** |
 
 ## Releases
 

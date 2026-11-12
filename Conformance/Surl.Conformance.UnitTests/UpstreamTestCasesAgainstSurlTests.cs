@@ -8,6 +8,7 @@ using Surl.Networking;
 using Surl.Protocol.Ftp;
 using Surl.Protocol.Gopher;
 using Surl.Protocol.Http;
+using Surl.Protocol.HttpProxy;
 using Surl.Protocol.Mqtt;
 using Surl.Protocol.Tftp;
 
@@ -55,6 +56,7 @@ public sealed class UpstreamTestCasesAgainstSurlTests
     private const string SshFamily = "ssh";
     private const string SmbFamily = "smb";
     private const string MailFamily = "mail";
+    private const string HttpProxyFamily = "http-proxy";
 
     // The variable the http-unix row of UpstreamTestCaseServers names its socket path with.
     private static readonly string HttpUnixPathVariable = UpstreamTestCaseServers.Find("http-unix")!.UnixSocketPathVariable!;
@@ -83,7 +85,12 @@ public sealed class UpstreamTestCasesAgainstSurlTests
         ["imap"] = MailFamily,
         ["pop3"] = MailFamily,
         ["smtp"] = MailFamily,
+        ["http-proxy"] = HttpProxyFamily,
+        ["https-proxy"] = HttpProxyFamily,
     };
+
+    // The port variable the server-name table gives a proxy row.
+    private static string PortVariableOf(string server) => UpstreamTestCaseServers.Find(server)!.PortVariable!;
 
     public TestContext TestContext { get; set; } = null!;
 
@@ -414,6 +421,7 @@ public sealed class UpstreamTestCasesAgainstSurlTests
             MqttUpstreamTestCaseReplies mqttReplies;
             TftpUpstreamTestCaseReplies tftpReplies;
             MailUpstreamTestCaseReplies mailReplies;
+            HttpProxyUpstreamTestCaseReplies proxyReplies;
             // Upstream's runtests writes one servercmd file every server reads and each ignores the words
             // it does not know (BL-898); a server half here throws on one, so each gets the lines its own row implements.
             var families = ServerNames(testCase).Select(name => ServerFamilies[name]).Distinct().ToList();
@@ -429,6 +437,7 @@ public sealed class UpstreamTestCasesAgainstSurlTests
                 mqttReplies = new MqttUpstreamTestCaseReplies(FtpReplyParts(testCase).GetValueOrDefault("data") ?? []);
                 tftpReplies = new TftpUpstreamTestCaseReplies(FtpReplyParts(testCase), CommandsFor(TftpFamily));
                 mailReplies = new MailUpstreamTestCaseReplies(MailReplyParts(testCase), CommandsFor(MailFamily));
+                proxyReplies = new HttpProxyUpstreamTestCaseReplies(ReplyParts(testCase), CommandsFor(HttpProxyFamily));
             }
             catch (FormatException exception)
             {
@@ -441,7 +450,7 @@ public sealed class UpstreamTestCasesAgainstSurlTests
             await WriteFileServerFilesAsync(number, testCase, families, Path.Combine(caseDirectory, logDirectory), smbRoot, cancellationToken);
             serverHalves.Play(
                 replies, ftpReplies, gopherReplies, mqttReplies, tftpReplies,
-                fileServers.CreateSsh(caseDirectory, sshUser), UpstreamTestCaseFileServers.CreateSmb(smbRoot), mailReplies);
+                fileServers.CreateSsh(caseDirectory, sshUser), UpstreamTestCaseFileServers.CreateSmb(smbRoot), mailReplies, proxyReplies);
             var curl = await client.Client.RunAsync(
                 commandLine.Arguments, commandLine.StandardInput, CurlEnvironment(Slashes(caseDirectory), commandLine), caseDirectory, cancellationToken);
             if (curl.TimedOut)
@@ -471,7 +480,9 @@ public sealed class UpstreamTestCasesAgainstSurlTests
             // keep their uploads in memory, and an SCP or SFTP upload lands in that very file.
             var sshUpload = Path.Combine(caseDirectory, logDirectory, $"upload.{number}");
             byte[] sshUploaded = families.Contains(SshFamily) && File.Exists(sshUpload) ? await File.ReadAllBytesAsync(sshUpload, cancellationToken) : [];
-            var record = UpstreamTestCaseRunRecord.FromRun(curl, output, received, [.. ftpReplies.UploadedBytes, .. tftpReplies.UploadedBytes, .. mailReplies.UploadedBytes, .. sshUploaded]);
+            var record = UpstreamTestCaseRunRecord.FromRun(curl, output, received, [.. ftpReplies.UploadedBytes, .. tftpReplies.UploadedBytes, .. mailReplies.UploadedBytes, .. sshUploaded])
+                with
+            { ProxyReceived = proxyReplies.ReceivedBytes };
             var verdict = new UpstreamTestCaseVerifyChecker(new CaseFolderRunFiles(caseDirectory), client.Features).Check(testCase, record);
             if (verdict.Passed)
             {
@@ -541,6 +552,8 @@ public sealed class UpstreamTestCasesAgainstSurlTests
                 ["POP36PORT"] = serverHalves.Pop3IPv6Port.ToString(CultureInfo.InvariantCulture),
                 ["SMTPPORT"] = serverHalves.SmtpPort.ToString(CultureInfo.InvariantCulture),
                 ["SMTP6PORT"] = serverHalves.SmtpIPv6Port.ToString(CultureInfo.InvariantCulture),
+                [PortVariableOf("http-proxy")] = serverHalves.ProxyPort.ToString(CultureInfo.InvariantCulture),
+                [PortVariableOf("https-proxy")] = serverHalves.HttpsProxyPort.ToString(CultureInfo.InvariantCulture),
                 // The SSH server half's root is the case's folder (UpstreamTestCaseFileServers).
                 ["SFTP_PWD"] = string.Empty,
                 ["SCP_PWD"] = string.Empty,

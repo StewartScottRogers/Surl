@@ -149,7 +149,7 @@ public sealed class UpstreamTestCaseSelectorTests
     [TestMethod]
     public void FindSkipReason_ServerNotBuilt_SkipsServerNotBuiltWithItsName()
     {
-        Assert.AreEqual("server-not-built:http-proxy", Reason("<server>\nhttp\nHTTP-Proxy\n</server>\n"));
+        Assert.AreEqual("server-not-built:socks4", Reason("<server>\nhttp\nSOCKS4\n</server>\n"));
     }
 
     [TestMethod]
@@ -227,7 +227,7 @@ public sealed class UpstreamTestCaseSelectorTests
     [TestMethod]
     public void FindSkipReason_SeveralReasonsApply_GivesTheFirstInTheAdrsOrder()
     {
-        Assert.AreEqual("libtest", Reason(Server("http-proxy") + "<tool>\nlib1500\n</tool>\n" + Features("Debug")));
+        Assert.AreEqual("libtest", Reason(Server("socks4") + "<tool>\nlib1500\n</tool>\n" + Features("Debug")));
     }
 
     [TestMethod]

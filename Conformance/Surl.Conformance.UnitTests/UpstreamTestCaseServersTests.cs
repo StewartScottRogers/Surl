@@ -31,6 +31,34 @@ public sealed class UpstreamTestCaseServersTests
     }
 
     [TestMethod]
+    public void Find_HttpProxy_IsBuiltAndMapsProxyPort()
+    {
+        Assert.AreEqual(
+            new UpstreamTestCaseServer("http-proxy", "http", IsBuilt: true, PortVariable: "PROXYPORT"),
+            UpstreamTestCaseServers.Find("http-proxy"));
+    }
+
+    [TestMethod]
+    public void Find_HttpsProxy_IsBuiltAndMapsHttpsProxyPort()
+    {
+        Assert.AreEqual(
+            new UpstreamTestCaseServer("https-proxy", "https", IsBuilt: true, PortVariable: "HTTPSPROXYPORT"),
+            UpstreamTestCaseServers.Find("https-proxy"));
+    }
+
+    [TestMethod]
+    public void All_OnlyTheProxyServers_MapAPortVariable()
+    {
+        var mapped = UpstreamTestCaseServers.All
+            .Where(server => server.PortVariable is not null)
+            .Select(server => $"{server.Name} %{server.PortVariable}");
+
+        CollectionAssert.AreEqual(new[] { "http-proxy %PROXYPORT", "https-proxy %HTTPSPROXYPORT" }, mapped.ToArray());
+        Assert.IsTrue(UpstreamTestCaseServers.All.Where(server => server.PortVariable is not null)
+            .All(server => UpstreamTestCaseVariables.Names.Contains(server.PortVariable!)));
+    }
+
+    [TestMethod]
     public void All_OnlyTheUnixSocketServers_MapAPathVariable()
     {
         var mapped = UpstreamTestCaseServers.All
@@ -55,7 +83,7 @@ public sealed class UpstreamTestCaseServersTests
         var unbuilt = UpstreamTestCaseServers.All.Where(server => !server.IsBuilt).Select(server => server.Name);
 
         CollectionAssert.AreEquivalent(
-            new[] { "http/2", "http/3", "http-proxy", "https-proxy", "socks4", "socks5", "socks5unix", "httptls+srp", "httptls+srp-ipv6", "dns" },
+            new[] { "http/2", "http/3", "socks4", "socks5", "socks5unix", "httptls+srp", "httptls+srp-ipv6", "dns" },
             unbuilt.ToArray());
     }
 }
