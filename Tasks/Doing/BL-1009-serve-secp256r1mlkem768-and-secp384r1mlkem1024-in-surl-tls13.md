@@ -56,3 +56,4 @@ one gets a HelloRetryRequest naming it and then completes, and the recorded upst
 
 - 2026-11-06: Created.
 - 2026-11-06: Split from BL-545 (timed out after 120 min); reuses its hybrid key exchange from stash `darkfactory BL-545 20261106-033059`.
+- 2026-11-11: Backlog -> Doing.
