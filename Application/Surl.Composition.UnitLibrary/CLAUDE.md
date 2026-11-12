@@ -129,6 +129,12 @@ horizontal library may reference it (ADR-0099 decision 11, held by
   subscription, bytes included, and ends without throwing when cancelled. Nothing binds it yet (BL-977).
   Tests: `ComposedControlTargetTests`, `FaultItemTextTests`.
 
+- Identifier sources per instance (ADR-0124 decision 6, BL-997): `ComposedServing` builds a
+  `SeededIdentifierRandom` from `SurlCommandLine.RandomSeed` when present (none otherwise) and hands the
+  `ServingEngine` `IdentifiersForExchange`, which stamps `ExchangeContext.Identifiers` with
+  `ForExchange(exchangeId)` (the cryptographic source unseeded). `IdentifiersForServer(name)` is the
+  server-life source for per-server fixes (BL-850); no static state, so instances never share one.
+
 The types are `public` because more than one host calls them, but they are not a supported
 programming interface and may change in any release.
 

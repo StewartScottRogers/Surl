@@ -1,4 +1,5 @@
 using Surl.Cli;
+using Surl.Core;
 using Surl.Networking;
 using Surl.Protocol.Abstractions;
 
@@ -226,6 +227,65 @@ public sealed class ComposedServingTests
         await using var serving = await ComposeAsync(new StartTestSeams(), "http://127.0.0.1:0");
 
         await Assert.ThrowsExactlyAsync<ArgumentNullException>(() => serving.ServeAsync(null!, TestContext.CancellationToken));
+    }
+
+    [TestMethod]
+    public async Task IdentifiersForExchange_TwoInstancesWithSeed42_DrawEqualBytesForExchange1()
+    {
+        await using var first = await ComposeAsync(new StartTestSeams(), "--random-seed", "42", "http://127.0.0.1:0");
+        await using var second = await ComposeAsync(new StartTestSeams(), "--random-seed", "42", "http://127.0.0.1:0");
+
+        var firstBytes = Draw(first.IdentifiersForExchange(1));
+        var secondBytes = Draw(second.IdentifiersForExchange(1));
+
+        CollectionAssert.AreEqual(firstBytes, secondBytes);
+        CollectionAssert.AreEqual(Draw(new SeededIdentifierRandom(42).ForExchange(1)), firstBytes);
+        Assert.AreNotSame(first.IdentifiersForExchange(1), first.IdentifiersForExchange(1));
+    }
+
+    [TestMethod]
+    public async Task IdentifiersForExchange_Unseeded_IsTheCryptographicSource()
+    {
+        await using var serving = await ComposeAsync(new StartTestSeams(), "http://127.0.0.1:0");
+
+        Assert.AreSame(CryptographicIdentifierRandom.Instance, serving.IdentifiersForExchange(1));
+        Assert.AreSame(CryptographicIdentifierRandom.Instance, serving.IdentifiersForServer("nats"));
+    }
+
+    [TestMethod]
+    public async Task IdentifiersForExchange_DifferentSeedsOrBothUnseeded_DrawDifferentBytes()
+    {
+        await using var seed42 = await ComposeAsync(new StartTestSeams(), "--random-seed", "42", "http://127.0.0.1:0");
+        await using var seed43 = await ComposeAsync(new StartTestSeams(), "--random-seed", "43", "http://127.0.0.1:0");
+        await using var unseededOne = await ComposeAsync(new StartTestSeams(), "http://127.0.0.1:0");
+        await using var unseededTwo = await ComposeAsync(new StartTestSeams(), "http://127.0.0.1:0");
+
+        CollectionAssert.AreNotEqual(Draw(seed42.IdentifiersForExchange(1)), Draw(seed43.IdentifiersForExchange(1)));
+        CollectionAssert.AreNotEqual(Draw(unseededOne.IdentifiersForExchange(1)), Draw(unseededTwo.IdentifiersForExchange(1)));
+    }
+
+    [TestMethod]
+    public async Task IdentifiersForServer_Seeded_IsDerivedFromTheSeedAndTheNameAlone()
+    {
+        await using var serving = await ComposeAsync(new StartTestSeams(), "--random-seed", "42", "http://127.0.0.1:0");
+
+        CollectionAssert.AreEqual(Draw(new SeededIdentifierRandom(42).ForServer("nats")), Draw(serving.IdentifiersForServer("nats")));
+        CollectionAssert.AreNotEqual(Draw(serving.IdentifiersForServer("nats")), Draw(serving.IdentifiersForServer("kafka")));
+    }
+
+    [TestMethod]
+    public async Task IdentifiersForServer_EmptyName_Throws()
+    {
+        await using var serving = await ComposeAsync(new StartTestSeams(), "http://127.0.0.1:0");
+
+        Assert.ThrowsExactly<ArgumentException>(() => serving.IdentifiersForServer(string.Empty));
+    }
+
+    private static byte[] Draw(IIdentifierRandom source)
+    {
+        var bytes = new byte[16];
+        source.NextBytes(bytes);
+        return bytes;
     }
 
     private async Task<ComposedServing> ComposeAsync(StartTestSeams seams, params string[] args)

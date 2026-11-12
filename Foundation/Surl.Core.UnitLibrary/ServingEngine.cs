@@ -301,6 +301,13 @@ public sealed partial class ServingEngine
     }
 
     /// <summary>
+    /// Makes the source of non-secret generated identifiers each exchange's
+    /// <see cref="ExchangeContext.Identifiers"/> (ADR-0124, decision 6): called once per exchange with its
+    /// <see cref="ExchangeContext.ExchangeId"/>. Null, the default, leaves the context's cryptographic source.
+    /// </summary>
+    public Func<long, IIdentifierRandom>? IdentifiersForExchange { get; init; }
+
+    /// <summary>
     /// Listens on every listen URL and serves until <paramref name="cancellationToken"/> is
     /// cancelled, then stops accepting, waits up to the shutdown grace period for the exchanges
     /// in flight, cancels any still running, and waits for them to end.
@@ -865,6 +872,7 @@ public sealed partial class ServingEngine
             Events = events,
             Faults = faults,
             IdleClock = deadlines,
+            Identifiers = IdentifiersForExchange?.Invoke(exchangeId) ?? CryptographicIdentifierRandom.Instance,
         };
 
         log.Note($"Exchange {exchangeId} opened: {listenUrl.Scheme} from {remoteEndPoint}.");

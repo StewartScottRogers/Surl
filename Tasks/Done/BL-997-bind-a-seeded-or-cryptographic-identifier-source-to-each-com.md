@@ -5,10 +5,10 @@ priority: Normal
 assignee: Claude
 pipeline: feature
 depends-on: [BL-996]
-touches: [Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests]
+touches: [Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests, Foundation/Surl.Core.UnitLibrary, Foundation/Surl.Core.UnitTests]
 requirement: none
 created: 2026-11-06
-completed:
+completed: 2026-11-11
 ---
 # BL-997 — Bind a seeded or cryptographic identifier source to each composed instance
 
@@ -30,16 +30,23 @@ server-life source the per-server fixes pass to constructors; two instances in o
 
 ## Acceptance criteria
 
-- [ ] A composition test shows two `ComposedServing`s with seed 42 stamp equal `ExchangeContext.Identifiers` bytes
+- [x] A composition test shows two `ComposedServing`s with seed 42 stamp equal `ExchangeContext.Identifiers` bytes
       for exchange 1, and an unseeded one stamps the cryptographic source.
-- [ ] A composition test shows two instances with different seeds, or both unseeded, drawing different bytes, and
+- [x] A composition test shows two instances with different seeds, or both unseeded, drawing different bytes, and
       the server-life source exposed for a named server.
-- [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and `Surl.Composition.UnitLibrary` keeps 100%
+- [x] `dotnet build -warnaserror` is clean, the fast tests are green, and `Surl.Composition.UnitLibrary` keeps 100%
       line and branch coverage.
 
 ## Notes
+
+- `ServingEngine` builds the `ExchangeContext`, so it needed a seam: added the init-only
+  `ServingEngine.IdentifiersForExchange` (`Func<long, IIdentifierRandom>?`, default cryptographic) rather
+  than a seventh constructor. `touches` widened to `Surl.Core.UnitLibrary`/`.UnitTests`; no task in Doing touched them.
+- `ComposedServing` exposes `IdentifiersForExchange(long)` and `IdentifiersForServer(string)`.
+- Tests: `ComposedServingTests` (identifier tests), `ServingEngineTests.Identifiers.cs`.
 
 ## Log
 
 - 2026-11-06: Created.
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Done. ComposedServing binds a seeded or cryptographic identifier source per instance, stamped on each exchange, with a server-life source by name

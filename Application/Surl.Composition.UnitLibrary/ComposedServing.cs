@@ -27,6 +27,7 @@ public sealed class ComposedServing : IAsyncDisposable
     private readonly EventStreamAndFaultPlan instruments;
     private readonly ServerTlsComposition tls;
     private readonly IDisposable? dataDirectoryLock;
+    private readonly SeededIdentifierRandom? seededIdentifiers;
 
     internal ComposedServing(
         SurlCommandLine commandLine,
@@ -46,6 +47,32 @@ public sealed class ComposedServing : IAsyncDisposable
         Stores = stores;
         this.tls = tls;
         this.dataDirectoryLock = dataDirectoryLock;
+        seededIdentifiers = commandLine.RandomSeed is { } seed ? new SeededIdentifierRandom(seed) : null;
+    }
+
+    /// <summary>
+    /// The source of non-secret generated identifiers for one exchange (ADR-0124, decision 6): the
+    /// bytes <c>--random-seed</c> and <paramref name="exchangeId"/> give, the same every run, or, without
+    /// a seed, the cryptographic source. This instance's own; another instance never shares it.
+    /// </summary>
+    /// <param name="exchangeId">The exchange's <see cref="ExchangeContext.ExchangeId"/>.</param>
+    /// <returns>The source the serving engine stamps on that exchange's <see cref="ExchangeContext.Identifiers"/>.</returns>
+    public IIdentifierRandom IdentifiersForExchange(long exchangeId) =>
+        seededIdentifiers?.ForExchange(exchangeId) ?? CryptographicIdentifierRandom.Instance;
+
+    /// <summary>
+    /// The source of identifiers a server draws once, when it is created (ADR-0124, decision 6), such as
+    /// the Kafka cluster ID or the NATS <c>server_id</c>: derived from <c>--random-seed</c> and
+    /// <paramref name="serverName"/> alone, so adding a server never shifts another's; without a seed,
+    /// the cryptographic source.
+    /// </summary>
+    /// <param name="serverName">Names the server, such as <c>nats</c>; compared ordinally.</param>
+    /// <returns>A fresh source, not safe to share between threads.</returns>
+    /// <exception cref="ArgumentException"><paramref name="serverName"/> is null or empty.</exception>
+    public IIdentifierRandom IdentifiersForServer(string serverName)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(serverName);
+        return seededIdentifiers?.ForServer(serverName) ?? CryptographicIdentifierRandom.Instance;
     }
 
     /// <summary>
@@ -114,7 +141,10 @@ public sealed class ComposedServing : IAsyncDisposable
             CreateDataConnectionOpener(),
             commandLine.Limits,
             instruments.Events,
-            instruments.Faults);
+            instruments.Faults)
+        {
+            IdentifiersForExchange = IdentifiersForExchange,
+        };
 
         try
         {
