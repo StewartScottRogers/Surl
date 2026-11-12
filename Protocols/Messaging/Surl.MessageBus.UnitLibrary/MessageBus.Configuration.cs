@@ -29,7 +29,17 @@ public sealed partial class MessageBus
     /// <param name="account">The logged-in account's name, or <see langword="null"/> for an
     /// anonymous caller.</param>
     /// <returns>A connection holding no subscriptions; dispose it when the client goes.</returns>
-    public BusConnection Connect(string? account) => new(this, account);
+    public BusConnection Connect(string? account) => Connect(account, exchange: null);
+
+    /// <summary>
+    /// Gives a server connection its place on the bus as <see cref="Connect(string?)"/> does, naming
+    /// the exchange its server is serving: every change and out-of-space fault the connection's
+    /// operations cause carries that exchange (ADR-0124, decisions 1 and 4).
+    /// </summary>
+    /// <param name="account">The logged-in account's name, or <see langword="null"/> for an anonymous caller.</param>
+    /// <param name="exchange">The exchange, or <see langword="null"/> for none.</param>
+    /// <returns>A connection holding no subscriptions; dispose it when the client goes.</returns>
+    public BusConnection Connect(string? account, BusExchange? exchange) => new(this, account, exchange);
 
     /// <summary>
     /// What <paramref name="account"/> may do on <paramref name="topic"/> under the configured

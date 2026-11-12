@@ -10,11 +10,18 @@ public sealed class BusConnection : IDisposable
 {
     private readonly MessageBus bus;
 
-    internal BusConnection(MessageBus bus, string? account)
+    internal BusConnection(MessageBus bus, string? account, BusExchange? exchange)
     {
         this.bus = bus;
         Account = account;
+        Exchange = exchange;
     }
+
+    /// <summary>
+    /// The exchange the connection's server is serving, which every change and fault this
+    /// connection's operations cause names (ADR-0124); <see langword="null"/> when anonymous.
+    /// </summary>
+    public BusExchange? Exchange { get; }
 
     /// <summary>
     /// The account the connection's client logged in as, which its subscribes, bindings and
@@ -58,7 +65,7 @@ public sealed class BusConnection : IDisposable
     public BusSubscribeResult Subscribe(string filter, Action<BusMessage> deliver, string? group = null, bool includeRetained = false, bool noLocal = false)
     {
         ArgumentNullException.ThrowIfNull(deliver);
-        return bus.Subscribe(this, filter, deliver, group, includeRetained, noLocal);
+        return bus.RunAs(Exchange, () => bus.Subscribe(this, filter, deliver, group, includeRetained, noLocal));
     }
 
     /// <summary>
@@ -69,7 +76,7 @@ public sealed class BusConnection : IDisposable
     /// <param name="message">The message.</param>
     /// <returns>The outcome and how many subscriptions it was handed to.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="message"/> is <see langword="null"/>.</exception>
-    public BusPublishResult Publish(BusMessage message) => bus.Publish(message, Account, this, onlyToConsumedQueues: false);
+    public BusPublishResult Publish(BusMessage message) => bus.RunAs(Exchange, () => bus.Publish(message, Account, this, onlyToConsumedQueues: false));
 
     /// <summary>
     /// Publishes <paramref name="message"/> as <see cref="Publish(BusMessage)"/> does, but copies it
@@ -82,7 +89,7 @@ public sealed class BusConnection : IDisposable
     /// <see cref="BusPublishResult.QueuedCount"/> the queues that took it, and
     /// <see cref="BusPublishResult.UnconsumedQueueCount"/> the bound queues passed over.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="message"/> is <see langword="null"/>.</exception>
-    public BusPublishResult PublishToConsumedQueues(BusMessage message) => bus.Publish(message, Account, this, onlyToConsumedQueues: true);
+    public BusPublishResult PublishToConsumedQueues(BusMessage message) => bus.RunAs(Exchange, () => bus.Publish(message, Account, this, onlyToConsumedQueues: true));
 
     /// <summary>
     /// Publishes an ordered batch all or none, as the AMQP 1.0 container commits a transaction
@@ -101,7 +108,7 @@ public sealed class BusConnection : IDisposable
     /// publish would have answered; when published, each entry's result.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="entries"/> is <see langword="null"/>.</exception>
     /// <exception cref="ArgumentException">An entry is <see langword="null"/>.</exception>
-    public BusBatchPublishResult PublishBatch(IReadOnlyList<BusBatchEntry> entries) => bus.PublishBatch(this, entries);
+    public BusBatchPublishResult PublishBatch(IReadOnlyList<BusBatchEntry> entries) => bus.RunAs(Exchange, () => bus.PublishBatch(this, entries));
 
     /// <summary>
     /// Declares a named queue (AMQP 0-9-1 <c>queue.declare</c>): makes it when absent, and
@@ -125,7 +132,7 @@ public sealed class BusConnection : IDisposable
     public BusQueueDeclareResult DeclareQueue(string name, BusQueueFlags flags = default, string? subscriptionDescription = null)
     {
         ArgumentNullException.ThrowIfNull(name);
-        return bus.DeclareQueue(this, name, flags, subscriptionDescription);
+        return bus.RunAs(Exchange, () => bus.DeclareQueue(this, name, flags, subscriptionDescription));
     }
 
     /// <summary>
@@ -143,7 +150,7 @@ public sealed class BusConnection : IDisposable
     {
         ArgumentNullException.ThrowIfNull(queueName);
         ArgumentNullException.ThrowIfNull(filter);
-        return bus.BindQueue(this, queueName, filter, bind: true);
+        return bus.RunAs(Exchange, () => bus.BindQueue(this, queueName, filter, bind: true));
     }
 
     /// <summary>
@@ -159,7 +166,7 @@ public sealed class BusConnection : IDisposable
     {
         ArgumentNullException.ThrowIfNull(queueName);
         ArgumentNullException.ThrowIfNull(filter);
-        return bus.BindQueue(this, queueName, filter, bind: false);
+        return bus.RunAs(Exchange, () => bus.BindQueue(this, queueName, filter, bind: false));
     }
 
     /// <summary>
@@ -188,7 +195,7 @@ public sealed class BusConnection : IDisposable
     public BusQueueRemovalResult DeleteQueue(string queueName, bool ifUnused, bool ifEmpty)
     {
         ArgumentNullException.ThrowIfNull(queueName);
-        return bus.DeleteQueue(this, queueName, ifUnused, ifEmpty);
+        return bus.RunAs(Exchange, () => bus.DeleteQueue(this, queueName, ifUnused, ifEmpty));
     }
 
     /// <summary>
@@ -202,7 +209,7 @@ public sealed class BusConnection : IDisposable
     public BusQueueInspectResult InspectQueue(string queueName)
     {
         ArgumentNullException.ThrowIfNull(queueName);
-        return bus.InspectQueue(this, queueName);
+        return bus.RunAs(Exchange, () => bus.InspectQueue(this, queueName));
     }
 
     /// <summary>
@@ -217,7 +224,7 @@ public sealed class BusConnection : IDisposable
     public BusQueueRemovalResult PurgeQueue(string queueName)
     {
         ArgumentNullException.ThrowIfNull(queueName);
-        return bus.PurgeQueue(this, queueName);
+        return bus.RunAs(Exchange, () => bus.PurgeQueue(this, queueName));
     }
 
     /// <summary>
@@ -236,7 +243,7 @@ public sealed class BusConnection : IDisposable
     public BusGetResult GetFromQueue(string queueName)
     {
         ArgumentNullException.ThrowIfNull(queueName);
-        return bus.GetFromQueue(this, queueName);
+        return bus.RunAs(Exchange, () => bus.GetFromQueue(this, queueName));
     }
 
     /// <summary>
@@ -252,7 +259,7 @@ public sealed class BusConnection : IDisposable
     public MessageBusOutcome AcknowledgeGet(string queueName, long deliveryTag)
     {
         ArgumentNullException.ThrowIfNull(queueName);
-        return bus.SettleGet(this, queueName, deliveryTag, acknowledge: true, requeue: false);
+        return bus.RunAs(Exchange, () => bus.SettleGet(this, queueName, deliveryTag, acknowledge: true, requeue: false));
     }
 
     /// <summary>
@@ -270,7 +277,7 @@ public sealed class BusConnection : IDisposable
     public MessageBusOutcome RejectGet(string queueName, long deliveryTag, bool requeue)
     {
         ArgumentNullException.ThrowIfNull(queueName);
-        return bus.SettleGet(this, queueName, deliveryTag, acknowledge: false, requeue);
+        return bus.RunAs(Exchange, () => bus.SettleGet(this, queueName, deliveryTag, acknowledge: false, requeue));
     }
 
     /// <summary>
@@ -303,7 +310,7 @@ public sealed class BusConnection : IDisposable
         ArgumentNullException.ThrowIfNull(queueName);
         ArgumentNullException.ThrowIfNull(deliver);
         ArgumentOutOfRangeException.ThrowIfNegative(maxUnacknowledged);
-        return bus.Consume(this, queueName, deliver, maxUnacknowledged, exclusive, accepts);
+        return bus.RunAs(Exchange, () => bus.Consume(this, queueName, deliver, maxUnacknowledged, exclusive, accepts));
     }
 
     /// <summary>
@@ -311,5 +318,5 @@ public sealed class BusConnection : IDisposable
     /// unacknowledged deliveries go back to their queues, marked redelivered - and deletes the
     /// queues exclusive to it; it can make no more. Disposing it again does nothing.
     /// </summary>
-    public void Dispose() => bus.Disconnect(this);
+    public void Dispose() => bus.RunAs(Exchange, () => bus.Disconnect(this));
 }

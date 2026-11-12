@@ -396,7 +396,7 @@ public sealed partial class MessageBus
         queuedBytes -= droppedBytes;
         if (deliveries.Count > 0)
         {
-            waitingDeliveries.Enqueue(() => DeliverToConsumers(deliveries));
+            EnqueueDelivery(() => DeliverToConsumers(deliveries));
         }
     }
 

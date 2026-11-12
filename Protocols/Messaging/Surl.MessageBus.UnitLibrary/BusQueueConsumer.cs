@@ -76,7 +76,7 @@ public sealed class BusQueueConsumer : IDisposable
     /// (AMQP 0-9-1 <c>basic.consume-ok</c>), so no delivery overtakes that reply. Starting it
     /// again, or after it has ended, does nothing.
     /// </summary>
-    public void Start() => bus.StartConsumer(this);
+    public void Start() => bus.RunAs(Connection.Exchange, () => bus.StartConsumer(this));
 
     /// <summary>
     /// Acknowledges one delivery: its message leaves the queue.
@@ -85,7 +85,7 @@ public sealed class BusQueueConsumer : IDisposable
     /// <returns><see cref="MessageBusOutcome.Succeeded"/>, or
     /// <see cref="MessageBusOutcome.UnknownDeliveryTag"/> when the consumer holds no such
     /// delivery unacknowledged.</returns>
-    public MessageBusOutcome Acknowledge(long deliveryTag) => bus.Acknowledge(this, deliveryTag);
+    public MessageBusOutcome Acknowledge(long deliveryTag) => bus.RunAs(Connection.Exchange, () => bus.Acknowledge(this, deliveryTag));
 
     /// <summary>
     /// Rejects one delivery (AMQP 0-9-1 <c>basic.reject</c> and <c>basic.nack</c>, STOMP 1.2
@@ -98,13 +98,13 @@ public sealed class BusQueueConsumer : IDisposable
     /// <returns><see cref="MessageBusOutcome.Succeeded"/>, or
     /// <see cref="MessageBusOutcome.UnknownDeliveryTag"/> when the consumer holds no such
     /// delivery unacknowledged.</returns>
-    public MessageBusOutcome Reject(long deliveryTag, bool requeue) => bus.Reject(this, deliveryTag, requeue);
+    public MessageBusOutcome Reject(long deliveryTag, bool requeue) => bus.RunAs(Connection.Exchange, () => bus.Reject(this, deliveryTag, requeue));
 
     /// <summary>
     /// Puts every delivery it holds unacknowledged back at its place, marked redelivered (AMQP
     /// 0-9-1 <c>basic.recover</c> with <c>requeue</c> set).
     /// </summary>
-    public void Recover() => bus.Recover(this);
+    public void Recover() => bus.RunAs(Connection.Exchange, () => bus.Recover(this));
 
     /// <summary>
     /// Stops deliveries to it (AMQP 0-9-1 <c>basic.cancel</c>): it takes no more, no longer counts
@@ -113,14 +113,14 @@ public sealed class BusQueueConsumer : IDisposable
     /// puts it back. A delivery the bus took for it before the stop may still reach its callback.
     /// Stopping it again, or after it has ended, does nothing.
     /// </summary>
-    public void Stop() => bus.StopConsumer(this);
+    public void Stop() => bus.RunAs(Connection.Exchange, () => bus.StopConsumer(this));
 
     /// <summary>
     /// Ends the consumer: every delivery it holds unacknowledged goes back at its place, marked
     /// redelivered, and an auto-delete queue left with no consumer is deleted. Disposing it again
     /// does nothing.
     /// </summary>
-    public void Dispose() => bus.Cancel(this);
+    public void Dispose() => bus.RunAs(Connection.Exchange, () => bus.Cancel(this));
 
     internal void Deactivate() => active = false;
 

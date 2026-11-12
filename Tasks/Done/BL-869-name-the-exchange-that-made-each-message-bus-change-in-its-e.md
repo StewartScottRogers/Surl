@@ -8,7 +8,7 @@ depends-on: [BL-790, BL-1035]
 touches: [Protocols/Messaging/Surl.MessageBus.UnitLibrary, Protocols/Messaging/Surl.MessageBus.UnitTests]
 requirement: none
 created: 2026-11-05
-completed:
+completed: 2026-11-11
 ---
 # BL-869 — Name the exchange that made each message bus change in its event
 
@@ -32,11 +32,11 @@ that made it and scope an out-of-space rule by `scheme` or `listener`.
 
 ## Acceptance criteria
 
-- [ ] Named `MessageBusEventTests` show a publish, send, delivery and acknowledgement made through a
+- [x] Named `MessageBusEventTests` show a publish, send, delivery and acknowledgement made through a
       connection given an exchange ID carry that ID, and the anonymous forms still carry none.
-- [ ] A named `MessageBusOutOfSpaceTests` test shows the `FaultPoint` carries the connection's
+- [x] A named `MessageBusOutOfSpaceTests` test shows the `FaultPoint` carries the connection's
       exchange ID, listen URL and scheme.
-- [ ] Every existing `Surl.MessageBus.UnitTests` test passes unchanged, the solution builds, the fast
+- [x] Every existing `Surl.MessageBus.UnitTests` test passes unchanged, the solution builds, the fast
       tests are green, and the library keeps 100% line and branch coverage.
 
 ## Notes
@@ -45,9 +45,12 @@ Filed by BL-790's run (dark factory lane 1).
 
 2026-11-11 (lane 6): not started. `dotnet build` fails with "A compatible .NET SDK was not found": `global.json` pins 10.0.401 and the machine has only 10.0.100-rc.1, 11.0.100-rc.2 and 11.0.100. Added BL-1035 (Stewart reinstalls the SDK) to `depends-on`; the board offers this task again once it is Done.
 
+2026-11-11 (lane 1): built with the installed SDK 10.0.404 (global.json rolls forward). Decided: BusExchange(ExchangeId, ListenUrl, Scheme) + MessageBus.Connect(account, exchange); each BusConnection and BusQueueConsumer operation runs under the connection's exchange through a per-bus ThreadLocal (no static state), and a queued delivery captures the exchange that caused it, so a delivery names the publisher's exchange. Follow-up, per the task: each broker (MQTT, AMQP, Kafka, ...) passes its ExchangeContext identity to Connect; file when brokers are next planned.
+
 ## Log
 
 - 2026-11-05: Created.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waits on BL-1035 - pinned .NET SDK 10.0.401 is not installed, so dotnet build cannot run
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Done. MessageBus connections take a BusExchange; bus changes, faults and out-of-space FaultPoints name it
