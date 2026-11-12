@@ -47,3 +47,4 @@ Filed by BL-472: the matrix file was outside its `touches`.
 - 2026-11-11: Doing -> Backlog. Lane 6 could not integrate: build failed after rebasing onto the other lanes' work. The work is on branch factory/BL-752-lane-6-20261111-060243; start with git cherry-pick --no-commit factory/BL-752-lane-6-20261111-060243 and fix it.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waiting on BL-1035: pinned .NET SDK 10.0.401 is not installed, so no lane can build; finished work is on factory/BL-752-lane-6-20261111-060243 (c96921f2)
+- 2026-11-11: Backlog -> Doing.
