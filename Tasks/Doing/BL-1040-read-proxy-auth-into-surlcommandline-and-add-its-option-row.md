@@ -42,3 +42,4 @@ methods into `SurlCommandLine`, separate from `--auth`, as ADR-0088 decision 5 n
 ## Log
 
 - 2026-11-11: Created.
+- 2026-11-11: Backlog -> Doing.
