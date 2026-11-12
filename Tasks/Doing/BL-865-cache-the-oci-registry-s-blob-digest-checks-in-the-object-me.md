@@ -68,3 +68,4 @@ result in `ObjectMetadataIndex`, instead of hashing the whole file on every pull
 - 2026-11-05: Created.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Code done and verified on rolled-forward SDK 11; waiting on BL-1035 (pinned .NET SDK 10.0.401 not installed) to pass the build gate
+- 2026-11-11: Backlog -> Doing.
