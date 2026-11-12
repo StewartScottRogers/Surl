@@ -228,7 +228,10 @@ rather than writing it, and the warning writers take the log `TextWriter` they w
   gains each TLS twin (`WithTlsTwins`); groups expand to account names, `@everyone` stays its marker,
   and a member granted twice keeps the wider access. `ComposedServing` writes `WriteWarnings`' `@everyone`
   warning after the `--fault` one and `WriteStartLines`' `-v` notes after the mailboxes'.
-  Bucket folders are not yet checked or created at start (BL-988's follow-up).
+  Bucket folders are checked at start by `PrepareBucketFolders` (ADR-0102 decision 2.4, BL-1058), after the content
+  store is composed: a content path whose first segment names a share, or any path with `--directory`, must be an
+  existing folder (`(37) Could not open directory <path> for bucket <name>`); one in the in-memory root is created
+  empty through `ContentStore.SeedFolder` (the store's configured state already holds it, so a reset restores it).
 - `MessageBusComposition` - every `--topic`, `--queue`, `--topic-map` and `--topic-access` composed into the
   one bus's `MessageBusConfiguration` (ADR-0102 decisions 3, 3.6 and 5, BL-991), after the shares and before the
   lock: a filter that is not canonical, more than 1000 queues, a map scheme `TopicNameLookup` does not know, a

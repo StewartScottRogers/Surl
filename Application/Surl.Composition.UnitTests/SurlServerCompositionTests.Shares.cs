@@ -17,6 +17,8 @@ public sealed partial class SurlServerCompositionTests
     public async Task ComposeAsync_SharesAccessAndBuckets_ReachTheOneContentStoreEveryFileServerHolds()
     {
         var fileSystem = new InMemoryContentFileSystem(TimeProvider.System);
+        fileSystem.CreateDirectory(Path.GetFullPath(SharedTeamPath));
+        fileSystem.CreateDirectory(Path.Combine(Path.GetFullPath(SharedTeamPath), "photos"));
         var seams = new StartTestSeams().Seams with { CanOpenShareDirectory = _ => true, ShareFileSystem = fileSystem };
         var commandLine = StartTestSeams.Parse(
             "--user", "alice:secret", "--user", "bob:secret", "--group", "staff=alice",
@@ -65,8 +67,47 @@ public sealed partial class SurlServerCompositionTests
     }
 
     [TestMethod]
+    public async Task ComposeAsync_BucketInsideAShareWhoseFolderIsMissing_IsRefusedWithCouldNotReadFile()
+    {
+        var shareFileSystem = new InMemoryContentFileSystem(TimeProvider.System);
+        shareFileSystem.CreateDirectory(Path.GetFullPath(SharedTeamPath));
+        var seams = new StartTestSeams().Seams with { CanOpenShareDirectory = _ => true, ShareFileSystem = shareFileSystem };
+        var commandLine = StartTestSeams.Parse("http://127.0.0.1:0") with
+        {
+            Shares = [new ConfiguredShare("team", SharedTeamPath, false, null)],
+            Buckets = [new ConfiguredBucket("photos", "/team/photos")],
+        };
+
+        var start = await SurlServerComposition.ComposeAsync(commandLine, seams, TestContext.CancellationToken);
+
+        Assert.IsNull(start.Serving);
+        Assert.AreEqual(SurlExitCode.CouldNotReadFile, start.Failure!.ExitCode);
+        CollectionAssert.AreEqual(
+            new[] { "(37) Could not open directory /team/photos for bucket photos" }, start.Failure.Lines.ToArray());
+    }
+
+    [TestMethod]
+    public async Task ComposeAsync_BucketInTheInMemoryRoot_IsCreatedEmptyAndListedAtTheRoot()
+    {
+        var commandLine = StartTestSeams.Parse("http://127.0.0.1:0") with
+        {
+            Buckets = [new ConfiguredBucket("photos", "/photos")],
+        };
+
+        var start = await SurlServerComposition.ComposeAsync(commandLine, new StartTestSeams().Seams, TestContext.CancellationToken);
+        await using var serving = start.Serving!;
+
+        Assert.IsNull(start.Failure);
+        var contentStore = serving.Stores.Content;
+        Assert.AreEqual(ContentEntryKind.Directory, contentStore.GetEntryKind(contentStore.MapRequestPath("/photos")));
+    }
+
+    [TestMethod]
     public async Task ComposeAsync_ShareGrantingEveryone_WritesItsWarningAndVerboseNotes()
     {
+        var shareFileSystem = new InMemoryContentFileSystem(TimeProvider.System);
+        shareFileSystem.CreateDirectory(Path.GetFullPath(SharedTeamPath));
+        shareFileSystem.CreateDirectory(Path.Combine(Path.GetFullPath(SharedTeamPath), "photos"));
         var seams = new StartTestSeams();
         var commandLine = StartTestSeams.Parse("-v", "http://127.0.0.1:0") with
         {
@@ -78,7 +119,7 @@ public sealed partial class SurlServerCompositionTests
         using var stop = CancellationTokenSource.CreateLinkedTokenSource(TestContext.CancellationToken);
         var bound = new TaskCompletionSource<IReadOnlyList<ListenUrl>>(TaskCreationOptions.RunContinuationsAsynchronously);
         var start = await SurlServerComposition.ComposeAsync(
-            commandLine, seams.Seams with { CanOpenShareDirectory = _ => true }, TestContext.CancellationToken);
+            commandLine, seams.Seams with { CanOpenShareDirectory = _ => true, ShareFileSystem = shareFileSystem }, TestContext.CancellationToken);
         await using var serving = start.Serving!;
 
         var serve = serving.ServeAsync(StartTestSeams.Outputs(log, bound.SetResult), stop.Token);

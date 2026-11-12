@@ -174,6 +174,11 @@ public static partial class SurlServerComposition
         }
 
         var contentStore = ComposeContentStore(commandLine, fileSystem, instruments.Events, instruments.Faults, shares, buckets!, seams.TimeProvider);
+        if (ContentShareComposition.PrepareBucketFolders(commandLine, contentStore, fileSystem) is { } bucketFailure)
+        {
+            return Refuse(SurlExitCode.CouldNotReadFile, bucketFailure);
+        }
+
         return await LockThenComposeAsync(
             commandLine, seams, fileSystem, contentStore, authentication, busConfiguration, instruments, cancellationToken);
     }
