@@ -48,3 +48,4 @@ A SignalR negotiate response that carries a `connectionToken` draws its `connect
 - 2026-11-05: Created.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waits on BL-1035: pinned .NET SDK 10.0.401 is not installed, so dotnet build and the fast tests cannot run
+- 2026-11-11: Backlog -> Doing.
