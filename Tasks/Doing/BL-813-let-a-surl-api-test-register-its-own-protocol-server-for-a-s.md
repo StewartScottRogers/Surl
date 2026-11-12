@@ -72,3 +72,4 @@ and fault plan, and shares the instance's stores if it asks for them.
 - 2026-11-05: Amended by ADR-0124 (BL-822): custom listen URLs read by `Surl.Api`, composition input from BL-804.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waits on BL-1035: pinned .NET SDK 10.0.401 is not installed, so dotnet build cannot run; code is done and verified on SDK 11, left in the worktree
+- 2026-11-12: Backlog -> Doing.
