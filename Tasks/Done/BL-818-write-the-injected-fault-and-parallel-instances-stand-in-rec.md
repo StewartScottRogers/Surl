@@ -8,7 +8,7 @@ depends-on: [BL-618, BL-808, BL-796]
 touches: [Conformance/Surl.Conformance.UnitTests]
 requirement: none
 created: 2026-11-05
-completed:
+completed: 2026-11-12
 ---
 # BL-818 — Write the injected-fault and parallel-instances stand-in recipes as executable tests against Surl.Api servers
 
@@ -37,14 +37,17 @@ handling, and how several independent stand-ins run side by side in one test pro
 
 ## Acceptance criteria
 
-- [ ] Both classes exist with the tests named in Context, each passing on Windows with the pinned reference build,
+- [x] Both classes exist with the tests named in Context, each passing on Windows with the pinned reference build,
       platform-neutral, each exit code asserted as measured with its curl version stated.
-- [ ] No test uses `Thread.Sleep`, `Task.Delay` or a polling loop.
-- [ ] `dotnet build -warnaserror` is clean and `dotnet test --filter "TestCategory!=Integration"` is green.
+- [x] No test uses `Thread.Sleep`, `Task.Delay` or a polling loop.
+- [x] `dotnet build -warnaserror` is clean and `dotnet test --filter "TestCategory!=Integration"` is green.
 
 ## Notes
+
+Measured with pinned curl 8.21.0: refused HTTP login with -f is exit 22 (401, needs Basic + AllowPlaintextAuthentication, as plaintext Basic is otherwise 403); SMTP RCPT 451 is exit 55 (RCPT failed: 451); dropped connection is 55 or 56 depending on timing (the test accepts either). 5 tests, no sleeps.
 
 ## Log
 
 - 2026-11-05: Created.
 - 2026-11-12: Backlog -> Doing.
+- 2026-11-12: Doing -> Done. Fault and parallel-instances stand-in recipes pass against pinned curl 8.21.0
