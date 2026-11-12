@@ -8,7 +8,7 @@ depends-on: [BL-436, BL-1035]
 touches: [Protocols/FileTransfer/Surl.Extended.Protocol.OciRegistry.UnitLibrary, Protocols/FileTransfer/Surl.Extended.Protocol.OciRegistry.UnitTests, Foundation/Surl.Content.UnitLibrary, Foundation/Surl.Content.UnitTests]
 requirement: none
 created: 2026-11-05
-completed:
+completed: 2026-11-12
 ---
 # BL-865 — Cache the OCI registry's blob digest checks in the object metadata index
 
@@ -34,7 +34,7 @@ result in `ObjectMetadataIndex`, instead of hashing the whole file on every pull
 - [x] A named test shows a blob pulled twice is hashed once (a counting `UnitTest…ContentFileSystem` fake sees
       one whole-file read before the serve), and a file replaced through the store is hashed again.
 - [x] A tampered file is still `404 BLOB_UNKNOWN` or `MANIFEST_UNKNOWN`, and noted.
-- [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and the library keeps 100% line and branch
+- [x] `dotnet build -warnaserror` is clean, the fast tests are green, and the library keeps 100% line and branch
       coverage.
 
 ## Notes
@@ -78,3 +78,6 @@ result in `ObjectMetadataIndex`, instead of hashing the whole file on every pull
 - 2026-11-12: Doing -> Blocked. Stewart: allow a session to run 'git stash apply 338a2122' (the finished BL-865 work, tagged darkfactory BL-865 20261111-212123); lanes are denied stash commands, so it cannot be recovered, rebuilt on SDK 10.0.404 and committed
 - 2026-11-12: Blocked -> Backlog. Stewart asked for the stashes to be recovered on 2026-11-12; see Notes for what is done and what is left.
 - 2026-11-12: Backlog -> Doing.
+
+- 2026-11-12 (lane 3): gates run on SDK 10.0.404: `dotnet build -warnaserror` clean; Content tests 753 passed, OCI registry tests 358 passed; OCI registry library 100% line and branch; `ObjectMetadataIndex.cs` fully covered (the only Content gaps, `ObjectMetadataIndexFormat.cs` lines 137/142/271 from BL-773, are not this task's). `dotnet format` reports only files this task did not touch.
+- 2026-11-12: Doing -> Done. OCI registry hashes each blob once per file stamp, cached in ObjectMetadataIndex; tampered files still 404
