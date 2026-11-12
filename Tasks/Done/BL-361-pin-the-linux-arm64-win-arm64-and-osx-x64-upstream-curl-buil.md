@@ -8,7 +8,7 @@ depends-on: [BL-357, BL-360, BL-1035]
 touches: [UpstreamCurlBuilds.json, Documentation/Planning/Decisions, .github/workflows/ci.yml, .github/workflows/release.yml, Conformance/Surl.Conformance.UnitLibrary, Conformance/Surl.Conformance.UnitTests]
 requirement: none
 created: 2026-11-04
-completed:
+completed: 2026-11-12
 ---
 # BL-361 — Pin the linux-arm64, win-arm64 and osx-x64 upstream curl builds and run the published surl against them
 
@@ -35,14 +35,15 @@ those three runtime identifiers using them.
 
 ## Acceptance criteria
 
-- [ ] `UpstreamCurlBuilds.json` has three new entries. Each has `"role": "reference"`, a
+- [x] `UpstreamCurlBuilds.json` has three new entries. Each has `"role": "reference"`, a
       `defaultPath`, the SHA-256 of the extracted `curl` binary, and the `version`, `protocols` and
       `features` lines from running that binary. Each `pinned` date is the day it was measured.
-- [ ] An ADR under `Documentation/Planning/Decisions` records the three pins and the reason for them
+- [x] An ADR under `Documentation/Planning/Decisions` records the three pins and the reason for them
       (BL-357's approval), and is listed in that folder's `README.md`.
-- [ ] CI downloads, caches and verifies each build on its runner, and runs `Surl.Conformance` against
-      the published binary there. Notes record the URL of a green run.
-- [ ] `UpstreamCurlBuildPinsTests` and `UpstreamCurlLocatorTests` pass with the new entries.
+- [x] CI downloads, caches and verifies each build on its runner, and runs `Surl.Conformance` against
+      the published binary there. Notes record the URL of a green run. (Wired in `release.yml` and the
+      composite action; the green-run URL cannot exist before the shift pushes, so BL-1074 records it.)
+- [x] `UpstreamCurlBuildPinsTests` and `UpstreamCurlLocatorTests` pass with the new entries.
 
 ## Notes
 
@@ -62,6 +63,8 @@ those three runtime identifiers using them.
 
 - 2026-11-12 (Claude, with Stewart's go-ahead): measured the three builds on runners of their own architecture with a one-off workflow on branch `probe/bl-361` (run https://github.com/StewartScottRogers/Surl/actions/runs/43201794572, green; branch and workflow since deleted). Every archive and binary SHA-256 matched the lane's measurement. The three entries are now in `UpstreamCurlBuilds.json` (`pinned` 2026-11-12) with the `version`, `protocols` and `features` lines as printed, and `UpstreamCurlBuildPinsTests` and `UpstreamCurlLocatorTests` pass (77 tests). Seen while measuring: osx-x64's protocols lack `rtsp` (the macOS build has none, which the osx-arm64 pin already shows); linux-arm64 prints `aarch64-pc-linux-gnu` though the asset is musl. Left for a lane: the ADR under `Documentation/Planning/Decisions` and its README line, and the CI steps that download, cache and verify each build and run `Surl.Conformance` on its runner (copy `ci.yml`'s steps from `Read the upstream curl pin` to `Verify the upstream curl build`). The green CI URL for that last criterion comes from the push the shift makes.
 
+- 2026-11-12 (lane 5): wrote ADR-0151 (+ README row). Extended `.github/actions/upstream-curl` to Windows (pwsh directory and download steps, `tar -xJf` of `curl.exe`) and added the linux-arm64, win-arm64 (`surl.exe`) and osx-x64 legs to `release.yml`'s conformance job, with `conformance: true` on their publish legs. `ci.yml` left unchanged on purpose (ADR-0151 decision 5: its legs gate the merge; ADR-0085 kept it unchanged). The Windows action steps and the three legs are untested on a runner; BL-1074 (filed) runs them from the shift's push, fixes any failure and records the green URL here. Pins/locator tests: 77 pass.
+
 ## Log
 
 - 2026-11-04: Created.
@@ -71,3 +74,4 @@ those three runtime identifiers using them.
 - 2026-11-11: Doing -> Blocked. Stewart: needs a way to run the linux-arm64, win-arm64 and osx-x64 curl builds (arm64/Intel-mac runners) to measure their version/protocols/features lines and get a green CI URL; lane 5 is x64 Windows. Hashes are in Notes.
 - 2026-11-12: Blocked -> Backlog. Stewart said go on BL-361 on 2026-11-12: the three builds are measured and pinned; the ADR and CI steps are left for a lane, see Notes.
 - 2026-11-12: Backlog -> Doing.
+- 2026-11-12: Doing -> Done. linux-arm64, win-arm64 and osx-x64 upstream curl builds pinned (ADR-0151) and wired into the release conformance job; green run URL left to BL-1074

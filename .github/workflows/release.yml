@@ -18,12 +18,11 @@
 #     published, on a runner of its own operating system and architecture: one native file,
 #     `surl --version`, one HTTP GET of a generated file, and a documented stop, with no .NET
 #     runtime it could use (decision 1).
-#   * linux-x64 and osx-arm64 also run Surl.Conformance against the published binary
-#     (SURL_EXECUTABLE) with their pinned upstream curl reference build, obtained by the same
-#     composite action ci.yml uses (decision 2). win-x64's conformance run is local: CI has no
-#     pinned Windows build.
-#   * linux-arm64, win-arm64 and osx-x64 also run the fast tests on their own runner, the only
-#     check of the hand-built code on those architectures while they have no pinned build
+#   * every runtime identifier but win-x64 also runs Surl.Conformance against the published
+#     binary (SURL_EXECUTABLE) with its pinned upstream curl reference build, obtained by the
+#     same composite action ci.yml uses (decision 2; BL-361 pinned linux-arm64, win-arm64 and
+#     osx-x64). win-x64's conformance run is local: CI has no pinned x64 Windows build.
+#   * linux-arm64, win-arm64 and osx-x64 also run the fast tests on their own runner
 #     (decision 4).
 #
 # Native AOT cannot cross-compile between operating systems, so each package is built on
@@ -81,10 +80,10 @@ jobs:
         # conformance: the conformance job runs against this leg's binary (decision 2).
         include:
           - { rid: win-x64,     runner: windows-latest,    archive: zip }
-          - { rid: win-arm64,   runner: windows-11-arm,    archive: zip,    fast-tests: true }
+          - { rid: win-arm64,   runner: windows-11-arm,    archive: zip,    fast-tests: true, conformance: true }
           - { rid: linux-x64,   runner: ubuntu-22.04,      archive: tar.gz, conformance: true }
-          - { rid: linux-arm64, runner: ubuntu-22.04-arm,  archive: tar.gz, fast-tests: true }
-          - { rid: osx-x64,     runner: macos-15-intel,    archive: tar.gz, fast-tests: true }
+          - { rid: linux-arm64, runner: ubuntu-22.04-arm,  archive: tar.gz, fast-tests: true, conformance: true }
+          - { rid: osx-x64,     runner: macos-15-intel,    archive: tar.gz, fast-tests: true, conformance: true }
           - { rid: osx-arm64,   runner: macos-latest,      archive: tar.gz, conformance: true }
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 45
@@ -199,7 +198,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: published-surl-${{ matrix.rid }}
-          path: publish/surl
+          path: publish/surl${{ runner.os == 'Windows' && '.exe' || '' }}
           if-no-files-found: error
 
       - name: Fast tests
@@ -267,6 +266,20 @@ jobs:
             runner: macos-latest
             upstream-curl-platform: osx-arm64
             upstream-curl-asset: curl-macos-arm64-8.21.0.tar.xz
+          # The three builds BL-361 pinned, each run on a runner of its own architecture.
+          - rid: linux-arm64
+            runner: ubuntu-22.04-arm
+            upstream-curl-platform: linux-arm64
+            upstream-curl-asset: curl-linux-aarch64-musl-8.21.0.tar.xz
+          - rid: win-arm64
+            runner: windows-11-arm
+            upstream-curl-platform: win-arm64
+            upstream-curl-asset: curl-windows-aarch64-8.21.0.tar.xz
+            executable: surl.exe
+          - rid: osx-x64
+            runner: macos-15-intel
+            upstream-curl-platform: osx-x64
+            upstream-curl-asset: curl-macos-x86_64-8.21.0.tar.xz
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 45
     steps:
@@ -284,6 +297,7 @@ jobs:
 
       # Artifacts do not keep the execute bit.
       - name: Make the published binary executable
+        if: runner.os != 'Windows'
         run: chmod 755 published/surl
 
       - name: Obtain the pinned upstream curl
@@ -295,7 +309,7 @@ jobs:
 
       - name: Conformance tests against the published binary
         env:
-          SURL_EXECUTABLE: ${{ github.workspace }}/published/surl
+          SURL_EXECUTABLE: ${{ github.workspace }}/published/${{ matrix.executable || 'surl' }}
         run: dotnet test Conformance/Surl.Conformance.UnitTests -c Release --filter "FullyQualifiedName~Surl.Conformance"
 
   # Packs Surl.Api (ADR-0099 decision 10) and Surl.Mcp (ADR-0103 decision 7) as NuGet packages with

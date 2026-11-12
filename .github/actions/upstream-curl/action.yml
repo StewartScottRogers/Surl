@@ -3,7 +3,7 @@
 # supplementary OpenLDAP build of the same release, built from pinned sources, and kinit for the
 # GSSAPI test (ADR-0076, ADR-0078, BL-351). ci.yml and release.yml both use it, so the two
 # workflows cannot drift in how they obtain what the conformance tests run (ADR-0085, decision 2).
-# Linux and macOS only: Windows has no pinned build CI can obtain.
+# Linux, macOS and Windows on Arm (win-arm64, BL-361); the OpenLDAP build is Linux only.
 name: Obtain the pinned upstream curl
 description: Downloads or restores the pinned upstream curl build for a platform and verifies it against UpstreamCurlBuilds.json.
 
@@ -45,9 +45,15 @@ runs:
 
     - name: Prepare the upstream curl directory
       shell: bash
+      if: runner.os != 'Windows'
       run: |
         sudo mkdir -p "${{ steps.pin.outputs.directory }}"
         sudo chown "$(id -u):$(id -g)" "${{ steps.pin.outputs.directory }}"
+
+    - name: Prepare the upstream curl directory (Windows)
+      shell: pwsh
+      if: runner.os == 'Windows'
+      run: New-Item -ItemType Directory -Force -Path "${{ steps.pin.outputs.directory }}" | Out-Null
 
     - name: Restore the upstream curl build
       id: cache
@@ -58,7 +64,7 @@ runs:
 
     - name: Download the upstream curl build
       shell: bash
-      if: steps.cache.outputs.cache-hit != 'true'
+      if: steps.cache.outputs.cache-hit != 'true' && runner.os != 'Windows'
       run: |
         work="$(mktemp -d)"
         curl -fsSL --retry 3 -o "$work/${{ inputs.asset }}" \
@@ -66,6 +72,19 @@ runs:
         tar -xJf "$work/${{ inputs.asset }}" -C "$work" curl
         mv "$work/curl" "${{ steps.pin.outputs.path }}"
         chmod 755 "${{ steps.pin.outputs.path }}"
+
+    # The Windows asset holds curl.exe; the runner's own tar (bsdtar) reads .tar.xz (BL-361).
+    - name: Download the upstream curl build (Windows)
+      shell: pwsh
+      if: steps.cache.outputs.cache-hit != 'true' && runner.os == 'Windows'
+      run: |
+        $work = Join-Path $env:RUNNER_TEMP 'upstream-curl-download'
+        New-Item -ItemType Directory -Force -Path $work | Out-Null
+        $archive = Join-Path $work '${{ inputs.asset }}'
+        Invoke-WebRequest -Uri 'https://github.com/stunnel/static-curl/releases/download/8.21.0/${{ inputs.asset }}' -OutFile $archive
+        tar -xJf $archive -C $work curl.exe
+        if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+        Move-Item -LiteralPath (Join-Path $work 'curl.exe') -Destination '${{ steps.pin.outputs.path }}' -Force
 
     # Nothing runs the file before this step has matched its SHA-256 to the pin (ADR-0016,
     # decision 4). A mismatch fails the job and is never re-pinned here (decision 6).
