@@ -8,7 +8,7 @@ depends-on: [BL-1035]
 touches: [Protocols/Http/Surl.McpServing.UnitLibrary, Protocols/Http/Surl.McpServing.UnitTests]
 requirement: none
 created: 2026-11-05
-completed:
+completed: 2026-11-11
 ---
 # BL-746 — Bring McpStreamSession.CancelRequest to complexity 10 or less
 
@@ -25,10 +25,12 @@ reading of `params.requestId`) without changing behaviour; the existing `McpStre
 
 ## Acceptance criteria
 
-- [ ] `powershell -NoProfile -File Measure-CodeQuality.ps1 -Library Surl.McpServing.UnitLibrary` reports 0 failing members.
-- [ ] `dotnet build -warnaserror` is clean and the fast tests are green.
+- [x] `powershell -NoProfile -File Measure-CodeQuality.ps1 -Library Surl.McpServing.UnitLibrary` reports 0 failing members.
+- [x] `dotnet build -warnaserror` is clean and the fast tests are green.
 
 ## Notes
+
+Extracted private static TryReadRequestId from CancelRequest; behaviour unchanged. SDK 10.0.404 builds fine.
 
 ## Log
 
@@ -36,3 +38,4 @@ reading of `params.requestId`) without changing behaviour; the existing `McpStre
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waits on BL-1035: pinned .NET SDK 10.0.401 is not installed, so dotnet build cannot run
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Done. CancelRequest complexity under 10 via TryReadRequestId; 0 failing members, 244 tests green

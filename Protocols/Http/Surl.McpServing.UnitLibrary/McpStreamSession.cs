@@ -210,9 +210,7 @@ public sealed class McpStreamSession
     // notifications/cancelled names the request by requestId; one that is unknown, finished or malformed is ignored.
     private void CancelRequest(JsonElement? parameters)
     {
-        if (parameters is not { ValueKind: JsonValueKind.Object } value
-            || !value.TryGetProperty("requestId", out JsonElement requestId)
-            || requestId.ValueKind is not (JsonValueKind.String or JsonValueKind.Number))
+        if (!TryReadRequestId(parameters, out JsonElement requestId))
         {
             return;
         }
@@ -224,6 +222,15 @@ public sealed class McpStreamSession
                 cancellation.Cancel();
             }
         }
+    }
+
+    // Reads params.requestId; false when params is not an object or requestId is missing or not a string or number.
+    private static bool TryReadRequestId(JsonElement? parameters, out JsonElement requestId)
+    {
+        requestId = default;
+        return parameters is { ValueKind: JsonValueKind.Object } value
+            && value.TryGetProperty("requestId", out requestId)
+            && requestId.ValueKind is JsonValueKind.String or JsonValueKind.Number;
     }
 
     // A string id and a number id never match each other; a number matches by its JSON text.
