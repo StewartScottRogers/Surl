@@ -52,6 +52,8 @@ The AMQP 0-9-1 broker bounds outstanding deliveries as `basic.qos` says - `prefe
   without `requeue` sends gets and cancelled consumers' deliveries back to their queue, because nobody
   is left to receive them, and writes the rest again ahead of every waiting delivery, then `recover-ok`.
 
+- 2026-11-12: The finished work is recovered on branch `origin/recover/BL-760` (commit 2405b890, from the 2026-11-11 06:51 shift stash; it was 772 commits behind). Do not use `git stash`. In your worktree run `git merge --no-commit origin/recover/BL-760` or cherry-pick it, settle the conflicts in `Amqp0BrokerConnection.Consuming.cs` and `CLAUDE.md` (other lanes changed both since), then rebuild and rerun the AMQP 0-9-1 tests before moving the task to Done.
+
 ## Log
 
 - 2026-11-05: Created.
@@ -59,3 +61,4 @@ The AMQP 0-9-1 broker bounds outstanding deliveries as `basic.qos` says - `prefe
 - 2026-11-11: Doing -> Backlog. Waits on BL-1035: pinned .NET SDK 10.0.401 is not installed, so dotnet build fails; code and 7 new tests done and stashed, green on SDK 11
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Blocked. Stewart: the finished BL-760 work sits in a git stash and this session is denied permission to run git stash, so it cannot be recovered; allow git stash list/apply in lane 1, or approve re-implementing it from the Notes design
+- 2026-11-12: Blocked -> Backlog. Stewart asked for the stashes to be recovered on 2026-11-12: the finished work is on origin/recover/BL-760; a lane merges it, see Notes.
