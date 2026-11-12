@@ -8,7 +8,7 @@ depends-on: [BL-618, BL-639, BL-638, BL-810]
 touches: [Conformance/Surl.Conformance.UnitTests]
 requirement: none
 created: 2026-11-05
-completed:
+completed: 2026-11-12
 ---
 # BL-817 — Write the email round-trip and file-upload stand-in recipes as executable tests against a Surl.Api server
 
@@ -56,3 +56,4 @@ Both classes use Surl.Api options directly; 5 tests pass against the pinned curl
 
 - 2026-11-05: Created.
 - 2026-11-12: Backlog -> Doing.
+- 2026-11-12: Doing -> Done. Mail round-trip and file-upload recipes pass against pinned curl
