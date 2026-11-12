@@ -2,6 +2,7 @@ using System.Security.Authentication;
 using System.Security.Cryptography;
 using Surl.Cli;
 using Surl.Networking;
+using Surl.Output;
 using Surl.Protocol.Abstractions;
 
 namespace Surl.Composition;
@@ -124,6 +125,56 @@ public sealed class ServerTlsCompositionTests
 
         Assert.AreEqual(SurlExitCode.CouldNotReadFile, failure.ExitCode);
         StringAssert.StartsWith(failure.Message, "(37) Could not read the --srp-groups file 'conf': line 1: ");
+    }
+
+    [TestMethod]
+    public void WriteStartLines_GroupFileWithAGroupOutsideAppendixA_NotesItsIndexOnceAtVerbose()
+    {
+        var groupFile = UnitTestSrpBase64Encoder.GroupLine("1", Cryptography.Srp.SrpGroup.Rfc5054Group2048) + "\n"
+            + UnitTestSrpBase64Encoder.GroupLine("7", new Cryptography.Srp.SrpGroup(251, 2)) + "\n";
+        using var composition = ComposeWithGroupFile(groupFile);
+        using var log = new StringWriter();
+
+        composition.WriteStartLines(LogLevel.Verbose, log);
+
+        CollectionAssert.AreEqual(new[] { "7" }, composition.SrpGroupIndexesOutsideRfc5054.ToArray());
+        Assert.AreEqual(
+            "* --srp-groups: the group with index 7 is not one of RFC 5054 Appendix A's; OpenSSL's client refuses it" + Environment.NewLine,
+            log.ToString());
+    }
+
+    [TestMethod]
+    public void WriteStartLines_GroupFileWithAppendixAGroupsOnly_WritesNothing()
+    {
+        var groupFile = UnitTestSrpBase64Encoder.GroupLine("1", Cryptography.Srp.SrpGroup.Rfc5054Group1024) + "\n"
+            + UnitTestSrpBase64Encoder.GroupLine("3", Cryptography.Srp.SrpGroup.Rfc5054Group2048) + "\n";
+        using var composition = ComposeWithGroupFile(groupFile);
+        using var log = new StringWriter();
+
+        composition.WriteStartLines(LogLevel.Verbose, log);
+
+        Assert.IsEmpty(composition.SrpGroupIndexesOutsideRfc5054);
+        Assert.AreEqual(string.Empty, log.ToString());
+    }
+
+    [TestMethod]
+    public void WriteStartLines_GroupOutsideAppendixABelowVerbose_WritesNothing()
+    {
+        using var composition = ComposeWithGroupFile(UnitTestSrpBase64Encoder.GroupLine("7", new Cryptography.Srp.SrpGroup(251, 2)));
+        using var log = new StringWriter();
+
+        composition.WriteStartLines(LogLevel.Info, log);
+
+        Assert.AreEqual(string.Empty, log.ToString());
+    }
+
+    [TestMethod]
+    public void WriteStartLines_NullLog_Throws()
+    {
+        using var composition = ServerTlsComposition.Compose(Parse("http://127.0.0.1:0/"), TimeProvider.System);
+
+        Assert.IsEmpty(composition.SrpGroupIndexesOutsideRfc5054);
+        Assert.ThrowsExactly<ArgumentNullException>(() => composition.WriteStartLines(LogLevel.Verbose, null!));
     }
 
     [TestMethod]
@@ -314,6 +365,13 @@ public sealed class ServerTlsCompositionTests
 
     private static SurlCommandLine Parse(params string[] args) =>
         CommandLineParser.Parse(args).CommandLine ?? throw new AssertFailedException("The command line was refused.");
+
+    // An empty --srp-verifiers file beside the given --srp-groups file.
+    private static ServerTlsComposition ComposeWithGroupFile(string groupFile) =>
+        ServerTlsComposition.Compose(
+            Parse("--srp-verifiers", "db", "--srp-groups", "conf", "https://127.0.0.1:0/"),
+            TimeProvider.System,
+            path => path == "conf" ? System.Text.Encoding.UTF8.GetBytes(groupFile) : []);
 
     private static SurlCommandLine ParseWithWebTransport(params string[] args) =>
         CommandLineParser.Parse(args, ["webtransport"]).CommandLine ?? throw new AssertFailedException("The command line was refused.");

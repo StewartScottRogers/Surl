@@ -24,14 +24,13 @@ internal static class TlsSrpAccountsComposition
     /// <param name="commandLine">The parsed command line, its TLS-SRP options already checked by the parser.</param>
     /// <param name="random">Draws the <c>--tlsuser</c> salt and the simulation secret.</param>
     /// <param name="readFile">Reads a file's bytes (the <c>ReadStartFile</c> seam); <see langword="null"/> reads the disk.</param>
-    /// <returns>The accounts.</returns>
+    /// <returns>The accounts, and the <c>--srp-groups</c> indexes whose group is not RFC 5054 Appendix A's.</returns>
     /// <exception cref="TlsSrpAccountsException">A file cannot be read or is malformed, or a user is given twice.</exception>
-    public static TlsSrpAccounts Compose(SurlCommandLine commandLine, RandomNumberGenerator random, Func<string, byte[]>? readFile)
+    public static ComposedTlsSrpAccounts Compose(SurlCommandLine commandLine, RandomNumberGenerator random, Func<string, byte[]>? readFile)
     {
         var read = readFile ?? File.ReadAllBytes;
-        List<SrpVerifierEntry> entries = commandLine.SrpVerifierFile is { } verifierFile
-            ? [.. ReadVerifierFile(verifierFile, commandLine.SrpGroupFile!, read)]
-            : [];
+        var groups = ReadGroupFile(commandLine.SrpGroupFile, read);
+        var entries = ReadVerifierFile(commandLine.SrpVerifierFile, groups, read);
         if (commandLine.TlsUser is { } userName)
         {
             entries.Add(ComputeEntry(userName, commandLine.TlsPassword!, random));
@@ -40,8 +39,20 @@ internal static class TlsSrpAccountsComposition
         RefuseUserGivenTwice(entries);
         var simulationSecret = new byte[TlsSrpAccounts.SimulationSecretLength];
         random.GetBytes(simulationSecret);
-        return new TlsSrpAccounts(entries, simulationSecret);
+        return new ComposedTlsSrpAccounts(new TlsSrpAccounts(entries, simulationSecret), IndexesOutsideRfc5054(groups));
     }
+
+    // The parser gives --srp-groups and --srp-verifiers together; the groups file is read first,
+    // since the verifiers name its indexes (ADR-0122 Amendment 2).
+    private static IReadOnlyDictionary<string, SrpGroup> ReadGroupFile(string? groupFile, Func<string, byte[]> read) =>
+        groupFile is null ? new Dictionary<string, SrpGroup>() : Parse("--srp-groups", groupFile, read, SrpGroupFile.Parse);
+
+    private static List<SrpVerifierEntry> ReadVerifierFile(
+        string? verifierFile, IReadOnlyDictionary<string, SrpGroup> groups, Func<string, byte[]> read) =>
+        verifierFile is null ? [] : [.. Parse("--srp-verifiers", verifierFile, read, text => SrpVerifierFile.Parse(text, groups))];
+
+    private static List<string> IndexesOutsideRfc5054(IReadOnlyDictionary<string, SrpGroup> groups) =>
+        [.. groups.Where(group => !group.Value.IsRfc5054Group).Select(group => group.Key)];
 
     /// <summary>The <c>--tlsuser</c> account: a fresh salt and the verifier of the password's UTF-8 bytes.</summary>
     internal static SrpVerifierEntry ComputeEntry(string userName, string password, RandomNumberGenerator random)
@@ -56,12 +67,6 @@ internal static class TlsSrpAccountsComposition
         var group = SrpGroup.Rfc5054Group2048;
         var verifier = Srp6a.ComputeVerifier(group, salt, Encoding.UTF8.GetBytes(userName), Encoding.UTF8.GetBytes(password));
         return new SrpVerifierEntry(userName, salt, Srp6a.ToUnsignedBigEndian(verifier), group);
-    }
-
-    private static IReadOnlyList<SrpVerifierEntry> ReadVerifierFile(string verifierFile, string groupFile, Func<string, byte[]> read)
-    {
-        var groups = Parse("--srp-groups", groupFile, read, SrpGroupFile.Parse);
-        return Parse("--srp-verifiers", verifierFile, read, text => SrpVerifierFile.Parse(text, groups));
     }
 
     private static T Parse<T>(string optionName, string path, Func<string, byte[]> read, Func<string, T> parse)

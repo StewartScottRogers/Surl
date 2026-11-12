@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using Surl.Cli;
 using Surl.Networking;
+using Surl.Output;
 using Surl.Protocol.Abstractions;
 
 namespace Surl.Composition;
@@ -20,9 +21,10 @@ public sealed class ServerTlsComposition : IDisposable
 
     private ServerTlsComposition(
         ServerTlsSettings? settings, string? throwawayCertificateFingerprint, QuicServerCertificate? quicCertificate, IReadOnlyList<IDisposable> owned,
-        IReadOnlyList<X509Certificate2>? clientTrustAnchors = null)
+        IReadOnlyList<X509Certificate2>? clientTrustAnchors = null, IReadOnlyList<string>? srpGroupIndexesOutsideRfc5054 = null)
     {
         ClientTrustAnchors = clientTrustAnchors ?? [];
+        SrpGroupIndexesOutsideRfc5054 = srpGroupIndexesOutsideRfc5054 ?? [];
         Settings = settings;
         QuicCertificate = quicCertificate;
         ThrowawayCertificateFingerprint = throwawayCertificateFingerprint;
@@ -70,6 +72,33 @@ public sealed class ServerTlsComposition : IDisposable
 
     /// <summary>The <c>--cacert</c> anchors a <c>coaps</c> client certificate must chain to; none when <c>--cacert</c> is not given.</summary>
     public IReadOnlyList<X509Certificate2> ClientTrustAnchors { get; }
+
+    /// <summary>
+    /// The <c>--srp-groups</c> indexes whose group is not one of RFC 5054 Appendix A's, in file order
+    /// (ADR-0122 decision 4); empty when TLS-SRP is not served or every group is Appendix A's.
+    /// </summary>
+    public IReadOnlyList<string> SrpGroupIndexesOutsideRfc5054 { get; }
+
+    /// <summary>
+    /// Writes ADR-0122 decision 4's note, once per <c>--srp-groups</c> group outside RFC 5054
+    /// Appendix A, from the verbose level up: OpenSSL's client, which upstream curl uses for TLS-SRP,
+    /// refuses such a group, so a login against it fails however right the password is.
+    /// </summary>
+    /// <param name="logLevel">The log level.</param>
+    /// <param name="log">The log stream.</param>
+    public void WriteStartLines(LogLevel logLevel, TextWriter log)
+    {
+        ArgumentNullException.ThrowIfNull(log);
+        if (logLevel < LogLevel.Verbose)
+        {
+            return;
+        }
+
+        foreach (var index in SrpGroupIndexesOutsideRfc5054)
+        {
+            log.WriteLine($"* --srp-groups: the group with index {index} is not one of RFC 5054 Appendix A's; OpenSSL's client refuses it");
+        }
+    }
 
     /// <summary>
     /// Finds the first listen URL, in command-line order, that is TLS from the first byte or
@@ -160,8 +189,9 @@ public sealed class ServerTlsComposition : IDisposable
         var random = RandomNumberGenerator.Create();
         try
         {
-            var accounts = TlsSrpAccountsComposition.Compose(commandLine, random, readFile);
-            return new ServerTlsComposition(ServerTlsSettings.ForTlsSrp(accounts, random), null, null, [random]);
+            var composed = TlsSrpAccountsComposition.Compose(commandLine, random, readFile);
+            return new ServerTlsComposition(
+                ServerTlsSettings.ForTlsSrp(composed.Accounts, random), null, null, [random], null, composed.GroupIndexesOutsideRfc5054);
         }
         catch (TlsSrpAccountsException)
         {

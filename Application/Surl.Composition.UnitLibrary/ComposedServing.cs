@@ -165,6 +165,9 @@ public sealed class ComposedServing : IAsyncDisposable
             WriteThrowawayCertificateLines(commandLine.LogLevel, fingerprint, log);
         }
 
+        // Each --srp-groups group outside RFC 5054 Appendix A, once, from verbose up (ADR-0122 decision 4).
+        tls.WriteStartLines(commandLine.LogLevel, log);
+
         // The --throwaway-hostkey and --allow-weak-ssh-algorithms warnings, then each SSH host key's note
         // (ADR-0051, decisions 8 and 11).
         authentication.SshHostKeys.WriteStartLines(commandLine, log);
