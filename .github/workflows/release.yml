@@ -115,7 +115,12 @@ jobs:
 
       - name: Install the native toolchain
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y clang zlib1g-dev
+        # The Ubuntu runner images already carry clang and zlib's headers; apt runs only when one is
+        # missing, so an outage at the runner's apt mirror cannot fail a Linux leg.
+        run: |
+          if ! command -v clang >/dev/null || [ ! -f /usr/include/zlib.h ]; then
+            sudo apt-get update && sudo apt-get install -y clang zlib1g-dev
+          fi
 
       # The three switches after the version keep the referenced libraries' symbol and XML
       # documentation files out of the publish directory, so it holds what the smoke test's
