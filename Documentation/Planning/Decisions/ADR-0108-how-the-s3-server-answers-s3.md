@@ -547,3 +547,24 @@ BL-712, and recorded here by BL-918 (BL-712 could not edit this folder while BL-
 6. **The object metadata index needs no removal on DeleteObject:** the deleted file's entry keeps a
    stamp that no longer matches any file, so it reads as absent and a later PutObject of the same key
    replaces it. A folder object is the exception Amendment 3, point 5 states.
+
+## Amendment 5 - `--s3-plaintext` as BL-1021 built it (BL-1021, 2026-11-11)
+
+Decided by Claude under Stewart's delegation. Decision 5's option, as built:
+
+1. **Where it acts.** `Surl.Composition`'s `S3PlaintextComposition.MarkS3ListenUrlsPlain` sets
+   `ListenUrl.IsImplicitTls` to `false` on every `s3` listen URL at the start of
+   `SurlServerComposition.ComposeAsync` (BL-1020's member), and `ServerTlsComposition` reads that
+   per-listen-URL answer instead of `TlsSchemes`. So the `(58)` refusal and the TLS settings both
+   follow the listen URL: a plain `s3` needs no certificate and builds no TLS settings, and a
+   certificate given beside it is not read for it. The engine's handshake and its refusal writer
+   follow the same answer (BL-1020). Why: one place decides, and every host (`surl`, `Surl.Api`,
+   `Surl.Mcp`) composes through it.
+2. **The default port stays 443.** `s3://host/` without a port listens on 443 with or without the
+   option (`ExtendedSchemeDefaultPorts`); a test names its port, usually 0. Why: the listen URL is
+   read before the option's effect is known in a `-K` file's order, and the parser's default ports
+   are per scheme; a second default for one flag would make `s3://host/` mean two ports.
+3. **Categories `s3`, `security` and `testing`,** off by default and negatable, with an `Explanation`
+   as every loosening option has. The start warning, written with the other loosening warnings
+   from the info level up, is `surl: warning: --s3-plaintext: s3 is served as plain HTTP, without TLS`.
+   It is written whether or not an `s3` listen URL is given, as `--allow-plaintext-auth`'s is.
