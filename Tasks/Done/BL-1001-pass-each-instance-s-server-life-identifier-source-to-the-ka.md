@@ -8,7 +8,7 @@ depends-on: [BL-999, BL-1000, BL-997, BL-973, BL-528]
 touches: [Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests]
 requirement: none
 created: 2026-11-06
-completed:
+completed: 2026-11-12
 ---
 # BL-1001 — Pass each instance's server-life identifier source to the Kafka broker and the NATS server
 
@@ -40,3 +40,4 @@ completed:
 
 - 2026-11-06: Created.
 - 2026-11-12: Backlog -> Doing.
+- 2026-11-12: Doing -> Done. Kafka cluster ID and NATS server_id repeat under --random-seed
