@@ -372,7 +372,7 @@ internal sealed partial class Mqtt5BrokerConnection
     {
         if (connect.ClientIdentifier.Length == 0)
         {
-            assignedClientIdentifier = state.RegisterAssignedClient(out var registration);
+            assignedClientIdentifier = state.RegisterAssignedClient(context.Identifiers, out var registration);
             return registration;
         }
 

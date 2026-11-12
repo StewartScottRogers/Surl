@@ -8,7 +8,7 @@ depends-on: [BL-822, BL-851, BL-1035]
 touches: [Protocols/Messaging/Surl.Extended.Protocol.Mqtt5.UnitLibrary, Protocols/Messaging/Surl.Extended.Protocol.Mqtt5.UnitTests]
 requirement: none
 created: 2026-11-05
-completed:
+completed: 2026-11-11
 ---
 # BL-845 — Draw MQTT 5 assigned client identifiers from the exchange's seedable identifier source
 
@@ -29,10 +29,10 @@ identifier comes from `ExchangeContext.Identifiers`, so a seeded instance assign
 
 ## Acceptance criteria
 
-- [ ] `Mqtt5BrokerStateTests.AssignedClientIdentifier_SameSeededIdentifiers_IsTheSameEveryRun` passes.
-- [ ] `Mqtt5BrokerStateTests.AssignedClientIdentifier_CollidesWithASession_IsDrawnAgain` still passes with a seeded
+- [x] `Mqtt5BrokerStateTests.AssignedClientIdentifier_SameSeededIdentifiers_IsTheSameEveryRun` passes.
+- [x] `Mqtt5BrokerStateTests.AssignedClientIdentifier_CollidesWithASession_IsDrawnAgain` still passes with a seeded
       source whose first draw collides.
-- [ ] The library stays at 100% line and branch coverage; `dotnet build` clean, fast tests green.
+- [x] The library stays at 100% line and branch coverage; `dotnet build` clean, fast tests green.
 
 ## Notes
 
@@ -45,6 +45,10 @@ identifier comes from `ExchangeContext.Identifiers`, so a seeded instance assign
   replace `RegisterAssignedClient_CandidateInUse_DrawsAnother`. If the stash is lost, redo exactly this.
 - Not finished: `dotnet build` fails - global.json pins SDK 10.0.401, which is not installed on the
   machine. Added BL-1035 (Stewart reinstalls it) to `depends-on`; back to Backlog until it is Done.
+- 2026-11-11 (lane 1): SDK 10.0.404 is installed now and satisfies global.json's `latestFeature` roll-forward.
+  The stash was not reachable from this lane, so the change was redone exactly as the note above says.
+  The collision test draws the seed's first two identifiers, registers the first, and expects the second.
+  `RandomNumberGenerator` stays the default only through `ExchangeContext.Identifiers`.
 
 ## Log
 
@@ -52,3 +56,4 @@ identifier comes from `ExchangeContext.Identifiers`, so a seeded instance assign
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waiting on BL-1035: pinned .NET SDK 10.0.401 is not installed, so dotnet build cannot run
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Done. MQTT 5 assigned client identifiers come from ExchangeContext.Identifiers; build clean, fast tests green
