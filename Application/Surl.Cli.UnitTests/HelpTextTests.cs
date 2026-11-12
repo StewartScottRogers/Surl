@@ -103,6 +103,19 @@ public sealed class HelpTextTests
         "        accepts.",
     ];
 
+    private static readonly string[] S3PlaintextExplanationLines =
+    [
+        "        Serves every s3 listen URL as plain HTTP/1.1 instead of TLS from the",
+        "        first byte, so it needs no --cert or --self-signed. A test uses it for",
+        "        an S3 client pointed at an http:// custom endpoint",
+        "        (AWS_ENDPOINT_URL=http://...). Requests are still signed and checked",
+        "        with AWS Signature Version 4, which sends no secret, so",
+        "        --allow-plaintext-auth is not needed with it. It is not the default",
+        "        because every S3 endpoint is HTTPS, and anyone who can watch the",
+        "        network reads every object as it is sent. surl warns on every start",
+        "        while it is on, from the info log level up.",
+    ];
+
     private static readonly string[] SelfSignedExplanationLines =
     [
         "        Serves a throwaway self-signed certificate, made at start, for a listen",
@@ -256,6 +269,7 @@ public sealed class HelpTextTests
             Row(38, "    --proxy-allow-origin <address>", "Let the proxy reach more origins"),
             Row(38, "-U, --proxy-user <user:password>", "Add a proxy account (repeatable)"),
             Row(38, "    --proxy-user-file <file>", "Read proxy accounts from a file"),
+            Row(38, "    --s3-plaintext", "Serve s3 as plain HTTP (warns)"),
             Row(38, "    --self-signed", "Throwaway certificate (warns)"),
             Row(38, "    --serve-dot-files", "Serve names that start with a dot"),
             Row(38, "-S, --show-error", "Show error even when -s is used"),
@@ -339,6 +353,7 @@ public sealed class HelpTextTests
                 Row(38, "    --control <listen URL>", "Serve the test control endpoint"),
                 Row(38, "    --control-token-file <file>", "Bearer token file for --control"),
                 Row(38, "    --fault <kind>[;<key>=<value>]", "Misbehave on purpose (repeatable)"),
+                Row(38, "    --s3-plaintext", "Serve s3 as plain HTTP (warns)"),
                 Row(38, "    --self-signed", "Throwaway certificate (warns)"),
                 Row(38, "    --throwaway-hostkey", "Throwaway SSH host key (warns)"),
                 "",
@@ -359,6 +374,9 @@ public sealed class HelpTextTests
                 "",
                 "    --fault <kind>[;<key>=<value>]",
                 .. FaultExplanationLines,
+                "",
+                "    --s3-plaintext",
+                .. S3PlaintextExplanationLines,
                 "",
                 "    --self-signed",
                 .. SelfSignedExplanationLines,
@@ -773,6 +791,7 @@ public sealed class HelpTextTests
             Row(38, "    --follow-symlinks", "Follow links that stay in the root"),
             Row(38, "    --list-directories", "Answer directory listings"),
             Row(38, "    --proxy-allow-origin <address>", "Let the proxy reach more origins"),
+            Row(38, "    --s3-plaintext", "Serve s3 as plain HTTP (warns)"),
             Row(38, "    --self-signed", "Throwaway certificate (warns)"),
             Row(38, "    --serve-dot-files", "Serve names that start with a dot"),
             Row(38, "    --throwaway-hostkey", "Throwaway SSH host key (warns)"),
@@ -933,7 +952,7 @@ public sealed class HelpTextTests
     {
         var text = HelpText.Answer("testing").Output;
 
-        foreach (var looseningOption in new[] { "--allow-anonymous", "--allow-plaintext-auth", "--auth <methods>", "--self-signed", "--throwaway-hostkey" })
+        foreach (var looseningOption in new[] { "--allow-anonymous", "--allow-plaintext-auth", "--auth <methods>", "--s3-plaintext", "--self-signed", "--throwaway-hostkey" })
         {
             StringAssert.Contains(text, NewLine + "    " + looseningOption + NewLine, looseningOption);
         }

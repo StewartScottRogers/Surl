@@ -636,6 +636,7 @@ public sealed partial class AiHelpTextTests
             "surl: (58) <url> needs a certificate: give --cert <file>, or --self-signed for a throwaway one",
             "surl: warning: --self-signed: serving a throwaway certificate; clients must skip verification (curl -k)",
             "surl: warning: --proxy-allow-origin: the proxy connects to every origin address, not only loopback",
+            "surl: warning: --s3-plaintext: s3 is served as plain HTTP, without TLS",
             "surl: (37) Could not read host certificate <file>",
             "surl: (2) Host certificate <file>: not an OpenSSH host certificate",
             "surl: (2) Host certificate <file>: certifies no --hostkey key",

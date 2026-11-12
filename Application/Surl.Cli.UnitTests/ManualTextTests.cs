@@ -317,8 +317,8 @@ public sealed class ManualTextTests
             "    Signature Version 4 signature from an account, or --allow-anonymous for",
             "    reads. PutObject and DeleteObject need --allow-uploads, and ListObjectsV2",
             "    and ListBuckets --list-directories; HeadBucket needs neither. s3 needs",
-            "    --cert or --self-signed. surl --aihelp s3 says how each request is",
-            "    answered.",
+            "    --cert or --self-signed, or --s3-plaintext to serve it as plain HTTP.",
+            "    surl --aihelp s3 says how each request is answered.",
             "",
             "SMB OPTIONS",
             "",
@@ -385,10 +385,10 @@ public sealed class ManualTextTests
             "",
             "LOOSENING OPTIONS",
             "",
-            "    --allow-anonymous, --allow-plaintext-auth, --auth, --self-signed and",
-            "    --throwaway-hostkey each loosen a secure default for tests, and each",
-            "    writes a \"surl: warning:\" line on start (--self-signed and",
-            "    --throwaway-hostkey only when they make their certificate or key).",
+            "    --allow-anonymous, --allow-plaintext-auth, --auth, --s3-plaintext,",
+            "    --self-signed and --throwaway-hostkey each loosen a secure default for",
+            "    tests, and each writes a \"surl: warning:\" line on start (--self-signed",
+            "    and --throwaway-hostkey only when they make their certificate or key).",
             "    What each one loosens, and why none is the default, is written by:",
             "",
             "        surl --help testing",
@@ -523,7 +523,7 @@ public sealed class ManualTextTests
     {
         var looseningSection = Section("LOOSENING OPTIONS");
 
-        foreach (var looseningOption in new[] { "--allow-anonymous", "--allow-plaintext-auth", "--auth", "--self-signed", "--throwaway-hostkey" })
+        foreach (var looseningOption in new[] { "--allow-anonymous", "--allow-plaintext-auth", "--auth", "--s3-plaintext", "--self-signed", "--throwaway-hostkey" })
         {
             StringAssert.Contains(looseningSection, looseningOption);
         }

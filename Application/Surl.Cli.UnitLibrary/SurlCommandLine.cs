@@ -309,6 +309,12 @@ public sealed record SurlCommandLine
     public bool SelfSigned { get; init; }
 
     /// <summary>
+    /// <c>--s3-plaintext</c>: serve every <c>s3</c> listen URL as plain HTTP/1.1, with no TLS and no
+    /// certificate (ADR-0108 decision 5). Off by default.
+    /// </summary>
+    public bool S3Plaintext { get; init; }
+
+    /// <summary>
     /// The SSH host private key files from every <c>--hostkey</c>, as given, in command-line order:
     /// each one adds a key (ADR-0051 decision 4). None by default.
     /// </summary>

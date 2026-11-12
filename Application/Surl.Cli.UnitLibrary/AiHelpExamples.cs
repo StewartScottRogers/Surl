@@ -183,6 +183,13 @@ public static class AiHelpExamples
             ["surl: warning: --self-signed: serving a throwaway certificate; clients must skip verification (curl -k)"],
             ["curl -k --aws-sigv4 aws:amz:us-east-1:s3 -u AKIAIOSFODNN7EXAMPLE:secret https://127.0.0.1:<port>/<bucket>/<key>"]),
         Serving(
+            "s3",
+            "For a test: serve S3 as plain HTTP for an http:// endpoint",
+            ["--s3-plaintext", "-u", "AKIAIOSFODNN7EXAMPLE:secret", "s3://127.0.0.1:0/"],
+            ["Listening on s3://127.0.0.1:<port>/"],
+            ["surl: warning: --s3-plaintext: s3 is served as plain HTTP, without TLS"],
+            ["curl --aws-sigv4 aws:amz:us-east-1:s3 -u AKIAIOSFODNN7EXAMPLE:secret http://127.0.0.1:<port>/<bucket>/<key>"]),
+        Serving(
             "smb",
             "Serve SMB shares to an NTLMv1 login",
             ["--auth", "ntlmv1", "-u", "alice:secret", "--directory", "<path>", "smb://127.0.0.1:0/"],

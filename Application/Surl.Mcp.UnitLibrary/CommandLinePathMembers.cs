@@ -80,6 +80,7 @@ internal static class CommandLinePathMembers
         nameof(SurlCommandLine.GivenAuthenticationMethods),
         nameof(SurlCommandLine.AcceptedAuthenticationMethods),
         nameof(SurlCommandLine.SelfSigned),
+        nameof(SurlCommandLine.S3Plaintext),
         nameof(SurlCommandLine.ThrowawayHostKey),
         nameof(SurlCommandLine.AllowWeakSshAlgorithms),
         nameof(SurlCommandLine.SshCiphers),
