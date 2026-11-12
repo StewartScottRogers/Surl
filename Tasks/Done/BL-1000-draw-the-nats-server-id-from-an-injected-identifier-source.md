@@ -8,7 +8,7 @@ depends-on: [BL-822, BL-851, BL-1035]
 touches: [Protocols/Messaging/Surl.Extended.Protocol.Nats.UnitLibrary, Protocols/Messaging/Surl.Extended.Protocol.Nats.UnitTests]
 requirement: none
 created: 2026-11-06
-completed:
+completed: 2026-11-11
 ---
 # BL-1000 — Draw the NATS server_id from an injected identifier source
 
@@ -30,10 +30,10 @@ every run.
 
 ## Acceptance criteria
 
-- [ ] `NatsServerTests.ServerId_SameSeededSource_IsTheSameEveryRun` passes; different seeds give different IDs; the
+- [x] `NatsServerTests.ServerId_SameSeededSource_IsTheSameEveryRun` passes; different seeds give different IDs; the
       ID is 22 characters of the alphabet, and a test pins that every alphabet character can be drawn.
-- [ ] No `RandomNumberGenerator` call is left for the server ID.
-- [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and the library keeps 100% line and branch
+- [x] No `RandomNumberGenerator` call is left for the server ID.
+- [x] `dotnet build -warnaserror` is clean, the fast tests are green, and the library keeps 100% line and branch
       coverage.
 
 ## Notes
@@ -54,6 +54,8 @@ every run.
     `ServerId_SourceGivingEachByteBelowTheLimit_DrawsEveryAlphabetCharacter`,
     `ServerId_ByteOfEachValue_MapsToItsRemainderModuloTheAlphabet`, `ServerId_BytesAtOrAboveTheLimit_AreDrawnAgain`.
 
+- 2026-11-11 (lane 5): SDK 10.0.404 rolls forward from the pinned 10.0.401, so BL-1035 no longer blocks. Done as outlined; the tests use test-local fakes (UnitTestSeededIdentifierRandom over System.Random, UnitTestByteSequenceIdentifierRandom) instead of referencing Surl.Core.
+
 ## Log
 
 - 2026-11-06: Created.
@@ -62,3 +64,4 @@ every run.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. returned by the shift starting 20261111-212123: it was in Doing but no stopped lane held it; look for its work in 'git stash list' and in factory/BL-1000-* branches before redoing it
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Done. NATS server_id drawn from an injected IIdentifierRandom; seeded source repeats it
