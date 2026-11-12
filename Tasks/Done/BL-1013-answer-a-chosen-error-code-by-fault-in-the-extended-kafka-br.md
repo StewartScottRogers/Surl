@@ -8,7 +8,7 @@ depends-on: [BL-823, BL-785, BL-1035]
 touches: [Protocols/Messaging/Surl.Extended.Protocol.Kafka.UnitLibrary, Protocols/Messaging/Surl.Extended.Protocol.Kafka.UnitTests]
 requirement: FR-062
 created: 2026-11-06
-completed:
+completed: 2026-11-11
 ---
 # BL-1013 — Answer a chosen error code by fault in the extended Kafka broker
 
@@ -45,12 +45,12 @@ appending nothing, and for `Fetch` without waiting - instead of serving it, and 
 
 ## Acceptance criteria
 
-- [ ] `KafkaChosenErrorFaultTests` exists and passes, including
+- [x] `KafkaChosenErrorFaultTests` exists and passes, including
       `ServeAsync_ProduceToARulesTopic_AnswersTheChosenErrorAndAppendsNothing`,
       `ServeAsync_ProduceToAnotherTopic_IsAppended` and `ServeAsync_FetchFromARulesTopic_AnswersTheChosenErrorWithoutWaiting`.
-- [ ] Each applied rule publishes exactly one `FaultAppliedEvent`; `ServeAsync_ARuleWhoseReplyIsNotAnErrorCode_IsNotedAndNotApplied` passes.
-- [ ] With no rule, every existing `Surl.Extended.Protocol.Kafka.UnitTests` test passes unchanged.
-- [ ] `dotnet build Protocols/Messaging/Surl.Extended.Protocol.Kafka.UnitTests -warnaserror` is clean, the fast
+- [x] Each applied rule publishes exactly one `FaultAppliedEvent`; `ServeAsync_ARuleWhoseReplyIsNotAnErrorCode_IsNotedAndNotApplied` passes.
+- [x] With no rule, every existing `Surl.Extended.Protocol.Kafka.UnitTests` test passes unchanged.
+- [x] `dotnet build Protocols/Messaging/Surl.Extended.Protocol.Kafka.UnitTests -warnaserror` is clean, the fast
       tests are green, and the library keeps 100% line and branch coverage.
 
 ## Notes
@@ -67,6 +67,10 @@ appending nothing, and for `Fetch` without waiting - instead of serving it, and 
     re-made by hand against the current files.
   - Decision: the fault is asked directly through `context.Faults.FindAsync`, not `CommandStageFaults`, because the
     task says a `delay` rule at the command stage is noted and not applied for Produce/Fetch.
+- 2026-11-11 (lane 5, second run): SDK 10.0.404 is now installed (BL-1035), so the work was restored from stash
+  `darkfactory BL-1013 20261111-060243` and built unchanged. Build clean with `-warnaserror`, 512 Kafka tests and
+  the solution's fast tests green, library at 100% line and branch coverage (cobertura from the MSTest collector).
+  Line endings of the restored files normalised with `dotnet format whitespace`.
 
 ## Log
 
@@ -75,3 +79,4 @@ appending nothing, and for `Fetch` without waiting - instead of serving it, and 
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waits on BL-1035: pinned .NET SDK 10.0.401 is not installed, so dotnet build cannot run; code re-made and left for the shift to stash
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Done. Kafka Produce and Fetch answer a fault rule's chosen error code per topic, append nothing, do not wait, and publish one FaultAppliedEvent
