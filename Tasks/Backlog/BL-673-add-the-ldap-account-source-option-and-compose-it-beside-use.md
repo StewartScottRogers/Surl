@@ -4,7 +4,7 @@ title: Add the LDAP account source option and compose it beside --user and --use
 priority: Low
 assignee: Claude
 pipeline: feature
-depends-on: [BL-672, BL-646]
+depends-on: [BL-672, BL-646, BL-1068]
 touches: [Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests, Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests, Application/Surl.Console.UnitTests]
 requirement: none
 created: 2026-11-04
@@ -20,6 +20,9 @@ connection seam the ADR names.
 
 ## Context
 
+- BL-671's ADR is ADR-0149: the option is `--user-ldap` with decision 3's keys; URL-structure refusals are
+  `Surl.Composition`'s (decision 7); the TLS client connector comes from BL-1068; decision 8 amends ADR-0102
+  decision 4.1 for group and access-row members. See its Consequences.
 - Decisions: BL-671's ADR (option, URL form, TLS requirement, refusals, exit codes, bounds), BL-641's ADR (item
   grammar and help category), BL-642's ADR decision 4 (groups).
 - Builds on: BL-672 (the check in `Surl.Authentication`), BL-646 (groups may name LDAP accounts if the ADR says

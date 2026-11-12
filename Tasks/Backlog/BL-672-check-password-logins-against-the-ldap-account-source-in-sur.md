@@ -19,6 +19,10 @@ verdicts, notes and refusal delay as an account from `--user-file`.
 
 ## Context
 
+- BL-671's ADR is ADR-0149, and it keeps the code here: `LdapAccountSource` behind `ILdapDirectoryConnector`,
+  messages on `System.Formats.Asn1`, the RFC 4515/4516 parsers, and the refusal delay counted from the check's
+  start (decisions 4, 6, 10, 11). See its Consequences.
+
 - Decision: BL-671's ADR (which reading, which methods, timeouts, bounds, refusals). If the ADR places the code
   somewhere other than `Foundation/Surl.Authentication.UnitLibrary`, record it in Notes and stop, so the board can
   re-plan this task's `touches`.

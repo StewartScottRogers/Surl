@@ -8,7 +8,7 @@ depends-on: [BL-642, BL-1035]
 touches: [Documentation/Planning/Decisions]
 requirement: none
 created: 2026-11-04
-completed:
+completed: 2026-11-12
 ---
 # BL-671 — Decide how an LDAP directory serves as an optional account source
 
@@ -42,23 +42,17 @@ methods that can serve, and how it stays secure by default.
 
 ## Acceptance criteria
 
-- [ ] An ADR with the next free number exists under `Documentation/Planning/Decisions`, marked "Decided by Claude
+- [x] An ADR with the next free number exists under `Documentation/Planning/Decisions`, marked "Decided by Claude
       under Stewart's delegation", citing Stewart's approval of 2026-11-04. It chooses between the readings above
       with reasons, names the login methods served and refused, the option(s), TLS requirements, timeouts and
       bounds, the refusal texts and exit codes, and where the code lives; it is listed in
       `Documentation/Planning/Decisions/README.md`.
-- [ ] Every LDAP wire choice cites its RFC 4511 / RFC 4513 section.
-- [ ] The ADR's Consequences section names BL-672 and BL-673 and any change to their Goal or touches.
+- [x] Every LDAP wire choice cites its RFC 4511 / RFC 4513 section.
+- [x] The ADR's Consequences section names BL-672 and BL-673 and any change to their Goal or touches.
 
 ## Notes
 
-- 2026-11-11 (lane 3): the work is finished on branch `factory/BL-671-lane-6-20261111-060243` (commit c281d6ed:
-  ADR-0148, its README row, new task BL-1037, edits to BL-672 and BL-673, all boxes ticked). It is docs only; the
-  integration failed only because `dotnet build` cannot start on this machine (`global.json` pins SDK 10.0.401,
-  not installed). Returned to Backlog behind BL-1035, as other lanes did. When it runs again: cherry-pick that
-  commit with `--no-commit`, keep this task in `Doing` rather than the commit's `Done` copy (take its Notes and
-  ticks), re-check that ADR-0148 and BL-1037 are still free numbers (`task-board.ps1 dedupe`), build, then move
-  to Done with the script.
+- 2026-11-12 (lane 3): decided in ADR-0149 (external directory, `--user-ldap`, clear-password logins only, LDAPS or mandatory StartTLS; see the ADR). Cherry-picked from factory/BL-671-lane-6-20261111-060243; ADR-0148 and BL-1037 had been taken by other lanes, so the ADR is ADR-0149 and the follow-up TLS client connector task is BL-1068. BL-672 and BL-673 point at the ADR; BL-673 depends on BL-1068.
 
 ## Log
 
@@ -68,3 +62,4 @@ methods that can serve, and how it stays secure by default.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. waiting on BL-1035: pinned .NET SDK 10.0.401 is not installed, so dotnet build cannot start; the finished ADR-0148 work is on factory/BL-671-lane-6-20261111-060243
 - 2026-11-12: Backlog -> Doing.
+- 2026-11-12: Doing -> Done. ADR-0149 decides the LDAP account source (--user-ldap, external directory, clear-password logins, TLS required); files BL-1068
