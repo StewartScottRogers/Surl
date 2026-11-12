@@ -53,3 +53,4 @@ the store change instead of polling, read it back over another protocol, and res
 ## Log
 
 - 2026-11-05: Created.
+- 2026-11-12: Backlog -> Doing.
