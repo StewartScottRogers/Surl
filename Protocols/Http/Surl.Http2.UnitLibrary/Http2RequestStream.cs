@@ -20,6 +20,7 @@ public sealed class Http2RequestStream
     private readonly Http2SendWindows windows;
     private readonly Func<Http2ErrorCode, string, Task> resetAsync;
     private readonly CancellationToken connectionToken;
+    private readonly TimeProvider timeProvider;
 
     /// <summary>
     /// Wraps <paramref name="stream"/> for its handler.
@@ -30,13 +31,15 @@ public sealed class Http2RequestStream
     /// <param name="windows">The connection's send windows.</param>
     /// <param name="resetAsync">Resets the stream through the connection, with a reason for its log.</param>
     /// <param name="connectionToken">The connection's cancellation, which cuts every write off.</param>
+    /// <param name="timeProvider">The exchange's clock, which times a farewell write's deadline.</param>
     internal Http2RequestStream(
         Http2Stream stream,
         Http2RequestHead head,
         Http2FrameWriter frames,
         Http2SendWindows windows,
         Func<Http2ErrorCode, string, Task> resetAsync,
-        CancellationToken connectionToken)
+        CancellationToken connectionToken,
+        TimeProvider timeProvider)
     {
         this.stream = stream;
         Head = head;
@@ -44,6 +47,7 @@ public sealed class Http2RequestStream
         this.windows = windows;
         this.resetAsync = resetAsync;
         this.connectionToken = connectionToken;
+        this.timeProvider = timeProvider;
     }
 
     /// <summary>The stream identifier, odd.</summary>
@@ -139,4 +143,39 @@ public sealed class Http2RequestStream
     /// <returns>A task that completes when the reset is written.</returns>
     /// <exception cref="OperationCanceledException">The connection ended.</exception>
     public Task ResetAsync(Http2ErrorCode code, string reason) => resetAsync(code, reason);
+
+    /// <summary>
+    /// Whether the exchange was cancelled - shutdown, the idle timeout or the maximum duration
+    /// (ADR-0059) - which cuts every other write on the connection off. A handler that catches
+    /// the cancellation may then end its stream once with <see cref="WriteFarewellTrailersAsync"/>
+    /// or <see cref="WriteFarewellResetAsync"/>, before the connection's farewell <c>GOAWAY</c>.
+    /// </summary>
+    public bool IsExchangeCancelled => connectionToken.IsCancellationRequested;
+
+    /// <summary>
+    /// Ends the stream after the exchange was cancelled with a header block whose <c>HEADERS</c>
+    /// carries <c>END_STREAM</c>, written within <see cref="Http2ConnectionServer.FarewellWriteDeadline"/>
+    /// of its own, since the exchange's cancellation already cuts every other write off.
+    /// </summary>
+    /// <param name="fields">The fields: trailers, or a whole Trailers-Only block with <c>:status</c> first.</param>
+    /// <returns>A task that completes when the block is written.</returns>
+    /// <exception cref="OperationCanceledException">The write did not finish within its deadline.</exception>
+    public async Task WriteFarewellTrailersAsync(IEnumerable<HpackHeaderField> fields)
+    {
+        using var deadline = new CancellationTokenSource(Http2ConnectionServer.FarewellWriteDeadline, timeProvider);
+        await frames.WriteHeaderBlockAsync(Id, fields, endStream: true, deadline.Token);
+    }
+
+    /// <summary>
+    /// Resets the stream with <c>RST_STREAM</c> <paramref name="code"/> after the exchange was
+    /// cancelled, written within <see cref="Http2ConnectionServer.FarewellWriteDeadline"/> of its own.
+    /// </summary>
+    /// <param name="code">The error code.</param>
+    /// <returns>A task that completes when the reset is written.</returns>
+    /// <exception cref="OperationCanceledException">The write did not finish within its deadline.</exception>
+    public async Task WriteFarewellResetAsync(Http2ErrorCode code)
+    {
+        using var deadline = new CancellationTokenSource(Http2ConnectionServer.FarewellWriteDeadline, timeProvider);
+        await frames.WriteAsync(new Http2RstStreamFrame(Id, code), deadline.Token);
+    }
 }

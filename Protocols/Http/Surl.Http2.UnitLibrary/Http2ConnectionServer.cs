@@ -44,7 +44,10 @@ namespace Surl.Http2;
 /// </para>
 /// <para>
 /// When the client closes, the open streams finish what their windows let them send. When the
-/// exchange is cancelled - a limit or shutdown (ADR-0059) - the streams are cut off, and
+/// exchange is cancelled - a limit or shutdown (ADR-0059) - the streams are cut off; a handler
+/// that catches it may end its stream once more with <see cref="Http2RequestStream.WriteFarewellTrailersAsync"/>
+/// or <see cref="Http2RequestStream.WriteFarewellResetAsync"/>, which every handler finishes before
+/// the connection's own farewell (ADR-0116, amendment 1). Then
 /// <c>GOAWAY</c> naming the highest stream received, <c>NO_ERROR</c>, is written within
 /// <see cref="FarewellWriteDeadline"/>; the cancellation then escapes at shutdown and not for a
 /// limit.
@@ -493,7 +496,7 @@ public sealed class Http2ConnectionServer
         streams[streamId] = stream;
         windows.OpenStream(streamId);
         answering.RemoveAll(task => task.IsCompletedSuccessfully);
-        var requestStream = new Http2RequestStream(stream, head, frames, windows, (code, reason) => ResetStreamAsync(streamId, code, reason), ConnectionToken);
+        var requestStream = new Http2RequestStream(stream, head, frames, windows, (code, reason) => ResetStreamAsync(streamId, code, reason), ConnectionToken, context.TimeProvider);
         answering.Add(ServeStreamAsync(stream, requestStream));
     }
 
