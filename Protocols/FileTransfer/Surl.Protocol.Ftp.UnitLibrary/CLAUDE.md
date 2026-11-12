@@ -40,7 +40,11 @@ handshake before `ServeAsync`, so `FtpProtocolServer` claims `ftps` itself.
   login named (none after an unchecked anonymous login), the scheme and the listen URL in the
   engine's form (`FaultListenUrl`). A matching `error` rule's reply is sent in place of running it,
   so a transfer command opens no data connection and the store is untouched; the log notes it and
-  one `FaultAppliedEvent` is published. Other kinds a plan returns here are not acted on.
+  one `FaultAppliedEvent` is published. A `delay` rule holds the command for its `ms` on
+`ExchangeContext.TimeProvider` with the idle clock paused, and a `drop` rule aborts the control
+connection with no reply and ends the session, both through `CommandStageFaults.FindAndApplyAsync`
+(ADR-0141, BL-907). Pinned upstream curl 8.21.0 exits 56 when the control connection closes at
+`RETR` or `STOR` (measured by lane 6, 2026-11-11).
 - `FtpDataConnections`: one control connection's passive listener or active target
   (`EPSV`, `PASV`, `EPRT`, `PORT`, target parsed by `FtpActiveTargetParser`, decision 6), and
   `ProtectAsync`, which upgrades a data connection to TLS under `PROT P`. Every listener and

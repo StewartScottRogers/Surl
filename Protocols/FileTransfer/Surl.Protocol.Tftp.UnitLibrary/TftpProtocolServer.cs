@@ -81,7 +81,7 @@ namespace Surl.Protocol.Tftp;
 /// A well-formed request matched by a chosen-error fault rule (ADR-0124, decision 4; command
 /// <c>RRQ</c> or <c>WRQ</c>, path the decoded file name) is answered from the transfer port with
 /// the ERROR packet carrying the rule's code and text, before the content store is touched, and
-/// a <see cref="FaultAppliedEvent"/> is published (<see cref="TftpChosenErrorFault"/>). Upstream
+/// a <see cref="FaultAppliedEvent"/> is published (<see cref="TftpCommandStageFault"/>). Upstream
 /// curl exits as for the same ERROR from any server: 68 for 1, 69 for 2, 70 for 3, 71 for 0 and 4.
 /// </para>
 /// </remarks>
@@ -138,9 +138,14 @@ public sealed class TftpProtocolServer : IDatagramProtocolServer, IDatagramRefus
         }
 
         // A chosen-error fault answers the request before the content store is touched (ADR-0124, decision 4).
-        if (await TftpChosenErrorFault.FindErrorPacketAsync(context, request!) is { } faultError)
+        // A delay holds it first; a drop sends nothing and ends the exchange (ADR-0141).
+        if (await TftpCommandStageFault.FindAndApplyAsync(context, request!) is { } fault)
         {
-            await flow.SendAsync(faultError, context.CancellationToken);
+            if (fault.Kind == FaultKind.Error)
+            {
+                await flow.SendAsync(TftpCommandStageFault.ErrorPacket(fault.Reply!), context.CancellationToken);
+            }
+
             return;
         }
 

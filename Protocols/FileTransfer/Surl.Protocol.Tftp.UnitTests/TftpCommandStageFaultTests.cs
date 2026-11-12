@@ -13,7 +13,7 @@ namespace Surl.Protocol.Tftp;
 /// is what pinned upstream curl 8.21.0 sent and how it exited when its server answered so.
 /// </summary>
 [TestClass]
-public sealed class TftpChosenErrorFaultTests
+public sealed class TftpCommandStageFaultTests
 {
     private static readonly string Root = Path.Join(Path.GetTempPath(), "surl-tftp-fault-tests");
     private static readonly DateTimeOffset FileTime = new(2026, 11, 5, 8, 30, 0, TimeSpan.Zero);
@@ -70,17 +70,62 @@ public sealed class TftpChosenErrorFaultTests
     }
 
     [TestMethod]
-    [DataRow(FaultKind.Delay, "1 Gone", DisplayName = "a rule of another kind")]
-    [DataRow(FaultKind.Error, null, DisplayName = "an error rule without a reply")]
-    public async Task ServeAsync_ReadMatchedByARuleWithNoChosenError_IsServed(FaultKind kind, string? reply)
+    public async Task ServeAsync_ReadMatchedByAnErrorRuleWithoutAReply_IsServed()
     {
         var events = new RecordingSurlEventPublisher();
-        var plan = new ScriptedFaultPlan(new FaultRule("f1", kind) { Reply = reply, DelayMilliseconds = 0 });
+        var plan = new ScriptedFaultPlan(new FaultRule("f1", FaultKind.Error));
 
         var flow = await ServeAsync(Request(isWrite: false, "/file name.txt"), plan, events, StandardFileSystem(), finalAck: true);
 
         Assert.AreEqual(TftpPacket.Data, flow.Sent.Single().Bytes[1]);
         Assert.IsEmpty(events.Events);
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_ReadUnderADelayRule_IsAnsweredOnlyAfterTheClockAdvances()
+    {
+        var clock = new ManualTimeProvider();
+        var idleClock = new RecordingIdleClock();
+        var events = new RecordingSurlEventPublisher();
+        var plan = new ScriptedFaultPlan(new FaultRule("d1", FaultKind.Delay) { Stage = FaultStage.Command, DelayMilliseconds = 500 });
+        var flow = new ScriptedDatagramFlow(Request(isWrite: false, "/file name.txt"), clock, [ScriptedDatagramFlow.Datagram([0, 4, 0, 1])]);
+
+        var serving = ServeAsync(flow, clock, plan, events, StandardFileSystem(), idleClock);
+        await idleClock.FirstPause;
+        var sentWhileHeld = flow.Sent.Count;
+        var pausedWhileHeld = idleClock.IsPaused;
+        clock.Advance(TimeSpan.FromMilliseconds(500));
+        await serving;
+
+        Assert.AreEqual(0, sentWhileHeld);
+        Assert.IsTrue(pausedWhileHeld);
+        Assert.IsFalse(idleClock.IsPaused);
+        Assert.AreEqual(TftpPacket.Data, flow.Sent.Single().Bytes[1]);
+        Assert.AreEqual(new FaultAppliedEvent("d1", FaultKind.Delay, FaultStage.Command, 1, "RRQ /file name.txt"), events.Events.Single());
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_ReadUnderADelayRuleWithNoMilliseconds_IsServedAtOnce()
+    {
+        var events = new RecordingSurlEventPublisher();
+        var plan = new ScriptedFaultPlan(new FaultRule("d2", FaultKind.Delay));
+
+        var flow = await ServeAsync(Request(isWrite: false, "/file name.txt"), plan, events, StandardFileSystem(), finalAck: true);
+
+        Assert.AreEqual(TftpPacket.Data, flow.Sent.Single().Bytes[1]);
+        Assert.HasCount(1, events.Events);
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_ReadUnderADropRule_SendsNothingAndPublishesOnce()
+    {
+        var events = new RecordingSurlEventPublisher();
+        var plan = new ScriptedFaultPlan(new FaultRule("x1", FaultKind.Drop) { Stage = FaultStage.Command });
+
+        var flow = await ServeAsync(Request(isWrite: false, "/file name.txt"), plan, events, StandardFileSystem());
+
+        Assert.IsEmpty(flow.Sent);
+        Assert.AreEqual(new FaultAppliedEvent("x1", FaultKind.Drop, FaultStage.Command, 1, "RRQ /file name.txt"), events.Events.Single());
     }
 
     [TestMethod]
@@ -91,7 +136,7 @@ public sealed class TftpChosenErrorFaultTests
     [DataRow("busy", 0, "busy", DisplayName = "no code is sent whole as ERROR 0")]
     public void ErrorPacket_Reply_CarriesItsCodeAndText(string reply, int expectedCode, string expectedMessage)
     {
-        var packet = TftpChosenErrorFault.ErrorPacket(reply);
+        var packet = TftpCommandStageFault.ErrorPacket(reply);
 
         CollectionAssert.AreEqual(ErrorDatagram(expectedCode, expectedMessage), packet);
     }
@@ -113,6 +158,15 @@ public sealed class TftpChosenErrorFaultTests
         var clock = new ManualTimeProvider();
         var script = finalAck ? new[] { ScriptedDatagramFlow.Datagram([0, 4, 0, 1]) } : [];
         var flow = new ScriptedDatagramFlow(firstDatagram, clock, script);
+        await ServeAsync(flow, clock, plan, events, fileSystem, new RecordingIdleClock(), allowUploads);
+
+        return flow;
+    }
+
+    private static async Task ServeAsync(
+        ScriptedDatagramFlow flow, ManualTimeProvider clock, IFaultPlan plan, ISurlEventPublisher events,
+        UnitTestInMemoryContentFileSystem fileSystem, RecordingIdleClock idleClock, bool allowUploads = false)
+    {
         var context = new ExchangeContext(
             1,
             new ListenUrl("tftp", "127.0.0.1", ScriptedDatagramFlow.ListenPort).WithBoundPort(ScriptedDatagramFlow.ListenPort),
@@ -124,11 +178,10 @@ public sealed class TftpChosenErrorFaultTests
         {
             Faults = plan,
             Events = events,
+            IdleClock = idleClock,
         };
         var store = new ContentStore(Root, fileSystem, new ContentExposureOptions { AllowUploads = allowUploads });
 
         await new TftpProtocolServer(store).ServeAsync(flow, context);
-
-        return flow;
     }
 }
