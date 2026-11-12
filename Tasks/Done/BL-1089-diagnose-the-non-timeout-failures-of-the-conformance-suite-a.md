@@ -8,7 +8,7 @@ depends-on: [BL-1088, BL-1090]
 touches: [Conformance/Surl.Conformance.UnitTests]
 requirement: none
 created: 2026-11-12
-completed:
+completed: 2026-11-12
 ---
 # BL-1089 — Diagnose the non-timeout failures of the Conformance suite against a published win-x64 surl
 
@@ -27,7 +27,7 @@ Run each alone first, to tell load flakiness from defects.
 ## Acceptance criteria
 
 - [x] Notes explain each failure above with evidence.
-- [ ] Two consecutive full runs with `SURL_EXECUTABLE` on a win-x64 publish have no failure; Notes record counts. (Moved to BL-1090: other load flakes and BL-1088 remain.)
+- [x] Two consecutive full runs with `SURL_EXECUTABLE` on a win-x64 publish have no failure; Notes record counts. (Done by BL-1090: two clean runs, 1873 passed each.)
 - [x] Fast tests stay green.
 
 ## Notes
@@ -37,7 +37,7 @@ Run each alone first, to tell load flakiness from defects.
 - `RunBesideAsync_EveryCaseOnThePassingList...` (test841/port-test884): passes alone 4 of 4 and passed in the second full run; failed only under load. Load flake, stale list ruled out.
 - New, found while diagnosing: `surl's log has no Serving SSH host key ssh-rsa note` (Scp/Sftp tests): the note goes to stderr before `Listening on` on stdout, but separate pipe callbacks run late under load. `PublishedSurlProcess` now waits until stderr is quiet (two 25 ms checks, 5 s cap) after the status line. Not seen again in runs 1-3 after.
 - Full runs after the fixes: 1873 passed, 0 failed (120 skipped); then 13 failed (11 HTTP/3 `Could not bind`, BL-1088; 2 SSH "Unable to exchange encryption keys"); then 2 failed (libcurl RTSP script finding, test626). No start timeout. Fast tests: 893 passed.
-- The remaining flakes go to BL-1090; the two clean runs wait on it and BL-1088.
+- The remaining flakes went to BL-1090, which capped the suite at 8 workers; its two consecutive full runs on a win-x64 publish passed (1873 passed, 0 failed, 120 skipped each). BL-1088 no longer on the board.
 
 ## Log
 
@@ -45,3 +45,4 @@ Run each alone first, to tell load flakiness from defects.
 - 2026-11-12: Backlog -> Doing.
 - 2026-11-12: Doing -> Backlog. Cause of each listed failure found and two fixed; the two clean full runs wait on BL-1088 (HTTP/3 bind) and BL-1090 (remaining load flakes)
 - 2026-11-12: Backlog -> Doing.
+- 2026-11-12: Doing -> Done. Failures explained; two clean full runs recorded by BL-1090
