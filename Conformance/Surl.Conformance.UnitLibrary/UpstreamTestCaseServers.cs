@@ -55,7 +55,7 @@ public static class UpstreamTestCaseServers
         new("http-unix", "http", IsBuilt: true, UnixSocketPathVariable: "HTTPUNIXPATH"),
         new("httptls+srp", "https", IsBuilt: true, PortVariable: "HTTPTLSPORT"),
         new("httptls+srp-ipv6", "https", IsBuilt: true, PortVariable: "HTTPTLS6PORT"),
-        new("dns", "http", IsBuilt: false),
+        new("dns", "http", IsBuilt: true, PortVariable: "DNSPORT"),
     ];
 
     private static readonly Dictionary<string, UpstreamTestCaseServer> ByName =

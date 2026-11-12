@@ -72,6 +72,14 @@ public static class UpstreamTestCaseServerCommands
     public static readonly IReadOnlySet<string> Socks = new HashSet<string>(
         ["Testnum", "response", "method", "user", "password", "backendport"], StringComparer.Ordinal);
 
+    /// <summary>
+    /// The DNS server half's lines (BL-570, ADR-0123): <c>Testnum</c> and the names of the
+    /// <c>&lt;reply&gt;&lt;dns&gt;</c> lines <c>Surl.Extended.Protocol.DnsQuery</c>'s
+    /// <c>DnsQueryUpstreamTestCaseReplies.SupportedLineNames</c> accepts, <c>A</c> and <c>AAAA</c>.
+    /// <c>HTTPS</c> and the <c>Delay-</c> lines are not.
+    /// </summary>
+    public static readonly IReadOnlySet<string> Dns = new HashSet<string>(["Testnum", "A", "AAAA"], StringComparer.Ordinal);
+
     /// <summary>The name a case's <c>&lt;postcmd&gt;</c> is checked under; no server half implements it.</summary>
     public const string PostCommand = "postcmd";
 
@@ -105,6 +113,7 @@ public static class UpstreamTestCaseServerCommands
         ["smtp"] = Mail,
         ["httptls+srp"] = None,
         ["httptls+srp-ipv6"] = None,
+        ["dns"] = Dns,
     };
 
     /// <summary>

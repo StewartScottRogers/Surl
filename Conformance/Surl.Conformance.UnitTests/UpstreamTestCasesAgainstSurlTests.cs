@@ -4,6 +4,7 @@ using System.Net;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
+using Surl.Extended.Protocol.DnsQuery;
 using Surl.LineProtocol;
 using Surl.Networking;
 using Surl.Protocol.Ftp;
@@ -61,6 +62,7 @@ public sealed class UpstreamTestCasesAgainstSurlTests
     private const string MailFamily = "mail";
     private const string HttpProxyFamily = "http-proxy";
     private const string SocksFamily = "socks";
+    private const string DnsFamily = "dns";
 
     // The variable the http-unix row of UpstreamTestCaseServers names its socket path with.
     private static readonly string HttpUnixPathVariable = UpstreamTestCaseServers.Find("http-unix")!.UnixSocketPathVariable!;
@@ -100,6 +102,7 @@ public sealed class UpstreamTestCasesAgainstSurlTests
         ["socks5unix"] = SocksFamily,
         ["httptls+srp"] = TlsSrpFamily,
         ["httptls+srp-ipv6"] = TlsSrpFamily,
+        ["dns"] = DnsFamily,
     };
 
     // The port variable the server-name table gives a proxy row.
@@ -438,6 +441,7 @@ public sealed class UpstreamTestCasesAgainstSurlTests
             MailUpstreamTestCaseReplies mailReplies;
             HttpProxyUpstreamTestCaseReplies proxyReplies;
             SocksUpstreamTestCaseReplies socksReplies;
+            DnsQueryUpstreamTestCaseReplies dnsReplies;
             // Upstream's runtests writes one servercmd file every server reads and each ignores the words
             // it does not know (BL-898); a server half here throws on one, so each gets the lines its own row implements.
             var families = ServerNames(testCase).Select(name => ServerFamilies[name]).Distinct().ToList();
@@ -455,6 +459,7 @@ public sealed class UpstreamTestCasesAgainstSurlTests
                 mailReplies = new MailUpstreamTestCaseReplies(MailReplyParts(testCase), CommandsFor(MailFamily));
                 proxyReplies = new HttpProxyUpstreamTestCaseReplies(ReplyParts(testCase), CommandsFor(HttpProxyFamily));
                 socksReplies = new SocksUpstreamTestCaseReplies(CommandsFor(SocksFamily));
+                dnsReplies = new DnsQueryUpstreamTestCaseReplies(DnsLines(testCase));
             }
             catch (FormatException exception)
             {
@@ -467,7 +472,7 @@ public sealed class UpstreamTestCasesAgainstSurlTests
             await WriteFileServerFilesAsync(number, testCase, families, Path.Combine(caseDirectory, logDirectory), smbRoot, cancellationToken);
             serverHalves.Play(
                 replies, ftpReplies, gopherReplies, mqttReplies, tftpReplies,
-                fileServers.CreateSsh(caseDirectory, sshUser), UpstreamTestCaseFileServers.CreateSmb(smbRoot), mailReplies, proxyReplies, socksReplies);
+                fileServers.CreateSsh(caseDirectory, sshUser), UpstreamTestCaseFileServers.CreateSmb(smbRoot), mailReplies, proxyReplies, socksReplies, dnsReplies);
             var curl = await client.Client.RunAsync(
                 commandLine.Arguments, commandLine.StandardInput, CurlEnvironment(Slashes(caseDirectory), commandLine), caseDirectory, cancellationToken);
             if (curl.TimedOut)
@@ -551,6 +556,7 @@ public sealed class UpstreamTestCasesAgainstSurlTests
                 ["DICTPORT"] = serverHalves.DictPort.ToString(CultureInfo.InvariantCulture),
                 ["TELNETPORT"] = serverHalves.TelnetPort.ToString(CultureInfo.InvariantCulture),
                 ["TFTPPORT"] = serverHalves.TftpPort.ToString(CultureInfo.InvariantCulture),
+                [PortVariableOf("dns")] = serverHalves.DnsPort.ToString(CultureInfo.InvariantCulture),
                 ["SSHPORT"] = serverHalves.SshPort.ToString(CultureInfo.InvariantCulture),
                 ["SMBPORT"] = serverHalves.SmbPort.ToString(CultureInfo.InvariantCulture),
                 ["IMAPPORT"] = serverHalves.ImapPort.ToString(CultureInfo.InvariantCulture),
@@ -699,6 +705,10 @@ public sealed class UpstreamTestCasesAgainstSurlTests
 
         private static IEnumerable<string> ServerCommandLines(UpstreamTestCase testCase) =>
             (testCase.FindPart("reply", "servercmd")?.Lines ?? []).Select(line => line.TrimEnd('\n'));
+
+        // The case's <reply><dns> lines, which the selector has already checked the DNS server half implements.
+        private static IEnumerable<string> DnsLines(UpstreamTestCase testCase) =>
+            (testCase.FindPart("reply", "dns")?.Lines ?? []).Select(line => line.TrimEnd('\n')).Where(line => !IsComment(line));
 
         private static IEnumerable<string> ServerNames(UpstreamTestCase testCase) =>
             (testCase.FindPart("client", "server")?.Lines ?? [])

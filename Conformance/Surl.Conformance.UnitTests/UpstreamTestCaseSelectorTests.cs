@@ -149,7 +149,28 @@ public sealed class UpstreamTestCaseSelectorTests
     [TestMethod]
     public void FindSkipReason_ServerNotBuilt_SkipsServerNotBuiltWithItsName()
     {
-        Assert.AreEqual("server-not-built:dns", Reason("<server>\nhttp\ndns\n</server>\n"));
+        Assert.AreEqual("server-not-built:http/2", Reason("<server>\nhttp\nhttp/2\n</server>\n"));
+    }
+
+    [TestMethod]
+    public void FindSkipReason_DnsCaseOnAPinWithoutOverrideDns_SkipsFeatureMissingNotServerNotBuilt()
+    {
+        Assert.AreEqual("feature-missing:override-dns", Reason("<server>\nhttp\ndns\n</server>\n" + Features("override-dns")));
+    }
+
+    [TestMethod]
+    public void FindSkipReason_DnsLineNoServerHalfImplements_SkipsServerCommandUnsupportedWithItsName()
+    {
+        Assert.AreEqual("servercmd-unsupported:HTTPS", Reason(Server("dns"), reply: "<dns>\n# a comment\nHTTPS: 1 .\n</dns>\n"));
+    }
+
+    [TestMethod]
+    public void FindSkipReason_DnsLineTheDnsServerSupports_IsRunnable()
+    {
+        var rules = Rules() with { SupportsServerCommand = (server, command) => server == "dns" && command == "A" };
+        var testCase = Case(client: "<server>\nhttp\ndns\n</server>\n", reply: "<dns>\nA: 127.0.0.1\n</dns>\n");
+
+        Assert.IsNull(new UpstreamTestCaseSelector(rules).FindSkipReason(Number, testCase));
     }
 
     [TestMethod]

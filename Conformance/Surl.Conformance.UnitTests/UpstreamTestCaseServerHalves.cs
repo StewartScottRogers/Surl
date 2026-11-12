@@ -2,6 +2,7 @@ using System.Net;
 using System.Text;
 using Surl.Content;
 using Surl.Core;
+using Surl.Extended.Protocol.DnsQuery;
 using Surl.LineProtocol;
 using Surl.Networking;
 using Surl.Protocol.Abstractions;
@@ -91,16 +92,18 @@ internal sealed class UpstreamTestCaseServerHalves : IAsyncDisposable
 
     private readonly CaseServer[] servers;
     private readonly CaseDatagramServer tftp;
+    private readonly CaseDatagramServer dns;
     private readonly CancellationTokenSource stop;
     private readonly Task<SurlExitCode> serving;
     private readonly NoteCollectingExchangeLogFactory log;
     private readonly IReadOnlyDictionary<string, int> ports;
 
     private UpstreamTestCaseServerHalves(
-        CaseServer[] servers, CaseDatagramServer tftp, CancellationTokenSource stop, Task<SurlExitCode> serving, NoteCollectingExchangeLogFactory log, IReadOnlyDictionary<string, int> ports)
+        CaseServer[] servers, CaseDatagramServer tftp, CaseDatagramServer dns, CancellationTokenSource stop, Task<SurlExitCode> serving, NoteCollectingExchangeLogFactory log, IReadOnlyDictionary<string, int> ports)
     {
         this.servers = servers;
         this.tftp = tftp;
+        this.dns = dns;
         this.stop = stop;
         this.serving = serving;
         this.log = log;
@@ -151,6 +154,9 @@ internal sealed class UpstreamTestCaseServerHalves : IAsyncDisposable
 
     /// <summary>The TFTP datagram listener's port: <c>%TFTPPORT</c>.</summary>
     public int TftpPort => ports[PortKey("tftp", LoopbackIPv4)];
+
+    /// <summary>The DNS datagram listener's port: <c>%DNSPORT</c>, which a case's <c>CURL_DNS_SERVER</c> names (ADR-0123 decision 4).</summary>
+    public int DnsPort => ports[PortKey("dns", LoopbackIPv4)];
 
     /// <summary>The IMAP listener's port on <c>127.0.0.1</c>: <c>%IMAPPORT</c>.</summary>
     public int ImapPort => ports[PortKey("imap", LoopbackIPv4)];
@@ -215,17 +221,19 @@ internal sealed class UpstreamTestCaseServerHalves : IAsyncDisposable
     {
         CaseServer[] servers = [.. Listeners.Select(listener => new CaseServer(listener.Scheme))];
         var tftp = new CaseDatagramServer("tftp");
+        var dns = new CaseDatagramServer("dns");
         ListenUrl[] urls =
         [
             .. Listeners.SelectMany(listener => listener.Hosts.Select(host => ListenUrlFor(listener.Scheme, host))),
             new("tftp", LoopbackIPv4, 0),
+            new("dns", LoopbackIPv4, 0),
             .. HttpUnixSocketListenUrls(httpUnixSocketPath),
             .. SocksUnixSocketListenUrls(socksUnixSocketPath),
         ];
         var listeners = new BoundPortRecordingListenerFactory(new SocketListenerFactory(tlsSettings), urls.Length);
         var log = new NoteCollectingExchangeLogFactory();
         var engine = new ServingEngine(
-            listeners, [.. servers, tftp], log, TimeProvider.System, TimeSpan.Zero, ConnectionLimits.Default, new SocketDataConnectionOpener(tlsSettings, TimeProvider.System));
+            listeners, [.. servers, tftp, dns], log, TimeProvider.System, TimeSpan.Zero, ConnectionLimits.Default, new SocketDataConnectionOpener(tlsSettings, TimeProvider.System));
         var stop = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         var serving = engine.ServeAsync(urls, stop.Token);
 
@@ -235,7 +243,7 @@ internal sealed class UpstreamTestCaseServerHalves : IAsyncDisposable
             throw new InvalidOperationException($"The serving engine ended with {await serving} before every listener bound.");
         }
 
-        return new UpstreamTestCaseServerHalves(servers, tftp, stop, serving, log, await listeners.AllBound);
+        return new UpstreamTestCaseServerHalves(servers, tftp, dns, stop, serving, log, await listeners.AllBound);
     }
 
     /// <summary>
@@ -252,7 +260,8 @@ internal sealed class UpstreamTestCaseServerHalves : IAsyncDisposable
         IConnectionProtocolServer smb,
         MailUpstreamTestCaseReplies mailReplies,
         HttpProxyUpstreamTestCaseReplies proxyReplies,
-        SocksUpstreamTestCaseReplies socksReplies)
+        SocksUpstreamTestCaseReplies socksReplies,
+        DnsQueryUpstreamTestCaseReplies dnsReplies)
     {
         // Upstream's sws sends every tunnel to 127.0.0.1 at the CONNECT's port (BL-556), so the proxy
         // reaches real loopback sockets, whatever host the request names.
@@ -274,6 +283,7 @@ internal sealed class UpstreamTestCaseServerHalves : IAsyncDisposable
         }
 
         tftp.Current = new TftpUpstreamTestCaseServer(tftpReplies);
+        dns.Current = new DnsUpstreamTestCaseServer(dnsReplies);
     }
 
     /// <inheritdoc/>

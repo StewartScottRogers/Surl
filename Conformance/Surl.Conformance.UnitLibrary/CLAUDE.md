@@ -310,6 +310,15 @@ tunnelling through `Surl.Networking`'s `SocketOriginConnector` limited to loopba
 
 Playing the socks4, socks5 and socks5unix cases is built (BL-562): `UpstreamTestCaseServerCommands.Socks` is their row (`Testnum`, `response`, `method`, `user`, `password`, `backendport`, the same words as `Surl.Protocol.Socks`'s `SocksUpstreamTestCaseReplies.SupportedServerCommands`), and the `socks4` and `socks5` rows name `%SOCKSPORT` (the run gives the SOCKS4 listener's port to a case naming `socks4`, else the SOCKS5 one's); `socks5unix` keeps `%SOCKSUNIXPATH`. 1467, 1468 and 1470 need `!win32` and run on the Linux and macOS pins only.
 
+Playing the dns cases is built (BL-570, ADR-0123): the `dns` row of `UpstreamTestCaseServers` says built and
+names `%DNSPORT`, and `UpstreamTestCaseServerCommands.Dns` (`Testnum`, `A`, `AAAA`, the same words as
+`Surl.Extended.Protocol.DnsQuery`'s `DnsQueryUpstreamTestCaseReplies.SupportedLineNames` plus `Testnum`) is its
+row. The selector reads the names of a case's `<reply><dns>` lines (the text before the colon) as server commands, so
+`HTTPS` and the `Delay-` lines skip `servercmd-unsupported:<name>`. The tests' server halves add a `DnsUpstreamTestCaseServer`
+on a datagram listener for `%DNSPORT`. Cases 2102, 2103 and 2104 need `override-dns`, which no pinned
+build lists, so each skips `feature-missing:override-dns`; the server half is proven by its unit tests and
+runs for real if a debug build is ever pinned. The `<verify><dns>` check is not in `UpstreamTestCaseVerifyChecker` yet.
+
 The upstream test certificates are generated (BL-682): `UpstreamTestCertificateDescription.Parse`
 reads a `tests/certs/*.prm` file (subject, `DNS:` or `DER:` subject alternative name, key usage,
 extended key usage, `CA:true`; the `authorityInfoAccess` and `crlDistributionPoints` extensions are

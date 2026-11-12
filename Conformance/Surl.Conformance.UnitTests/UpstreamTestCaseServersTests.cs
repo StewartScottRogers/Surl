@@ -14,12 +14,19 @@ public sealed class UpstreamTestCaseServersTests
     [DataRow("https-mtls", "https", true)]
     [DataRow("smb", "smb", true)]
     [DataRow("http/2", "http", false)]
-    [DataRow("dns", "http", false)]
     public void Find_KnownName_GivesItsRow(string name, string protocol, bool isBuilt)
     {
         var server = UpstreamTestCaseServers.Find(name);
 
         Assert.AreEqual(new UpstreamTestCaseServer(name, protocol, isBuilt), server);
+    }
+
+    [TestMethod]
+    public void Find_Dns_IsBuiltOverHttpAndMapsDnsPort()
+    {
+        Assert.AreEqual(
+            new UpstreamTestCaseServer("dns", "http", IsBuilt: true, PortVariable: "DNSPORT"),
+            UpstreamTestCaseServers.Find("dns"));
     }
 
     [TestMethod]
@@ -47,13 +54,13 @@ public sealed class UpstreamTestCaseServersTests
     }
 
     [TestMethod]
-    public void All_OnlyTheProxySocksAndTlsSrpServers_MapAPortVariable()
+    public void All_OnlyTheProxySocksTlsSrpAndDnsServers_MapAPortVariable()
     {
         var mapped = UpstreamTestCaseServers.All
             .Where(server => server.PortVariable is not null)
             .Select(server => $"{server.Name} %{server.PortVariable}");
 
-        CollectionAssert.AreEqual(new[] { "http-proxy %PROXYPORT", "https-proxy %HTTPSPROXYPORT", "socks4 %SOCKSPORT", "socks5 %SOCKSPORT", "httptls+srp %HTTPTLSPORT", "httptls+srp-ipv6 %HTTPTLS6PORT" }, mapped.ToArray());
+        CollectionAssert.AreEqual(new[] { "http-proxy %PROXYPORT", "https-proxy %HTTPSPROXYPORT", "socks4 %SOCKSPORT", "socks5 %SOCKSPORT", "httptls+srp %HTTPTLSPORT", "httptls+srp-ipv6 %HTTPTLS6PORT", "dns %DNSPORT" }, mapped.ToArray());
         Assert.IsTrue(UpstreamTestCaseServers.All.Where(server => server.PortVariable is not null)
             .All(server => UpstreamTestCaseVariables.Names.Contains(server.PortVariable!)));
     }
@@ -93,7 +100,7 @@ public sealed class UpstreamTestCaseServersTests
         var unbuilt = UpstreamTestCaseServers.All.Where(server => !server.IsBuilt).Select(server => server.Name);
 
         CollectionAssert.AreEquivalent(
-            new[] { "http/2", "http/3", "dns" },
+            new[] { "http/2", "http/3" },
             unbuilt.ToArray());
     }
 }

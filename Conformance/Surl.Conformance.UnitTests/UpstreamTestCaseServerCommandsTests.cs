@@ -1,3 +1,4 @@
+using Surl.Extended.Protocol.DnsQuery;
 using Surl.LineProtocol;
 using Surl.Protocol.Ftp;
 using Surl.Protocol.Gopher;
@@ -95,6 +96,26 @@ public sealed class UpstreamTestCaseServerCommandsTests
     [DataRow("http-proxy", "swsclose", false)]
     [DataRow("https-proxy", "idle", false)]
     public void IsSupported_ProxyRows_AcceptOnlyTestnum(string server, string command, bool expected)
+    {
+        Assert.AreEqual(expected, UpstreamTestCaseServerCommands.IsSupported(server, command));
+    }
+
+    [TestMethod]
+    public void Dns_IsTestnumAndTheLineNamesTheDnsServerHalfAccepts()
+    {
+        var table = UpstreamTestCaseServerCommands.Dns.Order(StringComparer.Ordinal).ToArray();
+
+        CollectionAssert.AreEqual(
+            DnsQueryUpstreamTestCaseReplies.SupportedLineNames.Append("Testnum").Order(StringComparer.Ordinal).ToArray(), table);
+    }
+
+    [TestMethod]
+    [DataRow("dns", "A", true)]
+    [DataRow("dns", "AAAA", true)]
+    [DataRow("dns", "Testnum", true)]
+    [DataRow("dns", "HTTPS", false)]
+    [DataRow("dns", "Delay-A", false)]
+    public void IsSupported_DnsRow_AcceptsTheDnsLineNames(string server, string command, bool expected)
     {
         Assert.AreEqual(expected, UpstreamTestCaseServerCommands.IsSupported(server, command));
     }
