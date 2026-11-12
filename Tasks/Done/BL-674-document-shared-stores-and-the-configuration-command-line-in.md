@@ -8,7 +8,7 @@ depends-on: [BL-638, BL-639, BL-640, BL-667, BL-668]
 touches: [Documentation/Product/Product-Overview.md, README.md, Documentation/Wiki, Documentation/Planning/Roadmap.md]
 requirement: none
 created: 2026-11-04
-completed:
+completed: 2026-11-12
 ---
 # BL-674 — Document shared stores and the configuration command line in the product overview, README, wiki and glossary
 
@@ -38,11 +38,11 @@ one `surl` and the configuration command line and config file for real servers.
 
 ## Acceptance criteria
 
-- [ ] Each file above has the section named, stating what is listed there, with every option name and type name
+- [x] Each file above has the section named, stating what is listed there, with every option name and type name
       matching the code.
-- [ ] The README example config file is accepted by `surl -K` as built (shown by running it, or by an existing
+- [x] The README example config file is accepted by `surl -K` as built (shown by running it, or by an existing
       `AiHelpExamples` entry it copies).
-- [ ] No document still says `mqtt5` keeps its own retained messages or that a mail recipient's domain is always
+- [x] No document still says `mqtt5` keeps its own retained messages or that a mail recipient's domain is always
       ignored.
 
 ## Notes
@@ -52,8 +52,11 @@ one `surl` and the configuration command line and config file for real servers.
   `Documentation/Wiki/Surl-As-A-Stand-In.md`. This task documents the stores and the configuration surface; link
   to that page for test control (or name the tasks as intent if BL-821 has not run) rather than describing it.
 
+- 2026-11-12: Docs written via align-and-document. README config verified by running `surl -v -K`. Requirements.md FR-023 (MQTT retained path) and root CLAUDE.md Api/Mcp "do not exist" lines are out of scope; left as-is.
+
 ## Log
 
 - 2026-11-04: Created.
 - 2026-11-05: Notes amended: test control of the stores is BL-821's to document; link, do not duplicate.
 - 2026-11-12: Backlog -> Doing.
+- 2026-11-12: Doing -> Done. Shared stores and config command line documented in overview, README, roadmap, wiki and glossary

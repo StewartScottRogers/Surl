@@ -230,7 +230,9 @@ The terms below are defined in the [glossary](../Wiki/Glossary.md), section "Mai
   `EHLO` with `SIZE`, `8BITMIME`, `SMTPUTF8`, `PIPELINING`, `ENHANCEDSTATUSCODES`, `STARTTLS` and
   `AUTH`; `MAIL`, `RCPT` (at most 100 per transaction) and `DATA`, each message stored with a
   `Return-Path` and a `Received` trace field in the `INBOX` of every recipient whose local part
-  names an account, a recipient that names none answered alike and its copy discarded; `VRFY`
+  names an account, a recipient that names none answered alike and its copy discarded, and the
+  recipient's domain ignored unless a `--mail-domain` is configured (see "Shared stores and
+  configuring a real server" below); `VRFY`
   and `EXPN` answered `252` whatever is asked. `MAIL` needs a login unless `--allow-anonymous`
   is given. The body streams into a pending message (a pending file with a data directory) as
   it is read, bounded by `--max-filesize`, and a message file that cannot be written is
@@ -641,6 +643,44 @@ port pass. The terms are defined in the [glossary](../Wiki/Glossary.md), section
   curl (ADR-0089 decision 9).
 - Phase 7 is a snapshot at one port commit; a later port commit needs a new measurement.
 
+### Shared stores and configuring a real server
+
+Beyond answering one request at a time, `surl` can be a server that several protocols share and
+an operator configures. The terms are defined in the [glossary](../Wiki/Glossary.md), section
+"Shared stores and the configuration command line".
+
+- **One store per job, per `surl` run**
+  ([ADR-0100](../Planning/Decisions/ADR-0100-the-stores-synergetic-protocols-share-files-mail-the-message-bus-and-accounts.md)
+  decision 1). Files are the one `ContentStore`, handed to every file-serving server, so a file
+  uploaded over FTP is fetched over HTTP, SFTP, SMB or `s3`. Mail is the one `MailboxStore`, so
+  mail sent over SMTP is read over IMAP and POP3. Messages are the one `MessageBus`: today
+  `mqtt`, `mqtts`, `nats`, `natss`, `stomp` and `stomps` are registered on it, so a message
+  published over `mqtt://` is consumed over NATS or STOMP, and `mqtt5` keeps no retained
+  messages of its own (decision 3.9). The `mqtt5`, `amqp`, `amqp1`, `kafka` and `redis`
+  libraries are written against the bus, and registering each in `surl` is intent: BL-975,
+  BL-507, BL-514, BL-973 and BL-492. Accounts are the one `AccountBook` every login reads.
+- **The configuration command line**
+  ([ADR-0101](../Planning/Decisions/ADR-0101-surls-configuration-surface-the-config-file-repeatable-item-options-and-one-configuration-model.md)
+  for the surface, [ADR-0102](../Planning/Decisions/ADR-0102-what-the-mail-file-message-and-group-options-mean-to-the-shared-stores.md)
+  for what each option means). `-K`/`--config <file>` reads options from a file in curl's
+  config-file syntax, and `--url <listen URL>` gives a listen URL in it. Repeatable item
+  options configure the stores: `--mail-domain`, `--mailbox`, `--mailbox-file`, `--mail-alias`,
+  `--mail-catch-all` and `--shared-folder` for mail; `--share`, `--share-access` and `--bucket`
+  for files; `--topic`, `--queue`, `--topic-map` and `--topic-access` for messages; and
+  `--group` for accounts. `surl` reads no config file it is not told to, and a surl given none
+  of these options behaves as before (ADR-0102 decision 0). Anything that widens access
+  (`--mail-catch-all`, and `@everyone` in `--share-access` or `--topic-access`) warns at every
+  start. `surl --aihelp mail`, `messages`, `content`, `auth` and `surl` list each option; the
+  README holds a worked config file.
+- **The hosts.** `Surl.Api` takes the same items as `SurlServerOptions` properties and
+  `ConfigFiles` (ADR-0101 decision 2, BL-668).
+- **Not built yet, stated as intent.** LDAP as an optional source of accounts is decided by
+  BL-671 and built by BL-672 and BL-673. The Curl port's own clients reading the shared files
+  and messages are BL-669 and BL-670; they run in `Integration` tests only and prove nothing
+  (ADR-0083). Test control of the stores - seeding, resetting, snapshotting and restoring them,
+  the store change events and `--fault` - is documented by BL-821 in
+  `Documentation/Wiki/Surl-As-A-Stand-In.md`, which does not exist yet.
+
 ### Also in scope
 
 - **HTTP versions:** 1.0, 1.1, 2 and 3 over QUIC, on the server side.
@@ -712,7 +752,8 @@ Two rules carry the design, the same two the Curl port is built on, turned aroun
 server references `Surl.Protocol.Abstractions` and the horizontal libraries ADR-0002
 lists, as later ADRs amend it (`Surl.Content`, `Surl.Cryptography`, the four SSH primitive
 libraries of ADR-0048, the two of ADR-0051 decision 3 and the three of ADR-0061, and the mail
-servers' `Surl.MailStore` and `Surl.LineProtocol` of ADR-0050, and the HTTP, WebSocket and RTSP
+servers' `Surl.MailStore` and `Surl.LineProtocol` of ADR-0050, the messaging servers'
+`Surl.MessageBus` of ADR-0100, and the HTTP, WebSocket and RTSP
 servers' `Surl.HttpMessage` of ADR-0070, and the HTTP server's HTTP/2 and HTTP/3 libraries
 of ADR-0081, ADR-0082 and ADR-0086); referencing another protocol
 server is a build break, and `Surl.Protocol.Abstractions.UnitTests` asserts the reference graph.
@@ -754,6 +795,7 @@ in its own `Surl.<Area>.UnitLibrary` (`CLAUDE.md`, "Decisions").
 | Protocol servers | `Surl.Protocol.<Name>` (15) | Abstractions, and the horizontal libraries of ADR-0002's table where needed: `Surl.Content`, `Surl.Cryptography` and its SSH primitives, for SMTP, IMAP and POP3 `Surl.MailStore` and `Surl.LineProtocol`, and for HTTP, WebSocket and RTSP `Surl.HttpMessage` (ADR-0070) |
 | Services | `Surl.Networking`, `Surl.Authentication`, `Surl.Cookies`, `Surl.Output`, `Surl.Content` | Abstractions; `Surl.Authentication` also `Surl.Cryptography`, for MD4 and SHA-512/256 (ADR-0032 decision 7) and for the DES of SMB's NTLMv1 (ADR-0073 decision 10), `Surl.Cryptography.Rc4`, for NTLM's key exchange and the LDAP security layers (ADR-0072 decision 4), and `Surl.Kerberos` (ADR-0057 decision 6) |
 | Mail servers' shared libraries | `Surl.MailStore` (the mail store: mailboxes per account, messages with UIDs, bounds, persistence under `<path>/.surl/mail`) and `Surl.LineProtocol` (bounded CRLF command lines, dot-stuffing, the `STARTTLS` discard, SASL continuation lines), decided by [ADR-0050](../Planning/Decisions/ADR-0050-the-mail-store-and-the-line-machinery-the-mail-servers-share.md) | Abstractions; `Surl.MailStore` also `Surl.Content`, for `IContentFileSystem` |
+| Message bus | `Surl.MessageBus` (the one `MessageBus` of a `surl` run: live fan-out, retained messages, named queues and topic logs over canonical topics, with the declared topics, queues, topic maps and topic access of `--topic`, `--queue`, `--topic-map` and `--topic-access`; persisted under `<path>/.surl/bus`), in `Protocols/Messaging/`, beside the content store and the mail store as the third store the servers of one job share, used by `Surl.Protocol.Mqtt` and by the extended NATS and STOMP servers `surl` registers, decided by [ADR-0100](../Planning/Decisions/ADR-0100-the-stores-synergetic-protocols-share-files-mail-the-message-bus-and-accounts.md) decision 3 | Abstractions and `Surl.Content`, for `IContentFileSystem` |
 | HTTP message library | `Surl.HttpMessage` (the bounded HTTP/1.x request-head reader and its head timeout, request-line and field-line parsing for `HTTP/1.x` and `RTSP/1.0`, response heads and `WWW-Authenticate` challenge fields), used by `Surl.Protocol.Http`, `Surl.Protocol.Ws` and `Surl.Protocol.Rtsp`, decided by [ADR-0070](../Planning/Decisions/ADR-0070-the-http-message-library-the-http-websocket-and-rtsp-servers-share.md) | Abstractions |
 | HTTP serving and WebSocket libraries | `Surl.HttpServing` (answering HTTP/1.1 requests on a connection: `HttpRequest`, `HttpAnswer`, request bodies with `100 Continue`, response writing, keep-alive, draining, the lingering close, `IHttpRequestHandler` and `Http1ConnectionServer`; BL-407) and `Surl.WebSocket` (RFC 6455 upgrade checks and `101` answer with an optional subprotocol, framing, reassembly, close codes, lingering close; BL-408), in `Protocols/Http/`, for `Surl.Protocol.Http`, `Surl.Protocol.Ws` and the extended servers, decided by [ADR-0084](../Planning/Decisions/ADR-0084-the-libraries-the-extended-servers-share-for-http-1-1-websocket-and-dtls.md) | Abstractions and `Surl.HttpMessage`; `Surl.HttpServing` also `Surl.Content` |
 | Hand-built DTLS | `Surl.Dtls` (DTLS 1.2 server for `coaps`), in `Cryptography/`, decided by [ADR-0084](../Planning/Decisions/ADR-0084-the-libraries-the-extended-servers-share-for-http-1-1-websocket-and-dtls.md) decision 3; BL-412 to BL-415 | Abstractions, for `IDatagramFlow` |
@@ -814,6 +856,7 @@ ADR-0147):
 | `Surl.Kerberos.UnitLibrary` | `Surl.Kerberos.UnitTests` |
 | `Surl.LineProtocol.UnitLibrary` | `Surl.LineProtocol.UnitTests` |
 | `Surl.MailStore.UnitLibrary` | `Surl.MailStore.UnitTests` |
+| `Surl.MessageBus.UnitLibrary` (ADR-0100), in `Protocols/Messaging/` | `Surl.MessageBus.UnitTests` |
 | `Surl.Networking.UnitLibrary` | `Surl.Networking.UnitTests` |
 | `Surl.Output.UnitLibrary` | `Surl.Output.UnitTests` |
 | `Surl.Protocol.Abstractions.UnitLibrary` | `Surl.Protocol.Abstractions.UnitTests` |

@@ -208,6 +208,32 @@ task board in `Tasks/`, never here.
   Surl) and ADR-0089 (how Phase 7 measures it: the normalisation, the verdicts, the findings,
   the handoff and the single port commit).
 
+## Track — Shared stores and the configuration command line
+
+Beside the phases, not after them: the extended servers' track of ADR-0083 reaches into the
+original servers' stores, and the stand-in direction (ADR-0124) builds on both.
+
+- **Status:** Built, except the parts named under "Not built" (2026-11-12).
+- **Delivers:** one store per job in a `surl` run (ADR-0100): the content store, the mail
+  store, `Surl.MessageBus` in `Protocols/Messaging/` (the MQTT 3.1.1 server's retained messages
+  moved onto it, and the extended NATS and STOMP servers are registered on it) and the account
+  book; then the configuration surface on top of them (ADR-0101, ADR-0102): `-K`/`--config`
+  and `--url`, the item options for mail (`--mail-domain`, `--mailbox`, `--mailbox-file`,
+  `--mail-alias`, `--mail-catch-all`, `--shared-folder`), files (`--share`, `--share-access`,
+  `--bucket`), messages (`--topic`, `--queue`, `--topic-map`, `--topic-access`) and accounts
+  (`--group`), their `Surl.Api` spellings, and the `--aihelp` topics `mail` and `messages`.
+  The build tasks are BL-629 to BL-668 (BL-649 to BL-652 in that range are not part of it),
+  with BL-638 to BL-640 proving the cross-protocol exchanges with pinned upstream curl.
+- **Exit criteria:** a `surl` given none of the new options answers every original server
+  exactly as before (ADR-0102 decision 0), and pinned upstream curl completes a file, a mail and
+  a message exchange across protocols in one `surl` (BL-638 to BL-640).
+- **Not built:** the `mqtt5`, `amqp`, `amqp1`, `kafka` and `redis` servers are not registered in
+  `surl` (BL-975, BL-507, BL-514, BL-973, BL-492); LDAP as an optional account source is
+  decided by BL-671 and built by BL-672 and BL-673; the Curl port's clients reading the shared
+  files and messages are BL-669 and BL-670; test control of the stores is BL-821's page,
+  `Documentation/Wiki/Surl-As-A-Stand-In.md`.
+- **Decisions:** ADR-0100, ADR-0101 and ADR-0102.
+
 ## Later
 
 Phase 7 is the last phase in the product overview's phasing, so no later milestone is planned. What is still open is listed in the milestone it belongs to,

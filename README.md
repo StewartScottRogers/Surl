@@ -66,12 +66,15 @@ The work is on the board and is being built now. None of it is finished.
    The setting `SURL_EXTENSIONS=0` will turn them all off. Ten of the libraries exist, and
    none is registered in `surl` yet.
 3. **Shared stores.** Servers that do the same job share one store in a single `surl`. Mail
-   sent over SMTP is read over IMAP or POP3, which works today. A file uploaded over FTP will
-   be fetched over HTTP or S3, and a message published over MQTT will be consumed over AMQP,
-   Kafka, NATS or STOMP through one shared message bus.
-4. **A configuration command line** for setting up a real server. It brings a curl-style
-   `-K` config file and repeatable options for mail domains, mailboxes, aliases, catch-alls,
-   shares, buckets, topics, queues and groups, so one `surl` can host hundreds of mailboxes.
+   sent over SMTP is read over IMAP or POP3, a file uploaded over FTP is fetched over HTTP or
+   `s3`, and a message published over MQTT reaches NATS and STOMP through one shared message
+   bus. The MQTT 5, AMQP, Kafka and Redis servers are written against the bus but `surl` does
+   not register them yet.
+4. **A configuration command line** for setting up a real server: a curl-style `-K` config
+   file and repeatable options for mail domains, mailboxes, aliases, catch-alls, shared
+   folders, shares, buckets, topics, queues and groups, so one `surl` can host hundreds of
+   mailboxes. See [Configuring a real server](#configuring-a-real-server). LDAP as a source of
+   accounts is not built yet.
 5. **Two more hosts.** `Surl.Api` starts and stops Surl servers inside a .NET test suite, and
    `Surl.Mcp` lets AI agents start, list and stop servers and see what a client sent.
 6. **Phase 7: measuring the Curl port.** The port and pinned upstream curl run the same
@@ -117,11 +120,12 @@ the schemes a build serves.
 What it serves depends on `--directory` (ADR-0031):
 
 - `surl http://127.0.0.1:8080/` serves an empty in-memory store. Everything the services
-  keep - uploaded files, MQTT retained messages, mail - lives in memory for as long as the
+  keep - uploaded files, retained and queued messages, mail - lives in memory for as long as the
   process runs, and nothing is written to disk.
 - `surl --directory <path> http://127.0.0.1:8080/` serves the files under `<path>` and
   persists what the services keep there across restarts: files at the top of the path,
-  every other kind of service state (MQTT retained messages and the mail store) under
+  every other kind of service state (the message bus's retained messages, queues and logs, and
+  the mail store) under
   `<path>/.surl/`. The LDAP directory is read from `<path>/.surl/ldap/directory.ldif` at start
   and never written.
   `.surl` is never served, even with `--serve-dot-files`. One surl process holds a path
@@ -250,8 +254,9 @@ curl pop3://127.0.0.1:1110/1
 ```
 
 With accounts, a message is stored in the `INBOX` of each recipient whose local part names an
-account; a recipient that names none is answered alike and its copy discarded, so no peer learns
-which accounts exist. curl's `-u` then logs in with `CRAM-MD5` by default, which sends no password
+account, whatever its domain (unless `--mail-domain` is given, see
+[Configuring a real server](#configuring-a-real-server)); a recipient that names none is
+answered alike and its copy discarded, so no peer learns which accounts exist. curl's `-u` then logs in with `CRAM-MD5` by default, which sends no password
 in clear ([ADR-0049](Documentation/Planning/Decisions/ADR-0049-the-mail-servers-sasl-and-apop-logins.md)):
 
 ```
@@ -372,6 +377,57 @@ curl -i rtsp://127.0.0.1:8554/
 surl --directory site --user alice:s3cret rtsp://127.0.0.1:8554/
 curl -f --digest -u alice:s3cret rtsp://127.0.0.1:8554/
 ```
+
+## Configuring a real server
+
+A real server needs mailboxes, shares and topic grants, and an operator wants them in a file
+rather than on one command line. `-K`/`--config <file>` reads options from a file in curl's
+config-file syntax, in place where the `-K` stands: one option per line, `#` comments, the
+option name with or without its dashes, and `url = <listen URL>` for each listen URL
+([ADR-0101](Documentation/Planning/Decisions/ADR-0101-surls-configuration-surface-the-config-file-repeatable-item-options-and-one-configuration-model.md)).
+`surl` reads no config file it is not told to. This `surl.cfg` serves mail for `example.com`
+with one mailbox, a read-only share that only that mailbox may read, and MQTT topics under
+`shop/` that the mailbox may publish and subscribe to and that keep the last message:
+
+```
+# One surl: mail, a read-only share and an MQTT topic with a grant.
+url = smtp://127.0.0.1:2525/
+url = imap://127.0.0.1:1143/
+url = http://127.0.0.1:8080/
+url = mqtt://127.0.0.1:1883/
+mail-domain = example.com
+mailbox = ann@example.com:secret
+share = docs=site/docs;readonly
+share-access = docs=ann@example.com:r
+topic = shop/#;retain
+topic-access = shop/#=ann@example.com:pubsub
+```
+
+```
+surl -K surl.cfg
+```
+
+This file was run with `surl -v -K surl.cfg` on 2026-11-12, with `site/docs` an existing
+directory: surl noted the mail domain, the mailbox (logins on `smtp`, `imap` and `pop3`),
+the share and the topic, then listened on all four URLs. `ann@example.com` logs in with the
+user name `ann@example.com` (`curl -u ann@example.com:secret imap://127.0.0.1:1143/`). With a
+mail domain set, mail to an address at another domain is refused `550 5.7.1 Relaying denied`.
+Because `docs` has a `--share-access`, it is closed to everyone not named, anonymous callers
+included.
+
+The options are `--mail-domain`, `--mailbox`, `--mailbox-file` (a CSV of mailboxes),
+`--mail-alias`, `--mail-catch-all` and `--shared-folder` for mail; `--share`,
+`--share-access` and `--bucket` for files; `--topic`, `--queue`, `--topic-map` and
+`--topic-access` for messages; and `--group` for sets of accounts. Each repeats, and each
+argument is one item whose parts are separated by `;`, percent-encoded where they must hold
+a `;` or the separator. A key or flag it does not know is refused, never ignored, and
+`--mail-catch-all` and `@everyone` grants warn at every start because they widen access.
+`surl --aihelp mail`, `surl --aihelp messages`, `surl --aihelp content` and
+`surl --aihelp auth` list every option with its keys and exit codes. The terms (message bus,
+canonical topic, share, share access, mail domain, mail alias, catch-all, shared folder,
+account group, config file) are in the [glossary](Documentation/Wiki/Glossary.md). Seeding,
+resetting and snapshotting these stores from a test is the subject of
+`Documentation/Wiki/Surl-As-A-Stand-In.md`, which is not written yet (BL-821).
 
 ## Logging
 
