@@ -16,6 +16,7 @@
     <ProjectReference Include="..\Surl.Conformance.UnitLibrary\Surl.Conformance.UnitLibrary.csproj" />
     <ProjectReference Include="..\..\Application\Surl.Console\Surl.Console.csproj" />
     <ProjectReference Include="..\..\Cryptography\Surl.Kerberos.TestKdc.UnitLibrary\Surl.Kerberos.TestKdc.UnitLibrary.csproj" />
+    <ProjectReference Include="..\..\Cryptography\Surl.TlsSrp.UnitLibrary\Surl.TlsSrp.UnitLibrary.csproj" />
   </ItemGroup>
 
 </Project>

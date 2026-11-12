@@ -16,8 +16,8 @@ namespace Surl.Conformance;
 /// <see langword="null"/> for a server that listens on a port.
 /// </param>
 /// <param name="PortVariable">
-/// The variable, without the <c>%</c>, a case names the port a proxy server listens on with -
-/// <c>PROXYPORT</c> for <c>http-proxy</c>, <c>HTTPSPROXYPORT</c> for <c>https-proxy</c> - or
+/// The variable, without the <c>%</c>, a case names the port a server listens on with -
+/// <c>PROXYPORT</c> for <c>http-proxy</c>, <c>HTTPTLSPORT</c> for <c>httptls+srp</c> - or
 /// <see langword="null"/> for a row whose port variable the run names elsewhere.
 /// </param>
 public sealed record UpstreamTestCaseServer(

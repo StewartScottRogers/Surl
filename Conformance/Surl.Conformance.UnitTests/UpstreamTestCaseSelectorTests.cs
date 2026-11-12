@@ -244,6 +244,30 @@ public sealed class UpstreamTestCaseSelectorTests
     }
 
     [TestMethod]
+    [DataRow(320)]
+    [DataRow(321)]
+    [DataRow(322)]
+    [DataRow(324)]
+    public void FindSkipReason_ImportedTlsSrpCaseForTheWindowsReferencePin_SkipsFeatureMissingTlsSrp(int number)
+    {
+        var (selector, testCase) = ImportedCaseFor("win-x64", number);
+
+        Assert.AreEqual("feature-missing:TLS-SRP", selector.FindSkipReason(number, testCase));
+    }
+
+    [TestMethod]
+    [DataRow("linux-x64", 320)]
+    [DataRow("linux-x64", 324)]
+    [DataRow("osx-arm64", 321)]
+    [DataRow("osx-arm64", 322)]
+    public void FindSkipReason_ImportedTlsSrpCaseForAReferencePinWithTlsSrp_IsRunnable(string platform, int number)
+    {
+        var (selector, testCase) = ImportedCaseFor(platform, number);
+
+        Assert.IsNull(selector.FindSkipReason(number, testCase));
+    }
+
+    [TestMethod]
     public void ForClient_PortVersionLackingSmb_SkipsAnSmbCaseAndRunsAnHttpCase()
     {
         var report = CurlVersionReport.Parse(CurlVersionReportTests.PortVersionOutput);
@@ -368,6 +392,20 @@ public sealed class UpstreamTestCaseSelectorTests
             .Where(pin => pin.Role == UpstreamCurlBuildRole.Reference && pin.Kind == UpstreamCurlBuildKind.Curl)
             .ToList();
 
+    // An imported case parsed for selection as the run parses it: the pin's features, no SRCDIR.
+    private static (UpstreamTestCaseSelector Selector, UpstreamTestCase TestCase) ImportedCaseFor(string platform, int number)
+    {
+        var pin = ReferencePins().Single(candidate => candidate.Platform == platform);
+        var features = UpstreamCurlBuildFeatures.For(pin);
+        var environment = new UpstreamTestCaseEnvironment(
+            new Dictionary<string, string>(StringComparer.Ordinal) { ["CERTDIR"] = "." }, features, new UnitTestNoFileReader(), TimeProvider.System);
+        var path = Path.Combine(AppContext.BaseDirectory, "UpstreamTestCases", "data", $"test{number}");
+
+        return (
+            new UpstreamTestCaseSelector(UpstreamTestCaseSelectionRules.ForBuild(pin, new HashSet<int>())),
+            UpstreamTestCaseParser.Parse(File.ReadAllBytes(path), environment));
+    }
+
     private static string? Reason(string client, string reply = "", string verify = "") =>
         Selector().FindSkipReason(Number, Case(client, reply, verify));
 
@@ -391,4 +429,9 @@ public sealed class UpstreamTestCaseSelectorTests
         UpstreamTestCaseParser.Parse(
             UpstreamTestCaseText.Bytes($"<testcase>\n<reply>\n{reply}</reply>\n<client>\n{client}</client>\n<verify>\n{verify}</verify>\n</testcase>\n"),
             UpstreamTestCaseText.Environment());
+
+    private sealed class UnitTestNoFileReader : IUpstreamTestCaseFileReader
+    {
+        public byte[] ReadAllBytes(string path) => [];
+    }
 }

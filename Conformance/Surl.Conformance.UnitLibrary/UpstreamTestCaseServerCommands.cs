@@ -41,8 +41,10 @@ public static class UpstreamTestCaseServerCommands
     /// <c>remlen-CONNACK</c>, <c>PUBLISH-before-SUBACK</c>, <c>short-PUBLISH</c>,
     /// <c>PINGRESP-as-CONNACK</c>, <c>DISCONNECT-malformed</c> and <c>excessive-remaining</c>
     /// each make the server send a deliberately broken or refusing packet and are not implemented;
-    /// and Surl's own SCP, SFTP and SMB servers, which serve the case's files (BL-397) and to
-    /// which FILEFORMAT gives none.
+    /// Surl's own SCP, SFTP and SMB servers, which serve the case's files (BL-397) and to
+    /// which FILEFORMAT gives none; and the <c>httptls+srp</c> server half, which answers every
+    /// request with gnutls-serv's page (<see cref="UpstreamTestCaseGnuTlsServPage"/>, BL-568), as
+    /// gnutls-serv takes no commands.
     /// </summary>
     public static readonly IReadOnlySet<string> None = new HashSet<string>(StringComparer.Ordinal);
 
@@ -101,6 +103,8 @@ public static class UpstreamTestCaseServerCommands
         ["imap"] = Mail,
         ["pop3"] = Mail,
         ["smtp"] = Mail,
+        ["httptls+srp"] = None,
+        ["httptls+srp-ipv6"] = None,
     };
 
     /// <summary>

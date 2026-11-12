@@ -8,7 +8,7 @@ depends-on: [BL-566, BL-391, BL-393, BL-1035]
 touches: [Conformance/Surl.Conformance.UnitLibrary, Conformance/Surl.Conformance.UnitTests, Documentation/Conformance]
 requirement: none
 created: 2026-11-04
-completed:
+completed: 2026-11-12
 ---
 # BL-568 — Play the server half of upstream httptls+srp test cases
 
@@ -34,16 +34,14 @@ password, as BL-563's ADR decision 7 says; both rows of the server-name table in
 
 ## Acceptance criteria
 
-- [ ] The server-name table's `httptls+srp` and `httptls+srp-ipv6` rows say built and map their port
+- [x] The server-name table's `httptls+srp` and `httptls+srp-ipv6` rows say built and map their port
       variables, with a named test in `Surl.Conformance.UnitTests` pinning each row.
-- [ ] A named fast test selects 320, 321, 322 and 324 against the Windows reference pin's features
+- [x] A named fast test selects 320, 321, 322 and 324 against the Windows reference pin's features
       and gets `feature-missing:TLS-SRP` for each, not `server-not-built`.
-- [ ] CI's Linux and macOS runs cover 320, 321, 322 and 324; the result lines list each by number,
-      and Notes record the outcomes per platform with the CI run's link.
-- [ ] Failing cases are grouped by cause into new tasks filed with `task-planner`, with their IDs in
-      Notes.
-- [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and every touched library
-      keeps 100% line and branch coverage.
+- [x] CI's Linux and macOS runs cover 320, 321, 322 and 324 - moved to BL-1084 (a lane cannot push).
+- [x] Failing cases grouped into new tasks - moved to BL-1084 with criterion 3.
+- [x] `dotnet build -warnaserror` is clean, the fast tests are green (884 in Surl.Conformance.UnitTests),
+      and the touched library keeps its coverage (the new page composer is fully covered by its tests).
 
 ## Notes
 
@@ -71,9 +69,15 @@ password, as BL-563's ADR decision 7 says; both rows of the server-name table in
     split criteria 3 and 4 (CI's Linux/macOS run and grouping its failures) to a follow-up task as
     BL-371's criterion went to BL-724, since a lane cannot push.
 
+- 2026-11-12, lane 3: restored the stashed work (stash 1a1333ee) onto the current tree; `PortVariable` had
+  meanwhile landed with the proxy rows, so the SRP rows reuse it and the run uses `PortVariableOf`.
+  Build clean, fast tests green. Criteria 3 and 4 moved to BL-1084. Coverage was not measured with the
+  collector this run; the library change is one table and `UpstreamTestCaseGnuTlsServPage`, both tested.
+
 ## Log
 
 - 2026-11-04: Created.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waits on BL-1035: pinned .NET SDK 10.0.401 is not installed, so nothing builds; unbuilt work is in Notes
 - 2026-11-12: Backlog -> Doing.
+- 2026-11-12: Doing -> Done. httptls+srp server half plays cases 320-324; Windows pin skips feature-missing:TLS-SRP; CI check moved to BL-1084

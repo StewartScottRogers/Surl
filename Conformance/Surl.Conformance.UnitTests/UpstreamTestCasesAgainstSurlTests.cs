@@ -13,6 +13,7 @@ using Surl.Protocol.HttpProxy;
 using Surl.Protocol.Mqtt;
 using Surl.Protocol.Socks;
 using Surl.Protocol.Tftp;
+using Surl.TlsSrp;
 
 namespace Surl.Conformance;
 
@@ -66,6 +67,7 @@ public sealed class UpstreamTestCasesAgainstSurlTests
 
     // The variable the socks5unix row names its socket path with.
     private static readonly string SocksUnixPathVariable = UpstreamTestCaseServers.Find("socks5unix")!.UnixSocketPathVariable!;
+    private const string TlsSrpFamily = "httptls+srp";
 
     // Each composed server name and the server half that plays it; a case naming any other is
     // skipped server-half-not-composed. dict and telnet are Surl's own servers, which keep no log.
@@ -96,6 +98,8 @@ public sealed class UpstreamTestCasesAgainstSurlTests
         ["socks4"] = SocksFamily,
         ["socks5"] = SocksFamily,
         ["socks5unix"] = SocksFamily,
+        ["httptls+srp"] = TlsSrpFamily,
+        ["httptls+srp-ipv6"] = TlsSrpFamily,
     };
 
     // The port variable the server-name table gives a proxy row.
@@ -278,6 +282,7 @@ public sealed class UpstreamTestCasesAgainstSurlTests
         private readonly TestContext testContext;
         private readonly UpstreamTestCaseFileServers fileServers = new();
         private readonly string sshUser = UpstreamTestCaseFileServers.SshLoginNameFor(Environment.UserName);
+        private readonly TlsSrpAccounts tlsSrpAccounts = UpstreamTestCaseTlsSrpServerHalf.ReadAccounts(Path.Combine(Root, "certs"));
 
         public CaseRun(UpstreamCurlLocation location, UpstreamCurlLocation? smbLocation, string work, TestContext testContext)
         {
@@ -421,8 +426,9 @@ public sealed class UpstreamTestCasesAgainstSurlTests
             const string logDirectory = "log";
             Directory.CreateDirectory(Path.Combine(caseDirectory, logDirectory));
             await using var serverHalves = await UpstreamTestCaseServerHalves.StartAsync(tlsSettings, httpUnixSocketPath, socksUnixSocketPath, cancellationToken);
+            await using var tlsSrp = UpstreamTestCaseTlsSrpServerHalf.Start(tlsSrpAccounts, cancellationToken);
 
-            var testCase = UpstreamTestCaseParser.Parse(source, RunEnvironment(number, caseDirectory, logDirectory, serverHalves, client, httpUnixSocketPath, socksUnixSocketPath, source));
+            var testCase = UpstreamTestCaseParser.Parse(source, RunEnvironment(number, caseDirectory, logDirectory, serverHalves, tlsSrp, client, httpUnixSocketPath, socksUnixSocketPath, source));
             UpstreamTestCaseCommandLine commandLine;
             HttpUpstreamTestCaseReplies replies;
             FtpUpstreamTestCaseReplies ftpReplies;
@@ -527,7 +533,7 @@ public sealed class UpstreamTestCasesAgainstSurlTests
         }
 
         private UpstreamTestCaseEnvironment RunEnvironment(
-            int number, string caseDirectory, string logDirectory, UpstreamTestCaseServerHalves serverHalves, CaseClient client, string? httpUnixSocketPath, string? socksUnixSocketPath, byte[] source) => new(
+            int number, string caseDirectory, string logDirectory, UpstreamTestCaseServerHalves serverHalves, UpstreamTestCaseTlsSrpServerHalf tlsSrp, CaseClient client, string? httpUnixSocketPath, string? socksUnixSocketPath, byte[] source) => new(
             WithUnixSocketPaths(new Dictionary<string, string>(StringComparer.Ordinal)
             {
                 ["HOSTIP"] = "127.0.0.1",
@@ -556,6 +562,8 @@ public sealed class UpstreamTestCasesAgainstSurlTests
                 [PortVariableOf("http-proxy")] = serverHalves.ProxyPort.ToString(CultureInfo.InvariantCulture),
                 [PortVariableOf("https-proxy")] = serverHalves.HttpsProxyPort.ToString(CultureInfo.InvariantCulture),
                 [PortVariableOf("socks5")] = SocksPortFor(serverHalves, source).ToString(CultureInfo.InvariantCulture),
+                [PortVariableOf("httptls+srp")] = tlsSrp.Port.ToString(CultureInfo.InvariantCulture),
+                [PortVariableOf("httptls+srp-ipv6")] = tlsSrp.IPv6Port.ToString(CultureInfo.InvariantCulture),
                 // The SSH server half's root is the case's folder (UpstreamTestCaseFileServers).
                 ["SFTP_PWD"] = string.Empty,
                 ["SCP_PWD"] = string.Empty,
