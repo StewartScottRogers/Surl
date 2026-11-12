@@ -8,7 +8,7 @@ depends-on: [BL-977]
 touches: [Conformance/Surl.Conformance.UnitTests]
 requirement: none
 created: 2026-11-05
-completed:
+completed: 2026-11-12
 ---
 # BL-819 — Write the control-endpoint stand-in recipe with pinned upstream curl driving a running surl
 
@@ -34,15 +34,20 @@ watch the exchange through the control endpoint, and reset.
 
 ## Acceptance criteria
 
-- [ ] `StandInControlEndpointRecipeTests` exists with tests for: seed then read over IMAP; fault then the failing
+- [x] `StandInControlEndpointRecipeTests` exists with tests for: seed then read over IMAP; fault then the failing
       read; wait for the IMAP exchange event; reset then the mailbox is empty; refused without the token - each
       passing on Windows with the pinned build and the built `surl`, platform-neutral.
-- [ ] `dotnet build -warnaserror` is clean and `dotnet test --filter "TestCategory!=Integration"` is green.
+- [x] `dotnet build -warnaserror` is clean and `dotnet test --filter "TestCategory!=Integration"` is green.
 
 ## Notes
+
+- Seeding uses `Content-Type: message/rfc822` with `--data-binary` and faults `text/plain` with `-d`, because that is what BL-814 built (not `--json`); a mail seed answers 204, a fault 201 `{"fault_id"}`.
+- The fault is `refuse-login;account=ann@example.test` (curl exit 67), then removed with `DELETE /v1/faults/{id}`.
+- `SurlOnLoopback` gained `StartInMemoryWithControlAsync` and `ControlUrl`; `PublishedSurlProcess` also collects the `Control endpoint listening on` status line. Both stay inside the task's `touches` (same project).
 
 ## Log
 
 - 2026-11-05: Created.
 - 2026-11-06: depends-on BL-816 replaced by BL-977 (BL-816 split into BL-1016, BL-1022, BL-972, BL-977 after timing out; Stewart asked for the split 2026-11-06).
 - 2026-11-12: Backlog -> Doing.
+- 2026-11-12: Doing -> Done. Control-endpoint stand-in recipe: pinned curl seeds, faults, waits, resets and is refused without token against a running surl

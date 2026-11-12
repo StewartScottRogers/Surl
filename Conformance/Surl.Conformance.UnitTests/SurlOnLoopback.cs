@@ -13,6 +13,7 @@ namespace Surl.Conformance;
 internal sealed class SurlOnLoopback : IAsyncDisposable
 {
     private const string StatusLinePrefix = "Listening on ";
+    private const string ControlStatusLinePrefix = "Control endpoint listening on ";
     private const string UnixSocketSeparator = " over unix://";
 
     private static readonly TimeSpan StartTimeout = TimeSpan.FromSeconds(30);
@@ -27,7 +28,9 @@ internal sealed class SurlOnLoopback : IAsyncDisposable
         this.readLog = readLog;
         this.stopSurlAsync = stopSurlAsync;
         // A listener on a Unix socket says so after its URL: "Listening on ftp://localhost:21/ over unix://<path>".
-        BaseUrls = [.. statusLines.Select(line => new Uri(line[StatusLinePrefix.Length..].Split(UnixSocketSeparator)[0]))];
+        BaseUrls = [.. statusLines.Where(line => line.StartsWith(StatusLinePrefix, StringComparison.Ordinal)).Select(line => new Uri(line[StatusLinePrefix.Length..].Split(UnixSocketSeparator)[0]))];
+        ControlUrl = statusLines.Where(line => line.StartsWith(ControlStatusLinePrefix, StringComparison.Ordinal))
+            .Select(line => new Uri(line[ControlStatusLinePrefix.Length..])).FirstOrDefault();
     }
 
     /// <summary>
@@ -41,6 +44,12 @@ internal sealed class SurlOnLoopback : IAsyncDisposable
     /// the order surl wrote them.
     /// </summary>
     public IReadOnlyList<Uri> BaseUrls { get; }
+
+    /// <summary>
+    /// Gets the URL of the control endpoint, with the port surl bound, when surl was started with one
+    /// (<see cref="StartInMemoryWithControlAsync"/>); otherwise <see langword="null"/>.
+    /// </summary>
+    public Uri? ControlUrl { get; }
 
     /// <summary>
     /// Gets the full path of the temporary directory surl serves, when it serves one this
@@ -154,6 +163,28 @@ internal sealed class SurlOnLoopback : IAsyncDisposable
             [.. options, .. schemes.Select(scheme => $"{scheme}://127.0.0.1:0/")],
             cancellationToken,
             schemes.Count);
+
+    /// <summary>
+    /// As <see cref="StartInMemoryAsync(IReadOnlyList{string}, IReadOnlyList{string}, CancellationToken)"/>, with
+    /// the control endpoint on <c>http://127.0.0.1:0</c> guarded by the token in
+    /// <paramref name="controlTokenFile"/> (<c>--control</c>, <c>--control-token-file</c>), returning once surl has
+    /// written a status line for every listener and for the control endpoint; <see cref="ControlUrl"/> names it.
+    /// </summary>
+    public static Task<SurlOnLoopback> StartInMemoryWithControlAsync(
+        IReadOnlyList<string> schemes,
+        IReadOnlyList<string> options,
+        string controlTokenFile,
+        CancellationToken cancellationToken) =>
+        StartServingAsync(
+            null,
+            [
+                .. options,
+                "--control", "http://127.0.0.1:0",
+                "--control-token-file", controlTokenFile,
+                .. schemes.Select(scheme => $"{scheme}://127.0.0.1:0/"),
+            ],
+            cancellationToken,
+            schemes.Count + 1);
 
     /// <summary>
     /// Starts surl on <c><paramref name="scheme"/>://127.0.0.1:0/</c> with

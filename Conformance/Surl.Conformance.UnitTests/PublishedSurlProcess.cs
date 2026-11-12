@@ -18,6 +18,8 @@ internal sealed class PublishedSurlProcess : IAsyncDisposable
 
     private const string StatusLinePrefix = "Listening on ";
 
+    private const string ControlStatusLinePrefix = "Control endpoint listening on ";
+
     private static readonly TimeSpan TerminateGrace = TimeSpan.FromSeconds(10);
 
     private readonly Process process;
@@ -202,7 +204,7 @@ internal sealed class PublishedSurlProcess : IAsyncDisposable
             }
         }
 
-        if (line is null || !line.StartsWith(StatusLinePrefix, StringComparison.Ordinal))
+        if (line is null || !(line.StartsWith(StatusLinePrefix, StringComparison.Ordinal) || line.StartsWith(ControlStatusLinePrefix, StringComparison.Ordinal)))
         {
             return;
         }
