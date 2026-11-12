@@ -210,6 +210,12 @@ public static partial class SurlServerComposition
             return (null, new SurlStartFailure(SurlExitCode.FailedInit, [groupFailureMessage!]));
         }
 
+        // The shared folders' members, expanded now the groups are (ADR-0102 decision 1.6).
+        if (mailboxes.ComposeSharedFolders(commandLine, accountGroups) is { } sharedFolderFailure)
+        {
+            return (null, new SurlStartFailure(SurlExitCode.FailedInit, [sharedFolderFailure]));
+        }
+
         // The proxy's own accounts, never the origin's (ADR-0088 decision 5).
         var (proxyPolicy, proxyExitCode, proxyFailureMessage) = AuthenticationComposition.ComposeProxyPolicy(
             commandLine, readStartFile, seams.TimeProvider, instruments.Events, instruments.Faults);
@@ -306,7 +312,10 @@ public static partial class SurlServerComposition
 
         if (loaded.State is null)
         {
-            return Refuse(SurlExitCode.CouldNotReadFile, loaded.FailureMessage!);
+            // A route the mail store refuses is a mistake in the options (2), not a file it could not read (37).
+            return Refuse(
+                loaded.FailureMessage!.StartsWith("(2)", StringComparison.Ordinal) ? SurlExitCode.FailedInit : SurlExitCode.CouldNotReadFile,
+                loaded.FailureMessage);
         }
 
         var originConnector = ComposeOriginConnector(commandLine, seams);

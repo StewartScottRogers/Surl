@@ -161,6 +161,9 @@ public sealed class ComposedServing : IAsyncDisposable
         // Each topic filter granting @everyone, with the other widening warnings (ADR-0102 decision 3.4).
         MessageBusComposition.WriteWarnings(commandLine.LogLevel, Stores.Bus.Configuration, log);
 
+        // Each mail catch-all, with the other widening warnings (ADR-0102 decision 1.3, ADR-0101 decision 4).
+        MailboxComposition.WriteWarnings(commandLine, log);
+
         // Each -K file, then the --user-file, readable by other users, at the warnings' level (ADR-0101, decision 5).
         ReadableByOthersWarning.WriteForFilesThatMayHoldPasswords(
             commandLine, seams.ReadStartFileUnixMode ?? ReadableByOthersWarning.ReadDiskMode, log);

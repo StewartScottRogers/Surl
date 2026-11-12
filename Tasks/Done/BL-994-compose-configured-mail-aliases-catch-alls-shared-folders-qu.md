@@ -8,7 +8,7 @@ depends-on: [BL-993, BL-675, BL-677]
 touches: [Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests]
 requirement: none
 created: 2026-11-06
-completed:
+completed: 2026-11-11
 ---
 # BL-994 — Compose configured mail aliases, catch-alls, shared folders, quotas and folders into the mail store
 
@@ -33,11 +33,11 @@ store, with `@group` members expanded and the catch-all warned at start.
 
 ## Acceptance criteria
 
-- [ ] Named tests in `Application/Surl.Composition.UnitTests` show aliases, catch-alls, shared folders (with an
+- [x] Named tests in `Application/Surl.Composition.UnitTests` show aliases, catch-alls, shared folders (with an
       `@group` member expanded), quotas and folders reaching the composed store.
-- [ ] Named tests show each `MailRouteException` problem mapped to exit 2 with the ADR's text, and the catch-all
+- [x] Named tests show each `MailRouteException` problem mapped to exit 2 with the ADR's text, and the catch-all
       warning written at start.
-- [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and `Surl.Composition.UnitLibrary` keeps 100%
+- [x] `dotnet build -warnaserror` is clean, the fast tests are green, and `Surl.Composition.UnitLibrary` keeps 100%
       line and branch coverage.
 
 ## Notes
@@ -47,9 +47,22 @@ store, with `@group` members expanded and the catch-all warned at start.
   (null for none, else at least 1) and `Folders` (empty for none) hold the settings. `@everyone` as a `--shared-folder`
   member is not refused by the reader: refuse it here with ADR-0102 decision 1.6's text, as `--group`'s is.
 
+- 2026-11-11 (BL-994 decisions, no ADR needed - they apply ADR-0102 1.3 and 1.6 as written):
+  - Shared folders are composed in `MailboxComposition.ComposeSharedFolders` after `AccountGroupExpansion`, since groups
+    need every account name; it rebuilds `MailDomains` with them. A store refusal (`MailRouteException`) is caught in
+    `LoadMailStoreAsync` and written by `DescribeRouteFailure`; the start maps a `(2)` message to exit 2, else 37.
+  - ADR-0102 gives only the alias text for "includes itself"; a catch-all says `catch-all <address> includes itself`.
+  - A `MailDomainConfiguration` `ArgumentException` (hand-built command lines only; the readers refuse these) is `(2)`
+    with the exception text, parameter name stripped.
+  - The catch-all warning is `surl: warning: --mail-catch-all: <domain> keeps mail to every unknown address, which would
+    otherwise be discarded`, from info up, after the fault/share/topic warnings.
+  - `-v` notes added: `, quota <n> bytes` / `, <n> folders` on the mailbox line and `Shared folder Shared/<name>: <n>
+    members`. The ADR's `Alias <address>: <n> owners` note is not written: owners are resolved inside the store.
+
 ## Log
 
 - 2026-11-06: Created.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. returned by the shift starting 20261111-212123: it was in Doing but no stopped lane held it; look for its work in 'git stash list' and in factory/BL-994-* branches before redoing it
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Done. Configured aliases, catch-alls, shared folders (groups expanded), quotas and folders reach the mail store; route refusals exit 2; catch-all warned at start

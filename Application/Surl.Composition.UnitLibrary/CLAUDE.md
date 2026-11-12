@@ -168,7 +168,11 @@ rather than writing it, and the warning writers take the log `TextWriter` they w
   before `AuthenticationComposition.Compose`, which adds its accounts after the `--user-file` ones
   and refuses one named like a `--user-file` account `(2)`; it rides on `ComposedAuthentication.Mailboxes`,
   and `WriteStartLines` writes the `-v` notes after the groups'. With no `MailDomains` it composes
-  nothing and the start is as before.
+  nothing and the start is as before. BL-994: the configuration also carries `MailAliases`,
+  `MailCatchAlls` and each mailbox's `QuotaBytes`/`Folders`; `ComposeSharedFolders` adds the
+  `--shared-folder`s after the groups are expanded (`@group` members become account names, `@everyone`
+  is `(2)`); `WriteWarnings` writes the `--mail-catch-all` warning from info up; `DescribeRouteFailure`
+  gives a `MailRouteException`'s `(2)` text, which `LoadMailStoreAsync` returns and the start maps to exit 2.
 - `AccountGroupExpansion` - every `--group` expanded to account names once the accounts are read
   (ADR-0102 decision 4.1), refusing `everyone` and `@everyone` (4.2), a member naming no account or
   group and a group that includes itself (ADR-0101 decision 5 row 18), each `(2)`; `Expand` turns a

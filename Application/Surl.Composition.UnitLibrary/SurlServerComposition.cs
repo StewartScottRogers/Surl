@@ -492,14 +492,14 @@ public static partial class SurlServerComposition
     {
         ArgumentNullException.ThrowIfNull(commandLine);
         var maxMessageBytes = commandLine.Limits.MaxUploadBytes;
-        if (files is null)
-        {
-            return (new MailboxStore(
-                accountNames, commandLine.AllowAnonymous, timeProvider, maxMessageBytes, mailDomains: mailDomains, events: events, faults: faults), null);
-        }
-
         try
         {
+            if (files is null)
+            {
+                return (new MailboxStore(
+                    accountNames, commandLine.AllowAnonymous, timeProvider, maxMessageBytes, mailDomains: mailDomains, events: events, faults: faults), null);
+            }
+
             return (await MailboxStore.LoadAsync(
                 files,
                 accountNames,
@@ -514,6 +514,10 @@ public static partial class SurlServerComposition
         catch (MailStoreLoadException failure)
         {
             return (null, $"(37) Could not read {failure.FilePath}: {failure.Message}");
+        }
+        catch (MailRouteException failure)
+        {
+            return (null, MailboxComposition.DescribeRouteFailure(failure));
         }
     }
 
