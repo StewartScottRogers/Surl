@@ -8,7 +8,7 @@ depends-on: [BL-472, BL-1035]
 touches: [Documentation/Conformance/Extended/Coap.md]
 requirement: none
 created: 2026-11-05
-completed:
+completed: 2026-11-11
 ---
 # BL-752 — Trace BL-472's rows of the CoAP requirement matrix to their named tests
 
@@ -29,14 +29,16 @@ tests in `Surl.Extended.Protocol.Coap.UnitTests` that prove it, or the task that
 
 ## Acceptance criteria
 
-- [ ] `Select-String -Path Documentation/Conformance/Extended/Coap.md -Pattern 'BL-472'` finds nothing.
-- [ ] Every test name the matrix gives exists in `Protocols/Http/Surl.Extended.Protocol.Coap.UnitTests`.
+- [x] `Select-String -Path Documentation/Conformance/Extended/Coap.md -Pattern 'BL-472'` finds nothing.
+- [x] Every test name the matrix gives exists in `Protocols/Http/Surl.Extended.Protocol.Coap.UnitTests`.
 
 ## Notes
 
 Filed by BL-472: the matrix file was outside its `touches`.
 
 - 2026-11-11 (lane 5): The tracing is finished and kept on branch `factory/BL-752-lane-6-20261111-060243` (commit c96921f2: the matrix, BL-1037 and this file). It could not integrate because `global.json` pins SDK 10.0.401, which is still not installed (only 10.0.100-rc.1 and 11.0.x), so `dotnet build` fails in every lane. Parked behind BL-1035. When it restarts: `git cherry-pick --no-commit c96921f2`, keep the matrix and BL-1037 (renumber if 1037 was taken), drop that commit's move of this file, build, test, then move this to Done with the script.
+
+- 2026-11-11 (lane 4): Did not cherry-pick c96921f2: master's matrix (BL-1048 and others) had meanwhile traced every row and no `BL-472` remained; BL-1037 from that branch is not filed (its number is now another task's). Checked every `Class.Method` in the matrix against the tests: the one wrong name (`ServeAsync_ConRequest_IsAnsweredWithAPiggybacked404...`, row 5.3.1-2) now names `ServeAsync_MissingResource_Gets404WithItsToken`. The names still not in `Surl.Extended.Protocol.Coap.UnitTests` are the DTLS, composition, command-line and conformance tests the matrix names in their own projects.
 
 ## Log
 
@@ -48,3 +50,4 @@ Filed by BL-472: the matrix file was outside its `touches`.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waiting on BL-1035: pinned .NET SDK 10.0.401 is not installed, so no lane can build; finished work is on factory/BL-752-lane-6-20261111-060243 (c96921f2)
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Done. CoAP matrix names no BL-472; every Coap-project test name it gives exists (fixed one wrong name)
