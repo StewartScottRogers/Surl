@@ -148,6 +148,13 @@ public static class AiHelpExamples
             ["surl: warning: --allow-anonymous: every request and login is accepted without checking credentials"],
             ["curl ftp://127.0.0.1:<port>/example.txt"]),
         Serving("gopher", "Serve Gopher", ["gopher://127.0.0.1:0/"], ["Listening on gopher://127.0.0.1:<port>/"], [], ["curl gopher://127.0.0.1:<port>/"]),
+        Serving(
+            "gs",
+            "For a test: serve Google Cloud Storage over HTTPS with a throwaway certificate and one account",
+            ["--self-signed", "-u", "GOOGTESTKEY:secret", "gs://127.0.0.1:0/"],
+            ["Listening on gs://127.0.0.1:<port>/"],
+            ["surl: warning: --self-signed: serving a throwaway certificate; clients must skip verification (curl -k)"],
+            []),
         Serving("http", "Serve HTTP", [HttpListenUrl], [ListeningOnHttp], [], ["curl -I http://127.0.0.1:<port>/"]),
         Refused(
             "http",

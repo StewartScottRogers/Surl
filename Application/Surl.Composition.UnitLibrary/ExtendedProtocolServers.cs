@@ -1,6 +1,7 @@
 using Surl.Extended.Protocol.AzureStorage;
 using Surl.Extended.Protocol.Coap;
 using Surl.Extended.Protocol.DnsQuery;
+using Surl.Extended.Protocol.GoogleCloudStorage;
 using Surl.Extended.Protocol.Kafka;
 using Surl.Extended.Protocol.Nats;
 using Surl.Extended.Protocol.S3;
@@ -85,6 +86,8 @@ public static class ExtendedProtocolServers
         new(["dns"], services => new DnsDatagramRoutingProtocolServer(
             new DnsUdpProtocolServer(services.DnsZones, services.AllowsZoneTransfer), () => ComposeDnsOverQuic(services))),
         new(["dns"], services => new DnsTcpProtocolServer(services.DnsZones, services.AllowsZoneTransfer)),
+        new(["gs"], services => new GoogleCloudStorageProtocolServer(
+            services.ContentStore, services.ObjectMetadataIndex, services.AuthenticationPolicyFor("gs"), services.TimeProvider)),
         new(["kafka", "kafkas"], ComposeKafkaBroker),
         new(["nats", NatsServer.TlsScheme], services => new NatsServer(
             services.AuthenticationPolicyFor("nats"),

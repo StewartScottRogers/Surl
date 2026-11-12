@@ -8,7 +8,7 @@ depends-on: [BL-432, BL-405, BL-655, BL-1035]
 touches: [Foundation/Surl.Protocol.Abstractions.UnitLibrary, Foundation/Surl.Protocol.Abstractions.UnitTests, Foundation/Surl.Networking.UnitLibrary, Foundation/Surl.Networking.UnitTests, Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests, Application/Surl.Console, Application/Surl.Console.UnitTests, Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests, Documentation/Conformance/Extended/GoogleCloudStorage.md]
 requirement: none
 created: 2026-11-06
-completed:
+completed: 2026-11-12
 ---
 # BL-1026 — Serve gs from the surl executable
 
@@ -38,12 +38,12 @@ completed:
 
 ## Acceptance criteria
 
-- [ ] A named test finds `gs` registered when the switch is on, and absent when it is off.
-- [ ] A named test shows the `gs` server and the `ftp` and `http` servers composed with one and the same
+- [x] A named test finds `gs` registered when the switch is on, and absent when it is off.
+- [x] A named test shows the `gs` server and the `ftp` and `http` servers composed with one and the same
       `ContentStore` instance.
-- [ ] The `--aihelp` completeness tests named in root `CLAUDE.md` pass, and the matrix rows `GCS:Surl-Tls-1` and
+- [x] The `--aihelp` completeness tests named in root `CLAUDE.md` pass, and the matrix rows `GCS:Surl-Tls-1` and
       `-2` name this task's tests.
-- [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and `Surl.Composition`, `Surl.Console` and
+- [x] `dotnet build -warnaserror` is clean, the fast tests are green, and `Surl.Composition`, `Surl.Console` and
       `Surl.Cli` keep 100% line and branch coverage.
 
 ## Notes
@@ -78,9 +78,17 @@ completed:
   with `RunAsync_GsWithSelfSigned_ListensAtItsDefaultPort443` and
   `RunAsync_GsWithoutACertificate_ExitsWithCertificateProblem`.
 
+- 2026-11-12 (lane 1): the earlier uncommitted work could not be restored (stash unreadable), so it was redone
+  from the note above and the BL-1023 `az` commit as a template; build and the fast tests are green. Registration
+  sits between `dns` and `kafka` (the earlier note said `nats`; order is not pinned by anything but the tests).
+  The `--aihelp` example uses `-u GOOGTESTKEY:secret`, not ADR-0110's `--user ':<token>'`, because the command line
+  refuses an empty user name (`OptionArgumentReader.EmptyUserName`); the topic text names the V4 HMAC login and the
+  bearer token "the accounts hold". Matrix row `GCS:Surl-Tls-1` names this task's tests; `-2` is `--gs-plaintext`,
+  BL-1027's, so it now says so rather than naming a test this task cannot have.
 ## Log
 
 - 2026-11-06: Created.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waiting on BL-1035: pinned .NET SDK 10.0.401 is not installed, so nothing builds; gs code left uncommitted
 - 2026-11-12: Backlog -> Doing.
+- 2026-11-12: Doing -> Done. surl gs:// serves Google Cloud Storage over TLS on the shared content store, with its aihelp topic, help category and extension switch

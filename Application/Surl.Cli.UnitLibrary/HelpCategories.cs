@@ -15,6 +15,7 @@ internal static class HelpCategories
         new("dns", "DNS protocol (extended)", ["dns"]),
         new("ftp", "FTP and FTPS protocol", ["ftp", "ftps"]),
         new("gopher", "GOPHER and GOPHERS protocol", ["gopher", "gophers"]),
+        new("gs", "Google Cloud Storage protocol (extended)", ["gs"]),
         new("http", "HTTP and HTTPS protocol", ["http", "https"]),
         new("imap", "IMAP and IMAPS protocol", ["imap", "imaps"]),
         new("kafka", "Kafka and Kafka over TLS protocol (extended)", ["kafka", "kafkas"]),

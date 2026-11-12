@@ -15,6 +15,7 @@ public sealed class HelpTextTests
         " dns            DNS protocol (extended)",
         " ftp            FTP and FTPS protocol",
         " gopher         GOPHER and GOPHERS protocol",
+        " gs             Google Cloud Storage protocol (extended)",
         " http           HTTP and HTTPS protocol",
         " imap           IMAP and IMAPS protocol",
         " kafka          Kafka and Kafka over TLS protocol (extended)",
@@ -207,10 +208,10 @@ public sealed class HelpTextTests
             "",
             "This is not the full help; this menu is split into categories.",
             "Use \"--help category\" to get an overview of all categories, which are:",
-            "auth, azure-storage, coap, content, dict, dns, ftp, gopher, http, imap, kafka,",
-            "ldap, limits, logging, mail, messages, mqtt, nats, pop3, proxy, rtsp, s3,",
-            "security, smb, smtp, socketio, socks, ssh, stomp, surl, telnet, testing, tftp,",
-            "tls, websocket, webtransport, xmpp.",
+            "auth, azure-storage, coap, content, dict, dns, ftp, gopher, gs, http, imap,",
+            "kafka, ldap, limits, logging, mail, messages, mqtt, nats, pop3, proxy, rtsp,",
+            "s3, security, smb, smtp, socketio, socks, ssh, stomp, surl, telnet, testing,",
+            "tftp, tls, websocket, webtransport, xmpp.",
             "Use \"--help all\" to list all options",
             "Use \"--help [option]\" to view documentation for a given option");
     }
@@ -540,7 +541,7 @@ public sealed class HelpTextTests
             "    -u, --user <user:password>",
             "        Add an account (repeatable). Default: no accounts.",
             "",
-            "        Categories: auth, azure-storage, ftp, http, imap, ldap, mqtt, nats,",
+            "        Categories: auth, azure-storage, ftp, gs, http, imap, ldap, mqtt, nats,",
             "        pop3, rtsp, s3, smb, smtp, ssh, stomp, websocket.",
             "");
 
@@ -551,7 +552,7 @@ public sealed class HelpTextTests
             "    --user-file <file>",
             "        Read accounts from a file. Default: none.",
             "",
-            "        Categories: auth, azure-storage, ftp, http, imap, ldap, mqtt, nats,",
+            "        Categories: auth, azure-storage, ftp, gs, http, imap, ldap, mqtt, nats,",
             "        pop3, rtsp, s3, smb, smtp, ssh, stomp, websocket.",
             "");
 
@@ -565,7 +566,7 @@ public sealed class HelpTextTests
                 "",
                 .. AllowAnonymousExplanationLines,
                 "",
-                "        Categories: auth, azure-storage, ftp, http, imap, ldap, mqtt, nats,",
+                "        Categories: auth, azure-storage, ftp, gs, http, imap, ldap, mqtt, nats,",
                 "        pop3, rtsp, s3, security, smb, smtp, ssh, stomp, testing, websocket.",
                 "",
             ]);

@@ -10,6 +10,7 @@ public sealed class TlsApplicationProtocolsTests
     [DataRow("wss", "http/1.1")]
     [DataRow("s3", "http/1.1")]
     [DataRow("az", "http/1.1")]
+    [DataRow("gs", "http/1.1")]
     [DataRow("abfss", "http/1.1")]
     [DataRow("abfs", "")]
     [DataRow("ftp", "")]

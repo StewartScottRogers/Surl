@@ -229,6 +229,72 @@ public sealed class CommandLineRunnerExtendedProtocolTests
     }
 
     [TestMethod]
+    public void ComposeExtendedSchemes_ThisBuildWithTheSwitchUnset_RegistersGs()
+    {
+        var runner = CreateRunner(new FakeListenerFactory(), FakeEnvironmentVariableReader.Empty, composeExtendedProtocolServers: null);
+
+        var schemes = runner.ComposeExtendedSchemes();
+
+        CollectionAssert.Contains(schemes.ToArray(), "gs");
+    }
+
+    [TestMethod]
+    public void ComposeExtendedSchemes_ThisBuildWithTheSwitchAtZero_RegistersNoGs()
+    {
+        var runner = CreateRunner(new FakeListenerFactory(), FakeEnvironmentVariableReader.ExtensionsTurnedOff, composeExtendedProtocolServers: null);
+
+        var schemes = runner.ComposeExtendedSchemes();
+
+        CollectionAssert.DoesNotContain(schemes.ToArray(), "gs");
+    }
+
+    [TestMethod]
+    public async Task RunAsync_GsWithSelfSigned_ListensAtItsDefaultPort443()
+    {
+        var factory = new FakeListenerFactory();
+        using var stop = CancellationTokenSource.CreateLinkedTokenSource(TestContext.CancellationToken);
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+        var runner = CreateRunner(factory, FakeEnvironmentVariableReader.Empty, composeExtendedProtocolServers: null);
+
+        var running = runner.RunAsync(["--self-signed", "gs://127.0.0.1/"], output, error, stop.Token);
+        await factory.AcceptStarted.Task.WaitAsync(TestContext.CancellationToken);
+        await stop.CancelAsync();
+        var exitCode = await running;
+
+        Assert.AreEqual(SurlExitCode.Ok, exitCode);
+        Assert.AreEqual(new ListenUrl("gs", "127.0.0.1", 443), factory.StartedListenUrls.Single());
+        Assert.AreEqual($"Listening on gs://127.0.0.1:{FakeListenerFactory.BoundPort}/" + NewLine, output.ToString());
+    }
+
+    [TestMethod]
+    public async Task RunAsync_GsWithoutACertificate_ExitsWithCertificateProblem()
+    {
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+        var runner = CreateRunner(new FakeListenerFactory(), FakeEnvironmentVariableReader.Empty, composeExtendedProtocolServers: null);
+
+        var exitCode = await runner.RunAsync(["gs://127.0.0.1:0/"], output, error, TestContext.CancellationToken);
+
+        Assert.AreEqual(SurlExitCode.CertificateProblem, exitCode);
+        Assert.AreEqual(
+            "surl: (58) gs://127.0.0.1:0/ needs a certificate: give --cert <file>, or --self-signed for a throwaway one" + NewLine,
+            error.ToString());
+    }
+
+    [TestMethod]
+    public async Task RunAsync_GsWithTheSwitchAtZero_RefusesItsSchemeAsAnUnknownScheme()
+    {
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+        var runner = CreateRunner(new FakeListenerFactory(), FakeEnvironmentVariableReader.ExtensionsTurnedOff, composeExtendedProtocolServers: null);
+
+        var exitCode = await runner.RunAsync(["--self-signed", "gs://127.0.0.1:0/"], output, error, TestContext.CancellationToken);
+
+        Assert.AreEqual(SurlExitCode.UnsupportedProtocol, exitCode);
+        Assert.AreEqual("surl: (1) Protocol \"gs\" not supported" + NewLine, error.ToString());
+    }
+    [TestMethod]
     public void ComposeExtendedSchemes_ThisBuildWithTheSwitchUnset_RegistersNatsNatssSocketioAndSocketios()
     {
         var runner = CreateRunner(new FakeListenerFactory(), FakeEnvironmentVariableReader.Empty, composeExtendedProtocolServers: null);
@@ -492,7 +558,7 @@ public sealed class CommandLineRunnerExtendedProtocolTests
 
         var schemes = runner.ComposeExtendedSchemes();
 
-        CollectionAssert.AreEqual(new[] { "az", "abfs", "abfss", "coap", "coaps", "dns", "kafka", "kafkas", "nats", "natss", "s3", "socketio", "socketios", "stomp", "stomps", "webtransport", "xmpp", "xmpps" }, schemes.ToArray());
+        CollectionAssert.AreEqual(new[] { "az", "abfs", "abfss", "coap", "coaps", "dns", "gs", "kafka", "kafkas", "nats", "natss", "s3", "socketio", "socketios", "stomp", "stomps", "webtransport", "xmpp", "xmpps" }, schemes.ToArray());
     }
 
     [TestMethod]
