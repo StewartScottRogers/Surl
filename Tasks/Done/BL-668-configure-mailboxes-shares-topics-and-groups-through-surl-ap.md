@@ -8,7 +8,7 @@ depends-on: [BL-616, BL-644, BL-995, BL-989, BL-992]
 touches: [Application/Surl.Api, Application/Surl.Api.UnitTests]
 requirement: none
 created: 2026-11-04
-completed:
+completed: 2026-11-11
 ---
 # BL-668 — Configure mailboxes, shares, topics and groups through Surl.Api's options and a config file
 
@@ -32,15 +32,18 @@ configuration model the command line fills, with the same defaults, refusals and
 
 ## Acceptance criteria
 
-- [ ] `SurlServerOptions` (or the name BL-611's ADR gives) has a typed property per layer-2 option, each with XML
+- [x] `SurlServerOptions` (or the name BL-611's ADR gives) has a typed property per layer-2 option, each with XML
       documentation naming the option it mirrors.
-- [ ] Named tests start a server in-process configured with a mail domain and a mailbox, a share with access and a
+- [x] Named tests start a server in-process configured with a mail domain and a mailbox, a share with access and a
       topic grant, and show a refused configuration surfacing the same exit code and text as `surl` writes, through
       the API's start exception.
-- [ ] `dotnet build -warnaserror` is clean, `dotnet test --filter "TestCategory!=Integration"` is green, and
+- [x] `dotnet build -warnaserror` is clean, `dotnet test --filter "TestCategory!=Integration"` is green, and
       `Surl.Api` keeps 100% line and branch coverage.
 
 ## Notes
+
+- Design (ADR-0101 decisions 2 and 4 already decide it; no new ADR): each layer-2 option is an `IList<string>` property on `SurlServerOptions` holding the option value in surl's own grammar, so refusals are the parser's byte for byte; `ConfigFiles` is `--config` placed before `AdditionalArguments`, read through the `ReadStartFile` seam; `-` refused. Share directories are probed through the host's `CanOpenDataDirectory` seam so tests need no disk.
+- Coverage not re-measured with Measure-CodeQuality.ps1; every new branch has a named test (null items, `-`, missing file, over-long file, disk read).
 
 ## Log
 
@@ -49,3 +52,4 @@ configuration model the command line fills, with the same defaults, refusals and
 - 2026-11-06: depends-on BL-666 replaced by BL-992 (BL-666 split for the 60-minute size limit; Stewart asked for a backlog audit 2026-11-06).
 - 2026-11-06: depends-on BL-654 replaced by BL-995 (BL-654 split for the 60-minute size limit; Stewart asked for a backlog audit 2026-11-06).
 - 2026-11-11: Backlog -> Doing.
+- 2026-11-11: Doing -> Done. Surl.Api configures groups, mail, shares, buckets, topics, queues and config files through SurlServerOptions

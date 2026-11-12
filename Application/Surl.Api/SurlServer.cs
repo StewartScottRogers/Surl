@@ -273,12 +273,13 @@ public sealed class SurlServer : IAsyncDisposable
         var timeProvider = options.TimeProvider;
         var areExtensionsTurnedOn = options.AreExtensionsTurnedOn ?? ExtendedProtocolServers.AreTurnedOn(host.EnvironmentVariables);
         var commandLine = SurlServerArguments.Parse(
-            options, SurlServerComposition.ComposeExtendedSchemes(areExtensionsTurnedOn, null, timeProvider));
+            options, SurlServerComposition.ComposeExtendedSchemes(areExtensionsTurnedOn, null, timeProvider), host.ReadStartFile);
         var seams = new SurlServerCompositionSeams(
             tlsSettings => host.CreateListenerFactory(tlsSettings, timeProvider), host.CanOpenDataDirectory, host.TakeDataDirectoryLock, timeProvider, areExtensionsTurnedOn)
         {
             DataDirectoryFileSystem = host.DataDirectoryFileSystem,
             ReadStartFile = host.ReadStartFile,
+            CanOpenShareDirectory = host.CanOpenDataDirectory,
             ContentWithoutDataDirectory = await InMemoryFiles.ComposeAsync(options.Files, timeProvider, cancellationToken),
         };
 

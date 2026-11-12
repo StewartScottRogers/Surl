@@ -125,6 +125,62 @@ public sealed class SurlServerOptions
     public IList<SurlFault> Faults { get; } = [];
 
     /// <summary>
+    /// The groups of accounts (<c>--group</c>, once each, in order; BL-668, ADR-0101 decision 4), each item as
+    /// <c>surl</c> reads the option's value: <c>&lt;name&gt;=&lt;member&gt;,...</c>. None by default.
+    /// </summary>
+    public IList<string> Groups { get; } = [];
+
+    /// <summary>The domains mail is served for (<c>--mail-domain</c>, once each); none by default, so the domain is ignored.</summary>
+    public IList<string> MailDomains { get; } = [];
+
+    /// <summary>
+    /// The mailboxes and their logins (<c>--mailbox</c>, once each): <c>&lt;address&gt;:&lt;password&gt;[;...]</c>.
+    /// None by default. A mailbox holds a password, so it is never written to the log.
+    /// </summary>
+    public IList<string> Mailboxes { get; } = [];
+
+    /// <summary>The CSV files mailboxes are read from at start (<c>--mailbox-file</c>, once each); none by default.</summary>
+    public IList<string> MailboxFiles { get; } = [];
+
+    /// <summary>The forwarded addresses (<c>--mail-alias</c>, once each): <c>&lt;alias&gt;=&lt;to&gt;,...</c>; none by default.</summary>
+    public IList<string> MailAliases { get; } = [];
+
+    /// <summary>The catch-all addresses (<c>--mail-catch-all</c>, once each): <c>&lt;domain&gt;=&lt;to&gt;</c>; none by default, so mail to an unknown address is discarded.</summary>
+    public IList<string> MailCatchAlls { get; } = [];
+
+    /// <summary>The shared IMAP folders (<c>--shared-folder</c>, once each): <c>&lt;name&gt;=&lt;who&gt;,...</c>; none by default.</summary>
+    public IList<string> SharedFolders { get; } = [];
+
+    /// <summary>The folders served as shares (<c>--share</c>, once each): <c>&lt;name&gt;=&lt;path&gt;[;...]</c>; none by default, so there is one served root.</summary>
+    public IList<string> Shares { get; } = [];
+
+    /// <summary>The share grants (<c>--share-access</c>, once each): <c>&lt;share&gt;=&lt;member&gt;:&lt;r/rw&gt;,...</c>; none by default, so a share is open.</summary>
+    public IList<string> ShareAccess { get; } = [];
+
+    /// <summary>The buckets mapped to paths (<c>--bucket</c>, once each): <c>&lt;name&gt;=&lt;path&gt;</c>; none by default.</summary>
+    public IList<string> Buckets { get; } = [];
+
+    /// <summary>The declared message topics (<c>--topic</c>, once each): <c>&lt;filter&gt;[;...]</c>; none by default.</summary>
+    public IList<string> Topics { get; } = [];
+
+    /// <summary>The named message queues (<c>--queue</c>, once each): <c>&lt;name&gt;[;durable]</c>; none by default.</summary>
+    public IList<string> Queues { get; } = [];
+
+    /// <summary>The topic aliases (<c>--topic-map</c>, once each): <c>&lt;scheme&gt;:&lt;name&gt;=&lt;scheme&gt;:&lt;name&gt;</c>; none by default, so the default name mapping applies.</summary>
+    public IList<string> TopicMaps { get; } = [];
+
+    /// <summary>The topic grants (<c>--topic-access</c>, once each): <c>&lt;filter&gt;=&lt;member&gt;:&lt;right&gt;,...</c>; none by default, so every caller may publish and subscribe.</summary>
+    public IList<string> TopicAccess { get; } = [];
+
+    /// <summary>
+    /// Config files read at start (<c>--config</c>, ADR-0101 decision 2), in order, after every property above and before
+    /// <see cref="AdditionalArguments"/>, so <see cref="AdditionalArguments"/> can override a file and a file the properties.
+    /// A refusal inside a file is <c>surl</c>'s, prefixed by <c>&lt;file&gt;:&lt;line&gt;: </c>. <c>-</c> (standard input) is refused.
+    /// None by default.
+    /// </summary>
+    public IList<string> ConfigFiles { get; } = [];
+
+    /// <summary>
     /// Any other <c>surl</c> option, as <c>surl</c>'s own words, read after the properties above.
     /// <c>--help</c>, <c>--aihelp</c>, <c>--manual</c>, <c>--version</c>, <c>--log-file</c>,
     /// <c>--trace</c> and <c>--trace-ascii</c> belong to a host and are refused.

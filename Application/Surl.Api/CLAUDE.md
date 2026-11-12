@@ -85,6 +85,14 @@ measures it by name.
   checked against `FaultPlan.StageOf`. A timeout, a throw or a refused answer publishes
   `HookFailedEvent` and answers null. `SurlServerOptions.HookTimeLimit` is checked in
   `SurlServerArguments.ThrowIfMisused`.
+- Layer-2 items (BL-668, ADR-0101 decisions 2 and 4): `Groups`, `MailDomains`, `Mailboxes`,
+  `MailboxFiles`, `MailAliases`, `MailCatchAlls`, `SharedFolders`, `Shares`, `ShareAccess`,
+  `Buckets`, `Topics`, `Queues`, `TopicMaps` and `TopicAccess` are `IList<string>`s, each item the
+  option's value in `surl`'s own grammar, composed as that option once per item after the faults
+  and the log level; `ConfigFiles` follow as `--config`, then `AdditionalArguments`. A null item or
+  a `-` config file is an `ArgumentException`; every grammar refusal is `surl`'s, from the parser.
+  Config files are read by `ApiConfigFileSource` through `ReadStartFile` (disk when null). Share
+  directories are probed with the host's `CanOpenDataDirectory`.
 - `SurlServerHostSeams.ReadStartFile` is handed to the composition's `ReadStartFile`, so tests
   give the `--user-file` and `--hostkey` files in memory (`ApiTestSeams.StartFiles`). The
   `--cert`, `--key` and `--cacert` files are still read from disk by `ServerTlsComposition`.
