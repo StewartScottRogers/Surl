@@ -1,6 +1,7 @@
 using Surl.Authentication;
 using Surl.Cli;
 using Surl.Content;
+using Surl.Extended.Protocol.Amqp0;
 using Surl.Extended.Protocol.AzureStorage;
 using Surl.Extended.Protocol.Coap;
 using Surl.Extended.Protocol.DnsQuery;
@@ -53,25 +54,26 @@ public sealed class ExtendedProtocolServersTests
 
         var servers = ExtendedProtocolServers.Compose(services);
 
-        Assert.HasCount(15, servers);
-        Assert.IsInstanceOfType<AzureStorageProtocolServer>(servers[0]);
-        Assert.IsInstanceOfType<CoapProtocolServer>(servers[1]);
-        CollectionAssert.AreEqual(new[] { "coaps" }, servers[2].Schemes.ToArray());
-        Assert.IsInstanceOfType<DnsUdpProtocolServer>(Assert.IsInstanceOfType<DnsDatagramRoutingProtocolServer>(servers[3]).UdpServer);
-        Assert.IsInstanceOfType<DnsTcpProtocolServer>(servers[4]);
-        Assert.IsInstanceOfType<GoogleCloudStorageProtocolServer>(servers[5]);
-        Assert.IsInstanceOfType<KafkaBroker>(servers[6]);
-        Assert.IsInstanceOfType<NatsServer>(servers[7]);
-        Assert.IsInstanceOfType<S3ProtocolServer>(servers[8]);
-        Assert.IsInstanceOfType<SocketIoProtocolServer>(servers[9]);
-        Assert.IsInstanceOfType<StompServer>(servers[10]);
-        CollectionAssert.AreEqual(new[] { "stomps" }, servers[11].Schemes.ToArray());
-        Assert.IsInstanceOfType<WebTransportProtocolServer>(servers[12]);
-        Assert.IsInstanceOfType<XmppServer>(servers[13]);
-        CollectionAssert.AreEqual(new[] { "xmpps" }, servers[14].Schemes.ToArray());
-        CollectionAssert.AreEqual(new[] { "az", "abfs", "abfss", "coap", "coaps", "dns", "dns", "gs", "kafka", "kafkas", "nats", "natss", "s3", "socketio", "socketios", "stomp", "stomps", "webtransport", "xmpp", "xmpps" }, servers.SelectMany(server => server.Schemes).ToArray());
+        Assert.HasCount(16, servers);
+        Assert.IsInstanceOfType<Amqp0Broker>(servers[0]);
+        Assert.IsInstanceOfType<AzureStorageProtocolServer>(servers[1]);
+        Assert.IsInstanceOfType<CoapProtocolServer>(servers[2]);
+        CollectionAssert.AreEqual(new[] { "coaps" }, servers[3].Schemes.ToArray());
+        Assert.IsInstanceOfType<DnsUdpProtocolServer>(Assert.IsInstanceOfType<DnsDatagramRoutingProtocolServer>(servers[4]).UdpServer);
+        Assert.IsInstanceOfType<DnsTcpProtocolServer>(servers[5]);
+        Assert.IsInstanceOfType<GoogleCloudStorageProtocolServer>(servers[6]);
+        Assert.IsInstanceOfType<KafkaBroker>(servers[7]);
+        Assert.IsInstanceOfType<NatsServer>(servers[8]);
+        Assert.IsInstanceOfType<S3ProtocolServer>(servers[9]);
+        Assert.IsInstanceOfType<SocketIoProtocolServer>(servers[10]);
+        Assert.IsInstanceOfType<StompServer>(servers[11]);
+        CollectionAssert.AreEqual(new[] { "stomps" }, servers[12].Schemes.ToArray());
+        Assert.IsInstanceOfType<WebTransportProtocolServer>(servers[13]);
+        Assert.IsInstanceOfType<XmppServer>(servers[14]);
+        CollectionAssert.AreEqual(new[] { "xmpps" }, servers[15].Schemes.ToArray());
+        CollectionAssert.AreEqual(new[] { "amqp", "amqps", "az", "abfs", "abfss", "coap", "coaps", "dns", "dns", "gs", "kafka", "kafkas", "nats", "natss", "s3", "socketio", "socketios", "stomp", "stomps", "webtransport", "xmpp", "xmpps" }, servers.SelectMany(server => server.Schemes).ToArray());
         CollectionAssert.AreEqual(
-            new[] { "az", "abfs", "abfss", "coap", "coaps", "dns", "dns", "gs", "kafka", "kafkas", "nats", "natss", "s3", "socketio", "socketios", "stomp", "stomps", "webtransport", "xmpp", "xmpps" }, ExtendedProtocolServers.Registrations.SelectMany(registration => registration.Schemes).ToArray());
+            new[] { "amqp", "amqps", "az", "abfs", "abfss", "coap", "coaps", "dns", "dns", "gs", "kafka", "kafkas", "nats", "natss", "s3", "socketio", "socketios", "stomp", "stomps", "webtransport", "xmpp", "xmpps" }, ExtendedProtocolServers.Registrations.SelectMany(registration => registration.Schemes).ToArray());
     }
 
     [TestMethod]
@@ -190,6 +192,34 @@ public sealed class ExtendedProtocolServersTests
         var bus = ComposedServerFields.Single<MessageBus.MessageBus>(stompServer);
         Assert.AreSame(services.ComposedServices.MessageBus, bus);
         Assert.AreSame(bus, ComposedServerFields.Single<MessageBus.MessageBus>(mqttServer));
+    }
+
+    [TestMethod]
+    public void Compose_ThisBuild_BuildsTheAmqpBrokerOverTheOneBusTheMqttServerIsBuiltOver()
+    {
+        var services = SurlServerComposition.ComposeUnservedExtendedServices(TimeProvider.System);
+
+        var amqpBroker = ExtendedProtocolServers.Compose(services).OfType<Amqp0Broker>().Single();
+        var mqttServer = SurlServerComposition.ComposeProtocolServers(ProtocolServerRegistrations.Original, services.ComposedServices)
+            .OfType<MqttProtocolServer>().Single();
+
+        var bus = ComposedServerFields.Single<MessageBus.MessageBus>(amqpBroker);
+        Assert.AreSame(services.ComposedServices.MessageBus, bus);
+        Assert.AreSame(bus, ComposedServerFields.Single<MessageBus.MessageBus>(mqttServer));
+    }
+
+    [TestMethod]
+    [DataRow(true, 40)]
+    [DataRow(false, 0)]
+    public void Compose_ThisBuild_BuildsTheAmqpBrokerWithTheIdleTimeoutAndAnonymousLogin(bool allowAnonymous, int idleTimeoutSeconds)
+    {
+        var services = new ExtendedProtocolServerServices(ComposeServices(allowAnonymous, TimeSpan.FromSeconds(idleTimeoutSeconds)));
+
+        var amqpBroker = ExtendedProtocolServers.Compose(services).OfType<Amqp0Broker>().Single();
+
+        var options = ComposedServerFields.Single<Amqp0BrokerOptions>(amqpBroker);
+        Assert.AreEqual(TimeSpan.FromSeconds(idleTimeoutSeconds), options.IdleTimeout);
+        Assert.AreEqual(allowAnonymous, options.OffersAnonymous);
     }
 
     [TestMethod]

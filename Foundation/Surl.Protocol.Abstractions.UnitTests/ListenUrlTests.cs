@@ -123,6 +123,7 @@ public sealed class ListenUrlTests
     [DataRow("smbs", true)]
     [DataRow("s3", true)]
     [DataRow("az", true)]
+    [DataRow("amqps", true)]
     [DataRow("gs", true)]
     [DataRow("abfss", true)]
     [DataRow("abfs", false)]

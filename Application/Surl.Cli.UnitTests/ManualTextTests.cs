@@ -9,7 +9,7 @@ public sealed class ManualTextTests
     private static readonly string[] Headings =
     [
         "NAME", "SYNOPSIS", "DESCRIPTION", "CONFIG FILES", "LISTEN URLS", "DEPLOYMENT CHECKLIST", "DATA DIRECTORY",
-        "IN-MEMORY MODE", "SHARES AND BUCKETS", "TOPICS AND QUEUES", "ACCOUNTS", "MAIL", "DNS OPTIONS", "HTTP OPTIONS", "LDAP OPTIONS", "NATS OPTIONS", "PROXY OPTIONS", "RTSP OPTIONS", "S3 OPTIONS", "SMB OPTIONS", "SSH OPTIONS", "STOMP OPTIONS", "TLS-SRP OPTIONS", "WEBSOCKET OPTIONS", "LOOSENING OPTIONS", "CONTROL ENDPOINT", "LOG LEVELS", "LIMITS",
+        "IN-MEMORY MODE", "SHARES AND BUCKETS", "TOPICS AND QUEUES", "ACCOUNTS", "MAIL", "AMQP OPTIONS", "DNS OPTIONS", "HTTP OPTIONS", "LDAP OPTIONS", "NATS OPTIONS", "PROXY OPTIONS", "RTSP OPTIONS", "S3 OPTIONS", "SMB OPTIONS", "SSH OPTIONS", "STOMP OPTIONS", "TLS-SRP OPTIONS", "WEBSOCKET OPTIONS", "LOOSENING OPTIONS", "CONTROL ENDPOINT", "LOG LEVELS", "LIMITS",
         "EXIT CODES", "SEE ALSO",
     ];
 
@@ -324,6 +324,13 @@ public sealed class ManualTextTests
             "    it names. An alias address, catch-all domain or folder name given twice,",
             "    an alias or catch-all with no --mail-domain or outside every one, and an",
             "    alias that is also a mailbox, exit 2. No refusal shows a password.",
+            "",
+            "AMQP OPTIONS",
+            "",
+            "    The extended AMQP broker answers amqp and amqps listen URLs with AMQP",
+            "    0-9-1 over the message bus the MQTT server shares. Every connection needs",
+            "    an account, or --allow-anonymous. amqps is TLS from the first byte and",
+            "    needs --cert or --self-signed. surl --aihelp amqp says more.",
             "",
             "DNS OPTIONS",
             "",

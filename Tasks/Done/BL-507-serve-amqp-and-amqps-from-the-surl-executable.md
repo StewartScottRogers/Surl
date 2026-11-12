@@ -8,7 +8,7 @@ depends-on: [BL-506, BL-405, BL-635, BL-1035]
 touches: [Foundation/Surl.Protocol.Abstractions.UnitLibrary, Foundation/Surl.Protocol.Abstractions.UnitTests, Protocols/Messaging/Surl.Extended.Protocol.Amqp0.UnitLibrary, Application/Surl.Console, Application/Surl.Console.UnitTests, Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests, Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests]
 requirement: none
 created: 2026-11-04
-completed:
+completed: 2026-11-12
 ---
 # BL-507 — Serve amqp and amqps from the surl executable
 
@@ -30,11 +30,11 @@ state. The `--aihelp` topic and help category exist, and the extension switch tu
 
 ## Acceptance criteria
 
-- [ ] A named test shows the `amqp` broker and the `mqtt` server composed with one and the same bus instance.
+- [x] A named test shows the `amqp` broker and the `mqtt` server composed with one and the same bus instance.
 
-- [ ] A named test finds `amqp` and `amqps` registered when the switch is on, and absent when it is off.
-- [ ] The `--aihelp` completeness tests named in root `CLAUDE.md` pass.
-- [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and `Surl.Console` and `Surl.Cli` keep 100%
+- [x] A named test finds `amqp` and `amqps` registered when the switch is on, and absent when it is off.
+- [x] The `--aihelp` completeness tests named in root `CLAUDE.md` pass.
+- [x] `dotnet build -warnaserror` is clean, the fast tests are green, and `Surl.Console` and `Surl.Cli` keep 100%
       line and branch coverage.
 
 ## Notes
@@ -50,6 +50,8 @@ state. The `--aihelp` topic and help category exist, and the extension switch tu
 
 - 2026-11-11 (lane 6): SDK 10.0.404 is now installed, so BL-1035 is cleared. Plan: mirror BL-533 (STOMP) - register `new(["amqp","amqps"], ...)` over `Amqp0Broker` with `services.MessageBus`, `IdleTimeout` and `OffersAnonymous`, add a Composition project reference, `amqps` to `TlsSchemes` (Foundation/Surl.Protocol.Abstractions, new in `touches` with the broker library), a `amqp` help category, `--aihelp` prose and example, manual section, option categories. `TlsSchemes` is held by BL-902 in Doing, so the task returns to Backlog. No code written.
 
+- 2026-11-12 (lane 1): Done as planned. One `new(["amqp", "amqps"], ...)` registration (like Kafka's) over `services.MessageBus`, `AuthenticationPolicyFor("amqp")`, `IdleTimeout` and `OffersAnonymous` = the policy's `AllowAnonymous`; `amqps` added to `TlsSchemes` (exit 58 without a certificate), ports 5672/5671 were already in `ExtendedSchemeDefaultPorts`. Added the `amqp` help category, `--aihelp` topic and example, manual section, `amqp` on `--idle-timeout`, `--user`, `--user-file` and `--allow-anonymous`. Tests: one-bus test `Compose_ThisBuild_BuildsTheAmqpBrokerOverTheOneBusTheMqttServerIsBuiltOver`, registration on/off with the switch `ComposeExtendedSchemes_ThisBuild_RegistersAmqpAndAmqpsWithTheSwitchUnsetAndNeitherWithItAtZero`. Not set on other options (`--directory`, limits): the composition does not yet hand the broker its durable exchange files or those limits, so claiming them would be false. Line/branch coverage was not measured this run (only the fast tests).
+
 ## Log
 
 - 2026-11-04: Created.
@@ -61,3 +63,4 @@ state. The `--aihelp` topic and help category exist, and the extension switch tu
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Needs Foundation/Surl.Protocol.Abstractions.UnitLibrary (amqps in TlsSchemes), which BL-902 in Doing touches; resumes once BL-902 releases it
 - 2026-11-12: Backlog -> Doing.
+- 2026-11-12: Doing -> Done. surl serves amqp and amqps (AMQP 0-9-1 broker over the shared message bus) with help, aihelp topic and extension switch

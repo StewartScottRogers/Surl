@@ -314,6 +314,8 @@ public sealed class CommandLineRunnerExtendedProtocolTests
     [DataRow("webtransport")]
     [DataRow("xmpp")]
     [DataRow("xmpps")]
+    [DataRow("amqp")]
+    [DataRow("amqps")]
     [DataRow("stomp")]
     [DataRow("stomps")]
     [DataRow("kafka")]
@@ -384,11 +386,13 @@ public sealed class CommandLineRunnerExtendedProtocolTests
     }
 
     [TestMethod]
+    [DataRow("amqp", 5672, new string[0])]
+    [DataRow("amqps", 5671, new[] { "--self-signed" })]
     [DataRow("stomp", 61613, new string[0])]
     [DataRow("stomps", 61614, new[] { "--self-signed" })]
     [DataRow("kafka", 9092, new string[0])]
     [DataRow("kafkas", 9093, new[] { "--self-signed" })]
-    public async Task RunAsync_StompOrKafkaSchemeWithTheSwitchUnset_ListensAtItsDefaultPort(string scheme, int port, string[] options)
+    public async Task RunAsync_AmqpStompOrKafkaSchemeWithTheSwitchUnset_ListensAtItsDefaultPort(string scheme, int port, string[] options)
     {
         var factory = new FakeListenerFactory();
         using var stop = CancellationTokenSource.CreateLinkedTokenSource(TestContext.CancellationToken);
@@ -415,6 +419,29 @@ public sealed class CommandLineRunnerExtendedProtocolTests
         var exitCode = await runner.RunAsync(["stomps://127.0.0.1:0/"], output, error, TestContext.CancellationToken);
 
         Assert.AreEqual(SurlExitCode.CertificateProblem, exitCode);
+    }
+
+    [TestMethod]
+    public async Task RunAsync_AmqpsWithoutACertificate_ExitsWithCertificateProblem()
+    {
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+        var runner = CreateRunner(new FakeListenerFactory(), FakeEnvironmentVariableReader.Empty, composeExtendedProtocolServers: null);
+
+        var exitCode = await runner.RunAsync(["amqps://127.0.0.1:0/"], output, error, TestContext.CancellationToken);
+
+        Assert.AreEqual(SurlExitCode.CertificateProblem, exitCode);
+    }
+
+    [TestMethod]
+    public void ComposeExtendedSchemes_ThisBuild_RegistersAmqpAndAmqpsWithTheSwitchUnsetAndNeitherWithItAtZero()
+    {
+        var on = CreateRunner(new FakeListenerFactory(), FakeEnvironmentVariableReader.Empty, composeExtendedProtocolServers: null);
+        var off = CreateRunner(new FakeListenerFactory(), FakeEnvironmentVariableReader.ExtensionsTurnedOff, composeExtendedProtocolServers: null);
+
+        CollectionAssert.IsSubsetOf(new[] { "amqp", "amqps" }, on.ComposeExtendedSchemes().ToArray());
+        CollectionAssert.DoesNotContain(off.ComposeExtendedSchemes().ToArray(), "amqp");
+        CollectionAssert.DoesNotContain(off.ComposeExtendedSchemes().ToArray(), "amqps");
     }
 
     [TestMethod]
@@ -558,7 +585,7 @@ public sealed class CommandLineRunnerExtendedProtocolTests
 
         var schemes = runner.ComposeExtendedSchemes();
 
-        CollectionAssert.AreEqual(new[] { "az", "abfs", "abfss", "coap", "coaps", "dns", "gs", "kafka", "kafkas", "nats", "natss", "s3", "socketio", "socketios", "stomp", "stomps", "webtransport", "xmpp", "xmpps" }, schemes.ToArray());
+        CollectionAssert.AreEqual(new[] { "amqp", "amqps", "az", "abfs", "abfss", "coap", "coaps", "dns", "gs", "kafka", "kafkas", "nats", "natss", "s3", "socketio", "socketios", "stomp", "stomps", "webtransport", "xmpp", "xmpps" }, schemes.ToArray());
     }
 
     [TestMethod]

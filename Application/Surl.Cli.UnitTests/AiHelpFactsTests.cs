@@ -170,6 +170,7 @@ public sealed class AiHelpFactsTests
     }
 
     [TestMethod]
+    [DataRow("amqp", new[] { "amqp", "amqps" })]
     [DataRow("azure-storage", new[] { "az", "abfs", "abfss" })]
     [DataRow("coap", new[] { "coap", "coaps" })]
     [DataRow("dict", new[] { "dict" })]
@@ -204,7 +205,7 @@ public sealed class AiHelpFactsTests
     {
         var withSchemes = HelpCategories.All.Where(category => category.Schemes.Count > 0).Select(category => category.Name);
 
-        CollectionAssert.AreEqual(new[] { "azure-storage", "coap", "dict", "dns", "ftp", "gopher", "gs", "http", "imap", "kafka", "ldap", "mqtt", "nats", "pop3", "rtsp", "s3", "smb", "smtp", "socketio", "socks", "ssh", "stomp", "telnet", "tftp", "websocket", "webtransport", "xmpp" }, withSchemes.ToArray());
+        CollectionAssert.AreEqual(new[] { "amqp", "azure-storage", "coap", "dict", "dns", "ftp", "gopher", "gs", "http", "imap", "kafka", "ldap", "mqtt", "nats", "pop3", "rtsp", "s3", "smb", "smtp", "socketio", "socks", "ssh", "stomp", "telnet", "tftp", "websocket", "webtransport", "xmpp" }, withSchemes.ToArray());
     }
 
     [TestMethod]

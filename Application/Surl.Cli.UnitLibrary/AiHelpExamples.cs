@@ -131,6 +131,13 @@ public static class AiHelpExamples
             ["surl: option --max-time: " + OptionArgumentReader.NotANumber, "surl: " + CommandLineFailure.TryHelpLine],
             SurlExitCode.FailedInit),
         Serving(
+            "amqp",
+            "For a test: serve an AMQP 0-9-1 broker without accounts",
+            ["--allow-anonymous", "amqp://127.0.0.1:0/"],
+            ["Listening on amqp://127.0.0.1:<port>/"],
+            ["surl: warning: --allow-anonymous: every request and login is accepted without checking credentials"],
+            []),
+        Serving(
             "azure-storage",
             "For a test: serve Azure Blob Storage over HTTPS with a throwaway certificate",
             ["--self-signed", "-u", "devstoreaccount1:c2VjcmV0", "az://127.0.0.1:0/"],

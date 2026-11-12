@@ -1,3 +1,4 @@
+using Surl.Extended.Protocol.Amqp0;
 using Surl.Extended.Protocol.AzureStorage;
 using Surl.Extended.Protocol.Coap;
 using Surl.Extended.Protocol.DnsQuery;
@@ -79,6 +80,14 @@ public static class ExtendedProtocolServers
     /// </remarks>
     public static IReadOnlyList<ProtocolServerRegistration> Registrations { get; } =
     [
+        new(["amqp", "amqps"], services => new Amqp0Broker(
+            services.AuthenticationPolicyFor("amqp"),
+            services.MessageBus,
+            new Amqp0BrokerOptions
+            {
+                IdleTimeout = services.IdleTimeout,
+                OffersAnonymous = services.AuthenticationPolicy.Settings.AllowAnonymous,
+            })),
         new(["az", "abfs", "abfss"], services => new AzureStorageProtocolServer(
             services.ContentStore, services.ObjectMetadataIndex, services.AuthenticationPolicyFor("az"), services.TimeProvider)),
         new(["coap"], services => new CoapProtocolServer(services.ContentStore, CoapAccessRulesFor(services), services.CoapObservations)),
