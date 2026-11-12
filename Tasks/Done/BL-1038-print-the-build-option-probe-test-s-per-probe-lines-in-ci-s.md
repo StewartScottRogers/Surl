@@ -8,7 +8,7 @@ depends-on: [BL-1035]
 touches: [.github/workflows/ci.yml]
 requirement: none
 created: 2026-11-11
-completed:
+completed: 2026-11-12
 ---
 # BL-1038 — Print the build option probe test's per-probe lines in CI's Conformance tests step
 
@@ -30,8 +30,8 @@ A green CI run's `Conformance tests` step log on `ubuntu-latest` and `macos-late
 
 ## Acceptance criteria
 
-- [ ] `ci.yml`'s Linux and macOS legs print or publish the probe test's `TestContext` lines on a passing run.
-- [ ] The change is described in the step's comment in `ci.yml`.
+- [x] `ci.yml`'s Linux and macOS legs print or publish the probe test's `TestContext` lines on a passing run.
+- [x] The change is described in the step's comment in `ci.yml`.
 
 ## Notes
 
@@ -49,3 +49,4 @@ A green CI run's `Conformance tests` step log on `ubuntu-latest` and `macos-late
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waits on BL-1035: pinned .NET SDK 10.0.401 is not installed, so dotnet build cannot verify the ci.yml change
 - 2026-11-12: Backlog -> Doing.
+- 2026-11-12: Doing -> Done. CI runs the build option probe test in its own detailed-verbosity step so per-probe lines show in green runs

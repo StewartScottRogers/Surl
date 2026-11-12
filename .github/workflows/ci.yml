@@ -92,7 +92,15 @@ jobs:
       # The upstream test cases run in their own job below (ADR-0080, decision 6).
       - name: Conformance tests
         if: matrix.upstream-curl-platform
-        run: dotnet test -c Release --no-build --filter "FullyQualifiedName~Surl.Conformance&TestCategory!=UpstreamTestCases"
+        run: dotnet test -c Release --no-build --filter "FullyQualifiedName~Surl.Conformance&TestCategory!=UpstreamTestCases&FullyQualifiedName!~UpstreamCurlShowsItsBuildOptionsTests"
+
+      # The build option probe test runs on its own with detailed console verbosity, because
+      # dotnet test prints a passing test's TestContext lines nowhere at normal verbosity. Its
+      # per-probe "upstream curl <sha> exited <n>" and "not probed" lines then show in a green
+      # run's log (BL-1038); the rest of the conformance log stays at normal verbosity.
+      - name: Build option probe test
+        if: matrix.upstream-curl-platform
+        run: dotnet test -c Release --no-build --filter "FullyQualifiedName~UpstreamCurlShowsItsBuildOptionsTests" --logger "console;verbosity=detailed"
 
   # Runs upstream curl's own test cases against Surl's server halves with each leg's pinned
   # reference build as the client, and uploads the per-case results file (ADR-0080,
