@@ -51,6 +51,42 @@ public sealed class AzurePathListTests
     }
 
     [TestMethod]
+    [DataRow("2026/a.txt", "", new[] { "2026/b.txt", "c.txt" }, DisplayName = "a file")]
+    [DataRow("/2026/", "", new[] { "2026/a.txt", "2026/b.txt", "c.txt" }, DisplayName = "a directory, its contents after it")]
+    [DataRow("2026/zz", "", new[] { "c.txt" }, DisplayName = "a path that is not there")]
+    [DataRow("b.txt", "&directory=2026", new[] { "2026/c.txt" }, DisplayName = "relative to the directory listed")]
+    [DataRow("", "", new[] { "2026", "2026/a.txt", "2026/b.txt", "c.txt" }, DisplayName = "empty, from the start")]
+    public async Task ServeAsync_ListWithBeginFrom_StartsAfterThatPath(string beginFrom, string directory, string[] expected)
+    {
+        var harness = Listable();
+        harness.CreateFolder("photos/2026");
+        harness.WriteFile("photos/2026/a.txt", "a");
+        harness.WriteFile("photos/2026/b.txt", "b");
+        harness.WriteFile("photos/c.txt", "c");
+        if (directory.Length > 0)
+        {
+            harness.WriteFile("photos/2026/c.txt", "c");
+        }
+
+        var response = await harness.SendWithBearerAsync("GET", $"/photos?resource=filesystem&recursive=true&beginFrom={Uri.EscapeDataString(beginFrom)}{directory}");
+
+        CollectionAssert.AreEqual(expected, NamesOf(response));
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_ListWithBeginFromAndAContinuation_ResumesAtTheContinuation()
+    {
+        var harness = Listable();
+        harness.WriteFile("photos/a.txt", "a");
+        harness.WriteFile("photos/b.txt", "b");
+        harness.WriteFile("photos/c.txt", "c");
+
+        var response = await harness.SendWithBearerAsync("GET", $"/photos?resource=filesystem&recursive=true&beginFrom=a.txt&continuation={AzureListMarker.Encode("b.txt")}");
+
+        CollectionAssert.AreEqual(new[] { "c.txt" }, NamesOf(response));
+    }
+
+    [TestMethod]
     public async Task ServeAsync_ListOneLevelOfADirectory_LeavesOutWhatItsDirectoriesHold()
     {
         var harness = Listable();

@@ -23,7 +23,10 @@ What it holds:
 - The hardening limits every server enforces (ADR-0006, section 6): `ExchangeLimits`, on
   `ExchangeContext.Limits`, and the optional refusal contracts a server implements to
   answer a connection or flow past a connection limit, `IConnectionRefusalWriter` and
-  `IDatagramRefusalWriter` with `ConnectionRefusal`.
+  `IDatagramRefusalWriter` with `ConnectionRefusal`. The engine calls
+  `IConnectionRefusalWriter`'s overload that also takes the listen URL's scheme, a default
+  interface member that writes the scheme-blind refusal, so a server whose refusal differs by
+  scheme (the Azure Storage server's XML on `az`, JSON on `abfs`; BL-758) overrides it.
 - How a server tells a limit's cancellation from shutdown (ADR-0059):
   `ExchangeContext.ShutdownToken`, set by the engine, and `ExchangeContext.IsCancelledForALimit`.
 - The listener seam `Surl.Networking` implements: `IListenerFactory`,

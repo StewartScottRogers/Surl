@@ -18,4 +18,18 @@ public interface IConnectionRefusalWriter
     /// <param name="cancellationToken">Cancelled when the engine gives up on the refusal.</param>
     /// <returns>A task that completes when the refusal is written.</returns>
     ValueTask WriteRefusalAsync(IConnection connection, ConnectionRefusal refusal, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Writes the protocol's refusal for <paramref name="refusal"/> to
+    /// <paramref name="connection"/>, knowing the scheme of the listener it arrived on, for a
+    /// server whose refusal differs by scheme. <c>Surl.Core</c> calls this one; by default it
+    /// writes the refusal the scheme-blind overload writes.
+    /// </summary>
+    /// <param name="connection">The connection past the limit.</param>
+    /// <param name="refusal">Which limit it is past.</param>
+    /// <param name="listenScheme">The scheme of the listen URL the connection arrived on.</param>
+    /// <param name="cancellationToken">Cancelled when the engine gives up on the refusal.</param>
+    /// <returns>A task that completes when the refusal is written.</returns>
+    ValueTask WriteRefusalAsync(IConnection connection, ConnectionRefusal refusal, string listenScheme, CancellationToken cancellationToken) =>
+        WriteRefusalAsync(connection, refusal, cancellationToken);
 }

@@ -40,19 +40,32 @@ internal static class AzureConditions
     /// <param name="fields">The request's fields.</param>
     /// <param name="existing">The blob at the name, or <see langword="null"/> when there is none.</param>
     /// <returns><see langword="null"/> when the write goes ahead, else its error.</returns>
-    public static AzureError? WriteRefusal(IReadOnlyList<KeyValuePair<string, string>> fields, ObjectProperties? existing)
+    public static AzureError? WriteRefusal(IReadOnlyList<KeyValuePair<string, string>> fields, ObjectProperties? existing) =>
+        EntryWriteRefusal(fields, existing is null ? null : (existing.ETag, existing.LastWriteTimeUtc), AzureError.BlobAlreadyExists);
+
+    /// <summary>
+    /// Decides what the conditional fields of a write make of the entry at its name, as
+    /// <see cref="WriteRefusal"/>
+    /// does, with <paramref name="alreadyExists"/> for <c>If-None-Match: *</c> on an existing entry:
+    /// the Data Lake writes' <c>409 PathAlreadyExists</c> (ADR-0109, decision 1).
+    /// </summary>
+    /// <param name="fields">The request's fields.</param>
+    /// <param name="existing">The entry's ETag and last write time, or <see langword="null"/> when there is none.</param>
+    /// <param name="alreadyExists">The error <c>If-None-Match: *</c> on an existing entry is.</param>
+    /// <returns><see langword="null"/> when the write goes ahead, else its error.</returns>
+    public static AzureError? EntryWriteRefusal(IReadOnlyList<KeyValuePair<string, string>> fields, (string ETag, DateTimeOffset LastModifiedUtc)? existing, AzureError alreadyExists)
     {
-        if (existing is null)
+        if (existing is not { } entry)
         {
             return FieldValue(fields, "If-Match") is null ? null : AzureError.ConditionNotMet;
         }
 
         if (FieldValue(fields, "If-None-Match") is { } ifNoneMatch && ifNoneMatch.Split(',', StringSplitOptions.TrimEntries).Contains("*"))
         {
-            return AzureError.BlobAlreadyExists;
+            return alreadyExists;
         }
 
-        return HoldsForWriting(fields, existing.ETag, TruncatedToSeconds(existing.LastWriteTimeUtc)) ? null : AzureError.ConditionNotMet;
+        return HoldsForWriting(fields, entry.ETag, TruncatedToSeconds(entry.LastModifiedUtc)) ? null : AzureError.ConditionNotMet;
     }
 
     // If-Match and If-Unmodified-Since hold, and If-None-Match and If-Modified-Since do not stop the write.

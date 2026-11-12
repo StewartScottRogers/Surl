@@ -660,7 +660,7 @@ public sealed partial class ServingEngine
         if (route.Server is IConnectionRefusalWriter writer && !route.ListenUrl.IsImplicitTls)
         {
             var failure = await CaptureFailureAsync(() => WriteRefusalWithinDeadlineAsync(
-                token => writer.WriteRefusalAsync(connection, refusal, token), route.ShutdownToken));
+                token => writer.WriteRefusalAsync(connection, refusal, route.ListenUrl.Scheme, token), route.ShutdownToken));
 
             if (failure is { SourceException: not OperationCanceledException })
             {

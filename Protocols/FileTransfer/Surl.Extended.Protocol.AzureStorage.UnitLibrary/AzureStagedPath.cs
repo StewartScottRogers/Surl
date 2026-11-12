@@ -17,12 +17,12 @@ internal sealed class AzureStagedPath(ContentUploadSession session, long committ
     /// <summary>
     /// The upload session the appends are written into.
     /// </summary>
-    public ContentUploadSession Session { get; } = session;
+    public ContentUploadSession Session { get; private set; } = session;
 
     /// <summary>
     /// The file's committed length, which the first staged range must start at.
     /// </summary>
-    public long CommittedLength { get; } = committedLength;
+    public long CommittedLength { get; private set; } = committedLength;
 
     /// <summary>
     /// When an append last wrote to the staging.
@@ -49,6 +49,28 @@ internal sealed class AzureStagedPath(ContentUploadSession session, long committ
     {
         ranges.Add(range);
         LastTouched = now;
+    }
+
+    /// <summary>
+    /// Carries the staging past a flush with <c>retainUncommittedData=true</c> (ADR-0109, decision
+    /// 5.5): the appends now go to <paramref name="next"/>, which holds the file as flushed and the
+    /// bytes staged past it, the committed length becomes <paramref name="flushedLength"/>, and of
+    /// the staged ranges only the part past it is kept.
+    /// </summary>
+    /// <param name="next">The upload session the staging continues in.</param>
+    /// <param name="flushedLength">The file's length after the flush.</param>
+    /// <param name="now">When.</param>
+    public void ContinueAfterFlush(ContentUploadSession next, long flushedLength, DateTimeOffset now)
+    {
+        Session = next;
+        CommittedLength = flushedLength;
+        LastTouched = now;
+        var kept = ranges
+            .Where(range => range.Position + range.Length > flushedLength)
+            .Select(range => range.Position >= flushedLength ? range : new AzureStagedRange(flushedLength, range.Position + range.Length - flushedLength))
+            .ToList();
+        ranges.Clear();
+        ranges.AddRange(kept);
     }
 
     /// <summary>

@@ -488,6 +488,38 @@ public sealed class AzureStorageProtocolServerTests
     }
 
     [TestMethod]
+    [DataRow("abfs")]
+    [DataRow("abfss")]
+    public async Task WriteRefusalAsync_ConnectionPastALimitOnTheDataLakeEndpoint_Is503ServerBusyInTheJsonError(string scheme)
+    {
+        var harness = new AzureServerHarness();
+        var connection = new InMemoryConnection([]);
+
+        await harness.Server.WriteRefusalAsync(connection, ConnectionRefusal.TooManyConnections, scheme, CancellationToken.None);
+
+        var response = Encoding.UTF8.GetString(connection.WrittenBytes);
+        Assert.AreEqual(
+            AzureServerHarness.ExpectedJsonError(
+                response, "503 Service Unavailable", "ServerBusy", "The server is currently unable to receive requests. Please retry your request."),
+            response);
+    }
+
+    [TestMethod]
+    public async Task WriteRefusalAsync_ConnectionPastALimitOnTheBlobEndpoint_Is503ServerBusyInTheXmlError()
+    {
+        var harness = new AzureServerHarness();
+        var connection = new InMemoryConnection([]);
+
+        await harness.Server.WriteRefusalAsync(connection, ConnectionRefusal.TooManyConnections, "az", CancellationToken.None);
+
+        var response = Encoding.UTF8.GetString(connection.WrittenBytes);
+        Assert.AreEqual(
+            AzureServerHarness.ExpectedError(
+                response, "503 Service Unavailable", "ServerBusy", "The server is currently unable to receive requests. Please retry your request."),
+            response);
+    }
+
+    [TestMethod]
     public async Task WriteRefusalAsync_NullConnection_Throws()
     {
         var harness = new AzureServerHarness();

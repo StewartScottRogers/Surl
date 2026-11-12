@@ -182,6 +182,101 @@ public sealed class AzurePathCreateTests
     }
 
     [TestMethod]
+    public async Task ServeAsync_CreateFileWithProperties_KeepsThemForPathRead()
+    {
+        var harness = Writable();
+
+        var created = await harness.SendWithBearerAsync("PUT", "/photos/a.txt?resource=file", "x-ms-properties: greeting=aGVsbG8=, colour=Ymx1ZQ==");
+        var read = await harness.SendWithBearerAsync("GET", "/photos/a.txt");
+
+        StringAssert.StartsWith(created, "HTTP/1.1 201 Created\r\n");
+        StringAssert.Contains(read, "x-ms-resource-type: file\r\nx-ms-properties: ");
+        StringAssert.Contains(read, "greeting=aGVsbG8=");
+        StringAssert.Contains(read, "colour=Ymx1ZQ==");
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_CreateFileWithPropertiesThatDoNotRead_Is400InvalidHeaderValueAndCreatesNothing()
+    {
+        var harness = Writable();
+
+        var response = await harness.SendWithBearerAsync("PUT", "/photos/new/a.txt?resource=file", "x-ms-properties: greeting");
+
+        StringAssert.StartsWith(response, "HTTP/1.1 400 Bad Request\r\n");
+        StringAssert.Contains(response, "{\"error\":{\"code\":\"InvalidHeaderValue\",");
+        Assert.AreEqual(ContentEntryKind.None, harness.FileSystem.GetEntryKind(Path.Join(AzureServerHarness.Root, "photos", "new")));
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_CreateFileWithIfNoneMatchStarOverAnExistingFile_Is409PathAlreadyExistsAndKeepsIt()
+    {
+        var harness = Writable();
+        harness.WriteFile("photos/a.txt", "kept");
+
+        var response = await harness.SendWithBearerAsync("PUT", "/photos/a.txt?resource=file", "If-None-Match: *");
+
+        Assert.AreEqual(AzureServerHarness.ExpectedJsonError(response, "409 Conflict", "PathAlreadyExists", "The specified path already exists."), response);
+        Assert.AreEqual("kept", harness.ReadFile("photos/a.txt"));
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_CreateDirectoryWithIfNoneMatchStarOverAnExistingDirectory_Is409PathAlreadyExists()
+    {
+        var harness = Writable();
+        harness.CreateFolder("photos/sub");
+
+        var response = await harness.SendWithBearerAsync("PUT", "/photos/sub?resource=directory", "If-None-Match: *");
+
+        Assert.AreEqual(AzureServerHarness.ExpectedJsonError(response, "409 Conflict", "PathAlreadyExists", "The specified path already exists."), response);
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_CreateFileWithIfNoneMatchStarWhereNothingIs_Is201()
+    {
+        var harness = Writable();
+
+        var response = await harness.SendWithBearerAsync("PUT", "/photos/a.txt?resource=file", "If-None-Match: *");
+
+        StringAssert.StartsWith(response, "HTTP/1.1 201 Created\r\n");
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_CreateFileWithIfMatchWhereNothingIs_Is412ConditionNotMet()
+    {
+        var harness = Writable();
+
+        var response = await harness.SendWithBearerAsync("PUT", "/photos/a.txt?resource=file", $"If-Match: {EmptyETag}");
+
+        Assert.AreEqual(
+            AzureServerHarness.ExpectedJsonError(response, "412 Precondition Failed", "ConditionNotMet", "The condition specified using HTTP conditional header(s) is not met."),
+            response);
+        Assert.AreEqual(ContentEntryKind.None, harness.FileSystem.GetEntryKind(Path.Join(AzureServerHarness.Root, "photos", "a.txt")));
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_CreateDirectoryWithIfMatchItsETag_Is201()
+    {
+        var harness = Writable();
+        harness.CreateFolder("photos/sub");
+
+        var response = await harness.SendWithBearerAsync("PUT", "/photos/sub?resource=directory", $"If-Match: {DirectoryETag()}");
+
+        StringAssert.StartsWith(response, "HTTP/1.1 201 Created\r\n");
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_CreateFileWithIfMatchItsETag_EmptiesIt()
+    {
+        var harness = Writable();
+        harness.WriteFile("photos/a.txt", "hello world");
+
+        var response = await harness.SendWithBearerAsync("PUT", "/photos/a.txt?resource=file", "If-Match: \"5eb63bbbe01eeed093cb22bb8f5acdc3\"");
+
+        StringAssert.StartsWith(response, "HTTP/1.1 201 Created\r\n");
+        Assert.AreEqual(string.Empty, harness.ReadFile("photos/a.txt"));
+    }
+
+    [TestMethod]
     public void DirectoryETag_IsTheQuotedHexadecimalTicks()
     {
         Assert.AreEqual("\"0x1F\"", AzurePathCreate.DirectoryETag(new DateTimeOffset(31, TimeSpan.Zero)));
