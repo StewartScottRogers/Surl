@@ -8,7 +8,7 @@ depends-on: [BL-1035]
 touches: [Protocols/FileTransfer/Surl.Extended.Protocol.AzureStorage.UnitLibrary/AzureLoginJudge.cs]
 requirement: none
 created: 2026-11-06
-completed:
+completed: 2026-11-12
 ---
 # BL-925 — Split AzureLoginJudge's three methods the coverage measure finds past complexity 10
 
@@ -26,9 +26,9 @@ completed:
 
 ## Acceptance criteria
 
-- [ ] `powershell -NoProfile -File Measure-CodeQuality.ps1 -Library Surl.Extended.Protocol.AzureStorage.UnitLibrary`
+- [x] `powershell -NoProfile -File Measure-CodeQuality.ps1 -Library Surl.Extended.Protocol.AzureStorage.UnitLibrary`
       reports 0 failing members.
-- [ ] `dotnet build -warnaserror` is clean and the fast tests are green.
+- [x] `dotnet build -warnaserror` is clean and the fast tests are green.
 
 ## Notes
 
@@ -41,3 +41,4 @@ completed:
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waits on BL-1035: pinned .NET SDK 10.0.401 is not installed, so neither dotnet build nor Measure-CodeQuality.ps1 runs
 - 2026-11-12: Backlog -> Doing.
+- 2026-11-12: Doing -> Done. Split done; Measure-CodeQuality reports 0 failing members, 551 tests green
