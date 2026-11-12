@@ -188,3 +188,16 @@ protocol server.
   `FakeOriginSockets`, and `SocketOriginConnectorLoopbackTests` are fast tests on real
   loopback sockets (a listener reached by `127.0.0.1` and `localhost`, a closed port, a
   `.invalid` name, a refused origin), which BL-551 asked for outside `Integration`.
+- TLS client connections to an operator-named host (ADR-0149 decisions 5 and 11; BL-1068).
+  `TlsClientConnector` (public, constructed with the extra trust-anchor certificates and an
+  optional `TimeProvider`) resolves and connects as `SocketOriginConnector` does but with **no
+  allowed-origin rule**, then returns a `TlsClientConnection` (`Stream`, `IsSecured`,
+  `StartTlsAsync`): handshake at once (`ldaps`) or later on the open stream (StartTLS). TLS 1.2
+  and 1.3 only, no client certificate, no renegotiation, no revocation check. `TlsServerIdentityCheck`
+  accepts a certificate only when its chain builds to a system root or one of the given
+  certificates (`X509ChainTrustMode.CustomRootTrust`) and it names the host; no option skips
+  either. Failures are `TlsClientException` with a `TlsClientFailure` (`HostNotFound`, `Refused`,
+  `Unreachable`, `TimedOut`, `UntrustedCertificate`, `CertificateNameMismatch`,
+  `HandshakeFailed`); messages name host, port and reason, never bytes the caller sent. A failed
+  or cancelled handshake drops the transport. Tests: `TlsClientConnectorTests`, over in-memory
+  pipes with one loopback-socket case.
