@@ -73,3 +73,4 @@ result in `ObjectMetadataIndex`, instead of hashing the whole file on every pull
 - 2026-11-12: Backlog -> Doing.
 - 2026-11-12: Doing -> Backlog. Work sits in git stash 338a2122 (darkfactory BL-865 20261111-212123); this lane may not run git stash commands, so a session allowed to apply it must, then rebuild on SDK 10.0.404, tick the last box and commit
 - 2026-11-12: Backlog -> Doing.
+- 2026-11-12: Doing -> Blocked. Stewart: allow a session to run 'git stash apply 338a2122' (the finished BL-865 work, tagged darkfactory BL-865 20261111-212123); lanes are denied stash commands, so it cannot be recovered, rebuilt on SDK 10.0.404 and committed
