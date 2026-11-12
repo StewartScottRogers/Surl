@@ -60,6 +60,8 @@ those three runtime identifiers using them.
   lines cannot be measured, and the rule is to measure before pinning. The green CI run also needs a push, which a lane
   may not do. Needs arm64 Windows/Linux and Intel macOS runs (CI runners) to print `--version`; nothing was changed in the repo.
 
+- 2026-11-12 (Claude, with Stewart's go-ahead): measured the three builds on runners of their own architecture with a one-off workflow on branch `probe/bl-361` (run https://github.com/StewartScottRogers/Surl/actions/runs/43201794572, green; branch and workflow since deleted). Every archive and binary SHA-256 matched the lane's measurement. The three entries are now in `UpstreamCurlBuilds.json` (`pinned` 2026-11-12) with the `version`, `protocols` and `features` lines as printed, and `UpstreamCurlBuildPinsTests` and `UpstreamCurlLocatorTests` pass (77 tests). Seen while measuring: osx-x64's protocols lack `rtsp` (the macOS build has none, which the osx-arm64 pin already shows); linux-arm64 prints `aarch64-pc-linux-gnu` though the asset is musl. Left for a lane: the ADR under `Documentation/Planning/Decisions` and its README line, and the CI steps that download, cache and verify each build and run `Surl.Conformance` on its runner (copy `ci.yml`'s steps from `Read the upstream curl pin` to `Verify the upstream curl build`). The green CI URL for that last criterion comes from the push the shift makes.
+
 ## Log
 
 - 2026-11-04: Created.
@@ -67,3 +69,4 @@ those three runtime identifiers using them.
 - 2026-11-11: Doing -> Backlog. Waits on BL-1035: pinned .NET SDK 10.0.401 is not installed, so nothing can be built or tested
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Blocked. Stewart: needs a way to run the linux-arm64, win-arm64 and osx-x64 curl builds (arm64/Intel-mac runners) to measure their version/protocols/features lines and get a green CI URL; lane 5 is x64 Windows. Hashes are in Notes.
+- 2026-11-12: Blocked -> Backlog. Stewart said go on BL-361 on 2026-11-12: the three builds are measured and pinned; the ADR and CI steps are left for a lane, see Notes.

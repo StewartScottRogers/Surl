@@ -79,6 +79,39 @@
       "protocols": "dict file ftp ftps gopher gophers http https imap imaps ipfs ipns mqtt mqtts pop3 pop3s scp sftp smb smbs smtp smtps telnet tftp ws wss",
       "features": "alt-svc AppleSecTrust asyn-rr AsynchDNS brotli ECH HSTS HTTP2 HTTP3 HTTPS-proxy HTTPSRR IDN IPv6 Largefile libz NTLM PSL SSL SSLS-EXPORT threadsafe TLS-SRP UnixSockets zstd",
       "pinned": "2026-09-28"
+    },
+    {
+      "platform": "linux-arm64",
+      "role": "reference",
+      "origin": "stunnel/static-curl release 8.21.0, curl-linux-aarch64-musl-8.21.0.tar.xz: tag curl-8_21_0 of upstream curl, unpatched, statically linked against musl and OpenSSL 4.0.1 (BL-361); measured on an ubuntu-22.04-arm runner",
+      "defaultPath": "/opt/upstream-curl/8.21.0/curl",
+      "sha256": "1CD1DF1734854A9A427EA012E36306980F256C1A03AFED1F1F552D790FF474AE",
+      "version": "curl 8.21.0 (aarch64-pc-linux-gnu) libcurl/8.21.0 OpenSSL/4.0.1 zlib/1.3.2 brotli/1.2.0 zstd/1.5.7 c-ares/1.34.6 libidn2/2.3.8 libpsl/0.22.0 libssh2/1.11.1 nghttp2/1.69.0 ngtcp2/1.23.0 nghttp3/1.16.0",
+      "protocols": "dict file ftp ftps gopher gophers http https imap imaps ipfs ipns mqtt mqtts pop3 pop3s rtsp scp sftp smb smbs smtp smtps telnet tftp ws wss",
+      "features": "alt-svc asyn-rr AsynchDNS brotli ECH HSTS HTTP2 HTTP3 HTTPS-proxy HTTPSRR IDN IPv6 Largefile libz NTLM PSL SSL SSLS-EXPORT threadsafe TLS-SRP UnixSockets zstd",
+      "pinned": "2026-11-12"
+    },
+    {
+      "platform": "win-arm64",
+      "role": "reference",
+      "origin": "stunnel/static-curl release 8.21.0, curl-windows-aarch64-8.21.0.tar.xz: tag curl-8_21_0 of upstream curl, unpatched, statically linked against OpenSSL 4.0.1 (BL-361); measured on a windows-11-arm runner",
+      "defaultPath": "C:\\UpstreamCurl\\static-curl-8.21.0-windows-aarch64\\curl.exe",
+      "sha256": "AC672E4AF690B313C58CFB63537783604A7F28BF681CEA55B21F880D55D9736E",
+      "version": "curl 8.21.0 (aarch64-w64-mingw32) libcurl/8.21.0 OpenSSL/4.0.1 zlib/1.3.2 brotli/1.2.0 zstd/1.5.7 c-ares/1.34.6 libidn2/2.3.8 libpsl/0.22.0 libssh2/1.11.1 nghttp2/1.69.0 ngtcp2/1.23.0 nghttp3/1.16.0",
+      "protocols": "dict file ftp ftps gopher gophers http https imap imaps ipfs ipns mqtt mqtts pop3 pop3s rtsp scp sftp smb smbs smtp smtps telnet tftp ws wss",
+      "features": "alt-svc asyn-rr AsynchDNS brotli ECH HSTS HTTP2 HTTP3 HTTPS-proxy HTTPSRR IDN IPv6 Kerberos Largefile libz NativeCA NTLM PSL SPNEGO SSL SSLS-EXPORT SSPI threadsafe TLS-SRP Unicode UnixSockets zstd",
+      "pinned": "2026-11-12"
+    },
+    {
+      "platform": "osx-x64",
+      "role": "reference",
+      "origin": "stunnel/static-curl release 8.21.0, curl-macos-x86_64-8.21.0.tar.xz: tag curl-8_21_0 of upstream curl, unpatched, statically linked against OpenSSL 4.0.1 (BL-361); measured on a macos-15-intel runner",
+      "defaultPath": "/opt/upstream-curl/8.21.0/curl",
+      "sha256": "D7FF98407835D4D54B6F6AA2164B63956073342E14A354C48166F01D169F4EBA",
+      "version": "curl 8.21.0 (x86_64-apple-darwin) libcurl/8.21.0 OpenSSL/4.0.1 zlib/1.3.2 brotli/1.2.0 zstd/1.5.7 c-ares/1.34.6 libidn2/2.3.8 libpsl/0.22.0 libssh2/1.11.1 nghttp2/1.69.0 ngtcp2/1.23.0 nghttp3/1.16.0",
+      "protocols": "dict file ftp ftps gopher gophers http https imap imaps ipfs ipns mqtt mqtts pop3 pop3s scp sftp smb smbs smtp smtps telnet tftp ws wss",
+      "features": "alt-svc AppleSecTrust asyn-rr AsynchDNS brotli ECH HSTS HTTP2 HTTP3 HTTPS-proxy HTTPSRR IDN IPv6 Largefile libz NTLM PSL SSL SSLS-EXPORT threadsafe TLS-SRP UnixSockets zstd",
+      "pinned": "2026-11-12"
     }
   ]
 }
