@@ -78,3 +78,4 @@ server-name table in `Surl.Conformance.UnitLibrary` says built, and each case ge
 - 2026-11-04: Created.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waits on BL-1035: pinned .NET SDK 10.0.401 is not installed, so nothing builds; DNS seam work left uncommitted
+- 2026-11-12: Backlog -> Doing.
