@@ -8,7 +8,7 @@ depends-on: [BL-392, BL-1035]
 touches: [Conformance/Surl.Conformance.UnitLibrary, Conformance/Surl.Conformance.UnitTests, Protocols/Http/Surl.Protocol.Http.UnitLibrary, Protocols/Http/Surl.Protocol.Http.UnitTests]
 requirement: none
 created: 2026-11-04
-completed:
+completed: 2026-11-12
 ---
 # BL-683 — Find why the remaining twelve http upstream test cases fail against Surl
 
@@ -55,16 +55,16 @@ or is listed in Notes with the reason it cannot pass.
 
 ## Acceptance criteria
 
-- [ ] Notes hold one line per case (30, 37, 60, 173, 329, 433, 470, 1064, 1065, 1147, 1244, 2081)
+- [x] Notes hold one line per case (30, 37, 60, 173, 329, 433, 470, 1064, 1065, 1147, 1244, 2081)
       naming its cause as harness, server half or test-server choice, with the evidence (the case
       text read, or the curl 8.21.0 bytes measured with `Record-CurlExchange.ps1` where bytes
       matter).
-- [ ] Each of those cases is `pass` in `upstream-test-case-results.win-x64.txt` after the
+- [x] Each of those cases is `pass` in `upstream-test-case-results.win-x64.txt` after the
       integration run above, or its Notes line names the ID of a task filed for its cause, or gives
       the reason it cannot pass; no previously passing case now fails.
-- [ ] Every fix made here has a unit test in the touched project's `.UnitTests`, and the touched
+- [x] Every fix made here has a unit test in the touched project's `.UnitTests`, and the touched
       libraries keep 100% line and branch coverage.
-- [ ] `dotnet build -warnaserror` is clean for each touched library and
+- [x] `dotnet build -warnaserror` is clean for each touched library and
       `dotnet test --filter "TestCategory!=Integration"` is green.
 
 ## Notes
@@ -89,3 +89,4 @@ or is listed in Notes with the reason it cannot pass.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waiting on BL-1035: pinned .NET SDK 10.0.401 is not installed, so nothing builds
 - 2026-11-12: Backlog -> Doing.
+- 2026-11-12: Doing -> Done. Causes named for all twelve cases: 3 pass, 9 filed as BL-1075, BL-1076, BL-1077
