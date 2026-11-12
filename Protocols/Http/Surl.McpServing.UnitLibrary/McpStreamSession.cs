@@ -147,7 +147,7 @@ public sealed class McpStreamSession
     {
         try
         {
-            await FinishAsync(answer, key, requestCancellation).ConfigureAwait(false);
+            await WriteAnswerAsync(answer, key, requestCancellation).ConfigureAwait(false);
         }
 #pragma warning disable CA1031 // Kept and rethrown by RunAsync, never swallowed.
         catch (Exception failure)
@@ -155,10 +155,27 @@ public sealed class McpStreamSession
         {
             Interlocked.CompareExchange(ref _runningAnswerFailure, ExceptionDispatchInfo.Capture(failure), null);
         }
+        finally
+        {
+            // Released only after the failure is kept: the session end takes every slot back, then reads it.
+            _requestSlots.Release();
+        }
+    }
+
+    private async Task FinishAsync(Task<byte[]?> answer, string? key, CancellationTokenSource? requestCancellation)
+    {
+        try
+        {
+            await WriteAnswerAsync(answer, key, requestCancellation).ConfigureAwait(false);
+        }
+        finally
+        {
+            _requestSlots.Release();
+        }
     }
 
     // A response to a cancelled request is never written: MCP's Cancellation page says it SHOULD NOT be sent.
-    private async Task FinishAsync(Task<byte[]?> answer, string? key, CancellationTokenSource? requestCancellation)
+    private async Task WriteAnswerAsync(Task<byte[]?> answer, string? key, CancellationTokenSource? requestCancellation)
     {
         try
         {
@@ -171,7 +188,6 @@ public sealed class McpStreamSession
         finally
         {
             EndRequest(key, requestCancellation);
-            _requestSlots.Release();
         }
     }
 
