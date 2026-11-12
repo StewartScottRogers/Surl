@@ -62,7 +62,7 @@ public sealed class WebTransportApplicationProtocol : IQuicApplicationProtocol
         // QUIC is always TLS 1.3 (ADR-0082); Surl.Tls13 numbers its cipher suites by their IANA values, as TlsCipherSuite does.
         var tlsSession = new TlsSession(
             SslProtocols.Tls13, (TlsCipherSuite)(ushort)connection.CipherSuite, connection.ApplicationProtocol, ServerName: null, ClientCertificate: null);
-        var authentication = new WebTransportConnectAuthentication(authenticationPolicy.StartHttpConnection(tlsSession));
+        var authentication = new WebTransportConnectAuthentication(authenticationPolicy.StartHttpConnection(tlsSession, LoginExchange.Of(context)));
         var directory = new WebTransportSessionDirectory(context);
         var options = new Http3ServerOptions
         {

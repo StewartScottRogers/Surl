@@ -165,7 +165,7 @@ public sealed class RtspProtocolServer : IConnectionProtocolServer, IConnectionR
         ArgumentNullException.ThrowIfNull(context);
 
         var reader = new HttpConnectionReader(connection, context.Limits.MaxRequestHeadBytes, HttpMessageProtocol.Rtsp10);
-        var authenticationSession = authenticationPolicy.StartHttpConnection(connection.TlsSession);
+        var authenticationSession = authenticationPolicy.StartHttpConnection(connection.TlsSession, LoginExchange.Of(context));
         var responder = new RtspRequestResponder(connection, reader, context, contentStore, authenticationSession, random);
 
         // The session ends however the exchange does - a recording not committed is discarded

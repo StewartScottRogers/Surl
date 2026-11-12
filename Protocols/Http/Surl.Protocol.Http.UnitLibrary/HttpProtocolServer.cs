@@ -217,7 +217,7 @@ public sealed class HttpProtocolServer : IConnectionProtocolServer, IConnectionR
         ArgumentNullException.ThrowIfNull(connection);
         ArgumentNullException.ThrowIfNull(context);
 
-        var authenticationSession = authenticationPolicy.StartHttpConnection(connection.TlsSession);
+        var authenticationSession = authenticationPolicy.StartHttpConnection(connection.TlsSession, LoginExchange.Of(context));
         var answerer = AdvertiseHttp3(new HttpRequestAnswerer(context, contentStore, authenticationSession), connection);
         if (connection.TlsSession is { ApplicationProtocol: not Http2OverTlsApplicationProtocol })
         {

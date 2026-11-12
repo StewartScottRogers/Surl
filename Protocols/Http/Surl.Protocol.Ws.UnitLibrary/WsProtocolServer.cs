@@ -111,7 +111,7 @@ public sealed class WsProtocolServer : IConnectionProtocolServer
         ArgumentNullException.ThrowIfNull(context);
 
         var reader = new HttpConnectionReader(connection, context.Limits.MaxRequestHeadBytes);
-        var authenticationSession = authenticationPolicy.StartHttpConnection(connection.TlsSession);
+        var authenticationSession = authenticationPolicy.StartHttpConnection(connection.TlsSession, LoginExchange.Of(context));
         var responder = new WebSocketUpgradeResponder(connection, reader, context, contentStore, authenticationSession, echoesMessages);
         var isFirstHead = true;
         var keepsConnectionOpen = true;

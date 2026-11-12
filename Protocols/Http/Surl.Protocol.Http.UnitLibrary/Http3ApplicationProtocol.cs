@@ -41,7 +41,7 @@ internal sealed class Http3ApplicationProtocol(
         // Surl.Tls13 numbers its cipher suites by their IANA values, as TlsCipherSuite does.
         var tlsSession = new TlsSession(
             SslProtocols.Tls13, (TlsCipherSuite)(ushort)connection.CipherSuite, connection.ApplicationProtocol, ServerName: null, clientCertificate);
-        var answerer = new HttpRequestAnswerer(context, contentStore, authenticationPolicy.StartHttpConnection(tlsSession));
+        var answerer = new HttpRequestAnswerer(context, contentStore, authenticationPolicy.StartHttpConnection(tlsSession, LoginExchange.Of(context)));
         var options = new Http3ServerOptions { ServerFieldValue = HttpResponseHead.ServerName };
         await new Http3ConnectionServer(new Http3StreamAnswerWriter(answerer, context), options, context).ServeAsync(connection, cancellationToken);
     }

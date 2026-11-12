@@ -38,6 +38,18 @@ public sealed class AuthenticationTests
     }
 
     [TestMethod]
+    public async Task ServeAsync_Connection_StartsTheAuthenticationSessionWithTheConnectionsExchange()
+    {
+        var policy = new UnitTestAuthenticationPolicy(_ => Challenge([BasicChallenge]));
+
+        await ServeAsync(policy, RecordedFixture.ReadRequestBytes("basic-401"));
+
+        Assert.HasCount(1, policy.StartedExchanges);
+        Assert.AreEqual(1, policy.StartedExchanges[0]!.ExchangeId);
+        Assert.AreEqual("http", policy.StartedExchanges[0]!.ListenUrl.Scheme);
+    }
+
+    [TestMethod]
     [DataRow("basic-401", new[] { DigestMd5, DigestSha256, DigestSha512256, BasicChallenge })]
     [DataRow("bearer-401", new[] { BearerChallenge })]
     [DataRow("anonymous-401-fail", new[] { DigestMd5, DigestSha256, DigestSha512256 })]

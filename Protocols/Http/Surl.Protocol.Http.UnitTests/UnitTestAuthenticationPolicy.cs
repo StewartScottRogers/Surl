@@ -12,12 +12,15 @@ internal sealed class UnitTestAuthenticationPolicy(Func<HttpAuthenticationReques
 {
     private readonly List<TlsSession?> startedTlsSessions = [];
     private readonly List<HttpAuthenticationRequest> judgedRequests = [];
+    private readonly List<LoginExchange?> startedExchanges = [];
 
     private HttpAuthenticationVerdict Judge(HttpAuthenticationRequest request) => judge(request);
 
     public IReadOnlyList<TlsSession?> StartedTlsSessions => startedTlsSessions;
 
     public IReadOnlyList<HttpAuthenticationRequest> JudgedRequests => judgedRequests;
+
+    public IReadOnlyList<LoginExchange?> StartedExchanges => startedExchanges;
 
     public ValueTask<PasswordLoginVerdict> CheckPasswordLoginAsync(PasswordLogin login, CancellationToken cancellationToken) =>
         throw new NotSupportedException("The HTTP server never checks a password login.");
@@ -27,6 +30,13 @@ internal sealed class UnitTestAuthenticationPolicy(Func<HttpAuthenticationReques
         startedTlsSessions.Add(tlsSession);
 
         return new Session(this);
+    }
+
+    public IHttpAuthenticationSession StartHttpConnection(TlsSession? tlsSession, LoginExchange? exchange)
+    {
+        startedExchanges.Add(exchange);
+
+        return StartHttpConnection(tlsSession);
     }
 
     private sealed class Session(UnitTestAuthenticationPolicy policy) : IHttpAuthenticationSession
