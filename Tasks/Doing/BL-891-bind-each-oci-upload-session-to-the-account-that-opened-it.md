@@ -39,3 +39,4 @@ token opened it is `404 BLOB_UPLOAD_UNKNOWN`, as ADR-0115 code-3 says ("another 
 - 2026-11-05: Created.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waits on BL-1035 - pinned .NET SDK 10.0.401 is not installed, so dotnet build cannot run
+- 2026-11-12: Backlog -> Doing.
