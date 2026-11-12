@@ -8,7 +8,7 @@ depends-on: [BL-811, BL-1035]
 touches: [Documentation/Planning/Decisions/ADR-0124-surl-is-a-stand-in-for-tests.md]
 requirement: none
 created: 2026-11-06
-completed:
+completed: 2026-11-12
 ---
 # BL-969 — Record BL-811's hook decisions in ADR-0124 decision 5
 
@@ -34,9 +34,9 @@ Stewart's delegation", so the ADR says what the code does.
 
 ## Acceptance criteria
 
-- [ ] ADR-0124 decision 5 has an amendment paragraph stating each decision listed in Context, marked "Decided by
+- [x] ADR-0124 decision 5 has an amendment paragraph stating each decision listed in Context, marked "Decided by
       Claude under Stewart's delegation", naming BL-811.
-- [ ] Every statement in the amendment is true of `Application/Surl.Api/ResponseOverrideHook.cs`,
+- [x] Every statement in the amendment is true of `Application/Surl.Api/ResponseOverrideHook.cs`,
       `EventCallbackHook.cs` and `Foundation/Surl.Core.UnitLibrary/FaultPlan.cs` as they are.
 
 ## Notes
@@ -51,3 +51,4 @@ Stewart's delegation", so the ADR says what the code does.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waits on BL-1035: pinned .NET SDK 10.0.401 is not installed, so dotnet build fails; ADR text is ready on factory/BL-969-lane-5-20261111-060243
 - 2026-11-12: Backlog -> Doing.
+- 2026-11-12: Doing -> Done. ADR-0124 decision 5 now records BL-811's hook decisions

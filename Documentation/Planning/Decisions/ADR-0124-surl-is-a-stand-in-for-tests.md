@@ -363,6 +363,28 @@ callbacks.
   point is served as if no hook were registered (an override) or the event is skipped (a callback); the
   hook stays registered.
 
+**Amendment (BL-811, recorded by BL-969). Decided by Claude under Stewart's delegation.** Building hooks
+settled these choices, which `Application/Surl.Api/README.md`, section "Hooks", states for users:
+
+- **An override's answer applies to the point it was asked at.** Its own scope (`Listener`, `Scheme`,
+  `Account`, `Path`, `Command`) and its `Times` are ignored; an `error` answer takes the point's scheme, so
+  its reply has the shape that scheme's server sends. The answer is then read by the same reader as
+  `surl --fault`.
+- **An answer that cannot be applied is a failure, not a fault.** An answer `surl` refuses, or one whose
+  kind cannot act at the point's stage, is published as `HookFailedEvent` (`Threw`, the refusal's message)
+  and ignored: the point is served as if the override were not there.
+- **Hook IDs.** An override's hook ID is its fault rule ID, `f<n>`, from the plan's one sequence, and is
+  what `SurlServer.Faults.Remove` takes; an event callback's is `h<n>`, from the server's own sequence.
+- **Scope.** A `SurlFaultScope` with no `Stage` is asked at every stage, as every other unset scope
+  property matches anything.
+- **The plan's limit and listing.** Overrides count toward the plan's 256 rules (`FaultPlan.MaxRules`) and
+  are not listed in `FaultPlan.Rules`, which holds only rules with a fixed answer.
+- **No feedback loop.** A callback that throws on its own `HookFailedEvent` is not published again, so a
+  callback that always throws cannot feed itself; nor is a failure published once its registration is
+  disposed.
+- **Stopping.** A callback's `CancellationToken` is cancelled when its registration is disposed, and the
+  server disposes every callback registration when it stops.
+
 ### 6. Determinism
 
 - **Time.** Every time-dependent path uses the instance's injected `TimeProvider`; no `DateTime.Now`,
