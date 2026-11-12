@@ -50,3 +50,4 @@ ADR-0101 decision 5 row 18 and ADR-0102 decisions 4 and 5 state exactly what BL-
 - 2026-11-05: Created.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waits on BL-1035 - pinned .NET SDK 10.0.401 is not installed, so dotnet build cannot run; ADR edits made, uncommitted
+- 2026-11-12: Backlog -> Doing.
