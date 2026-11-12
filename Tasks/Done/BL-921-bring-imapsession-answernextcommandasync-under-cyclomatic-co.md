@@ -8,7 +8,7 @@ depends-on: [BL-1035]
 touches: [Protocols/Mail/Surl.Protocol.Imap.UnitLibrary, Protocols/Mail/Surl.Protocol.Imap.UnitTests]
 requirement: none
 created: 2026-11-06
-completed:
+completed: 2026-11-12
 ---
 # BL-921 — Bring ImapSession.AnswerNextCommandAsync under cyclomatic complexity 10
 
@@ -28,9 +28,9 @@ members.
 
 ## Acceptance criteria
 
-- [ ] `Measure-CodeQuality.ps1 -Library Surl.Protocol.Imap.UnitLibrary` reports 0 failing members, 100% line and
+- [x] `Measure-CodeQuality.ps1 -Library Surl.Protocol.Imap.UnitLibrary` reports 0 failing members, 100% line and
       branch coverage.
-- [ ] `dotnet build -warnaserror` is clean and the fast tests are green.
+- [x] `dotnet build -warnaserror` is clean and the fast tests are green.
 
 ## Notes
 
@@ -41,9 +41,13 @@ null falls through) and `AnswerReadOutcomeAsync` (the outcome chain), no behavio
 shift to stash: `dotnet build` cannot run because the pinned SDK 10.0.401 is not installed (BL-1035), so the
 change is unverified. Returned to Backlog behind BL-1035.
 
+2026-11-12 (lane 1): SDK now present. Split out `AnswerReadOutcomeAsync` (the outcome chain); the
+upstream-test-case check stays in `AnswerNextCommandAsync`. Build clean, 753 Imap tests green, measure reports 0 failing.
+
 ## Log
 
 - 2026-11-06: Created.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waiting on BL-1035 - pinned .NET SDK 10.0.401 is not installed, so nothing builds
 - 2026-11-12: Backlog -> Doing.
+- 2026-11-12: Doing -> Done. ImapSession.AnswerNextCommandAsync split under complexity 10; Imap measure reports 0 failing
