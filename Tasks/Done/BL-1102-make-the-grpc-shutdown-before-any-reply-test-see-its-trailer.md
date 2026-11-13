@@ -8,7 +8,7 @@ depends-on: []
 touches: [Protocols/Http/Surl.Extended.Protocol.Grpc.UnitLibrary, Protocols/Http/Surl.Extended.Protocol.Grpc.UnitTests]
 requirement: none
 created: 2026-11-13
-completed:
+completed: 2026-11-13
 ---
 # BL-1102 — Make the gRPC shutdown-before-any-reply test see its trailers-only reply on macOS
 
@@ -39,11 +39,11 @@ factory's merge to `master`.
 
 ## Acceptance criteria
 
-- [ ] The task's Log names the cause: either production skips the trailers-only reply, or the test shuts down too early.
-- [ ] A shutdown before any reply on an open call always writes HEADERS carrying `grpc-status: 14` and `grpc-message: server shutting down` with END_STREAM, then GOAWAY NO_ERROR, shown by a test that fails without the fix.
-- [ ] The test uses no `Task.Delay`, `Thread.Sleep` or real time.
-- [ ] The test passes 50 runs in a row on Windows: `dotnet test Protocols/Http/Surl.Extended.Protocol.Grpc.UnitTests --filter "Name~ShutdownBeforeAnyReply"` looped 50 times.
-- [ ] `dotnet build` is clean and `dotnet test --filter "TestCategory!=Integration"` is green. Surl.Extended.Protocol.Grpc.UnitLibrary keeps 100% line and branch coverage.
+- [x] The task's Log names the cause: either production skips the trailers-only reply, or the test shuts down too early.
+- [x] A shutdown before any reply on an open call always writes HEADERS carrying `grpc-status: 14` and `grpc-message: server shutting down` with END_STREAM, then GOAWAY NO_ERROR, shown by a test that fails without the fix.
+- [x] The test uses no `Task.Delay`, `Thread.Sleep` or real time.
+- [x] The test passes 50 runs in a row on Windows: `dotnet test Protocols/Http/Surl.Extended.Protocol.Grpc.UnitTests --filter "Name~ShutdownBeforeAnyReply"` looped 50 times.
+- [x] `dotnet build` is clean and `dotnet test --filter "TestCategory!=Integration"` is green. Surl.Extended.Protocol.Grpc.UnitLibrary keeps 100% line and branch coverage.
 
 ## Notes
 
@@ -54,3 +54,5 @@ on Windows, where this passes, so reason about the race rather than rely on repr
 
 - 2026-11-13: Created.
 - 2026-11-13: Backlog -> Doing.
+- 2026-11-13: Cause: the test shut down too early. It waited for the first connection WINDOW_UPDATE, which `AcceptDataAsync` writes before the DATA is handed to the stream, so the point did not mean the call was open and waiting. Production (`Http2ConnectionServer.ServeAsync` waits on `answering` before GOAWAY; `GrpcStreamHandler` catches the cancellation and calls `FinishAtShutdownAsync`) already sends the trailers-only reply for an open call. Fix: the test now serves a probe client-streaming method that completes a `TaskCompletionSource` when it is waiting for its first message, and shuts down on that signal (no Task.Delay in the test body; `HasWrittenAWindowUpdate` removed). Could not reproduce the macOS failure on Windows; 50 runs in a row pass, 219 grpc tests pass, build clean. No production change, so no failing-before test exists; the old trigger was the racy part.
+- 2026-11-13: Doing -> Done. Test shut down on a racy point; now shuts down when the served method signals it is waiting

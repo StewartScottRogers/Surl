@@ -589,13 +589,22 @@ public sealed class GrpcStreamHandlerTests
     public async Task ServeStreamAsync_ShutdownBeforeAnyReply_IsTrailersOnlyUnavailable()
     {
         var client = new GrpcHttp2TestFrames();
+        var methodIsWaiting = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var service = new GrpcService("test.Probe", [new("Wait", true, false, async (call, cancellationToken) =>
+        {
+            methodIsWaiting.SetResult();
+            await call.ReadRequestAsync(cancellationToken);
+            return GrpcStatus.Ok;
+        })]);
 
+        // The method's own signal is the only point at which the call is certainly open and
+        // has written nothing; the server's WINDOW_UPDATE is written before the stream sees its DATA.
         var written = await ShutDownMidCallAsync(
             new RecordingExchangeLog(),
-            HasWrittenAWindowUpdate,
+            methodIsWaiting.Task,
+            [service],
             Start,
-            client.Call(1, CollectPath, endStream: false),
-            Data(1, Message(Hi), endStream: false));
+            client.Call(1, "/test.Probe/Wait", endStream: false));
 
         var (fields, _, ended, _) = Response(written, 1);
         Assert.AreEqual(TrailersOnly(14, "server shutting down"), Text(fields));
@@ -696,31 +705,28 @@ public sealed class GrpcStreamHandlerTests
     private static byte[] GoAwayNoError(int lastStreamId) =>
         Frame(0x7, 0, 0, [0, 0, 0, (byte)lastStreamId, 0, 0, 0, 0]);
 
-    // The server has answered the request's DATA with a connection WINDOW_UPDATE (type 0x8), so the
-    // call's stream is open and its message has arrived.
-    private static bool HasWrittenAWindowUpdate(byte[] written)
-    {
-        for (var offset = 0; offset + 9 <= written.Length; offset += 9 + ((written[offset] << 16) | (written[offset + 1] << 8) | written[offset + 2]))
-        {
-            if (written[offset + 3] == 0x8)
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
     // Serves the frames on a connection the client keeps open, shuts the exchange down once what
     // was written satisfies isAnswering, and returns every byte written by the end.
-    private async Task<byte[]> ShutDownMidCallAsync(RecordingExchangeLog log, Func<byte[], bool> isAnswering, params byte[][] frames)
+    private async Task<byte[]> ShutDownMidCallAsync(RecordingExchangeLog log, Func<byte[], bool> isAnswering, params byte[][] frames) =>
+        await ShutDownMidCallAsync(log, isAnswering, null, null, frames);
+
+    // The same, but shuts down once untilOpen completes, which the served method completes itself.
+    private async Task<byte[]> ShutDownMidCallAsync(RecordingExchangeLog log, Task untilOpen, GrpcService[] services, params byte[][] frames) =>
+        await ShutDownMidCallAsync(log, null, untilOpen, services, frames);
+
+    private async Task<byte[]> ShutDownMidCallAsync(RecordingExchangeLog log, Func<byte[], bool>? isAnswering, Task? untilOpen, GrpcService[]? services, byte[][] frames)
     {
         var connection = new InMemoryConnection([(byte[])[.. frames.SelectMany(frame => frame)]], peerHalfClosesWhenExhausted: false);
         using var shutdown = CancellationTokenSource.CreateLinkedTokenSource(TestContext.CancellationToken);
         var context = Context() with { Log = log, CancellationToken = shutdown.Token, ShutdownToken = shutdown.Token };
-        var serving = new Http2ConnectionServer(Handler(context: context, log: log), context, connection).ServeAsync();
+        var serving = new Http2ConnectionServer(Handler(context: context, log: log, services: services), context, connection).ServeAsync();
 
-        while (!isAnswering(connection.WrittenBytes))
+        if (untilOpen is not null)
+        {
+            await untilOpen.WaitAsync(TestContext.CancellationToken);
+        }
+
+        while (isAnswering is not null && !isAnswering(connection.WrittenBytes))
         {
             await Task.Delay(TimeSpan.FromMilliseconds(5), TestContext.CancellationToken);
         }
