@@ -234,6 +234,29 @@ original servers' stores, and the stand-in direction (ADR-0124) builds on both.
   `Documentation/Wiki/Surl-As-A-Stand-In.md`.
 - **Decisions:** ADR-0100, ADR-0101 and ADR-0102.
 
+## Track — The hosts: Surl.Api and Surl.Mcp
+
+Beside the phases: `surl` is one of three hosts (ADR-0098), and the stand-in direction
+(ADR-0124) is built on the other two.
+
+- **Status:** The hosts are built and proved (2026-11-12). The stand-in features on them are
+  built in part; BL-821 documents them.
+- **Delivers:** `Surl.Composition`, the one start all three hosts run (ADR-0099); `Surl.Api`,
+  the in-process .NET interface with typed options, exchange recording, queries and waits, fault
+  rules, hooks, seeding, reset and snapshots and a test's own protocol servers; `Surl.Mcp`, the
+  `surl-mcp` stdio MCP server with its tools and `surl://aihelp` resources, on `Surl.McpServing`
+  and `Surl.Mcp.UnitLibrary` (ADR-0103); the `surl-mcp` release archives and the NuGet packages,
+  packed but not yet published. Decided by BL-610 to BL-612 and built by BL-609, BL-613 to
+  BL-617, BL-619 to BL-621, BL-623 to BL-628, BL-637 and BL-643.
+- **Exit criteria:** met by BL-618, which proves `Surl.Api` against pinned upstream curl, and
+  BL-632, which drives the built `surl-mcp` over stdio with pinned upstream curl. BL-649 states the
+  hosts as built in the README, the product overview, the glossary and the root `CLAUDE.md`.
+- **Not built:** serving the control endpoint from `surl` and `Surl.Api` (the `Surl.Control`
+  library and its options exist, BL-814 and BL-815; BL-816, which serves it, is deferred) and the stand-in page
+  `Documentation/Wiki/Surl-As-A-Stand-In.md` (BL-821); publishing the packages waits for the
+  first release tag.
+- **Decisions:** ADR-0098, ADR-0099, ADR-0103 and ADR-0124.
+
 ## Later
 
 Phase 7 is the last phase in the product overview's phasing, so no later milestone is planned. What is still open is listed in the milestone it belongs to,

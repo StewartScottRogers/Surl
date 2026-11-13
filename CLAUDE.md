@@ -11,12 +11,12 @@ Its command line mirrors curl's - where `curl [options] <url>` names what to fet
 class library behind injected interfaces so it can be unit tested without a network. See
 `Documentation/Product/Product-Overview.md`.
 
-`surl` is not Surl's only product (Stewart, 2026-11-04; ADR-0098). Two more hosts are planned
+`surl` is not Surl's only product (Stewart, 2026-11-04; ADR-0098). Two more hosts sit
 beside it in `Application/`: `Surl.Api`, a .NET programming interface that starts and stops
-protocol servers in-process for a test suite, and `Surl.Mcp`, an MCP server host on standard
-input and output whose tools let AI agents start, list and stop servers and see what a client
-sent. Both keep the command line's secure-by-default rules; BL-611 and BL-612 decide their
-design, and neither exists yet.
+protocol servers in-process for a test suite (ADR-0099), and `Surl.Mcp`, the `surl-mcp`
+executable, an MCP server host on standard input and output whose tools let AI agents start,
+list and stop servers and see what a client sent (ADR-0103). Both keep the command line's
+secure-by-default rules and start servers through `Surl.Composition`, as `surl` does.
 
 Surl is the sibling of the Curl port (https://github.com/StewartScottRogers/Curl) and
 mirrors its structure, tooling and rules, project for project (ADR-0002).
@@ -224,7 +224,8 @@ and no `tests/`; do not create them.
 ```
 Surl/
 ├── Surl.slnx
-├── Application/           ← Surl.Console (the executable), Surl.Cli, Surl.Composition; planned: Surl.Api, Surl.Mcp (ADR-0098)
+├── Application/           ← the three hosts Surl.Console, Surl.Api, Surl.Mcp (ADR-0098); Surl.Cli, Surl.Composition,
+│                            Surl.Mcp.UnitLibrary, Surl.Control
 ├── Conformance/           ← Surl.Conformance
 ├── Cryptography/          ← Surl.Cryptography and its hand-built primitives, Surl.Kerberos, Surl.Kerberos.TestKdc
 ├── Foundation/            ← Surl.Protocol.Abstractions, Surl.Core, Surl.Networking, Surl.Content,
@@ -256,10 +257,12 @@ is a decision recorded in an ADR.
 - Production library: `Surl.<Area>.UnitLibrary`, protocol servers `Surl.Protocol.<Name>.UnitLibrary`.
 - Tests: the same name with `.UnitTests` instead of `.UnitLibrary`.
 - The executable is `Surl.Console` (assembly `surl`) — no `.UnitLibrary` suffix, because
-  it is not a library. It is one of three exceptions: the planned hosts `Surl.Api` (the
-  in-process programming interface) and `Surl.Mcp` (the MCP server executable) will also
-  carry no `.UnitLibrary` suffix, as the Curl port's `Curl.Api` and `Curl.Mcp` do
-  (ADR-0098). Neither exists yet; BL-611 and BL-612 decide their design.
+  it is not a library. It is one of three exceptions: the hosts `Surl.Api` (the
+  in-process programming interface, NuGet package `Surl.Api`) and `Surl.Mcp` (the MCP server
+  executable, assembly `surl-mcp`, NuGet package `Surl.Mcp`) also carry no `.UnitLibrary`
+  suffix, as the Curl port's `Curl.Api` and `Curl.Mcp` do (ADR-0098). Their tests are
+  `Surl.Api.UnitTests` and `Surl.Mcp.UnitTests`; the MCP tools live in `Surl.Mcp.UnitLibrary`
+  and the session handling in `Surl.McpServing.UnitLibrary`.
 - Names sort so each `.UnitTests` lands directly after the library it tests. Keep it
   that way.
 

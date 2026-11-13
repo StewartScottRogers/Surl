@@ -68,15 +68,18 @@ first - and the Curl port needs exactly that to be measured.
   `surl` on `PATH` that answers every scheme.
 - The Curl port, in the last phase: Surl is the instrument that measures it.
 - .NET test suites that stand up a server in-process, without launching a process, through
-  `Surl.Api` - planned (Stewart, 2026-11-04;
+  `Surl.Api` (Stewart, 2026-11-04;
   [ADR-0098](../Planning/Decisions/ADR-0098-surl-api-and-surl-mcp-join-surl-as-products.md)).
 - AI agents that start, list and stop Surl servers and see what a client sent, through the
-  `Surl.Mcp` MCP server host - planned (ADR-0098).
+  `Surl.Mcp` MCP server host, the `surl-mcp` executable (ADR-0098).
 - Contributors adding a protocol server, who need the seams to be obvious.
 
-`surl` is one of three products: `Surl.Api` and `Surl.Mcp` are planned beside it in
-`Application/` and keep its secure-by-default rules (ADR-0098). Their design is decided by
-BL-611 and BL-612; until then neither project exists.
+`surl` is one of three products: `Surl.Api` and `Surl.Mcp` sit beside it in `Application/` and
+keep its secure-by-default rules (ADR-0098). `Surl.Api`'s design is
+[ADR-0099](../Planning/Decisions/ADR-0099-one-server-composition-for-surl-and-surl-api-and-surl-apis-programming-interface.md)
+and `Surl.Mcp`'s is
+[ADR-0103](../Planning/Decisions/ADR-0103-surl-mcp-its-tools-and-the-mcp-core-it-shares-with-the-extended-mcp-server.md);
+all three start servers through `Surl.Composition`.
 
 Surl is built to be exposed to the internet, not only to answer on loopback in a test
 (Stewart, 2026-09-28). The security scope that hardening sets - connection, time and size
@@ -673,7 +676,9 @@ an operator configures. The terms are defined in the [glossary](../Wiki/Glossary
   start. `surl --aihelp mail`, `messages`, `content`, `auth` and `surl` list each option; the
   README holds a worked config file.
 - **The hosts.** `Surl.Api` takes the same items as `SurlServerOptions` properties and
-  `ConfigFiles` (ADR-0101 decision 2, BL-668).
+  `ConfigFiles` (ADR-0101 decision 2, BL-668). `surl-mcp`'s `start_server` takes `surl`'s own
+  options, so the same items. Both are documented in the README's "Using Surl from a test suite
+  or an AI agent" and in `Application/Surl.Api/README.md` and `Application/Surl.Mcp/README.md`.
 - **Not built yet, stated as intent.** LDAP as an optional source of accounts is decided by
   BL-671 and built by BL-672 and BL-673. The Curl port's own clients reading the shared files
   and messages are BL-669 and BL-670; they run in `Integration` tests only and prove nothing
@@ -789,7 +794,10 @@ in its own `Surl.<Area>.UnitLibrary` (`CLAUDE.md`, "Decisions").
 
 | Layer | Projects | Depends on |
 | --- | --- | --- |
-| Executable | `Surl.Console` | everything below, as the composition root |
+| Hosts | `Surl.Console` (the `surl` executable), `Surl.Api` (the in-process .NET programming interface, ADR-0099) and `Surl.Mcp` (the `surl-mcp` executable, ADR-0103), over `Surl.Composition`; the hosts are composition roots, and no protocol server or horizontal library may reference one | `Surl.Composition`, `Surl.Cli`, and for `Surl.Mcp` also `Surl.Mcp.UnitLibrary` and `Surl.McpServing` |
+| Composition | `Surl.Composition` (turns a parsed command line into running protocol servers, the stores they share and the event stream; the one start `surl`, `Surl.Api` and `Surl.Mcp` all run, ADR-0099) | `Surl.Cli`, `Surl.Core`, the protocol servers and the services below |
+| MCP serving | `Surl.McpServing` (JSON-RPC over a line stream, the MCP session, tool and resource registries; shared by `Surl.Mcp` and the extended MCP server, ADR-0103), in `Protocols/Http/`; `Surl.Mcp.UnitLibrary` (the tools and the running-server book) | `Surl.McpServing`: nothing; `Surl.Mcp.UnitLibrary`: `Surl.Api`, `Surl.Cli`, `Surl.McpServing` |
+| Control endpoint | `Surl.Control` (the loopback HTTP and JSON endpoint of `--control`, ADR-0124 decision 7; the library is built, and no host serves it yet, BL-816) | Abstractions, `Surl.HttpServing` |
 | Command line | `Surl.Cli` | `Surl.Core`, `Surl.Output`, Abstractions |
 | Serving engine | `Surl.Core` | Abstractions |
 | Protocol servers | `Surl.Protocol.<Name>` (15) | Abstractions, and the horizontal libraries of ADR-0002's table where needed: `Surl.Content`, `Surl.Cryptography` and its SSH primitives, for SMTP, IMAP and POP3 `Surl.MailStore` and `Surl.LineProtocol`, and for HTTP, WebSocket and RTSP `Surl.HttpMessage` (ADR-0070) |
@@ -828,10 +836,13 @@ ADR-0147):
 
 | Production | Tests |
 | --- | --- |
+| `Surl.Api` (ADR-0099), in `Application/`: no `.UnitLibrary` suffix | `Surl.Api.UnitTests` |
 | `Surl.Authentication.UnitLibrary` | `Surl.Authentication.UnitTests` |
 | `Surl.Cli.UnitLibrary` | `Surl.Cli.UnitTests` |
+| `Surl.Composition.UnitLibrary` (ADR-0099) | `Surl.Composition.UnitTests` |
 | `Surl.Conformance.UnitLibrary` | `Surl.Conformance.UnitTests` |
 | `Surl.Console` | `Surl.Console.UnitTests` |
+| `Surl.Control.UnitLibrary` (ADR-0124), in `Application/` | `Surl.Control.UnitTests` |
 | `Surl.Content.UnitLibrary` | `Surl.Content.UnitTests` |
 | `Surl.Cookies.UnitLibrary` | `Surl.Cookies.UnitTests` |
 | `Surl.Core.UnitLibrary` | `Surl.Core.UnitTests` |
@@ -856,6 +867,9 @@ ADR-0147):
 | `Surl.Kerberos.UnitLibrary` | `Surl.Kerberos.UnitTests` |
 | `Surl.LineProtocol.UnitLibrary` | `Surl.LineProtocol.UnitTests` |
 | `Surl.MailStore.UnitLibrary` | `Surl.MailStore.UnitTests` |
+| `Surl.Mcp` (the `surl-mcp` executable, ADR-0103), in `Application/`: no `.UnitLibrary` suffix | `Surl.Mcp.UnitTests` (which also tests `Surl.Mcp.UnitLibrary`) |
+| `Surl.Mcp.UnitLibrary` (the tools and the running-server book, ADR-0103), in `Application/` | `Surl.Mcp.UnitTests` |
+| `Surl.McpServing.UnitLibrary` (ADR-0103), in `Protocols/Http/` | `Surl.McpServing.UnitTests` |
 | `Surl.MessageBus.UnitLibrary` (ADR-0100), in `Protocols/Messaging/` | `Surl.MessageBus.UnitTests` |
 | `Surl.Networking.UnitLibrary` | `Surl.Networking.UnitTests` |
 | `Surl.Output.UnitLibrary` | `Surl.Output.UnitTests` |
@@ -883,7 +897,10 @@ ADR-0147):
 
 - **Runtime:** .NET 10, pinned in `global.json`. Base class library only; the MSTest
   meta-package is the one package, for tests (`CLAUDE.md`).
-- **Publishing:** native ahead-of-time, one file, no runtime needed.
+- **Publishing:** native ahead-of-time, one file, no runtime needed, for two executables:
+  `surl` and `surl-mcp` (`Surl.Mcp`, ADR-0103). `Surl.Api` and `Surl.Mcp` are also packed as
+  the NuGet packages `Surl.Api` and `Surl.Mcp` (a .NET tool of type `McpServer`); no release is
+  tagged, so none is published yet.
 - **Platforms:** Windows, Linux and macOS, on x64 and Arm64.
 - **Licensing:** MIT (`LICENSE.txt`). Upstream test data copied in for `Surl.Conformance`
   keeps curl's own notice beside it.
@@ -913,7 +930,7 @@ None open. The four questions this section listed are answered (Stewart, 2026-09
 | 1 | Pin an upstream build with SMB, HTTP/2 and HTTP/3? | Answered: yes, the latest. curl.se's current Windows build (8.22.0_2) is pinned as a supplementary build, used only for SMB, HTTP/2 and HTTP/3; 8.21.0 stays the reference release. Stewart, 2026-09-28. | BL-026 |
 | 2 | Upstream builds on Linux and macOS? | Answered: download them. The approval covers upstream 8.21.0 builds for Linux and macOS; which builds, and how CI obtains them, is decided by ADR. Stewart, 2026-09-28. | BL-027 and BL-028 |
 | 3 | Local testing only, or hardened for internet-facing use? | Answered: internet-facing. Surl is hardened to be exposed to the internet (see "Users"). Stewart, 2026-09-28. | BL-024 |
-| 4 | A managed NuGet API, or the `surl` executable only? | Reversed 2026-11-04. First answered "the executable" (Stewart, 2026-09-28); Surl will also ship `Surl.Api`, a .NET programming interface that starts and stops its servers in-process, and `Surl.Mcp`, an MCP server host for AI agents, beside `surl` (Stewart, 2026-11-04; [ADR-0098](../Planning/Decisions/ADR-0098-surl-api-and-surl-mcp-join-surl-as-products.md)). | BL-611 and BL-612 |
+| 4 | A managed NuGet API, or the `surl` executable only? | Reversed 2026-11-04. First answered "the executable" (Stewart, 2026-09-28); Surl ships `Surl.Api`, a .NET programming interface that starts and stops its servers in-process, and `Surl.Mcp`, an MCP server host for AI agents, beside `surl` (Stewart, 2026-11-04; [ADR-0098](../Planning/Decisions/ADR-0098-surl-api-and-surl-mcp-join-surl-as-products.md)); both are built. | ADR-0099 and ADR-0103 |
 
 ## Sources
 

@@ -8,7 +8,7 @@ depends-on: [BL-618, BL-628, BL-632, BL-643]
 touches: [README.md, Documentation/Product/Product-Overview.md, Documentation/Wiki/Glossary.md, Documentation/Planning/Roadmap.md, CLAUDE.md]
 requirement: none
 created: 2026-11-04
-completed:
+completed: 2026-11-12
 ---
 # BL-649 — Document Surl.Api and Surl.Mcp in the README, product overview, glossary and roadmap
 
@@ -39,13 +39,13 @@ calls them planned.
 
 ## Acceptance criteria
 
-- [ ] `README.md` has the section above, and its example uses only public members that exist in `Surl.Api`.
-- [ ] `Documentation/Product/Product-Overview.md`'s "Layers" and "Project layout" tables list `Surl.Composition`,
+- [x] `README.md` has the section above, and its example uses only public members that exist in `Surl.Api`.
+- [x] `Documentation/Product/Product-Overview.md`'s "Layers" and "Project layout" tables list `Surl.Composition`,
       `Surl.Api`, `Surl.Mcp`, `Surl.Mcp.UnitLibrary` and `Surl.McpServing` with their test projects, and "Last
       updated" is the day this runs.
-- [ ] `Documentation/Wiki/Glossary.md` has the entries above.
-- [ ] `Documentation/Planning/Roadmap.md` records the hosts' work and its tasks.
-- [ ] No sentence in root `CLAUDE.md`, `README.md` or the Product Overview still calls `Surl.Api` or `Surl.Mcp`
+- [x] `Documentation/Wiki/Glossary.md` has the entries above.
+- [x] `Documentation/Planning/Roadmap.md` records the hosts' work and its tasks.
+- [x] No sentence in root `CLAUDE.md`, `README.md` or the Product Overview still calls `Surl.Api` or `Surl.Mcp`
       planned.
 
 ## Notes
@@ -62,3 +62,4 @@ calls them planned.
 - 2026-11-04: Created.
 - 2026-11-05: Notes amended: stand-in features are BL-821's to document; link, do not duplicate.
 - 2026-11-12: Backlog -> Doing.
+- 2026-11-12: Doing -> Done. README, Product Overview, Glossary, Roadmap and root CLAUDE.md now describe Surl.Api and Surl.Mcp as built

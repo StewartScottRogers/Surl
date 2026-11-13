@@ -75,8 +75,12 @@ The work is on the board and is being built now. None of it is finished.
    folders, shares, buckets, topics, queues and groups, so one `surl` can host hundreds of
    mailboxes. See [Configuring a real server](#configuring-a-real-server). LDAP as a source of
    accounts is not built yet.
-5. **Two more hosts.** `Surl.Api` starts and stops Surl servers inside a .NET test suite, and
-   `Surl.Mcp` lets AI agents start, list and stop servers and see what a client sent.
+5. **Two more hosts, built.** `Surl.Api` starts and stops Surl servers inside a .NET test
+   suite, and `Surl.Mcp` (`surl-mcp`) lets AI agents start, list and stop servers and see what
+   a client sent. See [Using Surl from a test suite or an AI agent](#using-surl-from-a-test-suite-or-an-ai-agent).
+   The stand-in features on top of them (event queries and waits, seeding, reset and
+   snapshots, faults, hooks and the control endpoint) are built in part; their page,
+   `Documentation/Wiki/Surl-As-A-Stand-In.md`, is not written yet (BL-821).
 6. **Phase 7: measuring the Curl port.** The port and pinned upstream curl run the same
    command lines against the same `surl`, and wherever they disagree, upstream curl is right.
    This is built for `win-x64`: the port at commit `b42c319b` agreed in 1,420 of 1,518 cases,
@@ -481,6 +485,46 @@ Exit codes (with what to do next) and Examples (exact command lines and what sur
 `surl --aihelp all` writes the overview and every topic in one document; an unknown topic
 gets the topic list.
 
+## Using Surl from a test suite or an AI agent
+
+`surl` is one of three hosts of the same servers (ADR-0098, ADR-0099, ADR-0103). Each keeps
+`surl`'s secure-by-default rules: nothing is looser than `surl` with the same options.
+
+**From a .NET test suite: `Surl.Api`.** It starts a server in process, with no `surl` process,
+on port 0 so a free port is taken, and several instances run side by side. This is
+`Application/Surl.Api/README.md`'s example:
+
+```csharp
+using Surl.Api;
+
+var options = new SurlServerOptions { ListenUrls = { "http://127.0.0.1:0" } };
+options.Files["hello.txt"] = "hello"u8.ToArray();
+
+var server = await SurlServer.StartAsync(options);
+// server.BoundUrl is http://127.0.0.1:<the bound port>/ - port 0 takes a free one;
+// server.BoundUrls lists every listen URL, in order, with its bound port.
+// ... run the client against server.BoundUrl ...
+var exitCode = await server.StopAsync();   // SurlExitCode.Ok
+```
+
+Every property is a spelling of a `surl` option, and a start `surl` would refuse throws
+`SurlServerStartException`. With `RecordExchanges` set, `server.Exchanges` holds each exchange's
+bytes, its listen URL and its scheme. The [package's README](Application/Surl.Api/README.md) covers
+the rest: queries and waits, fault rules, hooks, seeding, reset and snapshots, and a test's own
+protocol server. The NuGet package `Surl.Api` is packed by the release workflow but not yet
+published, because no release is tagged.
+
+**From an AI agent: `Surl.Mcp`.** `surl-mcp` is an MCP server on standard input and output. An MCP
+client starts it as a stdio server, for example with the command `dnx Surl.Mcp` (the package is a
+.NET tool of type `McpServer`, not yet published) or with the `surl-mcp` binary from a release
+archive, which needs no .NET runtime. Its tools are `start_server`, `list_servers`, `stop_server`,
+`get_exchanges`, `get_events`, `wait_for_event`, `seed_mail`, `put_file`, `publish_message`,
+`add_account`, `reset_server`, `snapshot_server`, `restore_server`, `add_fault`, `list_faults` and
+`remove_fault`. The `surl://aihelp` resources carry the pages of `surl --aihelp`, so the agent
+learns the options from the same text. Listen URLs must be loopback unless the host was started
+with `--allow-non-loopback`, and local paths are confined by `--root`. See
+[`Application/Surl.Mcp/README.md`](Application/Surl.Mcp/README.md).
+
 ## Upstream curl validates Surl; Surl later validates the Curl port
 
 Surl is measured against **upstream curl** - the original C implementation at
@@ -533,6 +577,10 @@ curl -fsSL https://raw.githubusercontent.com/StewartScottRogers/Surl/master/inst
 irm https://raw.githubusercontent.com/StewartScottRogers/Surl/master/install.ps1 | iex          # Windows
 ```
 
+The release also attaches `surl-mcp-<runtime identifier>` archives, the native `surl-mcp` MCP
+server. The NuGet packages `Surl.Api` and `Surl.Mcp` are packed by the same workflow but not yet
+published.
+
 ## Build and test
 
 Needs the .NET 10 SDK. Builds and tests on Windows, Linux and macOS.
@@ -560,7 +608,7 @@ Each `.UnitTests` project sits beside the library it tests.
 
 | Folder | Holds |
 | --- | --- |
-| `Application/` | the `surl` executable (`Surl.Console`) and its command line (`Surl.Cli`) |
+| `Application/` | the three hosts - `surl` (`Surl.Console`), `Surl.Api` and `surl-mcp` (`Surl.Mcp`) - the command line (`Surl.Cli`), the composition they share (`Surl.Composition`), `Surl.Mcp.UnitLibrary` and the control endpoint (`Surl.Control`) |
 | `Foundation/` | the protocol contracts, networking, content store, accounts, cookies and output |
 | `Cryptography/` | the hand-built primitives (ChaCha20, Curve25519, Ed25519, Poly1305 and others), the TLS 1.3 handshake for QUIC, and Kerberos |
 | `Protocols/FileTransfer/` | FTP, SSH (SCP and SFTP), TFTP and SMB |
