@@ -8,7 +8,7 @@ depends-on: [BL-973, BL-974, BL-949, BL-950, BL-951]
 touches: [Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests, Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests]
 requirement: none
 created: 2026-11-06
-completed:
+completed: 2026-11-13
 ---
 # BL-952 — Compose the Kafka group coordinator and producer ids in surl
 
@@ -30,23 +30,25 @@ BL-948 to BL-951 registered, and the help and `--aihelp` text naming them and `$
 
 ## Acceptance criteria
 
-- [ ] A `Surl.Composition.UnitTests` test shows the `kafka` and `kafkas` brokers of one instance answering with the
+- [x] A `Surl.Composition.UnitTests` test shows the `kafka` and `kafkas` brokers of one instance answering with the
       same group coordinator (a group joined on one is described on the other), and two composed instances not
       sharing one.
-- [ ] A `Surl.Composition.UnitTests` test shows ApiVersions over a composed `kafka` listener listing the ranges ADR-0145
+- [x] A `Surl.Composition.UnitTests` test shows ApiVersions over a composed `kafka` listener listing the ranges ADR-0145
       decision 1 gives.
-- [ ] `Surl.Cli.UnitTests` pin the `--topic-access` help text naming `$group/<id>`, and the `--aihelp` completeness
+- [x] `Surl.Cli.UnitTests` pin the `--topic-access` help text naming `$group/<id>`, and the `--aihelp` completeness
       tests named in root `CLAUDE.md` pass, `CommandLineRunnerAiHelpTests.RunAsync_EveryAiHelpExample_WritesWhatTheExampleShows`
       included.
-- [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and both libraries keep 100% line and branch
+- [x] `dotnet build -warnaserror` is clean, the fast tests are green, and both libraries keep 100% line and branch
       coverage.
 
 ## Notes
 
 - Filed by BL-701 (ADR-0145).
+- BL-973 already composed the coordinator, producer states and every answerer in `ComposeKafkaBroker` (one registration for both schemes, constructed with the instance TimeProvider); this task added the composition tests (shared coordinator, two instances apart, ApiVersions ranges) and the `$group/<id>` text in the manual and the `kafka` `--aihelp` topic. No new code branches, so coverage is unchanged (not re-measured). Fast tests: Cli 1863, Composition 671, Console 537, all green.
 
 ## Log
 
 - 2026-11-06: Created.
 - 2026-11-13: depends-on BL-522 replaced by BL-973 and BL-974: BL-522 was deferred on 2026-11-06 and split into those two, both done.
 - 2026-11-13: Backlog -> Doing.
+- 2026-11-13: Doing -> Done. kafka and kafkas share one group coordinator per instance, tests pin it and ApiVersions, help names $group/<id>
