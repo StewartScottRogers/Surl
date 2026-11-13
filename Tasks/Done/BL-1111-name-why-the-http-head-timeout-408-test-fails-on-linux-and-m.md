@@ -8,7 +8,7 @@ depends-on: []
 touches: [Protocols/Http/Surl.Protocol.Http.UnitLibrary, Protocols/Http/Surl.Protocol.Http.UnitTests]
 requirement: none
 created: 2026-11-13
-completed:
+completed: 2026-11-13
 ---
 # BL-1111 — Name why the HTTP head-timeout 408 test fails on Linux and make it wait for the server's timer
 
@@ -67,9 +67,9 @@ Never apply, pop or drop the stash itself, and never run git checkout or git sta
 
 ## Acceptance criteria
 
-- [ ] The task's Log names the cause: the test advances the clock too early, the drain wait mistakes the fired head timer for the drain timer, or production starts the head timeout from the wrong time.
-- [ ] `PartialHead_AfterHeadTimeout_Answers408AndCloses` advances the fake clock only after the server's head-timeout timer exists, by waiting on the fake (`WaitForTimersAsync`, or the connection having been read or written), never with `Task.Delay`, `Thread.Sleep` or real time as the thing awaited.
-- [ ] `dotnet build` is clean and `dotnet test Protocols/Http/Surl.Protocol.Http.UnitTests` is green.
+- [x] The task's Log names the cause: the test advances the clock too early, the drain wait mistakes the fired head timer for the drain timer, or production starts the head timeout from the wrong time.
+- [x] `PartialHead_AfterHeadTimeout_Answers408AndCloses` advances the fake clock only after the server's head-timeout timer exists, by waiting on the fake (`WaitForTimersAsync`, or the connection having been read or written), never with `Task.Delay`, `Thread.Sleep` or real time as the thing awaited.
+- [x] `dotnet build` is clean and `dotnet test Protocols/Http/Surl.Protocol.Http.UnitTests` is green.
 
 ## Notes
 
@@ -82,3 +82,5 @@ BL-1110 is the same kind of race in the WebSocket tests.
 - 2026-11-13: Created.
 - 2026-11-13: Split from BL-1109 after its run timed out.
 - 2026-11-13: Backlog -> Doing.
+- 2026-11-13: Cause: both races, all in the test. (1) It advanced the fake clock before the server had created its head-timeout timer, so on a slow Linux scheduler the timer started from the advanced time and never fired where expected. (2) The drain wait (`WaitForTimersAsync(clock, 1)`) could be satisfied by the just-fired head timer before the drain timer existed, so the drain advance was spent on the wrong timer. Production measures the head timeout correctly. Fix: test waits for 1 timer before advancing, and new harness helper `AdvanceUntilCompletedAfterWriteAsync` waits for the 408 bytes before the drain wait (real-time cap only bounds the wait, never moves the clock). The BL-1109 stash was unreadable here (git stash denied), so the edits were rewritten by hand for this test only; the two others are BL-1112's.
+- 2026-11-13: Doing -> Done. Test now waits for the head timer and the 408 write before advancing the fake clock; Http tests green (607).

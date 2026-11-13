@@ -18,10 +18,11 @@ public sealed class HeadTimeoutTests
         var log = new RecordingExchangeLog();
         var serving = Server().ServeAsync(connection, Context(log, clock, TestContext.CancellationToken));
 
+        await WaitForTimersAsync(clock, 1);
         clock.Advance(HeadTimeout - TimeSpan.FromSeconds(1));
         Assert.IsFalse(serving.IsCompleted, "One second of the head timeout is left.");
         clock.Advance(TimeSpan.FromSeconds(1));
-        await AdvanceUntilCompletedAsync(clock, serving);
+        await AdvanceUntilCompletedAfterWriteAsync(clock, serving, connection, RecordedResponse("head-timeout-408").Length);
 
         CollectionAssert.AreEqual(RecordedResponse("head-timeout-408"), connection.WrittenBytes);
         Assert.IsTrue(connection.WritesCompleted);

@@ -124,6 +124,23 @@ internal static class HttpServerHarness
     }
 
     /// <summary>
+    /// Waits, for at most ten seconds of real time, until <paramref name="connection"/> holds
+    /// <paramref name="length"/> written bytes, so the timer that fired to cause them is gone
+    /// before the drain timer is waited for, then runs <see cref="AdvanceUntilCompletedAsync"/>.
+    /// The wait never moves the fake clock.
+    /// </summary>
+    public static async Task AdvanceUntilCompletedAfterWriteAsync(ManualTimeProvider clock, Task serving, InMemoryConnection connection, int length)
+    {
+        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(10);
+        while (connection.WrittenBytes.Length < length && DateTime.UtcNow < deadline)
+        {
+            await Task.Yield();
+        }
+
+        await AdvanceUntilCompletedAsync(clock, serving);
+    }
+
+    /// <summary>
     /// Takes what the server left unread on <paramref name="connection"/>, up to 64 KiB.
     /// </summary>
     public static async Task<byte[]> ReadWhatIsLeftAsync(InMemoryConnection connection, CancellationToken cancellationToken)
