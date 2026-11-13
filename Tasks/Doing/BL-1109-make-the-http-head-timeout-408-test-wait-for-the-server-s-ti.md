@@ -52,3 +52,4 @@ BL-1110 is the same kind of race in the WebSocket tests.
 ## Log
 
 - 2026-11-13: Created.
+- 2026-11-13: Backlog -> Doing.
