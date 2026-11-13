@@ -47,7 +47,12 @@ public sealed class UpstreamCurlFetchesFromSurlOverHttp3Tests
     {
         await using var surl = await StartSurlAsync("--http3");
 
-        var result = await RunUpstreamCurlAsync("-sS", "-k", "--http3", "-w", HttpVersion, surl.UrlOf("hello.txt"));
+        // With --http3 curl races QUIC against TCP and starts the TCP attempt after the happy-eyeballs
+        // timeout (200 ms by default); a QUIC handshake slower than that on a busy CI runner lets
+        // TCP win and curl speak HTTP/2 (BL-1106). A long timeout keeps the race on QUIC while the
+        // assertion that HTTP/3 was used stays as strict as before.
+        var result = await RunUpstreamCurlAsync(
+            "-sS", "-k", "--http3", "--happy-eyeballs-timeout-ms", "30000", "-w", HttpVersion, surl.UrlOf("hello.txt"));
 
         AssertServedOverHttp3(Hello, result);
     }
