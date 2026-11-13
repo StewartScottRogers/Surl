@@ -8,7 +8,7 @@ depends-on: [BL-640, BL-528, BL-533, BL-807]
 touches: [Conformance/Surl.Conformance.UnitTests]
 requirement: none
 created: 2026-11-05
-completed:
+completed: 2026-11-12
 ---
 # BL-820 — Write the publish-over-MQTT, consume-over-NATS-and-STOMP stand-in recipe against a Surl.Api server
 
@@ -35,14 +35,17 @@ rather than polling.
 
 ## Acceptance criteria
 
-- [ ] `StandInPublishAndConsumeRecipeTests` exists with a NATS consumer test and a STOMP consumer test, each
+- [x] `StandInPublishAndConsumeRecipeTests` exists with a NATS consumer test and a STOMP consumer test, each
       receiving the exact payload curl published, each awaiting the bus's publish event, passing on Windows with the
       pinned build, platform-neutral.
-- [ ] `dotnet build -warnaserror` is clean and `dotnet test --filter "TestCategory!=Integration"` is green.
+- [x] `dotnet build -warnaserror` is clean and `dotnet test --filter "TestCategory!=Integration"` is green.
 
 ## Notes
+
+- Two Integration tests, both pass against pinned curl 8.21.0. Topic `a/b`: NATS subject `a.b`, STOMP `/topic/a/b`. Consumers subscribe first (NATS PING/PONG, STOMP RECEIPT prove it), then curl publishes and the test awaits the bus StoreChanged event. STOMP frames use LF as the server writes them (spec canonical form).
 
 ## Log
 
 - 2026-11-05: Created.
 - 2026-11-12: Backlog -> Doing.
+- 2026-11-12: Doing -> Done. Recipe tests show curl MQTT publish consumed over NATS and STOMP from one Surl.Api server
