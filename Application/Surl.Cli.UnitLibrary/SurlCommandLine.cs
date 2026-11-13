@@ -417,6 +417,12 @@ public sealed record SurlCommandLine
     /// </summary>
     public string KafkaFetchCompression { get; init; } = "none";
 
+    /// <summary>
+    /// <c>--mqtt5-disconnect-after-retained</c>: the MQTT 5 broker sends <c>DISCONNECT</c> <c>0x00</c> and closes after a
+    /// <c>SUBACK</c> and the retained messages it releases (ADR-0093 decision 9). Off by default.
+    /// </summary>
+    public bool Mqtt5DisconnectAfterRetained { get; init; }
+
     /// <summary>The transports <c>--dns-transport</c> defaults to; one shared list, so two default command lines are equal.</summary>
     public static readonly IReadOnlyList<string> DefaultDnsTransports = ["udp", "tcp"];
 

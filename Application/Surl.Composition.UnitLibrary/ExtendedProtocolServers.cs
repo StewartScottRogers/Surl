@@ -142,7 +142,8 @@ public static class ExtendedProtocolServers
         // persist where the bus persists them; only session state is the broker's. mqtt5s is TLS from the first byte through
         // TlsSchemes. mqtt5+ws is the same broker behind a WebSocket upgrade. mqtt stays the 3.1.1 server.
         new(["mqtt5", "mqtt5s"], services => new Mqtt5Broker(
-            new Mqtt5BrokerState(services.MessageBus), services.AuthenticationPolicyFor("mqtt5"))),
+            new Mqtt5BrokerState(services.MessageBus), services.AuthenticationPolicyFor("mqtt5"),
+            disconnectsAfterRetained: services.Mqtt5DisconnectsAfterRetained)),
         new(["mqtt5+ws"], services => new Mqtt5WebSocketServer((Mqtt5Broker)services.ComposedServerFor("mqtt5"))),
         new(["nats", NatsServer.TlsScheme], services => new NatsServer(
             services.AuthenticationPolicyFor("nats"),

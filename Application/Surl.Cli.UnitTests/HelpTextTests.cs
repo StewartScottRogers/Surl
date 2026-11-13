@@ -282,6 +282,7 @@ public sealed class HelpTextTests
             Row(38, "    --max-message <bytes>", "Largest framed message accepted"),
             Row(38, "    --max-request-head <bytes>", "Largest HTTP or RTSP request head"),
             Row(38, "-m, --max-time <seconds>", "Longest time one exchange may take"),
+            Row(38, "    --mqtt5-disconnect-after-retained", "End a subscribe after retained messages"),
             Row(38, "    --pass <phrase>", "Passphrase for --key and --hostkey"),
             Row(38, "-x, --proxy <listen URL>", "Add a proxy listener (repeatable)"),
             Row(38, "    --proxy-allow-origin <address>", "Let the proxy reach more origins"),

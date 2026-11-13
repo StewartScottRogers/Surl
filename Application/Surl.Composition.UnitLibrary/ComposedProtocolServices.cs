@@ -69,6 +69,12 @@ public sealed class ComposedProtocolServices(
     public bool AllowsZoneTransfer { get; init; }
 
     /// <summary>
+    /// Gets a value indicating whether <c>--mqtt5-disconnect-after-retained</c> is given, so the MQTT 5 broker
+    /// disconnects a client with <c>0x00</c> after a subscribe's retained messages (ADR-0093 decision 9); off unless set.
+    /// </summary>
+    public bool Mqtt5DisconnectsAfterRetained { get; init; }
+
+    /// <summary>
     /// Gets the codec of the record batches the Kafka broker serves to a fetch, from
     /// <c>--kafka-fetch-compression</c> (ADR-0105 decision 4); none unless set.
     /// </summary>

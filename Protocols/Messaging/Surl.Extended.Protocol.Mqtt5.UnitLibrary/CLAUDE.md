@@ -128,6 +128,8 @@ Sessions, DISCONNECT and AUTH (BL-499, ADR-0093 decisions 2, 3 and 6):
   published. Ping is answered pong. Once a close is sent the broker's writes are dropped; when
   the broker is done, close `1000` follows unless a close was sent.
 
+One-shot read (BL-976, ADR-0093 decision 9): `Mqtt5Broker`'s `disconnectsAfterRetained` (`--mqtt5-disconnect-after-retained`, off by default) makes a SUBSCRIBE end with SUBACK, the retained messages, DISCONNECT `0x00` and a close, the Will discarded.
+
 The command line (BL-501) builds on it.
 
 This library references `Surl.Protocol.Abstractions.UnitLibrary`, `Surl.MessageBus.UnitLibrary`

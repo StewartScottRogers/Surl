@@ -20,6 +20,7 @@ internal sealed partial class Mqtt5BrokerConnection
     private readonly Mqtt5BrokerState state;
     private readonly IAuthenticationPolicy authenticationPolicy;
     private readonly ISaslAuthenticationPolicy? saslAuthenticationPolicy;
+    private readonly bool disconnectsAfterRetained;
     private readonly Mqtt5PacketReader reader;
     private readonly SemaphoreSlim writeGate = new(1, 1);
     private readonly CancellationTokenSource deliveriesCancellation = new();
@@ -38,13 +39,16 @@ internal sealed partial class Mqtt5BrokerConnection
     /// <param name="state">The state the broker's connections share.</param>
     /// <param name="authenticationPolicy">Judges the user name and password of the <c>CONNECT</c>.</param>
     /// <param name="saslAuthenticationPolicy">Runs enhanced authentication; <see langword="null"/> serves no method.</param>
+    /// <param name="disconnectsAfterRetained">Whether to end the connection with <c>DISCONNECT</c> <c>0x00</c> after the retained messages a <c>SUBSCRIBE</c> releases.</param>
     public Mqtt5BrokerConnection(
         IConnection connection,
         ExchangeContext context,
         Mqtt5BrokerState state,
         IAuthenticationPolicy authenticationPolicy,
-        ISaslAuthenticationPolicy? saslAuthenticationPolicy)
+        ISaslAuthenticationPolicy? saslAuthenticationPolicy,
+        bool disconnectsAfterRetained)
     {
+        this.disconnectsAfterRetained = disconnectsAfterRetained;
         this.connection = connection;
         this.context = context;
         this.state = state;
@@ -657,12 +661,32 @@ internal sealed partial class Mqtt5BrokerConnection
         var retained = new List<Mqtt5Delivery>();
         var reasonCodes = await SubscribeEachAsync(subscribe, subscriptionIdentifier, retained);
         await WriteAsync(new Mqtt5ReasonCodeListPacket(Mqtt5PacketType.SubscribeAcknowledgement, subscribe.PacketIdentifier, [], reasonCodes));
+        if (disconnectsAfterRetained)
+        {
+            return await DisconnectAfterRetainedAsync(retained);
+        }
+
         foreach (var delivery in retained)
         {
             session!.Offer(delivery.Message, delivery.QualityOfService, delivery.Retain, delivery.SubscriptionIdentifiers);
         }
 
         return Mqtt5ConnectionEnd.StaysOpen;
+    }
+
+    // ADR-0093 decision 9: the retained messages are written in order with the sending loop stopped, then DISCONNECT 0x00
+    // ends the connection normally, so the client's Will is discarded.
+    private async ValueTask<Mqtt5ConnectionEnd> DisconnectAfterRetainedAsync(List<Mqtt5Delivery> retained)
+    {
+        await StopDeliveriesAsync();
+        foreach (var delivery in retained)
+        {
+            await deliveries!.SendAsync(delivery, context.CancellationToken);
+        }
+
+        context.Log.Note("Sent the retained messages; sent DISCONNECT 0x00 and closed (--mqtt5-disconnect-after-retained).");
+        await WriteAsync(new Mqtt5ReasonCodeAndPropertiesPacket(Mqtt5PacketType.Disconnect, Mqtt5ReasonCode.Success, []));
+        return Mqtt5ConnectionEnd.ClosedNormally;
     }
 
     private static string? ProtocolErrorIn(Mqtt5SubscribePacket subscribe, uint? subscriptionIdentifier)

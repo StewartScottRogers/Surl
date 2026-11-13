@@ -9,7 +9,7 @@ public sealed class ManualTextTests
     private static readonly string[] Headings =
     [
         "NAME", "SYNOPSIS", "DESCRIPTION", "CONFIG FILES", "LISTEN URLS", "DEPLOYMENT CHECKLIST", "DATA DIRECTORY",
-        "IN-MEMORY MODE", "SHARES AND BUCKETS", "TOPICS AND QUEUES", "ACCOUNTS", "MAIL", "AMQP OPTIONS", "AMQP 1.0 OPTIONS", "DNS OPTIONS", "HTTP OPTIONS", "KAFKA OPTIONS", "LDAP OPTIONS", "MCP OPTIONS", "NATS OPTIONS", "OCI OPTIONS", "PROXY OPTIONS", "RTSP OPTIONS", "S3 OPTIONS", "SMB OPTIONS", "SSH OPTIONS", "STOMP OPTIONS", "TLS-SRP OPTIONS", "WEBSOCKET OPTIONS", "LOOSENING OPTIONS", "CONTROL ENDPOINT", "LOG LEVELS", "LIMITS",
+        "IN-MEMORY MODE", "SHARES AND BUCKETS", "TOPICS AND QUEUES", "ACCOUNTS", "MAIL", "AMQP OPTIONS", "AMQP 1.0 OPTIONS", "DNS OPTIONS", "HTTP OPTIONS", "KAFKA OPTIONS", "LDAP OPTIONS", "MCP OPTIONS", "MQTT 5 OPTIONS", "NATS OPTIONS", "OCI OPTIONS", "PROXY OPTIONS", "RTSP OPTIONS", "S3 OPTIONS", "SMB OPTIONS", "SSH OPTIONS", "STOMP OPTIONS", "TLS-SRP OPTIONS", "WEBSOCKET OPTIONS", "LOOSENING OPTIONS", "CONTROL ENDPOINT", "LOG LEVELS", "LIMITS",
         "EXIT CODES", "SEE ALSO",
     ];
 
@@ -384,6 +384,13 @@ public sealed class ManualTextTests
             "    byte on port 443 and needs --cert or --self-signed. Logins are judged by",
             "    the accounts allowed on mcp, or --allow-anonymous.",
             "    surl --aihelp mcp says how each request is answered.",
+            "",
+            "MQTT 5 OPTIONS",
+            "",
+            "    --mqtt5-disconnect-after-retained makes the MQTT 5 broker answer a",
+            "    SUBSCRIBE with SUBACK and the retained messages it releases, then send",
+            "    DISCONNECT 0x00 and close, so a one-shot subscriber ends. It is off by",
+            "    default. surl --aihelp mqtt5 says more.",
             "",
             "NATS OPTIONS",
             "",

@@ -55,6 +55,7 @@ internal static class CommandLinePathMembers
         nameof(SurlCommandLine.AllowZoneTransfer),
         nameof(SurlCommandLine.DnsTransports),
         nameof(SurlCommandLine.KafkaFetchCompression),
+        nameof(SurlCommandLine.Mqtt5DisconnectAfterRetained),
         nameof(SurlCommandLine.DnsListenUrlsWithPort),
         nameof(SurlCommandLine.MaxConnections),
         nameof(SurlCommandLine.MaxConnectionsPerAddress),
