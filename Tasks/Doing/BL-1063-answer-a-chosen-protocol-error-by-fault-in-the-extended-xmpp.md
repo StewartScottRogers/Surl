@@ -36,3 +36,4 @@ An `error` fault rule naming `xmpp` or `xmpps` (or a listener of one) makes the 
 ## Log
 
 - 2026-11-12: Created.
+- 2026-11-13: Backlog -> Doing.
