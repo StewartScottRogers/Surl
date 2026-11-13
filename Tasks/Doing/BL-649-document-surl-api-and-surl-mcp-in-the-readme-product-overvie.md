@@ -61,3 +61,4 @@ calls them planned.
 
 - 2026-11-04: Created.
 - 2026-11-05: Notes amended: stand-in features are BL-821's to document; link, do not duplicate.
+- 2026-11-12: Backlog -> Doing.
