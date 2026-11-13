@@ -48,3 +48,4 @@ starts instead of exiting 2, and `--aihelp tls`, `--manual` and the library's CL
 ## Log
 
 - 2026-11-13: Created.
+- 2026-11-13: Backlog -> Doing.
