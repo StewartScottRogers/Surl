@@ -93,13 +93,24 @@ public sealed class LdapAccountSource
     private async ValueTask<LdapLoginResult> CheckWithinTimeoutAsync(
         string userName, ReadOnlyMemory<byte> password, CancellationToken cancellationToken)
     {
-        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(settings.TimeoutSeconds), timeProvider);
+        var timeoutLength = TimeSpan.FromSeconds(settings.TimeoutSeconds);
+        var startedAt = timeProvider.GetTimestamp();
+        using var timeout = new CancellationTokenSource(timeoutLength, timeProvider);
         using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeout.Token);
         try
         {
             await slots.WaitAsync(linked.Token).ConfigureAwait(false);
             try
             {
+                // A slot freed by a check that timed out can reach this one before its own timer has fired;
+                // the timeout still covers the wait, so a check already past it never connects.
+                if (timeProvider.GetElapsedTime(startedAt) >= timeoutLength)
+                {
+                    timeout.Cancel();
+                    linked.Token.ThrowIfCancellationRequested();
+                }
+
+
                 return await ExchangeAsync(userName, password, linked.Token).ConfigureAwait(false);
             }
             finally

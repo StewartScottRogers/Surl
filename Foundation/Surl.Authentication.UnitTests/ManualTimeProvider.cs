@@ -47,6 +47,16 @@ internal sealed class ManualTimeProvider(DateTimeOffset start) : TimeProvider
         }
     }
 
+    public override long TimestampFrequency => TimeSpan.TicksPerSecond;
+
+    public override long GetTimestamp()
+    {
+        lock (gate)
+        {
+            return utcNow.Ticks;
+        }
+    }
+
     public override ITimer CreateTimer(TimerCallback callback, object? state, TimeSpan dueTime, TimeSpan period)
     {
         var timer = new ManualTimer(this, callback, state);
