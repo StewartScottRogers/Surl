@@ -39,3 +39,4 @@ On a plain-text `oci` connection (`--oci-plaintext`) a `/v2/` request carrying `
 
 - 2026-11-05: Created.
 - 2026-11-06: depends-on BL-439 replaced by BL-971 (BL-439 split for the 60-minute size limit; Stewart asked for a backlog audit 2026-11-06).
+- 2026-11-12: Backlog -> Doing.
