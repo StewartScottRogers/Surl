@@ -36,3 +36,4 @@ from AMQP 1.0, and the matrix is fully covered.
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-12: Backlog -> Doing.
