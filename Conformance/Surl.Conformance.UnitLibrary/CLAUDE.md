@@ -317,7 +317,8 @@ row. The selector reads the names of a case's `<reply><dns>` lines (the text bef
 `HTTPS` and the `Delay-` lines skip `servercmd-unsupported:<name>`. The tests' server halves add a `DnsUpstreamTestCaseServer`
 on a datagram listener for `%DNSPORT`. Cases 2102, 2103 and 2104 need `override-dns`, which no pinned
 build lists, so each skips `feature-missing:override-dns`; the server half is proven by its unit tests and
-runs for real if a debug build is ever pinned. The `<verify><dns>` check is not in `UpstreamTestCaseVerifyChecker` yet.
+runs for real if a debug build is ever pinned. `UpstreamTestCaseVerifyChecker` checks `<verify><dns>` (BL-1085) against `UpstreamTestCaseRunRecord.DnsQueryLog`
+(the replies' `QueryLog`, which the run feeds in), filtered by the part's `host` attribute as a regex and both sides sorted, after `<proxy>` and before `<file>`.
 
 The upstream test certificates are generated (BL-682): `UpstreamTestCertificateDescription.Parse`
 reads a `tests/certs/*.prm` file (subject, `DNS:` or `DER:` subject alternative name, key usage,

@@ -510,7 +510,7 @@ public sealed class UpstreamTestCasesAgainstSurlTests
             byte[] sshUploaded = families.Contains(SshFamily) && File.Exists(sshUpload) ? await File.ReadAllBytesAsync(sshUpload, cancellationToken) : [];
             var record = UpstreamTestCaseRunRecord.FromRun(curl, output, received, [.. ftpReplies.UploadedBytes, .. tftpReplies.UploadedBytes, .. mailReplies.UploadedBytes, .. sshUploaded])
                 with
-            { ProxyReceived = proxyReplies.ReceivedBytes };
+            { ProxyReceived = proxyReplies.ReceivedBytes, DnsQueryLog = dnsReplies.QueryLog };
             var verdict = new UpstreamTestCaseVerifyChecker(new CaseFolderRunFiles(caseDirectory), client.Features).Check(testCase, record);
             if (verdict.Passed)
             {

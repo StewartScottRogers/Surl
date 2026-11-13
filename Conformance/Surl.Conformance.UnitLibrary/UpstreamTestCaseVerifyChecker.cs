@@ -10,7 +10,7 @@ namespace Surl.Conformance;
 /// section in the order upstream's runtests checks them (<c>singletest_check</c> in
 /// <c>tests/runtests.pl</c> at tag <c>curl-8_21_0</c>): <c>&lt;stdout&gt;</c>,
 /// <c>&lt;stderr&gt;</c>, <c>&lt;protocol&gt;</c>, the reply's <c>&lt;data&gt;</c> or
-/// <c>&lt;datacheck&gt;</c>, <c>&lt;upload&gt;</c>, <c>&lt;proxy&gt;</c>, <c>&lt;file&gt;</c> to
+/// <c>&lt;datacheck&gt;</c>, <c>&lt;upload&gt;</c>, <c>&lt;proxy&gt;</c>, <c>&lt;dns&gt;</c>, <c>&lt;file&gt;</c> to
 /// <c>&lt;file4&gt;</c>, <c>&lt;errorcode&gt;</c> and <c>&lt;notexists&gt;</c>. The first that
 /// differs is the result. The checker runs no process.
 /// </summary>
@@ -24,7 +24,8 @@ namespace Surl.Conformance;
 /// <para>
 /// <c>&lt;stderr mode="warn"&gt;</c> always passes: runtests joins each side with
 /// <c>join(@lines, "")</c>, which takes the line count as the separator over a one-element list, so
-/// both sides are empty. <c>&lt;socks&gt;</c> and <c>&lt;dns&gt;</c> need servers ADR-0080 has not
+/// both sides are empty. <c>&lt;dns&gt;</c> compares the run's DNS query log, filtered by the part's <c>host</c>
+/// attribute as a regex, both sides sorted (ADR-0123 decision 1). <c>&lt;socks&gt;</c> needs a server ADR-0080 has not
 /// built, whose cases the selector skips, and <c>&lt;postcheck&gt;</c> and <c>&lt;valgrind&gt;</c>
 /// are outside what this checker runs (decision 3). The <c>%b64[]</c> and file instructions runtests
 /// expands in <c>&lt;upload&gt;</c> are already expanded by <see cref="UpstreamTestCasePreprocessor"/>.
@@ -70,6 +71,7 @@ public sealed class UpstreamTestCaseVerifyChecker(IUpstreamTestCaseRunFiles file
             () => CheckReplyData(reply, run),
             () => CheckUpload(verify, run),
             () => CheckProtocol(verify, "proxy", run.ProxyReceived),
+            () => CheckDns(verify, run),
             () => CheckFiles(verify),
             () => CheckErrorCode(verify, run),
             () => CheckNotExists(verify),
@@ -217,6 +219,29 @@ public sealed class UpstreamTestCaseVerifyChecker(IUpstreamTestCaseRunFiles file
         return !Lines.IsTrue(actual.FirstOrDefault()) && Lines.IsTrue(expected.FirstOrDefault())
             ? UpstreamTestCaseVerifyResult.Fail(part, "the server half recorded nothing")
             : Compare(part, actual, expected);
+    }
+
+    private static UpstreamTestCaseVerifyResult? CheckDns(UpstreamTestCaseSection? verify, UpstreamTestCaseRunRecord run)
+    {
+        var expected = Lines.Of(verify, "dns");
+
+        if (expected.Count == 0)
+        {
+            return null;
+        }
+
+        var actual = Lines.Split(run.DnsQueryLog);
+        var host = Lines.AttributesOf(verify, "dns").GetValueOrDefault("host");
+
+        if (Lines.IsTrue(host))
+        {
+            var pattern = new Regex(host!, RegexOptions.CultureInvariant);
+            actual = actual.Where(pattern.IsMatch).ToList();
+        }
+
+        actual.Sort(StringComparer.Ordinal);
+        expected.Sort(StringComparer.Ordinal);
+        return Compare("dns", actual, expected);
     }
 
     private static List<string> ApplyStripParts(UpstreamTestCaseSection? verify, List<string> lines) =>

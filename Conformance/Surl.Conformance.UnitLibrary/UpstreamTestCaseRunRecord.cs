@@ -28,6 +28,12 @@ public sealed record UpstreamTestCaseRunRecord(
     byte[] ProxyReceived)
 {
     /// <summary>
+    /// The DNS server half's query log (<c>dnsd.input</c>), one <c>QNAME &lt;name&gt; QTYPE &lt;type&gt;</c>
+    /// line per query, for <c>&lt;verify&gt;&lt;dns&gt;</c> (ADR-0123 decision 1); empty when no DNS server half ran.
+    /// </summary>
+    public byte[] DnsQueryLog { get; init; } = [];
+
+    /// <summary>
     /// Makes the record of a run of a pinned upstream curl build and what its server half recorded.
     /// </summary>
     /// <param name="run">The run; its stderr text is turned back into UTF-8 bytes, as the runner decoded it.</param>
