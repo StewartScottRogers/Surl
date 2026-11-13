@@ -4,7 +4,7 @@ title: Record the green release dry run URL for the linux-arm64, win-arm64 and o
 priority: Low
 assignee: Claude
 pipeline: direct
-depends-on: [BL-361]
+depends-on: [BL-361, BL-1108]
 touches: [.github/actions/upstream-curl/action.yml, .github/workflows/release.yml, Tasks]
 requirement: none
 created: 2026-11-12
@@ -32,3 +32,4 @@ BL-361 wired those three legs (ADR-0151) but a lane cannot push, so no run of th
 - 2026-11-12: Created.
 - 2026-11-12: Backlog -> Doing.
 - 2026-11-12: Doing -> Blocked. Needs a pushed branch and a GitHub Actions Release dry run; a lane cannot push or run workflows, so nobody can record the green URL until the shift integrates and someone runs it
+- 2026-11-13: Release run 43443817332 (PR #32, 810f09e): linux-arm64 and osx-x64 conformance green; win-arm64 failed 6 Windows reference-build tests, filed as BL-1108. Still blocked: needs a Release run on a commit that has BL-1108.
