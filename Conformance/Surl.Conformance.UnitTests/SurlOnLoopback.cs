@@ -212,6 +212,20 @@ internal sealed class SurlOnLoopback : IAsyncDisposable
             cancellationToken,
             schemes.Count);
 
+    /// <summary>
+    /// Starts one surl listening on each of <paramref name="listenUrls"/>, written in full (for a test
+    /// that must name a port, such as the <c>az</c> client's fixed 443), with <paramref name="options"/> and
+    /// <c>--directory <paramref name="dataDirectory"/></c>, an existing directory the caller owns, returning
+    /// once surl has written a status line for every listener. Disposing it leaves the directory as surl left it.
+    /// </summary>
+    public static Task<SurlOnLoopback> StartOverDirectoryOnUrlsAsync(
+        IReadOnlyList<string> listenUrls, string dataDirectory, IReadOnlyList<string> options, CancellationToken cancellationToken) =>
+        StartServingAsync(
+            null,
+            [.. options, "--directory", dataDirectory, .. listenUrls],
+            cancellationToken,
+            listenUrls.Count);
+
     private static async Task<SurlOnLoopback> StartServingAsync(
         DirectoryInfo? directory, string[] args, CancellationToken cancellationToken, int listenerCount = 1)
     {
