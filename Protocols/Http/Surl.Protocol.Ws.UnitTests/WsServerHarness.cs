@@ -134,9 +134,9 @@ internal static class WsServerHarness
     /// Once the server has half-closed and its lingering close is waiting, runs the linger's
     /// one second out and waits for the exchange to end.
     /// </summary>
-    public static async Task EndLingeringCloseAsync(ManualTimeProvider clock, InMemoryConnection connection, Task serving)
+    public static async Task EndLingeringCloseAsync(ManualTimeProvider clock, InMemoryConnection connection, Task serving, int timersCreatedWhenLingering = 1)
     {
-        await WaitForLingeringCloseAsync(clock, connection);
+        await WaitForLingeringCloseAsync(clock, connection, timersCreatedWhenLingering);
         clock.Advance(WebSocketLingeringClose.MaxLingerTime);
 
         await WithinTimeout(serving);
@@ -151,10 +151,18 @@ internal static class WsServerHarness
     /// <summary>
     /// Waits until the server has half-closed and its lingering close's timer runs.
     /// </summary>
-    public static async Task WaitForLingeringCloseAsync(ManualTimeProvider clock, InMemoryConnection connection)
+    /// <param name="clock">The exchange's fake clock.</param>
+    /// <param name="connection">The connection the server half-closes.</param>
+    /// <param name="timersCreatedWhenLingering">
+    /// How many timers the exchange has created by the time its lingering close's timer exists.
+    /// A farewell at a limit first runs a one-second write deadline of the same length as the
+    /// linger, still live when the half-close completes, so one live timer alone does not show the
+    /// linger's timer exists; that exchange creates two.
+    /// </param>
+    public static async Task WaitForLingeringCloseAsync(ManualTimeProvider clock, InMemoryConnection connection, int timersCreatedWhenLingering = 1)
     {
         var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(10);
-        while (!connection.WritesCompleted && DateTime.UtcNow < deadline)
+        while ((!connection.WritesCompleted || clock.CreatedTimerCount < timersCreatedWhenLingering) && DateTime.UtcNow < deadline)
         {
             await Task.Delay(TimeSpan.FromMilliseconds(1));
         }

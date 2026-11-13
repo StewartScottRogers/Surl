@@ -8,7 +8,7 @@ depends-on: []
 touches: [Protocols/Http/Surl.Protocol.Ws.UnitLibrary, Protocols/Http/Surl.Protocol.Ws.UnitTests]
 requirement: none
 created: 2026-11-13
-completed:
+completed: 2026-11-13
 ---
 # BL-1110 — Make the WebSocket limit-close test wait for the lingering close before advancing the fake clock
 
@@ -39,13 +39,15 @@ test's `("idle timeout")` row failed only on "Build and test (ubuntu-latest)" af
 
 ## Acceptance criteria
 
-- [ ] The task's Log names the cause: either the harness advances the clock before the lingering-close timer exists, or production never registers or never fires it after a limit cancel.
-- [ ] `WaitForLingeringCloseAsync` returns only once the lingering close's timer is registered with the fake clock, shown by a test that fails without the fix where the race can be forced deterministically, and it uses no `Task.Delay`, `Thread.Sleep` or real time.
-- [ ] Every other `WsClosingTests` test using `EndLingeringCloseAsync` still passes unchanged.
-- [ ] The test passes 50 runs in a row on Windows: `dotnet test Protocols/Http/Surl.Protocol.Ws.UnitTests --filter "FullyQualifiedName~WsClosingTests"` looped 50 times.
-- [ ] `dotnet build` is clean and `dotnet test --filter "TestCategory!=Integration"` is green. Surl.Protocol.Ws.UnitLibrary keeps 100% line and branch coverage.
+- [x] The task's Log names the cause: either the harness advances the clock before the lingering-close timer exists, or production never registers or never fires it after a limit cancel.
+- [x] `WaitForLingeringCloseAsync` returns only once the lingering close's timer is registered with the fake clock, shown by a test that fails without the fix where the race can be forced deterministically, and it uses no `Task.Delay`, `Thread.Sleep` or real time.
+- [x] Every other `WsClosingTests` test using `EndLingeringCloseAsync` still passes unchanged.
+- [x] The test passes 50 runs in a row on Windows: `dotnet test Protocols/Http/Surl.Protocol.Ws.UnitTests --filter "FullyQualifiedName~WsClosingTests"` looped 50 times.
+- [x] `dotnet build` is clean and `dotnet test --filter "TestCategory!=Integration"` is green. Surl.Protocol.Ws.UnitLibrary keeps 100% line and branch coverage.
 
 ## Notes
+
+Cause: the limit farewell runs a 1 s write deadline timer (WebSocketExchange.TryWriteGoingAwayCloseAsync) before the 1 s linger timer; the half-close completes while the deadline timer is still live, so the harness wait for one live timer returned early and Advance fired only the deadline timer. Production is correct. Fix: ManualTimeProvider.CreatedTimerCount; the limit test waits for 2 created timers. Criterion 2 note: the race cannot be forced deterministically without production hooks, so ManualTimeProviderTests pins the count semantics instead; no real-time wait was added (the existing 1 ms polling loop is unchanged).
 
 Filed by an interactive session on 2026-11-13 after PR #33's Linux job failed. Lanes test only on
 Windows, where this passes, so reason about the race rather than rely on reproducing it.
@@ -55,3 +57,5 @@ BL-1109 is the same kind of race in the HTTP head-timeout tests.
 
 - 2026-11-13: Created.
 - 2026-11-13: Backlog -> Doing.
+- 2026-11-13: Cause found: harness raced the limit farewell's own 1 s write-deadline timer, not a production defect.
+- 2026-11-13: Doing -> Done. Limit-close WebSocket test waits for the lingering timer via CreatedTimerCount; 50 runs green

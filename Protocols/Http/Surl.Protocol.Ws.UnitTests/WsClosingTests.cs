@@ -74,7 +74,7 @@ public sealed class WsClosingTests
 
         await WaitUntilAsync(() => connection.WrittenBytes.Length == Recorded101Head.Length);
         await exchange.CancelAsync();
-        await EndLingeringCloseAsync(clock, connection, serving);
+        await EndLingeringCloseAsync(clock, connection, serving, timersCreatedWhenLingering: 2);
 
         Assert.AreEqual(Recorded101Head + "\x88\x02\x03\xE9", Latin1(connection.WrittenBytes), limit);
         Assert.Contains("Closing with 1001: the exchange reached its idle timeout or maximum duration", log.Notes);
