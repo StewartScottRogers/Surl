@@ -191,7 +191,7 @@ public static class AiHelpExamples
             []),
         Serving(
             "gs",
-            "For a test: serve Google Cloud Storage as plain HTTP for an http:// endpoint",
+            "For a test: serve Google Cloud Storage, XML and JSON APIs, as plain HTTP for an http:// endpoint such as STORAGE_EMULATOR_HOST",
             ["--gs-plaintext", "-u", "GOOGTESTKEY:secret", "gs://127.0.0.1:0/"],
             ["Listening on gs://127.0.0.1:<port>/"],
             ["surl: warning: --gs-plaintext: gs is served as plain HTTP, without TLS"],
