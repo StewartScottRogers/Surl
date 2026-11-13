@@ -43,3 +43,4 @@ greeting banner are listed as `test-server-choice` exclusions, so they no longer
 ## Log
 
 - 2026-11-05: Created.
+- 2026-11-12: Backlog -> Doing.
