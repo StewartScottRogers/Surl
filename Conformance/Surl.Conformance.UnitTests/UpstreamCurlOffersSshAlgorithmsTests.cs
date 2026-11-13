@@ -53,7 +53,7 @@ public sealed class UpstreamCurlOffersSshAlgorithmsTests
     public TestContext TestContext { get; set; } = null!;
 
     [TestMethod]
-    [OSCondition(OperatingSystems.Windows)]
+    [WindowsX64ReferenceBuildOnly]
     public async Task KexInit_WindowsBuild_ListsTheWinCngAlgorithms()
     {
         var (identification, nameLists) = await RecordKexInitAsync();

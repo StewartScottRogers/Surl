@@ -228,7 +228,7 @@ public sealed class UpstreamCurlLogsInToSurlOverSshTests
     // The Windows build's WinCNG backend lists only RSA host-key algorithms (ADR-0051, Context),
     // so a surl holding only an elliptic-curve key has none in common with it.
     [TestMethod]
-    [OSCondition(OperatingSystems.Windows)]
+    [WindowsX64ReferenceBuildOnly]
     [DataRow("ecdsa-sha2-nistp256")]
     [DataRow("ssh-ed25519")]
     public async Task HostKey_OnlyEllipticCurveOnTheWindowsBuild_Exits2NoCommonHostKeyAlgorithm(string keyType)

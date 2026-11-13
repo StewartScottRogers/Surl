@@ -305,7 +305,7 @@ public sealed class UpstreamCurlLogsInToSurlOverHttpTests
     }
 
     [TestMethod]
-    [OSCondition(OperatingSystems.Windows)]
+    [WindowsX64ReferenceBuildOnly]
     public async Task NegotiateOverHttp_WindowsReferenceBuild_SendsNoTokenAndIsRefused()
     {
         // The reference build carries upstream's later "!ntlm" change, so on a machine with no
