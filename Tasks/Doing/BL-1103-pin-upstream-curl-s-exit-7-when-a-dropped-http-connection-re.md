@@ -52,3 +52,4 @@ after BL-1100, BL-1101 and BL-1102.
 ## Log
 
 - 2026-11-13: Created.
+- 2026-11-13: Backlog -> Doing.
