@@ -54,3 +54,4 @@ over `Http2ConnectionServer` with `GrpcStreamHandler`, so the composition has so
 ## Log
 
 - 2026-11-12: Created.
+- 2026-11-12: Backlog -> Doing.
