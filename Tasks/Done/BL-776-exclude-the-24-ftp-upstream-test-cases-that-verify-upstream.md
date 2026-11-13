@@ -8,7 +8,7 @@ depends-on: [BL-689]
 touches: [Documentation/Conformance]
 requirement: none
 created: 2026-11-05
-completed:
+completed: 2026-11-12
 ---
 # BL-776 — Exclude the 24 FTP upstream test cases that verify upstream's greeting banner
 
@@ -33,14 +33,21 @@ greeting banner are listed as `test-server-choice` exclusions, so they no longer
 
 ## Acceptance criteria
 
-- [ ] `Upstream-Test-Case-Exclusions.md` has one row for each of the 24 cases, naming the greeting.
-- [ ] A local run of `UpstreamTestCasesAgainstSurlTests` on Windows records each as
+- [x] `Upstream-Test-Case-Exclusions.md` has one row for each of the 24 cases, naming the greeting.
+- [x] A local run of `UpstreamTestCasesAgainstSurlTests` on Windows records each as
       `skip test-server-choice`, and the pass-rate file's `win-x64` row counts them in its
       `test-server-choice` column, with the run's counts in Notes.
 
 ## Notes
 
+- All 24 cases' `file2` (`heads<N>`/`stdout<N>`) hold the 4-line ASCII-art `220-` greeting; a Windows run
+  with the rows in place skips each as `test-server-choice` (28 now) with no other regression.
+- Windows run: ran 1,148, 1,129 passed, 19 failed, 865 skipped. Test 1847 flaked once (`protocol`), passed on
+  two other runs; not this task's change.
+- Linux/macOS rows adjusted by the same 24 without a new run.
+
 ## Log
 
 - 2026-11-05: Created.
 - 2026-11-12: Backlog -> Doing.
+- 2026-11-12: Doing -> Done. 24 FTP greeting-banner cases now skip as test-server-choice; pass-rate file updated

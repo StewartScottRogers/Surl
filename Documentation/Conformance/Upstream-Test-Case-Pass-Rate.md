@@ -33,9 +33,16 @@ decision 5). This is success criterion 2 of the
 
 | Platform | Commit | Date | Reference pin SHA-256 | Total | Runnable | Passed | Failed | Skipped | test-server-choice | Pass rate |
 | --- | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| `win-x64` | `153bbc14` + BL-549 + BL-855 + BL-896 + BL-897 + BL-898 + BL-899 + BL-900 + BL-556 + BL-682 + BL-562 + BL-689 | 2026-11-12 | `0E773709C3A44DB47B88B71351D902027682ED87C3BD3821009E454BACCA8778` | 2,013 | 1,172 | 1,129 | 43 | 841 | 4 | 96.3% |
-| `linux-x64` | `8eb0301b` | 2026-11-06 | `153CA463957609117D21A848BE29B70691B85F9E5CC9370C7DAA037B839A4E45` | 2,013 | 1,233 | 1,154 | 79 | 780 | 4 | 93.6% |
-| `osx-arm64` | `8eb0301b` | 2026-11-06 | `04E0E69BCD3BD814EC093551A0447AC14EDEEA9D395B468A2025DCB3F766EEBF` | 2,013 | 1,233 | 1,153 | 80 | 780 | 4 | 93.5% |
+| `win-x64` | `153bbc14` + BL-549 + BL-855 + BL-896 + BL-897 + BL-898 + BL-899 + BL-900 + BL-556 + BL-682 + BL-562 + BL-689 + BL-776 | 2026-11-12 | `0E773709C3A44DB47B88B71351D902027682ED87C3BD3821009E454BACCA8778` | 2,013 | 1,148 | 1,129 | 19 | 865 | 28 | 98.3% |
+| `linux-x64` | `8eb0301b` | 2026-11-06 | `153CA463957609117D21A848BE29B70691B85F9E5CC9370C7DAA037B839A4E45` | 2,013 | 1,209 | 1,154 | 55 | 804 | 28 | 95.5% |
+| `osx-arm64` | `8eb0301b` | 2026-11-06 | `04E0E69BCD3BD814EC093551A0447AC14EDEEA9D395B468A2025DCB3F766EEBF` | 2,013 | 1,209 | 1,153 | 56 | 804 | 28 | 95.4% |
+
+BL-776 (2026-11-12) added the 24 FTP cases that verify upstream's greeting banner (1349-1354,
+1357-1362, 1379-1384, 1387-1392) to the exclusions file. The Windows row is a local run: 1,148
+runnable, 1,129 passed, 19 failed, 865 skipped, 28 `test-server-choice`. Linux and macOS lose the
+same 24 from **Failed**, **Runnable** and add them to **Skipped** without a new run (they failed
+`file2` there too). Test 1847 failed `protocol` in one of three local runs and passed in the
+other two, so it is intermittent.
 
 BL-689 (2026-11-12) made the selection rules read the exclusions file's 4 rows (802, 818, 861,
 897). On every reference pin each of them reaches decision 5's check
@@ -128,10 +135,10 @@ upstream's test-server greeting banner in a `-D` file, BL-776), TFTP 15 ran, 13 
 | `server-not-built:<name>` | 38 | 67 | 67 |
 | `servercmd-unsupported:<command>` | 30 | 35 | 35 |
 | `strippart-unsupported` | 1 | 1 | 1 |
-| `test-server-choice` | 4 | 4 | 4 |
+| `test-server-choice` | 28 | 28 | 28 |
 | `unittest` | 81 | 81 | 81 |
 | `unparsable` | 4 | 4 | 4 |
-| **Total** | **841** | **780** | **780** |
+| **Total** | **865** | **804** | **804** |
 
 ## Releases
 
