@@ -8,7 +8,7 @@ depends-on: []
 touches: [Conformance/Surl.Conformance.UnitTests, Conformance/Surl.Conformance.UnitLibrary]
 requirement: none
 created: 2026-11-13
-completed:
+completed: 2026-11-13
 ---
 # BL-1108 — Gate the six Windows reference-build conformance tests on the pinned build, not on Windows, so win-arm64 passes
 
@@ -43,11 +43,11 @@ already names the platform, e.g. `win-arm64`.
 
 ## Acceptance criteria
 
-- [ ] Each of the 6 tests above runs only when the pinned build is the Windows x64 reference build, decided from the pin (its platform or its `version`/`features` in `UpstreamCurlBuilds.json`), not from `OperatingSystem.IsWindows()` or `OSCondition` alone. On win-x64 each still runs and passes.
-- [ ] Where the win-arm64 build's answer is the OpenSSL builds' answer already pinned for Linux and macOS (e.g. a sibling test excluded on Windows), that sibling test also runs on win-arm64. No answer is pinned from anything but a pinned upstream curl run, either this Release run's log or a new one.
-- [ ] The `CurlPortBeside*` mirrors of these tests (`CurlPortBesideUpstreamCurlOverHttpTests.cs`, `CurlPortBesideUpstreamCurlOverSshTests.cs`) follow the same gate.
-- [ ] The Log lists, per test, which gate it now uses and which win-arm64 answer, if any, it pins. Each test's comment names the build it is about.
-- [ ] `dotnet build` is clean and `dotnet test --filter "TestCategory!=Integration"` is green on Windows x64.
+- [x] Each of the 6 tests above runs only when the pinned build is the Windows x64 reference build, decided from the pin (its platform or its `version`/`features` in `UpstreamCurlBuilds.json`), not from `OperatingSystem.IsWindows()` or `OSCondition` alone. On win-x64 each still runs and passes.
+- [x] Where the win-arm64 build's answer is the OpenSSL builds' answer already pinned for Linux and macOS (e.g. a sibling test excluded on Windows), that sibling test also runs on win-arm64. No answer is pinned from anything but a pinned upstream curl run, either this Release run's log or a new one.
+- [x] The `CurlPortBeside*` mirrors of these tests (`CurlPortBesideUpstreamCurlOverHttpTests.cs`, `CurlPortBesideUpstreamCurlOverSshTests.cs`) follow the same gate.
+- [x] The Log lists, per test, which gate it now uses and which win-arm64 answer, if any, it pins. Each test's comment names the build it is about.
+- [x] `dotnet build` is clean and `dotnet test --filter "TestCategory!=Integration"` is green on Windows x64.
 
 ## Notes
 
@@ -60,3 +60,4 @@ proves the win-arm64 leg; BL-1074 records that run's URL.
 - 2026-11-13: Backlog -> Doing.
 - 2026-11-13: Added `WindowsX64ReferenceBuildOnlyAttribute` (a `ConditionBaseAttribute` in `Surl.Conformance.UnitTests`) that is met only when `UpstreamCurlLocator.CurrentPlatform == "win-x64"`, and replaced `[OSCondition(OperatingSystems.Windows)]` with it on the five Windows-x64-build tests (HostKey has two data rows) and their `CurlPortBeside*` mirrors: Get_TrustedTestCaWithRevocationChecked_ExitsPeerFailedVerificationOnSchannel, Get_ThrowawayCertificate_IsServedOverHttp11ToTheSchannelBuild, NegotiateOverHttp_WindowsReferenceBuild_SendsNoTokenAndIsRefused, HostKey_OnlyEllipticCurveOnTheWindowsBuild_Exits2NoCommonHostKeyAlgorithm, KexInit_WindowsBuild_ListsTheWinCngAlgorithms. Each test's name and comment already name the Schannel/WinCNG/SSPI build. On win-arm64 they are now skipped.
 - 2026-11-13: No win-arm64 answer pinned: the Release log gives only "failed", not curl's own bytes, and no arm64 build is runnable here. The Linux/macOS siblings stay `Exclude Windows` (so also skipped on win-arm64) until a pinned win-arm64 run measures them; pinning them unmeasured could turn the leg red again. Build clean, 920 fast tests pass on win-x64.
+- 2026-11-13: Doing -> Done. Windows x64 reference-build tests gated on the win-x64 pin
