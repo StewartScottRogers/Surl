@@ -51,3 +51,4 @@ the ICMP timing), say so in the ADR amendment and pin what was found instead.
 ## Log
 
 - 2026-11-13: Created.
+- 2026-11-13: Backlog -> Doing.
