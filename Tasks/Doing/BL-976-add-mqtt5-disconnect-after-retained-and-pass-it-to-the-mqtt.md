@@ -39,3 +39,4 @@ after a SUBACK and the retained messages it releases, as ADR-0093 decision 9 say
 ## Log
 
 - 2026-11-06: Created.
+- 2026-11-12: Backlog -> Doing.
