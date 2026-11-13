@@ -147,6 +147,10 @@ public sealed class UpstreamTestCasesAgainstSurlTests
             Assert.HasCount(2013, results);
             Assert.IsTrue(results.Any(result => result.Outcome == UpstreamTestCaseOutcome.Pass), "No case passed; see the results file.");
             Assert.IsFalse(comparison.HasRegressions, comparison.DescribeRegressions());
+            Assert.AreEqual(
+                UpstreamTestCasePassRateStatementTests.CommittedExclusions().Count,
+                results.Count(result => result.Reason == UpstreamTestCaseSkipReasons.TestServerChoice),
+                "The run's test-server-choice count is not the exclusions file's row count.");
         }
         finally
         {
@@ -248,7 +252,7 @@ public sealed class UpstreamTestCasesAgainstSurlTests
             LogPrefix = logPrefix;
             Features = UpstreamCurlBuildFeatures.For(report);
             var disabled = UpstreamTestCaseDisabledList.Parse(File.ReadAllBytes(Path.Combine(Root, "data", "DISABLED")), SelectionEnvironment(Features));
-            Selector = new UpstreamTestCaseSelector(UpstreamTestCaseSelectionRules.ForClient(report, disabled));
+            Selector = new UpstreamTestCaseSelector(UpstreamTestCaseSelectionRules.ForClient(report, disabled, UpstreamTestCasePassRateStatementTests.CommittedExclusions()));
         }
 
         public IUpstreamTestCaseClient Client { get; }

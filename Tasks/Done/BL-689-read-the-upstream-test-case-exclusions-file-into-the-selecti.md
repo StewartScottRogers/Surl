@@ -8,7 +8,7 @@ depends-on: [BL-393, BL-1035]
 touches: [Conformance/Surl.Conformance.UnitLibrary, Conformance/Surl.Conformance.UnitTests]
 requirement: none
 created: 2026-11-04
-completed:
+completed: 2026-11-12
 ---
 # BL-689 — Read the upstream test-case exclusions file into the selection rules
 
@@ -26,10 +26,10 @@ into `TestServerChoices`, so a listed case skips `test-server-choice`.
 
 ## Acceptance criteria
 
-- [ ] A parser reads the table's `Case` column (`test<N>` or `<N>`) into a set, with unit tests for a row, an empty table and a malformed row.
-- [ ] The suite's run passes that set as `TestServerChoices`, and the pass-rate file's test-server-choice count is the set's size.
-- [ ] A fast test fails when a case is both in the exclusions file and in a passing list.
-- [ ] `dotnet build -warnaserror` is clean and the fast tests are green; the library stays at 100% line and branch coverage.
+- [x] A parser reads the table's `Case` column (`test<N>` or `<N>`) into a set, with unit tests for a row, an empty table and a malformed row.
+- [x] The suite's run passes that set as `TestServerChoices`, and the pass-rate file's test-server-choice count is the set's size.
+- [x] A fast test fails when a case is both in the exclusions file and in a passing list.
+- [x] `dotnet build -warnaserror` is clean and the fast tests are green; the library stays at 100% line and branch coverage.
 
 ## Notes
 
@@ -45,3 +45,4 @@ into `TestServerChoices`, so a listed case skips `test-server-choice`.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waiting on BL-1035 - pinned .NET SDK 10.0.401 is not installed, so nothing builds; finished work is on factory/BL-689-lane-1-20261111-060243
 - 2026-11-12: Backlog -> Doing.
+- 2026-11-12: Doing -> Done. Exclusions parsed into TestServerChoices; fast tests green (908), build clean.

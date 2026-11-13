@@ -258,7 +258,7 @@ public sealed class UpstreamTestCaseSelectorTests
     public void FindSkipReason_HttpsCaseNeedingTheReferenceBuildsTlsBackend_IsRunnableOnItsPlatform(string platform, string backend)
     {
         var pin = ReferencePins().Single(candidate => candidate.Platform == platform);
-        var rules = UpstreamTestCaseSelectionRules.ForBuild(pin, new HashSet<int>());
+        var rules = UpstreamTestCaseSelectionRules.ForBuild(pin, new HashSet<int>(), new HashSet<int>());
         var testCase = Case(client: Server("https") + Features("SSL", backend, "proxy", "!Debug"));
 
         Assert.IsNull(new UpstreamTestCaseSelector(rules).FindSkipReason(Number, testCase));
@@ -292,7 +292,7 @@ public sealed class UpstreamTestCaseSelectorTests
     public void ForClient_PortVersionLackingSmb_SkipsAnSmbCaseAndRunsAnHttpCase()
     {
         var report = CurlVersionReport.Parse(CurlVersionReportTests.PortVersionOutput);
-        var selector = new UpstreamTestCaseSelector(UpstreamTestCaseSelectionRules.ForClient(report, new HashSet<int>()));
+        var selector = new UpstreamTestCaseSelector(UpstreamTestCaseSelectionRules.ForClient(report, new HashSet<int>(), new HashSet<int>()));
 
         Assert.AreEqual("protocol-missing:smb", selector.FindSkipReason(Number, Case(client: Server("smb"))));
         Assert.IsNull(selector.FindSkipReason(Number, Case(client: Server("http") + Features("SSL", "Schannel", "brotli"))));
@@ -303,8 +303,9 @@ public sealed class UpstreamTestCaseSelectorTests
     {
         var report = CurlVersionReport.Parse(CurlVersionReportTests.PortVersionOutput);
 
-        Assert.ThrowsExactly<ArgumentNullException>(() => UpstreamTestCaseSelectionRules.ForClient(null!, new HashSet<int>()));
-        Assert.ThrowsExactly<ArgumentNullException>(() => UpstreamTestCaseSelectionRules.ForClient(report, null!));
+        Assert.ThrowsExactly<ArgumentNullException>(() => UpstreamTestCaseSelectionRules.ForClient(null!, new HashSet<int>(), new HashSet<int>()));
+        Assert.ThrowsExactly<ArgumentNullException>(() => UpstreamTestCaseSelectionRules.ForClient(report, null!, new HashSet<int>()));
+        Assert.ThrowsExactly<ArgumentNullException>(() => UpstreamTestCaseSelectionRules.ForClient(report, new HashSet<int>(), null!));
     }
 
     [TestMethod]
@@ -312,14 +313,15 @@ public sealed class UpstreamTestCaseSelectorTests
     {
         var pin = ReferencePins()[0];
 
-        Assert.ThrowsExactly<ArgumentNullException>(() => UpstreamTestCaseSelectionRules.ForBuild(null!, new HashSet<int>()));
-        Assert.ThrowsExactly<ArgumentNullException>(() => UpstreamTestCaseSelectionRules.ForBuild(pin, null!));
+        Assert.ThrowsExactly<ArgumentNullException>(() => UpstreamTestCaseSelectionRules.ForBuild(null!, new HashSet<int>(), new HashSet<int>()));
+        Assert.ThrowsExactly<ArgumentNullException>(() => UpstreamTestCaseSelectionRules.ForBuild(pin, null!, new HashSet<int>()));
+        Assert.ThrowsExactly<ArgumentNullException>(() => UpstreamTestCaseSelectionRules.ForBuild(pin, new HashSet<int>(), null!));
     }
 
     [TestMethod]
-    public void ForBuild_AsSurlStandsToday_AcceptsTheBuiltServerHalvesCommandsAndTheInterpretedStripLines()
+    public void ForBuild_AsSurlStandsToday_AcceptsTheBuiltServerHalvesCommandsAndTheInterpretedStripLinesAndExcludesTheGivenCases()
     {
-        var rules = UpstreamTestCaseSelectionRules.ForBuild(ReferencePins()[0], new HashSet<int>());
+        var rules = UpstreamTestCaseSelectionRules.ForBuild(ReferencePins()[0], new HashSet<int>(), new HashSet<int> { 802 });
 
         Assert.IsTrue(rules.SupportsServerCommand("ftp", "REPLY"));
         Assert.IsFalse(rules.SupportsServerCommand("ftp", "DELAY"));
@@ -331,7 +333,7 @@ public sealed class UpstreamTestCaseSelectorTests
         Assert.IsTrue(rules.SupportsStripLine("strip", "^Date:"));
         Assert.IsTrue(rules.SupportsStripLine("strippart", "s/^Date:.*//"));
         Assert.IsFalse(rules.SupportsStripLine("strippart", "chomp;"));
-        Assert.IsEmpty(rules.TestServerChoices);
+        CollectionAssert.AreEquivalent(new[] { 802 }, rules.TestServerChoices.ToList());
         Assert.Contains("http", rules.Protocols);
     }
 
@@ -388,7 +390,7 @@ public sealed class UpstreamTestCaseSelectorTests
         string pinPrefix, string server, string client, string? expected, string reply = "")
     {
         var pin = AllPins().Single(candidate => candidate.Sha256.StartsWith(pinPrefix, StringComparison.Ordinal));
-        var rules = UpstreamTestCaseSelectionRules.ForBuild(pin, new HashSet<int>());
+        var rules = UpstreamTestCaseSelectionRules.ForBuild(pin, new HashSet<int>(), new HashSet<int>());
         var testCase = Case(client: Server(server) + client + Command($"-u %USER: {server}://%HOSTIP:%SSHPORT/x"), reply: reply);
 
         var reason = new UpstreamTestCaseSelector(rules).FindSkipReason(Number, testCase);
@@ -399,7 +401,7 @@ public sealed class UpstreamTestCaseSelectorTests
     [TestMethod]
     public void FindSkipReason_FileSystemServersCaseWithAPostcheck_SkipsPostcheck()
     {
-        var rules = UpstreamTestCaseSelectionRules.ForBuild(AllPins().Single(pin => pin.Sha256.StartsWith("0E773709", StringComparison.Ordinal)), new HashSet<int>());
+        var rules = UpstreamTestCaseSelectionRules.ForBuild(AllPins().Single(pin => pin.Sha256.StartsWith("0E773709", StringComparison.Ordinal)), new HashSet<int>(), new HashSet<int>());
         var testCase = Case(client: Server("sftp"), verify: "<postcheck>\n%PERL %SRCDIR/libtest/test610.pl gone %PWD/%LOGDIR/test.dir\n</postcheck>\n");
 
         Assert.AreEqual("postcheck", new UpstreamTestCaseSelector(rules).FindSkipReason(Number, testCase));
@@ -423,7 +425,7 @@ public sealed class UpstreamTestCaseSelectorTests
         var path = Path.Combine(AppContext.BaseDirectory, "UpstreamTestCases", "data", $"test{number}");
 
         return (
-            new UpstreamTestCaseSelector(UpstreamTestCaseSelectionRules.ForBuild(pin, new HashSet<int>())),
+            new UpstreamTestCaseSelector(UpstreamTestCaseSelectionRules.ForBuild(pin, new HashSet<int>(), new HashSet<int>())),
             UpstreamTestCaseParser.Parse(File.ReadAllBytes(path), environment));
     }
 
