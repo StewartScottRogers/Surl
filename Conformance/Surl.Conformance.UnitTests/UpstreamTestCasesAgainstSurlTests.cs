@@ -601,7 +601,9 @@ public sealed class UpstreamTestCasesAgainstSurlTests
                 ["VERNUM"] = client.Report.VersionNumber,
                 // Only SCP and SFTP cases name %USER, as the login the SSH server half lets in.
                 ["USER"] = sshUser,
-                ["DEV_NULL"] = OperatingSystem.IsWindows() ? "NUL" : "/dev/null",
+                // Windows names its null device NUL, which curl opens for -o. Case 173 only names it as a form file name,
+                // and its Content-Length (378) counts the 9 characters of /dev/null, so it gets that (BL-1076).
+                ["DEV_NULL"] = OperatingSystem.IsWindows() && number != 173 ? "NUL" : "/dev/null",
             }, httpUnixSocketPath, socksUnixSocketPath),
             client.Features,
             new ImportedFileReader(),

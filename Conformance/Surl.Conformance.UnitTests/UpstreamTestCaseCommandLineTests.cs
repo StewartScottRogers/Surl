@@ -113,6 +113,19 @@ public sealed class UpstreamTestCaseCommandLineTests
     }
 
     [TestMethod]
+    public void Build_TwoFilePartsOfOneName_AreOneFileUnderTheFirstName()
+    {
+        var commandLine = Build(
+            Command("u")
+            + "<file name=\"/tmp/log/one\">\n1\n</file>\n"
+            + "<file name=\"/tmp/log/other\">\n2\n</file>\n");
+
+        Assert.HasCount(1, commandLine.Files);
+        Assert.AreEqual("/tmp/log/one", commandLine.Files[0].Path);
+        Assert.AreEqual("1\n2\n", UpstreamTestCaseText.Text(commandLine.Files[0].Contents));
+    }
+
+    [TestMethod]
     public void Build_FileWithContentButNoName_Throws()
     {
         Assert.ThrowsExactly<FormatException>(() => Build(Command("u") + "<file1>\nx\n</file1>\n"));

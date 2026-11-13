@@ -186,6 +186,29 @@ public sealed class HttpUpstreamTestCaseServerTests
     }
 
     [TestMethod]
+    public async Task ChunkedBodyBesideContentLength_IsReadAsChunksBeforeTheReply()
+    {
+        const string request = "PUT /1 HTTP/1.1\r\nHost: h\r\nTransfer-Encoding: chunked\r\nContent-Length: 1\r\n\r\n13\r\nmore than one byte\n\r\n0\r\n\r\nGET /1 HTTP/1.1\r\nHost: h\r\n\r\n";
+        var replies = Replies(("data", Data));
+
+        var (connection, _) = await ServeAsync(replies, [Ascii(request)]);
+
+        Assert.AreEqual(Data + Data, Latin1(connection.WrittenBytes));
+        Assert.AreEqual(request, Latin1(replies.ReceivedBytes));
+    }
+
+    [TestMethod]
+    [DataRow("PUT /1 HTTP/1.0\r\nHost: h\r\nTransfer-Encoding: chunked\r\nContent-Length: 1\r\n\r\n")]
+    [DataRow("PUT /1 HTTP/1.1\r\nHost: h\r\nTransfer-Encoding: chunked\r\nTransfer-Encoding: chunked\r\nContent-Length: 1\r\n\r\n")]
+    public async Task ChunkedBodyBesideContentLength_IsNotReadWhenTheFramingIsNotHttp11WithOneField(string head)
+    {
+        var replies = Replies(("data", Data));
+
+        var (connection, _) = await ServeAsync(replies, [Ascii(head + "3\r\nabc\r\n0\r\n\r\n")]);
+
+        Assert.AreEqual(Data, Latin1(connection.WrittenBytes));
+    }
+    [TestMethod]
     [DataRow("zz\r\n")]
     [DataRow("FFFFFFFFFFFFFFFF\r\n")]
     [DataRow("5\r\nab")]

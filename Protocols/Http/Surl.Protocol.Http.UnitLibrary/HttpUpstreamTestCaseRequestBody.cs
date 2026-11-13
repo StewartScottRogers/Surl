@@ -40,10 +40,22 @@ internal static class HttpUpstreamTestCaseRequestBody
             var skipped = IsUpload(head) ? commands.SkippedBodyBytes : 0;
             await ReadExactlyAsync(reader, Math.Max(0, framing.ContentLength - skipped), cancellationToken);
         }
-        else if (framing.Kind == HttpRequestBodyFramingKind.Chunked)
+        else if (framing.Kind == HttpRequestBodyFramingKind.Chunked || IsChunkedBesideContentLength(head, framing))
         {
             await ReadChunksAsync(reader, cancellationToken);
         }
+    }
+
+    // A test case may send both fields (test 60's -H "Content-Length: 1" beside -T -); the server half reads the chunks,
+    // as RFC 9112 section 6.3 rule 3 has Transfer-Encoding override Content-Length. The generic framing refuses the pair on purpose (ADR-0024).
+    private static bool IsChunkedBesideContentLength(HttpRequestHead head, HttpRequestBodyFraming framing)
+    {
+        var transferEncodings = head.GetFieldValues("Transfer-Encoding");
+
+        return framing.Kind == HttpRequestBodyFramingKind.Unreadable
+            && head.Version.Minor >= 1
+            && transferEncodings.Count == 1
+            && string.Equals(transferEncodings[0], "chunked", StringComparison.OrdinalIgnoreCase);
     }
 
     private static bool IsUpload(HttpRequestHead head) => head.Method is "POST" or "PUT";
