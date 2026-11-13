@@ -33,3 +33,4 @@ completed:
 
 - 2026-11-12: Created.
 - 2026-11-12: Backlog -> Doing.
+- 2026-11-12: Doing -> Backlog. Lane 3 could not integrate: build failed after rebasing onto the other lanes' work. The work is on branch factory/BL-1085-lane-3-20261112-162230; start with git cherry-pick --no-commit factory/BL-1085-lane-3-20261112-162230 and fix it.
