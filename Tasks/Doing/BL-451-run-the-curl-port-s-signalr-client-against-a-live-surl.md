@@ -37,3 +37,4 @@ HubProtocol.md and TransportProtocols.md, and the matrix is fully covered.
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-12: Backlog -> Doing.
