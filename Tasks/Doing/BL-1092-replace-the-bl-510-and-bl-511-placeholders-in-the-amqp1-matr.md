@@ -29,3 +29,4 @@ BL-510 and BL-511 are Done, but the matrix still lists their task IDs as placeho
 ## Log
 
 - 2026-11-12: Created.
+- 2026-11-12: Backlog -> Doing.
