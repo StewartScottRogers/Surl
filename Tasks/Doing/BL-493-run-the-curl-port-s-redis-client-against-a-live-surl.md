@@ -37,3 +37,4 @@ assertion comes from the RESP specification and the command pages, and the matri
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-12: Backlog -> Doing.
