@@ -68,3 +68,4 @@ and help category exist, and the extension switch turns both off.
 - 2026-11-11: Doing -> Backlog. Waiting on BL-1035: pinned .NET SDK 10.0.401 is not installed, so dotnet build cannot run
 - 2026-11-12: Backlog -> Doing.
 - 2026-11-12: Doing -> Backlog. Needs Protocols/Http/Surl.Extended.Protocol.Grpc.UnitLibrary and .UnitTests (a GrpcProtocolServer does not exist yet), which BL-871 in Doing touches via Protocols; resume once BL-871 is done
+- 2026-11-12: Backlog -> Doing.
