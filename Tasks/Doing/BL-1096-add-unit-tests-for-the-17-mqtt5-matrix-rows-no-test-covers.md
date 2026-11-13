@@ -52,3 +52,4 @@ Sizing: 17 tests plus one decision. If a lane finds it running long, file the sh
 ## Log
 
 - 2026-11-12: Created.
+- 2026-11-12: Backlog -> Doing.
