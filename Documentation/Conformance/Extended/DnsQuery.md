@@ -12,7 +12,7 @@ needs no test.
 | ID | Level | Requirement | Covered by |
 | --- | --- | --- | --- |
 | DnsQuery:RFC1035-4.1.1-1 | MUST | A response carries the query's ID, QR = 1 and the query's opcode, and copies RD. | BL-479, BL-481 |
-| DnsQuery:RFC1035-4.1.1-2 | MUST | AA is set in a response from a zone the server is authoritative for, and only then. | BL-480 |
+| DnsQuery:RFC1035-4.1.1-2 | MUST | AA is set in a response from a zone the server is authoritative for, and only then. | BL-480; live: `CurlPortClientQueriesSurlOverDnsTests.A_IsAnsweredWithTheZonesAddress` |
 | DnsQuery:RFC1035-4.1.1-3 | MUST | RA says whether recursion is available; this server offers none, so RA = 0. | BL-480 |
 | DnsQuery:RFC1035-4.1.1-4 | MUST | A query that cannot be interpreted is answered RCODE 1, Format error. | BL-481 |
 | DnsQuery:RFC1035-4.1.1-5 | MUST | A kind of query the server does not support (an opcode other than QUERY) is answered RCODE 4, Not Implemented. | BL-481 |
@@ -22,9 +22,9 @@ needs no test.
 | DnsQuery:RFC1035-4.1.4-1 | MAY | Names in a response are compressed with pointers to earlier occurrences. | BL-479 |
 | DnsQuery:RFC1035-4.1.4-2 | MUST | A compressed name in a received message is read; a pointer that loops or leaves the message is refused. | BL-479 |
 | DnsQuery:RFC1035-2.3.4-1 | MUST | A label is at most 63 octets and a name at most 255 octets. | BL-479 |
-| DnsQuery:RFC1035-3.4.1-1 | MUST | An A record's RDATA is a 32-bit address. | BL-479 |
-| DnsQuery:RFC3596-2.2-1 | MUST | An AAAA record's RDATA is a 128-bit address. | BL-479 |
-| DnsQuery:RFC1035-3.3-1 | MUST | NS, CNAME, PTR, MX, TXT and SOA RDATA are written in their section 3.3 forms. | BL-479 |
+| DnsQuery:RFC1035-3.4.1-1 | MUST | An A record's RDATA is a 32-bit address. | BL-479; live: `CurlPortClientQueriesSurlOverDnsTests.A_IsAnsweredWithTheZonesAddress` |
+| DnsQuery:RFC3596-2.2-1 | MUST | An AAAA record's RDATA is a 128-bit address. | BL-479; live: `CurlPortClientQueriesSurlOverDnsTests.Aaaa_IsAnsweredWithTheZonesAddress` |
+| DnsQuery:RFC1035-3.3-1 | MUST | NS, CNAME, PTR, MX, TXT and SOA RDATA are written in their section 3.3 forms. | BL-479; live: `CurlPortClientQueriesSurlOverDnsTests.Mx_IsAnsweredWithTheZonesExchangeAndItsAddress` |
 | DnsQuery:RFC2782-1 | MUST NOT | An SRV record's Target is not compressed. | BL-479 |
 | DnsQuery:RFC8659-4.1-1 | MUST | A CAA record's RDATA is the Flags octet, the Tag length and Tag, then the Value. | BL-479 |
 | DnsQuery:RFC3597-4-1 | MUST NOT | Names inside the RDATA of a type later than RFC 1035's, or unknown, are not compressed. | BL-479 |
@@ -40,18 +40,18 @@ needs no test.
 | DnsQuery:RFC2181-10.1-1 | MUST NOT | A name with a CNAME holds no other data; such a zone is refused. | BL-480 |
 | DnsQuery:RFC2181-5.2-1 | MUST | The records of one RRset share one TTL; a zone where they do not is refused. | BL-480 |
 | DnsQuery:RFC2181-5.1-1 | MUST | An RRset is sent whole or not at all. | BL-480, BL-481 |
-| DnsQuery:RFC1034-4.3.2-1 | MUST | A name and type that exist are answered with the RRset. | BL-480 |
+| DnsQuery:RFC1034-4.3.2-1 | MUST | A name and type that exist are answered with the RRset. | BL-480; live: `CurlPortClientQueriesSurlOverDnsTests.A_IsAnsweredWithTheZonesAddress` |
 | DnsQuery:RFC1034-4.3.2-2 | MUST | A CNAME met before the type asked for is put in the answer and the lookup continues at its target. | BL-480 |
 | DnsQuery:RFC1034-4.3.2-3 | MUST | A name at or below a delegation is answered with the delegation's NS RRset in authority, its glue in additional, and AA = 0. | BL-480 |
 | DnsQuery:RFC1034-3.6.2-1 | MUST | A CNAME chain that loops is not followed forever. | BL-480 |
 | DnsQuery:RFC6604-2-1 | MUST | After a CNAME chain the RCODE is the last name's. | BL-480 |
-| DnsQuery:RFC2308-2.1-1 | MUST | A name that does not exist is answered NXDOMAIN. | BL-480 |
-| DnsQuery:RFC2308-3-1 | MUST | A negative answer (NXDOMAIN or NODATA) carries the zone's SOA in the authority section. | BL-480 |
-| DnsQuery:RFC2308-3-2 | MUST | That SOA's TTL is the lower of its own TTL and its MINIMUM field. | BL-480 |
+| DnsQuery:RFC2308-2.1-1 | MUST | A name that does not exist is answered NXDOMAIN. | BL-480; live: `CurlPortClientQueriesSurlOverDnsTests.MissingName_IsNxdomainWithTheZonesSoa` |
+| DnsQuery:RFC2308-3-1 | MUST | A negative answer (NXDOMAIN or NODATA) carries the zone's SOA in the authority section. | BL-480; live: `CurlPortClientQueriesSurlOverDnsTests.MissingName_IsNxdomainWithTheZonesSoa` |
+| DnsQuery:RFC2308-3-2 | MUST | That SOA's TTL is the lower of its own TTL and its MINIMUM field. | BL-480; live: `CurlPortClientQueriesSurlOverDnsTests.MissingName_IsNxdomainWithTheZonesSoa` |
 | DnsQuery:RFC4592-2.2.2-1 | MUST | An empty non-terminal exists: a query for it is NODATA, not NXDOMAIN. | BL-480 |
 | DnsQuery:RFC4592-3.3.1-1 | MUST | A wildcard answers a name below its parent only when no closer name exists, with the question's name as owner. | BL-480 |
 | DnsQuery:RFC4592-4.2-1 | SHOULD NOT | A wildcard NS is not served. | BL-480 |
-| DnsQuery:RFC1035-3.3.9-1 | SHOULD | MX, NS and SRV targets' in-zone addresses go in the additional section. | BL-480 |
+| DnsQuery:RFC1035-3.3.9-1 | SHOULD | MX, NS and SRV targets' in-zone addresses go in the additional section. | BL-480; live: `CurlPortClientQueriesSurlOverDnsTests.Mx_IsAnsweredWithTheZonesExchangeAndItsAddress` |
 
 ## EDNS(0) (RFC 6891, RFC 3225, RFC 7830, RFC 8467)
 
@@ -79,7 +79,7 @@ needs no test.
 
 | ID | Level | Requirement | Covered by |
 | --- | --- | --- | --- |
-| DnsQuery:RFC7766-5-1 | MUST | A server answering over UDP also answers over TCP. | BL-485 |
+| DnsQuery:RFC7766-5-1 | MUST | A server answering over UDP also answers over TCP. | BL-485; live: `CurlPortClientQueriesSurlOverDnsTests.A_IsAnsweredWithTheZonesAddress` |
 | DnsQuery:RFC1035-4.2.2-1 | MUST | Every message over TCP is preceded by its two-octet length. | BL-482 |
 | DnsQuery:RFC7766-6.2.1-1 | MUST | Several queries are answered on one connection, which stays open after each answer. | BL-482 |
 | DnsQuery:RFC7766-6.2.1.1-1 | SHOULD | Pipelined queries are read and answered without waiting for the client to read earlier answers. | BL-482 |
@@ -96,7 +96,7 @@ needs no test.
 | ID | Level | Requirement | Covered by |
 | --- | --- | --- | --- |
 | DnsQuery:RFC7858-3.1-1 | MUST | DoT is served on TCP port 853 by default. | BL-485 |
-| DnsQuery:RFC7858-3.3-1 | MUST | Messages over TLS carry the two-octet length of RFC 1035 section 4.2.2. | BL-485 |
+| DnsQuery:RFC7858-3.3-1 | MUST | Messages over TLS carry the two-octet length of RFC 1035 section 4.2.2. | BL-485; live: `CurlPortClientQueriesSurlOverDnsTests.A_IsAnsweredWithTheZonesAddress` |
 | DnsQuery:RFC7858-3.4-1 | SHOULD | The TLS connection is kept for later queries and follows RFC 7766's idle guidance. | BL-482, BL-485 |
 | DnsQuery:RFC9103-7.1-1 | MUST | A DoT server that agrees ALPN agrees `dot`. | BL-485 |
 | DnsQuery:RFC8310-9-1 | MUST | TLS is at least version 1.2. | BL-485 |
@@ -106,7 +106,7 @@ needs no test.
 | ID | Level | Requirement | Covered by |
 | --- | --- | --- | --- |
 | DnsQuery:RFC8484-4.1-1 | MUST | A server answers GET with the `dns` parameter, base64url-encoded without padding. | BL-483 |
-| DnsQuery:RFC8484-4.1-2 | MUST | A server answers POST whose body is the query and whose `Content-Type` is `application/dns-message`. | BL-483 |
+| DnsQuery:RFC8484-4.1-2 | MUST | A server answers POST whose body is the query and whose `Content-Type` is `application/dns-message`. | BL-483; live: `CurlPortClientQueriesSurlOverDnsTests.A_IsAnsweredWithTheZonesAddress` |
 | DnsQuery:RFC8484-4.2-1 | MUST | A server implements the `application/dns-message` media type; a request of another type is not answered as DNS (415). | BL-483 |
 | DnsQuery:RFC8484-4.2.1-1 | MUST | A DNS answer of any RCODE is sent with a 2xx status. | BL-483 |
 | DnsQuery:RFC8484-4.2.1-2 | MUST | A request that holds no DNS query is answered with an HTTP error status (400). | BL-483 |
@@ -122,7 +122,7 @@ needs no test.
 | DnsQuery:RFC9250-4.1-1 | MUST | The QUIC handshake agrees ALPN `doq`. | BL-484 |
 | DnsQuery:RFC9250-4.1.1-1 | MUST | DoQ is served on UDP port 853 by default. | BL-485 |
 | DnsQuery:RFC9250-4.1.1-2 | MUST NOT | DoQ is not served on port 53. | BL-485 |
-| DnsQuery:RFC9250-4.2-1 | MUST | The response goes on the query's stream, length-prefixed, and the stream is ended with FIN. | BL-484 |
+| DnsQuery:RFC9250-4.2-1 | MUST | The response goes on the query's stream, length-prefixed, and the stream is ended with FIN. | BL-484; live: `CurlPortClientQueriesSurlOverDnsTests.A_IsAnsweredWithTheZonesAddress` |
 | DnsQuery:RFC9250-4.2-2 | MUST | Each query is answered on its own client-initiated bidirectional stream, independently. | BL-484 |
 | DnsQuery:RFC9250-4.2.1-1 | MUST | A query with a non-zero Message ID is a protocol error. | BL-484 |
 | DnsQuery:RFC9250-4.3.3-1 | SHOULD | A protocol error closes the connection with `DOQ_PROTOCOL_ERROR`. | BL-484 |
