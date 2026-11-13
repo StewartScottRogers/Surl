@@ -45,7 +45,7 @@ rule of a page and each error a server owes is a row. IDs are:
 
 | ID | Level | Requirement | Covered by |
 | --- | --- | --- | --- |
-| GCS:XmlApi-GetObject-1 | MUST | `GET /<bucket>/<object>` answers `200` with the object's bytes. | `GoogleCloudStorageProtocolServerTests.ServeAsync_GetObject_ReturnsTheBytesWithXGoogHashComputedAsTheApiSays` |
+| GCS:XmlApi-GetObject-1 | MUST | `GET /<bucket>/<object>` answers `200` with the object's bytes. | `GoogleCloudStorageProtocolServerTests.ServeAsync_GetObject_ReturnsTheBytesWithXGoogHashComputedAsTheApiSays`, `CurlPortClientTransfersObjectsWithSurlOverGoogleCloudStorageTests.BearerGet_OfAStoredObject_ReturnsTheStoredBytes` |
 | GCS:XmlApi-GetObject-2 | MUST | The answer carries `Content-Length`, `Content-Type`, `ETag`, `Last-Modified`, each stored header and `x-goog-meta-*`. | `GoogleCloudStorageProtocolServerTests.ServeAsync_GetObjectWithStoredMetadata_SendsEveryStoredFieldAndMetadata` |
 | GCS:XmlApi-Headers-Hash-1 | MUST | `x-goog-hash` is `crc32c=<base64 big-endian CRC-32C>,md5=<base64 MD5>` of the whole object, on a `206` too. | `GoogleCloudStorageProtocolServerTests.ServeAsync_GetObject_ReturnsTheBytesWithXGoogHashComputedAsTheApiSays`, `GoogleCloudStorageProtocolServerTests.ServeAsync_OneRange_Is206WithTheWholeObjectsHash`, `GcsObjectHashesTests` |
 | GCS:XmlApi-Headers-Generation-1 | MUST | `x-goog-generation` is a positive number that changes whenever the data is replaced; `x-goog-metageneration` is `1`. | `GcsPutObjectTests.ServeAsync_PutOverAnObject_ReplacesItAndItsGeneration` |
@@ -61,7 +61,7 @@ rule of a page and each error a server owes is a row. IDs are:
 
 | ID | Level | Requirement | Covered by |
 | --- | --- | --- | --- |
-| GCS:XmlApi-PutObject-1 | MUST | `PUT /<bucket>/<object>` stores the body, replacing any object, and answers `200` with `ETag`, `x-goog-generation` and `x-goog-hash`. | `GcsPutObjectTests.ServeAsync_PutUnderAllowUploads_StoresTheObjectAndAnswersItsDigests`, `GcsPutObjectTests.ServeAsync_PutOverAnObject_ReplacesItAndItsGeneration` |
+| GCS:XmlApi-PutObject-1 | MUST | `PUT /<bucket>/<object>` stores the body, replacing any object, and answers `200` with `ETag`, `x-goog-generation` and `x-goog-hash`. | `GcsPutObjectTests.ServeAsync_PutUnderAllowUploads_StoresTheObjectAndAnswersItsDigests`, `GcsPutObjectTests.ServeAsync_PutOverAnObject_ReplacesItAndItsGeneration`, `CurlPortClientTransfersObjectsWithSurlOverGoogleCloudStorageTests.HmacPut_UnderAllowUploads_StoresTheSentBytes` |
 | GCS:XmlApi-PutObject-2 | MUST | `Content-Type`, `Content-Encoding`, `Content-Disposition`, `Cache-Control`, `Content-Language` and `x-goog-meta-*` are stored and returned by GET Object and HEAD Object. | `GcsPutObjectTests.ServeAsync_PutWithMetadata_IsReturnedByALaterRead` |
 | GCS:XmlApi-PutObject-3 | MUST | A `PUT` without `Content-Length` is `411 MissingContentLength`; a body shorter than it is `400 IncompleteBody`, and nothing is stored. | `GcsPutObjectTests.ServeAsync_PutWithoutContentLength_Is411MissingContentLength`, `GcsPutObjectTests.ServeAsync_PutWhoseBodyEndsEarly_Is400IncompleteBodyAndStoresNothing` |
 | GCS:XmlApi-Headers-ContentMd5-1 | MUST | `Content-MD5` not matching the body is `400 BadDigest`; one not the base64 of 16 bytes is `400 InvalidDigest`. | `GcsPutObjectTests.ServeAsync_PutWithAMismatchedDigest_Is400BadDigestAndKeepsTheOldObject`, `GcsPutObjectTests.ServeAsync_PutWithAMalformedContentMd5_Is400InvalidDigest` |
@@ -101,7 +101,7 @@ rule of a page and each error a server owes is a row. IDs are:
 
 | ID | Level | Requirement | Covered by |
 | --- | --- | --- | --- |
-| GCS:XmlApi-ListObjects-1 | MUST | `GET /<bucket>` answers `ListBucketResult` in the `http://doc.s3.amazonaws.com/2006-03-01` namespace, its elements in ADR-0110 decision 6's order. | `GcsListObjectsTests.ServeAsync_ListObjects_ListsEveryObjectInNameOrder` |
+| GCS:XmlApi-ListObjects-1 | MUST | `GET /<bucket>` answers `ListBucketResult` in the `http://doc.s3.amazonaws.com/2006-03-01` namespace, its elements in ADR-0110 decision 6's order. | `GcsListObjectsTests.ServeAsync_ListObjects_ListsEveryObjectInNameOrder`, `CurlPortClientTransfersObjectsWithSurlOverGoogleCloudStorageTests.BearerList_OfABucket_NamesEveryObject` |
 | GCS:XmlApi-ListObjects-2 | MUST | Each `Contents` holds `Key`, `Generation`, `MetaGeneration`, `LastModified`, `ETag` and `Size`. | `GcsListObjectsTests.ServeAsync_ListObjects_ListsEveryObjectInNameOrder` |
 | GCS:XmlApi-ListObjects-3 | MUST | Names are listed in ascending UTF-8 byte order. | `GcsListObjectsTests.ServeAsync_ListObjects_ListsEveryObjectInNameOrder`, `GcsNameOrderTests` |
 | GCS:XmlApi-ListObjects-4 | MUST | `prefix` limits the names; with `delimiter`, names sharing a prefix up to the first delimiter after `prefix` roll up into one `CommonPrefixes`. | `GcsListObjectsTests.ServeAsync_DelimiterSlash_RollsFoldersUpIntoCommonPrefixes`, `GcsListObjectsTests.ServeAsync_Prefix_ListsOnlyTheNamesUnderIt` |
@@ -118,7 +118,7 @@ rule of a page and each error a server owes is a row. IDs are:
 
 | ID | Level | Requirement | Covered by |
 | --- | --- | --- | --- |
-| GCS:Surl-Auth-1 | MUST | With anonymous off, a request with no credential is `401 AuthenticationRequired` with `WWW-Authenticate: Bearer realm="storage"`. | `GcsLoginJudgeTests.ServeAsync_NoTokenWithAnonymousOff_Is401AuthenticationRequiredWithTheBearerChallenge` |
+| GCS:Surl-Auth-1 | MUST | With anonymous off, a request with no credential is `401 AuthenticationRequired` with `WWW-Authenticate: Bearer realm="storage"`. | `GcsLoginJudgeTests.ServeAsync_NoTokenWithAnonymousOff_Is401AuthenticationRequiredWithTheBearerChallenge`, `CurlPortClientTransfersObjectsWithSurlOverGoogleCloudStorageTests.UnsignedGet_WithAnonymousOff_IsRefusedAndDeliversNoObjectBytes` |
 | GCS:Surl-Auth-2 | MUST | Under `--allow-anonymous`, unauthenticated reads are served and an anonymous write is `401 AuthenticationRequired`. | `GcsLoginJudgeTests.ServeAsync_NoTokenUnderAllowAnonymous_ServesTheRead`, `GcsLoginJudgeTests.ServeAsync_AnonymousWrite_Is401AuthenticationRequired` |
 | GCS:Surl-Auth-3 | MUST | A write needs `--allow-uploads`; without it a logged-in write is `403 AccessDenied`. | `GcsPutObjectTests.ServeAsync_PutWithoutAllowUploads_Is403AccessDeniedAndStoresNothing`, `GcsRequestAnswererTests.ServeAsync_DeleteWithoutAllowUploads_Is403AccessDenied` |
 | GCS:XmlApi-OAuth2-1 | MUST | `Authorization: Bearer <token>` is served when the token is an empty-name account's password. | `GoogleCloudStorageProtocolServerTests.ServeAsync_GetObject_ReturnsTheBytesWithXGoogHashComputedAsTheApiSays` |
