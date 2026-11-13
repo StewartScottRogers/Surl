@@ -3,6 +3,7 @@ using System.Security.Cryptography.X509Certificates;
 using Surl.Cli;
 using Surl.Content;
 using Surl.Core;
+using Surl.Extended.Protocol.Kafka;
 using Surl.MessageBus;
 using Surl.Networking;
 using Surl.Output;
@@ -351,6 +352,7 @@ public static partial class SurlServerComposition
             AuthenticationPolicyForScheme = authentication.SchemePolicies.For,
             IdleTimeout = ComposeConnectionLimits(commandLine).IdleTimeout,
             AllowsZoneTransfer = commandLine.AllowZoneTransfer,
+            KafkaFetchCompression = Enum.Parse<KafkaCompressionCodec>(commandLine.KafkaFetchCompression, ignoreCase: true),
             OriginConnector = originConnector,
             ProxyAuthenticationPolicy = authentication.ProxyPolicy,
             PreSharedKeyAccounts = authentication.PreSharedKeyAccounts,

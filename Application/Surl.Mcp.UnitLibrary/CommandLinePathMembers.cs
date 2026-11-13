@@ -54,6 +54,7 @@ internal static class CommandLinePathMembers
         nameof(SurlCommandLine.ServeDotFiles),
         nameof(SurlCommandLine.AllowZoneTransfer),
         nameof(SurlCommandLine.DnsTransports),
+        nameof(SurlCommandLine.KafkaFetchCompression),
         nameof(SurlCommandLine.DnsListenUrlsWithPort),
         nameof(SurlCommandLine.MaxConnections),
         nameof(SurlCommandLine.MaxConnectionsPerAddress),

@@ -2,6 +2,7 @@ using Surl.Authentication;
 using Surl.Content;
 using Surl.Core;
 using Surl.Extended.Protocol.DnsQuery;
+using Surl.Extended.Protocol.Kafka;
 using Surl.MailStore;
 using Surl.Protocol.Abstractions;
 using Surl.Protocol.Ldap;
@@ -66,6 +67,12 @@ public sealed class ComposedProtocolServices(
     /// answers AXFR and IXFR (ADR-0092 decision 4); off unless set.
     /// </summary>
     public bool AllowsZoneTransfer { get; init; }
+
+    /// <summary>
+    /// Gets the codec of the record batches the Kafka broker serves to a fetch, from
+    /// <c>--kafka-fetch-compression</c> (ADR-0105 decision 4); none unless set.
+    /// </summary>
+    public KafkaCompressionCodec KafkaFetchCompression { get; init; }
 
     /// <summary>
     /// Gets the source of the certificate QUIC's TLS 1.3 serves, which the servers answering over QUIC

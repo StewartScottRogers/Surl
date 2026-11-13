@@ -161,6 +161,8 @@ internal static class CommandLineOptions
             new(null, "Answer DNS zone transfers (AXFR, IXFR)", ["dns", "security"], IsInShortList: false, Default: "off")),
         WithArgument<IReadOnlyList<string>>("dns-transport", null, OptionArgumentReader.DnsTransports, (c, v) => c with { DnsTransports = v },
             new("<list>", "DNS transports to serve", ["dns", "tls"], IsInShortList: false, Default: "udp,tcp")),
+        WithArgument<string>("kafka-fetch-compression", null, OptionArgumentReader.KafkaFetchCompression, (c, v) => c with { KafkaFetchCompression = v },
+            new("<codec>", "Codec of fetched Kafka record batches", ["kafka"], IsInShortList: false, Default: "none")),
         WithArgument<int>("max-connections", null, OptionArgumentReader.Number, (c, v) => c with { MaxConnections = v },
             new("<number>", "Connections at once, all listeners", ["limits"], IsInShortList: false, Default: "1024")),
         WithArgument<int>("max-connections-per-address", null, OptionArgumentReader.Number, (c, v) => c with { MaxConnectionsPerAddress = v },

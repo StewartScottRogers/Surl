@@ -262,6 +262,7 @@ public sealed class HelpTextTests
             Row(38, "    --hostkey <file>", "SSH host private key file"),
             Row(38, "    --http3", "Also serve HTTP/3 over QUIC on https"),
             Row(38, "    --idle-timeout <seconds>", "Close an exchange idle this long"),
+            Row(38, "    --kafka-fetch-compression <codec>", "Codec of fetched Kafka record batches"),
             Row(38, "    --key <file>", "Private key for --cert"),
             Row(38, "    --key-type <type>", "Format of --key: PEM or DER"),
             Row(35, "    --keytab <file>", "Read Kerberos service keys from a keytab file"),

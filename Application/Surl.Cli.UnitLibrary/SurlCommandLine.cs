@@ -411,6 +411,12 @@ public sealed record SurlCommandLine
     /// </summary>
     public IReadOnlyList<string> DnsTransports { get; init; } = DefaultDnsTransports;
 
+    /// <summary>
+    /// <c>--kafka-fetch-compression</c>: the codec of the record batches the Kafka broker serves to a fetch,
+    /// <c>none</c>, <c>gzip</c>, <c>snappy</c>, <c>lz4</c> or <c>zstd</c> (ADR-0105 decision 4). <c>none</c> by default.
+    /// </summary>
+    public string KafkaFetchCompression { get; init; } = "none";
+
     /// <summary>The transports <c>--dns-transport</c> defaults to; one shared list, so two default command lines are equal.</summary>
     public static readonly IReadOnlyList<string> DefaultDnsTransports = ["udp", "tcp"];
 

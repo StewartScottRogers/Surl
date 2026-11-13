@@ -9,7 +9,7 @@ public sealed class ManualTextTests
     private static readonly string[] Headings =
     [
         "NAME", "SYNOPSIS", "DESCRIPTION", "CONFIG FILES", "LISTEN URLS", "DEPLOYMENT CHECKLIST", "DATA DIRECTORY",
-        "IN-MEMORY MODE", "SHARES AND BUCKETS", "TOPICS AND QUEUES", "ACCOUNTS", "MAIL", "AMQP OPTIONS", "AMQP 1.0 OPTIONS", "DNS OPTIONS", "HTTP OPTIONS", "LDAP OPTIONS", "MCP OPTIONS", "NATS OPTIONS", "OCI OPTIONS", "PROXY OPTIONS", "RTSP OPTIONS", "S3 OPTIONS", "SMB OPTIONS", "SSH OPTIONS", "STOMP OPTIONS", "TLS-SRP OPTIONS", "WEBSOCKET OPTIONS", "LOOSENING OPTIONS", "CONTROL ENDPOINT", "LOG LEVELS", "LIMITS",
+        "IN-MEMORY MODE", "SHARES AND BUCKETS", "TOPICS AND QUEUES", "ACCOUNTS", "MAIL", "AMQP OPTIONS", "AMQP 1.0 OPTIONS", "DNS OPTIONS", "HTTP OPTIONS", "KAFKA OPTIONS", "LDAP OPTIONS", "MCP OPTIONS", "NATS OPTIONS", "OCI OPTIONS", "PROXY OPTIONS", "RTSP OPTIONS", "S3 OPTIONS", "SMB OPTIONS", "SSH OPTIONS", "STOMP OPTIONS", "TLS-SRP OPTIONS", "WEBSOCKET OPTIONS", "LOOSENING OPTIONS", "CONTROL ENDPOINT", "LOG LEVELS", "LIMITS",
         "EXIT CODES", "SEE ALSO",
     ];
 
@@ -361,6 +361,12 @@ public sealed class ManualTextTests
             "    1.3 it exits 2. With --cacert, HTTP/3 requires a client certificate too,",
             "    as TCP does. With -v, surl writes the UDP port it serves HTTP/3 on. surl",
             "    --aihelp http says how each request is answered.",
+            "",
+            "KAFKA OPTIONS",
+            "",
+            "    --kafka-fetch-compression <codec> (none, gzip, snappy, lz4, zstd; default",
+            "    none) compresses the record batches the Kafka broker serves to a fetch for",
+            "    kafka and kafkas listen URLs. surl --aihelp kafka says more.",
             "",
             "LDAP OPTIONS",
             "",

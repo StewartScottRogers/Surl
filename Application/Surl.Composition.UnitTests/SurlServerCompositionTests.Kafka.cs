@@ -99,6 +99,38 @@ public sealed partial class SurlServerCompositionTests
         Assert.AreEqual(SurlExitCode.CertificateProblem, start.Failure!.ExitCode);
     }
 
+    [TestMethod]
+    [DataRow("--kafka-fetch-compression", "zstd", KafkaCompressionCodec.Zstd)]
+    [DataRow("--kafka-fetch-compression", "gzip", KafkaCompressionCodec.Gzip)]
+    [DataRow("--allow-anonymous", "", KafkaCompressionCodec.None)]
+    public async Task ComposeAsync_KafkaFetchCompression_ReachesTheBrokersFetchAnswerer(string option, string value, KafkaCompressionCodec expected)
+    {
+        KafkaFetchAnswerer? fetchAnswerer = null;
+        var seams = new StartTestSeams().Seams with
+        {
+            AreExtensionsTurnedOn = true,
+            ComposeExtendedProtocolServers = services =>
+            {
+                var broker = ExtendedProtocolServers.ComposeKafkaBroker(services.ComposedServices);
+                var answerers = ComposedServerFields.Single<System.Collections.Frozen.FrozenDictionary<KafkaApiKey, IKafkaApiAnswerer>>(broker);
+                fetchAnswerer = (KafkaFetchAnswerer)answerers[KafkaApiKey.Fetch];
+                return [broker];
+            },
+        };
+        var arguments = value.Length == 0
+            ? new[] { option, "kafka://127.0.0.1:0/" }
+            : [option, value, "--allow-anonymous", "kafka://127.0.0.1:0/"];
+
+        var start = await SurlServerComposition.ComposeAsync(StartTestSeams.ParseWithKafka(arguments), seams, TestContext.CancellationToken);
+        await using var serving = start.Serving!;
+
+        var servedCompression = fetchAnswerer!.GetType()
+            .GetFields(BindingFlags.Instance | BindingFlags.NonPublic)
+            .Single(field => field.FieldType == typeof(KafkaCompressionCodec))
+            .GetValue(fetchAnswerer);
+        Assert.AreEqual(expected, servedCompression);
+    }
+
     private static T AnyField<T>(object owner)
         where T : class =>
         (T)owner.GetType()

@@ -187,8 +187,8 @@ public static class ExtendedProtocolServers
     ];
 
     // The Kafka broker (ADR-0105, BL-973) over the one message bus the MQTT server shares. kafkas is TLS from the
-    // first byte through TlsSchemes, so the one registration claims both schemes. Fetch is served uncompressed
-    // (BL-974 adds --kafka-fetch-compression); Produce and InitProducerId share one KafkaProducerStates.
+    // first byte through TlsSchemes, so the one registration claims both schemes. Fetch is served in the
+    // codec --kafka-fetch-compression names (BL-974), uncompressed by default; Produce and InitProducerId share one KafkaProducerStates.
     internal static KafkaBroker ComposeKafkaBroker(ComposedProtocolServices services)
     {
         var bus = services.MessageBus;
@@ -203,7 +203,7 @@ public static class ExtendedProtocolServers
             new KafkaSaslAuthenticateAnswerer(),
             new KafkaProduceAnswerer(bus, producerStates),
             new KafkaInitProducerIdAnswerer(producerStates),
-            new KafkaFetchAnswerer(bus),
+            new KafkaFetchAnswerer(bus, services.KafkaFetchCompression),
             new KafkaListOffsetsAnswerer(bus),
             new KafkaCreateTopicsAnswerer(bus),
             new KafkaFindCoordinatorAnswerer(bus),
