@@ -54,3 +54,4 @@ and a README section that sends them there, every statement true of the code as 
 ## Log
 
 - 2026-11-05: Created.
+- 2026-11-12: Backlog -> Doing.
