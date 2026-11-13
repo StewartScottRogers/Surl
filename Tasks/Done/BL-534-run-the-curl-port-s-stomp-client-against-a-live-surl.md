@@ -8,7 +8,7 @@ depends-on: [BL-533, BL-406]
 touches: [Conformance/Surl.Conformance.UnitTests, Documentation/Conformance/Extended/Stomp.md]
 requirement: none
 created: 2026-11-04
-completed:
+completed: 2026-11-12
 ---
 # BL-534 — Run the Curl port's stomp client against a live surl
 
@@ -27,9 +27,9 @@ is fully covered.
 
 ## Acceptance criteria
 
-- [ ] The test class exists with the three exchanges, each passing on Windows with the pinned client present.
-- [ ] `Documentation/Conformance/Extended/Stomp.md`: every row is covered by a named test or marked `n/a` with a reason.
-- [ ] The fast tests are green, and `dotnet build -warnaserror` is clean.
+- [x] The test class exists with the three exchanges, each passing on Windows with the pinned client present.
+- [x] `Documentation/Conformance/Extended/Stomp.md`: every row is covered by a named test or marked `n/a` with a reason.
+- [x] The fast tests are green, and `dotnet build -warnaserror` is clean.
 
 ## Notes
 
@@ -37,3 +37,4 @@ is fully covered.
 
 - 2026-11-04: Created.
 - 2026-11-12: Backlog -> Doing.
+- 2026-11-12: Doing -> Done. Curl port stomp client runs live against surl stomp/stomps: send, subscribe, refused login
