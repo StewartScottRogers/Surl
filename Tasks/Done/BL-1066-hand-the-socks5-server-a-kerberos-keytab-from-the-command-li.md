@@ -8,7 +8,7 @@ depends-on: [BL-765]
 touches: [Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests, Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests]
 requirement: none
 created: 2026-11-12
-completed:
+completed: 2026-11-13
 ---
 # BL-1066 — Hand the SOCKS5 server a Kerberos keytab from the command line
 
@@ -24,15 +24,17 @@ A `socks5://` or `socks5h://` listener started with the keytab option the HTTP s
 
 ## Acceptance criteria
 
-- [ ] With a keytab configured, `ProtocolServerRegistrations.Original` registers the SOCKS server with a `SocksGssApiLogin`; without one it registers as today.
-- [ ] The `socks` `--aihelp` topic states that a keytab turns on GSS-API (method `01`), and its completeness tests pass.
-- [ ] `dotnet build -warnaserror` is clean and the fast tests are green.
+- [x] With a keytab configured, `ProtocolServerRegistrations.Original` registers the SOCKS server with a `SocksGssApiLogin`; without one it registers as today.
+- [x] The `socks` `--aihelp` topic states that a keytab turns on GSS-API (method `01`), and its completeness tests pass.
+- [x] `dotnet build -warnaserror` is clean and the fast tests are green.
 
 ## Notes
 
 - Filed by BL-765.
+- Decision: SOCKS gets its own KerberosAcceptor from a second read of the same --keytab (ComposeSocksGssApiLogin), service `rcmd`; avoids changing the Compose tuple used by many tests. Registration only passes a login when one is set.
 
 ## Log
 
 - 2026-11-12: Created.
 - 2026-11-13: Backlog -> Doing.
+- 2026-11-13: Doing -> Done. SOCKS5 listener gets a GSS-API login from --keytab; aihelp socks topic says so

@@ -158,6 +158,12 @@ public sealed class ComposedProtocolServices(
     /// </summary>
     public IAuthenticationPolicy ProxyAuthenticationPolicy { get; init; } = new AnonymousAuthenticationPolicy();
 
+    /// <summary>
+    /// Gets the GSS-API login the SOCKS5 server offers as method <c>01</c> (BL-1066): built over the
+    /// <c>--keytab</c> acceptor; <see langword="null"/> without a keytab, so SOCKS5 offers none.
+    /// </summary>
+    public Surl.Protocol.Socks.SocksGssApiLogin? SocksGssApiLogin { get; init; }
+
     /// <summary>Gets the SSH server's host keys.</summary>
     public SshHostKeySet SshHostKeys { get; } = sshHostKeys;
 

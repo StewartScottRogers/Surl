@@ -306,6 +306,16 @@ public static partial class SurlServerComposition
         }
     }
 
+    // The SOCKS5 server's GSS-API login (BL-1066): over its own acceptor on the --keytab, the
+    // service name rcmd that curl's --socks5-gssapi-service defaults to. None without a keytab. The
+    // keytab was already read and accepted by AuthenticationComposition.Compose, so a read that
+    // fails now (the file changed between) leaves SOCKS5 without the method rather than failing a start.
+    internal static Surl.Protocol.Socks.SocksGssApiLogin? ComposeSocksGssApiLogin(SurlCommandLine commandLine, SurlServerCompositionSeams seams)
+    {
+        var (acceptor, _, _, _) = KeytabComposition.Read(commandLine, seams.ReadStartFile ?? File.ReadAllBytes, seams.TimeProvider);
+        return acceptor is null ? null : new Surl.Protocol.Socks.SocksGssApiLogin(acceptor, Surl.Protocol.Socks.SocksGssApiLogin.DefaultService);
+    }
+
     private static async Task<SurlServerStart> ComposeUnderTheLockAsync(
         SurlCommandLine commandLine,
         SurlServerCompositionSeams seams,
@@ -369,6 +379,7 @@ public static partial class SurlServerComposition
             KafkaFetchCompression = Enum.Parse<KafkaCompressionCodec>(commandLine.KafkaFetchCompression, ignoreCase: true),
             OriginConnector = originConnector,
             ProxyAuthenticationPolicy = authentication.ProxyPolicy,
+            SocksGssApiLogin = ComposeSocksGssApiLogin(commandLine, seams),
             PreSharedKeyAccounts = authentication.PreSharedKeyAccounts,
             MailDomains = commandLine.MailDomains,
             IdentifiersForServer = commandLine.RandomSeed is { } seed
