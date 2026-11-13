@@ -37,3 +37,4 @@ notes of a failing case. Start by reading the case's `<client>`, `<reply>` and `
 ## Log
 
 - 2026-11-12: Created.
+- 2026-11-12: Backlog -> Doing.
