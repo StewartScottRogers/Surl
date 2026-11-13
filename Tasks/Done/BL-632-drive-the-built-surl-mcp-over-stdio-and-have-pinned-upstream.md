@@ -8,7 +8,7 @@ depends-on: [BL-627, BL-1035]
 touches: [Conformance/Surl.Conformance.UnitTests]
 requirement: none
 created: 2026-11-04
-completed:
+completed: 2026-11-12
 ---
 # BL-632 — Drive the built Surl.Mcp over stdio and have pinned upstream curl fetch from the server it starts
 
@@ -37,14 +37,16 @@ session - proving the whole host end to end with upstream curl as the only judge
 
 ## Acceptance criteria
 
-- [ ] A test class `UpstreamCurlFetchesFromSurlMcpServerTests` exists and passes on Windows with the pinned reference
+- [x] A test class `UpstreamCurlFetchesFromSurlMcpServerTests` exists and passes on Windows with the pinned reference
       build present: `initialize` answered; the start tool returns a bound URL with a non-zero port; curl's
       `GET` exits 0 with the served file's bytes; the exchanges tool returns received bytes beginning
       `GET /<file> HTTP/1.1`; the stop tool succeeds; closing standard input ends the process with exit code 0 and
       nothing but JSON-RPC messages was written to its standard output.
-- [ ] `dotnet build -warnaserror` is clean and the fast tests are green.
+- [x] `dotnet build -warnaserror` is clean and the fast tests are green.
 
 ## Notes
+
+- Test class `UpstreamCurlFetchesFromSurlMcpServerTests` runs `surl-mcp.dll` with `dotnet exec` and the test assembly's runtimeconfig and deps file; hand-written newline-delimited JSON-RPC client. Served file is on disk: `--root <temp>` and start_server `arguments` `--directory <temp>/data`. Added a ProjectReference to `Application/Surl.Mcp` (no touches change: it is the test project's own csproj). Passed on Windows with pinned curl present.
 
 ## Log
 
@@ -52,3 +54,4 @@ session - proving the whole host end to end with upstream curl as the only judge
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waits on BL-1035: pinned .NET SDK 10.0.401 is not installed, dotnet build cannot start
 - 2026-11-12: Backlog -> Doing.
+- 2026-11-12: Doing -> Done. Built Surl.Mcp driven over stdio starts an HTTP server; pinned upstream curl fetches from it and get_exchanges shows the request
