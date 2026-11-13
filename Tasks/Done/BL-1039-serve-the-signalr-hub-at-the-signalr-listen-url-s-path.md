@@ -8,7 +8,7 @@ depends-on: [BL-450]
 touches: [Foundation/Surl.Protocol.Abstractions.UnitLibrary, Foundation/Surl.Protocol.Abstractions.UnitTests, Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests, Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests]
 requirement: none
 created: 2026-11-11
-completed:
+completed: 2026-11-12
 ---
 # BL-1039 — Serve the SignalR hub at the signalr listen URL's path
 
@@ -44,3 +44,4 @@ completed:
 
 - 2026-11-11: Created.
 - 2026-11-12: Backlog -> Doing.
+- 2026-11-12: Doing -> Done. signalr/signalrs listen URLs keep their path; one hub per path via SignalRHubRoutingProtocolServer (ADR-0153)
