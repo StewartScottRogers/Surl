@@ -9,7 +9,7 @@ public sealed class ManualTextTests
     private static readonly string[] Headings =
     [
         "NAME", "SYNOPSIS", "DESCRIPTION", "CONFIG FILES", "LISTEN URLS", "DEPLOYMENT CHECKLIST", "DATA DIRECTORY",
-        "IN-MEMORY MODE", "SHARES AND BUCKETS", "TOPICS AND QUEUES", "ACCOUNTS", "MAIL", "AMQP OPTIONS", "AMQP 1.0 OPTIONS", "DNS OPTIONS", "HTTP OPTIONS", "LDAP OPTIONS", "MCP OPTIONS", "NATS OPTIONS", "PROXY OPTIONS", "RTSP OPTIONS", "S3 OPTIONS", "SMB OPTIONS", "SSH OPTIONS", "STOMP OPTIONS", "TLS-SRP OPTIONS", "WEBSOCKET OPTIONS", "LOOSENING OPTIONS", "CONTROL ENDPOINT", "LOG LEVELS", "LIMITS",
+        "IN-MEMORY MODE", "SHARES AND BUCKETS", "TOPICS AND QUEUES", "ACCOUNTS", "MAIL", "AMQP OPTIONS", "AMQP 1.0 OPTIONS", "DNS OPTIONS", "HTTP OPTIONS", "LDAP OPTIONS", "MCP OPTIONS", "NATS OPTIONS", "OCI OPTIONS", "PROXY OPTIONS", "RTSP OPTIONS", "S3 OPTIONS", "SMB OPTIONS", "SSH OPTIONS", "STOMP OPTIONS", "TLS-SRP OPTIONS", "WEBSOCKET OPTIONS", "LOOSENING OPTIONS", "CONTROL ENDPOINT", "LOG LEVELS", "LIMITS",
         "EXIT CODES", "SEE ALSO",
     ];
 
@@ -386,6 +386,16 @@ public sealed class ManualTextTests
             "    CONNECT needs an account, or --allow-anonymous; a password over nats needs",
             "    --allow-plaintext-auth. natss requires TLS before CONNECT and needs --cert",
             "    or --self-signed. surl --aihelp nats says how each operation is answered.",
+            "",
+            "OCI OPTIONS",
+            "",
+            "    The extended OCI registry server answers oci listen URLs over TLS with the",
+            "    OCI Distribution Specification: each folder of the served root holding an",
+            "    OCI Image Layout is a repository. Every /v2/ request needs a Bearer token",
+            "    from its own /token endpoint, which takes an account's Basic login, or",
+            "    --allow-anonymous for pull-only reads. Pushes and deletes need",
+            "    --allow-uploads. oci needs --cert or --self-signed. surl --aihelp oci",
+            "    says how each request is answered.",
             "",
             "PROXY OPTIONS",
             "",

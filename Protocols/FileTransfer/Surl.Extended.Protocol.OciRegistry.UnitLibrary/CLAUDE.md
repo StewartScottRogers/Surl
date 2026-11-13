@@ -83,7 +83,7 @@ Token authentication (BL-438, ADR-0115 decision 4 and Amendment 1):
 An upload session answers only the account whose token opened it; another account's token gets
 `404 BLOB_UPLOAD_UNKNOWN` (BL-891).
 
-Not yet: Bearer tokens over plain text refused without `--allow-plaintext-auth` (BL-890), and serving `oci` from `surl` with TLS (BL-439).
+`surl` serves `oci` over TLS from the first byte (BL-1028): `oci` is in `TlsSchemes`, so a listen URL without `--cert` or `--self-signed` is `(58)`. Not yet: Bearer tokens over plain text refused without `--allow-plaintext-auth` (BL-890), and `--oci-plaintext` (BL-971).
 
 - `OciRegistryProtocolServer` (public) - `IConnectionProtocolServer` over `Http1ConnectionServer`.
 - `OciRequestAnswerer` - the `IHttpRequestHandler`: endpoint, method, name, repository, endpoint.

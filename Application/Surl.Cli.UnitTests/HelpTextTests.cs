@@ -30,6 +30,7 @@ public sealed class HelpTextTests
         " mqtt           MQTT and MQTTS protocol",
         " mqtt5          MQTT 5.0 protocol: mqtt5, mqtt5s and mqtt5+ws (extended)",
         " nats           NATS and NATSS protocol (extended)",
+        " oci            OCI registry protocol (extended)",
         " pop3           POP3 and POP3S protocol",
         " proxy          HTTP and HTTPS proxy",
         " redis          Redis and Rediss protocol (extended)",
@@ -216,9 +217,9 @@ public sealed class HelpTextTests
             "Use \"--help category\" to get an overview of all categories, which are:",
             "amqp, amqp1, auth, azure-storage, coap, content, dict, dns, ftp, gopher, gs,",
             "http, imap, kafka, ldap, limits, logging, mail, mcp, messages, mqtt, mqtt5,",
-            "nats, pop3, proxy, redis, rtsp, s3, security, signalr, smb, smtp, socketio,",
-            "socks, ssh, stomp, surl, telnet, testing, tftp, tls, websocket, webtransport,",
-            "xmpp.",
+            "nats, oci, pop3, proxy, redis, rtsp, s3, security, signalr, smb, smtp,",
+            "socketio, socks, ssh, stomp, surl, telnet, testing, tftp, tls, websocket,",
+            "webtransport, xmpp.",
             "Use \"--help all\" to list all options",
             "Use \"--help [option]\" to view documentation for a given option");
     }
@@ -549,7 +550,8 @@ public sealed class HelpTextTests
             "        Add an account (repeatable). Default: no accounts.",
             "",
             "        Categories: amqp, amqp1, auth, azure-storage, ftp, gs, http, imap,",
-            "        ldap, mqtt, nats, pop3, rtsp, s3, smb, smtp, ssh, stomp, websocket.",
+            "        ldap, mqtt, nats, oci, pop3, rtsp, s3, smb, smtp, ssh, stomp,",
+            "        websocket.",
             "");
 
     [TestMethod]
@@ -560,7 +562,8 @@ public sealed class HelpTextTests
             "        Read accounts from a file. Default: none.",
             "",
             "        Categories: amqp, amqp1, auth, azure-storage, ftp, gs, http, imap,",
-            "        ldap, mqtt, nats, pop3, rtsp, s3, smb, smtp, ssh, stomp, websocket.",
+            "        ldap, mqtt, nats, oci, pop3, rtsp, s3, smb, smtp, ssh, stomp,",
+            "        websocket.",
             "");
 
     [TestMethod]
@@ -574,7 +577,7 @@ public sealed class HelpTextTests
                 .. AllowAnonymousExplanationLines,
                 "",
                 "        Categories: amqp, amqp1, auth, azure-storage, ftp, gs, http, imap,",
-                "        ldap, mqtt, nats, pop3, rtsp, s3, security, smb, smtp, ssh, stomp,",
+                "        ldap, mqtt, nats, oci, pop3, rtsp, s3, security, smb, smtp, ssh, stomp,",
                 "        testing, websocket.",
                 "",
             ]);

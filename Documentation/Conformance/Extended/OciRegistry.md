@@ -142,8 +142,8 @@ specifications leave the server a choice.
 
 | ID | Level | Requirement | Covered by |
 | --- | --- | --- | --- |
-| OCI:Surl-Tls-1 | MUST | `oci` is implicit TLS, `--cert` or `--self-signed` required (58 without), ALPN `http/1.1` only. | BL-439 |
-| OCI:Surl-Tls-2 | MUST | `--oci-plaintext` serves plain HTTP/1.1 and is warned on start. | BL-439 |
+| OCI:Surl-Tls-1 | MUST | `oci` is implicit TLS, `--cert` or `--self-signed` required (58 without), ALPN `http/1.1` only. | BL-1028 |
+| OCI:Surl-Tls-2 | MUST | `--oci-plaintext` serves plain HTTP/1.1 and is warned on start. | BL-971 |
 | OCI:Surl-Tls-3 | MUST | Over plain text without `--allow-plaintext-auth`, credentials and tokens are `403 DENIED`. | credentials: `OciTokenEndpointTests.AnswerAsync_CredentialsOverPlainTextRefused_Returns403Denied`; tokens: BL-890 |
 | OCI:Surl-Limits-1 | MUST | A blob past `--max-filesize` is `413 SIZE_INVALID` and its session ended. | BL-437 |
 | OCI:Surl-Limits-2 | MUST | 1000 open sessions at most (`429 TOOMANYREQUESTS`); a session idle 1 hour expires (`404 BLOB_UPLOAD_UNKNOWN`). | BL-437 |

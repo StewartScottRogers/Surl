@@ -12,7 +12,7 @@ public static class TlsSchemes
 {
     private static readonly HashSet<string> ImplicitTlsSchemes = new(StringComparer.OrdinalIgnoreCase)
     {
-        "https", "wss", "ftps", "imaps", "pop3s", "smtps", "ldaps", "gophers", "mqtts", "smbs", "s3", "socketios", "xmpps", "stomps", "kafkas", "az", "abfss", "gs", "amqps", "mqtt5s", "signalrs", "rediss", "amqp1s", "mcps",
+        "https", "wss", "ftps", "imaps", "pop3s", "smtps", "ldaps", "gophers", "mqtts", "smbs", "s3", "oci", "socketios", "xmpps", "stomps", "kafkas", "az", "abfss", "gs", "amqps", "mqtt5s", "signalrs", "rediss", "amqp1s", "mcps",
     };
 
     /// <summary>

@@ -8,6 +8,7 @@ using Surl.Extended.Protocol.Kafka;
 using Surl.Extended.Protocol.McpServer;
 using Surl.Extended.Protocol.Mqtt5;
 using Surl.Extended.Protocol.Nats;
+using Surl.Extended.Protocol.OciRegistry;
 using Surl.Extended.Protocol.Redis;
 using Surl.Extended.Protocol.S3;
 using Surl.Extended.Protocol.SignalR;
@@ -80,6 +81,7 @@ public static class ExtendedProtocolServers
     /// <c>nats</c>, with <c>--idle-timeout</c> and <c>--allow-anonymous</c> (ADR-0113 decisions 2 and 5).
     /// <c>natss</c> starts in plain text and requires TLS before CONNECT (ADR-0113 decision 6), so it is
     /// no implicit-TLS scheme; <see cref="ServerTlsComposition"/> requires a certificate for it.
+    /// The OCI registry server answers <c>oci</c> over the one content store, judging its token endpoint logins by the policy over the accounts allowed on <c>oci</c> (ADR-0115 decisions 2 and 4), keeping no state beyond the content store (BL-1028); <c>oci</c> is TLS from the first byte through <see cref="TlsSchemes"/> (ADR-0115 decision 6), so it needs no second registration.
     /// The S3 server answers <c>s3</c> over the one content store, its object metadata index and the
     /// policy over the accounts allowed on <c>s3</c> (ADR-0108; ADR-0102 decision 4.3); <c>s3</c> is TLS from the first byte (ADR-0108, decision 5), which
     /// the serving engine reads from <see cref="TlsSchemes"/>, so it needs no second registration.
@@ -151,6 +153,8 @@ public static class ExtendedProtocolServers
                 AllowsAnonymous = services.AuthenticationPolicy.Settings.AllowAnonymous,
             },
             services.IdentifiersForServer("nats"))),
+        new([OciRegistryProtocolServer.Scheme], services => new OciRegistryProtocolServer(
+            services.ContentStore, services.AuthenticationPolicyFor(OciRegistryProtocolServer.Scheme), services.TimeProvider)),
         // The Redis server (ADR-0106, BL-492): one keyspace for redis and rediss, memory only; rediss is TLS from the first byte through TlsSchemes.
         new(["redis", "rediss"], services => new RedisServer(services.AuthenticationPolicyFor("redis"), services.MessageBus)),
         new(["s3"], services => new S3ProtocolServer(

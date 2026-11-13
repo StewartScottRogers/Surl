@@ -18,6 +18,7 @@ public sealed class TlsContractTests
     [DataRow("mqtts")]
     [DataRow("smbs")]
     [DataRow("s3", DisplayName = "The extended s3 is HTTPS (ADR-0108, decision 5)")]
+    [DataRow("oci", DisplayName = "The extended oci is HTTPS by default (ADR-0115, decision 6)")]
     [DataRow("mcps", DisplayName = "The extended mcps is MCP over implicit TLS (ADR-0111, decision 4)")]
     [DataRow("amqps", DisplayName = "The extended amqps is AMQP 0-9-1 over implicit TLS (ADR-0112, decision 8)")]
     [DataRow("mqtt5s", DisplayName = "The extended mqtt5s is MQTT 5.0 over implicit TLS (ADR-0093, decision 7)")]
@@ -52,7 +53,6 @@ public sealed class TlsContractTests
     [DataRow("redis", DisplayName = "The extended redis is RESP in plain text (ADR-0106, decision 7)")]
     [DataRow("socketio", DisplayName = "The extended socketio is plain HTTP (ADR-0120)")]
     [DataRow("amqp1")]
-    [DataRow("oci", DisplayName = "An extended scheme no ADR serves over TLS")]
     [DataRow("")]
     public void IsImplicitTls_PlaintextOrUpgradeScheme_IsFalse(string scheme)
     {

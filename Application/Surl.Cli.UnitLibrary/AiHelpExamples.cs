@@ -232,6 +232,13 @@ public static class AiHelpExamples
             ["surl: warning: --allow-anonymous: every request and login is accepted without checking credentials"],
             []),
         Serving(
+            "oci",
+            "For a test: serve an OCI registry over HTTPS with a throwaway certificate",
+            ["--self-signed", "-u", "alice:secret", "oci://127.0.0.1:0/"],
+            ["Listening on oci://127.0.0.1:<port>/"],
+            ["surl: warning: --self-signed: serving a throwaway certificate; clients must skip verification (curl -k)"],
+            ["curl -k -u alice:secret \"https://127.0.0.1:<port>/token?service=surl&scope=repository:<name>:pull\""]),
+        Serving(
             "pop3",
             "For a test: retrieve mail without accounts",
             ["--allow-anonymous", "pop3://127.0.0.1:0/"],
@@ -327,8 +334,8 @@ public static class AiHelpExamples
         Refused(
             "extended",
             "An extended scheme no extended server in this build answers",
-            ["oci://127.0.0.1:0/"],
-            ["surl: (1) Protocol \"oci\" not supported"],
+            ["grpc://127.0.0.1:0/"],
+            ["surl: (1) Protocol \"grpc\" not supported"],
             SurlExitCode.UnsupportedProtocol),
         Refused(
             "control",

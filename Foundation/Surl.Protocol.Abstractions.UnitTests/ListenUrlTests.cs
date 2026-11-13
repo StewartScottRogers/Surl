@@ -122,6 +122,7 @@ public sealed class ListenUrlTests
     [DataRow("mqtts", true)]
     [DataRow("smbs", true)]
     [DataRow("s3", true)]
+    [DataRow("oci", true)]
     [DataRow("mcps", true)]
     [DataRow("az", true)]
     [DataRow("amqps", true)]
