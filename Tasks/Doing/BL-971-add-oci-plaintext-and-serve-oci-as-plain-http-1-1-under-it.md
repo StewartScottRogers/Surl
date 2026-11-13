@@ -43,3 +43,4 @@ realm becomes `http://<authority>/token`, and the option is warned on start (ADR
 ## Log
 
 - 2026-11-06: Created.
+- 2026-11-12: Backlog -> Doing.
