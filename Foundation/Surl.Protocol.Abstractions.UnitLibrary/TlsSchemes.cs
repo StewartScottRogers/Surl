@@ -12,7 +12,7 @@ public static class TlsSchemes
 {
     private static readonly HashSet<string> ImplicitTlsSchemes = new(StringComparer.OrdinalIgnoreCase)
     {
-        "https", "wss", "ftps", "imaps", "pop3s", "smtps", "ldaps", "gophers", "mqtts", "smbs", "s3", "oci", "socketios", "xmpps", "stomps", "kafkas", "az", "abfss", "gs", "amqps", "mqtt5s", "signalrs", "rediss", "amqp1s", "mcps",
+        "https", "wss", "ftps", "imaps", "pop3s", "smtps", "ldaps", "gophers", "mqtts", "smbs", "s3", "oci", "socketios", "xmpps", "stomps", "kafkas", "az", "abfss", "gs", "amqps", "mqtt5s", "signalrs", "rediss", "amqp1s", "mcps", "grpcs",
     };
 
     /// <summary>
@@ -21,7 +21,7 @@ public static class TlsSchemes
     /// <param name="scheme">A URL scheme, compared case-insensitively.</param>
     /// <returns>
     /// <see langword="true"/> for exactly <c>https</c>, <c>wss</c>, <c>ftps</c>, <c>imaps</c>,
-    /// <c>pop3s</c>, <c>smtps</c>, <c>ldaps</c>, <c>gophers</c>, <c>mqtts</c>, <c>smbs</c>, <c>s3</c>, <c>socketios</c>, <c>xmpps</c>, <c>stomps</c>, <c>kafkas</c> (ADR-0105 decision 7), <c>az</c> and <c>abfss</c> (ADR-0109 decision 6), and <c>gs</c> (ADR-0110 decision 5) and <c>amqps</c> (ADR-0112 decision 8) and <c>mqtt5s</c> (ADR-0093 decision 7) and <c>amqp1s</c> (ADR-0107 decision 7).
+    /// <c>pop3s</c>, <c>smtps</c>, <c>ldaps</c>, <c>gophers</c>, <c>mqtts</c>, <c>smbs</c>, <c>s3</c>, <c>socketios</c>, <c>xmpps</c>, <c>stomps</c>, <c>kafkas</c> (ADR-0105 decision 7), <c>az</c> and <c>abfss</c> (ADR-0109 decision 6), and <c>gs</c> (ADR-0110 decision 5) and <c>amqps</c> (ADR-0112 decision 8) and <c>mqtt5s</c> (ADR-0093 decision 7) and <c>amqp1s</c> (ADR-0107 decision 7) and <c>grpcs</c> (ADR-0116 decision 0).
     /// <c>ftps</c> is implicit FTPS; explicit FTPS is <c>ftp</c> with <c>AUTH TLS</c>.
     /// </returns>
     /// <exception cref="ArgumentNullException"><paramref name="scheme"/> is <see langword="null"/>.</exception>

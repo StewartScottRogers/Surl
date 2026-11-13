@@ -8,7 +8,7 @@ depends-on: []
 touches: [Foundation/Surl.Protocol.Abstractions.UnitLibrary, Foundation/Surl.Protocol.Abstractions.UnitTests, Foundation/Surl.Networking.UnitLibrary, Foundation/Surl.Networking.UnitTests]
 requirement: none
 created: 2026-11-12
-completed:
+completed: 2026-11-12
 ---
 # BL-1095 — Treat grpcs as implicit TLS offering ALPN h2 only
 
@@ -32,15 +32,18 @@ only, so `http/1.1` is never offered), while every other scheme's offer stays un
 
 ## Acceptance criteria
 
-- [ ] A `TlsContractTests` data row shows `TlsSchemes.IsImplicitTls("grpcs")` is true.
-- [ ] A named `Surl.Networking.UnitTests` test (`TlsApplicationProtocolsTests`) shows `grpcs` offering exactly `h2`,
+- [x] A `TlsContractTests` data row shows `TlsSchemes.IsImplicitTls("grpcs")` is true.
+- [x] A named `Surl.Networking.UnitTests` test (`TlsApplicationProtocolsTests`) shows `grpcs` offering exactly `h2`,
       for a plain and a proxy listener. The existing ALPN rows for `https` and `wss` pass unchanged.
-- [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and both touched libraries keep 100% line and
+- [x] `dotnet build -warnaserror` is clean, the fast tests are green, and both touched libraries keep 100% line and
       branch coverage.
 
 ## Notes
+
+Stash unavailable to lanes (git stash denied); made the same small edits by hand. No ADR needed: ADR-0116 decision 0 already covers it.
 
 ## Log
 
 - 2026-11-12: Created.
 - 2026-11-12: Backlog -> Doing.
+- 2026-11-12: Doing -> Done. grpcs is implicit TLS offering ALPN h2 only

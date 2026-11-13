@@ -30,6 +30,7 @@ public sealed class TlsContractTests
     [DataRow("socketios", DisplayName = "The extended socketios is Socket.IO inside TLS (ADR-0120)")]
     [DataRow("xmpps", DisplayName = "The extended xmpps is XMPP with direct TLS (XEP-0368)")]
     [DataRow("amqp1s", DisplayName = "The extended amqp1s is AMQP 1.0 behind implicit TLS (ADR-0107, decision 7)")]
+    [DataRow("grpcs", DisplayName = "The extended grpcs is gRPC over implicit TLS (ADR-0116, decision 0)")]
     [DataRow("HTTPS")]
     public void IsImplicitTls_ImplicitTlsScheme_IsTrue(string scheme)
     {
