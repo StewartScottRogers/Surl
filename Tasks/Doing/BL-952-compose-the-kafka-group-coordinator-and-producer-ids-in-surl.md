@@ -49,3 +49,4 @@ BL-948 to BL-951 registered, and the help and `--aihelp` text naming them and `$
 
 - 2026-11-06: Created.
 - 2026-11-13: depends-on BL-522 replaced by BL-973 and BL-974: BL-522 was deferred on 2026-11-06 and split into those two, both done.
+- 2026-11-13: Backlog -> Doing.
