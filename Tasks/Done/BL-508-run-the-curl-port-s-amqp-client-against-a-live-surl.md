@@ -8,7 +8,7 @@ depends-on: [BL-507, BL-406]
 touches: [Conformance/Surl.Conformance.UnitTests, Documentation/Conformance/Extended/Amqp0.md]
 requirement: none
 created: 2026-11-04
-completed:
+completed: 2026-11-12
 ---
 # BL-508 — Run the Curl port's amqp client against a live surl
 
@@ -27,13 +27,18 @@ the matrix is fully covered.
 
 ## Acceptance criteria
 
-- [ ] The test class exists with the four exchanges, each passing on Windows with the pinned client present.
-- [ ] `Documentation/Conformance/Extended/Amqp0.md`: every row is covered by a named test or marked `n/a` with a reason.
-- [ ] The fast tests are green, and `dotnet build -warnaserror` is clean.
+- [x] The test class exists with the four exchanges, each passing on Windows with the pinned client present.
+- [x] `Documentation/Conformance/Extended/Amqp0.md`: every row is covered by a named test or marked `n/a` with a reason.
+- [x] The fast tests are green, and `dotnet build -warnaserror` is clean.
 
 ## Notes
+
+- Four exchanges (publish then get, get from empty, get after taken, bad login 403) in `CurlPortClientExchangesMessagesWithSurlOverAmqp0Tests`; publish-then-get runs for amqp and amqps.
+- Port finding (not a surl defect, never evidence): the port client exits 0 for `-T file` to `amqp://` yet nothing reaches the queue on surl; `-d` publishes. Tests use `-d`.
+- The 11 `BL-504` placeholder rows in Amqp0.md (wire framing) now name their `Surl.Extended.Protocol.Amqp0.UnitTests` tests, so every row is covered or n/a.
 
 ## Log
 
 - 2026-11-04: Created.
 - 2026-11-12: Backlog -> Doing.
+- 2026-11-12: Doing -> Done. The Curl port's amqp client publishes, gets, gets-empty and is refused a bad login against a live surl; Amqp0 matrix fully covered
