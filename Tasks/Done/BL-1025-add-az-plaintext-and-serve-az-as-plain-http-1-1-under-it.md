@@ -8,7 +8,7 @@ depends-on: [BL-1023, BL-1024, BL-1020]
 touches: [Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests, Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests, Application/Surl.Console.UnitTests, Application/Surl.Mcp.UnitLibrary]
 requirement: none
 created: 2026-11-06
-completed:
+completed: 2026-11-12
 ---
 # BL-1025 — Add --az-plaintext and serve az as plain HTTP/1.1 under it
 
@@ -47,3 +47,4 @@ clients pointed at an emulator-style `http://` endpoint, and warns on start (ADR
 
 - 2026-11-06: Created.
 - 2026-11-12: Backlog -> Doing.
+- 2026-11-12: Doing -> Done. --az-plaintext serves az as plain HTTP/1.1 with a start warning; tests and aihelp/help facts added
