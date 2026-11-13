@@ -8,7 +8,7 @@ depends-on: [BL-444]
 touches: [Protocols/Http/Surl.Extended.Protocol.Grpc.UnitLibrary, Protocols/Http/Surl.Extended.Protocol.Grpc.UnitTests]
 requirement: none
 created: 2026-11-12
-completed:
+completed: 2026-11-12
 ---
 # BL-1094 — Answer grpc connections with a GrpcProtocolServer
 
@@ -39,19 +39,22 @@ over `Http2ConnectionServer` with `GrpcStreamHandler`, so the composition has so
 
 ## Acceptance criteria
 
-- [ ] `GrpcProtocolServer` exists with `PlainScheme = "grpc"`, `TlsScheme = "grpcs"` and `Schemes` holding both,
+- [x] `GrpcProtocolServer` exists with `PlainScheme = "grpc"`, `TlsScheme = "grpcs"` and `Schemes` holding both,
       and is an `IConnectionProtocolServer`.
-- [ ] A named `GrpcProtocolServerTests` test shows a client that sends the HTTP/2 preface and a unary `Echo` call
+- [x] A named `GrpcProtocolServerTests` test shows a client that sends the HTTP/2 preface and a unary `Echo` call
       gets the echoed message; another shows first bytes that are not the preface get exactly the 17-byte `GOAWAY`
       `PROTOCOL_ERROR` frame, then writes complete.
-- [ ] Named `AlreadyReadBytesConnectionTests` show the already-read bytes are returned before the inner
+- [x] Named `AlreadyReadBytesConnectionTests` show the already-read bytes are returned before the inner
       connection's bytes, and writes pass through to the inner connection.
-- [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and `Surl.Extended.Protocol.Grpc.UnitLibrary`
+- [x] `dotnet build -warnaserror` is clean, the fast tests are green, and `Surl.Extended.Protocol.Grpc.UnitLibrary`
       keeps 100% line and branch coverage.
 
 ## Notes
+
+- Code and tests restored from the BL-445 stash; build clean, 219 tests green, GrpcProtocolServer and AlreadyReadBytesConnection at 100% line and branch.
 
 ## Log
 
 - 2026-11-12: Created.
 - 2026-11-12: Backlog -> Doing.
+- 2026-11-12: Doing -> Done. GrpcProtocolServer serves echo and reflection over HTTP/2 prior knowledge
