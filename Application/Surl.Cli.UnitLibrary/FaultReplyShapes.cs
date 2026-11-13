@@ -10,7 +10,7 @@ namespace Surl.Cli;
 /// by the first space. Of the extended schemes, <c>coap</c>, <c>mcp</c> and <c>signalr</c> and
 /// their secure twins have rows (ADR-0144), as do <c>s3</c>, <c>az</c>, <c>abfs</c>, <c>abfss</c>
 /// and <c>gs</c> (BL-983), and <c>dns</c>, <c>redis</c> and <c>rediss</c> (BL-986), and <c>amqp</c>, <c>amqp1</c>, <c>kafka</c>,
-/// <c>mqtt5</c> and <c>nats</c> with their secure twins (BL-1015, ADR-0124 decision 9), and <c>socks4</c>, <c>socks4a</c>, <c>socks5</c> and <c>socks5h</c> (BL-1061), and <c>stomp</c> and <c>stomps</c> (BL-1062), and <c>xmpp</c> and <c>xmpps</c> (BL-1063), and <c>socketio</c> and <c>socketios</c> (BL-1064); the others have none yet (BL-834).
+/// <c>mqtt5</c> and <c>nats</c> with their secure twins (BL-1015, ADR-0124 decision 9), and <c>socks4</c>, <c>socks4a</c>, <c>socks5</c> and <c>socks5h</c> (BL-1061), and <c>stomp</c> and <c>stomps</c> (BL-1062), and <c>xmpp</c> and <c>xmpps</c> (BL-1063), and <c>socketio</c> and <c>socketios</c> (BL-1064), and <c>webtransport</c> (BL-1065); the others have none yet (BL-834).
 /// </summary>
 internal static class FaultReplyShapes
 {
@@ -75,6 +75,7 @@ internal static class FaultReplyShapes
         ["xmpp"] = IsXmppStanzaErrorCondition,
         ["xmpps"] = IsXmppStanzaErrorCondition,
         ["tftp"] = reply => IsCodeWithText(reply, 0, 7),
+        ["webtransport"] = reply => IsCodeWithOptionalText(reply, 400, 599),
         ["ws"] = IsWebSocketClose,
         ["wss"] = IsWebSocketClose,
     }.ToFrozenDictionary(StringComparer.Ordinal);

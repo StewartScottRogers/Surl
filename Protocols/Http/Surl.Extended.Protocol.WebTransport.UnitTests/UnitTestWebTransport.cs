@@ -80,7 +80,9 @@ internal static class UnitTestWebTransport
         ExchangeLimits? limits = null,
         CancellationToken exchangeToken = default,
         IAuthenticationPolicy? authenticationPolicy = null,
-        WebTransportFlowControlSettings? flowControlSettings = null)
+        WebTransportFlowControlSettings? flowControlSettings = null,
+        IFaultPlan? faults = null,
+        ISurlEventPublisher? events = null)
     {
         var log = new RecordingExchangeLog();
         var time = new ManualTimeProvider(new DateTimeOffset(2026, 11, 5, 12, 0, 0, TimeSpan.Zero));
@@ -94,6 +96,8 @@ internal static class UnitTestWebTransport
             exchangeToken)
         {
             Limits = limits ?? ExchangeLimits.Default,
+            Faults = faults ?? EmptyFaultPlan.Instance,
+            Events = events ?? DiscardingSurlEventPublisher.Instance,
         };
         _ = client.Serve(new WebTransportApplicationProtocol(acceptedPath, authenticationPolicy ?? new AnonymousAuthenticationPolicy(), flowControlSettings ?? WebTransportFlowControlSettings.Default, context), time, cancellationToken, WebTransportApplicationProtocol.MaxDatagramFrameSize);
         if (openControlStream)

@@ -103,6 +103,14 @@ internal sealed class WebTransportConnectHandler(
             return true;
         }
 
+        if (await WebTransportConnectFaults.FindAsync(context, session.Head.Target) is { } chosen)
+        {
+            // ADR-0124 decision 9: the chosen status, with the rule's text as a plain-text body.
+            await session.RequestStream.WriteHeadersAsync([.. AnswerFields(chosen.Status), new("content-type", "text/plain; charset=utf-8")], endStream: false, cancellationToken);
+            await session.RequestStream.WriteDataAsync(chosen.Body, endStream: true, cancellationToken);
+            return true;
+        }
+
         var limit = WebTransportFlowControlSettings.IsOnFor(settings) ? SessionLimitWithFlowControl : SessionLimitWithoutFlowControl;
         if (!directory.TryOpenSession(limit))
         {

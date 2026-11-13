@@ -284,6 +284,7 @@ The extended servers (decision 9), each judged by its own specification (ADR-008
 | `mcp`, `mcps` | a JSON-RPC error code and message |
 | `signalr`, `signalrs` | text, sent as the invocation's completion `error` |
 | `socketio`, `socketios` | text, sent as a CONNECT_ERROR `message` for a namespace connect, or as the `error` of an acknowledgement for an event that asked for one (BL-1064) |
+| `webtransport` | an HTTP status 400 to 599 and optional text, answering the extended CONNECT that opens a session, with the text as a plain-text body (BL-1065) |
 | `stomp`, `stomps` | text, sent as an `ERROR` frame's `message` header, after which the connection closes (BL-1062) |
 | `xmpp`, `xmpps` | a stanza error condition of RFC 6120 section 8.3.3 (for example `service-unavailable`), answered as `<error type=...>` on the matching stanza (BL-1063) |
 | `dns` | an RCODE 1 to 5 |

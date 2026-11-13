@@ -8,7 +8,7 @@ depends-on: [BL-823, BL-785]
 touches: [Protocols/Http/Surl.Extended.Protocol.WebTransport.UnitLibrary, Protocols/Http/Surl.Extended.Protocol.WebTransport.UnitTests, Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests, Documentation/Planning/Decisions/ADR-0124-surl-is-a-stand-in-for-tests.md]
 requirement: FR-062
 created: 2026-11-12
-completed:
+completed: 2026-11-13
 ---
 # BL-1065 — Answer a chosen protocol error by fault in the extended WebTransport server
 
@@ -25,15 +25,18 @@ An `error` fault rule naming `webtransport` (or a listener of one) makes the Web
 
 ## Acceptance criteria
 
-- [ ] Named tests: a request matching an `error` rule gets exactly the chosen error, a non-matching one is served, and one `FaultAppliedEvent` is published.
-- [ ] Named `Surl.Cli` tests: one accepted and one refused `reply` per scheme.
-- [ ] ADR-0124's reply table has this family's row.
-- [ ] With no rule, every existing test of the touched libraries passes unchanged.
-- [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and the touched libraries keep 100% line and branch coverage.
+- [x] Named tests: a request matching an `error` rule gets exactly the chosen error, a non-matching one is served, and one `FaultAppliedEvent` is published.
+- [x] Named `Surl.Cli` tests: one accepted and one refused `reply` per scheme.
+- [x] ADR-0124's reply table has this family's row.
+- [x] With no rule, every existing test of the touched libraries passes unchanged.
+- [x] `dotnet build -warnaserror` is clean, the fast tests are green, and the touched libraries keep 100% line and branch coverage.
 
 ## Notes
+
+- Decided by Claude under Stewart's delegation: only the error kind is applied at a CONNECT (checked after origin, login and path, before the session limit); delay and drop rules are noted as not applied, as for BL-1064. The reply parser is local to the library (status 400 to 599, optional text as text/plain body) because protocol servers may not reference Surl.HttpMessage. The login account is not given to the fault point (the CONNECT authentication does not expose it). The ADR-0124 row was added to the existing decision 9 table, no new ADR.
 
 ## Log
 
 - 2026-11-12: Created.
 - 2026-11-13: Backlog -> Doing.
+- 2026-11-13: Doing -> Done. An error fault rule answers a WebTransport CONNECT with the chosen HTTP status and text; --fault accepts a webtransport reply
