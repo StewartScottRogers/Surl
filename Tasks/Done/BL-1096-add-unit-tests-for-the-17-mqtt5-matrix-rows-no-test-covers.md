@@ -8,7 +8,7 @@ depends-on: []
 touches: [Protocols/Messaging/Surl.Extended.Protocol.Mqtt5.UnitTests, Protocols/Messaging/Surl.Extended.Protocol.Mqtt5.UnitLibrary, Documentation/Conformance/Extended/Mqtt5.md]
 requirement: none
 created: 2026-11-12
-completed:
+completed: 2026-11-12
 ---
 # BL-1096 — Add unit tests for the 17 Mqtt5 matrix rows no test covers
 
@@ -38,18 +38,24 @@ Stand-in note: this task adds tests only, so the stand-in surfaces (shared store
 
 ## Acceptance criteria
 
-- [ ] Publish, will, alias group: a named test exists for each of `MQTT-3.1.2-14`, `MQTT-3.3.1-8`, `MQTT-3.3.2-7` and `MQTT-3.3.2-14` (the last asserts Protocol Error `0x82`), it passes, and each row's Covered-by cell names it.
-- [ ] Flow control and expiry group: a named test exists for each of `MQTT-3.3.4-10`, `MQTT-4.3.2-5`, `MQTT-4.3.3-7`, `MQTT-4.3.3-13` and `MQTT-4.9.0-3`, it passes, and each cell names it.
-- [ ] Unsubscribe, topics, shutdown group: a named test exists for each of `MQTT-3.10.4-3`, `MQTT-4.7.3-3`, `MQTT-4.7.3-4` and `MQTT5-3.14.2.1-2` (asserts DISCONNECT `0x8B`), it passes, and each cell names it.
-- [ ] Shared subscription group: a named test exists for each of `MQTT-4.8.2-3`, `MQTT-4.8.2-4`, `MQTT-4.8.2-5` and `MQTT-4.8.2-6`, it passes, and each cell names it.
-- [ ] `MQTT5-2.2.2.2-1` is settled by the specification: the row text and the tests agree on one reason code (`0x82` or `0x81`), and Notes says which section of MQTT 5.0 decides it.
-- [ ] `Documentation/Conformance/Extended/Mqtt5.md` contains no `UNCOVERED`, and `dotnet build Protocols/Messaging/Surl.Extended.Protocol.Mqtt5.UnitTests -warnaserror` is clean and `dotnet test Protocols/Messaging/Surl.Extended.Protocol.Mqtt5.UnitTests --filter "TestCategory!=Integration"` is green, with the library still at 100% line and branch coverage.
+- [x] Publish, will, alias group: a named test exists for each of `MQTT-3.1.2-14`, `MQTT-3.3.1-8`, `MQTT-3.3.2-7` and `MQTT-3.3.2-14` (the last asserts Protocol Error `0x82`), it passes, and each row's Covered-by cell names it.
+- [x] Flow control and expiry group: a named test exists for each of `MQTT-3.3.4-10`, `MQTT-4.3.2-5`, `MQTT-4.3.3-7`, `MQTT-4.3.3-13` and `MQTT-4.9.0-3`, it passes, and each cell names it.
+- [x] Unsubscribe, topics, shutdown group: a named test exists for each of `MQTT-3.10.4-3`, `MQTT-4.7.3-3`, `MQTT-4.7.3-4` and `MQTT5-3.14.2.1-2` (asserts DISCONNECT `0x8B`), it passes, and each cell names it.
+- [x] Shared subscription group: a named test exists for each of `MQTT-4.8.2-3`, `MQTT-4.8.2-4`, `MQTT-4.8.2-5` and `MQTT-4.8.2-6`, it passes, and each cell names it.
+- [x] `MQTT5-2.2.2.2-1` is settled by the specification: the row text and the tests agree on one reason code (`0x82` or `0x81`), and Notes says which section of MQTT 5.0 decides it.
+- [x] `Documentation/Conformance/Extended/Mqtt5.md` contains no `UNCOVERED`, and `dotnet build Protocols/Messaging/Surl.Extended.Protocol.Mqtt5.UnitTests -warnaserror` is clean and `dotnet test Protocols/Messaging/Surl.Extended.Protocol.Mqtt5.UnitTests --filter "TestCategory!=Integration"` is green, with the library still at 100% line and branch coverage.
 
 ## Notes
 
+Mqtt5.md rows: the Covered-by cells with test names and the UNCOVERED markers existed only in BL-502's uncommitted work (a stash commit); that file was restored from it (read-only) and this task fills the 17 cells. BL-502 will rebase onto it.
+MQTT5-2.2.2.2-1 settled: a property twice where table 2-4 allows it once is a Protocol Error 0x82; a property in a packet table 2-4 does not allow it in is a Malformed Packet 0x81 (MQTT 5.0 sections 2.2.2.2 and 4.13.1). The code and its tests already did this; the row text was corrected to match. No ADR: it follows the specification, no design call.
+Production bugs the new tests exposed, fixed: (1) MQTT-3.3.2-14, a Response Topic with a wildcard was accepted; now DISCONNECT 0x82 (Mqtt5InboundPublishes). (2) MQTT5-3.14.2.1-2, the server stopping sent no DISCONNECT 0x8B; now it is sent best effort within 2 s before the close (Mqtt5BrokerConnection). Covered by two tests, the second with a client that stops reading.
+The shared subscription group (4.8.2-3 to -6) already behaved as the specification says; no follow-up needed.
+Measured: library 100% line, 100% branch, worst CRAP 8; 411 tests green.
 Sizing: 17 tests plus one decision. If a lane finds it running long, file the shared subscription group as a follow-up task rather than widen this one.
 
 ## Log
 
 - 2026-11-12: Created.
 - 2026-11-12: Backlog -> Doing.
+- 2026-11-12: Doing -> Done. All 17 Mqtt5 matrix rows have named tests; 2.2.2.2-1 settled (0x82 duplicate, 0x81 not allowed); Response Topic wildcard and 0x8B shutdown fixed
