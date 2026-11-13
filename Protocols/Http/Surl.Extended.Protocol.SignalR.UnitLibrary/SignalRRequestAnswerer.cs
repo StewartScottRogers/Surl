@@ -52,7 +52,7 @@ internal sealed partial class SignalRRequestAnswerer(
     {
         var target = SignalRRequestTarget.Parse(request.Target);
         var verdict = await authentication.JudgeAsync(
-            new HttpAuthenticationRequest(request.Method, request.Target, IsWrite: false, FieldsWithAccessToken(request.Fields, target)),
+            new HttpAuthenticationRequest(request.Method, request.Target, IsWrite: true, FieldsWithAccessToken(request.Fields, target)),
             cancellationToken);
         if (verdict.Outcome != HttpAuthenticationOutcome.Proceed)
         {

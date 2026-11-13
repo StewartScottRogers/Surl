@@ -57,9 +57,9 @@ evidence (ADR-0003).
 ## Consequences
 
 - A Redis client and an MQTT, AMQP, NATS, STOMP or Kafka client of one `surl` process publish to
-  and hear one another on the same topic, which is what a cross-protocol stand-in test needs.
-- `--topic-map` aliases do not yet apply to Redis channels: `MessageBus.Names` has no `redis`
-  mapping, and the composition does not yet hand the Redis server the shared bus. Both are filed as
-  a follow-up task.
+- `--topic-map` aliases apply to Redis channels (BL-866): `MessageBus.Names` maps `redis` and `rediss` as
+  identity, a channel with an alias is the alias target on the bus, and a bus topic comes back to a
+  pattern subscriber as the aliased channel name (sent nothing when its name is aliased elsewhere).
+  The composition hands the Redis server the shared bus (BL-492).
 - Bus messages carry Redis payloads as bytes, QoS 0, never retained; a Redis subscriber sees only
   live fan-out (ADR-0100 decision 3.3).

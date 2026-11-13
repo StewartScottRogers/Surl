@@ -79,6 +79,8 @@ Flow control, the session limit, authentication and the limits (BL-460, ADR-0117
   is closed `WT_CLOSE_SESSION` code 1 `session data limit reached`, then FIN.
 - `WebTransportDatagramEchoQueue` (BL-905, decision 8) holds at most 64 HTTP datagrams a session waiting for their echo and drops the newest past that, noting it in the log.
 
+Chosen-error fault (BL-1065, ADR-0124 decisions 4 and 9): `WebTransportConnectFaults` asks `ExchangeContext.Faults` for each CONNECT that passed the origin, login and path checks (point: scheme `webtransport`, command `CONNECT`, the request path). An `error` rule whose reply is a status 400 to 599 and optional text answers that status with the text as a `text/plain` body and FIN, and publishes one `FaultAppliedEvent`; any other rule is noted and the session is served.
+
 At shutdown the CONNECT stream stays open through the grace, so `Surl.Http3` closes the connection only
 once the client has FINed it (the session then answers with its own FIN) or the grace has passed (BL-1060,
 WTH3-6-5).

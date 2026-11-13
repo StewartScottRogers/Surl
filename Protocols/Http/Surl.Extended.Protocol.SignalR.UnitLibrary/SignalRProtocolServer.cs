@@ -56,7 +56,7 @@ public sealed class SignalRProtocolServer : IConnectionProtocolServer
         ArgumentNullException.ThrowIfNull(connection);
         ArgumentNullException.ThrowIfNull(context);
 
-        var authentication = authenticationPolicy.StartHttpConnection(connection.TlsSession);
+        var authentication = authenticationPolicy.StartHttpConnection(connection.TlsSession, LoginExchange.Of(context));
         var answerer = new SignalRRequestAnswerer(hubPath, connections, authentication, context);
 
         return new Http1ConnectionServer(answerer, context).ServeAsync(connection);

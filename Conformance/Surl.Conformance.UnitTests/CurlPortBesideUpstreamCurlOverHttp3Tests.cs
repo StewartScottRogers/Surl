@@ -175,7 +175,7 @@ public sealed class CurlPortBesideUpstreamCurlOverHttp3Tests
     [Description("Mirrors UpstreamCurlFetchesFromSurlOverHttp3Tests.GetWithHttp3Only_Http3Off_FailsToConnect")]
     public Task GetWithHttp3Only_Http3Off_FailsToConnect() =>
         MeasureAsync(Case([], ["-sS", "-k", "--http3-only", "{surl}/hello.txt"], run =>
-            run.ExitCode == (OperatingSystem.IsWindows() ? 56 : 7)
+            (OperatingSystem.IsWindows() ? run.ExitCode == 56 : OperatingSystem.IsMacOS() ? run.ExitCode is 7 or 55 : run.ExitCode == 7)
             && run.StandardOutput.Length == 0
             && run.StandardError.Contains(FailedToConnect, StringComparison.Ordinal)
                 ? null

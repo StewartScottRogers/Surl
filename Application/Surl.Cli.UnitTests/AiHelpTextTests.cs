@@ -9,11 +9,11 @@ public sealed partial class AiHelpTextTests
 {
     private static readonly string NewLine = Environment.NewLine;
 
-    // ADR-0046 decision 3's sixteen topics, smtp (BL-207), imap (BL-208), pop3 (BL-209), websocket (BL-303), smb (BL-299), rtsp (BL-317), ldap (BL-310), extended (BL-405), nats (BL-528), s3 (BL-421), control (BL-815), mail (BL-653, ADR-0101 decision 7) dns (BL-1032) and messages (BL-992, ADR-0101 decision 7), in ordinal order.
+    // ADR-0046 decision 3's sixteen topics, smtp (BL-207), imap (BL-208), pop3 (BL-209), websocket (BL-303), smb (BL-299), rtsp (BL-317), ldap (BL-310), extended (BL-405), nats (BL-528), s3 (BL-421), control (BL-815), mail (BL-653, ADR-0101 decision 7) dns (BL-1032), amqp1 (BL-514) and messages (BL-992, ADR-0101 decision 7), in ordinal order.
     private static readonly string[] AdrTopicNames =
     [
-        "auth", "coap", "content", "control", "dict", "dns", "exit-codes", "extended", "ftp", "gopher", "http", "imap", "ldap", "limits", "listen-urls",
-        "logging", "mail", "messages", "mqtt", "nats", "pop3", "proxy", "rtsp", "s3", "security", "smb", "smtp", "socketio", "socks", "ssh", "stomp", "surl", "telnet", "testing", "tftp", "tls", "websocket", "webtransport", "xmpp",
+        "amqp", "amqp1", "auth", "azure-storage", "coap", "content", "control", "dict", "dns", "exit-codes", "extended", "ftp", "gopher", "grpc", "gs", "http", "imap", "kafka", "ldap", "limits", "listen-urls",
+        "logging", "mail", "mcp", "messages", "mqtt", "mqtt5", "nats", "oci", "pop3", "proxy", "redis", "rtsp", "s3", "security", "signalr", "smb", "smtp", "socketio", "socks", "ssh", "stomp", "surl", "telnet", "testing", "tftp", "tls", "websocket", "webtransport", "xmpp",
     ];
 
     // ADR-0046 decision 4's section headings, in order, on every topic page.
@@ -23,7 +23,10 @@ public sealed partial class AiHelpTextTests
     [
         "| Topic | Covers |",
         "| --- | --- |",
+        "| `amqp` | AMQP 0-9-1 and AMQPS protocol (extended) |",
+        "| `amqp1` | AMQP 1.0 protocol (extended) |",
         "| `auth` | Accounts and authentication methods |",
+        "| `azure-storage` | Azure Blob and Data Lake Storage protocol (extended) |",
         "| `coap` | CoAP and CoAPS protocol (extended) |",
         "| `content` | Served files and the data directory |",
         "| `control` | The loopback test control endpoint |",
@@ -33,21 +36,29 @@ public sealed partial class AiHelpTextTests
         "| `extended` | Extended protocol servers, for schemes upstream curl does not have |",
         "| `ftp` | FTP and FTPS protocol |",
         "| `gopher` | GOPHER and GOPHERS protocol |",
+        "| `grpc` | gRPC and gRPC over TLS protocol (extended) |",
+        "| `gs` | Google Cloud Storage protocol (extended) |",
         "| `http` | HTTP and HTTPS protocol |",
         "| `imap` | IMAP and IMAPS protocol |",
+        "| `kafka` | Kafka and Kafka over TLS protocol (extended) |",
         "| `ldap` | LDAP protocol |",
         "| `limits` | Connection, time and size limits |",
         "| `listen-urls` | Listen URLs, ports and the Listening on line |",
         "| `logging` | Log levels, tracing and the log file |",
         "| `mail` | Mail domains, mailboxes and aliases |",
+        "| `mcp` | MCP over Streamable HTTP and over TLS protocol (extended) |",
         "| `messages` | Topics, queues and topic access |",
         "| `mqtt` | MQTT and MQTTS protocol |",
+        "| `mqtt5` | MQTT 5.0 protocol: mqtt5, mqtt5s and mqtt5+ws (extended) |",
         "| `nats` | NATS and NATSS protocol (extended) |",
+        "| `oci` | OCI registry protocol (extended) |",
         "| `pop3` | POP3 and POP3S protocol |",
         "| `proxy` | HTTP and HTTPS proxy |",
+        "| `redis` | Redis and Rediss protocol (extended) |",
         "| `rtsp` | RTSP protocol |",
         "| `s3` | Amazon S3 protocol (extended) |",
         "| `security` | Options that widen what a peer may do |",
+        "| `signalr` | SignalR and SignalR over TLS protocol (extended) |",
         "| `smb` | SMB and SMBS protocol |",
         "| `smtp` | SMTP and SMTPS protocol |",
         "| `socketio` | Socket.IO and Socket.IO over TLS protocol (extended) |",
@@ -637,14 +648,23 @@ public sealed partial class AiHelpTextTests
             // Written by Surl.Composition when it opens a --share folder, whose tests pin it (BL-988).
             "surl: (37) Could not open directory <path> for share <name>",
             "surl: (37) Could not read <file>: line <n>: <what>",
+            // Written by Surl.Composition's LdapAccountSourceComposition, whose tests pin it (BL-673).
+            "surl: (2) --user-ldap plaintext needs --allow-plaintext-auth",
             "surl: (45) Could not bind <scheme>://<address>:<port>/: <reason>",
             "surl: (6) Could not resolve host: <host>",
             "surl: (58) <url> needs a certificate: give --cert <file>, or --self-signed for a throwaway one",
             // Written by Surl.Composition's DnsTransportComposition, whose tests pin it (BL-1017).
             "surl: --dns-transport tcp and tls cannot share port <n>",
+            "surl: --dns-transport udp and quic cannot share port <n>",
+            "surl: --dns-transport quic cannot use port 53",
+            "surl: --dns-transport tcp and https cannot share port <n>",
+            "surl: --dns-transport tls and https cannot share port <n>",
             "surl: warning: --self-signed: serving a throwaway certificate; clients must skip verification (curl -k)",
             "surl: warning: --proxy-allow-origin: the proxy connects to every origin address, not only loopback",
             "surl: warning: --s3-plaintext: s3 is served as plain HTTP, without TLS",
+            "surl: warning: --oci-plaintext: oci is served as plain HTTP, without TLS",
+            "surl: warning: --az-plaintext: az is served as plain HTTP, without TLS",
+            "surl: warning: --gs-plaintext: gs is served as plain HTTP, without TLS",
             "surl: warning: --proxy-auth: accepted proxy methods are basic, ntlm",
             "surl: (37) Could not read host certificate <file>",
             "surl: (2) Host certificate <file>: not an OpenSSH host certificate",

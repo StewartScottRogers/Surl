@@ -108,6 +108,27 @@ public sealed class UpstreamCurlTransfersFilesWithSurlOverScpTests
         Assert.IsFalse(File.Exists(ServedPath(surl, "new.txt")));
     }
 
+    [TestMethod]
+    public async Task Download_ChosenErrorLine_Exits78()
+    {
+        await using var surl = await StartSurlAsync("--fault", "error;scheme=scp;path=/a.txt;reply=no way");
+
+        var result = await RunCurlAsync(surl, surl.UrlOf("a.txt"));
+
+        Assert.AreEqual(78, result.ExitCode, result.StandardError);
+    }
+
+    [TestMethod]
+    public async Task Upload_ChosenErrorLineBeforeTheFirstNul_Exits25AndStoresNothing()
+    {
+        await using var surl = await StartSurlAsync("--allow-uploads", "--fault", "error;scheme=scp;path=/new.txt;reply=no way");
+        var upload = await WriteUploadAsync();
+
+        var result = await RunCurlAsync(surl, "-T", upload, surl.UrlOf("new.txt"));
+
+        Assert.AreEqual(25, result.ExitCode, result.StandardError);
+        Assert.IsFalse(File.Exists(ServedPath(surl, "new.txt")));
+    }
     private static string ServedPath(SurlOnLoopback surl, string relativePath) =>
         Path.Combine(surl.ServedDirectory!, relativePath);
 

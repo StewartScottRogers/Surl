@@ -100,14 +100,14 @@ public sealed class AiHelpFactsTests
     }
 
     [TestMethod]
-    public void LoosensSecurityForTestsOnly_IsExactlyTheNineTestingOptions()
+    public void LoosensSecurityForTestsOnly_IsExactlyTheTwelveTestingOptions()
     {
         var testing = CommandLineOptions.All
             .Where(option => option.Help.Categories.Contains("testing") && option.Help.Categories.Contains("security"))
             .ToArray();
 
         CollectionAssert.AreEquivalent(
-            new[] { "allow-anonymous", "allow-plaintext-auth", "auth", "control", "control-token-file", "fault", "s3-plaintext", "self-signed", "throwaway-hostkey" },
+            new[] { "allow-anonymous", "allow-plaintext-auth", "auth", "az-plaintext", "control", "control-token-file", "fault", "gs-plaintext", "oci-plaintext", "s3-plaintext", "self-signed", "throwaway-hostkey" },
             testing.Select(option => option.LongName).ToArray());
         foreach (var option in testing)
         {
@@ -163,26 +163,37 @@ public sealed class AiHelpFactsTests
         var schemes = HelpCategories.All.SelectMany(category => category.Schemes).ToArray();
 
         CollectionAssert.AllItemsAreUnique(schemes);
-        foreach (var scheme in schemes)
+        // mcp+stdio names no port: it is served on standard input and output (ADR-0111 decision 5).
+        foreach (var scheme in schemes.Where(scheme => scheme != ListenUrlParser.StdioScheme))
         {
             Assert.IsTrue(SchemeDefaultPorts.TryGetDefaultPort(scheme, out _) || ExtendedSchemeDefaultPorts.TryGetDefaultPort(scheme, out _), scheme);
         }
     }
 
     [TestMethod]
+    [DataRow("amqp", new[] { "amqp", "amqps" })]
+    [DataRow("amqp1", new[] { "amqp1", "amqp1s" })]
+    [DataRow("azure-storage", new[] { "az", "abfs", "abfss" })]
     [DataRow("coap", new[] { "coap", "coaps" })]
     [DataRow("dict", new[] { "dict" })]
+    [DataRow("gs", new[] { "gs" })]
     [DataRow("dns", new[] { "dns" })]
     [DataRow("gopher", new[] { "gopher", "gophers" })]
+    [DataRow("grpc", new[] { "grpc", "grpcs" })]
     [DataRow("http", new[] { "http", "https" })]
     [DataRow("imap", new[] { "imap", "imaps" })]
+    [DataRow("kafka", new[] { "kafka", "kafkas" })]
     [DataRow("mqtt", new[] { "mqtt", "mqtts" })]
+    [DataRow("mqtt5", new[] { "mqtt5", "mqtt5s", "mqtt5+ws" })]
     [DataRow("nats", new[] { "nats", "natss" })]
+    [DataRow("oci", new[] { "oci" })]
     [DataRow("pop3", new[] { "pop3", "pop3s" })]
     [DataRow("s3", new[] { "s3" })]
+    [DataRow("redis", new[] { "redis", "rediss" })]
     [DataRow("smb", new[] { "smb", "smbs" })]
     [DataRow("stomp", new[] { "stomp", "stomps" })]
     [DataRow("smtp", new[] { "smtp", "smtps" })]
+    [DataRow("signalr", new[] { "signalr", "signalrs" })]
     [DataRow("socketio", new[] { "socketio", "socketios" })]
     [DataRow("socks", new[] { "socks4", "socks4a", "socks5", "socks5h" })]
     [DataRow("telnet", new[] { "telnet" })]
@@ -201,7 +212,7 @@ public sealed class AiHelpFactsTests
     {
         var withSchemes = HelpCategories.All.Where(category => category.Schemes.Count > 0).Select(category => category.Name);
 
-        CollectionAssert.AreEqual(new[] { "coap", "dict", "dns", "ftp", "gopher", "http", "imap", "ldap", "mqtt", "nats", "pop3", "rtsp", "s3", "smb", "smtp", "socketio", "socks", "ssh", "stomp", "telnet", "tftp", "websocket", "webtransport", "xmpp" }, withSchemes.ToArray());
+        CollectionAssert.AreEqual(new[] { "amqp", "amqp1", "azure-storage", "coap", "dict", "dns", "ftp", "gopher", "grpc", "gs", "http", "imap", "kafka", "ldap", "mcp", "mqtt", "mqtt5", "nats", "oci", "pop3", "redis", "rtsp", "s3", "signalr", "smb", "smtp", "socketio", "socks", "ssh", "stomp", "telnet", "tftp", "websocket", "webtransport", "xmpp" }, withSchemes.ToArray());
     }
 
     [TestMethod]

@@ -84,7 +84,7 @@ internal sealed partial class ImapSession
             return await RespondAsync(InvalidArguments);
         }
 
-        var outcome = mailStore.Append(view!, name, pending, request.Flags, request.InternalDate, out var stored);
+        var (outcome, stored) = await mailStore.AppendAsync(view!, name, pending, request.Flags, request.InternalDate, CancellationToken);
         NoteAppend(outcome, name, length, pending.StorageFailure);
         await SaveMailStoreIfChangedAsync(outcome == MailStoreOutcome.Succeeded ? 1 : 0);
         return await RespondAsync(ImapResponse.Only(outcome == MailStoreOutcome.Succeeded

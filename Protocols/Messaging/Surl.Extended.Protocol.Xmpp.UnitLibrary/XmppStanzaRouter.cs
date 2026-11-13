@@ -38,8 +38,9 @@ namespace Surl.Extended.Protocol.Xmpp;
 /// <param name="domains">The domains served, normalized.</param>
 /// <param name="context">The exchange: its log.</param>
 /// <param name="write">Writes text to the stream's own client.</param>
+/// <param name="connection">The stream's connection, which a drop fault rule aborts.</param>
 internal sealed class XmppStanzaRouter(
-    XmppBoundSession session, XmppSessionRegistry registry, IReadOnlyList<string> domains, ExchangeContext context, Func<string, Task> write)
+    XmppBoundSession session, XmppSessionRegistry registry, IReadOnlyList<string> domains, ExchangeContext context, Func<string, Task> write, IConnection connection)
 {
     private const string Cancel = "cancel";
 
@@ -69,11 +70,33 @@ internal sealed class XmppStanzaRouter(
     /// <param name="stanza">The stanza.</param>
     /// <returns>A task that completes once the answer, if any, is written and any delivery made.</returns>
     /// <exception cref="XmppStreamErrorException">The stanza ends the stream (<c>invalid-xml</c> or <c>invalid-from</c>).</exception>
-    public Task AnswerAsync(XElement stanza)
+    public async Task AnswerAsync(XElement stanza)
     {
         var id = stanza.Name.LocalName == "iq" ? XmppResourceBinding.RequireIqShape(stanza) : null;
         RequireOwnFrom(stanza);
         var to = (string?)stanza.Attribute("to");
+        if (await XmppStanzaFaults.FindAsync(context, connection, ownBareJid.Localpart!, stanza.Name.LocalName, to) is { } fault)
+        {
+            await ApplyFaultAsync(stanza, fault);
+            return;
+        }
+
+        await RouteAsync(stanza, to, id);
+    }
+
+    // BL-1063: a drop already aborted the connection; an error rule answers the stanza with its condition.
+    private Task ApplyFaultAsync(XElement stanza, FaultRule fault)
+    {
+        if (fault.Kind == FaultKind.Drop)
+        {
+            return Task.CompletedTask;
+        }
+
+        return ReplyErrorAsync(stanza, XmppStanzaFaults.TypeOf(fault.Reply)!, fault.Reply!);
+    }
+
+    private Task RouteAsync(XElement stanza, string? to, string? id)
+    {
         var target = to is null ? ownBareJid : XmppJid.Parse(to);
         if (target is null)
         {

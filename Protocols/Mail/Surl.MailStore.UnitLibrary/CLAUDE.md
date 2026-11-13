@@ -75,8 +75,9 @@ Every change publishes one `StoreChangedEvent` (`StoreKind.Mail`) under the stor
 length and never its bytes; a refused or no-op operation publishes nothing, and start-up is not a
 change. `Deliver` and `Append` ask the plan at `FaultStage.StoreWrite` (account the owner, path the
 mailbox) before taking the lock; an `OutOfSpace` rule refuses the whole write with `QuotaExceeded` and
-the store publishes the `FaultAppliedEvent`. A plan answer that is still pending or failed is served as
-no rule (BL-868 makes the writes async).
+the store publishes the `FaultAppliedEvent`. The synchronous writes serve a plan answer that is still pending or failed
+as no rule; `DeliverAsync` and `AppendAsync` (BL-868, ADR-0127 amendment 1; `AppendAsync` returns a
+`MailAppendResult`) await the plan, so an override answering later can refuse the write. SMTP and IMAP use them.
 
 Seed, reset, snapshot and restore (BL-799, ADR-0124 decision 3, ADR-0131), in
 `MailboxStore.Control.cs`: `Seed` resolves a recipient as `LookUpRecipient` does and delivers only a

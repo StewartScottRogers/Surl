@@ -3,7 +3,7 @@ using Surl.Protocol.Abstractions;
 namespace Surl.Authentication;
 
 /// <summary>
-/// The HTTP sessions <see cref="AuthenticationPolicy.StartHttpConnection"/> starts, against
+/// The HTTP sessions <see cref="AuthenticationPolicy.StartHttpConnection(TlsSession?)"/> starts, against
 /// ADR-0032 section 4's steps, case by case, with scripted methods standing in for the
 /// verifiers BL-111 to BL-122 build.
 /// </summary>

@@ -100,8 +100,45 @@ public sealed partial class MailboxStore
     }
 
     /// <summary>
+    /// As <see cref="IsOutOfSpace"/>, but awaits the plan's answer, so an override that answers
+    /// later can refuse the write too (BL-868). An answer that throws is served as no rule; a
+    /// cancelled one throws <see cref="OperationCanceledException"/>.
+    /// </summary>
+    private async Task<bool> IsOutOfSpaceAsync(
+        IEnumerable<(string OwnerName, string MailboxName)> targets,
+        CancellationToken cancellationToken)
+    {
+        foreach (var (ownerName, mailboxName) in targets)
+        {
+            var point = new FaultPoint(FaultStage.StoreWrite) { Account = ownerName, Path = mailboxName };
+            FaultRule? rule;
+            try
+            {
+                rule = await faults.FindAsync(point, cancellationToken).ConfigureAwait(false);
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException)
+            {
+                continue;
+            }
+
+            if (rule?.Kind == FaultKind.OutOfSpace)
+            {
+                events.Publish(new FaultAppliedEvent(
+                    rule.Id,
+                    FaultKind.OutOfSpace,
+                    FaultStage.StoreWrite,
+                    ExchangeId: null,
+                    MailStoreChangeName.ForMailbox(ownerName, mailboxName)));
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
     /// The plan's out-of-space rule for <paramref name="point"/>, or <see langword="null"/> when it
-    /// names none or a rule of another kind. The store's writes are synchronous, so it takes only an
+    /// names none or a rule of another kind. The store's synchronous writes are synchronous, so it takes only an
     /// answer the plan gives at once - every plan does when no hook is registered - and serves a
     /// point whose answer is still pending, or that failed, as if no rule matched, as ADR-0124
     /// decision 5 serves a hook that times out or throws (ADR-0127).

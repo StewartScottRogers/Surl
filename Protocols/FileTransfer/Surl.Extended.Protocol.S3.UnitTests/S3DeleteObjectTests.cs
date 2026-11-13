@@ -153,4 +153,61 @@ public sealed class S3DeleteObjectTests
         StringAssert.Contains(response, "<Code>AccessDenied</Code>");
         Assert.AreEqual(ContentEntryKind.File, shareFileSystem.GetEntryKind(Path.Join(S3ServerHarness.Root, "a.txt")));
     }
+
+    [TestMethod]
+    public async Task ServeAsync_DeleteObjectOfANonEmptyFolderObject_ForgetsTheFolderObjectAndListsTheKeysUnderIt()
+    {
+        var harness = new S3ServerHarness(exposure: S3ServerHarness.Writable);
+        harness.CreateFolder("bucket");
+        await harness.SendAsync("PUT", "/bucket/x/", "Content-Length: 0");
+        harness.WriteFile("bucket/x/a.txt", "kept");
+
+        var deleted = await harness.SendAsync("DELETE", "/bucket/x/");
+        var listed = await harness.SendAsync("GET", "/bucket?list-type=2");
+
+        Assert.AreEqual(NoContent(deleted), deleted);
+        StringAssert.Contains(listed, "<Key>x/a.txt</Key>");
+        Assert.DoesNotContain("<Key>x/</Key>", listed);
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_DeleteObjectOfAFolderObjectWithAnIndexThatCannotBeWritten_Is204AndNotesTheFailure()
+    {
+        var harness = new S3ServerHarness(maxTotalBytes: 0, persistsIndex: true, exposure: S3ServerHarness.Writable);
+        harness.CreateFolder("bucket");
+        await harness.SendAsync("PUT", "/bucket/x/", "Content-Length: 0");
+
+        var response = await harness.SendAsync("DELETE", "/bucket/x/");
+
+        Assert.AreEqual(NoContent(response), response);
+        Assert.IsTrue(harness.Log.Notes.Any(note => note.StartsWith("The object metadata index could not be written: ", StringComparison.Ordinal)));
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_DeleteObjectOfAFolderInAWritableShare_RemovesItWithNoIndexKey()
+    {
+        var shareFileSystem = new InMemoryContentFileSystem(new FixedTimeProvider(S3ServerHarness.Now));
+        var harness = new S3ServerHarness(exposure: S3ServerHarness.Writable, shares: [new ContentShare("shared", S3ServerHarness.Root, shareFileSystem)]);
+        await harness.SendAsync("PUT", "/shared/x/", "Content-Length: 0");
+
+        var response = await harness.SendAsync("DELETE", "/shared/x/");
+
+        Assert.AreEqual(NoContent(response), response);
+        Assert.AreEqual(ContentEntryKind.None, shareFileSystem.GetEntryKind(Path.Join(S3ServerHarness.Root, "x")));
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_DeleteObjectOfAFolderInAReadOnlyShare_Is403AccessDenied()
+    {
+        var shareFileSystem = new InMemoryContentFileSystem(new FixedTimeProvider(S3ServerHarness.Now));
+        shareFileSystem.CreateDirectory(Path.Join(S3ServerHarness.Root, "x"));
+        var harness = new S3ServerHarness(
+            exposure: S3ServerHarness.Writable,
+            shares: [new ContentShare("shared", S3ServerHarness.Root, shareFileSystem) { IsReadOnly = true }]);
+
+        var response = await harness.SendAsync("DELETE", "/shared/x/");
+
+        StringAssert.StartsWith(response, "HTTP/1.1 403 Forbidden\r\n");
+        Assert.AreEqual(ContentEntryKind.Directory, shareFileSystem.GetEntryKind(Path.Join(S3ServerHarness.Root, "x")));
+    }
 }

@@ -24,7 +24,11 @@ BL-1041), `x-goog-stored-content-*`, `x-goog-storage-class: STANDARD`
   folders (`409 InvalidObjectName` for a file in the way, `400 InvalidObjectName` for a name the store cannot
   hold), streams the body through `GcsHashingStream` into an upload session (`400 IncompleteBody`), and keeps
   the metadata and the upload time as the generation in `ObjectMetadataIndex` (full: `403 InsufficientQuota`).
-  A zero-byte PUT of a name ending in `/` creates the folder.
+  A zero-byte PUT of a name ending in `/` creates the folder and records it as a folder object
+  (`ObjectMetadataIndex.StoreFolderObjectAsync`, generation the upload time; index full `403 InsufficientQuota`;
+  a folder in a share is not recorded). List Objects then lists `x/` (size 0, the empty-body ETag) just before the
+  names inside it (BL-775); every other folder - made by another protocol, empty, or in a share - is not listed.
+  The JSON `objects.list` lists no folder object.
 - DELETE Object: `204`; missing `404 NoSuchKey`; uploads off or share access refusing `403 AccessDenied`.
 - List Objects (`GcsListObjects`, `GcsListRequest`, `GcsListPage`, `GcsBucketWalk`): version 1 (`marker`,
   `NextMarker`) and version 2 (`list-type=2`, `continuation-token`, `start-after`, `fetch-owner`), `prefix`,

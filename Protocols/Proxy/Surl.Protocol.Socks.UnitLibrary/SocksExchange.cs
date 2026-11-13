@@ -162,6 +162,13 @@ internal sealed class SocksExchange(IConnection client, ExchangeContext context,
         }
 
         var target = string.Create(CultureInfo.InvariantCulture, $"{request.Host}:{request.Port}");
+        if (await SocksCommandFaults.FindAsync(context, client, target) is { } fault)
+        {
+            await AnswerFaultAsync(fault, target);
+
+            return;
+        }
+
         IConnection origin;
         try
         {
@@ -185,6 +192,19 @@ internal sealed class SocksExchange(IConnection client, ExchangeContext context,
         context.Log.Note($"Connected to {target}; answered 5A.");
         await client.WriteAsync(Socks4Granted, Cancellation);
         await SocksRelay.RelayAndLogAsync(client, reader, origin, target, context.Log, Cancellation);
+    }
+
+    private async Task AnswerFaultAsync(FaultRule fault, string target)
+    {
+        if (fault.Kind == FaultKind.Drop)
+        {
+            return;
+        }
+
+        SocksCommandFaults.TryReadReplyCode(context.Scheme, fault.Reply, out var code);
+        context.Log.Note(string.Create(CultureInfo.InvariantCulture, $"CONNECT {target} answered {code:X2} by fault rule {fault.Id}."));
+        await client.WriteAsync(new byte[] { 0x00, code, 0, 0, 0, 0, 0, 0 }, Cancellation);
+        await client.CompleteWritesAsync(Cancellation);
     }
 
     private async Task RefuseAsync(string why)

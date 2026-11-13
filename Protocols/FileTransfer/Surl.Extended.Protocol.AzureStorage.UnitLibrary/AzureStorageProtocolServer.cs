@@ -67,6 +67,7 @@ public sealed class AzureStorageProtocolServer : IConnectionProtocolServer, ICon
     private readonly TimeProvider timeProvider;
     private readonly AzureStagingArea staging;
     private readonly IIdentifierRandom identifiers;
+    private readonly bool allowsPlaintextAuthentication;
 
     /// <summary>
     /// Creates the server.
@@ -76,7 +77,8 @@ public sealed class AzureStorageProtocolServer : IConnectionProtocolServer, ICon
     /// <param name="authenticationPolicy">The policy whose HTTP session judges each request's login.</param>
     /// <param name="timeProvider">The clock a connection refusal's <c>Date</c> is taken from.</param>
     /// <param name="identifiers">Where a connection refusal's request ID is drawn from; null draws from the cryptographic random number generator.</param>
-    public AzureStorageProtocolServer(ContentStore store, ObjectMetadataIndex index, IAuthenticationPolicy authenticationPolicy, TimeProvider timeProvider, IIdentifierRandom? identifiers = null)
+    /// <param name="allowsPlaintextAuthentication"><c>--allow-plaintext-auth</c>: serves a bearer token sent over a plain-text connection; off, it is refused <c>401 InvalidAuthenticationInfo</c> (ADR-0109, decision 6).</param>
+    public AzureStorageProtocolServer(ContentStore store, ObjectMetadataIndex index, IAuthenticationPolicy authenticationPolicy, TimeProvider timeProvider, IIdentifierRandom? identifiers = null, bool allowsPlaintextAuthentication = false)
     {
         ArgumentNullException.ThrowIfNull(store);
         ArgumentNullException.ThrowIfNull(index);
@@ -88,6 +90,7 @@ public sealed class AzureStorageProtocolServer : IConnectionProtocolServer, ICon
         this.authenticationPolicy = authenticationPolicy;
         this.timeProvider = timeProvider;
         this.identifiers = identifiers ?? new AzureUnseededIdentifierRandom();
+        this.allowsPlaintextAuthentication = allowsPlaintextAuthentication;
         staging = new AzureStagingArea(timeProvider);
     }
 
@@ -109,11 +112,12 @@ public sealed class AzureStorageProtocolServer : IConnectionProtocolServer, ICon
 
         var endpointScheme = connection.TlsSession is null ? "http" : "https";
         var pathStyle = new AzurePathStyle(authenticationPolicy.NamesAccount);
+        var refusesBearerToken = connection.TlsSession is null && !allowsPlaintextAuthentication;
 
         // The listen scheme decides the endpoint (ADR-0109, decision 1).
         IHttpRequestHandler answerer = context.Scheme == BlobScheme
-            ? new AzureBlobRequestAnswerer(store, index, authentication, context, endpointScheme, staging, pathStyle)
-            : new AzureDataLakeRequestAnswerer(store, index, authentication, context, staging, pathStyle);
+            ? new AzureBlobRequestAnswerer(store, index, authentication, context, endpointScheme, staging, pathStyle, refusesBearerToken)
+            : new AzureDataLakeRequestAnswerer(store, index, authentication, context, staging, pathStyle, refusesBearerToken);
 
         return new Http1ConnectionServer(answerer, context).ServeAsync(connection);
     }

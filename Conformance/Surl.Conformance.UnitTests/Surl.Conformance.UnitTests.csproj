@@ -5,6 +5,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- The Conformance suite caps its workers in its own MSTestSettings.cs (BL-1090). -->
+    <Compile Remove="$(MSBuildThisFileDirectory)..\..\MSTestSettings.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Using Include="Microsoft.VisualStudio.TestTools.UnitTesting" />
   </ItemGroup>
 
@@ -14,8 +19,11 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Surl.Conformance.UnitLibrary\Surl.Conformance.UnitLibrary.csproj" />
+    <ProjectReference Include="..\..\Application\Surl.Api\Surl.Api.csproj" />
     <ProjectReference Include="..\..\Application\Surl.Console\Surl.Console.csproj" />
+    <ProjectReference Include="..\..\Application\Surl.Mcp\Surl.Mcp.csproj" />
     <ProjectReference Include="..\..\Cryptography\Surl.Kerberos.TestKdc.UnitLibrary\Surl.Kerberos.TestKdc.UnitLibrary.csproj" />
+    <ProjectReference Include="..\..\Cryptography\Surl.TlsSrp.UnitLibrary\Surl.TlsSrp.UnitLibrary.csproj" />
   </ItemGroup>
 
 </Project>

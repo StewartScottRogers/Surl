@@ -64,7 +64,7 @@ public sealed class HttpUpstreamTestCaseServer(HttpUpstreamTestCaseReplies repli
             return;
         }
 
-        var reader = new HttpConnectionReader(requestConnection, context.Limits.MaxRequestHeadBytes);
+        var reader = new HttpConnectionReader(requestConnection, context.Limits.MaxRequestHeadBytes) { SkipsMalformedFieldLines = true };
         var isFirstHead = true;
         var keepsConnectionOpen = true;
         while (keepsConnectionOpen)
@@ -105,13 +105,16 @@ public sealed class HttpUpstreamTestCaseServer(HttpUpstreamTestCaseReplies repli
             return false;
         }
 
+        // Upstream's sws closes after an empty reply (ADR-0152); an HTTP/1.0 request is held open
+        // for the raw telnet probe of test 1548, whose curl waits for the server until -m.
+        var closes = reply.ClosesConnection || (reply.Bytes.Length == 0 && head.Version.Minor >= 1);
         await WritePacketsAsync(connection, reply.Bytes, commands.WriteDelay, context);
-        if (reply.ClosesConnection)
+        if (closes)
         {
             await connection.CompleteWritesAsync(context.CancellationToken);
         }
 
-        return !reply.ClosesConnection;
+        return !closes;
     }
 
     private static async Task WaitForClientCloseAsync(HttpConnectionReader reader, CancellationToken cancellationToken)

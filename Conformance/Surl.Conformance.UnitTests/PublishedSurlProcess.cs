@@ -18,6 +18,8 @@ internal sealed class PublishedSurlProcess : IAsyncDisposable
 
     private const string StatusLinePrefix = "Listening on ";
 
+    private const string ControlStatusLinePrefix = "Control endpoint listening on ";
+
     private static readonly TimeSpan TerminateGrace = TimeSpan.FromSeconds(10);
 
     private readonly Process process;
@@ -140,7 +142,28 @@ internal sealed class PublishedSurlProcess : IAsyncDisposable
             throw new InvalidOperationException($"surl exited {process.ExitCode} before it listened: {Log}");
         }
 
-        return await listening.Task;
+        var statusLinesRead = await listening.Task;
+        await WaitUntilStandardErrorIsQuietAsync(cancellationToken);
+        return statusLinesRead;
+    }
+
+    // surl writes its notes (for example the SSH host keys) to standard error before its Listening on
+    // line on standard output, but the two pipes are read on separate callbacks, so under load the
+    // status line can be seen first (BL-1089: "surl's log has no Serving SSH host key" on win-x64).
+    // A caller reads Log right after the start, so wait until standard error has stopped growing for
+    // two checks in a row, at most five seconds.
+    private async Task WaitUntilStandardErrorIsQuietAsync(CancellationToken cancellationToken)
+    {
+        var deadline = Stopwatch.GetTimestamp() + (5 * Stopwatch.Frequency);
+        var quietChecks = 0;
+        var length = Log.Length;
+        while (quietChecks < 2 && Stopwatch.GetTimestamp() < deadline)
+        {
+            await Task.Delay(TimeSpan.FromMilliseconds(25), cancellationToken);
+            var latest = Log.Length;
+            quietChecks = latest == length ? quietChecks + 1 : 0;
+            length = latest;
+        }
     }
 
     private async Task StopAsync()
@@ -202,7 +225,7 @@ internal sealed class PublishedSurlProcess : IAsyncDisposable
             }
         }
 
-        if (line is null || !line.StartsWith(StatusLinePrefix, StringComparison.Ordinal))
+        if (line is null || !(line.StartsWith(StatusLinePrefix, StringComparison.Ordinal) || line.StartsWith(ControlStatusLinePrefix, StringComparison.Ordinal)))
         {
             return;
         }

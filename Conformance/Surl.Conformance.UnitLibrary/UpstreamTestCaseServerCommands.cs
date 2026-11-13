@@ -41,8 +41,10 @@ public static class UpstreamTestCaseServerCommands
     /// <c>remlen-CONNACK</c>, <c>PUBLISH-before-SUBACK</c>, <c>short-PUBLISH</c>,
     /// <c>PINGRESP-as-CONNACK</c>, <c>DISCONNECT-malformed</c> and <c>excessive-remaining</c>
     /// each make the server send a deliberately broken or refusing packet and are not implemented;
-    /// and Surl's own SCP, SFTP and SMB servers, which serve the case's files (BL-397) and to
-    /// which FILEFORMAT gives none.
+    /// Surl's own SCP, SFTP and SMB servers, which serve the case's files (BL-397) and to
+    /// which FILEFORMAT gives none; and the <c>httptls+srp</c> server half, which answers every
+    /// request with gnutls-serv's page (<see cref="UpstreamTestCaseGnuTlsServPage"/>, BL-568), as
+    /// gnutls-serv takes no commands.
     /// </summary>
     public static readonly IReadOnlySet<string> None = new HashSet<string>(StringComparer.Ordinal);
 
@@ -55,6 +57,29 @@ public static class UpstreamTestCaseServerCommands
         ["Testnum", "REPLY", "REPLYLF", "COUNT", "CAPA", "AUTH", "POSTFETCH"],
         StringComparer.Ordinal);
 
+    /// <summary>
+    /// The HTTP proxy server halves' commands (BL-556), the same words
+    /// <c>Surl.Protocol.HttpProxy</c>'s <c>HttpProxyUpstreamTestCaseReplies.SupportedServerCommands</c>
+    /// accepts: only <c>Testnum</c>, since none of the cases naming <c>http-proxy</c> or
+    /// <c>https-proxy</c> at the tag has another.
+    /// </summary>
+    public static readonly IReadOnlySet<string> HttpProxy = new HashSet<string>(["Testnum"], StringComparer.Ordinal);
+
+    /// <summary>
+    /// The SOCKS server halves' commands (BL-562), the words upstream's <c>socksd</c> reads and
+    /// <c>Surl.Protocol.Socks</c>'s <c>SocksUpstreamTestCaseReplies</c> accepts.
+    /// </summary>
+    public static readonly IReadOnlySet<string> Socks = new HashSet<string>(
+        ["Testnum", "response", "method", "user", "password", "backendport"], StringComparer.Ordinal);
+
+    /// <summary>
+    /// The DNS server half's lines (BL-570, ADR-0123): <c>Testnum</c> and the names of the
+    /// <c>&lt;reply&gt;&lt;dns&gt;</c> lines <c>Surl.Extended.Protocol.DnsQuery</c>'s
+    /// <c>DnsQueryUpstreamTestCaseReplies.SupportedLineNames</c> accepts, <c>A</c> and <c>AAAA</c>.
+    /// <c>HTTPS</c> and the <c>Delay-</c> lines are not.
+    /// </summary>
+    public static readonly IReadOnlySet<string> Dns = new HashSet<string>(["Testnum", "A", "AAAA"], StringComparer.Ordinal);
+
     /// <summary>The name a case's <c>&lt;postcmd&gt;</c> is checked under; no server half implements it.</summary>
     public const string PostCommand = "postcmd";
 
@@ -64,6 +89,11 @@ public static class UpstreamTestCaseServerCommands
         ["http-ipv6"] = Http,
         ["https"] = Http,
         ["https-mtls"] = Http,
+        ["http-proxy"] = HttpProxy,
+        ["https-proxy"] = HttpProxy,
+        ["socks4"] = Socks,
+        ["socks5"] = Socks,
+        ["socks5unix"] = Socks,
         ["ftp"] = Ftp,
         ["ftp-ipv6"] = Ftp,
         ["ftps"] = Ftp,
@@ -81,6 +111,9 @@ public static class UpstreamTestCaseServerCommands
         ["imap"] = Mail,
         ["pop3"] = Mail,
         ["smtp"] = Mail,
+        ["httptls+srp"] = None,
+        ["httptls+srp-ipv6"] = None,
+        ["dns"] = Dns,
     };
 
     /// <summary>

@@ -387,6 +387,27 @@ public sealed class RedisPubSubTests
     }
 
     [TestMethod]
+    public async Task TopicMap_ARedisChannelAlias_ReachesTheMappedTopicAndComesBackAsTheChannel()
+    {
+        var maps = new MessageBusConfiguration { TopicMaps = [new TopicMap("redis", "orders", "mqtt", "shop/orders")] };
+        var server = new RedisTestServer(bus: new MessageBus.MessageBus(TimeProvider.System, configuration: maps));
+        var subscriber = await server.OpenAsync(Token, Command("SUBSCRIBE", "orders"), Command("PSUBSCRIBE", "ord*"));
+
+        var fromMqtt = server.Bus.Publish(new BusMessage("shop/orders", "x"u8.ToArray()));
+        var unreachable = server.Bus.Publish(new BusMessage("orders", "y"u8.ToArray()));
+        var fromRedis = await server.SendAsync(Token, Command("PUBLISH", "orders", "z"));
+        var received = await subscriber.CloseAsync();
+
+        Assert.AreEqual(2, fromMqtt.DeliveredSubscriptionCount);
+        Assert.AreEqual(1, unreachable.DeliveredSubscriptionCount);
+        Assert.AreEqual(":2\r\n", fromRedis);
+        Assert.EndsWith(
+            "*3\r\n$7\r\nmessage\r\n$6\r\norders\r\n$1\r\nx\r\n*4\r\n$8\r\npmessage\r\n$4\r\nord*\r\n$6\r\norders\r\n$1\r\nx\r\n"
+            + "*3\r\n$7\r\nmessage\r\n$6\r\norders\r\n$1\r\nz\r\n*4\r\n$8\r\npmessage\r\n$4\r\nord*\r\n$6\r\norders\r\n$1\r\nz\r\n",
+            received);
+    }
+
+    [TestMethod]
     public async Task Publish_ThroughTwoServersOnOneBus_ReachesTheOtherServersSubscriber()
     {
         var bus = new MessageBus.MessageBus(TimeProvider.System);

@@ -129,12 +129,13 @@ internal abstract class SaslMechanismExchange : ISaslExchange
     /// <param name="user">The user as the note names it.</param>
     /// <param name="cancellationToken">Cancels the delay.</param>
     /// <param name="refusalNote">Why, for the verbose log after the login note; <see langword="null"/> for no reason.</param>
+    /// <param name="checkStartedAt">When the check started, so the delay is counted from it; <see langword="null"/> for the whole delay.</param>
     /// <returns>The step.</returns>
     protected async ValueTask<SaslLoginStep> RefuseAsync(
-        string? user, CancellationToken cancellationToken, string? refusalNote = null)
+        string? user, CancellationToken cancellationToken, string? refusalNote = null, DateTimeOffset? checkStartedAt = null)
     {
         var refused = RefusedNote(user);
-        await Context.WaitRefusalDelayAsync(cancellationToken).ConfigureAwait(false);
+        await Context.WaitRefusalDelayAsync(cancellationToken, checkStartedAt).ConfigureAwait(false);
 
         return new SaslLoginStep(SaslLoginOutcome.RefusedCredentials, ReadOnlyMemory<byte>.Empty, null, refused, refusalNote);
     }
@@ -167,15 +168,15 @@ internal abstract class SaslMechanismExchange : ISaslExchange
     {
         var policy = Context.Policy;
         if (!judged.IsAccepted
-            || !await policy.IsRefusedByFaultAsync(Context.Scheme, judgedAccountName!, cancellationToken).ConfigureAwait(false))
+            || !await policy.IsRefusedByFaultAsync(Context.Scheme, judgedAccountName!, Context.Exchange, cancellationToken).ConfigureAwait(false))
         {
-            policy.PublishJudgedLogin(Context.Scheme, judged.User, judged.Method, judged.IsAccepted, false);
+            policy.PublishJudgedLogin(Context.Scheme, judged.User, judged.Method, judged.IsAccepted, false, Context.Exchange);
             return step;
         }
 
         var refused = await RefuseByFaultAsync(judged.User, cancellationToken).ConfigureAwait(false);
         judgedLogin = null;
-        policy.PublishJudgedLogin(Context.Scheme, judged.User, judged.Method, false, true);
+        policy.PublishJudgedLogin(Context.Scheme, judged.User, judged.Method, false, true, Context.Exchange);
 
         return refused;
     }

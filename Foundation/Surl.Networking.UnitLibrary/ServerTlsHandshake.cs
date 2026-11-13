@@ -56,7 +56,7 @@ internal sealed class ServerTlsHandshake
     /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> cut the handshake off.</exception>
     public Task<(Stream Stream, TlsSession Session)> AuthenticateAsync(Stream transport, CancellationToken cancellationToken) =>
         settings.TlsSrpAccounts is { } accounts
-            ? AuthenticateTlsSrpAsync(new TlsSrpServer(accounts, settings.TlsSrpRandom!), transport, cancellationToken)
+            ? AuthenticateTlsSrpAsync(new TlsSrpServer(accounts, settings.TlsSrpRandom!, settings.TlsSrpCertificate), transport, cancellationToken)
             : AuthenticateSslStreamAsync(transport, cancellationToken);
 
     private static async Task<(Stream Stream, TlsSession Session)> AuthenticateTlsSrpAsync(

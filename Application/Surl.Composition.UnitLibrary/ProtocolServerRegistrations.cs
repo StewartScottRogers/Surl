@@ -64,7 +64,7 @@ public static class ProtocolServerRegistrations
         ProtocolServerRegistration.ImplicitTls("smtps", "smtp"),
         new(["scp"], services => ComposeSshServer(services, "scp")),
         new(["sftp"], services => ComposeSshServer(services, "sftp")),
-        new(["socks4", "socks4a", "socks5", "socks5h"], services => new SocksProtocolServer(services.OriginConnector!, services.ProxyAuthenticationPolicy)),
+        new(["socks4", "socks4a", "socks5", "socks5h"], services => new SocksProtocolServer(services.OriginConnector!, services.ProxyAuthenticationPolicy, services.SocksGssApiLogin)),
         new(["telnet"], _ => new TelnetProtocolServer()),
         new(["tftp"], services => new TftpProtocolServer(services.ContentStore)),
         new(["ws"], services => new WsProtocolServer(services.ContentStore, services.AuthenticationPolicyFor("ws"), services.EchoesWebSocketMessages)),

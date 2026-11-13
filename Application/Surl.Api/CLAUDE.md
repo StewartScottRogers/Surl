@@ -93,6 +93,19 @@ measures it by name.
   a `-` config file is an `ArgumentException`; every grammar refusal is `surl`'s, from the parser.
   Config files are read by `ApiConfigFileSource` through `ReadStartFile` (disk when null). Share
   directories are probed with the host's `CanOpenDataDirectory`.
+- A test's own protocol servers (BL-813, ADR-0124 decision 2): `SurlServerOptions.ProtocolServers` holds
+  `SurlProtocolServer(Scheme, Create)` records; `Create` takes `SurlProtocolServices` (the content store, mail
+  store, message bus, `AuthenticationPolicy` and `TimeProvider` of `ComposedProtocolServices`). `CustomProtocolServers.Of`
+  refuses (as `ArgumentException`) a scheme in `SchemeDefaultPorts`, `ExtendedSchemeDefaultPorts` or either
+  registration list, a duplicate or a non-URI scheme, takes each listen URL whose text before `://` names a custom
+  scheme out of what `Surl.Cli` parses, reads it with `System.Uri` (port required, no user, path, query or
+  fragment; IPv6 brackets removed) into a `ListenUrl`, and hands one `AdditionalProtocolServer` per custom server to
+  the composition. With no built-in listen URL left, `surl` parses `http://127.0.0.1:0` and the parsed command line's
+  `ListenUrls` is emptied. `BoundUrls` is put back in the order given (`InOrderGiven`), since the composition serves
+  custom listen URLs last. A fault rule scoped to a custom listener or scheme is read by `surl`'s reader with a
+  stand-in (`http://127.0.0.1:0`, `http`) and gets its own scope back (`WithScopeOf` at start, `Read` while
+  serving); an `error` rule scoped so is refused, having no reply shape, as is any custom scope in
+  `AdditionalArguments` (`surl`'s reader refuses it).
 - `SurlServerHostSeams.ReadStartFile` is handed to the composition's `ReadStartFile`, so tests
   give the `--user-file` and `--hostkey` files in memory (`ApiTestSeams.StartFiles`). The
   `--cert`, `--key` and `--cacert` files are still read from disk by `ServerTlsComposition`.

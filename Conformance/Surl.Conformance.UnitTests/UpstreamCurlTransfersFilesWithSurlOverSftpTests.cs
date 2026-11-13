@@ -347,6 +347,28 @@ public sealed class UpstreamCurlTransfersFilesWithSurlOverSftpTests
 
     private static DateTime WholeSeconds(DateTime time) => time.AddTicks(-(time.Ticks % TimeSpan.TicksPerSecond));
 
+    [TestMethod]
+    public async Task Download_ChosenErrorStatus3_Exits9()
+    {
+        await using var surl = await StartSurlAsync("--fault", "error;scheme=sftp;path=/a.txt;reply=3 No");
+
+        var result = await RunCurlAsync(surl, surl.UrlOf("a.txt"));
+
+        Assert.AreEqual(9, result.ExitCode, result.StandardError);
+    }
+
+    [TestMethod]
+    public async Task Upload_ChosenErrorStatus2_Exits78AndStoresNothing()
+    {
+        await using var surl = await StartSurlAsync("--allow-uploads", "--fault", "error;scheme=sftp;path=/new.txt;reply=2 No");
+        var upload = await WriteUploadAsync();
+
+        var result = await RunCurlAsync(surl, "-T", upload, surl.UrlOf("new.txt"));
+
+        Assert.AreEqual(78, result.ExitCode, result.StandardError);
+        Assert.IsFalse(File.Exists(ServedPath(surl, "new.txt")));
+    }
+
     private static string ServedPath(SurlOnLoopback surl, string relativePath) =>
         Path.Combine(surl.ServedDirectory!, relativePath);
 

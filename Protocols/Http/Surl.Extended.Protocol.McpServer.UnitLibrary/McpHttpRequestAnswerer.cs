@@ -46,7 +46,7 @@ internal sealed class McpHttpRequestAnswerer : IHttpRequestHandler
     public McpHttpRequestAnswerer(McpHttpServerSettings settings, IAuthenticationPolicy policy, ExchangeContext context, TlsSession? tlsSession)
     {
         _settings = settings;
-        _authentication = policy.StartHttpConnection(tlsSession);
+        _authentication = policy.StartHttpConnection(tlsSession, LoginExchange.Of(context));
         _context = context;
         _httpScheme = tlsSession is null ? "http" : "https";
         _writer = new McpHttpAnswerWriter(context.TimeProvider);

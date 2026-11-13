@@ -10,7 +10,7 @@ namespace Surl.Cli;
 /// by the first space. Of the extended schemes, <c>coap</c>, <c>mcp</c> and <c>signalr</c> and
 /// their secure twins have rows (ADR-0144), as do <c>s3</c>, <c>az</c>, <c>abfs</c>, <c>abfss</c>
 /// and <c>gs</c> (BL-983), and <c>dns</c>, <c>redis</c> and <c>rediss</c> (BL-986), and <c>amqp</c>, <c>amqp1</c>, <c>kafka</c>,
-/// <c>mqtt5</c> and <c>nats</c> with their secure twins (BL-1015, ADR-0124 decision 9); the others have none yet (BL-834).
+/// <c>mqtt5</c> and <c>nats</c> with their secure twins (BL-1015, ADR-0124 decision 9), and <c>socks4</c>, <c>socks4a</c>, <c>socks5</c> and <c>socks5h</c> (BL-1061), and <c>stomp</c> and <c>stomps</c> (BL-1062), and <c>xmpp</c> and <c>xmpps</c> (BL-1063), and <c>socketio</c> and <c>socketios</c> (BL-1064), and <c>webtransport</c> (BL-1065); the others have none yet (BL-834).
 /// </summary>
 internal static class FaultReplyShapes
 {
@@ -54,17 +54,28 @@ internal static class FaultReplyShapes
         ["redis"] = IsText,
         ["rediss"] = IsText,
         ["rtsp"] = reply => IsCodeWithOptionalText(reply, 400, 599),
+        ["stomp"] = IsText,
+        ["stomps"] = IsText,
         ["signalr"] = IsText,
         ["signalrs"] = IsText,
+        ["socketio"] = IsText,
+        ["socketios"] = IsText,
         ["s3"] = IsObjectStoreError,
         ["scp"] = IsText,
         ["sftp"] = reply => IsCodeWithText(reply, 2, 8),
         ["smb"] = IsNtStatusError,
         ["smbs"] = IsNtStatusError,
+        ["socks4"] = reply => IsSocksReplyCode(reply, 91, 93),
+        ["socks4a"] = reply => IsSocksReplyCode(reply, 91, 93),
+        ["socks5"] = reply => IsSocksReplyCode(reply, 1, 8),
+        ["socks5h"] = reply => IsSocksReplyCode(reply, 1, 8),
         ["smtp"] = reply => IsCodeWithText(reply, 400, 599),
         ["smtps"] = reply => IsCodeWithText(reply, 400, 599),
         ["telnet"] = IsText,
+        ["xmpp"] = IsXmppStanzaErrorCondition,
+        ["xmpps"] = IsXmppStanzaErrorCondition,
         ["tftp"] = reply => IsCodeWithText(reply, 0, 7),
+        ["webtransport"] = reply => IsCodeWithOptionalText(reply, 400, 599),
         ["ws"] = IsWebSocketClose,
         ["wss"] = IsWebSocketClose,
     }.ToFrozenDictionary(StringComparer.Ordinal);
@@ -125,6 +136,17 @@ internal static class FaultReplyShapes
     private static bool IsLdapResult(string reply) =>
         IsCodeWithText(reply, 1, 80) && TrySplitCode(reply, out var code, out _) && code is not (10 or 14);
 
+    /// <summary>A stanza error condition of RFC 6120 section 8.3.3, alone (BL-1063).</summary>
+    private static bool IsXmppStanzaErrorCondition(string reply) => XmppStanzaErrorConditions.Contains(reply);
+
+    private static readonly FrozenSet<string> XmppStanzaErrorConditions = new[]
+    {
+        "bad-request", "conflict", "feature-not-implemented", "forbidden", "gone", "internal-server-error", "item-not-found", "jid-malformed",
+        "not-acceptable", "not-allowed", "not-authorized", "policy-violation", "recipient-unavailable", "redirect", "registration-required",
+        "remote-server-not-found", "remote-server-timeout", "resource-constraint", "service-unavailable", "subscription-required",
+        "undefined-condition", "unexpected-request",
+    }.ToFrozenSet(StringComparer.Ordinal);
+
     /// <summary>A DNS RCODE 1 to 5 (FORMERR to REFUSED), a single digit, alone.</summary>
     private static bool IsDnsResponseCode(string reply) => reply.Length == 1 && reply[0] is >= '1' and <= '5';
 
@@ -157,6 +179,10 @@ internal static class FaultReplyShapes
 
     /// <summary>NATS <c>-ERR</c> text with no apostrophe, carriage return or line feed (BL-1031); the reply is never empty.</summary>
     private static bool IsNatsErrorText(string reply) => reply.IndexOfAny(['\'', '\r', '\n']) < 0;
+
+    /// <summary>A SOCKS reply code alone: SOCKS4's 91 to 93, SOCKS5's <c>REP</c> 1 to 8 (BL-1061).</summary>
+    private static bool IsSocksReplyCode(string reply, int lowest, int highest) =>
+        TrySplitCode(reply, out var code, out var text) && text is null && code >= lowest && code <= highest;
 
     /// <summary>An MQTT 5 reason code 128 to 255, alone.</summary>
     private static bool IsMqttReasonCode(string reply) =>

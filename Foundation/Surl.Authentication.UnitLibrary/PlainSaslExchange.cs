@@ -23,23 +23,24 @@ internal sealed class PlainSaslExchange(SaslExchangeContext context) : SaslMecha
             return ValueTask.FromResult(Challenge(ReadOnlyMemory<byte>.Empty));
         }
 
-        return Context.IsUnchecked ? ValueTask.FromResult(AcceptedUnchecked) : CheckAsync(message.Span, cancellationToken);
+        return Context.IsUnchecked ? ValueTask.FromResult(AcceptedUnchecked) : CheckAsync(message, cancellationToken);
     }
 
     // The password is always compared, so a refused authzid costs what a wrong password does.
-    private ValueTask<SaslLoginStep> CheckAsync(ReadOnlySpan<byte> message, CancellationToken cancellationToken)
+    private async ValueTask<SaslLoginStep> CheckAsync(ReadOnlyMemory<byte> message, CancellationToken cancellationToken)
     {
-        if (!TrySplit(message, out var authzid, out var authcid, out var passwordStart))
+        var checkStartedAt = Context.Policy.StartCheck();
+        if (!TrySplit(message.Span, out var authzid, out var authcid, out var passwordStart))
         {
-            return RefuseAsync(null, cancellationToken);
+            return await RefuseAsync(null, cancellationToken, checkStartedAt: checkStartedAt).ConfigureAwait(false);
         }
 
         var user = authcid.Length > 0 ? authcid : null;
-        var matches = Context.Accounts.CheckPassword(authcid, message[passwordStart..]);
+        var matches = await Context.CheckPasswordAsync(authcid, message[passwordStart..], cancellationToken).ConfigureAwait(false);
 
         return matches && (authzid.Length == 0 || authzid == authcid)
-            ? ValueTask.FromResult(Accept(authcid, user))
-            : RefuseAsync(user, cancellationToken);
+            ? Accept(authcid, user)
+            : await RefuseAsync(user, cancellationToken, checkStartedAt: checkStartedAt).ConfigureAwait(false);
     }
 
     // authzid NUL authcid NUL passwd: exactly two NULs, and both identities UTF-8.

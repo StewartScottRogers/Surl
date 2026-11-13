@@ -100,7 +100,7 @@ internal sealed class OciRequestAnswerer(ContentStore store, OciServerState stat
             return await new OciWriteAnswerer(store, state, context).AnswerAsync(reply, request, target, checkedAccess.Token!, cancellationToken);
         }
 
-        if (OciRepository.Open(store, checkedAccess.Caller, target.Name, context.Log) is not { } repository)
+        if (OciRepository.Open(store, checkedAccess.Caller, target.Name, context.Log, state.MetadataIndex) is not { } repository)
         {
             return reply.Error(OciError.NameUnknown);
         }

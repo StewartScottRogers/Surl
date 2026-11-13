@@ -6,7 +6,7 @@ in ADR-0121 (decisions 1 to 4 and 6). Built by BL-558 (SOCKS4 and SOCKS4a) and B
 SOCKS5h and RFC 1929 accounts). BL-560 composes it in `Surl.Composition`
 (`ProtocolServerRegistrations.Original`, over `ComposedProtocolServices.OriginConnector` and
 `ProxyAuthenticationPolicy`), so `surl socks5://127.0.0.1:1080` and `-x socks5://...` serve it; the Unix
-domain socket (BL-561) and the upstream cases' server half (BL-562) are still to come. GSS-API (BL-765, ADR-0121 amendment 2) is built but no command-line option hands the server a keytab yet.
+domain socket (BL-561) is still to come; the upstream cases' server half is built (BL-562, below). GSS-API (BL-765, ADR-0121 amendment 2) is built but no command-line option hands the server a keytab yet.
 
 **Listen URL schemes:** `socks4`, `socks4a` - both serve SOCKS4 and SOCKS4a alike, and answer a
 SOCKS5 greeting `05 FF`; `socks5`, `socks5h` - both serve SOCKS5 with every address type, and
@@ -28,6 +28,7 @@ What exists:
   RFC 1929 reply's bytes. `SocksProxyAccounts` - whether a client may proceed without an account
   (no accounts, or the policy accepts an anonymous login unchecked: `--allow-anonymous`).
 - `SocksGssApiLogin` - the Kerberos acceptor and service name that let a SOCKS5 listener select method `01`; `Socks5GssApiNegotiation` runs RFC 1961's two messages (context token, protection level) and answers `01 FF` on any failure.
+- `SocksUpstreamTestCaseServer` and `SocksUpstreamTestCaseReplies` (BL-562) - the test seam `Surl.Conformance.UnitTests` composes for upstream test cases whose `<server>` names `socks4`, `socks5` or `socks5unix`: `SocksProtocolServer` over a connector that reaches only `127.0.0.1` (at the request's port, or the case's `backendport`) or fails as the case's `response` says, and, for `method 2`, accounts that accept the case's `user`/`password`. Any other `<servercmd>` word is `servercmd-unsupported:<word>`. Never compose it into the shipped `surl`.
 - `SocksClientReader` - byte reads that keep any bytes curl sent after the request for the relay.
   `SocksRelay` - the two-way byte relay with half-closes.
 

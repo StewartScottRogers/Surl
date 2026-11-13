@@ -612,6 +612,111 @@ public sealed class XmppStanzaRouterTests
         await juliet.Serving;
     }
 
+    // BL-1063 (ADR-0124 decisions 4 and 9): a stanza an error rule matches is answered with the rule's condition.
+    private static FaultRule StanzaRule(FaultKind kind, string? reply = null, string command = "message") =>
+        new("f1", kind) { Scheme = "xmpp", Command = command, Path = "romeo@im.example.com/orchard", Reply = reply, DelayMilliseconds = kind == FaultKind.Delay ? 1 : null };
+
+    private const string ChatToRomeo = "<message to='romeo@im.example.com/orchard' type='chat' id='m1'><body>Hi</body></message>";
+
+    [TestMethod]
+    public async Task AnswerAsync_StanzaUnderAnErrorRule_GetsTheChosenConditionAndIsNotDelivered()
+    {
+        var faults = new ScriptedFaultPlan(StanzaRule(FaultKind.Error, "recipient-unavailable"));
+        var events = new RecordingSurlEventPublisher();
+        var server = NewServer();
+        var juliet = await OpenAsync(server, "juliet", "balcony", faults: faults, events: events);
+        var romeo = await OpenAsync(server, "romeo", "orchard");
+
+        var answers = await SendAsync(juliet, ChatToRomeo);
+
+        Assert.AreEqual(
+            "<message to=\"juliet@im.example.com/balcony\" type=\"error\" id=\"m1\" from=\"romeo@im.example.com/orchard\" xmlns=\"jabber:client\">" +
+            $"<error type=\"wait\"><recipient-unavailable {Stanzas} /></error></message>",
+            answers);
+        Assert.AreEqual(string.Empty, Received(romeo));
+        Assert.AreEqual(new FaultAppliedEvent("f1", FaultKind.Error, FaultStage.Command, 1, "romeo@im.example.com/orchard"), events.Events.Single());
+        Assert.AreEqual(
+            new FaultPoint(FaultStage.Command)
+            {
+                ExchangeId = 1, ListenUrl = "xmpp://im.example.com:5222/", Scheme = "xmpp", Account = "juliet", Path = "romeo@im.example.com/orchard", Command = "message",
+            },
+            faults.Points.First());
+        await CloseAsync(juliet, romeo);
+    }
+
+    [TestMethod]
+    public async Task AnswerAsync_StanzaTheRuleDoesNotName_IsServed()
+    {
+        var events = new RecordingSurlEventPublisher();
+        var server = NewServer();
+        var juliet = await OpenAsync(server, "juliet", "balcony", faults: new ScriptedFaultPlan(StanzaRule(FaultKind.Error, "forbidden", "presence")), events: events);
+        var romeo = await OpenAsync(server, "romeo", "orchard");
+
+        await SendAsync(juliet, ChatToRomeo);
+
+        StringAssert.Contains(Received(romeo), "<body>Hi</body>");
+        Assert.IsEmpty(events.Events);
+        await CloseAsync(juliet, romeo);
+    }
+
+    [TestMethod]
+    public async Task AnswerAsync_StanzaWithNoToUnderADelayRule_IsServedAfterTheHold()
+    {
+        var events = new RecordingSurlEventPublisher();
+        var rule = new FaultRule("f1", FaultKind.Delay) { Command = "presence", DelayMilliseconds = 1 };
+        var server = NewServer();
+        var clock = new ManualTimeProvider();
+        var juliet = await OpenAsync(server, "juliet", "balcony", faults: new ScriptedFaultPlan(rule), events: events, clock: clock);
+
+        juliet.Connection.Send("<presence/>");
+        await WaitUntilAsync(() => events.Events.Count == 1);
+        clock.Advance(TimeSpan.FromMilliseconds(1));
+        await SendAsync(juliet, string.Empty);
+
+        Assert.AreEqual(new FaultAppliedEvent("f1", FaultKind.Delay, FaultStage.Command, 1, "presence"), events.Events.Single());
+        await CloseAsync(juliet);
+    }
+
+    [TestMethod]
+    public async Task AnswerAsync_StanzaUnderADropRule_EndsTheConnection()
+    {
+        var events = new RecordingSurlEventPublisher();
+        var server = NewServer();
+        var juliet = await OpenAsync(server, "juliet", "balcony", faults: new ScriptedFaultPlan(StanzaRule(FaultKind.Drop)), events: events);
+
+        juliet.Connection.Send(ChatToRomeo);
+        await juliet.Serving;
+
+        Assert.AreEqual(FaultKind.Drop, events.Events.OfType<FaultAppliedEvent>().Single().Kind);
+    }
+
+    [TestMethod]
+    [DataRow(FaultKind.Error, "teapot", "its reply does not fit the xmpp error shape")]
+    [DataRow(FaultKind.Error, null, "its reply does not fit the xmpp error shape")]
+    [DataRow(FaultKind.RefuseLogin, null, "a RefuseLogin rule is not applied at a stanza")]
+    public async Task AnswerAsync_StanzaUnderARuleThatDoesNotFit_IsServedAndNoted(FaultKind kind, string? reply, string why)
+    {
+        var events = new RecordingSurlEventPublisher();
+        var server = NewServer();
+        var juliet = await OpenAsync(server, "juliet", "balcony", faults: new ScriptedFaultPlan(StanzaRule(kind, reply)), events: events);
+        var romeo = await OpenAsync(server, "romeo", "orchard");
+
+        await SendAsync(juliet, ChatToRomeo);
+
+        StringAssert.Contains(Received(romeo), "<body>Hi</body>");
+        Assert.IsEmpty(events.Events);
+        CollectionAssert.Contains(juliet.Log.Notes.ToList(), $"Fault rule f1 not applied to message: {why}.");
+        await CloseAsync(juliet, romeo);
+    }
+
+    [TestMethod]
+    [DataRow("bad-request", "modify")]
+    [DataRow("forbidden", "auth")]
+    [DataRow("service-unavailable", "cancel")]
+    [DataRow("resource-constraint", "wait")]
+    [DataRow("nonsense", null)]
+    public void TypeOf_Reply_IsTheTypeRfc6120Gives(string reply, string? type) => Assert.AreEqual(type, XmppStanzaFaults.TypeOf(reply));
+
     // Accepts any user over PLAIN in plain text, as the account the message names.
     private static XmppServer NewServer() => new(new XmppServerOptions
     {
@@ -626,7 +731,8 @@ public sealed class XmppStanzaRouterTests
         },
     });
 
-    private async Task<TestStream> OpenAsync(XmppServer server, string user, string resource, ExchangeLimits? limits = null)
+    private async Task<TestStream> OpenAsync(
+        XmppServer server, string user, string resource, ExchangeLimits? limits = null, IFaultPlan? faults = null, ISurlEventPublisher? events = null, TimeProvider? clock = null)
     {
         var connection = new UnitTestXmppClientConnection();
         var log = new RecordingExchangeLog();
@@ -636,10 +742,12 @@ public sealed class XmppStanzaRouterTests
             new IPEndPoint(IPAddress.Loopback, 5222),
             new IPEndPoint(IPAddress.Loopback, 50000),
             log,
-            new ManualTimeProvider(),
+            clock ?? new ManualTimeProvider(),
             TestContext.CancellationToken)
         {
             Limits = limits ?? ExchangeLimits.Default,
+            Faults = faults ?? EmptyFaultPlan.Instance,
+            Events = events ?? DiscardingSurlEventPublisher.Instance,
         };
         var serving = server.ServeAsync(connection, context);
         connection.Send(ClientHeader + Auth("PLAIN", Base64($"\0{user}\0pencil")));

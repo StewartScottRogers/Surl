@@ -15,4 +15,10 @@ namespace Surl.Conformance;
 /// <c>HTTPUNIXPATH</c> for <c>http-unix</c>, <c>SOCKSUNIXPATH</c> for <c>socks5unix</c> - or
 /// <see langword="null"/> for a server that listens on a port.
 /// </param>
-public sealed record UpstreamTestCaseServer(string Name, string Protocol, bool IsBuilt, string? UnixSocketPathVariable = null);
+/// <param name="PortVariable">
+/// The variable, without the <c>%</c>, a case names the port a server listens on with -
+/// <c>PROXYPORT</c> for <c>http-proxy</c>, <c>HTTPTLSPORT</c> for <c>httptls+srp</c> - or
+/// <see langword="null"/> for a row whose port variable the run names elsewhere.
+/// </param>
+public sealed record UpstreamTestCaseServer(
+    string Name, string Protocol, bool IsBuilt, string? UnixSocketPathVariable = null, string? PortVariable = null);

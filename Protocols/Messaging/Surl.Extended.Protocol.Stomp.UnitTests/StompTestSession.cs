@@ -50,11 +50,15 @@ internal sealed partial class StompTestSession
         ExchangeLimits? limits = null,
         string connect = AliceConnect12,
         int failWritesAfter = int.MaxValue,
+        IFaultPlan? faults = null,
+        ISurlEventPublisher? events = null,
         CancellationToken cancellation = default)
     {
         var log = new RecordingExchangeLog();
         var connection = new UnitTestStompClientConnection { FailWritesAfter = failWritesAfter };
         var context = Context(clock ?? TimeProvider.System, log, cancellation) with { Limits = limits ?? ExchangeLimits.Default };
+        context = faults is null ? context : context with { Faults = faults };
+        context = events is null ? context : context with { Events = events };
         var serving = new StompServer(new UnitTestStompAuthenticationPolicy(), bus, options).ServeAsync(connection, context);
         var session = new StompTestSession(connection, serving, log);
         connection.Send(connect);

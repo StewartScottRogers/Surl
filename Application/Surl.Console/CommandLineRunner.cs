@@ -70,6 +70,14 @@ namespace Surl.Console;
 /// a <see cref="DiskConfigFileSource"/> over the disk and standard input when <see langword="null"/>,
 /// which is what <c>surl</c> passes.
 /// </param>
+/// <param name="openStandardInput">
+/// Opens the stream <c>mcp+stdio:</c> reads its client's messages from (ADR-0111 decision 5);
+/// <see cref="System.Console.OpenStandardInput()"/> when <see langword="null"/>, which is what <c>surl</c> passes.
+/// </param>
+/// <param name="openStandardOutput">
+/// Opens the stream <c>mcp+stdio:</c> writes only MCP messages to;
+/// <see cref="System.Console.OpenStandardOutput()"/> when <see langword="null"/>, which is what <c>surl</c> passes.
+/// </param>
 internal sealed class CommandLineRunner(
     Func<ServerTlsSettings?, IListenerFactory> createListenerFactory,
     Func<string, bool> canOpenDataDirectory,
@@ -81,8 +89,15 @@ internal sealed class CommandLineRunner(
     Func<ServerTlsSettings?, IDataConnectionOpener>? createDataConnectionOpener = null,
     IEnvironmentVariableReader? environmentVariables = null,
     Func<ExtendedProtocolServerServices, IReadOnlyList<IProtocolServer>>? composeExtendedProtocolServers = null,
-    IConfigFileSource? configFiles = null)
+    IConfigFileSource? configFiles = null,
+    Func<Stream>? openStandardInput = null,
+    Func<Stream>? openStandardOutput = null)
 {
+    // mcp+stdio: serves one MCP session on these streams (ADR-0111 decision 5); tests pass in-memory ones.
+    private readonly Func<Stream> openStandardInput = openStandardInput ?? System.Console.OpenStandardInput;
+
+    private readonly Func<Stream> openStandardOutput = openStandardOutput ?? System.Console.OpenStandardOutput;
+
     // -K/--config files are read while parsing (ADR-0101 decision 1).
     private readonly IConfigFileSource configFiles = configFiles ?? new DiskConfigFileSource(System.Console.OpenStandardInput, fileNamesIgnoreCase: !OperatingSystem.IsLinux());
 
@@ -224,12 +239,31 @@ internal sealed class CommandLineRunner(
             ComposeExtendedProtocolServers = composeExtendedProtocolServers,
         };
 
+    // mcp+stdio: standard output carries only MCP messages, so the log goes to standard error alone (ADR-0111 decision 5).
+    private async Task<SurlExitCode> ServeMcpStdioAsync(
+        SurlCommandLine commandLine, TextWriter error, CancellationToken cancellationToken)
+    {
+        if (McpStdioComposition.FindRefusal(commandLine) is { } refusal)
+        {
+            return WriteFailure(error, refusal);
+        }
+
+        await McpStdioComposition.ServeAsync(
+            commandLine, timeProvider, openStandardInput(), openStandardOutput(), error, cancellationToken);
+        return SurlExitCode.Ok;
+    }
+
     // The ordered start runs in Surl.Composition up to server TLS; then the log streams open, and a
     // file that cannot be opened ends surl with 23 and releases the lock; then the serving writes the
     // start-up warnings and serves (ADR-0099, decision 2).
     private async Task<SurlExitCode> ServeAsync(
         SurlCommandLine commandLine, TextWriter output, TextWriter error, CancellationToken cancellationToken)
     {
+        if (McpStdioComposition.IsAsked(commandLine))
+        {
+            return await ServeMcpStdioAsync(commandLine, error, cancellationToken);
+        }
+
         var start = await SurlServerComposition.ComposeAsync(commandLine, ComposeSeams(), cancellationToken);
         if (start.Failure is { } failure)
         {

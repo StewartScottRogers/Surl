@@ -60,7 +60,7 @@ internal sealed class KafkaSaslLogin(ISaslAuthenticationPolicy policy, string me
         SaslLoginStep step;
         if (exchange is null)
         {
-            exchange = policy.StartSaslExchange(new SaslExchangeStart(context.Scheme, Mechanism, clientMessage, state.TlsSession));
+            exchange = policy.StartSaslExchange(new SaslExchangeStart(context.Scheme, Mechanism, clientMessage, state.TlsSession, Exchange: LoginExchange.Of(context)));
             step = await exchange.BeginAsync(context.CancellationToken);
         }
         else

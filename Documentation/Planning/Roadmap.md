@@ -208,6 +208,78 @@ task board in `Tasks/`, never here.
   Surl) and ADR-0089 (how Phase 7 measures it: the normalisation, the verdicts, the findings,
   the handoff and the single port commit).
 
+## Track — Extended servers
+
+A parallel track, not a phase after Phase 7 (ADR-0083 decision 10): it waited only on the shared
+groundwork and, per server, on the Phase 6 pieces it rides (gRPC on HTTP/2, WebTransport on HTTP/3
+and QUIC, `coaps` on DTLS).
+
+- **Status:** Built (2026-11-12): all 19 `Surl.Extended.Protocol.*` servers exist and are composed
+  by `ExtendedProtocolServers`; `coaps` is composed as a deferred server. Not closed: the Curl port's
+  client has run against 4 of them (`socketio`, `webtransport`, `coap`, `xmpp`) in the first
+  Phase 7 pass, and a matrix row's "Covered by" may still name a task.
+- **Delivers:** `Surl.Extended.Protocol.<Name>` for S3, AzureStorage, GoogleCloudStorage,
+  OciRegistry, Grpc, SignalR, SocketIo, WebTransport, McpServer, Coap, DnsQuery, Mqtt5, Amqp0, Amqp1,
+  Kafka, Nats, Stomp, Xmpp and Redis; the switch `SURL_EXTENSIONS=0`; the extended default-port
+  table; the `extended` `--aihelp` topic; the Curl port client pin; a requirement matrix per server
+  in `Documentation/Conformance/Extended/`. Plugin is skipped (ADR-0083 decision 5).
+- **Tasks:** the groundwork BL-400 to BL-407, then each server's tasks, ending with the integration
+  tasks BL-422, BL-428, BL-434, BL-440, BL-446, BL-451, BL-456, BL-462, BL-469, BL-477, BL-486,
+  BL-493, BL-502, BL-508, BL-515, BL-523, BL-529, BL-534 and BL-541, and this document task, BL-542.
+- **Exit criteria:** pinned upstream curl is not involved. Each server's unit tests replay bytes
+  written from its specification, and the Curl port's pinned client completes an exchange in an
+  `Integration` test (FR-066 to FR-084).
+- **Decisions:** ADR-0083 and each server's ADR, listed in the requirements.
+
+## Track — Shared stores and the configuration command line
+
+Beside the phases, not after them: the extended servers' track of ADR-0083 reaches into the
+original servers' stores, and the stand-in direction (ADR-0124) builds on both.
+
+- **Status:** Built, except the parts named under "Not built" (2026-11-12).
+- **Delivers:** one store per job in a `surl` run (ADR-0100): the content store, the mail
+  store, `Surl.MessageBus` in `Protocols/Messaging/` (the MQTT 3.1.1 server's retained messages
+  moved onto it, and the extended NATS and STOMP servers are registered on it) and the account
+  book; then the configuration surface on top of them (ADR-0101, ADR-0102): `-K`/`--config`
+  and `--url`, the item options for mail (`--mail-domain`, `--mailbox`, `--mailbox-file`,
+  `--mail-alias`, `--mail-catch-all`, `--shared-folder`), files (`--share`, `--share-access`,
+  `--bucket`), messages (`--topic`, `--queue`, `--topic-map`, `--topic-access`) and accounts
+  (`--group`), their `Surl.Api` spellings, and the `--aihelp` topics `mail` and `messages`.
+  The build tasks are BL-629 to BL-668 (BL-649 to BL-652 in that range are not part of it),
+  with BL-638 to BL-640 proving the cross-protocol exchanges with pinned upstream curl.
+- **Exit criteria:** a `surl` given none of the new options answers every original server
+  exactly as before (ADR-0102 decision 0), and pinned upstream curl completes a file, a mail and
+  a message exchange across protocols in one `surl` (BL-638 to BL-640).
+- **Not built:** the `mqtt5`, `amqp`, `amqp1`, `kafka` and `redis` servers are not registered in
+  `surl` (BL-975, BL-507, BL-514, BL-973, BL-492); LDAP as an optional account source is
+  decided by BL-671 and built by BL-672 and BL-673; the Curl port's clients reading the shared
+  files and messages are BL-669 and BL-670; test control of the stores is BL-821's page,
+  `Documentation/Wiki/Surl-As-A-Stand-In.md`.
+- **Decisions:** ADR-0100, ADR-0101 and ADR-0102.
+
+## Track — The hosts: Surl.Api and Surl.Mcp
+
+Beside the phases: `surl` is one of three hosts (ADR-0098), and the stand-in direction
+(ADR-0124) is built on the other two.
+
+- **Status:** The hosts are built and proved (2026-11-12). The stand-in features on them are
+  built in part; BL-821 documents them.
+- **Delivers:** `Surl.Composition`, the one start all three hosts run (ADR-0099); `Surl.Api`,
+  the in-process .NET interface with typed options, exchange recording, queries and waits, fault
+  rules, hooks, seeding, reset and snapshots and a test's own protocol servers; `Surl.Mcp`, the
+  `surl-mcp` stdio MCP server with its tools and `surl://aihelp` resources, on `Surl.McpServing`
+  and `Surl.Mcp.UnitLibrary` (ADR-0103); the `surl-mcp` release archives and the NuGet packages,
+  packed but not yet published. Decided by BL-610 to BL-612 and built by BL-609, BL-613 to
+  BL-617, BL-619 to BL-621, BL-623 to BL-628, BL-637 and BL-643.
+- **Exit criteria:** met by BL-618, which proves `Surl.Api` against pinned upstream curl, and
+  BL-632, which drives the built `surl-mcp` over stdio with pinned upstream curl. BL-649 states the
+  hosts as built in the README, the product overview, the glossary and the root `CLAUDE.md`.
+- **Not built:** serving the control endpoint from `surl` and `Surl.Api` (the `Surl.Control`
+  library and its options exist, BL-814 and BL-815; BL-816, which serves it, is deferred) and the stand-in page
+  `Documentation/Wiki/Surl-As-A-Stand-In.md` (BL-821); publishing the packages waits for the
+  first release tag.
+- **Decisions:** ADR-0098, ADR-0099, ADR-0103 and ADR-0124.
+
 ## Later
 
 Phase 7 is the last phase in the product overview's phasing, so no later milestone is planned. What is still open is listed in the milestone it belongs to,

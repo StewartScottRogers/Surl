@@ -73,6 +73,7 @@ internal sealed class SocketIoSession
     private readonly TaskCompletionSource<SocketIoSessionEnd> ended = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private readonly Lock gate = new();
     private readonly List<string> connectedNamespaces = [];
+    private string? account;
     private SocketIoTransportState transport;
     private TaskCompletionSource? heldPollWake;
     private bool isPosting;
@@ -476,7 +477,7 @@ internal sealed class SocketIoSession
                 break;
             case SocketIoPacketType.Event:
             case SocketIoPacketType.BinaryEvent:
-                AnswerEvent(packet, attachments);
+                await AnswerEventAsync(packet, attachments);
                 break;
         }
 
@@ -508,6 +509,14 @@ internal sealed class SocketIoSession
             return;
         }
 
+        account = login.UserName;
+        if (await SocketIoFaults.FindAsync(context, account, name, SocketIoFaults.ConnectCommand) is { } fault)
+        {
+            ApplyConnectFault(name, fault);
+
+            return;
+        }
+
         lock (gate)
         {
             connectedNamespaces.Add(name);
@@ -520,7 +529,20 @@ internal sealed class SocketIoSession
     }
 
     private void SendConnectError(string name, string message) =>
-        Deliver(Item(TextPacket(SocketIoPacketType.ConnectError, name, "{\"message\":\"" + message + "\"}"), []));
+        Deliver(Item(TextPacket(SocketIoPacketType.ConnectError, name, "{\"message\":\"" + System.Text.Json.JsonEncodedText.Encode(message) + "\"}"), []));
+
+    // BL-1064: a drop ends the session in place of the answer; an error rule's text is the CONNECT_ERROR message.
+    private void ApplyConnectFault(string name, FaultRule fault)
+    {
+        if (fault.Kind == FaultKind.Drop)
+        {
+            Decide(SocketIoSessionEnd.Silent($"CONNECT to {name} dropped by fault rule {fault.Id}"));
+
+            return;
+        }
+
+        SendConnectError(name, fault.Reply!);
+    }
 
     private void Leave(string name)
     {
@@ -535,11 +557,18 @@ internal sealed class SocketIoSession
 
     // Echo, or broadcast to every session on the namespace; an ack id is answered by an ACK
     // carrying the arguments instead of an echo (ADR-0120, decisions 5 and 6).
-    private void AnswerEvent(SocketIoPacket packet, IReadOnlyList<byte[]> attachments)
+    private async Task AnswerEventAsync(SocketIoPacket packet, IReadOnlyList<byte[]> attachments)
     {
         var name = packet.Namespace;
         if (!IsConnectedTo(name))
         {
+            return;
+        }
+
+        if (await SocketIoFaults.FindAsync(context, account, name, SocketIoEventPayload.Name(packet.Payload)) is { } fault)
+        {
+            ApplyEventFault(packet, fault);
+
             return;
         }
 
@@ -556,6 +585,20 @@ internal sealed class SocketIoSession
         if (packet.AckId is { } ackId)
         {
             Acknowledge(packet, ackId, attachments);
+        }
+    }
+
+    // BL-1064: a drop ends the session; an error rule answers an event that asked for an acknowledgement
+    // with the text as its error, and swallows one that did not (nothing can carry the error back).
+    private void ApplyEventFault(SocketIoPacket packet, FaultRule fault)
+    {
+        if (fault.Kind == FaultKind.Drop)
+        {
+            Decide(SocketIoSessionEnd.Silent($"an event dropped by fault rule {fault.Id}"));
+        }
+        else if (packet.AckId is { } ackId)
+        {
+            Deliver(Item(new SocketIoPacket(SocketIoPacketType.Ack, packet.Namespace, 0, ackId, SocketIoFaults.ErrorArguments(fault.Reply!)), []));
         }
     }
 

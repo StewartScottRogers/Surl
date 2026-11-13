@@ -126,6 +126,8 @@ public sealed partial class ContentStore
     /// <param name="faults">The fault plan asked at every upload's
     /// <see cref="FaultStage.StoreWrite"/> point for an out-of-space rule (ADR-0124 decision 4);
     /// <see langword="null"/> finds none.</param>
+    /// <param name="sweepClock">When given, the constructor first calls
+    /// <see cref="RemoveAbandonedUploadFiles(TimeProvider)"/> with it (ADR-0150); <see langword="null"/> sweeps nothing.</param>
     /// <exception cref="ArgumentException"><paramref name="servedRoot"/> is empty or relative to
     /// the current directory, or two shares or two buckets share a name.</exception>
     public ContentStore(
@@ -135,7 +137,8 @@ public sealed partial class ContentStore
         IReadOnlyList<ContentShare> shares,
         IReadOnlyList<ContentBucket> buckets,
         ISurlEventPublisher? events = null,
-        IFaultPlan? faults = null)
+        IFaultPlan? faults = null,
+        TimeProvider? sweepClock = null)
     {
         ThrowUnlessIndependentOfTheCurrentDirectory(servedRoot, nameof(servedRoot));
         ArgumentNullException.ThrowIfNull(fileSystem);
@@ -166,6 +169,11 @@ public sealed partial class ContentStore
 
         Shares = [.. shares];
         Buckets = [.. buckets];
+        if (sweepClock is not null)
+        {
+            RemoveAbandonedUploadFiles(sweepClock);
+        }
+
         configuredContents = CaptureInMemoryContents();
     }
 
@@ -734,7 +742,7 @@ public sealed partial class ContentStore
         }
 
         FileSystemOf(mapping).DeleteFile(location);
-        eventsAndFaults.PublishChange(StoreChange.Deleted, PublishedNameOf(mapping, location), null);
+        eventsAndFaults.PublishChange(StoreChange.Deleted, PublishedNameOf(mapping, location), null, exchangeId: mapping.Caller!.ExchangeId);
         return ContentChangeResult.Done;
     }
 
@@ -861,7 +869,7 @@ public sealed partial class ContentStore
         }
 
         fileSystem.CreateDirectory(location);
-        eventsAndFaults.PublishChange(StoreChange.Created, PublishedNameOf(mapping, location), null);
+        eventsAndFaults.PublishChange(StoreChange.Created, PublishedNameOf(mapping, location), null, exchangeId: mapping.Caller!.ExchangeId);
         return ContentChangeResult.Done;
     }
 
@@ -899,7 +907,7 @@ public sealed partial class ContentStore
         }
 
         fileSystem.RemoveEmptyDirectory(location);
-        eventsAndFaults.PublishChange(StoreChange.Deleted, PublishedNameOf(mapping, location), null);
+        eventsAndFaults.PublishChange(StoreChange.Deleted, PublishedNameOf(mapping, location), null, exchangeId: mapping.Caller!.ExchangeId);
         return ContentChangeResult.Done;
     }
 
@@ -925,7 +933,7 @@ public sealed partial class ContentStore
         }
 
         MoveEntry(FileSystemOf(source), sourceKind, from, to, replacingAFile);
-        eventsAndFaults.PublishChange(StoreChange.Renamed, PublishedNameOf(destination, to), null, PublishedNameOf(source, from));
+        eventsAndFaults.PublishChange(StoreChange.Renamed, PublishedNameOf(destination, to), null, PublishedNameOf(source, from), source.Caller!.ExchangeId);
         return ContentChangeResult.Done;
     }
 
@@ -1020,7 +1028,7 @@ public sealed partial class ContentStore
             return ContentUploadResult.TooLarge;
         }
 
-        eventsAndFaults.PublishChange(StoreChange.Written, name, writtenLength);
+        eventsAndFaults.PublishChange(StoreChange.Written, name, writtenLength, exchangeId: mapping.Caller!.ExchangeId);
         return ContentUploadResult.Written;
     }
 

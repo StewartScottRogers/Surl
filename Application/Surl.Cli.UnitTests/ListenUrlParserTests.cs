@@ -172,12 +172,43 @@ public sealed class ListenUrlParserTests
     [TestMethod]
     [DataRow("s3", new string[0], DisplayName = "No extended server registered")]
     [DataRow("s3", new[] { "redis" }, DisplayName = "Another extended scheme registered")]
-    [DataRow("mcp+stdio", new[] { "mcp+stdio" }, DisplayName = "A claimed scheme with no extended default port")]
     public void Parse_ExtendedSchemeNotAccepted_IsRefusedAsAnUnknownSchemeIs(string scheme, string[] extendedSchemes)
     {
         var result = ListenUrlParser.Parse($"{scheme}://127.0.0.1/", extendedSchemes);
 
         AssertRefused(result, SurlExitCode.UnsupportedProtocol, $"(1) Protocol \"{scheme}\" not supported");
+    }
+
+    [TestMethod]
+    [DataRow("mcp+stdio:")]
+    [DataRow("mcp+stdio://")]
+    [DataRow("MCP+STDIO:")]
+    public void Parse_McpStdioClaimed_IsAListenUrlWithNoHostAndNoPort(string argument)
+    {
+        var result = ListenUrlParser.Parse(argument, ["mcp+stdio"]);
+
+        Assert.AreEqual(new ListenUrl("mcp+stdio", string.Empty, 0), result.ListenUrl);
+    }
+
+    [TestMethod]
+    [DataRow("mcp+stdio://localhost/")]
+    [DataRow("mcp+stdio:surl")]
+    [DataRow("mcp+stdio://:80")]
+    public void Parse_McpStdioWithAPart_IsMalformed(string argument)
+    {
+        var result = ListenUrlParser.Parse(argument, ["mcp+stdio"]);
+
+        AssertRefused(result, SurlExitCode.MalformedUrl, "(3) URL rejected: mcp+stdio: names no host, port, path, query or fragment");
+    }
+
+    [TestMethod]
+    [DataRow("mcp+stdio:", new string[0])]
+    [DataRow("mcp+stdio://", new[] { "mcp" })]
+    public void Parse_McpStdioNotClaimed_IsRefusedAsAnUnknownSchemeIs(string argument, string[] extendedSchemes)
+    {
+        var result = ListenUrlParser.Parse(argument, extendedSchemes);
+
+        AssertRefused(result, SurlExitCode.UnsupportedProtocol, "(1) Protocol \"mcp+stdio\" not supported");
     }
 
     [TestMethod]
@@ -241,5 +272,31 @@ public sealed class ListenUrlParserTests
         Assert.IsFalse(result.Succeeded);
         Assert.IsNull(result.ListenUrl);
         Assert.AreEqual(new CommandLineFailure(exitCode, message), result.Failure);
+    }
+
+    [TestMethod]
+    [DataRow("signalr://127.0.0.1:0/chat/", "/chat/", DisplayName = "Path kept as written")]
+    [DataRow("signalrs://127.0.0.1:0/a/b", "/a/b", DisplayName = "TLS twin keeps it too")]
+    [DataRow("signalr://127.0.0.1:0/", null, DisplayName = "A lone slash is no path")]
+    [DataRow("signalr://127.0.0.1:0", null, DisplayName = "No path")]
+    public void Parse_SignalRListenUrl_KeepsItsPath(string argument, string? path)
+    {
+        var result = ListenUrlParser.Parse(argument, ["signalr", "signalrs"]);
+
+        Assert.IsTrue(result.Succeeded);
+        Assert.AreEqual(path, result.ListenUrl!.Path);
+    }
+
+    [TestMethod]
+    [DataRow("http://127.0.0.1/x", DisplayName = "http still refuses a path")]
+    [DataRow("signalr://127.0.0.1/chat?x=1", DisplayName = "a query is refused")]
+    [DataRow("signalr://127.0.0.1/chat#f", DisplayName = "a fragment is refused")]
+    public void Parse_PathNotAllowed_IsRefusedMalformedUrl(string argument)
+    {
+        var result = ListenUrlParser.Parse(argument, ["signalr", "signalrs"]);
+
+        Assert.IsFalse(result.Succeeded);
+        Assert.AreEqual(SurlExitCode.MalformedUrl, result.Failure!.ExitCode);
+        Assert.AreEqual("(3) URL rejected: A listen URL cannot have a path, query or fragment", result.Failure.Message);
     }
 }

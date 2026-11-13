@@ -57,6 +57,19 @@ public sealed class RedisConnectionCommandsTests
     }
 
     [TestMethod]
+    public async Task ServeAsync_Auth_PassesTheExchangeToThePolicy()
+    {
+        var policy = LoginRequired();
+
+        await ServeAsync(policy, TestContext.CancellationToken, Command("AUTH", "hunter2"));
+
+        var exchange = policy.Logins[^1].Exchange;
+        Assert.IsNotNull(exchange);
+        Assert.AreEqual(1, exchange.ExchangeId);
+        Assert.AreEqual("redis", exchange.Scheme);
+    }
+
+    [TestMethod]
     public async Task ServeAsync_AuthWithUserAndPassword_LogsInAsThatUser()
     {
         var policy = LoginRequired();

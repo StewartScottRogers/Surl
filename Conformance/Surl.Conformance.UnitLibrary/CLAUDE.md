@@ -79,7 +79,7 @@ to make the port pass. One case is compared and judged here (BL-578), request by
 - `CurlPortMeasuredRun.Of` makes one run from an `UpstreamCurlRunResult` or a `CurlPortClientRunResult`.
 - `CurlPortResultNormaliser` is decision 4's normalisation column: the client-facing port as `<port>` (in standard output `surl`'s own port too, when a relay stands between them),
   `Date:` and `Last-Modified:` values as `<date>`, the `-w` values of `%{time_*}` and `%{speed_*}` as
-  `<time>` (found by matching the case's `-w` format), stderr cut to the asserted lines, `surl` notes'
+  `<time>` (found by matching the case's `-w` format), stderr cut to the asserted lines (every loopback port in them, the client's ephemeral one too, as `<port>`), `surl` notes'
   loopback ports and time stamps. `NormaliseRequestBytes` applies the request-byte rules, which the
   internal `RequestBytesNormalisation` holds: the client port in FTP `PORT` and `EPRT`, `User-Agent:` and DICT's `CLIENT` text as
   `<user-agent>`, the 8 random characters after `curl` in an MQTT `CONNECT`'s client identifier as `<client-id>`, every multipart boundary as `<boundary>`, Digest `nonce` (surl's own, echoed), `cnonce` and `response` as `<nonce>`, `<cnonce>`
@@ -192,9 +192,9 @@ Selection is built (BL-389):
 - `UpstreamTestCaseDisabledList.Parse` reads `DISABLED`, its `%if` lines against those features.
 - `UpstreamTestCaseSelector.FindSkipReason(number, case)` gives the first of decision 3's
   `UpstreamTestCaseSkipReasons` that applies, or `null` when the case can run, under
-  `UpstreamTestCaseSelectionRules`. `ForBuild(pin, disabled)` is Surl as it stands: the server
-  commands `UpstreamTestCaseServerCommands` lists for each built server half, and the strip lines
-  the verify checker interprets. `UpstreamTestCaseServerCommands` has one row per server name,
+  `UpstreamTestCaseSelectionRules`. `ForBuild(pin, disabled, testServerChoices)` is Surl as it stands: the server
+  commands `UpstreamTestCaseServerCommands` lists for each built server half, the strip lines
+  the verify checker interprets, and the cases the exclusions file lists. `UpstreamTestCaseServerCommands` has one row per server name,
   the same words the protocol library's server half accepts (a test pins the HTTP row to
   `HttpUpstreamTestCaseReplies.SupportedServerCommands`); a server half that lands adds its row. A
   case with a `<postcmd>` asks for `postcmd`, which no row has, so it skips
@@ -301,6 +301,34 @@ sharing one `MailUpstreamTestCaseReplies` per case built from its `<data*>` part
 going to the accept-all `AnonymousAuthenticationPolicy`; `<protocol>` reads its `ReceivedBytes` and
 `<upload>` its `UploadedBytes`. `imaps`, `pop3s` and `smtps` are not composed.
 
+Playing the http-proxy and https-proxy cases is built (BL-556): `UpstreamTestCaseServerCommands.HttpProxy` is their
+row (`Testnum`, the same words as `Surl.Protocol.HttpProxy`'s `HttpProxyUpstreamTestCaseReplies.SupportedServerCommands`),
+and `UpstreamTestCaseServer.PortVariable` names `%PROXYPORT` and `%HTTPSPROXYPORT`. The tests' server halves add
+`HttpProxyUpstreamTestCaseServer` on the `http-proxy` scheme (plaintext) and on `https` with `ListenUrl.IsProxy` (behind TLS),
+tunnelling through `Surl.Networking`'s `SocketOriginConnector` limited to loopback; `<proxy>` reads the proxy's record and
+`<protocol>` the origin half's. 1230 skips `server-half-not-composed:http-ipv6`.
+
+Playing the socks4, socks5 and socks5unix cases is built (BL-562): `UpstreamTestCaseServerCommands.Socks` is their row (`Testnum`, `response`, `method`, `user`, `password`, `backendport`, the same words as `Surl.Protocol.Socks`'s `SocksUpstreamTestCaseReplies.SupportedServerCommands`), and the `socks4` and `socks5` rows name `%SOCKSPORT` (the run gives the SOCKS4 listener's port to a case naming `socks4`, else the SOCKS5 one's); `socks5unix` keeps `%SOCKSUNIXPATH`. 1467, 1468 and 1470 need `!win32` and run on the Linux and macOS pins only.
+
+Playing the dns cases is built (BL-570, ADR-0123): the `dns` row of `UpstreamTestCaseServers` says built and
+names `%DNSPORT`, and `UpstreamTestCaseServerCommands.Dns` (`Testnum`, `A`, `AAAA`, the same words as
+`Surl.Extended.Protocol.DnsQuery`'s `DnsQueryUpstreamTestCaseReplies.SupportedLineNames` plus `Testnum`) is its
+row. The selector reads the names of a case's `<reply><dns>` lines (the text before the colon) as server commands, so
+`HTTPS` and the `Delay-` lines skip `servercmd-unsupported:<name>`. The tests' server halves add a `DnsUpstreamTestCaseServer`
+on a datagram listener for `%DNSPORT`. Cases 2102, 2103 and 2104 need `override-dns`, which no pinned
+build lists, so each skips `feature-missing:override-dns`; the server half is proven by its unit tests and
+runs for real if a debug build is ever pinned. `UpstreamTestCaseVerifyChecker` checks `<verify><dns>` (BL-1085) against `UpstreamTestCaseRunRecord.DnsQueryLog`
+(the replies' `QueryLog`, which the run feeds in), filtered by the part's `host` attribute as a regex and both sides sorted, after `<proxy>` and before `<file>`.
+
+The upstream test certificates are generated (BL-682): `UpstreamTestCertificateDescription.Parse`
+reads a `tests/certs/*.prm` file (subject, `DNS:` or `DER:` subject alternative name, key usage,
+extended key usage, `CA:true`; the `authorityInfoAccess` and `crlDistributionPoints` extensions are
+not read) and `UpstreamTestCertificateGenerator.Generate` makes, with ECDSA P-256 keys and
+SHA-256, the authority `test-ca` (`.crt`, `.cacert`, `.key`) and for every other description `.crt`,
+`.der`, `.key`, `.pem` (key then certificate), `.pub.der`, `.pub.pem` and `.crl` (revoking it), all
+as bytes. `UpstreamTestCasesAgainstSurlTests` writes them under the run's `%CERTDIR/certs/` and
+serves `https` with `test-localhost`.
+
 The stated pass rate and its guard are built (BL-393):
 
 - `UpstreamTestCasePassingList` reads and writes a platform's passing list,
@@ -312,17 +340,23 @@ The stated pass rate and its guard are built (BL-393):
   to add). The suite asserts no regressions and writes the newly passing to its log.
 - `UpstreamTestCasePassRateFile.Parse` reads `Upstream-Test-Case-Pass-Rate.md`'s `## Current` and
   `## Releases` tables into `UpstreamTestCasePassRateRow`s (platform, version, passed or
-  `not run`); `FindFallingReleases` names each fall of a platform's count between releases.
+  `not run`, and the `test-server-choice` count where the table has that column);
+  `FindFallingReleases` names each fall of a platform's count between releases.
+- `UpstreamTestCaseExclusions.Parse` reads decision 5's exclusion list,
+  `Upstream-Test-Case-Exclusions.md`: the `Case` column (`test<N>` or `<N>`) of its first table
+  with that column, into the set every run passes to `ForBuild` or `ForClient` as
+  `TestServerChoices` (BL-689); a malformed or repeated case, a ragged row or no such table is a
+  `FormatException`.
   `Surl.Conformance.UnitTests`' `UpstreamTestCasePassRateStatementTests` (fast) holds each current
-  row's Passed to its list's line count and the releases to never falling.
+  row's Passed to its list's line count and its test-server-choice to the exclusions' row count,
+  no excluded case to a passing list, and the releases to never falling;
+  `UpstreamTestCaseCorpusTests` holds every excluded case to reaching decision 5's check on every
+  reference pin, and the upstream test-case run its own test-server-choice count to the row count.
 
 The rest is intent until its task lands. This library will also hold, with no reference but
 Abstractions:
 - each `<server>` name's port variable, beside its `UpstreamTestCaseServers` row;
-- generating the test certificates from the imported `.prm` files with `CertificateRequest`
-  (BL-682; BL-392's run uses a stand-in CA and `localhost` certificate), and the SSH keys and
-  `%SSHSRVMD5`/`%SSHSRVSHA256`;
-- reading `Upstream-Test-Case-Exclusions.md` into `TestServerChoices` (BL-689).
+- the SSH keys and `%SSHSRVMD5`/`%SSHSRVSHA256`.
 
 It does not hold the server halves: each protocol library carries its own optional seam for a
 case's reply, and `Surl.Conformance.UnitTests` composes it. It hands a reply over as BCL types

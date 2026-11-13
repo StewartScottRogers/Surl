@@ -66,7 +66,7 @@ protocol server.
   `SharedPortListenerPair` (public) - `StartAsync(ListenUrl, ServerTlsSettings?, CancellationToken)`
   binds a `TcpConnectionListener` and then a `UdpDatagramListener` on the same addresses and the
   port the TCP one got (an `https` listen URL serving HTTP/3). With port 0 a taken UDP port
-  releases both and the pair is tried again, up to `MaxBindAttempts` (10) times in all; any other
+  releases both and the pair is tried again, up to `MaxBindAttempts` (2048, enough to cross Windows' adjacent excluded UDP blocks, since rebinding walks consecutive TCP ports; BL-1088) times in all; any other
   UDP failure, or a taken UDP port with a fixed port, releases the TCP listener and is thrown as
   the `ListenerBindException` it was. The UDP listener's listen URL names the shared port as its
   port. Fast-tested over fake starts; `SharedPortListenerPairIntegrationTests` bind `127.0.0.1:0`.
@@ -188,3 +188,16 @@ protocol server.
   `FakeOriginSockets`, and `SocketOriginConnectorLoopbackTests` are fast tests on real
   loopback sockets (a listener reached by `127.0.0.1` and `localhost`, a closed port, a
   `.invalid` name, a refused origin), which BL-551 asked for outside `Integration`.
+- TLS client connections to an operator-named host (ADR-0149 decisions 5 and 11; BL-1068).
+  `TlsClientConnector` (public, constructed with the extra trust-anchor certificates and an
+  optional `TimeProvider`) resolves and connects as `SocketOriginConnector` does but with **no
+  allowed-origin rule**, then returns a `TlsClientConnection` (`Stream`, `IsSecured`,
+  `StartTlsAsync`): handshake at once (`ldaps`) or later on the open stream (StartTLS). TLS 1.2
+  and 1.3 only, no client certificate, no renegotiation, no revocation check. `TlsServerIdentityCheck`
+  accepts a certificate only when its chain builds to a system root or one of the given
+  certificates (`X509ChainTrustMode.CustomRootTrust`) and it names the host; no option skips
+  either. Failures are `TlsClientException` with a `TlsClientFailure` (`HostNotFound`, `Refused`,
+  `Unreachable`, `TimedOut`, `UntrustedCertificate`, `CertificateNameMismatch`,
+  `HandshakeFailed`); messages name host, port and reason, never bytes the caller sent. A failed
+  or cancelled handshake drops the transport. Tests: `TlsClientConnectorTests`, over in-memory
+  pipes with one loopback-socket case.

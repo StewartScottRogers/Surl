@@ -8,4 +8,6 @@ namespace Surl.Protocol.Abstractions;
 /// <param name="Method">The method as on the wire: <c>password</c> or <c>keyboard-interactive</c>.</param>
 /// <param name="UserName">The user name as sent, or <see langword="null"/> when it is not UTF-8.</param>
 /// <param name="Password">The password bytes as sent (UTF-8, RFC 4252 section 8).</param>
-public sealed record SshPasswordLogin(string Method, string? UserName, ReadOnlyMemory<byte> Password);
+/// <param name="Exchange">The exchange the login was made in, or <see langword="null"/> when unknown.</param>
+public sealed record SshPasswordLogin(
+    string Method, string? UserName, ReadOnlyMemory<byte> Password, LoginExchange? Exchange = null);

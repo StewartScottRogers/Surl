@@ -82,8 +82,9 @@ DNS over HTTPS (BL-483, ADR-0092 decision 5; RFC 8484):
   negative answer's SOA TTL, else 0).
 - `DnsQueryAnswerer.AnswerOverHttp` answers one query; allowed AXFR and IXFR are `NOTIMP` there.
 - EDNS(0) padding is answered on DoH and DoQ (`DnsResponseWriter.WritePaddedWithin`, multiples of 468; UDP and TCP never pad).
-- Not yet: the optional DoH login (ADR-0092
-  decisions 2 and 5); see the tasks filed for them.
+- The optional login (BL-827; ADR-0092 decision 5): a handler made with an `IHttpAuthenticationSession` (the exchange constructor's
+  `authentication`) judges every request to `/dns-query` by it, before the method, as a read: `401` with one
+  `WWW-Authenticate` per challenge, or `403`. `DnsConnectionRoutingProtocolServer` starts it from the `dns` policy; no account, no challenge.
 
 DNS over QUIC (BL-484, ADR-0092 decision 5; RFC 9250):
 
@@ -115,6 +116,16 @@ The chosen-error fault (BL-984; ADR-0124 decisions 4 and 9):
   naming the QNAME; another kind or reply is noted and the query answered as usual.
 - UDP, TCP and DoQ always ask; DoH asks when its handler is made with the exchange
   (`new DnsOverHttpsHandler(zones, exchange)`), and answers the chosen RCODE as `200`.
+
+The server half of upstream curl's test cases (ADR-0123, BL-570), never composed by the shipped `surl`:
+`DnsQueryUpstreamTestCaseReplies` reads a case's `<reply><dns>` lines as upstream's `dnsd` does - one
+`A: ` and one `AAAA: ` (a later line replaces an earlier one; `AAAA: ` may be bracketed, as `%HOST6IP`
+is `[::1]`); an address not of its family (`none`) gives no record; any other line name throws
+`NotSupportedException` with the name as its message - into a root zone (`.zone`, synthesized SOA)
+whose wildcard `*` holds the A and AAAA at TTL 2580 and a TXT, so the wildcard node always exists and a
+missing type is NODATA, never NXDOMAIN. Its `QueryLog` is `QNAME <name> QTYPE <A|AAAA|HTTPS|<unknown>>`
+per query, no trailing dot. `DnsUpstreamTestCaseServer` (`IDatagramProtocolServer`) logs each query,
+then answers it with `DnsQueryAnswerer` and `DnsUdpResponseWriter`; no fault plan.
 
 The command line (BL-485, which adds `--allow-zone-transfer`, `--dns-transport` and binds the DoH
 and DoQ listeners with TLS and ALPN) builds on it.

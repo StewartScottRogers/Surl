@@ -174,6 +174,47 @@ public static class ContentShareComposition
     public static string BucketPathIsNotAContentPath(string name, string path) =>
         $"(2) option --{BucketOption}: bucket {name} maps to {path}, which is not a content path";
 
+    /// <summary>A bucket whose folder is missing on disk, or cannot be created in memory (ADR-0102 decision 2.4).</summary>
+    /// <param name="path">The content path as written.</param>
+    /// <param name="name">The bucket's name.</param>
+    /// <returns><c>(37) Could not open directory &lt;path&gt; for bucket &lt;name&gt;</c>.</returns>
+    public static string BucketDirectoryCannotBeOpened(string path, string name) => $"(37) Could not open directory {path} for bucket {name}";
+
+    /// <summary>
+    /// Checks each bucket's folder at start (ADR-0102 decision 2.4): a content path that lies on disk, because
+    /// its first segment names a share or <c>--directory</c> is given, must be an existing folder; one in the
+    /// in-memory root is created empty, with any missing folder above it.
+    /// </summary>
+    /// <param name="commandLine">The parsed command line, whose buckets are checked in order.</param>
+    /// <param name="contentStore">The composed content store, holding the shares and the buckets.</param>
+    /// <param name="dataDirectoryFileSystem">The file system the data directory is read through.</param>
+    /// <returns>Null when every folder is there; else the refusal after <c>surl: </c>, exit code 37.</returns>
+    public static string? PrepareBucketFolders(
+        SurlCommandLine commandLine, ContentStore contentStore, IContentFileSystem dataDirectoryFileSystem)
+    {
+        ArgumentNullException.ThrowIfNull(commandLine);
+        ArgumentNullException.ThrowIfNull(contentStore);
+        ArgumentNullException.ThrowIfNull(dataDirectoryFileSystem);
+        for (var index = 0; index < contentStore.Buckets.Count; index++)
+        {
+            var bucket = contentStore.Buckets[index];
+            var segments = bucket.ContentPath.Split('/', StringSplitOptions.RemoveEmptyEntries).Select(Uri.UnescapeDataString).ToArray();
+            var share = segments.Length > 0 ? contentStore.Shares.FirstOrDefault(s => s.Name == segments[0]) : null;
+            var isUsable = share is not null ? IsFolder(share.FileSystem, share.Path, segments[1..])
+                : commandLine.DataDirectory is { } dataDirectory ? IsFolder(dataDirectoryFileSystem, Path.GetFullPath(dataDirectory), segments)
+                : contentStore.SeedFolder(bucket.ContentPath) != ContentChangeResult.NotPermitted;
+            if (!isUsable)
+            {
+                return BucketDirectoryCannotBeOpened(commandLine.Buckets[index].Path, bucket.Name);
+            }
+        }
+
+        return null;
+    }
+
+    private static bool IsFolder(IContentFileSystem fileSystem, string root, string[] segments) =>
+        fileSystem.GetEntryKind(Path.Combine([root, .. segments])) == ContentEntryKind.Directory;
+
     private static string AccessWord(ContentShareAccess access) => access == ContentShareAccess.ReadWrite ? "rw" : "r";
 
     // Each --share-access row's members expanded to account names, @everyone kept as its marker; rows naming

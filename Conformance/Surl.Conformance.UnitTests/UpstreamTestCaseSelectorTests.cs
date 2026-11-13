@@ -149,7 +149,28 @@ public sealed class UpstreamTestCaseSelectorTests
     [TestMethod]
     public void FindSkipReason_ServerNotBuilt_SkipsServerNotBuiltWithItsName()
     {
-        Assert.AreEqual("server-not-built:http-proxy", Reason("<server>\nhttp\nHTTP-Proxy\n</server>\n"));
+        Assert.AreEqual("server-not-built:http/2", Reason("<server>\nhttp\nhttp/2\n</server>\n"));
+    }
+
+    [TestMethod]
+    public void FindSkipReason_DnsCaseOnAPinWithoutOverrideDns_SkipsFeatureMissingNotServerNotBuilt()
+    {
+        Assert.AreEqual("feature-missing:override-dns", Reason("<server>\nhttp\ndns\n</server>\n" + Features("override-dns")));
+    }
+
+    [TestMethod]
+    public void FindSkipReason_DnsLineNoServerHalfImplements_SkipsServerCommandUnsupportedWithItsName()
+    {
+        Assert.AreEqual("servercmd-unsupported:HTTPS", Reason(Server("dns"), reply: "<dns>\n# a comment\nHTTPS: 1 .\n</dns>\n"));
+    }
+
+    [TestMethod]
+    public void FindSkipReason_DnsLineTheDnsServerSupports_IsRunnable()
+    {
+        var rules = Rules() with { SupportsServerCommand = (server, command) => server == "dns" && command == "A" };
+        var testCase = Case(client: "<server>\nhttp\ndns\n</server>\n", reply: "<dns>\nA: 127.0.0.1\n</dns>\n");
+
+        Assert.IsNull(new UpstreamTestCaseSelector(rules).FindSkipReason(Number, testCase));
     }
 
     [TestMethod]
@@ -227,7 +248,7 @@ public sealed class UpstreamTestCaseSelectorTests
     [TestMethod]
     public void FindSkipReason_SeveralReasonsApply_GivesTheFirstInTheAdrsOrder()
     {
-        Assert.AreEqual("libtest", Reason(Server("http-proxy") + "<tool>\nlib1500\n</tool>\n" + Features("Debug")));
+        Assert.AreEqual("libtest", Reason(Server("dns") + "<tool>\nlib1500\n</tool>\n" + Features("Debug")));
     }
 
     [TestMethod]
@@ -237,17 +258,41 @@ public sealed class UpstreamTestCaseSelectorTests
     public void FindSkipReason_HttpsCaseNeedingTheReferenceBuildsTlsBackend_IsRunnableOnItsPlatform(string platform, string backend)
     {
         var pin = ReferencePins().Single(candidate => candidate.Platform == platform);
-        var rules = UpstreamTestCaseSelectionRules.ForBuild(pin, new HashSet<int>());
+        var rules = UpstreamTestCaseSelectionRules.ForBuild(pin, new HashSet<int>(), new HashSet<int>());
         var testCase = Case(client: Server("https") + Features("SSL", backend, "proxy", "!Debug"));
 
         Assert.IsNull(new UpstreamTestCaseSelector(rules).FindSkipReason(Number, testCase));
     }
 
     [TestMethod]
+    [DataRow(320)]
+    [DataRow(321)]
+    [DataRow(322)]
+    [DataRow(324)]
+    public void FindSkipReason_ImportedTlsSrpCaseForTheWindowsReferencePin_SkipsFeatureMissingTlsSrp(int number)
+    {
+        var (selector, testCase) = ImportedCaseFor("win-x64", number);
+
+        Assert.AreEqual("feature-missing:TLS-SRP", selector.FindSkipReason(number, testCase));
+    }
+
+    [TestMethod]
+    [DataRow("linux-x64", 320)]
+    [DataRow("linux-x64", 324)]
+    [DataRow("osx-arm64", 321)]
+    [DataRow("osx-arm64", 322)]
+    public void FindSkipReason_ImportedTlsSrpCaseForAReferencePinWithTlsSrp_IsRunnable(string platform, int number)
+    {
+        var (selector, testCase) = ImportedCaseFor(platform, number);
+
+        Assert.IsNull(selector.FindSkipReason(number, testCase));
+    }
+
+    [TestMethod]
     public void ForClient_PortVersionLackingSmb_SkipsAnSmbCaseAndRunsAnHttpCase()
     {
         var report = CurlVersionReport.Parse(CurlVersionReportTests.PortVersionOutput);
-        var selector = new UpstreamTestCaseSelector(UpstreamTestCaseSelectionRules.ForClient(report, new HashSet<int>()));
+        var selector = new UpstreamTestCaseSelector(UpstreamTestCaseSelectionRules.ForClient(report, new HashSet<int>(), new HashSet<int>()));
 
         Assert.AreEqual("protocol-missing:smb", selector.FindSkipReason(Number, Case(client: Server("smb"))));
         Assert.IsNull(selector.FindSkipReason(Number, Case(client: Server("http") + Features("SSL", "Schannel", "brotli"))));
@@ -258,8 +303,9 @@ public sealed class UpstreamTestCaseSelectorTests
     {
         var report = CurlVersionReport.Parse(CurlVersionReportTests.PortVersionOutput);
 
-        Assert.ThrowsExactly<ArgumentNullException>(() => UpstreamTestCaseSelectionRules.ForClient(null!, new HashSet<int>()));
-        Assert.ThrowsExactly<ArgumentNullException>(() => UpstreamTestCaseSelectionRules.ForClient(report, null!));
+        Assert.ThrowsExactly<ArgumentNullException>(() => UpstreamTestCaseSelectionRules.ForClient(null!, new HashSet<int>(), new HashSet<int>()));
+        Assert.ThrowsExactly<ArgumentNullException>(() => UpstreamTestCaseSelectionRules.ForClient(report, null!, new HashSet<int>()));
+        Assert.ThrowsExactly<ArgumentNullException>(() => UpstreamTestCaseSelectionRules.ForClient(report, new HashSet<int>(), null!));
     }
 
     [TestMethod]
@@ -267,14 +313,15 @@ public sealed class UpstreamTestCaseSelectorTests
     {
         var pin = ReferencePins()[0];
 
-        Assert.ThrowsExactly<ArgumentNullException>(() => UpstreamTestCaseSelectionRules.ForBuild(null!, new HashSet<int>()));
-        Assert.ThrowsExactly<ArgumentNullException>(() => UpstreamTestCaseSelectionRules.ForBuild(pin, null!));
+        Assert.ThrowsExactly<ArgumentNullException>(() => UpstreamTestCaseSelectionRules.ForBuild(null!, new HashSet<int>(), new HashSet<int>()));
+        Assert.ThrowsExactly<ArgumentNullException>(() => UpstreamTestCaseSelectionRules.ForBuild(pin, null!, new HashSet<int>()));
+        Assert.ThrowsExactly<ArgumentNullException>(() => UpstreamTestCaseSelectionRules.ForBuild(pin, new HashSet<int>(), null!));
     }
 
     [TestMethod]
-    public void ForBuild_AsSurlStandsToday_AcceptsTheBuiltServerHalvesCommandsAndTheInterpretedStripLines()
+    public void ForBuild_AsSurlStandsToday_AcceptsTheBuiltServerHalvesCommandsAndTheInterpretedStripLinesAndExcludesTheGivenCases()
     {
-        var rules = UpstreamTestCaseSelectionRules.ForBuild(ReferencePins()[0], new HashSet<int>());
+        var rules = UpstreamTestCaseSelectionRules.ForBuild(ReferencePins()[0], new HashSet<int>(), new HashSet<int> { 802 });
 
         Assert.IsTrue(rules.SupportsServerCommand("ftp", "REPLY"));
         Assert.IsFalse(rules.SupportsServerCommand("ftp", "DELAY"));
@@ -286,7 +333,7 @@ public sealed class UpstreamTestCaseSelectorTests
         Assert.IsTrue(rules.SupportsStripLine("strip", "^Date:"));
         Assert.IsTrue(rules.SupportsStripLine("strippart", "s/^Date:.*//"));
         Assert.IsFalse(rules.SupportsStripLine("strippart", "chomp;"));
-        Assert.IsEmpty(rules.TestServerChoices);
+        CollectionAssert.AreEquivalent(new[] { 802 }, rules.TestServerChoices.ToList());
         Assert.Contains("http", rules.Protocols);
     }
 
@@ -343,7 +390,7 @@ public sealed class UpstreamTestCaseSelectorTests
         string pinPrefix, string server, string client, string? expected, string reply = "")
     {
         var pin = AllPins().Single(candidate => candidate.Sha256.StartsWith(pinPrefix, StringComparison.Ordinal));
-        var rules = UpstreamTestCaseSelectionRules.ForBuild(pin, new HashSet<int>());
+        var rules = UpstreamTestCaseSelectionRules.ForBuild(pin, new HashSet<int>(), new HashSet<int>());
         var testCase = Case(client: Server(server) + client + Command($"-u %USER: {server}://%HOSTIP:%SSHPORT/x"), reply: reply);
 
         var reason = new UpstreamTestCaseSelector(rules).FindSkipReason(Number, testCase);
@@ -354,7 +401,7 @@ public sealed class UpstreamTestCaseSelectorTests
     [TestMethod]
     public void FindSkipReason_FileSystemServersCaseWithAPostcheck_SkipsPostcheck()
     {
-        var rules = UpstreamTestCaseSelectionRules.ForBuild(AllPins().Single(pin => pin.Sha256.StartsWith("0E773709", StringComparison.Ordinal)), new HashSet<int>());
+        var rules = UpstreamTestCaseSelectionRules.ForBuild(AllPins().Single(pin => pin.Sha256.StartsWith("0E773709", StringComparison.Ordinal)), new HashSet<int>(), new HashSet<int>());
         var testCase = Case(client: Server("sftp"), verify: "<postcheck>\n%PERL %SRCDIR/libtest/test610.pl gone %PWD/%LOGDIR/test.dir\n</postcheck>\n");
 
         Assert.AreEqual("postcheck", new UpstreamTestCaseSelector(rules).FindSkipReason(Number, testCase));
@@ -367,6 +414,20 @@ public sealed class UpstreamTestCaseSelectorTests
         UpstreamCurlBuildPins.Parse(File.ReadAllText(Path.Combine(PinnedUpstreamCurl.RepositoryRoot(), UpstreamCurlBuildPins.FileName)))
             .Where(pin => pin.Role == UpstreamCurlBuildRole.Reference && pin.Kind == UpstreamCurlBuildKind.Curl)
             .ToList();
+
+    // An imported case parsed for selection as the run parses it: the pin's features, no SRCDIR.
+    private static (UpstreamTestCaseSelector Selector, UpstreamTestCase TestCase) ImportedCaseFor(string platform, int number)
+    {
+        var pin = ReferencePins().Single(candidate => candidate.Platform == platform);
+        var features = UpstreamCurlBuildFeatures.For(pin);
+        var environment = new UpstreamTestCaseEnvironment(
+            new Dictionary<string, string>(StringComparer.Ordinal) { ["CERTDIR"] = "." }, features, new UnitTestNoFileReader(), TimeProvider.System);
+        var path = Path.Combine(AppContext.BaseDirectory, "UpstreamTestCases", "data", $"test{number}");
+
+        return (
+            new UpstreamTestCaseSelector(UpstreamTestCaseSelectionRules.ForBuild(pin, new HashSet<int>(), new HashSet<int>())),
+            UpstreamTestCaseParser.Parse(File.ReadAllBytes(path), environment));
+    }
 
     private static string? Reason(string client, string reply = "", string verify = "") =>
         Selector().FindSkipReason(Number, Case(client, reply, verify));
@@ -391,4 +452,9 @@ public sealed class UpstreamTestCaseSelectorTests
         UpstreamTestCaseParser.Parse(
             UpstreamTestCaseText.Bytes($"<testcase>\n<reply>\n{reply}</reply>\n<client>\n{client}</client>\n<verify>\n{verify}</verify>\n</testcase>\n"),
             UpstreamTestCaseText.Environment());
+
+    private sealed class UnitTestNoFileReader : IUpstreamTestCaseFileReader
+    {
+        public byte[] ReadAllBytes(string path) => [];
+    }
 }

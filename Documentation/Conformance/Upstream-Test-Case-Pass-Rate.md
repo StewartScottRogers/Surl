@@ -33,9 +33,42 @@ decision 5). This is success criterion 2 of the
 
 | Platform | Commit | Date | Reference pin SHA-256 | Total | Runnable | Passed | Failed | Skipped | test-server-choice | Pass rate |
 | --- | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| `win-x64` | `153bbc14` + BL-549 + BL-855 + BL-896 + BL-897 + BL-898 + BL-899 + BL-900 | 2026-11-11 | `0E773709C3A44DB47B88B71351D902027682ED87C3BD3821009E454BACCA8778` | 2,013 | 1,128 | 1,078 | 50 | 885 | 0 | 95.6% |
-| `linux-x64` | `8eb0301b` | 2026-11-06 | `153CA463957609117D21A848BE29B70691B85F9E5CC9370C7DAA037B839A4E45` | 2,013 | 1,237 | 1,154 | 83 | 776 | 0 | 93.3% |
-| `osx-arm64` | `8eb0301b` | 2026-11-06 | `04E0E69BCD3BD814EC093551A0447AC14EDEEA9D395B468A2025DCB3F766EEBF` | 2,013 | 1,237 | 1,153 | 84 | 776 | 0 | 93.2% |
+| `win-x64` | `153bbc14` + BL-549 + BL-855 + BL-896 + BL-897 + BL-898 + BL-899 + BL-900 + BL-556 + BL-682 + BL-562 + BL-689 + BL-776 + BL-856 + BL-1071 + BL-1072 + BL-1076 + BL-1077 | 2026-11-12 | `0E773709C3A44DB47B88B71351D902027682ED87C3BD3821009E454BACCA8778` | 2,013 | 1,152 | 1,151 | 1 | 861 | 34 | 99.9% |
+| `linux-x64` | `8eb0301b` | 2026-11-06 | `153CA463957609117D21A848BE29B70691B85F9E5CC9370C7DAA037B839A4E45` | 2,013 | 1,203 | 1,154 | 49 | 810 | 34 | 95.9% |
+| `osx-arm64` | `8eb0301b` | 2026-11-06 | `04E0E69BCD3BD814EC093551A0447AC14EDEEA9D395B468A2025DCB3F766EEBF` | 2,013 | 1,203 | 1,153 | 50 | 810 | 34 | 95.8% |
+
+BL-1072 (2026-11-12) composed the `http-ipv6` server half: the plaintext HTTP half also binds `[::1]` and
+`%HTTP6PORT` is its port. The 10 cases that named it (1230 among them) no longer skip
+`server-half-not-composed:http-ipv6`; the Windows run is 1,152 runnable, 1,144 passed, 8 failed, 861 skipped, and 14
+cases newly pass (30, 37, 240, 242, 263, 1046, 1230, 1265, 1324, 1408, 1456, 2002, 2003, 3202). Linux and macOS keep
+their numbers until their next CI run.
+
+BL-856 (2026-11-12) added the 6 cases that fail only on a byte upstream's test server chose: MQTT
+1190, 1192, 2204, 3018 and 1640 (RETAIN set on a new subscription's `PUBLISH`) and TFTP 283 (ERROR 1
+for a missing file). None is on a passing list, so on every platform they move from **Failed** and
+**Runnable** to **Skipped** and **test-server-choice** without a new run (the Windows numbers are
+BL-776's run less these 6; Linux and macOS are BL-776's arithmetic less these 6).
+
+BL-1071 (2026-11-12) found why 1297 timed out: its origin is the HTTP half, whose `<data>` part is empty, and
+BL-1078 had made that half hold the connection open on an empty part (for 1548's raw HTTP/1.0 telnet probe);
+upstream's `sws` closes after a zero-byte reply, so curl, waiting through the tunnel, never saw the close. The HTTP
+half now closes after an empty part on an HTTP/1.1 request and holds it open on HTTP/1.0 (ADR-0152). A local run of
+1297 and 1548 passes both; 1297 is on the Windows list (1,130 passed, 12 failed); the other rows keep their numbers
+until their next CI run.
+
+BL-776 (2026-11-12) added the 24 FTP cases that verify upstream's greeting banner (1349-1354,
+1357-1362, 1379-1384, 1387-1392) to the exclusions file. The Windows row is a local run: 1,148
+runnable, 1,129 passed, 19 failed, 865 skipped, 28 `test-server-choice`. Linux and macOS lose the
+same 24 from **Failed**, **Runnable** and add them to **Skipped** without a new run (they failed
+`file2` there too). Test 1847 failed `protocol` in one of three local runs and passed in the
+other two, so it is intermittent.
+
+BL-689 (2026-11-12) made the selection rules read the exclusions file's 4 rows (802, 818, 861,
+897). On every reference pin each of them reaches decision 5's check
+(`UpstreamTestCaseCorpusTests`) and none is on a passing list, so each was one of the runs'
+failures below; the rows move them from **Failed** and **Runnable** to **Skipped** and
+**test-server-choice** without a new run. The failure counts quoted below are the runs' own,
+those 4 included.
 
 Linux and macOS: CI run
 [42203619501](https://github.com/StewartScottRogers/Surl/actions/runs/42203619501) (`master`,
@@ -47,7 +80,24 @@ and fails `errorcode` on macOS. Both skip fewer cases than Windows, chiefly `fea
 8 in `data`, 7 in `errorcode`, 4 each in `stdout` and `timeout`, 3 in `stderr` and 1 each in
 `file` and `upload`.
 
-Windows: the run of BL-898's changes: a case naming several servers is no longer skipped for a
+Windows: the run of BL-562's changes, the first with the `socks4`, `socks5` and `socks5unix` server halves
+composed (`SocksUpstreamTestCaseServer` on `%SOCKSPORT`, a SOCKS4 and a SOCKS5 listener, and on `%SOCKSUNIXPATH`;
+every request goes to `127.0.0.1`, or to the case's `backendport`, as upstream's `socksd` does). All 22 cases that
+run on Windows pass: 700, 701, 702, 703, 706, 707, 708, 709, 710, 711, 712, 713, 715, 716, 717, 719, 720, 721, 728, 729,
+742 and 2055 (715 and 2055 now that BL-556 built `http-proxy`). 1467, 1468 and 1470 skip `feature-missing:!win32`
+and run on the Linux and macOS pins at their next CI run. The same run found 1548 failing `errorcode` (curl exits 0,
+the case expects 28): BL-683 made the HTTP half close a connection whose reply part is empty, which 1548 relied on
+being held open - not a SOCKS change; its number stays in the list.
+
+The run before, of BL-556's changes, the first with the `http-proxy` and `https-proxy` server halves
+composed (`HttpProxyUpstreamTestCaseServer` on `%PROXYPORT`, and on `%HTTPSPROXYPORT` behind TLS; every
+tunnel goes to `127.0.0.1` at the `CONNECT`'s port, as upstream's `sws` sends it). Of the 29 cases that
+named them, 25 pass (80, 83, 95, 275, 445, 714, 744, 1078, 1287, 1288, 1319, 1320, 1321, 1428, 1586, 1630,
+1631, 1632, 1849, 1904, 2050, 2107, 3028, 3106, 3401), 1297 fails `timeout`, 1230 skips
+`server-half-not-composed:http-ipv6`, and 715 and 2055 keep `server-not-built:socks5`. No case that passed
+fails. Linux and macOS keep their rows above until their next CI run.
+
+The run before, of BL-898's changes: a case naming several servers is no longer skipped for a
 `<servercmd>` word that one of them implements (cases 779 and 795, `http` then `imap`, `AUTH`), and each
 server half gets the lines its own row implements. Both pass; none that passed fails.
 
@@ -100,13 +150,14 @@ upstream's test-server greeting banner in a `-D` file, BL-776), TFTP 15 ran, 13 
 | `perl-command` | 27 | 27 | 27 |
 | `postcheck` | 14 | 14 | 14 |
 | `precheck` | 19 | 19 | 19 |
-| `server-half-not-composed:<name>` | 12 | 15 | 15 |
-| `server-not-built:<name>` | 65 | 67 | 67 |
+| `server-half-not-composed:<name>` | 3 | 15 | 15 |
+| `server-not-built:<name>` | 38 | 67 | 67 |
 | `servercmd-unsupported:<command>` | 30 | 35 | 35 |
 | `strippart-unsupported` | 1 | 1 | 1 |
+| `test-server-choice` | 34 | 34 | 34 |
 | `unittest` | 81 | 81 | 81 |
 | `unparsable` | 4 | 4 | 4 |
-| **Total** | **887** | **776** | **776** |
+| **Total** | **861** | **810** | **810** |
 
 ## Releases
 

@@ -3,9 +3,10 @@ namespace Surl.HttpMessage;
 /// <summary>
 /// Builds one request head from its lines, fed one at a time: empty lines before the
 /// request line are skipped (RFC 9112, section 2.2), then the request line, then header
-/// field lines until the empty line that ends the head.
+/// field lines until the empty line that ends the head. A malformed field line ends the head
+/// with its failure, unless <c>skipsMalformedFieldLines</c> says to drop that line and read on.
 /// </summary>
-internal sealed class HttpRequestHeadLineReader(HttpMessageProtocol protocol)
+internal sealed class HttpRequestHeadLineReader(HttpMessageProtocol protocol, bool skipsMalformedFieldLines = false)
 {
     private readonly List<HttpRequestField> fields = [];
     private string? method;
@@ -61,7 +62,7 @@ internal sealed class HttpRequestHeadLineReader(HttpMessageProtocol protocol)
         var failure = HttpFieldLineParser.Parse(content, out var field);
         if (failure is { } outcome)
         {
-            return HttpRequestHeadReadResult.NoHead(outcome);
+            return skipsMalformedFieldLines ? null : HttpRequestHeadReadResult.NoHead(outcome);
         }
 
         fields.Add(field!);

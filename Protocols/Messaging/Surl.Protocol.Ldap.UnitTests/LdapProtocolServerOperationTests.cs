@@ -166,6 +166,19 @@ public sealed class LdapProtocolServerOperationTests
     }
 
     [TestMethod]
+    public async Task ServeAsync_SimpleBind_PassesTheExchangeToThePolicy()
+    {
+        var policy = new UnitTestAuthenticationPolicy(PasswordLoginVerdict.Accepted);
+
+        await RunAsync(policy, TestContext.CancellationToken, null, AliceBind);
+
+        var exchange = policy.Logins.Single().Exchange;
+        Assert.IsNotNull(exchange);
+        Assert.AreEqual(1, exchange.ExchangeId);
+        Assert.AreEqual("ldap", exchange.Scheme);
+    }
+
+    [TestMethod]
     [DataRow(1)]
     [DataRow(4)]
     public async Task ServeAsync_BindOfAnotherVersion_IsProtocolErrorUnchecked(int version)

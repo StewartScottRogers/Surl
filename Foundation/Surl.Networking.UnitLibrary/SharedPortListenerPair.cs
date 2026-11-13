@@ -11,7 +11,8 @@ namespace Surl.Networking;
 /// </summary>
 /// <remarks>
 /// The TCP listener binds first and the UDP listener then binds the port it got. When the listen
-/// URL asks for port 0 and that UDP port is taken, both are released and the pair is tried again,
+/// URL asks for port 0 and that UDP port is taken or refused (Windows excludes ranges of UDP ports,
+/// which refuse a bind with permission denied; BL-1059), both are released and the pair is tried again,
 /// up to <see cref="MaxBindAttempts"/> times in all; any other UDP bind failure, or a taken UDP
 /// port with a fixed port, releases the TCP listener and ends the start as a TCP bind failure
 /// does. QUIC connections ride the UDP listener's flows, one per remote endpoint, and count
@@ -22,7 +23,12 @@ public sealed class SharedPortListenerPair : IAsyncDisposable
     /// <summary>
     /// How many times, at most, a port-0 pair is bound before a taken UDP port ends the start.
     /// </summary>
-    public const int MaxBindAttempts = 10;
+    /// <remarks>
+    /// Windows hands out consecutive ephemeral TCP ports on rebinding, and its excluded UDP
+    /// ranges come in adjacent blocks of 100 ports (700 in a row were measured on 2026-11-12), so
+    /// the count must outlast a whole run of excluded blocks (BL-1088).
+    /// </remarks>
+    public const int MaxBindAttempts = 2048;
 
     private SharedPortListenerPair(IConnectionListener connectionListener, IDatagramListener datagramListener)
     {
@@ -131,6 +137,6 @@ public sealed class SharedPortListenerPair : IAsyncDisposable
 
     private static bool MayRetry(ListenUrl listenUrl, Exception exception, int attempt) =>
         listenUrl.Port == 0
-        && exception is ListenerBindException { Failure: ListenerBindFailure.AddressInUse }
+        && exception is ListenerBindException { Failure: ListenerBindFailure.AddressInUse or ListenerBindFailure.PermissionDenied }
         && attempt < MaxBindAttempts;
 }

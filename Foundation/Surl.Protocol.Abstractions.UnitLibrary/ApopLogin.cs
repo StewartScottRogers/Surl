@@ -11,9 +11,11 @@ namespace Surl.Protocol.Abstractions;
 /// <param name="TlsSession">
 /// The connection's <see cref="IConnection.TlsSession"/> now: <see langword="null"/> means unencrypted.
 /// </param>
+/// <param name="Exchange">The exchange the login was made in, or <see langword="null"/> when unknown.</param>
 public sealed record ApopLogin(
     string Scheme,
     string UserName,
     string Timestamp,
     string Digest,
-    TlsSession? TlsSession);
+    TlsSession? TlsSession,
+    LoginExchange? Exchange = null);

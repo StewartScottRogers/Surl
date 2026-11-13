@@ -32,10 +32,12 @@ internal sealed class OciRepository
     private readonly ContentStore store;
     private readonly ContentCaller caller;
     private readonly IExchangeLog log;
+    private readonly ObjectMetadataIndex? metadataIndex;
     private IReadOnlyList<OciDescriptor>? index;
 
-    private OciRepository(ContentStore store, ContentCaller caller, string name, IExchangeLog log)
+    private OciRepository(ContentStore store, ContentCaller caller, string name, IExchangeLog log, ObjectMetadataIndex? metadataIndex)
     {
+        this.metadataIndex = metadataIndex;
         this.store = store;
         this.caller = caller;
         this.log = log;
@@ -54,13 +56,17 @@ internal sealed class OciRepository
     /// <param name="caller">Who asks; a share the caller may not read holds no repository.</param>
     /// <param name="name">A name that matches Dist's grammar.</param>
     /// <param name="log">Where a file that fails its check is noted.</param>
+    /// <param name="metadataIndex">
+    /// Where each file's verified digest is cached against its stamp, so a file is hashed once
+    /// until it changes; <see langword="null"/> hashes on every read.
+    /// </param>
     /// <returns>The repository, or <see langword="null"/> when its folder holds no <c>oci-layout</c> the caller may read.</returns>
-    public static OciRepository? Open(ContentStore store, ContentCaller caller, string name, IExchangeLog log)
+    public static OciRepository? Open(ContentStore store, ContentCaller caller, string name, IExchangeLog log, ObjectMetadataIndex? metadataIndex)
     {
         var layout = store.MapRequestPathForCaller($"/{name}/oci-layout", caller);
 
         return layout.IsMapped && store.GetEntryKind(layout) == ContentEntryKind.File
-            ? new OciRepository(store, caller, name, log)
+            ? new OciRepository(store, caller, name, log, metadataIndex)
             : null;
     }
 
@@ -122,7 +128,7 @@ internal sealed class OciRepository
         var mapping = store.MapRequestPathForCaller(digest.BlobPathIn(Name), caller);
         var status = store.GetFileStatus(mapping);
 
-        return status is not null && await HashMatchesAsync(mapping, status.Length, digest, cancellationToken)
+        return status is not null && await IsVerifiedAsync(digest, status, () => HashMatchesAsync(mapping, status.Length, digest, cancellationToken), cancellationToken)
             ? new OciFoundBlob(mapping, status.Length)
             : null;
     }
@@ -297,10 +303,50 @@ internal sealed class OciRepository
         }
 
         var bytes = await ReadAllAsync(mapping, status.Length, cancellationToken);
+
+        return await IsVerifiedAsync(digest, status, () => Task.FromResult(HashMatches(bytes, digest)), cancellationToken) ? bytes : null;
+    }
+
+    private bool HashMatches(byte[] bytes, OciDigest digest)
+    {
         using var hash = digest.CreateHash();
         hash.AppendData(bytes);
 
-        return Verified(digest, hash.GetHashAndReset()) ? bytes : null;
+        return Verified(digest, hash.GetHashAndReset());
+    }
+
+    // Whether the blob file of digest, whose status was read before its bytes, hashes to the
+    // digest: answered from the metadata index while the file's stamp is the one recorded, else by
+    // check, whose success is recorded against that status (ADR-0115, decision 2.1).
+    private async Task<bool> IsVerifiedAsync(OciDigest digest, ContentFileStatus status, Func<Task<bool>> check, CancellationToken cancellationToken)
+    {
+        var key = IndexKeyOf(digest);
+        if (key is not null && await metadataIndex!.IsDigestVerifiedAsync(key, digest.ToString(), cancellationToken))
+        {
+            return true;
+        }
+
+        if (!await check())
+        {
+            return false;
+        }
+
+        if (key is not null)
+        {
+            await metadataIndex!.RecordVerifiedDigestAsync(key, digest.ToString(), status, cancellationToken);
+        }
+
+        return true;
+    }
+
+    // The metadata index key of the blob file of digest - its path relative to the served root -
+    // or null when there is no index, or the repository is in a share, outside the root it keys.
+    private string? IndexKeyOf(OciDigest digest)
+    {
+        var key = digest.BlobPathIn(Name)[1..];
+        var firstSegment = key[..key.IndexOf('/')];
+
+        return metadataIndex is null || store.Shares.Any(share => share.Name == firstSegment) ? null : key;
     }
 
     private async Task<bool> HashMatchesAsync(ContentPathMapping mapping, long length, OciDigest digest, CancellationToken cancellationToken)

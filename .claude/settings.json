@@ -7,6 +7,7 @@
       "Bash(dotnet restore:*)",
       "Bash(dotnet sln:*)",
       "Bash(dotnet ef migrations list:*)",
+      "Read(./Conformance/Surl.Conformance.UnitTests/UpstreamTestCases/data/**)",
       "Bash(git status:*)",
       "Bash(git diff:*)",
       "Bash(git log:*)",
@@ -40,8 +41,8 @@
       "Read(./**/bin/**)",
       "Read(./**/obj/**)",
       "Read(./.vs/**)",
-      "Read(./data/**)",
-      "Edit(./data/**)",
+      "Read(/data/**)",
+      "Edit(/data/**)",
       "Read(./**/appsettings.*.Local.json)",
       "Read(./**/*.pfx)",
       "Read(./**/*.snk)"

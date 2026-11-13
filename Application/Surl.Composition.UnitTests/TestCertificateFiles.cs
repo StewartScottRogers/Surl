@@ -43,6 +43,23 @@ internal sealed class TestCertificateFiles : IDisposable
         return files;
     }
 
+    /// <summary>
+    /// Generates the same files with an ECDSA P-256 key in place of the RSA one.
+    /// </summary>
+    public static TestCertificateFiles CreateEcdsa()
+    {
+        var files = new TestCertificateFiles(Directory.CreateTempSubdirectory("surl-console-tls-"));
+        using var key = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+        var request = new CertificateRequest("CN=127.0.0.1", key, HashAlgorithmName.SHA256);
+        using var certificate = request.CreateSelfSigned(DateTimeOffset.UtcNow.AddHours(-1), DateTimeOffset.UtcNow.AddDays(1));
+
+        File.WriteAllText(files.CertificateFile, certificate.ExportCertificatePem());
+        File.WriteAllText(files.KeyFile, key.ExportPkcs8PrivateKeyPem());
+        File.WriteAllText(files.GarbageFile, "not a certificate");
+
+        return files;
+    }
+
     /// <inheritdoc/>
     public void Dispose() => directory.Delete(recursive: true);
 }

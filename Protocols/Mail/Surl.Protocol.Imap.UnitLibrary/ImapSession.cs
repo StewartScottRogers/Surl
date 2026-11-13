@@ -229,7 +229,7 @@ internal sealed partial class ImapSession
         }
 
         anonymousVerdict ??= await authenticationPolicy.CheckPasswordLoginAsync(
-            new PasswordLogin(context.Scheme, null, null, connection.TlsSession), CancellationToken);
+            new PasswordLogin(context.Scheme, null, null, connection.TlsSession, LoginExchange.Of(context)), CancellationToken);
         if (anonymousVerdict == PasswordLoginVerdict.AcceptedUnchecked)
         {
             view = mailStore.ViewFor(null);
@@ -285,7 +285,7 @@ internal sealed partial class ImapSession
 
         var userName = Encoding.UTF8.GetString(user!);
         var verdict = await authenticationPolicy.CheckPasswordLoginAsync(
-            new PasswordLogin(context.Scheme, userName, password, connection.TlsSession), CancellationToken);
+            new PasswordLogin(context.Scheme, userName, password, connection.TlsSession, LoginExchange.Of(context)), CancellationToken);
         return AcceptLogin(userName, verdict);
     }
 

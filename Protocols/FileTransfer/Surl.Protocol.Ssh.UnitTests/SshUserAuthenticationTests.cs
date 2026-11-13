@@ -115,6 +115,34 @@ public sealed class SshUserAuthenticationTests
     }
 
     [TestMethod]
+    public async Task AnswerLoginRequest_PasswordAndPublicKeyQuery_CarryTheConnectionsExchange()
+    {
+        var blob = UserKeyBlob("ssh-ed25519");
+        var policy = new SshTestAuthenticationPolicy { AuthorizedKeyBlob = blob };
+        var (client, serving) = await OpenAsync(policy);
+
+        client.Send(LoginRequest("publickey", [0], String("ssh-ed25519"), Str(blob)));
+        await client.ReceiveAsync();
+        client.Send(LoginRequest("password", [0], String("secret")));
+        await client.ReceiveAsync();
+
+        await CloseAsync(client, serving);
+        Assert.HasCount(2, policy.Logins);
+        foreach (var login in policy.Logins)
+        {
+            var exchange = login switch
+            {
+                SshPublicKeyLogin publicKey => publicKey.Exchange,
+                SshPasswordLogin password => password.Exchange,
+                _ => null,
+            };
+            Assert.IsNotNull(exchange);
+            Assert.AreEqual(1, exchange.ExchangeId);
+            Assert.AreEqual("sftp", exchange.Scheme);
+        }
+    }
+
+    [TestMethod]
     public async Task AnswerLoginRequest_WrongPassword_IsRefusedAndNoted()
     {
         var (client, serving) = await OpenAsync(new SshTestAuthenticationPolicy());

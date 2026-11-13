@@ -3,13 +3,18 @@ using System.Globalization;
 using System.Net;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
+using System.Text;
+using Surl.Extended.Protocol.DnsQuery;
 using Surl.LineProtocol;
 using Surl.Networking;
 using Surl.Protocol.Ftp;
 using Surl.Protocol.Gopher;
 using Surl.Protocol.Http;
+using Surl.Protocol.HttpProxy;
 using Surl.Protocol.Mqtt;
+using Surl.Protocol.Socks;
 using Surl.Protocol.Tftp;
+using Surl.TlsSrp;
 
 namespace Surl.Conformance;
 
@@ -55,9 +60,16 @@ public sealed class UpstreamTestCasesAgainstSurlTests
     private const string SshFamily = "ssh";
     private const string SmbFamily = "smb";
     private const string MailFamily = "mail";
+    private const string HttpProxyFamily = "http-proxy";
+    private const string SocksFamily = "socks";
+    private const string DnsFamily = "dns";
 
     // The variable the http-unix row of UpstreamTestCaseServers names its socket path with.
     private static readonly string HttpUnixPathVariable = UpstreamTestCaseServers.Find("http-unix")!.UnixSocketPathVariable!;
+
+    // The variable the socks5unix row names its socket path with.
+    private static readonly string SocksUnixPathVariable = UpstreamTestCaseServers.Find("socks5unix")!.UnixSocketPathVariable!;
+    private const string TlsSrpFamily = "httptls+srp";
 
     // Each composed server name and the server half that plays it; a case naming any other is
     // skipped server-half-not-composed. dict and telnet are Surl's own servers, which keep no log.
@@ -65,6 +77,7 @@ public sealed class UpstreamTestCasesAgainstSurlTests
     {
         ["http"] = HttpFamily,
         ["https"] = HttpFamily,
+        ["http-ipv6"] = HttpFamily,
         ["http-unix"] = HttpFamily,
         ["ftp"] = FtpFamily,
         ["ftp-ipv6"] = FtpFamily,
@@ -83,7 +96,18 @@ public sealed class UpstreamTestCasesAgainstSurlTests
         ["imap"] = MailFamily,
         ["pop3"] = MailFamily,
         ["smtp"] = MailFamily,
+        ["http-proxy"] = HttpProxyFamily,
+        ["https-proxy"] = HttpProxyFamily,
+        ["socks4"] = SocksFamily,
+        ["socks5"] = SocksFamily,
+        ["socks5unix"] = SocksFamily,
+        ["httptls+srp"] = TlsSrpFamily,
+        ["httptls+srp-ipv6"] = TlsSrpFamily,
+        ["dns"] = DnsFamily,
     };
+
+    // The port variable the server-name table gives a proxy row.
+    private static string PortVariableOf(string server) => UpstreamTestCaseServers.Find(server)!.PortVariable!;
 
     public TestContext TestContext { get; set; } = null!;
 
@@ -124,6 +148,10 @@ public sealed class UpstreamTestCasesAgainstSurlTests
             Assert.HasCount(2013, results);
             Assert.IsTrue(results.Any(result => result.Outcome == UpstreamTestCaseOutcome.Pass), "No case passed; see the results file.");
             Assert.IsFalse(comparison.HasRegressions, comparison.DescribeRegressions());
+            Assert.AreEqual(
+                UpstreamTestCasePassRateStatementTests.CommittedExclusions().Count,
+                results.Count(result => result.Reason == UpstreamTestCaseSkipReasons.TestServerChoice),
+                "The run's test-server-choice count is not the exclusions file's row count.");
         }
         finally
         {
@@ -225,7 +253,7 @@ public sealed class UpstreamTestCasesAgainstSurlTests
             LogPrefix = logPrefix;
             Features = UpstreamCurlBuildFeatures.For(report);
             var disabled = UpstreamTestCaseDisabledList.Parse(File.ReadAllBytes(Path.Combine(Root, "data", "DISABLED")), SelectionEnvironment(Features));
-            Selector = new UpstreamTestCaseSelector(UpstreamTestCaseSelectionRules.ForClient(report, disabled));
+            Selector = new UpstreamTestCaseSelector(UpstreamTestCaseSelectionRules.ForClient(report, disabled, UpstreamTestCasePassRateStatementTests.CommittedExclusions()));
         }
 
         public IUpstreamTestCaseClient Client { get; }
@@ -262,6 +290,7 @@ public sealed class UpstreamTestCasesAgainstSurlTests
         private readonly TestContext testContext;
         private readonly UpstreamTestCaseFileServers fileServers = new();
         private readonly string sshUser = UpstreamTestCaseFileServers.SshLoginNameFor(Environment.UserName);
+        private readonly TlsSrpAccounts tlsSrpAccounts = UpstreamTestCaseTlsSrpServerHalf.ReadAccounts(Path.Combine(Root, "certs"));
 
         public CaseRun(UpstreamCurlLocation location, UpstreamCurlLocation? smbLocation, string work, TestContext testContext)
         {
@@ -380,15 +409,15 @@ public sealed class UpstreamTestCasesAgainstSurlTests
         private async Task<UpstreamTestCaseResult> RunInItsSocketFolderAsync(
             int number, byte[] source, CaseClient client, ServerTlsSettings tlsSettings, IEnumerable<string> serverNames, CancellationToken cancellationToken)
         {
-            if (!serverNames.Any(name => UpstreamTestCaseServers.Find(name)?.UnixSocketPathVariable == HttpUnixPathVariable))
+            if (!serverNames.Any(name => UpstreamTestCaseServers.Find(name)?.UnixSocketPathVariable is not null))
             {
-                return await RunSelectedCaseAsync(number, source, client, tlsSettings, null, cancellationToken);
+                return await RunSelectedCaseAsync(number, source, client, tlsSettings, null, null, cancellationToken);
             }
 
             var socketFolder = Directory.CreateDirectory(Path.Combine(Path.GetTempPath(), "surl-" + Path.GetRandomFileName()));
             try
             {
-                return await RunSelectedCaseAsync(number, source, client, tlsSettings, Path.Combine(socketFolder.FullName, "http.sock"), cancellationToken);
+                return await RunSelectedCaseAsync(number, source, client, tlsSettings, Path.Combine(socketFolder.FullName, "http.sock"), Path.Combine(socketFolder.FullName, "socks.sock"), cancellationToken);
             }
             finally
             {
@@ -397,16 +426,17 @@ public sealed class UpstreamTestCasesAgainstSurlTests
         }
 
         private async Task<UpstreamTestCaseResult> RunSelectedCaseAsync(
-            int number, byte[] source, CaseClient client, ServerTlsSettings tlsSettings, string? httpUnixSocketPath, CancellationToken cancellationToken)
+            int number, byte[] source, CaseClient client, ServerTlsSettings tlsSettings, string? httpUnixSocketPath, string? socksUnixSocketPath, CancellationToken cancellationToken)
         {
             // The case's folder stands for runtests' own: curl's working directory, %PWD and
             // HOME, with %LOGDIR the relative "log" inside it, as runtests runs one case at a time.
             var caseDirectory = Directory.CreateDirectory(Path.Combine(work, $"{client.LogPrefix}test{number}")).FullName;
             const string logDirectory = "log";
             Directory.CreateDirectory(Path.Combine(caseDirectory, logDirectory));
-            await using var serverHalves = await UpstreamTestCaseServerHalves.StartAsync(tlsSettings, httpUnixSocketPath, cancellationToken);
+            await using var serverHalves = await UpstreamTestCaseServerHalves.StartAsync(tlsSettings, httpUnixSocketPath, socksUnixSocketPath, cancellationToken);
+            await using var tlsSrp = UpstreamTestCaseTlsSrpServerHalf.Start(tlsSrpAccounts, cancellationToken);
 
-            var testCase = UpstreamTestCaseParser.Parse(source, RunEnvironment(number, caseDirectory, logDirectory, serverHalves, client, httpUnixSocketPath));
+            var testCase = UpstreamTestCaseParser.Parse(source, RunEnvironment(number, caseDirectory, logDirectory, serverHalves, tlsSrp, client, httpUnixSocketPath, socksUnixSocketPath, source));
             UpstreamTestCaseCommandLine commandLine;
             HttpUpstreamTestCaseReplies replies;
             FtpUpstreamTestCaseReplies ftpReplies;
@@ -414,6 +444,9 @@ public sealed class UpstreamTestCasesAgainstSurlTests
             MqttUpstreamTestCaseReplies mqttReplies;
             TftpUpstreamTestCaseReplies tftpReplies;
             MailUpstreamTestCaseReplies mailReplies;
+            HttpProxyUpstreamTestCaseReplies proxyReplies;
+            SocksUpstreamTestCaseReplies socksReplies;
+            DnsQueryUpstreamTestCaseReplies dnsReplies;
             // Upstream's runtests writes one servercmd file every server reads and each ignores the words
             // it does not know (BL-898); a server half here throws on one, so each gets the lines its own row implements.
             var families = ServerNames(testCase).Select(name => ServerFamilies[name]).Distinct().ToList();
@@ -429,6 +462,9 @@ public sealed class UpstreamTestCasesAgainstSurlTests
                 mqttReplies = new MqttUpstreamTestCaseReplies(FtpReplyParts(testCase).GetValueOrDefault("data") ?? []);
                 tftpReplies = new TftpUpstreamTestCaseReplies(FtpReplyParts(testCase), CommandsFor(TftpFamily));
                 mailReplies = new MailUpstreamTestCaseReplies(MailReplyParts(testCase), CommandsFor(MailFamily));
+                proxyReplies = new HttpProxyUpstreamTestCaseReplies(ReplyParts(testCase), CommandsFor(HttpProxyFamily));
+                socksReplies = new SocksUpstreamTestCaseReplies(CommandsFor(SocksFamily));
+                dnsReplies = new DnsQueryUpstreamTestCaseReplies(DnsLines(testCase));
             }
             catch (FormatException exception)
             {
@@ -439,9 +475,21 @@ public sealed class UpstreamTestCasesAgainstSurlTests
             await WriteFilesAsync(caseDirectory, commandLine, cancellationToken);
             var smbRoot = caseDirectory + "-smb";
             await WriteFileServerFilesAsync(number, testCase, families, Path.Combine(caseDirectory, logDirectory), smbRoot, cancellationToken);
+            // runtests' servers all log to one server.input, in the order the bytes arrived (BL-857):
+            // one log looks at each half the case names, so TFTP's lines land before FTP's late QUIT.
+            Dictionary<string, Func<byte[]>> receivedByFamily = new(StringComparer.Ordinal)
+            {
+                [HttpFamily] = () => replies.ReceivedBytes,
+                [FtpFamily] = () => ftpReplies.ReceivedBytes,
+                [GopherFamily] = () => gopherReplies.ReceivedBytes,
+                [MqttFamily] = () => mqttReplies.ReceivedBytes,
+                [TftpFamily] = () => tftpReplies.ReceivedBytes,
+                [MailFamily] = () => mailReplies.ReceivedBytes,
+            };
+            var arrivalLog = new ArrivalOrderedReceivedLog([.. families.Where(receivedByFamily.ContainsKey).Select(family => receivedByFamily[family])]);
             serverHalves.Play(
                 replies, ftpReplies, gopherReplies, mqttReplies, tftpReplies,
-                fileServers.CreateSsh(caseDirectory, sshUser), UpstreamTestCaseFileServers.CreateSmb(smbRoot), mailReplies);
+                fileServers.CreateSsh(caseDirectory, sshUser), UpstreamTestCaseFileServers.CreateSmb(smbRoot), mailReplies, proxyReplies, socksReplies, dnsReplies, arrivalLog);
             var curl = await client.Client.RunAsync(
                 commandLine.Arguments, commandLine.StandardInput, CurlEnvironment(Slashes(caseDirectory), commandLine), caseDirectory, cancellationToken);
             if (curl.TimedOut)
@@ -455,23 +503,14 @@ public sealed class UpstreamTestCasesAgainstSurlTests
             await File.WriteAllTextAsync(Path.Combine(caseDirectory, commandLine.StandardErrorFile), curl.StandardError, cancellationToken);
             var outputFile = Path.Combine(caseDirectory, commandLine.OutputFile);
             var output = File.Exists(outputFile) ? await File.ReadAllBytesAsync(outputFile, cancellationToken) : [];
-            // runtests' servers all log to one server.input; a case naming several is taken to
-            // use them in the order it names them (an HTTP redirect to FTP, or the reverse).
-            var receivedByFamily = new Dictionary<string, byte[]>(StringComparer.Ordinal)
-            {
-                [HttpFamily] = replies.ReceivedBytes,
-                [FtpFamily] = ftpReplies.ReceivedBytes,
-                [GopherFamily] = gopherReplies.ReceivedBytes,
-                [MqttFamily] = mqttReplies.ReceivedBytes,
-                [TftpFamily] = tftpReplies.ReceivedBytes,
-                [MailFamily] = mailReplies.ReceivedBytes,
-            };
-            byte[] received = [.. families.SelectMany(family => receivedByFamily.GetValueOrDefault(family) ?? [])];
+            var received = arrivalLog.Bytes;
             // runtests compares <upload> with %LOGDIR/upload.<N>; the FTP and TFTP server halves
             // keep their uploads in memory, and an SCP or SFTP upload lands in that very file.
             var sshUpload = Path.Combine(caseDirectory, logDirectory, $"upload.{number}");
             byte[] sshUploaded = families.Contains(SshFamily) && File.Exists(sshUpload) ? await File.ReadAllBytesAsync(sshUpload, cancellationToken) : [];
-            var record = UpstreamTestCaseRunRecord.FromRun(curl, output, received, [.. ftpReplies.UploadedBytes, .. tftpReplies.UploadedBytes, .. mailReplies.UploadedBytes, .. sshUploaded]);
+            var record = UpstreamTestCaseRunRecord.FromRun(curl, output, received, [.. ftpReplies.UploadedBytes, .. tftpReplies.UploadedBytes, .. mailReplies.UploadedBytes, .. sshUploaded])
+                with
+            { ProxyReceived = proxyReplies.ReceivedBytes, DnsQueryLog = dnsReplies.QueryLog };
             var verdict = new UpstreamTestCaseVerifyChecker(new CaseFolderRunFiles(caseDirectory), client.Features).Check(testCase, record);
             if (verdict.Passed)
             {
@@ -487,40 +526,31 @@ public sealed class UpstreamTestCasesAgainstSurlTests
         private ServerTlsSettings WriteCertificates()
         {
             var certs = Directory.CreateDirectory(Path.Combine(certificateDirectory, "certs"));
-            var now = DateTimeOffset.UtcNow;
+            var descriptions = Directory.GetFiles(Path.Combine(Root, "certs"), "*.prm").ToDictionary(
+                file => Path.GetFileNameWithoutExtension(file), File.ReadAllText, StringComparer.Ordinal);
+            var files = UpstreamTestCertificateGenerator.Generate(descriptions, TimeProvider.System);
+            foreach (var (name, bytes) in files)
+            {
+                File.WriteAllBytes(Path.Combine(certs.FullName, name), bytes);
+            }
 
-            using var caKey = RSA.Create(2048);
-            var caRequest = new CertificateRequest("CN=Surl upstream test case CA", caKey, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
-            caRequest.CertificateExtensions.Add(new X509BasicConstraintsExtension(true, false, 0, true));
-            caRequest.CertificateExtensions.Add(new X509KeyUsageExtension(X509KeyUsageFlags.KeyCertSign | X509KeyUsageFlags.CrlSign, true));
-            using var ca = caRequest.CreateSelfSigned(now.AddHours(-1), now.AddDays(2));
-
-            using var serverKey = RSA.Create(2048);
-            var serverRequest = new CertificateRequest("CN=localhost", serverKey, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
-            serverRequest.CertificateExtensions.Add(new X509BasicConstraintsExtension(false, false, 0, true));
-            serverRequest.CertificateExtensions.Add(new X509KeyUsageExtension(X509KeyUsageFlags.DigitalSignature | X509KeyUsageFlags.KeyEncipherment, true));
-            serverRequest.CertificateExtensions.Add(new X509EnhancedKeyUsageExtension([new Oid("1.3.6.1.5.5.7.3.1")], false));
-            var names = new SubjectAlternativeNameBuilder();
-            names.AddDnsName("localhost");
-            names.AddIpAddress(IPAddress.Loopback);
-            names.AddIpAddress(IPAddress.IPv6Loopback);
-            serverRequest.CertificateExtensions.Add(names.Build());
-            using var issued = serverRequest.Create(ca, now.AddMinutes(-30), now.AddDays(1), RandomNumberGenerator.GetBytes(16));
-            using var server = issued.CopyWithPrivateKey(serverKey);
-
-            File.WriteAllText(Path.Combine(certs.FullName, "test-ca.crt"), ca.ExportCertificatePem());
-            File.WriteAllText(Path.Combine(certs.FullName, "test-ca.cacert"), ca.ExportCertificatePem());
+            // The key is imported into an ECDsa object, whose key stays exportable for ServerTlsSettings' re-import.
+            using var key = ECDsa.Create();
+            key.ImportFromPem(System.Text.Encoding.ASCII.GetString(files["test-localhost.key"]));
+            using var issued = X509CertificateLoader.LoadCertificate(files["test-localhost.der"]);
+            using var server = issued.CopyWithPrivateKey(key);
 
             return new ServerTlsSettings(server, [], [], TimeProvider.System);
         }
 
         private UpstreamTestCaseEnvironment RunEnvironment(
-            int number, string caseDirectory, string logDirectory, UpstreamTestCaseServerHalves serverHalves, CaseClient client, string? httpUnixSocketPath) => new(
-            WithHttpUnixSocketPath(new Dictionary<string, string>(StringComparer.Ordinal)
+            int number, string caseDirectory, string logDirectory, UpstreamTestCaseServerHalves serverHalves, UpstreamTestCaseTlsSrpServerHalf tlsSrp, CaseClient client, string? httpUnixSocketPath, string? socksUnixSocketPath, byte[] source) => new(
+            WithUnixSocketPaths(new Dictionary<string, string>(StringComparer.Ordinal)
             {
                 ["HOSTIP"] = "127.0.0.1",
                 ["CLIENTIP"] = "127.0.0.1",
                 ["HTTPPORT"] = serverHalves.HttpPort.ToString(CultureInfo.InvariantCulture),
+                ["HTTP6PORT"] = serverHalves.HttpIPv6Port.ToString(CultureInfo.InvariantCulture),
                 ["HTTPSPORT"] = serverHalves.HttpsPort.ToString(CultureInfo.InvariantCulture),
                 ["FTPPORT"] = serverHalves.FtpPort.ToString(CultureInfo.InvariantCulture),
                 ["FTP6PORT"] = serverHalves.FtpIPv6Port.ToString(CultureInfo.InvariantCulture),
@@ -533,6 +563,7 @@ public sealed class UpstreamTestCasesAgainstSurlTests
                 ["DICTPORT"] = serverHalves.DictPort.ToString(CultureInfo.InvariantCulture),
                 ["TELNETPORT"] = serverHalves.TelnetPort.ToString(CultureInfo.InvariantCulture),
                 ["TFTPPORT"] = serverHalves.TftpPort.ToString(CultureInfo.InvariantCulture),
+                [PortVariableOf("dns")] = serverHalves.DnsPort.ToString(CultureInfo.InvariantCulture),
                 ["SSHPORT"] = serverHalves.SshPort.ToString(CultureInfo.InvariantCulture),
                 ["SMBPORT"] = serverHalves.SmbPort.ToString(CultureInfo.InvariantCulture),
                 ["IMAPPORT"] = serverHalves.ImapPort.ToString(CultureInfo.InvariantCulture),
@@ -541,6 +572,11 @@ public sealed class UpstreamTestCasesAgainstSurlTests
                 ["POP36PORT"] = serverHalves.Pop3IPv6Port.ToString(CultureInfo.InvariantCulture),
                 ["SMTPPORT"] = serverHalves.SmtpPort.ToString(CultureInfo.InvariantCulture),
                 ["SMTP6PORT"] = serverHalves.SmtpIPv6Port.ToString(CultureInfo.InvariantCulture),
+                [PortVariableOf("http-proxy")] = serverHalves.ProxyPort.ToString(CultureInfo.InvariantCulture),
+                [PortVariableOf("https-proxy")] = serverHalves.HttpsProxyPort.ToString(CultureInfo.InvariantCulture),
+                [PortVariableOf("socks5")] = SocksPortFor(serverHalves, source).ToString(CultureInfo.InvariantCulture),
+                [PortVariableOf("httptls+srp")] = tlsSrp.Port.ToString(CultureInfo.InvariantCulture),
+                [PortVariableOf("httptls+srp-ipv6")] = tlsSrp.IPv6Port.ToString(CultureInfo.InvariantCulture),
                 // The SSH server half's root is the case's folder (UpstreamTestCaseFileServers).
                 ["SFTP_PWD"] = string.Empty,
                 ["SCP_PWD"] = string.Empty,
@@ -565,8 +601,10 @@ public sealed class UpstreamTestCasesAgainstSurlTests
                 ["VERNUM"] = client.Report.VersionNumber,
                 // Only SCP and SFTP cases name %USER, as the login the SSH server half lets in.
                 ["USER"] = sshUser,
-                ["DEV_NULL"] = OperatingSystem.IsWindows() ? "NUL" : "/dev/null",
-            }, httpUnixSocketPath),
+                // Windows names its null device NUL, which curl opens for -o. Case 173 only names it as a form file name,
+                // and its Content-Length (378) counts the 9 characters of /dev/null, so it gets that (BL-1076).
+                ["DEV_NULL"] = OperatingSystem.IsWindows() && number != 173 ? "NUL" : "/dev/null",
+            }, httpUnixSocketPath, socksUnixSocketPath),
             client.Features,
             new ImportedFileReader(),
             TimeProvider.System);
@@ -574,15 +612,25 @@ public sealed class UpstreamTestCasesAgainstSurlTests
         // %HTTPUNIXPATH appears only in a command line, which runtests' shell splits; single quotes
         // keep a blank in the temporary folder's path (C:\Users\First Last\...) and its
         // backslashes in one word.
-        private static Dictionary<string, string> WithHttpUnixSocketPath(Dictionary<string, string> variables, string? httpUnixSocketPath)
+        private static Dictionary<string, string> WithUnixSocketPaths(
+            Dictionary<string, string> variables, string? httpUnixSocketPath, string? socksUnixSocketPath)
         {
             if (httpUnixSocketPath is not null)
             {
                 variables[HttpUnixPathVariable] = $"'{httpUnixSocketPath}'";
             }
 
+            if (socksUnixSocketPath is not null)
+            {
+                variables[SocksUnixPathVariable] = $"'{socksUnixSocketPath}'";
+            }
+
             return variables;
         }
+
+        // A case names its SOCKS server, and so which listener %SOCKSPORT is, in its <server> part.
+        private static int SocksPortFor(UpstreamTestCaseServerHalves serverHalves, byte[] source) =>
+            Encoding.Latin1.GetString(source).Contains("\nsocks4\n", StringComparison.Ordinal) ? serverHalves.Socks4Port : serverHalves.Socks5Port;
 
         private static Dictionary<string, string> CurlEnvironment(string home, UpstreamTestCaseCommandLine commandLine)
         {
@@ -666,6 +714,10 @@ public sealed class UpstreamTestCasesAgainstSurlTests
 
         private static IEnumerable<string> ServerCommandLines(UpstreamTestCase testCase) =>
             (testCase.FindPart("reply", "servercmd")?.Lines ?? []).Select(line => line.TrimEnd('\n'));
+
+        // The case's <reply><dns> lines, which the selector has already checked the DNS server half implements.
+        private static IEnumerable<string> DnsLines(UpstreamTestCase testCase) =>
+            (testCase.FindPart("reply", "dns")?.Lines ?? []).Select(line => line.TrimEnd('\n')).Where(line => !IsComment(line));
 
         private static IEnumerable<string> ServerNames(UpstreamTestCase testCase) =>
             (testCase.FindPart("client", "server")?.Lines ?? [])

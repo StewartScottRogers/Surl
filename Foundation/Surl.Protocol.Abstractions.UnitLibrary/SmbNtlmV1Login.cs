@@ -13,13 +13,15 @@ namespace Surl.Protocol.Abstractions;
 /// <param name="LmResponse">The LM response as sent; ignored by the check.</param>
 /// <param name="NtResponse">The NT response as sent, 24 bytes when well formed.</param>
 /// <param name="TlsSession">The TLS session on <c>smbs://</c>, <see langword="null"/> on <c>smb://</c>; for the log only.</param>
+/// <param name="Exchange">The exchange the login was made in, or <see langword="null"/> when unknown.</param>
 public sealed record SmbNtlmV1Login(
     string UserName,
     string DomainName,
     ReadOnlyMemory<byte> ServerChallenge,
     ReadOnlyMemory<byte> LmResponse,
     ReadOnlyMemory<byte> NtResponse,
-    TlsSession? TlsSession)
+    TlsSession? TlsSession,
+    LoginExchange? Exchange = null)
 {
     private bool PrintMembers(StringBuilder builder)
     {

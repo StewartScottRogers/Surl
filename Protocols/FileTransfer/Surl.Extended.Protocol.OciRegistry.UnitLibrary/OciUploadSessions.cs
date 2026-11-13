@@ -56,15 +56,16 @@ internal sealed class OciUploadSessions(TimeProvider clock)
     /// </summary>
     /// <param name="id">The session's UUID.</param>
     /// <param name="repositoryName">The repository the request names.</param>
-    /// <returns>The session, or <see langword="null"/> for <c>BLOB_UPLOAD_UNKNOWN</c>.</returns>
-    public async Task<OciUploadSession?> TakeAsync(string id, string repositoryName)
+    /// <param name="accountName">The account of the request's token, or <see langword="null"/> when anonymous.</param>
+    /// <returns>The session, or <see langword="null"/> for <c>BLOB_UPLOAD_UNKNOWN</c>, including another account's session.</returns>
+    public async Task<OciUploadSession?> TakeAsync(string id, string repositoryName, string? accountName)
     {
         List<OciUploadSession> expired;
         OciUploadSession? taken = null;
         lock (gate)
         {
             expired = RemoveExpired();
-            if (open.TryGetValue(id, out var session) && session.RepositoryName == repositoryName)
+            if (open.TryGetValue(id, out var session) && session.RepositoryName == repositoryName && session.OwnerAccountName == accountName)
             {
                 open.Remove(id);
                 taken = session;

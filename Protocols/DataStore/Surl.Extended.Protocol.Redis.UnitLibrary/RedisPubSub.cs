@@ -150,7 +150,7 @@ internal sealed class RedisPubSub(MessageBus.MessageBus bus, int maxSubscription
     /// <returns><c>PUBLISH</c>'s answer.</returns>
     public RespValue Publish(byte[] channel, byte[] message, string? account)
     {
-        if (!RedisChannelNames.TryGetTopic(channel, out var topic))
+        if (!RedisChannelNames.TryGetTopic(channel, bus.Names, out var topic))
         {
             return new RespInteger(PublishAmongConnections(channel, message));
         }
@@ -160,7 +160,7 @@ internal sealed class RedisPubSub(MessageBus.MessageBus bus, int maxSubscription
         {
             patternMatchesBeyondOne = topic.StartsWith('$')
                 ? 0
-                : PatternHolders().Sum(subscriber => MatchingPatterns(subscriber, topic).Count() - 1);
+                : PatternHolders().Sum(subscriber => MatchingPatterns(subscriber, channel).Count() - 1);
         }
 
         var result = bus.Publish(new BusMessage(topic, message), account);
@@ -204,10 +204,10 @@ internal sealed class RedisPubSub(MessageBus.MessageBus bus, int maxSubscription
     private IEnumerable<RedisSubscriber> PatternHolders() =>
         patternSubscribers.Values.SelectMany(subscribers => subscribers).Distinct();
 
-    // The connection's patterns matching the topic, by their bytes, in the order subscribed.
-    private static IEnumerable<byte[]> MatchingPatterns(RedisSubscriber subscriber, string topic)
+    // The connection's patterns matching the channel, by their bytes, in the order subscribed.
+    private static IEnumerable<byte[]> MatchingPatterns(RedisSubscriber subscriber, byte[] channel)
     {
-        var name = RedisKeys.Name(Encoding.UTF8.GetBytes(topic));
+        var name = RedisKeys.Name(channel);
         return subscriber.Patterns.Where(pattern => RedisGlobPattern.IsMatch(pattern.Key, name)).Select(pattern => pattern.Value);
     }
 
@@ -215,7 +215,7 @@ internal sealed class RedisPubSub(MessageBus.MessageBus bus, int maxSubscription
     // registry otherwise, and for a pattern also the connection's one subscription to every topic.
     private MessageBusOutcome Join(RedisSubscriber subscriber, Dictionary<string, List<RedisSubscriber>> registry, string key, byte[] name, bool isPattern)
     {
-        if (!isPattern && RedisChannelNames.TryGetTopic(name, out var topic))
+        if (!isPattern && RedisChannelNames.TryGetTopic(name, bus.Names, out var topic))
         {
             var result = ConnectToBus(subscriber).Subscribe(
                 topic,
@@ -266,13 +266,18 @@ internal sealed class RedisPubSub(MessageBus.MessageBus bus, int maxSubscription
         }
 
         subscriber.MessageReachingPatterns = null;
+        if (!RedisChannelNames.TryGetChannel(delivered.Topic, bus.Names, out var channelBytes))
+        {
+            return;
+        }
+
         List<byte[]> patterns;
         lock (syncRoot)
         {
-            patterns = [.. MatchingPatterns(subscriber, delivered.Topic)];
+            patterns = [.. MatchingPatterns(subscriber, channelBytes)];
         }
 
-        var channel = new RespBulkString(Encoding.UTF8.GetBytes(delivered.Topic));
+        var channel = new RespBulkString(channelBytes);
         var payload = new RespBulkString(delivered.Payload.ToArray());
         foreach (var pattern in patterns)
         {

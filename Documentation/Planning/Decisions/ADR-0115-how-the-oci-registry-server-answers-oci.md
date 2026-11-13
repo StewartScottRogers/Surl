@@ -505,3 +505,16 @@ what a peer may do.
 7. **Left to follow-up tasks:** refusing a Bearer token over plain text without
    `--allow-plaintext-auth` (decision 4.4's last row, which needs `--oci-plaintext` to exist), and
    binding an upload session to the account that opened it (code-3's "another account's session").
+
+## Amendment 2 - Bearer tokens over plain text (BL-890, 2026-11-12)
+
+Decided by Claude under Stewart's delegation.
+
+1. **A /v2/ request carrying Authorization: Bearer on a plain-text connection is 403 DENIED,** message
+   "credentials over plain text are refused", unless --allow-plaintext-auth (or --allow-anonymous) is given. Over TLS it is
+   served as before. No WWW-Authenticate challenge is sent: a better token would not help.
+2. **How the server learns the option:** not a new constructor option. OciAccessCheck asks the
+   IAuthenticationPolicy with a probe PasswordLogin that carries an empty password on the plain connection;
+   RefusedPlaintext means refuse. This is the verdict /token already uses for Basic, so the two can never
+   disagree, nothing in composition changes, and the server stays free of a second copy of the setting.
+3. The check precedes the token lookup, so a bad token over refused plain text is 403, not 401.

@@ -70,6 +70,18 @@ public sealed class CurlPortResultNormaliserTests
     }
 
     [TestMethod]
+    public void NormaliseStandardError_EstablishedConnectionLine_ReplacesBothPorts()
+    {
+        Assert.AreEqual(
+            "* Established connection to 127.0.0.1 (127.0.0.1 port <port>) from 127.0.0.1 port <port>\n",
+            CurlPortResultNormaliser.NormaliseStandardError(
+                "* Established connection to 127.0.0.1 (127.0.0.1 port 5000) from 127.0.0.1 port 61234\r\n",
+                5000,
+                [],
+                ["* Established connection to "]));
+    }
+
+    [TestMethod]
     public void NormaliseSurlNotes_ReplacesPortsBesideLoopbackAddressesAndTimeStamps()
     {
         Assert.AreEqual(

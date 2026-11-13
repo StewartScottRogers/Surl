@@ -1,3 +1,5 @@
+using Surl.Content;
+
 namespace Surl.Extended.Protocol.OciRegistry;
 
 /// <summary>
@@ -10,4 +12,8 @@ namespace Surl.Extended.Protocol.OciRegistry;
 /// <param name="IndexLock">Held while a request reads, changes and rewrites an <c>index.json</c>.</param>
 /// <param name="NewSessionId">Makes each upload session's version 4 UUID.</param>
 /// <param name="Tokens">The tokens the token endpoint issued.</param>
-internal sealed record OciServerState(OciUploadSessions Sessions, SemaphoreSlim IndexLock, Func<Guid> NewSessionId, OciTokenBook Tokens);
+/// <param name="MetadataIndex">
+/// Where each blob file's verified digest is cached against its stamp (ADR-0115, decision 2.1);
+/// <see langword="null"/> checks every file on every read.
+/// </param>
+internal sealed record OciServerState(OciUploadSessions Sessions, SemaphoreSlim IndexLock, Func<Guid> NewSessionId, OciTokenBook Tokens, ObjectMetadataIndex? MetadataIndex);

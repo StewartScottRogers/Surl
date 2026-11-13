@@ -60,9 +60,10 @@ internal sealed class WebTransportConnectHandler(
 
         try
         {
-            await session.RequestStream.WriteHeadersAsync(AnswerFields(WebTransportConnectJudgement.Accepted), endStream: false, cancellationToken);
-            context.Log.Note($"WebTransport session {session.Id} on {session.Head.Target} was accepted.");
             using var served = new WebTransportSession(session, context, FlowControlFor(settings!));
+            await session.RequestStream.WriteHeadersAsync(AnswerFields(WebTransportConnectJudgement.Accepted), endStream: false, cancellationToken);
+            served.MarkAnswered();
+            context.Log.Note($"WebTransport session {session.Id} on {session.Head.Target} was accepted.");
             directory.Settle(session.Id, served);
             await served.ServeAsync(cancellationToken);
         }
@@ -100,6 +101,14 @@ internal sealed class WebTransportConnectHandler(
         {
             context.Log.Note($"WebTransport CONNECT {session.Id} to {session.Head.Target} was answered {answer[0].Value}.");
             await session.RequestStream.WriteHeadersAsync(answer, endStream: true, cancellationToken);
+            return true;
+        }
+
+        if (await WebTransportConnectFaults.FindAsync(context, session.Head.Target) is { } chosen)
+        {
+            // ADR-0124 decision 9: the chosen status, with the rule's text as a plain-text body.
+            await session.RequestStream.WriteHeadersAsync([.. AnswerFields(chosen.Status), new("content-type", "text/plain; charset=utf-8")], endStream: false, cancellationToken);
+            await session.RequestStream.WriteDataAsync(chosen.Body, endStream: true, cancellationToken);
             return true;
         }
 

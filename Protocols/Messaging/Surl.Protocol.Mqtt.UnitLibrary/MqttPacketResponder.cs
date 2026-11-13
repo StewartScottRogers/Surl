@@ -184,7 +184,7 @@ internal sealed partial class MqttPacketResponder
     // as sent and the connection's TLS session, which is null over mqtt://.
     private async ValueTask<MqttConnectVerdict> CheckLoginAsync(MqttConnectJudgement judgement)
     {
-        var login = new PasswordLogin(context.Scheme, judgement.UserName, judgement.Password, connection.TlsSession);
+        var login = new PasswordLogin(context.Scheme, judgement.UserName, judgement.Password, connection.TlsSession, LoginExchange.Of(context));
         var loginVerdict = await authenticationPolicy.CheckPasswordLoginAsync(login, context.CancellationToken);
         NoteCheckedLogin(login, loginVerdict);
         account = loginVerdict == PasswordLoginVerdict.Accepted ? login.UserName : null;

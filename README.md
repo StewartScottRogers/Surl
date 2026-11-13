@@ -63,17 +63,24 @@ The work is on the board and is being built now. None of it is finished.
    SignalR, Socket.IO, WebTransport, MCP, CoAP, DNS, Redis, MQTT 5, AMQP 0-9-1 and 1.0,
    Kafka, NATS, STOMP and XMPP. Each is judged by its protocol's specification
    ([ADR-0083](Documentation/Planning/Decisions/ADR-0083-how-surl-serves-the-curl-ports-extended-protocols-and-how-they-are-tested.md)).
-   The setting `SURL_EXTENSIONS=0` will turn them all off. Ten of the libraries exist, and
-   none is registered in `surl` yet.
+   The setting `SURL_EXTENSIONS=0` turns them all off. All 19 libraries exist and are composed
+   in `surl` (see "Extended protocols" below).
 3. **Shared stores.** Servers that do the same job share one store in a single `surl`. Mail
-   sent over SMTP is read over IMAP or POP3, which works today. A file uploaded over FTP will
-   be fetched over HTTP or S3, and a message published over MQTT will be consumed over AMQP,
-   Kafka, NATS or STOMP through one shared message bus.
-4. **A configuration command line** for setting up a real server. It brings a curl-style
-   `-K` config file and repeatable options for mail domains, mailboxes, aliases, catch-alls,
-   shares, buckets, topics, queues and groups, so one `surl` can host hundreds of mailboxes.
-5. **Two more hosts.** `Surl.Api` starts and stops Surl servers inside a .NET test suite, and
-   `Surl.Mcp` lets AI agents start, list and stop servers and see what a client sent.
+   sent over SMTP is read over IMAP or POP3, a file uploaded over FTP is fetched over HTTP or
+   `s3`, and a message published over MQTT reaches NATS and STOMP through one shared message
+   bus. The MQTT 5, AMQP, Kafka and Redis servers are written against the bus but `surl` does
+   not register them yet.
+4. **A configuration command line** for setting up a real server: a curl-style `-K` config
+   file and repeatable options for mail domains, mailboxes, aliases, catch-alls, shared
+   folders, shares, buckets, topics, queues and groups, so one `surl` can host hundreds of
+   mailboxes. See [Configuring a real server](#configuring-a-real-server). LDAP as a source of
+   accounts is not built yet.
+5. **Two more hosts, built.** `Surl.Api` starts and stops Surl servers inside a .NET test
+   suite, and `Surl.Mcp` (`surl-mcp`) lets AI agents start, list and stop servers and see what
+   a client sent. See [Using Surl from a test suite or an AI agent](#using-surl-from-a-test-suite-or-an-ai-agent).
+   The stand-in features on top of them (event queries and waits, seeding, reset and
+   snapshots, faults, hooks and the control endpoint) are described in
+   [Surl as a stand-in for tests](Documentation/Wiki/Surl-As-A-Stand-In.md).
 6. **Phase 7: measuring the Curl port.** The port and pinned upstream curl run the same
    command lines against the same `surl`, and wherever they disagree, upstream curl is right.
    This is built for `win-x64`: the port at commit `b42c319b` agreed in 1,420 of 1,518 cases,
@@ -117,11 +124,12 @@ the schemes a build serves.
 What it serves depends on `--directory` (ADR-0031):
 
 - `surl http://127.0.0.1:8080/` serves an empty in-memory store. Everything the services
-  keep - uploaded files, MQTT retained messages, mail - lives in memory for as long as the
+  keep - uploaded files, retained and queued messages, mail - lives in memory for as long as the
   process runs, and nothing is written to disk.
 - `surl --directory <path> http://127.0.0.1:8080/` serves the files under `<path>` and
   persists what the services keep there across restarts: files at the top of the path,
-  every other kind of service state (MQTT retained messages and the mail store) under
+  every other kind of service state (the message bus's retained messages, queues and logs, and
+  the mail store) under
   `<path>/.surl/`. The LDAP directory is read from `<path>/.surl/ldap/directory.ldif` at start
   and never written.
   `.surl` is never served, even with `--serve-dot-files`. One surl process holds a path
@@ -250,8 +258,9 @@ curl pop3://127.0.0.1:1110/1
 ```
 
 With accounts, a message is stored in the `INBOX` of each recipient whose local part names an
-account; a recipient that names none is answered alike and its copy discarded, so no peer learns
-which accounts exist. curl's `-u` then logs in with `CRAM-MD5` by default, which sends no password
+account, whatever its domain (unless `--mail-domain` is given, see
+[Configuring a real server](#configuring-a-real-server)); a recipient that names none is
+answered alike and its copy discarded, so no peer learns which accounts exist. curl's `-u` then logs in with `CRAM-MD5` by default, which sends no password
 in clear ([ADR-0049](Documentation/Planning/Decisions/ADR-0049-the-mail-servers-sasl-and-apop-logins.md)):
 
 ```
@@ -373,6 +382,57 @@ surl --directory site --user alice:s3cret rtsp://127.0.0.1:8554/
 curl -f --digest -u alice:s3cret rtsp://127.0.0.1:8554/
 ```
 
+## Configuring a real server
+
+A real server needs mailboxes, shares and topic grants, and an operator wants them in a file
+rather than on one command line. `-K`/`--config <file>` reads options from a file in curl's
+config-file syntax, in place where the `-K` stands: one option per line, `#` comments, the
+option name with or without its dashes, and `url = <listen URL>` for each listen URL
+([ADR-0101](Documentation/Planning/Decisions/ADR-0101-surls-configuration-surface-the-config-file-repeatable-item-options-and-one-configuration-model.md)).
+`surl` reads no config file it is not told to. This `surl.cfg` serves mail for `example.com`
+with one mailbox, a read-only share that only that mailbox may read, and MQTT topics under
+`shop/` that the mailbox may publish and subscribe to and that keep the last message:
+
+```
+# One surl: mail, a read-only share and an MQTT topic with a grant.
+url = smtp://127.0.0.1:2525/
+url = imap://127.0.0.1:1143/
+url = http://127.0.0.1:8080/
+url = mqtt://127.0.0.1:1883/
+mail-domain = example.com
+mailbox = ann@example.com:secret
+share = docs=site/docs;readonly
+share-access = docs=ann@example.com:r
+topic = shop/#;retain
+topic-access = shop/#=ann@example.com:pubsub
+```
+
+```
+surl -K surl.cfg
+```
+
+This file was run with `surl -v -K surl.cfg` on 2026-11-12, with `site/docs` an existing
+directory: surl noted the mail domain, the mailbox (logins on `smtp`, `imap` and `pop3`),
+the share and the topic, then listened on all four URLs. `ann@example.com` logs in with the
+user name `ann@example.com` (`curl -u ann@example.com:secret imap://127.0.0.1:1143/`). With a
+mail domain set, mail to an address at another domain is refused `550 5.7.1 Relaying denied`.
+Because `docs` has a `--share-access`, it is closed to everyone not named, anonymous callers
+included.
+
+The options are `--mail-domain`, `--mailbox`, `--mailbox-file` (a CSV of mailboxes),
+`--mail-alias`, `--mail-catch-all` and `--shared-folder` for mail; `--share`,
+`--share-access` and `--bucket` for files; `--topic`, `--queue`, `--topic-map` and
+`--topic-access` for messages; and `--group` for sets of accounts. Each repeats, and each
+argument is one item whose parts are separated by `;`, percent-encoded where they must hold
+a `;` or the separator. A key or flag it does not know is refused, never ignored, and
+`--mail-catch-all` and `@everyone` grants warn at every start because they widen access.
+`surl --aihelp mail`, `surl --aihelp messages`, `surl --aihelp content` and
+`surl --aihelp auth` list every option with its keys and exit codes. The terms (message bus,
+canonical topic, share, share access, mail domain, mail alias, catch-all, shared folder,
+account group, config file) are in the [glossary](Documentation/Wiki/Glossary.md). Seeding,
+resetting and snapshotting these stores from a test is the subject of
+[Surl as a stand-in for tests](Documentation/Wiki/Surl-As-A-Stand-In.md).
+
 ## Logging
 
 Surl logs at one of five levels, as curl does
@@ -424,6 +484,74 @@ Schemes, Options (argument type, default, allowed values, whether it loosens sec
 Exit codes (with what to do next) and Examples (exact command lines and what surl prints).
 `surl --aihelp all` writes the overview and every topic in one document; an unknown topic
 gets the topic list.
+
+## Using Surl from a test suite or an AI agent
+
+`surl` is one of three hosts of the same servers (ADR-0098, ADR-0099, ADR-0103). Each keeps
+`surl`'s secure-by-default rules: nothing is looser than `surl` with the same options.
+
+**From a .NET test suite: `Surl.Api`.** It starts a server in process, with no `surl` process,
+on port 0 so a free port is taken, and several instances run side by side. This is
+`Application/Surl.Api/README.md`'s example:
+
+```csharp
+using Surl.Api;
+
+var options = new SurlServerOptions { ListenUrls = { "http://127.0.0.1:0" } };
+options.Files["hello.txt"] = "hello"u8.ToArray();
+
+var server = await SurlServer.StartAsync(options);
+// server.BoundUrl is http://127.0.0.1:<the bound port>/ - port 0 takes a free one;
+// server.BoundUrls lists every listen URL, in order, with its bound port.
+// ... run the client against server.BoundUrl ...
+var exitCode = await server.StopAsync();   // SurlExitCode.Ok
+```
+
+Every property is a spelling of a `surl` option, and a start `surl` would refuse throws
+`SurlServerStartException`. With `RecordExchanges` set, `server.Exchanges` holds each exchange's
+bytes, its listen URL and its scheme. The [package's README](Application/Surl.Api/README.md) covers
+the rest: queries and waits, fault rules, hooks, seeding, reset and snapshots, and a test's own
+protocol server. The NuGet package `Surl.Api` is packed by the release workflow but not yet
+published, because no release is tagged.
+
+**From an AI agent: `Surl.Mcp`.** `surl-mcp` is an MCP server on standard input and output. An MCP
+client starts it as a stdio server, for example with the command `dnx Surl.Mcp` (the package is a
+.NET tool of type `McpServer`, not yet published) or with the `surl-mcp` binary from a release
+archive, which needs no .NET runtime. Its tools are `start_server`, `list_servers`, `stop_server`,
+`get_exchanges`, `get_events`, `wait_for_event`, `seed_mail`, `put_file`, `publish_message`,
+`add_account`, `reset_server`, `snapshot_server`, `restore_server`, `add_fault`, `list_faults` and
+`remove_fault`. The `surl://aihelp` resources carry the pages of `surl --aihelp`, so the agent
+learns the options from the same text. Listen URLs must be loopback unless the host was started
+with `--allow-non-loopback`, and local paths are confined by `--root`. See
+[`Application/Surl.Mcp/README.md`](Application/Surl.Mcp/README.md).
+
+## Use Surl as a stand-in in your tests
+
+Surl is built to be run against in place of a real mail server, bucket, broker or file site in someone
+else's integration tests, several protocols at once. [Surl as a stand-in for tests](Documentation/Wiki/Surl-As-A-Stand-In.md)
+says how: embed it with `Surl.Api`, seed, reset and snapshot its stores, inject faults, query and wait for
+events, drive it from any language through the loopback control endpoint, or from an AI agent through
+`Surl.Mcp`, with one recipe test for each scenario. The same text is in [Application/Surl.Api/README.md](Application/Surl.Api/README.md).
+
+## Extended protocols
+
+Surl also answers the schemes [the Curl port](https://github.com/StewartScottRogers/Curl) adds and
+upstream curl does not have. Each is a `Surl.Extended.Protocol.<Name>` server, composed by
+`surl` and judged by its protocol's **specification**, not by upstream curl
+([ADR-0083](Documentation/Planning/Decisions/ADR-0083-how-surl-serves-the-curl-ports-extended-protocols-and-how-they-are-tested.md)):
+
+| Job | Schemes |
+| --- | --- |
+| Object and file stores | `s3`, `az`, `abfs`, `abfss`, `gs`, `oci` |
+| HTTP-based | `grpc`, `grpcs`, `signalr`, `signalrs`, `socketio`, `socketios`, `webtransport`, `mcp`, `mcps`, `mcp+stdio`, `coap`, `coaps` |
+| Lookup | `dns` |
+| Messaging | `mqtt5`, `mqtt5s`, `mqtt5+ws`, `amqp`, `amqps`, `amqp1`, `amqp1s`, `kafka`, `kafkas`, `nats`, `natss`, `stomp`, `stomps`, `xmpp`, `xmpps` |
+| Data store | `redis`, `rediss` |
+
+`SURL_EXTENSIONS=0` turns every one of them off; such a scheme is then refused like an unknown
+one (exit code 1). The Curl port's Plugin protocol is skipped: it has no wire protocol to serve.
+The Curl port's client runs against these servers only in `Integration` tests and is never proof.
+See the product overview, [Extended protocols](Documentation/Product/Product-Overview.md#extended-protocols).
 
 ## Upstream curl validates Surl; Surl later validates the Curl port
 
@@ -477,6 +605,10 @@ curl -fsSL https://raw.githubusercontent.com/StewartScottRogers/Surl/master/inst
 irm https://raw.githubusercontent.com/StewartScottRogers/Surl/master/install.ps1 | iex          # Windows
 ```
 
+The release also attaches `surl-mcp-<runtime identifier>` archives, the native `surl-mcp` MCP
+server. The NuGet packages `Surl.Api` and `Surl.Mcp` are packed by the same workflow but not yet
+published.
+
 ## Build and test
 
 Needs the .NET 10 SDK. Builds and tests on Windows, Linux and macOS.
@@ -504,7 +636,7 @@ Each `.UnitTests` project sits beside the library it tests.
 
 | Folder | Holds |
 | --- | --- |
-| `Application/` | the `surl` executable (`Surl.Console`) and its command line (`Surl.Cli`) |
+| `Application/` | the three hosts - `surl` (`Surl.Console`), `Surl.Api` and `surl-mcp` (`Surl.Mcp`) - the command line (`Surl.Cli`), the composition they share (`Surl.Composition`), `Surl.Mcp.UnitLibrary` and the control endpoint (`Surl.Control`) |
 | `Foundation/` | the protocol contracts, networking, content store, accounts, cookies and output |
 | `Cryptography/` | the hand-built primitives (ChaCha20, Curve25519, Ed25519, Poly1305 and others), the TLS 1.3 handshake for QUIC, and Kerberos |
 | `Protocols/FileTransfer/` | FTP, SSH (SCP and SFTP), TFTP and SMB |

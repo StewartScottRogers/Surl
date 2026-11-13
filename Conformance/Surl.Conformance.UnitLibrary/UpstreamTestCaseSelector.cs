@@ -100,6 +100,7 @@ public sealed class UpstreamTestCaseSelector(UpstreamTestCaseSelectionRules rule
 
         public IEnumerable<string> ServerCommands =>
             Words(testCase, "reply", "servercmd").Where(line => !line.StartsWith('#')).Select(line => line.Split(' ', '\t')[0])
+                .Concat(Words(testCase, "reply", "dns").Where(line => !line.StartsWith('#')).Select(line => line.Split(':')[0]))
                 .Concat(Words(testCase, "reply", "postcmd").Any(line => !line.StartsWith('#')) ? [UpstreamTestCaseServerCommands.PostCommand] : []);
 
         public IEnumerable<(string Part, string Line)> StripLines =>

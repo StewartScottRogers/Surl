@@ -35,7 +35,10 @@ What the Blob endpoint serves now (BL-424, BL-425, BL-715, BL-716), on `az`:
   AuthorizationPermissionMismatch`; every other `403 AuthenticationFailed` with a fixed
   `AuthenticationErrorDetail` (an unknown account reads `Signature did not match.`, as a wrong
   signature does). A bearer request naming a version before 2017-11-09 is `403
-  AuthenticationFailed` before the session is asked; an anonymous write is `401`.
+  AuthenticationFailed` before the session is asked; an anonymous write is `401`. A bearer token on a plain-text
+  connection (no TLS session) is refused `401 InvalidAuthenticationInfo` with the challenge before the session is
+  asked, unless the server was built with `allowsPlaintextAuthentication` (`--allow-plaintext-auth`, passed by
+  the composition; BL-1024, ADR-0109 decision 6); Shared Key and a SAS are judged as over TLS.
 - Put Blob (BL-425, `AzurePutBlob`) on `PUT /<container>/<blob>`: needs `--allow-uploads` (off:
   `403 AuthorizationPermissionMismatch`) and `x-ms-blob-type: BlockBlob` (missing `400
   MissingRequiredHeader`, `AppendBlob`/`PageBlob` `400 UnsupportedHeader`, another value `400

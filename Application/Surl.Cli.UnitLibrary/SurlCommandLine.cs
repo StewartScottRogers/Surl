@@ -192,6 +192,12 @@ public sealed record SurlCommandLine
     public IReadOnlyList<CommandLineAccount> Accounts { get; init; } = [];
 
     /// <summary>
+    /// <c>--user-ldap</c>: the LDAP directory password logins are checked against beside the accounts
+    /// (ADR-0149); none by default. At most one is given.
+    /// </summary>
+    public ConfiguredLdapAccountSource? UserLdap { get; init; }
+
+    /// <summary>
     /// <c>--user-file</c>: the file of more accounts, as given; none by default. It is read
     /// when surl starts serving, not while parsing (ADR-0032 section 2).
     /// </summary>
@@ -406,10 +412,40 @@ public sealed record SurlCommandLine
     public bool S3Plaintext { get; init; }
 
     /// <summary>
+    /// <c>--az-plaintext</c>: serve every <c>az</c> listen URL as plain HTTP/1.1, with no TLS and no
+    /// certificate (ADR-0109 decision 6). Off by default.
+    /// </summary>
+    public bool AzPlaintext { get; init; }
+
+    /// <summary>
+    /// <c>--gs-plaintext</c>: serve every <c>gs</c> listen URL as plain HTTP/1.1, with no TLS and no
+    /// certificate (ADR-0110 decision 5). Off by default.
+    /// </summary>
+    public bool GsPlaintext { get; init; }
+
+    /// <summary>
+    /// <c>--oci-plaintext</c>: serve every <c>oci</c> listen URL as plain HTTP/1.1, with no TLS and no
+    /// certificate, its token realm <c>http</c> (ADR-0115 decision 6). Off by default.
+    /// </summary>
+    public bool OciPlaintext { get; init; }
+
+    /// <summary>
     /// <c>--dns-transport</c>: the transports every <c>dns</c> listen URL serves, <c>udp</c>, <c>tcp</c>
     /// and <c>tls</c>, in the order given (ADR-0092 decision 5). <c>udp</c> then <c>tcp</c> by default.
     /// </summary>
     public IReadOnlyList<string> DnsTransports { get; init; } = DefaultDnsTransports;
+
+    /// <summary>
+    /// <c>--kafka-fetch-compression</c>: the codec of the record batches the Kafka broker serves to a fetch,
+    /// <c>none</c>, <c>gzip</c>, <c>snappy</c>, <c>lz4</c> or <c>zstd</c> (ADR-0105 decision 4). <c>none</c> by default.
+    /// </summary>
+    public string KafkaFetchCompression { get; init; } = "none";
+
+    /// <summary>
+    /// <c>--mqtt5-disconnect-after-retained</c>: the MQTT 5 broker sends <c>DISCONNECT</c> <c>0x00</c> and closes after a
+    /// <c>SUBACK</c> and the retained messages it releases (ADR-0093 decision 9). Off by default.
+    /// </summary>
+    public bool Mqtt5DisconnectAfterRetained { get; init; }
 
     /// <summary>The transports <c>--dns-transport</c> defaults to; one shared list, so two default command lines are equal.</summary>
     public static readonly IReadOnlyList<string> DefaultDnsTransports = ["udp", "tcp"];

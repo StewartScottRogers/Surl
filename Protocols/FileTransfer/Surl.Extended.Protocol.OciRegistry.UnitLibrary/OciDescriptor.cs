@@ -33,6 +33,13 @@ internal sealed record OciDescriptor(
     public const string DockerManifestListMediaType = "application/vnd.docker.distribution.manifest.list.v2+json";
 
     /// <summary>
+    /// Every other field the descriptor held in the file it was read from (such as
+    /// <c>platform</c>, <c>urls</c> or <c>data</c>), as property name and raw JSON value, in file
+    /// order; rewritten unchanged (ADR-0130, decision 6).
+    /// </summary>
+    public IReadOnlyList<KeyValuePair<string, string>> ExtraFields { get; init; } = [];
+
+    /// <summary>
     /// The tag this descriptor carries, or <see langword="null"/> for an untagged manifest.
     /// </summary>
     public string? Tag => Annotations.FirstOrDefault(annotation => annotation.Key == RefNameAnnotation).Value;

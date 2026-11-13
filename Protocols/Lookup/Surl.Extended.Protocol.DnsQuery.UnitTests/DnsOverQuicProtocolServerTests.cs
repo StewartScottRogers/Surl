@@ -75,6 +75,42 @@ public sealed class DnsOverQuicProtocolServerTests
     }
 
     [TestMethod]
+    [DataRow(ConnectionRefusal.TooManyConnections)]
+    [DataRow(ConnectionRefusal.TooManyConnectionsFromAddress)]
+    public async Task WriteRefusalAsync_FirstInitial_SendsOneInitialHoldingConnectionCloseConnectionRefused(ConnectionRefusal refusal)
+    {
+        using var client = new DnsOverQuicTestClient();
+        var server = Server(client);
+
+        await server.WriteRefusalAsync(client.Flow, refusal, Token);
+
+        client.Quic.Receive(client.Flow.SentDatagrams);
+        Assert.AreEqual(0x02UL, client.TransportCloseCode);
+        Assert.IsNull(client.CloseCode);
+    }
+
+    [TestMethod]
+    public async Task WriteRefusalAsync_FirstDatagramNotAVersion1Initial_SendsNoBytes()
+    {
+        using var client = new DnsOverQuicTestClient();
+        var server = Server(client);
+        await using var flow = new InMemoryDatagramFlow(new byte[1200]);
+
+        await server.WriteRefusalAsync(flow, ConnectionRefusal.TooManyConnections, Token);
+
+        Assert.IsEmpty(flow.SentDatagrams);
+    }
+
+    [TestMethod]
+    public async Task WriteRefusalAsync_NullFlow_Throws()
+    {
+        using var client = new DnsOverQuicTestClient();
+        var server = Server(client);
+
+        await Assert.ThrowsExactlyAsync<ArgumentNullException>(() => server.WriteRefusalAsync(null!, ConnectionRefusal.TooManyConnections, Token).AsTask());
+    }
+
+    [TestMethod]
     public async Task ServeAsync_QueryOverDoq_IsAnsweredOnItsStream()
     {
         using var client = new DnsOverQuicTestClient();

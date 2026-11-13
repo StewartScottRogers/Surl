@@ -27,7 +27,8 @@ public sealed class DnsTransportOptionTests
     [DataRow("")]
     [DataRow("tcp,tcp")]
     [DataRow("udp,,tcp")]
-    [DataRow("https")]
+    [DataRow("https,https")]
+    [DataRow("doh")]
     public void Parse_BadDnsTransport_IsRefusedFailedInitWithTheOptionErrorText(string value)
     {
         var result = CommandLineParser.Parse(["--dns-transport", value, "dns://127.0.0.1:5300"], ["dns"]);
@@ -40,7 +41,25 @@ public sealed class DnsTransportOptionTests
     public void ReadDnsTransports_Empty_IsBlankAndAWordNotListedIsBadlyUsed()
     {
         Assert.AreEqual(OptionArgumentReader.Blank, OptionArgumentReader.ReadDnsTransports(string.Empty, out _));
-        Assert.AreEqual(OptionArgumentReader.BadlyUsed, OptionArgumentReader.ReadDnsTransports("quic", out _));
+        Assert.AreEqual(OptionArgumentReader.BadlyUsed, OptionArgumentReader.ReadDnsTransports("doh", out _));
+    }
+
+    [TestMethod]
+    public void Parse_DnsTransportUdpTcpHttps_ReadsTheListAndTheAllowedValuesListHttps()
+    {
+        CollectionAssert.AreEqual(
+            new[] { "udp", "tcp", "https" },
+            Served("--dns-transport", "udp,tcp,https", "dns://127.0.0.1:5300").DnsTransports.ToArray());
+        StringAssert.Contains(OptionArgumentReader.DnsTransports.Type.AllowedValues, "https");
+    }
+
+    [TestMethod]
+    public void Parse_DnsTransportUdpTcpQuic_ReadsTheListAndTheAllowedValuesListQuic()
+    {
+        CollectionAssert.AreEqual(
+            new[] { "udp", "tcp", "quic" },
+            Served("--dns-transport", "udp,tcp,quic", "dns://127.0.0.1:5300").DnsTransports.ToArray());
+        StringAssert.Contains(OptionArgumentReader.DnsTransports.Type.AllowedValues, "quic");
     }
 
     [TestMethod]

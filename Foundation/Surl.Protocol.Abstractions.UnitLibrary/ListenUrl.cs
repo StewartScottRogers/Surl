@@ -45,6 +45,22 @@ public sealed record ListenUrl(string Scheme, string Host, int Port)
     /// </summary>
     public ListenTransport? OnlyTransport { get; init; }
 
+    /// <summary>
+    /// Whether this <c>dns</c> listen URL serves DNS over HTTPS (RFC 8484) rather than DNS over TLS,
+    /// both of which are TLS from the first byte: the composition sets it for
+    /// <c>--dns-transport https</c> (ADR-0092, decision 5 and Amendment 1), so the listener offers
+    /// ALPN <c>h2</c> then <c>http/1.1</c> and the server answers HTTP. <see langword="false"/> unless set.
+    /// </summary>
+    public bool IsDnsOverHttps { get; init; }
+
+    /// <summary>
+    /// The path the listen URL was written with, as written (<c>/chat/</c>), or <see langword="null"/>
+    /// when it had none or only <c>/</c>. Only the schemes <c>Surl.Cli</c>'s <c>ListenUrlParser</c> lists
+    /// as taking a path (<c>signalr</c> and <c>signalrs</c>) ever carry one; every other listen URL
+    /// with a path is refused (ADR-0007 section 4; ADR-0153).
+    /// </summary>
+    public string? Path { get; init; }
+
     private readonly bool? isImplicitTls;
 
     /// <summary>

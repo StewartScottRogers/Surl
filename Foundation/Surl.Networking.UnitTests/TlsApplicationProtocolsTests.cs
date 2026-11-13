@@ -9,6 +9,13 @@ public sealed class TlsApplicationProtocolsTests
     [DataRow("https", "h2,http/1.1")]
     [DataRow("wss", "http/1.1")]
     [DataRow("s3", "http/1.1")]
+    [DataRow("oci", "http/1.1")]
+    [DataRow("mcps", "http/1.1")]
+    [DataRow("az", "http/1.1")]
+    [DataRow("gs", "http/1.1")]
+    [DataRow("abfss", "http/1.1")]
+    [DataRow("grpcs", "h2")]
+    [DataRow("abfs", "")]
     [DataRow("ftp", "")]
     [DataRow("ftps", "")]
     [DataRow("imaps", "")]
@@ -21,6 +28,8 @@ public sealed class TlsApplicationProtocolsTests
     [DataRow("http", true, "")]
     [DataRow("https", false, "h2,http/1.1")]
     [DataRow("wss", false, "http/1.1")]
+    [DataRow("grpcs", false, "h2")]
+    [DataRow("grpcs", true, "h2")]
     [DataRow("xmpps", false, "xmpp-client")]
     [DataRow("ftps", false, "")]
     [DataRow("dns", false, "")]
@@ -28,4 +37,14 @@ public sealed class TlsApplicationProtocolsTests
         Assert.AreEqual(
             expected,
             string.Join(",", TlsApplicationProtocols.ForListener(new ListenUrl(scheme, "127.0.0.1", 0) { IsProxy = isProxy })));
+
+
+    [TestMethod]
+    [DataRow(true, true, "h2,http/1.1")]
+    [DataRow(true, false, "dot")]
+    [DataRow(false, true, "")]
+    public void ForListener_DnsListenerOffersH2ThenHttp11ForDnsOverHttpsAndDotForDnsOverTls(bool isImplicitTls, bool isDnsOverHttps, string expected) =>
+        Assert.AreEqual(
+            expected,
+            string.Join(",", TlsApplicationProtocols.ForListener(new ListenUrl("dns", "127.0.0.1", 443) { IsImplicitTls = isImplicitTls, IsDnsOverHttps = isDnsOverHttps })));
 }

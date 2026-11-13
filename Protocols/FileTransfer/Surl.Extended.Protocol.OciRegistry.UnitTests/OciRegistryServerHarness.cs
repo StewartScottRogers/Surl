@@ -46,12 +46,47 @@ internal sealed class OciRegistryServerHarness
     {
     }
 
-    private OciRegistryServerHarness(int maxLiveTokens, ContentExposureOptions options, Func<InMemoryContentFileSystem, ContentShare>[] shares)
+    private OciRegistryServerHarness(int maxLiveTokens, ContentExposureOptions options, Func<InMemoryContentFileSystem, ContentShare>[] shares, bool keepsMetadataIndex = true)
     {
         TimeProvider = new FixedTimeProvider(Now);
         FileSystem = new InMemoryContentFileSystem(TimeProvider);
-        Store = new ContentStore(InMemoryContentFileSystem.RootPath, FileSystem, options, [.. shares.Select(share => share(FileSystem))], []);
-        Server = new OciRegistryProtocolServer(Store, Policy, TimeProvider, () => Guid.Parse(SessionId(Interlocked.Increment(ref sessionCount))), maxLiveTokens);
+        CountingFileSystem = new UnitTestCountingContentFileSystem(FileSystem);
+        Store = new ContentStore(InMemoryContentFileSystem.RootPath, CountingFileSystem, options, [.. shares.Select(share => share(FileSystem))], []);
+        MetadataIndex = keepsMetadataIndex ? new ObjectMetadataIndex(CountingFileSystem, InMemoryContentFileSystem.RootPath, persists: false) : null;
+        Server = new OciRegistryProtocolServer(Store, Policy, TimeProvider, () => Guid.Parse(SessionId(Interlocked.Increment(ref sessionCount))), maxLiveTokens, MetadataIndex);
+    }
+
+    /// <summary>
+    /// A registry with no object metadata index, so it hashes every file on every read.
+    /// </summary>
+    public static OciRegistryServerHarness WithoutMetadataIndex() => new(OciTokenBook.MaxLiveTokens, new ContentExposureOptions(), [], keepsMetadataIndex: false);
+
+    /// <summary>
+    /// The root file system as the store sees it, counting each file's reads.
+    /// </summary>
+    public UnitTestCountingContentFileSystem CountingFileSystem { get; }
+
+    /// <summary>
+    /// The object metadata index the server caches verified digests in; <see langword="null"/>
+    /// for <see cref="WithoutMetadataIndex"/>.
+    /// </summary>
+    public ObjectMetadataIndex? MetadataIndex { get; }
+
+    /// <summary>
+    /// How many times the file at <paramref name="relativePath"/> of the root was opened for reading.
+    /// </summary>
+    public int ReadsOf(string relativePath) => CountingFileSystem.ReadsOf(Path.Join([InMemoryContentFileSystem.RootPath, .. relativePath.Split('/')]));
+
+    /// <summary>
+    /// Replaces the file at <paramref name="relativePath"/> through the content store, as another
+    /// protocol's upload would.
+    /// </summary>
+    public async Task ReplaceThroughStoreAsync(string relativePath, byte[] content)
+    {
+        var store = new ContentStore(InMemoryContentFileSystem.RootPath, CountingFileSystem, new ContentExposureOptions { AllowUploads = true });
+        using var source = new MemoryStream(content);
+
+        Assert.AreEqual(ContentUploadResult.Written, await store.WriteUploadAsync(store.MapRequestPath("/" + relativePath), source, CancellationToken.None));
     }
 
     /// <summary>
@@ -65,6 +100,11 @@ internal sealed class OciRegistryServerHarness
     /// <see cref="UnitTestAuthenticationPolicy.UserName"/>, anonymous logins refused.
     /// </summary>
     public UnitTestAuthenticationPolicy Policy { get; } = new();
+
+    /// <summary>
+    /// The TLS session of the connection each request is sent on; <see langword="null"/> is plain text.
+    /// </summary>
+    public TlsSession? TlsSession { get; set; }
 
     /// <summary>
     /// Where each exchange's random bytes, and so each token, come from.
@@ -273,10 +313,17 @@ internal sealed class OciRegistryServerHarness
     /// Fetches a token as <see cref="UnitTestAuthenticationPolicy.UserName"/> for
     /// <paramref name="scopes"/>, each a whole <c>scope</c> value.
     /// </summary>
-    public async Task<string> FetchTokenAsync(params string[] scopes)
+    public Task<string> FetchTokenAsync(params string[] scopes) =>
+        FetchTokenAsAsync(UnitTestAuthenticationPolicy.BasicAuthorization, scopes);
+
+    /// <summary>
+    /// Fetches a token with <paramref name="authorization"/> (a whole <c>Authorization</c> field)
+    /// for <paramref name="scopes"/>, each a whole <c>scope</c> value.
+    /// </summary>
+    public async Task<string> FetchTokenAsAsync(string authorization, params string[] scopes)
     {
         var query = string.Join('&', scopes.Select(scope => "scope=" + Uri.EscapeDataString(scope)));
-        var answer = await ServeAsync($"GET /token?service=surl&{query} HTTP/1.1\r\nHost: registry.test\r\n{UnitTestAuthenticationPolicy.BasicAuthorization}\r\nConnection: close\r\n\r\n");
+        var answer = await ServeAsync($"GET /token?service=surl&{query} HTTP/1.1\r\nHost: registry.test\r\n{authorization}\r\nConnection: close\r\n\r\n");
         StringAssert.StartsWith(answer, "HTTP/1.1 200 OK\r\n");
         using var json = System.Text.Json.JsonDocument.Parse(answer[(answer.IndexOf("\r\n\r\n", StringComparison.Ordinal) + 4)..]);
 
@@ -306,7 +353,7 @@ internal sealed class OciRegistryServerHarness
 
     private async Task<string> ServeAsync(string request)
     {
-        var connection = new InMemoryConnection([Encoding.Latin1.GetBytes(request)]);
+        var connection = new InMemoryConnection([Encoding.Latin1.GetBytes(request)], initialTlsSession: TlsSession);
         await Server.ServeAsync(connection, Context());
 
         return Encoding.UTF8.GetString(connection.WrittenBytes);

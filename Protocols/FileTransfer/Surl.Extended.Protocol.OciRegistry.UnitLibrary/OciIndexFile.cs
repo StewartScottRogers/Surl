@@ -125,6 +125,12 @@ internal static class OciIndexFile
             writer.WriteEndObject();
         }
 
+        foreach (var (name, rawValue) in descriptor.ExtraFields)
+        {
+            writer.WritePropertyName(name);
+            writer.WriteRawValue(rawValue, skipInputValidation: true);
+        }
+
         writer.WriteEndObject();
     }
 }

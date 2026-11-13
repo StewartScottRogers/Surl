@@ -86,7 +86,21 @@ internal sealed record CurlPortRunSetup
     /// leaves TLS to its library; the exit code and the asserted stderr lines still judge the refusal.
     /// </summary>
     public static string WithoutTlsEndings(string notes) =>
+        WithoutTlsEndingsAndExchangeOpenings(notes, dropExchangeOpenings: false);
+
+    /// <summary>
+    /// Gets <paramref name="notes"/> as <see cref="WithoutTlsEndings"/> does, and also without the
+    /// <c>Exchange N opened</c> lines, for a case where the client chooses whether to reuse a connection
+    /// for its second request: the Curl port sometimes opens one connection and sometimes two for the same
+    /// command line over TLS, where pinned upstream curl opens two (BL-1089, measured 2026-11-12, two
+    /// runs in six). The exit code and the bytes written still judge the case.
+    /// </summary>
+    public static string WithoutTlsEndingsAndExchangeOpenings(string notes) =>
+        WithoutTlsEndingsAndExchangeOpenings(notes, dropExchangeOpenings: true);
+
+    private static string WithoutTlsEndingsAndExchangeOpenings(string notes, bool dropExchangeOpenings) =>
         string.Join('\n', notes.Split('\n').Where(line =>
             !line.Contains("* TLS handshake failed: ", StringComparison.Ordinal)
-            && !System.Text.RegularExpressions.Regex.IsMatch(line, @"\* Exchange \d+ ended because the protocol server threw IOException: ")));
+            && !System.Text.RegularExpressions.Regex.IsMatch(line, @"\* Exchange \d+ ended because the protocol server threw IOException: ")
+            && !(dropExchangeOpenings && System.Text.RegularExpressions.Regex.IsMatch(line, @"\* Exchange \d+ opened"))));
 }

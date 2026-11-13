@@ -41,7 +41,7 @@ internal sealed partial class HttpProxyExchange : IAsyncDisposable
         this.context = context;
         this.originConnector = originConnector;
         reader = new HttpConnectionReader(client, context.Limits.MaxRequestHeadBytes);
-        authenticationSession = proxyAuthenticationPolicy.StartHttpConnection(client.TlsSession);
+        authenticationSession = proxyAuthenticationPolicy.StartHttpConnection(client.TlsSession, LoginExchange.Of(context));
     }
 
     private CancellationToken Cancellation => context.CancellationToken;

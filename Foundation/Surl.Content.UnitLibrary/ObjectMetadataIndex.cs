@@ -50,6 +50,15 @@ namespace Surl.Content;
 /// while the folder exists (ADR-0108 Amendment 3).
 /// </para>
 /// <para>
+/// <b>Verified digests.</b> A server that checks a file against a content digest - the OCI
+/// registry, whose blob files are named by the digest of their bytes - records the digest with
+/// <see cref="RecordVerifiedDigestAsync"/> against the stamp the file had when it was hashed, and
+/// asks <see cref="IsDigestVerifiedAsync"/> before hashing it again (ADR-0115, decision 2.1). A
+/// record whose stamp no longer matches is stale and dropped. Verified digests are held in memory
+/// only, at most <see cref="MaxEntries"/> of them, are never written to the index file, and are
+/// forgotten on a reset or restore.
+/// </para>
+/// <para>
 /// Safe for concurrent use: every operation runs alone.
 /// </para>
 /// </remarks>
@@ -103,6 +112,7 @@ public sealed class ObjectMetadataIndex
     private readonly string servedRoot;
     private readonly string? stateFolderPath;
     private readonly Dictionary<string, ObjectMetadataEntry> entries = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, (string Digest, long Length, long LastWriteTicks)> verifiedDigests = new(StringComparer.Ordinal);
     private readonly SemaphoreSlim gate = new(1, 1);
 
     /// <summary>
@@ -272,6 +282,43 @@ public sealed class ObjectMetadataIndex
     }
 
     /// <summary>
+    /// Drops the folder object at <paramref name="key"/> (<see cref="StoreFolderObjectAsync"/>)
+    /// from the index, whether or not its folder still holds keys, as a client's DeleteObject of
+    /// <c>x/</c> forgets the object <c>x/</c> and leaves the keys under it. A key with no entry
+    /// changes nothing.
+    /// </summary>
+    /// <param name="key">The folder's path relative to the served root and a final <c>/</c>; see
+    /// <see cref="IsValidFolderObjectKey"/>.</param>
+    /// <param name="cancellationToken">Cancels writing the index.</param>
+    /// <returns>The failure to rewrite the index file, or <see langword="null"/>.</returns>
+    /// <exception cref="ArgumentException"><paramref name="key"/> is not valid.</exception>
+    public async Task<string?> ForgetFolderObjectAsync(string key, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(key);
+        if (!IsValidFolderObjectKey(key))
+        {
+            throw new ArgumentException("The key is not a folder the content store can hold and a final '/'.", nameof(key));
+        }
+
+        await gate.WaitAsync(cancellationToken);
+        try
+        {
+            if (!entries.Remove(key))
+            {
+                return null;
+            }
+
+            var failure = await WriteIndexAsync(cancellationToken);
+            events.Publish(new StoreChangedEvent(StoreKind.Content, StoreChange.Deleted, "/" + key, null, null));
+            return failure;
+        }
+        finally
+        {
+            gate.Release();
+        }
+    }
+
+    /// <summary>
     /// Every folder object (<see cref="StoreFolderObjectAsync"/>) whose folder still exists, by
     /// its key; one whose folder is gone is dropped.
     /// </summary>
@@ -434,6 +481,76 @@ public sealed class ObjectMetadataIndex
     }
 
     /// <summary>
+    /// Whether the file at <paramref name="key"/>, as it is now, was hashed to
+    /// <paramref name="digest"/> by <see cref="RecordVerifiedDigestAsync"/>. A record whose stamp
+    /// no longer matches the file is dropped.
+    /// </summary>
+    /// <param name="key">The file's path relative to the served root; see <see cref="IsValidKey"/>.</param>
+    /// <param name="digest">The digest, compared ordinally, e.g. <c>sha256:&lt;hex&gt;</c>.</param>
+    /// <param name="cancellationToken">Cancels the wait for the index's lock.</param>
+    /// <returns><see langword="true"/> when the digest is recorded for the file's current stamp.</returns>
+    /// <exception cref="ArgumentException"><paramref name="key"/> is not valid.</exception>
+    public async Task<bool> IsDigestVerifiedAsync(string key, string digest, CancellationToken cancellationToken)
+    {
+        RequireValidKey(key);
+        ArgumentNullException.ThrowIfNull(digest);
+        await gate.WaitAsync(cancellationToken);
+        try
+        {
+            if (!verifiedDigests.TryGetValue(key, out var verified))
+            {
+                return false;
+            }
+
+            if (!HasStamp(key, verified.Length, verified.LastWriteTicks))
+            {
+                verifiedDigests.Remove(key);
+                return false;
+            }
+
+            return verified.Digest == digest;
+        }
+        finally
+        {
+            gate.Release();
+        }
+    }
+
+    /// <summary>
+    /// Records that the file at <paramref name="key"/> hashed to <paramref name="digest"/> while
+    /// its status was <paramref name="hashedStatus"/>. Nothing is recorded when the file has
+    /// changed since, or when <see cref="MaxEntries"/> current records are already held.
+    /// </summary>
+    /// <param name="key">The file's path relative to the served root; see <see cref="IsValidKey"/>.</param>
+    /// <param name="digest">The digest its bytes hashed to.</param>
+    /// <param name="hashedStatus">The file's length and last write time read before it was hashed.</param>
+    /// <param name="cancellationToken">Cancels the wait for the index's lock.</param>
+    /// <returns><see langword="true"/> when the digest is recorded.</returns>
+    /// <exception cref="ArgumentException"><paramref name="key"/> is not valid.</exception>
+    public async Task<bool> RecordVerifiedDigestAsync(string key, string digest, ContentFileStatus hashedStatus, CancellationToken cancellationToken)
+    {
+        RequireValidKey(key);
+        ArgumentNullException.ThrowIfNull(digest);
+        ArgumentNullException.ThrowIfNull(hashedStatus);
+        await gate.WaitAsync(cancellationToken);
+        try
+        {
+            var lastWriteTicks = hashedStatus.LastModifiedUtc.UtcTicks;
+            if (!HasStamp(key, hashedStatus.Length, lastWriteTicks) || !HasRoomForVerifiedDigest(key))
+            {
+                return false;
+            }
+
+            verifiedDigests[key] = (digest, hashedStatus.Length, lastWriteTicks);
+            return true;
+        }
+        finally
+        {
+            gate.Release();
+        }
+    }
+
+    /// <summary>
     /// Replaces every entry with <paramref name="contents"/>: none, for a reset, or a snapshot's
     /// copy, for a restore (ADR-0124 decision 3). Never written to a file: only an index held in
     /// memory is reset or restored.
@@ -446,6 +563,7 @@ public sealed class ObjectMetadataIndex
         await gate.WaitAsync(cancellationToken);
         try
         {
+            verifiedDigests.Clear();
             entries.Clear();
             foreach (var (key, entry) in contents.Entries)
             {
@@ -562,6 +680,25 @@ public sealed class ObjectMetadataIndex
         }
 
         return entries.Count < MaxEntries;
+    }
+
+    // Whether a file is at the key with this length and last write time.
+    private bool HasStamp(string key, long length, long lastWriteTicks) =>
+        StampOf(key) is var (currentLength, currentLastWriteTicks) && currentLength == length && currentLastWriteTicks == lastWriteTicks;
+
+    private bool HasRoomForVerifiedDigest(string key)
+    {
+        if (verifiedDigests.Count < MaxEntries || verifiedDigests.ContainsKey(key))
+        {
+            return true;
+        }
+
+        foreach (var (staleKey, _) in verifiedDigests.Where(pair => !HasStamp(pair.Key, pair.Value.Length, pair.Value.LastWriteTicks)).ToList())
+        {
+            verifiedDigests.Remove(staleKey);
+        }
+
+        return verifiedDigests.Count < MaxEntries;
     }
 
     // The quoted lower-case hexadecimal MD5 and the CRC-32C of the file's bytes, in one read.

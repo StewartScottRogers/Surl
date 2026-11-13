@@ -5,7 +5,7 @@ namespace Surl.Authentication;
 /// <summary>
 /// An <see cref="IFaultPlan"/> that spends each rule's <see cref="FaultRule.Times"/> as the engine's
 /// matcher does (ADR-0124, decision 4), so a test can show <c>times=1</c> fires once. A rule matches a
-/// point when its scheme and account are unset or equal the point's, ordinally.
+/// point when its scheme, account and listener are unset or equal the point's, ordinally.
 /// </summary>
 internal sealed class SpendingFaultPlan(params FaultRule[] rules) : IFaultPlan
 {
@@ -26,5 +26,7 @@ internal sealed class SpendingFaultPlan(params FaultRule[] rules) : IFaultPlan
     }
 
     private static bool Matches(FaultRule rule, FaultPoint point) =>
-        (rule.Scheme is null || rule.Scheme == point.Scheme) && (rule.Account is null || rule.Account == point.Account);
+        (rule.Scheme is null || rule.Scheme == point.Scheme)
+        && (rule.Account is null || rule.Account == point.Account)
+        && (rule.Listener is null || rule.Listener == point.ListenUrl);
 }

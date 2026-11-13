@@ -14,6 +14,19 @@ public sealed class ContentCallerTests
     }
 
     [TestMethod]
+    public void WithExchange_KeepsTheCallerAndNamesTheExchangeWhileTheOriginalNamesNone()
+    {
+        ContentCaller original = ContentCaller.ForAccount("alice", "sftp");
+
+        ContentCaller onSeven = original.WithExchange(7);
+
+        Assert.IsNull(original.ExchangeId);
+        Assert.AreEqual(7L, onSeven.ExchangeId);
+        Assert.AreEqual("alice", onSeven.AccountName);
+        Assert.AreEqual("sftp", onSeven.Scheme);
+    }
+
+    [TestMethod]
     public void Anonymous_HasNoAccountName()
     {
         ContentCaller caller = ContentCaller.Anonymous("tftp");

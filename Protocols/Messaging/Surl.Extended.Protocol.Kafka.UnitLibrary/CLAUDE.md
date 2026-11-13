@@ -145,10 +145,10 @@ Committed offsets and group listing (BL-949, ADR-0145 decisions 4 to 6 and 10):
   known only by its offsets, `Dead` for none, 30 when denied; `authorized_operations` is -2147483648
   unless asked, then 264 (READ and DESCRIBE). `KafkaListGroupsAnswerer` (v0 to v2) lists the groups with
   a member or an offset the caller may use, ordinal, with their protocol types.
-- Not wired into `Surl.Composition` yet (BL-522 composes the broker's answerers).
+- Composed by `Surl.Composition` (BL-973); see its `CLAUDE.md`.
 
 Each served API gets an `IKafkaApiAnswerer`, passed to `KafkaBroker`'s constructor; the command
-line (`--kafka-fetch-compression`) and composition are BL-522.
+line option `--kafka-fetch-compression` is BL-974.
 
 This library references `Surl.Protocol.Abstractions.UnitLibrary`, and may also reference the
 horizontal libraries ADR-0105 decision 0 names (`Surl.MessageBus`, `Surl.Compression`) - never

@@ -45,6 +45,33 @@ public sealed class Pop3LoginTests
     }
 
     [TestMethod]
+    [DataRow("USER u\r\nPASS p\r\n", "password")]
+    [DataRow("APOP u 0123abcd\r\n", "apop")]
+    [DataRow("AUTH PLAIN =\r\n", "sasl")]
+    public async Task ServeAsync_Login_HandsThePolicyTheExchangeIdAndScheme(string request, string kind)
+    {
+        var clock = new ManualTimeProvider();
+        var policy = new Pop3TestPolicy
+        {
+            IsApopOffered = true,
+            SaslMechanisms = ["PLAIN"],
+            Steps = [Pop3TestPolicy.Ended(SaslLoginOutcome.RefusedCredentials)],
+        };
+
+        await ServeAsync(AccountStore(clock), request, clock, TestContext.CancellationToken, policy);
+
+        var exchange = kind switch
+        {
+            "password" => policy.Logins.Single().Exchange,
+            "apop" => policy.ApopLogins.Single().Exchange,
+            _ => policy.Starts.Single().Exchange,
+        };
+        Assert.IsNotNull(exchange);
+        Assert.AreEqual(1, exchange.ExchangeId);
+        Assert.AreEqual("pop3", exchange.ListenUrl.Scheme);
+    }
+
+    [TestMethod]
     public async Task ServeAsync_PeerClosesAtOnce_SendsTheGreetingAlone()
     {
         var clock = new ManualTimeProvider();

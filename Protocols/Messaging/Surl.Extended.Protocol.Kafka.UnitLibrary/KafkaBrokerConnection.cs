@@ -27,7 +27,7 @@ internal sealed class KafkaBrokerConnection(
     public async Task ServeAsync()
     {
         isAnonymousAllowed = await authenticationPolicy.CheckPasswordLoginAsync(
-            new PasswordLogin(context.Scheme, null, null, connection.TlsSession), context.CancellationToken) == PasswordLoginVerdict.AcceptedUnchecked;
+            new PasswordLogin(context.Scheme, null, null, connection.TlsSession, LoginExchange.Of(context)), context.CancellationToken) == PasswordLoginVerdict.AcceptedUnchecked;
         using var headTimeout = context.Limits.HeadTimeout == Timeout.InfiniteTimeSpan
             ? null
             : new CancellationTokenSource(context.Limits.HeadTimeout, context.TimeProvider);

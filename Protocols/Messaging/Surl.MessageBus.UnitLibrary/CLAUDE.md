@@ -168,8 +168,8 @@ What it holds now (BL-629):
   other flags (persisted durable, now declared not) is made again empty at load. `LoadAsync`
   accepts a bus holding only its still-empty declarations. `MessageBus.Names` is the
   `TopicNameLookup` every server maps through (ADR-0100's planned `ITopicNameLookup`): the
-  default mapping for its scheme (`mqtt`, `mqtt5`, `amqp`, `amqp1`, `kafka`, `nats`, `stomp`
-  and their TLS twins, and `mqtt5+ws`; Redis waits for BL-678), with each `TopicMap` (`--topic-map`) alias of
+  default mapping for its scheme (`mqtt`, `mqtt5`, `amqp`, `amqp1`, `kafka`, `nats`, `stomp`,
+  `redis` and their TLS twins, and `mqtt5+ws`; a Redis channel is canonical as it stands, BL-866), with each `TopicMap` (`--topic-map`) alias of
   one exact name applied both ways; a default name aliased elsewhere is `Unreachable` outbound.
   `TopicAccessGrant`s (`--topic-access`): with none, everyone may do everything; with any, a
   caller needs a grant to its account or `@everyone`. The caller is an account name, `null`

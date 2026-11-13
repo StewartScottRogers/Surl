@@ -186,6 +186,11 @@ assembly scanning or reflection-based dependency injection, which native AOT for
   after `Protocols:`; the servers are served after the original ones. While off, the runner's
   `composeExtendedProtocolServers` seam is never called, so their schemes get the unknown-scheme
   `(1)` refusal.
+- `mcp+stdio:` (ADR-0111 decision 5, BL-979): `CommandLineRunner.ServeAsync` hands a command line whose listen URL is
+  `mcp+stdio` to `Surl.Composition`'s `McpStdioComposition` (refusal first, then the session) over the runner's
+  `openStandardInput` and `openStandardOutput` seams (`Console.OpenStandardInput`/`OpenStandardOutput` in `surl`,
+  in-memory streams in tests). The `output` writer is never used, so standard output holds only MCP messages; the log
+  goes to `error`. It exits `Ok` when the input ends.
 - `CommandLineRunner.ComposeRegisteredSchemes` (over `SurlServerComposition.ComposeRegisteredSchemes`) lists every registered original server's schemes, the
   `--version` `Protocols:` line's source. `CommandLineRunnerAiHelpTests`
   (`Application/Surl.Console.UnitTests/CommandLineRunnerAiHelpTests.cs`, ADR-0046 decision 9) is the

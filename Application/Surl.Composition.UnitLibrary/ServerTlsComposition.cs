@@ -4,6 +4,7 @@ using Surl.Cli;
 using Surl.Networking;
 using Surl.Output;
 using Surl.Protocol.Abstractions;
+using Surl.TlsSrp;
 
 namespace Surl.Composition;
 
@@ -35,10 +36,11 @@ public sealed class ServerTlsComposition : IDisposable
     /// The listen URL schemes whose server can upgrade a plaintext connection to TLS in the
     /// middle of it (SMTP's <c>STARTTLS</c>, ADR-0053 decision 5; IMAP's <c>STARTTLS</c>, ADR-0055
     /// decision 11; POP3's <c>STLS</c>, ADR-0056 decision 8; FTP's <c>AUTH TLS</c>, ADR-0052
-    /// decision 5; LDAP's <c>StartTLS</c>, ADR-0072 decision 5), XMPP's <c>STARTTLS</c>, ADR-0114 decision 2), which it does only when a
+    /// decision 5; LDAP's <c>StartTLS</c>, ADR-0072 decision 5; the extended AMQP 1.0 container's
+    /// TLS header on <c>amqp1</c>, ADR-0107 decision 1; XMPP's <c>STARTTLS</c>, ADR-0114 decision 2), which it does only when a
     /// certificate is configured.
     /// </summary>
-    private static readonly HashSet<string> UpgradableSchemes = new(StringComparer.OrdinalIgnoreCase) { "ftp", "imap", "ldap", "pop3", "smtp", "xmpp" };
+    private static readonly HashSet<string> UpgradableSchemes = new(StringComparer.OrdinalIgnoreCase) { "amqp1", "ftp", "imap", "ldap", "pop3", "smtp", "xmpp" };
 
     /// <summary>
     /// The listen URL schemes that start in plain text but whose server requires TLS before a login,
@@ -157,7 +159,7 @@ public sealed class ServerTlsComposition : IDisposable
 
         if (commandLine.ServesTlsSrp)
         {
-            return ComposeTlsSrp(commandLine, readFile);
+            return ComposeTlsSrp(commandLine, timeProvider, readFile);
         }
 
         var trustAnchors = commandLine.CaCertificateFile is { } caCertificateFile
@@ -184,20 +186,60 @@ public sealed class ServerTlsComposition : IDisposable
 
     // TLS-SRP settings (ADR-0122 decisions 4 and 5): the accounts, and one random source for them and
     // every handshake, owned by the composition.
-    private static ServerTlsComposition ComposeTlsSrp(SurlCommandLine commandLine, Func<string, byte[]>? readFile)
+    // With --cert or --self-signed the certificate and its RSA key ride along, for the certificate-signed
+    // SRP suites (ADR-0122 decision 6).
+    private static ServerTlsComposition ComposeTlsSrp(SurlCommandLine commandLine, TimeProvider timeProvider, Func<string, byte[]>? readFile)
     {
         var random = RandomNumberGenerator.Create();
+        List<IDisposable> owned = [random];
         try
         {
             var composed = TlsSrpAccountsComposition.Compose(commandLine, random, readFile);
+            var (certificate, fingerprint) = ComposeTlsSrpCertificate(commandLine, timeProvider, readFile, owned);
             return new ServerTlsComposition(
-                ServerTlsSettings.ForTlsSrp(composed.Accounts, random), null, null, [random], null, composed.GroupIndexesOutsideRfc5054);
+                ServerTlsSettings.ForTlsSrp(composed.Accounts, random, certificate), fingerprint, null, owned, null, composed.GroupIndexesOutsideRfc5054);
         }
-        catch (TlsSrpAccountsException)
+        catch (Exception failure) when (failure is TlsSrpAccountsException or TlsFileLoadException)
         {
-            random.Dispose();
+            DisposeAll(owned);
             throw;
         }
+    }
+
+    private static (TlsSrpServerCertificate? Certificate, string? ThrowawayFingerprint) ComposeTlsSrpCertificate(
+        SurlCommandLine commandLine, TimeProvider timeProvider, Func<string, byte[]>? readFile, List<IDisposable> owned)
+    {
+        if (commandLine.CertificateFile is { } certificateFile)
+        {
+            var loaded = ServerCertificateFileLoader.Load(
+                certificateFile,
+                MapCertificateFormat(commandLine.CertificateType),
+                commandLine.KeyFile,
+                MapKeyFormat(commandLine.KeyType),
+                commandLine.KeyPassphrase,
+                readFile);
+            owned.Add(loaded);
+            return (TlsSrpCertificateOf(loaded.Certificate, loaded.IntermediateCertificates, owned), null);
+        }
+
+        if (!commandLine.SelfSigned)
+        {
+            return (null, null);
+        }
+
+        var throwaway = ThrowawayServerCertificate.Create(timeProvider, commandLine.ListenUrls.Select(listenUrl => listenUrl.Host));
+        owned.Add(throwaway);
+        return (TlsSrpCertificateOf(throwaway, [], owned), ThrowawayServerCertificate.Sha256FingerprintOf(throwaway));
+    }
+
+    private static TlsSrpServerCertificate TlsSrpCertificateOf(
+        X509Certificate2 certificate, IReadOnlyList<X509Certificate2> intermediates, List<IDisposable> owned)
+    {
+        var key = certificate.GetRSAPrivateKey()
+            ?? throw new TlsFileLoadException(
+                TlsFileLoadFailure.ServerCertificateUnusable, "TLS-SRP signs with an RSA key; the --cert certificate's key is not RSA", null);
+        owned.Add(key);
+        return new TlsSrpServerCertificate([certificate.RawData, .. intermediates.Select(intermediate => intermediate.RawData)], key);
     }
 
     // coaps needs a certificate or an account, whose pre-shared key it can handshake with (ADR-0087 decision 3).
@@ -294,7 +336,12 @@ public sealed class ServerTlsComposition : IDisposable
 
     private static QuicServerCertificate? ComposeQuicCertificate(
         SurlCommandLine commandLine, X509Certificate2 certificate, IReadOnlyList<X509Certificate2> intermediateCertificates) =>
-        (commandLine.Http3 || commandLine.ListenUrls.Any(listenUrl => listenUrl.Scheme is WebTransportScheme or CoapsScheme)) ? QuicServerCertificate.From(certificate, intermediateCertificates) : null;
+        (commandLine.Http3 || commandLine.ListenUrls.Any(NeedsQuicCertificate)) ? QuicServerCertificate.From(certificate, intermediateCertificates) : null;
+
+    // webtransport, coaps, and the datagram side of dns that is TLS from the first byte (DNS over QUIC, BL-1019).
+    private static bool NeedsQuicCertificate(ListenUrl listenUrl) =>
+        listenUrl.Scheme is WebTransportScheme or CoapsScheme
+        || (listenUrl.Scheme == "dns" && listenUrl.IsImplicitTls && listenUrl.OnlyTransport == ListenTransport.Datagrams);
 
     private static IEnumerable<IDisposable> OwnedKey(QuicServerCertificate? quicCertificate) =>
         quicCertificate is null ? [] : [quicCertificate.Key];

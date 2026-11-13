@@ -10,7 +10,8 @@
 
     Left out on purpose: tests/data/.gitignore (it would change what git ignores in Surl's tree),
     tests/data/Makefile.am (upstream's build glue), and everything in tests/certs but the .prm
-    files and test-ca.cnf. It runs no curl: this is source text, not a build.
+    files, test-ca.cnf, and srp-verifier-db and srp-verifier-conf (the httptls+srp server half's
+    accounts, ADR-0122 decision 7). It runs no curl: this is source text, not a build.
 
 .PARAMETER ScratchDirectory
     An empty or missing directory to clone into. Defaults to a new folder under the temp path.
@@ -51,7 +52,7 @@ $sourceCerts = Join-Path $ScratchDirectory 'tests/certs'
 $dataFiles = Get-ChildItem -LiteralPath $sourceData -File -Force |
     Where-Object { $_.Name -ne '.gitignore' -and $_.Name -ne 'Makefile.am' }
 $certFiles = Get-ChildItem -LiteralPath $sourceCerts -File -Force |
-    Where-Object { $_.Extension -eq '.prm' -or $_.Name -eq 'test-ca.cnf' }
+    Where-Object { $_.Extension -eq '.prm' -or $_.Name -in 'test-ca.cnf', 'srp-verifier-db', 'srp-verifier-conf' }
 
 foreach ($folder in 'data', 'certs') {
     $path = Join-Path $destination $folder

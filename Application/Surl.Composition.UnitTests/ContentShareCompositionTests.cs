@@ -11,6 +11,8 @@ public sealed class ContentShareCompositionTests
     private static readonly string TeamPath = Path.Combine(Path.GetTempPath(), "surl-shares", "team");
     private static readonly string MediaPath = Path.Combine(Path.GetTempPath(), "surl-shares", "media");
 
+    public TestContext TestContext { get; set; } = null!;
+
     [TestMethod]
     public void Compose_NullArguments_Throw()
     {
@@ -274,6 +276,93 @@ public sealed class ContentShareCompositionTests
         Assert.ThrowsExactly<ArgumentNullException>(() => ContentShareComposition.WriteWarnings(LogLevel.Info, store, null!));
         Assert.ThrowsExactly<ArgumentNullException>(() => ContentShareComposition.WriteStartLines(LogLevel.Info, null!, TextWriter.Null));
         Assert.ThrowsExactly<ArgumentNullException>(() => ContentShareComposition.WriteStartLines(LogLevel.Info, store, null!));
+    }
+
+    [TestMethod]
+    public void PrepareBucketFolders_NullArguments_Throw()
+    {
+        var store = Store();
+        var fileSystem = new InMemoryContentFileSystem(TimeProvider.System);
+        Assert.ThrowsExactly<ArgumentNullException>(() => ContentShareComposition.PrepareBucketFolders(null!, store, fileSystem));
+        Assert.ThrowsExactly<ArgumentNullException>(() => ContentShareComposition.PrepareBucketFolders(new SurlCommandLine(), null!, fileSystem));
+        Assert.ThrowsExactly<ArgumentNullException>(() => ContentShareComposition.PrepareBucketFolders(new SurlCommandLine(), store, null!));
+    }
+
+    [TestMethod]
+    public void PrepareBucketFolders_BucketInsideAShareWhoseFolderIsMissing_IsRefusedForThatBucket()
+    {
+        var shareFileSystem = new InMemoryContentFileSystem(TimeProvider.System);
+        shareFileSystem.CreateDirectory(Path.GetFullPath(TeamPath));
+        var commandLine = new SurlCommandLine { Buckets = [new ConfiguredBucket("photos", "/team/photos")] };
+        var store = Store([new ContentShare("team", Path.GetFullPath(TeamPath), shareFileSystem)], [new ContentBucket("photos", "/team/photos")]);
+
+        var failure = ContentShareComposition.PrepareBucketFolders(commandLine, store, new InMemoryContentFileSystem(TimeProvider.System));
+
+        Assert.AreEqual("(37) Could not open directory /team/photos for bucket photos", failure);
+    }
+
+    [TestMethod]
+    public void PrepareBucketFolders_BucketInsideAShareWhoseFolderExists_IsAccepted()
+    {
+        var shareFileSystem = new InMemoryContentFileSystem(TimeProvider.System);
+        shareFileSystem.CreateDirectory(Path.GetFullPath(TeamPath));
+        shareFileSystem.CreateDirectory(Path.Combine(Path.GetFullPath(TeamPath), "photos"));
+        var commandLine = new SurlCommandLine { Buckets = [new ConfiguredBucket("photos", "/team/photos")] };
+        var store = Store([new ContentShare("team", Path.GetFullPath(TeamPath), shareFileSystem)], [new ContentBucket("photos", "/team/photos")]);
+
+        Assert.IsNull(ContentShareComposition.PrepareBucketFolders(commandLine, store, new InMemoryContentFileSystem(TimeProvider.System)));
+    }
+
+    [TestMethod]
+    public void PrepareBucketFolders_BucketUnderTheDataDirectory_MustBeAnExistingFolder()
+    {
+        var dataDirectory = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "surl-bucket-data"));
+        var fileSystem = new InMemoryContentFileSystem(TimeProvider.System);
+        fileSystem.CreateDirectory(dataDirectory);
+        var commandLine = new SurlCommandLine { DataDirectory = dataDirectory, Buckets = [new ConfiguredBucket("photos", "/photos")] };
+        var store = Store([], [new ContentBucket("photos", "/photos")]);
+
+        Assert.AreEqual(
+            "(37) Could not open directory /photos for bucket photos",
+            ContentShareComposition.PrepareBucketFolders(commandLine, store, fileSystem));
+
+        fileSystem.CreateDirectory(Path.Combine(dataDirectory, "photos"));
+
+        Assert.IsNull(ContentShareComposition.PrepareBucketFolders(commandLine, store, fileSystem));
+    }
+
+    [TestMethod]
+    public void PrepareBucketFolders_BucketInTheInMemoryRoot_IsCreatedEmptyAndSeededAgain()
+    {
+        var commandLine = new SurlCommandLine { Buckets = [new ConfiguredBucket("photos", "/media/photos")] };
+        var store = Store([], [new ContentBucket("photos", "/media/photos")]);
+
+        Assert.IsNull(ContentShareComposition.PrepareBucketFolders(commandLine, store, new InMemoryContentFileSystem(TimeProvider.System)));
+
+        var mapping = store.MapRequestPath("/media/photos");
+        Assert.AreEqual(ContentEntryKind.Directory, store.GetEntryKind(mapping));
+        Assert.IsNull(ContentShareComposition.PrepareBucketFolders(commandLine, store, new InMemoryContentFileSystem(TimeProvider.System)));
+    }
+
+    [TestMethod]
+    public async Task PrepareBucketFolders_BucketInTheInMemoryRootBehindAFile_IsRefused()
+    {
+        var commandLine = new SurlCommandLine { Buckets = [new ConfiguredBucket("photos", "/media/photos")] };
+        var store = Store([], [new ContentBucket("photos", "/media")]);
+        await store.SeedFileAsync("/media", new MemoryStream([1]), TestContext.CancellationToken);
+
+        Assert.AreEqual(
+            "(37) Could not open directory /media/photos for bucket photos",
+            ContentShareComposition.PrepareBucketFolders(commandLine, store, new InMemoryContentFileSystem(TimeProvider.System)));
+    }
+
+    [TestMethod]
+    public void PrepareBucketFolders_BucketWithNoSegment_IsLeftToTheInMemoryRoot()
+    {
+        var commandLine = new SurlCommandLine { Buckets = [new ConfiguredBucket("everything", "/")] };
+        var store = Store([], [new ContentBucket("everything", "/")]);
+
+        Assert.IsNull(ContentShareComposition.PrepareBucketFolders(commandLine, store, new InMemoryContentFileSystem(TimeProvider.System)));
     }
 
     private static AccountGroupExpansion Groups() =>

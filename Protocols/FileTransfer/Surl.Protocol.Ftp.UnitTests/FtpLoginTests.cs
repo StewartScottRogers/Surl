@@ -24,6 +24,19 @@ public sealed class FtpLoginTests
     }
 
     [TestMethod]
+    public async Task Login_Accepted_PassesTheExchangeToThePolicy()
+    {
+        var policy = new UnitTestRecordingAuthenticationPolicy(PasswordLoginVerdict.Accepted);
+
+        await ServeAsync("USER tester\r\nPASS secret\r\n", TestContext.CancellationToken, policy, new RecordingExchangeLog());
+
+        var exchange = policy.Logins.Single().Exchange;
+        Assert.IsNotNull(exchange);
+        Assert.AreEqual(1, exchange.ExchangeId);
+        Assert.AreEqual("ftp", exchange.Scheme);
+    }
+
+    [TestMethod]
     public async Task Login_AcceptedUnchecked_Answers230WithNoNote()
     {
         var log = new RecordingExchangeLog();

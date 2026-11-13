@@ -131,7 +131,14 @@ internal sealed class Mqtt5OutboundDeliveries
         }
     }
 
-    private async ValueTask SendAsync(Mqtt5Delivery delivery, CancellationToken cancellationToken)
+    /// <summary>
+    /// Sends one delivery now, as the sending loop does: waits for an in-flight slot when its QoS is above 0, then writes it.
+    /// Only the one-shot read calls it, after the loop has stopped, so nothing else sends meanwhile.
+    /// </summary>
+    /// <param name="delivery">The delivery.</param>
+    /// <param name="cancellationToken">Ends the wait and the write.</param>
+    /// <returns>A task that completes when it is written or dropped.</returns>
+    public async ValueTask SendAsync(Mqtt5Delivery delivery, CancellationToken cancellationToken)
     {
         if (delivery.QualityOfService > 0)
         {

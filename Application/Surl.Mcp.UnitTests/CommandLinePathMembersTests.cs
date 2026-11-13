@@ -41,6 +41,8 @@ public sealed class CommandLinePathMembersTests
             SrpVerifierFile = "srp-verifier-db",
             SrpGroupFile = "srp-verifier-conf",
             UserFile = "users.txt",
+            UserLdap = new ConfiguredLdapAccountSource(
+                "ldaps://dir.example.com/dc=x", "cn=svc", "bind.pw", "dir-ca.pem", TimeoutSeconds: 5, Protocols: null, IsPlaintext: false),
             ProxyUserFile = "proxy-users.txt",
             KeytabFile = "surl.keytab",
             HostKeyFiles = ["host_ed25519", "host_rsa"],
@@ -66,6 +68,8 @@ public sealed class CommandLinePathMembersTests
                 ("--srp-verifiers", "srp-verifier-db"),
                 ("--srp-groups", "srp-verifier-conf"),
                 ("--user-file", "users.txt"),
+                ("--user-ldap", "bind.pw"),
+                ("--user-ldap", "dir-ca.pem"),
                 ("--proxy-user-file", "proxy-users.txt"),
                 ("--keytab", "surl.keytab"),
                 ("--hostkey", "host_ed25519"),
@@ -78,6 +82,13 @@ public sealed class CommandLinePathMembersTests
             },
             paths);
     }
+
+    [TestMethod]
+    public void PathsOf_UserLdapWithoutFiles_ReadsNone() =>
+        Assert.IsEmpty(CommandLinePathMembers.PathsOf(new SurlCommandLine
+        {
+            UserLdap = new ConfiguredLdapAccountSource("ldaps://dir.example.com/dc=x", null, null, null, TimeoutSeconds: 5, Protocols: null, IsPlaintext: false),
+        }));
 
     [TestMethod]
     public void PathsOf_NoPathOption_ReadsNone() =>

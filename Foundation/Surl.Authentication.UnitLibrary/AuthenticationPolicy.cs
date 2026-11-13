@@ -154,9 +154,11 @@ public sealed class AuthenticationPolicy : IAuthenticationPolicy, IMailAuthentic
 
         this.settings = settings;
         this.httpMethods = [.. implemented
+            .Select(method => AskingTheDirectory(method, settings.LdapAccountSource))
             .Where(method => settings.AcceptedMethods.Contains(method.Method))
             .OrderBy(method => method.Method)];
         this.timeProvider = timeProvider;
+        PasswordCheck = new AccountBookAndDirectoryPasswordCheck(settings.Accounts, settings.LdapAccountSource);
         ServiceSignatureVerifier = new AwsSigV4AuthenticationMethod(settings.Accounts, timeProvider);
         AzureStorageVerifier = new AzureStorageVerifier(settings.Accounts, timeProvider);
         GoogleV4HmacVerifier = new GoogleV4HmacAuthenticationMethod(settings.Accounts, timeProvider);
@@ -174,11 +176,19 @@ public sealed class AuthenticationPolicy : IAuthenticationPolicy, IMailAuthentic
         ArgumentNullException.ThrowIfNull(login);
         cancellationToken.ThrowIfCancellationRequested();
 
+        var checkStartedAt = timeProvider.GetUtcNow();
         var verdict = JudgePasswordLogin(login);
+        if (verdict == PasswordLoginVerdict.RefusedCredentials && IsForTheDirectory(login))
+        {
+            var directory = await settings.LdapAccountSource!
+                .CheckAsync(login.Scheme, login.UserName!, login.Password!.Value, cancellationToken).ConfigureAwait(false);
+            verdict = directory.IsAccepted ? PasswordLoginVerdict.Accepted : PasswordLoginVerdict.RefusedCredentials;
+        }
+
         if (verdict is PasswordLoginVerdict.Accepted or PasswordLoginVerdict.RefusedCredentials)
         {
             var acceptedAccountName = verdict == PasswordLoginVerdict.Accepted ? login.UserName : null;
-            verdict = await ConcludeCheckedLoginAsync(login.Scheme, PasswordMechanism, login.UserName, acceptedAccountName, cancellationToken)
+            verdict = await ConcludeCheckedLoginAsync(login.Scheme, PasswordMechanism, login.UserName, acceptedAccountName, login.Exchange, cancellationToken)
                 .ConfigureAwait(false)
                 ? PasswordLoginVerdict.Accepted
                 : PasswordLoginVerdict.RefusedCredentials;
@@ -186,11 +196,23 @@ public sealed class AuthenticationPolicy : IAuthenticationPolicy, IMailAuthentic
 
         if (verdict == PasswordLoginVerdict.RefusedCredentials)
         {
-            await WaitRefusalDelayAsync(cancellationToken).ConfigureAwait(false);
+            // Counted from the check's start, so a slow directory does not stack its latency on the delay.
+            var remaining = RefusalDelay - (timeProvider.GetUtcNow() - checkStartedAt);
+            if (remaining > TimeSpan.Zero)
+            {
+                await Task.Delay(remaining, timeProvider, cancellationToken).ConfigureAwait(false);
+            }
         }
 
         return verdict;
     }
+
+    // A password login the account book cannot settle, for a name the book does not hold (ADR-0149, decision 6).
+    private bool IsForTheDirectory(PasswordLogin login) =>
+        settings.LdapAccountSource is not null
+        && !string.IsNullOrEmpty(login.UserName)
+        && login.Password is not null
+        && !settings.Accounts.HoldsAccountNamed(login.UserName);
 
     /// <summary>
     /// Ends the judgement of a login whose credentials were checked (ADR-0124, decisions 1 and 4):
@@ -203,15 +225,16 @@ public sealed class AuthenticationPolicy : IAuthenticationPolicy, IMailAuthentic
     /// <param name="mechanism">The login method or mechanism.</param>
     /// <param name="user">The user name as the client gave it, or <see langword="null"/> when none could be read.</param>
     /// <param name="acceptedAccountName">The account the credentials matched, or <see langword="null"/> when they did not.</param>
+    /// <param name="exchange">The exchange the login was made in, or <see langword="null"/> when unknown.</param>
     /// <param name="cancellationToken">Cancels the fault plan's search.</param>
     /// <returns>Whether the login stays accepted.</returns>
     internal async ValueTask<bool> ConcludeCheckedLoginAsync(
-        string scheme, string mechanism, string? user, string? acceptedAccountName, CancellationToken cancellationToken)
+        string scheme, string mechanism, string? user, string? acceptedAccountName, LoginExchange? exchange, CancellationToken cancellationToken)
     {
         var isRefusedByFault = acceptedAccountName is not null
-            && await IsRefusedByFaultAsync(scheme, acceptedAccountName, cancellationToken).ConfigureAwait(false);
+            && await IsRefusedByFaultAsync(scheme, acceptedAccountName, exchange, cancellationToken).ConfigureAwait(false);
         var isAccepted = acceptedAccountName is not null && !isRefusedByFault;
-        PublishJudgedLogin(scheme, user, mechanism, isAccepted, isRefusedByFault);
+        PublishJudgedLogin(scheme, user, mechanism, isAccepted, isRefusedByFault, exchange);
 
         return isAccepted;
     }
@@ -223,17 +246,28 @@ public sealed class AuthenticationPolicy : IAuthenticationPolicy, IMailAuthentic
     /// </summary>
     /// <param name="scheme">The scheme the login was made over.</param>
     /// <param name="accountName">The account the credentials matched.</param>
+    /// <param name="exchange">
+    /// The exchange the login was made in, or <see langword="null"/> when unknown; its scheme wins over
+    /// <paramref name="scheme"/>, and its ID and listen URL scope the rule.
+    /// </param>
     /// <param name="cancellationToken">Cancels the search.</param>
     /// <returns>Whether the login is refused by a fault.</returns>
-    internal async ValueTask<bool> IsRefusedByFaultAsync(string scheme, string accountName, CancellationToken cancellationToken)
+    internal async ValueTask<bool> IsRefusedByFaultAsync(
+        string scheme, string accountName, LoginExchange? exchange, CancellationToken cancellationToken)
     {
-        var point = new FaultPoint(FaultStage.Login) { Scheme = scheme, Account = accountName };
+        var point = new FaultPoint(FaultStage.Login)
+        {
+            Scheme = exchange?.Scheme ?? scheme,
+            Account = accountName,
+            ExchangeId = exchange?.ExchangeId,
+            ListenUrl = exchange?.ReportedListenUrl,
+        };
         if (await faults.FindAsync(point, cancellationToken).ConfigureAwait(false) is not { Kind: FaultKind.RefuseLogin } rule)
         {
             return false;
         }
 
-        events.Publish(new FaultAppliedEvent(rule.Id, rule.Kind, FaultStage.Login, null, accountName));
+        events.Publish(new FaultAppliedEvent(rule.Id, rule.Kind, FaultStage.Login, exchange?.ExchangeId, accountName));
         return true;
     }
 
@@ -245,12 +279,19 @@ public sealed class AuthenticationPolicy : IAuthenticationPolicy, IMailAuthentic
     /// <param name="mechanism">The login method or mechanism.</param>
     /// <param name="isAccepted">Whether the login was accepted.</param>
     /// <param name="isRefusedByFault">Whether a fault refused it.</param>
-    internal void PublishJudgedLogin(string scheme, string? user, string mechanism, bool isAccepted, bool isRefusedByFault) =>
-        events.Publish(new LoginJudgedEvent(null, scheme, user ?? string.Empty, mechanism, isAccepted, isRefusedByFault));
+    /// <param name="exchange">The exchange the login was made in, or <see langword="null"/> when unknown; its scheme wins.</param>
+    internal void PublishJudgedLogin(
+        string scheme, string? user, string mechanism, bool isAccepted, bool isRefusedByFault, LoginExchange? exchange) =>
+        events.Publish(new LoginJudgedEvent(
+            exchange?.ExchangeId, exchange?.Scheme ?? scheme, user ?? string.Empty, mechanism, isAccepted, isRefusedByFault));
 
     /// <inheritdoc/>
     public IHttpAuthenticationSession StartHttpConnection(TlsSession? tlsSession) =>
         new HttpAuthenticationSession(this, tlsSession is not null);
+
+    /// <inheritdoc/>
+    public IHttpAuthenticationSession StartHttpConnection(TlsSession? tlsSession, LoginExchange? exchange) =>
+        new HttpAuthenticationSession(this, tlsSession is not null, exchange);
 
     /// <inheritdoc/>
     public bool NamesAccount(string name)
@@ -337,7 +378,7 @@ public sealed class AuthenticationPolicy : IAuthenticationPolicy, IMailAuthentic
 
         return settings.AllowAnonymous || MayUseSaslMechanism(mechanism, start.TlsSession is not null)
             ? mechanism.Start(new SaslExchangeContext(
-                this, start.Scheme, mechanism.Name, start.InitialResponse, start.TlsSession?.ClientCertificate, start.CanCarrySecurityLayer))
+                this, start.Scheme, mechanism.Name, start.InitialResponse, start.TlsSession?.ClientCertificate, start.CanCarrySecurityLayer, start.Exchange))
             : new RefusedSaslExchange(SaslLoginOutcome.RefusedPlaintext);
     }
 
@@ -399,7 +440,7 @@ public sealed class AuthenticationPolicy : IAuthenticationPolicy, IMailAuthentic
         byte[] digested = [.. Encoding.UTF8.GetBytes(login.Timestamp), .. account.Password];
         var matches = Md5HexDigest.Matches(settings.Accounts.SecretComparer, MD5.HashData(digested), login.Digest);
         var acceptedAccountName = matches ? account.AccountName : null;
-        if (await ConcludeCheckedLoginAsync(login.Scheme, ApopMethod, user, acceptedAccountName, cancellationToken).ConfigureAwait(false))
+        if (await ConcludeCheckedLoginAsync(login.Scheme, ApopMethod, user, acceptedAccountName, login.Exchange, cancellationToken).ConfigureAwait(false))
         {
             return new SaslLoginStep(
                 SaslLoginOutcome.Accepted, ReadOnlyMemory<byte>.Empty, account.AccountName, new CheckedLogin(ApopMethod, user, true));
@@ -446,9 +487,11 @@ public sealed class AuthenticationPolicy : IAuthenticationPolicy, IMailAuthentic
             return SshAcceptedUnchecked;
         }
 
-        var isAccepted = settings.Accounts.CheckPassword(login.UserName, login.Password.Span);
+        var checkStartedAt = timeProvider.GetUtcNow();
+        var isAccepted = await PasswordCheck
+            .CheckAsync(SshLoginScheme, login.UserName, login.Password, cancellationToken).ConfigureAwait(false);
 
-        return await DecideSshLoginAsync(isAccepted, login.Method, login.UserName, cancellationToken).ConfigureAwait(false);
+        return await DecideSshLoginAsync(isAccepted, login.Method, login.UserName, login.Exchange, cancellationToken, checkStartedAt).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -483,19 +526,19 @@ public sealed class AuthenticationPolicy : IAuthenticationPolicy, IMailAuthentic
 
         var isAccepted = isAuthorized & login.Proof == SshPublicKeyProof.ValidSignature;
 
-        return await DecideSshLoginAsync(isAccepted, SshPublicKeyMethod, login.UserName, cancellationToken).ConfigureAwait(false);
+        return await DecideSshLoginAsync(isAccepted, SshPublicKeyMethod, login.UserName, login.Exchange, cancellationToken).ConfigureAwait(false);
     }
 
     private async ValueTask<SshLoginVerdict> DecideSshLoginAsync(
-        bool isAccepted, string method, string? userName, CancellationToken cancellationToken)
+        bool isAccepted, string method, string? userName, LoginExchange? exchange, CancellationToken cancellationToken, DateTimeOffset? checkStartedAt = null)
     {
         var acceptedAccountName = isAccepted ? userName : null;
-        if (await ConcludeCheckedLoginAsync(SshLoginScheme, method, userName, acceptedAccountName, cancellationToken).ConfigureAwait(false))
+        if (await ConcludeCheckedLoginAsync(SshLoginScheme, method, userName, acceptedAccountName, exchange, cancellationToken).ConfigureAwait(false))
         {
             return new SshLoginVerdict(SshLoginOutcome.Accepted, userName, new CheckedLogin(method, userName, true));
         }
 
-        await WaitRefusalDelayAsync(cancellationToken).ConfigureAwait(false);
+        await WaitRefusalDelayAsync(cancellationToken, checkStartedAt).ConfigureAwait(false);
 
         return new SshLoginVerdict(SshLoginOutcome.Refused, null, new CheckedLogin(method, userName, false));
     }
@@ -534,7 +577,7 @@ public sealed class AuthenticationPolicy : IAuthenticationPolicy, IMailAuthentic
             account.NtHashes[NtlmPasswordHashes.WidenedUtf8Index], login.ServerChallenge.Span);
         var matches = settings.Accounts.SecretComparer.FixedTimeEquals(expected, login.NtResponse.Span);
         var acceptedAccountName = matches ? account.AccountName : null;
-        if (await ConcludeCheckedLoginAsync(SmbLoginScheme, SmbNtlmV1Method, login.UserName, acceptedAccountName, cancellationToken).ConfigureAwait(false))
+        if (await ConcludeCheckedLoginAsync(SmbLoginScheme, SmbNtlmV1Method, login.UserName, acceptedAccountName, login.Exchange, cancellationToken).ConfigureAwait(false))
         {
             return new SmbLoginVerdict(
                 SmbLoginOutcome.Accepted, account.AccountName, new CheckedLogin(SmbNtlmV1Method, login.UserName, true));
@@ -551,6 +594,14 @@ public sealed class AuthenticationPolicy : IAuthenticationPolicy, IMailAuthentic
     /// </summary>
     public AuthenticationSettings Settings => settings;
 
+    /// <summary>
+    /// The password check of the logins that ask the accounts and then the LDAP account source (ADR-0149, decision 2).
+    /// </summary>
+    internal AccountBookAndDirectoryPasswordCheck PasswordCheck { get; }
+
+    /// <summary>
+    /// Where a SASL challenge's random bytes come from.
+    /// </summary>
     internal ISaslNonceSource NonceSource { get; }
 
     internal INtlmServerChallengeSource NtlmServerChallenges { get; }
@@ -606,8 +657,29 @@ public sealed class AuthenticationPolicy : IAuthenticationPolicy, IMailAuthentic
             : null;
     }
 
-    internal Task WaitRefusalDelayAsync(CancellationToken cancellationToken) =>
-        Task.Delay(RefusalDelay, timeProvider, cancellationToken);
+    // HTTP Basic asks the directory too, so a method list that holds Basic is rebuilt around the source (ADR-0149, decision 2).
+    private static IHttpAuthenticationMethod AskingTheDirectory(IHttpAuthenticationMethod method, LdapAccountSource? directory) =>
+        directory is not null && method is BasicAuthenticationMethod basic ? basic.WithDirectory(directory) : method;
+
+    /// <summary>
+    /// When a password check starts, which the refusal delay is counted from.
+    /// </summary>
+    /// <returns>The clock's time now.</returns>
+    internal DateTimeOffset StartCheck() => timeProvider.GetUtcNow();
+
+    /// <summary>
+    /// Waits <see cref="RefusalDelay"/>, counted from <paramref name="checkStartedAt"/> when given, so a
+    /// slow directory does not stack its latency on the delay (ADR-0149, decision 6).
+    /// </summary>
+    /// <param name="cancellationToken">Cancels the wait.</param>
+    /// <param name="checkStartedAt">When the check started, or <see langword="null"/> for the whole delay.</param>
+    /// <returns>The wait.</returns>
+    internal Task WaitRefusalDelayAsync(CancellationToken cancellationToken, DateTimeOffset? checkStartedAt = null)
+    {
+        var remaining = checkStartedAt is { } started ? RefusalDelay - (timeProvider.GetUtcNow() - started) : RefusalDelay;
+
+        return remaining > TimeSpan.Zero ? Task.Delay(remaining, timeProvider, cancellationToken) : Task.CompletedTask;
+    }
 
     internal bool OffersPlaintextSecrets(bool isEncrypted) => isEncrypted || settings.AllowPlaintextAuthentication;
 

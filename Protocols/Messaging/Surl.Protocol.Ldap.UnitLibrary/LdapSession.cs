@@ -327,7 +327,7 @@ internal sealed partial class LdapSession
             return true;
         }
 
-        var anonymous = new PasswordLogin(context.Scheme, null, null, connection.TlsSession);
+        var anonymous = new PasswordLogin(context.Scheme, null, null, connection.TlsSession, LoginExchange.Of(context));
         return await authenticationPolicy.CheckPasswordLoginAsync(anonymous, CancellationToken) == PasswordLoginVerdict.AcceptedUnchecked;
     }
 

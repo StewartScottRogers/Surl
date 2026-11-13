@@ -113,6 +113,19 @@ public sealed class UpstreamTestCaseCommandLineTests
     }
 
     [TestMethod]
+    public void Build_TwoFilePartsOfOneName_AreOneFileUnderTheFirstName()
+    {
+        var commandLine = Build(
+            Command("u")
+            + "<file name=\"/tmp/log/one\">\n1\n</file>\n"
+            + "<file name=\"/tmp/log/other\">\n2\n</file>\n");
+
+        Assert.HasCount(1, commandLine.Files);
+        Assert.AreEqual("/tmp/log/one", commandLine.Files[0].Path);
+        Assert.AreEqual("1\n2\n", UpstreamTestCaseText.Text(commandLine.Files[0].Contents));
+    }
+
+    [TestMethod]
     public void Build_FileWithContentButNoName_Throws()
     {
         Assert.ThrowsExactly<FormatException>(() => Build(Command("u") + "<file1>\nx\n</file1>\n"));
@@ -126,6 +139,16 @@ public sealed class UpstreamTestCaseCommandLineTests
         Assert.AreEqual("1=2", commandLine.Environment["A"]);
         Assert.AreEqual(string.Empty, commandLine.Environment["B"]);
         Assert.HasCount(2, commandLine.Environment);
+    }
+
+    [TestMethod]
+    public void Build_TwoSetenvParts_SetsTheAssignmentsOfBothWithTheLaterOneWinning()
+    {
+        var commandLine = Build(Command("u") + "<setenv>\nA=1\nB=2\n</setenv>\n<setenv>\nB=3\nC=4\n</setenv>\n");
+
+        Assert.AreEqual("1", commandLine.Environment["A"]);
+        Assert.AreEqual("3", commandLine.Environment["B"]);
+        Assert.AreEqual("4", commandLine.Environment["C"]);
     }
 
     [TestMethod]

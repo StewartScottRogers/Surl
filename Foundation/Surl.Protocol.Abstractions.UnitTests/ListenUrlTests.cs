@@ -122,6 +122,16 @@ public sealed class ListenUrlTests
     [DataRow("mqtts", true)]
     [DataRow("smbs", true)]
     [DataRow("s3", true)]
+    [DataRow("oci", true)]
+    [DataRow("mcps", true)]
+    [DataRow("az", true)]
+    [DataRow("amqps", true)]
+    [DataRow("mqtt5s", true)]
+    [DataRow("gs", true)]
+    [DataRow("abfss", true)]
+    [DataRow("abfs", false)]
+    [DataRow("amqp1s", true)]
+    [DataRow("amqp1", false)]
     [DataRow("http", false)]
     [DataRow("ftp", false)]
     public void IsImplicitTls_Unset_IsWhatTlsSchemesSaysOfTheScheme(string scheme, bool expected)
@@ -170,5 +180,16 @@ public sealed class ListenUrlTests
         var listenUrl = new ListenUrl("http", "127.0.0.1", 0) { IsImplicitTls = true };
 
         Assert.IsTrue(listenUrl.IsImplicitTls);
+    }
+
+    [TestMethod]
+    public void IsDnsOverHttps_NewListenUrl_IsFalseAndTakesPartInEquality()
+    {
+        var plain = new ListenUrl("dns", "127.0.0.1", 443);
+        var overHttps = plain with { IsDnsOverHttps = true };
+
+        Assert.IsFalse(plain.IsDnsOverHttps);
+        Assert.IsTrue(overHttps.IsDnsOverHttps);
+        Assert.AreNotEqual(plain, overHttps);
     }
 }

@@ -17,7 +17,7 @@ internal sealed class UnitTestReadOnlyContentFileSystem : IContentFileSystem
 
     public Stream OpenFileForAsyncRead(string path) => new MemoryStream(Files[path], writable: false);
 
-    public string ResolveFinalPath(string path) => throw new NotSupportedException();
+    public string ResolveFinalPath(string path) => path;
 
     public DateTimeOffset GetLastWriteTimeUtc(string path) => throw new NotSupportedException();
 

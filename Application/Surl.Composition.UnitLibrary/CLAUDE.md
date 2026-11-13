@@ -51,10 +51,16 @@ horizontal library may reference it (ADR-0099 decision 11, held by
   same anchors, so every QUIC handshake requires a client certificate as TCP does (BL-741,
   ADR-0082 Amendment 5).
 - `ExtendedProtocolServers.Compose` builds the extended servers (`Surl.Extended.Protocol.*`: today
+  the AMQP 1.0 container for `amqp1` and `amqp1s` (BL-514) - one `Amqp1Container` over the one
+  `MessageBus`, `AuthenticationPolicyFor("amqp1")`, an `Amqp1ContainerOptions` of `IdleTimeout` and an
+  `Amqp1SecurityNegotiationOptions` of the policy's `AllowAnonymous` and `IsTlsUpgradeAvailable`;
+  `amqp1s` is in `TlsSchemes` as `mqtts` is, and `amqp1` is one of `ServerTlsComposition`'s
+  upgradable schemes for its TLS header (ADR-0107 decisions 1 and 7) -
   the DNS server for `dns` (BL-1032), two entries - `DnsUdpProtocolServer` and `DnsTcpProtocolServer` -
   so the engine binds UDP and TCP on one port, both over `ComposedProtocolServices.DnsZones` and
   `AllowsZoneTransfer` (`--allow-zone-transfer`, ADR-0092 decision 4),
-  the NATS server for `nats` and `natss`, BL-528, the STOMP broker for `stomp` and `stomps` over the one `MessageBus` (`stomps` is TLS through `TlsSchemes`, BL-533), the S3 server for `s3`, BL-421, and the Socket.IO server for `socketio` and `socketios`, BL-455, one server over one `SocketIoSessions`; `socketios` is TLS through `TlsSchemes`) from
+  the gRPC server for `grpc` and `grpcs`, BL-1093 (one registration over `AuthenticationPolicyFor("grpc")`, stateless; `grpcs` is TLS from the first byte through `TlsSchemes`, ALPN `h2`),
+  the Kafka broker for `kafka` and `kafkas`, BL-973 (one registration claiming both schemes; `kafkas` is TLS from the first byte through `TlsSchemes`, ADR-0105 decision 7; every answerer over the one `MessageBus` the MQTT server shares, the policy `AuthenticationPolicyFor("kafka")`, Produce and InitProducerId over one `KafkaProducerStates`, Fetch in the codec `--kafka-fetch-compression` names, BL-974, uncompressed by default), the AMQP 0-9-1 broker for `amqp` and `amqps`, BL-507 (one registration claiming both schemes over the one `MessageBus` the MQTT server shares, `AuthenticationPolicyFor("amqp")`, `--idle-timeout` and the policy's `AllowAnonymous` as `OffersAnonymous`; `amqps` is TLS through `TlsSchemes`), the NATS server for `nats` and `natss`, BL-528, the STOMP broker for `stomp` and `stomps` over the one `MessageBus` (`stomps` is TLS through `TlsSchemes`, BL-533), the Google Cloud Storage server for `gs`, BL-1026 (one registration over the shared content store, object metadata index and `AuthenticationPolicyFor("gs")`; `gs` is TLS from the first byte through `TlsSchemes`, ADR-0110 decision 5, ALPN `http/1.1`, so no `ImplicitTls` entry is needed and a `gs` listen URL without `--cert` or `--self-signed` is `(58)`), the OCI registry server for `oci`, BL-1028 (one registration over the shared content store and `AuthenticationPolicyFor("oci")`; `oci` is TLS from the first byte through `TlsSchemes`, ADR-0115 decision 6, ALPN `http/1.1`, so a `oci` listen URL without `--cert` or `--self-signed` is `(58)`, unless `--oci-plaintext` (BL-971) marks it plain through `OciPlaintextComposition.MarkOciListenUrlsPlain`, as `--s3-plaintext` does for `s3`; `--az-plaintext` (BL-1025) does the same for `az` through `AzPlaintextComposition.MarkAzListenUrlsPlain`, and `--gs-plaintext` (BL-1027) for `gs` through `GsPlaintextComposition.MarkGsListenUrlsPlain`), the S3 server for `s3`, BL-421, and the Socket.IO server for `socketio` and `socketios`, BL-455, one server over one `SocketIoSessions`; `socketios` is TLS through `TlsSchemes`) from
   `ExtendedProtocolServers.Registrations`, the same
   `ProtocolServerRegistration` record, each joining with one entry; its `ExtendedProtocolServerServices`
   wraps the start's `ComposedProtocolServices` (the S3 server reads its content store, policy, object
@@ -71,6 +77,14 @@ horizontal library may reference it (ADR-0099 decision 11, held by
   through an `IEnvironmentVariableReader` (`ProcessEnvironmentVariableReader` in `surl`); `0`
   turns them off (ADR-0083 decisions 6 to 8). `SurlServerComposition.ComposeExtendedProtocolServers`
   never calls the composer while they are off.
+- `mcp+stdio:` (ADR-0111 decision 5, BL-979): `ExtendedProtocolServers.Registrations` has an entry for the scheme whose
+  `McpStdioListenUrlServer` only claims it, so the parser accepts it (the listen URL has an empty host and port 0;
+  `ListenUrlParser` reads it apart). It is never served through the engine: the host calls `McpStdioComposition.IsAsked`,
+  `FindRefusal` (another or proxy listen URL beside it, or `--trace`/`--trace-ascii`/`--log-file` to `-`, each `FailedInit`)
+  and `ServeAsync`, which serves `McpStdioSession` over the content store on the streams it is given, writing the
+  `Listening on mcp+stdio:` line (info up) to the log only. `SURL_EXTENSIONS=0` leaves the scheme unregistered.
+- DNS over HTTPS (ADR-0092 Amendment 4, BL-1018): `--dns-transport https` expands a `dns` listen URL to a connection-only one with `IsImplicitTls` and `IsDnsOverHttps` on 443; the `dns` connection registration is a `DnsConnectionRoutingProtocolServer` sending it to `Http2ConnectionServer` (ALPN `h2`) or `Http1ConnectionServer`, both over a `DnsOverHttpsHandler`, and every other listen URL to `DnsTcpProtocolServer`. Refused beside `tcp` or `tls` on one explicit port (2); needs `--cert` or `--self-signed` (58).
+- DNS over QUIC (ADR-0092 decision 5, BL-1019): `--dns-transport quic` expands a `dns` listen URL to a datagram-only one with `IsImplicitTls` on 853 (`DnsTransportComposition`; refused beside `udp` on one explicit port and on port 53, exit 2); the `dns` datagram registration is a `DnsDatagramRoutingProtocolServer` sending that listen URL to a `DnsOverQuicProtocolServer` (built on its first flow from `QuicCertificate`) and every other to `DnsUdpProtocolServer`. It needs `--cert` or `--self-signed` (58).
 - `ComposeRegisteredSchemes` and `ComposeExtendedSchemes` list the registered schemes, built over
   `ComposeUnservedProtocolServers` with a policy of no accounts and no HTTP method
   (`ComposePolicyWithoutAccounts`), since nothing is served through them: `--version`'s
@@ -88,6 +102,11 @@ horizontal library may reference it (ADR-0099 decision 11, held by
   `LoadObjectMetadataIndexAsync`), then the DNS zones (`ComposeDnsZoneFolder`, `<path>/.surl/dns/*.zone` with
   `--directory`, none without it; `LoadDnsZonesAsync`, held on `ServiceState.DnsZones`); the first that cannot be loaded returns its
   `(37)` message, which the host writes after `surl: `.
+
+- AMQP 0-9-1 exchanges on disk (BL-966): after the extended servers are composed and before any listener binds,
+  `ComposeUnderTheLockAsync` calls `LoadAmqp0ExchangesAsync`, which with `--directory` hands each `Amqp0Broker` an
+  `Amqp0ExchangeFiles` over `<path>/.surl` (`.surl/amqp0/exchanges`); a malformed file is `(37) Could not read <file>: <reason>`.
+  Without `--directory` nothing is loaded. Tests: `SurlServerCompositionTests.Amqp0Exchanges.cs`.
 
 - One event stream and one fault plan per start (ADR-0124 decisions 1 and 4, BL-803):
   `ComposeAsync` creates a `SurlEventStream` and, through `FaultPlanComposition.Compose`, a
@@ -143,6 +162,9 @@ horizontal library may reference it (ADR-0099 decision 11, held by
   `ServingEngine` `IdentifiersForExchange`, which stamps `ExchangeContext.Identifiers` with
   `ForExchange(exchangeId)` (the cryptographic source unseeded). `IdentifiersForServer(name)` is the
   server-life source for per-server fixes (BL-850); no static state, so instances never share one.
+  BL-1001: the start also sets `ComposedProtocolServices.IdentifiersForServer` (the same derivation), which the
+  Kafka `KafkaMetadataAnswerer` (`ComposeKafkaMetadataAnswerer`, name `kafka`) and the `NatsServer` (name `nats`) draw
+  their cluster ID and `server_id` from, so a seeded instance repeats them. Tests: `ServerLifeIdentifiersCompositionTests`.
 
 The types are `public` because more than one host calls them, but they are not a supported
 programming interface and may change in any release.
@@ -190,6 +212,15 @@ rather than writing it, and the warning writers take the log `TextWriter` they w
   `--shared-folder`s after the groups are expanded (`@group` members become account names, `@everyone`
   is `(2)`); `WriteWarnings` writes the `--mail-catch-all` warning from info up; `DescribeRouteFailure`
   gives a `MailRouteException`'s `(2)` text, which `LoadMailStoreAsync` returns and the start maps to exit 2.
+- `LdapAccountSourceComposition` - `--user-ldap` (ADR-0149 decisions 7 and 9, BL-673): `Compose` checks the URL's
+  structure with `Surl.Authentication`'s `LdapDirectoryUrl` (`(2) --user-ldap: <what is wrong>`, never echoing the
+  URL), `plaintext` against `--allow-plaintext-auth`, reads the `bind-password-file` (first line, 64 KiB; `(37)`, `(2)`)
+  and the `ca-file` (`(77)`) through `ReadStartFile`, and builds the `LdapAccountSource` over
+  `SurlServerCompositionSeams.LdapDirectoryConnector` or the internal `TlsClientLdapDirectoryConnector` (an adapter
+  over `Surl.Networking`'s `TlsClientConnector`, tested over loopback in `Integration` tests). `AuthenticationComposition.Compose`
+  sets it on `AuthenticationSettings.LdapAccountSource`; `DirectoryNoteSink` carries its per-login notes to the log once
+  `ComposedServing` attaches it; `WriteWarning` and `WriteStartLine` write the `;plaintext` warning and the `Account source:`
+  note. The directory is never contacted at start.
 - `AccountGroupExpansion` - every `--group` expanded to account names once the accounts are read
   (ADR-0102 decision 4.1), refusing `everyone` and `@everyone` (4.2), a member naming no account or
   group and a group that includes itself (ADR-0101 decision 5 row 18), each `(2)`; `Expand` turns a
@@ -207,7 +238,10 @@ rather than writing it, and the warning writers take the log `TextWriter` they w
   gains each TLS twin (`WithTlsTwins`); groups expand to account names, `@everyone` stays its marker,
   and a member granted twice keeps the wider access. `ComposedServing` writes `WriteWarnings`' `@everyone`
   warning after the `--fault` one and `WriteStartLines`' `-v` notes after the mailboxes'.
-  Bucket folders are not yet checked or created at start (BL-988's follow-up).
+  Bucket folders are checked at start by `PrepareBucketFolders` (ADR-0102 decision 2.4, BL-1058), after the content
+  store is composed: a content path whose first segment names a share, or any path with `--directory`, must be an
+  existing folder (`(37) Could not open directory <path> for bucket <name>`); one in the in-memory root is created
+  empty through `ContentStore.SeedFolder` (the store's configured state already holds it, so a reset restores it).
 - `MessageBusComposition` - every `--topic`, `--queue`, `--topic-map` and `--topic-access` composed into the
   one bus's `MessageBusConfiguration` (ADR-0102 decisions 3, 3.6 and 5, BL-991), after the shares and before the
   lock: a filter that is not canonical, more than 1000 queues, a map scheme `TopicNameLookup` does not know, a
@@ -231,7 +265,7 @@ rather than writing it, and the warning writers take the log `TextWriter` they w
   its salt drawn again while its first byte is zero) and one `RandomNumberGenerator` it owns; a file
   that cannot be read is `TlsSrpAccountsException` `(37)`, a user given twice `(2)`. Each
   `--srp-groups` group outside RFC 5054 Appendix A lands in `SrpGroupIndexesOutsideRfc5054`, and
-  `WriteStartLines` notes it once from `-v` up, after the `--self-signed` lines (ADR-0122 Amendment 3). No certificate is
+  `WriteStartLines` notes it once from `-v` up, after the `--self-signed` lines (ADR-0122 Amendment 3). With `--cert` or `--self-signed` (BL-1098) the certificate and its RSA key go to `ForTlsSrp` for the certificate-signed suites, a non-RSA key being `TlsFileLoadException` (58). No certificate is
   needed then except for `webtransport` and `coaps`, and `IsTlsUpgradeAvailable` (a certificate, or
   TLS-SRP) is what makes the STARTTLS-style servers offer their upgrade.
 - `DataDirectoryProbe`, `DataDirectoryLock` and `DataDirectoryLockOutcome` - the `--directory`

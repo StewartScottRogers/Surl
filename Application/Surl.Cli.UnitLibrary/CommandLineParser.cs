@@ -41,6 +41,7 @@ public static class CommandLineParser
     private const string HostKeyLongName = "hostkey";
     private const string AuthorizedKeysLongName = "authorized-keys";
     private const string GroupLongName = "group";
+    private const string UserLdapLongName = "user-ldap";
     private const string FaultLongName = "fault";
     private const string MailDomainLongName = "mail-domain";
     private const string MailboxLongName = "mailbox";
@@ -397,6 +398,7 @@ public static class CommandLineParser
         ActOnAcceptedMailOption(reading, longName, reportedName, argument)
         ?? ActOnAcceptedContentOption(reading, longName, reportedName)
         ?? ActOnAcceptedMessagingOption(reading, longName, reportedName)
+        ?? (longName == UserLdapLongName ? ReadUserLdap(reading, reportedName) : null)
         ?? longName switch
         {
             FaultLongName => CountFault(reading, reportedName),
@@ -635,6 +637,24 @@ public static class CommandLineParser
         reading.CommandLine.Faults.Count > ConfiguredFaultReader.MaxRules
             ? RefusedOption(reportedName, ConfiguredFaultReader.TooManyRules)
             : null;
+
+    /// <summary>
+    /// Refuses a second <c>--user-ldap</c> (ADR-0149 decision 3: one directory is the account source) and one whose
+    /// <c>protocols=</c> names a scheme no server this start runs speaks, so an extended scheme under
+    /// <c>SURL_EXTENSIONS=0</c> is refused; null otherwise.
+    /// </summary>
+    private static CommandLineParseResult? ReadUserLdap(CommandLineReading reading, string reportedName)
+    {
+        reading.UserLdapOptionNames.Add(reportedName);
+        if (reading.UserLdapOptionNames.Count > 1)
+        {
+            return RefusedOption(reportedName, ConfiguredLdapAccountSourceReader.GivenTwice);
+        }
+
+        var unknown = reading.CommandLine.UserLdap!.Protocols?
+            .FirstOrDefault(scheme => !ConfiguredMailboxReader.IsServedScheme(scheme, reading.ExtendedSchemes));
+        return unknown is null ? null : RefusedOption(reportedName, ConfiguredMailboxReader.UnknownScheme(unknown));
+    }
 
     /// <summary>
     /// Counts the <c>--mailbox</c> just read, keeps its address as written for a later refusal,
@@ -995,6 +1015,9 @@ public static class CommandLineParser
 
         /// <summary>The name each accepted <c>--mail-domain</c> was written with, one per domain, in order.</summary>
         public List<string> MailDomainOptionNames { get; } = [];
+
+        /// <summary>The name each accepted <c>--user-ldap</c> was written with, in order.</summary>
+        public List<string> UserLdapOptionNames { get; } = [];
 
         /// <summary>The name each accepted <c>--mailbox</c> was written with, one per mailbox, in order.</summary>
         public List<string> MailboxOptionNames { get; } = [];

@@ -182,6 +182,10 @@ internal static class OptionArgumentReader
     public static readonly OptionArgumentReading<LogLevel> LogLevelWord =
         new(ReadLogLevel, new("word", "none, error, info, verbose or trace, in any case"));
 
+    /// <summary><see cref="ReadKafkaFetchCompression"/> and its argument type (ADR-0046 decision 5).</summary>
+    public static readonly OptionArgumentReading<string> KafkaFetchCompression =
+        new(ReadKafkaFetchCompression, new("word", "none, gzip, snappy, lz4 or zstd, in any case"));
+
     /// <summary><see cref="ReadAccount"/> and its argument type (ADR-0046 decision 5).</summary>
     public static readonly OptionArgumentReading<CommandLineAccount> Account =
         new(ReadAccount, new(
@@ -203,8 +207,11 @@ internal static class OptionArgumentReader
             "word list",
             "comma-separated, in any case, no empty item: " + string.Join(", ", AuthenticationMethodWords)));
 
-    /// <summary>The <c>--dns-transport</c> words this build serves (ADR-0092 decision 5); BL-1018 and BL-1019 add <c>https</c> and <c>quic</c>.</summary>
-    public static readonly IReadOnlyList<string> DnsTransportWords = ["udp", "tcp", "tls"];
+    /// <summary>The <c>--kafka-fetch-compression</c> words, the codecs a Kafka record batch is compressed with (ADR-0105 decision 4).</summary>
+    public static readonly IReadOnlyList<string> KafkaFetchCompressionWords = ["none", "gzip", "snappy", "lz4", "zstd"];
+
+    /// <summary>The <c>--dns-transport</c> words this build serves (ADR-0092 decision 5).</summary>
+    public static readonly IReadOnlyList<string> DnsTransportWords = ["udp", "tcp", "tls", "quic", "https"];
 
     /// <summary><see cref="ReadDnsTransports"/> and its argument type (ADR-0046 decision 5).</summary>
     public static readonly OptionArgumentReading<IReadOnlyList<string>> DnsTransports =
@@ -355,6 +362,19 @@ internal static class OptionArgumentReader
         }
 
         return LogLevels.TryGetValue(argument, out value) ? null : BadlyUsed;
+    }
+
+    /// <summary>
+    /// Reads the <c>--kafka-fetch-compression</c> word (ADR-0105 decision 4): one of <see cref="KafkaFetchCompressionWords"/>,
+    /// in any case, returned in lower case.
+    /// </summary>
+    /// <param name="argument">The argument as given.</param>
+    /// <param name="value">The codec word, in lower case.</param>
+    /// <returns>The refusal reason, or <see langword="null"/>.</returns>
+    public static string? ReadKafkaFetchCompression(string argument, out string value)
+    {
+        value = argument.ToLowerInvariant();
+        return KafkaFetchCompressionWords.Contains(value) ? null : BadlyUsed;
     }
 
     /// <summary>Reads <c>&lt;phrase&gt;</c>: any text, the empty string included, kept as given.</summary>

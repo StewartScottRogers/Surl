@@ -32,6 +32,20 @@ public sealed class OciManifestPushTests
         StringAssert.EndsWith(byDigest, $"\r\n\r\n{manifest}");
     }
 
+    private const string PlatformAndUrls = ",\"platform\":{\"architecture\":\"arm64\",\"os\":\"linux\"},\"urls\":[\"https://example.test/a\"]";
+
+    [TestMethod]
+    public async Task AnswerAsync_ManifestByTag_KeepsTheExtraFieldsOfOtherDescriptors()
+    {
+        var harness = RepositoryWithBlobs();
+        var other = H.Descriptor(H.ManifestMediaType, "other manifest");
+        harness.WriteIndex("app", other[..^1] + PlatformAndUrls + "}");
+
+        await PushAsync(harness, "v1", ImageManifest());
+
+        StringAssert.Contains(Encoding.UTF8.GetString(harness.ReadFile("app/index.json")!), PlatformAndUrls[1..] + "},{");
+    }
+
     [TestMethod]
     public async Task AnswerAsync_ManifestByTag_ListsItTaggedInIndexJson()
     {

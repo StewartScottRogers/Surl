@@ -103,23 +103,25 @@ public sealed record UpstreamTestCaseCommandLine(
     {
         var parts = testCase.FindSection("client")?.Parts ?? [];
 
+        // getpart returns the text of every part with the name, so two <file> parts (test 329) make one
+        // file under the first part's name; the first part also decides whether the file is made at all.
         return FileParts
-            .Select(name => parts.FirstOrDefault(part => part.Name == name))
-            .OfType<UpstreamTestCasePart>()
-            .Where(part => part.Lines.Count > 0 || part.IsSet("name"))
+            .Select(name => parts.Where(part => part.Name == name).ToList())
+            .Where(sameName => sameName.Count > 0 && (sameName[0].Lines.Count > 0 || sameName[0].IsSet("name")))
             .Select(ToClientFile)
             .ToList();
     }
 
-    private static UpstreamTestCaseClientFile ToClientFile(UpstreamTestCasePart part) =>
-        part.IsSet("name")
-            ? new UpstreamTestCaseClientFile(part.Attributes["name"], part.ContentWithNewlineAttributes(UpstreamTestCaseNewlineRule.CutThenForceCrlf))
-            : throw new FormatException($"<{part.Name}> has no name attribute.");
+    private static UpstreamTestCaseClientFile ToClientFile(List<UpstreamTestCasePart> sameName) =>
+        sameName[0].IsSet("name")
+            ? new UpstreamTestCaseClientFile(sameName[0].Attributes["name"], sameName.SelectMany(part => part.ContentWithNewlineAttributes(UpstreamTestCaseNewlineRule.CutThenForceCrlf)).ToArray())
+            : throw new FormatException($"<{sameName[0].Name}> has no name attribute.");
 
     private static Dictionary<string, string> ReadEnvironment(UpstreamTestCase testCase)
     {
         var environment = new Dictionary<string, string>(StringComparer.Ordinal);
-        var lines = testCase.FindPart("client", "setenv")?.Lines ?? [];
+        // getpart reads every <setenv> part, so test 433 gets COLUMNS from its second one beside the first.
+        var lines = (testCase.FindSection("client")?.Parts ?? []).Where(part => part.Name == "setenv").SelectMany(part => part.Lines);
 
         foreach (var line in lines)
         {

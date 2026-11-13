@@ -101,7 +101,7 @@ public sealed class TopicNameLookupTests
     public void Constructor_AnUnknownSchemeAnInvalidNameOrADuplicate_Throws()
     {
         Assert.ThrowsExactly<ArgumentNullException>(() => new TopicNameLookup(null!));
-        Assert.ThrowsExactly<ArgumentException>(() => new TopicNameLookup([new TopicMap("redis", "a", "mqtt", "b")]));
+        Assert.ThrowsExactly<ArgumentException>(() => new TopicNameLookup([new TopicMap("smtp", "a", "mqtt", "b")]));
         Assert.ThrowsExactly<ArgumentException>(() => new TopicNameLookup([new TopicMap("amqp", "a", "smtp", "b")]));
         var invalidTarget = Assert.ThrowsExactly<ArgumentException>(() => new TopicNameLookup([new TopicMap("amqp", "a", "mqtt", "b/#")]));
         Assert.StartsWith("b/# is not a valid name for mqtt", invalidTarget.Message);
@@ -124,6 +124,29 @@ public sealed class TopicNameLookupTests
     public void IsKnownScheme_MessagingAndOtherSchemes_SaysWhichItMaps()
     {
         Assert.IsTrue(TopicNameLookup.IsKnownScheme("NATSS"));
-        Assert.IsFalse(TopicNameLookup.IsKnownScheme("redis"));
+        Assert.IsTrue(TopicNameLookup.IsKnownScheme("rediss"));
+        Assert.IsFalse(TopicNameLookup.IsKnownScheme("smtp"));
+    }
+
+    [TestMethod]
+    public void DefaultMapping_ARedisChannel_IsTheSameTopicBothWays()
+    {
+        var lookup = new TopicNameLookup([]);
+
+        Assert.AreEqual(TopicNameMapping.Of("a/b"), lookup.ToCanonicalTopic("redis", "a/b"));
+        Assert.AreEqual(TopicNameMapping.Of("a/b"), lookup.ToCanonicalFilter("rediss", "a/b"));
+        Assert.AreEqual(TopicNameMapping.Of("a/b"), lookup.FromCanonicalTopic("redis", "a/b"));
+        Assert.AreEqual(TopicNameMappingOutcome.InvalidName, lookup.ToCanonicalTopic("redis", "a/#").Outcome);
+        Assert.AreEqual(TopicNameMappingOutcome.InvalidName, lookup.FromCanonicalTopic("redis", null).Outcome);
+    }
+
+    [TestMethod]
+    public void TopicMap_ARedisChannelAliasedToAnMqttTopic_ResolvesBothWays()
+    {
+        var lookup = new TopicNameLookup([new TopicMap("redis", "orders", "mqtt", "shop/orders")]);
+
+        Assert.AreEqual(TopicNameMapping.Of("shop/orders"), lookup.ToCanonicalTopic("redis", "orders"));
+        Assert.AreEqual(TopicNameMapping.Of("orders"), lookup.FromCanonicalTopic("rediss", "shop/orders"));
+        Assert.AreEqual(TopicNameMappingOutcome.Unreachable, lookup.FromCanonicalTopic("redis", "orders").Outcome);
     }
 }

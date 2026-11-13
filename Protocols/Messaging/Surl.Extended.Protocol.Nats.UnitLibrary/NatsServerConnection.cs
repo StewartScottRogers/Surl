@@ -301,7 +301,7 @@ internal sealed partial class NatsServerConnection : IDisposable
                 NatsErrors.AuthorizationViolation, "CONNECT asked for an NKey or JWT login, which surl does not serve");
         }
 
-        var login = connect.ToPasswordLogin(context.Scheme, connection.TlsSession);
+        var login = connect.ToPasswordLogin(context.Scheme, connection.TlsSession, LoginExchange.Of(context));
         var verdict = await policy.CheckPasswordLoginAsync(login, context.CancellationToken);
         if (verdict is not (PasswordLoginVerdict.Accepted or PasswordLoginVerdict.AcceptedUnchecked))
         {

@@ -26,14 +26,14 @@ public sealed class CommandLineRunnerExtendedProtocolTests
         using var error = new StringWriter();
         var runner = CreateRunner(factory, FakeEnvironmentVariableReader.Empty, _ => [new FakeExtendedProtocolServer()]);
 
-        var running = runner.RunAsync(["oci://127.0.0.1/"], output, error, stop.Token);
+        var running = runner.RunAsync(["redis://127.0.0.1/"], output, error, stop.Token);
         await factory.AcceptStarted.Task.WaitAsync(TestContext.CancellationToken);
         await stop.CancelAsync();
         var exitCode = await running;
 
         Assert.AreEqual(SurlExitCode.Ok, exitCode);
-        Assert.AreEqual(new ListenUrl("oci", "127.0.0.1", 443), factory.StartedListenUrls.Single());
-        Assert.AreEqual($"Listening on oci://127.0.0.1:{FakeListenerFactory.BoundPort}/" + NewLine, output.ToString());
+        Assert.AreEqual(new ListenUrl("redis", "127.0.0.1", 6379), factory.StartedListenUrls.Single());
+        Assert.AreEqual($"Listening on redis://127.0.0.1:{FakeListenerFactory.BoundPort}/" + NewLine, output.ToString());
         Assert.AreEqual(string.Empty, error.ToString());
     }
 
@@ -50,10 +50,10 @@ public sealed class CommandLineRunnerExtendedProtocolTests
             return [new FakeExtendedProtocolServer()];
         });
 
-        var exitCode = await runner.RunAsync(["oci://127.0.0.1/"], output, error, TestContext.CancellationToken);
+        var exitCode = await runner.RunAsync(["redis://127.0.0.1/"], output, error, TestContext.CancellationToken);
 
         Assert.AreEqual(SurlExitCode.UnsupportedProtocol, exitCode);
-        Assert.AreEqual("surl: (1) Protocol \"oci\" not supported" + NewLine, error.ToString());
+        Assert.AreEqual("surl: (1) Protocol \"redis\" not supported" + NewLine, error.ToString());
         Assert.AreEqual(string.Empty, output.ToString());
         Assert.IsEmpty(factory.StartedListenUrls);
         Assert.AreEqual(0, composed);
@@ -66,10 +66,10 @@ public sealed class CommandLineRunnerExtendedProtocolTests
         using var error = new StringWriter();
         var runner = CreateRunner(new FakeListenerFactory(), FakeEnvironmentVariableReader.Empty, composeExtendedProtocolServers: null);
 
-        var exitCode = await runner.RunAsync(["oci://127.0.0.1/"], output, error, TestContext.CancellationToken);
+        var exitCode = await runner.RunAsync(["nosuchscheme://127.0.0.1:0/"], output, error, TestContext.CancellationToken);
 
         Assert.AreEqual(SurlExitCode.UnsupportedProtocol, exitCode);
-        Assert.AreEqual("surl: (1) Protocol \"oci\" not supported" + NewLine, error.ToString());
+        Assert.AreEqual("surl: (1) Protocol \"nosuchscheme\" not supported" + NewLine, error.ToString());
     }
 
     [TestMethod]
@@ -81,13 +81,13 @@ public sealed class CommandLineRunnerExtendedProtocolTests
         using var error = new StringWriter();
         var runner = CreateRunner(factory, FakeEnvironmentVariableReader.Empty, _ => [new FakeExtendedProtocolServer()]);
 
-        var running = runner.RunAsync(["http://127.0.0.1/", "oci://127.0.0.1:0/"], output, error, stop.Token);
+        var running = runner.RunAsync(["http://127.0.0.1/", "redis://127.0.0.1:0/"], output, error, stop.Token);
         await factory.AcceptStarted.Task.WaitAsync(TestContext.CancellationToken);
         await stop.CancelAsync();
         await running;
 
         CollectionAssert.AreEqual(
-            new[] { new ListenUrl("http", "127.0.0.1", 80), new ListenUrl("oci", "127.0.0.1", 0) },
+            new[] { new ListenUrl("http", "127.0.0.1", 80), new ListenUrl("redis", "127.0.0.1", 0) },
             factory.StartedListenUrls.ToArray());
     }
 
@@ -102,10 +102,10 @@ public sealed class CommandLineRunnerExtendedProtocolTests
 
         Assert.AreEqual(SurlExitCode.Ok, exitCode);
         Assert.AreEqual(
-            VersionText.Compose(InformationalVersion(), RuntimeInformation.RuntimeIdentifier, runner.ComposeRegisteredSchemes(), ["oci"]),
+            VersionText.Compose(InformationalVersion(), RuntimeInformation.RuntimeIdentifier, runner.ComposeRegisteredSchemes(), ["redis"]),
             output.ToString());
-        StringAssert.EndsWith(output.ToString(), NewLine + "Extended: oci" + NewLine);
-        Assert.DoesNotContain(" oci", output.ToString().Split(NewLine)[1]);
+        StringAssert.EndsWith(output.ToString(), NewLine + "Extended: redis" + NewLine);
+        Assert.DoesNotContain(" redis", output.ToString().Split(NewLine)[1]);
     }
 
     [TestMethod]
@@ -128,7 +128,7 @@ public sealed class CommandLineRunnerExtendedProtocolTests
 
         var schemes = runner.ComposeExtendedSchemes();
 
-        CollectionAssert.AreEqual(new[] { "oci" }, schemes.ToArray());
+        CollectionAssert.AreEqual(new[] { "redis" }, schemes.ToArray());
     }
 
     [TestMethod]
@@ -201,6 +201,66 @@ public sealed class CommandLineRunnerExtendedProtocolTests
     }
 
     [TestMethod]
+    public async Task RunAsync_AzWithAzPlaintextAndNoCertificate_ServesItPlainAndWarns()
+    {
+        var factory = new FakeListenerFactory();
+        using var stop = CancellationTokenSource.CreateLinkedTokenSource(TestContext.CancellationToken);
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+        var runner = CreateRunner(factory, FakeEnvironmentVariableReader.Empty, composeExtendedProtocolServers: null);
+
+        var running = runner.RunAsync(["--az-plaintext", "az://127.0.0.1:0/"], output, error, stop.Token);
+        await factory.AcceptStarted.Task.WaitAsync(TestContext.CancellationToken);
+        await stop.CancelAsync();
+        var exitCode = await running;
+
+        Assert.AreEqual(SurlExitCode.Ok, exitCode);
+        Assert.AreEqual(new ListenUrl("az", "127.0.0.1", 0) { IsImplicitTls = false }, factory.StartedListenUrls.Single());
+        Assert.AreEqual($"Listening on az://127.0.0.1:{FakeListenerFactory.BoundPort}/" + NewLine, output.ToString());
+        Assert.AreEqual("surl: warning: --az-plaintext: az is served as plain HTTP, without TLS" + NewLine, error.ToString());
+    }
+
+    [TestMethod]
+    public async Task RunAsync_GsWithGsPlaintextAndNoCertificate_ServesItPlainAndWarns()
+    {
+        var factory = new FakeListenerFactory();
+        using var stop = CancellationTokenSource.CreateLinkedTokenSource(TestContext.CancellationToken);
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+        var runner = CreateRunner(factory, FakeEnvironmentVariableReader.Empty, composeExtendedProtocolServers: null);
+
+        var running = runner.RunAsync(["--gs-plaintext", "gs://127.0.0.1:0/"], output, error, stop.Token);
+        await factory.AcceptStarted.Task.WaitAsync(TestContext.CancellationToken);
+        await stop.CancelAsync();
+        var exitCode = await running;
+
+        Assert.AreEqual(SurlExitCode.Ok, exitCode);
+        Assert.AreEqual(new ListenUrl("gs", "127.0.0.1", 0) { IsImplicitTls = false }, factory.StartedListenUrls.Single());
+        Assert.AreEqual($"Listening on gs://127.0.0.1:{FakeListenerFactory.BoundPort}/" + NewLine, output.ToString());
+        Assert.AreEqual("surl: warning: --gs-plaintext: gs is served as plain HTTP, without TLS" + NewLine, error.ToString());
+    }
+
+    [TestMethod]
+    public async Task RunAsync_OciWithOciPlaintextAndNoCertificate_ServesItPlainAndWarns()
+    {
+        var factory = new FakeListenerFactory();
+        using var stop = CancellationTokenSource.CreateLinkedTokenSource(TestContext.CancellationToken);
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+        var runner = CreateRunner(factory, FakeEnvironmentVariableReader.Empty, composeExtendedProtocolServers: null);
+
+        var running = runner.RunAsync(["--oci-plaintext", "oci://127.0.0.1:0/"], output, error, stop.Token);
+        await factory.AcceptStarted.Task.WaitAsync(TestContext.CancellationToken);
+        await stop.CancelAsync();
+        var exitCode = await running;
+
+        Assert.AreEqual(SurlExitCode.Ok, exitCode);
+        Assert.AreEqual(new ListenUrl("oci", "127.0.0.1", 0) { IsImplicitTls = false }, factory.StartedListenUrls.Single());
+        Assert.AreEqual($"Listening on oci://127.0.0.1:{FakeListenerFactory.BoundPort}/" + NewLine, output.ToString());
+        Assert.AreEqual("surl: warning: --oci-plaintext: oci is served as plain HTTP, without TLS" + NewLine, error.ToString());
+    }
+
+    [TestMethod]
     public async Task RunAsync_S3WithoutACertificate_ExitsWithCertificateProblem()
     {
         using var output = new StringWriter();
@@ -229,13 +289,161 @@ public sealed class CommandLineRunnerExtendedProtocolTests
     }
 
     [TestMethod]
-    public void ComposeExtendedSchemes_ThisBuildWithTheSwitchUnset_RegistersNatsNatssSocketioAndSocketios()
+    public void ComposeExtendedSchemes_ThisBuildWithTheSwitchUnset_RegistersMcpAndMcps()
+    {
+        var runner = CreateRunner(new FakeListenerFactory(), FakeEnvironmentVariableReader.Empty, composeExtendedProtocolServers: null);
+
+        var schemes = runner.ComposeExtendedSchemes().ToArray();
+
+        CollectionAssert.IsSubsetOf(new[] { "mcp", "mcps" }, schemes);
+    }
+
+    [TestMethod]
+    public void ComposeExtendedSchemes_ThisBuildWithTheSwitchAtZero_RegistersNoMcpOrMcps()
+    {
+        var runner = CreateRunner(new FakeListenerFactory(), FakeEnvironmentVariableReader.ExtensionsTurnedOff, composeExtendedProtocolServers: null);
+
+        var schemes = runner.ComposeExtendedSchemes().ToArray();
+
+        CollectionAssert.DoesNotContain(schemes, "mcp");
+        CollectionAssert.DoesNotContain(schemes, "mcps");
+    }
+
+    [TestMethod]
+    public async Task RunAsync_McpWithoutAPort_ListensAtItsDefaultPort80()
+    {
+        var factory = new FakeListenerFactory();
+        using var stop = CancellationTokenSource.CreateLinkedTokenSource(TestContext.CancellationToken);
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+        var runner = CreateRunner(factory, FakeEnvironmentVariableReader.Empty, composeExtendedProtocolServers: null);
+
+        var running = runner.RunAsync(["--allow-anonymous", "mcp://127.0.0.1/"], output, error, stop.Token);
+        await factory.AcceptStarted.Task.WaitAsync(TestContext.CancellationToken);
+        await stop.CancelAsync();
+        var exitCode = await running;
+
+        Assert.AreEqual(SurlExitCode.Ok, exitCode);
+        Assert.AreEqual(new ListenUrl("mcp", "127.0.0.1", 80), factory.StartedListenUrls.Single());
+    }
+
+    [TestMethod]
+    public async Task RunAsync_McpsWithSelfSigned_ListensAtItsDefaultPort443()
+    {
+        var factory = new FakeListenerFactory();
+        using var stop = CancellationTokenSource.CreateLinkedTokenSource(TestContext.CancellationToken);
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+        var runner = CreateRunner(factory, FakeEnvironmentVariableReader.Empty, composeExtendedProtocolServers: null);
+
+        var running = runner.RunAsync(["--self-signed", "mcps://127.0.0.1/"], output, error, stop.Token);
+        await factory.AcceptStarted.Task.WaitAsync(TestContext.CancellationToken);
+        await stop.CancelAsync();
+        var exitCode = await running;
+
+        Assert.AreEqual(SurlExitCode.Ok, exitCode);
+        Assert.AreEqual(new ListenUrl("mcps", "127.0.0.1", 443), factory.StartedListenUrls.Single());
+    }
+
+    [TestMethod]
+    public async Task RunAsync_McpsWithoutACertificate_ExitsWithCertificateProblem()
+    {
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+        var runner = CreateRunner(new FakeListenerFactory(), FakeEnvironmentVariableReader.Empty, composeExtendedProtocolServers: null);
+
+        var exitCode = await runner.RunAsync(["mcps://127.0.0.1:0/"], output, error, TestContext.CancellationToken);
+
+        Assert.AreEqual(SurlExitCode.CertificateProblem, exitCode);
+    }
+
+    [TestMethod]
+    public async Task RunAsync_McpWithTheSwitchAtZero_RefusesItsSchemeAsAnUnknownScheme()
+    {
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+        var runner = CreateRunner(new FakeListenerFactory(), FakeEnvironmentVariableReader.ExtensionsTurnedOff, composeExtendedProtocolServers: null);
+
+        var exitCode = await runner.RunAsync(["mcp://127.0.0.1:0/"], output, error, TestContext.CancellationToken);
+
+        Assert.AreEqual(SurlExitCode.UnsupportedProtocol, exitCode);
+        Assert.AreEqual("surl: (1) Protocol \"mcp\" not supported" + NewLine, error.ToString());
+    }
+
+    [TestMethod]
+    public void ComposeExtendedSchemes_ThisBuildWithTheSwitchUnset_RegistersGs()
     {
         var runner = CreateRunner(new FakeListenerFactory(), FakeEnvironmentVariableReader.Empty, composeExtendedProtocolServers: null);
 
         var schemes = runner.ComposeExtendedSchemes();
 
-        CollectionAssert.IsSubsetOf(new[] { "nats", "natss", "socketio", "socketios" }, schemes.ToArray());
+        CollectionAssert.Contains(schemes.ToArray(), "gs");
+    }
+
+    [TestMethod]
+    public void ComposeExtendedSchemes_ThisBuildWithTheSwitchAtZero_RegistersNoGs()
+    {
+        var runner = CreateRunner(new FakeListenerFactory(), FakeEnvironmentVariableReader.ExtensionsTurnedOff, composeExtendedProtocolServers: null);
+
+        var schemes = runner.ComposeExtendedSchemes();
+
+        CollectionAssert.DoesNotContain(schemes.ToArray(), "gs");
+    }
+
+    [TestMethod]
+    public async Task RunAsync_GsWithSelfSigned_ListensAtItsDefaultPort443()
+    {
+        var factory = new FakeListenerFactory();
+        using var stop = CancellationTokenSource.CreateLinkedTokenSource(TestContext.CancellationToken);
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+        var runner = CreateRunner(factory, FakeEnvironmentVariableReader.Empty, composeExtendedProtocolServers: null);
+
+        var running = runner.RunAsync(["--self-signed", "gs://127.0.0.1/"], output, error, stop.Token);
+        await factory.AcceptStarted.Task.WaitAsync(TestContext.CancellationToken);
+        await stop.CancelAsync();
+        var exitCode = await running;
+
+        Assert.AreEqual(SurlExitCode.Ok, exitCode);
+        Assert.AreEqual(new ListenUrl("gs", "127.0.0.1", 443), factory.StartedListenUrls.Single());
+        Assert.AreEqual($"Listening on gs://127.0.0.1:{FakeListenerFactory.BoundPort}/" + NewLine, output.ToString());
+    }
+
+    [TestMethod]
+    public async Task RunAsync_GsWithoutACertificate_ExitsWithCertificateProblem()
+    {
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+        var runner = CreateRunner(new FakeListenerFactory(), FakeEnvironmentVariableReader.Empty, composeExtendedProtocolServers: null);
+
+        var exitCode = await runner.RunAsync(["gs://127.0.0.1:0/"], output, error, TestContext.CancellationToken);
+
+        Assert.AreEqual(SurlExitCode.CertificateProblem, exitCode);
+        Assert.AreEqual(
+            "surl: (58) gs://127.0.0.1:0/ needs a certificate: give --cert <file>, or --self-signed for a throwaway one" + NewLine,
+            error.ToString());
+    }
+
+    [TestMethod]
+    public async Task RunAsync_GsWithTheSwitchAtZero_RefusesItsSchemeAsAnUnknownScheme()
+    {
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+        var runner = CreateRunner(new FakeListenerFactory(), FakeEnvironmentVariableReader.ExtensionsTurnedOff, composeExtendedProtocolServers: null);
+
+        var exitCode = await runner.RunAsync(["--self-signed", "gs://127.0.0.1:0/"], output, error, TestContext.CancellationToken);
+
+        Assert.AreEqual(SurlExitCode.UnsupportedProtocol, exitCode);
+        Assert.AreEqual("surl: (1) Protocol \"gs\" not supported" + NewLine, error.ToString());
+    }
+    [TestMethod]
+    public void ComposeExtendedSchemes_ThisBuildWithTheSwitchUnset_RegistersNatsNatssSignalrSignalrsSocketioAndSocketios()
+    {
+        var runner = CreateRunner(new FakeListenerFactory(), FakeEnvironmentVariableReader.Empty, composeExtendedProtocolServers: null);
+
+        var schemes = runner.ComposeExtendedSchemes();
+
+        CollectionAssert.IsSubsetOf(new[] { "nats", "natss", "signalr", "signalrs", "socketio", "socketios" }, schemes.ToArray());
     }
 
     [TestMethod]
@@ -243,13 +451,23 @@ public sealed class CommandLineRunnerExtendedProtocolTests
     [DataRow("natss")]
     [DataRow("coap")]
     [DataRow("coaps")]
+    [DataRow("grpc")]
+    [DataRow("grpcs")]
+    [DataRow("signalr")]
+    [DataRow("signalrs")]
+    [DataRow("redis")]
+    [DataRow("rediss")]
     [DataRow("socketio")]
     [DataRow("socketios")]
     [DataRow("webtransport")]
     [DataRow("xmpp")]
     [DataRow("xmpps")]
+    [DataRow("amqp")]
+    [DataRow("amqps")]
     [DataRow("stomp")]
     [DataRow("stomps")]
+    [DataRow("kafka")]
+    [DataRow("kafkas")]
     public async Task RunAsync_NatsSchemeWithTheSwitchAtZero_RefusesItAsAnUnknownScheme(string scheme)
     {
         using var output = new StringWriter();
@@ -260,6 +478,42 @@ public sealed class CommandLineRunnerExtendedProtocolTests
 
         Assert.AreEqual(SurlExitCode.UnsupportedProtocol, exitCode);
         Assert.AreEqual($"surl: (1) Protocol \"{scheme}\" not supported" + NewLine, error.ToString());
+    }
+
+    [TestMethod]
+    [DataRow("grpc", new string[0], 80)]
+    [DataRow("grpcs", new[] { "--self-signed" }, 443)]
+    [DataRow("signalr", new string[0], 80)]
+    [DataRow("signalrs", new[] { "--self-signed" }, 443)]
+    [DataRow("redis", new string[0], 6379)]
+    [DataRow("rediss", new[] { "--self-signed" }, 6379)]
+    public async Task RunAsync_SignalRSchemeWithTheSwitchUnset_ListensAtItsDefaultPort(string scheme, string[] options, int port)
+    {
+        var factory = new FakeListenerFactory();
+        using var stop = CancellationTokenSource.CreateLinkedTokenSource(TestContext.CancellationToken);
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+        var runner = CreateRunner(factory, FakeEnvironmentVariableReader.Empty, composeExtendedProtocolServers: null);
+
+        var running = runner.RunAsync([.. options, $"{scheme}://127.0.0.1/"], output, error, stop.Token);
+        await factory.AcceptStarted.Task.WaitAsync(TestContext.CancellationToken);
+        await stop.CancelAsync();
+        var exitCode = await running;
+
+        Assert.AreEqual(SurlExitCode.Ok, exitCode);
+        Assert.AreEqual(new ListenUrl(scheme, "127.0.0.1", port), factory.StartedListenUrls.Single());
+    }
+
+    [TestMethod]
+    public async Task RunAsync_SignalRsSchemeWithoutACertificate_ExitsWithTheMissingCertificateCode()
+    {
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+        var runner = CreateRunner(new FakeListenerFactory(), FakeEnvironmentVariableReader.Empty, composeExtendedProtocolServers: null);
+
+        var exitCode = await runner.RunAsync(["signalrs://127.0.0.1:0/"], output, error, TestContext.CancellationToken);
+
+        Assert.AreEqual(SurlExitCode.CertificateProblem, exitCode);
     }
 
     [TestMethod]
@@ -316,9 +570,13 @@ public sealed class CommandLineRunnerExtendedProtocolTests
     }
 
     [TestMethod]
+    [DataRow("amqp", 5672, new string[0])]
+    [DataRow("amqps", 5671, new[] { "--self-signed" })]
     [DataRow("stomp", 61613, new string[0])]
     [DataRow("stomps", 61614, new[] { "--self-signed" })]
-    public async Task RunAsync_StompSchemeWithTheSwitchUnset_ListensAtItsDefaultPort(string scheme, int port, string[] options)
+    [DataRow("kafka", 9092, new string[0])]
+    [DataRow("kafkas", 9093, new[] { "--self-signed" })]
+    public async Task RunAsync_AmqpStompOrKafkaSchemeWithTheSwitchUnset_ListensAtItsDefaultPort(string scheme, int port, string[] options)
     {
         var factory = new FakeListenerFactory();
         using var stop = CancellationTokenSource.CreateLinkedTokenSource(TestContext.CancellationToken);
@@ -345,6 +603,42 @@ public sealed class CommandLineRunnerExtendedProtocolTests
         var exitCode = await runner.RunAsync(["stomps://127.0.0.1:0/"], output, error, TestContext.CancellationToken);
 
         Assert.AreEqual(SurlExitCode.CertificateProblem, exitCode);
+    }
+
+    [TestMethod]
+    public async Task RunAsync_AmqpsWithoutACertificate_ExitsWithCertificateProblem()
+    {
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+        var runner = CreateRunner(new FakeListenerFactory(), FakeEnvironmentVariableReader.Empty, composeExtendedProtocolServers: null);
+
+        var exitCode = await runner.RunAsync(["amqps://127.0.0.1:0/"], output, error, TestContext.CancellationToken);
+
+        Assert.AreEqual(SurlExitCode.CertificateProblem, exitCode);
+    }
+
+    [TestMethod]
+    public void ComposeExtendedSchemes_ThisBuild_RegistersAmqpAndAmqpsWithTheSwitchUnsetAndNeitherWithItAtZero()
+    {
+        var on = CreateRunner(new FakeListenerFactory(), FakeEnvironmentVariableReader.Empty, composeExtendedProtocolServers: null);
+        var off = CreateRunner(new FakeListenerFactory(), FakeEnvironmentVariableReader.ExtensionsTurnedOff, composeExtendedProtocolServers: null);
+
+        CollectionAssert.IsSubsetOf(new[] { "amqp", "amqps" }, on.ComposeExtendedSchemes().ToArray());
+        CollectionAssert.DoesNotContain(off.ComposeExtendedSchemes().ToArray(), "amqp");
+        CollectionAssert.DoesNotContain(off.ComposeExtendedSchemes().ToArray(), "amqps");
+    }
+
+    [TestMethod]
+    public void ComposeExtendedSchemes_ThisBuild_RegistersMqtt5Mqtt5sAndMqtt5WsWithTheSwitchUnsetAndNoneWithItAtZeroWhileMqttStays()
+    {
+        var on = CreateRunner(new FakeListenerFactory(), FakeEnvironmentVariableReader.Empty, composeExtendedProtocolServers: null);
+        var off = CreateRunner(new FakeListenerFactory(), FakeEnvironmentVariableReader.ExtensionsTurnedOff, composeExtendedProtocolServers: null);
+
+        CollectionAssert.IsSubsetOf(new[] { "mqtt5", "mqtt5s", "mqtt5+ws" }, on.ComposeExtendedSchemes().ToArray());
+        CollectionAssert.DoesNotContain(off.ComposeExtendedSchemes().ToArray(), "mqtt5");
+        CollectionAssert.DoesNotContain(off.ComposeExtendedSchemes().ToArray(), "mqtt5s");
+        CollectionAssert.DoesNotContain(off.ComposeExtendedSchemes().ToArray(), "mqtt5+ws");
+        CollectionAssert.IsSubsetOf(new[] { "mqtt", "mqtts" }, off.ComposeRegisteredSchemes().ToArray());
     }
 
     [TestMethod]
@@ -488,7 +782,69 @@ public sealed class CommandLineRunnerExtendedProtocolTests
 
         var schemes = runner.ComposeExtendedSchemes();
 
-        CollectionAssert.AreEqual(new[] { "coap", "coaps", "dns", "nats", "natss", "s3", "socketio", "socketios", "stomp", "stomps", "webtransport", "xmpp", "xmpps" }, schemes.ToArray());
+        CollectionAssert.AreEqual(new[] { "amqp", "amqps", "amqp1", "amqp1s", "az", "abfs", "abfss", "coap", "coaps", "dns", "gs", "grpc", "grpcs", "kafka", "kafkas", "mcp", "mcps", "mcp+stdio", "mqtt5", "mqtt5s", "mqtt5+ws", "nats", "natss", "oci", "redis", "rediss", "s3", "signalr", "signalrs", "socketio", "socketios", "stomp", "stomps", "webtransport", "xmpp", "xmpps" }, schemes.ToArray());
+    }
+
+    [TestMethod]
+    public void ComposeExtendedSchemes_ThisBuildWithTheSwitchAtZero_RegistersNeitherAmqp1NorAmqp1s()
+    {
+        var runner = CreateRunner(new FakeListenerFactory(), FakeEnvironmentVariableReader.ExtensionsTurnedOff, composeExtendedProtocolServers: null);
+
+        var schemes = runner.ComposeExtendedSchemes();
+
+        CollectionAssert.DoesNotContain(schemes.ToArray(), "amqp1");
+        CollectionAssert.DoesNotContain(schemes.ToArray(), "amqp1s");
+    }
+
+    [TestMethod]
+    [DataRow("amqp1")]
+    [DataRow("amqp1s")]
+    public async Task RunAsync_Amqp1SchemeWithTheSwitchAtZero_RefusesItAsAnUnknownScheme(string scheme)
+    {
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+        var runner = CreateRunner(new FakeListenerFactory(), FakeEnvironmentVariableReader.ExtensionsTurnedOff, composeExtendedProtocolServers: null);
+
+        var exitCode = await runner.RunAsync(["--self-signed", $"{scheme}://127.0.0.1:0/"], output, error, TestContext.CancellationToken);
+
+        Assert.AreEqual(SurlExitCode.UnsupportedProtocol, exitCode);
+        Assert.AreEqual($"surl: (1) Protocol \"{scheme}\" not supported" + NewLine, error.ToString());
+    }
+
+    [TestMethod]
+    [DataRow("amqp1", 5672, new string[0])]
+    [DataRow("amqp1s", 5671, new[] { "--self-signed" })]
+    public async Task RunAsync_Amqp1SchemeWithTheSwitchUnset_ListensAtItsDefaultPort(string scheme, int port, string[] options)
+    {
+        var factory = new FakeListenerFactory();
+        using var stop = CancellationTokenSource.CreateLinkedTokenSource(TestContext.CancellationToken);
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+        var runner = CreateRunner(factory, FakeEnvironmentVariableReader.Empty, composeExtendedProtocolServers: null);
+
+        var running = runner.RunAsync([.. options, $"{scheme}://127.0.0.1/"], output, error, stop.Token);
+        await factory.AcceptStarted.Task.WaitAsync(TestContext.CancellationToken);
+        await stop.CancelAsync();
+        var exitCode = await running;
+
+        Assert.AreEqual(SurlExitCode.Ok, exitCode);
+        Assert.AreEqual(new ListenUrl(scheme, "127.0.0.1", port), factory.StartedListenUrls.Single());
+        Assert.AreEqual($"Listening on {scheme}://127.0.0.1:{FakeListenerFactory.BoundPort}/" + NewLine, output.ToString());
+    }
+
+    [TestMethod]
+    public async Task RunAsync_Amqp1sWithoutACertificate_ExitsWithCertificateProblem()
+    {
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+        var runner = CreateRunner(new FakeListenerFactory(), FakeEnvironmentVariableReader.Empty, composeExtendedProtocolServers: null);
+
+        var exitCode = await runner.RunAsync(["amqp1s://127.0.0.1:0/"], output, error, TestContext.CancellationToken);
+
+        Assert.AreEqual(SurlExitCode.CertificateProblem, exitCode);
+        Assert.AreEqual(
+            "surl: (58) amqp1s://127.0.0.1:0/ needs a certificate: give --cert <file>, or --self-signed for a throwaway one" + NewLine,
+            error.ToString());
     }
 
     [TestMethod]

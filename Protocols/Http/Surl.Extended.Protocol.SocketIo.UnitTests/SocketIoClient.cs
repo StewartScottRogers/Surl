@@ -70,9 +70,9 @@ internal sealed class SocketIoClient
     /// <summary>
     /// Upgrades, then connects <paramref name="name"/> with <paramref name="payload"/>, and waits for the answer.
     /// </summary>
-    public static async Task<SocketIoClient> ConnectNamespaceAsync(SocketIoServerHarness harness, string name = "/", string payload = "")
+    public static async Task<SocketIoClient> ConnectNamespaceAsync(SocketIoServerHarness harness, string name = "/", string payload = "", ExchangeContext? context = null)
     {
-        var client = await ConnectAsync(harness);
+        var client = await ConnectAsync(harness, context);
         client.SendText("40" + (name == "/" ? string.Empty : name + ",") + payload);
         await client.WaitForMessagesAsync(2);
 

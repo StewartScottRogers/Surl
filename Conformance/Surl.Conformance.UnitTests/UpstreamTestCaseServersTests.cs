@@ -14,7 +14,6 @@ public sealed class UpstreamTestCaseServersTests
     [DataRow("https-mtls", "https", true)]
     [DataRow("smb", "smb", true)]
     [DataRow("http/2", "http", false)]
-    [DataRow("socks5", "http", false)]
     public void Find_KnownName_GivesItsRow(string name, string protocol, bool isBuilt)
     {
         var server = UpstreamTestCaseServers.Find(name);
@@ -23,11 +22,47 @@ public sealed class UpstreamTestCaseServersTests
     }
 
     [TestMethod]
+    public void Find_Dns_IsBuiltOverHttpAndMapsDnsPort()
+    {
+        Assert.AreEqual(
+            new UpstreamTestCaseServer("dns", "http", IsBuilt: true, PortVariable: "DNSPORT"),
+            UpstreamTestCaseServers.Find("dns"));
+    }
+
+    [TestMethod]
     public void Find_HttpUnix_IsBuiltAndMapsHttpUnixPath()
     {
         Assert.AreEqual(
             new UpstreamTestCaseServer("http-unix", "http", IsBuilt: true, UnixSocketPathVariable: "HTTPUNIXPATH"),
             UpstreamTestCaseServers.Find("http-unix"));
+    }
+
+    [TestMethod]
+    public void Find_HttpProxy_IsBuiltAndMapsProxyPort()
+    {
+        Assert.AreEqual(
+            new UpstreamTestCaseServer("http-proxy", "http", IsBuilt: true, PortVariable: "PROXYPORT"),
+            UpstreamTestCaseServers.Find("http-proxy"));
+    }
+
+    [TestMethod]
+    public void Find_HttpsProxy_IsBuiltAndMapsHttpsProxyPort()
+    {
+        Assert.AreEqual(
+            new UpstreamTestCaseServer("https-proxy", "https", IsBuilt: true, PortVariable: "HTTPSPROXYPORT"),
+            UpstreamTestCaseServers.Find("https-proxy"));
+    }
+
+    [TestMethod]
+    public void All_OnlyTheProxySocksTlsSrpAndDnsServers_MapAPortVariable()
+    {
+        var mapped = UpstreamTestCaseServers.All
+            .Where(server => server.PortVariable is not null)
+            .Select(server => $"{server.Name} %{server.PortVariable}");
+
+        CollectionAssert.AreEqual(new[] { "http-proxy %PROXYPORT", "https-proxy %HTTPSPROXYPORT", "socks4 %SOCKSPORT", "socks5 %SOCKSPORT", "httptls+srp %HTTPTLSPORT", "httptls+srp-ipv6 %HTTPTLS6PORT", "dns %DNSPORT" }, mapped.ToArray());
+        Assert.IsTrue(UpstreamTestCaseServers.All.Where(server => server.PortVariable is not null)
+            .All(server => UpstreamTestCaseVariables.Names.Contains(server.PortVariable!)));
     }
 
     [TestMethod]
@@ -43,6 +78,16 @@ public sealed class UpstreamTestCaseServersTests
     }
 
     [TestMethod]
+    [DataRow("httptls+srp", "HTTPTLSPORT")]
+    [DataRow("httptls+srp-ipv6", "HTTPTLS6PORT")]
+    public void Find_TlsSrpName_IsBuiltOverHttpsAndMapsItsPortVariable(string name, string portVariable)
+    {
+        var server = UpstreamTestCaseServers.Find(name);
+
+        Assert.AreEqual(new UpstreamTestCaseServer(name, "https", IsBuilt: true, PortVariable: portVariable), server);
+    }
+
+    [TestMethod]
     public void Find_UnknownOrNoServerHalfName_GivesNull()
     {
         Assert.IsNull(UpstreamTestCaseServers.Find("quic"));
@@ -55,7 +100,7 @@ public sealed class UpstreamTestCaseServersTests
         var unbuilt = UpstreamTestCaseServers.All.Where(server => !server.IsBuilt).Select(server => server.Name);
 
         CollectionAssert.AreEquivalent(
-            new[] { "http/2", "http/3", "http-proxy", "https-proxy", "socks4", "socks5", "socks5unix", "httptls+srp", "httptls+srp-ipv6", "dns" },
+            new[] { "http/2", "http/3" },
             unbuilt.ToArray());
     }
 }

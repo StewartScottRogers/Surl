@@ -32,6 +32,7 @@ internal sealed partial class StompServerConnection
     private StompHeartBeat clientHeartBeat;
     private string? account;
     private BusConnection? busConnection;
+    private bool dropped;
 
     public StompServerConnection(
         IConnection connection, ExchangeContext context, IAuthenticationPolicy policy, Surl.MessageBus.MessageBus bus, StompServerOptions options)
@@ -144,7 +145,7 @@ internal sealed partial class StompServerConnection
         var userName = frame.Header("login");
         var password = userName is null ? null : (ReadOnlyMemory<byte>?)Encoding.UTF8.GetBytes(frame.Header("passcode") ?? string.Empty);
         var verdict = await policy.CheckPasswordLoginAsync(
-            new PasswordLogin(context.Scheme, userName, password, connection.TlsSession), context.CancellationToken);
+            new PasswordLogin(context.Scheme, userName, password, connection.TlsSession, LoginExchange.Of(context)), context.CancellationToken);
         if (verdict is not (PasswordLoginVerdict.Accepted or PasswordLoginVerdict.AcceptedUnchecked))
         {
             throw new StompProtocolViolationException(
@@ -220,6 +221,12 @@ internal sealed partial class StompServerConnection
     private async Task FinishAsync(bool answeredError, Task writing)
     {
         await writing;
+        if (dropped)
+        {
+            connection.Abort();
+            return;
+        }
+
         if (outbox.HasOverflowed)
         {
             await CutOffSlowConsumerAsync();
@@ -253,12 +260,32 @@ internal sealed partial class StompServerConnection
         {
             while (!disconnected && await reader.ReadFrameAsync(cancellation.Token) is { } frame)
             {
-                Answer(frame);
+                await AnswerOrApplyFaultAsync(frame);
             }
         }
         catch (OperationCanceledException) when (!context.CancellationToken.IsCancellationRequested)
         {
             // Stopped by the writer's end or the heart-beat watch: the connection closes with no more bytes.
+        }
+    }
+
+    // BL-1062: a fault rule may hold the frame, drop the connection once what is queued is written, or answer ERROR.
+    private async Task AnswerOrApplyFaultAsync(StompFrame frame)
+    {
+        var fault = await StompFrameFaults.FindAsync(context, account, frame);
+        if (fault is null)
+        {
+            Answer(frame);
+        }
+        else if (fault.Kind == FaultKind.Drop)
+        {
+            dropped = true;
+            disconnected = true;
+        }
+        else
+        {
+            context.Log.Note($"{frame.Command} answered ERROR by fault rule {fault.Id}.");
+            throw new StompProtocolViolationException(fault.Reply!, $"{frame.Command} met fault rule {fault.Id}", frame.Header("receipt"));
         }
     }
 

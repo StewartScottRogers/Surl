@@ -41,8 +41,8 @@ specifications leave the server a choice.
 | ID | Level | Requirement | Covered by |
 | --- | --- | --- | --- |
 | OCI:Image-Layout-1 | MUST | A repository is a content-store folder holding `oci-layout` `{"imageLayoutVersion":"1.0.0"}`; a folder without it is no repository (`404 NAME_UNKNOWN`). | BL-436 |
-| OCI:Image-Layout-2 | MUST | Blobs and manifests are stored at `blobs/<algorithm>/<hex>`; a pushed blob is a file at that path. | BL-437 |
-| OCI:Image-Layout-3 | MUST | `index.json` lists one descriptor per tag, annotated `org.opencontainers.image.ref.name`, and one untagged descriptor for each other pushed manifest. | BL-437 |
+| OCI:Image-Layout-2 | MUST | Blobs and manifests are stored at `blobs/<algorithm>/<hex>`; a pushed blob is a file at that path. | BL-437, `CurlPortClientTransfersContentWithSurlOverOciTests.BlobPush_WithATokenLogin_StoresTheBlobUnderItsDigest` |
+| OCI:Image-Layout-3 | MUST | `index.json` lists one descriptor per tag, annotated `org.opencontainers.image.ref.name`, and one untagged descriptor for each other pushed manifest. | BL-437, `CurlPortClientTransfersContentWithSurlOverOciTests.ManifestPush_WithATokenLogin_StoresTheManifestAndListsItsTag` |
 | OCI:Surl-Store-1 | MUST | A manifest's `Content-Type` is its listing descriptor's `mediaType`; a digest is a manifest only when `index.json`, or an index it lists, names it. | BL-436 |
 | OCI:Surl-Store-2 | MUST | `index.json` is rewritten whole through a temporary file, one writer per repository; one that does not parse reads as empty and is noted. | BL-437 |
 | OCI:Surl-Store-3 | MUST | A blob or manifest whose bytes do not hash to its file name is `404 BLOB_UNKNOWN` or `MANIFEST_UNKNOWN` and noted; the check is cached against the file's stamp. | BL-436 |
@@ -56,12 +56,12 @@ specifications leave the server a choice.
 
 | ID | Level | Requirement | Covered by |
 | --- | --- | --- | --- |
-| OCI:Dist-PullManifests-1 | MUST | `GET /v2/<name>/manifests/<reference>` by tag or digest answers `200` with the stored bytes. | BL-436 |
+| OCI:Dist-PullManifests-1 | MUST | `GET /v2/<name>/manifests/<reference>` by tag or digest answers `200` with the stored bytes. | BL-436, `CurlPortClientTransfersContentWithSurlOverOciTests.ManifestPull_ByTag_ReturnsTheStoredManifest`, `CurlPortClientTransfersContentWithSurlOverOciTests.ManifestPull_ByDigest_ReturnsTheStoredManifest` |
 | OCI:Dist-PullManifests-2 | SHOULD | The answer carries `Docker-Content-Digest`. | BL-436 |
 | OCI:Dist-PullManifests-3 | SHOULD NOT | `Content-Type` carries parameters. | BL-436 |
 | OCI:Dist-PullManifests-4 | MUST | A manifest not found is `404 MANIFEST_UNKNOWN`; a repository not found `404 NAME_UNKNOWN`. | BL-436 |
 | OCI:Surl-PullManifests-1 | MUST | `Accept` never converts or refuses: the stored manifest is served. | BL-436 |
-| OCI:Dist-PullBlobs-1 | MUST | `GET /v2/<name>/blobs/<digest>` answers `200` with the blob, `Docker-Content-Digest` matching the body. | BL-436 |
+| OCI:Dist-PullBlobs-1 | MUST | `GET /v2/<name>/blobs/<digest>` answers `200` with the blob, `Docker-Content-Digest` matching the body. | BL-436, `CurlPortClientTransfersContentWithSurlOverOciTests.BlobPull_ByDigest_ReturnsTheStoredBlob` |
 | OCI:Dist-PullBlobs-2 | MUST | A blob not found is `404 BLOB_UNKNOWN`. | BL-436 |
 | OCI:Surl-PullBlobs-1 | MUST | One `Range: bytes=` range is `206` with `Content-Range`; an unsatisfiable one `416` with `bytes */<size>`; several are ignored. | BL-436 |
 | OCI:Dist-Exists-1 | MUST | `HEAD` on an existing blob or manifest is `200` with the GET's head and no body; a missing one `404`. | BL-436 |
@@ -71,8 +71,8 @@ specifications leave the server a choice.
 
 | ID | Level | Requirement | Covered by |
 | --- | --- | --- | --- |
-| OCI:Dist-PushPost-1 | MUST | `POST /v2/<name>/blobs/uploads/` answers `202` with a `Location` holding a UUID session ID. | BL-437 |
-| OCI:Dist-PushPut-1 | MUST | `PUT <location>?digest=<digest>` completes the upload with `201` and `Location`. | BL-437 |
+| OCI:Dist-PushPost-1 | MUST | `POST /v2/<name>/blobs/uploads/` answers `202` with a `Location` holding a UUID session ID. | BL-437, `CurlPortClientTransfersContentWithSurlOverOciTests.BlobPush_WithATokenLogin_StoresTheBlobUnderItsDigest` |
+| OCI:Dist-PushPut-1 | MUST | `PUT <location>?digest=<digest>` completes the upload with `201` and `Location`. | BL-437, `CurlPortClientTransfersContentWithSurlOverOciTests.BlobPush_WithATokenLogin_StoresTheBlobUnderItsDigest` |
 | OCI:Dist-PushSinglePost-1 | MAY | `POST …/uploads/?digest=<digest>` with the blob answers `201`. | BL-437 |
 | OCI:Dist-PushChunked-1 | MUST | Each `PATCH` chunk answers `202` with `Location` and `Range: 0-<end>`. | BL-437 |
 | OCI:Dist-PushChunked-2 | MUST | A chunk out of order is `416`. | BL-437 |
@@ -85,7 +85,7 @@ specifications leave the server a choice.
 | OCI:Dist-Mount-2 | SHOULD | A mount that cannot be made answers `202` and opens a session. | BL-437 |
 | OCI:Surl-Mount-1 | MUST | Without `from`, or with a `from` the caller may not read, no blob is cross-mounted. | BL-437 |
 | OCI:Surl-Upload-1 | MUST | `DELETE` on a session cancels it with `204`; an unknown, expired or another account's session is `404 BLOB_UPLOAD_UNKNOWN`. | BL-437 |
-| OCI:Dist-PushManifests-1 | MUST | `PUT /v2/<name>/manifests/<reference>` stores the exact bytes and answers `201` with `Location` and `Docker-Content-Digest` equal to a digest reference. | BL-437 |
+| OCI:Dist-PushManifests-1 | MUST | `PUT /v2/<name>/manifests/<reference>` stores the exact bytes and answers `201` with `Location` and `Docker-Content-Digest` equal to a digest reference. | BL-437, `CurlPortClientTransfersContentWithSurlOverOciTests.ManifestPush_WithATokenLogin_StoresTheManifestAndListsItsTag` |
 | OCI:Dist-PushManifests-2 | SHOULD | `Content-Type` parameters are ignored. | BL-437 |
 | OCI:Surl-PushManifests-1 | MUST | A media type other than the OCI and Docker v2 manifest and index types, a body off ADR-0115 decision 3.1's shape, or a `mediaType` unlike `Content-Type`, is `400 MANIFEST_INVALID`. | BL-437 |
 | OCI:Surl-PushManifests-2 | MUST | A manifest pushed by digest whose bytes hash otherwise is `400 DIGEST_INVALID`. | BL-437 |
@@ -123,9 +123,9 @@ specifications leave the server a choice.
 
 | ID | Level | Requirement | Covered by |
 | --- | --- | --- | --- |
-| OCI:Token-Challenge-1 | MUST | A request with no token, anonymous off, is `401 UNAUTHORIZED` with `WWW-Authenticate: Bearer realm=…,service="surl",scope="repository:<name>:<actions>"` (no `scope` on `/v2/`). | `OciAccessCheckTests.CheckAsync_PullWithoutAToken_Returns401WithTheRealmServiceAndScope`, `OciAccessCheckTests.CheckAsync_V2WithoutAToken_Returns401WithNoScope` |
+| OCI:Token-Challenge-1 | MUST | A request with no token, anonymous off, is `401 UNAUTHORIZED` with `WWW-Authenticate: Bearer realm=…,service="surl",scope="repository:<name>:<actions>"` (no `scope` on `/v2/`). | `OciAccessCheckTests.CheckAsync_PullWithoutAToken_Returns401WithTheRealmServiceAndScope`, `OciAccessCheckTests.CheckAsync_V2WithoutAToken_Returns401WithNoScope`, `CurlPortClientTransfersContentWithSurlOverOciTests.BlobPush_WithoutCredentials_IsRefusedAndStoresNothing` |
 | OCI:Surl-Auth-1 | MUST | The realm is built from the listen host or the connection's local address and port, never from `Host`. | `OciChallengeTests` |
-| OCI:Token-Request-1 | MUST | `GET /token?service=surl&scope=…` with good Basic credentials answers `200` `{"token","access_token","expires_in":300,"issued_at"}`. | `OciTokenEndpointTests.AnswerAsync_GoodCredentials_IssuesATokenWithItsLifetimeAndIssueTime` |
+| OCI:Token-Request-1 | MUST | `GET /token?service=surl&scope=…` with good Basic credentials answers `200` `{"token","access_token","expires_in":300,"issued_at"}`. | `OciTokenEndpointTests.AnswerAsync_GoodCredentials_IssuesATokenWithItsLifetimeAndIssueTime`, `CurlPortClientTransfersContentWithSurlOverOciTests.BlobPush_WithATokenLogin_StoresTheBlobUnderItsDigest` |
 | OCI:Token-Request-2 | MUST | Missing or bad credentials at the token endpoint are `401 UNAUTHORIZED` with a Basic challenge, after the failed-login delay the authentication policy applies. | `OciTokenEndpointTests.AnswerAsync_BadOrUnreadableCredentials_Returns401WithTheBasicChallenge`, `OciTokenEndpointTests.AnswerAsync_NoCredentialsWithAnonymousOff_Returns401WithTheBasicChallenge` |
 | OCI:Token-Scope-1 | MUST | A token grants an account `pull`, and `push` and `delete` only under `--allow-uploads`; the share's access is applied by the content store on each request (ADR-0115 Amendment 1, point 3); other resource types, unknown actions, invalid names and scopes past 16 are dropped. | `OciTokenEndpointTests.AnswerAsync_Scopes_GrantWhatTheyNameAndDropTheRest`, `OciTokenEndpointTests.AnswerAsync_ScopesPastSixteen_AreDropped` |
 | OCI:Surl-Auth-2 | MUST | Under `--allow-anonymous`, reads are served without a token and an anonymous token grants `pull` only; an anonymous write is challenged. | `OciAccessCheckTests.CheckAsync_AnonymousPullUnderAllowAnonymous_IsServedAsTheAnonymousCaller`, `OciAccessCheckTests.CheckAsync_AnonymousPushUnderAllowAnonymous_Returns401WithTheChallenge`, `OciTokenEndpointTests.AnswerAsync_NoCredentialsUnderAllowAnonymous_IssuesAPullOnlyToken` |
@@ -142,9 +142,9 @@ specifications leave the server a choice.
 
 | ID | Level | Requirement | Covered by |
 | --- | --- | --- | --- |
-| OCI:Surl-Tls-1 | MUST | `oci` is implicit TLS, `--cert` or `--self-signed` required (58 without), ALPN `http/1.1` only. | BL-439 |
-| OCI:Surl-Tls-2 | MUST | `--oci-plaintext` serves plain HTTP/1.1 and is warned on start. | BL-439 |
-| OCI:Surl-Tls-3 | MUST | Over plain text without `--allow-plaintext-auth`, credentials and tokens are `403 DENIED`. | credentials: `OciTokenEndpointTests.AnswerAsync_CredentialsOverPlainTextRefused_Returns403Denied`; tokens: BL-890 |
+| OCI:Surl-Tls-1 | MUST | `oci` is implicit TLS, `--cert` or `--self-signed` required (58 without), ALPN `http/1.1` only. | BL-1028 |
+| OCI:Surl-Tls-2 | MUST | `--oci-plaintext` serves plain HTTP/1.1 and is warned on start. | BL-971 |
+| OCI:Surl-Tls-3 | MUST | Over plain text without `--allow-plaintext-auth`, credentials and tokens are `403 DENIED`. | credentials: `OciTokenEndpointTests.AnswerAsync_CredentialsOverPlainTextRefused_Returns403Denied`; tokens: `OciAccessCheckTests.CheckAsync_BearerTokenOverPlainTextRefusingIt_Returns403DeniedWithThePlaintextMessage` |
 | OCI:Surl-Limits-1 | MUST | A blob past `--max-filesize` is `413 SIZE_INVALID` and its session ended. | BL-437 |
 | OCI:Surl-Limits-2 | MUST | 1000 open sessions at most (`429 TOOMANYREQUESTS`); a session idle 1 hour expires (`404 BLOB_UPLOAD_UNKNOWN`). | BL-437 |
 | OCI:Surl-Limits-3 | MUST | A repository past 10000 descriptors is `403 DENIED`. | BL-437 |

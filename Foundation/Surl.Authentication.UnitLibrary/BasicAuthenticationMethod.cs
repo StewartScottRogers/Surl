@@ -20,18 +20,31 @@ public sealed class BasicAuthenticationMethod : IHttpAuthenticationMethod, IHttp
 
     private static readonly HttpCredentialCheck Refused = new(HttpCredentialOutcome.Refused, null, []);
 
-    private readonly AccountBook accounts;
+    private readonly AccountBookAndDirectoryPasswordCheck passwordCheck;
 
     /// <summary>
     /// Checks Basic credentials against <paramref name="accounts"/>.
     /// </summary>
     /// <param name="accounts">The configured accounts.</param>
     public BasicAuthenticationMethod(AccountBook accounts)
+        : this(accounts, null)
+    {
+    }
+
+    private BasicAuthenticationMethod(AccountBook accounts, LdapAccountSource? directory)
     {
         ArgumentNullException.ThrowIfNull(accounts);
 
-        this.accounts = accounts;
+        passwordCheck = new AccountBookAndDirectoryPasswordCheck(accounts, directory);
     }
+
+    /// <summary>
+    /// This method, also asking <paramref name="directory"/> about a name the account book does not hold
+    /// (ADR-0149, decision 2).
+    /// </summary>
+    /// <param name="directory">The LDAP account source.</param>
+    /// <returns>The method checking against the book and the directory.</returns>
+    internal BasicAuthenticationMethod WithDirectory(LdapAccountSource directory) => new(passwordCheck.Accounts, directory);
 
     /// <inheritdoc/>
     public AuthenticationMethod Method => AuthenticationMethod.Basic;
@@ -52,7 +65,7 @@ public sealed class BasicAuthenticationMethod : IHttpAuthenticationMethod, IHttp
     /// <param name="request">The request the field arrived on; not read.</param>
     /// <param name="cancellationToken">Cancels the check.</param>
     /// <returns>Accepted as the user-id's account, or refused.</returns>
-    public ValueTask<HttpCredentialCheck> VerifyAsync(
+    public async ValueTask<HttpCredentialCheck> VerifyAsync(
         string credentials, HttpAuthenticationRequest request, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(credentials);
@@ -61,22 +74,25 @@ public sealed class BasicAuthenticationMethod : IHttpAuthenticationMethod, IHttp
         var decoded = new byte[credentials.Length];
         if (!Convert.TryFromBase64String(credentials, decoded, out var length))
         {
-            return ValueTask.FromResult(Refused);
+            return Refused;
         }
 
         var userPass = decoded.AsSpan(0, length);
         var colon = userPass.IndexOf((byte)':');
         if (colon < 0)
         {
-            return ValueTask.FromResult(Refused);
+            return Refused;
         }
 
         var userIdBytes = userPass[..colon];
         var userId = Utf8.IsValid(userIdBytes) ? Encoding.UTF8.GetString(userIdBytes) : null;
 
-        return ValueTask.FromResult(
-            accounts.CheckPassword(userId, userPass[(colon + 1)..])
-                ? new HttpCredentialCheck(HttpCredentialOutcome.Accepted, userId, [], userId)
-                : Refused with { UserAsSent = userId });
+        var password = userPass[(colon + 1)..].ToArray();
+        var isAccepted = await passwordCheck
+            .CheckAsync(AuthenticationPolicy.HttpLoginScheme, userId, password, cancellationToken).ConfigureAwait(false);
+
+        return isAccepted
+            ? new HttpCredentialCheck(HttpCredentialOutcome.Accepted, userId, [], userId)
+            : Refused with { UserAsSent = userId };
     }
 }

@@ -25,6 +25,7 @@ internal static class OciRepositoryCreation
     /// <param name="caller">Who pushes.</param>
     /// <param name="name">A name that matches Dist's grammar.</param>
     /// <param name="log">Where the repository notes a file that fails its check.</param>
+    /// <param name="metadataIndex">Where the repository caches its files' verified digests, if anywhere.</param>
     /// <param name="cancellationToken">Cancels the writes.</param>
     /// <returns>The repository, or the error that refuses it.</returns>
     public static async Task<(OciRepository? Repository, OciError? Error)> OpenOrCreateAsync(
@@ -32,9 +33,10 @@ internal static class OciRepositoryCreation
         ContentCaller caller,
         string name,
         IExchangeLog log,
+        ObjectMetadataIndex? metadataIndex,
         CancellationToken cancellationToken)
     {
-        if (OciRepository.Open(store, caller, name, log) is { } existing)
+        if (OciRepository.Open(store, caller, name, log, metadataIndex) is { } existing)
         {
             return (existing, null);
         }
@@ -56,7 +58,7 @@ internal static class OciRepositoryCreation
 
         store.CreateDirectory(store.MapRequestPathForCaller($"/{name}/blobs", caller));
 
-        return (OciRepository.Open(store, caller, name, log), null);
+        return (OciRepository.Open(store, caller, name, log, metadataIndex), null);
     }
 
     // The folder of the first count segments: kept when it may hold the repository, created when

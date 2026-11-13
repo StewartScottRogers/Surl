@@ -36,4 +36,16 @@ internal static class GcsIndexKey
 
         return store.Shares.Any(share => share.Name == firstSegment) || !ObjectMetadataIndex.IsValidKey(indexKey) ? null : indexKey;
     }
+
+    /// <summary>
+    /// The index key of the folder object at <paramref name="bucket"/> and <paramref name="key"/>:
+    /// the folder's index key, as <see cref="Of"/> gives it, and a final <c>/</c>
+    /// (<see cref="ObjectMetadataIndex.StoreFolderObjectAsync"/>).
+    /// </summary>
+    /// <param name="store">The content store, whose shares and bucket names are read.</param>
+    /// <param name="bucket">The bucket, decoded.</param>
+    /// <param name="key">The object name, decoded, ending in <c>/</c>.</param>
+    /// <returns>The index key, or <see langword="null"/> when <see cref="Of"/> gives none for the folder.</returns>
+    public static string? OfFolderObject(ContentStore store, string bucket, string key) =>
+        Of(store, bucket, key[..^1]) is { } folderKey ? folderKey + "/" : null;
 }

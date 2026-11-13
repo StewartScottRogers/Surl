@@ -36,6 +36,14 @@ public sealed class HttpConnectionReader
     private int currentHeadBytes;
 
     /// <summary>
+    /// Whether a header field line that is not well formed (whitespace before the colon, an
+    /// obsolete line folding, a name that is not a token) is dropped from the head instead of
+    /// ending it with no head. Off by default; upstream's test server reads that way, and the
+    /// upstream test cases 470 and 1147 send such lines.
+    /// </summary>
+    public bool SkipsMalformedFieldLines { get; init; }
+
+    /// <summary>
     /// Creates a reader over <paramref name="connection"/> that reads HTTP request heads
     /// (<see cref="HttpMessageProtocol.Http11"/>).
     /// </summary>
@@ -159,7 +167,7 @@ public sealed class HttpConnectionReader
     /// <exception cref="IOException">The connection was aborted, reset or failed.</exception>
     public async ValueTask<HttpRequestHeadReadResult> ReadRequestHeadAsync(CancellationToken cancellationToken)
     {
-        var lines = new HttpRequestHeadLineReader(protocol);
+        var lines = new HttpRequestHeadLineReader(protocol, SkipsMalformedFieldLines);
         var scannedCount = 0;
         HttpRequestHeadReadResult? result = null;
         currentHeadBytes = 0;

@@ -27,6 +27,9 @@ internal sealed record ComposedAuthentication(
     /// <summary>The policy the HTTP proxy judges logins by (ADR-0088 decision 5); one asking for no login unless set.</summary>
     public IAuthenticationPolicy ProxyPolicy { get; init; } = new AnonymousAuthenticationPolicy();
 
+    /// <summary>Where the LDAP account source's per-login notes go once the log exists (ADR-0149 decision 9).</summary>
+    public DirectoryNoteSink DirectoryNotes { get; init; } = new();
+
     /// <summary>The control endpoint's bearer token (ADR-0124 decision 7); <see langword="null"/> without <c>--control</c>.</summary>
     public Surl.Control.ControlToken? ControlToken { get; init; }
 

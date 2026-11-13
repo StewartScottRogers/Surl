@@ -60,6 +60,19 @@ public sealed class AzureLoginJudgeTests
     }
 
     [TestMethod]
+    public async Task ServeAsync_SharedKeyOverPlainTextWithoutPlaintextLogins_IsServed()
+    {
+        var harness = new AzureServerHarness(allowsPlaintextAuthentication: false);
+        harness.CreateFolder("photos");
+        harness.WriteFile("photos/a.txt", "hello world");
+        harness.Policy.Verdict = new HttpAuthenticationVerdict(HttpAuthenticationOutcome.Proceed, [], "account");
+
+        var response = await harness.SendAsync("GET", "/photos/a.txt", SharedKeyRequest);
+
+        StringAssert.EndsWith(response, "hello world");
+    }
+
+    [TestMethod]
     public async Task ServeAsync_VerifiedSharedKey_ServesTheBlobAsTheAccount()
     {
         var harness = Readable();

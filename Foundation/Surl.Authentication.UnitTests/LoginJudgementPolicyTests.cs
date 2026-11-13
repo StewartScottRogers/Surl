@@ -372,6 +372,139 @@ public sealed class LoginJudgementPolicyTests
         Assert.AreEqual(Judged("imap", "bearer token", "XOAUTH2", false, true), events.Events[^1]);
     }
 
+    // ---- The exchange a login was made in (BL-871) ----
+
+    private static LoginExchange SftpExchange(long exchangeId = 5, int port = 2222) =>
+        new(exchangeId, new ListenUrl("sftp", "127.0.0.1", 0).WithBoundPort(port));
+
+    [TestMethod]
+    public async Task CheckSshPasswordLoginAsync_OverSftp_PublishesTheSftpSchemeAndTheExchangeId()
+    {
+        var policy = Create();
+        var login = new SshPasswordLogin("password", "alice", Encoding.UTF8.GetBytes(AlicePassword), SftpExchange());
+
+        await policy.CheckSshPasswordLoginAsync(login, CancellationToken.None);
+
+        CollectionAssert.AreEqual(
+            new SurlEvent[] { new LoginJudgedEvent(5, "sftp", "alice", "password", true, false) },
+            events.Events.ToArray());
+    }
+
+    [TestMethod]
+    public async Task CheckSshPasswordLoginAsync_RefuseLoginScopedByListener_RefusesOnThatListenerOnly()
+    {
+        var rule = new FaultRule("f1", FaultKind.RefuseLogin) { Account = "alice", Listener = "sftp://127.0.0.1:2222/" };
+        var policy = Create(new SpendingFaultPlan(rule));
+        var password = Encoding.UTF8.GetBytes(AlicePassword);
+
+        var elsewhere = await policy.CheckSshPasswordLoginAsync(
+            new SshPasswordLogin("password", "alice", password, SftpExchange(6, 2223)), CancellationToken.None);
+        var (refused, wasDelayed) = await SettleAsync(policy.CheckSshPasswordLoginAsync(
+            new SshPasswordLogin("password", "alice", password, SftpExchange(7)), CancellationToken.None));
+
+        Assert.AreEqual(SshLoginOutcome.Accepted, elsewhere.Outcome);
+        Assert.AreEqual(SshLoginOutcome.Refused, refused.Outcome);
+        Assert.IsTrue(wasDelayed);
+        CollectionAssert.AreEqual(
+            new SurlEvent[]
+            {
+                new LoginJudgedEvent(6, "sftp", "alice", "password", true, false),
+                new FaultAppliedEvent("f1", FaultKind.RefuseLogin, FaultStage.Login, 7, "alice"),
+                new LoginJudgedEvent(7, "sftp", "alice", "password", false, true),
+            },
+            events.Events.ToArray());
+    }
+
+    [TestMethod]
+    public async Task CheckSshPublicKeyLoginAsync_RefusedSignedLogin_PublishesTheExchange()
+    {
+        var policy = Create();
+        var login = new SshPublicKeyLogin("alice", "ssh-ed25519", new byte[] { 1 }, SshPublicKeyProof.ValidSignature, SftpExchange());
+
+        await SettleAsync(policy.CheckSshPublicKeyLoginAsync(login, CancellationToken.None));
+
+        CollectionAssert.AreEqual(
+            new SurlEvent[] { new LoginJudgedEvent(5, "sftp", "alice", "publickey", false, false) },
+            events.Events.ToArray());
+    }
+
+    [TestMethod]
+    public async Task CheckSmbNtlmV1LoginAsync_WithAnExchange_PublishesItsSchemeAndId()
+    {
+        var policy = Create(accounts: SmbUser, acceptedMethods: NtlmV1);
+        var exchange = new LoginExchange(9, new ListenUrl("smbs", "127.0.0.1", 445));
+
+        await policy.CheckSmbNtlmV1LoginAsync(Smb() with { Exchange = exchange }, CancellationToken.None);
+
+        CollectionAssert.AreEqual(
+            new SurlEvent[] { new LoginJudgedEvent(9, "smbs", "User", "ntlmv1", true, false) },
+            events.Events.ToArray());
+    }
+
+    [TestMethod]
+    public async Task CheckPasswordLoginAsync_WithAnExchange_PublishesItsId()
+    {
+        var policy = Create();
+        var exchange = new LoginExchange(3, new ListenUrl("mqtt", "127.0.0.1", 1883));
+
+        await policy.CheckPasswordLoginAsync(Password("alice", AlicePassword) with { Exchange = exchange }, CancellationToken.None);
+
+        CollectionAssert.AreEqual(
+            new SurlEvent[] { new LoginJudgedEvent(3, "mqtt", "alice", "password", true, false) },
+            events.Events.ToArray());
+    }
+
+    [TestMethod]
+    public async Task JudgeAsync_HttpsConnectionStartedWithAnExchange_PublishesHttpsNotHttp()
+    {
+        var policy = Create(httpMethods: [new BasicAuthenticationMethod(AliceAndBob)]);
+        var exchange = new LoginExchange(4, new ListenUrl("https", "127.0.0.1", 8443));
+
+        await policy.StartHttpConnection(PolicyFixture.Tls, exchange)
+            .JudgeAsync(PolicyFixture.Get(Basic("alice", AlicePassword)), CancellationToken.None);
+
+        CollectionAssert.AreEqual(
+            new SurlEvent[] { new LoginJudgedEvent(4, "https", "alice", "Basic", true, false) },
+            events.Events.ToArray());
+    }
+
+    [TestMethod]
+    public async Task StartSaslExchange_WithAnExchange_PublishesItsSchemeAndId()
+    {
+        var policy = Create();
+        var exchange = new LoginExchange(8, new ListenUrl("imaps", "127.0.0.1", 993));
+
+        var started = policy.StartSaslExchange(
+            new SaslExchangeStart("imap", "PLAIN", SaslExchangeRunner.Plain(string.Empty, "alice", AlicePassword), PolicyFixture.Tls, Exchange: exchange));
+        await SettleAsync(started.BeginAsync(CancellationToken.None));
+
+        CollectionAssert.AreEqual(
+            new SurlEvent[] { new LoginJudgedEvent(8, "imaps", "alice", "PLAIN", true, false) },
+            events.Events.ToArray());
+    }
+
+    [TestMethod]
+    public async Task CheckApopLoginAsync_RefuseLoginWithAnExchange_NamesTheExchangeInTheFaultEvent()
+    {
+        var policy = Create(
+            new SpendingFaultPlan(RefuseAlice),
+            acceptedMethods: AuthenticationMethods.DefaultAccepted.Append(AuthenticationMethod.Apop).ToHashSet());
+        var timestamp = "<1.2@surl>";
+        var digest = Convert.ToHexStringLower(System.Security.Cryptography.MD5.HashData(Encoding.UTF8.GetBytes(timestamp + AlicePassword)));
+        var exchange = new LoginExchange(2, new ListenUrl("pop3", "127.0.0.1", 110));
+
+        await SettleAsync(policy.CheckApopLoginAsync(
+            new ApopLogin("pop3", "alice", timestamp, digest, null, exchange), CancellationToken.None));
+
+        CollectionAssert.AreEqual(
+            new SurlEvent[]
+            {
+                new FaultAppliedEvent("f1", FaultKind.RefuseLogin, FaultStage.Login, 2, "alice"),
+                new LoginJudgedEvent(2, "pop3", "alice", "APOP", false, true),
+            },
+            events.Events.ToArray());
+    }
+
     private static void AssertSameVerdict(
         (HttpAuthenticationVerdict Result, bool WasDelayed) expected, (HttpAuthenticationVerdict Result, bool WasDelayed) actual)
     {

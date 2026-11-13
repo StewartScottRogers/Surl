@@ -71,6 +71,13 @@ and `Surl.Protocol.Abstractions.UnitLibrary`.
   the 10001st `--group` is refused (`GivenTooOften`). Whether members name accounts or groups,
   cycles and the reserved `everyone` are checked at start by `Surl.Composition`'s
   `AccountGroupExpansion`. BL-653, BL-654, BL-663 and BL-666 add the other item options.
+- `--user-ldap <ldap-url>[;bind-dn=...][;bind-password-file=...][;ca-file=...][;timeout=...][;protocols=...][;plaintext]`
+  (category `auth`, ADR-0149 decisions 3 and 7, BL-673): `ConfiguredLdapAccountSourceReader` reads it by its
+  `Shape` (the URL is the head, no separator) into `SurlCommandLine.UserLdap`, a `ConfiguredLdapAccountSource`;
+  it refuses a non-`ldap://`/`ldaps://` head, `bind-dn` without `bind-password-file` or the reverse, a
+  `timeout` outside 1 to 60 and `plaintext` on `ldaps://`; the parser refuses a second one and a `protocols=`
+  scheme no registered server speaks. `ArgumentHoldsSecret` keeps a password in the URL out of every refusal.
+  The URL's structure is `Surl.Composition`'s to check.
 - Content items (ADR-0101 decision 4, ADR-0102 decision 2; BL-987): `ConfiguredShareReader`
   (`<name>=<path>[;readonly][;protocols=...]`, schemes checked by
   `ConfiguredMailboxReader.CheckProtocols`, TLS twins not added), `ConfiguredShareAccessReader`
@@ -145,8 +152,9 @@ and `Surl.Protocol.Abstractions.UnitLibrary`.
   `SurlCommandLine` members of those names; `ServesTlsSrp` is true when any is given. Once the whole
   line is read `TlsSrpCombination` refuses, in order, an option without its partner, `--tlsauthtype`
   with no account, no listen URL that uses TLS (implicit TLS or `ftp`, `imap`, `ldap`, `natss`, `pop3`,
-  `smtp`, `xmpp`), then TLS-SRP beside `--http3`, `--cacert`, `--tls-max` below 1.2, `--tlsv1.3`,
-  `--cert` or `--self-signed`, each `FailedInit` with the try-help line. Reading the files is
+  `smtp`, `xmpp`), then TLS-SRP beside `--http3`, `--cacert`, `--tls-max` below 1.2 or `--tlsv1.3`,
+  each `FailedInit` with the try-help line. `--cert` (an RSA key, else exit 58) and `--self-signed` are allowed
+  beside TLS-SRP and add the RSA-signed SRP suites (BL-1099). Reading the files is
   `Surl.Composition`'s.
 - Log levels (ADR-0033 section 2): `-s`, `-v`, `--log-level`, `--trace` and `--trace-ascii`
   each set `SurlCommandLine.LogLevel`, the last one given winning, and `-S` (`ShowError`)

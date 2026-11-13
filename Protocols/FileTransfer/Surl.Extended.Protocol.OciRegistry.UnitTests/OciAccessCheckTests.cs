@@ -1,4 +1,5 @@
 using System.Text;
+using Surl.Protocol.Abstractions;
 using H = Surl.Extended.Protocol.OciRegistry.OciRegistryServerHarness;
 
 namespace Surl.Extended.Protocol.OciRegistry;
@@ -244,5 +245,52 @@ public sealed class OciAccessCheckTests
         var response = await harness.SendAsync("POST", $"/v2/app/blobs/uploads/?mount={digest}&from=source", Bearer(token), "Content-Length: 0");
 
         StringAssert.StartsWith(response, $"HTTP/1.1 {status}\r\n");
+    }
+
+    [TestMethod]
+    public async Task CheckAsync_BearerTokenOverPlainTextRefusingIt_Returns403DeniedWithThePlaintextMessage()
+    {
+        var harness = Registry();
+        var token = await harness.FetchTokenAsync("repository:library/alpine:pull");
+        harness.Policy.AllowsPlaintext = false;
+
+        var response = await harness.SendAsync("GET", "/v2/library/alpine/tags/list", Bearer(token));
+
+        Assert.AreEqual(H.ExpectedError("403 Forbidden", "DENIED", "credentials over plain text are refused"), response);
+    }
+
+    [TestMethod]
+    public async Task CheckAsync_BearerTokenOverPlainTextAllowed_IsServed()
+    {
+        var harness = Registry();
+        var token = await harness.FetchTokenAsync("repository:library/alpine:pull");
+
+        var response = await harness.SendAsync("GET", "/v2/library/alpine/tags/list", Bearer(token));
+
+        StringAssert.StartsWith(response, "HTTP/1.1 200 OK\r\n");
+    }
+
+    [TestMethod]
+    public async Task CheckAsync_BearerTokenOverTlsWhilePlaintextIsRefused_IsServed()
+    {
+        var harness = Registry();
+        var token = await harness.FetchTokenAsync("repository:library/alpine:pull");
+        harness.Policy.AllowsPlaintext = false;
+        harness.TlsSession = InMemoryConnection.DefaultUpgradeTlsSession;
+
+        var response = await harness.SendAsync("GET", "/v2/library/alpine/tags/list", Bearer(token));
+
+        StringAssert.StartsWith(response, "HTTP/1.1 200 OK\r\n");
+    }
+
+    [TestMethod]
+    public async Task CheckAsync_BasicOverPlainTextRefusingIt_Returns401InvalidTokenNotThePlaintextRefusal()
+    {
+        var harness = Registry();
+        harness.Policy.AllowsPlaintext = false;
+
+        var response = await harness.SendAsync("GET", "/v2/library/alpine/tags/list", "Authorization: Basic dGVzdGVyOnNlY3JldA==");
+
+        StringAssert.StartsWith(response, "HTTP/1.1 401 Unauthorized\r\n");
     }
 }

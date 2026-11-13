@@ -7,41 +7,52 @@ public sealed class HelpTextTests
 
     private static readonly string[] CategoryListLines =
     [
-        " auth          Accounts and authentication methods",
-        " coap          CoAP and CoAPS protocol (extended)",
-        " content       Served files and the data directory",
-        " dict          DICT protocol",
-        " dns           DNS protocol (extended)",
-        " ftp           FTP and FTPS protocol",
-        " gopher        GOPHER and GOPHERS protocol",
-        " http          HTTP and HTTPS protocol",
-        " imap          IMAP and IMAPS protocol",
-        " ldap          LDAP protocol",
-        " limits        Connection, time and size limits",
-        " logging       Log levels, tracing and the log file",
-        " mail          Mail domains, mailboxes and aliases",
-        " messages      Topics, queues and topic access",
-        " mqtt          MQTT and MQTTS protocol",
-        " nats          NATS and NATSS protocol (extended)",
-        " pop3          POP3 and POP3S protocol",
-        " proxy         HTTP and HTTPS proxy",
-        " rtsp          RTSP protocol",
-        " s3            Amazon S3 protocol (extended)",
-        " security      Options that widen what a peer may do",
-        " smb           SMB and SMBS protocol",
-        " smtp          SMTP and SMTPS protocol",
-        " socketio      Socket.IO and Socket.IO over TLS protocol (extended)",
-        " socks         SOCKS4, SOCKS4a, SOCKS5 and SOCKS5h proxy protocol",
-        " ssh           SSH protocol",
-        " stomp         STOMP and STOMPS protocol (extended)",
-        " surl          The command line tool itself",
-        " telnet        TELNET protocol",
-        " testing       Options for tests; loosening ones warn",
-        " tftp          TFTP protocol",
-        " tls           TLS certificates and versions",
-        " websocket     WebSocket protocol",
-        " webtransport  WebTransport over HTTP/3 protocol (extended)",
-        " xmpp          XMPP and XMPPS protocol (extended)",
+        " amqp           AMQP 0-9-1 and AMQPS protocol (extended)",
+        " amqp1          AMQP 1.0 protocol (extended)",
+        " auth           Accounts and authentication methods",
+        " azure-storage  Azure Blob and Data Lake Storage protocol (extended)",
+        " coap           CoAP and CoAPS protocol (extended)",
+        " content        Served files and the data directory",
+        " dict           DICT protocol",
+        " dns            DNS protocol (extended)",
+        " ftp            FTP and FTPS protocol",
+        " gopher         GOPHER and GOPHERS protocol",
+        " grpc           gRPC and gRPC over TLS protocol (extended)",
+        " gs             Google Cloud Storage protocol (extended)",
+        " http           HTTP and HTTPS protocol",
+        " imap           IMAP and IMAPS protocol",
+        " kafka          Kafka and Kafka over TLS protocol (extended)",
+        " ldap           LDAP protocol",
+        " limits         Connection, time and size limits",
+        " logging        Log levels, tracing and the log file",
+        " mail           Mail domains, mailboxes and aliases",
+        " mcp            MCP over Streamable HTTP and over TLS protocol (extended)",
+        " messages       Topics, queues and topic access",
+        " mqtt           MQTT and MQTTS protocol",
+        " mqtt5          MQTT 5.0 protocol: mqtt5, mqtt5s and mqtt5+ws (extended)",
+        " nats           NATS and NATSS protocol (extended)",
+        " oci            OCI registry protocol (extended)",
+        " pop3           POP3 and POP3S protocol",
+        " proxy          HTTP and HTTPS proxy",
+        " redis          Redis and Rediss protocol (extended)",
+        " rtsp           RTSP protocol",
+        " s3             Amazon S3 protocol (extended)",
+        " security       Options that widen what a peer may do",
+        " signalr        SignalR and SignalR over TLS protocol (extended)",
+        " smb            SMB and SMBS protocol",
+        " smtp           SMTP and SMTPS protocol",
+        " socketio       Socket.IO and Socket.IO over TLS protocol (extended)",
+        " socks          SOCKS4, SOCKS4a, SOCKS5 and SOCKS5h proxy protocol",
+        " ssh            SSH protocol",
+        " stomp          STOMP and STOMPS protocol (extended)",
+        " surl           The command line tool itself",
+        " telnet         TELNET protocol",
+        " testing        Options for tests; loosening ones warn",
+        " tftp           TFTP protocol",
+        " tls            TLS certificates and versions",
+        " websocket      WebSocket protocol",
+        " webtransport   WebTransport over HTTP/3 protocol (extended)",
+        " xmpp           XMPP and XMPPS protocol (extended)",
     ];
 
     // ADR-0034 decision 5's paragraphs, as --help testing and each option's page lay them out.
@@ -103,6 +114,41 @@ public sealed class HelpTextTests
         "        can choose the timestamp it signs. surl warns on every start while",
         "        --auth is given, from the info log level up, naming the methods it",
         "        accepts.",
+    ];
+
+    private static readonly string[] AzPlaintextExplanationLines =
+    [
+        "        Serves every az listen URL as plain HTTP/1.1 instead of TLS from the",
+        "        first byte, so it needs no --cert or --self-signed. A test uses it for",
+        "        an Azure Blob client pointed at an emulator-style http:// endpoint. A",
+        "        bearer token still needs --allow-plaintext-auth over it. It is not the",
+        "        default because every Azure Blob endpoint is HTTPS, and anyone who can",
+        "        watch the network reads every blob as it is sent. surl warns on every",
+        "        start while it is on, from the info log level up.",
+    ];
+
+    private static readonly string[] GsPlaintextExplanationLines =
+    [
+        "        Serves every gs listen URL as plain HTTP/1.1 instead of TLS from the",
+        "        first byte, so it needs no --cert or --self-signed. A test uses it for",
+        "        a Google Cloud Storage client pointed at an emulator-style http://",
+        "        endpoint. A bearer token still needs --allow-plaintext-auth over it. It",
+        "        is not the default because every Google Cloud Storage endpoint is",
+        "        HTTPS, and anyone who can watch the network reads every object as it is",
+        "        sent. surl warns on every start while it is on, from the info log level",
+        "        up.",
+    ];
+
+    private static readonly string[] OciPlaintextExplanationLines =
+    [
+        "        Serves every oci listen URL as plain HTTP/1.1 instead of TLS from the",
+        "        first byte, so it needs no --cert or --self-signed, and its token realm",
+        "        is http://<authority>/token. A test uses it for a registry client",
+        "        pointed at an http:// registry (an insecure registry). Passwords and",
+        "        tokens still need --allow-plaintext-auth over it. It is not the default",
+        "        because every registry endpoint is HTTPS, and anyone who can watch the",
+        "        network reads every image as it is sent. surl warns on every start",
+        "        while it is on, from the info log level up.",
     ];
 
     private static readonly string[] S3PlaintextExplanationLines =
@@ -205,10 +251,11 @@ public sealed class HelpTextTests
             "",
             "This is not the full help; this menu is split into categories.",
             "Use \"--help category\" to get an overview of all categories, which are:",
-            "auth, coap, content, dict, dns, ftp, gopher, http, imap, ldap, limits,",
-            "logging, mail, messages, mqtt, nats, pop3, proxy, rtsp, s3, security, smb,",
-            "smtp, socketio, socks, ssh, stomp, surl, telnet, testing, tftp, tls,",
-            "websocket, webtransport, xmpp.",
+            "amqp, amqp1, auth, azure-storage, coap, content, dict, dns, ftp, gopher, grpc,",
+            "gs, http, imap, kafka, ldap, limits, logging, mail, mcp, messages, mqtt,",
+            "mqtt5, nats, oci, pop3, proxy, redis, rtsp, s3, security, signalr, smb, smtp,",
+            "socketio, socks, ssh, stomp, surl, telnet, testing, tftp, tls, websocket,",
+            "webtransport, xmpp.",
             "Use \"--help all\" to list all options",
             "Use \"--help [option]\" to view documentation for a given option");
     }
@@ -233,6 +280,7 @@ public sealed class HelpTextTests
             Row(38, "    --allow-zone-transfer", "Answer DNS zone transfers (AXFR, IXFR)"),
             Row(38, "    --auth <methods>", "Authentication methods accepted"),
             Row(38, "    --authorized-keys <user:file>", "SSH public keys a user may use"),
+            Row(38, "    --az-plaintext", "Serve az as plain HTTP (warns)"),
             Row(38, "    --bucket <name>=<path>", "Map a bucket to a path (repeatable)"),
             Row(38, "    --cacert <file>", "CA certificates for client certs"),
             Row(38, "    --cert <file>", "Server certificate file"),
@@ -245,12 +293,14 @@ public sealed class HelpTextTests
             Row(38, "    --fault <kind>[;<key>=<value>]", "Misbehave on purpose (repeatable)"),
             Row(38, "    --follow-symlinks", "Follow links that stay in the root"),
             Row(38, "    --group <name>=<member>,...", "Name a group of accounts (repeatable)"),
+            Row(38, "    --gs-plaintext", "Serve gs as plain HTTP (warns)"),
             Row(38, "    --head-timeout <seconds>", "Time to send a request head"),
             Row(38, "-h, --help <subject>", "Get help for commands"),
             Row(38, "    --hostcert <file>", "SSH host certificate file"),
             Row(38, "    --hostkey <file>", "SSH host private key file"),
             Row(38, "    --http3", "Also serve HTTP/3 over QUIC on https"),
             Row(38, "    --idle-timeout <seconds>", "Close an exchange idle this long"),
+            Row(38, "    --kafka-fetch-compression <codec>", "Codec of fetched Kafka record batches"),
             Row(38, "    --key <file>", "Private key for --cert"),
             Row(38, "    --key-type <type>", "Format of --key: PEM or DER"),
             Row(35, "    --keytab <file>", "Read Kerberos service keys from a keytab file"),
@@ -270,6 +320,8 @@ public sealed class HelpTextTests
             Row(38, "    --max-message <bytes>", "Largest framed message accepted"),
             Row(38, "    --max-request-head <bytes>", "Largest HTTP or RTSP request head"),
             Row(38, "-m, --max-time <seconds>", "Longest time one exchange may take"),
+            Row(38, "    --mqtt5-disconnect-after-retained", "End a subscribe after retained messages"),
+            Row(38, "    --oci-plaintext", "Serve oci as plain HTTP (warns)"),
             Row(38, "    --pass <phrase>", "Passphrase for --key and --hostkey"),
             Row(38, "-x, --proxy <listen URL>", "Add a proxy listener (repeatable)"),
             Row(38, "    --proxy-allow-origin <address>", "Let the proxy reach more origins"),
@@ -309,6 +361,7 @@ public sealed class HelpTextTests
             Row(38, "    --url <listen URL>", "Add a listen URL (repeatable)"),
             Row(38, "-u, --user <user:password>", "Add an account (repeatable)"),
             Row(38, "    --user-file <file>", "Read accounts from a file"),
+            Row(38, "    --user-ldap <ldap-url>[;...]", "Check logins against LDAP"),
             Row(38, "-v, --verbose", "Log every exchange event"),
             Row(38, "-V, --version", "Show version number and quit"),
             Row(38, "    --ws-echo", "Echo client messages, not the path"));
@@ -355,7 +408,8 @@ public sealed class HelpTextTests
             Row(38, "    --tlspassword <password>", "TLS-SRP password (needs --tlsuser)"),
             Row(38, "    --tlsuser <name>", "TLS-SRP user name (needs --tlspassword)"),
             Row(38, "-u, --user <user:password>", "Add an account (repeatable)"),
-            Row(38, "    --user-file <file>", "Read accounts from a file"));
+            Row(38, "    --user-file <file>", "Read accounts from a file"),
+            Row(38, "    --user-ldap <ldap-url>[;...]", "Check logins against LDAP"));
 
     [TestMethod]
     public void Answer_Testing_ListsItsOptions() =>
@@ -366,9 +420,12 @@ public sealed class HelpTextTests
                 Row(38, "    --allow-anonymous", "Accept any login, or none (warns)"),
                 Row(38, "    --allow-plaintext-auth", "Accept passwords in clear (warns)"),
                 Row(38, "    --auth <methods>", "Authentication methods accepted"),
+                Row(38, "    --az-plaintext", "Serve az as plain HTTP (warns)"),
                 Row(38, "    --control <listen URL>", "Serve the test control endpoint"),
                 Row(38, "    --control-token-file <file>", "Bearer token file for --control"),
                 Row(38, "    --fault <kind>[;<key>=<value>]", "Misbehave on purpose (repeatable)"),
+                Row(38, "    --gs-plaintext", "Serve gs as plain HTTP (warns)"),
+                Row(38, "    --oci-plaintext", "Serve oci as plain HTTP (warns)"),
                 Row(38, "    --random-seed <n>", "Seed non-secret identifiers"),
                 Row(38, "    --s3-plaintext", "Serve s3 as plain HTTP (warns)"),
                 Row(38, "    --self-signed", "Throwaway certificate (warns)"),
@@ -383,6 +440,9 @@ public sealed class HelpTextTests
                 "    --auth <methods>",
                 .. AuthExplanationLines,
                 "",
+                "    --az-plaintext",
+                .. AzPlaintextExplanationLines,
+                "",
                 "    --control <listen URL>",
                 .. ControlExplanationLines,
                 "",
@@ -391,6 +451,12 @@ public sealed class HelpTextTests
                 "",
                 "    --fault <kind>[;<key>=<value>]",
                 .. FaultExplanationLines,
+                "",
+                "    --gs-plaintext",
+                .. GsPlaintextExplanationLines,
+                "",
+                "    --oci-plaintext",
+                .. OciPlaintextExplanationLines,
                 "",
                 "    --s3-plaintext",
                 .. S3PlaintextExplanationLines,
@@ -538,8 +604,9 @@ public sealed class HelpTextTests
             "    -u, --user <user:password>",
             "        Add an account (repeatable). Default: no accounts.",
             "",
-            "        Categories: auth, ftp, http, imap, ldap, mqtt, nats, pop3, rtsp, s3,",
-            "        smb, smtp, ssh, stomp, websocket.",
+            "        Categories: amqp, amqp1, auth, azure-storage, ftp, gs, http, imap,",
+            "        ldap, mqtt, nats, oci, pop3, rtsp, s3, smb, smtp, ssh, stomp,",
+            "        websocket.",
             "");
 
     [TestMethod]
@@ -549,8 +616,9 @@ public sealed class HelpTextTests
             "    --user-file <file>",
             "        Read accounts from a file. Default: none.",
             "",
-            "        Categories: auth, ftp, http, imap, ldap, mqtt, nats, pop3, rtsp, s3,",
-            "        smb, smtp, ssh, stomp, websocket.",
+            "        Categories: amqp, amqp1, auth, azure-storage, ftp, gs, http, imap,",
+            "        ldap, mqtt, nats, oci, pop3, rtsp, s3, smb, smtp, ssh, stomp,",
+            "        websocket.",
             "");
 
     [TestMethod]
@@ -563,8 +631,9 @@ public sealed class HelpTextTests
                 "",
                 .. AllowAnonymousExplanationLines,
                 "",
-                "        Categories: auth, ftp, http, imap, ldap, mqtt, nats, pop3, rtsp, s3,",
-                "        security, smb, smtp, ssh, stomp, testing, websocket.",
+                "        Categories: amqp, amqp1, auth, azure-storage, ftp, gs, http, imap,",
+                "        ldap, mqtt, nats, oci, pop3, rtsp, s3, security, smb, smtp, ssh, stomp,",
+                "        testing, websocket.",
                 "",
             ]);
 
@@ -580,7 +649,7 @@ public sealed class HelpTextTests
                 "",
                 .. AllowPlaintextAuthExplanationLines,
                 "",
-                "        Categories: auth, ftp, http, imap, ldap, mqtt, nats, pop3, rtsp,",
+                "        Categories: amqp1, auth, ftp, http, imap, ldap, mqtt, nats, pop3, rtsp,",
                 "        security, smtp, stomp, testing, websocket.",
                 "",
             ]);
@@ -610,8 +679,8 @@ public sealed class HelpTextTests
                 "",
                 .. AuthExplanationLines,
                 "",
-                "        Categories: auth, http, imap, ldap, pop3, rtsp, security, smb, smtp,",
-                "        testing, websocket.",
+                "        Categories: amqp1, auth, http, imap, ldap, pop3, rtsp, security, smb,",
+                "        smtp, testing, websocket.",
                 "",
             ]);
 
@@ -805,11 +874,14 @@ public sealed class HelpTextTests
             Row(38, "    --allow-weak-ssh-algorithms", "Offer weak SSH algorithms (warns)"),
             Row(38, "    --allow-zone-transfer", "Answer DNS zone transfers (AXFR, IXFR)"),
             Row(38, "    --auth <methods>", "Authentication methods accepted"),
+            Row(38, "    --az-plaintext", "Serve az as plain HTTP (warns)"),
             Row(38, "    --control <listen URL>", "Serve the test control endpoint"),
             Row(38, "    --control-token-file <file>", "Bearer token file for --control"),
             Row(38, "    --fault <kind>[;<key>=<value>]", "Misbehave on purpose (repeatable)"),
             Row(38, "    --follow-symlinks", "Follow links that stay in the root"),
+            Row(38, "    --gs-plaintext", "Serve gs as plain HTTP (warns)"),
             Row(38, "    --list-directories", "Answer directory listings"),
+            Row(38, "    --oci-plaintext", "Serve oci as plain HTTP (warns)"),
             Row(38, "    --proxy-allow-origin <address>", "Let the proxy reach more origins"),
             Row(38, "    --s3-plaintext", "Serve s3 as plain HTTP (warns)"),
             Row(38, "    --self-signed", "Throwaway certificate (warns)"),
@@ -974,7 +1046,7 @@ public sealed class HelpTextTests
     {
         var text = HelpText.Answer("testing").Output;
 
-        foreach (var looseningOption in new[] { "--allow-anonymous", "--allow-plaintext-auth", "--auth <methods>", "--s3-plaintext", "--self-signed", "--throwaway-hostkey" })
+        foreach (var looseningOption in new[] { "--allow-anonymous", "--allow-plaintext-auth", "--auth <methods>", "--az-plaintext", "--gs-plaintext", "--oci-plaintext", "--s3-plaintext", "--self-signed", "--throwaway-hostkey" })
         {
             StringAssert.Contains(text, NewLine + "    " + looseningOption + NewLine, looseningOption);
         }

@@ -1,6 +1,8 @@
 using Surl.Authentication;
 using Surl.Content;
+using Surl.Core;
 using Surl.Extended.Protocol.DnsQuery;
+using Surl.Extended.Protocol.Kafka;
 using Surl.MailStore;
 using Surl.Protocol.Abstractions;
 using Surl.Protocol.Ldap;
@@ -67,6 +69,18 @@ public sealed class ComposedProtocolServices(
     public bool AllowsZoneTransfer { get; init; }
 
     /// <summary>
+    /// Gets a value indicating whether <c>--mqtt5-disconnect-after-retained</c> is given, so the MQTT 5 broker
+    /// disconnects a client with <c>0x00</c> after a subscribe's retained messages (ADR-0093 decision 9); off unless set.
+    /// </summary>
+    public bool Mqtt5DisconnectsAfterRetained { get; init; }
+
+    /// <summary>
+    /// Gets the codec of the record batches the Kafka broker serves to a fetch, from
+    /// <c>--kafka-fetch-compression</c> (ADR-0105 decision 4); none unless set.
+    /// </summary>
+    public KafkaCompressionCodec KafkaFetchCompression { get; init; }
+
+    /// <summary>
     /// Gets the source of the certificate QUIC's TLS 1.3 serves, which the servers answering over QUIC
     /// read when a connection arrives and the composition fills once it has made the certificate.
     /// </summary>
@@ -121,6 +135,13 @@ public sealed class ComposedProtocolServices(
     public TimeSpan IdleTimeout { get; init; } = TimeSpan.FromSeconds(120);
 
     /// <summary>
+    /// Gets the source of identifiers a server draws once, when it is created, named by the server (ADR-0124
+    /// decision 6, BL-1001): from <c>--random-seed</c> and the name alone when a seed is given, so the Kafka cluster ID
+    /// and the NATS <c>server_id</c> repeat every run; the cryptographic source unless set.
+    /// </summary>
+    public Func<string, IIdentifierRandom> IdentifiersForServer { get; init; } = _ => CryptographicIdentifierRandom.Instance;
+
+    /// <summary>
     /// Gets every <c>--mail-domain</c>, which the XMPP server serves beside the listen URL host (ADR-0114 decision 1); none unless set.
     /// </summary>
     public IReadOnlyList<string> MailDomains { get; init; } = [];
@@ -136,6 +157,12 @@ public sealed class ComposedProtocolServices(
     /// the proxy's own accounts, or one that asks for no login when it has none.
     /// </summary>
     public IAuthenticationPolicy ProxyAuthenticationPolicy { get; init; } = new AnonymousAuthenticationPolicy();
+
+    /// <summary>
+    /// Gets the GSS-API login the SOCKS5 server offers as method <c>01</c> (BL-1066): built over the
+    /// <c>--keytab</c> acceptor; <see langword="null"/> without a keytab, so SOCKS5 offers none.
+    /// </summary>
+    public Surl.Protocol.Socks.SocksGssApiLogin? SocksGssApiLogin { get; init; }
 
     /// <summary>Gets the SSH server's host keys.</summary>
     public SshHostKeySet SshHostKeys { get; } = sshHostKeys;

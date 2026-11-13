@@ -100,7 +100,7 @@ internal sealed partial class ImapSession
         }
 
         var exchange = mailAuthenticationPolicy.StartSaslExchange(
-            new SaslExchangeStart(context.Scheme, mechanism, sent, connection.TlsSession));
+            new SaslExchangeStart(context.Scheme, mechanism, sent, connection.TlsSession, Exchange: LoginExchange.Of(context)));
         var step = await exchange.BeginAsync(CancellationToken);
         while (step.Outcome == SaslLoginOutcome.Challenge)
         {

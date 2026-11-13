@@ -158,7 +158,19 @@ public sealed partial class SignalRRequestAnswererTests
         var request = harness.Policy.Requests.Single();
         Assert.AreEqual("POST", request.Method);
         Assert.AreEqual("/chat/negotiate?negotiateVersion=1", request.Target);
-        Assert.IsFalse(request.IsWrite);
+        Assert.IsTrue(request.IsWrite);
+    }
+
+    [TestMethod]
+    public async Task AnswerAsync_NegotiateWithNoCredentialsAndAnonymousNotAllowed_IsUnauthorizedAndJudgedAsALogin()
+    {
+        var harness = new SignalRServerHarness();
+
+        var response = await harness.SendAsync("POST", "/chat/negotiate?negotiateVersion=1");
+
+        Assert.StartsWith("HTTP/1.1 401 Unauthorized\r\n", response);
+        Assert.IsTrue(harness.Policy.Requests.Single().IsWrite);
+        Assert.AreEqual(0, harness.Connections.Count);
     }
 
     [TestMethod]

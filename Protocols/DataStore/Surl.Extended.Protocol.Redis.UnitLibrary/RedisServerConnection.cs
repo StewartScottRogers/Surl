@@ -30,7 +30,7 @@ internal sealed class RedisServerConnection(
     {
         using var firstCommandTimeout = StartHeadTimeout();
         var anonymous = await authenticationPolicy.CheckPasswordLoginAsync(
-            new PasswordLogin(context.Scheme, null, null, connection.TlsSession), context.CancellationToken);
+            new PasswordLogin(context.Scheme, null, null, connection.TlsSession, LoginExchange.Of(context)), context.CancellationToken);
         var subscriber = new RedisSubscriber(new RedisSession(clientId, anonymous == PasswordLoginVerdict.AcceptedUnchecked), writer);
         try
         {

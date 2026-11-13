@@ -12,11 +12,23 @@ namespace Surl.Content;
 /// </remarks>
 public sealed class ContentCaller
 {
-    private ContentCaller(string? accountName, string? scheme)
+    private ContentCaller(string? accountName, string? scheme, long? exchangeId = null)
     {
         AccountName = accountName;
         Scheme = scheme;
+        ExchangeId = exchangeId;
     }
+
+    /// <summary>
+    /// The exchange that makes the call, so a store change and a fault point name it; <see langword="null"/>
+    /// when the caller was not built for one (BL-872).
+    /// </summary>
+    public long? ExchangeId { get; }
+
+    /// <summary>The same caller, on the exchange <paramref name="exchangeId"/>.</summary>
+    /// <param name="exchangeId">The exchange's ID.</param>
+    /// <returns>A new caller; this one is unchanged.</returns>
+    public ContentCaller WithExchange(long exchangeId) => new(AccountName, Scheme, exchangeId);
 
     /// <summary>
     /// The logged-in account's name, compared ordinally; <see langword="null"/> for an anonymous

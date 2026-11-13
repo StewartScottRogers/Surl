@@ -150,6 +150,170 @@ public sealed class MailboxStoreOutOfSpaceTests
         Assert.AreEqual(MailStoreOutcome.Succeeded, Deliver(store, "hello", "<ann@x>"));
     }
 
+    [TestMethod]
+    public async Task DeliverAsync_APlanThatAnswersLaterWithOutOfSpace_AnswersQuotaExceededAndPublishesTheFault()
+    {
+        var answer = new TaskCompletionSource<FaultRule?>();
+        var events = new RecordingSurlEventPublisher();
+        var store = FaultedStore(events, new AnsweringLaterFaultPlan(answer.Task));
+
+        var pending = store.DeliverAsync([Recipient(store, "<ann@x>")], Pending(store, "hi"u8), CancellationToken.None);
+        Assert.IsFalse(pending.IsCompleted);
+        answer.SetResult(AnnOutOfSpace);
+
+        Assert.AreEqual(MailStoreOutcome.QuotaExceeded, await pending);
+        Assert.AreEqual(new FaultAppliedEvent("f1", FaultKind.OutOfSpace, FaultStage.StoreWrite, null, "ann/INBOX"), events.Events.Single());
+        Assert.IsEmpty(Uids(store, store.ViewFor("ann"), "INBOX"));
+    }
+
+    [TestMethod]
+    public async Task DeliverAsync_APlanThatAnswersLaterWithNoRule_Stores()
+    {
+        var store = FaultedStore(new RecordingSurlEventPublisher(), new AnsweringLaterFaultPlan(Task.FromResult<FaultRule?>(null)));
+
+        Assert.AreEqual(MailStoreOutcome.Succeeded, await store.DeliverAsync([Recipient(store, "<ann@x>")], Pending(store, "hi"u8), CancellationToken.None));
+        Assert.HasCount(1, Uids(store, store.ViewFor("ann"), "INBOX"));
+    }
+
+    [TestMethod]
+    public async Task DeliverAsync_APlanThatThrows_IsServedAsIfNoRuleMatched()
+    {
+        var store = FaultedStore(
+            new RecordingSurlEventPublisher(),
+            new AnsweringLaterFaultPlan(Task.FromException<FaultRule?>(new InvalidOperationException("the hook threw"))));
+
+        Assert.AreEqual(MailStoreOutcome.Succeeded, await store.DeliverAsync([Recipient(store, "<ann@x>")], Pending(store, "hi"u8), CancellationToken.None));
+    }
+
+    [TestMethod]
+    public async Task DeliverAsync_ARuleOfAnotherKind_IsNotApplied()
+    {
+        var store = FaultedStore(
+            new RecordingSurlEventPublisher(),
+            new AnsweringLaterFaultPlan(Task.FromResult<FaultRule?>(new FaultRule("f3", FaultKind.Error))));
+
+        Assert.AreEqual(MailStoreOutcome.Succeeded, await store.DeliverAsync([Recipient(store, "<ann@x>")], Pending(store, "hi"u8), CancellationToken.None));
+    }
+
+    [TestMethod]
+    public async Task DeliverAsync_ACancelledPlan_ThrowsAndStoresNothing()
+    {
+        var store = FaultedStore(
+            new RecordingSurlEventPublisher(),
+            new AnsweringLaterFaultPlan(Task.FromCanceled<FaultRule?>(new CancellationToken(canceled: true))));
+
+        await Assert.ThrowsAsync<OperationCanceledException>(
+            async () => await store.DeliverAsync([Recipient(store, "<ann@x>")], Pending(store, "hi"u8), CancellationToken.None));
+
+        Assert.IsEmpty(Uids(store, store.ViewFor("ann"), "INBOX"));
+    }
+
+    [TestMethod]
+    public async Task DeliverAsync_WithNoRecipients_AsksNothing()
+    {
+        var plan = new ScriptedFaultPlan(AnnOutOfSpace);
+        var store = FaultedStore(new RecordingSurlEventPublisher(), plan);
+
+        Assert.AreEqual(MailStoreOutcome.Succeeded, await store.DeliverAsync([], Pending(store, "hi"u8), CancellationToken.None));
+        Assert.IsEmpty(plan.Points);
+    }
+
+    [TestMethod]
+    public async Task DeliverAsync_TooLarge_AnswersMessageTooLargeBeforeAskingThePlan()
+    {
+        var plan = new ScriptedFaultPlan(AnnOutOfSpace);
+        var store = new MailboxStore(["ann"], allowAnonymous: false, new SettableTimeProvider(), maxMessageBytes: 1, faults: plan);
+
+        Assert.AreEqual(MailStoreOutcome.MessageTooLarge, await store.DeliverAsync([Recipient(store, "<ann@x>")], Pending(store, "xy"u8), CancellationToken.None));
+        Assert.IsEmpty(plan.Points);
+    }
+
+    [TestMethod]
+    public async Task DeliverAsync_NullArguments_Throw()
+    {
+        var store = FaultedStore(new RecordingSurlEventPublisher(), new ScriptedFaultPlan());
+
+        await Assert.ThrowsAsync<ArgumentNullException>(async () => await store.DeliverAsync(null!, Pending(store, "x"u8), CancellationToken.None));
+        await Assert.ThrowsAsync<ArgumentNullException>(async () => await store.DeliverAsync([], null!, CancellationToken.None));
+    }
+
+    [TestMethod]
+    public async Task AppendAsync_APlanThatAnswersLaterWithOutOfSpace_AnswersQuotaExceededAndPublishesTheFault()
+    {
+        var answer = new TaskCompletionSource<FaultRule?>();
+        var events = new RecordingSurlEventPublisher();
+        var store = FaultedStore(events, new AnsweringLaterFaultPlan(answer.Task));
+
+        var pending = store.AppendAsync(store.ViewFor("ann"), "INBOX", Pending(store, "x"u8), MailFlags.None, null, CancellationToken.None);
+        Assert.IsFalse(pending.IsCompleted);
+        answer.SetResult(new FaultRule("f2", FaultKind.OutOfSpace));
+
+        var result = await pending;
+        Assert.AreEqual(MailStoreOutcome.QuotaExceeded, result.Outcome);
+        Assert.AreEqual(default, result.Stored);
+        Assert.AreEqual(new FaultAppliedEvent("f2", FaultKind.OutOfSpace, FaultStage.StoreWrite, null, "ann/INBOX"), events.Events.Single());
+        Assert.IsEmpty(Uids(store, store.ViewFor("ann"), "INBOX"));
+    }
+
+    [TestMethod]
+    public async Task AppendAsync_APlanThatAnswersNoRule_StoresAndGivesWhereItWentToo()
+    {
+        var store = FaultedStore(new RecordingSurlEventPublisher(), new AnsweringLaterFaultPlan(Task.FromResult<FaultRule?>(null)));
+        var view = store.ViewFor("ann");
+
+        var result = await store.AppendAsync(view, "INBOX", Pending(store, "x"u8), MailFlags.None, null, CancellationToken.None);
+
+        Assert.AreEqual(MailStoreOutcome.Succeeded, result.Outcome);
+        Assert.AreEqual(Uids(store, view, "INBOX").Single(), result.Stored.Uid);
+    }
+
+    [TestMethod]
+    public async Task AppendAsync_APlanThatThrows_IsServedAsIfNoRuleMatched()
+    {
+        var store = FaultedStore(
+            new RecordingSurlEventPublisher(),
+            new AnsweringLaterFaultPlan(Task.FromException<FaultRule?>(new InvalidOperationException("the hook threw"))));
+
+        var result = await store.AppendAsync(store.ViewFor("ann"), "INBOX", Pending(store, "x"u8), MailFlags.None, null, CancellationToken.None);
+
+        Assert.AreEqual(MailStoreOutcome.Succeeded, result.Outcome);
+    }
+
+    [TestMethod]
+    public async Task AppendAsync_ToAMissingMailbox_AsksNothingAndAnswersMailboxMissing()
+    {
+        var plan = new ScriptedFaultPlan(AnnOutOfSpace);
+        var store = FaultedStore(new RecordingSurlEventPublisher(), plan);
+
+        var result = await store.AppendAsync(store.ViewFor("ann"), "Missing", Pending(store, "x"u8), MailFlags.None, null, CancellationToken.None);
+
+        Assert.AreEqual(MailStoreOutcome.MailboxMissing, result.Outcome);
+        Assert.IsEmpty(plan.Points);
+    }
+
+    [TestMethod]
+    public async Task AppendAsync_TooLarge_AnswersMessageTooLargeBeforeAskingThePlan()
+    {
+        var plan = new ScriptedFaultPlan(AnnOutOfSpace);
+        var store = new MailboxStore(["ann"], allowAnonymous: false, new SettableTimeProvider(), maxMessageBytes: 1, faults: plan);
+
+        var result = await store.AppendAsync(store.ViewFor("ann"), "INBOX", Pending(store, "xy"u8), MailFlags.None, null, CancellationToken.None);
+
+        Assert.AreEqual(MailStoreOutcome.MessageTooLarge, result.Outcome);
+        Assert.IsEmpty(plan.Points);
+    }
+
+    [TestMethod]
+    public async Task AppendAsync_ABadFlagOrNoMessage_Throws()
+    {
+        var store = FaultedStore(new RecordingSurlEventPublisher(), new ScriptedFaultPlan());
+        var view = store.ViewFor("ann");
+
+        await Assert.ThrowsAsync<ArgumentNullException>(async () => await store.AppendAsync(view, "INBOX", null!, MailFlags.None, null, CancellationToken.None));
+        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(
+            async () => await store.AppendAsync(view, "INBOX", Pending(store, "x"u8), unchecked((MailFlags)int.MaxValue), null, CancellationToken.None));
+    }
+
     private static MailboxStore FaultedStore(ISurlEventPublisher events, IFaultPlan faults) =>
         new(["ann", "bob"], allowAnonymous: false, new SettableTimeProvider(), events: events, faults: faults);
 

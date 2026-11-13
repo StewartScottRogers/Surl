@@ -1,11 +1,22 @@
 using Surl.Authentication;
 using Surl.Cli;
 using Surl.Content;
+using Surl.Extended.Protocol.Amqp0;
+using Surl.Extended.Protocol.Amqp1;
+using Surl.Extended.Protocol.AzureStorage;
 using Surl.Extended.Protocol.Coap;
 using Surl.Extended.Protocol.DnsQuery;
+using Surl.Extended.Protocol.GoogleCloudStorage;
+using Surl.Extended.Protocol.Grpc;
+using Surl.Extended.Protocol.Kafka;
+using Surl.Extended.Protocol.McpServer;
+using Surl.Extended.Protocol.Mqtt5;
 using Surl.Extended.Protocol.Nats;
+using Surl.Extended.Protocol.OciRegistry;
 using Surl.Extended.Protocol.Stomp;
+using Surl.Extended.Protocol.Redis;
 using Surl.Extended.Protocol.S3;
+using Surl.Extended.Protocol.SignalR;
 using Surl.Extended.Protocol.SocketIo;
 using Surl.Extended.Protocol.WebTransport;
 using Surl.Extended.Protocol.Xmpp;
@@ -44,28 +55,42 @@ public sealed class ExtendedProtocolServersTests
     }
 
     [TestMethod]
-    public void Compose_ThisBuild_IsTheDnsUdpAndTcpServersThenTheNatsServerThenTheS3ServerThenTheSocketIoServerThenTheWebTransportServerAfterTheCoapServers()
+    public void Compose_ThisBuild_IsTheAmqp0ThenTheAmqp1ContainerThenTheDnsUdpAndTcpServersThenTheGsServerThenTheMcpServerThenTheNatsServerThenTheOciServerThenTheS3ServerThenTheSocketIoServerThenTheWebTransportServerAfterTheCoapServers()
     {
         var services = SurlServerComposition.ComposeUnservedExtendedServices(TimeProvider.System);
 
         var servers = ExtendedProtocolServers.Compose(services);
 
-        Assert.HasCount(12, servers);
-        Assert.IsInstanceOfType<CoapProtocolServer>(servers[0]);
-        CollectionAssert.AreEqual(new[] { "coaps" }, servers[1].Schemes.ToArray());
-        Assert.IsInstanceOfType<DnsUdpProtocolServer>(servers[2]);
-        Assert.IsInstanceOfType<DnsTcpProtocolServer>(servers[3]);
-        Assert.IsInstanceOfType<NatsServer>(servers[4]);
-        Assert.IsInstanceOfType<S3ProtocolServer>(servers[5]);
-        Assert.IsInstanceOfType<SocketIoProtocolServer>(servers[6]);
-        Assert.IsInstanceOfType<StompServer>(servers[7]);
-        CollectionAssert.AreEqual(new[] { "stomps" }, servers[8].Schemes.ToArray());
-        Assert.IsInstanceOfType<WebTransportProtocolServer>(servers[9]);
-        Assert.IsInstanceOfType<XmppServer>(servers[10]);
-        CollectionAssert.AreEqual(new[] { "xmpps" }, servers[11].Schemes.ToArray());
-        CollectionAssert.AreEqual(new[] { "coap", "coaps", "dns", "dns", "nats", "natss", "s3", "socketio", "socketios", "stomp", "stomps", "webtransport", "xmpp", "xmpps" }, servers.SelectMany(server => server.Schemes).ToArray());
+        Assert.HasCount(25, servers);
+        Assert.IsInstanceOfType<Amqp0Broker>(servers[0]);
+        Assert.IsInstanceOfType<Amqp1Container>(servers[1]);
+        Assert.IsInstanceOfType<AzureStorageProtocolServer>(servers[2]);
+        Assert.IsInstanceOfType<CoapProtocolServer>(servers[3]);
+        CollectionAssert.AreEqual(new[] { "coaps" }, servers[4].Schemes.ToArray());
+        Assert.IsInstanceOfType<DnsUdpProtocolServer>(Assert.IsInstanceOfType<DnsDatagramRoutingProtocolServer>(servers[5]).UdpServer);
+        Assert.IsInstanceOfType<DnsTcpProtocolServer>(Assert.IsInstanceOfType<DnsConnectionRoutingProtocolServer>(servers[6]).StreamServer);
+        Assert.IsInstanceOfType<GoogleCloudStorageProtocolServer>(servers[7]);
+        Assert.IsInstanceOfType<GrpcProtocolServer>(servers[8]);
+        Assert.IsInstanceOfType<KafkaBroker>(servers[9]);
+        var mcp = Assert.IsInstanceOfType<McpProtocolServer>(servers[10]);
+        CollectionAssert.AreEqual(new[] { "mcp", "mcps" }, mcp.Schemes.ToArray());
+        Assert.IsInstanceOfType<McpStdioListenUrlServer>(servers[11]);
+        Assert.IsInstanceOfType<Mqtt5Broker>(servers[12]);
+        Assert.IsInstanceOfType<Mqtt5WebSocketServer>(servers[13]);
+        Assert.IsInstanceOfType<NatsServer>(servers[14]);
+        Assert.IsInstanceOfType<OciRegistryProtocolServer>(servers[15]);
+        Assert.IsInstanceOfType<RedisServer>(servers[16]);
+        Assert.IsInstanceOfType<S3ProtocolServer>(servers[17]);
+        Assert.IsInstanceOfType<SignalRHubRoutingProtocolServer>(servers[18]);
+        Assert.IsInstanceOfType<SocketIoProtocolServer>(servers[19]);
+        Assert.IsInstanceOfType<StompServer>(servers[20]);
+        CollectionAssert.AreEqual(new[] { "stomps" }, servers[21].Schemes.ToArray());
+        Assert.IsInstanceOfType<WebTransportProtocolServer>(servers[22]);
+        Assert.IsInstanceOfType<XmppServer>(servers[23]);
+        CollectionAssert.AreEqual(new[] { "xmpps" }, servers[24].Schemes.ToArray());
+        CollectionAssert.AreEqual(new[] { "amqp", "amqps", "amqp1", "amqp1s", "az", "abfs", "abfss", "coap", "coaps", "dns", "dns", "gs", "grpc", "grpcs", "kafka", "kafkas", "mcp", "mcps", "mcp+stdio", "mqtt5", "mqtt5s", "mqtt5+ws", "nats", "natss", "oci", "redis", "rediss", "s3", "signalr", "signalrs", "socketio", "socketios", "stomp", "stomps", "webtransport", "xmpp", "xmpps" }, servers.SelectMany(server => server.Schemes).ToArray());
         CollectionAssert.AreEqual(
-            new[] { "coap", "coaps", "dns", "dns", "nats", "natss", "s3", "socketio", "socketios", "stomp", "stomps", "webtransport", "xmpp", "xmpps" }, ExtendedProtocolServers.Registrations.SelectMany(registration => registration.Schemes).ToArray());
+            new[] { "amqp", "amqps", "amqp1", "amqp1s", "az", "abfs", "abfss", "coap", "coaps", "dns", "dns", "gs", "grpc", "grpcs", "kafka", "kafkas", "mcp", "mcps", "mcp+stdio", "mqtt5", "mqtt5s", "mqtt5+ws", "nats", "natss", "oci", "redis", "rediss", "s3", "signalr", "signalrs", "socketio", "socketios", "stomp", "stomps", "webtransport", "xmpp", "xmpps" }, ExtendedProtocolServers.Registrations.SelectMany(registration => registration.Schemes).ToArray());
     }
 
     [TestMethod]
@@ -141,7 +166,7 @@ public sealed class ExtendedProtocolServersTests
 
         var servers = ExtendedProtocolServers.Compose(services);
 
-        foreach (var server in new IProtocolServer[] { servers.OfType<DnsUdpProtocolServer>().Single(), servers.OfType<DnsTcpProtocolServer>().Single() })
+        foreach (var server in new IProtocolServer[] { servers.OfType<DnsDatagramRoutingProtocolServer>().Single().UdpServer, servers.OfType<DnsConnectionRoutingProtocolServer>().Single().StreamServer })
         {
             var answerer = ComposedServerFields.Single<DnsQueryAnswerer>(server);
             Assert.AreSame(zones, ComposedServerFields.Single<DnsZoneSet>(answerer));
@@ -187,6 +212,60 @@ public sealed class ExtendedProtocolServersTests
     }
 
     [TestMethod]
+    public void Compose_ThisBuild_BuildsTheAmqpBrokerOverTheOneBusTheMqttServerIsBuiltOver()
+    {
+        var services = SurlServerComposition.ComposeUnservedExtendedServices(TimeProvider.System);
+
+        var amqpBroker = ExtendedProtocolServers.Compose(services).OfType<Amqp0Broker>().Single();
+        var mqttServer = SurlServerComposition.ComposeProtocolServers(ProtocolServerRegistrations.Original, services.ComposedServices)
+            .OfType<MqttProtocolServer>().Single();
+
+        var bus = ComposedServerFields.Single<MessageBus.MessageBus>(amqpBroker);
+        Assert.AreSame(services.ComposedServices.MessageBus, bus);
+        Assert.AreSame(bus, ComposedServerFields.Single<MessageBus.MessageBus>(mqttServer));
+    }
+
+    [TestMethod]
+    public void Compose_ThisBuild_BuildsTheMqtt5BrokerOverTheOneBusTheMqttServerIsBuiltOver()
+    {
+        var services = SurlServerComposition.ComposeUnservedExtendedServices(TimeProvider.System);
+
+        var mqtt5Broker = ExtendedProtocolServers.Compose(services).OfType<Mqtt5Broker>().Single();
+        var mqttServer = SurlServerComposition.ComposeProtocolServers(ProtocolServerRegistrations.Original, services.ComposedServices)
+            .OfType<MqttProtocolServer>().Single();
+
+        var bus = ComposedServerFields.Single<MessageBus.MessageBus>(mqttServer);
+        Assert.AreSame(services.ComposedServices.MessageBus, bus);
+        var state = ComposedServerFields.Single<Mqtt5BrokerState>(mqtt5Broker);
+        Assert.AreSame(bus, ComposedServerFields.Single<MessageBus.MessageBus>(state));
+    }
+
+    [TestMethod]
+    public void Compose_ThisBuild_BuildsTheMqtt5WebSocketServerOverTheBrokerThatAnswersMqtt5()
+    {
+        var services = SurlServerComposition.ComposeUnservedExtendedServices(TimeProvider.System);
+
+        var servers = ExtendedProtocolServers.Compose(services);
+
+        var broker = servers.OfType<Mqtt5Broker>().Single();
+        Assert.AreSame(broker, ComposedServerFields.Single<Mqtt5Broker>(servers.OfType<Mqtt5WebSocketServer>().Single()));
+    }
+
+    [TestMethod]
+    [DataRow(true, 40)]
+    [DataRow(false, 0)]
+    public void Compose_ThisBuild_BuildsTheAmqpBrokerWithTheIdleTimeoutAndAnonymousLogin(bool allowAnonymous, int idleTimeoutSeconds)
+    {
+        var services = new ExtendedProtocolServerServices(ComposeServices(allowAnonymous, TimeSpan.FromSeconds(idleTimeoutSeconds)));
+
+        var amqpBroker = ExtendedProtocolServers.Compose(services).OfType<Amqp0Broker>().Single();
+
+        var options = ComposedServerFields.Single<Amqp0BrokerOptions>(amqpBroker);
+        Assert.AreEqual(TimeSpan.FromSeconds(idleTimeoutSeconds), options.IdleTimeout);
+        Assert.AreEqual(allowAnonymous, options.OffersAnonymous);
+    }
+
+    [TestMethod]
     public void Compose_ThisBuild_BuildsTheStompBrokerWithTheIdleTimeout()
     {
         var services = new ExtendedProtocolServerServices(ComposeServices(false, TimeSpan.FromSeconds(40)));
@@ -211,6 +290,48 @@ public sealed class ExtendedProtocolServersTests
         Assert.AreEqual(allowAnonymous, options.AllowsAnonymous);
     }
     [TestMethod]
+    public void Compose_ThisBuild_BuildsTheAmqp1ContainerOverTheOneBusTheMqttServerIsBuiltOver()
+    {
+        var services = SurlServerComposition.ComposeUnservedExtendedServices(TimeProvider.System);
+
+        var container = ExtendedProtocolServers.Compose(services).OfType<Amqp1Container>().Single();
+        var mqttServer = SurlServerComposition.ComposeProtocolServers(ProtocolServerRegistrations.Original, services.ComposedServices)
+            .OfType<MqttProtocolServer>().Single();
+
+        var bus = ComposedServerFields.Single<MessageBus.MessageBus>(container);
+        Assert.AreSame(services.ComposedServices.MessageBus, bus);
+        Assert.AreSame(bus, ComposedServerFields.Single<MessageBus.MessageBus>(mqttServer));
+    }
+
+    [TestMethod]
+    [DataRow(true, 40, true)]
+    [DataRow(false, 0, false)]
+    public void Compose_ThisBuild_BuildsTheAmqp1ContainerWithTheIdleTimeoutAllowAnonymousAndTlsUpgrade(
+        bool allowAnonymous, int idleTimeoutSeconds, bool isTlsUpgradeAvailable)
+    {
+        var composed = ComposeServices(allowAnonymous, TimeSpan.FromSeconds(idleTimeoutSeconds), isTlsUpgradeAvailable);
+
+        var container = ExtendedProtocolServers.Compose(new ExtendedProtocolServerServices(composed)).OfType<Amqp1Container>().Single();
+
+        Assert.AreEqual(TimeSpan.FromSeconds(idleTimeoutSeconds), ComposedServerFields.Single<Amqp1ContainerOptions>(container).IdleTimeout);
+        var negotiation = ComposedServerFields.Single<Amqp1SecurityNegotiationOptions>(container);
+        Assert.AreEqual(allowAnonymous, negotiation.AllowsAnonymous);
+        Assert.AreEqual(isTlsUpgradeAvailable, negotiation.CanUpgradeToTls);
+        Assert.AreSame(composed.AuthenticationPolicy, ComposedServerFields.Single<ISaslAuthenticationPolicy>(container));
+    }
+
+
+    [TestMethod]
+    public void Compose_ThisBuild_BuildsTheOciServerOverTheServicesContentStoreAndPolicy()
+    {
+        var services = SurlServerComposition.ComposeUnservedExtendedServices(TimeProvider.System);
+
+        var server = ExtendedProtocolServers.Compose(services).OfType<OciRegistryProtocolServer>().Single();
+
+        Assert.AreSame(services.ComposedServices.ContentStore, ComposedServerFields.Single<ContentStore>(server));
+        Assert.AreSame(services.ComposedServices.AuthenticationPolicy, ComposedServerFields.Single<IAuthenticationPolicy>(server));
+    }
+    [TestMethod]
     public void Compose_ThisBuild_BuildsTheS3ServerOverTheServicesContentStoreAndIndex()
     {
         var services = SurlServerComposition.ComposeUnservedExtendedServices(TimeProvider.System);
@@ -219,6 +340,22 @@ public sealed class ExtendedProtocolServersTests
 
         Assert.AreSame(services.ComposedServices.ContentStore, ComposedServerFields.Single<ContentStore>(server));
         Assert.AreSame(services.ComposedServices.ObjectMetadataIndex, ComposedServerFields.Single<ObjectMetadataIndex>(server));
+    }
+
+    [TestMethod]
+    [DataRow(false, DisplayName = "off")]
+    [DataRow(true, DisplayName = "--allow-plaintext-auth")]
+    public void Compose_AzureStorageServer_IsToldWhetherPlaintextLoginsAreAllowed(bool allowPlaintextAuthentication)
+    {
+        var services = new ExtendedProtocolServerServices(
+            ComposeServices(false, TimeSpan.FromSeconds(40), allowPlaintextAuthentication: allowPlaintextAuthentication));
+
+        var server = ExtendedProtocolServers.Compose(services).OfType<AzureStorageProtocolServer>().Single();
+
+        var field = typeof(AzureStorageProtocolServer)
+            .GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+            .Single(candidate => candidate.FieldType == typeof(bool));
+        Assert.AreEqual(allowPlaintextAuthentication, (bool)field.GetValue(server)!);
     }
 
     [TestMethod]
@@ -233,7 +370,7 @@ public sealed class ExtendedProtocolServersTests
             .Single(field => field.FieldType == typeof(bool))
             .GetValue(answerer)!;
 
-    private static ComposedProtocolServices ComposeServices(bool allowAnonymous, TimeSpan idleTimeout)
+    private static ComposedProtocolServices ComposeServices(bool allowAnonymous, TimeSpan idleTimeout, bool isTlsUpgradeAvailable = false, bool allowPlaintextAuthentication = false)
     {
         var unserved = SurlServerComposition.ComposeUnservedProtocolServices(
             SurlServerComposition.ComposeContentStore(new SurlCommandLine(), TimeProvider.System), TimeProvider.System);
@@ -241,17 +378,24 @@ public sealed class ExtendedProtocolServersTests
             unserved.ContentStore,
             new ServiceState(unserved.MessageBus, unserved.MailStore, unserved.LdapServer, unserved.ObjectMetadataIndex),
             new AuthenticationPolicy(
-                new AuthenticationSettings(new AccountBook([]), allowAnonymous, AllowPlaintextAuthentication: false, AuthenticationMethods.DefaultAccepted),
+                new AuthenticationSettings(new AccountBook([]), allowAnonymous, AllowPlaintextAuthentication: allowPlaintextAuthentication, AuthenticationMethods.DefaultAccepted),
                 [],
                 TimeProvider.System),
             TimeProvider.System,
             unserved.SshHostKeys,
             unserved.SshAlgorithms,
-            isTlsUpgradeAvailable: false,
+            isTlsUpgradeAvailable,
             echoesWebSocketMessages: false,
             advertisesHttp3: false)
         {
             IdleTimeout = idleTimeout,
         };
+    }
+
+    [TestMethod]
+    public void SurlVersion_IsTheInformationalVersionWithoutBuildMetadata()
+    {
+        Assert.IsFalse(string.IsNullOrWhiteSpace(ExtendedProtocolServers.SurlVersion));
+        Assert.DoesNotContain("+", ExtendedProtocolServers.SurlVersion);
     }
 }

@@ -7,7 +7,8 @@ namespace Surl.Networking;
 /// The ALPN protocol IDs a listener offers, by its listen URL's scheme (ADR-0010, section 4,
 /// as ADR-0081 decision 2 amends it): <c>h2</c> then <c>http/1.1</c> for <c>https</c>, exactly
 /// <c>http/1.1</c> for <c>wss</c>, whose WebSocket upgrade is HTTP/1.1's, and for the extended
-/// <c>s3</c>, which the S3 server answers over HTTP/1.1 only (ADR-0108, decision 5), and none for every
+/// <c>s3</c>, which the S3 server answers over HTTP/1.1 only (ADR-0108, decision 5), exactly
+/// <c>h2</c> for the extended <c>grpcs</c> (gRPC is HTTP/2 only), and none for every
 /// other scheme but the extended <c>xmpps</c>, which offers <c>xmpp-client</c> (XEP-0368 section 3, BL-540), because upstream curl sends ALPN only for HTTP.
 /// </summary>
 internal static class TlsApplicationProtocols
@@ -15,6 +16,9 @@ internal static class TlsApplicationProtocols
     private static readonly SslApplicationProtocol[] Https = [SslApplicationProtocol.Http2, SslApplicationProtocol.Http11];
 
     private static readonly SslApplicationProtocol[] Http11Only = [SslApplicationProtocol.Http11];
+
+    // PROTOCOL-HTTP2.md: gRPC is HTTP/2 only, so http/1.1 is never offered.
+    private static readonly SslApplicationProtocol[] Http2Only = [SslApplicationProtocol.Http2];
 
     // XEP-0368 section 3: direct-TLS XMPP clients name the ALPN protocol xmpp-client.
     private static readonly SslApplicationProtocol[] XmppClient = [new SslApplicationProtocol("xmpp-client")];
@@ -26,11 +30,12 @@ internal static class TlsApplicationProtocols
     /// The ALPN protocol IDs offered for <paramref name="scheme"/>, in the server's order of preference.
     /// </summary>
     /// <param name="scheme">The listen URL's scheme, lower-cased.</param>
-    /// <returns><c>h2</c> and <c>http/1.1</c> for <c>https</c>; <c>http/1.1</c> for <c>wss</c> and <c>s3</c>; <c>xmpp-client</c> for <c>xmpps</c>; otherwise empty.</returns>
+    /// <returns><c>h2</c> and <c>http/1.1</c> for <c>https</c>; <c>http/1.1</c> for <c>wss</c>, <c>s3</c>, <c>oci</c>, <c>mcps</c>, <c>az</c>, <c>abfss</c> and <c>gs</c>; exactly <c>h2</c> for <c>grpcs</c> (ADR-0116 decision 0); <c>xmpp-client</c> for <c>xmpps</c>; otherwise empty.</returns>
     public static IReadOnlyList<SslApplicationProtocol> ForScheme(string scheme) => scheme switch
     {
         "https" => Https,
-        "wss" or "s3" => Http11Only,
+        "wss" or "s3" or "oci" or "mcps" or "az" or "abfss" or "gs" => Http11Only,
+        "grpcs" => Http2Only,
         "xmpps" => XmppClient,
         _ => [],
     };
@@ -39,13 +44,15 @@ internal static class TlsApplicationProtocols
     /// The ALPN protocol IDs a listener on <paramref name="listenUrl"/> offers: for a proxy
     /// listener (<see cref="ListenUrl.IsProxy"/>) too, <c>h2</c> then <c>http/1.1</c> when its scheme is
     /// <c>https</c>, because the HTTPS proxy serves HTTP/2 for curl's <c>--proxy-http2</c>
-    /// (ADR-0088, Amendment 9, superseding decision 6 and Amendment 2); a DNS-over-TLS listener
+    /// (ADR-0088, Amendment 9, superseding decision 6 and Amendment 2); a DNS-over-HTTPS listener
+    /// (<see cref="ListenUrl.IsDnsOverHttps"/>) offers the same two; a DNS-over-TLS listener
     /// offers <c>dot</c>; otherwise <see cref="ForScheme"/>.
     /// </summary>
     /// <param name="listenUrl">The listener's listen URL; its scheme is lower-cased.</param>
     /// <returns>The ALPN protocol IDs offered, in the server's order of preference.</returns>
     public static IReadOnlyList<SslApplicationProtocol> ForListener(ListenUrl listenUrl) => listenUrl switch
     {
+        { IsImplicitTls: true, Scheme: "dns", IsDnsOverHttps: true } => Https,
         { IsImplicitTls: true, Scheme: "dns" } => DnsOverTls,
         _ => ForScheme(listenUrl.Scheme),
     };

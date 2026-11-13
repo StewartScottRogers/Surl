@@ -25,6 +25,9 @@ internal static class CommandLinePathMembers
         new(nameof(SurlCommandLine.SrpVerifierFile), "--srp-verifiers", commandLine => OneOrNone(commandLine.SrpVerifierFile)),
         new(nameof(SurlCommandLine.SrpGroupFile), "--srp-groups", commandLine => OneOrNone(commandLine.SrpGroupFile)),
         new(nameof(SurlCommandLine.UserFile), "--user-file", commandLine => OneOrNone(commandLine.UserFile)),
+        new(nameof(SurlCommandLine.UserLdap), "--user-ldap", commandLine => commandLine.UserLdap is { } source
+            ? new[] { source.BindPasswordFile, source.CaFile }.OfType<string>()
+            : []),
         new(nameof(SurlCommandLine.ProxyUserFile), "--proxy-user-file", commandLine => OneOrNone(commandLine.ProxyUserFile)),
         new(nameof(SurlCommandLine.KeytabFile), "--keytab", commandLine => OneOrNone(commandLine.KeytabFile)),
         new(nameof(SurlCommandLine.HostKeyFiles), "--hostkey", commandLine => commandLine.HostKeyFiles),
@@ -54,6 +57,8 @@ internal static class CommandLinePathMembers
         nameof(SurlCommandLine.ServeDotFiles),
         nameof(SurlCommandLine.AllowZoneTransfer),
         nameof(SurlCommandLine.DnsTransports),
+        nameof(SurlCommandLine.KafkaFetchCompression),
+        nameof(SurlCommandLine.Mqtt5DisconnectAfterRetained),
         nameof(SurlCommandLine.DnsListenUrlsWithPort),
         nameof(SurlCommandLine.MaxConnections),
         nameof(SurlCommandLine.MaxConnectionsPerAddress),
@@ -96,6 +101,9 @@ internal static class CommandLinePathMembers
         nameof(SurlCommandLine.AcceptedProxyAuthenticationMethods),
         nameof(SurlCommandLine.SelfSigned),
         nameof(SurlCommandLine.S3Plaintext),
+        nameof(SurlCommandLine.OciPlaintext),
+        nameof(SurlCommandLine.AzPlaintext),
+        nameof(SurlCommandLine.GsPlaintext),
         nameof(SurlCommandLine.ThrowawayHostKey),
         nameof(SurlCommandLine.AllowWeakSshAlgorithms),
         nameof(SurlCommandLine.SshCiphers),

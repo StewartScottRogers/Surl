@@ -74,12 +74,14 @@ namespace Surl.Extended.Protocol.Mqtt5;
 /// <c>DISCONNECT</c> <c>0x82</c>. Silence for one and a half times the Keep Alive in force is
 /// answered <c>DISCONNECT</c> <c>0x8D</c>. A second <c>CONNECT</c> and a packet only a server sends
 /// are answered <c>DISCONNECT</c> <c>0x82</c>; a refused packet <c>DISCONNECT</c> with its fault's
-/// reason code. Each of those <c>DISCONNECT</c>s closes the connection.
+/// reason code. Each of those <c>DISCONNECT</c>s closes the connection. When the server stops (the
+/// exchange's cancellation token), each connection is sent <c>DISCONNECT</c> <c>0x8B</c> Server
+/// shutting down, best effort within two seconds, before it closes.
 /// </para>
 /// <para>
 /// <b>PUBLISH</b> (ADR-0093 decision 4, amended by ADR-0100 decision 3.9). Each is judged by
 /// <see cref="Mqtt5InboundPublishes"/> - a Subscription Identifier or a Payload Format Indicator
-/// above 1 <c>0x82</c>, a Topic Alias of 0 or above <see cref="TopicAliasMaximum"/> <c>0x94</c>,
+/// above 1 <c>0x82</c>, a Response Topic holding a wildcard <c>0x82</c>, a Topic Alias of 0 or above <see cref="TopicAliasMaximum"/> <c>0x94</c>,
 /// an empty Topic Name with no alias set <c>0x82</c>, a QoS 2 <c>PUBLISH</c> past
 /// <see cref="ReceiveMaximum"/> awaiting <c>PUBREL</c> <c>0x93</c>, each a <c>DISCONNECT</c> -
 /// then published on the shared message bus for the client's account. QoS 1 is answered
@@ -143,6 +145,7 @@ public sealed class Mqtt5Broker : IConnectionProtocolServer
     private readonly Mqtt5BrokerState state;
     private readonly IAuthenticationPolicy authenticationPolicy;
     private readonly ISaslAuthenticationPolicy? saslAuthenticationPolicy;
+    private readonly bool disconnectsAfterRetained;
 
     /// <summary>
     /// Creates a broker whose connections share <paramref name="state"/> and whose logins
@@ -152,7 +155,14 @@ public sealed class Mqtt5Broker : IConnectionProtocolServer
     /// <param name="authenticationPolicy">Judges the user name and password of every <c>CONNECT</c>.</param>
     /// <param name="saslAuthenticationPolicy">Runs the enhanced authentication of a <c>CONNECT</c> with an Authentication
     /// Method, and re-authentication; <see langword="null"/> serves no method, so every one is <c>0x8C</c>.</param>
-    public Mqtt5Broker(Mqtt5BrokerState state, IAuthenticationPolicy authenticationPolicy, ISaslAuthenticationPolicy? saslAuthenticationPolicy = null)
+    /// <param name="disconnectsAfterRetained">When <see langword="true"/>, the broker answers a <c>SUBSCRIBE</c> with <c>SUBACK</c> and the
+    /// retained messages it releases, then sends <c>DISCONNECT</c> <c>0x00</c> and closes, discarding the client's Will
+    /// (ADR-0093 decision 9); <see langword="false"/> by default.</param>
+    public Mqtt5Broker(
+        Mqtt5BrokerState state,
+        IAuthenticationPolicy authenticationPolicy,
+        ISaslAuthenticationPolicy? saslAuthenticationPolicy = null,
+        bool disconnectsAfterRetained = false)
     {
         ArgumentNullException.ThrowIfNull(state);
         ArgumentNullException.ThrowIfNull(authenticationPolicy);
@@ -160,7 +170,14 @@ public sealed class Mqtt5Broker : IConnectionProtocolServer
         this.state = state;
         this.authenticationPolicy = authenticationPolicy;
         this.saslAuthenticationPolicy = saslAuthenticationPolicy;
+        this.disconnectsAfterRetained = disconnectsAfterRetained;
     }
+
+    /// <summary>
+    /// Gets a value indicating whether the broker ends a connection after the retained messages a <c>SUBSCRIBE</c> releases
+    /// (<c>--mqtt5-disconnect-after-retained</c>, ADR-0093 decision 9).
+    /// </summary>
+    public bool DisconnectsAfterRetained => disconnectsAfterRetained;
 
     /// <summary>
     /// The schemes answered: <c>mqtt5</c>, and <c>mqtt5s</c>, the same exchange over implicit TLS,
@@ -179,6 +196,6 @@ public sealed class Mqtt5Broker : IConnectionProtocolServer
         ArgumentNullException.ThrowIfNull(connection);
         ArgumentNullException.ThrowIfNull(context);
 
-        return new Mqtt5BrokerConnection(connection, context, state, authenticationPolicy, saslAuthenticationPolicy).ServeAsync();
+        return new Mqtt5BrokerConnection(connection, context, state, authenticationPolicy, saslAuthenticationPolicy, disconnectsAfterRetained).ServeAsync();
     }
 }

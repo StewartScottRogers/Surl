@@ -266,7 +266,7 @@ internal sealed partial class Pop3Session
         var refusal = userName is null ? Pop3Replies.SendUserFirst
             : command.Argument is null ? Pop3Replies.InvalidArguments
             : null;
-        return await ReplyAsync(refusal ?? await LogInAsync(new PasswordLogin(context.Scheme, userName, command.Argument, connection.TlsSession)));
+        return await ReplyAsync(refusal ?? await LogInAsync(new PasswordLogin(context.Scheme, userName, command.Argument, connection.TlsSession, LoginExchange.Of(context))));
     }
 
     private async ValueTask<string> LogInAsync(PasswordLogin login)
@@ -359,7 +359,7 @@ internal sealed partial class Pop3Session
         }
 
         var step = await mailAuthenticationPolicy.CheckApopLoginAsync(
-            new ApopLogin(context.Scheme, words[0], apopTimestamp, words[1], connection.TlsSession), CancellationToken);
+            new ApopLogin(context.Scheme, words[0], apopTimestamp, words[1], connection.TlsSession, LoginExchange.Of(context)), CancellationToken);
         return await AnswerLoginEndedAsync(step);
     }
 
@@ -403,7 +403,7 @@ internal sealed partial class Pop3Session
         }
 
         var exchange = mailAuthenticationPolicy.StartSaslExchange(
-            new SaslExchangeStart(context.Scheme, mechanism, sent, connection.TlsSession));
+            new SaslExchangeStart(context.Scheme, mechanism, sent, connection.TlsSession, Exchange: LoginExchange.Of(context)));
         var step = await exchange.BeginAsync(CancellationToken);
         while (step.Outcome == SaslLoginOutcome.Challenge)
         {
@@ -483,7 +483,7 @@ internal sealed partial class Pop3Session
     private async ValueTask<string?> OpenAnonymousMaildropAsync(string verb)
     {
         anonymousVerdict ??= await authenticationPolicy.CheckPasswordLoginAsync(
-            new PasswordLogin(context.Scheme, null, null, connection.TlsSession), CancellationToken);
+            new PasswordLogin(context.Scheme, null, null, connection.TlsSession, LoginExchange.Of(context)), CancellationToken);
         if (anonymousVerdict != PasswordLoginVerdict.AcceptedUnchecked)
         {
             context.Log.Note($"{verb} refused: log in first, or give --allow-anonymous");

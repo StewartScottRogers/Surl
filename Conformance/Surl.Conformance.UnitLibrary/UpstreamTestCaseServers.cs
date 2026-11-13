@@ -47,15 +47,15 @@ public static class UpstreamTestCaseServers
         new("smb", "smb", IsBuilt: true),
         new("http/2", "http", IsBuilt: false),
         new("http/3", "http", IsBuilt: false),
-        new("http-proxy", "http", IsBuilt: false),
-        new("https-proxy", "https", IsBuilt: false),
-        new("socks4", "http", IsBuilt: false),
-        new("socks5", "http", IsBuilt: false),
-        new("socks5unix", "http", IsBuilt: false, UnixSocketPathVariable: "SOCKSUNIXPATH"),
+        new("http-proxy", "http", IsBuilt: true, PortVariable: "PROXYPORT"),
+        new("https-proxy", "https", IsBuilt: true, PortVariable: "HTTPSPROXYPORT"),
+        new("socks4", "http", IsBuilt: true, PortVariable: "SOCKSPORT"),
+        new("socks5", "http", IsBuilt: true, PortVariable: "SOCKSPORT"),
+        new("socks5unix", "http", IsBuilt: true, UnixSocketPathVariable: "SOCKSUNIXPATH"),
         new("http-unix", "http", IsBuilt: true, UnixSocketPathVariable: "HTTPUNIXPATH"),
-        new("httptls+srp", "https", IsBuilt: false),
-        new("httptls+srp-ipv6", "https", IsBuilt: false),
-        new("dns", "http", IsBuilt: false),
+        new("httptls+srp", "https", IsBuilt: true, PortVariable: "HTTPTLSPORT"),
+        new("httptls+srp-ipv6", "https", IsBuilt: true, PortVariable: "HTTPTLS6PORT"),
+        new("dns", "http", IsBuilt: true, PortVariable: "DNSPORT"),
     ];
 
     private static readonly Dictionary<string, UpstreamTestCaseServer> ByName =

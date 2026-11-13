@@ -57,6 +57,8 @@ public static class AuthenticationComposition
     /// <param name="mailboxAccounts">The <c>--mailbox</c> and <c>--mailbox-file</c> accounts
     /// (<see cref="MailboxComposition.Accounts"/>), added after the <c>--user-file</c> ones (ADR-0102,
     /// decision 1.2); none when <see langword="null"/>.</param>
+    /// <param name="ldapConnector">The seam <c>--user-ldap</c>'s directory is reached through; the TLS client connector when <see langword="null"/> (ADR-0149 decision 11).</param>
+    /// <param name="ldapNote">Receives each login the directory refused, with its reason; none when <see langword="null"/>.</param>
     /// <returns>
     /// The policy, every account's user name, the <c>--user</c> ones first, which the mail
     /// store's owners are (ADR-0050, decision 2), and the keytab entries skipped for their enctype;
@@ -70,7 +72,9 @@ public static class AuthenticationComposition
         TimeProvider timeProvider,
         ISurlEventPublisher? events = null,
         IFaultPlan? faults = null,
-        IReadOnlyList<Account>? mailboxAccounts = null)
+        IReadOnlyList<Account>? mailboxAccounts = null,
+        ILdapDirectoryConnector? ldapConnector = null,
+        Action<string>? ldapNote = null)
     {
         var (accounts, exitCode, failureMessage) = ReadAccounts(commandLine, readFile, mailboxAccounts ?? []);
         if (accounts is null)
@@ -85,9 +89,16 @@ public static class AuthenticationComposition
         }
 
         var (kerberosAcceptor, skippedKeytabEntries, keytabExitCode, keytabFailureMessage) = KeytabComposition.Read(commandLine, readFile, timeProvider);
-        return keytabFailureMessage is not null
-            ? (null, [], [], keytabExitCode, keytabFailureMessage)
-            : (ComposePolicy(ComposeSettings(commandLine, accounts, events) with { AuthorizedKeys = authorizedKeys, KerberosAcceptor = kerberosAcceptor }, timeProvider, events, faults),
+        if (keytabFailureMessage is not null)
+        {
+            return (null, [], [], keytabExitCode, keytabFailureMessage);
+        }
+
+        var (directory, directoryExitCode, directoryFailureMessage) =
+            LdapAccountSourceComposition.Compose(commandLine, readFile, timeProvider, ldapConnector, ldapNote);
+        return directoryFailureMessage is not null
+            ? (null, [], [], directoryExitCode, directoryFailureMessage)
+            : (ComposePolicy(ComposeSettings(commandLine, accounts, events) with { AuthorizedKeys = authorizedKeys, KerberosAcceptor = kerberosAcceptor, LdapAccountSource = directory }, timeProvider, events, faults),
                 [.. accounts.Select(account => account.UserName)],
                 skippedKeytabEntries,
                 SurlExitCode.Ok,
@@ -186,6 +197,8 @@ public static class AuthenticationComposition
             log.WriteLine(WarningPrefix + "--allow-plaintext-auth: passwords and tokens are accepted over unencrypted connections");
         }
 
+        LdapAccountSourceComposition.WriteWarning(commandLine, log);
+
         if (commandLine.GivenAuthenticationMethods is { } words)
         {
             log.WriteLine(WarningPrefix + $"--auth: accepted methods are {string.Join(", ", words)}");
@@ -199,6 +212,21 @@ public static class AuthenticationComposition
         if (commandLine.S3Plaintext)
         {
             log.WriteLine(WarningPrefix + "--s3-plaintext: s3 is served as plain HTTP, without TLS");
+        }
+
+        if (commandLine.OciPlaintext)
+        {
+            log.WriteLine(WarningPrefix + "--oci-plaintext: oci is served as plain HTTP, without TLS");
+        }
+
+        if (commandLine.AzPlaintext)
+        {
+            log.WriteLine(WarningPrefix + "--az-plaintext: az is served as plain HTTP, without TLS");
+        }
+
+        if (commandLine.GsPlaintext)
+        {
+            log.WriteLine(WarningPrefix + "--gs-plaintext: gs is served as plain HTTP, without TLS");
         }
     }
 

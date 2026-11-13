@@ -267,6 +267,8 @@ path and command known at that point. `FaultRule` carries `Id`, `Kind`, its scop
 | `dict` | a status 500 to 599 and text |
 | `gopher` | text, sent as a Gopher error item (`3`) |
 | `telnet` | one line of text, sent and then the connection closed |
+| `socks4`, `socks4a` | a reply code 91 to 93, alone, sent as the failed `CONNECT`'s `00 5B` to `00 5D` reply (BL-1061; curl exits 97, ADR-0121 row 4) |
+| `socks5`, `socks5h` | a reply code 1 to 8, alone, sent as the failed `CONNECT`'s `05 <code>` reply (BL-1061; curl exits 97, ADR-0121 row 11) |
 
 The extended servers (decision 9), each judged by its own specification (ADR-0083):
 
@@ -281,6 +283,10 @@ The extended servers (decision 9), each judged by its own specification (ADR-008
 | `coap`, `coaps` | a response code 4.00 to 5.05 |
 | `mcp`, `mcps` | a JSON-RPC error code and message |
 | `signalr`, `signalrs` | text, sent as the invocation's completion `error` |
+| `socketio`, `socketios` | text, sent as a CONNECT_ERROR `message` for a namespace connect, or as the `error` of an acknowledgement for an event that asked for one (BL-1064) |
+| `webtransport` | an HTTP status 400 to 599 and optional text, answering the extended CONNECT that opens a session, with the text as a plain-text body (BL-1065) |
+| `stomp`, `stomps` | text, sent as an `ERROR` frame's `message` header, after which the connection closes (BL-1062) |
+| `xmpp`, `xmpps` | a stanza error condition of RFC 6120 section 8.3.3 (for example `service-unavailable`), answered as `<error type=...>` on the matching stanza (BL-1063) |
 | `dns` | an RCODE 1 to 5 |
 | `redis`, `rediss` | text, sent as a RESP error (`-<text>`) |
 

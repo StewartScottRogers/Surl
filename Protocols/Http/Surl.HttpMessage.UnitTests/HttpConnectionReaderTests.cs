@@ -152,6 +152,18 @@ public sealed partial class HttpConnectionReaderTests
     }
 
     [TestMethod]
+    public async Task ReadRequestHeadAsync_MalformedFieldLinesWhenSkipped_ReadsTheHeadWithoutThem()
+    {
+        var bytes = System.Text.Encoding.Latin1.GetBytes("GET / HTTP/1.1\r\nOne: 1\r\n \u00e2 : folded\r\nBad name: x\r\nno-colon\r\nTwo: 2\r\n\r\n");
+        var connection = new InMemoryConnection([bytes]);
+
+        var result = await new HttpConnectionReader(connection, Limit) { SkipsMalformedFieldLines = true }.ReadRequestHeadAsync(TestContext.CancellationToken);
+
+        Assert.IsNotNull(result.Head);
+        CollectionAssert.AreEqual(new[] { "One", "Two" }, result.Head.Fields.Select(field => field.Name).ToArray());
+    }
+
+    [TestMethod]
     public async Task ReadRequestHeadAsync_LineThatNeverEndsPastTheMaximum_ReturnsHeadTooLargeWithoutWaitingForMore()
     {
         var bytes = Enumerable.Repeat((byte)'a', Limit).ToArray();

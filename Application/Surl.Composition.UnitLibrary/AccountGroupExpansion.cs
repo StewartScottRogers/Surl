@@ -22,8 +22,16 @@ public sealed class AccountGroupExpansion
     private readonly IReadOnlyList<KeyValuePair<string, FrozenSet<string>>> groupsInOrder;
     private readonly FrozenDictionary<string, FrozenSet<string>> accountsByGroup;
 
-    private AccountGroupExpansion(FrozenSet<string> accountNames, IReadOnlyList<KeyValuePair<string, FrozenSet<string>>> groupsInOrder)
+    // Account names that are not configured accounts but were taken as directory accounts (ADR-0149 decision 8), in first-seen order.
+    private readonly List<string> directoryNames = [];
+    private readonly bool takesUnknownNamesAsDirectoryAccounts;
+
+    private AccountGroupExpansion(
+        FrozenSet<string> accountNames,
+        IReadOnlyList<KeyValuePair<string, FrozenSet<string>>> groupsInOrder,
+        bool takesUnknownNamesAsDirectoryAccounts)
     {
+        this.takesUnknownNamesAsDirectoryAccounts = takesUnknownNamesAsDirectoryAccounts;
         this.accountNames = accountNames;
         this.groupsInOrder = groupsInOrder;
         accountsByGroup = groupsInOrder.ToFrozenDictionary(StringComparer.Ordinal);
@@ -40,9 +48,13 @@ public sealed class AccountGroupExpansion
     /// </summary>
     /// <param name="groups">Every <c>--group</c>, in command-line order, no name twice.</param>
     /// <param name="accountNames">Every account's name: <c>--user</c>, then <c>--user-file</c>.</param>
+    /// <param name="takesUnknownNamesAsDirectoryAccounts">
+    /// Whether <c>--user-ldap</c> is given: a member naming no configured account is then accepted as a
+    /// directory account, since the directory is not read at start (ADR-0149 decision 8, amending ADR-0102 decision 4.1).
+    /// </param>
     /// <returns>The expansion; or null and the refusal after <c>surl: </c>, which exits <c>FailedInit</c> (2).</returns>
     public static (AccountGroupExpansion? Expansion, string? FailureMessage) Compose(
-        IReadOnlyList<ConfiguredGroup> groups, IEnumerable<string> accountNames)
+        IReadOnlyList<ConfiguredGroup> groups, IEnumerable<string> accountNames, bool takesUnknownNamesAsDirectoryAccounts = false)
     {
         ArgumentNullException.ThrowIfNull(groups);
         ArgumentNullException.ThrowIfNull(accountNames);
@@ -50,11 +62,18 @@ public sealed class AccountGroupExpansion
         var membersByGroup = groups.ToDictionary(group => group.Name, group => group.Members, StringComparer.Ordinal);
         var expanded = new Dictionary<string, FrozenSet<string>>(StringComparer.Ordinal);
         var failure = RefuseEveryone(groups)
-            ?? RefuseUnknownMember(groups, accounts, membersByGroup)
+            ?? RefuseUnknownMember(groups, accounts, membersByGroup, takesUnknownNamesAsDirectoryAccounts)
             ?? ExpandEveryGroup(groups, membersByGroup, expanded);
-        return failure is null
-            ? (new AccountGroupExpansion(accounts, [.. groups.Select(group => KeyValuePair.Create(group.Name, expanded[group.Name]))]), null)
-            : (null, failure);
+        if (failure is not null)
+        {
+            return (null, failure);
+        }
+
+        var expansion = new AccountGroupExpansion(
+            accounts, [.. groups.Select(group => KeyValuePair.Create(group.Name, expanded[group.Name]))], takesUnknownNamesAsDirectoryAccounts);
+        expansion.directoryNames.AddRange(groups.SelectMany(group => group.Members).Where(member => !member.IsGroup && !accounts.Contains(member.Name)).Select(member => member.Name).Distinct(StringComparer.Ordinal));
+
+        return (expansion, null);
     }
 
     /// <summary>A member naming no account or group (ADR-0101 decision 5 row 18).</summary>
@@ -122,13 +141,18 @@ public sealed class AccountGroupExpansion
         {
             log.WriteLine($"* Group {name}: {accounts.Count} accounts");
         }
+
+        foreach (var name in directoryNames)
+        {
+            log.WriteLine($"Member {name} is not a configured account; taken as a directory account");
+        }
     }
 
     private bool TryReach(ConfiguredMember member, HashSet<string> reached)
     {
         IReadOnlySet<string>? memberAccounts = member.IsGroup
             ? accountsByGroup.GetValueOrDefault(member.Name)
-            : accountNames.Contains(member.Name) ? new HashSet<string>(StringComparer.Ordinal) { member.Name } : null;
+            : ReachAccount(member.Name);
         if (memberAccounts is null)
         {
             return false;
@@ -136,6 +160,25 @@ public sealed class AccountGroupExpansion
 
         reached.UnionWith(memberAccounts);
         return true;
+    }
+
+    // An account, or, when a directory is the account source, any name: the directory is not read at start (ADR-0149 decision 8).
+    private HashSet<string>? ReachAccount(string name)
+    {
+        if (!accountNames.Contains(name))
+        {
+            if (!takesUnknownNamesAsDirectoryAccounts)
+            {
+                return null;
+            }
+
+            if (!directoryNames.Contains(name))
+            {
+                directoryNames.Add(name);
+            }
+        }
+
+        return new HashSet<string>(StringComparer.Ordinal) { name };
     }
 
     private static string? RefuseEveryone(IReadOnlyList<ConfiguredGroup> groups)
@@ -159,11 +202,12 @@ public sealed class AccountGroupExpansion
     private static string? RefuseUnknownMember(
         IReadOnlyList<ConfiguredGroup> groups,
         FrozenSet<string> accounts,
-        Dictionary<string, IReadOnlyList<ConfiguredMember>> membersByGroup)
+        Dictionary<string, IReadOnlyList<ConfiguredMember>> membersByGroup,
+        bool takesUnknownNamesAsDirectoryAccounts)
     {
         var unknown = groups
             .SelectMany(group => group.Members)
-            .FirstOrDefault(member => !(member.IsGroup ? membersByGroup.ContainsKey(member.Name) : accounts.Contains(member.Name)));
+            .FirstOrDefault(member => !(member.IsGroup ? membersByGroup.ContainsKey(member.Name) : takesUnknownNamesAsDirectoryAccounts || accounts.Contains(member.Name)));
         return unknown is null ? null : MemberNamesNothing(GroupOption, unknown.AsWritten);
     }
 

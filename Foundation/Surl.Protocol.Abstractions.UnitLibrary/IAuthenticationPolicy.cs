@@ -30,6 +30,17 @@ public interface IAuthenticationPolicy
     IHttpAuthenticationSession StartHttpConnection(TlsSession? tlsSession);
 
     /// <summary>
+    /// Starts the authentication session for one HTTP connection made in <paramref name="exchange"/>,
+    /// so the logins it judges name that exchange and its scheme (BL-871). The default ignores the
+    /// exchange and starts the session as <see cref="StartHttpConnection(TlsSession?)"/> does.
+    /// </summary>
+    /// <param name="tlsSession">The connection's TLS session as it stands; <see langword="null"/> means unencrypted.</param>
+    /// <param name="exchange">The connection's exchange, or <see langword="null"/> when unknown.</param>
+    /// <returns>The session that judges every request on the connection.</returns>
+    IHttpAuthenticationSession StartHttpConnection(TlsSession? tlsSession, LoginExchange? exchange) =>
+        StartHttpConnection(tlsSession);
+
+    /// <summary>
     /// Whether <paramref name="name"/> is exactly the name of a named account in the account set,
     /// its password unused: how the Azure Storage server tells a path-style request's first
     /// segment, <c>/&lt;account&gt;/&lt;container&gt;/&lt;blob&gt;</c>, from a container (ADR-0109,

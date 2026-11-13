@@ -73,12 +73,12 @@ access rows.
 Stand-in events and faults (ADR-0124 decisions 1 and 4, ADR-0129, built by BL-789):
 `ContentStore`'s five-argument constructor takes an optional `ISurlEventPublisher` and
 `IFaultPlan` (null: publish nothing, find nothing), held in internal `ContentStoreEventsAndFaults`.
-After each change it publishes one `StoreChangedEvent` (`Content`, `ExchangeId` null): `Written`
+After each change it publishes one `StoreChangedEvent` (`Content`, `ExchangeId` the `ContentCaller.ExchangeId` that made it, set with `WithExchange(long)`, else null; seeds, reset and restore are null; BL-872): `Written`
 with the file's whole length (write, append, committed session), `Deleted` (file or empty
 folder), `Renamed` with `PreviousName` (one event), `Created` (folder). `Name` is the request
 path, `/`-separated, a share's name first, never a host path; a refused or failed change
 publishes nothing. Before an upload writes and before a session commits it asks the plan at a
-`StoreWrite` point (`Path` the name, `Scheme` and `Account` from the `ContentCaller`); an
+`StoreWrite` point (`Path` the name, `Scheme`, `Account` and `ExchangeId` from the `ContentCaller`); an
 `OutOfSpace` rule answers `ContentUploadResult.TooLarge` without reading a byte and publishes
 `FaultAppliedEvent`. `ObjectMetadataIndex` takes an optional publisher too and publishes
 `MetadataStored` (`/` and the key) for each `Stored` outcome.
@@ -138,4 +138,13 @@ client put as an object (S3's zero-byte `x/`) under the folder's key and a final
 last write time when stored. It lasts while the folder exists, whatever is written inside;
 `ReadFolderObjectsAsync` answers every one whose folder is still there and drops the rest, and a
 full index drops them first. The index file holds them as ordinary entries; `ReadAsync` and
-`StoreAsync` never take a folder key.
+`StoreAsync` never take a folder key. `ForgetFolderObjectAsync` (BL-930) drops one whether or not its
+folder holds keys, rewrites the index file and publishes `Deleted` (`/` and the key).
+
+Verified digests (ADR-0115 decision 2.1, BL-865): `RecordVerifiedDigestAsync(key, digest, hashedStatus)`
+records that a file hashed to a content digest, only while the file's stamp still equals the
+`ContentFileStatus` read before hashing; `IsDigestVerifiedAsync(key, digest)` answers true while the
+stamp still matches, and drops a stale record. They sit beside the entries in memory only - never in
+the index file, never counted in `Count` - at most `MaxEntries` of them (stale ones dropped first,
+then a new key is not recorded), and a reset or restore forgets them. The OCI registry uses them so a
+blob is hashed once per stamp.

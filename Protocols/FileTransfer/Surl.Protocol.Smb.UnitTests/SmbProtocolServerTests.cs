@@ -160,6 +160,22 @@ public sealed class SmbProtocolServerTests
     }
 
     [TestMethod]
+    [DataRow("smb")]
+    [DataRow("smbs")]
+    public async Task SessionSetup_Login_HandsThePolicyTheExchangeIdAndScheme(string scheme)
+    {
+        var policy = new SecretPasswordPolicy();
+        var connection = new InMemoryConnection([Hex(NegotiateHex + SessionSetupHex)]);
+
+        await Server(policy).ServeAsync(connection, Context(new ManualTimeProvider(), TestContext.CancellationToken, scheme: scheme));
+
+        var exchange = policy.Logins.Single().Exchange;
+        Assert.IsNotNull(exchange);
+        Assert.AreEqual(1, exchange.ExchangeId);
+        Assert.AreEqual(scheme, exchange.ListenUrl.Scheme);
+    }
+
+    [TestMethod]
     public async Task TreeConnect_BeforeLogin_IsBadUserId()
     {
         var written = await ServeAsync(TestContext.CancellationToken, [NegotiateHex, TreeConnectHex("share")]);

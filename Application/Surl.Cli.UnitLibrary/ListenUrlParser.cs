@@ -17,6 +17,10 @@ namespace Surl.Cli;
 /// </remarks>
 public static class ListenUrlParser
 {
+    /// <summary>The scheme that serves MCP on surl's own standard input and output.</summary>
+    public const string StdioScheme = "mcp+stdio";
+
+    private const string StdioWithAPart = "mcp+stdio: names no host, port, path, query or fragment";
     private const string SchemeSeparator = "://";
     private const string EncodedZoneSeparator = "%25";
     private const int HighestPort = 65535;
@@ -32,6 +36,9 @@ public static class ListenUrlParser
     private const string PathQueryOrFragment = "A listen URL cannot have a path, query or fragment";
 
     private const string AsciiLettersAndDigits = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+
+    // The schemes whose server answers at the listen URL's path (ADR-0153): the SignalR hub's endpoint base.
+    private static readonly HashSet<string> PathSchemes = ["signalr", "signalrs"];
 
     private static readonly SearchValues<char> SchemeCharacters = SearchValues.Create(AsciiLettersAndDigits + "+-.");
     private static readonly SearchValues<char> HostNameCharacters = SearchValues.Create(AsciiLettersAndDigits + "-.");
@@ -94,6 +101,11 @@ public static class ListenUrlParser
 
     private static ListenUrlParseResult Parse(string argument, TryGetSchemeDefaultPort tryGetDefaultPort)
     {
+        if (argument.StartsWith(StdioScheme + ":", StringComparison.OrdinalIgnoreCase))
+        {
+            return ParseStdio(argument, tryGetDefaultPort);
+        }
+
         var separator = argument.IndexOf(SchemeSeparator, StringComparison.Ordinal);
         if (separator < 0 || !IsSchemeText(argument.AsSpan(0, separator)))
         {
@@ -116,10 +128,31 @@ public static class ListenUrlParser
         return ParseAuthority(scheme, defaultPort, afterScheme[..authorityLength], afterScheme[authorityLength..]);
     }
 
+    // mcp+stdio: or mcp+stdio:// names no host, port, path, query or fragment (ADR-0111 decision 5): it means surl's own
+    // standard input and output, so its listen URL carries an empty host and port 0.
+    private static ListenUrlParseResult ParseStdio(string argument, TryGetSchemeDefaultPort tryGetDefaultPort)
+    {
+        if (!tryGetDefaultPort(StdioScheme, out _))
+        {
+            return ListenUrlParseResult.Refused(SurlExitCode.UnsupportedProtocol, $"(1) Protocol \"{StdioScheme}\" not supported");
+        }
+
+        var rest = argument[(StdioScheme.Length + 1)..];
+        return rest is "" or "//"
+            ? ListenUrlParseResult.Accepted(new ListenUrl(StdioScheme, string.Empty, 0))
+            : Rejected(StdioWithAPart);
+    }
+
     // Upstream curl's table first, so no extended scheme shadows an original one.
-    private static bool TryGetDefaultPort(string scheme, IReadOnlyCollection<string> extendedSchemes, out int defaultPort) =>
-        SchemeDefaultPorts.TryGetDefaultPort(scheme, out defaultPort)
-        || (extendedSchemes.Contains(scheme, StringComparer.Ordinal) && ExtendedSchemeDefaultPorts.TryGetDefaultPort(scheme, out defaultPort));
+    private static bool TryGetDefaultPort(string scheme, IReadOnlyCollection<string> extendedSchemes, out int defaultPort)
+    {
+        // mcp+stdio names no port: claimed, it is accepted with port 0 and ParseStdio reads the rest.
+        defaultPort = 0;
+        return scheme == StdioScheme
+            ? extendedSchemes.Contains(scheme, StringComparer.Ordinal)
+            : SchemeDefaultPorts.TryGetDefaultPort(scheme, out defaultPort)
+                || (extendedSchemes.Contains(scheme, StringComparer.Ordinal) && ExtendedSchemeDefaultPorts.TryGetDefaultPort(scheme, out defaultPort));
+    }
 
     private static ListenUrlParseResult ParseAuthority(string scheme, int defaultPort, string authority, string afterAuthority)
     {
@@ -145,12 +178,15 @@ public static class ListenUrlParser
             return Rejected(BadPort);
         }
 
-        if (!IsEmptyOrSlash(afterAuthority))
+        if (IsEmptyOrSlash(afterAuthority))
         {
-            return Rejected(PathQueryOrFragment);
+            return ListenUrlParseResult.Accepted(withDefaultPort with { Port = port });
         }
 
-        return ListenUrlParseResult.Accepted(withDefaultPort with { Port = port });
+        // ADR-0153: only the schemes that serve at a path keep one; a query or fragment is refused for all.
+        return PathSchemes.Contains(withDefaultPort.Scheme) && !afterAuthority.AsSpan().ContainsAny('?', '#')
+            ? ListenUrlParseResult.Accepted(withDefaultPort with { Port = port, Path = afterAuthority })
+            : Rejected(PathQueryOrFragment);
     }
 
     private static bool IsEmptyOrSlash(string text) => text.Length == 0 || text == "/";

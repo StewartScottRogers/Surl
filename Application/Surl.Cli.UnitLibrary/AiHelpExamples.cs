@@ -53,6 +53,12 @@ public static class AiHelpExamples
             SurlExitCode.DataDirectoryInUse)
             with { Precondition = AiHelpExamplePrecondition.DataDirectoryHeldByAnotherSurl },
         Serving("auth", "Require a login", ["-u", "alice:secret", HttpListenUrl], [ListeningOnHttp], [], ["curl --digest -u alice:secret http://127.0.0.1:<port>/"]),
+        Refused(
+            "auth",
+            "An LDAP account source over clear text",
+            ["--user-ldap", "ldap://127.0.0.1:389/dc=example,dc=com;plaintext", HttpListenUrl],
+            ["surl: (2) --user-ldap plaintext needs --allow-plaintext-auth"],
+            SurlExitCode.FailedInit),
         Serving(
             "auth",
             "Read Kerberos service keys for Negotiate",
@@ -130,7 +136,35 @@ public static class AiHelpExamples
             ["--max-time", "abc", HttpListenUrl],
             ["surl: option --max-time: " + OptionArgumentReader.NotANumber, "surl: " + CommandLineFailure.TryHelpLine],
             SurlExitCode.FailedInit),
-        Serving("coap", "Serve CoAP", ["coap://127.0.0.1:0/"], ["Listening on coap://127.0.0.1:<port>/"], [], []),
+        Serving(
+            "amqp",
+            "For a test: serve an AMQP 0-9-1 broker without accounts",
+            ["--allow-anonymous", "amqp://127.0.0.1:0/"],
+            ["Listening on amqp://127.0.0.1:<port>/"],
+            ["surl: warning: --allow-anonymous: every request and login is accepted without checking credentials"],
+            []),
+        Serving(
+            "amqp1",
+            "For a test: serve AMQP 1.0 without accounts",
+            ["--allow-anonymous", "amqp1://127.0.0.1:0/"],
+            ["Listening on amqp1://127.0.0.1:<port>/"],
+            ["surl: warning: --allow-anonymous: every request and login is accepted without checking credentials"],
+            []),
+        Serving(
+            "azure-storage",
+            "For a test: serve Azure Blob Storage over HTTPS with a throwaway certificate",
+            ["--self-signed", "-u", "devstoreaccount1:c2VjcmV0", "az://127.0.0.1:0/"],
+            ["Listening on az://127.0.0.1:<port>/"],
+            ["surl: warning: --self-signed: serving a throwaway certificate; clients must skip verification (curl -k)"],
+            []),
+        Serving(
+            "azure-storage",
+            "For a test: serve Azure Blob Storage as plain HTTP for an http:// endpoint",
+            ["--az-plaintext", "-u", "devstoreaccount1:c2VjcmV0", "az://127.0.0.1:0/"],
+            ["Listening on az://127.0.0.1:<port>/"],
+            ["surl: warning: --az-plaintext: az is served as plain HTTP, without TLS"],
+            []),
+        Serving("coap", "Serve CoAP",["coap://127.0.0.1:0/"], ["Listening on coap://127.0.0.1:<port>/"], [], []),
         Serving("dict", "Serve DICT", ["dict://127.0.0.1:0/"], ["Listening on dict://127.0.0.1:<port>/"], [], ["curl dict://127.0.0.1:<port>/d:surl"]),
         Serving("dns", "Serve DNS over UDP and TCP, zone transfers allowed", ["--allow-zone-transfer", "dns://127.0.0.1:0/"], ["Listening on dns://127.0.0.1:<port>/"], [], []),
         Serving(
@@ -141,6 +175,27 @@ public static class AiHelpExamples
             ["surl: warning: --allow-anonymous: every request and login is accepted without checking credentials"],
             ["curl ftp://127.0.0.1:<port>/example.txt"]),
         Serving("gopher", "Serve Gopher", ["gopher://127.0.0.1:0/"], ["Listening on gopher://127.0.0.1:<port>/"], [], ["curl gopher://127.0.0.1:<port>/"]),
+        Serving(
+            "grpc",
+            "For a test: serve gRPC without accounts",
+            ["--allow-anonymous", "grpc://127.0.0.1:0/"],
+            ["Listening on grpc://127.0.0.1:<port>/"],
+            ["surl: warning: --allow-anonymous: every request and login is accepted without checking credentials"],
+            []),
+        Serving(
+            "gs",
+            "For a test: serve Google Cloud Storage over HTTPS with a throwaway certificate and one account",
+            ["--self-signed", "-u", "GOOGTESTKEY:secret", "gs://127.0.0.1:0/"],
+            ["Listening on gs://127.0.0.1:<port>/"],
+            ["surl: warning: --self-signed: serving a throwaway certificate; clients must skip verification (curl -k)"],
+            []),
+        Serving(
+            "gs",
+            "For a test: serve Google Cloud Storage, XML and JSON APIs, as plain HTTP for an http:// endpoint such as STORAGE_EMULATOR_HOST",
+            ["--gs-plaintext", "-u", "GOOGTESTKEY:secret", "gs://127.0.0.1:0/"],
+            ["Listening on gs://127.0.0.1:<port>/"],
+            ["surl: warning: --gs-plaintext: gs is served as plain HTTP, without TLS"],
+            []),
         Serving("http", "Serve HTTP", [HttpListenUrl], [ListeningOnHttp], [], ["curl -I http://127.0.0.1:<port>/"]),
         Refused(
             "http",
@@ -156,12 +211,32 @@ public static class AiHelpExamples
             ["surl: warning: --allow-anonymous: every request and login is accepted without checking credentials"],
             ["curl imap://127.0.0.1:<port>/"]),
         Serving(
+            "kafka",
+            "For a test: serve a Kafka broker without accounts",
+            ["--allow-anonymous", "kafka://127.0.0.1:0/"],
+            ["Listening on kafka://127.0.0.1:<port>/"],
+            ["surl: warning: --allow-anonymous: every request and login is accepted without checking credentials"],
+            []),
+        Serving(
             "ldap",
             "For a test: accept a simple bind over plain LDAP",
             ["--allow-plaintext-auth", "-u", "alice:secret", "ldap://127.0.0.1:0/"],
             ["Listening on ldap://127.0.0.1:<port>/"],
             ["surl: warning: --allow-plaintext-auth: passwords and tokens are accepted over unencrypted connections"],
             ["curl -u alice:secret ldap://127.0.0.1:<port>/"]),
+        Serving(
+            "mcp",
+            "For a test: serve MCP without accounts",
+            ["--allow-anonymous", "mcp://127.0.0.1:0/"],
+            ["Listening on mcp://127.0.0.1:<port>/"],
+            ["surl: warning: --allow-anonymous: every request and login is accepted without checking credentials"],
+            []),
+        Refused(
+            "mcp",
+            "mcp+stdio: serves standard input and output alone",
+            ["mcp+stdio:", "mcp://127.0.0.1:0/"],
+            ["surl: mcp+stdio: serves standard input and output and cannot be combined with another listen URL"],
+            SurlExitCode.FailedInit),
         Serving(
             "mqtt",
             "For a test: serve MQTT without accounts",
@@ -170,6 +245,13 @@ public static class AiHelpExamples
             ["surl: warning: --allow-anonymous: every request and login is accepted without checking credentials"],
             ["curl mqtt://127.0.0.1:<port>/example"]),
         Serving(
+            "mqtt5",
+            "For a test: serve an MQTT 5.0 broker without accounts",
+            ["--allow-anonymous", "mqtt5://127.0.0.1:0/"],
+            ["Listening on mqtt5://127.0.0.1:<port>/"],
+            ["surl: warning: --allow-anonymous: every request and login is accepted without checking credentials"],
+            []),
+        Serving(
             "nats",
             "For a test: serve NATS without accounts",
             ["--allow-anonymous", "nats://127.0.0.1:0/"],
@@ -177,12 +259,36 @@ public static class AiHelpExamples
             ["surl: warning: --allow-anonymous: every request and login is accepted without checking credentials"],
             []),
         Serving(
+            "oci",
+            "For a test: serve an OCI registry over HTTPS with a throwaway certificate",
+            ["--self-signed", "-u", "alice:secret", "oci://127.0.0.1:0/"],
+            ["Listening on oci://127.0.0.1:<port>/"],
+            ["surl: warning: --self-signed: serving a throwaway certificate; clients must skip verification (curl -k)"],
+            ["curl -k -u alice:secret \"https://127.0.0.1:<port>/token?service=surl&scope=repository:<name>:pull\""]),
+        Serving(
+            "oci",
+            "For a test: serve an OCI registry as plain HTTP for an http:// registry",
+            ["--oci-plaintext", "--allow-anonymous", "oci://127.0.0.1:0/"],
+            ["Listening on oci://127.0.0.1:<port>/"],
+            [
+                "surl: warning: --allow-anonymous: every request and login is accepted without checking credentials",
+                "surl: warning: --oci-plaintext: oci is served as plain HTTP, without TLS",
+            ],
+            ["curl http://127.0.0.1:<port>/v2/"]),
+        Serving(
             "pop3",
             "For a test: retrieve mail without accounts",
             ["--allow-anonymous", "pop3://127.0.0.1:0/"],
             ["Listening on pop3://127.0.0.1:<port>/"],
             ["surl: warning: --allow-anonymous: every request and login is accepted without checking credentials"],
             ["curl pop3://127.0.0.1:<port>/"]),
+        Serving(
+            "redis",
+            "For a test: serve Redis without accounts",
+            ["--allow-anonymous", "redis://127.0.0.1:0/"],
+            ["Listening on redis://127.0.0.1:<port>/"],
+            ["surl: warning: --allow-anonymous: every request and login is accepted without checking credentials"],
+            []),
         Serving("rtsp", "Serve RTSP", ["rtsp://127.0.0.1:0/"], ["Listening on rtsp://127.0.0.1:<port>/"], [], ["curl rtsp://127.0.0.1:<port>/"]),
         Serving(
             "s3",
@@ -212,6 +318,13 @@ public static class AiHelpExamples
             ["Listening on smtp://127.0.0.1:<port>/"],
             ["surl: warning: --allow-anonymous: every request and login is accepted without checking credentials"],
             ["curl --mail-from a@example.com --mail-rcpt b@example.com -T mail.txt smtp://127.0.0.1:<port>/example.com"]),
+        Serving(
+            "signalr",
+            "For a test: serve a SignalR hub without accounts",
+            ["--allow-anonymous", "signalr://127.0.0.1:0/"],
+            ["Listening on signalr://127.0.0.1:<port>/"],
+            ["surl: warning: --allow-anonymous: every request and login is accepted without checking credentials"],
+            []),
         Serving(
             "socketio",
             "For a test: serve Socket.IO without accounts",
@@ -257,9 +370,9 @@ public static class AiHelpExamples
         Serving("xmpp", "Serve XMPP", ["--allow-anonymous", "xmpp://127.0.0.1:0/"], ["Listening on xmpp://127.0.0.1:<port>/"], ["surl: warning: --allow-anonymous: every request and login is accepted without checking credentials"], []),
         Refused(
             "extended",
-            "An extended scheme no extended server in this build answers",
-            ["oci://127.0.0.1:0/"],
-            ["surl: (1) Protocol \"oci\" not supported"],
+            "A scheme no server in this build answers",
+            ["nosuchscheme://127.0.0.1:0/"],
+            ["surl: (1) Protocol \"nosuchscheme\" not supported"],
             SurlExitCode.UnsupportedProtocol),
         Refused(
             "control",

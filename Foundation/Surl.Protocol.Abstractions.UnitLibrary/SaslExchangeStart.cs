@@ -18,9 +18,11 @@ namespace Surl.Protocol.Abstractions;
 /// mechanism may offer and negotiate one: <see langword="false"/> for the mail servers, whose
 /// challenges stay as ADR-0049 says, and <see langword="true"/> for LDAP.
 /// </param>
+/// <param name="Exchange">The exchange the login was made in, or <see langword="null"/> when unknown.</param>
 public sealed record SaslExchangeStart(
     string Scheme,
     string Mechanism,
     ReadOnlyMemory<byte>? InitialResponse,
     TlsSession? TlsSession,
-    bool CanCarrySecurityLayer = false);
+    bool CanCarrySecurityLayer = false,
+    LoginExchange? Exchange = null);

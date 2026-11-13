@@ -36,6 +36,9 @@ public sealed class OciRegistryProtocolServer : IConnectionProtocolServer, IConn
     /// </summary>
     public const string Scheme = "oci";
 
+    // Makes upload session UUIDs outside tests: a version 4 UUID each.
+    private static readonly Func<Guid> NewRandomSessionId = Guid.NewGuid;
+
     private readonly ContentStore store;
     private readonly IAuthenticationPolicy authenticationPolicy;
     private readonly TimeProvider timeProvider;
@@ -53,8 +56,23 @@ public sealed class OciRegistryProtocolServer : IConnectionProtocolServer, IConn
     /// The clock a connection refusal's <c>Date</c> is taken from, and upload sessions and tokens expire on.
     /// </param>
     public OciRegistryProtocolServer(ContentStore store, IAuthenticationPolicy authenticationPolicy, TimeProvider timeProvider)
-        : this(store, authenticationPolicy, timeProvider, Guid.NewGuid)
+        : this(store, authenticationPolicy, timeProvider, NewRandomSessionId)
     {
+    }
+
+    /// <summary>
+    /// Creates the server with the shared object metadata index, where each blob or manifest
+    /// file's verified digest is cached against the file's stamp, so a file is hashed once until it
+    /// changes rather than on every read (ADR-0115, decision 2.1).
+    /// </summary>
+    /// <param name="store">The shared content store; its folders holding an <c>oci-layout</c> are the repositories.</param>
+    /// <param name="index">The object metadata index kept beside <paramref name="store"/>'s served root.</param>
+    /// <param name="authenticationPolicy">Checks the token endpoint's credentials, and whether anonymous reads are allowed.</param>
+    /// <param name="timeProvider">The clock.</param>
+    public OciRegistryProtocolServer(ContentStore store, ObjectMetadataIndex index, IAuthenticationPolicy authenticationPolicy, TimeProvider timeProvider)
+        : this(store, authenticationPolicy, timeProvider, NewRandomSessionId, metadataIndex: index)
+    {
+        ArgumentNullException.ThrowIfNull(index);
     }
 
     /// <summary>
@@ -66,7 +84,8 @@ public sealed class OciRegistryProtocolServer : IConnectionProtocolServer, IConn
     /// <param name="timeProvider">The clock.</param>
     /// <param name="newSessionId">Makes each upload session's UUID.</param>
     /// <param name="maxLiveTokens">How many live tokens it keeps, so a test reaches the bound.</param>
-    internal OciRegistryProtocolServer(ContentStore store, IAuthenticationPolicy authenticationPolicy, TimeProvider timeProvider, Func<Guid> newSessionId, int maxLiveTokens = OciTokenBook.MaxLiveTokens)
+    /// <param name="metadataIndex">Where verified digests are cached; <see langword="null"/> hashes on every read.</param>
+    internal OciRegistryProtocolServer(ContentStore store, IAuthenticationPolicy authenticationPolicy, TimeProvider timeProvider, Func<Guid> newSessionId, int maxLiveTokens = OciTokenBook.MaxLiveTokens, ObjectMetadataIndex? metadataIndex = null)
     {
         ArgumentNullException.ThrowIfNull(store);
         ArgumentNullException.ThrowIfNull(authenticationPolicy);
@@ -75,7 +94,7 @@ public sealed class OciRegistryProtocolServer : IConnectionProtocolServer, IConn
         this.store = store;
         this.authenticationPolicy = authenticationPolicy;
         this.timeProvider = timeProvider;
-        state = new OciServerState(new OciUploadSessions(timeProvider), new SemaphoreSlim(1, 1), newSessionId, new OciTokenBook(timeProvider, maxLiveTokens));
+        state = new OciServerState(new OciUploadSessions(timeProvider), new SemaphoreSlim(1, 1), newSessionId, new OciTokenBook(timeProvider, maxLiveTokens), metadataIndex);
     }
 
     /// <inheritdoc/>

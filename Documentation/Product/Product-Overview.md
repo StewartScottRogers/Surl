@@ -68,15 +68,18 @@ first - and the Curl port needs exactly that to be measured.
   `surl` on `PATH` that answers every scheme.
 - The Curl port, in the last phase: Surl is the instrument that measures it.
 - .NET test suites that stand up a server in-process, without launching a process, through
-  `Surl.Api` - planned (Stewart, 2026-11-04;
+  `Surl.Api` (Stewart, 2026-11-04;
   [ADR-0098](../Planning/Decisions/ADR-0098-surl-api-and-surl-mcp-join-surl-as-products.md)).
 - AI agents that start, list and stop Surl servers and see what a client sent, through the
-  `Surl.Mcp` MCP server host - planned (ADR-0098).
+  `Surl.Mcp` MCP server host, the `surl-mcp` executable (ADR-0098).
 - Contributors adding a protocol server, who need the seams to be obvious.
 
-`surl` is one of three products: `Surl.Api` and `Surl.Mcp` are planned beside it in
-`Application/` and keep its secure-by-default rules (ADR-0098). Their design is decided by
-BL-611 and BL-612; until then neither project exists.
+`surl` is one of three products: `Surl.Api` and `Surl.Mcp` sit beside it in `Application/` and
+keep its secure-by-default rules (ADR-0098). `Surl.Api`'s design is
+[ADR-0099](../Planning/Decisions/ADR-0099-one-server-composition-for-surl-and-surl-api-and-surl-apis-programming-interface.md)
+and `Surl.Mcp`'s is
+[ADR-0103](../Planning/Decisions/ADR-0103-surl-mcp-its-tools-and-the-mcp-core-it-shares-with-the-extended-mcp-server.md);
+all three start servers through `Surl.Composition`.
 
 Surl is built to be exposed to the internet, not only to answer on loopback in a test
 (Stewart, 2026-09-28). The security scope that hardening sets - connection, time and size
@@ -93,7 +96,7 @@ is decided in
 - **Beating dedicated servers on throughput.** Fidelity to what upstream curl expects is
   the target, not nginx's request rate.
 - **Protocols upstream curl does not request**, except the Curl port's extended protocols
-  (ADR-0083, Stewart 2026-11-04), served on a parallel "Extended servers" track and turned
+  (ADR-0083, Stewart 2026-11-04; see "Extended protocols"), served on a parallel "Extended servers" track and turned
   off with `SURL_EXTENSIONS=0`. Otherwise Surl answers curl; a protocol curl cannot speak has
   no mate to be.
 
@@ -106,6 +109,9 @@ is decided in
 | Upstream test servers | 7 in C, 11 scripts | `tests/server` and `tests/` at tag `curl-8_21_0` |
 
 ### 29 schemes, 15 protocol servers and a content store
+
+These are the original protocols. The 19 extended servers answer further schemes; they are listed
+under "Extended protocols" below and are not counted here.
 
 | Library | Schemes answered |
 | --- | --- |
@@ -230,7 +236,9 @@ The terms below are defined in the [glossary](../Wiki/Glossary.md), section "Mai
   `EHLO` with `SIZE`, `8BITMIME`, `SMTPUTF8`, `PIPELINING`, `ENHANCEDSTATUSCODES`, `STARTTLS` and
   `AUTH`; `MAIL`, `RCPT` (at most 100 per transaction) and `DATA`, each message stored with a
   `Return-Path` and a `Received` trace field in the `INBOX` of every recipient whose local part
-  names an account, a recipient that names none answered alike and its copy discarded; `VRFY`
+  names an account, a recipient that names none answered alike and its copy discarded, and the
+  recipient's domain ignored unless a `--mail-domain` is configured (see "Shared stores and
+  configuring a real server" below); `VRFY`
   and `EXPN` answered `252` whatever is asked. `MAIL` needs a login unless `--allow-anonymous`
   is given. The body streams into a pending message (a pending file with a data directory) as
   it is read, bounded by `--max-filesize`, and a message file that cannot be written is
@@ -641,6 +649,46 @@ port pass. The terms are defined in the [glossary](../Wiki/Glossary.md), section
   curl (ADR-0089 decision 9).
 - Phase 7 is a snapshot at one port commit; a later port commit needs a new measurement.
 
+### Shared stores and configuring a real server
+
+Beyond answering one request at a time, `surl` can be a server that several protocols share and
+an operator configures. The terms are defined in the [glossary](../Wiki/Glossary.md), section
+"Shared stores and the configuration command line".
+
+- **One store per job, per `surl` run**
+  ([ADR-0100](../Planning/Decisions/ADR-0100-the-stores-synergetic-protocols-share-files-mail-the-message-bus-and-accounts.md)
+  decision 1). Files are the one `ContentStore`, handed to every file-serving server, so a file
+  uploaded over FTP is fetched over HTTP, SFTP, SMB or `s3`. Mail is the one `MailboxStore`, so
+  mail sent over SMTP is read over IMAP and POP3. Messages are the one `MessageBus`: today
+  `mqtt`, `mqtts`, `nats`, `natss`, `stomp` and `stomps` are registered on it, so a message
+  published over `mqtt://` is consumed over NATS or STOMP, and `mqtt5` keeps no retained
+  messages of its own (decision 3.9). The `mqtt5`, `amqp`, `amqp1`, `kafka` and `redis`
+  libraries are written against the bus, and registering each in `surl` is intent: BL-975,
+  BL-507, BL-514, BL-973 and BL-492. Accounts are the one `AccountBook` every login reads.
+- **The configuration command line**
+  ([ADR-0101](../Planning/Decisions/ADR-0101-surls-configuration-surface-the-config-file-repeatable-item-options-and-one-configuration-model.md)
+  for the surface, [ADR-0102](../Planning/Decisions/ADR-0102-what-the-mail-file-message-and-group-options-mean-to-the-shared-stores.md)
+  for what each option means). `-K`/`--config <file>` reads options from a file in curl's
+  config-file syntax, and `--url <listen URL>` gives a listen URL in it. Repeatable item
+  options configure the stores: `--mail-domain`, `--mailbox`, `--mailbox-file`, `--mail-alias`,
+  `--mail-catch-all` and `--shared-folder` for mail; `--share`, `--share-access` and `--bucket`
+  for files; `--topic`, `--queue`, `--topic-map` and `--topic-access` for messages; and
+  `--group` for accounts. `surl` reads no config file it is not told to, and a surl given none
+  of these options behaves as before (ADR-0102 decision 0). Anything that widens access
+  (`--mail-catch-all`, and `@everyone` in `--share-access` or `--topic-access`) warns at every
+  start. `surl --aihelp mail`, `messages`, `content`, `auth` and `surl` list each option; the
+  README holds a worked config file.
+- **The hosts.** `Surl.Api` takes the same items as `SurlServerOptions` properties and
+  `ConfigFiles` (ADR-0101 decision 2, BL-668). `surl-mcp`'s `start_server` takes `surl`'s own
+  options, so the same items. Both are documented in the README's "Using Surl from a test suite
+  or an AI agent" and in `Application/Surl.Api/README.md` and `Application/Surl.Mcp/README.md`.
+- **Not built yet, stated as intent.** LDAP as an optional source of accounts is decided by
+  BL-671 and built by BL-672 and BL-673. The Curl port's own clients reading the shared files
+  and messages are BL-669 and BL-670; they run in `Integration` tests only and prove nothing
+  (ADR-0083). Test control of the stores - seeding, resetting, snapshotting and restoring them,
+  the store change events and `--fault` - is documented in
+  `Documentation/Wiki/Surl-As-A-Stand-In.md`.
+
 ### Also in scope
 
 - **HTTP versions:** 1.0, 1.1, 2 and 3 over QUIC, on the server side.
@@ -704,6 +752,60 @@ The command-line surface - which of curl's option names carry a server-side mean
 what each does, how listen URLs are read, and the exact text surl prints - is decided in
 [ADR-0007](../Planning/Decisions/ADR-0007-the-phase-1-command-line-surface.md).
 
+## Extended protocols
+
+Beside the 29 schemes upstream curl speaks, Surl answers the schemes the Curl port adds and upstream
+curl does not have: 19 servers, each `Surl.Extended.Protocol.<Name>.UnitLibrary` with its `.UnitTests`
+twin ([ADR-0083](../Planning/Decisions/ADR-0083-how-surl-serves-the-curl-ports-extended-protocols-and-how-they-are-tested.md),
+Stewart's approval of 2026-11-04). All 19 are composed by `ExtendedProtocolServers` in
+`Surl.Composition`; `coaps` is composed as a deferred server that waits for the DTLS listener.
+
+- **The oracle exception.** Upstream curl cannot speak these schemes, so for the projects named
+  `Surl.Extended.Protocol.*` the protocol's **specification** is the oracle, not upstream curl. Unit
+  tests replay bytes written from the specification. The Curl port's client, pinned by SHA-256 in
+  `CurlPortBuilds.json` (never in `UpstreamCurlBuilds.json`), connects as a live client in
+  `Integration` tests only; its output is never proof, an expected value or ADR evidence. Every
+  original protocol keeps upstream curl as its only oracle (ADR-0003).
+- **The switch.** `SURL_EXTENSIONS=0` turns every extended server off. An extended scheme is then
+  refused exactly as an unknown scheme is: `UnsupportedProtocol` (1). Any other value, or none, leaves
+  them on. `--version` lists the extended schemes on an `Extended:` line apart from `Protocols:`.
+- **Plugin is skipped.** The port's Plugin protocol hands a URL to a local helper program
+  (`curl-proto-<scheme>`); it has no wire protocol and no fixed scheme, so there is nothing for a
+  server to answer.
+- **Isolation.** An extended server references only `Surl.Protocol.Abstractions` and the horizontal
+  libraries, never an original server, and no original server references an extended one. An
+  extended server never changes how an original scheme is served.
+- **Requirement matrices.** Each server has a matrix of the requirements that bind a server in
+  `Documentation/Conformance/Extended/<Name>.md`, written from the specification and never from the
+  Curl port's matrices; its "Covered by" column names the tests.
+
+| Library (`Surl.Extended.Protocol.` plus) | Schemes | Specification | Matrix |
+| --- | --- | --- | --- |
+| `S3` | `s3` | Amazon S3 API Reference, SigV4 | [S3](../Conformance/Extended/S3.md) |
+| `AzureStorage` | `az`, `abfs`, `abfss` | Azure Storage REST API, `x-ms-version: 2025-01-05` | [AzureStorage](../Conformance/Extended/AzureStorage.md) |
+| `GoogleCloudStorage` | `gs` | Cloud Storage XML API and JSON API, V4 signing | [GoogleCloudStorage](../Conformance/Extended/GoogleCloudStorage.md), [JSON API](../Conformance/Extended/GoogleCloudStorage-Json.md) |
+| `OciRegistry` | `oci` | OCI Distribution and Image Format Specifications 1.1.0, Docker token authentication | [OciRegistry](../Conformance/Extended/OciRegistry.md) |
+| `Grpc` | `grpc`, `grpcs` | gRPC over HTTP/2, status codes, compression, reflection, protobuf encoding | [Grpc](../Conformance/Extended/Grpc.md) |
+| `SignalR` | `signalr`, `signalrs` | ASP.NET Core SignalR transport and hub protocols, RFC 6455 | [SignalR](../Conformance/Extended/SignalR.md) |
+| `SocketIo` | `socketio`, `socketios` | Engine.IO protocol 4, Socket.IO protocol 5, RFC 6455 | [SocketIo](../Conformance/Extended/SocketIo.md) |
+| `WebTransport` | `webtransport` | WebTransport over HTTP/3 (draft-ietf-webtrans-http3), RFC 9220, 9297, 9221 | [WebTransport](../Conformance/Extended/WebTransport.md) |
+| `McpServer` | `mcp`, `mcps`, `mcp+stdio` | Model Context Protocol, revision 2025-06-18 | [McpServer](../Conformance/Extended/McpServer.md) |
+| `Coap` | `coap`, `coaps` | RFC 7252, 7959, 7641, 6690 | [Coap](../Conformance/Extended/Coap.md) |
+| `DnsQuery` | `dns` | RFC 1035, 3596, 2782, 8659, 3597 and the encrypted transports | [DnsQuery](../Conformance/Extended/DnsQuery.md) |
+| `Mqtt5` | `mqtt5`, `mqtt5s`, `mqtt5+ws` | OASIS MQTT 5.0 | [Mqtt5](../Conformance/Extended/Mqtt5.md) |
+| `Amqp0` | `amqp`, `amqps` | AMQP 0-9-1 and RabbitMQ's published extensions | [Amqp0](../Conformance/Extended/Amqp0.md) |
+| `Amqp1` | `amqp1`, `amqp1s` | OASIS AMQP 1.0, RFC 4616, 4505 | [Amqp1](../Conformance/Extended/Amqp1.md) |
+| `Kafka` | `kafka`, `kafkas` | Apache Kafka protocol guide (4.4), RFC 4616, 5802 | [Kafka](../Conformance/Extended/Kafka.md) |
+| `Nats` | `nats`, `natss` | NATS client protocol, subjects, queue groups, NATS ADR-4 | [Nats](../Conformance/Extended/Nats.md) |
+| `Stomp` | `stomp`, `stomps` | STOMP 1.2 | [Stomp](../Conformance/Extended/Stomp.md) |
+| `Xmpp` | `xmpp`, `xmpps` | RFC 6120, 6121, 7622, XEP-0030, 0199, 0368 | [Xmpp](../Conformance/Extended/Xmpp.md) |
+| `Redis` | `redis`, `rediss` | RESP2 and RESP3, the command reference, Pub/Sub | [Redis](../Conformance/Extended/Redis.md) |
+
+Each server's ADR is listed in [Requirements](Requirements.md) FR-066 to FR-084, with its
+integration test class. The messaging servers share one `Surl.MessageBus` and the file-store servers
+one content store with the original servers (ADR-0100). Phase 7 measures the port's extended clients
+against these servers beside its original ones (ADR-0089 decision 9).
+
 ## Architecture
 
 Two rules carry the design, the same two the Curl port is built on, turned around.
@@ -712,7 +814,8 @@ Two rules carry the design, the same two the Curl port is built on, turned aroun
 server references `Surl.Protocol.Abstractions` and the horizontal libraries ADR-0002
 lists, as later ADRs amend it (`Surl.Content`, `Surl.Cryptography`, the four SSH primitive
 libraries of ADR-0048, the two of ADR-0051 decision 3 and the three of ADR-0061, and the mail
-servers' `Surl.MailStore` and `Surl.LineProtocol` of ADR-0050, and the HTTP, WebSocket and RTSP
+servers' `Surl.MailStore` and `Surl.LineProtocol` of ADR-0050, the messaging servers'
+`Surl.MessageBus` of ADR-0100, and the HTTP, WebSocket and RTSP
 servers' `Surl.HttpMessage` of ADR-0070, and the HTTP server's HTTP/2 and HTTP/3 libraries
 of ADR-0081, ADR-0082 and ADR-0086); referencing another protocol
 server is a build break, and `Surl.Protocol.Abstractions.UnitTests` asserts the reference graph.
@@ -748,12 +851,16 @@ in its own `Surl.<Area>.UnitLibrary` (`CLAUDE.md`, "Decisions").
 
 | Layer | Projects | Depends on |
 | --- | --- | --- |
-| Executable | `Surl.Console` | everything below, as the composition root |
+| Hosts | `Surl.Console` (the `surl` executable), `Surl.Api` (the in-process .NET programming interface, ADR-0099) and `Surl.Mcp` (the `surl-mcp` executable, ADR-0103), over `Surl.Composition`; the hosts are composition roots, and no protocol server or horizontal library may reference one | `Surl.Composition`, `Surl.Cli`, and for `Surl.Mcp` also `Surl.Mcp.UnitLibrary` and `Surl.McpServing` |
+| Composition | `Surl.Composition` (turns a parsed command line into running protocol servers, the stores they share and the event stream; the one start `surl`, `Surl.Api` and `Surl.Mcp` all run, ADR-0099) | `Surl.Cli`, `Surl.Core`, the protocol servers and the services below |
+| MCP serving | `Surl.McpServing` (JSON-RPC over a line stream, the MCP session, tool and resource registries; shared by `Surl.Mcp` and the extended MCP server, ADR-0103), in `Protocols/Http/`; `Surl.Mcp.UnitLibrary` (the tools and the running-server book) | `Surl.McpServing`: nothing; `Surl.Mcp.UnitLibrary`: `Surl.Api`, `Surl.Cli`, `Surl.McpServing` |
+| Control endpoint | `Surl.Control` (the loopback HTTP and JSON endpoint of `--control`, ADR-0124 decision 7; the library is built, and no host serves it yet, BL-816) | Abstractions, `Surl.HttpServing` |
 | Command line | `Surl.Cli` | `Surl.Core`, `Surl.Output`, Abstractions |
 | Serving engine | `Surl.Core` | Abstractions |
 | Protocol servers | `Surl.Protocol.<Name>` (15) | Abstractions, and the horizontal libraries of ADR-0002's table where needed: `Surl.Content`, `Surl.Cryptography` and its SSH primitives, for SMTP, IMAP and POP3 `Surl.MailStore` and `Surl.LineProtocol`, and for HTTP, WebSocket and RTSP `Surl.HttpMessage` (ADR-0070) |
 | Services | `Surl.Networking`, `Surl.Authentication`, `Surl.Cookies`, `Surl.Output`, `Surl.Content` | Abstractions; `Surl.Authentication` also `Surl.Cryptography`, for MD4 and SHA-512/256 (ADR-0032 decision 7) and for the DES of SMB's NTLMv1 (ADR-0073 decision 10), `Surl.Cryptography.Rc4`, for NTLM's key exchange and the LDAP security layers (ADR-0072 decision 4), and `Surl.Kerberos` (ADR-0057 decision 6) |
 | Mail servers' shared libraries | `Surl.MailStore` (the mail store: mailboxes per account, messages with UIDs, bounds, persistence under `<path>/.surl/mail`) and `Surl.LineProtocol` (bounded CRLF command lines, dot-stuffing, the `STARTTLS` discard, SASL continuation lines), decided by [ADR-0050](../Planning/Decisions/ADR-0050-the-mail-store-and-the-line-machinery-the-mail-servers-share.md) | Abstractions; `Surl.MailStore` also `Surl.Content`, for `IContentFileSystem` |
+| Message bus | `Surl.MessageBus` (the one `MessageBus` of a `surl` run: live fan-out, retained messages, named queues and topic logs over canonical topics, with the declared topics, queues, topic maps and topic access of `--topic`, `--queue`, `--topic-map` and `--topic-access`; persisted under `<path>/.surl/bus`), in `Protocols/Messaging/`, beside the content store and the mail store as the third store the servers of one job share, used by `Surl.Protocol.Mqtt` and by the extended NATS and STOMP servers `surl` registers, decided by [ADR-0100](../Planning/Decisions/ADR-0100-the-stores-synergetic-protocols-share-files-mail-the-message-bus-and-accounts.md) decision 3 | Abstractions and `Surl.Content`, for `IContentFileSystem` |
 | HTTP message library | `Surl.HttpMessage` (the bounded HTTP/1.x request-head reader and its head timeout, request-line and field-line parsing for `HTTP/1.x` and `RTSP/1.0`, response heads and `WWW-Authenticate` challenge fields), used by `Surl.Protocol.Http`, `Surl.Protocol.Ws` and `Surl.Protocol.Rtsp`, decided by [ADR-0070](../Planning/Decisions/ADR-0070-the-http-message-library-the-http-websocket-and-rtsp-servers-share.md) | Abstractions |
 | HTTP serving and WebSocket libraries | `Surl.HttpServing` (answering HTTP/1.1 requests on a connection: `HttpRequest`, `HttpAnswer`, request bodies with `100 Continue`, response writing, keep-alive, draining, the lingering close, `IHttpRequestHandler` and `Http1ConnectionServer`; BL-407) and `Surl.WebSocket` (RFC 6455 upgrade checks and `101` answer with an optional subprotocol, framing, reassembly, close codes, lingering close; BL-408), in `Protocols/Http/`, for `Surl.Protocol.Http`, `Surl.Protocol.Ws` and the extended servers, decided by [ADR-0084](../Planning/Decisions/ADR-0084-the-libraries-the-extended-servers-share-for-http-1-1-websocket-and-dtls.md) | Abstractions and `Surl.HttpMessage`; `Surl.HttpServing` also `Surl.Content` |
 | Hand-built DTLS | `Surl.Dtls` (DTLS 1.2 server for `coaps`), in `Cryptography/`, decided by [ADR-0084](../Planning/Decisions/ADR-0084-the-libraries-the-extended-servers-share-for-http-1-1-websocket-and-dtls.md) decision 3; BL-412 to BL-415 | Abstractions, for `IDatagramFlow` |
@@ -769,7 +876,7 @@ in its own `Surl.<Area>.UnitLibrary` (`CLAUDE.md`, "Decisions").
 Every project sits in a category folder - `Application/`, `Conformance/`, `Cryptography/`,
 `Foundation/` and, for the protocol servers and the libraries they share, `Protocols/` with
 `DataStore/`, `FileTransfer/`, `Http/`, `Lookup/`, `Mail/`, `Messaging/`, `Proxy/` and `Terminal/` - each
-production project beside its `.UnitTests` twin ([ADR-0079](../Planning/Decisions/ADR-0079-projects-are-grouped-in-category-folders.md);
+production project beside its `.UnitTests` twin; an extended server is `Surl.Extended.Protocol.<Name>.UnitLibrary`, in the folder for its job beside the original servers (see "Extended protocols") ([ADR-0079](../Planning/Decisions/ADR-0079-projects-are-grouped-in-category-folders.md);
 `CLAUDE.md`, "Repository layout"). `DataStore/` is decided by
 [ADR-0095](../Planning/Decisions/ADR-0095-the-protocols-datastore-category-folder.md) for the
 Redis server and is created with its first project (BL-488). `Proxy/` is decided by
@@ -786,10 +893,13 @@ ADR-0147):
 
 | Production | Tests |
 | --- | --- |
+| `Surl.Api` (ADR-0099), in `Application/`: no `.UnitLibrary` suffix | `Surl.Api.UnitTests` |
 | `Surl.Authentication.UnitLibrary` | `Surl.Authentication.UnitTests` |
 | `Surl.Cli.UnitLibrary` | `Surl.Cli.UnitTests` |
+| `Surl.Composition.UnitLibrary` (ADR-0099) | `Surl.Composition.UnitTests` |
 | `Surl.Conformance.UnitLibrary` | `Surl.Conformance.UnitTests` |
 | `Surl.Console` | `Surl.Console.UnitTests` |
+| `Surl.Control.UnitLibrary` (ADR-0124), in `Application/` | `Surl.Control.UnitTests` |
 | `Surl.Content.UnitLibrary` | `Surl.Content.UnitTests` |
 | `Surl.Cookies.UnitLibrary` | `Surl.Cookies.UnitTests` |
 | `Surl.Core.UnitLibrary` | `Surl.Core.UnitTests` |
@@ -814,6 +924,10 @@ ADR-0147):
 | `Surl.Kerberos.UnitLibrary` | `Surl.Kerberos.UnitTests` |
 | `Surl.LineProtocol.UnitLibrary` | `Surl.LineProtocol.UnitTests` |
 | `Surl.MailStore.UnitLibrary` | `Surl.MailStore.UnitTests` |
+| `Surl.Mcp` (the `surl-mcp` executable, ADR-0103), in `Application/`: no `.UnitLibrary` suffix | `Surl.Mcp.UnitTests` (which also tests `Surl.Mcp.UnitLibrary`) |
+| `Surl.Mcp.UnitLibrary` (the tools and the running-server book, ADR-0103), in `Application/` | `Surl.Mcp.UnitTests` |
+| `Surl.McpServing.UnitLibrary` (ADR-0103), in `Protocols/Http/` | `Surl.McpServing.UnitTests` |
+| `Surl.MessageBus.UnitLibrary` (ADR-0100), in `Protocols/Messaging/` | `Surl.MessageBus.UnitTests` |
 | `Surl.Networking.UnitLibrary` | `Surl.Networking.UnitTests` |
 | `Surl.Output.UnitLibrary` | `Surl.Output.UnitTests` |
 | `Surl.Protocol.Abstractions.UnitLibrary` | `Surl.Protocol.Abstractions.UnitTests` |
@@ -840,7 +954,10 @@ ADR-0147):
 
 - **Runtime:** .NET 10, pinned in `global.json`. Base class library only; the MSTest
   meta-package is the one package, for tests (`CLAUDE.md`).
-- **Publishing:** native ahead-of-time, one file, no runtime needed.
+- **Publishing:** native ahead-of-time, one file, no runtime needed, for two executables:
+  `surl` and `surl-mcp` (`Surl.Mcp`, ADR-0103). `Surl.Api` and `Surl.Mcp` are also packed as
+  the NuGet packages `Surl.Api` and `Surl.Mcp` (a .NET tool of type `McpServer`); no release is
+  tagged, so none is published yet.
 - **Platforms:** Windows, Linux and macOS, on x64 and Arm64.
 - **Licensing:** MIT (`LICENSE.txt`). Upstream test data copied in for `Surl.Conformance`
   keeps curl's own notice beside it.
@@ -860,6 +977,7 @@ ADR-0147):
 | 5 | LDAP, SMB, RTSP | The awkward remainder |
 | 6 | The upstream test-case push, HTTP/2 and HTTP/3, native publish on every platform | Surl answers everything upstream curl asks |
 | 7 | The Curl port measured against Surl, beside upstream curl | The port's quality, judged by an instrument upstream curl validated |
+| Track | The extended servers (see "Extended protocols"), parallel to the phases, not after Phase 7 (ADR-0083 decision 10) | Each answers its specification; the Curl port's client connects in `Integration` tests only |
 
 ## Open questions
 
@@ -870,7 +988,7 @@ None open. The four questions this section listed are answered (Stewart, 2026-09
 | 1 | Pin an upstream build with SMB, HTTP/2 and HTTP/3? | Answered: yes, the latest. curl.se's current Windows build (8.22.0_2) is pinned as a supplementary build, used only for SMB, HTTP/2 and HTTP/3; 8.21.0 stays the reference release. Stewart, 2026-09-28. | BL-026 |
 | 2 | Upstream builds on Linux and macOS? | Answered: download them. The approval covers upstream 8.21.0 builds for Linux and macOS; which builds, and how CI obtains them, is decided by ADR. Stewart, 2026-09-28. | BL-027 and BL-028 |
 | 3 | Local testing only, or hardened for internet-facing use? | Answered: internet-facing. Surl is hardened to be exposed to the internet (see "Users"). Stewart, 2026-09-28. | BL-024 |
-| 4 | A managed NuGet API, or the `surl` executable only? | Reversed 2026-11-04. First answered "the executable" (Stewart, 2026-09-28); Surl will also ship `Surl.Api`, a .NET programming interface that starts and stops its servers in-process, and `Surl.Mcp`, an MCP server host for AI agents, beside `surl` (Stewart, 2026-11-04; [ADR-0098](../Planning/Decisions/ADR-0098-surl-api-and-surl-mcp-join-surl-as-products.md)). | BL-611 and BL-612 |
+| 4 | A managed NuGet API, or the `surl` executable only? | Reversed 2026-11-04. First answered "the executable" (Stewart, 2026-09-28); Surl ships `Surl.Api`, a .NET programming interface that starts and stops its servers in-process, and `Surl.Mcp`, an MCP server host for AI agents, beside `surl` (Stewart, 2026-11-04; [ADR-0098](../Planning/Decisions/ADR-0098-surl-api-and-surl-mcp-join-surl-as-products.md)); both are built. | ADR-0099 and ADR-0103 |
 
 ## Sources
 

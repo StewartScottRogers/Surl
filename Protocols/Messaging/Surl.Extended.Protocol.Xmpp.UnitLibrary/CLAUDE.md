@@ -105,3 +105,9 @@ Stanzas (BL-539, ADR-0114 decision 5):
   (`XmppStanzaText.Result`); stanza errors swap `to` and `from`, keep an IQ's children and drop a
   message's or presence's (`XmppStanzaText.Error`). An IQ `result` or `error` to anything but a
   bound full JID is dropped. A stream with more than 16 MiB of routed stanzas queued and unsent ends with `policy-violation` (BL-887); the sender is not told.
+
+Faults (BL-1063, ADR-0124 decisions 4 and 9): `XmppStanzaFaults` asks `ExchangeContext.Faults` for each stanza of a
+bound stream (`command` the stanza kind `message`, `presence` or `iq`, `path` its `to`, the account's localpart). A
+delay holds the stanza; a drop aborts the connection; an `error` rule whose reply is a stanza error condition of
+RFC 6120 section 8.3.3 answers the stanza `<error type=...>` (the type from section 8.3.2) and routes nothing.
+Each publishes a `FaultAppliedEvent`; any other rule is noted and the stanza is served as without it.

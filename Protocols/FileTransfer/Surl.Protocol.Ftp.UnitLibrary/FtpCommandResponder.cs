@@ -222,7 +222,7 @@ internal sealed partial class FtpCommandResponder : IAsyncDisposable
         }
 
         userName = null;
-        return LogInAsync(sentUserName, new PasswordLogin(context.Scheme, sentUserName, argument ?? [], connection.TlsSession));
+        return LogInAsync(sentUserName, new PasswordLogin(context.Scheme, sentUserName, argument ?? [], connection.TlsSession, LoginExchange.Of(context)));
     }
 
     private async ValueTask<bool> LogInAsync(string sentUserName, PasswordLogin login)

@@ -72,9 +72,11 @@ measured 4 and 5; curl 8.21.0's `mqtt.c` treats every non-zero return code alike
 nothing and exits 0 whatever follows (ADR-0102, R14), so a `PUBLISH` fault is invisible to curl's `-d` and
 visible only as the event and the missing message. An LDAP search answered with a resultCode other than
 `success` exits 39, as `noSuchObject` does (`UpstreamCurlSearchesSurlOverLdapTests`); curl reads
-`sizeLimitExceeded` (4) as success, so a rule choosing 4 exits 0. Curl sends no compare or write. The faults'
-own exchanges against a live `surl` wait on BL-803, which composes the fault plan into the running server;
-BL-913 measures them then.
+`sizeLimitExceeded` (4) as success, so a rule choosing 4 exits 0. Curl sends no compare or write. BL-913 measured the
+faults against a live `surl` with the pinned curl 8.21.0 (`UpstreamCurlTalksToSurlOverMqttTests`,
+`UpstreamCurlSearchesSurlOverLdapTests`): a `SUBSCRIBE` rule with reply 135 exits 8; a `CONNECT` rule with
+reply 136 (`CONNACK` 3) exits 8; a `PUBLISH` rule leaves `-d` at exit 0; an LDAP search answered `busy` (51)
+exits 39 ("LDAP remote: Busy"), like `noSuchObject`; one answered `sizeLimitExceeded` (4) exits 0.
 
 ## Consequences
 

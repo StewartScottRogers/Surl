@@ -2,7 +2,7 @@ namespace Surl.Protocol.Abstractions;
 
 /// <summary>
 /// The authentication state of one HTTP connection, from
-/// <see cref="IAuthenticationPolicy.StartHttpConnection"/> (ADR-0032, section 6). NTLM's and
+/// <see cref="IAuthenticationPolicy.StartHttpConnection(TlsSession?)"/> (ADR-0032, section 6). NTLM's and
 /// Negotiate's handshakes live here and die with it; it holds no unmanaged resource, so it is
 /// not disposable.
 /// </summary>

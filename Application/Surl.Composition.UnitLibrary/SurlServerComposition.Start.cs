@@ -3,6 +3,7 @@ using System.Security.Cryptography.X509Certificates;
 using Surl.Cli;
 using Surl.Content;
 using Surl.Core;
+using Surl.Extended.Protocol.Kafka;
 using Surl.MessageBus;
 using Surl.Networking;
 using Surl.Output;
@@ -48,6 +49,15 @@ public static partial class SurlServerComposition
         // --s3-plaintext marks every s3 listen URL plain, so it needs no certificate and the engine
         // serves it without a handshake (ADR-0108 decision 5).
         commandLine = S3PlaintextComposition.MarkS3ListenUrlsPlain(commandLine);
+
+        // --oci-plaintext does the same for every oci listen URL (ADR-0115 decision 6).
+        commandLine = OciPlaintextComposition.MarkOciListenUrlsPlain(commandLine);
+
+        // --az-plaintext does the same for every az listen URL (ADR-0109 decision 6).
+        commandLine = AzPlaintextComposition.MarkAzListenUrlsPlain(commandLine);
+
+        // --gs-plaintext does the same for every gs listen URL (ADR-0110 decision 5).
+        commandLine = GsPlaintextComposition.MarkGsListenUrlsPlain(commandLine);
 
         if ((FindOptionRefusal(commandLine) ?? DnsTransportComposition.FindRefusal(commandLine)) is { } optionRefusal)
         {
@@ -173,7 +183,12 @@ public static partial class SurlServerComposition
             return Refuse(SurlExitCode.FailedInit, busFailureMessage!);
         }
 
-        var contentStore = ComposeContentStore(commandLine, fileSystem, instruments.Events, instruments.Faults, shares, buckets!);
+        var contentStore = ComposeContentStore(commandLine, fileSystem, instruments.Events, instruments.Faults, shares, buckets!, seams.TimeProvider);
+        if (ContentShareComposition.PrepareBucketFolders(commandLine, contentStore, fileSystem) is { } bucketFailure)
+        {
+            return Refuse(SurlExitCode.CouldNotReadFile, bucketFailure);
+        }
+
         return await LockThenComposeAsync(
             commandLine, seams, fileSystem, contentStore, authentication, busConfiguration, instruments, cancellationToken);
     }
@@ -199,15 +214,18 @@ public static partial class SurlServerComposition
             return (null, new SurlStartFailure(mailboxExitCode, [mailboxFailureMessage!]));
         }
 
+        var directoryNotes = new DirectoryNoteSink();
         var (policy, accountNames, skippedKeytabEntries, exitCode, failureMessage) = AuthenticationComposition.Compose(
-            commandLine, readStartFile, seams.TimeProvider, instruments.Events, instruments.Faults, mailboxes.Accounts);
+            commandLine, readStartFile, seams.TimeProvider, instruments.Events, instruments.Faults, mailboxes.Accounts,
+            seams.LdapDirectoryConnector, directoryNotes.Write);
         if (policy is null)
         {
             return (null, new SurlStartFailure(exitCode, [failureMessage!]));
         }
 
         // The groups, expanded over every account once --user-file is read (ADR-0102 decisions 4.1 and 5).
-        var (accountGroups, groupFailureMessage) = AccountGroupExpansion.Compose(commandLine.Groups, accountNames);
+        var (accountGroups, groupFailureMessage) = AccountGroupExpansion.Compose(
+            commandLine.Groups, accountNames, takesUnknownNamesAsDirectoryAccounts: commandLine.UserLdap is not null);
         if (accountGroups is null)
         {
             return (null, new SurlStartFailure(SurlExitCode.FailedInit, [groupFailureMessage!]));
@@ -247,6 +265,7 @@ public static partial class SurlServerComposition
                 new SchemeAuthenticationPolicies(policy, seams.TimeProvider, instruments.Events, instruments.Faults))
             {
                 ProxyPolicy = proxyPolicy,
+                DirectoryNotes = directoryNotes,
                 ControlToken = controlToken,
                 PreSharedKeyAccounts = AuthenticationComposition.ReadPreSharedKeyAccounts(commandLine, readStartFile),
             }, null);
@@ -285,6 +304,16 @@ public static partial class SurlServerComposition
                 dataDirectoryLock.Holder?.Dispose();
             }
         }
+    }
+
+    // The SOCKS5 server's GSS-API login (BL-1066): over its own acceptor on the --keytab, the
+    // service name rcmd that curl's --socks5-gssapi-service defaults to. None without a keytab. The
+    // keytab was already read and accepted by AuthenticationComposition.Compose, so a read that
+    // fails now (the file changed between) leaves SOCKS5 without the method rather than failing a start.
+    internal static Surl.Protocol.Socks.SocksGssApiLogin? ComposeSocksGssApiLogin(SurlCommandLine commandLine, SurlServerCompositionSeams seams)
+    {
+        var (acceptor, _, _, _) = KeytabComposition.Read(commandLine, seams.ReadStartFile ?? File.ReadAllBytes, seams.TimeProvider);
+        return acceptor is null ? null : new Surl.Protocol.Socks.SocksGssApiLogin(acceptor, Surl.Protocol.Socks.SocksGssApiLogin.DefaultService);
     }
 
     private static async Task<SurlServerStart> ComposeUnderTheLockAsync(
@@ -346,10 +375,16 @@ public static partial class SurlServerComposition
             AuthenticationPolicyForScheme = authentication.SchemePolicies.For,
             IdleTimeout = ComposeConnectionLimits(commandLine).IdleTimeout,
             AllowsZoneTransfer = commandLine.AllowZoneTransfer,
+            Mqtt5DisconnectsAfterRetained = commandLine.Mqtt5DisconnectAfterRetained,
+            KafkaFetchCompression = Enum.Parse<KafkaCompressionCodec>(commandLine.KafkaFetchCompression, ignoreCase: true),
             OriginConnector = originConnector,
             ProxyAuthenticationPolicy = authentication.ProxyPolicy,
+            SocksGssApiLogin = ComposeSocksGssApiLogin(commandLine, seams),
             PreSharedKeyAccounts = authentication.PreSharedKeyAccounts,
             MailDomains = commandLine.MailDomains,
+            IdentifiersForServer = commandLine.RandomSeed is { } seed
+                ? new SeededIdentifierRandom(seed).ForServer
+                : _ => CryptographicIdentifierRandom.Instance,
         };
         IProtocolServer[] servers =
         [
@@ -361,6 +396,11 @@ public static partial class SurlServerComposition
                 new ExtendedProtocolServerServices(services)),
             .. ComposeProtocolServers([.. seams.AdditionalProtocolServers.Select(additional => additional.Registration)], services),
         ];
+        if (await LoadAmqp0ExchangesAsync(servers, commandLine, fileSystem, cancellationToken) is { } exchangeFailure)
+        {
+            return Refuse(SurlExitCode.CouldNotReadFile, exchangeFailure);
+        }
+
         var served = commandLine with
         {
             ListenUrls = [.. commandLine.ListenUrls, .. seams.AdditionalProtocolServers.SelectMany(additional => additional.ListenUrls)],
