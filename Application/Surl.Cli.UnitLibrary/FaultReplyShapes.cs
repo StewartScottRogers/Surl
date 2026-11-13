@@ -10,7 +10,7 @@ namespace Surl.Cli;
 /// by the first space. Of the extended schemes, <c>coap</c>, <c>mcp</c> and <c>signalr</c> and
 /// their secure twins have rows (ADR-0144), as do <c>s3</c>, <c>az</c>, <c>abfs</c>, <c>abfss</c>
 /// and <c>gs</c> (BL-983), and <c>dns</c>, <c>redis</c> and <c>rediss</c> (BL-986), and <c>amqp</c>, <c>amqp1</c>, <c>kafka</c>,
-/// <c>mqtt5</c> and <c>nats</c> with their secure twins (BL-1015, ADR-0124 decision 9), and <c>socks4</c>, <c>socks4a</c>, <c>socks5</c> and <c>socks5h</c> (BL-1061), and <c>stomp</c> and <c>stomps</c> (BL-1062); the others have none yet (BL-834).
+/// <c>mqtt5</c> and <c>nats</c> with their secure twins (BL-1015, ADR-0124 decision 9), and <c>socks4</c>, <c>socks4a</c>, <c>socks5</c> and <c>socks5h</c> (BL-1061), and <c>stomp</c> and <c>stomps</c> (BL-1062), and <c>xmpp</c> and <c>xmpps</c> (BL-1063); the others have none yet (BL-834).
 /// </summary>
 internal static class FaultReplyShapes
 {
@@ -70,6 +70,8 @@ internal static class FaultReplyShapes
         ["smtp"] = reply => IsCodeWithText(reply, 400, 599),
         ["smtps"] = reply => IsCodeWithText(reply, 400, 599),
         ["telnet"] = IsText,
+        ["xmpp"] = IsXmppStanzaErrorCondition,
+        ["xmpps"] = IsXmppStanzaErrorCondition,
         ["tftp"] = reply => IsCodeWithText(reply, 0, 7),
         ["ws"] = IsWebSocketClose,
         ["wss"] = IsWebSocketClose,
@@ -130,6 +132,17 @@ internal static class FaultReplyShapes
     /// <summary>A resultCode 1 to 80 other than referral (10) and saslBindInProgress (14), and diagnostic text.</summary>
     private static bool IsLdapResult(string reply) =>
         IsCodeWithText(reply, 1, 80) && TrySplitCode(reply, out var code, out _) && code is not (10 or 14);
+
+    /// <summary>A stanza error condition of RFC 6120 section 8.3.3, alone (BL-1063).</summary>
+    private static bool IsXmppStanzaErrorCondition(string reply) => XmppStanzaErrorConditions.Contains(reply);
+
+    private static readonly FrozenSet<string> XmppStanzaErrorConditions = new[]
+    {
+        "bad-request", "conflict", "feature-not-implemented", "forbidden", "gone", "internal-server-error", "item-not-found", "jid-malformed",
+        "not-acceptable", "not-allowed", "not-authorized", "policy-violation", "recipient-unavailable", "redirect", "registration-required",
+        "remote-server-not-found", "remote-server-timeout", "resource-constraint", "service-unavailable", "subscription-required",
+        "undefined-condition", "unexpected-request",
+    }.ToFrozenSet(StringComparer.Ordinal);
 
     /// <summary>A DNS RCODE 1 to 5 (FORMERR to REFUSED), a single digit, alone.</summary>
     private static bool IsDnsResponseCode(string reply) => reply.Length == 1 && reply[0] is >= '1' and <= '5';

@@ -8,7 +8,7 @@ depends-on: [BL-823, BL-785]
 touches: [Protocols/Messaging/Surl.Extended.Protocol.Xmpp.UnitLibrary, Protocols/Messaging/Surl.Extended.Protocol.Xmpp.UnitTests, Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests, Documentation/Planning/Decisions/ADR-0124-surl-is-a-stand-in-for-tests.md]
 requirement: FR-062
 created: 2026-11-12
-completed:
+completed: 2026-11-13
 ---
 # BL-1063 — Answer a chosen protocol error by fault in the extended XMPP server
 
@@ -25,15 +25,19 @@ An `error` fault rule naming `xmpp` or `xmpps` (or a listener of one) makes the 
 
 ## Acceptance criteria
 
-- [ ] Named tests: a request matching an `error` rule gets exactly the chosen error, a non-matching one is served, and one `FaultAppliedEvent` is published.
-- [ ] Named `Surl.Cli` tests: one accepted and one refused `reply` per scheme.
-- [ ] ADR-0124's reply table has this family's row.
-- [ ] With no rule, every existing test of the touched libraries passes unchanged.
-- [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and the touched libraries keep 100% line and branch coverage.
+- [x] Named tests: a request matching an `error` rule gets exactly the chosen error, a non-matching one is served, and one `FaultAppliedEvent` is published.
+- [x] Named `Surl.Cli` tests: one accepted and one refused `reply` per scheme.
+- [x] ADR-0124's reply table has this family's row.
+- [x] With no rule, every existing test of the touched libraries passes unchanged.
+- [x] `dotnet build -warnaserror` is clean, the fast tests are green, and the touched libraries keep 100% line and branch coverage.
 
 ## Notes
+
+- Decided by Claude under Stewart's delegation: the reply is a bare RFC 6120 section 8.3.3 condition name; the error type comes from section 8.3.2's table. `command` is the stanza kind, `path` its `to`, account the localpart. Drop rules abort the connection, so the router now takes the `IConnection`. Recorded as a row in ADR-0124's reply table, no new ADR.
+- `Surl.Extended.Protocol.Grpc.UnitTests` `ServeStreamAsync_ShutdownBeforeAnyReply_IsTrailersOnlyUnavailable` is flaky (failed once in four runs, untouched by this task).
 
 ## Log
 
 - 2026-11-12: Created.
 - 2026-11-13: Backlog -> Doing.
+- 2026-11-13: Doing -> Done. Xmpp error faults answer a chosen stanza error condition

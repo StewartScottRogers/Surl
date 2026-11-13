@@ -299,7 +299,7 @@ internal sealed class XmppServerConnection
         await resourceBinding.AnswerAsync(stanza);
         if (session is not null)
         {
-            router = new XmppStanzaRouter(session, sessions, domains, context, WriteAsync);
+            router = new XmppStanzaRouter(session, sessions, domains, context, WriteAsync, connection);
         }
     }
 
