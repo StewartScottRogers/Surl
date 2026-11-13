@@ -102,6 +102,11 @@ internal sealed class OciRegistryServerHarness
     public UnitTestAuthenticationPolicy Policy { get; } = new();
 
     /// <summary>
+    /// The TLS session of the connection each request is sent on; <see langword="null"/> is plain text.
+    /// </summary>
+    public TlsSession? TlsSession { get; set; }
+
+    /// <summary>
     /// Where each exchange's random bytes, and so each token, come from.
     /// </summary>
     public CountingIdentifierRandom Random { get; } = new();
@@ -348,7 +353,7 @@ internal sealed class OciRegistryServerHarness
 
     private async Task<string> ServeAsync(string request)
     {
-        var connection = new InMemoryConnection([Encoding.Latin1.GetBytes(request)]);
+        var connection = new InMemoryConnection([Encoding.Latin1.GetBytes(request)], initialTlsSession: TlsSession);
         await Server.ServeAsync(connection, Context());
 
         return Encoding.UTF8.GetString(connection.WrittenBytes);

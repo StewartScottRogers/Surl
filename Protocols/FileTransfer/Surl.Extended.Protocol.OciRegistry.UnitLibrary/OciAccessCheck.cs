@@ -13,6 +13,8 @@ namespace Surl.Extended.Protocol.OciRegistry;
 /// <list type="table">
 /// <item><description>No token, where one is needed: <c>401 UNAUTHORIZED</c>, the Bearer challenge with the scope needed.</description></item>
 /// <item><description>An unknown or expired token, or another scheme: <c>401 UNAUTHORIZED</c>, the challenge with <c>error="invalid_token"</c>.</description></item>
+/// <item><description>A Bearer token over plain text without <c>--allow-plaintext-auth</c>: <c>403 DENIED</c>, "credentials over plain text are refused".</description></item>
+/// <item><description>A Bearer token over plain text without <c>--allow-plaintext-auth</c>: <c>403 DENIED</c>, "credentials over plain text are refused".</description></item>
 /// <item><description>A token not granting the action: <c>403 DENIED</c>, the challenge with <c>error="insufficient_scope"</c>.</description></item>
 /// </list>
 /// A request that carries a token is checked even under <c>--allow-anonymous</c>; a bad token is
@@ -41,14 +43,16 @@ internal sealed class OciAccessCheck(IAuthenticationPolicy policy, OciTokenBook 
         var authorization = OciRequestFields.Value(request, "Authorization");
         if (authorization is null)
         {
-            return required <= OciActions.Pull && await AllowsAnonymousAsync(cancellationToken)
-                ? new OciAccess(null, null)
-                : Refused(reply, OciError.Unauthorized, scope, null);
+            return await CheckWithoutAuthorizationAsync(reply, required, scope, cancellationToken);
         }
 
-        var token = authorization.StartsWith(BearerPrefix, StringComparison.OrdinalIgnoreCase)
-            ? tokens.Find(authorization[BearerPrefix.Length..].Trim())
-            : null;
+        var bearer = BearerSecret(authorization);
+        if (bearer is not null && await RefusesPlaintextAsync(cancellationToken))
+        {
+            return new OciAccess(null, reply.Error(OciError.PlaintextCredentialsRefused));
+        }
+
+        var token = bearer is null ? null : tokens.Find(bearer);
         if (token is null)
         {
             return Refused(reply, OciError.Unauthorized, scope, "invalid_token");
@@ -58,6 +62,22 @@ internal sealed class OciAccessCheck(IAuthenticationPolicy policy, OciTokenBook 
             ? new OciAccess(token, null)
             : Refused(reply, OciError.Denied, scope, "insufficient_scope");
     }
+
+    private async Task<OciAccess> CheckWithoutAuthorizationAsync(OciReply reply, OciActions required, string? scope, CancellationToken cancellationToken) =>
+        required <= OciActions.Pull && await AllowsAnonymousAsync(cancellationToken)
+            ? new OciAccess(null, null)
+            : Refused(reply, OciError.Unauthorized, scope, null);
+
+    private static string? BearerSecret(string authorization) =>
+        authorization.StartsWith(BearerPrefix, StringComparison.OrdinalIgnoreCase) ? authorization[BearerPrefix.Length..].Trim() : null;
+
+    // A Bearer token is a secret: over plain text the policy must allow plain-text secrets
+    // (--allow-plaintext-auth, or --allow-anonymous). The policy's own verdict on a probe login
+    // carrying a password says so, as it does for Basic at /token.
+    private async Task<bool> RefusesPlaintextAsync(CancellationToken cancellationToken) =>
+        tlsSession is null
+            && await policy.CheckPasswordLoginAsync(new PasswordLogin(OciRegistryProtocolServer.Scheme, null, ReadOnlyMemory<byte>.Empty, null), cancellationToken)
+                == PasswordLoginVerdict.RefusedPlaintext;
 
     private async Task<bool> AllowsAnonymousAsync(CancellationToken cancellationToken) =>
         await policy.CheckPasswordLoginAsync(new PasswordLogin(OciRegistryProtocolServer.Scheme, null, null, tlsSession), cancellationToken)

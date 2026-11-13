@@ -8,7 +8,7 @@ depends-on: [BL-971]
 touches: [Protocols/FileTransfer/Surl.Extended.Protocol.OciRegistry.UnitLibrary, Protocols/FileTransfer/Surl.Extended.Protocol.OciRegistry.UnitTests]
 requirement: none
 created: 2026-11-05
-completed:
+completed: 2026-11-12
 ---
 # BL-890 — Refuse OCI Bearer tokens over plain text without --allow-plaintext-auth
 
@@ -28,15 +28,18 @@ On a plain-text `oci` connection (`--oci-plaintext`) a `/v2/` request carrying `
 
 ## Acceptance criteria
 
-- [ ] A named test shows a Bearer token on a plain-text connection refused `403 DENIED` with the plain-text
+- [x] A named test shows a Bearer token on a plain-text connection refused `403 DENIED` with the plain-text
       message, and the same request served under `--allow-plaintext-auth` and over TLS.
-- [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and the library keeps 100% line and branch
+- [x] `dotnet build -warnaserror` is clean, the fast tests are green, and the library keeps 100% line and branch
       coverage.
 
 ## Notes
+
+- Decision (ADR-0115 Amendment 2): no constructor option; OciAccessCheck probes the IAuthenticationPolicy with a password login, the verdict /token already uses. Nothing in composition needed.
 
 ## Log
 
 - 2026-11-05: Created.
 - 2026-11-06: depends-on BL-439 replaced by BL-971 (BL-439 split for the 60-minute size limit; Stewart asked for a backlog audit 2026-11-06).
 - 2026-11-12: Backlog -> Doing.
+- 2026-11-12: Doing -> Done. A Bearer token over plain text is 403 DENIED without --allow-plaintext-auth; ADR-0115 Amendment 2
