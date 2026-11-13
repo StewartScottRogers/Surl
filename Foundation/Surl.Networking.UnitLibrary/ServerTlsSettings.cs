@@ -62,29 +62,36 @@ public sealed class ServerTlsSettings : IDisposable
             : new ClientCertificateVerifier(clientTrustAnchors, timeProvider);
     }
 
-    private ServerTlsSettings(TlsSrpAccounts accounts, RandomNumberGenerator random)
+    private ServerTlsSettings(TlsSrpAccounts accounts, RandomNumberGenerator random, TlsSrpServerCertificate? certificate)
     {
         TlsSrpAccounts = accounts;
         TlsSrpRandom = random;
+        TlsSrpCertificate = certificate;
     }
 
     /// <summary>
     /// Creates the settings for serving TLS-SRP on every listener (ADR-0122 decisions 2 and 5): no
-    /// certificate, the three unsigned SRP suites, TLS 1.2 only, no client certificate.
+    /// certificate unless one is given, the three unsigned SRP suites (and, with a certificate, the
+    /// RSA-signed ones), TLS 1.2 only, no client certificate.
     /// </summary>
     /// <param name="accounts">The SRP accounts a client may log in as.</param>
     /// <param name="random">
     /// The source of each handshake's server random, <c>b</c> and explicit IVs, shared by every
     /// handshake: <see cref="RandomNumberGenerator.Create()"/> in production.
     /// </param>
+    /// <param name="certificate">
+    /// The certificate chain and key that sign the SRP key exchange, or <see langword="null"/> to
+    /// offer only the unsigned suites.
+    /// </param>
     /// <returns>The settings, which own nothing to dispose.</returns>
-    /// <exception cref="ArgumentNullException">An argument is <see langword="null"/>.</exception>
-    public static ServerTlsSettings ForTlsSrp(TlsSrpAccounts accounts, RandomNumberGenerator random)
+    /// <exception cref="ArgumentNullException"><paramref name="accounts"/> or <paramref name="random"/> is <see langword="null"/>.</exception>
+    public static ServerTlsSettings ForTlsSrp(
+        TlsSrpAccounts accounts, RandomNumberGenerator random, TlsSrpServerCertificate? certificate = null)
     {
         ArgumentNullException.ThrowIfNull(accounts);
         ArgumentNullException.ThrowIfNull(random);
 
-        return new ServerTlsSettings(accounts, random);
+        return new ServerTlsSettings(accounts, random, certificate);
     }
 
     /// <summary>
@@ -95,6 +102,9 @@ public sealed class ServerTlsSettings : IDisposable
 
     /// <summary>The random source <see cref="ForTlsSrp"/> was given; <see langword="null"/> otherwise.</summary>
     internal RandomNumberGenerator? TlsSrpRandom { get; }
+
+    /// <summary>The certificate <see cref="ForTlsSrp"/> was given; <see langword="null"/> when none was.</summary>
+    internal TlsSrpServerCertificate? TlsSrpCertificate { get; }
 
     /// <summary>
     /// Whether every handshake requires a client certificate (ADR-0010, section 5); never under TLS-SRP.

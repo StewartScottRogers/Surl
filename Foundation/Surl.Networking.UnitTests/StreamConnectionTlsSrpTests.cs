@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Security;
 using System.Security.Authentication;
 using System.Security.Cryptography;
+using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using Surl.Cryptography.Srp;
 using Surl.Protocol.Abstractions;
@@ -98,17 +99,49 @@ public sealed class StreamConnectionTlsSrpTests
         Assert.IsInstanceOfType<EndOfStreamException>(failure.InnerException);
     }
 
+    [TestMethod]
+    public async Task UpgradeToTlsAsync_SettingsWithAnRsaCertificate_ChoosesTheRsaSignedSuiteFromTheRecordedClientHello()
+    {
+        using var key = RSA.Create(2048);
+        var request = new CertificateRequest("CN=srp.test", key, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
+        using var certificate = request.CreateSelfSigned(DateTimeOffset.UtcNow.AddDays(-1), DateTimeOffset.UtcNow.AddDays(1));
+        var settings = RecordedSettings(new TlsSrpServerCertificate([certificate.RawData], key));
+        var (connection, client) = Create(settings);
+        await using var _ = connection;
+        var clientHello = Recording("CurlTlsSrpJsmithAbc");
+        var firstRecordLength = 5 + ((clientHello[3] << 8) | clientHello[4]);
+        await client.WriteAsync(clientHello.AsMemory(0, firstRecordLength), TestContext.CancellationToken);
+
+        var upgrade = connection.UpgradeToTlsAsync(TestContext.CancellationToken).AsTask();
+        var header = await ReadExactlyAsync(client, 5);
+        var serverHello = await ReadExactlyAsync(client, (header[3] << 8) | header[4]);
+        client.CompleteWrites();
+
+        Assert.AreEqual(0x16, header[0]);
+        Assert.AreEqual(2, serverHello[0]);
+        var suiteOffset = 4 + 2 + 32 + 1 + serverHello[4 + 2 + 32];
+        CollectionAssert.AreEqual(new byte[] { 0xC0, 0x21 }, serverHello[suiteOffset..(suiteOffset + 2)]);
+        await Assert.ThrowsExactlyAsync<TlsHandshakeException>(() => upgrade);
+    }
+
+    private async Task<byte[]> ReadExactlyAsync(InMemoryDuplexStream client, int count)
+    {
+        var buffer = new byte[count];
+        await client.ReadExactlyAsync(buffer, TestContext.CancellationToken);
+        return buffer;
+    }
+
     /// <summary>
-    /// The settings the recording's server had: <c>jsmith</c> with <c>abc</c>, salt <c>10 11 ... 1F</c>,
+    /// The settings the recording's server had:<c>jsmith</c> with <c>abc</c>, salt <c>10 11 ... 1F</c>,
     /// RFC 5054's 2048-bit group, a zero simulation secret, and every random byte <c>20 21 ... 3F</c> repeated.
     /// </summary>
-    public static ServerTlsSettings RecordedSettings()
+    public static ServerTlsSettings RecordedSettings(TlsSrpServerCertificate? certificate = null)
     {
         var salt = Sequence(0x10, 16);
         var group = SrpGroup.Rfc5054Group2048;
         var verifier = Srp6a.ToUnsignedBigEndian(Srp6a.ComputeVerifier(group, salt, "jsmith"u8, "abc"u8));
         var accounts = new TlsSrpAccounts([new SrpVerifierEntry("jsmith", salt, verifier, group)], new byte[TlsSrpAccounts.SimulationSecretLength]);
-        return ServerTlsSettings.ForTlsSrp(accounts, new RepeatingRandomNumberGenerator(Sequence(0x20, 32)));
+        return ServerTlsSettings.ForTlsSrp(accounts, new RepeatingRandomNumberGenerator(Sequence(0x20, 32)), certificate);
     }
 
     private static (StreamConnection Connection, InMemoryDuplexStream Client) Create(ServerTlsSettings settings)
