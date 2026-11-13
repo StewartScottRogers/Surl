@@ -79,7 +79,7 @@ to make the port pass. One case is compared and judged here (BL-578), request by
 - `CurlPortMeasuredRun.Of` makes one run from an `UpstreamCurlRunResult` or a `CurlPortClientRunResult`.
 - `CurlPortResultNormaliser` is decision 4's normalisation column: the client-facing port as `<port>` (in standard output `surl`'s own port too, when a relay stands between them),
   `Date:` and `Last-Modified:` values as `<date>`, the `-w` values of `%{time_*}` and `%{speed_*}` as
-  `<time>` (found by matching the case's `-w` format), stderr cut to the asserted lines, `surl` notes'
+  `<time>` (found by matching the case's `-w` format), stderr cut to the asserted lines (every loopback port in them, the client's ephemeral one too, as `<port>`), `surl` notes'
   loopback ports and time stamps. `NormaliseRequestBytes` applies the request-byte rules, which the
   internal `RequestBytesNormalisation` holds: the client port in FTP `PORT` and `EPRT`, `User-Agent:` and DICT's `CLIENT` text as
   `<user-agent>`, the 8 random characters after `curl` in an MQTT `CONNECT`'s client identifier as `<client-id>`, every multipart boundary as `<boundary>`, Digest `nonce` (surl's own, echoed), `cnonce` and `response` as `<nonce>`, `<cnonce>`

@@ -93,7 +93,8 @@ public static class CurlPortResultNormaliser
             .Split('\n')
             .Select(line => line.TrimEnd('\r'))
             .Where(line => assertedFragments.Any(fragment => line.Contains(fragment, StringComparison.Ordinal)));
-        return string.Concat(kept.Select(line => NormaliseOutputText(line, surlPort, arguments) + "\n"));
+        return string.Concat(kept.Select(line =>
+            LoopbackPort.Replace(NormaliseOutputText(line, surlPort, arguments), PortPlaceholder) + "\n"));
     }
 
     /// <summary>

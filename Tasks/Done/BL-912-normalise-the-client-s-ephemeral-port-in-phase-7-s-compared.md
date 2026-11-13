@@ -8,7 +8,7 @@ depends-on: [BL-1035]
 touches: [Conformance/Surl.Conformance.UnitLibrary, Conformance/Surl.Conformance.UnitTests/CurlPortResultNormaliserTests.cs]
 requirement: none
 created: 2026-11-05
-completed:
+completed: 2026-11-12
 ---
 # BL-912 — Normalise the client's ephemeral port in Phase 7's compared standard error lines
 
@@ -31,11 +31,11 @@ completed:
 
 ## Acceptance criteria
 
-- [ ] A `CurlPortResultNormaliserTests` test shows `NormaliseStandardError` turning
+- [x] A `CurlPortResultNormaliserTests` test shows `NormaliseStandardError` turning
       `* Established connection to 127.0.0.1 (127.0.0.1 port 5000) from 127.0.0.1 port 61234` into a line
       with both ports replaced by `<port>`.
-- [ ] `Surl.Conformance.UnitLibrary` keeps 100% line and branch coverage.
-- [ ] `dotnet build -warnaserror` is clean and the fast tests are green.
+- [x] `Surl.Conformance.UnitLibrary` keeps 100% line and branch coverage.
+- [x] `dotnet build -warnaserror` is clean and the fast tests are green.
 
 ## Notes
 
@@ -47,3 +47,4 @@ completed:
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waits on BL-1035 - pinned .NET SDK 10.0.401 is not installed, so the build cannot run
 - 2026-11-12: Backlog -> Doing.
+- 2026-11-12: Doing -> Done. NormaliseStandardError replaces the client's ephemeral loopback port too
