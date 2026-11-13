@@ -34,7 +34,7 @@ IDs are:
 
 | ID | Level | Requirement | Covered by |
 | --- | --- | --- | --- |
-| MCP:Lifecycle-1 | MUST | `initialize` is answered with `protocolVersion`, `capabilities` and `serverInfo`. | BL-464 |
+| MCP:Lifecycle-1 | MUST | `initialize` is answered with `protocolVersion`, `capabilities` and `serverInfo`. | BL-464; live: `CurlPortClientListsAndCallsToolsOnSurlOverMcpTests.List_OverStreamableHttp_PrintsTheEchoTool` |
 | MCP:Lifecycle-2 | MUST | A supported requested version is answered with the same version. | BL-619 |
 | MCP:Lifecycle-3 | MUST | An unsupported requested version is answered with another version the server supports, the latest (`2025-06-18`), never an error. | BL-464 |
 | MCP:Lifecycle-4 | MUST | Only negotiated capabilities are used; the server advertises `tools` only, with `listChanged` false. | BL-464 |
@@ -50,11 +50,11 @@ IDs are:
 | ID | Level | Requirement | Covered by |
 | --- | --- | --- | --- |
 | MCP:Tools-1 | MUST | A server with tools declares the `tools` capability. | BL-464 |
-| MCP:Tools-2 | MUST | `tools/list` lists each tool with `name`, `description` and an `inputSchema` object. | BL-465 |
+| MCP:Tools-2 | MUST | `tools/list` lists each tool with `name`, `description` and an `inputSchema` object. | BL-465; live: `CurlPortClientListsAndCallsToolsOnSurlOverMcpTests.List_OverStdio_PrintsTheEchoTool` |
 | MCP:Tools-3 | MUST | `tools/list` is paginated with an opaque `cursor`/`nextCursor`. | BL-620 |
 | MCP:Tools-4 | MUST | `tools/call` with an unknown tool is a protocol error (`-32602`). | BL-620 |
 | MCP:Tools-5 | MUST | Servers validate all tool inputs; arguments breaking the schema are `-32602`. | BL-620 |
-| MCP:Tools-6 | MUST | A result's `content` holds text or embedded-resource items in the page's shape. | BL-465 |
+| MCP:Tools-6 | MUST | A result's `content` holds text or embedded-resource items in the page's shape. | BL-465; live: `CurlPortClientListsAndCallsToolsOnSurlOverMcpTests.Call_OverStreamableHttp_PrintsTheEchoedText` |
 | MCP:Tools-7 | MUST | A failure inside a tool is a result with `isError: true`, not a protocol error. | BL-465 |
 | MCP:Tools-8 | SHOULD | `structuredContent` is also given as serialized text for older clients. | BL-465 |
 | MCP:Tools-9 | MUST | Servers implement proper access controls: tool file access goes through the content store as the caller, with share access. | BL-465 |
@@ -65,7 +65,7 @@ IDs are:
 | MCP:Surl-Tools-1 | MUST | `list_directory` is registered only under `--list-directories`; at most 1000 entries, flagged when truncated. | BL-465 |
 | MCP:Surl-Tools-2 | MUST | `read_file` answers UTF-8 as text and other bytes as an embedded `blob`; past `--max-message` it is `isError`. | BL-465 |
 | MCP:Surl-Tools-3 | MUST | `write_file` is registered only under `--allow-uploads`; exactly one of `text` and `base64`; past `--max-filesize` it is `isError` with nothing written. | BL-465 |
-| MCP:Surl-Tools-4 | MUST | `echo` returns its `text` unchanged. | BL-465 |
+| MCP:Surl-Tools-4 | MUST | `echo` returns its `text` unchanged. | BL-465; live: `CurlPortClientListsAndCallsToolsOnSurlOverMcpTests.Call_OverStdio_PrintsTheEchoedText` |
 | MCP:Surl-Tools-5 | MUST | A missing or hidden file, a refused path and a denied write each answer decision 2's fixed `isError` text. | BL-465 |
 
 ## Utilities ("Utilities > Ping", "Cancellation", "Progress", "Pagination")
@@ -84,21 +84,21 @@ IDs are:
 
 | ID | Level | Requirement | Covered by |
 | --- | --- | --- | --- |
-| MCP:Stdio-1 | MUST | The server reads JSON-RPC messages from its standard input and writes them to its standard output, delimited by newlines. | BL-621 |
+| MCP:Stdio-1 | MUST | The server reads JSON-RPC messages from its standard input and writes them to its standard output, delimited by newlines. | BL-621; live: `CurlPortClientListsAndCallsToolsOnSurlOverMcpTests.List_OverStdio_PrintsTheEchoTool` |
 | MCP:Stdio-2 | MUST NOT | Messages contain no embedded newline. | BL-621 |
-| MCP:Stdio-3 | MUST NOT | The server writes nothing to standard output that is not a valid MCP message. | BL-621 |
+| MCP:Stdio-3 | MUST NOT | The server writes nothing to standard output that is not a valid MCP message. | BL-621; live: `CurlPortClientListsAndCallsToolsOnSurlOverMcpTests.List_OverStdio_PrintsTheEchoTool` |
 | MCP:Stdio-4 | MAY | The server writes UTF-8 log strings to standard error. | BL-467 |
 | MCP:Stdio-5 | MUST | This server's lifecycle and tools run over the core's stream session, each response on one line. | BL-467 |
 | MCP:Surl-Stdio-1 | MUST | The listen URL is `mcp+stdio:` (or `mcp+stdio://`); a host, port, path, query or fragment is `MalformedUrl` (3). | n/a: the listen URL is parsed by `Surl.Cli`, which BL-468 changes and tests |
 | MCP:Surl-Stdio-2 | MUST | `mcp+stdio:` with another listen URL, or with an option writing to standard output, is `FailedInit` (2). | n/a: a command-line check BL-468 adds and tests |
-| MCP:Surl-Stdio-3 | MUST | A stdio session needs no credential, and `--list-directories`, `--allow-uploads` and anonymous share access still gate the tools. | BL-467 |
+| MCP:Surl-Stdio-3 | MUST | A stdio session needs no credential, and `--list-directories`, `--allow-uploads` and anonymous share access still gate the tools. | BL-467; live: `CurlPortClientListsAndCallsToolsOnSurlOverMcpTests.List_OverStdioWithoutCredentials_IsNotRefused` |
 | MCP:Surl-Stdio-4 | MUST | Messages over `--max-message` are the core's `-32600` with a null `id`, and the session continues. | BL-467 |
 
 ## Streamable HTTP ("Base Protocol > Transports > Streamable HTTP")
 
 | ID | Level | Requirement | Covered by |
 | --- | --- | --- | --- |
-| MCP:Http-1 | MUST | One MCP endpoint path answers `POST` (and `GET`); it is the listen URL's path, `/mcp` when it has none. | BL-466 |
+| MCP:Http-1 | MUST | One MCP endpoint path answers `POST` (and `GET`); it is the listen URL's path, `/mcp` when it has none. | BL-466; live: `CurlPortClientListsAndCallsToolsOnSurlOverMcpTests.List_OverStreamableHttp_PrintsTheEchoTool` |
 | MCP:Http-2 | MUST | Another path is `404` (except the RFC 9728 document and the authorization server's paths). | BL-466 |
 | MCP:Http-3 | MUST | Servers validate `Origin` on all incoming connections; a foreign, `null` or malformed `Origin` is `403`, an absent one accepted. | BL-466 |
 | MCP:Http-4 | SHOULD | When running locally, bind only to localhost. | n/a: the listen URL names the address; the `--aihelp` example uses `127.0.0.1` (BL-468) |
@@ -106,7 +106,7 @@ IDs are:
 | MCP:Http-6 | MUST | A `POST` body is one JSON-RPC message; a body the core refuses is `400` with a JSON-RPC error with no `id`. | BL-466 |
 | MCP:Http-7 | MUST | A `POST` of a notification or response that is accepted is `202 Accepted` with no body. | BL-466 |
 | MCP:Http-8 | MUST | A `POST` of a request is answered with `Content-Type: application/json` or `text/event-stream`. | BL-466 |
-| MCP:Http-9 | MUST | `tools/call` is answered as an SSE stream holding its one response; others as `application/json`. | BL-466 |
+| MCP:Http-9 | MUST | `tools/call` is answered as an SSE stream holding its one response; others as `application/json`. | BL-466; live: `CurlPortClientListsAndCallsToolsOnSurlOverMcpTests.Call_OverStreamableHttp_PrintsTheEchoedText` |
 | MCP:Http-10 | SHOULD | The SSE stream eventually holds the response, then the server closes the stream. | BL-466 |
 | MCP:Http-11 | MUST | SSE bytes follow the HTML standard: `data:` lines, `:` comment keep-alives every 15 s, a blank line ending an event. | BL-466 |
 | MCP:Http-12 | MUST | A `POST` whose `Accept` lacks either type is `406`; a non-JSON `Content-Type` is `415`. | BL-466 |
@@ -125,7 +125,7 @@ IDs are:
 | MCP:Surl-Http-1 | MUST | A session answers only the login that opened it; another login naming it gets `404`. | BL-466 |
 | MCP:Surl-Http-2 | MUST | An `initialize` carrying `Mcp-Session-Id` is `400`; one past 1000 sessions is `503` with `Retry-After: 60`. | BL-466 |
 | MCP:Surl-Http-3 | MUST | A body past `--max-message` is `413`, then close. | BL-466 |
-| MCP:Surl-Http-4 | MUST | `mcps` is implicit TLS 1.2 or 1.3 with ALPN `http/1.1`, and needs `--cert` or `--self-signed`. | n/a: TLS wrapping is composed in `Surl.Composition`, which BL-468 changes and tests |
+| MCP:Surl-Http-4 | MUST | `mcps` is implicit TLS 1.2 or 1.3 with ALPN `http/1.1`, and needs `--cert` or `--self-signed`. | n/a: TLS wrapping is composed in `Surl.Composition`, which BL-468 changes and tests; live: `CurlPortClientListsAndCallsToolsOnSurlOverMcpTests.List_OverStreamableHttp_PrintsTheEchoTool` |
 | MCP:Surl-Http-5 | MUST | Checks run in decision 4.2's order: head, path, `Origin`, authorization, method, headers and session, body. | BL-466 |
 
 ## Authorization ("Base Protocol > Authorization", RFC 9728, RFC 6750)
@@ -134,13 +134,13 @@ IDs are:
 | --- | --- | --- | --- |
 | MCP:Auth-1 | MUST | The server serves OAuth 2.0 Protected Resource Metadata (RFC 9728) at `/.well-known/oauth-protected-resource<endpoint path>`. | BL-466 |
 | MCP:Auth-2 | MUST | The metadata's `authorization_servers` names at least one authorization server (the server's own origin). | BL-466 |
-| MCP:Auth-3 | MUST | A `401` carries `WWW-Authenticate: Bearer` with `resource_metadata` naming the metadata URL. | BL-466 |
+| MCP:Auth-3 | MUST | A `401` carries `WWW-Authenticate: Bearer` with `resource_metadata` naming the metadata URL. | BL-466; live: `CurlPortClientListsAndCallsToolsOnSurlOverMcpTests.Request_WithoutCredentials_IsRefusedWith401AndABearerChallenge` |
 | MCP:Auth-4 | MUST | Access tokens are read only from the `Authorization: Bearer` header, never from the query string. | BL-466 |
-| MCP:Auth-5 | MUST | A missing or invalid token is `401`; an invalid one adds `error="invalid_token"` (RFC 6750 section 3.1). | BL-466 |
+| MCP:Auth-5 | MUST | A missing or invalid token is `401`; an invalid one adds `error="invalid_token"` (RFC 6750 section 3.1). | BL-466; live: `CurlPortClientListsAndCallsToolsOnSurlOverMcpTests.Request_WithoutCredentials_IsRefusedWith401AndABearerChallenge` |
 | MCP:Auth-6 | MUST | Tokens are validated as issued for this server: configured tokens by account, issued tokens by their `resource` audience. | BL-466 |
 | MCP:Auth-7 | MUST | A malformed authorization request (another `Authorization` scheme) is `400`. | BL-466 |
 | MCP:Auth-8 | MUST | Insufficient scope is `403`. | n/a: accounts carry no scopes; gates answer inside the tools (ADR-0111 decision 6.1) |
-| MCP:Auth-9 | SHOULD NOT | Implementations using stdio do not follow the HTTP authorization flow. | BL-467 |
+| MCP:Auth-9 | SHOULD NOT | Implementations using stdio do not follow the HTTP authorization flow. | BL-467; live: `CurlPortClientListsAndCallsToolsOnSurlOverMcpTests.List_OverStdioWithoutCredentials_IsNotRefused` |
 | MCP:Auth-10 | SHOULD | The authorization server supports RFC 8414 metadata, RFC 7591 registration, PKCE and the RFC 8707 `resource` parameter. | MCP:OAuth-1, MCP:OAuth-2, MCP:OAuth-4 and MCP:OAuth-6 below |
 | MCP:Surl-Auth-1 | MUST | No token is accepted as anonymous only under `--allow-anonymous`; a bad token is never served as anonymous. | BL-466 |
 | MCP:Surl-Auth-2 | MUST | A bearer token over plain `mcp` is refused as invalid unless `--allow-plaintext-auth`. | BL-466 |
