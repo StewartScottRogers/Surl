@@ -8,7 +8,7 @@ depends-on: [BL-1098]
 touches: [Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests]
 requirement: none
 created: 2026-11-13
-completed:
+completed: 2026-11-13
 ---
 # BL-1099 — Lift the refusal of --cert and --self-signed beside TLS-SRP in surl
 
@@ -34,18 +34,20 @@ starts instead of exiting 2, and `--aihelp tls`, `--manual` and the library's CL
 
 ## Acceptance criteria
 
-- [ ] `Surl.Cli.UnitTests`: TLS-SRP with `--cert` and with `--self-signed` is served, and the
+- [x] `Surl.Cli.UnitTests`: TLS-SRP with `--cert` and with `--self-signed` is served, and the
       refusal tests for them are gone.
-- [ ] The `tls` `--aihelp` paragraph and `ManualText`'s TLS-SRP OPTIONS section say `--cert` (RSA key,
+- [x] The `tls` `--aihelp` paragraph and `ManualText`'s TLS-SRP OPTIONS section say `--cert` (RSA key,
       else exit 58) and `--self-signed` add the RSA-signed SRP suites, and no longer list them as refused.
-- [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and `Surl.Cli.UnitLibrary`
+- [x] `dotnet build -warnaserror` is clean, the fast tests are green, and `Surl.Cli.UnitLibrary`
       keeps 100% line and branch coverage.
 
 ## Notes
 
 - Filed by splitting BL-1051 on 2026-11-13.
+- Wrote the change by hand (stash access was denied); removed the --cert and --self-signed rows from TlsSrpCombination, reworded help, manual and CLAUDE.md.
 
 ## Log
 
 - 2026-11-13: Created.
 - 2026-11-13: Backlog -> Doing.
+- 2026-11-13: Doing -> Done. surl serves TLS-SRP beside --cert and --self-signed; help, manual and CLAUDE.md say so

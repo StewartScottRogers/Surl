@@ -123,14 +123,24 @@ public sealed class CommandLineParserTlsSrpTests
     [DataRow(new[] { "--cacert", "ca.pem" }, "--cacert")]
     [DataRow(new[] { "--tls-max", "1.1", "--tlsv1.0" }, "--tls-max below 1.2")]
     [DataRow(new[] { "--tlsv1.3" }, "--tlsv1.3")]
-    [DataRow(new[] { "--cert", "server.pem" }, "--cert")]
-    [DataRow(new[] { "--self-signed" }, "--self-signed")]
     public void Parse_TlsSrpBesideAnOptionItCannotServe_IsRefusedAsFailedInit(string[] beside, string named)
     {
         var failure = Refused(["--tlsauthtype", "SRP", "--tlsuser", "u", "--tlspassword", "p", .. beside, Url]);
 
         Assert.AreEqual(SurlExitCode.FailedInit, failure.ExitCode);
         Assert.AreEqual($"option --tlsauthtype: cannot be used with {named}", failure.Message);
+    }
+
+    [TestMethod]
+    [DataRow("--cert", "server.pem")]
+    [DataRow("--self-signed", null)]
+    public void Parse_TlsSrpBesideACertificateOption_Serves(string option, string? argument)
+    {
+        string[] beside = argument is null ? [option] : [option, argument];
+
+        string[] arguments = ["--tlsauthtype", "SRP", "--tlsuser", "u", "--tlspassword", "p", .. beside, Url];
+
+        Assert.IsTrue(Served(arguments).ServesTlsSrp);
     }
 
     [TestMethod]

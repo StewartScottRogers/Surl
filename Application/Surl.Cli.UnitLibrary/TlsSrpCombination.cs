@@ -34,7 +34,7 @@ internal static class TlsSrpCombination
     /// without <c>--tlspassword</c> or the reverse; <c>--srp-verifiers</c> without
     /// <c>--srp-groups</c> or the reverse; <c>--tlsauthtype</c> with no account; no listen URL that
     /// uses TLS; then TLS-SRP beside <c>--http3</c>, <c>--cacert</c>, <c>--tls-max</c> below 1.2,
-    /// <c>--tlsv1.3</c>, <c>--cert</c> or <c>--self-signed</c>. Null when none is, and whenever no
+    /// or <c>--tlsv1.3</c>. Null when none is, and whenever no
     /// TLS-SRP option is given.
     /// </summary>
     /// <param name="commandLine">The command line read so far.</param>
@@ -82,16 +82,14 @@ internal static class TlsSrpCombination
     }
 
     // QUIC is TLS 1.3, which has no SRP; the client proves itself with its password, so no client
-    // certificate is asked for; TLS-SRP is TLS 1.2 only; the signed suites a certificate would add
-    // are BL-911's (ADR-0122 Amendment 2). In the order they are refused.
+    // certificate is asked for; TLS-SRP is TLS 1.2 only. --cert and --self-signed are allowed: they
+    // add the RSA-signed SRP suites (ADR-0122 Amendment 2). In the order they are refused.
     private static readonly (Func<SurlCommandLine, bool> IsGiven, string Option)[] RefusedBesideTlsSrp =
     [
         (commandLine => commandLine.Http3, "--http3"),
         (commandLine => commandLine.CaCertificateFile is not null, "--cacert"),
         (commandLine => commandLine.HighestTlsVersion < SslProtocols.Tls12, "--tls-max below 1.2"),
         (commandLine => commandLine.LowestTlsVersion == SslProtocols.Tls13, "--tlsv1.3"),
-        (commandLine => commandLine.CertificateFile is not null, "--cert"),
-        (commandLine => commandLine.SelfSigned, "--self-signed"),
     ];
 
     private static string? FindRefusedBeside(SurlCommandLine commandLine) =>
