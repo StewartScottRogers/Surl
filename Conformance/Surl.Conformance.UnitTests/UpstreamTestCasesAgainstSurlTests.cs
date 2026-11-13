@@ -474,9 +474,21 @@ public sealed class UpstreamTestCasesAgainstSurlTests
             await WriteFilesAsync(caseDirectory, commandLine, cancellationToken);
             var smbRoot = caseDirectory + "-smb";
             await WriteFileServerFilesAsync(number, testCase, families, Path.Combine(caseDirectory, logDirectory), smbRoot, cancellationToken);
+            // runtests' servers all log to one server.input, in the order the bytes arrived (BL-857):
+            // one log looks at each half the case names, so TFTP's lines land before FTP's late QUIT.
+            Dictionary<string, Func<byte[]>> receivedByFamily = new(StringComparer.Ordinal)
+            {
+                [HttpFamily] = () => replies.ReceivedBytes,
+                [FtpFamily] = () => ftpReplies.ReceivedBytes,
+                [GopherFamily] = () => gopherReplies.ReceivedBytes,
+                [MqttFamily] = () => mqttReplies.ReceivedBytes,
+                [TftpFamily] = () => tftpReplies.ReceivedBytes,
+                [MailFamily] = () => mailReplies.ReceivedBytes,
+            };
+            var arrivalLog = new ArrivalOrderedReceivedLog([.. families.Where(receivedByFamily.ContainsKey).Select(family => receivedByFamily[family])]);
             serverHalves.Play(
                 replies, ftpReplies, gopherReplies, mqttReplies, tftpReplies,
-                fileServers.CreateSsh(caseDirectory, sshUser), UpstreamTestCaseFileServers.CreateSmb(smbRoot), mailReplies, proxyReplies, socksReplies, dnsReplies);
+                fileServers.CreateSsh(caseDirectory, sshUser), UpstreamTestCaseFileServers.CreateSmb(smbRoot), mailReplies, proxyReplies, socksReplies, dnsReplies, arrivalLog);
             var curl = await client.Client.RunAsync(
                 commandLine.Arguments, commandLine.StandardInput, CurlEnvironment(Slashes(caseDirectory), commandLine), caseDirectory, cancellationToken);
             if (curl.TimedOut)
@@ -490,18 +502,7 @@ public sealed class UpstreamTestCasesAgainstSurlTests
             await File.WriteAllTextAsync(Path.Combine(caseDirectory, commandLine.StandardErrorFile), curl.StandardError, cancellationToken);
             var outputFile = Path.Combine(caseDirectory, commandLine.OutputFile);
             var output = File.Exists(outputFile) ? await File.ReadAllBytesAsync(outputFile, cancellationToken) : [];
-            // runtests' servers all log to one server.input; a case naming several is taken to
-            // use them in the order it names them (an HTTP redirect to FTP, or the reverse).
-            var receivedByFamily = new Dictionary<string, byte[]>(StringComparer.Ordinal)
-            {
-                [HttpFamily] = replies.ReceivedBytes,
-                [FtpFamily] = ftpReplies.ReceivedBytes,
-                [GopherFamily] = gopherReplies.ReceivedBytes,
-                [MqttFamily] = mqttReplies.ReceivedBytes,
-                [TftpFamily] = tftpReplies.ReceivedBytes,
-                [MailFamily] = mailReplies.ReceivedBytes,
-            };
-            byte[] received = [.. families.SelectMany(family => receivedByFamily.GetValueOrDefault(family) ?? [])];
+            var received = arrivalLog.Bytes;
             // runtests compares <upload> with %LOGDIR/upload.<N>; the FTP and TFTP server halves
             // keep their uploads in memory, and an SCP or SFTP upload lands in that very file.
             var sshUpload = Path.Combine(caseDirectory, logDirectory, $"upload.{number}");

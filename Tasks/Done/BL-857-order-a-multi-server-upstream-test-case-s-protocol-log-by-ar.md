@@ -8,7 +8,7 @@ depends-on: [BL-1035]
 touches: [Conformance/Surl.Conformance.UnitTests]
 requirement: none
 created: 2026-11-05
-completed:
+completed: 2026-11-12
 ---
 # BL-857 — Order a multi-server upstream test case's protocol log by arrival
 
@@ -32,10 +32,10 @@ tests 2002 and 2003 can pass.
 
 ## Acceptance criteria
 
-- [ ] A case's `<protocol>` is checked against one log in arrival order across server halves.
-- [ ] The Windows upstream test-case run passes 2002 and 2003 or names a different first
+- [x] A case's `<protocol>` is checked against one log in arrival order across server halves.
+- [x] The Windows upstream test-case run passes 2002 and 2003 or names a different first
       differing section, and no case on the passing list stops passing.
-- [ ] `dotnet build -warnaserror` is clean and the fast tests are green.
+- [x] `dotnet build -warnaserror` is clean and the fast tests are green.
 
 ## Notes
 
@@ -49,9 +49,20 @@ tests 2002 and 2003 can pass.
   covers it with hand-written fakes. No protocol library changes. Not yet built: the pinned
   SDK 10.0.401 is missing (BL-1035).
 
+- 2026-11-12 (lane 1): The stashed lane-4 work was not in the checkout, so the same design was
+  rewritten: `ArrivalOrderedReceivedLog` (`Look()` copies what each half added since the last look;
+  `Wrap` makes every connection/flow look before and after reads, peeks, writes, sends, aborts and
+  disposal) and `UpstreamTestCaseServerHalves.Play` wraps each case server in it. The run's
+  `received` now comes from `arrivalLog.Bytes`. Build clean; fast tests 913 green; the Windows
+  upstream run (`TestCategory=UpstreamTestCases`) passed with no regression and printed 2002 and
+  2003 among its newly passing lines. Not done here (outside `touches`): adding 2002 and 2003 to
+  `Documentation/Conformance/upstream-test-cases-passing.win-x64.txt` and the pass-rate table,
+  which must change together (`UpstreamTestCasePassRateStatementTests`).
+
 ## Log
 
 - 2026-11-05: Created.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waits on BL-1035: pinned .NET SDK 10.0.401 is not installed, dotnet build cannot start
 - 2026-11-12: Backlog -> Doing.
+- 2026-11-12: Doing -> Done. A multi-server case's protocol is checked against one log in arrival order; upstream 2002 and 2003 no longer fail on FTP QUIT order

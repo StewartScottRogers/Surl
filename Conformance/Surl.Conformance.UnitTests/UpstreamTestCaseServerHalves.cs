@@ -261,7 +261,8 @@ internal sealed class UpstreamTestCaseServerHalves : IAsyncDisposable
         MailUpstreamTestCaseReplies mailReplies,
         HttpProxyUpstreamTestCaseReplies proxyReplies,
         SocksUpstreamTestCaseReplies socksReplies,
-        DnsQueryUpstreamTestCaseReplies dnsReplies)
+        DnsQueryUpstreamTestCaseReplies dnsReplies,
+        ArrivalOrderedReceivedLog arrivalLog)
     {
         // Upstream's sws sends every tunnel to 127.0.0.1 at the CONNECT's port (BL-556), so the proxy
         // reaches real loopback sockets, whatever host the request names.
@@ -279,11 +280,11 @@ internal sealed class UpstreamTestCaseServerHalves : IAsyncDisposable
             new SmtpUpstreamTestCaseServer(mailReplies, new AnonymousAuthenticationPolicy()), proxy, proxy, socks, socks];
         for (var index = 0; index < servers.Length; index++)
         {
-            servers[index].Current = playing[index];
+            servers[index].Current = arrivalLog.Wrap(playing[index]);
         }
 
-        tftp.Current = new TftpUpstreamTestCaseServer(tftpReplies);
-        dns.Current = new DnsUpstreamTestCaseServer(dnsReplies);
+        tftp.Current = arrivalLog.Wrap(new TftpUpstreamTestCaseServer(tftpReplies));
+        dns.Current = arrivalLog.Wrap(new DnsUpstreamTestCaseServer(dnsReplies));
     }
 
     /// <inheritdoc/>
