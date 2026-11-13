@@ -5,7 +5,7 @@ priority: Normal
 assignee: Claude
 pipeline: feature
 depends-on: [BL-1023, BL-1024, BL-1020]
-touches: [Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests, Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests, Application/Surl.Console.UnitTests]
+touches: [Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests, Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests, Application/Surl.Console.UnitTests, Application/Surl.Mcp.UnitLibrary]
 requirement: none
 created: 2026-11-06
 completed:
@@ -30,15 +30,18 @@ clients pointed at an emulator-style `http://` endpoint, and warns on start (ADR
 
 ## Acceptance criteria
 
-- [ ] A named `Surl.Console.UnitTests` test runs `--az-plaintext az://127.0.0.1:0/` with no certificate and it
+- [x] A named `Surl.Console.UnitTests` test runs `--az-plaintext az://127.0.0.1:0/` with no certificate and it
       serves, writing the option's warning.
-- [ ] A named `Surl.Composition.UnitTests` test shows `az` composed plain under the option and TLS without it.
-- [ ] `--aihelp azure-storage` and `surl --help azure-storage` list `--az-plaintext`; the `--aihelp` completeness
+- [x] A named `Surl.Composition.UnitTests` test shows `az` composed plain under the option and TLS without it.
+- [x] `--aihelp azure-storage` and `surl --help azure-storage` list `--az-plaintext`; the `--aihelp` completeness
       tests pass.
-- [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and every touched library keeps 100% line
+- [x] `dotnet build -warnaserror` is clean, the fast tests are green, and every touched library keeps 100% line
       and branch coverage.
 
 ## Notes
+
+- Followed BL-971 (`--oci-plaintext`). Only `az` goes plain; `abfss` stays TLS and `abfs` is already plain (ADR-0109 decision 6).
+- Added `Application/Surl.Mcp.UnitLibrary` (one line in `CommandLinePathMembers`, which a completeness test requires for every `SurlCommandLine` member) to the work; no task in Doing touches it.
 
 ## Log
 

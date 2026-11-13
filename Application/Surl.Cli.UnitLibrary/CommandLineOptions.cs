@@ -83,6 +83,13 @@ internal static class CommandLineOptions
         + "anyone who can watch the network reads every image as it is sent. "
         + "surl warns on every start while it is on, from the info log level up.";
 
+    private const string AzPlaintextExplanation =
+        "Serves every az listen URL as plain HTTP/1.1 instead of TLS from the first byte, so it needs no --cert "
+        + "or --self-signed. A test uses it for an Azure Blob client pointed at an emulator-style http:// endpoint. "
+        + "A bearer token still needs --allow-plaintext-auth over it. It is not the default because every Azure "
+        + "Blob endpoint is HTTPS, and anyone who can watch the network reads every blob as it is sent. "
+        + "surl warns on every start while it is on, from the info log level up.";
+
     private const string FaultExplanation =
         "Adds a fault rule that makes surl misbehave on purpose: delay (ms=<0-600000>, at accept or stage=command), "
         + "drop the connection (at accept, stage=command, or after-bytes=<n> sent), refuse-login, error (a reply=<code text> "
@@ -278,6 +285,9 @@ internal static class CommandLineOptions
         Flag("oci-plaintext", null, negatable: true, (c, on) => c with { OciPlaintext = on },
             new(null, "Serve oci as plain HTTP (warns)", ["oci", "security", "testing"], IsInShortList: false, Default: "off",
                 OciPlaintextExplanation)),
+        Flag("az-plaintext", null, negatable: true, (c, on) => c with { AzPlaintext = on },
+            new(null, "Serve az as plain HTTP (warns)", ["azure-storage", "security", "testing"], IsInShortList: false, Default: "off",
+                AzPlaintextExplanation)),
         WithArgument<string>("hostkey", null, OptionArgumentReader.Path, (c, v) => c with { HostKeyFiles = [.. c.HostKeyFiles, v] },
             new("<file>", "SSH host private key file", ["auth", "ssh"], IsInShortList: false, Default: "none")),
         WithArgument<string>("hostcert", null, OptionArgumentReader.Path, (c, v) => c with { HostCertificateFiles = [.. c.HostCertificateFiles, v] },

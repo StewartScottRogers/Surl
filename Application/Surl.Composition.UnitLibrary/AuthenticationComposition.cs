@@ -205,6 +205,11 @@ public static class AuthenticationComposition
         {
             log.WriteLine(WarningPrefix + "--oci-plaintext: oci is served as plain HTTP, without TLS");
         }
+
+        if (commandLine.AzPlaintext)
+        {
+            log.WriteLine(WarningPrefix + "--az-plaintext: az is served as plain HTTP, without TLS");
+        }
     }
 
     // The --user accounts, then the --user-file's (ADR-0032, section 2): a file that cannot be

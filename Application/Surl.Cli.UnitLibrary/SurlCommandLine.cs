@@ -406,6 +406,12 @@ public sealed record SurlCommandLine
     public bool S3Plaintext { get; init; }
 
     /// <summary>
+    /// <c>--az-plaintext</c>: serve every <c>az</c> listen URL as plain HTTP/1.1, with no TLS and no
+    /// certificate (ADR-0109 decision 6). Off by default.
+    /// </summary>
+    public bool AzPlaintext { get; init; }
+
+    /// <summary>
     /// <c>--oci-plaintext</c>: serve every <c>oci</c> listen URL as plain HTTP/1.1, with no TLS and no
     /// certificate, its token realm <c>http</c> (ADR-0115 decision 6). Off by default.
     /// </summary>

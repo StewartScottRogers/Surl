@@ -53,6 +53,9 @@ public static partial class SurlServerComposition
         // --oci-plaintext does the same for every oci listen URL (ADR-0115 decision 6).
         commandLine = OciPlaintextComposition.MarkOciListenUrlsPlain(commandLine);
 
+        // --az-plaintext does the same for every az listen URL (ADR-0109 decision 6).
+        commandLine = AzPlaintextComposition.MarkAzListenUrlsPlain(commandLine);
+
         if ((FindOptionRefusal(commandLine) ?? DnsTransportComposition.FindRefusal(commandLine)) is { } optionRefusal)
         {
             return Refuse(SurlExitCode.FailedInit, optionRefusal);

@@ -201,6 +201,26 @@ public sealed class CommandLineRunnerExtendedProtocolTests
     }
 
     [TestMethod]
+    public async Task RunAsync_AzWithAzPlaintextAndNoCertificate_ServesItPlainAndWarns()
+    {
+        var factory = new FakeListenerFactory();
+        using var stop = CancellationTokenSource.CreateLinkedTokenSource(TestContext.CancellationToken);
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+        var runner = CreateRunner(factory, FakeEnvironmentVariableReader.Empty, composeExtendedProtocolServers: null);
+
+        var running = runner.RunAsync(["--az-plaintext", "az://127.0.0.1:0/"], output, error, stop.Token);
+        await factory.AcceptStarted.Task.WaitAsync(TestContext.CancellationToken);
+        await stop.CancelAsync();
+        var exitCode = await running;
+
+        Assert.AreEqual(SurlExitCode.Ok, exitCode);
+        Assert.AreEqual(new ListenUrl("az", "127.0.0.1", 0) { IsImplicitTls = false }, factory.StartedListenUrls.Single());
+        Assert.AreEqual($"Listening on az://127.0.0.1:{FakeListenerFactory.BoundPort}/" + NewLine, output.ToString());
+        Assert.AreEqual("surl: warning: --az-plaintext: az is served as plain HTTP, without TLS" + NewLine, error.ToString());
+    }
+
+    [TestMethod]
     public async Task RunAsync_OciWithOciPlaintextAndNoCertificate_ServesItPlainAndWarns()
     {
         var factory = new FakeListenerFactory();

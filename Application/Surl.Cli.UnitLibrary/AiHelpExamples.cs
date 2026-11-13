@@ -151,6 +151,13 @@ public static class AiHelpExamples
             ["Listening on az://127.0.0.1:<port>/"],
             ["surl: warning: --self-signed: serving a throwaway certificate; clients must skip verification (curl -k)"],
             []),
+        Serving(
+            "azure-storage",
+            "For a test: serve Azure Blob Storage as plain HTTP for an http:// endpoint",
+            ["--az-plaintext", "-u", "devstoreaccount1:c2VjcmV0", "az://127.0.0.1:0/"],
+            ["Listening on az://127.0.0.1:<port>/"],
+            ["surl: warning: --az-plaintext: az is served as plain HTTP, without TLS"],
+            []),
         Serving("coap", "Serve CoAP",["coap://127.0.0.1:0/"], ["Listening on coap://127.0.0.1:<port>/"], [], []),
         Serving("dict", "Serve DICT", ["dict://127.0.0.1:0/"], ["Listening on dict://127.0.0.1:<port>/"], [], ["curl dict://127.0.0.1:<port>/d:surl"]),
         Serving("dns", "Serve DNS over UDP and TCP, zone transfers allowed", ["--allow-zone-transfer", "dns://127.0.0.1:0/"], ["Listening on dns://127.0.0.1:<port>/"], [], []),

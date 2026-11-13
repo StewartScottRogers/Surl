@@ -116,6 +116,17 @@ public sealed class HelpTextTests
         "        accepts.",
     ];
 
+    private static readonly string[] AzPlaintextExplanationLines =
+    [
+        "        Serves every az listen URL as plain HTTP/1.1 instead of TLS from the",
+        "        first byte, so it needs no --cert or --self-signed. A test uses it for",
+        "        an Azure Blob client pointed at an emulator-style http:// endpoint. A",
+        "        bearer token still needs --allow-plaintext-auth over it. It is not the",
+        "        default because every Azure Blob endpoint is HTTPS, and anyone who can",
+        "        watch the network reads every blob as it is sent. surl warns on every",
+        "        start while it is on, from the info log level up.",
+    ];
+
     private static readonly string[] OciPlaintextExplanationLines =
     [
         "        Serves every oci listen URL as plain HTTP/1.1 instead of TLS from the",
@@ -257,6 +268,7 @@ public sealed class HelpTextTests
             Row(38, "    --allow-zone-transfer", "Answer DNS zone transfers (AXFR, IXFR)"),
             Row(38, "    --auth <methods>", "Authentication methods accepted"),
             Row(38, "    --authorized-keys <user:file>", "SSH public keys a user may use"),
+            Row(38, "    --az-plaintext", "Serve az as plain HTTP (warns)"),
             Row(38, "    --bucket <name>=<path>", "Map a bucket to a path (repeatable)"),
             Row(38, "    --cacert <file>", "CA certificates for client certs"),
             Row(38, "    --cert <file>", "Server certificate file"),
@@ -393,6 +405,7 @@ public sealed class HelpTextTests
                 Row(38, "    --allow-anonymous", "Accept any login, or none (warns)"),
                 Row(38, "    --allow-plaintext-auth", "Accept passwords in clear (warns)"),
                 Row(38, "    --auth <methods>", "Authentication methods accepted"),
+                Row(38, "    --az-plaintext", "Serve az as plain HTTP (warns)"),
                 Row(38, "    --control <listen URL>", "Serve the test control endpoint"),
                 Row(38, "    --control-token-file <file>", "Bearer token file for --control"),
                 Row(38, "    --fault <kind>[;<key>=<value>]", "Misbehave on purpose (repeatable)"),
@@ -410,6 +423,9 @@ public sealed class HelpTextTests
                 "",
                 "    --auth <methods>",
                 .. AuthExplanationLines,
+                "",
+                "    --az-plaintext",
+                .. AzPlaintextExplanationLines,
                 "",
                 "    --control <listen URL>",
                 .. ControlExplanationLines,
@@ -839,6 +855,7 @@ public sealed class HelpTextTests
             Row(38, "    --allow-weak-ssh-algorithms", "Offer weak SSH algorithms (warns)"),
             Row(38, "    --allow-zone-transfer", "Answer DNS zone transfers (AXFR, IXFR)"),
             Row(38, "    --auth <methods>", "Authentication methods accepted"),
+            Row(38, "    --az-plaintext", "Serve az as plain HTTP (warns)"),
             Row(38, "    --control <listen URL>", "Serve the test control endpoint"),
             Row(38, "    --control-token-file <file>", "Bearer token file for --control"),
             Row(38, "    --fault <kind>[;<key>=<value>]", "Misbehave on purpose (repeatable)"),
@@ -1009,7 +1026,7 @@ public sealed class HelpTextTests
     {
         var text = HelpText.Answer("testing").Output;
 
-        foreach (var looseningOption in new[] { "--allow-anonymous", "--allow-plaintext-auth", "--auth <methods>", "--oci-plaintext", "--s3-plaintext", "--self-signed", "--throwaway-hostkey" })
+        foreach (var looseningOption in new[] { "--allow-anonymous", "--allow-plaintext-auth", "--auth <methods>", "--az-plaintext", "--oci-plaintext", "--s3-plaintext", "--self-signed", "--throwaway-hostkey" })
         {
             StringAssert.Contains(text, NewLine + "    " + looseningOption + NewLine, looseningOption);
         }
