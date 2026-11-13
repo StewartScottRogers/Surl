@@ -81,7 +81,7 @@ public sealed class ExtendedProtocolServersTests
         Assert.IsInstanceOfType<OciRegistryProtocolServer>(servers[15]);
         Assert.IsInstanceOfType<RedisServer>(servers[16]);
         Assert.IsInstanceOfType<S3ProtocolServer>(servers[17]);
-        Assert.IsInstanceOfType<SignalRProtocolServer>(servers[18]);
+        Assert.IsInstanceOfType<SignalRHubRoutingProtocolServer>(servers[18]);
         Assert.IsInstanceOfType<SocketIoProtocolServer>(servers[19]);
         Assert.IsInstanceOfType<StompServer>(servers[20]);
         CollectionAssert.AreEqual(new[] { "stomps" }, servers[21].Schemes.ToArray());

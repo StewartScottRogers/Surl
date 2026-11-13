@@ -53,6 +53,14 @@ public sealed record ListenUrl(string Scheme, string Host, int Port)
     /// </summary>
     public bool IsDnsOverHttps { get; init; }
 
+    /// <summary>
+    /// The path the listen URL was written with, as written (<c>/chat/</c>), or <see langword="null"/>
+    /// when it had none or only <c>/</c>. Only the schemes <c>Surl.Cli</c>'s <c>ListenUrlParser</c> lists
+    /// as taking a path (<c>signalr</c> and <c>signalrs</c>) ever carry one; every other listen URL
+    /// with a path is refused (ADR-0007 section 4; ADR-0153).
+    /// </summary>
+    public string? Path { get; init; }
+
     private readonly bool? isImplicitTls;
 
     /// <summary>

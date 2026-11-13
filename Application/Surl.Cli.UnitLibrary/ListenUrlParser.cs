@@ -37,6 +37,9 @@ public static class ListenUrlParser
 
     private const string AsciiLettersAndDigits = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
 
+    // The schemes whose server answers at the listen URL's path (ADR-0153): the SignalR hub's endpoint base.
+    private static readonly HashSet<string> PathSchemes = ["signalr", "signalrs"];
+
     private static readonly SearchValues<char> SchemeCharacters = SearchValues.Create(AsciiLettersAndDigits + "+-.");
     private static readonly SearchValues<char> HostNameCharacters = SearchValues.Create(AsciiLettersAndDigits + "-.");
     private static readonly SearchValues<char> ZoneCharacters = SearchValues.Create(AsciiLettersAndDigits + "-._~");
@@ -175,12 +178,15 @@ public static class ListenUrlParser
             return Rejected(BadPort);
         }
 
-        if (!IsEmptyOrSlash(afterAuthority))
+        if (IsEmptyOrSlash(afterAuthority))
         {
-            return Rejected(PathQueryOrFragment);
+            return ListenUrlParseResult.Accepted(withDefaultPort with { Port = port });
         }
 
-        return ListenUrlParseResult.Accepted(withDefaultPort with { Port = port });
+        // ADR-0153: only the schemes that serve at a path keep one; a query or fragment is refused for all.
+        return PathSchemes.Contains(withDefaultPort.Scheme) && !afterAuthority.AsSpan().ContainsAny('?', '#')
+            ? ListenUrlParseResult.Accepted(withDefaultPort with { Port = port, Path = afterAuthority })
+            : Rejected(PathQueryOrFragment);
     }
 
     private static bool IsEmptyOrSlash(string text) => text.Length == 0 || text == "/";

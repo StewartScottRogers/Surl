@@ -165,12 +165,13 @@ public static class ExtendedProtocolServers
         new(["redis", "rediss"], services => new RedisServer(services.AuthenticationPolicyFor("redis"), services.MessageBus)),
         new(["s3"], services => new S3ProtocolServer(
             services.ContentStore, services.ObjectMetadataIndex, services.AuthenticationPolicyFor("s3"), services.TimeProvider)),
-        // The SignalR hub (ADR-0119, BL-450) at /, since a listen URL carries no path (BL-1039); signalrs is TLS from the
-        // first byte through TlsSchemes, so the one registration claims both schemes. One SignalRHubConnections per server.
-        new([SignalRProtocolServer.PlainScheme, SignalRProtocolServer.TlsScheme], services => new SignalRProtocolServer(
-            SignalRHubPath.FromListenPath(string.Empty),
-            new SignalRHubConnections(services.TimeProvider),
-            services.AuthenticationPolicyFor(SignalRProtocolServer.PlainScheme))),
+        // The SignalR hubs (ADR-0119, BL-450; ADR-0153, BL-1039): each listen URL's hub at its own path, with its own
+        // SignalRHubConnections; signalrs is TLS from the first byte through TlsSchemes, so the one registration claims both.
+        new([SignalRProtocolServer.PlainScheme, SignalRProtocolServer.TlsScheme], services => new SignalRHubRoutingProtocolServer(
+            hubPath => new SignalRProtocolServer(
+                hubPath,
+                new SignalRHubConnections(services.TimeProvider),
+                services.AuthenticationPolicyFor(SignalRProtocolServer.PlainScheme)))),
         new([SocketIoProtocolServer.PlainScheme,SocketIoProtocolServer.TlsScheme], services => new SocketIoProtocolServer(
             SocketIoServedNamespaces.FromListenPath(null), new SocketIoSessions(), services.AuthenticationPolicyFor(SocketIoProtocolServer.PlainScheme))),
         new(["stomp"], services => new StompServer(

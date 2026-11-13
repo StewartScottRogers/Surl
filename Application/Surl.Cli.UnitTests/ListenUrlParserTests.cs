@@ -273,4 +273,30 @@ public sealed class ListenUrlParserTests
         Assert.IsNull(result.ListenUrl);
         Assert.AreEqual(new CommandLineFailure(exitCode, message), result.Failure);
     }
+
+    [TestMethod]
+    [DataRow("signalr://127.0.0.1:0/chat/", "/chat/", DisplayName = "Path kept as written")]
+    [DataRow("signalrs://127.0.0.1:0/a/b", "/a/b", DisplayName = "TLS twin keeps it too")]
+    [DataRow("signalr://127.0.0.1:0/", null, DisplayName = "A lone slash is no path")]
+    [DataRow("signalr://127.0.0.1:0", null, DisplayName = "No path")]
+    public void Parse_SignalRListenUrl_KeepsItsPath(string argument, string? path)
+    {
+        var result = ListenUrlParser.Parse(argument, ["signalr", "signalrs"]);
+
+        Assert.IsTrue(result.Succeeded);
+        Assert.AreEqual(path, result.ListenUrl!.Path);
+    }
+
+    [TestMethod]
+    [DataRow("http://127.0.0.1/x", DisplayName = "http still refuses a path")]
+    [DataRow("signalr://127.0.0.1/chat?x=1", DisplayName = "a query is refused")]
+    [DataRow("signalr://127.0.0.1/chat#f", DisplayName = "a fragment is refused")]
+    public void Parse_PathNotAllowed_IsRefusedMalformedUrl(string argument)
+    {
+        var result = ListenUrlParser.Parse(argument, ["signalr", "signalrs"]);
+
+        Assert.IsFalse(result.Succeeded);
+        Assert.AreEqual(SurlExitCode.MalformedUrl, result.Failure!.ExitCode);
+        Assert.AreEqual("(3) URL rejected: A listen URL cannot have a path, query or fragment", result.Failure.Message);
+    }
 }

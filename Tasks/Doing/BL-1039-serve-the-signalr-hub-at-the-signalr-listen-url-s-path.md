@@ -31,12 +31,14 @@ completed:
 
 ## Acceptance criteria
 
-- [ ] An ADR records which schemes accept a listen URL path and how it reaches the server.
-- [ ] A named `ListenUrlParserTests` test parses `signalr://127.0.0.1:0/chat/` and keeps the path; `http://127.0.0.1/x` is still refused exit 3.
-- [ ] A named `Surl.Console.UnitTests` test starts `signalr://127.0.0.1:0/chat` and its server's `SignalRHubPath.EndpointBase` is `/chat`.
-- [ ] `dotnet build -warnaserror` is clean and the fast tests are green.
+- [x] An ADR records which schemes accept a listen URL path and how it reaches the server.
+- [x] A named `ListenUrlParserTests` test parses `signalr://127.0.0.1:0/chat/` and keeps the path; `http://127.0.0.1/x` is still refused exit 3.
+- [x] A named `Surl.Console.UnitTests` test starts `signalr://127.0.0.1:0/chat` and its server's `SignalRHubPath.EndpointBase` is `/chat`.
+- [x] `dotnet build -warnaserror` is clean and the fast tests are green.
 
 ## Notes
+
+- ADR-0153 records the decision. The "starts signalr://127.0.0.1:0/chat" test lives in Surl.Composition.UnitTests (`SignalRHubRoutingProtocolServerTests`, `HubPathFor(...).EndpointBase` is `/chat`) rather than Surl.Console.UnitTests, which is outside `touches`; the parser test is in ListenUrlParserTests.
 
 ## Log
 
