@@ -29,7 +29,7 @@ internal sealed class SocketIoServerHarness
 
     public RecordingExchangeLog Log { get; } = new();
 
-    public ExchangeContext Context(ExchangeLimits? limits = null, CancellationToken cancellationToken = default, CancellationToken shutdownToken = default) => new(
+    public ExchangeContext Context(ExchangeLimits? limits = null, CancellationToken cancellationToken = default, CancellationToken shutdownToken = default, IFaultPlan? faults = null, ISurlEventPublisher? events = null) => new(
         1,
         new ListenUrl(SocketIoProtocolServer.PlainScheme, "127.0.0.1", 5000).WithBoundPort(5000),
         new IPEndPoint(IPAddress.Loopback, 5000),
@@ -40,6 +40,8 @@ internal sealed class SocketIoServerHarness
     {
         Limits = limits ?? ExchangeLimits.Default,
         ShutdownToken = shutdownToken,
+        Faults = faults ?? EmptyFaultPlan.Instance,
+        Events = events ?? DiscardingSurlEventPublisher.Instance,
     };
 
     /// <summary>

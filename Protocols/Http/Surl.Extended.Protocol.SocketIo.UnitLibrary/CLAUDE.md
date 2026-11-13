@@ -61,3 +61,11 @@ The codecs (BL-453, ADR-0120 decisions 0, 3 and 6 and the packet limits of 7):
   connection's `sid`.
 
 Still to come: the command line (BL-455).
+
+Faults (BL-1064, ADR-0124 decisions 4 and 9): `SocketIoFaults` asks `ExchangeContext.Faults` for each namespace
+CONNECT after its login is accepted (`command` `connect`) and each event of a connected namespace (`command` the
+event name), with `path` the namespace and `account` the login's user name. A delay holds the packet; a drop ends
+the session silently; an `error` rule with a reply answers a CONNECT with a CONNECT_ERROR whose `message` is the
+text, and an event that carried an ack id with an ACK holding `[{"error":"text"}]` (an event with no ack id is
+swallowed, as nothing can carry the error back). Each publishes a `FaultAppliedEvent`; any other rule is noted and
+the packet is served as without it.

@@ -26,6 +26,12 @@ internal static class SocketIoEventPayload
     }
 
     /// <summary>
+    /// The event's name, the array's first element (BL-1064).
+    /// </summary>
+    /// <param name="payload">A non-empty JSON array with a string first, as the reader checked.</param>
+    public static string Name(ReadOnlyMemory<byte> payload) => ReadName(payload).GetString()!;
+
+    /// <summary>
     /// The arguments: <c>["hello",1]</c> gives <c>[1]</c>, <c>["hello", 1, 2]</c> gives
     /// <c>[ 1, 2]</c>, and <c>["hello"]</c> gives <c>[]</c>.
     /// </summary>
