@@ -4,7 +4,7 @@ title: Compose the Kafka group coordinator and producer ids in surl
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-522, BL-949, BL-950, BL-951]
+depends-on: [BL-973, BL-974, BL-949, BL-950, BL-951]
 touches: [Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests, Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests]
 requirement: none
 created: 2026-11-06
@@ -48,3 +48,4 @@ BL-948 to BL-951 registered, and the help and `--aihelp` text naming them and `$
 ## Log
 
 - 2026-11-06: Created.
+- 2026-11-13: depends-on BL-522 replaced by BL-973 and BL-974: BL-522 was deferred on 2026-11-06 and split into those two, both done.
