@@ -163,6 +163,13 @@ public static class AiHelpExamples
             ["curl ftp://127.0.0.1:<port>/example.txt"]),
         Serving("gopher", "Serve Gopher", ["gopher://127.0.0.1:0/"], ["Listening on gopher://127.0.0.1:<port>/"], [], ["curl gopher://127.0.0.1:<port>/"]),
         Serving(
+            "grpc",
+            "For a test: serve gRPC without accounts",
+            ["--allow-anonymous", "grpc://127.0.0.1:0/"],
+            ["Listening on grpc://127.0.0.1:<port>/"],
+            ["surl: warning: --allow-anonymous: every request and login is accepted without checking credentials"],
+            []),
+        Serving(
             "gs",
             "For a test: serve Google Cloud Storage over HTTPS with a throwaway certificate and one account",
             ["--self-signed", "-u", "GOOGTESTKEY:secret", "gs://127.0.0.1:0/"],
@@ -333,9 +340,9 @@ public static class AiHelpExamples
         Serving("xmpp", "Serve XMPP", ["--allow-anonymous", "xmpp://127.0.0.1:0/"], ["Listening on xmpp://127.0.0.1:<port>/"], ["surl: warning: --allow-anonymous: every request and login is accepted without checking credentials"], []),
         Refused(
             "extended",
-            "An extended scheme no extended server in this build answers",
-            ["grpc://127.0.0.1:0/"],
-            ["surl: (1) Protocol \"grpc\" not supported"],
+            "A scheme no server in this build answers",
+            ["nosuchscheme://127.0.0.1:0/"],
+            ["surl: (1) Protocol \"nosuchscheme\" not supported"],
             SurlExitCode.UnsupportedProtocol),
         Refused(
             "control",

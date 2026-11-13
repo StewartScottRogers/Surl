@@ -179,6 +179,7 @@ public sealed class AiHelpFactsTests
     [DataRow("gs", new[] { "gs" })]
     [DataRow("dns", new[] { "dns" })]
     [DataRow("gopher", new[] { "gopher", "gophers" })]
+    [DataRow("grpc", new[] { "grpc", "grpcs" })]
     [DataRow("http", new[] { "http", "https" })]
     [DataRow("imap", new[] { "imap", "imaps" })]
     [DataRow("kafka", new[] { "kafka", "kafkas" })]
@@ -211,7 +212,7 @@ public sealed class AiHelpFactsTests
     {
         var withSchemes = HelpCategories.All.Where(category => category.Schemes.Count > 0).Select(category => category.Name);
 
-        CollectionAssert.AreEqual(new[] { "amqp", "amqp1", "azure-storage", "coap", "dict", "dns", "ftp", "gopher", "gs", "http", "imap", "kafka", "ldap", "mcp", "mqtt", "mqtt5", "nats", "oci", "pop3", "redis", "rtsp", "s3", "signalr", "smb", "smtp", "socketio", "socks", "ssh", "stomp", "telnet", "tftp", "websocket", "webtransport", "xmpp" }, withSchemes.ToArray());
+        CollectionAssert.AreEqual(new[] { "amqp", "amqp1", "azure-storage", "coap", "dict", "dns", "ftp", "gopher", "grpc", "gs", "http", "imap", "kafka", "ldap", "mcp", "mqtt", "mqtt5", "nats", "oci", "pop3", "redis", "rtsp", "s3", "signalr", "smb", "smtp", "socketio", "socks", "ssh", "stomp", "telnet", "tftp", "websocket", "webtransport", "xmpp" }, withSchemes.ToArray());
     }
 
     [TestMethod]

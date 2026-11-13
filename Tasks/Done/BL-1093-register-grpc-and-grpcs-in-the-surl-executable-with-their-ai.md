@@ -8,7 +8,7 @@ depends-on: [BL-1094, BL-1095, BL-405, BL-1035]
 touches: [Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests, Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests, Application/Surl.Console.UnitTests]
 requirement: none
 created: 2026-11-12
-completed:
+completed: 2026-11-12
 ---
 # BL-1093 — Register grpc and grpcs in the surl executable with their aihelp topic
 
@@ -43,17 +43,22 @@ TLS; `--aihelp` has a grpc topic and help category, and the extension switch (`S
 
 ## Acceptance criteria
 
-- [ ] A named test (`SurlServerCompositionTests.ComposeExtendedProtocolServers_SwitchOnOrOff_RegistersGrpcAndGrpcsOnlyWhenOn`)
+- [x] A named test (`SurlServerCompositionTests.ComposeExtendedProtocolServers_SwitchOnOrOff_RegistersGrpcAndGrpcsOnlyWhenOn`)
       finds `grpc` and `grpcs` registered when the switch is on, and absent when it is off.
-- [ ] `Surl.Console.UnitTests` pin `grpc` and `grpcs` in the extended scheme list, in `--version`'s `Extended:`
+- [x] `Surl.Console.UnitTests` pin `grpc` and `grpcs` in the extended scheme list, in `--version`'s `Extended:`
       line, and at default ports 80 and 443.
-- [ ] The `--aihelp` completeness tests named in root `CLAUDE.md` pass.
-- [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and every touched library keeps 100% line and
+- [x] The `--aihelp` completeness tests named in root `CLAUDE.md` pass.
+- [x] `dotnet build -warnaserror` is clean, the fast tests are green, and every touched library keeps 100% line and
       branch coverage.
 
 ## Notes
+
+- The BL-445 stash could not be read (`git stash list` was denied to this lane), so the registration, help category, `--aihelp` prose, example and pinned test lists were written by hand. The `ExtendedProtocolServers` summary names gRPC once.
+- The `extended` aihelp example and `RunAsync_SwitchUnsetWithThisBuildsExtendedServers...` used `grpc` as the scheme no server answers; every extended scheme is registered now, so both use `nosuchscheme`.
+- The `--help` category list was rewrapped in `HelpTextTests` (79 columns).
 
 ## Log
 
 - 2026-11-12: Created.
 - 2026-11-12: Backlog -> Doing.
+- 2026-11-12: Doing -> Done. grpc and grpcs registered in surl with their aihelp topic, help category and example; SURL_EXTENSIONS=0 turns them off

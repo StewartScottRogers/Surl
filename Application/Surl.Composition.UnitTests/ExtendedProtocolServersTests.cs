@@ -7,6 +7,7 @@ using Surl.Extended.Protocol.AzureStorage;
 using Surl.Extended.Protocol.Coap;
 using Surl.Extended.Protocol.DnsQuery;
 using Surl.Extended.Protocol.GoogleCloudStorage;
+using Surl.Extended.Protocol.Grpc;
 using Surl.Extended.Protocol.Kafka;
 using Surl.Extended.Protocol.McpServer;
 using Surl.Extended.Protocol.Mqtt5;
@@ -60,7 +61,7 @@ public sealed class ExtendedProtocolServersTests
 
         var servers = ExtendedProtocolServers.Compose(services);
 
-        Assert.HasCount(24, servers);
+        Assert.HasCount(25, servers);
         Assert.IsInstanceOfType<Amqp0Broker>(servers[0]);
         Assert.IsInstanceOfType<Amqp1Container>(servers[1]);
         Assert.IsInstanceOfType<AzureStorageProtocolServer>(servers[2]);
@@ -69,26 +70,27 @@ public sealed class ExtendedProtocolServersTests
         Assert.IsInstanceOfType<DnsUdpProtocolServer>(Assert.IsInstanceOfType<DnsDatagramRoutingProtocolServer>(servers[5]).UdpServer);
         Assert.IsInstanceOfType<DnsTcpProtocolServer>(Assert.IsInstanceOfType<DnsConnectionRoutingProtocolServer>(servers[6]).StreamServer);
         Assert.IsInstanceOfType<GoogleCloudStorageProtocolServer>(servers[7]);
-        Assert.IsInstanceOfType<KafkaBroker>(servers[8]);
-        var mcp = Assert.IsInstanceOfType<McpProtocolServer>(servers[9]);
+        Assert.IsInstanceOfType<GrpcProtocolServer>(servers[8]);
+        Assert.IsInstanceOfType<KafkaBroker>(servers[9]);
+        var mcp = Assert.IsInstanceOfType<McpProtocolServer>(servers[10]);
         CollectionAssert.AreEqual(new[] { "mcp", "mcps" }, mcp.Schemes.ToArray());
-        Assert.IsInstanceOfType<McpStdioListenUrlServer>(servers[10]);
-        Assert.IsInstanceOfType<Mqtt5Broker>(servers[11]);
-        Assert.IsInstanceOfType<Mqtt5WebSocketServer>(servers[12]);
-        Assert.IsInstanceOfType<NatsServer>(servers[13]);
-        Assert.IsInstanceOfType<OciRegistryProtocolServer>(servers[14]);
-        Assert.IsInstanceOfType<RedisServer>(servers[15]);
-        Assert.IsInstanceOfType<S3ProtocolServer>(servers[16]);
-        Assert.IsInstanceOfType<SignalRProtocolServer>(servers[17]);
-        Assert.IsInstanceOfType<SocketIoProtocolServer>(servers[18]);
-        Assert.IsInstanceOfType<StompServer>(servers[19]);
-        CollectionAssert.AreEqual(new[] { "stomps" }, servers[20].Schemes.ToArray());
-        Assert.IsInstanceOfType<WebTransportProtocolServer>(servers[21]);
-        Assert.IsInstanceOfType<XmppServer>(servers[22]);
-        CollectionAssert.AreEqual(new[] { "xmpps" }, servers[23].Schemes.ToArray());
-        CollectionAssert.AreEqual(new[] { "amqp", "amqps", "amqp1", "amqp1s", "az", "abfs", "abfss", "coap", "coaps", "dns", "dns", "gs", "kafka", "kafkas", "mcp", "mcps", "mcp+stdio", "mqtt5", "mqtt5s", "mqtt5+ws", "nats", "natss", "oci", "redis", "rediss", "s3", "signalr", "signalrs", "socketio", "socketios", "stomp", "stomps", "webtransport", "xmpp", "xmpps" }, servers.SelectMany(server => server.Schemes).ToArray());
+        Assert.IsInstanceOfType<McpStdioListenUrlServer>(servers[11]);
+        Assert.IsInstanceOfType<Mqtt5Broker>(servers[12]);
+        Assert.IsInstanceOfType<Mqtt5WebSocketServer>(servers[13]);
+        Assert.IsInstanceOfType<NatsServer>(servers[14]);
+        Assert.IsInstanceOfType<OciRegistryProtocolServer>(servers[15]);
+        Assert.IsInstanceOfType<RedisServer>(servers[16]);
+        Assert.IsInstanceOfType<S3ProtocolServer>(servers[17]);
+        Assert.IsInstanceOfType<SignalRProtocolServer>(servers[18]);
+        Assert.IsInstanceOfType<SocketIoProtocolServer>(servers[19]);
+        Assert.IsInstanceOfType<StompServer>(servers[20]);
+        CollectionAssert.AreEqual(new[] { "stomps" }, servers[21].Schemes.ToArray());
+        Assert.IsInstanceOfType<WebTransportProtocolServer>(servers[22]);
+        Assert.IsInstanceOfType<XmppServer>(servers[23]);
+        CollectionAssert.AreEqual(new[] { "xmpps" }, servers[24].Schemes.ToArray());
+        CollectionAssert.AreEqual(new[] { "amqp", "amqps", "amqp1", "amqp1s", "az", "abfs", "abfss", "coap", "coaps", "dns", "dns", "gs", "grpc", "grpcs", "kafka", "kafkas", "mcp", "mcps", "mcp+stdio", "mqtt5", "mqtt5s", "mqtt5+ws", "nats", "natss", "oci", "redis", "rediss", "s3", "signalr", "signalrs", "socketio", "socketios", "stomp", "stomps", "webtransport", "xmpp", "xmpps" }, servers.SelectMany(server => server.Schemes).ToArray());
         CollectionAssert.AreEqual(
-            new[] { "amqp", "amqps", "amqp1", "amqp1s", "az", "abfs", "abfss", "coap", "coaps", "dns", "dns", "gs", "kafka", "kafkas", "mcp", "mcps", "mcp+stdio", "mqtt5", "mqtt5s", "mqtt5+ws", "nats", "natss", "oci", "redis", "rediss", "s3", "signalr", "signalrs", "socketio", "socketios", "stomp", "stomps", "webtransport", "xmpp", "xmpps" }, ExtendedProtocolServers.Registrations.SelectMany(registration => registration.Schemes).ToArray());
+            new[] { "amqp", "amqps", "amqp1", "amqp1s", "az", "abfs", "abfss", "coap", "coaps", "dns", "dns", "gs", "grpc", "grpcs", "kafka", "kafkas", "mcp", "mcps", "mcp+stdio", "mqtt5", "mqtt5s", "mqtt5+ws", "nats", "natss", "oci", "redis", "rediss", "s3", "signalr", "signalrs", "socketio", "socketios", "stomp", "stomps", "webtransport", "xmpp", "xmpps" }, ExtendedProtocolServers.Registrations.SelectMany(registration => registration.Schemes).ToArray());
     }
 
     [TestMethod]

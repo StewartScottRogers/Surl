@@ -4,6 +4,7 @@ using Surl.Extended.Protocol.AzureStorage;
 using Surl.Extended.Protocol.Coap;
 using Surl.Extended.Protocol.DnsQuery;
 using Surl.Extended.Protocol.GoogleCloudStorage;
+using Surl.Extended.Protocol.Grpc;
 using Surl.Extended.Protocol.Kafka;
 using Surl.Extended.Protocol.McpServer;
 using Surl.Extended.Protocol.Mqtt5;
@@ -62,7 +63,7 @@ public static class ExtendedProtocolServers
     /// scheme, on the same <see cref="ProtocolServerRegistration"/> as the originals (ADR-0124,
     /// decision 2): today the AMQP 1.0 container for <c>amqp1</c> and <c>amqp1s</c> (BL-514), the DNS server for <c>dns</c> over UDP and TCP (BL-1032), the NATS server for
     /// <c>nats</c> and <c>natss</c> (BL-528), the S3 server
-    /// for <c>s3</c> (BL-421) the Socket.IO server for <c>socketio</c> and <c>socketios</c> (BL-455) the WebTransport server for <c>webtransport</c> (BL-461) the CoAP servers for <c>coap</c> and <c>coaps</c> (BL-476) the STOMP broker for <c>stomp</c> and <c>stomps</c> (BL-533) and the XMPP server for <c>xmpp</c> and <c>xmpps</c> (BL-540).
+    /// for <c>s3</c> (BL-421) the Socket.IO server for <c>socketio</c> and <c>socketios</c> (BL-455) the WebTransport server for <c>webtransport</c> (BL-461) the CoAP servers for <c>coap</c> and <c>coaps</c> (BL-476) the STOMP broker for <c>stomp</c> and <c>stomps</c> (BL-533) the XMPP server for <c>xmpp</c> and <c>xmpps</c> (BL-540) and the gRPC server for <c>grpc</c> and <c>grpcs</c> (BL-445).
     /// </summary>
     /// <remarks>
     /// The AMQP 1.0 container answers <c>amqp1</c> and <c>amqp1s</c> with the one message bus the MQTT
@@ -130,6 +131,10 @@ public static class ExtendedProtocolServers
             new DnsTcpProtocolServer(services.DnsZones, services.AllowsZoneTransfer), services.DnsZones, services.AllowsZoneTransfer, services.AuthenticationPolicyFor("dns"))),
         new(["gs"], services => new GoogleCloudStorageProtocolServer(
             services.ContentStore, services.ObjectMetadataIndex, services.AuthenticationPolicyFor("gs"), services.TimeProvider)),
+        // The gRPC server (ADR-0116, BL-445): stateless echo and reflection over HTTP/2 prior knowledge; grpcs is TLS from the
+        // first byte through TlsSchemes (ALPN h2), so the one registration claims both schemes.
+        new([GrpcProtocolServer.PlainScheme, GrpcProtocolServer.TlsScheme], services => new GrpcProtocolServer(
+            services.AuthenticationPolicyFor(GrpcProtocolServer.PlainScheme))),
         new(["kafka", "kafkas"], ComposeKafkaBroker),
         // The MCP server (ADR-0111, BL-978) at /mcp, since a listen URL carries no path; mcps is TLS from the first byte
         // through TlsSchemes with ALPN http/1.1, so the one registration claims both schemes.

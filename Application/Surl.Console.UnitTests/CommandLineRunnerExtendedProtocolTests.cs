@@ -66,10 +66,10 @@ public sealed class CommandLineRunnerExtendedProtocolTests
         using var error = new StringWriter();
         var runner = CreateRunner(new FakeListenerFactory(), FakeEnvironmentVariableReader.Empty, composeExtendedProtocolServers: null);
 
-        var exitCode = await runner.RunAsync(["grpc://127.0.0.1:0/"], output, error, TestContext.CancellationToken);
+        var exitCode = await runner.RunAsync(["nosuchscheme://127.0.0.1:0/"], output, error, TestContext.CancellationToken);
 
         Assert.AreEqual(SurlExitCode.UnsupportedProtocol, exitCode);
-        Assert.AreEqual("surl: (1) Protocol \"grpc\" not supported" + NewLine, error.ToString());
+        Assert.AreEqual("surl: (1) Protocol \"nosuchscheme\" not supported" + NewLine, error.ToString());
     }
 
     [TestMethod]
@@ -391,6 +391,8 @@ public sealed class CommandLineRunnerExtendedProtocolTests
     [DataRow("natss")]
     [DataRow("coap")]
     [DataRow("coaps")]
+    [DataRow("grpc")]
+    [DataRow("grpcs")]
     [DataRow("signalr")]
     [DataRow("signalrs")]
     [DataRow("redis")]
@@ -419,6 +421,8 @@ public sealed class CommandLineRunnerExtendedProtocolTests
     }
 
     [TestMethod]
+    [DataRow("grpc", new string[0], 80)]
+    [DataRow("grpcs", new[] { "--self-signed" }, 443)]
     [DataRow("signalr", new string[0], 80)]
     [DataRow("signalrs", new[] { "--self-signed" }, 443)]
     [DataRow("redis", new string[0], 6379)]
@@ -718,7 +722,7 @@ public sealed class CommandLineRunnerExtendedProtocolTests
 
         var schemes = runner.ComposeExtendedSchemes();
 
-        CollectionAssert.AreEqual(new[] { "amqp", "amqps", "amqp1", "amqp1s", "az", "abfs", "abfss", "coap", "coaps", "dns", "gs", "kafka", "kafkas", "mcp", "mcps", "mcp+stdio", "mqtt5", "mqtt5s", "mqtt5+ws", "nats", "natss", "oci", "redis", "rediss", "s3", "signalr", "signalrs", "socketio", "socketios", "stomp", "stomps", "webtransport", "xmpp", "xmpps" }, schemes.ToArray());
+        CollectionAssert.AreEqual(new[] { "amqp", "amqps", "amqp1", "amqp1s", "az", "abfs", "abfss", "coap", "coaps", "dns", "gs", "grpc", "grpcs", "kafka", "kafkas", "mcp", "mcps", "mcp+stdio", "mqtt5", "mqtt5s", "mqtt5+ws", "nats", "natss", "oci", "redis", "rediss", "s3", "signalr", "signalrs", "socketio", "socketios", "stomp", "stomps", "webtransport", "xmpp", "xmpps" }, schemes.ToArray());
     }
 
     [TestMethod]
