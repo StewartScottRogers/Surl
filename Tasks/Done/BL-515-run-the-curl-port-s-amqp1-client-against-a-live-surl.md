@@ -8,7 +8,7 @@ depends-on: [BL-514, BL-406]
 touches: [Conformance/Surl.Conformance.UnitTests, Documentation/Conformance/Extended/Amqp1.md]
 requirement: none
 created: 2026-11-04
-completed:
+completed: 2026-11-12
 ---
 # BL-515 — Run the Curl port's amqp1 client against a live surl
 
@@ -27,9 +27,9 @@ from AMQP 1.0, and the matrix is fully covered.
 
 ## Acceptance criteria
 
-- [ ] The test class exists with the four exchanges, each passing on Windows with the pinned client present.
-- [ ] `Documentation/Conformance/Extended/Amqp1.md`: every row is covered by a named test or marked `n/a` with a reason.
-- [ ] The fast tests are green, and `dotnet build -warnaserror` is clean.
+- [x] The test class exists with the four exchanges, each passing on Windows with the pinned client present.
+- [x] `Documentation/Conformance/Extended/Amqp1.md`: every row is covered by a named test or marked `n/a` with a reason.
+- [x] The fast tests are green, and `dotnet build -warnaserror` is clean.
 
 ## Notes
 
@@ -37,3 +37,4 @@ from AMQP 1.0, and the matrix is fully covered.
 
 - 2026-11-04: Created.
 - 2026-11-12: Backlog -> Doing.
+- 2026-11-12: Doing -> Done. Curl port amqp1 client exchanges messages with a live surl over amqp1 and amqp1s: send, receive, empty address, refused login
