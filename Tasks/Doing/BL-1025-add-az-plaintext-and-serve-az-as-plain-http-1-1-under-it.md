@@ -43,3 +43,4 @@ clients pointed at an emulator-style `http://` endpoint, and warns on start (ADR
 ## Log
 
 - 2026-11-06: Created.
+- 2026-11-12: Backlog -> Doing.
