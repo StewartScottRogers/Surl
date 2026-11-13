@@ -44,3 +44,4 @@ the shared content store seen from both families of client.
 - 2026-11-04: Created.
 - 2026-11-06: depends-on BL-427 replaced by BL-1023 (BL-427 split for the 60-minute size limit; Stewart asked for a backlog audit 2026-11-06).
 - 2026-11-06: depends-on BL-433 replaced by BL-1026 (BL-433 split for the 60-minute size limit; Stewart asked for a backlog audit 2026-11-06).
+- 2026-11-12: Backlog -> Doing.
