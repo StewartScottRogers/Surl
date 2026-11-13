@@ -12,6 +12,8 @@ internal sealed partial class Mqtt5BrokerConnection
 {
     private const double KeepAliveGraceFactor = 1.5;
 
+    private static readonly TimeSpan ShutdownNoticeTimeout = TimeSpan.FromSeconds(2);
+
     // A shared subscription's Topic Filter starts with it (section 4.8.2).
     private const string SharedSubscriptionPrefix = "$share/";
 
@@ -72,8 +74,31 @@ internal sealed partial class Mqtt5BrokerConnection
         var end = Mqtt5ConnectionEnd.ClosedAbnormally;
         var failure = await CaptureFailureAsync(async () => end = await ServeConnectedAsync(client));
         await StopDeliveriesAsync();
+        if (failure?.SourceException is OperationCanceledException && context.CancellationToken.IsCancellationRequested)
+        {
+            await SayServerShuttingDownAsync();
+        }
+
         EndConnection(client, end);
         failure?.Throw();
+    }
+
+    // [MQTT5-3.14.2.1-2] (a MAY): when the server stops, the connection is told why before it closes.
+    // The write is best effort and bounded, as the stopping token that ended the read cannot bound it.
+    private async ValueTask SayServerShuttingDownAsync()
+    {
+        using var timeout = new CancellationTokenSource(ShutdownNoticeTimeout, context.TimeProvider);
+        try
+        {
+            context.Log.Note("The server is stopping; sent DISCONNECT 0x8B and closed.");
+            await WriteBytesAsync(
+                Mqtt5PacketEncoder.Encode(new Mqtt5ReasonCodeAndPropertiesPacket(Mqtt5PacketType.Disconnect, Mqtt5ReasonCode.ServerShuttingDown, [])),
+                timeout.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            context.Log.Note("The DISCONNECT 0x8B could not be written within the shutdown notice timeout.");
+        }
     }
 
     // The head timeout runs from the first byte until CONNACK, enhanced authentication included

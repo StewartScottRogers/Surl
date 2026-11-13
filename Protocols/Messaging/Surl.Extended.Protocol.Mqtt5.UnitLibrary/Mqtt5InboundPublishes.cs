@@ -84,6 +84,12 @@ internal sealed class Mqtt5InboundPublishes(TopicNameLookup names, string scheme
             return Mqtt5PacketFault.ProtocolError("[MQTT-3.3.4-6]");
         }
 
+        if (Mqtt5ConnectJudge.Find(properties, Mqtt5PropertyIdentifier.ResponseTopic) is { } responseTopic
+            && responseTopic.Text.AsSpan().IndexOfAny('+', '#') >= 0)
+        {
+            return Mqtt5PacketFault.ProtocolError("[MQTT-3.3.2-14]");
+        }
+
         return Mqtt5ConnectJudge.Find(properties, Mqtt5PropertyIdentifier.PayloadFormatIndicator)?.Integer > 1
             ? Mqtt5PacketFault.ProtocolError("3.3.2.3.2")
             : null;
