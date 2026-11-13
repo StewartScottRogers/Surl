@@ -8,7 +8,7 @@ depends-on: [BL-421, BL-406, BL-1035]
 touches: [Conformance/Surl.Conformance.UnitTests, Documentation/Conformance/Extended/S3.md]
 requirement: none
 created: 2026-11-04
-completed:
+completed: 2026-11-12
 ---
 # BL-422 — Run the Curl port's s3 client against a live surl
 
@@ -34,10 +34,10 @@ still pointing at a task.
 
 ## Acceptance criteria
 
-- [ ] The test class exists with the four exchanges above. Each passes on Windows with the pinned port client
+- [x] The test class exists with the four exchanges above. Each passes on Windows with the pinned port client
       present, and is inconclusive without it.
-- [ ] `Documentation/Conformance/Extended/S3.md`: every row is covered by a named test or marked `n/a` with a reason.
-- [ ] The fast tests are green, and `dotnet build -warnaserror` is clean.
+- [x] `Documentation/Conformance/Extended/S3.md`: every row is covered by a named test or marked `n/a` with a reason.
+- [x] The fast tests are green, and `dotnet build -warnaserror` is clean.
 
 ## Notes
 
@@ -49,9 +49,12 @@ still pointing at a task.
   ending in `/`, and uploads with `-T`. `PinnedCurlPortClientOnThisMachine.RunAsync` passes no
   environment changes, so the test class needs an overload taking `AWS_ENDPOINT_URL`.
 
+- 2026-11-12 (lane 2): BL-1035 resolved (SDK 10.0.404 installed). Added `CurlPortClientTransfersObjectsWithSurlOverS3Tests` (signed GET, signed PUT, list, unsigned refused; all pass on Windows with the pinned port client). Listing needs `--list-directories` on surl (S3ListObjectsV2 is 403 AccessDenied without it, as documented), so the test passes it. The unsigned test asserts a non-zero exit and no object bytes: the port reports a refusal as exit 22. Every `S3.md` row now names tests or is `n/a`; rows previously pointing at finished tasks were mapped to their unit tests. No port defect found.
+
 ## Log
 
 - 2026-11-04: Created.
 - 2026-11-11: Backlog -> Doing.
 - 2026-11-11: Doing -> Backlog. Waiting on BL-1035: pinned .NET SDK 10.0.401 is not installed, so dotnet build cannot run
 - 2026-11-12: Backlog -> Doing.
+- 2026-11-12: Doing -> Done. The Curl port's s3 client does a signed GET, signed PUT, listing and refused unsigned request against a live surl; S3.md rows all name tests
