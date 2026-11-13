@@ -8,7 +8,7 @@ depends-on: [BL-492, BL-406]
 touches: [Conformance/Surl.Conformance.UnitTests, Documentation/Conformance/Extended/Redis.md]
 requirement: none
 created: 2026-11-04
-completed:
+completed: 2026-11-12
 ---
 # BL-493 — Run the Curl port's redis client against a live surl
 
@@ -27,14 +27,17 @@ assertion comes from the RESP specification and the command pages, and the matri
 
 ## Acceptance criteria
 
-- [ ] The test class exists with the four exchanges, each passing on Windows with the pinned client present.
-- [ ] `Documentation/Conformance/Extended/Redis.md`: every row is covered by a named test or marked `n/a` with a
+- [x] The test class exists with the four exchanges, each passing on Windows with the pinned client present.
+- [x] `Documentation/Conformance/Extended/Redis.md`: every row is covered by a named test or marked `n/a` with a
       reason.
-- [ ] The fast tests are green, and `dotnet build -warnaserror` is clean.
+- [x] The fast tests are green, and `dotnet build -warnaserror` is clean.
 
 ## Notes
+
+- The port's redis client always opens with `HELLO 3 AUTH`, so "the same over RESP3" is every exchange; the RESP3 null is checked by a GET of a missing key printing nothing. `redis` runs with `--allow-plaintext-auth`, `rediss` with `--self-signed`. Four exchanges, five test cases, all passing on Windows with the pinned client. No port defect seen. Redis.md rows now name the live tests.
 
 ## Log
 
 - 2026-11-04: Created.
 - 2026-11-12: Backlog -> Doing.
+- 2026-11-12: Doing -> Done. pinned Curl port redis client runs SET/GET with login, RESP3, SELECT and a refused password against live surl
