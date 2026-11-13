@@ -648,6 +648,8 @@ public sealed partial class AiHelpTextTests
             // Written by Surl.Composition when it opens a --share folder, whose tests pin it (BL-988).
             "surl: (37) Could not open directory <path> for share <name>",
             "surl: (37) Could not read <file>: line <n>: <what>",
+            // Written by Surl.Composition's LdapAccountSourceComposition, whose tests pin it (BL-673).
+            "surl: (2) --user-ldap plaintext needs --allow-plaintext-auth",
             "surl: (45) Could not bind <scheme>://<address>:<port>/: <reason>",
             "surl: (6) Could not resolve host: <host>",
             "surl: (58) <url> needs a certificate: give --cert <file>, or --self-signed for a throwaway one",

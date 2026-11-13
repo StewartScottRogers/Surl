@@ -243,6 +243,9 @@ internal static class CommandLineOptions
             with { ArgumentHoldsSecret = true },
         WithArgument<string>("user-file", null, OptionArgumentReader.Path, (c, v) => c with { UserFile = v },
             new("<file>", "Read accounts from a file", ["amqp", "amqp1", "auth", "azure-storage", "ftp", "gs", "http", "imap", "ldap", "mqtt", "nats", "oci", "pop3", "rtsp", "s3", "smb", "smtp", "ssh", "stomp", "websocket"], IsInShortList: true, Default: "none")),
+        WithArgument<ConfiguredLdapAccountSource>("user-ldap", null, ConfiguredLdapAccountSourceReader.Reading, (c, v) => c with { UserLdap = v },
+            new("<ldap-url>[;...]", "Check logins against LDAP", ["auth"], IsInShortList: false, Default: "none: the accounts alone"))
+            with { ArgumentHoldsSecret = true },
         WithArgument<ConfiguredGroup>("group", null, ConfiguredGroupReader.Reading, (c, v) => c with { Groups = [.. c.Groups, v] },
             new("<name>=<member>,...", "Name a group of accounts (repeatable)", ["auth"], IsInShortList: false, Default: "no groups")),
         WithArgument<string>("mail-domain", null, MailDomainNames.Reading, (c, v) => c with { MailDomains = [.. c.MailDomains, v] },

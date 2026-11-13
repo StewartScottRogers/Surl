@@ -212,6 +212,15 @@ rather than writing it, and the warning writers take the log `TextWriter` they w
   `--shared-folder`s after the groups are expanded (`@group` members become account names, `@everyone`
   is `(2)`); `WriteWarnings` writes the `--mail-catch-all` warning from info up; `DescribeRouteFailure`
   gives a `MailRouteException`'s `(2)` text, which `LoadMailStoreAsync` returns and the start maps to exit 2.
+- `LdapAccountSourceComposition` - `--user-ldap` (ADR-0149 decisions 7 and 9, BL-673): `Compose` checks the URL's
+  structure with `Surl.Authentication`'s `LdapDirectoryUrl` (`(2) --user-ldap: <what is wrong>`, never echoing the
+  URL), `plaintext` against `--allow-plaintext-auth`, reads the `bind-password-file` (first line, 64 KiB; `(37)`, `(2)`)
+  and the `ca-file` (`(77)`) through `ReadStartFile`, and builds the `LdapAccountSource` over
+  `SurlServerCompositionSeams.LdapDirectoryConnector` or the internal `TlsClientLdapDirectoryConnector` (an adapter
+  over `Surl.Networking`'s `TlsClientConnector`, tested over loopback in `Integration` tests). `AuthenticationComposition.Compose`
+  sets it on `AuthenticationSettings.LdapAccountSource`; `DirectoryNoteSink` carries its per-login notes to the log once
+  `ComposedServing` attaches it; `WriteWarning` and `WriteStartLine` write the `;plaintext` warning and the `Account source:`
+  note. The directory is never contacted at start.
 - `AccountGroupExpansion` - every `--group` expanded to account names once the accounts are read
   (ADR-0102 decision 4.1), refusing `everyone` and `@everyone` (4.2), a member naming no account or
   group and a group that includes itself (ADR-0101 decision 5 row 18), each `(2)`; `Expand` turns a

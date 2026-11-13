@@ -63,6 +63,12 @@ public sealed record SurlServerCompositionSeams(
     public Func<string, byte[]>? ReadStartFile { get; init; }
 
     /// <summary>
+    /// How <c>--user-ldap</c>'s directory is reached (ADR-0149 decision 11), so a test replays a directory in
+    /// memory; the TLS client connector over sockets when <see langword="null"/>, which is what <c>surl</c> passes.
+    /// </summary>
+    public Surl.Authentication.ILdapDirectoryConnector? LdapDirectoryConnector { get; init; }
+
+    /// <summary>
     /// Reads the Unix mode of a file read at start that may hold passwords, given its path as given,
     /// so a file other users can read is warned (ADR-0101, decision 5): today the
     /// <c>-K</c> files and the <c>--user-file</c>. <see langword="null"/> from it means no mode, as on Windows, and no warning.

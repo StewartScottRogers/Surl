@@ -214,15 +214,18 @@ public static partial class SurlServerComposition
             return (null, new SurlStartFailure(mailboxExitCode, [mailboxFailureMessage!]));
         }
 
+        var directoryNotes = new DirectoryNoteSink();
         var (policy, accountNames, skippedKeytabEntries, exitCode, failureMessage) = AuthenticationComposition.Compose(
-            commandLine, readStartFile, seams.TimeProvider, instruments.Events, instruments.Faults, mailboxes.Accounts);
+            commandLine, readStartFile, seams.TimeProvider, instruments.Events, instruments.Faults, mailboxes.Accounts,
+            seams.LdapDirectoryConnector, directoryNotes.Write);
         if (policy is null)
         {
             return (null, new SurlStartFailure(exitCode, [failureMessage!]));
         }
 
         // The groups, expanded over every account once --user-file is read (ADR-0102 decisions 4.1 and 5).
-        var (accountGroups, groupFailureMessage) = AccountGroupExpansion.Compose(commandLine.Groups, accountNames);
+        var (accountGroups, groupFailureMessage) = AccountGroupExpansion.Compose(
+            commandLine.Groups, accountNames, takesUnknownNamesAsDirectoryAccounts: commandLine.UserLdap is not null);
         if (accountGroups is null)
         {
             return (null, new SurlStartFailure(SurlExitCode.FailedInit, [groupFailureMessage!]));
@@ -262,6 +265,7 @@ public static partial class SurlServerComposition
                 new SchemeAuthenticationPolicies(policy, seams.TimeProvider, instruments.Events, instruments.Faults))
             {
                 ProxyPolicy = proxyPolicy,
+                DirectoryNotes = directoryNotes,
                 ControlToken = controlToken,
                 PreSharedKeyAccounts = AuthenticationComposition.ReadPreSharedKeyAccounts(commandLine, readStartFile),
             }, null);

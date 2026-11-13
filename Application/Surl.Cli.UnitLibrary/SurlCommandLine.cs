@@ -192,6 +192,12 @@ public sealed record SurlCommandLine
     public IReadOnlyList<CommandLineAccount> Accounts { get; init; } = [];
 
     /// <summary>
+    /// <c>--user-ldap</c>: the LDAP directory password logins are checked against beside the accounts
+    /// (ADR-0149); none by default. At most one is given.
+    /// </summary>
+    public ConfiguredLdapAccountSource? UserLdap { get; init; }
+
+    /// <summary>
     /// <c>--user-file</c>: the file of more accounts, as given; none by default. It is read
     /// when surl starts serving, not while parsing (ADR-0032 section 2).
     /// </summary>

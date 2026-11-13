@@ -25,6 +25,9 @@ internal static class CommandLinePathMembers
         new(nameof(SurlCommandLine.SrpVerifierFile), "--srp-verifiers", commandLine => OneOrNone(commandLine.SrpVerifierFile)),
         new(nameof(SurlCommandLine.SrpGroupFile), "--srp-groups", commandLine => OneOrNone(commandLine.SrpGroupFile)),
         new(nameof(SurlCommandLine.UserFile), "--user-file", commandLine => OneOrNone(commandLine.UserFile)),
+        new(nameof(SurlCommandLine.UserLdap), "--user-ldap", commandLine => commandLine.UserLdap is { } source
+            ? new[] { source.BindPasswordFile, source.CaFile }.OfType<string>()
+            : []),
         new(nameof(SurlCommandLine.ProxyUserFile), "--proxy-user-file", commandLine => OneOrNone(commandLine.ProxyUserFile)),
         new(nameof(SurlCommandLine.KeytabFile), "--keytab", commandLine => OneOrNone(commandLine.KeytabFile)),
         new(nameof(SurlCommandLine.HostKeyFiles), "--hostkey", commandLine => commandLine.HostKeyFiles),

@@ -361,6 +361,7 @@ public sealed class HelpTextTests
             Row(38, "    --url <listen URL>", "Add a listen URL (repeatable)"),
             Row(38, "-u, --user <user:password>", "Add an account (repeatable)"),
             Row(38, "    --user-file <file>", "Read accounts from a file"),
+            Row(38, "    --user-ldap <ldap-url>[;...]", "Check logins against LDAP"),
             Row(38, "-v, --verbose", "Log every exchange event"),
             Row(38, "-V, --version", "Show version number and quit"),
             Row(38, "    --ws-echo", "Echo client messages, not the path"));
@@ -407,7 +408,8 @@ public sealed class HelpTextTests
             Row(38, "    --tlspassword <password>", "TLS-SRP password (needs --tlsuser)"),
             Row(38, "    --tlsuser <name>", "TLS-SRP user name (needs --tlspassword)"),
             Row(38, "-u, --user <user:password>", "Add an account (repeatable)"),
-            Row(38, "    --user-file <file>", "Read accounts from a file"));
+            Row(38, "    --user-file <file>", "Read accounts from a file"),
+            Row(38, "    --user-ldap <ldap-url>[;...]", "Check logins against LDAP"));
 
     [TestMethod]
     public void Answer_Testing_ListsItsOptions() =>

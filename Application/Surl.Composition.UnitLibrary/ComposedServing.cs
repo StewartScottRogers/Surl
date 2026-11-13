@@ -310,6 +310,10 @@ public sealed class ComposedServing : IAsyncDisposable
         // (ADR-0051, decisions 8 and 11).
         authentication.SshHostKeys.WriteStartLines(commandLine, log);
 
+        // The LDAP account source's note, and from here on its per-login notes (ADR-0149 decision 9).
+        LdapAccountSourceComposition.WriteStartLine(commandLine, log);
+        authentication.DirectoryNotes.Attach(log, commandLine.LogLevel);
+
         // Each group's note, after the warnings (ADR-0102 decision 5).
         authentication.AccountGroups.WriteStartLines(commandLine.LogLevel, log);
 

@@ -53,6 +53,12 @@ public static class AiHelpExamples
             SurlExitCode.DataDirectoryInUse)
             with { Precondition = AiHelpExamplePrecondition.DataDirectoryHeldByAnotherSurl },
         Serving("auth", "Require a login", ["-u", "alice:secret", HttpListenUrl], [ListeningOnHttp], [], ["curl --digest -u alice:secret http://127.0.0.1:<port>/"]),
+        Refused(
+            "auth",
+            "An LDAP account source over clear text",
+            ["--user-ldap", "ldap://127.0.0.1:389/dc=example,dc=com;plaintext", HttpListenUrl],
+            ["surl: (2) --user-ldap plaintext needs --allow-plaintext-auth"],
+            SurlExitCode.FailedInit),
         Serving(
             "auth",
             "Read Kerberos service keys for Negotiate",
