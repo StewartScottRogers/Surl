@@ -38,3 +38,4 @@ and `ServerFamilies` lacks the name. The FTP, Gopher and mail halves already bin
 ## Log
 
 - 2026-11-12: Created.
+- 2026-11-12: Backlog -> Doing.
