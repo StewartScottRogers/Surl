@@ -13,6 +13,13 @@ on:
     branches-ignore: [gource, 'factory/**']
   pull_request:
   workflow_dispatch:
+    inputs:
+      attempts:
+        description: >-
+          Flake hunt (BL-1104): how many times to run the Linux and macOS "Build and test"
+          legs side by side on this commit. 1 runs each once, as a push does.
+        type: number
+        default: 1
 
 permissions:
   contents: read
@@ -22,25 +29,46 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Builds the "Build and test" matrix. A push, a pull request or a dispatch with attempts of 1
+  # gets one row per OS with no attempt field, so job names and behaviour are as before. A
+  # dispatch with attempts above 1 gets Linux and macOS rows 1..attempts, each carrying its
+  # attempt number (clamped to 20); Windows still runs once.
+  plan-test-matrix:
+    name: Plan the test matrix
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.plan.outputs.matrix }}
+    steps:
+      - name: Plan
+        id: plan
+        shell: pwsh
+        env:
+          ATTEMPTS: ${{ github.event_name == 'workflow_dispatch' && inputs.attempts || 1 }}
+        run: |
+          $attempts = [Math]::Min(20, [Math]::Max(1, [int]$env:ATTEMPTS))
+          $rows = @(@{ os = 'windows-latest' })
+          $unix = @(
+            @{ os = 'ubuntu-latest'; 'upstream-curl-platform' = 'linux-x64'; 'upstream-curl-asset' = 'curl-linux-x86_64-musl-8.21.0.tar.xz'; 'openldap-upstream-curl' = $true },
+            @{ os = 'macos-latest'; 'upstream-curl-platform' = 'osx-arm64'; 'upstream-curl-asset' = 'curl-macos-arm64-8.21.0.tar.xz' })
+          foreach ($row in $unix) {
+            if ($attempts -le 1) { $rows += $row; continue }
+            foreach ($n in 1..$attempts) { $rows += ($row + @{ attempt = $n }) }
+          }
+          $json = @{ include = $rows } | ConvertTo-Json -Depth 5 -Compress
+          "matrix=$json" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+
   test:
-    name: Build and test (${{ matrix.os }})
+    name: Build and test (${{ matrix.os }}${{ matrix.attempt && format(', attempt {0}', matrix.attempt) || '' }})
+    needs: plan-test-matrix
     strategy:
       fail-fast: false
-      matrix:
-        # upstream-curl-platform names the UpstreamCurlBuilds.json entry the leg runs, and
-        # upstream-curl-asset the stunnel/static-curl 8.21.0 asset it comes from (ADR-0016).
-        # Windows has neither: its conformance runs where the pinned file is.
-        include:
-          - os: windows-latest
-          # openldap-upstream-curl: the leg also builds the supplementary OpenLDAP build of
-          # curl 8.21.0 that ldap and ldaps are proved against (ADR-0076, ADR-0078).
-          - os: ubuntu-latest
-            upstream-curl-platform: linux-x64
-            upstream-curl-asset: curl-linux-x86_64-musl-8.21.0.tar.xz
-            openldap-upstream-curl: true
-          - os: macos-latest
-            upstream-curl-platform: osx-arm64
-            upstream-curl-asset: curl-macos-arm64-8.21.0.tar.xz
+      # upstream-curl-platform names the UpstreamCurlBuilds.json entry the leg runs, and
+      # upstream-curl-asset the stunnel/static-curl 8.21.0 asset it comes from (ADR-0016).
+      # Windows has neither: its conformance runs where the pinned file is.
+      # openldap-upstream-curl: the leg also builds the supplementary OpenLDAP build of
+      # curl 8.21.0 that ldap and ldaps are proved against (ADR-0076, ADR-0078).
+      # attempt is set only on a flake-hunt dispatch (plan-test-matrix above).
+      matrix: ${{ fromJSON(needs.plan-test-matrix.outputs.matrix) }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
     steps:
@@ -53,14 +81,15 @@ jobs:
       - name: Build
         run: dotnet build -c Release
 
+      # --logger trx leaves the failed tests' names in a file; a flake-hunt leg uploads it below.
       - name: Fast tests
-        run: dotnet test -c Release --no-build --filter "TestCategory!=Integration"
+        run: dotnet test -c Release --no-build --filter "TestCategory!=Integration" --logger trx --results-directory "${{ runner.temp }}/test-results"
 
       # Obtains and verifies the pinned reference build, and on Linux the OpenLDAP build and
       # kinit; release.yml's conformance jobs run the same action (ADR-0085, decision 2).
       - name: Obtain the pinned upstream curl
         id: upstream-curl
-        if: matrix.upstream-curl-platform
+        if: matrix.upstream-curl-platform && (success() || (matrix.attempt && !cancelled()))
         uses: ./.github/actions/upstream-curl
         with:
           platform: ${{ matrix.upstream-curl-platform }}
@@ -91,16 +120,25 @@ jobs:
 
       # The upstream test cases run in their own job below (ADR-0080, decision 6).
       - name: Conformance tests
-        if: matrix.upstream-curl-platform
-        run: dotnet test -c Release --no-build --filter "FullyQualifiedName~Surl.Conformance&TestCategory!=UpstreamTestCases&FullyQualifiedName!~UpstreamCurlShowsItsBuildOptionsTests"
+        if: matrix.upstream-curl-platform && (success() || (matrix.attempt && !cancelled()))
+        run: dotnet test -c Release --no-build --filter "FullyQualifiedName~Surl.Conformance&TestCategory!=UpstreamTestCases&FullyQualifiedName!~UpstreamCurlShowsItsBuildOptionsTests" --logger trx --results-directory "${{ runner.temp }}/test-results"
 
       # The build option probe test runs on its own with detailed console verbosity, because
       # dotnet test prints a passing test's TestContext lines nowhere at normal verbosity. Its
       # per-probe "upstream curl <sha> exited <n>" and "not probed" lines then show in a green
       # run's log (BL-1038); the rest of the conformance log stays at normal verbosity.
       - name: Build option probe test
-        if: matrix.upstream-curl-platform
-        run: dotnet test -c Release --no-build --filter "FullyQualifiedName~UpstreamCurlShowsItsBuildOptionsTests" --logger "console;verbosity=detailed"
+        if: matrix.upstream-curl-platform && (success() || (matrix.attempt && !cancelled()))
+        run: dotnet test -c Release --no-build --filter "FullyQualifiedName~UpstreamCurlShowsItsBuildOptionsTests" --logger "console;verbosity=detailed" --logger trx --results-directory "${{ runner.temp }}/test-results"
+
+      # Flake hunt only (BL-1104): the .trx files of this attempt, named by OS and attempt.
+      - name: Publish this attempt's test results
+        if: matrix.attempt && !cancelled()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ matrix.os }}-attempt-${{ matrix.attempt }}
+          path: ${{ runner.temp }}/test-results/*.trx
+          if-no-files-found: warn
 
   # Runs upstream curl's own test cases against Surl's server halves with each leg's pinned
   # reference build as the client, and uploads the per-case results file (ADR-0080,

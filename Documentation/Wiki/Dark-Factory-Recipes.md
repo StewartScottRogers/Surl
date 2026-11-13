@@ -110,6 +110,22 @@ These are the factory working as designed; none needs you.
 | `refuse  working tree not clean; commit or stash first` in the shift's log | the checkout has uncommitted or untracked files, so the shift would not start | say "status" to Claude; it commits or ignores what is there and starts the shift again |
 | No merge to `master` at shift end | CI is red, or still running on the frozen `factory/merge-<stamp>` pull request; the next shift merges it within 5 minutes of CI passing | ask Claude "why didn't the shift merge?" (`/ci-status`) |
 
+## Hunt flaky tests on Linux and macOS
+
+Lanes test only on Windows, so a timing-sensitive test can pass there and fail in CI. One manual
+run repeats the Linux and macOS "Build and test" legs side by side on one commit (BL-1104).
+Windows and the upstream test cases run once; push and pull request runs are unchanged.
+
+1. Push the branch, then dispatch: `gh workflow run CI --ref <branch> -f attempts=10`
+   (1 to 20; 1 is a normal run). Do not dispatch twice on one ref: the second cancels the first.
+2. Find the run: `gh run list --workflow CI --branch <branch> --limit 1`
+3. When it ends, download every attempt's results:
+   `gh run download <run-id> --pattern "test-results-*" --dir flake-hunt`
+4. List the failed tests, by OS and attempt:
+   `Get-ChildItem flake-hunt -Recurse -Filter *.trx | ForEach-Object { $f = $_.Directory.Name; ([xml](Get-Content $_.FullName)).TestRun.Results.UnitTestResult | Where-Object outcome -eq 'Failed' | ForEach-Object { "$f $($_.testName)" } } | Sort-Object | Get-Unique`
+
+A test that appears in some attempts but not all is flaky.
+
 ## Rehearse
 
 Each checks one part and exits without starting a shift.
