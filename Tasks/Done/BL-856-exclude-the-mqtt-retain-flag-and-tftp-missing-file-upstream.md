@@ -8,7 +8,7 @@ depends-on: [BL-689]
 touches: [Documentation/Conformance]
 requirement: none
 created: 2026-11-05
-completed:
+completed: 2026-11-12
 ---
 # BL-856 — Exclude the MQTT RETAIN-flag and TFTP missing-file upstream test cases as test-server choices
 
@@ -34,14 +34,21 @@ The six upstream test cases that fail only on a byte upstream's test server chos
 
 ## Acceptance criteria
 
-- [ ] `Upstream-Test-Case-Exclusions.md` has one row for each of 1190, 1192, 2204, 3018, 1640 and
+- [x] `Upstream-Test-Case-Exclusions.md` has one row for each of 1190, 1192, 2204, 3018, 1640 and
       283, each naming the byte, upstream's choice, Surl's answer and the specification section.
-- [ ] The Windows run records them `skip test-server-choice`, and
+- [x] The Windows run records them `skip test-server-choice`, and
       `Upstream-Test-Case-Pass-Rate.md`'s `win-x64` row counts them in its test-server-choice column.
 
 ## Notes
+
+- Decided (as BL-776 did): no new Integration run; the selection rules read the exclusions file
+  (BL-689), so the cases skip `test-server-choice`. Counts moved by arithmetic on all three platforms
+  (none of the six is on a passing list): test-server-choice 28 -> 34, Failed -6, Runnable -6, Skipped +6.
+- Fast tests: Surl.Conformance.UnitTests 908 passed, 0 failed (they check the row count against the
+  pass-rate file).
 
 ## Log
 
 - 2026-11-05: Created.
 - 2026-11-12: Backlog -> Doing.
+- 2026-11-12: Doing -> Done. Six MQTT RETAIN and TFTP missing-file cases are listed as test-server-choice exclusions and counted in the pass-rate file
