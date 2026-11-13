@@ -86,8 +86,10 @@ public sealed class StandInFaultRecipeTests
         await server.WaitForEventAsync(FaultApplied(), WaitLimit, TestContext.CancellationToken);
         var retry = await PinnedUpstreamCurl.RunAsync(TestContext, "-sS", url);
 
-        // Assert: curl 8.21.0 exits 56 (receive failure) or 55 (send failure), by which side sees the reset first, on the dropped connection; the retry gets the file.
-        Assert.IsTrue(first.ExitCode is 55 or 56, first.StandardError);
+        // Assert: curl 8.21.0 exits 56 (receive failure), 55 (send failure) or 7 (could not connect), by which side sees
+        // the reset first, on the dropped connection; the retry gets the file. Exit 7 happens when the reset reaches curl
+        // before its own connect check finishes (CI run 43418926863, ubuntu-latest: "Failed to connect ... Could not connect to server").
+        Assert.IsTrue(first.ExitCode is 7 or 55 or 56, first.StandardError);
         Assert.AreEqual(0, retry.ExitCode, retry.StandardError);
         Assert.AreEqual("hello\n", Encoding.UTF8.GetString(retry.StandardOutput));
     }

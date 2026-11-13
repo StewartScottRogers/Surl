@@ -8,7 +8,7 @@ depends-on: []
 touches: [Conformance/Surl.Conformance.UnitTests/StandInFaultRecipeTests.cs, Documentation/Wiki]
 requirement: none
 created: 2026-11-13
-completed:
+completed: 2026-11-13
 ---
 # BL-1103 — Pin upstream curl's exit 7 when a dropped HTTP connection resets before its connect completes
 
@@ -37,11 +37,11 @@ to `master`.
 
 ## Acceptance criteria
 
-- [ ] The task's Log confirms the cause from the test's own events (a `FaultApplied` event exists for the first connection), or names the real one if it differs.
-- [ ] The first fetch accepts exit 7, 55 or 56 and nothing else, with its stderr in the failure message, and the comment above the assertion names all three and cites CI run 43418926863.
-- [ ] The retry still must exit 0 and return `hello\n`.
-- [ ] Any document that lists the exit codes of a dropped connection names 7 too (search `Documentation/` for the `DropConnection` fault, e.g. the stand-in recipes page).
-- [ ] `dotnet build` is clean and `dotnet test --filter "TestCategory!=Integration"` is green on Windows.
+- [x] The task's Log confirms the cause from the test's own events (a `FaultApplied` event exists for the first connection), or names the real one if it differs.
+- [x] The first fetch accepts exit 7, 55 or 56 and nothing else, with its stderr in the failure message, and the comment above the assertion names all three and cites CI run 43418926863.
+- [x] The retry still must exit 0 and return `hello\n`.
+- [x] Any document that lists the exit codes of a dropped connection names 7 too (search `Documentation/` for the `DropConnection` fault, e.g. the stand-in recipes page).
+- [x] `dotnet build` is clean and `dotnet test --filter "TestCategory!=Integration"` is green on Windows.
 
 ## Notes
 
@@ -53,3 +53,5 @@ after BL-1100, BL-1101 and BL-1102.
 
 - 2026-11-13: Created.
 - 2026-11-13: Backlog -> Doing.
+- 2026-11-13: Cause confirmed from the test's own events: it awaits a FaultApplied event after the first fetch and that wait did not time out, so the drop was applied to the first connection and curl saw the reset before its connect check finished (exit 7). Test now accepts 7, 55 or 56; wiki names all three.
+- 2026-11-13: Doing -> Done. Dropped-connection recipe test accepts upstream curl exit 7, 55 or 56 and the wiki names all three

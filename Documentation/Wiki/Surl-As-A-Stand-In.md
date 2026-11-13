@@ -94,7 +94,9 @@ documents the `--fault` grammar; `Surl.Mcp` has `add_fault`, `list_faults` and `
 control endpoint has `POST /v1/faults`. Recipe: `StandInFaultRecipeTests`
 (`RefuseLogin_ForAlice_MakesCurlFailWith401AndExit22`,
 `ProtocolError_OnSmtpRcptTo_MakesCurlFailWithTheChosenReply`,
-`DropConnection_Once_FailsTheFirstCurlAndLetsTheRetrySucceed`).
+`DropConnection_Once_FailsTheFirstCurlAndLetsTheRetrySucceed`). Upstream curl 8.21.0 exits 56, 55 or 7 on a
+connection `DropConnection` resets before any byte, by which side sees the reset first (7 when it arrives before
+curl's own connect check finishes), so a test of a dropped connection accepts all three.
 
 ## Hooks and their bounds
 
