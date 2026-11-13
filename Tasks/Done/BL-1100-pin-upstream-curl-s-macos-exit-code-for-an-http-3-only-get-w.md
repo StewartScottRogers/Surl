@@ -8,7 +8,7 @@ depends-on: []
 touches: [Conformance/Surl.Conformance.UnitTests/UpstreamCurlFetchesFromSurlOverHttp3Tests.cs, Conformance/Surl.Conformance.UnitTests/CurlPortBesideUpstreamCurlOverHttp3Tests.cs, Documentation/Planning/Decisions/ADR-0082-how-surl-serves-http-3-over-quic.md]
 requirement: none
 created: 2026-11-13
-completed:
+completed: 2026-11-13
 ---
 # BL-1100 — Pin upstream curl's macOS exit code for an HTTP/3-only GET when HTTP/3 is off
 
@@ -37,10 +37,10 @@ CI run 43398470597 (PR #27, frozen branch `factory/merge-20261112-162230`, commi
 
 ## Acceptance criteria
 
-- [ ] On macOS the test accepts exit 7 or 55, since both are upstream curl's answer to no UDP listener, and on Linux it still requires 7. On Windows it still requires 56.
-- [ ] The comment above the test, and ADR-0082's "Measured" section (as an amendment), state that macOS answers 7 or 55 and cite CI run 43398470597.
-- [ ] `CurlPortBesideUpstreamCurlOverHttp3Tests.GetWithHttp3Only_Http3Off_FailsToConnect` still mirrors the upstream test.
-- [ ] `dotnet build` is clean and `dotnet test --filter "TestCategory!=Integration"` is green on Windows.
+- [x] On macOS the test accepts exit 7 or 55, since both are upstream curl's answer to no UDP listener, and on Linux it still requires 7. On Windows it still requires 56.
+- [x] The comment above the test, and ADR-0082's "Measured" section (as an amendment), state that macOS answers 7 or 55 and cite CI run 43398470597.
+- [x] `CurlPortBesideUpstreamCurlOverHttp3Tests.GetWithHttp3Only_Http3Off_FailsToConnect` still mirrors the upstream test.
+- [x] `dotnet build` is clean and `dotnet test --filter "TestCategory!=Integration"` is green on Windows.
 
 ## Notes
 
@@ -52,3 +52,4 @@ the ICMP timing), say so in the ADR amendment and pin what was found instead.
 
 - 2026-11-13: Created.
 - 2026-11-13: Backlog -> Doing.
+- 2026-11-13: Doing -> Done. macOS accepts exit 7 or 55; ADR-0082 amendment 7

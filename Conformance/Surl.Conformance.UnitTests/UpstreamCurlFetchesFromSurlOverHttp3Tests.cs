@@ -186,7 +186,8 @@ public sealed class UpstreamCurlFetchesFromSurlOverHttp3Tests
 
     // ADR-0082 decision 6: without --http3 surl has no UDP listener, so --http3-only cannot connect.
     // Measured against no UDP listener (ADR-0082, "Measured"): exit 56 on Windows, where the ICMP
-    // port-unreachable is a receive failure, and exit 7 on Linux and macOS.
+    // port-unreachable is a receive failure, and exit 7 on Linux. macOS answers 7 or 55 (CI run 43398470597
+    // saw 55, "Failed sending data to the peer"): the ICMP lands on curl's connect check or on its first send.
     [TestMethod]
     public async Task GetWithHttp3Only_Http3Off_FailsToConnect()
     {
@@ -194,10 +195,13 @@ public sealed class UpstreamCurlFetchesFromSurlOverHttp3Tests
 
         var result = await RunUpstreamCurlAsync("-sS", "-k", "--http3-only", surl.UrlOf("hello.txt"));
 
-        Assert.AreEqual(OperatingSystem.IsWindows() ? 56 : 7, result.ExitCode, result.StandardError);
+        Assert.Contains(result.ExitCode, ExpectedHttp3OffExitCodes(), $"{result.ExitCode}: {result.StandardError}");
         Assert.AreEqual(0, result.StandardOutput.Length);
         StringAssert.Contains(result.StandardError, "Failed to connect to 127.0.0.1");
     }
+
+    private static int[] ExpectedHttp3OffExitCodes() =>
+        OperatingSystem.IsWindows() ? [56] : OperatingSystem.IsMacOS() ? [7, 55] : [7];
 
     [TestMethod]
     public async Task GetWithHttp3_Http3Off_FallsBackToHttp2()

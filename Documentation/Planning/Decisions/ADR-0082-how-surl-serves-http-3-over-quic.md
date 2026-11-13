@@ -538,3 +538,9 @@ curl's to measure first.
    `Surl.Protocol.Http` and the WebTransport server move their manual clocks past the closing state
    once the connection has closed, so no test waits three probe timeouts on a clock that stands
    still; DNS over QUIC's tests run on the system clock and wait the state out (about 3 s at most).
+
+## Amendment 7 (2026-11-13, BL-1100): macOS answers 7 or 55 to `--http3-only` with HTTP/3 off
+
+Decided by Claude under Stewart's delegation.
+
+The "Measured" section says exit 7 on Linux and macOS. CI run 43398470597 (PR #27, commit ccf2a38) saw macOS answer exit 55, `Failed to connect to 127.0.0.1:49962 after 2 ms: Failed sending data to the peer`, while an earlier run (BL-768) saw 7. With no UDP listener the ICMP port-unreachable lands either on curl's connect check (7) or on its first send (55), depending on timing. Decision: on macOS the conformance test accepts 7 or 55; Linux still requires 7 and Windows 56. The Curl-port-beside mirror test applies the same expectation.
