@@ -8,7 +8,7 @@ depends-on: [BL-570]
 touches: [Conformance/Surl.Conformance.UnitLibrary, Conformance/Surl.Conformance.UnitTests]
 requirement: none
 created: 2026-11-12
-completed:
+completed: 2026-11-12
 ---
 # BL-1085 — Check the verify dns section of upstream test cases
 
@@ -23,11 +23,13 @@ completed:
 
 ## Acceptance criteria
 
-- [ ] `UpstreamTestCaseRunRecord` carries the DNS query log and `UpstreamTestCaseVerifyChecker.Check` compares it with `<verify><dns>` sorted and filtered by the `host` attribute, with named passing and failing tests.
-- [ ] The run feeds `QueryLog` into the record.
-- [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and every touched library keeps 100% line and branch coverage.
+- [x] `UpstreamTestCaseRunRecord` carries the DNS query log and `UpstreamTestCaseVerifyChecker.Check` compares it with `<verify><dns>` sorted and filtered by the `host` attribute, with named passing and failing tests.
+- [x] The run feeds `QueryLog` into the record.
+- [x] `dotnet build -warnaserror` is clean, the fast tests are green, and every touched library keeps 100% line and branch coverage.
 
 ## Notes
+
+Resumed from lane 3's branch (cherry-pick). Fixed an ambiguous Where(method group) build error; corrected a unit test: the host pattern is an unanchored regex, so it keeps both A and AAAA lines, as case 2104 expects.
 
 ## Log
 
@@ -35,3 +37,4 @@ completed:
 - 2026-11-12: Backlog -> Doing.
 - 2026-11-12: Doing -> Backlog. Lane 3 could not integrate: build failed after rebasing onto the other lanes' work. The work is on branch factory/BL-1085-lane-3-20261112-162230; start with git cherry-pick --no-commit factory/BL-1085-lane-3-20261112-162230 and fix it.
 - 2026-11-12: Backlog -> Doing.
+- 2026-11-12: Doing -> Done. verify dns section checked against the DNS query log, host-filtered and sorted

@@ -404,6 +404,47 @@ public sealed class UpstreamTestCaseVerifyCheckerTests
     }
 
     [TestMethod]
+    public void Check_DnsQueriesInAnyOrder_Passes()
+    {
+        var testCase = Case("<dns>\nQNAME b.invalid QTYPE AAAA\nQNAME a.invalid QTYPE A\n</dns>\n");
+
+        var result = Checker().Check(testCase, Run() with { DnsQueryLog = Bytes("QNAME a.invalid QTYPE A\nQNAME b.invalid QTYPE AAAA\n") });
+
+        Assert.IsTrue(result.Passed);
+    }
+
+    [TestMethod]
+    public void Check_DnsQueryMissing_FailsTheDnsSection()
+    {
+        var testCase = Case("<dns>\nQNAME a.invalid QTYPE A\n</dns>\n");
+
+        var result = Checker().Check(testCase, Run());
+
+        Assert.AreEqual("dns", result.FailedSection);
+    }
+
+    [TestMethod]
+    public void Check_DnsHostAttribute_FiltersTheLogByItsPattern()
+    {
+        var testCase = Case("<dns host=\"examplehost.invalid QTYPE A\">\nQNAME examplehost.invalid QTYPE A\nQNAME examplehost.invalid QTYPE AAAA\n</dns>\n");
+        var log = Bytes("QNAME other.invalid QTYPE A\nQNAME examplehost.invalid QTYPE A\nQNAME examplehost.invalid QTYPE AAAA\n");
+
+        var result = Checker().Check(testCase, Run() with { DnsQueryLog = log });
+
+        Assert.IsTrue(result.Passed);
+    }
+
+    [TestMethod]
+    public void Check_DnsWithoutHostAttribute_ComparesTheWholeLog()
+    {
+        var testCase = Case("<dns>\nQNAME a.invalid QTYPE A\n</dns>\n");
+
+        var result = Checker().Check(testCase, Run() with { DnsQueryLog = Bytes("QNAME a.invalid QTYPE A\nQNAME b.invalid QTYPE A\n") });
+
+        Assert.AreEqual("dns", result.FailedSection);
+    }
+
+    [TestMethod]
     public void Check_StripLineOutsideTheSubset_Throws()
     {
         Assert.ThrowsExactly<NotSupportedException>(() => Checker().Check(Case("<strippart>\nchomp;\n</strippart>\n<protocol>\nA\n</protocol>\n"), Run(server: "A\n")));
