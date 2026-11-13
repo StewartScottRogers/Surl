@@ -43,3 +43,4 @@ only, so `http/1.1` is never offered), while every other scheme's offer stays un
 ## Log
 
 - 2026-11-12: Created.
+- 2026-11-12: Backlog -> Doing.
