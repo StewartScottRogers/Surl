@@ -53,3 +53,4 @@ BL-1110 is the same kind of race in the WebSocket tests.
 
 - 2026-11-13: Created.
 - 2026-11-13: Backlog -> Doing.
+- 2026-11-13: Doing -> Deferred. Split into BL-1111, BL-1112 (timed out at the run's time limit)
