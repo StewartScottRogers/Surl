@@ -63,8 +63,8 @@ The work is on the board and is being built now. None of it is finished.
    SignalR, Socket.IO, WebTransport, MCP, CoAP, DNS, Redis, MQTT 5, AMQP 0-9-1 and 1.0,
    Kafka, NATS, STOMP and XMPP. Each is judged by its protocol's specification
    ([ADR-0083](Documentation/Planning/Decisions/ADR-0083-how-surl-serves-the-curl-ports-extended-protocols-and-how-they-are-tested.md)).
-   The setting `SURL_EXTENSIONS=0` will turn them all off. Ten of the libraries exist, and
-   none is registered in `surl` yet.
+   The setting `SURL_EXTENSIONS=0` turns them all off. All 19 libraries exist and are composed
+   in `surl` (see "Extended protocols" below).
 3. **Shared stores.** Servers that do the same job share one store in a single `surl`. Mail
    sent over SMTP is read over IMAP or POP3, a file uploaded over FTP is fetched over HTTP or
    `s3`, and a message published over MQTT reaches NATS and STOMP through one shared message
@@ -532,6 +532,26 @@ else's integration tests, several protocols at once. [Surl as a stand-in for tes
 says how: embed it with `Surl.Api`, seed, reset and snapshot its stores, inject faults, query and wait for
 events, drive it from any language through the loopback control endpoint, or from an AI agent through
 `Surl.Mcp`, with one recipe test for each scenario. The same text is in [Application/Surl.Api/README.md](Application/Surl.Api/README.md).
+
+## Extended protocols
+
+Surl also answers the schemes [the Curl port](https://github.com/StewartScottRogers/Curl) adds and
+upstream curl does not have. Each is a `Surl.Extended.Protocol.<Name>` server, composed by
+`surl` and judged by its protocol's **specification**, not by upstream curl
+([ADR-0083](Documentation/Planning/Decisions/ADR-0083-how-surl-serves-the-curl-ports-extended-protocols-and-how-they-are-tested.md)):
+
+| Job | Schemes |
+| --- | --- |
+| Object and file stores | `s3`, `az`, `abfs`, `abfss`, `gs`, `oci` |
+| HTTP-based | `grpc`, `grpcs`, `signalr`, `signalrs`, `socketio`, `socketios`, `webtransport`, `mcp`, `mcps`, `mcp+stdio`, `coap`, `coaps` |
+| Lookup | `dns` |
+| Messaging | `mqtt5`, `mqtt5s`, `mqtt5+ws`, `amqp`, `amqps`, `amqp1`, `amqp1s`, `kafka`, `kafkas`, `nats`, `natss`, `stomp`, `stomps`, `xmpp`, `xmpps` |
+| Data store | `redis`, `rediss` |
+
+`SURL_EXTENSIONS=0` turns every one of them off; such a scheme is then refused like an unknown
+one (exit code 1). The Curl port's Plugin protocol is skipped: it has no wire protocol to serve.
+The Curl port's client runs against these servers only in `Integration` tests and is never proof.
+See the product overview, [Extended protocols](Documentation/Product/Product-Overview.md#extended-protocols).
 
 ## Upstream curl validates Surl; Surl later validates the Curl port
 

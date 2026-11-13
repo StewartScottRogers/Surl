@@ -8,7 +8,7 @@ depends-on: [BL-422, BL-428, BL-434, BL-440, BL-446, BL-451, BL-456, BL-462, BL-
 touches: [Documentation/Product/Product-Overview.md, README.md, Documentation/Planning/Roadmap.md, Documentation/Product/Requirements.md, Documentation/Wiki/Glossary.md]
 requirement: none
 created: 2026-11-04
-completed:
+completed: 2026-11-12
 ---
 # BL-542 — Document the extended protocols in the product overview, README, roadmap, requirements and glossary
 
@@ -37,22 +37,25 @@ switched off, and how they are tested.
 
 ## Acceptance criteria
 
-- [ ] `Documentation/Product/Product-Overview.md` has an "Extended protocols" section. Its table has one row per
+- [x] `Documentation/Product/Product-Overview.md` has an "Extended protocols" section. Its table has one row per
       extended server: library, schemes, specification, and requirement matrix. The section states the oracle
       exception and the switch, and that Plugin is skipped and why. "Non-goals", "Scope", "Architecture",
       "Layers", "Project layout" and "Phasing" are amended so that none contradicts it.
-- [ ] Root `README.md` has an "Extended protocols" section listing every extended scheme, the switch that turns
+- [x] Root `README.md` has an "Extended protocols" section listing every extended scheme, the switch that turns
       them off, and a pointer to the overview section.
-- [ ] `Documentation/Planning/Roadmap.md` has the milestone BL-543's ADR named, listing the tasks that
+- [x] `Documentation/Planning/Roadmap.md` has the milestone BL-543's ADR named, listing the tasks that
       delivered it.
-- [ ] `Documentation/Product/Requirements.md` has one functional requirement row per extended server, in FR-048's
+- [x] `Documentation/Product/Requirements.md` has one functional requirement row per extended server, in FR-048's
       shape, each citing its ADR, its specification and its integration test class, and saying it is judged by
       the specification and not by upstream curl.
-- [ ] `Documentation/Wiki/Glossary.md` defines each term the extended ADRs introduced that is not yet defined.
+- [x] `Documentation/Wiki/Glossary.md` defines each term the extended ADRs introduced that is not yet defined.
 
 ## Notes
+
+- 2026-11-12: Wrote the overview section "Extended protocols" (table of 19 servers, oracle exception, switch, Plugin skipped), the README section, the Roadmap track "Extended servers" (no ADR-0083 milestone number; decision 10 says parallel track), FR-066 to FR-084 (one per server, citing ADR, spec and integration test class) and four glossary terms. Roadmap statements on the port-client run count come from the existing Milestone 7 text (4 of 19 recorded in Extended.md); not re-measured here. Docs only, no code touched.
 
 ## Log
 
 - 2026-11-04: Created.
 - 2026-11-12: Backlog -> Doing.
+- 2026-11-12: Doing -> Done. Top-level docs state the 19 extended servers, oracle exception, SURL_EXTENSIONS switch, FR-066 to FR-084 and glossary terms

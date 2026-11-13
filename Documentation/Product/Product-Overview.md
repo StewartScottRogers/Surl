@@ -96,7 +96,7 @@ is decided in
 - **Beating dedicated servers on throughput.** Fidelity to what upstream curl expects is
   the target, not nginx's request rate.
 - **Protocols upstream curl does not request**, except the Curl port's extended protocols
-  (ADR-0083, Stewart 2026-11-04), served on a parallel "Extended servers" track and turned
+  (ADR-0083, Stewart 2026-11-04; see "Extended protocols"), served on a parallel "Extended servers" track and turned
   off with `SURL_EXTENSIONS=0`. Otherwise Surl answers curl; a protocol curl cannot speak has
   no mate to be.
 
@@ -109,6 +109,9 @@ is decided in
 | Upstream test servers | 7 in C, 11 scripts | `tests/server` and `tests/` at tag `curl-8_21_0` |
 
 ### 29 schemes, 15 protocol servers and a content store
+
+These are the original protocols. The 19 extended servers answer further schemes; they are listed
+under "Extended protocols" below and are not counted here.
 
 | Library | Schemes answered |
 | --- | --- |
@@ -749,6 +752,60 @@ The command-line surface - which of curl's option names carry a server-side mean
 what each does, how listen URLs are read, and the exact text surl prints - is decided in
 [ADR-0007](../Planning/Decisions/ADR-0007-the-phase-1-command-line-surface.md).
 
+## Extended protocols
+
+Beside the 29 schemes upstream curl speaks, Surl answers the schemes the Curl port adds and upstream
+curl does not have: 19 servers, each `Surl.Extended.Protocol.<Name>.UnitLibrary` with its `.UnitTests`
+twin ([ADR-0083](../Planning/Decisions/ADR-0083-how-surl-serves-the-curl-ports-extended-protocols-and-how-they-are-tested.md),
+Stewart's approval of 2026-11-04). All 19 are composed by `ExtendedProtocolServers` in
+`Surl.Composition`; `coaps` is composed as a deferred server that waits for the DTLS listener.
+
+- **The oracle exception.** Upstream curl cannot speak these schemes, so for the projects named
+  `Surl.Extended.Protocol.*` the protocol's **specification** is the oracle, not upstream curl. Unit
+  tests replay bytes written from the specification. The Curl port's client, pinned by SHA-256 in
+  `CurlPortBuilds.json` (never in `UpstreamCurlBuilds.json`), connects as a live client in
+  `Integration` tests only; its output is never proof, an expected value or ADR evidence. Every
+  original protocol keeps upstream curl as its only oracle (ADR-0003).
+- **The switch.** `SURL_EXTENSIONS=0` turns every extended server off. An extended scheme is then
+  refused exactly as an unknown scheme is: `UnsupportedProtocol` (1). Any other value, or none, leaves
+  them on. `--version` lists the extended schemes on an `Extended:` line apart from `Protocols:`.
+- **Plugin is skipped.** The port's Plugin protocol hands a URL to a local helper program
+  (`curl-proto-<scheme>`); it has no wire protocol and no fixed scheme, so there is nothing for a
+  server to answer.
+- **Isolation.** An extended server references only `Surl.Protocol.Abstractions` and the horizontal
+  libraries, never an original server, and no original server references an extended one. An
+  extended server never changes how an original scheme is served.
+- **Requirement matrices.** Each server has a matrix of the requirements that bind a server in
+  `Documentation/Conformance/Extended/<Name>.md`, written from the specification and never from the
+  Curl port's matrices; its "Covered by" column names the tests.
+
+| Library (`Surl.Extended.Protocol.` plus) | Schemes | Specification | Matrix |
+| --- | --- | --- | --- |
+| `S3` | `s3` | Amazon S3 API Reference, SigV4 | [S3](../Conformance/Extended/S3.md) |
+| `AzureStorage` | `az`, `abfs`, `abfss` | Azure Storage REST API, `x-ms-version: 2025-01-05` | [AzureStorage](../Conformance/Extended/AzureStorage.md) |
+| `GoogleCloudStorage` | `gs` | Cloud Storage XML API and JSON API, V4 signing | [GoogleCloudStorage](../Conformance/Extended/GoogleCloudStorage.md), [JSON API](../Conformance/Extended/GoogleCloudStorage-Json.md) |
+| `OciRegistry` | `oci` | OCI Distribution and Image Format Specifications 1.1.0, Docker token authentication | [OciRegistry](../Conformance/Extended/OciRegistry.md) |
+| `Grpc` | `grpc`, `grpcs` | gRPC over HTTP/2, status codes, compression, reflection, protobuf encoding | [Grpc](../Conformance/Extended/Grpc.md) |
+| `SignalR` | `signalr`, `signalrs` | ASP.NET Core SignalR transport and hub protocols, RFC 6455 | [SignalR](../Conformance/Extended/SignalR.md) |
+| `SocketIo` | `socketio`, `socketios` | Engine.IO protocol 4, Socket.IO protocol 5, RFC 6455 | [SocketIo](../Conformance/Extended/SocketIo.md) |
+| `WebTransport` | `webtransport` | WebTransport over HTTP/3 (draft-ietf-webtrans-http3), RFC 9220, 9297, 9221 | [WebTransport](../Conformance/Extended/WebTransport.md) |
+| `McpServer` | `mcp`, `mcps`, `mcp+stdio` | Model Context Protocol, revision 2025-06-18 | [McpServer](../Conformance/Extended/McpServer.md) |
+| `Coap` | `coap`, `coaps` | RFC 7252, 7959, 7641, 6690 | [Coap](../Conformance/Extended/Coap.md) |
+| `DnsQuery` | `dns` | RFC 1035, 3596, 2782, 8659, 3597 and the encrypted transports | [DnsQuery](../Conformance/Extended/DnsQuery.md) |
+| `Mqtt5` | `mqtt5`, `mqtt5s`, `mqtt5+ws` | OASIS MQTT 5.0 | [Mqtt5](../Conformance/Extended/Mqtt5.md) |
+| `Amqp0` | `amqp`, `amqps` | AMQP 0-9-1 and RabbitMQ's published extensions | [Amqp0](../Conformance/Extended/Amqp0.md) |
+| `Amqp1` | `amqp1`, `amqp1s` | OASIS AMQP 1.0, RFC 4616, 4505 | [Amqp1](../Conformance/Extended/Amqp1.md) |
+| `Kafka` | `kafka`, `kafkas` | Apache Kafka protocol guide (4.4), RFC 4616, 5802 | [Kafka](../Conformance/Extended/Kafka.md) |
+| `Nats` | `nats`, `natss` | NATS client protocol, subjects, queue groups, NATS ADR-4 | [Nats](../Conformance/Extended/Nats.md) |
+| `Stomp` | `stomp`, `stomps` | STOMP 1.2 | [Stomp](../Conformance/Extended/Stomp.md) |
+| `Xmpp` | `xmpp`, `xmpps` | RFC 6120, 6121, 7622, XEP-0030, 0199, 0368 | [Xmpp](../Conformance/Extended/Xmpp.md) |
+| `Redis` | `redis`, `rediss` | RESP2 and RESP3, the command reference, Pub/Sub | [Redis](../Conformance/Extended/Redis.md) |
+
+Each server's ADR is listed in [Requirements](Requirements.md) FR-066 to FR-084, with its
+integration test class. The messaging servers share one `Surl.MessageBus` and the file-store servers
+one content store with the original servers (ADR-0100). Phase 7 measures the port's extended clients
+against these servers beside its original ones (ADR-0089 decision 9).
+
 ## Architecture
 
 Two rules carry the design, the same two the Curl port is built on, turned around.
@@ -819,7 +876,7 @@ in its own `Surl.<Area>.UnitLibrary` (`CLAUDE.md`, "Decisions").
 Every project sits in a category folder - `Application/`, `Conformance/`, `Cryptography/`,
 `Foundation/` and, for the protocol servers and the libraries they share, `Protocols/` with
 `DataStore/`, `FileTransfer/`, `Http/`, `Lookup/`, `Mail/`, `Messaging/`, `Proxy/` and `Terminal/` - each
-production project beside its `.UnitTests` twin ([ADR-0079](../Planning/Decisions/ADR-0079-projects-are-grouped-in-category-folders.md);
+production project beside its `.UnitTests` twin; an extended server is `Surl.Extended.Protocol.<Name>.UnitLibrary`, in the folder for its job beside the original servers (see "Extended protocols") ([ADR-0079](../Planning/Decisions/ADR-0079-projects-are-grouped-in-category-folders.md);
 `CLAUDE.md`, "Repository layout"). `DataStore/` is decided by
 [ADR-0095](../Planning/Decisions/ADR-0095-the-protocols-datastore-category-folder.md) for the
 Redis server and is created with its first project (BL-488). `Proxy/` is decided by
@@ -920,6 +977,7 @@ ADR-0147):
 | 5 | LDAP, SMB, RTSP | The awkward remainder |
 | 6 | The upstream test-case push, HTTP/2 and HTTP/3, native publish on every platform | Surl answers everything upstream curl asks |
 | 7 | The Curl port measured against Surl, beside upstream curl | The port's quality, judged by an instrument upstream curl validated |
+| Track | The extended servers (see "Extended protocols"), parallel to the phases, not after Phase 7 (ADR-0083 decision 10) | Each answers its specification; the Curl port's client connects in `Integration` tests only |
 
 ## Open questions
 

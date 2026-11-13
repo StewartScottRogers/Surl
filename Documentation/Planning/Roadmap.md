@@ -208,6 +208,29 @@ task board in `Tasks/`, never here.
   Surl) and ADR-0089 (how Phase 7 measures it: the normalisation, the verdicts, the findings,
   the handoff and the single port commit).
 
+## Track — Extended servers
+
+A parallel track, not a phase after Phase 7 (ADR-0083 decision 10): it waited only on the shared
+groundwork and, per server, on the Phase 6 pieces it rides (gRPC on HTTP/2, WebTransport on HTTP/3
+and QUIC, `coaps` on DTLS).
+
+- **Status:** Built (2026-11-12): all 19 `Surl.Extended.Protocol.*` servers exist and are composed
+  by `ExtendedProtocolServers`; `coaps` is composed as a deferred server. Not closed: the Curl port's
+  client has run against 4 of them (`socketio`, `webtransport`, `coap`, `xmpp`) in the first
+  Phase 7 pass, and a matrix row's "Covered by" may still name a task.
+- **Delivers:** `Surl.Extended.Protocol.<Name>` for S3, AzureStorage, GoogleCloudStorage,
+  OciRegistry, Grpc, SignalR, SocketIo, WebTransport, McpServer, Coap, DnsQuery, Mqtt5, Amqp0, Amqp1,
+  Kafka, Nats, Stomp, Xmpp and Redis; the switch `SURL_EXTENSIONS=0`; the extended default-port
+  table; the `extended` `--aihelp` topic; the Curl port client pin; a requirement matrix per server
+  in `Documentation/Conformance/Extended/`. Plugin is skipped (ADR-0083 decision 5).
+- **Tasks:** the groundwork BL-400 to BL-407, then each server's tasks, ending with the integration
+  tasks BL-422, BL-428, BL-434, BL-440, BL-446, BL-451, BL-456, BL-462, BL-469, BL-477, BL-486,
+  BL-493, BL-502, BL-508, BL-515, BL-523, BL-529, BL-534 and BL-541, and this document task, BL-542.
+- **Exit criteria:** pinned upstream curl is not involved. Each server's unit tests replay bytes
+  written from its specification, and the Curl port's pinned client completes an exchange in an
+  `Integration` test (FR-066 to FR-084).
+- **Decisions:** ADR-0083 and each server's ADR, listed in the requirements.
+
 ## Track — Shared stores and the configuration command line
 
 Beside the phases, not after them: the extended servers' track of ADR-0083 reaches into the
