@@ -100,14 +100,14 @@ public sealed class AiHelpFactsTests
     }
 
     [TestMethod]
-    public void LoosensSecurityForTestsOnly_IsExactlyTheNineTestingOptions()
+    public void LoosensSecurityForTestsOnly_IsExactlyTheTenTestingOptions()
     {
         var testing = CommandLineOptions.All
             .Where(option => option.Help.Categories.Contains("testing") && option.Help.Categories.Contains("security"))
             .ToArray();
 
         CollectionAssert.AreEquivalent(
-            new[] { "allow-anonymous", "allow-plaintext-auth", "auth", "control", "control-token-file", "fault", "s3-plaintext", "self-signed", "throwaway-hostkey" },
+            new[] { "allow-anonymous", "allow-plaintext-auth", "auth", "control", "control-token-file", "fault", "oci-plaintext", "s3-plaintext", "self-signed", "throwaway-hostkey" },
             testing.Select(option => option.LongName).ToArray());
         foreach (var option in testing)
         {

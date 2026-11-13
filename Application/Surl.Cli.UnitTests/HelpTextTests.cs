@@ -116,6 +116,18 @@ public sealed class HelpTextTests
         "        accepts.",
     ];
 
+    private static readonly string[] OciPlaintextExplanationLines =
+    [
+        "        Serves every oci listen URL as plain HTTP/1.1 instead of TLS from the",
+        "        first byte, so it needs no --cert or --self-signed, and its token realm",
+        "        is http://<authority>/token. A test uses it for a registry client",
+        "        pointed at an http:// registry (an insecure registry). Passwords and",
+        "        tokens still need --allow-plaintext-auth over it. It is not the default",
+        "        because every registry endpoint is HTTPS, and anyone who can watch the",
+        "        network reads every image as it is sent. surl warns on every start",
+        "        while it is on, from the info log level up.",
+    ];
+
     private static readonly string[] S3PlaintextExplanationLines =
     [
         "        Serves every s3 listen URL as plain HTTP/1.1 instead of TLS from the",
@@ -284,6 +296,7 @@ public sealed class HelpTextTests
             Row(38, "    --max-request-head <bytes>", "Largest HTTP or RTSP request head"),
             Row(38, "-m, --max-time <seconds>", "Longest time one exchange may take"),
             Row(38, "    --mqtt5-disconnect-after-retained", "End a subscribe after retained messages"),
+            Row(38, "    --oci-plaintext", "Serve oci as plain HTTP (warns)"),
             Row(38, "    --pass <phrase>", "Passphrase for --key and --hostkey"),
             Row(38, "-x, --proxy <listen URL>", "Add a proxy listener (repeatable)"),
             Row(38, "    --proxy-allow-origin <address>", "Let the proxy reach more origins"),
@@ -383,6 +396,7 @@ public sealed class HelpTextTests
                 Row(38, "    --control <listen URL>", "Serve the test control endpoint"),
                 Row(38, "    --control-token-file <file>", "Bearer token file for --control"),
                 Row(38, "    --fault <kind>[;<key>=<value>]", "Misbehave on purpose (repeatable)"),
+                Row(38, "    --oci-plaintext", "Serve oci as plain HTTP (warns)"),
                 Row(38, "    --random-seed <n>", "Seed non-secret identifiers"),
                 Row(38, "    --s3-plaintext", "Serve s3 as plain HTTP (warns)"),
                 Row(38, "    --self-signed", "Throwaway certificate (warns)"),
@@ -405,6 +419,9 @@ public sealed class HelpTextTests
                 "",
                 "    --fault <kind>[;<key>=<value>]",
                 .. FaultExplanationLines,
+                "",
+                "    --oci-plaintext",
+                .. OciPlaintextExplanationLines,
                 "",
                 "    --s3-plaintext",
                 .. S3PlaintextExplanationLines,
@@ -827,6 +844,7 @@ public sealed class HelpTextTests
             Row(38, "    --fault <kind>[;<key>=<value>]", "Misbehave on purpose (repeatable)"),
             Row(38, "    --follow-symlinks", "Follow links that stay in the root"),
             Row(38, "    --list-directories", "Answer directory listings"),
+            Row(38, "    --oci-plaintext", "Serve oci as plain HTTP (warns)"),
             Row(38, "    --proxy-allow-origin <address>", "Let the proxy reach more origins"),
             Row(38, "    --s3-plaintext", "Serve s3 as plain HTTP (warns)"),
             Row(38, "    --self-signed", "Throwaway certificate (warns)"),
@@ -991,7 +1009,7 @@ public sealed class HelpTextTests
     {
         var text = HelpText.Answer("testing").Output;
 
-        foreach (var looseningOption in new[] { "--allow-anonymous", "--allow-plaintext-auth", "--auth <methods>", "--s3-plaintext", "--self-signed", "--throwaway-hostkey" })
+        foreach (var looseningOption in new[] { "--allow-anonymous", "--allow-plaintext-auth", "--auth <methods>", "--oci-plaintext", "--s3-plaintext", "--self-signed", "--throwaway-hostkey" })
         {
             StringAssert.Contains(text, NewLine + "    " + looseningOption + NewLine, looseningOption);
         }

@@ -50,6 +50,9 @@ public static partial class SurlServerComposition
         // serves it without a handshake (ADR-0108 decision 5).
         commandLine = S3PlaintextComposition.MarkS3ListenUrlsPlain(commandLine);
 
+        // --oci-plaintext does the same for every oci listen URL (ADR-0115 decision 6).
+        commandLine = OciPlaintextComposition.MarkOciListenUrlsPlain(commandLine);
+
         if ((FindOptionRefusal(commandLine) ?? DnsTransportComposition.FindRefusal(commandLine)) is { } optionRefusal)
         {
             return Refuse(SurlExitCode.FailedInit, optionRefusal);
@@ -353,7 +356,7 @@ public static partial class SurlServerComposition
             IdleTimeout = ComposeConnectionLimits(commandLine).IdleTimeout,
             AllowsZoneTransfer = commandLine.AllowZoneTransfer,
             Mqtt5DisconnectsAfterRetained = commandLine.Mqtt5DisconnectAfterRetained,
-            KafkaFetchCompression =Enum.Parse<KafkaCompressionCodec>(commandLine.KafkaFetchCompression, ignoreCase: true),
+            KafkaFetchCompression = Enum.Parse<KafkaCompressionCodec>(commandLine.KafkaFetchCompression, ignoreCase: true),
             OriginConnector = originConnector,
             ProxyAuthenticationPolicy = authentication.ProxyPolicy,
             PreSharedKeyAccounts = authentication.PreSharedKeyAccounts,

@@ -407,8 +407,9 @@ public sealed class ManualTextTests
             "    OCI Image Layout is a repository. Every /v2/ request needs a Bearer token",
             "    from its own /token endpoint, which takes an account's Basic login, or",
             "    --allow-anonymous for pull-only reads. Pushes and deletes need",
-            "    --allow-uploads. oci needs --cert or --self-signed. surl --aihelp oci",
-            "    says how each request is answered.",
+            "    --allow-uploads. oci needs --cert or --self-signed, or --oci-plaintext to",
+            "    serve it as plain HTTP. surl --aihelp oci says how each request is",
+            "    answered.",
             "",
             "PROXY OPTIONS",
             "",
@@ -515,10 +516,11 @@ public sealed class ManualTextTests
             "",
             "LOOSENING OPTIONS",
             "",
-            "    --allow-anonymous, --allow-plaintext-auth, --auth, --s3-plaintext,",
-            "    --self-signed and --throwaway-hostkey each loosen a secure default for",
-            "    tests, and each writes a \"surl: warning:\" line on start (--self-signed",
-            "    and --throwaway-hostkey only when they make their certificate or key).",
+            "    --allow-anonymous, --allow-plaintext-auth, --auth, --oci-plaintext,",
+            "    --s3-plaintext, --self-signed and --throwaway-hostkey each loosen a",
+            "    secure default for tests, and each writes a \"surl: warning:\" line on",
+            "    start (--self-signed and --throwaway-hostkey only when they make their",
+            "    certificate or key).",
             "    What each one loosens, and why none is the default, is written by:",
             "",
             "        surl --help testing",
@@ -657,7 +659,7 @@ public sealed class ManualTextTests
     {
         var looseningSection = Section("LOOSENING OPTIONS");
 
-        foreach (var looseningOption in new[] { "--allow-anonymous", "--allow-plaintext-auth", "--auth", "--s3-plaintext", "--self-signed", "--throwaway-hostkey" })
+        foreach (var looseningOption in new[] { "--allow-anonymous", "--allow-plaintext-auth", "--auth", "--oci-plaintext", "--s3-plaintext", "--self-signed", "--throwaway-hostkey" })
         {
             StringAssert.Contains(looseningSection, looseningOption);
         }

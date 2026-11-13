@@ -246,6 +246,16 @@ public static class AiHelpExamples
             ["surl: warning: --self-signed: serving a throwaway certificate; clients must skip verification (curl -k)"],
             ["curl -k -u alice:secret \"https://127.0.0.1:<port>/token?service=surl&scope=repository:<name>:pull\""]),
         Serving(
+            "oci",
+            "For a test: serve an OCI registry as plain HTTP for an http:// registry",
+            ["--oci-plaintext", "--allow-anonymous", "oci://127.0.0.1:0/"],
+            ["Listening on oci://127.0.0.1:<port>/"],
+            [
+                "surl: warning: --allow-anonymous: every request and login is accepted without checking credentials",
+                "surl: warning: --oci-plaintext: oci is served as plain HTTP, without TLS",
+            ],
+            ["curl http://127.0.0.1:<port>/v2/"]),
+        Serving(
             "pop3",
             "For a test: retrieve mail without accounts",
             ["--allow-anonymous", "pop3://127.0.0.1:0/"],

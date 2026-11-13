@@ -75,6 +75,14 @@ internal static class CommandLineOptions
         + "S3 endpoint is HTTPS, and anyone who can watch the network reads every object as it is sent. "
         + "surl warns on every start while it is on, from the info log level up.";
 
+    private const string OciPlaintextExplanation =
+        "Serves every oci listen URL as plain HTTP/1.1 instead of TLS from the first byte, so it needs no --cert "
+        + "or --self-signed, and its token realm is http://<authority>/token. A test uses it for a registry client "
+        + "pointed at an http:// registry (an insecure registry). Passwords and tokens still need "
+        + "--allow-plaintext-auth over it. It is not the default because every registry endpoint is HTTPS, and "
+        + "anyone who can watch the network reads every image as it is sent. "
+        + "surl warns on every start while it is on, from the info log level up.";
+
     private const string FaultExplanation =
         "Adds a fault rule that makes surl misbehave on purpose: delay (ms=<0-600000>, at accept or stage=command), "
         + "drop the connection (at accept, stage=command, or after-bytes=<n> sent), refuse-login, error (a reply=<code text> "
@@ -267,6 +275,9 @@ internal static class CommandLineOptions
         Flag("s3-plaintext", null, negatable: true, (c, on) => c with { S3Plaintext = on },
             new(null, "Serve s3 as plain HTTP (warns)", ["s3", "security", "testing"], IsInShortList: false, Default: "off",
                 S3PlaintextExplanation)),
+        Flag("oci-plaintext", null, negatable: true, (c, on) => c with { OciPlaintext = on },
+            new(null, "Serve oci as plain HTTP (warns)", ["oci", "security", "testing"], IsInShortList: false, Default: "off",
+                OciPlaintextExplanation)),
         WithArgument<string>("hostkey", null, OptionArgumentReader.Path, (c, v) => c with { HostKeyFiles = [.. c.HostKeyFiles, v] },
             new("<file>", "SSH host private key file", ["auth", "ssh"], IsInShortList: false, Default: "none")),
         WithArgument<string>("hostcert", null, OptionArgumentReader.Path, (c, v) => c with { HostCertificateFiles = [.. c.HostCertificateFiles, v] },

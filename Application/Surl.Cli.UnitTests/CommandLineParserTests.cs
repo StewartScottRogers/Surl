@@ -20,6 +20,7 @@ public sealed class CommandLineParserTests
         ["allow-anonymous"] = c => c.AllowAnonymous,
         ["allow-plaintext-auth"] = c => c.AllowPlaintextAuthentication,
         ["s3-plaintext"] = c => c.S3Plaintext,
+        ["oci-plaintext"] = c => c.OciPlaintext,
         ["self-signed"] = c => c.SelfSigned,
         ["throwaway-hostkey"] = c => c.ThrowawayHostKey,
         ["allow-weak-ssh-algorithms"] = c => c.AllowWeakSshAlgorithms,
@@ -308,6 +309,7 @@ public sealed class CommandLineParserTests
     [DataRow("allow-anonymous", "--allow-anonymous")]
     [DataRow("allow-plaintext-auth", "--allow-plaintext-auth")]
     [DataRow("s3-plaintext", "--s3-plaintext")]
+    [DataRow("oci-plaintext", "--oci-plaintext")]
     [DataRow("self-signed", "--self-signed")]
     [DataRow("throwaway-hostkey", "--throwaway-hostkey")]
     [DataRow("allow-weak-ssh-algorithms", "--allow-weak-ssh-algorithms")]
@@ -324,6 +326,7 @@ public sealed class CommandLineParserTests
     [DataRow("allow-anonymous")]
     [DataRow("allow-plaintext-auth")]
     [DataRow("s3-plaintext")]
+    [DataRow("oci-plaintext")]
     [DataRow("self-signed")]
     [DataRow("throwaway-hostkey")]
     [DataRow("allow-weak-ssh-algorithms")]
@@ -376,6 +379,7 @@ public sealed class CommandLineParserTests
         Assert.IsFalse(defaults.AllowPlaintextAuthentication);
         Assert.IsFalse(defaults.SelfSigned);
         Assert.IsFalse(defaults.S3Plaintext);
+        Assert.IsFalse(defaults.OciPlaintext);
         Assert.IsNull(defaults.GivenAuthenticationMethods);
         CollectionAssert.AreEqual(new[] { "digest", "cram-md5", "basic", "plain", "login", "bearer", "oauthbearer", "xoauth2", "external", "aws-sigv4" }, defaults.AcceptedAuthenticationMethods.ToArray());
         CollectionAssert.DoesNotContain(defaults.AcceptedAuthenticationMethods.ToArray(), "gssapi", "gssapi needs --keytab, so it is never a default (ADR-0049, section 3)");
