@@ -76,6 +76,19 @@ public sealed class CurlPortClientInvokesHubMethodsOnSurlOverSignalRTests
         Assert.AreEqual(string.Empty, Encoding.UTF8.GetString(result.StandardOutput).Trim(), diagnostics);
     }
 
+    [TestMethod]
+    [Description("SignalR:Surl-5-1: with no account and no --allow-anonymous a negotiate with no credentials is 401 (BL-1091)")]
+    public async Task Negotiate_WithoutCredentialsAndNoAccount_IsRefused()
+    {
+        await using var surl = await SurlOnLoopback.StartInMemoryAsync("signalr", [], TestContext.CancellationToken);
+
+        using var http = new HttpClient();
+        using var negotiate = await http.PostAsync(
+            $"http://127.0.0.1:{surl.BaseUrl.Port}/negotiate?negotiateVersion=1", new ByteArrayContent([]), TestContext.CancellationToken);
+
+        Assert.AreEqual(System.Net.HttpStatusCode.Unauthorized, negotiate.StatusCode, surl.Log);
+    }
+
     private static string Url(SurlOnLoopback surl, string scheme) => $"{scheme}://127.0.0.1:{surl.BaseUrl.Port}/";
 
     private static void AssertEchoed(CurlPortClientRunResult result, SurlOnLoopback surl)
