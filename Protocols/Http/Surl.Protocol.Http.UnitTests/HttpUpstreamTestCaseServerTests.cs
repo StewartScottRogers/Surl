@@ -233,6 +233,17 @@ public sealed class HttpUpstreamTestCaseServerTests
     }
 
     [TestMethod]
+    public async Task EmptyPart_OnAnHttp11Request_SendsNothingAndClosesTheConnection()
+    {
+        var replies = Replies(("data", string.Empty));
+
+        var (connection, _) = await ServeAsync(replies, [Ascii("GET /1297 HTTP/1.1\r\nHost: h\r\n\r\n")]);
+
+        Assert.IsEmpty(connection.WrittenBytes);
+        Assert.IsTrue(connection.WritesCompleted);
+    }
+
+    [TestMethod]
     public async Task MissingPart_ClosesWithNoBytesAndNotesThePart()
     {
         var replies = Replies(("data", Data));

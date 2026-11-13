@@ -33,7 +33,7 @@ decision 5). This is success criterion 2 of the
 
 | Platform | Commit | Date | Reference pin SHA-256 | Total | Runnable | Passed | Failed | Skipped | test-server-choice | Pass rate |
 | --- | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| `win-x64` | `153bbc14` + BL-549 + BL-855 + BL-896 + BL-897 + BL-898 + BL-899 + BL-900 + BL-556 + BL-682 + BL-562 + BL-689 + BL-776 + BL-856 | 2026-11-12 | `0E773709C3A44DB47B88B71351D902027682ED87C3BD3821009E454BACCA8778` | 2,013 | 1,142 | 1,129 | 13 | 871 | 34 | 98.9% |
+| `win-x64` | `153bbc14` + BL-549 + BL-855 + BL-896 + BL-897 + BL-898 + BL-899 + BL-900 + BL-556 + BL-682 + BL-562 + BL-689 + BL-776 + BL-856 + BL-1071 | 2026-11-12 | `0E773709C3A44DB47B88B71351D902027682ED87C3BD3821009E454BACCA8778` | 2,013 | 1,142 | 1,130 | 12 | 871 | 34 | 98.9% |
 | `linux-x64` | `8eb0301b` | 2026-11-06 | `153CA463957609117D21A848BE29B70691B85F9E5CC9370C7DAA037B839A4E45` | 2,013 | 1,203 | 1,154 | 49 | 810 | 34 | 95.9% |
 | `osx-arm64` | `8eb0301b` | 2026-11-06 | `04E0E69BCD3BD814EC093551A0447AC14EDEEA9D395B468A2025DCB3F766EEBF` | 2,013 | 1,203 | 1,153 | 50 | 810 | 34 | 95.8% |
 
@@ -42,6 +42,13 @@ BL-856 (2026-11-12) added the 6 cases that fail only on a byte upstream's test s
 for a missing file). None is on a passing list, so on every platform they move from **Failed** and
 **Runnable** to **Skipped** and **test-server-choice** without a new run (the Windows numbers are
 BL-776's run less these 6; Linux and macOS are BL-776's arithmetic less these 6).
+
+BL-1071 (2026-11-12) found why 1297 timed out: its origin is the HTTP half, whose `<data>` part is empty, and
+BL-1078 had made that half hold the connection open on an empty part (for 1548's raw HTTP/1.0 telnet probe);
+upstream's `sws` closes after a zero-byte reply, so curl, waiting through the tunnel, never saw the close. The HTTP
+half now closes after an empty part on an HTTP/1.1 request and holds it open on HTTP/1.0 (ADR-0152). A local run of
+1297 and 1548 passes both; 1297 is on the Windows list (1,130 passed, 12 failed); the other rows keep their numbers
+until their next CI run.
 
 BL-776 (2026-11-12) added the 24 FTP cases that verify upstream's greeting banner (1349-1354,
 1357-1362, 1379-1384, 1387-1392) to the exclusions file. The Windows row is a local run: 1,148
