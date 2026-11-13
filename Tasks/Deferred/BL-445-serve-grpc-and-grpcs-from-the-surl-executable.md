@@ -69,4 +69,4 @@ and help category exist, and the extension switch turns both off.
 - 2026-11-12: Backlog -> Doing.
 - 2026-11-12: Doing -> Backlog. Needs Protocols/Http/Surl.Extended.Protocol.Grpc.UnitLibrary and .UnitTests (a GrpcProtocolServer does not exist yet), which BL-871 in Doing touches via Protocols; resume once BL-871 is done
 - 2026-11-12: Backlog -> Doing.
-- 2026-11-12: Doing -> Deferred. Split into BL-1091, BL-1092, BL-1093 (timed out at the run's time limit)
+- 2026-11-12: Doing -> Deferred. Split into BL-1094, BL-1095, BL-1093 (timed out at the run's time limit)

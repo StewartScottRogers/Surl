@@ -37,4 +37,4 @@ covered.
 ## Log
 
 - 2026-11-04: Created.
-- 2026-11-12: depends-on BL-445 repointed to BL-1093 (BL-445 split into BL-1091, BL-1092, BL-1093).
+- 2026-11-12: depends-on BL-445 repointed to BL-1093 (BL-445 split into BL-1094, BL-1095, BL-1093).

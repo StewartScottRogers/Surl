@@ -4,7 +4,7 @@ title: Register grpc and grpcs in the surl executable with their aihelp topic
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-1091, BL-1092, BL-405, BL-1035]
+depends-on: [BL-1094, BL-1095, BL-405, BL-1035]
 touches: [Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests, Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests, Application/Surl.Console.UnitTests]
 requirement: none
 created: 2026-11-12
@@ -25,7 +25,7 @@ TLS; `--aihelp` has a grpc topic and help category, and the extension switch (`S
   production code); most of the diff is pinned scheme lists in tests.
 - Register in `Application/Surl.Composition.UnitLibrary/ExtendedProtocolServers.cs` (`Registrations`): one entry
   claiming `GrpcProtocolServer.PlainScheme` and `TlsScheme`, plus the `ProjectReference` in its csproj. `grpcs` is
-  TLS-wrapped through `TlsSchemes` (BL-1092). Default ports: `grpc` 80, `grpcs` 443.
+  TLS-wrapped through `TlsSchemes` (BL-1095). Default ports: `grpc` 80, `grpcs` 443.
 - `--aihelp` (root `CLAUDE.md`, "`surl --aihelp`"): a `HelpCategories` row with both schemes, an
   `AiHelpProse.TopicAbout` paragraph naming PROTOCOL-HTTP2.md as its oracle, an `AiHelpExamples` entry, and the
   topic list in `AiHelpTextTests` growing by one.

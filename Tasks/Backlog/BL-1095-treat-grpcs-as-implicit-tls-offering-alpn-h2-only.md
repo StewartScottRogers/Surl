@@ -1,5 +1,5 @@
 ---
-id: BL-1092
+id: BL-1095
 title: Treat grpcs as implicit TLS offering ALPN h2 only
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-12
 completed:
 ---
-# BL-1092 — Treat grpcs as implicit TLS offering ALPN h2 only
+# BL-1095 — Treat grpcs as implicit TLS offering ALPN h2 only
 
 ## Goal
 

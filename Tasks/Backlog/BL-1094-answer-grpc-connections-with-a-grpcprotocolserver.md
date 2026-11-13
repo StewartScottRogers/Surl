@@ -1,5 +1,5 @@
 ---
-id: BL-1091
+id: BL-1094
 title: Answer grpc connections with a GrpcProtocolServer
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-12
 completed:
 ---
-# BL-1091 — Answer grpc connections with a GrpcProtocolServer
+# BL-1094 — Answer grpc connections with a GrpcProtocolServer
 
 ## Goal
 
