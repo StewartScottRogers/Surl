@@ -8,7 +8,7 @@ depends-on: [BL-1026, BL-1045, BL-1041, BL-1042, BL-1043]
 touches: [Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests, Documentation/Conformance/Extended/GoogleCloudStorage-Json.md]
 requirement: none
 created: 2026-11-11
-completed:
+completed: 2026-11-13
 ---
 # BL-1044 — Describe the gs server's JSON API in its aihelp topic and finish its matrix
 
@@ -23,13 +23,16 @@ completed:
 
 ## Acceptance criteria
 
-- [ ] The `gs` about text names the JSON API, Bearer-only authentication on it, and `501` for what is not served; the example is checked by `CommandLineRunnerAiHelpTests`.
-- [ ] Every "covered by" cell of `GoogleCloudStorage-Json.md` names a passing test or `n/a: <reason>`.
-- [ ] Build and fast tests green.
+- [x] The `gs` about text names the JSON API, Bearer-only authentication on it, and `501` for what is not served; the example is checked by `CommandLineRunnerAiHelpTests`.
+- [x] Every "covered by" cell of `GoogleCloudStorage-Json.md` names a passing test or `n/a: <reason>`.
+- [x] Build and fast tests green.
 
 ## Notes
+
+- The example is the existing --gs-plaintext one (the STORAGE_EMULATOR_HOST case); its description now names both APIs. Matrix intro and stale task names corrected.
 
 ## Log
 
 - 2026-11-11: Created.
 - 2026-11-13: Backlog -> Doing.
+- 2026-11-13: Doing -> Done. gs about text names the JSON API; matrix complete
