@@ -33,9 +33,15 @@ decision 5). This is success criterion 2 of the
 
 | Platform | Commit | Date | Reference pin SHA-256 | Total | Runnable | Passed | Failed | Skipped | test-server-choice | Pass rate |
 | --- | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| `win-x64` | `153bbc14` + BL-549 + BL-855 + BL-896 + BL-897 + BL-898 + BL-899 + BL-900 + BL-556 + BL-682 + BL-562 + BL-689 + BL-776 + BL-856 + BL-1071 | 2026-11-12 | `0E773709C3A44DB47B88B71351D902027682ED87C3BD3821009E454BACCA8778` | 2,013 | 1,142 | 1,130 | 12 | 871 | 34 | 98.9% |
+| `win-x64` | `153bbc14` + BL-549 + BL-855 + BL-896 + BL-897 + BL-898 + BL-899 + BL-900 + BL-556 + BL-682 + BL-562 + BL-689 + BL-776 + BL-856 + BL-1071 + BL-1072 | 2026-11-12 | `0E773709C3A44DB47B88B71351D902027682ED87C3BD3821009E454BACCA8778` | 2,013 | 1,152 | 1,144 | 8 | 861 | 34 | 99.3% |
 | `linux-x64` | `8eb0301b` | 2026-11-06 | `153CA463957609117D21A848BE29B70691B85F9E5CC9370C7DAA037B839A4E45` | 2,013 | 1,203 | 1,154 | 49 | 810 | 34 | 95.9% |
 | `osx-arm64` | `8eb0301b` | 2026-11-06 | `04E0E69BCD3BD814EC093551A0447AC14EDEEA9D395B468A2025DCB3F766EEBF` | 2,013 | 1,203 | 1,153 | 50 | 810 | 34 | 95.8% |
+
+BL-1072 (2026-11-12) composed the `http-ipv6` server half: the plaintext HTTP half also binds `[::1]` and
+`%HTTP6PORT` is its port. The 10 cases that named it (1230 among them) no longer skip
+`server-half-not-composed:http-ipv6`; the Windows run is 1,152 runnable, 1,144 passed, 8 failed, 861 skipped, and 14
+cases newly pass (30, 37, 240, 242, 263, 1046, 1230, 1265, 1324, 1408, 1456, 2002, 2003, 3202). Linux and macOS keep
+their numbers until their next CI run.
 
 BL-856 (2026-11-12) added the 6 cases that fail only on a byte upstream's test server chose: MQTT
 1190, 1192, 2204, 3018 and 1640 (RETAIN set on a new subscription's `PUBLISH`) and TFTP 283 (ERROR 1
@@ -144,14 +150,14 @@ upstream's test-server greeting banner in a `-D` file, BL-776), TFTP 15 ran, 13 
 | `perl-command` | 27 | 27 | 27 |
 | `postcheck` | 14 | 14 | 14 |
 | `precheck` | 19 | 19 | 19 |
-| `server-half-not-composed:<name>` | 13 | 15 | 15 |
+| `server-half-not-composed:<name>` | 3 | 15 | 15 |
 | `server-not-built:<name>` | 38 | 67 | 67 |
 | `servercmd-unsupported:<command>` | 30 | 35 | 35 |
 | `strippart-unsupported` | 1 | 1 | 1 |
 | `test-server-choice` | 34 | 34 | 34 |
 | `unittest` | 81 | 81 | 81 |
 | `unparsable` | 4 | 4 | 4 |
-| **Total** | **871** | **810** | **810** |
+| **Total** | **861** | **810** | **810** |
 
 ## Releases
 

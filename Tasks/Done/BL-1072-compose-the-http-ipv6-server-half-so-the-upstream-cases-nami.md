@@ -8,7 +8,7 @@ depends-on: []
 touches: [Conformance/Surl.Conformance.UnitTests, Documentation/Conformance]
 requirement: none
 created: 2026-11-12
-completed:
+completed: 2026-11-12
 ---
 # BL-1072 — Compose the http-ipv6 server half so the upstream cases naming it run
 
@@ -26,16 +26,19 @@ and `ServerFamilies` lacks the name. The FTP, Gopher and mail halves already bin
 
 ## Acceptance criteria
 
-- [ ] `UpstreamTestCaseServerHalves` binds the plaintext HTTP half on `[::1]` and the run gives `%HTTP6PORT` its port.
-- [ ] `http-ipv6` is in the run's `ServerFamilies`; the cases that named it run on each reference pin and the
+- [x] `UpstreamTestCaseServerHalves` binds the plaintext HTTP half on `[::1]` and the run gives `%HTTP6PORT` its port.
+- [x] `http-ipv6` is in the run's `ServerFamilies`; the cases that named it run on each reference pin and the
       result lines list each by number.
-- [ ] Newly passing cases are added to the platform's passing list and the pass-rate file; failing cases are grouped
+- [x] Newly passing cases are added to the platform's passing list and the pass-rate file; failing cases are grouped
       by cause into new tasks with their IDs in Notes.
-- [ ] `dotnet build -warnaserror` is clean and the fast tests are green.
+- [x] `dotnet build -warnaserror` is clean and the fast tests are green.
 
 ## Notes
+
+Plaintext HTTP half now also binds [::1] (%HTTP6PORT); http-ipv6 added to ServerFamilies. Windows run: 1,152 runnable, 1,144 passed, 8 failed (pre-existing causes, none newly failing), 861 skipped. 14 cases newly pass and are listed. No new failures to file.
 
 ## Log
 
 - 2026-11-12: Created.
 - 2026-11-12: Backlog -> Doing.
+- 2026-11-12: Doing -> Done. http-ipv6 server half composed on [::1]; 14 more upstream cases pass on win-x64 (1,144)

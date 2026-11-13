@@ -69,7 +69,7 @@ internal sealed class UpstreamTestCaseServerHalves : IAsyncDisposable
     // Each case server's scheme and the hosts its listeners bind, in Play's order.
     private static readonly (string Scheme, string[] Hosts)[] Listeners =
     [
-        ("http", [LoopbackIPv4]),
+        ("http", [LoopbackIPv4, LoopbackIPv6]),
         (HttpTlsScheme, [LoopbackIPv4]),
         ("ftp", [LoopbackIPv4, LoopbackIPv6]),
         ("ftps", [LoopbackIPv4]),
@@ -112,6 +112,9 @@ internal sealed class UpstreamTestCaseServerHalves : IAsyncDisposable
 
     /// <summary>The plaintext HTTP listener's port: <c>%HTTPPORT</c>.</summary>
     public int HttpPort => ports[PortKey("http", LoopbackIPv4)];
+
+    /// <summary>The plaintext HTTP listener's port on <c>[::1]</c>: <c>%HTTP6PORT</c>.</summary>
+    public int HttpIPv6Port => ports[PortKey("http", LoopbackIPv6)];
 
     /// <summary>The HTTP TLS listener's port: <c>%HTTPSPORT</c>.</summary>
     public int HttpsPort => ports[PortKey(HttpTlsScheme, LoopbackIPv4)];

@@ -77,6 +77,7 @@ public sealed class UpstreamTestCasesAgainstSurlTests
     {
         ["http"] = HttpFamily,
         ["https"] = HttpFamily,
+        ["http-ipv6"] = HttpFamily,
         ["http-unix"] = HttpFamily,
         ["ftp"] = FtpFamily,
         ["ftp-ipv6"] = FtpFamily,
@@ -549,6 +550,7 @@ public sealed class UpstreamTestCasesAgainstSurlTests
                 ["HOSTIP"] = "127.0.0.1",
                 ["CLIENTIP"] = "127.0.0.1",
                 ["HTTPPORT"] = serverHalves.HttpPort.ToString(CultureInfo.InvariantCulture),
+                ["HTTP6PORT"] = serverHalves.HttpIPv6Port.ToString(CultureInfo.InvariantCulture),
                 ["HTTPSPORT"] = serverHalves.HttpsPort.ToString(CultureInfo.InvariantCulture),
                 ["FTPPORT"] = serverHalves.FtpPort.ToString(CultureInfo.InvariantCulture),
                 ["FTP6PORT"] = serverHalves.FtpIPv6Port.ToString(CultureInfo.InvariantCulture),
