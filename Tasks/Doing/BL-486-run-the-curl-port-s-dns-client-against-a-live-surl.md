@@ -39,3 +39,4 @@ and the matrix is fully covered.
 
 - 2026-11-04: Created.
 - 2026-11-06: depends-on BL-485 replaced by BL-1032, BL-1017, BL-1018, BL-1019 (BL-485 split for the 60-minute size limit; Stewart asked for a backlog audit 2026-11-06).
+- 2026-11-12: Backlog -> Doing.
