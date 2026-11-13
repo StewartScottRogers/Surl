@@ -683,8 +683,8 @@ an operator configures. The terms are defined in the [glossary](../Wiki/Glossary
   BL-671 and built by BL-672 and BL-673. The Curl port's own clients reading the shared files
   and messages are BL-669 and BL-670; they run in `Integration` tests only and prove nothing
   (ADR-0083). Test control of the stores - seeding, resetting, snapshotting and restoring them,
-  the store change events and `--fault` - is documented by BL-821 in
-  `Documentation/Wiki/Surl-As-A-Stand-In.md`, which does not exist yet.
+  the store change events and `--fault` - is documented in
+  `Documentation/Wiki/Surl-As-A-Stand-In.md`.
 
 ### Also in scope
 

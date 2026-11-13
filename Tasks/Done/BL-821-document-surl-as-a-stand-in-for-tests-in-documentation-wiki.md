@@ -8,7 +8,7 @@ depends-on: [BL-786, BL-811, BL-812, BL-813, BL-817, BL-818, BL-819, BL-820]
 touches: [Documentation/Wiki/Surl-As-A-Stand-In.md, README.md, Documentation/Wiki/Glossary.md, Documentation/Product/Product-Overview.md]
 requirement: none
 created: 2026-11-05
-completed:
+completed: 2026-11-12
 ---
 # BL-821 — Document Surl as a stand-in for tests in Documentation/Wiki/Surl-As-A-Stand-In.md and the README
 
@@ -41,17 +41,22 @@ and a README section that sends them there, every statement true of the code as 
 
 ## Acceptance criteria
 
-- [ ] `Documentation/Wiki/Surl-As-A-Stand-In.md` exists with every section named in Context; every type, member,
+- [x] `Documentation/Wiki/Surl-As-A-Stand-In.md` exists with every section named in Context; every type, member,
       option, tool and path it names exists in the repository (checked by search), and each recipe link points to an
       existing test class.
-- [ ] `README.md` has the stand-in section linking the page; `Glossary.md` and `Product-Overview.md` are updated
+- [x] `README.md` has the stand-in section linking the page; `Glossary.md` and `Product-Overview.md` are updated
       as Context says.
-- [ ] No statement in the page describes behaviour a task has not built (or it is written as intent, naming the
+- [x] No statement in the page describes behaviour a task has not built (or it is written as intent, naming the
       task).
 
 ## Notes
+
+- BL-816 sits in Deferred, but `ComposedServing` already binds the control endpoint, and `StandInControlEndpointRecipeTests` (BL-819) runs it, so the page describes it as built.
+- Hooks are described as `Surl.Api` only, per ADR-0124 decision 5. BL-649 is Done; BL-674 is not checked, so the README links point to existing sections.
+- Removed the stale "not yet" markers from the Glossary stand-in rows: the named types exist.
 
 ## Log
 
 - 2026-11-05: Created.
 - 2026-11-12: Backlog -> Doing.
+- 2026-11-12: Doing -> Done. Stand-in page, README section, glossary and overview written

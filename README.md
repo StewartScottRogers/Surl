@@ -79,8 +79,8 @@ The work is on the board and is being built now. None of it is finished.
    suite, and `Surl.Mcp` (`surl-mcp`) lets AI agents start, list and stop servers and see what
    a client sent. See [Using Surl from a test suite or an AI agent](#using-surl-from-a-test-suite-or-an-ai-agent).
    The stand-in features on top of them (event queries and waits, seeding, reset and
-   snapshots, faults, hooks and the control endpoint) are built in part; their page,
-   `Documentation/Wiki/Surl-As-A-Stand-In.md`, is not written yet (BL-821).
+   snapshots, faults, hooks and the control endpoint) are described in
+   [Surl as a stand-in for tests](Documentation/Wiki/Surl-As-A-Stand-In.md).
 6. **Phase 7: measuring the Curl port.** The port and pinned upstream curl run the same
    command lines against the same `surl`, and wherever they disagree, upstream curl is right.
    This is built for `win-x64`: the port at commit `b42c319b` agreed in 1,420 of 1,518 cases,
@@ -431,7 +431,7 @@ a `;` or the separator. A key or flag it does not know is refused, never ignored
 canonical topic, share, share access, mail domain, mail alias, catch-all, shared folder,
 account group, config file) are in the [glossary](Documentation/Wiki/Glossary.md). Seeding,
 resetting and snapshotting these stores from a test is the subject of
-`Documentation/Wiki/Surl-As-A-Stand-In.md`, which is not written yet (BL-821).
+[Surl as a stand-in for tests](Documentation/Wiki/Surl-As-A-Stand-In.md).
 
 ## Logging
 
@@ -524,6 +524,14 @@ archive, which needs no .NET runtime. Its tools are `start_server`, `list_server
 learns the options from the same text. Listen URLs must be loopback unless the host was started
 with `--allow-non-loopback`, and local paths are confined by `--root`. See
 [`Application/Surl.Mcp/README.md`](Application/Surl.Mcp/README.md).
+
+## Use Surl as a stand-in in your tests
+
+Surl is built to be run against in place of a real mail server, bucket, broker or file site in someone
+else's integration tests, several protocols at once. [Surl as a stand-in for tests](Documentation/Wiki/Surl-As-A-Stand-In.md)
+says how: embed it with `Surl.Api`, seed, reset and snapshot its stores, inject faults, query and wait for
+events, drive it from any language through the loopback control endpoint, or from an AI agent through
+`Surl.Mcp`, with one recipe test for each scenario. The same text is in [Application/Surl.Api/README.md](Application/Surl.Api/README.md).
 
 ## Upstream curl validates Surl; Surl later validates the Curl port
 
