@@ -35,3 +35,4 @@ BL-361 wired those three legs (ADR-0151) but a lane cannot push, so no run of th
 - 2026-11-13: Release run 43443817332 (PR #32, 810f09e): linux-arm64 and osx-x64 conformance green; win-arm64 failed 6 Windows reference-build tests, filed as BL-1108. Still blocked: needs a Release run on a commit that has BL-1108.
 - 2026-11-13: Blocked -> Backlog. Unblocked: BL-1108 now Done
 - 2026-11-13: Backlog -> Doing.
+- 2026-11-13: Doing -> Blocked. Needs a Release workflow run on a commit containing BL-1108 (8030f331 is on origin/factory/phase-1; latest run 43443817332 predates it). A lane cannot push or dispatch workflows; the next merge PR's Release run, or a manual dispatch by Stewart, supplies the URL.
