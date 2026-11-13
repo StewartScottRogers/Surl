@@ -35,3 +35,4 @@ A `socks5://` or `socks5h://` listener started with the keytab option the HTTP s
 ## Log
 
 - 2026-11-12: Created.
+- 2026-11-13: Backlog -> Doing.
