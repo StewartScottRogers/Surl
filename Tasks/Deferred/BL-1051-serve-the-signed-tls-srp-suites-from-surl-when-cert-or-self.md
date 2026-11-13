@@ -44,3 +44,4 @@ completed:
 
 - 2026-11-11: Created.
 - 2026-11-13: Backlog -> Doing.
+- 2026-11-13: Doing -> Deferred. Split into BL-1097, BL-1098, BL-1099 (timed out at the run's time limit)
