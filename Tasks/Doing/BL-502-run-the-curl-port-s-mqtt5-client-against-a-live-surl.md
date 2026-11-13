@@ -45,3 +45,4 @@ Each assertion comes from MQTT 5.0, and the matrix is fully covered.
 - 2026-11-06: depends-on BL-501 replaced by BL-975 (BL-501 split for the 60-minute size limit; Stewart asked for a backlog audit 2026-11-06).
 - 2026-11-12: Backlog -> Doing.
 - 2026-11-12: Doing -> Backlog. Waits on BL-976: the subscribe case needs --mqtt5-disconnect-after-retained, not yet implemented
+- 2026-11-12: Backlog -> Doing.
