@@ -4,7 +4,7 @@ title: Run the Curl port's kafka client against a live surl
 priority: Low
 assignee: Claude
 pipeline: feature
-depends-on: [BL-973, BL-406]
+depends-on: [BL-973, BL-406, BL-974]
 touches: [Conformance/Surl.Conformance.UnitTests, Documentation/Conformance/Extended/Kafka.md]
 requirement: none
 created: 2026-11-04
@@ -38,3 +38,4 @@ Each assertion comes from the Kafka protocol guide, and the matrix is fully cove
 - 2026-11-04: Created.
 - 2026-11-06: depends-on BL-522 replaced by BL-973 (BL-522 split for the 60-minute size limit; Stewart asked for a backlog audit 2026-11-06).
 - 2026-11-12: Backlog -> Doing.
+- 2026-11-12: Doing -> Backlog. Waits on BL-974: the compressed-batch exchange needs surl's --kafka-fetch-compression, which BL-974 adds (Fetch serves uncompressed until then)
