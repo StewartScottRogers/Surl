@@ -4,6 +4,7 @@ using Surl.Cli;
 using Surl.Networking;
 using Surl.Output;
 using Surl.Protocol.Abstractions;
+using Surl.TlsSrp;
 
 namespace Surl.Composition;
 
@@ -158,7 +159,7 @@ public sealed class ServerTlsComposition : IDisposable
 
         if (commandLine.ServesTlsSrp)
         {
-            return ComposeTlsSrp(commandLine, readFile);
+            return ComposeTlsSrp(commandLine, timeProvider, readFile);
         }
 
         var trustAnchors = commandLine.CaCertificateFile is { } caCertificateFile
@@ -185,20 +186,60 @@ public sealed class ServerTlsComposition : IDisposable
 
     // TLS-SRP settings (ADR-0122 decisions 4 and 5): the accounts, and one random source for them and
     // every handshake, owned by the composition.
-    private static ServerTlsComposition ComposeTlsSrp(SurlCommandLine commandLine, Func<string, byte[]>? readFile)
+    // With --cert or --self-signed the certificate and its RSA key ride along, for the certificate-signed
+    // SRP suites (ADR-0122 decision 6).
+    private static ServerTlsComposition ComposeTlsSrp(SurlCommandLine commandLine, TimeProvider timeProvider, Func<string, byte[]>? readFile)
     {
         var random = RandomNumberGenerator.Create();
+        List<IDisposable> owned = [random];
         try
         {
             var composed = TlsSrpAccountsComposition.Compose(commandLine, random, readFile);
+            var (certificate, fingerprint) = ComposeTlsSrpCertificate(commandLine, timeProvider, readFile, owned);
             return new ServerTlsComposition(
-                ServerTlsSettings.ForTlsSrp(composed.Accounts, random), null, null, [random], null, composed.GroupIndexesOutsideRfc5054);
+                ServerTlsSettings.ForTlsSrp(composed.Accounts, random, certificate), fingerprint, null, owned, null, composed.GroupIndexesOutsideRfc5054);
         }
-        catch (TlsSrpAccountsException)
+        catch (Exception failure) when (failure is TlsSrpAccountsException or TlsFileLoadException)
         {
-            random.Dispose();
+            DisposeAll(owned);
             throw;
         }
+    }
+
+    private static (TlsSrpServerCertificate? Certificate, string? ThrowawayFingerprint) ComposeTlsSrpCertificate(
+        SurlCommandLine commandLine, TimeProvider timeProvider, Func<string, byte[]>? readFile, List<IDisposable> owned)
+    {
+        if (commandLine.CertificateFile is { } certificateFile)
+        {
+            var loaded = ServerCertificateFileLoader.Load(
+                certificateFile,
+                MapCertificateFormat(commandLine.CertificateType),
+                commandLine.KeyFile,
+                MapKeyFormat(commandLine.KeyType),
+                commandLine.KeyPassphrase,
+                readFile);
+            owned.Add(loaded);
+            return (TlsSrpCertificateOf(loaded.Certificate, loaded.IntermediateCertificates, owned), null);
+        }
+
+        if (!commandLine.SelfSigned)
+        {
+            return (null, null);
+        }
+
+        var throwaway = ThrowawayServerCertificate.Create(timeProvider, commandLine.ListenUrls.Select(listenUrl => listenUrl.Host));
+        owned.Add(throwaway);
+        return (TlsSrpCertificateOf(throwaway, [], owned), ThrowawayServerCertificate.Sha256FingerprintOf(throwaway));
+    }
+
+    private static TlsSrpServerCertificate TlsSrpCertificateOf(
+        X509Certificate2 certificate, IReadOnlyList<X509Certificate2> intermediates, List<IDisposable> owned)
+    {
+        var key = certificate.GetRSAPrivateKey()
+            ?? throw new TlsFileLoadException(
+                TlsFileLoadFailure.ServerCertificateUnusable, "TLS-SRP signs with an RSA key; the --cert certificate's key is not RSA", null);
+        owned.Add(key);
+        return new TlsSrpServerCertificate([certificate.RawData, .. intermediates.Select(intermediate => intermediate.RawData)], key);
     }
 
     // coaps needs a certificate or an account, whose pre-shared key it can handshake with (ADR-0087 decision 3).

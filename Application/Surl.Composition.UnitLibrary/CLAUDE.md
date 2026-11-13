@@ -265,7 +265,7 @@ rather than writing it, and the warning writers take the log `TextWriter` they w
   its salt drawn again while its first byte is zero) and one `RandomNumberGenerator` it owns; a file
   that cannot be read is `TlsSrpAccountsException` `(37)`, a user given twice `(2)`. Each
   `--srp-groups` group outside RFC 5054 Appendix A lands in `SrpGroupIndexesOutsideRfc5054`, and
-  `WriteStartLines` notes it once from `-v` up, after the `--self-signed` lines (ADR-0122 Amendment 3). No certificate is
+  `WriteStartLines` notes it once from `-v` up, after the `--self-signed` lines (ADR-0122 Amendment 3). With `--cert` or `--self-signed` (BL-1098) the certificate and its RSA key go to `ForTlsSrp` for the certificate-signed suites, a non-RSA key being `TlsFileLoadException` (58). No certificate is
   needed then except for `webtransport` and `coaps`, and `IsTlsUpgradeAvailable` (a certificate, or
   TLS-SRP) is what makes the STARTTLS-style servers offer their upgrade.
 - `DataDirectoryProbe`, `DataDirectoryLock` and `DataDirectoryLockOutcome` - the `--directory`

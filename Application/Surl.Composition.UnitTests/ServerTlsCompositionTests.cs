@@ -240,6 +240,51 @@ public sealed class ServerTlsCompositionTests
                 ParseWithWebTransport("--tlsuser", "u", "--tlspassword", "p", "https://127.0.0.1:0/", "webtransport://127.0.0.1:0/")));
     }
 
+    [TestMethod]
+    public void Compose_TlsSrpWithSelfSigned_ServesTheThrowawayCertificateAndReportsItsFingerprint()
+    {
+        using var composition = ServerTlsComposition.Compose(
+            ParseTlsSrp(selfSigned: true), TimeProvider.System);
+
+        Assert.IsNotNull(composition.Settings?.TlsSrpAccounts);
+        Assert.IsNotNull(composition.ThrowawayCertificateFingerprint);
+    }
+
+    [TestMethod]
+    public void Compose_TlsSrpWithCertAndKey_ServesThatCertificateWithNoFingerprint()
+    {
+        using var files = TestCertificateFiles.Create();
+
+        using var composition = ServerTlsComposition.Compose(
+            ParseTlsSrp(files.CertificateFile, files.KeyFile),
+            TimeProvider.System);
+
+        Assert.IsNotNull(composition.Settings?.TlsSrpAccounts);
+        Assert.IsNull(composition.ThrowawayCertificateFingerprint);
+    }
+
+    [TestMethod]
+    public void Compose_TlsSrpWithAnEcdsaCertificate_ThrowsServerCertificateUnusable()
+    {
+        using var files = TestCertificateFiles.CreateEcdsa();
+
+        var failure = Assert.ThrowsExactly<TlsFileLoadException>(() => ServerTlsComposition.Compose(
+            ParseTlsSrp(files.CertificateFile, files.KeyFile),
+            TimeProvider.System));
+
+        Assert.AreEqual(TlsFileLoadFailure.ServerCertificateUnusable, failure.Failure);
+        Assert.AreEqual(SurlExitCode.CertificateProblem, ServerTlsComposition.DescribeTlsFileFailure(failure, null).ExitCode);
+    }
+
+    [TestMethod]
+    public void Compose_TlsSrpWithAnUnreadableCertificate_Throws()
+    {
+        using var files = TestCertificateFiles.Create();
+
+        Assert.ThrowsExactly<TlsFileLoadException>(() => ServerTlsComposition.Compose(
+            ParseTlsSrp(files.GarbageFile, null), TimeProvider.System));
+    }
+
     private sealed class ScriptedRandomNumberGenerator(byte[][] draws) : RandomNumberGenerator
     {
         private int next;
@@ -392,6 +437,10 @@ public sealed class ServerTlsCompositionTests
     {
         Assert.AreEqual(expected, ServerTlsComposition.MapKeyFormat(given));
     }
+
+    // The parser still refuses --cert and --self-signed beside TLS-SRP (BL-1099), so set them on the parsed command line.
+    private static SurlCommandLine ParseTlsSrp(string? certificateFile = null, string? keyFile = null, bool selfSigned = false) =>
+        Parse("--tlsuser", "u", "--tlspassword", "p", "https://127.0.0.1:0/") with { CertificateFile = certificateFile, KeyFile = keyFile, SelfSigned = selfSigned };
 
     private static SurlCommandLine Parse(params string[] args) =>
         CommandLineParser.Parse(args).CommandLine ?? throw new AssertFailedException("The command line was refused.");

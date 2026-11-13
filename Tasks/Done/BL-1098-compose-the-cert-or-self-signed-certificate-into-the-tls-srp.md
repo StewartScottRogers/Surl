@@ -8,7 +8,7 @@ depends-on: [BL-1097]
 touches: [Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests]
 requirement: none
 created: 2026-11-13
-completed:
+completed: 2026-11-13
 ---
 # BL-1098 — Compose the --cert or --self-signed certificate into the TLS-SRP settings
 
@@ -36,17 +36,19 @@ throwaway one and passes it, with its RSA key, to `ServerTlsSettings.ForTlsSrp`;
 
 ## Acceptance criteria
 
-- [ ] `Surl.Composition.UnitTests`: a `--cert` with an ECDSA key under TLS-SRP is `CertificateProblem` (58).
-- [ ] `Surl.Composition.UnitTests`: TLS-SRP with `--self-signed` composes settings with the throwaway
+- [x] `Surl.Composition.UnitTests`: a `--cert` with an ECDSA key under TLS-SRP is `CertificateProblem` (58).
+- [x] `Surl.Composition.UnitTests`: TLS-SRP with `--self-signed` composes settings with the throwaway
       certificate and reports its fingerprint; with `--cert`/`--key` it composes with that certificate.
-- [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and `Surl.Composition.UnitLibrary`
+- [x] `dotnet build -warnaserror` is clean, the fast tests are green, and `Surl.Composition.UnitLibrary`
       keeps 100% line and branch coverage.
 
 ## Notes
 
 - Filed by splitting BL-1051 on 2026-11-13.
+- The BL-1051 stash was not readable in this run, so the change was rewritten: ComposeTlsSrpCertificate loads --cert or makes the throwaway, takes GetRSAPrivateKey() (none is TlsFileLoadException ServerCertificateUnusable, so 58), owns what it loaded and disposes it on failure. Tests set CertificateFile/SelfSigned with with on a parsed command line, since Surl.Cli still refuses them beside TLS-SRP (BL-1099).
 
 ## Log
 
 - 2026-11-13: Created.
 - 2026-11-13: Backlog -> Doing.
+- 2026-11-13: Doing -> Done. TLS-SRP composes the --cert or --self-signed certificate; non-RSA key is 58
