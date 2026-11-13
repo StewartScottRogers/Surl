@@ -56,3 +56,4 @@ TLS; `--aihelp` has a grpc topic and help category, and the extension switch (`S
 ## Log
 
 - 2026-11-12: Created.
+- 2026-11-12: Backlog -> Doing.
