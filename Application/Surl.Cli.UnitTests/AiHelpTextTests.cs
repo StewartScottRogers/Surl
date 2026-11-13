@@ -662,6 +662,7 @@ public sealed partial class AiHelpTextTests
             "surl: warning: --s3-plaintext: s3 is served as plain HTTP, without TLS",
             "surl: warning: --oci-plaintext: oci is served as plain HTTP, without TLS",
             "surl: warning: --az-plaintext: az is served as plain HTTP, without TLS",
+            "surl: warning: --gs-plaintext: gs is served as plain HTTP, without TLS",
             "surl: warning: --proxy-auth: accepted proxy methods are basic, ntlm",
             "surl: (37) Could not read host certificate <file>",
             "surl: (2) Host certificate <file>: not an OpenSSH host certificate",

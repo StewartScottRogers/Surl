@@ -100,6 +100,7 @@ internal static class CommandLinePathMembers
         nameof(SurlCommandLine.S3Plaintext),
         nameof(SurlCommandLine.OciPlaintext),
         nameof(SurlCommandLine.AzPlaintext),
+        nameof(SurlCommandLine.GsPlaintext),
         nameof(SurlCommandLine.ThrowawayHostKey),
         nameof(SurlCommandLine.AllowWeakSshAlgorithms),
         nameof(SurlCommandLine.SshCiphers),

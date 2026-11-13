@@ -517,10 +517,10 @@ public sealed class ManualTextTests
             "LOOSENING OPTIONS",
             "",
             "    --allow-anonymous, --allow-plaintext-auth, --auth, --az-plaintext,",
-            "    --oci-plaintext, --s3-plaintext, --self-signed and --throwaway-hostkey",
-            "    each loosen a secure default for tests, and each writes a \"surl: warning:\"",
-            "    line on start (--self-signed and --throwaway-hostkey only when they make",
-            "    their certificate or key).",
+            "    --gs-plaintext, --oci-plaintext, --s3-plaintext, --self-signed and",
+            "    --throwaway-hostkey each loosen a secure default for tests, and each",
+            "    writes a \"surl: warning:\" line on start (--self-signed and",
+            "    --throwaway-hostkey only when they make their certificate or key).",
             "    What each one loosens, and why none is the default, is written by:",
             "",
             "        surl --help testing",
@@ -659,7 +659,7 @@ public sealed class ManualTextTests
     {
         var looseningSection = Section("LOOSENING OPTIONS");
 
-        foreach (var looseningOption in new[] { "--allow-anonymous", "--allow-plaintext-auth", "--auth", "--az-plaintext", "--oci-plaintext", "--s3-plaintext", "--self-signed", "--throwaway-hostkey" })
+        foreach (var looseningOption in new[] { "--allow-anonymous", "--allow-plaintext-auth", "--auth", "--az-plaintext", "--gs-plaintext", "--oci-plaintext", "--s3-plaintext", "--self-signed", "--throwaway-hostkey" })
         {
             StringAssert.Contains(looseningSection, looseningOption);
         }

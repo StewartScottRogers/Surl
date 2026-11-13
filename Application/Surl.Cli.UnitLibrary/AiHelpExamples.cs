@@ -183,6 +183,13 @@ public static class AiHelpExamples
             ["Listening on gs://127.0.0.1:<port>/"],
             ["surl: warning: --self-signed: serving a throwaway certificate; clients must skip verification (curl -k)"],
             []),
+        Serving(
+            "gs",
+            "For a test: serve Google Cloud Storage as plain HTTP for an http:// endpoint",
+            ["--gs-plaintext", "-u", "GOOGTESTKEY:secret", "gs://127.0.0.1:0/"],
+            ["Listening on gs://127.0.0.1:<port>/"],
+            ["surl: warning: --gs-plaintext: gs is served as plain HTTP, without TLS"],
+            []),
         Serving("http", "Serve HTTP", [HttpListenUrl], [ListeningOnHttp], [], ["curl -I http://127.0.0.1:<port>/"]),
         Refused(
             "http",

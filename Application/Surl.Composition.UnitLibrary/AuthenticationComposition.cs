@@ -210,6 +210,11 @@ public static class AuthenticationComposition
         {
             log.WriteLine(WarningPrefix + "--az-plaintext: az is served as plain HTTP, without TLS");
         }
+
+        if (commandLine.GsPlaintext)
+        {
+            log.WriteLine(WarningPrefix + "--gs-plaintext: gs is served as plain HTTP, without TLS");
+        }
     }
 
     // The --user accounts, then the --user-file's (ADR-0032, section 2): a file that cannot be

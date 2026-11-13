@@ -90,6 +90,13 @@ internal static class CommandLineOptions
         + "Blob endpoint is HTTPS, and anyone who can watch the network reads every blob as it is sent. "
         + "surl warns on every start while it is on, from the info log level up.";
 
+    private const string GsPlaintextExplanation =
+        "Serves every gs listen URL as plain HTTP/1.1 instead of TLS from the first byte, so it needs no --cert "
+        + "or --self-signed. A test uses it for a Google Cloud Storage client pointed at an emulator-style http:// "
+        + "endpoint. A bearer token still needs --allow-plaintext-auth over it. It is not the default because every "
+        + "Google Cloud Storage endpoint is HTTPS, and anyone who can watch the network reads every object as it is "
+        + "sent. surl warns on every start while it is on, from the info log level up.";
+
     private const string FaultExplanation =
         "Adds a fault rule that makes surl misbehave on purpose: delay (ms=<0-600000>, at accept or stage=command), "
         + "drop the connection (at accept, stage=command, or after-bytes=<n> sent), refuse-login, error (a reply=<code text> "
@@ -288,6 +295,9 @@ internal static class CommandLineOptions
         Flag("az-plaintext", null, negatable: true, (c, on) => c with { AzPlaintext = on },
             new(null, "Serve az as plain HTTP (warns)", ["azure-storage", "security", "testing"], IsInShortList: false, Default: "off",
                 AzPlaintextExplanation)),
+        Flag("gs-plaintext", null, negatable: true, (c, on) => c with { GsPlaintext = on },
+            new(null, "Serve gs as plain HTTP (warns)", ["gs", "security", "testing"], IsInShortList: false, Default: "off",
+                GsPlaintextExplanation)),
         WithArgument<string>("hostkey", null, OptionArgumentReader.Path, (c, v) => c with { HostKeyFiles = [.. c.HostKeyFiles, v] },
             new("<file>", "SSH host private key file", ["auth", "ssh"], IsInShortList: false, Default: "none")),
         WithArgument<string>("hostcert", null, OptionArgumentReader.Path, (c, v) => c with { HostCertificateFiles = [.. c.HostCertificateFiles, v] },

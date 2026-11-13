@@ -56,6 +56,9 @@ public static partial class SurlServerComposition
         // --az-plaintext does the same for every az listen URL (ADR-0109 decision 6).
         commandLine = AzPlaintextComposition.MarkAzListenUrlsPlain(commandLine);
 
+        // --gs-plaintext does the same for every gs listen URL (ADR-0110 decision 5).
+        commandLine = GsPlaintextComposition.MarkGsListenUrlsPlain(commandLine);
+
         if ((FindOptionRefusal(commandLine) ?? DnsTransportComposition.FindRefusal(commandLine)) is { } optionRefusal)
         {
             return Refuse(SurlExitCode.FailedInit, optionRefusal);
