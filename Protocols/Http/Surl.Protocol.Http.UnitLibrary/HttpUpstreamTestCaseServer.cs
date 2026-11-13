@@ -64,7 +64,7 @@ public sealed class HttpUpstreamTestCaseServer(HttpUpstreamTestCaseReplies repli
             return;
         }
 
-        var reader = new HttpConnectionReader(requestConnection, context.Limits.MaxRequestHeadBytes);
+        var reader = new HttpConnectionReader(requestConnection, context.Limits.MaxRequestHeadBytes) { SkipsMalformedFieldLines = true };
         var isFirstHead = true;
         var keepsConnectionOpen = true;
         while (keepsConnectionOpen)

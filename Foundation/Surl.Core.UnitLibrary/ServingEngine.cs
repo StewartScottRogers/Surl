@@ -846,6 +846,9 @@ public sealed partial class ServingEngine
         catch (IOException failure)
         {
             context.Log.Note($"TLS handshake failed: {failure.Message}");
+
+            // A peer that sent plain text to a TLS port gets a reset, as from stunnel in upstream's test 1244, not a clean end.
+            connection.Abort();
         }
         catch (OperationCanceledException) when (!context.CancellationToken.IsCancellationRequested)
         {

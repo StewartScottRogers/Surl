@@ -33,7 +33,7 @@ decision 5). This is success criterion 2 of the
 
 | Platform | Commit | Date | Reference pin SHA-256 | Total | Runnable | Passed | Failed | Skipped | test-server-choice | Pass rate |
 | --- | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| `win-x64` | `153bbc14` + BL-549 + BL-855 + BL-896 + BL-897 + BL-898 + BL-899 + BL-900 + BL-556 + BL-682 + BL-562 + BL-689 + BL-776 + BL-856 + BL-1071 + BL-1072 + BL-1076 | 2026-11-12 | `0E773709C3A44DB47B88B71351D902027682ED87C3BD3821009E454BACCA8778` | 2,013 | 1,152 | 1,147 | 5 | 861 | 34 | 99.6% |
+| `win-x64` | `153bbc14` + BL-549 + BL-855 + BL-896 + BL-897 + BL-898 + BL-899 + BL-900 + BL-556 + BL-682 + BL-562 + BL-689 + BL-776 + BL-856 + BL-1071 + BL-1072 + BL-1076 + BL-1077 | 2026-11-12 | `0E773709C3A44DB47B88B71351D902027682ED87C3BD3821009E454BACCA8778` | 2,013 | 1,152 | 1,151 | 1 | 861 | 34 | 99.9% |
 | `linux-x64` | `8eb0301b` | 2026-11-06 | `153CA463957609117D21A848BE29B70691B85F9E5CC9370C7DAA037B839A4E45` | 2,013 | 1,203 | 1,154 | 49 | 810 | 34 | 95.9% |
 | `osx-arm64` | `8eb0301b` | 2026-11-06 | `04E0E69BCD3BD814EC093551A0447AC14EDEEA9D395B468A2025DCB3F766EEBF` | 2,013 | 1,203 | 1,153 | 50 | 810 | 34 | 95.8% |
 

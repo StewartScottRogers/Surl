@@ -142,6 +142,16 @@ public sealed class UpstreamTestCaseCommandLineTests
     }
 
     [TestMethod]
+    public void Build_TwoSetenvParts_SetsTheAssignmentsOfBothWithTheLaterOneWinning()
+    {
+        var commandLine = Build(Command("u") + "<setenv>\nA=1\nB=2\n</setenv>\n<setenv>\nB=3\nC=4\n</setenv>\n");
+
+        Assert.AreEqual("1", commandLine.Environment["A"]);
+        Assert.AreEqual("3", commandLine.Environment["B"]);
+        Assert.AreEqual("4", commandLine.Environment["C"]);
+    }
+
+    [TestMethod]
     public void Build_UnclosedQuote_Throws()
     {
         Assert.ThrowsExactly<FormatException>(() => Build(Command("'u")));

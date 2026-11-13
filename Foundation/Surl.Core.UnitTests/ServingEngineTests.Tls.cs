@@ -83,7 +83,7 @@ public sealed partial class ServingEngineTests
         Assert.AreEqual(2, exchange.Context.ExchangeId);
         Assert.IsTrue(failing.UpgradeRequested);
         Assert.IsEmpty(failing.WrittenBytes);
-        Assert.IsFalse(failing.Aborted);
+        Assert.IsTrue(failing.Aborted, "A failed handshake resets the connection rather than ending it cleanly.");
         var notes = logs.LogOf(1).Notes.ToList();
         CollectionAssert.Contains(notes, "TLS handshake failed: The TLS handshake failed.");
         Assert.IsFalse(notes.Any(note => note.Contains("protocol server threw", StringComparison.Ordinal)));

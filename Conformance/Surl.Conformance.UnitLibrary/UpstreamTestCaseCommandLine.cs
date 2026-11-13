@@ -120,7 +120,8 @@ public sealed record UpstreamTestCaseCommandLine(
     private static Dictionary<string, string> ReadEnvironment(UpstreamTestCase testCase)
     {
         var environment = new Dictionary<string, string>(StringComparer.Ordinal);
-        var lines = testCase.FindPart("client", "setenv")?.Lines ?? [];
+        // getpart reads every <setenv> part, so test 433 gets COLUMNS from its second one beside the first.
+        var lines = (testCase.FindSection("client")?.Parts ?? []).Where(part => part.Name == "setenv").SelectMany(part => part.Lines);
 
         foreach (var line in lines)
         {
