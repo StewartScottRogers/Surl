@@ -38,3 +38,4 @@ Each assertion comes from the distribution spec, and the matrix is fully covered
 
 - 2026-11-04: Created.
 - 2026-11-06: depends-on BL-439 replaced by BL-1028 (BL-439 split for the 60-minute size limit; Stewart asked for a backlog audit 2026-11-06).
+- 2026-11-12: Backlog -> Doing.
