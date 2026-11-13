@@ -8,7 +8,7 @@ depends-on: []
 touches: [Protocols/Http/Surl.Extended.Protocol.WebTransport.UnitTests, Protocols/Http/Surl.Extended.Protocol.WebTransport.UnitLibrary]
 requirement: none
 created: 2026-11-13
-completed:
+completed: 2026-11-13
 ---
 # BL-1107 — Fix flaky ServeAsync_ClientFinishesTheConnectStreamWithinTheShutdownGrace_ClosesTheConnectionAtOnce
 
@@ -24,16 +24,22 @@ Test: `Protocols/Http/Surl.Extended.Protocol.WebTransport.UnitTests/WebTransport
 
 ## Acceptance criteria
 
-- [ ] The cause is stated under Notes.
-- [ ] The test (or the library) is changed so the race is gone, with no real-time sleep.
-- [ ] The test passes 200 times in a row locally (`dotnet test --filter` repeated) or in a CI repeat run, stated in the Log.
-- [ ] `dotnet build` is clean and the fast tests are green.
+- [x] The cause is stated under Notes.
+- [x] The test (or the library) is changed so the race is gone, with no real-time sleep.
+- [x] The test passes 200 times in a row locally (`dotnet test --filter` repeated) or in a CI repeat run, stated in the Log.
+- [x] `dotnet build` is clean and the fast tests are green.
 
 ## Notes
 
 Filed by BL-1105 on 2026-11-13.
 
+Cause: WebTransportSession registered its shutdown drain write (AddShutdownWrite) in ServeAsync, after the 200 had been written. A client that saw the 200 and cancelled the exchange at once could start the shutdown before the registration, so no WT_DRAIN_SESSION went out (expected 800078AE00, got empty).
+
+Fix (library, no sleep): the session registers the write in its constructor, before the 200 is written; the write waits on an `answered` completion source that the handler sets (MarkAnswered) once the 200 is written, so the drain can never precede the 200. Files: WebTransportSession.cs, WebTransportConnectHandler.cs.
+
 ## Log
 
 - 2026-11-13: Created.
 - 2026-11-13: Backlog -> Doing.
+- 2026-11-13: Test passed 200 runs in a row locally (dotnet test --no-build --filter, 0 failures); build clean, fast tests green.
+- 2026-11-13: Doing -> Done. WebTransport session registers its shutdown drain before the 200, so the grace test no longer races

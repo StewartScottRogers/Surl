@@ -60,9 +60,10 @@ internal sealed class WebTransportConnectHandler(
 
         try
         {
-            await session.RequestStream.WriteHeadersAsync(AnswerFields(WebTransportConnectJudgement.Accepted), endStream: false, cancellationToken);
-            context.Log.Note($"WebTransport session {session.Id} on {session.Head.Target} was accepted.");
             using var served = new WebTransportSession(session, context, FlowControlFor(settings!));
+            await session.RequestStream.WriteHeadersAsync(AnswerFields(WebTransportConnectJudgement.Accepted), endStream: false, cancellationToken);
+            served.MarkAnswered();
+            context.Log.Note($"WebTransport session {session.Id} on {session.Head.Target} was accepted.");
             directory.Settle(session.Id, served);
             await served.ServeAsync(cancellationToken);
         }

@@ -61,6 +61,7 @@ internal sealed class WebTransportSession : IDisposable
     private Func<Task>? serverEnd;
     private long received;
     private int drainSent;
+    private readonly TaskCompletionSource answered = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
     /// <summary>Creates the session's server.</summary>
     /// <param name="session">The session <c>Surl.Http3</c> opened, answered <c>200</c> already.</param>
@@ -72,7 +73,13 @@ internal sealed class WebTransportSession : IDisposable
         this.context = context;
         this.flowControl = flowControl;
         endingToken = ending.Token;
+
+        // Registered here, before the 200 goes out, so a shutdown that begins the moment the client sees the 200 still drains this session.
+        _ = session.AddShutdownWrite(SendDrainAsync);
     }
+
+    /// <summary>Says the <c>200</c> has been written, which lets a shutdown's <c>WT_DRAIN_SESSION</c> follow it.</summary>
+    public void MarkAnswered() => answered.TrySetResult();
 
     /// <summary>Serves the session until it ends.</summary>
     /// <param name="cancellationToken">Cancelled when the connection ends, fails or shuts down.</param>
@@ -81,7 +88,6 @@ internal sealed class WebTransportSession : IDisposable
     {
         using var linked = cancellationToken.Register(ending.Cancel);
         using var readingToken = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, endingByServer.Token);
-        _ = session.AddShutdownWrite(SendDrainAsync);
         var accepting = AcceptStreamsAsync();
         var datagrams = EchoDatagramsAsync();
         var reading = ReadCapsulesAsync(readingToken.Token);
@@ -298,6 +304,7 @@ internal sealed class WebTransportSession : IDisposable
     {
         if (Interlocked.Exchange(ref drainSent, 1) == 0)
         {
+            await answered.Task.WaitAsync(cancellationToken);
             await session.WriteCapsuleAsync(ToHttp3Capsule(new WebTransportDrainSessionCapsule()), cancellationToken);
         }
     }
