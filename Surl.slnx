@@ -114,6 +114,8 @@
     <Project Path="Cryptography/Surl.Kerberos.UnitTests/Surl.Kerberos.UnitTests.csproj" />
     <Project Path="Cryptography/Surl.Tls13.UnitLibrary/Surl.Tls13.UnitLibrary.csproj" />
     <Project Path="Cryptography/Surl.Tls13.UnitTests/Surl.Tls13.UnitTests.csproj" />
+    <Project Path="Cryptography/Surl.Tls13Stream.UnitLibrary/Surl.Tls13Stream.UnitLibrary.csproj" />
+    <Project Path="Cryptography/Surl.Tls13Stream.UnitTests/Surl.Tls13Stream.UnitTests.csproj" />
     <Project Path="Cryptography/Surl.TlsSrp.UnitLibrary/Surl.TlsSrp.UnitLibrary.csproj" />
     <Project Path="Cryptography/Surl.TlsSrp.UnitTests/Surl.TlsSrp.UnitTests.csproj" />
   </Folder>
