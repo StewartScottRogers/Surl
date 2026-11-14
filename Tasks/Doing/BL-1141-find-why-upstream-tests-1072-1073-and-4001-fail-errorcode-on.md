@@ -60,3 +60,4 @@ upstream tests 1072 and 1073 (`errorcode` on Linux and macOS, pass on Windows) a
 ## Log
 
 - 2026-11-14: Created.
+- 2026-11-14: Backlog -> Doing.
