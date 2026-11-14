@@ -49,3 +49,4 @@ The upstream test-case run serves `%TELNETPORT` with `TelnetProtocolServer` in e
 ## Log
 
 - 2026-11-14: Created.
+- 2026-11-14: Backlog -> Doing.
