@@ -110,16 +110,7 @@ task board in `Tasks/`, never here.
 
 ## Milestone 5 — Phase 5
 
-- **Status:** Built, and proven with the Windows builds (2026-09-30): the reference build over
-  `WinLDAP` for LDAP, ADR-0030's static-curl build for SMB, and the reference build and its
-  `libcurl-4.dll` for RTSP. Not closed: LDAP over the OpenLDAP-backed upstream curl that ADR-0076
-  pins - its `STARTTLS`, root-DSE SASL discovery, SASL binds, anonymous bind and a succeeding
-  `ldaps` search - is measured but not yet proven against `surl` (BL-312); Kerberos inside LDAP's
-  `GSS-SPNEGO` is answered with NTLM selected and is still to be decided and built (BL-327); LDAP
-  SASL `GSSAPI` is unmeasured, since the pinned OpenLDAP build has no GSS-API (BL-342); what the
-  Linux and macOS reference builds do over SMB, and the Linux one over RTSP, is not yet recorded
-  against ADR-0073 and ADR-0074; and choices the building tasks made where ADR-0072, ADR-0073 and
-  ADR-0074 were silent are recorded in those tasks, not yet in the ADRs.
+- **Status:** Built, and proven with the Windows builds (2026-09-30), with the LDAP open items closed since: the OpenLDAP-backed upstream curl that ADR-0076 pins binds, upgrades with `STARTTLS` and searches a live `surl` over `ldap` and `ldaps` (BL-312); Kerberos inside LDAP's `GSS-SPNEGO` is built (BL-327, ADR-0072 Amendment 1); LDAP SASL `GSSAPI` is measured against the re-pinned OpenLDAP and MIT Kerberos build (BL-342, ADR-0078). Still open (2026-11-14): what the Linux and macOS reference builds do over SMB, and the Linux one over RTSP, is not yet recorded against ADR-0073 and ADR-0074, and choices the building tasks made where ADR-0072, ADR-0073 and ADR-0074 were silent are recorded in those tasks, not yet in the ADRs (no task filed).
 - **Delivers:** the LDAP server (`Surl.Protocol.Ldap`, schemes `ldap` and `ldaps`): a BER codec on
   `System.Formats.Asn1`, a read-only directory loaded from `<path>/.surl/ldap/directory.ldif`
   (empty in memory), searches, compares, the root DSE, simple, Sicily and SASL binds with their
@@ -148,14 +139,15 @@ task board in `Tasks/`, never here.
 
 ## Milestone 6 — Phase 6
 
-- **Status:** Built, and proven in part (2026-11-12). Not closed: no release is tagged, and the
-  release row of the pass-rate file is empty. `win-arm64`, `linux-arm64` and `osx-x64` have no
-  pinned upstream curl build, so they have the smoke test and the fast tests but neither
-  conformance nor a pass rate (BL-361, Blocked until arm64 and Intel-macOS runners can measure
-  the builds). `win-x64` conformance against the published binary runs only locally, and a clean
-  full run waits on BL-604 and BL-1059. The HTTP/2 and HTTP/3 conformance passes on Linux and
-  macOS are read by elimination from one CI run, until BL-724 and BL-768 confirm them. No
-  upstream test case runs over HTTP/2 or HTTP/3, since those server halves are not built.
+- **Status:** Built, and proven in part (2026-11-14). Still open: no release is tagged, and the
+  release row of the pass-rate file is empty (no task filed: a tag is Stewart's). The three
+  builds `win-arm64`, `linux-arm64` and `osx-x64` lacked are pinned (BL-361, ADR-0151) and the
+  release dry run's conformance job runs on each. `win-x64` conformance against the published
+  binary runs only locally, but two consecutive full runs passed (BL-604, BL-1090), and BL-1059
+  fixed the HTTP/3 port draw. BL-724 and BL-768 confirmed the HTTP/2 and HTTP/3 conformance
+  passes green on CI's Linux and macOS. No upstream test case runs over HTTP/2 or HTTP/3, since
+  those server halves are not built: BL-1113 to BL-1121 build them and BL-1123 states the
+  result.
 - **Delivers:** HTTP/2 on `https` by ALPN `h2`, on `http` by prior knowledge and by
   `Upgrade: h2c`, over the hand-built `Surl.Hpack` and `Surl.Http2`; HTTP/3 over QUIC version 1
   with `surl --http3`, over the hand-built `Surl.Quic`, `Surl.Tls13`, `Surl.Qpack` and
@@ -189,9 +181,9 @@ task board in `Tasks/`, never here.
   file measured: 1,518 cases, 1,420 agreements, 96 port defects behind 18 findings, 2 cases not
   comparable, and no Surl defect. Still open: off Windows every Phase 7 test is Inconclusive,
   because `CurlPortBuilds.json` pins the port for `win-x64` alone; the 47 `OpenLdap_` cases wait
-  for a `linux-x64` port pin; 15 of the extended clients' `Integration` tasks have not run, so
-  `Extended.md` records 4 of the 19 extended clients; and Stewart has not yet filed the 18
-  findings on the port's board.
+  for a `linux-x64` port pin (no task filed); `Extended.md` still records 4 of the 19 extended
+  clients, though the board shows the other `Integration` tasks Done (BL-1124 refreshes it); and
+  Stewart has not yet filed the 18 findings on the port's board (his to do).
 - **Delivers:** the harness in `Surl.Conformance` (`CurlPortClientPins`, `CurlPortClientLocator`,
   `CurlPortClientRunner`, `CurlPortResultNormaliser`, `CurlPortComparison`, `CurlPortVerdict`,
   `CurlPortFinding`, `CurlPortLibcurlComparison` and `CurlPortTestCaseClient`); one
@@ -217,7 +209,9 @@ and QUIC, `coaps` on DTLS).
 - **Status:** Built (2026-11-12): all 19 `Surl.Extended.Protocol.*` servers exist and are composed
   by `ExtendedProtocolServers`; `coaps` is composed as a deferred server. Not closed: the Curl port's
   client has run against 4 of them (`socketio`, `webtransport`, `coap`, `xmpp`) in the first
-  Phase 7 pass, and a matrix row's "Covered by" may still name a task.
+  Phase 7 pass, and a matrix row's "Covered by" may still name a task. On the board every
+  extended `Integration` task (BL-422 to BL-541) is Done (2026-11-14), but `Extended.md` has not
+  been refreshed from them (BL-1124).
 - **Delivers:** `Surl.Extended.Protocol.<Name>` for S3, AzureStorage, GoogleCloudStorage,
   OciRegistry, Grpc, SignalR, SocketIo, WebTransport, McpServer, Coap, DnsQuery, Mqtt5, Amqp0, Amqp1,
   Kafka, Nats, Stomp, Xmpp and Redis; the switch `SURL_EXTENSIONS=0`; the extended default-port
@@ -236,7 +230,7 @@ and QUIC, `coaps` on DTLS).
 Beside the phases, not after them: the extended servers' track of ADR-0083 reaches into the
 original servers' stores, and the stand-in direction (ADR-0124) builds on both.
 
-- **Status:** Built, except the parts named under "Not built" (2026-11-12).
+- **Status:** Built, except the parts named under "Not built" (2026-11-14).
 - **Delivers:** one store per job in a `surl` run (ADR-0100): the content store, the mail
   store, `Surl.MessageBus` in `Protocols/Messaging/` (the MQTT 3.1.1 server's retained messages
   moved onto it, and the extended NATS and STOMP servers are registered on it) and the account
@@ -250,11 +244,13 @@ original servers' stores, and the stand-in direction (ADR-0124) builds on both.
 - **Exit criteria:** a `surl` given none of the new options answers every original server
   exactly as before (ADR-0102 decision 0), and pinned upstream curl completes a file, a mail and
   a message exchange across protocols in one `surl` (BL-638 to BL-640).
-- **Not built:** the `mqtt5`, `amqp`, `amqp1`, `kafka` and `redis` servers are not registered in
-  `surl` (BL-975, BL-507, BL-514, BL-973, BL-492); LDAP as an optional account source is
-  decided by BL-671 and built by BL-672 and BL-673; the Curl port's clients reading the shared
-  files and messages are BL-669 and BL-670; test control of the stores is BL-821's page,
-  `Documentation/Wiki/Surl-As-A-Stand-In.md`.
+- **Built since 2026-11-12:** the `mqtt5`, `amqp`, `amqp1`, `kafka` and `redis` servers are
+  registered in `surl` (BL-975, BL-507, BL-514, BL-973, BL-492); LDAP as an optional account
+  source is decided by BL-671 and built by BL-672 and BL-673; the Curl port's clients reading
+  the shared files and messages are run by BL-669 and BL-670; the stores' test control is on
+  `Documentation/Wiki/Surl-As-A-Stand-In.md` (BL-821).
+- **Not built:** nothing on the board. The deferred parents BL-653, BL-654, BL-663 and BL-666
+  were split and every part (BL-880 to BL-883, BL-987 to BL-995) is Done.
 - **Decisions:** ADR-0100, ADR-0101 and ADR-0102.
 
 ## Track — The hosts: Surl.Api and Surl.Mcp
@@ -262,8 +258,10 @@ original servers' stores, and the stand-in direction (ADR-0124) builds on both.
 Beside the phases: `surl` is one of three hosts (ADR-0098), and the stand-in direction
 (ADR-0124) is built on the other two.
 
-- **Status:** The hosts are built and proved (2026-11-12). The stand-in features on them are
-  built in part; BL-821 documents them.
+- **Status:** The hosts are built and proved, and the stand-in features on them are built and
+  documented by BL-821 (2026-11-14). Still open: the packages are packed but not published until
+  the first release tag (no task filed), and `--control`'s help text still says it is not served
+  (BL-1125).
 - **Delivers:** `Surl.Composition`, the one start all three hosts run (ADR-0099); `Surl.Api`,
   the in-process .NET interface with typed options, exchange recording, queries and waits, fault
   rules, hooks, seeding, reset and snapshots and a test's own protocol servers; `Surl.Mcp`, the
@@ -274,10 +272,15 @@ Beside the phases: `surl` is one of three hosts (ADR-0098), and the stand-in dir
 - **Exit criteria:** met by BL-618, which proves `Surl.Api` against pinned upstream curl, and
   BL-632, which drives the built `surl-mcp` over stdio with pinned upstream curl. BL-649 states the
   hosts as built in the README, the product overview, the glossary and the root `CLAUDE.md`.
-- **Not built:** serving the control endpoint from `surl` and `Surl.Api` (the `Surl.Control`
-  library and its options exist, BL-814 and BL-815; BL-816, which serves it, is deferred) and the stand-in page
-  `Documentation/Wiki/Surl-As-A-Stand-In.md` (BL-821); publishing the packages waits for the
-  first release tag.
+- **Built since 2026-11-12:** `surl --control <loopback URL> --control-token-file <file>` serves
+  the control endpoint beside the protocol listeners (`ComposedServing` in
+  `Surl.Composition`): the `Surl.Control` library and its options (BL-814, BL-815), the content
+  store's delete (BL-1016), the control target over the composed serving (BL-1022), the token
+  file (BL-972) and the binding (BL-977). They are the split of BL-816, which stays Deferred as
+  the parent. `Surl.Api` has no control-endpoint option: its tests control stores in process
+  (BL-810). The stand-in page is `Documentation/Wiki/Surl-As-A-Stand-In.md` (BL-821).
+- **Not built:** serving the control endpoint from `Surl.Api` (no task filed: a .NET test
+  already has the typed interface); publishing the packages, which waits for the first release tag.
 - **Decisions:** ADR-0098, ADR-0099, ADR-0103 and ADR-0124.
 
 ## Later

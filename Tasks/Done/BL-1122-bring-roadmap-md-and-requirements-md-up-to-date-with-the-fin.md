@@ -8,7 +8,7 @@ depends-on: []
 touches: [Documentation/Planning/Roadmap.md, Documentation/Product/Requirements.md]
 requirement: none
 created: 2026-11-14
-completed:
+completed: 2026-11-14
 ---
 # BL-1122 — Bring Roadmap.md and Requirements.md up to date with the finished board
 
@@ -47,18 +47,23 @@ This is prose only: no code, no ADR, no task moves.
 
 ## Acceptance criteria
 
-- [ ] `Roadmap.md` names no task as Blocked, Deferred or pending that is in `Tasks/Done`.
+- [x] `Roadmap.md` names no task as Blocked, Deferred or pending that is in `Tasks/Done`.
       `git grep -n -E "BL-(361|604|1059|724|768|975|507|514|973|492|671|672|673|669|670|821)\b" Documentation/Planning/Roadmap.md`
       shows each remaining mention describing finished work.
-- [ ] Each roadmap milestone's and track's **Status** line states, with today's date, what is still
+- [x] Each roadmap milestone's and track's **Status** line states, with today's date, what is still
       open. Each open item names either a task on the board or "no task filed".
-- [ ] `Requirements.md`'s opening paragraph says which of FR-058 and FR-060 to FR-065 are built, and
+- [x] `Requirements.md`'s opening paragraph says which of FR-058 and FR-060 to FR-065 are built, and
       its "Last updated" line is today's date.
-- [ ] NFR-006, FR-054 and FR-055 no longer cite BL-361, BL-724 or BL-768 as pending.
+- [x] NFR-006, FR-054 and FR-055 no longer cite BL-361, BL-724 or BL-768 as pending.
 
 ## Notes
+
+- Audited every cited task against `Tasks/`; every one is Done except deferred parents (BL-653, 654, 663, 666, 816, 833, 834, 836, 852), whose splits are all Done.
+- `surl --control` is served (`ComposedServing`, BL-977); `Surl.Api` has no control option. Filed BL-1125 (stale `--control` help text, outside this task's touches) and BL-1124 (`Extended.md` still records 4 of 19 although all extended Integration tasks are Done).
+- Also updated Milestone 5 (BL-312, BL-327, BL-342 Done) and NFR-006 (BL-1074 proved the three arm64/Intel builds). Left the http/2 and http/3 test-case statements for BL-1123.
 
 ## Log
 
 - 2026-11-14: Created.
 - 2026-11-14: Backlog -> Doing.
+- 2026-11-14: Doing -> Done. Roadmap.md and Requirements.md status statements match the finished board; BL-1124 and BL-1125 filed for stale text elsewhere
