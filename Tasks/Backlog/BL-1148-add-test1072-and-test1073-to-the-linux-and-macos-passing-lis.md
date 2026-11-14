@@ -1,0 +1,32 @@
+---
+id: BL-1148
+title: Add test1072 and test1073 to the Linux and macOS passing lists after a CI run confirms BL-1143
+priority: Normal
+assignee: Claude
+pipeline: direct
+depends-on: [BL-1143]
+touches: [Documentation/Conformance/upstream-test-cases-passing.linux-x64.txt, Documentation/Conformance/upstream-test-cases-passing.osx-arm64.txt, Documentation/Conformance/Upstream-Test-Case-Pass-Rate.md]
+requirement: FR-053
+created: 2026-11-14
+completed:
+---
+# BL-1148 — Add test1072 and test1073 to the Linux and macOS passing lists after a CI run confirms BL-1143
+
+## Goal
+
+Tests 1072 and 1073 are on the `linux-x64` and `osx-arm64` passing lists and the pass-rate table counts them.
+
+## Context
+
+BL-1143 gives curl's stdin as a seekable file on Linux and macOS. Lanes cannot push or dispatch CI, so the CI confirmation was split out. Dispatch `gh workflow run CI --ref factory/phase-1` once BL-1143 is integrated, read the Upstream test cases job's newly-passing lines.
+
+## Acceptance criteria
+
+- [ ] A dispatched CI run shows `test1072` and `test1073` passing on `linux-x64` and `osx-arm64`.
+- [ ] Their numbers are in both `upstream-test-cases-passing.<platform>.txt` lists and the pass-rate table matches.
+
+## Notes
+
+## Log
+
+- 2026-11-14: Created.

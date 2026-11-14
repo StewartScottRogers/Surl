@@ -127,7 +127,36 @@ public sealed class UpstreamCurlRunner
         string workingDirectory,
         CancellationToken cancellationToken)
     {
-        using var process = Process.Start(CreateStartInfo(arguments, environment, workingDirectory))
+        // Non-Windows curl gets stdin as a seekable file when there is any (BL-1143); Windows'
+        // C runtime lseek does not fail on a pipe, so it keeps the pipe.
+        var stdinFile = standardInput.IsEmpty || OperatingSystem.IsWindows()
+            ? string.Empty
+            : Path.Combine(Path.GetTempPath(), $"surl-curl-stdin-{Guid.NewGuid():N}");
+        try
+        {
+            if (stdinFile.Length > 0)
+            {
+                await File.WriteAllBytesAsync(stdinFile, standardInput.ToArray(), cancellationToken);
+            }
+
+            return await RunStartedAsync(
+                CreateStartInfo(arguments, environment, workingDirectory, stdinFile), standardInput, stdinFile.Length > 0, cancellationToken);
+        }
+        finally
+        {
+            if (stdinFile.Length > 0)
+            {
+                File.Delete(stdinFile);
+            }
+        }
+    }
+
+    // Excluded from coverage: see the overload that calls it.
+    [ExcludeFromCodeCoverage]
+    private async Task<UpstreamCurlRunResult> RunStartedAsync(
+        ProcessStartInfo startInfo, ReadOnlyMemory<byte> standardInput, bool stdinIsFile, CancellationToken cancellationToken)
+    {
+        using var process = Process.Start(startInfo)
             ?? throw new InvalidOperationException($"{Build.DefaultPath} did not start.");
 
         // Both reads start before stdin is written, so curl never blocks on a full stdout or
@@ -135,7 +164,10 @@ public sealed class UpstreamCurlRunner
         using var standardOutput = new MemoryStream();
         var copyingOutput = process.StandardOutput.BaseStream.CopyToAsync(standardOutput, CancellationToken.None);
         var readingError = process.StandardError.ReadToEndAsync(CancellationToken.None);
-        await WriteStandardInputAsync(process.StandardInput, standardInput, cancellationToken);
+        if (!stdinIsFile)
+        {
+            await WriteStandardInputAsync(process.StandardInput, standardInput, cancellationToken);
+        }
 
         using var deadline = new CancellationTokenSource(timeout, timeProvider);
         using var waitEnds = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, deadline.Token);
@@ -229,22 +261,53 @@ public sealed class UpstreamCurlRunner
     /// <param name="workingDirectory">curl's working directory; empty for this process's.</param>
     /// <returns>The start information.</returns>
     internal ProcessStartInfo CreateStartInfo(
-        IReadOnlyList<string> arguments, IReadOnlyDictionary<string, string> environment, string workingDirectory)
+        IReadOnlyList<string> arguments, IReadOnlyDictionary<string, string> environment, string workingDirectory) =>
+        CreateStartInfo(arguments, environment, workingDirectory, string.Empty);
+
+    /// <summary>
+    /// Builds the start information as the overload without a file does. When
+    /// <paramref name="standardInputFile"/> is not empty, curl's stdin is that file, not a pipe: curl's
+    /// tool rewinds an upload read from stdin with <c>lseek</c> after a 401 or a redirect, and on
+    /// Linux and macOS that fails on a pipe (curl exit 65), as upstream's runtests avoids by
+    /// redirecting stdin from a file. .NET cannot hand a child a file as stdin, so the pinned build
+    /// is started through <c>/bin/sh</c> running <c>exec</c> with the redirect; the arguments pass
+    /// as positional parameters, never through the shell's parsing.
+    /// </summary>
+    /// <param name="arguments">curl's arguments.</param>
+    /// <param name="environment">The environment variables to set, by name.</param>
+    /// <param name="workingDirectory">curl's working directory; empty for this process's.</param>
+    /// <param name="standardInputFile">The file curl reads as stdin; empty for a stdin pipe.</param>
+    /// <returns>The start information.</returns>
+    internal ProcessStartInfo CreateStartInfo(
+        IReadOnlyList<string> arguments,
+        IReadOnlyDictionary<string, string> environment,
+        string workingDirectory,
+        string standardInputFile)
     {
         ArgumentNullException.ThrowIfNull(arguments);
         ArgumentNullException.ThrowIfNull(environment);
         ArgumentNullException.ThrowIfNull(workingDirectory);
+        ArgumentNullException.ThrowIfNull(standardInputFile);
 
-        var startInfo = new ProcessStartInfo(Build.DefaultPath)
+        var fromFile = standardInputFile.Length > 0;
+        var startInfo = new ProcessStartInfo(fromFile ? "/bin/sh" : Build.DefaultPath)
         {
             WorkingDirectory = workingDirectory,
             UseShellExecute = false,
             CreateNoWindow = true,
-            RedirectStandardInput = true,
+            RedirectStandardInput = !fromFile,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             StandardErrorEncoding = Encoding.UTF8,
         };
+
+        if (fromFile)
+        {
+            startInfo.ArgumentList.Add("-c");
+            startInfo.ArgumentList.Add("stdin_file=$1; shift; exec \"$0\" \"$@\" < \"$stdin_file\"");
+            startInfo.ArgumentList.Add(Build.DefaultPath);
+            startInfo.ArgumentList.Add(standardInputFile);
+        }
 
         foreach (var argument in arguments)
         {

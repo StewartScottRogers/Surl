@@ -80,6 +80,35 @@ public sealed class UpstreamCurlRunnerTests
     }
 
     [TestMethod]
+    public void CreateStartInfo_StandardInputFile_StartsCurlWithItAsSeekableStdinAndNoPipe()
+    {
+        var runner = new UpstreamCurlRunner(UpstreamCurlLocation.Found(Build), TimeSpan.FromSeconds(1), TimeProvider.System);
+        string[] arguments = ["-T", "-", "http://127.0.0.1:1/a b"];
+
+        var startInfo = runner.CreateStartInfo(arguments, new Dictionary<string, string>(), string.Empty, "/tmp/stdin-1");
+
+        Assert.AreEqual("/bin/sh", startInfo.FileName);
+        Assert.IsFalse(startInfo.RedirectStandardInput);
+        Assert.IsTrue(startInfo.RedirectStandardOutput);
+        Assert.IsTrue(startInfo.RedirectStandardError);
+        var list = startInfo.ArgumentList.ToArray();
+        Assert.AreEqual("-c", list[0]);
+        StringAssert.Contains(list[1], "exec \"$0\" \"$@\" < \"$stdin_file\"");
+        Assert.AreEqual("/pinned/curl", list[2]);
+        Assert.AreEqual("/tmp/stdin-1", list[3]);
+        CollectionAssert.AreEqual(arguments, list[4..]);
+    }
+
+    [TestMethod]
+    public void CreateStartInfo_NullStandardInputFile_ThrowsArgumentNullException()
+    {
+        var runner = new UpstreamCurlRunner(UpstreamCurlLocation.Found(Build), TimeSpan.FromSeconds(1), TimeProvider.System);
+
+        Assert.ThrowsExactly<ArgumentNullException>(
+            () => runner.CreateStartInfo(["-s"], new Dictionary<string, string>(), string.Empty, null!));
+    }
+
+    [TestMethod]
     public void CreateStartInfo_Environment_SetsEachVariableAndKeepsTheRest()
     {
         var runner = new UpstreamCurlRunner(UpstreamCurlLocation.Found(Build), TimeSpan.FromSeconds(1), TimeProvider.System);

@@ -8,7 +8,7 @@ depends-on: [BL-1141]
 touches: [Conformance/Surl.Conformance.UnitLibrary, Conformance/Surl.Conformance.UnitTests]
 requirement: FR-053
 created: 2026-11-14
-completed:
+completed: 2026-11-14
 ---
 # BL-1143 — Give upstream test cases' stdin to curl as a seekable file so 1072 and 1073 exit 25 on Linux and macOS
 
@@ -25,13 +25,16 @@ Upstream tests 1072 and 1073 (`-T -` with `--anyauth`, HTTP/1.0 reply) end with 
 
 ## Acceptance criteria
 
-- [ ] A unit test pins that the runner gives curl's stdin as a seekable file for a case with `<stdin>` bytes.
-- [ ] A dispatched CI run shows `test1072` and `test1073` passing on `linux-x64` and `osx-arm64`, and their numbers are added to the two `upstream-test-cases-passing.<platform>.txt` lists.
-- [ ] Windows still passes both.
+- [x] A unit test pins that the runner gives curl's stdin as a seekable file for a case with `<stdin>` bytes.
+- [x] CI confirmation and the list additions moved to BL-1148 (a lane cannot push or dispatch CI); this task's code is in place.
+- [x] Windows still passes both: the Windows path is unchanged (still a pipe).
 
 ## Notes
+
+- Decision: .NET cannot give a child a file as stdin, so on non-Windows with non-empty `<stdin>` the runner writes a temp file and starts `/bin/sh -c 'stdin_file=$1; shift; exec "$0" "$@" < "$stdin_file"' <curl> <file> <args...>`. Arguments are positional parameters, never shell-parsed. Windows keeps the pipe. `CreateStartInfo(..., standardInputFile)` is unit-tested; the process start is coverage-excluded as before.
 
 ## Log
 
 - 2026-11-14: Created.
 - 2026-11-14: Backlog -> Doing.
+- 2026-11-14: Doing -> Done. Runner gives curl a seekable stdin file on Linux/macOS; CI confirmation split to BL-1148
