@@ -8,7 +8,7 @@ depends-on: []
 touches: [Conformance/Surl.Conformance.UnitLibrary, Conformance/Surl.Conformance.UnitTests]
 requirement: FR-053
 created: 2026-11-14
-completed:
+completed: 2026-11-14
 ---
 # BL-1130 — Serve the certificate a case's https server line names
 
@@ -43,16 +43,19 @@ HTTPS server half serves that generated certificate instead of `test-localhost`,
 
 ## Acceptance criteria
 
-- [ ] A fast test reads `test-localhost0h` from test 311's `<server>` part, `test-localhost.nn` from
+- [x] A fast test reads `test-localhost0h` from test 311's `<server>` part, `test-localhost.nn` from
       312's, and no name from a case whose line is plain `https`.
-- [ ] A local Windows run of `UpstreamTestCasesAgainstSurlTests` still passes every case on
+- [x] A local Windows run of `UpstreamTestCasesAgainstSurlTests` still passes every case on
       `Documentation/Conformance/upstream-test-cases-passing.win-x64.txt`, 311 and 312 included.
-- [ ] `dotnet build -warnaserror` is clean for both Conformance projects, the fast tests are green,
+- [x] `dotnet build -warnaserror` is clean for both Conformance projects, the fast tests are green,
       and `Surl.Conformance.UnitLibrary` keeps 100% line and branch coverage.
 
 ## Notes
+
+- Added `UpstreamTestCaseCertificateName.Find` (library, 8 fast tests); the run builds one `ServerTlsSettings` per certificate the corpus names, a case gets the one its https line names, else `test-localhost`. Windows run of `UpstreamTestCasesAgainstSurlTests` passed with no passing-list regressions.
 
 ## Log
 
 - 2026-11-14: Created.
 - 2026-11-14: Backlog -> Doing.
+- 2026-11-14: Doing -> Done. https server line's named certificate is served; 311 and 312 get their own certificates

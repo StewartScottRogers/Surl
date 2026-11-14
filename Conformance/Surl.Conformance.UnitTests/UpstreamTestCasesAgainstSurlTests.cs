@@ -386,7 +386,7 @@ public sealed class UpstreamTestCasesAgainstSurlTests
         }
 
         private async Task<UpstreamTestCaseResult> RunCaseAsync(
-            int number, byte[] source, ServerTlsSettings tlsSettings, CaseClient? onlyClient, CancellationToken cancellationToken)
+            int number, byte[] source, CaseTlsSettings tlsSettings, CaseClient? onlyClient, CancellationToken cancellationToken)
         {
             UpstreamTestCase selected;
             var client = onlyClient ?? reference;
@@ -421,7 +421,7 @@ public sealed class UpstreamTestCasesAgainstSurlTests
         /// <c>sun_path</c> (103 bytes on macOS, 107 elsewhere). Any other case runs as is.
         /// </summary>
         private async Task<UpstreamTestCaseResult> RunInItsSocketFolderAsync(
-            int number, byte[] source, CaseClient client, ServerTlsSettings tlsSettings, IEnumerable<string> serverNames, CancellationToken cancellationToken)
+            int number, byte[] source, CaseClient client, CaseTlsSettings tlsSettings, IEnumerable<string> serverNames, CancellationToken cancellationToken)
         {
             if (!serverNames.Any(name => UpstreamTestCaseServers.Find(name)?.UnixSocketPathVariable is not null))
             {
@@ -440,14 +440,14 @@ public sealed class UpstreamTestCasesAgainstSurlTests
         }
 
         private async Task<UpstreamTestCaseResult> RunSelectedCaseAsync(
-            int number, byte[] source, CaseClient client, ServerTlsSettings tlsSettings, string? httpUnixSocketPath, string? socksUnixSocketPath, CancellationToken cancellationToken)
+            int number, byte[] source, CaseClient client, CaseTlsSettings tlsSettings, string? httpUnixSocketPath, string? socksUnixSocketPath, CancellationToken cancellationToken)
         {
             // The case's folder stands for runtests' own: curl's working directory, %PWD and
             // HOME, with %LOGDIR the relative "log" inside it, as runtests runs one case at a time.
             var caseDirectory = Directory.CreateDirectory(Path.Combine(work, $"{client.LogPrefix}test{number}")).FullName;
             const string logDirectory = "log";
             Directory.CreateDirectory(Path.Combine(caseDirectory, logDirectory));
-            await using var serverHalves = await UpstreamTestCaseServerHalves.StartAsync(tlsSettings, httpUnixSocketPath, socksUnixSocketPath, cancellationToken);
+            await using var serverHalves = await UpstreamTestCaseServerHalves.StartAsync(tlsSettings.For(UpstreamTestCaseParser.Parse(source, SelectionEnvironment(client.Features))), httpUnixSocketPath, socksUnixSocketPath, cancellationToken);
             await using var tlsSrp = UpstreamTestCaseTlsSrpServerHalf.Start(tlsSrpAccounts, cancellationToken);
 
             var testCase = UpstreamTestCaseParser.Parse(source, RunEnvironment(number, caseDirectory, logDirectory, serverHalves, tlsSrp, client, httpUnixSocketPath, socksUnixSocketPath, source));
@@ -542,7 +542,7 @@ public sealed class UpstreamTestCasesAgainstSurlTests
             return UpstreamTestCaseResult.Fail(number, verdict.FailedSection!.Split(' ')[0]);
         }
 
-        private ServerTlsSettings WriteCertificates()
+        private CaseTlsSettings WriteCertificates()
         {
             var certs = Directory.CreateDirectory(Path.Combine(certificateDirectory, "certs"));
             var descriptions = Directory.GetFiles(Path.Combine(Root, "certs"), "*.prm").ToDictionary(
@@ -553,18 +553,64 @@ public sealed class UpstreamTestCasesAgainstSurlTests
                 File.WriteAllBytes(Path.Combine(certs.FullName, name), bytes);
             }
 
-            // The key is imported into an ECDsa object, whose key stays exportable for ServerTlsSettings' re-import.
-            using var key = ECDsa.Create();
-            key.ImportFromPem(System.Text.Encoding.ASCII.GetString(files["test-localhost.key"]));
-            using var issued = X509CertificateLoader.LoadCertificate(files["test-localhost.der"]);
-            using var server = issued.CopyWithPrivateKey(key);
-
             // The http/3 gateway half serves the same certificate over QUIC, with a key of its own to outlive this method.
             var http3Key = ECDsa.Create();
             http3Key.ImportFromPem(System.Text.Encoding.ASCII.GetString(files["test-localhost.key"]));
             http3Certificate = new Http3GatewayCertificate([files["test-localhost.der"]], http3Key);
 
+            // One settings object per certificate a case's <server> line names (BL-1130), made once per run.
+            var named = new Dictionary<string, ServerTlsSettings>(StringComparer.Ordinal);
+            foreach (var name in new[] { "test-localhost" }.Concat(NamedCertificates(Path.Combine(Root, "data"))).Distinct(StringComparer.Ordinal))
+            {
+                named[name] = TlsSettingsFor(files, name);
+            }
+
+            return new CaseTlsSettings(named);
+        }
+
+        // The certificates the corpus's <server> lines name, read from the case files themselves.
+        private IEnumerable<string> NamedCertificates(string dataDirectory) =>
+            Directory.GetFiles(dataDirectory, "test*")
+                .Select(path => File.ReadAllBytes(path))
+                .Select(source =>
+                {
+                    try
+                    {
+                        return UpstreamTestCaseCertificateName.Find(UpstreamTestCaseParser.Parse(source, SelectionEnvironment(reference.Features)));
+                    }
+                    catch (UpstreamTestCaseFormatException)
+                    {
+                        return null;
+                    }
+                })
+                .OfType<string>();
+
+        private static ServerTlsSettings TlsSettingsFor(IReadOnlyDictionary<string, byte[]> files, string name)
+        {
+            // The key is imported into an ECDsa object, whose key stays exportable for ServerTlsSettings' re-import.
+            using var key = ECDsa.Create();
+            key.ImportFromPem(System.Text.Encoding.ASCII.GetString(files[name + ".key"]));
+            using var issued = X509CertificateLoader.LoadCertificate(files[name + ".der"]);
+            using var server = issued.CopyWithPrivateKey(key);
+
             return new ServerTlsSettings(server, [], [], TimeProvider.System);
+        }
+
+        /// <summary>
+        /// The run's server TLS settings, one per certificate a case may name; a case naming none gets <c>test-localhost</c>.
+        /// </summary>
+        private sealed class CaseTlsSettings(Dictionary<string, ServerTlsSettings> named) : IDisposable
+        {
+            public ServerTlsSettings For(UpstreamTestCase testCase) =>
+                named[UpstreamTestCaseCertificateName.Find(testCase) ?? "test-localhost"];
+
+            public void Dispose()
+            {
+                foreach (var settings in named.Values)
+                {
+                    settings.Dispose();
+                }
+            }
         }
 
         private UpstreamTestCaseEnvironment RunEnvironment(
