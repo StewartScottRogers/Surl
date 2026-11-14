@@ -38,11 +38,12 @@ public static class UpstreamTestCaseServerCommands
     /// <summary>
     /// The MQTT server half's commands (BL-1139, ADR-0155), the same words
     /// <c>Surl.Protocol.Mqtt</c>'s <c>MqttUpstreamTestCaseReplies.SupportedServerCommands</c> accepts.
-    /// <c>PUBLISH-before-SUBACK</c>, <c>short-PUBLISH</c>, <c>DISCONNECT-malformed</c> and
-    /// <c>excessive-remaining</c> are not yet.
+    /// BL-1140 adds <c>PUBLISH-before-SUBACK</c>, <c>short-PUBLISH</c>, <c>DISCONNECT-malformed</c> and
+    /// <c>excessive-remaining</c>.
     /// </summary>
     public static readonly IReadOnlySet<string> Mqtt = new HashSet<string>(
-        ["Testnum", "error-CONNACK", "remlen-CONNACK", "PINGRESP-as-CONNACK"], StringComparer.Ordinal);
+        ["Testnum", "error-CONNACK", "remlen-CONNACK", "PINGRESP-as-CONNACK", "PUBLISH-before-SUBACK", "short-PUBLISH", "DISCONNECT-malformed", "excessive-remaining"],
+        StringComparer.Ordinal);
 
     /// <summary>
     /// The commands of the server halves that implement none (BL-396): Gopher's and DICT's, to

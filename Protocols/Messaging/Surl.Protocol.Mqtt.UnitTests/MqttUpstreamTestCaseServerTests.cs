@@ -41,7 +41,12 @@ public sealed class MqttUpstreamTestCaseServerTests
 
         CollectionAssert.AreEqual(new[] { "mqtt", "mqtts" }, server.Schemes.ToArray());
         CollectionAssert.AreEquivalent(
-            new[] { "Testnum", "error-CONNACK", "remlen-CONNACK", "PINGRESP-as-CONNACK" }, MqttUpstreamTestCaseReplies.SupportedServerCommands.ToArray());
+            new[]
+            {
+                "Testnum", "error-CONNACK", "remlen-CONNACK", "PINGRESP-as-CONNACK", "PUBLISH-before-SUBACK", "short-PUBLISH",
+                "DISCONNECT-malformed", "excessive-remaining",
+            },
+            MqttUpstreamTestCaseReplies.SupportedServerCommands.ToArray());
     }
 
     // Upstream cases 2203 (error-CONNACK 5), 1132 (remlen-CONNACK 3) and 2206 (PINGRESP-as-CONNACK TRUE):
@@ -65,6 +70,53 @@ public sealed class MqttUpstreamTestCaseServerTests
             Encoding.ASCII.GetString(replies.ReceivedBytes));
     }
 
+    // Upstream cases 1194, 1195, 2207 and 3017 (ADR-0155 decisions 4 to 7): the bytes written and the log.
+    [TestMethod]
+    [DataRow("PUBLISH-before-SUBACK TRUE", "300c00043131393068656c6c6f0a" + "9003000100" + "e000",
+        "server PUBLISH c 300c00043131393068656c6c6f0a\nserver SUBACK 3 9003000100\nserver DISCONNECT 0 e000\n")]
+    [DataRow("short-PUBLISH TRUE", "300c00043131393068656c6c",
+        "server PUBLISH c 300c00043131393068656c6c\n")]
+    [DataRow("DISCONNECT-malformed TRUE", "9003000100" + "300c00043131393068656c6c6f0a" + "e0020000",
+        "server SUBACK 3 9003000100\nserver PUBLISH c 300c00043131393068656c6c6f0a\nserver DISCONNECT-malformed 2 e0020000\n")]
+    [DataRow("excessive-remaining TRUE", "9003000100" + "30ffffff8000043131393068656c6c6f0a" + "e000",
+        "server SUBACK 3 9003000100\nserver PUBLISH c 30ffffff8000043131393068656c6c6f0a\nserver DISCONNECT 0 e000\n")]
+    public async Task ServeAsync_ASubscribeCommand_WritesItsPacketsInOrderAndLogsThem(string command, string written, string logged)
+    {
+        var replies = new MqttUpstreamTestCaseReplies(Hello, [command]);
+        var connection = new InMemoryConnection([Connect, Subscribe]);
+
+        await new MqttUpstreamTestCaseServer(replies, new AnonymousAuthenticationPolicy()).ServeAsync(
+            connection, MqttTestExchange.Context(TimeProvider.System, TestContext.CancellationToken));
+
+        Assert.AreEqual("20020000" + written, Convert.ToHexStringLower(connection.WrittenBytes));
+        Assert.AreEqual(
+            "client CONNECT 18 00044d5154540402003c000c6375726c4142434445464748\nserver CONNACK 2 20020000\nclient SUBSCRIBE 9 000100043131393000\n" + logged,
+            Encoding.ASCII.GetString(replies.ReceivedBytes));
+    }
+
+    [TestMethod]
+    [DataRow(0)]
+    [DataRow(1)]
+    [DataRow(2)]
+    [DataRow(3)]
+    public async Task ServeAsync_ASubscribeCommandAndTooLittleFromTheClient_WritesNoMoreThanTheConnack(int case_)
+    {
+        var replies = new MqttUpstreamTestCaseReplies(Hello, ["short-PUBLISH TRUE"]);
+        ReadOnlyMemory<byte>[] packets = case_ switch
+        {
+            0 => [],
+            1 => [Connect],
+            2 => [Connect, Array.Empty<byte>()],
+            _ => [Connect, Convert.FromHexString("820200")],
+        };
+        var connection = new InMemoryConnection(packets);
+
+        await new MqttUpstreamTestCaseServer(replies, new AnonymousAuthenticationPolicy()).ServeAsync(
+            connection, MqttTestExchange.Context(TimeProvider.System, TestContext.CancellationToken));
+
+        Assert.AreEqual(case_ == 0 ? string.Empty : "20020000", Convert.ToHexStringLower(connection.WrittenBytes));
+    }
+
     [TestMethod]
     public async Task ServeAsync_AConnackCommandAndNoConnect_WritesNothing()
     {
@@ -79,7 +131,11 @@ public sealed class MqttUpstreamTestCaseServerTests
     }
 
     [TestMethod]
-    [DataRow("PUBLISH-before-SUBACK TRUE", "servercmd-unsupported:PUBLISH-before-SUBACK")]
+    [DataRow("PUBLISH-before-SUBACK FALSE", "servercmd-unsupported:PUBLISH-before-SUBACK")]
+    [DataRow("short-PUBLISH no", "servercmd-unsupported:short-PUBLISH")]
+    [DataRow("DISCONNECT-malformed no", "servercmd-unsupported:DISCONNECT-malformed")]
+    [DataRow("excessive-remaining no", "servercmd-unsupported:excessive-remaining")]
+    [DataRow("upgrade", "servercmd-unsupported:upgrade")]
     [DataRow("PINGRESP-as-CONNACK FALSE", "servercmd-unsupported:PINGRESP-as-CONNACK")]
     public void Constructor_AnUnsupportedCommandOrFlagValue_IsRefusedByItsSkipReason(string line, string reason)
     {

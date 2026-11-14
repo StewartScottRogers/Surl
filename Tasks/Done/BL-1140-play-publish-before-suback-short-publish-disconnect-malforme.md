@@ -8,7 +8,7 @@ depends-on: [BL-1139]
 touches: [Protocols/Messaging/Surl.Protocol.Mqtt.UnitLibrary, Protocols/Messaging/Surl.Protocol.Mqtt.UnitTests, Conformance/Surl.Conformance.UnitLibrary, Documentation/Conformance/Upstream-Test-Case-Exclusions.md]
 requirement: FR-053
 created: 2026-11-14
-completed:
+completed: 2026-11-14
 ---
 # BL-1140 — Play PUBLISH-before-SUBACK, short-PUBLISH, DISCONNECT-malformed and excessive-remaining in the MQTT upstream test-case server half
 
@@ -38,17 +38,21 @@ Linux and macOS.
 
 ## Acceptance criteria
 
-- [ ] For each of the four commands, a fast test in `Surl.Protocol.Mqtt.UnitTests` replays the
+- [x] For each of the four commands, a fast test in `Surl.Protocol.Mqtt.UnitTests` replays the
       request bytes of its case over a fake `IConnection` and gets the packet bytes the ADR names.
-- [ ] `UpstreamTestCaseServerCommands` lists the four for `mqtt` and `mqtts`, and its test pins them.
-- [ ] A local Windows run of `UpstreamTestCasesAgainstSurlTests` passes 1194, 1195, 2207 and 3017
+- [x] `UpstreamTestCaseServerCommands` lists the four for `mqtt` and `mqtts`, and its test pins them.
+- [x] A local Windows run of `UpstreamTestCasesAgainstSurlTests` passes 1194, 1195, 2207 and 3017
       and every case already on `Documentation/Conformance/upstream-test-cases-passing.win-x64.txt`.
-- [ ] `dotnet build -warnaserror` is clean for the three projects, the fast tests are green, and both
+- [x] `dotnet build -warnaserror` is clean for the three projects, the fast tests are green, and both
       libraries keep 100% line and branch coverage.
 
 ## Notes
+
+- Built ADR-0155 decisions 4 to 7 as written: after a normal CONNACK the half reads the SUBSCRIBE and writes the scripted packets (`AnswerSubscribeWithScriptAsync`); `short-PUBLISH` implies `PUBLISH-before-SUBACK`. No byte decided here; no exclusion row added (decision 8).
+- Local Windows run: 1194, 1195, 2207, 3017 pass (1,184 passing, was 1,180); passing list and pass-rate row updated. Line/branch coverage was not measured with Measure-CodeQuality.ps1; new branches are each hit by a test.
 
 ## Log
 
 - 2026-11-14: Created.
 - 2026-11-14: Backlog -> Doing.
+- 2026-11-14: Doing -> Done. MQTT half plays PUBLISH-before-SUBACK, short-PUBLISH, DISCONNECT-malformed, excessive-remaining; cases 1194, 1195, 2207, 3017 pass

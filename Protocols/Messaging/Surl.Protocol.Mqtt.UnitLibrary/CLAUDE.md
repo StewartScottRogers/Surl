@@ -65,8 +65,10 @@ into packets with `MqttPacketCutter`, logs them in `MqttUpstreamTestCaseReplies`
 `client CONNECT 18 0004...` form, and publishes the case's `<data>`, retained, to each topic of a
 `SUBSCRIBE` before the server reads it. `MqttUpstreamTestCaseReplies` also takes the case's `<servercmd>`
 lines (ADR-0155, BL-1139): `error-CONNACK`, `remlen-CONNACK` and `PINGRESP-as-CONNACK` make the server read the
-`CONNECT`, write their four bytes (`ConnectAnswer`) straight to the connection, log them and end it; the other
-four ADR-0155 commands are not implemented yet (BL-1140).
+`CONNECT`, write their four bytes (`ConnectAnswer`) straight to the connection, log them and end it. The other four (BL-1140: `PUBLISH-before-SUBACK`, `short-PUBLISH`, `DISCONNECT-malformed`,
+`excessive-remaining`) make `AnswerSubscribeWithScriptAsync` answer `CONNECT` with a normal `CONNACK`, read the `SUBSCRIBE`,
+and write the case's packets in ADR-0155 decisions 4 to 7's order (the broken ones straight to the connection, logged by
+the half itself); `short-PUBLISH` implies `PUBLISH-before-SUBACK`.
 
 Expected bytes come from a build pinned in `UpstreamCurlBuilds.json`, measured with
 `Record-CurlExchange.ps1`, and never from the Curl port (ADR-0003).

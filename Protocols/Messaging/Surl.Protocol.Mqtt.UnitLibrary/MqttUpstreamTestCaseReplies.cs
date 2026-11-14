@@ -23,8 +23,7 @@ namespace Surl.Protocol.Mqtt;
 /// </para>
 /// <para>
 /// Of upstream's MQTT <c>&lt;servercmd&gt;</c> instructions, which make the server send a
-/// deliberately broken or refusing packet, only <c>error-CONNACK</c>, <c>remlen-CONNACK</c> and
-/// <c>PINGRESP-as-CONNACK</c> are implemented (ADR-0155); a case with another is skipped
+/// deliberately broken or refusing packet, all are implemented (ADR-0155); a case with another is skipped
 /// <c>servercmd-unsupported:&lt;command&gt;</c>. One instance serves every connection of one case,
 /// and is safe to use from several at once. Never compose it into the shipped <c>surl</c>; it is a
 /// test seam that <c>Surl.Conformance.UnitTests</c> composes.
@@ -72,12 +71,29 @@ public sealed class MqttUpstreamTestCaseReplies
 
     /// <summary>
     /// The first words of the <c>&lt;servercmd&gt;</c> lines the MQTT server half implements:
-    /// <c>Testnum</c>, <c>error-CONNACK</c>, <c>remlen-CONNACK</c> and <c>PINGRESP-as-CONNACK</c>
-    /// (ADR-0155 decisions 1 to 3). A case using any other is skipped
+    /// <c>Testnum</c>, <c>error-CONNACK</c>, <c>remlen-CONNACK</c>, <c>PINGRESP-as-CONNACK</c>,
+    /// <c>PUBLISH-before-SUBACK</c>, <c>short-PUBLISH</c>, <c>DISCONNECT-malformed</c> and
+    /// <c>excessive-remaining</c> (ADR-0155 decisions 1 to 7). A case using any other is skipped
     /// <c>servercmd-unsupported:&lt;command&gt;</c>.
     /// </summary>
     public static IReadOnlySet<string> SupportedServerCommands { get; } = new HashSet<string>(
-        ["Testnum", "error-CONNACK", "remlen-CONNACK", "PINGRESP-as-CONNACK"], StringComparer.Ordinal);
+        ["Testnum", "error-CONNACK", "remlen-CONNACK", "PINGRESP-as-CONNACK", "PUBLISH-before-SUBACK", "short-PUBLISH", "DISCONNECT-malformed", "excessive-remaining"],
+        StringComparer.Ordinal);
+
+    /// <summary>Whether the <c>PUBLISH</c> is written before the <c>SUBACK</c> (<c>PUBLISH-before-SUBACK</c>, and <c>short-PUBLISH</c> which implies it).</summary>
+    internal bool PublishBeforeSuback { get; private set; }
+
+    /// <summary>Whether the <c>PUBLISH</c> loses its last two bytes (<c>short-PUBLISH</c>).</summary>
+    internal bool ShortPublish { get; private set; }
+
+    /// <summary>Whether the <c>DISCONNECT</c> has remaining length 2 (<c>DISCONNECT-malformed</c>).</summary>
+    internal bool MalformedDisconnect { get; private set; }
+
+    /// <summary>Whether the <c>PUBLISH</c> has a five-byte remaining length (<c>excessive-remaining</c>).</summary>
+    internal bool ExcessiveRemaining { get; private set; }
+
+    /// <summary>Whether any command scripts what follows the <c>SUBSCRIBE</c>.</summary>
+    internal bool ScriptsSubscribe => PublishBeforeSuback || MalformedDisconnect || ExcessiveRemaining;
 
     /// <summary>
     /// What replaces the <c>CONNACK</c> after the client's <c>CONNECT</c>, then ends the
@@ -140,6 +156,33 @@ public sealed class MqttUpstreamTestCaseReplies
             case "PINGRESP-as-CONNACK":
                 ReadFlag(command, argument);
                 ConnectAnswer = new ConnectAnswer("PINGRESP-as-CONNACK", 2, [0xD0, 0x02, 0x00, 0x00]);
+                break;
+            default:
+                ReadSubscribeCommand(command, argument);
+                break;
+        }
+    }
+
+    private void ReadSubscribeCommand(string command, string argument)
+    {
+        switch (command)
+        {
+            case "PUBLISH-before-SUBACK":
+                ReadFlag(command, argument);
+                PublishBeforeSuback = true;
+                break;
+            case "short-PUBLISH":
+                ReadFlag(command, argument);
+                PublishBeforeSuback = true;
+                ShortPublish = true;
+                break;
+            case "DISCONNECT-malformed":
+                ReadFlag(command, argument);
+                MalformedDisconnect = true;
+                break;
+            case "excessive-remaining":
+                ReadFlag(command, argument);
+                ExcessiveRemaining = true;
                 break;
             default:
                 throw new NotSupportedException($"servercmd-unsupported:{command}");

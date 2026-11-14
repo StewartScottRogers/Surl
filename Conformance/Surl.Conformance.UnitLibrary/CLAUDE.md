@@ -264,10 +264,9 @@ is the FTP row, the same words as `Surl.Protocol.Ftp`'s
 Playing the dict, gopher, gopher-ipv6, gophers, mqtt, mqtts, telnet and tftp cases is built
 (BL-396): `UpstreamTestCaseServerCommands.Tftp` is the TFTP row (`Testnum`, `writedelay:`, the same
 words as `TftpUpstreamTestCaseReplies.SupportedServerCommands`), and `UpstreamTestCaseServerCommands.None`
-the row of the Gopher, MQTT, DICT and TELNET server halves, which implement no command: MQTT's
-`error-CONNACK`, `remlen-CONNACK`, `PUBLISH-before-SUBACK`, `short-PUBLISH`,
-`PINGRESP-as-CONNACK`, `DISCONNECT-malformed` and `excessive-remaining` skip
-`servercmd-unsupported:<command>`. Every `rtsp` case at the tag is a libtest, so no RTSP server
+the row of the Gopher, DICT and TELNET server halves, which implement no command. The MQTT half's
+`Mqtt` row (BL-1139, BL-1140, ADR-0155) holds `Testnum`, `error-CONNACK`, `remlen-CONNACK`,
+`PINGRESP-as-CONNACK`, `PUBLISH-before-SUBACK`, `short-PUBLISH`, `DISCONNECT-malformed` and `excessive-remaining`. Every `rtsp` case at the tag is a libtest, so no RTSP server
 half is composed.
 
 Playing the scp, sftp and smb cases is built (BL-397): their rows in
