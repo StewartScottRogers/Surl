@@ -8,7 +8,7 @@ depends-on: [BL-1113]
 touches: [Protocols/Http/Surl.Protocol.Http.UnitLibrary, Protocols/Http/Surl.Protocol.Http.UnitTests]
 requirement: FR-053
 created: 2026-11-14
-completed:
+completed: 2026-11-14
 ---
 # BL-1114 — Translate a forwarded request and its HTTP/1 reply as the nghttpx gateway half does
 
@@ -41,20 +41,23 @@ HTTP/2 and HTTP/3 response fields and body. It has no socket and no stream state
 
 ## Acceptance criteria
 
-- [ ] The request translation named in ADR-0154 has unit tests in
+- [x] The request translation named in ADR-0154 has unit tests in
       `Surl.Protocol.Http.UnitTests` that produce test 1700's forwarded request and test 2500's
       forwarded HTTP/3 request byte for byte, once the case's `<strip>` lines are applied.
-- [ ] The response translation turns test 2403's `<data>` reply into exactly the response fields
+- [x] The response translation turns test 2403's `<data>` reply into exactly the response fields
       its `<stdout>` lists, in order, and a unit test pins that.
-- [ ] Each field rule in ADR-0154 has a named test: added, removed, lower-cased, and a reply with
+- [x] Each field rule in ADR-0154 has a named test: added, removed, lower-cased, and a reply with
       no `Content-Length` (close-delimited).
-- [ ] `dotnet build Protocols/Http/Surl.Protocol.Http.UnitLibrary -warnaserror` is clean, and the
+- [x] `dotnet build Protocols/Http/Surl.Protocol.Http.UnitLibrary -warnaserror` is clean, and the
       library keeps 100% line and branch coverage.
-- [ ] No test needs `TestCategory=Integration`.
+- [x] No test needs `TestCategory=Integration`.
 
 ## Notes
+
+Built NghttpxGatewayRequestTranslator, NghttpxGatewayResponseTranslator, NghttpxGatewayResponse and NghttpxGatewayVersion (about 230 lines). Inputs are plain values (method, scheme, authority, path, fields, body), not Http2RequestHead or Http3RequestHead, so BL-1115 and BL-1117 map their own heads and one translator serves both. Unpinned rules follow ADR-0154. A reply with no complete head returns null; an unreadable status line is 502. 34 new tests; both classes at 100% line and branch.
 
 ## Log
 
 - 2026-11-14: Created.
 - 2026-11-14: Backlog -> Doing.
+- 2026-11-14: Doing -> Done. NghttpxGatewayRequestTranslator and NghttpxGatewayResponseTranslator reproduce cases 1700, 2500 and 2403 byte for byte, at 100% coverage
