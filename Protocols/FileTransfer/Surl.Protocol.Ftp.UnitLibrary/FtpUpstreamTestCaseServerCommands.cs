@@ -19,9 +19,10 @@ namespace Surl.Protocol.Ftp;
 /// <c>DELAY [command] [secs]</c> holds the answer to <c>[command]</c> for <c>[secs]</c>, <c>SLOWDOWN</c>
 /// writes control replies one byte per 10 ms and <c>SLOWDOWNDATA</c> data bytes the same way, all on
 /// the injected <see cref="TimeProvider"/>.
-/// <c>RETRWEIRDO</c>, <c>PASVBADIP</c> and
-/// the older <c>NODATACONN</c> forms are not implemented: a case using one is skipped
-/// <c>servercmd-unsupported:&lt;command&gt;</c>.
+/// <c>NODATACONN425</c>, <c>NODATACONN421</c> and <c>NODATACONN150</c> make a data command answer on the
+/// control connection and open no data connection, <c>PASVBADIP</c> names <c>1,2,3,4</c> in <c>PASV</c>'s
+/// <c>227</c> and <c>RETRWEIRDO</c> sends the first <c>RETR</c>'s <c>150</c> and <c>226</c> together (ADR-0156).
+/// Any other word, <c>NODATACONN</c> alone included, is skipped <c>servercmd-unsupported:&lt;command&gt;</c>.
 /// </remarks>
 internal sealed class FtpUpstreamTestCaseServerCommands
 {
@@ -33,7 +34,12 @@ internal sealed class FtpUpstreamTestCaseServerCommands
     // What each command does to the commands read so far, given its line and its argument.
     private static readonly Dictionary<string, Action<FtpUpstreamTestCaseServerCommands, string, string>> Appliers = new(StringComparer.Ordinal)
     {
-        ["Testnum"] = static (_, _, _) => { },
+        ["Testnum"] = static (commands, _, argument) => commands.TestNumber = argument.Trim(),
+        ["NODATACONN425"] = static (commands, _, _) => commands.NoDataConnectionReply = FtpNoDataConnectionReply.Refuse425,
+        ["NODATACONN421"] = static (commands, _, _) => commands.NoDataConnectionReply = FtpNoDataConnectionReply.Timeout421,
+        ["NODATACONN150"] = static (commands, _, _) => commands.NoDataConnectionReply = FtpNoDataConnectionReply.OpenOnly150,
+        ["PASVBADIP"] = static (commands, _, _) => commands.ReportsBadPassiveAddress = true,
+        ["RETRWEIRDO"] = static (commands, _, _) => commands.SendsRetrieveRepliesTogether = true,
         ["REPLY"] = static (commands, line, argument) => commands.AddReply(line, argument, CrLf),
         ["REPLYLF"] = static (commands, line, argument) => commands.AddReply(line, argument, "\n"),
         ["COUNT"] = static (commands, line, argument) => commands.AddCount(line, argument),
@@ -65,6 +71,18 @@ internal sealed class FtpUpstreamTestCaseServerCommands
     /// upstream's runtests writes first; it names the case, which a server half already knows.
     /// </summary>
     public static IReadOnlySet<string> Supported { get; } = new HashSet<string>(Appliers.Keys, StringComparer.Ordinal);
+
+    /// <summary>The case number from <c>Testnum</c>, empty when the case has none.</summary>
+    public string TestNumber { get; private set; } = string.Empty;
+
+    /// <summary><c>NODATACONN425</c>, <c>NODATACONN421</c> or <c>NODATACONN150</c>: what a data command answers in place of a transfer.</summary>
+    public FtpNoDataConnectionReply NoDataConnectionReply { get; private set; }
+
+    /// <summary><c>PASVBADIP</c>: <c>PASV</c>'s <c>227</c> names host <c>1,2,3,4</c>.</summary>
+    public bool ReportsBadPassiveAddress { get; private set; }
+
+    /// <summary><c>RETRWEIRDO</c>: the first <c>RETR</c>'s <c>150</c> and <c>226</c> go in one write before the data.</summary>
+    public bool SendsRetrieveRepliesTogether { get; private set; }
 
     /// <summary><c>RETRNOSIZE</c>: <c>RETR</c>'s <c>150</c> names no size.</summary>
     public bool OmitsRetrieveSize { get; private set; }

@@ -51,6 +51,12 @@ internal sealed class FtpDataConnections : IAsyncDisposable
     public bool IsPrepared => passiveListener is not null || activeTarget is not null;
 
     /// <summary>
+    /// The comma-separated host <c>PASV</c>'s <c>227</c> names in place of the control connection's own,
+    /// or <see langword="null"/> for the real one (upstream test case <c>PASVBADIP</c>, ADR-0156).
+    /// </summary>
+    public string? ReportedPassiveHost { get; set; }
+
+    /// <summary>
     /// Whether data connections are TLS: the protection level <c>PROT P</c> sets and
     /// <c>PROT C</c> clears (ADR-0052, decision 5).
     /// </summary>
@@ -130,7 +136,7 @@ internal sealed class FtpDataConnections : IAsyncDisposable
         }
 
         var port = listener.LocalEndPoint.Port;
-        return $"227 Entering Passive Mode ({string.Join(',', address.GetAddressBytes())},{port / 256},{port % 256})";
+        return $"227 Entering Passive Mode ({ReportedPassiveHost ?? string.Join(',', address.GetAddressBytes())},{port / 256},{port % 256})";
     }
 
     /// <summary>

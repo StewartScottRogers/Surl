@@ -8,7 +8,7 @@ depends-on: [BL-1135]
 touches: [Protocols/FileTransfer/Surl.Protocol.Ftp.UnitLibrary, Protocols/FileTransfer/Surl.Protocol.Ftp.UnitTests, Conformance/Surl.Conformance.UnitLibrary]
 requirement: FR-053
 created: 2026-11-14
-completed:
+completed: 2026-11-14
 ---
 # BL-1136 — Play NODATACONN425, NODATACONN421, NODATACONN150, PASVBADIP and RETRWEIRDO in the FTP upstream test-case server half
 
@@ -36,17 +36,21 @@ Windows, Linux and macOS.
 
 ## Acceptance criteria
 
-- [ ] For each of the five commands, a fast test in `Surl.Protocol.Ftp.UnitTests` replays the
+- [x] For each of the five commands, a fast test in `Surl.Protocol.Ftp.UnitTests` replays the
       request bytes of its case over a fake `IConnection` and gets the bytes the ADR names.
-- [ ] `UpstreamTestCaseServerCommands` lists the five for the FTP family, and its test pins them.
-- [ ] A local Windows run of `UpstreamTestCasesAgainstSurlTests` passes 1206, 1207, 1208, 270 and
+- [x] `UpstreamTestCaseServerCommands` lists the five for the FTP family, and its test pins them.
+- [x] A local Windows run of `UpstreamTestCasesAgainstSurlTests` passes 1206, 1207, 1208, 270 and
       126 and every case already on `Documentation/Conformance/upstream-test-cases-passing.win-x64.txt`.
-- [ ] `dotnet build -warnaserror` is clean for the three projects, the fast tests are green, and both
+- [x] `dotnet build -warnaserror` is clean for the three projects, the fast tests are green, and both
       libraries keep 100% line and branch coverage.
 
 ## Notes
+
+- Built as ADR-0156 decides; no byte decided here. `Testnum` is now read (RETRWEIRDO's 150 names it). Windows run: 126, 270, 1206, 1207, 1208 pass; pass list and rate row updated (win-x64 now 1,169 of 1,170).
+- Unrelated: `CurlPortBesideUpstreamCurlOverUpstreamTestCasesTests` failed on case 251 (Curl port timeout; none of the five words involved), not touched here.
 
 ## Log
 
 - 2026-11-14: Created.
 - 2026-11-14: Backlog -> Doing.
+- 2026-11-14: Doing -> Done. FTP half plays NODATACONN425/421/150, PASVBADIP and RETRWEIRDO; upstream tests 1206, 1207, 1208, 270, 126 pass on Windows

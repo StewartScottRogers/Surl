@@ -258,8 +258,8 @@ Running the http and https cases is built (BL-392):
 Playing the ftp, ftp-ipv6 and ftps cases is built (BL-394): `UpstreamTestCaseServerCommands.Ftp`
 is the FTP row, the same words as `Surl.Protocol.Ftp`'s
 `FtpUpstreamTestCaseReplies.SupportedServerCommands` (`Testnum`, `REPLY`, `REPLYLF`, `COUNT`,
-`RETRNOSIZE`, `RETRSIZE`, `NOSAVE`, `STOR`, and since BL-1134 `DELAY`, `SLOWDOWN`, `SLOWDOWNDATA`, paced on the exchange's `TimeProvider`); `RETRWEIRDO`,
-`PASVBADIP` and the `NODATACONN` forms skip `servercmd-unsupported:<command>`.
+`RETRNOSIZE`, `RETRSIZE`, `NOSAVE`, `STOR`, and since BL-1134 `DELAY`, `SLOWDOWN`, `SLOWDOWNDATA`, paced on the exchange's `TimeProvider`; since BL-1136 `NODATACONN425`, `NODATACONN421`,
+`NODATACONN150`, `PASVBADIP` and `RETRWEIRDO`, ADR-0156); `NODATACONN` alone skips `servercmd-unsupported:<command>`.
 
 Playing the dict, gopher, gopher-ipv6, gophers, mqtt, mqtts, telnet and tftp cases is built
 (BL-396): `UpstreamTestCaseServerCommands.Tftp` is the TFTP row (`Testnum`, `writedelay:`, the same

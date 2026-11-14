@@ -22,11 +22,11 @@ public static class UpstreamTestCaseServerCommands
     /// <summary>
     /// The FTP server half's commands (BL-394), the same words <c>Surl.Protocol.Ftp</c>'s
     /// <c>FtpUpstreamTestCaseReplies.SupportedServerCommands</c> accepts (BL-1134 added
-    /// <c>DELAY</c>, <c>SLOWDOWN</c> and <c>SLOWDOWNDATA</c>). <c>RETRWEIRDO</c>,
-    /// <c>PASVBADIP</c> and the <c>NODATACONN</c> forms are not.
+    /// <c>DELAY</c>, <c>SLOWDOWN</c> and <c>SLOWDOWNDATA</c>; BL-1136 the five words of ADR-0156).
+    /// <c>NODATACONN</c> alone is not.
     /// </summary>
     public static readonly IReadOnlySet<string> Ftp = new HashSet<string>(
-        ["Testnum", "REPLY", "REPLYLF", "COUNT", "RETRNOSIZE", "RETRSIZE", "NOSAVE", "STOR", "DELAY", "SLOWDOWN", "SLOWDOWNDATA"],
+        ["Testnum", "REPLY", "REPLYLF", "COUNT", "RETRNOSIZE", "RETRSIZE", "NOSAVE", "STOR", "DELAY", "SLOWDOWN", "SLOWDOWNDATA", "NODATACONN425", "NODATACONN421", "NODATACONN150", "PASVBADIP", "RETRWEIRDO"],
         StringComparer.Ordinal);
 
     /// <summary>

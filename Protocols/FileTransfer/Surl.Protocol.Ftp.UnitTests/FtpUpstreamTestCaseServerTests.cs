@@ -299,6 +299,64 @@ public sealed class FtpUpstreamTestCaseServerTests
     }
 
     [TestMethod]
+    [DataRow("NODATACONN425", "425 Can't open data connection\r\n", DisplayName = "425")]
+    [DataRow("NODATACONN421", "421 Connection timed out\r\n", DisplayName = "421")]
+    [DataRow("NODATACONN150", "", DisplayName = "150 only")]
+    public async Task NoDataConnection_ARetrIsAnsweredOnTheControlConnectionAlone(string word, string secondReply)
+    {
+        var dataConnection = new InMemoryConnection([]);
+        var connection = new InMemoryConnection(Ascii("EPSV\r\nRETR 135\r\nQUIT\r\n"));
+        var serving = StartServing(Replies([word], ("data", Data)), connection, new ManualTimeProvider(), Passive(dataConnection));
+
+        await serving;
+
+        Assert.AreEqual(Greeting + PassiveReply + "150 Opening data connection\r\n" + secondReply + "221 Goodbye\r\n", Latin1(connection.WrittenBytes));
+        Assert.IsEmpty(dataConnection.WrittenBytes);
+    }
+
+    [TestMethod]
+    public async Task NoDataConnection_AlsoAppliesToAListing()
+    {
+        var connection = new InMemoryConnection(Ascii("EPSV\r\nNLST\r\n"));
+
+        await StartServing(Replies(["NODATACONN425"]), connection, new ManualTimeProvider(), Passive(new InMemoryConnection([])));
+
+        Assert.AreEqual(Greeting + PassiveReply + "150 Opening data connection\r\n425 Can't open data connection\r\n", Latin1(connection.WrittenBytes));
+    }
+
+    [TestMethod]
+    public async Task PassiveBadIp_PasvNamesOneTwoThreeFourAndTheRealPort()
+    {
+        var connection = new InMemoryConnection(Ascii("PASV\r\nRETR 270\r\n"));
+        var dataConnection = new InMemoryConnection([]);
+
+        await StartServing(Replies(["PASVBADIP"], ("data", Data)), connection, new ManualTimeProvider(), Passive(dataConnection));
+
+        Assert.AreEqual(
+            Greeting + "227 Entering Passive Mode (1,2,3,4,195,180)\r\n" + $"150 Opening data connection for 270 ({Data.Length} bytes)\r\n" + TransferComplete,
+            Latin1(connection.WrittenBytes));
+        Assert.AreEqual(Data, Latin1(dataConnection.WrittenBytes));
+    }
+
+    [TestMethod]
+    public async Task RetrWeirdo_SendsTheFirstRetrsRepliesInOneWriteAndNoLaterTransferComplete()
+    {
+        var connection = new InMemoryConnection(Ascii("EPSV\r\nRETR 126\r\nEPSV\r\nRETR 126\r\n"));
+        var first = new InMemoryConnection([]);
+        var second = new InMemoryConnection([]);
+        var opener = new InMemoryDataConnections().ScriptPassiveListener(PassiveEndPoint, first).ScriptPassiveListener(PassiveEndPoint, second);
+
+        await StartServing(Replies(["Testnum 126", "RETRWEIRDO"], ("data", Data)), connection, new ManualTimeProvider(), opener);
+
+        Assert.AreEqual(
+            Greeting + PassiveReply + $"150 Binary data connection for 126 () ({Data.Length} bytes).\r\n226 File transfer complete\r\n"
+            + PassiveReply + $"150 Opening data connection for 126 ({Data.Length} bytes)\r\n" + TransferComplete,
+            Latin1(connection.WrittenBytes));
+        Assert.AreEqual(Data, Latin1(first.WrittenBytes));
+        Assert.AreEqual(Data, Latin1(second.WrittenBytes));
+    }
+
+    [TestMethod]
     public void Schemes_AreFtpAndFtps()
     {
         var server = new FtpUpstreamTestCaseServer(Replies([]), new AnonymousAuthenticationPolicy());

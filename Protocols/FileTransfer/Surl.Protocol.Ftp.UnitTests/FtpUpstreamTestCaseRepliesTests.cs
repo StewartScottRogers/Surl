@@ -13,7 +13,7 @@ public sealed class FtpUpstreamTestCaseRepliesTests
         var supported = FtpUpstreamTestCaseReplies.SupportedServerCommands.Order(StringComparer.Ordinal).ToArray();
 
         CollectionAssert.AreEqual(
-            new[] { "COUNT", "DELAY", "NOSAVE", "REPLY", "REPLYLF", "RETRNOSIZE", "RETRSIZE", "SLOWDOWN", "SLOWDOWNDATA", "STOR", "Testnum" },
+            new[] { "COUNT", "DELAY", "NODATACONN150", "NODATACONN421", "NODATACONN425", "NOSAVE", "PASVBADIP", "REPLY", "REPLYLF", "RETRNOSIZE", "RETRSIZE", "RETRWEIRDO", "SLOWDOWN", "SLOWDOWNDATA", "STOR", "Testnum" },
             supported);
     }
 
@@ -23,7 +23,7 @@ public sealed class FtpUpstreamTestCaseRepliesTests
         string[] lines =
         [
             "Testnum 135", "", "   ", "# a comment", "REPLY EPSV 500 no", "REPLYLF PWD 257 \"/\"", "COUNT EPSV 1",
-            "RETRNOSIZE", "RETRSIZE 7", "NOSAVE", "STOR 552 disk full", "DELAY CWD 60", "SLOWDOWN", "SLOWDOWNDATA",
+            "RETRNOSIZE", "RETRSIZE 7", "NOSAVE", "STOR 552 disk full", "DELAY CWD 60", "SLOWDOWN", "SLOWDOWNDATA", "NODATACONN425", "NODATACONN421", "NODATACONN150", "PASVBADIP", "RETRWEIRDO",
         ];
 
         var replies = new FtpUpstreamTestCaseReplies(new Dictionary<string, byte[]>(), lines);
@@ -33,9 +33,7 @@ public sealed class FtpUpstreamTestCaseRepliesTests
     }
 
     [TestMethod]
-    [DataRow("RETRWEIRDO")]
-    [DataRow("PASVBADIP")]
-    [DataRow("NODATACONN425")]
+    [DataRow("NODATACONN")]
     [DataRow("CAPA IDLE")]
     [DataRow("AUTH PLAIN")]
     [DataRow("reply EPSV 500 no")]

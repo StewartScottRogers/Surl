@@ -399,7 +399,8 @@ public sealed class UpstreamTestCaseSelectorTests
 
         Assert.IsTrue(rules.SupportsServerCommand("ftp", "REPLY"));
         Assert.IsTrue(rules.SupportsServerCommand("ftp", "DELAY"));
-        Assert.IsFalse(rules.SupportsServerCommand("ftp", "RETRWEIRDO"));
+        Assert.IsTrue(rules.SupportsServerCommand("ftp", "RETRWEIRDO"));
+        Assert.IsFalse(rules.SupportsServerCommand("ftp", "NODATACONN"));
         Assert.IsTrue(rules.SupportsServerCommand("smtp", "REPLY"));
         Assert.IsFalse(rules.SupportsServerCommand("smtp", "SLOWDOWN"));
         Assert.IsFalse(rules.SupportsServerCommand("imaps", "REPLY"));

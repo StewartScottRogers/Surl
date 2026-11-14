@@ -470,7 +470,7 @@ internal sealed partial class FtpCommandResponder : IAsyncDisposable
     // send returns follows them. Each data connection carries one transfer (ADR-0052, decision 6).
     // Under PROT P the TLS handshake runs after 150, the order pinned upstream curl completed
     // against the recorder, and a failed one is 425 in place of the transfer.
-    private async ValueTask<bool> TransferAsync(string openingReply, Func<IConnection, Task<string>> send)
+    private async ValueTask<bool> TransferAsync(string openingReply, Func<IConnection, Task<string>> send, string? completionAlreadyAnswered = null)
     {
         if (!dataConnections.IsPrepared)
         {
@@ -485,9 +485,11 @@ internal sealed partial class FtpCommandResponder : IAsyncDisposable
         await using (dataConnection)
         {
             await ReplyAsync(openingReply);
-            return await ReplyAsync(await dataConnections.ProtectAsync(dataConnection)
+            var closingReply = await dataConnections.ProtectAsync(dataConnection)
                 ? await send(dataConnection)
-                : FtpDataConnections.CannotOpenDataConnection);
+                : FtpDataConnections.CannotOpenDataConnection;
+
+            return closingReply == completionAlreadyAnswered || await ReplyAsync(closingReply);
         }
     }
 
