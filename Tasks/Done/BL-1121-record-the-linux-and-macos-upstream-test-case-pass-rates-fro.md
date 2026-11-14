@@ -8,7 +8,7 @@ depends-on: [BL-1118, BL-1119, BL-1120]
 touches: [Documentation/Conformance]
 requirement: FR-053
 created: 2026-11-14
-completed:
+completed: 2026-11-14
 ---
 # BL-1121 — Record the Linux and macOS upstream test-case pass rates from a dispatched CI run
 
@@ -42,18 +42,22 @@ That run is the first to include the http/2, http/3 and mail-TLS halves. Both ro
 
 ## Acceptance criteria
 
-- [ ] Notes hold the CI run URL and its head commit, and `git merge-base --is-ancestor` shows the
+- [x] Notes hold the CI run URL and its head commit, and `git merge-base --is-ancestor` shows the
       commits of BL-1118, BL-1119 and BL-1120 under it.
-- [ ] The `linux-x64` and `osx-arm64` rows and their passing lists match that run's artifacts.
+- [x] The `linux-x64` and `osx-arm64` rows and their passing lists match that run's artifacts.
       `UpstreamTestCasePassRateStatementTests` passes.
-- [ ] The skip table's Linux and macOS columns match the run's results files. Neither column has a
+- [x] The skip table's Linux and macOS columns match the run's results files. Neither column has a
       `server-not-built:http/2` or `server-not-built:http/3` skip left.
-- [ ] Every case among 1700, 1701, 1702, 2403, 2500, 2503 and 987 to 989 that failed on either leg
+- [x] Every case among 1700, 1701, 1702, 2403, 2500, 2503 and 987 to 989 that failed on either leg
       has a filed task, named in Notes.
 
 ## Notes
+
+CI run https://github.com/StewartScottRogers/Surl/actions/runs/43629075978 (workflow_dispatch on factory/phase-1), head 356da7cd; `git merge-base --is-ancestor` passes for BL-1118 (0f135154), BL-1119 (55ecb76f) and BL-1120 (a7b6b073). Linux 1,259/1,281 passed, macOS 1,258/1,281; both legs: 732 skipped, no server-not-built skip. All of 1700, 1701, 1702, 2403, 2500, 2503, 987-989 passed on both legs, so no failure tasks were filed (the other 22/23 failures predate this task and are listed in the pass-rate doc).
+
 
 ## Log
 
 - 2026-11-14: Created.
 - 2026-11-14: Backlog -> Doing.
+- 2026-11-14: Doing -> Done. Linux and macOS upstream test-case rows recorded from CI run 43629075978: 98.3% and 98.2%, http/2, http/3 and mail-TLS cases pass
