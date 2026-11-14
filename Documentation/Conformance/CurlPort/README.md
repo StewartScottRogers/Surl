@@ -56,8 +56,8 @@ Surl defect: upstream's run was what the mirrored test asserts in every case.
 | [HTTP/3](Http3.md) | `883c3d4d` | 13 | 0 | 13 | 2 | 0 |
 | [libcurl rows](Libcurl.md) | `dc8aebe3`, `2006b077` | 20 | 19 | 1 | 1 | 0 |
 | [Upstream test cases](Upstream-Test-Cases.md) | `7bf55f26` | 1,041 | 1,028 | 11 | 3 | 2 |
-| [Extended clients](Extended.md) | `477dda7d` and the others its tasks name | 21 | 20 | 1 | 1 | 0 |
-| **All** | | **1,518** | **1,420** | **96** | **18** | **2** |
+| [Extended clients](Extended.md) | `477dda7d` and the others its tasks name | 21 | 20 | 1 | 6 | 0 |
+| **All** | | **1,518** | **1,420** | **96** | **23** | **2** |
 
 Not counted above: cases Inconclusive on Windows because their mirrored tests run only elsewhere (4
 HTTP cases, the 47 `OpenLdap_` cases) or are excluded on Windows by their `[OSCondition]` (6 SSH cases,
@@ -69,14 +69,12 @@ backend's SSH algorithms whatever it runs on). Each stays its own entry in the h
 its own row in a findings table its test reads.
 
 The extended clients are measured by the extended track's own `Integration` tasks, not beside upstream
-curl (ADR-0089 decision 9), and each case is judged by its protocol's specification. When this summary
-was written four of them were `Done`: `socketio` (4 cases), `webtransport` (4), `coap` (7) and `xmpp`
-(6). Their one port defect, the `webtransport` client exiting 0 on a refused CONNECT, is
-[`Extended.md`](Extended.md)'s EXT-1, which also lists the 15 tasks still to run.
+curl (ADR-0089 decision 9), and each case is judged by its protocol's specification. All 19 extended
+`Integration` tasks are `Done`; their six port defects (EXT-1 to EXT-6) are in [`Extended.md`](Extended.md).
 
 ## The handoff
 
-[`Port-Board-Handoff.md`](Port-Board-Handoff.md) holds the 18 findings as tasks in the port's own task
+[`Port-Board-Handoff.md`](Port-Board-Handoff.md) holds the 23 findings as tasks in the port's own task
 shape. Stewart files them on the port's board himself, by running the port's `/task-plan` on it in a
 session of the port's repository (ADR-0089 decision 7). No Surl session writes into the port's
 repository.

@@ -33,9 +33,23 @@ decision 5). This is success criterion 2 of the
 
 | Platform | Commit | Date | Reference pin SHA-256 | Total | Runnable | Passed | Failed | Skipped | test-server-choice | Pass rate |
 | --- | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| `win-x64` | `153bbc14` + BL-549 + BL-855 + BL-896 + BL-897 + BL-898 + BL-899 + BL-900 + BL-556 + BL-682 + BL-562 + BL-689 + BL-776 + BL-856 + BL-1071 + BL-1072 + BL-1076 + BL-1077 | 2026-11-12 | `0E773709C3A44DB47B88B71351D902027682ED87C3BD3821009E454BACCA8778` | 2,013 | 1,152 | 1,151 | 1 | 861 | 34 | 99.9% |
-| `linux-x64` | `8eb0301b` | 2026-11-06 | `153CA463957609117D21A848BE29B70691B85F9E5CC9370C7DAA037B839A4E45` | 2,013 | 1,203 | 1,154 | 49 | 810 | 34 | 95.9% |
-| `osx-arm64` | `8eb0301b` | 2026-11-06 | `04E0E69BCD3BD814EC093551A0447AC14EDEEA9D395B468A2025DCB3F766EEBF` | 2,013 | 1,203 | 1,153 | 50 | 810 | 34 | 95.8% |
+| `win-x64` | `153bbc14` + BL-549 + BL-855 + BL-896 + BL-897 + BL-898 + BL-899 + BL-900 + BL-556 + BL-682 + BL-562 + BL-689 + BL-776 + BL-856 + BL-1071 + BL-1072 + BL-1076 + BL-1077 + BL-1120 | 2026-11-14 | `0E773709C3A44DB47B88B71351D902027682ED87C3BD3821009E454BACCA8778` | 2,013 | 1,155 | 1,154 | 1 | 858 | 34 | 99.9% |
+| `linux-x64` | `356da7cd` | 2026-11-14 | `153CA463957609117D21A848BE29B70691B85F9E5CC9370C7DAA037B839A4E45` | 2,013 | 1,281 | 1,259 | 22 | 732 | 34 | 98.3% |
+| `osx-arm64` | `356da7cd` | 2026-11-14 | `04E0E69BCD3BD814EC093551A0447AC14EDEEA9D395B468A2025DCB3F766EEBF` | 2,013 | 1,281 | 1,258 | 23 | 732 | 34 | 98.2% |
+
+BL-1121 (2026-11-14) recorded the Linux and macOS rows from CI run
+[43629075978](https://github.com/StewartScottRogers/Surl/actions/runs/43629075978) (`workflow_dispatch` on
+`factory/phase-1`, head `356da7cd`, which contains BL-1117 to BL-1120): the first with the http/2, http/3 and
+mail-TLS server halves composed. Linux is 1,281 runnable, 1,259 passed, 22 failed, 732 skipped; macOS is 1,281
+runnable, 1,258 passed, 23 failed, 732 skipped (4001 fails `errorcode` on macOS only, as before). Cases 1700, 1701,
+1702, 2403, 2500, 2503, 987, 988 and 989 all pass on both legs. No `server-not-built` skip is left; the two
+`server-half-not-composed` skips are `https-mtls`. The failures are 165, 955-958, 962-968 and 1800 (`protocol`),
+311, 312, 1072 and 1073 (`errorcode`), 469 (`stderr`), 1448, 2046 and 2047 (`stdout`) and 1452 (`timeout`).
+
+BL-1120 (2026-11-14) composed the `imaps`, `pop3s` and `smtps` server halves: the IMAP, POP3 and SMTP case servers
+also listen behind implicit TLS on `127.0.0.1`, and `%IMAPSPORT`, `%POP3SPORT` and `%SMTPSPORT` are their ports. Cases
+987, 988 and 989 no longer skip `server-half-not-composed` and pass on the Windows reference build (1,155 runnable,
+1,154 passed, 1 failed, 858 skipped); no case that passed fails. Linux and macOS rows come from BL-1121's CI run, below.
 
 BL-1072 (2026-11-12) composed the `http-ipv6` server half: the plaintext HTTP half also binds `[::1]` and
 `%HTTP6PORT` is its port. The 10 cases that named it (1230 among them) no longer skip
@@ -144,20 +158,20 @@ upstream's test-server greeting banner in a `-D` file, BL-776), TFTP 15 ran, 13 
 | --- | ---: | ---: | ---: |
 | `debug-build` | 50 | 50 | 50 |
 | `disabled-upstream` | 19 | 14 | 14 |
-| `feature-missing:<name>` | 127 | 12 | 12 |
+| `feature-missing:<name>` | 127 | 16 | 16 |
 | `libtest` | 349 | 350 | 350 |
 | `no-server-half` | 87 | 87 | 87 |
 | `perl-command` | 27 | 27 | 27 |
 | `postcheck` | 14 | 14 | 14 |
 | `precheck` | 19 | 19 | 19 |
-| `server-half-not-composed:<name>` | 3 | 15 | 15 |
-| `server-not-built:<name>` | 38 | 67 | 67 |
-| `servercmd-unsupported:<command>` | 30 | 35 | 35 |
+| `server-half-not-composed:<name>` | 0 | 2 | 2 |
+| `server-not-built:<name>` | 38 | 0 | 0 |
+| `servercmd-unsupported:<command>` | 30 | 33 | 33 |
 | `strippart-unsupported` | 1 | 1 | 1 |
 | `test-server-choice` | 34 | 34 | 34 |
 | `unittest` | 81 | 81 | 81 |
 | `unparsable` | 4 | 4 | 4 |
-| **Total** | **861** | **810** | **810** |
+| **Total** | **858** | **732** | **732** |
 
 ## Releases
 

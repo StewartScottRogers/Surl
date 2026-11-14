@@ -87,6 +87,8 @@ public static class UpstreamTestCaseServerCommands
     {
         ["http"] = Http,
         ["http-ipv6"] = Http,
+        ["http/2"] = Http,
+        ["http/3"] = Http,
         ["https"] = Http,
         ["https-mtls"] = Http,
         ["http-proxy"] = HttpProxy,

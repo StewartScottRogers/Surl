@@ -545,8 +545,13 @@ that build as the client against Surl's own protocol server for the case's schem
 server halves are composed in the test project, never in `Surl.Composition`, so the shipped
 `surl` has no replay mode. Server halves exist for the HTTP and HTTPS family (including
 `http-unix`), RTSP, FTP and FTPS, IMAP, POP3 and SMTP in plaintext, DICT, Gopher, TELNET, MQTT,
-TFTP, SCP, SFTP and SMB. The table in `UpstreamTestCaseServers` marks `http/2`, `http/3`,
-the proxies, `httptls+srp` and `dns` as not built, so those cases skip as
+TFTP, SCP, SFTP and SMB, with the mail servers also behind implicit TLS (BL-1120), and the
+`http/2` and `http/3` gateway halves that play upstream's nghttpx
+([ADR-0154](../Planning/Decisions/ADR-0154-how-the-http-2-and-http-3-server-halves-play-upstreams-nghttpx-gateway.md)):
+of the 16 cases naming them, 1700, 1701, 1702, 2403, 2500 and 2503 pass on `linux-x64` and
+`osx-arm64` (CI run 43629075978, 2026-11-14; the Windows build has no HTTP2 or HTTP3 and skips
+them), and the other ten need a `Debug` build or are libtests. The table in
+`UpstreamTestCaseServers` marks `httptls+srp` and `dns` as not built, so those cases skip as
 `server-not-built:<name>`. The pass rate, stated per platform and per release, is in
 [Upstream-Test-Case-Pass-Rate.md](../Conformance/Upstream-Test-Case-Pass-Rate.md), the passing
 cases are listed beside it, and a fast test fails when the table and the lists disagree, so
@@ -603,7 +608,6 @@ it. A release dry run on 2026-11-06 (CI run 42225649001, BL-603) was green on al
 - The HTTP/2 and HTTP/3 conformance tests are recorded passing on Linux and macOS only by
   elimination from CI run 42324374116, since the CI logger prints a skipped Curl-port test of
   the same name; BL-724 and BL-768 are to confirm them.
-- No upstream test case runs over HTTP/2 or HTTP/3 yet: their server halves are not built.
 - Some behaviour the ADRs ask to be measured is unmeasured: for HTTP/2 the `413`,
   `FRAME_SIZE_ERROR`, `FLOW_CONTROL_ERROR` and idle `GOAWAY` cases (BL-371's notes), and for
   HTTP/3 curl past each decision 7 limit and `Alt-Svc` with `--alt-svc` (BL-385's notes).

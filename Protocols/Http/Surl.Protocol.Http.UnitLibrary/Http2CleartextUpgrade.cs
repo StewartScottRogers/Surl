@@ -27,14 +27,15 @@ internal static class Http2CleartextUpgrade
     /// <see langword="null"/> when its upgrade is ignored.
     /// </summary>
     /// <param name="request">The HTTP/1.x request.</param>
+    /// <param name="allowsRequestBody">Whether a request that announces a body still qualifies, as the gateway half of ADR-0154 lets it.</param>
     /// <returns>The settings its <c>HTTP2-Settings</c> carries, or <see langword="null"/>.</returns>
-    public static IReadOnlyList<Http2Setting>? ClientSettingsOf(HttpRequest request)
+    public static IReadOnlyList<Http2Setting>? ClientSettingsOf(HttpRequest request, bool allowsRequestBody = false)
     {
         var settingsFields = Values(request, SettingsFieldName);
         var qualifies = IsHttp11(request.Http1Version)
             && AsksForH2c(request)
             && settingsFields.Count == 1
-            && !AnnouncesBody(request);
+            && (allowsRequestBody || !AnnouncesBody(request));
 
         return qualifies ? DecodeSettings(settingsFields[0]) : null;
     }

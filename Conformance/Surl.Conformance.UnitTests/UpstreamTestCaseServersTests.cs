@@ -13,7 +13,8 @@ public sealed class UpstreamTestCaseServersTests
     [DataRow("http-ipv6", "http", true)]
     [DataRow("https-mtls", "https", true)]
     [DataRow("smb", "smb", true)]
-    [DataRow("http/2", "http", false)]
+    [DataRow("http/2", "http", true)]
+    [DataRow("http/3", "http", true)]
     public void Find_KnownName_GivesItsRow(string name, string protocol, bool isBuilt)
     {
         var server = UpstreamTestCaseServers.Find(name);
@@ -95,12 +96,10 @@ public sealed class UpstreamTestCaseServersTests
     }
 
     [TestMethod]
-    public void All_TheUnbuiltRows_AreTheAdrsUnbuiltServers()
+    public void All_EveryRow_IsBuilt()
     {
         var unbuilt = UpstreamTestCaseServers.All.Where(server => !server.IsBuilt).Select(server => server.Name);
 
-        CollectionAssert.AreEquivalent(
-            new[] { "http/2", "http/3" },
-            unbuilt.ToArray());
+        Assert.IsEmpty(unbuilt.ToArray());
     }
 }

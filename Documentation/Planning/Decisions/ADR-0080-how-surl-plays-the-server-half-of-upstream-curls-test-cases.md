@@ -5,6 +5,7 @@
 - **Decided by:** Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), 2026-11-04,
   in BL-386 (FR-053, success criterion 2).
 - **Amended:** 2026-11-04 in BL-390, decision 4 (the strip subset as the corpus writes it).
+- **Amended:** 2026-11-14 by [ADR-0154](ADR-0154-how-the-http-2-and-http-3-server-halves-play-upstreams-nghttpx-gateway.md), decision 2 (the `http/2` and `http/3` row).
 - **Amends:** nothing. [ADR-0003](ADR-0003-upstream-curl-is-surls-only-oracle.md) (only pinned
   builds run, never the Curl port), [ADR-0002](ADR-0002-mirror-the-curl-ports-project-map.md)
   decision 3 (`Surl.Conformance` references Abstractions only; protocol servers never reference each

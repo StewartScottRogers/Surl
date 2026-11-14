@@ -14,8 +14,8 @@ the upstream documentation or specification that says what is right, so the port
 it without re-deriving it.
 
 **What this file holds.** One entry per finding in the Phase 7 findings files
-([summary](README.md)): 18 entries, the 14 of the family files, the 3 of `Upstream-Test-Cases.md` and
-the 1 of [`Extended.md`](Extended.md), the extended clients. Each entry is in the port's task shape (its `.claude/skills/task-board/TASK-TEMPLATE.md`): front matter fields, then `Goal`,
+([summary](README.md)): 23 entries, the 14 of the family files, the 3 of `Upstream-Test-Cases.md` and
+the 6 of [`Extended.md`](Extended.md), the extended clients. Each entry is in the port's task shape (its `.claude/skills/task-board/TASK-TEMPLATE.md`): front matter fields, then `Goal`,
 `Context` and `Acceptance criteria`.
 
 **Evidence common to every entry.** Measured on Windows (`win-x64`), 2026-11-05 and 2026-11-06 (entry 18: 2026-11-11, with no
@@ -53,6 +53,11 @@ Each entry names its own Surl commit, Surl test and the findings file that holds
 | 16 | Send an empty SASL EXTERNAL response as = | Upstream test cases | 3 |
 | 17 | Write --libcurl's setopt calls in upstream's order | Upstream test cases | 6 |
 | 18 | Fail the webtransport transfer when the server refuses the CONNECT | Extended clients | 1 |
+| 19 | Honour -u in the grpc client | Extended clients | 1 |
+| 20 | Fail the signalr transfer when negotiate is refused | Extended clients | 1 |
+| 21 | Map MQTT 5 CONNACK 0x86 to exit 67 in the mqtt5 client | Extended clients | 1 |
+| 22 | Publish or fail a -T upload to amqp:// | Extended clients | 1 |
+| 23 | Allow auto topic creation in the kafka client's Metadata request | Extended clients | 1 |
 
 ---
 
@@ -711,3 +716,127 @@ server refused the session, instead of exiting 0 with empty output.
       and a stderr message naming the refusal.
 - [ ] A port test where the server answers the CONNECT `200` still exits 0 and echoes as before.
 - [ ] The chosen exit code is recorded in the port's documentation for the `webtransport` scheme.
+
+---
+
+## 19. Honour -u in the grpc client
+
+*Judged by the specification* (extended client; no upstream build has the `grpc` scheme, ADR-0083).
+
+- **title:** Honour -u in the grpc client
+- **priority:** Low · **assignee:** Claude · **pipeline:** feature · **depends-on:** [] ·
+  **requirement:** none · **id**, **touches:** left to the port's planner
+
+### Goal
+
+`curl -u user:password grpc://host/...` sends the login (an `authorization: Basic` header) as it does for
+every other scheme that takes `-u`.
+
+### Context
+
+- **Finding:** Surl `Documentation/Conformance/CurlPort/Extended.md`, EXT-2, recorded by Surl task BL-446.
+- **Port result:** `-u` is ignored; a login only reaches the server through `-H "Authorization: Basic ..."`.
+- **What decides:** curl's `-u` option contract (user and password for server authentication).
+
+### Acceptance criteria
+
+- [ ] A port test where the server demands Basic credentials passes with `-u user:password`.
+
+---
+
+## 20. Fail the signalr transfer when negotiate is refused
+
+*Judged by the specification* (extended client; no upstream build has the `signalr` scheme, ADR-0083).
+
+- **title:** Fail the signalr transfer when negotiate is refused
+- **priority:** Normal · **assignee:** Claude · **pipeline:** feature · **depends-on:** [] ·
+  **requirement:** none · **id**, **touches:** left to the port's planner
+
+### Goal
+
+When the server answers `POST /negotiate` with `401`, the port's curl exits non-zero and says on stderr
+that negotiate was refused, instead of exiting 0 with no output.
+
+### Context
+
+- **Finding:** Surl `Documentation/Conformance/CurlPort/Extended.md`, EXT-3, recorded by Surl task BL-451.
+- **Port result:** exit code 0, empty stdout.
+- **What decides:** the ASP.NET Core SignalR transport protocol: a refused negotiate means no connection.
+
+### Acceptance criteria
+
+- [ ] A port test where negotiate is answered `401` asserts a non-zero exit and a stderr message.
+
+---
+
+## 21. Map MQTT 5 CONNACK 0x86 to exit 67 in the mqtt5 client
+
+*Judged by the specification* (extended client; no upstream build has the `mqtt5` scheme, ADR-0083).
+
+- **title:** Map MQTT 5 CONNACK 0x86 to exit 67 in the mqtt5 client
+- **priority:** Low · **assignee:** Claude · **pipeline:** feature · **depends-on:** [] ·
+  **requirement:** none · **id**, **touches:** left to the port's planner
+
+### Goal
+
+A CONNACK with reason code `0x86` (Bad User Name or Password) ends the transfer with exit 67, as the
+port's own ADR-1251 says, not exit 8.
+
+### Context
+
+- **Finding:** Surl `Documentation/Conformance/CurlPort/Extended.md`, EXT-4, recorded by Surl task BL-502.
+- **Port result:** the pinned port exits 8; its newer ADR-1251 maps the code to 67.
+- **What decides:** MQTT 5.0 section 3.2.2.2 and the port's ADR-1251.
+
+### Acceptance criteria
+
+- [ ] A port test against a server answering CONNACK `0x86` asserts exit 67.
+
+---
+
+## 22. Publish or fail a -T upload to amqp://
+
+*Judged by the specification* (extended client; no upstream build has the `amqp` scheme, ADR-0083).
+
+- **title:** Publish or fail a -T upload to amqp://
+- **priority:** Normal · **assignee:** Claude · **pipeline:** feature · **depends-on:** [] ·
+  **requirement:** none · **id**, **touches:** left to the port's planner
+
+### Goal
+
+`curl -T file amqp://host/queue` publishes the file's bytes as `-d` does, or fails with a non-zero exit.
+
+### Context
+
+- **Finding:** Surl `Documentation/Conformance/CurlPort/Extended.md`, EXT-5, recorded by Surl task BL-508.
+- **Port result:** exit 0, yet nothing reaches the queue on Surl; `-d` publishes.
+- **What decides:** AMQP 0-9-1 `basic.publish`; a transfer the command line asked for must happen or fail.
+
+### Acceptance criteria
+
+- [ ] A port test uploads with `-T` to a live queue and reads the same bytes back.
+
+---
+
+## 23. Allow auto topic creation in the kafka client's Metadata request
+
+*Judged by the specification* (extended client; no upstream build has the `kafka` scheme, ADR-0083).
+
+- **title:** Allow auto topic creation in the kafka client's Metadata request
+- **priority:** Low · **assignee:** Claude · **pipeline:** feature · **depends-on:** [] ·
+  **requirement:** none · **id**, **touches:** left to the port's planner
+
+### Goal
+
+A produce to a topic nobody declared sends Metadata v4 with `allow_auto_topic_creation` set, so a broker
+that allows creation makes the topic instead of answering `UNKNOWN_TOPIC_OR_PARTITION`.
+
+### Context
+
+- **Finding:** Surl `Documentation/Conformance/CurlPort/Extended.md`, EXT-6, recorded by Surl task BL-523.
+- **Port result:** the flag is not set; exit 8.
+- **What decides:** the Kafka Metadata v4 request definition; Surl ADR-0105 decision 2.
+
+### Acceptance criteria
+
+- [ ] A port test producing to an undeclared topic on a broker that auto-creates succeeds.

@@ -181,12 +181,12 @@ public sealed class HelpTextTests
         "        Asks for the test control endpoint on an http listen URL on loopback",
         "        (localhost, 127.0.0.0/8 or ::1; port 0 allowed), through which a test",
         "        suite not written in .NET will query events, set faults and seed,",
-        "        reset, snapshot and restore stores over HTTP and JSON; this build reads",
-        "        and checks it but does not serve it yet. It needs --control-token-file",
-        "        <file>, whose first line is the bearer token every request must send;",
-        "        surl never generates or prints one. A test uses it to drive surl from",
-        "        outside .NET. It is not the default because whoever holds the token can",
-        "        change this server's files, mail, messages, accounts and faults.",
+        "        reset, snapshot and restore stores over HTTP and JSON; surl serves it.",
+        "        It needs --control-token-file <file>, whose first line is the bearer",
+        "        token every request must send; surl never generates or prints one. A",
+        "        test uses it to drive surl from outside .NET. It is not the default",
+        "        because whoever holds the token can change this server's files, mail,",
+        "        messages, accounts and faults.",
     ];
 
     private static readonly string[] ControlTokenFileExplanationLines =
