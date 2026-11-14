@@ -1,4 +1,5 @@
 using System.Net;
+using System.Security.Cryptography;
 using System.Text;
 using Surl.Content;
 using Surl.Core;
@@ -69,6 +70,8 @@ internal sealed class UpstreamTestCaseServerHalves : IAsyncDisposable
     // implicit TLS offering exactly ALPN h2, which is what %HTTP2TLSPORT serves.
     private const string Http2PlaintextScheme = "h2c";
     private const string Http2TlsScheme = "grpcs";
+    // The http/3 gateway half (ADR-0154 decision 4) is a datagram server on UDP, so its scheme is its own too.
+    private const string Http3Scheme = "h3gateway";
     private const string LoopbackIPv4 = "127.0.0.1";
     private const string LoopbackIPv6 = "::1";
 
@@ -104,17 +107,19 @@ internal sealed class UpstreamTestCaseServerHalves : IAsyncDisposable
     private readonly CaseServer[] servers;
     private readonly CaseDatagramServer tftp;
     private readonly CaseDatagramServer dns;
+    private readonly CaseDatagramServer http3;
     private readonly CancellationTokenSource stop;
     private readonly Task<SurlExitCode> serving;
     private readonly NoteCollectingExchangeLogFactory log;
     private readonly IReadOnlyDictionary<string, int> ports;
 
     private UpstreamTestCaseServerHalves(
-        CaseServer[] servers, CaseDatagramServer tftp, CaseDatagramServer dns, CancellationTokenSource stop, Task<SurlExitCode> serving, NoteCollectingExchangeLogFactory log, IReadOnlyDictionary<string, int> ports)
+        CaseServer[] servers, CaseDatagramServer tftp, CaseDatagramServer dns, CaseDatagramServer http3, CancellationTokenSource stop, Task<SurlExitCode> serving, NoteCollectingExchangeLogFactory log, IReadOnlyDictionary<string, int> ports)
     {
         this.servers = servers;
         this.tftp = tftp;
         this.dns = dns;
+        this.http3 = http3;
         this.stop = stop;
         this.serving = serving;
         this.log = log;
@@ -217,6 +222,9 @@ internal sealed class UpstreamTestCaseServerHalves : IAsyncDisposable
     /// <summary>The http/2 gateway's TLS listener's port: <c>%HTTP2TLSPORT</c>.</summary>
     public int Http2TlsPort => ports[PortKey(Http2TlsScheme, LoopbackIPv4)];
 
+    /// <summary>The http/3 gateway's UDP listener's port: <c>%HTTP3PORT</c>.</summary>
+    public int Http3Port => ports[PortKey(Http3Scheme, LoopbackIPv4)];
+
     /// <summary>The notes the server halves wrote to their exchange logs so far.</summary>
     public string Notes => log.Text;
 
@@ -251,18 +259,20 @@ internal sealed class UpstreamTestCaseServerHalves : IAsyncDisposable
         CaseServer[] servers = [.. Listeners.Select(listener => new CaseServer(listener.Scheme))];
         var tftp = new CaseDatagramServer("tftp");
         var dns = new CaseDatagramServer("dns");
+        var http3 = new CaseDatagramServer(Http3Scheme);
         ListenUrl[] urls =
         [
             .. Listeners.SelectMany(listener => listener.Hosts.Select(host => ListenUrlFor(listener.Scheme, host))),
             new("tftp", LoopbackIPv4, 0),
             new("dns", LoopbackIPv4, 0),
+            new(Http3Scheme, LoopbackIPv4, 0),
             .. HttpUnixSocketListenUrls(httpUnixSocketPath),
             .. SocksUnixSocketListenUrls(socksUnixSocketPath),
         ];
         var listeners = new BoundPortRecordingListenerFactory(new SocketListenerFactory(tlsSettings), urls.Length);
         var log = new NoteCollectingExchangeLogFactory();
         var engine = new ServingEngine(
-            listeners, [.. servers, tftp, dns], log, TimeProvider.System, TimeSpan.Zero, ConnectionLimits.Default, new SocketDataConnectionOpener(tlsSettings, TimeProvider.System));
+            listeners, [.. servers, tftp, dns, http3], log, TimeProvider.System, TimeSpan.Zero, ConnectionLimits.Default, new SocketDataConnectionOpener(tlsSettings, TimeProvider.System));
         var stop = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         var serving = engine.ServeAsync(urls, stop.Token);
 
@@ -272,7 +282,7 @@ internal sealed class UpstreamTestCaseServerHalves : IAsyncDisposable
             throw new InvalidOperationException($"The serving engine ended with {await serving} before every listener bound.");
         }
 
-        return new UpstreamTestCaseServerHalves(servers, tftp, dns, stop, serving, log, await listeners.AllBound);
+        return new UpstreamTestCaseServerHalves(servers, tftp, dns, http3, stop, serving, log, await listeners.AllBound);
     }
 
     /// <summary>
@@ -291,7 +301,8 @@ internal sealed class UpstreamTestCaseServerHalves : IAsyncDisposable
         HttpProxyUpstreamTestCaseReplies proxyReplies,
         SocksUpstreamTestCaseReplies socksReplies,
         DnsQueryUpstreamTestCaseReplies dnsReplies,
-        ArrivalOrderedReceivedLog arrivalLog)
+        ArrivalOrderedReceivedLog arrivalLog,
+        Http3GatewayCertificate http3Certificate)
     {
         // Upstream's sws sends every tunnel to 127.0.0.1 at the CONNECT's port (BL-556), so the proxy
         // reaches real loopback sockets, whatever host the request names.
@@ -319,6 +330,7 @@ internal sealed class UpstreamTestCaseServerHalves : IAsyncDisposable
 
         tftp.Current = arrivalLog.Wrap(new TftpUpstreamTestCaseServer(tftpReplies));
         dns.Current = arrivalLog.Wrap(new DnsUpstreamTestCaseServer(dnsReplies));
+        http3.Current = arrivalLog.Wrap(new Http3GatewayUpstreamTestCaseServer(new SocketOriginConnector(AllowedOriginRule.LoopbackOnly), HttpPort, http3Certificate.Chain, http3Certificate.Key));
     }
 
     /// <inheritdoc/>

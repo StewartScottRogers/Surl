@@ -325,7 +325,9 @@ row in `UpstreamTestCaseServerCommands` is `Http` (the gateway reads none; the `
 `UpstreamCurlBuildFeatures.For` adds `nghttpx` beside `http/2`. The tests' server halves bind the
 `Http2GatewayUpstreamTestCaseServer` on `%HTTP2PORT` (plaintext, scheme `h2c`) and `%HTTP2TLSPORT` (TLS, scheme `grpcs`
 for its implicit TLS offering exactly ALPN `h2`), forwarding to the case's `%HTTPPORT` half. Cases 1700, 1701, 1702 and
-2403 run on a pin with HTTP2 and skip `feature-missing` on the Windows reference pin; `http/3` stays not built (BL-1119).
+2403 run on a pin with HTTP2 and skip `feature-missing` on the Windows reference pin.
+
+Playing the http/3 cases is built too (BL-1119, ADR-0154): the `http/3` row says built, its server-command row is `Http`, and `UpstreamCurlBuildFeatures.For` adds `nghttpx-h3` beside `http/3`. The tests' server halves bind `Http3GatewayUpstreamTestCaseServer` on a UDP listener (scheme `h3gateway`) for `%HTTP3PORT` with the generated `test-localhost` certificate, forwarding to the case's `%HTTPPORT` half. Cases 2500 and 2503 run on a pin with HTTP3 and skip `feature-missing:http/3` on the Windows reference pin. No server row is unbuilt now.
 
 The upstream test certificates are generated (BL-682): `UpstreamTestCertificateDescription.Parse`
 reads a `tests/certs/*.prm` file (subject, `DNS:` or `DER:` subject alternative name, key usage,

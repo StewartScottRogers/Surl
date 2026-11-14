@@ -121,6 +121,7 @@ public static class UpstreamCurlBuildFeatures
         AddWhen(features, words.Contains("HTTP2"), "http/2");
         AddWhen(features, words.Contains("HTTP2"), "nghttpx");
         AddWhen(features, words.Contains("HTTP3"), "http/3");
+        AddWhen(features, words.Contains("HTTP3"), "nghttpx-h3");
         AddWhen(features, words.Contains("SSLS-EXPORT"), "ssl-sessions");
         AddCryptoAndCertStatus(features);
     }

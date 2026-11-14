@@ -80,6 +80,7 @@ public sealed class UpstreamTestCasesAgainstSurlTests
         ["http-ipv6"] = HttpFamily,
         ["http-unix"] = HttpFamily,
         ["http/2"] = HttpFamily,
+        ["http/3"] = HttpFamily,
         ["ftp"] = FtpFamily,
         ["ftp-ipv6"] = FtpFamily,
         ["ftps"] = FtpFamily,
@@ -291,6 +292,7 @@ public sealed class UpstreamTestCasesAgainstSurlTests
         private readonly CaseClient? smb;
         private readonly string work;
         private readonly string certificateDirectory;
+        private Http3GatewayCertificate? http3Certificate;
         private readonly TestContext testContext;
         private readonly UpstreamTestCaseFileServers fileServers = new();
         private readonly string sshUser = UpstreamTestCaseFileServers.SshLoginNameFor(Environment.UserName);
@@ -493,7 +495,7 @@ public sealed class UpstreamTestCasesAgainstSurlTests
             var arrivalLog = new ArrivalOrderedReceivedLog([.. families.Where(receivedByFamily.ContainsKey).Select(family => receivedByFamily[family])]);
             serverHalves.Play(
                 replies, ftpReplies, gopherReplies, mqttReplies, tftpReplies,
-                fileServers.CreateSsh(caseDirectory, sshUser), UpstreamTestCaseFileServers.CreateSmb(smbRoot), mailReplies, proxyReplies, socksReplies, dnsReplies, arrivalLog);
+                fileServers.CreateSsh(caseDirectory, sshUser), UpstreamTestCaseFileServers.CreateSmb(smbRoot), mailReplies, proxyReplies, socksReplies, dnsReplies, arrivalLog, http3Certificate!);
             var curl = await client.Client.RunAsync(
                 commandLine.Arguments, commandLine.StandardInput, CurlEnvironment(Slashes(caseDirectory), commandLine), caseDirectory, cancellationToken);
             if (curl.TimedOut)
@@ -544,6 +546,11 @@ public sealed class UpstreamTestCasesAgainstSurlTests
             using var issued = X509CertificateLoader.LoadCertificate(files["test-localhost.der"]);
             using var server = issued.CopyWithPrivateKey(key);
 
+            // The http/3 gateway half serves the same certificate over QUIC, with a key of its own to outlive this method.
+            var http3Key = ECDsa.Create();
+            http3Key.ImportFromPem(System.Text.Encoding.ASCII.GetString(files["test-localhost.key"]));
+            http3Certificate = new Http3GatewayCertificate([files["test-localhost.der"]], http3Key);
+
             return new ServerTlsSettings(server, [], [], TimeProvider.System);
         }
 
@@ -558,6 +565,7 @@ public sealed class UpstreamTestCasesAgainstSurlTests
                 ["HTTPSPORT"] = serverHalves.HttpsPort.ToString(CultureInfo.InvariantCulture),
                 ["HTTP2PORT"] = serverHalves.Http2Port.ToString(CultureInfo.InvariantCulture),
                 ["HTTP2TLSPORT"] = serverHalves.Http2TlsPort.ToString(CultureInfo.InvariantCulture),
+                ["HTTP3PORT"] = serverHalves.Http3Port.ToString(CultureInfo.InvariantCulture),
                 ["FTPPORT"] = serverHalves.FtpPort.ToString(CultureInfo.InvariantCulture),
                 ["FTP6PORT"] = serverHalves.FtpIPv6Port.ToString(CultureInfo.InvariantCulture),
                 ["FTPSPORT"] = serverHalves.FtpsPort.ToString(CultureInfo.InvariantCulture),
