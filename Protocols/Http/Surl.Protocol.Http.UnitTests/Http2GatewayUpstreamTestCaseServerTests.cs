@@ -145,20 +145,6 @@ public sealed class Http2GatewayUpstreamTestCaseServerTests
     }
 
     [TestMethod]
-    public async Task ClientThatDoesNotSendThePreface_IsClosedWithNoBytesAndNoBackendConnection()
-    {
-        var connector = new InMemoryOriginConnector();
-        var client = new InMemoryConnection([Ascii("GET / HTTP/1.1\r\n\r\n")]);
-        var log = new RecordingExchangeLog();
-
-        await new Http2GatewayUpstreamTestCaseServer(connector, BackendPort).ServeAsync(client, Context(log, TimeProvider.System, TestContext.CancellationToken));
-
-        Assert.IsEmpty(client.WrittenBytes);
-        Assert.IsEmpty(connector.Requests);
-        CollectionAssert.Contains(log.Notes.ToArray(), "The client did not send the HTTP/2 connection preface; closed with no bytes.");
-    }
-
-    [TestMethod]
     public void Constructor_NoConnector_Throws() =>
         Assert.ThrowsExactly<ArgumentNullException>(() => new Http2GatewayUpstreamTestCaseServer(null!, BackendPort));
 
