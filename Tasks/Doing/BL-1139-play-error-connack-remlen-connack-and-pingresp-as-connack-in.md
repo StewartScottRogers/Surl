@@ -53,3 +53,4 @@ then run instead of skipping `servercmd-unsupported:<command>`, and pass on Wind
 ## Log
 
 - 2026-11-14: Created.
+- 2026-11-14: Backlog -> Doing.
