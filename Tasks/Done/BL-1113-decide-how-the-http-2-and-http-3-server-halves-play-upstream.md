@@ -8,7 +8,7 @@ depends-on: []
 touches: [Documentation/Planning/Decisions]
 requirement: FR-053
 created: 2026-11-14
-completed:
+completed: 2026-11-14
 ---
 # BL-1113 — Decide how the http/2 and http/3 server halves play upstream's nghttpx gateway
 
@@ -64,30 +64,35 @@ enough that BL-1114 to BL-1119 can be built without another question.
 
 ## Acceptance criteria
 
-- [ ] `Documentation/Planning/Decisions/ADR-0154-*.md` exists. It is marked "Decided by Claude under
+- [x] `Documentation/Planning/Decisions/ADR-0154-*.md` exists. It is marked "Decided by Claude under
       Stewart's delegation", amends ADR-0080 decision 2's `http/2` and `http/3` row, and ADR-0080
       gains an "Amended" line pointing to it. Both are listed in the decisions `README.md`.
-- [ ] The ADR decides how the half forwards each request to the case's HTTP/1 half, citing the
+- [x] The ADR decides how the half forwards each request to the case's HTTP/1 half, citing the
       upstream files above at tag `curl-8_21_0`. It says whether forwarding goes over a loopback
       socket or in process, and the exact HTTP/1.1 request it writes: the request-target form,
       `Host`, and each field nghttpx adds or removes. It also decides the HTTP/3 request-target form
       that test 2500 shows.
-- [ ] The ADR decides how a backend HTTP/1 reply becomes HTTP/2 and HTTP/3 response fields:
+- [x] The ADR decides how a backend HTTP/1 reply becomes HTTP/2 and HTTP/3 response fields:
       lower-casing, dropped connection-specific fields, and `server: nghttpx` and `via: 1.1 nghttpx`
       either written or excluded as `test-server-choice` with the reason. It also decides how a
       backend close or `swsclose` ends the stream.
-- [ ] The ADR decides the ports (`%HTTP2PORT` plaintext with prior knowledge and `Upgrade: h2c`,
+- [x] The ADR decides the ports (`%HTTP2PORT` plaintext with prior knowledge and `Upgrade: h2c`,
       `%HTTP2TLSPORT` over TLS with ALPN `h2`, `%HTTP3PORT` over QUIC on UDP) and the certificate each
       serves. It decides whether the selection rules add `nghttpx` and `nghttpx-h3` when the half is
       composed, and which server-command row each server name gets.
-- [ ] The ADR names the types and the project each lives in, matching BL-1114 to BL-1119, or it
+- [x] The ADR names the types and the project each lives in, matching BL-1114 to BL-1119, or it
       updates those tasks' Context in the same commit. It lists each of the six runnable cases above
       with the outcome it expects on the Linux and macOS reference pins.
-- [ ] No source file changes. The ADR cites no Curl port output (ADR-0003).
+- [x] No source file changes. The ADR cites no Curl port output (ADR-0003).
 
 ## Notes
+
+- ADR-0154 written. nghttpx is not installed and not ours to download, so rules come from the six cases' own `<protocol>`/`<stdout>`; rules no case pins are marked unpinned in the ADR.
+- Found: test 1700's first request is itself the h2c upgrade (stream 1), the second URL is stream 3. BL-1116's Context and criteria corrected (outside this task's `touches`, but a Backlog task's text, no overlap with Doing work).
+- Found: 2403 (HTTP/2) expects `server: nghttpx`, 2503 (HTTP/3) expects none; the ADR splits the rule by version.
 
 ## Log
 
 - 2026-11-14: Created.
 - 2026-11-14: Backlog -> Doing.
+- 2026-11-14: Doing -> Done. ADR-0154 decides the nghttpx gateway halves for http/2 and http/3
