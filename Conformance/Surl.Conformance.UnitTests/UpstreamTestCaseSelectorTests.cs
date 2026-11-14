@@ -149,7 +149,46 @@ public sealed class UpstreamTestCaseSelectorTests
     [TestMethod]
     public void FindSkipReason_ServerNotBuilt_SkipsServerNotBuiltWithItsName()
     {
-        Assert.AreEqual("server-not-built:http/2", Reason("<server>\nhttp\nhttp/2\n</server>\n"));
+        Assert.AreEqual("server-not-built:http/3", Reason("<server>\nhttp\nhttp/3\n</server>\n"));
+    }
+
+    // BL-1118: the http/2 gateway half (ADR-0154) is built, so the four runnable http/2 cases run on a pin with HTTP2.
+    [TestMethod]
+    [DataRow("linux-x64", 1700)]
+    [DataRow("linux-x64", 1701)]
+    [DataRow("linux-x64", 1702)]
+    [DataRow("linux-x64", 2403)]
+    [DataRow("osx-arm64", 1700)]
+    [DataRow("osx-arm64", 2403)]
+    public void FindSkipReason_ImportedHttp2CaseForAReferencePinWithHttp2_IsRunnable(string platform, int number)
+    {
+        var (selector, testCase) = ImportedCaseFor(platform, number);
+
+        Assert.IsNull(selector.FindSkipReason(number, testCase));
+    }
+
+    [TestMethod]
+    [DataRow(1700, "feature-missing:h2c")]
+    [DataRow(1701, "feature-missing:h2c")]
+    [DataRow(1702, "feature-missing:h2c")]
+    [DataRow(2403, "feature-missing:http/2")]
+    public void FindSkipReason_ImportedHttp2CaseForTheWindowsReferencePin_SkipsFeatureMissingNeverServerNotBuilt(int number, string expected)
+    {
+        var (selector, testCase) = ImportedCaseFor("win-x64", number);
+
+        var reason = selector.FindSkipReason(number, testCase);
+
+        Assert.AreEqual(expected, reason);
+        Assert.DoesNotContain("server-not-built", reason!);
+    }
+
+    [TestMethod]
+    public void ForBuild_Http2_TakesTheHttpServerHalfsCommands()
+    {
+        var rules = UpstreamTestCaseSelectionRules.ForBuild(ReferencePins()[0], new HashSet<int>(), new HashSet<int>());
+
+        Assert.IsTrue(rules.SupportsServerCommand("http/2", "swsclose"));
+        Assert.IsFalse(rules.SupportsServerCommand("http/2", "upgrade"));
     }
 
     [TestMethod]

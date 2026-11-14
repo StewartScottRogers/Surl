@@ -63,6 +63,12 @@ internal sealed class UpstreamTestCaseServerHalves : IAsyncDisposable
     // is the "https" scheme with ListenUrl.IsProxy, which the HTTP TLS half (on "wss") leaves free.
     private const string HttpProxyScheme = "http-proxy";
     private const string HttpsProxyScheme = "https";
+
+    // The http/2 gateway half (ADR-0154 decision 4) needs two schemes of its own: "http" and "https" are
+    // taken. The plaintext one is no TLS scheme; the TLS one is "grpcs", the scheme whose listener is
+    // implicit TLS offering exactly ALPN h2, which is what %HTTP2TLSPORT serves.
+    private const string Http2PlaintextScheme = "h2c";
+    private const string Http2TlsScheme = "grpcs";
     private const string LoopbackIPv4 = "127.0.0.1";
     private const string LoopbackIPv6 = "::1";
 
@@ -91,6 +97,8 @@ internal sealed class UpstreamTestCaseServerHalves : IAsyncDisposable
         (HttpsProxyScheme, [LoopbackIPv4]),
         ("socks4", [LoopbackIPv4]),
         ("socks5", [LoopbackIPv4]),
+        (Http2PlaintextScheme, [LoopbackIPv4]),
+        (Http2TlsScheme, [LoopbackIPv4]),
     ];
 
     private readonly CaseServer[] servers;
@@ -203,6 +211,12 @@ internal sealed class UpstreamTestCaseServerHalves : IAsyncDisposable
     /// <summary>The SOCKS5 listener's port: <c>%SOCKSPORT</c> for any other case naming a SOCKS server.</summary>
     public int Socks5Port => ports[PortKey("socks5", LoopbackIPv4)];
 
+    /// <summary>The http/2 gateway's plaintext listener's port: <c>%HTTP2PORT</c>.</summary>
+    public int Http2Port => ports[PortKey(Http2PlaintextScheme, LoopbackIPv4)];
+
+    /// <summary>The http/2 gateway's TLS listener's port: <c>%HTTP2TLSPORT</c>.</summary>
+    public int Http2TlsPort => ports[PortKey(Http2TlsScheme, LoopbackIPv4)];
+
     /// <summary>The notes the server halves wrote to their exchange logs so far.</summary>
     public string Notes => log.Text;
 
@@ -284,6 +298,8 @@ internal sealed class UpstreamTestCaseServerHalves : IAsyncDisposable
         var proxy = new HttpProxyUpstreamTestCaseServer(proxyReplies, new SocketOriginConnector(AllowedOriginRule.LoopbackOnly));
         var socks = new SocksUpstreamTestCaseServer(socksReplies, new SocketOriginConnector(AllowedOriginRule.LoopbackOnly));
         var http = new HttpUpstreamTestCaseServer(httpReplies);
+        // The gateway forwards each stream to the case's own http half on 127.0.0.1 (ADR-0154 decision 1).
+        var http2Gateway = new Http2GatewayUpstreamTestCaseServer(new SocketOriginConnector(AllowedOriginRule.LoopbackOnly), HttpPort);
         var ftp = new FtpUpstreamTestCaseServer(ftpReplies, new AnonymousAuthenticationPolicy());
         var gopher = new GopherUpstreamTestCaseServer(gopherReplies);
         var mqtt = new MqttUpstreamTestCaseServer(mqttReplies, new AnonymousAuthenticationPolicy());
@@ -295,7 +311,7 @@ internal sealed class UpstreamTestCaseServerHalves : IAsyncDisposable
             new SmtpUpstreamTestCaseServer(mailReplies, new AnonymousAuthenticationPolicy()),
             new ImapUpstreamTestCaseServer(mailReplies, new AnonymousAuthenticationPolicy()),
             new Pop3UpstreamTestCaseServer(mailReplies, new AnonymousAuthenticationPolicy()),
-            new SmtpUpstreamTestCaseServer(mailReplies, new AnonymousAuthenticationPolicy()), proxy, proxy, socks, socks];
+            new SmtpUpstreamTestCaseServer(mailReplies, new AnonymousAuthenticationPolicy()), proxy, proxy, socks, socks, http2Gateway, http2Gateway];
         for (var index = 0; index < servers.Length; index++)
         {
             servers[index].Current = arrivalLog.Wrap(playing[index]);

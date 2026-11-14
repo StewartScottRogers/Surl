@@ -56,7 +56,7 @@ public sealed class UpstreamCurlBuildFeaturesTests
 
         foreach (var absent in new[]
         {
-            "OpenSSL", "c-ares", "http/2", "http/3", "xattr", "codeset-utf8", "getrlimit", "cert-status",
+            "OpenSSL", "c-ares", "http/2", "nghttpx", "http/3", "xattr", "codeset-utf8", "getrlimit", "cert-status",
             "ssl-sessions", "httptls", "smb", "Debug", "TrackMemory", "unittest", "AsynchDNS", "HTTP2",
         })
         {
@@ -73,7 +73,7 @@ public sealed class UpstreamCurlBuildFeaturesTests
 
         foreach (var expected in new[]
         {
-            "OpenSSL", "SSLpinning", "cert-status", "http/2", "http/3", "h2c", "threaded-resolver", "asyn-rr",
+            "OpenSSL", "SSLpinning", "cert-status", "http/2", "nghttpx", "http/3", "h2c", "threaded-resolver", "asyn-rr",
             "ECH", "HTTPSRR", "ssl-sessions", "TLS-SRP", "httptls", "httptls-ipv6", "xattr", "getrlimit",
             "codeset-utf8", "smb", "crypto",
         })

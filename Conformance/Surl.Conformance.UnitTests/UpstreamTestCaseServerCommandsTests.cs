@@ -16,6 +16,8 @@ public sealed class UpstreamTestCaseServerCommandsTests
     [TestMethod]
     [DataRow("http", "auth_required", true)]
     [DataRow("http-ipv6", "idle", true)]
+    [DataRow("http/2", "Testnum", true)]
+    [DataRow("http/2", "upgrade", false)]
     [DataRow("https", "skip:", true)]
     [DataRow("https-mtls", "writedelay:", true)]
     [DataRow("http", "upgrade", false)]

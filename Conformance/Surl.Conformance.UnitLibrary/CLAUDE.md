@@ -320,6 +320,13 @@ build lists, so each skips `feature-missing:override-dns`; the server half is pr
 runs for real if a debug build is ever pinned. `UpstreamTestCaseVerifyChecker` checks `<verify><dns>` (BL-1085) against `UpstreamTestCaseRunRecord.DnsQueryLog`
 (the replies' `QueryLog`, which the run feeds in), filtered by the part's `host` attribute as a regex and both sides sorted, after `<proxy>` and before `<file>`.
 
+Playing the http/2 cases is built (BL-1118, ADR-0154): the `http/2` row of `UpstreamTestCaseServers` says built, its
+row in `UpstreamTestCaseServerCommands` is `Http` (the gateway reads none; the `http` half it forwards to does), and
+`UpstreamCurlBuildFeatures.For` adds `nghttpx` beside `http/2`. The tests' server halves bind the
+`Http2GatewayUpstreamTestCaseServer` on `%HTTP2PORT` (plaintext, scheme `h2c`) and `%HTTP2TLSPORT` (TLS, scheme `grpcs`
+for its implicit TLS offering exactly ALPN `h2`), forwarding to the case's `%HTTPPORT` half. Cases 1700, 1701, 1702 and
+2403 run on a pin with HTTP2 and skip `feature-missing` on the Windows reference pin; `http/3` stays not built (BL-1119).
+
 The upstream test certificates are generated (BL-682): `UpstreamTestCertificateDescription.Parse`
 reads a `tests/certs/*.prm` file (subject, `DNS:` or `DER:` subject alternative name, key usage,
 extended key usage, `CA:true`; the `authorityInfoAccess` and `crlDistributionPoints` extensions are

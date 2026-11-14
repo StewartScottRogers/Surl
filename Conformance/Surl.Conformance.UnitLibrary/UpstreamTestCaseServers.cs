@@ -45,7 +45,7 @@ public static class UpstreamTestCaseServers
         new("scp", "scp", IsBuilt: true),
         new("sftp", "sftp", IsBuilt: true),
         new("smb", "smb", IsBuilt: true),
-        new("http/2", "http", IsBuilt: false),
+        new("http/2", "http", IsBuilt: true),
         new("http/3", "http", IsBuilt: false),
         new("http-proxy", "http", IsBuilt: true, PortVariable: "PROXYPORT"),
         new("https-proxy", "https", IsBuilt: true, PortVariable: "HTTPSPROXYPORT"),
