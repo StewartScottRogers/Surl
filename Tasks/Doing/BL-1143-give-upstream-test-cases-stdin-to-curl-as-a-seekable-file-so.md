@@ -34,3 +34,4 @@ Upstream tests 1072 and 1073 (`-T -` with `--anyauth`, HTTP/1.0 reply) end with 
 ## Log
 
 - 2026-11-14: Created.
+- 2026-11-14: Backlog -> Doing.
