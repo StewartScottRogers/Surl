@@ -29,3 +29,4 @@ The `--control` option help no longer says this build does not serve it.
 ## Log
 
 - 2026-11-14: Created.
+- 2026-11-14: Backlog -> Doing.
