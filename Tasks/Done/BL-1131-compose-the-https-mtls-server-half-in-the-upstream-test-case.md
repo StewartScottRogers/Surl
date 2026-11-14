@@ -8,7 +8,7 @@ depends-on: [BL-1130]
 touches: [Conformance/Surl.Conformance.UnitTests]
 requirement: FR-053
 created: 2026-11-14
-completed:
+completed: 2026-11-14
 ---
 # BL-1131 — Compose the https-mtls server half in the upstream test-case run
 
@@ -41,20 +41,24 @@ instead of skipping `server-half-not-composed:https-mtls`, and pass.
 
 ## Acceptance criteria
 
-- [ ] `UpstreamTestCaseServerHalves` binds an `https-mtls` listener that requires a client
+- [x] `UpstreamTestCaseServerHalves` binds an `https-mtls` listener that requires a client
       certificate chaining to the run's `test-ca`, and `RunEnvironment` gives `HTTPS-MTLSPORT` its
       port.
-- [ ] A fast test selects 2088 and 2089 under the `linux-x64` reference pin's features with no skip
+- [x] A fast test selects 2088 and 2089 under the `linux-x64` reference pin's features with no skip
       reason, and under the `win-x64` reference pin with `feature-missing:!Schannel`.
-- [ ] A local Windows run of `UpstreamTestCasesAgainstSurlTests` writes no
+- [x] A local Windows run of `UpstreamTestCasesAgainstSurlTests` writes no
       `server-half-not-composed` line and still passes every case on
       `Documentation/Conformance/upstream-test-cases-passing.win-x64.txt`.
-- [ ] `dotnet build Conformance/Surl.Conformance.UnitTests -warnaserror` is clean and the fast tests
+- [x] `dotnet build Conformance/Surl.Conformance.UnitTests -warnaserror` is clean and the fast tests
       are green.
 
 ## Notes
+
+- The mTLS listener uses scheme `mcps` (implicit TLS, HTTP/1.1 only) behind its own `SocketListenerFactory` whose `ServerTlsSettings` takes `test-ca` as client trust anchor, because TLS settings are per factory.
+- `test623` (SFTP) failed once locally with the known flaky SSH shutdown, and passed on rerun.
 
 ## Log
 
 - 2026-11-14: Created.
 - 2026-11-14: Backlog -> Doing.
+- 2026-11-14: Doing -> Done. https-mtls server half composed; 2088/2089 no longer skip server-half-not-composed

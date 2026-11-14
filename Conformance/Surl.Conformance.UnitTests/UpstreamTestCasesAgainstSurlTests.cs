@@ -77,6 +77,7 @@ public sealed class UpstreamTestCasesAgainstSurlTests
     {
         ["http"] = HttpFamily,
         ["https"] = HttpFamily,
+        ["https-mtls"] = HttpFamily,
         ["http-ipv6"] = HttpFamily,
         ["http-unix"] = HttpFamily,
         ["http/2"] = HttpFamily,
@@ -447,7 +448,7 @@ public sealed class UpstreamTestCasesAgainstSurlTests
             var caseDirectory = Directory.CreateDirectory(Path.Combine(work, $"{client.LogPrefix}test{number}")).FullName;
             const string logDirectory = "log";
             Directory.CreateDirectory(Path.Combine(caseDirectory, logDirectory));
-            await using var serverHalves = await UpstreamTestCaseServerHalves.StartAsync(tlsSettings.For(UpstreamTestCaseParser.Parse(source, SelectionEnvironment(client.Features))), httpUnixSocketPath, socksUnixSocketPath, cancellationToken);
+            await using var serverHalves = await UpstreamTestCaseServerHalves.StartAsync(tlsSettings.For(UpstreamTestCaseParser.Parse(source, SelectionEnvironment(client.Features))), tlsSettings.MutualTls, httpUnixSocketPath, socksUnixSocketPath, cancellationToken);
             await using var tlsSrp = UpstreamTestCaseTlsSrpServerHalf.Start(tlsSrpAccounts, cancellationToken);
 
             var testCase = UpstreamTestCaseParser.Parse(source, RunEnvironment(number, caseDirectory, logDirectory, serverHalves, tlsSrp, client, httpUnixSocketPath, socksUnixSocketPath, source));
@@ -565,7 +566,7 @@ public sealed class UpstreamTestCasesAgainstSurlTests
                 named[name] = TlsSettingsFor(files, name);
             }
 
-            return new CaseTlsSettings(named);
+            return new CaseTlsSettings(named, MutualTlsSettingsFor(files));
         }
 
         // The certificates the corpus's <server> lines name, read from the case files themselves.
@@ -596,11 +597,25 @@ public sealed class UpstreamTestCasesAgainstSurlTests
             return new ServerTlsSettings(server, [], [], TimeProvider.System);
         }
 
+        // The https-mtls half (BL-1131): the test-localhost certificate, requiring a client certificate chaining to test-ca.
+        private static ServerTlsSettings MutualTlsSettingsFor(IReadOnlyDictionary<string, byte[]> files)
+        {
+            using var key = ECDsa.Create();
+            key.ImportFromPem(System.Text.Encoding.ASCII.GetString(files["test-localhost.key"]));
+            using var issued = X509CertificateLoader.LoadCertificate(files["test-localhost.der"]);
+            using var server = issued.CopyWithPrivateKey(key);
+            var ca = X509CertificateLoader.LoadCertificate(files["test-ca.crt"]);
+
+            return new ServerTlsSettings(server, [], [ca], TimeProvider.System);
+        }
+
         /// <summary>
         /// The run's server TLS settings, one per certificate a case may name; a case naming none gets <c>test-localhost</c>.
         /// </summary>
-        private sealed class CaseTlsSettings(Dictionary<string, ServerTlsSettings> named) : IDisposable
+        private sealed class CaseTlsSettings(Dictionary<string, ServerTlsSettings> named, ServerTlsSettings mutualTls) : IDisposable
         {
+            public ServerTlsSettings MutualTls => mutualTls;
+
             public ServerTlsSettings For(UpstreamTestCase testCase) =>
                 named[UpstreamTestCaseCertificateName.Find(testCase) ?? "test-localhost"];
 
@@ -610,6 +625,8 @@ public sealed class UpstreamTestCasesAgainstSurlTests
                 {
                     settings.Dispose();
                 }
+
+                mutualTls.Dispose();
             }
         }
 
@@ -623,6 +640,7 @@ public sealed class UpstreamTestCasesAgainstSurlTests
                 ["HTTPPORT"] = serverHalves.HttpPort.ToString(CultureInfo.InvariantCulture),
                 ["HTTP6PORT"] = serverHalves.HttpIPv6Port.ToString(CultureInfo.InvariantCulture),
                 ["HTTPSPORT"] = serverHalves.HttpsPort.ToString(CultureInfo.InvariantCulture),
+                ["HTTPS-MTLSPORT"] = serverHalves.HttpMutualTlsPort.ToString(CultureInfo.InvariantCulture),
                 ["HTTP2PORT"] = serverHalves.Http2Port.ToString(CultureInfo.InvariantCulture),
                 ["HTTP2TLSPORT"] = serverHalves.Http2TlsPort.ToString(CultureInfo.InvariantCulture),
                 ["HTTP3PORT"] = serverHalves.Http3Port.ToString(CultureInfo.InvariantCulture),

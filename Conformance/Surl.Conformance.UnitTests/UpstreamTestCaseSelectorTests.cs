@@ -325,6 +325,20 @@ public sealed class UpstreamTestCaseSelectorTests
         Assert.AreEqual("libtest", Reason(Server("dns") + "<tool>\nlib1500\n</tool>\n" + Features("Debug")));
     }
 
+    // BL-1131: the https-mtls half is composed, so 2088 and 2089's shape (SSL, !Schannel) runs on an OpenSSL pin and skips on Schannel.
+    [TestMethod]
+    [DataRow("linux-x64", null)]
+    [DataRow("osx-arm64", null)]
+    [DataRow("win-x64", "feature-missing:!Schannel")]
+    public void FindSkipReason_HttpsMtlsCaseNotNeedingSchannel_RunsOnOpenSslPinsAndSkipsOnSchannel(string platform, string? expected)
+    {
+        var pin = ReferencePins().Single(candidate => candidate.Platform == platform);
+        var rules = UpstreamTestCaseSelectionRules.ForBuild(pin, new HashSet<int>(), new HashSet<int>());
+        var testCase = Case(client: Server("https-mtls") + Features("SSL", "!Schannel", "local-http"));
+
+        Assert.AreEqual(expected, new UpstreamTestCaseSelector(rules).FindSkipReason(Number, testCase));
+    }
+
     [TestMethod]
     [DataRow("win-x64", "Schannel")]
     [DataRow("linux-x64", "OpenSSL")]
