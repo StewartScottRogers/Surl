@@ -145,9 +145,11 @@ task board in `Tasks/`, never here.
   release dry run's conformance job runs on each. `win-x64` conformance against the published
   binary runs only locally, but two consecutive full runs passed (BL-604, BL-1090), and BL-1059
   fixed the HTTP/3 port draw. BL-724 and BL-768 confirmed the HTTP/2 and HTTP/3 conformance
-  passes green on CI's Linux and macOS. No upstream test case runs over HTTP/2 or HTTP/3, since
-  those server halves are not built: BL-1113 to BL-1121 build them and BL-1123 states the
-  result.
+  passes green on CI's Linux and macOS. The `http/2` and `http/3` gateway halves are built
+  (ADR-0154, BL-1113 to BL-1121): on 2026-11-14 upstream test cases 1700, 1701, 1702, 2403,
+  2500 and 2503 pass on `linux-x64` and `osx-arm64` (CI run 43629075978), and 987 to 989
+  (`imaps`, `pop3s`, `smtps`) pass on all three platforms; the other ten of the 16 http/2 and
+  http/3 cases need a `Debug` build or are libtests.
 - **Delivers:** HTTP/2 on `https` by ALPN `h2`, on `http` by prior knowledge and by
   `Upgrade: h2c`, over the hand-built `Surl.Hpack` and `Surl.Http2`; HTTP/3 over QUIC version 1
   with `surl --http3`, over the hand-built `Surl.Quic`, `Surl.Tls13`, `Surl.Qpack` and
@@ -155,7 +157,7 @@ task board in `Tasks/`, never here.
   `Surl.Cryptography.Curve448` and `Surl.Cryptography.Sm2`) and requiring a client certificate
   with `--cacert`; `Surl.Http3`, which with `Surl.Http2` the extended servers share; the
   upstream test-case suite in `Surl.Conformance` (parser, selector, verify checker, server
-  halves for the HTTP and HTTPS family, RTSP, FTP and FTPS, IMAP, POP3 and SMTP, DICT, Gopher,
+  halves for the HTTP and HTTPS family including `http/2` and `http/3`, RTSP, FTP and FTPS, IMAP, POP3 and SMTP, DICT, Gopher,
   TELNET, MQTT, TFTP, SCP, SFTP and SMB) with a stated pass rate per platform; and native
   publishing proven on six runtime identifiers by `Test-PublishedSurl.ps1` and, on `linux-x64`
   and `osx-arm64`, by `Surl.Conformance` run against the published binary. What each answers,
@@ -172,7 +174,8 @@ task board in `Tasks/`, never here.
   `surl` on each runtime identifier), ADR-0086 (the libraries the extended servers share for
   HTTP/2, HTTP/3 and QUIC), ADR-0090 (the HTTP/2 prior-knowledge connection), ADR-0091
   (`Upgrade: h2c`), ADR-0096 (QUIC streams and flow control), ADR-0140 (QUIC loss detection and
-  congestion control) and ADR-0147 (the remaining TLS 1.3 groups curl offers over QUIC).
+  congestion control), ADR-0147 (the remaining TLS 1.3 groups curl offers over QUIC) and
+  ADR-0154 (how the `http/2` and `http/3` server halves play upstream's nghttpx gateway).
 
 ## Milestone 7 — Phase 7
 

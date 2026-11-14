@@ -8,7 +8,7 @@ depends-on: [BL-1121, BL-1122]
 touches: [Documentation/Planning/Roadmap.md, Documentation/Product/Requirements.md, Documentation/Product/Product-Overview.md]
 requirement: FR-053
 created: 2026-11-14
-completed:
+completed: 2026-11-14
 ---
 # BL-1123 — State the HTTP/2 and HTTP/3 upstream test-case results in FR-053 to FR-055 and Milestone 6
 
@@ -38,19 +38,22 @@ state the HTTP/2 and HTTP/3 upstream test-case results that BL-1121 measured, an
 
 ## Acceptance criteria
 
-- [ ] FR-053, FR-054 and FR-055 cite ADR-0154, give the measured outcome for each of the nine cases
+- [x] FR-053, FR-054 and FR-055 cite ADR-0154, give the measured outcome for each of the nine cases
       above on `linux-x64` and `osx-arm64`, and no longer say the http/2 or http/3 server half is
       not built.
-- [ ] Roadmap Milestone 6's Status and Delivers lines say the same, dated, and list ADR-0154 under
+- [x] Roadmap Milestone 6's Status and Delivers lines say the same, dated, and list ADR-0154 under
       Decisions.
-- [ ] `Product-Overview.md`'s "Built for Phase 6" section mentions the gateway halves and their
+- [x] `Product-Overview.md`'s "Built for Phase 6" section mentions the gateway halves and their
       pass rate in one paragraph that is consistent with the two files above.
-- [ ] `git grep -n "server half is not built" Documentation/` returns nothing about `http/2` or
+- [x] `git grep -n "server half is not built" Documentation/` returns nothing about `http/2` or
       `http/3`.
 
 ## Notes
+
+- 2026-11-14: All nine cases pass on linux-x64 and osx-arm64 (CI run 43629075978), so no follow-up task is named. Windows skips them as feature-missing. No new glossary term (ADR-0154 only names the nghttpx gateway), so touches is unchanged. Docs only; no code touched.
 
 ## Log
 
 - 2026-11-14: Created.
 - 2026-11-14: Backlog -> Doing.
+- 2026-11-14: Doing -> Done. FR-053 to FR-055, Milestone 6 and the product overview state the http/2 and http/3 upstream test-case results and cite ADR-0154
