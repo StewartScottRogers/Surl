@@ -52,3 +52,4 @@ put the peek inside the same `try` / `catch (IOException)` the other paths use.
 ## Log
 
 - 2026-11-14: Created.
+- 2026-11-14: Backlog -> Doing.
