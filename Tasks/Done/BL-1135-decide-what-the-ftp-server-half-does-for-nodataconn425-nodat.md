@@ -8,7 +8,7 @@ depends-on: []
 touches: [Documentation/Planning/Decisions]
 requirement: FR-053
 created: 2026-11-14
-completed:
+completed: 2026-11-14
 ---
 # BL-1135 — Decide what the FTP server half does for NODATACONN425, NODATACONN421, NODATACONN150, PASVBADIP and RETRWEIRDO
 
@@ -44,18 +44,23 @@ further choice.
 
 ## Acceptance criteria
 
-- [ ] An ADR under `Documentation/Planning/Decisions/` marked "Decided by Claude under Stewart's
+- [x] An ADR under `Documentation/Planning/Decisions/` marked "Decided by Claude under Stewart's
       delegation" has one decision per command: the reply bytes, when they are sent, and what the half
       does with the data connection.
-- [ ] Each decision names its evidence (case section, RFC 959 section, `ftpserver.pl` line read at
+- [x] Each decision names its evidence (case section, RFC 959 section, `ftpserver.pl` line read at
       tag `curl-8_21_0`, or a recorded measurement) and the curl version; none cites the Curl port.
-- [ ] The ADR lists the cases each decision serves (1206, 1207, 1208, 270, 126) and the exit code
+- [x] The ADR lists the cases each decision serves (1206, 1207, 1208, 270, 126) and the exit code
       each expects.
-- [ ] `Documentation/Planning/Decisions/README.md` lists the new ADR.
+- [x] `Documentation/Planning/Decisions/README.md` lists the new ADR.
 
 ## Notes
+
+- ADR number: ADR-0155 was taken by BL-1138 (MQTT) before this task ran, so the decision is ADR-0156. Read `ftpserver.pl` at tag `curl-8_21_0` from GitHub into a temp file outside the repo.
+- No measurement needed: the five cases' own `<protocol>` and exit codes pin what curl does.
+- Choice: plain `NODATACONN` (no suffix) stays unsupported; the three suffixed words match by exact first word.
 
 ## Log
 
 - 2026-11-14: Created.
 - 2026-11-14: Backlog -> Doing.
+- 2026-11-14: Doing -> Done. ADR-0156 written and listed in the Decisions README
