@@ -8,7 +8,7 @@ depends-on: [BL-1114]
 touches: [Protocols/Http/Surl.Protocol.Http.UnitLibrary, Protocols/Http/Surl.Protocol.Http.UnitTests]
 requirement: FR-053
 created: 2026-11-14
-completed:
+completed: 2026-11-14
 ---
 # BL-1117 — Serve the http/3 gateway half over QUIC, forwarding to the HTTP/1 case half
 
@@ -35,20 +35,24 @@ case's HTTP/1 half, and it answers with the translated reply, so tests 2500 and 
 
 ## Acceptance criteria
 
-- [ ] A unit test feeds the half test 2500's request as a QPACK-encoded HTTP/3 request stream. It
+- [x] A unit test feeds the half test 2500's request as a QPACK-encoded HTTP/3 request stream. It
       asserts the forwarded HTTP/1.1 request that reaches a fake backend, byte for byte, and the
       `HEADERS` and `DATA` frames written back for 2500's `<data>`.
-- [ ] A unit test does the same for test 2503's reply and pins the response fields its `<stdout>`
+- [x] A unit test does the same for test 2503's reply and pins the response fields its `<stdout>`
       lists.
-- [ ] A backend that closes without a reply ends the request stream as ADR-0154 decides, and a unit
+- [x] A backend that closes without a reply ends the request stream as ADR-0154 decides, and a unit
       test names that outcome.
-- [ ] `dotnet build Protocols/Http/Surl.Protocol.Http.UnitLibrary -warnaserror` is clean, and the
+- [x] `dotnet build Protocols/Http/Surl.Protocol.Http.UnitLibrary -warnaserror` is clean, and the
       library keeps 100% line and branch coverage.
-- [ ] No test needs `TestCategory=Integration`.
+- [x] No test needs `TestCategory=Integration`.
 
 ## Notes
+
+- Named `Http3GatewayUpstreamTestCaseServer` (an `IDatagramProtocolServer`, ctor takes the connector, backend port, certificate chain and key; BL-1119 supplies the generated `test-localhost` certificate). Forwarding is `Http3GatewayStreamForwarder` over `NghttpxGatewayBackend`, as BL-1115 chose.
+- Decision (within ADR-0154 decision 3): the 502 on HTTP/3 carries no `server` field, since HTTP/3 never adds it.
 
 ## Log
 
 - 2026-11-14: Created.
 - 2026-11-14: Backlog -> Doing.
+- 2026-11-14: Doing -> Done. http/3 gateway half built and unit tested
