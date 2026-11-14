@@ -57,3 +57,4 @@ HTTP/2 and HTTP/3 response fields and body. It has no socket and no stream state
 ## Log
 
 - 2026-11-14: Created.
+- 2026-11-14: Backlog -> Doing.
