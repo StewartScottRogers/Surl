@@ -58,7 +58,7 @@ public sealed class MailUpstreamTestCaseReplies
     /// <summary>
     /// The first words of the <c>&lt;servercmd&gt;</c> lines the mail server halves implement:
     /// <c>Testnum</c>, <c>REPLY</c>, <c>REPLYLF</c>, <c>COUNT</c>, <c>CAPA</c>, <c>AUTH</c> and
-    /// <c>POSTFETCH</c>. A case using any other is skipped <c>servercmd-unsupported:&lt;command&gt;</c>.
+    /// <c>POSTFETCH</c> and <c>SLOWDOWN</c>. A case using any other is skipped <c>servercmd-unsupported:&lt;command&gt;</c>.
     /// </summary>
     public static IReadOnlySet<string> SupportedServerCommands => MailUpstreamTestCaseServerCommands.Supported;
 
@@ -90,6 +90,12 @@ public sealed class MailUpstreamTestCaseReplies
 
     /// <summary><c>POSTFETCH</c>: the text written after a fetched message, before its closing parenthesis.</summary>
     public string PostFetch => commands.PostFetch;
+
+    /// <summary>
+    /// <c>SLOWDOWN</c>: whether the case wants every reply written one byte at a time
+    /// (<see cref="BytePacedConnection"/>). The POP3 server half applies it.
+    /// </summary>
+    public bool IsSlowedDown => commands.IsSlowedDown;
 
     /// <summary>
     /// The scripted answer to a command as bytes to send, spending one of its <c>COUNT</c> uses.

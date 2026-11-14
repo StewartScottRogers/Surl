@@ -11,9 +11,16 @@ public sealed class MailUpstreamTestCaseRepliesTests
     public void SupportedServerCommands_IsExactlyTheKeptInstructions()
     {
         CollectionAssert.AreEquivalent(
-            new[] { "Testnum", "REPLY", "REPLYLF", "COUNT", "CAPA", "AUTH", "POSTFETCH" },
+            new[] { "Testnum", "REPLY", "REPLYLF", "COUNT", "CAPA", "AUTH", "POSTFETCH", "SLOWDOWN" },
             MailUpstreamTestCaseReplies.SupportedServerCommands.ToArray());
-        Assert.HasCount(7, MailUpstreamTestCaseReplies.SupportedServerCommands);
+        Assert.HasCount(8, MailUpstreamTestCaseReplies.SupportedServerCommands);
+    }
+
+    [TestMethod]
+    public void IsSlowedDown_IsSetOnlyBySlowdown()
+    {
+        Assert.IsTrue(new MailUpstreamTestCaseReplies(NoParts, ["SLOWDOWN"]).IsSlowedDown);
+        Assert.IsFalse(new MailUpstreamTestCaseReplies(NoParts, []).IsSlowedDown);
     }
 
     [TestMethod]

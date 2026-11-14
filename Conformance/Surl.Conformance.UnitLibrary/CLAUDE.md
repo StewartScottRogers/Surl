@@ -292,8 +292,9 @@ server halves are Surl's own servers, made by the tests' `UpstreamTestCaseFileSe
 
 Playing the imap, pop3 and smtp cases is built (BL-879): `UpstreamTestCaseServerCommands.Mail` is
 their row, the same words as `Surl.LineProtocol`'s `MailUpstreamTestCaseReplies.SupportedServerCommands`
-(`Testnum`, `REPLY`, `REPLYLF`, `COUNT`, `CAPA`, `AUTH`, `POSTFETCH`); `DELAY`, `SLOWDOWN`,
-`SLOWDOWNDATA` and `NOSAVE` skip `servercmd-unsupported:<command>`. The tests' server halves add
+(`Testnum`, `REPLY`, `REPLYLF`, `COUNT`, `CAPA`, `AUTH`, `POSTFETCH`), and `UpstreamTestCaseServerCommands.Pop3` adds `SLOWDOWN` (BL-1137: the POP3 half writes each
+reply one byte at a time, 10 ms apart on the exchange's `TimeProvider`, through `BytePacedConnection`; IMAP and
+SMTP do not, so their cases skip it); `DELAY`, `SLOWDOWNDATA` and `NOSAVE` skip `servercmd-unsupported:<command>`. The tests' server halves add
 `ImapUpstreamTestCaseServer`, `Pop3UpstreamTestCaseServer` and `SmtpUpstreamTestCaseServer` in
 plaintext on `127.0.0.1` and `[::1]` (`%IMAPPORT`, `%POP3PORT`, `%SMTPPORT` and their `6` forms),
 sharing one `MailUpstreamTestCaseReplies` per case built from its `<data*>` parts, with logins

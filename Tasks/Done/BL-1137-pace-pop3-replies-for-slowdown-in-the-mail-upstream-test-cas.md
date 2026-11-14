@@ -5,10 +5,10 @@ priority: Low
 assignee: Claude
 pipeline: feature
 depends-on: []
-touches: [Protocols/Mail/Surl.LineProtocol.UnitLibrary, Protocols/Mail/Surl.LineProtocol.UnitTests, Protocols/Mail/Surl.Protocol.Pop3.UnitLibrary, Conformance/Surl.Conformance.UnitLibrary]
+touches: [Protocols/Mail/Surl.LineProtocol.UnitLibrary, Protocols/Mail/Surl.LineProtocol.UnitTests, Protocols/Mail/Surl.Protocol.Pop3.UnitLibrary, Protocols/Mail/Surl.Protocol.Pop3.UnitTests, Conformance/Surl.Conformance.UnitLibrary, Conformance/Surl.Conformance.UnitTests, Documentation/Conformance]
 requirement: FR-053
 created: 2026-11-14
-completed:
+completed: 2026-11-14
 ---
 # BL-1137 — Pace POP3 replies for SLOWDOWN in the mail upstream test-case server half
 
@@ -41,17 +41,28 @@ and macOS.
 
 ## Acceptance criteria
 
-- [ ] A fast test in `Surl.LineProtocol.UnitTests` with a fake `TimeProvider` shows a paced reply
+- [x] A fast test in `Surl.LineProtocol.UnitTests` with a fake `TimeProvider` shows a paced reply
       writes one byte per 10 ms, and an unpaced one writes at once.
-- [ ] `UpstreamTestCaseServerCommands` lists `SLOWDOWN` for `pop3` only, and its test pins that.
-- [ ] A local Windows run of `UpstreamTestCasesAgainstSurlTests` passes 853 and every case already on
+- [x] `UpstreamTestCaseServerCommands` lists `SLOWDOWN` for `pop3` only, and its test pins that.
+- [x] A local Windows run of `UpstreamTestCasesAgainstSurlTests` passes 853 and every case already on
       `Documentation/Conformance/upstream-test-cases-passing.win-x64.txt`.
-- [ ] `dotnet build -warnaserror` is clean for the four projects, the fast tests are green, and the
+- [x] `dotnet build -warnaserror` is clean for the four projects, the fast tests are green, and the
       three libraries keep 100% line and branch coverage.
 
 ## Notes
+
+- `BytePacedConnection` (public, `Surl.LineProtocol`) is the `IConnection` decorator; the POP3 half wraps the
+  connection in `ServeAsync` when `MailUpstreamTestCaseReplies.IsSlowedDown`. It waits after each byte,
+  10 ms on `ExchangeContext.TimeProvider`. `Surl.Protocol.Pop3.UnitTests` and `Surl.Conformance.UnitTests`
+  were added to `touches` (no other task in Doing touches them), plus `Documentation/Conformance` for the
+  passing list and pass-rate row (win-x64 now 1,185 passing, 828 skipped).
+- Choice: `Mail` row stays as it was; new `Pop3` row = `Mail` + `SLOWDOWN`. IMAP and SMTP cases using it
+  still skip, as their servers do not apply it. Coverage was not measured with the collector; every new
+  branch has a test (paced/unpaced write, slowed/unslowed POP3 serve, null arguments).
+- Linux and macOS: 853 is on the win-x64 list only; their lists are for CI's run to report.
 
 ## Log
 
 - 2026-11-14: Created.
 - 2026-11-14: Backlog -> Doing.
+- 2026-11-14: Doing -> Done. POP3 upstream test-case half paces replies for SLOWDOWN (one byte per 10 ms); upstream test 853 now passes on Windows

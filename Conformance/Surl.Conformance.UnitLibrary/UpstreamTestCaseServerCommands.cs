@@ -57,10 +57,19 @@ public static class UpstreamTestCaseServerCommands
     /// <summary>
     /// The IMAP, POP3 and SMTP server halves' commands (BL-876 to BL-879), the same words
     /// <c>Surl.LineProtocol</c>'s <c>MailUpstreamTestCaseReplies.SupportedServerCommands</c>
-    /// accepts. <c>DELAY</c>, <c>SLOWDOWN</c>, <c>SLOWDOWNDATA</c> and <c>NOSAVE</c> are not.
+    /// accepts but <c>SLOWDOWN</c>, which only the POP3 half applies (<see cref="Pop3"/>).
+    /// <c>DELAY</c>, <c>SLOWDOWNDATA</c> and <c>NOSAVE</c> are not accepted.
     /// </summary>
     public static readonly IReadOnlySet<string> Mail = new HashSet<string>(
         ["Testnum", "REPLY", "REPLYLF", "COUNT", "CAPA", "AUTH", "POSTFETCH"],
+        StringComparer.Ordinal);
+
+    /// <summary>
+    /// The POP3 server half's commands (BL-1137): <see cref="Mail"/> plus <c>SLOWDOWN</c>, which
+    /// paces each reply one byte per 10 ms on the exchange's clock.
+    /// </summary>
+    public static readonly IReadOnlySet<string> Pop3 = new HashSet<string>(
+        [.. Mail, "SLOWDOWN"],
         StringComparer.Ordinal);
 
     /// <summary>
@@ -117,7 +126,7 @@ public static class UpstreamTestCaseServerCommands
         ["sftp"] = None,
         ["smb"] = None,
         ["imap"] = Mail,
-        ["pop3"] = Mail,
+        ["pop3"] = Pop3,
         ["smtp"] = Mail,
         ["httptls+srp"] = None,
         ["httptls+srp-ipv6"] = None,

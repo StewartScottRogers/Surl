@@ -44,7 +44,10 @@ public sealed class UpstreamTestCaseServerCommandsTests
     [DataRow("smtp", "REPLY", true)]
     [DataRow("imap", "POSTFETCH", true)]
     [DataRow("pop3", "CAPA", true)]
-    [DataRow("pop3", "SLOWDOWN", false)]
+    [DataRow("pop3", "SLOWDOWN", true)]
+    [DataRow("imap", "SLOWDOWN", false)]
+    [DataRow("smtp", "SLOWDOWN", false)]
+    [DataRow("pop3", "DELAY", false)]
     [DataRow("imaps", "REPLY", false)]
     [DataRow("rtsp", "idle", false)]
     [DataRow("tftp", "writedelay:", true)]
@@ -167,9 +170,17 @@ public sealed class UpstreamTestCaseServerCommandsTests
     }
 
     [TestMethod]
-    public void Mail_IsTheCommandsTheMailServerHalvesAccept()
+    public void Mail_IsTheCommandsTheMailServerHalvesAcceptButSlowdown()
     {
         var table = UpstreamTestCaseServerCommands.Mail.Order(StringComparer.Ordinal).ToArray();
+
+        CollectionAssert.AreEqual(MailUpstreamTestCaseReplies.SupportedServerCommands.Where(command => command != "SLOWDOWN").Order(StringComparer.Ordinal).ToArray(), table);
+    }
+
+    [TestMethod]
+    public void Pop3_IsEveryCommandTheMailReplyReadingAccepts()
+    {
+        var table = UpstreamTestCaseServerCommands.Pop3.Order(StringComparer.Ordinal).ToArray();
 
         CollectionAssert.AreEqual(MailUpstreamTestCaseReplies.SupportedServerCommands.Order(StringComparer.Ordinal).ToArray(), table);
     }

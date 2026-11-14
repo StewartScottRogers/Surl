@@ -26,7 +26,8 @@ namespace Surl.LineProtocol;
 /// message in an IMAP <c>FETCH</c> response, before its closing parenthesis.
 /// </para>
 /// <para>
-/// <c>DELAY</c>, <c>SLOWDOWN</c>, <c>SLOWDOWNDATA</c>, <c>NOSAVE</c> and FTP's own commands are not
+/// <c>SLOWDOWN</c> paces every reply one byte per 10 ms (<see cref="BytePacedConnection"/>); only
+/// the POP3 server half applies it. <c>DELAY</c>, <c>SLOWDOWNDATA</c>, <c>NOSAVE</c> and FTP's own commands are not
 /// implemented: a case using one is skipped <c>servercmd-unsupported:&lt;command&gt;</c>.
 /// </para>
 /// </remarks>
@@ -47,6 +48,7 @@ internal sealed class MailUpstreamTestCaseServerCommands
         ["CAPA"] = static (commands, _, argument) => commands.Capabilities = SplitCapabilities(argument),
         ["AUTH"] = static (commands, _, argument) => commands.AuthMechanisms = [.. argument.Split(' ', StringSplitOptions.RemoveEmptyEntries)],
         ["POSTFETCH"] = static (commands, _, argument) => commands.PostFetch = argument,
+        ["SLOWDOWN"] = static (commands, _, _) => commands.IsSlowedDown = true,
     };
 
     // The letters that escape a control character; a backslash before any other character stands for it.
@@ -74,6 +76,9 @@ internal sealed class MailUpstreamTestCaseServerCommands
 
     /// <summary><c>POSTFETCH</c>: the text written after a fetched message; empty without it.</summary>
     public string PostFetch { get; private set; } = string.Empty;
+
+    /// <summary><c>SLOWDOWN</c>: whether replies are written one byte at a time; false without it.</summary>
+    public bool IsSlowedDown { get; private set; }
 
     /// <summary>
     /// Reads <paramref name="lines"/>; lines that are blank or start with <c>#</c> are skipped,
