@@ -4,7 +4,7 @@ title: Record the three platforms' upstream test-case pass rates after the faili
 priority: Normal
 assignee: Claude
 pipeline: direct
-depends-on: [BL-1126, BL-1127, BL-1128, BL-1129, BL-1130, BL-1131, BL-1132, BL-1133, BL-1134, BL-1136, BL-1137, BL-1139, BL-1140, BL-1141, BL-1143, BL-1144]
+depends-on: [BL-1126, BL-1127, BL-1128, BL-1129, BL-1130, BL-1131, BL-1132, BL-1133, BL-1134, BL-1136, BL-1137, BL-1139, BL-1140, BL-1141, BL-1143, BL-1144, BL-1145, BL-1146, BL-1147]
 touches: [Documentation/Conformance]
 requirement: FR-053
 created: 2026-11-14

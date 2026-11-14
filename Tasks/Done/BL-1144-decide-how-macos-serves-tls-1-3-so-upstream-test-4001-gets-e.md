@@ -8,7 +8,7 @@ depends-on: [BL-1141]
 touches: [Documentation/Planning/Decisions]
 requirement: FR-053
 created: 2026-11-14
-completed:
+completed: 2026-11-14
 ---
 # BL-1144 — Decide how macOS serves TLS 1.3 so upstream test 4001 gets exit 101 (ECH required)
 
@@ -24,12 +24,15 @@ An ADR records how Surl serves TLS 1.3 on macOS, so upstream test 4001 (`--ech e
 
 ## Acceptance criteria
 
-- [ ] An ADR marked "Decided by Claude under Stewart's delegation" states the approach, the project that holds it and the ordered implementation tasks.
-- [ ] Those implementation tasks are filed, and BL-1142's `depends-on` lists them.
+- [x] An ADR marked "Decided by Claude under Stewart's delegation" states the approach, the project that holds it and the ordered implementation tasks.
+- [x] Those implementation tasks are filed, and BL-1142's `depends-on` lists them.
 
 ## Notes
+
+- Chose "only where SslStream cannot" over "every platform" to keep passing behaviour unmoved (ADR-0157). Filed BL-1145, BL-1146, BL-1147; BL-1142 now depends on them.
 
 ## Log
 
 - 2026-11-14: Created.
 - 2026-11-14: Backlog -> Doing.
+- 2026-11-14: Doing -> Done. ADR-0157 written; BL-1145 to BL-1147 filed
