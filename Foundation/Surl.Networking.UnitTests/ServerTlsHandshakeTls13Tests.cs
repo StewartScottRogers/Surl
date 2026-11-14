@@ -211,5 +211,50 @@ public sealed class ServerTlsHandshakeTls13Tests
             CertificateRevocationCheckMode = X509RevocationMode.NoCheck,
         };
 
+    [TestMethod]
+    public async Task AuthenticateAsync_TransportResetWhileReadingTheHelloOnTheHandBuiltPath_ThrowsTlsHandshakeException()
+    {
+        using var certificate = TestCertificates.CreateEcdsaServerCertificate();
+        using var settings = new ServerTlsSettings(certificate, [], [], Time);
+        var handshake = new ServerTlsHandshake(settings, [SslApplicationProtocol.Http11], new FakeTls13Support(true));
+
+        var failure = await Assert.ThrowsExactlyAsync<TlsHandshakeException>(
+            () => handshake.AuthenticateAsync(new ResettingReadStream(), TestContext.CancellationToken));
+
+        Assert.IsInstanceOfType<IOException>(failure.InnerException);
+    }
+
     private sealed record FakeTls13Support(bool SslStreamLacksTls13Server) : ITls13Support;
+
+    private sealed class ResettingReadStream : Stream
+    {
+        public override bool CanRead => true;
+
+        public override bool CanSeek => false;
+
+        public override bool CanWrite => true;
+
+        public override long Length => throw new NotSupportedException();
+
+        public override long Position
+        {
+            get => throw new NotSupportedException();
+            set => throw new NotSupportedException();
+        }
+
+        public override ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default) =>
+            ValueTask.FromException<int>(new IOException("The peer reset the connection."));
+
+        public override void Flush()
+        {
+        }
+
+        public override int Read(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+
+        public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+
+        public override void SetLength(long value) => throw new NotSupportedException();
+
+        public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+    }
 }

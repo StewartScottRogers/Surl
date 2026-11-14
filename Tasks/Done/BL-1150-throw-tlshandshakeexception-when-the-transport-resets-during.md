@@ -8,7 +8,7 @@ depends-on: []
 touches: [Foundation/Surl.Networking.UnitLibrary, Foundation/Surl.Networking.UnitTests]
 requirement: none
 created: 2026-11-14
-completed:
+completed: 2026-11-14
 ---
 # BL-1150 — Throw TlsHandshakeException when the transport resets during the hand-built TLS 1.3 handshake
 
@@ -39,17 +39,20 @@ BL-1147, not a flake. That holds the merge of #36 to `master`.
 
 ## Acceptance criteria
 
-- [ ] An `IOException` from `ClientHelloPeek.ReadAsync` in `AuthenticateTls13OnlyWithHandBuiltStreamAsync` is thrown as `TlsHandshakeException` with that `IOException` as `InnerException`. Cancellation still surfaces as `OperationCanceledException`.
-- [ ] A new fast test, with a fake `ITls13Support` saying `SslStreamLacksTls13Server` and a transport that throws `IOException` on read, fails before the fix and passes after it on Windows. It names the hand-built path in its method name.
-- [ ] `UpgradeToTlsAsync_TransportResetDuringHandshake_ThrowsTlsHandshakeException` is unchanged and passes.
-- [ ] `dotnet build` is clean and `dotnet test --filter "TestCategory!=Integration"` is green. Surl.Networking.UnitLibrary keeps 100% line and branch coverage.
+- [x] An `IOException` from `ClientHelloPeek.ReadAsync` in `AuthenticateTls13OnlyWithHandBuiltStreamAsync` is thrown as `TlsHandshakeException` with that `IOException` as `InnerException`. Cancellation still surfaces as `OperationCanceledException`.
+- [x] A new fast test, with a fake `ITls13Support` saying `SslStreamLacksTls13Server` and a transport that throws `IOException` on read, fails before the fix and passes after it on Windows. It names the hand-built path in its method name.
+- [x] `UpgradeToTlsAsync_TransportResetDuringHandshake_ThrowsTlsHandshakeException` is unchanged and passes.
+- [x] `dotnet build` is clean and `dotnet test --filter "TestCategory!=Integration"` is green. Surl.Networking.UnitLibrary keeps 100% line and branch coverage.
 
 ## Notes
 
 Filed by an interactive session on 2026-11-14 after PR #36's macOS job failed. The fix is small:
 put the peek inside the same `try` / `catch (IOException)` the other paths use.
 
+Done: wrapped only the peek in `catch (IOException)` -> `TlsHandshakeException` (the later paths already wrap their own). Test: `AuthenticateAsync_TransportResetWhileReadingTheHelloOnTheHandBuiltPath_ThrowsTlsHandshakeException`. Networking fast tests: 501 passed.
+
 ## Log
 
 - 2026-11-14: Created.
 - 2026-11-14: Backlog -> Doing.
+- 2026-11-14: Doing -> Done. A transport reset while peeking the TLS 1.3 hello is a TlsHandshakeException on every platform

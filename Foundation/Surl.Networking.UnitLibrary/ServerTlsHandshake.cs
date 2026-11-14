@@ -88,7 +88,16 @@ internal sealed class ServerTlsHandshake
     private async Task<(Stream Stream, TlsSession Session)> AuthenticateTls13OnlyWithHandBuiltStreamAsync(
         Stream transport, CancellationToken cancellationToken)
     {
-        var peek = await ClientHelloPeek.ReadAsync(transport, cancellationToken);
+        ClientHelloPeek peek;
+
+        try
+        {
+            peek = await ClientHelloPeek.ReadAsync(transport, cancellationToken);
+        }
+        catch (IOException exception)
+        {
+            throw new TlsHandshakeException(exception.Message, exception);
+        }
 
         return peek.OffersOnlyTls13
             ? await AuthenticateTls13Async(transport, peek, cancellationToken)
