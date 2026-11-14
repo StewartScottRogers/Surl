@@ -23,9 +23,9 @@ internal sealed partial class SmtpSession
     {
         commands["MAIL"] = argument => AnswerUpstreamTestCaseMailAsync(argument, replies);
         var answerRecipient = commands["RCPT"];
-        commands["RCPT"] = argument => HasAtSign(argument) ? answerRecipient(argument) : ReplyAsync(UpstreamInvalidAddress);
+        commands["RCPT"] = argument => HasAtSign(argument) && IsAddressTheCaseAccepts(argument, replies) ? answerRecipient(argument) : ReplyAsync(UpstreamInvalidAddress);
         commands["DATA"] = argument => AnswerUpstreamTestCaseDataAsync(argument, replies);
-        commands["VRFY"] = argument => AnswerFromTheUpstreamTestCaseDataAsync(argument, replies, SmtpReplies.VrfySyntax, SmtpReplies.VrfyAnswer);
+        commands["VRFY"] = argument => IsAddressTheCaseAccepts(argument, replies) ? AnswerFromTheUpstreamTestCaseDataAsync(argument, replies, SmtpReplies.VrfySyntax, SmtpReplies.VrfyAnswer) : ReplyAsync(UpstreamInvalidAddress);
         commands["EXPN"] = argument => AnswerFromTheUpstreamTestCaseDataAsync(argument, replies, SmtpReplies.ExpnSyntax, SmtpReplies.ExpnAnswer);
         commands["HELP"] = _ => AnswerHelpFromTheUpstreamTestCaseDataAsync(replies);
     }
@@ -42,6 +42,10 @@ internal sealed partial class SmtpSession
         await connection.WriteAsync(data, CancellationToken);
         return true;
     }
+
+    // RCPT_smtp and VRFY_smtp: a byte past ASCII is allowed only when the case's CAPA lists SMTPUTF8.
+    private static bool IsAddressTheCaseAccepts(byte[]? argument, MailUpstreamTestCaseReplies replies) =>
+        replies.Capabilities.Contains("SMTPUTF8") || argument is null || !argument.AsSpan().ContainsAnyInRange((byte)0x80, (byte)0xFF);
 
     private static bool HasAtSign(byte[]? argument) => argument is not null && argument.AsSpan().Contains((byte)'@');
 

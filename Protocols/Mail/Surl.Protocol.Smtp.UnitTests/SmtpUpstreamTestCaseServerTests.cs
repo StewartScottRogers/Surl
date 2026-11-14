@@ -303,13 +303,30 @@ public sealed class SmtpUpstreamTestCaseServerTests
         Assert.AreEqual(Greeting + "250 surl Hello\r\n250 2.1.0 Sender OK\r\n501 Invalid address\r\n501 Invalid address\r\n221 2.0.0 Bye\r\n", written);
     }
 
+    // Client bytes of upstream cases 956 and 957 (UTF-8 a-umlaut as C3 B6 / C3 A4); ftpserver.pl at curl-8_21_0 refuses them without SMTPUTF8.
+    [TestMethod]
+    public async Task ServeAsync_NonAsciiRecipientOrVrfyName_WithoutSmtpUtf8_IsRefusedAsUpstreamsServerRefusesIt()
+    {
+        var written = await ServeAsync(Case(), "EHLO 956\r\nMAIL FROM:<sender@example.com>\r\nRCPT TO:<StÃ¶dmottagaren@example.com>\r\nVRFY AnvÃ¤ndaren\r\nQUIT\r\n");
+
+        Assert.AreEqual(Greeting + "250 surl Hello\r\n250 2.1.0 Sender OK\r\n501 Invalid address\r\n501 Invalid address\r\n221 2.0.0 Bye\r\n", written);
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_NonAsciiRecipient_WithSmtpUtf8InTheCapa_IsAccepted()
+    {
+        var written = await ServeAsync(Case("CAPA SMTPUTF8"), "EHLO c\r\nMAIL FROM:<a@x>\r\nRCPT TO:<StÃ¶d@example.com>\r\nQUIT\r\n");
+
+        Assert.Contains("250 2.1.5 Recipient OK\r\n", written);
+    }
+
     private static MailUpstreamTestCaseReplies Case(params string[] serverCommands) => new(NoParts, serverCommands);
 
     private static MailUpstreamTestCaseReplies Case(Dictionary<string, byte[]> parts) => new(parts, []);
 
     private async Task<string> ServeAsync(MailUpstreamTestCaseReplies replies, string request, ExchangeLimits? limits = null)
     {
-        var connection = new InMemoryConnection(Ascii(request));
+        var connection = new InMemoryConnection([Encoding.Latin1.GetBytes(request)]);
 
         await new SmtpUpstreamTestCaseServer(replies, new AnonymousAuthenticationPolicy())
             .ServeAsync(connection, Context(new ManualTimeProvider(), TestContext.CancellationToken, limits));

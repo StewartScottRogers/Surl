@@ -5,7 +5,7 @@ priority: Normal
 assignee: Claude
 pipeline: feature
 depends-on: []
-touches: [Conformance, Documentation/Conformance]
+touches: [Conformance, Documentation/Conformance, Protocols/Mail/Surl.Protocol.Smtp.UnitLibrary, Protocols/Mail/Surl.Protocol.Smtp.UnitTests]
 requirement: FR-053
 created: 2026-11-14
 completed:
@@ -29,14 +29,18 @@ SMTP server half, and are in both passing lists.
 
 ## Acceptance criteria
 
-- [ ] Cause of each of 956, 957 and 958 found and recorded under Notes, with bytes measured from pinned upstream curl.
+- [x] Cause of each of 956, 957 and 958 found and recorded under Notes, with bytes measured from pinned upstream curl.
 - [ ] The three cases pass in a CI run on Linux and macOS, and their numbers are in both
       `upstream-test-cases-passing.<platform>.txt` lists with the rows in `Upstream-Test-Case-Pass-Rate.md` updated.
 - [ ] `UpstreamTestCasePassRateStatementTests` passes.
 
 ## Notes
 
+- Cause (all three): upstream `ftpserver.pl` at curl-8_21_0 (read with `gh api .../contents/tests/ftpserver.pl?ref=curl-8_21_0`) `RCPT_smtp` and `VRFY_smtp` answer `501 Invalid address` for an address with a byte past ASCII unless the case's CAPA lists `SMTPUTF8` (the regexes allow `\x{80}-\x{ff}` only then). Surl's case-mode SMTP answered RCPT (956: curl went on to DATA, exit 0) and VRFY (957, 958: `252`, exit 0) for them. 955 passed because its case scripts `REPLY MAIL 501`.
+- Fix: `SmtpSession.UpstreamTestCase.cs` `IsAddressTheCaseAccepts` gates RCPT and VRFY in case mode; two unit tests added in `SmtpUpstreamTestCaseServerTests` (bytes C3 B6 / C3 A4 from the cases). Smtp tests 276/276 green, build clean. Touches widened to the Smtp projects: no other task in Doing names them.
+
 ## Log
 
 - 2026-11-14: Created.
 - 2026-11-14: Backlog -> Doing.
+- 2026-11-14: Doing -> Blocked. Code fix landed; needs a CI run on Linux/macOS after the shift pushes it, then add 956-958 to both passing lists and Pass-Rate rows (cases are !win32, cannot run here)
