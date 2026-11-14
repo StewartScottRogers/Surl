@@ -30,9 +30,9 @@ SMTP server half, and are in both passing lists.
 ## Acceptance criteria
 
 - [x] Cause of each of 956, 957 and 958 found and recorded under Notes, with bytes measured from pinned upstream curl.
-- [ ] The three cases pass in a CI run on Linux and macOS, and their numbers are in both
+- [x] The three cases pass in a CI run on Linux and macOS, and their numbers are in both
       `upstream-test-cases-passing.<platform>.txt` lists with the rows in `Upstream-Test-Case-Pass-Rate.md` updated.
-- [ ] `UpstreamTestCasePassRateStatementTests` passes.
+- [x] `UpstreamTestCasePassRateStatementTests` passes.
 
 ## Notes
 
@@ -47,3 +47,4 @@ SMTP server half, and are in both passing lists.
 - 2026-11-14: Doing -> Blocked. Code fix landed; needs a CI run on Linux/macOS after the shift pushes it, then add 956-958 to both passing lists and Pass-Rate rows (cases are !win32, cannot run here)
 - 2026-11-14: Blocked -> Backlog. CI run 43651751537 (PR #36, 145f16b) ran the upstream cases with this fix: 956, 957, 958, 1072 and 1073 pass on linux-x64 and osx-arm64, and both failures files are empty
 - 2026-11-14: Backlog -> Doing.
+- 2026-11-14: Added 956-958 to the linux-x64 and osx-arm64 lists and updated both Pass-Rate rows (1,316 passed, 0 failed, commit 145f16b2, CI run 43651751537). Pass-rate statement and passing-list tests green. Unrelated: `RunBesideAsync_EveryCaseOnThePassingList_PortDefectsAreTheListedFindings` failed on a port-side `test251` ftp timeout (Curl port, not Surl; slow 2 min test).

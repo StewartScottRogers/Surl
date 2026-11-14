@@ -34,8 +34,10 @@ decision 5). This is success criterion 2 of the
 | Platform | Commit | Date | Reference pin SHA-256 | Total | Runnable | Passed | Failed | Skipped | test-server-choice | Pass rate |
 | --- | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | `win-x64` | `c3011bee` | 2026-11-14 | `0E773709C3A44DB47B88B71351D902027682ED87C3BD3821009E454BACCA8778` | 2,013 | 1,185 | 1,185 | 0 | 828 | 34 | 100.0% |
-| `linux-x64` | `c3011bee` | 2026-11-14 | `153CA463957609117D21A848BE29B70691B85F9E5CC9370C7DAA037B839A4E45` | 2,013 | 1,316 | 1,313 | 3 | 697 | 34 | 99.8% |
-| `osx-arm64` | `c3011bee` | 2026-11-14 | `04E0E69BCD3BD814EC093551A0447AC14EDEEA9D395B468A2025DCB3F766EEBF` | 2,013 | 1,316 | 1,313 | 3 | 697 | 34 | 99.8% |
+| `linux-x64` | `145f16b2` | 2026-11-14 | `153CA463957609117D21A848BE29B70691B85F9E5CC9370C7DAA037B839A4E45` | 2,013 | 1,316 | 1,316 | 0 | 697 | 34 | 100.0% |
+| `osx-arm64` | `145f16b2` | 2026-11-14 | `04E0E69BCD3BD814EC093551A0447AC14EDEEA9D395B468A2025DCB3F766EEBF` | 2,013 | 1,316 | 1,316 | 0 | 697 | 34 | 100.0% |
+
+BL-1149 (2026-11-14) moved Linux and macOS to commit `145f16b2`, from [CI run 43651751537](https://github.com/StewartScottRogers/Surl/actions/runs/43651751537) (PR #36): 956, 957 and 958 now pass on both (`RCPT` and `VRFY` answer `501` for a non-ASCII address unless the case lists `SMTPUTF8`, as upstream `ftpserver.pl` does), so each is 1,316 passed, 0 failed and both failures files are empty. The paragraph below is the earlier BL-1142 record, kept as history.
 
 BL-1142 (2026-11-14) recorded all three rows at commit `c3011bee`, which contains BL-1126 to BL-1134, BL-1136,
 BL-1137, BL-1139, BL-1140, BL-1141 and BL-1143 to BL-1147. Linux and macOS come from CI run
