@@ -8,7 +8,7 @@ depends-on: []
 touches: [Documentation/Conformance/CurlPort/Extended.md, Documentation/Conformance/CurlPort/README.md]
 requirement: none
 created: 2026-11-14
-completed:
+completed: 2026-11-14
 ---
 # BL-1124 — Refresh Extended.md's findings from the extended integration tasks now Done
 
@@ -22,11 +22,14 @@ completed:
 
 ## Acceptance criteria
 
-- [ ] The "Extended tasks not yet done" table is gone or empty, and every Done Integration task has a row in the findings table.
+- [x] The "Extended tasks not yet done" table is gone or empty, and every Done Integration task has a row in the findings table.
 
 ## Notes
+
+- Docs only. Added EXT-2 to EXT-6 (grpc -u, signalr 401, mqtt5 0x86, amqp -T, kafka auto-create) from the Done tasks' Notes, handoff entries 19 to 23 (new findings), README counts. BL-515 and BL-534 Notes are empty, so listed as no defect recorded.
 
 ## Log
 
 - 2026-11-14: Created.
 - 2026-11-14: Backlog -> Doing.
+- 2026-11-14: Doing -> Done. Extended.md lists all 19 clients, EXT-2 to EXT-6 added, handoff 19-23
