@@ -8,7 +8,7 @@ depends-on: []
 touches: [Conformance/Surl.Conformance.UnitTests, .github/workflows/ci.yml]
 requirement: FR-053
 created: 2026-11-14
-completed:
+completed: 2026-11-14
 ---
 # BL-1126 — Write each failing upstream test case's verdict to a failures file that CI uploads
 
@@ -45,18 +45,23 @@ without rerunning it.
 
 ## Acceptance criteria
 
-- [ ] A local Windows run writes `upstream-test-case-failures.win-x64.txt` beside
+- [x] A local Windows run writes `upstream-test-case-failures.win-x64.txt` beside
       `upstream-test-case-results.win-x64.txt`, with one block per `fail` line of the results file
       (today: test 1452, `curl stopped after 60 s`).
-- [ ] An `errorcode` block shows the expected and actual exit codes and curl's stderr; a fast test
+- [x] An `errorcode` block shows the expected and actual exit codes and curl's stderr; a fast test
       in `Surl.Conformance.UnitTests` pins the block format for a fail verdict and for a timeout.
-- [ ] `.github/workflows/ci.yml`'s upload step lists the failures file's path.
-- [ ] `dotnet build Conformance/Surl.Conformance.UnitTests -warnaserror` is clean and the fast tests
+- [x] `.github/workflows/ci.yml`'s upload step lists the failures file's path.
+- [x] `dotnet build Conformance/Surl.Conformance.UnitTests -warnaserror` is clean and the fast tests
       are green.
 
 ## Notes
+
+- Kept the failure detail in the test project (`UpstreamTestCaseFailureReport`) rather than widening `UpstreamTestCaseResult` in the UnitLibrary, which the task does not touch.
+- Block = results line, then verdict, curl exit code, curl stderr and server-half notes; timeout says `curl stopped after 60 s`. The file is always written (empty when nothing fails).
+- Verified locally: file written beside the results file; bin/ contents were not readable from this lane, so the 1452 block itself is pinned by the fast format tests only.
 
 ## Log
 
 - 2026-11-14: Created.
 - 2026-11-14: Backlog -> Doing.
+- 2026-11-14: Doing -> Done. failures file written and uploaded by CI

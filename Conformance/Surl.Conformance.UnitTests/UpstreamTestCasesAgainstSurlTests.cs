@@ -147,6 +147,9 @@ public sealed class UpstreamTestCasesAgainstSurlTests
             Directory.CreateDirectory(Path.GetDirectoryName(resultsFile)!);
             await File.WriteAllTextAsync(resultsFile, text, TestContext.CancellationToken);
             TestContext.AddResultFile(resultsFile);
+            var failuresFile = Path.Combine(Path.GetDirectoryName(resultsFile)!, UpstreamTestCaseFailureReport.FileNameFor(location.Build.Platform));
+            await File.WriteAllTextAsync(failuresFile, run.Failures.Format(results), TestContext.CancellationToken);
+            TestContext.AddResultFile(failuresFile);
             WriteCounts(resultsFile, results);
             var comparison = await CompareWithThePassingListAsync(location.Build.Platform, resultsFile, results);
 
@@ -307,6 +310,11 @@ public sealed class UpstreamTestCasesAgainstSurlTests
             certificateDirectory = Path.Combine(work, "certdir");
             this.testContext = testContext;
         }
+
+        /// <summary>
+        /// Gets the full verdicts of the run's failing cases, for the failures file.
+        /// </summary>
+        public UpstreamTestCaseFailureReport Failures { get; } = new();
 
         /// <summary>
         /// Gets the upstream builds the run's cases are played with: the reference build, then the
@@ -475,6 +483,7 @@ public sealed class UpstreamTestCasesAgainstSurlTests
             catch (FormatException exception)
             {
                 testContext.WriteLine($"{client.LogPrefix}test{number}: {exception.Message}");
+                Failures.Record(number, exception.Message);
                 return UpstreamTestCaseResult.Fail(number, "command");
             }
 
@@ -501,6 +510,7 @@ public sealed class UpstreamTestCasesAgainstSurlTests
             if (curl.TimedOut)
             {
                 testContext.WriteLine($"{client.LogPrefix}test{number}: curl stopped after {CaseTimeout.TotalSeconds} s");
+                Failures.Record(number, $"curl stopped after {CaseTimeout.TotalSeconds} s");
                 return UpstreamTestCaseResult.Fail(number, UpstreamTestCaseResult.TimeoutReason);
             }
 
@@ -524,6 +534,9 @@ public sealed class UpstreamTestCasesAgainstSurlTests
             }
 
             testContext.WriteLine($"{client.LogPrefix}test{number}: {verdict}{Environment.NewLine}{serverHalves.Notes}");
+            Failures.Record(
+                number,
+                $"{verdict}\ncurl exit code: {curl.ExitCode}\ncurl stderr:\n{curl.StandardError}\nserver halves:\n{serverHalves.Notes}");
 
             // The results file names the section only: "file (log/jar31.txt)" is "file".
             return UpstreamTestCaseResult.Fail(number, verdict.FailedSection!.Split(' ')[0]);
