@@ -50,6 +50,74 @@ public sealed partial class SurlServerCompositionTests
     }
 
     [TestMethod]
+    public void ComposeKafkaBroker_OneInstance_GivesEveryGroupAnswererTheOneCoordinatorForKafkaAndKafkas()
+    {
+        var services = SurlServerComposition.ComposeUnservedExtendedServices(TimeProvider.System);
+
+        var broker = ExtendedProtocolServers.Compose(services).OfType<KafkaBroker>().Single();
+
+        var answerers = ComposedServerFields.Single<System.Collections.Frozen.FrozenDictionary<KafkaApiKey, IKafkaApiAnswerer>>(broker);
+        var coordinators = new[]
+        {
+            KafkaApiKey.JoinGroup, KafkaApiKey.SyncGroup, KafkaApiKey.Heartbeat, KafkaApiKey.LeaveGroup,
+            KafkaApiKey.OffsetCommit, KafkaApiKey.DescribeGroups, KafkaApiKey.ListGroups,
+        }.Select(key => AnyField<KafkaGroupCoordinator>(answerers[key])).ToArray();
+        Assert.IsTrue(coordinators.All(coordinator => ReferenceEquals(coordinator, coordinators[0])));
+        CollectionAssert.AreEqual(new[] { "kafka", "kafkas" }, broker.Schemes.ToArray());
+    }
+
+    [TestMethod]
+    public void ComposeKafkaBroker_TwoInstances_DoNotShareACoordinatorOrProducerStates()
+    {
+        var first = ExtendedProtocolServers.ComposeKafkaBroker(SurlServerComposition.ComposeUnservedExtendedServices(TimeProvider.System).ComposedServices);
+        var second = ExtendedProtocolServers.ComposeKafkaBroker(SurlServerComposition.ComposeUnservedExtendedServices(TimeProvider.System).ComposedServices);
+
+        var firstAnswerers = ComposedServerFields.Single<System.Collections.Frozen.FrozenDictionary<KafkaApiKey, IKafkaApiAnswerer>>(first);
+        var secondAnswerers = ComposedServerFields.Single<System.Collections.Frozen.FrozenDictionary<KafkaApiKey, IKafkaApiAnswerer>>(second);
+        Assert.AreNotSame(
+            AnyField<KafkaGroupCoordinator>(firstAnswerers[KafkaApiKey.JoinGroup]),
+            AnyField<KafkaGroupCoordinator>(secondAnswerers[KafkaApiKey.JoinGroup]));
+        Assert.AreNotSame(
+            AnyField<KafkaProducerStates>(firstAnswerers[KafkaApiKey.InitProducerId]),
+            AnyField<KafkaProducerStates>(secondAnswerers[KafkaApiKey.InitProducerId]));
+    }
+
+    [TestMethod]
+    public async Task ComposeAsync_KafkaApiVersions_ListsTheRangesTheDecisionGives()
+    {
+        // ApiVersions v0: header v1 (api key 18, version 0, correlation id 9, null client id), no body.
+        byte[] request = [0, 0, 0, 10, 0, 18, 0, 0, 0, 0, 0, 9, 0xFF, 0xFF];
+        var connection = new FakeConnection(request);
+        var seams = new StartTestSeams(new FakeListenerFactory
+        {
+            ConnectionsByScheme = new Dictionary<string, Task<FakeConnection>> { ["kafka"] = Task.FromResult(connection) },
+        });
+        var start = await SurlServerComposition.ComposeAsync(
+            StartTestSeams.ParseWithKafka("--allow-anonymous", "kafka://127.0.0.1:0/"), seams.Seams with { AreExtensionsTurnedOn = true }, TestContext.CancellationToken);
+        await using var serving = start.Serving!;
+        using var stop = CancellationTokenSource.CreateLinkedTokenSource(TestContext.CancellationToken);
+
+        var serve = serving.ServeAsync(StartTestSeams.Outputs(TextWriter.Null), stop.Token);
+        await connection.Disposed.Task.WaitAsync(TimeSpan.FromSeconds(10), TestContext.CancellationToken);
+        await stop.CancelAsync();
+        await serve;
+
+        var response = connection.WrittenBytes;
+        Assert.AreEqual(9, BinaryPrimitives.ReadInt32BigEndian(response.AsSpan(4)));
+        Assert.AreEqual(0, BinaryPrimitives.ReadInt16BigEndian(response.AsSpan(8)));
+        var count = BinaryPrimitives.ReadInt32BigEndian(response.AsSpan(10));
+        Assert.AreEqual(KafkaServedApis.Ranges.Count, count);
+        var served = Enumerable.Range(0, count).ToDictionary(
+            row => BinaryPrimitives.ReadInt16BigEndian(response.AsSpan(14 + (row * 6))),
+            row => (Min: BinaryPrimitives.ReadInt16BigEndian(response.AsSpan(16 + (row * 6))), Max: BinaryPrimitives.ReadInt16BigEndian(response.AsSpan(18 + (row * 6)))));
+        Assert.AreEqual((0, 5), served[(short)KafkaApiKey.JoinGroup]);
+        Assert.AreEqual((2, 4), served[(short)KafkaApiKey.CreateTopics]);
+        Assert.AreEqual((0, 1), served[(short)KafkaApiKey.InitProducerId]);
+        Assert.AreEqual((2, 7), served[(short)KafkaApiKey.OffsetCommit]);
+        Assert.AreEqual((1, 5), served[(short)KafkaApiKey.OffsetFetch]);
+    }
+
+    [TestMethod]
     public void ComposeExtendedProtocolServers_SwitchOnOrOff_ComposesTheKafkaBrokerForKafkaAndKafkasOrNone()
     {
         var services = SurlServerComposition.ComposeUnservedExtendedServices(TimeProvider.System);

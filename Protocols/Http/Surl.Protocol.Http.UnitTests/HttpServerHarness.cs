@@ -124,6 +124,26 @@ internal static class HttpServerHarness
     }
 
     /// <summary>
+    /// Waits, for at most ten seconds of real time, until <paramref name="clock"/> has created
+    /// <paramref name="timersBeforeTheDrain"/> timers in all, the head timer and the refusal's
+    /// write deadline among them, so the drain timer is the one the next wait finds: the
+    /// refusal's write deadline lasts as long as the drain, and firing it instead cuts the
+    /// half-close off. Then runs <see cref="AdvanceUntilCompletedAsync"/>. The wait never moves
+    /// the fake clock.
+    /// </summary>
+    public static async Task AdvanceUntilCompletedAfterTimersAsync(ManualTimeProvider clock, Task serving, int timersBeforeTheDrain)
+    {
+        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(10);
+        while (clock.CreatedTimerCount < timersBeforeTheDrain + 1 && DateTime.UtcNow < deadline)
+        {
+            await Task.Delay(TimeSpan.FromMilliseconds(1));
+        }
+
+        Assert.IsGreaterThanOrEqualTo(timersBeforeTheDrain + 1, clock.CreatedTimerCount, "The drain timer was never created.");
+        await AdvanceUntilCompletedAsync(clock, serving);
+    }
+
+    /// <summary>
     /// Takes what the server left unread on <paramref name="connection"/>, up to 64 KiB.
     /// </summary>
     public static async Task<byte[]> ReadWhatIsLeftAsync(InMemoryConnection connection, CancellationToken cancellationToken)

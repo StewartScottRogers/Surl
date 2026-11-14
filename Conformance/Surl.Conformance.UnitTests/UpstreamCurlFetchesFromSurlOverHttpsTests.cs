@@ -47,7 +47,7 @@ public sealed class UpstreamCurlFetchesFromSurlOverHttpsTests
     }
 
     [TestMethod]
-    [OSCondition(OperatingSystems.Windows)]
+    [WindowsX64ReferenceBuildOnly]
     public async Task Get_TrustedTestCaWithRevocationChecked_ExitsPeerFailedVerificationOnSchannel()
     {
         using var authority = TestCertificateAuthority.Create();
@@ -120,7 +120,7 @@ public sealed class UpstreamCurlFetchesFromSurlOverHttpsTests
 
     // The Windows reference build (Schannel) has no HTTP2 feature, so it offers only http/1.1.
     [TestMethod]
-    [OSCondition(OperatingSystems.Windows)]
+    [WindowsX64ReferenceBuildOnly]
     public async Task Get_ThrowawayCertificate_IsServedOverHttp11ToTheSchannelBuild()
     {
         await using var surl = await StartSurlAsync("--self-signed");

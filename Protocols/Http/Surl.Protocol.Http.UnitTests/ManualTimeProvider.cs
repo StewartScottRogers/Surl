@@ -15,6 +15,7 @@ internal sealed class ManualTimeProvider(DateTimeOffset start) : TimeProvider, I
 {
     private readonly List<ManualTimer> timers = [];
     private DateTimeOffset utcNow = start;
+    private int createdTimerCount;
 
     /// <summary>
     /// How many timers were created and not yet disposed.
@@ -26,6 +27,22 @@ internal sealed class ManualTimeProvider(DateTimeOffset start) : TimeProvider, I
             lock (timers)
             {
                 return timers.Count;
+            }
+        }
+    }
+
+    /// <summary>
+    /// How many timers were ever created, disposed or not: it tells the timers a server makes
+    /// one after another apart where <see cref="ActiveTimerCount"/> cannot, because each is gone
+    /// before the next is made.
+    /// </summary>
+    public int CreatedTimerCount
+    {
+        get
+        {
+            lock (timers)
+            {
+                return createdTimerCount;
             }
         }
     }
@@ -45,6 +62,7 @@ internal sealed class ManualTimeProvider(DateTimeOffset start) : TimeProvider, I
         {
             timer.Change(dueTime, period);
             timers.Add(timer);
+            createdTimerCount++;
         }
 
         return timer;

@@ -141,7 +141,7 @@ public sealed class CurlPortBesideUpstreamCurlOverHttpTests
 
     /// <summary>Mirrors <see cref="UpstreamCurlFetchesFromSurlOverHttpsTests.Get_TrustedTestCaWithRevocationChecked_ExitsPeerFailedVerificationOnSchannel"/>.</summary>
     [TestMethod]
-    [OSCondition(OperatingSystems.Windows)]
+    [WindowsX64ReferenceBuildOnly]
     [Description("Mirrors UpstreamCurlFetchesFromSurlOverHttpsTests.Get_TrustedTestCaWithRevocationChecked_ExitsPeerFailedVerificationOnSchannel")]
     public async Task Get_TrustedTestCaWithRevocationChecked_ExitsPeerFailedVerificationOnSchannel()
     {
@@ -191,7 +191,7 @@ public sealed class CurlPortBesideUpstreamCurlOverHttpTests
 
     /// <summary>Mirrors <see cref="UpstreamCurlFetchesFromSurlOverHttpsTests.Get_ThrowawayCertificate_IsServedOverHttp11ToTheSchannelBuild"/>.</summary>
     [TestMethod]
-    [OSCondition(OperatingSystems.Windows)]
+    [WindowsX64ReferenceBuildOnly]
     [Description("Mirrors UpstreamCurlFetchesFromSurlOverHttpsTests.Get_ThrowawayCertificate_IsServedOverHttp11ToTheSchannelBuild")]
     public Task Get_ThrowawayCertificate_IsServedOverHttp11ToTheSchannelBuild() =>
         MeasureAsync(Case(
@@ -433,7 +433,7 @@ public sealed class CurlPortBesideUpstreamCurlOverHttpTests
 
     /// <summary>Mirrors <see cref="UpstreamCurlLogsInToSurlOverHttpTests.NegotiateOverHttp_WindowsReferenceBuild_SendsNoTokenAndIsRefused"/>.</summary>
     [TestMethod]
-    [OSCondition(OperatingSystems.Windows)]
+    [WindowsX64ReferenceBuildOnly]
     [Description("Mirrors UpstreamCurlLogsInToSurlOverHttpTests.NegotiateOverHttp_WindowsReferenceBuild_SendsNoTokenAndIsRefused")]
     public async Task NegotiateOverHttp_WindowsReferenceBuild_SendsNoTokenAndIsRefused()
     {

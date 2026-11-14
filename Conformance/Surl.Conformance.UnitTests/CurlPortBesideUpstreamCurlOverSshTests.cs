@@ -535,7 +535,7 @@ public sealed class CurlPortBesideUpstreamCurlOverSshTests
     // surl writes its "no common host key algorithm" note as the key exchange fails, which can be a
     // moment after curl exits: JudgeAsync reads the notes once surl has ended the exchange.
     [TestMethod]
-    [OSCondition(OperatingSystems.Windows)]
+    [WindowsX64ReferenceBuildOnly]
     [Description("Mirrors UpstreamCurlLogsInToSurlOverSshTests.HostKey_OnlyEllipticCurveOnTheWindowsBuild_Exits2NoCommonHostKeyAlgorithm")]
     [DataRow("ecdsa-sha2-nistp256")]
     [DataRow("ssh-ed25519")]
@@ -552,7 +552,7 @@ public sealed class CurlPortBesideUpstreamCurlOverSshTests
     // --- UpstreamCurlOffersSshAlgorithmsTests ---
 
     [TestMethod]
-    [OSCondition(OperatingSystems.Windows)]
+    [WindowsX64ReferenceBuildOnly]
     [Description("Mirrors UpstreamCurlOffersSshAlgorithmsTests.KexInit_WindowsBuild_ListsTheWinCngAlgorithms")]
     public Task KexInit_WindowsBuild_ListsTheWinCngAlgorithms() =>
         JudgeKexInitAsync(Named(), [], null, Libssh2Identification, [WinCngKex, WinCngHostKey, WinCngCipher, WinCngCipher, WinCngMac, WinCngMac, "none", "none", string.Empty, string.Empty]);

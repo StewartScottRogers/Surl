@@ -15,6 +15,7 @@ internal sealed class ManualTimeProvider(DateTimeOffset start) : TimeProvider
 {
     private readonly List<ManualTimer> timers = [];
     private DateTimeOffset utcNow = start;
+    private int createdTimerCount;
 
     /// <summary>
     /// How many timers were created and not yet disposed.
@@ -26,6 +27,21 @@ internal sealed class ManualTimeProvider(DateTimeOffset start) : TimeProvider
             lock (timers)
             {
                 return timers.Count;
+            }
+        }
+    }
+
+    /// <summary>
+    /// How many timers were ever created, disposed or not. A test that must tell one timer from
+    /// another with the same due time waits for this count, not for <see cref="ActiveTimerCount"/>.
+    /// </summary>
+    public int CreatedTimerCount
+    {
+        get
+        {
+            lock (timers)
+            {
+                return createdTimerCount;
             }
         }
     }
@@ -45,6 +61,7 @@ internal sealed class ManualTimeProvider(DateTimeOffset start) : TimeProvider
         {
             timer.Change(dueTime, period);
             timers.Add(timer);
+            createdTimerCount++;
         }
 
         return timer;

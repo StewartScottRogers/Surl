@@ -194,6 +194,17 @@ public sealed partial class AiHelpTextTests
         + "the `surl://aihelp` resources.";
 
     [TestMethod]
+    public void Answer_KafkaTopic_NamesTheGroupApisAndGroupAccess()
+    {
+        var kafka = AiHelpText.Answer("kafka").Output;
+
+        foreach (var name in new[] { "JoinGroup", "OffsetCommit", "CreateTopics", "InitProducerId", "`$group/<id>`", "`sub`", "`kafkas`" })
+        {
+            Assert.Contains(name, kafka, name);
+        }
+    }
+
+    [TestMethod]
     public void Answer_NoTopic_PointsAtSurlApisStartingTypeAndSurlMcpsExecutableAndTools()
     {
         var overview = AiHelpText.Answer(null).Output;
