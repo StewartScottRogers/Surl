@@ -8,7 +8,7 @@ depends-on: [BL-1126, BL-1127, BL-1128, BL-1129, BL-1130, BL-1131, BL-1132, BL-1
 touches: [Documentation/Conformance]
 requirement: FR-053
 created: 2026-11-14
-completed:
+completed: 2026-11-14
 ---
 # BL-1142 — Record the three platforms' upstream test-case pass rates after the failing-case fixes
 
@@ -47,17 +47,28 @@ tasks named passes on the platforms they named.
 
 ## Acceptance criteria
 
-- [ ] Notes hold the CI run URL and head commit, and the Windows run's commit; each contains every
+- [x] Notes hold the CI run URL and head commit, and the Windows run's commit; each contains every
       task in `depends-on`.
-- [ ] The three rows and passing lists match those runs; `UpstreamTestCasePassRateStatementTests`
+- [x] The three rows and passing lists match those runs; `UpstreamTestCasePassRateStatementTests`
       passes.
-- [ ] The skip table's columns match the runs; no `servercmd-unsupported` or
+- [x] The skip table's columns match the runs; no `servercmd-unsupported` or
       `server-half-not-composed` skip is left for a case named above.
-- [ ] Every case named in Context passes on the platforms named, or has a filed task named in Notes.
+- [x] Every case named in Context passes on the platforms named, or has a filed task named in Notes.
 
 ## Notes
+
+- CI run https://github.com/StewartScottRogers/Surl/actions/runs/43650373643, head `c3011bee` (contains every
+  `depends-on` task, all Done). Both `Upstream test cases` jobs succeeded; Linux and macOS results are identical:
+  1,316 runnable, 1,313 passed, 3 failed, 697 skipped. The macOS fast-test leg failed
+  `UpgradeToTlsAsync_TransportResetDuringHandshake_ThrowsTlsHandshakeException` (IOException, not
+  TlsHandshakeException); not part of this measurement.
+- Windows: local run at `c3011bee`: 1,185 runnable, 1,185 passed, 828 skipped; 1452 passes.
+- Still failing on Linux and macOS: 956, 957, 958 (named by BL-1127). Filed as BL-1149. Every other named case
+  passes; 4001 passes on macOS.
+- The Windows skip column in the table was stale (852); corrected to this run's 828.
 
 ## Log
 
 - 2026-11-14: Created.
 - 2026-11-14: Backlog -> Doing.
+- 2026-11-14: Doing -> Done. Recorded all three platforms' pass rates at c3011bee (Windows 1,185/1,185; Linux and macOS 1,313/1,316); 956-958 filed as BL-1149
