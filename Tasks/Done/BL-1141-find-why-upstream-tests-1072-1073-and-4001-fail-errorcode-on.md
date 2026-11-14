@@ -8,7 +8,7 @@ depends-on: [BL-1126]
 touches: [Documentation/Conformance/Upstream-Test-Case-Pass-Rate.md]
 requirement: FR-053
 created: 2026-11-14
-completed:
+completed: 2026-11-14
 ---
 # BL-1141 — Find why upstream tests 1072, 1073 and 4001 fail errorcode on CI and file a task per cause
 
@@ -48,16 +48,24 @@ upstream tests 1072 and 1073 (`errorcode` on Linux and macOS, pass on Windows) a
 
 ## Acceptance criteria
 
-- [ ] Notes hold the CI run URL and its head commit, which contains BL-1126.
-- [ ] Notes give, for each of 1072, 1073 and 4001 on each failing platform, curl's actual exit code,
+- [x] Notes hold the CI run URL and its head commit, which contains BL-1126.
+- [x] Notes give, for each of 1072, 1073 and 4001 on each failing platform, curl's actual exit code,
       its stderr's first line and the cause.
-- [ ] Each cause has a filed task naming its cases, and BL-1142's `depends-on` lists each one.
-- [ ] `Documentation/Conformance/Upstream-Test-Case-Pass-Rate.md` has a dated paragraph naming the run
+- [x] Each cause has a filed task naming its cases, and BL-1142's `depends-on` lists each one.
+- [x] `Documentation/Conformance/Upstream-Test-Case-Pass-Rate.md` has a dated paragraph naming the run
       and each cause with its task ID.
 
 ## Notes
+
+- CI run: https://github.com/StewartScottRogers/Surl/actions/runs/43637240745, dispatched on `factory/phase-1`, head `ca55e26412ccbdc8910e6f8289452b591b2fb7aa` (contains BL-1126's `8e4ca7b9`). Artifacts `upstream-test-case-results-linux-x64` and `-osx-arm64`, file `upstream-test-case-failures.<platform>.txt`.
+- 1072, linux-x64 and osx-arm64: curl exit 65, expected 25. First stderr line: `Warning: Using --anyauth or --proxy-anyauth with upload from stdin involves a`; the error is `curl: (65) seek callback returned error 2`. Cause: stdin is a pipe, which curl cannot rewind after the 401. Task BL-1143.
+- 1073, linux-x64 and osx-arm64: exit 65, expected 25. First stderr line: `% Total % Received % Xferd ...` (progress meter); error `curl: (65) seek callback returned error 2`. Same cause, BL-1143.
+- 4001, osx-arm64 only: exit 35, expected 101. First stderr line: `curl: (35) TLS connect error: error:0A00042E:SSL routines::tlsv1 alert protocol version`. Cause: ECH needs TLS 1.3 and .NET's macOS server `SslStream` has no TLS 1.3. Task BL-1144 (ADR first). The platform-limit part is inferred from the alert and the Linux pass, not measured on macOS.
+- No new curl measurement was needed: curl's exit code and stderr settled each case. Windows was not re-run (the cases pass there per the task).
+- BL-1142's `depends-on` now lists BL-1143 and BL-1144.
 
 ## Log
 
 - 2026-11-14: Created.
 - 2026-11-14: Backlog -> Doing.
+- 2026-11-14: Doing -> Done. Causes found from CI run 43637240745; filed BL-1143 (stdin pipe, 1072/1073) and BL-1144 (macOS TLS 1.3, 4001).

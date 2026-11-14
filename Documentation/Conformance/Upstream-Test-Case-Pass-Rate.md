@@ -181,3 +181,11 @@ for the tag's version at the top of the release notes and fails when there are n
 
 | Version | Platform | Commit | Reference pin SHA-256 | Runnable | Passed | Failed | Skipped | test-server-choice | Pass rate |
 | --- | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
+
+### Why 1072, 1073 and 4001 fail on CI (2026-11-14)
+
+[CI run 43637240745](https://github.com/StewartScottRogers/Surl/actions/runs/43637240745) (head `ca55e264`) shows
+why three cases fail off Windows. Cases 1072 and 1073 (`linux-x64`, `osx-arm64`): curl exits 65
+(`seek callback returned error 2`), not 25, because the runner gives curl a pipe on stdin and curl cannot
+rewind it after the 401; fix in BL-1143. Case 4001 (`osx-arm64` only): curl exits 35 (`tlsv1 alert protocol
+version`), not 101, because ECH needs TLS 1.3 and .NET's macOS server `SslStream` has none; ADR task BL-1144.
