@@ -22,7 +22,9 @@ internal sealed class TelnetSession
 
     private readonly IExchangeLog log;
     private readonly long maxLineBytes;
+    private const byte LineFeed = 0x0A;
     private readonly bool echoesVerbatim;
+    private bool heldLineFeed;
     private readonly TelnetInboundParser parser;
     private readonly TelnetLineAssembler lines;
     private readonly TelnetOptionNegotiator negotiator = new();
@@ -170,7 +172,7 @@ internal sealed class TelnetSession
     {
         if (echoesVerbatim)
         {
-            WriteEscapedData([value]);
+            EchoVerbatim(value);
 
             return;
         }
@@ -253,6 +255,22 @@ internal sealed class TelnetSession
         {
             StopAwaitingReport(option);
             log.Note(TelnetSubnegotiationNote.Describe(option, payload));
+        }
+    }
+
+    // A line feed is held back until more data follows it, so the final one is never sent: upstream's
+    // telnet test server leaves it off the echo (test 1452's stdout has no newline).
+    private void EchoVerbatim(byte value)
+    {
+        if (heldLineFeed)
+        {
+            WriteEscapedData([LineFeed]);
+        }
+
+        heldLineFeed = value == LineFeed;
+        if (!heldLineFeed)
+        {
+            WriteEscapedData([value]);
         }
     }
 

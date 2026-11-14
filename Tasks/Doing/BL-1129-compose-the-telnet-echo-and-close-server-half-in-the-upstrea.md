@@ -5,7 +5,7 @@ priority: Normal
 assignee: Claude
 pipeline: feature
 depends-on: []
-touches: [Conformance/Surl.Conformance.UnitTests]
+touches: [Conformance/Surl.Conformance.UnitTests, Protocols/Terminal/Surl.Protocol.Telnet.UnitLibrary, Protocols/Terminal/Surl.Protocol.Telnet.UnitTests, Documentation/Planning/Decisions/ADR-0080-how-surl-plays-the-server-half-of-upstream-curls-test-cases.md]
 requirement: FR-053
 created: 2026-11-14
 completed:
@@ -37,14 +37,16 @@ The upstream test-case run serves `%TELNETPORT` with `TelnetProtocolServer` in e
 
 ## Acceptance criteria
 
-- [ ] `UpstreamTestCaseServerHalves` constructs `TelnetProtocolServer` with a
+- [x] `UpstreamTestCaseServerHalves` constructs `TelnetProtocolServer` with a
       `TelnetUpstreamTestCaseReplies`.
-- [ ] A local Windows run of `UpstreamTestCasesAgainstSurlTests` writes `test1452 pass` and still
+- [x] A local Windows run of `UpstreamTestCasesAgainstSurlTests` writes `test1452 pass` and still
       passes every case on `Documentation/Conformance/upstream-test-cases-passing.win-x64.txt`.
-- [ ] `dotnet build Conformance/Surl.Conformance.UnitTests -warnaserror` is clean and the fast tests
+- [x] `dotnet build Conformance/Surl.Conformance.UnitTests -warnaserror` is clean and the fast tests
       are green.
 
 ## Notes
+
+- Composed with a 5 s idle period. Measured 1452 still failed on a trailing LF the verbatim echo returned; echo mode now withholds a final LF (ADR-0080 amendment 2026-11-14). Telnet library, its tests and the ADR added to touches (no Doing task names them).
 
 ## Log
 

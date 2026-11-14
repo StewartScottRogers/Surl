@@ -379,3 +379,11 @@ Test 1286's line stays the only one outside the subset.
   the tag wait on them, besides `http/2` and `http/3`, which Phase 6's tasks build.
 - The pass rate starts with empty passing lists and rises as each server half lands; nothing
   blocks a merge until a case is first listed.
+
+**Amended 2026-11-14 in BL-1129** (decided by Claude under Stewart's delegation): composing the seam
+(`UpstreamTestCaseServerHalves`, idle period 5 s) first measured test 1452 as `fail stdout: expected
+"test1452", got "test1452\n"`: curl sends the stdin line with its line feed (`74657374313435320A`)
+and a verbatim echo returned it, while the case's stdout is `nonewline`. Decision: echo-and-close
+mode echoes every byte verbatim **except a line feed with nothing after it** - a line feed is held
+until more data follows, so the final one is never sent. The shipped `surl` is unchanged. After the
+change a Windows run writes `test1452 pass` and every case on the Windows passing list still passes.
