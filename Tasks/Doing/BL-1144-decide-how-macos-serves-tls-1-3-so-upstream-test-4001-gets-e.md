@@ -32,3 +32,4 @@ An ADR records how Surl serves TLS 1.3 on macOS, so upstream test 4001 (`--ech e
 ## Log
 
 - 2026-11-14: Created.
+- 2026-11-14: Backlog -> Doing.
