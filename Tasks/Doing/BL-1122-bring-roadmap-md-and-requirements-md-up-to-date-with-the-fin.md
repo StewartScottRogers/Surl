@@ -61,3 +61,4 @@ This is prose only: no code, no ADR, no task moves.
 ## Log
 
 - 2026-11-14: Created.
+- 2026-11-14: Backlog -> Doing.
