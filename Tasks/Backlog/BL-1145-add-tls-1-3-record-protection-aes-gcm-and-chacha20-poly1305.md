@@ -36,3 +36,4 @@ completed:
 
 - 2026-11-14: Created.
 - 2026-11-14: Backlog -> Doing.
+- 2026-11-14: Doing -> Backlog. Lane 2 could not integrate: fast tests failed twice (Surl.Protocol.Abstractions.UnitTests: EveryHorizontalLibrary_ReferencesOnlyItsRow; then Surl.Protocol.Abstractions.UnitTests: EveryHorizontalLibrary_ReferencesOnlyItsRow) after rebasing onto the other lanes' work. The work is on branch factory/BL-1145-lane-2-20261114-131117; start with git cherry-pick --no-commit factory/BL-1145-lane-2-20261114-131117 and fix it.
