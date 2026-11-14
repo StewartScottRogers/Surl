@@ -38,6 +38,7 @@ SMTP server half, and are in both passing lists.
 
 - Cause (all three): upstream `ftpserver.pl` at curl-8_21_0 (read with `gh api .../contents/tests/ftpserver.pl?ref=curl-8_21_0`) `RCPT_smtp` and `VRFY_smtp` answer `501 Invalid address` for an address with a byte past ASCII unless the case's CAPA lists `SMTPUTF8` (the regexes allow `\x{80}-\x{ff}` only then). Surl's case-mode SMTP answered RCPT (956: curl went on to DATA, exit 0) and VRFY (957, 958: `252`, exit 0) for them. 955 passed because its case scripts `REPLY MAIL 501`.
 - Fix: `SmtpSession.UpstreamTestCase.cs` `IsAddressTheCaseAccepts` gates RCPT and VRFY in case mode; two unit tests added in `SmtpUpstreamTestCaseServerTests` (bytes C3 B6 / C3 A4 from the cases). Smtp tests 276/276 green, build clean. Touches widened to the Smtp projects: no other task in Doing names them.
+- The three cases are `!win32`, so they skip on Windows and cannot be run here; the expected curl exit codes (55, 8) are the cases' own. Left unticked: criterion 2 needs a CI run on Linux and macOS after this commit is pushed, then adding 956-958 to both passing lists and the Pass-Rate rows. Adding them unverified would risk a red merge.
 
 ## Log
 
