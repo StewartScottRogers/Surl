@@ -1,4 +1,5 @@
 using System.Net.Security;
+using System.Security.Authentication;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using Surl.TlsSrp;
@@ -22,6 +23,7 @@ public sealed class ServerTlsSettings : IDisposable
     private readonly X509Certificate2? servingCertificate;
     private readonly SslStreamCertificateContext? certificateContext;
     private readonly ClientCertificateVerifier? clientCertificateVerifier;
+    private readonly byte[][] intermediateCertificateChain = [];
 
     /// <summary>
     /// Creates the settings for serving <paramref name="certificate"/>.
@@ -54,6 +56,7 @@ public sealed class ServerTlsSettings : IDisposable
             throw new ArgumentException("A server certificate needs its private key.", nameof(certificate));
         }
 
+        intermediateCertificateChain = [.. intermediateCertificates.Select(intermediate => intermediate.RawData)];
         servingCertificate = ServerCertificateImport.ReimportForServing(certificate, OperatingSystem.IsLinux());
         certificateContext = SslStreamCertificateContext.Create(
             servingCertificate, [.. intermediateCertificates], offline: true);
@@ -130,6 +133,37 @@ public sealed class ServerTlsSettings : IDisposable
     /// Disposes the re-imported serving certificate, if any. Calling it twice is harmless.
     /// </summary>
     public void Dispose() => servingCertificate?.Dispose();
+
+    /// <summary>
+    /// Whether the hand-built TLS 1.3 stream may serve a handshake under these settings (ADR-0157,
+    /// decisions 1 and 3): they serve a certificate, ask for no client certificate, and accept TLS 1.3.
+    /// </summary>
+    internal bool CanServeTls13Stream =>
+        servingCertificate is not null
+        && !RequiresClientCertificate
+        && AcceptedVersions.AcceptedProtocols.HasFlag(SslProtocols.Tls13);
+
+    /// <summary>
+    /// The options for one hand-built TLS 1.3 handshake: the serving certificate and its
+    /// intermediates in DER, the serving certificate's key and the ALPN protocol names. Only when
+    /// <see cref="CanServeTls13Stream"/>.
+    /// </summary>
+    /// <param name="applicationProtocols">The ALPN protocol IDs offered; empty offers none.</param>
+    /// <param name="certificateKey">The key the handshake signs with; the caller disposes it.</param>
+    /// <returns>Fresh options.</returns>
+    internal Tls13.TlsServerHandshakeOptions CreateTls13Options(
+        IReadOnlyList<SslApplicationProtocol> applicationProtocols, out AsymmetricAlgorithm certificateKey)
+    {
+        var certificate = servingCertificate!;
+        certificateKey = (AsymmetricAlgorithm?)certificate.GetRSAPrivateKey() ?? certificate.GetECDsaPrivateKey()!;
+
+        return new Tls13.TlsServerHandshakeOptions
+        {
+            CertificateChain = [certificate.RawData, .. intermediateCertificateChain],
+            CertificateKey = certificateKey,
+            ApplicationProtocols = [.. applicationProtocols.Select(protocol => protocol.ToString())],
+        };
+    }
 
     /// <summary>
     /// The options for one server handshake: the certificate context, the ALPN protocol IDs

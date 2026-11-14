@@ -10,6 +10,77 @@ public sealed class ServerTlsSettingsTests
     private static readonly FixedTimeProvider Time = new(TestCertificates.Now);
 
     [TestMethod]
+    public void CanServeTls13Stream_CertificateNoClientCertificateAndTls13_IsTrue()
+    {
+        using var certificate = TestCertificates.CreateEcdsaServerCertificate();
+        using var settings = new ServerTlsSettings(certificate, [], [], Time);
+
+        Assert.IsTrue(settings.CanServeTls13Stream);
+    }
+
+    [TestMethod]
+    public void CanServeTls13Stream_ClientCertificateRequired_IsFalse()
+    {
+        using var certificate = TestCertificates.CreateEcdsaServerCertificate();
+        using var authority = TestCertificates.CreateCertificateAuthority("CN=surl test CA");
+        using var settings = new ServerTlsSettings(certificate, [], [authority], Time);
+
+        Assert.IsFalse(settings.CanServeTls13Stream);
+    }
+
+    [TestMethod]
+    public void CanServeTls13Stream_Tls13NotAccepted_IsFalse()
+    {
+        using var certificate = TestCertificates.CreateEcdsaServerCertificate();
+        using var settings = new ServerTlsSettings(certificate, [], [], Time)
+        {
+            AcceptedVersions = new TlsVersionRange(SslProtocols.Tls12, SslProtocols.Tls12),
+        };
+
+        Assert.IsFalse(settings.CanServeTls13Stream);
+    }
+
+    [TestMethod]
+    public void CanServeTls13Stream_TlsSrp_IsFalse()
+    {
+        using var random = System.Security.Cryptography.RandomNumberGenerator.Create();
+        using var settings = ServerTlsSettings.ForTlsSrp(new Surl.TlsSrp.TlsSrpAccounts([], new byte[32]), random);
+
+        Assert.IsFalse(settings.CanServeTls13Stream);
+    }
+
+    [TestMethod]
+    public void CreateTls13Options_EcdsaCertificateAndIntermediate_CarriesChainKeyAndProtocols()
+    {
+        using var certificate = TestCertificates.CreateEcdsaServerCertificate();
+        using var authority = TestCertificates.CreateCertificateAuthority("CN=surl test CA");
+        using var settings = new ServerTlsSettings(certificate, [authority], [], Time);
+
+        var options = settings.CreateTls13Options([SslApplicationProtocol.Http2, SslApplicationProtocol.Http11], out var key);
+        using (key)
+        {
+            Assert.IsInstanceOfType<System.Security.Cryptography.ECDsa>(key);
+            Assert.HasCount(2, options.CertificateChain);
+            CollectionAssert.AreEqual(certificate.RawData, options.CertificateChain[0].ToArray());
+            CollectionAssert.AreEqual(authority.RawData, options.CertificateChain[1].ToArray());
+            CollectionAssert.AreEqual(new[] { "h2", "http/1.1" }, options.ApplicationProtocols.ToArray());
+        }
+    }
+
+    [TestMethod]
+    public void CreateTls13Options_RsaCertificate_UsesAnRsaKey()
+    {
+        using var certificate = TestCertificates.CreateRsaServerCertificate();
+        using var settings = new ServerTlsSettings(certificate, [], [], Time);
+
+        _ = settings.CreateTls13Options([], out var key);
+        using (key)
+        {
+            Assert.IsInstanceOfType<System.Security.Cryptography.RSA>(key);
+        }
+    }
+
+    [TestMethod]
     public void Constructor_NullArgument_Throws()
     {
         using var certificate = TestCertificates.CreateEcdsaServerCertificate();
