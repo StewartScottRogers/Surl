@@ -8,7 +8,7 @@ depends-on: []
 touches: [Conformance/Surl.Conformance.UnitLibrary, Conformance/Surl.Conformance.UnitTests]
 requirement: FR-053
 created: 2026-11-14
-completed:
+completed: 2026-11-14
 ---
 # BL-1128 — Substitute %H2CVER with h2c in the upstream test-case run
 
@@ -38,16 +38,19 @@ does, so upstream test 1800 ("HTTP/2 upgrade refused") passes on CI's Linux and 
 
 ## Acceptance criteria
 
-- [ ] A fast test preprocesses test 1800 with the run's variables and finds the line
+- [x] A fast test preprocesses test 1800 with the run's variables and finds the line
       `Upgrade: h2c` in its `<protocol>` part.
-- [ ] `RunEnvironment` sets `H2CVER` from the new member; no literal `"h2c"` is repeated in the test
+- [x] `RunEnvironment` sets `H2CVER` from the new member; no literal `"h2c"` is repeated in the test
       class.
-- [ ] `dotnet build -warnaserror` is clean for both Conformance projects, the fast tests are green,
+- [x] `dotnet build -warnaserror` is clean for both Conformance projects, the fast tests are green,
       and `Surl.Conformance.UnitLibrary` keeps 100% line and branch coverage.
 
 ## Notes
+
+- Added `UpstreamTestCaseVariables.H2cVersion` ("h2c", cites servers.pm); `RunEnvironment` sets `H2CVER` from it. Fast test `Preprocess_Test1800WithTheRunsH2cVersion_ExpectsUpgradeH2c`. Library change is a constant only (no branches).
 
 ## Log
 
 - 2026-11-14: Created.
 - 2026-11-14: Backlog -> Doing.
+- 2026-11-14: Doing -> Done. Upstream test-case run sets H2CVER=h2c from UpstreamTestCaseVariables.H2cVersion; test 1800 expects Upgrade: h2c

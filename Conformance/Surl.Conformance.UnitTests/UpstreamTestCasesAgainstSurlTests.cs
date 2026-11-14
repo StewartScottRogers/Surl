@@ -619,6 +619,7 @@ public sealed class UpstreamTestCasesAgainstSurlTests
             {
                 ["HOSTIP"] = "127.0.0.1",
                 ["CLIENTIP"] = "127.0.0.1",
+                ["H2CVER"] = UpstreamTestCaseVariables.H2cVersion,
                 ["HTTPPORT"] = serverHalves.HttpPort.ToString(CultureInfo.InvariantCulture),
                 ["HTTP6PORT"] = serverHalves.HttpIPv6Port.ToString(CultureInfo.InvariantCulture),
                 ["HTTPSPORT"] = serverHalves.HttpsPort.ToString(CultureInfo.InvariantCulture),
