@@ -50,3 +50,4 @@ does, so upstream test 1800 ("HTTP/2 upgrade refused") passes on CI's Linux and 
 ## Log
 
 - 2026-11-14: Created.
+- 2026-11-14: Backlog -> Doing.
