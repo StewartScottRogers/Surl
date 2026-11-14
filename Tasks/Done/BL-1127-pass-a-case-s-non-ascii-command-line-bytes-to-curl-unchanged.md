@@ -8,7 +8,7 @@ depends-on: []
 touches: [Conformance/Surl.Conformance.UnitLibrary, Conformance/Surl.Conformance.UnitTests]
 requirement: FR-053
 created: 2026-11-14
-completed:
+completed: 2026-11-14
 ---
 # BL-1127 — Pass a case's non-ASCII command-line bytes to curl unchanged on Linux and macOS
 
@@ -48,20 +48,24 @@ of their Latin-1 reading. Upstream tests 165, 469, 955, 956, 957, 958, 962, 963,
 
 ## Acceptance criteria
 
-- [ ] A fast test builds test 955's command line for a non-Windows platform, and the UTF-8 encoding
+- [x] A fast test builds test 955's command line for a non-Windows platform, and the UTF-8 encoding
       of its `--mail-from` argument is the bytes `41 76 73 C3 A4 6E 64 61 72 65 6E 40 ...`, the case
       file's bytes.
-- [ ] A fast test builds test 165's command line for Windows and gets today's arguments, unchanged.
-- [ ] A fast test shows an argument whose Latin-1 bytes are not valid UTF-8 passes unchanged, and a
+- [x] A fast test builds test 165's command line for Windows and gets today's arguments, unchanged.
+- [x] A fast test shows an argument whose Latin-1 bytes are not valid UTF-8 passes unchanged, and a
       `<setenv>` value is converted by the same rule as an argument.
-- [ ] `dotnet build -warnaserror` is clean for both Conformance projects, the fast tests are green,
+- [x] `dotnet build -warnaserror` is clean for both Conformance projects, the fast tests are green,
       and `Surl.Conformance.UnitLibrary` keeps 100% line and branch coverage.
-- [ ] A local Windows run of `UpstreamTestCasesAgainstSurlTests` still passes every case on
+- [x] A local Windows run of `UpstreamTestCasesAgainstSurlTests` still passes every case on
       `Documentation/Conformance/upstream-test-cases-passing.win-x64.txt`.
 
 ## Notes
+
+- `UpstreamTestCaseCommandLine.Build` takes `bool? onWindows` (null = running OS). Off Windows each argument and `<setenv>` value is re-read from its Latin-1 bytes as strict UTF-8; invalid UTF-8 stays as read. Windows unchanged. Decision is within the task; no ADR needed.
+- Verified: 961 fast tests green; Windows `UpstreamTestCasesAgainstSurlTests` passes against the passing list.
 
 ## Log
 
 - 2026-11-14: Created.
 - 2026-11-14: Backlog -> Doing.
+- 2026-11-14: Doing -> Done. Off Windows a case's non-ASCII command-line and setenv bytes reach curl unchanged
