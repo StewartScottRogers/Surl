@@ -33,3 +33,4 @@ BL-1143 gives curl's stdin as a seekable file on Linux and macOS. Lanes cannot p
 - 2026-11-14: Backlog -> Doing.
 - 2026-11-14: Doing -> Blocked. Needs a CI dispatch on factory/phase-1 after BL-1143 (ceff9446) is integrated; latest CI run (ca55e264) predates it and lanes cannot push or dispatch CI. Anyone with push rights can clear it, then re-run this task.
 - 2026-11-14: Blocked -> Backlog. Unblocked: BL-1143 now Done
+- 2026-11-14: Backlog -> Doing.
