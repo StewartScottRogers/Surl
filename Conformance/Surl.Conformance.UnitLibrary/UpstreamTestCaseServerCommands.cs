@@ -13,10 +13,10 @@ public static class UpstreamTestCaseServerCommands
     /// <summary>
     /// The HTTP server half's commands (BL-391), the same words
     /// <c>Surl.Protocol.Http</c>'s <c>HttpUpstreamTestCaseReplies.SupportedServerCommands</c> accepts.
-    /// <c>delay:</c>, <c>stream</c>, <c>rtp:</c>, <c>connection-monitor</c> and <c>upgrade</c> are not.
+    /// <c>delay:</c>, <c>stream</c>, <c>rtp:</c> and <c>upgrade</c> are not.
     /// </summary>
     public static readonly IReadOnlySet<string> Http = new HashSet<string>(
-        ["Testnum", "auth_required", "idle", "no-expect", "skip:", "swsclose", "writedelay:"],
+        ["Testnum", "auth_required", "connection-monitor", "idle", "no-expect", "skip:", "swsclose", "writedelay:"],
         StringComparer.Ordinal);
 
     /// <summary>

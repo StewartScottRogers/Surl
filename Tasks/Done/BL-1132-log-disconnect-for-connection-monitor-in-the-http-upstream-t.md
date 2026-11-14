@@ -8,7 +8,7 @@ depends-on: []
 touches: [Protocols/Http/Surl.Protocol.Http.UnitLibrary, Protocols/Http/Surl.Protocol.Http.UnitTests, Conformance/Surl.Conformance.UnitLibrary]
 requirement: FR-053
 created: 2026-11-14
-completed:
+completed: 2026-11-14
 ---
 # BL-1132 — Log [DISCONNECT] for connection-monitor in the HTTP upstream test-case server half
 
@@ -41,19 +41,23 @@ then run instead of skipping `servercmd-unsupported:connection-monitor`, and pas
 
 ## Acceptance criteria
 
-- [ ] A fast test in `Surl.Protocol.Http.UnitTests` replays test 48's two requests over a fake
+- [x] A fast test in `Surl.Protocol.Http.UnitTests` replays test 48's two requests over a fake
       `IConnection` with `connection-monitor` set, ends the connection, and finds `[DISCONNECT]` after
       the second request in `ReceivedBytes`; without the command it is absent.
-- [ ] `UpstreamTestCaseServerCommands` lists `connection-monitor` for the `http` family, and its test
+- [x] `UpstreamTestCaseServerCommands` lists `connection-monitor` for the `http` family, and its test
       pins it.
-- [ ] A local Windows run of `UpstreamTestCasesAgainstSurlTests` passes 48, 338, 1134, 1419 and 1421
+- [x] A local Windows run of `UpstreamTestCasesAgainstSurlTests` passes 48, 338, 1134, 1419 and 1421
       and every case already on `Documentation/Conformance/upstream-test-cases-passing.win-x64.txt`.
-- [ ] `dotnet build -warnaserror` is clean for the three projects, the fast tests are green, and both
+- [x] `dotnet build -warnaserror` is clean for the three projects, the fast tests are green, and both
       libraries keep 100% line and branch coverage.
 
 ## Notes
+
+- `HttpUpstreamTestCaseServer.ServeAsync` records `[DISCONNECT]
+` (upstream sws writes that string) in a `finally`, so one marker per ended connection. Local win-x64 run: 48, 338, 1134, 1419, 1421 newly pass; passing list and pass-rate row updated (1,159 of 1,160).
 
 ## Log
 
 - 2026-11-14: Created.
 - 2026-11-14: Backlog -> Doing.
+- 2026-11-14: Doing -> Done. HTTP upstream test-case half logs [DISCONNECT] for connection-monitor; cases 48, 338, 1134, 1419, 1421 pass on win-x64

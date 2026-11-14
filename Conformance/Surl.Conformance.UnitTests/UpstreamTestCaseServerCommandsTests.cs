@@ -23,6 +23,7 @@ public sealed class UpstreamTestCaseServerCommandsTests
     [DataRow("https", "skip:", true)]
     [DataRow("https-mtls", "writedelay:", true)]
     [DataRow("http", "upgrade", false)]
+    [DataRow("http", "connection-monitor", true)]
     [DataRow("http", "skip", false)]
     [DataRow("http", "postcmd", false)]
     [DataRow("ftp", "REPLY", true)]

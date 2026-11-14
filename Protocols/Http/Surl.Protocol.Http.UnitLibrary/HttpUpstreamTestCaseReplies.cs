@@ -51,7 +51,7 @@ public sealed class HttpUpstreamTestCaseReplies
 
     /// <summary>
     /// The first words of the <c>&lt;servercmd&gt;</c> lines the HTTP server half implements:
-    /// <c>Testnum</c>, <c>auth_required</c>, <c>idle</c>, <c>no-expect</c>, <c>skip:</c>,
+    /// <c>Testnum</c>, <c>auth_required</c>, <c>connection-monitor</c>, <c>idle</c>, <c>no-expect</c>, <c>skip:</c>,
     /// <c>swsclose</c> and <c>writedelay:</c>. A case using any other is skipped
     /// <c>servercmd-unsupported:&lt;command&gt;</c>.
     /// </summary>

@@ -59,6 +59,21 @@ public sealed class HttpUpstreamTestCaseServer(HttpUpstreamTestCaseReplies repli
         ArgumentNullException.ThrowIfNull(context);
 
         var recording = new ReceivedBytesRecordingConnection(connection, replies);
+        try
+        {
+            await ServeRecordedAsync(recording, context);
+        }
+        finally
+        {
+            if (replies.Commands.ConnectionMonitor)
+            {
+                replies.RecordReceived("[DISCONNECT]\n"u8);
+            }
+        }
+    }
+
+    private async Task ServeRecordedAsync(ReceivedBytesRecordingConnection recording, ExchangeContext context)
+    {
         if (await HttpUpstreamTestCaseProxyHeader.ReadPastAsync(recording, context) is not { } requestConnection)
         {
             return;

@@ -85,6 +85,20 @@ public sealed class HttpUpstreamTestCaseServerTests
     }
 
     [TestMethod]
+    [DataRow("connection-monitor", "HEAD /48 HTTP/1.1\r\nHost: h\r\n\r\nHEAD /48 HTTP/1.1\r\nHost: h\r\n\r\n[DISCONNECT]\n")]
+    [DataRow("swsclose", "HEAD /48 HTTP/1.1\r\nHost: h\r\n\r\n")]
+    public async Task ConnectionMonitor_LogsDisconnectAfterTheLastRequestOnlyWhenAsked(string serverCommand, string expected)
+    {
+        var request = "HEAD /48 HTTP/1.1\r\nHost: h\r\n\r\n";
+        var replies = Replies([("data", Data)], serverCommand);
+        ReadOnlyMemory<byte>[] requests = serverCommand == "swsclose" ? [Ascii(request)] : [Ascii(request), Ascii(request)];
+
+        await ServeAsync(replies, requests);
+
+        Assert.AreEqual(expected, Latin1(replies.ReceivedBytes));
+    }
+
+    [TestMethod]
     public async Task Idle_SendsNothingAndWaitsForTheClientToClose()
     {
         var replies = Replies([("data", Data)], "idle");
