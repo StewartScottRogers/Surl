@@ -84,6 +84,9 @@ internal sealed class UpstreamTestCaseServerHalves : IAsyncDisposable
         ("imap", [LoopbackIPv4, LoopbackIPv6]),
         ("pop3", [LoopbackIPv4, LoopbackIPv6]),
         ("smtp", [LoopbackIPv4, LoopbackIPv6]),
+        ("imaps", [LoopbackIPv4]),
+        ("pop3s", [LoopbackIPv4]),
+        ("smtps", [LoopbackIPv4]),
         (HttpProxyScheme, [LoopbackIPv4]),
         (HttpsProxyScheme, [LoopbackIPv4]),
         ("socks4", [LoopbackIPv4]),
@@ -178,6 +181,15 @@ internal sealed class UpstreamTestCaseServerHalves : IAsyncDisposable
 
     /// <summary>The SMTP listener's port on <c>[::1]</c>: <c>%SMTP6PORT</c>.</summary>
     public int SmtpIPv6Port => ports[PortKey("smtp", LoopbackIPv6)];
+
+    /// <summary>The implicit-TLS IMAP listener's port: <c>%IMAPSPORT</c>.</summary>
+    public int ImapsPort => ports[PortKey("imaps", LoopbackIPv4)];
+
+    /// <summary>The implicit-TLS POP3 listener's port: <c>%POP3SPORT</c>.</summary>
+    public int Pop3sPort => ports[PortKey("pop3s", LoopbackIPv4)];
+
+    /// <summary>The implicit-TLS SMTP listener's port: <c>%SMTPSPORT</c>.</summary>
+    public int SmtpsPort => ports[PortKey("smtps", LoopbackIPv4)];
 
     /// <summary>The plaintext HTTP proxy listener's port: <c>%PROXYPORT</c>.</summary>
     public int ProxyPort => ports[PortKey(HttpProxyScheme, LoopbackIPv4)];
@@ -278,6 +290,9 @@ internal sealed class UpstreamTestCaseServerHalves : IAsyncDisposable
         var noDefinitions = new ContentStore(
             InMemoryContentFileSystem.RootPath, new InMemoryContentFileSystem(TimeProvider.System), new ContentExposureOptions());
         IConnectionProtocolServer[] playing = [http, http, ftp, ftp, gopher, gopher, mqtt, mqtt, new DictProtocolServer(noDefinitions), new TelnetProtocolServer(), ssh, smb,
+            new ImapUpstreamTestCaseServer(mailReplies, new AnonymousAuthenticationPolicy()),
+            new Pop3UpstreamTestCaseServer(mailReplies, new AnonymousAuthenticationPolicy()),
+            new SmtpUpstreamTestCaseServer(mailReplies, new AnonymousAuthenticationPolicy()),
             new ImapUpstreamTestCaseServer(mailReplies, new AnonymousAuthenticationPolicy()),
             new Pop3UpstreamTestCaseServer(mailReplies, new AnonymousAuthenticationPolicy()),
             new SmtpUpstreamTestCaseServer(mailReplies, new AnonymousAuthenticationPolicy()), proxy, proxy, socks, socks];

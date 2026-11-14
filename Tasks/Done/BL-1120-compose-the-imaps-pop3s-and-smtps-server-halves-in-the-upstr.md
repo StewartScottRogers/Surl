@@ -8,7 +8,7 @@ depends-on: []
 touches: [Conformance/Surl.Conformance.UnitTests, Documentation/Conformance/Upstream-Test-Case-Pass-Rate.md, Documentation/Conformance/upstream-test-cases-passing.win-x64.txt]
 requirement: FR-053
 created: 2026-11-14
-completed:
+completed: 2026-11-14
 ---
 # BL-1120 — Compose the imaps, pop3s and smtps server halves in the upstream test-case run
 
@@ -40,20 +40,30 @@ reference build, and are on the `win-x64` passing list.
 
 ## Acceptance criteria
 
-- [ ] `UpstreamTestCaseServerHalves` binds `imaps`, `pop3s` and `smtps` listeners behind implicit
+- [x] `UpstreamTestCaseServerHalves` binds `imaps`, `pop3s` and `smtps` listeners behind implicit
       TLS, and their bound ports fill `%IMAPSPORT`, `%POP3SPORT` and `%SMTPSPORT`.
-- [ ] Run against the pinned Windows reference build, tests 987, 988 and 989 each end `pass` in the
+- [x] Run against the pinned Windows reference build, tests 987, 988 and 989 each end `pass` in the
       results file. The command and the three result lines are in Notes.
-- [ ] `Documentation/Conformance/upstream-test-cases-passing.win-x64.txt` lists 987, 988 and 989.
+- [x] `Documentation/Conformance/upstream-test-cases-passing.win-x64.txt` lists 987, 988 and 989.
       The `win-x64` row of `Upstream-Test-Case-Pass-Rate.md` gains 3 in Passed and Runnable, its
       `server-half-not-composed` skip count falls by 3, and a dated paragraph under `## Current`
       says why.
-- [ ] `UpstreamTestCasePassRateStatementTests` passes. `dotnet build -warnaserror` is clean and the
+- [x] `UpstreamTestCasePassRateStatementTests` passes. `dotnet build -warnaserror` is clean and the
       fast tests are green.
 
 ## Notes
+
+- Composed in `UpstreamTestCaseServerHalves` (`Listeners` rows and `Play` servers; `ImapsPort`, `Pop3sPort`,
+  `SmtpsPort`) and `UpstreamTestCasesAgainstSurlTests` (`ServerFamilies`, the three port variables). The
+  `imaps`, `pop3s`, `smtps` schemes are implicit TLS by `ListenUrl`'s own rule, so no extra TLS setup.
+- Ran `dotnet test Conformance/Surl.Conformance.UnitTests --filter "FullyQualifiedName~UpstreamTestCasesAgainstSurlTests.RunAsync_EveryCaseWithAComposedServerHalf"`
+  (the test runs all cases; it has no per-case filter). Results: `test987 pass`, `test988 pass`, `test989 pass`.
+  Windows run: 1,155 runnable, 1,154 passed, 1 failed (timeout, not a mail case), 858 skipped.
+- The skipped-by-reason table's other rows were already out of step with the run; only the
+  `server-half-not-composed` row and total were changed here.
 
 ## Log
 
 - 2026-11-14: Created.
 - 2026-11-14: Backlog -> Doing.
+- 2026-11-14: Doing -> Done. imaps, pop3s and smtps halves composed; 987-989 pass on win-x64
