@@ -39,3 +39,4 @@ SMTP server half, and are in both passing lists.
 ## Log
 
 - 2026-11-14: Created.
+- 2026-11-14: Backlog -> Doing.
