@@ -8,7 +8,7 @@ depends-on: []
 touches: [Documentation/Planning/Decisions]
 requirement: FR-053
 created: 2026-11-14
-completed:
+completed: 2026-11-14
 ---
 # BL-1138 — Decide what the MQTT server half does for the seven mqttd server commands upstream cases use
 
@@ -45,14 +45,14 @@ further choice.
 
 ## Acceptance criteria
 
-- [ ] An ADR under `Documentation/Planning/Decisions/` marked "Decided by Claude under Stewart's
+- [x] An ADR under `Documentation/Planning/Decisions/` marked "Decided by Claude under Stewart's
       delegation" has one decision per command: the packet bytes (hex), when they are sent, and what
       the half does with the connection after.
-- [ ] Each decision names its evidence (case section, MQTT 3.1.1 section, `mqttd.c` line read at tag
+- [x] Each decision names its evidence (case section, MQTT 3.1.1 section, `mqttd.c` line read at tag
       `curl-8_21_0`, or a recorded measurement) and the curl version; none cites the Curl port.
-- [ ] The ADR lists the cases each decision serves and the exit code each expects, and says how the
+- [x] The ADR lists the cases each decision serves and the exit code each expects, and says how the
       half receives the `<servercmd>` lines.
-- [ ] `Documentation/Planning/Decisions/README.md` lists the new ADR.
+- [x] `Documentation/Planning/Decisions/README.md` lists the new ADR.
 
 ## Notes
 
@@ -64,3 +64,4 @@ further choice.
 
 - 2026-11-14: Created.
 - 2026-11-14: Backlog -> Doing.
+- 2026-11-14: Doing -> Done. ADR-0155 decides the seven MQTT server commands
