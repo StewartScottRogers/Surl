@@ -398,7 +398,8 @@ public sealed class UpstreamTestCaseSelectorTests
         var rules = UpstreamTestCaseSelectionRules.ForBuild(ReferencePins()[0], new HashSet<int>(), new HashSet<int> { 802 });
 
         Assert.IsTrue(rules.SupportsServerCommand("ftp", "REPLY"));
-        Assert.IsFalse(rules.SupportsServerCommand("ftp", "DELAY"));
+        Assert.IsTrue(rules.SupportsServerCommand("ftp", "DELAY"));
+        Assert.IsFalse(rules.SupportsServerCommand("ftp", "RETRWEIRDO"));
         Assert.IsTrue(rules.SupportsServerCommand("smtp", "REPLY"));
         Assert.IsFalse(rules.SupportsServerCommand("smtp", "SLOWDOWN"));
         Assert.IsFalse(rules.SupportsServerCommand("imaps", "REPLY"));

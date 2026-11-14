@@ -30,7 +30,7 @@ internal sealed partial class FtpCommandResponder
 
     private async ValueTask<bool> WriteScriptedReplyAsync(byte[] reply)
     {
-        await connection.WriteAsync(reply, context.CancellationToken);
+        await WriteControlAsync(reply);
 
         return true;
     }

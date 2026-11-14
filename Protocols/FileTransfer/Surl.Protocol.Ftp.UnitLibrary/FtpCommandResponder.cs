@@ -160,6 +160,22 @@ internal sealed partial class FtpCommandResponder : IAsyncDisposable
     {
         var commandLine = FtpCommandLine.Split(line);
 
+        return upstreamTestCaseReplies?.DelayBefore(commandLine.Command) is { } delay
+            ? AnswerAfterDelayAsync(delay, commandLine)
+            : AnswerCommandAsync(commandLine);
+    }
+
+    // An upstream test case's DELAY [command] [secs]: the answer waits on the exchange's clock.
+    private async ValueTask<bool> AnswerAfterDelayAsync(TimeSpan delay, FtpCommandLine commandLine)
+    {
+        await Task.Delay(delay, context.TimeProvider, context.CancellationToken);
+
+        return await AnswerCommandAsync(commandLine);
+    }
+
+    private ValueTask<bool> AnswerCommandAsync(FtpCommandLine commandLine)
+    {
+
         // An RNTO renames only what the command immediately before it named (ADR-0052, decision 8).
         renameSourceFromPreviousCommand = renameSource;
         renameSource = null;
@@ -527,7 +543,9 @@ internal sealed partial class FtpCommandResponder : IAsyncDisposable
     {
         try
         {
-            await dataConnection.WriteAsync(bytes, context.CancellationToken);
+            await (upstreamTestCaseReplies?.SlowsDataBytes == true
+                ? WriteOneByteAtATimeAsync(dataConnection, bytes)
+                : dataConnection.WriteAsync(bytes, context.CancellationToken));
             await dataConnection.CompleteWritesAsync(context.CancellationToken);
             return TransferComplete;
         }
@@ -912,8 +930,23 @@ internal sealed partial class FtpCommandResponder : IAsyncDisposable
 
     private async ValueTask<bool> ReplyAsync(string reply)
     {
-        await connection.WriteAsync(Encoding.ASCII.GetBytes(reply + "\r\n"), context.CancellationToken);
+        await WriteControlAsync(Encoding.ASCII.GetBytes(reply + "\r\n"));
 
         return true;
+    }
+
+    private ValueTask WriteControlAsync(byte[] bytes) =>
+        upstreamTestCaseReplies?.SlowsControlReplies == true
+            ? WriteOneByteAtATimeAsync(connection, bytes)
+            : connection.WriteAsync(bytes, context.CancellationToken);
+
+    // SLOWDOWN and SLOWDOWNDATA: one byte, then 0.01 s on the exchange's clock.
+    private async ValueTask WriteOneByteAtATimeAsync(IConnection target, byte[] bytes)
+    {
+        for (var index = 0; index < bytes.Length; index++)
+        {
+            await target.WriteAsync(bytes.AsMemory(index, 1), context.CancellationToken);
+            await Task.Delay(FtpUpstreamTestCaseServerCommands.SlowByteInterval, context.TimeProvider, context.CancellationToken);
+        }
     }
 }

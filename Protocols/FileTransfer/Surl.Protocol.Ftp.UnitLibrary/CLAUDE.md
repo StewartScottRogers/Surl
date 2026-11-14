@@ -59,7 +59,7 @@ connection with no reply and ends the session, both through `CommandStageFaults.
   `ReceivedBytesRecordingConnection`. `FtpCommandResponder.UpstreamTestCase.cs` holds the commands
   the case answers in place of the content store (`CWD`, `DELE`, `SIZE`, `MDTM`, `RETR`, `LIST`,
   `NLST`, `STOR`, `APPE`); a `REPLY`'d command is answered with the case's text and not run, and
-  no command needs a login first. `Surl.Conformance.UnitTests` composes it.
+  no command needs a login first; `DELAY`, `SLOWDOWN` and `SLOWDOWNDATA` pace replies and data bytes on `ExchangeContext.TimeProvider` (BL-1134). `Surl.Conformance.UnitTests` composes it.
 
 ## Rules
 

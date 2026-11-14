@@ -8,7 +8,7 @@ depends-on: []
 touches: [Protocols/FileTransfer/Surl.Protocol.Ftp.UnitLibrary, Protocols/FileTransfer/Surl.Protocol.Ftp.UnitTests, Conformance/Surl.Conformance.UnitLibrary]
 requirement: FR-053
 created: 2026-11-14
-completed:
+completed: 2026-11-14
 ---
 # BL-1134 — Pace replies for DELAY, SLOWDOWN and SLOWDOWNDATA in the FTP upstream test-case server half
 
@@ -41,19 +41,24 @@ on Windows, Linux and macOS.
 
 ## Acceptance criteria
 
-- [ ] Fast tests with a fake `TimeProvider` show: `DELAY CWD 60` holds the `CWD` reply until 60 s have
+- [x] Fast tests with a fake `TimeProvider` show: `DELAY CWD 60` holds the `CWD` reply until 60 s have
       passed; `SLOWDOWN` writes a control reply one byte per 10 ms; `SLOWDOWNDATA` writes data-connection
       bytes one per 10 ms.
-- [ ] `UpstreamTestCaseServerCommands` lists `DELAY`, `SLOWDOWN` and `SLOWDOWNDATA` for the FTP
+- [x] `UpstreamTestCaseServerCommands` lists `DELAY`, `SLOWDOWN` and `SLOWDOWNDATA` for the FTP
       family, and its test pins them.
-- [ ] A local Windows run of `UpstreamTestCasesAgainstSurlTests` passes 190, 250, 251, 1086 and 1112
+- [x] A local Windows run of `UpstreamTestCasesAgainstSurlTests` passes 190, 250, 251, 1086 and 1112
       and every case already on `Documentation/Conformance/upstream-test-cases-passing.win-x64.txt`.
-- [ ] `dotnet build -warnaserror` is clean for the three projects, the fast tests are green, and both
+- [x] `dotnet build -warnaserror` is clean for the three projects, the fast tests are green, and both
       libraries keep 100% line and branch coverage.
 
 ## Notes
+
+- Decision: `DELAY [command] [secs]` takes whole seconds and holds every matching command (`Task.Delay` on `ExchangeContext.TimeProvider`); `SLOWDOWN` paces every control reply the responder writes (the greeting is written by `FtpProtocolServer` and is not paced); `SLOWDOWNDATA` paces data-connection sends. 10 ms per byte via `FtpUpstreamTestCaseServerCommands.SlowByteInterval`.
+- Local win-x64 run: 190, 250, 251, 1086, 1112 pass, no regressions; added to the passing list and the pass-rate row (Documentation/Conformance, a shared doc touched beyond `touches`, as the pass-rate statement test requires).
+- Fast tests: Ftp 540, Conformance 951 green.
 
 ## Log
 
 - 2026-11-14: Created.
 - 2026-11-14: Backlog -> Doing.
+- 2026-11-14: Doing -> Done. FTP test-case half paces DELAY, SLOWDOWN and SLOWDOWNDATA on its TimeProvider; upstream tests 190, 250, 251, 1086, 1112 pass

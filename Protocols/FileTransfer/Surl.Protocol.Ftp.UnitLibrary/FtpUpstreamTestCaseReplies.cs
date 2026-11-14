@@ -54,7 +54,8 @@ public sealed class FtpUpstreamTestCaseReplies
     /// <summary>
     /// The first words of the <c>&lt;servercmd&gt;</c> lines the FTP server half implements:
     /// <c>Testnum</c>, <c>REPLY</c>, <c>REPLYLF</c>, <c>COUNT</c>, <c>RETRNOSIZE</c>,
-    /// <c>RETRSIZE</c>, <c>NOSAVE</c> and <c>STOR</c>. A case using any other is skipped
+    /// <c>RETRSIZE</c>, <c>NOSAVE</c>, <c>STOR</c>, <c>DELAY</c>, <c>SLOWDOWN</c> and
+    /// <c>SLOWDOWNDATA</c>. A case using any other is skipped
     /// <c>servercmd-unsupported:&lt;command&gt;</c>.
     /// </summary>
     public static IReadOnlySet<string> SupportedServerCommands => FtpUpstreamTestCaseServerCommands.Supported;
@@ -70,6 +71,15 @@ public sealed class FtpUpstreamTestCaseReplies
     /// <c>NOSAVE</c>: what the case's <c>&lt;upload&gt;</c> is checked against.
     /// </summary>
     public byte[] UploadedBytes => Copy(uploaded);
+
+    /// <summary>Whether <c>SLOWDOWN</c> makes control replies go one byte per 10 ms.</summary>
+    internal bool SlowsControlReplies => commands.SlowsControlReplies;
+
+    /// <summary>Whether <c>SLOWDOWNDATA</c> makes data bytes go one per 10 ms.</summary>
+    internal bool SlowsDataBytes => commands.SlowsDataBytes;
+
+    /// <summary>The pause <c>DELAY</c> puts before the answer to <paramref name="command"/>, if any.</summary>
+    internal TimeSpan? DelayBefore(string command) => commands.DelayBefore(command);
 
     /// <summary>The reply that ends an upload in place of <c>226</c>, from <c>STOR [msg]</c>.</summary>
     internal string? StoreReply => commands.StoreReply;

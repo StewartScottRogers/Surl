@@ -21,12 +21,12 @@ public static class UpstreamTestCaseServerCommands
 
     /// <summary>
     /// The FTP server half's commands (BL-394), the same words <c>Surl.Protocol.Ftp</c>'s
-    /// <c>FtpUpstreamTestCaseReplies.SupportedServerCommands</c> accepts. <c>DELAY</c>,
-    /// <c>RETRWEIRDO</c>, <c>SLOWDOWN</c>, <c>SLOWDOWNDATA</c>, <c>PASVBADIP</c> and the
-    /// <c>NODATACONN</c> forms are not.
+    /// <c>FtpUpstreamTestCaseReplies.SupportedServerCommands</c> accepts (BL-1134 added
+    /// <c>DELAY</c>, <c>SLOWDOWN</c> and <c>SLOWDOWNDATA</c>). <c>RETRWEIRDO</c>,
+    /// <c>PASVBADIP</c> and the <c>NODATACONN</c> forms are not.
     /// </summary>
     public static readonly IReadOnlySet<string> Ftp = new HashSet<string>(
-        ["Testnum", "REPLY", "REPLYLF", "COUNT", "RETRNOSIZE", "RETRSIZE", "NOSAVE", "STOR"],
+        ["Testnum", "REPLY", "REPLYLF", "COUNT", "RETRNOSIZE", "RETRSIZE", "NOSAVE", "STOR", "DELAY", "SLOWDOWN", "SLOWDOWNDATA"],
         StringComparer.Ordinal);
 
     /// <summary>

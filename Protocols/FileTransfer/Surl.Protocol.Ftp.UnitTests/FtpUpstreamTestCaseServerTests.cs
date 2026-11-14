@@ -222,6 +222,83 @@ public sealed class FtpUpstreamTestCaseServerTests
     }
 
     [TestMethod]
+    public async Task Delay_HoldsTheNamedCommandsAnswerUntilTheSecondsHavePassed()
+    {
+        var clock = new ManualTimeProvider();
+        var connection = new InMemoryConnection(Ascii("PWD\r\nCWD a\r\n"));
+        var serving = StartServing(Replies(["DELAY CWD 60"]), connection, clock);
+
+        await WaitForTimerAsync(clock, serving);
+        clock.Advance(TimeSpan.FromSeconds(59));
+        await Task.Yield();
+
+        Assert.IsFalse(serving.IsCompleted);
+        Assert.IsFalse(Latin1(connection.WrittenBytes).Contains("250", StringComparison.Ordinal));
+
+        clock.Advance(TimeSpan.FromSeconds(1));
+        await serving;
+
+        Assert.AreEqual(Greeting + "257 \"/\" is the current directory\r\n250 Directory changed\r\n", Latin1(connection.WrittenBytes));
+    }
+
+    [TestMethod]
+    public async Task Slowdown_WritesAControlReplyOneBytePerTenMilliseconds()
+    {
+        const string reply = "257 \"/\" is the current directory\r\n";
+        var clock = new ManualTimeProvider();
+        var connection = new InMemoryConnection(Ascii("PWD\r\n"));
+        var serving = StartServing(Replies(["SLOWDOWN"]), connection, clock);
+
+        for (var written = 1; written <= reply.Length; written++)
+        {
+            await WaitForTimerAsync(clock, serving);
+            Assert.AreEqual(Greeting + reply[..written], Latin1(connection.WrittenBytes));
+            clock.Advance(TimeSpan.FromMilliseconds(10));
+        }
+
+        await serving;
+        Assert.AreEqual(Greeting + reply, Latin1(connection.WrittenBytes));
+    }
+
+    [TestMethod]
+    public async Task SlowdownData_WritesDataBytesOnePerTenMillisecondsAndLeavesTheControlReplyWhole()
+    {
+        var clock = new ManualTimeProvider();
+        var dataConnection = new InMemoryConnection([]);
+        var connection = new InMemoryConnection(Ascii("EPSV\r\nRETR 135\r\n"));
+        var serving = StartServing(Replies(["SLOWDOWNDATA"], ("data", Data)), connection, clock, Passive(dataConnection));
+
+        for (var written = 1; written <= Data.Length; written++)
+        {
+            await WaitForTimerAsync(clock, serving);
+            Assert.AreEqual(Data[..written], Latin1(dataConnection.WrittenBytes));
+            clock.Advance(TimeSpan.FromMilliseconds(10));
+        }
+
+        await serving;
+        Assert.AreEqual(Data, Latin1(dataConnection.WrittenBytes));
+        Assert.AreEqual(Greeting + PassiveReply + $"150 Opening data connection for 135 ({Data.Length} bytes)\r\n" + TransferComplete, Latin1(connection.WrittenBytes));
+    }
+
+    [TestMethod]
+    public async Task Slowdown_AScriptedReply_IsAlsoWrittenOneBytePerTenMilliseconds()
+    {
+        var clock = new ManualTimeProvider();
+        var connection = new InMemoryConnection(Ascii("PWD\r\n"));
+        var serving = StartServing(Replies(["SLOWDOWN", "REPLY PWD 257 x"]), connection, clock);
+
+        await WaitForTimerAsync(clock, serving);
+        Assert.AreEqual(Greeting + "2", Latin1(connection.WrittenBytes));
+        while (!serving.IsCompleted)
+        {
+            clock.Advance(TimeSpan.FromMilliseconds(10));
+            await Task.Yield();
+        }
+
+        Assert.AreEqual(Greeting + "257 x\r\n", Latin1(connection.WrittenBytes));
+    }
+
+    [TestMethod]
     public void Schemes_AreFtpAndFtps()
     {
         var server = new FtpUpstreamTestCaseServer(Replies([]), new AnonymousAuthenticationPolicy());
@@ -248,6 +325,25 @@ public sealed class FtpUpstreamTestCaseServerTests
         new InMemoryDataConnections().ScriptPassiveListener(PassiveEndPoint, dataConnection);
 
     private static string Latin1(byte[] bytes) => Encoding.Latin1.GetString(bytes);
+
+    // No head timeout, so the only timers on the clock are the ones the paced writes wait on.
+    private Task StartServing(
+        FtpUpstreamTestCaseReplies replies, InMemoryConnection connection, ManualTimeProvider clock, IDataConnectionOpener? dataConnections = null)
+    {
+        var context = Context(clock, TestContext.CancellationToken, new ExchangeLimits(Timeout.InfiniteTimeSpan, 102400, 8192, 1048576, 104857600), dataConnections: dataConnections);
+
+        return Task.Run(() => new FtpUpstreamTestCaseServer(replies, new AnonymousAuthenticationPolicy()).ServeAsync(connection, context), TestContext.CancellationToken);
+    }
+
+    private static async Task WaitForTimerAsync(ManualTimeProvider clock, Task serving)
+    {
+        while (clock.PendingTimerCount == 0 && !serving.IsCompleted)
+        {
+            await Task.Yield();
+        }
+
+        Assert.IsFalse(serving.IsCompleted, "The server finished without waiting on the clock.");
+    }
 
     private async Task<(string Written, InMemoryConnection Connection)> ServeAsync(
         FtpUpstreamTestCaseReplies replies, string commands, IDataConnectionOpener? dataConnections = null, IExchangeLog? log = null)
