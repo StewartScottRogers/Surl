@@ -56,6 +56,10 @@ further choice.
 
 ## Notes
 
+- Decided in ADR-0155. Every byte comes from the cases' own `<protocol>` sections and MQTT 3.1.1; `mqttd.c` was not
+  read (not needed) and no measurement was made. 1194, 1195, 2207 and 3017 expect `30 0c` (RETAIN clear), so the half
+  writes that `PUBLISH` itself; they meet no exclusion.
+
 ## Log
 
 - 2026-11-14: Created.
