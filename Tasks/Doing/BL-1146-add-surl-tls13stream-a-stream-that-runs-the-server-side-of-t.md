@@ -34,3 +34,4 @@ A `Tls13ServerStream` completes a TLS 1.3 server handshake over any `Stream` and
 ## Log
 
 - 2026-11-14: Created.
+- 2026-11-14: Backlog -> Doing.
