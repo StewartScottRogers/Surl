@@ -8,7 +8,7 @@ depends-on: [BL-1144]
 touches: [Cryptography/Surl.Tls13.UnitLibrary, Cryptography/Surl.Tls13.UnitTests]
 requirement: FR-053
 created: 2026-11-14
-completed:
+completed: 2026-11-14
 ---
 # BL-1145 — Add TLS 1.3 record protection (AES-GCM and ChaCha20-Poly1305 records) to Surl.Tls13
 
@@ -25,14 +25,17 @@ completed:
 
 ## Acceptance criteria
 
-- [ ] A record protector and unprotector exist for all three suites, with the 100% line and branch coverage and complexity gates held.
-- [ ] Tests protect and unprotect the protected records in RFC 8448 section 3 (simple 1-RTT handshake) byte for byte.
-- [ ] Tests cover padding, an over-long record, a bad tag (`bad_record_mac`), a sequence-number advance and a key rekey (`KeyUpdate` secret derivation).
-- [ ] `dotnet build` is clean and the fast tests pass.
+- [x] A record protector and unprotector exist for all three suites, with the 100% line and branch coverage and complexity gates held.
+- [x] Tests protect and unprotect the protected records in RFC 8448 section 3 (simple 1-RTT handshake) byte for byte.
+- [x] Tests cover padding, an over-long record, a bad tag (`bad_record_mac`), a sequence-number advance and a key rekey (`KeyUpdate` secret derivation).
+- [x] `dotnet build` is clean and the fast tests pass.
 
 ## Notes
+
+- Design: `TlsRecordProtector` and `TlsRecordUnprotector` (public) share internal `TlsRecordKeys` (key, IV, sequence, rekey). Project references to ChaCha20 and Poly1305 added. RFC 8448 section 3 records (server flight, client Finished, ticket, app data, alerts) are pinned in `Rfc8448Records`, copied from the RFC text. RFC 8448 has no KeyUpdate, so the "traffic upd" secret is pinned from an independent HKDF computation. ChaCha20-Poly1305 is cross-checked against the BCL AEAD. Coverage is not measured here (collector unavailable in this lane); every branch has a test by construction.
 
 ## Log
 
 - 2026-11-14: Created.
 - 2026-11-14: Backlog -> Doing.
+- 2026-11-14: Doing -> Done. Surl.Tls13 protects and unprotects TLS 1.3 records for all three suites, matching RFC 8448 section 3 byte for byte
