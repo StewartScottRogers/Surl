@@ -8,7 +8,7 @@ depends-on: [BL-1111]
 touches: [Protocols/Http/Surl.Protocol.Http.UnitLibrary, Protocols/Http/Surl.Protocol.Http.UnitTests]
 requirement: none
 created: 2026-11-13
-completed:
+completed: 2026-11-13
 ---
 # BL-1112 — Give the other HTTP head-timeout tests the timer wait and prove HeadTimeoutTests stable over 50 runs
 
@@ -56,16 +56,20 @@ dotnet build Protocols/Http/Surl.Protocol.Http.UnitTests
 
 ## Acceptance criteria
 
-- [ ] `NoBytes_AfterHeadTimeout_ClosesWithNoBytes` and `KeptAliveConnection_NextHeadIsTimedFromItsFirstByte` advance the fake clock only after the timer they fire exists, waiting on the fake, never on `Task.Delay`, `Thread.Sleep` or real time.
-- [ ] `HeadTimeoutTests` passes 50 runs in a row on Windows: `dotnet test Protocols/Http/Surl.Protocol.Http.UnitTests --filter "FullyQualifiedName~HeadTimeoutTests"` looped 50 times, the count recorded in the Log.
-- [ ] `dotnet build` is clean and `dotnet test --filter "TestCategory!=Integration"` is green. Surl.Protocol.Http.UnitLibrary keeps 100% line and branch coverage.
+- [x] `NoBytes_AfterHeadTimeout_ClosesWithNoBytes` and `KeptAliveConnection_NextHeadIsTimedFromItsFirstByte` advance the fake clock only after the timer they fire exists, waiting on the fake, never on `Task.Delay`, `Thread.Sleep` or real time.
+- [x] `HeadTimeoutTests` passes 50 runs in a row on Windows: `dotnet test Protocols/Http/Surl.Protocol.Http.UnitTests --filter "FullyQualifiedName~HeadTimeoutTests"` looped 50 times, the count recorded in the Log.
+- [x] `dotnet build` is clean and `dotnet test --filter "TestCategory!=Integration"` is green. Surl.Protocol.Http.UnitLibrary keeps 100% line and branch coverage.
 
 ## Notes
 
 BL-1110 is the same kind of race in the WebSocket tests.
+
+Cause found by the 50-run loop (BL-1111's write wait was not enough): the 408 refusal runs under its own one-second write-deadline timer (`Http1AnswerWriter.TryWriteRefusalAsync`), the same length as the drain timer, so `WaitForTimersAsync(clock, 1)` could find that timer and the drain advance fired it, cutting the half-close off (no bytes or no `WritesCompleted`). The harness now counts timers created (`ManualTimeProvider.CreatedTimerCount`) and `AdvanceUntilCompletedAfterTimersAsync` waits for the drain timer by creation order: head, reader retry, write deadline, drain. It replaces `AdvanceUntilCompletedAfterWriteAsync`. Tests only; no production change.
 
 ## Log
 
 - 2026-11-13: Created.
 - 2026-11-13: Split from BL-1109 after its run timed out.
 - 2026-11-13: Backlog -> Doing.
+- 2026-11-13: HeadTimeoutTests passed 50 runs in a row on Windows; dotnet build clean, fast tests green.
+- 2026-11-13: Doing -> Done. HeadTimeoutTests wait for the drain timer by creation order and pass 50 runs in a row
