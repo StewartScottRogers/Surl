@@ -51,3 +51,4 @@ case's HTTP/1 half, and it answers with the translated reply, so tests 2500 and 
 ## Log
 
 - 2026-11-14: Created.
+- 2026-11-14: Backlog -> Doing.
