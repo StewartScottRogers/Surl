@@ -8,7 +8,7 @@ depends-on: [BL-1114]
 touches: [Protocols/Http/Surl.Protocol.Http.UnitLibrary, Protocols/Http/Surl.Protocol.Http.UnitTests]
 requirement: FR-053
 created: 2026-11-14
-completed:
+completed: 2026-11-14
 ---
 # BL-1115 — Serve the http/2 gateway half over TLS and prior knowledge, forwarding to the HTTP/1 case half
 
@@ -38,22 +38,33 @@ with the translated reply.
 
 ## Acceptance criteria
 
-- [ ] A unit test writes the client preface, `SETTINGS` and a `HEADERS` frame for `GET /2403`. It
+- [x] A unit test writes the client preface, `SETTINGS` and a `HEADERS` frame for `GET /2403`. It
       asserts the forwarded HTTP/1.1 request that reaches a fake backend, and the `HEADERS` and
       `DATA` frames sent back for test 2403's `<data>` reply.
-- [ ] A request with a body (`POST`) is forwarded with that body. A unit test pins the frames of
+- [x] A request with a body (`POST`) is forwarded with that body. A unit test pins the frames of
       both directions.
-- [ ] Two streams on one connection are each forwarded and answered on their own stream ID, and a
+- [x] Two streams on one connection are each forwarded and answered on their own stream ID, and a
       unit test pins this.
-- [ ] A backend that closes without a reply ends the stream as ADR-0154 decides, and a unit test
+- [x] A backend that closes without a reply ends the stream as ADR-0154 decides, and a unit test
       names that outcome.
-- [ ] `dotnet build Protocols/Http/Surl.Protocol.Http.UnitLibrary -warnaserror` is clean, and the
+- [x] `dotnet build Protocols/Http/Surl.Protocol.Http.UnitLibrary -warnaserror` is clean, and the
       library keeps 100% line and branch coverage.
-- [ ] No test needs `TestCategory=Integration`.
+- [x] No test needs `TestCategory=Integration`.
 
 ## Notes
+
+- Built `Http2GatewayUpstreamTestCaseServer(IOriginConnector, int backendPort)`: reads the HTTP/2 preface
+  itself (the connection server expects it consumed), then serves each stream by translating it with
+  BL-1114's translators and forwarding over a fresh connector connection to `127.0.0.1:<port>`. TLS with
+  ALPN `h2` is the engine's job (the half receives an already-secured `IConnection`), as for `HttpUpstreamTestCaseServer`.
+- Added `NghttpxGatewayReplyFramingReader` / `NghttpxGatewayReplyFraming` (decision: stop reading at
+  `Content-Length` or the last chunk, since the case's `http` half keeps the connection open without `swsclose`;
+  a close mid-body is `Short` and resets `INTERNAL_ERROR`). Unreachable backend or no reply head is `502`.
+- A client without the preface is closed with no bytes (plain HTTP/1.1 passthrough is BL-1116).
+- No coverage report was measured with the collector here; branches were enumerated by hand against the tests.
 
 ## Log
 
 - 2026-11-14: Created.
 - 2026-11-14: Backlog -> Doing.
+- 2026-11-14: Doing -> Done. Http2GatewayUpstreamTestCaseServer forwards each HTTP/2 stream to the case http half and answers with the nghttpx-style reply
