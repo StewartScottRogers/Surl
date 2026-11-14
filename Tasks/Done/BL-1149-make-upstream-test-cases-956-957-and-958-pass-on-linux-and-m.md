@@ -8,7 +8,7 @@ depends-on: []
 touches: [Conformance, Documentation/Conformance, Protocols/Mail/Surl.Protocol.Smtp.UnitLibrary, Protocols/Mail/Surl.Protocol.Smtp.UnitTests]
 requirement: FR-053
 created: 2026-11-14
-completed:
+completed: 2026-11-14
 ---
 # BL-1149 — Make upstream test cases 956, 957 and 958 pass on Linux and macOS
 
@@ -48,3 +48,4 @@ SMTP server half, and are in both passing lists.
 - 2026-11-14: Blocked -> Backlog. CI run 43651751537 (PR #36, 145f16b) ran the upstream cases with this fix: 956, 957, 958, 1072 and 1073 pass on linux-x64 and osx-arm64, and both failures files are empty
 - 2026-11-14: Backlog -> Doing.
 - 2026-11-14: Added 956-958 to the linux-x64 and osx-arm64 lists and updated both Pass-Rate rows (1,316 passed, 0 failed, commit 145f16b2, CI run 43651751537). Pass-rate statement and passing-list tests green. Unrelated: `RunBesideAsync_EveryCaseOnThePassingList_PortDefectsAreTheListedFindings` failed on a port-side `test251` ftp timeout (Curl port, not Surl; slow 2 min test).
+- 2026-11-14: Doing -> Done. 956-958 on both Linux and macOS lists, rows updated
