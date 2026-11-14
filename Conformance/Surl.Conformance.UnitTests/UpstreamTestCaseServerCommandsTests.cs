@@ -48,8 +48,10 @@ public sealed class UpstreamTestCaseServerCommandsTests
     [DataRow("tftp", "writedelay:", true)]
     [DataRow("tftp", "Testnum", true)]
     [DataRow("tftp", "REPLY", false)]
-    [DataRow("mqtt", "error-CONNACK", false)]
-    [DataRow("mqtts", "remlen-CONNACK", false)]
+    [DataRow("mqtt", "error-CONNACK", true)]
+    [DataRow("mqtts", "remlen-CONNACK", true)]
+    [DataRow("mqtt", "PINGRESP-as-CONNACK", true)]
+    [DataRow("mqtt", "short-PUBLISH", false)]
     [DataRow("gopher", "Testnum", false)]
     [DataRow("dict", "Testnum", false)]
     [DataRow("telnet", "Testnum", false)]
@@ -88,11 +90,18 @@ public sealed class UpstreamTestCaseServerCommandsTests
     }
 
     [TestMethod]
-    public void None_IsTheCommandsTheGopherAndMqttServerHalvesAccept()
+    public void None_IsTheCommandsTheGopherServerHalfAccepts()
     {
         Assert.IsEmpty(UpstreamTestCaseServerCommands.None);
         Assert.IsEmpty(GopherUpstreamTestCaseReplies.SupportedServerCommands);
-        Assert.IsEmpty(MqttUpstreamTestCaseReplies.SupportedServerCommands);
+    }
+
+    [TestMethod]
+    public void Mqtt_IsTheCommandsTheMqttServerHalfAccepts()
+    {
+        var table = UpstreamTestCaseServerCommands.Mqtt.Order(StringComparer.Ordinal).ToArray();
+
+        CollectionAssert.AreEqual(MqttUpstreamTestCaseReplies.SupportedServerCommands.Order(StringComparer.Ordinal).ToArray(), table);
     }
 
     [TestMethod]

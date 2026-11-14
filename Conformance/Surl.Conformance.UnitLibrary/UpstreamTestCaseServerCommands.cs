@@ -36,12 +36,17 @@ public static class UpstreamTestCaseServerCommands
     public static readonly IReadOnlySet<string> Tftp = new HashSet<string>(["Testnum", "writedelay:"], StringComparer.Ordinal);
 
     /// <summary>
+    /// The MQTT server half's commands (BL-1139, ADR-0155), the same words
+    /// <c>Surl.Protocol.Mqtt</c>'s <c>MqttUpstreamTestCaseReplies.SupportedServerCommands</c> accepts.
+    /// <c>PUBLISH-before-SUBACK</c>, <c>short-PUBLISH</c>, <c>DISCONNECT-malformed</c> and
+    /// <c>excessive-remaining</c> are not yet.
+    /// </summary>
+    public static readonly IReadOnlySet<string> Mqtt = new HashSet<string>(
+        ["Testnum", "error-CONNACK", "remlen-CONNACK", "PINGRESP-as-CONNACK"], StringComparer.Ordinal);
+
+    /// <summary>
     /// The commands of the server halves that implement none (BL-396): Gopher's and DICT's, to
-    /// which FILEFORMAT gives none, TELNET's, and MQTT's, whose <c>error-CONNACK</c>,
-    /// <c>remlen-CONNACK</c>, <c>PUBLISH-before-SUBACK</c>, <c>short-PUBLISH</c>,
-    /// <c>PINGRESP-as-CONNACK</c>, <c>DISCONNECT-malformed</c> and <c>excessive-remaining</c>
-    /// each make the server send a deliberately broken or refusing packet and are not implemented;
-    /// Surl's own SCP, SFTP and SMB servers, which serve the case's files (BL-397) and to
+    /// which FILEFORMAT gives none, TELNET's; Surl's own SCP, SFTP and SMB servers, which serve the case's files (BL-397) and to
     /// which FILEFORMAT gives none; and the <c>httptls+srp</c> server half, which answers every
     /// request with gnutls-serv's page (<see cref="UpstreamTestCaseGnuTlsServPage"/>, BL-568), as
     /// gnutls-serv takes no commands.
@@ -103,8 +108,8 @@ public static class UpstreamTestCaseServerCommands
         ["gopher"] = None,
         ["gopher-ipv6"] = None,
         ["gophers"] = None,
-        ["mqtt"] = None,
-        ["mqtts"] = None,
+        ["mqtt"] = Mqtt,
+        ["mqtts"] = Mqtt,
         ["dict"] = None,
         ["telnet"] = None,
         ["scp"] = None,

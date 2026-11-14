@@ -63,7 +63,27 @@ public sealed class MqttUpstreamTestCaseServer : IConnectionProtocolServer
         var bus = new MessageBus.MessageBus(context.TimeProvider);
         var logged = new MqttPacketLoggingConnection(connection, replies, remaining => PublishToEachTopic(bus, remaining));
 
-        return new MqttProtocolServer(bus, authenticationPolicy).ServeAsync(logged, context);
+        return replies.ConnectAnswer is { } answer
+            ? AnswerConnectWithAsync(connection, logged, answer, context.CancellationToken)
+            : new MqttProtocolServer(bus, authenticationPolicy).ServeAsync(logged, context);
+    }
+
+    /// <summary>
+    /// Reads the client's <c>CONNECT</c> (logged), writes <paramref name="answer"/> in place of a
+    /// <c>CONNACK</c> straight to the connection, logs it as the case expects, and ends the
+    /// connection (ADR-0155 decisions 1 to 3).
+    /// </summary>
+    private async Task AnswerConnectWithAsync(IConnection connection, IConnection logged, ConnectAnswer answer, CancellationToken cancellationToken)
+    {
+        var buffer = new byte[4096];
+        if (await logged.ReadAsync(buffer, cancellationToken) == 0)
+        {
+            return;
+        }
+
+        await connection.WriteAsync(answer.Bytes, cancellationToken);
+        replies.RecordAnswer(answer);
+        await connection.CompleteWritesAsync(cancellationToken);
     }
 
     /// <summary>

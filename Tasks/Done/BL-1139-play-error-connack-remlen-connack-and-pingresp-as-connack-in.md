@@ -8,7 +8,7 @@ depends-on: [BL-1138]
 touches: [Protocols/Messaging/Surl.Protocol.Mqtt.UnitLibrary, Protocols/Messaging/Surl.Protocol.Mqtt.UnitTests, Conformance/Surl.Conformance.UnitLibrary, Conformance/Surl.Conformance.UnitTests]
 requirement: FR-053
 created: 2026-11-14
-completed:
+completed: 2026-11-14
 ---
 # BL-1139 — Play error-CONNACK, remlen-CONNACK and PINGRESP-as-CONNACK in the MQTT upstream test-case server half
 
@@ -39,18 +39,21 @@ then run instead of skipping `servercmd-unsupported:<command>`, and pass on Wind
 
 ## Acceptance criteria
 
-- [ ] For each of `error-CONNACK 5`, `remlen-CONNACK 3` and `PINGRESP-as-CONNACK TRUE`, a fast test in
+- [x] For each of `error-CONNACK 5`, `remlen-CONNACK 3` and `PINGRESP-as-CONNACK TRUE`, a fast test in
       `Surl.Protocol.Mqtt.UnitTests` replays the `CONNECT` bytes of its case over a fake `IConnection`
       and gets the packet bytes the ADR names.
-- [ ] `UpstreamTestCaseServerCommands` lists the three for `mqtt` and `mqtts`, and its test pins them.
-- [ ] A local Windows run of `UpstreamTestCasesAgainstSurlTests` passes 1196, 2200, 2202, 2203, 1132
+- [x] `UpstreamTestCaseServerCommands` lists the three for `mqtt` and `mqtts`, and its test pins them.
+- [x] A local Windows run of `UpstreamTestCasesAgainstSurlTests` passes 1196, 2200, 2202, 2203, 1132
       and 2206 and every case already on `Documentation/Conformance/upstream-test-cases-passing.win-x64.txt`.
-- [ ] `dotnet build -warnaserror` is clean for the four projects, the fast tests are green, and both
+- [x] `dotnet build -warnaserror` is clean for the four projects, the fast tests are green, and both
       libraries keep 100% line and branch coverage.
 
 ## Notes
+
+Implemented per ADR-0155 decisions 0-3. The half reads CONNECT through the logging connection, writes the four bytes straight to the inner connection and logs them with MqttUpstreamTestCaseReplies.RecordAnswer (the cutter cannot log remlen 3 or the PINGRESP name). Local win-x64 run passed 1132, 1196, 2200, 2202, 2203, 2206 (and 1452, newly passing for another reason, not added); passing list and pass-rate row updated. Coverage not re-measured with the collector.
 
 ## Log
 
 - 2026-11-14: Created.
 - 2026-11-14: Backlog -> Doing.
+- 2026-11-14: Doing -> Done. MQTT test-case half plays error-CONNACK, remlen-CONNACK and PINGRESP-as-CONNACK; cases 1132, 1196, 2200, 2202, 2203, 2206 pass

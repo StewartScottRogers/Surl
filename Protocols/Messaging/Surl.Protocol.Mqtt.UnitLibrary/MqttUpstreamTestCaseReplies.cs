@@ -22,8 +22,9 @@ namespace Surl.Protocol.Mqtt;
 /// whole packet when it has none), a server packet's whole packet.
 /// </para>
 /// <para>
-/// None of upstream's MQTT <c>&lt;servercmd&gt;</c> instructions is implemented (each makes the
-/// server send a deliberately broken or refusing packet), so a case with one is skipped
+/// Of upstream's MQTT <c>&lt;servercmd&gt;</c> instructions, which make the server send a
+/// deliberately broken or refusing packet, only <c>error-CONNACK</c>, <c>remlen-CONNACK</c> and
+/// <c>PINGRESP-as-CONNACK</c> are implemented (ADR-0155); a case with another is skipped
 /// <c>servercmd-unsupported:&lt;command&gt;</c>. One instance serves every connection of one case,
 /// and is safe to use from several at once. Never compose it into the shipped <c>surl</c>; it is a
 /// test seam that <c>Surl.Conformance.UnitTests</c> composes.
@@ -45,16 +46,44 @@ public sealed class MqttUpstreamTestCaseReplies
     /// </summary>
     /// <param name="data">The case's <c>&lt;data&gt;</c>.</param>
     public MqttUpstreamTestCaseReplies(byte[] data)
+        : this(data, [])
     {
-        ArgumentNullException.ThrowIfNull(data);
-
-        Data = data;
     }
 
     /// <summary>
-    /// The first words of the <c>&lt;servercmd&gt;</c> lines the MQTT server half implements: none.
+    /// Holds a case's reply and <c>&lt;servercmd&gt;</c> lines for the MQTT server half (ADR-0155
+    /// decision 0).
     /// </summary>
-    public static IReadOnlySet<string> SupportedServerCommands { get; } = new HashSet<string>(StringComparer.Ordinal);
+    /// <param name="data">The case's <c>&lt;data&gt;</c>.</param>
+    /// <param name="serverCommands">The case's <c>&lt;servercmd&gt;</c> lines.</param>
+    /// <exception cref="NotSupportedException">A line names a command <see cref="SupportedServerCommands"/> lacks, or gives a flag a value other than <c>TRUE</c>.</exception>
+    /// <exception cref="FormatException">A command's argument is missing or out of range.</exception>
+    public MqttUpstreamTestCaseReplies(byte[] data, IReadOnlyList<string> serverCommands)
+    {
+        ArgumentNullException.ThrowIfNull(data);
+        ArgumentNullException.ThrowIfNull(serverCommands);
+
+        Data = data;
+        foreach (var line in serverCommands)
+        {
+            ReadServerCommand(line.Trim());
+        }
+    }
+
+    /// <summary>
+    /// The first words of the <c>&lt;servercmd&gt;</c> lines the MQTT server half implements:
+    /// <c>Testnum</c>, <c>error-CONNACK</c>, <c>remlen-CONNACK</c> and <c>PINGRESP-as-CONNACK</c>
+    /// (ADR-0155 decisions 1 to 3). A case using any other is skipped
+    /// <c>servercmd-unsupported:&lt;command&gt;</c>.
+    /// </summary>
+    public static IReadOnlySet<string> SupportedServerCommands { get; } = new HashSet<string>(
+        ["Testnum", "error-CONNACK", "remlen-CONNACK", "PINGRESP-as-CONNACK"], StringComparer.Ordinal);
+
+    /// <summary>
+    /// What replaces the <c>CONNACK</c> after the client's <c>CONNECT</c>, then ends the
+    /// connection, or <see langword="null"/> when the case gives none.
+    /// </summary>
+    internal ConnectAnswer? ConnectAnswer { get; private set; }
 
     /// <summary>
     /// The packet log, as <see cref="MqttUpstreamTestCaseReplies"/> describes: what the case's
@@ -73,6 +102,62 @@ public sealed class MqttUpstreamTestCaseReplies
 
     /// <summary>The payload every subscribed topic is given.</summary>
     internal byte[] Data { get; }
+
+    /// <summary>Logs a packet the half wrote itself, under a name and remaining length of its own.</summary>
+    /// <param name="answer">The packet and how it is logged.</param>
+    internal void RecordAnswer(ConnectAnswer answer)
+    {
+        var line = string.Create(
+            CultureInfo.InvariantCulture,
+            $"server {answer.LoggedName} {answer.LoggedRemainingLength:x} {Convert.ToHexStringLower(answer.Bytes)}\n");
+        lock (gate)
+        {
+            received.Write(Encoding.ASCII.GetBytes(line));
+        }
+    }
+
+    private void ReadServerCommand(string line)
+    {
+        if (line.Length == 0 || line[0] == '#')
+        {
+            return;
+        }
+
+        var words = line.Split([' ', '\t'], 2, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        var command = words[0];
+        var argument = words.Length > 1 ? words[1] : string.Empty;
+        switch (command)
+        {
+            case "Testnum":
+                break;
+            case "error-CONNACK":
+                ConnectAnswer = new ConnectAnswer("CONNACK", 2, [0x20, 0x02, 0x00, ReadNumber(command, argument, 1, 5)]);
+                break;
+            case "remlen-CONNACK":
+                var remainingLength = ReadNumber(command, argument, 0, 127);
+                ConnectAnswer = new ConnectAnswer("CONNACK", remainingLength, [0x20, remainingLength, 0x00, 0x00]);
+                break;
+            case "PINGRESP-as-CONNACK":
+                ReadFlag(command, argument);
+                ConnectAnswer = new ConnectAnswer("PINGRESP-as-CONNACK", 2, [0xD0, 0x02, 0x00, 0x00]);
+                break;
+            default:
+                throw new NotSupportedException($"servercmd-unsupported:{command}");
+        }
+    }
+
+    private static byte ReadNumber(string command, string argument, int minimum, int maximum) =>
+        int.TryParse(argument, NumberStyles.None, CultureInfo.InvariantCulture, out var number) && number >= minimum && number <= maximum
+            ? (byte)number
+            : throw new FormatException($"{command} needs a number from {minimum} to {maximum}, not '{argument}'.");
+
+    private static void ReadFlag(string command, string argument)
+    {
+        if (argument != "TRUE")
+        {
+            throw new NotSupportedException($"servercmd-unsupported:{command} {argument}");
+        }
+    }
 
     /// <summary>Logs one whole packet.</summary>
     /// <param name="fromClient">Whether the client sent it.</param>

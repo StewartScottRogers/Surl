@@ -473,7 +473,7 @@ public sealed class UpstreamTestCasesAgainstSurlTests
                 replies = new HttpUpstreamTestCaseReplies(ReplyParts(testCase), CommandsFor(HttpFamily));
                 ftpReplies = new FtpUpstreamTestCaseReplies(FtpReplyParts(testCase), CommandsFor(FtpFamily));
                 gopherReplies = new GopherUpstreamTestCaseReplies(FtpReplyParts(testCase).GetValueOrDefault("data") ?? []);
-                mqttReplies = new MqttUpstreamTestCaseReplies(FtpReplyParts(testCase).GetValueOrDefault("data") ?? []);
+                mqttReplies = new MqttUpstreamTestCaseReplies(FtpReplyParts(testCase).GetValueOrDefault("data") ?? [], CommandsFor(MqttFamily).ToList());
                 tftpReplies = new TftpUpstreamTestCaseReplies(FtpReplyParts(testCase), CommandsFor(TftpFamily));
                 mailReplies = new MailUpstreamTestCaseReplies(MailReplyParts(testCase), CommandsFor(MailFamily));
                 proxyReplies = new HttpProxyUpstreamTestCaseReplies(ReplyParts(testCase), CommandsFor(HttpProxyFamily));

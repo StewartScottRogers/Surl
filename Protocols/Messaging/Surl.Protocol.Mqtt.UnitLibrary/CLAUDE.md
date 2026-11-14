@@ -63,7 +63,10 @@ the shipped `surl`: `MqttUpstreamTestCaseServer` is `MqttProtocolServer` on a bu
 connection, its connection wrapped in `MqttPacketLoggingConnection`, which cuts each direction
 into packets with `MqttPacketCutter`, logs them in `MqttUpstreamTestCaseReplies` in runtests'
 `client CONNECT 18 0004...` form, and publishes the case's `<data>`, retained, to each topic of a
-`SUBSCRIBE` before the server reads it. No MQTT `<servercmd>` is implemented.
+`SUBSCRIBE` before the server reads it. `MqttUpstreamTestCaseReplies` also takes the case's `<servercmd>`
+lines (ADR-0155, BL-1139): `error-CONNACK`, `remlen-CONNACK` and `PINGRESP-as-CONNACK` make the server read the
+`CONNECT`, write their four bytes (`ConnectAnswer`) straight to the connection, log them and end it; the other
+four ADR-0155 commands are not implemented yet (BL-1140).
 
 Expected bytes come from a build pinned in `UpstreamCurlBuilds.json`, measured with
 `Record-CurlExchange.ps1`, and never from the Curl port (ADR-0003).
