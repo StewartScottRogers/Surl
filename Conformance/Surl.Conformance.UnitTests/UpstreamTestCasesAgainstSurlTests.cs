@@ -471,7 +471,7 @@ public sealed class UpstreamTestCasesAgainstSurlTests
             try
             {
                 commandLine = UpstreamTestCaseCommandLine.Build(number, testCase, logDirectory);
-                replies = new HttpUpstreamTestCaseReplies(ReplyParts(testCase), CommandsFor(HttpFamily));
+                replies = new HttpUpstreamTestCaseReplies(ReplyParts(testCase), CommandsFor(HttpFamily), PostCommandLines(testCase));
                 ftpReplies = new FtpUpstreamTestCaseReplies(FtpReplyParts(testCase), CommandsFor(FtpFamily));
                 gopherReplies = new GopherUpstreamTestCaseReplies(FtpReplyParts(testCase).GetValueOrDefault("data") ?? []);
                 mqttReplies = new MqttUpstreamTestCaseReplies(FtpReplyParts(testCase).GetValueOrDefault("data") ?? [], CommandsFor(MqttFamily).ToList());
@@ -809,6 +809,9 @@ public sealed class UpstreamTestCasesAgainstSurlTests
 
         private static IEnumerable<string> ServerCommandLines(UpstreamTestCase testCase) =>
             (testCase.FindPart("reply", "servercmd")?.Lines ?? []).Select(line => line.TrimEnd('\n'));
+
+        private static IEnumerable<string> PostCommandLines(UpstreamTestCase testCase) =>
+            (testCase.FindPart("reply", "postcmd")?.Lines ?? []).Select(line => line.TrimEnd('\n'));
 
         // The case's <reply><dns> lines, which the selector has already checked the DNS server half implements.
         private static IEnumerable<string> DnsLines(UpstreamTestCase testCase) =>

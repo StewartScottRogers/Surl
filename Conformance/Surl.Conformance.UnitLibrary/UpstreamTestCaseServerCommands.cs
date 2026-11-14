@@ -4,8 +4,8 @@ namespace Surl.Conformance;
 /// Which <c>&lt;servercmd&gt;</c> commands each server half implements, by the first word of the
 /// line as the case writes it (ADR-0080 decisions 2 and 3). A case none of whose named servers'
 /// halves implements one of its commands (BL-898: any one named server's suffices) is skipped <c>servercmd-unsupported:&lt;command&gt;</c>, and so is a
-/// case with a <c>&lt;postcmd&gt;</c>, which no server half implements
-/// (<c>servercmd-unsupported:postcmd</c>). A server half that lands adds its row here, the same
+/// case with a <c>&lt;postcmd&gt;</c> (<c>servercmd-unsupported:postcmd</c>) unless
+/// every server half it names is an HTTP one (BL-1133: <c>wait</c>). A server half that lands adds its row here, the same
 /// words its protocol library accepts.
 /// </summary>
 public static class UpstreamTestCaseServerCommands
@@ -85,7 +85,7 @@ public static class UpstreamTestCaseServerCommands
     /// </summary>
     public static readonly IReadOnlySet<string> Dns = new HashSet<string>(["Testnum", "A", "AAAA"], StringComparer.Ordinal);
 
-    /// <summary>The name a case's <c>&lt;postcmd&gt;</c> is checked under; no server half implements it.</summary>
+    /// <summary>The name a case's <c>&lt;postcmd&gt;</c> is checked under; only the HTTP server halves implement it.</summary>
     public const string PostCommand = "postcmd";
 
     private static readonly Dictionary<string, IReadOnlySet<string>> ByServer = new(StringComparer.Ordinal)
@@ -134,6 +134,6 @@ public static class UpstreamTestCaseServerCommands
         ArgumentNullException.ThrowIfNull(server);
         ArgumentNullException.ThrowIfNull(command);
 
-        return ByServer.TryGetValue(server, out var commands) && commands.Contains(command);
+        return ByServer.TryGetValue(server, out var commands) && (commands.Contains(command) || (command == PostCommand && ReferenceEquals(commands, Http)));
     }
 }

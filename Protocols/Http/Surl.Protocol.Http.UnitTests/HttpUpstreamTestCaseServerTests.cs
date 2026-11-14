@@ -73,6 +73,25 @@ public sealed class HttpUpstreamTestCaseServerTests
     }
 
     [TestMethod]
+    public async Task PostCommandWait_HoldsTheConnectionOpenOnTheExchangeClockBeforeClosing()
+    {
+        var replies = new HttpUpstreamTestCaseReplies(new Dictionary<string, byte[]> { ["data"] = Ascii(Data) }, ["swsclose"], ["wait 10"]);
+        var connection = new InMemoryConnection([Ascii("GET /1 HTTP/1.1\r\nHost: h\r\n\r\n")]);
+        var clock = new ManualTimeProvider(Now);
+
+        var serving = new HttpUpstreamTestCaseServer(replies).ServeAsync(connection, Context(new RecordingExchangeLog(), clock, TestContext.CancellationToken));
+        await WaitForTimersAsync(clock, 1);
+        Assert.AreEqual(Data, Latin1(connection.WrittenBytes));
+        Assert.IsFalse(connection.WritesCompleted, "Still open before the 10 s are up.");
+        clock.Advance(TimeSpan.FromSeconds(9));
+        Assert.IsFalse(connection.WritesCompleted);
+        clock.Advance(TimeSpan.FromSeconds(1));
+        await serving;
+
+        Assert.IsTrue(connection.WritesCompleted);
+    }
+
+    [TestMethod]
     public async Task SwscloseInThePart_ClosesAfterTheReply()
     {
         const string data = "HTTP/1.1 200 OK\r\nFunny-head: swsclose\r\n\r\nbody";

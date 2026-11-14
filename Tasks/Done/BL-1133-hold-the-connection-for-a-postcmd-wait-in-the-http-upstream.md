@@ -8,7 +8,7 @@ depends-on: []
 touches: [Protocols/Http/Surl.Protocol.Http.UnitLibrary, Protocols/Http/Surl.Protocol.Http.UnitTests, Conformance/Surl.Conformance.UnitLibrary, Conformance/Surl.Conformance.UnitTests]
 requirement: FR-053
 created: 2026-11-14
-completed:
+completed: 2026-11-14
 ---
 # BL-1133 — Hold the connection for a postcmd wait in the HTTP upstream test-case server half
 
@@ -41,18 +41,24 @@ reads the next request. Upstream tests 29, 160, 303 and 1074 then run instead of
 
 ## Acceptance criteria
 
-- [ ] A fast test with a fake `TimeProvider` shows the half sends a `swsclose` reply and keeps the
+- [x] A fast test with a fake `TimeProvider` shows the half sends a `swsclose` reply and keeps the
       connection open until the clock passes `wait 10`'s 10 s, then closes it.
-- [ ] A fast test shows `UpstreamTestCaseSelector` no longer skips 29, 160, 303 and 1074 for
+- [x] A fast test shows `UpstreamTestCaseSelector` no longer skips 29, 160, 303 and 1074 for
       `servercmd-unsupported:postcmd`.
-- [ ] A local Windows run of `UpstreamTestCasesAgainstSurlTests` passes 29, 160, 303 and 1074 and
+- [x] A local Windows run of `UpstreamTestCasesAgainstSurlTests` passes 29, 160, 303 and 1074 and
       every case already on `Documentation/Conformance/upstream-test-cases-passing.win-x64.txt`.
-- [ ] `dotnet build -warnaserror` is clean for the four projects, the fast tests are green, and both
+- [x] `dotnet build -warnaserror` is clean for the four projects, the fast tests are green, and both
       libraries keep 100% line and branch coverage.
 
 ## Notes
+
+- Implemented as an optional `postCommands` constructor parameter on `HttpUpstreamTestCaseReplies` (parsed by `HttpUpstreamTestCasePostCommands`; `wait` only, fractional seconds allowed, last wins; any other word throws `NotSupportedException`). The pause runs on the exchange `TimeProvider` after the reply, before close or next read.
+- `UpstreamTestCaseServerCommands.IsSupported(server, "postcmd")` is true for the servers mapped to the HTTP table; other families still skip.
+- Windows run: 29, 160, 303, 1074 pass, and 1452 (previously failing `timeout`) now passes. Windows row is now 1,180 runnable, 1,180 passed, 0 failed, 833 skipped; passing list updated.
+- Default choice, no ADR needed: no design decision beyond the task's own Goal.
 
 ## Log
 
 - 2026-11-14: Created.
 - 2026-11-14: Backlog -> Doing.
+- 2026-11-14: Doing -> Done. HTTP half holds the connection for postcmd wait; 29, 160, 303, 1074 pass

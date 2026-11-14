@@ -20,6 +20,33 @@ public sealed class HttpUpstreamTestCaseRepliesTests
     }
 
     [TestMethod]
+    [DataRow("wait 10", 10.0)]
+    [DataRow("wait 0.5", 0.5)]
+    [DataRow("# note", 0.0)]
+    public void Constructor_PostCommands_ReadTheWaitInSeconds(string line, double seconds)
+    {
+        var replies = new HttpUpstreamTestCaseReplies(new Dictionary<string, byte[]>(), [], [line, "", "  "]);
+
+        Assert.AreEqual(TimeSpan.FromSeconds(seconds), replies.PostReplyWait);
+        Assert.AreEqual(TimeSpan.Zero, new HttpUpstreamTestCaseReplies(new Dictionary<string, byte[]>(), []).PostReplyWait);
+    }
+
+    [TestMethod]
+    public void Constructor_AnUnsupportedPostCommand_Throws()
+    {
+        Assert.ThrowsExactly<NotSupportedException>(() => new HttpUpstreamTestCaseReplies(new Dictionary<string, byte[]>(), [], ["sleep 1"]));
+    }
+
+    [TestMethod]
+    [DataRow("wait")]
+    [DataRow("wait soon")]
+    [DataRow("wait -1")]
+    public void Constructor_AWaitWithoutSeconds_Throws(string line)
+    {
+        Assert.ThrowsExactly<FormatException>(() => new HttpUpstreamTestCaseReplies(new Dictionary<string, byte[]>(), [], [line]));
+    }
+
+    [TestMethod]
     public void ChooseReply_ConnectAndData_PickTheirOwnPrefixedParts()
     {
         var replies = Replies(("data1", "d1"), ("connect1", "c1"));

@@ -433,7 +433,9 @@ public sealed class UpstreamTestCaseSelectorTests
     [DataRow("http", "<servercmd>\nupgrade\n</servercmd>\n", "servercmd-unsupported:upgrade")]
     [DataRow("http", "<servercmd>\nconnection-monitor\n</servercmd>\n", null)]
     [DataRow("ftp", "<servercmd>\nconnection-monitor\n</servercmd>\n", "servercmd-unsupported:connection-monitor")]
-    [DataRow("http", "<postcmd>\nwait 1\n</postcmd>\n", "servercmd-unsupported:postcmd")]
+    [DataRow("http", "<postcmd>\nwait 1\n</postcmd>\n", null)]
+    [DataRow("https", "<postcmd>\nwait 20\n</postcmd>\n", null)]
+    [DataRow("ftp", "<postcmd>\nwait 1\n</postcmd>\n", "servercmd-unsupported:postcmd")]
     [DataRow("http", "<postcmd>\n# nothing\n</postcmd>\n", null)]
     [DataRow("ftp", "<servercmd>\nidle\n</servercmd>\n", "servercmd-unsupported:idle")]
     public void FindSkipReason_ServerCommandsUnderTodaysRules_RunOrSkipByTheServerHalfsTable(string server, string reply, string? expected)
