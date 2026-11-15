@@ -33,3 +33,4 @@ With `--random-seed` (or `SurlServerOptions.RandomSeed`), the XMPP server's stre
 ## Log
 
 - 2026-11-14: Created.
+- 2026-11-14: Backlog -> Doing.
