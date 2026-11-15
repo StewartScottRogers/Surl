@@ -102,6 +102,15 @@ public sealed class AzureStorageProtocolServer : IConnectionProtocolServer, ICon
     /// </summary>
     internal AzureStagingArea StagingArea => staging;
 
+    /// <summary>
+    /// Discards every staged upload - Put Block's uncommitted blocks and their temporary files, Data
+    /// Lake appends and each remembered committed block list - so a later Put Block List naming a
+    /// block staged earlier is <c>400 InvalidBlockList</c> (ADR-0167, decision 2).
+    /// </summary>
+    /// <param name="cancellationToken">Cancels the wait for a request in progress.</param>
+    /// <returns>A task that completes when every staging is discarded.</returns>
+    public Task DiscardStagedUploadsAsync(CancellationToken cancellationToken) => staging.DiscardAllInTurnAsync(cancellationToken);
+
     /// <inheritdoc/>
     public Task ServeAsync(IConnection connection, ExchangeContext context)
     {

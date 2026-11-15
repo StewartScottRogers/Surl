@@ -1,4 +1,5 @@
 using Surl.Extended.Protocol.Amqp0;
+using Surl.Extended.Protocol.AzureStorage;
 using Surl.Extended.Protocol.Mqtt5;
 using Surl.Extended.Protocol.S3;
 using System.Net;
@@ -437,7 +438,9 @@ public static partial class SurlServerComposition
     private static List<ComposedStoreRegistration> ControlledUploads(IProtocolServer[] servers, ContentStore content, SurlEventStream events) =>
         [.. new[]
         {
-            S3UploadStoreRegistration.For([.. servers.OfType<S3ProtocolServer>()], content, events),
+            UploadStoreRegistrations.Combine(
+                S3UploadStoreRegistration.For([.. servers.OfType<S3ProtocolServer>()], content, events),
+                AzureStagedUploadStoreRegistration.For([.. servers.OfType<AzureStorageProtocolServer>()], content, events)),
         }.OfType<ComposedStoreRegistration>()];
 
     private static bool IsDnsComposed(IProtocolServer[] servers) =>

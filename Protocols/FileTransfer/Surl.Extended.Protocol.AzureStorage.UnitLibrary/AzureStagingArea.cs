@@ -144,6 +144,28 @@ internal sealed class AzureStagingArea(TimeProvider timeProvider)
     }
 
     /// <summary>
+    /// Waits its turn, then ends every staging - each one's uncommitted blocks, upload session and
+    /// remembered committed block list - for a whole-instance reset or restore (ADR-0167, decision 2).
+    /// </summary>
+    /// <param name="cancellationToken">Cancels the wait.</param>
+    /// <returns>A task that completes when every staging is disposed.</returns>
+    public async Task DiscardAllInTurnAsync(CancellationToken cancellationToken)
+    {
+        await EnterAsync(cancellationToken);
+        try
+        {
+            foreach (var key in staged.Keys.ToList())
+            {
+                await DiscardAsync(key);
+            }
+        }
+        finally
+        {
+            Exit();
+        }
+    }
+
+    /// <summary>
     /// Ends the staging at <paramref name="key"/>, if it has one, discarding its uncommitted bytes.
     /// The caller is inside <see cref="EnterAsync"/>.
     /// </summary>
