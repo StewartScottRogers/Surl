@@ -12,25 +12,26 @@ internal sealed class DnsAuthoritativeLookup
     /// <summary>The most CNAMEs a chain is followed through before it is answered <c>SERVFAIL</c>.</summary>
     public const int MaxCanonicalNames = 16;
 
-    private readonly DnsZoneSet zones;
+    private readonly DnsZoneView zones;
     private readonly DnsRecordType type;
     private readonly List<DnsResourceRecord> answers = [];
     private readonly HashSet<string> visitedNames = new(StringComparer.Ordinal);
 
-    private DnsAuthoritativeLookup(DnsZoneSet zones, DnsRecordType type)
+    private DnsAuthoritativeLookup(DnsZoneView zones, DnsRecordType type)
     {
         this.zones = zones;
         this.type = type;
     }
 
-    /// <summary>Answers <paramref name="question"/> from <paramref name="zones"/>.</summary>
-    public static DnsAuthoritativeAnswer Answer(DnsZoneSet zones, DnsQuestion question)
+    /// <summary>Answers <paramref name="question"/> from what <paramref name="zoneSet"/> holds when it starts.</summary>
+    public static DnsAuthoritativeAnswer Answer(DnsZoneSet zoneSet, DnsQuestion question)
     {
-        var zone = question.Class is DnsClasses.Internet or DnsClasses.Any ? zones.ZoneFor(question.Name) : null;
+        var view = zoneSet.CurrentView;
+        var zone = question.Class is DnsClasses.Internet or DnsClasses.Any ? view.ZoneFor(question.Name) : null;
 
         return zone is null
             ? DnsAuthoritativeAnswer.Refused
-            : new DnsAuthoritativeLookup(zones, question.Type).Follow(zone, question.Name);
+            : new DnsAuthoritativeLookup(view, question.Type).Follow(zone, question.Name);
     }
 
     private DnsAuthoritativeAnswer Follow(DnsZone zone, DnsName name)

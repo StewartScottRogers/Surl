@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Unicode;
+using Surl.Protocol.Abstractions;
 
 namespace Surl.Extended.Protocol.DnsQuery;
 
@@ -26,19 +27,31 @@ public sealed class DnsZoneSet
     /// <summary>The file name extension every zone file has.</summary>
     public const string ZoneFileExtension = ".zone";
 
-    private readonly List<DnsZone> zones = [];
+    /// <summary>The most bytes of zone-file text one <see cref="SeedZone"/> takes (16 MiB, ADR-0158 decision 3).</summary>
+    public const int MaxSeedTextBytes = 16 * 1024 * 1024;
+
+    /// <summary>The default most bytes <see cref="TakeSnapshot(long)"/> copies (256 MiB, ADR-0124's <c>MaxSnapshotBytes</c>).</summary>
+    public const long DefaultMaxSnapshotBytes = 268_435_456;
+
+    private readonly object changeLock = new();
     private readonly int maxZones;
     private readonly int maxRecords;
     private readonly long maxTotalBytes;
-    private int recordCount;
-    private long totalBytes;
+    private readonly ISurlEventPublisher events;
+    private DnsZoneView view = DnsZoneView.Empty;
+    private DnsZoneView configured = DnsZoneView.Empty;
 
     /// <summary>Creates an empty set bounded by the limits given.</summary>
     /// <param name="maxZones">The most zones.</param>
     /// <param name="maxRecords">The most records, all zones together.</param>
     /// <param name="maxTotalBytes">The most bytes of owner names and RDATA, all zones together.</param>
+    /// <param name="events">Where seed, reset and restore publish their <see cref="StoreChangedEvent"/>; none by default.</param>
     /// <exception cref="ArgumentOutOfRangeException">A bound is negative.</exception>
-    public DnsZoneSet(int maxZones = DefaultMaxZones, int maxRecords = DefaultMaxRecords, long maxTotalBytes = DefaultMaxTotalBytes)
+    public DnsZoneSet(
+        int maxZones = DefaultMaxZones,
+        int maxRecords = DefaultMaxRecords,
+        long maxTotalBytes = DefaultMaxTotalBytes,
+        ISurlEventPublisher? events = null)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(maxZones);
         ArgumentOutOfRangeException.ThrowIfNegative(maxRecords);
@@ -47,15 +60,101 @@ public sealed class DnsZoneSet
         this.maxZones = maxZones;
         this.maxRecords = maxRecords;
         this.maxTotalBytes = maxTotalBytes;
+        this.events = events ?? DiscardingSurlEventPublisher.Instance;
     }
 
     /// <summary>The apexes of the zones held, in the order they were added.</summary>
-    public IReadOnlyList<DnsName> Apexes => zones.Select(zone => zone.Apex).ToArray();
+    public IReadOnlyList<DnsName> Apexes => view.Apexes;
+
+    /// <summary>What the set holds now, as one unit a query answers from whole.</summary>
+    internal DnsZoneView CurrentView => Volatile.Read(ref view);
+
+    /// <summary>
+    /// Seeds the zone <paramref name="zoneFileText"/> holds, as <see cref="Add"/> adds a file named
+    /// <c>&lt;apex&gt;.zone</c>, then publishes <see cref="StoreChange.Seeded"/> named for the apex
+    /// (<c>example.com.</c>) with the zone's byte count. The fault plan is never consulted. A seed is lost by
+    /// <see cref="Reset"/> unless <paramref name="keepOnReset"/> is set (ADR-0158 decision 3).
+    /// </summary>
+    /// <param name="apex">The zone's apex, a domain name with or without its final dot.</param>
+    /// <param name="zoneFileText">The zone file's text, at most <see cref="MaxSeedTextBytes"/> bytes of UTF-8.</param>
+    /// <param name="keepOnReset">Whether <see cref="Reset"/> returns to a set holding this zone too.</param>
+    /// <exception cref="DnsZoneFileException">The text is over the limit, cannot be a zone, a zone with the apex is
+    /// held, or the set's bounds would be passed. The set is unchanged and nothing is published.</exception>
+    public void SeedZone(string apex, string zoneFileText, bool keepOnReset = false)
+    {
+        ArgumentNullException.ThrowIfNull(apex);
+        ArgumentNullException.ThrowIfNull(zoneFileText);
+
+        var content = Encoding.UTF8.GetBytes(zoneFileText);
+        if (content.Length > MaxSeedTextBytes)
+        {
+            throw new DnsZoneFileException(null, "past the zones' bounds");
+        }
+
+        lock (changeLock)
+        {
+            var zone = Include(apex + ZoneFileExtension, content, keepOnReset);
+            events.Publish(new StoreChangedEvent(StoreKind.Zones, StoreChange.Seeded, zone.Apex.ToString(), zone.ByteCount, null));
+        }
+    }
+
+    /// <summary>
+    /// Returns the set to the zones <see cref="Add"/> loaded and any seed kept, drops every other, and
+    /// publishes one <see cref="StoreChange.Reset"/> with an empty name and 0 bytes. A query running meanwhile
+    /// sees the old zones or the new, never a mix.
+    /// </summary>
+    public void Reset()
+    {
+        lock (changeLock)
+        {
+            Volatile.Write(ref view, configured);
+            events.Publish(new StoreChangedEvent(StoreKind.Zones, StoreChange.Reset, string.Empty, 0, null));
+        }
+    }
+
+    /// <summary>Copies what the set holds into a <see cref="DnsZoneSetSnapshot"/>. Changes and publishes nothing.</summary>
+    /// <param name="maxBytes">The most bytes the snapshot may hold, as <see cref="DnsZoneSetSnapshot.ByteCount"/> counts.</param>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="maxBytes"/> is negative.</exception>
+    /// <exception cref="InvalidOperationException">The set holds more than <paramref name="maxBytes"/>.</exception>
+    public DnsZoneSetSnapshot TakeSnapshot(long maxBytes = DefaultMaxSnapshotBytes)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(maxBytes);
+        var held = CurrentView;
+        if (held.ByteCount > maxBytes)
+        {
+            throw new InvalidOperationException(
+                $"The DNS zones hold {held.ByteCount} bytes, more than the {maxBytes} a snapshot may hold.");
+        }
+
+        return new DnsZoneSetSnapshot(this, held);
+    }
+
+    /// <summary>
+    /// Replaces the zones with <paramref name="snapshot"/>'s and publishes one <see cref="StoreChange.Restored"/>
+    /// with an empty name and the snapshot's byte count.
+    /// </summary>
+    /// <param name="snapshot">A snapshot this set took.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="snapshot"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentException"><paramref name="snapshot"/> was taken from another set.</exception>
+    public void Restore(DnsZoneSetSnapshot snapshot)
+    {
+        ArgumentNullException.ThrowIfNull(snapshot);
+        if (snapshot.Set != this)
+        {
+            throw new ArgumentException("The snapshot was taken from another DNS zone set.", nameof(snapshot));
+        }
+
+        lock (changeLock)
+        {
+            Volatile.Write(ref view, snapshot.Zones);
+            events.Publish(new StoreChangedEvent(StoreKind.Zones, StoreChange.Restored, string.Empty, snapshot.ByteCount, null));
+        }
+    }
 
     /// <summary>
     /// Adds the zone whose master file is named <paramref name="fileName"/> and holds
     /// <paramref name="content"/>: UTF-8 without a byte order mark, its apex the file name
-    /// without <c>.zone</c>.
+    /// without <c>.zone</c>. A zone added so is what <see cref="Reset"/> returns to. Publishes nothing.
     /// </summary>
     /// <param name="fileName">The file's name, without a folder: <c>example.com.zone</c>.</param>
     /// <param name="content">The file's bytes.</param>
@@ -68,26 +167,40 @@ public sealed class DnsZoneSet
         ArgumentNullException.ThrowIfNull(fileName);
         ArgumentNullException.ThrowIfNull(content);
 
-        if (zones.Count >= maxZones)
+        lock (changeLock)
+        {
+            Include(fileName, content, keepOnReset: true);
+        }
+    }
+
+    /// <summary>Reads and adds one zone, to what the set holds and, when asked, to what reset returns to. Called under the lock.</summary>
+    private DnsZone Include(string fileName, byte[] content, bool keepOnReset)
+    {
+        var held = view;
+        if (held.ZoneCount >= maxZones)
         {
             throw new DnsZoneFileException(null, "past the zones' bounds");
         }
 
         var apex = ApexOf(fileName);
-        if (zones.Exists(zone => zone.Apex.FoldedKey == apex.FoldedKey))
+        if (held.HasApex(apex) || configured.HasApex(apex))
         {
             throw new DnsZoneFileException(null, $"a second zone for {apex}");
         }
 
         var zone = DnsZone.Build(apex, DnsZoneFileReader.Read(apex, TextOf(content)));
-        if (recordCount + (long)zone.RecordCount > maxRecords || totalBytes + zone.ByteCount > maxTotalBytes)
+        if (held.RecordCount + (long)zone.RecordCount > maxRecords || held.ByteCount + zone.ByteCount > maxTotalBytes)
         {
             throw new DnsZoneFileException(null, "past the zones' bounds");
         }
 
-        zones.Add(zone);
-        recordCount += zone.RecordCount;
-        totalBytes += zone.ByteCount;
+        Volatile.Write(ref view, held.With(zone));
+        if (keepOnReset)
+        {
+            configured = configured.With(zone);
+        }
+
+        return zone;
     }
 
     /// <summary>
@@ -103,12 +216,10 @@ public sealed class DnsZoneSet
     }
 
     /// <summary>The zone with the longest apex at or above <paramref name="name"/>, or <see langword="null"/>.</summary>
-    internal DnsZone? ZoneFor(DnsName name) =>
-        zones.Where(zone => name.IsAtOrBelow(zone.Apex)).MaxBy(zone => zone.Apex.LabelCount);
+    internal DnsZone? ZoneFor(DnsName name) => CurrentView.ZoneFor(name);
 
     /// <summary>The zone whose apex is <paramref name="name"/>, or <see langword="null"/>.</summary>
-    internal DnsZone? ZoneAtApex(DnsName name) =>
-        zones.Find(zone => zone.Apex.FoldedKey == name.FoldedKey);
+    internal DnsZone? ZoneAtApex(DnsName name) => CurrentView.ZoneAtApex(name);
 
     private static DnsName ApexOf(string fileName)
     {
