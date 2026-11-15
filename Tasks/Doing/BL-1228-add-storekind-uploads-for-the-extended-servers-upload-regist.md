@@ -30,3 +30,4 @@ ADR-0167 decision 3. Foundation/Surl.Protocol.Abstractions.UnitLibrary/StoreKind
 ## Log
 
 - 2026-11-15: Created.
+- 2026-11-15: Backlog -> Doing.
