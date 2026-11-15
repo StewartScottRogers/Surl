@@ -35,3 +35,4 @@ The DNS zone set can be seeded with a zone while the server runs, reset to the z
 ## Log
 
 - 2026-11-14: Created.
+- 2026-11-14: Backlog -> Doing.
