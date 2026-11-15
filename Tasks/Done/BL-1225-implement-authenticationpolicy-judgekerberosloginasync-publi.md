@@ -8,7 +8,7 @@ depends-on: [BL-1214, BL-1221]
 touches: [Foundation/Surl.Authentication.UnitLibrary, Foundation/Surl.Authentication.UnitTests]
 requirement: FR-060
 created: 2026-11-15
-completed:
+completed: 2026-11-15
 ---
 # BL-1225 — Implement AuthenticationPolicy.JudgeKerberosLoginAsync: publish and apply refuse-login (ADR-0165)
 
@@ -22,12 +22,15 @@ ADR-0165 (Documentation/Planning/Decisions) decides this. No wire byte changes; 
 
 ## Acceptance criteria
 
-- [ ] ADR-0165 decisions 7 to 9: refused token publishes empty Account; accepted asks the fault plan at FaultStage.Login with the principal; refusal returns false after RefusalDelay on the injected TimeProvider; notes carry no secret.
-- [ ] dotnet build is clean and the fast tests pass; the project stays at 100% coverage.
+- [x] ADR-0165 decisions 7 to 9: refused token publishes empty Account; accepted asks the fault plan at FaultStage.Login with the principal; refusal returns false after RefusalDelay on the injected TimeProvider; notes carry no secret.
+- [x] dotnet build is clean and the fast tests pass; the project stays at 100% coverage.
 
 ## Notes
+
+Accepted token with no readable principal is judged under account "" (fault rules with an empty Account still match). Refusal delay counted from judgement start on the injected TimeProvider.
 
 ## Log
 
 - 2026-11-15: Created.
 - 2026-11-15: Backlog -> Doing.
+- 2026-11-15: Doing -> Done. AuthenticationPolicy.JudgeKerberosLoginAsync publishes gssapi LoginJudgedEvent and applies refuse-login
