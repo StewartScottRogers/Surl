@@ -33,3 +33,4 @@ A `delay;stage=command` or `drop;stage=command` fault rule matching an `az`, `ab
 ## Log
 
 - 2026-11-14: Created.
+- 2026-11-14: Backlog -> Doing.
