@@ -241,6 +241,85 @@ public sealed class ComposedStores
         content.SeedFileAsync(requestPath, contents, cancellationToken);
 
     /// <summary>
+    /// Reads one file's exact bytes with its size, modification time and content type. A file past
+    /// <see cref="MaxReadBytes"/> is refused, never cut short. Publishes nothing, asks no fault rule and works
+    /// on a <c>--directory</c> store (ADR-0164, decisions 1 to 4).
+    /// </summary>
+    /// <param name="requestPath">The file's path, as a request path.</param>
+    /// <param name="cancellationToken">Cancels the read.</param>
+    /// <returns>The file; <see cref="ComposedReadOutcome.NotFound"/> for nothing, a folder, or a path under
+    /// <c>/.surl</c> or hidden by the exposure options; <see cref="ComposedReadOutcome.TooLarge"/> past the bound;
+    /// <see cref="ComposedReadOutcome.Refused"/> for a path a request may not name, such as one with <c>..</c>.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="requestPath"/> is <see langword="null"/>.</exception>
+    /// <exception cref="IOException">The file cannot be read.</exception>
+    public async Task<ComposedReadResult<ComposedFileContents>> ReadFileAsync(string requestPath, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(requestPath);
+        var mapping = content.MapRequestPath(requestPath);
+        if (!mapping.IsMapped)
+        {
+            return ComposedReadResult<ComposedFileContents>.Failed(ComposedReadOutcome.Refused, $"The path is not one a request may name ({mapping.Refusal}).");
+        }
+
+        var status = content.GetFileStatus(mapping);
+        if (status is null)
+        {
+            return ComposedReadResult<ComposedFileContents>.Failed(ComposedReadOutcome.NotFound, $"No file at {requestPath}.");
+        }
+
+        if (status.Length > MaxReadBytes)
+        {
+            return ComposedReadResult<ComposedFileContents>.Failed(ComposedReadOutcome.TooLarge, $"The file is {status.Length} bytes; a read returns at most {MaxReadBytes}.");
+        }
+
+        using var buffer = new MemoryStream();
+        _ = await content.CopyFileBytesAsync(mapping, ContentByteRange.WholeFile(status.Length), buffer, cancellationToken);
+        return ComposedReadResult<ComposedFileContents>.Of(new(buffer.ToArray(), status.Length, status.LastModifiedUtc, ContentMediaTypes.Of(requestPath)));
+    }
+
+    /// <summary>
+    /// Lists a folder's children in ordinal order of name, whatever the listing switch says. Publishes nothing and
+    /// asks no fault rule (ADR-0164, decisions 1 to 4).
+    /// </summary>
+    /// <param name="requestPath">The folder's path, as a request path; <c>/</c> for the root.</param>
+    /// <param name="afterName">The last name seen, or <see langword="null"/> to start at the first.</param>
+    /// <param name="limit">The most children to return, 1 to 1000.</param>
+    /// <param name="cancellationToken">Cancels the listing.</param>
+    /// <returns>The page; <see cref="ComposedReadOutcome.NotFound"/> for nothing, a file, or a path under
+    /// <c>/.surl</c>; <see cref="ComposedReadOutcome.Refused"/> for a limit outside 1 to 1000 or a path a request
+    /// may not name.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="requestPath"/> is <see langword="null"/>.</exception>
+    public ComposedReadResult<ComposedFolderPage> ListFolder(string requestPath, string? afterName, int limit, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(requestPath);
+        if (limit is < 1 or > 1000)
+        {
+            return ComposedReadResult<ComposedFolderPage>.Failed(ComposedReadOutcome.Refused, "The limit must be 1 to 1000.");
+        }
+
+        var mapping = content.MapRequestPath(requestPath);
+        if (!mapping.IsMapped)
+        {
+            return ComposedReadResult<ComposedFolderPage>.Failed(ComposedReadOutcome.Refused, $"The path is not one a request may name ({mapping.Refusal}).");
+        }
+
+        var listing = content.ListDirectoryWhateverTheListingSwitchSays(mapping, cancellationToken);
+        if (!listing.IsListed)
+        {
+            return ComposedReadResult<ComposedFolderPage>.Failed(ComposedReadOutcome.NotFound, $"No folder at {requestPath}.");
+        }
+
+        var after = listing.Entries
+            .Where(entry => afterName is null || string.CompareOrdinal(entry.Name, afterName) > 0)
+            .OrderBy(entry => entry.Name, StringComparer.Ordinal)
+            .ToList();
+        var page = after.Take(limit)
+            .Select(entry => new ComposedFolderEntry(entry.Name, entry.Kind == ContentEntryKind.Directory, entry.Length))
+            .ToList();
+        return ComposedReadResult<ComposedFolderPage>.Of(new(page, after.Count > limit));
+    }
+
+    /// <summary>
     /// Deletes a file from the content store as <see cref="ContentStore.DeleteFileForTheTest"/> does:
     /// never consults the fault plan; publishes <see cref="StoreChange.Deleted"/>.
     /// </summary>

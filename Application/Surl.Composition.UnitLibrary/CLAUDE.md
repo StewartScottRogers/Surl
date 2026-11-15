@@ -279,3 +279,5 @@ Tests: `Application/Surl.Composition.UnitTests` (`ServerTlsCompositionTests`,
 over `FakeListenerFactory` and `StartTestSeams` with no network, among them); the loading, the content store and
 the start compositions are also exercised through `CommandLineRunner` in
 `Application/Surl.Console.UnitTests`, and the coverage measure merges both.
+
+- Reading the content store back (ADR-0164, BL-1197): `ComposedStores.ReadFileAsync` (bytes, size, modification time, content type) and `ListFolder` (name, kind, size, ordinal order, `afterName` cursor, limit 1 to 1000), results as `ComposedReadResult<T>`. A request path is mapped by `ContentStore.MapRequestPath` (a refusal such as `..` is `Refused`), `/.surl` and anything hidden is `NotFound`, a file over `MaxReadBytes` is `TooLarge`; nothing is published and no fault rule is asked. Tests: `ComposedStoresContentReadTests`.
