@@ -7,6 +7,8 @@
 - **Amends:** [ADR-0115](ADR-0115-how-the-oci-registry-server-answers-oci.md) decisions 2.2
   (when a repository is created) and 2.4 (where an upload session stages its bytes).
 - **Details:** ADR-0115 decisions 3.1 and 5.4, on points they leave open.
+- **Amended by:** [ADR-0163](ADR-0163-the-s3-uploadid-and-the-oci-upload-uuid-follow-random-seed-and-the-gcs-upload-id-stays-secret.md)
+  (decision 7: the upload session UUID follows `--random-seed`, no longer `Guid.NewGuid`).
 
 ## Context
 

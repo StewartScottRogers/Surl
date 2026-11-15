@@ -8,7 +8,7 @@ depends-on: []
 touches: [Documentation/Planning/Decisions]
 requirement: FR-064
 created: 2026-11-14
-completed:
+completed: 2026-11-15
 ---
 # BL-1156 — Decide whether the S3 UploadId, the OCI upload session UUID and the GCS upload ID follow --random-seed
 
@@ -26,13 +26,16 @@ A new ADR, marked "Decided by Claude under Stewart's delegation", classifies thr
 
 ## Acceptance criteria
 
-- [ ] A new ADR under `Documentation/Planning/Decisions/` (next free number) classes each of the three identifiers as seedable or secret, with the reason drawn from the service's documentation and Surl's code.
-- [ ] Where it reverses ADR-0130 decision 7, ADR-0130 gains an "Amended by" line.
-- [ ] For each identifier decided seedable, this task files one fix task with `task-board.ps1 new` (`touches` the server's `.UnitLibrary` and `.UnitTests`, plus `Application/Surl.Composition.UnitLibrary` and `Application/Surl.Composition.UnitTests` if the source must be passed in; `depends-on` this task; requirement FR-064), whose criteria include a test that two instances with the same `RandomSeed` give the same identifier for the same exchange order; the ADR lists those tasks under "Acted on by".
+- [x] A new ADR under `Documentation/Planning/Decisions/` (next free number) classes each of the three identifiers as seedable or secret, with the reason drawn from the service's documentation and Surl's code.
+- [x] Where it reverses ADR-0130 decision 7, ADR-0130 gains an "Amended by" line.
+- [x] For each identifier decided seedable, this task files one fix task with `task-board.ps1 new` (`touches` the server's `.UnitLibrary` and `.UnitTests`, plus `Application/Surl.Composition.UnitLibrary` and `Application/Surl.Composition.UnitTests` if the source must be passed in; `depends-on` this task; requirement FR-064), whose criteria include a test that two instances with the same `RandomSeed` give the same identifier for the same exchange order; the ADR lists those tasks under "Acted on by".
 
 ## Notes
+
+ADR-0163: S3 and OCI seedable, GCS secret (session URI is the credential). Fix tasks BL-1192 (S3), BL-1193 (OCI); none for GCS. ADR-0130 gains an Amended by line.
 
 ## Log
 
 - 2026-11-14: Created.
 - 2026-11-15: Backlog -> Doing.
+- 2026-11-15: Doing -> Done. ADR-0163 classes S3 and OCI upload IDs seedable, GCS secret; BL-1192 and BL-1193 filed
