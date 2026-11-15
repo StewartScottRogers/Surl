@@ -8,7 +8,7 @@ depends-on: []
 touches: [Documentation/Planning/Decisions]
 requirement: FR-060
 created: 2026-11-15
-completed:
+completed: 2026-11-15
 ---
 # BL-1214 — Decide how TLS-SRP and SOCKS5 GSS-API logins publish LoginJudgedEvent and honour refuse-login
 
@@ -41,3 +41,4 @@ ADR-0165 decides it. Follow-up tasks filed: BL-1221 (Abstractions contracts), BL
 
 - 2026-11-15: Created.
 - 2026-11-15: Backlog -> Doing.
+- 2026-11-15: Doing -> Done. ADR-0165 written; BL-1221 to BL-1226 filed
