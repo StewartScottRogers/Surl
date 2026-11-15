@@ -33,3 +33,4 @@ ADR-0167 decisions 2, 3 and 5. `GcsStagedUploads` holds the sessions; add an abo
 ## Log
 
 - 2026-11-15: Created.
+- 2026-11-15: Backlog -> Doing.
