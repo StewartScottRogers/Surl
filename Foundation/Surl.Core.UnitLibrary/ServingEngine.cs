@@ -727,6 +727,7 @@ public sealed partial class ServingEngine
         IConnection connection, AcceptedConnectionRoute route, ExchangeDeadlines deadlines)
     {
         var (exchangeId, log, context, bytesLog) = OpenExchange(route.ListenUrl, connection.LocalEndPoint, connection.RemoteEndPoint, deadlines);
+        connection.UseTlsLoginJudge(new ExchangeTlsLoginJudge(context));
 
         try
         {

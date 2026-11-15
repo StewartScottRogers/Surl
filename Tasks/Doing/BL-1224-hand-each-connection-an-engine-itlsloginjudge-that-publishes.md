@@ -22,10 +22,12 @@ ADR-0165 (Documentation/Planning/Decisions) decides this. No wire byte changes; 
 
 ## Acceptance criteria
 
-- [ ] Per ADR-0165 decisions 1, 4 and 5: FaultPoint at FaultStage.Login with exchange, listener, scheme, account; FaultAppliedEvent then LoginJudgedEvent (IsRefusedByFault); non-RefuseLogin rules ignored; AIHelp/docs facts for fault stage updated if they list TLS-SRP.
-- [ ] dotnet build is clean and the fast tests pass; the project stays at 100% coverage.
+- [x] Per ADR-0165 decisions 1, 4 and 5: FaultPoint at FaultStage.Login with exchange, listener, scheme, account; FaultAppliedEvent then LoginJudgedEvent (IsRefusedByFault); non-RefuseLogin rules ignored; AIHelp/docs facts for fault stage updated if they list TLS-SRP.
+- [x] dotnet build is clean and the fast tests pass; the project stays at 100% coverage.
 
 ## Notes
+
+ExchangeTlsLoginJudge is handed to each raw connection right after OpenExchange, so implicit TLS and STARTTLS share it. Only RefuseLogin rules can sit at Login in a plan; a non-RefuseLogin rule is reachable only through an override and is ignored. Core CLAUDE.md updated; no AiHelp text lists TLS-SRP login faults.
 
 ## Log
 
