@@ -35,3 +35,4 @@ A test holding a `SurlServer` reads back mailbox messages through `server.Mail`,
 ## Log
 
 - 2026-11-15: Created.
+- 2026-11-15: Backlog -> Doing.
