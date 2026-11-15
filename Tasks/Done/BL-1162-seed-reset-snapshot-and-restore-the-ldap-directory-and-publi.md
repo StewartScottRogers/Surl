@@ -8,7 +8,7 @@ depends-on: [BL-1157]
 touches: [Protocols/Messaging/Surl.Protocol.Ldap.UnitLibrary, Protocols/Messaging/Surl.Protocol.Ldap.UnitTests]
 requirement: FR-061
 created: 2026-11-14
-completed:
+completed: 2026-11-15
 ---
 # BL-1162 — Seed, reset, snapshot and restore the LDAP directory and publish its changes
 
@@ -24,11 +24,11 @@ The LDAP directory can be seeded with LDIF content records while the server runs
 
 ## Acceptance criteria
 
-- [ ] Named tests: an entry seeded from LDIF text is found by an `LdapSearchRequest` at base, one-level and subtree scope; seeding an existing DN, an entry whose parent is missing (if the ADR requires parents), or text that is not LDIF is refused with the reader's message and changes nothing.
-- [ ] Named tests: reset returns the directory to the entries it was built with; a snapshot taken, then changed, then restored gives back the snapshot's entries; a snapshot from another directory is refused; the entry and byte limits apply to seeds.
-- [ ] Named tests: seed, reset and restore each publish the `StoreChangedEvent` the ADR decides.
-- [ ] Every existing LDAP test passes unchanged, and `dotnet build -warnaserror` is clean with the fast tests green.
-- [ ] `Surl.Protocol.Ldap.UnitLibrary` keeps 100% line and branch coverage with no method over complexity 10.
+- [x] Named tests: an entry seeded from LDIF text is found by an `LdapSearchRequest` at base, one-level and subtree scope; seeding an existing DN, an entry whose parent is missing (if the ADR requires parents), or text that is not LDIF is refused with the reader's message and changes nothing.
+- [x] Named tests: reset returns the directory to the entries it was built with; a snapshot taken, then changed, then restored gives back the snapshot's entries; a snapshot from another directory is refused; the entry and byte limits apply to seeds.
+- [x] Named tests: seed, reset and restore each publish the `StoreChangedEvent` the ADR decides.
+- [x] Every existing LDAP test passes unchanged, and `dotnet build -warnaserror` is clean with the fast tests green.
+- [x] `Surl.Protocol.Ldap.UnitLibrary` keeps 100% line and branch coverage with no method over complexity 10.
 
 ## Notes
 
@@ -38,3 +38,4 @@ The LDAP directory can be seeded with LDIF content records while the server runs
 - 2026-11-14: Backlog -> Doing.
 
 - Choices (ADR-0158 decisions 2-5): `LdapDirectory` now holds an immutable `LdapDirectoryContents` swapped under a lock; each search captures one set. `SeedEntries(ldif)` (16 MiB bound, same `LdifReader`, atomic, refused with `InvalidOperationException` carrying the reader's `line <n>: <what>`), `Reset`, `TakeSnapshot`/`Restore` (`LdapDirectorySnapshot`, owner-checked) publish `StoreChangedEvent` (`Directory`; `Seeded` per entry with DN and byte size, `Reset`/`Restored` once with empty name). No `IControllableStore` exists yet, so wiring into `ComposedStores` stays with BL-1163. A seed that would leave an existing entry parentless names that entry rather than a line.
+- 2026-11-15: Doing -> Done. Seed, reset, snapshot and restore of the LDAP directory with events, tests at 100% coverage
