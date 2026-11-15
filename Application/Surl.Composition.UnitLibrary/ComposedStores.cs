@@ -2,6 +2,7 @@ using Surl.Authentication;
 using Surl.Content;
 using Surl.MailStore;
 using Surl.MessageBus;
+using Surl.Extended.Protocol.DnsQuery;
 using Surl.Extended.Protocol.Redis;
 using Surl.Protocol.Abstractions;
 using Surl.Protocol.Ldap;
@@ -47,6 +48,7 @@ public sealed class ComposedStores
     private readonly AccountBook accounts;
     private readonly LdapProtocolServer? ldapServer;
     private readonly RedisKeyspace? redisKeyspace;
+    private readonly DnsZoneSet? dnsZones;
     private readonly IReadOnlyList<ComposedStoreRegistration> controls;
 
     internal ComposedStores(
@@ -58,9 +60,11 @@ public sealed class ComposedStores
         long maxSnapshotBytes = DefaultMaxSnapshotBytes,
         IReadOnlyList<ComposedStoreRegistration>? additionalRegistrations = null,
         LdapProtocolServer? ldapServer = null,
-        RedisKeyspace? redisKeyspace = null)
+        RedisKeyspace? redisKeyspace = null,
+        DnsZoneSet? dnsZones = null)
     {
         this.redisKeyspace = redisKeyspace;
+        this.dnsZones = dnsZones;
         this.content = content;
         MetadataIndex = metadataIndex;
         this.mail = mail;
@@ -207,6 +211,24 @@ public sealed class ComposedStores
         cancellationToken.ThrowIfCancellationRequested();
         var keyspace = redisKeyspace ?? throw new InvalidOperationException("This instance holds no Redis keyspace.");
         keyspace.SeedKey(database, key, value, expiry);
+        return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// Adds one zone to the DNS zones as <see cref="DnsZoneSet.SeedZone"/> does: never consults the fault plan;
+    /// publishes <see cref="StoreChange.Seeded"/> named for the apex (ADR-0158 decision 3). A reset drops it.
+    /// </summary>
+    /// <param name="apex">The zone's apex, a domain name with or without its final dot.</param>
+    /// <param name="zoneFileText">The zone file's text, at most <see cref="DnsZoneSet.MaxSeedTextBytes"/> bytes.</param>
+    /// <param name="cancellationToken">Cancels the seed before it starts.</param>
+    /// <returns>A task that completes once the zone is added.</returns>
+    /// <exception cref="DnsZoneFileException">The text cannot be a zone, a zone with the apex is held, or the bounds would be passed.</exception>
+    /// <exception cref="InvalidOperationException">This instance composes no DNS server.</exception>
+    public Task SeedZoneAsync(string apex, string zoneFileText, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var zones = dnsZones ?? throw new InvalidOperationException("This instance holds no DNS zones.");
+        zones.SeedZone(apex, zoneFileText);
         return Task.CompletedTask;
     }
 

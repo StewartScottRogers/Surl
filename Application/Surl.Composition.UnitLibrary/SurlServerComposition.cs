@@ -290,7 +290,7 @@ public static partial class SurlServerComposition
             return (null, indexFailure);
         }
 
-        var (zones, zoneFailure) = await LoadDnsZonesAsync(ComposeDnsZoneFolder(commandLine, fileSystem), cancellationToken);
+        var (zones, zoneFailure) = await LoadDnsZonesAsync(ComposeDnsZoneFolder(commandLine, fileSystem), cancellationToken, events);
         return zones is null
             ? (null, zoneFailure)
             : (new ServiceState(messageBus, mailStore, ldapServer, index) { DnsZones = zones }, null);
@@ -318,18 +318,19 @@ public static partial class SurlServerComposition
     /// </summary>
     /// <param name="folder">The zones' folder, or <see langword="null"/> for none.</param>
     /// <param name="cancellationToken">Cancels the read.</param>
+    /// <param name="events">The instance's event stream, which the zones publish seed, reset and restore on; none by default.</param>
     /// <returns>The zones, or the message after the <c>surl: </c> prefix when a file cannot be loaded.</returns>
     public static async Task<(DnsZoneSet? Zones, string? FailureMessage)> LoadDnsZonesAsync(
-        DnsZoneFolder? folder, CancellationToken cancellationToken)
+        DnsZoneFolder? folder, CancellationToken cancellationToken, ISurlEventPublisher? events = null)
     {
         if (folder is null)
         {
-            return (new DnsZoneSet(), null);
+            return (new DnsZoneSet(events: events), null);
         }
 
         try
         {
-            return (await folder.LoadAsync(new DnsZoneSet(), cancellationToken), null);
+            return (await folder.LoadAsync(new DnsZoneSet(events: events), cancellationToken), null);
         }
         catch (DnsZoneLoadException failure)
         {

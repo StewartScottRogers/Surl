@@ -139,6 +139,7 @@ horizontal library may reference it (ADR-0099 decision 11, held by
   snapshot stops at `Content`; seeding them is allowed, and accounts stay controllable. Tests:
   `ComposedStoresTests`.
 - The Redis keyspace (ADR-0158, BL-1161): `ComposedProtocolServices.RedisKeyspace` is the instance's one keyspace (built on first use over its `TimeProvider` and `Events`), which the `redis`/`rediss` `RedisServer` is built over; when that server is composed (never with `SURL_EXTENSIONS=0`) `RedisKeyspaceStoreRegistration` joins `StoreKind.Keyspace` to the order after the accounts and before the directory, and `ComposedStores.SeedKeyAsync` seeds a string key. Tests: `RedisKeyspaceStoreTests`.
+- The DNS zones (ADR-0158, BL-1165): when a `dns` server is composed (never with `SURL_EXTENSIONS=0`) `DnsZoneStoreRegistration` joins `StoreKind.Zones` to the order, last (after the broker stores, which already follow the directory), over `ServiceState.DnsZones`, which `LoadDnsZonesAsync` builds over the instance's events; `ComposedStores.SeedZoneAsync` seeds a zone, which a reset drops. Zones loaded from `--directory` are an in-memory copy of files read once (decision 6): reset returns to them, nothing is written. Tests: `DnsZoneStoreTests`.
 - The control endpoint's target (ADR-0124 decision 7, BL-1022): the internal `ComposedControlTarget` is
   `Surl.Control`'s `IControlTarget` over a start's `Events`, `Faults` and `Stores`, and `ComposedSnapshot` is its
   `IControlSnapshot`. `AddFault` reads one item as `--fault` does (a bad item `BadRequest` with the reader's text, a
