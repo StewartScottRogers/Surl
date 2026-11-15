@@ -76,15 +76,15 @@ public sealed class DnsQueryFaultsTests
     }
 
     [TestMethod]
-    public async Task ServeAsync_CommandStageDropRule_IsNotAppliedAndIsNoted()
+    public async Task ServeAsync_CommandStageRefuseLoginRule_IsNotAppliedAndIsNoted()
     {
-        var drop = new FaultRule("f1", FaultKind.Drop) { Stage = FaultStage.Command };
+        var drop = new FaultRule("f1", FaultKind.RefuseLogin) { Stage = FaultStage.Command };
 
         var (sent, events, log) = await ServeOverUdpAsync(new ScriptedFaultPlan(drop), Query("web.example.test", TypeA));
 
         Assert.AreEqual(DnsResponseCode.NoError, ReadWhole(sent.Single()).Header.ResponseCode);
         Assert.IsEmpty(events.Events);
-        Assert.Contains("Fault rule f1 not applied to the query: a Drop rule is not applied at a query.", log.Notes);
+        Assert.Contains("Fault rule f1 not applied to the query: a RefuseLogin rule is not applied at a query.", log.Notes);
     }
 
     [TestMethod]

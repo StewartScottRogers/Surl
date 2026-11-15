@@ -174,13 +174,24 @@ public sealed class DnsOverHttpsHandler : IHttpRequestHandler, IHttp2StreamHandl
             : Refusal(HttpStatus.BadRequest);
     }
 
-    // The fault plan's chosen error, when this handler serves an exchange, else the answerer's.
-    private async Task<DnsResponse?> AnswerOverHttpAsync(byte[] query) =>
-        (exchange is null ? null : await DnsQueryFaults.FindErrorAsync(exchange, query)) ?? answerer.AnswerOverHttp(query);
+    // The fault plan's chosen error, when this handler serves an exchange, else the answerer's;
+    // the plan's drop is told apart by the first of the pair.
+    private async Task<(bool IsDropped, DnsResponse? Response)> AnswerOverHttpAsync(byte[] query)
+    {
+        var fault = exchange is null ? default : await DnsQueryFaults.FindAsync(exchange, query);
+
+        return (fault.IsDropped, fault.ChosenError ?? (fault.IsDropped ? null : answerer.AnswerOverHttp(query)));
+    }
 
     private async Task<HttpAnswer> AnswerQueryAsync(HttpRequest request, byte[] query)
     {
-        if (await AnswerOverHttpAsync(query) is not { } response)
+        var (isDropped, answered) = await AnswerOverHttpAsync(query);
+        if (isDropped)
+        {
+            return new HttpAnswer(new HttpStatus(500, string.Empty), [], HttpAnswerBody.None, IsRefusal: true, LeavesRequestBodyUnread: false, DropsExchange: true);
+        }
+
+        if (answered is not { } response)
         {
             return Empty(request, HttpStatus.BadRequest);
         }

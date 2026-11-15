@@ -55,7 +55,13 @@ public sealed class DnsUdpProtocolServer : IDatagramProtocolServer
 
     private async Task AnswerAsync(IDatagramFlow flow, ReadOnlyMemory<byte> query, ExchangeContext context)
     {
-        var response = await DnsQueryFaults.FindErrorAsync(context, query) ?? answerer.Answer(query.Span);
+        var fault = await DnsQueryFaults.FindAsync(context, query);
+        if (fault.IsDropped)
+        {
+            return;
+        }
+
+        var response = fault.ChosenError ?? answerer.Answer(query.Span);
 
         if (response is null)
         {
