@@ -8,7 +8,7 @@ depends-on: []
 touches: [Documentation/Planning/Decisions]
 requirement: FR-062
 created: 2026-11-14
-completed:
+completed: 2026-11-14
 ---
 # BL-1153 — Decide how the HTTP and HTTPS proxy applies delay, drop and chosen-error fault rules
 
@@ -25,16 +25,21 @@ A new ADR, marked "Decided by Claude under Stewart's delegation", says how the H
 
 ## Acceptance criteria
 
-- [ ] A new ADR under `Documentation/Planning/Decisions/` (next free number) decides the `FaultPoint` the proxy asks at for `CONNECT` and for a forwarded request (stage, scheme, command, path, account).
-- [ ] It decides how a `scheme` rule and a `listener` rule each reach or miss the proxy, so an `error;scheme=http` rule written for the HTTP server never silently changes a proxy (or says why it should).
-- [ ] It decides the chosen-error shape and where it is sent: the status and reason answering `CONNECT`, and the answer to a forwarded request, with whether `FaultReplyShapes` needs a new row.
-- [ ] It decides what delay and drop do before and after a tunnel is established.
-- [ ] It names the upstream curl 8.21.0 exit code it expects for each case, from upstream's documentation, for BL-1174 to confirm by measurement.
-- [ ] ADR-0124's decision 4 table gains a row or an "Amended by" line pointing at the new ADR.
+- [x] A new ADR under `Documentation/Planning/Decisions/` (next free number) decides the `FaultPoint` the proxy asks at for `CONNECT` and for a forwarded request (stage, scheme, command, path, account).
+- [x] It decides how a `scheme` rule and a `listener` rule each reach or miss the proxy, so an `error;scheme=http` rule written for the HTTP server never silently changes a proxy (or says why it should).
+- [x] It decides the chosen-error shape and where it is sent: the status and reason answering `CONNECT`, and the answer to a forwarded request, with whether `FaultReplyShapes` needs a new row.
+- [x] It decides what delay and drop do before and after a tunnel is established.
+- [x] It names the upstream curl 8.21.0 exit code it expects for each case, from upstream's documentation, for BL-1174 to confirm by measurement.
+- [x] ADR-0124's decision 4 table gains a row or an "Amended by" line pointing at the new ADR.
 
 ## Notes
+
+- Decided in ADR-0160 (Decided by Claude under Stewart's delegation). Key choice: the proxy's command-stage point carries scheme `http-proxy`/`https-proxy`, so `scheme=http` rules never reach a proxy; accept stage unchanged. FaultReplyShapes needs two rows (same as `http`), no new parser.
+- Exit codes in ADR-0160 are expectations from upstream's libcurl-errors documentation (8.21.0 is the version read); BL-1174 measures them.
+- Docs-only: no code touched, so no build or tests run.
 
 ## Log
 
 - 2026-11-14: Created.
 - 2026-11-14: Backlog -> Doing.
+- 2026-11-14: Doing -> Done. ADR-0160 decides the HTTP/HTTPS proxy's fault point, scheme and listener matching, chosen error, delay/drop and expected curl exits

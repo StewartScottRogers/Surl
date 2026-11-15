@@ -19,7 +19,10 @@
   by the Redis keyspace, the LDAP directory and the DNS zones), and
   [ADR-0159](ADR-0159-which-broker-held-state-a-reset-snapshot-and-restore-of-the-message-bus-cover.md)
   (decision 3's reset, snapshot and restore also cover the state brokers hold outside the bus: the AMQP 0-9-1
-  exchange table, the MQTT 5 sessions and Wills, and the Kafka groups and producer states).
+  exchange table, the MQTT 5 sessions and Wills, and the Kafka groups and producer states), and
+  [ADR-0160](ADR-0160-how-the-http-and-https-proxy-applies-delay-drop-and-chosen-error-fault-rules.md)
+  (decision 4: the HTTP and HTTPS proxy's command-stage point carries the scheme `http-proxy` or `https-proxy`, so an
+  `http` rule never reaches a proxy; its `path` and its reply rows are in the tables below).
 - **Acted on by:** BL-785 to BL-821 and BL-823, and the extended-server follow-ups listed under
   Consequences.
 
@@ -249,6 +252,7 @@ path and command known at that point. `FaultRule` carries `Id`, `Kind`, its scop
 | Family | `command` | `path` |
 | --- | --- | --- |
 | HTTP, RTSP, WebSocket | the method (`GET`, `DESCRIBE`); WebSocket the upgrade request | the request path, query excluded |
+| HTTP and HTTPS proxy (scheme `http-proxy`, `https-proxy`; ADR-0160) | the method, `CONNECT` included | `host:port` for `CONNECT`; for a forwarded request the absolute-form target, query excluded |
 | FTP, TFTP | the command (`RETR`, `STOR`, `LIST`); TFTP `RRQ`, `WRQ` | the file path |
 | SSH (SFTP, SCP), SMB | the SFTP packet name (`OPEN`, `READ`), `scp`; the SMB command (`CREATE`, `READ`) | the file path |
 | SMTP, IMAP, POP3 | the command (`MAIL`, `RCPT`, `DATA`, `SELECT`, `RETR`) | SMTP the recipient address at `RCPT`; IMAP the mailbox; POP3 none |
@@ -260,7 +264,7 @@ path and command known at that point. `FaultRule` carries `Id`, `Kind`, its scop
 
 | Scheme | `reply` |
 | --- | --- |
-| `http`, `https`, `rtsp` | a status 400 to 599 and an optional reason phrase |
+| `http`, `https`, `rtsp`, `http-proxy`, `https-proxy` | a status 400 to 599 and an optional reason phrase (the proxy schemes: ADR-0160) |
 | `ws`, `wss` | a close code RFC 6455 section 7.4 allows on the wire - 1000 to 1014 less 1004 to 1006, and 3000 to 4999 - and an optional non-empty reason of at most 123 UTF-8 bytes (ADR-0134 decision 4, BL-903) |
 | `ftp`, `ftps`, `smtp`, `smtps` | a reply code 400 to 599 and text |
 | `imap`, `imaps` | `NO` or `BAD` and text |
