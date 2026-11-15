@@ -45,6 +45,9 @@ public sealed class SurlServer : IAsyncDisposable
         Mail = new SurlServerMail(composedServing.Stores);
         Files = new SurlServerFiles(composedServing.Stores);
         Messages = new SurlServerMessages(composedServing.Stores);
+        Keys = new SurlServerKeys(composedServing.Stores);
+        Directory = new SurlServerDirectory(composedServing.Stores);
+        Zones = new SurlServerZones(composedServing.Stores);
         Accounts = new SurlServerAccounts(composedServing.Stores);
         stopping = new Lazy<Task<SurlExitCode>>(StopServingAsync);
     }
@@ -182,6 +185,15 @@ public sealed class SurlServer : IAsyncDisposable
 
     /// <summary>The server's message bus, to seed messages onto topics and queues (ADR-0124, decision 3).</summary>
     public SurlServerMessages Messages { get; }
+
+    /// <summary>The server's Redis keyspace, to seed string keys (ADR-0158, decision 9).</summary>
+    public SurlServerKeys Keys { get; }
+
+    /// <summary>The server's LDAP directory, to seed entries (ADR-0158, decision 9).</summary>
+    public SurlServerDirectory Directory { get; }
+
+    /// <summary>The server's DNS zones, to seed zones (ADR-0158, decision 9).</summary>
+    public SurlServerZones Zones { get; }
 
     /// <summary>The server's accounts, to add and remove them while it serves (ADR-0124, decision 3).</summary>
     public SurlServerAccounts Accounts { get; }
