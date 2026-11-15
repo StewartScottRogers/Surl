@@ -8,7 +8,7 @@ depends-on: []
 touches: [Protocols/FileTransfer/Surl.Extended.Protocol.S3.UnitLibrary, Protocols/FileTransfer/Surl.Extended.Protocol.S3.UnitTests]
 requirement: FR-060
 created: 2026-11-15
-completed:
+completed: 2026-11-15
 ---
 # BL-1207 — Start the S3 server's HTTP login session with its exchange so s3 logins are published and refused as s3
 
@@ -27,14 +27,17 @@ An S3 login is published as a `LoginJudgedEvent` with scheme `s3` and its exchan
 
 ## Acceptance criteria
 
-- [ ] `S3ProtocolServer` starts its session with `StartHttpConnection(connection.TlsSession, LoginExchange.Of(context))`, and no one-argument call remains in the library.
-- [ ] A test in `Protocols/FileTransfer/Surl.Extended.Protocol.S3.UnitTests` shows the policy receives an exchange whose `Scheme` is `s3` and whose `ExchangeId` is the context's.
-- [ ] A test with the real `AuthenticationPolicy`, a recording publisher and a `FaultPlan` holding `refuse-login;scheme=s3` shows a correctly signed request is answered as a wrong signature is, with a `LoginJudgedEvent` whose scheme is `s3` and `IsRefusedByFault` true.
-- [ ] `dotnet build Protocols/FileTransfer/Surl.Extended.Protocol.S3.UnitLibrary -warnaserror` is clean and the fast tests pass.
+- [x] `S3ProtocolServer` starts its session with `StartHttpConnection(connection.TlsSession, LoginExchange.Of(context))`, and no one-argument call remains in the library.
+- [x] A test in `Protocols/FileTransfer/Surl.Extended.Protocol.S3.UnitTests` shows the policy receives an exchange whose `Scheme` is `s3` and whose `ExchangeId` is the context's.
+- [x] A test with the real `AuthenticationPolicy`, a recording publisher and a `FaultPlan` holding `refuse-login;scheme=s3` shows a correctly signed request is answered as a wrong signature is, with a `LoginJudgedEvent` whose scheme is `s3` and `IsRefusedByFault` true.
+- [x] `dotnet build Protocols/FileTransfer/Surl.Extended.Protocol.S3.UnitLibrary -warnaserror` is clean and the fast tests pass.
 
 ## Notes
+
+- Fix: S3ProtocolServer passes LoginExchange.Of(context). Tests added in S3LoginExchangeTests (real AuthenticationPolicy, worked SigV4 example, refuse-login scheme s3 vs http). S3 test project now references Surl.Authentication.UnitLibrary.
 
 ## Log
 
 - 2026-11-15: Created.
 - 2026-11-15: Backlog -> Doing.
+- 2026-11-15: Doing -> Done. S3 logins start their HTTP session with the exchange: published and refused as s3
