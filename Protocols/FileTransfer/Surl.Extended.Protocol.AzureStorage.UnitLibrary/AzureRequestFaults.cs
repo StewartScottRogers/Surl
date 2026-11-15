@@ -1,5 +1,6 @@
 using System.Collections.Frozen;
 using Surl.HttpMessage;
+using Surl.HttpServing;
 using Surl.Protocol.Abstractions;
 
 namespace Surl.Extended.Protocol.AzureStorage;
@@ -50,20 +51,32 @@ internal static class AzureRequestFaults
         [504] = "Gateway Timeout",
     }.ToFrozenDictionary();
 
+    // What a drop rule answers with: nothing is written and the exchange is ended.
+    private static readonly HttpAnswer DroppedAnswer = new(
+        new HttpStatus(500, string.Empty), [], HttpAnswerBody.None, IsRefusal: true, LeavesRequestBodyUnread: false, DropsExchange: true);
+
     /// <summary>
-    /// Finds the chosen error for a request that logged in, publishing its <see cref="FaultAppliedEvent"/>.
+    /// Asks the fault plan about a request that logged in and applies what it finds: a delay holds the
+    /// request and it then goes on, a drop is answered with an answer that ends the exchange, and a
+    /// chosen error is answered with its error and publishes its <see cref="FaultAppliedEvent"/>.
     /// </summary>
     /// <param name="context">The exchange: its fault plan, event stream and log.</param>
+    /// <param name="reply">The reply that words an error for the endpoint.</param>
     /// <param name="method">The request's method.</param>
     /// <param name="path">The container or blob path, query excluded.</param>
     /// <param name="accountName">The account the request logged in as, or <see langword="null"/> when anonymous.</param>
-    /// <returns>The error to answer with, or <see langword="null"/> to answer as usual.</returns>
-    public static async ValueTask<AzureError?> FindChosenErrorAsync(ExchangeContext context, string method, string path, string? accountName)
+    /// <returns>The answer to give in place of the operation, or <see langword="null"/> to answer as usual.</returns>
+    public static async ValueTask<HttpAnswer?> FindAnswerAsync(ExchangeContext context, AzureReply reply, string method, string path, string? accountName)
     {
-        var rule = await HttpCommandFaults.FindChosenErrorAsync(context, method, path, accountName);
+        var rule = await HttpCommandFaults.FindAndApplyAsync(context, method, path, accountName);
         if (rule is null)
         {
             return null;
+        }
+
+        if (rule.Kind == FaultKind.Drop)
+        {
+            return DroppedAnswer;
         }
 
         if (!TryReadChosenError(rule.Reply, out var error))
@@ -75,7 +88,7 @@ internal static class AzureRequestFaults
 
         HttpCommandFaults.PublishApplied(context, rule, method, path, $"{error.Status.Code} {error.Code}");
 
-        return error;
+        return reply.Error(AzureRefusal.Of(error));
     }
 
     /// <summary>

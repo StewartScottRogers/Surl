@@ -80,11 +80,11 @@ internal sealed class AzureDataLakeRequestAnswerer : IHttpRequestHandler, IHttpH
             return loggedIn.Refusal;
         }
 
-        // A chosen-error fault rule answers in place of the operation, before the content store
-        // is touched (ADR-0124, decisions 4 and 9).
-        if (await AzureRequestFaults.FindChosenErrorAsync(context, request.Method, target.Path, loggedIn.Caller!.AccountName) is { } chosenError)
+        // A fault rule delays the request, drops it or answers a chosen error in place of the
+        // operation, before the content store is touched (ADR-0124, decisions 4 and 9; ADR-0141).
+        if (await AzureRequestFaults.FindAnswerAsync(context, reply, request.Method, target.Path, loggedIn.Caller!.AccountName) is { } faultAnswer)
         {
-            return reply.Error(AzureRefusal.Of(chosenError));
+            return faultAnswer;
         }
 
         if (AzureDataLakeOperationRecognition.Recognize(request, target, out var operation) is { } operationRefusal)
