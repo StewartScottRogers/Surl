@@ -124,6 +124,10 @@ cookies are never seeded (ADR-0124 decision 6); without a seed nothing is.
 
 ## The control endpoint, for suites not written in .NET
 
+Started from `surl` or from `Surl.Api` (`SurlServerOptions.ControlListenUrl`, `ControlTokenFile`;
+`SurlServer.ControlUrl` is the bound URL), as in
+`options.ControlListenUrl = "http://127.0.0.1:0"; options.ControlTokenFile = "control.token";` on a `SurlServerOptions`
+(`SurlServerTests.Control`; the `Surl.Api` README, "Control endpoint from a .NET harness").
 `surl --control http://127.0.0.1:0 --control-token-file control.token <listen URLs>` serves HTTP and JSON
 under `/v1/` on loopback, guarded by the bearer token (the file's first line, 32 to 1024 visible ASCII
 bytes); `--control` without a token file is refused, and a request without the token gets `401`. Routes:
@@ -147,7 +151,7 @@ Recipe: `StandInControlEndpointRecipeTests`. The endpoint has no hooks (decision
 ## `Surl.Mcp`, for AI agents
 
 `surl-mcp` offers `start_server`, `list_servers`, `stop_server`, `get_exchanges`, `get_events`,
-`wait_for_event`, `seed_mail`, `put_file`, `publish_message`, `add_account`, `reset_server`,
+`wait_for_event`, `seed_mail`, `put_file`, `delete_file`, `publish_message`, `add_account`, `remove_account`, `reset_server`,
 `snapshot_server`, `restore_server`, `add_fault`, `list_faults` and `remove_fault`, and the `surl://aihelp`
 resources. See [`Application/Surl.Mcp/README.md`](../../Application/Surl.Mcp/README.md).
 

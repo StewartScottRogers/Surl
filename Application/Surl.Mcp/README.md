@@ -26,6 +26,15 @@ archives hold the same server as a native binary that needs no .NET runtime.
   applied, hooks failed), filtered by kind, scheme, listen URL, account and sequence.
 - `wait_for_event` - waits up to `timeout_ms` (1 to 60000 milliseconds) for the first event matching the
   same filters, or answers `timed_out`.
+- `seed_mail`, `put_file`, `delete_file`, `publish_message`, `add_account`, `remove_account` - change a
+  running server's stores as a test would. `delete_file` takes a request `path` and answers `{path}`;
+  `no file at <path>` when nothing, a folder or a hidden path is there. `remove_account` takes a `user`
+  (an account given at start too) and answers `{user}`; `server <id> has no account <user>` when it holds
+  none. Neither needs a client permission (ADR-0161; tests in `DeleteAndRemoveToolsTests`).
+- `reset_server`, `snapshot_server`, `restore_server` - return a server's stores to their configured state,
+  or save and restore them.
+- `add_fault`, `list_faults`, `remove_fault` - make a listener, account or path misbehave on purpose. There
+  is no clear-faults tool (ADR-0161).
 
 The `surl://aihelp` resources carry `surl --aihelp`'s topics.
 

@@ -42,6 +42,7 @@ var exitCode = await server.StopAsync();   // SurlExitCode.Ok
   | `MaxFileSize` | `--max-filesize`, in bytes |
   | `RandomSeed` | `--random-seed`, 0 to `long.MaxValue`; same seed, same non-secret identifiers |
   | `Faults` (`SurlFault`, in order) | `--fault <item>`, once each |
+  | `ControlListenUrl`, `ControlTokenFile` | `--control`, `--control-token-file` |
 
 - Nothing is looser than `surl`: with only a listen URL and an account, anonymous logins,
   plaintext authentication and uploads are all off. Each loosening is a property named for its
@@ -135,6 +136,27 @@ Response overrides are not listed.
 server.Faults.Add(SurlFault.DropConnection() with { Times = 2 });
 var rule = server.Faults.List()[0];   // ("f1", "drop", 2); after one dropped connection, Remaining is 1
 ```
+
+## Control endpoint from a .NET harness
+
+A harness that also drives the server from outside .NET (a script, another process) serves `surl`'s
+loopback control endpoint from the same instance (ADR-0124 decision 7, BL-1176):
+
+```csharp
+options.ControlListenUrl = "http://127.0.0.1:0";   // --control: http, loopback only, port 0 allowed
+options.ControlTokenFile = "control.token";        // --control-token-file: the bearer token's file
+await using var server = await SurlServer.StartAsync(options);
+var control = server.ControlUrl;                    // http://127.0.0.1:<bound port>/, null without the options
+```
+
+Both are composed as `surl`'s own options, so every refusal is `surl`'s, thrown as a
+`SurlServerStartException` with `FailedInit` (2): a non-loopback URL, a scheme other than `http`,
+`ControlListenUrl` without `ControlTokenFile` (no token is generated) and `ControlTokenFile` without
+`ControlListenUrl`; an unreadable or malformed token file is refused as `surl` refuses it. The start-up
+warning goes to `Log`. Tests: `SurlServerTests.Control`
+(`StartAsync_ControlListenUrlAndATokenFile_ReportsTheBoundControlUrlAndAnswersEvents`,
+`StartAsync_WithoutControlOptions_ControlUrlIsNull`,
+`StartAsync_ARefusedControlCombination_ThrowsWithSurlsMessage`).
 
 ## Hooks
 
