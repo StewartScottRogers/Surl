@@ -186,8 +186,9 @@ code under test, and a test is inconclusive where no pinned build is installed.
 - **Injected faults** - `StandInFaultRecipeTests.cs` (tests named above).
 - **Parallel instances** - `StandInParallelInstancesRecipeTests.cs` (tests named above).
 - **Publish and consume** - `StandInPublishAndConsumeRecipeTests.cs`:
-  `PublishOverMqtt_ThenConsumeOverNats_ReceivesTheExactPayload`, `PublishOverMqtt_ThenConsumeOverStomp_ReceivesTheExactPayload`.
-  Upstream curl speaks neither NATS nor STOMP, so a test-local `TcpClient` writes those protocols' frames.
+  `PublishOverMqtt_ThenConsumeOverNats_ReceivesTheExactPayload`, `PublishOverMqtt_ThenConsumeOverStomp_ReceivesTheExactPayload`,
+  `PublishOverMqtt_ThenConsumeOverRedis_ReceivesTheExactPayload`.
+  Upstream curl speaks none of NATS, STOMP or Redis, so a test-local `TcpClient` writes those protocols' frames.
 - **Control endpoint** - `StandInControlEndpointRecipeTests.cs`: `SeedMail_ThenReadOverImap_ReturnsTheSeededMessage`,
   `RefuseLoginFault_ThenReadOverImap_FailsWithLoginDeniedUntilTheFaultIsRemoved`,
   `WaitForEvent_AfterTheImapExchange_ReturnsThatExchange`, `Reset_AfterSeeding_LeavesTheMailboxEmpty`,

@@ -8,7 +8,7 @@ depends-on: []
 touches: [Conformance/Surl.Conformance.UnitTests/StandInPublishAndConsumeRecipeTests.cs, Documentation/Wiki/Surl-As-A-Stand-In.md]
 requirement: FR-058
 created: 2026-11-15
-completed:
+completed: 2026-11-15
 ---
 # BL-1217 — Prove an MQTT message pinned upstream curl publishes reaches a Redis SUBSCRIBE in the publish-and-consume stand-in recipe
 
@@ -29,14 +29,17 @@ The publish-and-consume stand-in recipe proves that a message pinned upstream cu
 
 ## Acceptance criteria
 
-- [ ] `StandInPublishAndConsumeRecipeTests` has `PublishOverMqtt_ThenConsumeOverRedis_ReceivesTheExactPayload`. It subscribes over Redis, publishes `hello bus` to `a/b` with pinned upstream curl 8.21.0, waits for the bus publish event, and reads the Redis `message` frame.
-- [ ] The test asserts curl exited 0 and that the consumer received exactly `*3\r\n$7\r\nmessage\r\n$3\r\na/b\r\n$9\r\nhello bus\r\n`.
-- [ ] `dotnet test Conformance/Surl.Conformance.UnitTests --filter "FullyQualifiedName~StandInPublishAndConsumeRecipeTests"` passes on a machine with the pinned build, and the project builds clean with `-warnaserror`.
-- [ ] `Documentation/Wiki/Surl-As-A-Stand-In.md`, section "Recipes", bullet "Publish and consume", names the new test.
+- [x] `StandInPublishAndConsumeRecipeTests` has `PublishOverMqtt_ThenConsumeOverRedis_ReceivesTheExactPayload`. It subscribes over Redis, publishes `hello bus` to `a/b` with pinned upstream curl 8.21.0, waits for the bus publish event, and reads the Redis `message` frame.
+- [x] The test asserts curl exited 0 and that the consumer received exactly `*3\r\n$7\r\nmessage\r\n$3\r\na/b\r\n$9\r\nhello bus\r\n`.
+- [x] `dotnet test Conformance/Surl.Conformance.UnitTests --filter "FullyQualifiedName~StandInPublishAndConsumeRecipeTests"` passes on a machine with the pinned build, and the project builds clean with `-warnaserror`.
+- [x] `Documentation/Wiki/Surl-As-A-Stand-In.md`, section "Recipes", bullet "Publish and consume", names the new test.
 
 ## Notes
+
+Redis consumer reads the subscribe confirmation, then the message frame; the test asserts both byte for byte. Ran against the pinned build: 3 passed, 0 skipped.
 
 ## Log
 
 - 2026-11-15: Created.
 - 2026-11-15: Backlog -> Doing.
+- 2026-11-15: Doing -> Done. MQTT publish by pinned curl reaches a Redis SUBSCRIBE through the shared bus, proven end to end

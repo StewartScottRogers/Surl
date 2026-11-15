@@ -67,6 +67,28 @@ public sealed class StandInPublishAndConsumeRecipeTests
         StringAssert.Contains(received, "destination:/topic/a/b");
     }
 
+    [TestMethod]
+    public async Task PublishOverMqtt_ThenConsumeOverRedis_ReceivesTheExactPayload()
+    {
+        // Arrange: a Redis consumer subscribed to channel a/b (ADR-0126: a canonical topic name is the bus topic);
+        // the subscribe confirmation proves the subscription exists.
+        await using var server = await StartAsync();
+        using var consumer = await ConnectAsync(server, "redis");
+        await consumer.SendAsync("*2\r\n$9\r\nSUBSCRIBE\r\n$3\r\na/b\r\n");
+        await consumer.ReadUntilAsync("*3\r\n$9\r\nsubscribe\r\n$3\r\na/b\r\n:1\r\n");
+
+        // Act: the code under test publishes over MQTT; the test waits for the bus's publish event.
+        var published = await PublishOverMqttAsync(server);
+        await server.WaitForEventAsync(BusChange(), WaitLimit, TestContext.CancellationToken);
+        var received = await consumer.ReadUntilAsync($"$9\r\n{Payload}\r\n");
+
+        // Assert: the RESP2 message push frame, byte for byte, follows the confirmation.
+        Assert.AreEqual(0, published.ExitCode, published.StandardError);
+        Assert.AreEqual(
+            "*3\r\n$9\r\nsubscribe\r\n$3\r\na/b\r\n:1\r\n*3\r\n$7\r\nmessage\r\n$3\r\na/b\r\n$9\r\nhello bus\r\n",
+            received);
+    }
+
     private static SurlEventQuery BusChange() =>
         new() { Kind = SurlEventKind.StoreChanged, Store = StoreKind.Bus };
 
@@ -87,7 +109,7 @@ public sealed class StandInPublishAndConsumeRecipeTests
     private Task<SurlServer> StartAsync()
     {
         var options = new SurlServerOptions { RecordExchanges = true, AllowAnonymous = true, AreExtensionsTurnedOn = true };
-        foreach (var scheme in new[] { "mqtt", "nats", "stomp" })
+        foreach (var scheme in new[] { "mqtt", "nats", "redis", "stomp" })
         {
             options.ListenUrls.Add($"{scheme}://127.0.0.1:0");
         }
