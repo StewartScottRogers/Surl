@@ -1,9 +1,9 @@
 using System.Globalization;
-using System.Security.Cryptography;
 using System.Text;
 using Surl.Content;
 using Surl.HttpMessage;
 using Surl.HttpServing;
+using Surl.Protocol.Abstractions;
 
 namespace Surl.Extended.Protocol.S3;
 
@@ -23,7 +23,8 @@ namespace Surl.Extended.Protocol.S3;
 /// <param name="store">The content store the object is written to.</param>
 /// <param name="putObject">PutObject, whose checks and folder creation the upload shares.</param>
 /// <param name="uploads">The server's open uploads.</param>
-internal sealed class S3CreateMultipartUpload(ContentStore store, S3PutObject putObject, S3MultipartUploads uploads)
+/// <param name="identifiers">Where each <c>UploadId</c>'s bytes come from.</param>
+internal sealed class S3CreateMultipartUpload(ContentStore store, S3PutObject putObject, S3MultipartUploads uploads, IIdentifierRandom identifiers)
 {
     private const string Namespace = "http://s3.amazonaws.com/doc/2006-03-01/";
 
@@ -84,7 +85,7 @@ internal sealed class S3CreateMultipartUpload(ContentStore store, S3PutObject pu
             return reply.Error(S3PutObject.OpeningRefusal(opening.Result));
         }
 
-        var upload = new S3MultipartUpload(RandomNumberGenerator.GetHexString(32, lowercase: true), target, request.Fields, session, uploads.TimeProvider.GetUtcNow());
+        var upload = new S3MultipartUpload(S3UploadId.Draw(identifiers), target, request.Fields, session, uploads.TimeProvider.GetUtcNow());
         uploads.Add(upload);
         var body = Encoding.UTF8.GetBytes(Render(target, upload.UploadId));
 
