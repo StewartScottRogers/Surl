@@ -42,9 +42,9 @@ public sealed class SurlServer : IAsyncDisposable
         BoundUrls = boundUrls;
         Faults = new SurlServerFaults(
             composedServing.Faults, composedServing.Events, instruments.TimeProvider, instruments.HookTimeLimit, instruments.Custom);
-        Mail = new SurlServerMail(composedServing.Stores);
-        Files = new SurlServerFiles(composedServing.Stores);
-        Messages = new SurlServerMessages(composedServing.Stores);
+        Mail = new SurlServerMail(composedServing.Stores, ThrowIfStopped);
+        Files = new SurlServerFiles(composedServing.Stores, ThrowIfStopped);
+        Messages = new SurlServerMessages(composedServing.Stores, ThrowIfStopped);
         Keys = new SurlServerKeys(composedServing.Stores);
         Directory = new SurlServerDirectory(composedServing.Stores);
         Zones = new SurlServerZones(composedServing.Stores);
@@ -373,6 +373,9 @@ public sealed class SurlServer : IAsyncDisposable
         cancellationToken.ThrowIfCancellationRequested();
         throw new SurlServerStartException(outcome.Failure!);
     }
+
+    // A read-back of a store (ADR-0164) is refused once the server was told to stop, as a disposed object refuses use.
+    private void ThrowIfStopped() => ObjectDisposedException.ThrowIf(stopping.IsValueCreated, this);
 
     private ExchangeRecordSubscriber RecordOrThrow() =>
         record ?? throw new InvalidOperationException(
