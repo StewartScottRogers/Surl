@@ -53,6 +53,15 @@ The handshake:
   once and leaves the connection open, so `Surl.Networking` can half-close and linger (BL-567).
   `DisposeAsync` sends `close_notify` unless `ShutdownAsync` already did, and closes the connection.
 
+The login judge (BL-1222, ADR-0165 decisions 2 to 4):
+- `TlsSrpServer` takes an optional last constructor parameter, an `ITlsSrpLoginJudge`
+  (`ShouldRefuseAsync(userName, ct)` and `Judged(userName, isAccepted)`); with none, behaviour is
+  unchanged. Nothing is called before the client's `Finished`.
+- A `Finished` that fails its MAC (wrong password or unknown user) calls `Judged(name, false)` and
+  never asks. A `Finished` that verifies asks `ShouldRefuseAsync`; then `Judged(name, !refused)`.
+  A refusal throws `TlsAlertException` `bad_record_mac` with `The TLS-SRP login failed: login
+  refused for '<name>'.`, so the wire is the same plaintext alert as a wrong password.
+
 The record layer:
 - `TlsPseudorandomFunction` is RFC 5246 section 5's PRF with SHA-256 (every RFC 5054 suite uses
   it), with the master secret (RFC 5246 section 8.1), the extended master secret (RFC 7627

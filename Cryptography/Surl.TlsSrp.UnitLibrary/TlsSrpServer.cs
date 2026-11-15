@@ -22,7 +22,12 @@ namespace Surl.TlsSrp;
 /// The certificate and key for the RSA- and DSS-signed suites; <see langword="null"/> serves the
 /// unsigned suites only.
 /// </param>
-public sealed class TlsSrpServer(TlsSrpAccounts accounts, RandomNumberGenerator random, TlsSrpServerCertificate? certificate = null)
+/// <param name="loginJudge">
+/// Told each login that reaches the client's <c>Finished</c> and asked whether to refuse one whose
+/// credentials matched (ADR-0165); <see langword="null"/> judges nothing.
+/// </param>
+public sealed class TlsSrpServer(
+    TlsSrpAccounts accounts, RandomNumberGenerator random, TlsSrpServerCertificate? certificate = null, ITlsSrpLoginJudge? loginJudge = null)
 {
     /// <summary>Runs the handshake on <paramref name="transport"/>.</summary>
     /// <param name="transport">The connection's byte stream. The returned session's stream owns it.</param>
@@ -92,10 +97,12 @@ public sealed class TlsSrpServer(TlsSrpAccounts accounts, RandomNumberGenerator 
         }
         catch (TlsAlertException alert) when (alert.Description == TlsAlertDescription.BadRecordMac)
         {
+            loginJudge?.Judged(account.UserName, isAccepted: false);
             throw LoginFailed(account, alert);
         }
 
         VerifyClientFinished(finished.Body, TlsPseudorandomFunction.ClientFinishedVerifyData(masterSecret, SHA256.HashData([.. transcript])));
+        await JudgeVerifiedLoginAsync(account, cancellationToken).ConfigureAwait(false);
         transcript.AddRange(finished.Framed);
 
         await writer.WriteAsync(TlsContentType.ChangeCipherSpec, new byte[] { 1 }, cancellationToken).ConfigureAwait(false);
@@ -164,6 +171,25 @@ public sealed class TlsSrpServer(TlsSrpAccounts accounts, RandomNumberGenerator 
         new(alert.Description, account.IsSimulated
             ? $"The TLS-SRP login failed: unknown user '{account.UserName}'. {alert.Message}"
             : $"The TLS-SRP login failed: wrong password for '{account.UserName}'. {alert.Message}");
+
+    /// <summary>
+    /// The client's <c>Finished</c> verified: asks the judge whether to refuse the login, tells it the verdict, and
+    /// fails a refused login exactly as a wrong password fails (ADR-0165 decisions 3 and 4).
+    /// </summary>
+    private async Task JudgeVerifiedLoginAsync(TlsSrpAccount account, CancellationToken cancellationToken)
+    {
+        if (loginJudge is null)
+        {
+            return;
+        }
+
+        var isRefused = await loginJudge.ShouldRefuseAsync(account.UserName, cancellationToken).ConfigureAwait(false);
+        loginJudge.Judged(account.UserName, isAccepted: !isRefused);
+        if (isRefused)
+        {
+            throw new TlsAlertException(TlsAlertDescription.BadRecordMac, $"The TLS-SRP login failed: login refused for '{account.UserName}'.");
+        }
+    }
 
     private static void VerifyClientFinished(byte[] body, byte[] expected)
     {
