@@ -35,3 +35,4 @@ A `delay`, `drop` or `error` fault rule that BL-1153's ADR says reaches the prox
 ## Log
 
 - 2026-11-14: Created.
+- 2026-11-15: Backlog -> Doing.
