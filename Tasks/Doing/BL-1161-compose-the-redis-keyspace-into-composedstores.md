@@ -34,3 +34,4 @@ One Redis keyspace per composed instance is shared by the `redis` and `rediss` s
 ## Log
 
 - 2026-11-14: Created.
+- 2026-11-15: Backlog -> Doing.
