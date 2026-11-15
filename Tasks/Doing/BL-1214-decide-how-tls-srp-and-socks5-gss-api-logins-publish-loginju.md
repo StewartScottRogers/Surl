@@ -38,3 +38,4 @@ An ADR, decided by Claude under Stewart's delegation, says whether and how the t
 ## Log
 
 - 2026-11-15: Created.
+- 2026-11-15: Backlog -> Doing.
