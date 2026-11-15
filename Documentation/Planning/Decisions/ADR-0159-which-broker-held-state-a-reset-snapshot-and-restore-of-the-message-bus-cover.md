@@ -10,6 +10,7 @@
 - **Amends:** ADR-0124 decision 3 (a whole-instance reset, snapshot and restore also cover the state below,
   and the order across stores grows by it).
 - **Acted on by:** BL-1170 (AMQP 0-9-1), BL-1171 (MQTT 5) and BL-1190 (Kafka).
+- **Amended by:** [ADR-0166](ADR-0166-which-client-changes-to-the-amqp-0-9-1-exchange-table-the-mqtt-5-sessions-and-the-kafka-producer-states-publish-store-changed-events.md) (which client changes publish).
 
 ## Context
 

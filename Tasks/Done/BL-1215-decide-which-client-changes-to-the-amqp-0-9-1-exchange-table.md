@@ -8,7 +8,7 @@ depends-on: []
 touches: [Documentation/Planning/Decisions]
 requirement: FR-060
 created: 2026-11-15
-completed:
+completed: 2026-11-15
 ---
 # BL-1215 — Decide which client changes to the AMQP 0-9-1 exchange table, the MQTT 5 sessions and the Kafka producer states publish StoreChangedEvent
 
@@ -28,12 +28,16 @@ An ADR, decided by Claude under Stewart's delegation, says which changes a clien
 
 ## Acceptance criteria
 
-- [ ] A new ADR under `Documentation/Planning/Decisions/`, with the next free number, marked "Decided by Claude under Stewart's delegation", answers questions 1 to 3 for AMQP 0-9-1, MQTT 5 and Kafka, and amends ADR-0159 (header "Amended by").
-- [ ] One feature task per broker library that must publish is filed with `task-board.ps1 new`, depending on this task. Each names the actions, the event fields and a test with a recording publisher. Each is listed in Notes, or Notes says why none is needed.
+- [x] A new ADR under `Documentation/Planning/Decisions/`, with the next free number, marked "Decided by Claude under Stewart's delegation", answers questions 1 to 3 for AMQP 0-9-1, MQTT 5 and Kafka, and amends ADR-0159 (header "Amended by").
+- [x] One feature task per broker library that must publish is filed with `task-board.ps1 new`, depending on this task. Each names the actions, the event fields and a test with a recording publisher. Each is listed in Notes, or Notes says why none is needed.
 
 ## Notes
+
+- Decided in ADR-0166. AMQP 0-9-1 exchanges and bindings publish (new members Bound, Unbound); MQTT 5 sessions and Kafka producer states publish nothing beyond Reset/Restored, so no task for them.
+- Filed BL-1227 (AMQP 0-9-1 broker events and out-of-space on declare).
 
 ## Log
 
 - 2026-11-15: Created.
 - 2026-11-15: Backlog -> Doing.
+- 2026-11-15: Doing -> Done. ADR-0166 decided; BL-1227 filed
