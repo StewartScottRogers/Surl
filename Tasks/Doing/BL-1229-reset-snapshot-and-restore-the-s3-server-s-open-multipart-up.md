@@ -33,3 +33,4 @@ ADR-0167 decisions 2, 3 and 5. `S3MultipartUploads` holds the sessions; add an a
 ## Log
 
 - 2026-11-15: Created.
+- 2026-11-15: Backlog -> Doing.
