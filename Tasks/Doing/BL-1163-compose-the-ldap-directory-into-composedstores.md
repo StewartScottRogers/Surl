@@ -33,3 +33,4 @@ The composed instance's LDAP directory is registered in `ComposedStores`, so `Co
 ## Log
 
 - 2026-11-14: Created.
+- 2026-11-15: Backlog -> Doing.
