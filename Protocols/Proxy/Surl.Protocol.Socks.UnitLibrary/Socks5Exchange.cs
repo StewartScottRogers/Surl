@@ -90,7 +90,7 @@ internal sealed class Socks5Exchange(
         }
 
         if (method == Socks5Reply.GssApiMethod
-            && !await new Socks5GssApiNegotiation(client, reader, context, gssApi!).NegotiateAsync(handshakeToken))
+            && !await new Socks5GssApiNegotiation(client, reader, context, gssApi!, accounts).NegotiateAsync(handshakeToken))
         {
             return null;
         }

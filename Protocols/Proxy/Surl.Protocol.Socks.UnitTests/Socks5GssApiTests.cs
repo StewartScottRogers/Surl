@@ -190,7 +190,7 @@ public sealed class Socks5GssApiTests
         Assert.AreEqual("rcmd", SocksGssApiLogin.DefaultService);
     }
 
-    private sealed class ZeroRandomSource : IKerberosRandomSource
+    internal sealed class ZeroRandomSource : IKerberosRandomSource
     {
         public void Fill(Span<byte> destination) => destination.Clear();
     }

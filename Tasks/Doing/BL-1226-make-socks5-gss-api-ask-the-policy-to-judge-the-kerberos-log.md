@@ -27,6 +27,8 @@ ADR-0165 (Documentation/Planning/Decisions) decides this. No wire byte changes; 
 
 ## Notes
 
+Composition already passes `ProxyAuthenticationPolicy` to `SocksProtocolServer`, so no Composition change was needed. A refused token is also judged (IsTokenAccepted false, no principal) per ADR-0165 decision 7.
+
 ## Log
 
 - 2026-11-15: Created.
