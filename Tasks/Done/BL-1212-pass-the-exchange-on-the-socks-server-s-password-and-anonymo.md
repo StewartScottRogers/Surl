@@ -8,7 +8,7 @@ depends-on: []
 touches: [Protocols/Proxy/Surl.Protocol.Socks.UnitLibrary, Protocols/Proxy/Surl.Protocol.Socks.UnitTests]
 requirement: FR-060
 created: 2026-11-15
-completed:
+completed: 2026-11-15
 ---
 # BL-1212 — Pass the exchange on the SOCKS server's password and anonymous logins
 
@@ -24,13 +24,16 @@ The SOCKS server's username/password and anonymous logins carry their exchange, 
 
 ## Acceptance criteria
 
-- [ ] Both `PasswordLogin`s pass `LoginExchange.Of(context)`.
-- [ ] Tests in `Protocols/Proxy/Surl.Protocol.Socks.UnitTests` show the policy receives an `Exchange` whose ID and scheme are the connection's, for a SOCKS5 username/password login and for a SOCKS4 anonymous check.
-- [ ] `dotnet build Protocols/Proxy/Surl.Protocol.Socks.UnitLibrary -warnaserror` is clean and the fast tests pass.
+- [x] Both `PasswordLogin`s pass `LoginExchange.Of(context)`.
+- [x] Tests in `Protocols/Proxy/Surl.Protocol.Socks.UnitTests` show the policy receives an `Exchange` whose ID and scheme are the connection's, for a SOCKS5 username/password login and for a SOCKS4 anonymous check.
+- [x] `dotnet build Protocols/Proxy/Surl.Protocol.Socks.UnitLibrary -warnaserror` is clean and the fast tests pass.
 
 ## Notes
+
+- Both PasswordLogin calls now pass LoginExchange.Of(context). SOCKS5 asks the policy twice (anonymous check, then password), so the SOCKS5 test checks every login seen. No upstream measurement: bytes unchanged.
 
 ## Log
 
 - 2026-11-15: Created.
 - 2026-11-15: Backlog -> Doing.
+- 2026-11-15: Doing -> Done. SOCKS password and anonymous logins pass their exchange to the policy

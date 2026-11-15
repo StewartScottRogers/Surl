@@ -168,7 +168,7 @@ internal sealed class Socks5Exchange(
 
     private async Task<bool> JudgeLoginAsync(string userName, byte[] password, CancellationToken handshakeToken)
     {
-        var verdict = await accounts!.CheckPasswordLoginAsync(new PasswordLogin(context.Scheme, userName, password, client.TlsSession), handshakeToken);
+        var verdict = await accounts!.CheckPasswordLoginAsync(new PasswordLogin(context.Scheme, userName, password, client.TlsSession, LoginExchange.Of(context)), handshakeToken);
         var note = verdict switch
         {
             PasswordLoginVerdict.Accepted or PasswordLoginVerdict.RefusedCredentials =>

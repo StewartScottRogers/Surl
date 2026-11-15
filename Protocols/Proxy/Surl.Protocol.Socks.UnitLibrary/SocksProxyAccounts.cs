@@ -27,7 +27,7 @@ internal static class SocksProxyAccounts
             return true;
         }
 
-        var verdict = await accounts.CheckPasswordLoginAsync(new PasswordLogin(context.Scheme, null, null, client.TlsSession), cancellationToken);
+        var verdict = await accounts.CheckPasswordLoginAsync(new PasswordLogin(context.Scheme, null, null, client.TlsSession, LoginExchange.Of(context)), cancellationToken);
 
         return verdict == PasswordLoginVerdict.AcceptedUnchecked;
     }

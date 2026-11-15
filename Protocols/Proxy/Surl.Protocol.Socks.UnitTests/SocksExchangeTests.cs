@@ -70,6 +70,20 @@ public sealed class SocksExchangeTests
     }
 
     [TestMethod]
+    public async Task ServeAsync_Socks4AnonymousCheck_PassesTheConnectionsExchangeToThePolicy()
+    {
+        var client = ConnectionOf(Socks4Request(0x01, 8080, Loopback, string.Empty));
+        var accounts = new ScriptedProxyAccounts();
+
+        await ServeAsync(client, new InMemoryOriginConnector(), "socks4a", accounts);
+
+        var exchange = accounts.Logins.Single().Exchange;
+        Assert.IsNotNull(exchange);
+        Assert.AreEqual(1, exchange.ExchangeId);
+        Assert.AreEqual("socks4a", exchange.Scheme);
+    }
+
+    [TestMethod]
     public async Task ServeAsync_ClosedBeforeAnyByte_WritesNothing()
     {
         var client = ConnectionOf();
