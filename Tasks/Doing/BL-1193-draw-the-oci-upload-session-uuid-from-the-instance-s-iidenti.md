@@ -33,3 +33,4 @@ ADR-0163 classes the OCI upload session UUID as a seedable identifier and amends
 ## Log
 
 - 2026-11-15: Created.
+- 2026-11-15: Backlog -> Doing.
