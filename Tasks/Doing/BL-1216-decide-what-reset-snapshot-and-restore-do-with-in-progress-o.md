@@ -42,3 +42,4 @@ An ADR, decided by Claude under Stewart's delegation, audits the state the S3, A
 ## Log
 
 - 2026-11-15: Created.
+- 2026-11-15: Backlog -> Doing.
