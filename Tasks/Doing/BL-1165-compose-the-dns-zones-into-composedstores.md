@@ -33,3 +33,4 @@ The composed instance's DNS zone set is registered in `ComposedStores`, so `Comp
 ## Log
 
 - 2026-11-14: Created.
+- 2026-11-15: Backlog -> Doing.
