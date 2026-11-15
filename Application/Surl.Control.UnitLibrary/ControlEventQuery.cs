@@ -13,7 +13,12 @@ namespace Surl.Control;
 /// </param>
 /// <param name="ListenUrl">The listen URL, matched against an exchange start or the exchange an event belongs to.</param>
 /// <param name="Account">The account, matched against a judged login or an account-store change.</param>
-internal sealed record ControlEventQuery(long After, string? Kind, string? Scheme, string? ListenUrl, string? Account)
+/// <param name="Store">The store a store change changed, or <see langword="null"/>; no other kind of event matches when set.</param>
+/// <param name="Name">
+/// The name a store change touched, matched exactly or as a segment prefix (<c>/uploads</c> matches <c>/uploads/a.csv</c>
+/// and not <c>/uploads2</c>), case-sensitive; no other kind of event matches when set.
+/// </param>
+internal sealed record ControlEventQuery(long After, string? Kind, string? Scheme, string? ListenUrl, string? Account, StoreKind? Store = null, string? Name = null)
 {
     /// <summary>Whether <paramref name="surlEvent"/> is one this query asks for.</summary>
     /// <param name="surlEvent">An event.</param>
@@ -24,7 +29,9 @@ internal sealed record ControlEventQuery(long After, string? Kind, string? Schem
         && MatchesKind(surlEvent)
         && MatchesScheme(surlEvent, exchanges)
         && MatchesListenUrl(surlEvent, exchanges)
-        && MatchesAccount(surlEvent);
+        && MatchesAccount(surlEvent)
+        && MatchesStore(surlEvent)
+        && MatchesName(surlEvent);
 
     private bool MatchesKind(SurlEvent surlEvent) => Kind is null || Kind == ControlEventKinds.NameOf(surlEvent);
 
@@ -35,6 +42,16 @@ internal sealed record ControlEventQuery(long After, string? Kind, string? Schem
         ListenUrl is null || ListenUrl == ExchangeOf(surlEvent, exchanges)?.ListenUrl;
 
     private bool MatchesAccount(SurlEvent surlEvent) => Account is null || Account == ControlEventKinds.AccountOf(surlEvent);
+
+    private bool MatchesStore(SurlEvent surlEvent) =>
+        Store is null || surlEvent is StoreChangedEvent change && change.Store == Store;
+
+    private bool MatchesName(SurlEvent surlEvent) =>
+        Name is null || surlEvent is StoreChangedEvent change && IsNameOrInsideIt(change.Name, Name);
+
+    private static bool IsNameOrInsideIt(string changed, string name) =>
+        changed.StartsWith(name, StringComparison.Ordinal)
+        && (changed.Length == name.Length || name.EndsWith('/') || changed[name.Length] == '/');
 
     private static string? SchemeOf(SurlEvent surlEvent, IReadOnlyDictionary<long, ExchangeStartedEvent> exchanges) =>
         surlEvent is LoginJudgedEvent login ? login.Scheme : ExchangeOf(surlEvent, exchanges)?.Scheme;

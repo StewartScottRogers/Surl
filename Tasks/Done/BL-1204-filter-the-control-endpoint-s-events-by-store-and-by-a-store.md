@@ -8,7 +8,7 @@ depends-on: [BL-1194]
 touches: [Application/Surl.Control.UnitLibrary, Application/Surl.Control.UnitTests]
 requirement: FR-065
 created: 2026-11-15
-completed:
+completed: 2026-11-15
 ---
 # BL-1204 — Filter the control endpoint's events by store and by a store change's name
 
@@ -24,15 +24,18 @@ completed:
 
 ## Acceptance criteria
 
-- [ ] `ControlEventQuery` has `Store` and the ADR's name member, matched against `StoreChangedEvent` only. An event of another kind never matches a query that sets either.
-- [ ] Tests in `Application/Surl.Control.UnitTests` show `GET /v1/events?store=content` returns only content changes, and `?name=<path>` returns only that path's change.
-- [ ] A test shows `GET /v1/events/wait` with a name nothing touched answers `{"timed_out": true}` after `timeout_ms` on the fake `TimeProvider`.
-- [ ] A test shows an unknown `store` value answers `400 bad_request`.
-- [ ] `dotnet build Application/Surl.Control.UnitLibrary -warnaserror` is clean and the fast tests pass.
+- [x] `ControlEventQuery` has `Store` and the ADR's name member, matched against `StoreChangedEvent` only. An event of another kind never matches a query that sets either.
+- [x] Tests in `Application/Surl.Control.UnitTests` show `GET /v1/events?store=content` returns only content changes, and `?name=<path>` returns only that path's change.
+- [x] A test shows `GET /v1/events/wait` with a name nothing touched answers `{"timed_out": true}` after `timeout_ms` on the fake `TimeProvider`.
+- [x] A test shows an unknown `store` value answers `400 bad_request`.
+- [x] `dotnet build Application/Surl.Control.UnitLibrary -warnaserror` is clean and the fast tests pass.
 
 ## Notes
+
+- Added `store` and `name` to both routes' query keys; `ControlEventQuery` gained `Store` and `Name` (exact or segment-prefix, case-sensitive, ADR-0164 decision 8). A name ending in `/` matches only what lies inside it.
 
 ## Log
 
 - 2026-11-15: Created.
 - 2026-11-15: Backlog -> Doing.
+- 2026-11-15: Doing -> Done. store and name filters on the control endpoint's events routes

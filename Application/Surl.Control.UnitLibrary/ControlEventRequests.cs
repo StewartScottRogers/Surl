@@ -1,3 +1,4 @@
+using Surl.Protocol.Abstractions;
 using Surl.HttpMessage;
 using Surl.HttpServing;
 
@@ -13,10 +14,10 @@ namespace Surl.Control;
 internal sealed class ControlEventRequests(ControlEventLog events, ControlAnswers answers, TimeProvider timeProvider)
 {
     /// <summary>The query keys <c>GET /v1/events</c> takes.</summary>
-    public static readonly string[] EventsQueryKeys = ["after", "kind", "scheme", "listen_url", "account", "limit"];
+    public static readonly string[] EventsQueryKeys = ["after", "kind", "scheme", "listen_url", "account", "store", "name", "limit"];
 
     /// <summary>The query keys <c>GET /v1/events/wait</c> takes.</summary>
-    public static readonly string[] WaitQueryKeys = ["after", "kind", "scheme", "listen_url", "account", "timeout_ms"];
+    public static readonly string[] WaitQueryKeys = ["after", "kind", "scheme", "listen_url", "account", "store", "name", "timeout_ms"];
 
     /// <summary>The query keys <c>GET /v1/exchanges</c> takes.</summary>
     public static readonly string[] ExchangesQueryKeys = ["after_exchange_id", "scheme", "listen_url", "limit"];
@@ -104,7 +105,28 @@ internal sealed class ControlEventRequests(ControlEventLog events, ControlAnswer
             kind,
             query.Text("scheme"),
             query.Text("listen_url"),
-            query.Text("account"));
+            query.Text("account"),
+            StoreOf(query.Text("store")),
+            query.Text("name"));
+    }
+
+    private static StoreKind? StoreOf(string? store)
+    {
+        if (store is null)
+        {
+            return null;
+        }
+
+        foreach (var kind in Enum.GetValues<StoreKind>())
+        {
+            if (ControlEventKinds.SnakeCase(kind) == store)
+            {
+                return kind;
+            }
+        }
+
+        throw new ControlErrorException(ControlError.BadRequest(
+            $"query key store must be one of {string.Join(", ", Enum.GetValues<StoreKind>().Select(ControlEventKinds.SnakeCase).Order(StringComparer.Ordinal))}"));
     }
 
     private HttpAnswer Wait(ControlRequest request, ControlEventWaitJson answer) =>
