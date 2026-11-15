@@ -45,3 +45,4 @@ An ADR, decided by Claude under Stewart's delegation, fixes how a stand-in test 
 ## Log
 
 - 2026-11-15: Created.
+- 2026-11-15: Backlog -> Doing.
