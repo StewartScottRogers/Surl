@@ -8,7 +8,7 @@ depends-on: []
 touches: [Documentation/Planning/Decisions]
 requirement: FR-061
 created: 2026-11-14
-completed:
+completed: 2026-11-15
 ---
 # BL-1154 — Decide the delete_file and remove_account tools Surl.Mcp adds beside the control endpoint's routes
 
@@ -27,9 +27,9 @@ A new ADR, marked "Decided by Claude under Stewart's delegation", amends ADR-012
 
 ## Acceptance criteria
 
-- [ ] A new ADR under `Documentation/Planning/Decisions/` (next free number) names each new tool, its properties and their bounds, its result object, its place in `tools/list` order, and its error results (unknown path or account; a disk store, if it matters).
-- [ ] It states whether a "clear faults" tool or route is added to `Surl.Mcp` or the control endpoint, and why.
-- [ ] ADR-0124 decision 8 gains an "Amended by" line pointing at the new ADR, and the new ADR names BL-1175 under "Acted on by".
+- [x] A new ADR under `Documentation/Planning/Decisions/` (next free number) names each new tool, its properties and their bounds, its result object, its place in `tools/list` order, and its error results (unknown path or account; a disk store, if it matters).
+- [x] It states whether a "clear faults" tool or route is added to `Surl.Mcp` or the control endpoint, and why.
+- [x] ADR-0124 decision 8 gains an "Amended by" line pointing at the new ADR, and the new ADR names BL-1175 under "Acted on by".
 
 ## Notes
 
@@ -37,3 +37,4 @@ A new ADR, marked "Decided by Claude under Stewart's delegation", amends ADR-012
 
 - 2026-11-14: Created.
 - 2026-11-15: Backlog -> Doing.
+- 2026-11-15: Doing -> Done. ADR-0161 decides delete_file and remove_account tools for Surl.Mcp and no clear-faults tool; ADR-0124 amended

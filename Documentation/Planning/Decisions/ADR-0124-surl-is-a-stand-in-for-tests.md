@@ -22,7 +22,9 @@
   exchange table, the MQTT 5 sessions and Wills, and the Kafka groups and producer states), and
   [ADR-0160](ADR-0160-how-the-http-and-https-proxy-applies-delay-drop-and-chosen-error-fault-rules.md)
   (decision 4: the HTTP and HTTPS proxy's command-stage point carries the scheme `http-proxy` or `https-proxy`, so an
-  `http` rule never reaches a proxy; its `path` and its reply rows are in the tables below).
+  `http` rule never reaches a proxy; its `path` and its reply rows are in the tables below), and
+  [ADR-0161](ADR-0161-which-tools-surl-mcp-adds-to-delete-a-file-and-remove-an-account-and-why-it-adds-no-clear-faults.md)
+  (decision 8: `delete_file` and `remove_account` follow `put_file` and `add_account`; no clear-faults tool or route).
 - **Acted on by:** BL-785 to BL-821 and BL-823, and the extended-server follow-ups listed under
   Consequences.
 
