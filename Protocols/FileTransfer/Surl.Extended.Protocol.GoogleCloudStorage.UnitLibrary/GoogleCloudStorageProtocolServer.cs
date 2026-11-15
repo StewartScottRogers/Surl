@@ -72,7 +72,7 @@ public sealed class GoogleCloudStorageProtocolServer : IConnectionProtocolServer
         ArgumentNullException.ThrowIfNull(connection);
         ArgumentNullException.ThrowIfNull(context);
 
-        return new Http1ConnectionServer(new GcsRequestAnswerer(store, index, authenticationPolicy.StartHttpConnection(connection.TlsSession), context, uploads, connection.TlsSession is not null), context).ServeAsync(connection);
+        return new Http1ConnectionServer(new GcsRequestAnswerer(store, index, authenticationPolicy.StartHttpConnection(connection.TlsSession, LoginExchange.Of(context)), context, uploads, connection.TlsSession is not null), context).ServeAsync(connection);
     }
 
     /// <inheritdoc/>

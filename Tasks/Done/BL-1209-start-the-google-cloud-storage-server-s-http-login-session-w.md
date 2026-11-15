@@ -8,7 +8,7 @@ depends-on: []
 touches: [Protocols/FileTransfer/Surl.Extended.Protocol.GoogleCloudStorage.UnitLibrary, Protocols/FileTransfer/Surl.Extended.Protocol.GoogleCloudStorage.UnitTests]
 requirement: FR-060
 created: 2026-11-15
-completed:
+completed: 2026-11-15
 ---
 # BL-1209 — Start the Google Cloud Storage server's HTTP login session with its exchange so gs logins are published and refused as gs
 
@@ -23,14 +23,17 @@ A Google Cloud Storage login is published as a `LoginJudgedEvent` with scheme `g
 
 ## Acceptance criteria
 
-- [ ] `GoogleCloudStorageProtocolServer` passes `LoginExchange.Of(context)`, and no one-argument `StartHttpConnection` call remains in the library.
-- [ ] A test in `Protocols/FileTransfer/Surl.Extended.Protocol.GoogleCloudStorage.UnitTests` shows the policy receives an exchange whose `Scheme` is `gs` and whose `ExchangeId` is the context's.
-- [ ] A test with the real `AuthenticationPolicy`, a recording publisher and `refuse-login;scheme=gs` shows an accepted bearer token is refused as a wrong one is, with a `LoginJudgedEvent` whose scheme is `gs`.
-- [ ] `dotnet build Protocols/FileTransfer/Surl.Extended.Protocol.GoogleCloudStorage.UnitLibrary -warnaserror` is clean and the fast tests pass.
+- [x] `GoogleCloudStorageProtocolServer` passes `LoginExchange.Of(context)`, and no one-argument `StartHttpConnection` call remains in the library.
+- [x] A test in `Protocols/FileTransfer/Surl.Extended.Protocol.GoogleCloudStorage.UnitTests` shows the policy receives an exchange whose `Scheme` is `gs` and whose `ExchangeId` is the context's.
+- [x] A test with the real `AuthenticationPolicy`, a recording publisher and `refuse-login;scheme=gs` shows an accepted bearer token is refused as a wrong one is, with a `LoginJudgedEvent` whose scheme is `gs`.
+- [x] `dotnet build Protocols/FileTransfer/Surl.Extended.Protocol.GoogleCloudStorage.UnitLibrary -warnaserror` is clean and the fast tests pass.
 
 ## Notes
+
+- The test project now references Surl.Authentication.UnitLibrary so the refuse-login test uses the real AuthenticationPolicy.
 
 ## Log
 
 - 2026-11-15: Created.
 - 2026-11-15: Backlog -> Doing.
+- 2026-11-15: Doing -> Done. gs logins start their HTTP session with the exchange
