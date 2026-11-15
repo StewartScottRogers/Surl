@@ -63,7 +63,7 @@ public sealed class RedisKeyspaceStoreTests
         StringAssert.Contains(afterReset, "$-1\r\n");
         StringAssert.Contains(afterRestore, "$1\r\nv\r\n");
         CollectionAssert.AreEqual(
-            new[] { StoreKind.Content, StoreKind.Mail, StoreKind.Bus, StoreKind.Accounts, StoreKind.Keyspace, StoreKind.Directory, StoreKind.Exchanges, StoreKind.Sessions, StoreKind.Zones },
+            new[] { StoreKind.Content, StoreKind.Mail, StoreKind.Bus, StoreKind.Accounts, StoreKind.Keyspace, StoreKind.Directory, StoreKind.Exchanges, StoreKind.Producers, StoreKind.Sessions, StoreKind.Zones },
             running.Stores.RegisteredStoreOrder.ToArray());
     }
 

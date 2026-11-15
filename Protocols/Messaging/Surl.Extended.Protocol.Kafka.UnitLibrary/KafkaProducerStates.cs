@@ -131,6 +131,56 @@ public sealed class KafkaProducerStates
         }
     }
 
+    /// <summary>
+    /// Forgets every producer's window and the producer id counter, so a producer's next batch is judged as its
+    /// first and the next id is drawn afresh from the identifier source (ADR-0159 decision 2).
+    /// </summary>
+    public void Reset()
+    {
+        lock (gate)
+        {
+            states.Clear();
+            recency.Clear();
+            nextProducerId = null;
+        }
+    }
+
+    /// <summary>Copies every window, most recently taken first, and the producer id counter.</summary>
+    /// <returns>A snapshot only this instance restores.</returns>
+    public KafkaProducerStatesSnapshot TakeSnapshot()
+    {
+        lock (gate)
+        {
+            var windows = recency.Select(held => (held.Key, Sequence: held.Sequence.Copy())).ToList();
+            var byteCount = windows.Sum(window => (long)window.Sequence.BatchCount * 16);
+            return new KafkaProducerStatesSnapshot(this, byteCount, nextProducerId, windows);
+        }
+    }
+
+    /// <summary>Replaces every window and the producer id counter with those of <paramref name="snapshot"/>.</summary>
+    /// <param name="snapshot">A snapshot this instance took.</param>
+    /// <exception cref="InvalidOperationException">The snapshot is another instance's.</exception>
+    public void Restore(KafkaProducerStatesSnapshot snapshot)
+    {
+        ArgumentNullException.ThrowIfNull(snapshot);
+        if (!ReferenceEquals(snapshot.Owner, this))
+        {
+            throw new InvalidOperationException("The snapshot was taken from other producer states.");
+        }
+
+        lock (gate)
+        {
+            states.Clear();
+            recency.Clear();
+            foreach (var (key, sequence) in (List<((long ProducerId, string Topic) Key, ProducerSequence Sequence)>)snapshot.Windows)
+            {
+                states[key] = recency.AddLast(new HeldState(key, sequence.Copy()));
+            }
+
+            nextProducerId = snapshot.NextProducerId;
+        }
+    }
+
     private static long DrawStart(IIdentifierRandom identifiers)
     {
         Span<byte> bytes = stackalloc byte[sizeof(long)];
@@ -221,6 +271,8 @@ public sealed class KafkaProducerStates
 
             return taken;
         }
+
+        public int BatchCount => batches.Count;
 
         public ProducerSequence Copy()
         {

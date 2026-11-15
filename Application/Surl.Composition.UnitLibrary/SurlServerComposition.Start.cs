@@ -440,6 +440,7 @@ public static partial class SurlServerComposition
         [.. new[]
         {
             Amqp0ExchangeStoreRegistration.For([.. servers.OfType<Amqp0Broker>()], events),
+            KafkaBrokerStoreRegistration.For([.. servers.OfType<KafkaBroker>()], events),
             Mqtt5SessionStoreRegistration.For([.. servers.OfType<Mqtt5Broker>()], events),
         }.OfType<ComposedStoreRegistration>()];
 

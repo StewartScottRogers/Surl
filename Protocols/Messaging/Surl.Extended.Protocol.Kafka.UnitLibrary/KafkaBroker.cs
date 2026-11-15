@@ -49,15 +49,23 @@ public sealed class KafkaBroker : IConnectionProtocolServer
     /// </param>
     /// <param name="answerers">The answerers; a served API none answers closes the connection.</param>
     /// <exception cref="ArgumentException">Two answerers answer the same API.</exception>
-    public KafkaBroker(IAuthenticationPolicy authenticationPolicy, IEnumerable<IKafkaApiAnswerer> answerers)
+    /// <param name="state">
+    /// The producer states and consumer groups the answerers share, which whole-instance reset, snapshot and
+    /// restore act on (ADR-0159); when null the broker holds an empty state no answerer uses.
+    /// </param>
+    public KafkaBroker(IAuthenticationPolicy authenticationPolicy, IEnumerable<IKafkaApiAnswerer> answerers, KafkaBrokerState? state = null)
     {
         ArgumentNullException.ThrowIfNull(authenticationPolicy);
         ArgumentNullException.ThrowIfNull(answerers);
 
         this.authenticationPolicy = authenticationPolicy;
+        State = state ?? new KafkaBrokerState(new KafkaProducerStates(), new KafkaGroupCoordinator(TimeProvider.System));
 
         this.answerers = answerers.ToFrozenDictionary(answerer => answerer.ApiKey);
     }
+
+    /// <summary>The producer states and consumer groups this broker holds beside the message bus (ADR-0159).</summary>
+    public KafkaBrokerState State { get; }
 
     /// <summary>
     /// The schemes answered: <c>kafka</c>, and <c>kafkas</c>, the same exchange over implicit

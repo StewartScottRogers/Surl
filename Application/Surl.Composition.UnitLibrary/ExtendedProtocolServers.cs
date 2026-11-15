@@ -223,7 +223,7 @@ public static class ExtendedProtocolServers
             new KafkaOffsetFetchAnswerer(bus),
             new KafkaDescribeGroupsAnswerer(coordinator, bus),
             new KafkaListGroupsAnswerer(coordinator, bus),
-        ]);
+        ], new KafkaBrokerState(producerStates, coordinator));
     }
 
     // The Metadata answerer draws the cluster ID once from the "kafka" server-life source (ADR-0124 decision 6, BL-1001),
