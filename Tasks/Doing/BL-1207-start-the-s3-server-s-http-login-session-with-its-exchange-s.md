@@ -37,3 +37,4 @@ An S3 login is published as a `LoginJudgedEvent` with scheme `s3` and its exchan
 ## Log
 
 - 2026-11-15: Created.
+- 2026-11-15: Backlog -> Doing.
