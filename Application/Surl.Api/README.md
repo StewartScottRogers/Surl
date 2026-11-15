@@ -223,6 +223,21 @@ await server.Messages.EnqueueAsync("jobs", "job 1"u8.ToArray());   // the queue 
 server.Accounts.Add("bob", "builder");                              // Remove("bob") takes it away
 ```
 
+The Redis keyspace, the LDAP directory and the DNS zones have their own members (ADR-0158):
+
+```csharp
+await server.Keys.SetAsync("seeded", "yes", TimeSpan.FromHours(1), database: 0);   // or SetAsync(byte[] key, byte[] value, ...)
+await server.Directory.AddEntriesAsync("dn: dc=example,dc=com\nobjectClass: domain\ndc: example\n");
+await server.Zones.AddZoneAsync("example.com", zoneFileText);
+```
+
+`Keys.SetAsync` sets a string key (key and value together at most 16 MiB, database 0 to 15, expiry 1
+millisecond to 365 days, else `ArgumentOutOfRangeException`; an empty key is an `ArgumentException`).
+`Directory.AddEntriesAsync` adds LDIF content records, all or none, at most 16 MiB; a `changetype:` record
+and a value read from a file or URL are refused. `Zones.AddZoneAsync` adds one zone, at most 16 MiB; a second
+zone for a held apex is refused until a reset. Each throws `SurlSeedRefusedException` (`Store` is
+`Keyspace`, `Directory` or `Zones`) when refused or when no Redis, LDAP or DNS server is composed.
+
 A seed a client would be refused throws `SurlSeedRefusedException`, never fails silently: its
 `Store` is the store and its `Refusal` the store's own word for it - `NoSuchAccount` for mail to an
 unknown mailbox, `NotPermitted` for a `.surl` path, `TooLarge` or `MessageTooLarge` past
@@ -236,9 +251,12 @@ await server.RestoreAsync(clean);           // back to the snapshot
 await server.ResetAsync();                  // or back to how the server started
 ```
 
-`ResetAsync` returns files, mail, messages and accounts, in that order, to the server's start:
-the `Files` given at start and no others, the configured mailboxes holding nothing, no retained or
-queued messages, and exactly the accounts given at start. A snapshot is an in-memory copy (at most
+`ResetAsync` returns files, mail, messages and accounts, and the keyspace, directory and zones (ADR-0158),
+to the server's start: the `Files` given at start and no others, the configured mailboxes holding nothing, no
+retained or queued messages, exactly the accounts given at start, empty Redis databases, and the directory
+and zones as `--directory` loaded them (empty without it). It also clears the broker state the message bus
+carries (ADR-0159): the AMQP 0-9-1 broker's declared exchanges and bindings and the MQTT 5 broker's sessions
+kept with no connection. A snapshot is an in-memory copy (at most
 256 MiB, accounts as password hashes only) that only the server that took it restores; another
 server's throws `ArgumentException`. Every mailbox gets a new `UIDVALIDITY` on reset and restore,
 so an IMAP client resynchronises; open connections stay open and see the new contents on their

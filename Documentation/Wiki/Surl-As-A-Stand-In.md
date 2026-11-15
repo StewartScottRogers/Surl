@@ -45,7 +45,8 @@ exchanges and is changed only by its own faults. Recipe: `StandInParallelInstanc
 
 ## Composing protocols over the shared stores
 
-One instance, one mail store, one content store, one message bus and one account store (ADR-0100). Mail
+One instance, one mail store, one content store, one message bus and one account store (ADR-0100), plus one
+Redis keyspace, one LDAP directory and one set of DNS zones (ADR-0158). Mail
 sent over SMTP is read over IMAP or POP3; a file uploaded over FTP or SFTP is fetched over HTTP; a message
 published over MQTT reaches NATS and STOMP. The stores are configured by the layer-2 options (`--mail-domain`,
 `--mailbox`, `--share`, `--bucket`, `--topic`, `--queue`, ...), which `SurlServerOptions` carries as
@@ -78,12 +79,28 @@ await server.RestoreAsync(clean);       // back to the snapshot
 await server.ResetAsync();              // or back to how the server started
 ```
 
+The Redis keyspace, the LDAP directory and the DNS zones are seeded the same way (ADR-0158):
+
+```csharp
+await server.Keys.SetAsync("seeded", "yes", TimeSpan.FromHours(1), database: 0);          // a string key, as SET would
+await server.Directory.AddEntriesAsync("dn: dc=example,dc=com\nobjectClass: domain\ndc: example\n");   // LDIF content records
+await server.Zones.AddZoneAsync("example.com", zoneFileText);                              // one zone, from zone-file text
+```
+
 A seed goes through the path a client would write by, so names, limits and events apply, and a seed never
 trips a fault rule; one a client would be refused throws `SurlSeedRefusedException`. A snapshot is an
 in-memory copy that only its own server restores; with `DataDirectory` set, reset and snapshot throw
 `InvalidOperationException` so a fixture never empties a real directory. Recipes:
 `StandInMailRoundTripRecipeTests.SeedMessage_ThenReadOverPop3_ReturnsTheSeededMessage` and
-`ResetAsync_AfterSeeding_LeavesTheMailboxEmptyForTheNextTest`.
+`ResetAsync_AfterSeeding_LeavesTheMailboxEmptyForTheNextTest`; for the directory,
+`StandInLdapDirectoryRecipeTests` (`SeedEntry_ThenSearchOverLdap_PrintsTheSeededDnAndAttribute`,
+`ResetAsync_AfterSeeding_TheSameSearchNoLongerFindsTheEntry`). A key is at most 16 MiB with its value, in
+database 0 to 15 and living 1 millisecond to 365 days; an LDIF seed and a zone are at most 16 MiB each; the
+directory refuses a `changetype:` record and a value read from a file or URL, and the zones refuse a second
+zone for an apex you did not reset. `ResetAsync` and `RestoreAsync` cover these three stores as well as the
+first four, and also the broker state the message bus carries: the AMQP 0-9-1 broker's declared exchanges and
+bindings and the MQTT 5 broker's sessions kept with no connection (ADR-0159). Unit tests:
+`SurlServerTests.Lookups`.
 
 ## Faults
 
@@ -133,7 +150,8 @@ under `/v1/` on loopback, guarded by the bearer token (the file's first line, 32
 bytes); `--control` without a token file is refused, and a request without the token gets `401`. Routes:
 `GET /v1/events`, `GET /v1/events/wait`, `GET /v1/exchanges`, `GET` and `POST /v1/faults`,
 `DELETE /v1/faults/<id>`, `POST /v1/mail?to=<mailbox>`, `PUT` and `DELETE /v1/files/<path>`,
-`POST /v1/messages`, `POST /v1/accounts`, `DELETE /v1/accounts/<name>`, `POST /v1/reset`,
+`POST /v1/messages`, `PUT /v1/keys/<database>/<key>` (`expire_ms` query), `POST /v1/directory` (LDIF body),
+`PUT /v1/zones/<apex>` (zone-file body), `POST /v1/accounts`, `DELETE /v1/accounts/<name>`, `POST /v1/reset`,
 `POST /v1/snapshots` and `POST /v1/snapshots/<id>/restore`. With curl, as the recipe runs it:
 
 ```
@@ -151,7 +169,8 @@ Recipe: `StandInControlEndpointRecipeTests`. The endpoint has no hooks (decision
 ## `Surl.Mcp`, for AI agents
 
 `surl-mcp` offers `start_server`, `list_servers`, `stop_server`, `get_exchanges`, `get_events`,
-`wait_for_event`, `seed_mail`, `put_file`, `delete_file`, `publish_message`, `add_account`, `remove_account`, `reset_server`,
+`wait_for_event`, `seed_mail`, `put_file`, `delete_file`, `publish_message`, `set_key`, `add_ldap_entries`,
+`add_dns_zone`, `add_account`, `remove_account`, `reset_server`,
 `snapshot_server`, `restore_server`, `add_fault`, `list_faults` and `remove_fault`, and the `surl://aihelp`
 resources. See [`Application/Surl.Mcp/README.md`](../../Application/Surl.Mcp/README.md).
 
