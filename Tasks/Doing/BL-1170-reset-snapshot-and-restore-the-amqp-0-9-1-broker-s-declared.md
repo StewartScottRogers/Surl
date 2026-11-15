@@ -35,3 +35,4 @@ A whole-instance reset, snapshot and restore also return the AMQP 0-9-1 broker's
 ## Log
 
 - 2026-11-14: Created.
+- 2026-11-14: Backlog -> Doing.
