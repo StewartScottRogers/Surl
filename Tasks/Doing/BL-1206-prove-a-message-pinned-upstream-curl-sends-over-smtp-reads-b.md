@@ -35,3 +35,4 @@ The mail stand-in recipe proves a message pinned upstream curl 8.21.0 sends over
 ## Log
 
 - 2026-11-15: Created.
+- 2026-11-15: Backlog -> Doing.
