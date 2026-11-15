@@ -80,6 +80,19 @@ public sealed class SurlServerOptions
     /// <summary>Accepts passwords sent over an unencrypted connection (<c>--allow-plaintext-auth</c>, warns on start); off by default.</summary>
     public bool AllowPlaintextAuthentication { get; set; }
 
+    /// <summary>
+    /// The loopback listen URL of the control endpoint for a non-.NET part of the suite (<c>--control</c>, warns on
+    /// start), such as <c>http://127.0.0.1:0</c>, or <see langword="null"/>, the default, for no endpoint. Needs
+    /// <see cref="ControlTokenFile"/>; the bound URL is <see cref="SurlServer.ControlUrl"/>.
+    /// </summary>
+    public string? ControlListenUrl { get; set; }
+
+    /// <summary>
+    /// The file holding the control endpoint's bearer token (<c>--control-token-file</c>), or <see langword="null"/>,
+    /// the default, for none. Given only with <see cref="ControlListenUrl"/>.
+    /// </summary>
+    public string? ControlTokenFile { get; set; }
+
     /// <summary>The server certificate file (<c>--cert</c>), or <see langword="null"/>, the default, for none.</summary>
     public string? CertificateFile { get; set; }
 

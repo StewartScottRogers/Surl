@@ -235,6 +235,12 @@ public sealed class SurlServer : IAsyncDisposable
         return composedServing.Stores.RestoreAsync(snapshot.Stores, cancellationToken);
     }
 
+    /// <summary>
+    /// The control endpoint's bound URL, port 0 replaced by the port bound, or <see langword="null"/> without
+    /// <see cref="SurlServerOptions.ControlListenUrl"/>.
+    /// </summary>
+    public Uri? ControlUrl => composedServing.ControlListenUrl is { } url ? ToUri(url) : null;
+
     /// <summary>The first of <see cref="BoundUrls"/>.</summary>
     public Uri BoundUrl => BoundUrls[0];
 

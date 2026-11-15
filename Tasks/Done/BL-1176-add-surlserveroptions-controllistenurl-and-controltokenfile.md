@@ -8,7 +8,7 @@ depends-on: []
 touches: [Application/Surl.Api, Application/Surl.Api.UnitTests]
 requirement: FR-065
 created: 2026-11-14
-completed:
+completed: 2026-11-14
 ---
 # BL-1176 — Add SurlServerOptions.ControlListenUrl and ControlTokenFile and report SurlServer.ControlUrl
 
@@ -24,14 +24,17 @@ A .NET test harness that starts Surl in process can also serve the loopback cont
 
 ## Acceptance criteria
 
-- [ ] `SurlServerOptions.ControlListenUrl` and `ControlTokenFile` exist with XML doc comments naming `--control` and `--control-token-file`, and `SurlServerArguments` spells them as those options.
-- [ ] Named tests in `Application/Surl.Api.UnitTests`: with `http://127.0.0.1:0` and a valid token file, `SurlServer.ControlUrl` is the bound URL with a non-zero port, and an HTTP request to `<ControlUrl>/v1/events` with the token gets `200`; without the options `ControlUrl` is null.
-- [ ] Named tests: each of the four refusals above throws `SurlServerStartException` carrying `surl`'s message.
-- [ ] `dotnet build Surl.slnx -warnaserror` is clean, the fast tests are green, and `Surl.Api` keeps 100% line and branch coverage.
+- [x] `SurlServerOptions.ControlListenUrl` and `ControlTokenFile` exist with XML doc comments naming `--control` and `--control-token-file`, and `SurlServerArguments` spells them as those options.
+- [x] Named tests in `Application/Surl.Api.UnitTests`: with `http://127.0.0.1:0` and a valid token file, `SurlServer.ControlUrl` is the bound URL with a non-zero port, and an HTTP request to `<ControlUrl>/v1/events` with the token gets `200`; without the options `ControlUrl` is null.
+- [x] Named tests: each of the four refusals above throws `SurlServerStartException` carrying `surl`'s message.
+- [x] `dotnet build Surl.slnx -warnaserror` is clean, the fast tests are green, and `Surl.Api` keeps 100% line and branch coverage.
 
 ## Notes
+
+Also edited Documentation/Product/Requirements.md (FR-065 text) and Surl.Api CLAUDE.md; no other Doing task touches them. Control endpoint tests use an ftp main listener so the fake factory's http queue reaches only the control listener.
 
 ## Log
 
 - 2026-11-14: Created.
 - 2026-11-14: Backlog -> Doing.
+- 2026-11-14: Doing -> Done. SurlServerOptions.ControlListenUrl/ControlTokenFile serve the control endpoint in process; SurlServer.ControlUrl reports it
