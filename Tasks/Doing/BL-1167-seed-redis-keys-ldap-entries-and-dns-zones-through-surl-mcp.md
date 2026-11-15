@@ -34,3 +34,4 @@ An AI agent seeds Redis keys, LDAP entries and DNS zones on a server it started 
 ## Log
 
 - 2026-11-14: Created.
+- 2026-11-15: Backlog -> Doing.
