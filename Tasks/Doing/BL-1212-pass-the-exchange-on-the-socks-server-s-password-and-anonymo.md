@@ -33,3 +33,4 @@ The SOCKS server's username/password and anonymous logins carry their exchange, 
 ## Log
 
 - 2026-11-15: Created.
+- 2026-11-15: Backlog -> Doing.
