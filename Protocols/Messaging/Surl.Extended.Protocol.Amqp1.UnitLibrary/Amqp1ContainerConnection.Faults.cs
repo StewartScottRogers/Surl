@@ -11,7 +11,9 @@ namespace Surl.Extended.Protocol.Amqp1;
 /// <see cref="FaultKind.Error"/> rule's error condition and description refuse it as Part 2 says an
 /// error travels: an <c>attach</c> answered with a null terminus and a closing <c>detach</c>
 /// carrying the error, a message with a <c>rejected</c> disposition carrying it (a pre-settled one is
-/// dropped and noted).
+/// dropped and noted). A <see cref="FaultKind.Delay"/> or <see cref="FaultKind.Drop"/> rule at the same
+/// point is applied by <see cref="CommandStageFaults"/> (ADR-0141): a delay holds the performative's
+/// handling, a drop aborts the connection and ends serving with no answering performative.
 /// </summary>
 public sealed partial class Amqp1ContainerConnection
 {
@@ -44,12 +46,19 @@ public sealed partial class Amqp1ContainerConnection
             Path = nodeAddress,
             Command = performative,
         };
-        if (await context.Faults.FindAsync(point, CancellationToken) is not { } rule)
+        var target = $"{performative} {nodeAddress}";
+        var rule = await CommandStageFaults.FindAndApplyAsync(context, connection, point, target);
+        if (rule is null or { Kind: FaultKind.Delay })
         {
             return null;
         }
 
-        var target = $"{performative} {nodeAddress}";
+        if (rule.Kind == FaultKind.Drop)
+        {
+            closed = true;
+            throw new Amqp1ConnectionDroppedException();
+        }
+
         if (rule.Kind != FaultKind.Error || ReadChosenError(rule.Reply) is not { } error)
         {
             context.Log.Note($"{target}: fault rule {rule.Id} is not an error with an AMQP 1.0 condition and description; not applied.");

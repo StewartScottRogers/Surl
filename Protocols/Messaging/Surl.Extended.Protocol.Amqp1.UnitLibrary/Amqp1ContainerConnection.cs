@@ -191,6 +191,10 @@ public sealed partial class Amqp1ContainerConnection
             {
                 await CloseForALimitAsync();
             }
+            catch (Amqp1ConnectionDroppedException)
+            {
+                // A drop fault rule aborted the connection; nothing more is written.
+            }
         }
     }
 
