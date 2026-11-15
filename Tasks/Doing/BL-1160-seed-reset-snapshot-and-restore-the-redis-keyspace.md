@@ -34,3 +34,4 @@ The Redis keyspace offers seed, reset, snapshot and restore as public operations
 ## Log
 
 - 2026-11-14: Created.
+- 2026-11-15: Backlog -> Doing.
