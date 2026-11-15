@@ -1,3 +1,4 @@
+using Surl.Protocol.Abstractions;
 using System.Security.Cryptography;
 
 namespace Surl.Extended.Protocol.McpServer;
@@ -10,7 +11,8 @@ namespace Surl.Extended.Protocol.McpServer;
 /// </summary>
 /// <param name="randomSource">Where every identifier comes from: <see cref="RandomNumberGenerator" /> in production.</param>
 /// <param name="timeProvider">The clock expiry is measured on.</param>
-internal sealed class McpAuthorizationGrants(RandomNumberGenerator randomSource, TimeProvider timeProvider)
+/// <param name="accounts">The account book a token is judged against on each use: a token of an account it no longer names is refused (ADR-0167 decision 4).</param>
+internal sealed class McpAuthorizationGrants(RandomNumberGenerator randomSource, TimeProvider timeProvider, IAuthenticationPolicy accounts)
 {
     /// <summary>How long an authorization code may wait to be redeemed.</summary>
     public static readonly TimeSpan CodeLifetime = TimeSpan.FromMinutes(10);
@@ -28,6 +30,15 @@ internal sealed class McpAuthorizationGrants(RandomNumberGenerator randomSource,
     private readonly McpExpiringTable<McpIssuedToken> _accessTokens = new(randomSource, timeProvider);
 
     private readonly McpExpiringTable<McpIssuedToken> _refreshTokens = new(randomSource, timeProvider);
+
+    /// <summary>Deletes every client, code, access token and refresh token (ADR-0167 decision 2).</summary>
+    public void Clear()
+    {
+        _clients.Clear();
+        _codes.Clear();
+        _accessTokens.Clear();
+        _refreshTokens.Clear();
+    }
 
     /// <summary>Registers a client.</summary>
     /// <param name="redirectUris">Its redirect URIs, already checked.</param>
@@ -77,13 +88,14 @@ internal sealed class McpAuthorizationGrants(RandomNumberGenerator randomSource,
 
     /// <summary>Uses a refresh token, which is then gone: a new one is issued in its place.</summary>
     /// <param name="refreshToken">The refresh token.</param>
-    /// <returns>What it grants, or <see langword="null" /> when it is unknown, used or expired.</returns>
-    public McpIssuedToken? RedeemRefreshToken(string refreshToken) => _refreshTokens.Take(refreshToken);
+    /// <returns>What it grants, or <see langword="null" /> when it is unknown, used, expired or of an account since removed.</returns>
+    public McpIssuedToken? RedeemRefreshToken(string refreshToken) =>
+        _refreshTokens.Take(refreshToken) is { } token && accounts.NamesAccount(token.Account) ? token : null;
 
     /// <summary>The account a live access token acts as, when it is bound to the resource it is used at.</summary>
     /// <param name="accessToken">The token the request carried.</param>
     /// <param name="resource">The resource the request reached, <c>&lt;scheme&gt;://&lt;authority&gt;&lt;endpoint&gt;</c>.</param>
     /// <returns>The account, or <see langword="null" /> when the token is not live or is bound to another resource.</returns>
     public string? AccountOf(string accessToken, string resource) =>
-        _accessTokens.Find(accessToken) is { } token && token.Resource == resource ? token.Account : null;
+        _accessTokens.Find(accessToken) is { } token && token.Resource == resource && accounts.NamesAccount(token.Account) ? token.Account : null;
 }

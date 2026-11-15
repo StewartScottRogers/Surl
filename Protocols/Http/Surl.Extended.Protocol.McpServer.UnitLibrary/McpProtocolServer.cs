@@ -68,7 +68,7 @@ public sealed class McpProtocolServer : IConnectionProtocolServer, IConnectionRe
             surlVersion,
             EndpointPathFor(listenPath),
             new McpHttpSessionTable(randomSource, timeProvider),
-            new McpAuthorizationGrants(randomSource, timeProvider));
+            new McpAuthorizationGrants(randomSource, timeProvider, authenticationPolicy));
     }
 
     /// <summary>Gets the endpoint's path.</summary>
@@ -76,6 +76,16 @@ public sealed class McpProtocolServer : IConnectionProtocolServer, IConnectionRe
 
     /// <inheritdoc />
     public IReadOnlyList<string> Schemes { get; } = [PlainScheme, SecureScheme];
+
+    /// <summary>
+    /// Deletes every registered client, code and token and ends every HTTP session, so a client ID is invalid_client,
+    /// an earlier token is judged as none and an earlier <c>Mcp-Session-Id</c> is answered <c>404</c> (ADR-0167 decision 2).
+    /// </summary>
+    public void ResetOAuthAndSessions()
+    {
+        _settings.Grants.Clear();
+        _settings.Sessions.EndAll();
+    }
 
     /// <inheritdoc />
     public Task ServeAsync(IConnection connection, ExchangeContext context)

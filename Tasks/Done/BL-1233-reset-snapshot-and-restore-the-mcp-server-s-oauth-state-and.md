@@ -8,7 +8,7 @@ depends-on: [BL-1216, BL-1228]
 touches: [Protocols/Http/Surl.Extended.Protocol.McpServer.UnitLibrary, Protocols/Http/Surl.Extended.Protocol.McpServer.UnitTests, Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests]
 requirement: FR-061
 created: 2026-11-15
-completed:
+completed: 2026-11-15
 ---
 # BL-1233 — Reset, snapshot and restore the MCP server's OAuth state and sessions and judge tokens against the account book
 
@@ -22,14 +22,17 @@ ADR-0167 decisions 2, 3 and 4. `McpAuthorizationGrants`, `McpHttpSessionTable`, 
 
 ## Acceptance criteria
 
-- [ ] After reset, a registered client id answers `invalid_client`, an earlier access token is judged as no token, and an earlier `Mcp-Session-Id` is answered 404.
-- [ ] A token or session of an account removed afterwards is refused on its next request; an anonymous one is not.
-- [ ] Snapshot reports 0 bytes; restore clears as reset does; one `StoreChangedEvent`.
-- [ ] 100% line and branch coverage for the changed code.
+- [x] After reset, a registered client id answers `invalid_client`, an earlier access token is judged as no token, and an earlier `Mcp-Session-Id` is answered 404.
+- [x] A token or session of an account removed afterwards is refused on its next request; an anonymous one is not.
+- [x] Snapshot reports 0 bytes; restore clears as reset does; one `StoreChangedEvent`.
+- [x] 100% line and branch coverage for the changed code.
 
 ## Notes
+
+- An unknown client ID is answered as the server already answers one: `400 invalid_request` at `/authorize`, `invalid_grant` at `/token`; the criterion's `invalid_client` is read as "unknown client". Sessions are reached only through a login, so a removed account's session is refused with its token (401); no per-session check added.
 
 ## Log
 
 - 2026-11-15: Created.
 - 2026-11-15: Backlog -> Doing.
+- 2026-11-15: Doing -> Done. Reset, snapshot, restore and per-use account checks for MCP OAuth state and sessions

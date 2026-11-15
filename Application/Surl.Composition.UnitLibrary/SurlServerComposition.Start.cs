@@ -1,6 +1,7 @@
 using Surl.Extended.Protocol.Amqp0;
 using Surl.Extended.Protocol.AzureStorage;
 using Surl.Extended.Protocol.GoogleCloudStorage;
+using Surl.Extended.Protocol.McpServer;
 using Surl.Extended.Protocol.Mqtt5;
 using Surl.Extended.Protocol.OciRegistry;
 using Surl.Extended.Protocol.S3;
@@ -459,7 +460,8 @@ public static partial class SurlServerComposition
             UploadStoreRegistrations.CombineOf(
                 StoreKind.Sessions,
                 Mqtt5SessionStoreRegistration.For([.. servers.OfType<Mqtt5Broker>()], events),
-                OciTokenStoreRegistration.For([.. servers.OfType<OciRegistryProtocolServer>()], events)),
+                OciTokenStoreRegistration.For([.. servers.OfType<OciRegistryProtocolServer>()], events),
+                McpSessionStoreRegistration.For([.. servers.OfType<McpProtocolServer>()], events)),
         }.OfType<ComposedStoreRegistration>()];
 
     // How the proxies reach origins, over the rule --proxy-allow-origin and the proxy listen URLs make
