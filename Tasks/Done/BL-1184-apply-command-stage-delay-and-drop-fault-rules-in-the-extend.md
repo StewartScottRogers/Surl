@@ -8,7 +8,7 @@ depends-on: [BL-1170]
 touches: [Protocols/Messaging/Surl.Extended.Protocol.Amqp0.UnitLibrary, Protocols/Messaging/Surl.Extended.Protocol.Amqp0.UnitTests]
 requirement: FR-062
 created: 2026-11-14
-completed:
+completed: 2026-11-15
 ---
 # BL-1184 — Apply command-stage delay and drop fault rules in the extended AMQP 0-9-1 broker
 
@@ -24,14 +24,17 @@ A `delay;stage=command` or `drop;stage=command` fault rule matching an AMQP 0-9-
 
 ## Acceptance criteria
 
-- [ ] Named tests: a `delay` rule for `basic.publish` holds that method for `ms` on a fake `TimeProvider`, pausing and restarting the idle clock, then handles it as usual; one `FaultAppliedEvent` (`Delay`, `Command`).
-- [ ] Named tests: a `drop` rule for `queue.declare` aborts the connection with no `queue.declare-ok` sent; one `FaultAppliedEvent` (`Drop`, `Command`).
-- [ ] Every existing chosen-error test passes unchanged, and a rule for another method changes nothing.
-- [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and the library keeps 100% line and branch coverage with no method over complexity 10.
+- [x] Named tests: a `delay` rule for `basic.publish` holds that method for `ms` on a fake `TimeProvider`, pausing and restarting the idle clock, then handles it as usual; one `FaultAppliedEvent` (`Delay`, `Command`).
+- [x] Named tests: a `drop` rule for `queue.declare` aborts the connection with no `queue.declare-ok` sent; one `FaultAppliedEvent` (`Drop`, `Command`).
+- [x] Every existing chosen-error test passes unchanged, and a rule for another method changes nothing.
+- [x] `dotnet build -warnaserror` is clean, the fast tests are green, and the library keeps 100% line and branch coverage with no method over complexity 10.
 
 ## Notes
+
+- Used the connection-less CommandStageFaults overload so a drop first flushes the outbound queue (answers before the dropped method are written), then aborts the connection; avoids a racy IOException from the queued writer. No ADR needed: follows ADR-0141.
 
 ## Log
 
 - 2026-11-14: Created.
 - 2026-11-15: Backlog -> Doing.
+- 2026-11-15: Doing -> Done. AMQP 0-9-1 broker applies command-stage delay and drop fault rules

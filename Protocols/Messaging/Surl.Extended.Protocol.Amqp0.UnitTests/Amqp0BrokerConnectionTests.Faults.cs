@@ -1,3 +1,4 @@
+using System.Net;
 using Surl.Protocol.Abstractions;
 using static Surl.Extended.Protocol.Amqp0.UnitTests.Amqp0ChannelTestBytes;
 using static Surl.Extended.Protocol.Amqp0.UnitTests.Amqp0TestBytes;
@@ -83,18 +84,74 @@ public sealed partial class Amqp0BrokerConnectionTests
     }
 
     [TestMethod]
-    [DataRow(FaultKind.Delay)]
-    [DataRow(FaultKind.Drop)]
-    public async Task QueueDeclare_UnderARuleThatIsNotAnError_IsNotedAndServed(FaultKind kind)
+    public async Task QueueDeclare_UnderARuleOfAnotherKind_IsNotedAndServed()
     {
         var events = new RecordingSurlEventPublisher();
-        var rule = new FaultRule("f1", kind) { Scheme = "amqp", Command = "queue.declare", Path = "orders", Reply = "404 NOT_FOUND - chosen" };
+        var rule = new FaultRule("f1", FaultKind.Error) { Scheme = "amqp", Command = "queue.declare", Path = "orders", Reply = null };
+        var kindless = new ScriptedFaultPlan(rule);
 
-        var (written, log) = await ServeFaultedAsync(new ScriptedFaultPlan(rule), events, QueueDeclare(1, "orders"));
+        var (written, _) = await ServeFaultedAsync(kindless, events, QueueDeclare(1, "orders"));
 
         AssertAnswered(written, QueueDeclareOk(1, "orders"));
         Assert.IsEmpty(events.Events);
-        CollectionAssert.Contains(log.Notes.ToArray(), "queue.declare orders: fault rule f1 is not an error with an AMQP 0-9-1 reply code and text; not applied.");
+    }
+
+    [TestMethod]
+    public async Task Publish_UnderADelayRule_HoldsTheMethodForTheDelayThenHandlesItAsUsual()
+    {
+        var events = new RecordingSurlEventPublisher();
+        var idleClock = new RecordingIdleClock();
+        var clock = new ManualTimeProvider();
+        var plan = new ScriptedFaultPlan(new FaultRule("f1", FaultKind.Delay) { Command = "basic.publish", DelayMilliseconds = 10 });
+        byte[][] all = [ProtocolHeader, PlainStartOk, DefaultTuneOk, Open("/"), ChannelOpen(1), QueueDeclare(1, "orders"), PublishText(1, string.Empty, "orders", "hi"), Close()];
+        var connection = new InMemoryConnection(all.Select(chunk => (ReadOnlyMemory<byte>)chunk));
+        var context = new ExchangeContext(
+            1,
+            new ListenUrl("amqp", "127.0.0.1", 5672).WithBoundPort(5672),
+            new IPEndPoint(IPAddress.Loopback, 5672),
+            new IPEndPoint(IPAddress.Loopback, 50000),
+            new RecordingExchangeLog(),
+            clock,
+            TestContext.CancellationToken) with
+        { Faults = plan, Events = events, IdleClock = idleClock };
+
+        var serving = NewBroker(NewBus()).ServeAsync(connection, context);
+        await idleClock.FirstPause.WaitAsync(TestContext.CancellationToken);
+        Assert.IsTrue(idleClock.IsPaused);
+        clock.Advance(TimeSpan.FromMilliseconds(10));
+        await serving;
+
+        AssertAnswered(connection.WrittenBytes, QueueDeclareOk(1, "orders"));
+        Assert.AreEqual(1, idleClock.RestartCount);
+        Assert.IsFalse(connection.Aborted);
+        Assert.AreEqual(new FaultAppliedEvent("f1", FaultKind.Delay, FaultStage.Command, 1, "basic.publish orders"), events.Events.OfType<FaultAppliedEvent>().Single());
+    }
+
+    [TestMethod]
+    public async Task QueueDeclare_UnderADropRule_AbortsTheConnectionWithNoQueueDeclareOk()
+    {
+        var events = new RecordingSurlEventPublisher();
+        var plan = new ScriptedFaultPlan(new FaultRule("f1", FaultKind.Drop) { Command = "queue.declare", Path = "orders" });
+        byte[][] all = [ProtocolHeader, PlainStartOk, DefaultTuneOk, Open("/"), ChannelOpen(1), QueueDeclare(1, "orders"), Close()];
+        var connection = new InMemoryConnection(all.Select(chunk => (ReadOnlyMemory<byte>)chunk));
+
+        await NewBroker(NewBus()).ServeAsync(connection, Context(new RecordingExchangeLog()) with { Faults = plan, Events = events });
+
+        CollectionAssert.AreEqual(Concat([Prefix()]), connection.WrittenBytes, Convert.ToHexString(connection.WrittenBytes));
+        Assert.IsTrue(connection.Aborted);
+        Assert.AreEqual(new FaultAppliedEvent("f1", FaultKind.Drop, FaultStage.Command, 1, "queue.declare orders"), events.Events.OfType<FaultAppliedEvent>().Single());
+    }
+
+    [TestMethod]
+    public async Task QueueDeclare_UnderARuleForAnotherMethod_ChangesNothing()
+    {
+        var events = new RecordingSurlEventPublisher();
+        var plan = new ScriptedFaultPlan(new FaultRule("f1", FaultKind.Drop) { Command = "queue.delete" });
+
+        var (written, _) = await ServeFaultedAsync(plan, events, QueueDeclare(1, "orders"));
+
+        AssertAnswered(written, QueueDeclareOk(1, "orders"));
+        Assert.IsEmpty(events.Events);
     }
 
     [TestMethod]
