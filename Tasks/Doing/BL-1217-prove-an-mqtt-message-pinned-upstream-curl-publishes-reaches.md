@@ -39,3 +39,4 @@ The publish-and-consume stand-in recipe proves that a message pinned upstream cu
 ## Log
 
 - 2026-11-15: Created.
+- 2026-11-15: Backlog -> Doing.
