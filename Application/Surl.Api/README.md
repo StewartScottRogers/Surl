@@ -98,7 +98,9 @@ var faults = server.FindEvents(new SurlEventQuery { Kind = SurlEventKind.FaultAp
 
 Every property left unset matches anything: `Scheme`, `ListenUrl` (as `BoundUrls` lists it),
 `Account` (an exchange in which that account's login was judged, or an event naming it), `Kind`,
-`Store`, `Since` (inclusive) and `Until` (exclusive) on `TimeProvider`'s clock, and
+`Store`, `Name` (a `StoreChanged` event's path, mailbox, topic, queue, key or account, matched exactly or as
+a segment prefix, so `/uploads` matches `/uploads/a.txt` but not `/uploads2`; case-sensitive; no other
+event matches it; ADR-0164 decision 8), `Since` (inclusive) and `Until` (exclusive) on `TimeProvider`'s clock, and
 `AfterSequence`. An exchange matches `Kind` and `Store` when one of its events does. Events are the
 server's own event records without their bytes, at most `MaxRecordedEvents` (10000) of them, the
 oldest dropped and counted in `DroppedEventCount`. A wait checks what is already kept first, so it
@@ -263,6 +265,28 @@ so an IMAP client resynchronises; open connections stay open and see the new con
 next command. Each seed, reset and restore is a `StoreChanged` event the queries above find. With
 `DataDirectory` the files, mail and messages are on disk, and reset and snapshot throw
 `InvalidOperationException` so a fixture never empties a real directory; seeding them still works.
+
+## Read back what a client left
+
+Reads need no client of the test's own (ADR-0164). Each member is async, takes a `CancellationToken`
+last, and returns a copy; they throw `ObjectDisposedException` once the server is stopped.
+
+| Member | Returns |
+| --- | --- |
+| `Mail.ListMailboxesAsync(owner)` | `IReadOnlyList<SurlMailboxInfo>` (`Name`, `MessageCount`, `UnseenCount`, `UidValidity`) |
+| `Mail.ListMessagesAsync(owner, mailbox, afterUid = 0, limit = 100)` | `SurlMessagePage` (`Messages` of `Uid`, `Size`, `Flags`, `InternalDate`; `HasMore`) |
+| `Mail.ReadMessageAsync(owner, mailbox, uid)` | `SurlMailMessage` (`Summary`, `Bytes`) |
+| `Files.ReadAsync(path)` | `SurlFileContents` (`Bytes`, `ByteCount`, `ModifiedAt`, `ContentType`) |
+| `Files.ListAsync(path, afterName = null, limit = 100)` | `SurlFolderPage` (`Entries` of `Name`, `IsFolder`, `ByteCount`; `HasMore`) |
+| `Messages.BrowseQueueAsync(queue, afterPosition = -1, limit = 100)` | `SurlQueuePage` (`Messages`, `ReadyCount`, `InFlightCount`, `HasMore`) |
+| `Messages.ReadRetainedAsync(topic)` | `SurlRetainedMessage?`, `null` when none |
+| `Messages.ReadLogAsync(topic, fromOffset = 0, limit = 100)` | `SurlLogPage` (`Records`, `NextOffset`, `HasMore`) |
+
+An absent owner, mailbox, UID, file, folder, queue or log throws `SurlNotFoundException`; a `limit` outside
+1 to 1000, a bad UID, position or offset, an item past 16 MiB, or a path a request may not name throws
+`SurlReadRefusedException`. A read never sets a flag, consumes or acknowledges a queued message, publishes an
+event or consults a fault rule, and it works with `DataDirectory`. The `.surl` state folder is not served.
+Flags are IMAP names (`Seen`). `SurlEventQuery.Name`, above, finds the change that put it there.
 
 ## Your own protocol server
 
