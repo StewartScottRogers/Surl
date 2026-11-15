@@ -36,3 +36,4 @@ An ADR, decided by Claude under Stewart's delegation, says which changes a clien
 ## Log
 
 - 2026-11-15: Created.
+- 2026-11-15: Backlog -> Doing.
