@@ -29,11 +29,13 @@ An ADR, decided by Claude under Stewart's delegation, says whether and how the t
 
 ## Acceptance criteria
 
-- [ ] A new ADR under `Documentation/Planning/Decisions/`, with the next free number, marked "Decided by Claude under Stewart's delegation", answers questions 1 to 3 for both logins and amends ADR-0124 (header "Amended by").
-- [ ] Every wire behaviour the ADR pins cites a measurement of pinned upstream curl 8.21.0, or states that no byte changes.
-- [ ] One feature task per library the ADR changes is filed with `task-board.ps1 new`, depending on this task, with exact `touches`. Contract tasks come before server tasks. Each is listed in Notes, or Notes says why none is needed.
+- [x] A new ADR under `Documentation/Planning/Decisions/`, with the next free number, marked "Decided by Claude under Stewart's delegation", answers questions 1 to 3 for both logins and amends ADR-0124 (header "Amended by").
+- [x] Every wire behaviour the ADR pins cites a measurement of pinned upstream curl 8.21.0, or states that no byte changes.
+- [x] One feature task per library the ADR changes is filed with `task-board.ps1 new`, depending on this task, with exact `touches`. Contract tasks come before server tasks. Each is listed in Notes, or Notes says why none is needed.
 
 ## Notes
+
+ADR-0165 decides it. Follow-up tasks filed: BL-1221 (Abstractions contracts), BL-1222 (TlsSrp), BL-1223 (Networking), BL-1224 (Core engine), BL-1225 (Authentication), BL-1226 (Socks). Choice recorded: TLS-SRP judged by an engine-side ITlsLoginJudge because TlsSrp and Networking hold no publisher; Kerberos through a new default IAuthenticationPolicy member. No wire byte changes, so no new curl measurement.
 
 ## Log
 
