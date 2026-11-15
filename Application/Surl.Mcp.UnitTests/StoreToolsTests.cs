@@ -277,8 +277,13 @@ public sealed class StoreToolsTests
     [TestMethod]
     [DataRow(SeedMailTool.Name, """{"server_id": "s9", "to": "a@x", "message": "x"}""")]
     [DataRow(PutFileTool.Name, """{"server_id": "s9", "path": "/a", "text": "x"}""")]
+    [DataRow(DeleteFileTool.Name, """{"server_id": "s9", "path": "/a"}""")]
+    [DataRow(RemoveAccountTool.Name, """{"server_id": "s9", "user": "a"}""")]
     [DataRow(PublishMessageTool.Name, """{"server_id": "s9", "topic": "t", "payload": "x"}""")]
     [DataRow(AddAccountTool.Name, """{"server_id": "s9", "user": "a", "password": "b"}""")]
+    [DataRow(SetKeyTool.Name, """{"server_id": "s9", "key": "k", "value": "v"}""")]
+    [DataRow(AddLdapEntriesTool.Name, """{"server_id": "s9", "ldif": "dn: dc=x"}""")]
+    [DataRow(AddDnsZoneTool.Name, """{"server_id": "s9", "apex": "a.com", "zone_text": "x"}""")]
     [DataRow(ResetServerTool.Name, """{"server_id": "s9"}""")]
     [DataRow(SnapshotServerTool.Name, """{"server_id": "s9"}""")]
     [DataRow(RestoreServerTool.Name, """{"server_id": "s9", "snapshot_id": "p1"}""")]
@@ -290,7 +295,7 @@ public sealed class StoreToolsTests
         await using var host = await StartMailHostAsync();
         McpTool[] tools =
         [
-            host.SeedMail, host.PutFile, host.PublishMessage, host.AddAccount, host.ResetServer, host.SnapshotServer,
+            host.SeedMail, host.PutFile, host.DeleteFile, host.RemoveAccount, host.PublishMessage, host.AddAccount, host.SetKey, host.AddLdapEntries, host.AddDnsZone, host.ResetServer, host.SnapshotServer,
             host.RestoreServer, host.AddFault, host.ListFaults, host.RemoveFault,
         ];
 
@@ -304,7 +309,7 @@ public sealed class StoreToolsTests
     {
         Func<RunningSurlServers, McpTool>[] creates =
         [
-            SeedMailTool.Create, PutFileTool.Create, PublishMessageTool.Create, AddAccountTool.Create, ResetServerTool.Create,
+            SeedMailTool.Create, PutFileTool.Create, DeleteFileTool.Create, RemoveAccountTool.Create, PublishMessageTool.Create, AddAccountTool.Create, SetKeyTool.Create, AddLdapEntriesTool.Create, AddDnsZoneTool.Create, ResetServerTool.Create,
             SnapshotServerTool.Create, RestoreServerTool.Create, AddFaultTool.Create, ListFaultsTool.Create, RemoveFaultTool.Create,
         ];
 

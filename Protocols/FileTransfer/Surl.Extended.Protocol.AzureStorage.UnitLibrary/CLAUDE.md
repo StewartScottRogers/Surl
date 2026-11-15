@@ -212,8 +212,12 @@ ASCII letters and digits (`503 ServerBusy`) is answered with that status (the st
 phrase, or none for a code without one), `x-ms-error-code` and the endpoint's error body - the XML
 `Error` on `az`, the JSON error on `abfs` and `abfss`, none for a `HEAD` - whose message is
 `AzureRequestFaults.ChosenErrorMessage`, and publishes one `FaultAppliedEvent` naming the path. A
-reply that does not fit, or a rule of another kind, is noted in the exchange log and the request is
-served as without it.
+reply that does not fit, or a rule of a kind other than `error`, `delay` and `drop`, is noted in the exchange log and the request is
+served as without it. A `delay` rule at the `Command` stage (BL-1180, ADR-0141) holds the request on
+the exchange's clock with its idle clock paused, then serves it as usual; a `drop` rule answers with an
+`HttpAnswer` whose `DropsExchange` is set, so the connection is aborted with no response bytes. Each
+publishes one `FaultAppliedEvent`. `AzureRequestFaults.FindAnswerAsync` does all three through
+`HttpCommandFaults.FindAndApplyAsync`.
 
 Not yet: properties on a directory or a filesystem.
 

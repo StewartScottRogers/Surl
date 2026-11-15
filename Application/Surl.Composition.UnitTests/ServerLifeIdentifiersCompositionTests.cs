@@ -39,6 +39,42 @@ public sealed class ServerLifeIdentifiersCompositionTests
         Assert.AreNotEqual(first.KafkaClusterId, second.KafkaClusterId);
     }
 
+    [TestMethod]
+    public async Task XmppStreamId_TwoCompositionsWithSeed42_AreTheSame()
+    {
+        var first = await ComposeXmppStreamIdAsync("--random-seed", "42");
+        var second = await ComposeXmppStreamIdAsync("--random-seed", "42");
+
+        Assert.AreEqual(first, second);
+        Assert.AreEqual(32, first.Length);
+    }
+
+    [TestMethod]
+    public async Task XmppStreamId_TwoUnseededCompositions_Differ()
+    {
+        var first = await ComposeXmppStreamIdAsync();
+        var second = await ComposeXmppStreamIdAsync();
+
+        Assert.AreNotEqual(first, second);
+    }
+
+    private async Task<string> ComposeXmppStreamIdAsync(params string[] options)
+    {
+        var seams = new StartTestSeams().Seams with { AreExtensionsTurnedOn = true };
+        var start = await SurlServerComposition.ComposeAsync(
+            CommandLineParser.Parse([.. options, "xmpp://127.0.0.1:0"], ["xmpp"]).CommandLine!, seams, TestContext.CancellationToken);
+        await using var serving = start.Serving ?? throw new AssertFailedException(string.Join(" ", start.Failure!.Lines));
+        var xmpp = serving.Servers.OfType<Surl.Extended.Protocol.Xmpp.XmppServer>().Single();
+        var connection = new FakeConnection([]);
+
+        await xmpp.WriteRefusalAsync(connection, ConnectionRefusal.TooManyConnections, TestContext.CancellationToken);
+
+        var text = System.Text.Encoding.UTF8.GetString(connection.WrittenBytes);
+        var match = System.Text.RegularExpressions.Regex.Match(text, "id='([0-9a-f]+)'");
+        Assert.IsTrue(match.Success, text);
+        return match.Groups[1].Value;
+    }
+
     private async Task<(string NatsServerId, string KafkaClusterId)> ComposeAnnouncedIdsAsync(params string[] options)
     {
         var kafkaClusterId = string.Empty;

@@ -85,7 +85,7 @@ public sealed class ComposedStoresTests
         stores.AddAccount(new Account("carol", "c"));
         await stores.RestoreAsync(snapshot, TestContext.CancellationToken);
 
-        CollectionAssert.AreEqual(ComposedStores.StoreOrder.ToArray(), snapshot.Stores.ToArray());
+        CollectionAssert.AreEqual((StoreKind[])[.. ComposedStores.StoreOrder, StoreKind.Directory], snapshot.Stores.ToArray());
         Assert.AreEqual(1, stores.Mail.TakeSnapshot().MessageCount);
         Assert.AreEqual(ContentEntryKind.File, EntryKindOf(files, "before.txt"));
         Assert.AreEqual(ContentEntryKind.None, EntryKindOf(files, "after.txt"));
@@ -122,10 +122,10 @@ public sealed class ComposedStoresTests
         Assert.IsTrue(changes.Any(changed => changed.Store == StoreKind.Accounts && changed.Change == StoreChange.AccountRemoved && changed.Name == "bob"));
         Assert.AreEqual(1, changes.Count(changed => changed.Store == StoreKind.Content && changed.Change == StoreChange.Deleted));
         CollectionAssert.AreEqual(
-            ComposedStores.StoreOrder.ToArray(),
+            (StoreKind[])[.. ComposedStores.StoreOrder, StoreKind.Directory],
             changes.Where(changed => changed.Change == StoreChange.Reset).Select(changed => changed.Store).ToArray());
         CollectionAssert.AreEqual(
-            ComposedStores.StoreOrder.ToArray(),
+            (StoreKind[])[.. ComposedStores.StoreOrder, StoreKind.Directory],
             changes.Where(changed => changed.Change == StoreChange.Restored).Select(changed => changed.Store).ToArray());
     }
 
@@ -247,6 +247,68 @@ public sealed class ComposedStoresTests
         await Assert.ThrowsAsync<IOException>(() => serving.Stores.SeedPublishAsync(
             new BusMessage("t", "more than one byte"u8.ToArray()) { Retain = true }, TestContext.CancellationToken));
     }
+
+    [TestMethod]
+    public async Task Stores_AFifthRegisteredStore_IsResetSnapshottedAndRestoredAfterTheFour()
+    {
+        await using var serving = await ComposeStoresAsync();
+        List<string> calls = [];
+        var stores = WithFifthStore(serving.Stores, FifthStore(calls, byteCount: 7), ComposedStores.DefaultMaxSnapshotBytes);
+
+        await stores.ResetAsync(TestContext.CancellationToken);
+        var snapshot = await stores.TakeSnapshotAsync(TestContext.CancellationToken);
+        await stores.RestoreAsync(snapshot, TestContext.CancellationToken);
+        var fifthAlone = await stores.TakeSnapshotAsync(FifthKind, TestContext.CancellationToken);
+
+        CollectionAssert.AreEqual(new[] { "reset", "snapshot", "restore", "snapshot" }, calls);
+        CollectionAssert.AreEqual(ComposedStores.StoreOrder.Append(FifthKind).ToArray(), stores.RegisteredStoreOrder.ToArray());
+        CollectionAssert.AreEqual(stores.RegisteredStoreOrder.ToArray(), snapshot.Stores.ToArray());
+        Assert.AreEqual(7, snapshot.ByteCount);
+        Assert.AreEqual(7, fifthAlone.ByteCount);
+    }
+
+    [TestMethod]
+    public async Task Stores_AFifthStoreCountsTowardTheBoundAndItsRefusalNamesIt()
+    {
+        await using var serving = await ComposeStoresAsync();
+        List<string> calls = [];
+        var bounded = WithFifthStore(serving.Stores, FifthStore(calls, byteCount: 7), 6);
+        var refusing = WithFifthStore(serving.Stores, FifthStore(calls, byteCount: 0, refuses: true), ComposedStores.DefaultMaxSnapshotBytes);
+
+        var past = await Assert.ThrowsExactlyAsync<ComposedStoreException>(() => bounded.TakeSnapshotAsync(TestContext.CancellationToken));
+        var reset = await Assert.ThrowsExactlyAsync<ComposedStoreException>(() => refusing.ResetAsync(TestContext.CancellationToken));
+        var snapshot = await Assert.ThrowsExactlyAsync<ComposedStoreException>(() => refusing.TakeSnapshotAsync(TestContext.CancellationToken));
+
+        Assert.AreEqual(FifthKind, past.Store);
+        Assert.AreEqual(FifthKind, reset.Store);
+        Assert.AreEqual(FifthKind, snapshot.Store);
+    }
+
+    private static readonly StoreKind FifthKind = (StoreKind)100;
+
+    private static ComposedStoreRegistration FifthStore(List<string> calls, long byteCount, bool refuses = false) =>
+        new(
+            FifthKind,
+            _ => refuses ? throw new InvalidOperationException("no") : Record(calls, "reset"),
+            (_, _) =>
+            {
+                if (refuses)
+                {
+                    throw new InvalidOperationException("no");
+                }
+
+                calls.Add("snapshot");
+                return Task.FromResult(new TakenSnapshot(FifthKind, byteCount, _ => Record(calls, "restore")));
+            });
+
+    private static Task Record(List<string> calls, string call)
+    {
+        calls.Add(call);
+        return Task.CompletedTask;
+    }
+
+    private static ComposedStores WithFifthStore(ComposedStores stores, ComposedStoreRegistration fifth, long maxSnapshotBytes) =>
+        new(stores.Content, stores.MetadataIndex, stores.Mail, stores.Bus, stores.Accounts, maxSnapshotBytes, [fifth]);
 
     private static ComposedStores Bounded(ComposedStores stores, long maxSnapshotBytes) =>
         new(stores.Content, stores.MetadataIndex, stores.Mail, stores.Bus, stores.Accounts, maxSnapshotBytes);

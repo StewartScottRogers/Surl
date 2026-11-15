@@ -164,6 +164,6 @@ internal sealed class RedisServerConnection(
         }
 
         var now = context.TimeProvider.GetUtcNow().ToUnixTimeMilliseconds();
-        return await command.Answer(new RedisCommandCall(arguments, session, logins, keyspace, pubSub, subscriber, now));
+        return await command.Answer(new RedisCommandCall(arguments, session, logins, keyspace, pubSub, subscriber, context, now));
     }
 }

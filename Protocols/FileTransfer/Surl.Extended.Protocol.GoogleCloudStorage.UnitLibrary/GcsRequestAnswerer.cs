@@ -100,7 +100,13 @@ internal sealed class GcsRequestAnswerer : IHttpRequestHandler, IHttpHeadNotRead
         }
 
         // ADR-0124 decisions 4 and 9: a chosen-error fault rule answers before the store is touched.
-        if (await GcsRequestFaults.FindChosenErrorAsync(context, request.Method, target, loggedIn.Caller!) is { } chosenError)
+        var (chosenError, dropped) = await GcsRequestFaults.FindChosenErrorAsync(context, request.Method, target, loggedIn.Caller!);
+        if (dropped)
+        {
+            return GcsReply.Dropped;
+        }
+
+        if (chosenError is not null)
         {
             return reply.Error(chosenError);
         }

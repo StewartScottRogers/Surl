@@ -46,7 +46,7 @@ public sealed class ProgramTests
             new[]
             {
                 StartServerTool.Name, ListServersTool.Name, StopServerTool.Name, GetExchangesTool.Name, GetEventsTool.Name, WaitForEventTool.Name,
-                SeedMailTool.Name, PutFileTool.Name, PublishMessageTool.Name, AddAccountTool.Name, ResetServerTool.Name,
+                SeedMailTool.Name, PutFileTool.Name, DeleteFileTool.Name, PublishMessageTool.Name, AddAccountTool.Name, SetKeyTool.Name, AddLdapEntriesTool.Name, AddDnsZoneTool.Name, RemoveAccountTool.Name, ResetServerTool.Name,
                 SnapshotServerTool.Name, RestoreServerTool.Name, AddFaultTool.Name, ListFaultsTool.Name, RemoveFaultTool.Name,
             },
             names);
@@ -55,8 +55,13 @@ public sealed class ProgramTests
     [TestMethod]
     [DataRow(SeedMailTool.Name, SeedMailTool.Description, new[] { "server_id", "to", "message", "message_base64" })]
     [DataRow(PutFileTool.Name, PutFileTool.Description, new[] { "server_id", "path", "text", "base64" })]
+    [DataRow(DeleteFileTool.Name, DeleteFileTool.Description, new[] { "server_id", "path" })]
+    [DataRow(RemoveAccountTool.Name, RemoveAccountTool.Description, new[] { "server_id", "user" })]
     [DataRow(PublishMessageTool.Name, PublishMessageTool.Description, new[] { "server_id", "topic", "queue", "payload", "payload_base64", "retain" })]
     [DataRow(AddAccountTool.Name, AddAccountTool.Description, new[] { "server_id", "user", "password" })]
+    [DataRow(SetKeyTool.Name, SetKeyTool.Description, new[] { "server_id", "key", "key_base64", "value", "value_base64", "database", "expire_ms" })]
+    [DataRow(AddLdapEntriesTool.Name, AddLdapEntriesTool.Description, new[] { "server_id", "ldif" })]
+    [DataRow(AddDnsZoneTool.Name, AddDnsZoneTool.Description, new[] { "server_id", "apex", "zone_text" })]
     [DataRow(ResetServerTool.Name, ResetServerTool.Description, new[] { "server_id" })]
     [DataRow(SnapshotServerTool.Name, SnapshotServerTool.Description, new[] { "server_id" })]
     [DataRow(RestoreServerTool.Name, RestoreServerTool.Description, new[] { "server_id", "snapshot_id" })]

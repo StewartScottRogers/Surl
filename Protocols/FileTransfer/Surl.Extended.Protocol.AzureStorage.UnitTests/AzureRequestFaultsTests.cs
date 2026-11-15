@@ -136,6 +136,67 @@ public sealed class AzureRequestFaultsTests
         Assert.IsEmpty(harness.Events.Events.OfType<FaultAppliedEvent>());
     }
 
+    [TestMethod]
+    public async Task FindAnswerAsync_DelayRuleAtTheCommandStage_HoldsTheRequestThenAnswersAsWithoutIt()
+    {
+        var harness = new AzureServerHarness();
+        harness.CreateFolder("photos");
+        harness.WriteFile("photos/a.txt", "hello world");
+        var idleClock = new RecordingIdleClock();
+        harness.IdleClock = idleClock;
+        harness.Faults = new ScriptedFaultPlan(new FaultRule("f1", FaultKind.Delay) { Stage = FaultStage.Command, Scheme = "az", Path = "/photos/a.txt", DelayMilliseconds = 500 });
+
+        var serving = harness.SendWithBearerAsync("GET", "/photos/a.txt");
+        await idleClock.FirstPause;
+        var completedWhileHeld = serving.IsCompleted;
+        harness.TimeProvider.Advance(TimeSpan.FromMilliseconds(499));
+        var completedEarly = serving.IsCompleted;
+        harness.TimeProvider.Advance(TimeSpan.FromMilliseconds(1));
+        var response = await serving;
+
+        Assert.IsFalse(completedWhileHeld);
+        Assert.IsFalse(completedEarly);
+        StringAssert.StartsWith(response, "HTTP/1.1 200 OK\r\n");
+        StringAssert.EndsWith(response, "hello world");
+        Assert.IsFalse(idleClock.IsPaused);
+        Assert.AreEqual(new FaultAppliedEvent("f1", FaultKind.Delay, FaultStage.Command, 1, "/photos/a.txt"), harness.Events.Events.OfType<FaultAppliedEvent>().Single());
+    }
+
+    [TestMethod]
+    [DataRow(false, DisplayName = "the Blob endpoint")]
+    [DataRow(true, DisplayName = "the Data Lake endpoint")]
+    public async Task FindAnswerAsync_DropRuleAtTheCommandStage_AbortsTheConnectionWithNoResponseBytes(bool dataLake)
+    {
+        var harness = new AzureServerHarness();
+        if (dataLake)
+        {
+            harness.ServingDataLake();
+        }
+
+        harness.Faults = new ScriptedFaultPlan(new FaultRule("f1", FaultKind.Drop) { Stage = FaultStage.Command, Path = "/photos/a.txt" });
+
+        var response = await harness.SendWithBearerAsync("GET", "/photos/a.txt");
+
+        Assert.AreEqual(string.Empty, response);
+        Assert.IsTrue(harness.LastConnection!.Aborted);
+        Assert.AreEqual(new FaultAppliedEvent("f1", FaultKind.Drop, FaultStage.Command, 1, "/photos/a.txt"), harness.Events.Events.OfType<FaultAppliedEvent>().Single());
+    }
+
+    [TestMethod]
+    public async Task FindAnswerAsync_DropRuleForAnotherMethod_ChangesNothing()
+    {
+        var harness = new AzureServerHarness();
+        harness.CreateFolder("photos");
+        harness.WriteFile("photos/a.txt", "hello world");
+        harness.Faults = new ScriptedFaultPlan(new FaultRule("f1", FaultKind.Drop) { Stage = FaultStage.Command, Command = "DELETE" });
+
+        var response = await harness.SendWithBearerAsync("GET", "/photos/a.txt");
+
+        StringAssert.StartsWith(response, "HTTP/1.1 200 OK\r\n");
+        Assert.IsFalse(harness.LastConnection!.Aborted);
+        Assert.IsEmpty(harness.Events.Events.OfType<FaultAppliedEvent>());
+    }
+
     private static Surl.Content.ContentEntryKind ContentEntryKindOf(AzureServerHarness harness, string relativePath) =>
         harness.FileSystem.GetEntryKind(Path.Join(AzureServerHarness.Root, relativePath));
 }

@@ -40,14 +40,21 @@ internal sealed class Mqtt5Session : IDisposable
     public Mqtt5Session(string clientIdentifier, BusConnection busConnection, TopicNameLookup names, string scheme, int maxQueuedMessages, long maxQueuedPayloadBytes)
     {
         ClientIdentifier = clientIdentifier;
+        Scheme = scheme;
         BusConnection = busConnection;
         this.maxQueuedPayloadBytes = maxQueuedPayloadBytes;
-        queued = Channel.CreateBounded<Mqtt5Delivery>(new BoundedChannelOptions(maxQueuedMessages) { FullMode = BoundedChannelFullMode.Wait, SingleReader = true });
+        queued = Channel.CreateBounded<Mqtt5Delivery>(new BoundedChannelOptions(maxQueuedMessages) { FullMode = BoundedChannelFullMode.Wait, SingleReader = false });
         Subscriptions = new Mqtt5ClientSubscriptions(busConnection, names, scheme, Offer);
     }
 
     /// <summary>The client identifier the session belongs to.</summary>
     public string ClientIdentifier { get; }
+
+    /// <summary>The scheme of the connection that opened the session, which names the topic mapping.</summary>
+    public string Scheme { get; }
+
+    /// <summary>The clock the session's expiry is measured on once no connection holds it; <see langword="null"/> while one does.</summary>
+    public TimeProvider? Clock { get; set; }
 
     /// <summary>The account the session publishes and subscribes as; <see langword="null"/> for an anonymous client.</summary>
     public string? Account => BusConnection.Account;
@@ -106,6 +113,22 @@ internal sealed class Mqtt5Session : IDisposable
             || !queued.Writer.TryWrite(new(message, qualityOfService, retain, subscriptionIdentifiers)))
         {
             Interlocked.Add(ref queuedPayloadBytes, -payloadBytes);
+        }
+    }
+
+    /// <summary>
+    /// Drops every waiting message and every unacknowledged <c>PUBLISH</c> without delivering them (ADR-0159 decision 2).
+    /// </summary>
+    public void DropDeliveries()
+    {
+        while (queued.Reader.TryRead(out var delivery))
+        {
+            Interlocked.Add(ref queuedPayloadBytes, -delivery.Message.Payload.Length);
+        }
+
+        lock (InFlightGate)
+        {
+            InFlight.Clear();
         }
     }
 

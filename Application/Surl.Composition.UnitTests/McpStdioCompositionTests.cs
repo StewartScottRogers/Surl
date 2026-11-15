@@ -62,6 +62,27 @@ public sealed class McpStdioCompositionTests
     }
 
     [TestMethod]
+    public void FindRefusal_BesideAFault_IsFailedInitNamingFault()
+    {
+        var refusal = McpStdioComposition.FindRefusal(Parse("mcp+stdio:", "--fault", "drop"));
+
+        Assert.AreEqual(SurlExitCode.FailedInit, refusal!.ExitCode);
+        Assert.StartsWith("mcp+stdio:", refusal.Lines.Single());
+        Assert.Contains("--fault", refusal.Lines.Single());
+    }
+
+    [TestMethod]
+    public void FindRefusal_BesideTheControlEndpoint_IsFailedInitNamingControl()
+    {
+        var refusal = McpStdioComposition.FindRefusal(
+            Parse("mcp+stdio:", "--control", "http://127.0.0.1:0", "--control-token-file", "token.txt"));
+
+        Assert.AreEqual(SurlExitCode.FailedInit, refusal!.ExitCode);
+        Assert.StartsWith("mcp+stdio:", refusal.Lines.Single());
+        Assert.Contains("--control", refusal.Lines.Single());
+    }
+
+    [TestMethod]
     [DataRow("--trace")]
     [DataRow("--trace-ascii")]
     [DataRow("--log-file")]

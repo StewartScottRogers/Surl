@@ -69,7 +69,10 @@ BL-1041), `x-goog-stored-content-*`, `x-goog-storage-class: STANDARD`
   `/<bucket>/<name>`, `account` the login. An `error` rule whose reply is a status 400-599 and a code word
   (`503 SlowDown`) is answered with that status and code in the `Error` body (the server's own message for a
   code it sends, else `GcsRequestFaults.ChosenErrorMessage`) and publishes one `FaultAppliedEvent`; a reply
-  that does not fit, or a delay or drop rule at a request, is noted and the request is served.
+  that does not fit is noted and the request is served. A `delay` rule holds the request on the exchange's clock
+  with its idle clock paused (BL-1181, ADR-0141 amendment 1; `HttpCommandFaults.FindAndApplyAsync`, XML and JSON
+  alike) and the request is then answered as usual; a `drop` rule answers `GcsReply.Dropped`, an `HttpAnswer` whose
+  `DropsExchange` is set, so no byte is written and the connection is aborted. Each publishes one `FaultAppliedEvent`.
 
 - The JSON API (BL-1045, ADR-0148 decisions 1 to 6 and the limits of 8; matrix
   `Documentation/Conformance/Extended/GoogleCloudStorage-Json.md`). `GcsRequestAnswerer` hands a path-style request

@@ -36,9 +36,6 @@ public sealed class OciRegistryProtocolServer : IConnectionProtocolServer, IConn
     /// </summary>
     public const string Scheme = "oci";
 
-    // Makes upload session UUIDs outside tests: a version 4 UUID each.
-    private static readonly Func<Guid> NewRandomSessionId = Guid.NewGuid;
-
     private readonly ContentStore store;
     private readonly IAuthenticationPolicy authenticationPolicy;
     private readonly TimeProvider timeProvider;
@@ -56,7 +53,7 @@ public sealed class OciRegistryProtocolServer : IConnectionProtocolServer, IConn
     /// The clock a connection refusal's <c>Date</c> is taken from, and upload sessions and tokens expire on.
     /// </param>
     public OciRegistryProtocolServer(ContentStore store, IAuthenticationPolicy authenticationPolicy, TimeProvider timeProvider)
-        : this(store, authenticationPolicy, timeProvider, NewRandomSessionId)
+        : this(store, authenticationPolicy, timeProvider, null)
     {
     }
 
@@ -70,7 +67,7 @@ public sealed class OciRegistryProtocolServer : IConnectionProtocolServer, IConn
     /// <param name="authenticationPolicy">Checks the token endpoint's credentials, and whether anonymous reads are allowed.</param>
     /// <param name="timeProvider">The clock.</param>
     public OciRegistryProtocolServer(ContentStore store, ObjectMetadataIndex index, IAuthenticationPolicy authenticationPolicy, TimeProvider timeProvider)
-        : this(store, authenticationPolicy, timeProvider, NewRandomSessionId, metadataIndex: index)
+        : this(store, authenticationPolicy, timeProvider, null, metadataIndex: index)
     {
         ArgumentNullException.ThrowIfNull(index);
     }
@@ -82,10 +79,10 @@ public sealed class OciRegistryProtocolServer : IConnectionProtocolServer, IConn
     /// <param name="store">The shared content store.</param>
     /// <param name="authenticationPolicy">Checks credentials.</param>
     /// <param name="timeProvider">The clock.</param>
-    /// <param name="newSessionId">Makes each upload session's UUID.</param>
+    /// <param name="newSessionId">Makes each upload session's UUID; <see langword="null"/> draws it from the exchange's identifier source.</param>
     /// <param name="maxLiveTokens">How many live tokens it keeps, so a test reaches the bound.</param>
     /// <param name="metadataIndex">Where verified digests are cached; <see langword="null"/> hashes on every read.</param>
-    internal OciRegistryProtocolServer(ContentStore store, IAuthenticationPolicy authenticationPolicy, TimeProvider timeProvider, Func<Guid> newSessionId, int maxLiveTokens = OciTokenBook.MaxLiveTokens, ObjectMetadataIndex? metadataIndex = null)
+    internal OciRegistryProtocolServer(ContentStore store, IAuthenticationPolicy authenticationPolicy, TimeProvider timeProvider, Func<Guid>? newSessionId, int maxLiveTokens = OciTokenBook.MaxLiveTokens, ObjectMetadataIndex? metadataIndex = null)
     {
         ArgumentNullException.ThrowIfNull(store);
         ArgumentNullException.ThrowIfNull(authenticationPolicy);

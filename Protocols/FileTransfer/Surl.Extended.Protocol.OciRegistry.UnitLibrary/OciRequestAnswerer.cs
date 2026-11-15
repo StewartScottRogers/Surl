@@ -58,9 +58,14 @@ internal sealed class OciRequestAnswerer(ContentStore store, OciServerState stat
             : await AnswerInRepositoryAsync(reply, request, target, cancellationToken);
     }
 
-    private async Task<HttpAnswer> AnswerBaseAsync(OciReply reply, HttpRequest request, CancellationToken cancellationToken) =>
-        (await access.CheckAsync(reply, request, string.Empty, OciActions.None, cancellationToken)).Refusal
+    private async Task<HttpAnswer> AnswerBaseAsync(OciReply reply, HttpRequest request, CancellationToken cancellationToken)
+    {
+        var checkedAccess = await access.CheckAsync(reply, request, string.Empty, OciActions.None, cancellationToken);
+
+        return checkedAccess.Refusal
+            ?? await OciRequestFaults.FindAnswerAsync(context, reply, request, checkedAccess.Token?.AccountName)
             ?? reply.Bytes(HttpStatus.Ok, "application/json", [], EmptyObject);
+    }
 
     // A delete needs delete; every other write, the upload session's GET and DELETE included, push.
     private static OciActions RequiredActions(OciRequestTarget target, string method, bool isWrite) => isWrite
@@ -93,6 +98,11 @@ internal sealed class OciRequestAnswerer(ContentStore store, OciServerState stat
         if (checkedAccess.Refusal is { } refusal)
         {
             return refusal;
+        }
+
+        if (await OciRequestFaults.FindAnswerAsync(context, reply, request, checkedAccess.Token?.AccountName) is { } faultAnswer)
+        {
+            return faultAnswer;
         }
 
         if (isWrite)

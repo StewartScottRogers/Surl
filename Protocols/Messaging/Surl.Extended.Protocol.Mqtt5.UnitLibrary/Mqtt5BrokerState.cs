@@ -155,6 +155,7 @@ public sealed class Mqtt5BrokerState
             {
                 if (session.Expiry > TimeSpan.Zero)
                 {
+                    session.Clock = timeProvider;
                     session.ExpiryTimer = timeProvider.CreateTimer(_ => ExpireSession(session), null, session.Expiry, Timeout.InfiniteTimeSpan);
                     return;
                 }
@@ -182,6 +183,101 @@ public sealed class Mqtt5BrokerState
         }
 
         session.Dispose();
+    }
+
+    /// <summary>
+    /// Returns the sessions and Wills to what start-up builds (ADR-0159 decision 2): every session with no connection ends
+    /// with its queued deliveries, unacknowledged publishes and subscriptions; a connected client's session keeps its
+    /// subscriptions but drops its queued deliveries and unacknowledged publishes; every pending Will is discarded
+    /// without being published. Connected clients are untouched.
+    /// </summary>
+    internal void Reset()
+    {
+        List<Mqtt5Session> ended = [];
+        lock (sessionsGate)
+        {
+            foreach (var session in sessions.Values.ToList())
+            {
+                if (session.IsConnected)
+                {
+                    session.DropDeliveries();
+                    continue;
+                }
+
+                sessions.Remove(session.ClientIdentifier);
+                ended.Add(session);
+            }
+        }
+
+        DropPendingWills();
+        ended.ForEach(session => session.Dispose());
+    }
+
+    /// <summary>
+    /// Copies the sessions kept with no connection, with their subscriptions and no queued delivery.
+    /// </summary>
+    /// <returns>A snapshot only this state restores.</returns>
+    internal Mqtt5SessionSnapshot TakeSnapshot()
+    {
+        lock (sessionsGate)
+        {
+            return new(this, [.. sessions.Values
+                .Where(session => !session.IsConnected)
+                .Select(session => new Mqtt5SessionCopy(session.ClientIdentifier, session.Account, session.Scheme, session.Expiry, session.Clock!, session.Subscriptions.Copy()))]);
+        }
+    }
+
+    /// <summary>
+    /// Ends every session with no connection and every pending Will as <see cref="Reset"/> does, then keeps the
+    /// snapshot's sessions, each with its subscriptions and its full expiry running again. A client connected now
+    /// under a snapshot session's identifier keeps its own session.
+    /// </summary>
+    /// <param name="snapshot">A snapshot this state took.</param>
+    /// <exception cref="InvalidOperationException">The snapshot is another broker's.</exception>
+    internal void Restore(Mqtt5SessionSnapshot snapshot)
+    {
+        if (!ReferenceEquals(snapshot.Owner, this))
+        {
+            throw new InvalidOperationException("The snapshot was taken by another MQTT 5 broker.");
+        }
+
+        Reset();
+        lock (sessionsGate)
+        {
+            foreach (var copy in snapshot.Sessions.Where(copy => !sessions.ContainsKey(copy.ClientIdentifier)))
+            {
+                sessions[copy.ClientIdentifier] = Reinstate(copy);
+            }
+        }
+    }
+
+    private Mqtt5Session Reinstate(Mqtt5SessionCopy copy)
+    {
+        var session = new Mqtt5Session(copy.ClientIdentifier, Bus.Connect(copy.Account), Bus.Names, copy.Scheme, MaxQueuedMessages, MaxQueuedPayloadBytes)
+        {
+            Expiry = copy.Expiry,
+            Clock = copy.Clock,
+            IsConnected = false,
+        };
+        foreach (var subscription in copy.Subscriptions)
+        {
+            session.Subscriptions.Subscribe(subscription.Options, subscription.Identifier, []);
+        }
+
+        session.ExpiryTimer = copy.Clock.CreateTimer(_ => ExpireSession(session), null, copy.Expiry, Timeout.InfiniteTimeSpan);
+        return session;
+    }
+
+    private void DropPendingWills()
+    {
+        List<PendingWill> dropped;
+        lock (pendingWillsGate)
+        {
+            dropped = [.. pendingWills.Values];
+            pendingWills.Clear();
+        }
+
+        dropped.ForEach(pending => pending.Timer!.Dispose());
     }
 
     /// <summary>

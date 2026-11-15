@@ -115,9 +115,43 @@ public sealed class S3ChosenErrorFaultTests
     }
 
     [TestMethod]
-    public async Task ServeAsync_CommandStageDelayRule_IsServedAsWithoutIt()
+    public async Task ServeAsync_CommandStageDelayRule_HoldsTheRequestThenServesItAsWithoutTheRule()
     {
-        var harness = HarnessWithObject(new FaultRule("f1", FaultKind.Delay) { Stage = FaultStage.Command, DelayMilliseconds = 5 });
+        var harness = HarnessWithObject(new FaultRule("f1", FaultKind.Delay) { Stage = FaultStage.Command, DelayMilliseconds = 500 });
+
+        var serving = harness.SendAsync("GET", "/bucket/a.txt");
+        await harness.IdleClock.FirstPause;
+        var completedWhileHeld = serving.IsCompleted;
+        harness.TimeProvider.Advance(TimeSpan.FromMilliseconds(499));
+        var completedEarly = serving.IsCompleted;
+        harness.TimeProvider.Advance(TimeSpan.FromMilliseconds(1));
+        var response = await serving;
+
+        Assert.IsFalse(completedWhileHeld);
+        Assert.IsFalse(completedEarly);
+        StringAssert.StartsWith(response, "HTTP/1.1 200 OK\r\n");
+        StringAssert.EndsWith(response, "hello world");
+        Assert.IsFalse(harness.IdleClock.IsPaused);
+        Assert.AreEqual(1, harness.IdleClock.RestartCount);
+        Assert.AreEqual(new FaultAppliedEvent("f1", FaultKind.Delay, FaultStage.Command, 1, "/bucket/a.txt"), harness.Events.Events.OfType<FaultAppliedEvent>().Single());
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_CommandStageDropRule_AbortsTheConnectionWritingNoByte()
+    {
+        var harness = HarnessWithObject(new FaultRule("f1", FaultKind.Drop) { Stage = FaultStage.Command });
+
+        var connection = await harness.ServeRawAsync("GET /bucket/a.txt HTTP/1.1\r\nHost: s3.test\r\n\r\n");
+
+        Assert.IsTrue(connection.Aborted);
+        Assert.AreEqual(0, connection.WrittenBytes.Length);
+        Assert.AreEqual(new FaultAppliedEvent("f1", FaultKind.Drop, FaultStage.Command, 1, "/bucket/a.txt"), harness.Events.Events.OfType<FaultAppliedEvent>().Single());
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_CommandStageDelayRuleForAnotherPath_ChangesNothing()
+    {
+        var harness = HarnessWithObject(new FaultRule("f1", FaultKind.Delay) { Stage = FaultStage.Command, Path = "/bucket/other.txt", DelayMilliseconds = 500 });
 
         var response = await harness.SendAsync("GET", "/bucket/a.txt");
 

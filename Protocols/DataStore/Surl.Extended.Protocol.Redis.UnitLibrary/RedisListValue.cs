@@ -11,6 +11,18 @@ internal sealed class RedisListValue : RedisCollectionValue
     /// <inheritdoc/>
     public override int Count => elements.Count;
 
+    /// <inheritdoc/>
+    public override RedisStoredValue Copy()
+    {
+        var copy = new RedisListValue();
+        foreach (var element in elements)
+        {
+            copy.Push(element, atHead: false);
+        }
+
+        return copy;
+    }
+
     /// <summary>The element at <paramref name="index"/>, from 0 at the head.</summary>
     /// <param name="index">The index, within the list.</param>
     public byte[] this[int index] => elements[index];

@@ -148,7 +148,7 @@ rest of a refused body is never read (ADR-0108 decision 7; BL-729).
 
 The chosen-error fault (BL-980; ADR-0124 decisions 4 and 9): after the login is judged and before the
 operation or the content store, `S3ChosenErrorFault` asks `ExchangeContext.Faults` at `FaultStage.Command`
-through `HttpCommandFaults.FindChosenErrorAsync` - `scheme` `s3`, `account` the login (none when anonymous),
+through `HttpCommandFaults.FindAndApplyAsync` (BL-1179; ADR-0141: a `delay` rule holds the request, then it is served as usual; a `drop` rule aborts the connection with no byte of an answer, as an `HttpAnswer` with `DropsExchange`) - `scheme` `s3`, `account` the login (none when anonymous),
 `command` the method, `path` `/<bucket>` or `/<bucket>/<key>` path style even when virtual-hosted, else the
 path as sent, all still percent-encoded. An `error` rule whose reply is a status 400 to 599 and an error code
 word (an ASCII letter, then letters and digits, at most 64) is answered as that status with the `Error` body's

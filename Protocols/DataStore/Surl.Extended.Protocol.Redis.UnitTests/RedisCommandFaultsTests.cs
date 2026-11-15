@@ -27,7 +27,7 @@ public sealed class RedisCommandFaultsTests
             Command("SET", "greeting", "hello"), Command("GET", "greeting"));
 
         Assert.AreEqual("+OK\r\n-BUSY fault injected\r\n", written);
-        var applied = (FaultAppliedEvent)events.Events.Single();
+        var applied = (FaultAppliedEvent)events.Events.OfType<FaultAppliedEvent>().Single();
         Assert.AreEqual(new FaultAppliedEvent("f1", FaultKind.Error, FaultStage.Command, 1, "greeting"), applied);
     }
 
@@ -41,7 +41,7 @@ public sealed class RedisCommandFaultsTests
             Command("SET", "other", "hello"), Command("GET", "other"), Command("ECHO", "hi"));
 
         Assert.AreEqual("+OK\r\n$5\r\nhello\r\n$2\r\nhi\r\n", written);
-        Assert.IsEmpty(events.Events);
+        Assert.IsEmpty(events.Events.OfType<FaultAppliedEvent>());
     }
 
     [TestMethod]
@@ -114,7 +114,7 @@ public sealed class RedisCommandFaultsTests
             Plan(new FaultRule("f1", FaultKind.Error) { Reply = reply }), events, null, Command("ECHO", "hi"));
 
         Assert.AreEqual("$2\r\nhi\r\n", written);
-        Assert.IsEmpty(events.Events);
+        Assert.IsEmpty(events.Events.OfType<FaultAppliedEvent>());
         Assert.Contains("Fault rule f1 not applied to ECHO: its reply does not fit the redis error shape.", log.Notes);
     }
 
@@ -130,7 +130,7 @@ public sealed class RedisCommandFaultsTests
 
         Assert.AreEqual("+OK\r\n", Written(connection));
         Assert.IsTrue(connection.Aborted);
-        Assert.AreEqual(new FaultAppliedEvent("f1", FaultKind.Drop, FaultStage.Command, 1, "k"), events.Events.Single());
+        Assert.AreEqual(new FaultAppliedEvent("f1", FaultKind.Drop, FaultStage.Command, 1, "k"), events.Events.OfType<FaultAppliedEvent>().Single());
     }
 
     [TestMethod]
@@ -142,7 +142,7 @@ public sealed class RedisCommandFaultsTests
             Plan(new FaultRule("f1", FaultKind.Delay) { Command = "PING", DelayMilliseconds = 0 }), events, null, Command("PING"));
 
         Assert.AreEqual("+PONG\r\n", written);
-        Assert.AreEqual(new FaultAppliedEvent("f1", FaultKind.Delay, FaultStage.Command, 1, "PING"), events.Events.Single());
+        Assert.AreEqual(new FaultAppliedEvent("f1", FaultKind.Delay, FaultStage.Command, 1, "PING"), events.Events.OfType<FaultAppliedEvent>().Single());
     }
 
     private static ScriptedFaultPlan Plan(params FaultRule[] rules) => new(rules);

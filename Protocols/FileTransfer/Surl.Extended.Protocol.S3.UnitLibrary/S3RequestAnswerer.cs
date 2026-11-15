@@ -51,7 +51,7 @@ internal sealed class S3RequestAnswerer : IHttpRequestHandler, IHttpHeadNotReadR
         listObjects = new S3ListObjectsV2(store, properties);
         deleteObject = new S3DeleteObject(store, index, context.Log);
         listBuckets = new S3ListBuckets(store);
-        createMultipartUpload = new S3CreateMultipartUpload(store, putObject, uploads);
+        createMultipartUpload = new S3CreateMultipartUpload(store, putObject, uploads, context.Identifiers);
         uploadPart = new S3UploadPart(store, putObject, uploads);
         completeMultipartUpload = new S3CompleteMultipartUpload(store, putObject, uploads, isOverTls, context.ListenUrl.Host);
         abortMultipartUpload = new S3AbortMultipartUpload(store, uploads);
@@ -68,9 +68,9 @@ internal sealed class S3RequestAnswerer : IHttpRequestHandler, IHttpHeadNotReadR
             return reply.Error(loginRefusal);
         }
 
-        if (await S3ChosenErrorFault.FindAsync(context, request.Method, target, loginResult.Caller!.AccountName) is { } chosenError)
+        if (await S3ChosenErrorFault.FindAsync(context, request.Method, target, loginResult.Caller!.AccountName, reply) is { } faultAnswer)
         {
-            return reply.Error(chosenError);
+            return faultAnswer;
         }
 
         var operation = S3OperationRecognition.Of(request, target);

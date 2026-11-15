@@ -46,6 +46,16 @@ internal sealed class NatsOutbox(long maxPendingBytes) : IDisposable
     /// <summary>Takes nothing more; the writer ends once it has written what is queued.</summary>
     public void Complete() => queued.Writer.TryComplete();
 
+    /// <summary>
+    /// Takes nothing more and writes nothing more: what is queued is discarded and the write in
+    /// progress is cancelled, as when the connection is aborted. It is not an overflow.
+    /// </summary>
+    public void Abandon()
+    {
+        queued.Writer.TryComplete();
+        overflow.Cancel();
+    }
+
     /// <summary>Releases the overflow's cancellation, once the writer has ended.</summary>
     public void Dispose() => overflow.Dispose();
 

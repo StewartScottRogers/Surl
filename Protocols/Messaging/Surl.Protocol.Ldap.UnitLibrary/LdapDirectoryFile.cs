@@ -1,3 +1,4 @@
+using Surl.Protocol.Abstractions;
 using Surl.Content;
 
 namespace Surl.Protocol.Ldap;
@@ -49,18 +50,20 @@ public sealed class LdapDirectoryFile
     /// <param name="maxEntries">The most entries the directory holds.</param>
     /// <param name="maxTotalBytes">The most bytes of DNs, descriptions and values the directory holds.</param>
     /// <param name="cancellationToken">Cancels the read.</param>
+    /// <param name="events">Where the directory publishes its seeds, resets and restores; nowhere when <see langword="null"/>.</param>
     /// <returns>The directory.</returns>
     /// <exception cref="LdapDirectoryLoadException">The file cannot be read, or cannot be the directory.</exception>
     internal async Task<LdapDirectory> LoadAsync(
         TimeProvider timeProvider,
         int maxEntries = LdapDirectory.DefaultMaxEntries,
         long maxTotalBytes = LdapDirectory.DefaultMaxTotalBytes,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        ISurlEventPublisher? events = null)
     {
         var bytes = await ReadAsync(cancellationToken);
         try
         {
-            return DirectoryOf(LdifReader.Read(bytes), timeProvider, maxEntries, maxTotalBytes);
+            return DirectoryOf(LdifReader.Read(bytes), timeProvider, maxEntries, maxTotalBytes, events);
         }
         catch (LdifFormatException exception)
         {
@@ -68,11 +71,11 @@ public sealed class LdapDirectoryFile
         }
     }
 
-    private static LdapDirectory DirectoryOf(IReadOnlyList<LdifRecord> records, TimeProvider timeProvider, int maxEntries, long maxTotalBytes)
+    private static LdapDirectory DirectoryOf(IReadOnlyList<LdifRecord> records, TimeProvider timeProvider, int maxEntries, long maxTotalBytes, ISurlEventPublisher? events)
     {
         try
         {
-            return new LdapDirectory(records.Select(record => record.Entry).ToArray(), timeProvider, maxEntries, maxTotalBytes);
+            return new LdapDirectory(records.Select(record => record.Entry).ToArray(), timeProvider, maxEntries, maxTotalBytes, events: events);
         }
         catch (LdapDirectoryException exception)
         {

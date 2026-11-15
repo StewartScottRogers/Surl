@@ -80,7 +80,7 @@ horizontal library may reference it (ADR-0099 decision 11, held by
 - `mcp+stdio:` (ADR-0111 decision 5, BL-979): `ExtendedProtocolServers.Registrations` has an entry for the scheme whose
   `McpStdioListenUrlServer` only claims it, so the parser accepts it (the listen URL has an empty host and port 0;
   `ListenUrlParser` reads it apart). It is never served through the engine: the host calls `McpStdioComposition.IsAsked`,
-  `FindRefusal` (another or proxy listen URL beside it, or `--trace`/`--trace-ascii`/`--log-file` to `-`, each `FailedInit`)
+  `FindRefusal` (another or proxy listen URL beside it, `--trace`/`--trace-ascii`/`--log-file` to `-`, `--fault` or `--control` (BL-1191, ADR-0162), each `FailedInit`)
   and `ServeAsync`, which serves `McpStdioSession` over the content store on the streams it is given, writing the
   `Listening on mcp+stdio:` line (info up) to the log only. `SURL_EXTENSIONS=0` leaves the scheme unregistered.
 - DNS over HTTPS (ADR-0092 Amendment 4, BL-1018): `--dns-transport https` expands a `dns` listen URL to a connection-only one with `IsImplicitTls` and `IsDnsOverHttps` on 443; the `dns` connection registration is a `DnsConnectionRoutingProtocolServer` sending it to `Http2ConnectionServer` (ALPN `h2`) or `Http1ConnectionServer`, both over a `DnsOverHttpsHandler`, and every other listen URL to `DnsTcpProtocolServer`. Refused beside `tcp` or `tls` on one explicit port (2); needs `--cert` or `--self-signed` (58).
@@ -138,6 +138,8 @@ horizontal library may reference it (ADR-0099 decision 11, held by
   disk), the mail store and the bus refuse reset, snapshot and restore, so a whole-instance reset or
   snapshot stops at `Content`; seeding them is allowed, and accounts stay controllable. Tests:
   `ComposedStoresTests`.
+- The Redis keyspace (ADR-0158, BL-1161): `ComposedProtocolServices.RedisKeyspace` is the instance's one keyspace (built on first use over its `TimeProvider` and `Events`), which the `redis`/`rediss` `RedisServer` is built over; when that server is composed (never with `SURL_EXTENSIONS=0`) `RedisKeyspaceStoreRegistration` joins `StoreKind.Keyspace` to the order after the accounts and before the directory, and `ComposedStores.SeedKeyAsync` seeds a string key. Tests: `RedisKeyspaceStoreTests`.
+- The DNS zones (ADR-0158, BL-1165): when a `dns` server is composed (never with `SURL_EXTENSIONS=0`) `DnsZoneStoreRegistration` joins `StoreKind.Zones` to the order, last (after the broker stores, which already follow the directory), over `ServiceState.DnsZones`, which `LoadDnsZonesAsync` builds over the instance's events; `ComposedStores.SeedZoneAsync` seeds a zone, which a reset drops. Zones loaded from `--directory` are an in-memory copy of files read once (decision 6): reset returns to them, nothing is written. Tests: `DnsZoneStoreTests`.
 - The control endpoint's target (ADR-0124 decision 7, BL-1022): the internal `ComposedControlTarget` is
   `Surl.Control`'s `IControlTarget` over a start's `Events`, `Faults` and `Stores`, and `ComposedSnapshot` is its
   `IControlSnapshot`. `AddFault` reads one item as `--fault` does (a bad item `BadRequest` with the reader's text, a

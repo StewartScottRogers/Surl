@@ -22,6 +22,15 @@ internal sealed record ProxyTarget(string Scheme, string Authority, string Host,
     private const int FtpDefaultPort = 21;
 
     /// <summary>
+    /// What a command-stage fault rule's <c>path</c> matches (ADR-0160 decision 1): the authority for
+    /// a <c>CONNECT</c>, and for a forwarded request the scheme, authority and path, without query or
+    /// fragment.
+    /// </summary>
+    public string FaultPath => Scheme.Length == 0
+        ? Authority
+        : $"{Scheme}://{Authority}{OriginForm.Split('?', '#')[0]}";
+
+    /// <summary>
     /// Reads an absolute-form request target (RFC 9112 section 3.2.2): <c>scheme://authority</c>
     /// and an optional path and query. A target without a scheme, or with no host, is none.
     /// The port is the authority's, or 21 for <c>ftp</c> and 80 for every other scheme when it

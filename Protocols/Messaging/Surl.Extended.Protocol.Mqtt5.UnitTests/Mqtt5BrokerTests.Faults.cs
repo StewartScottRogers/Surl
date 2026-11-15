@@ -123,10 +123,64 @@ public sealed partial class Mqtt5BrokerTests
     }
 
     [TestMethod]
-    public async Task ServeAsync_ADelayRuleAtTheCommandStage_IsNotApplied()
+    public async Task ServeAsync_APublishDelayRule_HoldsThePublishForTheDelayWithTheIdleClockPausedThenHandlesItAsUsual()
+    {
+        var state = NewState();
+        var published = PublishedOn(state);
+        var events = new RecordingSurlEventPublisher();
+        var clock = new ManualTimeProvider();
+        var idleClock = new RecordingIdleClock();
+        var plan = new ScriptedFaultPlan(new FaultRule("f1", FaultKind.Delay) { Stage = FaultStage.Command, Command = "PUBLISH", DelayMilliseconds = 500 });
+        var context = Context(clock, TestContext.CancellationToken) with { Faults = plan, Events = events, IdleClock = idleClock };
+        var connection = ConnectionSending(staysOpen: false, Connect(), Publish("a/b", "hi", 1, 7), DisconnectNormally);
+
+        var serving = Broker(state).ServeAsync(connection, context);
+        await idleClock.FirstPause.WaitAsync(TimeSpan.FromSeconds(30), TestContext.CancellationToken);
+        var publishedAtTheHold = published.Count;
+        var pausedAtTheHold = idleClock.IsPaused;
+        clock.Advance(TimeSpan.FromMilliseconds(500));
+        await serving.WaitAsync(TimeSpan.FromSeconds(30), TestContext.CancellationToken);
+
+        Assert.AreEqual(0, publishedAtTheHold);
+        Assert.IsTrue(pausedAtTheHold);
+        Assert.IsFalse(idleClock.IsPaused);
+        Assert.HasCount(1, published);
+        CollectionAssert.AreEqual(new byte[] { 0x40, 0x02, 0x00, 0x07 }, AfterConnackSuccess(connection.WrittenBytes));
+        Assert.AreEqual(new FaultAppliedEvent("f1", FaultKind.Delay, FaultStage.Command, 1, "PUBLISH a/b"), events.Events.Single());
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_ASubscribeDropRule_AbortsTheConnectionWithNoSubAck()
     {
         var events = new RecordingSurlEventPublisher();
-        var plan = new ScriptedFaultPlan(new FaultRule("f1", FaultKind.Delay) { Command = "PUBLISH", DelayMilliseconds = 10 });
+        var plan = new ScriptedFaultPlan(new FaultRule("f1", FaultKind.Drop) { Stage = FaultStage.Command, Command = "SUBSCRIBE" });
+
+        var connection = await ServeAsync(Broker(), FaultContext(plan, events), Connect(), Subscribe(1, ("a/b", 0), ("c/d", 0)), PingRequest);
+
+        Assert.IsTrue(connection.Aborted);
+        CollectionAssert.AreEqual(ConnackSuccess, connection.WrittenBytes);
+        Assert.AreEqual(new FaultAppliedEvent("f1", FaultKind.Drop, FaultStage.Command, 1, "SUBSCRIBE a/b"), events.Events.Single());
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_APublishDropRule_AbortsTheConnectionAndPublishesNothing()
+    {
+        var state = NewState();
+        var published = PublishedOn(state);
+        var plan = new ScriptedFaultPlan(new FaultRule("f1", FaultKind.Drop) { Stage = FaultStage.Command, Command = "PUBLISH" });
+
+        var connection = await ServeAsync(Broker(state), FaultContext(plan, new RecordingSurlEventPublisher()), Connect(), Publish("a/b", "hi", 1, 7), PingRequest);
+
+        Assert.IsTrue(connection.Aborted);
+        Assert.IsEmpty(published);
+        CollectionAssert.AreEqual(ConnackSuccess, connection.WrittenBytes);
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_AnOutOfSpaceRuleAtAPacket_IsNotedAndNotApplied()
+    {
+        var events = new RecordingSurlEventPublisher();
+        var plan = new ScriptedFaultPlan(new FaultRule("f1", FaultKind.OutOfSpace) { Command = "PUBLISH" });
 
         var connection = await ServeAsync(Broker(), FaultContext(plan, events), Connect(), Publish("a/b", "hi", 1, 7), DisconnectNormally);
 

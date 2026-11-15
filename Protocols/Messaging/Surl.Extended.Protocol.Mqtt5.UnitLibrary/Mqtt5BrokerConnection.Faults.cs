@@ -12,13 +12,18 @@ namespace Surl.Extended.Protocol.Mqtt5;
 /// code: in the filter's <c>SUBACK</c> slot, in the <c>PUBACK</c> or <c>PUBREC</c> of a QoS 1 or 2
 /// <c>PUBLISH</c>, and in a <c>DISCONNECT</c> after a QoS 0 one, which has no answer. A code the
 /// packet may not carry (tables in sections 3.4.2.1, 3.5.2.1, 3.9.3 and 3.14.2.1) is sent as
-/// <c>0x80</c>, Unspecified error.
+/// <c>0x80</c>, Unspecified error. A <see cref="FaultKind.Delay"/> rule holds the packet and a
+/// <see cref="FaultKind.Drop"/> rule aborts the connection with no answer, both applied by
+/// <see cref="CommandStageFaults"/> (ADR-0141); a dropped connection's Will is published.
 /// </summary>
 internal sealed partial class Mqtt5BrokerConnection
 {
     private const string PublishPacketName = "PUBLISH";
     private const string SubscribePacketName = "SUBSCRIBE";
     private const int LowestReasonCode = 128;
+
+    // Set when a drop rule aborted the connection at a packet; the packet is then not answered.
+    private bool droppedByFault;
 
     // Section 3.4.2.1 (PUBACK) and 3.5.2.1 (PUBREC): the same error codes.
     private static readonly HashSet<byte> PublishResponseErrors = [0x80, 0x83, 0x87, 0x90, 0x91, 0x97, 0x99];
@@ -49,12 +54,24 @@ internal sealed partial class Mqtt5BrokerConnection
             Path = topic,
             Command = packetName,
         };
-        if (await context.Faults.FindAsync(point, context.CancellationToken) is not { } rule)
+        var target = $"{packetName} {topic}";
+        if (await CommandStageFaults.FindAndApplyAsync(context, connection, point, target) is not { } rule)
         {
             return null;
         }
 
-        var target = $"{packetName} {topic}";
+        // A delay has held the packet and a drop has aborted the connection: both are applied already.
+        if (rule.Kind == FaultKind.Drop)
+        {
+            droppedByFault = true;
+            return null;
+        }
+
+        if (rule.Kind == FaultKind.Delay)
+        {
+            return null;
+        }
+
         if (rule.Kind != FaultKind.Error || !TryReadReasonCode(rule.Reply, out var reasonCode))
         {
             context.Log.Note($"{target}: fault rule {rule.Id} is not an error with an MQTT reason code 128 to 255; not applied.");
@@ -77,7 +94,7 @@ internal sealed partial class Mqtt5BrokerConnection
         var topic = message.Topic;
         if (await FindChosenReasonCodeAsync(PublishPacketName, topic) is not { } reasonCode)
         {
-            return null;
+            return droppedByFault ? Mqtt5ConnectionEnd.ClosedAbnormally : null;
         }
 
         return publish.QualityOfService == 0

@@ -4,6 +4,7 @@ using Surl.Cli;
 using Surl.Content;
 using Surl.Control;
 using Surl.Core;
+using Surl.Extended.Protocol.DnsQuery;
 using Surl.MailStore;
 using Surl.MessageBus;
 using Surl.Protocol.Abstractions;
@@ -113,6 +114,53 @@ internal sealed class ComposedControlTarget(SurlEventStream events, FaultPlan fa
     }
 
     /// <inheritdoc/>
+    public async Task SeedKeyAsync(int database, ReadOnlyMemory<byte> key, ReadOnlyMemory<byte> value, TimeSpan? expiry, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await stores.SeedKeyAsync(database, key, value, expiry, cancellationToken);
+        }
+        catch (ArgumentException refused)
+        {
+            throw new ControlRefusalException(refused.Message);
+        }
+        catch (InvalidOperationException refused)
+        {
+            throw new ControlRefusalException(ControlRefusalKind.Conflict, refused.Message);
+        }
+    }
+
+    /// <inheritdoc/>
+    public async Task SeedDirectoryAsync(string ldif, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await stores.SeedEntriesAsync(ldif, cancellationToken);
+        }
+        catch (InvalidOperationException refused)
+        {
+            throw new ControlRefusalException(refused.Message);
+        }
+    }
+
+    /// <inheritdoc/>
+    public async Task SeedZoneAsync(string apex, string zoneFileText, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await stores.SeedZoneAsync(apex, zoneFileText, cancellationToken);
+        }
+        catch (DnsZoneFileException refused)
+        {
+            throw new ControlRefusalException(IsBoundOrDuplicate(refused) ? ControlRefusalKind.Conflict : ControlRefusalKind.BadRequest, refused.Message);
+        }
+        catch (InvalidOperationException refused)
+        {
+            throw new ControlRefusalException(ControlRefusalKind.Conflict, refused.Message);
+        }
+    }
+
+    /// <inheritdoc/>
     public Task AddAccountAsync(string user, string password, CancellationToken cancellationToken)
     {
         stores.RemoveAccount(user);
@@ -150,6 +198,11 @@ internal sealed class ComposedControlTarget(SurlEventStream events, FaultPlan fa
         MessageBusOutcome.InvalidTopic or MessageBusOutcome.InvalidQueueName or MessageBusOutcome.MessageTooLarge => ControlRefusalKind.BadRequest,
         _ => ControlRefusalKind.Conflict,
     };
+
+    // The zone set's two refusals that are not about the text: a bound passed, or an apex already held (ADR-0158 decision 9).
+    private static bool IsBoundOrDuplicate(DnsZoneFileException refused) =>
+        refused.Fault.StartsWith("past the zones' bounds", StringComparison.Ordinal)
+        || refused.Fault.StartsWith("a second zone", StringComparison.Ordinal);
 
     // A path a request may not name, such as one with a .. segment, is the client's mistake.
     private static async Task<T> RefusingABadPath<T>(string path, Func<Task<T>> change)

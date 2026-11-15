@@ -1,6 +1,7 @@
 using System.Collections.Frozen;
 using System.Diagnostics.CodeAnalysis;
 using Surl.HttpMessage;
+using Surl.HttpServing;
 using Surl.Protocol.Abstractions;
 
 namespace Surl.Extended.Protocol.S3;
@@ -14,7 +15,9 @@ namespace Surl.Extended.Protocol.S3;
 /// (<c>503 SlowDown</c>), written as the <c>Error</c> body's <c>Code</c>.
 /// </summary>
 /// <remarks>
-/// A rule of another kind, or a reply that does not fit, is noted in the exchange log and the
+/// A <see cref="FaultKind.Delay"/> rule holds the request, then it is answered as without the rule
+/// (ADR-0141); a <see cref="FaultKind.Drop"/> rule ends the exchange with no byte of an answer. A rule
+/// of another kind, or a reply that does not fit, is noted in the exchange log and the
 /// request is answered as without it. Applying a rule publishes one <see cref="FaultAppliedEvent"/>
 /// naming the path.
 /// </remarks>
@@ -69,14 +72,20 @@ internal static class S3ChosenErrorFault
     /// <param name="method">The request's method.</param>
     /// <param name="target">The request's target.</param>
     /// <param name="accountName">The login's account, or <see langword="null"/> when anonymous.</param>
-    /// <returns>The error to answer with, or <see langword="null"/> to answer as usual.</returns>
-    public static async ValueTask<S3Error?> FindAsync(ExchangeContext context, string method, S3RequestTarget target, string? accountName)
+    /// <param name="reply">The request's reply, which words an error answer.</param>
+    /// <returns>The answer to give instead (a chosen error, or one that drops the exchange), or <see langword="null"/> to answer as usual.</returns>
+    public static async ValueTask<HttpAnswer?> FindAsync(ExchangeContext context, string method, S3RequestTarget target, string? accountName, S3Reply reply)
     {
         var path = PathOf(target);
-        var rule = await HttpCommandFaults.FindChosenErrorAsync(context, method, path, accountName);
+        var rule = await HttpCommandFaults.FindAndApplyAsync(context, method, path, accountName);
         if (rule is null)
         {
             return null;
+        }
+
+        if (rule.Kind == FaultKind.Drop)
+        {
+            return DroppedAnswer;
         }
 
         if (!TryRead(rule.Reply, rule.Id, out var error))
@@ -88,8 +97,12 @@ internal static class S3ChosenErrorFault
 
         HttpCommandFaults.PublishApplied(context, rule, method, path, $"{error.Status.Code} {error.Code}");
 
-        return error;
+        return reply.Error(error);
     }
+
+    // What a drop rule answers with: nothing is written; the writer aborts the connection.
+    private static readonly HttpAnswer DroppedAnswer = new(
+        new HttpStatus(500, string.Empty), [], HttpAnswerBody.None, IsRefusal: true, LeavesRequestBodyUnread: false, DropsExchange: true);
 
     /// <summary>
     /// The path a fault rule names a request by: <c>/&lt;bucket&gt;</c> for a bucket,

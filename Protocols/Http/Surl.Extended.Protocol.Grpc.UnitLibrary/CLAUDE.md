@@ -80,3 +80,8 @@ Rules:
 - This library references `Surl.Protocol.Abstractions` and `Surl.Http2`, never another protocol server.
 - A new service plugs in as a `GrpcService` handed to `GrpcStreamHandler`; never add a switch on service
   names to the handler.
+
+Faults (BL-1188, ADR-0124 decisions 4 and 9): `GrpcCallFaults` asks the exchange's fault plan once per call
+that names a served method (`command` the method name, `path` the full `:path`). Delay holds the call, drop
+resets the stream with no response, an `error` rule with a reply of status 1 to 16 and an optional message
+ends the call Trailers-Only with it.

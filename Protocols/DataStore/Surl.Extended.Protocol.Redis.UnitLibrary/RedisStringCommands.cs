@@ -20,7 +20,7 @@ internal static class RedisStringCommands
         RedisKeyspaceCommand.Growing("set", -3, Set),
         RedisKeyspaceCommand.Reading("getdel", 2, GetDel),
         RedisKeyspaceCommand.Reading("mget", -2, MGet),
-        RedisKeyspaceCommand.Growing("mset", -3, MSet),
+        RedisKeyspaceCommand.GrowingAt("mset", -3, MSet, MSetKeys),
         RedisKeyspaceCommand.Growing("incr", 2, call => IncrementBy(call, 1)),
         RedisKeyspaceCommand.Growing("decr", 2, call => IncrementBy(call, -1)),
         RedisKeyspaceCommand.Growing("incrby", 3, call => IncrementByArgument(call, false)),
@@ -117,6 +117,10 @@ internal static class RedisStringCommands
 
     private static RespValue MGet(RedisCommandCall call) =>
         new RespArray(call.Arguments.Skip(1).Select(key => BulkOrNull(call, FindString(call, key, out _))).ToArray());
+
+    // MSET key value [key value ...]: the keys are the odd-numbered arguments.
+    private static IEnumerable<byte[]> MSetKeys(RedisCommandCall call) =>
+        call.Arguments.Where((_, index) => index % 2 == 1);
 
     private static RespValue MSet(RedisCommandCall call)
     {

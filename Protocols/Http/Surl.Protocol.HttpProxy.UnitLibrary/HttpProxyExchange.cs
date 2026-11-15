@@ -135,14 +135,15 @@ internal sealed partial class HttpProxyExchange : IAsyncDisposable
         }
 
         var isConnect = string.Equals(head.Method, "CONNECT", StringComparison.Ordinal);
-        if (await RefuseProxyLoginAsync(head, isConnect) is { } keepsConnectionOpen)
+        var (refusal, accountName) = await RefuseProxyLoginAsync(head, isConnect);
+        if (refusal is { } keepsConnectionOpen)
         {
             return keepsConnectionOpen;
         }
 
         return isConnect
-            ? await AnswerConnectAsync(head)
-            : await AnswerForwardableAsync(head);
+            ? await AnswerConnectAsync(head, accountName)
+            : await AnswerForwardableAsync(head, accountName);
     }
 
     /// <summary>
@@ -183,6 +184,26 @@ internal sealed partial class HttpProxyExchange : IAsyncDisposable
         }
 
         return !closes;
+    }
+
+    /// <summary>
+    /// Asks the fault plan about a request the proxy let in (ADR-0160 decision 1) and acts on it: a
+    /// drop aborts curl's connection with nothing sent, a chosen error is answered in place of the
+    /// request's own answer. <see langword="null"/> when the request goes on.
+    /// </summary>
+    private async Task<bool?> AnswerCommandFaultAsync(HttpRequestHead head, ProxyTarget target, string? accountName, bool closes)
+    {
+        var fault = await ProxyCommandFault.FindAndApplyAsync(context, head.Method, target.FaultPath, accountName);
+        if (fault.Drops)
+        {
+            client.Abort();
+
+            return false;
+        }
+
+        return fault.ChosenStatus is { } status
+            ? await AnswerAsync(status, $"{head.Method} {head.RequestTarget}: a fault rule chose the error", closes)
+            : null;
     }
 
     private async Task<OriginLink> ConnectAsync(ProxyTarget target)

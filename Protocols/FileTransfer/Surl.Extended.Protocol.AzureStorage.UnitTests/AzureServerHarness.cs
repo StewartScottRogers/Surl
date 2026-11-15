@@ -103,6 +103,7 @@ internal sealed partial class AzureServerHarness
     {
         Limits = limits ?? ExchangeLimits.Default,
         Faults = Faults,
+        IdleClock = IdleClock,
         Events = Events,
         Identifiers = Seed is { } seed ? new SeededIdentifierRandom(seed).ForExchange(1) : CryptographicIdentifierRandom.Instance,
     };
@@ -145,10 +146,21 @@ internal sealed partial class AzureServerHarness
     public async Task<string> SendRawAsync(string request, ExchangeLimits? limits = null)
     {
         var connection = new InMemoryConnection([Encoding.Latin1.GetBytes(request)]);
+        LastConnection = connection;
         await Server.ServeAsync(connection, Context(limits));
 
         return Encoding.UTF8.GetString(connection.WrittenBytes);
     }
+
+    /// <summary>
+    /// The idle clock each exchange carries: none unless a test sets one.
+    /// </summary>
+    public IIdleClock IdleClock { get; set; } = NoIdleClock.Instance;
+
+    /// <summary>
+    /// The connection the last <see cref="SendRawAsync"/> served.
+    /// </summary>
+    public InMemoryConnection? LastConnection { get; private set; }
 
     /// <summary>
     /// Like <see cref="SendRawAsync"/>, on a connection already under TLS.

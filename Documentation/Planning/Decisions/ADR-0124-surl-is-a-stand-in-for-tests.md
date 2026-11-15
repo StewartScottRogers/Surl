@@ -14,6 +14,17 @@
   (`Surl.Mcp`).
 - **Amends:** ADR-0099 decision 7 (the exchange record gains its listen URL; decision 1 below) and
   ADR-0103 decision 3 (new and widened tools; decision 8 below).
+- **Amended by:** [ADR-0158](ADR-0158-how-the-redis-keyspace-the-ldap-directory-and-the-dns-zones-are-seeded-reset-snapshotted-restored-and-observed.md)
+  (decision 2 gains a store registration seam; decision 3's order, decision 7's requests and decision 8's tools grow
+  by the Redis keyspace, the LDAP directory and the DNS zones), and
+  [ADR-0159](ADR-0159-which-broker-held-state-a-reset-snapshot-and-restore-of-the-message-bus-cover.md)
+  (decision 3's reset, snapshot and restore also cover the state brokers hold outside the bus: the AMQP 0-9-1
+  exchange table, the MQTT 5 sessions and Wills, and the Kafka groups and producer states), and
+  [ADR-0160](ADR-0160-how-the-http-and-https-proxy-applies-delay-drop-and-chosen-error-fault-rules.md)
+  (decision 4: the HTTP and HTTPS proxy's command-stage point carries the scheme `http-proxy` or `https-proxy`, so an
+  `http` rule never reaches a proxy; its `path` and its reply rows are in the tables below), and
+  [ADR-0161](ADR-0161-which-tools-surl-mcp-adds-to-delete-a-file-and-remove-an-account-and-why-it-adds-no-clear-faults.md)
+  (decision 8: `delete_file` and `remove_account` follow `put_file` and `add_account`; no clear-faults tool or route).
 - **Acted on by:** BL-785 to BL-821 and BL-823, and the extended-server follow-ups listed under
   Consequences.
 
@@ -243,6 +254,7 @@ path and command known at that point. `FaultRule` carries `Id`, `Kind`, its scop
 | Family | `command` | `path` |
 | --- | --- | --- |
 | HTTP, RTSP, WebSocket | the method (`GET`, `DESCRIBE`); WebSocket the upgrade request | the request path, query excluded |
+| HTTP and HTTPS proxy (scheme `http-proxy`, `https-proxy`; ADR-0160) | the method, `CONNECT` included | `host:port` for `CONNECT`; for a forwarded request the absolute-form target, query excluded |
 | FTP, TFTP | the command (`RETR`, `STOR`, `LIST`); TFTP `RRQ`, `WRQ` | the file path |
 | SSH (SFTP, SCP), SMB | the SFTP packet name (`OPEN`, `READ`), `scp`; the SMB command (`CREATE`, `READ`) | the file path |
 | SMTP, IMAP, POP3 | the command (`MAIL`, `RCPT`, `DATA`, `SELECT`, `RETR`) | SMTP the recipient address at `RCPT`; IMAP the mailbox; POP3 none |
@@ -254,7 +266,7 @@ path and command known at that point. `FaultRule` carries `Id`, `Kind`, its scop
 
 | Scheme | `reply` |
 | --- | --- |
-| `http`, `https`, `rtsp` | a status 400 to 599 and an optional reason phrase |
+| `http`, `https`, `rtsp`, `http-proxy`, `https-proxy` | a status 400 to 599 and an optional reason phrase (the proxy schemes: ADR-0160) |
 | `ws`, `wss` | a close code RFC 6455 section 7.4 allows on the wire - 1000 to 1014 less 1004 to 1006, and 3000 to 4999 - and an optional non-empty reason of at most 123 UTF-8 bytes (ADR-0134 decision 4, BL-903) |
 | `ftp`, `ftps`, `smtp`, `smtps` | a reply code 400 to 599 and text |
 | `imap`, `imaps` | `NO` or `BAD` and text |
@@ -287,6 +299,8 @@ The extended servers (decision 9), each judged by its own specification (ADR-008
 | `webtransport` | an HTTP status 400 to 599 and optional text, answering the extended CONNECT that opens a session, with the text as a plain-text body (BL-1065) |
 | `stomp`, `stomps` | text, sent as an `ERROR` frame's `message` header, after which the connection closes (BL-1062) |
 | `xmpp`, `xmpps` | a stanza error condition of RFC 6120 section 8.3.3 (for example `service-unavailable`), answered as `<error type=...>` on the matching stanza (BL-1063) |
+| `grpc`, `grpcs` | a gRPC status code 1 to 16 (never 0, `OK`) and an optional message, answered as `grpc-status` and `grpc-message` in a Trailers-Only response; `command` is the method name and `path` the full `/<service>/<method>`; a drop resets the call's stream (BL-1188) |
+| `oci` | an HTTP status 400 to 599 and one of the OCI Distribution Specification v1.1.0 error codes (`BLOB_UNKNOWN`, `DENIED`, `TOOMANYREQUESTS`, ...), answered with that status and the specification's `{"errors":[{"code","message"}]}` body; `command` is the method and `path` the request path; faults apply to `/v2/` requests once the token is accepted, not to `/token` (BL-1189) |
 | `dns` | an RCODE 1 to 5 |
 | `redis`, `rediss` | text, sent as a RESP error (`-<text>`) |
 
@@ -328,7 +342,7 @@ Examples: `drop;listener=smtp://127.0.0.1:2525;times=1`, `refuse-login;account=a
 `key <key> must be a whole number from <lowest> to <highest>`, `key stage must be accept or command`,
 `unknown scheme <scheme>`, `key listener is not a listen URL`, `key listener cannot be given with key scheme`,
 `key <key> cannot be given at stage accept`, `key after-bytes cannot be given with stage=command`,
-`kind error needs key scheme or key listener`, `scheme <scheme> has no error shape`,
+`kind error needs key scheme or key listener` (every scheme surl serves has an error shape since BL-1189),
 `key reply does not fit the <scheme> error shape` and `more than 256 fault rules`; none holds a value
 but a kind or scheme, and the kind and keys are read in any case; `gophers` takes `gopher`'s reply shape;
 `scheme` accepts every scheme surl has a server for, extended ones included, whether or not

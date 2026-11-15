@@ -25,6 +25,9 @@ Streams, the XML stream reader and stream errors (BL-536, ADR-0114 decisions 1, 
   stream error is preceded by a response header when none was sent, carries no text, and is
   followed by `</stream:stream>`. A limit cancelling the exchange is `connection-timeout`,
   shutdown `system-shutdown`, each written within a one-second deadline.
+- In production the random source is an `IdentifierXmppRandomSource` over `IdentifiersForServer("xmpp")` (BL-1178,
+  ADR-0124 decision 6): a seeded instance repeats stream IDs, generated resources and anonymous names for the same
+  exchange order. SASL nonces and challenges are never drawn from it.
 - A major version other than 1 (`2.0` included) is `unsupported-version`; a higher minor
   version opens a `1.0` stream. RFC 6120 4.7.5 and 4.9.3.25 (whose example is `11.0`) say so;
   ADR-0114 decision 1's "a higher major or minor" is read as the minor only (BL-536 Notes).

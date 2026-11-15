@@ -13,7 +13,8 @@ namespace Surl.Extended.Protocol.DnsQuery;
 /// </summary>
 /// <remarks>
 /// Only a message <see cref="DnsQueryAnswerer.StandardQueryOf"/> reads is asked about; one it does
-/// not is answered by the server's own checks. Only a <see cref="FaultKind.Error"/> rule whose
+/// not is answered by the server's own checks. A <see cref="FaultKind.Delay"/> rule holds the answer and a
+/// <see cref="FaultKind.Drop"/> rule leaves the query unanswered (ADR-0124 decision 4; ADR-0141). Only a <see cref="FaultKind.Error"/> rule whose
 /// reply is an RCODE <c>1</c> to <c>5</c> (<see cref="TryParse"/>) is applied, and applying it
 /// publishes one <see cref="FaultAppliedEvent"/> naming the QNAME. A rule of any other kind, or a
 /// reply that does not fit, is noted as not applied and the query is answered as without it.
@@ -21,16 +22,21 @@ namespace Surl.Extended.Protocol.DnsQuery;
 internal static class DnsQueryFaults
 {
     /// <summary>
-    /// Finds the chosen error answer to a query, publishing its <see cref="FaultAppliedEvent"/>.
+    /// Finds what the fault plan does to a query: a <see cref="FaultKind.Delay"/> rule holds the
+    /// answer and the query is then answered as usual, a <see cref="FaultKind.Drop"/> rule leaves it
+    /// unanswered (it aborts <paramref name="connection"/> when there is one), and a chosen
+    /// <see cref="FaultKind.Error"/> is returned for the server to answer. Each publishes its
+    /// <see cref="FaultAppliedEvent"/>.
     /// </summary>
     /// <param name="context">The exchange: its fault plan, event stream, log and listen URL.</param>
     /// <param name="query">The message as received.</param>
-    /// <returns>The chosen answer, or <see langword="null"/> to answer as usual.</returns>
-    public static async Task<DnsResponse?> FindErrorAsync(ExchangeContext context, ReadOnlyMemory<byte> query)
+    /// <param name="connection">The connection a drop aborts, or <see langword="null"/> when the transport has none to abort here.</param>
+    /// <returns>The outcome: no chosen error and no drop means answer as usual.</returns>
+    public static async Task<DnsQueryFaultOutcome> FindAsync(ExchangeContext context, ReadOnlyMemory<byte> query, IConnection? connection = null)
     {
         if (DnsQueryAnswerer.StandardQueryOf(query.Span) is not { } standard)
         {
-            return null;
+            return default;
         }
 
         var path = PathOf(standard.Question.Name);
@@ -42,11 +48,20 @@ internal static class DnsQueryFaults
             Path = path,
             Command = CommandOf(standard.Question.Type),
         };
-        if (await context.Faults.FindAsync(point, context.CancellationToken) is not { } rule)
-        {
-            return null;
-        }
+        var rule = connection is null
+            ? await CommandStageFaults.FindAndApplyAsync(context, point, path)
+            : await CommandStageFaults.FindAndApplyAsync(context, connection, point, path);
 
+        return rule switch
+        {
+            null or { Kind: FaultKind.Delay } => default,
+            { Kind: FaultKind.Drop } => new DnsQueryFaultOutcome(null, IsDropped: true),
+            _ => new DnsQueryFaultOutcome(ChosenErrorOf(context, standard, rule, path), IsDropped: false),
+        };
+    }
+
+    private static DnsResponse? ChosenErrorOf(ExchangeContext context, DnsStandardQuery standard, FaultRule rule, string path)
+    {
         if (rule.Kind != FaultKind.Error || !TryParse(rule.Reply, out var responseCode))
         {
             var why = rule.Kind == FaultKind.Error ? "its reply is not an RCODE 1 to 5" : $"a {rule.Kind} rule is not applied at a query";

@@ -46,14 +46,14 @@ internal sealed class OciRegistryServerHarness
     {
     }
 
-    private OciRegistryServerHarness(int maxLiveTokens, ContentExposureOptions options, Func<InMemoryContentFileSystem, ContentShare>[] shares, bool keepsMetadataIndex = true)
+    private OciRegistryServerHarness(int maxLiveTokens, ContentExposureOptions options, Func<InMemoryContentFileSystem, ContentShare>[] shares, bool keepsMetadataIndex = true, bool drawsSessionIds = false)
     {
         TimeProvider = new FixedTimeProvider(Now);
         FileSystem = new InMemoryContentFileSystem(TimeProvider);
         CountingFileSystem = new UnitTestCountingContentFileSystem(FileSystem);
         Store = new ContentStore(InMemoryContentFileSystem.RootPath, CountingFileSystem, options, [.. shares.Select(share => share(FileSystem))], []);
         MetadataIndex = keepsMetadataIndex ? new ObjectMetadataIndex(CountingFileSystem, InMemoryContentFileSystem.RootPath, persists: false) : null;
-        Server = new OciRegistryProtocolServer(Store, Policy, TimeProvider, () => Guid.Parse(SessionId(Interlocked.Increment(ref sessionCount))), maxLiveTokens, MetadataIndex);
+        Server = new OciRegistryProtocolServer(Store, Policy, TimeProvider, drawsSessionIds ? null : () => Guid.Parse(SessionId(Interlocked.Increment(ref sessionCount))), maxLiveTokens, MetadataIndex);
     }
 
     /// <summary>
@@ -112,6 +112,11 @@ internal sealed class OciRegistryServerHarness
     public CountingIdentifierRandom Random { get; } = new();
 
     /// <summary>
+    /// Where exchanges draw identifiers from when set; <see cref="Random"/> otherwise.
+    /// </summary>
+    public Surl.Protocol.Abstractions.IIdentifierRandom? IdentifierSource { get; set; }
+
+    /// <summary>
     /// Whether a <c>/v2/</c> request sent without <c>Authorization</c> first fetches a token from
     /// <c>/token</c> as <see cref="UnitTestAuthenticationPolicy.UserName"/>, asking every action
     /// in its repository and <c>pull</c> in a mount's <c>from</c>, and carries it; on by default,
@@ -123,6 +128,11 @@ internal sealed class OciRegistryServerHarness
     /// A registry that accepts uploads.
     /// </summary>
     public static OciRegistryServerHarness AllowingUploads() => new(new ContentExposureOptions { AllowUploads = true });
+
+    /// <summary>
+    /// A registry that allows uploads and draws upload session UUIDs from the exchange's identifier source, as production does.
+    /// </summary>
+    public static OciRegistryServerHarness DrawingSessionIds(Surl.Protocol.Abstractions.IIdentifierRandom? source = null) => new(OciTokenBook.MaxLiveTokens, new ContentExposureOptions { AllowUploads = true }, [], drawsSessionIds: true) { IdentifierSource = source };
 
     /// <summary>
     /// A registry that accepts uploads, with a read-only share <c>ro</c> already holding the
@@ -195,6 +205,18 @@ internal sealed class OciRegistryServerHarness
         SendRawAsync($"{method} {target} HTTP/1.1\r\nHost: registry.test\r\n{string.Concat(fields.Select(field => field + "\r\n"))}Content-Length: {Encoding.Latin1.GetByteCount(body)}\r\nConnection: close\r\n\r\n{body}");
 
     public FixedTimeProvider TimeProvider { get; }
+
+    /// <summary>The fault plan each exchange carries: none unless a test sets one.</summary>
+    public IFaultPlan Faults { get; set; } = EmptyFaultPlan.Instance;
+
+    /// <summary>The idle clock each exchange carries.</summary>
+    public IIdleClock IdleClock { get; set; } = NoIdleClock.Instance;
+
+    /// <summary>The events every exchange publishes.</summary>
+    public RecordingSurlEventPublisher Events { get; } = new();
+
+    /// <summary>The connection the last request was served on.</summary>
+    public InMemoryConnection? LastConnection { get; private set; }
 
     public InMemoryContentFileSystem FileSystem { get; }
 
@@ -294,7 +316,10 @@ internal sealed class OciRegistryServerHarness
         CancellationToken.None)
     {
         Limits = Limits,
-        Identifiers = Random,
+        Identifiers = IdentifierSource ?? Random,
+        Faults = Faults,
+        IdleClock = IdleClock,
+        Events = Events,
     };
 
     /// <summary>
@@ -354,6 +379,7 @@ internal sealed class OciRegistryServerHarness
     private async Task<string> ServeAsync(string request)
     {
         var connection = new InMemoryConnection([Encoding.Latin1.GetBytes(request)], initialTlsSession: TlsSession);
+        LastConnection = connection;
         await Server.ServeAsync(connection, Context());
 
         return Encoding.UTF8.GetString(connection.WrittenBytes);

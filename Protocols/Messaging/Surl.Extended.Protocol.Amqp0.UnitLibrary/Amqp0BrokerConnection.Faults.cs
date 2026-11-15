@@ -14,7 +14,10 @@ namespace Surl.Extended.Protocol.Amqp0;
 /// <see cref="FaultKind.Error"/> rule's reply code and text are sent as the specification's
 /// exception list says the code is sent: a channel exception (311 to 313, 403 to 406) as
 /// <c>channel.close</c>, a connection exception as <c>connection.close</c>. The method is not
-/// answered, and a publish's content is discarded with the closing channel.
+/// answered, and a publish's content is discarded with the closing channel. A
+/// <see cref="FaultKind.Delay"/> or <see cref="FaultKind.Drop"/> rule at the same point is applied by
+/// <see cref="CommandStageFaults"/> (ADR-0141): a delay holds the method's handling, a drop aborts the
+/// connection with nothing sent.
 /// </summary>
 internal sealed partial class Amqp0BrokerConnection
 {
@@ -63,7 +66,13 @@ internal sealed partial class Amqp0BrokerConnection
         }
 
         var (channel, method, command, path) = faulted;
-        if (await FindChosenExceptionAsync(command, path) is not { } chosen)
+        var (dropped, exception) = await FindChosenExceptionAsync(command, path);
+        if (dropped)
+        {
+            return false;
+        }
+
+        if (exception is not { } chosen)
         {
             return null;
         }
@@ -120,7 +129,9 @@ internal sealed partial class Amqp0BrokerConnection
             : name;
     }
 
-    private async ValueTask<(ushort ReplyCode, string ReplyText)?> FindChosenExceptionAsync(string command, string path)
+    // Finds the rule for the method and applies a delay or a drop (ADR-0141). A drop has aborted the
+    // connection and is reported by dropped; the exception is a chosen error to answer with.
+    private async ValueTask<(bool Dropped, (ushort ReplyCode, string ReplyText)? Exception)> FindChosenExceptionAsync(string command, string path)
     {
         var point = new FaultPoint(FaultStage.Command)
         {
@@ -131,12 +142,29 @@ internal sealed partial class Amqp0BrokerConnection
             Path = path,
             Command = command,
         };
-        if (await context.Faults.FindAsync(point, context.CancellationToken) is not { } rule)
+        var target = $"{command} {path}";
+        var rule = await CommandStageFaults.FindAndApplyAsync(context, point, target);
+        if (rule is null or { Kind: FaultKind.Delay })
         {
-            return null;
+            return (false, null);
         }
 
-        var target = $"{command} {path}";
+        if (rule.Kind == FaultKind.Drop)
+        {
+            // What was answered before the dropped method is written out first, so the cut is
+            // at the method and not somewhere in the queue behind it.
+            closeSent = true;
+            outbound!.Writer.TryComplete();
+            await outboundPumping;
+            connection.Abort();
+            return (true, null);
+        }
+
+        return (false, ChosenException(rule, target));
+    }
+
+    private (ushort ReplyCode, string ReplyText)? ChosenException(FaultRule rule, string target)
+    {
         if (rule.Kind != FaultKind.Error || !TryReadException(rule.Reply, out var replyCode, out var replyText))
         {
             context.Log.Note($"{target}: fault rule {rule.Id} is not an error with an AMQP 0-9-1 reply code and text; not applied.");

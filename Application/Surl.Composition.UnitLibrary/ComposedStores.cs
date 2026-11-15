@@ -2,7 +2,10 @@ using Surl.Authentication;
 using Surl.Content;
 using Surl.MailStore;
 using Surl.MessageBus;
+using Surl.Extended.Protocol.DnsQuery;
+using Surl.Extended.Protocol.Redis;
 using Surl.Protocol.Abstractions;
+using Surl.Protocol.Ldap;
 
 namespace Surl.Composition;
 
@@ -43,7 +46,10 @@ public sealed class ComposedStores
     private readonly MailboxStore mail;
     private readonly MessageBus.MessageBus bus;
     private readonly AccountBook accounts;
-    private readonly IReadOnlyList<StoreControl> controls;
+    private readonly LdapProtocolServer? ldapServer;
+    private readonly RedisKeyspace? redisKeyspace;
+    private readonly DnsZoneSet? dnsZones;
+    private readonly IReadOnlyList<ComposedStoreRegistration> controls;
 
     internal ComposedStores(
         ContentStore content,
@@ -51,13 +57,20 @@ public sealed class ComposedStores
         MailboxStore mail,
         MessageBus.MessageBus bus,
         AccountBook accounts,
-        long maxSnapshotBytes = DefaultMaxSnapshotBytes)
+        long maxSnapshotBytes = DefaultMaxSnapshotBytes,
+        IReadOnlyList<ComposedStoreRegistration>? additionalRegistrations = null,
+        LdapProtocolServer? ldapServer = null,
+        RedisKeyspace? redisKeyspace = null,
+        DnsZoneSet? dnsZones = null)
     {
+        this.redisKeyspace = redisKeyspace;
+        this.dnsZones = dnsZones;
         this.content = content;
         MetadataIndex = metadataIndex;
         this.mail = mail;
         this.bus = bus;
         this.accounts = accounts;
+        this.ldapServer = ldapServer;
         MaxSnapshotBytes = maxSnapshotBytes;
         controls =
         [
@@ -65,6 +78,7 @@ public sealed class ComposedStores
             new(StoreKind.Mail, _ => Run(mail.Reset), TakeMailSnapshotAsync),
             new(StoreKind.Bus, _ => Run(bus.Reset), TakeBusSnapshotAsync),
             new(StoreKind.Accounts, _ => Run(accounts.Reset), TakeAccountSnapshotAsync),
+            .. additionalRegistrations ?? [],
         ];
     }
 
@@ -73,6 +87,12 @@ public sealed class ComposedStores
     /// accounts (ADR-0124, decision 3).
     /// </summary>
     public static IReadOnlyList<StoreKind> StoreOrder { get; } = [StoreKind.Content, StoreKind.Mail, StoreKind.Bus, StoreKind.Accounts];
+
+    /// <summary>
+    /// The order this instance's registrations run in: <see cref="StoreOrder"/>, then any store
+    /// registered after the four.
+    /// </summary>
+    public IReadOnlyList<StoreKind> RegisteredStoreOrder => [.. controls.Select(control => control.Store)];
 
     /// <summary>
     /// The most bytes a snapshot may hold, every store's together; a snapshot past it is refused,
@@ -170,6 +190,65 @@ public sealed class ComposedStores
         var outcome = bus.SeedEnqueue(queueName, message);
         await SaveBusAsync(cancellationToken);
         return outcome;
+    }
+
+    /// <summary>
+    /// Writes one string key into the Redis keyspace as <see cref="RedisKeyspace.SeedKey"/> does: never consults the
+    /// fault plan; publishes <see cref="StoreChange.Seeded"/> (ADR-0158 decision 3).
+    /// </summary>
+    /// <param name="database">The database, 0 to 15.</param>
+    /// <param name="key">The key, at least 1 byte.</param>
+    /// <param name="value">The value.</param>
+    /// <param name="expiry">How long the key lives, or <see langword="null"/> for no expiry.</param>
+    /// <param name="cancellationToken">Cancels the seed before it starts.</param>
+    /// <returns>A task that completes once the key is written.</returns>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="database"/> or <paramref name="expiry"/> is out of range.</exception>
+    /// <exception cref="ArgumentException"><paramref name="key"/> is empty.</exception>
+    /// <exception cref="InvalidOperationException">The key and value are too large, the keyspace is full, or this
+    /// instance composes no Redis server.</exception>
+    public Task SeedKeyAsync(int database, ReadOnlyMemory<byte> key, ReadOnlyMemory<byte> value, TimeSpan? expiry, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var keyspace = redisKeyspace ?? throw new InvalidOperationException("This instance holds no Redis keyspace.");
+        keyspace.SeedKey(database, key, value, expiry);
+        return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// Adds one zone to the DNS zones as <see cref="DnsZoneSet.SeedZone"/> does: never consults the fault plan;
+    /// publishes <see cref="StoreChange.Seeded"/> named for the apex (ADR-0158 decision 3). A reset drops it.
+    /// </summary>
+    /// <param name="apex">The zone's apex, a domain name with or without its final dot.</param>
+    /// <param name="zoneFileText">The zone file's text, at most <see cref="DnsZoneSet.MaxSeedTextBytes"/> bytes.</param>
+    /// <param name="cancellationToken">Cancels the seed before it starts.</param>
+    /// <returns>A task that completes once the zone is added.</returns>
+    /// <exception cref="DnsZoneFileException">The text cannot be a zone, a zone with the apex is held, or the bounds would be passed.</exception>
+    /// <exception cref="InvalidOperationException">This instance composes no DNS server.</exception>
+    public Task SeedZoneAsync(string apex, string zoneFileText, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var zones = dnsZones ?? throw new InvalidOperationException("This instance holds no DNS zones.");
+        zones.SeedZone(apex, zoneFileText);
+        return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// Adds LDIF content records to the LDAP directory, all or none, as
+    /// <see cref="LdapProtocolServer.SeedDirectoryEntries"/> does: never consults the fault plan; publishes
+    /// <see cref="StoreChange.Seeded"/> for each entry (ADR-0158 decision 3).
+    /// </summary>
+    /// <param name="ldif">LDIF content records (RFC 2849), at most 16 MiB.</param>
+    /// <param name="cancellationToken">Cancels the seed before it starts.</param>
+    /// <returns>A task that completes once the entries are added.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="ldif"/> is <see langword="null"/>.</exception>
+    /// <exception cref="InvalidOperationException">The text is not LDIF content the directory can add, or this
+    /// instance composes no LDAP directory.</exception>
+    public Task SeedEntriesAsync(string ldif, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var server = ldapServer ?? throw new InvalidOperationException("This instance holds no LDAP directory.");
+        server.SeedDirectoryEntries(ldif);
+        return Task.CompletedTask;
     }
 
     /// <summary>
@@ -281,14 +360,14 @@ public sealed class ComposedStores
         }
     }
 
-    private static Task ResetAsync(StoreControl control, CancellationToken cancellationToken) =>
+    private static Task ResetAsync(ComposedStoreRegistration control, CancellationToken cancellationToken) =>
         RunNamingTheStoreAsync(control.Store, "reset", () => control.ResetAsync(cancellationToken));
 
-    private StoreControl ControlOf(StoreKind store) =>
+    private ComposedStoreRegistration ControlOf(StoreKind store) =>
         controls.FirstOrDefault(control => control.Store == store)
         ?? throw new ArgumentOutOfRangeException(nameof(store), store, "The store is not one an instance holds.");
 
-    private async Task<ComposedSnapshot> TakeSnapshotAsync(IReadOnlyList<StoreControl> taken, CancellationToken cancellationToken)
+    private async Task<ComposedSnapshot> TakeSnapshotAsync(IReadOnlyList<ComposedStoreRegistration> taken, CancellationToken cancellationToken)
     {
         List<TakenSnapshot> snapshots = [];
         long byteCount = 0;
@@ -298,7 +377,7 @@ public sealed class ComposedStores
             await RunNamingTheStoreAsync(
                 control.Store,
                 "snapshotted",
-                async () => snapshot = await control.TakeAsync(MaxSnapshotBytes - byteCount, cancellationToken));
+                async () => snapshot = await control.TakeSnapshotAsync(MaxSnapshotBytes - byteCount, cancellationToken));
             byteCount += snapshot!.ByteCount;
             if (byteCount > MaxSnapshotBytes)
             {
@@ -345,9 +424,4 @@ public sealed class ComposedStores
         }
     }
 
-    // One store's reset and snapshot, in the instance's order.
-    private sealed record StoreControl(
-        StoreKind Store,
-        Func<CancellationToken, Task> ResetAsync,
-        Func<long, CancellationToken, Task<TakenSnapshot>> TakeAsync);
 }

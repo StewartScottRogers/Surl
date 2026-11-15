@@ -154,3 +154,11 @@ This library references `Surl.Protocol.Abstractions.UnitLibrary`, and may also r
 horizontal libraries ADR-0105 decision 0 names (`Surl.MessageBus`, `Surl.Compression`) - never
 another protocol server, original or extended. Never construct a `Socket`, `TcpListener`,
 `UdpClient`, `SslStream` or `HttpListener` here; the transport comes from the listener seam.
+
+Reset, snapshot and restore (BL-1190, ADR-0159 decision 2):
+
+- `KafkaBrokerState` (`KafkaBroker.State`) joins `KafkaProducerStates` and `KafkaGroupCoordinator`. `Reset`
+  empties the producer windows and the producer id counter and drops every group (`KafkaGroupCoordinator.Reset`:
+  timers stopped, a held JoinGroup answered 25, a held SyncGroup 27, a member's next request 25). `TakeSnapshot`
+  copies the producer windows and counter only; `Restore` replaces them and drops the groups; another broker's
+  snapshot is an `InvalidOperationException`. `Surl.Composition` registers it as `StoreKind.Producers`.

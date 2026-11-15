@@ -149,6 +149,30 @@ public sealed class Amqp0Broker : IConnectionProtocolServer
         return exchanges.LoadAsync(files, cancellationToken);
     }
 
+    /// <summary>Whether the exchanges are kept in files (<see cref="LoadExchangesAsync"/>), so they cannot be reset, snapshotted or restored.</summary>
+    public bool KeepsExchangesInFiles => exchanges.IsOnDisk;
+
+    /// <summary>
+    /// Removes every declared exchange and its bindings, returning to the built-in exchanges (ADR-0159 decision 2).
+    /// Open channels stay; a publish to a removed exchange is the ordinary 404 channel close.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">The exchanges are kept in files.</exception>
+    public void ResetExchanges() => exchanges.Reset();
+
+    /// <summary>Takes an opaque deep copy of the exchanges and their bindings.</summary>
+    /// <returns>A snapshot only this broker restores.</returns>
+    /// <exception cref="InvalidOperationException">The exchanges are kept in files.</exception>
+    public Amqp0ExchangeSnapshot TakeExchangeSnapshot() => exchanges.TakeSnapshot();
+
+    /// <summary>Replaces the exchanges and bindings with those of <paramref name="snapshot"/>.</summary>
+    /// <param name="snapshot">A snapshot this broker took.</param>
+    /// <exception cref="InvalidOperationException">The exchanges are kept in files, or the snapshot is another broker's.</exception>
+    public void RestoreExchanges(Amqp0ExchangeSnapshot snapshot)
+    {
+        ArgumentNullException.ThrowIfNull(snapshot);
+        exchanges.Restore(snapshot);
+    }
+
     /// <summary>Answers <paramref name="connection"/> until it ends.</summary>
     /// <param name="connection">The accepted connection.</param>
     /// <param name="context">What the server is told about this exchange.</param>

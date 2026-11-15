@@ -161,8 +161,8 @@ public static class ExtendedProtocolServers
             services.IdentifiersForServer("nats"))),
         new([OciRegistryProtocolServer.Scheme], services => new OciRegistryProtocolServer(
             services.ContentStore, services.AuthenticationPolicyFor(OciRegistryProtocolServer.Scheme), services.TimeProvider)),
-        // The Redis server (ADR-0106, BL-492): one keyspace for redis and rediss, memory only; rediss is TLS from the first byte through TlsSchemes.
-        new(["redis", "rediss"], services => new RedisServer(services.AuthenticationPolicyFor("redis"), services.MessageBus)),
+        // The Redis server (ADR-0106, BL-492): one keyspace for redis and rediss, memory only and held by ComposedProtocolServices.RedisKeyspace so ComposedStores controls it (BL-1161); rediss is TLS from the first byte through TlsSchemes.
+        new(["redis", "rediss"], services => new RedisServer(services.AuthenticationPolicyFor("redis"), services.RedisKeyspace, services.MessageBus)),
         new(["s3"], services => new S3ProtocolServer(
             services.ContentStore, services.ObjectMetadataIndex, services.AuthenticationPolicyFor("s3"), services.TimeProvider)),
         // The SignalR hubs (ADR-0119, BL-450; ADR-0153, BL-1039): each listen URL's hub at its own path, with its own
@@ -189,6 +189,7 @@ public static class ExtendedProtocolServers
             IsTlsUpgradeAvailable = services.IsTlsUpgradeAvailable,
             AllowPlaintextAuthentication = services.AuthenticationPolicy.Settings.AllowPlaintextAuthentication,
             AuthenticationPolicy = services.AuthenticationPolicyFor("xmpp"),
+            RandomSource = new IdentifierXmppRandomSource(services.IdentifiersForServer("xmpp")),
         })),
         ProtocolServerRegistration.ImplicitTls("xmpps", "xmpp"),
     ];
@@ -222,7 +223,7 @@ public static class ExtendedProtocolServers
             new KafkaOffsetFetchAnswerer(bus),
             new KafkaDescribeGroupsAnswerer(coordinator, bus),
             new KafkaListGroupsAnswerer(coordinator, bus),
-        ]);
+        ], new KafkaBrokerState(producerStates, coordinator));
     }
 
     // The Metadata answerer draws the cluster ID once from the "kafka" server-life source (ADR-0124 decision 6, BL-1001),

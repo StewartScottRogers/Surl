@@ -90,26 +90,31 @@ internal static class GcsRequestFaults
     /// <param name="method">The request's method.</param>
     /// <param name="target">The request's target.</param>
     /// <param name="caller">The caller the login proceeded as.</param>
-    /// <returns>The error to answer with, or <see langword="null"/> to answer as usual.</returns>
-    public static async ValueTask<GcsError?> FindChosenErrorAsync(ExchangeContext context, string method, GcsRequestTarget target, ContentCaller caller)
+    /// <returns>The error to answer with, or <see langword="null"/> to answer as usual; and whether a drop rule asks for the exchange to end with no answer.</returns>
+    public static async ValueTask<(GcsError? Error, bool Dropped)> FindChosenErrorAsync(ExchangeContext context, string method, GcsRequestTarget target, ContentCaller caller)
     {
         var path = PathOf(target);
-        var rule = await HttpCommandFaults.FindChosenErrorAsync(context, method, path, caller.AccountName);
+        var rule = await HttpCommandFaults.FindAndApplyAsync(context, method, path, caller.AccountName);
         if (rule is null)
         {
-            return null;
+            return (null, false);
+        }
+
+        if (rule.Kind == FaultKind.Drop)
+        {
+            return (null, true);
         }
 
         if (!TryRead(rule.Reply, out var error))
         {
             context.Log.Note($"{method} {path}: fault rule {rule.Id}'s reply does not fit the gs error shape; answered as without it.");
 
-            return null;
+            return (null, false);
         }
 
         HttpCommandFaults.PublishApplied(context, rule, method, path, $"{error.Status.Code} {error.Code}");
 
-        return error;
+        return (error, false);
     }
 
     /// <summary>

@@ -76,10 +76,93 @@ public sealed partial class Amqp1ContainerConnectionTests
     }
 
     [TestMethod]
-    public async Task ServeAsync_ADelayRuleAtTheCommandStage_IsNotApplied()
+    public async Task ServeAsync_ARuleOfAKindAnAttachCannotApply_IsNotedAndTheAttachServed()
     {
         var events = new RecordingSurlEventPublisher();
-        var plan = new ScriptedFaultPlan(new FaultRule("f1", FaultKind.Delay) { Command = "attach", DelayMilliseconds = 10 });
+        var plan = new ScriptedFaultPlan(new FaultRule("f1", FaultKind.OutOfSpace) { Command = "attach", Path = "/queue/orders" });
+
+        var (written, log) = await ServeFaultedAsync(plan, events, Open(), Begin(), BusFrame(SenderAttach(0, "orders")));
+
+        Assert.IsNotNull(written.Select(frame => frame.Performative).OfType<Amqp1Attach>().Single().Target);
+        Assert.IsEmpty(events.Events);
+        CollectionAssert.Contains(log.Notes.ToArray(), "attach /queue/orders: fault rule f1 is not an error with an AMQP 1.0 condition and description; not applied.");
+    }
+
+    [TestMethod]
+    [DataRow("attach")]
+    [DataRow("transfer")]
+    public async Task ServeAsync_ADelayRuleForAPerformative_HoldsItForTheDelayThenHandlesItAsUsual(string command)
+    {
+        var events = new RecordingSurlEventPublisher();
+        var idleClock = new RecordingIdleClock();
+        var clock = new ManualTimeProvider();
+        var bus = Bus();
+        var plan = new ScriptedFaultPlan(new FaultRule("f1", FaultKind.Delay) { Command = command, DelayMilliseconds = 10 });
+        var connection = new InMemoryConnection(new[]
+        {
+            Open(), Begin(), BusFrame(SenderAttach(0, "orders")),
+            BusFrame(new Amqp1Transfer(0) { DeliveryId = 0, DeliveryTag = [7], MessageFormat = 0 }, Message),
+        }.Select(frame => (ReadOnlyMemory<byte>)frame));
+        var context = Context(clock, new RecordingExchangeLog(), TestContext.CancellationToken) with { Faults = plan, Events = events, IdleClock = idleClock };
+
+        var serving = new Amqp1ContainerConnection(connection, context, Options(), bus, "alice").ServeAsync();
+        await idleClock.FirstPause.WaitAsync(TestContext.CancellationToken);
+        Assert.IsTrue(idleClock.IsPaused);
+        clock.Advance(TimeSpan.FromMilliseconds(10));
+        await serving;
+
+        var written = await ReadWrittenWithPayloadsAsync(connection.WrittenBytes);
+        Assert.IsNotNull(written.Select(frame => frame.Performative).OfType<Amqp1Attach>().Single().Target);
+        Assert.IsNotNull(bus.Connect().GetFromQueue("orders").Delivery);
+        Assert.AreEqual(1, idleClock.RestartCount);
+        Assert.IsFalse(connection.Aborted);
+        var applied = events.Events.OfType<FaultAppliedEvent>().Single();
+        Assert.AreEqual(new FaultAppliedEvent("f1", FaultKind.Delay, FaultStage.Command, 1, $"{command} /queue/orders"), applied);
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_ADropRuleForAnAttach_AbortsTheConnectionWithNoAnsweringPerformative()
+    {
+        var events = new RecordingSurlEventPublisher();
+        var plan = new ScriptedFaultPlan(new FaultRule("f1", FaultKind.Drop) { Command = "attach", Path = "/queue/orders" });
+        var connection = new InMemoryConnection(new[] { Open(), Begin(), BusFrame(SenderAttach(0, "orders")) }.Select(frame => (ReadOnlyMemory<byte>)frame));
+        var context = Context(new RecordingExchangeLog(), TestContext.CancellationToken) with { Faults = plan, Events = events };
+
+        await new Amqp1ContainerConnection(connection, context, Options(), Bus(), "alice").ServeAsync();
+
+        var written = await ReadWrittenWithPayloadsAsync(connection.WrittenBytes);
+        Assert.IsTrue(connection.Aborted);
+        Assert.IsEmpty(written.Select(frame => frame.Performative).OfType<Amqp1Attach>());
+        Assert.IsEmpty(written.Select(frame => frame.Performative).OfType<Amqp1Detach>());
+        Assert.AreEqual(new FaultAppliedEvent("f1", FaultKind.Drop, FaultStage.Command, 1, "attach /queue/orders"), events.Events.OfType<FaultAppliedEvent>().Single());
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_ADropRuleForATransfer_AbortsTheConnectionAndStoresNothing()
+    {
+        var bus = Bus();
+        var events = new RecordingSurlEventPublisher();
+        var plan = new ScriptedFaultPlan(new FaultRule("f1", FaultKind.Drop) { Command = "transfer" });
+
+        var (written, _) = await ServeFaultedAsync(
+            bus,
+            plan,
+            events,
+            Open(),
+            Begin(),
+            BusFrame(SenderAttach(0, "orders")),
+            BusFrame(new Amqp1Transfer(0) { DeliveryId = 0, DeliveryTag = [7], MessageFormat = 0 }, Message));
+
+        Assert.IsEmpty(written.Select(frame => frame.Performative).OfType<Amqp1Disposition>());
+        Assert.IsNull(bus.Connect().GetFromQueue("orders").Delivery);
+        Assert.AreEqual(new FaultAppliedEvent("f1", FaultKind.Drop, FaultStage.Command, 1, "transfer /queue/orders"), events.Events.OfType<FaultAppliedEvent>().Single());
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_ARuleForAnotherPerformative_ChangesNothing()
+    {
+        var events = new RecordingSurlEventPublisher();
+        var plan = new ScriptedFaultPlan(new FaultRule("f1", FaultKind.Drop) { Command = "transfer" });
 
         var (written, _) = await ServeFaultedAsync(plan, events, Open(), Begin(), BusFrame(SenderAttach(0, "orders")));
 

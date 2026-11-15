@@ -106,6 +106,7 @@ measures it by name.
   stand-in (`http://127.0.0.1:0`, `http`) and gets its own scope back (`WithScopeOf` at start, `Read` while
   serving); an `error` rule scoped so is refused, having no reply shape, as is any custom scope in
   `AdditionalArguments` (`surl`'s reader refuses it).
+- Control endpoint (BL-1176, ADR-0124 decision 7): `ControlListenUrl` and `ControlTokenFile` are composed as `--control` and `--control-token-file` (so every refusal is `surl`'s, a `SurlServerStartException`); `SurlServer.ControlUrl` is `ComposedServing.ControlListenUrl` once bound, null without them. The token file is read through `ReadStartFile`.
 - `SurlServerHostSeams.ReadStartFile` is handed to the composition's `ReadStartFile`, so tests
   give the `--user-file` and `--hostkey` files in memory (`ApiTestSeams.StartFiles`). The
   `--cert`, `--key` and `--cacert` files are still read from disk by `ServerTlsComposition`.

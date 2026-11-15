@@ -30,6 +30,36 @@ public sealed class S3CreateMultipartUploadTests
     }
 
     [TestMethod]
+    public async Task ServeAsync_SameSeed_GivesTheSameUploadIdAndOtherSeedsDiffer()
+    {
+        var first = new S3ServerHarness(exposure: S3ServerHarness.Writable) { Seed = 7 };
+        var second = new S3ServerHarness(exposure: S3ServerHarness.Writable) { Seed = 7 };
+        var other = new S3ServerHarness(exposure: S3ServerHarness.Writable) { Seed = 8 };
+        first.CreateFolder("b");
+        second.CreateFolder("b");
+        other.CreateFolder("b");
+
+        var firstId = await CreateUploadIdAsync(first, "/b/k");
+        var secondId = await CreateUploadIdAsync(second, "/b/k");
+        var otherId = await CreateUploadIdAsync(other, "/b/k");
+
+        Assert.AreEqual(firstId, secondId);
+        Assert.AreNotEqual(firstId, otherId);
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_Unseeded_GivesAFreshUploadIdEachTime()
+    {
+        var harness = new S3ServerHarness(exposure: S3ServerHarness.Writable);
+        harness.CreateFolder("b");
+
+        var firstId = await CreateUploadIdAsync(harness, "/b/k");
+        var secondId = await CreateUploadIdAsync(harness, "/b/k");
+
+        Assert.AreNotEqual(firstId, secondId);
+    }
+
+    [TestMethod]
     public async Task ServeAsync_KeyInNewFolders_CreatesTheFolders()
     {
         var harness = new S3ServerHarness(exposure: S3ServerHarness.Writable);

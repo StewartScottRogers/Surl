@@ -261,6 +261,136 @@ public sealed class ControlStoreRequestsTests
         Assert.AreEqual("Restore 2", target.Calls[^1]);
     }
 
+    [TestMethod]
+    public async Task SeedKeyAsync_KeyAndValue_SeedsTheDecodedKeyInTheDatabaseWithNoExpiry()
+    {
+        var target = new FakeControlTarget();
+
+        var response = await Serve(target, Request("PUT", "/v1/keys/3/user%3A1/name", "application/octet-stream", "ann"));
+
+        Assert.AreEqual("HTTP/1.1 204 No Content", StatusLine(response));
+        CollectionAssert.AreEqual(new[] { "SeedKey 3 user:1/name ann -" }, target.Calls);
+    }
+
+    [TestMethod]
+    public async Task SeedKeyAsync_ExpireMs_SeedsTheKeyWithThatLifetime()
+    {
+        var target = new FakeControlTarget();
+
+        var response = await Serve(target, Request("PUT", "/v1/keys/0/k?expire_ms=1500", null, "v"));
+
+        Assert.AreEqual("HTTP/1.1 204 No Content", StatusLine(response));
+        CollectionAssert.AreEqual(new[] { "SeedKey 0 k v 1500" }, target.Calls);
+    }
+
+    [TestMethod]
+    [DataRow("/v1/keys/16/k", "the database must be a whole number from 0 to 15")]
+    [DataRow("/v1/keys/x/k", "the database must be a whole number from 0 to 15")]
+    [DataRow("/v1/keys/-1/k", "the database must be a whole number from 0 to 15")]
+    [DataRow("/v1/keys/0/k?expire_ms=0", "query key expire_ms must be a whole number from 1 to 31536000000")]
+    [DataRow("/v1/keys/0/k?expire_ms=soon", "query key expire_ms must be a whole number from 1 to 31536000000")]
+    [DataRow("/v1/keys/0/k?ttl=5", "query key ttl is not one this request takes")]
+    public async Task SeedKeyAsync_BadDatabaseOrQuery_Is400(string requestTarget, string message)
+    {
+        var target = new FakeControlTarget();
+
+        var response = await Serve(target, Request("PUT", requestTarget, null, "v"));
+
+        Assert.AreEqual($"{{\"error\":\"bad_request\",\"message\":\"{message}\"}}", Body(response));
+        Assert.IsEmpty(target.Calls);
+    }
+
+    [TestMethod]
+    public async Task SeedKeyAsync_TargetRefusals_AreSentAsTheirKindWithTheTargetsText()
+    {
+        var bad = await Serve(new FakeControlTarget { Failure = new ControlRefusalException("a key has at least 1 byte") }, Request("PUT", "/v1/keys/0/k", null, "v"));
+        var full = await Serve(
+            new FakeControlTarget { Failure = new ControlRefusalException(ControlRefusalKind.Conflict, "the keyspace is full") }, Request("PUT", "/v1/keys/0/k", null, "v"));
+
+        Assert.AreEqual("{\"error\":\"bad_request\",\"message\":\"a key has at least 1 byte\"}", Body(bad));
+        Assert.AreEqual("{\"error\":\"conflict\",\"message\":\"the keyspace is full\"}", Body(full));
+    }
+
+    [TestMethod]
+    public async Task SeedDirectoryAsync_TextPlainLdif_AddsTheEntries()
+    {
+        var target = new FakeControlTarget();
+
+        var response = await Serve(target, Request("POST", "/v1/directory", "text/plain; charset=utf-8", "dn: dc=x\n"));
+
+        Assert.AreEqual("HTTP/1.1 204 No Content", StatusLine(response));
+        CollectionAssert.AreEqual(new[] { "SeedDirectory dn: dc=x\n" }, target.Calls);
+    }
+
+    [TestMethod]
+    public async Task SeedZoneAsync_TextPlainZoneFile_AddsTheZoneAtTheDecodedApex()
+    {
+        var target = new FakeControlTarget();
+
+        var response = await Serve(target, Request("PUT", "/v1/zones/example.com", "text/plain", "www IN A 192.0.2.1\n"));
+
+        Assert.AreEqual("HTTP/1.1 204 No Content", StatusLine(response));
+        CollectionAssert.AreEqual(new[] { "SeedZone example.com www IN A 192.0.2.1\n" }, target.Calls);
+    }
+
+    [TestMethod]
+    [DataRow("POST", "/v1/directory")]
+    [DataRow("PUT", "/v1/zones/example.com")]
+    public async Task SeedTextAsync_NotTextPlain_Is415(string method, string requestTarget)
+    {
+        var target = new FakeControlTarget();
+
+        var response = await Serve(target, Request(method, requestTarget, "application/json", "{}"));
+
+        Assert.AreEqual("HTTP/1.1 415 Unsupported Media Type", StatusLine(response));
+        Assert.IsEmpty(target.Calls);
+    }
+
+    [TestMethod]
+    [DataRow("POST", "/v1/directory", "text/plain", "line 3: no dn")]
+    [DataRow("PUT", "/v1/zones/example.com", "text/plain", "line 2: not a record")]
+    public async Task SeedTextAsync_TextTheReaderRefuses_Is400WithTheReadersMessage(string method, string requestTarget, string contentType, string reason)
+    {
+        var target = new FakeControlTarget { Failure = new ControlRefusalException(reason) };
+
+        var response = await Serve(target, Request(method, requestTarget, contentType, "x"));
+
+        Assert.AreEqual($"{{\"error\":\"bad_request\",\"message\":\"{reason}\"}}", Body(response));
+    }
+
+    [TestMethod]
+    [DataRow("POST", "/v1/directory")]
+    [DataRow("PUT", "/v1/zones/example.com")]
+    [DataRow("PUT", "/v1/keys/0/k")]
+    public async Task SeedRoutes_BodyAnnouncedPastSixteenMebibytes_Is413WithoutReadingIt(string method, string requestTarget)
+    {
+        var target = new FakeControlTarget();
+        var request = $"{method} {requestTarget} HTTP/1.1\r\nHost: 127.0.0.1\r\nAuthorization: Bearer {Token}\r\nContent-Type: text/plain\r\nContent-Length: {ControlEndpoint.MaxBodyBytes + 1}\r\n\r\n";
+
+        var response = await Serve(target, request);
+
+        Assert.AreEqual("HTTP/1.1 413 Content Too Large", StatusLine(response));
+        Assert.IsEmpty(target.Calls);
+    }
+
+    [TestMethod]
+    [DataRow("POST", "/v1/directory")]
+    [DataRow("PUT", "/v1/zones/example.com")]
+    [DataRow("PUT", "/v1/keys/0/k")]
+    public async Task SeedRoutes_WithoutTheToken_Are401(string method, string requestTarget)
+    {
+        var target = new FakeControlTarget();
+        var time = new ManualTimeProvider();
+        var serving = ServeAsync(Endpoint(target), RequestWith(method, requestTarget, string.Empty, "text/plain", "x"), time, TestContext.CancellationToken);
+
+        await time.WaitForTimerAsync(ControlEndpoint.RefusalDelay, TestContext.CancellationToken);
+        time.Advance(ControlEndpoint.RefusalDelay);
+        var response = await serving;
+
+        Assert.AreEqual("HTTP/1.1 401 Unauthorized", StatusLine(response));
+        Assert.IsEmpty(target.Calls);
+    }
+
     private Task<string> Serve(FakeControlTarget target, string request) =>
         ServeAsync(Endpoint(target), request, new ManualTimeProvider(), TestContext.CancellationToken);
 }

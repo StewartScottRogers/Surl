@@ -84,6 +84,7 @@ internal sealed partial class S3ServerHarness
         Limits = limits ?? ExchangeLimits.Default,
         Faults = Faults,
         Events = Events,
+        IdleClock = IdleClock,
         Identifiers = Seed is { } seed ? new SeededIdentifierRandom(seed).ForExchange(1) : CryptographicIdentifierRandom.Instance,
     };
 
@@ -91,6 +92,22 @@ internal sealed partial class S3ServerHarness
     /// The fault plan every exchange asks; by default one with no rule.
     /// </summary>
     public ScriptedFaultPlan Faults { get; set; } = new();
+
+    /// <summary>
+    /// The idle clock every exchange pauses while a fault rule holds a request.
+    /// </summary>
+    public RecordingIdleClock IdleClock { get; } = new();
+
+    /// <summary>
+    /// Sends one request on a connection the test can inspect afterwards.
+    /// </summary>
+    public async Task<InMemoryConnection> ServeRawAsync(string request)
+    {
+        var connection = new InMemoryConnection([Encoding.Latin1.GetBytes(request)]);
+        await Server.ServeAsync(connection, Context());
+
+        return connection;
+    }
 
     /// <summary>
     /// The seed every exchange draws its identifiers from; null draws from the cryptographic random number generator.

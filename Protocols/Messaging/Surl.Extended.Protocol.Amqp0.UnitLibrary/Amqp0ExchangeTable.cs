@@ -241,6 +241,79 @@ internal sealed class Amqp0ExchangeTable
         }
     }
 
+    /// <summary>Whether the table keeps its exchanges in files, so reset, snapshot and restore refuse (ADR-0159 decision 4).</summary>
+    public bool IsOnDisk
+    {
+        get
+        {
+            lock (gate)
+            {
+                return files is not null;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Removes every declared exchange and every binding, returning the table to the pre-declared exchanges.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">The table keeps its exchanges in files.</exception>
+    public void Reset()
+    {
+        lock (gate)
+        {
+            RefuseWhenOnDisk();
+            Replace(Predeclared.Select(item => new Amqp0ExchangeCopy(item.Name, item.Type, true, new byte[4], true, [])));
+        }
+    }
+
+    /// <summary>Takes a deep copy of the exchanges and their bindings.</summary>
+    /// <exception cref="InvalidOperationException">The table keeps its exchanges in files.</exception>
+    public Amqp0ExchangeSnapshot TakeSnapshot()
+    {
+        lock (gate)
+        {
+            RefuseWhenOnDisk();
+            return new(this, [.. exchanges.Values.Select(exchange =>
+                new Amqp0ExchangeCopy(exchange.Name, exchange.Type, exchange.Durable, exchange.Arguments, exchange.IsPredeclared, [.. exchange.Bindings]))]);
+        }
+    }
+
+    /// <summary>Replaces the exchanges and bindings with those of <paramref name="snapshot"/>.</summary>
+    /// <exception cref="InvalidOperationException">The table keeps its exchanges in files, or the snapshot is another table's.</exception>
+    public void Restore(Amqp0ExchangeSnapshot snapshot)
+    {
+        lock (gate)
+        {
+            RefuseWhenOnDisk();
+            if (!ReferenceEquals(snapshot.Owner, this))
+            {
+                throw new InvalidOperationException("The snapshot was taken by another AMQP 0-9-1 broker.");
+            }
+
+            Replace(snapshot.Exchanges);
+        }
+    }
+
+    private void RefuseWhenOnDisk()
+    {
+        if (files is not null)
+        {
+            throw new InvalidOperationException("The AMQP 0-9-1 exchanges are kept in files under --directory and are not reset, snapshotted or restored.");
+        }
+    }
+
+    private void Replace(IEnumerable<Amqp0ExchangeCopy> copies)
+    {
+        exchanges.Clear();
+        bindingCount = 0;
+        foreach (var copy in copies)
+        {
+            var exchange = copy.ToExchange();
+            exchanges.Add(copy.Name, exchange);
+            bindingCount += exchange.BindingCount;
+        }
+    }
+
     private void NoteChange(Amqp0Exchange exchange)
     {
         if (exchange.IsPersisted)

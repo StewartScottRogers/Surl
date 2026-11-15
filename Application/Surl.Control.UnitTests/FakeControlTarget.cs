@@ -92,6 +92,27 @@ internal sealed class FakeControlTarget : IControlTarget
         return Task.CompletedTask;
     }
 
+    public Task SeedKeyAsync(int database, ReadOnlyMemory<byte> key, ReadOnlyMemory<byte> value, TimeSpan? expiry, CancellationToken cancellationToken)
+    {
+        Record($"SeedKey {database} {Encoding.UTF8.GetString(key.Span)} {Encoding.UTF8.GetString(value.Span)} {expiry?.TotalMilliseconds.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "-"}");
+
+        return Task.CompletedTask;
+    }
+
+    public Task SeedDirectoryAsync(string ldif, CancellationToken cancellationToken)
+    {
+        Record($"SeedDirectory {ldif}");
+
+        return Task.CompletedTask;
+    }
+
+    public Task SeedZoneAsync(string apex, string zoneFileText, CancellationToken cancellationToken)
+    {
+        Record($"SeedZone {apex} {zoneFileText}");
+
+        return Task.CompletedTask;
+    }
+
     public Task AddAccountAsync(string user, string password, CancellationToken cancellationToken)
     {
         Record($"AddAccount {user} {password}");

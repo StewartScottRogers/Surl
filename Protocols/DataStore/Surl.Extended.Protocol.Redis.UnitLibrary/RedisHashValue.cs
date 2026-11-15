@@ -11,6 +11,18 @@ internal sealed class RedisHashValue : RedisCollectionValue
     /// <inheritdoc/>
     public override int Count => fields.Count;
 
+    /// <inheritdoc/>
+    public override RedisStoredValue Copy()
+    {
+        var copy = new RedisHashValue();
+        foreach (var (field, value) in fields)
+        {
+            copy.Set(field, value);
+        }
+
+        return copy;
+    }
+
     /// <summary>Every field (one character per byte) and its value, in the order the fields were added.</summary>
     public IEnumerable<KeyValuePair<string, byte[]>> Fields => fields;
 

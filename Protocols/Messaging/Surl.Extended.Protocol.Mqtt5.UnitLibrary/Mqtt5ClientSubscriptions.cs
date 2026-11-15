@@ -98,6 +98,13 @@ internal sealed class Mqtt5ClientSubscriptions
         return Mqtt5ReasonCode.Success;
     }
 
+    /// <summary>
+    /// Copies the subscriptions, each with the Subscription Identifier it was made with.
+    /// </summary>
+    /// <returns>The copies, in the order the client subscribed.</returns>
+    public IReadOnlyList<Mqtt5SubscriptionCopy> Copy() =>
+        [.. subscriptionsByFilter.Values.Select(subscription => new Mqtt5SubscriptionCopy(subscription.Options, subscription.Identifiers.Count > 0 ? subscription.Identifiers[0] : null))];
+
     // [MQTT-3.3.1-9] to -11: Retain Handling 0 at every subscribe, 1 only for a new subscription, 2 never.
     private static bool SendsRetainedMessages(int retainHandling, bool isNew) =>
         retainHandling == 0 || (retainHandling == 1 && isNew);

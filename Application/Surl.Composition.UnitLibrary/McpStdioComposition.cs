@@ -41,7 +41,14 @@ public static class McpStdioComposition
             return Refuse("mcp+stdio: standard output carries only MCP messages, so --trace, --trace-ascii and --log-file cannot write to '-'");
         }
 
-        return null;
+        if (commandLine.Faults.Count > 0)
+        {
+            return Refuse("mcp+stdio: takes no --fault, because an mcp+stdio session is outside the event stream and the fault rules");
+        }
+
+        return commandLine.ControlListenUrl is not null
+            ? Refuse("mcp+stdio: takes no --control, because an mcp+stdio session is outside the event stream and the control endpoint")
+            : null;
     }
 
     /// <summary>

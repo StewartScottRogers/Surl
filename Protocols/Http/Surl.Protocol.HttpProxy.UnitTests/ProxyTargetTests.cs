@@ -61,4 +61,22 @@ public sealed class ProxyTargetTests
     {
         Assert.IsNull(ProxyTarget.FromAuthorityForm(requestTarget));
     }
+
+    [TestMethod]
+    [DataRow("http://origin.test/a?b#c", "http://origin.test/a")]
+    [DataRow("http://origin.test?q", "http://origin.test/")]
+    [DataRow("http://[::1]:81/x/y", "http://[::1]:81/x/y")]
+    [DataRow("ftp://u:p@origin.test/pub/f", "ftp://origin.test/pub/f")]
+    public void FaultPath_ForwardedTarget_IsSchemeAuthorityAndPathWithoutQueryOrFragment(string requestTarget, string faultPath)
+    {
+        Assert.AreEqual(faultPath, ProxyTarget.FromAbsoluteForm(requestTarget)!.FaultPath);
+    }
+
+    [TestMethod]
+    [DataRow("origin.test:443")]
+    [DataRow("[::1]:8443")]
+    public void FaultPath_ConnectTarget_IsTheAuthority(string authority)
+    {
+        Assert.AreEqual(authority, ProxyTarget.FromAuthorityForm(authority)!.FaultPath);
+    }
 }

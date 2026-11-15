@@ -574,6 +574,38 @@ public sealed class KafkaGroupCoordinator
         return new(KafkaErrorCode.None, leader.Assignment);
     }
 
+    /// <summary>
+    /// Drops every group with its members and pending ids and stops their timers (ADR-0159 decision 2). A JoinGroup
+    /// held is answered <c>UNKNOWN_MEMBER_ID</c> and a SyncGroup held <c>REBALANCE_IN_PROGRESS</c>; a member's
+    /// next request names a group or member that is no longer known. Publishes nothing.
+    /// </summary>
+    public void Reset()
+    {
+        lock (gate)
+        {
+            foreach (var group in groups.Values)
+            {
+                group.PhaseTimer.Dispose();
+                foreach (var member in group.Members)
+                {
+                    member.IsRemoved = true;
+                    member.SessionTimer.Dispose();
+                }
+
+                foreach (var pending in group.Pending.Values)
+                {
+                    pending.Timer.Dispose();
+                }
+
+                group.Phase.TrySetResult(new JoinPhase(0, "", "", []));
+                group.Assignments.TrySetResult(null);
+            }
+
+            groups.Clear();
+            stateBytes = 0;
+        }
+    }
+
     private void Remove(Group group, Member member, ConsumerGroupChange change, long? exchangeId, string? account)
     {
         member.IsRemoved = true;

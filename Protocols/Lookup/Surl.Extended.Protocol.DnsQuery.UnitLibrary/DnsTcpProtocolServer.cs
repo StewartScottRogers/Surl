@@ -80,7 +80,7 @@ public sealed class DnsTcpProtocolServer : IConnectionProtocolServer
         }
 
         var query = await ReadQueryAsync(reader, context);
-        var responses = query is null ? [] : await AnswerAsync(query, context);
+        var responses = query is null ? [] : await AnswerAsync(query, connection, context);
 
         if (query is not null && responses.Count == 0)
         {
@@ -95,9 +95,19 @@ public sealed class DnsTcpProtocolServer : IConnectionProtocolServer
         return responses.Count > 0;
     }
 
-    // The fault plan's chosen error (DnsQueryFaults), else the answerer's responses.
-    private async Task<IReadOnlyList<DnsResponse>> AnswerAsync(byte[] query, ExchangeContext context) =>
-        await DnsQueryFaults.FindErrorAsync(context, query) is { } chosen ? [chosen] : answerer.AnswerOverStream(query);
+    // The fault plan's chosen error (DnsQueryFaults), else the answerer's responses; none when the
+    // plan dropped the query, whose connection it has then aborted.
+    private async Task<IReadOnlyList<DnsResponse>> AnswerAsync(byte[] query, IConnection connection, ExchangeContext context)
+    {
+        var fault = await DnsQueryFaults.FindAsync(context, query, connection);
+
+        return fault switch
+        {
+            { IsDropped: true } => [],
+            { ChosenError: { } chosen } => [chosen],
+            _ => answerer.AnswerOverStream(query),
+        };
+    }
 
     // The query whose length prefix has begun, read within the head timeout; null when the
     // connection is to close with no bytes.

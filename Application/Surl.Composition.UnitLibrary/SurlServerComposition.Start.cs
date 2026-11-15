@@ -1,9 +1,13 @@
+using Surl.Extended.Protocol.Amqp0;
+using Surl.Extended.Protocol.Mqtt5;
 using System.Net;
 using System.Security.Cryptography.X509Certificates;
 using Surl.Cli;
 using Surl.Content;
 using Surl.Core;
+using Surl.Extended.Protocol.DnsQuery;
 using Surl.Extended.Protocol.Kafka;
+using Surl.Extended.Protocol.Redis;
 using Surl.MessageBus;
 using Surl.Networking;
 using Surl.Output;
@@ -411,9 +415,34 @@ public static partial class SurlServerComposition
             loaded.State.ObjectMetadataIndex,
             loaded.State.MailStore,
             loaded.State.MessageBus,
-            authentication.Policy.Settings.Accounts);
+            authentication.Policy.Settings.Accounts,
+            additionalRegistrations: [.. ControlledRedisKeyspace(servers, services), LdapDirectoryStoreRegistration.For(loaded.State.LdapServer), .. ControlledBrokerStores(servers, instruments.Events), .. ControlledDnsZones(servers, loaded.State.DnsZones)],
+            ldapServer: loaded.State.LdapServer,
+            redisKeyspace: servers.OfType<RedisServer>().Any() ? services.RedisKeyspace : null,
+            dnsZones: IsDnsComposed(servers) ? loaded.State.DnsZones : null);
         return ComposeServing(served, seams, servers, stores, authentication, instruments, services.QuicCertificate, dataDirectoryLock);
     }
+
+    // The Redis keyspace joins the order after the accounts when a redis server is composed (ADR-0158 decision 5); with
+    // SURL_EXTENSIONS=0 there is no server and so no store.
+    private static List<ComposedStoreRegistration> ControlledRedisKeyspace(IProtocolServer[] servers, ComposedProtocolServices services) =>
+        servers.OfType<RedisServer>().Any() ? [RedisKeyspaceStoreRegistration.For(services.RedisKeyspace)] : [];
+
+    // The DNS zones join the order after the broker stores (BL-1165: the exchanges already follow the directory) when a dns server is composed (ADR-0158 decision 5).
+    private static List<ComposedStoreRegistration> ControlledDnsZones(IProtocolServer[] servers, DnsZoneSet zones) =>
+        IsDnsComposed(servers) ? [DnsZoneStoreRegistration.For(zones)] : [];
+
+    private static bool IsDnsComposed(IProtocolServer[] servers) =>
+        servers.OfType<DnsDatagramRoutingProtocolServer>().Any() || servers.OfType<DnsConnectionRoutingProtocolServer>().Any();
+
+    // The stores the composed brokers hold beside the bus (ADR-0159 decision 3), in ordinal order of scheme.
+    private static List<ComposedStoreRegistration> ControlledBrokerStores(IProtocolServer[] servers, SurlEventStream events) =>
+        [.. new[]
+        {
+            Amqp0ExchangeStoreRegistration.For([.. servers.OfType<Amqp0Broker>()], events),
+            KafkaBrokerStoreRegistration.For([.. servers.OfType<KafkaBroker>()], events),
+            Mqtt5SessionStoreRegistration.For([.. servers.OfType<Mqtt5Broker>()], events),
+        }.OfType<ComposedStoreRegistration>()];
 
     // How the proxies reach origins, over the rule --proxy-allow-origin and the proxy listen URLs make
     // (ADR-0088 decision 2); the host's seam when it gives one.

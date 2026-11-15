@@ -11,6 +11,18 @@ internal sealed class RedisSetValue : RedisCollectionValue
     /// <inheritdoc/>
     public override int Count => members.Count;
 
+    /// <inheritdoc/>
+    public override RedisStoredValue Copy()
+    {
+        var copy = new RedisSetValue();
+        foreach (var member in members.Values)
+        {
+            copy.Add(member);
+        }
+
+        return copy;
+    }
+
     /// <summary>Every member, in the order added.</summary>
     public IEnumerable<byte[]> Members => members.Values;
 

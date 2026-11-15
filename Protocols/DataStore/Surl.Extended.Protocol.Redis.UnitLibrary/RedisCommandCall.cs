@@ -1,3 +1,5 @@
+using Surl.Protocol.Abstractions;
+
 namespace Surl.Extended.Protocol.Redis;
 
 /// <summary>One command as a <see cref="RedisCommandAnswer"/> receives it.</summary>
@@ -7,6 +9,7 @@ namespace Surl.Extended.Protocol.Redis;
 /// <param name="Keyspace">The server's 16 databases, shared by every connection.</param>
 /// <param name="PubSub">The server's channels and patterns, shared by every connection.</param>
 /// <param name="Subscriber">The connection as pub/sub sees it.</param>
+/// <param name="Context">The exchange: its fault plan, events and log.</param>
 /// <param name="NowMilliseconds">The injected clock's time when the command was read, in Unix milliseconds.</param>
 internal sealed record RedisCommandCall(
     IReadOnlyList<byte[]> Arguments,
@@ -15,6 +18,7 @@ internal sealed record RedisCommandCall(
     RedisKeyspace Keyspace,
     RedisPubSub PubSub,
     RedisSubscriber Subscriber,
+    ExchangeContext Context,
     long NowMilliseconds)
 {
     /// <summary>The database the connection selected.</summary>

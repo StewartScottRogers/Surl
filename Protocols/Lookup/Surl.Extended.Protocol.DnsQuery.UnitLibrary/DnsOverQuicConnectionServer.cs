@@ -144,6 +144,12 @@ public sealed class DnsOverQuicConnectionServer : IQuicApplicationProtocol
         }
 
         var responses = await AnswerAsync(query, stream.Id);
+        if (responses is null)
+        {
+            await connection.ResetAsync(stream, (ulong)DnsOverQuicErrorCode.RequestCancelled, cancellationToken);
+            return;
+        }
+
         for (var index = 0; index < responses.Count; index++)
         {
             await connection.WriteAsync(stream, DnsTcpResponseWriter.WritePadded(responses[index]), index == responses.Count - 1, cancellationToken);
@@ -198,14 +204,21 @@ public sealed class DnsOverQuicConnectionServer : IQuicApplicationProtocol
             ? throw new DnsOverQuicProtocolException($"stream {stream.Id} ended after {filled} of {length} bytes")
             : null;
 
-    private async Task<IReadOnlyList<DnsResponse>> AnswerAsync(byte[] query, ulong streamId)
+    // Null when the fault plan dropped the query: its stream is then reset, unanswered.
+    private async Task<IReadOnlyList<DnsResponse>?> AnswerAsync(byte[] query, ulong streamId)
     {
         if (query.Length >= LengthPrefixLength && BinaryPrimitives.ReadUInt16BigEndian(query) != 0)
         {
             throw new DnsOverQuicProtocolException($"stream {streamId} carried a query with Message ID {BinaryPrimitives.ReadUInt16BigEndian(query)}, not 0");
         }
 
-        if (await DnsQueryFaults.FindErrorAsync(context, query) is { } chosen)
+        var fault = await DnsQueryFaults.FindAsync(context, query);
+        if (fault.IsDropped)
+        {
+            return null;
+        }
+
+        if (fault.ChosenError is { } chosen)
         {
             return [chosen];
         }

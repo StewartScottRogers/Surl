@@ -131,6 +131,8 @@ internal static class SurlServerArguments
         AddFlag(arguments, options.ServeDotFiles, "--serve-dot-files");
         AddAuthentication(arguments, options);
         AddTls(arguments, options);
+        AddValue(arguments, options.ControlListenUrl, "--control");
+        AddValue(arguments, options.ControlTokenFile, "--control-token-file");
         AddLimits(arguments, options);
         foreach (var fault in options.Faults)
         {
