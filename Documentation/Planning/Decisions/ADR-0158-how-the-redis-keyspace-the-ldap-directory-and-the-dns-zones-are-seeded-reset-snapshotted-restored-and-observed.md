@@ -1,0 +1,295 @@
+# ADR-0158 — How the Redis keyspace, the LDAP directory and the DNS zones are seeded, reset, snapshotted, restored and observed
+
+- **Status:** Accepted
+- **Date:** 2026-11-14
+- **Decided by:** Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), 2026-11-14, in BL-1151.
+- **Builds on:** [ADR-0124](ADR-0124-surl-is-a-stand-in-for-tests.md) (decisions 1 to 3 give the four
+  shared stores their events, seed, reset, snapshot and restore), ADR-0100 (the shared stores), ADR-0106
+  (the Redis server and its bounds), ADR-0072 (the LDAP directory), ADR-0092 (the DNS zones), ADR-0083
+  (the extended servers are judged by their specifications), ADR-0131 and ADR-0129 (how the mail and content stores
+  do the same) and ADR-0003 (upstream curl is the only oracle).
+- **Amends:** ADR-0124 decision 2 (the bullet "Stores are not replaceable" gains a registration seam),
+  decision 3 (the order across stores grows by three), decision 7 (three requests join the control
+  endpoint's table) and decision 8 (three tools join `Surl.Mcp`'s table).
+- **Acted on by:** BL-1157, BL-1158, BL-1159, BL-1160, BL-1161, BL-1162, BL-1163, BL-1164, BL-1165,
+  BL-1166, BL-1167, BL-1168 and BL-1169.
+
+## Context
+
+ADR-0124 made four stores controllable. Three protocol-owned stores were left out, and in the way
+`Surl.Api` embeds - in memory, many side by side - each is useless as a stand-in:
+
+- **The Redis keyspace** (`RedisKeyspace`, internal, built inside `RedisServer`'s constructor, memory
+  only) publishes no event, never consults the fault plan at `FaultStage.StoreWrite` (it has only its own
+  `maxmemory`-style bound, ADR-0106 decision 6), and no host can seed, reset or snapshot it. Keys leak from
+  one test into the next.
+- **The LDAP directory** (`LdapDirectory`, immutable, read once from `<path>/.surl/ldap/directory.ldif`)
+  is empty without `--directory`, so an in-memory LDAP stand-in serves nothing.
+- **The DNS zones** (`DnsZoneSet`, with `Add(fileName, content)`) are loaded from the data directory only,
+  so an in-memory DNS stand-in answers no zone.
+
+Neither the LDAP server nor the DNS server has a client write path today (no add, modify, delete or
+dynamic update), so for those two stores a seed is the only write there is. `ComposedStores` also hard-codes
+its four stores in `StoreOrder` and a private `StoreControl` record, so a fifth store means editing it.
+
+## Decision
+
+### 1. Three new `StoreKind` members
+
+`StoreKind` (an enum that only grows) is appended with `Keyspace`, `Directory` and `Zones`, after
+`Accounts`. On the control endpoint and in `Surl.Mcp` they are written `keyspace`, `directory` and `zones`.
+Nothing is renumbered; a host that switched over the four old members still compiles. (BL-1157.)
+
+### 2. What each store publishes
+
+`StoreChangedEvent(Store, Change, Name, ByteCount, ExchangeId)`, one event per item changed, never carrying
+a value, a password or an attribute's content.
+
+**Keyspace.** `Name` is `<database>/<key>`: the database number 0 to 15, a `/`, then the key as UTF-8, with
+each byte that is not valid UTF-8 written `\xHH` and the whole truncated at 256 characters. (The same text
+is the `path` a fault rule matches, so `path=0/session` matches every key under `session` in database 0 by
+the plan's segment-prefix rule.)
+
+| Change | When | `ByteCount` | `ExchangeId` |
+| --- | --- | --- | --- |
+| `Written` | a command created a key or changed its value, one event per key (an `MSET` of three keys is three events) | the key's value bytes after the write | the connection's exchange |
+| `Deleted` | a key was removed: `DEL`, `UNLINK`, the removal of an expired key when it is observed, and the removal a command such as `RENAME` makes of the old name | null | the exchange, or null for an expiry found by no command |
+| `Deleted` | `FLUSHDB` and `FLUSHALL`: one event per non-empty database, `Name` the database number alone (`3`) | null | the exchange |
+| `Seeded` | one per seeded key (decision 3) | the value's bytes | null |
+| `Reset`, `Restored` | decision 4 and 5: one event for the store, `Name` empty, `ByteCount` 0 for reset and the restored bytes for restore | | null |
+
+Publish/subscribe messages are not keyspace changes: the Redis server already publishes them through the
+message bus (ADR-0106), so they stay `Bus` events and are not repeated here.
+
+**Directory.** `Seeded` per entry, `Name` the entry's distinguished name as the directory normalises it for
+display, `ByteCount` the entry's size as the directory's bound counts it. `Written` and `Deleted` are
+reserved for the day the LDAP server answers add, modify, modify DN and delete: each will then publish
+`Written` (the new name; a modify DN also `Deleted` for the old) or `Deleted` with the DN as `Name`. Adding
+them is not a new decision.
+
+**Zones.** `Seeded` per zone, `Name` the apex (`example.com.`), `ByteCount` the zone's byte count. `Written`
+and `Deleted` are reserved in the same way for dynamic update.
+
+A reset and a restore publish one event per store, as ADR-0124 decision 3 says.
+
+### 3. Seed
+
+A seed goes through the path a client writes by and **never consults the fault plan** (ADR-0124 decision 3).
+It is all or nothing - one refused item leaves the store unchanged - and is refused with
+`InvalidOperationException` (`409 conflict` on the control endpoint, `isError: true` in `Surl.Mcp`) naming the
+bound or rule, and never truncates.
+
+**Keyspace seed - a string key.** `SeedKeyAsync(int database, ReadOnlyMemory<byte> key, ReadOnlyMemory<byte> value,
+TimeSpan? expiry, CancellationToken)`. Database 0 to 15; the key at least 1 byte; the bound is
+**the key's and value's bytes together at most 16 MiB**, the one bound every host seed has (ADR-0124
+decision 8). `expiry` is 1 millisecond to 365 days and means `PX` on the instance's `TimeProvider`; absent, the
+key does not expire. A seed replaces a key that exists, as `SET` does, and the keyspace's own bounds (ADR-0106
+decision 6: 1,000,000 keys, 256 MiB) still apply and refuse the seed. Only strings are seeded: every other
+Redis type (lists, hashes, sets, sorted sets, streams) is made by the commands a client sends, and a test that
+needs one sends it as a client. Offering more types later only grows the surface.
+
+**Directory seed - LDIF content records.** `SeedEntriesAsync(string ldif, CancellationToken)`. The text is an
+LDIF file of content records (RFC 2849) - the same reader that loads `directory.ldif` - at most 16 MiB; a
+`changetype:` record is refused (a test that wants a delete resets), and so is any value read from a file or a
+URL (`attr:< file:///...`), because no host reads a local path (ADR-0103 decision 4's safety rule). An entry
+must be valid as a file entry is: its parent present - in the directory already or earlier in the same text -
+or the entry a naming context; an existing DN, a second DN in the text and a directory over its
+bounds (`LdapDirectory.DefaultMaxEntries`, `DefaultMaxTotalBytes`) are refused. The seed is checked as the
+combined set, so it is atomic.
+
+**Zones seed - zone-file text.** `SeedZoneAsync(string apex, string zoneFileText, CancellationToken)`, at most
+16 MiB, read as `DnsZoneSet.Add(apex + ".zone", ...)` reads a file; the apex is a domain name with or without
+its final dot. A zone whose apex is already held is refused (`DnsZoneFileException`, "a second zone"): replace
+by resetting, which is deterministic, never by an edit-in-place a test could half-apply. `$INCLUDE` is refused
+by the reader already, and stays so.
+
+**Start-time seeds are what reset returns to.** A host that supplies seeds at start (`Surl.Api`'s
+`SurlServerOptions.RedisKeys`, `DirectoryLdif` and `DnsZones`; `Surl.Mcp`'s `redis_keys`, `directory_ldif`
+and `dns_zones` start properties, each as the matching seed's shape) has them applied after the stores are
+built, before any listener binds, through the same seed operations, and publishes `Seeded` events as any seed does.
+Nothing on the command line is added: `--directory` already loads the directory and zones, and a Redis server
+has no file to load (ADR-0106).
+
+### 4. Reset
+
+Reset returns a store to **its configured state**:
+
+- **Keyspace:** all 16 databases empty, then the host's start-time keys. Expiry deadlines of those keys are
+  measured again from the reset on the instance's clock. A `WATCH`ed key is treated as modified, so a
+  pending `EXEC` answers its null reply as Redis does when a watched key changed; a transaction being queued
+  is unaffected; a client blocked on a list keeps waiting.
+- **Directory:** the entries loaded from `--directory`'s file (an in-memory copy read once, decision 6), then
+  the host's start-time entries. With neither, empty.
+- **Zones:** the zones loaded from `--directory`'s folder, then the host's start-time zones.
+
+Reset waits for no one: it takes the store's own lock and swaps its contents (ADR-0124 decision 3's "live
+sessions"), so a client connected to the Redis, LDAP or DNS server keeps its connection and sees the new
+contents on its next command; a Redis connection keeps its selected database.
+
+### 5. Snapshot and restore
+
+A snapshot is an opaque, in-memory deep copy, never returned to a host (hosts hold its ID: `p1`, `p2`, ...).
+
+- **Keyspace:** every database's keys, values and expiry as an **absolute deadline** on the instance's clock.
+  A key restored after its deadline has passed expires on its first observation, with its `Deleted`
+  event. Bytes counted: key plus value bytes.
+- **Directory:** the set of entries, as the immutable entries themselves. A directory entry may hold a
+  `userPassword` a test seeded as data; the snapshot is in memory, belongs to its instance and is never
+  written, logged or echoed, as with the account book's hashes. Bytes counted: the directory's own entry
+  size.
+- **Zones:** the set of zones. Bytes counted: the zones' byte count.
+
+The three snapshots count toward `MaxSnapshotBytes` with the other four: a combined snapshot past it is
+refused whole, never truncated. Restore replaces the store's contents with the snapshot's and refuses a
+snapshot from another instance (ADR-0124 decision 3); it publishes one `Restored` and treats `WATCH`ed
+keys as reset does.
+
+**Order across stores.** ADR-0124 decision 3's order becomes content, mail, bus, accounts, **keyspace,
+directory, zones**: the three are independent of every other store and of each other, and are appended so
+the existing order does not change. The first failure still stops it, naming the store.
+
+### 6. Is a directory or zones loaded from `--directory` "a store on disk"? No
+
+The directory and the zones loaded from `--directory` are **an in-memory copy of a file read once**, so they
+are not stores on disk, and reset, snapshot and restore are allowed on them. ADR-0124 decision 3 refuses the
+disk stores so a fixture can never empty a real directory; that danger needs the store to write to the
+directory, and these two never do: they read `directory.ldif` and the `.zone` files at start and
+never write them back, a seed is held in memory only, and a reset or a restore replaces memory only. The
+file is untouched. The Redis keyspace is memory only (ADR-0106 decision 3) and is likewise always controllable.
+Consequence: a test that edits `directory.ldif` while the server runs is not seen (it was not before); reset returns to
+the copy read at start, not a reread.
+
+### 7. `out-of-space` at a Redis write
+
+At `FaultStage.StoreWrite` the keyspace asks the fault plan before every **write that may grow the keyspace**
+- the commands ADR-0106 decision 6 already refuses at its bound, the `deny-oom` commands in Redis's own table (`SET`,
+`MSET`, `APPEND`, `INCR`, `LPUSH`, `HSET`, `SADD`, `ZADD` and the rest) - with `FaultPoint { Stage = StoreWrite, Path
+= "<database>/<key>" (decision 2's `Name`), Account = the authenticated user or null }`. A matching `OutOfSpace` rule
+makes the command write nothing and answer, **exactly as Redis answers a write past `maxmemory`**:
+
+`-OOM command not allowed when used memory > 'maxmemory'.`
+
+(`RedisErrorReplies.OutOfMemory`, the reply ADR-0106 decision 6 already sends at a bound, so a client's code
+for one is the code for both.) Commands that do not grow the keyspace (`GET`, `DEL`, `EXPIRE`, every read,
+`PUBLISH`) are not asked, as Redis lets them through while it is over `maxmemory`. Inside `MULTI` a queued
+write that the rule matches is refused when queued, as Redis refuses a `deny-oom` command, and `EXEC`
+answers `-EXECABORT Transaction discarded because of previous errors.`; the rule is applied (and
+`FaultAppliedEvent` published) at the queueing. A multi-key write checks each key, and a rule that matches
+one refuses the whole command with nothing written. The reply is the specification's, so no `reply` key is
+involved; it is not an `error` fault and needs no row in ADR-0124 decision 4's tables. (BL-1159.)
+
+The LDAP directory and the DNS zones have no client write, so they are never asked at `StoreWrite`: an
+`out-of-space` rule has no store to act on there, which is not a gap. When the servers gain a write
+operation the same stage applies, with the resultCode 53 (`unwillingToPerform`, RFC 4511)
+and an RCODE 5 `REFUSED` for dynamic update, each decided with that operation.
+
+### 8. The registration seam in `Surl.Composition`
+
+The seam is two small pieces and no `switch`:
+
+1. `Surl.Protocol.Abstractions` gains the interface a store implements to be controlled and a base class for its
+   snapshot:
+
+   ```csharp
+   public interface IControllableStore
+   {
+       StoreKind Kind { get; }
+       bool IsOnDisk { get; }                                  // true refuses reset, snapshot and restore
+       Task ResetAsync(CancellationToken cancellationToken);
+       Task<ControlledStoreSnapshot> SnapshotAsync(CancellationToken cancellationToken);
+       Task RestoreAsync(ControlledStoreSnapshot snapshot, CancellationToken cancellationToken);
+   }
+
+   public abstract class ControlledStoreSnapshot { public abstract long ByteCount { get; } }
+   ```
+
+   Seeds are not on the interface: their inputs differ per store (a key, LDIF text, a zone), so each store keeps
+   its typed seed method, and `ComposedStores` exposes it (`SeedKeyAsync`, `SeedEntriesAsync`, `SeedZoneAsync`).
+
+2. `ProtocolServerRegistration` (ADR-0124 decision 2) gains an optional member `ControlledStore`,
+   `Func<IProtocolServer, IControllableStore>?`, null for every server that owns no store. The Redis, LDAP and DNS registrations name the
+   store their server built. `ComposedStores` is constructed from the **ordered list** of the four original stores
+   (adapted to `IControllableStore`, in ADR-0124's order) followed by the `ControlledStore` of each composed
+   protocol server, in registration order, so Redis, LDAP and DNS follow in the order decision 5 gives. Its
+   static `StoreOrder` stays as it is (the four); an instance `Order` lists every store it holds. A new
+   store joins by one registration entry and one `StoreKind` member, and `ComposedStores` is not edited.
+
+Stores stay not replaceable by a test (ADR-0124 decision 2): the seam is for stores Surl ships, and the
+`SurlProtocolServer` a test supplies has no `ControlledStore`. (BL-1158, then BL-1161, BL-1163, BL-1165 each
+register one.)
+
+### 9. Host spellings
+
+**`Surl.Api`** - three members of `SurlServer` beside `Files`, `Mail`, `Messages` and `Accounts`, each over
+`ComposedStores`:
+
+| Member | Operations |
+| --- | --- |
+| `Keys` (`SurlServerKeys`) | `SetAsync(string key, string value, TimeSpan? expiry = null, int database = 0)`, `SetAsync(ReadOnlyMemory<byte> key, ReadOnlyMemory<byte> value, TimeSpan? expiry = null, int database = 0)`; both `ArgumentOutOfRangeException` for a database outside 0 to 15 or an expiry outside 1 millisecond to 365 days, `InvalidOperationException` per decision 3 |
+| `Directory` (`SurlServerDirectory`) | `AddEntriesAsync(string ldif)` |
+| `Zones` (`SurlServerZones`) | `AddZoneAsync(string apex, string zoneFileText)` |
+
+`SurlServerOptions` gains `RedisKeys` (`IReadOnlyList<SurlRedisKey>`: database, key, value, expiry),
+`DirectoryLdif` (`string?`) and `DnsZones` (`IReadOnlyList<SurlDnsZone>`: apex, text) - the start-time seeds of
+decision 3, additive, defaults empty. `ResetAsync`, `TakeSnapshotAsync` and `RestoreAsync` already cover all
+stores and now cover these. (BL-1166.)
+
+**`Surl.Mcp`** (amends ADR-0124 decision 8), after `add_account`, each taking `server_id` (required),
+`additionalProperties: false`, results by ADR-0103 decision 3's rules, never echoing a value:
+
+| Tool | Other properties | Result |
+| --- | --- | --- |
+| `set_key` | `key` or `key_base64`, `value` or `value_base64`, `database` (0 to 15, default 0), `expire_ms` (1 to 31536000000) | `{"key": "<Name as decision 2>", "byte_count"}` |
+| `add_ldap_entries` | `ldif` | `{"entry_count"}` |
+| `add_dns_zone` | `apex`, `zone_text` | `{"apex", "byte_count"}` |
+
+`reset_server`, `snapshot_server` and `restore_server` are unchanged and cover the three. The server-start tool gains the optional
+start-time properties of decision 3. Seeded text at most 16 MiB decoded; a bound, a duplicate or a refusal is
+`isError: true` with its text; no local path is read. (BL-1167.)
+
+**Control endpoint** (amends ADR-0124 decision 7), under `/v1/`:
+
+| Request | Body | Answer |
+| --- | --- | --- |
+| `PUT /v1/keys/{database}/{key}` (key percent-encoded; query `expire_ms`) | the value's bytes | `204` |
+| `POST /v1/directory` | `text/plain`: LDIF content records | `204` |
+| `PUT /v1/zones/{apex}` | `text/plain`: the zone file | `204` |
+
+A database outside 0 to 15, a bad `expire_ms`, an LDIF or zone the readers refuse: `400 bad_request` with the
+reader's text. A bound or an existing DN or apex: `409 conflict`. A body over 16 MiB: `413 too_large`. `POST
+/v1/reset`, `POST /v1/snapshots` and `POST /v1/snapshots/{id}/restore` cover the three stores. No `DELETE`
+is offered for a key, an entry or a zone: reset does it deterministically. (BL-1168.)
+
+### 10. What proves it
+
+Each store's unit tests prove its events, seed, reset, snapshot and restore, and the keyspace the `-OOM`
+reply, from bytes written from Redis's documentation (the Redis server is an extended server, ADR-0083). The
+LDAP seed is proved with a **pinned upstream curl** `ldap://` search against an `Surl.Api` server whose
+directory was seeded (BL-1169), the one place an original-protocol oracle exists: the DNS and Redis servers
+are extended and judged by their specifications.
+
+## Alternatives considered
+
+- **A store interface with `SeedAsync(object)`.** Rejected: the three seeds have nothing in common but their
+  name, and an untyped seed trades the compiler for a runtime cast.
+- **Treating a `--directory` copy as a disk store and refusing reset.** Rejected: see decision 6; it would leave a
+  test that mounts a directory with no way to reset an LDAP or DNS stand-in, for a danger that cannot happen.
+- **Re-reading the file on reset.** Rejected: reset would then be as non-deterministic as the disk, and a file an
+  outside process changed would reappear.
+- **Seeding every Redis type.** Rejected for now: strings are what a test seeds; the rest are sent as a client
+  would, and the surface only grows.
+- **A free-text `reply` for the Redis out-of-space rule.** Rejected: Redis documents the `-OOM` reply for this
+  situation, and a client's code for it is what a test wants to exercise.
+- **One `StoreKind.Other`.** Rejected: a subscriber filtering on a store must be able to name it.
+- **A `DELETE` route for keys, entries and zones.** Rejected: ADR-0124 decision 3's reset is the deterministic
+  way back; a half-edited directory is the state a fixture should never have.
+
+## Consequences
+
+- `StoreKind` grows (BL-1157); `ComposedStores` gets its registration list (BL-1158); the three stores get
+  events and out-of-space (BL-1159), control (BL-1160, BL-1162, BL-1164) and their composition (BL-1161,
+  BL-1163, BL-1165); the hosts get their spellings (BL-1166, BL-1167, BL-1168); the pinned curl proof is BL-1169.
+- `surl --aihelp` and the Surl.Api, Surl.Mcp and control-endpoint pages and the wiki each name the three stores
+  when the task that builds the spelling lands.
+- No package, no start-up cost with no subscriber, and no change to any byte upstream curl sends or
+  expects.

@@ -8,7 +8,7 @@ depends-on: []
 touches: [Documentation/Planning/Decisions]
 requirement: FR-061
 created: 2026-11-14
-completed:
+completed: 2026-11-14
 ---
 # BL-1151 — Decide how the Redis keyspace, the LDAP directory and the DNS zones are seeded, reset, snapshotted, restored and observed
 
@@ -28,16 +28,19 @@ A new ADR, marked "Decided by Claude under Stewart's delegation", settles how th
 
 ## Acceptance criteria
 
-- [ ] A new ADR under `Documentation/Planning/Decisions/` (next free number) decides, for each of the three stores: the `StoreKind` member it publishes as (enum only grows), which changes publish `StoreChangedEvent` and with which `StoreChange` and `Name`, the seed operation and its input shape (for example Redis string keys with optional expiry, LDIF content records, zone-file text), what reset returns to, what a snapshot holds and its bound, and its place in ADR-0124 decision 3's reset and restore order.
-- [ ] It decides whether a directory or zone loaded from `--directory` is "a store on disk" (refusing reset, snapshot and restore) or an in-memory copy of a file read once, and says why.
-- [ ] It decides how the Redis keyspace applies `out-of-space` at `FaultStage.StoreWrite`, naming the RESP error it answers (Redis's own `-OOM ...` reply as Redis documents it).
-- [ ] It decides the registration seam in `Surl.Composition` by which a store joins `ComposedStores`' reset, snapshot and restore (the shape BL-1158 builds), and amends ADR-0124 decision 2 accordingly.
-- [ ] It names the host spellings: the `Surl.Api` members, the `Surl.Mcp` tool names and properties (amending ADR-0124 decision 8), and the control endpoint routes and bodies (amending ADR-0124 decision 7), each with its bounds and refusals.
-- [ ] ADR-0124 gains an "Amended by" line pointing at the new ADR, and the new ADR lists BL-1157 to BL-1169 under "Acted on by".
+- [x] A new ADR under `Documentation/Planning/Decisions/` (next free number) decides, for each of the three stores: the `StoreKind` member it publishes as (enum only grows), which changes publish `StoreChangedEvent` and with which `StoreChange` and `Name`, the seed operation and its input shape (for example Redis string keys with optional expiry, LDIF content records, zone-file text), what reset returns to, what a snapshot holds and its bound, and its place in ADR-0124 decision 3's reset and restore order.
+- [x] It decides whether a directory or zone loaded from `--directory` is "a store on disk" (refusing reset, snapshot and restore) or an in-memory copy of a file read once, and says why.
+- [x] It decides how the Redis keyspace applies `out-of-space` at `FaultStage.StoreWrite`, naming the RESP error it answers (Redis's own `-OOM ...` reply as Redis documents it).
+- [x] It decides the registration seam in `Surl.Composition` by which a store joins `ComposedStores`' reset, snapshot and restore (the shape BL-1158 builds), and amends ADR-0124 decision 2 accordingly.
+- [x] It names the host spellings: the `Surl.Api` members, the `Surl.Mcp` tool names and properties (amending ADR-0124 decision 8), and the control endpoint routes and bodies (amending ADR-0124 decision 7), each with its bounds and refusals.
+- [x] ADR-0124 gains an "Amended by" line pointing at the new ADR, and the new ADR lists BL-1157 to BL-1169 under "Acted on by".
 
 ## Notes
+
+- Wrote ADR-0158 (Decided by Claude under Stewart's delegation) covering every acceptance criterion; amended ADR-0124 (Amended by line). Choices taken: start-time seeds re-applied on reset; strings only for Redis seeds; no DELETE routes; `--directory` LDAP and DNS are in-memory copies, so controllable.
 
 ## Log
 
 - 2026-11-14: Created.
 - 2026-11-14: Backlog -> Doing.
+- 2026-11-14: Doing -> Done. ADR-0158 decides seed, reset, snapshot, restore and events for the Redis keyspace, LDAP directory and DNS zones
