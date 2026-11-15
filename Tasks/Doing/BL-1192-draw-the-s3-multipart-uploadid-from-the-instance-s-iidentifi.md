@@ -32,3 +32,4 @@ ADR-0163 classes the S3 UploadId as a seedable identifier under ADR-0124 decisio
 ## Log
 
 - 2026-11-15: Created.
+- 2026-11-15: Backlog -> Doing.
