@@ -35,3 +35,4 @@ The LDAP directory can be seeded with LDIF content records while the server runs
 ## Log
 
 - 2026-11-14: Created.
+- 2026-11-14: Backlog -> Doing.
