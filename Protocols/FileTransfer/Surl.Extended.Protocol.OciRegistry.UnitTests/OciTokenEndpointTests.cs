@@ -29,6 +29,19 @@ public sealed class OciTokenEndpointTests
     }
 
     [TestMethod]
+    public async Task AnswerAsync_GoodCredentials_PassesTheExchangeToThePolicy()
+    {
+        var harness = H.AllowingUploads();
+
+        await harness.SendAsync("GET", $"/token?service=surl&{AppPullAndPush}", P.BasicAuthorization);
+
+        var exchange = harness.Policy.Logins.Single().Exchange;
+        Assert.IsNotNull(exchange);
+        Assert.AreEqual(1, exchange.ExchangeId);
+        Assert.AreEqual("oci", exchange.Scheme);
+    }
+
+    [TestMethod]
     public async Task AnswerAsync_NoQueryAtAll_IssuesATokenForNoScope()
     {
         var harness = new H();

@@ -95,11 +95,11 @@ internal sealed class OciTokenEndpoint(IAuthenticationPolicy policy, OciTokenBoo
         PasswordLogin login;
         if (authorization is null)
         {
-            login = new PasswordLogin(OciRegistryProtocolServer.Scheme, null, null, tlsSession);
+            login = new PasswordLogin(OciRegistryProtocolServer.Scheme, null, null, tlsSession, LoginExchange.Of(context));
         }
         else if (ReadBasic(authorization) is { } credentials)
         {
-            login = new PasswordLogin(OciRegistryProtocolServer.Scheme, credentials.UserName, credentials.Password, tlsSession);
+            login = new PasswordLogin(OciRegistryProtocolServer.Scheme, credentials.UserName, credentials.Password, tlsSession, LoginExchange.Of(context));
         }
         else
         {

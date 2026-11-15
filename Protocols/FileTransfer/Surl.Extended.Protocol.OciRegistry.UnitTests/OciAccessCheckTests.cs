@@ -33,6 +33,17 @@ public sealed class OciAccessCheckTests
     private static string Bearer(string token) => $"Authorization: Bearer {token}";
 
     [TestMethod]
+    public async Task CheckAsync_PullWithoutAToken_PassesTheExchangeToThePolicy()
+    {
+        var harness = Registry();
+
+        await harness.SendAsync("GET", "/v2/library/alpine/manifests/latest");
+
+        Assert.IsNotEmpty(harness.Policy.Logins);
+        Assert.IsTrue(harness.Policy.Logins.All(login => login.Exchange is { ExchangeId: 1, Scheme: "oci" }));
+    }
+
+    [TestMethod]
     public async Task CheckAsync_PullWithoutAToken_Returns401WithTheRealmServiceAndScope()
     {
         var harness = Registry();

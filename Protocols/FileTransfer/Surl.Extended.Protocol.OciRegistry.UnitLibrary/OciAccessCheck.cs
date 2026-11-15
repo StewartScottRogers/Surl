@@ -76,11 +76,11 @@ internal sealed class OciAccessCheck(IAuthenticationPolicy policy, OciTokenBook 
     // carrying a password says so, as it does for Basic at /token.
     private async Task<bool> RefusesPlaintextAsync(CancellationToken cancellationToken) =>
         tlsSession is null
-            && await policy.CheckPasswordLoginAsync(new PasswordLogin(OciRegistryProtocolServer.Scheme, null, ReadOnlyMemory<byte>.Empty, null), cancellationToken)
+            && await policy.CheckPasswordLoginAsync(new PasswordLogin(OciRegistryProtocolServer.Scheme, null, ReadOnlyMemory<byte>.Empty, null, LoginExchange.Of(context)), cancellationToken)
                 == PasswordLoginVerdict.RefusedPlaintext;
 
     private async Task<bool> AllowsAnonymousAsync(CancellationToken cancellationToken) =>
-        await policy.CheckPasswordLoginAsync(new PasswordLogin(OciRegistryProtocolServer.Scheme, null, null, tlsSession), cancellationToken)
+        await policy.CheckPasswordLoginAsync(new PasswordLogin(OciRegistryProtocolServer.Scheme, null, null, tlsSession, LoginExchange.Of(context)), cancellationToken)
             == PasswordLoginVerdict.AcceptedUnchecked;
 
     private OciAccess Refused(OciReply reply, OciError error, string? scope, string? challengeError) =>
