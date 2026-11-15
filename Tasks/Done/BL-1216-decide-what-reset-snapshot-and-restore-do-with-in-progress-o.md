@@ -8,7 +8,7 @@ depends-on: []
 touches: [Documentation/Planning/Decisions]
 requirement: FR-061
 created: 2026-11-15
-completed:
+completed: 2026-11-15
 ---
 # BL-1216 — Decide what reset, snapshot and restore do with in-progress object uploads and the MCP server's OAuth grants
 
@@ -34,12 +34,15 @@ An ADR, decided by Claude under Stewart's delegation, audits the state the S3, A
 
 ## Acceptance criteria
 
-- [ ] A new ADR under `Documentation/Planning/Decisions/`, with the next free number, marked "Decided by Claude under Stewart's delegation", has an audit table covering every piece listed above and answers questions 1 to 4. It amends ADR-0124 decision 3 (header "Amended by").
-- [ ] One feature task per server library that must change is filed with `task-board.ps1 new`, depending on this task, each touching that library, its tests and `Application/Surl.Composition.UnitLibrary` with its tests for the registration. Each is listed in Notes, or Notes says why none is needed.
+- [x] A new ADR under `Documentation/Planning/Decisions/`, with the next free number, marked "Decided by Claude under Stewart's delegation", has an audit table covering every piece listed above and answers questions 1 to 4. It amends ADR-0124 decision 3 (header "Amended by").
+- [x] One feature task per server library that must change is filed with `task-board.ps1 new`, depending on this task, each touching that library, its tests and `Application/Surl.Composition.UnitLibrary` with its tests for the registration. Each is listed in Notes, or Notes says why none is needed.
 
 ## Notes
+
+- Decided in ADR-0167. Follow-up tasks filed: BL-1228 (StoreKind.Uploads), BL-1229 (S3), BL-1230 (Azure), BL-1231 (GCS), BL-1232 (OCI uploads, tokens), BL-1233 (MCP OAuth, sessions). Choice taken by default: tokens are checked against the account book on each use, so no ordering rule between stores and accounts is needed.
 
 ## Log
 
 - 2026-11-15: Created.
 - 2026-11-15: Backlog -> Doing.
+- 2026-11-15: Doing -> Done. ADR-0167 audits the upload and token state of five extended servers and files BL-1228 to BL-1233
