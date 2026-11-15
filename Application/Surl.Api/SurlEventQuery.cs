@@ -42,6 +42,13 @@ public sealed record SurlEventQuery
     /// <summary>The store a <see cref="StoreChangedEvent"/> changed; for an exchange, it changed this store.</summary>
     public StoreKind? Store { get; init; }
 
+    /// <summary>
+    /// The name a <see cref="StoreChangedEvent"/> changed (a path, mailbox, topic, queue, key or account), exactly or as a
+    /// segment prefix: <c>/uploads</c> matches <c>/uploads</c> and <c>/uploads/a.txt</c> but not <c>/uploads2</c>.
+    /// Case-sensitive. An event of any other kind never matches when this is set (ADR-0164 decision 8).
+    /// </summary>
+    public string? Name { get; init; }
+
     /// <summary>The earliest time, inclusive: an event's <see cref="SurlEvent.At"/>, an exchange's start.</summary>
     public DateTimeOffset? Since { get; init; }
 

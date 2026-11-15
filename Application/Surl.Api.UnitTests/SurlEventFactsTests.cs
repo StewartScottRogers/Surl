@@ -69,6 +69,23 @@ public sealed class SurlEventFactsTests
     }
 
     [TestMethod]
+    public void Matches_ByName_MatchesOnlyAStoreChangeOfThatNameOrBelowIt()
+    {
+        var query = new SurlEventQuery { Name = "/uploads" };
+        var withSlash = new SurlEventQuery { Name = "/uploads/" };
+
+        Assert.IsTrue(SurlEventFacts.Matches(Stamped(Change("/uploads")), null, query));
+        Assert.IsTrue(SurlEventFacts.Matches(Stamped(Change("/uploads/a.txt")), null, query));
+        Assert.IsFalse(SurlEventFacts.Matches(Stamped(Change("/uploads2/a.txt")), null, query));
+        Assert.IsFalse(SurlEventFacts.Matches(Stamped(Change("/Uploads/a.txt")), null, query));
+        Assert.IsFalse(SurlEventFacts.Matches(Stamped(Login("/uploads")), null, query));
+        Assert.IsTrue(SurlEventFacts.Matches(Stamped(Change("/uploads/a.txt")), null, withSlash));
+        Assert.IsFalse(SurlEventFacts.Matches(Stamped(Change("/uploads2")), null, withSlash));
+    }
+
+    private static StoreChangedEvent Change(string name) => new(StoreKind.Content, StoreChange.Written, name, 1, null);
+
+    [TestMethod]
     public void Matches_BySchemeAndListenUrl_UsesALoginsOwnSchemeOrElseItsExchanges()
     {
         var exchange = SmtpExchange();

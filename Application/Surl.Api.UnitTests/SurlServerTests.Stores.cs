@@ -182,6 +182,25 @@ public sealed partial class SurlServerTests
     }
 
     [TestMethod]
+    public async Task FindEventsAndWaitForEventAsync_ByName_FindOnlyTheChangeOfThatPath()
+    {
+        var seams = new ApiTestSeams();
+        var options = StoreOptions(Http);
+        options.RecordExchanges = true;
+        await using var server = await SurlServer.StartAsync(options, seams.Host, TestContext.CancellationToken);
+        await server.Files.PutAsync("/uploads/a.txt", "a"u8.ToArray(), TestContext.CancellationToken);
+        await server.Files.PutAsync("/other/b.txt", "b"u8.ToArray(), TestContext.CancellationToken);
+        var query = new SurlEventQuery { Store = StoreKind.Content, Name = "/uploads/a.txt" };
+
+        var waited = (StoreChangedEvent)await server.WaitForEventAsync(query, ExchangeTimeLimit, TestContext.CancellationToken);
+        var found = server.FindEvents(query);
+
+        Assert.AreEqual("/uploads/a.txt", waited.Name);
+        Assert.HasCount(1, found);
+        Assert.HasCount(2, server.FindEvents(new SurlEventQuery { Store = StoreKind.Content, Name = "/uploads" }));
+    }
+
+    [TestMethod]
     [DataRow("mail-recipient", "Mail", "NoSuchAccount", DisplayName = "mail for an unknown mailbox")]
     [DataRow("mail-size", "Mail", "MessageTooLarge", DisplayName = "mail past the size limit")]
     [DataRow("file-path", "Content", "NotPermitted", DisplayName = "a file at a .surl path")]

@@ -8,7 +8,7 @@ depends-on: [BL-1194]
 touches: [Application/Surl.Api, Application/Surl.Api.UnitTests]
 requirement: FR-060
 created: 2026-11-15
-completed:
+completed: 2026-11-15
 ---
 # BL-1200 — Find a store change by its name with SurlEventQuery in Surl.Api
 
@@ -24,14 +24,17 @@ completed:
 
 ## Acceptance criteria
 
-- [ ] `SurlEventQuery` has the ADR's name property with an XML doc comment, and `SurlEventFacts` applies it to `StoreChangedEvent` only. An event of another kind never matches a query that sets it.
-- [ ] Tests in `Application/Surl.Api.UnitTests` show `FindEvents` with the name returns only that path's write after two files are seeded, and `WaitForEventAsync` with it completes on that write and not on another.
-- [ ] If the ADR chooses segment-prefix matching, a test shows `/uploads` matches `/uploads/a.txt` but not `/uploads2/a.txt`.
-- [ ] `dotnet build Application/Surl.Api -warnaserror` is clean and the fast tests pass.
+- [x] `SurlEventQuery` has the ADR's name property with an XML doc comment, and `SurlEventFacts` applies it to `StoreChangedEvent` only. An event of another kind never matches a query that sets it.
+- [x] Tests in `Application/Surl.Api.UnitTests` show `FindEvents` with the name returns only that path's write after two files are seeded, and `WaitForEventAsync` with it completes on that write and not on another.
+- [x] If the ADR chooses segment-prefix matching, a test shows `/uploads` matches `/uploads/a.txt` but not `/uploads2/a.txt`.
+- [x] `dotnet build Application/Surl.Api -warnaserror` is clean and the fast tests pass.
 
 ## Notes
+
+Implemented ADR-0164 decision 8: `SurlEventQuery.Name`, exact or segment prefix (a trailing slash on the query is tolerated), case-sensitive, StoreChangedEvent only. A seeded file also publishes its folder creation, so `/uploads` finds two events.
 
 ## Log
 
 - 2026-11-15: Created.
 - 2026-11-15: Backlog -> Doing.
+- 2026-11-15: Doing -> Done. SurlEventQuery.Name finds a store change by name or segment prefix
