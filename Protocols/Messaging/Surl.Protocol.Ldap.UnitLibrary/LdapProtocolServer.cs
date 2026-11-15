@@ -100,9 +100,10 @@ public sealed class LdapProtocolServer : IConnectionProtocolServer
     /// <param name="saslAuthenticationPolicy">Offers the SASL mechanisms and runs every SASL and Sicily bind.</param>
     /// <param name="timeProvider">The clock a search's <c>timeLimit</c> is measured by.</param>
     /// <param name="isTlsUpgradeAvailable">Whether the listener has a certificate, so <c>StartTLS</c> can upgrade the connection.</param>
+    /// <param name="events">Where the directory publishes its seeds, resets and restores; nowhere when <see langword="null"/>.</param>
     /// <exception cref="ArgumentNullException">A policy is <see langword="null"/>.</exception>
-    public LdapProtocolServer(IAuthenticationPolicy authenticationPolicy, ISaslAuthenticationPolicy saslAuthenticationPolicy, TimeProvider timeProvider, bool isTlsUpgradeAvailable = false)
-        : this(new LdapDirectory([], timeProvider), authenticationPolicy, saslAuthenticationPolicy, isTlsUpgradeAvailable)
+    public LdapProtocolServer(IAuthenticationPolicy authenticationPolicy, ISaslAuthenticationPolicy saslAuthenticationPolicy, TimeProvider timeProvider, bool isTlsUpgradeAvailable = false, ISurlEventPublisher? events = null)
+        : this(new LdapDirectory([], timeProvider, events: events), authenticationPolicy, saslAuthenticationPolicy, isTlsUpgradeAvailable)
     {
     }
 
@@ -140,6 +141,7 @@ public sealed class LdapProtocolServer : IConnectionProtocolServer
     /// <param name="timeProvider">The clock a search's <c>timeLimit</c> is measured by.</param>
     /// <param name="isTlsUpgradeAvailable">Whether the listener has a certificate, so <c>StartTLS</c> can upgrade the connection.</param>
     /// <param name="cancellationToken">Cancels the read.</param>
+    /// <param name="events">Where the directory publishes its seeds, resets and restores; nowhere when <see langword="null"/>.</param>
     /// <returns>The server.</returns>
     /// <exception cref="ArgumentNullException">An argument is <see langword="null"/>.</exception>
     /// <exception cref="LdapDirectoryLoadException">The file cannot be read, or cannot be the directory.</exception>
@@ -149,14 +151,15 @@ public sealed class LdapProtocolServer : IConnectionProtocolServer
         ISaslAuthenticationPolicy saslAuthenticationPolicy,
         TimeProvider timeProvider,
         bool isTlsUpgradeAvailable = false,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        ISurlEventPublisher? events = null)
     {
         ArgumentNullException.ThrowIfNull(directoryFile);
         ArgumentNullException.ThrowIfNull(authenticationPolicy);
         ArgumentNullException.ThrowIfNull(saslAuthenticationPolicy);
         ArgumentNullException.ThrowIfNull(timeProvider);
 
-        var directory = await directoryFile.LoadAsync(timeProvider, cancellationToken: cancellationToken);
+        var directory = await directoryFile.LoadAsync(timeProvider, cancellationToken: cancellationToken, events: events);
         return new LdapProtocolServer(directory, authenticationPolicy, saslAuthenticationPolicy, isTlsUpgradeAvailable);
     }
 
@@ -180,4 +183,31 @@ public sealed class LdapProtocolServer : IConnectionProtocolServer
 
         return new LdapSession(connection, context, directory, authenticationPolicy, saslAuthenticationPolicy, isTlsUpgradeAvailable).RunAsync();
     }
+
+    /// <summary>
+    /// Adds LDIF content records to the directory, all or none (ADR-0158 decision 3).
+    /// </summary>
+    /// <param name="ldif">LDIF content records.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="ldif"/> is <see langword="null"/>.</exception>
+    /// <exception cref="InvalidOperationException">The text is not LDIF content the directory can add.</exception>
+    public void SeedDirectoryEntries(string ldif) => directory.SeedEntries(ldif);
+
+    /// <summary>
+    /// Returns the directory to the entries it was built with (ADR-0158 decision 4).
+    /// </summary>
+    public void ResetDirectory() => directory.Reset();
+
+    /// <summary>
+    /// Copies the directory's entries (ADR-0158 decision 5).
+    /// </summary>
+    /// <returns>The snapshot, good for this server's directory only.</returns>
+    public LdapDirectorySnapshot TakeDirectorySnapshot() => directory.TakeSnapshot();
+
+    /// <summary>
+    /// Replaces the directory's entries with <paramref name="snapshot"/>'s.
+    /// </summary>
+    /// <param name="snapshot">A snapshot this server took.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="snapshot"/> is <see langword="null"/>.</exception>
+    /// <exception cref="InvalidOperationException">Another server took the snapshot.</exception>
+    public void RestoreDirectory(LdapDirectorySnapshot snapshot) => directory.Restore(snapshot);
 }

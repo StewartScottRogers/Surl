@@ -3,6 +3,7 @@ using Surl.Content;
 using Surl.MailStore;
 using Surl.MessageBus;
 using Surl.Protocol.Abstractions;
+using Surl.Protocol.Ldap;
 
 namespace Surl.Composition;
 
@@ -43,6 +44,7 @@ public sealed class ComposedStores
     private readonly MailboxStore mail;
     private readonly MessageBus.MessageBus bus;
     private readonly AccountBook accounts;
+    private readonly LdapProtocolServer? ldapServer;
     private readonly IReadOnlyList<ComposedStoreRegistration> controls;
 
     internal ComposedStores(
@@ -52,13 +54,15 @@ public sealed class ComposedStores
         MessageBus.MessageBus bus,
         AccountBook accounts,
         long maxSnapshotBytes = DefaultMaxSnapshotBytes,
-        IReadOnlyList<ComposedStoreRegistration>? additionalRegistrations = null)
+        IReadOnlyList<ComposedStoreRegistration>? additionalRegistrations = null,
+        LdapProtocolServer? ldapServer = null)
     {
         this.content = content;
         MetadataIndex = metadataIndex;
         this.mail = mail;
         this.bus = bus;
         this.accounts = accounts;
+        this.ldapServer = ldapServer;
         MaxSnapshotBytes = maxSnapshotBytes;
         controls =
         [
@@ -178,6 +182,25 @@ public sealed class ComposedStores
         var outcome = bus.SeedEnqueue(queueName, message);
         await SaveBusAsync(cancellationToken);
         return outcome;
+    }
+
+    /// <summary>
+    /// Adds LDIF content records to the LDAP directory, all or none, as
+    /// <see cref="LdapProtocolServer.SeedDirectoryEntries"/> does: never consults the fault plan; publishes
+    /// <see cref="StoreChange.Seeded"/> for each entry (ADR-0158 decision 3).
+    /// </summary>
+    /// <param name="ldif">LDIF content records (RFC 2849), at most 16 MiB.</param>
+    /// <param name="cancellationToken">Cancels the seed before it starts.</param>
+    /// <returns>A task that completes once the entries are added.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="ldif"/> is <see langword="null"/>.</exception>
+    /// <exception cref="InvalidOperationException">The text is not LDIF content the directory can add, or this
+    /// instance composes no LDAP directory.</exception>
+    public Task SeedEntriesAsync(string ldif, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var server = ldapServer ?? throw new InvalidOperationException("This instance holds no LDAP directory.");
+        server.SeedDirectoryEntries(ldif);
+        return Task.CompletedTask;
     }
 
     /// <summary>

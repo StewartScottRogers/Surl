@@ -413,7 +413,8 @@ public static partial class SurlServerComposition
             loaded.State.MailStore,
             loaded.State.MessageBus,
             authentication.Policy.Settings.Accounts,
-            additionalRegistrations: ControlledBrokerStores(servers, instruments.Events));
+            additionalRegistrations: [LdapDirectoryStoreRegistration.For(loaded.State.LdapServer), .. ControlledBrokerStores(servers, instruments.Events)],
+            ldapServer: loaded.State.LdapServer);
         return ComposeServing(served, seams, servers, stores, authentication, instruments, services.QuicCertificate, dataDirectoryLock);
     }
 

@@ -4,7 +4,7 @@ namespace Surl.Protocol.Ldap;
 /// The entries a directory held when it was snapshotted: opaque, in memory, and good only for the
 /// directory that took it (ADR-0158 decision 5).
 /// </summary>
-internal sealed class LdapDirectorySnapshot
+public sealed class LdapDirectorySnapshot
 {
     internal LdapDirectorySnapshot(LdapDirectory owner, LdapDirectoryContents contents)
     {

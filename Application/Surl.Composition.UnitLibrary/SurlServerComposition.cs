@@ -276,7 +276,8 @@ public static partial class SurlServerComposition
             authenticationPolicy,
             isTlsUpgradeAvailable,
             timeProvider,
-            cancellationToken);
+            cancellationToken,
+            events);
         if (ldapServer is null)
         {
             return (null, ldapFailure);
@@ -598,6 +599,7 @@ public static partial class SurlServerComposition
     /// <param name="authenticationPolicy">Judges every bind.</param>
     /// <param name="isTlsUpgradeAvailable">Whether a certificate is configured.</param>
     /// <param name="timeProvider">The clock a search's time limit is measured by.</param>
+    /// <param name="events">Where the directory publishes its seeds, resets and restores; nowhere when <see langword="null"/>.</param>
     /// <param name="cancellationToken">Cancels the read.</param>
     /// <returns>The server, or the message after the <c>surl: </c> prefix when its directory cannot be loaded.</returns>
     public static async Task<(LdapProtocolServer? LdapServer, string? FailureMessage)> LoadLdapServerAsync(
@@ -605,17 +607,18 @@ public static partial class SurlServerComposition
         AuthenticationPolicy authenticationPolicy,
         bool isTlsUpgradeAvailable,
         TimeProvider timeProvider,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        ISurlEventPublisher? events = null)
     {
         if (file is null)
         {
-            return (new LdapProtocolServer(authenticationPolicy, authenticationPolicy, timeProvider, isTlsUpgradeAvailable), null);
+            return (new LdapProtocolServer(authenticationPolicy, authenticationPolicy, timeProvider, isTlsUpgradeAvailable, events), null);
         }
 
         try
         {
             return (await LdapProtocolServer.LoadAsync(
-                file, authenticationPolicy, authenticationPolicy, timeProvider, isTlsUpgradeAvailable, cancellationToken), null);
+                file, authenticationPolicy, authenticationPolicy, timeProvider, isTlsUpgradeAvailable, cancellationToken, events), null);
         }
         catch (LdapDirectoryLoadException failure)
         {

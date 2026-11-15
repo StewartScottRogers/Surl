@@ -85,7 +85,7 @@ public sealed class ComposedStoresTests
         stores.AddAccount(new Account("carol", "c"));
         await stores.RestoreAsync(snapshot, TestContext.CancellationToken);
 
-        CollectionAssert.AreEqual(ComposedStores.StoreOrder.ToArray(), snapshot.Stores.ToArray());
+        CollectionAssert.AreEqual((StoreKind[])[.. ComposedStores.StoreOrder, StoreKind.Directory], snapshot.Stores.ToArray());
         Assert.AreEqual(1, stores.Mail.TakeSnapshot().MessageCount);
         Assert.AreEqual(ContentEntryKind.File, EntryKindOf(files, "before.txt"));
         Assert.AreEqual(ContentEntryKind.None, EntryKindOf(files, "after.txt"));
@@ -122,10 +122,10 @@ public sealed class ComposedStoresTests
         Assert.IsTrue(changes.Any(changed => changed.Store == StoreKind.Accounts && changed.Change == StoreChange.AccountRemoved && changed.Name == "bob"));
         Assert.AreEqual(1, changes.Count(changed => changed.Store == StoreKind.Content && changed.Change == StoreChange.Deleted));
         CollectionAssert.AreEqual(
-            ComposedStores.StoreOrder.ToArray(),
+            (StoreKind[])[.. ComposedStores.StoreOrder, StoreKind.Directory],
             changes.Where(changed => changed.Change == StoreChange.Reset).Select(changed => changed.Store).ToArray());
         CollectionAssert.AreEqual(
-            ComposedStores.StoreOrder.ToArray(),
+            (StoreKind[])[.. ComposedStores.StoreOrder, StoreKind.Directory],
             changes.Where(changed => changed.Change == StoreChange.Restored).Select(changed => changed.Store).ToArray());
     }
 

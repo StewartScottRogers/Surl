@@ -60,7 +60,7 @@ public sealed class Amqp0ExchangeStoreTests
         await serve;
 
         CollectionAssert.AreEqual(
-            new[] { StoreKind.Content, StoreKind.Mail, StoreKind.Bus, StoreKind.Accounts, StoreKind.Exchanges },
+            new[] { StoreKind.Content, StoreKind.Mail, StoreKind.Bus, StoreKind.Accounts, StoreKind.Directory, StoreKind.Exchanges },
             running.Stores.RegisteredStoreOrder.ToArray());
         Assert.IsFalse(Contains(otherType.WrittenBytes, DeclareOkOnChannelOne));
     }
@@ -94,7 +94,7 @@ public sealed class Amqp0ExchangeStoreTests
             StartTestSeams.Parse("--allow-anonymous", "http://127.0.0.1:0/"), new StartTestSeams().Seams, TestContext.CancellationToken);
         await using var serving = start.Serving!;
 
-        CollectionAssert.AreEqual(ComposedStores.StoreOrder.ToArray(), serving.Stores.RegisteredStoreOrder.ToArray());
+        CollectionAssert.AreEqual((StoreKind[])[.. ComposedStores.StoreOrder, StoreKind.Directory], serving.Stores.RegisteredStoreOrder.ToArray());
     }
 
     [TestMethod]
