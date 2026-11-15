@@ -32,3 +32,4 @@ The OCI registry's logins carry their exchange, so each `LoginJudgedEvent` has t
 ## Log
 
 - 2026-11-15: Created.
+- 2026-11-15: Backlog -> Doing.
