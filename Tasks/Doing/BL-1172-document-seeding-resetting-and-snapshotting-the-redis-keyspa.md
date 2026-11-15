@@ -35,3 +35,4 @@ The stand-in documentation states, truly and with examples, that the Redis keysp
 ## Log
 
 - 2026-11-14: Created.
+- 2026-11-15: Backlog -> Doing.
