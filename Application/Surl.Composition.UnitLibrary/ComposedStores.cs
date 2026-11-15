@@ -134,6 +134,103 @@ public sealed class ComposedStores
     }
 
     /// <summary>
+    /// The most bytes one item a read returns may hold: 16 MiB, as seeding (ADR-0164, decision 2).
+    /// </summary>
+    public const long MaxReadBytes = 16_777_216;
+
+    /// <summary>
+    /// Lists an account's mailboxes with their message and unseen counts, as the IMAP server's
+    /// logged-in owner sees them. Publishes nothing, asks no fault rule and changes no flag, and
+    /// works on a <c>--directory</c> mail store (ADR-0164, decision 3).
+    /// </summary>
+    /// <param name="owner">The account name.</param>
+    /// <returns><see cref="ComposedReadOutcome.Found"/> with the mailboxes in ordinal order of name, or
+    /// <see cref="ComposedReadOutcome.NotFound"/> when the account owns no mailbox.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="owner"/> is <see langword="null"/>.</exception>
+    public ComposedReadResult<IReadOnlyList<ComposedMailboxInfo>> ListMailboxes(string owner)
+    {
+        ArgumentNullException.ThrowIfNull(owner);
+        var view = mail.ViewFor(owner);
+        List<ComposedMailboxInfo> boxes = [];
+        foreach (var name in mail.ListMailboxes(view))
+        {
+            _ = mail.ReadMailbox(view, name, out var snapshot);
+            boxes.Add(new(snapshot!.Name, snapshot.Messages.Count, snapshot.Messages.Count(message => !message.Flags.HasFlag(MailFlags.Seen)), snapshot.UidValidity));
+        }
+
+        return boxes.Count == 0
+            ? ComposedReadResult<IReadOnlyList<ComposedMailboxInfo>>.Failed(ComposedReadOutcome.NotFound, $"No mailboxes for {owner}.")
+            : ComposedReadResult<IReadOnlyList<ComposedMailboxInfo>>.Of(boxes);
+    }
+
+    /// <summary>
+    /// Lists one mailbox's messages (UID, size, flags, internal date) in UID order, one page at a time.
+    /// Publishes nothing, asks no fault rule and changes no flag (ADR-0164, decisions 1 to 3).
+    /// </summary>
+    /// <param name="owner">The account name.</param>
+    /// <param name="mailbox">The mailbox's name; <c>INBOX</c> in any case.</param>
+    /// <param name="afterUid">The last UID seen; the page starts above it. 0 starts at the first.</param>
+    /// <param name="limit">The most messages to return, 1 to 1000 (default 100).</param>
+    /// <returns>The page; <see cref="ComposedReadOutcome.NotFound"/> for an unknown owner or mailbox;
+    /// <see cref="ComposedReadOutcome.Refused"/> for a limit outside 1 to 1000.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="owner"/> or <paramref name="mailbox"/> is <see langword="null"/>.</exception>
+    public ComposedReadResult<ComposedMailMessagePage> ListMessages(string owner, string mailbox, uint afterUid = 0, int limit = 100)
+    {
+        ArgumentNullException.ThrowIfNull(owner);
+        ArgumentNullException.ThrowIfNull(mailbox);
+        if (limit is < 1 or > 1000)
+        {
+            return ComposedReadResult<ComposedMailMessagePage>.Failed(ComposedReadOutcome.Refused, "The limit must be 1 to 1000.");
+        }
+
+        if (mail.ReadMailbox(mail.ViewFor(owner), mailbox, out var snapshot) != MailStoreOutcome.Succeeded)
+        {
+            return ComposedReadResult<ComposedMailMessagePage>.Failed(ComposedReadOutcome.NotFound, $"No mailbox {mailbox} for {owner}.");
+        }
+
+        var after = snapshot!.Messages.Where(message => message.Uid > afterUid).ToList();
+        var page = after.Take(limit).Select(Summarize).ToList();
+        return ComposedReadResult<ComposedMailMessagePage>.Of(new(page, after.Count > limit));
+    }
+
+    /// <summary>
+    /// Reads one message's exact bytes with its summary. A message past <see cref="MaxReadBytes"/> is
+    /// refused, never cut short. Publishes nothing, asks no fault rule and never sets <c>\Seen</c> or
+    /// any other flag (ADR-0164, decisions 1 to 3).
+    /// </summary>
+    /// <param name="owner">The account name.</param>
+    /// <param name="mailbox">The mailbox's name; <c>INBOX</c> in any case.</param>
+    /// <param name="uid">The message's UID.</param>
+    /// <returns>The message; <see cref="ComposedReadOutcome.NotFound"/> for an unknown owner, mailbox or UID;
+    /// <see cref="ComposedReadOutcome.TooLarge"/> past the bound.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="owner"/> or <paramref name="mailbox"/> is <see langword="null"/>.</exception>
+    /// <exception cref="IOException">A message file of a <c>--directory</c> store cannot be read.</exception>
+    public ComposedReadResult<ComposedMailMessage> ReadMessage(string owner, string mailbox, uint uid)
+    {
+        ArgumentNullException.ThrowIfNull(owner);
+        ArgumentNullException.ThrowIfNull(mailbox);
+        var view = mail.ViewFor(owner);
+        _ = mail.ReadMailbox(view, mailbox, out var snapshot);
+        var found = snapshot?.Messages.Cast<MailMessageSummary?>().FirstOrDefault(message => message!.Value.Uid == uid);
+        if (found is null)
+        {
+            return ComposedReadResult<ComposedMailMessage>.Failed(ComposedReadOutcome.NotFound, $"No message {uid} in {mailbox} for {owner}.");
+        }
+
+        var summary = Summarize(found.Value);
+        if (summary.Size > MaxReadBytes)
+        {
+            return ComposedReadResult<ComposedMailMessage>.Failed(ComposedReadOutcome.TooLarge, $"Message {uid} is {summary.Size} bytes; a read returns at most {MaxReadBytes}.");
+        }
+
+        _ = mail.FetchMessage(view, mailbox, uid, out var bytes);
+        return ComposedReadResult<ComposedMailMessage>.Of(new(summary, bytes.ToArray()));
+    }
+
+    private static ComposedMailMessageSummary Summarize(MailMessageSummary message) =>
+        new(message.Uid, message.Size, message.Flags, message.InternalDate);
+
+    /// <summary>
     /// Writes a file into the content store as <see cref="ContentStore.SeedFileAsync"/> does.
     /// </summary>
     /// <param name="requestPath">Where the file goes, as a request path.</param>
