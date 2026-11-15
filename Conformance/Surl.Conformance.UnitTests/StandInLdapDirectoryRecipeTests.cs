@@ -47,9 +47,11 @@ public sealed class StandInLdapDirectoryRecipeTests
         await server.ResetAsync(TestContext.CancellationToken);
         var result = await SearchAsync(server);
 
-        // Assert: the entry is gone; the empty directory answers noSuchObject, which curl reports as exit 39.
+        // Assert: the entry is gone; the empty directory answers noSuchObject, which curl reports as exit 39
+        // with its LDAP library's text for the result code: WinLDAP's "No Such Object" on Windows, OpenLDAP's
+        // "No such object" elsewhere (measured on CI's ubuntu-latest, PR #38).
         Assert.AreEqual(39, result.ExitCode, result.StandardError);
-        StringAssert.Contains(result.StandardError, "No Such Object");
+        StringAssert.Contains(result.StandardError, OperatingSystem.IsWindows() ? "No Such Object" : "No such object");
         Assert.DoesNotContain("DN:", Encoding.UTF8.GetString(result.StandardOutput));
     }
 
