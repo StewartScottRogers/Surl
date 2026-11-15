@@ -33,3 +33,4 @@ ADR-0167 decisions 2 to 5. `OciUploadSessions`, `OciTokenBook`, `OciTokenEndpoin
 ## Log
 
 - 2026-11-15: Created.
+- 2026-11-15: Backlog -> Doing.
