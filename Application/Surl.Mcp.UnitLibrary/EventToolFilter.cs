@@ -34,7 +34,7 @@ internal sealed record EventToolFilter(SurlEventQuery Query, IReadOnlySet<string
         ,
             "account": { "type": "string", "minLength": 1,
               "description": "Only events that name this account, or belong to an exchange that judged a login for it; case-sensitive" },
-            "store": { "type": "string", "enum": ["content", "mail", "bus", "accounts", "keyspace", "directory", "zones", "exchanges", "sessions", "producers"],
+            "store": { "type": "string", "enum": ["content", "mail", "bus", "accounts", "keyspace", "directory", "zones", "exchanges", "sessions", "producers", "uploads"],
               "description": "Only changes to this store; no other kind of event matches" },
             "name": { "type": "string", "minLength": 1,
               "description": "Only changes to this name (a path, mailbox, topic, queue, key or account), exactly or as a segment prefix: /uploads matches /uploads and /uploads/a.txt but not /uploads2; case-sensitive; no other kind of event matches" }

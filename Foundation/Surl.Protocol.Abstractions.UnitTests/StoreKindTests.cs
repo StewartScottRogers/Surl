@@ -14,6 +14,7 @@ public sealed class StoreKindTests
     [DataRow(StoreKind.Exchanges, 7)]
     [DataRow(StoreKind.Sessions, 8)]
     [DataRow(StoreKind.Producers, 9)]
+    [DataRow(StoreKind.Uploads, 10)]
     public void Value_EachMember_HasTheNumberTheAdrAssigns(StoreKind member, int expectedNumber)
     {
         int actual = (int)member;
@@ -27,7 +28,7 @@ public sealed class StoreKindTests
         string[] names = Enum.GetNames<StoreKind>();
 
         CollectionAssert.AreEqual(
-            new[] { "Content", "Mail", "Bus", "Accounts", "Keyspace", "Directory", "Zones", "Exchanges", "Sessions", "Producers" },
+            new[] { "Content", "Mail", "Bus", "Accounts", "Keyspace", "Directory", "Zones", "Exchanges", "Sessions", "Producers", "Uploads" },
             names);
     }
 }
