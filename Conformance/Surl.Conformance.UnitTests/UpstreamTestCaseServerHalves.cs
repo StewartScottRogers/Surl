@@ -60,6 +60,10 @@ internal sealed class UpstreamTestCaseServerHalves : IAsyncDisposable
 {
     private const string HttpTlsScheme = "wss";
 
+    // The https-mtls half (BL-1131) is the HTTP half behind TLS that requires a client certificate. It needs a
+    // scheme and a listener factory of its own, since TLS settings are per factory; "mcps" is implicit TLS, HTTP/1.1 only.
+    private const string HttpMutualTlsScheme = "mcps";
+
     // The plaintext proxy needs a scheme of its own because "http" is the origin's; the HTTPS proxy
     // is the "https" scheme with ListenUrl.IsProxy, which the HTTP TLS half (on "wss") leaves free.
     private const string HttpProxyScheme = "http-proxy";
@@ -102,6 +106,7 @@ internal sealed class UpstreamTestCaseServerHalves : IAsyncDisposable
         ("socks5", [LoopbackIPv4]),
         (Http2PlaintextScheme, [LoopbackIPv4]),
         (Http2TlsScheme, [LoopbackIPv4]),
+        (HttpMutualTlsScheme, [LoopbackIPv4]),
     ];
 
     private readonly CaseServer[] servers;
@@ -134,6 +139,9 @@ internal sealed class UpstreamTestCaseServerHalves : IAsyncDisposable
 
     /// <summary>The HTTP TLS listener's port: <c>%HTTPSPORT</c>.</summary>
     public int HttpsPort => ports[PortKey(HttpTlsScheme, LoopbackIPv4)];
+
+    /// <summary>The HTTP TLS listener that requires a client certificate: <c>%HTTPS-MTLSPORT</c>.</summary>
+    public int HttpMutualTlsPort => ports[PortKey(HttpMutualTlsScheme, LoopbackIPv4)];
 
     /// <summary>The FTP listener's port on <c>127.0.0.1</c>: <c>%FTPPORT</c>.</summary>
     public int FtpPort => ports[PortKey("ftp", LoopbackIPv4)];
@@ -247,6 +255,7 @@ internal sealed class UpstreamTestCaseServerHalves : IAsyncDisposable
     /// with no bytes and a datagram is not answered.
     /// </summary>
     /// <param name="tlsSettings">The certificate the TLS listeners serve.</param>
+    /// <param name="mutualTlsSettings">The settings of the TLS listener that requires a client certificate.</param>
     /// <param name="httpUnixSocketPath">
     /// The socket file the plaintext HTTP server half also listens on, for an <c>http-unix</c>
     /// case's <c>%HTTPUNIXPATH</c>, or <see langword="null"/> for none.
@@ -254,7 +263,7 @@ internal sealed class UpstreamTestCaseServerHalves : IAsyncDisposable
     /// <param name="socksUnixSocketPath">The socket file the SOCKS5 server half also listens on, for a <c>socks5unix</c> case's <c>%SOCKSUNIXPATH</c>, or <see langword="null"/> for none.</param>
     /// <param name="cancellationToken">Stops the serving engine.</param>
     public static async Task<UpstreamTestCaseServerHalves> StartAsync(
-        ServerTlsSettings tlsSettings, string? httpUnixSocketPath, string? socksUnixSocketPath, CancellationToken cancellationToken)
+        ServerTlsSettings tlsSettings, ServerTlsSettings mutualTlsSettings, string? httpUnixSocketPath, string? socksUnixSocketPath, CancellationToken cancellationToken)
     {
         CaseServer[] servers = [.. Listeners.Select(listener => new CaseServer(listener.Scheme))];
         var tftp = new CaseDatagramServer("tftp");
@@ -269,7 +278,8 @@ internal sealed class UpstreamTestCaseServerHalves : IAsyncDisposable
             .. HttpUnixSocketListenUrls(httpUnixSocketPath),
             .. SocksUnixSocketListenUrls(socksUnixSocketPath),
         ];
-        var listeners = new BoundPortRecordingListenerFactory(new SocketListenerFactory(tlsSettings), urls.Length);
+        var listeners = new BoundPortRecordingListenerFactory(
+            new MutualTlsRoutingListenerFactory(new SocketListenerFactory(tlsSettings), new SocketListenerFactory(mutualTlsSettings)), urls.Length);
         var log = new NoteCollectingExchangeLogFactory();
         var engine = new ServingEngine(
             listeners, [.. servers, tftp, dns, http3], log, TimeProvider.System, TimeSpan.Zero, ConnectionLimits.Default, new SocketDataConnectionOpener(tlsSettings, TimeProvider.System));
@@ -316,13 +326,13 @@ internal sealed class UpstreamTestCaseServerHalves : IAsyncDisposable
         var mqtt = new MqttUpstreamTestCaseServer(mqttReplies, new AnonymousAuthenticationPolicy());
         var noDefinitions = new ContentStore(
             InMemoryContentFileSystem.RootPath, new InMemoryContentFileSystem(TimeProvider.System), new ContentExposureOptions());
-        IConnectionProtocolServer[] playing = [http, http, ftp, ftp, gopher, gopher, mqtt, mqtt, new DictProtocolServer(noDefinitions), new TelnetProtocolServer(), ssh, smb,
+        IConnectionProtocolServer[] playing = [http, http, ftp, ftp, gopher, gopher, mqtt, mqtt, new DictProtocolServer(noDefinitions), new TelnetProtocolServer(new TelnetUpstreamTestCaseReplies(TimeSpan.FromSeconds(5))), ssh, smb,
             new ImapUpstreamTestCaseServer(mailReplies, new AnonymousAuthenticationPolicy()),
             new Pop3UpstreamTestCaseServer(mailReplies, new AnonymousAuthenticationPolicy()),
             new SmtpUpstreamTestCaseServer(mailReplies, new AnonymousAuthenticationPolicy()),
             new ImapUpstreamTestCaseServer(mailReplies, new AnonymousAuthenticationPolicy()),
             new Pop3UpstreamTestCaseServer(mailReplies, new AnonymousAuthenticationPolicy()),
-            new SmtpUpstreamTestCaseServer(mailReplies, new AnonymousAuthenticationPolicy()), proxy, proxy, socks, socks, http2Gateway, http2Gateway];
+            new SmtpUpstreamTestCaseServer(mailReplies, new AnonymousAuthenticationPolicy()), proxy, proxy, socks, socks, http2Gateway, http2Gateway, http];
         for (var index = 0; index < servers.Length; index++)
         {
             servers[index].Current = arrivalLog.Wrap(playing[index]);
@@ -383,6 +393,19 @@ internal sealed class UpstreamTestCaseServerHalves : IAsyncDisposable
 
         public Task ServeAsync(IDatagramFlow flow, ExchangeContext context) =>
             Current?.ServeAsync(flow, context) ?? Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// Starts the mutual-TLS scheme's listener through the factory whose settings require a client certificate, and every
+    /// other listener through the plain one.
+    /// </summary>
+    private sealed class MutualTlsRoutingListenerFactory(IListenerFactory plain, IListenerFactory mutual) : IListenerFactory
+    {
+        public ValueTask<IConnectionListener> StartConnectionListenerAsync(ListenUrl listenUrl, CancellationToken cancellationToken) =>
+            (listenUrl.Scheme == HttpMutualTlsScheme ? mutual : plain).StartConnectionListenerAsync(listenUrl, cancellationToken);
+
+        public ValueTask<IDatagramListener> StartDatagramListenerAsync(ListenUrl listenUrl, CancellationToken cancellationToken) =>
+            plain.StartDatagramListenerAsync(listenUrl, cancellationToken);
     }
 
     /// <summary>

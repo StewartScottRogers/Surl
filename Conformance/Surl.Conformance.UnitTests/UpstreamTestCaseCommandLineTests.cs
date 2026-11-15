@@ -157,6 +157,57 @@ public sealed class UpstreamTestCaseCommandLineTests
         Assert.ThrowsExactly<FormatException>(() => Build(Command("'u")));
     }
 
+    [TestMethod]
+    public void Build_NonAsciiBytesOffWindows_PassesAStringWhoseUtf8IsTheCaseFilesBytes()
+    {
+        var client = Command("smtp://h/5 --mail-from Avs%hex[%c3%a4]hex%ndaren@example.com");
+
+        var commandLine = BuildFor(client, onWindows: false);
+
+        var argument = commandLine.Arguments[^1];
+        CollectionAssert.AreEqual(
+            new byte[] { 0x41, 0x76, 0x73, 0xC3, 0xA4, 0x6E, 0x64, 0x61, 0x72, 0x65, 0x6E, 0x40 },
+            System.Text.Encoding.UTF8.GetBytes(argument)[..12]);
+    }
+
+    [TestMethod]
+    public void Build_NonAsciiBytesOnWindows_PassesTheArgumentsAsRead()
+    {
+        var client = Command("http://h/5 --mail-from Avs%hex[%c3%a4]hex%ndaren");
+
+        var commandLine = BuildFor(client, onWindows: true);
+
+        Assert.AreEqual("AvsÃ¤ndaren", commandLine.Arguments[^1]);
+    }
+
+    [TestMethod]
+    public void Build_BytesThatAreNotUtf8OffWindows_PassesTheArgumentUnchanged()
+    {
+        var commandLine = BuildFor(Command("u a%hex[%e4]hex%b"), onWindows: false);
+
+        Assert.AreEqual("aäb", commandLine.Arguments[^1]);
+    }
+
+    [TestMethod]
+    public void Build_SetenvWithNonAsciiBytesOffWindows_ConvertsTheValueAsAnArgument()
+    {
+        var commandLine = BuildFor(Command("u") + "<setenv>\nA=%hex[%c3%a5]hex%\nB=%hex[%e4]hex%\n</setenv>\n", onWindows: false);
+
+        Assert.AreEqual("å", commandLine.Environment["A"]);
+        Assert.AreEqual("ä", commandLine.Environment["B"]);
+    }
+
+    [TestMethod]
+    public void Build_NoPlatformGiven_UsesTheRunningOperatingSystem()
+    {
+        var commandLine = Build(Command("u %hex[%c3%a5]hex%"));
+
+        Assert.AreEqual(OperatingSystem.IsWindows() ? "Ã¥" : "å", commandLine.Arguments[^1]);
+    }
+
+    private static UpstreamTestCaseCommandLine BuildFor(string client, bool onWindows) =>
+        UpstreamTestCaseCommandLine.Build(5, Case(client), LogDirectory, onWindows);
+
     private static string Command(string text, string? option = null) =>
         (option is null ? "<command>\n" : $"<command option=\"{option}\">\n") + text + "\n</command>\n";
 

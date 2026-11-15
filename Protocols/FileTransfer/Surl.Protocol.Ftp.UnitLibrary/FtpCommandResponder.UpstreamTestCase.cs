@@ -14,8 +14,14 @@ internal sealed partial class FtpCommandResponder
 {
     private const int UploadReadBufferBytes = 16 * 1024;
 
+    private const string WeirdRetrieveCompletion = "226 File transfer complete";
+
+    // RETRWEIRDO weirds the first RETR only, as upstream clears the flag.
+    private bool weirdRetrieveSpent;
+
     private void AnswerAsTheUpstreamTestCaseSays(FtpUpstreamTestCaseReplies replies)
     {
+        dataConnections.ReportedPassiveHost = replies.ReportsBadPassiveAddress ? "1,2,3,4" : null;
         commands["CWD"] = AnswerUpstreamTestCaseChangeWorkingDirectoryAsync;
         commands["XCWD"] = AnswerUpstreamTestCaseChangeWorkingDirectoryAsync;
         commands["SIZE"] = argument => AnswerUpstreamTestCaseFileStatusAsync(argument, replies.SizeReply);
@@ -30,7 +36,7 @@ internal sealed partial class FtpCommandResponder
 
     private async ValueTask<bool> WriteScriptedReplyAsync(byte[] reply)
     {
-        await connection.WriteAsync(reply, context.CancellationToken);
+        await WriteControlAsync(reply);
 
         return true;
     }
@@ -58,13 +64,46 @@ internal sealed partial class FtpCommandResponder
             return await ReplyAsync(NoSuchFile);
         }
 
-        return await TransferAsync(
+        if (replies.SendsRetrieveRepliesTogether && !weirdRetrieveSpent)
+        {
+            weirdRetrieveSpent = true;
+
+            // One write carries the 150 and the 226; the data follows and no further 226 does (ADR-0156 decision 5).
+            return await TransferAsync(
+                replies.WeirdRetrieveOpeningReply(file.Length) + "\r\n" + WeirdRetrieveCompletion,
+                dataConnection => SendBytesAsync(dataConnection, file, "file"),
+                TransferComplete);
+        }
+
+        return await TransferOrAnswerWithoutDataConnectionAsync(
+            replies,
             replies.RetrieveOpeningReply(FtpPath.ToReplyText(argument), file.Length),
             dataConnection => SendBytesAsync(dataConnection, file, "file"));
     }
 
+    // NODATACONN425, NODATACONN421 and NODATACONN150: no data connection is ever made, so the data command
+    // is answered on the control connection alone (ADR-0156 decisions 1 and 2). The 421 does not close it.
+    private ValueTask<bool> TransferOrAnswerWithoutDataConnectionAsync(
+        FtpUpstreamTestCaseReplies replies, string openingReply, Func<IConnection, Task<string>> send) =>
+        replies.NoDataConnectionReply == FtpNoDataConnectionReply.None
+            ? TransferAsync(openingReply, send)
+            : AnswerWithoutDataConnectionAsync(replies.NoDataConnectionReply);
+
+    private async ValueTask<bool> AnswerWithoutDataConnectionAsync(FtpNoDataConnectionReply kind)
+    {
+        await ReplyAsync("150 Opening data connection");
+
+        return kind switch
+        {
+            FtpNoDataConnectionReply.Refuse425 => await ReplyAsync("425 Can't open data connection"),
+            FtpNoDataConnectionReply.Timeout421 => await ReplyAsync("421 Connection timed out"),
+            _ => true,
+        };
+    }
+
     private ValueTask<bool> AnswerUpstreamTestCaseListingAsync(FtpUpstreamTestCaseReplies replies) =>
-        TransferAsync(ListingOpeningReply, dataConnection => SendBytesAsync(dataConnection, replies.Listing, "listing"));
+        TransferOrAnswerWithoutDataConnectionAsync(
+            replies, ListingOpeningReply, dataConnection => SendBytesAsync(dataConnection, replies.Listing, "listing"));
 
     private async ValueTask<bool> AnswerUpstreamTestCaseUploadAsync(byte[]? argument, FtpUpstreamTestCaseReplies replies)
     {
@@ -74,7 +113,8 @@ internal sealed partial class FtpCommandResponder
             return await ReplyAsync(SyntaxError);
         }
 
-        return await TransferAsync(
+        return await TransferOrAnswerWithoutDataConnectionAsync(
+            replies,
             $"150 Opening data connection for {FtpPath.ToReplyText(argument)}",
             dataConnection => ReceiveUpstreamTestCaseUploadAsync(dataConnection, replies));
     }

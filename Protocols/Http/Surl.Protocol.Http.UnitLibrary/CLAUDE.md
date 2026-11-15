@@ -115,7 +115,7 @@ right after the last `/` of the whole request target, query included, up to the 
 (`/data/10240002.txt` gives part 2; for `CONNECT`, the digits the host name ends in) and the `Authorization` (else `Proxy-Authorization`)
 scheme, `swsbounce` moving the case's next request to the next part. The connection stays open
 unless `swsclose` is in the part or the commands; a missing part closes it with no bytes.
-`HttpUpstreamTestCaseServerCommands` holds `auth_required`, `idle`, `no-expect`, `skip:`,
+`HttpUpstreamTestCaseServerCommands` holds `auth_required`, `connection-monitor` (records `[DISCONNECT]` and a line feed when a connection ends), `idle`, `no-expect`, `skip:`,
 `swsclose`, `writedelay:` (a pause on the exchange's `TimeProvider` between the reply's lines)
 and `Testnum`; any other command throws `NotSupportedException`, as the selector skips such a
 case first. `ReceivedBytesRecordingConnection` records every byte read, in arrival order, as

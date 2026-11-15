@@ -1,7 +1,10 @@
 using System.Net.Security;
 using System.Security.Authentication;
+using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using Surl.Protocol.Abstractions;
+using Tls13AlertException = Surl.Tls13.TlsAlertException;
+using Surl.Tls13Stream;
 using Surl.TlsSrp;
 
 namespace Surl.Networking;
@@ -14,15 +17,18 @@ namespace Surl.Networking;
 internal sealed class ServerTlsHandshake
 {
     private readonly ServerTlsSettings settings;
+    private readonly ITls13Support tls13Support;
 
     /// <summary>
     /// Creates the handshake for a listener.
     /// </summary>
     /// <param name="settings">The process's TLS settings.</param>
     /// <param name="applicationProtocols">The ALPN protocol IDs offered; empty offers none.</param>
-    public ServerTlsHandshake(ServerTlsSettings settings, IReadOnlyList<SslApplicationProtocol> applicationProtocols)
+    /// <param name="tls13Support">Says whether <see cref="SslStream"/> can serve TLS 1.3; the platform's answer when <see langword="null"/>.</param>
+    public ServerTlsHandshake(ServerTlsSettings settings, IReadOnlyList<SslApplicationProtocol> applicationProtocols, ITls13Support? tls13Support = null)
     {
         this.settings = settings;
+        this.tls13Support = tls13Support ?? new PlatformTls13Support();
         ApplicationProtocols = applicationProtocols;
     }
 
@@ -57,7 +63,9 @@ internal sealed class ServerTlsHandshake
     public Task<(Stream Stream, TlsSession Session)> AuthenticateAsync(Stream transport, CancellationToken cancellationToken) =>
         settings.TlsSrpAccounts is { } accounts
             ? AuthenticateTlsSrpAsync(new TlsSrpServer(accounts, settings.TlsSrpRandom!, settings.TlsSrpCertificate), transport, cancellationToken)
-            : AuthenticateSslStreamAsync(transport, cancellationToken);
+            : settings.CanServeTls13Stream && tls13Support.SslStreamLacksTls13Server
+                ? AuthenticateTls13OnlyWithHandBuiltStreamAsync(transport, cancellationToken)
+                : AuthenticateSslStreamAsync(transport, cancellationToken);
 
     private static async Task<(Stream Stream, TlsSession Session)> AuthenticateTlsSrpAsync(
         TlsSrpServer server, Stream transport, CancellationToken cancellationToken)
@@ -71,6 +79,50 @@ internal sealed class ServerTlsHandshake
         catch (Exception exception) when (exception is TlsAlertException or IOException)
         {
             throw new TlsHandshakeException(exception.Message, exception);
+        }
+    }
+
+    // ADR-0157 decision 1: the platform's SslStream has no TLS 1.3 server, so a client that offers
+    // TLS 1.3 and nothing lower is served by the hand-built stream; any other client, and any hello
+    // that is not one whole ClientHello record, goes to SslStream with the bytes read replayed.
+    private async Task<(Stream Stream, TlsSession Session)> AuthenticateTls13OnlyWithHandBuiltStreamAsync(
+        Stream transport, CancellationToken cancellationToken)
+    {
+        ClientHelloPeek peek;
+
+        try
+        {
+            peek = await ClientHelloPeek.ReadAsync(transport, cancellationToken);
+        }
+        catch (IOException exception)
+        {
+            throw new TlsHandshakeException(exception.Message, exception);
+        }
+
+        return peek.OffersOnlyTls13
+            ? await AuthenticateTls13Async(transport, peek, cancellationToken)
+            : await AuthenticateSslStreamAsync(new ReplayedPrefixStream(peek.BytesRead, transport), cancellationToken);
+    }
+
+    private async Task<(Stream Stream, TlsSession Session)> AuthenticateTls13Async(
+        Stream transport, ClientHelloPeek peek, CancellationToken cancellationToken)
+    {
+        var options = settings.CreateTls13Options(ApplicationProtocols, out var certificateKey);
+        using var random = RandomNumberGenerator.Create();
+
+        try
+        {
+            var stream = await Tls13ServerStream.AcceptAsync(transport, options, random, peek.BytesRead, cancellationToken);
+
+            return (stream, SessionOf(stream));
+        }
+        catch (Exception exception) when (exception is Tls13AlertException or IOException)
+        {
+            throw new TlsHandshakeException(exception.Message, exception);
+        }
+        finally
+        {
+            certificateKey.Dispose();
         }
     }
 
@@ -100,6 +152,10 @@ internal sealed class ServerTlsHandshake
         }
     }
 
+    // The Tls13 library's suite numbers are IANA's, as TlsCipherSuite's are.
+    private static TlsSession SessionOf(Tls13ServerStream stream) =>
+        new(SslProtocols.Tls13, (System.Net.Security.TlsCipherSuite)(ushort)stream.CipherSuite, stream.ApplicationProtocol, stream.ClientHello.ServerName, null);
+
     private static TlsSession SessionOf(SslStream sslStream) =>
         new(
             sslStream.SslProtocol,
@@ -110,7 +166,7 @@ internal sealed class ServerTlsHandshake
 
     // RFC 5054's suite numbers are IANA's, as TlsCipherSuite's are.
     private static TlsSession SessionOf(TlsSrpSession session) =>
-        new(SslProtocols.Tls12, (TlsCipherSuite)(ushort)session.CipherSuite, session.ApplicationProtocol, session.ServerName, null)
+        new(SslProtocols.Tls12, (System.Net.Security.TlsCipherSuite)(ushort)session.CipherSuite, session.ApplicationProtocol, session.ServerName, null)
         {
             SrpUserName = session.UserName,
         };

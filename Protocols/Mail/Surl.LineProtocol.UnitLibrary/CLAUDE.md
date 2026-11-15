@@ -24,7 +24,9 @@ The CRLF line machinery the mail servers share (ADR-0050 decision 8), built in B
   IMAP, POP3 and SMTP server halves play them, with a record of every command line read and
   every message uploaded. `FindData` picks `<dataNUM>` for a name whose first number is over
   10000 (NUM its remainder of 10000), else `<data>`. `MailUpstreamTestCaseServerCommands`
-  (internal) reads `Testnum`, `REPLY`, `REPLYLF`, `COUNT`, `CAPA`, `AUTH` and `POSTFETCH`, and
+  (internal) reads `Testnum`, `REPLY`, `REPLYLF`, `COUNT`, `CAPA`, `AUTH`, `POSTFETCH` and
+  `SLOWDOWN` (`IsSlowedDown`; BL-1137, applied by the POP3 half through `BytePacedConnection`, an
+  `IConnection` decorator writing one byte at a time with a 10 ms `TimeProvider` wait after each), and
   throws `NotSupportedException` for any other word (`servercmd-unsupported:<word>`).
 
 This library references `Surl.Protocol.Abstractions.UnitLibrary` and nothing else

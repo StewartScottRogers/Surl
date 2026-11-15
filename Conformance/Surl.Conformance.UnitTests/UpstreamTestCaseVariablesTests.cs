@@ -38,6 +38,22 @@ public sealed class UpstreamTestCaseVariablesTests
     }
 
     [TestMethod]
+    public void Preprocess_Test1800WithTheRunsH2cVersion_ExpectsUpgradeH2c()
+    {
+        var source = File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "UpstreamTestCases", "data", "test1800"));
+        var variables = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["H2CVER"] = UpstreamTestCaseVariables.H2cVersion,
+        };
+        var environment = new UpstreamTestCaseEnvironment(variables, new HashSet<string>(StringComparer.Ordinal), new NoFiles(), TimeProvider.System);
+
+        var testCase = UpstreamTestCaseParser.Parse(source, environment);
+
+        var protocol = System.Text.Encoding.Latin1.GetString(testCase.FindPart("verify", "protocol")!.Content);
+        StringAssert.Contains(protocol, "Upgrade: h2c\n");
+    }
+
+    [TestMethod]
     public void RequireKnownNames_UnknownNames_AreNamedInOrdinalOrder()
     {
         var variables = new Dictionary<string, string>(StringComparer.Ordinal) { ["ZZ"] = "", ["AA"] = "", ["PWD"] = "" };
@@ -45,5 +61,10 @@ public sealed class UpstreamTestCaseVariablesTests
         var exception = Assert.ThrowsExactly<ArgumentException>(() => UpstreamTestCaseVariables.RequireKnownNames(variables));
 
         StringAssert.Contains(exception.Message, "AA, ZZ");
+    }
+
+    private sealed class NoFiles : IUpstreamTestCaseFileReader
+    {
+        public byte[] ReadAllBytes(string path) => [];
     }
 }

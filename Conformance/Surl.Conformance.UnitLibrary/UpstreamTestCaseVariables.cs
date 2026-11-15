@@ -50,6 +50,15 @@ public static class UpstreamTestCaseVariables
         "H2CVER",
     ];
 
+    /// <summary>
+    /// The value of <c>%H2CVER</c>: the <c>Upgrade</c> token a cleartext HTTP/2 upgrade offers.
+    /// </summary>
+    /// <remarks>
+    /// <c>tests/servers.pm</c> at tag <c>curl-8_21_0</c> holds <c>my $h2cver = "h2c";</c>, with the
+    /// comment that the version is decided by the nghttp2 library in use (read 2026-11-14).
+    /// </remarks>
+    public const string H2cVersion = "h2c";
+
     private static readonly HashSet<string> KnownNames = new(Names, StringComparer.Ordinal);
 
     /// <summary>

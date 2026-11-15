@@ -33,6 +33,7 @@ namespace Surl.Protocol.Pop3;
 public sealed class Pop3UpstreamTestCaseServer : IConnectionProtocolServer
 {
     private readonly Pop3ProtocolServer server;
+    private readonly MailUpstreamTestCaseReplies replies;
 
     /// <summary>
     /// Creates the server half of one case.
@@ -44,6 +45,7 @@ public sealed class Pop3UpstreamTestCaseServer : IConnectionProtocolServer
         ArgumentNullException.ThrowIfNull(replies);
         ArgumentNullException.ThrowIfNull(authenticationPolicy);
 
+        this.replies = replies;
         var noMail = new MailboxStore([], allowAnonymous: true, TimeProvider.System);
         server = new Pop3ProtocolServer(authenticationPolicy, authenticationPolicy, noMail) { UpstreamTestCaseReplies = replies };
     }
@@ -58,5 +60,12 @@ public sealed class Pop3UpstreamTestCaseServer : IConnectionProtocolServer
     /// <param name="connection">The accepted connection, plaintext or already TLS.</param>
     /// <param name="context">What the server is told about this exchange.</param>
     /// <returns>A task that completes when the exchange is over.</returns>
-    public Task ServeAsync(IConnection connection, ExchangeContext context) => server.ServeAsync(connection, context);
+    public Task ServeAsync(IConnection connection, ExchangeContext context)
+    {
+        ArgumentNullException.ThrowIfNull(connection);
+        ArgumentNullException.ThrowIfNull(context);
+
+        // SLOWDOWN: every reply one byte at a time, 10 ms apart on the exchange's clock.
+        return server.ServeAsync(replies.IsSlowedDown ? new BytePacedConnection(connection, context.TimeProvider) : connection, context);
+    }
 }

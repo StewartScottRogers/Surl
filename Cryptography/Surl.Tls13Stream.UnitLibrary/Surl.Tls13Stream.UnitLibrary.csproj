@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Surl.Tls13Stream.UnitTests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Surl.Tls13.UnitLibrary\Surl.Tls13.UnitLibrary.csproj" />
+  </ItemGroup>
+
+</Project>

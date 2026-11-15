@@ -16,9 +16,13 @@ namespace Surl.Protocol.Ftp;
 /// <c>REPLY</c> for <c>[num]</c> answers only. <c>RETRNOSIZE</c> leaves the size out of
 /// <c>RETR</c>'s <c>150</c>, <c>RETRSIZE [size]</c> puts that size in it, <c>NOSAVE</c> keeps no
 /// upload, and <c>STOR [msg]</c> ends an upload with <c>[msg]</c> in place of <c>226</c>.
-/// <c>DELAY</c>, <c>RETRWEIRDO</c>, <c>SLOWDOWN</c>, <c>SLOWDOWNDATA</c>, <c>PASVBADIP</c> and
-/// the older <c>NODATACONN</c> forms are not implemented: a case using one is skipped
-/// <c>servercmd-unsupported:&lt;command&gt;</c>.
+/// <c>DELAY [command] [secs]</c> holds the answer to <c>[command]</c> for <c>[secs]</c>, <c>SLOWDOWN</c>
+/// writes control replies one byte per 10 ms and <c>SLOWDOWNDATA</c> data bytes the same way, all on
+/// the injected <see cref="TimeProvider"/>.
+/// <c>NODATACONN425</c>, <c>NODATACONN421</c> and <c>NODATACONN150</c> make a data command answer on the
+/// control connection and open no data connection, <c>PASVBADIP</c> names <c>1,2,3,4</c> in <c>PASV</c>'s
+/// <c>227</c> and <c>RETRWEIRDO</c> sends the first <c>RETR</c>'s <c>150</c> and <c>226</c> together (ADR-0156).
+/// Any other word, <c>NODATACONN</c> alone included, is skipped <c>servercmd-unsupported:&lt;command&gt;</c>.
 /// </remarks>
 internal sealed class FtpUpstreamTestCaseServerCommands
 {
@@ -30,7 +34,12 @@ internal sealed class FtpUpstreamTestCaseServerCommands
     // What each command does to the commands read so far, given its line and its argument.
     private static readonly Dictionary<string, Action<FtpUpstreamTestCaseServerCommands, string, string>> Appliers = new(StringComparer.Ordinal)
     {
-        ["Testnum"] = static (_, _, _) => { },
+        ["Testnum"] = static (commands, _, argument) => commands.TestNumber = argument.Trim(),
+        ["NODATACONN425"] = static (commands, _, _) => commands.NoDataConnectionReply = FtpNoDataConnectionReply.Refuse425,
+        ["NODATACONN421"] = static (commands, _, _) => commands.NoDataConnectionReply = FtpNoDataConnectionReply.Timeout421,
+        ["NODATACONN150"] = static (commands, _, _) => commands.NoDataConnectionReply = FtpNoDataConnectionReply.OpenOnly150,
+        ["PASVBADIP"] = static (commands, _, _) => commands.ReportsBadPassiveAddress = true,
+        ["RETRWEIRDO"] = static (commands, _, _) => commands.SendsRetrieveRepliesTogether = true,
         ["REPLY"] = static (commands, line, argument) => commands.AddReply(line, argument, CrLf),
         ["REPLYLF"] = static (commands, line, argument) => commands.AddReply(line, argument, "\n"),
         ["COUNT"] = static (commands, line, argument) => commands.AddCount(line, argument),
@@ -38,13 +47,20 @@ internal sealed class FtpUpstreamTestCaseServerCommands
         ["RETRSIZE"] = static (commands, line, argument) => commands.RetrieveSize = Number(line, argument),
         ["NOSAVE"] = static (commands, _, _) => commands.DiscardsUploads = true,
         ["STOR"] = static (commands, _, argument) => commands.StoreReply = argument,
+        ["DELAY"] = static (commands, line, argument) => commands.AddDelay(line, argument),
+        ["SLOWDOWN"] = static (commands, _, _) => commands.SlowsControlReplies = true,
+        ["SLOWDOWNDATA"] = static (commands, _, _) => commands.SlowsDataBytes = true,
     };
+
+    /// <summary>The pause between bytes <c>SLOWDOWN</c> and <c>SLOWDOWNDATA</c> make: 0.01 s.</summary>
+    public static readonly TimeSpan SlowByteInterval = TimeSpan.FromMilliseconds(10);
 
     // The letters that escape a control character; a backslash before any other character stands for it.
     private static readonly Dictionary<char, char> ControlEscapes = new() { ['r'] = '\r', ['n'] = '\n', ['t'] = '\t' };
 
     private readonly Dictionary<string, string> replies = new(StringComparer.Ordinal);
     private readonly Dictionary<string, long> counts = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, long> delays = new(StringComparer.Ordinal);
 
     private FtpUpstreamTestCaseServerCommands()
     {
@@ -55,6 +71,18 @@ internal sealed class FtpUpstreamTestCaseServerCommands
     /// upstream's runtests writes first; it names the case, which a server half already knows.
     /// </summary>
     public static IReadOnlySet<string> Supported { get; } = new HashSet<string>(Appliers.Keys, StringComparer.Ordinal);
+
+    /// <summary>The case number from <c>Testnum</c>, empty when the case has none.</summary>
+    public string TestNumber { get; private set; } = string.Empty;
+
+    /// <summary><c>NODATACONN425</c>, <c>NODATACONN421</c> or <c>NODATACONN150</c>: what a data command answers in place of a transfer.</summary>
+    public FtpNoDataConnectionReply NoDataConnectionReply { get; private set; }
+
+    /// <summary><c>PASVBADIP</c>: <c>PASV</c>'s <c>227</c> names host <c>1,2,3,4</c>.</summary>
+    public bool ReportsBadPassiveAddress { get; private set; }
+
+    /// <summary><c>RETRWEIRDO</c>: the first <c>RETR</c>'s <c>150</c> and <c>226</c> go in one write before the data.</summary>
+    public bool SendsRetrieveRepliesTogether { get; private set; }
 
     /// <summary><c>RETRNOSIZE</c>: <c>RETR</c>'s <c>150</c> names no size.</summary>
     public bool OmitsRetrieveSize { get; private set; }
@@ -67,6 +95,20 @@ internal sealed class FtpUpstreamTestCaseServerCommands
 
     /// <summary><c>STOR [msg]</c>: the reply that ends an upload in place of <c>226</c>.</summary>
     public string? StoreReply { get; private set; }
+
+    /// <summary><c>SLOWDOWN</c>: every control reply is written one byte per <see cref="SlowByteInterval"/>.</summary>
+    public bool SlowsControlReplies { get; private set; }
+
+    /// <summary><c>SLOWDOWNDATA</c>: every data-connection byte is written one per <see cref="SlowByteInterval"/>.</summary>
+    public bool SlowsDataBytes { get; private set; }
+
+    /// <summary>
+    /// How long <c>DELAY [command] [secs]</c> holds the answer to <paramref name="command"/>.
+    /// </summary>
+    /// <param name="command">The command in upper case.</param>
+    /// <returns>The delay, or <see langword="null"/> when none was asked for.</returns>
+    public TimeSpan? DelayBefore(string command) =>
+        delays.TryGetValue(command, out var seconds) ? TimeSpan.FromSeconds(seconds) : null;
 
     /// <summary>
     /// Reads <paramref name="lines"/>; blank lines and lines starting <c>#</c> are skipped.
@@ -196,6 +238,13 @@ internal sealed class FtpUpstreamTestCaseServerCommands
     {
         var (command, number) = SplitFirstWord(argument);
         counts[CommandKey(command)] = Number(line, number);
+    }
+
+    // DELAY [command] [secs]
+    private void AddDelay(string line, string argument)
+    {
+        var (command, seconds) = SplitFirstWord(argument);
+        delays[CommandKey(command)] = Number(line, seconds);
     }
 
     private static string CommandKey(string command) =>

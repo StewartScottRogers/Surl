@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <PackageReference Include="MSTest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Microsoft.VisualStudio.TestTools.UnitTesting" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Surl.Tls13Stream.UnitLibrary\Surl.Tls13Stream.UnitLibrary.csproj" />
+    <ProjectReference Include="..\Surl.Cryptography.Curve25519.UnitLibrary\Surl.Cryptography.Curve25519.UnitLibrary.csproj" />
+  </ItemGroup>
+
+</Project>

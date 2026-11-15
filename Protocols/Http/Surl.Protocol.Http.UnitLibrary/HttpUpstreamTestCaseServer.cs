@@ -15,7 +15,8 @@ namespace Surl.Protocol.Http;
 /// Server commands: <c>idle</c> sends nothing after the request and waits for the client to
 /// close; <c>writedelay: [msecs]</c> pauses that long, on the exchange's
 /// <see cref="ExchangeContext.TimeProvider"/>, between the reply's packets, each packet being one
-/// line up to and including its LF; <c>swsclose</c>, <c>auth_required</c>, <c>no-expect</c> and
+/// line up to and including its LF; <c>&lt;postcmd&gt;</c> <c>wait [secs]</c> pauses that long on the same
+/// clock after each reply, before the connection is closed or the next request read; <c>swsclose</c>, <c>auth_required</c>, <c>no-expect</c> and
 /// <c>skip:</c> are described where they act (<see cref="HttpUpstreamTestCaseReplies"/>).
 /// </para>
 /// <para>
@@ -59,6 +60,21 @@ public sealed class HttpUpstreamTestCaseServer(HttpUpstreamTestCaseReplies repli
         ArgumentNullException.ThrowIfNull(context);
 
         var recording = new ReceivedBytesRecordingConnection(connection, replies);
+        try
+        {
+            await ServeRecordedAsync(recording, context);
+        }
+        finally
+        {
+            if (replies.Commands.ConnectionMonitor)
+            {
+                replies.RecordReceived("[DISCONNECT]\n"u8);
+            }
+        }
+    }
+
+    private async Task ServeRecordedAsync(ReceivedBytesRecordingConnection recording, ExchangeContext context)
+    {
         if (await HttpUpstreamTestCaseProxyHeader.ReadPastAsync(recording, context) is not { } requestConnection)
         {
             return;
@@ -109,6 +125,11 @@ public sealed class HttpUpstreamTestCaseServer(HttpUpstreamTestCaseReplies repli
         // for the raw telnet probe of test 1548, whose curl waits for the server until -m.
         var closes = reply.ClosesConnection || (reply.Bytes.Length == 0 && head.Version.Minor >= 1);
         await WritePacketsAsync(connection, reply.Bytes, commands.WriteDelay, context);
+        if (replies.PostReplyWait > TimeSpan.Zero)
+        {
+            await Task.Delay(replies.PostReplyWait, context.TimeProvider, context.CancellationToken);
+        }
+
         if (closes)
         {
             await connection.CompleteWritesAsync(context.CancellationToken);

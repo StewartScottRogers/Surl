@@ -4,8 +4,8 @@ namespace Surl.Conformance;
 /// Which <c>&lt;servercmd&gt;</c> commands each server half implements, by the first word of the
 /// line as the case writes it (ADR-0080 decisions 2 and 3). A case none of whose named servers'
 /// halves implements one of its commands (BL-898: any one named server's suffices) is skipped <c>servercmd-unsupported:&lt;command&gt;</c>, and so is a
-/// case with a <c>&lt;postcmd&gt;</c>, which no server half implements
-/// (<c>servercmd-unsupported:postcmd</c>). A server half that lands adds its row here, the same
+/// case with a <c>&lt;postcmd&gt;</c> (<c>servercmd-unsupported:postcmd</c>) unless
+/// every server half it names is an HTTP one (BL-1133: <c>wait</c>). A server half that lands adds its row here, the same
 /// words its protocol library accepts.
 /// </summary>
 public static class UpstreamTestCaseServerCommands
@@ -13,20 +13,20 @@ public static class UpstreamTestCaseServerCommands
     /// <summary>
     /// The HTTP server half's commands (BL-391), the same words
     /// <c>Surl.Protocol.Http</c>'s <c>HttpUpstreamTestCaseReplies.SupportedServerCommands</c> accepts.
-    /// <c>delay:</c>, <c>stream</c>, <c>rtp:</c>, <c>connection-monitor</c> and <c>upgrade</c> are not.
+    /// <c>delay:</c>, <c>stream</c>, <c>rtp:</c> and <c>upgrade</c> are not.
     /// </summary>
     public static readonly IReadOnlySet<string> Http = new HashSet<string>(
-        ["Testnum", "auth_required", "idle", "no-expect", "skip:", "swsclose", "writedelay:"],
+        ["Testnum", "auth_required", "connection-monitor", "idle", "no-expect", "skip:", "swsclose", "writedelay:"],
         StringComparer.Ordinal);
 
     /// <summary>
     /// The FTP server half's commands (BL-394), the same words <c>Surl.Protocol.Ftp</c>'s
-    /// <c>FtpUpstreamTestCaseReplies.SupportedServerCommands</c> accepts. <c>DELAY</c>,
-    /// <c>RETRWEIRDO</c>, <c>SLOWDOWN</c>, <c>SLOWDOWNDATA</c>, <c>PASVBADIP</c> and the
-    /// <c>NODATACONN</c> forms are not.
+    /// <c>FtpUpstreamTestCaseReplies.SupportedServerCommands</c> accepts (BL-1134 added
+    /// <c>DELAY</c>, <c>SLOWDOWN</c> and <c>SLOWDOWNDATA</c>; BL-1136 the five words of ADR-0156).
+    /// <c>NODATACONN</c> alone is not.
     /// </summary>
     public static readonly IReadOnlySet<string> Ftp = new HashSet<string>(
-        ["Testnum", "REPLY", "REPLYLF", "COUNT", "RETRNOSIZE", "RETRSIZE", "NOSAVE", "STOR"],
+        ["Testnum", "REPLY", "REPLYLF", "COUNT", "RETRNOSIZE", "RETRSIZE", "NOSAVE", "STOR", "DELAY", "SLOWDOWN", "SLOWDOWNDATA", "NODATACONN425", "NODATACONN421", "NODATACONN150", "PASVBADIP", "RETRWEIRDO"],
         StringComparer.Ordinal);
 
     /// <summary>
@@ -36,12 +36,18 @@ public static class UpstreamTestCaseServerCommands
     public static readonly IReadOnlySet<string> Tftp = new HashSet<string>(["Testnum", "writedelay:"], StringComparer.Ordinal);
 
     /// <summary>
+    /// The MQTT server half's commands (BL-1139, ADR-0155), the same words
+    /// <c>Surl.Protocol.Mqtt</c>'s <c>MqttUpstreamTestCaseReplies.SupportedServerCommands</c> accepts.
+    /// BL-1140 adds <c>PUBLISH-before-SUBACK</c>, <c>short-PUBLISH</c>, <c>DISCONNECT-malformed</c> and
+    /// <c>excessive-remaining</c>.
+    /// </summary>
+    public static readonly IReadOnlySet<string> Mqtt = new HashSet<string>(
+        ["Testnum", "error-CONNACK", "remlen-CONNACK", "PINGRESP-as-CONNACK", "PUBLISH-before-SUBACK", "short-PUBLISH", "DISCONNECT-malformed", "excessive-remaining"],
+        StringComparer.Ordinal);
+
+    /// <summary>
     /// The commands of the server halves that implement none (BL-396): Gopher's and DICT's, to
-    /// which FILEFORMAT gives none, TELNET's, and MQTT's, whose <c>error-CONNACK</c>,
-    /// <c>remlen-CONNACK</c>, <c>PUBLISH-before-SUBACK</c>, <c>short-PUBLISH</c>,
-    /// <c>PINGRESP-as-CONNACK</c>, <c>DISCONNECT-malformed</c> and <c>excessive-remaining</c>
-    /// each make the server send a deliberately broken or refusing packet and are not implemented;
-    /// Surl's own SCP, SFTP and SMB servers, which serve the case's files (BL-397) and to
+    /// which FILEFORMAT gives none, TELNET's; Surl's own SCP, SFTP and SMB servers, which serve the case's files (BL-397) and to
     /// which FILEFORMAT gives none; and the <c>httptls+srp</c> server half, which answers every
     /// request with gnutls-serv's page (<see cref="UpstreamTestCaseGnuTlsServPage"/>, BL-568), as
     /// gnutls-serv takes no commands.
@@ -51,10 +57,19 @@ public static class UpstreamTestCaseServerCommands
     /// <summary>
     /// The IMAP, POP3 and SMTP server halves' commands (BL-876 to BL-879), the same words
     /// <c>Surl.LineProtocol</c>'s <c>MailUpstreamTestCaseReplies.SupportedServerCommands</c>
-    /// accepts. <c>DELAY</c>, <c>SLOWDOWN</c>, <c>SLOWDOWNDATA</c> and <c>NOSAVE</c> are not.
+    /// accepts but <c>SLOWDOWN</c>, which only the POP3 half applies (<see cref="Pop3"/>).
+    /// <c>DELAY</c>, <c>SLOWDOWNDATA</c> and <c>NOSAVE</c> are not accepted.
     /// </summary>
     public static readonly IReadOnlySet<string> Mail = new HashSet<string>(
         ["Testnum", "REPLY", "REPLYLF", "COUNT", "CAPA", "AUTH", "POSTFETCH"],
+        StringComparer.Ordinal);
+
+    /// <summary>
+    /// The POP3 server half's commands (BL-1137): <see cref="Mail"/> plus <c>SLOWDOWN</c>, which
+    /// paces each reply one byte per 10 ms on the exchange's clock.
+    /// </summary>
+    public static readonly IReadOnlySet<string> Pop3 = new HashSet<string>(
+        [.. Mail, "SLOWDOWN"],
         StringComparer.Ordinal);
 
     /// <summary>
@@ -80,7 +95,7 @@ public static class UpstreamTestCaseServerCommands
     /// </summary>
     public static readonly IReadOnlySet<string> Dns = new HashSet<string>(["Testnum", "A", "AAAA"], StringComparer.Ordinal);
 
-    /// <summary>The name a case's <c>&lt;postcmd&gt;</c> is checked under; no server half implements it.</summary>
+    /// <summary>The name a case's <c>&lt;postcmd&gt;</c> is checked under; only the HTTP server halves implement it.</summary>
     public const string PostCommand = "postcmd";
 
     private static readonly Dictionary<string, IReadOnlySet<string>> ByServer = new(StringComparer.Ordinal)
@@ -103,15 +118,15 @@ public static class UpstreamTestCaseServerCommands
         ["gopher"] = None,
         ["gopher-ipv6"] = None,
         ["gophers"] = None,
-        ["mqtt"] = None,
-        ["mqtts"] = None,
+        ["mqtt"] = Mqtt,
+        ["mqtts"] = Mqtt,
         ["dict"] = None,
         ["telnet"] = None,
         ["scp"] = None,
         ["sftp"] = None,
         ["smb"] = None,
         ["imap"] = Mail,
-        ["pop3"] = Mail,
+        ["pop3"] = Pop3,
         ["smtp"] = Mail,
         ["httptls+srp"] = None,
         ["httptls+srp-ipv6"] = None,
@@ -129,6 +144,6 @@ public static class UpstreamTestCaseServerCommands
         ArgumentNullException.ThrowIfNull(server);
         ArgumentNullException.ThrowIfNull(command);
 
-        return ByServer.TryGetValue(server, out var commands) && commands.Contains(command);
+        return ByServer.TryGetValue(server, out var commands) && (commands.Contains(command) || (command == PostCommand && ReferenceEquals(commands, Http)));
     }
 }

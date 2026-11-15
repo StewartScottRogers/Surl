@@ -33,9 +33,23 @@ decision 5). This is success criterion 2 of the
 
 | Platform | Commit | Date | Reference pin SHA-256 | Total | Runnable | Passed | Failed | Skipped | test-server-choice | Pass rate |
 | --- | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| `win-x64` | `153bbc14` + BL-549 + BL-855 + BL-896 + BL-897 + BL-898 + BL-899 + BL-900 + BL-556 + BL-682 + BL-562 + BL-689 + BL-776 + BL-856 + BL-1071 + BL-1072 + BL-1076 + BL-1077 + BL-1120 | 2026-11-14 | `0E773709C3A44DB47B88B71351D902027682ED87C3BD3821009E454BACCA8778` | 2,013 | 1,155 | 1,154 | 1 | 858 | 34 | 99.9% |
-| `linux-x64` | `356da7cd` | 2026-11-14 | `153CA463957609117D21A848BE29B70691B85F9E5CC9370C7DAA037B839A4E45` | 2,013 | 1,281 | 1,259 | 22 | 732 | 34 | 98.3% |
-| `osx-arm64` | `356da7cd` | 2026-11-14 | `04E0E69BCD3BD814EC093551A0447AC14EDEEA9D395B468A2025DCB3F766EEBF` | 2,013 | 1,281 | 1,258 | 23 | 732 | 34 | 98.2% |
+| `win-x64` | `c3011bee` | 2026-11-14 | `0E773709C3A44DB47B88B71351D902027682ED87C3BD3821009E454BACCA8778` | 2,013 | 1,185 | 1,185 | 0 | 828 | 34 | 100.0% |
+| `linux-x64` | `145f16b2` | 2026-11-14 | `153CA463957609117D21A848BE29B70691B85F9E5CC9370C7DAA037B839A4E45` | 2,013 | 1,316 | 1,316 | 0 | 697 | 34 | 100.0% |
+| `osx-arm64` | `145f16b2` | 2026-11-14 | `04E0E69BCD3BD814EC093551A0447AC14EDEEA9D395B468A2025DCB3F766EEBF` | 2,013 | 1,316 | 1,316 | 0 | 697 | 34 | 100.0% |
+
+BL-1149 (2026-11-14) moved Linux and macOS to commit `145f16b2`, from [CI run 43651751537](https://github.com/StewartScottRogers/Surl/actions/runs/43651751537) (PR #36): 956, 957 and 958 now pass on both (`RCPT` and `VRFY` answer `501` for a non-ASCII address unless the case lists `SMTPUTF8`, as upstream `ftpserver.pl` does), so each is 1,316 passed, 0 failed and both failures files are empty. The paragraph below is the earlier BL-1142 record, kept as history.
+
+BL-1142 (2026-11-14) recorded all three rows at commit `c3011bee`, which contains BL-1126 to BL-1134, BL-1136,
+BL-1137, BL-1139, BL-1140, BL-1141 and BL-1143 to BL-1147. Linux and macOS come from CI run
+[43650373643](https://github.com/StewartScottRogers/Surl/actions/runs/43650373643) (`workflow_dispatch` on
+`factory/phase-1`): 1,316 runnable, 1,313 passed, 3 failed, 697 skipped on each, and the two results files are
+identical, so 4001 now passes on macOS too. The Windows row is a local run of the same commit (1,185 runnable, all
+passed, 828 skipped; 1452 passes). Still failing on Linux and macOS: 956 (`protocol`, curl sent `DATA` where the case
+expects `QUIT`), 957 and 958 (`errorcode`, curl exits 0, the case expects 8); BL-1127 named them and a follow-up task
+holds them. Every other case named by the tasks above passes, and no `servercmd-unsupported` or
+`server-half-not-composed` skip is left on any platform. The same CI run's macOS fast-test leg failed
+`UpgradeToTlsAsync_TransportResetDuringHandshake_ThrowsTlsHandshakeException` (an `IOException` where
+`TlsHandshakeException` was expected), which is not part of this measurement.
 
 BL-1121 (2026-11-14) recorded the Linux and macOS rows from CI run
 [43629075978](https://github.com/StewartScottRogers/Surl/actions/runs/43629075978) (`workflow_dispatch` on
@@ -158,20 +172,20 @@ upstream's test-server greeting banner in a `-D` file, BL-776), TFTP 15 ran, 13 
 | --- | ---: | ---: | ---: |
 | `debug-build` | 50 | 50 | 50 |
 | `disabled-upstream` | 19 | 14 | 14 |
-| `feature-missing:<name>` | 127 | 16 | 16 |
+| `feature-missing:<name>` | 143 | 16 | 16 |
 | `libtest` | 349 | 350 | 350 |
 | `no-server-half` | 87 | 87 | 87 |
 | `perl-command` | 27 | 27 | 27 |
 | `postcheck` | 14 | 14 | 14 |
 | `precheck` | 19 | 19 | 19 |
-| `server-half-not-composed:<name>` | 0 | 2 | 2 |
-| `server-not-built:<name>` | 38 | 0 | 0 |
-| `servercmd-unsupported:<command>` | 30 | 33 | 33 |
+| `server-half-not-composed:<name>` | 0 | 0 | 0 |
+| `server-not-built:<name>` | 0 | 0 | 0 |
+| `servercmd-unsupported:<command>` | 0 | 0 | 0 |
 | `strippart-unsupported` | 1 | 1 | 1 |
 | `test-server-choice` | 34 | 34 | 34 |
 | `unittest` | 81 | 81 | 81 |
 | `unparsable` | 4 | 4 | 4 |
-| **Total** | **858** | **732** | **732** |
+| **Total** | **828** | **697** | **697** |
 
 ## Releases
 
@@ -181,3 +195,11 @@ for the tag's version at the top of the release notes and fails when there are n
 
 | Version | Platform | Commit | Reference pin SHA-256 | Runnable | Passed | Failed | Skipped | test-server-choice | Pass rate |
 | --- | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
+
+### Why 1072, 1073 and 4001 fail on CI (2026-11-14)
+
+[CI run 43637240745](https://github.com/StewartScottRogers/Surl/actions/runs/43637240745) (head `ca55e264`) shows
+why three cases fail off Windows. Cases 1072 and 1073 (`linux-x64`, `osx-arm64`): curl exits 65
+(`seek callback returned error 2`), not 25, because the runner gives curl a pipe on stdin and curl cannot
+rewind it after the 401; fix in BL-1143. Case 4001 (`osx-arm64` only): curl exits 35 (`tlsv1 alert protocol
+version`), not 101, because ECH needs TLS 1.3 and .NET's macOS server `SslStream` has none; ADR task BL-1144.

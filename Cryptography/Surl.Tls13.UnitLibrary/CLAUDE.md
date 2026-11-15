@@ -79,6 +79,24 @@ And client certificates (BL-600, ADR-0082 decision 3 by way of ADR-0010 section 
   "TLS 1.3, client CertificateVerify", and checks the client's Finished over a transcript that
   includes both. `ClientCertificateChain` holds the chain once CertificateVerify verifies.
 
+And record protection (BL-1145, ADR-0157 decision 2), the record layer of RFC 8446 section 5 for a
+TLS connection over TCP (QUIC has its own packet protection and does not use it):
+
+- `TlsRecordProtector.Protect(type, content, paddingLength)` returns a complete record (outer type 23,
+  version 0x0303), and `TlsRecordUnprotector.Unprotect(record)` returns a `TlsInnerPlaintext`
+  (real content type, content without padding). Each takes the suite and one direction's traffic
+  secret; the key and IV come from HKDF-Expand-Label `key` and `iv`, the nonce is the IV xor the
+  64-bit sequence number, and `SequenceNumber` advances per record (unprotect advances only on a good tag).
+- Suites: `TLS_AES_128_GCM_SHA256` and `TLS_AES_256_GCM_SHA384` with the base class library's
+  `AesGcm`, `TLS_CHACHA20_POLY1305_SHA256` with `Surl.Cryptography.ChaCha20` and `Poly1305`
+  (so this library references those two).
+- `UpdateKeys()` derives the next secret ("traffic upd", section 7.2) and restarts the sequence at zero;
+  the caller sends or reads the KeyUpdate message. A sequence number of 2^64 - 1 is refused.
+- Limits: content at most 2^14, ciphertext at most 2^14 + 256 (`record_overflow`), a bad tag
+  `bad_record_mac`, a wrong outer type `unexpected_message`, a length that does not fit `decode_error`.
+  A compatibility change_cipher_spec record is not protected: the caller skips it before `Unprotect`.
+- Tests replay the protected records of RFC 8448 section 3 byte for byte (`Rfc8448Records`).
+
 Malformed input throws `TlsAlertException` carrying the RFC 8446 section 6 alert; nothing is sent
 on the wire, the caller reports it as QUIC error `0x0100` plus the alert (RFC 9001 section 4.8):
 

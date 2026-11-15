@@ -7,8 +7,15 @@ public sealed class MailUpstreamTestCaseServerCommandsTests
     public void Supported_IsTheKeptInstructions()
     {
         CollectionAssert.AreEquivalent(
-            new[] { "Testnum", "REPLY", "REPLYLF", "COUNT", "CAPA", "AUTH", "POSTFETCH" },
+            new[] { "Testnum", "REPLY", "REPLYLF", "COUNT", "CAPA", "AUTH", "POSTFETCH", "SLOWDOWN" },
             MailUpstreamTestCaseServerCommands.Supported.ToArray());
+    }
+
+    [TestMethod]
+    public void Parse_Slowdown_IsSlowedDown()
+    {
+        Assert.IsTrue(MailUpstreamTestCaseServerCommands.Parse(["SLOWDOWN"]).IsSlowedDown);
+        Assert.IsFalse(MailUpstreamTestCaseServerCommands.Parse([]).IsSlowedDown);
     }
 
     [TestMethod]
@@ -144,7 +151,6 @@ public sealed class MailUpstreamTestCaseServerCommandsTests
 
     [TestMethod]
     [DataRow("DELAY")]
-    [DataRow("SLOWDOWN")]
     [DataRow("SLOWDOWNDATA")]
     [DataRow("NOSAVE")]
     [DataRow("RETRSIZE")]

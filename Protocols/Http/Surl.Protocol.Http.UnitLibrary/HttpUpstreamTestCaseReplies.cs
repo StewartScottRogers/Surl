@@ -40,18 +40,21 @@ public sealed class HttpUpstreamTestCaseReplies
     /// <param name="serverCommands">The <c>&lt;servercmd&gt;</c> lines.</param>
     /// <exception cref="NotSupportedException">A line names a command <see cref="SupportedServerCommands"/> lacks.</exception>
     /// <exception cref="FormatException">A <c>writedelay:</c> or <c>skip:</c> line has no non-negative number.</exception>
-    public HttpUpstreamTestCaseReplies(IReadOnlyDictionary<string, byte[]> parts, IEnumerable<string> serverCommands)
+    /// <param name="postCommands">The <c>&lt;postcmd&gt;</c> lines, or <see langword="null"/> for none: <c>wait [secs]</c> is the one command FILEFORMAT.md gives HTTP.</param>
+    /// <exception cref="NotSupportedException">A <c>&lt;postcmd&gt;</c> line is not <c>wait</c>.</exception>
+    public HttpUpstreamTestCaseReplies(IReadOnlyDictionary<string, byte[]> parts, IEnumerable<string> serverCommands, IEnumerable<string>? postCommands = null)
     {
         ArgumentNullException.ThrowIfNull(parts);
         ArgumentNullException.ThrowIfNull(serverCommands);
 
         this.parts = new Dictionary<string, byte[]>(parts, StringComparer.Ordinal);
         Commands = HttpUpstreamTestCaseServerCommands.Parse(serverCommands);
+        PostReplyWait = HttpUpstreamTestCasePostCommands.ParseWait(postCommands ?? []);
     }
 
     /// <summary>
     /// The first words of the <c>&lt;servercmd&gt;</c> lines the HTTP server half implements:
-    /// <c>Testnum</c>, <c>auth_required</c>, <c>idle</c>, <c>no-expect</c>, <c>skip:</c>,
+    /// <c>Testnum</c>, <c>auth_required</c>, <c>connection-monitor</c>, <c>idle</c>, <c>no-expect</c>, <c>skip:</c>,
     /// <c>swsclose</c> and <c>writedelay:</c>. A case using any other is skipped
     /// <c>servercmd-unsupported:&lt;command&gt;</c>.
     /// </summary>
@@ -73,6 +76,9 @@ public sealed class HttpUpstreamTestCaseReplies
     }
 
     internal HttpUpstreamTestCaseServerCommands Commands { get; }
+
+    /// <summary>How long the server half pauses after sending each reply, from <c>&lt;postcmd&gt;</c> <c>wait</c>; zero when none.</summary>
+    internal TimeSpan PostReplyWait { get; }
 
     internal void RecordReceived(ReadOnlySpan<byte> bytes)
     {

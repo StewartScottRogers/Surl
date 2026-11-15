@@ -1,3 +1,5 @@
+using System.Text;
+
 namespace Surl.Conformance;
 
 /// <summary>
@@ -48,21 +50,41 @@ public sealed record UpstreamTestCaseCommandLine(
     /// <param name="logDirectory">The run's <c>%LOGDIR</c>, with <c>/</c> separators.</param>
     /// <returns>The command line.</returns>
     /// <exception cref="FormatException">The command has an unclosed quote, or a file part has no <c>name</c>.</exception>
-    public static UpstreamTestCaseCommandLine Build(int number, UpstreamTestCase testCase, string logDirectory)
+    /// <param name="onWindows">
+    /// Whether the run is on Windows; <see langword="null"/> asks the operating system. Off Windows
+    /// .NET encodes each argument and environment value as UTF-8, so a value whose Latin-1 bytes (the
+    /// case file's bytes) are valid UTF-8 is passed as the string those bytes decode to, and curl
+    /// receives the case's bytes, as it does from runtests' shell. On Windows the values stay as read.
+    /// </param>
+    public static UpstreamTestCaseCommandLine Build(int number, UpstreamTestCase testCase, string logDirectory, bool? onWindows = null)
     {
         ArgumentNullException.ThrowIfNull(testCase);
         ArgumentNullException.ThrowIfNull(logDirectory);
 
         var outputFile = $"{logDirectory}/curl{number}.out";
+        var keepAsRead = onWindows ?? OperatingSystem.IsWindows();
+        var passCaseBytes = keepAsRead ? (Func<string, string>)(value => value) : DecodeCaseBytesAsUtf8;
 
         return new UpstreamTestCaseCommandLine(
-            BuildArguments(number, testCase, logDirectory, outputFile),
+            BuildArguments(number, testCase, logDirectory, outputFile).Select(passCaseBytes).ToList(),
             ReadStandardInput(testCase),
             ReadFiles(testCase),
-            ReadEnvironment(testCase),
+            ReadEnvironment(testCase).ToDictionary(setting => setting.Key, setting => passCaseBytes(setting.Value), StringComparer.Ordinal),
             outputFile,
             $"{logDirectory}/stdout{number}",
             $"{logDirectory}/stderr{number}");
+    }
+
+    private static string DecodeCaseBytesAsUtf8(string latin1Text)
+    {
+        try
+        {
+            return new UTF8Encoding(false, true).GetString(Encoding.Latin1.GetBytes(latin1Text));
+        }
+        catch (DecoderFallbackException)
+        {
+            return latin1Text;
+        }
     }
 
     private static List<string> BuildArguments(int number, UpstreamTestCase testCase, string logDirectory, string outputFile)

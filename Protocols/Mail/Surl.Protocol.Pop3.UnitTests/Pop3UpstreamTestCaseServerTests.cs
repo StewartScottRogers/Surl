@@ -229,6 +229,32 @@ public sealed class Pop3UpstreamTestCaseServerTests
     }
 
     [TestMethod]
+    public async Task ServeAsync_Slowdown_WritesTheSameRepliesWaitingOnTheExchangesClock()
+    {
+        var clock = new ManualTimeProvider();
+        var connection = new InMemoryConnection(Ascii("NOOP\r\nQUIT\r\n"));
+
+        var serving = Server(Case(["SLOWDOWN"])).ServeAsync(connection, Context(clock, TestContext.CancellationToken));
+        while (!serving.IsCompleted)
+        {
+            clock.Advance(TimeSpan.FromMilliseconds(10));
+            await Task.Yield();
+        }
+
+        await serving;
+        Assert.AreEqual(Greeting + "+OK\r\n+OK surl signing off\r\n", Utf8(connection.WrittenBytes));
+    }
+
+    [TestMethod]
+    public void ServeAsync_NullArguments_Throw()
+    {
+        var server = Server(Case([]));
+
+        Assert.ThrowsExactly<ArgumentNullException>(() => server.ServeAsync(null!, Context(new ManualTimeProvider(), TestContext.CancellationToken)));
+        Assert.ThrowsExactly<ArgumentNullException>(() => server.ServeAsync(new InMemoryConnection([]), null!));
+    }
+
+    [TestMethod]
     public async Task ReceivedBytes_IsEveryCommandLineReadWithCrLf()
     {
         var replies = Case(["REPLY NOOP +OK case"]);

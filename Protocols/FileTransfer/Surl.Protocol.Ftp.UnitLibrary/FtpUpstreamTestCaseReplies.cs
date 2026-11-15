@@ -54,7 +54,9 @@ public sealed class FtpUpstreamTestCaseReplies
     /// <summary>
     /// The first words of the <c>&lt;servercmd&gt;</c> lines the FTP server half implements:
     /// <c>Testnum</c>, <c>REPLY</c>, <c>REPLYLF</c>, <c>COUNT</c>, <c>RETRNOSIZE</c>,
-    /// <c>RETRSIZE</c>, <c>NOSAVE</c> and <c>STOR</c>. A case using any other is skipped
+    /// <c>RETRSIZE</c>, <c>NOSAVE</c>, <c>STOR</c>, <c>DELAY</c>, <c>SLOWDOWN</c> and
+    /// <c>SLOWDOWNDATA</c>, <c>NODATACONN425</c>, <c>NODATACONN421</c>, <c>NODATACONN150</c>,
+    /// <c>PASVBADIP</c> and <c>RETRWEIRDO</c>. A case using any other is skipped
     /// <c>servercmd-unsupported:&lt;command&gt;</c>.
     /// </summary>
     public static IReadOnlySet<string> SupportedServerCommands => FtpUpstreamTestCaseServerCommands.Supported;
@@ -70,6 +72,28 @@ public sealed class FtpUpstreamTestCaseReplies
     /// <c>NOSAVE</c>: what the case's <c>&lt;upload&gt;</c> is checked against.
     /// </summary>
     public byte[] UploadedBytes => Copy(uploaded);
+
+    /// <summary>Whether <c>SLOWDOWN</c> makes control replies go one byte per 10 ms.</summary>
+    internal bool SlowsControlReplies => commands.SlowsControlReplies;
+
+    /// <summary>Whether <c>SLOWDOWNDATA</c> makes data bytes go one per 10 ms.</summary>
+    internal bool SlowsDataBytes => commands.SlowsDataBytes;
+
+    /// <summary>What data commands answer when no data connection is made, from the <c>NODATACONN</c> words.</summary>
+    internal FtpNoDataConnectionReply NoDataConnectionReply => commands.NoDataConnectionReply;
+
+    /// <summary>Whether <c>PASVBADIP</c> puts <c>1,2,3,4</c> in <c>PASV</c>'s <c>227</c>.</summary>
+    internal bool ReportsBadPassiveAddress => commands.ReportsBadPassiveAddress;
+
+    /// <summary>Whether <c>RETRWEIRDO</c> is set.</summary>
+    internal bool SendsRetrieveRepliesTogether => commands.SendsRetrieveRepliesTogether;
+
+    /// <summary>The <c>150</c> of a <c>RETRWEIRDO</c> retrieve: the case number and an empty part, as upstream's.</summary>
+    internal string WeirdRetrieveOpeningReply(long byteCount) =>
+        $"150 Binary data connection for {commands.TestNumber} () ({byteCount.ToString(CultureInfo.InvariantCulture)} bytes).";
+
+    /// <summary>The pause <c>DELAY</c> puts before the answer to <paramref name="command"/>, if any.</summary>
+    internal TimeSpan? DelayBefore(string command) => commands.DelayBefore(command);
 
     /// <summary>The reply that ends an upload in place of <c>226</c>, from <c>STOR [msg]</c>.</summary>
     internal string? StoreReply => commands.StoreReply;

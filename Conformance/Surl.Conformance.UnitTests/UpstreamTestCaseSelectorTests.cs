@@ -325,6 +325,20 @@ public sealed class UpstreamTestCaseSelectorTests
         Assert.AreEqual("libtest", Reason(Server("dns") + "<tool>\nlib1500\n</tool>\n" + Features("Debug")));
     }
 
+    // BL-1131: the https-mtls half is composed, so 2088 and 2089's shape (SSL, !Schannel) runs on an OpenSSL pin and skips on Schannel.
+    [TestMethod]
+    [DataRow("linux-x64", null)]
+    [DataRow("osx-arm64", null)]
+    [DataRow("win-x64", "feature-missing:!Schannel")]
+    public void FindSkipReason_HttpsMtlsCaseNotNeedingSchannel_RunsOnOpenSslPinsAndSkipsOnSchannel(string platform, string? expected)
+    {
+        var pin = ReferencePins().Single(candidate => candidate.Platform == platform);
+        var rules = UpstreamTestCaseSelectionRules.ForBuild(pin, new HashSet<int>(), new HashSet<int>());
+        var testCase = Case(client: Server("https-mtls") + Features("SSL", "!Schannel", "local-http"));
+
+        Assert.AreEqual(expected, new UpstreamTestCaseSelector(rules).FindSkipReason(Number, testCase));
+    }
+
     [TestMethod]
     [DataRow("win-x64", "Schannel")]
     [DataRow("linux-x64", "OpenSSL")]
@@ -398,7 +412,9 @@ public sealed class UpstreamTestCaseSelectorTests
         var rules = UpstreamTestCaseSelectionRules.ForBuild(ReferencePins()[0], new HashSet<int>(), new HashSet<int> { 802 });
 
         Assert.IsTrue(rules.SupportsServerCommand("ftp", "REPLY"));
-        Assert.IsFalse(rules.SupportsServerCommand("ftp", "DELAY"));
+        Assert.IsTrue(rules.SupportsServerCommand("ftp", "DELAY"));
+        Assert.IsTrue(rules.SupportsServerCommand("ftp", "RETRWEIRDO"));
+        Assert.IsFalse(rules.SupportsServerCommand("ftp", "NODATACONN"));
         Assert.IsTrue(rules.SupportsServerCommand("smtp", "REPLY"));
         Assert.IsFalse(rules.SupportsServerCommand("smtp", "SLOWDOWN"));
         Assert.IsFalse(rules.SupportsServerCommand("imaps", "REPLY"));
@@ -415,8 +431,11 @@ public sealed class UpstreamTestCaseSelectorTests
     [DataRow("http", "<servercmd>\nwritedelay: 10\nskip: 4\n</servercmd>\n", null)]
     [DataRow("https", "<servercmd>\nauth_required\nswsclose\n</servercmd>\n", null)]
     [DataRow("http", "<servercmd>\nupgrade\n</servercmd>\n", "servercmd-unsupported:upgrade")]
-    [DataRow("http", "<servercmd>\nconnection-monitor\n</servercmd>\n", "servercmd-unsupported:connection-monitor")]
-    [DataRow("http", "<postcmd>\nwait 1\n</postcmd>\n", "servercmd-unsupported:postcmd")]
+    [DataRow("http", "<servercmd>\nconnection-monitor\n</servercmd>\n", null)]
+    [DataRow("ftp", "<servercmd>\nconnection-monitor\n</servercmd>\n", "servercmd-unsupported:connection-monitor")]
+    [DataRow("http", "<postcmd>\nwait 1\n</postcmd>\n", null)]
+    [DataRow("https", "<postcmd>\nwait 20\n</postcmd>\n", null)]
+    [DataRow("ftp", "<postcmd>\nwait 1\n</postcmd>\n", "servercmd-unsupported:postcmd")]
     [DataRow("http", "<postcmd>\n# nothing\n</postcmd>\n", null)]
     [DataRow("ftp", "<servercmd>\nidle\n</servercmd>\n", "servercmd-unsupported:idle")]
     public void FindSkipReason_ServerCommandsUnderTodaysRules_RunOrSkipByTheServerHalfsTable(string server, string reply, string? expected)

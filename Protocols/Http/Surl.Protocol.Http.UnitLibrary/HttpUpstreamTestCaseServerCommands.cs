@@ -15,6 +15,7 @@ namespace Surl.Protocol.Http;
 /// <param name="NoExpect"><c>no-expect</c>: a request carrying <c>Expect</c> is answered without its body being read.</param>
 /// <param name="ClosesAfterReply"><c>swsclose</c>: the connection is closed after every reply.</param>
 /// <param name="WriteDelay"><c>writedelay: [msecs]</c>: the pause between the reply's packets.</param>
+/// <param name="ConnectionMonitor"><c>connection-monitor</c>: <c>[DISCONNECT]</c> and a line feed are recorded once a connection ends.</param>
 /// <param name="SkippedBodyBytes"><c>skip: [num]</c>: how many bytes of a <c>POST</c> or <c>PUT</c> body are left unread.</param>
 internal sealed record HttpUpstreamTestCaseServerCommands(
     bool AuthRequired,
@@ -22,7 +23,8 @@ internal sealed record HttpUpstreamTestCaseServerCommands(
     bool NoExpect,
     bool ClosesAfterReply,
     TimeSpan WriteDelay,
-    long SkippedBodyBytes)
+    long SkippedBodyBytes,
+    bool ConnectionMonitor)
 {
     // What each command does to the commands read so far, given its line and its argument.
     private static readonly Dictionary<string, Func<HttpUpstreamTestCaseServerCommands, string, string, HttpUpstreamTestCaseServerCommands>> Appliers = new(StringComparer.Ordinal)
@@ -31,6 +33,7 @@ internal sealed record HttpUpstreamTestCaseServerCommands(
         ["auth_required"] = static (commands, _, _) => commands with { AuthRequired = true },
         ["idle"] = static (commands, _, _) => commands with { Idle = true },
         ["no-expect"] = static (commands, _, _) => commands with { NoExpect = true },
+        ["connection-monitor"] = static (commands, _, _) => commands with { ConnectionMonitor = true },
         ["swsclose"] = static (commands, _, _) => commands with { ClosesAfterReply = true },
         ["writedelay:"] = static (commands, line, argument) => commands with { WriteDelay = TimeSpan.FromMilliseconds(Number(line, argument)) },
         ["skip:"] = static (commands, line, argument) => commands with { SkippedBodyBytes = Number(line, argument) },
@@ -42,7 +45,7 @@ internal sealed record HttpUpstreamTestCaseServerCommands(
     /// </summary>
     public static readonly IReadOnlySet<string> Supported = new HashSet<string>(Appliers.Keys, StringComparer.Ordinal);
 
-    private static readonly HttpUpstreamTestCaseServerCommands None = new(false, false, false, false, TimeSpan.Zero, 0);
+    private static readonly HttpUpstreamTestCaseServerCommands None = new(false, false, false, false, TimeSpan.Zero, 0, false);
 
     /// <summary>
     /// Reads <paramref name="lines"/>; blank lines and lines starting <c>#</c> are skipped.

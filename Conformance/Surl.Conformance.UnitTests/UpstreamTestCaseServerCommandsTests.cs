@@ -23,24 +23,44 @@ public sealed class UpstreamTestCaseServerCommandsTests
     [DataRow("https", "skip:", true)]
     [DataRow("https-mtls", "writedelay:", true)]
     [DataRow("http", "upgrade", false)]
+    [DataRow("http", "connection-monitor", true)]
     [DataRow("http", "skip", false)]
-    [DataRow("http", "postcmd", false)]
+    [DataRow("http", "postcmd", true)]
+    [DataRow("https", "postcmd", true)]
+    [DataRow("ftp", "postcmd", false)]
     [DataRow("ftp", "REPLY", true)]
     [DataRow("ftp-ipv6", "COUNT", true)]
     [DataRow("ftps", "RETRSIZE", true)]
-    [DataRow("ftp", "DELAY", false)]
+    [DataRow("ftp", "DELAY", true)]
+    [DataRow("ftp-ipv6", "SLOWDOWN", true)]
+    [DataRow("ftps", "SLOWDOWNDATA", true)]
+    [DataRow("ftp", "RETRWEIRDO", true)]
+    [DataRow("ftp", "PASVBADIP", true)]
+    [DataRow("ftps", "NODATACONN425", true)]
+    [DataRow("ftp", "NODATACONN421", true)]
+    [DataRow("ftp", "NODATACONN150", true)]
+    [DataRow("ftp", "NODATACONN", false)]
     [DataRow("ftp", "idle", false)]
     [DataRow("smtp", "REPLY", true)]
     [DataRow("imap", "POSTFETCH", true)]
     [DataRow("pop3", "CAPA", true)]
-    [DataRow("pop3", "SLOWDOWN", false)]
+    [DataRow("pop3", "SLOWDOWN", true)]
+    [DataRow("imap", "SLOWDOWN", false)]
+    [DataRow("smtp", "SLOWDOWN", false)]
+    [DataRow("pop3", "DELAY", false)]
     [DataRow("imaps", "REPLY", false)]
     [DataRow("rtsp", "idle", false)]
     [DataRow("tftp", "writedelay:", true)]
     [DataRow("tftp", "Testnum", true)]
     [DataRow("tftp", "REPLY", false)]
-    [DataRow("mqtt", "error-CONNACK", false)]
-    [DataRow("mqtts", "remlen-CONNACK", false)]
+    [DataRow("mqtt", "error-CONNACK", true)]
+    [DataRow("mqtts", "remlen-CONNACK", true)]
+    [DataRow("mqtt", "PINGRESP-as-CONNACK", true)]
+    [DataRow("mqtt", "short-PUBLISH", true)]
+    [DataRow("mqtts", "PUBLISH-before-SUBACK", true)]
+    [DataRow("mqtt", "DISCONNECT-malformed", true)]
+    [DataRow("mqtt", "excessive-remaining", true)]
+    [DataRow("mqtt", "REPLY", false)]
     [DataRow("gopher", "Testnum", false)]
     [DataRow("dict", "Testnum", false)]
     [DataRow("telnet", "Testnum", false)]
@@ -79,11 +99,18 @@ public sealed class UpstreamTestCaseServerCommandsTests
     }
 
     [TestMethod]
-    public void None_IsTheCommandsTheGopherAndMqttServerHalvesAccept()
+    public void None_IsTheCommandsTheGopherServerHalfAccepts()
     {
         Assert.IsEmpty(UpstreamTestCaseServerCommands.None);
         Assert.IsEmpty(GopherUpstreamTestCaseReplies.SupportedServerCommands);
-        Assert.IsEmpty(MqttUpstreamTestCaseReplies.SupportedServerCommands);
+    }
+
+    [TestMethod]
+    public void Mqtt_IsTheCommandsTheMqttServerHalfAccepts()
+    {
+        var table = UpstreamTestCaseServerCommands.Mqtt.Order(StringComparer.Ordinal).ToArray();
+
+        CollectionAssert.AreEqual(MqttUpstreamTestCaseReplies.SupportedServerCommands.Order(StringComparer.Ordinal).ToArray(), table);
     }
 
     [TestMethod]
@@ -143,9 +170,17 @@ public sealed class UpstreamTestCaseServerCommandsTests
     }
 
     [TestMethod]
-    public void Mail_IsTheCommandsTheMailServerHalvesAccept()
+    public void Mail_IsTheCommandsTheMailServerHalvesAcceptButSlowdown()
     {
         var table = UpstreamTestCaseServerCommands.Mail.Order(StringComparer.Ordinal).ToArray();
+
+        CollectionAssert.AreEqual(MailUpstreamTestCaseReplies.SupportedServerCommands.Where(command => command != "SLOWDOWN").Order(StringComparer.Ordinal).ToArray(), table);
+    }
+
+    [TestMethod]
+    public void Pop3_IsEveryCommandTheMailReplyReadingAccepts()
+    {
+        var table = UpstreamTestCaseServerCommands.Pop3.Order(StringComparer.Ordinal).ToArray();
 
         CollectionAssert.AreEqual(MailUpstreamTestCaseReplies.SupportedServerCommands.Order(StringComparer.Ordinal).ToArray(), table);
     }

@@ -48,6 +48,29 @@ public sealed class TelnetUpstreamTestCaseRepliesTests
     }
 
     [TestMethod]
+    public async Task ServeAsync_ClientSendsLinesEndingInALineFeed_EchoesEveryLineFeedButTheFinalOne()
+    {
+        var replies = new TelnetUpstreamTestCaseReplies(TimeSpan.FromSeconds(30));
+        var connection = new InMemoryConnection([Bytes("a\nb\n")], peerHalfClosesWhenExhausted: true);
+
+        await ServeAsync(connection, replies, TestContext.CancellationToken);
+
+        CollectionAssert.AreEqual(AfterOpening("a\nb"u8), connection.WrittenBytes);
+        CollectionAssert.AreEqual("a\nb\n"u8.ToArray(), replies.ReceivedBytes);
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_ClientSendsTwoLineFeedsInARow_EchoesTheFirstAndHoldsTheSecond()
+    {
+        var replies = new TelnetUpstreamTestCaseReplies(TimeSpan.FromSeconds(30));
+        var connection = new InMemoryConnection([Bytes("\n\n")], peerHalfClosesWhenExhausted: true);
+
+        await ServeAsync(connection, replies, TestContext.CancellationToken);
+
+        CollectionAssert.AreEqual(AfterOpening("\n"u8), connection.WrittenBytes);
+    }
+
+    [TestMethod]
     public async Task ServeAsync_ClientSendsAnIacInData_EchoesItDoubled()
     {
         var replies = new TelnetUpstreamTestCaseReplies(TimeSpan.FromSeconds(30));

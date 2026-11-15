@@ -258,16 +258,15 @@ Running the http and https cases is built (BL-392):
 Playing the ftp, ftp-ipv6 and ftps cases is built (BL-394): `UpstreamTestCaseServerCommands.Ftp`
 is the FTP row, the same words as `Surl.Protocol.Ftp`'s
 `FtpUpstreamTestCaseReplies.SupportedServerCommands` (`Testnum`, `REPLY`, `REPLYLF`, `COUNT`,
-`RETRNOSIZE`, `RETRSIZE`, `NOSAVE`, `STOR`); `DELAY`, `RETRWEIRDO`, `SLOWDOWN`, `SLOWDOWNDATA`,
-`PASVBADIP` and the `NODATACONN` forms skip `servercmd-unsupported:<command>`.
+`RETRNOSIZE`, `RETRSIZE`, `NOSAVE`, `STOR`, and since BL-1134 `DELAY`, `SLOWDOWN`, `SLOWDOWNDATA`, paced on the exchange's `TimeProvider`; since BL-1136 `NODATACONN425`, `NODATACONN421`,
+`NODATACONN150`, `PASVBADIP` and `RETRWEIRDO`, ADR-0156); `NODATACONN` alone skips `servercmd-unsupported:<command>`.
 
 Playing the dict, gopher, gopher-ipv6, gophers, mqtt, mqtts, telnet and tftp cases is built
 (BL-396): `UpstreamTestCaseServerCommands.Tftp` is the TFTP row (`Testnum`, `writedelay:`, the same
 words as `TftpUpstreamTestCaseReplies.SupportedServerCommands`), and `UpstreamTestCaseServerCommands.None`
-the row of the Gopher, MQTT, DICT and TELNET server halves, which implement no command: MQTT's
-`error-CONNACK`, `remlen-CONNACK`, `PUBLISH-before-SUBACK`, `short-PUBLISH`,
-`PINGRESP-as-CONNACK`, `DISCONNECT-malformed` and `excessive-remaining` skip
-`servercmd-unsupported:<command>`. Every `rtsp` case at the tag is a libtest, so no RTSP server
+the row of the Gopher, DICT and TELNET server halves, which implement no command. The MQTT half's
+`Mqtt` row (BL-1139, BL-1140, ADR-0155) holds `Testnum`, `error-CONNACK`, `remlen-CONNACK`,
+`PINGRESP-as-CONNACK`, `PUBLISH-before-SUBACK`, `short-PUBLISH`, `DISCONNECT-malformed` and `excessive-remaining`. Every `rtsp` case at the tag is a libtest, so no RTSP server
 half is composed.
 
 Playing the scp, sftp and smb cases is built (BL-397): their rows in
@@ -293,8 +292,9 @@ server halves are Surl's own servers, made by the tests' `UpstreamTestCaseFileSe
 
 Playing the imap, pop3 and smtp cases is built (BL-879): `UpstreamTestCaseServerCommands.Mail` is
 their row, the same words as `Surl.LineProtocol`'s `MailUpstreamTestCaseReplies.SupportedServerCommands`
-(`Testnum`, `REPLY`, `REPLYLF`, `COUNT`, `CAPA`, `AUTH`, `POSTFETCH`); `DELAY`, `SLOWDOWN`,
-`SLOWDOWNDATA` and `NOSAVE` skip `servercmd-unsupported:<command>`. The tests' server halves add
+(`Testnum`, `REPLY`, `REPLYLF`, `COUNT`, `CAPA`, `AUTH`, `POSTFETCH`), and `UpstreamTestCaseServerCommands.Pop3` adds `SLOWDOWN` (BL-1137: the POP3 half writes each
+reply one byte at a time, 10 ms apart on the exchange's `TimeProvider`, through `BytePacedConnection`; IMAP and
+SMTP do not, so their cases skip it); `DELAY`, `SLOWDOWNDATA` and `NOSAVE` skip `servercmd-unsupported:<command>`. The tests' server halves add
 `ImapUpstreamTestCaseServer`, `Pop3UpstreamTestCaseServer` and `SmtpUpstreamTestCaseServer` in
 plaintext on `127.0.0.1` and `[::1]` (`%IMAPPORT`, `%POP3PORT`, `%SMTPPORT` and their `6` forms),
 sharing one `MailUpstreamTestCaseReplies` per case built from its `<data*>` parts, with logins

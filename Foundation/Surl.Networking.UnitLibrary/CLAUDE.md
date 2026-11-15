@@ -201,3 +201,13 @@ protocol server.
   `HandshakeFailed`); messages name host, port and reason, never bytes the caller sent. A failed
   or cancelled handshake drops the transport. Tests: `TlsClientConnectorTests`, over in-memory
   pipes with one loopback-socket case.
+- TLS 1.3 where `SslStream` cannot serve it (ADR-0157 decisions 1 to 3; BL-1147). When
+  `ITls13Support` (`PlatformTls13Support`: macOS only) says `SslStream` has no TLS 1.3 server, the
+  settings serve a certificate with no client-certificate setting, and `AcceptedVersions` includes
+  TLS 1.3, `ServerTlsHandshake` reads the first record (`ClientHelloPeek`). A ClientHello whose
+  `supported_versions` lists TLS 1.3 and nothing from SSL 3.0 to TLS 1.2 goes to
+  `Surl.Tls13Stream`'s `Tls13ServerStream` (the bytes read replayed through its `alreadyRead`;
+  `TlsSession` filled from the stream); anything else goes to `SslStream` with the bytes replayed by
+  `ReplayedPrefixStream`, whose zero-length read returns at once while bytes remain (SslStream starts
+  with one). Where the predicate is false nothing is read ahead. This is why the project references
+  `Surl.Tls13Stream.UnitLibrary`; tests use `ClientHelloBytes` and fake `ITls13Support`.

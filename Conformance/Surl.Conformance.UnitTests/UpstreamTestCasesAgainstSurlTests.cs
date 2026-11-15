@@ -77,6 +77,7 @@ public sealed class UpstreamTestCasesAgainstSurlTests
     {
         ["http"] = HttpFamily,
         ["https"] = HttpFamily,
+        ["https-mtls"] = HttpFamily,
         ["http-ipv6"] = HttpFamily,
         ["http-unix"] = HttpFamily,
         ["http/2"] = HttpFamily,
@@ -147,6 +148,9 @@ public sealed class UpstreamTestCasesAgainstSurlTests
             Directory.CreateDirectory(Path.GetDirectoryName(resultsFile)!);
             await File.WriteAllTextAsync(resultsFile, text, TestContext.CancellationToken);
             TestContext.AddResultFile(resultsFile);
+            var failuresFile = Path.Combine(Path.GetDirectoryName(resultsFile)!, UpstreamTestCaseFailureReport.FileNameFor(location.Build.Platform));
+            await File.WriteAllTextAsync(failuresFile, run.Failures.Format(results), TestContext.CancellationToken);
+            TestContext.AddResultFile(failuresFile);
             WriteCounts(resultsFile, results);
             var comparison = await CompareWithThePassingListAsync(location.Build.Platform, resultsFile, results);
 
@@ -309,6 +313,11 @@ public sealed class UpstreamTestCasesAgainstSurlTests
         }
 
         /// <summary>
+        /// Gets the full verdicts of the run's failing cases, for the failures file.
+        /// </summary>
+        public UpstreamTestCaseFailureReport Failures { get; } = new();
+
+        /// <summary>
         /// Gets the upstream builds the run's cases are played with: the reference build, then the
         /// smb build when it is another.
         /// </summary>
@@ -378,7 +387,7 @@ public sealed class UpstreamTestCasesAgainstSurlTests
         }
 
         private async Task<UpstreamTestCaseResult> RunCaseAsync(
-            int number, byte[] source, ServerTlsSettings tlsSettings, CaseClient? onlyClient, CancellationToken cancellationToken)
+            int number, byte[] source, CaseTlsSettings tlsSettings, CaseClient? onlyClient, CancellationToken cancellationToken)
         {
             UpstreamTestCase selected;
             var client = onlyClient ?? reference;
@@ -413,7 +422,7 @@ public sealed class UpstreamTestCasesAgainstSurlTests
         /// <c>sun_path</c> (103 bytes on macOS, 107 elsewhere). Any other case runs as is.
         /// </summary>
         private async Task<UpstreamTestCaseResult> RunInItsSocketFolderAsync(
-            int number, byte[] source, CaseClient client, ServerTlsSettings tlsSettings, IEnumerable<string> serverNames, CancellationToken cancellationToken)
+            int number, byte[] source, CaseClient client, CaseTlsSettings tlsSettings, IEnumerable<string> serverNames, CancellationToken cancellationToken)
         {
             if (!serverNames.Any(name => UpstreamTestCaseServers.Find(name)?.UnixSocketPathVariable is not null))
             {
@@ -432,14 +441,14 @@ public sealed class UpstreamTestCasesAgainstSurlTests
         }
 
         private async Task<UpstreamTestCaseResult> RunSelectedCaseAsync(
-            int number, byte[] source, CaseClient client, ServerTlsSettings tlsSettings, string? httpUnixSocketPath, string? socksUnixSocketPath, CancellationToken cancellationToken)
+            int number, byte[] source, CaseClient client, CaseTlsSettings tlsSettings, string? httpUnixSocketPath, string? socksUnixSocketPath, CancellationToken cancellationToken)
         {
             // The case's folder stands for runtests' own: curl's working directory, %PWD and
             // HOME, with %LOGDIR the relative "log" inside it, as runtests runs one case at a time.
             var caseDirectory = Directory.CreateDirectory(Path.Combine(work, $"{client.LogPrefix}test{number}")).FullName;
             const string logDirectory = "log";
             Directory.CreateDirectory(Path.Combine(caseDirectory, logDirectory));
-            await using var serverHalves = await UpstreamTestCaseServerHalves.StartAsync(tlsSettings, httpUnixSocketPath, socksUnixSocketPath, cancellationToken);
+            await using var serverHalves = await UpstreamTestCaseServerHalves.StartAsync(tlsSettings.For(UpstreamTestCaseParser.Parse(source, SelectionEnvironment(client.Features))), tlsSettings.MutualTls, httpUnixSocketPath, socksUnixSocketPath, cancellationToken);
             await using var tlsSrp = UpstreamTestCaseTlsSrpServerHalf.Start(tlsSrpAccounts, cancellationToken);
 
             var testCase = UpstreamTestCaseParser.Parse(source, RunEnvironment(number, caseDirectory, logDirectory, serverHalves, tlsSrp, client, httpUnixSocketPath, socksUnixSocketPath, source));
@@ -462,10 +471,10 @@ public sealed class UpstreamTestCasesAgainstSurlTests
             try
             {
                 commandLine = UpstreamTestCaseCommandLine.Build(number, testCase, logDirectory);
-                replies = new HttpUpstreamTestCaseReplies(ReplyParts(testCase), CommandsFor(HttpFamily));
+                replies = new HttpUpstreamTestCaseReplies(ReplyParts(testCase), CommandsFor(HttpFamily), PostCommandLines(testCase));
                 ftpReplies = new FtpUpstreamTestCaseReplies(FtpReplyParts(testCase), CommandsFor(FtpFamily));
                 gopherReplies = new GopherUpstreamTestCaseReplies(FtpReplyParts(testCase).GetValueOrDefault("data") ?? []);
-                mqttReplies = new MqttUpstreamTestCaseReplies(FtpReplyParts(testCase).GetValueOrDefault("data") ?? []);
+                mqttReplies = new MqttUpstreamTestCaseReplies(FtpReplyParts(testCase).GetValueOrDefault("data") ?? [], CommandsFor(MqttFamily).ToList());
                 tftpReplies = new TftpUpstreamTestCaseReplies(FtpReplyParts(testCase), CommandsFor(TftpFamily));
                 mailReplies = new MailUpstreamTestCaseReplies(MailReplyParts(testCase), CommandsFor(MailFamily));
                 proxyReplies = new HttpProxyUpstreamTestCaseReplies(ReplyParts(testCase), CommandsFor(HttpProxyFamily));
@@ -475,6 +484,7 @@ public sealed class UpstreamTestCasesAgainstSurlTests
             catch (FormatException exception)
             {
                 testContext.WriteLine($"{client.LogPrefix}test{number}: {exception.Message}");
+                Failures.Record(number, exception.Message);
                 return UpstreamTestCaseResult.Fail(number, "command");
             }
 
@@ -501,6 +511,7 @@ public sealed class UpstreamTestCasesAgainstSurlTests
             if (curl.TimedOut)
             {
                 testContext.WriteLine($"{client.LogPrefix}test{number}: curl stopped after {CaseTimeout.TotalSeconds} s");
+                Failures.Record(number, $"curl stopped after {CaseTimeout.TotalSeconds} s");
                 return UpstreamTestCaseResult.Fail(number, UpstreamTestCaseResult.TimeoutReason);
             }
 
@@ -524,12 +535,15 @@ public sealed class UpstreamTestCasesAgainstSurlTests
             }
 
             testContext.WriteLine($"{client.LogPrefix}test{number}: {verdict}{Environment.NewLine}{serverHalves.Notes}");
+            Failures.Record(
+                number,
+                $"{verdict}\ncurl exit code: {curl.ExitCode}\ncurl stderr:\n{curl.StandardError}\nserver halves:\n{serverHalves.Notes}");
 
             // The results file names the section only: "file (log/jar31.txt)" is "file".
             return UpstreamTestCaseResult.Fail(number, verdict.FailedSection!.Split(' ')[0]);
         }
 
-        private ServerTlsSettings WriteCertificates()
+        private CaseTlsSettings WriteCertificates()
         {
             var certs = Directory.CreateDirectory(Path.Combine(certificateDirectory, "certs"));
             var descriptions = Directory.GetFiles(Path.Combine(Root, "certs"), "*.prm").ToDictionary(
@@ -540,18 +554,80 @@ public sealed class UpstreamTestCasesAgainstSurlTests
                 File.WriteAllBytes(Path.Combine(certs.FullName, name), bytes);
             }
 
-            // The key is imported into an ECDsa object, whose key stays exportable for ServerTlsSettings' re-import.
-            using var key = ECDsa.Create();
-            key.ImportFromPem(System.Text.Encoding.ASCII.GetString(files["test-localhost.key"]));
-            using var issued = X509CertificateLoader.LoadCertificate(files["test-localhost.der"]);
-            using var server = issued.CopyWithPrivateKey(key);
-
             // The http/3 gateway half serves the same certificate over QUIC, with a key of its own to outlive this method.
             var http3Key = ECDsa.Create();
             http3Key.ImportFromPem(System.Text.Encoding.ASCII.GetString(files["test-localhost.key"]));
             http3Certificate = new Http3GatewayCertificate([files["test-localhost.der"]], http3Key);
 
+            // One settings object per certificate a case's <server> line names (BL-1130), made once per run.
+            var named = new Dictionary<string, ServerTlsSettings>(StringComparer.Ordinal);
+            foreach (var name in new[] { "test-localhost" }.Concat(NamedCertificates(Path.Combine(Root, "data"))).Distinct(StringComparer.Ordinal))
+            {
+                named[name] = TlsSettingsFor(files, name);
+            }
+
+            return new CaseTlsSettings(named, MutualTlsSettingsFor(files));
+        }
+
+        // The certificates the corpus's <server> lines name, read from the case files themselves.
+        private IEnumerable<string> NamedCertificates(string dataDirectory) =>
+            Directory.GetFiles(dataDirectory, "test*")
+                .Select(path => File.ReadAllBytes(path))
+                .Select(source =>
+                {
+                    try
+                    {
+                        return UpstreamTestCaseCertificateName.Find(UpstreamTestCaseParser.Parse(source, SelectionEnvironment(reference.Features)));
+                    }
+                    catch (UpstreamTestCaseFormatException)
+                    {
+                        return null;
+                    }
+                })
+                .OfType<string>();
+
+        private static ServerTlsSettings TlsSettingsFor(IReadOnlyDictionary<string, byte[]> files, string name)
+        {
+            // The key is imported into an ECDsa object, whose key stays exportable for ServerTlsSettings' re-import.
+            using var key = ECDsa.Create();
+            key.ImportFromPem(System.Text.Encoding.ASCII.GetString(files[name + ".key"]));
+            using var issued = X509CertificateLoader.LoadCertificate(files[name + ".der"]);
+            using var server = issued.CopyWithPrivateKey(key);
+
             return new ServerTlsSettings(server, [], [], TimeProvider.System);
+        }
+
+        // The https-mtls half (BL-1131): the test-localhost certificate, requiring a client certificate chaining to test-ca.
+        private static ServerTlsSettings MutualTlsSettingsFor(IReadOnlyDictionary<string, byte[]> files)
+        {
+            using var key = ECDsa.Create();
+            key.ImportFromPem(System.Text.Encoding.ASCII.GetString(files["test-localhost.key"]));
+            using var issued = X509CertificateLoader.LoadCertificate(files["test-localhost.der"]);
+            using var server = issued.CopyWithPrivateKey(key);
+            var ca = X509CertificateLoader.LoadCertificate(files["test-ca.crt"]);
+
+            return new ServerTlsSettings(server, [], [ca], TimeProvider.System);
+        }
+
+        /// <summary>
+        /// The run's server TLS settings, one per certificate a case may name; a case naming none gets <c>test-localhost</c>.
+        /// </summary>
+        private sealed class CaseTlsSettings(Dictionary<string, ServerTlsSettings> named, ServerTlsSettings mutualTls) : IDisposable
+        {
+            public ServerTlsSettings MutualTls => mutualTls;
+
+            public ServerTlsSettings For(UpstreamTestCase testCase) =>
+                named[UpstreamTestCaseCertificateName.Find(testCase) ?? "test-localhost"];
+
+            public void Dispose()
+            {
+                foreach (var settings in named.Values)
+                {
+                    settings.Dispose();
+                }
+
+                mutualTls.Dispose();
+            }
         }
 
         private UpstreamTestCaseEnvironment RunEnvironment(
@@ -560,9 +636,11 @@ public sealed class UpstreamTestCasesAgainstSurlTests
             {
                 ["HOSTIP"] = "127.0.0.1",
                 ["CLIENTIP"] = "127.0.0.1",
+                ["H2CVER"] = UpstreamTestCaseVariables.H2cVersion,
                 ["HTTPPORT"] = serverHalves.HttpPort.ToString(CultureInfo.InvariantCulture),
                 ["HTTP6PORT"] = serverHalves.HttpIPv6Port.ToString(CultureInfo.InvariantCulture),
                 ["HTTPSPORT"] = serverHalves.HttpsPort.ToString(CultureInfo.InvariantCulture),
+                ["HTTPS-MTLSPORT"] = serverHalves.HttpMutualTlsPort.ToString(CultureInfo.InvariantCulture),
                 ["HTTP2PORT"] = serverHalves.Http2Port.ToString(CultureInfo.InvariantCulture),
                 ["HTTP2TLSPORT"] = serverHalves.Http2TlsPort.ToString(CultureInfo.InvariantCulture),
                 ["HTTP3PORT"] = serverHalves.Http3Port.ToString(CultureInfo.InvariantCulture),
@@ -731,6 +809,9 @@ public sealed class UpstreamTestCasesAgainstSurlTests
 
         private static IEnumerable<string> ServerCommandLines(UpstreamTestCase testCase) =>
             (testCase.FindPart("reply", "servercmd")?.Lines ?? []).Select(line => line.TrimEnd('\n'));
+
+        private static IEnumerable<string> PostCommandLines(UpstreamTestCase testCase) =>
+            (testCase.FindPart("reply", "postcmd")?.Lines ?? []).Select(line => line.TrimEnd('\n'));
 
         // The case's <reply><dns> lines, which the selector has already checked the DNS server half implements.
         private static IEnumerable<string> DnsLines(UpstreamTestCase testCase) =>

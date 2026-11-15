@@ -13,7 +13,7 @@ public sealed class FtpUpstreamTestCaseRepliesTests
         var supported = FtpUpstreamTestCaseReplies.SupportedServerCommands.Order(StringComparer.Ordinal).ToArray();
 
         CollectionAssert.AreEqual(
-            new[] { "COUNT", "NOSAVE", "REPLY", "REPLYLF", "RETRNOSIZE", "RETRSIZE", "STOR", "Testnum" },
+            new[] { "COUNT", "DELAY", "NODATACONN150", "NODATACONN421", "NODATACONN425", "NOSAVE", "PASVBADIP", "REPLY", "REPLYLF", "RETRNOSIZE", "RETRSIZE", "RETRWEIRDO", "SLOWDOWN", "SLOWDOWNDATA", "STOR", "Testnum" },
             supported);
     }
 
@@ -23,7 +23,7 @@ public sealed class FtpUpstreamTestCaseRepliesTests
         string[] lines =
         [
             "Testnum 135", "", "   ", "# a comment", "REPLY EPSV 500 no", "REPLYLF PWD 257 \"/\"", "COUNT EPSV 1",
-            "RETRNOSIZE", "RETRSIZE 7", "NOSAVE", "STOR 552 disk full",
+            "RETRNOSIZE", "RETRSIZE 7", "NOSAVE", "STOR 552 disk full", "DELAY CWD 60", "SLOWDOWN", "SLOWDOWNDATA", "NODATACONN425", "NODATACONN421", "NODATACONN150", "PASVBADIP", "RETRWEIRDO",
         ];
 
         var replies = new FtpUpstreamTestCaseReplies(new Dictionary<string, byte[]>(), lines);
@@ -33,12 +33,7 @@ public sealed class FtpUpstreamTestCaseRepliesTests
     }
 
     [TestMethod]
-    [DataRow("DELAY CWD 60")]
-    [DataRow("RETRWEIRDO")]
-    [DataRow("SLOWDOWN")]
-    [DataRow("SLOWDOWNDATA")]
-    [DataRow("PASVBADIP")]
-    [DataRow("NODATACONN425")]
+    [DataRow("NODATACONN")]
     [DataRow("CAPA IDLE")]
     [DataRow("AUTH PLAIN")]
     [DataRow("reply EPSV 500 no")]
@@ -56,6 +51,8 @@ public sealed class FtpUpstreamTestCaseRepliesTests
     [DataRow("COUNT CWD")]
     [DataRow("COUNT CWD -1")]
     [DataRow("RETRSIZE big")]
+    [DataRow("DELAY CWD")]
+    [DataRow("DELAY CWD soon")]
     public void Constructor_AMalformedLine_IsAFormatException(string line)
     {
         Assert.ThrowsExactly<FormatException>(() => new FtpUpstreamTestCaseReplies(new Dictionary<string, byte[]>(), [line]));
