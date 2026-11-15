@@ -369,6 +369,81 @@ public sealed class ComposedStores
     }
 
     /// <summary>
+    /// Lists a queue's ready messages in delivery order, one page at a time, as
+    /// <see cref="MessageBus.MessageBus.BrowseQueue"/> does. Consumes, acknowledges and counts nothing,
+    /// publishes nothing, asks no fault rule, and works on a <c>--directory</c> bus (ADR-0164, decisions 1 to 3).
+    /// </summary>
+    /// <param name="queueName">The queue's name.</param>
+    /// <param name="afterPosition">The position of the last message seen; -1 starts at the first.</param>
+    /// <param name="limit">The most messages to return, 1 to 1000 (default 100).</param>
+    /// <returns>The page; <see cref="ComposedReadOutcome.NotFound"/> for an unknown queue;
+    /// <see cref="ComposedReadOutcome.Refused"/> for a limit outside 1 to 1000 or a position below -1.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="queueName"/> is <see langword="null"/>.</exception>
+    public ComposedReadResult<ComposedQueuePage> BrowseQueue(string queueName, int afterPosition = -1, int limit = 100)
+    {
+        ArgumentNullException.ThrowIfNull(queueName);
+        if (limit is < 1 or > 1000 || afterPosition < -1)
+        {
+            return ComposedReadResult<ComposedQueuePage>.Failed(ComposedReadOutcome.Refused, "The limit must be 1 to 1000 and the position at least -1.");
+        }
+
+        var browsed = bus.BrowseQueue(queueName, afterPosition, limit);
+        return browsed.Outcome == MessageBusOutcome.Succeeded
+            ? ComposedReadResult<ComposedQueuePage>.Of(new(browsed.Messages, browsed.ReadyCount, browsed.InFlightCount, browsed.HasMore))
+            : ComposedReadResult<ComposedQueuePage>.Failed(ComposedReadOutcome.NotFound, $"No queue {queueName}.");
+    }
+
+    /// <summary>
+    /// Reads a topic's retained message without dropping it, as <see cref="MessageBus.MessageBus.GetRetainedMessage"/>
+    /// does. Publishes nothing and asks no fault rule (ADR-0164, decisions 1 to 3).
+    /// </summary>
+    /// <param name="topic">The canonical topic name.</param>
+    /// <returns>The message; <see cref="ComposedReadOutcome.NotFound"/> when the topic has none.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="topic"/> is <see langword="null"/>.</exception>
+    public ComposedReadResult<BusMessage> ReadRetainedMessage(string topic)
+    {
+        ArgumentNullException.ThrowIfNull(topic);
+        var retained = bus.GetRetainedMessage(topic);
+        return retained is null
+            ? ComposedReadResult<BusMessage>.Failed(ComposedReadOutcome.NotFound, $"No retained message on {topic}.")
+            : ComposedReadResult<BusMessage>.Of(retained);
+    }
+
+    /// <summary>
+    /// Reads a topic log's records from an offset, as <see cref="MessageBus.MessageBus.ReadLog"/> does.
+    /// Moves no subscription's or group's offset, publishes nothing and asks no fault rule (ADR-0164, decisions 1 to 3).
+    /// </summary>
+    /// <param name="topic">The canonical topic name.</param>
+    /// <param name="fromOffset">The offset of the first record to read; 0 for the oldest the log still holds.</param>
+    /// <param name="limit">The most records to return, 1 to 1000 (default 100).</param>
+    /// <returns>The page; <see cref="ComposedReadOutcome.NotFound"/> for a topic with no log;
+    /// <see cref="ComposedReadOutcome.Refused"/> for a limit outside 1 to 1000 or an offset the log does not hold.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="topic"/> is <see langword="null"/>.</exception>
+    public ComposedReadResult<ComposedLogPage> ReadLog(string topic, long fromOffset = 0, int limit = 100)
+    {
+        ArgumentNullException.ThrowIfNull(topic);
+        if (limit is < 1 or > 1000)
+        {
+            return ComposedReadResult<ComposedLogPage>.Failed(ComposedReadOutcome.Refused, "The limit must be 1 to 1000.");
+        }
+
+        if (!bus.GetLogTopics().Contains(topic))
+        {
+            return ComposedReadResult<ComposedLogPage>.Failed(ComposedReadOutcome.NotFound, $"No log for topic {topic}.");
+        }
+
+        var read = bus.ReadLog(topic, fromOffset, MaxReadBytes);
+        if (read.Outcome != MessageBusOutcome.Succeeded)
+        {
+            return ComposedReadResult<ComposedLogPage>.Failed(ComposedReadOutcome.Refused, $"Offset {fromOffset} is outside the log, which holds {read.LogStartOffset} to {read.HighWatermark}.");
+        }
+
+        var records = read.Records.Take(limit).ToList();
+        var next = fromOffset + records.Count;
+        return ComposedReadResult<ComposedLogPage>.Of(new(records, next, read.HighWatermark, next < read.HighWatermark));
+    }
+
+    /// <summary>
     /// Writes one string key into the Redis keyspace as <see cref="RedisKeyspace.SeedKey"/> does: never consults the
     /// fault plan; publishes <see cref="StoreChange.Seeded"/> (ADR-0158 decision 3).
     /// </summary>
