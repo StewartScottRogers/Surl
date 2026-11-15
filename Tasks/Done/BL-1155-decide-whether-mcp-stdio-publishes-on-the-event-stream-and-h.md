@@ -8,7 +8,7 @@ depends-on: []
 touches: [Documentation/Planning/Decisions]
 requirement: FR-060
 created: 2026-11-14
-completed:
+completed: 2026-11-15
 ---
 # BL-1155 — Decide whether mcp+stdio publishes on the event stream and honours fault rules
 
@@ -23,9 +23,9 @@ A new ADR, marked "Decided by Claude under Stewart's delegation", decides whethe
 
 ## Acceptance criteria
 
-- [ ] A new ADR under `Documentation/Planning/Decisions/` (next free number) decides, with reasons, whether mcp+stdio publishes on the event stream, honours `--fault` rules (which kinds, at which points) and may be combined with `--control`.
-- [ ] If any of it is to be built, this task files one task per library touched with `task-board.ps1 new`, exact `touches`, `depends-on` this task, and checkable acceptance criteria, and the ADR lists them under "Acted on by".
-- [ ] `Documentation/Product/Requirements.md` FR-060's text stays true: if mcp+stdio stays outside the stream, FR-060 says so in one clause.
+- [x] A new ADR under `Documentation/Planning/Decisions/` (next free number) decides, with reasons, whether mcp+stdio publishes on the event stream, honours `--fault` rules (which kinds, at which points) and may be combined with `--control`.
+- [x] If any of it is to be built, this task files one task per library touched with `task-board.ps1 new`, exact `touches`, `depends-on` this task, and checkable acceptance criteria, and the ADR lists them under "Acted on by".
+- [x] `Documentation/Product/Requirements.md` FR-060's text stays true: if mcp+stdio stays outside the stream, FR-060 says so in one clause.
 
 ## Notes
 
@@ -33,3 +33,4 @@ A new ADR, marked "Decided by Claude under Stewart's delegation", decides whethe
 
 - 2026-11-14: Created.
 - 2026-11-15: Backlog -> Doing.
+- 2026-11-15: Doing -> Done. ADR-0162 decides mcp+stdio stays outside the event stream and fault rules; BL-1191 filed
