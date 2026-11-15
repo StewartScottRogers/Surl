@@ -161,8 +161,8 @@ public static class ExtendedProtocolServers
             services.IdentifiersForServer("nats"))),
         new([OciRegistryProtocolServer.Scheme], services => new OciRegistryProtocolServer(
             services.ContentStore, services.AuthenticationPolicyFor(OciRegistryProtocolServer.Scheme), services.TimeProvider)),
-        // The Redis server (ADR-0106, BL-492): one keyspace for redis and rediss, memory only; rediss is TLS from the first byte through TlsSchemes.
-        new(["redis", "rediss"], services => new RedisServer(services.AuthenticationPolicyFor("redis"), services.MessageBus)),
+        // The Redis server (ADR-0106, BL-492): one keyspace for redis and rediss, memory only and held by ComposedProtocolServices.RedisKeyspace so ComposedStores controls it (BL-1161); rediss is TLS from the first byte through TlsSchemes.
+        new(["redis", "rediss"], services => new RedisServer(services.AuthenticationPolicyFor("redis"), services.RedisKeyspace, services.MessageBus)),
         new(["s3"], services => new S3ProtocolServer(
             services.ContentStore, services.ObjectMetadataIndex, services.AuthenticationPolicyFor("s3"), services.TimeProvider)),
         // The SignalR hubs (ADR-0119, BL-450; ADR-0153, BL-1039): each listen URL's hub at its own path, with its own

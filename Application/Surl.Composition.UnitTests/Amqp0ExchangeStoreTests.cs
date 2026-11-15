@@ -60,7 +60,7 @@ public sealed class Amqp0ExchangeStoreTests
         await serve;
 
         CollectionAssert.AreEqual(
-            new[] { StoreKind.Content, StoreKind.Mail, StoreKind.Bus, StoreKind.Accounts, StoreKind.Directory, StoreKind.Exchanges },
+            new[] { StoreKind.Content, StoreKind.Mail, StoreKind.Bus, StoreKind.Accounts, StoreKind.Keyspace, StoreKind.Directory, StoreKind.Exchanges },
             running.Stores.RegisteredStoreOrder.ToArray());
         Assert.IsFalse(Contains(otherType.WrittenBytes, DeclareOkOnChannelOne));
     }

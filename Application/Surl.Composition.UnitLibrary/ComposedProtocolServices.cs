@@ -3,6 +3,7 @@ using Surl.Content;
 using Surl.Core;
 using Surl.Extended.Protocol.DnsQuery;
 using Surl.Extended.Protocol.Kafka;
+using Surl.Extended.Protocol.Redis;
 using Surl.MailStore;
 using Surl.Protocol.Abstractions;
 using Surl.Protocol.Ldap;
@@ -112,6 +113,12 @@ public sealed class ComposedProtocolServices(
     public AuthenticationPolicy AuthenticationPolicyFor(string scheme) =>
         AuthenticationPolicyForScheme is { } policyFor ? policyFor(scheme) : AuthenticationPolicy;
 
+    /// <summary>
+    /// Gets the instance's one Redis keyspace, which the <c>redis</c> and <c>rediss</c> server keeps its keys in and
+    /// <see cref="ComposedStores"/> seeds, resets, snapshots and restores (ADR-0158); built on first use over
+    /// <see cref="TimeProvider"/> and <see cref="Events"/>, so set <see cref="Events"/> first.
+    /// </summary>
+    public RedisKeyspace RedisKeyspace => field ??= new RedisKeyspace(TimeProvider, Events);
     /// <summary>Gets the one clock.</summary>
     public TimeProvider TimeProvider { get; } = timeProvider;
 

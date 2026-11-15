@@ -2,6 +2,7 @@ using Surl.Authentication;
 using Surl.Content;
 using Surl.MailStore;
 using Surl.MessageBus;
+using Surl.Extended.Protocol.Redis;
 using Surl.Protocol.Abstractions;
 using Surl.Protocol.Ldap;
 
@@ -45,6 +46,7 @@ public sealed class ComposedStores
     private readonly MessageBus.MessageBus bus;
     private readonly AccountBook accounts;
     private readonly LdapProtocolServer? ldapServer;
+    private readonly RedisKeyspace? redisKeyspace;
     private readonly IReadOnlyList<ComposedStoreRegistration> controls;
 
     internal ComposedStores(
@@ -55,8 +57,10 @@ public sealed class ComposedStores
         AccountBook accounts,
         long maxSnapshotBytes = DefaultMaxSnapshotBytes,
         IReadOnlyList<ComposedStoreRegistration>? additionalRegistrations = null,
-        LdapProtocolServer? ldapServer = null)
+        LdapProtocolServer? ldapServer = null,
+        RedisKeyspace? redisKeyspace = null)
     {
+        this.redisKeyspace = redisKeyspace;
         this.content = content;
         MetadataIndex = metadataIndex;
         this.mail = mail;
@@ -182,6 +186,28 @@ public sealed class ComposedStores
         var outcome = bus.SeedEnqueue(queueName, message);
         await SaveBusAsync(cancellationToken);
         return outcome;
+    }
+
+    /// <summary>
+    /// Writes one string key into the Redis keyspace as <see cref="RedisKeyspace.SeedKey"/> does: never consults the
+    /// fault plan; publishes <see cref="StoreChange.Seeded"/> (ADR-0158 decision 3).
+    /// </summary>
+    /// <param name="database">The database, 0 to 15.</param>
+    /// <param name="key">The key, at least 1 byte.</param>
+    /// <param name="value">The value.</param>
+    /// <param name="expiry">How long the key lives, or <see langword="null"/> for no expiry.</param>
+    /// <param name="cancellationToken">Cancels the seed before it starts.</param>
+    /// <returns>A task that completes once the key is written.</returns>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="database"/> or <paramref name="expiry"/> is out of range.</exception>
+    /// <exception cref="ArgumentException"><paramref name="key"/> is empty.</exception>
+    /// <exception cref="InvalidOperationException">The key and value are too large, the keyspace is full, or this
+    /// instance composes no Redis server.</exception>
+    public Task SeedKeyAsync(int database, ReadOnlyMemory<byte> key, ReadOnlyMemory<byte> value, TimeSpan? expiry, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var keyspace = redisKeyspace ?? throw new InvalidOperationException("This instance holds no Redis keyspace.");
+        keyspace.SeedKey(database, key, value, expiry);
+        return Task.CompletedTask;
     }
 
     /// <summary>

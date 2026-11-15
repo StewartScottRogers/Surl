@@ -5,6 +5,7 @@ using Surl.Cli;
 using Surl.Content;
 using Surl.Core;
 using Surl.Extended.Protocol.Kafka;
+using Surl.Extended.Protocol.Redis;
 using Surl.MessageBus;
 using Surl.Networking;
 using Surl.Output;
@@ -413,10 +414,16 @@ public static partial class SurlServerComposition
             loaded.State.MailStore,
             loaded.State.MessageBus,
             authentication.Policy.Settings.Accounts,
-            additionalRegistrations: [LdapDirectoryStoreRegistration.For(loaded.State.LdapServer), .. ControlledBrokerStores(servers, instruments.Events)],
-            ldapServer: loaded.State.LdapServer);
+            additionalRegistrations: [.. ControlledRedisKeyspace(servers, services), LdapDirectoryStoreRegistration.For(loaded.State.LdapServer), .. ControlledBrokerStores(servers, instruments.Events)],
+            ldapServer: loaded.State.LdapServer,
+            redisKeyspace: servers.OfType<RedisServer>().Any() ? services.RedisKeyspace : null);
         return ComposeServing(served, seams, servers, stores, authentication, instruments, services.QuicCertificate, dataDirectoryLock);
     }
+
+    // The Redis keyspace joins the order after the accounts when a redis server is composed (ADR-0158 decision 5); with
+    // SURL_EXTENSIONS=0 there is no server and so no store.
+    private static List<ComposedStoreRegistration> ControlledRedisKeyspace(IProtocolServer[] servers, ComposedProtocolServices services) =>
+        servers.OfType<RedisServer>().Any() ? [RedisKeyspaceStoreRegistration.For(services.RedisKeyspace)] : [];
 
     // The stores the composed brokers hold beside the bus (ADR-0159 decision 3), in ordinal order of scheme.
     private static List<ComposedStoreRegistration> ControlledBrokerStores(IProtocolServer[] servers, SurlEventStream events) =>

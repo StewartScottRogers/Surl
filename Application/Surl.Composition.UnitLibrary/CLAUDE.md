@@ -138,6 +138,7 @@ horizontal library may reference it (ADR-0099 decision 11, held by
   disk), the mail store and the bus refuse reset, snapshot and restore, so a whole-instance reset or
   snapshot stops at `Content`; seeding them is allowed, and accounts stay controllable. Tests:
   `ComposedStoresTests`.
+- The Redis keyspace (ADR-0158, BL-1161): `ComposedProtocolServices.RedisKeyspace` is the instance's one keyspace (built on first use over its `TimeProvider` and `Events`), which the `redis`/`rediss` `RedisServer` is built over; when that server is composed (never with `SURL_EXTENSIONS=0`) `RedisKeyspaceStoreRegistration` joins `StoreKind.Keyspace` to the order after the accounts and before the directory, and `ComposedStores.SeedKeyAsync` seeds a string key. Tests: `RedisKeyspaceStoreTests`.
 - The control endpoint's target (ADR-0124 decision 7, BL-1022): the internal `ComposedControlTarget` is
   `Surl.Control`'s `IControlTarget` over a start's `Events`, `Faults` and `Stores`, and `ComposedSnapshot` is its
   `IControlSnapshot`. `AddFault` reads one item as `--fault` does (a bad item `BadRequest` with the reader's text, a
