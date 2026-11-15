@@ -8,7 +8,7 @@ depends-on: []
 touches: [Documentation/Planning/Decisions]
 requirement: FR-061
 created: 2026-11-15
-completed:
+completed: 2026-11-15
 ---
 # BL-1194 — Decide how a test reads back the mail store, the content store and the message bus and finds a store change by name
 
@@ -34,15 +34,20 @@ An ADR, decided by Claude under Stewart's delegation, fixes how a stand-in test 
 
 ## Acceptance criteria
 
-- [ ] A new ADR under `Documentation/Planning/Decisions/`, with the next free number, marked "Decided by Claude under Stewart's delegation", answers questions 1 to 7 above, each in its own numbered decision.
-- [ ] The ADR names the exact `Surl.Api` members, `Surl.Mcp` tool names with their input properties, and control endpoint routes with their answers and error codes, so BL-1199, BL-1201 and BL-1203 can be built without another question.
-- [ ] ADR-0124's header gains an "Amended by" line naming the new ADR.
-- [ ] If any of BL-1195 to BL-1206 needs different scope after the decision, its `Context` is updated to match, and its `Log` gets a line saying so.
-- [ ] If the ADR makes the Redis keyspace, the LDAP directory or the DNS zones readable, one task per layer is filed for them with `task-board.ps1 new`, depending on this task, and listed in Notes.
+- [x] A new ADR under `Documentation/Planning/Decisions/`, with the next free number, marked "Decided by Claude under Stewart's delegation", answers questions 1 to 7 above, each in its own numbered decision.
+- [x] The ADR names the exact `Surl.Api` members, `Surl.Mcp` tool names with their input properties, and control endpoint routes with their answers and error codes, so BL-1199, BL-1201 and BL-1203 can be built without another question.
+- [x] ADR-0124's header gains an "Amended by" line naming the new ADR.
+- [x] If any of BL-1195 to BL-1206 needs different scope after the decision, its `Context` is updated to match, and its `Log` gets a line saying so.
+- [x] If the ADR makes the Redis keyspace, the LDAP directory or the DNS zones readable, one task per layer is filed for them with `task-board.ps1 new`, depending on this task, and listed in Notes.
 
 ## Notes
+
+- ADR-0164 written and ADR-0124 amended. BL-1195 to BL-1206 keep their scope: each already matches decisions 1 to 8, so no Context changed.
+- Decision 9 makes the Redis keyspace, LDAP directory and DNS zones readable; filed BL-1218 (Redis), BL-1219 (LDAP) and BL-1220 (DNS), each depending on this task.
+- Defaults taken: 16 MiB per item, limit 100 (1 to 1000), 64 MiB per reply; name filter is exact-or-segment-prefix, case-sensitive.
 
 ## Log
 
 - 2026-11-15: Created.
 - 2026-11-15: Backlog -> Doing.
+- 2026-11-15: Doing -> Done. ADR-0164 written; ADR-0124 amended; BL-1218 to BL-1220 filed

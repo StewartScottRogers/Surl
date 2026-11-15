@@ -25,6 +25,7 @@
   `http` rule never reaches a proxy; its `path` and its reply rows are in the tables below), and
   [ADR-0161](ADR-0161-which-tools-surl-mcp-adds-to-delete-a-file-and-remove-an-account-and-why-it-adds-no-clear-faults.md)
   (decision 8: `delete_file` and `remove_account` follow `put_file` and `add_account`; no clear-faults tool or route).
+- **Amended by (continued):** [ADR-0164](ADR-0164-how-a-test-reads-back-the-mail-store-the-content-store-and-the-message-bus-and-finds-a-store-change-by-name.md) (decision 1 gains an event name filter, decision 3 gains reads, decisions 7 and 8 gain read routes, read tools and the `store` and `name` event filters).
 - **Acted on by:** BL-785 to BL-821 and BL-823, and the extended-server follow-ups listed under
   Consequences.
 
