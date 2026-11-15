@@ -33,3 +33,4 @@ A test suite not written in .NET seeds Redis keys, LDAP entries and DNS zones th
 ## Log
 
 - 2026-11-14: Created.
+- 2026-11-15: Backlog -> Doing.
