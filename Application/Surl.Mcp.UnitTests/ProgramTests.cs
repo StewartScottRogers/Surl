@@ -103,8 +103,8 @@ public sealed class ProgramTests
     }
 
     [TestMethod]
-    [DataRow("get_events", new[] { "server_id", "after_sequence", "kinds", "scheme", "listen_url", "account", "max_events" })]
-    [DataRow("wait_for_event", new[] { "server_id", "after_sequence", "kinds", "scheme", "listen_url", "account", "timeout_ms" })]
+    [DataRow("get_events", new[] { "server_id", "after_sequence", "kinds", "scheme", "listen_url", "account", "store", "name", "max_events" })]
+    [DataRow("wait_for_event", new[] { "server_id", "after_sequence", "kinds", "scheme", "listen_url", "account", "store", "name", "timeout_ms" })]
     public async Task RunAsync_ToolsList_IncludesEachEventToolWithAnObjectInputSchemaAndADescription(string name, string[] properties)
     {
         await using var host = new ProgramTestHost(TestContext.CancellationToken);
@@ -119,6 +119,23 @@ public sealed class ProgramTests
         Assert.IsFalse(inputSchema.GetProperty("additionalProperties").GetBoolean());
         CollectionAssert.AreEqual(new[] { "server_id" }, inputSchema.GetProperty("required").EnumerateArray().Select(item => item.GetString()).ToArray());
         CollectionAssert.AreEqual(properties, inputSchema.GetProperty("properties").EnumerateObject().Select(property => property.Name).ToArray());
+    }
+
+    [TestMethod]
+    [DataRow("get_events")]
+    [DataRow("wait_for_event")]
+    public async Task RunAsync_EventToolWithAnUnknownStore_IsRefusedBySchemaCheck(string toolName)
+    {
+        await using var host = new ProgramTestHost(TestContext.CancellationToken);
+        await host.CallAsync(InitializeRequest);
+
+        var response = await host.CallForResponseAsync(
+            """{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":""" + $"\"{toolName}\""
+            + ""","arguments":{"server_id":"s1","store":"no_such_store"}}}""");
+
+        var error = response.GetProperty("error");
+        Assert.AreEqual(-32602, error.GetProperty("code").GetInt32());
+        StringAssert.Contains(error.GetProperty("message").GetString(), "store");
     }
 
     [TestMethod]

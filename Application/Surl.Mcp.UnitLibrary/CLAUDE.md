@@ -34,7 +34,8 @@ with one `McpServerRegistry.AddTool` line and holds nothing else of the tools.
     `stop_server`.
   - `GetEventsTool` (`get_events`): `server_id`, `after_sequence`, `kinds` (`exchange_started`,
     `exchange_ended`, `login_judged`, `store_changed`, `fault_applied`, `hook_failed`, `consumer_group_changed`), `scheme`, `listen_url`,
-    `account` and `max_events` (1 to 500, default 100), found with `SurlServer.FindEvents`. Result `{events,
+    `account`, `store` (a `StoreKind` in snake_case; a schema enum), `name` (a store change's name, exactly or as a
+    segment prefix) and `max_events` (1 to 500, default 100), found with `SurlServer.FindEvents`. Result `{events,
     has_more, dropped_event_count}`, oldest first.
   - `WaitForEventTool` (`wait_for_event`): the same filters and `timeout_ms` (1 to 60000, default 10000),
     waited for with `SurlServer.WaitForEventAsync` on the host's clock. Result `{event}`, or `{timed_out: true}`,

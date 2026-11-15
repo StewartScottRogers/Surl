@@ -7,7 +7,7 @@ namespace Surl.Mcp;
 /// <summary>
 /// The filters <c>get_exchanges</c>, <c>get_events</c> and <c>wait_for_event</c> take (ADR-0124 decision 8), read
 /// from a call's arguments: <c>scheme</c> and <c>listen_url</c> for all three, and <c>after_sequence</c>,
-/// <c>kinds</c> and <c>account</c> for the two event tools. Everything but <c>kinds</c> becomes the
+/// <c>kinds</c>, <c>account</c>, <c>store</c> and <c>name</c> for the two event tools. Everything but <c>kinds</c> becomes the
 /// <see cref="SurlEventQuery"/> a .NET test would pass to <see cref="SurlServer"/>; <c>kinds</c>, which may name
 /// several kinds, is matched by <see cref="IsOfKind"/>.
 /// </summary>
@@ -33,7 +33,11 @@ internal sealed record EventToolFilter(SurlEventQuery Query, IReadOnlySet<string
         """ + SchemeAndListenUrlProperties + """
         ,
             "account": { "type": "string", "minLength": 1,
-              "description": "Only events that name this account, or belong to an exchange that judged a login for it; case-sensitive" }
+              "description": "Only events that name this account, or belong to an exchange that judged a login for it; case-sensitive" },
+            "store": { "type": "string", "enum": ["content", "mail", "bus", "accounts", "keyspace", "directory", "zones", "exchanges", "sessions", "producers"],
+              "description": "Only changes to this store; no other kind of event matches" },
+            "name": { "type": "string", "minLength": 1,
+              "description": "Only changes to this name (a path, mailbox, topic, queue, key or account), exactly or as a segment prefix: /uploads matches /uploads and /uploads/a.txt but not /uploads2; case-sensitive; no other kind of event matches" }
         """;
 
     /// <summary>Reads the filters <paramref name="arguments"/> give.</summary>
@@ -55,6 +59,8 @@ internal sealed record EventToolFilter(SurlEventQuery Query, IReadOnlySet<string
             Scheme = StringOrNull(arguments, "scheme"),
             ListenUrl = listenUrl,
             Account = StringOrNull(arguments, "account"),
+            Store = ReadStore(arguments),
+            Name = StringOrNull(arguments, "name"),
             AfterSequence = arguments.TryGetProperty("after_sequence", out var after) ? after.GetInt64() : 0,
         };
         filter = new EventToolFilter(query, ReadKinds(arguments));
@@ -65,6 +71,17 @@ internal sealed record EventToolFilter(SurlEventQuery Query, IReadOnlySet<string
     /// <param name="surlEvent">An event the query matched.</param>
     /// <returns><see langword="true"/> when it is.</returns>
     public bool IsOfKind(SurlEvent surlEvent) => Kinds is null || Kinds.Contains(RecordedEventWriter.KindOf(surlEvent));
+
+    private static StoreKind? ReadStore(JsonElement arguments)
+    {
+        if (!arguments.TryGetProperty("store", out var store))
+        {
+            return null;
+        }
+
+        // The schema has already restricted the value to the snake_case names of StoreKind.
+        return Enum.GetValues<StoreKind>().Single(kind => JsonNamingPolicy.SnakeCaseLower.ConvertName(kind.ToString()) == store.GetString());
+    }
 
     private static string? StringOrNull(JsonElement arguments, string name) =>
         arguments.TryGetProperty(name, out var value) ? value.GetString() : null;
