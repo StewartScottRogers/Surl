@@ -8,7 +8,7 @@ depends-on: [BL-1155]
 touches: [Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests]
 requirement: FR-060
 created: 2026-11-15
-completed:
+completed: 2026-11-15
 ---
 # BL-1191 — Refuse --fault and --control beside mcp+stdio
 
@@ -22,14 +22,17 @@ completed:
 
 ## Acceptance criteria
 
-- [ ] `McpStdioComposition.FindRefusal` returns `FailedInit` with a line starting `mcp+stdio:` and naming `--fault` when `Faults` is not empty.
-- [ ] It does the same naming `--control` when `ControlListenUrl` is set.
-- [ ] Tests in `McpStdioCompositionTests` cover both refusals and a command line with neither (still `null`).
-- [ ] The `mcp` topic's about text in `--aihelp` says `mcp+stdio:` takes neither option, and `dotnet test --filter "TestCategory!=Integration"` is green.
+- [x] `McpStdioComposition.FindRefusal` returns `FailedInit` with a line starting `mcp+stdio:` and naming `--fault` when `Faults` is not empty.
+- [x] It does the same naming `--control` when `ControlListenUrl` is set.
+- [x] Tests in `McpStdioCompositionTests` cover both refusals and a command line with neither (still `null`).
+- [x] The `mcp` topic's about text in `--aihelp` says `mcp+stdio:` takes neither option, and `dotnet test --filter "TestCategory!=Integration"` is green.
 
 ## Notes
+
+Decision: refusal text names the option and says the session is outside the event stream (ADR-0162 decision 3). Faults checked before control.
 
 ## Log
 
 - 2026-11-15: Created.
 - 2026-11-15: Backlog -> Doing.
+- 2026-11-15: Doing -> Done. mcp+stdio refuses --fault and --control

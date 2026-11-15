@@ -80,7 +80,7 @@ horizontal library may reference it (ADR-0099 decision 11, held by
 - `mcp+stdio:` (ADR-0111 decision 5, BL-979): `ExtendedProtocolServers.Registrations` has an entry for the scheme whose
   `McpStdioListenUrlServer` only claims it, so the parser accepts it (the listen URL has an empty host and port 0;
   `ListenUrlParser` reads it apart). It is never served through the engine: the host calls `McpStdioComposition.IsAsked`,
-  `FindRefusal` (another or proxy listen URL beside it, or `--trace`/`--trace-ascii`/`--log-file` to `-`, each `FailedInit`)
+  `FindRefusal` (another or proxy listen URL beside it, `--trace`/`--trace-ascii`/`--log-file` to `-`, `--fault` or `--control` (BL-1191, ADR-0162), each `FailedInit`)
   and `ServeAsync`, which serves `McpStdioSession` over the content store on the streams it is given, writing the
   `Listening on mcp+stdio:` line (info up) to the log only. `SURL_EXTENSIONS=0` leaves the scheme unregistered.
 - DNS over HTTPS (ADR-0092 Amendment 4, BL-1018): `--dns-transport https` expands a `dns` listen URL to a connection-only one with `IsImplicitTls` and `IsDnsOverHttps` on 443; the `dns` connection registration is a `DnsConnectionRoutingProtocolServer` sending it to `Http2ConnectionServer` (ALPN `h2`) or `Http1ConnectionServer`, both over a `DnsOverHttpsHandler`, and every other listen URL to `DnsTcpProtocolServer`. Refused beside `tcp` or `tls` on one explicit port (2); needs `--cert` or `--self-signed` (58).
