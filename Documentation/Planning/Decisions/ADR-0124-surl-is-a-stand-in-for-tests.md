@@ -299,6 +299,7 @@ The extended servers (decision 9), each judged by its own specification (ADR-008
 | `webtransport` | an HTTP status 400 to 599 and optional text, answering the extended CONNECT that opens a session, with the text as a plain-text body (BL-1065) |
 | `stomp`, `stomps` | text, sent as an `ERROR` frame's `message` header, after which the connection closes (BL-1062) |
 | `xmpp`, `xmpps` | a stanza error condition of RFC 6120 section 8.3.3 (for example `service-unavailable`), answered as `<error type=...>` on the matching stanza (BL-1063) |
+| `grpc`, `grpcs` | a gRPC status code 1 to 16 (never 0, `OK`) and an optional message, answered as `grpc-status` and `grpc-message` in a Trailers-Only response; `command` is the method name and `path` the full `/<service>/<method>`; a drop resets the call's stream (BL-1188) |
 | `dns` | an RCODE 1 to 5 |
 | `redis`, `rediss` | text, sent as a RESP error (`-<text>`) |
 

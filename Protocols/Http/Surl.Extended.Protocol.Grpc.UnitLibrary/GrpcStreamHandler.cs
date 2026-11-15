@@ -100,6 +100,11 @@ public sealed class GrpcStreamHandler : IHttp2StreamHandler
             }
 
             var status = await AnswerAsync(stream, writer, cancellationToken);
+            if (status is null)
+            {
+                return;
+            }
+
             end = new GrpcCallException(status);
         }
         catch (GrpcCallException failure)
@@ -121,7 +126,8 @@ public sealed class GrpcStreamHandler : IHttp2StreamHandler
         await writer.FinishAsync(end.Status, end.TrailerMetadata);
     }
 
-    private async Task<GrpcStatus> AnswerAsync(Http2RequestStream stream, GrpcResponseWriter writer, CancellationToken cancellationToken)
+    // Null when a drop rule reset the stream: nothing more is written.
+    private async Task<GrpcStatus?> AnswerAsync(Http2RequestStream stream, GrpcResponseWriter writer, CancellationToken cancellationToken)
     {
         var head = stream.Head;
         if (!Values(head, "te").Contains("trailers", StringComparer.OrdinalIgnoreCase))
@@ -133,6 +139,18 @@ public sealed class GrpcStreamHandler : IHttp2StreamHandler
         var timeout = GrpcTimeout.Read(Values(head, "grpc-timeout"));
         var encoding = GrpcMessageDecompression.ReadEncoding(FirstValue(head, "grpc-encoding"));
         var method = FindMethod(head.Target);
+        var fault = await GrpcCallFaults.ApplyAsync(context, head.Target, method.Name);
+        if (fault.IsDrop)
+        {
+            await stream.ResetAsync(Http2ErrorCode.InternalError, "dropped by a fault rule");
+            return null;
+        }
+
+        if (fault.Status is { } chosen)
+        {
+            throw new GrpcCallException(chosen);
+        }
+
         var requests = new GrpcRequestReader(stream, encoding, maximumMessageLength, maximumCallLength);
         return await ServeWithinDeadlineAsync(method, requests, writer, timeout, cancellationToken);
     }
