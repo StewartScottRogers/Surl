@@ -61,6 +61,28 @@ public sealed class StandInMailRoundTripRecipeTests
     }
 
     [TestMethod]
+    public async Task SendOverSmtp_ThenReadBackThroughSurlApi_ReturnsTheSentMessage()
+    {
+        // Arrange: one server with bob's mailbox.
+        await using var server = await StartAsync();
+        var messageFile = await WriteMessageFileAsync();
+
+        // Act: the code under test sends over SMTP; the test waits for the delivery event, then reads the
+        // stored bytes through the API, with no IMAP or POP3 client.
+        var sent = await PinnedUpstreamCurl.RunAsync(
+            TestContext, "-sS", "--mail-from", Ann, "--mail-rcpt", Bob, "-T", messageFile, UrlOf(server, "smtp", "/c"));
+        await server.WaitForEventAsync(MailChange(), WaitLimit, TestContext.CancellationToken);
+        var page = await server.Mail.ListMessagesAsync(Bob, "INBOX", cancellationToken: TestContext.CancellationToken);
+        var read = await server.Mail.ReadMessageAsync(Bob, "INBOX", page.Messages.Single().Uid, TestContext.CancellationToken);
+
+        // Assert: curl succeeded and the stored bytes end with the sent message; the server may add
+        // Return-Path and Received lines before it.
+        Assert.AreEqual(0, sent.ExitCode, sent.StandardError);
+        var stored = Encoding.UTF8.GetString(read.Bytes.Span);
+        Assert.IsTrue(stored.EndsWith(Message, StringComparison.Ordinal), stored);
+    }
+
+    [TestMethod]
     public async Task SeedMessage_ThenReadOverPop3_ReturnsTheSeededMessage()
     {
         // Arrange: a server with bob's mailbox.

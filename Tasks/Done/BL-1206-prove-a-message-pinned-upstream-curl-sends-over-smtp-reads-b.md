@@ -8,7 +8,7 @@ depends-on: [BL-1199]
 touches: [Conformance/Surl.Conformance.UnitTests]
 requirement: FR-061
 created: 2026-11-15
-completed:
+completed: 2026-11-15
 ---
 # BL-1206 — Prove a message pinned upstream curl sends over SMTP reads back through Surl.Api in the mail stand-in recipe
 
@@ -25,14 +25,17 @@ The mail stand-in recipe proves a message pinned upstream curl 8.21.0 sends over
 
 ## Acceptance criteria
 
-- [ ] `StandInMailRoundTripRecipeTests` has a test named `SendOverSmtp_ThenReadBackThroughSurlApi_ReturnsTheSentMessage`. It sends with pinned upstream curl 8.21.0, waits for the mail store's delivery event, and reads the message through BL-1199's members.
-- [ ] The test asserts curl exited 0 and that the read-back bytes contain the sent body exactly, with the `Return-Path`/`Received` lines the server adds allowed before it (as the IMAP test in the same class allows).
-- [ ] The test is inconclusive, not failing, where no pinned build is installed, as the class's other tests are.
-- [ ] `dotnet test Conformance/Surl.Conformance.UnitTests --filter "FullyQualifiedName~StandInMailRoundTripRecipeTests"` passes on a machine with the pinned build, and `dotnet build -warnaserror` of the project is clean.
+- [x] `StandInMailRoundTripRecipeTests` has a test named `SendOverSmtp_ThenReadBackThroughSurlApi_ReturnsTheSentMessage`. It sends with pinned upstream curl 8.21.0, waits for the mail store's delivery event, and reads the message through BL-1199's members.
+- [x] The test asserts curl exited 0 and that the read-back bytes contain the sent body exactly, with the `Return-Path`/`Received` lines the server adds allowed before it (as the IMAP test in the same class allows).
+- [x] The test is inconclusive, not failing, where no pinned build is installed, as the class's other tests are.
+- [x] `dotnet test Conformance/Surl.Conformance.UnitTests --filter "FullyQualifiedName~StandInMailRoundTripRecipeTests"` passes on a machine with the pinned build, and `dotnet build -warnaserror` of the project is clean.
 
 ## Notes
+
+Added the test beside the IMAP/POP3 one, reusing StartAsync and PinnedUpstreamCurl; it reads through Mail.ListMessagesAsync and ReadMessageAsync with owner = the full address and asserts the stored bytes end with the sent message. All 4 recipe tests passed (0 skipped) on this machine.
 
 ## Log
 
 - 2026-11-15: Created.
 - 2026-11-15: Backlog -> Doing.
+- 2026-11-15: Doing -> Done. Mail stand-in recipe proves an SMTP message from pinned curl reads back byte for byte through Surl.Api
