@@ -189,6 +189,7 @@ public static class ExtendedProtocolServers
             IsTlsUpgradeAvailable = services.IsTlsUpgradeAvailable,
             AllowPlaintextAuthentication = services.AuthenticationPolicy.Settings.AllowPlaintextAuthentication,
             AuthenticationPolicy = services.AuthenticationPolicyFor("xmpp"),
+            RandomSource = new IdentifierXmppRandomSource(services.IdentifiersForServer("xmpp")),
         })),
         ProtocolServerRegistration.ImplicitTls("xmpps", "xmpp"),
     ];

@@ -8,7 +8,7 @@ depends-on: []
 touches: [Protocols/Messaging/Surl.Extended.Protocol.Xmpp.UnitLibrary, Protocols/Messaging/Surl.Extended.Protocol.Xmpp.UnitTests, Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests]
 requirement: FR-064
 created: 2026-11-14
-completed:
+completed: 2026-11-14
 ---
 # BL-1178 — Draw XMPP stream IDs, generated resources and anonymous names from the instance's seedable identifier source
 
@@ -23,14 +23,19 @@ With `--random-seed` (or `SurlServerOptions.RandomSeed`), the XMPP server's stre
 
 ## Acceptance criteria
 
-- [ ] An adapter type in the XMPP library turns an `IIdentifierRandom` into `IXmppRandomSource`, producing lower-case hex of the asked length; named tests pin its output for a fixed `SeededIdentifierRandom`.
-- [ ] The composition hands the XMPP server the instance's identifier source; a named composition test shows two instances with the same `RandomSeed` send the same stream `id` on their first `xmpp://` exchange, and two unseeded instances differ.
-- [ ] No SASL nonce, challenge or token is drawn from the seeded source (a named test or a code reference in the adapter's doc comment).
-- [ ] `dotnet build Surl.slnx -warnaserror` is clean, the fast tests are green, and both libraries keep 100% line and branch coverage.
+- [x] An adapter type in the XMPP library turns an `IIdentifierRandom` into `IXmppRandomSource`, producing lower-case hex of the asked length; named tests pin its output for a fixed `SeededIdentifierRandom`.
+- [x] The composition hands the XMPP server the instance's identifier source; a named composition test shows two instances with the same `RandomSeed` send the same stream `id` on their first `xmpp://` exchange, and two unseeded instances differ.
+- [x] No SASL nonce, challenge or token is drawn from the seeded source (a named test or a code reference in the adapter's doc comment).
+- [x] `dotnet build Surl.slnx -warnaserror` is clean, the fast tests are green, and both libraries keep 100% line and branch coverage.
 
 ## Notes
+
+- Chose the server-life source `services.IdentifiersForServer("xmpp")` (one lock-guarded adapter per instance) over the per-exchange one: stream IDs are drawn before any exchange-scoped state exists on the refusal path, and the same seed and exchange order repeat. SASL nonces use the policy's own secret sources; the adapter's doc comment says so.
+- The adapter is public (the composition builds it). Stream-id composition test draws through `XmppServer.WriteRefusalAsync`, which uses the same source as the stream header.
+- Added a Surl.Core reference to the Xmpp test project for `SeededIdentifierRandom`.
 
 ## Log
 
 - 2026-11-14: Created.
 - 2026-11-14: Backlog -> Doing.
+- 2026-11-14: Doing -> Done. XMPP stream IDs, generated resources and anonymous names draw from the seedable identifier source
