@@ -34,3 +34,4 @@ A test that embeds Surl through `Surl.Api` seeds Redis keys, LDAP entries and DN
 ## Log
 
 - 2026-11-14: Created.
+- 2026-11-15: Backlog -> Doing.
