@@ -8,7 +8,7 @@ depends-on: []
 touches: [Protocols/FileTransfer/Surl.Extended.Protocol.OciRegistry.UnitLibrary, Protocols/FileTransfer/Surl.Extended.Protocol.OciRegistry.UnitTests]
 requirement: FR-060
 created: 2026-11-15
-completed:
+completed: 2026-11-15
 ---
 # BL-1210 — Pass the exchange on the OCI registry's password logins
 
@@ -23,13 +23,16 @@ The OCI registry's logins carry their exchange, so each `LoginJudgedEvent` has t
 
 ## Acceptance criteria
 
-- [ ] Every `PasswordLogin` the library builds passes `LoginExchange.Of(context)`.
-- [ ] Tests in `Protocols/FileTransfer/Surl.Extended.Protocol.OciRegistry.UnitTests` show the policy (`UnitTestAuthenticationPolicy`) receives an `Exchange` whose ID and scheme are the connection's, for a `/token` login and for an anonymous `/v2/` access check.
-- [ ] `dotnet build Protocols/FileTransfer/Surl.Extended.Protocol.OciRegistry.UnitLibrary -warnaserror` is clean and the fast tests pass.
+- [x] Every `PasswordLogin` the library builds passes `LoginExchange.Of(context)`.
+- [x] Tests in `Protocols/FileTransfer/Surl.Extended.Protocol.OciRegistry.UnitTests` show the policy (`UnitTestAuthenticationPolicy`) receives an `Exchange` whose ID and scheme are the connection's, for a `/token` login and for an anonymous `/v2/` access check.
+- [x] `dotnet build Protocols/FileTransfer/Surl.Extended.Protocol.OciRegistry.UnitLibrary -warnaserror` is clean and the fast tests pass.
 
 ## Notes
+
+Both OciAccessCheck and OciTokenEndpoint already held the ExchangeContext; no decision needed. Built with warnings as errors, 380 tests pass.
 
 ## Log
 
 - 2026-11-15: Created.
 - 2026-11-15: Backlog -> Doing.
+- 2026-11-15: Doing -> Done. OCI password logins now carry LoginExchange.Of(context); tests added
