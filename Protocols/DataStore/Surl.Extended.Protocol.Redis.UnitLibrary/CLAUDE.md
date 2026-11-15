@@ -110,3 +110,14 @@ command wrote or deleted (`RedisDatabase` notes each `Put`, `Recount`, removal a
 `RedisKeyspaceCommand` publishes them as `StoreChangedEvent`s of `StoreKind.Keyspace` once the
 command has answered (`RedisKeyspaceChange.Name` is `<db>/<key>`), and `Growing`/`GrowingAt` ask the
 fault plan at `FaultStage.StoreWrite` first: an `out-of-space` rule answers `-OOM …` and writes nothing.
+
+Seed, reset, snapshot and restore (BL-1160, ADR-0158 decisions 3 to 5): `RedisKeyspace` is public and
+built by a composition as `new RedisKeyspace(timeProvider, events)`, then handed to
+`RedisServer(policy, keyspace, messageBus)`. `SeedKey` writes one string key as `SET` does (expiry
+on the keyspace's clock, 1 ms to 365 days; key and value at most 16 MiB; refused while the keyspace
+is full) and never asks the fault plan, publishing `Seeded`; `Reset` empties every database
+(`Reset`, 0 bytes); `TakeSnapshot(maxBytes)` deep-copies the live keys with absolute expiry deadlines into an opaque
+`RedisKeyspaceSnapshot` (over the bound it throws `InvalidOperationException`, never truncating) and
+`Restore` puts it back and publishes `Restored` with the restored bytes, refusing another keyspace's
+snapshot with `ArgumentException`. `RedisStoredValue.Copy()` is what keeps a snapshot and the
+keyspace from sharing state; `RedisDatabase.Export`/`Replace` journal nothing.

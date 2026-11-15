@@ -1,3 +1,5 @@
+using Surl.Protocol.Abstractions;
+
 namespace Surl.Extended.Protocol.Redis;
 
 /// <summary>
@@ -5,7 +7,14 @@ namespace Surl.Extended.Protocol.Redis;
 /// <c>redis</c> and <c>rediss</c>, and never written to disk: a new server starts empty. It counts
 /// keys and key and value bytes across all 16 against ADR-0106 decision 6's bounds.
 /// </summary>
-internal sealed class RedisKeyspace
+/// <remarks>
+/// A composition that owns the keyspace builds it, hands it to a <see cref="RedisServer"/> and
+/// prepares it between tests (ADR-0158 decisions 3 to 5): <see cref="SeedKey"/> writes a string key
+/// the way <c>SET</c> does but never consults the fault plan, <see cref="Reset"/> empties every
+/// database, and <see cref="TakeSnapshot(long)"/> and <see cref="Restore(RedisKeyspaceSnapshot)"/> copy
+/// the databases out and back. Each publishes its change on the event publisher it was given.
+/// </remarks>
+public sealed class RedisKeyspace
 {
     /// <summary>The most keys across the 16 databases (ADR-0106 decision 6).</summary>
     public const long DefaultMaxKeyCount = 1_000_000;
@@ -13,31 +22,56 @@ internal sealed class RedisKeyspace
     /// <summary>The most key and value bytes across the 16 databases: 256 MiB (ADR-0106 decision 6).</summary>
     public const long DefaultMaxByteCount = 256L * 1024 * 1024;
 
+    /// <summary>The most bytes a seeded key and its value may hold together: 16 MiB (ADR-0158 decision 3).</summary>
+    public const long MaxSeedByteCount = 16L * 1024 * 1024;
+
+    /// <summary>The default most bytes <see cref="TakeSnapshot(long)"/> copies: 256 MiB.</summary>
+    public const long DefaultMaxSnapshotBytes = 268_435_456;
+
+    /// <summary>The longest expiry a seed may give: 365 days (ADR-0158 decision 3).</summary>
+    public static readonly TimeSpan MaxSeedExpiry = TimeSpan.FromDays(365);
+
     private readonly RedisDatabase[] databases;
     private readonly long maxKeyCount;
     private readonly long maxByteCount;
+    private readonly TimeProvider timeProvider;
+    private readonly ISurlEventPublisher events;
 
-    /// <summary>Creates an empty keyspace with ADR-0106 decision 6's bounds.</summary>
-    public RedisKeyspace()
+    /// <summary>Creates an empty keyspace with ADR-0106 decision 6's bounds, for tests of the server.</summary>
+    internal RedisKeyspace()
         : this(DefaultMaxKeyCount, DefaultMaxByteCount)
     {
     }
 
-    /// <summary>Creates an empty keyspace with the given bounds.</summary>
+    /// <summary>Creates an empty keyspace with the given bounds, for tests of them.</summary>
     /// <param name="maxKeyCount">The most keys across the databases.</param>
     /// <param name="maxByteCount">The most key and value bytes across the databases.</param>
-    public RedisKeyspace(long maxKeyCount, long maxByteCount)
+    /// <param name="timeProvider">The clock a seeded key's expiry is measured on; the system clock when omitted.</param>
+    /// <param name="events">Where changes are published; nowhere when omitted.</param>
+    internal RedisKeyspace(long maxKeyCount, long maxByteCount, TimeProvider? timeProvider = null, ISurlEventPublisher? events = null)
+        : this(timeProvider ?? TimeProvider.System, events ?? DiscardingSurlEventPublisher.Instance, maxKeyCount, maxByteCount)
     {
+    }
+
+    /// <summary>Creates an empty keyspace with ADR-0106 decision 6's bounds.</summary>
+    /// <param name="timeProvider">The clock a seeded key's expiry is measured on.</param>
+    /// <param name="events">Where a seed, reset and restore publish their <see cref="StoreChangedEvent"/>.</param>
+    /// <exception cref="ArgumentNullException">An argument is <see langword="null"/>.</exception>
+    public RedisKeyspace(TimeProvider timeProvider, ISurlEventPublisher events)
+        : this(timeProvider, events, DefaultMaxKeyCount, DefaultMaxByteCount)
+    {
+    }
+
+    private RedisKeyspace(TimeProvider timeProvider, ISurlEventPublisher events, long maxKeyCount, long maxByteCount)
+    {
+        ArgumentNullException.ThrowIfNull(timeProvider);
+        ArgumentNullException.ThrowIfNull(events);
+        this.timeProvider = timeProvider;
+        this.events = events;
         this.maxKeyCount = maxKeyCount;
         this.maxByteCount = maxByteCount;
         databases = [.. Enumerable.Range(0, RedisSession.DatabaseCount).Select(index => new RedisDatabase(this, index))];
     }
-
-    /// <summary>Held while a command reads or changes the keyspace, so each command is atomic.</summary>
-    public Lock SyncRoot { get; } = new();
-
-    /// <summary>The changes the command now running has made, published when it has answered (ADR-0158 decision 2).</summary>
-    public RedisKeyspaceJournal Journal { get; } = new();
 
     /// <summary>How many keys the databases hold, expired ones not yet removed included.</summary>
     public long KeyCount { get; private set; }
@@ -45,11 +79,137 @@ internal sealed class RedisKeyspace
     /// <summary>How many key and value bytes the databases hold.</summary>
     public long ByteCount { get; private set; }
 
+    /// <summary>Held while a command reads or changes the keyspace, so each command is atomic.</summary>
+    internal Lock SyncRoot { get; } = new();
+
+    /// <summary>The changes the command now running has made, published when it has answered (ADR-0158 decision 2).</summary>
+    internal RedisKeyspaceJournal Journal { get; } = new();
+
     /// <summary>
     /// Whether a bound is reached, so a command that would grow the keyspace is
     /// <c>-OOM command not allowed when used memory &gt; 'maxmemory'.</c> (ADR-0106 decision 6).
     /// </summary>
-    public bool IsFull => KeyCount >= maxKeyCount || ByteCount >= maxByteCount;
+    internal bool IsFull => KeyCount >= maxKeyCount || ByteCount >= maxByteCount;
+
+    /// <summary>The database numbered <paramref name="index"/>, 0 to 15.</summary>
+    /// <param name="index">The database number.</param>
+    internal RedisDatabase this[int index] => databases[index];
+
+    /// <summary>
+    /// Seeds one string key as <c>SET</c> writes it - replacing a key that exists and clearing its
+    /// expiry - but never consulting the fault plan, then publishes <see cref="StoreChange.Seeded"/>
+    /// naming <c>&lt;database&gt;/&lt;key&gt;</c>. A key found already expired is removed first and
+    /// published as <see cref="StoreChange.Deleted"/>.
+    /// </summary>
+    /// <param name="database">The database, 0 to 15.</param>
+    /// <param name="key">The key, at least 1 byte.</param>
+    /// <param name="value">The value.</param>
+    /// <param name="expiry">How long the key lives, measured on the keyspace's clock from now, or
+    /// <see langword="null"/> for a key that never expires; 1 millisecond to <see cref="MaxSeedExpiry"/>.</param>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="database"/> or <paramref name="expiry"/> is out of range.</exception>
+    /// <exception cref="ArgumentException"><paramref name="key"/> is empty.</exception>
+    /// <exception cref="InvalidOperationException">The key and value together hold more than
+    /// <see cref="MaxSeedByteCount"/> bytes, or the keyspace is full; nothing is written.</exception>
+    public void SeedKey(int database, ReadOnlyMemory<byte> key, ReadOnlyMemory<byte> value, TimeSpan? expiry = null)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(database);
+        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(database, RedisSession.DatabaseCount);
+        if (key.IsEmpty)
+        {
+            throw new ArgumentException("A key has at least 1 byte.", nameof(key));
+        }
+
+        if (expiry is { } lifetime)
+        {
+            ArgumentOutOfRangeException.ThrowIfLessThan(lifetime, TimeSpan.FromMilliseconds(1), nameof(expiry));
+            ArgumentOutOfRangeException.ThrowIfGreaterThan(lifetime, MaxSeedExpiry, nameof(expiry));
+        }
+
+        if ((long)key.Length + value.Length > MaxSeedByteCount)
+        {
+            throw new InvalidOperationException($"A seeded key and value hold at most {MaxSeedByteCount} bytes together.");
+        }
+
+        var nowMilliseconds = timeProvider.GetUtcNow().ToUnixTimeMilliseconds();
+        lock (SyncRoot)
+        {
+            if (IsFullOfLiveKeys(nowMilliseconds))
+            {
+                throw new InvalidOperationException("The Redis keyspace is full, so the key was not seeded.");
+            }
+
+            var keyName = RedisKeys.Name(key.ToArray());
+            var entry = databases[database].Put(keyName, new RedisStringValue(value.ToArray()), nowMilliseconds);
+            entry.ExpiresAtMilliseconds = expiry is { } lives ? nowMilliseconds + (long)lives.TotalMilliseconds : null;
+            foreach (var change in Journal.Drain().Where(change => change.Change == StoreChange.Deleted))
+            {
+                Publish(change.Change, change.Name, null);
+            }
+
+            Publish(StoreChange.Seeded, RedisKeyspaceChange.NameOf(database, keyName), value.Length);
+        }
+    }
+
+    /// <summary>
+    /// Empties every database and publishes one <see cref="StoreChange.Reset"/> with an empty name and
+    /// 0 bytes. Connections stay and keep their selected database.
+    /// </summary>
+    public void Reset()
+    {
+        lock (SyncRoot)
+        {
+            ReplaceAll(Enumerable.Repeat(RedisDatabaseSnapshot.Empty, databases.Length));
+            Publish(StoreChange.Reset, string.Empty, 0);
+        }
+    }
+
+    /// <summary>
+    /// Copies every live key of every database - its value and its expiry as an absolute deadline - into
+    /// a <see cref="RedisKeyspaceSnapshot"/>. Changes nothing and publishes nothing.
+    /// </summary>
+    /// <param name="maxBytes">The most key and value bytes the snapshot may hold; at least 0.</param>
+    /// <returns>The snapshot.</returns>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="maxBytes"/> is negative.</exception>
+    /// <exception cref="InvalidOperationException">The keyspace holds more than <paramref name="maxBytes"/>;
+    /// nothing is copied, never a truncated snapshot.</exception>
+    public RedisKeyspaceSnapshot TakeSnapshot(long maxBytes = DefaultMaxSnapshotBytes)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(maxBytes);
+        var nowMilliseconds = timeProvider.GetUtcNow().ToUnixTimeMilliseconds();
+        lock (SyncRoot)
+        {
+            var copies = databases.Select(database => database.Export(nowMilliseconds)).ToList();
+            var liveBytes = copies.Sum(copy => copy.Entries.Sum(entry => entry.Key.Length + entry.Value.ByteCount));
+            if (liveBytes > maxBytes)
+            {
+                throw new InvalidOperationException($"The Redis keyspace holds {liveBytes} bytes, more than the {maxBytes} a snapshot may hold.");
+            }
+            return new RedisKeyspaceSnapshot(this, liveBytes, copies);
+        }
+    }
+
+    /// <summary>
+    /// Replaces every database with <paramref name="snapshot"/>'s keys, values and expiry deadlines and
+    /// publishes one <see cref="StoreChange.Restored"/> with an empty name and the restored bytes. A key
+    /// restored after its deadline has passed expires when next touched.
+    /// </summary>
+    /// <param name="snapshot">A snapshot this keyspace took.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="snapshot"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentException"><paramref name="snapshot"/> was taken from another keyspace.</exception>
+    public void Restore(RedisKeyspaceSnapshot snapshot)
+    {
+        ArgumentNullException.ThrowIfNull(snapshot);
+        if (snapshot.Keyspace != this)
+        {
+            throw new ArgumentException("The snapshot was taken from another Redis keyspace.", nameof(snapshot));
+        }
+
+        lock (SyncRoot)
+        {
+            ReplaceAll(snapshot.Databases);
+            Publish(StoreChange.Restored, string.Empty, snapshot.ByteCount);
+        }
+    }
 
     /// <summary>
     /// Whether a bound is reached by live keys: when <see cref="IsFull"/>, expired keys not yet
@@ -57,7 +217,7 @@ internal sealed class RedisKeyspace
     /// </summary>
     /// <param name="nowMilliseconds">The time, in Unix milliseconds.</param>
     /// <returns>Whether a command that would grow the keyspace is refused.</returns>
-    public bool IsFullOfLiveKeys(long nowMilliseconds)
+    internal bool IsFullOfLiveKeys(long nowMilliseconds)
     {
         if (!IsFull)
         {
@@ -72,12 +232,8 @@ internal sealed class RedisKeyspace
         return IsFull;
     }
 
-    /// <summary>The database numbered <paramref name="index"/>, 0 to 15.</summary>
-    /// <param name="index">The database number.</param>
-    public RedisDatabase this[int index] => databases[index];
-
     /// <summary>Deletes every key in every database (<c>FLUSHALL</c>).</summary>
-    public void Clear()
+    internal void Clear()
     {
         foreach (var database in databases)
         {
@@ -93,4 +249,15 @@ internal sealed class RedisKeyspace
         KeyCount += keys;
         ByteCount += bytes;
     }
+
+    private void ReplaceAll(IEnumerable<RedisDatabaseSnapshot> contents)
+    {
+        foreach (var (database, content) in databases.Zip(contents))
+        {
+            database.Replace(content);
+        }
+    }
+
+    private void Publish(StoreChange change, string name, long? byteCount) =>
+        events.Publish(new StoreChangedEvent(StoreKind.Keyspace, change, name, byteCount, null));
 }

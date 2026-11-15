@@ -83,6 +83,18 @@ public sealed class RedisServer : IConnectionProtocolServer, IConnectionRefusalW
     {
     }
 
+    /// <summary>
+    /// Creates a server holding its keys in <paramref name="keyspace"/>, a keyspace the caller owns and so can seed,
+    /// reset, snapshot and restore (ADR-0158), and publishing its pub/sub on <paramref name="messageBus"/>.
+    /// </summary>
+    /// <param name="authenticationPolicy">Judges logins.</param>
+    /// <param name="keyspace">The 16 databases every connection shares.</param>
+    /// <param name="messageBus">The message bus the process's messaging servers share.</param>
+    public RedisServer(IAuthenticationPolicy authenticationPolicy, RedisKeyspace keyspace, MessageBus.MessageBus messageBus)
+        : this(authenticationPolicy, keyspace ?? throw new ArgumentNullException(nameof(keyspace)), new RedisPubSub(messageBus ?? throw new ArgumentNullException(nameof(messageBus))))
+    {
+    }
+
     /// <summary>Creates a server holding its keys in <paramref name="keyspace"/> and its channels in <paramref name="pubSub"/>, for tests of their bounds.</summary>
     /// <param name="authenticationPolicy">Judges logins.</param>
     /// <param name="keyspace">The 16 databases every connection shares.</param>

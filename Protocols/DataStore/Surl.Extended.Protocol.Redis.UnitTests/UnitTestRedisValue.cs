@@ -10,4 +10,6 @@ internal sealed class UnitTestRedisValue : RedisStoredValue
     public override string TypeName => "hash";
 
     public override long ByteCount => 4;
+
+    public override RedisStoredValue Copy() => new UnitTestRedisValue();
 }

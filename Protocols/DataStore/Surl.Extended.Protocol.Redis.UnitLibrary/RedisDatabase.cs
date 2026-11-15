@@ -149,6 +149,40 @@ internal sealed class RedisDatabase(RedisKeyspace keyspace, int index)
         keyspace.Journal.DatabaseDeleted(index);
     }
 
+    /// <summary>
+    /// Copies every live key, in creation order, with its value copied, its expiry as the absolute
+    /// deadline it has and its <c>SCAN</c> sequence number, for a snapshot. Changes nothing.
+    /// </summary>
+    /// <param name="nowMilliseconds">The time, in Unix milliseconds; a key expired by then is left out.</param>
+    /// <returns>The copied keys and the last sequence number the database gave.</returns>
+    public RedisDatabaseSnapshot Export(long nowMilliseconds) => new(
+        [.. entriesBySequenceNumber.Values
+            .Where(entry => !entry.HasExpiredAt(nowMilliseconds))
+            .Select(entry => new RedisKeyEntry(entry.Key, entry.SequenceNumber, entry.Value.Copy()) { ExpiresAtMilliseconds = entry.ExpiresAtMilliseconds })],
+        lastSequenceNumber);
+
+    /// <summary>
+    /// Makes the database hold exactly <paramref name="contents"/> (copied again, so the snapshot can
+    /// be restored more than once), counting the keyspace to match and journalling nothing.
+    /// </summary>
+    /// <param name="contents">The keys and the last sequence number to continue from.</param>
+    public void Replace(RedisDatabaseSnapshot contents)
+    {
+        foreach (var entry in entries.Values.ToList())
+        {
+            Discard(entry);
+        }
+
+        lastSequenceNumber = contents.LastSequenceNumber;
+        foreach (var kept in contents.Entries)
+        {
+            var entry = new RedisKeyEntry(kept.Key, kept.SequenceNumber, kept.Value.Copy()) { ExpiresAtMilliseconds = kept.ExpiresAtMilliseconds };
+            entries.Add(entry.Key, entry);
+            entriesBySequenceNumber.Add(entry.SequenceNumber, entry);
+            keyspace.Count(1, ByteCountOf(entry));
+        }
+    }
+
     private static long ByteCountOf(RedisKeyEntry entry) => entry.Key.Length + entry.Value.ByteCount;
 
     /// <summary>Removes every key whose expiry has come.</summary>

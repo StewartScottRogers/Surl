@@ -12,4 +12,8 @@ internal sealed class RedisStringValue(byte[] bytes) : RedisStoredValue
 
     /// <inheritdoc/>
     public override long ByteCount => Bytes.Length;
+
+    /// <inheritdoc/>
+    /// <remarks>A string is never changed in place, so the copy is the value itself.</remarks>
+    public override RedisStoredValue Copy() => this;
 }

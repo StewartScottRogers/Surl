@@ -13,4 +13,8 @@ internal abstract class RedisStoredValue
 
     /// <summary>The value's bytes, counted against the keyspace's 256 MiB (ADR-0106 decision 6).</summary>
     public abstract long ByteCount { get; }
+
+    /// <summary>A value equal to this one that shares no state with it, so a snapshot and the keyspace never change each other.</summary>
+    /// <returns>The copy.</returns>
+    public abstract RedisStoredValue Copy();
 }
