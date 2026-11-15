@@ -30,3 +30,4 @@ ADR-0165 (Documentation/Planning/Decisions) decides this. No wire byte changes; 
 ## Log
 
 - 2026-11-15: Created.
+- 2026-11-15: Backlog -> Doing.
