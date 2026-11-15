@@ -150,6 +150,14 @@ internal sealed class SurlOnLoopback : IAsyncDisposable
         StartServingAsync(null, [.. options, $"{scheme}://127.0.0.1:0/"], cancellationToken);
 
     /// <summary>
+    /// Starts one surl that is an HTTP proxy on <c>http://127.0.0.1:0/</c> (<c>--proxy</c>) with
+    /// <paramref name="options"/>, returning once it has written its status line; <see cref="BaseUrl"/> names the proxy.
+    /// </summary>
+    public static Task<SurlOnLoopback> StartHttpProxyInMemoryAsync(
+        IReadOnlyList<string> options, CancellationToken cancellationToken) =>
+        StartServingAsync(null, [.. options, "--proxy", "http://127.0.0.1:0/"], cancellationToken);
+
+    /// <summary>
     /// Starts one surl listening on <c><em>scheme</em>://127.0.0.1:0/</c> for each of
     /// <paramref name="schemes"/>, in order, with <paramref name="options"/> and no
     /// <c>--directory</c>, so every listener shares one new, empty in-memory store, returning

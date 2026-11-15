@@ -110,3 +110,12 @@ listen URL's scheme, silently change every proxy too. The point's `Scheme`, `Com
   instance is the failure the task exists to prevent.
 - **A command-stage point per tunnel chunk.** Rejected: it would treat the client's inner protocol as proxy commands;
   `after-bytes` already cuts a tunnel.
+
+## Amendment 1 — measured with pinned upstream curl 8.21.0 (BL-1174, 2026-11-15)
+
+`StandInProxyFaultRecipeTests` measured the table of decision 5 on Windows:
+
+- `CONNECT` answered with a chosen 503: **exit 7** (`CURLE_COULDNT_CONNECT`), stderr `curl: (7) CONNECT tunnel failed, response 503`, not 56. The expectation is replaced.
+- Forwarded request answered 503 with `--fail`: exit 22, `curl: (22) The requested URL returned error: 503`, as expected; a `times=1` rule fails only the first run and the retry gets the file.
+- Forwarded request dropped at the command stage: exit 56, `Recv failure: Connection was reset`, as expected (the test also accepts 52 and 55 for Linux and macOS, as `DropConnection` does).
+- `delay` of 5 s with `--max-time 1`: exit 28, `Operation timed out`, as expected.
