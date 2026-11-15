@@ -91,18 +91,53 @@ public sealed class NatsFaultTests
     }
 
     [TestMethod]
-    public async Task ServeAsync_ADelayRuleAtTheCommandStage_IsNotedAndNotApplied()
+    public async Task ServeAsync_ADelayRuleForPub_HoldsItThenDeliversAsUsual()
     {
         var events = new RecordingSurlEventPublisher();
-        var plan = new ScriptedFaultPlan(new FaultRule("f1", FaultKind.Delay) { Command = "PUB", DelayMilliseconds = 10 });
+        var clock = new ManualTimeProvider();
+        var idleClock = new RecordingIdleClock();
+        var plan = new ScriptedFaultPlan(new FaultRule("f1", FaultKind.Delay) { Command = "PUB", DelayMilliseconds = 500 });
+        var connection = Connection(AliceConnect + "SUB foo 1\r\nPUB foo 1\r\na\r\nPING\r\n");
 
-        var (answers, log) = await ServeAsync(plan, events, AliceConnect, "SUB foo 1\r\nPUB foo 1\r\na\r\nPING\r\n");
+        var serving = ServeConnectionAsync(connection, plan, events, clock, idleClock);
+        await idleClock.FirstPause;
+        var completedWhileHeld = serving.IsCompleted;
+        clock.Advance(TimeSpan.FromMilliseconds(500));
+        await serving;
 
-        Assert.AreEqual("MSG foo 1 1\r\na\r\nPONG\r\n", answers);
-        Assert.IsEmpty(events.Events);
-        CollectionAssert.Contains(log.Notes.ToArray(), "PUB foo: fault rule f1 is not an error with -ERR text; not applied.");
+        Assert.IsFalse(completedWhileHeld);
+        Assert.IsFalse(idleClock.IsPaused);
+        var written = Encoding.UTF8.GetString(connection.WrittenBytes);
+        Assert.EndsWith("MSG foo 1 1\r\na\r\nPONG\r\n", written);
+        Assert.AreEqual(new FaultAppliedEvent("f1", FaultKind.Delay, FaultStage.Command, 1, "PUB foo"), events.Events.Single());
     }
 
+    [TestMethod]
+    public async Task ServeAsync_ADropRuleForSub_AbortsTheConnectionWithNoReply()
+    {
+        var events = new RecordingSurlEventPublisher();
+        var plan = new ScriptedFaultPlan(new FaultRule("f1", FaultKind.Drop) { Command = "SUB" });
+        var connection = Connection("CONNECT {\"user\":\"alice\",\"pass\":\"secret\",\"verbose\":true}\r\nSUB foo 1\r\nPING\r\n");
+
+        await ServeConnectionAsync(connection, plan, events, new ManualTimeProvider(), new RecordingIdleClock());
+
+        Assert.IsTrue(connection.Aborted);
+        var written = Encoding.UTF8.GetString(connection.WrittenBytes);
+        Assert.IsFalse(written.Contains("PONG", StringComparison.Ordinal));
+        Assert.AreEqual(new FaultAppliedEvent("f1", FaultKind.Drop, FaultStage.Command, 1, "SUB foo"), events.Events.Single());
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_ADelayRuleForAnotherOperation_ChangesNothing()
+    {
+        var events = new RecordingSurlEventPublisher();
+        var plan = new ScriptedFaultPlan(new FaultRule("f1", FaultKind.Delay) { Command = "SUB", DelayMilliseconds = 10 });
+
+        var (answers, _) = await ServeAsync(plan, events, AliceConnect, "PUB foo 1\r\na\r\nPING\r\n");
+
+        Assert.AreEqual("PONG\r\n", answers);
+        Assert.IsEmpty(events.Events);
+    }
     [TestMethod]
     public async Task ServeAsync_NoRule_AsksThePlanAtEachPubAndSub()
     {
@@ -119,6 +154,25 @@ public sealed class NatsFaultTests
 
     private static void AssertOneFaultApplied(RecordingSurlEventPublisher events, string target) =>
         Assert.AreEqual(new FaultAppliedEvent("f1", FaultKind.Error, FaultStage.Command, 1, target), events.Events.OfType<FaultAppliedEvent>().Single());
+
+    private static InMemoryConnection Connection(string bytes) =>
+        new([Encoding.UTF8.GetBytes(bytes)], new IPEndPoint(IPAddress.Loopback, 4222));
+
+    private Task ServeConnectionAsync(
+        InMemoryConnection connection, IFaultPlan plan, ISurlEventPublisher events, TimeProvider clock, IIdleClock idleClock)
+    {
+        var context = new ExchangeContext(
+            1,
+            new ListenUrl("nats", "127.0.0.1", 4222).WithBoundPort(4222),
+            new IPEndPoint(IPAddress.Loopback, 4222),
+            new IPEndPoint(IPAddress.Loopback, 50000),
+            new RecordingExchangeLog(),
+            clock,
+            TestContext.CancellationToken)
+        { Faults = plan, Events = events, IdleClock = idleClock };
+
+        return new NatsServer(new UnitTestNatsAuthenticationPolicy(), UnitTestMessageBus.Create()).ServeAsync(connection, context);
+    }
 
     private async Task<(string Answers, RecordingExchangeLog Log)> ServeAsync(
         IFaultPlan plan, ISurlEventPublisher events, string connect, string operations, IAuthenticationPolicy? policy = null)

@@ -24,12 +24,25 @@ internal sealed partial class NatsServerConnection
             Path = subject,
             Command = operation,
         };
-        if (await context.Faults.FindAsync(point, context.CancellationToken) is not { } rule)
+        var target = $"{operation} {subject}";
+        if (await CommandStageFaults.FindAndApplyAsync(context, connection, point, target) is not { } rule)
         {
             return false;
         }
 
-        var target = $"{operation} {subject}";
+        if (rule.Kind == FaultKind.Drop)
+        {
+            // The connection is aborted: nothing queued, before or after, is written, and reading stops.
+            outbox.Abandon();
+            await stopReading.CancelAsync();
+            return true;
+        }
+
+        if (rule.Kind == FaultKind.Delay)
+        {
+            return false;
+        }
+
         if (rule.Kind != FaultKind.Error || !IsErrorText(rule.Reply))
         {
             context.Log.Note($"{target}: fault rule {rule.Id} is not an error with -ERR text; not applied.");

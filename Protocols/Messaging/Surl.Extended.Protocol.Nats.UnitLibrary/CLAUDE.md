@@ -79,8 +79,11 @@ The chosen-error fault (BL-1031, ADR-0124 decisions 4 and 9):
   unchecked carries none).
 - A matching `error` rule whose reply is `-ERR` text (not empty, no `'`, CR or LF) answers
   `-ERR '<reply>'`, publishes or subscribes nothing, keeps the connection and publishes one
-  `FaultAppliedEvent`. Any other rule (another kind, such as `delay`, or unquotable text) is noted
-  in the exchange log and not applied.
+  `FaultAppliedEvent`. Any other rule (another kind, or unquotable text) is noted in the exchange log and not applied.
+- The command stage goes through `CommandStageFaults` (ADR-0141): a `delay` rule holds the operation for its `ms`
+  on the exchange's clock with the idle clock paused, then serves it as usual; a `drop` rule aborts the
+  connection, `NatsOutbox.Abandon` discards everything queued and reading stops, so no `+OK` or other reply follows.
+  Each publishes one `FaultAppliedEvent`.
 
 `natss` over TLS (BL-527, ADR-0113 decision 6):
 
