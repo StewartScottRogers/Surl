@@ -34,3 +34,4 @@ A stand-in recipe proves, with pinned upstream curl 8.21.0, what a test sees whe
 ## Log
 
 - 2026-11-14: Created.
+- 2026-11-15: Backlog -> Doing.
