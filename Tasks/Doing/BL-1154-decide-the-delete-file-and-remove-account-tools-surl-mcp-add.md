@@ -36,3 +36,4 @@ A new ADR, marked "Decided by Claude under Stewart's delegation", amends ADR-012
 ## Log
 
 - 2026-11-14: Created.
+- 2026-11-15: Backlog -> Doing.
