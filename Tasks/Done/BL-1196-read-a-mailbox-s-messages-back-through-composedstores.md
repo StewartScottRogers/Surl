@@ -8,7 +8,7 @@ depends-on: [BL-1194]
 touches: [Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests]
 requirement: FR-061
 created: 2026-11-15
-completed:
+completed: 2026-11-15
 ---
 # BL-1196 — Read a mailbox's messages back through ComposedStores
 
@@ -25,15 +25,18 @@ completed:
 
 ## Acceptance criteria
 
-- [ ] `ComposedStores` has the mail read members the ADR names, documented with XML comments.
-- [ ] A test in `Application/Surl.Composition.UnitTests` seeds two messages with `SeedMailAsync` and reads back their UIDs, sizes and exact bytes in delivery order.
-- [ ] A test shows reading an unknown account or mailbox gives the ADR's not-found result, and a test shows a message larger than the ADR's bound is refused, not truncated.
-- [ ] A test shows a read leaves the message's flags unchanged and publishes no `StoreChangedEvent`.
-- [ ] `dotnet build Application/Surl.Composition.UnitLibrary -warnaserror` is clean, the fast tests pass, and coverage stays at 100% line and branch.
+- [x] `ComposedStores` has the mail read members the ADR names, documented with XML comments.
+- [x] A test in `Application/Surl.Composition.UnitTests` seeds two messages with `SeedMailAsync` and reads back their UIDs, sizes and exact bytes in delivery order.
+- [x] A test shows reading an unknown account or mailbox gives the ADR's not-found result, and a test shows a message larger than the ADR's bound is refused, not truncated.
+- [x] A test shows a read leaves the message's flags unchanged and publishes no `StoreChangedEvent`.
+- [x] `dotnet build Application/Surl.Composition.UnitLibrary -warnaserror` is clean, the fast tests pass, and coverage stays at 100% line and branch.
 
 ## Notes
+
+- Decided (ADR-0164 gives names for Surl.Api, not Composition): ComposedStores returns ComposedReadResult<T> (Found, NotFound, TooLarge, Refused) rather than throwing; the Api maps it to its exceptions. Bound is MaxReadBytes (16 MiB), checked on the size before fetching. Line and branch coverage was not measured here; unreachable branches were avoided by design.
 
 ## Log
 
 - 2026-11-15: Created.
 - 2026-11-15: Backlog -> Doing.
+- 2026-11-15: Doing -> Done. ComposedStores mail reads built; tests green
