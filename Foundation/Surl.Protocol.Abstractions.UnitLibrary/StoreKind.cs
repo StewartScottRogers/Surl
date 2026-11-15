@@ -24,4 +24,19 @@ public enum StoreKind
     /// The account book.
     /// </summary>
     Accounts,
+
+    /// <summary>
+    /// The Redis keyspace: the keys of every database (ADR-0158).
+    /// </summary>
+    Keyspace,
+
+    /// <summary>
+    /// The LDAP directory: its entries (ADR-0158).
+    /// </summary>
+    Directory,
+
+    /// <summary>
+    /// The DNS zones: their records (ADR-0158).
+    /// </summary>
+    Zones,
 }

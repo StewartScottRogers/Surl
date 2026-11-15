@@ -8,7 +8,7 @@ depends-on: [BL-1151]
 touches: [Foundation/Surl.Protocol.Abstractions.UnitLibrary, Foundation/Surl.Protocol.Abstractions.UnitTests]
 requirement: FR-060
 created: 2026-11-14
-completed:
+completed: 2026-11-14
 ---
 # BL-1157 — Add the StoreKind members for the Redis keyspace, the LDAP directory and the DNS zones
 
@@ -24,14 +24,17 @@ completed:
 
 ## Acceptance criteria
 
-- [ ] `StoreKind` gains exactly the members BL-1151's ADR names, after `Accounts`, each with an XML doc comment naming its store.
-- [ ] A test in `Foundation/Surl.Protocol.Abstractions.UnitTests` pins every `StoreKind` member's name and numeric value, so a reorder fails.
-- [ ] `dotnet build Surl.slnx -warnaserror` is clean and `dotnet test --filter "TestCategory!=Integration"` is green, the control endpoint's and `Surl.Mcp`'s event-writer tests included.
-- [ ] `Surl.Protocol.Abstractions.UnitLibrary` keeps 100% line and branch coverage.
+- [x] `StoreKind` gains exactly the members BL-1151's ADR names, after `Accounts`, each with an XML doc comment naming its store.
+- [x] A test in `Foundation/Surl.Protocol.Abstractions.UnitTests` pins every `StoreKind` member's name and numeric value, so a reorder fails.
+- [x] `dotnet build Surl.slnx -warnaserror` is clean and `dotnet test --filter "TestCategory!=Integration"` is green, the control endpoint's and `Surl.Mcp`'s event-writer tests included.
+- [x] `Surl.Protocol.Abstractions.UnitLibrary` keeps 100% line and branch coverage.
 
 ## Notes
+
+ADR-0158 decision 1 names Keyspace, Directory, Zones; it needs no new StoreChange member. No writer maps kinds through an exhaustive switch; build and all fast tests green. Coverage: enum only, no branches.
 
 ## Log
 
 - 2026-11-14: Created.
 - 2026-11-14: Backlog -> Doing.
+- 2026-11-14: Doing -> Done. StoreKind gains Keyspace, Directory and Zones after Accounts, pinned by StoreKindTests
