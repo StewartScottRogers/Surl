@@ -1,5 +1,6 @@
 using Surl.Extended.Protocol.Amqp0;
 using Surl.Extended.Protocol.Mqtt5;
+using Surl.Extended.Protocol.S3;
 using System.Net;
 using System.Security.Cryptography.X509Certificates;
 using Surl.Cli;
@@ -416,7 +417,7 @@ public static partial class SurlServerComposition
             loaded.State.MailStore,
             loaded.State.MessageBus,
             authentication.Policy.Settings.Accounts,
-            additionalRegistrations: [.. ControlledRedisKeyspace(servers, services), LdapDirectoryStoreRegistration.For(loaded.State.LdapServer), .. ControlledBrokerStores(servers, instruments.Events), .. ControlledDnsZones(servers, loaded.State.DnsZones)],
+            additionalRegistrations: [.. ControlledRedisKeyspace(servers, services), LdapDirectoryStoreRegistration.For(loaded.State.LdapServer), .. ControlledBrokerStores(servers, instruments.Events), .. ControlledDnsZones(servers, loaded.State.DnsZones), .. ControlledUploads(servers, contentStore, instruments.Events)],
             ldapServer: loaded.State.LdapServer,
             redisKeyspace: servers.OfType<RedisServer>().Any() ? services.RedisKeyspace : null,
             dnsZones: IsDnsComposed(servers) ? loaded.State.DnsZones : null);
@@ -431,6 +432,13 @@ public static partial class SurlServerComposition
     // The DNS zones join the order after the broker stores (BL-1165: the exchanges already follow the directory) when a dns server is composed (ADR-0158 decision 5).
     private static List<ComposedStoreRegistration> ControlledDnsZones(IProtocolServer[] servers, DnsZoneSet zones) =>
         IsDnsComposed(servers) ? [DnsZoneStoreRegistration.For(zones)] : [];
+
+    // The open uploads the composed object servers hold (ADR-0167 decision 3), after the content their temporary files live in.
+    private static List<ComposedStoreRegistration> ControlledUploads(IProtocolServer[] servers, ContentStore content, SurlEventStream events) =>
+        [.. new[]
+        {
+            S3UploadStoreRegistration.For([.. servers.OfType<S3ProtocolServer>()], content, events),
+        }.OfType<ComposedStoreRegistration>()];
 
     private static bool IsDnsComposed(IProtocolServer[] servers) =>
         servers.OfType<DnsDatagramRoutingProtocolServer>().Any() || servers.OfType<DnsConnectionRoutingProtocolServer>().Any();
