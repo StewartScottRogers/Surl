@@ -8,7 +8,7 @@ depends-on: [BL-1194]
 touches: [Protocols/Messaging/Surl.MessageBus.UnitLibrary, Protocols/Messaging/Surl.MessageBus.UnitTests]
 requirement: FR-061
 created: 2026-11-15
-completed:
+completed: 2026-11-15
 ---
 # BL-1195 — Browse a queue's ready messages and a topic's retained message without consuming them in Surl.MessageBus
 
@@ -25,15 +25,19 @@ completed:
 
 ## Acceptance criteria
 
-- [ ] `MessageBus` has a browse of a named queue's ready messages, oldest first, up to a count the caller gives. It has a lookup of a topic's retained message, `null` when there is none. Both are named and bounded as the ADR says.
-- [ ] Tests in `Protocols/Messaging/Surl.MessageBus.UnitTests` show that a browse returns the messages in order and leaves `InspectQueue`'s `ReadyMessageCount` and the next `GetFromQueue` result unchanged.
-- [ ] A test shows a browse of an unknown queue returns the bus's not-found outcome, and a retained lookup on a topic with no retained message returns none.
-- [ ] A test shows neither read publishes a `StoreChangedEvent` (recording publisher from `Surl.Protocol.Abstractions`' test doubles).
-- [ ] `dotnet build Protocols/Messaging/Surl.MessageBus.UnitLibrary -warnaserror` is clean, the fast tests pass, and the library keeps 100% line and branch coverage.
+- [x] `MessageBus` has a browse of a named queue's ready messages, oldest first, up to a count the caller gives. It has a lookup of a topic's retained message, `null` when there is none. Both are named and bounded as the ADR says.
+- [x] Tests in `Protocols/Messaging/Surl.MessageBus.UnitTests` show that a browse returns the messages in order and leaves `InspectQueue`'s `ReadyMessageCount` and the next `GetFromQueue` result unchanged.
+- [x] A test shows a browse of an unknown queue returns the bus's not-found outcome, and a retained lookup on a topic with no retained message returns none.
+- [x] A test shows neither read publishes a `StoreChangedEvent` (recording publisher from `Surl.Protocol.Abstractions`' test doubles).
+- [x] `dotnet build Protocols/Messaging/Surl.MessageBus.UnitLibrary -warnaserror` is clean, the fast tests pass, and the library keeps 100% line and branch coverage.
 
 ## Notes
+
+- Built per ADR-0164 decisions 1 to 3: `MessageBus.BrowseQueue(queue, afterPosition = -1, limit = 100)` (limit 1 to 1000, 64 MiB byte bound with the first message always listed, `HasMore`, ready and in-flight counts; expired ready messages are skipped, not dropped) and `MessageBus.GetRetainedMessage(topic)` (null for none, expired or non-canonical; drops nothing). An unknown queue is `UnknownQueue`. Neither read publishes an event or asks a fault.
+- Tests: `MessageBusBrowseTests`; 574 fast tests green in the project.
 
 ## Log
 
 - 2026-11-15: Created.
 - 2026-11-15: Backlog -> Doing.
+- 2026-11-15: Doing -> Done. MessageBus.BrowseQueue and GetRetainedMessage read a queue's ready messages and a topic's retained message without consuming or publishing
