@@ -51,6 +51,7 @@ with one `McpServerRegistry.AddTool` line and holds nothing else of the tools.
     - `PublishMessageTool` (`publish_message`): `topic` (with `retain`) or `queue`, and `payload` or
       `payload_base64` -> `{published: true}`; `retain` with `queue` is refused.
     - `DeleteFileTool` (`delete_file`, BL-1175, ADR-0161): `path` -> `{path}`; nothing, a folder or a hidden path there is `no file at <path>`.
+    - The read-back tools (BL-1201, ADR-0164 decision 6): `ListMailboxesTool` (`list_mailboxes`), `ListMessagesTool` (`list_messages`), `ReadMessageTool` (`read_message`), `ReadFileTool` (`read_file`), `ListFilesTool` (`list_files`), `BrowseQueueTool` (`browse_queue`), `ReadRetainedMessageTool` (`read_retained_message`; none is `{retained: false}`) and `ReadLogTool` (`read_log`). Bytes are `text` or `base64` by `ReadBackJson`; an absent item or a refusal is `isError` with the API message.
     - `AddAccountTool` (`add_account`): `user`, `password` -> `{user}`. A `:` in the name and a name taken are
       refused with the tool's own text (`user: a user name may not hold ':'`, `user <user> already has an
       account`), so no exception text and never the password is echoed.

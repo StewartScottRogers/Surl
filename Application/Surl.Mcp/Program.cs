@@ -147,6 +147,14 @@ internal static class Program
         registry.AddTool(SeedMailTool.Create(servers));
         registry.AddTool(PutFileTool.Create(servers));
         registry.AddTool(DeleteFileTool.Create(servers));
+        registry.AddTool(ListMailboxesTool.Create(servers));
+        registry.AddTool(ListMessagesTool.Create(servers));
+        registry.AddTool(ReadMessageTool.Create(servers));
+        registry.AddTool(ReadFileTool.Create(servers));
+        registry.AddTool(ListFilesTool.Create(servers));
+        registry.AddTool(BrowseQueueTool.Create(servers));
+        registry.AddTool(ReadRetainedMessageTool.Create(servers));
+        registry.AddTool(ReadLogTool.Create(servers));
         registry.AddTool(PublishMessageTool.Create(servers));
         registry.AddTool(AddAccountTool.Create(servers));
         registry.AddTool(SetKeyTool.Create(servers));

@@ -46,7 +46,9 @@ public sealed class ProgramTests
             new[]
             {
                 StartServerTool.Name, ListServersTool.Name, StopServerTool.Name, GetExchangesTool.Name, GetEventsTool.Name, WaitForEventTool.Name,
-                SeedMailTool.Name, PutFileTool.Name, DeleteFileTool.Name, PublishMessageTool.Name, AddAccountTool.Name, SetKeyTool.Name, AddLdapEntriesTool.Name, AddDnsZoneTool.Name, RemoveAccountTool.Name, ResetServerTool.Name,
+                SeedMailTool.Name, PutFileTool.Name, DeleteFileTool.Name,
+                ListMailboxesTool.Name, ListMessagesTool.Name, ReadMessageTool.Name, ReadFileTool.Name, ListFilesTool.Name, BrowseQueueTool.Name, ReadRetainedMessageTool.Name, ReadLogTool.Name,
+                PublishMessageTool.Name, AddAccountTool.Name, SetKeyTool.Name, AddLdapEntriesTool.Name, AddDnsZoneTool.Name, RemoveAccountTool.Name, ResetServerTool.Name,
                 SnapshotServerTool.Name, RestoreServerTool.Name, AddFaultTool.Name, ListFaultsTool.Name, RemoveFaultTool.Name,
             },
             names);
@@ -56,6 +58,14 @@ public sealed class ProgramTests
     [DataRow(SeedMailTool.Name, SeedMailTool.Description, new[] { "server_id", "to", "message", "message_base64" })]
     [DataRow(PutFileTool.Name, PutFileTool.Description, new[] { "server_id", "path", "text", "base64" })]
     [DataRow(DeleteFileTool.Name, DeleteFileTool.Description, new[] { "server_id", "path" })]
+    [DataRow(ListMailboxesTool.Name, ListMailboxesTool.Description, new[] { "server_id", "owner" })]
+    [DataRow(ListMessagesTool.Name, ListMessagesTool.Description, new[] { "server_id", "owner", "mailbox", "after_uid", "limit" })]
+    [DataRow(ReadMessageTool.Name, ReadMessageTool.Description, new[] { "server_id", "owner", "mailbox", "uid" })]
+    [DataRow(ReadFileTool.Name, ReadFileTool.Description, new[] { "server_id", "path" })]
+    [DataRow(ListFilesTool.Name, ListFilesTool.Description, new[] { "server_id", "path", "after_name", "limit" })]
+    [DataRow(BrowseQueueTool.Name, BrowseQueueTool.Description, new[] { "server_id", "queue", "after_position", "limit" })]
+    [DataRow(ReadRetainedMessageTool.Name, ReadRetainedMessageTool.Description, new[] { "server_id", "topic" })]
+    [DataRow(ReadLogTool.Name, ReadLogTool.Description, new[] { "server_id", "topic", "from_offset", "limit" })]
     [DataRow(RemoveAccountTool.Name, RemoveAccountTool.Description, new[] { "server_id", "user" })]
     [DataRow(PublishMessageTool.Name, PublishMessageTool.Description, new[] { "server_id", "topic", "queue", "payload", "payload_base64", "retain" })]
     [DataRow(AddAccountTool.Name, AddAccountTool.Description, new[] { "server_id", "user", "password" })]
