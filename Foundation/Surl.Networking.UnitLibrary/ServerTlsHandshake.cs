@@ -54,15 +54,27 @@ internal sealed class ServerTlsHandshake
     /// </summary>
     /// <param name="transport">The connection's plaintext stream.</param>
     /// <param name="cancellationToken">Cuts the handshake off.</param>
+    /// <param name="loginJudge">
+    /// Asked and told about a TLS-SRP login once the client's <c>Finished</c> verifies (ADR-0165);
+    /// an <see cref="SslStream"/> or TLS 1.3 handshake never calls it. <see langword="null"/> for none.
+    /// </param>
     /// <returns>
     /// The secured stream - an <see cref="SslStream"/> or a <see cref="TlsSrpStream"/> - which the
     /// caller disposes before the transport, and the negotiated session.
     /// </returns>
     /// <exception cref="TlsHandshakeException">The handshake failed: an alert, a rejected client certificate, or the peer closing.</exception>
     /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> cut the handshake off.</exception>
-    public Task<(Stream Stream, TlsSession Session)> AuthenticateAsync(Stream transport, CancellationToken cancellationToken) =>
+    public Task<(Stream Stream, TlsSession Session)> AuthenticateAsync(
+        Stream transport, CancellationToken cancellationToken, ITlsLoginJudge? loginJudge = null) =>
         settings.TlsSrpAccounts is { } accounts
-            ? AuthenticateTlsSrpAsync(new TlsSrpServer(accounts, settings.TlsSrpRandom!, settings.TlsSrpCertificate), transport, cancellationToken)
+            ? AuthenticateTlsSrpAsync(
+                new TlsSrpServer(
+                    accounts,
+                    settings.TlsSrpRandom!,
+                    settings.TlsSrpCertificate,
+                    loginJudge is null ? null : new TlsSrpLoginJudgeAdapter(loginJudge)),
+                transport,
+                cancellationToken)
             : settings.CanServeTls13Stream && tls13Support.SslStreamLacksTls13Server
                 ? AuthenticateTls13OnlyWithHandBuiltStreamAsync(transport, cancellationToken)
                 : AuthenticateSslStreamAsync(transport, cancellationToken);

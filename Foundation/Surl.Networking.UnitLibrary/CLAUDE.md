@@ -121,6 +121,10 @@ protocol server.
   `TlsSrpStream.ShutdownAsync`. `StreamConnectionTlsSrpTests` replay upstream curl's recorded
   bytes, linked from `Cryptography/Surl.TlsSrp.UnitTests/Fixtures`. This is why the project
   references `Surl.TlsSrp.UnitLibrary`.
+- The login judge (ADR-0165, decision 2; BL-1223). `StreamConnection.UseTlsLoginJudge` keeps an
+  `ITlsLoginJudge`; `UpgradeToTlsAsync` passes it to `ServerTlsHandshake.AuthenticateAsync`, which
+  wraps it in `TlsSrpLoginJudgeAdapter` for `TlsSrpServer`. An `SslStream` or TLS 1.3 handshake never
+  calls it. `StreamConnectionTlsLoginJudgeTests` cover it.
 - The peek (ADR-0113, decision 6; BL-734). `StreamConnection.PeekByteAsync` starts one
   one-byte read on the current stream and waits for it up to `wait` on the injected
   `TimeProvider`; the read is never cancelled, so a byte arriving after the wait is kept for the
