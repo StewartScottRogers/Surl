@@ -112,6 +112,12 @@ internal sealed class GcsReply(HttpRequest request, DateTimeOffset now)
     }
 
     /// <summary>
+    /// The answer a <c>drop</c> fault rule asks for: nothing is written and the connection is aborted.
+    /// </summary>
+    public static HttpAnswer Dropped { get; } = new(
+        new HttpStatus(500, string.Empty), [], HttpAnswerBody.None, IsRefusal: true, LeavesRequestBodyUnread: false, DropsExchange: true);
+
+    /// <summary>
     /// An error answer: its status, <paramref name="extraFields"/>, and the <c>Error</c> body
     /// unless the request is a <c>HEAD</c> ("HTTP status and error codes").
     /// </summary>

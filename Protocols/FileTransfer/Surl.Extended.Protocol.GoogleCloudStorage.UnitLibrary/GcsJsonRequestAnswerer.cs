@@ -57,7 +57,13 @@ internal sealed class GcsJsonRequestAnswerer(ContentStore store, GcsObjectProper
             return reply.JsonError(GcsJsonError.NotImplemented);
         }
 
-        if (await GcsJsonFaults.FindChosenErrorAsync(context, route.MethodId, Uri.UnescapeDataString(target.Path), caller) is { } chosenError)
+        var (chosenError, dropped) = await GcsJsonFaults.FindChosenErrorAsync(context, route.MethodId, Uri.UnescapeDataString(target.Path), caller);
+        if (dropped)
+        {
+            return GcsReply.Dropped;
+        }
+
+        if (chosenError is not null)
         {
             return reply.JsonError(chosenError);
         }

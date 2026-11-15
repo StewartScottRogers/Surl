@@ -19,25 +19,30 @@ internal static class GcsJsonFaults
     /// <param name="methodId">The Google method id of the operation.</param>
     /// <param name="path">The request path, percent-decoded.</param>
     /// <param name="caller">Who asks, whose account name the rule may match.</param>
-    /// <returns>The error to answer, or <see langword="null"/> when no rule chose one that fits.</returns>
-    public static async ValueTask<GcsJsonError?> FindChosenErrorAsync(ExchangeContext context, string methodId, string path, ContentCaller caller)
+    /// <returns>The error to answer, or <see langword="null"/> when no rule chose one that fits; and whether a drop rule asks for the exchange to end with no answer.</returns>
+    public static async ValueTask<(GcsJsonError? Error, bool Dropped)> FindChosenErrorAsync(ExchangeContext context, string methodId, string path, ContentCaller caller)
     {
-        var rule = await HttpCommandFaults.FindChosenErrorAsync(context, methodId, path, caller.AccountName);
+        var rule = await HttpCommandFaults.FindAndApplyAsync(context, methodId, path, caller.AccountName);
         if (rule is null)
         {
-            return null;
+            return (null, false);
+        }
+
+        if (rule.Kind == FaultKind.Drop)
+        {
+            return (null, true);
         }
 
         if (!HttpCommandFaults.TrySplitCode(rule.Reply, out var status, out _) || status is < 400 or > 599)
         {
             context.Log.Note($"{methodId} {path}: fault rule {rule.Id}'s reply does not fit the gs JSON error shape; answered as without it.");
 
-            return null;
+            return (null, false);
         }
 
         var error = GcsJsonError.Chosen(status, GcsRequestFaults.ReasonPhrases.GetValueOrDefault(status, string.Empty));
         HttpCommandFaults.PublishApplied(context, rule, methodId, path, $"{status} {error.Reason}");
 
-        return error;
+        return (error, false);
     }
 }

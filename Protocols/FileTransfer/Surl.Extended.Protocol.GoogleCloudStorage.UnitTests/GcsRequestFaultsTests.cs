@@ -99,9 +99,51 @@ public sealed class GcsRequestFaultsTests
     }
 
     [TestMethod]
-    public async Task ServeAsync_DelayRuleAtARequest_IsServedAndNoted()
+    [DataRow("/photos/a.txt", DisplayName = "XML API")]
+    [DataRow("/storage/v1/b/photos/o/a.txt", DisplayName = "JSON API")]
+    public async Task ServeAsync_DelayRuleAtTheCommandStage_HoldsTheRequestThenAnswersAsUsual(string target)
     {
-        var (harness, _) = Harness(new FaultRule("f1", FaultKind.Delay) { Stage = FaultStage.Command, DelayMilliseconds = 5 });
+        var (harness, _) = Harness(new FaultRule("f1", FaultKind.Delay) { Stage = FaultStage.Command, DelayMilliseconds = 500 });
+        var clock = new ManualTimeProvider(GcsServerHarness.Now);
+        var idleClock = new RecordingIdleClock();
+        harness.ExchangeClock = clock;
+        harness.IdleClock = idleClock;
+
+        var serving = harness.SendWithBearerAsync("GET", target);
+        await idleClock.FirstPause;
+        var completedWhileHeld = serving.IsCompleted;
+        clock.Advance(TimeSpan.FromMilliseconds(499));
+        var completedEarly = serving.IsCompleted;
+        clock.Advance(TimeSpan.FromMilliseconds(1));
+        var response = await serving;
+
+        Assert.IsFalse(completedWhileHeld);
+        Assert.IsFalse(completedEarly);
+        StringAssert.StartsWith(response, "HTTP/1.1 200 OK\r\n");
+        Assert.IsFalse(idleClock.IsPaused);
+        var applied = (FaultAppliedEvent)harness.Events.Events.Single();
+        Assert.AreEqual(("f1", FaultKind.Delay, FaultStage.Command), (applied.RuleId, applied.Kind, applied.Stage));
+    }
+
+    [TestMethod]
+    [DataRow("/photos/a.txt", DisplayName = "XML API")]
+    [DataRow("/storage/v1/b/photos/o/a.txt", DisplayName = "JSON API")]
+    public async Task ServeAsync_DropRuleAtTheCommandStage_AbortsTheConnectionWithNoResponseBytes(string target)
+    {
+        var (harness, _) = Harness(new FaultRule("f1", FaultKind.Drop) { Stage = FaultStage.Command });
+
+        var response = await harness.SendWithBearerAsync("GET", target);
+
+        Assert.AreEqual(string.Empty, response);
+        Assert.IsTrue(harness.LastConnection!.Aborted);
+        var applied = (FaultAppliedEvent)harness.Events.Events.Single();
+        Assert.AreEqual(("f1", FaultKind.Drop, FaultStage.Command), (applied.RuleId, applied.Kind, applied.Stage));
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_OtherKindAtTheCommandStage_IsServedAndNoted()
+    {
+        var (harness, _) = Harness(new FaultRule("f1", FaultKind.OutOfSpace) { Stage = FaultStage.Command });
 
         var response = await harness.SendWithBearerAsync("GET", "/photos/a.txt");
 

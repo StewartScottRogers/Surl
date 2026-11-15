@@ -63,6 +63,21 @@ internal sealed class GcsServerHarness
 
     public RecordingSurlEventPublisher Events { get; } = new();
 
+    /// <summary>
+    /// The clock the exchange holds a delay on; the harness's fixed clock unless a test sets one.
+    /// </summary>
+    public TimeProvider? ExchangeClock { get; set; }
+
+    /// <summary>
+    /// The idle clock the exchange pauses during a delay.
+    /// </summary>
+    public IIdleClock IdleClock { get; set; } = NoIdleClock.Instance;
+
+    /// <summary>
+    /// The connection the last <see cref="SendRawAsync"/> used, to see whether it was aborted.
+    /// </summary>
+    public InMemoryConnection? LastConnection { get; private set; }
+
     public string ListenHost { get; }
 
     /// <summary>
@@ -108,12 +123,13 @@ internal sealed class GcsServerHarness
         new IPEndPoint(IPAddress.Loopback, 4443),
         new IPEndPoint(IPAddress.Loopback, 50000),
         Log,
-        TimeProvider,
+        ExchangeClock ?? TimeProvider,
         CancellationToken.None)
     {
         Limits = limits ?? ExchangeLimits.Default,
         Faults = Faults,
         Events = Events,
+        IdleClock = IdleClock,
     };
 
     /// <summary>
@@ -140,6 +156,7 @@ internal sealed class GcsServerHarness
     public async Task<string> SendRawAsync(string request, ExchangeLimits? limits = null)
     {
         var connection = new InMemoryConnection([Encoding.Latin1.GetBytes(request)]);
+        LastConnection = connection;
         await Server.ServeAsync(connection, Context(limits));
 
         return Encoding.UTF8.GetString(connection.WrittenBytes);
