@@ -17,6 +17,9 @@ Namespace `Surl.Control`.
   A member refuses with `ControlRefusalException` (`BadRequest` 400, `NotFound` 404, `Conflict`
   409), whose message is sent to the client. The target, not the endpoint, publishes each change
   on the event stream.
+- Seed routes for the stores outside ADR-0124's four (ADR-0158 decision 9, BL-1168): `PUT /v1/keys/{database}/{key}`
+  (query `expire_ms`), `POST /v1/directory` (`text/plain` LDIF) and `PUT /v1/zones/{apex}` (`text/plain` zone file);
+  `IControlTarget` gains `SeedKeyAsync`, `SeedDirectoryAsync` and `SeedZoneAsync`. No `DELETE`: reset does it.
 - `IControlSnapshot`, `ControlFault`, `ControlMessage` - the values that cross the interface.
 - `ControlToken` - the bearer token, 32 to 1024 visible ASCII bytes, held only as its SHA-256 and
   compared with `CryptographicOperations.FixedTimeEquals`.

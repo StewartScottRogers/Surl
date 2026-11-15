@@ -62,6 +62,28 @@ public interface IControlTarget
     /// <returns>The publication.</returns>
     Task PublishMessageAsync(ControlMessage message, CancellationToken cancellationToken);
 
+    /// <summary>Sets a string key in the Redis keyspace as a seed (ADR-0158 decision 9).</summary>
+    /// <param name="database">The database, 0 to 15.</param>
+    /// <param name="key">The key, at least 1 byte.</param>
+    /// <param name="value">The value's bytes.</param>
+    /// <param name="expiry">How long the key lives, or <see langword="null"/> for no expiry.</param>
+    /// <param name="cancellationToken">Cancels the seed.</param>
+    /// <returns>The seed.</returns>
+    Task SeedKeyAsync(int database, ReadOnlyMemory<byte> key, ReadOnlyMemory<byte> value, TimeSpan? expiry, CancellationToken cancellationToken);
+
+    /// <summary>Adds LDIF content records to the LDAP directory as a seed, all or none.</summary>
+    /// <param name="ldif">The LDIF content records.</param>
+    /// <param name="cancellationToken">Cancels the seed.</param>
+    /// <returns>The seed.</returns>
+    Task SeedDirectoryAsync(string ldif, CancellationToken cancellationToken);
+
+    /// <summary>Adds one DNS zone as a seed.</summary>
+    /// <param name="apex">The zone's apex.</param>
+    /// <param name="zoneFileText">The zone file's text.</param>
+    /// <param name="cancellationToken">Cancels the seed.</param>
+    /// <returns>The seed.</returns>
+    Task SeedZoneAsync(string apex, string zoneFileText, CancellationToken cancellationToken);
+
     /// <summary>Adds an account, or replaces the password of one with the same name.</summary>
     /// <param name="user">The account name.</param>
     /// <param name="password">The password.</param>

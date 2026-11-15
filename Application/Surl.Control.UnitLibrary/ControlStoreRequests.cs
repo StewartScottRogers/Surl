@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization.Metadata;
@@ -15,6 +16,9 @@ namespace Surl.Control;
 /// <param name="answers">Writes the answers.</param>
 internal sealed class ControlStoreRequests(IControlTarget target, ControlSnapshotShelf snapshots, ControlAnswers answers)
 {
+    private const int MaxDatabases = 16;
+    private const long MaxExpireMilliseconds = 31_536_000_000;
+
     /// <summary><c>POST /v1/faults</c>: adds the <c>text/plain</c> body as one <c>--fault</c> item.</summary>
     /// <param name="request">The request.</param>
     /// <returns><c>201 {"fault_id"}</c>.</returns>
@@ -96,6 +100,47 @@ internal sealed class ControlStoreRequests(IControlTarget target, ControlSnapsho
         return answers.NoContent(request.Http);
     }
 
+    /// <summary>
+    /// <c>PUT /v1/keys/{database}/{key}</c>: sets the body's bytes as a string key, living <c>expire_ms</c>
+    /// milliseconds when the query gives it (ADR-0158 decision 9).
+    /// </summary>
+    /// <param name="request">The request.</param>
+    /// <returns><c>204</c>; <c>400</c> for a database outside 0 to 15 or a bad <c>expire_ms</c>.</returns>
+    public async Task<HttpAnswer> SeedKeyAsync(ControlRequest request)
+    {
+        if (!int.TryParse(request.Parameters[0], NumberStyles.None, CultureInfo.InvariantCulture, out var database) || database >= MaxDatabases)
+        {
+            throw new ControlErrorException(ControlError.BadRequest($"the database must be a whole number from 0 to {MaxDatabases - 1}"));
+        }
+
+        var expireMilliseconds = request.Query.Number("expire_ms", 1, MaxExpireMilliseconds, 0);
+        TimeSpan? expiry = expireMilliseconds == 0 ? null : TimeSpan.FromMilliseconds(expireMilliseconds);
+        var value = await ControlRequestBody.ReadAsync(request.Http, request.CancellationToken);
+        await target.SeedKeyAsync(database, Encoding.UTF8.GetBytes(request.Parameters[1]), value, expiry, request.CancellationToken);
+
+        return answers.NoContent(request.Http);
+    }
+
+    /// <summary><c>POST /v1/directory</c>: adds the <c>text/plain</c> body's LDIF content records.</summary>
+    /// <param name="request">The request.</param>
+    /// <returns><c>204</c>.</returns>
+    public async Task<HttpAnswer> SeedDirectoryAsync(ControlRequest request)
+    {
+        await target.SeedDirectoryAsync(await ReadTextAsync(request), request.CancellationToken);
+
+        return answers.NoContent(request.Http);
+    }
+
+    /// <summary><c>PUT /v1/zones/{apex}</c>: adds the <c>text/plain</c> body as the apex's zone file.</summary>
+    /// <param name="request">The request.</param>
+    /// <returns><c>204</c>.</returns>
+    public async Task<HttpAnswer> SeedZoneAsync(ControlRequest request)
+    {
+        await target.SeedZoneAsync(request.Parameters[0], await ReadTextAsync(request), request.CancellationToken);
+
+        return answers.NoContent(request.Http);
+    }
+
     /// <summary><c>POST /v1/accounts</c>: adds the JSON body's account.</summary>
     /// <param name="request">The request.</param>
     /// <returns><c>204</c>.</returns>
@@ -149,6 +194,13 @@ internal sealed class ControlStoreRequests(IControlTarget target, ControlSnapsho
         await target.RestoreAsync(snapshot, request.CancellationToken);
 
         return answers.NoContent(request.Http);
+    }
+
+    private static async Task<string> ReadTextAsync(ControlRequest request)
+    {
+        ControlRequestBody.RequireMediaType(request.Http, "text/plain");
+
+        return Encoding.UTF8.GetString(await ControlRequestBody.ReadAsync(request.Http, request.CancellationToken));
     }
 
     private static string FilePath(ControlRequest request) => "/" + request.Parameters[0];
