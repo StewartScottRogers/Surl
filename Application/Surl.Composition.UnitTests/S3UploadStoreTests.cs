@@ -34,7 +34,7 @@ public sealed class S3UploadStoreTests
         Assert.AreEqual(0, snapshot.ByteCount);
         // Every extended server is composed whichever listen URLs are given, so the Azure Storage server's staged blocks follow the S3 uploads' change (BL-1230).
         CollectionAssert.AreEqual(
-            new[] { (StoreKind.Uploads, StoreChange.Reset, "s3"), (StoreKind.Uploads, StoreChange.Reset, "azure"), (StoreKind.Uploads, StoreChange.Reset, "gcs"), (StoreKind.Uploads, StoreChange.Restored, "s3"), (StoreKind.Uploads, StoreChange.Restored, "azure"), (StoreKind.Uploads, StoreChange.Restored, "gcs") },
+            new[] { (StoreKind.Uploads, StoreChange.Reset, "s3"), (StoreKind.Uploads, StoreChange.Reset, "azure"), (StoreKind.Uploads, StoreChange.Reset, "gcs"), (StoreKind.Uploads, StoreChange.Reset, "oci"), (StoreKind.Uploads, StoreChange.Restored, "s3"), (StoreKind.Uploads, StoreChange.Restored, "azure"), (StoreKind.Uploads, StoreChange.Restored, "gcs"), (StoreKind.Uploads, StoreChange.Restored, "oci") },
             changes.Select(change => (change.Store, change.Change, change.Name)).ToArray());
     }
 

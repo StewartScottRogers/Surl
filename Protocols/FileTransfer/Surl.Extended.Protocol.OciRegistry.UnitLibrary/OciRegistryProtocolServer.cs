@@ -97,6 +97,19 @@ public sealed class OciRegistryProtocolServer : IConnectionProtocolServer, IConn
     /// <inheritdoc/>
     public IReadOnlyList<string> Schemes { get; } = [Scheme];
 
+    /// <summary>
+    /// Aborts every open blob upload session, so a later request naming one is <c>404 BLOB_UPLOAD_UNKNOWN</c>
+    /// (ADR-0167, decision 2).
+    /// </summary>
+    /// <returns>A task that completes when every session is aborted.</returns>
+    public Task AbortOpenUploadsAsync() => state.Sessions.AbortAllAsync();
+
+    /// <summary>
+    /// Revokes every token the token endpoint issued, so each is answered <c>401</c> with the challenge on
+    /// its next use (ADR-0167, decision 2).
+    /// </summary>
+    public void RevokeTokens() => state.Tokens.Clear();
+
     /// <inheritdoc/>
     public Task ServeAsync(IConnection connection, ExchangeContext context)
     {

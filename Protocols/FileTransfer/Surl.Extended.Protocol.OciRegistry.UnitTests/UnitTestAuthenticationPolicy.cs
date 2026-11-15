@@ -34,6 +34,8 @@ internal sealed class UnitTestAuthenticationPolicy : IAuthenticationPolicy
         return ValueTask.FromResult(Judge(login));
     }
 
+    public bool NamesAccount(string name) => Accounts.ContainsKey(name);
+
     public IHttpAuthenticationSession StartHttpConnection(TlsSession? tlsSession) => throw new NotSupportedException();
 
     private PasswordLoginVerdict Judge(PasswordLogin login)

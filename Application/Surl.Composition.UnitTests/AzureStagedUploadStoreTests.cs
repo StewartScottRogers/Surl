@@ -33,7 +33,7 @@ public sealed class AzureStagedUploadStoreTests
 
         Assert.AreEqual(0, snapshot.ByteCount);
         CollectionAssert.AreEqual(
-            new[] { (StoreKind.Uploads, StoreChange.Reset, "s3"), (StoreKind.Uploads, StoreChange.Reset, "azure"), (StoreKind.Uploads, StoreChange.Reset, "gcs"), (StoreKind.Uploads, StoreChange.Restored, "s3"), (StoreKind.Uploads, StoreChange.Restored, "azure"), (StoreKind.Uploads, StoreChange.Restored, "gcs") },
+            new[] { (StoreKind.Uploads, StoreChange.Reset, "s3"), (StoreKind.Uploads, StoreChange.Reset, "azure"), (StoreKind.Uploads, StoreChange.Reset, "gcs"), (StoreKind.Uploads, StoreChange.Reset, "oci"), (StoreKind.Uploads, StoreChange.Restored, "s3"), (StoreKind.Uploads, StoreChange.Restored, "azure"), (StoreKind.Uploads, StoreChange.Restored, "gcs"), (StoreKind.Uploads, StoreChange.Restored, "oci") },
             changes.Select(change => (change.Store, change.Change, change.Name)).ToArray());
     }
 
@@ -55,7 +55,7 @@ public sealed class AzureStagedUploadStoreTests
 
         Assert.AreEqual(1, serving.Stores.RegisteredStoreOrder.Count(store => store == StoreKind.Uploads));
         Assert.AreEqual(0, snapshot.ByteCount);
-        CollectionAssert.AreEqual(new[] { "s3", "azure", "gcs", "s3", "azure", "gcs" }, names);
+        CollectionAssert.AreEqual(new[] { "s3", "azure", "gcs", "oci", "s3", "azure", "gcs", "oci" }, names);
     }
 
     [TestMethod]

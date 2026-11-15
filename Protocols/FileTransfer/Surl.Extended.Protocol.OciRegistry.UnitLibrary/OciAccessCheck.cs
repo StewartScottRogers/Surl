@@ -52,7 +52,7 @@ internal sealed class OciAccessCheck(IAuthenticationPolicy policy, OciTokenBook 
             return new OciAccess(null, reply.Error(OciError.PlaintextCredentialsRefused));
         }
 
-        var token = bearer is null ? null : tokens.Find(bearer);
+        var token = FindLiveToken(bearer);
         if (token is null)
         {
             return Refused(reply, OciError.Unauthorized, scope, "invalid_token");
@@ -61,6 +61,14 @@ internal sealed class OciAccessCheck(IAuthenticationPolicy policy, OciTokenBook 
         return required == OciActions.None || token.Allows(name, required)
             ? new OciAccess(token, null)
             : Refused(reply, OciError.Denied, scope, "insufficient_scope");
+    }
+
+    // A token whose account has been removed is refused as an unknown token (ADR-0167, decision 4); an anonymous token is not.
+    private OciToken? FindLiveToken(string? bearer)
+    {
+        var token = bearer is null ? null : tokens.Find(bearer);
+
+        return token?.AccountName is { } accountName && !policy.NamesAccount(accountName) ? null : token;
     }
 
     private async Task<OciAccess> CheckWithoutAuthorizationAsync(OciReply reply, OciActions required, string? scope, CancellationToken cancellationToken) =>

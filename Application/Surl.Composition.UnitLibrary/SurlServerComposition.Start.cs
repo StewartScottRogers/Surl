@@ -2,6 +2,7 @@ using Surl.Extended.Protocol.Amqp0;
 using Surl.Extended.Protocol.AzureStorage;
 using Surl.Extended.Protocol.GoogleCloudStorage;
 using Surl.Extended.Protocol.Mqtt5;
+using Surl.Extended.Protocol.OciRegistry;
 using Surl.Extended.Protocol.S3;
 using System.Net;
 using System.Security.Cryptography.X509Certificates;
@@ -442,7 +443,8 @@ public static partial class SurlServerComposition
             UploadStoreRegistrations.Combine(
                 S3UploadStoreRegistration.For([.. servers.OfType<S3ProtocolServer>()], content, events),
                 AzureStagedUploadStoreRegistration.For([.. servers.OfType<AzureStorageProtocolServer>()], content, events),
-                GcsStagedUploadStoreRegistration.For([.. servers.OfType<GoogleCloudStorageProtocolServer>()], content, events)),
+                GcsStagedUploadStoreRegistration.For([.. servers.OfType<GoogleCloudStorageProtocolServer>()], content, events),
+                OciUploadStoreRegistration.For([.. servers.OfType<OciRegistryProtocolServer>()], content, events)),
         }.OfType<ComposedStoreRegistration>()];
 
     private static bool IsDnsComposed(IProtocolServer[] servers) =>
@@ -454,7 +456,10 @@ public static partial class SurlServerComposition
         {
             Amqp0ExchangeStoreRegistration.For([.. servers.OfType<Amqp0Broker>()], events),
             KafkaBrokerStoreRegistration.For([.. servers.OfType<KafkaBroker>()], events),
-            Mqtt5SessionStoreRegistration.For([.. servers.OfType<Mqtt5Broker>()], events),
+            UploadStoreRegistrations.CombineOf(
+                StoreKind.Sessions,
+                Mqtt5SessionStoreRegistration.For([.. servers.OfType<Mqtt5Broker>()], events),
+                OciTokenStoreRegistration.For([.. servers.OfType<OciRegistryProtocolServer>()], events)),
         }.OfType<ComposedStoreRegistration>()];
 
     // How the proxies reach origins, over the rule --proxy-allow-origin and the proxy listen URLs make
