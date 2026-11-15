@@ -8,7 +8,7 @@ depends-on: [BL-1214, BL-1221, BL-1223]
 touches: [Foundation/Surl.Core.UnitLibrary, Foundation/Surl.Core.UnitTests]
 requirement: FR-060
 created: 2026-11-15
-completed:
+completed: 2026-11-15
 ---
 # BL-1224 — Hand each connection an engine ITlsLoginJudge that publishes LoginJudgedEvent and applies refuse-login (ADR-0165)
 
@@ -33,3 +33,4 @@ ExchangeTlsLoginJudge is handed to each raw connection right after OpenExchange,
 
 - 2026-11-15: Created.
 - 2026-11-15: Backlog -> Doing.
+- 2026-11-15: Doing -> Done. Engine judge published and tested
