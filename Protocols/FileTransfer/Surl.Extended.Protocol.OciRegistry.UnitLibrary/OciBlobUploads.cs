@@ -267,5 +267,5 @@ internal sealed class OciBlobUploads(ContentStore store, OciServerState state, O
         return reply.Empty(Created, new("Location", $"/v2/{repository.Name}/blobs/{digest}"), new("Docker-Content-Digest", digest.ToString()));
     }
 
-    private string NewSessionId() => state.NewSessionId().ToString("D", CultureInfo.InvariantCulture);
+    private string NewSessionId() => (state.NewSessionId?.Invoke() ?? OciSessionUuid.Draw(context.Identifiers)).ToString("D", CultureInfo.InvariantCulture);
 }
