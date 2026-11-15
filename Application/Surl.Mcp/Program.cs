@@ -149,6 +149,9 @@ internal static class Program
         registry.AddTool(DeleteFileTool.Create(servers));
         registry.AddTool(PublishMessageTool.Create(servers));
         registry.AddTool(AddAccountTool.Create(servers));
+        registry.AddTool(SetKeyTool.Create(servers));
+        registry.AddTool(AddLdapEntriesTool.Create(servers));
+        registry.AddTool(AddDnsZoneTool.Create(servers));
         registry.AddTool(RemoveAccountTool.Create(servers));
         registry.AddTool(ResetServerTool.Create(servers));
         registry.AddTool(SnapshotServerTool.Create(servers));

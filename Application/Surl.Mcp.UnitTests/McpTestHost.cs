@@ -18,7 +18,8 @@ internal sealed class McpTestHost : IAsyncDisposable
         SurlMcpHostSettings? settings = null,
         StartServerSafetyCheck? safetyCheck = null,
         FakeListenerFactory? listenerFactory = null,
-        TimeProvider? timeProvider = null)
+        TimeProvider? timeProvider = null,
+        bool areExtensionsTurnedOn = false)
     {
         Seams = new ApiTestSeams(listenerFactory);
         var hostSettings = settings ?? new SurlMcpHostSettings();
@@ -26,7 +27,11 @@ internal sealed class McpTestHost : IAsyncDisposable
             hostSettings,
             ErrorOutput,
             timeProvider ?? new FixedTimeProvider(Now),
-            (options, token) => SurlServer.StartAsync(options, Seams.Host, token));
+            (options, token) =>
+            {
+                options.AreExtensionsTurnedOn = areExtensionsTurnedOn ? true : options.AreExtensionsTurnedOn;
+                return SurlServer.StartAsync(options, Seams.Host, token);
+            });
         StartServer = safetyCheck is null ? StartServerTool.Create(Servers) : StartServerTool.Create(Servers, safetyCheck);
         ListServers = ListServersTool.Create(Servers);
         StopServer = StopServerTool.Create(Servers);
@@ -39,6 +44,9 @@ internal sealed class McpTestHost : IAsyncDisposable
         RemoveAccount = RemoveAccountTool.Create(Servers);
         PublishMessage = PublishMessageTool.Create(Servers);
         AddAccount = AddAccountTool.Create(Servers);
+        SetKey = SetKeyTool.Create(Servers);
+        AddLdapEntries = AddLdapEntriesTool.Create(Servers);
+        AddDnsZone = AddDnsZoneTool.Create(Servers);
         ResetServer = ResetServerTool.Create(Servers);
         SnapshotServer = SnapshotServerTool.Create(Servers);
         RestoreServer = RestoreServerTool.Create(Servers);
@@ -76,6 +84,12 @@ internal sealed class McpTestHost : IAsyncDisposable
     public McpTool PublishMessage { get; }
 
     public McpTool AddAccount { get; }
+
+    public McpTool SetKey { get; }
+
+    public McpTool AddLdapEntries { get; }
+
+    public McpTool AddDnsZone { get; }
 
     public McpTool ResetServer { get; }
 
