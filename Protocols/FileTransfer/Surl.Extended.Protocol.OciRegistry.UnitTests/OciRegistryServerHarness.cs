@@ -196,6 +196,18 @@ internal sealed class OciRegistryServerHarness
 
     public FixedTimeProvider TimeProvider { get; }
 
+    /// <summary>The fault plan each exchange carries: none unless a test sets one.</summary>
+    public IFaultPlan Faults { get; set; } = EmptyFaultPlan.Instance;
+
+    /// <summary>The idle clock each exchange carries.</summary>
+    public IIdleClock IdleClock { get; set; } = NoIdleClock.Instance;
+
+    /// <summary>The events every exchange publishes.</summary>
+    public RecordingSurlEventPublisher Events { get; } = new();
+
+    /// <summary>The connection the last request was served on.</summary>
+    public InMemoryConnection? LastConnection { get; private set; }
+
     public InMemoryContentFileSystem FileSystem { get; }
 
     public ContentStore Store { get; }
@@ -295,6 +307,9 @@ internal sealed class OciRegistryServerHarness
     {
         Limits = Limits,
         Identifiers = Random,
+        Faults = Faults,
+        IdleClock = IdleClock,
+        Events = Events,
     };
 
     /// <summary>
@@ -354,6 +369,7 @@ internal sealed class OciRegistryServerHarness
     private async Task<string> ServeAsync(string request)
     {
         var connection = new InMemoryConnection([Encoding.Latin1.GetBytes(request)], initialTlsSession: TlsSession);
+        LastConnection = connection;
         await Server.ServeAsync(connection, Context());
 
         return Encoding.UTF8.GetString(connection.WrittenBytes);

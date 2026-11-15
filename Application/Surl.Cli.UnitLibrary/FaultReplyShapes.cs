@@ -10,7 +10,7 @@ namespace Surl.Cli;
 /// by the first space. Of the extended schemes, <c>coap</c>, <c>mcp</c> and <c>signalr</c> and
 /// their secure twins have rows (ADR-0144), as do <c>s3</c>, <c>az</c>, <c>abfs</c>, <c>abfss</c>
 /// and <c>gs</c> (BL-983), and <c>dns</c>, <c>redis</c> and <c>rediss</c> (BL-986), and <c>amqp</c>, <c>amqp1</c>, <c>kafka</c>,
-/// <c>mqtt5</c> and <c>nats</c> with their secure twins (BL-1015, ADR-0124 decision 9), and <c>socks4</c>, <c>socks4a</c>, <c>socks5</c> and <c>socks5h</c> (BL-1061), and <c>stomp</c> and <c>stomps</c> (BL-1062), and <c>xmpp</c> and <c>xmpps</c> (BL-1063), and <c>socketio</c> and <c>socketios</c> (BL-1064), and <c>webtransport</c> (BL-1065), and <c>http-proxy</c> and <c>https-proxy</c>, the HTTP and HTTPS proxy's own schemes (ADR-0160), and <c>grpc</c> and <c>grpcs</c> (BL-1188); the others have none yet (BL-834).
+/// <c>mqtt5</c> and <c>nats</c> with their secure twins (BL-1015, ADR-0124 decision 9), and <c>socks4</c>, <c>socks4a</c>, <c>socks5</c> and <c>socks5h</c> (BL-1061), and <c>stomp</c> and <c>stomps</c> (BL-1062), and <c>xmpp</c> and <c>xmpps</c> (BL-1063), and <c>socketio</c> and <c>socketios</c> (BL-1064), and <c>webtransport</c> (BL-1065), and <c>http-proxy</c> and <c>https-proxy</c>, the HTTP and HTTPS proxy's own schemes (ADR-0160), and <c>grpc</c> and <c>grpcs</c> (BL-1188), and <c>oci</c> (BL-1189); the others have none yet (BL-834).
 /// </summary>
 internal static class FaultReplyShapes
 {
@@ -53,6 +53,7 @@ internal static class FaultReplyShapes
         ["mqtts"] = IsMqttReasonCode,
         ["nats"] = IsNatsErrorText,
         ["natss"] = IsNatsErrorText,
+        ["oci"] = IsOciError,
         ["pop3"] = IsText,
         ["pop3s"] = IsText,
         ["redis"] = IsText,
@@ -96,6 +97,16 @@ internal static class FaultReplyShapes
     public static bool Fits(string scheme, string reply) => FitsByScheme[scheme](reply);
 
     private static bool IsText(string reply) => reply.Length > 0;
+
+    /// <summary>A status 400 to 599 and one of the OCI Distribution Specification v1.1.0 error codes (BL-1189).</summary>
+    private static bool IsOciError(string reply) =>
+        IsCodeWithText(reply, 400, 599) && OciErrorCodes.Contains(reply[(reply.IndexOf(' ', StringComparison.Ordinal) + 1)..]);
+
+    private static readonly FrozenSet<string> OciErrorCodes = new[]
+    {
+        "BLOB_UNKNOWN", "BLOB_UPLOAD_INVALID", "BLOB_UPLOAD_UNKNOWN", "DIGEST_INVALID", "MANIFEST_BLOB_UNKNOWN", "MANIFEST_INVALID",
+        "MANIFEST_UNKNOWN", "NAME_INVALID", "NAME_UNKNOWN", "SIZE_INVALID", "UNAUTHORIZED", "DENIED", "UNSUPPORTED", "TOOMANYREQUESTS",
+    }.ToFrozenSet(StringComparer.Ordinal);
 
     /// <summary>A gRPC status code 1 to 16 (never 0, <c>OK</c>) and an optional message (BL-1188).</summary>
     private static bool IsGrpcStatus(string reply) => IsCodeWithOptionalText(reply, 1, 16);

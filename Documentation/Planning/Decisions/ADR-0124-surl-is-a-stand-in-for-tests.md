@@ -300,6 +300,7 @@ The extended servers (decision 9), each judged by its own specification (ADR-008
 | `stomp`, `stomps` | text, sent as an `ERROR` frame's `message` header, after which the connection closes (BL-1062) |
 | `xmpp`, `xmpps` | a stanza error condition of RFC 6120 section 8.3.3 (for example `service-unavailable`), answered as `<error type=...>` on the matching stanza (BL-1063) |
 | `grpc`, `grpcs` | a gRPC status code 1 to 16 (never 0, `OK`) and an optional message, answered as `grpc-status` and `grpc-message` in a Trailers-Only response; `command` is the method name and `path` the full `/<service>/<method>`; a drop resets the call's stream (BL-1188) |
+| `oci` | an HTTP status 400 to 599 and one of the OCI Distribution Specification v1.1.0 error codes (`BLOB_UNKNOWN`, `DENIED`, `TOOMANYREQUESTS`, ...), answered with that status and the specification's `{"errors":[{"code","message"}]}` body; `command` is the method and `path` the request path; faults apply to `/v2/` requests once the token is accepted, not to `/token` (BL-1189) |
 | `dns` | an RCODE 1 to 5 |
 | `redis`, `rediss` | text, sent as a RESP error (`-<text>`) |
 
@@ -341,7 +342,7 @@ Examples: `drop;listener=smtp://127.0.0.1:2525;times=1`, `refuse-login;account=a
 `key <key> must be a whole number from <lowest> to <highest>`, `key stage must be accept or command`,
 `unknown scheme <scheme>`, `key listener is not a listen URL`, `key listener cannot be given with key scheme`,
 `key <key> cannot be given at stage accept`, `key after-bytes cannot be given with stage=command`,
-`kind error needs key scheme or key listener`, `scheme <scheme> has no error shape`,
+`kind error needs key scheme or key listener` (every scheme surl serves has an error shape since BL-1189),
 `key reply does not fit the <scheme> error shape` and `more than 256 fault rules`; none holds a value
 but a kind or scheme, and the kind and keys are read in any case; `gophers` takes `gopher`'s reply shape;
 `scheme` accepts every scheme surl has a server for, extended ones included, whether or not

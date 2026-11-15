@@ -106,11 +106,6 @@ internal static class ConfiguredFaultReader
     /// <returns><c>key &lt;key&gt; cannot be given at stage accept</c>.</returns>
     public static string KeyUnknownAtAccept(string key) => $"key {key} cannot be given at stage accept";
 
-    /// <summary>An <c>error</c> rule whose scheme has no error shape yet (the extended schemes, ADR-0124 decision 4 as amended).</summary>
-    /// <param name="scheme">The scheme, lower-cased.</param>
-    /// <returns><c>scheme &lt;scheme&gt; has no error shape</c>.</returns>
-    public static string SchemeHasNoErrorShape(string scheme) => $"scheme {scheme} has no error shape";
-
     /// <summary>A <c>reply</c> that does not fit its scheme's error shape.</summary>
     /// <param name="scheme">The scheme, lower-cased.</param>
     /// <returns><c>key reply does not fit the &lt;scheme&gt; error shape</c>.</returns>
@@ -272,11 +267,6 @@ internal static class ConfiguredFaultReader
         if (scheme is null)
         {
             return ErrorNeedsSchemeOrListener;
-        }
-
-        if (!FaultReplyShapes.HasShape(scheme))
-        {
-            return SchemeHasNoErrorShape(scheme);
         }
 
         return FaultReplyShapes.Fits(scheme, reply) ? null : ReplyDoesNotFit(scheme);

@@ -102,3 +102,5 @@ An upload session answers only the account whose token opened it; another accoun
 This library references `Surl.Protocol.Abstractions`, `Surl.Content` and `Surl.HttpServing`, nothing
 else (`ProtocolIsolationTests`), and never constructs a transport type. Tests replay request bytes
 written from the specifications through `InMemoryConnection` on an `InMemoryContentFileSystem`.
+
+Fault rules (BL-1189, ADR-0124 decisions 4 and 9): `OciRequestFaults` asks `ExchangeContext.Faults` at the command stage for each `/v2/` request once the token is accepted (account is the token's, `path` the request path without its query, `command` the method). `delay` holds it, `drop` aborts with no bytes, `error` answers `<status 400-599> <OCI error code>` with the specification's JSON error body. `/token` is not faulted: it is the server's login, not a registry operation.
