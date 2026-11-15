@@ -104,3 +104,9 @@ This library references `Surl.Protocol.Abstractions.UnitLibrary` and `Surl.Messa
 (ADR-0100 decision 3.1) - never another protocol server, original or extended. Never construct a
 `Socket`, `TcpListener`, `UdpClient`, `SslStream` or `HttpListener` here; the transport comes from
 the listener seam.
+
+Stand-in seams (BL-1159, ADR-0158 decisions 2 and 7): `RedisKeyspaceJournal` collects the keys a
+command wrote or deleted (`RedisDatabase` notes each `Put`, `Recount`, removal and `Clear`);
+`RedisKeyspaceCommand` publishes them as `StoreChangedEvent`s of `StoreKind.Keyspace` once the
+command has answered (`RedisKeyspaceChange.Name` is `<db>/<key>`), and `Growing`/`GrowingAt` ask the
+fault plan at `FaultStage.StoreWrite` first: an `out-of-space` rule answers `-OOM …` and writes nothing.

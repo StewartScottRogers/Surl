@@ -30,11 +30,14 @@ internal sealed class RedisKeyspace
     {
         this.maxKeyCount = maxKeyCount;
         this.maxByteCount = maxByteCount;
-        databases = [.. Enumerable.Range(0, RedisSession.DatabaseCount).Select(_ => new RedisDatabase(this))];
+        databases = [.. Enumerable.Range(0, RedisSession.DatabaseCount).Select(index => new RedisDatabase(this, index))];
     }
 
     /// <summary>Held while a command reads or changes the keyspace, so each command is atomic.</summary>
     public Lock SyncRoot { get; } = new();
+
+    /// <summary>The changes the command now running has made, published when it has answered (ADR-0158 decision 2).</summary>
+    public RedisKeyspaceJournal Journal { get; } = new();
 
     /// <summary>How many keys the databases hold, expired ones not yet removed included.</summary>
     public long KeyCount { get; private set; }

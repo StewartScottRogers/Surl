@@ -6,7 +6,8 @@ namespace Surl.Extended.Protocol.Redis;
 /// sweeps in the background (ADR-0106 decision 1). Callers hold <see cref="RedisKeyspace.SyncRoot"/>.
 /// </summary>
 /// <param name="keyspace">The keyspace, which counts every key and byte against its bounds.</param>
-internal sealed class RedisDatabase(RedisKeyspace keyspace)
+/// <param name="index">The database number, 0 to 15, which its journalled changes name.</param>
+internal sealed class RedisDatabase(RedisKeyspace keyspace, int index)
 {
     private readonly Dictionary<string, RedisKeyEntry> entries = new(StringComparer.Ordinal);
     private readonly SortedDictionary<long, RedisKeyEntry> entriesBySequenceNumber = [];
@@ -47,6 +48,7 @@ internal sealed class RedisDatabase(RedisKeyspace keyspace)
         {
             keyspace.Count(0, value.ByteCount - entry.Value.ByteCount);
             entry.Value = value;
+            keyspace.Journal.Written(index, key, value.ByteCount);
             return entry;
         }
 
@@ -54,6 +56,7 @@ internal sealed class RedisDatabase(RedisKeyspace keyspace)
         entries.Add(key, entry);
         entriesBySequenceNumber.Add(entry.SequenceNumber, entry);
         keyspace.Count(1, ByteCountOf(entry));
+        keyspace.Journal.Written(index, key, value.ByteCount);
         return entry;
     }
 
@@ -69,7 +72,10 @@ internal sealed class RedisDatabase(RedisKeyspace keyspace)
         if (((RedisCollectionValue)entry.Value).Count == 0)
         {
             Remove(entry);
+            return;
         }
+
+        keyspace.Journal.Written(index, entry.Key, entry.Value.ByteCount);
     }
 
     /// <summary>Deletes the live key named <paramref name="key"/>.</summary>
@@ -130,10 +136,17 @@ internal sealed class RedisDatabase(RedisKeyspace keyspace)
     /// <summary>Deletes every key (<c>FLUSHDB</c>).</summary>
     public void Clear()
     {
+        if (entries.Count == 0)
+        {
+            return;
+        }
+
         foreach (var entry in entries.Values.ToList())
         {
-            Remove(entry);
+            Discard(entry);
         }
+
+        keyspace.Journal.DatabaseDeleted(index);
     }
 
     private static long ByteCountOf(RedisKeyEntry entry) => entry.Key.Length + entry.Value.ByteCount;
@@ -149,6 +162,12 @@ internal sealed class RedisDatabase(RedisKeyspace keyspace)
     }
 
     private void Remove(RedisKeyEntry entry)
+    {
+        Discard(entry);
+        keyspace.Journal.Deleted(index, entry.Key);
+    }
+
+    private void Discard(RedisKeyEntry entry)
     {
         entries.Remove(entry.Key);
         entriesBySequenceNumber.Remove(entry.SequenceNumber);
