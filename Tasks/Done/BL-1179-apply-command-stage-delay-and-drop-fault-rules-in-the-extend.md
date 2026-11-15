@@ -8,7 +8,7 @@ depends-on: []
 touches: [Protocols/FileTransfer/Surl.Extended.Protocol.S3.UnitLibrary, Protocols/FileTransfer/Surl.Extended.Protocol.S3.UnitTests]
 requirement: FR-062
 created: 2026-11-14
-completed:
+completed: 2026-11-14
 ---
 # BL-1179 — Apply command-stage delay and drop fault rules in the extended S3 server
 
@@ -24,14 +24,17 @@ A `delay;stage=command` or `drop;stage=command` fault rule matching an S3 reques
 
 ## Acceptance criteria
 
-- [ ] Named tests: a `delay` rule at the command stage holds the matching request for `ms` on a fake `TimeProvider`, pausing and restarting the idle clock (`RecordingIdleClock`), then answers it as usual; one `FaultAppliedEvent` (`Delay`, `Command`).
-- [ ] Named tests: a `drop` rule at the command stage aborts the connection with no response bytes; one `FaultAppliedEvent` (`Drop`, `Command`).
-- [ ] Every existing chosen-error test passes unchanged, and a rule for another path or method changes nothing.
-- [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and the S3 library keeps 100% line and branch coverage with no method over complexity 10.
+- [x] Named tests: a `delay` rule at the command stage holds the matching request for `ms` on a fake `TimeProvider`, pausing and restarting the idle clock (`RecordingIdleClock`), then answers it as usual; one `FaultAppliedEvent` (`Delay`, `Command`).
+- [x] Named tests: a `drop` rule at the command stage aborts the connection with no response bytes; one `FaultAppliedEvent` (`Drop`, `Command`).
+- [x] Every existing chosen-error test passes unchanged, and a rule for another path or method changes nothing.
+- [x] `dotnet build -warnaserror` is clean, the fast tests are green, and the S3 library keeps 100% line and branch coverage with no method over complexity 10.
 
 ## Notes
+
+- S3ChosenErrorFault.FindAsync now calls HttpCommandFaults.FindAndApplyAsync and returns the HttpAnswer (chosen error, or a DropsExchange answer as the HTTP server does). Old "delay is served as without it, no event" test replaced by held-then-served and drop tests. Pre-existing format nit in S3DeleteObject.cs (final newline) left alone.
 
 ## Log
 
 - 2026-11-14: Created.
 - 2026-11-14: Backlog -> Doing.
+- 2026-11-14: Doing -> Done. S3 server applies command-stage delay and drop fault rules

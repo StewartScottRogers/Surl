@@ -68,9 +68,9 @@ internal sealed class S3RequestAnswerer : IHttpRequestHandler, IHttpHeadNotReadR
             return reply.Error(loginRefusal);
         }
 
-        if (await S3ChosenErrorFault.FindAsync(context, request.Method, target, loginResult.Caller!.AccountName) is { } chosenError)
+        if (await S3ChosenErrorFault.FindAsync(context, request.Method, target, loginResult.Caller!.AccountName, reply) is { } faultAnswer)
         {
-            return reply.Error(chosenError);
+            return faultAnswer;
         }
 
         var operation = S3OperationRecognition.Of(request, target);
