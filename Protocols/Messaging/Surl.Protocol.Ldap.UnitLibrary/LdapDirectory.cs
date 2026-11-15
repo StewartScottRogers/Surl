@@ -1,10 +1,11 @@
 using System.Text;
+using Surl.Protocol.Abstractions;
 
 namespace Surl.Protocol.Ldap;
 
 /// <summary>
 /// The directory the LDAP server serves (ADR-0072 decision 1): entries in their source's order,
-/// read-only once built and so safe for concurrent searches, bounded, and searched with base,
+/// replaced whole when seeded, reset or restored (so a search sees the old set or the new one), bounded, and searched with base,
 /// one-level and subtree scopes. A search of the empty DN answers the root DSE.
 /// </summary>
 internal sealed class LdapDirectory
@@ -21,65 +22,137 @@ internal sealed class LdapDirectory
     /// <summary>The most entries one search returns by default.</summary>
     public const int DefaultMaxSearchEntries = 10000;
 
+    /// <summary>The most bytes of LDIF text one seed holds (16 MiB, ADR-0158 decision 3).</summary>
+    public const int MaxSeedBytes = 16777216;
+
     private const string RootDseExtensionStartTls = "1.3.6.1.4.1.1466.20037";
 
     private static readonly IReadOnlyList<LdapAttribute> RootDseUserAttributes = [Attribute("objectClass", "top")];
 
-    private readonly Dictionary<string, LdapEntry> entriesByNormalForm = new(StringComparer.Ordinal);
     private readonly TimeProvider timeProvider;
     private readonly int maxSearchEntries;
+    private readonly int maxEntries;
+    private readonly long maxTotalBytes;
+    private readonly ISurlEventPublisher events;
+    private readonly LdapDirectoryContents configured;
+    private readonly Lock changeLock = new();
+    private volatile LdapDirectoryContents contents;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="LdapDirectory"/> class.
     /// </summary>
-    /// <param name="entries">The entries, in their source's order.</param>
+    /// <param name="entries">The entries, in their source's order; what <see cref="Reset"/> returns to.</param>
     /// <param name="timeProvider">The clock a search's <c>timeLimit</c> is measured by.</param>
     /// <param name="maxEntries">The most entries the directory holds.</param>
     /// <param name="maxTotalBytes">The most bytes of DNs, descriptions and values the directory holds.</param>
     /// <param name="maxSearchEntries">The most entries one search returns.</param>
+    /// <param name="events">Where seeds, resets and restores are published; nowhere when <see langword="null"/>.</param>
     /// <exception cref="LdapDirectoryException">An entry cannot be in a directory.</exception>
     public LdapDirectory(
         IReadOnlyList<LdapEntry> entries,
         TimeProvider timeProvider,
         int maxEntries = DefaultMaxEntries,
         long maxTotalBytes = DefaultMaxTotalBytes,
-        int maxSearchEntries = DefaultMaxSearchEntries)
+        int maxSearchEntries = DefaultMaxSearchEntries,
+        ISurlEventPublisher? events = null)
     {
         this.timeProvider = timeProvider;
         this.maxSearchEntries = maxSearchEntries;
-        Entries = entries;
-        long totalBytes = 0;
-        for (var index = 0; index < entries.Count; index++)
-        {
-            totalBytes += SizeOf(entries[index]);
-            var fault = FaultOf(entries[index], index < maxEntries && totalBytes <= maxTotalBytes);
-            if (fault is not null)
-            {
-                throw new LdapDirectoryException(fault.Value, index);
-            }
-
-            entriesByNormalForm.Add(entries[index].Dn.NormalForm, entries[index]);
-        }
-
-        ThrowOnAMissingParent();
-        NamingContexts = entries.Where(entry => FindNearestSuperior(entry.Dn) is null)
-            .Select(entry => entry.Dn.Text)
-            .Order(StringComparer.OrdinalIgnoreCase)
-            .ToArray();
+        this.maxEntries = maxEntries;
+        this.maxTotalBytes = maxTotalBytes;
+        this.events = events ?? DiscardingSurlEventPublisher.Instance;
+        configured = new LdapDirectoryContents(entries, maxEntries, maxTotalBytes);
+        contents = configured;
     }
 
     /// <summary>Gets the entries, in their source's order.</summary>
-    public IReadOnlyList<LdapEntry> Entries { get; }
+    public IReadOnlyList<LdapEntry> Entries => contents.Entries;
 
     /// <summary>Gets the DNs, as written and in ordinal order ignoring case, of the entries with no superior in the directory.</summary>
-    public IReadOnlyList<string> NamingContexts { get; }
+    public IReadOnlyList<string> NamingContexts => contents.NamingContexts;
 
     /// <summary>
     /// Finds the entry a DN names, in normal form.
     /// </summary>
     /// <param name="dn">The DN.</param>
     /// <returns>The entry; <see langword="null"/> when the directory has none.</returns>
-    public LdapEntry? FindEntry(LdapDistinguishedName dn) => entriesByNormalForm.GetValueOrDefault(dn.NormalForm);
+    public LdapEntry? FindEntry(LdapDistinguishedName dn) => contents.FindEntry(dn);
+
+    /// <summary>
+    /// Adds the content records of LDIF text (ADR-0158 decision 3), all or none, and publishes
+    /// <see cref="StoreChange.Seeded"/> for each. It never consults the fault plan.
+    /// </summary>
+    /// <param name="ldif">LDIF content records, at most <see cref="MaxSeedBytes"/> bytes of UTF-8.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="ldif"/> is <see langword="null"/>.</exception>
+    /// <exception cref="InvalidOperationException">The text is not LDIF content the directory can add; the message is <c>line &lt;n&gt;: &lt;what&gt;</c>.</exception>
+    public void SeedEntries(string ldif)
+    {
+        ArgumentNullException.ThrowIfNull(ldif);
+        var bytes = Encoding.UTF8.GetBytes(ldif);
+        if (bytes.Length > MaxSeedBytes)
+        {
+            throw new InvalidOperationException($"the LDIF is past {MaxSeedBytes} bytes");
+        }
+
+        IReadOnlyList<LdifRecord> records;
+        try
+        {
+            records = LdifReader.Read(bytes);
+        }
+        catch (LdifFormatException exception)
+        {
+            throw new InvalidOperationException(exception.Message, exception);
+        }
+
+        lock (changeLock)
+        {
+            var added = records.Select(record => record.Entry).ToArray();
+            contents = SeededContents(records, added);
+            foreach (var entry in added)
+            {
+                Publish(StoreChange.Seeded, entry.Dn.Text, LdapDirectoryContents.SizeOf(entry));
+            }
+        }
+    }
+
+    /// <summary>
+    /// Returns the directory to the entries it was built with and publishes <see cref="StoreChange.Reset"/>.
+    /// </summary>
+    public void Reset()
+    {
+        lock (changeLock)
+        {
+            contents = configured;
+            Publish(StoreChange.Reset, string.Empty, 0);
+        }
+    }
+
+    /// <summary>
+    /// Copies the directory's entries.
+    /// </summary>
+    /// <returns>The snapshot, good for this directory only.</returns>
+    public LdapDirectorySnapshot TakeSnapshot() => new(this, contents);
+
+    /// <summary>
+    /// Replaces the entries with <paramref name="snapshot"/>'s and publishes <see cref="StoreChange.Restored"/>.
+    /// </summary>
+    /// <param name="snapshot">A snapshot this directory took.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="snapshot"/> is <see langword="null"/>.</exception>
+    /// <exception cref="InvalidOperationException">Another directory took the snapshot.</exception>
+    public void Restore(LdapDirectorySnapshot snapshot)
+    {
+        ArgumentNullException.ThrowIfNull(snapshot);
+        if (!ReferenceEquals(snapshot.Owner, this))
+        {
+            throw new InvalidOperationException("the snapshot was taken from another directory");
+        }
+
+        lock (changeLock)
+        {
+            contents = snapshot.Contents;
+            Publish(StoreChange.Restored, string.Empty, snapshot.ByteCount);
+        }
+    }
 
     /// <summary>
     /// Answers a search: <c>invalidDNSyntax</c> for a base that is not a DN, the root DSE for the
@@ -99,12 +172,13 @@ internal sealed class LdapDirectory
 
         if (baseDn.IsRoot)
         {
-            return SearchRootDse(request, baseDn, rootDseFacts);
+            return SearchRootDse(request, baseDn, rootDseFacts, contents);
         }
 
-        return FindEntry(baseDn) is { } baseEntry
-            ? SearchBelow(request, baseEntry)
-            : new LdapSearchOutcome([], new LdapResult(LdapResultCode.NoSuchObject, FindNearestSuperior(baseDn)?.Dn.Text ?? string.Empty, string.Empty));
+        var current = contents;
+        return current.FindEntry(baseDn) is { } baseEntry
+            ? SearchBelow(request, current, baseEntry)
+            : new LdapSearchOutcome([], new LdapResult(LdapResultCode.NoSuchObject, current.FindNearestSuperior(baseDn)?.Dn.Text ?? string.Empty, string.Empty));
     }
 
     /// <summary>
@@ -123,9 +197,10 @@ internal sealed class LdapDirectory
             return new LdapResult(LdapResultCode.InvalidDnSyntax, string.Empty, "the entry is not an RFC 4514 DN");
         }
 
-        return FindEntry(dn) is { } entry
+        var current = contents;
+        return current.FindEntry(dn) is { } entry
             ? CompareIn(entry, request)
-            : new LdapResult(LdapResultCode.NoSuchObject, FindNearestSuperior(dn)?.Dn.Text ?? string.Empty, string.Empty);
+            : new LdapResult(LdapResultCode.NoSuchObject, current.FindNearestSuperior(dn)?.Dn.Text ?? string.Empty, string.Empty);
     }
 
     private static LdapResult CompareIn(LdapEntry entry, LdapCompareRequest request)
@@ -143,56 +218,12 @@ internal sealed class LdapDirectory
     private static LdapAttribute Attribute(string description, params IEnumerable<string> values) =>
         new(description, values.Select(Encoding.UTF8.GetBytes).ToArray());
 
-    private static long SizeOf(LdapEntry entry) =>
-        Encoding.UTF8.GetByteCount(entry.Dn.Text)
-        + entry.Attributes.Sum(attribute => Encoding.UTF8.GetByteCount(attribute.Description.Text) + attribute.Values.Sum(value => (long)value.Length));
-
     private static LdapSearchOutcome Success(IReadOnlyList<LdapSearchResultEntry> entries) =>
         new(entries, new LdapResult(LdapResultCode.Success, string.Empty, string.Empty));
 
-    private LdapDirectoryFault? FaultOf(LdapEntry entry, bool isWithinBounds)
+    private LdapSearchOutcome SearchRootDse(LdapSearchRequest request, LdapDistinguishedName rootDn, LdapRootDseFacts facts, LdapDirectoryContents current)
     {
-        if (entry.Attributes.Count == 0)
-        {
-            return LdapDirectoryFault.EntryWithoutAttribute;
-        }
-
-        if (entry.Dn.IsRoot)
-        {
-            return LdapDirectoryFault.RootDseEntry;
-        }
-
-        if (!isWithinBounds || HasAValuePastItsBound(entry))
-        {
-            return LdapDirectoryFault.PastBounds;
-        }
-
-        return entriesByNormalForm.ContainsKey(entry.Dn.NormalForm) ? LdapDirectoryFault.DuplicateDn : null;
-    }
-
-    private static bool HasAValuePastItsBound(LdapEntry entry) =>
-        entry.Attributes.Any(attribute => attribute.Values.Any(value => value.Length > MaxValueBytes));
-
-    private void ThrowOnAMissingParent()
-    {
-        for (var index = 0; index < Entries.Count; index++)
-        {
-            var superiors = Entries[index].Dn.SuperiorNormalForms().ToArray();
-            if (superiors.Length > 0 && !entriesByNormalForm.ContainsKey(superiors[0]) && superiors.Any(entriesByNormalForm.ContainsKey))
-            {
-                throw new LdapDirectoryException(LdapDirectoryFault.ParentNotInDirectory, index);
-            }
-        }
-    }
-
-    private LdapEntry? FindNearestSuperior(LdapDistinguishedName dn) =>
-        dn.SuperiorNormalForms()
-            .Select(entriesByNormalForm.GetValueOrDefault)
-            .FirstOrDefault(entry => entry is not null);
-
-    private LdapSearchOutcome SearchRootDse(LdapSearchRequest request, LdapDistinguishedName rootDn, LdapRootDseFacts facts)
-    {
-        var operational = RootDseOperationalAttributes(facts);
+        var operational = RootDseOperationalAttributes(facts, current);
         var isReturned = request.Scope == LdapSearchScope.BaseObject
             && LdapFilterEvaluator.Evaluate(request.Filter, rootDn, [.. RootDseUserAttributes, .. operational]) == LdapFilterResult.True;
         return Success(isReturned
@@ -200,12 +231,12 @@ internal sealed class LdapDirectory
             : []);
     }
 
-    private List<LdapAttribute> RootDseOperationalAttributes(LdapRootDseFacts facts)
+    private List<LdapAttribute> RootDseOperationalAttributes(LdapRootDseFacts facts, LdapDirectoryContents current)
     {
         var attributes = new List<LdapAttribute>();
-        if (NamingContexts.Count > 0)
+        if (current.NamingContexts.Count > 0)
         {
-            attributes.Add(Attribute("namingContexts", NamingContexts));
+            attributes.Add(Attribute("namingContexts", current.NamingContexts));
         }
 
         attributes.Add(Attribute("supportedLDAPVersion", "3"));
@@ -222,12 +253,12 @@ internal sealed class LdapDirectory
         return attributes;
     }
 
-    private LdapSearchOutcome SearchBelow(LdapSearchRequest request, LdapEntry baseEntry)
+    private LdapSearchOutcome SearchBelow(LdapSearchRequest request, LdapDirectoryContents current, LdapEntry baseEntry)
     {
         var limit = SizeLimitOf(request);
         var deadline = DeadlineOf(request);
         var found = new List<LdapSearchResultEntry>();
-        foreach (var entry in CandidatesOf(request.Scope, baseEntry))
+        foreach (var entry in CandidatesOf(request.Scope, current, baseEntry))
         {
             if (timeProvider.GetUtcNow() >= deadline)
             {
@@ -256,10 +287,30 @@ internal sealed class LdapDirectory
     private DateTimeOffset DeadlineOf(LdapSearchRequest request) =>
         request.TimeLimit > 0 ? timeProvider.GetUtcNow().AddSeconds(request.TimeLimit) : DateTimeOffset.MaxValue;
 
-    private IEnumerable<LdapEntry> CandidatesOf(LdapSearchScope scope, LdapEntry baseEntry) => scope switch
+    private IEnumerable<LdapEntry> CandidatesOf(LdapSearchScope scope, LdapDirectoryContents current, LdapEntry baseEntry) => scope switch
     {
         LdapSearchScope.BaseObject => [baseEntry],
-        LdapSearchScope.SingleLevel => Entries.Where(entry => entry.Dn.IsWithin(baseEntry.Dn, levelsBelow: 1)),
-        _ => Entries.Where(entry => entry.Dn.IsWithin(baseEntry.Dn, levelsBelow: null)),
+        LdapSearchScope.SingleLevel => current.Entries.Where(entry => entry.Dn.IsWithin(baseEntry.Dn, levelsBelow: 1)),
+        _ => current.Entries.Where(entry => entry.Dn.IsWithin(baseEntry.Dn, levelsBelow: null)),
     };
-}
+
+    private LdapDirectoryContents SeededContents(IReadOnlyList<LdifRecord> records, LdapEntry[] added)
+    {
+        var existing = contents.Entries;
+        try
+        {
+            return new LdapDirectoryContents([.. existing, .. added], maxEntries, maxTotalBytes);
+        }
+        catch (LdapDirectoryException exception)
+        {
+            var text = LdifFaultText.Of(exception.Fault);
+            throw new InvalidOperationException(
+                exception.EntryIndex >= existing.Count
+                    ? new LdifFormatException(records[exception.EntryIndex - existing.Count].Line, text).Message
+                    : $"the entry {existing[exception.EntryIndex].Dn.Text}: {text}",
+                exception);
+        }
+    }
+
+    private void Publish(StoreChange change, string name, long byteCount) =>
+        events.Publish(new StoreChangedEvent(StoreKind.Directory, change, name, byteCount, ExchangeId: null));}

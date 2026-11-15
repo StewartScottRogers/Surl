@@ -36,3 +36,5 @@ The LDAP directory can be seeded with LDIF content records while the server runs
 
 - 2026-11-14: Created.
 - 2026-11-14: Backlog -> Doing.
+
+- Choices (ADR-0158 decisions 2-5): `LdapDirectory` now holds an immutable `LdapDirectoryContents` swapped under a lock; each search captures one set. `SeedEntries(ldif)` (16 MiB bound, same `LdifReader`, atomic, refused with `InvalidOperationException` carrying the reader's `line <n>: <what>`), `Reset`, `TakeSnapshot`/`Restore` (`LdapDirectorySnapshot`, owner-checked) publish `StoreChangedEvent` (`Directory`; `Seeded` per entry with DN and byte size, `Reset`/`Restored` once with empty name). No `IControllableStore` exists yet, so wiring into `ComposedStores` stays with BL-1163. A seed that would leave an existing entry parentless names that entry rather than a line.
