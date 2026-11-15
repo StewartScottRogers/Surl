@@ -8,7 +8,7 @@ depends-on: []
 touches: [Protocols/Http/Surl.Extended.Protocol.WebTransport.UnitLibrary, Protocols/Http/Surl.Extended.Protocol.WebTransport.UnitTests]
 requirement: FR-062
 created: 2026-11-14
-completed:
+completed: 2026-11-14
 ---
 # BL-1182 — Apply command-stage delay and drop fault rules in the extended WebTransport server
 
@@ -23,14 +23,17 @@ A `delay;stage=command` or `drop;stage=command` fault rule matching a WebTranspo
 
 ## Acceptance criteria
 
-- [ ] Named tests: a `delay` rule at the command stage holds the extended CONNECT for `ms` on a fake `TimeProvider`, pausing and restarting the idle clock, then answers `200` as usual; one `FaultAppliedEvent` (`Delay`, `Command`).
-- [ ] Named tests: a `drop` rule aborts with no response sent; one `FaultAppliedEvent` (`Drop`, `Command`).
-- [ ] Every existing chosen-error test passes unchanged, and a rule for another path changes nothing.
-- [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and the library keeps 100% line and branch coverage with no method over complexity 10.
+- [x] Named tests: a `delay` rule at the command stage holds the extended CONNECT for `ms` on a fake `TimeProvider`, pausing and restarting the idle clock, then answers `200` as usual; one `FaultAppliedEvent` (`Delay`, `Command`).
+- [x] Named tests: a `drop` rule aborts with no response sent; one `FaultAppliedEvent` (`Drop`, `Command`).
+- [x] Every existing chosen-error test passes unchanged, and a rule for another path changes nothing.
+- [x] `dotnet build -warnaserror` is clean, the fast tests are green, and the library keeps 100% line and branch coverage with no method over complexity 10.
 
 ## Notes
+
+- The helper's connection argument: the 3-argument overload (no connection) is used, as ADR-0141 amendment 1 says for HTTP/3; a drop resets the CONNECT request stream with H3_INTERNAL_ERROR rather than aborting the QUIC connection other streams share. Idle-clock pause/restart is the helper's, tested in its own library.
 
 ## Log
 
 - 2026-11-14: Created.
 - 2026-11-14: Backlog -> Doing.
+- 2026-11-14: Doing -> Done. WebTransport CONNECT applies command-stage delay and drop fault rules

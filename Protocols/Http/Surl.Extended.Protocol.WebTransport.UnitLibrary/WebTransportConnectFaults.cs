@@ -10,9 +10,11 @@ namespace Surl.Extended.Protocol.WebTransport;
 /// point names the scheme (<c>webtransport</c>), <c>CONNECT</c> as <c>command</c> and the request path.
 /// </summary>
 /// <remarks>
-/// A <see cref="FaultKind.Error"/> rule whose reply is a status 400 to 599 and optional text is handed
+/// A <see cref="FaultKind.Delay"/> rule holds the CONNECT before its response, then it is served as usual,
+/// and a <see cref="FaultKind.Drop"/> rule is handed back as <see cref="ChosenAnswer.Dropped"/> for the
+/// handler to reset the request stream (ADR-0141 and its amendment 1; BL-1182). A <see cref="FaultKind.Error"/> rule whose reply is a status 400 to 599 and optional text is handed
 /// back as a <see cref="ChosenAnswer"/> and publishes one <see cref="FaultAppliedEvent"/>. Any other
-/// rule, or an error rule without a usable reply, is noted as not applied and the request is served
+/// kind, or an error rule without a usable reply, is noted as not applied and the request is served
 /// as without it.
 /// </remarks>
 internal static class WebTransportConnectFaults
@@ -25,6 +27,12 @@ internal static class WebTransportConnectFaults
     /// <param name="Text">The text after the status, or <see langword="null"/>.</param>
     public sealed record ChosenAnswer(int Status, string? Text)
     {
+        /// <summary>The answer a drop rule gives: no status, no text; the CONNECT is ended with no response.</summary>
+        public static ChosenAnswer Dropped { get; } = new(0, null);
+
+        /// <summary>Whether this ends the CONNECT with no response.</summary>
+        public bool IsDrop => Status == 0;
+
         /// <summary>The text as UTF-8.</summary>
         public byte[] Body => Encoding.UTF8.GetBytes(Text ?? string.Empty);
     }
@@ -43,10 +51,15 @@ internal static class WebTransportConnectFaults
             Path = path,
             Command = ConnectCommand,
         };
-        var rule = await context.Faults.FindAsync(point, context.CancellationToken);
-        if (rule is null)
+        var rule = await CommandStageFaults.FindAndApplyAsync(context, point, path);
+        if (rule is null || rule.Kind == FaultKind.Delay)
         {
             return null;
+        }
+
+        if (rule.Kind == FaultKind.Drop)
+        {
+            return ChosenAnswer.Dropped;
         }
 
         if (rule.Kind == FaultKind.Error && TryRead(rule.Reply) is { } answer)

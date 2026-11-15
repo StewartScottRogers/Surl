@@ -68,7 +68,7 @@ public sealed class WebTransportConnectFaultTests
     [DataRow(FaultKind.Error, "200 ok", "its reply is not a status 400 to 599", DisplayName = "Status out of range")]
     [DataRow(FaultKind.Error, "boom", "its reply is not a status 400 to 599", DisplayName = "Not a status")]
     [DataRow(FaultKind.Error, null, "its reply is not a status 400 to 599", DisplayName = "No reply")]
-    [DataRow(FaultKind.Delay, null, "a Delay rule is not applied at a CONNECT", DisplayName = "Another kind")]
+    [DataRow(FaultKind.RefuseLogin, null, "a RefuseLogin rule is not applied at a CONNECT", DisplayName = "Another kind")]
     public async Task ServeSessionAsync_RuleItCannotApply_IsNotedAndTheSessionIsServed(FaultKind kind, string? reply, string why)
     {
         var (response, events, log, _) = await ConnectAsync(Rule(kind, reply: reply));
@@ -76,6 +76,49 @@ public sealed class WebTransportConnectFaultTests
         Assert.AreEqual("200", response.Status);
         Assert.IsEmpty(events.Events);
         Assert.Contains($"Fault rule f1 not applied to CONNECT /echo: {why}.", log.Notes);
+    }
+
+    [TestMethod]
+    public async Task ServeSessionAsync_ConnectUnderADelayRule_IsHeldForTheDelayThenAnswered200()
+    {
+        using var client = new Http3TestQuicClient();
+        var events = new RecordingSurlEventPublisher();
+        var rule = new FaultRule("f1", FaultKind.Delay) { Scheme = "webtransport", Command = "CONNECT", Path = "/echo", DelayMilliseconds = 5000 };
+        var (_, time) = await UnitTestWebTransport.StartAsync(client, Token, faults: new ScriptedFaultPlan(rule), events: events);
+
+        client.Send(0, UnitTestWebTransport.Connect(client));
+        await UnitTestWebTransport.AdvanceUntilAsync(client, time, () => client.StreamSent(0).Data.Length > 0, Token);
+
+        Assert.AreEqual("200", client.Response(0).Status);
+        Assert.AreEqual(new FaultAppliedEvent("f1", FaultKind.Delay, FaultStage.Command, 1, "/echo"), events.Events.Single());
+    }
+
+    [TestMethod]
+    public async Task ServeSessionAsync_ConnectUnderADelayRule_SendsNothingBeforeTheDelayPasses()
+    {
+        using var client = new Http3TestQuicClient();
+        var rule = new FaultRule("f1", FaultKind.Delay) { Scheme = "webtransport", Command = "CONNECT", Path = "/echo", DelayMilliseconds = 5000 };
+        var (_, time) = await UnitTestWebTransport.StartAsync(client, Token, faults: new ScriptedFaultPlan(rule));
+
+        client.Send(0, UnitTestWebTransport.Connect(client));
+        await UnitTestWebTransport.AdvanceUntilAsync(client, time, () => time.GetUtcNow() > new DateTimeOffset(2026, 11, 5, 12, 0, 4, TimeSpan.Zero), Token);
+
+        Assert.IsEmpty(client.StreamSent(0).Data);
+    }
+
+    [TestMethod]
+    public async Task ServeSessionAsync_ConnectUnderADropRule_ResetsTheStreamWithNoResponse()
+    {
+        using var client = new Http3TestQuicClient();
+        var events = new RecordingSurlEventPublisher();
+        var (log, _) = await UnitTestWebTransport.StartAsync(client, Token, faults: new ScriptedFaultPlan(Rule(FaultKind.Drop)), events: events);
+
+        client.Send(0, UnitTestWebTransport.Connect(client));
+        await client.UntilAsync(() => client.ResetCode(0) is not null, Token);
+
+        Assert.IsEmpty(client.StreamSent(0).Data);
+        Assert.AreEqual(new FaultAppliedEvent("f1", FaultKind.Drop, FaultStage.Command, 1, "/echo"), events.Events.Single());
+        Assert.Contains("CONNECT dropped the connection, unanswered, by fault rule f1.", log.Notes);
     }
 
     [TestMethod]
