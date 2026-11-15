@@ -1,5 +1,6 @@
 using System.Buffers.Text;
 using Surl.MessageBus;
+using Surl.Protocol.Abstractions;
 
 namespace Surl.Extended.Protocol.Amqp0;
 
@@ -112,7 +113,12 @@ internal sealed partial class Amqp0BrokerConnection
         var type = ExchangeTypeOf(typeName);
         var encoded = new Amqp0WireWriter();
         encoded.WriteFieldTable(table);
-        AnswerExchangeDeclareOutcome(exchanges.Declare(name, type, durable, encoded.ToArray()));
+        var outcome = exchanges.Declare(name, type, durable, encoded.ToArray());
+        AnswerExchangeDeclareOutcome(outcome);
+        if (outcome == Amqp0ExchangeDeclareOutcome.Created)
+        {
+            PublishStoreChange(StoreChange.Created, name);
+        }
     }
 
     private static Amqp0ExchangeType ExchangeTypeOf(string typeName) => typeName switch
@@ -153,10 +159,14 @@ internal sealed partial class Amqp0BrokerConnection
             throw ReservedNameRefused();
         }
 
-        if (!exchanges.Delete(exchange, ifUnused: bits[0]))
+        if (!exchanges.Delete(exchange, ifUnused: bits[0], out var removedBindings))
         {
             throw new Amqp0ChannelException(Amqp0ReplyCode.PreconditionFailed, "PRECONDITION_FAILED - exchange in use");
         }
+
+        // A subscriber is never told of a binding of an exchange it was told is gone (ADR-0166 decision 2).
+        removedBindings.ForEach(binding => PublishStoreChange(StoreChange.Unbound, BindingNameOf(exchange, binding)));
+        PublishStoreChange(StoreChange.Deleted, name);
 
         if (!bits[1])
         {
@@ -283,11 +293,18 @@ internal sealed partial class Amqp0BrokerConnection
     {
         if (!bind)
         {
-            exchanges.Unbind(exchange, binding);
+            if (exchanges.Unbind(exchange, binding))
+            {
+                PublishStoreChange(StoreChange.Unbound, BindingNameOf(exchange, binding));
+            }
         }
-        else if (!exchanges.Bind(exchange, binding))
+        else if (!exchanges.Bind(exchange, binding, out var added))
         {
             throw new Amqp0ConnectionException(Amqp0ReplyCode.ResourceError, "RESOURCE_ERROR - broker bound reached");
+        }
+        else if (added)
+        {
+            PublishStoreChange(StoreChange.Bound, BindingNameOf(exchange, binding));
         }
     }
 

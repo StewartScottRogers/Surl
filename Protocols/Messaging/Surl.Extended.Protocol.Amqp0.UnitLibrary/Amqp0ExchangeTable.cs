@@ -79,21 +79,26 @@ internal sealed class Amqp0ExchangeTable
             var declared = new Amqp0Exchange(name, type, durable, arguments, isPredeclared: false);
             exchanges.Add(name, declared);
             NoteChange(declared);
-            return Amqp0ExchangeDeclareOutcome.Declared;
+            return Amqp0ExchangeDeclareOutcome.Created;
         }
     }
 
     /// <summary>Deletes a declared exchange with its bindings, unless <paramref name="ifUnused"/> finds one.</summary>
+    /// <param name="exchange">The declared exchange to delete.</param>
+    /// <param name="ifUnused">Whether to refuse when the exchange holds a binding.</param>
+    /// <param name="removedBindings">The bindings the deletion took with the exchange, in binding order.</param>
     /// <returns>Whether it was deleted.</returns>
-    public bool Delete(Amqp0Exchange exchange, bool ifUnused)
+    public bool Delete(Amqp0Exchange exchange, bool ifUnused, out List<Amqp0Binding> removedBindings)
     {
         lock (gate)
         {
+            removedBindings = [];
             if (ifUnused && exchange.BindingCount > 0)
             {
                 return false;
             }
 
+            removedBindings.AddRange(exchange.Bindings);
             bindingCount -= exchange.BindingCount;
             exchanges.Remove(exchange.Name);
             NoteChange(exchange);
@@ -102,16 +107,21 @@ internal sealed class Amqp0ExchangeTable
     }
 
     /// <summary>Binds a queue; returns <see langword="false"/> only when <see cref="MaxBindings"/> are held.</summary>
-    public bool Bind(Amqp0Exchange exchange, Amqp0Binding binding)
+    /// <param name="exchange">The exchange to bind on.</param>
+    /// <param name="binding">The binding to add.</param>
+    /// <param name="added">Whether the table did not hold the binding before.</param>
+    public bool Bind(Amqp0Exchange exchange, Amqp0Binding binding, out bool added)
     {
         lock (gate)
         {
+            added = false;
             if (bindingCount >= maxBindings)
             {
                 return false;
             }
 
-            if (exchange.Bind(binding))
+            added = exchange.Bind(binding);
+            if (added)
             {
                 bindingCount++;
                 NoteChange(exchange);
@@ -122,15 +132,19 @@ internal sealed class Amqp0ExchangeTable
     }
 
     /// <summary>Removes a binding; one that is not there is no error.</summary>
-    public void Unbind(Amqp0Exchange exchange, Amqp0Binding binding)
+    /// <returns>Whether the table held the binding.</returns>
+    public bool Unbind(Amqp0Exchange exchange, Amqp0Binding binding)
     {
         lock (gate)
         {
-            if (exchange.Unbind(binding))
+            var removed = exchange.Unbind(binding);
+            if (removed)
             {
                 bindingCount--;
                 NoteChange(exchange);
             }
+
+            return removed;
         }
     }
 
