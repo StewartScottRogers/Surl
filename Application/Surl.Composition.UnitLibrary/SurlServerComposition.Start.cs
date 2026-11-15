@@ -1,4 +1,5 @@
 using Surl.Extended.Protocol.Amqp0;
+using Surl.Extended.Protocol.Mqtt5;
 using System.Net;
 using System.Security.Cryptography.X509Certificates;
 using Surl.Cli;
@@ -436,7 +437,11 @@ public static partial class SurlServerComposition
 
     // The stores the composed brokers hold beside the bus (ADR-0159 decision 3), in ordinal order of scheme.
     private static List<ComposedStoreRegistration> ControlledBrokerStores(IProtocolServer[] servers, SurlEventStream events) =>
-        Amqp0ExchangeStoreRegistration.For([.. servers.OfType<Amqp0Broker>()], events) is { } exchanges ? [exchanges] : [];
+        [.. new[]
+        {
+            Amqp0ExchangeStoreRegistration.For([.. servers.OfType<Amqp0Broker>()], events),
+            Mqtt5SessionStoreRegistration.For([.. servers.OfType<Mqtt5Broker>()], events),
+        }.OfType<ComposedStoreRegistration>()];
 
     // How the proxies reach origins, over the rule --proxy-allow-origin and the proxy listen URLs make
     // (ADR-0088 decision 2); the host's seam when it gives one.

@@ -44,4 +44,9 @@ public enum StoreKind
     /// The AMQP 0-9-1 brokers' declared exchanges and their bindings (ADR-0159).
     /// </summary>
     Exchanges,
+
+    /// <summary>
+    /// The MQTT 5 brokers' sessions kept with no connection, with their subscriptions (ADR-0159).
+    /// </summary>
+    Sessions,
 }

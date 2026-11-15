@@ -186,6 +186,25 @@ public sealed class Mqtt5Broker : IConnectionProtocolServer
     public IReadOnlyList<string> Schemes { get; } = Array.AsReadOnly(["mqtt5", "mqtt5s"]);
 
     /// <summary>
+    /// Ends the sessions with no connection and discards the pending Wills, and drops the queued deliveries of the
+    /// sessions connected now (ADR-0159 decision 2). Connections stay open.
+    /// </summary>
+    public void ResetSessions() => state.Reset();
+
+    /// <summary>Copies the sessions kept with no connection, with their subscriptions and no queued delivery.</summary>
+    /// <returns>A snapshot only this broker restores.</returns>
+    public Mqtt5SessionSnapshot TakeSessionSnapshot() => state.TakeSnapshot();
+
+    /// <summary>Replaces the sessions kept with no connection with those of <paramref name="snapshot"/>, as <see cref="ResetSessions"/> clears the rest.</summary>
+    /// <param name="snapshot">A snapshot this broker took.</param>
+    /// <exception cref="InvalidOperationException">The snapshot is another broker's.</exception>
+    public void RestoreSessions(Mqtt5SessionSnapshot snapshot)
+    {
+        ArgumentNullException.ThrowIfNull(snapshot);
+        state.Restore(snapshot);
+    }
+
+    /// <summary>
     /// Answers every packet on <paramref name="connection"/> until the connection ends.
     /// </summary>
     /// <param name="connection">The accepted connection.</param>
