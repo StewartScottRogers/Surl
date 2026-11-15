@@ -34,3 +34,4 @@ A stand-in recipe test shows pinned upstream curl 8.21.0 finding, over `ldap://`
 ## Log
 
 - 2026-11-14: Created.
+- 2026-11-15: Backlog -> Doing.
