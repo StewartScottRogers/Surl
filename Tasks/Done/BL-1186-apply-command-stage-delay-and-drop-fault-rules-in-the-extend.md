@@ -8,7 +8,7 @@ depends-on: [BL-1171]
 touches: [Protocols/Messaging/Surl.Extended.Protocol.Mqtt5.UnitLibrary, Protocols/Messaging/Surl.Extended.Protocol.Mqtt5.UnitTests]
 requirement: FR-062
 created: 2026-11-14
-completed:
+completed: 2026-11-15
 ---
 # BL-1186 — Apply command-stage delay and drop fault rules in the extended MQTT 5 broker
 
@@ -24,14 +24,17 @@ A `delay;stage=command` or `drop;stage=command` fault rule matching an MQTT 5 pa
 
 ## Acceptance criteria
 
-- [ ] Named tests: a `delay` rule for `PUBLISH` holds it for `ms` on a fake `TimeProvider`, pausing and restarting the idle clock, then handles it as usual; one `FaultAppliedEvent` (`Delay`, `Command`).
-- [ ] Named tests: a `drop` rule for `SUBSCRIBE` aborts the connection with no `SUBACK`; one `FaultAppliedEvent` (`Drop`, `Command`).
-- [ ] Every existing chosen-error test passes unchanged, and a rule for another packet or topic changes nothing.
-- [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and the library keeps 100% line and branch coverage with no method over complexity 10.
+- [x] Named tests: a `delay` rule for `PUBLISH` holds it for `ms` on a fake `TimeProvider`, pausing and restarting the idle clock, then handles it as usual; one `FaultAppliedEvent` (`Delay`, `Command`).
+- [x] Named tests: a `drop` rule for `SUBSCRIBE` aborts the connection with no `SUBACK`; one `FaultAppliedEvent` (`Drop`, `Command`).
+- [x] Every existing chosen-error test passes unchanged, and a rule for another packet or topic changes nothing.
+- [x] `dotnet build -warnaserror` is clean, the fast tests are green, and the library keeps 100% line and branch coverage with no method over complexity 10.
 
 ## Notes
+
+Drop sets a per-connection flag (`droppedByFault`) that PUBLISH and SUBSCRIBE handling read, ending the connection abnormally (Will published). Replaced the old "delay is not applied" test.
 
 ## Log
 
 - 2026-11-14: Created.
 - 2026-11-15: Backlog -> Doing.
+- 2026-11-15: Doing -> Done. MQTT 5 broker applies command-stage delay and drop rules; tests green

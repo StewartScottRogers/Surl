@@ -130,6 +130,8 @@ Sessions, DISCONNECT and AUTH (BL-499, ADR-0093 decisions 2, 3 and 6):
 
 One-shot read (BL-976, ADR-0093 decision 9): `Mqtt5Broker`'s `disconnectsAfterRetained` (`--mqtt5-disconnect-after-retained`, off by default) makes a SUBSCRIBE end with SUBACK, the retained messages, DISCONNECT `0x00` and a close, the Will discarded.
 
+Faults (BL-1186, ADR-0141): `Mqtt5BrokerConnection.Faults.cs` asks `CommandStageFaults.FindAndApplyAsync` for each PUBLISH and each SUBSCRIBE filter: a `delay` rule holds the packet, a `drop` rule aborts the connection with no answer (the rest of a SUBSCRIBE is not asked), an `error` rule's reason code is answered as before.
+
 The command line (BL-501) builds on it.
 
 This library references `Surl.Protocol.Abstractions.UnitLibrary`, `Surl.MessageBus.UnitLibrary`

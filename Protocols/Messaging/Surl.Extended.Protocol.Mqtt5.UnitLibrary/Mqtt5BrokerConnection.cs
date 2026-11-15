@@ -685,6 +685,11 @@ internal sealed partial class Mqtt5BrokerConnection
 
         var retained = new List<Mqtt5Delivery>();
         var reasonCodes = await SubscribeEachAsync(subscribe, subscriptionIdentifier, retained);
+        if (droppedByFault)
+        {
+            return Mqtt5ConnectionEnd.ClosedAbnormally;
+        }
+
         await WriteAsync(new Mqtt5ReasonCodeListPacket(Mqtt5PacketType.SubscribeAcknowledgement, subscribe.PacketIdentifier, [], reasonCodes));
         if (disconnectsAfterRetained)
         {
@@ -741,6 +746,10 @@ internal sealed partial class Mqtt5BrokerConnection
         {
             reasonCodes.Add(await FindChosenSubscribeCodeAsync(subscription)
                 ?? session!.Subscriptions.Subscribe(subscription, subscriptionIdentifier, retained));
+            if (droppedByFault)
+            {
+                break;
+            }
         }
 
         return reasonCodes;
