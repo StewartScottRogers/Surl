@@ -49,9 +49,11 @@ with one `McpServerRegistry.AddTool` line and holds nothing else of the tools.
     - `PutFileTool` (`put_file`): `path`, and `text` or `base64` -> `{path, byte_count}`.
     - `PublishMessageTool` (`publish_message`): `topic` (with `retain`) or `queue`, and `payload` or
       `payload_base64` -> `{published: true}`; `retain` with `queue` is refused.
+    - `DeleteFileTool` (`delete_file`, BL-1175, ADR-0161): `path` -> `{path}`; nothing, a folder or a hidden path there is `no file at <path>`.
     - `AddAccountTool` (`add_account`): `user`, `password` -> `{user}`. A `:` in the name and a name taken are
       refused with the tool's own text (`user: a user name may not hold ':'`, `user <user> already has an
       account`), so no exception text and never the password is echoed.
+    - `RemoveAccountTool` (`remove_account`): `user` -> `{user}`; an account not held is `server <id> has no account <user>`.
     - `ResetServerTool` (`reset_server`) -> `{server_id}`; `SnapshotServerTool` (`snapshot_server`) ->
       `{snapshot_id}`; `RestoreServerTool` (`restore_server`): `snapshot_id` -> `{server_id, snapshot_id}`, and
       an ID not kept is `server <id> has no snapshot <p>; only its newest 4 snapshots are kept`.

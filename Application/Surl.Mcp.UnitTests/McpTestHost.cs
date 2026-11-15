@@ -35,6 +35,8 @@ internal sealed class McpTestHost : IAsyncDisposable
         WaitForEvent = WaitForEventTool.Create(Servers);
         SeedMail = SeedMailTool.Create(Servers);
         PutFile = PutFileTool.Create(Servers);
+        DeleteFile = DeleteFileTool.Create(Servers);
+        RemoveAccount = RemoveAccountTool.Create(Servers);
         PublishMessage = PublishMessageTool.Create(Servers);
         AddAccount = AddAccountTool.Create(Servers);
         ResetServer = ResetServerTool.Create(Servers);
@@ -56,6 +58,10 @@ internal sealed class McpTestHost : IAsyncDisposable
     public McpTool ListServers { get; }
 
     public McpTool StopServer { get; }
+
+    public McpTool DeleteFile { get; }
+
+    public McpTool RemoveAccount { get; }
 
     public McpTool GetExchanges { get; }
 

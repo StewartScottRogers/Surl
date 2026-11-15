@@ -146,8 +146,10 @@ internal static class Program
         registry.AddTool(WaitForEventTool.Create(servers));
         registry.AddTool(SeedMailTool.Create(servers));
         registry.AddTool(PutFileTool.Create(servers));
+        registry.AddTool(DeleteFileTool.Create(servers));
         registry.AddTool(PublishMessageTool.Create(servers));
         registry.AddTool(AddAccountTool.Create(servers));
+        registry.AddTool(RemoveAccountTool.Create(servers));
         registry.AddTool(ResetServerTool.Create(servers));
         registry.AddTool(SnapshotServerTool.Create(servers));
         registry.AddTool(RestoreServerTool.Create(servers));

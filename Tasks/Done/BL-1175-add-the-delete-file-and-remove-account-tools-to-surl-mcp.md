@@ -8,7 +8,7 @@ depends-on: [BL-1154]
 touches: [Application/Surl.Mcp.UnitLibrary, Application/Surl.Mcp.UnitTests]
 requirement: FR-061
 created: 2026-11-14
-completed:
+completed: 2026-11-15
 ---
 # BL-1175 — Add the delete_file and remove_account tools to Surl.Mcp
 
@@ -23,14 +23,17 @@ completed:
 
 ## Acceptance criteria
 
-- [ ] `tools/list` lists the new tool(s) in the order BL-1154's ADR gives, with their schemas.
-- [ ] Named tests: deleting a file `put_file` wrote makes it unreadable through `Surl.Api`; removing an account `add_account` added makes a login with it fail; each returns the ADR's result object.
-- [ ] Named tests: an unknown `server_id`, a missing property, an extra property, an unknown path and an unknown account each give the ADR's error result.
-- [ ] `dotnet build Surl.slnx -warnaserror` is clean, the fast tests are green, and `Surl.Mcp.UnitLibrary` keeps 100% line and branch coverage.
+- [x] `tools/list` lists the new tool(s) in the order BL-1154's ADR gives, with their schemas.
+- [x] Named tests: deleting a file `put_file` wrote makes it unreadable through `Surl.Api`; removing an account `add_account` added makes a login with it fail; each returns the ADR's result object.
+- [x] Named tests: an unknown `server_id`, a missing property, an extra property, an unknown path and an unknown account each give the ADR's error result.
+- [x] `dotnet build Surl.slnx -warnaserror` is clean, the fast tests are green, and `Surl.Mcp.UnitLibrary` keeps 100% line and branch coverage.
 
 ## Notes
+
+- A missing or extra property is not checked by the library (the schema is advertised, as for every tool); the tests assert each schema is closed with `server_id` required. delete_file refuses only `Absent` with ADR-0161's text; any other refusal is the store's own message via `RunningServerTool`. No clear-faults tool, per the ADR.
 
 ## Log
 
 - 2026-11-14: Created.
 - 2026-11-15: Backlog -> Doing.
+- 2026-11-15: Doing -> Done. delete_file and remove_account added to Surl.Mcp per ADR-0161
