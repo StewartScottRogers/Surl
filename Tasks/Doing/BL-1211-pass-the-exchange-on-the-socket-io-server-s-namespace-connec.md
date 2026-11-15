@@ -33,3 +33,4 @@ The Socket.IO server's namespace-connect logins carry their exchange, so each `L
 ## Log
 
 - 2026-11-15: Created.
+- 2026-11-15: Backlog -> Doing.
