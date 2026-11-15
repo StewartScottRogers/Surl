@@ -39,4 +39,9 @@ public enum StoreKind
     /// The DNS zones: their records (ADR-0158).
     /// </summary>
     Zones,
+
+    /// <summary>
+    /// The AMQP 0-9-1 brokers' declared exchanges and their bindings (ADR-0159).
+    /// </summary>
+    Exchanges,
 }

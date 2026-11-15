@@ -1,3 +1,4 @@
+using Surl.Extended.Protocol.Amqp0;
 using System.Net;
 using System.Security.Cryptography.X509Certificates;
 using Surl.Cli;
@@ -411,9 +412,14 @@ public static partial class SurlServerComposition
             loaded.State.ObjectMetadataIndex,
             loaded.State.MailStore,
             loaded.State.MessageBus,
-            authentication.Policy.Settings.Accounts);
+            authentication.Policy.Settings.Accounts,
+            additionalRegistrations: ControlledBrokerStores(servers, instruments.Events));
         return ComposeServing(served, seams, servers, stores, authentication, instruments, services.QuicCertificate, dataDirectoryLock);
     }
+
+    // The stores the composed brokers hold beside the bus (ADR-0159 decision 3), in ordinal order of scheme.
+    private static List<ComposedStoreRegistration> ControlledBrokerStores(IProtocolServer[] servers, SurlEventStream events) =>
+        Amqp0ExchangeStoreRegistration.For([.. servers.OfType<Amqp0Broker>()], events) is { } exchanges ? [exchanges] : [];
 
     // How the proxies reach origins, over the rule --proxy-allow-origin and the proxy listen URLs make
     // (ADR-0088 decision 2); the host's seam when it gives one.
