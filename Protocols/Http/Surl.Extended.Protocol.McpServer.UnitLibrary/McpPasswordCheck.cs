@@ -12,7 +12,8 @@ namespace Surl.Extended.Protocol.McpServer;
 /// <param name="policy">The policy that judges password logins.</param>
 /// <param name="scheme">The listen scheme, for the log.</param>
 /// <param name="tlsSession">The connection's TLS session; <see langword="null" /> for plain <c>mcp</c>.</param>
-internal sealed class McpPasswordCheck(IAuthenticationPolicy policy, string scheme, TlsSession? tlsSession)
+/// <param name="exchange">The connection's exchange, carried on every password login so its event and a listener-scoped fault rule know it.</param>
+internal sealed class McpPasswordCheck(IAuthenticationPolicy policy, string scheme, TlsSession? tlsSession, LoginExchange exchange)
 {
     /// <summary>The challenge a <c>401</c> for a missing or refused Basic login carries.</summary>
     public const string BasicChallenge = "Basic realm=\"surl\", charset=\"UTF-8\"";
@@ -33,7 +34,7 @@ internal sealed class McpPasswordCheck(IAuthenticationPolicy policy, string sche
     /// <returns>The account, or <see langword="null" /> unless the policy accepted the credentials it checked.</returns>
     public async Task<string?> AccountOfAsync(string userName, string password, CancellationToken cancellationToken)
     {
-        PasswordLogin login = new(scheme, userName, Encoding.UTF8.GetBytes(password), tlsSession);
+        PasswordLogin login = new(scheme, userName, Encoding.UTF8.GetBytes(password), tlsSession, exchange);
         PasswordLoginVerdict verdict = await policy.CheckPasswordLoginAsync(login, cancellationToken).ConfigureAwait(false);
         return verdict == PasswordLoginVerdict.Accepted ? userName : null;
     }

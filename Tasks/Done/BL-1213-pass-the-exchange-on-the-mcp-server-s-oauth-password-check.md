@@ -8,7 +8,7 @@ depends-on: []
 touches: [Protocols/Http/Surl.Extended.Protocol.McpServer.UnitLibrary, Protocols/Http/Surl.Extended.Protocol.McpServer.UnitTests]
 requirement: FR-060
 created: 2026-11-15
-completed:
+completed: 2026-11-15
 ---
 # BL-1213 — Pass the exchange on the MCP server's OAuth password check
 
@@ -23,13 +23,16 @@ The extended MCP server's OAuth password check (authorize and token endpoints) c
 
 ## Acceptance criteria
 
-- [ ] `McpPasswordCheck` takes the `LoginExchange` and passes it on every `PasswordLogin`. `McpHttpRequestAnswerer` hands it `LoginExchange.Of(context)`.
-- [ ] A test in `Protocols/Http/Surl.Extended.Protocol.McpServer.UnitTests` shows the policy receives an `Exchange` whose ID and scheme are the connection's, for a Basic login at the authorize endpoint.
-- [ ] `dotnet build Protocols/Http/Surl.Extended.Protocol.McpServer.UnitLibrary -warnaserror` is clean and the fast tests pass.
+- [x] `McpPasswordCheck` takes the `LoginExchange` and passes it on every `PasswordLogin`. `McpHttpRequestAnswerer` hands it `LoginExchange.Of(context)`.
+- [x] A test in `Protocols/Http/Surl.Extended.Protocol.McpServer.UnitTests` shows the policy receives an `Exchange` whose ID and scheme are the connection's, for a Basic login at the authorize endpoint.
+- [x] `dotnet build Protocols/Http/Surl.Extended.Protocol.McpServer.UnitLibrary -warnaserror` is clean and the fast tests pass.
 
 ## Notes
+
+- `McpPasswordCheck` takes a fourth constructor argument, the `LoginExchange`; the answerer builds it once and shares it with `StartHttpConnection`. Test: `ServeAsync_BasicLoginAtAuthorize_PassesTheConnectionsExchangeToThePolicy` (304 tests pass).
 
 ## Log
 
 - 2026-11-15: Created.
 - 2026-11-15: Backlog -> Doing.
+- 2026-11-15: Doing -> Done. MCP OAuth password checks carry the exchange, so LoginJudgedEvent has its ID and listener-scoped refuse-login applies

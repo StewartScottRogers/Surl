@@ -1,3 +1,4 @@
+using Surl.Protocol.Abstractions;
 using static Surl.Extended.Protocol.McpServer.McpHttpHarness;
 using static Surl.Extended.Protocol.McpServer.McpOAuthSteps;
 
@@ -38,6 +39,20 @@ public sealed class McpHttpRequestAnswererTests
         Assert.AreEqual("HTTP/1.1 200 OK", StatusLineOf(initialize));
         Assert.AreEqual(SessionIdNumber(5), FieldOf(initialize, "Mcp-Session-Id"));
         Assert.AreEqual("alice", harness.Policy.PasswordLogins.Single().UserName);
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_BasicLoginAtAuthorize_PassesTheConnectionsExchangeToThePolicy()
+    {
+        McpHttpHarness harness = new();
+        string clientId = await RegisterAsync(harness);
+
+        await harness.SendAsync("GET", AuthorizeTarget(clientId), null, AliceBasic);
+
+        LoginExchange? exchange = harness.Policy.PasswordLogins.Single().Exchange;
+        Assert.IsNotNull(exchange);
+        Assert.AreEqual(1, exchange.ExchangeId);
+        Assert.AreEqual("mcp", exchange.Scheme);
     }
 
     [TestMethod]

@@ -46,11 +46,12 @@ internal sealed class McpHttpRequestAnswerer : IHttpRequestHandler
     public McpHttpRequestAnswerer(McpHttpServerSettings settings, IAuthenticationPolicy policy, ExchangeContext context, TlsSession? tlsSession)
     {
         _settings = settings;
-        _authentication = policy.StartHttpConnection(tlsSession, LoginExchange.Of(context));
+        LoginExchange exchange = LoginExchange.Of(context);
+        _authentication = policy.StartHttpConnection(tlsSession, exchange);
         _context = context;
         _httpScheme = tlsSession is null ? "http" : "https";
         _writer = new McpHttpAnswerWriter(context.TimeProvider);
-        McpPasswordCheck passwords = new(policy, context.Scheme, tlsSession);
+        McpPasswordCheck passwords = new(policy, context.Scheme, tlsSession, exchange);
         _registration = new McpClientRegistrationEndpoint(settings.Grants, _writer);
         _authorize = new McpAuthorizeEndpoint(settings.Grants, passwords, _writer);
         _token = new McpTokenEndpoint(settings.Grants, passwords, _writer);
