@@ -8,7 +8,7 @@ depends-on: [BL-1151]
 touches: [Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests]
 requirement: FR-061
 created: 2026-11-14
-completed:
+completed: 2026-11-14
 ---
 # BL-1158 — Compose the shared stores from a registration list so a new store joins reset, snapshot and restore by one entry
 
@@ -24,14 +24,19 @@ completed:
 
 ## Acceptance criteria
 
-- [ ] `ComposedStores` iterates its registrations for `ResetAsync`, `TakeSnapshotAsync` and `RestoreAsync`; the four existing stores are registrations in ADR-0124 decision 3's order, and `StoreOrder` reports the registered order.
-- [ ] Every existing test in `Application/Surl.Composition.UnitTests` passes unchanged (the store-control, snapshot-bound, disk-refusal and order tests included).
-- [ ] A new test registers a fifth fake store and shows it is reset, snapshotted (counted toward `MaxSnapshotBytes`) and restored after the four, and that its failure stops the run naming it.
-- [ ] `dotnet build Surl.slnx -warnaserror` is clean, the fast tests are green, and `Surl.Composition.UnitLibrary` keeps 100% line and branch coverage with no method over complexity 10.
+- [x] `ComposedStores` iterates its registrations for `ResetAsync`, `TakeSnapshotAsync` and `RestoreAsync`; the four existing stores are registrations in ADR-0124 decision 3's order, and `StoreOrder` reports the registered order.
+- [x] Every existing test in `Application/Surl.Composition.UnitTests` passes unchanged (the store-control, snapshot-bound, disk-refusal and order tests included).
+- [x] A new test registers a fifth fake store and shows it is reset, snapshotted (counted toward `MaxSnapshotBytes`) and restored after the four, and that its failure stops the run naming it.
+- [x] `dotnet build Surl.slnx -warnaserror` is clean, the fast tests are green, and `Surl.Composition.UnitLibrary` keeps 100% line and branch coverage with no method over complexity 10.
 
 ## Notes
+
+- Seam: internal `ComposedStoreRegistration(Store, ResetAsync, TakeSnapshotAsync)`; the snapshot's `TakenSnapshot` carries its own restore, so no third delegate. The disk refusal stays each store's own `InvalidOperationException`, so no "is on disk" check is needed.
+- `ComposedStores`' constructor takes optional `additionalRegistrations`, appended after the four. The static `StoreOrder` stays the standard four-store order (existing tests use it); the new instance `RegisteredStoreOrder` reports the actual registered order, extras included.
+- The test's fifth store uses `(StoreKind)100`; BL-1161 and later add real enum members.
 
 ## Log
 
 - 2026-11-14: Created.
 - 2026-11-14: Backlog -> Doing.
+- 2026-11-14: Doing -> Done. ComposedStores resets, snapshots and restores a registration list; a fifth store joins by one entry

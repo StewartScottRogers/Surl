@@ -43,7 +43,7 @@ public sealed class ComposedStores
     private readonly MailboxStore mail;
     private readonly MessageBus.MessageBus bus;
     private readonly AccountBook accounts;
-    private readonly IReadOnlyList<StoreControl> controls;
+    private readonly IReadOnlyList<ComposedStoreRegistration> controls;
 
     internal ComposedStores(
         ContentStore content,
@@ -51,7 +51,8 @@ public sealed class ComposedStores
         MailboxStore mail,
         MessageBus.MessageBus bus,
         AccountBook accounts,
-        long maxSnapshotBytes = DefaultMaxSnapshotBytes)
+        long maxSnapshotBytes = DefaultMaxSnapshotBytes,
+        IReadOnlyList<ComposedStoreRegistration>? additionalRegistrations = null)
     {
         this.content = content;
         MetadataIndex = metadataIndex;
@@ -65,6 +66,7 @@ public sealed class ComposedStores
             new(StoreKind.Mail, _ => Run(mail.Reset), TakeMailSnapshotAsync),
             new(StoreKind.Bus, _ => Run(bus.Reset), TakeBusSnapshotAsync),
             new(StoreKind.Accounts, _ => Run(accounts.Reset), TakeAccountSnapshotAsync),
+            .. additionalRegistrations ?? [],
         ];
     }
 
@@ -73,6 +75,12 @@ public sealed class ComposedStores
     /// accounts (ADR-0124, decision 3).
     /// </summary>
     public static IReadOnlyList<StoreKind> StoreOrder { get; } = [StoreKind.Content, StoreKind.Mail, StoreKind.Bus, StoreKind.Accounts];
+
+    /// <summary>
+    /// The order this instance's registrations run in: <see cref="StoreOrder"/>, then any store
+    /// registered after the four.
+    /// </summary>
+    public IReadOnlyList<StoreKind> RegisteredStoreOrder => [.. controls.Select(control => control.Store)];
 
     /// <summary>
     /// The most bytes a snapshot may hold, every store's together; a snapshot past it is refused,
@@ -281,14 +289,14 @@ public sealed class ComposedStores
         }
     }
 
-    private static Task ResetAsync(StoreControl control, CancellationToken cancellationToken) =>
+    private static Task ResetAsync(ComposedStoreRegistration control, CancellationToken cancellationToken) =>
         RunNamingTheStoreAsync(control.Store, "reset", () => control.ResetAsync(cancellationToken));
 
-    private StoreControl ControlOf(StoreKind store) =>
+    private ComposedStoreRegistration ControlOf(StoreKind store) =>
         controls.FirstOrDefault(control => control.Store == store)
         ?? throw new ArgumentOutOfRangeException(nameof(store), store, "The store is not one an instance holds.");
 
-    private async Task<ComposedSnapshot> TakeSnapshotAsync(IReadOnlyList<StoreControl> taken, CancellationToken cancellationToken)
+    private async Task<ComposedSnapshot> TakeSnapshotAsync(IReadOnlyList<ComposedStoreRegistration> taken, CancellationToken cancellationToken)
     {
         List<TakenSnapshot> snapshots = [];
         long byteCount = 0;
@@ -298,7 +306,7 @@ public sealed class ComposedStores
             await RunNamingTheStoreAsync(
                 control.Store,
                 "snapshotted",
-                async () => snapshot = await control.TakeAsync(MaxSnapshotBytes - byteCount, cancellationToken));
+                async () => snapshot = await control.TakeSnapshotAsync(MaxSnapshotBytes - byteCount, cancellationToken));
             byteCount += snapshot!.ByteCount;
             if (byteCount > MaxSnapshotBytes)
             {
@@ -345,9 +353,4 @@ public sealed class ComposedStores
         }
     }
 
-    // One store's reset and snapshot, in the instance's order.
-    private sealed record StoreControl(
-        StoreKind Store,
-        Func<CancellationToken, Task> ResetAsync,
-        Func<long, CancellationToken, Task<TakenSnapshot>> TakeAsync);
 }
