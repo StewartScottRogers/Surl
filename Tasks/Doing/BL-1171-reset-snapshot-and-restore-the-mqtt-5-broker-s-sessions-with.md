@@ -34,3 +34,4 @@ A whole-instance reset, snapshot and restore also deal with the MQTT 5 broker's 
 ## Log
 
 - 2026-11-14: Created.
+- 2026-11-15: Backlog -> Doing.
