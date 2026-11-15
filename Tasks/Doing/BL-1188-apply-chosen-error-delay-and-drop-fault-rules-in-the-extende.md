@@ -35,3 +35,4 @@ An `error`, `delay;stage=command` or `drop;stage=command` fault rule naming `grp
 ## Log
 
 - 2026-11-14: Created.
+- 2026-11-15: Backlog -> Doing.
