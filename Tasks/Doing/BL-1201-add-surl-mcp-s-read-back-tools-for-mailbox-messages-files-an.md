@@ -35,3 +35,4 @@ An AI agent connected to `surl-mcp` reads back a running server's mailbox messag
 ## Log
 
 - 2026-11-15: Created.
+- 2026-11-15: Backlog -> Doing.
