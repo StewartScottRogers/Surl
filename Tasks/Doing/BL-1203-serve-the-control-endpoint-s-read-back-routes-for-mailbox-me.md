@@ -35,3 +35,4 @@ A test suite not written in .NET reads back mailbox messages, files and bus mess
 ## Log
 
 - 2026-11-15: Created.
+- 2026-11-15: Backlog -> Doing.
