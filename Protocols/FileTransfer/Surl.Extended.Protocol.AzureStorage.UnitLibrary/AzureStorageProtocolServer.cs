@@ -108,7 +108,7 @@ public sealed class AzureStorageProtocolServer : IConnectionProtocolServer, ICon
         ArgumentNullException.ThrowIfNull(connection);
         ArgumentNullException.ThrowIfNull(context);
 
-        var authentication = authenticationPolicy.StartHttpConnection(connection.TlsSession);
+        var authentication = authenticationPolicy.StartHttpConnection(connection.TlsSession, LoginExchange.Of(context));
 
         var endpointScheme = connection.TlsSession is null ? "http" : "https";
         var pathStyle = new AzurePathStyle(authenticationPolicy.NamesAccount);

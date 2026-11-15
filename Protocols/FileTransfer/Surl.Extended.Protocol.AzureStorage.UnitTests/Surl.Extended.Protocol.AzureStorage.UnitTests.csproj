@@ -11,6 +11,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Surl.Extended.Protocol.AzureStorage.UnitLibrary\Surl.Extended.Protocol.AzureStorage.UnitLibrary.csproj" />
     <ProjectReference Include="..\..\..\Foundation\Surl.Core.UnitLibrary\Surl.Core.UnitLibrary.csproj" />
+    <ProjectReference Include="..\..\..\Foundation\Surl.Authentication.UnitLibrary\Surl.Authentication.UnitLibrary.csproj" />
   </ItemGroup>
 
 </Project>

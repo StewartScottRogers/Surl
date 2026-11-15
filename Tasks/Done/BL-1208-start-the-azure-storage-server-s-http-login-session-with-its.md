@@ -8,7 +8,7 @@ depends-on: []
 touches: [Protocols/FileTransfer/Surl.Extended.Protocol.AzureStorage.UnitLibrary, Protocols/FileTransfer/Surl.Extended.Protocol.AzureStorage.UnitTests]
 requirement: FR-060
 created: 2026-11-15
-completed:
+completed: 2026-11-15
 ---
 # BL-1208 — Start the Azure Storage server's HTTP login session with its exchange so az, abfs and abfss logins are published and refused by their scheme
 
@@ -23,14 +23,17 @@ An Azure Storage login is published as a `LoginJudgedEvent` with its own scheme 
 
 ## Acceptance criteria
 
-- [ ] `AzureStorageProtocolServer` passes `LoginExchange.Of(context)`, and no one-argument `StartHttpConnection` call remains in the library.
-- [ ] A test in `Protocols/FileTransfer/Surl.Extended.Protocol.AzureStorage.UnitTests` shows the policy receives an exchange whose `Scheme` is the listen URL's (`az` in one case, `abfs` in another) and whose `ExchangeId` is the context's.
-- [ ] A test with the real `AuthenticationPolicy`, a recording publisher and `refuse-login;scheme=az` shows a correctly signed Shared Key request is refused as a wrong key is, with a `LoginJudgedEvent` whose scheme is `az`.
-- [ ] `dotnet build Protocols/FileTransfer/Surl.Extended.Protocol.AzureStorage.UnitLibrary -warnaserror` is clean and the fast tests pass.
+- [x] `AzureStorageProtocolServer` passes `LoginExchange.Of(context)`, and no one-argument `StartHttpConnection` call remains in the library.
+- [x] A test in `Protocols/FileTransfer/Surl.Extended.Protocol.AzureStorage.UnitTests` shows the policy receives an exchange whose `Scheme` is the listen URL's (`az` in one case, `abfs` in another) and whose `ExchangeId` is the context's.
+- [x] A test with the real `AuthenticationPolicy`, a recording publisher and `refuse-login;scheme=az` shows a correctly signed Shared Key request is refused as a wrong key is, with a `LoginJudgedEvent` whose scheme is `az`.
+- [x] `dotnet build Protocols/FileTransfer/Surl.Extended.Protocol.AzureStorage.UnitLibrary -warnaserror` is clean and the fast tests pass.
 
 ## Notes
+
+- Fixed by passing `LoginExchange.Of(context)` at the one call. Added a test-project reference to `Surl.Authentication.UnitLibrary` (inside `touches`) for the real-policy test; the library gains none.
 
 ## Log
 
 - 2026-11-15: Created.
 - 2026-11-15: Backlog -> Doing.
+- 2026-11-15: Doing -> Done. Azure Storage logins are published and refused under az, abfs or abfss with the exchange ID
