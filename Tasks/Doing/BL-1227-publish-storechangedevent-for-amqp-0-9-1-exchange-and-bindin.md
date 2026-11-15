@@ -36,3 +36,4 @@ A test sees `Created`, `Bound`, `Unbound` and `Deleted` `StoreChangedEvent`s for
 ## Log
 
 - 2026-11-15: Created.
+- 2026-11-15: Backlog -> Doing.
