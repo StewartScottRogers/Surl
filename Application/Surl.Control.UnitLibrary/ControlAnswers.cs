@@ -22,6 +22,26 @@ internal sealed class ControlAnswers(TimeProvider timeProvider)
     public HttpAnswer Json<T>(HttpRequest request, HttpStatus status, T value, JsonTypeInfo<T> typeInfo) =>
         JsonAnswer(request, status, JsonSerializer.SerializeToUtf8Bytes(value, typeInfo), isRefusal: false, []);
 
+    /// <summary>An answer whose body is raw bytes, such as a file or a message read back.</summary>
+    /// <param name="request">The request answered.</param>
+    /// <param name="contentType">The <c>Content-Type</c>.</param>
+    /// <param name="content">The body.</param>
+    /// <param name="extraFields">Further field lines.</param>
+    /// <returns>The <c>200</c> answer.</returns>
+    public HttpAnswer Bytes(HttpRequest request, string contentType, ReadOnlyMemory<byte> content, IReadOnlyList<KeyValuePair<string, string>> extraFields)
+    {
+        KeyValuePair<string, string>[] fields =
+        [
+            .. CommonFields(),
+            .. extraFields,
+            new("Content-Type", contentType),
+            new("Cache-Control", "no-store"),
+            new("Content-Length", content.Length.ToString(CultureInfo.InvariantCulture)),
+        ];
+
+        return new HttpAnswer(HttpStatus.Ok, fields, new HttpAnswerBody.Bytes(content), IsRefusal: false, LeavesRequestBodyUnread: request.Body.IsAnnounced);
+    }
+
     /// <summary>A <c>204 No Content</c> answer.</summary>
     /// <param name="request">The request answered.</param>
     /// <returns>The answer.</returns>

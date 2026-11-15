@@ -14,4 +14,7 @@ public enum ControlRefusalKind
     /// snapshot over its bound: <c>409 conflict</c>.
     /// </summary>
     Conflict,
+
+    /// <summary>A read item is past the answer bound (ADR-0164 decision 2): <c>413 too_large</c>.</summary>
+    TooLarge,
 }

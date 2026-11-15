@@ -8,7 +8,7 @@ depends-on: [BL-1196, BL-1197, BL-1198]
 touches: [Application/Surl.Control.UnitLibrary, Application/Surl.Control.UnitTests, Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests]
 requirement: FR-065
 created: 2026-11-15
-completed:
+completed: 2026-11-15
 ---
 # BL-1203 — Serve the control endpoint's read-back routes for mailbox messages, files and bus messages
 
@@ -24,15 +24,18 @@ A test suite not written in .NET reads back mailbox messages, files and bus mess
 
 ## Acceptance criteria
 
-- [ ] Each route the ADR names is answered by `ControlRequestHandler`, with the ADR's status codes and body shapes.
-- [ ] Tests in `Application/Surl.Control.UnitTests` drive each route against a test `IControlTarget` and check the exact JSON or bytes answered, plus `401` without the token and `404 not_found` for a missing item.
-- [ ] Tests in `Application/Surl.Composition.UnitTests` show `ComposedControlTarget` returns what `ComposedStores` seeded, for one mail message, one file and one queued message.
-- [ ] A test shows a read publishes no event on the stream the endpoint serves.
-- [ ] `dotnet build Application/Surl.Control.UnitLibrary -warnaserror` and `dotnet build Application/Surl.Composition.UnitLibrary -warnaserror` are clean, and the fast tests pass.
+- [x] Each route the ADR names is answered by `ControlRequestHandler`, with the ADR's status codes and body shapes.
+- [x] Tests in `Application/Surl.Control.UnitTests` drive each route against a test `IControlTarget` and check the exact JSON or bytes answered, plus `401` without the token and `404 not_found` for a missing item.
+- [x] Tests in `Application/Surl.Composition.UnitTests` show `ComposedControlTarget` returns what `ComposedStores` seeded, for one mail message, one file and one queued message.
+- [x] A test shows a read publishes no event on the stream the endpoint serves.
+- [x] `dotnet build Application/Surl.Control.UnitLibrary -warnaserror` and `dotnet build Application/Surl.Composition.UnitLibrary -warnaserror` are clean, and the fast tests pass.
 
 ## Notes
+
+- Control types (`ControlMailbox`, `ControlFileContents`, ...) are Control-owned records, as `ControlMessage` is, since Control cannot reference Composition. Flags cross as IMAP names. New `ControlRefusalKind.TooLarge` (add-only) maps to `413 too_large`. Folder listing is `GET /v1/files/{path}/` with a trailing slash per ADR-0164; root is `/v1/files//`. Mail JSON timestamps use the event writer's round-trip format. Event-stream silence is proven in `ComposedControlTargetReadTests`.
 
 ## Log
 
 - 2026-11-15: Created.
 - 2026-11-15: Backlog -> Doing.
+- 2026-11-15: Doing -> Done. Control endpoint serves GET read-back routes for mail, files, queues, retained messages and topic logs over ComposedControlTarget

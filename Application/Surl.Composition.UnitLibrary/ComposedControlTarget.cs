@@ -192,6 +192,99 @@ internal sealed class ComposedControlTarget(SurlEventStream events, FaultPlan fa
             return true;
         });
 
+    /// <inheritdoc/>
+    public Task<IReadOnlyList<ControlMailbox>> ListMailboxesAsync(string owner, CancellationToken cancellationToken)
+    {
+        var boxes = Found(stores.ListMailboxes(owner));
+
+        return Task.FromResult<IReadOnlyList<ControlMailbox>>([.. boxes.Select(box => new ControlMailbox(box.Name, box.MessageCount, box.UnseenCount, box.UidValidity))]);
+    }
+
+    /// <inheritdoc/>
+    public Task<ControlMailMessagePage> ListMessagesAsync(string owner, string mailbox, uint afterUid, int limit, CancellationToken cancellationToken)
+    {
+        var page = Found(stores.ListMessages(owner, mailbox, afterUid, limit));
+
+        return Task.FromResult(new ControlMailMessagePage([.. page.Messages.Select(Summarize)], page.HasMore));
+    }
+
+    /// <inheritdoc/>
+    public Task<ControlMailMessage> ReadMessageAsync(string owner, string mailbox, uint uid, CancellationToken cancellationToken)
+    {
+        var message = Found(stores.ReadMessage(owner, mailbox, uid));
+
+        return Task.FromResult(new ControlMailMessage(Summarize(message.Summary), message.Bytes));
+    }
+
+    /// <inheritdoc/>
+    public async Task<ControlFileContents> ReadFileAsync(string path, CancellationToken cancellationToken)
+    {
+        var file = Found(await stores.ReadFileAsync(path, cancellationToken));
+
+        return new ControlFileContents(file.Bytes, file.ByteCount, file.ModifiedAt, file.ContentType);
+    }
+
+    /// <inheritdoc/>
+    public Task<ControlFolderPage> ListFolderAsync(string path, string? afterName, int limit, CancellationToken cancellationToken)
+    {
+        var page = Found(stores.ListFolder(path, afterName, limit, cancellationToken));
+
+        return Task.FromResult(new ControlFolderPage([.. page.Entries.Select(entry => new ControlFolderEntry(entry.Name, entry.IsFolder, entry.ByteCount))], page.HasMore));
+    }
+
+    /// <inheritdoc/>
+    public Task<ControlQueuePage> BrowseQueueAsync(string queue, int afterPosition, int limit, CancellationToken cancellationToken)
+    {
+        var page = Found(stores.BrowseQueue(queue, afterPosition, limit));
+        var messages = page.Messages.Select(browsed => new ControlQueuedMessage(
+            browsed.Position,
+            browsed.Message.Payload,
+            [.. browsed.Message.Headers.Select(header => new KeyValuePair<string, string>(header.Name, header.Value))]));
+
+        return Task.FromResult(new ControlQueuePage([.. messages], page.ReadyCount, page.InFlightCount, page.HasMore));
+    }
+
+    /// <inheritdoc/>
+    public Task<ControlRetainedMessage> ReadRetainedMessageAsync(string topic, CancellationToken cancellationToken)
+    {
+        var retained = Found(stores.ReadRetainedMessage(topic));
+
+        return Task.FromResult(new ControlRetainedMessage(retained.Topic, (int)retained.QualityOfService, retained.Payload));
+    }
+
+    /// <inheritdoc/>
+    public Task<ControlLogPage> ReadLogAsync(string topic, long fromOffset, int limit, CancellationToken cancellationToken)
+    {
+        var page = Found(stores.ReadLog(topic, fromOffset, limit));
+        var records = page.Records.Select(record => new ControlLogRecord(record.Offset, record.Message.PublishedAt, record.Message.Key, record.Message.Payload));
+
+        return Task.FromResult(new ControlLogPage([.. records], page.NextOffset, page.HasMore));
+    }
+
+    // A read that found nothing, was too large or was refused is the matching control refusal (ADR-0164 decisions 2 and 4).
+    private static T Found<T>(ComposedReadResult<T> result) => result.Outcome switch
+    {
+        ComposedReadOutcome.Found => result.Value!,
+        ComposedReadOutcome.NotFound => throw new ControlRefusalException(ControlRefusalKind.NotFound, result.Reason!),
+        ComposedReadOutcome.TooLarge => throw new ControlRefusalException(ControlRefusalKind.TooLarge, result.Reason!),
+        _ => throw new ControlRefusalException(ControlRefusalKind.BadRequest, result.Reason!),
+    };
+
+    private static ControlMailMessageSummary Summarize(ComposedMailMessageSummary message) =>
+        new(message.Uid, message.Size, FlagNames(message.Flags), message.InternalDate);
+
+    private static string[] FlagNames(MailFlags flags) =>
+    [
+        .. new[]
+        {
+            (MailFlags.Seen, "\\Seen"),
+            (MailFlags.Answered, "\\Answered"),
+            (MailFlags.Flagged, "\\Flagged"),
+            (MailFlags.Deleted, "\\Deleted"),
+            (MailFlags.Draft, "\\Draft"),
+        }.Where(flag => flags.HasFlag(flag.Item1)).Select(flag => flag.Item2),
+    ];
+
     internal static ControlRefusalKind RefusalKindOf(MessageBusOutcome outcome) => outcome switch
     {
         MessageBusOutcome.UnknownQueue => ControlRefusalKind.NotFound,
