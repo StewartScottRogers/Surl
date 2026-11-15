@@ -8,7 +8,7 @@ depends-on: []
 touches: [Protocols/Http/Surl.Extended.Protocol.SocketIo.UnitLibrary, Protocols/Http/Surl.Extended.Protocol.SocketIo.UnitTests]
 requirement: FR-060
 created: 2026-11-15
-completed:
+completed: 2026-11-15
 ---
 # BL-1211 — Pass the exchange on the Socket.IO server's namespace-connect logins
 
@@ -24,13 +24,17 @@ The Socket.IO server's namespace-connect logins carry their exchange, so each `L
 
 ## Acceptance criteria
 
-- [ ] `SocketIoConnectCredentials.Read` takes the `LoginExchange` (or the context), and every `PasswordLogin` it returns carries it.
-- [ ] A test in `Protocols/Http/Surl.Extended.Protocol.SocketIo.UnitTests` shows the policy receives an `Exchange` whose ID and scheme are the session's for a connect with `auth` credentials, and one for a connect without them.
-- [ ] `dotnet build Protocols/Http/Surl.Extended.Protocol.SocketIo.UnitLibrary -warnaserror` is clean and the fast tests pass.
+- [x] `SocketIoConnectCredentials.Read` takes the `LoginExchange` (or the context), and every `PasswordLogin` it returns carries it.
+- [x] A test in `Protocols/Http/Surl.Extended.Protocol.SocketIo.UnitTests` shows the policy receives an `Exchange` whose ID and scheme are the session's for a connect with `auth` credentials, and one for a connect without them.
+- [x] `dotnet build Protocols/Http/Surl.Extended.Protocol.SocketIo.UnitLibrary -warnaserror` is clean and the fast tests pass.
 
 ## Notes
+
+- `Read` takes a `LoginExchange?`; `SocketIoSession` passes `LoginExchange.Of(context)` of the session's own context (the exchange that opened it), documented on the parameter.
+- Tests: `SocketIoConnectCredentialsTests` and `SocketIoSessionTests` (token connect, new no-credentials connect). 289 SocketIo tests pass.
 
 ## Log
 
 - 2026-11-15: Created.
 - 2026-11-15: Backlog -> Doing.
+- 2026-11-15: Doing -> Done. Socket.IO namespace-connect logins carry the session's exchange, so listener-scoped refuse-login rules apply
