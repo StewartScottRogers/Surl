@@ -34,3 +34,4 @@ A `delay;stage=command` or `drop;stage=command` fault rule matching an S3 reques
 ## Log
 
 - 2026-11-14: Created.
+- 2026-11-14: Backlog -> Doing.
