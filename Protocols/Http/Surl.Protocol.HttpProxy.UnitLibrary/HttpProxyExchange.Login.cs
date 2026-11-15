@@ -25,7 +25,7 @@ internal sealed partial class HttpProxyExchange
     /// Judges the request's proxy login; <see langword="null"/> when it may go on, otherwise
     /// whether curl's connection stays open after the refusal written.
     /// </summary>
-    private async Task<bool?> RefuseProxyLoginAsync(HttpRequestHead head, bool isConnect)
+    private async Task<(bool? KeepsConnectionOpen, string? AccountName)> RefuseProxyLoginAsync(HttpRequestHead head, bool isConnect)
     {
         var request = new HttpAuthenticationRequest(
             head.Method,
@@ -38,7 +38,7 @@ internal sealed partial class HttpProxyExchange
             context.Log.Note(checkedLogin.Note);
         }
 
-        return verdict.Outcome switch
+        bool? keepsConnectionOpen = verdict.Outcome switch
         {
             HttpAuthenticationOutcome.Proceed => null,
             HttpAuthenticationOutcome.Forbidden => await AnswerAsync(HttpStatus.Forbidden, $"{head.Method} {head.RequestTarget}: the authentication policy forbade the request", closes: true),
@@ -48,6 +48,8 @@ internal sealed partial class HttpProxyExchange
                 ClosesAfterRefusal(head),
                 verdict.WwwAuthenticateValues),
         };
+
+        return (keepsConnectionOpen, verdict.AccountName);
     }
 
     // A 407 keeps curl's connection, because NTLM and Negotiate are bound to it and curl answers

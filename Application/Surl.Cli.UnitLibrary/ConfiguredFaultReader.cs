@@ -233,8 +233,10 @@ internal static class ConfiguredFaultReader
         return scheme is not null && listener is not null ? ListenerWithScheme : null;
     }
 
+    // The two schemes the HTTP and HTTPS proxy's command-stage point carries (ADR-0160 decision 2); they are
+    // not URL schemes a client connects with, so no default port names them.
     private static bool IsServedScheme(string scheme) =>
-        SchemeDefaultPorts.TryGetDefaultPort(scheme, out _) || ExtendedSchemeDefaultPorts.TryGetDefaultPort(scheme, out _);
+        scheme is "http-proxy" or "https-proxy" || SchemeDefaultPorts.TryGetDefaultPort(scheme, out _) || ExtendedSchemeDefaultPorts.TryGetDefaultPort(scheme, out _);
 
     /// <summary>
     /// Refuses what the stage cannot match: an account, path or command on a delay or drop at accept,

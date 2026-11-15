@@ -70,7 +70,7 @@ internal sealed partial class HttpProxyExchange
     internal static TimeSpan TimerDelay(TimeSpan headTimeout) =>
         headTimeout > MaxTimerDelay ? Timeout.InfiniteTimeSpan : headTimeout;
 
-    private async Task<bool> AnswerForwardableAsync(HttpRequestHead head)
+    private async Task<bool> AnswerForwardableAsync(HttpRequestHead head, string? accountName)
     {
         var target = ProxyTarget.FromAbsoluteForm(head.RequestTarget);
         var framing = HttpRequestBodyFraming.Of(head);
@@ -78,6 +78,11 @@ internal sealed partial class HttpProxyExchange
         if ((JudgeTarget(target, head.Method) ?? JudgeBody(framing, context.Limits.MaxUploadBytes)) is { } refusal)
         {
             return await AnswerAsync(refusal.Status, refusal.Why, refusal.MustClose || endsConnection);
+        }
+
+        if (await AnswerCommandFaultAsync(head, target!, accountName, endsConnection) is { } faulted)
+        {
+            return faulted;
         }
 
         if (target!.Scheme == "ftp")

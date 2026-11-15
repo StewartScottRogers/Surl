@@ -50,12 +50,13 @@ internal sealed class Http2ProxyStreamHandler : IHttp2StreamHandler, IDisposable
     public async Task ServeStreamAsync(Http2RequestStream stream, CancellationToken cancellationToken)
     {
         var isConnect = stream.Head.Method == "CONNECT";
-        if (await RefuseProxyLoginAsync(stream))
+        var (refused, accountName) = await RefuseProxyLoginAsync(stream);
+        if (refused)
         {
             return;
         }
 
-        await (isConnect ? TunnelAsync(stream, cancellationToken) : ForwardAsync(stream, cancellationToken));
+        await (isConnect ? TunnelAsync(stream, accountName, cancellationToken) : ForwardAsync(stream, accountName, cancellationToken));
     }
 
     /// <inheritdoc/>
@@ -72,8 +73,9 @@ internal sealed class Http2ProxyStreamHandler : IHttp2StreamHandler, IDisposable
     private static byte[] Chunk(byte[] piece) =>
         [.. Encoding.ASCII.GetBytes(piece.Length.ToString("x", CultureInfo.InvariantCulture) + "\r\n"), .. piece, (byte)'\r', (byte)'\n'];
 
-    // Judges the stream's proxy login (ADR-0088 decision 5): true when it was refused and answered.
-    private async Task<bool> RefuseProxyLoginAsync(Http2RequestStream stream)
+    // Judges the stream's proxy login (ADR-0088 decision 5): whether it was refused and answered, and
+    // the account it was judged as.
+    private async Task<(bool Refused, string? AccountName)> RefuseProxyLoginAsync(Http2RequestStream stream)
     {
         var head = stream.Head;
         var request = new HttpAuthenticationRequest(head.Method, head.Target, head.Method is not ("GET" or "HEAD"), ProxyFieldRules.ProxyLoginFields(Http1Fields(head)));
@@ -93,12 +95,14 @@ internal sealed class Http2ProxyStreamHandler : IHttp2StreamHandler, IDisposable
             context.Log.Note(checkedLogin.Note);
         }
 
-        return verdict.Outcome switch
+        var refused = verdict.Outcome switch
         {
             HttpAuthenticationOutcome.Proceed => false,
             HttpAuthenticationOutcome.Forbidden => await AnswerAsync(stream, HttpStatus.Forbidden, "the authentication policy forbade the request"),
             _ => await AnswerAsync(stream, HttpProxyStatus.ProxyAuthenticationRequired, "a proxy login is needed", verdict.WwwAuthenticateValues),
         };
+
+        return (refused, verdict.AccountName);
     }
 
     /// <summary>
@@ -125,6 +129,24 @@ internal sealed class Http2ProxyStreamHandler : IHttp2StreamHandler, IDisposable
         return true;
     }
 
+    // Asks the fault plan about a stream the proxy let in (ADR-0160 decisions 1, 3 and 4): a drop resets
+    // the stream with INTERNAL_ERROR and keeps the connection, a chosen error is answered on the stream.
+    // True when the stream was ended here.
+    private async Task<bool> EndsStreamForFaultAsync(Http2RequestStream stream, ProxyTarget target, string? accountName)
+    {
+        var fault = await ProxyCommandFault.FindAndApplyAsync(context, stream.Head.Method, target.FaultPath, accountName);
+        if (fault.Drops)
+        {
+            await stream.ResetAsync(Http2ErrorCode.InternalError, "a fault rule dropped the exchange");
+        }
+        else if (fault.ChosenStatus is { } status)
+        {
+            await AnswerAsync(stream, status, "a fault rule chose the error");
+        }
+
+        return fault.Drops || fault.ChosenStatus is not null;
+    }
+
     private async Task<OriginLink?> ConnectAsync(Http2RequestStream stream, ProxyTarget target)
     {
         try
@@ -143,7 +165,7 @@ internal sealed class Http2ProxyStreamHandler : IHttp2StreamHandler, IDisposable
         }
     }
 
-    private async Task TunnelAsync(Http2RequestStream stream, CancellationToken cancellationToken)
+    private async Task TunnelAsync(Http2RequestStream stream, string? accountName, CancellationToken cancellationToken)
     {
         if (ProxyTarget.FromAuthorityForm(stream.Head.Target) is not { } target)
         {
@@ -152,7 +174,7 @@ internal sealed class Http2ProxyStreamHandler : IHttp2StreamHandler, IDisposable
             return;
         }
 
-        if (await ConnectAsync(stream, target) is not { } link)
+        if (await EndsStreamForFaultAsync(stream, target, accountName) || await ConnectAsync(stream, target) is not { } link)
         {
             return;
         }
@@ -187,7 +209,7 @@ internal sealed class Http2ProxyStreamHandler : IHttp2StreamHandler, IDisposable
     // MaxUploadBytes 0 means no limit.
     private bool IsOverTheUploadLimit(long bytes) => context.Limits.MaxUploadBytes > 0 && bytes > context.Limits.MaxUploadBytes;
 
-    private async Task ForwardAsync(Http2RequestStream stream, CancellationToken cancellationToken)
+    private async Task ForwardAsync(Http2RequestStream stream, string? accountName, CancellationToken cancellationToken)
     {
         var head = stream.Head;
         var target = ProxyTarget.FromAbsoluteForm($"http://{head.Authority}{head.Target}");
@@ -198,7 +220,7 @@ internal sealed class Http2ProxyStreamHandler : IHttp2StreamHandler, IDisposable
             return;
         }
 
-        if (await ConnectAsync(stream, target!) is not { } link)
+        if (await EndsStreamForFaultAsync(stream, target!, accountName) || await ConnectAsync(stream, target!) is not { } link)
         {
             return;
         }

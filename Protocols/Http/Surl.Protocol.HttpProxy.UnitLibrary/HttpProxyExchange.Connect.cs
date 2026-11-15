@@ -9,12 +9,17 @@ namespace Surl.Protocol.HttpProxy;
 /// </summary>
 internal sealed partial class HttpProxyExchange
 {
-    private async Task<bool> AnswerConnectAsync(HttpRequestHead head)
+    private async Task<bool> AnswerConnectAsync(HttpRequestHead head, string? accountName)
     {
         var target = ProxyTarget.FromAuthorityForm(head.RequestTarget);
         if (target is null)
         {
             return await AnswerAsync(HttpStatus.BadRequest, "the CONNECT target is not host:port", closes: true);
+        }
+
+        if (await AnswerCommandFaultAsync(head, target, accountName, RequestEndsConnection(head)) is { } faulted)
+        {
+            return faulted;
         }
 
         await DropOriginAsync();
