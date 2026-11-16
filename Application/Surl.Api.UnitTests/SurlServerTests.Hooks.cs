@@ -15,7 +15,7 @@ public sealed partial class SurlServerTests
         var firstSeen = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var registration = server.OnEvent(new SurlEventQuery { Kind = SurlEventKind.ExchangeStarted }, (surlEvent, _) =>
         {
-            started.Add(((ExchangeStartedEvent)surlEvent).ExchangeId);
+            started.Add(((ExchangeStartedEvent)surlEvent).ExchangeId!.Value);
             firstSeen.TrySetResult();
             return ValueTask.CompletedTask;
         });

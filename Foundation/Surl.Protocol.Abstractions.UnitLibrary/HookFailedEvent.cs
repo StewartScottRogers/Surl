@@ -7,4 +7,13 @@ namespace Surl.Protocol.Abstractions;
 /// <param name="HookId">The hook's identifier.</param>
 /// <param name="Failure">How it failed.</param>
 /// <param name="Message">The exception's message, or what timed out.</param>
-public sealed record HookFailedEvent(string HookId, HookFailure Failure, string Message) : SurlEvent;
+public sealed record HookFailedEvent(string HookId, HookFailure Failure, string Message) : SurlEvent
+{
+    /// <inheritdoc />
+    public override void WriteMembers(ISurlEventMemberWriter writer)
+    {
+        writer.Text(nameof(HookId), HookId);
+        writer.Choice(nameof(Failure), Failure);
+        writer.Text(nameof(Message), Message);
+    }
+}

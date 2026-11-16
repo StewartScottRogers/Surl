@@ -17,6 +17,26 @@ public sealed record StoreChangedEvent(
     long? ByteCount,
     long? ExchangeId) : SurlEvent
 {
+    /// <inheritdoc />
+    public override long? ExchangeId { get; } = ExchangeId;
+
+    /// <summary>
+    /// The account the change is about: <see cref="Name"/> when the store is <see cref="StoreKind.Accounts"/>,
+    /// otherwise <see langword="null"/>.
+    /// </summary>
+    public override string? Account => Store == StoreKind.Accounts ? Name : null;
+
+    /// <inheritdoc />
+    public override void WriteMembers(ISurlEventMemberWriter writer)
+    {
+        writer.Choice(nameof(Store), Store);
+        writer.Choice(nameof(Change), Change);
+        writer.Text(nameof(Name), Name);
+        writer.Number(nameof(ByteCount), ByteCount);
+        writer.Number(nameof(ExchangeId), ExchangeId);
+        writer.Text(nameof(PreviousName), PreviousName);
+    }
+
     /// <summary>
     /// The name the entry had before a <see cref="StoreChange.Renamed"/> change;
     /// <see langword="null"/> for every other change.

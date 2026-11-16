@@ -179,3 +179,9 @@ and the protocols fan out after.
   `Decrypted`, `Decoded`), `ExchangeBytesEvent.Layer` (default `Wire`) and `StreamId` (default `null`), and
   `IDecryptedBytesSink` (`Received`, `Sent`) on `ExchangeContext.DecryptedBytes`, default
   `DiscardingDecryptedBytesSink.Instance`. Nothing publishes through it yet.
+
+- What an event says about itself (ADR-0171; BL-1283): `SurlEvent.ExchangeId`, `Scheme` and `Account` (virtual, `null` on
+  the base; a record overrides what it has, so `ExchangeStartedEvent`, `ExchangeEndedEvent` and `ExchangeBytesEvent` take a
+  `long?` exchange ID), `KindName` (type name without `Event`, snake_case) and `WriteMembers(ISurlEventMemberWriter)`
+  (`Text`, `Number`, `Flag`, `Choice`, `Bytes`, named by property name). `SurlEventMemberTests` fails when a record leaves
+  a public property unwritten or shadows a fact instead of overriding it.

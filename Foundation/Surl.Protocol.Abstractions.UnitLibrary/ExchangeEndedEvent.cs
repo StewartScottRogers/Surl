@@ -6,4 +6,16 @@ namespace Surl.Protocol.Abstractions;
 /// <param name="ExchangeId">The exchange's <see cref="ExchangeContext.ExchangeId"/>.</param>
 /// <param name="ReceivedByteCount">How many bytes the server received in the exchange.</param>
 /// <param name="SentByteCount">How many bytes the server sent in the exchange.</param>
-public sealed record ExchangeEndedEvent(long ExchangeId, long ReceivedByteCount, long SentByteCount) : SurlEvent;
+public sealed record ExchangeEndedEvent(long? ExchangeId, long ReceivedByteCount, long SentByteCount) : SurlEvent
+{
+    /// <inheritdoc />
+    public override long? ExchangeId { get; } = ExchangeId;
+
+    /// <inheritdoc />
+    public override void WriteMembers(ISurlEventMemberWriter writer)
+    {
+        writer.Number(nameof(ExchangeId), ExchangeId);
+        writer.Number(nameof(ReceivedByteCount), ReceivedByteCount);
+        writer.Number(nameof(SentByteCount), SentByteCount);
+    }
+}

@@ -17,4 +17,26 @@ public sealed record ConsumerGroupChangedEvent(
     ConsumerGroupChange Change,
     string? MemberId,
     int GenerationId,
-    string? Account) : SurlEvent;
+    string? Account) : SurlEvent
+{
+    /// <inheritdoc />
+    public override long? ExchangeId { get; } = ExchangeId;
+
+    /// <inheritdoc />
+    public override string? Scheme { get; } = Scheme;
+
+    /// <inheritdoc />
+    public override string? Account { get; } = Account;
+
+    /// <inheritdoc />
+    public override void WriteMembers(ISurlEventMemberWriter writer)
+    {
+        writer.Number(nameof(ExchangeId), ExchangeId);
+        writer.Text(nameof(Scheme), Scheme);
+        writer.Text(nameof(Group), Group);
+        writer.Choice(nameof(Change), Change);
+        writer.Text(nameof(MemberId), MemberId);
+        writer.Number(nameof(GenerationId), GenerationId);
+        writer.Text(nameof(Account), Account);
+    }
+}

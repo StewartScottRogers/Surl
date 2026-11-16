@@ -15,4 +15,25 @@ public sealed record LoginJudgedEvent(
     string Account,
     string Mechanism,
     bool IsAccepted,
-    bool IsRefusedByFault) : SurlEvent;
+    bool IsRefusedByFault) : SurlEvent
+{
+    /// <inheritdoc />
+    public override long? ExchangeId { get; } = ExchangeId;
+
+    /// <inheritdoc />
+    public override string? Scheme { get; } = Scheme;
+
+    /// <inheritdoc />
+    public override string? Account { get; } = Account;
+
+    /// <inheritdoc />
+    public override void WriteMembers(ISurlEventMemberWriter writer)
+    {
+        writer.Number(nameof(ExchangeId), ExchangeId);
+        writer.Text(nameof(Scheme), Scheme);
+        writer.Text(nameof(Account), Account);
+        writer.Text(nameof(Mechanism), Mechanism);
+        writer.Flag(nameof(IsAccepted), IsAccepted);
+        writer.Flag(nameof(IsRefusedByFault), IsRefusedByFault);
+    }
+}

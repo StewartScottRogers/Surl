@@ -169,8 +169,8 @@ public sealed class LoginJudgementPolicyTests
         {
             foreach (var property in surlEvent.GetType().GetProperties().Where(property => property.PropertyType == typeof(string)))
             {
-                var value = (string)property.GetValue(surlEvent)!;
-                Assert.IsFalse(secrets.Any(secret => value.Contains(secret, StringComparison.Ordinal)), $"{surlEvent.GetType().Name}.{property.Name}");
+                var value = (string?)property.GetValue(surlEvent);
+                Assert.IsFalse(value is not null && secrets.Any(secret => value.Contains(secret, StringComparison.Ordinal)), $"{surlEvent.GetType().Name}.{property.Name}");
             }
         }
     }

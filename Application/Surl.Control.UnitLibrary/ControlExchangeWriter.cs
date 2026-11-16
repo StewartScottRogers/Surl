@@ -82,9 +82,9 @@ internal static class ControlExchangeWriter
         var lastSequence = events.OfType<ExchangeEndedEvent>().Select(ended => ended.Sequence).FirstOrDefault(long.MaxValue);
 
         return new ControlExchangeJson(
-            started.ExchangeId,
+            started.ExchangeId!.Value,
             started.ListenUrl,
-            started.Scheme,
+            started.Scheme!,
             $"{started.Client}",
             ControlEventWriter.Timestamp(started.At),
             shown,

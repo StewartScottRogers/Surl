@@ -14,13 +14,13 @@ internal sealed class ExchangeFacts(ExchangeStartedEvent started)
     private readonly HashSet<StoreKind> stores = [];
 
     /// <summary>The exchange's ID.</summary>
-    public long ExchangeId => started.ExchangeId;
+    public long ExchangeId => started.ExchangeId!.Value;
 
     /// <summary>The listen URL that accepted it.</summary>
     public Uri ListenUrl { get; } = new(started.ListenUrl);
 
     /// <summary>The listen URL's scheme.</summary>
-    public string Scheme => started.Scheme;
+    public string Scheme => started.Scheme!;
 
     /// <summary>The event that opened the exchange.</summary>
     public ExchangeStartedEvent Started => started;
@@ -42,7 +42,7 @@ internal sealed class ExchangeFacts(ExchangeStartedEvent started)
         switch (surlEvent)
         {
             case LoginJudgedEvent login:
-                accounts.Add(login.Account);
+                accounts.Add(login.Account!);
                 break;
             case StoreChangedEvent change:
                 stores.Add(change.Store);
