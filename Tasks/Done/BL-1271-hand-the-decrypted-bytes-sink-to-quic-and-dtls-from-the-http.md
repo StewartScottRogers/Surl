@@ -8,7 +8,7 @@ depends-on: [BL-1267, BL-1268, BL-1269, BL-1270]
 touches: [Protocols/Http/Surl.Protocol.Http.UnitLibrary, Protocols/Http/Surl.Protocol.Http.UnitTests, Protocols/Http/Surl.Extended.Protocol.WebTransport.UnitLibrary, Protocols/Http/Surl.Extended.Protocol.WebTransport.UnitTests, Protocols/Lookup/Surl.Extended.Protocol.DnsQuery.UnitLibrary, Protocols/Lookup/Surl.Extended.Protocol.DnsQuery.UnitTests, Protocols/Http/Surl.Extended.Protocol.Coap.UnitLibrary, Protocols/Http/Surl.Extended.Protocol.Coap.UnitTests]
 requirement: FR-060
 created: 2026-11-16
-completed:
+completed: 2026-11-16
 ---
 # BL-1271 — Hand the sink to QUIC and DTLS from the four servers
 
@@ -22,13 +22,16 @@ ADR-0169 decisions 3 and 7. If the work is too large for one run, split it per s
 
 ## Acceptance criteria
 
-- [ ] A test per server: with a recording sink in the `ExchangeContext`, a client exchange reaches it (an HTTP/3 `:path`, a WebTransport stream payload, a DNS question, a CoAP request).
-- [ ] No byte a server sends changes: existing tests pass untouched.
-- [ ] 100% line and branch coverage kept in each library; `dotnet build` clean.
+- [x] A test per server: with a recording sink in the `ExchangeContext`, a client exchange reaches it (an HTTP/3 `:path`, a WebTransport stream payload, a DNS question, a CoAP request).
+- [x] No byte a server sends changes: existing tests pass untouched.
+- [x] 100% line and branch coverage kept in each library; `dotnet build` clean.
 
 ## Notes
+
+Chosen: each server sets `DecryptedBytes = context.DecryptedBytes` on its QUIC options (https HTTP/3, its gateway upstream-test-case twin, WebTransport, DNS over QUIC) or DTLS options (coaps). HTTP/3 request streams already took the sink from the context (BL-1270). One test per server in its own test project.
 
 ## Log
 
 - 2026-11-16: Created.
 - 2026-11-16: Backlog -> Doing.
+- 2026-11-16: Doing -> Done. Sink handed to QUIC and DTLS from the four servers; tests green

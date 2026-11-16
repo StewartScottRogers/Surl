@@ -71,6 +71,7 @@ public sealed class Http3GatewayUpstreamTestCaseServer : IDatagramProtocolServer
             CertificateChain = certificateChain,
             CertificateKey = certificateKey,
             HandshakeTimeout = headTimeout == Timeout.InfiniteTimeSpan ? null : headTimeout,
+            DecryptedBytes = context.DecryptedBytes,
         };
         using var random = RandomNumberGenerator.Create();
         var application = new Http3GatewayApplicationProtocol(new NghttpxGatewayBackend(backendConnector, backendPort), context);

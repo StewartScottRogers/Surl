@@ -69,6 +69,21 @@ public sealed class SecureCoapProtocolServerTests
     }
 
     [TestMethod]
+    public async Task ServeAsync_PskHandshakeThenGet_ReportsTheRequestToTheDecryptedBytesSink()
+    {
+        var sink = new UnitTestRecordingDecryptedBytesSink();
+        var store = new CoapTestStore().WithFile("a.txt", "hello");
+        var server = new SecureCoapProtocolServer(store.Store, Private, new CoapObservations(), AliceOnly);
+        await using var served = Served.Start(server, new UnitTestDtlsClient { CipherSuites = [0x00A8] }, decryptedBytes: sink);
+
+        await served.WaitUntilEstablishedAsync();
+        served.Flow.SendCoap(GetATxt);
+        await served.ReceiveCoapAsync(1);
+
+        Assert.IsTrue(sink.HasReceived("a.txt"));
+    }
+
+    [TestMethod]
     public async Task ServeAsync_CertificateHandshakeThenBlockwiseGet_IsAnsweredIn1024ByteBlocks()
     {
         var body = CoapTestExchange.Body(2500);
@@ -430,11 +445,11 @@ public sealed class SecureCoapProtocolServerTests
         public Task Serving { get; private set; } = Task.CompletedTask;
 
         public static Served Start(
-            SecureCoapProtocolServer server, UnitTestDtlsClient client, byte[]? firstDatagram = null, IFaultPlan? faults = null, RecordingSurlEventPublisher? events = null)
+            SecureCoapProtocolServer server, UnitTestDtlsClient client, byte[]? firstDatagram = null, IFaultPlan? faults = null, RecordingSurlEventPublisher? events = null, IDecryptedBytesSink? decryptedBytes = null)
         {
             var served = new Served(new UnitTestDtlsDatagramFlow(client, firstDatagram));
             served.Serving = Task.Run(() => server.ServeAsync(
-                served.Flow, WithPlanAndEvents(Context(served.Log, served.Clock, served.Exchange.Token, served.Shutdown.Token), faults, events)));
+                served.Flow, WithPlanAndEvents(Context(served.Log, served.Clock, served.Exchange.Token, served.Shutdown.Token), faults, events) with { DecryptedBytes = decryptedBytes ?? DiscardingDecryptedBytesSink.Instance }));
             return served;
         }
 

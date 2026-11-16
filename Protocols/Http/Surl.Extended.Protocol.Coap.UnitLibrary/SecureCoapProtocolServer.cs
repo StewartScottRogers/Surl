@@ -214,5 +214,6 @@ public sealed class SecureCoapProtocolServer : IDatagramProtocolServer
             PreSharedKeys = credentials.PreSharedKeys,
             ClientCertificateAuthorities = credentials.ClientCertificateAuthorities,
             LoginJudge = new CoapPreSharedKeyLoginJudge(context),
+            DecryptedBytes = context.DecryptedBytes,
         };
 }
