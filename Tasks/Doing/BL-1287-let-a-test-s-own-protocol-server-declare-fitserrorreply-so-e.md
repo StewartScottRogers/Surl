@@ -34,3 +34,4 @@ ADR-0172 (decided in BL-1246), amending ADR-0124 decision 2. Files: `Application
 ## Log
 
 - 2026-11-16: Created.
+- 2026-11-16: Backlog -> Doing.
