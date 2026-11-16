@@ -34,3 +34,4 @@ An ADR decides how a Debug (`--enable-debug`) build of upstream curl 8.21.0 is p
 ## Log
 
 - 2026-11-16: Created. Stewart approved the Debug upstream curl 8.21.0 build ("download").
+- 2026-11-16: Backlog -> Doing.
