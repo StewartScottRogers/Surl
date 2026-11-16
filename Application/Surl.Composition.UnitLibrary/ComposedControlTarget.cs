@@ -131,6 +131,10 @@ internal sealed class ComposedControlTarget(SurlEventStream events, FaultPlan fa
     }
 
     /// <inheritdoc/>
+    public Task<string> ReadDirectoryLdifAsync(CancellationToken cancellationToken) =>
+        Task.FromResult(Found(stores.ReadDirectoryLdif()));
+
+    /// <inheritdoc/>
     public async Task SeedDirectoryAsync(string ldif, CancellationToken cancellationToken)
     {
         try

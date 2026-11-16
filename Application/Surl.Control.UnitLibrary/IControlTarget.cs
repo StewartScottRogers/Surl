@@ -176,6 +176,11 @@ public interface IControlTarget
     /// <returns>The page.</returns>
     Task<ControlLogPage> ReadLogAsync(string topic, long fromOffset, int limit, CancellationToken cancellationToken);
 
+    /// <summary>Reads the LDAP directory as LDIF, <c>userPassword</c> values omitted (ADR-0164 decision 9).</summary>
+    /// <param name="cancellationToken">Cancels the read.</param>
+    /// <returns>The LDIF text.</returns>
+    Task<string> ReadDirectoryLdifAsync(CancellationToken cancellationToken);
+
     /// <summary>Reads one live Redis key without removing an expired one (ADR-0164 decision 9).</summary>
     /// <param name="database">The database, 0 to 15.</param>
     /// <param name="key">The key's bytes.</param>

@@ -113,6 +113,7 @@ public sealed class ControlEndpoint
             new("GET", ["topics", "{}", "log"], ControlReadRequests.LogKeys, readRequests.ReadLogAsync),
             new("GET", ["keys"], ControlReadRequests.KeyListKeys, readRequests.ListKeysAsync),
             new("GET", ["keys", "{*}"], ControlReadRequests.KeyKeys, readRequests.ReadKeyAsync),
+            new("GET", ["directory"], [], readRequests.ReadDirectoryAsync),
             new("POST", ["messages"], [], storeRequests.PublishMessageAsync),
             new("PUT", ["keys", "{}", "{*}"], ["expire_ms"], storeRequests.SeedKeyAsync),
             new("POST", ["directory"], [], storeRequests.SeedDirectoryAsync),

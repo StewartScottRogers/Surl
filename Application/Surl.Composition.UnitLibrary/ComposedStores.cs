@@ -536,6 +536,27 @@ public sealed class ComposedStores
     }
 
     /// <summary>
+    /// Reads the LDAP directory back as LDIF, as <see cref="LdapProtocolServer.ExportDirectoryLdif"/> does, every
+    /// <c>userPassword</c> value omitted. Publishes nothing and asks no fault rule (ADR-0164, decisions 2, 3 and 9).
+    /// </summary>
+    /// <returns><see cref="ComposedReadOutcome.Found"/> with the LDIF text;
+    /// <see cref="ComposedReadOutcome.NotFound"/> for an instance with no LDAP directory;
+    /// <see cref="ComposedReadOutcome.TooLarge"/> when the text is over <see cref="MaxReadBytes"/> bytes.</returns>
+    public ComposedReadResult<string> ReadDirectoryLdif()
+    {
+        if (ldapServer is null)
+        {
+            return ComposedReadResult<string>.Failed(ComposedReadOutcome.NotFound, "This instance holds no LDAP directory.");
+        }
+
+        var ldif = ldapServer.ExportDirectoryLdif();
+        var byteCount = System.Text.Encoding.UTF8.GetByteCount(ldif);
+        return byteCount > MaxReadBytes
+            ? ComposedReadResult<string>.Failed(ComposedReadOutcome.TooLarge, $"The directory holds {byteCount} bytes of LDIF, more than the {MaxReadBytes} a read returns.")
+            : ComposedReadResult<string>.Of(ldif);
+    }
+
+    /// <summary>
     /// Adds LDIF content records to the LDAP directory, all or none, as
     /// <see cref="LdapProtocolServer.SeedDirectoryEntries"/> does: never consults the fault plan; publishes
     /// <see cref="StoreChange.Seeded"/> for each entry (ADR-0158 decision 3).

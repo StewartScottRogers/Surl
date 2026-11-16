@@ -116,6 +116,13 @@ internal sealed class LdapDirectory
     }
 
     /// <summary>
+    /// Writes the directory as LDIF content records for a test reading it back (ADR-0164 decision 9): publishes
+    /// nothing, and omits every <c>userPassword</c> value.
+    /// </summary>
+    /// <returns>The LDIF text, <c>version: 1</c> then each entry in the directory's order.</returns>
+    public string ExportLdif() => LdifWriter.Write(contents.Entries);
+
+    /// <summary>
     /// Returns the directory to the entries it was built with and publishes <see cref="StoreChange.Reset"/>.
     /// </summary>
     public void Reset()

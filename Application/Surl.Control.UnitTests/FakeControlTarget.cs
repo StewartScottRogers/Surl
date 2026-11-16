@@ -250,6 +250,16 @@ internal sealed class FakeControlTarget : IControlTarget
         return Task.FromResult(KeyPage);
     }
 
+    /// <summary>What <see cref="ReadDirectoryLdifAsync"/> answers.</summary>
+    public string DirectoryLdif { get; set; } = "version: 1\n";
+
+    public Task<string> ReadDirectoryLdifAsync(CancellationToken cancellationToken)
+    {
+        Record("ReadDirectory");
+
+        return Task.FromResult(DirectoryLdif);
+    }
+
     private void Record(string call)
     {
         if (Failure is not null)

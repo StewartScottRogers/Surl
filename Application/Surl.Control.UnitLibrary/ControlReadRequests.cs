@@ -182,6 +182,17 @@ internal sealed class ControlReadRequests(IControlTarget target, ControlAnswers 
         return answers.Json(request.Http, HttpStatus.Ok, body, ControlJsonContext.Default.ControlKeysJson);
     }
 
+    /// <summary><c>GET /v1/directory</c>.</summary>
+    /// <param name="request">The request.</param>
+    /// <returns>The directory as LDIF (<c>text/ldif</c>), <c>userPassword</c> values omitted.</returns>
+    public async Task<HttpAnswer> ReadDirectoryAsync(ControlRequest request)
+    {
+        request.Query.AllowOnly();
+        var ldif = await target.ReadDirectoryLdifAsync(request.CancellationToken);
+
+        return answers.Bytes(request.Http, "text/ldif; charset=utf-8", System.Text.Encoding.UTF8.GetBytes(ldif), []);
+    }
+
     private static int Database(ControlRequest request) => (int)request.Query.Number("database", 0, 15, 0);
 
     private static ControlKeyJson KeyJson(ControlKeyInfo info, string? text, string? base64)

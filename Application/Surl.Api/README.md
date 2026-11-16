@@ -283,6 +283,7 @@ last, and returns a copy; they throw `ObjectDisposedException` once the server i
 | `Messages.ReadLogAsync(topic, fromOffset = 0, limit = 100)` | `SurlLogPage` (`Records`, `NextOffset`, `HasMore`) |
 | `Keys.GetAsync(key, database = 0)` | `SurlKeyContents` (`Info` of `Key`, `KeyBytes`, `Type`, `ByteCount`, `ExpiresAt`; `Bytes`, `Text`; no value for a type other than `string`) |
 | `Keys.ListAsync(pattern, afterKey = null, limit = 100, database = 0)` | `SurlKeyPage` (`Keys` as `SurlKeyInfo`, never a value; `HasMore`), a `KEYS` glob, ordinal order |
+| `Directory.ExportLdifAsync()` | the directory as LDIF text (`version: 1`, then each entry), every `userPassword` value omitted; nothing published |
 
 An absent owner, mailbox, UID, file, folder, queue, log or key throws `SurlNotFoundException`; a `limit` outside
 1 to 1000, a bad UID, position or offset, an item past 16 MiB, or a path a request may not name throws

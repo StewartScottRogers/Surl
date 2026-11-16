@@ -319,4 +319,28 @@ public sealed class ControlReadRequestsTests
         Assert.AreEqual("HTTP/1.1 400 Bad Request", StatusLine(response));
         Assert.IsEmpty(target.Calls);
     }
+
+    [TestMethod]
+    public async Task ReadDirectoryAsync_AnswersTheLdifAsTextLdif()
+    {
+        var target = new FakeControlTarget { DirectoryLdif = "version: 1\n\ndn: o=x\no: café\n" };
+
+        var response = await Serve(target, Request("GET", "/v1/directory"));
+
+        Assert.AreEqual("HTTP/1.1 200 OK", StatusLine(response));
+        StringAssert.Contains(response, "Content-Type: text/ldif; charset=utf-8\r\n");
+        Assert.AreEqual("version: 1\n\ndn: o=x\no: café\n", Body(response));
+        CollectionAssert.AreEqual(new[] { "ReadDirectory" }, target.Calls);
+    }
+
+    [TestMethod]
+    public async Task ReadDirectoryAsync_AQueryKey_Is400()
+    {
+        var target = new FakeControlTarget();
+
+        var response = await Serve(target, Request("GET", "/v1/directory?x=1"));
+
+        Assert.AreEqual("HTTP/1.1 400 Bad Request", StatusLine(response));
+        Assert.IsEmpty(target.Calls);
+    }
 }
