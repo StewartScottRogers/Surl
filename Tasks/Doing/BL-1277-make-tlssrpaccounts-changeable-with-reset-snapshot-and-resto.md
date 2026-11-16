@@ -32,3 +32,4 @@ ADR-0170 decision 3. No byte on the wire changes (ADR-0122 and ADR-0165 fixtures
 ## Log
 
 - 2026-11-16: Created.
+- 2026-11-16: Backlog -> Doing.
