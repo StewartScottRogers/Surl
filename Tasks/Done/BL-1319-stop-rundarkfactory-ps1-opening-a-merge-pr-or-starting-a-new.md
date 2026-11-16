@@ -8,7 +8,7 @@ depends-on: []
 touches: [RunDarkFactory.ps1, Documentation/Wiki/Dark-Factory-Recipes.md]
 requirement: none
 created: 2026-11-16
-completed:
+completed: 2026-11-16
 ---
 # BL-1319 — Stop RunDarkFactory.ps1 opening a merge PR or starting a new shift when a shift changed only task bookkeeping
 
@@ -42,3 +42,4 @@ A shift whose only commits since the last frozen merge PR are task-board bookkee
 
 - 2026-11-16: Created after the BL-1305 shift loop (PRs #46-#92); Stewart asked for it ("yes").
 - 2026-11-16: Backlog -> Doing.
+- 2026-11-16: Doing -> Done. Bookkeeping-only freeze, requeue hold and Continuous progress check done
