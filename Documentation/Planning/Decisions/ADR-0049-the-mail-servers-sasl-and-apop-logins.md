@@ -547,3 +547,22 @@ refused, which the SMTP, IMAP and POP3 servers write to the exchange log immedia
 optional argument, and today only `GssapiSaslExchange` sets it, to ADR-0057 decision 4's
 `Kerberos: <reason>` line. ADR-0067 gives the reasons, and why a reason field on `CheckedLogin` was
 rejected.
+
+## Amendment 4 - `EXTERNAL` over `smtps` is proven against pinned upstream curl (BL-1298, 2026-11-16)
+
+Decided by Claude under Stewart's delegation. Three `Integration` tests in
+`UpstreamCurlSendsMailToSurlOverSmtpTests` run pinned upstream curl 8.21.0 against a live
+`surl smtps://` with `--login-options AUTH=EXTERNAL -u alice:`, so decision 4 and Amendment 1 are
+proven against upstream curl and no longer by unit tests alone:
+
+| Test | Setup | curl exit | curl stderr, with `-sS` |
+| --- | --- | --- | --- |
+| `Send_SaslExternalWithAClientCertificateOverSmtps_Exits0AndStoresTheMail` | surl `--cacert`, account `alice`; curl `--cert`, `--key` of the CA's client `alice` | 0 | (`-v` shows `AUTH EXTERNAL`); the mail is in `alice`'s mailbox as `ESMTPSA` |
+| `Send_SaslExternalWithoutAClientCertificate_ExitsLoginDeniedAndStoresNothing` | surl `--self-signed`; curl `-k`, no certificate | 67 | `curl: (67) Login denied`; nothing stored |
+| `Send_SaslExternalForACertificateWithNoAccount_ExitsLoginDeniedAndStoresNothing` | certificate `alice`, only an account `someone-else` | 67 | `curl: (67) Login denied`; nothing stored |
+
+The tests run the build `PinnedUpstreamCurl.RunBuildLinkedAgainstAsync(..., "OpenSSL", ...)` finds for
+the platform: on `win-x64` the pinned static-curl 8.21.0 OpenSSL build (ADR-0030), on Linux and macOS
+the reference build, which is also OpenSSL. The Windows reference build would use Schannel, which
+takes a client certificate from a Windows certificate store, not the PEM files `--cert` and `--key`
+name, and the tests must be platform-neutral. Where no such build is installed the tests are Inconclusive.
