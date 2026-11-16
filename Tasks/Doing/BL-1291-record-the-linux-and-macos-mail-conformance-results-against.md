@@ -36,3 +36,4 @@ The SMTP, IMAP and POP3 ADRs each state what the Linux and macOS reference build
 ## Log
 
 - 2026-11-16: Created.
+- 2026-11-16: Backlog -> Doing.
