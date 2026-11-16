@@ -8,7 +8,7 @@ depends-on: []
 touches: [.claude/skills/task-board]
 requirement: none
 created: 2026-11-15
-completed:
+completed: 2026-11-15
 ---
 # BL-1234 — Let task-board.ps1 close a split parent from Deferred to Done once every part it names is Done
 
@@ -36,7 +36,7 @@ so finished split parents stop sitting in `Deferred` as if nobody wanted them.
   - Refuses, with a message naming the reason: the task is not in `Deferred`; no parts were found and none
     given; a part is not on the board; a part is not in `Done` or an archive (name each one); a part is
     the parent itself.
-  - On success: ticks every `- [ ]` box, sets `completed`, appends the Log line
+  - On success: ticks every `- [x]` box, sets `completed`, appends the Log line
     `- <today>: Deferred -> Done. Closed by its parts, all Done: BL-a, BL-b, ...`, and moves the file to
     `Tasks/Done/`, all with the same helpers `move` uses (`Read-Text`, `Set-FrontMatterField`,
     `Add-LogLine`, `Write-Text`).
@@ -52,25 +52,36 @@ so finished split parents stop sitting in `Deferred` as if nobody wanted them.
 
 ## Acceptance criteria
 
-- [ ] `.claude/skills/task-board/task-board.ps1` has the `close-split` command as described in Context,
+- [x] `.claude/skills/task-board/task-board.ps1` has the `close-split` command as described in Context,
       and `$AllowedMoves` still lists only `Backlog` for `Deferred`.
-- [ ] On a scratch board (Context), `close-split` on a Deferred parent whose `Split into` parts are all in
+- [x] On a scratch board (Context), `close-split` on a Deferred parent whose `Split into` parts are all in
       `Done` moves it to `Done` with every box ticked, `completed` set and the Log line above; Notes record
       the commands run and their output.
-- [ ] On the same scratch board, `close-split` refuses a parent with one part still in `Backlog` (naming
+- [x] On the same scratch board, `close-split` refuses a parent with one part still in `Backlog` (naming
       that part), a parent not in `Deferred`, and a parent with no `Split into` line and no `-Parts`; and
       `close-split -Parts` closes a parent with no `Split into` line. Notes record each refusal's message.
-- [ ] `.claude/skills/task-board/SKILL.md` lists `close-split` in the script's command table, and its
+- [x] `.claude/skills/task-board/SKILL.md` lists `close-split` in the script's command table, and its
       States table says `Deferred` moves to `Backlog`, or to `Done` through `close-split` only.
-- [ ] `powershell -NoProfile -ExecutionPolicy Bypass -File .claude/skills/task-board/task-board.ps1 status`
+- [x] `powershell -NoProfile -ExecutionPolicy Bypass -File .claude/skills/task-board/task-board.ps1 status`
       on the real board still runs, and `task-board.ps1` contains no non-ASCII byte.
 
 ## Notes
 
 - Filed by `task-planner` on 2026-11-15 while reviewing the 27 Deferred tasks; BL-1235 uses the command
   to close them.
+- Scratch board in `%TEMP%\scratch-board` (BL-001/002 Done, BL-003 Backlog, Deferred parents BL-010..013),
+  `CLAUDE_PROJECT_DIR` pointed at it. Output:
+  - `close-split -Id BL-010` (Split into BL-001, BL-002) -> `BL-010  Deferred -> Done  Tasks\Done\BL-010-t.md`;
+    file had both boxes `[x]`, `completed: 2026-11-15`, Log `Deferred -> Done. Closed by its parts, all Done: BL-001, BL-002`.
+  - BL-011 (part BL-003 in Backlog) -> `BL-011 cannot close: not yet Done: BL-003 (Backlog).`
+  - BL-003 -> `BL-003 is in Backlog; close-split closes only a Deferred task.`
+  - BL-012 (no Split line) -> `BL-012 has no 'Split into' Log line and no -Parts were given, so there are no parts to check.`
+  - `close-split -Id BL-013 -Parts BL-001,BL-002` -> `BL-013  Deferred -> Done`.
+  - `move -Id BL-012 -To Done` -> `... From Deferred it may move to: Backlog. To close a split parent, use close-split.`
+- `$AllowedMoves` unchanged (Deferred -> Backlog only). Real-board `status` runs; no non-ASCII byte in the script.
 
 ## Log
 
 - 2026-11-15: Created.
 - 2026-11-15: Backlog -> Doing.
+- 2026-11-15: Doing -> Done. task-board.ps1 close-split closes a Deferred split parent to Done once its parts are Done
