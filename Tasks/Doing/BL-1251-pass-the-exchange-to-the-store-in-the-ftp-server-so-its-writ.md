@@ -31,3 +31,4 @@ ADR-0168 decision 5 (Documentation/Planning/Decisions/ADR-0168-how-the-content-s
 ## Log
 
 - 2026-11-16: Created.
+- 2026-11-16: Backlog -> Doing.
