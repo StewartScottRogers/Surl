@@ -8,7 +8,7 @@ depends-on: [BL-1289]
 touches: [Documentation/Planning/Decisions/ADR-0051-the-ssh-transport-host-keys-and-user-authentication.md, Documentation/Planning/Decisions/ADR-0054-how-the-ssh-server-answers-upstream-curls-scp-and-sftp-requests.md]
 requirement: FR-039
 created: 2026-11-16
-completed:
+completed: 2026-11-16
 ---
 # BL-1290 — Record in ADR-0051 and ADR-0054 what the Linux and macOS builds negotiated over SSH
 
@@ -26,14 +26,19 @@ ADR-0051 and ADR-0054 state what the Linux and macOS reference builds of upstrea
 
 ## Acceptance criteria
 
-- [ ] ADR-0051 decision 2's Linux and macOS bullet gives, per platform, the kex, host-key, cipher, MAC and compression algorithms from the `SSH negotiated` lines in `Conformance-Off-Windows.md`, and names the CI run.
-- [ ] ADR-0054 decision 16 item 4 says whether the ECDSA-only and Ed25519-only transfers completed on `linux-x64` and `osx-arm64`, naming the test and the CI run.
-- [ ] Neither ADR still says the Linux or macOS SSH results are "predicted" or "not yet measured" for anything `Conformance-Off-Windows.md` records as Passed.
-- [ ] Any Inconclusive or failed SSH test in `Conformance-Off-Windows.md` is named in ADR-0051 or ADR-0054 with its reason, and a task is filed for each failure (its ID in Notes).
+- [x] ADR-0051 decision 2's Linux and macOS bullet gives, per platform, the kex, host-key, cipher, MAC and compression algorithms from the `SSH negotiated` lines in `Conformance-Off-Windows.md`, and names the CI run.
+- [x] ADR-0054 decision 16 item 4 says whether the ECDSA-only and Ed25519-only transfers completed on `linux-x64` and `osx-arm64`, naming the test and the CI run.
+- [x] Neither ADR still says the Linux or macOS SSH results are "predicted" or "not yet measured" for anything `Conformance-Off-Windows.md` records as Passed.
+- [x] Any Inconclusive or failed SSH test in `Conformance-Off-Windows.md` is named in ADR-0051 or ADR-0054 with its reason, and a task is filed for each failure (its ID in Notes).
 
 ## Notes
+
+- ADR-0051 decision 2 and ADR-0054 decision 16 item 4 now cite CI run 43906686682 (BL-1289). No SSH test failed, so no task filed.
+- Disagreement-free, but one gap: `Conformance-Off-Windows.md` quotes no `SSH negotiated` line for `HostKey_OnlyEllipticCurveOnOpenSslBuilds_...` (the Ed25519 line quoted comes from the host-certificate test), so ADR-0051 says the ECDSA/Ed25519 host key was negotiated because the passing test asserts it, and `--compressed-ssh` stays a prediction (nothing measured it).
+- Inconclusive SSH tests named in ADR-0051: the two `HostKey_NoPin...` known_hosts tests (runner state, one per platform).
 
 ## Log
 
 - 2026-11-16: Created.
 - 2026-11-16: Backlog -> Doing.
+- 2026-11-16: Doing -> Done. ADR-0051 and ADR-0054 record the measured Linux and macOS SSH results

@@ -654,8 +654,8 @@ algorithms and the Linux and macOS builds' `KEXINIT` lists.
    an RSA key, which every pinned build's host-key list names (ADR-0051, Context). A surl holding only an ECDSA or only an Ed25519
    host key cannot serve the Windows build at all: curl exits 2, `curl: (2) Failure establishing
    ssh session: -5, Unable to exchange encryption keys`, before any SCP or SFTP request. The Linux
-   and macOS builds (OpenSSL) are predicted to complete the transfer with either key; that is
-   pinned for their CI legs, not yet measured (ADR-0051 decision 2).
+   and macOS builds (OpenSSL) completed the transfer with either key: HostKey_OnlyEllipticCurveOnOpenSslBuilds_NegotiatesItAndDownloadsTheFile ("ecdsa-sha2-nistp256" and "ssh-ed25519") passed on
+   linux-x64 and osx-arm64 in CI run 43906686682 (ADR-0051 decision 2; Documentation/Conformance/Conformance-Off-Windows.md).
 5. **An intermittent failure.** About one connection in 270 with the Windows build ends in `curl:
    (2) Failure establishing ssh session: -8, Unable to exchange encryption keys` after surl has
    noted the agreed algorithms, so any Windows run of these tests can fail once. It is not hidden by a retry;
