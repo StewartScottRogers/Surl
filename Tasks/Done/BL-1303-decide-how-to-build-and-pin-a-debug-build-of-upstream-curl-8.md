@@ -8,7 +8,7 @@ depends-on: []
 touches: [Documentation/Planning/Decisions]
 requirement: none
 created: 2026-11-16
-completed:
+completed: 2026-11-16
 ---
 # BL-1303 — Decide how to build and pin a Debug build of upstream curl 8.21.0 for the http/2 and http/3 upstream test cases that need one, and file the tasks that do it
 
@@ -25,13 +25,18 @@ An ADR decides how a Debug (`--enable-debug`) build of upstream curl 8.21.0 is p
 
 ## Acceptance criteria
 
-- [ ] An ADR marked "Decided by Claude under Stewart's delegation", citing Stewart's 2026-11-16 approval, decides how the Debug build of upstream curl 8.21.0 is built, on which platforms, with which backends, and how it is pinned and checked, with the alternatives considered.
-- [ ] The ADR names which of the ten http/2 and http/3 cases the build will run and which remain unrunnable and why.
-- [ ] The follow-up tasks are filed with `task-board.ps1 new`, each sized for one run with exact `touches` and checkable criteria: at least building and pinning the build, running the named cases with it, and updating `Upstream-Test-Case-Pass-Rate.md`. Their IDs are in Notes.
+- [x] An ADR marked "Decided by Claude under Stewart's delegation", citing Stewart's 2026-11-16 approval, decides how the Debug build of upstream curl 8.21.0 is built, on which platforms, with which backends, and how it is pinned and checked, with the alternatives considered.
+- [x] The ADR names which of the ten http/2 and http/3 cases the build will run and which remain unrunnable and why.
+- [x] The follow-up tasks are filed with `task-board.ps1 new`, each sized for one run with exact `touches` and checkable criteria: at least building and pinning the build, running the named cases with it, and updating `Upstream-Test-Case-Pass-Rate.md`. Their IDs are in Notes.
 
 ## Notes
+
+- Decided in ADR-0173 (Decided by Claude under Stewart's delegation). Six of the ten cases (2400, 2401, 2406, 2501, 358, 359) need `Debug`; four (2402, 2404, 2407, 2502) are libtests and stay unrunnable by this build.
+- Follow-up tasks: BL-1310 (build and pin), BL-1311 (run the six cases), BL-1312 (update Upstream-Test-Case-Pass-Rate.md), BL-1313 (libtest decision).
+- Edited only Documentation/Planning/Decisions and the board, inside `touches`.
 
 ## Log
 
 - 2026-11-16: Created. Stewart approved the Debug upstream curl 8.21.0 build ("download").
 - 2026-11-16: Backlog -> Doing.
+- 2026-11-16: Doing -> Done. ADR-0173 decides the Debug build; BL-1310 to BL-1313 filed
