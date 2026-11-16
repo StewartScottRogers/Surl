@@ -877,6 +877,7 @@ public sealed partial class ServingEngine
             Faults = faults,
             IdleClock = deadlines,
             Identifiers = IdentifiersForExchange?.Invoke(exchangeId) ?? CryptographicIdentifierRandom.Instance,
+            DecryptedBytes = new EventPublishingDecryptedBytesSink(log, events, exchangeId),
         };
 
         log.Note($"Exchange {exchangeId} opened: {listenUrl.Scheme} from {remoteEndPoint}.");
