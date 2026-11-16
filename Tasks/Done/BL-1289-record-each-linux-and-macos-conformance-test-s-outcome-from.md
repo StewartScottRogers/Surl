@@ -8,7 +8,7 @@ depends-on: []
 touches: [Documentation/Conformance/Conformance-Off-Windows.md]
 requirement: none
 created: 2026-11-16
-completed:
+completed: 2026-11-16
 ---
 # BL-1289 — Record each Linux and macOS conformance test's outcome from a dispatched CI run
 
@@ -27,15 +27,20 @@ completed:
 
 ## Acceptance criteria
 
-- [ ] `Documentation/Conformance/Conformance-Off-Windows.md` exists and names the CI run (its URL), the commit it ran, and the two reference pins' SHA-256 from `UpstreamCurlBuilds.json`.
-- [ ] It has one table row per `Upstream*Tests` test class with the counts Passed, Inconclusive and Failed for `linux-x64` and for `osx-arm64`, at least for the classes behind SSH, SMTP, IMAP, POP3, WebSocket, SMB and RTSP.
-- [ ] Every Inconclusive and every failed test is listed by full name with the message the `.trx` gives for it.
-- [ ] The `SSH negotiated` lines `UpstreamCurlLogsInToSurlOverSshTests` wrote on each platform are quoted, with the test that wrote each.
-- [ ] No `.trx` or downloaded artifact is committed (`git status` shows only the new Markdown file under `Documentation/`).
+- [x] `Documentation/Conformance/Conformance-Off-Windows.md` exists and names the CI run (its URL), the commit it ran, and the two reference pins' SHA-256 from `UpstreamCurlBuilds.json`.
+- [x] It has one table row per `Upstream*Tests` test class with the counts Passed, Inconclusive and Failed for `linux-x64` and for `osx-arm64`, at least for the classes behind SSH, SMTP, IMAP, POP3, WebSocket, SMB and RTSP.
+- [x] Every Inconclusive and every failed test is listed by full name with the message the `.trx` gives for it.
+- [x] The `SSH negotiated` lines `UpstreamCurlLogsInToSurlOverSshTests` wrote on each platform are quoted, with the test that wrote each.
+- [x] No `.trx` or downloaded artifact is committed (`git status` shows only the new Markdown file under `Documentation/`).
 
 ## Notes
+
+- Run https://github.com/StewartScottRogers/Surl/actions/runs/43906686682 (dispatched on `factory/phase-1`, `attempts=2`). Attempt 1 passed on both legs with no failure; attempt 2 on macOS was cancelled after 30 min, so it is noted in the document, not used.
+- Choice: the per-class table covers every `Upstream*` conformance class (not the `CurlPort*`/`Pinned*` classes of the extended servers, which ADR-0003 keeps out of Surl's verdicts); Inconclusive and skipped tests are grouped by message with each full name listed once under it.
+- Findings for BL-1290 to BL-1294: macOS RTSP (16) and OpenLDAP (47) are Inconclusive for want of a reference build; Linux passes both.
 
 ## Log
 
 - 2026-11-16: Created.
 - 2026-11-16: Backlog -> Doing.
+- 2026-11-16: Doing -> Done. Recorded in Documentation/Conformance/Conformance-Off-Windows.md from CI run 43906686682
