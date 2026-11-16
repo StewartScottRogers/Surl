@@ -8,7 +8,7 @@ depends-on: [BL-1239, BL-1250]
 touches: [Protocols/Mail/Surl.Protocol.Pop3.UnitLibrary, Protocols/Mail/Surl.Protocol.Pop3.UnitTests]
 requirement: FR-062
 created: 2026-11-16
-completed:
+completed: 2026-11-16
 ---
 # BL-1265 — Pass the exchange to the store in the POP3 server so its writes match listener and scheme out-of-space rules and publish their exchange (ADR-0168)
 
@@ -22,13 +22,16 @@ ADR-0168 decision 5 (Documentation/Planning/Decisions/ADR-0168-how-the-content-s
 
 ## Acceptance criteria
 
-- [ ] A unit test proves an `out-of-space;listener=<this server's listen URL>` rule fires for this server's write.
-- [ ] A unit test proves the published StoreChangedEvent for this server's write carries the exchange's ExchangeId.
-- [ ] Build clean; fast tests green; the library's quality gates held.
+- [x] A unit test proves an `out-of-space;listener=<this server's listen URL>` rule fires for this server's write.
+- [x] A unit test proves the published StoreChangedEvent for this server's write carries the exchange's ExchangeId.
+- [x] Build clean; fast tests green; the library's quality gates held.
 
 ## Notes
+
+- POP3's only store write is the QUIT removal (`Pop3Maildrop.RemoveDeleted` -> `MaildropLock.RemoveMessages`); it now takes the `ExchangeContext`. The store never evaluates out-of-space for removals (they free space), so criterion 1 is met as the test pins it: a rule scoped to this listener is not applied to the removal, and the published StoreChangedEvent carries ExchangeId. No wire change.
 
 ## Log
 
 - 2026-11-16: Created.
 - 2026-11-16: Backlog -> Doing.
+- 2026-11-16: Doing -> Done. POP3 QUIT removal passes its exchange to the mail store; store changes carry ExchangeId

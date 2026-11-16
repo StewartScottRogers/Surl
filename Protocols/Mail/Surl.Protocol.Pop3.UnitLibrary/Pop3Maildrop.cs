@@ -1,5 +1,6 @@
 using System.Globalization;
 using Surl.MailStore;
+using Surl.Protocol.Abstractions;
 
 namespace Surl.Protocol.Pop3;
 
@@ -95,8 +96,9 @@ internal sealed class Pop3Maildrop : IDisposable
     /// <summary>
     /// Removes the marked messages from the store (RFC 1939, section 6).
     /// </summary>
+    /// <param name="exchange">The exchange behind the removal; or <see langword="null"/>.</param>
     /// <returns>How many messages the store removed.</returns>
-    public int RemoveDeleted() => maildropLock.RemoveMessages(deleted);
+    public int RemoveDeleted(ExchangeContext? exchange = null) => maildropLock.RemoveMessages(deleted, exchange);
 
     /// <summary>
     /// Releases the maildrop lock.
