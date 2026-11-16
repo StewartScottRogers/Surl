@@ -30,3 +30,4 @@ ADR-0174 decision 1; extends the script of BL-1310 (ADR-0173). Same container, d
 ## Log
 
 - 2026-11-16: Created.
+- 2026-11-16: Backlog -> Doing.
