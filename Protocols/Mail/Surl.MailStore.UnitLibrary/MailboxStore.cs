@@ -384,8 +384,8 @@ public sealed partial class MailboxStore
     /// <summary>
     /// Starts a message body on its way into the store (ADR-0050, decision 7): with a data
     /// directory it is streamed into a new pending file, otherwise held in memory. Hand it to
-    /// <see cref="Deliver(IReadOnlyList{MailRecipient}, PendingMessage)"/> or
-    /// <see cref="Append(MailView, string, PendingMessage, MailFlags, DateTimeOffset?, out MailStoredUid)"/>
+    /// <see cref="Deliver(IReadOnlyList{MailRecipient}, PendingMessage, ExchangeContext)"/> or
+    /// <see cref="Append(MailView, string, PendingMessage, MailFlags, DateTimeOffset?, out MailStoredUid, ExchangeContext)"/>
     /// once its bytes are written, or dispose it to abandon it.
     /// </summary>
     /// <returns>The pending message. A pending file that cannot be created does not throw; the
@@ -404,13 +404,14 @@ public sealed partial class MailboxStore
     /// <param name="recipients">The recipients <see cref="LookUpRecipient"/> found; an owner
     /// named by two entries gets two copies.</param>
     /// <param name="message">The pending message, its bytes all written.</param>
+    /// <param name="exchange">The exchange behind the write: it fills the out-of-space fault point and the <c>ExchangeId</c> of every event published (ADR-0168 decision 2); <see langword="null"/> for a seed or other write with no exchange.</param>
     /// <returns><see cref="MailStoreOutcome.Succeeded"/>,
     /// <see cref="MailStoreOutcome.MessageTooLarge"/>, <see cref="MailStoreOutcome.StorageFailed"/>
     /// or <see cref="MailStoreOutcome.StoreFull"/>.</returns>
     /// <exception cref="ArgumentNullException">An argument is <see langword="null"/>.</exception>
     /// <exception cref="InvalidOperationException"><paramref name="message"/> was stored, refused
     /// or disposed already.</exception>
-    public MailStoreOutcome Deliver(IReadOnlyList<MailRecipient> recipients, PendingMessage message)
+    public MailStoreOutcome Deliver(IReadOnlyList<MailRecipient> recipients, PendingMessage message, ExchangeContext? exchange = null)
     {
         ArgumentNullException.ThrowIfNull(recipients);
         ArgumentNullException.ThrowIfNull(message);
@@ -420,7 +421,7 @@ public sealed partial class MailboxStore
             var outcome = CheckPending(message);
             return outcome != MailStoreOutcome.Succeeded || recipients.Count == 0
                 ? outcome
-                : DeliverUnlessOutOfSpace(recipients.SelectMany(recipient => recipient.Owners).ToList(), message);
+                : DeliverUnlessOutOfSpace(recipients.SelectMany(recipient => recipient.Owners).ToList(), message, exchange);
         }
     }
 
@@ -432,6 +433,7 @@ public sealed partial class MailboxStore
     /// <param name="recipients">The recipients <see cref="LookUpRecipient"/> found.</param>
     /// <param name="message">The pending message, its bytes all written; disposed whatever the outcome.</param>
     /// <param name="cancellationToken">Cancels the wait for the plan; nothing is stored then.</param>
+    /// <param name="exchange">The exchange behind the write: it fills the out-of-space fault point and the <c>ExchangeId</c> of every event published (ADR-0168 decision 2); <see langword="null"/> for a seed or other write with no exchange.</param>
     /// <returns>As <see cref="Deliver"/> returns.</returns>
     /// <exception cref="ArgumentNullException">An argument is <see langword="null"/>.</exception>
     /// <exception cref="InvalidOperationException"><paramref name="message"/> was stored, refused
@@ -440,7 +442,8 @@ public sealed partial class MailboxStore
     public async Task<MailStoreOutcome> DeliverAsync(
         IReadOnlyList<MailRecipient> recipients,
         PendingMessage message,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        ExchangeContext? exchange = null)
     {
         ArgumentNullException.ThrowIfNull(recipients);
         ArgumentNullException.ThrowIfNull(message);
@@ -455,14 +458,14 @@ public sealed partial class MailboxStore
 
             var inboxOwners = recipients.SelectMany(recipient => recipient.Owners).ToList();
             var targets = inboxOwners.Select(owner => owner.Name).Distinct(StringComparer.Ordinal).Select(name => (name, MailboxName.Inbox));
-            return await IsOutOfSpaceAsync(targets, cancellationToken).ConfigureAwait(false)
+            return await IsOutOfSpaceAsync(targets, exchange, cancellationToken).ConfigureAwait(false)
                 ? MailStoreOutcome.QuotaExceeded
-                : DeliverPending(inboxOwners, message, StoreChange.Delivered);
+                : DeliverPending(inboxOwners, message, StoreChange.Delivered, exchange);
         }
     }
 
     /// <summary>
-    /// As <see cref="Append(MailView, string, PendingMessage, MailFlags, DateTimeOffset?, out MailStoredUid)"/>,
+    /// As <see cref="Append(MailView, string, PendingMessage, MailFlags, DateTimeOffset?, out MailStoredUid, ExchangeContext)"/>,
     /// but awaits the fault plan's answer before the store's lock (BL-868, ADR-0127 decision 5).
     /// </summary>
     /// <param name="view">The session's view.</param>
@@ -471,6 +474,7 @@ public sealed partial class MailboxStore
     /// <param name="flags">The message's flags.</param>
     /// <param name="internalDate">The date <c>APPEND</c> gave, or <see langword="null"/> for now.</param>
     /// <param name="cancellationToken">Cancels the wait for the plan; nothing is stored then.</param>
+    /// <param name="exchange">The exchange behind the write: it fills the out-of-space fault point and the <c>ExchangeId</c> of every event published (ADR-0168 decision 2); <see langword="null"/> for a seed or other write with no exchange.</param>
     /// <returns>The outcome and, when it is <see cref="MailStoreOutcome.Succeeded"/>, where the message was stored.</returns>
     /// <exception cref="ArgumentNullException">An argument is <see langword="null"/>.</exception>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="flags"/> holds a bit that is no flag.</exception>
@@ -483,7 +487,8 @@ public sealed partial class MailboxStore
         PendingMessage message,
         MailFlags flags,
         DateTimeOffset? internalDate,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        ExchangeContext? exchange = null)
     {
         ArgumentNullException.ThrowIfNull(message);
         message.Close();
@@ -491,25 +496,25 @@ public sealed partial class MailboxStore
         {
             ThrowIfNotFlags(flags);
             if (CheckPending(message) == MailStoreOutcome.Succeeded
-                && await IsOutOfSpaceAsync(TargetOf(view, mailboxName), cancellationToken).ConfigureAwait(false))
+                && await IsOutOfSpaceAsync(TargetOf(view, mailboxName), exchange, cancellationToken).ConfigureAwait(false))
             {
                 return new MailAppendResult(MailStoreOutcome.QuotaExceeded, default);
             }
 
-            var outcome = AppendPending(view, mailboxName, message, flags, internalDate, out var stored);
+            var outcome = AppendPending(view, mailboxName, message, flags, internalDate, exchange, out var stored);
             return new MailAppendResult(outcome, stored);
         }
     }
 
-    private MailStoreOutcome DeliverUnlessOutOfSpace(List<OwnerMailboxes> inboxOwners, PendingMessage message) =>
-        IsOutOfSpace(inboxOwners.Select(owner => owner.Name).Distinct(StringComparer.Ordinal).Select(name => (name, MailboxName.Inbox)))
+    private MailStoreOutcome DeliverUnlessOutOfSpace(List<OwnerMailboxes> inboxOwners, PendingMessage message, ExchangeContext? exchange) =>
+        IsOutOfSpace(inboxOwners.Select(owner => owner.Name).Distinct(StringComparer.Ordinal).Select(name => (name, MailboxName.Inbox)), exchange)
             ? MailStoreOutcome.QuotaExceeded
-            : DeliverPending(inboxOwners, message, StoreChange.Delivered);
+            : DeliverPending(inboxOwners, message, StoreChange.Delivered, exchange);
 
     private bool IsAnyOwnerOverQuota(List<OwnerMailboxes> inboxOwners, long messageLength) =>
         inboxOwners.GroupBy(owner => owner).Any(copies => !WithinQuota(copies.Key, messageLength * copies.Count()));
 
-    private MailStoreOutcome DeliverPending(List<OwnerMailboxes> inboxOwners, PendingMessage message, StoreChange change)
+    private MailStoreOutcome DeliverPending(List<OwnerMailboxes> inboxOwners, PendingMessage message, StoreChange change, ExchangeContext? exchange)
     {
         lock (storeLock)
         {
@@ -530,7 +535,7 @@ public sealed partial class MailboxStore
                 return MailStoreOutcome.StorageFailed;
             }
 
-            DeliverBody(inboxOwners, body, change);
+            DeliverBody(inboxOwners, body, change, exchange);
             return MailStoreOutcome.Succeeded;
         }
     }
@@ -545,7 +550,8 @@ public sealed partial class MailboxStore
     /// <param name="internalDate">The date <c>APPEND</c> gave, or <see langword="null"/> for now.</param>
     /// <param name="stored">Where the message was stored, when the outcome is
     /// <see cref="MailStoreOutcome.Succeeded"/>.</param>
-    /// <returns>As <see cref="Append(MailView, string, PendingMessage, MailFlags, DateTimeOffset?, out MailStoredUid)"/> returns.</returns>
+    /// <param name="exchange">The exchange behind the write: it fills the out-of-space fault point and the <c>ExchangeId</c> of every event published (ADR-0168 decision 2); <see langword="null"/> for a seed or other write with no exchange.</param>
+    /// <returns>As <see cref="Append(MailView, string, PendingMessage, MailFlags, DateTimeOffset?, out MailStoredUid, ExchangeContext)"/> returns.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="view"/> or
     /// <paramref name="mailboxName"/> is <see langword="null"/>.</exception>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="flags"/> holds a bit that is no flag.</exception>
@@ -555,12 +561,13 @@ public sealed partial class MailboxStore
         ReadOnlySpan<byte> message,
         MailFlags flags,
         DateTimeOffset? internalDate,
-        out MailStoredUid stored)
+        out MailStoredUid stored,
+        ExchangeContext? exchange = null)
     {
         ThrowIfNotFlags(flags);
         var pending = CreatePendingMessage();
         pending.Body.Write(message);
-        return Append(view, mailboxName, pending, flags, internalDate, out stored);
+        return Append(view, mailboxName, pending, flags, internalDate, out stored, exchange);
     }
 
     /// <summary>
@@ -576,6 +583,7 @@ public sealed partial class MailboxStore
     /// <param name="internalDate">The date <c>APPEND</c> gave, or <see langword="null"/> for now.</param>
     /// <param name="stored">Where the message was stored, when the outcome is
     /// <see cref="MailStoreOutcome.Succeeded"/>.</param>
+    /// <param name="exchange">The exchange behind the write: it fills the out-of-space fault point and the <c>ExchangeId</c> of every event published (ADR-0168 decision 2); <see langword="null"/> for a seed or other write with no exchange.</param>
     /// <returns><see cref="MailStoreOutcome.Succeeded"/>,
     /// <see cref="MailStoreOutcome.MailboxMissing"/>,
     /// <see cref="MailStoreOutcome.MessageTooLarge"/>, <see cref="MailStoreOutcome.StorageFailed"/>
@@ -590,7 +598,8 @@ public sealed partial class MailboxStore
         PendingMessage message,
         MailFlags flags,
         DateTimeOffset? internalDate,
-        out MailStoredUid stored)
+        out MailStoredUid stored,
+        ExchangeContext? exchange = null)
     {
         ArgumentNullException.ThrowIfNull(message);
         stored = default;
@@ -598,9 +607,9 @@ public sealed partial class MailboxStore
         using (message)
         {
             ThrowIfNotFlags(flags);
-            return CheckPending(message) == MailStoreOutcome.Succeeded && IsOutOfSpace(TargetOf(view, mailboxName))
+            return CheckPending(message) == MailStoreOutcome.Succeeded && IsOutOfSpace(TargetOf(view, mailboxName), exchange)
                 ? MailStoreOutcome.QuotaExceeded
-                : AppendPending(view, mailboxName, message, flags, internalDate, out stored);
+                : AppendPending(view, mailboxName, message, flags, internalDate, exchange, out stored);
         }
     }
 
@@ -610,6 +619,7 @@ public sealed partial class MailboxStore
         PendingMessage message,
         MailFlags flags,
         DateTimeOffset? internalDate,
+        ExchangeContext? exchange,
         out MailStoredUid stored)
     {
         stored = default;
@@ -627,7 +637,7 @@ public sealed partial class MailboxStore
             var uid = AddMessage(mailbox, body, internalDate ?? timeProvider.GetUtcNow(), flags);
             stored = new MailStoredUid(mailbox.UidValidity, uid);
             changeCount++;
-            PublishMessage(StoreChange.Written, place.Value, uid);
+            PublishMessage(StoreChange.Written, place.Value, uid, exchange);
             return MailStoreOutcome.Succeeded;
         }
     }
@@ -757,6 +767,7 @@ public sealed partial class MailboxStore
     /// <param name="flags">The flags to set, clear or replace with.</param>
     /// <param name="result">The message's flags afterwards, when the outcome is
     /// <see cref="MailStoreOutcome.Succeeded"/>.</param>
+    /// <param name="exchange">The exchange behind the write: it fills the out-of-space fault point and the <c>ExchangeId</c> of every event published (ADR-0168 decision 2); <see langword="null"/> for a seed or other write with no exchange.</param>
     /// <returns><see cref="MailStoreOutcome.Succeeded"/>,
     /// <see cref="MailStoreOutcome.MailboxMissing"/> or <see cref="MailStoreOutcome.MessageMissing"/>.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="view"/> or
@@ -769,7 +780,8 @@ public sealed partial class MailboxStore
         uint uid,
         MailFlagChange change,
         MailFlags flags,
-        out MailFlags result)
+        out MailFlags result,
+        ExchangeContext? exchange = null)
     {
         ThrowIfNotFlags(flags);
         ArgumentOutOfRangeException.ThrowIfGreaterThan((uint)change, (uint)MailFlagChange.Replace, nameof(change));
@@ -787,7 +799,7 @@ public sealed partial class MailboxStore
             {
                 changeCount++;
                 stored.Flags = result;
-                PublishMessage(StoreChange.Written, FindPlace(view, mailboxName)!.Value, uid);
+                PublishMessage(StoreChange.Written, FindPlace(view, mailboxName)!.Value, uid, exchange);
             }
 
             return outcome;
@@ -801,10 +813,11 @@ public sealed partial class MailboxStore
     /// <param name="view">The session's view.</param>
     /// <param name="mailboxName">The mailbox's name.</param>
     /// <param name="expungedUids">The UIDs removed, in ascending order.</param>
+    /// <param name="exchange">The exchange behind the write: it fills the out-of-space fault point and the <c>ExchangeId</c> of every event published (ADR-0168 decision 2); <see langword="null"/> for a seed or other write with no exchange.</param>
     /// <returns><see cref="MailStoreOutcome.Succeeded"/> or <see cref="MailStoreOutcome.MailboxMissing"/>.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="view"/> or
     /// <paramref name="mailboxName"/> is <see langword="null"/>.</exception>
-    public MailStoreOutcome Expunge(MailView view, string mailboxName, out IReadOnlyList<uint> expungedUids)
+    public MailStoreOutcome Expunge(MailView view, string mailboxName, out IReadOnlyList<uint> expungedUids, ExchangeContext? exchange = null)
     {
         lock (storeLock)
         {
@@ -816,7 +829,7 @@ public sealed partial class MailboxStore
             }
 
             expungedUids = place.Value.Mailbox.DeletedUids();
-            RemovePublished(place.Value, expungedUids);
+            RemovePublished(place.Value, expungedUids, exchange);
             return MailStoreOutcome.Succeeded;
         }
     }
@@ -830,9 +843,10 @@ public sealed partial class MailboxStore
     /// <param name="mailboxName">The mailbox's name.</param>
     /// <param name="uids">The UIDs that may be removed.</param>
     /// <param name="expungedUids">The UIDs removed, in ascending order.</param>
+    /// <param name="exchange">The exchange behind the write: it fills the out-of-space fault point and the <c>ExchangeId</c> of every event published (ADR-0168 decision 2); <see langword="null"/> for a seed or other write with no exchange.</param>
     /// <returns><see cref="MailStoreOutcome.Succeeded"/> or <see cref="MailStoreOutcome.MailboxMissing"/>.</returns>
     /// <exception cref="ArgumentNullException">An argument is <see langword="null"/>.</exception>
-    public MailStoreOutcome Expunge(MailView view, string mailboxName, IEnumerable<uint> uids, out IReadOnlyList<uint> expungedUids)
+    public MailStoreOutcome Expunge(MailView view, string mailboxName, IEnumerable<uint> uids, out IReadOnlyList<uint> expungedUids, ExchangeContext? exchange = null)
     {
         ArgumentNullException.ThrowIfNull(uids);
         var allowed = uids.ToHashSet();
@@ -846,7 +860,7 @@ public sealed partial class MailboxStore
             }
 
             expungedUids = [.. place.Value.Mailbox.DeletedUids().Where(allowed.Contains)];
-            RemovePublished(place.Value, expungedUids);
+            RemovePublished(place.Value, expungedUids, exchange);
             return MailStoreOutcome.Succeeded;
         }
     }
@@ -862,6 +876,7 @@ public sealed partial class MailboxStore
     /// <param name="destinationMailboxName">The mailbox copied to; may be the source.</param>
     /// <param name="copied">What was copied, when the outcome is <see cref="MailStoreOutcome.Succeeded"/>;
     /// otherwise <see langword="null"/>.</param>
+    /// <param name="exchange">The exchange behind the write: it fills the out-of-space fault point and the <c>ExchangeId</c> of every event published (ADR-0168 decision 2); <see langword="null"/> for a seed or other write with no exchange.</param>
     /// <returns><see cref="MailStoreOutcome.Succeeded"/>,
     /// <see cref="MailStoreOutcome.MailboxMissing"/> or <see cref="MailStoreOutcome.StoreFull"/>.</returns>
     /// <exception cref="ArgumentNullException">An argument is <see langword="null"/>.</exception>
@@ -870,8 +885,9 @@ public sealed partial class MailboxStore
         string sourceMailboxName,
         IEnumerable<uint> uids,
         string destinationMailboxName,
-        out MailCopyResult? copied) =>
-        CopyMessages(view, sourceMailboxName, uids, destinationMailboxName, isMove: false, out copied);
+        out MailCopyResult? copied,
+        ExchangeContext? exchange = null) =>
+        CopyMessages(view, sourceMailboxName, uids, destinationMailboxName, isMove: false, exchange, out copied);
 
     /// <summary>
     /// Moves messages to another mailbox of the same view, as IMAP's <c>MOVE</c> does (RFC 6851):
@@ -886,6 +902,7 @@ public sealed partial class MailboxStore
     /// the messages new UIDs there.</param>
     /// <param name="moved">What was moved, when the outcome is <see cref="MailStoreOutcome.Succeeded"/>;
     /// otherwise <see langword="null"/>.</param>
+    /// <param name="exchange">The exchange behind the write: it fills the out-of-space fault point and the <c>ExchangeId</c> of every event published (ADR-0168 decision 2); <see langword="null"/> for a seed or other write with no exchange.</param>
     /// <returns><see cref="MailStoreOutcome.Succeeded"/>,
     /// <see cref="MailStoreOutcome.MailboxMissing"/> or <see cref="MailStoreOutcome.StoreFull"/>
     /// (the destination has no UIDs left to give).</returns>
@@ -895,8 +912,9 @@ public sealed partial class MailboxStore
         string sourceMailboxName,
         IEnumerable<uint> uids,
         string destinationMailboxName,
-        out MailCopyResult? moved) =>
-        CopyMessages(view, sourceMailboxName, uids, destinationMailboxName, isMove: true, out moved);
+        out MailCopyResult? moved,
+        ExchangeContext? exchange = null) =>
+        CopyMessages(view, sourceMailboxName, uids, destinationMailboxName, isMove: true, exchange, out moved);
 
     private MailStoreOutcome CopyMessages(
         MailView view,
@@ -904,6 +922,7 @@ public sealed partial class MailboxStore
         IEnumerable<uint> uids,
         string destinationMailboxName,
         bool isMove,
+        ExchangeContext? exchange,
         out MailCopyResult? copied)
     {
         ArgumentNullException.ThrowIfNull(uids);
@@ -919,7 +938,7 @@ public sealed partial class MailboxStore
 
             var originals = uids.Distinct().Order().Select(uid => source.Value.Mailbox.Messages.GetValueOrDefault(uid)).OfType<StoredMessage>().ToList();
             var outcome = CheckRoomToCopy(source.Value.Owner, originals, destination.Value, isMove);
-            copied = outcome == MailStoreOutcome.Succeeded ? CopyInto(source.Value, originals, destination.Value, isMove) : null;
+            copied = outcome == MailStoreOutcome.Succeeded ? CopyInto(source.Value, originals, destination.Value, isMove, exchange) : null;
             return outcome;
         }
     }
@@ -943,12 +962,12 @@ public sealed partial class MailboxStore
     private bool HasRoomToCopy(StoredMailbox destination, int count, bool isMove) =>
         isMove ? destination.CanGiveUids(count) : HasRoomForCopies(destination, count);
 
-    private MailCopyResult CopyInto(MailboxPlace source, List<StoredMessage> originals, MailboxPlace destination, bool isMove)
+    private MailCopyResult CopyInto(MailboxPlace source, List<StoredMessage> originals, MailboxPlace destination, bool isMove, ExchangeContext? exchange)
     {
         var copyUids = originals.Select(original => AddMessage(destination.Mailbox, original.Body, original.InternalDate, original.Flags)).ToList();
-        copyUids.ForEach(uid => PublishMessage(StoreChange.Written, destination, uid));
+        copyUids.ForEach(uid => PublishMessage(StoreChange.Written, destination, uid, exchange));
         List<uint> sourceUids = [.. originals.Select(original => original.Uid)];
-        PublishRemoving(source, isMove ? sourceUids : []);
+        PublishRemoving(source, isMove ? sourceUids : [], exchange);
         RemoveMessages(source.Mailbox, isMove ? sourceUids : []);
         changeCount += copyUids.Count == 0 ? 0 : 1;
         return new MailCopyResult(destination.Mailbox.UidValidity, sourceUids, copyUids);
@@ -960,6 +979,7 @@ public sealed partial class MailboxStore
     /// </summary>
     /// <param name="view">The session's view.</param>
     /// <param name="mailboxName">The new mailbox's name.</param>
+    /// <param name="exchange">The exchange behind the write: it fills the out-of-space fault point and the <c>ExchangeId</c> of every event published (ADR-0168 decision 2); <see langword="null"/> for a seed or other write with no exchange.</param>
     /// <returns><see cref="MailStoreOutcome.Succeeded"/>,
     /// <see cref="MailStoreOutcome.MailboxMissing"/> (an empty view),
     /// <see cref="MailStoreOutcome.InvalidName"/>, <see cref="MailStoreOutcome.AlreadyExists"/> or
@@ -967,7 +987,7 @@ public sealed partial class MailboxStore
     /// when no <c>UIDVALIDITY</c> is left to give.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="view"/> or
     /// <paramref name="mailboxName"/> is <see langword="null"/>.</exception>
-    public MailStoreOutcome CreateMailbox(MailView view, string mailboxName)
+    public MailStoreOutcome CreateMailbox(MailView view, string mailboxName, ExchangeContext? exchange = null)
     {
         ArgumentNullException.ThrowIfNull(view);
         ArgumentNullException.ThrowIfNull(mailboxName);
@@ -982,7 +1002,7 @@ public sealed partial class MailboxStore
             var created = new StoredMailbox(mailboxName, IssueUidValidity(), 1);
             AddMailbox(view.Owner!, created);
             changeCount++;
-            PublishMailbox(StoreChange.Written, view.Owner!, created);
+            PublishMailbox(StoreChange.Written, view.Owner!, created, exchange);
             return outcome;
         }
     }
@@ -993,12 +1013,13 @@ public sealed partial class MailboxStore
     /// </summary>
     /// <param name="view">The session's view.</param>
     /// <param name="mailboxName">The mailbox's name.</param>
+    /// <param name="exchange">The exchange behind the write: it fills the out-of-space fault point and the <c>ExchangeId</c> of every event published (ADR-0168 decision 2); <see langword="null"/> for a seed or other write with no exchange.</param>
     /// <returns><see cref="MailStoreOutcome.Succeeded"/>,
     /// <see cref="MailStoreOutcome.MailboxMissing"/> or
     /// <see cref="MailStoreOutcome.InboxCannotBeDeleted"/>.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="view"/> or
     /// <paramref name="mailboxName"/> is <see langword="null"/>.</exception>
-    public MailStoreOutcome DeleteMailbox(MailView view, string mailboxName)
+    public MailStoreOutcome DeleteMailbox(MailView view, string mailboxName, ExchangeContext? exchange = null)
     {
         lock (storeLock)
         {
@@ -1017,7 +1038,7 @@ public sealed partial class MailboxStore
             view.Owner!.Mailboxes.Remove(mailbox.Name);
             mailboxCount--;
             changeCount++;
-            PublishMailbox(StoreChange.Deleted, view.Owner, mailbox);
+            PublishMailbox(StoreChange.Deleted, view.Owner, mailbox, exchange);
             return MailStoreOutcome.Succeeded;
         }
     }
@@ -1032,13 +1053,14 @@ public sealed partial class MailboxStore
     /// <param name="view">The session's view.</param>
     /// <param name="mailboxName">The mailbox's name.</param>
     /// <param name="newMailboxName">The name it gets.</param>
+    /// <param name="exchange">The exchange behind the write: it fills the out-of-space fault point and the <c>ExchangeId</c> of every event published (ADR-0168 decision 2); <see langword="null"/> for a seed or other write with no exchange.</param>
     /// <returns><see cref="MailStoreOutcome.Succeeded"/>,
     /// <see cref="MailStoreOutcome.MailboxMissing"/>, <see cref="MailStoreOutcome.InvalidName"/>,
     /// <see cref="MailStoreOutcome.AlreadyExists"/> or
     /// <see cref="MailStoreOutcome.TooManyMailboxes"/> (renaming <c>INBOX</c> adds a mailbox), or
     /// <see cref="MailStoreOutcome.StoreFull"/> when no <c>UIDVALIDITY</c> is left to give.</returns>
     /// <exception cref="ArgumentNullException">An argument is <see langword="null"/>.</exception>
-    public MailStoreOutcome RenameMailbox(MailView view, string mailboxName, string newMailboxName)
+    public MailStoreOutcome RenameMailbox(MailView view, string mailboxName, string newMailboxName, ExchangeContext? exchange = null)
     {
         ArgumentNullException.ThrowIfNull(newMailboxName);
         lock (storeLock)
@@ -1063,12 +1085,12 @@ public sealed partial class MailboxStore
             {
                 owner.Mailboxes.Remove(mailbox.Name);
                 mailboxCount--;
-                PublishMailbox(StoreChange.Deleted, owner, mailbox);
+                PublishMailbox(StoreChange.Deleted, owner, mailbox, exchange);
             }
 
             AddMailbox(owner, renamed);
             changeCount++;
-            PublishMailbox(StoreChange.Written, owner, renamed);
+            PublishMailbox(StoreChange.Written, owner, renamed, exchange);
             return outcome;
         }
     }
@@ -1138,14 +1160,15 @@ public sealed partial class MailboxStore
     /// message's bytes, as after a reset or restore (ADR-0131).
     /// </summary>
     /// <returns>How many were removed.</returns>
-    internal int RemoveFromInbox(OwnerMailboxes owner, IReadOnlyList<(uint Uid, MessageBody Body)> messages)
+    internal int RemoveFromInbox(OwnerMailboxes owner, IReadOnlyList<(uint Uid, MessageBody Body)> messages, ExchangeContext? exchange)
     {
         lock (storeLock)
         {
             var inbox = owner.Inbox;
             return RemovePublished(
                 new MailboxPlace(owner, inbox),
-                [.. messages.Where(message => inbox.Messages.GetValueOrDefault(message.Uid)?.Body == message.Body).Select(message => message.Uid).Distinct()]);
+                [.. messages.Where(message => inbox.Messages.GetValueOrDefault(message.Uid)?.Body == message.Body).Select(message => message.Uid).Distinct()],
+                exchange);
         }
     }
 
@@ -1570,13 +1593,13 @@ public sealed partial class MailboxStore
     private bool HasRoomForCopies(StoredMailbox destination, int count) =>
         messageCount + (long)count <= MaxMessages && destination.CanGiveUids(count);
 
-    private void DeliverBody(List<OwnerMailboxes> inboxOwners, MessageBody body, StoreChange change)
+    private void DeliverBody(List<OwnerMailboxes> inboxOwners, MessageBody body, StoreChange change, ExchangeContext? exchange)
     {
         var now = timeProvider.GetUtcNow();
         foreach (var owner in inboxOwners)
         {
             var place = new MailboxPlace(owner, owner.Inbox);
-            PublishMessage(change, place, AddMessage(place.Mailbox, body, now, MailFlags.None));
+            PublishMessage(change, place, AddMessage(place.Mailbox, body, now, MailFlags.None), exchange);
         }
 
         changeCount++;

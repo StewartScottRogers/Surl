@@ -1,3 +1,5 @@
+using Surl.Protocol.Abstractions;
+
 namespace Surl.MailStore;
 
 /// <summary>
@@ -71,11 +73,12 @@ public sealed class MaildropLock : IDisposable
     /// skipped.
     /// </summary>
     /// <param name="numbers">Message numbers from <see cref="Messages"/>.</param>
+    /// <param name="exchange">The exchange behind the removal, named by the events it publishes; or <see langword="null"/>.</param>
     /// <returns>How many messages were removed from the store.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="numbers"/> is <see langword="null"/>.</exception>
     /// <exception cref="ArgumentOutOfRangeException">A number is not in <see cref="Messages"/>; nothing is removed.</exception>
     /// <exception cref="ObjectDisposedException">The lock has been released.</exception>
-    public int RemoveMessages(IEnumerable<int> numbers)
+    public int RemoveMessages(IEnumerable<int> numbers, ExchangeContext? exchange = null)
     {
         ArgumentNullException.ThrowIfNull(numbers);
         ThrowIfReleased();
@@ -87,7 +90,7 @@ public sealed class MaildropLock : IDisposable
         }
 
         // An empty view has no messages, so it never reaches the store.
-        return messages.Count == 0 ? 0 : store.RemoveFromInbox(owner!, messages);
+        return messages.Count == 0 ? 0 : store.RemoveFromInbox(owner!, messages, exchange);
     }
 
     /// <summary>

@@ -8,7 +8,7 @@ depends-on: [BL-1239]
 touches: [Protocols/Mail/Surl.MailStore.UnitLibrary, Protocols/Mail/Surl.MailStore.UnitTests]
 requirement: FR-062
 created: 2026-11-16
-completed:
+completed: 2026-11-16
 ---
 # BL-1250 — Tell the mail store the exchange behind a write so mail out-of-space rules match listener and scheme and mail changes name their exchange (ADR-0168)
 
@@ -22,14 +22,17 @@ ADR-0168 decisions 2 to 4 (Documentation/Planning/Decisions/ADR-0168-how-the-con
 
 ## Acceptance criteria
 
-- [ ] Every publishing mutator of MailboxStore has a trailing `ExchangeContext? exchange = null`; existing callers compile unchanged.
-- [ ] A unit test proves `out-of-space;listener=...` and `out-of-space;scheme=smtp` fire for a Deliver and an Append given an exchange, and a seed without one still publishes ExchangeId null.
-- [ ] A unit test proves PublishMessage, PublishMailbox and both FaultAppliedEvents carry the exchange's ID.
-- [ ] 100% line and branch coverage held; build clean; fast tests green.
+- [x] Every publishing mutator of MailboxStore has a trailing `ExchangeContext? exchange = null`; existing callers compile unchanged.
+- [x] A unit test proves `out-of-space;listener=...` and `out-of-space;scheme=smtp` fire for a Deliver and an Append given an exchange, and a seed without one still publishes ExchangeId null.
+- [x] A unit test proves PublishMessage, PublishMailbox and both FaultAppliedEvents carry the exchange's ID.
+- [x] 100% line and branch coverage held; build clean; fast tests green.
 
 ## Notes
+
+All publishing mutators (Deliver, DeliverAsync, Append x2, AppendAsync, ChangeFlags, Expunge x2, Copy, Move, Create/Delete/RenameMailbox, MaildropLock.RemoveMessages) take a trailing optional `ExchangeContext? exchange = null`. Listen URL on the fault point is `ReportedListenUrl.Format(exchange.ListenUrl)`, as the servers do. Seeds pass null. Tests: MailboxStoreExchangeTests.
 
 ## Log
 
 - 2026-11-16: Created.
 - 2026-11-16: Backlog -> Doing.
+- 2026-11-16: Doing -> Done. MailboxStore mutators take an optional exchange: out-of-space rules match listener and scheme, events carry ExchangeId

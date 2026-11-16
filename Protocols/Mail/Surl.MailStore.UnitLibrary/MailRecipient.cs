@@ -2,7 +2,7 @@ namespace Surl.MailStore;
 
 /// <summary>
 /// The owners an SMTP recipient maps to, as <see cref="MailboxStore.LookUpRecipient"/> found
-/// them; what <see cref="MailboxStore.Deliver(IReadOnlyList{MailRecipient}, PendingMessage)"/>
+/// them; what <see cref="MailboxStore.Deliver(IReadOnlyList{MailRecipient}, PendingMessage, Surl.Protocol.Abstractions.ExchangeContext)"/>
 /// delivers to. A recipient resolved by ADR-0050 decision 5 has one owner; an alias may have
 /// several, each once (ADR-0102, decision 1.3). Only the store that found it may deliver to it.
 /// </summary>

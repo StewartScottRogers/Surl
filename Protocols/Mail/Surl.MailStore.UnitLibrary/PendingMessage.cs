@@ -4,8 +4,8 @@ namespace Surl.MailStore;
 /// A message body on its way into the store (ADR-0050, decision 7), made by
 /// <see cref="MailboxStore.CreatePendingMessage"/>. A server writes the body to
 /// <see cref="Body"/> as it reads it off the wire, then hands this to
-/// <see cref="MailboxStore.Deliver(IReadOnlyList{MailRecipient}, PendingMessage)"/> or
-/// <see cref="MailboxStore.Append(MailView, string, PendingMessage, MailFlags, DateTimeOffset?, out MailStoredUid)"/>,
+/// <see cref="MailboxStore.Deliver(IReadOnlyList{MailRecipient}, PendingMessage, Surl.Protocol.Abstractions.ExchangeContext)"/> or
+/// <see cref="MailboxStore.Append(MailView, string, PendingMessage, MailFlags, DateTimeOffset?, out MailStoredUid, Surl.Protocol.Abstractions.ExchangeContext)"/>,
 /// which stores it or refuses it, and disposes it either way.
 /// </summary>
 /// <remarks>
