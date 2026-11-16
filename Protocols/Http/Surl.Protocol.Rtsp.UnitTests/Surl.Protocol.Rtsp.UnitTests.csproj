@@ -10,6 +10,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Surl.Protocol.Rtsp.UnitLibrary\Surl.Protocol.Rtsp.UnitLibrary.csproj" />
+    <!-- RtspStoreExchangeTests match rules with the engine's own FaultPlan, as a served instance does. -->
+    <ProjectReference Include="..\..\..\Foundation\Surl.Core.UnitLibrary\Surl.Core.UnitLibrary.csproj" />
   </ItemGroup>
 
   <!--
