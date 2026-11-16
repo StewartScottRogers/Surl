@@ -566,3 +566,16 @@ the platform: on `win-x64` the pinned static-curl 8.21.0 OpenSSL build (ADR-0030
 the reference build, which is also OpenSSL. The Windows reference build would use Schannel, which
 takes a client certificate from a Windows certificate store, not the PEM files `--cert` and `--key`
 name, and the tests must be platform-neutral. Where no such build is installed the tests are Inconclusive.
+
+### Amendment 4, addendum - `EXTERNAL` over `imaps` (BL-1299, 2026-11-16)
+
+Decided by Claude under Stewart's delegation. Three more `Integration` tests, in
+`UpstreamCurlReadsMailFromSurlOverImapTests`, run the same OpenSSL build against a live `surl imaps://`
+with `--login-options AUTH=EXTERNAL -u alice:`. Each first has curl deliver `mail.txt` over `smtp` to
+`alice`, then reads `/INBOX;UID=1`:
+
+| Test | Setup | curl exit | Standard output |
+| --- | --- | --- | --- |
+| `Fetch_SaslExternalWithAClientCertificateOverImaps_Exits0WithTheMessage` | surl `--cacert`; curl `--cert`, `--key` of client `alice` | 0 (`-v` shows `AUTHENTICATE EXTERNAL`) | the stored message, byte for byte |
+| `Fetch_SaslExternalWithAClientCertificateAndSaslIr_Exits0WithTheMessage` | the same with `--sasl-ir` | 0 | the stored message |
+| `Fetch_SaslExternalWithoutAClientCertificate_ExitsLoginDeniedWithNoOutput` | surl `--self-signed`; curl `-k`, no certificate | 67 | empty |

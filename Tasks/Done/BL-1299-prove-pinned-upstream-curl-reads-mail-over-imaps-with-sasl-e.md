@@ -8,7 +8,7 @@ depends-on: [BL-1298]
 touches: [Conformance/Surl.Conformance.UnitTests, Documentation/Planning/Decisions/ADR-0049-the-mail-servers-sasl-and-apop-logins.md]
 requirement: FR-046
 created: 2026-11-16
-completed:
+completed: 2026-11-16
 ---
 # BL-1299 — Prove pinned upstream curl reads mail over imaps with SASL EXTERNAL and a client certificate
 
@@ -24,15 +24,18 @@ completed:
 
 ## Acceptance criteria
 
-- [ ] `UpstreamCurlReadsMailFromSurlOverImapTests` has `Fetch_SaslExternalWithAClientCertificateOverImaps_Exits0WithTheMessage`: curl exits 0 and standard output is the delivered message's bytes; `[TestCategory("Integration")]`.
-- [ ] It has `Fetch_SaslExternalWithAClientCertificateAndSaslIr_Exits0WithTheMessage`, the same with `--sasl-ir`.
-- [ ] It has `Fetch_SaslExternalWithoutAClientCertificate_<measured exit>` (surl `--self-signed`, no `--cacert`; curl `-k`), asserting the exit code curl gave and empty standard output.
-- [ ] `dotnet test Conformance/Surl.Conformance.UnitTests --filter "FullyQualifiedName~UpstreamCurlReadsMailFromSurlOverImapTests&FullyQualifiedName~SaslExternal"` passes on Windows with the static-curl OpenSSL build installed; `dotnet build Conformance/Surl.Conformance.UnitTests -warnaserror` is clean and the fast run is unchanged.
-- [ ] BL-1298's ADR-0049 amendment names these tests and their measured exit codes too.
+- [x] `UpstreamCurlReadsMailFromSurlOverImapTests` has `Fetch_SaslExternalWithAClientCertificateOverImaps_Exits0WithTheMessage`: curl exits 0 and standard output is the delivered message's bytes; `[TestCategory("Integration")]`.
+- [x] It has `Fetch_SaslExternalWithAClientCertificateAndSaslIr_Exits0WithTheMessage`, the same with `--sasl-ir`.
+- [x] It has `Fetch_SaslExternalWithoutAClientCertificate_<measured exit>` (surl `--self-signed`, no `--cacert`; curl `-k`), asserting the exit code curl gave and empty standard output.
+- [x] `dotnet test Conformance/Surl.Conformance.UnitTests --filter "FullyQualifiedName~UpstreamCurlReadsMailFromSurlOverImapTests&FullyQualifiedName~SaslExternal"` passes on Windows with the static-curl OpenSSL build installed; `dotnet build Conformance/Surl.Conformance.UnitTests -warnaserror` is clean and the fast run is unchanged.
+- [x] BL-1298's ADR-0049 amendment names these tests and their measured exit codes too.
 
 ## Notes
+
+Measured: with a certificate, with and without --sasl-ir, curl exits 0 and prints the stored message; without one (surl --self-signed, curl -k) it exits 67 with empty output. Default taken: the with-certificate pair is two named methods sharing one private helper; SendMailOverSmtpAsync gained an optional recipient to deliver to alice. ADR-0049 Amendment 4 addendum names the tests.
 
 ## Log
 
 - 2026-11-16: Created.
 - 2026-11-16: Backlog -> Doing.
+- 2026-11-16: Doing -> Done. Three imaps SASL EXTERNAL tests pass against pinned upstream curl
