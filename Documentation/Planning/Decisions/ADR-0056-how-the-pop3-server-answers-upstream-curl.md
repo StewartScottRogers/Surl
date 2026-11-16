@@ -377,6 +377,18 @@ The rows are pinned from this ADR's measurements; where the Linux or macOS OpenS
 another exit, it is pinned per platform in its own test (root `CLAUDE.md`) and recorded against
 this ADR.
 
+## Measured on Linux and macOS
+
+Recorded by BL-1291 from the measurement in Documentation/Conformance/Conformance-Off-Windows.md (BL-1289): CI run https://github.com/StewartScottRogers/Surl/actions/runs/43906686682 (commit 06ae86113e511d6d6204949c1fbf80e29b41ba9, attempt 1 of both legs), upstream curl 8.21.0 reference builds curl-linux-x86_64-musl-8.21.0.tar.xz (SHA-256 153CA463957609117D21A848BE29B70691B85F9E5CC9370C7DAA037B839A4E45) and curl-macos-arm64-8.21.0.tar.xz (SHA-256  4E0E69BCD3BD814EC093551A0447AC14EDEEA9D395B468A2025DCB3F766EEBF).
+
+| Platform | `UpstreamCurlReadsMailFromSurlOverPop3Tests` Passed | Inconclusive | Failed |
+|---|---|---|---|
+| linux-x64 | 41 | 0 | 0 |
+| osx-arm64 | 41 | 0 | 0 |
+
+- No row differs from Windows: no test of this class pins a platform-specific exit, so none has an [OSCondition] twin, and none was Inconclusive off Windows.
+- Outside this class, `GssapiOverPop3_NoAccount_ExitsLoginDenied` (in `UpstreamCurlLogsInToSurlWithKerberosTests`) is skipped on both platforms with `Test is only supported on Windows`; it needs the Windows SSPI reference build.
+- Nothing failed, so no task was filed.
 ## Alternatives considered
 
 - **A timestamp in every greeting**, as many POP3 servers send. Rejected in decision 2: curl then
