@@ -37,3 +37,4 @@ An ADR, decided by Claude under Stewart's delegation, says how a `SurlEvent` rec
 ## Log
 
 - 2026-11-16: Created.
+- 2026-11-16: Backlog -> Doing.
