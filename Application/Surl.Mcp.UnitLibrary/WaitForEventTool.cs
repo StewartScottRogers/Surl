@@ -35,7 +35,7 @@ public static class WaitForEventTool
     /// The tool's input schema. <c>timeout_ms</c>'s range is checked by the tool rather than the schema, so a wait
     /// out of range is an <c>isError</c> result the agent reads, not a protocol error.
     /// </summary>
-    internal const string InputSchema = """
+    internal static readonly string InputSchema = """
         {
           "type": "object",
           "properties": {

@@ -22,11 +22,14 @@ ADR-0171 (BL-1245) decides how a SurlEvent kind reaches the three hosts: the eve
 
 ## Acceptance criteria
 
-- [ ] EventToolFilter's kinds enum is built from the exported SurlEvent subclasses; RecordedEventWriter uses WriteMembers and the base ExchangeId.
-- [ ] A test enumerating the exported subclasses fails when one is missing from the kinds enum, not matched by IsOfKind, or any public property is missing from its written output.
-- [ ] Build clean, fast tests green, 100% line and branch coverage on the touched libraries.
+- [x] EventToolFilter's kinds enum is built from the exported SurlEvent subclasses; RecordedEventWriter uses WriteMembers and the base ExchangeId.
+- [x] A test enumerating the exported subclasses fails when one is missing from the kinds enum, not matched by IsOfKind, or any public property is missing from its written output.
+- [x] Build clean, fast tests green, 100% line and branch coverage on the touched libraries.
 
 ## Notes
+
+- `GetExportedTypes` is IL2026 (trim/AOT), so `EventToolFilter.ReadAllKinds` names the records with `typeof`; `RecordedEventWriterTests` enumerates the exported subclasses and fails on one not in the kinds enum, not matched by `IsOfKind`, without a sample, or with a property `WriteMembers` skips.
+- A member named `Kind` would collide with the head's `kind`, so it is written `fault_kind` (first word of the kind + `_kind`), keeping today's bytes. Member order now follows each record's `WriteMembers`; `exchange_bytes` is written in full (hex, 256 bytes max).
 
 ## Log
 

@@ -25,7 +25,7 @@ public static class GetEventsTool
     internal const int DefaultMaxEvents = 100;
 
     /// <summary>The tool's input schema.</summary>
-    internal const string InputSchema = """
+    internal static readonly string InputSchema = """
         {
           "type": "object",
           "properties": {
