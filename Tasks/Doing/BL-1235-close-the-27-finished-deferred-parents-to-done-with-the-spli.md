@@ -75,3 +75,4 @@ tasks that did its work, moved by BL-1234's `close-split` command.
 ## Log
 
 - 2026-11-15: Created.
+- 2026-11-15: Backlog -> Doing.
