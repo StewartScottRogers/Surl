@@ -36,3 +36,4 @@ The Roadmap's Milestones 2 to 5, the product overview's "Built for Phase 2" to "
 ## Log
 
 - 2026-11-16: Created.
+- 2026-11-16: Backlog -> Doing.
