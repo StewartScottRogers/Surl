@@ -40,3 +40,4 @@ An ADR, decided by Claude under Stewart's delegation, says what `ExchangeBytesEv
 ## Log
 
 - 2026-11-16: Created.
+- 2026-11-16: Backlog -> Doing.
