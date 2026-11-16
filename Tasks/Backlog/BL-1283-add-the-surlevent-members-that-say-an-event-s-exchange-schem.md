@@ -4,8 +4,8 @@ title: Add the SurlEvent members that say an event's exchange, scheme, account a
 priority: Low
 assignee: Claude
 pipeline: feature
-depends-on: [BL-1245]
-touches: [Foundation/Surl.Protocol.Abstractions.UnitLibrary, Foundation/Surl.Protocol.Abstractions.UnitTests]
+depends-on: [BL-1245, BL-1273]
+touches: [Foundation/Surl.Protocol.Abstractions.UnitLibrary, Foundation/Surl.Protocol.Abstractions.UnitTests, Application/Surl.Control.UnitLibrary, Foundation/Surl.Core.UnitTests]
 requirement: FR-060
 created: 2026-11-16
 completed:
@@ -28,7 +28,10 @@ ADR-0171 (BL-1245) decides how a SurlEvent kind reaches the three hosts: the eve
 
 ## Notes
 
+- 2026-11-16: A record that overrides SurlEvent.ExchangeId must declare it long?, so ExchangeStartedEvent, ExchangeEndedEvent and ExchangeBytesEvent change from long to long? (CS8866). That breaks ControlEventLogView.cs:21, ControlExchangeWriter.cs:85 (Surl.Control.UnitLibrary, in BL-1273 touches) and ServingEngineTests.Events.cs:106 (Surl.Core.UnitTests); Surl.Api may follow. Design done in the uncommitted work: base virtual get-only ExchangeId/Scheme/Account, KindName snake_case, WriteMembers, ISurlEventMemberWriter; records override with get-only properties from their parameters. Still to do: fix the consumers, add the guard test and coverage.
+
 ## Log
 
 - 2026-11-16: Created.
 - 2026-11-16: Backlog -> Doing.
+- 2026-11-16: Doing -> Backlog. Needs Surl.Control.UnitLibrary, which BL-1273 (Doing) touches; waits for BL-1273
