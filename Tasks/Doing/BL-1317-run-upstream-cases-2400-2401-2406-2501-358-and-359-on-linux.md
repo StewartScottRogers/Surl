@@ -40,3 +40,4 @@ Split from BL-1311, which made the suite choose the Debug build for these six ca
 - 2026-11-16: Backlog -> Doing.
 - 2026-11-16: Doing -> Blocked. Stewart: no Linux CI 'Upstream test cases' run yet includes BL-1311 (31968b258); neither master af199cb5b nor phase-1 a06ae8611 contains it, and this Windows lane has no Debug curl - re-run after the next CI on a commit with it.
 - 2026-11-16: Blocked -> Backlog. Unblocked: PR #94 merged to master (6023b4b38) with curl-port-phase-7.yml, the BL-1311 Debug build and the BL-1316 runner; master's CI now runs on a commit containing them.
+- 2026-11-16: Backlog -> Doing.
