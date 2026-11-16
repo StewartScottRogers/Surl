@@ -174,3 +174,8 @@ This library references nothing. Never construct a `Socket`, `TcpListener`, `Udp
 server-side meaning carries over; add values, never renumber one. Every contract lands
 with an ADR, and a change to one touches every protocol server, so contracts land first
 and the protocols fan out after.
+
+- The decrypted-bytes contract (ADR-0169, decisions 2 and 3; BL-1266): `ExchangeBytesLayer` (`Wire` = 0,
+  `Decrypted`, `Decoded`), `ExchangeBytesEvent.Layer` (default `Wire`) and `StreamId` (default `null`), and
+  `IDecryptedBytesSink` (`Received`, `Sent`) on `ExchangeContext.DecryptedBytes`, default
+  `DiscardingDecryptedBytesSink.Instance`. Nothing publishes through it yet.
