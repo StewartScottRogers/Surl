@@ -8,7 +8,7 @@ depends-on: [BL-1289]
 touches: [Documentation/Planning/Decisions/ADR-0073-how-the-smb-server-answers-upstream-curl-and-checks-its-ntlmv1-session-setup.md]
 requirement: FR-050
 created: 2026-11-16
-completed:
+completed: 2026-11-16
 ---
 # BL-1293 — Record the Linux and macOS SMB conformance results against ADR-0073
 
@@ -27,14 +27,17 @@ ADR-0073 states what the Linux and macOS reference builds of upstream curl 8.21.
 
 ## Acceptance criteria
 
-- [ ] ADR-0073 has an amendment, "Measured on Linux and macOS", naming BL-1289's CI run and the reference pins' SHA-256.
-- [ ] It gives, for `linux-x64` and `osx-arm64`, the SMB tests passed, Inconclusive and failed, matching `Conformance-Off-Windows.md`, and names each test that did not pass with its reason.
-- [ ] The Consequences bullet "Measured on Windows only ..." points to the amendment.
-- [ ] A task is filed for each failed SMB test, its ID in Notes, or Notes says none failed.
+- [x] ADR-0073 has an amendment, "Measured on Linux and macOS", naming BL-1289's CI run and the reference pins' SHA-256.
+- [x] It gives, for `linux-x64` and `osx-arm64`, the SMB tests passed, Inconclusive and failed, matching `Conformance-Off-Windows.md`, and names each test that did not pass with its reason.
+- [x] The Consequences bullet "Measured on Windows only ..." points to the amendment.
+- [x] A task is filed for each failed SMB test, its ID in Notes, or Notes says none failed.
 
 ## Notes
+
+No SMB test failed on either platform (26 + 2 passed each), so no task was filed. The session-setup OS string was not recorded in the results, so the amendment says so.
 
 ## Log
 
 - 2026-11-16: Created.
 - 2026-11-16: Backlog -> Doing.
+- 2026-11-16: Doing -> Done. ADR-0073 records the Linux and macOS SMB conformance results: all 28 SMB tests passed on both

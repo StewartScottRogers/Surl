@@ -510,7 +510,8 @@ new task, never by changing the expected exit (ADR-0003).
   refusal Surl chooses is a status, so only the idle timeout, the maximum duration and shutdown
   can do that.
 - Measured on Windows only; the Linux and macOS builds are proved by BL-300 rather than measured
-  here, and a difference found there is recorded against this ADR.
+  here, and a difference found there is recorded against this ADR. Since measured: see the
+  amendment "Measured on Linux and macOS" below.
 
 ## Amendment: Choices made while building
 
@@ -580,3 +581,32 @@ Read and left out: BL-290's "`--max-message` of 0 means no limit beyond the 17-b
 no test in the SMB library today, so it is not claimed here. BL-219, BL-319, BL-397, BL-908 and
 BL-1252 made no SMB behaviour choice; BL-795 and BL-909 are in ADR-0135, BL-660's caller in
 ADR-0102 and BL-1080's login exchange in ADR-0128.
+
+## Amendment: Measured on Linux and macOS
+
+Recorded 2026-11-16 in BL-1293 (FR-050), from BL-1289's measurement in
+`Documentation/Conformance/Conformance-Off-Windows.md`. A record of what upstream curl did, not a
+decision; it changes nothing above.
+
+- **Run:** `CI` run https://github.com/StewartScottRogers/Surl/actions/runs/43906686682
+  (`workflow_dispatch` on `factory/phase-1`, commit `a06ae86113e511d6d6204949c1fbf80e29b41ba9`),
+  attempt 1 of the `ubuntu-latest` and `macos-latest` legs.
+- **Reference pins** (`UpstreamCurlBuilds.json`, role `reference`, curl 8.21.0, both list `smb`
+  and `smbs`):
+  - `linux-x64`, `curl-linux-x86_64-musl-8.21.0.tar.xz`, SHA-256
+    `153CA463957609117D21A848BE29B70691B85F9E5CC9370C7DAA037B839A4E45`.
+  - `osx-arm64`, `curl-macos-arm64-8.21.0.tar.xz`, SHA-256
+    `04E0E69BCD3BD814EC093551A0447AC14EDEEA9D395B468A2025DCB3F766EEBF`.
+
+| Class | Platform | Passed | Inconclusive | Failed |
+|---|---|---|---|---|
+| `UpstreamCurlTransfersFilesWithSurlOverSmbTests` | linux-x64 | 26 | 0 | 0 |
+| `UpstreamCurlTransfersFilesWithSurlOverSmbTests` | osx-arm64 | 26 | 0 | 0 |
+| `UpstreamCurlSharesFilesFromFtpToSmbTests` | linux-x64 | 2 | 0 | 0 |
+| `UpstreamCurlSharesFilesFromFtpToSmbTests` | osx-arm64 | 2 | 0 | 0 |
+
+Every SMB test passed on both platforms; none was Inconclusive, skipped or failed, so no test
+needs a reason and no task was filed. The OS string curl sends in the session setup
+(`x86_64-w64-mingw32` on Windows) was not recorded in the `.trx` files or in surl's notes for
+this run, so what each platform sent is not known; the passes show only that surl's answer did
+not depend on it.
