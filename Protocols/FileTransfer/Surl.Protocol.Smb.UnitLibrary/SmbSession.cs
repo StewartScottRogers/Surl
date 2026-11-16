@@ -296,8 +296,8 @@ internal sealed class SmbSession : IAsyncDisposable
     // --allow-anonymous accepted unchecked names none and is an anonymous caller (ADR-0102 decision 2.2).
     private ContentCaller CallerOf(SmbLoginVerdict verdict) =>
         verdict.AccountName is { Length: > 0 } accountName
-            ? ContentCaller.ForAccount(accountName, context.Scheme)
-            : ContentCaller.Anonymous(context.Scheme);
+            ? ContentCaller.ForExchange(context, accountName)
+            : ContentCaller.ForExchange(context, null);
 
     // A refusal with nothing checked means ntlmv1 is not in --auth (ADR-0073, decision 3).
     private SmbAnswer RefuseLogin(SmbHeader header, SmbLoginVerdict verdict)
