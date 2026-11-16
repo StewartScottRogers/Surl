@@ -42,3 +42,4 @@ An ADR-0089 amendment decides how a `linux-x64` and an `osx-arm64` build of the 
 
 - 2026-11-16: Created.
 - 2026-11-16: Stewart chose the port's most recent commit for Phase 7's re-measurement (see Notes).
+- 2026-11-16: Backlog -> Doing.
