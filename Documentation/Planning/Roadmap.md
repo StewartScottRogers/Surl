@@ -181,24 +181,23 @@ task board in `Tasks/`, never here.
 
 - **Status:** Built for `win-x64` and measured once; not closed (2026-11-12). The Curl port was
   measured at commit `b42c319ba940f66452b2b6f3e9910d46825b08fe`, the one commit every family
-  file measured: 1,518 cases, 1,420 agreements, 96 port defects behind 18 findings, 2 cases not
-  comparable, and no Surl defect. Still open: off Windows every Phase 7 test is Inconclusive,
-  because `CurlPortBuilds.json` pins the port for `win-x64` alone; the 47 `OpenLdap_` cases wait
-  for a `linux-x64` port pin (no task filed); `Extended.md` still records 4 of the 19 extended
-  clients, though the board shows the other `Integration` tasks Done (BL-1124 refreshes it); and
-  Stewart has not yet filed the 18 findings on the port's board (his to do).
+  file measured: 1,518 cases, 1,420 agreements, 96 port defects behind 23 findings, 2 cases not
+  comparable, and no Surl defect. `Extended.md` records all 19 extended clients. Still open: off
+  Windows every Phase 7 test is Inconclusive, because `CurlPortBuilds.json` pins the port for
+  `win-x64` alone; the 47 `OpenLdap_` cases wait for a `linux-x64` port pin (no task filed); and
+  Stewart has not yet filed the 23 findings on the port's board (his to do).
 - **Delivers:** the harness in `Surl.Conformance` (`CurlPortClientPins`, `CurlPortClientLocator`,
   `CurlPortClientRunner`, `CurlPortResultNormaliser`, `CurlPortComparison`, `CurlPortVerdict`,
   `CurlPortFinding`, `CurlPortLibcurlComparison` and `CurlPortTestCaseClient`); one
   `CurlPortBesideUpstreamCurlOver<Family>Tests` class per family, running the port beside the
   pinned upstream build against a fresh `surl` each; the findings files and their summary in
-  `Documentation/Conformance/CurlPort/`; and `Port-Board-Handoff.md`, the 18 findings as tasks
+  `Documentation/Conformance/CurlPort/`; and `Port-Board-Handoff.md`, the 23 findings as tasks
   in the port's own task shape. What was measured and found is in the product overview, "Built
   for Phase 7: the Curl port measured beside pinned upstream curl".
 - **Exit criteria:** the Phase 7 row's "Proves", success criterion 5: the Curl port measured
   beside pinned upstream curl with every disagreement written down as a finding a test reads
   and handed to the port's board. Met for `win-x64` and the original protocols. Not met for
-  other platforms, the `OpenLdap_` cases or the remaining extended clients (above).
+  other platforms or the `OpenLdap_` cases (above).
 - **Decisions:** ADR-0003 decision 6 (Phase 7 is a measurement of the port, never a check of
   Surl) and ADR-0089 (how Phase 7 measures it: the normalisation, the verdicts, the findings,
   the handoff and the single port commit).
@@ -210,11 +209,10 @@ groundwork and, per server, on the Phase 6 pieces it rides (gRPC on HTTP/2, WebT
 and QUIC, `coaps` on DTLS).
 
 - **Status:** Built (2026-11-12): all 19 `Surl.Extended.Protocol.*` servers exist and are composed
-  by `ExtendedProtocolServers`; `coaps` is composed as a deferred server. Not closed: the Curl port's
-  client has run against 4 of them (`socketio`, `webtransport`, `coap`, `xmpp`) in the first
-  Phase 7 pass, and a matrix row's "Covered by" may still name a task. On the board every
-  extended `Integration` task (BL-422 to BL-541) is Done (2026-11-14), but `Extended.md` has not
-  been refreshed from them (BL-1124).
+  by `ExtendedProtocolServers`; `coaps` is composed as a deferred server. Not closed: a matrix
+  row's "Covered by" may still name a task. Every extended `Integration` task (BL-422 to BL-541)
+  is Done (2026-11-14), and `Extended.md` records the Curl port's client against all 19 extended
+  clients.
 - **Delivers:** `Surl.Extended.Protocol.<Name>` for S3, AzureStorage, GoogleCloudStorage,
   OciRegistry, Grpc, SignalR, SocketIo, WebTransport, McpServer, Coap, DnsQuery, Mqtt5, Amqp0, Amqp1,
   Kafka, Nats, Stomp, Xmpp and Redis; the switch `SURL_EXTENSIONS=0`; the extended default-port

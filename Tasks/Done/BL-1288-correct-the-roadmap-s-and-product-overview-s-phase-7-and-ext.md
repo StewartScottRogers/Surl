@@ -8,7 +8,7 @@ depends-on: []
 touches: [Documentation/Planning/Roadmap.md, Documentation/Product/Product-Overview.md]
 requirement: FR-057
 created: 2026-11-16
-completed:
+completed: 2026-11-16
 ---
 # BL-1288 — Correct the Roadmap's and product overview's Phase 7 and extended-track statements that BL-1124 made stale
 
@@ -28,15 +28,18 @@ The Roadmap's Milestone 7 and "Track — Extended servers" and the product overv
 
 ## Acceptance criteria
 
-- [ ] `Roadmap.md` Milestone 7 and the product overview's "Built for Phase 7" give the same case, agreement, port-defect, finding and not-comparable totals as the "All" row of `Documentation/Conformance/CurlPort/README.md`.
-- [ ] Neither file says any extended client's `Integration` run is missing from `Extended.md`, and neither names BL-1124 as work to come.
-- [ ] `Roadmap.md`'s "Track — Extended servers" Status says `Extended.md` records all 19 extended clients (or the number `Extended.md` actually records).
-- [ ] What stays open stays stated: the port pinned for `win-x64` only, the 47 `OpenLdap_` cases, and Stewart filing the handoff on the port's board.
-- [ ] `git grep -n "18 findings" -- Documentation/Planning/Roadmap.md Documentation/Product/Product-Overview.md` prints nothing.
+- [x] `Roadmap.md` Milestone 7 and the product overview's "Built for Phase 7" give the same case, agreement, port-defect, finding and not-comparable totals as the "All" row of `Documentation/Conformance/CurlPort/README.md`.
+- [x] Neither file says any extended client's `Integration` run is missing from `Extended.md`, and neither names BL-1124 as work to come.
+- [x] `Roadmap.md`'s "Track — Extended servers" Status says `Extended.md` records all 19 extended clients (or the number `Extended.md` actually records).
+- [x] What stays open stays stated: the port pinned for `win-x64` only, the 47 `OpenLdap_` cases, and Stewart filing the handoff on the port's board.
+- [x] `git grep -n "18 findings" -- Documentation/Planning/Roadmap.md Documentation/Product/Product-Overview.md` prints nothing.
 
 ## Notes
+
+- Totals taken from the "All" row of CurlPort/README.md (1,518 / 1,420 / 96 / 23 / 2). Docs-only; no code touched, so no build needed.
 
 ## Log
 
 - 2026-11-16: Created.
 - 2026-11-16: Backlog -> Doing.
+- 2026-11-16: Doing -> Done. Roadmap Milestone 7, extended track and product overview Phase 7 now state 23 findings and all 19 extended clients recorded

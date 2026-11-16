@@ -626,7 +626,7 @@ port pass. The terms are defined in the [glossary](../Wiki/Glossary.md), section
 - **Measured:** the Curl port at commit `b42c319ba940f66452b2b6f3e9910d46825b08fe` (`curl.exe` SHA-256
   `F28D1417807AA862BA2A6D5B0BF0CF1200673BE45B959B1A78E1E4B476EF8FA7`, pinned in `CurlPortBuilds.json`),
   on `win-x64` only, on 2026-11-05, 2026-11-06 and, for the extended clients, up to 2026-11-11.
-- **Result:** 1,518 cases, 1,420 agreements, 96 port defects behind 18 findings, 2 cases not
+- **Result:** 1,518 cases, 1,420 agreements, 96 port defects behind 23 findings, 2 cases not
   comparable, and no Surl defect. The per-family numbers, the Surl commit each family was measured at
   and the findings themselves are in
   [`Documentation/Conformance/CurlPort/README.md`](../Conformance/CurlPort/README.md) and the family
@@ -638,7 +638,7 @@ port pass. The terms are defined in the [glossary](../Wiki/Glossary.md), section
   upstream's own test cases. One `CurlPortBesideUpstreamCurlOver<Family>Tests` class per family reads its
   family file's findings table, so a finding that appears unlisted or a listed one that disappears
   fails the test.
-- **Handoff:** [`Port-Board-Handoff.md`](../Conformance/CurlPort/Port-Board-Handoff.md) holds the 18
+- **Handoff:** [`Port-Board-Handoff.md`](../Conformance/CurlPort/Port-Board-Handoff.md) holds the 23
   findings as tasks in the port's own task shape. Stewart files them on the port's board himself; no
   Surl session writes into the port's repository (ADR-0089 decision 7).
 
@@ -648,9 +648,8 @@ port pass. The terms are defined in the [glossary](../Wiki/Glossary.md), section
   every Phase 7 test is Inconclusive (ADR-0089 decision 8).
 - The 47 `OpenLdap_` cases, Inconclusive until a `linux-x64` port pin exists, and the cases excluded
   on Windows by their `[OSCondition]` (6 SSH cases, 3 FTP listing twins).
-- The extended clients beyond `socketio`, `webtransport`, `coap` and `xmpp`: the other 15 `Integration`
-  tasks have not run (`Extended.md`). They are judged by their specifications, not beside upstream
-  curl (ADR-0089 decision 9).
+- The extended clients against upstream curl: upstream has no such schemes, so `Extended.md` records all
+  19 clients judged by their specifications alone (ADR-0089 decision 9).
 - Phase 7 is a snapshot at one port commit; a later port commit needs a new measurement.
 
 ### Shared stores and configuring a real server
