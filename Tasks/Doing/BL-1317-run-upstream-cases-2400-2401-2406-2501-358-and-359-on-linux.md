@@ -31,3 +31,4 @@ Split from BL-1311, which made the suite choose the Debug build for these six ca
 ## Log
 
 - 2026-11-16: Created.
+- 2026-11-16: Backlog -> Doing.
