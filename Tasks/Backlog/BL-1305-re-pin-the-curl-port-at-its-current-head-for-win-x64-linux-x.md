@@ -28,7 +28,10 @@ ADR-0089 Amendment 8; Stewart chose "most recent" (2026-11-16). Resolve the head
 
 ## Notes
 
+- 2026-11-16: Head resolved as 74f3f45c47e86300b2b262dc1dacd43b508b09aa. win-x64 curl and Libcurl rebuilt and pinned (old b42c319 entries replaced). linux-x64 and osx-arm64 are not pinned: curl-port-phase-7.yml exists only on factory branches, not the default branch, so `gh` cannot find or dispatch it. Remaining work: run the workflow at this same commit, add the two entries, tick the boxes.
+
 ## Log
 
 - 2026-11-16: Created.
 - 2026-11-16: Backlog -> Doing.
+- 2026-11-16: Doing -> Backlog. win-x64 pinned at 74f3f45; linux-x64/osx-arm64 need a curl-port-phase-7 run (workflow not on master yet, BL-1304 produced no run)

@@ -3,20 +3,20 @@
   "builds": [
     {
       "platform": "win-x64",
-      "path": "%LOCALAPPDATA%\\Surl\\curl-port\\b42c319ba940f66452b2b6f3e9910d46825b08fe\\curl.exe",
-      "sha256": "F28D1417807AA862BA2A6D5B0BF0CF1200673BE45B959B1A78E1E4B476EF8FA7",
-      "commit": "b42c319ba940f66452b2b6f3e9910d46825b08fe",
-      "publishCommand": "dotnet publish Curl.Console -c Release -r win-x64 -o \"C:\\Users\\Stewart Rogers\\AppData\\Local\\Surl\\curl-port\\b42c319ba940f66452b2b6f3e9910d46825b08fe\"",
-      "published": "2026-11-04"
+      "path": "%LOCALAPPDATA%\\Surl\\curl-port\\74f3f45c47e86300b2b262dc1dacd43b508b09aa\\curl.exe",
+      "sha256": "7F4ED0559C543A1E2C415C8EC2C4C458F1906A54910907D3546479A42ECFE467",
+      "commit": "74f3f45c47e86300b2b262dc1dacd43b508b09aa",
+      "publishCommand": "dotnet publish Curl.Console -c Release -r win-x64 -o \"C:\\Users\\Stewart Rogers\\AppData\\Local\\Surl\\curl-port\\74f3f45c47e86300b2b262dc1dacd43b508b09aa\"",
+      "published": "2026-11-16"
     },
     {
       "platform": "win-x64",
       "kind": "library",
-      "path": "%LOCALAPPDATA%\\Surl\\curl-port\\b42c319ba940f66452b2b6f3e9910d46825b08fe\\libcurl\\Libcurl.dll",
-      "sha256": "613976A7CC3DA746AB74819C6A526D676A39998D56B5470D5C527A902D7C8311",
-      "commit": "b42c319ba940f66452b2b6f3e9910d46825b08fe",
-      "publishCommand": "git archive b42c319ba940f66452b2b6f3e9910d46825b08fe | tar -x -C \"C:\\Users\\Stewart Rogers\\AppData\\Local\\Surl\\curl-port-source\\b42c319ba940f66452b2b6f3e9910d46825b08fe\", then in that folder: dotnet publish Libcurl -c Release -o \"C:\\Users\\Stewart Rogers\\AppData\\Local\\Surl\\curl-port\\b42c319ba940f66452b2b6f3e9910d46825b08fe\\libcurl\"",
-      "published": "2026-11-06"
+      "path": "%LOCALAPPDATA%\\Surl\\curl-port\\74f3f45c47e86300b2b262dc1dacd43b508b09aa\\libcurl\\Libcurl.dll",
+      "sha256": "FA53A0C83925E7A3326721E8C0243CE888E815AD40E37883DF78A151230AB953",
+      "commit": "74f3f45c47e86300b2b262dc1dacd43b508b09aa",
+      "publishCommand": "git archive 74f3f45c47e86300b2b262dc1dacd43b508b09aa | tar -x -C \"C:\\Users\\Stewart Rogers\\AppData\\Local\\Surl\\curl-port-source\\74f3f45c47e86300b2b262dc1dacd43b508b09aa\", then in that folder: dotnet publish Libcurl -c Release -o \"C:\\Users\\Stewart Rogers\\AppData\\Local\\Surl\\curl-port\\74f3f45c47e86300b2b262dc1dacd43b508b09aa\\libcurl\"",
+      "published": "2026-11-16"
     }
   ]
 }
