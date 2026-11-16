@@ -59,4 +59,14 @@ public enum StoreKind
     /// The extended servers' in-progress upload registrations, such as OCI blob uploads and MCP upload tokens (ADR-0167).
     /// </summary>
     Uploads,
+
+    /// <summary>
+    /// The proxy account store: the accounts the proxy servers authenticate (ADR-0170).
+    /// </summary>
+    ProxyAccounts,
+
+    /// <summary>
+    /// The TLS-SRP account store: the SRP verifiers a TLS-SRP login is checked against (ADR-0170).
+    /// </summary>
+    TlsSrpAccounts,
 }
