@@ -8,7 +8,7 @@ depends-on: []
 touches: [Documentation/Planning/Decisions/ADR-0072-how-the-ldap-server-answers-upstream-curl-and-what-directory-it-serves.md]
 requirement: FR-049
 created: 2026-11-16
-completed:
+completed: 2026-11-16
 ---
 # BL-1295 — Record in ADR-0072 the LDAP choices its building tasks made where the ADR was silent
 
@@ -26,13 +26,18 @@ Every behaviour choice a Done task made for the LDAP server where ADR-0072 said 
 
 ## Acceptance criteria
 
-- [ ] ADR-0072 has an amendment, "Choices made while building", marked "Decided by Claude under Stewart's delegation", with one numbered item per choice: what `surl` does, why, the task that made it, and the test that pins it.
-- [ ] Notes lists every Done task read and, for each, "choice recorded as item N", "already in an ADR (which)" or "no choice".
-- [ ] Every test named in the amendment exists (`git grep -n <test name> -- Protocols Conformance` finds it).
+- [x] ADR-0072 has an amendment, "Choices made while building", marked "Decided by Claude under Stewart's delegation", with one numbered item per choice: what `surl` does, why, the task that made it, and the test that pins it.
+- [x] Notes lists every Done task read and, for each, "choice recorded as item N", "already in an ADR (which)" or "no choice".
+- [x] Every test named in the amendment exists (`git grep -n <test name> -- Protocols Conformance` finds it).
 
 ## Notes
+
+- Added "Amendment 2 - Choices made while building" to ADR-0072: 15 numbered items, each with its task and pinning test. Every named test found with `git grep`.
+- Tasks read: BL-219 no choice; BL-289 items 1-3 (framing limits already in decision 7); BL-306 items 4-11 (base invalidDNSyntax already in decision 3); BL-307 item 13; BL-308 already in an ADR (ADR-0072, BL-335); BL-309 already in an ADR (ADR-0072, BL-341); BL-319 no choice; BL-327 already in an ADR (ADR-0072 Amendment 1); BL-342 already in an ADR (ADR-0078); BL-349 item 14; BL-797 already in an ADR (ADR-0139); BL-847 item 12; BL-908 no choice; BL-920 already in an ADR (ADR-0141); BL-1162 no choice; BL-1163 already in an ADR (ADR-0158); BL-1219 item 15.
+- No choice looked wrong against RFC 4511 or curl, so no follow-up task was filed. BL-1219 documents `userPassword` omission in read-back; behaviour unchanged.
 
 ## Log
 
 - 2026-11-16: Created.
 - 2026-11-16: Backlog -> Doing.
+- 2026-11-16: Doing -> Done. ADR-0072 Amendment 2 records the LDAP choices made while building, each with its task and test
