@@ -31,3 +31,4 @@ ADR-0089 Amendment 8 (who builds, SHA-256 check, non-gating). Reuse `.github/act
 ## Log
 
 - 2026-11-16: Created.
+- 2026-11-16: Backlog -> Doing.
