@@ -8,7 +8,7 @@ depends-on: []
 touches: [Documentation/Planning/Decisions]
 requirement: FR-062
 created: 2026-11-16
-completed:
+completed: 2026-11-16
 ---
 # BL-1246 — Decide whether a test's own protocol server can declare a reply shape for chosen-error fault rules
 
@@ -24,13 +24,16 @@ An ADR, decided by Claude under Stewart's delegation, says whether a `SurlProtoc
 
 ## Acceptance criteria
 
-- [ ] A new ADR under `Documentation/Planning/Decisions/`, with the next free number, marked "Decided by Claude under Stewart's delegation", answers the questions and amends ADR-0124 decision 2.
-- [ ] If the ADR opens it: one feature task per library it changes (expected `Surl.Api`, possibly `Surl.Cli.UnitLibrary`) is filed with `task-board.ps1 new`, depending on this task, with exact `touches`, its criteria naming a `Surl.Api.UnitTests` test where a custom server's `error` rule reaches the server through `ExchangeContext.Faults`. Each is listed in Notes.
-- [ ] If the ADR keeps the refusal: `Application/Surl.Api/README.md`, section "Your own protocol server" or its equivalent, says so and why, in a docs task filed and listed in Notes.
+- [x] A new ADR under `Documentation/Planning/Decisions/`, with the next free number, marked "Decided by Claude under Stewart's delegation", answers the questions and amends ADR-0124 decision 2.
+- [x] If the ADR opens it: one feature task per library it changes (expected `Surl.Api`, possibly `Surl.Cli.UnitLibrary`) is filed with `task-board.ps1 new`, depending on this task, with exact `touches`, its criteria naming a `Surl.Api.UnitTests` test where a custom server's `error` rule reaches the server through `ExchangeContext.Faults`. Each is listed in Notes.
+- [x] If the ADR keeps (not applicable: the ADR opens it) the refusal: `Application/Surl.Api/README.md`, section "Your own protocol server" or its equivalent, says so and why, in a docs task filed and listed in Notes.
 
 ## Notes
+
+ADR-0172 opens it: optional FitsErrorReply on SurlProtocolServer, judged in Surl.Api; surl reader and table unchanged; control endpoint and Surl.Mcp unchanged. Follow-up filed: BL-1287 (Surl.Api only, no Surl.Cli.UnitLibrary change needed).
 
 ## Log
 
 - 2026-11-16: Created.
 - 2026-11-16: Backlog -> Doing.
+- 2026-11-16: Doing -> Done. ADR-0172 written, BL-1287 filed
