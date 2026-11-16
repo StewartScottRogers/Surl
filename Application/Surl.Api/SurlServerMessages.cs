@@ -12,7 +12,13 @@ public sealed class SurlServerMessages
 {
     private readonly ComposedStores stores;
 
-    internal SurlServerMessages(ComposedStores stores) => this.stores = stores;
+    private readonly Action throwIfStopped;
+
+    internal SurlServerMessages(ComposedStores stores, Action throwIfStopped)
+    {
+        this.stores = stores;
+        this.throwIfStopped = throwIfStopped;
+    }
 
     /// <summary>
     /// Publishes <paramref name="payload"/> on <paramref name="topic"/> as a client's publish would: live
@@ -63,5 +69,82 @@ public sealed class SurlServerMessages
         {
             throw new SurlSeedRefusedException(StoreKind.Bus, outcome.ToString(), what);
         }
+    }
+
+    /// <summary>
+    /// Lists a queue's ready messages in delivery order, one page at a time. Consumes, acknowledges and counts
+    /// nothing, publishes nothing and asks no fault rule (ADR-0164, decisions 1 to 3).
+    /// </summary>
+    /// <param name="queue">The queue's name.</param>
+    /// <param name="afterPosition">The position of the last message seen; -1 starts at the first.</param>
+    /// <param name="limit">The most messages to return, 1 to 1000.</param>
+    /// <param name="cancellationToken">Not used: the read does not wait.</param>
+    /// <returns>The page, with the queue's ready and in-flight counts.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="queue"/> is null.</exception>
+    /// <exception cref="SurlNotFoundException">The queue does not exist.</exception>
+    /// <exception cref="SurlReadRefusedException">The limit is outside 1 to 1000 or the position is below -1.</exception>
+    /// <exception cref="ObjectDisposedException">The server was stopped.</exception>
+    public Task<SurlQueuePage> BrowseQueueAsync(string queue, int afterPosition = -1, int limit = 100, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(queue);
+        throwIfStopped();
+        return SurlReadResults.Completed(() =>
+        {
+            var page = SurlReadResults.ValueOrThrow(stores.BrowseQueue(queue, afterPosition, limit));
+            return new SurlQueuePage(
+                [.. page.Messages.Select(browsed => new SurlQueueMessage(
+                    browsed.Position,
+                    browsed.Message.Payload,
+                    [.. browsed.Message.Headers.Select(header => KeyValuePair.Create(header.Name, header.Value))]))],
+                page.ReadyCount,
+                page.InFlightCount,
+                page.HasMore);
+        });
+    }
+
+    /// <summary>
+    /// Reads a topic's retained message without dropping it. Publishes nothing and asks no fault rule
+    /// (ADR-0164, decisions 1 to 3).
+    /// </summary>
+    /// <param name="topic">The topic, such as <c>sensors/1</c>.</param>
+    /// <param name="cancellationToken">Not used: the read does not wait.</param>
+    /// <returns>The retained message, or null when the topic has none.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="topic"/> is null.</exception>
+    /// <exception cref="ObjectDisposedException">The server was stopped.</exception>
+    public Task<SurlRetainedMessage?> ReadRetainedAsync(string topic, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(topic);
+        throwIfStopped();
+        var read = stores.ReadRetainedMessage(topic);
+        return Task.FromResult(read.IsFound
+            ? new SurlRetainedMessage(topic, (int)read.Value!.QualityOfService, read.Value.Payload)
+            : null);
+    }
+
+    /// <summary>
+    /// Reads a topic log's records from an offset. Moves no subscription's or group's offset, publishes nothing
+    /// and asks no fault rule (ADR-0164, decisions 1 to 3).
+    /// </summary>
+    /// <param name="topic">The topic.</param>
+    /// <param name="fromOffset">The offset of the first record to read; 0 for the oldest the log holds.</param>
+    /// <param name="limit">The most records to return, 1 to 1000.</param>
+    /// <param name="cancellationToken">Not used: the read does not wait.</param>
+    /// <returns>The page.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="topic"/> is null.</exception>
+    /// <exception cref="SurlNotFoundException">The topic has no log.</exception>
+    /// <exception cref="SurlReadRefusedException">The limit is outside 1 to 1000 or the offset is not one the log holds.</exception>
+    /// <exception cref="ObjectDisposedException">The server was stopped.</exception>
+    public Task<SurlLogPage> ReadLogAsync(string topic, long fromOffset = 0, int limit = 100, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(topic);
+        throwIfStopped();
+        return SurlReadResults.Completed(() =>
+        {
+            var page = SurlReadResults.ValueOrThrow(stores.ReadLog(topic, fromOffset, limit));
+            return new SurlLogPage(
+                [.. page.Records.Select(record => new SurlLogRecord(record.Offset, record.Message.PublishedAt, record.Message.Key, record.Message.Payload))],
+                page.NextOffset,
+                page.HasMore);
+        });
     }
 }

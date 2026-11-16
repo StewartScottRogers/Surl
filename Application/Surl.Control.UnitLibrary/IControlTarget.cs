@@ -112,4 +112,99 @@ public interface IControlTarget
     /// <param name="cancellationToken">Cancels the restore.</param>
     /// <returns>The restore.</returns>
     Task RestoreAsync(IControlSnapshot snapshot, CancellationToken cancellationToken);
+
+    // The read-back members (ADR-0164 decisions 1 to 4). None publishes an event or consults the fault plan; each
+    // refuses by throwing ControlRefusalException: NotFound for an absent item, TooLarge for one past 16 MiB and
+    // BadRequest for a bound or path a request may not name.
+
+    /// <summary>Lists an owner's mailboxes.</summary>
+    /// <param name="owner">The account name.</param>
+    /// <param name="cancellationToken">Cancels the read.</param>
+    /// <returns>The mailboxes.</returns>
+    Task<IReadOnlyList<ControlMailbox>> ListMailboxesAsync(string owner, CancellationToken cancellationToken);
+
+    /// <summary>Lists a page of one mailbox's messages in UID order.</summary>
+    /// <param name="owner">The account name.</param>
+    /// <param name="mailbox">The mailbox's name.</param>
+    /// <param name="afterUid">The last UID seen, or 0.</param>
+    /// <param name="limit">The most messages, 1 to 1000.</param>
+    /// <param name="cancellationToken">Cancels the read.</param>
+    /// <returns>The page.</returns>
+    Task<ControlMailMessagePage> ListMessagesAsync(string owner, string mailbox, uint afterUid, int limit, CancellationToken cancellationToken);
+
+    /// <summary>Reads one message by UID without setting any flag.</summary>
+    /// <param name="owner">The account name.</param>
+    /// <param name="mailbox">The mailbox's name.</param>
+    /// <param name="uid">The UID.</param>
+    /// <param name="cancellationToken">Cancels the read.</param>
+    /// <returns>The message.</returns>
+    Task<ControlMailMessage> ReadMessageAsync(string owner, string mailbox, uint uid, CancellationToken cancellationToken);
+
+    /// <summary>Reads one file of the content store.</summary>
+    /// <param name="path">The file's path, starting with <c>/</c>.</param>
+    /// <param name="cancellationToken">Cancels the read.</param>
+    /// <returns>The file.</returns>
+    Task<ControlFileContents> ReadFileAsync(string path, CancellationToken cancellationToken);
+
+    /// <summary>Lists a page of one content-store folder's children.</summary>
+    /// <param name="path">The folder's path, starting with <c>/</c>.</param>
+    /// <param name="afterName">The last name seen, or <see langword="null"/>.</param>
+    /// <param name="limit">The most children, 1 to 1000.</param>
+    /// <param name="cancellationToken">Cancels the read.</param>
+    /// <returns>The page.</returns>
+    Task<ControlFolderPage> ListFolderAsync(string path, string? afterName, int limit, CancellationToken cancellationToken);
+
+    /// <summary>Browses a queue's ready messages without consuming or acknowledging any.</summary>
+    /// <param name="queue">The queue's name.</param>
+    /// <param name="afterPosition">The last position seen, or -1.</param>
+    /// <param name="limit">The most messages, 1 to 1000.</param>
+    /// <param name="cancellationToken">Cancels the read.</param>
+    /// <returns>The page.</returns>
+    Task<ControlQueuePage> BrowseQueueAsync(string queue, int afterPosition, int limit, CancellationToken cancellationToken);
+
+    /// <summary>Reads a topic's retained message.</summary>
+    /// <param name="topic">The topic.</param>
+    /// <param name="cancellationToken">Cancels the read.</param>
+    /// <returns>The retained message.</returns>
+    Task<ControlRetainedMessage> ReadRetainedMessageAsync(string topic, CancellationToken cancellationToken);
+
+    /// <summary>Reads a page of a topic log from an offset.</summary>
+    /// <param name="topic">The topic.</param>
+    /// <param name="fromOffset">The first offset to read.</param>
+    /// <param name="limit">The most records, 1 to 1000.</param>
+    /// <param name="cancellationToken">Cancels the read.</param>
+    /// <returns>The page.</returns>
+    Task<ControlLogPage> ReadLogAsync(string topic, long fromOffset, int limit, CancellationToken cancellationToken);
+
+    /// <summary>Reads the LDAP directory as LDIF, <c>userPassword</c> values omitted (ADR-0164 decision 9).</summary>
+    /// <param name="cancellationToken">Cancels the read.</param>
+    /// <returns>The LDIF text.</returns>
+    Task<string> ReadDirectoryLdifAsync(CancellationToken cancellationToken);
+
+    /// <summary>Lists the apexes of the DNS zones held, each with its final dot (ADR-0164 decision 9).</summary>
+    /// <param name="cancellationToken">Cancels the read.</param>
+    /// <returns>The apexes, in the order the zones were added.</returns>
+    Task<IReadOnlyList<string>> ListZonesAsync(CancellationToken cancellationToken);
+
+    /// <summary>Reads one DNS zone as master-file text (ADR-0164 decision 9).</summary>
+    /// <param name="apex">The zone's apex, with or without its final dot.</param>
+    /// <param name="cancellationToken">Cancels the read.</param>
+    /// <returns>The zone-file text.</returns>
+    Task<string> ReadZoneAsync(string apex, CancellationToken cancellationToken);
+
+    /// <summary>Reads one live Redis key without removing an expired one (ADR-0164 decision 9).</summary>
+    /// <param name="database">The database, 0 to 15.</param>
+    /// <param name="key">The key's bytes.</param>
+    /// <param name="cancellationToken">Cancels the read.</param>
+    /// <returns>The key; a string's value is included, another type's is not.</returns>
+    Task<ControlKeyContents> ReadKeyAsync(int database, ReadOnlyMemory<byte> key, CancellationToken cancellationToken);
+
+    /// <summary>Lists a page of live Redis keys matching a <c>KEYS</c> glob in ordinal order, without values.</summary>
+    /// <param name="database">The database, 0 to 15.</param>
+    /// <param name="pattern">The glob.</param>
+    /// <param name="afterKey">The last key seen, or empty.</param>
+    /// <param name="limit">The most keys, 1 to 1000.</param>
+    /// <param name="cancellationToken">Cancels the read.</param>
+    /// <returns>The page.</returns>
+    Task<ControlKeyPage> ListKeysAsync(int database, string pattern, ReadOnlyMemory<byte> afterKey, int limit, CancellationToken cancellationToken);
 }

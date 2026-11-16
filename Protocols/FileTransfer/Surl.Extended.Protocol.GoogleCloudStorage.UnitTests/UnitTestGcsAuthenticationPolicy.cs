@@ -45,6 +45,15 @@ internal sealed class UnitTestGcsAuthenticationPolicy(bool allowsAnonymous) : IA
         return new Session(this);
     }
 
+    public List<LoginExchange?> StartedExchanges { get; } = [];
+
+    public IHttpAuthenticationSession StartHttpConnection(TlsSession? tlsSession, LoginExchange? exchange)
+    {
+        StartedExchanges.Add(exchange);
+
+        return StartHttpConnection(tlsSession);
+    }
+
     private static string? FieldValue(HttpAuthenticationRequest request, string name) =>
         request.Fields.FirstOrDefault(field => field.Key.Equals(name, StringComparison.OrdinalIgnoreCase)).Value;
 

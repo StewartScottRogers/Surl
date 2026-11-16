@@ -137,9 +137,9 @@ public sealed class SurlEventContractTests
     }
 
     [TestMethod]
-    public void StoreChange_Committed_IsTheLastMember()
+    public void StoreChange_Unbound_IsTheLastMember()
     {
-        Assert.AreEqual(StoreChange.Committed, Enum.GetValues<StoreChange>()[^1]);
+        Assert.AreEqual(StoreChange.Unbound, Enum.GetValues<StoreChange>()[^1]);
     }
 
     private static IEnumerable<Type> EventRecordTypes() =>

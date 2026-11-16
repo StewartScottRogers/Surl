@@ -66,13 +66,21 @@ public sealed class GoogleCloudStorageProtocolServer : IConnectionProtocolServer
     /// <inheritdoc/>
     public IReadOnlyList<string> Schemes { get; } = [Scheme];
 
+    /// <summary>
+    /// Aborts every open resumable and XML multipart upload - temporary files deleted, slots freed -
+    /// so a later request naming an earlier session is <c>404</c> (ADR-0167, decision 2).
+    /// </summary>
+    /// <param name="cancellationToken">Cancels the wait for a request in progress.</param>
+    /// <returns>A task that completes when every upload is aborted.</returns>
+    public Task AbortOpenUploadsAsync(CancellationToken cancellationToken) => uploads.AbortAllInTurnAsync(cancellationToken);
+
     /// <inheritdoc/>
     public Task ServeAsync(IConnection connection, ExchangeContext context)
     {
         ArgumentNullException.ThrowIfNull(connection);
         ArgumentNullException.ThrowIfNull(context);
 
-        return new Http1ConnectionServer(new GcsRequestAnswerer(store, index, authenticationPolicy.StartHttpConnection(connection.TlsSession), context, uploads, connection.TlsSession is not null), context).ServeAsync(connection);
+        return new Http1ConnectionServer(new GcsRequestAnswerer(store, index, authenticationPolicy.StartHttpConnection(connection.TlsSession, LoginExchange.Of(context)), context, uploads, connection.TlsSession is not null), context).ServeAsync(connection);
     }
 
     /// <inheritdoc/>

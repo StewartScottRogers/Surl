@@ -92,6 +92,9 @@ internal sealed class NamedQueue(string name, BusQueueFlags flags, BusConnection
     public List<QueuedMessage> AllMessages =>
         [.. readyHighPriority.Values.Concat(readyNormalPriority.Values).Concat(consumers.SelectMany(consumer => consumer.Unacknowledged)).OrderBy(message => message.Sequence)];
 
+    /// <summary>The ready messages in the order they are handed out: high priority first, each level in publish order.</summary>
+    public IEnumerable<QueuedMessage> ReadyInDeliveryOrder => readyHighPriority.Values.Concat(readyNormalPriority.Values);
+
     public void Enqueue(BusMessage message)
     {
         var sequence = nextSequence++;

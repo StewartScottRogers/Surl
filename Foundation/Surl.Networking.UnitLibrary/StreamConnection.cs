@@ -47,6 +47,7 @@ internal sealed class StreamConnection : IConnection
     private bool readPending;
     private bool writePending;
     private Task<int>? peekRead;
+    private ITlsLoginJudge? tlsLoginJudge;
 
     /// <summary>
     /// Creates a connection over <paramref name="stream"/>, which it owns and disposes.
@@ -227,7 +228,7 @@ internal sealed class StreamConnection : IConnection
         try
         {
             var handshakeTransport = await TakePeekedByteAheadOfTransportAsync();
-            (securedStream, var session) = await tlsHandshake!.AuthenticateAsync(handshakeTransport, cancellationToken);
+            (securedStream, var session) = await tlsHandshake!.AuthenticateAsync(handshakeTransport, cancellationToken, tlsLoginJudge);
             stream = securedStream;
             TlsSession = session;
             upgradeUnfinished = false;
@@ -238,6 +239,18 @@ internal sealed class StreamConnection : IConnection
         {
             throw AbortedException(exception);
         }
+    }
+
+    /// <summary>
+    /// Keeps the judge a later TLS-SRP handshake on this connection asks and tells (ADR-0165,
+    /// decision 2). A handshake that is not TLS-SRP never calls it.
+    /// </summary>
+    /// <param name="judge">The judge to keep.</param>
+    public void UseTlsLoginJudge(ITlsLoginJudge judge)
+    {
+        ArgumentNullException.ThrowIfNull(judge);
+
+        tlsLoginJudge = judge;
     }
 
     /// <inheritdoc/>

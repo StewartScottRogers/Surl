@@ -68,6 +68,54 @@ public sealed class ControlEventRequestsTests
     }
 
     [TestMethod]
+    [DataRow("store=content", "1,2,3")]
+    [DataRow("store=mail", "4")]
+    [DataRow("name=/uploads", "1,2")]
+    [DataRow("name=/uploads/", "1")]
+    [DataRow("name=/uploads/a.csv", "1")]
+    [DataRow("name=/upload", "")]
+    [DataRow("name=INBOX&store=mail", "4")]
+    [DataRow("name=INBOX&store=content", "")]
+    [DataRow("kind=hook_failed&name=/uploads", "")]
+    public async Task FindEventsAsync_StoreAndName_MatchOnlyStoreChanges(string query, string sequences)
+    {
+        var log = new ControlEventLog();
+        Add(log, 1, new StoreChangedEvent(StoreKind.Content, StoreChange.Written, "/uploads/a.csv", 1, null));
+        Add(log, 2, new StoreChangedEvent(StoreKind.Content, StoreChange.Written, "/uploads", 1, null));
+        Add(log, 3, new StoreChangedEvent(StoreKind.Content, StoreChange.Written, "/uploads2", 1, null));
+        Add(log, 4, new StoreChangedEvent(StoreKind.Mail, StoreChange.Delivered, "INBOX", 1, null));
+        Add(log, 5, new HookFailedEvent("h1", HookFailure.Threw, "x"));
+
+        var response = await ServeAsync(EndpointOver(log), Request("GET", $"/v1/events?{query}"), new ManualTimeProvider(), TestContext.CancellationToken);
+
+        Assert.AreEqual(sequences, string.Join(',', SequencesIn(Body(response))));
+    }
+
+    [TestMethod]
+    public async Task FindEventsAsync_UnknownStore_Is400ListingTheStores()
+    {
+        var response = await ServeAsync(EndpointOver(new ControlEventLog()), Request("GET", "/v1/events?store=nope"), new ManualTimeProvider(), TestContext.CancellationToken);
+
+        Assert.AreEqual("HTTP/1.1 400 Bad Request", StatusLine(response));
+        StringAssert.StartsWith(Body(response), "{\"error\":\"bad_request\",\"message\":\"query key store must be one of accounts, bus, content,");
+    }
+
+    [TestMethod]
+    public async Task WaitForEventAsync_NameNothingTouched_AnswersTimedOutAfterTheTimeout()
+    {
+        var log = new ControlEventLog();
+        Add(log, 1, new StoreChangedEvent(StoreKind.Content, StoreChange.Written, "/other", 1, null));
+        var time = new ManualTimeProvider();
+        var serving = ServeAsync(EndpointOver(log), Request("GET", "/v1/events/wait?name=/uploads&store=content&timeout_ms=2000"), time, TestContext.CancellationToken);
+
+        await time.WaitForTimerAsync(TimeSpan.FromSeconds(2), TestContext.CancellationToken);
+        time.Advance(TimeSpan.FromSeconds(2));
+        var response = await serving;
+
+        Assert.AreEqual("{\"timed_out\":true}", Body(response));
+    }
+
+    [TestMethod]
     public async Task FindEventsAsync_MoreThanTheLimit_SaysHasMore()
     {
         var log = new ControlEventLog();

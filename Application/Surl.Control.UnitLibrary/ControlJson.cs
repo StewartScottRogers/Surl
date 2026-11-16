@@ -111,6 +111,51 @@ internal sealed record ControlFaultsJson(IReadOnlyList<ControlFaultJson> Faults)
 /// <summary>The answer to <c>POST /v1/snapshots</c>.</summary>
 internal sealed record ControlSnapshotIdJson(string SnapshotId);
 
+/// <summary>The answer to <c>GET /v1/zones</c>: the apexes of the DNS zones held.</summary>
+internal sealed record ControlZonesJson(IReadOnlyList<string> Zones);
+
+/// <summary>One mailbox in the answer to <c>GET /v1/mail/{owner}</c>.</summary>
+internal sealed record ControlMailboxJson(string Name, int MessageCount, int UnseenCount, uint UidValidity);
+
+/// <summary>The answer to <c>GET /v1/mail/{owner}</c>.</summary>
+internal sealed record ControlMailboxesJson(IReadOnlyList<ControlMailboxJson> Mailboxes);
+
+/// <summary>One message in a listing, or read as JSON with its <c>text</c> or <c>base64</c>.</summary>
+internal sealed record ControlMailMessageJson(uint Uid, long Size, IReadOnlyList<string> Flags, string InternalDate, string? Text = null, string? Base64 = null);
+
+/// <summary>The answer to <c>GET /v1/mail/{owner}/{mailbox}</c>.</summary>
+internal sealed record ControlMailMessagesJson(IReadOnlyList<ControlMailMessageJson> Messages, bool HasMore);
+
+/// <summary>One child in a folder listing.</summary>
+internal sealed record ControlFolderEntryJson(string Name, string Kind, long? ByteCount);
+
+/// <summary>The answer to <c>GET /v1/files/{path}/</c>.</summary>
+internal sealed record ControlFolderJson(IReadOnlyList<ControlFolderEntryJson> Entries, bool HasMore);
+
+/// <summary>One header of a browsed queue message.</summary>
+internal sealed record ControlHeaderJson(string Name, string Value);
+
+/// <summary>One browsed queue message.</summary>
+internal sealed record ControlQueuedMessageJson(int Position, string? Text, string? Base64, IReadOnlyList<ControlHeaderJson> Headers);
+
+/// <summary>The answer to <c>GET /v1/queues/{name}/messages</c>.</summary>
+internal sealed record ControlQueueJson(IReadOnlyList<ControlQueuedMessageJson> Messages, int ReadyCount, int InFlightCount, bool HasMore);
+
+/// <summary>The answer to <c>GET /v1/topics/{name}/retained</c>.</summary>
+internal sealed record ControlRetainedJson(string Topic, int Qos, string? Text, string? Base64);
+
+/// <summary>One record of a topic log.</summary>
+internal sealed record ControlLogRecordJson(long Offset, string Timestamp, string? Key, string? Text, string? Base64);
+
+/// <summary>The answer to <c>GET /v1/topics/{name}/log</c>.</summary>
+internal sealed record ControlLogJson(IReadOnlyList<ControlLogRecordJson> Records, long NextOffset, bool HasMore);
+
+/// <summary>One key in a listing, or read with its <c>text</c> or <c>base64</c> value.</summary>
+internal sealed record ControlKeyJson(string? Key, string? KeyBase64, string Type, long ByteCount, string? ExpiresAt, string? Text = null, string? Base64 = null);
+
+/// <summary>The answer to <c>GET /v1/keys</c>.</summary>
+internal sealed record ControlKeysJson(IReadOnlyList<ControlKeyJson> Keys, bool HasMore);
+
 /// <summary>Every error answer.</summary>
 internal sealed record ControlErrorJson(string Error, string Message);
 
@@ -153,5 +198,15 @@ internal sealed record ControlAccountRequestJson
 [JsonSerializable(typeof(ControlErrorJson))]
 [JsonSerializable(typeof(ControlMessageRequestJson))]
 [JsonSerializable(typeof(ControlAccountRequestJson))]
+[JsonSerializable(typeof(ControlMailboxesJson))]
+[JsonSerializable(typeof(ControlMailMessagesJson))]
+[JsonSerializable(typeof(ControlMailMessageJson))]
+[JsonSerializable(typeof(ControlFolderJson))]
+[JsonSerializable(typeof(ControlQueueJson))]
+[JsonSerializable(typeof(ControlRetainedJson))]
+[JsonSerializable(typeof(ControlLogJson))]
+[JsonSerializable(typeof(ControlKeysJson))]
+[JsonSerializable(typeof(ControlKeyJson))]
+[JsonSerializable(typeof(ControlZonesJson))]
 [ExcludeFromCodeCoverage(Justification = "Its body is written by the System.Text.Json source generator, not by Surl; the shapes it serializes are pinned byte for byte by the endpoint's tests.")]
 internal sealed partial class ControlJsonContext : JsonSerializerContext;

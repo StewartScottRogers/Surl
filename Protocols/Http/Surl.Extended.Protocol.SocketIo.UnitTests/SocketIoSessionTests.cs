@@ -52,9 +52,26 @@ public sealed partial class SocketIoSessionTests
         var answer = client.Messages()[1];
         Assert.MatchesRegex(ConnectAnswerPattern(), answer);
         Assert.DoesNotContain(answer[10..30], client.OpenPacket());
-        Assert.AreEqual(new PasswordLogin("socketio", string.Empty, null, null), harness.Policy.Logins.Single() with { Password = null });
+        var expected = new PasswordLogin("socketio", string.Empty, null, null, SessionExchange(harness));
+        Assert.AreEqual(expected, harness.Policy.Logins.Single() with { Password = null });
         await client.EndAsync();
     }
+
+    [TestMethod]
+    public async Task Connect_WithoutCredentials_CarriesTheSessionsExchangeToThePolicy()
+    {
+        var harness = new SocketIoServerHarness(allowsAnonymous: true);
+
+        var client = await SocketIoClient.ConnectNamespaceAsync(harness);
+
+        var login = harness.Policy.Logins.Single();
+        Assert.AreEqual(SessionExchange(harness), login.Exchange);
+        Assert.AreEqual(1, login.Exchange!.ExchangeId);
+        Assert.AreEqual("socketio", login.Exchange.ListenUrl.Scheme);
+        await client.EndAsync();
+    }
+
+    private static LoginExchange SessionExchange(SocketIoServerHarness harness) => LoginExchange.Of(harness.Context());
 
     [TestMethod]
     public async Task Connect_NamedNamespaceWithAUserNameAndPassword_IsAnsweredOnThatNamespace()

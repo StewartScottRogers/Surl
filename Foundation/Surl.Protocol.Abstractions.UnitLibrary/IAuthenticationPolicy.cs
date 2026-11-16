@@ -50,4 +50,18 @@ public interface IAuthenticationPolicy
     /// <param name="name">The name, compared ordinally.</param>
     /// <returns><see langword="true"/> only when a named account has that name.</returns>
     bool NamesAccount(string name) => false;
+
+    /// <summary>
+    /// Judges a Kerberos login whose token the server has already checked (ADR-0165, decision 8).
+    /// The default publishes nothing and returns <see cref="KerberosLogin.IsTokenAccepted"/>.
+    /// </summary>
+    /// <param name="login">The checked login.</param>
+    /// <param name="cancellationToken">Cancels the judgement.</param>
+    /// <returns><see langword="true"/> when the login stands; <see langword="false"/> when it is refused.</returns>
+    ValueTask<bool> JudgeKerberosLoginAsync(KerberosLogin login, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(login);
+
+        return ValueTask.FromResult(login.IsTokenAccepted);
+    }
 }

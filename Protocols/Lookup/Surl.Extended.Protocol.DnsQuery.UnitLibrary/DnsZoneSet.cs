@@ -66,6 +66,29 @@ public sealed class DnsZoneSet
     /// <summary>The apexes of the zones held, in the order they were added.</summary>
     public IReadOnlyList<DnsName> Apexes => view.Apexes;
 
+    /// <summary>
+    /// Writes the zone at <paramref name="apex"/> as master-file text for a test reading it back (ADR-0164 decision 9):
+    /// every record on its own line with absolute names, a TTL and a class. Changes and publishes nothing.
+    /// </summary>
+    /// <param name="apex">The zone's apex, a domain name with or without its final dot; case is ignored.</param>
+    /// <returns>The text, or <see langword="null"/> when no zone has that apex or the text is no domain name.</returns>
+    public string? ExportZone(string apex)
+    {
+        ArgumentNullException.ThrowIfNull(apex);
+        DnsName name;
+        try
+        {
+            name = DnsName.Parse(apex);
+        }
+        catch (ArgumentException)
+        {
+            return null;
+        }
+
+        var zone = CurrentView.ZoneAtApex(name);
+        return zone is null ? null : DnsZoneFileWriter.Write(zone);
+    }
+
     /// <summary>What the set holds now, as one unit a query answers from whole.</summary>
     internal DnsZoneView CurrentView => Volatile.Read(ref view);
 

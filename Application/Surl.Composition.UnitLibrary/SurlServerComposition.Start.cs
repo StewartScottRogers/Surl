@@ -1,5 +1,10 @@
 using Surl.Extended.Protocol.Amqp0;
+using Surl.Extended.Protocol.AzureStorage;
+using Surl.Extended.Protocol.GoogleCloudStorage;
+using Surl.Extended.Protocol.McpServer;
 using Surl.Extended.Protocol.Mqtt5;
+using Surl.Extended.Protocol.OciRegistry;
+using Surl.Extended.Protocol.S3;
 using System.Net;
 using System.Security.Cryptography.X509Certificates;
 using Surl.Cli;
@@ -416,7 +421,7 @@ public static partial class SurlServerComposition
             loaded.State.MailStore,
             loaded.State.MessageBus,
             authentication.Policy.Settings.Accounts,
-            additionalRegistrations: [.. ControlledRedisKeyspace(servers, services), LdapDirectoryStoreRegistration.For(loaded.State.LdapServer), .. ControlledBrokerStores(servers, instruments.Events), .. ControlledDnsZones(servers, loaded.State.DnsZones)],
+            additionalRegistrations: [.. ControlledRedisKeyspace(servers, services), LdapDirectoryStoreRegistration.For(loaded.State.LdapServer), .. ControlledBrokerStores(servers, instruments.Events), .. ControlledDnsZones(servers, loaded.State.DnsZones), .. ControlledUploads(servers, contentStore, instruments.Events)],
             ldapServer: loaded.State.LdapServer,
             redisKeyspace: servers.OfType<RedisServer>().Any() ? services.RedisKeyspace : null,
             dnsZones: IsDnsComposed(servers) ? loaded.State.DnsZones : null);
@@ -432,6 +437,17 @@ public static partial class SurlServerComposition
     private static List<ComposedStoreRegistration> ControlledDnsZones(IProtocolServer[] servers, DnsZoneSet zones) =>
         IsDnsComposed(servers) ? [DnsZoneStoreRegistration.For(zones)] : [];
 
+    // The open uploads the composed object servers hold (ADR-0167 decision 3), after the content their temporary files live in.
+    private static List<ComposedStoreRegistration> ControlledUploads(IProtocolServer[] servers, ContentStore content, SurlEventStream events) =>
+        [.. new[]
+        {
+            UploadStoreRegistrations.Combine(
+                S3UploadStoreRegistration.For([.. servers.OfType<S3ProtocolServer>()], content, events),
+                AzureStagedUploadStoreRegistration.For([.. servers.OfType<AzureStorageProtocolServer>()], content, events),
+                GcsStagedUploadStoreRegistration.For([.. servers.OfType<GoogleCloudStorageProtocolServer>()], content, events),
+                OciUploadStoreRegistration.For([.. servers.OfType<OciRegistryProtocolServer>()], content, events)),
+        }.OfType<ComposedStoreRegistration>()];
+
     private static bool IsDnsComposed(IProtocolServer[] servers) =>
         servers.OfType<DnsDatagramRoutingProtocolServer>().Any() || servers.OfType<DnsConnectionRoutingProtocolServer>().Any();
 
@@ -441,7 +457,11 @@ public static partial class SurlServerComposition
         {
             Amqp0ExchangeStoreRegistration.For([.. servers.OfType<Amqp0Broker>()], events),
             KafkaBrokerStoreRegistration.For([.. servers.OfType<KafkaBroker>()], events),
-            Mqtt5SessionStoreRegistration.For([.. servers.OfType<Mqtt5Broker>()], events),
+            UploadStoreRegistrations.CombineOf(
+                StoreKind.Sessions,
+                Mqtt5SessionStoreRegistration.For([.. servers.OfType<Mqtt5Broker>()], events),
+                OciTokenStoreRegistration.For([.. servers.OfType<OciRegistryProtocolServer>()], events),
+                McpSessionStoreRegistration.For([.. servers.OfType<McpProtocolServer>()], events)),
         }.OfType<ComposedStoreRegistration>()];
 
     // How the proxies reach origins, over the rule --proxy-allow-origin and the proxy listen URLs make

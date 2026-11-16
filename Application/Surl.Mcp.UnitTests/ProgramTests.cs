@@ -46,7 +46,9 @@ public sealed class ProgramTests
             new[]
             {
                 StartServerTool.Name, ListServersTool.Name, StopServerTool.Name, GetExchangesTool.Name, GetEventsTool.Name, WaitForEventTool.Name,
-                SeedMailTool.Name, PutFileTool.Name, DeleteFileTool.Name, PublishMessageTool.Name, AddAccountTool.Name, SetKeyTool.Name, AddLdapEntriesTool.Name, AddDnsZoneTool.Name, RemoveAccountTool.Name, ResetServerTool.Name,
+                SeedMailTool.Name, PutFileTool.Name, DeleteFileTool.Name,
+                ListMailboxesTool.Name, ListMessagesTool.Name, ReadMessageTool.Name, ReadFileTool.Name, ListFilesTool.Name, BrowseQueueTool.Name, ReadRetainedMessageTool.Name, ReadLogTool.Name, ReadKeyTool.Name, ListKeysTool.Name, ReadDirectoryTool.Name, ReadZoneTool.Name,
+                PublishMessageTool.Name, AddAccountTool.Name, SetKeyTool.Name, AddLdapEntriesTool.Name, AddDnsZoneTool.Name, RemoveAccountTool.Name, ResetServerTool.Name,
                 SnapshotServerTool.Name, RestoreServerTool.Name, AddFaultTool.Name, ListFaultsTool.Name, RemoveFaultTool.Name,
             },
             names);
@@ -56,6 +58,18 @@ public sealed class ProgramTests
     [DataRow(SeedMailTool.Name, SeedMailTool.Description, new[] { "server_id", "to", "message", "message_base64" })]
     [DataRow(PutFileTool.Name, PutFileTool.Description, new[] { "server_id", "path", "text", "base64" })]
     [DataRow(DeleteFileTool.Name, DeleteFileTool.Description, new[] { "server_id", "path" })]
+    [DataRow(ListMailboxesTool.Name, ListMailboxesTool.Description, new[] { "server_id", "owner" })]
+    [DataRow(ListMessagesTool.Name, ListMessagesTool.Description, new[] { "server_id", "owner", "mailbox", "after_uid", "limit" })]
+    [DataRow(ReadMessageTool.Name, ReadMessageTool.Description, new[] { "server_id", "owner", "mailbox", "uid" })]
+    [DataRow(ReadFileTool.Name, ReadFileTool.Description, new[] { "server_id", "path" })]
+    [DataRow(ListFilesTool.Name, ListFilesTool.Description, new[] { "server_id", "path", "after_name", "limit" })]
+    [DataRow(BrowseQueueTool.Name, BrowseQueueTool.Description, new[] { "server_id", "queue", "after_position", "limit" })]
+    [DataRow(ReadRetainedMessageTool.Name, ReadRetainedMessageTool.Description, new[] { "server_id", "topic" })]
+    [DataRow(ReadLogTool.Name, ReadLogTool.Description, new[] { "server_id", "topic", "from_offset", "limit" })]
+    [DataRow(ReadKeyTool.Name, ReadKeyTool.Description, new[] { "server_id", "key", "key_base64", "database" })]
+    [DataRow(ListKeysTool.Name, ListKeysTool.Description, new[] { "server_id", "pattern", "after_key", "limit", "database" })]
+    [DataRow(ReadDirectoryTool.Name, ReadDirectoryTool.Description, new[] { "server_id" })]
+    [DataRow(ReadZoneTool.Name, ReadZoneTool.Description, new[] { "server_id", "apex" })]
     [DataRow(RemoveAccountTool.Name, RemoveAccountTool.Description, new[] { "server_id", "user" })]
     [DataRow(PublishMessageTool.Name, PublishMessageTool.Description, new[] { "server_id", "topic", "queue", "payload", "payload_base64", "retain" })]
     [DataRow(AddAccountTool.Name, AddAccountTool.Description, new[] { "server_id", "user", "password" })]
@@ -103,8 +117,8 @@ public sealed class ProgramTests
     }
 
     [TestMethod]
-    [DataRow("get_events", new[] { "server_id", "after_sequence", "kinds", "scheme", "listen_url", "account", "max_events" })]
-    [DataRow("wait_for_event", new[] { "server_id", "after_sequence", "kinds", "scheme", "listen_url", "account", "timeout_ms" })]
+    [DataRow("get_events", new[] { "server_id", "after_sequence", "kinds", "scheme", "listen_url", "account", "store", "name", "max_events" })]
+    [DataRow("wait_for_event", new[] { "server_id", "after_sequence", "kinds", "scheme", "listen_url", "account", "store", "name", "timeout_ms" })]
     public async Task RunAsync_ToolsList_IncludesEachEventToolWithAnObjectInputSchemaAndADescription(string name, string[] properties)
     {
         await using var host = new ProgramTestHost(TestContext.CancellationToken);
@@ -119,6 +133,23 @@ public sealed class ProgramTests
         Assert.IsFalse(inputSchema.GetProperty("additionalProperties").GetBoolean());
         CollectionAssert.AreEqual(new[] { "server_id" }, inputSchema.GetProperty("required").EnumerateArray().Select(item => item.GetString()).ToArray());
         CollectionAssert.AreEqual(properties, inputSchema.GetProperty("properties").EnumerateObject().Select(property => property.Name).ToArray());
+    }
+
+    [TestMethod]
+    [DataRow("get_events")]
+    [DataRow("wait_for_event")]
+    public async Task RunAsync_EventToolWithAnUnknownStore_IsRefusedBySchemaCheck(string toolName)
+    {
+        await using var host = new ProgramTestHost(TestContext.CancellationToken);
+        await host.CallAsync(InitializeRequest);
+
+        var response = await host.CallForResponseAsync(
+            """{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":""" + $"\"{toolName}\""
+            + ""","arguments":{"server_id":"s1","store":"no_such_store"}}}""");
+
+        var error = response.GetProperty("error");
+        Assert.AreEqual(-32602, error.GetProperty("code").GetInt32());
+        StringAssert.Contains(error.GetProperty("message").GetString(), "store");
     }
 
     [TestMethod]

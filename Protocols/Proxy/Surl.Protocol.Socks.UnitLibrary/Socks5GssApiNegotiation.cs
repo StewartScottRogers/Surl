@@ -16,7 +16,8 @@ namespace Surl.Protocol.Socks;
 /// <param name="reader">curl's reader, positioned after the method-selection reply.</param>
 /// <param name="context">The exchange: its log and cancellation.</param>
 /// <param name="login">The listener's GSS-API settings.</param>
-internal sealed class Socks5GssApiNegotiation(IConnection client, SocksClientReader reader, ExchangeContext context, SocksGssApiLogin login)
+/// <param name="policy">The listener's authentication policy that judges the Kerberos login (ADR-0165), or <see langword="null"/> when it has none.</param>
+internal sealed class Socks5GssApiNegotiation(IConnection client, SocksClientReader reader, ExchangeContext context, SocksGssApiLogin login, IAuthenticationPolicy? policy = null)
 {
     /// <summary>The GSS-API sub-negotiation version, <c>01</c>.</summary>
     public const byte Version = 0x01;
@@ -49,9 +50,18 @@ internal sealed class Socks5GssApiNegotiation(IConnection client, SocksClientRea
         }
 
         var accepted = login.Acceptor.Accept(apRequest, login.Service);
-        if (accepted.Context is not { } securityContext)
+        var securityContext = accepted.Context;
+        var isStanding = await JudgeLoginAsync(securityContext, handshakeToken);
+        if (securityContext is null)
         {
             return await FailAsync($"the Kerberos token is refused: {accepted.RefusalReason}");
+        }
+
+        if (!isStanding)
+        {
+            context.Log.Note($"SOCKS5 GSS-API login refused: {securityContext.ClientPrincipal}.");
+
+            return await FailAsync("the policy refused the Kerberos login");
         }
 
         if (securityContext.IsMutualAuthenticationRequested)
@@ -61,6 +71,13 @@ internal sealed class Socks5GssApiNegotiation(IConnection client, SocksClientRea
 
         return await NegotiateProtectionAsync(securityContext, handshakeToken);
     }
+
+    // ADR-0165 decisions 7 to 9: the policy publishes the judgement and may refuse an accepted login.
+    private async Task<bool> JudgeLoginAsync(KerberosSecurityContext? securityContext, CancellationToken handshakeToken) =>
+        policy is null
+        || await policy.JudgeKerberosLoginAsync(
+            new KerberosLogin(securityContext?.ClientPrincipal.ToString(), securityContext is not null, context.Scheme, LoginExchange.Of(context)),
+            handshakeToken);
 
     private async Task<bool> NegotiateProtectionAsync(KerberosSecurityContext securityContext, CancellationToken handshakeToken)
     {

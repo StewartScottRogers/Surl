@@ -74,6 +74,28 @@ internal sealed class S3MultipartUploads(TimeProvider timeProvider)
     public void Add(S3MultipartUpload upload) => open.Add(upload.UploadId, upload);
 
     /// <summary>
+    /// Waits until no request uses the uploads, then aborts every open one, deleting its temporary
+    /// file and freeing its slot (ADR-0167, decision 2).
+    /// </summary>
+    /// <param name="cancellationToken">Cancels the wait.</param>
+    /// <returns>A task that completes when every upload is aborted.</returns>
+    public async Task AbortAllAsync(CancellationToken cancellationToken)
+    {
+        await gate.WaitAsync(cancellationToken);
+        try
+        {
+            foreach (var upload in open.Values.ToList())
+            {
+                await RemoveAsync(upload);
+            }
+        }
+        finally
+        {
+            gate.Release();
+        }
+    }
+
+    /// <summary>
     /// Ends <paramref name="upload"/>, discarding its parts' bytes.
     /// </summary>
     /// <param name="upload">The upload.</param>

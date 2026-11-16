@@ -30,7 +30,8 @@ internal static class UnitTestSrpClient
     public static TlsSrpAccounts Accounts() =>
         new([new SrpVerifierEntry(UserName, Salt, Verifier(UserName, Password), Group)], new byte[TlsSrpAccounts.SimulationSecretLength]);
 
-    public static TlsSrpServer Server() => new(Accounts(), new UnitTestRepeatingRandomNumberGenerator(ServerRandomPattern));
+    public static TlsSrpServer Server(ITlsSrpLoginJudge? loginJudge = null) =>
+        new(Accounts(), new UnitTestRepeatingRandomNumberGenerator(ServerRandomPattern), loginJudge: loginJudge);
 
     public static byte[] Verifier(string userName, string password) =>
         Srp6a.ToUnsignedBigEndian(Srp6a.ComputeVerifier(Group, Salt, Encoding.UTF8.GetBytes(userName), Encoding.UTF8.GetBytes(password)));

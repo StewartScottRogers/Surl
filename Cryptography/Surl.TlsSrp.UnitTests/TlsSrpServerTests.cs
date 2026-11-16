@@ -189,6 +189,59 @@ public sealed class TlsSrpServerTests
     }
 
     [TestMethod]
+    [DataRow("nobody", "abc", "nobody")]
+    [DataRow("jsmith", "badpass", "jsmith")]
+    public async Task AuthenticateAsync_WrongPasswordOrUnknownUserWithAJudge_JudgesRefusedWithoutAsking(string userName, string password, string expectedName)
+    {
+        var judge = new UnitTestRecordingLoginJudge();
+        var handshake = new UnitTestSrpHandshake(userName: userName, password: password);
+        using var transport = new UnitTestScriptedStream(handshake.ClientBytes());
+
+        await Assert.ThrowsExactlyAsync<TlsAlertException>(() => UnitTestSrpClient.Server(judge).AuthenticateAsync(transport, CancellationToken.None));
+
+        CollectionAssert.AreEqual(new[] { $"judged:{expectedName}:False" }, judge.Calls);
+    }
+
+    [TestMethod]
+    public async Task AuthenticateAsync_CorrectLoginWithAJudge_AsksThenJudgesAccepted()
+    {
+        var judge = new UnitTestRecordingLoginJudge();
+        var handshake = new UnitTestSrpHandshake();
+        using var transport = new UnitTestScriptedStream(handshake.ClientBytes(null, "GET / HTTP/1.1\r\n\r\n"u8.ToArray()));
+
+        var session = await UnitTestSrpClient.Server(judge).AuthenticateAsync(transport, CancellationToken.None);
+
+        CollectionAssert.AreEqual(new[] { "ask:jsmith", "judged:jsmith:True" }, judge.Calls);
+        Assert.AreEqual("jsmith", session.UserName);
+    }
+
+    [TestMethod]
+    public async Task AuthenticateAsync_JudgeRefusesACorrectLogin_FailsAsAWrongPasswordWithTheRefusedMessage()
+    {
+        var judge = new UnitTestRecordingLoginJudge(refuse: true);
+        var handshake = new UnitTestSrpHandshake();
+        using var transport = new UnitTestScriptedStream(handshake.ClientBytes());
+
+        var alert = await Assert.ThrowsExactlyAsync<TlsAlertException>(() => UnitTestSrpClient.Server(judge).AuthenticateAsync(transport, CancellationToken.None));
+
+        Assert.AreEqual(TlsAlertDescription.BadRecordMac, alert.Description);
+        Assert.AreEqual("The TLS-SRP login failed: login refused for 'jsmith'.", alert.Message);
+        CollectionAssert.AreEqual(new[] { "ask:jsmith", "judged:jsmith:False" }, judge.Calls);
+        CollectionAssert.AreEqual(Convert.FromHexString("15030300020214"), transport.Written.ToArray()[^7..]);
+    }
+
+    [TestMethod]
+    public async Task AuthenticateAsync_HandshakeFailsBeforeTheFinished_CallsTheJudgeNever()
+    {
+        var judge = new UnitTestRecordingLoginJudge();
+        using var transport = new UnitTestScriptedStream([]);
+
+        await Assert.ThrowsExactlyAsync<EndOfStreamException>(() => UnitTestSrpClient.Server(judge).AuthenticateAsync(transport, CancellationToken.None));
+
+        Assert.IsEmpty(judge.Calls);
+    }
+
+    [TestMethod]
     public async Task AuthenticateAsync_FinishedWithWrongVerifyData_SendsDecryptError()
     {
         var handshake = new UnitTestSrpHandshake();

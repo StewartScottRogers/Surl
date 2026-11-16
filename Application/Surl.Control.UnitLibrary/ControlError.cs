@@ -72,6 +72,7 @@ internal sealed record ControlError(HttpStatus Status, string Code, string Messa
     {
         ControlRefusalKind.NotFound => NotFound(refusal.Message),
         ControlRefusalKind.Conflict => Conflict(refusal.Message),
+        ControlRefusalKind.TooLarge => new(HttpStatus.ContentTooLarge, "too_large", refusal.Message),
         _ => BadRequest(refusal.Message),
     };
 }

@@ -134,6 +134,103 @@ public sealed class ComposedStores
     }
 
     /// <summary>
+    /// The most bytes one item a read returns may hold: 16 MiB, as seeding (ADR-0164, decision 2).
+    /// </summary>
+    public const long MaxReadBytes = 16_777_216;
+
+    /// <summary>
+    /// Lists an account's mailboxes with their message and unseen counts, as the IMAP server's
+    /// logged-in owner sees them. Publishes nothing, asks no fault rule and changes no flag, and
+    /// works on a <c>--directory</c> mail store (ADR-0164, decision 3).
+    /// </summary>
+    /// <param name="owner">The account name.</param>
+    /// <returns><see cref="ComposedReadOutcome.Found"/> with the mailboxes in ordinal order of name, or
+    /// <see cref="ComposedReadOutcome.NotFound"/> when the account owns no mailbox.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="owner"/> is <see langword="null"/>.</exception>
+    public ComposedReadResult<IReadOnlyList<ComposedMailboxInfo>> ListMailboxes(string owner)
+    {
+        ArgumentNullException.ThrowIfNull(owner);
+        var view = mail.ViewFor(owner);
+        List<ComposedMailboxInfo> boxes = [];
+        foreach (var name in mail.ListMailboxes(view))
+        {
+            _ = mail.ReadMailbox(view, name, out var snapshot);
+            boxes.Add(new(snapshot!.Name, snapshot.Messages.Count, snapshot.Messages.Count(message => !message.Flags.HasFlag(MailFlags.Seen)), snapshot.UidValidity));
+        }
+
+        return boxes.Count == 0
+            ? ComposedReadResult<IReadOnlyList<ComposedMailboxInfo>>.Failed(ComposedReadOutcome.NotFound, $"No mailboxes for {owner}.")
+            : ComposedReadResult<IReadOnlyList<ComposedMailboxInfo>>.Of(boxes);
+    }
+
+    /// <summary>
+    /// Lists one mailbox's messages (UID, size, flags, internal date) in UID order, one page at a time.
+    /// Publishes nothing, asks no fault rule and changes no flag (ADR-0164, decisions 1 to 3).
+    /// </summary>
+    /// <param name="owner">The account name.</param>
+    /// <param name="mailbox">The mailbox's name; <c>INBOX</c> in any case.</param>
+    /// <param name="afterUid">The last UID seen; the page starts above it. 0 starts at the first.</param>
+    /// <param name="limit">The most messages to return, 1 to 1000 (default 100).</param>
+    /// <returns>The page; <see cref="ComposedReadOutcome.NotFound"/> for an unknown owner or mailbox;
+    /// <see cref="ComposedReadOutcome.Refused"/> for a limit outside 1 to 1000.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="owner"/> or <paramref name="mailbox"/> is <see langword="null"/>.</exception>
+    public ComposedReadResult<ComposedMailMessagePage> ListMessages(string owner, string mailbox, uint afterUid = 0, int limit = 100)
+    {
+        ArgumentNullException.ThrowIfNull(owner);
+        ArgumentNullException.ThrowIfNull(mailbox);
+        if (limit is < 1 or > 1000)
+        {
+            return ComposedReadResult<ComposedMailMessagePage>.Failed(ComposedReadOutcome.Refused, "The limit must be 1 to 1000.");
+        }
+
+        if (mail.ReadMailbox(mail.ViewFor(owner), mailbox, out var snapshot) != MailStoreOutcome.Succeeded)
+        {
+            return ComposedReadResult<ComposedMailMessagePage>.Failed(ComposedReadOutcome.NotFound, $"No mailbox {mailbox} for {owner}.");
+        }
+
+        var after = snapshot!.Messages.Where(message => message.Uid > afterUid).ToList();
+        var page = after.Take(limit).Select(Summarize).ToList();
+        return ComposedReadResult<ComposedMailMessagePage>.Of(new(page, after.Count > limit));
+    }
+
+    /// <summary>
+    /// Reads one message's exact bytes with its summary. A message past <see cref="MaxReadBytes"/> is
+    /// refused, never cut short. Publishes nothing, asks no fault rule and never sets <c>\Seen</c> or
+    /// any other flag (ADR-0164, decisions 1 to 3).
+    /// </summary>
+    /// <param name="owner">The account name.</param>
+    /// <param name="mailbox">The mailbox's name; <c>INBOX</c> in any case.</param>
+    /// <param name="uid">The message's UID.</param>
+    /// <returns>The message; <see cref="ComposedReadOutcome.NotFound"/> for an unknown owner, mailbox or UID;
+    /// <see cref="ComposedReadOutcome.TooLarge"/> past the bound.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="owner"/> or <paramref name="mailbox"/> is <see langword="null"/>.</exception>
+    /// <exception cref="IOException">A message file of a <c>--directory</c> store cannot be read.</exception>
+    public ComposedReadResult<ComposedMailMessage> ReadMessage(string owner, string mailbox, uint uid)
+    {
+        ArgumentNullException.ThrowIfNull(owner);
+        ArgumentNullException.ThrowIfNull(mailbox);
+        var view = mail.ViewFor(owner);
+        _ = mail.ReadMailbox(view, mailbox, out var snapshot);
+        var found = snapshot?.Messages.Cast<MailMessageSummary?>().FirstOrDefault(message => message!.Value.Uid == uid);
+        if (found is null)
+        {
+            return ComposedReadResult<ComposedMailMessage>.Failed(ComposedReadOutcome.NotFound, $"No message {uid} in {mailbox} for {owner}.");
+        }
+
+        var summary = Summarize(found.Value);
+        if (summary.Size > MaxReadBytes)
+        {
+            return ComposedReadResult<ComposedMailMessage>.Failed(ComposedReadOutcome.TooLarge, $"Message {uid} is {summary.Size} bytes; a read returns at most {MaxReadBytes}.");
+        }
+
+        _ = mail.FetchMessage(view, mailbox, uid, out var bytes);
+        return ComposedReadResult<ComposedMailMessage>.Of(new(summary, bytes.ToArray()));
+    }
+
+    private static ComposedMailMessageSummary Summarize(MailMessageSummary message) =>
+        new(message.Uid, message.Size, message.Flags, message.InternalDate);
+
+    /// <summary>
     /// Writes a file into the content store as <see cref="ContentStore.SeedFileAsync"/> does.
     /// </summary>
     /// <param name="requestPath">Where the file goes, as a request path.</param>
@@ -142,6 +239,85 @@ public sealed class ComposedStores
     /// <returns>Whether the file was written, not permitted, or too large.</returns>
     public Task<ContentUploadResult> SeedFileAsync(string requestPath, Stream contents, CancellationToken cancellationToken) =>
         content.SeedFileAsync(requestPath, contents, cancellationToken);
+
+    /// <summary>
+    /// Reads one file's exact bytes with its size, modification time and content type. A file past
+    /// <see cref="MaxReadBytes"/> is refused, never cut short. Publishes nothing, asks no fault rule and works
+    /// on a <c>--directory</c> store (ADR-0164, decisions 1 to 4).
+    /// </summary>
+    /// <param name="requestPath">The file's path, as a request path.</param>
+    /// <param name="cancellationToken">Cancels the read.</param>
+    /// <returns>The file; <see cref="ComposedReadOutcome.NotFound"/> for nothing, a folder, or a path under
+    /// <c>/.surl</c> or hidden by the exposure options; <see cref="ComposedReadOutcome.TooLarge"/> past the bound;
+    /// <see cref="ComposedReadOutcome.Refused"/> for a path a request may not name, such as one with <c>..</c>.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="requestPath"/> is <see langword="null"/>.</exception>
+    /// <exception cref="IOException">The file cannot be read.</exception>
+    public async Task<ComposedReadResult<ComposedFileContents>> ReadFileAsync(string requestPath, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(requestPath);
+        var mapping = content.MapRequestPath(requestPath);
+        if (!mapping.IsMapped)
+        {
+            return ComposedReadResult<ComposedFileContents>.Failed(ComposedReadOutcome.Refused, $"The path is not one a request may name ({mapping.Refusal}).");
+        }
+
+        var status = content.GetFileStatus(mapping);
+        if (status is null)
+        {
+            return ComposedReadResult<ComposedFileContents>.Failed(ComposedReadOutcome.NotFound, $"No file at {requestPath}.");
+        }
+
+        if (status.Length > MaxReadBytes)
+        {
+            return ComposedReadResult<ComposedFileContents>.Failed(ComposedReadOutcome.TooLarge, $"The file is {status.Length} bytes; a read returns at most {MaxReadBytes}.");
+        }
+
+        using var buffer = new MemoryStream();
+        _ = await content.CopyFileBytesAsync(mapping, ContentByteRange.WholeFile(status.Length), buffer, cancellationToken);
+        return ComposedReadResult<ComposedFileContents>.Of(new(buffer.ToArray(), status.Length, status.LastModifiedUtc, ContentMediaTypes.Of(requestPath)));
+    }
+
+    /// <summary>
+    /// Lists a folder's children in ordinal order of name, whatever the listing switch says. Publishes nothing and
+    /// asks no fault rule (ADR-0164, decisions 1 to 4).
+    /// </summary>
+    /// <param name="requestPath">The folder's path, as a request path; <c>/</c> for the root.</param>
+    /// <param name="afterName">The last name seen, or <see langword="null"/> to start at the first.</param>
+    /// <param name="limit">The most children to return, 1 to 1000.</param>
+    /// <param name="cancellationToken">Cancels the listing.</param>
+    /// <returns>The page; <see cref="ComposedReadOutcome.NotFound"/> for nothing, a file, or a path under
+    /// <c>/.surl</c>; <see cref="ComposedReadOutcome.Refused"/> for a limit outside 1 to 1000 or a path a request
+    /// may not name.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="requestPath"/> is <see langword="null"/>.</exception>
+    public ComposedReadResult<ComposedFolderPage> ListFolder(string requestPath, string? afterName, int limit, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(requestPath);
+        if (limit is < 1 or > 1000)
+        {
+            return ComposedReadResult<ComposedFolderPage>.Failed(ComposedReadOutcome.Refused, "The limit must be 1 to 1000.");
+        }
+
+        var mapping = content.MapRequestPath(requestPath);
+        if (!mapping.IsMapped)
+        {
+            return ComposedReadResult<ComposedFolderPage>.Failed(ComposedReadOutcome.Refused, $"The path is not one a request may name ({mapping.Refusal}).");
+        }
+
+        var listing = content.ListDirectoryWhateverTheListingSwitchSays(mapping, cancellationToken);
+        if (!listing.IsListed)
+        {
+            return ComposedReadResult<ComposedFolderPage>.Failed(ComposedReadOutcome.NotFound, $"No folder at {requestPath}.");
+        }
+
+        var after = listing.Entries
+            .Where(entry => afterName is null || string.CompareOrdinal(entry.Name, afterName) > 0)
+            .OrderBy(entry => entry.Name, StringComparer.Ordinal)
+            .ToList();
+        var page = after.Take(limit)
+            .Select(entry => new ComposedFolderEntry(entry.Name, entry.Kind == ContentEntryKind.Directory, entry.Length))
+            .ToList();
+        return ComposedReadResult<ComposedFolderPage>.Of(new(page, after.Count > limit));
+    }
 
     /// <summary>
     /// Deletes a file from the content store as <see cref="ContentStore.DeleteFileForTheTest"/> does:
@@ -193,6 +369,133 @@ public sealed class ComposedStores
     }
 
     /// <summary>
+    /// Lists a queue's ready messages in delivery order, one page at a time, as
+    /// <see cref="MessageBus.MessageBus.BrowseQueue"/> does. Consumes, acknowledges and counts nothing,
+    /// publishes nothing, asks no fault rule, and works on a <c>--directory</c> bus (ADR-0164, decisions 1 to 3).
+    /// </summary>
+    /// <param name="queueName">The queue's name.</param>
+    /// <param name="afterPosition">The position of the last message seen; -1 starts at the first.</param>
+    /// <param name="limit">The most messages to return, 1 to 1000 (default 100).</param>
+    /// <returns>The page; <see cref="ComposedReadOutcome.NotFound"/> for an unknown queue;
+    /// <see cref="ComposedReadOutcome.Refused"/> for a limit outside 1 to 1000 or a position below -1.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="queueName"/> is <see langword="null"/>.</exception>
+    public ComposedReadResult<ComposedQueuePage> BrowseQueue(string queueName, int afterPosition = -1, int limit = 100)
+    {
+        ArgumentNullException.ThrowIfNull(queueName);
+        if (limit is < 1 or > 1000 || afterPosition < -1)
+        {
+            return ComposedReadResult<ComposedQueuePage>.Failed(ComposedReadOutcome.Refused, "The limit must be 1 to 1000 and the position at least -1.");
+        }
+
+        var browsed = bus.BrowseQueue(queueName, afterPosition, limit);
+        return browsed.Outcome == MessageBusOutcome.Succeeded
+            ? ComposedReadResult<ComposedQueuePage>.Of(new(browsed.Messages, browsed.ReadyCount, browsed.InFlightCount, browsed.HasMore))
+            : ComposedReadResult<ComposedQueuePage>.Failed(ComposedReadOutcome.NotFound, $"No queue {queueName}.");
+    }
+
+    /// <summary>
+    /// Reads a topic's retained message without dropping it, as <see cref="MessageBus.MessageBus.GetRetainedMessage"/>
+    /// does. Publishes nothing and asks no fault rule (ADR-0164, decisions 1 to 3).
+    /// </summary>
+    /// <param name="topic">The canonical topic name.</param>
+    /// <returns>The message; <see cref="ComposedReadOutcome.NotFound"/> when the topic has none.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="topic"/> is <see langword="null"/>.</exception>
+    public ComposedReadResult<BusMessage> ReadRetainedMessage(string topic)
+    {
+        ArgumentNullException.ThrowIfNull(topic);
+        var retained = bus.GetRetainedMessage(topic);
+        return retained is null
+            ? ComposedReadResult<BusMessage>.Failed(ComposedReadOutcome.NotFound, $"No retained message on {topic}.")
+            : ComposedReadResult<BusMessage>.Of(retained);
+    }
+
+    /// <summary>
+    /// Reads a topic log's records from an offset, as <see cref="MessageBus.MessageBus.ReadLog"/> does.
+    /// Moves no subscription's or group's offset, publishes nothing and asks no fault rule (ADR-0164, decisions 1 to 3).
+    /// </summary>
+    /// <param name="topic">The canonical topic name.</param>
+    /// <param name="fromOffset">The offset of the first record to read; 0 for the oldest the log still holds.</param>
+    /// <param name="limit">The most records to return, 1 to 1000 (default 100).</param>
+    /// <returns>The page; <see cref="ComposedReadOutcome.NotFound"/> for a topic with no log;
+    /// <see cref="ComposedReadOutcome.Refused"/> for a limit outside 1 to 1000 or an offset the log does not hold.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="topic"/> is <see langword="null"/>.</exception>
+    public ComposedReadResult<ComposedLogPage> ReadLog(string topic, long fromOffset = 0, int limit = 100)
+    {
+        ArgumentNullException.ThrowIfNull(topic);
+        if (limit is < 1 or > 1000)
+        {
+            return ComposedReadResult<ComposedLogPage>.Failed(ComposedReadOutcome.Refused, "The limit must be 1 to 1000.");
+        }
+
+        if (!bus.GetLogTopics().Contains(topic))
+        {
+            return ComposedReadResult<ComposedLogPage>.Failed(ComposedReadOutcome.NotFound, $"No log for topic {topic}.");
+        }
+
+        var read = bus.ReadLog(topic, fromOffset, MaxReadBytes);
+        if (read.Outcome != MessageBusOutcome.Succeeded)
+        {
+            return ComposedReadResult<ComposedLogPage>.Failed(ComposedReadOutcome.Refused, $"Offset {fromOffset} is outside the log, which holds {read.LogStartOffset} to {read.HighWatermark}.");
+        }
+
+        var records = read.Records.Take(limit).ToList();
+        var next = fromOffset + records.Count;
+        return ComposedReadResult<ComposedLogPage>.Of(new(records, next, read.HighWatermark, next < read.HighWatermark));
+    }
+
+    /// <summary>
+    /// Reads one live Redis key back with its string value, as <see cref="RedisKeyspace.ReadKey"/> does. Publishes
+    /// nothing, asks no fault rule and removes no expired key (ADR-0164, decisions 1 to 3 and 9).
+    /// </summary>
+    /// <param name="database">The database, 0 to 15.</param>
+    /// <param name="key">The key's bytes.</param>
+    /// <returns><see cref="ComposedReadOutcome.Found"/> with the key (its value is <see langword="null"/> for a
+    /// type other than string, which is listed and not read); <see cref="ComposedReadOutcome.NotFound"/> for an
+    /// absent or expired key or an instance with no Redis server; <see cref="ComposedReadOutcome.TooLarge"/> for a
+    /// string over <see cref="MaxReadBytes"/>; <see cref="ComposedReadOutcome.Refused"/> for a database outside 0 to 15.</returns>
+    public ComposedReadResult<RedisKeyContents> ReadKey(int database, ReadOnlyMemory<byte> key)
+    {
+        if (database is < 0 or >= 16)
+        {
+            return ComposedReadResult<RedisKeyContents>.Failed(ComposedReadOutcome.Refused, "The database must be 0 to 15.");
+        }
+
+        var read = redisKeyspace?.ReadKey(database, key);
+        if (read is null)
+        {
+            return ComposedReadResult<RedisKeyContents>.Failed(ComposedReadOutcome.NotFound, "No such key.");
+        }
+
+        return read.Info.ByteCount > MaxReadBytes
+            ? ComposedReadResult<RedisKeyContents>.Failed(ComposedReadOutcome.TooLarge, $"The value holds {read.Info.ByteCount} bytes, more than the {MaxReadBytes} a read returns.")
+            : ComposedReadResult<RedisKeyContents>.Of(read);
+    }
+
+    /// <summary>
+    /// Lists live Redis keys matching a <c>KEYS</c> glob in ordinal order of their bytes, one page at a time, as
+    /// <see cref="RedisKeyspace.ListKeys"/> does. Publishes nothing and asks no fault rule; no value is read
+    /// (ADR-0164, decisions 2, 3 and 9).
+    /// </summary>
+    /// <param name="database">The database, 0 to 15.</param>
+    /// <param name="pattern">The glob; <c>*</c> lists every key.</param>
+    /// <param name="after">The last key seen; empty starts at the first.</param>
+    /// <param name="limit">The most keys to return, 1 to 1000 (default 100).</param>
+    /// <returns>The page; <see cref="ComposedReadOutcome.Refused"/> for a limit outside 1 to 1000 or a database
+    /// outside 0 to 15; an empty page when the instance composes no Redis server.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="pattern"/> is <see langword="null"/>.</exception>
+    public ComposedReadResult<ComposedKeyPage> ListKeys(int database, string pattern, ReadOnlyMemory<byte> after = default, int limit = 100)
+    {
+        ArgumentNullException.ThrowIfNull(pattern);
+        if (limit is < 1 or > 1000 || database is < 0 or >= 16)
+        {
+            return ComposedReadResult<ComposedKeyPage>.Failed(ComposedReadOutcome.Refused, "The limit must be 1 to 1000 and the database 0 to 15.");
+        }
+
+        var page = redisKeyspace?.ListKeys(database, pattern, after, limit);
+        return ComposedReadResult<ComposedKeyPage>.Of(page is null ? new([], false) : new(page.Keys, page.HasMore));
+    }
+
+    /// <summary>
     /// Writes one string key into the Redis keyspace as <see cref="RedisKeyspace.SeedKey"/> does: never consults the
     /// fault plan; publishes <see cref="StoreChange.Seeded"/> (ADR-0158 decision 3).
     /// </summary>
@@ -230,6 +533,59 @@ public sealed class ComposedStores
         var zones = dnsZones ?? throw new InvalidOperationException("This instance holds no DNS zones.");
         zones.SeedZone(apex, zoneFileText);
         return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// Reads the LDAP directory back as LDIF, as <see cref="LdapProtocolServer.ExportDirectoryLdif"/> does, every
+    /// <c>userPassword</c> value omitted. Publishes nothing and asks no fault rule (ADR-0164, decisions 2, 3 and 9).
+    /// </summary>
+    /// <returns><see cref="ComposedReadOutcome.Found"/> with the LDIF text;
+    /// <see cref="ComposedReadOutcome.NotFound"/> for an instance with no LDAP directory;
+    /// <see cref="ComposedReadOutcome.TooLarge"/> when the text is over <see cref="MaxReadBytes"/> bytes.</returns>
+    public ComposedReadResult<string> ReadDirectoryLdif()
+    {
+        if (ldapServer is null)
+        {
+            return ComposedReadResult<string>.Failed(ComposedReadOutcome.NotFound, "This instance holds no LDAP directory.");
+        }
+
+        var ldif = ldapServer.ExportDirectoryLdif();
+        var byteCount = System.Text.Encoding.UTF8.GetByteCount(ldif);
+        return byteCount > MaxReadBytes
+            ? ComposedReadResult<string>.Failed(ComposedReadOutcome.TooLarge, $"The directory holds {byteCount} bytes of LDIF, more than the {MaxReadBytes} a read returns.")
+            : ComposedReadResult<string>.Of(ldif);
+    }
+
+    /// <summary>
+    /// Lists the apexes of the DNS zones held, in the order they were added, each with its final dot
+    /// (<c>example.com.</c>). Publishes nothing and asks no fault rule (ADR-0164, decisions 2, 3 and 9).
+    /// </summary>
+    /// <returns>The apexes; none for an instance with no DNS zones.</returns>
+    public IReadOnlyList<string> ListZoneApexes() =>
+        dnsZones is null ? [] : [.. dnsZones.Apexes.Select(apex => apex.ToString())];
+
+    /// <summary>
+    /// Reads one DNS zone back as master-file text, as <see cref="DnsZoneSet.ExportZone"/> does. Publishes nothing and
+    /// asks no fault rule (ADR-0164, decisions 2, 3 and 9).
+    /// </summary>
+    /// <param name="apex">The zone's apex, with or without its final dot.</param>
+    /// <returns><see cref="ComposedReadOutcome.Found"/> with the zone-file text;
+    /// <see cref="ComposedReadOutcome.NotFound"/> when no zone has the apex or the instance holds no DNS zones;
+    /// <see cref="ComposedReadOutcome.TooLarge"/> when the text is over <see cref="MaxReadBytes"/> bytes.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="apex"/> is <see langword="null"/>.</exception>
+    public ComposedReadResult<string> ReadZone(string apex)
+    {
+        ArgumentNullException.ThrowIfNull(apex);
+        var text = dnsZones?.ExportZone(apex);
+        if (text is null)
+        {
+            return ComposedReadResult<string>.Failed(ComposedReadOutcome.NotFound, "No such zone.");
+        }
+
+        var byteCount = System.Text.Encoding.UTF8.GetByteCount(text);
+        return byteCount > MaxReadBytes
+            ? ComposedReadResult<string>.Failed(ComposedReadOutcome.TooLarge, $"The zone holds {byteCount} bytes of text, more than the {MaxReadBytes} a read returns.")
+            : ComposedReadResult<string>.Of(text);
     }
 
     /// <summary>

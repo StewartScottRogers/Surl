@@ -91,6 +91,7 @@ public sealed class ControlEndpoint
     {
         var eventRequests = new ControlEventRequests(events, answers, timeProvider);
         var storeRequests = new ControlStoreRequests(target, snapshots, answers);
+        var readRequests = new ControlReadRequests(target, answers);
 
         return
         [
@@ -103,6 +104,18 @@ public sealed class ControlEndpoint
             new("POST", ["mail"], ["to"], storeRequests.SeedMailAsync),
             new("PUT", ["files", "{*}"], [], storeRequests.WriteFileAsync),
             new("DELETE", ["files", "{*}"], [], storeRequests.DeleteFileAsync),
+            new("GET", ["files", "{*}"], ControlReadRequests.FileKeys, readRequests.ReadFileOrListFolderAsync),
+            new("GET", ["mail", "{}"], [], readRequests.ListMailboxesAsync),
+            new("GET", ["mail", "{}", "{}"], ControlReadRequests.MessageListKeys, readRequests.ListMessagesAsync),
+            new("GET", ["mail", "{}", "{}", "{}"], [], readRequests.ReadMessageAsync),
+            new("GET", ["queues", "{}", "messages"], ControlReadRequests.QueueKeys, readRequests.BrowseQueueAsync),
+            new("GET", ["topics", "{}", "retained"], [], readRequests.ReadRetainedMessageAsync),
+            new("GET", ["topics", "{}", "log"], ControlReadRequests.LogKeys, readRequests.ReadLogAsync),
+            new("GET", ["keys"], ControlReadRequests.KeyListKeys, readRequests.ListKeysAsync),
+            new("GET", ["keys", "{*}"], ControlReadRequests.KeyKeys, readRequests.ReadKeyAsync),
+            new("GET", ["directory"], [], readRequests.ReadDirectoryAsync),
+            new("GET", ["zones"], [], readRequests.ListZonesAsync),
+            new("GET", ["zones", "{}"], [], readRequests.ReadZoneAsync),
             new("POST", ["messages"], [], storeRequests.PublishMessageAsync),
             new("PUT", ["keys", "{}", "{*}"], ["expire_ms"], storeRequests.SeedKeyAsync),
             new("POST", ["directory"], [], storeRequests.SeedDirectoryAsync),

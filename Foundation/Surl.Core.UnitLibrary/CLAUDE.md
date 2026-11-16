@@ -31,3 +31,9 @@ The identifier sources (ADR-0124, decision 6; BL-851): `CryptographicIdentifierR
 and `ForServer(name)` each return a fresh `IIdentifierRandom` - SHA-256 in counter mode
 (`Sha256CounterIdentifierRandom`) over a label, the seed and the exchange ID or name - so one
 exchange's identifiers never depend on what other exchanges drew. Non-secret identifiers only.
+
+`ExchangeTlsLoginJudge` (ADR-0165, BL-1224) is the `ITlsLoginJudge` the engine gives each accepted
+connection (`UseTlsLoginJudge`, once its `ExchangeContext` exists, so implicit TLS and STARTTLS alike).
+`ShouldRefuseAsync` asks the fault plan at `FaultStage.Login` (exchange, listener, scheme, account) and, for a
+`RefuseLogin` rule only, publishes `FaultAppliedEvent`; `Judged` then publishes `LoginJudgedEvent` with mechanism
+`tls-srp` and `IsRefusedByFault` set when that refusal came first. No secret is in either event.

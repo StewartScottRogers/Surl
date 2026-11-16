@@ -22,6 +22,11 @@ internal sealed class UnitTestBearerAuthenticationPolicy(bool allowsAnonymous) :
 
     public List<PasswordLogin> PasswordLogins { get; } = [];
 
+    /// <summary>Accounts the account book no longer names; <c>alice</c> is the only one it names otherwise.</summary>
+    public HashSet<string> RemovedAccounts { get; } = [];
+
+    public bool NamesAccount(string name) => name == "alice" && !RemovedAccounts.Contains(name);
+
     public ValueTask<PasswordLoginVerdict> CheckPasswordLoginAsync(PasswordLogin login, CancellationToken cancellationToken)
     {
         PasswordLogins.Add(login);

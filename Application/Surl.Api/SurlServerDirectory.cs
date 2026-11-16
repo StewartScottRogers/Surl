@@ -10,8 +10,29 @@ namespace Surl.Api;
 public sealed class SurlServerDirectory
 {
     private readonly ComposedStores stores;
+    private readonly Action throwIfStopped;
 
-    internal SurlServerDirectory(ComposedStores stores) => this.stores = stores;
+    internal SurlServerDirectory(ComposedStores stores, Action throwIfStopped)
+    {
+        this.stores = stores;
+        this.throwIfStopped = throwIfStopped;
+    }
+
+    /// <summary>
+    /// Reads the directory back as LDIF content records (RFC 2849), every <c>userPassword</c> value omitted. Publishes
+    /// nothing and asks no fault rule (ADR-0164, decisions 1 to 3 and 9).
+    /// </summary>
+    /// <param name="cancellationToken">Cancels the read.</param>
+    /// <returns>The LDIF text: <c>version: 1</c> then each entry, seeded and configured alike.</returns>
+    /// <exception cref="SurlNotFoundException">No LDAP server is composed.</exception>
+    /// <exception cref="SurlReadRefusedException">The LDIF is past 16 MiB.</exception>
+    /// <exception cref="ObjectDisposedException">The server was stopped.</exception>
+    public Task<string> ExportLdifAsync(CancellationToken cancellationToken = default)
+    {
+        throwIfStopped();
+        cancellationToken.ThrowIfCancellationRequested();
+        return SurlReadResults.Completed(() => SurlReadResults.ValueOrThrow(stores.ReadDirectoryLdif()));
+    }
 
     /// <summary>
     /// Adds LDIF content records (RFC 2849), all or none; the fault plan is not consulted. Publishes a

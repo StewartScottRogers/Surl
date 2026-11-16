@@ -13,6 +13,22 @@ internal sealed class RedisDatabase(RedisKeyspace keyspace, int index)
     private readonly SortedDictionary<long, RedisKeyEntry> entriesBySequenceNumber = [];
     private long lastSequenceNumber;
 
+    /// <summary>
+    /// Looks a live key up without removing an expired one or journaling anything, for a read-back that must
+    /// change nothing (ADR-0164 decision 3).
+    /// </summary>
+    /// <param name="key">The key's name.</param>
+    /// <param name="nowMilliseconds">The time in Unix milliseconds.</param>
+    /// <returns>The entry, or <see langword="null"/> when absent or expired.</returns>
+    public RedisKeyEntry? Peek(string key, long nowMilliseconds) =>
+        entries.TryGetValue(key, out var entry) && !entry.HasExpiredAt(nowMilliseconds) ? entry : null;
+
+    /// <summary>The live keys without removing an expired one or journaling anything, in no set order.</summary>
+    /// <param name="nowMilliseconds">The time in Unix milliseconds.</param>
+    /// <returns>The live entries.</returns>
+    public IEnumerable<RedisKeyEntry> PeekLive(long nowMilliseconds) =>
+        entries.Values.Where(entry => !entry.HasExpiredAt(nowMilliseconds));
+
     /// <summary>The live key named <paramref name="key"/>, or <see langword="null"/>; an expired one is removed.</summary>
     /// <param name="key">The key.</param>
     /// <param name="nowMilliseconds">The time, in Unix milliseconds.</param>

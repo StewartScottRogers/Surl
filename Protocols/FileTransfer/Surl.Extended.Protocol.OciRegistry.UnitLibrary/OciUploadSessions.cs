@@ -90,6 +90,24 @@ internal sealed class OciUploadSessions(TimeProvider clock)
         }
     }
 
+    /// <summary>
+    /// Aborts every open session - staged bytes discarded, places freed - for a whole-instance reset
+    /// or restore (ADR-0167, decision 2), so a later request naming one is <c>BLOB_UPLOAD_UNKNOWN</c>.
+    /// A session a request has taken out at that moment is not aborted; it returns when the request ends.
+    /// </summary>
+    /// <returns>A task that completes when every open session is disposed.</returns>
+    public async Task AbortAllAsync()
+    {
+        List<OciUploadSession> aborted;
+        lock (gate)
+        {
+            aborted = [.. open.Values];
+            open.Clear();
+        }
+
+        await DisposeAllAsync(aborted);
+    }
+
     private static async Task DisposeAllAsync(List<OciUploadSession> sessions)
     {
         foreach (var session in sessions)

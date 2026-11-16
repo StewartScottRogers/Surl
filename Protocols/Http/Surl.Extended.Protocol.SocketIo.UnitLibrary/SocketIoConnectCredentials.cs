@@ -18,26 +18,31 @@ internal static class SocketIoConnectCredentials
     /// <param name="payload">The CONNECT's payload: empty, or a JSON object the reader already checked.</param>
     /// <param name="scheme">The listener's scheme.</param>
     /// <param name="tlsSession">The connection's encryption, or <see langword="null"/>.</param>
-    public static PasswordLogin Read(ReadOnlyMemory<byte> payload, string scheme, TlsSession? tlsSession)
+    /// <param name="exchange">
+    /// The exchange that opened the session, not the polling request that carried this CONNECT: a
+    /// session can span several HTTP polling exchanges, and a listener-scoped rule is judged against
+    /// the one that opened it.
+    /// </param>
+    public static PasswordLogin Read(ReadOnlyMemory<byte> payload, string scheme, TlsSession? tlsSession, LoginExchange? exchange)
     {
         if (payload.IsEmpty)
         {
-            return new PasswordLogin(scheme, null, null, tlsSession);
+            return new PasswordLogin(scheme, null, null, tlsSession, exchange);
         }
 
         using var document = JsonDocument.Parse(payload);
         var root = document.RootElement;
         if (StringMember(root, "token") is { } token)
         {
-            return new PasswordLogin(scheme, string.Empty, Encoding.UTF8.GetBytes(token), tlsSession);
+            return new PasswordLogin(scheme, string.Empty, Encoding.UTF8.GetBytes(token), tlsSession, exchange);
         }
 
         if (StringMember(root, "username") is { } name && StringMember(root, "password") is { } password)
         {
-            return new PasswordLogin(scheme, name, Encoding.UTF8.GetBytes(password), tlsSession);
+            return new PasswordLogin(scheme, name, Encoding.UTF8.GetBytes(password), tlsSession, exchange);
         }
 
-        return new PasswordLogin(scheme, null, null, tlsSession);
+        return new PasswordLogin(scheme, null, null, tlsSession, exchange);
     }
 
     private static string? StringMember(JsonElement root, string name) =>

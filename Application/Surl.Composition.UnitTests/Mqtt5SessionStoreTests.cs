@@ -106,10 +106,10 @@ public sealed class Mqtt5SessionStoreTests
         }
 
         CollectionAssert.AreEqual(
-            new[] { (StoreKind.Sessions, StoreChange.Reset), (StoreKind.Sessions, StoreChange.Restored) },
+            new[] { (StoreKind.Sessions, StoreChange.Reset), (StoreKind.Sessions, StoreChange.Reset), (StoreKind.Sessions, StoreChange.Reset), (StoreKind.Sessions, StoreChange.Restored), (StoreKind.Sessions, StoreChange.Restored), (StoreKind.Sessions, StoreChange.Restored) },
             changes.Select(change => (change.Store, change.Change)).ToArray());
         CollectionAssert.AreEqual(
-            new[] { StoreKind.Content, StoreKind.Mail, StoreKind.Bus, StoreKind.Accounts, StoreKind.Keyspace, StoreKind.Directory, StoreKind.Exchanges, StoreKind.Producers, StoreKind.Sessions, StoreKind.Zones },
+            new[] { StoreKind.Content, StoreKind.Mail, StoreKind.Bus, StoreKind.Accounts, StoreKind.Keyspace, StoreKind.Directory, StoreKind.Exchanges, StoreKind.Producers, StoreKind.Sessions, StoreKind.Zones, StoreKind.Uploads },
             running.Stores.RegisteredStoreOrder.ToArray());
     }
 

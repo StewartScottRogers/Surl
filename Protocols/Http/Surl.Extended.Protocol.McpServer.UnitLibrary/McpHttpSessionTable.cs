@@ -82,6 +82,22 @@ internal sealed class McpHttpSessionTable(RandomNumberGenerator idSource, TimePr
         session.End();
     }
 
+    /// <summary>Ends every session: each is removed and its running requests are cancelled (ADR-0167 decision 2).</summary>
+    public void EndAll()
+    {
+        McpHttpSession[] ended;
+        lock (_lock)
+        {
+            ended = [.. _sessions.Values];
+            _sessions.Clear();
+        }
+
+        foreach (McpHttpSession session in ended)
+        {
+            session.End();
+        }
+    }
+
     private void RemoveExpired(DateTimeOffset now)
     {
         foreach (McpHttpSession expired in _sessions.Values.Where(session => now - session.LastUsed >= IdleLifetime).ToArray())

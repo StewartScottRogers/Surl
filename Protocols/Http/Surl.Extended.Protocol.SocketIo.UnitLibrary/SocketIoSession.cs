@@ -499,7 +499,7 @@ internal sealed class SocketIoSession
             return;
         }
 
-        var login = SocketIoConnectCredentials.Read(packet.Payload, context.Scheme, tlsSession);
+        var login = SocketIoConnectCredentials.Read(packet.Payload, context.Scheme, tlsSession, LoginExchange.Of(context));
         var verdict = await listener.AuthenticationPolicy.CheckPasswordLoginAsync(login, token);
         if (verdict is not (PasswordLoginVerdict.Accepted or PasswordLoginVerdict.AcceptedUnchecked))
         {

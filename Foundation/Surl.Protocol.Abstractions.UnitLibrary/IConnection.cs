@@ -114,4 +114,14 @@ public interface IConnection : IAsyncDisposable
     /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> cut the handshake off; the connection is unusable.</exception>
     /// <exception cref="IOException">The connection was aborted, reset or failed.</exception>
     ValueTask<TlsSession> UpgradeToTlsAsync(CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Hands the connection the judge its TLS-SRP handshake asks and tells (ADR-0165, decision 2).
+    /// The default does nothing, so a connection that runs no TLS-SRP handshake ignores it.
+    /// </summary>
+    /// <param name="judge">The judge to keep for later handshakes.</param>
+    void UseTlsLoginJudge(ITlsLoginJudge judge)
+    {
+        ArgumentNullException.ThrowIfNull(judge);
+    }
 }

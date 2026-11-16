@@ -71,6 +71,15 @@ internal sealed class McpExpiringTable<T>(RandomNumberGenerator randomSource, Ti
         }
     }
 
+    /// <summary>Removes every entry, live or not.</summary>
+    public void Clear()
+    {
+        lock (_lock)
+        {
+            _entries.Clear();
+        }
+    }
+
     private void RemoveExpired()
     {
         DateTimeOffset now = Now;

@@ -63,6 +63,25 @@ internal sealed class GcsStagedUploads(TimeProvider timeProvider)
     }
 
     /// <summary>
+    /// Waits its turn, then aborts every open upload - deleting its temporary file and freeing its
+    /// slot - for a whole-instance reset or restore (ADR-0167, decision 2).
+    /// </summary>
+    /// <param name="cancellationToken">Cancels the wait.</param>
+    /// <returns>A task that completes when every upload is aborted.</returns>
+    public Task AbortAllInTurnAsync(CancellationToken cancellationToken) =>
+        RunAsync(
+            async () =>
+            {
+                foreach (var upload in open.Values.ToList())
+                {
+                    await RemoveAsync(upload);
+                }
+
+                return true;
+            },
+            cancellationToken);
+
+    /// <summary>
     /// The open upload <paramref name="uploadId"/> names, when it is of <paramref name="kind"/>
     /// and was opened for <paramref name="target"/>'s bucket and object; else <see langword="null"/>.
     /// </summary>

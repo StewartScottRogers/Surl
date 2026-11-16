@@ -34,7 +34,8 @@ with one `McpServerRegistry.AddTool` line and holds nothing else of the tools.
     `stop_server`.
   - `GetEventsTool` (`get_events`): `server_id`, `after_sequence`, `kinds` (`exchange_started`,
     `exchange_ended`, `login_judged`, `store_changed`, `fault_applied`, `hook_failed`, `consumer_group_changed`), `scheme`, `listen_url`,
-    `account` and `max_events` (1 to 500, default 100), found with `SurlServer.FindEvents`. Result `{events,
+    `account`, `store` (a `StoreKind` in snake_case; a schema enum), `name` (a store change's name, exactly or as a
+    segment prefix) and `max_events` (1 to 500, default 100), found with `SurlServer.FindEvents`. Result `{events,
     has_more, dropped_event_count}`, oldest first.
   - `WaitForEventTool` (`wait_for_event`): the same filters and `timeout_ms` (1 to 60000, default 10000),
     waited for with `SurlServer.WaitForEventAsync` on the host's clock. Result `{event}`, or `{timed_out: true}`,
@@ -50,6 +51,7 @@ with one `McpServerRegistry.AddTool` line and holds nothing else of the tools.
     - `PublishMessageTool` (`publish_message`): `topic` (with `retain`) or `queue`, and `payload` or
       `payload_base64` -> `{published: true}`; `retain` with `queue` is refused.
     - `DeleteFileTool` (`delete_file`, BL-1175, ADR-0161): `path` -> `{path}`; nothing, a folder or a hidden path there is `no file at <path>`.
+    - The read-back tools (BL-1201, ADR-0164 decision 6): `ListMailboxesTool` (`list_mailboxes`), `ListMessagesTool` (`list_messages`), `ReadMessageTool` (`read_message`), `ReadFileTool` (`read_file`), `ListFilesTool` (`list_files`), `BrowseQueueTool` (`browse_queue`), `ReadRetainedMessageTool` (`read_retained_message`; none is `{retained: false}`) `ReadLogTool` (`read_log`), and for the Redis keyspace (BL-1218, decision 9) `ReadKeyTool` (`read_key`: `key` or `key_base64`, `database`; type, size, expiry and a string's `text` or `base64`), `ReadDirectoryTool` (`read_directory` -> `{ldif}`, BL-1219), `ReadZoneTool` (`read_zone`: `apex` -> `{apex, zone}`, no apex -> `{zones}`, BL-1220), and `ListKeysTool` (`list_keys`: `pattern`, `after_key`, `limit`, `database`; never a value). Bytes are `text` or `base64` by `ReadBackJson`; an absent item or a refusal is `isError` with the API message.
     - `AddAccountTool` (`add_account`): `user`, `password` -> `{user}`. A `:` in the name and a name taken are
       refused with the tool's own text (`user: a user name may not hold ':'`, `user <user> already has an
       account`), so no exception text and never the password is echoed.

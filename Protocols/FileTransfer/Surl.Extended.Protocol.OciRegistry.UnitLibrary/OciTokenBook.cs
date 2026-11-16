@@ -65,6 +65,17 @@ internal sealed class OciTokenBook(TimeProvider timeProvider, int maxLiveTokens 
     }
 
     /// <summary>
+    /// Revokes every token, so each is answered <c>401</c> on its next use (ADR-0167, decision 2).
+    /// </summary>
+    public void Clear()
+    {
+        lock (gate)
+        {
+            tokens.Clear();
+        }
+    }
+
+    /// <summary>
     /// The live token whose text is <paramref name="text"/>; an expired one is dropped.
     /// </summary>
     /// <param name="text">The token as the client sent it.</param>

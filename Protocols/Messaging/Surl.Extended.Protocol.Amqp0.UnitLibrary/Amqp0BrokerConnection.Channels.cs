@@ -79,6 +79,7 @@ internal sealed partial class Amqp0BrokerConnection
 
         try
         {
+            await RefuseWhenOutOfSpaceAsync(frame);
             AnswerOnChannel(frame);
             await SaveExchangesAsync();
             await SaveBusAsync();

@@ -207,6 +207,35 @@ public sealed class AuthenticationPolicy : IAuthenticationPolicy, IMailAuthentic
         return verdict;
     }
 
+    /// <summary>
+    /// The <see cref="LoginJudgedEvent.Mechanism"/> of a Kerberos login judged by
+    /// <see cref="JudgeKerberosLoginAsync"/>.
+    /// </summary>
+    public const string GssapiMechanism = "gssapi";
+
+    /// <inheritdoc/>
+    public async ValueTask<bool> JudgeKerberosLoginAsync(KerberosLogin login, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(login);
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var judgementStartedAt = timeProvider.GetUtcNow();
+        var acceptedAccountName = login.IsTokenAccepted ? login.ClientPrincipal ?? string.Empty : null;
+        var isAccepted = await ConcludeCheckedLoginAsync(
+            login.Scheme, GssapiMechanism, login.IsTokenAccepted ? login.ClientPrincipal : null, acceptedAccountName, login.Exchange, cancellationToken)
+            .ConfigureAwait(false);
+        if (!isAccepted)
+        {
+            var remaining = RefusalDelay - (timeProvider.GetUtcNow() - judgementStartedAt);
+            if (remaining > TimeSpan.Zero)
+            {
+                await Task.Delay(remaining, timeProvider, cancellationToken).ConfigureAwait(false);
+            }
+        }
+
+        return isAccepted;
+    }
+
     // A password login the account book cannot settle, for a name the book does not hold (ADR-0149, decision 6).
     private bool IsForTheDirectory(PasswordLogin login) =>
         settings.LdapAccountSource is not null

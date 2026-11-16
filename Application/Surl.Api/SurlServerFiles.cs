@@ -12,7 +12,13 @@ public sealed class SurlServerFiles
 {
     private readonly ComposedStores stores;
 
-    internal SurlServerFiles(ComposedStores stores) => this.stores = stores;
+    private readonly Action throwIfStopped;
+
+    internal SurlServerFiles(ComposedStores stores, Action throwIfStopped)
+    {
+        this.stores = stores;
+        this.throwIfStopped = throwIfStopped;
+    }
 
     /// <summary>
     /// Writes <paramref name="contents"/> at <paramref name="path"/> as an upload would, making any folder on the
@@ -54,5 +60,48 @@ public sealed class SurlServerFiles
         {
             throw new SurlSeedRefusedException(StoreKind.Content, result.ToString(), $"Deleting the file {path}");
         }
+    }
+
+    /// <summary>
+    /// Reads the file at <paramref name="path"/>: its exact bytes, size, modification time and content type.
+    /// Publishes nothing, asks no fault rule, and works on a <c>DataDirectory</c> server (ADR-0164, decisions 1 to 4).
+    /// </summary>
+    /// <param name="path">The file's request path, such as <c>/reports/a.txt</c>.</param>
+    /// <param name="cancellationToken">Cancels the read.</param>
+    /// <returns>The file.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="path"/> is null.</exception>
+    /// <exception cref="SurlNotFoundException">No file is there: nothing, a folder, or a hidden path such as one under <c>.surl</c>.</exception>
+    /// <exception cref="SurlReadRefusedException">The file is past 16 MiB, or the path is one a request may not name.</exception>
+    /// <exception cref="ObjectDisposedException">The server was stopped.</exception>
+    public async Task<SurlFileContents> ReadAsync(string path, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(path);
+        throwIfStopped();
+        var file = SurlReadResults.ValueOrThrow(await stores.ReadFileAsync(path, cancellationToken));
+        return new SurlFileContents(file.Bytes, file.ByteCount, file.ModifiedAt, file.ContentType);
+    }
+
+    /// <summary>
+    /// Lists the children of the folder at <paramref name="path"/> in ordinal order of name, one page at a time.
+    /// Publishes nothing and asks no fault rule (ADR-0164, decisions 1 to 4).
+    /// </summary>
+    /// <param name="path">The folder's request path; <c>/</c> for the root.</param>
+    /// <param name="afterName">The last name seen, or null to start at the first.</param>
+    /// <param name="limit">The most children to return, 1 to 1000.</param>
+    /// <param name="cancellationToken">Cancels the listing.</param>
+    /// <returns>The page.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="path"/> is null.</exception>
+    /// <exception cref="SurlNotFoundException">No folder is there.</exception>
+    /// <exception cref="SurlReadRefusedException">The limit is outside 1 to 1000, or the path is one a request may not name.</exception>
+    /// <exception cref="ObjectDisposedException">The server was stopped.</exception>
+    public Task<SurlFolderPage> ListAsync(string path, string? afterName = null, int limit = 100, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(path);
+        throwIfStopped();
+        return SurlReadResults.Completed(() =>
+        {
+            var page = SurlReadResults.ValueOrThrow(stores.ListFolder(path, afterName, limit, cancellationToken));
+            return new SurlFolderPage([.. page.Entries.Select(entry => new SurlFolderEntry(entry.Name, entry.IsFolder, entry.ByteCount))], page.HasMore);
+        });
     }
 }

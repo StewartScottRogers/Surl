@@ -54,4 +54,9 @@ public enum StoreKind
     /// The Kafka brokers' idempotent-producer sequence windows, with their consumer groups dropped on reset and restore (ADR-0159).
     /// </summary>
     Producers,
+
+    /// <summary>
+    /// The extended servers' in-progress upload registrations, such as OCI blob uploads and MCP upload tokens (ADR-0167).
+    /// </summary>
+    Uploads,
 }

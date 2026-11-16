@@ -53,12 +53,20 @@ internal static class SurlEventFacts
         surlEvent.Sequence > query.AfterSequence
         && IsWithin(surlEvent.At, query)
         && IsOfKindAndStore(surlEvent, query)
+        && IsNamed(surlEvent, query)
         && IsOfSchemeAndListenUrl(surlEvent, exchange, query)
         && (query.Account is null || NamesAccount(surlEvent, exchange, query.Account));
 
     private static bool IsOfKindAndStore(SurlEvent surlEvent, SurlEventQuery query) =>
         (query.Kind is null || KindOf(surlEvent) == query.Kind)
         && (query.Store is null || (surlEvent is StoreChangedEvent change && change.Store == query.Store));
+
+    private static bool IsNamed(SurlEvent surlEvent, SurlEventQuery query) =>
+        query.Name is not { } name
+        || (surlEvent is StoreChangedEvent change && IsNameOrSegmentPrefix(name, change.Name));
+
+    private static bool IsNameOrSegmentPrefix(string prefix, string name) =>
+        name == prefix || name.StartsWith(prefix.EndsWith('/') ? prefix : prefix + '/', StringComparison.Ordinal);
 
     private static bool IsOfSchemeAndListenUrl(SurlEvent surlEvent, ExchangeFacts? exchange, SurlEventQuery query) =>
         IsScheme(OwnSchemeOf(surlEvent) ?? exchange?.Scheme, query)

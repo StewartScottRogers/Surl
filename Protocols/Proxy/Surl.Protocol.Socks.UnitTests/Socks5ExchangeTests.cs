@@ -275,6 +275,23 @@ public sealed class Socks5ExchangeTests
     }
 
     [TestMethod]
+    public async Task ServeAsync_UserNameAndPasswordLogin_PassesTheConnectionsExchangeToThePolicy()
+    {
+        var client = ConnectionOf(Fixture("socks5h-user-rejected", "request.bin"));
+        var accounts = new ScriptedProxyAccounts();
+
+        await ServeAsync(client, new InMemoryOriginConnector(), "socks5h", accounts);
+
+        Assert.IsTrue(accounts.Logins.Any(login => login.UserName is not null));
+        foreach (var login in accounts.Logins)
+        {
+            Assert.IsNotNull(login.Exchange);
+            Assert.AreEqual(1, login.Exchange.ExchangeId);
+            Assert.AreEqual("socks5h", login.Exchange.Scheme);
+        }
+    }
+
+    [TestMethod]
     [DataRow(PasswordLoginVerdict.RefusedAnonymous, new byte[] { 0x01, 0x01 })]
     [DataRow(PasswordLoginVerdict.AcceptedUnchecked, new byte[] { 0x01, 0x00 })]
     public async Task ServeAsync_LoginJudgedWithoutACheck_AnswersTheVerdictWithoutALoginNote(PasswordLoginVerdict verdict, byte[] reply)

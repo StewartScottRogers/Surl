@@ -53,6 +53,8 @@ internal sealed class UnitTestS3AuthenticationPolicy(UnitTestUnsignedRequests un
 
     public List<TlsSession?> StartedConnections { get; } = [];
 
+    public List<LoginExchange?> StartedExchanges { get; } = [];
+
     /// <summary>
     /// The chain a signed request with <c>STREAMING-AWS4-HMAC-SHA256-PAYLOAD</c> proceeds with,
     /// as <c>Surl.Authentication</c> gives one once the seed signature verifies.
@@ -67,6 +69,13 @@ internal sealed class UnitTestS3AuthenticationPolicy(UnitTestUnsignedRequests un
         StartedConnections.Add(tlsSession);
 
         return new Session(this);
+    }
+
+    public IHttpAuthenticationSession StartHttpConnection(TlsSession? tlsSession, LoginExchange? exchange)
+    {
+        StartedExchanges.Add(exchange);
+
+        return StartHttpConnection(tlsSession);
     }
 
     private static string? FieldValue(HttpAuthenticationRequest request, string name) =>

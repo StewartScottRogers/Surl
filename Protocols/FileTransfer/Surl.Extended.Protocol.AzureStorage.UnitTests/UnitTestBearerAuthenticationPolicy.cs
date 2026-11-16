@@ -43,6 +43,18 @@ internal sealed class UnitTestBearerAuthenticationPolicy(bool allowsAnonymous) :
         return new Session(this);
     }
 
+    /// <summary>
+    /// The exchange each started connection was given, in order.
+    /// </summary>
+    public List<LoginExchange?> StartedExchanges { get; } = [];
+
+    public IHttpAuthenticationSession StartHttpConnection(TlsSession? tlsSession, LoginExchange? exchange)
+    {
+        StartedExchanges.Add(exchange);
+
+        return StartHttpConnection(tlsSession);
+    }
+
     private sealed class Session(UnitTestBearerAuthenticationPolicy policy) : IHttpAuthenticationSession
     {
         public ValueTask<HttpAuthenticationVerdict> JudgeAsync(HttpAuthenticationRequest request, CancellationToken cancellationToken)

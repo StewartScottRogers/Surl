@@ -9,7 +9,7 @@ public sealed class McpAuthorizationGrantsTests
     public void IssueTokens_RefreshTokensFullWhileAccessTokensAreNot_IsNull()
     {
         FixedTimeProvider clock = new(McpHttpHarness.Now);
-        McpAuthorizationGrants grants = new(new CountingRandomNumberGenerator(), clock);
+        McpAuthorizationGrants grants = new(new CountingRandomNumberGenerator(), clock, new UnitTestBearerAuthenticationPolicy(false));
         for (int i = 0; i < McpExpiringTable<McpIssuedToken>.MaximumEntries; i++)
         {
             grants.IssueTokens(Grant, withRefreshToken: true);
@@ -27,7 +27,7 @@ public sealed class McpAuthorizationGrantsTests
     [TestMethod]
     public void AccountOf_TokenForAnotherResource_IsNull()
     {
-        McpAuthorizationGrants grants = new(new CountingRandomNumberGenerator(), new FixedTimeProvider(McpHttpHarness.Now));
+        McpAuthorizationGrants grants = new(new CountingRandomNumberGenerator(), new FixedTimeProvider(McpHttpHarness.Now), new UnitTestBearerAuthenticationPolicy(false));
         McpTokenPair tokens = grants.IssueTokens(Grant, withRefreshToken: false)!;
 
         Assert.AreEqual("alice", grants.AccountOf(tokens.AccessToken, Grant.Resource));

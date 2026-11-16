@@ -23,9 +23,11 @@ archives hold the same server as a native binary that needs no .NET runtime.
 - `get_exchanges` - the bytes each client sent and was answered, with the listen URL and scheme of each
   exchange, filtered by scheme and listen URL.
 - `get_events` - the events a server kept (exchanges started and ended, logins judged, store changes, faults
-  applied, hooks failed), filtered by kind, scheme, listen URL, account and sequence.
+  applied, hooks failed), filtered by kind, scheme, listen URL, account, `store` and `name` and sequence.
 - `wait_for_event` - waits up to `timeout_ms` (1 to 60000 milliseconds) for the first event matching the
-  same filters, or answers `timed_out`.
+  same filters, or answers `timed_out`. `store` is a store in snake_case (`content`, `mail`, `bus`, ...) and
+  `name` a path, mailbox, topic, queue, key or account, matched exactly or as a segment prefix
+  (`/uploads` matches `/uploads/a.txt`, not `/uploads2`), case-sensitive; only store changes match either.
 - `seed_mail`, `put_file`, `delete_file`, `publish_message`, `add_account`, `remove_account` - change a
   running server's stores as a test would. `delete_file` takes a request `path` and answers `{path}`;
   `no file at <path>` when nothing, a folder or a hidden path is there. `remove_account` takes a `user`
@@ -40,6 +42,18 @@ archives hold the same server as a native binary that needs no .NET runtime.
   composed is refused with the store's own words.
 - `reset_server`, `snapshot_server`, `restore_server` - return a server's stores, the three above included, and
   the AMQP 0-9-1 and MQTT 5 broker state, to their configured state, or save and restore them.
+- `list_mailboxes`, `list_messages`, `read_message`, `read_file`, `list_files`, `browse_queue`,
+  `read_retained_message`, `read_log` - read back what a client left (ADR-0164), each with a `server_id`.
+  They are `list_mailboxes` (`owner`), `list_messages` (`owner`, `mailbox`, `after_uid`, `limit`),
+  `read_message` (`owner`, `mailbox`, `uid`), `read_file` (`path`), `list_files` (`path`, `after_name`,
+  `limit`), `browse_queue` (`queue`, `after_position`, `limit`), `read_retained_message` (`topic`) and
+  `read_log` (`topic`, `from_offset`, `limit`). `read_key` (`key` or `key_base64`, `database`) and `list_keys`
+  (`pattern`, `after_key`, `limit`, `database`) read back the Redis keyspace, `read_directory` (`{"ldif"}`, `userPassword` values omitted) the LDAP directory, and `read_zone` (`{"apex","zone"}` for one `apex`, else `{"zones":[...]}`) the DNS zones, the same way (ADR-0164 decision 9): a key
+  with its type, size, expiry and, for a string, its value; a listing never holds a value. Bytes come back as `text` when well-formed UTF-8, else
+  `base64` (a log key as `key` or `key_base64`). One item is at most 16 MiB and a list takes `limit` 1 to
+  1000 (default 100) with `has_more`. A read changes nothing, publishes no event and trips no fault. An absent
+  owner, mailbox, UID, file, queue or log, or a breach of a bound, is `isError: true` with the reason; an
+  absent retained message answers `{"retained": false}`, not an error.
 - `add_fault`, `list_faults`, `remove_fault` - make a listener, account or path misbehave on purpose. There
   is no clear-faults tool (ADR-0161).
 

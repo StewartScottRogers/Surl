@@ -41,6 +41,18 @@ internal sealed class McpTestHost : IAsyncDisposable
         SeedMail = SeedMailTool.Create(Servers);
         PutFile = PutFileTool.Create(Servers);
         DeleteFile = DeleteFileTool.Create(Servers);
+        ListMailboxes = ListMailboxesTool.Create(Servers);
+        ListMessages = ListMessagesTool.Create(Servers);
+        ReadMessage = ReadMessageTool.Create(Servers);
+        ReadFile = ReadFileTool.Create(Servers);
+        ListFiles = ListFilesTool.Create(Servers);
+        BrowseQueue = BrowseQueueTool.Create(Servers);
+        ReadRetainedMessage = ReadRetainedMessageTool.Create(Servers);
+        ReadLog = ReadLogTool.Create(Servers);
+        ReadKey = ReadKeyTool.Create(Servers);
+        ListKeys = ListKeysTool.Create(Servers);
+        ReadDirectory = ReadDirectoryTool.Create(Servers);
+        ReadZone = ReadZoneTool.Create(Servers);
         RemoveAccount = RemoveAccountTool.Create(Servers);
         PublishMessage = PublishMessageTool.Create(Servers);
         AddAccount = AddAccountTool.Create(Servers);
@@ -68,6 +80,30 @@ internal sealed class McpTestHost : IAsyncDisposable
     public McpTool StopServer { get; }
 
     public McpTool DeleteFile { get; }
+
+    public McpTool ListMailboxes { get; }
+
+    public McpTool ListMessages { get; }
+
+    public McpTool ReadMessage { get; }
+
+    public McpTool ReadFile { get; }
+
+    public McpTool ListFiles { get; }
+
+    public McpTool BrowseQueue { get; }
+
+    public McpTool ReadRetainedMessage { get; }
+
+    public McpTool ReadLog { get; }
+
+    public McpTool ReadKey { get; }
+
+    public McpTool ListKeys { get; }
+
+    public McpTool ReadDirectory { get; }
+
+    public McpTool ReadZone { get; }
 
     public McpTool RemoveAccount { get; }
 

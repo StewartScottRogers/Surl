@@ -73,6 +73,11 @@ What it holds:
   (`Login accepted: <method> <user>`, ADR-0032 section 8). `Surl.Authentication`
   implements it; `AnonymousAuthenticationPolicy` accepts every login and lets every request
   proceed, and is the test double protocol tests share.
+- The TLS-SRP and Kerberos login judging contracts (ADR-0165; BL-1221): `ITlsLoginJudge`
+  (`ShouldRefuseAsync`, `Judged`), which `IConnection.UseTlsLoginJudge` hands a connection (a
+  default member that does nothing), and `KerberosLogin`, which
+  `IAuthenticationPolicy.JudgeKerberosLoginAsync` judges (default: returns `IsTokenAccepted`,
+  publishes nothing). Every existing server and test double is unchanged.
 - The SASL login contract (ADR-0049, section 6, made protocol-neutral by ADR-0072 decision
   4), beside `IAuthenticationPolicy`: `ISaslAuthenticationPolicy` (the mechanisms a
   connection offers, asked with a `SaslOfferRequest`, and one `ISaslExchange` per login

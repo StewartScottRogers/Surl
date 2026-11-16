@@ -75,8 +75,16 @@ public sealed class S3ProtocolServer : IConnectionProtocolServer, IConnectionRef
         ArgumentNullException.ThrowIfNull(connection);
         ArgumentNullException.ThrowIfNull(context);
 
-        return new Http1ConnectionServer(new S3RequestAnswerer(store, index, authenticationPolicy.StartHttpConnection(connection.TlsSession), context, uploads, connection.TlsSession is not null), context).ServeAsync(connection);
+        return new Http1ConnectionServer(new S3RequestAnswerer(store, index, authenticationPolicy.StartHttpConnection(connection.TlsSession, LoginExchange.Of(context)), context, uploads, connection.TlsSession is not null), context).ServeAsync(connection);
     }
+
+    /// <summary>
+    /// Aborts every open multipart upload, deleting its temporary file and freeing its slot, so a
+    /// later part or complete for it answers <c>NoSuchUpload</c> (ADR-0167, decision 2).
+    /// </summary>
+    /// <param name="cancellationToken">Cancels the wait for a request in progress.</param>
+    /// <returns>A task that completes when every upload is aborted.</returns>
+    public Task AbortOpenUploadsAsync(CancellationToken cancellationToken) => uploads.AbortAllAsync(cancellationToken);
 
     /// <inheritdoc/>
     public async ValueTask WriteRefusalAsync(IConnection connection, ConnectionRefusal refusal, CancellationToken cancellationToken)

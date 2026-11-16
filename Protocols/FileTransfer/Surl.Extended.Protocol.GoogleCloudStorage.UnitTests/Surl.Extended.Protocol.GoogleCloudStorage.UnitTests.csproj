@@ -10,6 +10,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Surl.Extended.Protocol.GoogleCloudStorage.UnitLibrary\Surl.Extended.Protocol.GoogleCloudStorage.UnitLibrary.csproj" />
+    <ProjectReference Include="..\..\..\Foundation\Surl.Authentication.UnitLibrary\Surl.Authentication.UnitLibrary.csproj" />
   </ItemGroup>
 
 </Project>

@@ -193,6 +193,13 @@ public sealed class LdapProtocolServer : IConnectionProtocolServer
     public void SeedDirectoryEntries(string ldif) => directory.SeedEntries(ldif);
 
     /// <summary>
+    /// Writes the directory as LDIF (ADR-0164 decision 9): publishes nothing, asks no fault rule, omits every
+    /// <c>userPassword</c> value.
+    /// </summary>
+    /// <returns>The LDIF text.</returns>
+    public string ExportDirectoryLdif() => directory.ExportLdif();
+
+    /// <summary>
     /// Returns the directory to the entries it was built with (ADR-0158 decision 4).
     /// </summary>
     public void ResetDirectory() => directory.Reset();

@@ -3,8 +3,11 @@ namespace Surl.Extended.Protocol.Amqp0;
 /// <summary>What <see cref="Amqp0ExchangeTable.Declare"/> did.</summary>
 internal enum Amqp0ExchangeDeclareOutcome
 {
-    /// <summary>The exchange exists now as declared, made or found.</summary>
+    /// <summary>The exchange existed and is the same as declared; nothing changed.</summary>
     Declared,
+
+    /// <summary>The exchange did not exist and was made.</summary>
+    Created,
 
     /// <summary>It exists with another type: connection exception 530.</summary>
     TypeDiffers,

@@ -81,4 +81,14 @@ public enum StoreChange
     /// stores, named <c>$group/&lt;group id, % and / percent-encoded&gt;/&lt;canonical topic&gt;</c>.
     /// </summary>
     Committed,
+
+    /// <summary>
+    /// A binding was added to an exchange (ADR-0166): <see cref="StoreChangedEvent.Name"/> is <c>&lt;source&gt;/&lt;destination&gt;/&lt;routing key&gt;</c>.
+    /// </summary>
+    Bound,
+
+    /// <summary>
+    /// A binding was removed from an exchange, alone or because its exchange was deleted (ADR-0166).
+    /// </summary>
+    Unbound,
 }

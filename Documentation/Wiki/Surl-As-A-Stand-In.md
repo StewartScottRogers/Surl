@@ -67,6 +67,15 @@ var delivered = await server.WaitForEventAsync(
     TimeSpan.FromSeconds(5));
 ```
 
+`SurlEventQuery.Name` finds one store change by what it touched: the path, mailbox, topic, queue, key or
+account, matched exactly or as a segment prefix (`/uploads` matches `/uploads` and `/uploads/report.csv`, not
+`/uploads2`), case-sensitive, and only a `StoreChanged` event matches (ADR-0164 decision 8):
+
+```csharp
+var uploaded = await server.WaitForEventAsync(
+    new SurlEventQuery { Store = StoreKind.Content, Name = "/uploads/report.csv" }, TimeSpan.FromSeconds(5));
+```
+
 ## Controlling: seed, reset, snapshot, restore
 
 ```csharp
@@ -101,6 +110,31 @@ zone for an apex you did not reset. `ResetAsync` and `RestoreAsync` cover these 
 first four, and also the broker state the message bus carries: the AMQP 0-9-1 broker's declared exchanges and
 bindings and the MQTT 5 broker's sessions kept with no connection (ADR-0159). Unit tests:
 `SurlServerTests.Lookups`.
+
+## Reading back what a client left
+
+A test checks the mail store, the content store and the message bus without opening its own IMAP, HTTP or AMQP
+client (ADR-0164):
+
+```csharp
+var mail = await server.Mail.ListMessagesAsync("bob", "INBOX");                 // UID, size, flags, internal date
+var message = await server.Mail.ReadMessageAsync("bob", "INBOX", mail.Messages[0].Uid);   // Summary and Bytes
+var file = await server.Files.ReadAsync("/reports/a.csv");                      // Bytes, ByteCount, ModifiedAt, ContentType
+var folder = await server.Files.ListAsync("/reports");                          // Entries (Name, IsFolder, ByteCount)
+var queued = await server.Messages.BrowseQueueAsync("orders");                  // ready messages, never consumed
+var retained = await server.Messages.ReadRetainedAsync("sensors/1");            // null when none
+var log = await server.Messages.ReadLogAsync("events", fromOffset: 0);          // records and NextOffset
+var key = await server.Keys.GetAsync("session:1");                              // Info (type, size, expiry) and Text
+var keys = await server.Keys.ListAsync("session:*");                            // names, types and sizes, no values
+var ldif = await server.Directory.ExportLdifAsync();                                // the LDAP directory as LDIF, no userPassword
+var zone = await server.Zones.ReadAsync("example.com");                                 // one DNS zone as master-file text (Zones.ListAsync lists the apexes)
+```
+
+`ListMailboxesAsync(owner)` lists an owner's mailboxes. A read changes nothing, publishes no event, never
+trips a fault rule and works on a `DataDirectory` server. One item is at most 16 MiB and a list takes `limit`
+1 to 1000 (default 100), answering `HasMore`; a breach throws `SurlReadRefusedException`, an absent item
+`SurlNotFoundException`. The `.surl` state folder is never served. The same reads are `Surl.Mcp` tools and
+control-endpoint routes, below.
 
 ## Faults
 
@@ -152,7 +186,13 @@ bytes); `--control` without a token file is refused, and a request without the t
 `DELETE /v1/faults/<id>`, `POST /v1/mail?to=<mailbox>`, `PUT` and `DELETE /v1/files/<path>`,
 `POST /v1/messages`, `PUT /v1/keys/<database>/<key>` (`expire_ms` query), `POST /v1/directory` (LDIF body),
 `PUT /v1/zones/<apex>` (zone-file body), `POST /v1/accounts`, `DELETE /v1/accounts/<name>`, `POST /v1/reset`,
-`POST /v1/snapshots` and `POST /v1/snapshots/<id>/restore`. With curl, as the recipe runs it:
+`POST /v1/snapshots` and `POST /v1/snapshots/<id>/restore`. The read-back routes are all `GET`:
+`/v1/mail/<owner>`, `/v1/mail/<owner>/<mailbox>` (`after_uid`, `limit`), `/v1/mail/<owner>/<mailbox>/<uid>`,
+`/v1/files/<path>` (the bytes), `/v1/files/<path>/` (a listing; `after_name`, `limit`),
+`/v1/queues/<name>/messages` (`after_position`, `limit`), `/v1/topics/<name>/retained` and
+`/v1/topics/<name>/log` (`from_offset`, `limit`), `/v1/keys/<key>` (`database`) and `/v1/keys` (`pattern`, `after_key`,
+`limit`, `database`) and `/v1/directory` (LDIF, no `userPassword`). `GET /v1/events` and `GET /v1/events/wait` also take `store`
+and `name`. With curl, as the recipe runs it:
 
 ```
 curl -sS --fail-with-body -X POST -H "Authorization: Bearer $TOKEN" \
@@ -170,7 +210,9 @@ Recipe: `StandInControlEndpointRecipeTests`. The endpoint has no hooks (decision
 
 `surl-mcp` offers `start_server`, `list_servers`, `stop_server`, `get_exchanges`, `get_events`,
 `wait_for_event`, `seed_mail`, `put_file`, `delete_file`, `publish_message`, `set_key`, `add_ldap_entries`,
-`add_dns_zone`, `add_account`, `remove_account`, `reset_server`,
+`add_dns_zone`, `add_account`, `remove_account`, `list_mailboxes`, `list_messages`, `read_message`,
+`read_file`, `list_files`, `browse_queue`, `read_retained_message`, `read_log`, `read_key`, `list_keys`, `read_directory`, `read_zone` (the read-back tools; `get_events`
+and `wait_for_event` also take `store` and `name`), `reset_server`,
 `snapshot_server`, `restore_server`, `add_fault`, `list_faults` and `remove_fault`, and the `surl://aihelp`
 resources. See [`Application/Surl.Mcp/README.md`](../../Application/Surl.Mcp/README.md).
 
@@ -186,8 +228,9 @@ code under test, and a test is inconclusive where no pinned build is installed.
 - **Injected faults** - `StandInFaultRecipeTests.cs` (tests named above).
 - **Parallel instances** - `StandInParallelInstancesRecipeTests.cs` (tests named above).
 - **Publish and consume** - `StandInPublishAndConsumeRecipeTests.cs`:
-  `PublishOverMqtt_ThenConsumeOverNats_ReceivesTheExactPayload`, `PublishOverMqtt_ThenConsumeOverStomp_ReceivesTheExactPayload`.
-  Upstream curl speaks neither NATS nor STOMP, so a test-local `TcpClient` writes those protocols' frames.
+  `PublishOverMqtt_ThenConsumeOverNats_ReceivesTheExactPayload`, `PublishOverMqtt_ThenConsumeOverStomp_ReceivesTheExactPayload`,
+  `PublishOverMqtt_ThenConsumeOverRedis_ReceivesTheExactPayload`.
+  Upstream curl speaks none of NATS, STOMP or Redis, so a test-local `TcpClient` writes those protocols' frames.
 - **Control endpoint** - `StandInControlEndpointRecipeTests.cs`: `SeedMail_ThenReadOverImap_ReturnsTheSeededMessage`,
   `RefuseLoginFault_ThenReadOverImap_FailsWithLoginDeniedUntilTheFaultIsRemoved`,
   `WaitForEvent_AfterTheImapExchange_ReturnsThatExchange`, `Reset_AfterSeeding_LeavesTheMailboxEmpty`,

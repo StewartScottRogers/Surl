@@ -79,7 +79,7 @@ public sealed partial class Amqp0BrokerConnectionTests
         var (written, log) = await ServeFaultedAsync(new ScriptedFaultPlan(FaultRule("exchange.declare", "x", reply)), events, ExchangeDeclare(1, "x", "direct"));
 
         AssertAnswered(written, ExchangeDeclareOk(1));
-        Assert.IsEmpty(events.Events);
+        Assert.IsEmpty(events.Events.OfType<FaultAppliedEvent>());
         CollectionAssert.Contains(log.Notes.ToArray(), "exchange.declare x: fault rule f1 is not an error with an AMQP 0-9-1 reply code and text; not applied.");
     }
 

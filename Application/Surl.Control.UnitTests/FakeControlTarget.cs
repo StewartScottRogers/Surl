@@ -150,6 +150,136 @@ internal sealed class FakeControlTarget : IControlTarget
         return Task.CompletedTask;
     }
 
+    /// <summary>What <see cref="ListMailboxesAsync"/> answers.</summary>
+    public List<ControlMailbox> Mailboxes { get; } = [];
+
+    /// <summary>What <see cref="ListMessagesAsync"/> answers.</summary>
+    public ControlMailMessagePage MessagePage { get; set; } = new([], false);
+
+    /// <summary>What <see cref="ReadMessageAsync"/> answers.</summary>
+    public ControlMailMessage? Message { get; set; }
+
+    /// <summary>What <see cref="ReadFileAsync"/> answers.</summary>
+    public ControlFileContents? File { get; set; }
+
+    /// <summary>What <see cref="ListFolderAsync"/> answers.</summary>
+    public ControlFolderPage FolderPage { get; set; } = new([], false);
+
+    /// <summary>What <see cref="BrowseQueueAsync"/> answers.</summary>
+    public ControlQueuePage QueuePage { get; set; } = new([], 0, 0, false);
+
+    /// <summary>What <see cref="ReadRetainedMessageAsync"/> answers.</summary>
+    public ControlRetainedMessage? Retained { get; set; }
+
+    /// <summary>What <see cref="ReadLogAsync"/> answers.</summary>
+    public ControlLogPage LogPage { get; set; } = new([], 0, false);
+
+    public Task<IReadOnlyList<ControlMailbox>> ListMailboxesAsync(string owner, CancellationToken cancellationToken)
+    {
+        Record($"ListMailboxes {owner}");
+
+        return Task.FromResult<IReadOnlyList<ControlMailbox>>(Mailboxes);
+    }
+
+    public Task<ControlMailMessagePage> ListMessagesAsync(string owner, string mailbox, uint afterUid, int limit, CancellationToken cancellationToken)
+    {
+        Record($"ListMessages {owner} {mailbox} {afterUid} {limit}");
+
+        return Task.FromResult(MessagePage);
+    }
+
+    public Task<ControlMailMessage> ReadMessageAsync(string owner, string mailbox, uint uid, CancellationToken cancellationToken)
+    {
+        Record($"ReadMessage {owner} {mailbox} {uid}");
+
+        return Task.FromResult(Message!);
+    }
+
+    public Task<ControlFileContents> ReadFileAsync(string path, CancellationToken cancellationToken)
+    {
+        Record($"ReadFile {path}");
+
+        return Task.FromResult(File!);
+    }
+
+    public Task<ControlFolderPage> ListFolderAsync(string path, string? afterName, int limit, CancellationToken cancellationToken)
+    {
+        Record($"ListFolder {path} {afterName ?? "-"} {limit}");
+
+        return Task.FromResult(FolderPage);
+    }
+
+    public Task<ControlQueuePage> BrowseQueueAsync(string queue, int afterPosition, int limit, CancellationToken cancellationToken)
+    {
+        Record($"BrowseQueue {queue} {afterPosition} {limit}");
+
+        return Task.FromResult(QueuePage);
+    }
+
+    public Task<ControlRetainedMessage> ReadRetainedMessageAsync(string topic, CancellationToken cancellationToken)
+    {
+        Record($"ReadRetained {topic}");
+
+        return Task.FromResult(Retained!);
+    }
+
+    public Task<ControlLogPage> ReadLogAsync(string topic, long fromOffset, int limit, CancellationToken cancellationToken)
+    {
+        Record($"ReadLog {topic} {fromOffset} {limit}");
+
+        return Task.FromResult(LogPage);
+    }
+
+    /// <summary>What <see cref="ReadKeyAsync"/> answers.</summary>
+    public ControlKeyContents KeyContents { get; set; } = new(new ControlKeyInfo(new byte[] { 107 }, "string", 1, null), new byte[] { 118 });
+
+    /// <summary>What <see cref="ListKeysAsync"/> answers.</summary>
+    public ControlKeyPage KeyPage { get; set; } = new([], false);
+
+    public Task<ControlKeyContents> ReadKeyAsync(int database, ReadOnlyMemory<byte> key, CancellationToken cancellationToken)
+    {
+        Record($"ReadKey {database} {System.Text.Encoding.UTF8.GetString(key.Span)}");
+
+        return Task.FromResult(KeyContents);
+    }
+
+    public Task<ControlKeyPage> ListKeysAsync(int database, string pattern, ReadOnlyMemory<byte> afterKey, int limit, CancellationToken cancellationToken)
+    {
+        Record($"ListKeys {database} {pattern} {System.Text.Encoding.UTF8.GetString(afterKey.Span)} {limit}");
+
+        return Task.FromResult(KeyPage);
+    }
+
+    /// <summary>What <see cref="ReadDirectoryLdifAsync"/> answers.</summary>
+    public string DirectoryLdif { get; set; } = "version: 1\n";
+
+    public Task<string> ReadDirectoryLdifAsync(CancellationToken cancellationToken)
+    {
+        Record("ReadDirectory");
+
+        return Task.FromResult(DirectoryLdif);
+    }
+
+    /// <summary>What <see cref="ListZonesAsync"/> answers.</summary>
+    public IReadOnlyList<string> ZoneApexes { get; set; } = [];
+
+    /// <summary>What <see cref="ReadZoneAsync"/> answers.</summary>
+    public string ZoneText { get; set; } = "example.test. 60 IN SOA a. b. 1 2 3 4 5\n";
+
+    public Task<IReadOnlyList<string>> ListZonesAsync(CancellationToken cancellationToken)
+    {
+        Record("ListZones");
+
+        return Task.FromResult(ZoneApexes);
+    }
+
+    public Task<string> ReadZoneAsync(string apex, CancellationToken cancellationToken)
+    {
+        Record($"ReadZone {apex}");
+
+        return Task.FromResult(ZoneText);
+    }
+
     private void Record(string call)
     {
         if (Failure is not null)
