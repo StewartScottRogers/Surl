@@ -8,7 +8,7 @@ depends-on: [BL-1235]
 touches: [Documentation/Planning/Roadmap.md]
 requirement: none
 created: 2026-11-15
-completed:
+completed: 2026-11-15
 ---
 # BL-1237 — Bring the Roadmap's shared-stores and hosts tracks up to date with the closed parents and Surl.Api's control endpoint
 
@@ -39,13 +39,13 @@ Not built, Decisions).
 
 ## Acceptance criteria
 
-- [ ] The shared-stores track names BL-653, BL-654, BL-663 and BL-666 as Done through their parts (BL-880 to
+- [x] The shared-stores track names BL-653, BL-654, BL-663 and BL-666 as Done through their parts (BL-880 to
       BL-883, BL-987 to BL-995), not as deferred.
-- [ ] The hosts track says `Surl.Api` serves the control endpoint through `SurlServerOptions.ControlListenUrl`
+- [x] The hosts track says `Surl.Api` serves the control endpoint through `SurlServerOptions.ControlListenUrl`
       and `ControlTokenFile` and reports `SurlServer.ControlUrl` (BL-1176), and no longer lists it as not built.
-- [ ] The hosts track no longer says BL-816 stays Deferred or that `--control`'s help text says it is not
+- [x] The hosts track no longer says BL-816 stays Deferred or that `--control`'s help text says it is not
       served; whatever it says about the help text matches `Application/Surl.Cli.UnitLibrary` today.
-- [ ] `Select-String -Path Documentation/Planning/Roadmap.md -Pattern 'stays Deferred','deferred parents'`
+- [x] `Select-String -Path Documentation/Planning/Roadmap.md -Pattern 'stays Deferred','deferred parents'`
       finds nothing.
 
 ## Notes
@@ -56,3 +56,4 @@ Not built, Decisions).
 
 - 2026-11-15: Created.
 - 2026-11-15: Backlog -> Doing.
+- 2026-11-15: Doing -> Done. Roadmap shared-stores and hosts tracks now match the closed parents, BL-1176 and the current --control help
