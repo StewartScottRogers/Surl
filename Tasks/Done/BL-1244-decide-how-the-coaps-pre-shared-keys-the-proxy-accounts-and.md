@@ -8,7 +8,7 @@ depends-on: []
 touches: [Documentation/Planning/Decisions]
 requirement: FR-061
 created: 2026-11-16
-completed:
+completed: 2026-11-16
 ---
 # BL-1244 — Decide how the coaps pre-shared keys, the proxy accounts and the TLS-SRP accounts are judged, published and controlled like the account store
 
@@ -32,14 +32,17 @@ ADR-0124 decision 3 and ADR-0132 name only the `--user`, `--user-file`, `--mailb
 
 ## Acceptance criteria
 
-- [ ] A new ADR under `Documentation/Planning/Decisions/`, with the next free number, marked "Decided by Claude under Stewart's delegation", answers the questions above for all three sources, with the reason for each in-or-out choice.
-- [ ] ADR-0124 and ADR-0132 carry an "Amended by" line naming the new ADR where it changes them.
-- [ ] Every wire behaviour the ADR pins cites its specification (coaps) or a measurement of pinned upstream curl 8.21.0 (proxy, TLS-SRP), or states that no byte changes.
-- [ ] One feature task per library the ADR changes is filed with `task-board.ps1 new`, depending on this task, with exact `touches`, contracts before servers, host tasks (`Surl.Api`, `Surl.Mcp.UnitLibrary`, `Surl.Control.UnitLibrary`) after the composition task. Each is listed in Notes.
+- [x] A new ADR under `Documentation/Planning/Decisions/`, with the next free number, marked "Decided by Claude under Stewart's delegation", answers the questions above for all three sources, with the reason for each in-or-out choice.
+- [x] ADR-0124 and ADR-0132 carry an "Amended by" line naming the new ADR where it changes them.
+- [x] Every wire behaviour the ADR pins cites its specification (coaps) or a measurement of pinned upstream curl 8.21.0 (proxy, TLS-SRP), or states that no byte changes.
+- [x] One feature task per library the ADR changes is filed with `task-board.ps1 new`, depending on this task, with exact `touches`, contracts before servers, host tasks (`Surl.Api`, `Surl.Mcp.UnitLibrary`, `Surl.Control.UnitLibrary`) after the composition task. Each is listed in Notes.
 
 ## Notes
+
+Decided in ADR-0170 (Decided by Claude under Stewart's delegation): coaps PSK reads the live AccountBook; proxy and TLS-SRP accounts become their own stores (StoreKind.ProxyAccounts, TlsSrpAccounts) because their credential spaces differ from server accounts. No wire byte changes, so no new curl measurement. Follow-up tasks filed: BL-1274 (Authentication), BL-1275 (Dtls), BL-1276 (Abstractions), BL-1277 (TlsSrp), BL-1278 (Coap), BL-1279 (Composition, after those), BL-1280 (Api), BL-1281 (Mcp), BL-1282 (Control), the last three after BL-1279.
 
 ## Log
 
 - 2026-11-16: Created.
 - 2026-11-16: Backlog -> Doing.
+- 2026-11-16: Doing -> Done. ADR-0170 decides how coaps PSK, proxy and TLS-SRP accounts are judged, published and controlled; BL-1274 to BL-1282 filed
