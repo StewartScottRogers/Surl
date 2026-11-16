@@ -6,6 +6,7 @@
   which built it.
 - **Amends:** [ADR-0124](ADR-0124-surl-is-a-stand-in-for-tests.md) decision 1: `StoreChange` gains
   `Renamed`, `Created` and `MetadataStored`, and `StoreChangedEvent` gains `PreviousName`.
+- **Amended by:** [ADR-0168](ADR-0168-how-the-content-store-and-the-mail-store-learn-the-exchange-behind-a-write.md) (the content-change rule: `ExchangeId` is set when the caller was built for an exchange).
 - **Details:** ADR-0124 decision 4's `out-of-space` row for the content store.
 
 ## Context

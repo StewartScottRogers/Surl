@@ -8,7 +8,7 @@ depends-on: []
 touches: [Documentation/Planning/Decisions]
 requirement: FR-062
 created: 2026-11-16
-completed:
+completed: 2026-11-16
 ---
 # BL-1239 — Decide how the content store and the mail store learn the exchange behind a write, so listener- and scheme-scoped out-of-space rules match and store changes carry their exchange
 
@@ -33,14 +33,18 @@ Found by the second stand-in audit (2026-11-16). ADR-0124 decision 4 lets every 
 
 ## Acceptance criteria
 
-- [ ] A new ADR under `Documentation/Planning/Decisions/`, with the next free number, marked "Decided by Claude under Stewart's delegation", answers questions 1 to 4 and states that no byte upstream curl sees changes.
-- [ ] ADR-0124, ADR-0127 and ADR-0129 each carry an "Amended by" line naming the new ADR.
-- [ ] One feature task per library the ADR changes is filed with `task-board.ps1 new`, each depending on this task, with exact `touches`: the store libraries (`Surl.Content.UnitLibrary`, `Surl.MailStore.UnitLibrary`) first, then one per server library, each depending on its store's task. Each is listed in Notes.
-- [ ] Each server follow-up's acceptance criteria name a unit test proving an `out-of-space` rule scoped by `listener=` fires for that server's write, and a test proving the published `StoreChangedEvent` carries the exchange's ID.
+- [x] A new ADR under `Documentation/Planning/Decisions/`, with the next free number, marked "Decided by Claude under Stewart's delegation", answers questions 1 to 4 and states that no byte upstream curl sees changes.
+- [x] ADR-0124, ADR-0127 and ADR-0129 each carry an "Amended by" line naming the new ADR.
+- [x] One feature task per library the ADR changes is filed with `task-board.ps1 new`, each depending on this task, with exact `touches`: the store libraries (`Surl.Content.UnitLibrary`, `Surl.MailStore.UnitLibrary`) first, then one per server library, each depending on its store's task. Each is listed in Notes.
+- [x] Each server follow-up's acceptance criteria name a unit test proving an `out-of-space` rule scoped by `listener=` fires for that server's write, and a test proving the published `StoreChangedEvent` carries the exchange's ID.
 
 ## Notes
+
+- Decision: ADR-0168 (ContentCaller gains ListenUrl + ForExchange; MailboxStore mutators gain optional trailing ExchangeContext; seeds stay exchange-less). ADR-0124, ADR-0127, ADR-0129 amended.
+- Follow-ups filed: BL-1249 (Surl.Content), BL-1250 (Surl.MailStore); servers depending on BL-1249: BL-1251 FTP, BL-1252 SMB, BL-1253 SSH, BL-1254 TFTP, BL-1255 HTTP, BL-1256 RTSP, BL-1257 Gopher, BL-1258 S3, BL-1259 Azure, BL-1260 GCS, BL-1261 OCI, BL-1262 MCP; depending on BL-1250: BL-1263 SMTP, BL-1264 IMAP, BL-1265 POP3.
 
 ## Log
 
 - 2026-11-16: Created.
 - 2026-11-16: Backlog -> Doing.
+- 2026-11-16: Doing -> Done. ADR-0168 written, ADRs amended, follow-ups BL-1249 to BL-1265 filed
