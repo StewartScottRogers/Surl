@@ -1053,7 +1053,10 @@ function Assert-PinnedUpstreamCurl {
     $pinned = @($pins.builds | Where-Object {
         $kindProperty = $_.PSObject.Properties['kind']
         $pinKind = if ($null -eq $kindProperty) { 'curl' } else { $kindProperty.Value }
-        $_.sha256 -eq $hash -and $pinKind -eq $Kind
+        # A pin may carry no sha256 of its own (the libtests pin lists one per program), and
+        # strict mode throws on a missing property, so read it through PSObject.
+        $sha256Property = $_.PSObject.Properties['sha256']
+        $null -ne $sha256Property -and $sha256Property.Value -eq $hash -and $pinKind -eq $Kind
     })
     if ($pinned.Count -eq 0) {
         throw "$source (SHA-256 $hash) is not a pinned $noun. Surl is measured only against the builds in UpstreamCurlBuilds.json (ADR-0003); pinning another is a decision, and the Curl port is never one."
