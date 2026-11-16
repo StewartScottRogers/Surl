@@ -17,10 +17,10 @@ namespace Surl.Extended.Protocol.AzureStorage;
 /// <c>AuthenticationErrorDetail</c>, never the string to sign.
 /// </summary>
 /// <param name="authentication">The connection's authentication session.</param>
-/// <param name="scheme">The listen scheme every store call names as the caller's.</param>
+/// <param name="exchange">The exchange every store call names as the caller's: its scheme, listen URL and ID.</param>
 /// <param name="peerAddress">The address the connection came from, which a signature's <c>sip</c> must admit.</param>
 /// <param name="refusesBearerToken">Whether a bearer token is refused unchecked, because the connection is plain text and plain-text logins are not allowed (ADR-0109, decision 6).</param>
-internal sealed class AzureLoginJudge(IHttpAuthenticationSession authentication, string scheme, IPAddress peerAddress, bool refusesBearerToken = false)
+internal sealed class AzureLoginJudge(IHttpAuthenticationSession authentication, ExchangeContext exchange, IPAddress peerAddress, bool refusesBearerToken = false)
 {
     /// <summary>
     /// The challenge every <c>401</c> carries ("Authorize with Microsoft Entra ID", "Bearer Challenge").
@@ -180,9 +180,7 @@ internal sealed class AzureLoginJudge(IHttpAuthenticationSession authentication,
         target.QueryParameters.FirstOrDefault(parameter => parameter.Key == name).Value;
 
     private ContentCaller CallerOf(string? accountName) =>
-        string.IsNullOrEmpty(accountName)
-            ? ContentCaller.Anonymous(scheme)
-            : ContentCaller.ForAccount(accountName, scheme);
+        ContentCaller.ForExchange(exchange, string.IsNullOrEmpty(accountName) ? null : accountName);
 
     private static bool IsBearer(string? authorization) =>
         authorization is not null && authorization.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase) && authorization[7..].Trim().Length > 0;
