@@ -42,3 +42,4 @@ ADR-0124 decision 3 and ADR-0132 name only the `--user`, `--user-file`, `--mailb
 ## Log
 
 - 2026-11-16: Created.
+- 2026-11-16: Backlog -> Doing.
