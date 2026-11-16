@@ -37,3 +37,4 @@ Found by the second stand-in audit (2026-11-16). Root `CLAUDE.md`, "Say what it 
 ## Log
 
 - 2026-11-16: Created.
+- 2026-11-16: Backlog -> Doing.
