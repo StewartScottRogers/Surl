@@ -32,3 +32,4 @@ ADR-0170 decisions 6 to 9. `SecureCoapProtocolServer` supplies the `IDtlsLoginJu
 ## Log
 
 - 2026-11-16: Created.
+- 2026-11-16: Backlog -> Doing.
