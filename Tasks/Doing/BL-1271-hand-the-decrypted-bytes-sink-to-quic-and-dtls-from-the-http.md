@@ -31,3 +31,4 @@ ADR-0169 decisions 3 and 7. If the work is too large for one run, split it per s
 ## Log
 
 - 2026-11-16: Created.
+- 2026-11-16: Backlog -> Doing.
