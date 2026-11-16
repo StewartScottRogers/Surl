@@ -33,3 +33,4 @@ ADR-0169 decision 1. The sink is an optional constructor or options argument def
 ## Log
 
 - 2026-11-16: Created.
+- 2026-11-16: Backlog -> Doing.
