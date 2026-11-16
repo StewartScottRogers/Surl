@@ -21,9 +21,9 @@ internal sealed class GopherSelectorResponder(IConnection connection, ExchangeCo
     public Task AnswerAsync(string requestPath)
     {
         // Gopher has no login (ADR-0032), so every selector is an anonymous caller on the scheme
-        // the server listens on (ADR-0102 decision 2.2): a share closed to anonymous, or limited
+        // the server listens on, carrying the exchange (ADR-0102 decision 2.2, ADR-0168 decision 5): a share closed to anonymous, or limited
         // to other schemes, maps as absent and gets the error menu a missing selector gets.
-        var mapping = contentStore.MapRequestPathForCaller(requestPath, ContentCaller.Anonymous(context.Scheme));
+        var mapping = contentStore.MapRequestPathForCaller(requestPath, ContentCaller.ForExchange(context, null));
 
         return mapping.EntryKind switch
         {
