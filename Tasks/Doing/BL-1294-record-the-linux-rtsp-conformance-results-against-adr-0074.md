@@ -36,3 +36,4 @@ ADR-0074 states what the `linux-x64` reference build of upstream curl 8.21.0 did
 ## Log
 
 - 2026-11-16: Created.
+- 2026-11-16: Backlog -> Doing.
