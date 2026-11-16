@@ -33,6 +33,13 @@ The factory stays busy only while the board holds ready, independent work. One r
   outside herdr). Never start a shift with `Start-Process` or a bare background command.
 - **`-Continuous`** starts the next shift itself when one ends with work still ready. A
   shift that ends with nothing ready closes; filing new tasks later needs a new start.
+  It does so only if the ending shift finished a task or `master` moved: otherwise it
+  waits up to 30 minutes for the frozen pull request to merge, then ends with a note in
+  the log rather than repeating itself. A shift whose branch differs from the open frozen
+  pull request only in `Tasks/` (claims, requeues, blocks) opens no new pull request, so
+  the open one keeps its CI. A task a lane requeues without a code commit is held (in
+  `<repo>.logs\requeue-holds.txt`) until `master` moves or 6 hours pass; a task waiting on
+  something outside the shift, such as a merge, should be Blocked instead.
 - **`-Lanes Auto`** starts at its ceiling and, every 15 minutes, adds one lane or retires
   lanes down to the measured token burn rate, capped by the board's parallel capacity,
   the machine's cap and `-MaxLanes` (default 6).
