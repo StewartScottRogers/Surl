@@ -36,3 +36,4 @@ Every behaviour choice a Done task made for the SMB server where ADR-0073 said n
 ## Log
 
 - 2026-11-16: Created.
+- 2026-11-16: Backlog -> Doing.
