@@ -31,3 +31,4 @@ ADR-0171 (BL-1245) decides how a SurlEvent kind reaches the three hosts: the eve
 ## Log
 
 - 2026-11-16: Created.
+- 2026-11-16: Backlog -> Doing.
