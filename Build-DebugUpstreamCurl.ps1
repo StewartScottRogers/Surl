@@ -16,9 +16,12 @@
          tools pinned below by version, builds OpenSSL, nghttp2, nghttp3 and ngtcp2 as static
          libraries, then curl with --enable-debug statically linked against musl and all of
          them, stripped, with SOURCE_DATE_EPOCH set to curl 8.21.0's release date so no build
-         date or build host reaches the binary. In the same tree it also builds
-         tests/libtest, which is not exported or pinned (ADR-0173, decision 7);
-      3. copies the curl executable to OutputPath and prints its SHA-256.
+         date or build host reaches the binary. In the same tree it also runs
+         make -k -C tests/libtest against that static Debug libcurl (ADR-0174, decision 1);
+      3. copies the curl executable to OutputPath and every linked libtest program to a
+         directory named libtest beside it, prints their SHA-256 hashes, and warns by name
+         about each libtest program that failed to link. With CompareTwoBuilds the libtest
+         programs must be identical across both builds too.
 
     The binary's SHA-256 is pinned in UpstreamCurlBuilds.json; CI runs this script on a cache
     miss and then verifies the result against that pin before running it (ADR-0016). Needs
@@ -115,13 +118,28 @@ cd /build/curl-8.21.0
   LDFLAGS='-static -L/build/prefix/lib' CPPFLAGS=-I/build/prefix/include
 # libtool drops a bare -static when it links the program; -all-static is what keeps it.
 make -s -j"$(nproc)" LDFLAGS='-static -all-static -L/build/prefix/lib' >/dev/null
-# tests/libtest is built in the same tree for a later decision; it is neither exported nor pinned.
-make -s -C tests/libtest -j"$(nproc)" LDFLAGS='-static -all-static -L/build/prefix/lib' >/dev/null
+# tests/libtest is built against the static Debug libcurl just built (ADR-0174, decision 1).
+# make -k carries on past a program that fails to link, so each failure can be named.
+set +e
+make -k -C tests/libtest -j"$(nproc)" LDFLAGS='-static -all-static -L/build/prefix/lib' >/tmp/libtest.log 2>&1
+set -e
+sed -n 's/^.*\*\*\* \[[^]]*:[0-9]*: \([^]]*\)\] Error.*$/\1/p' /tmp/libtest.log | sort -u >/out/libtest-failed.txt
 strip src/curl
 cp src/curl /out/curl
+mkdir -p /out/libtest
+# Every linked program is an ELF executable directly in tests/libtest; scripts and libtool wrappers are not.
+for file in tests/libtest/*; do
+  [ -f "$file" ] && [ -x "$file" ] || continue
+  head -c 4 "$file" | od -An -c | grep -q '177 *E *L *F' || continue
+  strip "$file"
+  cp "$file" /out/libtest/
+done
+chmod 755 /out/libtest/* 2>/dev/null || true
 '@ -replace "`r`n", "`n"
 
-function Build-Once([string]$Destination) {
+# Builds once; returns the curl hash and fills $LibtestHashes (program name -> SHA-256) and
+# copies the libtest programs into $LibtestDestination.
+function Build-Once([string]$Destination, [string]$LibtestDestination, [hashtable]$LibtestHashes) {
     $outputDirectory = Split-Path -Parent ([IO.Path]::GetFullPath($Destination))
     New-Item -ItemType Directory -Force -Path $outputDirectory | Out-Null
     $staging = Join-Path $outputDirectory '.debug-upstream-curl-build'
@@ -133,6 +151,16 @@ function Build-Once([string]$Destination) {
             $image sh -c $build
         if ($LASTEXITCODE -ne 0) { throw "The build container exited $LASTEXITCODE." }
         Move-Item -Force -LiteralPath (Join-Path $staging 'curl') -Destination $Destination
+        if (Test-Path -LiteralPath $LibtestDestination) { Remove-Item -Recurse -Force -LiteralPath $LibtestDestination }
+        Move-Item -Force -LiteralPath (Join-Path $staging 'libtest') -Destination $LibtestDestination
+        foreach ($program in Get-ChildItem -LiteralPath $LibtestDestination -File) {
+            $LibtestHashes[$program.Name] = (Get-FileHash -LiteralPath $program.FullName -Algorithm SHA256).Hash
+        }
+        $failed = @(Get-Content -LiteralPath (Join-Path $staging 'libtest-failed.txt') | Where-Object { $_ })
+        if ($failed.Count -gt 0) {
+            Write-Warning "These libtest programs failed to link: $($failed -join ', ')"
+        }
+        $LibtestHashes['<failed-to-link>'] = ($failed -join ',')
     }
     finally {
         Remove-Item -Recurse -Force -LiteralPath $staging -ErrorAction SilentlyContinue
@@ -140,16 +168,29 @@ function Build-Once([string]$Destination) {
     return (Get-FileHash -LiteralPath $Destination -Algorithm SHA256).Hash
 }
 
-$first = Build-Once $OutputPath
+$libtestPath = Join-Path (Split-Path -Parent ([IO.Path]::GetFullPath($OutputPath))) 'libtest'
+$firstLibtest = @{}
+$first = Build-Once $OutputPath $libtestPath $firstLibtest
 if ($CompareTwoBuilds) {
     $secondPath = "$OutputPath.second"
+    $secondLibtestPath = "$libtestPath.second"
+    $secondLibtest = @{}
     try {
-        $second = Build-Once $secondPath
+        $second = Build-Once $secondPath $secondLibtestPath $secondLibtest
     }
     finally {
         Remove-Item -Force -LiteralPath $secondPath -ErrorAction SilentlyContinue
+        Remove-Item -Recurse -Force -LiteralPath $secondLibtestPath -ErrorAction SilentlyContinue
     }
     if ($second -ne $first) { throw "Two clean builds differ: $first and $second. The build is not reproducible." }
-    Write-Host "Two clean builds agree: $first"
+    $differing = @(($firstLibtest.Keys + $secondLibtest.Keys) | Sort-Object -Unique |
+        Where-Object { $firstLibtest[$_] -ne $secondLibtest[$_] })
+    if ($differing.Count -gt 0) {
+        throw "Two clean builds differ in these libtest programs: $($differing -join ', '). The build is not reproducible."
+    }
+    Write-Host "Two clean builds agree: $first, and all $($firstLibtest.Count - 1) libtest programs"
+}
+foreach ($name in ($firstLibtest.Keys | Where-Object { $_ -ne '<failed-to-link>' } | Sort-Object)) {
+    Write-Output "$($firstLibtest[$name])  $(Join-Path $libtestPath $name)"
 }
 Write-Output "$first  $OutputPath"
