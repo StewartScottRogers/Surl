@@ -32,3 +32,4 @@ ADR-0170 decisions 6 to 8, modelled on ADR-0165's TLS-SRP judge. `Surl.Dtls` sta
 ## Log
 
 - 2026-11-16: Created.
+- 2026-11-16: Backlog -> Doing.
