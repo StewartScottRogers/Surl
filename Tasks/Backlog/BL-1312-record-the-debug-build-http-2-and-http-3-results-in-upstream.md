@@ -4,7 +4,7 @@ title: Record the Debug-build http/2 and http/3 results in Upstream-Test-Case-Pa
 priority: Normal
 assignee: Claude
 pipeline: docs
-depends-on: [BL-1311]
+depends-on: [BL-1311, BL-1317]
 touches: [Documentation/Conformance]
 requirement: none
 created: 2026-11-16
@@ -29,7 +29,10 @@ ADR-0173 consequences. `UpstreamTestCasePassRateStatementTests` ties the table t
 
 ## Notes
 
+- The Linux numbers need a run with the Debug curl, which exists only in CI's Linux job (BL-1311, BL-1317). Nothing to record from this Windows lane until BL-1317 supplies the run.
+
 ## Log
 
 - 2026-11-16: Created by BL-1303 (ADR-0173).
 - 2026-11-16: Backlog -> Doing.
+- 2026-11-16: Doing -> Backlog. Needs the Linux Debug-build run from BL-1317; depends-on now includes BL-1317
