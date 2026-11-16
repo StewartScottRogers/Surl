@@ -31,3 +31,4 @@ ADR-0170 decision 4, after BL-1279. Shaped like `POST/DELETE /v1/accounts`.
 ## Log
 
 - 2026-11-16: Created.
+- 2026-11-16: Backlog -> Doing.
