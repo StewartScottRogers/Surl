@@ -135,3 +135,5 @@ This library references `Surl.Protocol.Abstractions.UnitLibrary`, `Surl.Content.
 horizontal libraries in ADR-0002 decision 3's table as later ADRs amend it - never another
 protocol server, original or extended. Never construct a `Socket`, `TcpListener`, `UdpClient`,
 `SslStream` or `HttpListener` here; the transport comes from the listener seam.
+
+Reading a zone back (BL-1220; ADR-0164 decision 9): `DnsZoneSet.ExportZone(apex)` returns one zone as master-file text through `DnsZoneFileWriter` - a record a line in zone-file order, absolute names, the TTL, class `IN`, RDATA field by field for A, AAAA, NS, CNAME, PTR, MX, SRV, SOA, TXT and CAA and as RFC 3597 `\# <length> <hex>` for every other type; bytes below 0x21 or above 0x7E are `\DDD`, and `\ " ; ( ) @ $` (and `.` inside a label) are backslash-escaped. What it writes seeds an identical zone. `null` for an apex no zone has. Publishes nothing. Tests: `DnsZoneSetExportZoneTests`.

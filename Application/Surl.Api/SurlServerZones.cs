@@ -11,7 +11,13 @@ public sealed class SurlServerZones
 {
     private readonly ComposedStores stores;
 
-    internal SurlServerZones(ComposedStores stores) => this.stores = stores;
+    private readonly Action throwIfStopped;
+
+    internal SurlServerZones(ComposedStores stores, Action throwIfStopped)
+    {
+        this.stores = stores;
+        this.throwIfStopped = throwIfStopped;
+    }
 
     /// <summary>
     /// Adds one zone read from zone-file text; the fault plan is not consulted. A zone whose apex is already held
@@ -37,5 +43,38 @@ public sealed class SurlServerZones
         {
             throw new SurlSeedRefusedException(StoreKind.Zones, refused.Message.TrimEnd('.'), $"The zone {apex}");
         }
+    }
+
+    /// <summary>
+    /// Lists the apexes of the zones held, each with its final dot (<c>example.com.</c>), in the order they were
+    /// added. Publishes nothing and asks no fault rule (ADR-0164, decisions 2, 3 and 9).
+    /// </summary>
+    /// <param name="cancellationToken">Cancels the read.</param>
+    /// <returns>The apexes; none when no DNS server is composed.</returns>
+    /// <exception cref="ObjectDisposedException">The server was stopped.</exception>
+    public Task<IReadOnlyList<string>> ListAsync(CancellationToken cancellationToken = default)
+    {
+        throwIfStopped();
+        cancellationToken.ThrowIfCancellationRequested();
+        return Task.FromResult(stores.ListZoneApexes());
+    }
+
+    /// <summary>
+    /// Reads one zone back as master-file text: a record a line, absolute names, a TTL and the class <c>IN</c>, RDATA
+    /// as the zone-file reader reads it. Publishes nothing and asks no fault rule (ADR-0164, decisions 1 to 3 and 9).
+    /// </summary>
+    /// <param name="apex">The zone's apex, with or without its final dot.</param>
+    /// <param name="cancellationToken">Cancels the read.</param>
+    /// <returns>The zone-file text.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="apex"/> is null.</exception>
+    /// <exception cref="SurlNotFoundException">No zone has the apex, or no DNS server is composed.</exception>
+    /// <exception cref="SurlReadRefusedException">The text is past 16 MiB.</exception>
+    /// <exception cref="ObjectDisposedException">The server was stopped.</exception>
+    public Task<string> ReadAsync(string apex, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(apex);
+        throwIfStopped();
+        cancellationToken.ThrowIfCancellationRequested();
+        return SurlReadResults.Completed(() => SurlReadResults.ValueOrThrow(stores.ReadZone(apex)));
     }
 }

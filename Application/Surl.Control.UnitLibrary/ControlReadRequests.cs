@@ -193,6 +193,28 @@ internal sealed class ControlReadRequests(IControlTarget target, ControlAnswers 
         return answers.Bytes(request.Http, "text/ldif; charset=utf-8", System.Text.Encoding.UTF8.GetBytes(ldif), []);
     }
 
+    /// <summary><c>GET /v1/zones</c>.</summary>
+    /// <param name="request">The request.</param>
+    /// <returns><c>{"zones": [apex, ...]}</c>, each apex with its final dot, in the order the zones were added.</returns>
+    public async Task<HttpAnswer> ListZonesAsync(ControlRequest request)
+    {
+        request.Query.AllowOnly();
+        var apexes = await target.ListZonesAsync(request.CancellationToken);
+
+        return answers.Json(request.Http, HttpStatus.Ok, new ControlZonesJson([.. apexes]), ControlJsonContext.Default.ControlZonesJson);
+    }
+
+    /// <summary><c>GET /v1/zones/{apex}</c>.</summary>
+    /// <param name="request">The request.</param>
+    /// <returns>The zone as master-file text (<c>text/dns</c>, RFC 4027).</returns>
+    public async Task<HttpAnswer> ReadZoneAsync(ControlRequest request)
+    {
+        request.Query.AllowOnly();
+        var zone = await target.ReadZoneAsync(request.Parameters[0], request.CancellationToken);
+
+        return answers.Bytes(request.Http, "text/dns; charset=utf-8", System.Text.Encoding.UTF8.GetBytes(zone), []);
+    }
+
     private static int Database(ControlRequest request) => (int)request.Query.Number("database", 0, 15, 0);
 
     private static ControlKeyJson KeyJson(ControlKeyInfo info, string? text, string? base64)

@@ -343,4 +343,42 @@ public sealed class ControlReadRequestsTests
         Assert.AreEqual("HTTP/1.1 400 Bad Request", StatusLine(response));
         Assert.IsEmpty(target.Calls);
     }
+
+    [TestMethod]
+    public async Task ListZonesAsync_AnswersTheApexesAsJson()
+    {
+        var target = new FakeControlTarget { ZoneApexes = ["a.test.", "b.test."] };
+
+        var response = await Serve(target, Request("GET", "/v1/zones"));
+
+        Assert.AreEqual("HTTP/1.1 200 OK", StatusLine(response));
+        Assert.AreEqual("""{"zones":["a.test.","b.test."]}""", Body(response));
+        CollectionAssert.AreEqual(new[] { "ListZones" }, target.Calls);
+    }
+
+    [TestMethod]
+    public async Task ReadZoneAsync_AnswersTheZoneFileAsTextDns()
+    {
+        var target = new FakeControlTarget { ZoneText = "a.test. 60 IN A 192.0.2.1\n" };
+
+        var response = await Serve(target, Request("GET", "/v1/zones/a.test."));
+
+        Assert.AreEqual("HTTP/1.1 200 OK", StatusLine(response));
+        StringAssert.Contains(response, "Content-Type: text/dns; charset=utf-8\r\n");
+        Assert.AreEqual("a.test. 60 IN A 192.0.2.1\n", Body(response));
+        CollectionAssert.AreEqual(new[] { "ReadZone a.test." }, target.Calls);
+    }
+
+    [TestMethod]
+    public async Task ZoneReads_AQueryKey_Is400()
+    {
+        var target = new FakeControlTarget();
+
+        var list = await Serve(target, Request("GET", "/v1/zones?x=1"));
+        var read = await Serve(target, Request("GET", "/v1/zones/a.test.?x=1"));
+
+        Assert.AreEqual("HTTP/1.1 400 Bad Request", StatusLine(list));
+        Assert.AreEqual("HTTP/1.1 400 Bad Request", StatusLine(read));
+        Assert.IsEmpty(target.Calls);
+    }
 }

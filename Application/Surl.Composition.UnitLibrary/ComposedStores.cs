@@ -557,6 +557,38 @@ public sealed class ComposedStores
     }
 
     /// <summary>
+    /// Lists the apexes of the DNS zones held, in the order they were added, each with its final dot
+    /// (<c>example.com.</c>). Publishes nothing and asks no fault rule (ADR-0164, decisions 2, 3 and 9).
+    /// </summary>
+    /// <returns>The apexes; none for an instance with no DNS zones.</returns>
+    public IReadOnlyList<string> ListZoneApexes() =>
+        dnsZones is null ? [] : [.. dnsZones.Apexes.Select(apex => apex.ToString())];
+
+    /// <summary>
+    /// Reads one DNS zone back as master-file text, as <see cref="DnsZoneSet.ExportZone"/> does. Publishes nothing and
+    /// asks no fault rule (ADR-0164, decisions 2, 3 and 9).
+    /// </summary>
+    /// <param name="apex">The zone's apex, with or without its final dot.</param>
+    /// <returns><see cref="ComposedReadOutcome.Found"/> with the zone-file text;
+    /// <see cref="ComposedReadOutcome.NotFound"/> when no zone has the apex or the instance holds no DNS zones;
+    /// <see cref="ComposedReadOutcome.TooLarge"/> when the text is over <see cref="MaxReadBytes"/> bytes.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="apex"/> is <see langword="null"/>.</exception>
+    public ComposedReadResult<string> ReadZone(string apex)
+    {
+        ArgumentNullException.ThrowIfNull(apex);
+        var text = dnsZones?.ExportZone(apex);
+        if (text is null)
+        {
+            return ComposedReadResult<string>.Failed(ComposedReadOutcome.NotFound, "No such zone.");
+        }
+
+        var byteCount = System.Text.Encoding.UTF8.GetByteCount(text);
+        return byteCount > MaxReadBytes
+            ? ComposedReadResult<string>.Failed(ComposedReadOutcome.TooLarge, $"The zone holds {byteCount} bytes of text, more than the {MaxReadBytes} a read returns.")
+            : ComposedReadResult<string>.Of(text);
+    }
+
+    /// <summary>
     /// Adds LDIF content records to the LDAP directory, all or none, as
     /// <see cref="LdapProtocolServer.SeedDirectoryEntries"/> does: never consults the fault plan; publishes
     /// <see cref="StoreChange.Seeded"/> for each entry (ADR-0158 decision 3).

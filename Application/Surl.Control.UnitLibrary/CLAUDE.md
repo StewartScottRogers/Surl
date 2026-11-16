@@ -23,7 +23,7 @@ Namespace `Surl.Control`.
 - Read-back routes (ADR-0164 decisions 1 to 4 and 7, BL-1203), all `GET`: `/v1/mail/{owner}`, `/v1/mail/{owner}/{mailbox}`
   (`after_uid`, `limit`), `/v1/mail/{owner}/{mailbox}/{uid}` (`message/rfc822` bytes with `X-Surl-Uid` and `X-Surl-Flags`, or JSON
   for `Accept: application/json`), `/v1/files/{path}` (bytes, or a folder listing when the path ends in `/`; `after_name`,
-  `limit`), `/v1/queues/{name}/messages` (`after_position`, `limit`), `/v1/topics/{name}/retained` and `/v1/topics/{name}/log`, and for the Redis keyspace (BL-1218, decision 9) `/v1/keys/{key}` (`database`) and `/v1/keys` (`pattern`, `after_key`, `limit`, `database`; keys, never values), through `ReadKeyAsync` and `ListKeysAsync`, and `/v1/directory` (`text/ldif`, `userPassword` omitted; BL-1219) through `ReadDirectoryLdifAsync`
+  `limit`), `/v1/queues/{name}/messages` (`after_position`, `limit`), `/v1/topics/{name}/retained` and `/v1/topics/{name}/log`, and for the Redis keyspace (BL-1218, decision 9) `/v1/keys/{key}` (`database`) and `/v1/keys` (`pattern`, `after_key`, `limit`, `database`; keys, never values), through `ReadKeyAsync` and `ListKeysAsync`, and `/v1/directory` (`text/ldif`, `userPassword` omitted; BL-1219) through `ReadDirectoryLdifAsync`, and `/v1/zones` (`{"zones":[apex...]}`) and `/v1/zones/{apex}` (`text/dns`; BL-1220) through `ListZonesAsync` and `ReadZoneAsync`
   (`from_offset`, `limit`). `IControlTarget` gains the matching read members; an absent item is `ControlRefusalKind.NotFound`
   (404), one past 16 MiB is the new `ControlRefusalKind.TooLarge` (413 `too_large`). Reads publish nothing.
 - `IControlSnapshot`, `ControlFault`, `ControlMessage` - the values that cross the interface.

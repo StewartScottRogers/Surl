@@ -260,6 +260,26 @@ internal sealed class FakeControlTarget : IControlTarget
         return Task.FromResult(DirectoryLdif);
     }
 
+    /// <summary>What <see cref="ListZonesAsync"/> answers.</summary>
+    public IReadOnlyList<string> ZoneApexes { get; set; } = [];
+
+    /// <summary>What <see cref="ReadZoneAsync"/> answers.</summary>
+    public string ZoneText { get; set; } = "example.test. 60 IN SOA a. b. 1 2 3 4 5\n";
+
+    public Task<IReadOnlyList<string>> ListZonesAsync(CancellationToken cancellationToken)
+    {
+        Record("ListZones");
+
+        return Task.FromResult(ZoneApexes);
+    }
+
+    public Task<string> ReadZoneAsync(string apex, CancellationToken cancellationToken)
+    {
+        Record($"ReadZone {apex}");
+
+        return Task.FromResult(ZoneText);
+    }
+
     private void Record(string call)
     {
         if (Failure is not null)

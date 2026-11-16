@@ -181,6 +181,17 @@ public interface IControlTarget
     /// <returns>The LDIF text.</returns>
     Task<string> ReadDirectoryLdifAsync(CancellationToken cancellationToken);
 
+    /// <summary>Lists the apexes of the DNS zones held, each with its final dot (ADR-0164 decision 9).</summary>
+    /// <param name="cancellationToken">Cancels the read.</param>
+    /// <returns>The apexes, in the order the zones were added.</returns>
+    Task<IReadOnlyList<string>> ListZonesAsync(CancellationToken cancellationToken);
+
+    /// <summary>Reads one DNS zone as master-file text (ADR-0164 decision 9).</summary>
+    /// <param name="apex">The zone's apex, with or without its final dot.</param>
+    /// <param name="cancellationToken">Cancels the read.</param>
+    /// <returns>The zone-file text.</returns>
+    Task<string> ReadZoneAsync(string apex, CancellationToken cancellationToken);
+
     /// <summary>Reads one live Redis key without removing an expired one (ADR-0164 decision 9).</summary>
     /// <param name="database">The database, 0 to 15.</param>
     /// <param name="key">The key's bytes.</param>

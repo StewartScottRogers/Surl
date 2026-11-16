@@ -127,6 +127,7 @@ var log = await server.Messages.ReadLogAsync("events", fromOffset: 0);          
 var key = await server.Keys.GetAsync("session:1");                              // Info (type, size, expiry) and Text
 var keys = await server.Keys.ListAsync("session:*");                            // names, types and sizes, no values
 var ldif = await server.Directory.ExportLdifAsync();                                // the LDAP directory as LDIF, no userPassword
+var zone = await server.Zones.ReadAsync("example.com");                                 // one DNS zone as master-file text (Zones.ListAsync lists the apexes)
 ```
 
 `ListMailboxesAsync(owner)` lists an owner's mailboxes. A read changes nothing, publishes no event, never
@@ -210,7 +211,7 @@ Recipe: `StandInControlEndpointRecipeTests`. The endpoint has no hooks (decision
 `surl-mcp` offers `start_server`, `list_servers`, `stop_server`, `get_exchanges`, `get_events`,
 `wait_for_event`, `seed_mail`, `put_file`, `delete_file`, `publish_message`, `set_key`, `add_ldap_entries`,
 `add_dns_zone`, `add_account`, `remove_account`, `list_mailboxes`, `list_messages`, `read_message`,
-`read_file`, `list_files`, `browse_queue`, `read_retained_message`, `read_log`, `read_key`, `list_keys`, `read_directory` (the read-back tools; `get_events`
+`read_file`, `list_files`, `browse_queue`, `read_retained_message`, `read_log`, `read_key`, `list_keys`, `read_directory`, `read_zone` (the read-back tools; `get_events`
 and `wait_for_event` also take `store` and `name`), `reset_server`,
 `snapshot_server`, `restore_server`, `add_fault`, `list_faults` and `remove_fault`, and the `surl://aihelp`
 resources. See [`Application/Surl.Mcp/README.md`](../../Application/Surl.Mcp/README.md).

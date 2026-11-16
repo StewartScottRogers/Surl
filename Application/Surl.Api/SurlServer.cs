@@ -47,7 +47,7 @@ public sealed class SurlServer : IAsyncDisposable
         Messages = new SurlServerMessages(composedServing.Stores, ThrowIfStopped);
         Keys = new SurlServerKeys(composedServing.Stores, ThrowIfStopped);
         Directory = new SurlServerDirectory(composedServing.Stores, ThrowIfStopped);
-        Zones = new SurlServerZones(composedServing.Stores);
+        Zones = new SurlServerZones(composedServing.Stores, ThrowIfStopped);
         Accounts = new SurlServerAccounts(composedServing.Stores);
         stopping = new Lazy<Task<SurlExitCode>>(StopServingAsync);
     }

@@ -47,7 +47,7 @@ public sealed class ProgramTests
             {
                 StartServerTool.Name, ListServersTool.Name, StopServerTool.Name, GetExchangesTool.Name, GetEventsTool.Name, WaitForEventTool.Name,
                 SeedMailTool.Name, PutFileTool.Name, DeleteFileTool.Name,
-                ListMailboxesTool.Name, ListMessagesTool.Name, ReadMessageTool.Name, ReadFileTool.Name, ListFilesTool.Name, BrowseQueueTool.Name, ReadRetainedMessageTool.Name, ReadLogTool.Name, ReadKeyTool.Name, ListKeysTool.Name, ReadDirectoryTool.Name,
+                ListMailboxesTool.Name, ListMessagesTool.Name, ReadMessageTool.Name, ReadFileTool.Name, ListFilesTool.Name, BrowseQueueTool.Name, ReadRetainedMessageTool.Name, ReadLogTool.Name, ReadKeyTool.Name, ListKeysTool.Name, ReadDirectoryTool.Name, ReadZoneTool.Name,
                 PublishMessageTool.Name, AddAccountTool.Name, SetKeyTool.Name, AddLdapEntriesTool.Name, AddDnsZoneTool.Name, RemoveAccountTool.Name, ResetServerTool.Name,
                 SnapshotServerTool.Name, RestoreServerTool.Name, AddFaultTool.Name, ListFaultsTool.Name, RemoveFaultTool.Name,
             },
@@ -69,6 +69,7 @@ public sealed class ProgramTests
     [DataRow(ReadKeyTool.Name, ReadKeyTool.Description, new[] { "server_id", "key", "key_base64", "database" })]
     [DataRow(ListKeysTool.Name, ListKeysTool.Description, new[] { "server_id", "pattern", "after_key", "limit", "database" })]
     [DataRow(ReadDirectoryTool.Name, ReadDirectoryTool.Description, new[] { "server_id" })]
+    [DataRow(ReadZoneTool.Name, ReadZoneTool.Description, new[] { "server_id", "apex" })]
     [DataRow(RemoveAccountTool.Name, RemoveAccountTool.Description, new[] { "server_id", "user" })]
     [DataRow(PublishMessageTool.Name, PublishMessageTool.Description, new[] { "server_id", "topic", "queue", "payload", "payload_base64", "retain" })]
     [DataRow(AddAccountTool.Name, AddAccountTool.Description, new[] { "server_id", "user", "password" })]

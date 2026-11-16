@@ -111,6 +111,9 @@ internal sealed record ControlFaultsJson(IReadOnlyList<ControlFaultJson> Faults)
 /// <summary>The answer to <c>POST /v1/snapshots</c>.</summary>
 internal sealed record ControlSnapshotIdJson(string SnapshotId);
 
+/// <summary>The answer to <c>GET /v1/zones</c>: the apexes of the DNS zones held.</summary>
+internal sealed record ControlZonesJson(IReadOnlyList<string> Zones);
+
 /// <summary>One mailbox in the answer to <c>GET /v1/mail/{owner}</c>.</summary>
 internal sealed record ControlMailboxJson(string Name, int MessageCount, int UnseenCount, uint UidValidity);
 
@@ -204,5 +207,6 @@ internal sealed record ControlAccountRequestJson
 [JsonSerializable(typeof(ControlLogJson))]
 [JsonSerializable(typeof(ControlKeysJson))]
 [JsonSerializable(typeof(ControlKeyJson))]
+[JsonSerializable(typeof(ControlZonesJson))]
 [ExcludeFromCodeCoverage(Justification = "Its body is written by the System.Text.Json source generator, not by Surl; the shapes it serializes are pinned byte for byte by the endpoint's tests.")]
 internal sealed partial class ControlJsonContext : JsonSerializerContext;

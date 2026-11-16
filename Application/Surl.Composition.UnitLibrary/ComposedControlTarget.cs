@@ -135,6 +135,14 @@ internal sealed class ComposedControlTarget(SurlEventStream events, FaultPlan fa
         Task.FromResult(Found(stores.ReadDirectoryLdif()));
 
     /// <inheritdoc/>
+    public Task<IReadOnlyList<string>> ListZonesAsync(CancellationToken cancellationToken) =>
+        Task.FromResult(stores.ListZoneApexes());
+
+    /// <inheritdoc/>
+    public Task<string> ReadZoneAsync(string apex, CancellationToken cancellationToken) =>
+        Task.FromResult(Found(stores.ReadZone(apex)));
+
+    /// <inheritdoc/>
     public async Task SeedDirectoryAsync(string ldif, CancellationToken cancellationToken)
     {
         try
