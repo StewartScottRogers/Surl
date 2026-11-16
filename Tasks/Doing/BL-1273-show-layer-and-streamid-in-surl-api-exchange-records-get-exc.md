@@ -32,3 +32,4 @@ ADR-0169 decision 2. Fields only add; a reader ignoring them sees what it saw be
 ## Log
 
 - 2026-11-16: Created.
+- 2026-11-16: Backlog -> Doing.
