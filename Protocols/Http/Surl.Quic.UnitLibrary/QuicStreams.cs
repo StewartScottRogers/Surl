@@ -53,9 +53,13 @@ internal sealed class QuicStreams
         sendLimit = peer.InitialMaxData ?? 0;
         serverStreamSendLimit = peer.InitialMaxStreamDataUni ?? 0;
         serverStreamLimit = peer.InitialMaxStreamsUni ?? 0;
+        DecryptedBytes = options.DecryptedBytes;
         takesResetStreamAt = options.ResetStreamAt;
         SendsResetStreamAt = options.ResetStreamAt && peer.ResetStreamAt;
     }
+
+    /// <summary>Where the streams report the payloads they receive and send (ADR-0169).</summary>
+    public Surl.Protocol.Abstractions.IDecryptedBytesSink DecryptedBytes { get; }
 
     /// <summary>Whether the server sent <c>reset_stream_at</c> and the client did too, so <see cref="QuicStream.ResetAt"/> sends <c>RESET_STREAM_AT</c> (draft-ietf-quic-reliable-stream-reset-09 section 3).</summary>
     public bool SendsResetStreamAt { get; }

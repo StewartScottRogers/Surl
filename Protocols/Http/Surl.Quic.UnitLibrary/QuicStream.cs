@@ -199,7 +199,12 @@ public sealed class QuicStream
         var growth = Receive(end, frameType);
         if (ResetErrorCode is null)
         {
-            readable.AddRange(ordered.Add(frame.Offset, frame.Data.Span));
+            var inOrder = ordered.Add(frame.Offset, frame.Data.Span);
+            if (inOrder.Length > 0)
+            {
+                owner.DecryptedBytes.Received(Surl.Protocol.Abstractions.ExchangeBytesLayer.Decrypted, (long)Id, inOrder);
+            }
+            readable.AddRange(inOrder);
             DiscardPastReliableSize();
         }
 
@@ -278,6 +283,10 @@ public sealed class QuicStream
         var offset = sendOffset;
         sendOffset += (ulong)count;
         owner.RecordSent((ulong)count);
+        if (count > 0)
+        {
+            owner.DecryptedBytes.Sent(Surl.Protocol.Abstractions.ExchangeBytesLayer.Decrypted, (long)Id, data);
+        }
         finSent = fin;
         return new QuicStreamFrame(Id, offset, data, fin);
     }
