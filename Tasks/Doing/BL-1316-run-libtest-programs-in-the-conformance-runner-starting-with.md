@@ -30,3 +30,4 @@ ADR-0174 decisions 3, 5 and 6; ADR-0080 skip reasons; needs the Debug build runn
 ## Log
 
 - 2026-11-16: Created.
+- 2026-11-16: Backlog -> Doing.
