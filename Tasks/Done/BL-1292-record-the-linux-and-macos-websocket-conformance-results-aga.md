@@ -8,7 +8,7 @@ depends-on: [BL-1289]
 touches: [Documentation/Planning/Decisions/ADR-0071-how-the-websocket-server-answers-upstream-curl.md]
 requirement: FR-048
 created: 2026-11-16
-completed:
+completed: 2026-11-16
 ---
 # BL-1292 — Record the Linux and macOS WebSocket conformance results against ADR-0071
 
@@ -26,14 +26,17 @@ ADR-0071 states what the Linux and macOS reference builds of upstream curl 8.21.
 
 ## Acceptance criteria
 
-- [ ] ADR-0071's "Not measured" sentence is replaced or followed by a statement naming BL-1289's CI run and giving, for `linux-x64` and `osx-arm64`, the WebSocket tool tests passed, Inconclusive and failed.
-- [ ] Each WebSocket test Inconclusive or failed off Windows is named in ADR-0071 with its reason.
-- [ ] The libcurl rows' off-Windows status in ADR-0071 still matches decision 10.
-- [ ] A task is filed for each failed WebSocket test, its ID in Notes, or Notes says none failed.
+- [x] ADR-0071's "Not measured" sentence is replaced or followed by a statement naming BL-1289's CI run and giving, for `linux-x64` and `osx-arm64`, the WebSocket tool tests passed, Inconclusive and failed.
+- [x] Each WebSocket test Inconclusive or failed off Windows is named in ADR-0071 with its reason.
+- [x] The libcurl rows' off-Windows status in ADR-0071 still matches decision 10.
+- [x] A task is filed for each failed WebSocket test, its ID in Notes, or Notes says none failed.
 
 ## Notes
+
+None failed: all 20 WebSocket tool tests passed on linux-x64 and osx-arm64, none Inconclusive, so no task filed. The libcurl rows are absent from BL-1289's record; ADR text left to match decision 10.
 
 ## Log
 
 - 2026-11-16: Created.
 - 2026-11-16: Backlog -> Doing.
+- 2026-11-16: Doing -> Done. ADR-0071 records 20/20 WebSocket tests passed on linux-x64 and osx-arm64

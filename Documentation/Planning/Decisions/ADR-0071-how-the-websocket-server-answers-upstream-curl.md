@@ -126,8 +126,16 @@ What this settles:
 4. **Only credentials curl sends unasked can log in**: Basic, Bearer, AWS Signature Version 4.
    Any non-`101` status, `401` included, ends the transfer with 22.
 
-**Not measured:** the Linux and macOS static builds (the lane runs Windows only); they are the
-same tag's `lib/ws.c`, and BL-304 runs its cases on all three through CI. A server half-close
+**Linux and macOS, measured (BL-1292, 2026-11-16):** BL-1289's CI run
+(https://github.com/StewartScottRogers/Surl/actions/runs/43906686682, commit `a06ae86113e5`, attempt 1 of both
+legs; record in `Documentation/Conformance/Conformance-Off-Windows.md`) ran the WebSocket tool tests,
+`UpstreamCurlTalksToSurlOverWebSocketTests`, against the pinned curl 8.21.0 reference builds. `linux-x64`:
+20 passed, 0 Inconclusive, 0 failed. `osx-arm64`: 20 passed, 0 Inconclusive, 0 failed. No WebSocket test was
+Inconclusive or failed off Windows, so none is named, no task was filed, and no per-platform test is needed.
+The libcurl rows of Amendment 1 are not in that record and stay as decision 10 says: the static builds carry
+no shared library, so they run on Windows only.
+
+**Not measured:** a server half-close
 after its `CLOSE` (the recorder closes fully); BL-302's tests and BL-304 prove decision 5's lingering close.
 
 ## Decision
