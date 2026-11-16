@@ -227,6 +227,26 @@ public sealed class AccountBook
     public bool CheckBearerToken(ReadOnlySpan<byte> token) => CheckSecret(string.Empty, token);
 
     /// <summary>
+    /// The password of the named account <paramref name="userName"/> as the key a pre-shared-key
+    /// handshake (<c>coaps</c>) needs, read from the accounts as they are now, so an account added,
+    /// removed, reset or restored changes who may log in at once (ADR-0170, decision 5).
+    /// </summary>
+    /// <param name="userName">The identity, compared ordinally; the empty name, a Bearer token's account, never matches.</param>
+    /// <param name="scheme">The scheme the handshake serves, compared without regard to case.</param>
+    /// <param name="key">A copy of the password's UTF-8 bytes when found; empty otherwise.</param>
+    /// <returns><see langword="true"/> only when a named account of that name exists and may log in on <paramref name="scheme"/>.</returns>
+    /// <exception cref="ArgumentNullException">An argument is <see langword="null"/>.</exception>
+    public bool TryFindPreSharedKey(string userName, string scheme, out byte[] key)
+    {
+        ArgumentNullException.ThrowIfNull(userName);
+        ArgumentNullException.ThrowIfNull(scheme);
+
+        var found = Current.Accounts.FirstOrDefault(account => account.UserName == userName && account.Named is not null && account.MayLogInOn(scheme));
+        key = found?.Named is { } named ? [.. named.AwsSigV4.Secret] : [];
+        return found is not null;
+    }
+
+    /// <summary>
     /// Whether an account of exactly <paramref name="userName"/> exists, its password unused: how
     /// SASL <c>EXTERNAL</c> matches a client certificate's name (ADR-0049, section 4). The empty
     /// name, a Bearer token's account, never matches.
