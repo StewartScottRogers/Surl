@@ -8,7 +8,7 @@ depends-on: []
 touches: [Documentation/Planning/Decisions]
 requirement: none
 created: 2026-11-16
-completed:
+completed: 2026-11-16
 ---
 # BL-1313 — Decide how upstream libtest programs are built and run, starting with 2402, 2404, 2407 and 2502 (ADR-0173)
 
@@ -23,13 +23,16 @@ ADR-0173 decision 7 leaves these four unrunnable. ADR-0080 skips 350 cases as `l
 
 ## Acceptance criteria
 
-- [ ] An ADR marked "Decided by Claude under Stewart's delegation" decides how the libtest binaries are built, pinned (by SHA-256 as kind `libtest` or by tree hash) and run by the conformance runner, with alternatives.
-- [ ] It names which of the 350 libtest cases it will run first and which stay unrunnable and why.
-- [ ] Follow-up tasks are filed with `task-board.ps1 new`; their IDs are in Notes.
+- [x] An ADR marked "Decided by Claude under Stewart's delegation" decides how the libtest binaries are built, pinned (by SHA-256 as kind `libtest` or by tree hash) and run by the conformance runner, with alternatives.
+- [x] It names which of the 350 libtest cases it will run first and which stay unrunnable and why.
+- [x] Follow-up tasks are filed with `task-board.ps1 new`; their IDs are in Notes.
 
 ## Notes
+
+Decided in ADR-0174 (libtest sources are in the already-approved curl-8_21_0 tag, no new download). Filed: BL-1314 (build libtest programs), BL-1315 (pin kind libtest, CI check), BL-1316 (runner runs libtest, 2402, 2404, 2407, 2502 first). Of the 362 tool cases, 39 no-server and 1 unit stay unrunnable; Windows and macOS keep the libtest skip.
 
 ## Log
 
 - 2026-11-16: Created by BL-1303 (ADR-0173).
 - 2026-11-16: Backlog -> Doing.
+- 2026-11-16: Doing -> Done. ADR-0174 decides libtest build, pin and run; BL-1314..1316 filed
