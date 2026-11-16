@@ -35,6 +35,20 @@ public sealed class SurlEventFactsTests
     }
 
     [TestMethod]
+    public void EventKinds_EveryExportedSurlEventSubclass_HasASurlEventKindMemberExceptExchangeBytes()
+    {
+        var subclasses = typeof(SurlEvent).Assembly.GetExportedTypes()
+            .Where(type => type.IsSubclassOf(typeof(SurlEvent)) && !type.IsAbstract && type != typeof(ExchangeBytesEvent))
+            .Select(type => type.Name.EndsWith("Event", StringComparison.Ordinal) ? type.Name[..^"Event".Length] : type.Name)
+            .ToArray();
+
+        var unqueryable = subclasses.Where(name => !Enum.TryParse<SurlEventKind>(name, out _)).ToArray();
+
+        Assert.IsNotEmpty(subclasses);
+        Assert.IsEmpty(unqueryable, "SurlEvent subclasses without a SurlEventKind member: " + string.Join(", ", unqueryable));
+    }
+
+    [TestMethod]
     [DataRow(null, null, true)]
     [DataRow(0, null, true)]
     [DataRow(1, null, false)]
