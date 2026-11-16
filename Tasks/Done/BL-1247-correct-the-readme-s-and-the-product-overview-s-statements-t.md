@@ -8,7 +8,7 @@ depends-on: []
 touches: [README.md, Documentation/Product/Product-Overview.md]
 requirement: none
 created: 2026-11-16
-completed:
+completed: 2026-11-16
 ---
 # BL-1247 — Correct the README's and the product overview's statements that the MQTT 5, AMQP, Kafka and Redis servers are unregistered and that LDAP accounts are unbuilt
 
@@ -27,10 +27,10 @@ Found by the second stand-in audit (2026-11-16). Root `CLAUDE.md`, "Say what it 
 
 ## Acceptance criteria
 
-- [ ] `README.md` item 3 names the servers on the shared bus as the code registers them (original: `mqtt`, `mqtts`; extended: MQTT 5, AMQP 0-9-1, AMQP 1.0, Kafka, NATS, STOMP, Redis) and no longer says any is unregistered.
-- [ ] `README.md` item 4 says `--user-ldap` reads accounts from an LDAP directory, linking ADR-0149, and no longer says it is unbuilt.
-- [ ] `Documentation/Product/Product-Overview.md`'s "One store per job, per `surl` run" bullet lists every scheme registered on the bus today and no longer calls their registration intent.
-- [ ] `grep -n "not register them yet\|is not built yet\|registering each in .surl. is intent" README.md Documentation/Product/Product-Overview.md` prints nothing.
+- [x] `README.md` item 3 names the servers on the shared bus as the code registers them (original: `mqtt`, `mqtts`; extended: MQTT 5, AMQP 0-9-1, AMQP 1.0, Kafka, NATS, STOMP, Redis) and no longer says any is unregistered.
+- [x] `README.md` item 4 says `--user-ldap` reads accounts from an LDAP directory, linking ADR-0149, and no longer says it is unbuilt.
+- [x] `Documentation/Product/Product-Overview.md`'s "One store per job, per `surl` run" bullet lists every scheme registered on the bus today and no longer calls their registration intent.
+- [x] `grep -n "not register them yet\|is not built yet\|registering each in .surl. is intent" README.md Documentation/Product/Product-Overview.md` prints nothing.
 
 ## Notes
 
@@ -38,3 +38,4 @@ Found by the second stand-in audit (2026-11-16). Root `CLAUDE.md`, "Say what it 
 
 - 2026-11-16: Created.
 - 2026-11-16: Backlog -> Doing.
+- 2026-11-16: Doing -> Done. README and product overview now state the bus servers are registered and --user-ldap is built
