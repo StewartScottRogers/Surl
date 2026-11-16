@@ -31,3 +31,4 @@ ADR-0170 decision 5. Today `DeferredCoapsProtocolServer` copies the accounts onc
 ## Log
 
 - 2026-11-16: Created.
+- 2026-11-16: Backlog -> Doing.
