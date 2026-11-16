@@ -8,7 +8,7 @@ depends-on: [BL-823, BL-785]
 touches: [Protocols/Lookup/Surl.Extended.Protocol.DnsQuery.UnitLibrary, Protocols/Lookup/Surl.Extended.Protocol.DnsQuery.UnitTests, Protocols/DataStore/Surl.Extended.Protocol.Redis.UnitLibrary, Protocols/DataStore/Surl.Extended.Protocol.Redis.UnitTests, Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests]
 requirement: FR-062
 created: 2026-11-05
-completed:
+completed: 2026-11-15
 ---
 # BL-836 — Answer a chosen protocol error by fault in the extended DNS and Redis servers
 
@@ -28,11 +28,11 @@ matching query or command with the chosen error, instead of being refused at con
 
 ## Acceptance criteria
 
-- [ ] Named tests per server: a query or command matching an `error` rule gets exactly the chosen error, a
+- [x] Named tests per server: a query or command matching an `error` rule gets exactly the chosen error, a
       non-matching one is served, and one `FaultAppliedEvent` is published.
-- [ ] Named `Surl.Cli` tests: one accepted and one refused `reply` per scheme.
-- [ ] With no rule, every existing test of the touched libraries passes unchanged.
-- [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and the touched libraries keep 100% line and
+- [x] Named `Surl.Cli` tests: one accepted and one refused `reply` per scheme.
+- [x] With no rule, every existing test of the touched libraries passes unchanged.
+- [x] `dotnet build -warnaserror` is clean, the fast tests are green, and the touched libraries keep 100% line and
       branch coverage.
 
 ## Notes
@@ -43,3 +43,4 @@ matching query or command with the chosen error, instead of being refused at con
 - 2026-11-05: Filed by BL-822 (ADR-0124 decision 9); depends on BL-785 and touches `Surl.Cli` for the reply shapes.
 - 2026-11-06: Backlog -> Deferred. Split into BL-984, BL-985 and BL-986 (over the 60-minute size limit; Stewart asked for a backlog audit 2026-11-06)
 - 2026-11-15: Reviewed by task-planner: finished. Every part of its split is Done: BL-984, BL-985, BL-986. Stays in Deferred only because task-board.ps1 allows Deferred -> Backlog alone; BL-1235 closes it to Done with BL-1234's close-split.
+- 2026-11-15: Deferred -> Done. Closed by its parts, all Done: BL-984, BL-985, BL-986

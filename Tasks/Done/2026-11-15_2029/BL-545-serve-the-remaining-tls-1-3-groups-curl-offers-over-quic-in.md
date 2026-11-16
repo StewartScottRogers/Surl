@@ -8,7 +8,7 @@ depends-on: [BL-544]
 touches: [Cryptography/Surl.Tls13.UnitLibrary, Cryptography/Surl.Tls13.UnitTests]
 requirement: FR-055
 created: 2026-11-04
-completed:
+completed: 2026-11-15
 ---
 # BL-545 — Serve the remaining TLS 1.3 groups curl offers over QUIC in Surl.Tls13
 
@@ -37,11 +37,11 @@ SecP256r1MLKEM768 (`0x11EB`), SecP384r1MLKEM1024 (`0x11EE`), x448 (`0x001E`), cu
 
 ## Acceptance criteria
 
-- [ ] Notes record, for each listed group, what each pinned build sends with `--curves <group>`.
-- [ ] For each group that any pinned build offers, a named test shows that a ClientHello offering
+- [x] Notes record, for each listed group, what each pinned build sends with `--curves <group>`.
+- [x] For each group that any pinned build offers, a named test shows that a ClientHello offering
       only that group gets a HelloRetryRequest naming it. The handshake that follows then
       completes against the test-side TLS 1.3 client.
-- [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and the touched libraries keep
+- [x] `dotnet build -warnaserror` is clean, the fast tests are green, and the touched libraries keep
       100% line and branch coverage.
 
 ## Notes
@@ -54,3 +54,4 @@ SecP256r1MLKEM768 (`0x11EB`), SecP384r1MLKEM1024 (`0x11EE`), x448 (`0x001E`), cu
 - 2026-11-06: Doing -> Blocked. Stewart: Surl dark factory timed out after 120 min; see Z:\repos\Surl.logs\BL-545-20261106-033059-L3.jsonl
 - 2026-11-06: Blocked -> Deferred. Split into BL-1005, BL-1006, BL-1007, BL-1029, BL-1008, BL-1009, BL-1010, BL-1030 (timed out after 120 min; Stewart asked for the split 2026-11-06)
 - 2026-11-15: Reviewed by task-planner: finished. Every part of its split is Done: BL-1005, BL-1006, BL-1007, BL-1029, BL-1008, BL-1009, BL-1010, BL-1030. Stays in Deferred only because task-board.ps1 allows Deferred -> Backlog alone; BL-1235 closes it to Done with BL-1234's close-split.
+- 2026-11-15: Deferred -> Done. Closed by its parts, all Done: BL-1005, BL-1006, BL-1007, BL-1029, BL-1008, BL-1009, BL-1010, BL-1030

@@ -8,7 +8,7 @@ depends-on: [BL-576, BL-577, BL-578]
 touches: [Conformance/Surl.Conformance.UnitLibrary, Conformance/Surl.Conformance.UnitTests, CurlPortBuilds.json, Documentation/Conformance/CurlPort/Libcurl.md]
 requirement: FR-057
 created: 2026-11-04
-completed:
+completed: 2026-11-15
 ---
 # BL-597 — Drive the Curl port's managed Libcurl through the WebSocket and RTSP libcurl scripts beside the pinned upstream libcurl
 
@@ -38,15 +38,15 @@ pinned upstream `libcurl-4.dll`, and every disagreement is a Phase 7 finding in
 
 ## Acceptance criteria
 
-- [ ] `CurlPortBuilds.json` pins the port's `Libcurl` assembly at the same commit as its `curl` on `win-x64`,
+- [x] `CurlPortBuilds.json` pins the port's `Libcurl` assembly at the same commit as its `curl` on `win-x64`,
       and a unit test shows an unpinned library is refused.
-- [ ] Two `[TestCategory("Integration")]` test classes, `CurlPortLibcurlBesideUpstreamLibcurlOverWebSocketTests`
+- [x] Two `[TestCategory("Integration")]` test classes, `CurlPortLibcurlBesideUpstreamLibcurlOverWebSocketTests`
       and `CurlPortLibcurlBesideUpstreamLibcurlOverRtspTests`, run each step list of the existing libcurl test
       classes through both drivers against a fresh `surl` and reach a verdict, Inconclusive when a pinned file
       is missing or off Windows.
-- [ ] `Documentation/Conformance/CurlPort/Libcurl.md` lists each finding in ADR-0089 decision 6's form, or
+- [x] `Documentation/Conformance/CurlPort/Libcurl.md` lists each finding in ADR-0089 decision 6's form, or
       states that there are none, naming the port commit and the upstream library's SHA-256.
-- [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and `Surl.Conformance.UnitLibrary` keeps
+- [x] `dotnet build -warnaserror` is clean, the fast tests are green, and `Surl.Conformance.UnitLibrary` keeps
       100% line and branch coverage.
 
 ## Notes
@@ -58,3 +58,4 @@ pinned upstream `libcurl-4.dll`, and every disagreement is a Phase 7 finding in
 - 2026-11-06: Doing -> Blocked. Stewart: Surl dark factory timed out after 120 min; see Z:\repos\Surl.logs\BL-597-20261106-033059-L2.jsonl
 - 2026-11-06: Blocked -> Deferred. Split into BL-942, BL-934, BL-935, BL-936, BL-937 (timed out after 120 min; Stewart asked for the split 2026-11-06)
 - 2026-11-15: Reviewed by task-planner: finished. Every part of its split is Done: BL-942, BL-934, BL-935, BL-936, BL-937. Stays in Deferred only because task-board.ps1 allows Deferred -> Backlog alone; BL-1235 closes it to Done with BL-1234's close-split.
+- 2026-11-15: Deferred -> Done. Closed by its parts, all Done: BL-942, BL-934, BL-935, BL-936, BL-937

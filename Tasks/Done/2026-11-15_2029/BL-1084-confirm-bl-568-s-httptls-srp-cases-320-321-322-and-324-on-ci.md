@@ -8,7 +8,7 @@ depends-on: [BL-568]
 touches: [Conformance/Surl.Conformance.UnitTests, Documentation/Conformance]
 requirement: none
 created: 2026-11-12
-completed:
+completed: 2026-11-15
 ---
 # BL-1084 — Confirm BL-568's httptls+srp cases 320, 321, 322 and 324 on CI's Linux and macOS legs
 
@@ -25,9 +25,9 @@ here, as BL-371's went to BL-724. Read runs with `gh run list --workflow CI` and
 
 ## Acceptance criteria
 
-- [ ] The URL of a `CI` run containing BL-568's commits is in Notes, with the result of cases 320, 321,
+- [x] The URL of a `CI` run containing BL-568's commits is in Notes, with the result of cases 320, 321,
       322 and 324 on `ubuntu-latest` and `macos-latest`, each listed by number.
-- [ ] Failing cases are grouped by cause into new tasks filed with `task-planner`, their IDs in Notes;
+- [x] Failing cases are grouped by cause into new tasks filed with `task-planner`, their IDs in Notes;
       passing ones are added to the platform's passing list and pass-rate file.
 
 ## Notes
@@ -46,3 +46,4 @@ here, as BL-371's went to BL-724. Read runs with `gh run list --workflow CI` and
 - 2026-11-12: Backlog -> Doing.
 - 2026-11-12: Doing -> Deferred. No CI run contains BL-568's commit d8640ec7 yet (latest CI runs c5ad69c1 and 6eb8657d are not descendants); look again after the shift merges it to master and CI passes
 - 2026-11-15: Reviewed by task-planner: finished. Done by BL-1121 (CI run 43629075978, commit 1c2029966): cases 320, 321, 322 and 324 pass on Linux and macOS; see Notes. Stays in Deferred only because task-board.ps1 allows Deferred -> Backlog alone; BL-1235 closes it to Done with BL-1234's close-split.
+- 2026-11-15: Deferred -> Done. Closed by its parts, all Done: BL-1121

@@ -8,7 +8,7 @@ depends-on: [BL-554, BL-409]
 touches: [Protocols/Http/Surl.Protocol.HttpProxy.UnitLibrary, Protocols/Http/Surl.Protocol.HttpProxy.UnitTests, Foundation/Surl.Networking.UnitLibrary, Foundation/Surl.Networking.UnitTests, Foundation/Surl.Protocol.Abstractions.UnitLibrary, Documentation/Planning/Decisions/ADR-0088-how-surl-serves-the-http-connect-proxy-and-the-https-proxy.md]
 requirement: none
 created: 2026-11-04
-completed:
+completed: 2026-11-15
 ---
 # BL-595 — Serve the HTTPS proxy over HTTP/2 for --proxy-http2
 
@@ -28,11 +28,11 @@ over HTTP/2 to a curl given `--proxy-http2`, instead of ADR-0088's interim ALPN 
 
 ## Acceptance criteria
 
-- [ ] Named tests in `Surl.Protocol.HttpProxy.UnitTests` pin the ALPN choice, a `CONNECT` stream's
+- [x] Named tests in `Surl.Protocol.HttpProxy.UnitTests` pin the ALPN choice, a `CONNECT` stream's
       `:status 200` and its relayed bytes, and a forwarded request's response, from bytes measured
       against a pinned upstream curl build.
-- [ ] ADR-0088 decision 6 is amended to say `h2` is offered.
-- [ ] `dotnet build` is clean, the fast tests are green, and the library keeps 100% line and branch
+- [x] ADR-0088 decision 6 is amended to say `h2` is offered.
+- [x] `dotnet build` is clean, the fast tests are green, and the library keeps 100% line and branch
       coverage.
 
 ## Notes
@@ -69,3 +69,4 @@ over HTTP/2 to a curl given `--proxy-http2`, instead of ADR-0088's interim ALPN 
 - 2026-11-06: Doing -> Blocked. Stewart: Surl dark factory timed out after 120 min; see Z:\repos\Surl.logs\BL-595-20261106-033059-L5.jsonl
 - 2026-11-06: Blocked -> Deferred. Split into BL-938, BL-939, BL-940, BL-941 (timed out after 120 min; Stewart asked for the split 2026-11-06)
 - 2026-11-15: Reviewed by task-planner: finished. Every part of its split is Done: BL-938, BL-939, BL-940, BL-941. Stays in Deferred only because task-board.ps1 allows Deferred -> Backlog alone; BL-1235 closes it to Done with BL-1234's close-split.
+- 2026-11-15: Deferred -> Done. Closed by its parts, all Done: BL-938, BL-939, BL-940, BL-941

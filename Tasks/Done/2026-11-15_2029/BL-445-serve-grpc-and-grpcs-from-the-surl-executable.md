@@ -8,7 +8,7 @@ depends-on: [BL-444, BL-405, BL-1035]
 touches: [Protocols/Http/Surl.Extended.Protocol.Grpc.UnitLibrary, Protocols/Http/Surl.Extended.Protocol.Grpc.UnitTests, Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests, Application/Surl.Console, Application/Surl.Console.UnitTests, Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests, Foundation/Surl.Networking.UnitLibrary, Foundation/Surl.Networking.UnitTests]
 requirement: none
 created: 2026-11-04
-completed:
+completed: 2026-11-15
 ---
 # BL-445 — Serve grpc and grpcs from the surl executable
 
@@ -31,11 +31,11 @@ and help category exist, and the extension switch turns both off.
 
 ## Acceptance criteria
 
-- [ ] A named test finds `grpc` and `grpcs` registered when the switch is on, and absent when it is off.
-- [ ] A named `Surl.Networking.UnitTests` test shows `grpcs` offering exactly `h2`. The existing ALPN tests for
+- [x] A named test finds `grpc` and `grpcs` registered when the switch is on, and absent when it is off.
+- [x] A named `Surl.Networking.UnitTests` test shows `grpcs` offering exactly `h2`. The existing ALPN tests for
       `https` and `wss` pass unchanged.
-- [ ] The `--aihelp` completeness tests named in root `CLAUDE.md` pass.
-- [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and every touched library keeps 100% line and
+- [x] The `--aihelp` completeness tests named in root `CLAUDE.md` pass.
+- [x] `dotnet build -warnaserror` is clean, the fast tests are green, and every touched library keeps 100% line and
       branch coverage.
 
 ## Notes
@@ -71,3 +71,4 @@ and help category exist, and the extension switch turns both off.
 - 2026-11-12: Backlog -> Doing.
 - 2026-11-12: Doing -> Deferred. Split into BL-1094, BL-1095, BL-1093 (timed out at the run's time limit)
 - 2026-11-15: Reviewed by task-planner: finished. Every part of its split is Done: BL-1094, BL-1095, BL-1093. Stays in Deferred only because task-board.ps1 allows Deferred -> Backlog alone; BL-1235 closes it to Done with BL-1234's close-split.
+- 2026-11-15: Deferred -> Done. Closed by its parts, all Done: BL-1094, BL-1095, BL-1093

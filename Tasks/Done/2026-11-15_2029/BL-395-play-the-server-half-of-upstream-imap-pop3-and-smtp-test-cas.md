@@ -8,7 +8,7 @@ depends-on: [BL-393]
 touches: [Conformance/Surl.Conformance.UnitLibrary, Conformance/Surl.Conformance.UnitTests, Protocols/Mail/Surl.Protocol.Imap.UnitLibrary, Protocols/Mail/Surl.Protocol.Imap.UnitTests, Protocols/Mail/Surl.Protocol.Pop3.UnitLibrary, Protocols/Mail/Surl.Protocol.Pop3.UnitTests, Protocols/Mail/Surl.Protocol.Smtp.UnitLibrary, Protocols/Mail/Surl.Protocol.Smtp.UnitTests, Protocols/Mail/Surl.LineProtocol.UnitLibrary, Protocols/Mail/Surl.LineProtocol.UnitTests, Documentation/Conformance]
 requirement: none
 created: 2026-11-04
-completed:
+completed: 2026-11-15
 ---
 # BL-395 — Play the server half of upstream imap, pop3 and smtp test cases
 
@@ -29,13 +29,13 @@ server half as BL-386's ADR defines, and the pass-rate file counts them.
 
 ## Acceptance criteria
 
-- [ ] Unit tests drive each mail server half with inline cases for `welcome`, `REPLY`, `CAPA` and
+- [x] Unit tests drive each mail server half with inline cases for `welcome`, `REPLY`, `CAPA` and
       `AUTH`. Each excluded instruction gives its named skip reason.
-- [ ] The run covers every runnable IMAP, POP3 and SMTP case on Windows. The pass-rate file's rows
+- [x] The run covers every runnable IMAP, POP3 and SMTP case on Windows. The pass-rate file's rows
       include them, and Notes record the counts.
-- [ ] Failing cases are grouped by cause into new tasks filed with `task-planner`, with their IDs in
+- [x] Failing cases are grouped by cause into new tasks filed with `task-planner`, with their IDs in
       Notes.
-- [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and every touched library keeps
+- [x] `dotnet build -warnaserror` is clean, the fast tests are green, and every touched library keeps
       100% line and branch coverage.
 
 ## Notes
@@ -47,3 +47,4 @@ server half as BL-386's ADR defines, and the pass-rate file counts them.
 - 2026-11-05: Doing -> Blocked. Stewart: Surl dark factory timed out after 120 min; see Z:\repos\Surl.logs\BL-395-20261105-054539-L7.jsonl
 - 2026-11-05: Blocked -> Deferred. Split into BL-875, BL-876, BL-877, BL-878, BL-879 (timed out after 120 min; Stewart asked for the split 2026-11-05)
 - 2026-11-15: Reviewed by task-planner: finished. Every part of its split is Done: BL-875, BL-876, BL-877, BL-878, BL-879. Stays in Deferred only because task-board.ps1 allows Deferred -> Backlog alone; BL-1235 closes it to Done with BL-1234's close-split.
+- 2026-11-15: Deferred -> Done. Closed by its parts, all Done: BL-875, BL-876, BL-877, BL-878, BL-879

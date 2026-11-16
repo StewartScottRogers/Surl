@@ -8,7 +8,7 @@ depends-on: [BL-823, BL-785]
 touches: [Protocols/Messaging/Surl.Extended.Protocol.Amqp0.UnitLibrary, Protocols/Messaging/Surl.Extended.Protocol.Amqp0.UnitTests, Protocols/Messaging/Surl.Extended.Protocol.Amqp1.UnitLibrary, Protocols/Messaging/Surl.Extended.Protocol.Amqp1.UnitTests, Protocols/Messaging/Surl.Extended.Protocol.Kafka.UnitLibrary, Protocols/Messaging/Surl.Extended.Protocol.Kafka.UnitTests, Protocols/Messaging/Surl.Extended.Protocol.Mqtt5.UnitLibrary, Protocols/Messaging/Surl.Extended.Protocol.Mqtt5.UnitTests, Protocols/Messaging/Surl.Extended.Protocol.Nats.UnitLibrary, Protocols/Messaging/Surl.Extended.Protocol.Nats.UnitTests, Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests]
 requirement: FR-062
 created: 2026-11-05
-completed:
+completed: 2026-11-15
 ---
 # BL-834 — Answer a chosen protocol error by fault in the extended AMQP 0-9-1, AMQP 1.0, Kafka, MQTT 5 and NATS servers
 
@@ -33,11 +33,11 @@ error, instead of being refused at configuration.
 
 ## Acceptance criteria
 
-- [ ] Named tests per broker: an operation matching an `error` rule gets exactly the chosen error, a non-matching
+- [x] Named tests per broker: an operation matching an `error` rule gets exactly the chosen error, a non-matching
       one is served, and one `FaultAppliedEvent` is published.
-- [ ] Named `Surl.Cli` tests: one accepted and one refused `reply` per scheme family.
-- [ ] With no rule, every existing test of the touched libraries passes unchanged.
-- [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and the touched libraries keep 100% line and
+- [x] Named `Surl.Cli` tests: one accepted and one refused `reply` per scheme family.
+- [x] With no rule, every existing test of the touched libraries passes unchanged.
+- [x] `dotnet build -warnaserror` is clean, the fast tests are green, and the touched libraries keep 100% line and
       branch coverage.
 
 ## Notes
@@ -50,3 +50,4 @@ error, instead of being refused at configuration.
 - 2026-11-06: Doing -> Blocked. Stewart: Surl dark factory timed out after 120 min; see Z:\repos\Surl.logs\BL-834-20261106-033059-L4.jsonl
 - 2026-11-06: Blocked -> Deferred. Split into BL-1011, BL-1012, BL-1013, BL-1014, BL-1031, BL-1015 (timed out after 120 min; Stewart asked for the split 2026-11-06)
 - 2026-11-15: Reviewed by task-planner: finished. Every part of its split is Done: BL-1011, BL-1012, BL-1013, BL-1014, BL-1031, BL-1015. Stays in Deferred only because task-board.ps1 allows Deferred -> Backlog alone; BL-1235 closes it to Done with BL-1234's close-split.
+- 2026-11-15: Deferred -> Done. Closed by its parts, all Done: BL-1011, BL-1012, BL-1013, BL-1014, BL-1031, BL-1015

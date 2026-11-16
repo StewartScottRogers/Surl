@@ -8,7 +8,7 @@ depends-on: [BL-438, BL-405, BL-655]
 touches: [Application/Surl.Console, Application/Surl.Console.UnitTests, Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests, Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests]
 requirement: none
 created: 2026-11-04
-completed:
+completed: 2026-11-15
 ---
 # BL-439 — Serve oci from the surl executable
 
@@ -33,11 +33,11 @@ decides. Its `--aihelp` topic and help category exist, and the extension switch 
 
 ## Acceptance criteria
 
-- [ ] A named `Surl.Console.UnitTests` test finds `oci` registered when the switch is on, and absent when it is off.
-- [ ] A named test shows the `oci` server and the `ftp` and `http` servers composed with one and the same
+- [x] A named `Surl.Console.UnitTests` test finds `oci` registered when the switch is on, and absent when it is off.
+- [x] A named test shows the `oci` server and the `ftp` and `http` servers composed with one and the same
       `ContentStore` instance.
-- [ ] The `--aihelp` completeness tests named in root `CLAUDE.md` pass.
-- [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and `Surl.Console` and `Surl.Cli` keep 100%
+- [x] The `--aihelp` completeness tests named in root `CLAUDE.md` pass.
+- [x] `dotnet build -warnaserror` is clean, the fast tests are green, and `Surl.Console` and `Surl.Cli` keep 100%
       line and branch coverage.
 
 ## Notes
@@ -56,3 +56,4 @@ decides. Its `--aihelp` topic and help category exist, and the extension switch 
 - 2026-11-05: Doing -> Backlog. Needs Application/Surl.Composition.UnitLibrary and .UnitTests, which BL-803 in Doing touches
 - 2026-11-06: Backlog -> Deferred. Split into BL-1028 and BL-971 (over the 60-minute size limit; Stewart asked for a backlog audit 2026-11-06)
 - 2026-11-15: Reviewed by task-planner: finished. Every part of its split is Done: BL-1028, BL-971. Stays in Deferred only because task-board.ps1 allows Deferred -> Backlog alone; BL-1235 closes it to Done with BL-1234's close-split.
+- 2026-11-15: Deferred -> Done. Closed by its parts, all Done: BL-1028, BL-971

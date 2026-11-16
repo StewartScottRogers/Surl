@@ -8,7 +8,7 @@ depends-on: [BL-645, BL-646, BL-657, BL-658, BL-659, BL-660, BL-661, BL-662]
 touches: [Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests, Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests, Application/Surl.Console.UnitTests]
 requirement: none
 created: 2026-11-04
-completed:
+completed: 2026-11-15
 ---
 # BL-663 — Add --share, --share-access and --bucket and compose them into the content store
 
@@ -34,15 +34,15 @@ with each widening option warned at start.
 
 ## Acceptance criteria
 
-- [ ] Named tests in `Application/Surl.Cli.UnitTests` parse each option and refuse each malformed, duplicate or
+- [x] Named tests in `Application/Surl.Cli.UnitTests` parse each option and refuse each malformed, duplicate or
       conflicting item with the ADR's exit code and text.
-- [ ] Named tests in `Application/Surl.Composition.UnitTests` show shares, buckets and access (with an `@group`)
+- [x] Named tests in `Application/Surl.Composition.UnitTests` show shares, buckets and access (with an `@group`)
       reaching the composed `ContentStore`, one instance handed to every file server, a missing share path refused
       at start, and each widening option's warning written.
-- [ ] Each option passes `AiHelpFactsTests.EveryOption_HasAnArgumentTypeAndAllowedValues`,
+- [x] Each option passes `AiHelpFactsTests.EveryOption_HasAnArgumentTypeAndAllowedValues`,
       `AiHelpTextTests.Answer_EveryOption_AppearsInAllAndInEveryTopicItsCategoriesName` and
       `CommandLineRunnerAiHelpTests.RunAsync_EveryAiHelpExample_WritesWhatTheExampleShows`.
-- [ ] `dotnet build -warnaserror` is clean, `dotnet test --filter "TestCategory!=Integration"` is green, and both
+- [x] `dotnet build -warnaserror` is clean, `dotnet test --filter "TestCategory!=Integration"` is green, and both
       libraries keep 100% line and branch coverage.
 
 ## Notes
@@ -58,3 +58,4 @@ with each widening option warned at start.
 - 2026-11-04: Created.
 - 2026-11-06: Backlog -> Deferred. Split into BL-987, BL-988 and BL-989 (over the 60-minute size limit; Stewart asked for a backlog audit 2026-11-06)
 - 2026-11-15: Reviewed by task-planner: finished. Every part of its split is Done: BL-987, BL-988, BL-989. Stays in Deferred only because task-board.ps1 allows Deferred -> Backlog alone; BL-1235 closes it to Done with BL-1234's close-split.
+- 2026-11-15: Deferred -> Done. Closed by its parts, all Done: BL-987, BL-988, BL-989

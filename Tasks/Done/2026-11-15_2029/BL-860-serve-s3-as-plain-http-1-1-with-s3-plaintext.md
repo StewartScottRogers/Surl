@@ -8,7 +8,7 @@ depends-on: [BL-421]
 touches: [Foundation/Surl.Protocol.Abstractions.UnitLibrary, Foundation/Surl.Protocol.Abstractions.UnitTests, Foundation/Surl.Core.UnitLibrary, Foundation/Surl.Core.UnitTests, Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests, Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests, Application/Surl.Console.UnitTests]
 requirement: none
 created: 2026-11-05
-completed:
+completed: 2026-11-15
 ---
 # BL-860 — Serve s3 as plain HTTP/1.1 with --s3-plaintext
 
@@ -33,12 +33,12 @@ start as the other loosening options do (ADR-0108 decision 5).
 
 ## Acceptance criteria
 
-- [ ] A named `Surl.Console.UnitTests` test runs `--s3-plaintext s3://127.0.0.1:0/` with no certificate and it
+- [x] A named `Surl.Console.UnitTests` test runs `--s3-plaintext s3://127.0.0.1:0/` with no certificate and it
       serves, writing the option's warning.
-- [ ] A named test shows a plain `s3` connection answered without a TLS handshake, and a TLS one still handshaking
+- [x] A named test shows a plain `s3` connection answered without a TLS handshake, and a TLS one still handshaking
       without the option.
-- [ ] `--aihelp s3` and `surl --help s3` list `--s3-plaintext`; the `--aihelp` completeness tests pass.
-- [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and every touched library keeps 100% line
+- [x] `--aihelp s3` and `surl --help s3` list `--s3-plaintext`; the `--aihelp` completeness tests pass.
+- [x] `dotnet build -warnaserror` is clean, the fast tests are green, and every touched library keeps 100% line
       and branch coverage.
 
 ## Notes
@@ -51,3 +51,4 @@ alone today, and changing it is a contract change to `Surl.Protocol.Abstractions
 - 2026-11-05: Created.
 - 2026-11-06: Backlog -> Deferred. Split into BL-1020 and BL-1021 (over the 60-minute size limit; Stewart asked for a backlog audit 2026-11-06)
 - 2026-11-15: Reviewed by task-planner: finished. Every part of its split is Done: BL-1020, BL-1021. Stays in Deferred only because task-board.ps1 allows Deferred -> Backlog alone; BL-1235 closes it to Done with BL-1234's close-split.
+- 2026-11-15: Deferred -> Done. Closed by its parts, all Done: BL-1020, BL-1021

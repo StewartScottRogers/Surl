@@ -8,7 +8,7 @@ depends-on: [BL-822, BL-851]
 touches: [Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests, Application/Surl.Api, Application/Surl.Api.UnitTests, Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests]
 requirement: none
 created: 2026-11-05
-completed:
+completed: 2026-11-15
 ---
 # BL-852 — Add --random-seed and SurlServerOptions.RandomSeed and bind the seeded identifier source per instance
 
@@ -35,14 +35,14 @@ run after run, and an unseeded instance behaves exactly as today.
 
 ## Acceptance criteria
 
-- [ ] `surl --random-seed 42 ...` and a `-K` file line `random-seed = 42` are accepted; `--random-seed -1` and
+- [x] `surl --random-seed 42 ...` and a `-K` file line `random-seed = 42` are accepted; `--random-seed -1` and
       `--random-seed x` exit `FailedInit` (2) with the existing option-error message form; the `--aihelp`
       completeness tests (`AiHelpFactsTests`, `AiHelpTextTests`) pass with the option on the `testing` page.
-- [ ] A composition test shows two `ComposedServing`s with seed 42 stamp equal `ExchangeContext.Identifiers` bytes
+- [x] A composition test shows two `ComposedServing`s with seed 42 stamp equal `ExchangeContext.Identifiers` bytes
       for exchange 1, and an unseeded one stamps the cryptographic source.
-- [ ] A `Surl.Api` test shows `SurlServerOptions.RandomSeed` reaches the composition and two servers started side
+- [x] A `Surl.Api` test shows `SurlServerOptions.RandomSeed` reaches the composition and two servers started side
       by side with different seeds draw different identifier bytes.
-- [ ] All three projects stay at 100% line and branch coverage; `dotnet build` clean, fast tests green.
+- [x] All three projects stay at 100% line and branch coverage; `dotnet build` clean, fast tests green.
 
 ## Notes
 
@@ -51,3 +51,4 @@ run after run, and an unseeded instance behaves exactly as today.
 - 2026-11-05: Created.
 - 2026-11-06: Backlog -> Deferred. Split into BL-996, BL-997 and BL-998 (over the 60-minute size limit; Stewart asked for a backlog audit 2026-11-06)
 - 2026-11-15: Reviewed by task-planner: finished. Every part of its split is Done: BL-996, BL-997, BL-998. Stays in Deferred only because task-board.ps1 allows Deferred -> Backlog alone; BL-1235 closes it to Done with BL-1234's close-split.
+- 2026-11-15: Deferred -> Done. Closed by its parts, all Done: BL-996, BL-997, BL-998

@@ -8,7 +8,7 @@ depends-on: [BL-911]
 touches: [Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests, Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests, Foundation/Surl.Networking.UnitLibrary, Foundation/Surl.Networking.UnitTests]
 requirement: none
 created: 2026-11-11
-completed:
+completed: 2026-11-15
 ---
 # BL-1051 — Serve the signed TLS-SRP suites from surl when --cert or --self-signed is given
 
@@ -29,12 +29,12 @@ completed:
 
 ## Acceptance criteria
 
-- [ ] `Surl.Cli.UnitTests`: TLS-SRP with `--cert` and with `--self-signed` is served, and the
+- [x] `Surl.Cli.UnitTests`: TLS-SRP with `--cert` and with `--self-signed` is served, and the
       refusal tests for them are gone.
-- [ ] `Surl.Networking.UnitTests`: a TLS-SRP handshake with an RSA certificate in the settings
+- [x] `Surl.Networking.UnitTests`: a TLS-SRP handshake with an RSA certificate in the settings
       chooses `C0 21` from pinned upstream curl's recorded ClientHello.
-- [ ] `Surl.Composition.UnitTests`: a `--cert` with an ECDSA key under TLS-SRP is `CertificateProblem` (58).
-- [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and each touched library keeps 100% line and branch coverage.
+- [x] `Surl.Composition.UnitTests`: a `--cert` with an ECDSA key under TLS-SRP is `CertificateProblem` (58).
+- [x] `dotnet build -warnaserror` is clean, the fast tests are green, and each touched library keeps 100% line and branch coverage.
 
 ## Notes
 
@@ -46,3 +46,4 @@ completed:
 - 2026-11-13: Backlog -> Doing.
 - 2026-11-13: Doing -> Deferred. Split into BL-1097, BL-1098, BL-1099 (timed out at the run's time limit)
 - 2026-11-15: Reviewed by task-planner: finished. Every part of its split is Done: BL-1097, BL-1098, BL-1099. Stays in Deferred only because task-board.ps1 allows Deferred -> Backlog alone; BL-1235 closes it to Done with BL-1234's close-split.
+- 2026-11-15: Deferred -> Done. Closed by its parts, all Done: BL-1097, BL-1098, BL-1099

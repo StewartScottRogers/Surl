@@ -8,7 +8,7 @@ depends-on: [BL-883, BL-646, BL-675, BL-677]
 touches: [Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests, Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests, Application/Surl.Console.UnitTests]
 requirement: none
 created: 2026-11-04
-completed:
+completed: 2026-11-15
 ---
 # BL-654 — Add --mail-alias, --mail-catch-all and --shared-folder and compose them into the mail store
 
@@ -39,15 +39,15 @@ members expanded.
 
 ## Acceptance criteria
 
-- [ ] Named tests in `Application/Surl.Cli.UnitTests` parse each option and key and refuse each malformed or
+- [x] Named tests in `Application/Surl.Cli.UnitTests` parse each option and key and refuse each malformed or
       conflicting item with the ADR's exit code and text.
-- [ ] Named tests in `Application/Surl.Composition.UnitTests` show aliases, catch-alls, shared folders (with an
+- [x] Named tests in `Application/Surl.Composition.UnitTests` show aliases, catch-alls, shared folders (with an
       `@group` member expanded), quotas and folders reaching the composed store, and the catch-all warning
       written at start.
-- [ ] Each option passes `AiHelpFactsTests.EveryOption_HasAnArgumentTypeAndAllowedValues`,
+- [x] Each option passes `AiHelpFactsTests.EveryOption_HasAnArgumentTypeAndAllowedValues`,
       `AiHelpTextTests.Answer_EveryOption_AppearsInAllAndInEveryTopicItsCategoriesName` and
       `CommandLineRunnerAiHelpTests.RunAsync_EveryAiHelpExample_WritesWhatTheExampleShows`.
-- [ ] `dotnet build -warnaserror` is clean, `dotnet test --filter "TestCategory!=Integration"` is green, and both
+- [x] `dotnet build -warnaserror` is clean, `dotnet test --filter "TestCategory!=Integration"` is green, and both
       libraries keep 100% line and branch coverage.
 
 ## Notes
@@ -58,3 +58,4 @@ members expanded.
 - 2026-11-05: depends-on BL-653 replaced by BL-883, the last task of its split (BL-653 deferred: timed out after 120 min; Stewart asked for the split 2026-11-05).
 - 2026-11-06: Backlog -> Deferred. Split into BL-993, BL-994 and BL-995 (over the 60-minute size limit; Stewart asked for a backlog audit 2026-11-06)
 - 2026-11-15: Reviewed by task-planner: finished. Every part of its split is Done: BL-993, BL-994, BL-995. Stays in Deferred only because task-board.ps1 allows Deferred -> Backlog alone; BL-1235 closes it to Done with BL-1234's close-split.
+- 2026-11-15: Deferred -> Done. Closed by its parts, all Done: BL-993, BL-994, BL-995

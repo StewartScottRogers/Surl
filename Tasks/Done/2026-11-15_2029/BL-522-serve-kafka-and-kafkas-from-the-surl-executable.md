@@ -8,7 +8,7 @@ depends-on: [BL-521, BL-405, BL-635]
 touches: [Application/Surl.Console, Application/Surl.Console.UnitTests, Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests, Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests]
 requirement: none
 created: 2026-11-04
-completed:
+completed: 2026-11-15
 ---
 # BL-522 — Serve kafka and kafkas from the surl executable
 
@@ -37,14 +37,14 @@ loaded after the data-directory lock if it persists. Metadata advertises the lis
 
 ## Acceptance criteria
 
-- [ ] A named test shows the `kafka` broker and the `mqtt` server composed with one and the same bus instance.
+- [x] A named test shows the `kafka` broker and the `mqtt` server composed with one and the same bus instance.
 
-- [ ] A named test finds `kafka` and `kafkas` registered when the switch is on, and absent when it is off.
+- [x] A named test finds `kafka` and `kafkas` registered when the switch is on, and absent when it is off.
       Another shows the advertised broker port equal to the bound port when the listen URL says `:0`.
-- [ ] A named test shows `--kafka-fetch-compression zstd` reaching the broker, the default `none`, and another
+- [x] A named test shows `--kafka-fetch-compression zstd` reaching the broker, the default `none`, and another
       value refused as the parser refuses an unknown enumerated argument.
-- [ ] The `--aihelp` completeness tests named in root `CLAUDE.md` pass.
-- [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and `Surl.Console` and `Surl.Cli` keep 100%
+- [x] The `--aihelp` completeness tests named in root `CLAUDE.md` pass.
+- [x] `dotnet build -warnaserror` is clean, the fast tests are green, and `Surl.Console` and `Surl.Cli` keep 100%
       line and branch coverage.
 
 ## Notes
@@ -64,3 +64,4 @@ loaded after the data-directory lock if it persists. Metadata advertises the lis
 - 2026-11-05: Doing -> Backlog. Needs Application/Surl.Composition.UnitLibrary and Surl.Composition.UnitTests, which BL-803 in Doing touches; resumes once BL-803 releases them
 - 2026-11-06: Backlog -> Deferred. Split into BL-973 and BL-974 (over the 60-minute size limit; Stewart asked for a backlog audit 2026-11-06)
 - 2026-11-15: Reviewed by task-planner: finished. Every part of its split is Done: BL-973, BL-974. Stays in Deferred only because task-board.ps1 allows Deferred -> Backlog alone; BL-1235 closes it to Done with BL-1234's close-split.
+- 2026-11-15: Deferred -> Done. Closed by its parts, all Done: BL-973, BL-974
