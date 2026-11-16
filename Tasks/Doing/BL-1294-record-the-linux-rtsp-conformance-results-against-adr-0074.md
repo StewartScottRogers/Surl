@@ -26,12 +26,14 @@ ADR-0074 states what the `linux-x64` reference build of upstream curl 8.21.0 did
 
 ## Acceptance criteria
 
-- [ ] ADR-0074 has an amendment, "Measured on Linux", naming BL-1289's CI run and the `linux-x64` reference pin's SHA-256, giving the RTSP tests passed, Inconclusive and failed on `linux-x64`.
-- [ ] The amendment says whether every RTSP test was Inconclusive on `osx-arm64`, as ADR-0026 decides.
-- [ ] The Context's "Not measured: the Linux build" points to the amendment.
-- [ ] A task is filed for each failed RTSP test, its ID in Notes, or Notes says none failed.
+- [x] ADR-0074 has an amendment, "Measured on Linux", naming BL-1289's CI run and the `linux-x64` reference pin's SHA-256, giving the RTSP tests passed, Inconclusive and failed on `linux-x64`.
+- [x] The amendment says whether every RTSP test was Inconclusive on `osx-arm64`, as ADR-0026 decides.
+- [x] The Context's "Not measured: the Linux build" points to the amendment.
+- [x] A task is filed for each failed RTSP test, its ID in Notes, or Notes says none failed.
 
 ## Notes
+
+None failed: all 16 RTSP tests passed on linux-x64, all 16 Inconclusive on osx-arm64. No task filed.
 
 ## Log
 

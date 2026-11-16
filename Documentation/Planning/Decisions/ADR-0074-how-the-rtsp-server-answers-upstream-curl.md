@@ -103,7 +103,7 @@ What this settles:
 4. **Logins are HTTP's.** Basic and Bearer go unasked; Digest answers a `401` once, with
    `uri="*"`; a `4xx` is exit 0 without `-f` and 22 with it.
 
-**Not measured:** the Linux build (the lane runs Windows only; it is the same tag's `lib/rtsp.c`,
+**Not measured:** ~~the Linux build~~ (measured since, see "Amendment - Measured on Linux" below; the lane runs Windows only; it is the same tag's `lib/rtsp.c`,
 and BL-318 runs every case there through CI); and every libcurl-only request, which waits for the
 driver (decision 12).
 
@@ -636,3 +636,25 @@ decision 5 as amended by Amendment 1 holds BL-337's.
 
 BL-793 (ADR-0134), BL-902 (ADR-0141) and BL-1256 (no wire change) made no RTSP choice outside those
 ADRs; BL-396 left `Surl.Protocol.Rtsp` unchanged.
+
+## Amendment - Measured on Linux (BL-1294, 2026-11-16)
+
+Decided by Claude under Stewart's delegation. This is a record of a measurement; it changes no
+decision above.
+
+BL-1289 ran the conformance tests once on Linux and macOS (CI run
+https://github.com/StewartScottRogers/Surl/actions/runs/43906686682, commit
+`a06ae86113e511d6d6204949c1fbf80e29b41ba9`, attempt 1; details in
+`Documentation/Conformance/Conformance-Off-Windows.md`). The class is
+`UpstreamCurlTalksToSurlOverRtspTests`, 16 tests.
+
+| Reference pin | SHA-256 | Passed | Inconclusive | Failed |
+|---|---|---|---|---|
+| `linux-x64` (curl 8.21.0, static-curl musl) | `153CA463957609117D21A848BE29B70691B85F9E5CC9370C7DAA037B839A4E45` | 16 | 0 | 0 |
+| `osx-arm64` (curl 8.21.0) | `04E0E69BCD3BD814EC093551A0447AC14EDEEA9D395B468A2025DCB3F766EEBF` | 0 | 16 | 0 |
+
+- The Linux build agrees with every measured decision: no RTSP test failed, so no decision is
+  amended and no task is filed.
+- On `osx-arm64` every one of the 16 tests was Inconclusive, as ADR-0026 and decision 11 say,
+  because the macOS reference build lists no `rtsp` protocol.
+- Milestone 5's "still open" for the Linux build is answered by this record.
