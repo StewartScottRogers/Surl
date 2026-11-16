@@ -4,7 +4,7 @@ title: Pin the libtest programs by SHA-256 as kind libtest and verify them in CI
 priority: Normal
 assignee: Claude
 pipeline: direct
-depends-on: [BL-1310]
+depends-on: [BL-1310, BL-1314]
 touches: [UpstreamCurlBuilds.json, .github/actions/upstream-curl]
 requirement: none
 created: 2026-11-16
@@ -27,7 +27,10 @@ ADR-0174 decision 2 and 4; follows the Debug pin of BL-1310 and the .github/acti
 
 ## Notes
 
+- 2026-11-16: The libtest programs are not built yet (BL-1314 builds them in Build-DebugUpstreamCurl.ps1), so there are no real SHA-256 values to pin. BL-1314 added to depends-on; pin and CI verification wait for it.
+
 ## Log
 
 - 2026-11-16: Created.
 - 2026-11-16: Backlog -> Doing.
+- 2026-11-16: Doing -> Backlog. Needs BL-1314 first: the libtest programs are not built, so there are no hashes to pin
