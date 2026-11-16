@@ -8,7 +8,7 @@ depends-on: [BL-1289]
 touches: [Documentation/Planning/Decisions/ADR-0074-how-the-rtsp-server-answers-upstream-curl.md]
 requirement: FR-051
 created: 2026-11-16
-completed:
+completed: 2026-11-16
 ---
 # BL-1294 — Record the Linux RTSP conformance results against ADR-0074
 
@@ -39,3 +39,4 @@ None failed: all 16 RTSP tests passed on linux-x64, all 16 Inconclusive on osx-a
 
 - 2026-11-16: Created.
 - 2026-11-16: Backlog -> Doing.
+- 2026-11-16: Doing -> Done. ADR-0074 amended with the Linux RTSP results: 16 passed on linux-x64, 16 Inconclusive on osx-arm64, none failed
