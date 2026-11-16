@@ -32,3 +32,4 @@ ADR-0173 decision 7 leaves these four unrunnable. ADR-0080 skips 350 cases as `l
 ## Log
 
 - 2026-11-16: Created by BL-1303 (ADR-0173).
+- 2026-11-16: Backlog -> Doing.
