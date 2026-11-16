@@ -99,13 +99,15 @@ internal sealed class CustomProtocolServers
     /// serves <c>surl</c>'s listen URLs first, then each custom server's.
     /// </summary>
     /// <param name="servedBoundUrls">The bound URLs in the order served.</param>
-    /// <returns>The bound URLs in the order given.</returns>
+    /// <returns>The bound URLs in the order given, then any the command line added (a proxy listen URL from
+    /// <see cref="SurlServerOptions.AdditionalArguments"/>) in the order served.</returns>
     public IReadOnlyList<Uri> InOrderGiven(IReadOnlyList<Uri> servedBoundUrls)
     {
         var inOrderGiven = new Uri[servedBoundUrls.Count];
         for (var served = 0; served < servedBoundUrls.Count; served++)
         {
-            inOrderGiven[servedOrder[served]] = servedBoundUrls[served];
+            var position = served < servedOrder.Count ? servedOrder[served] : served;
+            inOrderGiven[position] = servedBoundUrls[served];
         }
 
         return inOrderGiven;
