@@ -68,6 +68,11 @@ internal sealed class FakeListenerFactory : IListenerFactory
     /// </summary>
     public bool ReportsDatagramBoundPort { get; init; } = true;
 
+    /// <summary>
+    /// The flows every datagram listener accepts, in order, when set; otherwise each accept waits until cancelled.
+    /// </summary>
+    public Channel<IDatagramFlow>? DatagramFlows { get; init; }
+
     private void ThrowBindFailureWhenSet()
     {
         if (BindFailure is not null)
@@ -128,6 +133,11 @@ internal sealed class FakeListenerFactory : IListenerFactory
 
         public async ValueTask<IDatagramFlow> AcceptFlowAsync(CancellationToken cancellationToken)
         {
+            if (factory.DatagramFlows is { } flows)
+            {
+                return await flows.Reader.ReadAsync(cancellationToken);
+            }
+
             await factory.WaitUntilCancelledAsync(cancellationToken);
             throw new UnreachableException();
         }

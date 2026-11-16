@@ -12,4 +12,11 @@
     <ProjectReference Include="..\Surl.Composition.UnitLibrary\Surl.Composition.UnitLibrary.csproj" />
   </ItemGroup>
 
+  <!-- The QUIC client and the Initial datagrams pinned upstream curl sent, shared with Surl.Http3.UnitTests. -->
+  <ItemGroup>
+    <Compile Include="..\..\Protocols\Http\Surl.Http3.UnitTests\UnitTestQuicClient.cs" Link="UnitTestQuicClient.cs" />
+    <Compile Include="..\..\Protocols\Http\Surl.Http3.UnitTests\UnitTestTls13Client.cs" Link="UnitTestTls13Client.cs" />
+    <EmbeddedResource Include="..\..\Protocols\Http\Surl.Protocol.Http.UnitTests\Fixtures\h3-client-initial\static-8.21.0-win.datagrams.bin" LogicalName="Fixtures/h3-client-initial/static-8.21.0-win.datagrams.bin" />
+  </ItemGroup>
+
 </Project>
