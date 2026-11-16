@@ -27,6 +27,12 @@ public sealed record UpstreamTestCaseSelectionRules(
     IReadOnlySet<int> TestServerChoices)
 {
     /// <summary>
+    /// Gets whether the libtest programs can run on this machine; with the default, no libtest
+    /// case runs and each keeps skip reason <c>libtest</c> (ADR-0174 decisions 3 and 4).
+    /// </summary>
+    public UpstreamLibtestAvailability Libtests { get; init; } = UpstreamLibtestAvailability.NotPinned;
+
+    /// <summary>
     /// The rules for <paramref name="build"/> as Surl stands today: the server commands
     /// <see cref="UpstreamTestCaseServerCommands"/> lists for each built server half (BL-391 to
     /// BL-397 add their rows), the strip lines <see cref="UpstreamTestCaseStripLine.IsSupported"/>

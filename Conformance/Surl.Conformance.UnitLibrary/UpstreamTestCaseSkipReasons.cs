@@ -61,4 +61,9 @@ public static class UpstreamTestCaseSkipReasons
     /// <param name="command">The command, such as <c>REPLY</c>.</param>
     /// <returns><c>servercmd-unsupported:</c> and the command.</returns>
     public static string ServerCommandUnsupported(string command) => "servercmd-unsupported:" + command;
+
+    /// <summary>The platform pins libtest programs, but the one the case runs is not on this machine.</summary>
+    /// <param name="program">The program, such as <c>lib2402</c>.</param>
+    /// <returns><c>libtest-not-built:</c> and the name.</returns>
+    public static string LibTestNotBuilt(string program) => "libtest-not-built:" + program;
 }

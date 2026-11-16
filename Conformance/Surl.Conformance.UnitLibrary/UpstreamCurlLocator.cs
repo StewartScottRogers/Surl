@@ -131,6 +131,40 @@ public sealed class UpstreamCurlLocator(IUpstreamCurlFileAccess fileAccess)
     }
 
     /// <summary>
+    /// Finds the pinned libtest programs of <paramref name="platform"/> (ADR-0174): the
+    /// <c>libtests</c> binary of the platform's <c>libtest</c> entry, when it exists and hashes to
+    /// its pin.
+    /// </summary>
+    /// <param name="pins">The builds <c>UpstreamCurlBuilds.json</c> pins.</param>
+    /// <param name="platform">The platform to find the programs for, such as <c>linux-x64</c>.</param>
+    /// <returns>
+    /// A location whose build is the binary as a runnable file (its <c>DefaultPath</c> and
+    /// <c>Sha256</c> are the binary's), or one saying that the platform pins no libtest entry, as
+    /// Windows and macOS do not, or that the file does not exist.
+    /// </returns>
+    /// <exception cref="UnpinnedUpstreamCurlException">The binary exists but hashes to something else.</exception>
+    public UpstreamCurlLocation LocateLibtest(IReadOnlyList<PinnedUpstreamCurlBuild> pins, string platform)
+    {
+        ArgumentNullException.ThrowIfNull(pins);
+        ArgumentNullException.ThrowIfNull(platform);
+
+        var entry = pins.FirstOrDefault(pin => pin.Kind == UpstreamCurlBuildKind.Libtest && pin.Platform == platform);
+        if (entry is null)
+        {
+            return UpstreamCurlLocation.NoPinnedBuild(platform, UpstreamCurlBuildRole.Supplementary);
+        }
+
+        var program = entry with
+        {
+            DefaultPath = entry.DefaultPath.TrimEnd('/') + "/" + UpstreamTestCaseLibtests.ProgramFileName,
+            Sha256 = entry.Programs.GetValueOrDefault(UpstreamTestCaseLibtests.ProgramFileName, string.Empty),
+            Kind = UpstreamCurlBuildKind.Curl,
+        };
+
+        return VerifyFirstPresent([program]);
+    }
+
+    /// <summary>
     /// Checks each candidate whose file exists, in order, and returns the first that hashes to
     /// its pin.
     /// </summary>

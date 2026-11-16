@@ -50,6 +50,19 @@ public sealed class UpstreamTestCaseSelectorTests
     }
 
     [TestMethod]
+    [DataRow(2402, UpstreamLibtestAvailability.Present, null)]
+    [DataRow(2402, UpstreamLibtestAvailability.NotPinned, "libtest")]
+    [DataRow(2402, UpstreamLibtestAvailability.PinnedButAbsent, "libtest-not-built:lib2402")]
+    [DataRow(42, UpstreamLibtestAvailability.Present, "libtest")]
+    [DataRow(42, UpstreamLibtestAvailability.PinnedButAbsent, "libtest")]
+    public void FindSkipReason_LibTestCase_RunsOnlyWhenAdmittedAndPresent(int number, UpstreamLibtestAvailability availability, string? expected)
+    {
+        var rules = Rules() with { Libtests = availability };
+
+        Assert.AreEqual(expected, new UpstreamTestCaseSelector(rules).FindSkipReason(number, Case(Server("http") + "<tool>\nlib%TESTNUMBER\n</tool>\n")));
+    }
+
+    [TestMethod]
     public void FindSkipReason_DebugFeature_SkipsDebugBuild()
     {
         Assert.AreEqual("debug-build", Reason(Server("http") + Features("Debug")));
