@@ -209,7 +209,7 @@ public sealed class ControlEventRequestsTests
         var log = new ControlEventLog();
         Add(log, 1, new ExchangeStartedEvent(1, "http://127.0.0.1:8080", "http", Client));
         Add(log, 2, new ExchangeBytesEvent(1, ExchangeDirection.Received, Encoding.ASCII.GetBytes("GET / HTTP/1.1\r\n")));
-        Add(log, 3, new ExchangeBytesEvent(1, ExchangeDirection.Sent, new byte[] { 0xff }));
+        Add(log, 3, new ExchangeBytesEvent(1, ExchangeDirection.Sent, new byte[] { 0xff }) { Layer = ExchangeBytesLayer.Decrypted, StreamId = 4 });
         Add(log, 4, new ExchangeEndedEvent(1, 16, 1));
 
         var response = await ServeAsync(EndpointOver(log), Request("GET", "/v1/exchanges"), new ManualTimeProvider(), TestContext.CancellationToken);
@@ -217,8 +217,8 @@ public sealed class ControlEventRequestsTests
         Assert.AreEqual(
             "{\"exchanges\":[{\"exchange_id\":1,\"listen_url\":\"http://127.0.0.1:8080\",\"scheme\":\"http\",\"client\":\"127.0.0.1:50512\","
             + "\"started_at\":\"2026-11-05T09:30:00.0000000\\u002B00:00\",\"chunks\":["
-            + "{\"direction\":\"received\",\"encoding\":\"text\",\"data\":\"GET / HTTP/1.1\\r\\n\"},"
-            + "{\"direction\":\"sent\",\"encoding\":\"base64\",\"data\":\"/w==\"}],"
+            + "{\"direction\":\"received\",\"encoding\":\"text\",\"data\":\"GET / HTTP/1.1\\r\\n\",\"layer\":\"wire\"},"
+            + "{\"direction\":\"sent\",\"encoding\":\"base64\",\"data\":\"/w==\",\"layer\":\"decrypted\",\"stream_id\":4}],"
             + "\"recorded_bytes\":17,\"shown_bytes\":17,\"is_cut\":false,\"is_truncated\":false}],"
             + "\"dropped_exchange_count\":0,\"has_more\":false}",
             Body(response));

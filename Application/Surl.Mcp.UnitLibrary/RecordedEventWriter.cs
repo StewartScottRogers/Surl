@@ -139,7 +139,7 @@ internal static class RecordedEventWriter
         }
     }
 
-    private static string SnakeCase<TEnum>(TEnum value)
+    internal static string SnakeCase<TEnum>(TEnum value)
         where TEnum : struct, Enum =>
         JsonNamingPolicy.SnakeCaseLower.ConvertName(value.ToString());
 }

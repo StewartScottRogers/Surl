@@ -83,7 +83,7 @@ internal sealed class ExchangeRecordBook(int maxExchanges, int maxBytesPerExchan
     {
         if (open.TryGetValue(bytes.ExchangeId, out var recorder))
         {
-            recorder.Keep(ToSurlExchangeDirection(bytes.Direction), bytes.Bytes.Span);
+            recorder.Keep(bytes);
         }
     }
 
@@ -113,13 +113,14 @@ internal sealed class ExchangeRecordBook(int maxExchanges, int maxBytesPerExchan
 
         public ExchangeFacts Facts => facts;
 
-        public void Keep(SurlExchangeDirection direction, ReadOnlySpan<byte> bytes)
+        public void Keep(ExchangeBytesEvent bytesEvent)
         {
+            var bytes = bytesEvent.Bytes.Span;
             var keptLength = Math.Min(bytes.Length, maxBytes - keptByteCount);
             isTruncated |= keptLength < bytes.Length;
             if (keptLength > 0)
             {
-                chunks.Add(new SurlExchangeChunk(direction, bytes[..keptLength].ToArray()));
+                chunks.Add(new SurlExchangeChunk(ToSurlExchangeDirection(bytesEvent.Direction), bytes[..keptLength].ToArray(), bytesEvent.Layer, bytesEvent.StreamId));
                 keptByteCount += keptLength;
             }
         }

@@ -108,6 +108,12 @@ internal static class RecordedExchangeWriter
         var shown = bytes[..shownLength];
         writer.WriteStartObject();
         writer.WriteString("direction", chunk.Direction == SurlExchangeDirection.Received ? "received" : "sent");
+        writer.WriteString("layer", RecordedEventWriter.SnakeCase(chunk.Layer));
+        if (chunk.StreamId is { } streamId)
+        {
+            writer.WriteNumber("stream_id", streamId);
+        }
+
         writer.WriteString("encoding", isText ? "text" : "base64");
         writer.WriteString("data", isText ? Encoding.UTF8.GetString(shown) : Convert.ToBase64String(shown));
         writer.WriteEndObject();
