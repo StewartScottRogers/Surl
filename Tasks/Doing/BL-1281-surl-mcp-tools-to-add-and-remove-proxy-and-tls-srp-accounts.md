@@ -35,3 +35,4 @@ ADR-0170 decision 4, after BL-1279. Shaped like `add_account` and `remove_accoun
 - 2026-11-16: Created.
 - 2026-11-16: Backlog -> Doing.
 - 2026-11-16: Doing -> Backlog. Needs BL-1280's Surl.Api ProxyAccounts and TlsSrpAccounts members; added to depends-on
+- 2026-11-16: Backlog -> Doing.
