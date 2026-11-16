@@ -8,7 +8,7 @@ depends-on: [BL-1288, BL-1290, BL-1291, BL-1292, BL-1293, BL-1294, BL-1295, BL-1
 touches: [Documentation/Planning/Roadmap.md, Documentation/Product/Product-Overview.md, Documentation/Product/Requirements.md]
 requirement: none
 created: 2026-11-16
-completed:
+completed: 2026-11-16
 ---
 # BL-1302 — Bring the Roadmap's Milestones 2 to 5 and the product overview up to date with the off-Windows records and SASL EXTERNAL
 
@@ -26,14 +26,17 @@ The Roadmap's Milestones 2 to 5, the product overview's "Built for Phase 2" to "
 
 ## Acceptance criteria
 
-- [ ] Each of Milestones 2 to 5 in `Roadmap.md` either says "Closed (<date>)" with the tasks that closed it, or names each item still open with the task that holds it; none says "predicted", "not yet measured" or "not yet recorded" for anything BL-1290 to BL-1294 recorded.
-- [ ] The product overview's "Built for Phase 3" no longer says `EXTERNAL` is proven by unit tests only, and names the `SaslExternal` conformance tests.
-- [ ] The product overview's Phase 2 to 5 sections say the Linux and macOS results are recorded in the ADRs, naming `Documentation/Conformance/Conformance-Off-Windows.md`.
-- [ ] FR-039, FR-046 and FR-048 to FR-051 in `Requirements.md`, and its intro's sentence about FR-049 to FR-052, are true of the ADRs as amended.
+- [x] Each of Milestones 2 to 5 in `Roadmap.md` either says "Closed (<date>)" with the tasks that closed it, or names each item still open with the task that holds it; none says "predicted", "not yet measured" or "not yet recorded" for anything BL-1290 to BL-1294 recorded.
+- [x] The product overview's "Built for Phase 3" no longer says `EXTERNAL` is proven by unit tests only, and names the `SaslExternal` conformance tests.
+- [x] The product overview's Phase 2 to 5 sections say the Linux and macOS results are recorded in the ADRs, naming `Documentation/Conformance/Conformance-Off-Windows.md`.
+- [x] FR-039, FR-046 and FR-048 to FR-051 in `Requirements.md`, and its intro's sentence about FR-049 to FR-052, are true of the ADRs as amended.
 
 ## Notes
+
+Docs only. Also corrected the stale OpenLDAP "not yet proven" text (BL-312, BL-342 are Done) in the overview, FR-049 and FR-052. `--compressed-ssh` stays a named prediction (BL-1290 note). No task filed.
 
 ## Log
 
 - 2026-11-16: Created.
 - 2026-11-16: Backlog -> Doing.
+- 2026-11-16: Doing -> Done. Roadmap Milestones 2 to 5, overview and requirements state the off-Windows records and SASL EXTERNAL proof

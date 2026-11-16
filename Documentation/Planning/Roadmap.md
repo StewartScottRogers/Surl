@@ -32,9 +32,10 @@ task board in `Tasks/`, never here.
 
 ## Milestone 2 — Phase 2
 
-- **Status:** Built, and proven with the Windows reference build (2026-09-30). Not closed:
-  what the Linux and macOS reference builds negotiate over SSH is pinned as
-  predicted, not yet recorded as measured.
+- **Status:** Built, and proven with the Windows reference build (2026-09-30). Closed (2026-11-16): the
+  Linux and macOS reference builds' results are recorded in ADR-0051 decision 2 and ADR-0054
+  decision 16 (BL-1289, BL-1290; CI run 43906686682, no SSH test failed). `--compressed-ssh`
+  stays a prediction on those builds, since nothing measured it.
 - **Delivers:** the FTP server (`Surl.Protocol.Ftp`, schemes `ftp` and `ftps`) with passive
   and active data connections through the data-connection seam (`IDataConnectionOpener`,
   implemented over sockets by `Surl.Networking`), explicit and implicit FTPS, and
@@ -57,10 +58,10 @@ task board in `Tasks/`, never here.
 
 ## Milestone 3 — Phase 3
 
-- **Status:** Built, and proven with the Windows reference build (2026-09-30). Not closed:
-  SASL `EXTERNAL` over the mail servers is proven by unit tests only, and what the Linux and
-  macOS reference builds do against the mail servers is not yet recorded against the servers'
-  ADRs. SASL `GSSAPI` is proven with the Windows reference build through the hand-built
+- **Status:** Built, and proven with the Windows reference build (2026-09-30). Closed (2026-11-16): the
+  Linux and macOS reference builds' results are recorded in ADR-0053, ADR-0055 and ADR-0056,
+  "Measured on Linux and macOS" (BL-1291), and SASL `EXTERNAL` is proven against pinned
+  upstream curl over `smtps`, `imaps` and `pop3s` (BL-1298 to BL-1300, ADR-0049 Amendment 4). SASL `GSSAPI` is proven with the Windows reference build through the hand-built
   loopback test KDC of ADR-0065 (`UpstreamCurlLogsInToSurlWithKerberosTests`, over `smtp`,
   `imap` and `pop3`), and a refused `GSSAPI` ticket's reason is written to the verbose log.
 - **Delivers:** the mail store (`Surl.MailStore`: mailboxes per owner, the POP3 maildrop lock,
@@ -87,9 +88,9 @@ task board in `Tasks/`, never here.
 ## Milestone 4 — Phase 4
 
 - **Status:** Built, and proven with the Windows reference build and its `libcurl-4.dll`
-  (2026-09-30). Not closed: what the Linux and macOS reference builds do against the WebSocket
-  server is not yet recorded against ADR-0071, and the libcurl cases cannot run there, since
-  those builds carry no shared library (ADR-0071 decision 10).
+  (2026-09-30). Closed (2026-11-16): all 20 WebSocket tool tests passed on Linux and macOS and
+  are recorded in ADR-0071 (BL-1292). The libcurl cases cannot run there, since those builds
+  carry no shared library: a decided limit (ADR-0071 decision 10), not an open item.
 - **Delivers:** the HTTP message library the HTTP, WebSocket and RTSP servers share
   (`Surl.HttpMessage`: the bounded HTTP/1.x request-head reader and its head timeout, request-line
   and field-line parsing, response heads and `WWW-Authenticate` challenge fields), with the HTTP
@@ -110,7 +111,7 @@ task board in `Tasks/`, never here.
 
 ## Milestone 5 — Phase 5
 
-- **Status:** Built, and proven with the Windows builds (2026-09-30), with the LDAP open items closed since: the OpenLDAP-backed upstream curl that ADR-0076 pins binds, upgrades with `STARTTLS` and searches a live `surl` over `ldap` and `ldaps` (BL-312); Kerberos inside LDAP's `GSS-SPNEGO` is built (BL-327, ADR-0072 Amendment 1); LDAP SASL `GSSAPI` is measured against the re-pinned OpenLDAP and MIT Kerberos build (BL-342, ADR-0078). Still open (2026-11-14): what the Linux and macOS reference builds do over SMB, and the Linux one over RTSP, is not yet recorded against ADR-0073 and ADR-0074, and choices the building tasks made where ADR-0072, ADR-0073 and ADR-0074 were silent are recorded in those tasks, not yet in the ADRs (no task filed).
+- **Status:** Built, and proven with the Windows builds (2026-09-30), with the LDAP open items closed since: the OpenLDAP-backed upstream curl that ADR-0076 pins binds, upgrades with `STARTTLS` and searches a live `surl` over `ldap` and `ldaps` (BL-312); Kerberos inside LDAP's `GSS-SPNEGO` is built (BL-327, ADR-0072 Amendment 1); LDAP SASL `GSSAPI` is measured against the re-pinned OpenLDAP and MIT Kerberos build (BL-342, ADR-0078). Closed (2026-11-16): the Linux and macOS SMB results are recorded in ADR-0073 (BL-1293), the Linux RTSP results in ADR-0074 (BL-1294; on macOS RTSP is Inconclusive, ADR-0026), and the choices the building tasks made where ADR-0072, ADR-0073 and ADR-0074 were silent are in those ADRs' amendments (BL-1295 to BL-1297). Nothing is left open.
 - **Delivers:** the LDAP server (`Surl.Protocol.Ldap`, schemes `ldap` and `ldaps`): a BER codec on
   `System.Formats.Asn1`, a read-only directory loaded from `<path>/.surl/ldap/directory.ldif`
   (empty in memory), searches, compares, the root DSE, simple, Sicily and SASL binds with their
