@@ -72,17 +72,45 @@ public static class UpstreamCurlBuildPins
             throw new FormatException($"Entry {index} of builds in {FileName} is not an object.");
         }
 
+        var kind = ParseKind(OptionalString(entry, index, "kind"), index);
+        var isLibtest = kind == UpstreamCurlBuildKind.Libtest;
+
         return new PinnedUpstreamCurlBuild(
             RequiredString(entry, index, "platform"),
             RequiredString(entry, index, "defaultPath"),
-            ParseSha256(RequiredString(entry, index, "sha256"), index),
+            isLibtest ? string.Empty : ParseSha256(RequiredString(entry, index, "sha256"), index),
             OptionalString(entry, index, "version") ?? string.Empty,
             ParseSpaceSeparatedWords(OptionalString(entry, index, "protocols")),
             ParseRole(OptionalString(entry, index, "role"), index),
-            ParseKind(OptionalString(entry, index, "kind"), index))
+            kind)
         {
             Features = ParseSpaceSeparatedWords(OptionalString(entry, index, "features")),
+            Programs = isLibtest ? ParsePrograms(entry, index) : new Dictionary<string, string>(),
         };
+    }
+
+    private static Dictionary<string, string> ParsePrograms(JsonElement entry, int index)
+    {
+        if (!entry.TryGetProperty("programs", out var programs) || programs.ValueKind != JsonValueKind.Object)
+        {
+            throw new FormatException($"Entry {index} of builds in {FileName} is a libtest build with no programs map.");
+        }
+
+        var result = new Dictionary<string, string>();
+
+        foreach (var program in programs.EnumerateObject())
+        {
+            if (program.Value.ValueKind != JsonValueKind.String)
+            {
+                throw new FormatException($"The sha256 of program {program.Name} of entry {index} of builds in {FileName} is not a string.");
+            }
+
+            result[program.Name] = ParseSha256(program.Value.GetString()!, index);
+        }
+
+        return result.Count == 0
+            ? throw new FormatException($"The programs map of entry {index} of builds in {FileName} is empty.")
+            : result;
     }
 
     private static string RequiredString(JsonElement entry, int index, string name)
@@ -133,6 +161,7 @@ public static class UpstreamCurlBuildPins
     {
         null or "curl" => UpstreamCurlBuildKind.Curl,
         "library" => UpstreamCurlBuildKind.Library,
-        _ => throw new FormatException($"The kind of entry {index} of builds in {FileName} is '{kind}', not curl or library."),
+        "libtest" => UpstreamCurlBuildKind.Libtest,
+        _ => throw new FormatException($"The kind of entry {index} of builds in {FileName} is '{kind}', not curl, library or libtest."),
     };
 }

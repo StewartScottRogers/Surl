@@ -1,5 +1,5 @@
 {
-  "comment": "Upstream curl builds Surl may be measured against, pinned by SHA-256. Anything else is refused (ADR-0003). Pinning another build is a decision; never pin the Curl port. Each build's role is 'reference' (the release named below, used for every measurement unless a case needs what it lacks; a build with no role is a reference build) or 'supplementary' (pinned only for the protocols and features its ADR names, never to second-guess a reference build; ADR-0017). Each entry's kind is 'curl' (an executable run as a command; an entry with no kind is a curl) or 'library' (a shared libcurl loaded by a driver of libcurl's API, never run as a curl; ADR-0071 decision 10).",
+  "comment": "Upstream curl builds Surl may be measured against, pinned by SHA-256. Anything else is refused (ADR-0003). Pinning another build is a decision; never pin the Curl port. Each build's role is 'reference' (the release named below, used for every measurement unless a case needs what it lacks; a build with no role is a reference build) or 'supplementary' (pinned only for the protocols and features its ADR names, never to second-guess a reference build; ADR-0017). Each entry's kind is 'curl' (an executable run as a command; an entry with no kind is a curl) or 'library' (a shared libcurl loaded by a driver of libcurl's API, never run as a curl; ADR-0071 decision 10) or 'libtest' (a directory of upstream's libtest programs, each pinned by its own SHA-256 in a programs map instead of one sha256; ADR-0174).",
   "release": "8.21.0",
   "releaseDate": "2026-06-24",
   "builds": [
@@ -78,6 +78,17 @@
       "version": "curl 8.21.0 (x86_64-pc-linux-musl) libcurl/8.21.0 OpenSSL/3.5.9 nghttp2/1.69.0 ngtcp2/1.23.0 nghttp3/1.16.0",
       "protocols": "dict file ftp ftps gopher gophers http https imap imaps ipfs ipns mqtt mqtts pop3 pop3s rtsp smtp smtps telnet tftp ws wss",
       "features": "alt-svc AsynchDNS Debug HSTS HTTP2 HTTP3 HTTPS-proxy IPv6 Largefile SSL threadsafe TLS-SRP UnixSockets",
+      "pinned": "2026-11-16"
+    },
+    {
+      "platform": "linux-x64",
+      "role": "supplementary",
+      "kind": "libtest",
+      "origin": "Built from source by Build-DebugUpstreamCurl.ps1 beside the Debug curl above: make -k -C tests/libtest of the same curl-8.21.0 tree against its static Debug libcurl, stripped. curl 8.21.0 links every libtest into the one multi-program binary libtests, so one program is pinned; never run as a curl, run by the conformance runner only after its hash matches (ADR-0174 decisions 2 and 4)",
+      "defaultPath": "/opt/upstream-curl/8.21.0-debug/libtest",
+      "programs": {
+        "libtests": "040083ECB9380209E25F35CA14E17B0EA4986086A43CF80C609FC4B5CE13EF4D"
+      },
       "pinned": "2026-11-16"
     },
     {

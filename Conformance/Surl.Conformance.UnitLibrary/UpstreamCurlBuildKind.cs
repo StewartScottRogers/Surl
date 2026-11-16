@@ -17,4 +17,10 @@ public enum UpstreamCurlBuildKind
     /// libcurl's API (<c>curl_ws_send</c>, <c>curl_ws_recv</c>) and never run as a curl.
     /// </summary>
     Library,
+
+    /// <summary>
+    /// A directory of upstream's libtest programs, each pinned by its own SHA-256 in the entry's
+    /// <c>programs</c> map; never run as a curl (ADR-0174 decision 2).
+    /// </summary>
+    Libtest,
 }

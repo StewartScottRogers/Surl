@@ -209,7 +209,43 @@ public sealed class UpstreamCurlBuildPinsTests
         var exception = Assert.ThrowsExactly<FormatException>(() => UpstreamCurlBuildPins.Parse(Builds(Entry(extra: "\"kind\": \"dll\""))));
 
         StringAssert.Contains(exception.Message, "The kind of entry 0");
-        StringAssert.Contains(exception.Message, "'dll', not curl or library");
+        StringAssert.Contains(exception.Message, "'dll', not curl, library or libtest");
+    }
+
+    [TestMethod]
+    public void Parse_LibtestEntry_ReadsItsProgramsInsteadOfASha256()
+    {
+        var json = Builds($$"""{ "platform": "linux-x64", "kind": "libtest", "role": "supplementary", "defaultPath": "/x/libtest", "programs": { "libtests": "{{Sha256}}" } }""");
+
+        var pin = UpstreamCurlBuildPins.Parse(json).Single();
+
+        Assert.AreEqual(UpstreamCurlBuildKind.Libtest, pin.Kind);
+        Assert.AreEqual(string.Empty, pin.Sha256);
+        Assert.AreEqual(Sha256, pin.Programs["libtests"]);
+    }
+
+    [TestMethod]
+    [DataRow("")]
+    [DataRow(", \"programs\": {}")]
+    [DataRow(", \"programs\": { \"a\": 1 }")]
+    [DataRow(", \"programs\": { \"a\": \"abc\" }")]
+    public void Parse_LibtestEntryWithoutValidPrograms_ThrowsFormatException(string programs)
+    {
+        var json = Builds($$"""{ "platform": "linux-x64", "kind": "libtest", "defaultPath": "/x/libtest"{{programs}} }""");
+
+        Assert.ThrowsExactly<FormatException>(() => UpstreamCurlBuildPins.Parse(json));
+    }
+
+    [TestMethod]
+    public void Parse_RepositoryPinFile_PinsTheLibtestProgramsByHash()
+    {
+        var path = Path.Combine(RepositoryRoot(), UpstreamCurlBuildPins.FileName);
+
+        var libtest = UpstreamCurlBuildPins.Parse(File.ReadAllText(path)).Single(pin => pin.Kind == UpstreamCurlBuildKind.Libtest);
+
+        Assert.AreEqual("linux-x64", libtest.Platform);
+        Assert.AreEqual(UpstreamCurlBuildRole.Supplementary, libtest.Role);
+        Assert.IsNotEmpty(libtest.Programs);
     }
 
     [TestMethod]
