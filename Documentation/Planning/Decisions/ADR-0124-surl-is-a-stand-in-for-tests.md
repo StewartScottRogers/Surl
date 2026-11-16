@@ -31,6 +31,7 @@
 - **Amended by (continued):** [ADR-0168](ADR-0168-how-the-content-store-and-the-mail-store-learn-the-exchange-behind-a-write.md) (decision 4: a rule scoped by `listener` or `scheme` now fires on the content store and the mail store, which learn the exchange behind a write).
 - **Amended by (continued):** [ADR-0169](ADR-0169-what-a-quic-or-dtls-exchange-publishes-as-its-bytes.md) (decision 1: a QUIC or DTLS exchange also publishes its decrypted stream, datagram and record payloads and HTTP/3 decoded headers, as further layers of `ExchangeBytesEvent`).
 - **Amended by (continued):** [ADR-0170](ADR-0170-how-the-coaps-pre-shared-keys-the-proxy-accounts-and-the-tls-srp-accounts-are-judged-published-and-controlled.md) (decisions 1, 3 and 4: `coaps` pre-shared-key logins are published and refusable, and the proxy and TLS-SRP accounts become stores a test controls).
+- **Amended by (continued):** [ADR-0171](ADR-0171-how-a-new-surlevent-kind-reaches-surl-api-surl-mcp-and-the-control-endpoint.md) (decision 2: event kinds are an extension point; a new `SurlEvent` record carries its own exchange, scheme, account and members).
 - **Acted on by:** BL-785 to BL-821 and BL-823, and the extended-server follow-ups listed under
   Consequences.
 

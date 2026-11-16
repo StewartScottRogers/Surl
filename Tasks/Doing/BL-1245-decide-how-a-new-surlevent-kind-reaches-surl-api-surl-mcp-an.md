@@ -28,11 +28,13 @@ An ADR, decided by Claude under Stewart's delegation, says how a `SurlEvent` rec
 
 ## Acceptance criteria
 
-- [ ] A new ADR under `Documentation/Planning/Decisions/`, with the next free number, marked "Decided by Claude under Stewart's delegation", picks one option with its reason and the rejected ones, and amends ADR-0124 decision 2 ("Extension points") with a line for event kinds.
-- [ ] One task per library the ADR changes is filed with `task-board.ps1 new`, depending on this task, with exact `touches` (a contract task in `Surl.Protocol.Abstractions.UnitLibrary` first, if any). Each is listed in Notes.
-- [ ] Each host follow-up's criteria name a test that fails when an exported `SurlEvent` subclass is not queryable, filterable and written in full by that host.
+- [x] A new ADR under `Documentation/Planning/Decisions/`, with the next free number, marked "Decided by Claude under Stewart's delegation", picks one option with its reason and the rejected ones, and amends ADR-0124 decision 2 ("Extension points") with a line for event kinds.
+- [x] One task per library the ADR changes is filed with `task-board.ps1 new`, depending on this task, with exact `touches` (a contract task in `Surl.Protocol.Abstractions.UnitLibrary` first, if any). Each is listed in Notes.
+- [x] Each host follow-up's criteria name a test that fails when an exported `SurlEvent` subclass is not queryable, filterable and written in full by that host.
 
 ## Notes
+
+ADR-0171 decided: base members plus WriteMembers, guard tests per host. Follow-ups: BL-1283 (Abstractions contract, first), BL-1284 (Surl.Api), BL-1285 (control), BL-1286 (Surl.Mcp), each depending on this task; BL-1284 to 1286 also on BL-1283.
 
 ## Log
 
