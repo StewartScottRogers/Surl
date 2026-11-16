@@ -1,5 +1,6 @@
 using Surl.Content;
 using Surl.McpServing;
+using Surl.Protocol.Abstractions;
 
 namespace Surl.Extended.Protocol.McpServer;
 
@@ -17,12 +18,12 @@ internal sealed record McpHttpServerSettings(ContentStore Store, string SurlVers
 {
     /// <summary>Creates the core session a new <c>initialize</c> is answered by, its tools running as the login.</summary>
     /// <param name="login">The account; <see langword="null" /> or empty (a Bearer token's account) runs as the anonymous caller.</param>
-    /// <param name="scheme">The listen scheme the content store names as the caller's.</param>
+    /// <param name="exchange">The exchange the <c>initialize</c> arrived on: the content store learns its ID, listen URL and scheme behind every write of the session (ADR-0168).</param>
     /// <param name="maximumMessageBytes">The message limit, <c>--max-message</c>.</param>
     /// <returns>The core session.</returns>
-    public McpServerSession CreateSession(string? login, string scheme, int maximumMessageBytes)
+    public McpServerSession CreateSession(string? login, ExchangeContext exchange, int maximumMessageBytes)
     {
-        ContentCaller caller = string.IsNullOrEmpty(login) ? ContentCaller.Anonymous(scheme) : ContentCaller.ForAccount(login, scheme);
+        ContentCaller caller = ContentCaller.ForExchange(exchange, string.IsNullOrEmpty(login) ? null : login);
         McpServerRegistry registry = McpServerTools.CreateRegistry(Store, caller, maximumMessageBytes);
         return new McpServerSession(registry, McpServerSession.CreateOptions(SurlVersion, maximumMessageBytes));
     }

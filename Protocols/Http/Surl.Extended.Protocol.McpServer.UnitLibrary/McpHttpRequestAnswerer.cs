@@ -259,7 +259,7 @@ internal sealed class McpHttpRequestAnswerer : IHttpRequestHandler
             return _writer.Empty(request, HttpStatus.BadRequest);
         }
 
-        McpServerSession session = _settings.CreateSession(login, _context.Scheme, MessageLimit);
+        McpServerSession session = _settings.CreateSession(login, _context, MessageLimit);
         byte[] response = (await session.AnswerAsync(message, cancellationToken).ConfigureAwait(false))!;
         if (session.NegotiatedProtocolVersion is null)
         {

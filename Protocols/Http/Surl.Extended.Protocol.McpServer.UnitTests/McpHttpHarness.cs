@@ -28,11 +28,12 @@ internal sealed class McpHttpHarness
 
     public static readonly DateTimeOffset Now = new(2026, 11, 5, 12, 0, 0, TimeSpan.Zero);
 
-    public McpHttpHarness(bool allowsAnonymous = false, string? listenPath = null, ContentExposureOptions? exposure = null)
+    public McpHttpHarness(bool allowsAnonymous = false, string? listenPath = null, ContentExposureOptions? exposure = null, ScriptedFaultPlan? faults = null)
     {
         TimeProvider = new FixedTimeProvider(Now);
         FileSystem = new InMemoryContentFileSystem(TimeProvider);
-        Store = new ContentStore(InMemoryContentFileSystem.RootPath, FileSystem, exposure ?? new ContentExposureOptions(), [], []);
+        Faults = faults ?? new ScriptedFaultPlan();
+        Store = new ContentStore(InMemoryContentFileSystem.RootPath, FileSystem, exposure ?? new ContentExposureOptions(), [], [], Events, Faults);
         Policy = new UnitTestBearerAuthenticationPolicy(allowsAnonymous);
         Server = new McpProtocolServer(Store, Policy, "1.2.3", TimeProvider, IdSource, listenPath);
     }
@@ -61,7 +62,7 @@ internal sealed class McpHttpHarness
     public ExchangeLimits Limits { get; set; } = ExchangeLimits.Default;
 
     /// <summary>The fault plan every exchange asks; none unless a test sets one.</summary>
-    public IFaultPlan Faults { get; set; } = new ScriptedFaultPlan();
+    public IFaultPlan Faults { get; set; }
 
     public RecordingSurlEventPublisher Events { get; } = new();
 
