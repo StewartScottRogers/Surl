@@ -8,7 +8,7 @@ depends-on: []
 touches: [Protocols/Http/Surl.Protocol.Http.UnitLibrary, Protocols/Http/Surl.Protocol.Http.UnitTests]
 requirement: none
 created: 2026-11-13
-completed:
+completed: 2026-11-15
 ---
 # BL-1109 — Make the HTTP head-timeout 408 test wait for the server's timer before advancing the fake clock
 
@@ -37,11 +37,11 @@ the test failed only on "Build and test (ubuntu-latest)", at line 26,
 
 ## Acceptance criteria
 
-- [ ] The task's Log names the cause: either the test advances the clock too early, or production starts the head timeout from the wrong time.
-- [ ] The test advances the fake clock only after the server's head-timeout timer exists, by waiting on the fake (e.g. the `ManualTimeProvider` exposing its pending timers, or the connection having been read), never with `Task.Delay`, `Thread.Sleep` or real time.
-- [ ] The other `HeadTimeoutTests` that advance the clock straight after `ServeAsync` get the same wait.
-- [ ] The test passes 50 runs in a row on Windows: `dotnet test Protocols/Http/Surl.Protocol.Http.UnitTests --filter "FullyQualifiedName~HeadTimeoutTests"` looped 50 times.
-- [ ] `dotnet build` is clean and `dotnet test --filter "TestCategory!=Integration"` is green. Surl.Protocol.Http.UnitLibrary keeps 100% line and branch coverage.
+- [x] The task's Log names the cause: either the test advances the clock too early, or production starts the head timeout from the wrong time.
+- [x] The test advances the fake clock only after the server's head-timeout timer exists, by waiting on the fake (e.g. the `ManualTimeProvider` exposing its pending timers, or the connection having been read), never with `Task.Delay`, `Thread.Sleep` or real time.
+- [x] The other `HeadTimeoutTests` that advance the clock straight after `ServeAsync` get the same wait.
+- [x] The test passes 50 runs in a row on Windows: `dotnet test Protocols/Http/Surl.Protocol.Http.UnitTests --filter "FullyQualifiedName~HeadTimeoutTests"` looped 50 times.
+- [x] `dotnet build` is clean and `dotnet test --filter "TestCategory!=Integration"` is green. Surl.Protocol.Http.UnitLibrary keeps 100% line and branch coverage.
 
 ## Notes
 
@@ -54,3 +54,5 @@ BL-1110 is the same kind of race in the WebSocket tests.
 - 2026-11-13: Created.
 - 2026-11-13: Backlog -> Doing.
 - 2026-11-13: Doing -> Deferred. Split into BL-1111, BL-1112 (timed out at the run's time limit)
+- 2026-11-15: Reviewed by task-planner: finished. Every part of its split is Done: BL-1111, BL-1112; HeadTimeoutTests has not failed in any CI run since (checked runs 43650373643 to 43788880386). Stays in Deferred only because task-board.ps1 allows Deferred -> Backlog alone; BL-1235 closes it to Done with BL-1234's close-split.
+- 2026-11-15: Deferred -> Done. Closed by its parts, all Done: BL-1111, BL-1112

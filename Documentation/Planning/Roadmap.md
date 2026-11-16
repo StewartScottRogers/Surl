@@ -252,8 +252,8 @@ original servers' stores, and the stand-in direction (ADR-0124) builds on both.
   source is decided by BL-671 and built by BL-672 and BL-673; the Curl port's clients reading
   the shared files and messages are run by BL-669 and BL-670; the stores' test control is on
   `Documentation/Wiki/Surl-As-A-Stand-In.md` (BL-821).
-- **Not built:** nothing on the board. The deferred parents BL-653, BL-654, BL-663 and BL-666
-  were split and every part (BL-880 to BL-883, BL-987 to BL-995) is Done.
+- **Not built:** nothing on the board. BL-653, BL-654, BL-663 and BL-666 are Done
+  through their parts (BL-880 to BL-883, BL-987 to BL-995).
 - **Decisions:** ADR-0100, ADR-0101 and ADR-0102.
 
 ## Track — The hosts: Surl.Api and Surl.Mcp
@@ -263,8 +263,7 @@ Beside the phases: `surl` is one of three hosts (ADR-0098), and the stand-in dir
 
 - **Status:** The hosts are built and proved, and the stand-in features on them are built and
   documented by BL-821 (2026-11-14). Still open: the packages are packed but not published until
-  the first release tag (no task filed), and `--control`'s help text still says it is not served
-  (BL-1125).
+  the first release tag (no task filed). `--control`'s help text says it is served (BL-1125).
 - **Delivers:** `Surl.Composition`, the one start all three hosts run (ADR-0099); `Surl.Api`,
   the in-process .NET interface with typed options, exchange recording, queries and waits, fault
   rules, hooks, seeding, reset and snapshots and a test's own protocol servers; `Surl.Mcp`, the
@@ -279,11 +278,10 @@ Beside the phases: `surl` is one of three hosts (ADR-0098), and the stand-in dir
   the control endpoint beside the protocol listeners (`ComposedServing` in
   `Surl.Composition`): the `Surl.Control` library and its options (BL-814, BL-815), the content
   store's delete (BL-1016), the control target over the composed serving (BL-1022), the token
-  file (BL-972) and the binding (BL-977). They are the split of BL-816, which stays Deferred as
-  the parent. `Surl.Api` has no control-endpoint option: its tests control stores in process
-  (BL-810). The stand-in page is `Documentation/Wiki/Surl-As-A-Stand-In.md` (BL-821).
-- **Not built:** serving the control endpoint from `Surl.Api` (no task filed: a .NET test
-  already has the typed interface); publishing the packages, which waits for the first release tag.
+  file (BL-972) and the binding (BL-977). They are the parts of BL-816, which is Done. `Surl.Api` serves the same endpoint
+  through `SurlServerOptions.ControlListenUrl` and `ControlTokenFile` and reports it as
+  `SurlServer.ControlUrl` (BL-1176); its tests also control stores in process (BL-810). The stand-in page is `Documentation/Wiki/Surl-As-A-Stand-In.md` (BL-821).
+- **Not built:** publishing the packages, which waits for the first release tag.
 - **Decisions:** ADR-0098, ADR-0099, ADR-0103 and ADR-0124.
 
 ## Later

@@ -8,7 +8,7 @@ depends-on: [BL-823, BL-785]
 touches: [Protocols/FileTransfer/Surl.Extended.Protocol.S3.UnitLibrary, Protocols/FileTransfer/Surl.Extended.Protocol.S3.UnitTests, Protocols/FileTransfer/Surl.Extended.Protocol.AzureStorage.UnitLibrary, Protocols/FileTransfer/Surl.Extended.Protocol.AzureStorage.UnitTests, Protocols/FileTransfer/Surl.Extended.Protocol.GoogleCloudStorage.UnitLibrary, Protocols/FileTransfer/Surl.Extended.Protocol.GoogleCloudStorage.UnitTests, Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests]
 requirement: FR-062
 created: 2026-11-05
-completed:
+completed: 2026-11-15
 ---
 # BL-833 — Answer a chosen protocol error by fault in the extended S3, Azure Storage and Google Cloud Storage servers
 
@@ -34,12 +34,12 @@ refused at configuration.
 
 ## Acceptance criteria
 
-- [ ] Named tests per server: a request matching an `error` rule (`503 SlowDown` or the service's equivalent) gets
+- [x] Named tests per server: a request matching an `error` rule (`503 SlowDown` or the service's equivalent) gets
       exactly that status and error body, a non-matching request is served, and one `FaultAppliedEvent` is
       published.
-- [ ] Named `Surl.Cli` tests: `--fault "error;scheme=s3;reply=503 SlowDown"` is read; `reply=200 OK` is refused.
-- [ ] With no rule, every existing test of the touched libraries passes unchanged.
-- [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and the touched libraries keep 100% line and
+- [x] Named `Surl.Cli` tests: `--fault "error;scheme=s3;reply=503 SlowDown"` is read; `reply=200 OK` is refused.
+- [x] With no rule, every existing test of the touched libraries passes unchanged.
+- [x] `dotnet build -warnaserror` is clean, the fast tests are green, and the touched libraries keep 100% line and
       branch coverage.
 
 ## Notes
@@ -49,3 +49,5 @@ refused at configuration.
 - 2026-11-05: Created.
 - 2026-11-05: Filed by BL-822 (ADR-0124 decision 9); depends on BL-785 and touches `Surl.Cli` for the reply shapes.
 - 2026-11-06: Backlog -> Deferred. Split into BL-980, BL-981, BL-982 and BL-983 (over the 60-minute size limit; Stewart asked for a backlog audit 2026-11-06)
+- 2026-11-15: Reviewed by task-planner: finished. Every part of its split is Done: BL-980, BL-981, BL-982, BL-983. Stays in Deferred only because task-board.ps1 allows Deferred -> Backlog alone; BL-1235 closes it to Done with BL-1234's close-split.
+- 2026-11-15: Deferred -> Done. Closed by its parts, all Done: BL-980, BL-981, BL-982, BL-983

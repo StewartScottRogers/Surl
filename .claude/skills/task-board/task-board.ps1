@@ -23,6 +23,9 @@
       next-id  The next free task ID.
       new      Create a task in Backlog from TASK-TEMPLATE.md.
       move     Move a task to another state, appending a Log line.
+      close-split  Move a Deferred parent straight to Done once every part that
+               finished its work (read from its last "Split into" Log line, or
+               given with -Parts) is Done; refuses otherwise.
       archive  Move finished tasks into Done\<yyyy-MM-dd_HHmm>\. With -WhenDoneIsLong,
                move all of them, but only once Done holds more than 20.
       dedupe   Renumber tasks that share an ID with another. A task file that exists
@@ -50,7 +53,7 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory = $true, Position = 0)]
-    [ValidateSet('status', 'next', 'capacity', 'next-id', 'new', 'move', 'archive', 'dedupe')]
+    [ValidateSet('status', 'next', 'capacity', 'next-id', 'new', 'move', 'close-split', 'archive', 'dedupe')]
     [string] $Command,
 
     [string] $Id,
@@ -79,6 +82,10 @@ param(
 
     # Task IDs 'next' must not offer, e.g. ones a lane already tried this shift.
     [string[]] $Skip = @(),
+
+    # For 'close-split': the tasks that finished a Deferred parent, when its Log has no
+    # "Split into" line to read them from.
+    [string[]] $Parts = @(),
 
     # For 'dedupe': the git ref whose task files keep their IDs.
     [string] $Since = '',
@@ -417,7 +424,9 @@ switch ($Command) {
         if (-not $stewartAnswered -and $AllowedMoves[$from] -notcontains $To) {
             $allowed = $AllowedMoves[$from] -join ', '
             if (-not $allowed) { $allowed = 'nothing; Done is final' }
-            throw "$($task.Id) cannot move from $from to $To. From $from it may move to: $allowed."
+            $hint = ''
+            if ($from -eq 'Deferred' -and $To -eq 'Done') { $hint = ' To close a split parent, use close-split.' }
+            throw "$($task.Id) cannot move from $from to $To. From $from it may move to: $allowed.$hint"
         }
         if ($To -ne 'Doing' -and -not $Reason) {
             throw "Moving to $To needs -Reason: a completion note for Done, the blocker and who can clear it for Blocked, why and when to revisit for Deferred."
@@ -447,6 +456,49 @@ switch ($Command) {
         Write-Text $task.Path $text
         Move-Item -LiteralPath $task.Path -Destination $destination
         Write-Output "$($task.Id)  $from -> $To  Tasks\$To\$fileName"
+    }
+
+    'close-split' {
+        $tasks = Get-Tasks
+        $task = Find-Task $tasks $Id
+        if ($task.State -ne 'Deferred') {
+            throw "$($task.Id) is in $($task.State); close-split closes only a Deferred task."
+        }
+        $text = Read-Text $task.Path
+
+        $partIds = @($Parts | ForEach-Object { $_ -split '[,\s]+' } | Where-Object { $_ } | ForEach-Object { $_.ToUpperInvariant() })
+        if ($partIds.Count -eq 0) {
+            $splitLines = @(($text -split '\r?\n') | Where-Object { $_ -match 'Split into' })
+            if ($splitLines.Count -gt 0) {
+                $partIds = @([regex]::Matches($splitLines[$splitLines.Count - 1], 'BL-\d+') | ForEach-Object { $_.Value } | Select-Object -Unique)
+            }
+        }
+        if ($partIds.Count -eq 0) {
+            throw "$($task.Id) has no 'Split into' Log line and no -Parts were given, so there are no parts to check."
+        }
+        foreach ($partId in $partIds) {
+            if ($partId -notmatch '^BL-\d+$') { throw "'$partId' is not a task ID." }
+            if ($partId -eq $task.Id) { throw "$($task.Id) cannot be a part of itself." }
+        }
+        $unknown = @($partIds | Where-Object { $p = $_; @($tasks | Where-Object { $_.Id -eq $p }).Count -eq 0 })
+        if ($unknown.Count -gt 0) { throw "Not on the board: $($unknown -join ', ')." }
+        $doneIds = Get-DoneIds $tasks
+        $open = @($partIds | Where-Object { $doneIds -notcontains $_ })
+        if ($open.Count -gt 0) {
+            $detail = @($open | ForEach-Object { $p = $_; $t = @($tasks | Where-Object { $_.Id -eq $p })[0]; "$p ($($t.State))" })
+            throw "$($task.Id) cannot close: not yet Done: $($detail -join ', ')."
+        }
+
+        $text = [regex]::Replace($text, '(?m)^(\s*[-*] )\[ \]', '$1[x]')
+        $text = Set-FrontMatterField $text 'completed' $Today
+        $text = Add-LogLine $text "- ${Today}: Deferred -> Done. Closed by its parts, all Done: $($partIds -join ', ')"
+
+        $fileName = Split-Path $task.Path -Leaf
+        $destination = Join-Path $DoneFolder $fileName
+        if (Test-Path -LiteralPath $destination) { throw "$destination already exists." }
+        Write-Text $task.Path $text
+        Move-Item -LiteralPath $task.Path -Destination $destination
+        Write-Output "$($task.Id)  Deferred -> Done  Tasks\Done\$fileName"
     }
 
     'dedupe' {

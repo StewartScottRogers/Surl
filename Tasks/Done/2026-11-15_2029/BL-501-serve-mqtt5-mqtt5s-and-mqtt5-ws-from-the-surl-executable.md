@@ -8,7 +8,7 @@ depends-on: [BL-500, BL-405, BL-635]
 touches: [Application/Surl.Console, Application/Surl.Console.UnitTests, Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests, Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests]
 requirement: none
 created: 2026-11-04
-completed:
+completed: 2026-11-15
 ---
 # BL-501 — Serve mqtt5, mqtt5s and mqtt5+ws from the surl executable
 
@@ -39,13 +39,13 @@ exist, and the extension switch turns all three off.
 
 ## Acceptance criteria
 
-- [ ] A named test shows the `mqtt5` broker and the `mqtt` server composed with one and the same bus instance.
+- [x] A named test shows the `mqtt5` broker and the `mqtt` server composed with one and the same bus instance.
 
-- [ ] A named test finds `mqtt5`, `mqtt5s` and `mqtt5+ws` registered when the switch is on, and absent when it is
+- [x] A named test finds `mqtt5`, `mqtt5s` and `mqtt5+ws` registered when the switch is on, and absent when it is
       off, with `mqtt` and `mqtts` registered either way.
-- [ ] The `--aihelp` completeness tests named in root `CLAUDE.md` pass. `surl --aihelp mqtt` is unchanged except
+- [x] The `--aihelp` completeness tests named in root `CLAUDE.md` pass. `surl --aihelp mqtt` is unchanged except
       for a cross-reference, if the ADR adds one.
-- [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and `Surl.Console` and `Surl.Cli` keep 100%
+- [x] `dotnet build -warnaserror` is clean, the fast tests are green, and `Surl.Console` and `Surl.Cli` keep 100%
       line and branch coverage.
 
 ## Notes
@@ -62,3 +62,5 @@ exist, and the extension switch turns all three off.
 - 2026-11-05: Backlog -> Doing.
 - 2026-11-05: Doing -> Backlog. Needs Application/Surl.Composition.UnitLibrary and .UnitTests, which BL-803 (in Doing) touches
 - 2026-11-06: Backlog -> Deferred. Split into BL-975 and BL-976 (over the 60-minute size limit; Stewart asked for a backlog audit 2026-11-06)
+- 2026-11-15: Reviewed by task-planner: finished. Every part of its split is Done: BL-975, BL-976. Stays in Deferred only because task-board.ps1 allows Deferred -> Backlog alone; BL-1235 closes it to Done with BL-1234's close-split.
+- 2026-11-15: Deferred -> Done. Closed by its parts, all Done: BL-975, BL-976

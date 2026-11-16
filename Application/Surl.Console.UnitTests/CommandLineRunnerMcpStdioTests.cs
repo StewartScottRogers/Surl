@@ -77,6 +77,26 @@ public sealed class CommandLineRunnerMcpStdioTests
     }
 
     [TestMethod]
+    [DataRow("--trace", "-")]
+    [DataRow("--trace-ascii", "-")]
+    [DataRow("--log-file", "-")]
+    public async Task RunAsync_McpStdioBesideAnOptionWritingToStandardOutput_IsRefusedWithFailedInit(params string[] options)
+    {
+        using var standardOutput = new MemoryStream();
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+        var runner = CreateRunner(FakeEnvironmentVariableReader.Empty, Stream.Null, standardOutput);
+
+        var exitCode = await runner.RunAsync([.. options, "mcp+stdio:"], output, error, TestContext.CancellationToken);
+
+        Assert.AreEqual(SurlExitCode.FailedInit, exitCode);
+        Assert.AreEqual(
+            "surl: mcp+stdio: standard output carries only MCP messages, so --trace, --trace-ascii and --log-file cannot write to '-'" + NewLine,
+            error.ToString());
+        Assert.AreEqual(0, standardOutput.Length);
+    }
+
+    [TestMethod]
     public async Task RunAsync_McpStdioWithTheSwitchAtZero_RefusesItsSchemeAsAnUnknownScheme()
     {
         using var output = new StringWriter();

@@ -8,7 +8,7 @@ depends-on: [BL-553, BL-554]
 touches: [Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests, Application/Surl.Console, Application/Surl.Console.UnitTests, Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests]
 requirement: none
 created: 2026-11-04
-completed:
+completed: 2026-11-15
 ---
 # BL-555 — Serve the HTTP and HTTPS proxies from the surl executable
 
@@ -44,14 +44,14 @@ and `surl --aihelp` documents them.
 
 ## Acceptance criteria
 
-- [ ] `Surl.Cli.UnitTests` has named tests for each new option and listen form, and for each
+- [x] `Surl.Cli.UnitTests` has named tests for each new option and listen form, and for each
       refusal the ADR names, each returning its `SurlExitCode`.
-- [ ] `Surl.Console.UnitTests` has named tests that run `CommandLineRunner` as the HTTP proxy and
+- [x] `Surl.Console.UnitTests` has named tests that run `CommandLineRunner` as the HTTP proxy and
       as the HTTPS proxy, forward one request and tunnel one `CONNECT` to an origin started in the
       test on loopback, without `TestCategory=Integration`.
-- [ ] The proxy's `--aihelp` topic, facts and example exist and the completeness tests named in
+- [x] The proxy's `--aihelp` topic, facts and example exist and the completeness tests named in
       Context pass; `surl --help` and `surl --manual` list the new options.
-- [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and `Surl.Console` and
+- [x] `dotnet build -warnaserror` is clean, the fast tests are green, and `Surl.Console` and
       `Surl.Cli.UnitLibrary` keep 100% line and branch coverage.
 
 ## Notes
@@ -66,3 +66,5 @@ and `surl --aihelp` documents them.
 - 2026-11-06: Backlog -> Doing.
 - 2026-11-06: Doing -> Backlog. Needs Application/Surl.Composition.UnitLibrary (proxy registration lives there since ADR-0124), held by BL-803; touches widened
 - 2026-11-06: Backlog -> Deferred. Split into BL-1002, BL-1003 and BL-1004 (over the 60-minute size limit; Stewart asked for a backlog audit 2026-11-06)
+- 2026-11-15: Reviewed by task-planner: finished. Every part of its split is Done: BL-1002, BL-1003, BL-1004. Stays in Deferred only because task-board.ps1 allows Deferred -> Backlog alone; BL-1235 closes it to Done with BL-1234's close-split.
+- 2026-11-15: Deferred -> Done. Closed by its parts, all Done: BL-1002, BL-1003, BL-1004

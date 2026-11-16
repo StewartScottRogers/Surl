@@ -89,8 +89,8 @@ IDs are:
 | MCP:Stdio-3 | MUST NOT | The server writes nothing to standard output that is not a valid MCP message. | BL-621; live: `CurlPortClientListsAndCallsToolsOnSurlOverMcpTests.List_OverStdio_PrintsTheEchoTool` |
 | MCP:Stdio-4 | MAY | The server writes UTF-8 log strings to standard error. | BL-467 |
 | MCP:Stdio-5 | MUST | This server's lifecycle and tools run over the core's stream session, each response on one line. | BL-467 |
-| MCP:Surl-Stdio-1 | MUST | The listen URL is `mcp+stdio:` (or `mcp+stdio://`); a host, port, path, query or fragment is `MalformedUrl` (3). | n/a: the listen URL is parsed by `Surl.Cli`, which BL-468 changes and tests |
-| MCP:Surl-Stdio-2 | MUST | `mcp+stdio:` with another listen URL, or with an option writing to standard output, is `FailedInit` (2). | n/a: a command-line check BL-468 adds and tests |
+| MCP:Surl-Stdio-1 | MUST | The listen URL is `mcp+stdio:` (or `mcp+stdio://`); a host, port, path, query or fragment is `MalformedUrl` (3). | `ListenUrlParserTests.Parse_McpStdioClaimed_IsAListenUrlWithNoHostAndNoPort`, `ListenUrlParserTests.Parse_McpStdioWithAPart_IsMalformed` (in `Surl.Cli.UnitTests`) |
+| MCP:Surl-Stdio-2 | MUST | `mcp+stdio:` with another listen URL, or with an option writing to standard output, is `FailedInit` (2). | `CommandLineRunnerMcpStdioTests.RunAsync_McpStdioBesideAnotherListenUrl_IsRefusedWithFailedInit` (beside another listen URL); `RunAsync_McpStdioInitialize_StandardOutputHoldsOnlyTheMcpMessage` proves `-v` and `--log-level` leave standard output to the MCP message; `RunAsync_McpStdioBesideAnOptionWritingToStandardOutput_IsRefusedWithFailedInit` proves `--trace -`, `--trace-ascii -` and `--log-file -` are `FailedInit` |
 | MCP:Surl-Stdio-3 | MUST | A stdio session needs no credential, and `--list-directories`, `--allow-uploads` and anonymous share access still gate the tools. | BL-467; live: `CurlPortClientListsAndCallsToolsOnSurlOverMcpTests.List_OverStdioWithoutCredentials_IsNotRefused` |
 | MCP:Surl-Stdio-4 | MUST | Messages over `--max-message` are the core's `-32600` with a null `id`, and the session continues. | BL-467 |
 
@@ -101,7 +101,7 @@ IDs are:
 | MCP:Http-1 | MUST | One MCP endpoint path answers `POST` (and `GET`); it is the listen URL's path, `/mcp` when it has none. | BL-466; live: `CurlPortClientListsAndCallsToolsOnSurlOverMcpTests.List_OverStreamableHttp_PrintsTheEchoTool` |
 | MCP:Http-2 | MUST | Another path is `404` (except the RFC 9728 document and the authorization server's paths). | BL-466 |
 | MCP:Http-3 | MUST | Servers validate `Origin` on all incoming connections; a foreign, `null` or malformed `Origin` is `403`, an absent one accepted. | BL-466 |
-| MCP:Http-4 | SHOULD | When running locally, bind only to localhost. | n/a: the listen URL names the address; the `--aihelp` example uses `127.0.0.1` (BL-468) |
+| MCP:Http-4 | SHOULD | When running locally, bind only to localhost. | n/a: the listen URL names the address; the `--aihelp` example for `mcp` (the `AiHelpExamples` entry `mcp`, "For a test: serve MCP without accounts") uses `127.0.0.1` |
 | MCP:Http-5 | SHOULD | Servers implement proper authentication for all connections (decision 6). | BL-466 |
 | MCP:Http-6 | MUST | A `POST` body is one JSON-RPC message; a body the core refuses is `400` with a JSON-RPC error with no `id`. | BL-466 |
 | MCP:Http-7 | MUST | A `POST` of a notification or response that is accepted is `202 Accepted` with no body. | BL-466 |
@@ -125,7 +125,7 @@ IDs are:
 | MCP:Surl-Http-1 | MUST | A session answers only the login that opened it; another login naming it gets `404`. | BL-466 |
 | MCP:Surl-Http-2 | MUST | An `initialize` carrying `Mcp-Session-Id` is `400`; one past 1000 sessions is `503` with `Retry-After: 60`. | BL-466 |
 | MCP:Surl-Http-3 | MUST | A body past `--max-message` is `413`, then close. | BL-466 |
-| MCP:Surl-Http-4 | MUST | `mcps` is implicit TLS 1.2 or 1.3 with ALPN `http/1.1`, and needs `--cert` or `--self-signed`. | n/a: TLS wrapping is composed in `Surl.Composition`, which BL-468 changes and tests; live: `CurlPortClientListsAndCallsToolsOnSurlOverMcpTests.List_OverStreamableHttp_PrintsTheEchoTool` |
+| MCP:Surl-Http-4 | MUST | `mcps` is implicit TLS 1.2 or 1.3 with ALPN `http/1.1`, and needs `--cert` or `--self-signed`. | `CommandLineRunnerExtendedProtocolTests.RunAsync_McpsWithSelfSigned_ListensAtItsDefaultPort`, `RunAsync_McpsWithoutACertificate_ExitsWithCertificateProblem`; live: `CurlPortClientListsAndCallsToolsOnSurlOverMcpTests.List_OverStreamableHttp_PrintsTheEchoTool` |
 | MCP:Surl-Http-5 | MUST | Checks run in decision 4.2's order: head, path, `Origin`, authorization, method, headers and session, body. | BL-466 |
 
 ## Authorization ("Base Protocol > Authorization", RFC 9728, RFC 6750)

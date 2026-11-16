@@ -8,7 +8,7 @@ depends-on: [BL-645, BL-647, BL-648, BL-676, BL-614]
 touches: [Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests, Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests, Application/Surl.Console.UnitTests]
 requirement: none
 created: 2026-11-04
-completed:
+completed: 2026-11-15
 ---
 # BL-653 — Add --mail-domain, --mailbox and --mailbox-file and compose them into the mail store
 
@@ -36,16 +36,16 @@ into the one `MailboxStore` and authentication policy the SMTP, IMAP and POP3 se
 
 ## Acceptance criteria
 
-- [ ] Named tests in `Application/Surl.Cli.UnitTests` parse each option (one, many, a duplicate address refused, a
+- [x] Named tests in `Application/Surl.Cli.UnitTests` parse each option (one, many, a duplicate address refused, a
       malformed item and a malformed CSV line refused with the ADR's exit code and text naming `<file>:<line>`, a
       password never echoed) and read a 500-row CSV.
-- [ ] Named tests in `Application/Surl.Composition.UnitTests` show the store and policy composed: a configured
+- [x] Named tests in `Application/Surl.Composition.UnitTests` show the store and policy composed: a configured
       mailbox's owner exists with its `INBOX`; its account logs in over `imap` and is refused over `smtp` when its
       `protocols=` says `imap,pop3`; no `--mail-domain` composes exactly as before.
-- [ ] Each option passes `AiHelpFactsTests.EveryOption_HasAnArgumentTypeAndAllowedValues`,
+- [x] Each option passes `AiHelpFactsTests.EveryOption_HasAnArgumentTypeAndAllowedValues`,
       `AiHelpTextTests.Answer_EveryOption_AppearsInAllAndInEveryTopicItsCategoriesName` and
       `CommandLineRunnerAiHelpTests.RunAsync_EveryAiHelpExample_WritesWhatTheExampleShows`.
-- [ ] `dotnet build -warnaserror` is clean, `dotnet test --filter "TestCategory!=Integration"` is green, and
+- [x] `dotnet build -warnaserror` is clean, `dotnet test --filter "TestCategory!=Integration"` is green, and
       `Surl.Cli.UnitLibrary` and `Surl.Composition.UnitLibrary` keep 100% line and branch coverage.
 
 ## Notes
@@ -56,3 +56,5 @@ into the one `MailboxStore` and authentication policy the SMTP, IMAP and POP3 se
 - 2026-11-05: Backlog -> Doing.
 - 2026-11-05: Doing -> Blocked. Stewart: Surl dark factory timed out after 120 min; see Z:\repos\Surl.logs\BL-653-20261105-054539-L9.jsonl
 - 2026-11-05: Blocked -> Deferred. Split into BL-880, BL-881, BL-882, BL-883 (timed out after 120 min; Stewart asked for the split 2026-11-05)
+- 2026-11-15: Reviewed by task-planner: finished. Every part of its split is Done: BL-880, BL-881, BL-882, BL-883. Stays in Deferred only because task-board.ps1 allows Deferred -> Backlog alone; BL-1235 closes it to Done with BL-1234's close-split.
+- 2026-11-15: Deferred -> Done. Closed by its parts, all Done: BL-880, BL-881, BL-882, BL-883

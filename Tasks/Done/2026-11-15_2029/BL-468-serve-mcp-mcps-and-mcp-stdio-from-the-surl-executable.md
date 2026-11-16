@@ -8,7 +8,7 @@ depends-on: [BL-466, BL-467, BL-405, BL-614]
 touches: [Application/Surl.Console, Application/Surl.Console.UnitTests, Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests, Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests]
 requirement: none
 created: 2026-11-04
-completed:
+completed: 2026-11-15
 ---
 # BL-468 — Serve mcp, mcps and mcp+stdio from the surl executable
 
@@ -33,11 +33,11 @@ three off.
 
 ## Acceptance criteria
 
-- [ ] A named test finds `mcp`, `mcps` and `mcp+stdio` registered when the switch is on, and absent when it is off.
-- [ ] A named test runs `surl` with the stdio URL over in-memory standard streams, answers `initialize`, and finds
+- [x] A named test finds `mcp`, `mcps` and `mcp+stdio` registered when the switch is on, and absent when it is off.
+- [x] A named test runs `surl` with the stdio URL over in-memory standard streams, answers `initialize`, and finds
       standard output holding only MCP messages, even with `--verbose`.
-- [ ] The `--aihelp` completeness tests named in root `CLAUDE.md` pass.
-- [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and `Surl.Console` and `Surl.Cli` keep 100%
+- [x] The `--aihelp` completeness tests named in root `CLAUDE.md` pass.
+- [x] `dotnet build -warnaserror` is clean, the fast tests are green, and `Surl.Console` and `Surl.Cli` keep 100%
       line and branch coverage.
 
 ## Notes
@@ -48,3 +48,5 @@ three off.
 - 2026-11-04: Amended by task-planner: depends on BL-614 and touches `Surl.Composition`, where BL-609 and BL-614 move
   the extended-server composition and the start sequence out of `Surl.Console`.
 - 2026-11-06: Backlog -> Deferred. Split into BL-978 and BL-979 (over the 60-minute size limit; Stewart asked for a backlog audit 2026-11-06)
+- 2026-11-15: Reviewed by task-planner: finished. Every part of its split is Done: BL-978, BL-979. Stays in Deferred only because task-board.ps1 allows Deferred -> Backlog alone; BL-1235 closes it to Done with BL-1234's close-split.
+- 2026-11-15: Deferred -> Done. Closed by its parts, all Done: BL-978, BL-979

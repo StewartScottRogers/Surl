@@ -8,7 +8,7 @@ depends-on: [BL-814, BL-815, BL-805]
 touches: [Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests]
 requirement: none
 created: 2026-11-05
-completed:
+completed: 2026-11-15
 ---
 # BL-816 — Serve the loopback control endpoint from surl and Surl.Api when --control is given
 
@@ -37,14 +37,14 @@ reports its bound URL, and answers it against the instance's own event stream, f
 
 ## Acceptance criteria
 
-- [ ] Named tests over `FakeListenerFactory` (no network): with `--control http://127.0.0.1:0` and a token file,
+- [x] Named tests over `FakeListenerFactory` (no network): with `--control http://127.0.0.1:0` and a token file,
       a fake connection to the control listener with the token gets `GET /v1/exchanges` listing a fake HTTP
       exchange served on the same instance; a `POST /v1/faults` drop rule then drops the next HTTP connection;
       `POST /v1/reset` empties a seeded file; a request without the token is refused.
-- [ ] Named tests: an unreadable token file refuses the start with the ADR's exit code and text before any
+- [x] Named tests: an unreadable token file refuses the start with the ADR's exit code and text before any
       listener binds; the start-up warning is written byte for byte; without `--control` no control listener
       exists.
-- [ ] `dotnet build Application/Surl.Composition.UnitLibrary -warnaserror` is clean, the fast tests are green, and
+- [x] `dotnet build Application/Surl.Composition.UnitLibrary -warnaserror` is clean, the fast tests are green, and
       the library keeps 100% line and branch coverage.
 
 ## Notes
@@ -55,3 +55,5 @@ reports its bound URL, and answers it against the instance's own event stream, f
 - 2026-11-06: Backlog -> Doing.
 - 2026-11-06: Doing -> Blocked. Stewart: Surl dark factory timed out after 120 min; see Z:\repos\Surl.logs\BL-816-20261106-033059-L7.jsonl
 - 2026-11-06: Doing -> Deferred. Split into BL-1016, BL-1022, BL-972, BL-977 (timed out after 120 min; Stewart asked for the split 2026-11-06)
+- 2026-11-15: Reviewed by task-planner: finished. Every part of its split is Done: BL-1016, BL-1022, BL-972, BL-977; Surl.Api serves the endpoint since BL-1176. Stays in Deferred only because task-board.ps1 allows Deferred -> Backlog alone; BL-1235 closes it to Done with BL-1234's close-split.
+- 2026-11-15: Deferred -> Done. Closed by its parts, all Done: BL-1016, BL-1022, BL-972, BL-977
