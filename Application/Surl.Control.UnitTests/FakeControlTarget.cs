@@ -127,6 +127,34 @@ internal sealed class FakeControlTarget : IControlTarget
         return Task.FromResult(Found);
     }
 
+    public Task AddProxyAccountAsync(string user, string password, CancellationToken cancellationToken)
+    {
+        Record($"AddProxyAccount {user} {password}");
+
+        return Task.CompletedTask;
+    }
+
+    public Task<bool> RemoveProxyAccountAsync(string user, CancellationToken cancellationToken)
+    {
+        Record($"RemoveProxyAccount {user}");
+
+        return Task.FromResult(Found);
+    }
+
+    public Task AddTlsSrpAccountAsync(string user, string password, CancellationToken cancellationToken)
+    {
+        Record($"AddTlsSrpAccount {user} {password}");
+
+        return Task.CompletedTask;
+    }
+
+    public Task<bool> RemoveTlsSrpAccountAsync(string user, CancellationToken cancellationToken)
+    {
+        Record($"RemoveTlsSrpAccount {user}");
+
+        return Task.FromResult(Found);
+    }
+
     public Task ResetAsync(CancellationToken cancellationToken)
     {
         Record("Reset");

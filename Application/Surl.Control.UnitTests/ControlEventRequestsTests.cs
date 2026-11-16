@@ -70,6 +70,8 @@ public sealed class ControlEventRequestsTests
     [TestMethod]
     [DataRow("store=content", "1,2,3")]
     [DataRow("store=mail", "4")]
+    [DataRow("store=proxy_accounts", "6")]
+    [DataRow("store=tls_srp_accounts", "7")]
     [DataRow("name=/uploads", "1,2")]
     [DataRow("name=/uploads/", "1")]
     [DataRow("name=/uploads/a.csv", "1")]
@@ -85,6 +87,8 @@ public sealed class ControlEventRequestsTests
         Add(log, 3, new StoreChangedEvent(StoreKind.Content, StoreChange.Written, "/uploads2", 1, null));
         Add(log, 4, new StoreChangedEvent(StoreKind.Mail, StoreChange.Delivered, "INBOX", 1, null));
         Add(log, 5, new HookFailedEvent("h1", HookFailure.Threw, "x"));
+        Add(log, 6, new StoreChangedEvent(StoreKind.ProxyAccounts, StoreChange.AccountAdded, "bob", null, null));
+        Add(log, 7, new StoreChangedEvent(StoreKind.TlsSrpAccounts, StoreChange.AccountAdded, "carol", null, null));
 
         var response = await ServeAsync(EndpointOver(log), Request("GET", $"/v1/events?{query}"), new ManualTimeProvider(), TestContext.CancellationToken);
 

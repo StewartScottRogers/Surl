@@ -144,7 +144,37 @@ internal sealed class ControlStoreRequests(IControlTarget target, ControlSnapsho
     /// <summary><c>POST /v1/accounts</c>: adds the JSON body's account.</summary>
     /// <param name="request">The request.</param>
     /// <returns><c>204</c>.</returns>
-    public async Task<HttpAnswer> AddAccountAsync(ControlRequest request)
+    public Task<HttpAnswer> AddAccountAsync(ControlRequest request) => AddAccountToAsync(request, target.AddAccountAsync);
+
+    /// <summary><c>DELETE /v1/accounts/{user}</c>.</summary>
+    /// <param name="request">The request.</param>
+    /// <returns><c>204</c>, or <c>404</c> for an unknown account.</returns>
+    public Task<HttpAnswer> RemoveAccountAsync(ControlRequest request) =>
+        RemoveAccountFromAsync(request, target.RemoveAccountAsync, "account");
+
+    /// <summary><c>POST /v1/proxy-accounts</c>: adds the JSON body's proxy account (ADR-0170 decision 4).</summary>
+    /// <param name="request">The request.</param>
+    /// <returns><c>204</c>; <c>409</c> when no proxy account is configured.</returns>
+    public Task<HttpAnswer> AddProxyAccountAsync(ControlRequest request) => AddAccountToAsync(request, target.AddProxyAccountAsync);
+
+    /// <summary><c>DELETE /v1/proxy-accounts/{user}</c>.</summary>
+    /// <param name="request">The request.</param>
+    /// <returns><c>204</c>; <c>404</c> for an unknown proxy account; <c>409</c> when none is configured.</returns>
+    public Task<HttpAnswer> RemoveProxyAccountAsync(ControlRequest request) =>
+        RemoveAccountFromAsync(request, target.RemoveProxyAccountAsync, "proxy account");
+
+    /// <summary><c>POST /v1/tls-srp-accounts</c>: adds the JSON body's TLS-SRP account (ADR-0170 decision 4).</summary>
+    /// <param name="request">The request.</param>
+    /// <returns><c>204</c>; <c>409</c> when TLS-SRP is not configured.</returns>
+    public Task<HttpAnswer> AddTlsSrpAccountAsync(ControlRequest request) => AddAccountToAsync(request, target.AddTlsSrpAccountAsync);
+
+    /// <summary><c>DELETE /v1/tls-srp-accounts/{user}</c>.</summary>
+    /// <param name="request">The request.</param>
+    /// <returns><c>204</c>; <c>404</c> for an unknown TLS-SRP account; <c>409</c> when TLS-SRP is not configured.</returns>
+    public Task<HttpAnswer> RemoveTlsSrpAccountAsync(ControlRequest request) =>
+        RemoveAccountFromAsync(request, target.RemoveTlsSrpAccountAsync, "TLS-SRP account");
+
+    private async Task<HttpAnswer> AddAccountToAsync(ControlRequest request, Func<string, string, CancellationToken, Task> add)
     {
         var body = await ReadJsonAsync(request, ControlJsonContext.Default.ControlAccountRequestJson);
         if (string.IsNullOrEmpty(body.User) || string.IsNullOrEmpty(body.Password))
@@ -152,18 +182,15 @@ internal sealed class ControlStoreRequests(IControlTarget target, ControlSnapsho
             throw new ControlErrorException(ControlError.BadRequest("give user and password, neither empty"));
         }
 
-        await target.AddAccountAsync(body.User, body.Password, request.CancellationToken);
+        await add(body.User, body.Password, request.CancellationToken);
 
         return answers.NoContent(request.Http);
     }
 
-    /// <summary><c>DELETE /v1/accounts/{user}</c>.</summary>
-    /// <param name="request">The request.</param>
-    /// <returns><c>204</c>, or <c>404</c> for an unknown account.</returns>
-    public async Task<HttpAnswer> RemoveAccountAsync(ControlRequest request) =>
-        await target.RemoveAccountAsync(request.Parameters[0], request.CancellationToken)
+    private async Task<HttpAnswer> RemoveAccountFromAsync(ControlRequest request, Func<string, CancellationToken, Task<bool>> remove, string kind) =>
+        await remove(request.Parameters[0], request.CancellationToken)
             ? answers.NoContent(request.Http)
-            : throw NotFound($"no account is named {request.Parameters[0]}");
+            : throw NotFound($"no {kind} is named {request.Parameters[0]}");
 
     /// <summary><c>POST /v1/reset</c>.</summary>
     /// <param name="request">The request.</param>

@@ -97,6 +97,32 @@ public interface IControlTarget
     /// <returns>Whether an account had that name.</returns>
     Task<bool> RemoveAccountAsync(string user, CancellationToken cancellationToken);
 
+    /// <summary>Adds a proxy account, or replaces the password of one with the same name (ADR-0170 decision 4).</summary>
+    /// <param name="user">The account name.</param>
+    /// <param name="password">The password.</param>
+    /// <param name="cancellationToken">Cancels the addition.</param>
+    /// <returns>The addition; refused <see cref="ControlRefusalKind.Conflict"/> when no proxy account is configured.</returns>
+    Task AddProxyAccountAsync(string user, string password, CancellationToken cancellationToken);
+
+    /// <summary>Removes a proxy account.</summary>
+    /// <param name="user">The account name.</param>
+    /// <param name="cancellationToken">Cancels the removal.</param>
+    /// <returns>Whether a proxy account had that name; refused <see cref="ControlRefusalKind.Conflict"/> when none is configured.</returns>
+    Task<bool> RemoveProxyAccountAsync(string user, CancellationToken cancellationToken);
+
+    /// <summary>Adds a TLS-SRP account, or replaces the password of one with the same name (ADR-0170 decision 4).</summary>
+    /// <param name="user">The account name.</param>
+    /// <param name="password">The password.</param>
+    /// <param name="cancellationToken">Cancels the addition.</param>
+    /// <returns>The addition; refused <see cref="ControlRefusalKind.Conflict"/> when TLS-SRP is not configured.</returns>
+    Task AddTlsSrpAccountAsync(string user, string password, CancellationToken cancellationToken);
+
+    /// <summary>Removes a TLS-SRP account.</summary>
+    /// <param name="user">The account name.</param>
+    /// <param name="cancellationToken">Cancels the removal.</param>
+    /// <returns>Whether a TLS-SRP account had that name; refused <see cref="ControlRefusalKind.Conflict"/> when TLS-SRP is not configured.</returns>
+    Task<bool> RemoveTlsSrpAccountAsync(string user, CancellationToken cancellationToken);
+
     /// <summary>Returns every store to its configured state (ADR-0124 decision 3).</summary>
     /// <param name="cancellationToken">Cancels the reset.</param>
     /// <returns>The reset.</returns>

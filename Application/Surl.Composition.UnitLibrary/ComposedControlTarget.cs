@@ -185,6 +185,46 @@ internal sealed class ComposedControlTarget(SurlEventStream events, FaultPlan fa
         Task.FromResult(stores.RemoveAccount(user));
 
     /// <inheritdoc/>
+    public Task AddProxyAccountAsync(string user, string password, CancellationToken cancellationToken) =>
+        RefusingAnAbsentStore(() =>
+        {
+            stores.RemoveProxyAccount(user);
+            stores.AddProxyAccount(new Account(user, password));
+            return true;
+        });
+
+    /// <inheritdoc/>
+    public Task<bool> RemoveProxyAccountAsync(string user, CancellationToken cancellationToken) =>
+        RefusingAnAbsentStore(() => stores.RemoveProxyAccount(user));
+
+    /// <inheritdoc/>
+    public Task AddTlsSrpAccountAsync(string user, string password, CancellationToken cancellationToken) =>
+        RefusingAnAbsentStore(() =>
+        {
+            stores.RemoveTlsSrpAccount(user);
+            stores.AddTlsSrpAccount(user, password);
+            return true;
+        });
+
+    /// <inheritdoc/>
+    public Task<bool> RemoveTlsSrpAccountAsync(string user, CancellationToken cancellationToken) =>
+        RefusingAnAbsentStore(() => stores.RemoveTlsSrpAccount(user));
+
+    // An account store that is not composed refuses with InvalidOperationException; that is a request the
+    // instance's state cannot carry out, so it is a conflict carrying the store's own message.
+    private static Task<T> RefusingAnAbsentStore<T>(Func<T> change)
+    {
+        try
+        {
+            return Task.FromResult(change());
+        }
+        catch (InvalidOperationException refused)
+        {
+            throw new ControlRefusalException(ControlRefusalKind.Conflict, refused.Message);
+        }
+    }
+
+    /// <inheritdoc/>
     public Task ResetAsync(CancellationToken cancellationToken) =>
         RefusingAStoreConflict(async () =>
         {

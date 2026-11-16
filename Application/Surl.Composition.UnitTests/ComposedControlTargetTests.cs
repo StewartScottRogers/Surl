@@ -273,6 +273,42 @@ public sealed class ComposedControlTargetTests
         Assert.AreEqual(ControlRefusalKind.Conflict, snapshot.Kind);
     }
 
+    [TestMethod]
+    public async Task ProxyAndTlsSrpAccounts_AddReplaceAndRemove_ChangeTheirOwnStores()
+    {
+        var start = await SurlServerComposition.ComposeAsync(
+            StartTestSeams.Parse(["-U", "pat:pw", "--tlsuser", "jsmith", "--tlspassword", "abc", "--allow-anonymous", "https://127.0.0.1:0/"]), new StartTestSeams().Seams, TestContext.CancellationToken);
+        await using var serving = start.Serving ?? throw new AssertFailedException(string.Join(" ", start.Failure!.Lines));
+        var target = TargetOf(serving);
+
+        await target.AddProxyAccountAsync("bob", "builder", TestContext.CancellationToken);
+        await target.AddProxyAccountAsync("bob", "changed", TestContext.CancellationToken);
+        await target.AddTlsSrpAccountAsync("carol", "pw", TestContext.CancellationToken);
+        await target.AddTlsSrpAccountAsync("carol", "pw2", TestContext.CancellationToken);
+
+        Assert.IsTrue(await target.RemoveProxyAccountAsync("bob", TestContext.CancellationToken));
+        Assert.IsFalse(await target.RemoveProxyAccountAsync("bob", TestContext.CancellationToken));
+        Assert.IsTrue(await target.RemoveTlsSrpAccountAsync("carol", TestContext.CancellationToken));
+        Assert.IsFalse(await target.RemoveTlsSrpAccountAsync("carol", TestContext.CancellationToken));
+    }
+
+    [TestMethod]
+    public async Task ProxyAndTlsSrpAccounts_StoreAbsent_AreRefusedAsAConflict()
+    {
+        await using var serving = await ComposeAsync();
+        var target = TargetOf(serving);
+
+        var refusals = new[]
+        {
+            await Assert.ThrowsExactlyAsync<ControlRefusalException>(() => target.AddProxyAccountAsync("bob", "pw", TestContext.CancellationToken)),
+            await Assert.ThrowsExactlyAsync<ControlRefusalException>(() => target.RemoveProxyAccountAsync("bob", TestContext.CancellationToken)),
+            await Assert.ThrowsExactlyAsync<ControlRefusalException>(() => target.AddTlsSrpAccountAsync("bob", "pw", TestContext.CancellationToken)),
+            await Assert.ThrowsExactlyAsync<ControlRefusalException>(() => target.RemoveTlsSrpAccountAsync("bob", TestContext.CancellationToken)),
+        };
+
+        Assert.IsTrue(refusals.All(refusal => refusal.Kind == ControlRefusalKind.Conflict));
+    }
+
     private static ComposedControlTarget TargetOf(ComposedServing serving) => new(serving.Events, serving.Faults, serving.Stores);
 
     private static ContentEntryKind FileKind(ComposedServing serving, string path) =>
