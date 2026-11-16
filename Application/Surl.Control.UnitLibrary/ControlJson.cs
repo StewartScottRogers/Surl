@@ -22,6 +22,10 @@ internal sealed record ControlEventJson
 
     public string? Direction { get; init; }
 
+    public string? Layer { get; init; }
+
+    public long? StreamId { get; init; }
+
     public string? Encoding { get; init; }
 
     public string? Data { get; init; }

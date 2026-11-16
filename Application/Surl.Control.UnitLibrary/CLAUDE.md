@@ -27,6 +27,7 @@ Namespace `Surl.Control`.
   (`from_offset`, `limit`). `IControlTarget` gains the matching read members; an absent item is `ControlRefusalKind.NotFound`
   (404), one past 16 MiB is the new `ControlRefusalKind.TooLarge` (413 `too_large`). Reads publish nothing.
 - Account routes (ADR-0170 decision 4, BL-1282): `POST /v1/proxy-accounts` and `POST /v1/tls-srp-accounts` (JSON `{"user","password"}`, as `/v1/accounts`) and `DELETE` of `/v1/proxy-accounts/{user}` and `/v1/tls-srp-accounts/{user}`, through `AddProxyAccountAsync`, `RemoveProxyAccountAsync`, `AddTlsSrpAccountAsync` and `RemoveTlsSrpAccountAsync`; `204`, `404` for an unknown user, `409` when the store is not composed. The `store` event filter takes `proxy_accounts` and `tls_srp_accounts`.
+- Events are read and written through their own members (ADR-0171, BL-1285): `ControlEventMemberWriter` builds the JSON, `ControlEventKinds.Known` is listed explicitly (AOT) and pinned by a test against the exported `SurlEvent` records.
 - `IControlSnapshot`, `ControlFault`, `ControlMessage` - the values that cross the interface.
 - `ControlToken` - the bearer token, 32 to 1024 visible ASCII bytes, held only as its SHA-256 and
   compared with `CryptographicOperations.FixedTimeEquals`.

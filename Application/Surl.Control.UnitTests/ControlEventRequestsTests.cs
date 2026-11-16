@@ -33,8 +33,8 @@ public sealed class ControlEventRequestsTests
         Assert.AreEqual(
             "{\"events\":["
             + $"{{\"sequence\":1,{at},\"kind\":\"exchange_started\",\"exchange_id\":1,\"listen_url\":\"smtp://127.0.0.1:2525\",\"scheme\":\"smtp\",\"client\":\"127.0.0.1:50512\"}},"
-            + $"{{\"sequence\":2,{at},\"kind\":\"exchange_bytes\",\"exchange_id\":1,\"direction\":\"received\",\"encoding\":\"text\",\"data\":\"EHLO a\\r\\n\",\"byte_count\":8,\"is_cut\":false}},"
-            + $"{{\"sequence\":3,{at},\"kind\":\"exchange_bytes\",\"exchange_id\":1,\"direction\":\"sent\",\"encoding\":\"base64\",\"data\":\"AAEC\",\"byte_count\":3,\"is_cut\":false}},"
+            + $"{{\"sequence\":2,{at},\"kind\":\"exchange_bytes\",\"exchange_id\":1,\"direction\":\"received\",\"layer\":\"wire\",\"encoding\":\"text\",\"data\":\"EHLO a\\r\\n\",\"byte_count\":8,\"is_cut\":false}},"
+            + $"{{\"sequence\":3,{at},\"kind\":\"exchange_bytes\",\"exchange_id\":1,\"direction\":\"sent\",\"layer\":\"wire\",\"encoding\":\"base64\",\"data\":\"AAEC\",\"byte_count\":3,\"is_cut\":false}},"
             + $"{{\"sequence\":4,{at},\"kind\":\"login_judged\",\"exchange_id\":1,\"scheme\":\"smtp\",\"account\":\"alice\",\"mechanism\":\"PLAIN\",\"is_accepted\":false,\"is_refused_by_fault\":true}},"
             + $"{{\"sequence\":5,{at},\"kind\":\"store_changed\",\"exchange_id\":1,\"byte_count\":9,\"store\":\"content\",\"change\":\"written\",\"name\":\"/b\",\"previous_name\":\"/a\"}},"
             + $"{{\"sequence\":6,{at},\"kind\":\"fault_applied\",\"exchange_id\":1,\"rule_id\":\"f1\",\"fault_kind\":\"refuse_login\",\"stage\":\"login\",\"target\":\"alice\"}},"
