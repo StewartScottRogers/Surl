@@ -43,3 +43,4 @@ Found by the second stand-in audit (2026-11-16). ADR-0124 decision 4 lets every 
 ## Log
 
 - 2026-11-16: Created.
+- 2026-11-16: Backlog -> Doing.
