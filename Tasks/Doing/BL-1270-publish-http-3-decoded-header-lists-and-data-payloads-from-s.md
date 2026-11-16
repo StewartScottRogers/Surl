@@ -33,3 +33,4 @@ ADR-0169 decision 1. Header chunk text: one `name: value` line per header ending
 ## Log
 
 - 2026-11-16: Created.
+- 2026-11-16: Backlog -> Doing.
