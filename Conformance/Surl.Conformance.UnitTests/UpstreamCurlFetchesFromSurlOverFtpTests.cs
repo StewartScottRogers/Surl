@@ -215,9 +215,13 @@ public sealed class UpstreamCurlFetchesFromSurlOverFtpTests
         await using var surl = await StartSurlAsync("--max-connections", "1");
         using var holder = new TcpClient();
         await holder.ConnectAsync(surl.BaseUrl.Host, surl.BaseUrl.Port, TestContext.CancellationToken);
-        var greeting = new byte[4];
-        await holder.GetStream().ReadExactlyAsync(greeting, TestContext.CancellationToken);
-        Assert.AreEqual("220 ", Encoding.ASCII.GetString(greeting));
+        using var holderReader = new StreamReader(holder.GetStream(), Encoding.ASCII);
+        StringAssert.StartsWith(await holderReader.ReadLineAsync(TestContext.CancellationToken), "220 ");
+
+        // The greeting alone shows surl accepted the holder; a NOOP answered shows its exchange is
+        // running and counted, so curl's connection is past the limit whenever it dials (BL-1320).
+        await holder.GetStream().WriteAsync(Encoding.ASCII.GetBytes("NOOP\r\n"), TestContext.CancellationToken);
+        StringAssert.StartsWith(await holderReader.ReadLineAsync(TestContext.CancellationToken), "200 ");
 
         var result = await RunCurlAsync(surl.UrlOf("a.txt"));
 

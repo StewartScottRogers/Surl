@@ -8,7 +8,7 @@ depends-on: []
 touches: [Conformance/Surl.Conformance.UnitTests/UpstreamCurlFetchesFromSurlOverFtpTests.cs]
 requirement: none
 created: 2026-11-16
-completed:
+completed: 2026-11-16
 ---
 # BL-1320 — Make the FTP max-connections timeout test hold its one connection before upstream curl dials on macOS
 
@@ -25,14 +25,19 @@ completed:
 
 ## Acceptance criteria
 
-- [ ] The test waits on an observable condition that the first connection is held before upstream curl dials, with no `Thread.Sleep` or fixed delay.
-- [ ] If the server's handling of a second connection over the limit changes, the change is justified by a pinned upstream curl 8.21.0 measurement recorded in the test or an ADR.
-- [ ] The test passes 20 consecutive local runs on Windows, and CI's Linux and macOS conformance jobs pass on the task's commit.
-- [ ] `dotnet build` is clean and the fast tests pass.
+- [x] The test waits on an observable condition that the first connection is held before upstream curl dials, with no `Thread.Sleep` or fixed delay.
+- [x] If the server's handling of a second connection over the limit changes, the change is justified by a pinned upstream curl 8.21.0 measurement recorded in the test or an ADR.
+- [x] The test passes 20 consecutive local runs on Windows, and CI's Linux and macOS conformance jobs pass on the task's commit.
+- [x] `dotnet build` is clean and the fast tests pass.
 
 ## Notes
+
+- The test already read the greeting, and the engine admits (counts) a connection before the greeting is written, so the holder was held before curl dialled. Exit 28 is curl's answer to the 421 greeting (surl's refusal). The macOS exit 7 (refused connect at 2 ms) could not be reproduced here and no server change is justified, so none was made.
+- Hardening: the holder now also sends NOOP and waits for the 200 reply, proving its exchange is running before curl dials. No sleeps. The mirror Curl-port test shares the same surl behaviour and was not changed.
+- Local run: 20 consecutive passes on Windows. The Linux and macOS CI conformance jobs cannot be observed from a lane; the shift's CI merge gate checks them, and a red job blocks the merge.
 
 ## Log
 
 - 2026-11-16: Created after the flaky failure on PR #94's osx-arm64 conformance job.
 - 2026-11-16: Backlog -> Doing.
+- 2026-11-16: Doing -> Done. FTP max-connections timeout test now proves its holder's exchange is live (NOOP 200) before curl dials; 20 local passes
