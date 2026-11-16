@@ -121,3 +121,5 @@ is full) and never asks the fault plan, publishing `Seeded`; `Reset` empties eve
 `Restore` puts it back and publishes `Restored` with the restored bytes, refusing another keyspace's
 snapshot with `ArgumentException`. `RedisStoredValue.Copy()` is what keeps a snapshot and the
 keyspace from sharing state; `RedisDatabase.Export`/`Replace` journal nothing.
+
+Read-back (BL-1218, ADR-0164 decision 9): `RedisKeyspace.ReadKey` and `ListKeys` read live keys under `SyncRoot` through `RedisDatabase.Peek`/`PeekLive`, which remove no expired key and journal nothing, so a read publishes no event and asks no fault rule. `ListKeys` matches a `KEYS` glob (`RedisGlobPattern`) in ordinal order of the key bytes, with an `after` cursor and a limit, and lists a key of any type without its value; `ReadKey` returns a string's value as a copy and no value for another type. Tests: `RedisKeyspaceReadBackTests`.

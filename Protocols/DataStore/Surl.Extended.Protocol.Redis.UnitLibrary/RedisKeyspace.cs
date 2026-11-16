@@ -151,6 +151,64 @@ public sealed class RedisKeyspace
     }
 
     /// <summary>
+    /// Reads one live key back as a test does (ADR-0164 decision 9): publishes nothing, asks no fault rule, removes
+    /// no expired key and journals nothing.
+    /// </summary>
+    /// <param name="database">The database, 0 to 15.</param>
+    /// <param name="key">The key's bytes.</param>
+    /// <returns>The key with its string value (none for another type), or <see langword="null"/> when absent or expired.</returns>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="database"/> is outside 0 to 15.</exception>
+    public RedisKeyContents? ReadKey(int database, ReadOnlyMemory<byte> key)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(database);
+        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(database, RedisSession.DatabaseCount);
+        var nowMilliseconds = timeProvider.GetUtcNow().ToUnixTimeMilliseconds();
+        lock (SyncRoot)
+        {
+            var entry = databases[database].Peek(RedisKeys.Name(key.ToArray()), nowMilliseconds);
+            return entry is null
+                ? null
+                : new RedisKeyContents(InfoOf(entry), entry.Value is RedisStringValue text ? new ReadOnlyMemory<byte>((byte[])text.Bytes.Clone()) : (ReadOnlyMemory<byte>?)null);
+        }
+    }
+
+    /// <summary>
+    /// Lists live keys matching a <c>KEYS</c> glob in ordinal order of their bytes, one page at a time
+    /// (ADR-0164 decision 9): publishes nothing, asks no fault rule and reads no value.
+    /// </summary>
+    /// <param name="database">The database, 0 to 15.</param>
+    /// <param name="pattern">The glob, one character per byte (Latin-1); <c>*</c> lists every key.</param>
+    /// <param name="after">The last key seen; keys ordered after it are listed. Empty starts at the first.</param>
+    /// <param name="limit">The most keys to return, at least 1.</param>
+    /// <returns>The page.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="pattern"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="database"/> is outside 0 to 15 or <paramref name="limit"/> is below 1.</exception>
+    public RedisKeyInfoPage ListKeys(int database, string pattern, ReadOnlyMemory<byte> after, int limit)
+    {
+        ArgumentNullException.ThrowIfNull(pattern);
+        ArgumentOutOfRangeException.ThrowIfNegative(database);
+        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(database, RedisSession.DatabaseCount);
+        ArgumentOutOfRangeException.ThrowIfLessThan(limit, 1);
+        var nowMilliseconds = timeProvider.GetUtcNow().ToUnixTimeMilliseconds();
+        var afterName = RedisKeys.Name(after.ToArray());
+        lock (SyncRoot)
+        {
+            var matching = databases[database].PeekLive(nowMilliseconds)
+                .Where(entry => string.CompareOrdinal(entry.Key, afterName) > 0 && RedisGlobPattern.IsMatch(pattern, entry.Key))
+                .OrderBy(entry => entry.Key, StringComparer.Ordinal)
+                .Take(limit + 1)
+                .ToList();
+            return new RedisKeyInfoPage([.. matching.Take(limit).Select(InfoOf)], matching.Count > limit);
+        }
+    }
+
+    private RedisKeyInfo InfoOf(RedisKeyEntry entry) => new(
+        RedisKeys.Bytes(entry.Key),
+        entry.Value.TypeName,
+        entry.Value.ByteCount,
+        entry.ExpiresAtMilliseconds is { } deadline ? DateTimeOffset.FromUnixTimeMilliseconds(deadline) : null);
+
+    /// <summary>
     /// Empties every database and publishes one <see cref="StoreChange.Reset"/> with an empty name and
     /// 0 bytes. Connections stay and keep their selected database.
     /// </summary>

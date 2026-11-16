@@ -124,6 +124,8 @@ var folder = await server.Files.ListAsync("/reports");                          
 var queued = await server.Messages.BrowseQueueAsync("orders");                  // ready messages, never consumed
 var retained = await server.Messages.ReadRetainedAsync("sensors/1");            // null when none
 var log = await server.Messages.ReadLogAsync("events", fromOffset: 0);          // records and NextOffset
+var key = await server.Keys.GetAsync("session:1");                              // Info (type, size, expiry) and Text
+var keys = await server.Keys.ListAsync("session:*");                            // names, types and sizes, no values
 ```
 
 `ListMailboxesAsync(owner)` lists an owner's mailboxes. A read changes nothing, publishes no event, never
@@ -186,7 +188,8 @@ bytes); `--control` without a token file is refused, and a request without the t
 `/v1/mail/<owner>`, `/v1/mail/<owner>/<mailbox>` (`after_uid`, `limit`), `/v1/mail/<owner>/<mailbox>/<uid>`,
 `/v1/files/<path>` (the bytes), `/v1/files/<path>/` (a listing; `after_name`, `limit`),
 `/v1/queues/<name>/messages` (`after_position`, `limit`), `/v1/topics/<name>/retained` and
-`/v1/topics/<name>/log` (`from_offset`, `limit`). `GET /v1/events` and `GET /v1/events/wait` also take `store`
+`/v1/topics/<name>/log` (`from_offset`, `limit`), `/v1/keys/<key>` (`database`) and `/v1/keys` (`pattern`, `after_key`,
+`limit`, `database`). `GET /v1/events` and `GET /v1/events/wait` also take `store`
 and `name`. With curl, as the recipe runs it:
 
 ```
@@ -206,7 +209,7 @@ Recipe: `StandInControlEndpointRecipeTests`. The endpoint has no hooks (decision
 `surl-mcp` offers `start_server`, `list_servers`, `stop_server`, `get_exchanges`, `get_events`,
 `wait_for_event`, `seed_mail`, `put_file`, `delete_file`, `publish_message`, `set_key`, `add_ldap_entries`,
 `add_dns_zone`, `add_account`, `remove_account`, `list_mailboxes`, `list_messages`, `read_message`,
-`read_file`, `list_files`, `browse_queue`, `read_retained_message`, `read_log` (the read-back tools; `get_events`
+`read_file`, `list_files`, `browse_queue`, `read_retained_message`, `read_log`, `read_key`, `list_keys` (the read-back tools; `get_events`
 and `wait_for_event` also take `store` and `name`), `reset_server`,
 `snapshot_server`, `restore_server`, `add_fault`, `list_faults` and `remove_fault`, and the `surl://aihelp`
 resources. See [`Application/Surl.Mcp/README.md`](../../Application/Surl.Mcp/README.md).

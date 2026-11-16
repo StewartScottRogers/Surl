@@ -47,7 +47,9 @@ archives hold the same server as a native binary that needs no .NET runtime.
   They are `list_mailboxes` (`owner`), `list_messages` (`owner`, `mailbox`, `after_uid`, `limit`),
   `read_message` (`owner`, `mailbox`, `uid`), `read_file` (`path`), `list_files` (`path`, `after_name`,
   `limit`), `browse_queue` (`queue`, `after_position`, `limit`), `read_retained_message` (`topic`) and
-  `read_log` (`topic`, `from_offset`, `limit`). Bytes come back as `text` when well-formed UTF-8, else
+  `read_log` (`topic`, `from_offset`, `limit`). `read_key` (`key` or `key_base64`, `database`) and `list_keys`
+  (`pattern`, `after_key`, `limit`, `database`) read back the Redis keyspace the same way (ADR-0164 decision 9): a key
+  with its type, size, expiry and, for a string, its value; a listing never holds a value. Bytes come back as `text` when well-formed UTF-8, else
   `base64` (a log key as `key` or `key_base64`). One item is at most 16 MiB and a list takes `limit` 1 to
   1000 (default 100) with `has_more`. A read changes nothing, publishes no event and trips no fault. An absent
   owner, mailbox, UID, file, queue or log, or a breach of a bound, is `isError: true` with the reason; an

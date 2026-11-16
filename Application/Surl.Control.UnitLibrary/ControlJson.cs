@@ -147,6 +147,12 @@ internal sealed record ControlLogRecordJson(long Offset, string Timestamp, strin
 /// <summary>The answer to <c>GET /v1/topics/{name}/log</c>.</summary>
 internal sealed record ControlLogJson(IReadOnlyList<ControlLogRecordJson> Records, long NextOffset, bool HasMore);
 
+/// <summary>One key in a listing, or read with its <c>text</c> or <c>base64</c> value.</summary>
+internal sealed record ControlKeyJson(string? Key, string? KeyBase64, string Type, long ByteCount, string? ExpiresAt, string? Text = null, string? Base64 = null);
+
+/// <summary>The answer to <c>GET /v1/keys</c>.</summary>
+internal sealed record ControlKeysJson(IReadOnlyList<ControlKeyJson> Keys, bool HasMore);
+
 /// <summary>Every error answer.</summary>
 internal sealed record ControlErrorJson(string Error, string Message);
 
@@ -196,5 +202,7 @@ internal sealed record ControlAccountRequestJson
 [JsonSerializable(typeof(ControlQueueJson))]
 [JsonSerializable(typeof(ControlRetainedJson))]
 [JsonSerializable(typeof(ControlLogJson))]
+[JsonSerializable(typeof(ControlKeysJson))]
+[JsonSerializable(typeof(ControlKeyJson))]
 [ExcludeFromCodeCoverage(Justification = "Its body is written by the System.Text.Json source generator, not by Surl; the shapes it serializes are pinned byte for byte by the endpoint's tests.")]
 internal sealed partial class ControlJsonContext : JsonSerializerContext;

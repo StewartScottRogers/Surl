@@ -230,6 +230,26 @@ internal sealed class FakeControlTarget : IControlTarget
         return Task.FromResult(LogPage);
     }
 
+    /// <summary>What <see cref="ReadKeyAsync"/> answers.</summary>
+    public ControlKeyContents KeyContents { get; set; } = new(new ControlKeyInfo(new byte[] { 107 }, "string", 1, null), new byte[] { 118 });
+
+    /// <summary>What <see cref="ListKeysAsync"/> answers.</summary>
+    public ControlKeyPage KeyPage { get; set; } = new([], false);
+
+    public Task<ControlKeyContents> ReadKeyAsync(int database, ReadOnlyMemory<byte> key, CancellationToken cancellationToken)
+    {
+        Record($"ReadKey {database} {System.Text.Encoding.UTF8.GetString(key.Span)}");
+
+        return Task.FromResult(KeyContents);
+    }
+
+    public Task<ControlKeyPage> ListKeysAsync(int database, string pattern, ReadOnlyMemory<byte> afterKey, int limit, CancellationToken cancellationToken)
+    {
+        Record($"ListKeys {database} {pattern} {System.Text.Encoding.UTF8.GetString(afterKey.Span)} {limit}");
+
+        return Task.FromResult(KeyPage);
+    }
+
     private void Record(string call)
     {
         if (Failure is not null)

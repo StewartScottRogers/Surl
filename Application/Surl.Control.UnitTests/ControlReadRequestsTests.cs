@@ -255,4 +255,68 @@ public sealed class ControlReadRequestsTests
 
     private Task<string> Serve(FakeControlTarget target, string request) =>
         ServeAsync(Endpoint(target), request, new ManualTimeProvider(), TestContext.CancellationToken);
+
+    [TestMethod]
+    public async Task ReadKeyAsync_AKey_AnswersItsTypeSizeExpiryAndText()
+    {
+        var target = new FakeControlTarget
+        {
+            KeyContents = new(new ControlKeyInfo("user:1"u8.ToArray(), "string", 5, When), "alice"u8.ToArray()),
+        };
+
+        var response = await Serve(target, Request("GET", "/v1/keys/user:1?database=2"));
+
+        Assert.AreEqual(
+            "{\"key\":\"user:1\",\"type\":\"string\",\"byte_count\":5,\"expires_at\":\"2026-11-15T10:30:00.0000000\\u002B00:00\",\"text\":\"alice\"}",
+            Body(response));
+        CollectionAssert.AreEqual(new[] { "ReadKey 2 user:1" }, target.Calls);
+    }
+
+    [TestMethod]
+    public async Task ReadKeyAsync_BinaryKeyAndValueAndAKeyOfAnotherType_AnswerBase64OrNoValue()
+    {
+        var target = new FakeControlTarget { KeyContents = new(new ControlKeyInfo(new byte[] { 255 }, "string", 1, null), new byte[] { 0 }) };
+        var binary = await Serve(target, Request("GET", "/v1/keys/k"));
+        target.KeyContents = new(new ControlKeyInfo("l"u8.ToArray(), "list", 3, null), null);
+        var list = await Serve(target, Request("GET", "/v1/keys/l"));
+
+        Assert.AreEqual("{\"key_base64\":\"/w==\",\"type\":\"string\",\"byte_count\":1,\"base64\":\"AA==\"}", Body(binary));
+        Assert.AreEqual("{\"key\":\"l\",\"type\":\"list\",\"byte_count\":3}", Body(list));
+    }
+
+    [TestMethod]
+    public async Task ListKeysAsync_NoQuery_AsksForEveryKeyWithTheDefaults()
+    {
+        var target = new FakeControlTarget { KeyPage = new([new ControlKeyInfo("a"u8.ToArray(), "hash", 9, null)], true) };
+
+        var response = await Serve(target, Request("GET", "/v1/keys"));
+
+        Assert.AreEqual("{\"keys\":[{\"key\":\"a\",\"type\":\"hash\",\"byte_count\":9}],\"has_more\":true}", Body(response));
+        CollectionAssert.AreEqual(new[] { "ListKeys 0 *  100" }, target.Calls);
+    }
+
+    [TestMethod]
+    public async Task ListKeysAsync_PatternAfterKeyLimitAndDatabase_PassesThem()
+    {
+        var target = new FakeControlTarget();
+
+        _ = await Serve(target, Request("GET", "/v1/keys?pattern=user%3A*&after_key=user%3A1&limit=5&database=3"));
+
+        CollectionAssert.AreEqual(new[] { "ListKeys 3 user:* user:1 5" }, target.Calls);
+    }
+
+    [TestMethod]
+    [DataRow("/v1/keys?limit=0")]
+    [DataRow("/v1/keys?database=16")]
+    [DataRow("/v1/keys?other=1")]
+    [DataRow("/v1/keys/k?limit=3")]
+    public async Task KeyReads_ABadQuery_Is400(string path)
+    {
+        var target = new FakeControlTarget();
+
+        var response = await Serve(target, Request("GET", path));
+
+        Assert.AreEqual("HTTP/1.1 400 Bad Request", StatusLine(response));
+        Assert.IsEmpty(target.Calls);
+    }
 }

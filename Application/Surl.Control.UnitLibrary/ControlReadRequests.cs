@@ -24,6 +24,12 @@ internal sealed class ControlReadRequests(IControlTarget target, ControlAnswers 
     /// <summary>The query keys a log read takes.</summary>
     public static readonly string[] LogKeys = ["from_offset", "limit"];
 
+    /// <summary>The query keys a key read takes.</summary>
+    public static readonly string[] KeyKeys = ["database"];
+
+    /// <summary>The query keys a key listing takes.</summary>
+    public static readonly string[] KeyListKeys = ["pattern", "after_key", "limit", "database"];
+
     private const int DefaultLimit = 100;
     private const int MaxLimit = 1000;
 
@@ -151,6 +157,45 @@ internal sealed class ControlReadRequests(IControlTarget target, ControlAnswers 
         var body = new ControlLogJson([.. records], page.NextOffset, page.HasMore);
 
         return answers.Json(request.Http, HttpStatus.Ok, body, ControlJsonContext.Default.ControlLogJson);
+    }
+
+    /// <summary><c>GET /v1/keys/{key}</c>.</summary>
+    /// <param name="request">The request.</param>
+    /// <returns>The key with its type, size, expiry and string value.</returns>
+    public async Task<HttpAnswer> ReadKeyAsync(ControlRequest request)
+    {
+        var read = await target.ReadKeyAsync(Database(request), System.Text.Encoding.UTF8.GetBytes(request.Parameters[0]), request.CancellationToken);
+        var (text, base64) = read.Value is { } value ? Show(value) : (null, null);
+
+        return answers.Json(request.Http, HttpStatus.Ok, KeyJson(read.Info, text, base64), ControlJsonContext.Default.ControlKeyJson);
+    }
+
+    /// <summary><c>GET /v1/keys</c>.</summary>
+    /// <param name="request">The request.</param>
+    /// <returns><c>{"keys": [...], "has_more"}</c>, without values.</returns>
+    public async Task<HttpAnswer> ListKeysAsync(ControlRequest request)
+    {
+        var after = System.Text.Encoding.UTF8.GetBytes(request.Query.Text("after_key") ?? string.Empty);
+        var page = await target.ListKeysAsync(Database(request), request.Query.Text("pattern") ?? "*", after, Limit(request), request.CancellationToken);
+        var body = new ControlKeysJson([.. page.Keys.Select(key => KeyJson(key, null, null))], page.HasMore);
+
+        return answers.Json(request.Http, HttpStatus.Ok, body, ControlJsonContext.Default.ControlKeysJson);
+    }
+
+    private static int Database(ControlRequest request) => (int)request.Query.Number("database", 0, 15, 0);
+
+    private static ControlKeyJson KeyJson(ControlKeyInfo info, string? text, string? base64)
+    {
+        var (name, nameBase64) = Show(info.Key);
+
+        return new ControlKeyJson(
+            name,
+            nameBase64,
+            info.Type,
+            info.ByteCount,
+            info.ExpiresAt is { } expiresAt ? ControlEventWriter.Timestamp(expiresAt) : null,
+            text,
+            base64);
     }
 
     private async Task<HttpAnswer> ListFolderAsync(ControlRequest request, string path)

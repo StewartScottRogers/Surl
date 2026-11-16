@@ -155,6 +155,8 @@ internal static class Program
         registry.AddTool(BrowseQueueTool.Create(servers));
         registry.AddTool(ReadRetainedMessageTool.Create(servers));
         registry.AddTool(ReadLogTool.Create(servers));
+        registry.AddTool(ReadKeyTool.Create(servers));
+        registry.AddTool(ListKeysTool.Create(servers));
         registry.AddTool(PublishMessageTool.Create(servers));
         registry.AddTool(AddAccountTool.Create(servers));
         registry.AddTool(SetKeyTool.Create(servers));

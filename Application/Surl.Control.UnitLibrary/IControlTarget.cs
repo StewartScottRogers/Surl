@@ -175,4 +175,20 @@ public interface IControlTarget
     /// <param name="cancellationToken">Cancels the read.</param>
     /// <returns>The page.</returns>
     Task<ControlLogPage> ReadLogAsync(string topic, long fromOffset, int limit, CancellationToken cancellationToken);
+
+    /// <summary>Reads one live Redis key without removing an expired one (ADR-0164 decision 9).</summary>
+    /// <param name="database">The database, 0 to 15.</param>
+    /// <param name="key">The key's bytes.</param>
+    /// <param name="cancellationToken">Cancels the read.</param>
+    /// <returns>The key; a string's value is included, another type's is not.</returns>
+    Task<ControlKeyContents> ReadKeyAsync(int database, ReadOnlyMemory<byte> key, CancellationToken cancellationToken);
+
+    /// <summary>Lists a page of live Redis keys matching a <c>KEYS</c> glob in ordinal order, without values.</summary>
+    /// <param name="database">The database, 0 to 15.</param>
+    /// <param name="pattern">The glob.</param>
+    /// <param name="afterKey">The last key seen, or empty.</param>
+    /// <param name="limit">The most keys, 1 to 1000.</param>
+    /// <param name="cancellationToken">Cancels the read.</param>
+    /// <returns>The page.</returns>
+    Task<ControlKeyPage> ListKeysAsync(int database, string pattern, ReadOnlyMemory<byte> afterKey, int limit, CancellationToken cancellationToken);
 }

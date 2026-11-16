@@ -49,6 +49,8 @@ internal sealed class McpTestHost : IAsyncDisposable
         BrowseQueue = BrowseQueueTool.Create(Servers);
         ReadRetainedMessage = ReadRetainedMessageTool.Create(Servers);
         ReadLog = ReadLogTool.Create(Servers);
+        ReadKey = ReadKeyTool.Create(Servers);
+        ListKeys = ListKeysTool.Create(Servers);
         RemoveAccount = RemoveAccountTool.Create(Servers);
         PublishMessage = PublishMessageTool.Create(Servers);
         AddAccount = AddAccountTool.Create(Servers);
@@ -92,6 +94,10 @@ internal sealed class McpTestHost : IAsyncDisposable
     public McpTool ReadRetainedMessage { get; }
 
     public McpTool ReadLog { get; }
+
+    public McpTool ReadKey { get; }
+
+    public McpTool ListKeys { get; }
 
     public McpTool RemoveAccount { get; }
 

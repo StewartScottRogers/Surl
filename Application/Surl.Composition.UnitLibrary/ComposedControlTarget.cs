@@ -261,6 +261,25 @@ internal sealed class ComposedControlTarget(SurlEventStream events, FaultPlan fa
         return Task.FromResult(new ControlLogPage([.. records], page.NextOffset, page.HasMore));
     }
 
+    /// <inheritdoc/>
+    public Task<ControlKeyContents> ReadKeyAsync(int database, ReadOnlyMemory<byte> key, CancellationToken cancellationToken)
+    {
+        var read = Found(stores.ReadKey(database, key));
+
+        return Task.FromResult(new ControlKeyContents(KeyInfoOf(read.Info), read.Value));
+    }
+
+    /// <inheritdoc/>
+    public Task<ControlKeyPage> ListKeysAsync(int database, string pattern, ReadOnlyMemory<byte> afterKey, int limit, CancellationToken cancellationToken)
+    {
+        var page = Found(stores.ListKeys(database, pattern, afterKey, limit));
+
+        return Task.FromResult(new ControlKeyPage([.. page.Keys.Select(KeyInfoOf)], page.HasMore));
+    }
+
+    private static ControlKeyInfo KeyInfoOf(Surl.Extended.Protocol.Redis.RedisKeyInfo info) =>
+        new(info.Key, info.Type, info.ByteCount, info.ExpiresAt);
+
     // A read that found nothing, was too large or was refused is the matching control refusal (ADR-0164 decisions 2 and 4).
     private static T Found<T>(ComposedReadResult<T> result) => result.Outcome switch
     {

@@ -444,6 +444,58 @@ public sealed class ComposedStores
     }
 
     /// <summary>
+    /// Reads one live Redis key back with its string value, as <see cref="RedisKeyspace.ReadKey"/> does. Publishes
+    /// nothing, asks no fault rule and removes no expired key (ADR-0164, decisions 1 to 3 and 9).
+    /// </summary>
+    /// <param name="database">The database, 0 to 15.</param>
+    /// <param name="key">The key's bytes.</param>
+    /// <returns><see cref="ComposedReadOutcome.Found"/> with the key (its value is <see langword="null"/> for a
+    /// type other than string, which is listed and not read); <see cref="ComposedReadOutcome.NotFound"/> for an
+    /// absent or expired key or an instance with no Redis server; <see cref="ComposedReadOutcome.TooLarge"/> for a
+    /// string over <see cref="MaxReadBytes"/>; <see cref="ComposedReadOutcome.Refused"/> for a database outside 0 to 15.</returns>
+    public ComposedReadResult<RedisKeyContents> ReadKey(int database, ReadOnlyMemory<byte> key)
+    {
+        if (database is < 0 or >= 16)
+        {
+            return ComposedReadResult<RedisKeyContents>.Failed(ComposedReadOutcome.Refused, "The database must be 0 to 15.");
+        }
+
+        var read = redisKeyspace?.ReadKey(database, key);
+        if (read is null)
+        {
+            return ComposedReadResult<RedisKeyContents>.Failed(ComposedReadOutcome.NotFound, "No such key.");
+        }
+
+        return read.Info.ByteCount > MaxReadBytes
+            ? ComposedReadResult<RedisKeyContents>.Failed(ComposedReadOutcome.TooLarge, $"The value holds {read.Info.ByteCount} bytes, more than the {MaxReadBytes} a read returns.")
+            : ComposedReadResult<RedisKeyContents>.Of(read);
+    }
+
+    /// <summary>
+    /// Lists live Redis keys matching a <c>KEYS</c> glob in ordinal order of their bytes, one page at a time, as
+    /// <see cref="RedisKeyspace.ListKeys"/> does. Publishes nothing and asks no fault rule; no value is read
+    /// (ADR-0164, decisions 2, 3 and 9).
+    /// </summary>
+    /// <param name="database">The database, 0 to 15.</param>
+    /// <param name="pattern">The glob; <c>*</c> lists every key.</param>
+    /// <param name="after">The last key seen; empty starts at the first.</param>
+    /// <param name="limit">The most keys to return, 1 to 1000 (default 100).</param>
+    /// <returns>The page; <see cref="ComposedReadOutcome.Refused"/> for a limit outside 1 to 1000 or a database
+    /// outside 0 to 15; an empty page when the instance composes no Redis server.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="pattern"/> is <see langword="null"/>.</exception>
+    public ComposedReadResult<ComposedKeyPage> ListKeys(int database, string pattern, ReadOnlyMemory<byte> after = default, int limit = 100)
+    {
+        ArgumentNullException.ThrowIfNull(pattern);
+        if (limit is < 1 or > 1000 || database is < 0 or >= 16)
+        {
+            return ComposedReadResult<ComposedKeyPage>.Failed(ComposedReadOutcome.Refused, "The limit must be 1 to 1000 and the database 0 to 15.");
+        }
+
+        var page = redisKeyspace?.ListKeys(database, pattern, after, limit);
+        return ComposedReadResult<ComposedKeyPage>.Of(page is null ? new([], false) : new(page.Keys, page.HasMore));
+    }
+
+    /// <summary>
     /// Writes one string key into the Redis keyspace as <see cref="RedisKeyspace.SeedKey"/> does: never consults the
     /// fault plan; publishes <see cref="StoreChange.Seeded"/> (ADR-0158 decision 3).
     /// </summary>
