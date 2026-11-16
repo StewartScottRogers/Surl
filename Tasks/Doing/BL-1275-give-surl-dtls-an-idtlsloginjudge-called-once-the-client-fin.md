@@ -22,12 +22,14 @@ ADR-0170 decisions 6 to 8, modelled on ADR-0165's TLS-SRP judge. `Surl.Dtls` sta
 
 ## Acceptance criteria
 
-- [ ] `IDtlsLoginJudge` has `ShouldRefuseAsync(string identity, CancellationToken)` and `Judged(string identity, bool isAccepted)`; the option defaults to none and behaviour is then unchanged.
-- [ ] `Judged` is called once per handshake that reaches the client `Finished`, true when it verified, false for an unknown identity or wrong key; never for a handshake that failed earlier.
-- [ ] `ShouldRefuseAsync` is asked only after the `Finished` verified; when it returns true the server sends a fatal `decrypt_error`, no `ChangeCipherSpec` and no server `Finished`.
-- [ ] Surl.Dtls keeps 100% line and branch coverage.
+- [x] `IDtlsLoginJudge` has `ShouldRefuseAsync(string identity, CancellationToken)` and `Judged(string identity, bool isAccepted)`; the option defaults to none and behaviour is then unchanged.
+- [x] `Judged` is called once per handshake that reaches the client `Finished`, true when it verified, false for an unknown identity or wrong key; never for a handshake that failed earlier.
+- [x] `ShouldRefuseAsync` is asked only after the `Finished` verified; when it returns true the server sends a fatal `decrypt_error`, no `ChangeCipherSpec` and no server `Finished`.
+- [x] Surl.Dtls keeps 100% line and branch coverage.
 
 ## Notes
+
+- Wrong key shows as an epoch 1 tag failure before AcceptFinished, so both paths call Judged(false) for a PSK login (identity known). Judge is a library-local interface; no ADR needed beyond ADR-0170.
 
 ## Log
 

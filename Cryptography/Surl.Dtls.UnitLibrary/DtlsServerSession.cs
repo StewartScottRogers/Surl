@@ -140,6 +140,7 @@ public sealed class DtlsServerSession(IDatagramFlow flow, DtlsServerOptions opti
         {
             await SendServerFlightAsync(opening, linked.Token).ConfigureAwait(false);
             await AwaitClientFinalFlightAsync(linked.Token).ConfigureAwait(false);
+            await JudgeVerifiedLoginAsync(linked.Token).ConfigureAwait(false);
             await SendFinalFlightAsync(cancellationToken).ConfigureAwait(false);
             state = HandshakeState.Established;
             established = true;
@@ -435,6 +436,7 @@ public sealed class DtlsServerSession(IDatagramFlow flow, DtlsServerOptions opti
             // The only epoch 1 record a client sends before the server's Finished is its own
             // Finished; failing its tag means the client derived other keys, which is how a wrong
             // or unknown PSK shows (ADR-0087 decision 10, as amended by BL-415).
+            JudgeLogin(isAccepted: false);
             throw new DtlsAlertException(DtlsAlertDescription.DecryptError, "The client's Finished record does not authenticate.");
         }
 
@@ -617,11 +619,41 @@ public sealed class DtlsServerSession(IDatagramFlow flow, DtlsServerOptions opti
         var expected = DtlsPseudorandomFunction.ClientFinishedVerifyData(handshaking.Negotiation!.Suite.PrfHash, handshaking.MasterSecret, TranscriptHash());
         if (!CryptographicOperations.FixedTimeEquals(expected, finished.VerifyData))
         {
+            JudgeLogin(isAccepted: false);
             throw new DtlsAlertException(DtlsAlertDescription.DecryptError, "The client's Finished does not verify.");
         }
 
         AddToTranscript(message);
         state = HandshakeState.ClientFinished;
+    }
+
+    /// <summary>Tells the login judge a PSK login's verdict; a certificate handshake has no login.</summary>
+    private void JudgeLogin(bool isAccepted)
+    {
+        if (options.LoginJudge is { } judge && handshaking.ClientPreSharedKeyIdentity is { } identity)
+        {
+            judge.Judged(Encoding.UTF8.GetString(identity), isAccepted);
+        }
+    }
+
+    /// <summary>
+    /// Once the client's <c>Finished</c> verified, asks the judge whether to refuse the PSK login; a refusal
+    /// is a fatal <c>decrypt_error</c> before any <c>ChangeCipherSpec</c> or server <c>Finished</c>.
+    /// </summary>
+    private async ValueTask JudgeVerifiedLoginAsync(CancellationToken cancellationToken)
+    {
+        if (options.LoginJudge is not { } judge || handshaking.ClientPreSharedKeyIdentity is not { } identity)
+        {
+            return;
+        }
+
+        var name = Encoding.UTF8.GetString(identity);
+        var isRefused = await judge.ShouldRefuseAsync(name, cancellationToken).ConfigureAwait(false);
+        judge.Judged(name, isAccepted: !isRefused);
+        if (isRefused)
+        {
+            throw new DtlsAlertException(DtlsAlertDescription.DecryptError, "The login judge refused the PSK login.");
+        }
     }
 
     private async ValueTask SendFinalFlightAsync(CancellationToken cancellationToken)

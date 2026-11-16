@@ -50,4 +50,10 @@ public sealed record DtlsServerOptions(
     /// (ADR-0087 decision 3, ADR-0010 section 5); a PSK handshake never asks for one.
     /// </summary>
     public X509Certificate2Collection? ClientCertificateAuthorities { get; init; }
+
+    /// <summary>
+    /// Told each PSK login's verdict and able to refuse one as a wrong key (ADR-0170 decisions 6 to 8),
+    /// or <see langword="null"/> (the default) for behaviour unchanged.
+    /// </summary>
+    public IDtlsLoginJudge? LoginJudge { get; init; }
 }
