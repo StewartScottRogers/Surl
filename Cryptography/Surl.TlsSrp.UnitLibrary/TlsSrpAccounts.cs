@@ -21,6 +21,8 @@ public sealed class TlsSrpAccounts
 
     private readonly Dictionary<string, SrpVerifierEntry> entries = new(StringComparer.Ordinal);
     private readonly byte[] simulationSecret;
+    private readonly object gate = new();
+    private readonly SrpVerifierEntry[] startEntries;
 
     /// <summary>Creates the accounts.</summary>
     /// <param name="entries">The known accounts; each user name once.</param>
@@ -44,6 +46,98 @@ public sealed class TlsSrpAccounts
         }
 
         this.simulationSecret = simulationSecret.ToArray();
+        startEntries = [.. this.entries.Values];
+    }
+
+    /// <summary>The length of the salt <see cref="Add"/> draws: 16 bytes.</summary>
+    public const int AddedSaltLength = 16;
+
+    /// <summary>
+    /// Adds an account while handshakes run. The salt is drawn from <paramref name="random"/> (again
+    /// while its first byte is zero, as <c>--tlsuser</c>'s is), so a seeded source gives the same
+    /// verifier each run. The password is not kept.
+    /// </summary>
+    /// <param name="userName">The user name; not already known.</param>
+    /// <param name="password">The password, hashed as UTF-8.</param>
+    /// <param name="random">The salt's source.</param>
+    /// <param name="group">The group of the verifier; RFC 5054's 2048-bit group when <see langword="null"/>.</param>
+    /// <returns>The entry now held.</returns>
+    /// <exception cref="ArgumentException">The user name is already known.</exception>
+    public SrpVerifierEntry Add(string userName, string password, RandomNumberGenerator random, SrpGroup? group = null)
+    {
+        ArgumentNullException.ThrowIfNull(userName);
+        ArgumentNullException.ThrowIfNull(password);
+        ArgumentNullException.ThrowIfNull(random);
+        var salt = new byte[AddedSaltLength];
+        do
+        {
+            random.GetBytes(salt);
+        }
+        while (salt[0] == 0);
+
+        var chosen = group ?? SrpGroup.Rfc5054Group2048;
+        var verifier = Srp6a.ComputeVerifier(chosen, salt, Encoding.UTF8.GetBytes(userName), Encoding.UTF8.GetBytes(password));
+        var entry = new SrpVerifierEntry(userName, salt, Srp6a.ToUnsignedBigEndian(verifier), chosen);
+        lock (gate)
+        {
+            if (!entries.TryAdd(userName, entry))
+            {
+                throw new ArgumentException($"The SRP user '{userName}' is already known.", nameof(userName));
+            }
+        }
+
+        return entry;
+    }
+
+    /// <summary>Removes an account; a later handshake for it gets a simulated one.</summary>
+    /// <param name="userName">The user name.</param>
+    /// <returns>Whether the account was known.</returns>
+    public bool Remove(string userName)
+    {
+        ArgumentNullException.ThrowIfNull(userName);
+        lock (gate)
+        {
+            return entries.Remove(userName);
+        }
+    }
+
+    /// <summary>Returns to the accounts the instance was created with.</summary>
+    public void Reset()
+    {
+        lock (gate)
+        {
+            ReplaceWith(startEntries);
+        }
+    }
+
+    /// <summary>Takes a snapshot: user names, salts, groups and verifiers, never a password.</summary>
+    /// <returns>The snapshot, which later changes do not alter.</returns>
+    public TlsSrpAccountsSnapshot TakeSnapshot()
+    {
+        lock (gate)
+        {
+            return new TlsSrpAccountsSnapshot([.. entries.Values]);
+        }
+    }
+
+    /// <summary>Replaces every account with the snapshot's.</summary>
+    /// <param name="snapshot">A snapshot of this or another instance.</param>
+    public void Restore(TlsSrpAccountsSnapshot snapshot)
+    {
+        ArgumentNullException.ThrowIfNull(snapshot);
+        lock (gate)
+        {
+            ReplaceWith(snapshot.Entries);
+        }
+    }
+
+    private void ReplaceWith(IEnumerable<SrpVerifierEntry> replacement)
+    {
+        entries.Clear();
+        foreach (var entry in replacement)
+        {
+            entries[entry.UserName] = entry;
+        }
     }
 
     /// <summary>
@@ -58,7 +152,13 @@ public sealed class TlsSrpAccounts
         ArgumentNullException.ThrowIfNull(userName);
         ArgumentNullException.ThrowIfNull(random);
         var name = Encoding.UTF8.GetString(userName);
-        if (entries.TryGetValue(name, out var entry) && Encoding.UTF8.GetBytes(name).AsSpan().SequenceEqual(userName))
+        SrpVerifierEntry? entry;
+        lock (gate)
+        {
+            entries.TryGetValue(name, out entry);
+        }
+
+        if (entry is not null && Encoding.UTF8.GetBytes(name).AsSpan().SequenceEqual(userName))
         {
             return new TlsSrpAccount(entry.UserName, entry.Group, entry.Salt, entry.Verifier, IsSimulated: false);
         }

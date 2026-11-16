@@ -70,6 +70,106 @@ public sealed class TlsSrpAccountsTests
     }
 
     [TestMethod]
+    public void Add_SeededSource_GivesTheSameVerifierEachRunAndFindSeesIt()
+    {
+        var first = new TlsSrpAccounts([], new byte[32]);
+        var second = new TlsSrpAccounts([], new byte[32]);
+
+        var one = first.Add("bob", "pw", new UnitTestRepeatingRandomNumberGenerator([9]));
+        var two = second.Add("bob", "pw", new UnitTestRepeatingRandomNumberGenerator([9]));
+
+        CollectionAssert.AreEqual(one.Verifier, two.Verifier);
+        CollectionAssert.AreEqual(one.Salt, two.Salt);
+        var found = first.Find("bob"u8.ToArray(), RandomNumberGenerator.Create());
+        Assert.IsFalse(found.IsSimulated);
+        CollectionAssert.AreEqual(one.Verifier, found.Verifier);
+    }
+
+    [TestMethod]
+    public void Add_SaltStartingWithZero_IsDrawnAgain()
+    {
+        var accounts = new TlsSrpAccounts([], new byte[32]);
+
+        var entry = accounts.Add("bob", "pw", new UnitTestZeroThenSevenRandomNumberGenerator(), SrpGroup.Rfc5054Group2048);
+
+        Assert.AreEqual(7, entry.Salt[0]);
+    }
+
+    [TestMethod]
+    public void Add_UserAlreadyKnown_Throws()
+    {
+        var accounts = UnitTestSrpClient.Accounts();
+
+        Assert.ThrowsExactly<ArgumentException>(() => accounts.Add("jsmith", "x", RandomNumberGenerator.Create()));
+    }
+
+    [TestMethod]
+    public void Add_NullArguments_Throw()
+    {
+        var accounts = UnitTestSrpClient.Accounts();
+        var random = RandomNumberGenerator.Create();
+
+        Assert.ThrowsExactly<ArgumentNullException>(() => accounts.Add(null!, "x", random));
+        Assert.ThrowsExactly<ArgumentNullException>(() => accounts.Add("u", null!, random));
+        Assert.ThrowsExactly<ArgumentNullException>(() => accounts.Add("u", "x", null!));
+        Assert.ThrowsExactly<ArgumentNullException>(() => accounts.Remove(null!));
+        Assert.ThrowsExactly<ArgumentNullException>(() => accounts.Restore(null!));
+    }
+
+    [TestMethod]
+    public void Remove_KnownUser_MakesFindSimulateAndSaysSo()
+    {
+        var accounts = UnitTestSrpClient.Accounts();
+
+        Assert.IsTrue(accounts.Remove("jsmith"));
+        Assert.IsFalse(accounts.Remove("jsmith"));
+
+        Assert.IsTrue(accounts.Find("jsmith"u8.ToArray(), new UnitTestRepeatingRandomNumberGenerator([1])).IsSimulated);
+    }
+
+    [TestMethod]
+    public void Reset_AfterAddAndRemove_ReturnsToTheStartAccounts()
+    {
+        var accounts = UnitTestSrpClient.Accounts();
+        accounts.Remove("jsmith");
+        accounts.Add("bob", "pw", RandomNumberGenerator.Create());
+
+        accounts.Reset();
+
+        var random = new UnitTestRepeatingRandomNumberGenerator([1]);
+        Assert.IsFalse(accounts.Find("jsmith"u8.ToArray(), random).IsSimulated);
+        Assert.IsTrue(accounts.Find("bob"u8.ToArray(), random).IsSimulated);
+    }
+
+    [TestMethod]
+    public void TakeSnapshotAndRestore_PutBackTheAccountsOfThatMoment()
+    {
+        var accounts = UnitTestSrpClient.Accounts();
+        accounts.Add("bob", "pw", new UnitTestRepeatingRandomNumberGenerator([4]));
+        var snapshot = accounts.TakeSnapshot();
+        accounts.Remove("bob");
+        accounts.Add("carol", "pw", RandomNumberGenerator.Create());
+
+        accounts.Restore(snapshot);
+
+        var random = new UnitTestRepeatingRandomNumberGenerator([1]);
+        Assert.HasCount(2, snapshot.Entries);
+        Assert.IsFalse(accounts.Find("bob"u8.ToArray(), random).IsSimulated);
+        Assert.IsFalse(accounts.Find("jsmith"u8.ToArray(), random).IsSimulated);
+        Assert.IsTrue(accounts.Find("carol"u8.ToArray(), random).IsSimulated);
+    }
+
+    [TestMethod]
+    public void Add_ManyThreadsAtOnce_KeepEveryAccount()
+    {
+        var accounts = new TlsSrpAccounts([], new byte[32]);
+
+        Parallel.For(0, 16, index => accounts.Add($"user{index}", "pw", new UnitTestRepeatingRandomNumberGenerator([2])));
+
+        Assert.HasCount(16, accounts.TakeSnapshot().Entries);
+    }
+
+    [TestMethod]
     public void Find_NullArguments_Throw()
     {
         var accounts = UnitTestSrpClient.Accounts();
