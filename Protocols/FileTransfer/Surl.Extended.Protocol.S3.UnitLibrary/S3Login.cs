@@ -11,8 +11,8 @@ namespace Surl.Extended.Protocol.S3;
 /// itself is <c>Surl.Authentication</c>'s, reached only through the contract.
 /// </summary>
 /// <param name="authentication">The connection's authentication session.</param>
-/// <param name="log">Where each checked login's note is written.</param>
-internal sealed class S3Login(IHttpAuthenticationSession authentication, IExchangeLog log)
+/// <param name="exchange">The exchange the requests arrive on: its log takes each checked login's note, and the content store learns it behind every write (ADR-0168).</param>
+internal sealed class S3Login(IHttpAuthenticationSession authentication, ExchangeContext exchange)
 {
     /// <summary>
     /// The service every S3 request is signed for.
@@ -40,7 +40,7 @@ internal sealed class S3Login(IHttpAuthenticationSession authentication, IExchan
 
         return isWrite && verdict.AccountName is null
             ? S3LoginResult.Refused(S3Error.AccessDenied)
-            : S3LoginResult.As(verdict.AccountName, verdict.BodyCheck) with { ChunkSignatures = verdict.ChunkSignatures };
+            : S3LoginResult.As(exchange, verdict.AccountName, verdict.BodyCheck) with { ChunkSignatures = verdict.ChunkSignatures };
     }
 
     /// <summary>
@@ -98,7 +98,7 @@ internal sealed class S3Login(IHttpAuthenticationSession authentication, IExchan
     {
         if (verdict.CheckedLogin is { } login)
         {
-            log.Note(login.Note);
+            exchange.Log.Note(login.Note);
         }
     }
 }

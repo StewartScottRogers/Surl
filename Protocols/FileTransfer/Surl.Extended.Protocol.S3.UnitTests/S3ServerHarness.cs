@@ -21,11 +21,12 @@ internal sealed partial class S3ServerHarness
 
     public const string NowHttpDate = "Thu, 05 Nov 2026 12:00:00 GMT";
 
-    public S3ServerHarness(long maxTotalBytes = InMemoryContentFileSystem.DefaultMaxTotalBytes, bool persistsIndex = false, IReadOnlyList<ContentShare>? shares = null, IReadOnlyList<ContentBucket>? buckets = null, ContentExposureOptions? exposure = null, string listenHost = "127.0.0.1", int maxIndexEntries = ObjectMetadataIndex.DefaultMaxEntries, UnitTestS3AuthenticationPolicy? policy = null, IIdentifierRandom? serverIdentifiers = null)
+    public S3ServerHarness(long maxTotalBytes = InMemoryContentFileSystem.DefaultMaxTotalBytes, bool persistsIndex = false, IReadOnlyList<ContentShare>? shares = null, IReadOnlyList<ContentBucket>? buckets = null, ContentExposureOptions? exposure = null, string listenHost = "127.0.0.1", int maxIndexEntries = ObjectMetadataIndex.DefaultMaxEntries, UnitTestS3AuthenticationPolicy? policy = null, IIdentifierRandom? serverIdentifiers = null, ScriptedFaultPlan? faults = null)
     {
         TimeProvider = new FixedTimeProvider(Now);
         FileSystem = new InMemoryContentFileSystem(TimeProvider, maxTotalBytes);
-        Store = new ContentStore(InMemoryContentFileSystem.RootPath, FileSystem, exposure ?? new ContentExposureOptions(), shares ?? [], buckets ?? []);
+        Faults = faults ?? new ScriptedFaultPlan();
+        Store = new ContentStore(InMemoryContentFileSystem.RootPath, FileSystem, exposure ?? new ContentExposureOptions(), shares ?? [], buckets ?? [], Events, Faults);
         ListenHost = listenHost;
         Index = new ObjectMetadataIndex(FileSystem, InMemoryContentFileSystem.RootPath, persistsIndex, maxIndexEntries);
         Policy = policy ?? new UnitTestS3AuthenticationPolicy();
@@ -91,7 +92,7 @@ internal sealed partial class S3ServerHarness
     /// <summary>
     /// The fault plan every exchange asks; by default one with no rule.
     /// </summary>
-    public ScriptedFaultPlan Faults { get; set; } = new();
+    public ScriptedFaultPlan Faults { get; set; }
 
     /// <summary>
     /// The idle clock every exchange pauses while a fault rule holds a request.
