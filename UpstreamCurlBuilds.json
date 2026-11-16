@@ -70,6 +70,17 @@
       "pinned": "2026-11-05"
     },
     {
+      "platform": "linux-x64",
+      "role": "supplementary",
+      "origin": "Built from source by Build-DebugUpstreamCurl.ps1: curl-8.21.0.tar.xz (tag curl-8_21_0 of upstream curl, unpatched) configured with --enable-debug, statically linked against musl, OpenSSL 3.5.9, nghttp2 1.69.0, ngtcp2 1.23.0 and nghttp3 1.16.0; used only for the upstream test cases whose features list Debug (ADR-0173)",
+      "defaultPath": "/opt/upstream-curl/8.21.0-debug/curl",
+      "sha256": "0B84717479708914C0EAFE39ECDB18CFEDB4DEACFE657863E8306A18AA8004AA",
+      "version": "curl 8.21.0 (x86_64-pc-linux-musl) libcurl/8.21.0 OpenSSL/3.5.9 nghttp2/1.69.0 ngtcp2/1.23.0 nghttp3/1.16.0",
+      "protocols": "dict file ftp ftps gopher gophers http https imap imaps ipfs ipns mqtt mqtts pop3 pop3s rtsp smtp smtps telnet tftp ws wss",
+      "features": "alt-svc AsynchDNS Debug HSTS HTTP2 HTTP3 HTTPS-proxy IPv6 Largefile SSL threadsafe TLS-SRP UnixSockets",
+      "pinned": "2026-11-16"
+    },
+    {
       "platform": "osx-arm64",
       "role": "reference",
       "origin": "stunnel/static-curl release 8.21.0, curl-macos-arm64-8.21.0.tar.xz: tag curl-8_21_0 of upstream curl, unpatched, statically linked against OpenSSL 4.0.1 (ADR-0016)",
