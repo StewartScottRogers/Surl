@@ -32,3 +32,4 @@ BL-1316 added the runner path; this machine (Windows) cannot run it. Needs the `
 - 2026-11-16: Backlog -> Doing.
 - 2026-11-16: Doing -> Blocked. Needs a Linux CI 'Upstream test cases' run with the BL-1316 runner and the Debug libtests binary; this Windows lane cannot run it. Re-open after a CI run on a commit containing BL-1316 uploads results.
 - 2026-11-16: Blocked -> Backlog. Unblocked: BL-1316 now Done
+- 2026-11-16: Backlog -> Doing.
