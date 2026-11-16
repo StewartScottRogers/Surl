@@ -8,7 +8,7 @@ depends-on: []
 touches: [Protocols/Http/Surl.Extended.Protocol.WebTransport.UnitLibrary, Protocols/Http/Surl.Extended.Protocol.WebTransport.UnitTests]
 requirement: FR-062
 created: 2026-11-16
-completed:
+completed: 2026-11-16
 ---
 # BL-1242 — Name the logged-in account on the WebTransport server's command-stage fault point
 
@@ -26,15 +26,18 @@ A `delay`, `drop` or `error` fault rule scoped with `account=<name>` fires on a 
 
 ## Acceptance criteria
 
-- [ ] A test in `Protocols/Http/Surl.Extended.Protocol.WebTransport.UnitTests` shows a CONNECT with `alice`'s Basic login under a `ScriptedFaultPlan` error rule with `Account = "alice"` and reply `503` is answered `:status 503`, and the recorded point's `Account` is `alice`.
-- [ ] A test shows the same rule does not fire for `bob`'s CONNECT: it is answered `200`.
-- [ ] A test shows a CONNECT with no login (no accounts configured) leaves the point's `Account` null.
-- [ ] `dotnet build Protocols/Http/Surl.Extended.Protocol.WebTransport.UnitLibrary -warnaserror` is clean, and the library keeps 100% line and branch coverage.
-- [ ] `Protocols/Http/Surl.Extended.Protocol.WebTransport.UnitLibrary/CLAUDE.md`, paragraph "Chosen-error fault", states that the point names the logged-in account.
+- [x] A test in `Protocols/Http/Surl.Extended.Protocol.WebTransport.UnitTests` shows a CONNECT with `alice`'s Basic login under a `ScriptedFaultPlan` error rule with `Account = "alice"` and reply `503` is answered `:status 503`, and the recorded point's `Account` is `alice`.
+- [x] A test shows the same rule does not fire for `bob`'s CONNECT: it is answered `200`.
+- [x] A test shows a CONNECT with no login (no accounts configured) leaves the point's `Account` null.
+- [x] `dotnet build Protocols/Http/Surl.Extended.Protocol.WebTransport.UnitLibrary -warnaserror` is clean, and the library keeps 100% line and branch coverage.
+- [x] `Protocols/Http/Surl.Extended.Protocol.WebTransport.UnitLibrary/CLAUDE.md`, paragraph "Chosen-error fault", states that the point names the logged-in account.
 
 ## Notes
+
+Added WebTransportConnectAuthentication.JudgeAsync (refusal + account name; RefuseAsync wraps it) and an optional accountName on FindAsync. Tests use the fake policy account "user" for the firing case and "alice" for the non-matching case.
 
 ## Log
 
 - 2026-11-16: Created.
 - 2026-11-16: Backlog -> Doing.
+- 2026-11-16: Doing -> Done. account= fault rules now fire on WebTransport CONNECT
