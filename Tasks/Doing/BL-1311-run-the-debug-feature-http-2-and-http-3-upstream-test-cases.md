@@ -33,3 +33,4 @@ ADR-0173 decisions 6 and 7. `debug-build` is the skip reason today (ADR-0080). T
 ## Log
 
 - 2026-11-16: Created by BL-1303 (ADR-0173).
+- 2026-11-16: Backlog -> Doing.
