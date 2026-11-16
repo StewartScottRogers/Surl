@@ -36,3 +36,4 @@ An `Integration` test shows pinned upstream curl uploading a file over `ftp://` 
 ## Log
 
 - 2026-11-16: Created.
+- 2026-11-16: Backlog -> Doing.
