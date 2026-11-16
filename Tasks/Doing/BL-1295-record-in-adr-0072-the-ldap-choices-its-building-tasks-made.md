@@ -35,3 +35,4 @@ Every behaviour choice a Done task made for the LDAP server where ADR-0072 said 
 ## Log
 
 - 2026-11-16: Created.
+- 2026-11-16: Backlog -> Doing.
