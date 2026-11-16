@@ -73,3 +73,4 @@ so finished split parents stop sitting in `Deferred` as if nobody wanted them.
 ## Log
 
 - 2026-11-15: Created.
+- 2026-11-15: Backlog -> Doing.
