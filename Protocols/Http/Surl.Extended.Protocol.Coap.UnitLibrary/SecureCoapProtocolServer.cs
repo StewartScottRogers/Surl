@@ -153,7 +153,8 @@ public sealed class SecureCoapProtocolServer : IDatagramProtocolServer
             messages,
             context with { CancellationToken = associationEnded.Token },
             BlockSizeExponentFor(session.MaximumApplicationDataLength),
-            peerIsAuthenticated);
+            peerIsAuthenticated,
+            session.ClientPreSharedKeyIdentity);
         await Task.WhenAny(serving);
         if (!context.CancellationToken.IsCancellationRequested)
         {
@@ -168,11 +169,12 @@ public sealed class SecureCoapProtocolServer : IDatagramProtocolServer
         return serving;
     }
 
-    private Task ServeMessagesAsync(CoapDtlsFlow messages, ExchangeContext context, int blockSizeExponent, bool peerIsAuthenticated)
+    private Task ServeMessagesAsync(
+        CoapDtlsFlow messages, ExchangeContext context, int blockSizeExponent, bool peerIsAuthenticated, string? account)
     {
         var source = random ?? new IdentifierCoapRandomSource(context.Identifiers);
         var answerer = new CoapResourceAnswerer(contentStore, accessRules, source, blockSizeExponent);
-        return CoapFlowServing.ServeAsync(messages, context, answerer, contentStore, observations, source, peerIsAuthenticated);
+        return CoapFlowServing.ServeAsync(messages, context, answerer, contentStore, observations, source, peerIsAuthenticated, account);
     }
 
     private static Task NoteAssociationEnded(ExchangeContext context)
@@ -211,5 +213,6 @@ public sealed class SecureCoapProtocolServer : IDatagramProtocolServer
         {
             PreSharedKeys = credentials.PreSharedKeys,
             ClientCertificateAuthorities = credentials.ClientCertificateAuthorities,
+            LoginJudge = new CoapPreSharedKeyLoginJudge(context),
         };
 }
