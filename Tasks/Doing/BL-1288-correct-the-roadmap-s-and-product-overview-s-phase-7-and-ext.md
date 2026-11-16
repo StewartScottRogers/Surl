@@ -39,3 +39,4 @@ The Roadmap's Milestone 7 and "Track — Extended servers" and the product overv
 ## Log
 
 - 2026-11-16: Created.
+- 2026-11-16: Backlog -> Doing.
