@@ -25,12 +25,18 @@ public sealed class CoapsCompositionTests
     }
 
     [TestMethod]
-    public void LookUpKey_Identity_IsTheAccountsPasswordOrNothing()
+    public void LookUpKey_Identity_IsTheLiveBooksPasswordOrNothing()
     {
-        var lookup = DeferredCoapsProtocolServer.LookUpKey([new Account("alice", "pw"), new Account("bob", "other")]);
+        var book = new AccountBook([new Account("alice", "pw"), new Account("bob", "other"), new Account("mail", "x") { Schemes = new HashSet<string> { "smtp" } }]);
+        var lookup = DeferredCoapsProtocolServer.LookUpKey(book);
 
         CollectionAssert.AreEqual(Encoding.UTF8.GetBytes("other"), lookup(Encoding.UTF8.GetBytes("bob")));
         Assert.IsNull(lookup(Encoding.UTF8.GetBytes("carol")));
+        Assert.IsNull(lookup(Encoding.UTF8.GetBytes("mail")));
+        book.Add(new Account("carol", "new"));
+        CollectionAssert.AreEqual(Encoding.UTF8.GetBytes("new"), lookup(Encoding.UTF8.GetBytes("carol")));
+        book.Remove("bob");
+        Assert.IsNull(lookup(Encoding.UTF8.GetBytes("bob")));
     }
 
     [TestMethod]
@@ -128,25 +134,6 @@ public sealed class CoapsCompositionTests
         Assert.IsNull(composition.Settings);
     }
 
-    [TestMethod]
-    public void ReadPreSharedKeyAccounts_UserOptionAndFile_AreTheAccountsWithPasswords()
-    {
-        var commandLine = Parse("--user", "alice:pw", "--user-file", "users.txt", "coaps://127.0.0.1:0/");
-
-        var accounts = AuthenticationComposition.ReadPreSharedKeyAccounts(commandLine, _ => Encoding.ASCII.GetBytes("bob:other\n"));
-
-        CollectionAssert.AreEqual(new[] { "alice", "bob" }, accounts.Select(account => account.UserName).ToArray());
-        Assert.AreEqual("other", accounts[1].Password);
-    }
-
-    [TestMethod]
-    public void ReadPreSharedKeyAccounts_UnreadableFile_IsNone()
-    {
-        var commandLine = Parse("--user-file", "users.txt", "coaps://127.0.0.1:0/");
-
-        Assert.IsEmpty(AuthenticationComposition.ReadPreSharedKeyAccounts(commandLine, _ => throw new IOException()));
-    }
-
     private static SurlCommandLine Parse(params string[] args) =>
         CommandLineParser.Parse(args, ["coap", "coaps"]).CommandLine ?? throw new AssertFailedException("The command line was refused.");
 
@@ -194,9 +181,6 @@ public sealed class CoapsCompositionTests
             unserved.SshAlgorithms,
             isTlsUpgradeAvailable: false,
             echoesWebSocketMessages: false,
-            advertisesHttp3: false)
-        {
-            PreSharedKeyAccounts = accounts,
-        };
+            advertisesHttp3: false);
     }
 }

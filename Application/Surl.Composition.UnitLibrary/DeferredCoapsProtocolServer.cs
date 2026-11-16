@@ -1,5 +1,6 @@
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
+using Surl.Authentication;
 using Surl.Dtls;
 using Surl.Extended.Protocol.Coap;
 using Surl.Protocol.Abstractions;
@@ -10,7 +11,7 @@ namespace Surl.Composition;
 /// The <c>coaps</c> server, built when its first flow arrives: the registration builds servers before
 /// server TLS has made the certificate, and <see cref="SecureCoapProtocolServer"/> takes its
 /// credentials when it is constructed (BL-476). The credentials are the served certificate (when
-/// <c>--cert</c> or <c>--self-signed</c> is given), the accounts as pre-shared keys, and the
+/// <c>--cert</c> or <c>--self-signed</c> is given), the live account book as pre-shared keys (read per handshake, ADR-0170), and the
 /// <c>--cacert</c> anchors (ADR-0087 decision 3, ADR-0097 decision 6).
 /// </summary>
 internal sealed class DeferredCoapsProtocolServer(ComposedProtocolServices services) : IDatagramProtocolServer
@@ -28,20 +29,17 @@ internal sealed class DeferredCoapsProtocolServer(ComposedProtocolServices servi
     private static SecureCoapProtocolServer Build(ComposedProtocolServices services)
     {
         var source = services.QuicCertificate;
-        var accounts = services.PreSharedKeyAccounts.Where(account => account.MayLogInOn(Scheme)).ToArray();
+        var book = services.AuthenticationPolicy.Settings.Accounts;
+        var certificate = source.Certificate is { } served ? CoapsDtlsCertificate.From(served) : null;
         var credentials = new CoapDtlsCredentials(
-            source.Certificate is { } certificate ? CoapsDtlsCertificate.From(certificate) : null,
-            accounts.Length == 0 ? null : LookUpKey(accounts),
+            certificate,
+            book.ForScheme(Scheme).HasAccounts ? LookUpKey(book) : null,
             source.ClientTrustAnchors.Count == 0 ? null : new X509Certificate2Collection(source.ClientTrustAnchors.ToArray()));
         return new SecureCoapProtocolServer(
             services.ContentStore, ExtendedProtocolServers.CoapAccessRulesFor(services), services.CoapObservations, credentials);
     }
 
-    internal static DtlsPreSharedKeyLookup LookUpKey(IReadOnlyList<Surl.Authentication.Account> accounts) =>
-        identity =>
-        {
-            var name = Encoding.UTF8.GetString(identity);
-            var account = accounts.FirstOrDefault(candidate => string.Equals(candidate.UserName, name, StringComparison.Ordinal));
-            return account is null ? null : Encoding.UTF8.GetBytes(account.Password);
-        };
+    // Asked for every handshake, so an account added, removed, reset or restored changes who may log in (ADR-0170 decision 5).
+    internal static DtlsPreSharedKeyLookup LookUpKey(AccountBook book) =>
+        identity => book.TryFindPreSharedKey(Encoding.UTF8.GetString(identity), Scheme, out var key) ? key : null;
 }

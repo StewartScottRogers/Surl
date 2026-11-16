@@ -276,7 +276,6 @@ public static partial class SurlServerComposition
                 ProxyPolicy = proxyPolicy,
                 DirectoryNotes = directoryNotes,
                 ControlToken = controlToken,
-                PreSharedKeyAccounts = AuthenticationComposition.ReadPreSharedKeyAccounts(commandLine, readStartFile),
             }, null);
     }
 
@@ -389,7 +388,6 @@ public static partial class SurlServerComposition
             OriginConnector = originConnector,
             ProxyAuthenticationPolicy = authentication.ProxyPolicy,
             SocksGssApiLogin = ComposeSocksGssApiLogin(commandLine, seams),
-            PreSharedKeyAccounts = authentication.PreSharedKeyAccounts,
             MailDomains = commandLine.MailDomains,
             IdentifiersForServer = commandLine.RandomSeed is { } seed
                 ? new SeededIdentifierRandom(seed).ForServer
@@ -424,7 +422,9 @@ public static partial class SurlServerComposition
             additionalRegistrations: [.. ControlledRedisKeyspace(servers, services), LdapDirectoryStoreRegistration.For(loaded.State.LdapServer), .. ControlledBrokerStores(servers, instruments.Events), .. ControlledDnsZones(servers, loaded.State.DnsZones), .. ControlledUploads(servers, contentStore, instruments.Events)],
             ldapServer: loaded.State.LdapServer,
             redisKeyspace: servers.OfType<RedisServer>().Any() ? services.RedisKeyspace : null,
-            dnsZones: IsDnsComposed(servers) ? loaded.State.DnsZones : null);
+            dnsZones: IsDnsComposed(servers) ? loaded.State.DnsZones : null,
+            proxyAccounts: (authentication.ProxyPolicy as Surl.Authentication.AuthenticationPolicy)?.Settings.Accounts,
+            events: instruments.Events);
         return ComposeServing(served, seams, servers, stores, authentication, instruments, services.QuicCertificate, dataDirectoryLock);
     }
 
@@ -501,6 +501,13 @@ public static partial class SurlServerComposition
         {
             tls.Dispose();
             return Refuse(SurlExitCode.CertificateProblem, certificateRefusal);
+        }
+
+        if (tls.Settings?.TlsSrpAccounts is { } tlsSrpAccounts)
+        {
+            stores.JoinTlsSrpAccounts(
+                tlsSrpAccounts,
+                commandLine.RandomSeed is { } seed ? new SeededIdentifierRandom(seed).ForServer("tls-srp") : CryptographicIdentifierRandom.Instance);
         }
 
         quicCertificateSource.Certificate = tls.QuicCertificate;
