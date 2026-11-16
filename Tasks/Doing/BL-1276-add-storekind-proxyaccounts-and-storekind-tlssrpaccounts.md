@@ -33,3 +33,4 @@ ADR-0170 decisions 2 and 3. Members are appended; existing members keep their va
 - 2026-11-16: Created.
 - 2026-11-16: Backlog -> Doing.
 - 2026-11-16: Doing -> Backlog. Lane 2 could not integrate: fast tests failed twice (Schema_StoreEnum_ListsEveryStoreKindInSnakeCase; then Schema_StoreEnum_ListsEveryStoreKindInSnakeCase) after rebasing onto the other lanes' work. The work is on branch factory/BL-1276-lane-2-20261116-063259; start with git cherry-pick --no-commit factory/BL-1276-lane-2-20261116-063259 and fix it.
+- 2026-11-16: Backlog -> Doing.
