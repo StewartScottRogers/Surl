@@ -165,6 +165,10 @@ internal static class Program
         registry.AddTool(AddLdapEntriesTool.Create(servers));
         registry.AddTool(AddDnsZoneTool.Create(servers));
         registry.AddTool(RemoveAccountTool.Create(servers));
+        registry.AddTool(AddProxyAccountTool.Create(servers));
+        registry.AddTool(RemoveProxyAccountTool.Create(servers));
+        registry.AddTool(AddTlsSrpAccountTool.Create(servers));
+        registry.AddTool(RemoveTlsSrpAccountTool.Create(servers));
         registry.AddTool(ResetServerTool.Create(servers));
         registry.AddTool(SnapshotServerTool.Create(servers));
         registry.AddTool(RestoreServerTool.Create(servers));

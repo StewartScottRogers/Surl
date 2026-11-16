@@ -61,6 +61,7 @@ with one `McpServerRegistry.AddTool` line and holds nothing else of the tools.
     - `AddLdapEntriesTool` (`add_ldap_entries`): `ldif` -> `{entry_count}` (the `dn:` lines); `AddDnsZoneTool`
       (`add_dns_zone`): `apex`, `zone_text` -> `{apex, byte_count}`. A bound, a duplicate apex or a refusal is `isError`.
     - `RemoveAccountTool` (`remove_account`): `user` -> `{user}`; an account not held is `server <id> has no account <user>`.
+    - `AddProxyAccountTool` / `AddTlsSrpAccountTool` (`add_proxy_account`, `add_tls_srp_account`): `user`, `password` -> `{user}`; a server without such accounts is refused (`holds no proxy accounts...`, `was not started with TLS-SRP`). `RemoveProxyAccountTool` / `RemoveTlsSrpAccountTool`: `user` -> `{user}`, same refusals (ADR-0170 decision 4).
     - `ResetServerTool` (`reset_server`) -> `{server_id}`; `SnapshotServerTool` (`snapshot_server`) ->
       `{snapshot_id}`; `RestoreServerTool` (`restore_server`): `snapshot_id` -> `{server_id, snapshot_id}`, and
       an ID not kept is `server <id> has no snapshot <p>; only its newest 4 snapshots are kept`.
