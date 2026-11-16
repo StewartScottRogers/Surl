@@ -31,3 +31,4 @@ ADR-0170 decisions 2 and 3. Members are appended; existing members keep their va
 ## Log
 
 - 2026-11-16: Created.
+- 2026-11-16: Backlog -> Doing.
