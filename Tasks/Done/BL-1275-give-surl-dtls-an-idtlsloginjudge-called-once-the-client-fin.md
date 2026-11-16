@@ -8,7 +8,7 @@ depends-on: [BL-1244]
 touches: [Cryptography/Surl.Dtls.UnitLibrary, Cryptography/Surl.Dtls.UnitTests]
 requirement: FR-061
 created: 2026-11-16
-completed:
+completed: 2026-11-16
 ---
 # BL-1275 — Give Surl.Dtls an IDtlsLoginJudge called once the client Finished verified
 
@@ -35,3 +35,4 @@ ADR-0170 decisions 6 to 8, modelled on ADR-0165's TLS-SRP judge. `Surl.Dtls` sta
 
 - 2026-11-16: Created.
 - 2026-11-16: Backlog -> Doing.
+- 2026-11-16: Doing -> Done. Judge added, tests green
