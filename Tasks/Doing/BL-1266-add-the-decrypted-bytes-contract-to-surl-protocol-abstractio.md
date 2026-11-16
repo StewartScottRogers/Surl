@@ -33,3 +33,4 @@ ADR-0169 decisions 2 and 3. Changes only add: `ExchangeBytesEvent`'s positional 
 ## Log
 
 - 2026-11-16: Created.
+- 2026-11-16: Backlog -> Doing.
