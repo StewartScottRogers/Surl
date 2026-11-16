@@ -170,6 +170,69 @@ public sealed class Http3ConnectionServerTests
     }
 
     [TestMethod]
+    public async Task ServeAsync_RequestAndResponse_ReportDecodedHeadersAndDataThroughTheSink()
+    {
+        using var client = new Http3TestQuicClient();
+        var sink = new UnitTestRecordingDecryptedBytesSink();
+        var handler = new UnitTestRequestStreamHandler(async (stream, token) =>
+        {
+            await ReadBodyAsync(stream, token);
+            await stream.WriteHeadersAsync([new(":status", "200"), new("content-type", "text/plain")], endStream: false, token);
+            await stream.WriteDataAsync(Encoding.ASCII.GetBytes("world"), endStream: true, token);
+        });
+        await StartAsync(client, handler, sink: sink);
+
+        client.Send(0, [.. client.Request("POST", "/echo", ("content-length", "5")), .. Http3TestQuicClient.Frame(Http3FrameType.Data, Encoding.ASCII.GetBytes("hello"))], fin: true);
+        await client.UntilAsync(() => client.HasEnded(0), Token);
+
+        var entries = sink.Entries;
+        var requestHeaders = entries.Single(entry => entry is { IsReceived: true, Layer: ExchangeBytesLayer.Decoded });
+        var text = Encoding.UTF8.GetString(requestHeaders.Bytes);
+        Assert.AreEqual(0L, requestHeaders.StreamId);
+        Assert.IsTrue(text.StartsWith(":method: POST\r\n", StringComparison.Ordinal), text);
+        StringAssert.Contains(text, "\r\n:path: /echo\r\n");
+        StringAssert.Contains(text, "content-length: 5\r\n");
+        Assert.IsTrue(text.EndsWith("\r\n\r\n", StringComparison.Ordinal), text);
+        var responseHeaders = entries.Single(entry => entry is { IsReceived: false, Layer: ExchangeBytesLayer.Decoded });
+        Assert.AreEqual(0L, responseHeaders.StreamId);
+        Assert.AreEqual(":status: 200\r\ncontent-type: text/plain\r\n\r\n", Encoding.UTF8.GetString(responseHeaders.Bytes));
+        var received = entries.Single(entry => entry is { IsReceived: true, Layer: ExchangeBytesLayer.Decrypted });
+        Assert.AreEqual("hello", Encoding.ASCII.GetString(received.Bytes));
+        Assert.AreEqual(0L, received.StreamId);
+        var sent = entries.Single(entry => entry is { IsReceived: false, Layer: ExchangeBytesLayer.Decrypted });
+        Assert.AreEqual("world", Encoding.ASCII.GetString(sent.Bytes));
+        Assert.AreEqual(0L, sent.StreamId);
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_RecordingSinkAndDiscardingSink_SendTheSameFrames()
+    {
+        var withRecording = await AnswerAsync(new UnitTestRecordingDecryptedBytesSink());
+        var withDiscarding = await AnswerAsync(null);
+
+        Assert.AreEqual(withDiscarding.Status, withRecording.Status);
+        CollectionAssert.AreEqual(withDiscarding.RegularFields.ToArray(), withRecording.RegularFields.ToArray());
+        Assert.AreEqual(withDiscarding.BodyText, withRecording.BodyText);
+        Assert.AreEqual("ok", withRecording.BodyText);
+    }
+
+    private async Task<Http3TestResponse> AnswerAsync(IDecryptedBytesSink? sink)
+    {
+        using var client = new Http3TestQuicClient();
+        var handler = new UnitTestRequestStreamHandler(async (stream, token) =>
+        {
+            await stream.WriteHeadersAsync([new(":status", "200"), new("x-a", "b")], endStream: false, token);
+            await stream.WriteDataAsync(Encoding.ASCII.GetBytes("ok"), endStream: true, token);
+        });
+        await StartAsync(client, handler, sink: sink);
+
+        client.Send(0, client.Request("GET", "/"), fin: true);
+        await client.UntilAsync(() => client.HasEnded(0), Token);
+
+        return client.Response(0);
+    }
+
+    [TestMethod]
     public void Constructor_NullArgument_Throws()
     {
         var handler = new UnitTestRequestStreamHandler((_, _) => Task.CompletedTask);
@@ -208,10 +271,10 @@ public sealed class Http3ConnectionServerTests
         return Encoding.ASCII.GetString([.. body]);
     }
 
-    private async Task StartAsync(Http3TestQuicClient client, IHttp3RequestStreamHandler handler, ExchangeLimits? limits = null, RecordingExchangeLog? log = null)
+    private async Task StartAsync(Http3TestQuicClient client, IHttp3RequestStreamHandler handler, ExchangeLimits? limits = null, RecordingExchangeLog? log = null, IDecryptedBytesSink? sink = null)
     {
         var time = new ManualTimeProvider(new DateTimeOffset(2026, 9, 28, 12, 0, 0, TimeSpan.Zero));
-        var context = Context(log ?? new RecordingExchangeLog(), time, limits ?? ExchangeLimits.Default);
+        var context = Context(log ?? new RecordingExchangeLog(), time, limits ?? ExchangeLimits.Default) with { DecryptedBytes = sink ?? DiscardingDecryptedBytesSink.Instance };
         _ = client.Serve(new Http3ConnectionServer(handler, new Http3ServerOptions(), context), time, Token);
         await client.OpenAsync(Token);
     }

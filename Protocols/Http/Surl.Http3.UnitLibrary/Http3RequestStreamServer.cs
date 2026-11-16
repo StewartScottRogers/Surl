@@ -100,6 +100,7 @@ internal sealed class Http3RequestStreamServer(
             throw new Http3ConnectionException(Http3ErrorCode.QpackDecompressionFailed, $"the field section of stream {Stream.Id} could not be decoded: {decoded.Error}");
         }
 
+        context.DecryptedBytes.Received(ExchangeBytesLayer.Decoded, (long)Stream.Id, Http3DecodedHeaderText.Bytes(decoded.FieldLines));
         var (head, malformation) = Http3RequestHeadMapping.Map(decoded.FieldLines, extendedConnect.IsEnabled);
         if (head is null)
         {
@@ -196,7 +197,7 @@ internal sealed class Http3RequestStreamServer(
 
         // An extended CONNECT's stream stays open for capsules, which never wait on a HasMoreAsync.
         var isAnnounced = head.Protocol is not null || head.ContentLength > 0 || head.ExpectsContinue || (head.ContentLength is null && await reader.HasMoreAsync(cancellationToken));
-        var stream = new Http3RequestStream(connection, reader, fieldSections, frameLimit, extendedConnect, head, isAnnounced, context.Log);
+        var stream = new Http3RequestStream(connection, reader, fieldSections, frameLimit, extendedConnect, head, isAnnounced, context.Log, context.DecryptedBytes);
         await (head.Protocol is { } protocol ? ServeExtendedConnectAsync(stream, protocol, cancellationToken) : ServeOrdinaryRequestAsync(stream, cancellationToken));
         if (stream.IsRequestBodyStillArriving && !stream.HasStoppedRequest)
         {

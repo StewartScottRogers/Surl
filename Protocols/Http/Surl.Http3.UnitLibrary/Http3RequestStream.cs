@@ -33,6 +33,7 @@ public sealed class Http3RequestStream
     private readonly Http3FrameLimit frameLimit;
     private readonly Http3ExtendedConnect extendedConnect;
     private readonly IExchangeLog log;
+    private readonly IDecryptedBytesSink decryptedBytes;
     private ulong dataRemaining;
     private long received;
     private bool hasEnded;
@@ -48,6 +49,7 @@ public sealed class Http3RequestStream
     /// <param name="head">The validated request head.</param>
     /// <param name="isBodyAnnounced">Whether the stream may still carry a body.</param>
     /// <param name="log">The exchange log.</param>
+    /// <param name="decryptedBytes">Where decoded header lists and <c>DATA</c> payloads are reported (ADR-0169).</param>
     internal Http3RequestStream(
         QuicApplicationConnection connection,
         Http3StreamReader reader,
@@ -56,8 +58,10 @@ public sealed class Http3RequestStream
         Http3ExtendedConnect extendedConnect,
         Http3RequestHead head,
         bool isBodyAnnounced,
-        IExchangeLog log)
+        IExchangeLog log,
+        IDecryptedBytesSink decryptedBytes)
     {
+        this.decryptedBytes = decryptedBytes;
         this.connection = connection;
         this.reader = reader;
         this.fieldSections = fieldSections;
@@ -124,7 +128,9 @@ public sealed class Http3RequestStream
     public async Task WriteHeadersAsync(IEnumerable<QpackFieldLine> fieldLines, bool endStream, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(fieldLines);
-        await connection.WriteAsync(reader.Stream, Http3FrameWriter.Frame(Http3FrameType.Headers, fieldSections.Encode(fieldLines)), endStream, cancellationToken);
+        var lines = fieldLines.ToArray();
+        decryptedBytes.Sent(ExchangeBytesLayer.Decoded, (long)Id, Http3DecodedHeaderText.Bytes(lines));
+        await connection.WriteAsync(reader.Stream, Http3FrameWriter.Frame(Http3FrameType.Headers, fieldSections.Encode(lines)), endStream, cancellationToken);
     }
 
     /// <summary>
@@ -139,6 +145,7 @@ public sealed class Http3RequestStream
     {
         if (!data.IsEmpty)
         {
+            decryptedBytes.Sent(ExchangeBytesLayer.Decrypted, (long)Id, data.Span);
             await connection.WriteAsync(reader.Stream, Http3FrameWriter.Frame(Http3FrameType.Data, data.Span), endStream, cancellationToken);
         }
         else if (endStream)
@@ -202,6 +209,7 @@ public sealed class Http3RequestStream
                 var piece = await reader.ReadPieceAsync((long)Math.Min(dataRemaining, int.MaxValue), cancellationToken);
                 dataRemaining -= (ulong)piece.Length;
                 received += piece.Length;
+                decryptedBytes.Received(ExchangeBytesLayer.Decrypted, (long)Id, piece);
                 return piece;
             }
 
