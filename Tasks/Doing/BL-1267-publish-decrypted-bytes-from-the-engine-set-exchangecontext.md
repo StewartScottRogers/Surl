@@ -33,3 +33,4 @@ ADR-0169 decisions 1, 3, 4. `ServingEngine.OpenExchange` builds the context; `Ev
 ## Log
 
 - 2026-11-16: Created.
+- 2026-11-16: Backlog -> Doing.
