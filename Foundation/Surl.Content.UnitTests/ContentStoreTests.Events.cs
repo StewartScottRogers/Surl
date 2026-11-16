@@ -1,3 +1,4 @@
+using System.Net;
 using System.Text;
 using Surl.Protocol.Abstractions;
 
@@ -198,6 +199,55 @@ public sealed partial class ContentStoreTests
             store.MapRequestPathForCaller("/a.txt", ContentCaller.ForAccount("alice", "ftp").WithExchange(7)), Bytes("abc"), CancellationToken.None);
 
         Assert.AreEqual(7L, faults.Points.Single().ExchangeId);
+    }
+
+    private static ExchangeContext ExchangeOn(long exchangeId, string scheme, int port) =>
+        new(exchangeId, new ListenUrl(scheme, "127.0.0.1", port), new IPEndPoint(IPAddress.Loopback, port), new IPEndPoint(IPAddress.Loopback, 50000), new RecordingExchangeLog(), TimeProvider.System, CancellationToken.None);
+
+    [TestMethod]
+    public async Task WriteUploadAsync_ACallerForAnExchange_AsksThePlanWithTheListenUrlSchemeAndAccountAndPublishesTheExchangeOnEveryEvent()
+    {
+        var events = new RecordingSurlEventPublisher();
+        var faults = new ScriptedFaultPlan(new FaultRule("f9", FaultKind.OutOfSpace));
+        ContentStore store = EventStore(inMemory: true, events, faults);
+        ContentCaller caller = ContentCaller.ForExchange(ExchangeOn(9, "ftp", 2121), "alice");
+
+        await store.WriteUploadAsync(store.MapRequestPathForCaller("/a.txt", caller), Bytes("x"), CancellationToken.None);
+
+        FaultPoint point = faults.Points.Single();
+        Assert.AreEqual("ftp://127.0.0.1:2121/", point.ListenUrl);
+        Assert.AreEqual("ftp", point.Scheme);
+        Assert.AreEqual("alice", point.Account);
+        Assert.AreEqual(9L, point.ExchangeId);
+        Assert.AreEqual(9L, events.Events.OfType<FaultAppliedEvent>().Single().ExchangeId);
+    }
+
+    [TestMethod]
+    public async Task WriteUploadAsync_AnonymousCallerForAnExchange_PublishesTheChangeOnTheExchangeWhileASeedStaysNull()
+    {
+        var events = new RecordingSurlEventPublisher();
+        ContentStore store = EventStore(inMemory: true, events, null);
+        ContentCaller caller = ContentCaller.ForExchange(ExchangeOn(4, "tftp", 69), null);
+
+        await store.WriteUploadAsync(store.MapRequestPathForCaller("/a.txt", caller), Bytes("x"), CancellationToken.None);
+        await store.WriteUploadAsync(store.MapRequestPath("/b.txt"), Bytes("x"), CancellationToken.None);
+
+        Assert.IsTrue(caller.IsAnonymous);
+        StoreChangedEvent[] changes = [.. events.Events.OfType<StoreChangedEvent>()];
+        Assert.AreEqual(4L, changes[0].ExchangeId);
+        Assert.IsNull(changes[1].ExchangeId);
+    }
+
+    [TestMethod]
+    public async Task WriteUploadAsync_ACallerWithoutAnExchange_AsksThePlanWithNoListenUrlButItsScheme()
+    {
+        var faults = new ScriptedFaultPlan(new FaultRule("f3", FaultKind.Delay));
+        ContentStore store = EventStore(inMemory: true, new RecordingSurlEventPublisher(), faults);
+
+        await store.WriteUploadAsync(store.MapRequestPathForCaller("/a.txt", ContentCaller.Anonymous("tftp")), Bytes("x"), CancellationToken.None);
+
+        Assert.IsNull(faults.Points.Single().ListenUrl);
+        Assert.AreEqual("tftp", faults.Points.Single().Scheme);
     }
 
     private static ContentStore EventStore(bool inMemory, ISurlEventPublisher events, IFaultPlan? faults) =>

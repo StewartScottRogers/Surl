@@ -34,7 +34,7 @@ internal sealed class ContentStoreEventsAndFaults
     /// </summary>
     internal async ValueTask<bool> RunsOutOfSpaceAsync(string name, ContentCaller caller, CancellationToken cancellationToken)
     {
-        var point = new FaultPoint(FaultStage.StoreWrite) { Path = name, Scheme = caller.Scheme, Account = caller.AccountName, ExchangeId = caller.ExchangeId };
+        var point = new FaultPoint(FaultStage.StoreWrite) { Path = name, Scheme = caller.Scheme, ListenUrl = caller.ListenUrl, Account = caller.AccountName, ExchangeId = caller.ExchangeId };
         FaultRule? rule = await faults.FindAsync(point, cancellationToken);
         if (rule is not { Kind: FaultKind.OutOfSpace })
         {

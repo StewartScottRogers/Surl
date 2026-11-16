@@ -78,7 +78,7 @@ with the file's whole length (write, append, committed session), `Deleted` (file
 folder), `Renamed` with `PreviousName` (one event), `Created` (folder). `Name` is the request
 path, `/`-separated, a share's name first, never a host path; a refused or failed change
 publishes nothing. Before an upload writes and before a session commits it asks the plan at a
-`StoreWrite` point (`Path` the name, `Scheme`, `Account` and `ExchangeId` from the `ContentCaller`); an
+`StoreWrite` point (`Path` the name, `Scheme`, `ListenUrl`, `Account` and `ExchangeId` from the `ContentCaller`; `ContentCaller.ForExchange(exchange, account)` fills ExchangeId, ListenUrl and Scheme, ADR-0168); an
 `OutOfSpace` rule answers `ContentUploadResult.TooLarge` without reading a byte and publishes
 `FaultAppliedEvent`. `ObjectMetadataIndex` takes an optional publisher too and publishes
 `MetadataStored` (`/` and the key) for each `Stored` outcome.
