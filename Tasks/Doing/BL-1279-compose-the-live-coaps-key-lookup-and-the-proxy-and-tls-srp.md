@@ -33,3 +33,4 @@ ADR-0170 decisions 1 to 3. `DeferredCoapsProtocolServer` today copies `PreShared
 ## Log
 
 - 2026-11-16: Created.
+- 2026-11-16: Backlog -> Doing.
