@@ -34,3 +34,4 @@ Split from BL-1311, which made the suite choose the Debug build for these six ca
 - 2026-11-16: Backlog -> Doing.
 - 2026-11-16: Doing -> Blocked. Needs a Linux CI 'Upstream test cases' run that includes BL-1311's Debug-build selection; latest master run (43902295347) still skips all six as debug-build, and this Windows lane has no Debug curl. Re-open once a CI run after BL-1311 merges uploads results.
 - 2026-11-16: Blocked -> Backlog. Unblocked: BL-1311 now Done
+- 2026-11-16: Backlog -> Doing.
