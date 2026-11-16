@@ -36,6 +36,9 @@ An ADR-0089 amendment decides how a `linux-x64` and an `osx-arm64` build of the 
 
 ## Notes
 
+- Stewart, 2026-11-16, answering "measure the port again at its current head?": **"most recent"**. Re-measure the port at the Curl port repository's current head on every platform, Windows included, not at `b42c319`; re-pin `win-x64` in `CurlPortBuilds.json` beside the new `linux-x64` and `osx-arm64` pins, rerun the Windows families, and update `Port-Board-Handoff.md` with which findings the new commit fixed. Re-pinning the port is an ordinary commit (ADR-0083 decision 2).
+
 ## Log
 
 - 2026-11-16: Created.
+- 2026-11-16: Stewart chose the port's most recent commit for Phase 7's re-measurement (see Notes).
