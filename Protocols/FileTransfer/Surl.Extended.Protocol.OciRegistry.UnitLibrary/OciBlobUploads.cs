@@ -28,7 +28,7 @@ internal sealed class OciBlobUploads(ContentStore store, OciServerState state, O
     private static readonly HttpStatus Accepted = new(202, "Accepted");
     private static readonly HttpStatus NoContent = new(204, "No Content");
 
-    private readonly ContentCaller caller = token.Caller;
+    private readonly ContentCaller caller = token.CallerOn(context);
 
     /// <summary>
     /// Answers <c>POST /v2/&lt;name&gt;/blobs/uploads/</c>, creating the repository when it is none yet.

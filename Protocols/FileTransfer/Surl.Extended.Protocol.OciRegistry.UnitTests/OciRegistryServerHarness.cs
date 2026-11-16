@@ -46,12 +46,12 @@ internal sealed class OciRegistryServerHarness
     {
     }
 
-    private OciRegistryServerHarness(int maxLiveTokens, ContentExposureOptions options, Func<InMemoryContentFileSystem, ContentShare>[] shares, bool keepsMetadataIndex = true, bool drawsSessionIds = false)
+    private OciRegistryServerHarness(int maxLiveTokens, ContentExposureOptions options, Func<InMemoryContentFileSystem, ContentShare>[] shares, bool keepsMetadataIndex = true, bool drawsSessionIds = false, IFaultPlan? storeFaults = null)
     {
         TimeProvider = new FixedTimeProvider(Now);
         FileSystem = new InMemoryContentFileSystem(TimeProvider);
         CountingFileSystem = new UnitTestCountingContentFileSystem(FileSystem);
-        Store = new ContentStore(InMemoryContentFileSystem.RootPath, CountingFileSystem, options, [.. shares.Select(share => share(FileSystem))], []);
+        Store = new ContentStore(InMemoryContentFileSystem.RootPath, CountingFileSystem, options, [.. shares.Select(share => share(FileSystem))], [], Events, storeFaults);
         MetadataIndex = keepsMetadataIndex ? new ObjectMetadataIndex(CountingFileSystem, InMemoryContentFileSystem.RootPath, persists: false) : null;
         Server = new OciRegistryProtocolServer(Store, Policy, TimeProvider, drawsSessionIds ? null : () => Guid.Parse(SessionId(Interlocked.Increment(ref sessionCount))), maxLiveTokens, MetadataIndex);
     }
@@ -123,6 +123,12 @@ internal sealed class OciRegistryServerHarness
     /// so a test of what a request does with a token need not fetch one itself.
     /// </summary>
     public bool SendsTokens { get; set; } = true;
+
+    /// <summary>
+    /// A registry that accepts uploads, whose content store asks <paramref name="storeFaults"/> before each write.
+    /// </summary>
+    public static OciRegistryServerHarness WithStoreFaults(IFaultPlan storeFaults) =>
+        new(OciTokenBook.MaxLiveTokens, new ContentExposureOptions { AllowUploads = true }, [], storeFaults: storeFaults);
 
     /// <summary>
     /// A registry that accepts uploads.

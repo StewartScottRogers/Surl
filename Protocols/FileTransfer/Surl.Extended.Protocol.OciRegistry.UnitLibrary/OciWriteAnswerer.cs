@@ -38,7 +38,7 @@ internal sealed class OciWriteAnswerer(ContentStore store, OciServerState state,
     /// <returns>The answer.</returns>
     public Task<HttpAnswer> AnswerAsync(OciReply reply, HttpRequest request, OciRequestTarget target, OciToken token, CancellationToken cancellationToken)
     {
-        var caller = token.Caller;
+        var caller = token.CallerOn(context);
 
         return (target.Endpoint, request.Method) switch
         {
