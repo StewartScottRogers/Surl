@@ -189,12 +189,16 @@ upstream's test-server greeting banner in a `-D` file, BL-776), TFTP 15 ran, 13 
 
 ## Releases
 
-No release has been tagged yet. Before Stewart tags `v<version>`, the release commit adds one row
-per platform here, copied from the current table; `.github/workflows/release.yml` puts the rows
-for the tag's version at the top of the release notes and fails when there are none.
+Before Stewart tags `v<version>`, the release commit adds one row per platform here, copied from
+the current table; `.github/workflows/release.yml` puts the rows for the tag's version at the top
+of the release notes and fails when there are none. `0.1.0` is the first release (Stewart,
+2026-11-16).
 
 | Version | Platform | Commit | Reference pin SHA-256 | Runnable | Passed | Failed | Skipped | test-server-choice | Pass rate |
 | --- | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| `0.1.0` | `win-x64` | `c3011bee` | `0E773709C3A44DB47B88B71351D902027682ED87C3BD3821009E454BACCA8778` | 1,185 | 1,185 | 0 | 828 | 34 | 100.0% |
+| `0.1.0` | `linux-x64` | `145f16b2` | `153CA463957609117D21A848BE29B70691B85F9E5CC9370C7DAA037B839A4E45` | 1,316 | 1,316 | 0 | 697 | 34 | 100.0% |
+| `0.1.0` | `osx-arm64` | `145f16b2` | `04E0E69BCD3BD814EC093551A0447AC14EDEEA9D395B468A2025DCB3F766EEBF` | 1,316 | 1,316 | 0 | 697 | 34 | 100.0% |
 
 ### Why 1072, 1073 and 4001 fail on CI (2026-11-14)
 

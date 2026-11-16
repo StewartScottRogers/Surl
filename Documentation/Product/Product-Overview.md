@@ -192,7 +192,10 @@ algorithms. About one SSH connection in 256 with that build fails its key exchan
 ([ADR-0062](../Planning/Decisions/ADR-0062-surl-keeps-ks-canonical-mpint-though-libssh2-1-11-1-on-wincng-fails-1-exchange-in-256.md)).
 The same tests run on CI's Linux and macOS legs with the OpenSSL reference builds; what those
 builds negotiate (`curve25519-sha256`, and `ecdsa-sha2-nistp256` or `ssh-ed25519` for such a
-host key) is pinned there as predicted and not yet recorded as measured (ADR-0051 decision 2).
+host key) is recorded as measured in ADR-0051 decision 2 and ADR-0054 decision 16 (CI run
+43906686682, no SSH test failed; the results are in
+[`Documentation/Conformance/Conformance-Off-Windows.md`](../Conformance/Conformance-Off-Windows.md)).
+Nothing measured `--compressed-ssh` on those builds, so it stays a prediction.
 An algorithm no run negotiates - the weak ones among them - is proven by unit tests only.
 
 ### Built for Phase 3: SMTP, IMAP and POP3
@@ -275,8 +278,16 @@ over `pop3` and `pop3s` (`UpstreamCurlReadsMailFromSurlOverPop3Tests`); the IMAP
 read back, byte for byte, mail the same curl first sent to the same `surl` over `smtp`. Those
 rows log in with `CRAM-MD5`, `PLAIN`, `LOGIN`, `XOAUTH2`, `OAUTHBEARER`, `DIGEST-MD5`, `NTLM`,
 IMAP `LOGIN`, POP3 `USER`/`PASS` and `APOP`. The same tests run on CI's Linux and macOS legs
-with the OpenSSL reference builds; no result from them is recorded against these ADRs yet.
-`EXTERNAL` is proven by unit tests only. `GSSAPI` is proven with the Windows reference build
+with the OpenSSL reference builds, and no test failed on either: 36 SMTP, 44 IMAP and 41 POP3
+tests passed on each, recorded in the "Measured on Linux and macOS" section of ADR-0053,
+ADR-0055 and ADR-0056 (results in
+[`Documentation/Conformance/Conformance-Off-Windows.md`](../Conformance/Conformance-Off-Windows.md)).
+`EXTERNAL` is proven against pinned upstream curl 8.21.0's OpenSSL build over `smtps`, `imaps` and
+`pop3s` (ADR-0049 Amendment 4): the `SaslExternal` tests in
+`UpstreamCurlSendsMailToSurlOverSmtpTests`, `UpstreamCurlReadsMailFromSurlOverImapTests` and
+`UpstreamCurlReadsMailFromSurlOverPop3Tests` log in with a client certificate (exit 0, mail stored
+or read back byte for byte) and are refused with exit 67 without one, or, over `smtps`, with a
+certificate that has no account. `GSSAPI` is proven with the Windows reference build
 through the hand-built loopback test KDC of
 [ADR-0065](../Planning/Decisions/ADR-0065-kerberos-logins-are-proved-against-pinned-upstream-curl-through-a-hand-built-loopback-kdc.md)
 (`UpstreamCurlLogsInToSurlWithKerberosTests`): the same curl logs in to `surl --keytab` over
@@ -348,9 +359,11 @@ driven by `Run-LibcurlWebSocketScript.cs` against `--ws-echo`, every row of ADR-
 Amendment 1 passed (`PinnedLibcurlTalksToSurlOverWebSocketTests`, Windows only): text, binary
 and a three-fragment message echoed whole, a `PING` answered by its `PONG`, `CLOSE` 1000
 echoed, a 2 MiB message answered 1009 and invalid UTF-8 1007. The tool tests run on CI's Linux
-and macOS legs with the OpenSSL reference builds; no result from them is recorded against
-ADR-0071 yet, and the libcurl tests report `Inconclusive` there, since those builds carry no
-shared library. A `PING` from the tool (it sends none) and the 1002 answers (libcurl sends no
+and macOS legs with the OpenSSL reference builds: all 20 passed on each, recorded in ADR-0071
+(results in
+[`Documentation/Conformance/Conformance-Off-Windows.md`](../Conformance/Conformance-Off-Windows.md)).
+The libcurl tests are not run there, since those builds carry no shared library (ADR-0071
+decision 10). A `PING` from the tool (it sends none) and the 1002 answers (libcurl sends no
 invalid frame) are proven by the unit tests in `Surl.Protocol.Ws.UnitTests` only, and Negotiate
 on the upgrade has no row in decision 11.
 
@@ -454,20 +467,24 @@ run each case against a live `surl` on loopback.
   `ldaps` certificate itself and ignores `-k`, so against surl's throwaway certificate it ends 38
   `Server Down` (60 without `-k`): no test proves an `ldaps` search succeeding. These tests run the
   platform's reference build only and are Inconclusive on Linux and macOS, whose reference builds
-  list no `ldap`. **LDAP over the OpenLDAP-backed upstream curl is not yet proven**: ADR-0076 pins
-  that build (`linux-x64`, supplementary, built reproducibly in CI) and measured what its
-  `lib/openldap.c` sends - `STARTTLS`, the root-DSE `supportedSASLMechanisms` search, SASL binds
-  through curl's own SASL code and the anonymous bind, none of which `WinLDAP` sends - but the tests
-  that run it against `surl` are BL-312's and not yet written. SASL `GSSAPI` over LDAP is
-  unmeasured, since that build has no GSS-API (BL-342).
+  list no `ldap`. LDAP over the OpenLDAP-backed upstream curl is proven by
+  `UpstreamCurlBindsAndSearchesSurlOverOpenLdapTests` (BL-312): ADR-0076 pins that build
+  (`linux-x64`, supplementary, built reproducibly in CI) and measured what its `lib/openldap.c`
+  sends - `STARTTLS`, the root-DSE `supportedSASLMechanisms` search, SASL binds through curl's own
+  SASL code and the anonymous bind, none of which `WinLDAP` sends - and all 47 tests passed on
+  CI's Linux leg (and are Inconclusive on macOS, which has no such build; results in
+  [`Documentation/Conformance/Conformance-Off-Windows.md`](../Conformance/Conformance-Off-Windows.md)).
+  SASL `GSSAPI` over LDAP is measured against the re-pinned OpenLDAP and MIT Kerberos build (BL-342,
+  ADR-0078).
 - **SMB**, with ADR-0030's static-curl Windows build (the reference build has no `smb`): every
   row of ADR-0073 decision 11 over `smb` and `smbs` passed
   (`UpstreamCurlTransfersFilesWithSurlOverSmbTests`): downloads, a domain in `-u` ignored, the
   wrong password and user-name case (67), missing shares, files, hidden paths and directories
   (78), uploads refused (9), stored, and past `--max-filesize` (25), `ntlmv1` not accepted (67),
   `--allow-anonymous`, and `smbs` with and without `-k` (0, 60). The same tests run on CI's Linux
-  and macOS legs with the reference builds, which list `smb`; no result from them is recorded
-  against ADR-0073 yet.
+  and macOS legs with the reference builds, which list `smb`: 26 tests and 2 more passed on each,
+  none failed, recorded in ADR-0073 ("Measured on Linux and macOS"; results in
+  [`Documentation/Conformance/Conformance-Off-Windows.md`](../Conformance/Conformance-Off-Windows.md)).
 - **RTSP**, with the Windows reference build: every tool row of ADR-0074 decision 11 passed
   (`UpstreamCurlTalksToSurlOverRtspTests`): the `OPTIONS *` answer and its head under `-i`, the
   upload that sends no body, the `401`, Basic and Bearer refused `403` in plain text and accepted
@@ -477,8 +494,9 @@ run each case against a live `surl` on loopback.
   `PLAY` packets joining to the file then the RTCP `BYE`, `PAUSE`, `GET_PARAMETER`, `TEARDOWN`
   and a second `SETUP` on the same ID, the `461`, `454`, `455`, `451`, `401` and `403` refusals,
   and `ANNOUNCE` and `RECORD` storing their files. The tool tests run on CI's Linux leg with the
-  reference build; no result from it is recorded against ADR-0074 yet. On macOS, whose pinned
-  build has no `rtsp`, they report Inconclusive
+  reference build: all 16 passed, recorded in ADR-0074 (results in
+  [`Documentation/Conformance/Conformance-Off-Windows.md`](../Conformance/Conformance-Off-Windows.md)).
+  On macOS, whose pinned build has no `rtsp`, they report Inconclusive
   ([ADR-0026](../Planning/Decisions/ADR-0026-rtsp-conformance-on-macos-where-the-pinned-build-has-no-rtsp.md)).
   NTLM and Negotiate over RTSP have no row in decision 11.
 
@@ -626,7 +644,7 @@ port pass. The terms are defined in the [glossary](../Wiki/Glossary.md), section
 - **Measured:** the Curl port at commit `b42c319ba940f66452b2b6f3e9910d46825b08fe` (`curl.exe` SHA-256
   `F28D1417807AA862BA2A6D5B0BF0CF1200673BE45B959B1A78E1E4B476EF8FA7`, pinned in `CurlPortBuilds.json`),
   on `win-x64` only, on 2026-11-05, 2026-11-06 and, for the extended clients, up to 2026-11-11.
-- **Result:** 1,518 cases, 1,420 agreements, 96 port defects behind 18 findings, 2 cases not
+- **Result:** 1,518 cases, 1,420 agreements, 96 port defects behind 23 findings, 2 cases not
   comparable, and no Surl defect. The per-family numbers, the Surl commit each family was measured at
   and the findings themselves are in
   [`Documentation/Conformance/CurlPort/README.md`](../Conformance/CurlPort/README.md) and the family
@@ -638,7 +656,7 @@ port pass. The terms are defined in the [glossary](../Wiki/Glossary.md), section
   upstream's own test cases. One `CurlPortBesideUpstreamCurlOver<Family>Tests` class per family reads its
   family file's findings table, so a finding that appears unlisted or a listed one that disappears
   fails the test.
-- **Handoff:** [`Port-Board-Handoff.md`](../Conformance/CurlPort/Port-Board-Handoff.md) holds the 18
+- **Handoff:** [`Port-Board-Handoff.md`](../Conformance/CurlPort/Port-Board-Handoff.md) holds the 23
   findings as tasks in the port's own task shape. Stewart files them on the port's board himself; no
   Surl session writes into the port's repository (ADR-0089 decision 7).
 
@@ -648,9 +666,8 @@ port pass. The terms are defined in the [glossary](../Wiki/Glossary.md), section
   every Phase 7 test is Inconclusive (ADR-0089 decision 8).
 - The 47 `OpenLdap_` cases, Inconclusive until a `linux-x64` port pin exists, and the cases excluded
   on Windows by their `[OSCondition]` (6 SSH cases, 3 FTP listing twins).
-- The extended clients beyond `socketio`, `webtransport`, `coap` and `xmpp`: the other 15 `Integration`
-  tasks have not run (`Extended.md`). They are judged by their specifications, not beside upstream
-  curl (ADR-0089 decision 9).
+- The extended clients against upstream curl: upstream has no such schemes, so `Extended.md` records all
+  19 clients judged by their specifications alone (ADR-0089 decision 9).
 - Phase 7 is a snapshot at one port commit; a later port commit needs a new measurement.
 
 ### Shared stores and configuring a real server

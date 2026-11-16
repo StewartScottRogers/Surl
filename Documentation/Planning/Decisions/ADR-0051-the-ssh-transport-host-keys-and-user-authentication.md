@@ -237,13 +237,27 @@ decides nothing:
   establishing ssh session: -5, Unable to exchange encryption keys`, and surl notes `SSH no common
   host key algorithm; client offered rsa-sha2-512,...`
   (`HostKey_OnlyEllipticCurveOnTheWindowsBuild_Exits2NoCommonHostKeyAlgorithm`).
-- **Linux and macOS reference builds (OpenSSL):** predicted from their `KEXINIT` lists (Context),
-  not yet measured by a Linux or macOS run: kex `curve25519-sha256`; host key `rsa-sha2-512` for
-  an RSA key, `ecdsa-sha2-nistp256` for an ECDSA P-256 key and `ssh-ed25519` for an Ed25519 key,
-  so an ECDSA-only or Ed25519-only surl completes the transfer; cipher
-  `chacha20-poly1305@openssh.com`, MAC `implicit`, compression `none` (`zlib` with
-  `--compressed-ssh`), strict kex on. Pinned for the CI legs in
-  `HostKey_OnlyEllipticCurveOnOpenSslBuilds_NegotiatesItAndDownloadsTheFile`.
+- **Linux and macOS reference builds (OpenSSL):** measured by the `CI` run
+  https://github.com/StewartScottRogers/Surl/actions/runs/43906686682 (attempt 1 of the
+  `ubuntu-latest` and `macos-latest` legs, `linux-x64` and `osx-arm64`; no test failed; recorded in
+  `Documentation/Conformance/Conformance-Off-Windows.md`). On both platforms surl's `SSH negotiated`
+  line read kex `curve25519-sha256`, cipher `chacha20-poly1305@openssh.com` both ways, MAC
+  `implicit` both ways, compression `none` both ways, strict kex on; the host key was `rsa-sha2-512`
+  for the RSA key (`rsa-sha2-256` where the test pinned a different key in `known_hosts`) and
+  `ssh-ed25519` for an Ed25519 key. The ECDSA-only and Ed25519-only transfers
+  (`HostKey_OnlyEllipticCurveOnOpenSslBuilds_NegotiatesItAndDownloadsTheFile`, `"ecdsa-sha2-nistp256"`
+  and `"ssh-ed25519"`) passed on both platforms, and the test asserts `host key <type>,` in that
+  line, so `ecdsa-sha2-nistp256` was negotiated too; the record quotes no `SSH negotiated` line for
+  that test, so the ECDSA line itself is that assertion rather than a quoted line. The macOS build
+  also agreed `blowfish-cbc` and `cast128-cbc` with `hmac-sha2-256` when surl offered only those
+  (`UpstreamCurlAgreesWeakSshAlgorithmsWithSurlTests`, passed on macOS, skipped on Linux).
+  `--compressed-ssh` (`zlib`) was not measured by that run; its prediction stands from the
+  `KEXINIT` list (Context).
+  Two SSH tests were Inconclusive on one platform each, by the runner's own state and not by a
+  result: `HostKey_NoPinAndOnlyTheAccountsOwnKnownHostsFile_Exits60` on `linux-x64` ("the account's
+  own home directory holds no .ssh/known_hosts for curl to fall back to"; it passed on macOS) and
+  `HostKey_NoPinAndNoKnownHostsFile_Exits2` on `osx-arm64` ("the account's own home directory holds
+  .ssh/known_hosts, which curl falls back to"). No SSH test failed, so no follow-up task was filed.
 - **Never negotiated by any run**, so covered by `Surl.Protocol.Ssh`'s unit tests only: the
   `curve25519-sha256@libssh.org`, `ecdh-sha2-*`, `diffie-hellman-group16-sha512`,
   `diffie-hellman-group18-sha512` and `diffie-hellman-group14-sha256` kex methods, the

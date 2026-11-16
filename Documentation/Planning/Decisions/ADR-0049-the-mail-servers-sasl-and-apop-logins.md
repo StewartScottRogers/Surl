@@ -547,3 +547,47 @@ refused, which the SMTP, IMAP and POP3 servers write to the exchange log immedia
 optional argument, and today only `GssapiSaslExchange` sets it, to ADR-0057 decision 4's
 `Kerberos: <reason>` line. ADR-0067 gives the reasons, and why a reason field on `CheckedLogin` was
 rejected.
+
+## Amendment 4 - `EXTERNAL` over `smtps` is proven against pinned upstream curl (BL-1298, 2026-11-16)
+
+Decided by Claude under Stewart's delegation. Three `Integration` tests in
+`UpstreamCurlSendsMailToSurlOverSmtpTests` run pinned upstream curl 8.21.0 against a live
+`surl smtps://` with `--login-options AUTH=EXTERNAL -u alice:`, so decision 4 and Amendment 1 are
+proven against upstream curl and no longer by unit tests alone:
+
+| Test | Setup | curl exit | curl stderr, with `-sS` |
+| --- | --- | --- | --- |
+| `Send_SaslExternalWithAClientCertificateOverSmtps_Exits0AndStoresTheMail` | surl `--cacert`, account `alice`; curl `--cert`, `--key` of the CA's client `alice` | 0 | (`-v` shows `AUTH EXTERNAL`); the mail is in `alice`'s mailbox as `ESMTPSA` |
+| `Send_SaslExternalWithoutAClientCertificate_ExitsLoginDeniedAndStoresNothing` | surl `--self-signed`; curl `-k`, no certificate | 67 | `curl: (67) Login denied`; nothing stored |
+| `Send_SaslExternalForACertificateWithNoAccount_ExitsLoginDeniedAndStoresNothing` | certificate `alice`, only an account `someone-else` | 67 | `curl: (67) Login denied`; nothing stored |
+
+The tests run the build `PinnedUpstreamCurl.RunBuildLinkedAgainstAsync(..., "OpenSSL", ...)` finds for
+the platform: on `win-x64` the pinned static-curl 8.21.0 OpenSSL build (ADR-0030), on Linux and macOS
+the reference build, which is also OpenSSL. The Windows reference build would use Schannel, which
+takes a client certificate from a Windows certificate store, not the PEM files `--cert` and `--key`
+name, and the tests must be platform-neutral. Where no such build is installed the tests are Inconclusive.
+
+### Amendment 4, addendum - `EXTERNAL` over `imaps` (BL-1299, 2026-11-16)
+
+Decided by Claude under Stewart's delegation. Three more `Integration` tests, in
+`UpstreamCurlReadsMailFromSurlOverImapTests`, run the same OpenSSL build against a live `surl imaps://`
+with `--login-options AUTH=EXTERNAL -u alice:`. Each first has curl deliver `mail.txt` over `smtp` to
+`alice`, then reads `/INBOX;UID=1`:
+
+| Test | Setup | curl exit | Standard output |
+| --- | --- | --- | --- |
+| `Fetch_SaslExternalWithAClientCertificateOverImaps_Exits0WithTheMessage` | surl `--cacert`; curl `--cert`, `--key` of client `alice` | 0 (`-v` shows `AUTHENTICATE EXTERNAL`) | the stored message, byte for byte |
+| `Fetch_SaslExternalWithAClientCertificateAndSaslIr_Exits0WithTheMessage` | the same with `--sasl-ir` | 0 | the stored message |
+| `Fetch_SaslExternalWithoutAClientCertificate_ExitsLoginDeniedWithNoOutput` | surl `--self-signed`; curl `-k`, no certificate | 67 | empty |
+
+### Amendment 4, addendum - `EXTERNAL` over `pop3s` (BL-1300, 2026-11-16)
+
+Decided by Claude under Stewart's delegation. Two more `Integration` tests, in
+`UpstreamCurlReadsMailFromSurlOverPop3Tests`, run the same OpenSSL build against a live `surl pop3s://`
+with `--login-options AUTH=EXTERNAL -u alice:`. Each first has curl deliver `mail.txt` over `smtp` to
+`alice`, then retrieves message 1:
+
+| Test | Setup | curl exit | Standard output |
+| --- | --- | --- | --- |
+| `Retrieve_SaslExternalWithAClientCertificateOverPop3s_Exits0WithTheMessage` | surl `--cacert`; curl `--cert`, `--key` of client `alice` | 0 (`-v` shows `AUTH EXTERNAL`) | the stored message, byte for byte |
+| `Retrieve_SaslExternalWithoutAClientCertificate_ExitsLoginDeniedWithNoOutput` | surl `--self-signed`; curl `-k`, no certificate | 67 | empty |

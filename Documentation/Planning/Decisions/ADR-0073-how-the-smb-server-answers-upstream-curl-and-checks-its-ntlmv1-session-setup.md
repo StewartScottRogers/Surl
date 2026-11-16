@@ -21,6 +21,8 @@
   not be built as written: decision 1's session setup and tree connect strings, decision 4's
   session setup out of turn, and decision 8's one note for the idle timeout and the maximum
   duration.
+- **Amended:** 2026-11-16 in BL-1296, "Choices made while building" (after Consequences): ten choices the
+  building tasks made where this ADR was silent.
 
 ## Context
 
@@ -508,4 +510,103 @@ new task, never by changing the expected exit (ADR-0003).
   refusal Surl chooses is a status, so only the idle timeout, the maximum duration and shutdown
   can do that.
 - Measured on Windows only; the Linux and macOS builds are proved by BL-300 rather than measured
-  here, and a difference found there is recorded against this ADR.
+  here, and a difference found there is recorded against this ADR. Since measured: see the
+  amendment "Measured on Linux and macOS" below.
+
+## Amendment: Choices made while building
+
+Decided by Claude under Stewart's delegation, 2026-11-16, in BL-1296 (FR-050). These are the
+behaviour choices the building tasks made where decisions 1 to 12 were silent, read from the
+Done tasks and confirmed against `Surl.Protocol.Smb.UnitLibrary` as it is now. Each names the task
+that made it and the test in `Surl.Protocol.Smb.UnitTests` that pins it. They are record, not
+change: `surl` already behaves this way. Choices stated elsewhere (the session setup and tree
+connect strings in the 2026-09-30 amendment, command faults in ADR-0135, the caller the store
+sees in ADR-0102 and ADR-0128) are not repeated.
+
+1. **A keep-alive before the negotiate does not restart the head timeout.** The 30 s clock runs
+   from the connection, so a peer that sends only `0x85` frames is still closed at the head
+   timeout. Why: ADR-0006's "first packet" is the negotiate; a keep-alive is not one. BL-296.
+   Pinned by `SmbLimitTests.NoNegotiateWithinTheHeadTimeout_ClosesWithNothingSent` (a keep-alive
+   is the only input) and `SmbProtocolServerTests.AKeepAlive_IsIgnored`.
+2. **An NT create name's trailing NUL is dropped** whether or not `NameLength` counts it, and
+   `READ_ANDX` and `WRITE_ANDX` are accepted with or without the high-offset word (a 32-bit or
+   a 64-bit offset). Why: [MS-CIFS] allows both forms and curl sends one of each by size. BL-290.
+   Pinned by `SmbRequestDecoderTests.Decode_NtCreateWhoseNameLengthCountsTheTerminator_DropsTheTerminator`,
+   `Decode_ReadWithTheHighOffset_ReadsA64BitOffset`, `Decode_ReadWithoutTheHighOffset_ReadsA32BitOffset`
+   and `Decode_WriteWithoutTheHighOffset_ReadsA32BitOffset`.
+3. **A read offset with the top bit set answers 0 bytes with success**, as an offset at or past
+   the end does; `MaxCountHigh` is not read, because the negotiate announces no
+   `CAP_LARGE_READX` and the 61440 cap is below anything it could add. Why: a negative offset is
+   past every file's end, and the cap is already smaller than what curl (32768) asks. BL-297.
+   Pinned by `SmbProtocolServerReadTests.Read_WithNoBytesToAnswer_AnswersNoBytesWithSuccess`
+   (the "Past 2^63" row).
+4. **A content store failure during a read is `ERRHRD/ERRgeneral`, noted
+   `SMB read <share>\<name> failed: <message>`, and the FID stays open** so the close curl then
+   sends is answered. Why: decision 5's keep-answering rule. BL-297. Pinned by
+   `SmbProtocolServerReadTests.Read_WhenTheContentStoreCannotReadTheFile_IsGeneralFailureAndNoted`.
+5. **A tree connect to `IPC$` is refused whatever its case** (`IPC$`, `ipc$`), before the content
+   store is consulted, even when the store holds a directory of that name. Why: SMB share names
+   are not case-sensitive, so `ipc$` names the same reserved share as decision 2's `IPC$`.
+   BL-348. Pinned by
+   `SmbProtocolServerTests.TreeConnect_ToIpcShare_IsInvalidNetworkNameEvenWhenTheStoreHoldsThatDirectory`.
+6. **An upload's refused name is `ERRDOS/ERRbadfile`, as a read's is**, and the answer is
+   `FILE_OVERWRITTEN` (3) only when a visible file was there, else `FILE_CREATED` (2). Why:
+   decision 2's "answered as absent" applies to every name, and a hidden file must not tell a
+   peer it exists. BL-298. Pinned by
+   `SmbProtocolServerUploadTests.UploadNtCreate_ANameThePathRulesRefuse_IsBadFile` and
+   `UploadNtCreate_AnExistingFile_IsOverwrittenAndReplacedAtTheClose`.
+7. **After a write fails, every later write on that FID gets the same status and the close is
+   answered with success**, noted `SMB close <share>\<name>: upload discarded`; the failure is
+   `ERRHRD/ERRdiskfull` past `--max-filesize` and `ERRHRD/ERRgeneral` for a store error (the
+   write is also noted `SMB write <share>\<name> failed: <message>`). Why: curl does not notice
+   the failure until its close, and the partial file must not stay. BL-298. Pinned by
+   `SmbProtocolServerUploadTests.Write_PastMaxFileSize_IsDiskFullThenTheCloseSucceedsAndNothingIsLeft`
+   and `Write_WhenTheContentStoreCannotWrite_IsGeneralFailureUntilTheCloseDiscardsIt`.
+8. **A close whose commit finds a directory at the name is `ERRDOS/ERRnoaccess`; a commit that
+   throws is `ERRHRD/ERRgeneral`** (noted `SMB close <share>\<name> failed: <message>`). Why:
+   decision 4's upload-refused and store-failure rows, applied to the one point where a commit
+   can fail. BL-298. Pinned by
+   `SmbProtocolServerUploadTests.Close_WhenADirectoryHasTakenTheName_IsNoAccessAndNoted`.
+9. **A write at an offset no file can have** (negative as a `long`, or one that overflows) **is
+   `ERRSRV/ERRerror`**, as a message that does not decode is. Why: it is malformed, not a
+   store failure. BL-298. Pinned by
+   `SmbProtocolServerUploadTests.Write_AtAnOffsetNoFileCanHave_IsServerError`.
+10. **An `Accepted` verdict that names no account (null or empty) is served as an anonymous
+    caller**, so it can never open a share that has grants. Why: no policy returns one today;
+    throwing would be a worse answer than the least privilege. BL-660. Pinned by
+    `SmbProtocolServerShareAccessTests.TreeConnect_AnAnonymousCallerOnAShareWithGrants_IsInvalidNetworkName`
+    (the "An accepted login naming no account" row).
+
+Read and left out: BL-290's "`--max-message` of 0 means no limit beyond the 17-bit length" has
+no test in the SMB library today, so it is not claimed here. BL-219, BL-319, BL-397, BL-908 and
+BL-1252 made no SMB behaviour choice; BL-795 and BL-909 are in ADR-0135, BL-660's caller in
+ADR-0102 and BL-1080's login exchange in ADR-0128.
+
+## Amendment: Measured on Linux and macOS
+
+Recorded 2026-11-16 in BL-1293 (FR-050), from BL-1289's measurement in
+`Documentation/Conformance/Conformance-Off-Windows.md`. A record of what upstream curl did, not a
+decision; it changes nothing above.
+
+- **Run:** `CI` run https://github.com/StewartScottRogers/Surl/actions/runs/43906686682
+  (`workflow_dispatch` on `factory/phase-1`, commit `a06ae86113e511d6d6204949c1fbf80e29b41ba9`),
+  attempt 1 of the `ubuntu-latest` and `macos-latest` legs.
+- **Reference pins** (`UpstreamCurlBuilds.json`, role `reference`, curl 8.21.0, both list `smb`
+  and `smbs`):
+  - `linux-x64`, `curl-linux-x86_64-musl-8.21.0.tar.xz`, SHA-256
+    `153CA463957609117D21A848BE29B70691B85F9E5CC9370C7DAA037B839A4E45`.
+  - `osx-arm64`, `curl-macos-arm64-8.21.0.tar.xz`, SHA-256
+    `04E0E69BCD3BD814EC093551A0447AC14EDEEA9D395B468A2025DCB3F766EEBF`.
+
+| Class | Platform | Passed | Inconclusive | Failed |
+|---|---|---|---|---|
+| `UpstreamCurlTransfersFilesWithSurlOverSmbTests` | linux-x64 | 26 | 0 | 0 |
+| `UpstreamCurlTransfersFilesWithSurlOverSmbTests` | osx-arm64 | 26 | 0 | 0 |
+| `UpstreamCurlSharesFilesFromFtpToSmbTests` | linux-x64 | 2 | 0 | 0 |
+| `UpstreamCurlSharesFilesFromFtpToSmbTests` | osx-arm64 | 2 | 0 | 0 |
+
+Every SMB test passed on both platforms; none was Inconclusive, skipped or failed, so no test
+needs a reason and no task was filed. The OS string curl sends in the session setup
+(`x86_64-w64-mingw32` on Windows) was not recorded in the `.trx` files or in surl's notes for
+this run, so what each platform sent is not known; the passes show only that surl's answer did
+not depend on it.

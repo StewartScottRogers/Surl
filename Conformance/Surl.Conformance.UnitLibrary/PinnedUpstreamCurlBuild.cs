@@ -6,11 +6,11 @@ namespace Surl.Conformance;
 /// </summary>
 /// <param name="Platform">The runtime identifier the build runs on, such as <c>win-x64</c>.</param>
 /// <param name="DefaultPath">Where the build's executable is expected on that platform.</param>
-/// <param name="Sha256">The pinned SHA-256 of the executable, as hexadecimal text.</param>
+/// <param name="Sha256">The pinned SHA-256 of the executable, as hexadecimal text; empty for a libtest entry, whose programs are pinned in <see cref="Programs"/>.</param>
 /// <param name="Version">The build's <c>curl --version</c> first line, or empty when the entry has none.</param>
 /// <param name="Protocols">The protocols the build supports, in the order its entry lists them.</param>
 /// <param name="Role">Whether the build is the reference build or a supplementary one.</param>
-/// <param name="Kind">Whether the file is a curl executable or a shared libcurl.</param>
+/// <param name="Kind">Whether the file is a curl executable or a shared libcurl, or a directory of libtest programs.</param>
 public sealed record PinnedUpstreamCurlBuild(
     string Platform,
     string DefaultPath,
@@ -25,4 +25,10 @@ public sealed record PinnedUpstreamCurlBuild(
     /// its entry lists them; empty when the entry has none.
     /// </summary>
     public IReadOnlyList<string> Features { get; init; } = [];
+
+    /// <summary>
+    /// For a libtest entry, each program's file name and its pinned SHA-256; empty for any
+    /// other kind (ADR-0174 decision 2).
+    /// </summary>
+    public IReadOnlyDictionary<string, string> Programs { get; init; } = new Dictionary<string, string>();
 }

@@ -135,12 +135,19 @@ public sealed class UpstreamTestCasesAgainstSurlTests
         // supplementary build ADR-0030 pinned for SMB (Windows). Without one they skip as before.
         var smbLocation = locator.LocateForProtocol(pins, UpstreamCurlLocator.CurrentPlatform, "smb");
 
+        // The six http/2 and http/3 cases that list Debug run with the supplementary Debug build where
+        // the platform pins one (Linux); elsewhere they skip debug-build (ADR-0173).
+        var debugLocation = locator.LocateDebug(pins, UpstreamCurlLocator.CurrentPlatform);
+
+        // The libtest cases ADR-0174 admits run their program from the pinned libtests binary where the platform pins one (Linux).
+        var libtestLocation = locator.LocateLibtest(pins, UpstreamCurlLocator.CurrentPlatform);
+
         // Beside the test assembly rather than in the temporary folder, whose path may hold a
         // blank (C:\Users\First Last\...) that the cases' unquoted %PWD paths would split.
         var work = Directory.CreateDirectory(Path.Combine(AppContext.BaseDirectory, "upstream-test-case-runs", Path.GetRandomFileName()));
         try
         {
-            var run = new CaseRun(location, smbLocation.IsAvailable ? smbLocation : null, work.FullName, TestContext);
+            var run = new CaseRun(location, smbLocation.IsAvailable ? smbLocation : null, work.FullName, TestContext, debugLocation.IsAvailable ? debugLocation : null, libtestLocation);
             var results = await run.RunAllAsync(TestCaseFiles());
 
             var text = UpstreamTestCaseResult.Format(results);
@@ -255,14 +262,14 @@ public sealed class UpstreamTestCasesAgainstSurlTests
         /// as runtests would select and parse for it; the Curl port's client is made this way
         /// (ADR-0089 decision 1(b)).
         /// </summary>
-        public CaseClient(IUpstreamTestCaseClient client, CurlVersionReport report, string logPrefix)
+        public CaseClient(IUpstreamTestCaseClient client, CurlVersionReport report, string logPrefix, UpstreamLibtestAvailability libtests = UpstreamLibtestAvailability.NotPinned)
         {
             Client = client;
             Report = report;
             LogPrefix = logPrefix;
             Features = UpstreamCurlBuildFeatures.For(report);
             var disabled = UpstreamTestCaseDisabledList.Parse(File.ReadAllBytes(Path.Combine(Root, "data", "DISABLED")), SelectionEnvironment(Features));
-            Selector = new UpstreamTestCaseSelector(UpstreamTestCaseSelectionRules.ForClient(report, disabled, UpstreamTestCasePassRateStatementTests.CommittedExclusions()));
+            Selector = new UpstreamTestCaseSelector(UpstreamTestCaseSelectionRules.ForClient(report, disabled, UpstreamTestCasePassRateStatementTests.CommittedExclusions()) with { Libtests = libtests });
         }
 
         public IUpstreamTestCaseClient Client { get; }
@@ -294,6 +301,8 @@ public sealed class UpstreamTestCasesAgainstSurlTests
     {
         private readonly CaseClient reference;
         private readonly CaseClient? smb;
+        private readonly CaseClient? debug;
+        private readonly UpstreamCurlLocation? libtestLocation;
         private readonly string work;
         private readonly string certificateDirectory;
         private Http3GatewayCertificate? http3Certificate;
@@ -302,11 +311,13 @@ public sealed class UpstreamTestCasesAgainstSurlTests
         private readonly string sshUser = UpstreamTestCaseFileServers.SshLoginNameFor(Environment.UserName);
         private readonly TlsSrpAccounts tlsSrpAccounts = UpstreamTestCaseTlsSrpServerHalf.ReadAccounts(Path.Combine(Root, "certs"));
 
-        public CaseRun(UpstreamCurlLocation location, UpstreamCurlLocation? smbLocation, string work, TestContext testContext)
+        public CaseRun(UpstreamCurlLocation location, UpstreamCurlLocation? smbLocation, string work, TestContext testContext, UpstreamCurlLocation? debugLocation = null, UpstreamCurlLocation? libtestLocation = null)
         {
             reference = new CaseClient(location);
             smb = smbLocation is null || smbLocation.Build!.Sha256 == location.Build!.Sha256 ? null : new CaseClient(smbLocation);
-            PairedBuilds = smb is null ? [location.Build!] : [location.Build!, smbLocation!.Build!];
+            debug = debugLocation is null ? null : new CaseClient(debugLocation);
+            this.libtestLocation = libtestLocation;
+            PairedBuilds = [location.Build!, .. smb is null ? [] : new[] { smbLocation!.Build! }, .. debugLocation is null ? [] : new[] { debugLocation.Build! }];
             this.work = work;
             certificateDirectory = Path.Combine(work, "certdir");
             this.testContext = testContext;
@@ -386,6 +397,36 @@ public sealed class UpstreamTestCasesAgainstSurlTests
             }
         }
 
+        /// <summary>
+        /// Makes the client for an admitted libtest case: the Debug build's features and protocols
+        /// with the pinned <c>libtests</c> binary as the program. Returns null for any other case.
+        /// </summary>
+        private CaseClient? LibtestClientFor(int number, byte[] source)
+        {
+            if (libtestLocation is null || !UpstreamTestCaseLibtests.AdmittedNumbers.Contains(number))
+            {
+                return null;
+            }
+
+            var program = UpstreamTestCaseLibtests.ProgramName(UpstreamTestCaseParser.Parse(source, SelectionEnvironment(debug!.Features)), number);
+            if (program.Length == 0)
+            {
+                return null;
+            }
+
+            var availability = libtestLocation.Unavailability switch
+            {
+                UpstreamCurlUnavailability.None => UpstreamLibtestAvailability.Present,
+                UpstreamCurlUnavailability.PinnedBuildFileAbsent => UpstreamLibtestAvailability.PinnedButAbsent,
+                _ => UpstreamLibtestAvailability.NotPinned,
+            };
+            IUpstreamTestCaseClient client = libtestLocation.IsAvailable
+                ? new UpstreamLibtestTestCaseClient(new UpstreamCurlRunner(libtestLocation, CaseTimeout, TimeProvider.System), program)
+                : debug.Client;
+
+            return new CaseClient(client, debug.Report, string.Empty, availability);
+        }
+
         private async Task<UpstreamTestCaseResult> RunCaseAsync(
             int number, byte[] source, CaseTlsSettings tlsSettings, CaseClient? onlyClient, CancellationToken cancellationToken)
         {
@@ -397,6 +438,18 @@ public sealed class UpstreamTestCasesAgainstSurlTests
                 if (onlyClient is null && smb is not null && ServerNames(selected).Contains(SmbFamily))
                 {
                     client = smb;
+                    selected = UpstreamTestCaseParser.Parse(source, SelectionEnvironment(client.Features));
+                }
+                else if (onlyClient is null && debug is not null && UpstreamTestCaseDebugBuildCases.UsesDebugBuild(number, true))
+                {
+                    // The http/2 and http/3 cases listing Debug run with the supplementary Debug build (ADR-0173).
+                    client = debug;
+                    selected = UpstreamTestCaseParser.Parse(source, SelectionEnvironment(client.Features));
+                }
+                else if (onlyClient is null && debug is not null && LibtestClientFor(number, source) is { } libtestClient)
+                {
+                    // An admitted libtest case runs its program from the pinned libtests binary, selected with the Debug build's features (ADR-0174).
+                    client = libtestClient;
                     selected = UpstreamTestCaseParser.Parse(source, SelectionEnvironment(client.Features));
                 }
             }

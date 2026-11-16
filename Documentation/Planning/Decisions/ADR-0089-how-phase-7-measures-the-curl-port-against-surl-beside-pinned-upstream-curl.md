@@ -150,8 +150,9 @@ the handoff is committed and Stewart is told it is ready and how many findings i
 Phase 7 runs on **Windows**. `CurlPortBuilds.json` pins only `win-x64`, lanes run on Windows, and
 ADR-0003 named Git for Windows' 8.21.0 build "the right baseline for comparing the two in the last
 phase". On Linux and macOS each Phase 7 test is Inconclusive with `CurlPortClientUnavailability`'s
-message, as `UpstreamCurlUnavailability` reports a missing upstream build. CI does not run the port
-(ADR-0083 decision 2). When a `linux-x64` or `osx-arm64` port pin is added, the same tests run there
+message, as `UpstreamCurlUnavailability` reports a missing upstream build. `ci.yml` does not run the port
+(ADR-0083 decision 2); Amendment 8 decides how a separate, non-gating workflow builds and runs it on
+`linux-x64` and `osx-arm64`. When a `linux-x64` or `osx-arm64` port pin is added, the same tests run there
 with no change to this ADR, each platform's findings in its own section of the family's file.
 
 ### 9. The extended clients
@@ -382,3 +383,54 @@ comparison, so decisions 4 and 5 are read for it as follows.
   the rest apply to both runs alike (`UpstreamTestCaseVerifyChecker`), and nothing of decision 4's
   table is added: upstream's cases already substitute or strip what varies between runs (ports, dates,
   boundaries, the version) for whichever curl runs them.
+
+## Amendment 8 (2026-11-16, BL-1301): how the port is built, pinned and run on linux-x64 and osx-arm64
+
+Decided by Claude under Stewart's delegation, in BL-1301. Stewart's answer of 2026-11-16 to "measure the
+port again at its current head?" was "most recent". This amendment settles decision 8's "when a
+`linux-x64` or `osx-arm64` port pin is added" and replaces decision 10's single commit `b42c319` with the
+head chosen below. The port stays never an oracle (ADR-0003).
+
+- **Which commit.** One commit for every platform: the head of the Curl port repository's `master` on
+  the day the first task below runs. It is recorded as a full SHA in `CurlPortBuilds.json` for `win-x64`,
+  `linux-x64` and `osx-arm64` (and the Libcurl library entry), so each platform's findings compare like
+  with like. `win-x64` is re-pinned and re-measured too; the findings files name the new commit, and
+  `Port-Board-Handoff.md` says which earlier findings the new commit fixed (decision 10 makes a stale
+  finding fail its test).
+- **Who builds, and where.** A new GitHub Actions workflow, `.github/workflows/curl-port-phase-7.yml`,
+  checks out the port at the pinned commit (Stewart's own repository, which needs no approval, ADR-0083
+  decision 2) and runs the pin's `publishCommand` on `ubuntu-latest` (`linux-x64`), `macos-14`
+  (`osx-arm64`) and `windows-latest` (`win-x64`), into the pin's path
+  (`~/.local/share/surl/curl-port/<commit>/` off Windows). Nothing is built on a lane or on Stewart's
+  machine for Linux or macOS: lanes are Windows only and no Mac is reachable (decision 8).
+- **How the SHA-256 is pinned and checked.** The pin is the SHA-256 of a publish from the pinned commit.
+  The workflow publishes twice into two folders and compares the hashes: equal means the publish is
+  reproducible, and the job then compares the hash with `CurlPortBuilds.json` and fails on a mismatch.
+  A platform's first run has no pin yet; it prints the hash and the pinning task commits it (an ordinary
+  commit, ADR-0083 decision 2). `CurlPortClientLocator` is unchanged: it hashes the file and refuses an
+  unpinned one. If the two publishes differ, the pinning task files a follow-up that makes the publish
+  deterministic rather than pin a hash no later run can match.
+- **Where Phase 7 runs with them.** In the same workflow, after the build, on the same runner: the
+  `CurlPortBesideUpstreamCurlOver<Family>Tests` families, including the 47 `OpenLdap_` cases on
+  `linux-x64` (where ADR-0076's OpenLDAP build is pinned), with the pinned upstream curl obtained through
+  `.github/actions/upstream-curl`. It runs on `workflow_dispatch` and on a weekly schedule, never on a
+  push or pull request.
+- **It never gates a merge.** The workflow is not part of `ci.yml`, is not a required check, and
+  `RunDarkFactory.ps1` reads only the `CI` workflow for its merge, so a red Phase 7 run blocks nothing
+  (ADR-0003 decision 6). A red run is a finding or a build problem to read, not a Surl failure.
+- **Findings.** Each platform's findings go in its own section of each family file (decision 8); any new
+  finding goes into `Port-Board-Handoff.md` in decision 7's form.
+
+Alternatives considered:
+
+- *Build on a lane or by hand.* Not chosen: lanes are Windows only and no Mac is reachable, so
+  `osx-arm64` could never be produced.
+- *Publish the binary as a release asset and fetch it by hash, as upstream builds are.* Not chosen: a
+  release is a tag and needs Stewart's confirmation (CLAUDE.md) and a hand upload; building at a pinned
+  commit from Stewart's own repository needs neither.
+- *Build the port inside `ci.yml` as a merge gate.* Not chosen: ADR-0003 decision 6; a port regression
+  must not stop Surl's merges.
+- *Keep `b42c319`.* Not chosen: Stewart chose the most recent commit.
+
+ADR-0083 decision 2's "CI does not run them" is amended: the `Integration` tests still never run in
+`ci.yml`; this non-gating workflow is the one place CI builds and runs the port.

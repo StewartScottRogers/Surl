@@ -103,7 +103,7 @@ What this settles:
 4. **Logins are HTTP's.** Basic and Bearer go unasked; Digest answers a `401` once, with
    `uri="*"`; a `4xx` is exit 0 without `-f` and 22 with it.
 
-**Not measured:** the Linux build (the lane runs Windows only; it is the same tag's `lib/rtsp.c`,
+**Not measured:** ~~the Linux build~~ (measured since, see "Amendment - Measured on Linux" below; the lane runs Windows only; it is the same tag's `lib/rtsp.c`,
 and BL-318 runs every case there through CI); and every libcurl-only request, which waits for the
 driver (decision 12).
 
@@ -591,3 +591,70 @@ fixture (`Protocols/Http/Surl.Protocol.Rtsp.UnitTests/Fixtures/rfc2326-describe`
 against decision 5 as first written; BL-337 re-pins the fixtures to the requests above and builds
 the amended decision 5, and BL-318 depends on it. BL-316, not yet started, takes its fixtures from
 the `ANNOUNCE`, `SETUP` `mode=record`, `RECORD` and `TEARDOWN` rows above.
+
+## Amendment - Choices made while building (BL-1297, 2026-11-16)
+
+Decided by Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), 2026-11-16.
+
+The tasks that built `Surl.Protocol.Rtsp` made the choices below where this ADR was silent. Each
+was recorded only in its task; this amendment makes the ADR the one place that says how the server
+answers. Each is confirmed against the code on 2026-11-16, and none changes a byte. Choices
+BL-315 and BL-316 made are already in decisions 5 and 6 (folded by BL-338 and BL-339), and
+decision 5 as amended by Amendment 1 holds BL-337's.
+
+1. **A request with no usable `CSeq` that announced a body is `400 Bad Request` with no `CSeq`,
+   closing** (BL-313). Decision 2 reads a body only for checks 4 to 7, so the body is never read and
+   the next head could not be found; a missing `CSeq` without a body keeps the connection (check 2).
+   Pinned by `WithoutCSeqButWithABody_Is400WithNoCSeqAndCloses`.
+2. **A body that ends before its `Content-Length` is `400 Bad Request` with the `CSeq`, closing**
+   (BL-313), as the HTTP server answers one; a login bound to the body (item 6) is judged the same
+   way. Pinned by `BodyThatEndsEarly_Is400AndCloses` and
+   `LoginBoundToABodyThatEndsEarly_Is400AndCloses`.
+3. **The connection-limit `503` carries `Server: surl` and no `Date`** (BL-313): the refusal writer
+   has no clock, and the HTTP server's `503` has none either. Pinned by
+   `WriteRefusalAsync_Writes503WithNoCSeqAndHalfCloses`.
+4. **The SDP origin is the connection's local address, written as `IPv4` when it is IPv4-mapped, with
+   an IPv6 scope ID dropped (SDP has no `%`), and as `IP4 0.0.0.0` when the endpoint has no IP
+   address** (BL-313). Pinned by `Describe_IPv4MappedIntoIPv6_IsWrittenAsIPv4`,
+   `Describe_IPv6AddressWithAScope_IsWrittenWithoutIt` and
+   `Describe_EndPointWithNoAddress_IsWrittenAsTheIPv4AnyAddress`.
+5. **A `SETUP` is a write for the login when any `Transport` parameter `mode=` names `record`, in
+   any case, quoted or not** (BL-314). Reading too many `SETUP`s as writes only asks for a login
+   more often. Pinned by `EveryRequestIsJudged_WithAnnounceRecordAndARecordingSetupAsWrites`.
+6. **A verdict with a body check (ADR-0045) is honoured**: the discarded or read body is hashed with
+   SHA-256 and the body check's verdict answers (BL-314), so RTSP never ignores a body-bound login.
+   Pinned by `LoginBoundToTheBody_IsJudgedWithTheBodysSha256`.
+7. **The session's `WWW-Authenticate` values ride on the answer to the judged request only**, as the
+   HTTP server does, not on the next answer (BL-314). Pinned by
+   `ProceedWithChallengeValues_WritesThemOnTheAnswer_AndNotOnTheNextRequestsAnswer`.
+8. **The caller for the content store's share access is the verdict's account, else anonymous; an
+   empty account name is anonymous** (BL-661), and `ANNOUNCE`, which opens its upload before its body
+   is read, uses the first verdict's account. A session keeps the mapping its first `SETUP` made, so
+   a `SETUP` to record by a read-only account is `200` and its `RECORD` is `403`. Statuses are
+   ADR-0102 decision 2.3's. Pinned by `Describe_VerdictNamingNoAccountInAClosedShare_IsAnsweredAsAnAnonymousCallerWith404`
+   and `Record_AccountGrantedReadInTheShare_Is403AfterTheSetup`.
+
+BL-793 (ADR-0134), BL-902 (ADR-0141) and BL-1256 (no wire change) made no RTSP choice outside those
+ADRs; BL-396 left `Surl.Protocol.Rtsp` unchanged.
+
+## Amendment - Measured on Linux (BL-1294, 2026-11-16)
+
+Decided by Claude under Stewart's delegation. This is a record of a measurement; it changes no
+decision above.
+
+BL-1289 ran the conformance tests once on Linux and macOS (CI run
+https://github.com/StewartScottRogers/Surl/actions/runs/43906686682, commit
+`a06ae86113e511d6d6204949c1fbf80e29b41ba9`, attempt 1; details in
+`Documentation/Conformance/Conformance-Off-Windows.md`). The class is
+`UpstreamCurlTalksToSurlOverRtspTests`, 16 tests.
+
+| Reference pin | SHA-256 | Passed | Inconclusive | Failed |
+|---|---|---|---|---|
+| `linux-x64` (curl 8.21.0, static-curl musl) | `153CA463957609117D21A848BE29B70691B85F9E5CC9370C7DAA037B839A4E45` | 16 | 0 | 0 |
+| `osx-arm64` (curl 8.21.0) | `04E0E69BCD3BD814EC093551A0447AC14EDEEA9D395B468A2025DCB3F766EEBF` | 0 | 16 | 0 |
+
+- The Linux build agrees with every measured decision: no RTSP test failed, so no decision is
+  amended and no task is filed.
+- On `osx-arm64` every one of the 16 tests was Inconclusive, as ADR-0026 and decision 11 say,
+  because the macOS reference build lists no `rtsp` protocol.
+- Milestone 5's "still open" for the Linux build is answered by this record.

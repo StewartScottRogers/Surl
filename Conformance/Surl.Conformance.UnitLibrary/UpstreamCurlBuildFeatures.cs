@@ -12,8 +12,9 @@ namespace Surl.Conformance;
 /// Runtests reads some of them from <c>curlinfo</c>, a program only upstream's test build has;
 /// <see cref="ReleaseBuildOptions"/> holds those a default release build of 8.21.0 enables,
 /// measured against the Windows reference pin in BL-389 and probed with every reference pin by
-/// <c>UpstreamCurlShowsItsBuildOptionsTests</c> (BL-598), as are the platform options. <c>Debug</c>, <c>TrackMemory</c> and
-/// <c>unittest</c> are never present: the pinned builds are release builds.
+/// <c>UpstreamCurlShowsItsBuildOptionsTests</c> (BL-598), as are the platform options. <c>Debug</c> and <c>TrackMemory</c>
+/// are present only for a pin whose <c>features</c> line lists them (the supplementary Debug build, ADR-0173);
+/// <c>unittest</c> is never present.
 /// </remarks>
 public static class UpstreamCurlBuildFeatures
 {
@@ -40,6 +41,12 @@ public static class UpstreamCurlBuildFeatures
         "IDN", "IPv6", "Kerberos", "Largefile", "libz", "MultiSSL", "NTLM", "NTLM_WB", "PSL", "SPNEGO",
         "SSL", "SSPI", "threadsafe", "TLS-SRP", "Unicode", "UnixSockets", "zstd",
     ];
+
+    /// <summary>
+    /// The <c>Features:</c> words only a debug build (<c>--enable-debug</c>) prints; a feature of a
+    /// build only when its pin lists the word, so a release build never has them (ADR-0173).
+    /// </summary>
+    private static readonly string[] DebugBuildNames = ["Debug", "TrackMemory"];
 
     /// <summary>
     /// The words of the version line's <c>libcurl/</c> part and the features each one sets.
@@ -87,6 +94,7 @@ public static class UpstreamCurlBuildFeatures
         var words = new HashSet<string>(report.Features, StringComparer.OrdinalIgnoreCase);
 
         features.UnionWith(FeaturesLineNames.Where(words.Contains));
+        features.UnionWith(DebugBuildNames.Where(words.Contains));
         AddFromVersionLine(features, report.VersionLine);
         AddRenamedFeatures(features, words);
         AddPlatformOptions(features);

@@ -25,7 +25,8 @@
   [ADR-0077](ADR-0077-ldap-ntlm-binds-serve-spnego-wrapped-ntlm-and-check-its-mechlistmic.md).
   Decision 10 by BL-344 (2026-10-01), recording what BL-311 measured with the pinned Windows
   build: the refusal's wording, the three sealed binds, the `ou=many` child in the one-level
-  search and why the `ou=many` entries carry `objectClass`.
+  search and why the `ou=many` entries carry `objectClass`. Amendment 2 by BL-1295 (2026-11-16),
+  recording fifteen choices the building tasks made where this ADR was silent.
 - **Amends:** [ADR-0049](ADR-0049-the-mail-servers-sasl-and-apop-logins.md) decision 3's table
   (LDAP joins the protocols of `ntlm`, `negotiate`, `digest-md5`, `gssapi`, `plain`, `external`)
   and decision 6 (the SASL contract becomes protocol-neutral and gains a security layer, decision
@@ -727,3 +728,94 @@ ever finishing.
 - **`RRC` 0 on surl's sealed tokens**, RFC 4121's simplest. Not chosen: `RRC` 28 is what
   Windows' own Kerberos sends and was measured to work; RFC 4121 section 4.2.5 obliges every
   receiver to accept either.
+
+## Amendment 2 - Choices made while building (BL-1295, 2026-11-16)
+
+- **Decided by:** Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"). Each item
+  below is a choice a building task made where this ADR was silent, confirmed against
+  `Protocols/Messaging/Surl.Protocol.Ldap.UnitLibrary` on 2026-11-16. Nothing here changes
+  behaviour; choices already stated above (BL-335, BL-341, Amendment 1), in ADR-0076, ADR-0078,
+  ADR-0139, ADR-0141 or ADR-0158 are not repeated. Test names are in
+  `Surl.Protocol.Ldap.UnitTests` unless a project is named.
+
+1. **A search scope outside 0 to 2 is malformed.** The decoder reads scope strictly
+   (`baseObject`, `singleLevel`, `wholeSubtree`); there is no `subordinateSubtree` extension, so
+   3 or -1 is `EnumerationOutOfRange` and gets the Notice of Disconnection like any malformed
+   request. Why: RFC 4511 section 4.5.1.2 names three values and curl sends only those. Made by
+   BL-289. Pinned by `Decode_SearchWithAnEnumerationOutOfRange_IsEnumerationOutOfRangeWithTheMessageId`.
+2. **DNs, attribute descriptions and OIDs on the wire are strict UTF-8.** Invalid UTF-8 is
+   `InvalidValue`; passwords and attribute values stay raw bytes. Made by BL-289. Pinned by
+   `Decode_NameThatIsNotUtf8_IsInvalidValueWithTheMessageId`.
+3. **An `extensibleMatch` with neither rule nor type, and a `substrings` filter with no parts,
+   are `InvalidValue`; a substring part out of order (initial, any, final) is `UnexpectedTag`.**
+   Why: RFC 4511 section 4.5.1.7 makes each part optional in turn but never all of them. Made by
+   BL-289. Pinned by `Decode_ExtensibleMatchWithNeitherRuleNorType_IsInvalidValue`,
+   `Decode_SubstringsWithNoParts_IsInvalidValue` and `Decode_SubstringsOutOfOrder_IsUnexpectedTag`.
+4. **An entry whose parent is missing while a superior exists is refused.** Decision 1's "every
+   other entry's parent must be" in the directory is read as: an entry with no superior at all is
+   a naming context; one with a superior present but its parent absent is refused
+   (`ParentNotInDirectory`). The check runs once every entry is held, so a child may come before
+   its parent. Made by BL-306. Pinned by
+   `Constructor_AnEntryWhoseParentIsMissingUnderAnExistingSuperior_IsRefused` and
+   `Constructor_AChildBeforeItsParent_IsAccepted`.
+5. **An entry named by the empty DN is refused** (`RootDseEntry`): the root DSE is computed per
+   connection and never stored. Made by BL-306. Pinned by
+   `Constructor_AnEntryNamedByTheEmptyDn_IsRefused`.
+6. **`namingContexts` is ordered ordinally, ignoring case, on the DN as written.** Why: decision
+   1 says "in DN order" and the BCL has no directory-string ordering. Made by BL-306. Pinned by
+   `NamingContexts_AreTheEntriesWithNoSuperiorInTheDirectory`.
+7. **A `1.1` among other requested attribute names is ignored** (RFC 4511 section 4.5.1.8), so
+   `1.1` with `sn` returns `sn`. Made by BL-306. Pinned by the `1.1`, `sn` row of
+   `Search_TheAttributeSelection_PicksTheAttributesReturned`.
+8. **Unicode simple case folding is `ToLowerInvariant(ToUpperInvariant(c))` on each UTF-16 code
+   unit.** Why: the BCL has no case-fold API; it agrees with simple folding on every letter
+   curl's tests use. Made by BL-306. Pinned by `EqualityMatch_UsesTheTypesRule` and the
+   `AL`/`CE `/`TH` row of `Substrings_MatchInOrderWithoutOverlap`.
+9. **Substring parts get space collapsing and case folding but are not trimmed** (the value is),
+   so a part keeps its inner and trailing spaces. Made by BL-306. Pinned by
+   `Substrings_MatchInOrderWithoutOverlap` (the `alice smi` rows, where the space is significant).
+10. **A value that is not UTF-8 under a string rule is Undefined**, as is an assertion that is
+    not UTF-8; a non-integer under `integerMatch` is Undefined. Made by BL-306. Pinned by
+    `Substrings_AgainstAValueThatIsNotUtf8_IsUndefined` and
+    `EqualityMatch_WithAnAssertionThatIsNotUtf8_IsUndefined`.
+11. **An `extensibleMatch` naming a rule and no type is applied to every attribute** of the
+    entry. Made by BL-306. Pinned by `ExtensibleMatch_AppliesTheNamedRuleOrTheTypesOwn`.
+12. **A search's `timeLimit` is measured on the instance's `TimeProvider`**, from the moment the
+    search starts, and checked before each candidate entry. `LdapProtocolServer`'s public
+    constructor takes a required `TimeProvider`, and the composition passes its own, so a test
+    that steps the clock decides when the limit passes. Made by BL-306 and BL-847. Pinned by
+    `Search_PastTheTimeLimit_AnswersTimeLimitExceededWithTheEntriesFoundSoFar` and, in
+    `Surl.Composition.UnitTests`,
+    `ComposeAsync_LdapSearchWithTimeLimitOne_IsCutShortOnlyOnceTheInstancesClockPassesIt`.
+13. **LDIF is read to RFC 2849's letter where decision 1 only named the grammar.** A leading
+    byte order mark is `not UTF-8` on line 1; a value is a SAFE-STRING only if ASCII, so
+    non-ASCII text must be base64; base64 is strict (no inner or trailing whitespace); `version:`
+    is a version line only as the file's first logical line and must read `1`, and a later
+    record starting `version:` is `a record without dn`; a `changetype` line anywhere after `dn`
+    makes `a changetype record`; a description repeated in one record adds values to its first
+    attribute in file order. Made by BL-307. Pinned by `Read_ByteOrderMark_IsNotUtf8OnLineOne`,
+    `Read_RepeatedDescription_AddsValuesInFileOrderToTheFirstAttribute` and the rows of
+    `Read_MalformedFile_IsRefusedWithItsLineAndText` (`café`, `abc!`, `YWJj `, `version: 2`,
+    `version: 1` after a record, `changetype: add`).
+14. **A Sicily `[11]` response that is refused abandons a SASL exchange in progress**, like every
+    other bind that is not its continuation (RFC 4513 section 5.2.1.2). The refused-`[11]` arm
+    calls `Abandon()` before refusing. Made by BL-349. Pinned by
+    `ServeAsync_SaslBindInProgressThenARefusedSicilyResponse_AbandonsTheSaslExchange`.
+15. **The directory reads back as LDIF**: `version: 1`, then each entry after a blank line, in
+    directory order, lines folded at 76 columns, any DN or value that is not a SAFE-STRING as
+    base64, and **every `userPassword` attribute (any case, any options) left out**. The control
+    endpoint answers it as `text/ldif; charset=utf-8`; `Surl.Mcp`'s tool returns it as
+    `{"ldif": ...}`. Made by BL-1219. Pinned by `Write_AUserPasswordWhateverItsCaseOrOptions_IsOmitted`,
+    `Write_ALongLine_IsFoldedAt76ColumnsAndReadsBackWhole`, `Write_AValue_IsASafeStringOrBase64`
+    (this project) and, in `Surl.Control.UnitTests`, `ReadDirectoryAsync_AnswersTheLdifAsTextLdif`.
+
+### Tasks read
+
+BL-219: no choice (CLAUDE.md wording only). BL-289: items 1 to 3; its framing limits are in decision
+7's notes. BL-306: items 4 to 11; its base `invalidDNSyntax` is already in decision 3's list.
+BL-307: item 13 (the ADR's file format and fourteen texts already cover the rest). BL-308: already in
+ADR-0072 (BL-335). BL-309: already in ADR-0072 (BL-341). BL-319: no choice (documentation only).
+BL-327: already in ADR-0072 (Amendment 1). BL-342: already in ADR-0078. BL-349: item 14. BL-797:
+already in ADR-0139. BL-847: item 12. BL-908: no choice for LDAP (shared `ReportedListenUrl`).
+BL-920: already in ADR-0141. BL-1162: no choice (its notes are empty; the design is ADR-0158).
+BL-1163: already in ADR-0158 decision 6. BL-1219: item 15.

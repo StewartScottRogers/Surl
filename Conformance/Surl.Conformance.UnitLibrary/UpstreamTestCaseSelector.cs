@@ -33,8 +33,8 @@ public sealed class UpstreamTestCaseSelector(UpstreamTestCaseSelectionRules rule
         [
             () => When(rules.DisabledCases.Contains(number), UpstreamTestCaseSkipReasons.DisabledUpstream),
             () => When(facts.IsUnitTest, UpstreamTestCaseSkipReasons.UnitTest),
-            () => When(facts.Tools.Count > 0, UpstreamTestCaseSkipReasons.LibTest),
-            () => When(facts.NeedsDebugBuild, UpstreamTestCaseSkipReasons.DebugBuild),
+            () => FindLibtestSkip(number, facts, testCase),
+            () => When(NeedsAnotherBuild(facts), UpstreamTestCaseSkipReasons.DebugBuild),
             () => When(facts.HasScriptCommand, UpstreamTestCaseSkipReasons.PerlCommand),
             () => When(facts.NamesPerlOrOutsideFile, UpstreamTestCaseSkipReasons.NeedsPerl),
             () => When(facts.Has("client", "precheck"), UpstreamTestCaseSkipReasons.Precheck),
@@ -52,6 +52,32 @@ public sealed class UpstreamTestCaseSelector(UpstreamTestCaseSelectionRules rule
     }
 
     private static string? When(bool applies, string reason) => applies ? reason : null;
+
+    // A case with a tool is a libtest case: skipped as libtest unless the runner admits it and the
+    // platform has the programs, then skipped as libtest-not-built when they are pinned but absent
+    // (ADR-0174 decisions 3 to 6).
+    private string? FindLibtestSkip(int number, CaseFacts facts, UpstreamTestCase testCase)
+    {
+        if (facts.Tools.Count == 0)
+        {
+            return null;
+        }
+
+        if (!UpstreamTestCaseLibtests.AdmittedNumbers.Contains(number) || rules.Libtests == UpstreamLibtestAvailability.NotPinned)
+        {
+            return UpstreamTestCaseSkipReasons.LibTest;
+        }
+
+        return rules.Libtests == UpstreamLibtestAvailability.PinnedButAbsent
+            ? UpstreamTestCaseSkipReasons.LibTestNotBuilt(UpstreamTestCaseLibtests.ProgramName(testCase, number))
+            : null;
+    }
+
+    // A case listing Debug or TrackMemory needs a build that has the feature: the supplementary
+    // Debug build's rules do (ADR-0173), the release builds' never do (ADR-0080).
+    private bool NeedsAnotherBuild(CaseFacts facts) =>
+        (facts.Features.Contains("Debug") && !rules.Features.Contains("Debug"))
+        || (facts.Features.Contains("TrackMemory") && !rules.Features.Contains("TrackMemory"));
 
     private bool HasUnsupportedStripLine(CaseFacts facts) =>
         facts.StripLines.Any(strip => !rules.SupportsStripLine(strip.Part, strip.Line));
@@ -111,8 +137,6 @@ public sealed class UpstreamTestCaseSelector(UpstreamTestCaseSelectionRules rule
 
         public bool IsUnitTest =>
             Tools.Any(tool => tool.StartsWith("unit", StringComparison.Ordinal)) || Features.Contains("unittest");
-
-        public bool NeedsDebugBuild => Features.Contains("Debug") || Features.Contains("TrackMemory");
 
         public bool HasScriptCommand =>
             testCase.FindPart("client", "command") is { } command

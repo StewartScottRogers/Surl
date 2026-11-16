@@ -127,7 +127,9 @@ and the two files never share a SHA-256 (a unit test checks this; BL-406).
   does for upstream curl. The port's locator never returns a path listed in
   `UpstreamCurlBuilds.json`, and the upstream locator never accepts the port: they are separate
   types so neither can be handed the other's binary.
-- **CI does not run them.** They are `[TestCategory("Integration")]`, which the CI fast run
+- **CI does not run them.** (Amended by ADR-0089 Amendment 8, BL-1301: `ci.yml` still never runs them,
+  but a separate non-gating workflow builds the port at its pinned commit and runs Phase 7 on Linux and
+  macOS.) They are `[TestCategory("Integration")]`, which the CI fast run
   excludes, and no CI runner has the port's binary; they run on a developer's or a lane's machine
   when a pinned binary is present. Surl's correctness never depends on them, because the unit tests
   replaying specification bytes are the proof.

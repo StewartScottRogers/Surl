@@ -19,6 +19,11 @@ inputs:
     required: false
     default: 'false'
 
+  debug:
+    description: "'true' to also build and verify the supplementary Debug build (ADR-0173, Linux only)."
+    required: false
+    default: 'false'
+
 outputs:
   path:
     description: The full path of the verified reference build.
@@ -178,6 +183,100 @@ runs:
         Write-Output "$env:PINNED_PATH matches the pin $env:PINNED_SHA256."
         chmod 755 $env:PINNED_PATH
         & $env:PINNED_PATH --version
+
+    # The Debug build has no published download either: Build-DebugUpstreamCurl.ps1 builds it
+    # from pinned sources in a digest-pinned container, only when the cache does not already
+    # hold the pinned file, and nothing runs it before its SHA-256 matches the pin (ADR-0173).
+    - name: Read the Debug upstream curl pin
+      id: debug-pin
+      if: inputs.debug == 'true'
+      shell: pwsh
+      env:
+        PLATFORM: ${{ inputs.platform }}
+      run: |
+        $pin = @((Get-Content -Raw UpstreamCurlBuilds.json | ConvertFrom-Json).builds |
+          Where-Object { $_.platform -eq $env:PLATFORM -and $_.role -eq 'supplementary' -and ($_.features -split ' ') -contains 'Debug' })
+        if ($pin.Count -ne 1) {
+          Write-Output "::error::UpstreamCurlBuilds.json pins $($pin.Count) supplementary Debug builds for $env:PLATFORM; exactly one is needed."
+          exit 1
+        }
+        "sha256=$($pin[0].sha256)" >> $env:GITHUB_OUTPUT
+        "path=$($pin[0].defaultPath)" >> $env:GITHUB_OUTPUT
+        "directory=$(Split-Path -Parent $pin[0].defaultPath)" >> $env:GITHUB_OUTPUT
+
+    - name: Prepare the Debug upstream curl directory
+      shell: bash
+      if: inputs.debug == 'true'
+      run: |
+        sudo mkdir -p "${{ steps.debug-pin.outputs.directory }}"
+        sudo chown "$(id -u):$(id -g)" "${{ steps.debug-pin.outputs.directory }}"
+
+    - name: Restore the Debug upstream curl build
+      id: debug-cache
+      if: inputs.debug == 'true'
+      uses: actions/cache@v4
+      with:
+        path: ${{ steps.debug-pin.outputs.directory }}
+        key: debug-upstream-curl-${{ inputs.platform }}-${{ steps.debug-pin.outputs.sha256 }}-${{ hashFiles('Build-DebugUpstreamCurl.ps1') }}
+
+    - name: Build the Debug upstream curl build
+      if: inputs.debug == 'true' && steps.debug-cache.outputs.cache-hit != 'true'
+      shell: pwsh
+      run: ./Build-DebugUpstreamCurl.ps1 -OutputPath "${{ steps.debug-pin.outputs.path }}"
+
+    - name: Verify the Debug upstream curl build
+      if: inputs.debug == 'true'
+      shell: pwsh
+      env:
+        PINNED_PATH: ${{ steps.debug-pin.outputs.path }}
+        PINNED_SHA256: ${{ steps.debug-pin.outputs.sha256 }}
+      run: |
+        if (-not (Test-Path -LiteralPath $env:PINNED_PATH)) {
+          Write-Output "::error::$env:PINNED_PATH does not exist."
+          exit 1
+        }
+        $actual = (Get-FileHash -LiteralPath $env:PINNED_PATH -Algorithm SHA256).Hash
+        if ($actual -ne $env:PINNED_SHA256) {
+          Write-Output "::error::$env:PINNED_PATH hashes to $actual, but UpstreamCurlBuilds.json pins $env:PINNED_SHA256. The build did not reproduce; not running it (ADR-0173)."
+          exit 1
+        }
+        Write-Output "$env:PINNED_PATH matches the pin $env:PINNED_SHA256."
+        chmod 755 $env:PINNED_PATH
+        & $env:PINNED_PATH --version
+
+    # The libtest programs are built by the same script run, so one more check: every program
+    # in the libtest pin's programs map must hash to its pin before anything runs it (ADR-0174
+    # decisions 2 and 4). A missing program or a differing hash fails the job.
+    - name: Verify the libtest programs
+      if: inputs.debug == 'true'
+      shell: pwsh
+      env:
+        PLATFORM: ${{ inputs.platform }}
+      run: |
+        $pin = @((Get-Content -Raw UpstreamCurlBuilds.json | ConvertFrom-Json).builds |
+          Where-Object { $_.platform -eq $env:PLATFORM -and $_.kind -eq 'libtest' })
+        if ($pin.Count -ne 1) {
+          Write-Output "::error::UpstreamCurlBuilds.json pins $($pin.Count) libtest builds for $env:PLATFORM; exactly one is needed."
+          exit 1
+        }
+        $failed = $false
+        foreach ($program in $pin[0].programs.PSObject.Properties) {
+          $path = Join-Path $pin[0].defaultPath $program.Name
+          if (-not (Test-Path -LiteralPath $path)) {
+            Write-Output "::error::$path does not exist."
+            $failed = $true
+            continue
+          }
+          $actual = (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash
+          if ($actual -ne $program.Value) {
+            Write-Output "::error::$path hashes to $actual, but UpstreamCurlBuilds.json pins $($program.Value). The build did not reproduce; not running it (ADR-0174)."
+            $failed = $true
+          }
+          else {
+            Write-Output "$path matches the pin $($program.Value)."
+          }
+        }
+        if ($failed) { exit 1 }
 
     # The OpenLDAP build's GSS-API is MIT's, which reads a credential cache rather than -u's
     # password: the GSSAPI conformance test runs kinit against the hand-built test KDC to fill

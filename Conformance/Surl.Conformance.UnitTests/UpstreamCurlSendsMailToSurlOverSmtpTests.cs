@@ -256,6 +256,75 @@ public sealed class UpstreamCurlSendsMailToSurlOverSmtpTests
     }
 
     [TestMethod]
+    public async Task Send_SaslExternalWithAClientCertificateOverSmtps_Exits0AndStoresTheMail()
+    {
+        using var authority = TestCertificateAuthority.Create();
+        var dataDirectory = NewTemporaryDirectory();
+        var accounts = await WriteExternalAccountsFileAsync(TestCertificateAuthority.ClientCommonName);
+        var mail = await WriteMailFileAsync(Mail);
+        UpstreamCurlRunResult result;
+        await using (var surl = await StartSurlAsync(
+            "smtps", dataDirectory,
+            "--cert", authority.ServerCertificateFile, "--key", authority.ServerKeyFile, "--cacert", authority.CaCertificateFile,
+            "--user-file", accounts))
+        {
+            result = await RunOpenSslUpstreamCurlAsync(
+                "-sS", "-v", "--cacert", authority.CaCertificateFile, "--cert", authority.ClientCertificateFile,
+                "--key", authority.ClientKeyFile, "--login-options", "AUTH=EXTERNAL", "-u", $"{TestCertificateAuthority.ClientCommonName}:",
+                "--mail-from", "a@x", "--mail-rcpt", $"{TestCertificateAuthority.ClientCommonName}@example.com", "-T", mail, MailUrl(surl));
+        }
+
+        Assert.AreEqual(0, result.ExitCode, result.StandardError);
+        StringAssert.Contains(result.StandardError, "AUTH EXTERNAL");
+        var stored = await ReadInboxAsync(dataDirectory, TestCertificateAuthority.ClientCommonName);
+        Assert.HasCount(1, stored);
+        AssertStored(stored[0], "a@x", "ESMTPSA", Mail);
+    }
+
+    [TestMethod]
+    public async Task Send_SaslExternalWithoutAClientCertificate_ExitsLoginDeniedAndStoresNothing()
+    {
+        var dataDirectory = NewTemporaryDirectory();
+        var accounts = await WriteExternalAccountsFileAsync(TestCertificateAuthority.ClientCommonName);
+        var mail = await WriteMailFileAsync(Mail);
+        UpstreamCurlRunResult result;
+        await using (var surl = await StartSurlAsync("smtps", dataDirectory, "--self-signed", "--user-file", accounts))
+        {
+            result = await RunOpenSslUpstreamCurlAsync(
+                "-sS", "-k", "--login-options", "AUTH=EXTERNAL", "-u", $"{TestCertificateAuthority.ClientCommonName}:",
+                "--mail-from", "a@x", "--mail-rcpt", $"{TestCertificateAuthority.ClientCommonName}@example.com", "-T", mail, MailUrl(surl));
+        }
+
+        Assert.AreEqual(LoginDenied, result.ExitCode, result.StandardError);
+        StringAssert.Contains(result.StandardError, "curl: (67) Login denied");
+        Assert.IsEmpty(await ReadInboxAsync(dataDirectory, TestCertificateAuthority.ClientCommonName));
+    }
+
+    [TestMethod]
+    public async Task Send_SaslExternalForACertificateWithNoAccount_ExitsLoginDeniedAndStoresNothing()
+    {
+        using var authority = TestCertificateAuthority.Create();
+        var dataDirectory = NewTemporaryDirectory();
+        var accounts = await WriteExternalAccountsFileAsync("someone-else");
+        var mail = await WriteMailFileAsync(Mail);
+        UpstreamCurlRunResult result;
+        await using (var surl = await StartSurlAsync(
+            "smtps", dataDirectory,
+            "--cert", authority.ServerCertificateFile, "--key", authority.ServerKeyFile, "--cacert", authority.CaCertificateFile,
+            "--user-file", accounts))
+        {
+            result = await RunOpenSslUpstreamCurlAsync(
+                "-sS", "--cacert", authority.CaCertificateFile, "--cert", authority.ClientCertificateFile,
+                "--key", authority.ClientKeyFile, "--login-options", "AUTH=EXTERNAL", "-u", $"{TestCertificateAuthority.ClientCommonName}:",
+                "--mail-from", "a@x", "--mail-rcpt", "someone-else@example.com", "-T", mail, MailUrl(surl));
+        }
+
+        Assert.AreEqual(LoginDenied, result.ExitCode, result.StandardError);
+        StringAssert.Contains(result.StandardError, "curl: (67) Login denied");
+        Assert.IsEmpty(await ReadInboxAsync(dataDirectory, "someone-else"));
+    }
+
+    [TestMethod]
     [DataRow("CRAM-MD5", false, "ESMTPA", DisplayName = "CRAM-MD5 over smtp")]
     [DataRow("CRAM-MD5", true, "ESMTPA", DisplayName = "CRAM-MD5 over smtp with --sasl-ir")]
     [DataRow("PLAIN", false, "ESMTPSA", DisplayName = "PLAIN after STARTTLS")]
@@ -531,6 +600,19 @@ public sealed class UpstreamCurlSendsMailToSurlOverSmtpTests
         await File.WriteAllBytesAsync(path, contents, TestContext.CancellationToken);
         return path;
     }
+
+    // An account named for the certificate's subject simple name; EXTERNAL never reads its password (ADR-0049 decision 4).
+    private async Task<string> WriteExternalAccountsFileAsync(string accountName)
+    {
+        var path = Path.Combine(NewTemporaryDirectory(), "users.txt");
+        await File.WriteAllTextAsync(path, $"{accountName}:unused-password\n", TestContext.CancellationToken);
+        return path;
+    }
+
+    // The Windows reference build uses Schannel, which takes a client certificate from a certificate
+    // store, not a PEM file; the OpenSSL build takes --cert and --key everywhere (ADR-0049 amendment 4).
+    private Task<UpstreamCurlRunResult> RunOpenSslUpstreamCurlAsync(params string[] arguments) =>
+        PinnedUpstreamCurl.RunBuildLinkedAgainstAsync(TestContext, "OpenSSL", arguments);
 
     private Task<SurlOnLoopback> StartSurlAsync(string scheme, string dataDirectory, params string[] options) =>
         SurlOnLoopback.StartOverDirectoryAsync(scheme, dataDirectory, options, TestContext.CancellationToken);

@@ -651,6 +651,18 @@ were served to that build before any test pinned them.
   authentication mechanism` (ADR-0049 section 7), and the session stays not authenticated after
   every refusal.
 
+## Measured on Linux and macOS
+
+Recorded by BL-1291 from the measurement in Documentation/Conformance/Conformance-Off-Windows.md (BL-1289): CI run https://github.com/StewartScottRogers/Surl/actions/runs/43906686682 (commit 06ae86113e511d6d6204949c1fbf80e29b41ba9, attempt 1 of both legs), upstream curl 8.21.0 reference builds curl-linux-x86_64-musl-8.21.0.tar.xz (SHA-256 153CA463957609117D21A848BE29B70691B85F9E5CC9370C7DAA037B839A4E45) and curl-macos-arm64-8.21.0.tar.xz (SHA-256  4E0E69BCD3BD814EC093551A0447AC14EDEEA9D395B468A2025DCB3F766EEBF).
+
+| Platform | `UpstreamCurlReadsMailFromSurlOverImapTests` Passed | Inconclusive | Failed |
+|---|---|---|---|
+| linux-x64 | 44 | 0 | 0 |
+| osx-arm64 | 44 | 0 | 0 |
+
+- No row differs from Windows: no test of this class pins a platform-specific exit, so none has an [OSCondition] twin, and none was Inconclusive off Windows.
+- Outside this class, `GssapiOverImap_NoAccount_ExitsLoginDenied` (in `UpstreamCurlLogsInToSurlWithKerberosTests`) is skipped on both platforms with `Test is only supported on Windows`; it needs the Windows SSPI reference build.
+- Nothing failed, so no task was filed.
 ## Alternatives considered
 
 - **Advertise `IMAP4rev2` too.** Rejected in decision 1: curl never enables it, and it doubles the

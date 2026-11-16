@@ -66,6 +66,101 @@ public sealed class UpstreamCurlLocatorTests
     }
 
     [TestMethod]
+    public void LocateDebug_SupplementaryBuildListsDebug_ReturnsIt()
+    {
+        var other = Pin(SupplementaryPath, SupplementaryBytes, UpstreamCurlBuildRole.Supplementary);
+        var debug = Pin("/pinned/debug/curl", PortBytes, UpstreamCurlBuildRole.Supplementary) with { Features = ["SSL", "Debug"] };
+        var locator = new UpstreamCurlLocator(new FakeUpstreamCurlFileAccess()
+            .WithFile(SupplementaryPath, SupplementaryBytes)
+            .WithFile("/pinned/debug/curl", PortBytes));
+
+        var location = locator.LocateDebug([other, debug], "win-x64");
+
+        Assert.AreSame(debug, location.Build);
+    }
+
+    [TestMethod]
+    public void LocateDebug_NoDebugBuildPinned_IsUnavailable()
+    {
+        var reference = Pin(ReferencePath, ReferenceBytes) with { Features = ["Debug"] };
+        var locator = new UpstreamCurlLocator(new FakeUpstreamCurlFileAccess().WithFile(ReferencePath, ReferenceBytes));
+
+        var location = locator.LocateDebug([reference], "win-x64");
+
+        Assert.IsFalse(location.IsAvailable);
+        Assert.AreEqual(UpstreamCurlUnavailability.NoPinnedBuildForPlatform, location.Unavailability);
+    }
+
+    [TestMethod]
+    public void LocateDebug_NullArguments_Throw()
+    {
+        var locator = new UpstreamCurlLocator(new FakeUpstreamCurlFileAccess());
+
+        Assert.ThrowsExactly<ArgumentNullException>(() => locator.LocateDebug(null!, "win-x64"));
+        Assert.ThrowsExactly<ArgumentNullException>(() => locator.LocateDebug([], null!));
+    }
+
+
+    [TestMethod]
+    public void LocateLibtest_ProgramPresentAndHashed_ReturnsItAsARunnableFile()
+    {
+        var entry = LibtestPin("linux-x64", "AB");
+        var locator = new UpstreamCurlLocator(new FakeUpstreamCurlFileAccess().WithFile("/pinned/libtest/libtests", LibraryBytes));
+        entry = entry with { Programs = new Dictionary<string, string> { ["libtests"] = FakeUpstreamCurlFileAccess.Sha256Of(LibraryBytes) } };
+
+        var location = locator.LocateLibtest([entry], "linux-x64");
+
+        Assert.IsTrue(location.IsAvailable);
+        Assert.AreEqual("/pinned/libtest/libtests", location.Build!.DefaultPath);
+        Assert.AreEqual(UpstreamCurlBuildKind.Curl, location.Build.Kind);
+    }
+
+    [TestMethod]
+    public void LocateLibtest_ProgramFileAbsent_SaysItIsNotInstalled()
+    {
+        var entry = LibtestPin("linux-x64", "AB");
+        var locator = new UpstreamCurlLocator(new FakeUpstreamCurlFileAccess());
+
+        var location = locator.LocateLibtest([entry], "linux-x64");
+
+        Assert.IsFalse(location.IsAvailable);
+        Assert.AreEqual(UpstreamCurlUnavailability.PinnedBuildFileAbsent, location.Unavailability);
+    }
+
+    [TestMethod]
+    public void LocateLibtest_ProgramHashDiffers_Refuses()
+    {
+        var entry = LibtestPin("linux-x64", "AB");
+        var locator = new UpstreamCurlLocator(new FakeUpstreamCurlFileAccess().WithFile("/pinned/libtest/libtests", LibraryBytes));
+
+        Assert.ThrowsExactly<UnpinnedUpstreamCurlException>(() => locator.LocateLibtest([entry], "linux-x64"));
+    }
+
+    [TestMethod]
+    public void LocateLibtest_PlatformPinsNone_IsUnavailable()
+    {
+        var locator = new UpstreamCurlLocator(new FakeUpstreamCurlFileAccess());
+
+        var location = locator.LocateLibtest([LibtestPin("linux-x64", "AB")], "win-x64");
+
+        Assert.AreEqual(UpstreamCurlUnavailability.NoPinnedBuildForPlatform, location.Unavailability);
+    }
+
+    [TestMethod]
+    public void LocateLibtest_NullArguments_Throw()
+    {
+        var locator = new UpstreamCurlLocator(new FakeUpstreamCurlFileAccess());
+
+        Assert.ThrowsExactly<ArgumentNullException>(() => locator.LocateLibtest(null!, "win-x64"));
+        Assert.ThrowsExactly<ArgumentNullException>(() => locator.LocateLibtest([], null!));
+    }
+
+    private static PinnedUpstreamCurlBuild LibtestPin(string platform, string hash) =>
+        new(platform, "/pinned/libtest", string.Empty, string.Empty, [], UpstreamCurlBuildRole.Supplementary, UpstreamCurlBuildKind.Libtest)
+        {
+            Programs = new Dictionary<string, string> { ["libtests"] = hash },
+        };
+    [TestMethod]
     public void Locate_SupplementaryRole_ReturnsTheSupplementaryBuild()
     {
         var supplementary = Pin(SupplementaryPath, SupplementaryBytes, UpstreamCurlBuildRole.Supplementary);

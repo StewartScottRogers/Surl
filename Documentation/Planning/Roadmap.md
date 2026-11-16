@@ -32,9 +32,10 @@ task board in `Tasks/`, never here.
 
 ## Milestone 2 — Phase 2
 
-- **Status:** Built, and proven with the Windows reference build (2026-09-30). Not closed:
-  what the Linux and macOS reference builds negotiate over SSH is pinned as
-  predicted, not yet recorded as measured.
+- **Status:** Built, and proven with the Windows reference build (2026-09-30). Closed (2026-11-16): the
+  Linux and macOS reference builds' results are recorded in ADR-0051 decision 2 and ADR-0054
+  decision 16 (BL-1289, BL-1290; CI run 43906686682, no SSH test failed). `--compressed-ssh`
+  stays a prediction on those builds, since nothing measured it.
 - **Delivers:** the FTP server (`Surl.Protocol.Ftp`, schemes `ftp` and `ftps`) with passive
   and active data connections through the data-connection seam (`IDataConnectionOpener`,
   implemented over sockets by `Surl.Networking`), explicit and implicit FTPS, and
@@ -57,10 +58,10 @@ task board in `Tasks/`, never here.
 
 ## Milestone 3 — Phase 3
 
-- **Status:** Built, and proven with the Windows reference build (2026-09-30). Not closed:
-  SASL `EXTERNAL` over the mail servers is proven by unit tests only, and what the Linux and
-  macOS reference builds do against the mail servers is not yet recorded against the servers'
-  ADRs. SASL `GSSAPI` is proven with the Windows reference build through the hand-built
+- **Status:** Built, and proven with the Windows reference build (2026-09-30). Closed (2026-11-16): the
+  Linux and macOS reference builds' results are recorded in ADR-0053, ADR-0055 and ADR-0056,
+  "Measured on Linux and macOS" (BL-1291), and SASL `EXTERNAL` is proven against pinned
+  upstream curl over `smtps`, `imaps` and `pop3s` (BL-1298 to BL-1300, ADR-0049 Amendment 4). SASL `GSSAPI` is proven with the Windows reference build through the hand-built
   loopback test KDC of ADR-0065 (`UpstreamCurlLogsInToSurlWithKerberosTests`, over `smtp`,
   `imap` and `pop3`), and a refused `GSSAPI` ticket's reason is written to the verbose log.
 - **Delivers:** the mail store (`Surl.MailStore`: mailboxes per owner, the POP3 maildrop lock,
@@ -87,9 +88,9 @@ task board in `Tasks/`, never here.
 ## Milestone 4 — Phase 4
 
 - **Status:** Built, and proven with the Windows reference build and its `libcurl-4.dll`
-  (2026-09-30). Not closed: what the Linux and macOS reference builds do against the WebSocket
-  server is not yet recorded against ADR-0071, and the libcurl cases cannot run there, since
-  those builds carry no shared library (ADR-0071 decision 10).
+  (2026-09-30). Closed (2026-11-16): all 20 WebSocket tool tests passed on Linux and macOS and
+  are recorded in ADR-0071 (BL-1292). The libcurl cases cannot run there, since those builds
+  carry no shared library: a decided limit (ADR-0071 decision 10), not an open item.
 - **Delivers:** the HTTP message library the HTTP, WebSocket and RTSP servers share
   (`Surl.HttpMessage`: the bounded HTTP/1.x request-head reader and its head timeout, request-line
   and field-line parsing, response heads and `WWW-Authenticate` challenge fields), with the HTTP
@@ -110,7 +111,7 @@ task board in `Tasks/`, never here.
 
 ## Milestone 5 — Phase 5
 
-- **Status:** Built, and proven with the Windows builds (2026-09-30), with the LDAP open items closed since: the OpenLDAP-backed upstream curl that ADR-0076 pins binds, upgrades with `STARTTLS` and searches a live `surl` over `ldap` and `ldaps` (BL-312); Kerberos inside LDAP's `GSS-SPNEGO` is built (BL-327, ADR-0072 Amendment 1); LDAP SASL `GSSAPI` is measured against the re-pinned OpenLDAP and MIT Kerberos build (BL-342, ADR-0078). Still open (2026-11-14): what the Linux and macOS reference builds do over SMB, and the Linux one over RTSP, is not yet recorded against ADR-0073 and ADR-0074, and choices the building tasks made where ADR-0072, ADR-0073 and ADR-0074 were silent are recorded in those tasks, not yet in the ADRs (no task filed).
+- **Status:** Built, and proven with the Windows builds (2026-09-30), with the LDAP open items closed since: the OpenLDAP-backed upstream curl that ADR-0076 pins binds, upgrades with `STARTTLS` and searches a live `surl` over `ldap` and `ldaps` (BL-312); Kerberos inside LDAP's `GSS-SPNEGO` is built (BL-327, ADR-0072 Amendment 1); LDAP SASL `GSSAPI` is measured against the re-pinned OpenLDAP and MIT Kerberos build (BL-342, ADR-0078). Closed (2026-11-16): the Linux and macOS SMB results are recorded in ADR-0073 (BL-1293), the Linux RTSP results in ADR-0074 (BL-1294; on macOS RTSP is Inconclusive, ADR-0026), and the choices the building tasks made where ADR-0072, ADR-0073 and ADR-0074 were silent are in those ADRs' amendments (BL-1295 to BL-1297). Nothing is left open.
 - **Delivers:** the LDAP server (`Surl.Protocol.Ldap`, schemes `ldap` and `ldaps`): a BER codec on
   `System.Formats.Asn1`, a read-only directory loaded from `<path>/.surl/ldap/directory.ldif`
   (empty in memory), searches, compares, the root DSE, simple, Sicily and SASL binds with their
@@ -181,24 +182,23 @@ task board in `Tasks/`, never here.
 
 - **Status:** Built for `win-x64` and measured once; not closed (2026-11-12). The Curl port was
   measured at commit `b42c319ba940f66452b2b6f3e9910d46825b08fe`, the one commit every family
-  file measured: 1,518 cases, 1,420 agreements, 96 port defects behind 18 findings, 2 cases not
-  comparable, and no Surl defect. Still open: off Windows every Phase 7 test is Inconclusive,
-  because `CurlPortBuilds.json` pins the port for `win-x64` alone; the 47 `OpenLdap_` cases wait
-  for a `linux-x64` port pin (no task filed); `Extended.md` still records 4 of the 19 extended
-  clients, though the board shows the other `Integration` tasks Done (BL-1124 refreshes it); and
-  Stewart has not yet filed the 18 findings on the port's board (his to do).
+  file measured: 1,518 cases, 1,420 agreements, 96 port defects behind 23 findings, 2 cases not
+  comparable, and no Surl defect. `Extended.md` records all 19 extended clients. Still open: off
+  Windows every Phase 7 test is Inconclusive, because `CurlPortBuilds.json` pins the port for
+  `win-x64` alone; the 47 `OpenLdap_` cases wait for a `linux-x64` port pin (no task filed); and
+  Stewart has not yet filed the 23 findings on the port's board (his to do).
 - **Delivers:** the harness in `Surl.Conformance` (`CurlPortClientPins`, `CurlPortClientLocator`,
   `CurlPortClientRunner`, `CurlPortResultNormaliser`, `CurlPortComparison`, `CurlPortVerdict`,
   `CurlPortFinding`, `CurlPortLibcurlComparison` and `CurlPortTestCaseClient`); one
   `CurlPortBesideUpstreamCurlOver<Family>Tests` class per family, running the port beside the
   pinned upstream build against a fresh `surl` each; the findings files and their summary in
-  `Documentation/Conformance/CurlPort/`; and `Port-Board-Handoff.md`, the 18 findings as tasks
+  `Documentation/Conformance/CurlPort/`; and `Port-Board-Handoff.md`, the 23 findings as tasks
   in the port's own task shape. What was measured and found is in the product overview, "Built
   for Phase 7: the Curl port measured beside pinned upstream curl".
 - **Exit criteria:** the Phase 7 row's "Proves", success criterion 5: the Curl port measured
   beside pinned upstream curl with every disagreement written down as a finding a test reads
   and handed to the port's board. Met for `win-x64` and the original protocols. Not met for
-  other platforms, the `OpenLdap_` cases or the remaining extended clients (above).
+  other platforms or the `OpenLdap_` cases (above).
 - **Decisions:** ADR-0003 decision 6 (Phase 7 is a measurement of the port, never a check of
   Surl) and ADR-0089 (how Phase 7 measures it: the normalisation, the verdicts, the findings,
   the handoff and the single port commit).
@@ -210,11 +210,10 @@ groundwork and, per server, on the Phase 6 pieces it rides (gRPC on HTTP/2, WebT
 and QUIC, `coaps` on DTLS).
 
 - **Status:** Built (2026-11-12): all 19 `Surl.Extended.Protocol.*` servers exist and are composed
-  by `ExtendedProtocolServers`; `coaps` is composed as a deferred server. Not closed: the Curl port's
-  client has run against 4 of them (`socketio`, `webtransport`, `coap`, `xmpp`) in the first
-  Phase 7 pass, and a matrix row's "Covered by" may still name a task. On the board every
-  extended `Integration` task (BL-422 to BL-541) is Done (2026-11-14), but `Extended.md` has not
-  been refreshed from them (BL-1124).
+  by `ExtendedProtocolServers`; `coaps` is composed as a deferred server. Not closed: a matrix
+  row's "Covered by" may still name a task. Every extended `Integration` task (BL-422 to BL-541)
+  is Done (2026-11-14), and `Extended.md` records the Curl port's client against all 19 extended
+  clients.
 - **Delivers:** `Surl.Extended.Protocol.<Name>` for S3, AzureStorage, GoogleCloudStorage,
   OciRegistry, Grpc, SignalR, SocketIo, WebTransport, McpServer, Coap, DnsQuery, Mqtt5, Amqp0, Amqp1,
   Kafka, Nats, Stomp, Xmpp and Redis; the switch `SURL_EXTENSIONS=0`; the extended default-port

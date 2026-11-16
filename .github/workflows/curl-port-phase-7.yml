@@ -1,0 +1,108 @@
+# Phase 7: builds the Curl port at the commit CurlPortBuilds.json pins on linux-x64, osx-arm64
+# and win-x64, publishes it twice, and compares both hashes with each other and with the pin
+# (ADR-0089 Amendment 8, BL-1304). Test running is added by BL-1307 and BL-1308.
+#
+# THIS WORKFLOW GATES NOTHING. It is not part of ci.yml, runs only on workflow_dispatch and a
+# weekly schedule (never on a push or pull request), is not a required check, and
+# RunDarkFactory.ps1 reads only the "CI" workflow for its merge. A red run is a build problem
+# or a finding to read, not a Surl failure (ADR-0003 decision 6). The port is never an oracle.
+name: curl-port-phase-7
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Mondays 04:17 UTC.
+    - cron: '17 4 * * 1'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: curl-port-phase-7-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-curl-port:
+    name: Build the Curl port (${{ matrix.platform }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-latest, platform: linux-x64 }
+          - { os: macos-14, platform: osx-arm64 }
+          - { os: windows-latest, platform: win-x64 }
+    steps:
+      - uses: actions/checkout@v4
+
+      # The one commit every platform builds is the one the win-x64 curl entry pins. A platform's
+      # own entry, once pinned, supplies the publish command and the expected SHA-256.
+      - name: Read the Curl port pin
+        id: pin
+        shell: pwsh
+        env:
+          PLATFORM: ${{ matrix.platform }}
+        run: |
+          $builds = @((Get-Content -Raw CurlPortBuilds.json | ConvertFrom-Json).builds |
+            Where-Object { -not $_.kind -or $_.kind -eq 'curl' })
+          $own = @($builds | Where-Object { $_.platform -eq $env:PLATFORM })
+          $reference = @($builds | Where-Object { $_.platform -eq 'win-x64' })
+          if ($reference.Count -ne 1) {
+            Write-Output "::error::CurlPortBuilds.json must pin exactly one win-x64 curl entry; it pins $($reference.Count)."
+            exit 1
+          }
+          $commit = if ($own.Count -eq 1) { $own[0].commit } else { $reference[0].commit }
+          $command = if ($own.Count -eq 1) { $own[0].publishCommand } else { $reference[0].publishCommand -replace '-r win-x64', "-r $env:PLATFORM" }
+          # The pin's output folder is a path on the machine that pinned it; each publish here gets its own.
+          $command = $command -replace '\s-o\s+("[^"]*"|\S+)', ''
+          "commit=$commit" >> $env:GITHUB_OUTPUT
+          "command=$command" >> $env:GITHUB_OUTPUT
+          "expected=$(if ($own.Count -eq 1) { $own[0].sha256 } else { '' })" >> $env:GITHUB_OUTPUT
+          Write-Output "Building the Curl port at $commit for $env:PLATFORM: $command"
+
+      - name: Check out the Curl port at the pinned commit
+        uses: actions/checkout@v4
+        with:
+          repository: StewartScottRogers/Curl
+          ref: ${{ steps.pin.outputs.commit }}
+          path: curl-port
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: curl-port/global.json
+
+      - name: Publish the Curl port twice and compare the hashes
+        shell: pwsh
+        env:
+          PLATFORM: ${{ matrix.platform }}
+          PUBLISH_COMMAND: ${{ steps.pin.outputs.command }}
+          EXPECTED_SHA256: ${{ steps.pin.outputs.expected }}
+          COMMIT: ${{ steps.pin.outputs.commit }}
+        run: |
+          $executable = if ($env:PLATFORM -eq 'win-x64') { 'curl.exe' } else { 'curl' }
+          $hashes = @()
+          foreach ($run in 'one', 'two') {
+            $folder = Join-Path $env:RUNNER_TEMP "curl-port-publish-$run"
+            Push-Location curl-port
+            try {
+              Invoke-Expression "$env:PUBLISH_COMMAND -o `"$folder`""
+              if ($LASTEXITCODE -ne 0) { Write-Output "::error::Publish $run failed."; exit 1 }
+            } finally { Pop-Location }
+            $file = Join-Path $folder $executable
+            if (-not (Test-Path -LiteralPath $file)) { Write-Output "::error::Publish $run produced no $executable."; exit 1 }
+            $hashes += (Get-FileHash -LiteralPath $file -Algorithm SHA256).Hash
+            Write-Output "Publish ${run}: $($hashes[-1])"
+          }
+          if ($hashes[0] -ne $hashes[1]) {
+            Write-Output "::error::Two publishes of $env:COMMIT for $env:PLATFORM differ ($($hashes[0]) and $($hashes[1])); the publish is not reproducible, so no hash can be pinned (ADR-0089 Amendment 8)."
+            exit 1
+          }
+          if (-not $env:EXPECTED_SHA256) {
+            Write-Output "::warning::CurlPortBuilds.json has no $env:PLATFORM curl pin yet. The reproducible hash is $($hashes[0]); pin it for commit $env:COMMIT."
+            exit 0
+          }
+          if ($hashes[0] -ne $env:EXPECTED_SHA256) {
+            Write-Output "::error::The $env:PLATFORM publish hashes to $($hashes[0]), but CurlPortBuilds.json pins $env:EXPECTED_SHA256."
+            exit 1
+          }
+          Write-Output "The $env:PLATFORM publish matches the pin $env:EXPECTED_SHA256."

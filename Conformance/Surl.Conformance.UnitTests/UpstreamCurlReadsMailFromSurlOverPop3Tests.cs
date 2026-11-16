@@ -32,6 +32,8 @@ public sealed class UpstreamCurlReadsMailFromSurlOverPop3Tests
 
     private const string Recipient = "tester@example.com";
 
+    private const string ExternalAccountPassword = "unused-password";
+
     // ADR-0056's mail.txt: 33 bytes, every line ending CRLF.
     private static readonly byte[] Mail = "From: a@x\r\nSubject: hi\r\n\r\nhello\r\n"u8.ToArray();
 
@@ -363,6 +365,47 @@ public sealed class UpstreamCurlReadsMailFromSurlOverPop3Tests
     }
 
     [TestMethod]
+    public async Task Retrieve_SaslExternalWithAClientCertificateOverPop3s_Exits0WithTheMessage()
+    {
+        using var authority = TestCertificateAuthority.Create();
+        var alice = TestCertificateAuthority.ClientCommonName;
+        var dataDirectory = NewTemporaryDirectory();
+        var accounts = await WriteExternalAccountsFileAsync(alice);
+        UpstreamCurlRunResult result;
+        await using (var surl = await StartSurlAsync(
+            dataDirectory, "pop3s",
+            "--cert", authority.ServerCertificateFile, "--key", authority.ServerKeyFile, "--cacert", authority.CaCertificateFile,
+            "--user-file", accounts))
+        {
+            await SendMailOverSmtpAsync(surl, $"{alice}:{ExternalAccountPassword}", $"{alice}@example.com");
+            result = await RunOpenSslUpstreamCurlAsync(
+                "-sS", "-v", "--cacert", authority.CaCertificateFile, "--cert", authority.ClientCertificateFile,
+                "--key", authority.ClientKeyFile, "--login-options", "AUTH=EXTERNAL", "-u", $"{alice}:", Pop3Url(surl, "/1"));
+        }
+
+        Assert.AreEqual(0, result.ExitCode, result.StandardError);
+        StringAssert.Contains(result.StandardError, "AUTH EXTERNAL");
+        AssertIsTheDeliveredMessage(result.StandardOutput, await ReadInboxAsync(dataDirectory, alice), "ESMTPA");
+    }
+
+    [TestMethod]
+    public async Task Retrieve_SaslExternalWithoutAClientCertificate_ExitsLoginDeniedWithNoOutput()
+    {
+        var alice = TestCertificateAuthority.ClientCommonName;
+        var accounts = await WriteExternalAccountsFileAsync(alice);
+        UpstreamCurlRunResult result;
+        await using (var surl = await StartSurlAsync(NewTemporaryDirectory(), "pop3s", "--self-signed", "--user-file", accounts))
+        {
+            await SendMailOverSmtpAsync(surl, $"{alice}:{ExternalAccountPassword}", $"{alice}@example.com");
+            result = await RunOpenSslUpstreamCurlAsync(
+                "-sS", "-k", "--login-options", "AUTH=EXTERNAL", "-u", $"{alice}:", Pop3Url(surl, "/1"));
+        }
+
+        Assert.AreEqual(LoginDenied, result.ExitCode, result.StandardError);
+        Assert.IsEmpty(result.StandardOutput);
+    }
+
+    [TestMethod]
     public async Task Retrieve_MaildropHeldByAnotherSession_ExitsLoginDenied()
     {
         using var accounts = await AccountsFile.WriteAsync(TestContext.CancellationToken);
@@ -457,17 +500,30 @@ public sealed class UpstreamCurlReadsMailFromSurlOverPop3Tests
 
     // curl delivers mail.txt over smtp as BL-210 does: logged in as tester when credentials are
     // given, else anonymously; the URL ends /c so the trace field names EHLO c.
-    private async Task SendMailOverSmtpAsync(SurlOnLoopback surl, string? credentials)
+    private async Task SendMailOverSmtpAsync(SurlOnLoopback surl, string? credentials, string recipient = Recipient)
     {
         var smtp = surl.BaseUrlOf("smtp");
         var mail = await WriteMailFileAsync();
         var result = await RunUpstreamCurlAsync(
             [
                 "-sS", .. credentials is null ? (string[])[] : ["-u", credentials],
-                "--mail-from", "a@x", "--mail-rcpt", Recipient, "-T", mail, $"smtp://{smtp.Host}:{smtp.Port}/c",
+                "--mail-from", "a@x", "--mail-rcpt", recipient, "-T", mail, $"smtp://{smtp.Host}:{smtp.Port}/c",
             ]);
         Assert.AreEqual(0, result.ExitCode, $"The SMTP delivery failed: {result.StandardError}");
     }
+
+    // An account named for the certificate's subject simple name; EXTERNAL never reads its password (ADR-0049 decision 4).
+    private async Task<string> WriteExternalAccountsFileAsync(string accountName)
+    {
+        var path = Path.Combine(NewTemporaryDirectory(), "users.txt");
+        await File.WriteAllTextAsync(path, $"{accountName}:{ExternalAccountPassword}\n", TestContext.CancellationToken);
+        return path;
+    }
+
+    // The Windows reference build uses Schannel, which takes a client certificate from a certificate
+    // store, not a PEM file; the OpenSSL build takes --cert and --key everywhere (ADR-0049 amendment 4).
+    private Task<UpstreamCurlRunResult> RunOpenSslUpstreamCurlAsync(params string[] arguments) =>
+        PinnedUpstreamCurl.RunBuildLinkedAgainstAsync(TestContext, "OpenSSL", arguments);
 
     private static string Pop3Url(SurlOnLoopback surl, string path)
     {
