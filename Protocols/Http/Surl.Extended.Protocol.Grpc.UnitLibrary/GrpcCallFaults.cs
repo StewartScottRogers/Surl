@@ -31,9 +31,10 @@ internal static class GrpcCallFaults
     /// <param name="context">The exchange: its fault plan, event stream, clock, log and listen URL.</param>
     /// <param name="path">The call's full <c>:path</c>, <c>/&lt;service&gt;/&lt;method&gt;</c>.</param>
     /// <param name="methodName">The method's name.</param>
+    /// <param name="accountName">The account the call logged in with, or <see langword="null"/> when none.</param>
     /// <returns>What to do with the call.</returns>
     /// <exception cref="OperationCanceledException">The exchange was cancelled during a delay.</exception>
-    public static async ValueTask<Outcome> ApplyAsync(ExchangeContext context, string path, string methodName)
+    public static async ValueTask<Outcome> ApplyAsync(ExchangeContext context, string path, string methodName, string? accountName)
     {
         var point = new FaultPoint(FaultStage.Command)
         {
@@ -42,6 +43,7 @@ internal static class GrpcCallFaults
             Scheme = context.Scheme,
             Path = path,
             Command = methodName,
+            Account = string.IsNullOrEmpty(accountName) ? null : accountName,
         };
         var rule = await CommandStageFaults.FindAndApplyAsync(context, point, path);
 

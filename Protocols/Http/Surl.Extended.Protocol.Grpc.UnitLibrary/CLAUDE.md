@@ -84,4 +84,5 @@ Rules:
 Faults (BL-1188, ADR-0124 decisions 4 and 9): `GrpcCallFaults` asks the exchange's fault plan once per call
 that names a served method (`command` the method name, `path` the full `:path`). Delay holds the call, drop
 resets the stream with no response, an `error` rule with a reply of status 1 to 16 and an optional message
-ends the call Trailers-Only with it.
+ends the call Trailers-Only with it. The point also names the logged-in account (`account`, from the
+authentication verdict's `AccountName`; null when none), so a rule scoped with `account=` fires only for it (BL-1241).

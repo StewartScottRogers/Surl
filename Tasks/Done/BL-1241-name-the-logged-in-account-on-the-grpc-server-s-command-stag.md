@@ -8,7 +8,7 @@ depends-on: []
 touches: [Protocols/Http/Surl.Extended.Protocol.Grpc.UnitLibrary, Protocols/Http/Surl.Extended.Protocol.Grpc.UnitTests]
 requirement: FR-062
 created: 2026-11-16
-completed:
+completed: 2026-11-16
 ---
 # BL-1241 — Name the logged-in account on the gRPC server's command-stage fault point
 
@@ -26,15 +26,18 @@ A `delay`, `drop` or `error` fault rule scoped with `account=<name>` fires on a 
 
 ## Acceptance criteria
 
-- [ ] A test in `Protocols/Http/Surl.Extended.Protocol.Grpc.UnitTests` shows a call with `alice`'s Basic login under a `ScriptedFaultPlan` error rule with `Account = "alice"` and reply `14 busy` ends Trailers-Only with `grpc-status: 14`, and the recorded point's `Account` is `alice`.
-- [ ] A test shows the same rule does not fire for `bob`'s call: it is served.
-- [ ] A test shows an unauthenticated call (no accounts configured) leaves the point's `Account` null.
-- [ ] `dotnet build Protocols/Http/Surl.Extended.Protocol.Grpc.UnitLibrary -warnaserror` is clean, and the library keeps 100% line and branch coverage.
-- [ ] `Protocols/Http/Surl.Extended.Protocol.Grpc.UnitLibrary/CLAUDE.md`, section "Faults", states that the point names the logged-in account.
+- [x] A test in `Protocols/Http/Surl.Extended.Protocol.Grpc.UnitTests` shows a call with `alice`'s Basic login under a `ScriptedFaultPlan` error rule with `Account = "alice"` and reply `14 busy` ends Trailers-Only with `grpc-status: 14`, and the recorded point's `Account` is `alice`.
+- [x] A test shows the same rule does not fire for `bob`'s call: it is served.
+- [x] A test shows an unauthenticated call (no accounts configured) leaves the point's `Account` null.
+- [x] `dotnet build Protocols/Http/Surl.Extended.Protocol.Grpc.UnitLibrary -warnaserror` is clean, and the library keeps 100% line and branch coverage.
+- [x] `Protocols/Http/Surl.Extended.Protocol.Grpc.UnitLibrary/CLAUDE.md`, section "Faults", states that the point names the logged-in account.
 
 ## Notes
+
+- AuthenticateAsync now returns the verdict's AccountName; GrpcCallFaults.ApplyAsync sets FaultPoint.Account (null when empty). Tests added in GrpcCallFaultTests (alice fires, bob served, no login null). 234 library tests pass.
 
 ## Log
 
 - 2026-11-16: Created.
 - 2026-11-16: Backlog -> Doing.
+- 2026-11-16: Doing -> Done. gRPC command-stage fault point names the logged-in account, so account-scoped rules fire

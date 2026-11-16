@@ -135,11 +135,11 @@ public sealed class GrpcStreamHandler : IHttp2StreamHandler
             throw new GrpcCallException(GrpcStatus.TeTrailersRequired);
         }
 
-        await AuthenticateAsync(head, cancellationToken);
+        var accountName = await AuthenticateAsync(head, cancellationToken);
         var timeout = GrpcTimeout.Read(Values(head, "grpc-timeout"));
         var encoding = GrpcMessageDecompression.ReadEncoding(FirstValue(head, "grpc-encoding"));
         var method = FindMethod(head.Target);
-        var fault = await GrpcCallFaults.ApplyAsync(context, head.Target, method.Name);
+        var fault = await GrpcCallFaults.ApplyAsync(context, head.Target, method.Name, accountName);
         if (fault.IsDrop)
         {
             await stream.ResetAsync(Http2ErrorCode.InternalError, "dropped by a fault rule");
@@ -155,7 +155,8 @@ public sealed class GrpcStreamHandler : IHttp2StreamHandler
         return await ServeWithinDeadlineAsync(method, requests, writer, timeout, cancellationToken);
     }
 
-    private async Task AuthenticateAsync(Http2RequestHead head, CancellationToken cancellationToken)
+    // Returns the account the call logged in with, or null when none was named.
+    private async Task<string?> AuthenticateAsync(Http2RequestHead head, CancellationToken cancellationToken)
     {
         var credentials = FirstValue(head, "authorization");
         if (credentials is not null && !IsBasicOrBearer(credentials))
@@ -167,7 +168,7 @@ public sealed class GrpcStreamHandler : IHttp2StreamHandler
         switch (verdict.Outcome)
         {
             case HttpAuthenticationOutcome.Proceed:
-                return;
+                return verdict.AccountName;
             case HttpAuthenticationOutcome.Challenge:
                 throw new GrpcCallException(
                     GrpcStatus.Unauthenticated,
