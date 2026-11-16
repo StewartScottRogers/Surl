@@ -8,7 +8,7 @@ depends-on: []
 touches: [Documentation/Planning/Decisions]
 requirement: FR-060
 created: 2026-11-16
-completed:
+completed: 2026-11-16
 ---
 # BL-1243 — Decide what a QUIC or DTLS exchange publishes as its bytes, so a test can read what an HTTP/3, WebTransport, DNS-over-QUIC or coaps client sent
 
@@ -30,14 +30,18 @@ An ADR, decided by Claude under Stewart's delegation, says what `ExchangeBytesEv
 
 ## Acceptance criteria
 
-- [ ] A new ADR under `Documentation/Planning/Decisions/`, with the next free number, marked "Decided by Claude under Stewart's delegation", answers questions 1 to 4 and states that no byte a client receives changes.
-- [ ] ADR-0124 carries an "Amended by" line naming the new ADR, if decision 1 changes.
-- [ ] One feature task per library the ADR changes is filed with `task-board.ps1 new`, depending on this task, with exact `touches`; a contract task in `Surl.Protocol.Abstractions.UnitLibrary` comes before the `Surl.Quic`, `Surl.Http3`, `Surl.Dtls` or server tasks that use it. Each is listed in Notes.
-- [ ] One follow-up proves it from a host: a `Surl.Api.UnitTests` or `Surl.Composition.UnitTests` test reading an HTTP/3 request's `:path` back from `SurlServer.Exchanges` (or the composition's event stream), named in that task's criteria.
+- [x] A new ADR under `Documentation/Planning/Decisions/`, with the next free number, marked "Decided by Claude under Stewart's delegation", answers questions 1 to 4 and states that no byte a client receives changes.
+- [x] ADR-0124 carries an "Amended by" line naming the new ADR, if decision 1 changes.
+- [x] One feature task per library the ADR changes is filed with `task-board.ps1 new`, depending on this task, with exact `touches`; a contract task in `Surl.Protocol.Abstractions.UnitLibrary` comes before the `Surl.Quic`, `Surl.Http3`, `Surl.Dtls` or server tasks that use it. Each is listed in Notes.
+- [x] One follow-up proves it from a host: a `Surl.Api.UnitTests` or `Surl.Composition.UnitTests` test reading an HTTP/3 request's `:path` back from `SurlServer.Exchanges` (or the composition's event stream), named in that task's criteria.
 
 ## Notes
+
+Decided in ADR-0169: layers Wire, Decrypted (QUIC stream and datagram payloads, DTLS record plaintext) and Decoded (HTTP/3 header lists); sink seam `IDecryptedBytesSink` on `ExchangeContext`; wire counts and bytes unchanged. ADR-0124 amended. Follow-ups, in order: BL-1266 (contract), BL-1267 (engine), BL-1268 (Quic), BL-1269 (Dtls), BL-1270 (Http3), BL-1271 (four servers), BL-1272 (composition proof of HTTP/3 `:path`), BL-1273 (host fields).
+
 
 ## Log
 
 - 2026-11-16: Created.
 - 2026-11-16: Backlog -> Doing.
+- 2026-11-16: Doing -> Done. ADR-0169 decides what QUIC and DTLS exchanges publish; BL-1266 to BL-1273 filed

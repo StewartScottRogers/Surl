@@ -29,6 +29,7 @@
 - **Amended by (continued):** [ADR-0165](ADR-0165-how-tls-srp-and-socks5-gss-api-logins-publish-login-judged-events-and-honour-refuse-login.md) (decisions 1 and 4: TLS-SRP and SOCKS5 GSS-API logins are published, and `refuse-login` is applied inside the TLS-SRP handshake, shaped as a wrong password).
 - **Amended by (continued):** [ADR-0167](ADR-0167-what-a-reset-snapshot-and-restore-do-with-in-progress-object-uploads-and-the-oci-and-mcp-servers-tokens.md) (decision 3 also resets and restores in-progress object uploads, the OCI tokens and the MCP OAuth state and sessions; a removed account's tokens stop at once).
 - **Amended by (continued):** [ADR-0168](ADR-0168-how-the-content-store-and-the-mail-store-learn-the-exchange-behind-a-write.md) (decision 4: a rule scoped by `listener` or `scheme` now fires on the content store and the mail store, which learn the exchange behind a write).
+- **Amended by (continued):** [ADR-0169](ADR-0169-what-a-quic-or-dtls-exchange-publishes-as-its-bytes.md) (decision 1: a QUIC or DTLS exchange also publishes its decrypted stream, datagram and record payloads and HTTP/3 decoded headers, as further layers of `ExchangeBytesEvent`).
 - **Acted on by:** BL-785 to BL-821 and BL-823, and the extended-server follow-ups listed under
   Consequences.
 
