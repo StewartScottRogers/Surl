@@ -24,11 +24,12 @@ internal static class SocksCommandFaults
     /// <param name="context">The exchange: its fault plan, clocks, event stream, listen URL and log.</param>
     /// <param name="client">The connection a drop aborts.</param>
     /// <param name="target">The target, <c>host:port</c>.</param>
+    /// <param name="accountName">The account the client logged in as, or <see langword="null"/> for an anonymous session and SOCKS4.</param>
     /// <returns>
     /// The error rule, or the drop rule (the connection is already aborted), or <see langword="null"/>
     /// to serve as usual - after a delay too.
     /// </returns>
-    public static async ValueTask<FaultRule?> FindAsync(ExchangeContext context, IConnection client, string target)
+    public static async ValueTask<FaultRule?> FindAsync(ExchangeContext context, IConnection client, string target, string? accountName = null)
     {
         var point = new FaultPoint(FaultStage.Command)
         {
@@ -37,6 +38,7 @@ internal static class SocksCommandFaults
             Scheme = context.Scheme,
             Path = target,
             Command = ConnectCommand,
+            Account = string.IsNullOrEmpty(accountName) ? null : accountName,
         };
         var rule = await CommandStageFaults.FindAndApplyAsync(context, client, point, target);
         if (rule is null or { Kind: FaultKind.Delay })

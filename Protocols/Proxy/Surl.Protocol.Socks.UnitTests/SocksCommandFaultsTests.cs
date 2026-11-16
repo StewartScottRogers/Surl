@@ -124,13 +124,57 @@ public sealed class SocksCommandFaultsTests
         Assert.IsEmpty(run.Events.Events);
     }
 
+    private static byte[] Socks5LoginAndConnect(string user, string password) =>
+    [
+        0x05, 0x01, 0x02, 0x01, (byte)user.Length, .. System.Text.Encoding.ASCII.GetBytes(user), (byte)password.Length, .. System.Text.Encoding.ASCII.GetBytes(password),
+        .. Socks5Request(0x01, 0x01, Loopback, 8080),
+    ];
+
+    [TestMethod]
+    public async Task Socks5Connect_LoggedInAsTheRulesAccount_IsTheChosenReplyAndThePointNamesTheAccount()
+    {
+        var run = await RunWithAccountsAsync(
+            "socks5", Socks5LoginAndConnect("alice", "secret"), null, new ScriptedProxyAccounts(), new FaultRule("f1", FaultKind.Error) { Account = "alice", Reply = "2" });
+
+        byte[] expected = [0x05, 0x02, 0x01, 0x00, .. Socks5Failure(2)];
+        CollectionAssert.AreEqual(expected, run.Client.WrittenBytes);
+        Assert.AreEqual("alice", run.Plan.Points.Single().Account);
+        Assert.HasCount(1, run.Events.Events);
+    }
+
+    [TestMethod]
+    public async Task Socks5Connect_LoggedInAsAnotherAccount_IsNotHeldByTheRuleAndIsGranted()
+    {
+        var accounts = new ScriptedProxyAccounts(alice: PasswordLoginVerdict.Accepted, refused: PasswordLoginVerdict.AcceptedUnchecked);
+
+        var run = await RunWithAccountsAsync(
+            "socks5", Socks5LoginAndConnect("bob", "pw"), Origin(), accounts, new FaultRule("f1", FaultKind.Error) { Account = "alice", Reply = "2" });
+
+        Assert.IsEmpty(run.Events.Events);
+        Assert.AreEqual("bob", run.Plan.Points.Single().Account);
+        Assert.HasCount(1, run.Origins.Requests);
+    }
+
+    [TestMethod]
+    public async Task Connect_OfAnAnonymousSocks5SessionAndOfSocks4_LeavesThePointsAccountNull()
+    {
+        var anonymous = await RunAsync("socks5", Socks5Connect(), Origin());
+        var socks4 = await RunAsync("socks4", Socks4Connect(), Origin());
+
+        Assert.IsNull(anonymous.Plan.Points.Single().Account);
+        Assert.IsNull(socks4.Plan.Points.Single().Account);
+    }
     private static byte[] Socks4Connect() => Socks4Request(0x01, 8080, Loopback, "");
 
     private static byte[] Socks5Connect() => [.. Socks5Greeting, .. Socks5Request(0x01, 0x01, Loopback, 8080)];
 
     private static InMemoryConnection Origin() => new([], localEndPoint: new IPEndPoint(IPAddress.Loopback, 8080));
 
-    private static async Task<Run> RunAsync(string scheme, byte[] request, InMemoryConnection? origin, params FaultRule[] rules)
+    private static Task<Run> RunAsync(string scheme, byte[] request, InMemoryConnection? origin, params FaultRule[] rules) =>
+        RunWithAccountsAsync(scheme, request, origin, null, rules);
+
+    private static async Task<Run> RunWithAccountsAsync(
+        string scheme, byte[] request, InMemoryConnection? origin, IAuthenticationPolicy? accounts, params FaultRule[] rules)
     {
         var client = ConnectionOf(request);
         var origins = new InMemoryOriginConnector();
@@ -150,7 +194,7 @@ public sealed class SocksCommandFaultsTests
             Events = events,
         };
 
-        await new SocksProtocolServer(origins).ServeAsync(client, context);
+        await new SocksProtocolServer(origins, accounts).ServeAsync(client, context);
 
         return new Run(client, origins, log, events, plan);
     }

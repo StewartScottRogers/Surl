@@ -8,7 +8,7 @@ depends-on: []
 touches: [Protocols/Proxy/Surl.Protocol.Socks.UnitLibrary, Protocols/Proxy/Surl.Protocol.Socks.UnitTests]
 requirement: FR-062
 created: 2026-11-16
-completed:
+completed: 2026-11-16
 ---
 # BL-1240 — Name the logged-in account on the SOCKS5 server's command-stage fault point
 
@@ -27,16 +27,19 @@ A `delay`, `drop` or `error` fault rule scoped with `account=<name>` fires on a 
 
 ## Acceptance criteria
 
-- [ ] A test in `Protocols/Proxy/Surl.Protocol.Socks.UnitTests` shows a SOCKS5 client logged in with RFC 1929 as `alice` gets `05 02` for a `CONNECT` under `error;account=alice;reply=2` (a `ScriptedFaultPlan` rule with `Account = "alice"`), and `ScriptedFaultPlan`'s recorded point has `Account` `alice`.
-- [ ] A test shows the same rule does not fire for a client logged in as `bob`: the `CONNECT` is granted.
-- [ ] A test shows a GSS-API login's point carries the client principal as `Account`.
-- [ ] A test shows an anonymous SOCKS5 session and a SOCKS4 request leave the point's `Account` null.
-- [ ] `dotnet build Protocols/Proxy/Surl.Protocol.Socks.UnitLibrary -warnaserror` is clean, and the library keeps 100% line and branch coverage.
-- [ ] `Protocols/Proxy/Surl.Protocol.Socks.UnitLibrary/CLAUDE.md` states that the command-stage point names the logged-in account.
+- [x] A test in `Protocols/Proxy/Surl.Protocol.Socks.UnitTests` shows a SOCKS5 client logged in with RFC 1929 as `alice` gets `05 02` for a `CONNECT` under `error;account=alice;reply=2` (a `ScriptedFaultPlan` rule with `Account = "alice"`), and `ScriptedFaultPlan`'s recorded point has `Account` `alice`.
+- [x] A test shows the same rule does not fire for a client logged in as `bob`: the `CONNECT` is granted.
+- [x] A test shows a GSS-API login's point carries the client principal as `Account`.
+- [x] A test shows an anonymous SOCKS5 session and a SOCKS4 request leave the point's `Account` null.
+- [x] `dotnet build Protocols/Proxy/Surl.Protocol.Socks.UnitLibrary -warnaserror` is clean, and the library keeps 100% line and branch coverage.
+- [x] `Protocols/Proxy/Surl.Protocol.Socks.UnitLibrary/CLAUDE.md` states that the command-stage point names the logged-in account.
 
 ## Notes
+
+GSS-API: Socks5GssApiNegotiation exposes Account (client principal) once accepted; Socks5Exchange keeps it with the RFC 1929 name.
 
 ## Log
 
 - 2026-11-16: Created.
 - 2026-11-16: Backlog -> Doing.
+- 2026-11-16: Doing -> Done. SOCKS5 command-stage fault point names the logged-in account

@@ -22,6 +22,9 @@ internal sealed class Socks5GssApiNegotiation(IConnection client, SocksClientRea
     /// <summary>The GSS-API sub-negotiation version, <c>01</c>.</summary>
     public const byte Version = 0x01;
 
+    /// <summary>The Kerberos client principal once its login is accepted, else <see langword="null"/>.</summary>
+    public string? Account { get; private set; }
+
     /// <summary>The message type carrying a context-establishment token.</summary>
     public const byte AuthenticationMessage = 0x01;
 
@@ -68,6 +71,8 @@ internal sealed class Socks5GssApiNegotiation(IConnection client, SocksClientRea
         {
             await WriteMessageAsync(AuthenticationMessage, securityContext.CreateApRepToken());
         }
+
+        Account = securityContext.ClientPrincipal.ToString();
 
         return await NegotiateProtectionAsync(securityContext, handshakeToken);
     }
