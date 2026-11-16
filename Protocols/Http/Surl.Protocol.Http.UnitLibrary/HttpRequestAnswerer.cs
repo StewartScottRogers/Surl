@@ -137,9 +137,7 @@ internal sealed partial class HttpRequestAnswerer : IHttpRequestHandler
     // read is answered as absent, so a GET or HEAD in it is the 404 a missing path gets
     // (ADR-0102 decision 2.3); a PUT the store does not permit is the 403 ADR-0133 gives it.
     private ContentCaller ContentCallerOf(string? accountName) =>
-        string.IsNullOrEmpty(accountName)
-            ? ContentCaller.Anonymous(context.Scheme)
-            : ContentCaller.ForAccount(accountName, context.Scheme);
+        ContentCaller.ForExchange(context, string.IsNullOrEmpty(accountName) ? null : accountName);
 
     // A body the server cannot read is left unread, and the answer says so.
     private async Task<HttpAnswer> AnswerFromContentStoreAsync(HttpRequest request, ContentCaller caller, IReadOnlyList<string> challenges, CancellationToken cancellationToken)
