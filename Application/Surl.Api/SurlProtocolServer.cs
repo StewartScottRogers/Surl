@@ -14,4 +14,15 @@ namespace Surl.Api;
 /// Builds the server, once per start, from the instance's services; it returns an <see cref="IConnectionProtocolServer"/>
 /// or an <see cref="IDatagramProtocolServer"/>.
 /// </param>
-public sealed record SurlProtocolServer(string Scheme, Func<SurlProtocolServices, IProtocolServer> Create);
+public sealed record SurlProtocolServer(string Scheme, Func<SurlProtocolServices, IProtocolServer> Create)
+{
+    /// <summary>
+    /// Says whether a fault rule's <c>reply</c> is a chosen error this protocol allows (ADR-0172), the part a built-in
+    /// scheme's reply shape plays for it. Null, the default, means an <c>error</c> rule scoped to this scheme or one of
+    /// its listeners is refused (<see cref="ArgumentException"/>), at start and at <see cref="SurlServerFaults.Add"/>.
+    /// Called with the rule's <c>reply</c>, never null; a predicate that throws is an <see cref="ArgumentException"/>
+    /// naming the rule. The server receives an accepted rule through <see cref="ExchangeContext.Faults"/> and answers
+    /// <c>Reply</c> in its own wire format.
+    /// </summary>
+    public Func<string, bool>? FitsErrorReply { get; init; }
+}

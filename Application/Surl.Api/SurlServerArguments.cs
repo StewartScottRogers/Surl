@@ -208,7 +208,7 @@ internal static class SurlServerArguments
             ListenUrls = custom.BuiltInListenUrls.Count == 0 ? [] : commandLine.ListenUrls,
             Faults =
             [
-                .. options.Faults.Select((fault, index) => CustomProtocolServers.WithScopeOf(commandLine.Faults[index], fault)),
+                .. options.Faults.Select((fault, index) => custom.WithScopeOf(commandLine.Faults[index], fault)),
                 .. commandLine.Faults.Skip(options.Faults.Count),
             ],
         };

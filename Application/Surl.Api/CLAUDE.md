@@ -105,8 +105,11 @@ measures it by name.
   `ListenUrls` is emptied. `BoundUrls` is put back in the order given (`InOrderGiven`), since the composition serves
   custom listen URLs last. A fault rule scoped to a custom listener or scheme is read by `surl`'s reader with a
   stand-in (`http://127.0.0.1:0`, `http`) and gets its own scope back (`WithScopeOf` at start, `Read` while
-  serving); an `error` rule scoped so is refused, having no reply shape, as is any custom scope in
-  `AdditionalArguments` (`surl`'s reader refuses it).
+  serving); an `error` rule scoped so is refused unless the server declares `FitsErrorReply`
+  (BL-1287, ADR-0172): then `ToReadable` checks the rule's `reply` with the predicate (a misfit or a throw is an
+  `ArgumentException` naming the rule), reads it with the stand-in reply `500`, and `WithScopeOf`/`Read` put the real
+  `reply` back; `ResponseOverrideHook.ToRule` does the same for an `AddOverride` error answer at a custom-scheme
+  point (a refusal is a `HookFailedEvent`). Any custom scope in `AdditionalArguments` is refused (`surl`'s reader).
 - Control endpoint (BL-1176, ADR-0124 decision 7): `ControlListenUrl` and `ControlTokenFile` are composed as `--control` and `--control-token-file` (so every refusal is `surl`'s, a `SurlServerStartException`); `SurlServer.ControlUrl` is `ComposedServing.ControlListenUrl` once bound, null without them. The token file is read through `ReadStartFile`.
 - `SurlServerHostSeams.ReadStartFile` is handed to the composition's `ReadStartFile`, so tests
   give the `--user-file` and `--hostkey` files in memory (`ApiTestSeams.StartFiles`). The

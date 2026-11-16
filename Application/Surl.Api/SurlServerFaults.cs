@@ -76,7 +76,7 @@ public sealed class SurlServerFaults
             throw new ArgumentException("A response override's scope gives a listener or a scheme, not both.", nameof(scope));
         }
 
-        var hook = new ResponseOverrideHook(decide, events, timeProvider, hookTimeLimit);
+        var hook = new ResponseOverrideHook(decide, events, timeProvider, hookTimeLimit, custom);
         var planScope = new FaultOverrideScope
         {
             Listener = scope.Listener,
