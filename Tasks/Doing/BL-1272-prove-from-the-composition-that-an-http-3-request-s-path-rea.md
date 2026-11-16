@@ -31,3 +31,4 @@ ADR-0169; extends `SurlServerCompositionTests.EventsAndFaults.cs`. Use a hand-bu
 ## Log
 
 - 2026-11-16: Created.
+- 2026-11-16: Backlog -> Doing.
