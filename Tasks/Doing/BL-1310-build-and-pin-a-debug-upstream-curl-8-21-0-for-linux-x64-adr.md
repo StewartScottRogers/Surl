@@ -34,3 +34,4 @@ ADR-0173 decisions 1 to 5. Model it on `Build-OpenLdapUpstreamCurl.ps1` and ADR-
 ## Log
 
 - 2026-11-16: Created by BL-1303 (ADR-0173).
+- 2026-11-16: Backlog -> Doing.
