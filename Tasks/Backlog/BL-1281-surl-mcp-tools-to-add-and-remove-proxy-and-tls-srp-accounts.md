@@ -4,7 +4,7 @@ title: Surl.Mcp: tools to add and remove proxy and TLS-SRP accounts
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-1244, BL-1279]
+depends-on: [BL-1244, BL-1279, BL-1280]
 touches: [Application/Surl.Mcp.UnitLibrary, Application/Surl.Mcp.UnitTests]
 requirement: FR-061
 created: 2026-11-16
@@ -28,7 +28,10 @@ ADR-0170 decision 4, after BL-1279. Shaped like `add_account` and `remove_accoun
 
 ## Notes
 
+- 2026-11-16: `Surl.Mcp.UnitLibrary` drives `Surl.Api`'s `SurlServer`, which exposes no `ComposedStores`. `ComposedStores.AddProxyAccount` and friends exist (BL-1279), but the `SurlServer.ProxyAccounts` and `TlsSrpAccounts` members the tools should call are BL-1280's (touches `Surl.Api`, in Doing on another lane). Added BL-1280 to `depends-on`. Model the tools on `AddAccountTool` and `RemoveAccountTool`, with a refusal for `InvalidOperationException` when the store is absent.
+
 ## Log
 
 - 2026-11-16: Created.
 - 2026-11-16: Backlog -> Doing.
+- 2026-11-16: Doing -> Backlog. Needs BL-1280's Surl.Api ProxyAccounts and TlsSrpAccounts members; added to depends-on
