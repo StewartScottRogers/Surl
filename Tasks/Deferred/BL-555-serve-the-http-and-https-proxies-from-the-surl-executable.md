@@ -66,3 +66,4 @@ and `surl --aihelp` documents them.
 - 2026-11-06: Backlog -> Doing.
 - 2026-11-06: Doing -> Backlog. Needs Application/Surl.Composition.UnitLibrary (proxy registration lives there since ADR-0124), held by BL-803; touches widened
 - 2026-11-06: Backlog -> Deferred. Split into BL-1002, BL-1003 and BL-1004 (over the 60-minute size limit; Stewart asked for a backlog audit 2026-11-06)
+- 2026-11-15: Reviewed by task-planner: finished. Every part of its split is Done: BL-1002, BL-1003, BL-1004. Stays in Deferred only because task-board.ps1 allows Deferred -> Backlog alone; BL-1235 closes it to Done with BL-1234's close-split.

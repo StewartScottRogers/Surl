@@ -56,3 +56,4 @@ into the one `MailboxStore` and authentication policy the SMTP, IMAP and POP3 se
 - 2026-11-05: Backlog -> Doing.
 - 2026-11-05: Doing -> Blocked. Stewart: Surl dark factory timed out after 120 min; see Z:\repos\Surl.logs\BL-653-20261105-054539-L9.jsonl
 - 2026-11-05: Blocked -> Deferred. Split into BL-880, BL-881, BL-882, BL-883 (timed out after 120 min; Stewart asked for the split 2026-11-05)
+- 2026-11-15: Reviewed by task-planner: finished. Every part of its split is Done: BL-880, BL-881, BL-882, BL-883. Stays in Deferred only because task-board.ps1 allows Deferred -> Backlog alone; BL-1235 closes it to Done with BL-1234's close-split.

@@ -56,3 +56,4 @@ completed:
 - 2026-11-05: Backlog -> Doing.
 - 2026-11-05: Doing -> Backlog. Needs Application/Surl.Composition.UnitLibrary and .UnitTests (gs registers beside s3 in ExtendedProtocolServers), which BL-803 in Doing touches
 - 2026-11-06: Backlog -> Deferred. Split into BL-1026 and BL-1027 (over the 60-minute size limit; Stewart asked for a backlog audit 2026-11-06)
+- 2026-11-15: Reviewed by task-planner: finished. Every part of its split is Done: BL-1026, BL-1027. Stays in Deferred only because task-board.ps1 allows Deferred -> Backlog alone; BL-1235 closes it to Done with BL-1234's close-split.

@@ -50,3 +50,4 @@ alone today, and changing it is a contract change to `Surl.Protocol.Abstractions
 
 - 2026-11-05: Created.
 - 2026-11-06: Backlog -> Deferred. Split into BL-1020 and BL-1021 (over the 60-minute size limit; Stewart asked for a backlog audit 2026-11-06)
+- 2026-11-15: Reviewed by task-planner: finished. Every part of its split is Done: BL-1020, BL-1021. Stays in Deferred only because task-board.ps1 allows Deferred -> Backlog alone; BL-1235 closes it to Done with BL-1234's close-split.

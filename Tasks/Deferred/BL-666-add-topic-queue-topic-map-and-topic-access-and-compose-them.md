@@ -49,3 +49,4 @@ shares, with each widening option warned at start.
 
 - 2026-11-04: Created.
 - 2026-11-06: Backlog -> Deferred. Split into BL-990, BL-991 and BL-992 (over the 60-minute size limit; Stewart asked for a backlog audit 2026-11-06)
+- 2026-11-15: Reviewed by task-planner: finished. Every part of its split is Done: BL-990, BL-991, BL-992. Stays in Deferred only because task-board.ps1 allows Deferred -> Backlog alone; BL-1235 closes it to Done with BL-1234's close-split.

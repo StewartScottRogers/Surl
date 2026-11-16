@@ -48,3 +48,4 @@ three off.
 - 2026-11-04: Amended by task-planner: depends on BL-614 and touches `Surl.Composition`, where BL-609 and BL-614 move
   the extended-server composition and the start sequence out of `Surl.Console`.
 - 2026-11-06: Backlog -> Deferred. Split into BL-978 and BL-979 (over the 60-minute size limit; Stewart asked for a backlog audit 2026-11-06)
+- 2026-11-15: Reviewed by task-planner: finished. Every part of its split is Done: BL-978, BL-979. Stays in Deferred only because task-board.ps1 allows Deferred -> Backlog alone; BL-1235 closes it to Done with BL-1234's close-split.

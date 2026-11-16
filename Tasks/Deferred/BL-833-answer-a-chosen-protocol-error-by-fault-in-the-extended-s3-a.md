@@ -49,3 +49,4 @@ refused at configuration.
 - 2026-11-05: Created.
 - 2026-11-05: Filed by BL-822 (ADR-0124 decision 9); depends on BL-785 and touches `Surl.Cli` for the reply shapes.
 - 2026-11-06: Backlog -> Deferred. Split into BL-980, BL-981, BL-982 and BL-983 (over the 60-minute size limit; Stewart asked for a backlog audit 2026-11-06)
+- 2026-11-15: Reviewed by task-planner: finished. Every part of its split is Done: BL-980, BL-981, BL-982, BL-983. Stays in Deferred only because task-board.ps1 allows Deferred -> Backlog alone; BL-1235 closes it to Done with BL-1234's close-split.

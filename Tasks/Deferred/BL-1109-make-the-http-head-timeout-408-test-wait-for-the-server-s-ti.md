@@ -54,3 +54,4 @@ BL-1110 is the same kind of race in the WebSocket tests.
 - 2026-11-13: Created.
 - 2026-11-13: Backlog -> Doing.
 - 2026-11-13: Doing -> Deferred. Split into BL-1111, BL-1112 (timed out at the run's time limit)
+- 2026-11-15: Reviewed by task-planner: finished. Every part of its split is Done: BL-1111, BL-1112; HeadTimeoutTests has not failed in any CI run since (checked runs 43650373643 to 43788880386). Stays in Deferred only because task-board.ps1 allows Deferred -> Backlog alone; BL-1235 closes it to Done with BL-1234's close-split.

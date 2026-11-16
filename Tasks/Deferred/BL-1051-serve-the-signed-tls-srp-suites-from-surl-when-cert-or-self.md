@@ -45,3 +45,4 @@ completed:
 - 2026-11-11: Created.
 - 2026-11-13: Backlog -> Doing.
 - 2026-11-13: Doing -> Deferred. Split into BL-1097, BL-1098, BL-1099 (timed out at the run's time limit)
+- 2026-11-15: Reviewed by task-planner: finished. Every part of its split is Done: BL-1097, BL-1098, BL-1099. Stays in Deferred only because task-board.ps1 allows Deferred -> Backlog alone; BL-1235 closes it to Done with BL-1234's close-split.

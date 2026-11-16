@@ -57,3 +57,4 @@ members expanded.
 - 2026-11-04: Created.
 - 2026-11-05: depends-on BL-653 replaced by BL-883, the last task of its split (BL-653 deferred: timed out after 120 min; Stewart asked for the split 2026-11-05).
 - 2026-11-06: Backlog -> Deferred. Split into BL-993, BL-994 and BL-995 (over the 60-minute size limit; Stewart asked for a backlog audit 2026-11-06)
+- 2026-11-15: Reviewed by task-planner: finished. Every part of its split is Done: BL-993, BL-994, BL-995. Stays in Deferred only because task-board.ps1 allows Deferred -> Backlog alone; BL-1235 closes it to Done with BL-1234's close-split.

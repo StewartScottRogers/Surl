@@ -47,3 +47,4 @@ from the instance's server-life seedable identifier source, so a seeded instance
 - 2026-11-05: Created.
 - 2026-11-06: depends-on BL-852 replaced by BL-997 (BL-852 split for the 60-minute size limit; Stewart asked for a backlog audit 2026-11-06).
 - 2026-11-06: Backlog -> Deferred. Split into BL-999, BL-1000 and BL-1001 (over the 60-minute size limit; Stewart asked for a backlog audit 2026-11-06)
+- 2026-11-15: Reviewed by task-planner: finished. Every part of its split is Done: BL-999, BL-1000, BL-1001. Stays in Deferred only because task-board.ps1 allows Deferred -> Backlog alone; BL-1235 closes it to Done with BL-1234's close-split.

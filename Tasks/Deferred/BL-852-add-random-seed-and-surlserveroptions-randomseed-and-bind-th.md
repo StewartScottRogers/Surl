@@ -50,3 +50,4 @@ run after run, and an unseeded instance behaves exactly as today.
 
 - 2026-11-05: Created.
 - 2026-11-06: Backlog -> Deferred. Split into BL-996, BL-997 and BL-998 (over the 60-minute size limit; Stewart asked for a backlog audit 2026-11-06)
+- 2026-11-15: Reviewed by task-planner: finished. Every part of its split is Done: BL-996, BL-997, BL-998. Stays in Deferred only because task-board.ps1 allows Deferred -> Backlog alone; BL-1235 closes it to Done with BL-1234's close-split.

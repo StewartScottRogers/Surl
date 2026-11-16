@@ -68,3 +68,4 @@ over HTTP/2 to a curl given `--proxy-http2`, instead of ADR-0088's interim ALPN 
 - 2026-11-06: Backlog -> Doing.
 - 2026-11-06: Doing -> Blocked. Stewart: Surl dark factory timed out after 120 min; see Z:\repos\Surl.logs\BL-595-20261106-033059-L5.jsonl
 - 2026-11-06: Blocked -> Deferred. Split into BL-938, BL-939, BL-940, BL-941 (timed out after 120 min; Stewart asked for the split 2026-11-06)
+- 2026-11-15: Reviewed by task-planner: finished. Every part of its split is Done: BL-938, BL-939, BL-940, BL-941. Stays in Deferred only because task-board.ps1 allows Deferred -> Backlog alone; BL-1235 closes it to Done with BL-1234's close-split.
