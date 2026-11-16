@@ -31,6 +31,7 @@ public sealed partial class QuicServerConnection
         var frame = new QuicDatagramFrame(data);
         var length = (ulong)frame.ToBytes().Length;
         ArgumentOutOfRangeException.ThrowIfGreaterThan(length, Math.Min(peerLimit, MaxApplicationFrameLength), nameof(data));
+        options.DecryptedBytes.Sent(Surl.Protocol.Abstractions.ExchangeBytesLayer.Decrypted, null, data.Span);
         application.FramesToSend.Add(frame);
         return new QuicConnectionOutput(Flush(), []);
     }
@@ -50,6 +51,7 @@ public sealed partial class QuicServerConnection
                 frame.HasLength ? QuicFrameTypes.DatagramWithLength : QuicFrameTypes.Datagram);
         }
 
+        options.DecryptedBytes.Received(Surl.Protocol.Abstractions.ExchangeBytesLayer.Decrypted, null, frame.Data.Span);
         receivedDatagramFrames.Add(frame);
     }
 

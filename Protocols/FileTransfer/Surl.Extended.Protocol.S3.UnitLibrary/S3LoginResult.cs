@@ -21,16 +21,12 @@ internal sealed record S3LoginResult(ContentCaller? Caller, IHttpRequestBodyChec
     /// <summary>
     /// A request served as <paramref name="accountName"/>, or anonymously when it is <see langword="null"/>.
     /// </summary>
+    /// <param name="exchange">The exchange the request arrived on.</param>
     /// <param name="accountName">The account the signature logged in.</param>
     /// <param name="bodyCheck">The rest of a check that binds the body.</param>
     /// <returns>The result.</returns>
-    public static S3LoginResult As(string? accountName, IHttpRequestBodyCheck? bodyCheck) =>
-        new(
-            accountName is null
-                ? ContentCaller.Anonymous(S3ProtocolServer.Scheme)
-                : ContentCaller.ForAccount(accountName, S3ProtocolServer.Scheme),
-            bodyCheck,
-            null);
+    public static S3LoginResult As(ExchangeContext exchange, string? accountName, IHttpRequestBodyCheck? bodyCheck) =>
+        new(ContentCaller.ForExchange(exchange, accountName), bodyCheck, null);
 
     /// <summary>
     /// A request refused with <paramref name="error"/>.

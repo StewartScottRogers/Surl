@@ -132,7 +132,7 @@ public static class AuthenticationComposition
         var (accounts, exitCode, failureMessage) = ReadUserAccounts(proxyView, readFile);
         return accounts is null
             ? (null, exitCode, failureMessage)
-            : (ComposePolicy(ComposeSettings(proxyView, accounts, events), timeProvider, events, faults), SurlExitCode.Ok, null);
+            : (ComposePolicy(ComposeSettings(proxyView, accounts), timeProvider, events, faults), SurlExitCode.Ok, null);
     }
 
     /// <summary>
@@ -249,10 +249,6 @@ public static class AuthenticationComposition
             ? ([.. accounts, .. mailboxAccounts], SurlExitCode.Ok, null)
             : (null, SurlExitCode.FailedInit, $"(2) option --mailbox: mailbox {taken.UserName} is also a --user-file account");
     }
-
-    /// <summary>The <c>--user</c> and <c>--user-file</c> accounts with their passwords, for the <c>coaps</c> pre-shared keys; none when the file cannot be read, which the policy's own read has already refused.</summary>
-    internal static IReadOnlyList<Account> ReadPreSharedKeyAccounts(SurlCommandLine commandLine, Func<string, byte[]> readFile) =>
-        ReadUserAccounts(commandLine, readFile).Accounts ?? [];
 
     private static (IReadOnlyList<Account>? Accounts, SurlExitCode ExitCode, string? FailureMessage) ReadUserAccounts(
         SurlCommandLine commandLine, Func<string, byte[]> readUserFile)

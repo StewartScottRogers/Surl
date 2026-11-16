@@ -143,6 +143,19 @@ public sealed class Http3ProtocolServerTests
     }
 
     [TestMethod]
+    public async Task ServeAsync_Request_ReportsTheRequestedPathToTheDecryptedBytesSink()
+    {
+        var sink = new UnitTestRecordingDecryptedBytesSink();
+        using var client = new Http3TestClient { ProtocolServerPolicy = new AnonymousAuthenticationPolicy(), DecryptedBytes = sink };
+        await client.StartAsync(Token);
+
+        client.Send(0, client.Request("GET", "/file.txt"), fin: true);
+        await client.UntilAsync(() => client.HasEnded(0), Token);
+
+        Assert.IsTrue(sink.HasReceived("/file.txt"));
+    }
+
+    [TestMethod]
     public async Task ServeAsync_ExchangeCancelledBeforeTheHandshakeCompletes_StopsTheConnection()
     {
         using var client = new Http3TestClient { ProtocolServerPolicy = new AnonymousAuthenticationPolicy() };

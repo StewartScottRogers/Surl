@@ -154,7 +154,7 @@ public sealed class TftpProtocolServer : IDatagramProtocolServer, IDatagramRefus
         // server listens on (ADR-0102 decision 2.2): a share closed to anonymous, or limited to other
         // schemes, maps as absent and gets ERROR 1; a write in a share anonymous may only read is the
         // store's NotPermitted, ERROR 2 (ADR-0102 decision 2.3).
-        var mapping = contentStore.MapRequestPathForCaller(TftpFileName.ToRequestPath(request.FileName), ContentCaller.Anonymous(context.Scheme));
+        var mapping = contentStore.MapRequestPathForCaller(TftpFileName.ToRequestPath(request.FileName), ContentCaller.ForExchange(context, null));
         await (request.IsWrite ? AnswerWriteAsync(flow, context, request, mapping, label) : AnswerReadAsync(flow, context, request, mapping, label));
     }
 

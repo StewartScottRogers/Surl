@@ -1,5 +1,6 @@
 using Surl.Content;
 using Surl.HttpServing;
+using Surl.Protocol.Abstractions;
 
 namespace Surl.Extended.Protocol.OciRegistry;
 
@@ -11,7 +12,9 @@ namespace Surl.Extended.Protocol.OciRegistry;
 internal sealed record OciAccess(OciToken? Token, HttpAnswer? Refusal)
 {
     /// <summary>
-    /// The caller the content store serves the request as.
+    /// The caller the content store serves the request as, on <paramref name="exchange"/>.
     /// </summary>
-    public ContentCaller Caller => Token?.Caller ?? ContentCaller.Anonymous(OciRegistryProtocolServer.Scheme);
+    /// <param name="exchange">The exchange that carries the request.</param>
+    /// <returns>The caller.</returns>
+    public ContentCaller CallerOn(ExchangeContext exchange) => ContentCaller.ForExchange(exchange, Token?.AccountName);
 }

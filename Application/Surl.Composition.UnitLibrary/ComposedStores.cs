@@ -34,7 +34,7 @@ namespace Surl.Composition;
 /// change in any release (ADR-0099, decision 1).
 /// </para>
 /// </remarks>
-public sealed class ComposedStores
+public sealed partial class ComposedStores
 {
     /// <summary>
     /// The most bytes a snapshot of this instance's stores may hold together unless a host sets
@@ -49,7 +49,9 @@ public sealed class ComposedStores
     private readonly LdapProtocolServer? ldapServer;
     private readonly RedisKeyspace? redisKeyspace;
     private readonly DnsZoneSet? dnsZones;
-    private readonly IReadOnlyList<ComposedStoreRegistration> controls;
+    private readonly List<ComposedStoreRegistration> controls;
+    private readonly AccountBook? proxyAccounts;
+    private readonly ISurlEventPublisher events;
 
     internal ComposedStores(
         ContentStore content,
@@ -61,8 +63,12 @@ public sealed class ComposedStores
         IReadOnlyList<ComposedStoreRegistration>? additionalRegistrations = null,
         LdapProtocolServer? ldapServer = null,
         RedisKeyspace? redisKeyspace = null,
-        DnsZoneSet? dnsZones = null)
+        DnsZoneSet? dnsZones = null,
+        AccountBook? proxyAccounts = null,
+        ISurlEventPublisher? events = null)
     {
+        this.proxyAccounts = proxyAccounts;
+        this.events = events ?? DiscardingSurlEventPublisher.Instance;
         this.redisKeyspace = redisKeyspace;
         this.dnsZones = dnsZones;
         this.content = content;
@@ -78,6 +84,7 @@ public sealed class ComposedStores
             new(StoreKind.Mail, _ => Run(mail.Reset), TakeMailSnapshotAsync),
             new(StoreKind.Bus, _ => Run(bus.Reset), TakeBusSnapshotAsync),
             new(StoreKind.Accounts, _ => Run(accounts.Reset), TakeAccountSnapshotAsync),
+            .. ProxyAccountsRegistration(),
             .. additionalRegistrations ?? [],
         ];
     }

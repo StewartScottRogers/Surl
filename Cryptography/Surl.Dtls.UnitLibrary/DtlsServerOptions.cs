@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
+using Surl.Protocol.Abstractions;
 
 namespace Surl.Dtls;
 
@@ -50,4 +51,17 @@ public sealed record DtlsServerOptions(
     /// (ADR-0087 decision 3, ADR-0010 section 5); a PSK handshake never asks for one.
     /// </summary>
     public X509Certificate2Collection? ClientCertificateAuthorities { get; init; }
+
+    /// <summary>
+    /// Told each PSK login's verdict and able to refuse one as a wrong key (ADR-0170 decisions 6 to 8),
+    /// or <see langword="null"/> (the default) for behaviour unchanged.
+    /// </summary>
+    public IDtlsLoginJudge? LoginJudge { get; init; }
+
+    /// <summary>
+    /// Told the plaintext of each application-data record received or sent, as <c>Decrypted</c> bytes with no
+    /// stream id (ADR-0169 decisions 1 and 5); handshake, alert and change-cipher-spec records, keys and PSKs
+    /// are never reported. Defaults to <see cref="DiscardingDecryptedBytesSink.Instance"/>.
+    /// </summary>
+    public IDecryptedBytesSink DecryptedBytes { get; init; } = DiscardingDecryptedBytesSink.Instance;
 }

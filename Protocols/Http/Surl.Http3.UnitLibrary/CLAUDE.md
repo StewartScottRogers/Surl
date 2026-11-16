@@ -74,6 +74,12 @@ Public, what a server uses:
   `DATA` frame; like every write it waits while more than `QuicApplicationConnection.MaxUnsentLength`
   would wait unsent for the client's credit, BL-710), `ResetAsync` (`RESET_STREAM` and `STOP_SENDING`, a stream error) and
   `ResetResponseAsync` (`RESET_STREAM` alone, for an answer that cannot be finished).
+- The decrypted-bytes sink (ADR-0169 decision 1; BL-1270): `Http3RequestStreamServer` reports each decoded
+  request header list as `Decoded` received, `Http3RequestStream.WriteHeadersAsync` each response header
+  list as `Decoded` sent, and each DATA payload read or written as `Decrypted`, all with the stream id,
+  through `ExchangeContext.DecryptedBytes`. Header text (`Http3DecodedHeaderText`) is one `name: value`
+  CRLF line per header in order, then a blank line. The 431 and 501 answers the connection writes itself
+  are not reported. The default sink discards, and frames sent are unchanged.
 - `Http3ErrorCode`, `Http3RequestHead` (with `Protocol` and `Scheme`, the `:scheme` as sent, null
   for a plain `CONNECT`), `Http3RequestHeadMapping`.
 

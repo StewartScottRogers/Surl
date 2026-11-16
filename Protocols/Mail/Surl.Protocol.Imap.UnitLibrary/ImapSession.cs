@@ -391,7 +391,7 @@ internal sealed partial class ImapSession
         IReadOnlyList<uint> expunged = [];
         if (!closing.IsReadOnly)
         {
-            mailStore.Expunge(view!, closing.Name, out expunged);
+            mailStore.Expunge(view!, closing.Name, out expunged, context);
         }
 
         await SaveMailStoreIfChangedAsync(expunged.Count);
@@ -485,7 +485,7 @@ internal sealed partial class ImapSession
         var isSeenSet = !selected!.IsReadOnly && items.Any(item => item.SetsSeen) && !flags.HasFlag(MailFlags.Seen);
         if (isSeenSet)
         {
-            mailStore.ChangeFlags(view!, selected.Name, uid, MailFlagChange.Add, MailFlags.Seen, out _);
+            mailStore.ChangeFlags(view!, selected.Name, uid, MailFlagChange.Add, MailFlags.Seen, out _, context);
         }
 
         return isSeenSet;

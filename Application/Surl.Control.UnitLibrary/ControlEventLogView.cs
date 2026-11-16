@@ -18,7 +18,7 @@ internal sealed record ControlEventLogView(
     /// <summary>The held exchange starts, by exchange ID.</summary>
     /// <returns>The starts.</returns>
     public IReadOnlyDictionary<long, ExchangeStartedEvent> Exchanges() =>
-        Events.OfType<ExchangeStartedEvent>().ToDictionary(started => started.ExchangeId);
+        Events.OfType<ExchangeStartedEvent>().ToDictionary(started => started.ExchangeId!.Value);
 
     /// <summary>Whether an event was skipped after sequence number <paramref name="from"/>, up to <paramref name="to"/>.</summary>
     /// <param name="from">The first sequence number, excluded.</param>

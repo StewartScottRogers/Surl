@@ -1,3 +1,5 @@
+using Surl.Protocol.Abstractions;
+
 namespace Surl.Api;
 
 /// <summary>
@@ -6,4 +8,10 @@ namespace Surl.Api;
 /// </summary>
 /// <param name="Direction">Which way the bytes crossed.</param>
 /// <param name="Bytes">The bytes, a copy the record owns.</param>
-public sealed record SurlExchangeChunk(SurlExchangeDirection Direction, ReadOnlyMemory<byte> Bytes);
+/// <param name="Layer">Which layer the bytes belong to (ADR-0169 decision 2); <see cref="ExchangeBytesLayer.Wire"/> by default.</param>
+/// <param name="StreamId">The QUIC stream the bytes belong to, or <see langword="null"/> when they belong to none.</param>
+public sealed record SurlExchangeChunk(
+    SurlExchangeDirection Direction,
+    ReadOnlyMemory<byte> Bytes,
+    ExchangeBytesLayer Layer = ExchangeBytesLayer.Wire,
+    long? StreamId = null);

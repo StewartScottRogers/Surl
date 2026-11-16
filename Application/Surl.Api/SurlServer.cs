@@ -49,6 +49,8 @@ public sealed class SurlServer : IAsyncDisposable
         Directory = new SurlServerDirectory(composedServing.Stores, ThrowIfStopped);
         Zones = new SurlServerZones(composedServing.Stores, ThrowIfStopped);
         Accounts = new SurlServerAccounts(composedServing.Stores);
+        ProxyAccounts = new SurlServerProxyAccounts(composedServing.Stores);
+        TlsSrpAccounts = new SurlServerTlsSrpAccounts(composedServing.Stores);
         stopping = new Lazy<Task<SurlExitCode>>(StopServingAsync);
     }
 
@@ -197,6 +199,12 @@ public sealed class SurlServer : IAsyncDisposable
 
     /// <summary>The server's accounts, to add and remove them while it serves (ADR-0124, decision 3).</summary>
     public SurlServerAccounts Accounts { get; }
+
+    /// <summary>The server's proxy accounts, to add and remove them while it serves (ADR-0170, decision 4).</summary>
+    public SurlServerProxyAccounts ProxyAccounts { get; }
+
+    /// <summary>The server's TLS-SRP accounts, to add and remove them while it serves (ADR-0170, decision 4).</summary>
+    public SurlServerTlsSrpAccounts TlsSrpAccounts { get; }
 
     /// <summary>
     /// Returns the content store, the mail store, the message bus and the accounts, in that order, to their state

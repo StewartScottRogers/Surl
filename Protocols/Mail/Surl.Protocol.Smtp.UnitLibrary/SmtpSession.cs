@@ -321,7 +321,7 @@ internal sealed partial class SmtpSession
 
     private async ValueTask<string> DeliverAsync(SmtpMailTransaction accepted, PendingMessage message)
     {
-        var outcome = await mailStore.DeliverAsync(accepted.Deliverable, message, CancellationToken);
+        var outcome = await mailStore.DeliverAsync(accepted.Deliverable, message, CancellationToken, context);
         if (outcome != MailStoreOutcome.Succeeded)
         {
             return RefuseMessage(outcome, message);

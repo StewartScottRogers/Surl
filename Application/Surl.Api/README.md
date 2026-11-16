@@ -314,7 +314,13 @@ await using var server = await SurlServer.StartAsync(options);
   is an `ArgumentException` at start.
 - A custom listen URL names its port (0 for an ephemeral one), `scheme://host:port`, nothing more.
 - A fault rule in `Faults` or `server.Faults.Add` may name the custom listener or scheme, except an
-  `error` rule, which has no reply shape for it; `AdditionalArguments` cannot name it.
+  `error` rule, which is refused (`ArgumentException`) unless the server declares `FitsErrorReply`, a
+  `Func<string, bool>` that says whether a rule's `reply` is a chosen error the protocol allows (ADR-0172).
+  A fitting rule is accepted at start and at `Add` and reaches the server through
+  `ExchangeContext.Faults`, which answers `Reply` in its own wire format; a reply that does not fit, or a
+  predicate that throws, is an `ArgumentException` naming the rule. An `AddOverride` error answer for the
+  custom scheme is judged the same way, and a refused one publishes `HookFailedEvent`.
+  `AdditionalArguments` cannot name a custom scheme.
 
 `Surl.Composition`'s public types, which this package carries, are not a supported programming
 interface and may change in any release.

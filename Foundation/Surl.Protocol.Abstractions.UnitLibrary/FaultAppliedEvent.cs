@@ -13,4 +13,18 @@ public sealed record FaultAppliedEvent(
     FaultKind Kind,
     FaultStage Stage,
     long? ExchangeId,
-    string Target) : SurlEvent;
+    string Target) : SurlEvent
+{
+    /// <inheritdoc />
+    public override long? ExchangeId { get; } = ExchangeId;
+
+    /// <inheritdoc />
+    public override void WriteMembers(ISurlEventMemberWriter writer)
+    {
+        writer.Text(nameof(RuleId), RuleId);
+        writer.Choice(nameof(Kind), Kind);
+        writer.Choice(nameof(Stage), Stage);
+        writer.Number(nameof(ExchangeId), ExchangeId);
+        writer.Text(nameof(Target), Target);
+    }
+}

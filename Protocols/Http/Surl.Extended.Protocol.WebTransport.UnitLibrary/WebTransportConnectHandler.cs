@@ -97,14 +97,15 @@ internal sealed class WebTransportConnectHandler(
             return true;
         }
 
-        if (await JudgeAsync(session.Head, cancellationToken) is { } answer)
+        var (answer, accountName) = await JudgeAsync(session.Head, cancellationToken);
+        if (answer is not null)
         {
             context.Log.Note($"WebTransport CONNECT {session.Id} to {session.Head.Target} was answered {answer[0].Value}.");
             await session.RequestStream.WriteHeadersAsync(answer, endStream: true, cancellationToken);
             return true;
         }
 
-        if (await WebTransportConnectFaults.FindAsync(context, session.Head.Target) is { } chosen)
+        if (await WebTransportConnectFaults.FindAsync(context, session.Head.Target, accountName) is { } chosen)
         {
             if (chosen.IsDrop)
             {
@@ -130,12 +131,26 @@ internal sealed class WebTransportConnectHandler(
     }
 
     // ADR-0117 decision 1's order: the scheme (WTH3 3.2: https only), the origin, then the login (decision 7), then the path, so an unauthenticated client learns nothing of the paths served.
-    private async Task<QpackFieldLine[]?> JudgeAsync(Http3RequestHead head, CancellationToken cancellationToken) =>
-        !WebTransportConnectJudgement.IsSecureScheme(head) ? AnswerFields(WebTransportConnectJudgement.BadRequest)
-        : !WebTransportConnectJudgement.IsOwnOrigin(head) ? AnswerFields(WebTransportConnectJudgement.Forbidden)
-        : await authentication.RefuseAsync(head, cancellationToken) is { } refusal ? refusal
-        : !WebTransportConnectJudgement.IsAcceptedPath(head.Target, acceptedPath) ? AnswerFields(WebTransportConnectJudgement.MethodNotAllowed)
-        : null;
+    private async Task<(QpackFieldLine[]? Answer, string? AccountName)> JudgeAsync(Http3RequestHead head, CancellationToken cancellationToken)
+    {
+        if (!WebTransportConnectJudgement.IsSecureScheme(head))
+        {
+            return (AnswerFields(WebTransportConnectJudgement.BadRequest), null);
+        }
+
+        if (!WebTransportConnectJudgement.IsOwnOrigin(head))
+        {
+            return (AnswerFields(WebTransportConnectJudgement.Forbidden), null);
+        }
+
+        var (refusal, accountName) = await authentication.JudgeAsync(head, cancellationToken);
+        if (refusal is not null)
+        {
+            return (refusal, accountName);
+        }
+
+        return (!WebTransportConnectJudgement.IsAcceptedPath(head.Target, acceptedPath) ? AnswerFields(WebTransportConnectJudgement.MethodNotAllowed) : null, accountName);
+    }
 
     // WTH3 3.1: no WebTransport request is processed before the client's SETTINGS; null when --head-timeout passes first.
     private async Task<IReadOnlyDictionary<ulong, ulong>?> ReadClientSettingsAsync(Http3ExtendedConnectSession session, CancellationToken cancellationToken)

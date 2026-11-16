@@ -89,6 +89,7 @@ public sealed class Http3ProtocolServer : IDatagramProtocolServer, IDatagramRefu
             IdleTimeout = idleTimeout,
             HandshakeTimeout = headTimeout == Timeout.InfiniteTimeSpan ? null : headTimeout,
             TrustsClientCertificateChain = trustsClientCertificateChain,
+            DecryptedBytes = context.DecryptedBytes,
         };
         using var random = RandomNumberGenerator.Create();
         var application = new Http3ApplicationProtocol(contentStore, authenticationPolicy, context);

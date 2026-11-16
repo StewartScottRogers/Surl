@@ -22,6 +22,8 @@ internal sealed class Socks5Exchange(
     /// <summary>What the log says when a clear password is refused (ADR-0121 decision 4).</summary>
     public const string PlaintextRefusedNote = "SOCKS5 password refused: sent in clear without --allow-plaintext-auth";
 
+    private string? loggedInAccount;
+
     private CancellationToken Cancellation => context.CancellationToken;
 
     /// <summary>
@@ -89,10 +91,15 @@ internal sealed class Socks5Exchange(
             return null;
         }
 
-        if (method == Socks5Reply.GssApiMethod
-            && !await new Socks5GssApiNegotiation(client, reader, context, gssApi!, accounts).NegotiateAsync(handshakeToken))
+        if (method == Socks5Reply.GssApiMethod)
         {
-            return null;
+            var negotiation = new Socks5GssApiNegotiation(client, reader, context, gssApi!, accounts);
+            if (!await negotiation.NegotiateAsync(handshakeToken))
+            {
+                return null;
+            }
+
+            loggedInAccount = negotiation.Account;
         }
 
         return await ReadRequestAsync(handshakeToken);
@@ -189,6 +196,8 @@ internal sealed class Socks5Exchange(
             await client.CompleteWritesAsync(Cancellation);
         }
 
+        loggedInAccount = isAccepted ? userName : null;
+
         return isAccepted;
     }
 
@@ -223,7 +232,7 @@ internal sealed class Socks5Exchange(
         var target = request.Address is { AddressFamily: System.Net.Sockets.AddressFamily.InterNetworkV6 }
             ? string.Create(CultureInfo.InvariantCulture, $"[{request.Host}]:{request.Port}")
             : string.Create(CultureInfo.InvariantCulture, $"{request.Host}:{request.Port}");
-        if (await SocksCommandFaults.FindAsync(context, client, target) is { } fault)
+        if (await SocksCommandFaults.FindAsync(context, client, target, loggedInAccount) is { } fault)
         {
             await AnswerFaultAsync(fault, target);
 

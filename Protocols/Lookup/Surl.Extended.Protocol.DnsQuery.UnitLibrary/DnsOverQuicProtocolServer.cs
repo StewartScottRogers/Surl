@@ -124,6 +124,7 @@ public sealed class DnsOverQuicProtocolServer : IDatagramProtocolServer, IDatagr
             HandshakeTimeout = headTimeout == Timeout.InfiniteTimeSpan || headTimeout > MaxTimerDelay ? null : headTimeout,
             InitialMaxStreamsBidi = MaxConcurrentQueries,
             InitialMaxStreamsUni = 0,
+            DecryptedBytes = context.DecryptedBytes,
         };
     }
 

@@ -63,7 +63,7 @@ internal sealed class AzureBlobRequestAnswerer : IHttpRequestHandler, IHttpHeadN
         this.store = store;
         this.pathStyle = pathStyle;
         this.staging = staging;
-        login = new AzureLoginJudge(authentication, AzureStorageProtocolServer.BlobScheme, AzureStorageProtocolServer.PeerAddressOf(context), refusesBearerToken);
+        login = new AzureLoginJudge(authentication, context, AzureStorageProtocolServer.PeerAddressOf(context), refusesBearerToken);
         this.context = context;
         properties = new AzureBlobPropertiesReader(store, index, context.Log);
         putBlob = new AzurePutBlob(store, index, context.Log);

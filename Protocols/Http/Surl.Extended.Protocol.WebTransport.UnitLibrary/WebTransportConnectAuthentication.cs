@@ -25,19 +25,27 @@ internal sealed class WebTransportConnectAuthentication(IHttpAuthenticationSessi
     /// <param name="head">The extended <c>CONNECT</c>'s head.</param>
     /// <param name="cancellationToken">Cancelled when the connection ends.</param>
     /// <returns>The <c>401</c> or <c>403</c> answer's fields, or <see langword="null"/> when the request proceeds.</returns>
-    public async Task<QpackFieldLine[]?> RefuseAsync(Http3RequestHead head, CancellationToken cancellationToken)
+    public async Task<QpackFieldLine[]?> RefuseAsync(Http3RequestHead head, CancellationToken cancellationToken) =>
+        (await JudgeAsync(head, cancellationToken)).Refusal;
+
+    /// <summary>Judges <paramref name="head"/>'s login and names the account that logged in (BL-1242).</summary>
+    /// <param name="head">The extended <c>CONNECT</c>'s head.</param>
+    /// <param name="cancellationToken">Cancelled when the connection ends.</param>
+    /// <returns>The refusal's fields (or <see langword="null"/> when the request proceeds) and the accepted account's name (or <see langword="null"/> when none logged in).</returns>
+    public async Task<(QpackFieldLine[]? Refusal, string? AccountName)> JudgeAsync(Http3RequestHead head, CancellationToken cancellationToken)
     {
         var isConnectionBound = head.Fields.Any(field => field.Key == AuthorizationField && IsConnectionBoundScheme(field.Value));
         IReadOnlyList<KeyValuePair<string, string>> fields = isConnectionBound
             ? [.. head.Fields.Where(field => field.Key != AuthorizationField)]
             : head.Fields;
         var verdict = await authentication.JudgeAsync(new HttpAuthenticationRequest("CONNECT", head.Target, IsWrite: false, fields), cancellationToken);
-        return (isConnectionBound, verdict.Outcome) switch
+        QpackFieldLine[]? refusal = (isConnectionBound, verdict.Outcome) switch
         {
             (false, HttpAuthenticationOutcome.Proceed) => null,
             (false, HttpAuthenticationOutcome.Forbidden) => [new(":status", "403")],
             _ => [new(":status", "401"), .. verdict.WwwAuthenticateValues.Where(value => !IsConnectionBoundScheme(value)).Select(value => new QpackFieldLine("www-authenticate", value))],
         };
+        return (refusal, string.IsNullOrEmpty(verdict.AccountName) ? null : verdict.AccountName);
     }
 
     // Whether a credentials or challenge value's auth-scheme (RFC 9110 section 11.1) is NTLM or Negotiate.

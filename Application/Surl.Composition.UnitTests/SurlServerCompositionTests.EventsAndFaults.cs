@@ -41,11 +41,11 @@ public sealed partial class SurlServerCompositionTests
             changed => changed.Store == StoreKind.Mail && changed.Change == StoreChange.Delivered);
         Assert.AreEqual(SmtpListenUrl, smtpStarted.ListenUrl);
         Assert.AreEqual(ImapListenUrl, imapStarted.ListenUrl);
-        StringAssert.Contains(SentText(events, smtpStarted.ExchangeId), "250 2.0.0 Message accepted\r\n");
-        StringAssert.Contains(SentText(events, imapStarted.ExchangeId), "read over imap\r\n");
+        StringAssert.Contains(SentText(events, smtpStarted.ExchangeId!.Value), "250 2.0.0 Message accepted\r\n");
+        StringAssert.Contains(SentText(events, imapStarted.ExchangeId!.Value), "read over imap\r\n");
         Assert.IsLessThan(delivered.Sequence, smtpStarted.Sequence);
         Assert.IsLessThan(imapStarted.Sequence, delivered.Sequence);
-        Assert.IsTrue(events.OfType<ExchangeEndedEvent>().Any(ended => ended.ExchangeId == imapStarted.ExchangeId));
+        Assert.IsTrue(events.OfType<ExchangeEndedEvent>().Any(ended => ended.ExchangeId == imapStarted.ExchangeId!.Value));
         Assert.AreEqual(0, subscription.DroppedEventCount);
     }
 

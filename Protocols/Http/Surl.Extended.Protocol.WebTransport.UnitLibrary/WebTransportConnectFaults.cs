@@ -40,8 +40,9 @@ internal static class WebTransportConnectFaults
     /// <summary>Finds the chosen error for one CONNECT.</summary>
     /// <param name="context">The exchange: its fault plan, event stream, listen URL and log.</param>
     /// <param name="path">The request path, query included.</param>
+    /// <param name="accountName">The account that logged in, or <see langword="null"/> when none did.</param>
     /// <returns>The answer to send, or <see langword="null"/> to serve the request as usual.</returns>
-    public static async ValueTask<ChosenAnswer?> FindAsync(ExchangeContext context, string path)
+    public static async ValueTask<ChosenAnswer?> FindAsync(ExchangeContext context, string path, string? accountName = null)
     {
         var point = new FaultPoint(FaultStage.Command)
         {
@@ -50,6 +51,7 @@ internal static class WebTransportConnectFaults
             Scheme = context.Scheme,
             Path = path,
             Command = ConnectCommand,
+            Account = accountName,
         };
         var rule = await CommandStageFaults.FindAndApplyAsync(context, point, path);
         if (rule is null || rule.Kind == FaultKind.Delay)

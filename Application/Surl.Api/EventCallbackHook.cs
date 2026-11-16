@@ -66,7 +66,7 @@ internal sealed class EventCallbackHook : IDisposable
     {
         if (surlEvent is ExchangeStartedEvent started)
         {
-            openExchanges[started.ExchangeId] = new ExchangeFacts(started);
+            openExchanges[started.ExchangeId!.Value] = new ExchangeFacts(started);
         }
 
         var exchangeId = SurlEventFacts.ExchangeIdOf(surlEvent);
@@ -74,7 +74,7 @@ internal sealed class EventCallbackHook : IDisposable
         exchange?.Note(surlEvent);
         if (surlEvent is ExchangeEndedEvent ended)
         {
-            openExchanges.Remove(ended.ExchangeId);
+            openExchanges.Remove(ended.ExchangeId!.Value);
         }
 
         return SurlEventFacts.Matches(surlEvent, exchange, query);

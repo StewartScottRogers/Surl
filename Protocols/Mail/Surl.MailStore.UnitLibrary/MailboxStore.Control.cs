@@ -119,7 +119,7 @@ public sealed partial class MailboxStore
         pending.Body.Write(message);
         pending.Close();
         var outcome = CheckPending(pending);
-        return outcome == MailStoreOutcome.Succeeded ? DeliverPending(inboxOwners, pending, StoreChange.Seeded) : outcome;
+        return outcome == MailStoreOutcome.Succeeded ? DeliverPending(inboxOwners, pending, StoreChange.Seeded, exchange: null) : outcome;
     }
 
     /// <summary>

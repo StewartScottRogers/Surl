@@ -10,6 +10,9 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Surl.Api\Surl.Api.csproj" />
+    <ProjectReference Include="..\..\Cryptography\Surl.Cryptography.Srp.UnitLibrary\Surl.Cryptography.Srp.UnitLibrary.csproj" />
+    <ProjectReference Include="..\..\Cryptography\Surl.TlsSrp.UnitLibrary\Surl.TlsSrp.UnitLibrary.csproj" />
+    <ProjectReference Include="..\..\Foundation\Surl.Networking.UnitLibrary\Surl.Networking.UnitLibrary.csproj" />
   </ItemGroup>
 
 </Project>

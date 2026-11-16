@@ -13,35 +13,35 @@ public sealed partial class MailboxStore
     /// with the message's byte count. Called under the store's lock, so the events keep the order
     /// in which the changes happened.
     /// </summary>
-    private void PublishMessage(StoreChange change, MailboxPlace place, uint uid) =>
+    private void PublishMessage(StoreChange change, MailboxPlace place, uint uid, ExchangeContext? exchange) =>
         events.Publish(new StoreChangedEvent(
             StoreKind.Mail,
             change,
             MailStoreChangeName.ForMessage(place.Owner.Name, place.Mailbox.Name, uid),
             place.Mailbox.Messages[uid].Body.Length,
-            ExchangeId: null));
+            ExchangeId: exchange?.ExchangeId));
 
     /// <summary>
     /// Publishes one change to one mailbox, named by <see cref="MailStoreChangeName.ForMailbox"/>,
     /// with no byte count.
     /// </summary>
-    private void PublishMailbox(StoreChange change, OwnerMailboxes owner, StoredMailbox mailbox) =>
+    private void PublishMailbox(StoreChange change, OwnerMailboxes owner, StoredMailbox mailbox, ExchangeContext? exchange) =>
         events.Publish(new StoreChangedEvent(
             StoreKind.Mail,
             change,
             MailStoreChangeName.ForMailbox(owner.Name, mailbox.Name),
             ByteCount: null,
-            ExchangeId: null));
+            ExchangeId: exchange?.ExchangeId));
 
     /// <summary>
     /// Publishes <see cref="StoreChange.Deleted"/> for each of <paramref name="uids"/>, all held by
     /// the mailbox at <paramref name="place"/>, before they are removed.
     /// </summary>
-    private void PublishRemoving(MailboxPlace place, IReadOnlyList<uint> uids)
+    private void PublishRemoving(MailboxPlace place, IReadOnlyList<uint> uids, ExchangeContext? exchange)
     {
         foreach (var uid in uids)
         {
-            PublishMessage(StoreChange.Deleted, place, uid);
+            PublishMessage(StoreChange.Deleted, place, uid, exchange);
         }
     }
 
@@ -50,9 +50,9 @@ public sealed partial class MailboxStore
     /// publishing each, and counts one change when any was removed.
     /// </summary>
     /// <returns>How many were removed.</returns>
-    private int RemovePublished(MailboxPlace place, IReadOnlyList<uint> uids)
+    private int RemovePublished(MailboxPlace place, IReadOnlyList<uint> uids, ExchangeContext? exchange)
     {
-        PublishRemoving(place, uids);
+        PublishRemoving(place, uids, exchange);
         var removed = RemoveMessages(place.Mailbox, uids);
         changeCount += removed == 0 ? 0 : 1;
         return removed;
@@ -79,18 +79,18 @@ public sealed partial class MailboxStore
     /// <see cref="FaultAppliedEvent"/> naming the mailbox. Called outside the store's lock, since
     /// the plan may run a test's code.
     /// </summary>
-    private bool IsOutOfSpace(IEnumerable<(string OwnerName, string MailboxName)> targets)
+    private bool IsOutOfSpace(IEnumerable<(string OwnerName, string MailboxName)> targets, ExchangeContext? exchange)
     {
         foreach (var (ownerName, mailboxName) in targets)
         {
-            var rule = FindOutOfSpaceRule(new FaultPoint(FaultStage.StoreWrite) { Account = ownerName, Path = mailboxName });
+            var rule = FindOutOfSpaceRule(PointFor(exchange, ownerName, mailboxName));
             if (rule is not null)
             {
                 events.Publish(new FaultAppliedEvent(
                     rule.Id,
                     FaultKind.OutOfSpace,
                     FaultStage.StoreWrite,
-                    ExchangeId: null,
+                    exchange?.ExchangeId,
                     MailStoreChangeName.ForMailbox(ownerName, mailboxName)));
                 return true;
             }
@@ -106,11 +106,12 @@ public sealed partial class MailboxStore
     /// </summary>
     private async Task<bool> IsOutOfSpaceAsync(
         IEnumerable<(string OwnerName, string MailboxName)> targets,
+        ExchangeContext? exchange,
         CancellationToken cancellationToken)
     {
         foreach (var (ownerName, mailboxName) in targets)
         {
-            var point = new FaultPoint(FaultStage.StoreWrite) { Account = ownerName, Path = mailboxName };
+            var point = PointFor(exchange, ownerName, mailboxName);
             FaultRule? rule;
             try
             {
@@ -127,7 +128,7 @@ public sealed partial class MailboxStore
                     rule.Id,
                     FaultKind.OutOfSpace,
                     FaultStage.StoreWrite,
-                    ExchangeId: null,
+                    exchange?.ExchangeId,
                     MailStoreChangeName.ForMailbox(ownerName, mailboxName)));
                 return true;
             }
@@ -135,6 +136,22 @@ public sealed partial class MailboxStore
 
         return false;
     }
+
+    /// <summary>
+    /// The <see cref="FaultStage.StoreWrite"/> point for a write to <paramref name="mailboxName"/> of
+    /// <paramref name="ownerName"/>: the account and path, and the exchange's ID, listen URL and
+    /// scheme when the write came through one (ADR-0168 decision 2), so a rule scoped by
+    /// <c>listener</c> or <c>scheme</c> matches it.
+    /// </summary>
+    private static FaultPoint PointFor(ExchangeContext? exchange, string ownerName, string mailboxName) =>
+        new(FaultStage.StoreWrite)
+        {
+            ExchangeId = exchange?.ExchangeId,
+            ListenUrl = exchange is null ? null : ReportedListenUrl.Format(exchange.ListenUrl),
+            Scheme = exchange?.Scheme,
+            Account = ownerName,
+            Path = mailboxName,
+        };
 
     /// <summary>
     /// The plan's out-of-space rule for <paramref name="point"/>, or <see langword="null"/> when it

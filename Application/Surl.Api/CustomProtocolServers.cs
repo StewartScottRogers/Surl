@@ -31,16 +31,19 @@ internal sealed class CustomProtocolServers
         ],
         StringComparer.OrdinalIgnoreCase);
 
-    private readonly HashSet<string> schemes;
+    /// <summary>The error reply an error rule is read with in place of a custom server's own: one the stand-in scheme's shape accepts.</summary>
+    private const string StandInReply = "500";
+
+    private readonly Dictionary<string, Func<string, bool>?> fitsErrorReplies;
     private readonly IReadOnlyList<int> servedOrder;
 
     private CustomProtocolServers(
-        HashSet<string> schemes,
+        Dictionary<string, Func<string, bool>?> fitsErrorReplies,
         IReadOnlyList<string> builtInListenUrls,
         IReadOnlyList<AdditionalProtocolServer> additionalProtocolServers,
         IReadOnlyList<int> servedOrder)
     {
-        this.schemes = schemes;
+        this.fitsErrorReplies = fitsErrorReplies;
         BuiltInListenUrls = builtInListenUrls;
         AdditionalProtocolServers = additionalProtocolServers;
         this.servedOrder = servedOrder;
@@ -91,7 +94,9 @@ internal sealed class CustomProtocolServers
                 ToRegistration(server), [.. customListenUrls[position].Select(given => given.ListenUrl)])),
         ];
         int[] servedOrder = [.. builtInIndexes, .. customListenUrls.SelectMany(given => given.Select(listenUrl => listenUrl.Index))];
-        return new CustomProtocolServers(schemes, builtInListenUrls, additional, servedOrder);
+        var fitsErrorReplies = options.ProtocolServers.ToDictionary(
+            server => server.Scheme, server => server.FitsErrorReply, StringComparer.OrdinalIgnoreCase);
+        return new CustomProtocolServers(fitsErrorReplies, builtInListenUrls, additional, servedOrder);
     }
 
     /// <summary>
@@ -99,13 +104,15 @@ internal sealed class CustomProtocolServers
     /// serves <c>surl</c>'s listen URLs first, then each custom server's.
     /// </summary>
     /// <param name="servedBoundUrls">The bound URLs in the order served.</param>
-    /// <returns>The bound URLs in the order given.</returns>
+    /// <returns>The bound URLs in the order given, then any the command line added (a proxy listen URL from
+    /// <see cref="SurlServerOptions.AdditionalArguments"/>) in the order served.</returns>
     public IReadOnlyList<Uri> InOrderGiven(IReadOnlyList<Uri> servedBoundUrls)
     {
         var inOrderGiven = new Uri[servedBoundUrls.Count];
         for (var served = 0; served < servedBoundUrls.Count; served++)
         {
-            inOrderGiven[servedOrder[served]] = servedBoundUrls[served];
+            var position = served < servedOrder.Count ? servedOrder[served] : served;
+            inOrderGiven[position] = servedBoundUrls[served];
         }
 
         return inOrderGiven;
@@ -122,41 +129,125 @@ internal sealed class CustomProtocolServers
     /// <c>surl</c> knows.</exception>
     public SurlFault ToReadable(SurlFault fault, string parameterName)
     {
-        var isListenerCustom = fault.Listener is { } listener && schemes.Contains(SchemeOf(listener));
-        var isSchemeCustom = fault.Scheme is { } scheme && schemes.Contains(scheme);
-        if (!isListenerCustom && !isSchemeCustom)
+        var customSchemes = CustomSchemesOf(fault);
+        if (customSchemes.Count == 0)
         {
             return fault;
         }
 
-        return fault.Kind == FaultKind.Error
-            ? throw new ArgumentException(
-                "An error fault cannot be scoped to a custom protocol server's scheme: surl knows no reply shape for it.", parameterName)
-            : fault with
-            {
-                Listener = isListenerCustom ? StandInListenUrl : fault.Listener,
-                Scheme = isSchemeCustom ? StandInScheme : fault.Scheme,
-            };
+        var readable = fault with
+        {
+            Listener = IsListenerCustom(fault) ? StandInListenUrl : fault.Listener,
+            Scheme = IsSchemeCustom(fault) ? StandInScheme : fault.Scheme,
+        };
+        if (fault.Kind != FaultKind.Error)
+        {
+            return readable;
+        }
+
+        foreach (var customScheme in customSchemes)
+        {
+            ThrowUnlessReplyFits(fault, customScheme, parameterName);
+        }
+
+        // The stand-in scheme's own shape must accept the reply; the rule's real reply is put back after reading.
+        return readable with { Reply = fault.Reply is null ? null : StandInReply };
     }
 
-    /// <summary>The rule as read, with <paramref name="fault"/>'s own listener and scheme back in place of any stand-in.</summary>
+    private bool IsListenerCustom(SurlFault fault) => fault.Listener is { } listener && fitsErrorReplies.ContainsKey(SchemeOf(listener));
+
+    private bool IsSchemeCustom(SurlFault fault) => fault.Scheme is { } scheme && fitsErrorReplies.ContainsKey(scheme);
+
+    private List<string> CustomSchemesOf(SurlFault fault)
+    {
+        List<string> customSchemes = [];
+        if (IsListenerCustom(fault))
+        {
+            customSchemes.Add(SchemeOf(fault.Listener!));
+        }
+
+        if (IsSchemeCustom(fault))
+        {
+            customSchemes.Add(fault.Scheme!);
+        }
+
+        return customSchemes;
+    }
+
+    /// <summary>Whether <paramref name="scheme"/> is a custom protocol server's scheme.</summary>
+    /// <param name="scheme">The scheme, in any case.</param>
+    /// <returns><see langword="true"/> for a custom scheme.</returns>
+    public bool IsCustomScheme(string scheme) => fitsErrorReplies.ContainsKey(scheme);
+
+    /// <summary>The rule as read, with <paramref name="fault"/>'s own listener, scheme and error reply back in place of any stand-in.</summary>
     /// <param name="read">The rule as <c>surl</c>'s reader read it.</param>
     /// <param name="fault">The rule as given.</param>
     /// <returns>The rule.</returns>
-    public static ConfiguredFault WithScopeOf(ConfiguredFault read, SurlFault fault) =>
-        read with { Listener = fault.Listener, Scheme = fault.Scheme?.ToLowerInvariant() };
+    public ConfiguredFault WithScopeOf(ConfiguredFault read, SurlFault fault) =>
+        read with
+        {
+            Listener = fault.Listener,
+            Scheme = fault.Scheme?.ToLowerInvariant(),
+            Reply = ReplyAsGiven(read.Reply, fault),
+        };
 
     /// <summary>Reads a rule added while serving, as <see cref="SurlServerFaults.Add"/> takes it.</summary>
     /// <param name="fault">The rule.</param>
     /// <param name="parameterName">The parameter a refusal names.</param>
     /// <returns>The rule for the plan.</returns>
     /// <exception cref="ArgumentException"><c>surl</c> would refuse the rule, or <see cref="ToReadable"/> does.</exception>
-    public FaultRule Read(SurlFault fault, string parameterName) =>
-        SurlServerFaults.Read(ToReadable(fault, parameterName), parameterName) with
+    public FaultRule Read(SurlFault fault, string parameterName)
+    {
+        var read = SurlServerFaults.Read(ToReadable(fault, parameterName), parameterName);
+        return read with
         {
             Listener = fault.Listener,
             Scheme = fault.Scheme?.ToLowerInvariant(),
+            Reply = ReplyAsGiven(read.Reply, fault),
         };
+    }
+
+    // An error rule scoped to a custom scheme was read with the stand-in reply; every other rule's reply is as read.
+    private string? ReplyAsGiven(string? read, SurlFault fault) =>
+        fault.Kind == FaultKind.Error && IsScopedToCustomScheme(fault) ? fault.Reply : read;
+
+    private bool IsScopedToCustomScheme(SurlFault fault) => IsListenerCustom(fault) || IsSchemeCustom(fault);
+
+    private void ThrowUnlessReplyFits(SurlFault fault, string scheme, string parameterName)
+    {
+        var fits = fitsErrorReplies[scheme];
+        if (fits is null)
+        {
+            throw new ArgumentException(
+                $"An error fault cannot be scoped to the custom protocol server's scheme {scheme} unless the server declares FitsErrorReply: surl knows no reply shape for it.",
+                parameterName);
+        }
+
+        if (fault.Reply is null)
+        {
+            return;
+        }
+
+        bool isFitting;
+        try
+        {
+            isFitting = fits(fault.Reply);
+        }
+        catch (Exception exception)
+        {
+            throw new ArgumentException(
+                $"FitsErrorReply of the custom protocol server {scheme} threw for the error fault {fault.ToItem()}: {exception.Message}",
+                parameterName,
+                exception);
+        }
+
+        if (!isFitting)
+        {
+            throw new ArgumentException(
+                $"The reply of the error fault {fault.ToItem()} does not fit the custom protocol server {scheme}'s FitsErrorReply.",
+                parameterName);
+        }
+    }
 
     private static HashSet<string> ReadSchemes(IList<SurlProtocolServer> servers)
     {

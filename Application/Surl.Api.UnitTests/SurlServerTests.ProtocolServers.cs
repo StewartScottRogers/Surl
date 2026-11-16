@@ -95,7 +95,7 @@ public sealed partial class SurlServerTests
         var addException = Assert.ThrowsExactly<ArgumentException>(
             () => server.Faults.Add(SurlFault.ProtocolError("451 busy") with { Scheme = "echo" }));
 
-        StringAssert.Contains(startException.Message, "error fault cannot be scoped to a custom protocol server's scheme");
+        StringAssert.Contains(startException.Message, "unless the server declares FitsErrorReply");
         Assert.AreEqual("options", startException.ParamName);
         Assert.AreEqual("fault", addException.ParamName);
         Assert.IsEmpty(server.Faults.List());

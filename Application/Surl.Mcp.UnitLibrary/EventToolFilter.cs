@@ -12,7 +12,7 @@ namespace Surl.Mcp;
 /// several kinds, is matched by <see cref="IsOfKind"/>.
 /// </summary>
 /// <param name="Query">The query <see cref="SurlServer.FindEvents"/>, <see cref="SurlServer.FindExchanges"/> and <see cref="SurlServer.WaitForEventAsync"/> take.</param>
-/// <param name="Kinds">The event kinds asked for, as <see cref="RecordedEventWriter.KindOf"/> names them, or <see langword="null"/> for any.</param>
+/// <param name="Kinds">The event kinds asked for, as <see cref="SurlEvent.KindName"/> names them, or <see langword="null"/> for any.</param>
 internal sealed record EventToolFilter(SurlEventQuery Query, IReadOnlySet<string>? Kinds)
 {
     /// <summary>The <c>scheme</c> and <c>listen_url</c> properties every one of the three tools' schemas holds.</summary>
@@ -24,17 +24,19 @@ internal sealed record EventToolFilter(SurlEventQuery Query, IReadOnlySet<string
         """;
 
     /// <summary>The properties <c>get_events</c> and <c>wait_for_event</c> both take, after <c>server_id</c>.</summary>
-    public const string EventProperties = """
+    public static readonly string EventProperties = """
             "after_sequence": { "type": "integer", "minimum": 0,
               "description": "Only events with a larger sequence; pass the last one seen to ask for the rest" },
             "kinds": { "type": "array", "minItems": 1,
-              "items": { "type": "string", "enum": ["exchange_started", "exchange_ended", "login_judged", "store_changed", "fault_applied", "hook_failed", "consumer_group_changed"] },
+              "items": { "type": "string", "enum": [
+        """ + KindEnumList() + """
+              ] },
               "description": "Only events of these kinds" },
         """ + SchemeAndListenUrlProperties + """
         ,
             "account": { "type": "string", "minLength": 1,
               "description": "Only events that name this account, or belong to an exchange that judged a login for it; case-sensitive" },
-            "store": { "type": "string", "enum": ["content", "mail", "bus", "accounts", "keyspace", "directory", "zones", "exchanges", "sessions", "producers", "uploads"],
+            "store": { "type": "string", "enum": ["content", "mail", "bus", "accounts", "keyspace", "directory", "zones", "exchanges", "sessions", "producers", "uploads", "proxy_accounts", "tls_srp_accounts"],
               "description": "Only changes to this store; no other kind of event matches" },
             "name": { "type": "string", "minLength": 1,
               "description": "Only changes to this name (a path, mailbox, topic, queue, key or account), exactly or as a segment prefix: /uploads matches /uploads and /uploads/a.txt but not /uploads2; case-sensitive; no other kind of event matches" }
@@ -70,7 +72,32 @@ internal sealed record EventToolFilter(SurlEventQuery Query, IReadOnlySet<string
     /// <summary>Whether <paramref name="surlEvent"/> is of a kind <see cref="Kinds"/> names; any when it names none.</summary>
     /// <param name="surlEvent">An event the query matched.</param>
     /// <returns><see langword="true"/> when it is.</returns>
-    public bool IsOfKind(SurlEvent surlEvent) => Kinds is null || Kinds.Contains(RecordedEventWriter.KindOf(surlEvent));
+    public bool IsOfKind(SurlEvent surlEvent) => Kinds is null || Kinds.Contains(surlEvent.KindName);
+
+    /// <summary>The kind of every <see cref="SurlEvent"/> record the abstractions export, named by <c>ReadAllKinds</c>, as <see cref="SurlEvent.KindName"/> spells it, in ordinal order (ADR-0171).</summary>
+    internal static IReadOnlyList<string> AllKinds => ReadAllKinds();
+
+    // Reflection over the assembly's types is trim- and AOT-unsafe (IL2026), so the records are named here by
+    // typeof; a test enumerates the exported SurlEvent subclasses and fails when one is missing (ADR-0171).
+    private static string[] ReadAllKinds() => new[]
+        {
+            typeof(ConsumerGroupChangedEvent),
+            typeof(ExchangeBytesEvent),
+            typeof(ExchangeEndedEvent),
+            typeof(ExchangeStartedEvent),
+            typeof(FaultAppliedEvent),
+            typeof(HookFailedEvent),
+            typeof(LoginJudgedEvent),
+            typeof(StoreChangedEvent),
+        }
+        .Select(type => KindNameOf(type.Name))
+        .Order(StringComparer.Ordinal)
+        .ToArray();
+
+    private static string KindNameOf(string typeName) =>
+        JsonNamingPolicy.SnakeCaseLower.ConvertName(typeName[..^"Event".Length]);
+
+    private static string KindEnumList() => string.Join(", ", AllKinds.Select(kind => "\"" + kind + "\""));
 
     private static StoreKind? ReadStore(JsonElement arguments)
     {

@@ -4,6 +4,7 @@
 - **Date:** 2026-11-05
 - **Decided by:** Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), 2026-11-05, in
   BL-788, which built it.
+- **Amended by:** [ADR-0168](ADR-0168-how-the-content-store-and-the-mail-store-learn-the-exchange-behind-a-write.md) (decisions 2 to 4: the mail store is told the exchange behind a write).
 - **Details:** [ADR-0124](ADR-0124-surl-is-a-stand-in-for-tests.md) decisions 1 and 4 for
   `Surl.MailStore`'s `MailboxStore`.
 

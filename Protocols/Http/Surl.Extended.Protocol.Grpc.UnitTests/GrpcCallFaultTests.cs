@@ -21,7 +21,7 @@ public sealed class GrpcCallFaultTests
     private static FaultRule Rule(FaultKind kind, string? reply = null, string? command = "Echo", string? path = EchoPath, int? ms = null) =>
         new("f1", kind) { Scheme = "grpc", Command = command, Path = path, Reply = reply, DelayMilliseconds = ms };
 
-    private async Task<(IReadOnlyList<Hpack.HpackHeaderField> Fields, byte[] Body, uint? ResetCode, RecordingSurlEventPublisher Events, RecordingExchangeLog Log)> CallAsync(FaultRule rule, string path = EchoPath)
+    private async Task<(IReadOnlyList<Hpack.HpackHeaderField> Fields, byte[] Body, uint? ResetCode, RecordingSurlEventPublisher Events, RecordingExchangeLog Log)> CallAsync(FaultRule rule, string path = EchoPath, string? basicUser = null, ScriptedFaultPlan? plan = null)
     {
         var events = new RecordingSurlEventPublisher();
         var log = new RecordingExchangeLog();
@@ -34,12 +34,19 @@ public sealed class GrpcCallFaultTests
             new ShortTimersOnlyTimeProvider(),
             TestContext.CancellationToken)
         {
-            Faults = new ScriptedFaultPlan(rule),
+            Faults = plan ?? new ScriptedFaultPlan(rule),
             Events = events,
         };
-        var handler = new GrpcStreamHandler([EchoService.Service], UnitTestHttpAuthenticationSession.ProceedingEveryRequest, context);
+        var session = basicUser is null
+            ? UnitTestHttpAuthenticationSession.ProceedingEveryRequest
+            : new UnitTestHttpAuthenticationSession(request => new HttpAuthenticationVerdict(
+                HttpAuthenticationOutcome.Proceed,
+                [],
+                request.Fields.Any(field => field.Key == "authorization") ? basicUser : null));
+        var handler = new GrpcStreamHandler([EchoService.Service], session, context);
         var client = new GrpcHttp2TestFrames();
-        var connection = new InMemoryConnection([(byte[])[.. Start, .. client.Call(1, path, endStream: false), .. Data(1, Message(Hi), endStream: true)]]);
+        var login = basicUser is null ? [] : new[] { ("authorization", "Basic " + Convert.ToBase64String(System.Text.Encoding.ASCII.GetBytes(basicUser + ":pw"))) };
+        var connection = new InMemoryConnection([(byte[])[.. Start, .. client.Call(1, path, false, login), .. Data(1, Message(Hi), endStream: true)]]);
 
         await new Http2ConnectionServer(handler, context, connection).ServeAsync();
         var (fields, body, _, resetCode) = Response(connection.WrittenBytes, 1);
@@ -117,6 +124,42 @@ public sealed class GrpcCallFaultTests
         Assert.IsNotNull(resetCode);
         Assert.AreEqual(new FaultAppliedEvent("f1", FaultKind.Drop, FaultStage.Command, 1, EchoPath), events.Events.Single());
         Assert.Contains("Echo dropped the connection, unanswered, by fault rule f1.", log.Notes);
+    }
+
+    [TestMethod]
+    public async Task ServeStreamAsync_ErrorRuleScopedToAnAccount_FiresForThatAccountsCallAndNamesItOnThePoint()
+    {
+        var rule = Rule(FaultKind.Error, "14 busy") with { Account = "alice" };
+        var plan = new ScriptedFaultPlan(rule);
+
+        var (fields, _, _, events, _) = await CallAsync(rule, basicUser: "alice", plan: plan);
+
+        Assert.AreEqual("14", fields.Single(field => field.Name == "grpc-status").Value);
+        Assert.AreEqual("alice", plan.Points.Single().Account);
+        Assert.HasCount(1, events.Events);
+    }
+
+    [TestMethod]
+    public async Task ServeStreamAsync_ErrorRuleScopedToAnAccount_IsNotFiredForAnotherAccountsCall()
+    {
+        var rule = Rule(FaultKind.Error, "14 busy") with { Account = "alice" };
+
+        var (fields, body, _, events, _) = await CallAsync(rule, basicUser: "bob");
+
+        Assert.AreEqual("0", fields.Single(field => field.Name == "grpc-status").Value);
+        Assert.IsNotEmpty(body);
+        Assert.IsEmpty(events.Events);
+    }
+
+    [TestMethod]
+    public async Task ServeStreamAsync_CallWithNoLogin_LeavesThePointsAccountNull()
+    {
+        var rule = Rule(FaultKind.Delay, ms: 1);
+        var plan = new ScriptedFaultPlan(rule);
+
+        await CallAsync(rule, plan: plan);
+
+        Assert.IsNull(plan.Points.Single().Account);
     }
 
     [TestMethod]

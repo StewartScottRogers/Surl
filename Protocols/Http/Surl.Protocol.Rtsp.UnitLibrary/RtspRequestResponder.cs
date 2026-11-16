@@ -215,9 +215,7 @@ internal sealed partial class RtspRequestResponder
     // path, the 404 a DESCRIBE or PLAY SETUP of one gets; a write in a share it may only read is
     // the 403 an upload the store does not permit gets (ADR-0102 decision 2.3, ADR-0074).
     private ContentCaller ContentCallerOf(string? accountName) =>
-        string.IsNullOrEmpty(accountName)
-            ? ContentCaller.Anonymous(context.Scheme)
-            : ContentCaller.ForAccount(accountName, context.Scheme);
+        ContentCaller.ForExchange(context, string.IsNullOrEmpty(accountName) ? null : accountName);
 
     // A presentation path looked up for the request's caller.
     private ContentPathMapping MapForRequestCaller(string path) =>

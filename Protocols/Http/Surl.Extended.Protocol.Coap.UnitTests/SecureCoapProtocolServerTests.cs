@@ -69,6 +69,21 @@ public sealed class SecureCoapProtocolServerTests
     }
 
     [TestMethod]
+    public async Task ServeAsync_PskHandshakeThenGet_ReportsTheRequestToTheDecryptedBytesSink()
+    {
+        var sink = new UnitTestRecordingDecryptedBytesSink();
+        var store = new CoapTestStore().WithFile("a.txt", "hello");
+        var server = new SecureCoapProtocolServer(store.Store, Private, new CoapObservations(), AliceOnly);
+        await using var served = Served.Start(server, new UnitTestDtlsClient { CipherSuites = [0x00A8] }, decryptedBytes: sink);
+
+        await served.WaitUntilEstablishedAsync();
+        served.Flow.SendCoap(GetATxt);
+        await served.ReceiveCoapAsync(1);
+
+        Assert.IsTrue(sink.HasReceived("a.txt"));
+    }
+
+    [TestMethod]
     public async Task ServeAsync_CertificateHandshakeThenBlockwiseGet_IsAnsweredIn1024ByteBlocks()
     {
         var body = CoapTestExchange.Body(2500);
@@ -204,6 +219,79 @@ public sealed class SecureCoapProtocolServerTests
     }
 
     [TestMethod]
+    public async Task ServeAsync_PskLoginThatVerifies_PublishesAnAcceptedLoginJudged()
+    {
+        var events = new RecordingSurlEventPublisher();
+        var server = new SecureCoapProtocolServer(new CoapTestStore().Store, Anonymous, new CoapObservations(), AliceOnly, new UnitTestCoapRandomSource(), cookieSecrets: null);
+        await using var served = Served.Start(server, new UnitTestDtlsClient { CipherSuites = [0x00A8] }, events: events);
+
+        await served.WaitUntilEstablishedAsync();
+
+        Assert.AreEqual(new LoginJudgedEvent(1, "coaps", "alice", "psk", true, false), events.Events.Single());
+    }
+
+    [TestMethod]
+    [DataRow("mallory", "secret")]
+    [DataRow("alice", "wrong")]
+    public async Task ServeAsync_UnknownIdentityOrWrongKey_PublishesARefusedLoginJudged(string identity, string key)
+    {
+        var events = new RecordingSurlEventPublisher();
+        var server = new SecureCoapProtocolServer(new CoapTestStore().Store, Anonymous, new CoapObservations(), AliceOnly, new UnitTestCoapRandomSource(), cookieSecrets: null);
+        await using var served = Served.Start(
+            server, new UnitTestDtlsClient { CipherSuites = [0x00A8], PskIdentity = Encoding.UTF8.GetBytes(identity), PskKey = Encoding.UTF8.GetBytes(key) }, events: events);
+
+        await served.Serving;
+
+        Assert.AreEqual(new LoginJudgedEvent(1, "coaps", identity, "psk", false, false), events.Events.Single());
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_RefuseLoginRuleForTheIdentity_AppliesThenRefusesWithDecryptError()
+    {
+        var events = new RecordingSurlEventPublisher();
+        var faults = new ScriptedFaultPlan(new FaultRule("r1", FaultKind.RefuseLogin) { Account = "alice" });
+        var server = new SecureCoapProtocolServer(new CoapTestStore().Store, Anonymous, new CoapObservations(), AliceOnly, new UnitTestCoapRandomSource(), cookieSecrets: null);
+        await using var served = Served.Start(server, new UnitTestDtlsClient { CipherSuites = [0x00A8] }, faults: faults, events: events);
+
+        await served.Serving;
+
+        Assert.AreEqual(new DtlsAlert(IsFatal: true, DtlsAlertDescription.DecryptError), served.Flow.ReceivedAlerts.Single());
+        Assert.HasCount(2, events.Events);
+        Assert.AreEqual(new FaultAppliedEvent("r1", FaultKind.RefuseLogin, FaultStage.Login, 1, "alice"), events.Events[0]);
+        Assert.AreEqual(new LoginJudgedEvent(1, "coaps", "alice", "psk", false, true), events.Events[1]);
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_CommandRuleScopedByAccount_MatchesAPskSessionRequest()
+    {
+        var faults = new ScriptedFaultPlan(new FaultRule("c1", FaultKind.Error) { Command = "GET", Account = "alice", Reply = "5.03" });
+        var store = new CoapTestStore().WithFile("a.txt", "hello");
+        var server = new SecureCoapProtocolServer(store.Store, Anonymous, new CoapObservations(), AliceOnly, new UnitTestCoapRandomSource(), cookieSecrets: null);
+        await using var served = Served.Start(server, new UnitTestDtlsClient { CipherSuites = [0x00A8] }, faults: faults);
+
+        await served.WaitUntilEstablishedAsync();
+        served.Flow.SendCoap(GetATxt);
+        var response = await served.ReceiveCoapAsync(1);
+
+        Assert.AreEqual(CoapCode.From(5, 3), response.Code);
+        Assert.AreEqual("alice", faults.Points.Single(point => point.Stage == FaultStage.Command).Account);
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_CertificateSessionRequest_HasNoAccountOnTheCommandPoint()
+    {
+        var faults = new ScriptedFaultPlan();
+        var store = new CoapTestStore().WithFile("a.txt", "hello");
+        await using var served = Served.Start(CertificateServer(store, Anonymous), new UnitTestDtlsClient(), faults: faults);
+
+        await served.WaitUntilEstablishedAsync();
+        served.Flow.SendCoap(GetATxt);
+        await served.ReceiveCoapAsync(1);
+
+        Assert.IsNull(faults.Points.Single().Account);
+    }
+
+    [TestMethod]
     public async Task ServeAsync_HandshakePastTheHeadTimeout_EndsWithNoAlert()
     {
         var server = new SecureCoapProtocolServer(new CoapTestStore().Store, Anonymous, new CoapObservations(), AliceOnly, new UnitTestCoapRandomSource(), cookieSecrets: null);
@@ -302,6 +390,9 @@ public sealed class SecureCoapProtocolServerTests
             ShutdownToken = shutdownToken,
         };
 
+    private static ExchangeContext WithPlanAndEvents(ExchangeContext context, IFaultPlan? faults, RecordingSurlEventPublisher? events) =>
+        context with { Faults = faults ?? context.Faults, Events = (ISurlEventPublisher?)events ?? context.Events };
+
     private static byte[]? Lookup(ReadOnlySpan<byte> identity) =>
         identity.SequenceEqual("alice"u8) ? "secret"u8.ToArray() : null;
 
@@ -353,11 +444,12 @@ public sealed class SecureCoapProtocolServerTests
 
         public Task Serving { get; private set; } = Task.CompletedTask;
 
-        public static Served Start(SecureCoapProtocolServer server, UnitTestDtlsClient client, byte[]? firstDatagram = null)
+        public static Served Start(
+            SecureCoapProtocolServer server, UnitTestDtlsClient client, byte[]? firstDatagram = null, IFaultPlan? faults = null, RecordingSurlEventPublisher? events = null, IDecryptedBytesSink? decryptedBytes = null)
         {
             var served = new Served(new UnitTestDtlsDatagramFlow(client, firstDatagram));
             served.Serving = Task.Run(() => server.ServeAsync(
-                served.Flow, Context(served.Log, served.Clock, served.Exchange.Token, served.Shutdown.Token)));
+                served.Flow, WithPlanAndEvents(Context(served.Log, served.Clock, served.Exchange.Token, served.Shutdown.Token), faults, events) with { DecryptedBytes = decryptedBytes ?? DiscardingDecryptedBytesSink.Instance }));
             return served;
         }
 

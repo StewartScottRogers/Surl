@@ -48,6 +48,19 @@ public sealed class Socks5GssApiTests
     }
 
     [TestMethod]
+    public async Task ServeAsync_KerberosLogin_NamesTheClientPrincipalAsTheCommandFaultPointsAccount()
+    {
+        var ticket = Ticket(mutualRequired: false);
+        var client = ConnectionOf(GreetingWithGssApi, Message(0x01, ticket.Build()), Message(0x02, [0x01]), ConnectRequest);
+        var plan = new ScriptedFaultPlan(new FaultRule("f1", FaultKind.Error) { Account = "user@EXAMPLE.COM", Reply = "2" });
+        var context = Context(new RecordingExchangeLog(), clock, scheme: "socks5") with { Faults = plan };
+
+        await new SocksProtocolServer(new InMemoryOriginConnector(), null, Login()).ServeAsync(client, context);
+
+        Assert.AreEqual("user@EXAMPLE.COM", plan.Points.Single().Account);
+        CollectionAssert.AreEqual(Socks5Failure(2), client.WrittenBytes[^10..]);
+    }
+    [TestMethod]
     public async Task ServeAsync_KerberosTokenWithMutualAuthentication_AnswersApRepAndProtectionAndRelays()
     {
         var ticket = Ticket();

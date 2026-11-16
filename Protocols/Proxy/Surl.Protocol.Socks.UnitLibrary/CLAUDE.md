@@ -48,3 +48,5 @@ tests drive the server through `InMemoryConnection` and `InMemoryOriginConnector
 
 Expected bytes come from a build pinned in `UpstreamCurlBuilds.json`, measured with
 `Record-CurlExchange.ps1`, and never from the Curl port (ADR-0003).
+
+The fault point at the command stage (`SocksCommandFaults`) names the logged-in account (BL-1240): the RFC 1929 user name the policy accepted, or the Kerberos client principal of a GSS-API login, so a rule scoped with `account=` fires on `CONNECT`. An anonymous SOCKS5 session and SOCKS4 (its `USERID` is not an account) leave `Account` null.

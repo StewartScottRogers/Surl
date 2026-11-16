@@ -74,6 +74,13 @@ public sealed record ExchangeContext(
     public IIdentifierRandom Identifiers { get; init; } = RandomNumberGeneratorIdentifierRandom.Instance;
 
     /// <summary>
+    /// Where the QUIC or DTLS code a server constructs reports the plaintext it recovered (ADR-0169,
+    /// decision 3): <see cref="DiscardingDecryptedBytesSink.Instance"/>, which discards it, unless the
+    /// engine sets another.
+    /// </summary>
+    public IDecryptedBytesSink DecryptedBytes { get; init; } = DiscardingDecryptedBytesSink.Instance;
+
+    /// <summary>
     /// Cancelled when the engine gives up on every exchange at shutdown (ADR-0059):
     /// <see cref="CancellationToken.None"/> unless the engine sets it. It cancels
     /// <see cref="CancellationToken"/> too; a server reads it only to tell shutdown from a limit.

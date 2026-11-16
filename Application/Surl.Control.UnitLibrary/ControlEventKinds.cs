@@ -5,28 +5,37 @@ namespace Surl.Control;
 
 /// <summary>
 /// The names the control endpoint gives event kinds: each record's type name without <c>Event</c>, in snake_case
-/// (<c>exchange_started</c>, <c>store_changed</c>), and what each event says of its exchange, scheme, listen URL
-/// and account for a query to match.
+/// (<c>exchange_started</c>, <c>store_changed</c>), and what each event says of its exchange and account for a
+/// query to match. The events say these themselves (ADR-0171); nothing here switches on an event's type.
 /// </summary>
 internal static class ControlEventKinds
 {
-    /// <summary>Every kind a query may name.</summary>
+    /// <summary>
+    /// Every kind a query may name. Listed explicitly because the library is native AOT and cannot enumerate types;
+    /// a test enumerates the exported <see cref="SurlEvent"/> records and fails when one is missing (ADR-0171).
+    /// </summary>
     public static readonly IReadOnlySet<string> Known = new HashSet<string>(StringComparer.Ordinal)
     {
-        NameOf(typeof(ExchangeStartedEvent)),
-        NameOf(typeof(ExchangeBytesEvent)),
-        NameOf(typeof(ExchangeEndedEvent)),
-        NameOf(typeof(LoginJudgedEvent)),
-        NameOf(typeof(StoreChangedEvent)),
-        NameOf(typeof(FaultAppliedEvent)),
-        NameOf(typeof(HookFailedEvent)),
-        NameOf(typeof(ConsumerGroupChangedEvent)),
+        NameOfType(typeof(ExchangeStartedEvent)),
+        NameOfType(typeof(ExchangeBytesEvent)),
+        NameOfType(typeof(ExchangeEndedEvent)),
+        NameOfType(typeof(LoginJudgedEvent)),
+        NameOfType(typeof(StoreChangedEvent)),
+        NameOfType(typeof(FaultAppliedEvent)),
+        NameOfType(typeof(HookFailedEvent)),
+        NameOfType(typeof(ConsumerGroupChangedEvent)),
     };
+
+    /// <summary>The kind a record type's events have, as <see cref="SurlEvent.KindName"/> spells it.</summary>
+    /// <param name="eventType">A <see cref="SurlEvent"/> record type.</param>
+    /// <returns>Its kind's name.</returns>
+    public static string NameOfType(Type eventType) =>
+        JsonNamingPolicy.SnakeCaseLower.ConvertName(eventType.Name[..^"Event".Length]);
 
     /// <summary>The kind of <paramref name="surlEvent"/>.</summary>
     /// <param name="surlEvent">An event.</param>
     /// <returns>Its kind's name.</returns>
-    public static string NameOf(SurlEvent surlEvent) => NameOf(surlEvent.GetType());
+    public static string NameOf(SurlEvent surlEvent) => surlEvent.KindName;
 
     /// <summary>Snake case of an enum member, as the endpoint writes each enum value.</summary>
     /// <typeparam name="TEnum">The enum.</typeparam>
@@ -34,42 +43,21 @@ internal static class ControlEventKinds
     /// <returns><c>Received</c> as <c>received</c>, <c>AccountAdded</c> as <c>account_added</c>.</returns>
     public static string SnakeCase<TEnum>(TEnum value)
         where TEnum : struct, Enum =>
+        SnakeCaseOf(value);
+
+    /// <summary>Snake case of an enum member given as <see cref="Enum"/>.</summary>
+    /// <param name="value">The value.</param>
+    /// <returns>The same text <see cref="SnakeCase{TEnum}"/> gives.</returns>
+    public static string SnakeCaseOf(Enum value) =>
         JsonNamingPolicy.SnakeCaseLower.ConvertName(value.ToString());
 
     /// <summary>The exchange an event belongs to, or <see langword="null"/> when it belongs to none.</summary>
     /// <param name="surlEvent">An event.</param>
     /// <returns>Its exchange ID.</returns>
-    public static long? ExchangeIdOf(SurlEvent surlEvent) => surlEvent switch
-    {
-        ExchangeStartedEvent started => started.ExchangeId,
-        ExchangeBytesEvent bytes => bytes.ExchangeId,
-        ExchangeEndedEvent ended => ended.ExchangeId,
-        _ => ExchangeIdOfAnotherKind(surlEvent),
-    };
+    public static long? ExchangeIdOf(SurlEvent surlEvent) => surlEvent.ExchangeId;
 
-    private static long? ExchangeIdOfAnotherKind(SurlEvent surlEvent) => surlEvent switch
-    {
-        LoginJudgedEvent login => login.ExchangeId,
-        StoreChangedEvent change => change.ExchangeId,
-        FaultAppliedEvent fault => fault.ExchangeId,
-        ConsumerGroupChangedEvent group => group.ExchangeId,
-        _ => null,
-    };
-
-    /// <summary>
-    /// The account an event names: a judged login's account, a consumer group change's account, or the account an
-    /// account-store change touched.
-    /// </summary>
+    /// <summary>The account an event names, or <see langword="null"/>.</summary>
     /// <param name="surlEvent">An event.</param>
     /// <returns>The account name, or <see langword="null"/>.</returns>
-    public static string? AccountOf(SurlEvent surlEvent) => surlEvent switch
-    {
-        LoginJudgedEvent login => login.Account,
-        ConsumerGroupChangedEvent group => group.Account,
-        StoreChangedEvent { Store: StoreKind.Accounts } change => change.Name,
-        _ => null,
-    };
-
-    private static string NameOf(Type eventType) =>
-        JsonNamingPolicy.SnakeCaseLower.ConvertName(eventType.Name[..^"Event".Length]);
+    public static string? AccountOf(SurlEvent surlEvent) => surlEvent.Account;
 }

@@ -39,7 +39,7 @@ internal sealed class ExchangeRecordBook(int maxExchanges, int maxBytesPerExchan
                 Keep(bytes);
                 break;
             case ExchangeEndedEvent ended:
-                open.Remove(ended.ExchangeId);
+                open.Remove(ended.ExchangeId!.Value);
                 NoteInItsExchange(ended);
                 break;
             default:
@@ -81,9 +81,9 @@ internal sealed class ExchangeRecordBook(int maxExchanges, int maxBytesPerExchan
 
     private void Keep(ExchangeBytesEvent bytes)
     {
-        if (open.TryGetValue(bytes.ExchangeId, out var recorder))
+        if (open.TryGetValue(bytes.ExchangeId!.Value, out var recorder))
         {
-            recorder.Keep(ToSurlExchangeDirection(bytes.Direction), bytes.Bytes.Span);
+            recorder.Keep(bytes);
         }
     }
 
@@ -101,8 +101,8 @@ internal sealed class ExchangeRecordBook(int maxExchanges, int maxBytesPerExchan
 
         var recorder = new ExchangeRecorder(new ExchangeFacts(started), maxBytesPerExchange);
         kept.Enqueue(recorder);
-        keptById[started.ExchangeId] = recorder;
-        open[started.ExchangeId] = recorder;
+        keptById[started.ExchangeId!.Value] = recorder;
+        open[started.ExchangeId!.Value] = recorder;
     }
 
     private sealed class ExchangeRecorder(ExchangeFacts facts, int maxBytes)
@@ -113,13 +113,14 @@ internal sealed class ExchangeRecordBook(int maxExchanges, int maxBytesPerExchan
 
         public ExchangeFacts Facts => facts;
 
-        public void Keep(SurlExchangeDirection direction, ReadOnlySpan<byte> bytes)
+        public void Keep(ExchangeBytesEvent bytesEvent)
         {
+            var bytes = bytesEvent.Bytes.Span;
             var keptLength = Math.Min(bytes.Length, maxBytes - keptByteCount);
             isTruncated |= keptLength < bytes.Length;
             if (keptLength > 0)
             {
-                chunks.Add(new SurlExchangeChunk(direction, bytes[..keptLength].ToArray()));
+                chunks.Add(new SurlExchangeChunk(ToSurlExchangeDirection(bytesEvent.Direction), bytes[..keptLength].ToArray(), bytesEvent.Layer, bytesEvent.StreamId));
                 keptByteCount += keptLength;
             }
         }

@@ -104,7 +104,7 @@ public sealed partial class ServingEngineTests
         await serving.WaitAsync(Patience.Timeout);
 
         var listenUrlsByExchange = Drain(subscription).Cast<ExchangeStartedEvent>()
-            .ToDictionary(started => started.ExchangeId, started => (started.ListenUrl, started.Scheme));
+            .ToDictionary(started => started.ExchangeId!.Value, started => (started.ListenUrl, started.Scheme));
         Assert.AreEqual(("http://127.0.0.1:8080/", "http"), listenUrlsByExchange[httpExchange.Context.ExchangeId]);
         Assert.AreEqual(("gopher://127.0.0.1:40000/", "gopher"), listenUrlsByExchange[gopherExchange.Context.ExchangeId]);
     }

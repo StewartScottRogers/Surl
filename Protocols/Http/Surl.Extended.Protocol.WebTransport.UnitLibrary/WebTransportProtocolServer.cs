@@ -71,6 +71,7 @@ public sealed class WebTransportProtocolServer : IDatagramProtocolServer, IDatag
             CertificateKey = certificate.Key,
             IdleTimeout = idleTimeout,
             HandshakeTimeout = headTimeout == Timeout.InfiniteTimeSpan ? null : headTimeout,
+            DecryptedBytes = context.DecryptedBytes,
             MaxDatagramFrameSize = WebTransportApplicationProtocol.MaxDatagramFrameSize,
             ResetStreamAt = true,
             // HTTP/3's control and two QPACK streams, then the session streams the server announces it takes.

@@ -130,3 +130,15 @@ Never construct a socket here: records travel over the `IDatagramFlow` the calle
 Tests on macOS skip the AES-CCM cases (`OSCondition`), because the BCL's `AesCcm` support
 there is not assured (`AesCcm.IsSupported`); coverage is measured on Windows. The handshake
 must not offer a CCM suite where `AesCcm.IsSupported` is false.
+
+A login judge (BL-1275, ADR-0170 decisions 6 to 8): `DtlsServerOptions.LoginJudge` (`IDtlsLoginJudge`,
+default none) is told each PSK login's verdict with `Judged(identity, isAccepted)`, once per handshake
+that reaches the client `Finished`: true when it verified and was not refused, false for a wrong key,
+an unknown identity or a refusal. Only after `Finished` verified is `ShouldRefuseAsync` asked; true
+sends a fatal `decrypt_error` with no `ChangeCipherSpec` and no server `Finished`. Certificate
+handshakes and handshakes that fail earlier are never judged.
+
+Decrypted bytes (BL-1269, ADR-0169 decisions 1 and 5): `DtlsServerOptions.DecryptedBytes` (`IDecryptedBytesSink`,
+default `DiscardingDecryptedBytesSink.Instance`) is told each application-data record's plaintext, received
+(`Received(Decrypted, null, bytes)`) and sent (`Sent`), with no stream id. Handshake, alert and
+change-cipher-spec records, keys and PSKs are never reported; the records on the wire are unchanged.

@@ -664,11 +664,11 @@ an operator configures. The terms are defined in the [glossary](../Wiki/Glossary
   decision 1). Files are the one `ContentStore`, handed to every file-serving server, so a file
   uploaded over FTP is fetched over HTTP, SFTP, SMB or `s3`. Mail is the one `MailboxStore`, so
   mail sent over SMTP is read over IMAP and POP3. Messages are the one `MessageBus`: today
-  `mqtt`, `mqtts`, `nats`, `natss`, `stomp` and `stomps` are registered on it, so a message
-  published over `mqtt://` is consumed over NATS or STOMP, and `mqtt5` keeps no retained
-  messages of its own (decision 3.9). The `mqtt5`, `amqp`, `amqp1`, `kafka` and `redis`
-  libraries are written against the bus, and registering each in `surl` is intent: BL-975,
-  BL-507, BL-514, BL-973 and BL-492. Accounts are the one `AccountBook` every login reads.
+  `mqtt`, `mqtts`, `nats`, `natss`, `stomp`, `stomps`, `mqtt5`, `mqtt5s`, `mqtt5+ws`, `amqp`,
+  `amqps`, `amqp1`, `amqp1s`, `kafka`, `kafkas`, `redis` and `rediss` are registered on it, so a
+  message published over `mqtt://` is consumed over NATS, STOMP, AMQP, Kafka or Redis, and
+  `mqtt5` keeps no retained messages of its own (decision 3.9). The `mqtt5`, `amqp`, `amqp1`,
+  `kafka` and `redis` servers are extended (`SURL_EXTENSIONS=0` turns them off, ADR-0083). Accounts are the one `AccountBook` every login reads.
 - **The configuration command line**
   ([ADR-0101](../Planning/Decisions/ADR-0101-surls-configuration-surface-the-config-file-repeatable-item-options-and-one-configuration-model.md)
   for the surface, [ADR-0102](../Planning/Decisions/ADR-0102-what-the-mail-file-message-and-group-options-mean-to-the-shared-stores.md)

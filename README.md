@@ -68,13 +68,15 @@ The work is on the board and is being built now. None of it is finished.
 3. **Shared stores.** Servers that do the same job share one store in a single `surl`. Mail
    sent over SMTP is read over IMAP or POP3, a file uploaded over FTP is fetched over HTTP or
    `s3`, and a message published over MQTT reaches NATS and STOMP through one shared message
-   bus. The MQTT 5, AMQP, Kafka and Redis servers are written against the bus but `surl` does
-   not register them yet.
+   bus. The servers on the bus are `mqtt` and `mqtts` (original) and, extended
+   (`SURL_EXTENSIONS=0` turns them off), MQTT 5, AMQP 0-9-1, AMQP 1.0, Kafka, NATS, STOMP and
+   Redis.
 4. **A configuration command line** for setting up a real server: a curl-style `-K` config
    file and repeatable options for mail domains, mailboxes, aliases, catch-alls, shared
    folders, shares, buckets, topics, queues and groups, so one `surl` can host hundreds of
-   mailboxes. See [Configuring a real server](#configuring-a-real-server). LDAP as a source of
-   accounts is not built yet.
+   mailboxes. See [Configuring a real server](#configuring-a-real-server). `--user-ldap` reads
+   accounts from an LDAP directory
+   ([ADR-0149](Documentation/Planning/Decisions/ADR-0149-how-an-ldap-directory-serves-as-an-optional-account-source.md)).
 5. **Two more hosts, built.** `Surl.Api` starts and stops Surl servers inside a .NET test
    suite, and `Surl.Mcp` (`surl-mcp`) lets AI agents start, list and stop servers and see what
    a client sent. See [Using Surl from a test suite or an AI agent](#using-surl-from-a-test-suite-or-an-ai-agent).

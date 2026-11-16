@@ -211,7 +211,7 @@ internal sealed partial class Pop3Session
     // writes it (ADR-0050, decision 7).
     private async Task RemoveDeletedMessagesAsync(Pop3Maildrop session)
     {
-        var removed = session.RemoveDeleted();
+        var removed = session.RemoveDeleted(context);
         if (removed == 0)
         {
             return;

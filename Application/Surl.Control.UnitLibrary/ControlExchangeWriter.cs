@@ -69,7 +69,7 @@ internal static class ControlExchangeWriter
             isCut = bytes.ShownLength < chunk.Bytes.Length;
             if (bytes.ShownLength > 0)
             {
-                shown.Add(new ControlExchangeChunkJson(ControlEventKinds.SnakeCase(chunk.Direction), bytes.Encoding, bytes.Data));
+                shown.Add(new ControlExchangeChunkJson(ControlEventKinds.SnakeCase(chunk.Direction), bytes.Encoding, bytes.Data, ControlEventKinds.SnakeCase(chunk.Layer), chunk.StreamId));
                 shownBytes += bytes.ShownLength;
             }
 
@@ -82,9 +82,9 @@ internal static class ControlExchangeWriter
         var lastSequence = events.OfType<ExchangeEndedEvent>().Select(ended => ended.Sequence).FirstOrDefault(long.MaxValue);
 
         return new ControlExchangeJson(
-            started.ExchangeId,
+            started.ExchangeId!.Value,
             started.ListenUrl,
-            started.Scheme,
+            started.Scheme!,
             $"{started.Client}",
             ControlEventWriter.Timestamp(started.At),
             shown,

@@ -14,11 +14,13 @@ namespace Surl.Api;
 /// <param name="events">Where a failure is published: the instance's event stream.</param>
 /// <param name="timeProvider">The clock the limit runs on.</param>
 /// <param name="timeLimit">How long a decision may take.</param>
+/// <param name="custom">The test's own protocol servers, which judge an error answer for their own scheme; null for none.</param>
 internal sealed class ResponseOverrideHook(
     Func<FaultPoint, CancellationToken, ValueTask<SurlFault?>> decide,
     ISurlEventPublisher events,
     TimeProvider timeProvider,
-    TimeSpan timeLimit)
+    TimeSpan timeLimit,
+    CustomProtocolServers? custom = null)
 {
     /// <summary>Asks the decision at <paramref name="point"/> and reads its answer; matches <see cref="FaultOverride"/>.</summary>
     /// <param name="overrideId">The override's identifier, named in a <see cref="HookFailedEvent"/>.</param>
@@ -54,9 +56,10 @@ internal sealed class ResponseOverrideHook(
     /// <summary>The rule <paramref name="answer"/> spells at <paramref name="point"/>, read as <c>surl --fault</c> reads it.</summary>
     /// <param name="answer">The decision's answer.</param>
     /// <param name="point">The point it answers.</param>
+    /// <param name="custom">The test's own protocol servers, which judge an error for their own scheme; null for none.</param>
     /// <returns>The rule.</returns>
     /// <exception cref="ArgumentException"><c>surl</c> refuses the rule, or it cannot act at the point's stage.</exception>
-    internal static FaultRule ToRule(SurlFault answer, FaultPoint point)
+    internal static FaultRule ToRule(SurlFault answer, FaultPoint point, CustomProtocolServers? custom = null)
     {
         // The answer applies to the point it was asked at: its own scope is dropped, and the point's scheme picks
         // an error's reply shape.
@@ -69,7 +72,10 @@ internal sealed class ResponseOverrideHook(
             Command = null,
             Times = null,
         };
-        var rule = SurlServerFaults.Read(scoped, nameof(answer));
+        // A custom scheme's error is judged by its server's FitsErrorReply (ADR-0172 decision 5), not by surl's table.
+        var rule = custom is not null && scoped.Scheme is { } scheme && custom.IsCustomScheme(scheme)
+            ? custom.Read(scoped, nameof(answer))
+            : SurlServerFaults.Read(scoped, nameof(answer));
         return FaultPlan.StageOf(rule) == point.Stage
             ? rule
             : throw new ArgumentException($"A {rule.Kind} fault cannot act at the {point.Stage} stage.", nameof(answer));
@@ -91,7 +97,7 @@ internal sealed class ResponseOverrideHook(
         try
         {
             var answer = await decision;
-            return answer is null ? null : ToRule(answer, point);
+            return answer is null ? null : ToRule(answer, point, custom);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {

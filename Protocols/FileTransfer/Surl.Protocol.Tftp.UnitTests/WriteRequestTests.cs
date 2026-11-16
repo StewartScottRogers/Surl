@@ -34,6 +34,39 @@ public sealed class WriteRequestTests
     }
 
     [TestMethod]
+    public async Task Wrq_OutOfSpaceRuleForThisListener_FiresForTheWriteAndPublishesTheFaultOnTheExchange()
+    {
+        var events = new RecordingSurlEventPublisher();
+        var faults = new ScriptedFaultPlan(new FaultRule("f1", FaultKind.OutOfSpace) { Listener = "tftp://127.0.0.1:18069/" });
+        var fileSystem = FileSystem();
+
+        await ServeAsync(
+            Store(fileSystem, events: events, faults: faults),
+            WriteRequest("up.txt"),
+            [ScriptedDatagramFlow.Datagram(Data(1, [1, 2, 3]))]);
+
+        Assert.IsNull(fileSystem.ReadFile(UploadPath));
+        Assert.AreEqual(1L, events.Events.OfType<FaultAppliedEvent>().Single().ExchangeId);
+    }
+
+    [TestMethod]
+    public async Task Wrq_OutOfSpaceRuleForAnotherListener_LeavesTheWriteAloneAndItsChangeCarriesTheExchangeId()
+    {
+        var events = new RecordingSurlEventPublisher();
+        var faults = new ScriptedFaultPlan(new FaultRule("f1", FaultKind.OutOfSpace) { Listener = "tftp://127.0.0.1:1/" });
+        var fileSystem = FileSystem();
+
+        await ServeAsync(
+            Store(fileSystem, events: events, faults: faults),
+            WriteRequest("up.txt"),
+            [ScriptedDatagramFlow.Datagram(Data(1, [1, 2, 3]))]);
+
+        CollectionAssert.AreEqual(new byte[] { 1, 2, 3 }, fileSystem.ReadFile(UploadPath));
+        Assert.IsEmpty(events.Events.OfType<FaultAppliedEvent>());
+        Assert.AreEqual(1L, events.Events.OfType<StoreChangedEvent>().Single().ExchangeId);
+    }
+
+    [TestMethod]
     public async Task Wrq_WholeTransfer_IsServedOnTheOneFlowItWasGiven()
     {
         var fileSystem = FileSystem();

@@ -24,6 +24,21 @@ public sealed class RecordedExchangeWriterTests
     }
 
     [TestMethod]
+    public void WriteExchanges_ChunksWithLayersAndStreams_WritesLayerAndLeavesOutAnAbsentStreamId()
+    {
+        var wire = Received("a"u8.ToArray());
+        var decrypted = new SurlExchangeChunk(SurlExchangeDirection.Sent, "b"u8.ToArray(), Surl.Protocol.Abstractions.ExchangeBytesLayer.Decrypted, 8);
+
+        var (exchanges, _) = Write([Record(1, false, wire, decrypted)]);
+
+        var chunks = exchanges[0].GetProperty("chunks").EnumerateArray().ToArray();
+        Assert.AreEqual("wire", chunks[0].GetProperty("layer").GetString());
+        Assert.IsFalse(chunks[0].TryGetProperty("stream_id", out _));
+        Assert.AreEqual("decrypted", chunks[1].GetProperty("layer").GetString());
+        Assert.AreEqual(8L, chunks[1].GetProperty("stream_id").GetInt64());
+    }
+
+    [TestMethod]
     public void WriteExchanges_TextAndAControlCharacterChunk_WritesTheFirstAsTextAndTheSecondAsBase64InOrder()
     {
         var text = "220 ready\r\n\tok\n"u8.ToArray();

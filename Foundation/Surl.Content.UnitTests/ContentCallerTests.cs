@@ -1,3 +1,6 @@
+using System.Net;
+using Surl.Protocol.Abstractions;
+
 namespace Surl.Content;
 
 [TestClass]
@@ -24,6 +27,26 @@ public sealed class ContentCallerTests
         Assert.AreEqual(7L, onSeven.ExchangeId);
         Assert.AreEqual("alice", onSeven.AccountName);
         Assert.AreEqual("sftp", onSeven.Scheme);
+    }
+
+    [TestMethod]
+    public void ForExchange_TakesTheIdSchemeAndListenUrlFromTheExchangeAndKeepsThemThroughWithExchange()
+    {
+        var exchange = new ExchangeContext(3, new ListenUrl("sftp", "::1", 22).WithBoundPort(2222), new IPEndPoint(IPAddress.IPv6Loopback, 2222), new IPEndPoint(IPAddress.IPv6Loopback, 50000), new RecordingExchangeLog(), TimeProvider.System, CancellationToken.None);
+
+        ContentCaller caller = ContentCaller.ForExchange(exchange, "alice").WithExchange(8);
+
+        Assert.AreEqual("alice", caller.AccountName);
+        Assert.AreEqual("sftp", caller.Scheme);
+        Assert.AreEqual(8L, caller.ExchangeId);
+        Assert.AreEqual("sftp://[::1]:2222/", caller.ListenUrl);
+        Assert.IsNull(ContentCaller.ForAccount("alice", "sftp").ListenUrl);
+    }
+
+    [TestMethod]
+    public void ForExchange_NullExchange_Throws()
+    {
+        Assert.ThrowsExactly<ArgumentNullException>(() => ContentCaller.ForExchange(null!, "alice"));
     }
 
     [TestMethod]

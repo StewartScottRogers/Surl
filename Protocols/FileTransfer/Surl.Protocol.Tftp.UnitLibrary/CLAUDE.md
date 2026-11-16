@@ -17,7 +17,7 @@ receives it through `TftpUploadStream`, which ACKs each DATA block as `ContentSt
 reads it; both transfers share `TftpLockStep`'s send, wait and resend. Missing and refused files get
 ERROR 1; a write gets ERROR 2 while uploads are off, and ERROR 3 past the upload limit.
 Share access (ADR-0102 decisions 2.2 and 2.3, BL-662): TFTP has no login, so every request maps
-with `ContentStore.MapRequestPathForCaller` as `ContentCaller.Anonymous` on `tftp`. A share closed
+with `ContentStore.MapRequestPathForCaller` as an anonymous `ContentCaller.ForExchange` caller (ADR-0168 decision 5, BL-1254), so a listener- or scheme-scoped out-of-space rule fires for its writes and its store changes carry the exchange ID. A share closed
 to anonymous, or limited to other schemes, is a missing file (ERROR 1); a write in a share
 anonymous may only read, or a `readonly` share, is the store's `NotPermitted` (ERROR 2).
 Command-stage faults (ADR-0124 decision 4, ADR-0141, BL-794, BL-907): `TftpCommandStageFault` asks the exchange's fault

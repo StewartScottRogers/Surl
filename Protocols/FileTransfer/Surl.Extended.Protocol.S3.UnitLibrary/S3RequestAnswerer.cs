@@ -45,7 +45,7 @@ internal sealed class S3RequestAnswerer : IHttpRequestHandler, IHttpHeadNotReadR
     {
         this.store = store;
         this.context = context;
-        login = new S3Login(authentication, context.Log);
+        login = new S3Login(authentication, context);
         properties = new S3ObjectPropertiesReader(store, index, context.Log);
         putObject = new S3PutObject(store, index, login, context.Log);
         listObjects = new S3ListObjectsV2(store, properties);

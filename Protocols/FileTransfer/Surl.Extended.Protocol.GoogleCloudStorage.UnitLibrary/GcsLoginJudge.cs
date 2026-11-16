@@ -15,10 +15,10 @@ namespace Surl.Extended.Protocol.GoogleCloudStorage;
 /// challenge; a V4 HMAC refusal is the error decision 3.4 gives its reason (<see cref="ErrorOf"/>).
 /// </summary>
 /// <param name="authentication">The connection's authentication session.</param>
-/// <param name="log">Where each checked login's note is written.</param>
+/// <param name="context">The exchange: where each checked login's note is written, and what its store calls name (ADR-0168, decision 5).</param>
 /// <param name="isJson">Whether the judge serves the JSON API (ADR-0148, decision 4): Bearer tokens only, a
 /// <c>GOOG4-HMAC-SHA256</c> header refused like any other scheme, every refusal in the JSON error body.</param>
-internal sealed class GcsLoginJudge(IHttpAuthenticationSession authentication, IExchangeLog log, bool isJson = false)
+internal sealed class GcsLoginJudge(IHttpAuthenticationSession authentication, ExchangeContext context, bool isJson = false)
 {
     /// <summary>
     /// The challenge a missing credential is answered with (RFC 6750, section 3).
@@ -67,7 +67,7 @@ internal sealed class GcsLoginJudge(IHttpAuthenticationSession authentication, I
 
         return isWrite && verdict.AccountName is null
             ? GcsLogin.Refused(MissingCredential(reply))
-            : GcsLogin.As(CallerOf(verdict.AccountName), verdict.BodyCheck);
+            : GcsLogin.As(ContentCallerOf(verdict.AccountName), verdict.BodyCheck);
     }
 
     /// <summary>
@@ -139,7 +139,7 @@ internal sealed class GcsLoginJudge(IHttpAuthenticationSession authentication, I
     {
         if (verdict.CheckedLogin is { } checkedLogin)
         {
-            log.Note(checkedLogin.Note);
+            context.Log.Note(checkedLogin.Note);
         }
     }
 
@@ -151,10 +151,8 @@ internal sealed class GcsLoginJudge(IHttpAuthenticationSession authentication, I
         isJson ? reply.JsonError(jsonError, extraFields) : reply.Error(xmlError, extraFields);
 
     // The bearer method logs in as the empty name, which stands for no named account.
-    private static ContentCaller CallerOf(string? accountName) =>
-        string.IsNullOrEmpty(accountName)
-            ? ContentCaller.Anonymous(GoogleCloudStorageProtocolServer.Scheme)
-            : ContentCaller.ForAccount(accountName, GoogleCloudStorageProtocolServer.Scheme);
+    private ContentCaller ContentCallerOf(string? accountName) =>
+        ContentCaller.ForExchange(context, string.IsNullOrEmpty(accountName) ? null : accountName);
 
     private static bool IsBearer(string authorization) =>
         authorization.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase) && authorization[7..].Trim().Length > 0;

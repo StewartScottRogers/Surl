@@ -43,6 +43,47 @@ public sealed class WebTransportConnectFaultTests
         Assert.Contains("WebTransport CONNECT to /echo was answered 503 by fault rule f1.", log.Notes);
     }
 
+    private async Task<(Http3TestResponse Response, ScriptedFaultPlan Faults)> ConnectLoggedInAsync(FaultRule rule, bool allowAnonymous, params (string Name, string Value)[] login)
+    {
+        using var client = new Http3TestQuicClient();
+        var faults = new ScriptedFaultPlan(rule);
+        await UnitTestWebTransport.StartAsync(client, Token, authenticationPolicy: new UnitTestAuthenticationPolicy(allowAnonymous), faults: faults);
+        var response = await UnitTestWebTransport.ConnectAsync(client, Token, "/echo", login);
+        await client.UntilAsync(() => client.Response(0).Fin || response.Status == "200", Token);
+
+        return (client.Response(0), faults);
+    }
+
+    [TestMethod]
+    public async Task ServeSessionAsync_ConnectLoggedInAsTheRulesAccount_GetsTheChosenStatusAndNamesTheAccount()
+    {
+        var rule = Rule(reply: "503") with { Account = "user" };
+
+        var (response, faults) = await ConnectLoggedInAsync(rule, false, ("authorization", UnitTestAuthenticationPolicy.GoodAuthorization));
+
+        Assert.AreEqual("503", response.Status);
+        Assert.AreEqual("user", faults.Points.Single().Account);
+    }
+
+    [TestMethod]
+    public async Task ServeSessionAsync_ConnectLoggedInAsAnotherAccount_IsServed()
+    {
+        var rule = Rule(reply: "503") with { Account = "alice" };
+
+        var (response, _) = await ConnectLoggedInAsync(rule, false, ("authorization", UnitTestAuthenticationPolicy.GoodAuthorization));
+
+        Assert.AreEqual("200", response.Status);
+    }
+
+    [TestMethod]
+    public async Task ServeSessionAsync_ConnectWithNoLogin_LeavesThePointsAccountNull()
+    {
+        var (response, faults) = await ConnectLoggedInAsync(Rule(path: "/other"), true);
+
+        Assert.AreEqual("200", response.Status);
+        Assert.IsNull(faults.Points.Single().Account);
+    }
+
     [TestMethod]
     [DataRow("404", DisplayName = "No space")]
     [DataRow("404 ", DisplayName = "A space and no text")]

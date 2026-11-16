@@ -1,4 +1,5 @@
 using Surl.Content;
+using Surl.Protocol.Abstractions;
 
 namespace Surl.Extended.Protocol.OciRegistry;
 
@@ -12,11 +13,13 @@ namespace Surl.Extended.Protocol.OciRegistry;
 internal sealed record OciToken(string? AccountName, IReadOnlyDictionary<string, OciActions> Grants, DateTimeOffset ExpiresAt)
 {
     /// <summary>
-    /// The caller the content store serves the token's requests as.
+    /// The caller the content store serves the token's requests as, on <paramref name="exchange"/>, so
+    /// an out-of-space rule scoped by listener or scheme matches and a store change names the exchange
+    /// (ADR-0168 decision 5).
     /// </summary>
-    public ContentCaller Caller => AccountName is null
-        ? ContentCaller.Anonymous(OciRegistryProtocolServer.Scheme)
-        : ContentCaller.ForAccount(AccountName, OciRegistryProtocolServer.Scheme);
+    /// <param name="exchange">The exchange that carries the request.</param>
+    /// <returns>The caller.</returns>
+    public ContentCaller CallerOn(ExchangeContext exchange) => ContentCaller.ForExchange(exchange, AccountName);
 
     /// <summary>
     /// Whether the token grants every one of <paramref name="actions"/> in <paramref name="name"/>.

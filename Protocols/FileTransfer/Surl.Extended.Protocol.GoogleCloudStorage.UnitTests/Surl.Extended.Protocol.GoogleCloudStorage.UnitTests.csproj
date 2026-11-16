@@ -11,6 +11,8 @@
   <ItemGroup>
     <ProjectReference Include="..\Surl.Extended.Protocol.GoogleCloudStorage.UnitLibrary\Surl.Extended.Protocol.GoogleCloudStorage.UnitLibrary.csproj" />
     <ProjectReference Include="..\..\..\Foundation\Surl.Authentication.UnitLibrary\Surl.Authentication.UnitLibrary.csproj" />
+    <!-- GcsStoreExchangeTests match rules with the engine's own FaultPlan, as a served instance does. -->
+    <ProjectReference Include="..\..\..\Foundation\Surl.Core.UnitLibrary\Surl.Core.UnitLibrary.csproj" />
   </ItemGroup>
 
 </Project>

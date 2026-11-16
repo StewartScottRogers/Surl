@@ -21,8 +21,8 @@ internal static class UploadExchange
 
     public static UnitTestInMemoryContentFileSystem FileSystem() => new UnitTestInMemoryContentFileSystem().AddDirectory(Root);
 
-    public static ContentStore Store(UnitTestInMemoryContentFileSystem fileSystem, bool allowUploads = true, long maxUploadBytes = ContentExposureOptions.DefaultMaxUploadBytes) =>
-        new(Root, fileSystem, new ContentExposureOptions { AllowUploads = allowUploads, MaxUploadBytes = maxUploadBytes });
+    public static ContentStore Store(UnitTestInMemoryContentFileSystem fileSystem, bool allowUploads = true, long maxUploadBytes = ContentExposureOptions.DefaultMaxUploadBytes, ISurlEventPublisher? events = null, IFaultPlan? faults = null) =>
+        new(Root, fileSystem, new ContentExposureOptions { AllowUploads = allowUploads, MaxUploadBytes = maxUploadBytes }, [], [], events, faults);
 
     public static ExchangeContext Context(IExchangeLog log, TimeProvider clock, ExchangeLimits? limits = null, CancellationToken cancellationToken = default) => new(
         1,

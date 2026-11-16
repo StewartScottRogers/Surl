@@ -22,6 +22,10 @@ internal sealed record ControlEventJson
 
     public string? Direction { get; init; }
 
+    public string? Layer { get; init; }
+
+    public long? StreamId { get; init; }
+
     public string? Encoding { get; init; }
 
     public string? Data { get; init; }
@@ -78,7 +82,7 @@ internal sealed record ControlEventsJson(IReadOnlyList<ControlEventJson> Events,
 internal sealed record ControlEventWaitJson(ControlEventJson? Event, bool? TimedOut);
 
 /// <summary>One chunk of an exchange: the bytes that crossed the connection one way, as text or base64.</summary>
-internal sealed record ControlExchangeChunkJson(string Direction, string Encoding, string Data);
+internal sealed record ControlExchangeChunkJson(string Direction, string Encoding, string Data, string Layer, long? StreamId);
 
 /// <summary>One exchange, in ADR-0103's <c>get_exchanges</c> shape with its listen URL and scheme.</summary>
 internal sealed record ControlExchangeJson(

@@ -32,7 +32,7 @@ with one `McpServerRegistry.AddTool` line and holds nothing else of the tools.
     client, started_at, chunks: [{direction, encoding, data}], recorded_bytes, shown_bytes, is_cut,
     is_truncated}], dropped_exchange_count, has_more}`, oldest first; an unknown ID is `isError` as for
     `stop_server`.
-  - `GetEventsTool` (`get_events`): `server_id`, `after_sequence`, `kinds` (`exchange_started`,
+  - `GetEventsTool` (`get_events`): `server_id`, `after_sequence`, `kinds` (derived from the event records, `EventToolFilter.AllKinds`; today `exchange_started`,
     `exchange_ended`, `login_judged`, `store_changed`, `fault_applied`, `hook_failed`, `consumer_group_changed`), `scheme`, `listen_url`,
     `account`, `store` (a `StoreKind` in snake_case; a schema enum), `name` (a store change's name, exactly or as a
     segment prefix) and `max_events` (1 to 500, default 100), found with `SurlServer.FindEvents`. Result `{events,
@@ -61,6 +61,7 @@ with one `McpServerRegistry.AddTool` line and holds nothing else of the tools.
     - `AddLdapEntriesTool` (`add_ldap_entries`): `ldif` -> `{entry_count}` (the `dn:` lines); `AddDnsZoneTool`
       (`add_dns_zone`): `apex`, `zone_text` -> `{apex, byte_count}`. A bound, a duplicate apex or a refusal is `isError`.
     - `RemoveAccountTool` (`remove_account`): `user` -> `{user}`; an account not held is `server <id> has no account <user>`.
+    - `AddProxyAccountTool` / `AddTlsSrpAccountTool` (`add_proxy_account`, `add_tls_srp_account`): `user`, `password` -> `{user}`; a server without such accounts is refused (`holds no proxy accounts...`, `was not started with TLS-SRP`). `RemoveProxyAccountTool` / `RemoveTlsSrpAccountTool`: `user` -> `{user}`, same refusals (ADR-0170 decision 4).
     - `ResetServerTool` (`reset_server`) -> `{server_id}`; `SnapshotServerTool` (`snapshot_server`) ->
       `{snapshot_id}`; `RestoreServerTool` (`restore_server`): `snapshot_id` -> `{server_id, snapshot_id}`, and
       an ID not kept is `server <id> has no snapshot <p>; only its newest 4 snapshots are kept`.
@@ -76,7 +77,7 @@ with one `McpServerRegistry.AddTool` line and holds nothing else of the tools.
     newest 4 kept and the oldest dropped; never returned whole, and forgotten with the server.
   - For every tool taking filters, a `listen_url` that is not an absolute URL is `isError`; `EventToolFilter`
     reads them into the `SurlEventQuery` a .NET test would pass.
-- `RecordedEventWriter` - writes an event as `{sequence, at, kind, ...}` with the record's members and enum
+- `RecordedEventWriter` - writes an event as `{sequence, at, kind, ...}` through `SurlEvent.WriteMembers` (ADR-0171; a `Kind` member is written `<first word of the kind>_kind`, bytes as hex cut at 256) with enum
   values in snake_case and a `null` member left out, as the control endpoint does (ADR-0124 decision 7).
 - `RecordedExchangeWriter` - writes `get_exchanges`'s `exchanges`: a chunk is `text` when it is well-formed
   UTF-8 with no control character but tab, CR and LF, else `base64`. At most 65536 bytes of each exchange and

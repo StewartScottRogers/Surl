@@ -49,7 +49,7 @@ internal sealed class AzureDataLakeRequestAnswerer : IHttpRequestHandler, IHttpH
         this.pathStyle = pathStyle;
         this.context = context;
         this.staging = staging;
-        login = new AzureLoginJudge(authentication, context.Scheme, AzureStorageProtocolServer.PeerAddressOf(context), refusesBearerToken);
+        login = new AzureLoginJudge(authentication, context, AzureStorageProtocolServer.PeerAddressOf(context), refusesBearerToken);
         properties = new AzureBlobPropertiesReader(store, index, context.Log);
         create = new AzurePathCreate(store, index, properties, staging, context.Log);
         update = new AzurePathUpdate(store, index, properties, staging, context.Log);

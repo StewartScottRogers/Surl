@@ -75,6 +75,23 @@ public sealed class WebTransportProtocolServerTests
     }
 
     [TestMethod]
+    public async Task ServeAsync_SessionStreamPayload_IsReportedToTheDecryptedBytesSink()
+    {
+        var sink = new UnitTestRecordingDecryptedBytesSink();
+        using var client = new Http3TestQuicClient();
+        var context = NewContext(new ManualTimeProvider(Now), Token) with { DecryptedBytes = sink };
+        var serving = StartServing(client, context, TimeSpan.FromSeconds(30));
+        await client.OpenAsync(Token, UnitTestWebTransport.WebTransportSettings);
+        await UnitTestWebTransport.OpenSessionAsync(client, Token);
+
+        client.Send(14, Convert.FromHexString(UnitTestWebTransport.UnidirectionalHeaderHex + "64617461"), fin: true);
+        await client.UntilAsync(() => client.StreamSent(UnitTestWebTransport.ServerAnswerStreamId).Fin, Token);
+
+        Assert.IsTrue(sink.HasReceived("data"));
+        Assert.IsFalse(serving.IsCompleted);
+    }
+
+    [TestMethod]
     [DataRow(-1, DisplayName = "No head timeout")]
     [DataRow(0, DisplayName = "A head timeout longer than a timer can wait")]
     [DataRow(30, DisplayName = "A head timeout")]

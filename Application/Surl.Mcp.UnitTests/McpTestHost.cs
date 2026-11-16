@@ -54,6 +54,10 @@ internal sealed class McpTestHost : IAsyncDisposable
         ReadDirectory = ReadDirectoryTool.Create(Servers);
         ReadZone = ReadZoneTool.Create(Servers);
         RemoveAccount = RemoveAccountTool.Create(Servers);
+        AddProxyAccount = AddProxyAccountTool.Create(Servers);
+        RemoveProxyAccount = RemoveProxyAccountTool.Create(Servers);
+        AddTlsSrpAccount = AddTlsSrpAccountTool.Create(Servers);
+        RemoveTlsSrpAccount = RemoveTlsSrpAccountTool.Create(Servers);
         PublishMessage = PublishMessageTool.Create(Servers);
         AddAccount = AddAccountTool.Create(Servers);
         SetKey = SetKeyTool.Create(Servers);
@@ -106,6 +110,10 @@ internal sealed class McpTestHost : IAsyncDisposable
     public McpTool ReadZone { get; }
 
     public McpTool RemoveAccount { get; }
+    public McpTool AddProxyAccount { get; }
+    public McpTool RemoveProxyAccount { get; }
+    public McpTool AddTlsSrpAccount { get; }
+    public McpTool RemoveTlsSrpAccount { get; }
 
     public McpTool GetExchanges { get; }
 

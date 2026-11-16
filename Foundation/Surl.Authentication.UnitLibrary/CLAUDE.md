@@ -499,6 +499,10 @@ server starts it with `CanCarrySecurityLayer` (BL-329, below), and is `RefusedMe
   and `AccountRemoved` with the user name, `Reset` and `Restored` with an empty name, under the change lock;
   never a secret. Tests: `AccountBookTests.Changes.cs`, and the live-view cases in `SchemeAccountViewTests`.
 
+- `AccountBook.TryFindPreSharedKey(userName, scheme, out key)` (BL-1274, ADR-0170 decision 5) is the live
+  lookup of a named account's UTF-8 password admitted to `scheme`, for `coaps` pre-shared keys; it reads the
+  current set each call, so `Add`, `Remove`, `Reset` and `Restore` change the answer at once.
+
 ## The LDAP account source (BL-672, ADR-0149)
 
 - `LdapAccountSource` checks a password login the account book does not hold against an external LDAP

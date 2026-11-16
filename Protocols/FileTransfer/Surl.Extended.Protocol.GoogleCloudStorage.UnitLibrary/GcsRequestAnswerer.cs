@@ -50,7 +50,7 @@ internal sealed class GcsRequestAnswerer : IHttpRequestHandler, IHttpHeadNotRead
     {
         this.store = store;
         this.context = context;
-        login = new GcsLoginJudge(authentication, context.Log);
+        login = new GcsLoginJudge(authentication, context);
         properties = new GcsObjectPropertiesReader(store, index, context.Log);
         putObject = new GcsPutObject(store, index, properties, login, context.Log);
         listObjects = new GcsListObjects(store, properties);
@@ -64,7 +64,7 @@ internal sealed class GcsRequestAnswerer : IHttpRequestHandler, IHttpHeadNotRead
             store,
             properties,
             listBuckets,
-            new GcsLoginJudge(authentication, context.Log, isJson: true),
+            new GcsLoginJudge(authentication, context, isJson: true),
             context,
             new GcsJsonObjectInsert(store, properties, putObject),
             new GcsJsonResumableUpload(store, properties, staging),

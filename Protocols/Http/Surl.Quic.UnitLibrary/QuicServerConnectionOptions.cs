@@ -74,4 +74,12 @@ public sealed class QuicServerConnectionOptions
     /// no client certificate.
     /// </summary>
     public Func<IReadOnlyList<ReadOnlyMemory<byte>>, bool>? TrustsClientCertificateChain { get; init; }
+
+
+    /// <summary>
+    /// Where the connection reports each STREAM and DATAGRAM frame payload it receives or sends, as
+    /// <see cref="Surl.Protocol.Abstractions.ExchangeBytesLayer.Decrypted"/> bytes (ADR-0169 decision 1). CRYPTO, ACK and
+    /// other control frames and every secret are never reported. Discards them by default.
+    /// </summary>
+    public Surl.Protocol.Abstractions.IDecryptedBytesSink DecryptedBytes { get; init; } = Surl.Protocol.Abstractions.DiscardingDecryptedBytesSink.Instance;
 }

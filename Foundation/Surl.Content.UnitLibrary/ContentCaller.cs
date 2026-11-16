@@ -1,3 +1,5 @@
+using Surl.Protocol.Abstractions;
+
 namespace Surl.Content;
 
 /// <summary>
@@ -12,11 +14,12 @@ namespace Surl.Content;
 /// </remarks>
 public sealed class ContentCaller
 {
-    private ContentCaller(string? accountName, string? scheme, long? exchangeId = null)
+    private ContentCaller(string? accountName, string? scheme, long? exchangeId = null, string? listenUrl = null)
     {
         AccountName = accountName;
         Scheme = scheme;
         ExchangeId = exchangeId;
+        ListenUrl = listenUrl;
     }
 
     /// <summary>
@@ -28,7 +31,27 @@ public sealed class ContentCaller
     /// <summary>The same caller, on the exchange <paramref name="exchangeId"/>.</summary>
     /// <param name="exchangeId">The exchange's ID.</param>
     /// <returns>A new caller; this one is unchanged.</returns>
-    public ContentCaller WithExchange(long exchangeId) => new(AccountName, Scheme, exchangeId);
+    public ContentCaller WithExchange(long exchangeId) => new(AccountName, Scheme, exchangeId, ListenUrl);
+
+    /// <summary>
+    /// The listen URL, as the instance reports it, of the listener whose exchange makes the call, so an
+    /// out-of-space rule scoped by <c>listener</c> matches (ADR-0168 decision 1); <see langword="null"/> when the
+    /// caller was not built from an exchange.
+    /// </summary>
+    public string? ListenUrl { get; }
+
+    /// <summary>
+    /// A caller on <paramref name="exchange"/>: its ID, listen URL and scheme, logged in as
+    /// <paramref name="accountName"/> or anonymous when that is <see langword="null"/> (ADR-0168 decision 1).
+    /// </summary>
+    /// <param name="exchange">The exchange that makes the call.</param>
+    /// <param name="accountName">The account's name, or <see langword="null"/> for an anonymous caller.</param>
+    /// <returns>The caller.</returns>
+    public static ContentCaller ForExchange(ExchangeContext exchange, string? accountName)
+    {
+        ArgumentNullException.ThrowIfNull(exchange);
+        return new ContentCaller(accountName, exchange.Scheme, exchange.ExchangeId, ReportedListenUrl.Format(exchange.ListenUrl));
+    }
 
     /// <summary>
     /// The logged-in account's name, compared ordinally; <see langword="null"/> for an anonymous

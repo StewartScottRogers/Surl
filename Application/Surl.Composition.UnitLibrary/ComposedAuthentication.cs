@@ -32,7 +32,4 @@ internal sealed record ComposedAuthentication(
 
     /// <summary>The control endpoint's bearer token (ADR-0124 decision 7); <see langword="null"/> without <c>--control</c>.</summary>
     public Surl.Control.ControlToken? ControlToken { get; init; }
-
-    /// <summary>The <c>--user</c> and <c>--user-file</c> accounts with their passwords, which <c>coaps</c> uses as pre-shared keys (ADR-0097 decision 6); a key cannot be derived from the hashes the policy keeps.</summary>
-    public IReadOnlyList<Account> PreSharedKeyAccounts { get; init; } = [];
 }

@@ -124,6 +124,20 @@ public sealed class DnsOverQuicProtocolServerTests
     }
 
     [TestMethod]
+    public async Task ServeAsync_QueryOverDoq_ReportsTheQuestionToTheDecryptedBytesSink()
+    {
+        var sink = new UnitTestRecordingDecryptedBytesSink();
+        using var client = new DnsOverQuicTestClient();
+        client.Watch(Server(client).ServeAsync(client.Flow, Context() with { DecryptedBytes = sink }));
+        await client.CompleteHandshakeAsync(Token);
+
+        client.SendQuery(0, Query("web.example.test", TypeA, id: 0));
+        await client.UntilAsync(() => client.HasEnded(0), Token);
+
+        Assert.IsTrue(sink.HasReceived("example"));
+    }
+
+    [TestMethod]
     public async Task ServeAsync_ExchangeCancelledOnceServing_ClosesTheConnectionWithNoError()
     {
         using var client = new DnsOverQuicTestClient();

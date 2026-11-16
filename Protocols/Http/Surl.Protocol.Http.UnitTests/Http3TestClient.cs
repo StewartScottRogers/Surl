@@ -39,6 +39,9 @@ internal sealed class Http3TestClient(Func<byte[], byte[]>? editClientHello = nu
     /// <summary>The fault plan the exchange asks, when a test sets one before starting the server.</summary>
     public IFaultPlan? Faults { get; set; }
 
+    /// <summary>Where the server reports decrypted bytes; null leaves the context's discarding sink.</summary>
+    public IDecryptedBytesSink? DecryptedBytes { get; set; }
+
     /// <summary>Starts the server with <paramref name="limits"/> and a content store holding <c>file.txt</c>.</summary>
     public Task Serve(CancellationToken cancellationToken, ExchangeLimits? limits = null, IContentFileSystem? fileSystem = null, bool allowUploads = false)
     {
@@ -47,6 +50,11 @@ internal sealed class Http3TestClient(Func<byte[], byte[]>? editClientHello = nu
         {
             context = context with { Faults = faults };
         }
+        if (DecryptedBytes is { } sink)
+        {
+            context = context with { DecryptedBytes = sink };
+        }
+
         var exposure = ContentExposureOptions.ServeEverythingInsideTheRoot with { AllowUploads = allowUploads };
         var store = new ContentStore(HttpServerHarness.Root, fileSystem ?? HttpServerHarness.StandardFileSystem(), exposure);
         if (ProtocolServerPolicy is { } policy)

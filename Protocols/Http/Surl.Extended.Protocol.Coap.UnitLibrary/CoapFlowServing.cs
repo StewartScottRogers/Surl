@@ -24,6 +24,7 @@ internal static class CoapFlowServing
     /// <param name="observations">Every observer of the process.</param>
     /// <param name="random">Draws Message IDs and retransmission factors.</param>
     /// <param name="peerIsAuthenticated">Whether the peer is authenticated (ADR-0097 decision 6).</param>
+    /// <param name="account">The PSK identity of the session, or <see langword="null"/> for none (ADR-0170 decision 9).</param>
     /// <returns>A task whose outcome is serving's: <see cref="OperationCanceledException"/> when the exchange is cancelled.</returns>
     public static Task ServeAsync(
         IDatagramFlow flow,
@@ -32,8 +33,9 @@ internal static class CoapFlowServing
         ContentStore contentStore,
         CoapObservations observations,
         ICoapRandomSource random,
-        bool peerIsAuthenticated) =>
-        ServeFlowAsync(flow, context, answerer, contentStore, observations, random, peerIsAuthenticated).Unwrap();
+        bool peerIsAuthenticated,
+        string? account = null) =>
+        ServeFlowAsync(flow, context, answerer, contentStore, observations, random, peerIsAuthenticated, account).Unwrap();
 
     // Serves the flow however it ends, then disposes the uploads and observers, and hands serving
     // back so its outcome is the call's.
@@ -44,7 +46,8 @@ internal static class CoapFlowServing
         ContentStore contentStore,
         CoapObservations observations,
         ICoapRandomSource random,
-        bool peerIsAuthenticated)
+        bool peerIsAuthenticated,
+        string? account)
     {
         await using var uploads = new CoapBlock1Uploads(contentStore, context.TimeProvider, answerer.PreferredSizeExponent);
         CoapFlowSession? session = null;
@@ -57,7 +60,7 @@ internal static class CoapFlowServing
         session = new CoapFlowSession(
             flow,
             context,
-            async (request, options, cancellationToken) => await CoapRequestFaults.ApplyAsync(context, request, options) switch
+            async (request, options, cancellationToken) => await CoapRequestFaults.ApplyAsync(context, request, options, account) switch
             {
                 { IsDropped: true } => null,
                 { ChosenError: { } error } => error,

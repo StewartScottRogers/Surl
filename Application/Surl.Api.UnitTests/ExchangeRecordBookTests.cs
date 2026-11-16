@@ -39,6 +39,22 @@ public sealed class ExchangeRecordBookTests
     }
 
     [TestMethod]
+    public void Apply_BytesWithALayerAndAStream_KeepsThemOnTheChunkAndWireBytesDefaultToWireAndNoStream()
+    {
+        var book = new ExchangeRecordBook(10, 100);
+
+        book.Apply(Started(1, Alice));
+        book.Apply(Received(1, "wire"));
+        book.Apply(Received(1, "plain") with { Layer = ExchangeBytesLayer.Decrypted, StreamId = 4 });
+        var chunks = book.Snapshot().Single().Chunks;
+
+        Assert.AreEqual(ExchangeBytesLayer.Wire, chunks[0].Layer);
+        Assert.IsNull(chunks[0].StreamId);
+        Assert.AreEqual(ExchangeBytesLayer.Decrypted, chunks[1].Layer);
+        Assert.AreEqual(4L, chunks[1].StreamId);
+    }
+
+    [TestMethod]
     public void Apply_TwoExchangesInterleaved_KeepsThemApartWithTheirIdsAndClientsOldestFirst()
     {
         var book = new ExchangeRecordBook(10, 100);

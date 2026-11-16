@@ -11,24 +11,15 @@ internal static class SurlEventFacts
     /// <summary>The kind of <paramref name="surlEvent"/>.</summary>
     /// <param name="surlEvent">An event.</param>
     /// <returns>Its kind, or <see langword="null"/> for exchange bytes and any event kind not kept.</returns>
-    public static SurlEventKind? KindOf(SurlEvent surlEvent) => surlEvent switch
-    {
-        ExchangeStartedEvent => SurlEventKind.ExchangeStarted,
-        ExchangeEndedEvent => SurlEventKind.ExchangeEnded,
-        LoginJudgedEvent => SurlEventKind.LoginJudged,
-        _ => KindOfAnEventNotOfAnExchange(surlEvent),
-    };
+    public static SurlEventKind? KindOf(SurlEvent surlEvent) =>
+        Enum.TryParse<SurlEventKind>(surlEvent.KindName.Replace("_", string.Empty, StringComparison.Ordinal), ignoreCase: true, out var kind)
+            ? kind
+            : null;
 
     /// <summary>The exchange an event belongs to, or <see langword="null"/> when it belongs to none.</summary>
     /// <param name="surlEvent">An event.</param>
     /// <returns>Its exchange ID.</returns>
-    public static long? ExchangeIdOf(SurlEvent surlEvent) => surlEvent switch
-    {
-        ExchangeStartedEvent started => started.ExchangeId,
-        ExchangeBytesEvent bytes => bytes.ExchangeId,
-        ExchangeEndedEvent ended => ended.ExchangeId,
-        _ => ExchangeIdOfAnotherKind(surlEvent),
-    };
+    public static long? ExchangeIdOf(SurlEvent surlEvent) => surlEvent.ExchangeId;
 
     /// <summary>Whether <paramref name="at"/> lies in the query's window, <c>Since</c> inclusive, <c>Until</c> exclusive.</summary>
     /// <param name="at">A time.</param>
@@ -69,40 +60,9 @@ internal static class SurlEventFacts
         name == prefix || name.StartsWith(prefix.EndsWith('/') ? prefix : prefix + '/', StringComparison.Ordinal);
 
     private static bool IsOfSchemeAndListenUrl(SurlEvent surlEvent, ExchangeFacts? exchange, SurlEventQuery query) =>
-        IsScheme(OwnSchemeOf(surlEvent) ?? exchange?.Scheme, query)
+        IsScheme(surlEvent.Scheme ?? exchange?.Scheme, query)
         && (query.ListenUrl is null || query.ListenUrl == exchange?.ListenUrl);
 
-    private static string? OwnSchemeOf(SurlEvent surlEvent) => surlEvent switch
-    {
-        LoginJudgedEvent login => login.Scheme,
-        ConsumerGroupChangedEvent group => group.Scheme,
-        _ => null,
-    };
-
-    private static SurlEventKind? KindOfAnEventNotOfAnExchange(SurlEvent surlEvent) => surlEvent switch
-    {
-        StoreChangedEvent => SurlEventKind.StoreChanged,
-        FaultAppliedEvent => SurlEventKind.FaultApplied,
-        HookFailedEvent => SurlEventKind.HookFailed,
-        ConsumerGroupChangedEvent => SurlEventKind.ConsumerGroupChanged,
-        _ => null,
-    };
-
-    private static long? ExchangeIdOfAnotherKind(SurlEvent surlEvent) => surlEvent switch
-    {
-        LoginJudgedEvent login => login.ExchangeId,
-        StoreChangedEvent change => change.ExchangeId,
-        FaultAppliedEvent fault => fault.ExchangeId,
-        ConsumerGroupChangedEvent group => group.ExchangeId,
-        _ => null,
-    };
-
     private static bool NamesAccount(SurlEvent surlEvent, ExchangeFacts? exchange, string account) =>
-        surlEvent switch
-        {
-            LoginJudgedEvent login => login.Account == account,
-            ConsumerGroupChangedEvent group => group.Account == account,
-            StoreChangedEvent { Store: StoreKind.Accounts } change when change.Name == account => true,
-            _ => exchange?.HasJudgedLoginFor(account) == true,
-        };
+        surlEvent.Account is { } own ? own == account : exchange?.HasJudgedLoginFor(account) == true;
 }

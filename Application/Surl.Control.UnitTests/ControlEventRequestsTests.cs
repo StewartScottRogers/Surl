@@ -33,8 +33,8 @@ public sealed class ControlEventRequestsTests
         Assert.AreEqual(
             "{\"events\":["
             + $"{{\"sequence\":1,{at},\"kind\":\"exchange_started\",\"exchange_id\":1,\"listen_url\":\"smtp://127.0.0.1:2525\",\"scheme\":\"smtp\",\"client\":\"127.0.0.1:50512\"}},"
-            + $"{{\"sequence\":2,{at},\"kind\":\"exchange_bytes\",\"exchange_id\":1,\"direction\":\"received\",\"encoding\":\"text\",\"data\":\"EHLO a\\r\\n\",\"byte_count\":8,\"is_cut\":false}},"
-            + $"{{\"sequence\":3,{at},\"kind\":\"exchange_bytes\",\"exchange_id\":1,\"direction\":\"sent\",\"encoding\":\"base64\",\"data\":\"AAEC\",\"byte_count\":3,\"is_cut\":false}},"
+            + $"{{\"sequence\":2,{at},\"kind\":\"exchange_bytes\",\"exchange_id\":1,\"direction\":\"received\",\"layer\":\"wire\",\"encoding\":\"text\",\"data\":\"EHLO a\\r\\n\",\"byte_count\":8,\"is_cut\":false}},"
+            + $"{{\"sequence\":3,{at},\"kind\":\"exchange_bytes\",\"exchange_id\":1,\"direction\":\"sent\",\"layer\":\"wire\",\"encoding\":\"base64\",\"data\":\"AAEC\",\"byte_count\":3,\"is_cut\":false}},"
             + $"{{\"sequence\":4,{at},\"kind\":\"login_judged\",\"exchange_id\":1,\"scheme\":\"smtp\",\"account\":\"alice\",\"mechanism\":\"PLAIN\",\"is_accepted\":false,\"is_refused_by_fault\":true}},"
             + $"{{\"sequence\":5,{at},\"kind\":\"store_changed\",\"exchange_id\":1,\"byte_count\":9,\"store\":\"content\",\"change\":\"written\",\"name\":\"/b\",\"previous_name\":\"/a\"}},"
             + $"{{\"sequence\":6,{at},\"kind\":\"fault_applied\",\"exchange_id\":1,\"rule_id\":\"f1\",\"fault_kind\":\"refuse_login\",\"stage\":\"login\",\"target\":\"alice\"}},"
@@ -70,6 +70,8 @@ public sealed class ControlEventRequestsTests
     [TestMethod]
     [DataRow("store=content", "1,2,3")]
     [DataRow("store=mail", "4")]
+    [DataRow("store=proxy_accounts", "6")]
+    [DataRow("store=tls_srp_accounts", "7")]
     [DataRow("name=/uploads", "1,2")]
     [DataRow("name=/uploads/", "1")]
     [DataRow("name=/uploads/a.csv", "1")]
@@ -85,6 +87,8 @@ public sealed class ControlEventRequestsTests
         Add(log, 3, new StoreChangedEvent(StoreKind.Content, StoreChange.Written, "/uploads2", 1, null));
         Add(log, 4, new StoreChangedEvent(StoreKind.Mail, StoreChange.Delivered, "INBOX", 1, null));
         Add(log, 5, new HookFailedEvent("h1", HookFailure.Threw, "x"));
+        Add(log, 6, new StoreChangedEvent(StoreKind.ProxyAccounts, StoreChange.AccountAdded, "bob", null, null));
+        Add(log, 7, new StoreChangedEvent(StoreKind.TlsSrpAccounts, StoreChange.AccountAdded, "carol", null, null));
 
         var response = await ServeAsync(EndpointOver(log), Request("GET", $"/v1/events?{query}"), new ManualTimeProvider(), TestContext.CancellationToken);
 
@@ -209,7 +213,7 @@ public sealed class ControlEventRequestsTests
         var log = new ControlEventLog();
         Add(log, 1, new ExchangeStartedEvent(1, "http://127.0.0.1:8080", "http", Client));
         Add(log, 2, new ExchangeBytesEvent(1, ExchangeDirection.Received, Encoding.ASCII.GetBytes("GET / HTTP/1.1\r\n")));
-        Add(log, 3, new ExchangeBytesEvent(1, ExchangeDirection.Sent, new byte[] { 0xff }));
+        Add(log, 3, new ExchangeBytesEvent(1, ExchangeDirection.Sent, new byte[] { 0xff }) { Layer = ExchangeBytesLayer.Decrypted, StreamId = 4 });
         Add(log, 4, new ExchangeEndedEvent(1, 16, 1));
 
         var response = await ServeAsync(EndpointOver(log), Request("GET", "/v1/exchanges"), new ManualTimeProvider(), TestContext.CancellationToken);
@@ -217,8 +221,8 @@ public sealed class ControlEventRequestsTests
         Assert.AreEqual(
             "{\"exchanges\":[{\"exchange_id\":1,\"listen_url\":\"http://127.0.0.1:8080\",\"scheme\":\"http\",\"client\":\"127.0.0.1:50512\","
             + "\"started_at\":\"2026-11-05T09:30:00.0000000\\u002B00:00\",\"chunks\":["
-            + "{\"direction\":\"received\",\"encoding\":\"text\",\"data\":\"GET / HTTP/1.1\\r\\n\"},"
-            + "{\"direction\":\"sent\",\"encoding\":\"base64\",\"data\":\"/w==\"}],"
+            + "{\"direction\":\"received\",\"encoding\":\"text\",\"data\":\"GET / HTTP/1.1\\r\\n\",\"layer\":\"wire\"},"
+            + "{\"direction\":\"sent\",\"encoding\":\"base64\",\"data\":\"/w==\",\"layer\":\"decrypted\",\"stream_id\":4}],"
             + "\"recorded_bytes\":17,\"shown_bytes\":17,\"is_cut\":false,\"is_truncated\":false}],"
             + "\"dropped_exchange_count\":0,\"has_more\":false}",
             Body(response));

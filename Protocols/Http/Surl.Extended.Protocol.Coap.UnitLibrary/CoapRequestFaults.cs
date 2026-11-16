@@ -9,7 +9,7 @@ namespace Surl.Extended.Protocol.Coap;
 /// a chosen response code instead (ADR-0124, decisions 4 and 9; ADR-0144): the point names the scheme
 /// (<c>coap</c> or <c>coaps</c>), the method as <c>command</c> (<c>GET</c>, <c>POST</c>, <c>PUT</c>,
 /// <c>DELETE</c>, any other as its <c>0.dd</c> code) and the Uri-Path as <c>path</c> (<c>/a/b</c>,
-/// <c>/</c> for none). CoAP has no account, so the point names none.
+/// <c>/</c> for none). The point names the PSK identity as <c>account</c> for a PSK session and none otherwise (ADR-0170 decision 9).
 /// </summary>
 /// <remarks>
 /// A <see cref="FaultKind.Delay"/> or <see cref="FaultKind.Drop"/> rule is applied, and so is an
@@ -37,9 +37,10 @@ internal static class CoapRequestFaults
     /// <param name="context">The exchange: its fault plan, clock, event stream and listen URL.</param>
     /// <param name="request">The request: its code is a method.</param>
     /// <param name="options">Its options, read.</param>
+    /// <param name="account">The PSK identity of a <c>coaps</c> PSK session; <see langword="null"/> for none.</param>
     /// <returns>What the request is answered with.</returns>
     /// <exception cref="OperationCanceledException">The exchange was cancelled during a delay.</exception>
-    public static async Task<CoapFaultOutcome> ApplyAsync(ExchangeContext context, CoapMessage request, CoapRequestOptions options)
+    public static async Task<CoapFaultOutcome> ApplyAsync(ExchangeContext context, CoapMessage request, CoapRequestOptions options, string? account = null)
     {
         var path = "/" + string.Join('/', options.UriPath);
         var point = new FaultPoint(FaultStage.Command)
@@ -49,6 +50,7 @@ internal static class CoapRequestFaults
             Scheme = context.Scheme,
             Path = path,
             Command = CommandOf(request.Code),
+            Account = account,
         };
         var rule = await CommandStageFaults.FindAndApplyAsync(context, point, path);
 

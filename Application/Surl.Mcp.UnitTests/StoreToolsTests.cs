@@ -279,6 +279,10 @@ public sealed class StoreToolsTests
     [DataRow(PutFileTool.Name, """{"server_id": "s9", "path": "/a", "text": "x"}""")]
     [DataRow(DeleteFileTool.Name, """{"server_id": "s9", "path": "/a"}""")]
     [DataRow(RemoveAccountTool.Name, """{"server_id": "s9", "user": "a"}""")]
+    [DataRow(AddProxyAccountTool.Name, """{"server_id": "s9", "user": "a", "password": "b"}""")]
+    [DataRow(RemoveProxyAccountTool.Name, """{"server_id": "s9", "user": "a"}""")]
+    [DataRow(AddTlsSrpAccountTool.Name, """{"server_id": "s9", "user": "a", "password": "b"}""")]
+    [DataRow(RemoveTlsSrpAccountTool.Name, """{"server_id": "s9", "user": "a"}""")]
     [DataRow(PublishMessageTool.Name, """{"server_id": "s9", "topic": "t", "payload": "x"}""")]
     [DataRow(AddAccountTool.Name, """{"server_id": "s9", "user": "a", "password": "b"}""")]
     [DataRow(SetKeyTool.Name, """{"server_id": "s9", "key": "k", "value": "v"}""")]
@@ -295,7 +299,7 @@ public sealed class StoreToolsTests
         await using var host = await StartMailHostAsync();
         McpTool[] tools =
         [
-            host.SeedMail, host.PutFile, host.DeleteFile, host.RemoveAccount, host.PublishMessage, host.AddAccount, host.SetKey, host.AddLdapEntries, host.AddDnsZone, host.ResetServer, host.SnapshotServer,
+            host.SeedMail, host.PutFile, host.DeleteFile, host.RemoveAccount, host.AddProxyAccount, host.RemoveProxyAccount, host.AddTlsSrpAccount, host.RemoveTlsSrpAccount, host.PublishMessage, host.AddAccount, host.SetKey, host.AddLdapEntries, host.AddDnsZone, host.ResetServer, host.SnapshotServer,
             host.RestoreServer, host.AddFault, host.ListFaults, host.RemoveFault,
         ];
 
@@ -309,7 +313,7 @@ public sealed class StoreToolsTests
     {
         Func<RunningSurlServers, McpTool>[] creates =
         [
-            SeedMailTool.Create, PutFileTool.Create, DeleteFileTool.Create, RemoveAccountTool.Create, PublishMessageTool.Create, AddAccountTool.Create, SetKeyTool.Create, AddLdapEntriesTool.Create, AddDnsZoneTool.Create, ResetServerTool.Create,
+            SeedMailTool.Create, PutFileTool.Create, DeleteFileTool.Create, RemoveAccountTool.Create, AddProxyAccountTool.Create, RemoveProxyAccountTool.Create, AddTlsSrpAccountTool.Create, RemoveTlsSrpAccountTool.Create, PublishMessageTool.Create, AddAccountTool.Create, SetKeyTool.Create, AddLdapEntriesTool.Create, AddDnsZoneTool.Create, ResetServerTool.Create,
             SnapshotServerTool.Create, RestoreServerTool.Create, AddFaultTool.Create, ListFaultsTool.Create, RemoveFaultTool.Create,
         ];
 

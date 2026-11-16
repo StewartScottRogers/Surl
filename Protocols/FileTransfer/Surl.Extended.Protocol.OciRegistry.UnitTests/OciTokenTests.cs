@@ -9,13 +9,17 @@ public sealed class OciTokenTests
     private static readonly OciToken Account = new("tester", new Dictionary<string, OciActions> { ["app"] = OciActions.Pull | OciActions.Push }, OciRegistryServerHarness.Now);
 
     [TestMethod]
-    public void Caller_OfAnAccountOrAnonymousToken_IsThatCallerOnOci()
+    public void CallerOn_AnAccountOrAnonymousToken_IsThatCallerOnOciAndTheExchange()
     {
         var anonymous = Account with { AccountName = null };
+        var context = new OciRegistryServerHarness().Context();
 
-        Assert.AreEqual(("tester", "oci"), (Account.Caller.AccountName, Account.Caller.Scheme));
-        Assert.IsTrue(anonymous.Caller.IsAnonymous);
-        Assert.AreEqual("oci", anonymous.Caller.Scheme);
+        var named = Account.CallerOn(context);
+        var unnamed = anonymous.CallerOn(context);
+
+        Assert.AreEqual(("tester", "oci", 1L), (named.AccountName, named.Scheme, named.ExchangeId));
+        Assert.IsTrue(unnamed.IsAnonymous);
+        Assert.AreEqual(("oci", 1L), (unnamed.Scheme, unnamed.ExchangeId));
     }
 
     [TestMethod]
