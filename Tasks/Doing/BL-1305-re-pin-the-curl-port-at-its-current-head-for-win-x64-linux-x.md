@@ -145,3 +145,4 @@ ADR-0089 Amendment 8; Stewart chose "most recent" (2026-11-16). Resolve the head
 - 2026-11-16: Doing -> Backlog. linux-x64/osx-arm64 pins need a curl-port-phase-7 run; workflow still not on master (origin/master workflows: ci, gource, release only); retry once the shift merges it
 - 2026-11-16: Backlog -> Blocked. Waits for curl-port-phase-7.yml to reach master (GitHub dispatches only default-branch workflows). Its claim-requeue loop ended a shift every ~80 s and opened PRs #46-#92; unblock after the next merge to master.
 - 2026-11-16: Blocked -> Backlog. Unblocked: PR #94 merged to master (6023b4b38) with curl-port-phase-7.yml, the BL-1311 Debug build and the BL-1316 runner; master's CI now runs on a commit containing them.
+- 2026-11-16: Backlog -> Doing.
