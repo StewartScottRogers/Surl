@@ -231,6 +231,7 @@ public sealed class DtlsServerSession(IDatagramFlow flow, DtlsServerOptions opti
         }
 
         await current.Records.SendAsync(DtlsContentType.ApplicationData, plaintext.ToArray(), cancellationToken).ConfigureAwait(false);
+        options.DecryptedBytes.Sent(ExchangeBytesLayer.Decrypted, null, plaintext.Span);
     }
 
     /// <summary>Restarts the epoch 1 sequence numbers at <paramref name="nextSequenceNumber"/>, for tests.</summary>
@@ -778,6 +779,7 @@ public sealed class DtlsServerSession(IDatagramFlow flow, DtlsServerOptions opti
             if (read.Header.ContentType == DtlsContentType.ApplicationData)
             {
                 applicationData.Enqueue(read.Plaintext);
+                options.DecryptedBytes.Received(ExchangeBytesLayer.Decrypted, null, read.Plaintext);
             }
         }
 
@@ -798,6 +800,7 @@ public sealed class DtlsServerSession(IDatagramFlow flow, DtlsServerOptions opti
         {
             current.FinalFlightAcknowledged = true;
             applicationData.Enqueue(record.Plaintext);
+            options.DecryptedBytes.Received(ExchangeBytesLayer.Decrypted, null, record.Plaintext);
             return false;
         }
 
