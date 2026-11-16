@@ -8,7 +8,7 @@ depends-on: [BL-1244]
 touches: [Foundation/Surl.Protocol.Abstractions.UnitLibrary, Foundation/Surl.Protocol.Abstractions.UnitTests]
 requirement: FR-061
 created: 2026-11-16
-completed:
+completed: 2026-11-16
 ---
 # BL-1276 — Add StoreKind.ProxyAccounts and StoreKind.TlsSrpAccounts
 
@@ -22,9 +22,9 @@ ADR-0170 decisions 2 and 3. Members are appended; existing members keep their va
 
 ## Acceptance criteria
 
-- [ ] `StoreKind` has `ProxyAccounts` and `TlsSrpAccounts` with XML docs, after the existing members.
-- [ ] Existing tests pinning the member list or names are updated and pass.
-- [ ] The Abstractions project keeps its quality gates.
+- [x] `StoreKind` has `ProxyAccounts` and `TlsSrpAccounts` with XML docs, after the existing members.
+- [x] Existing tests pinning the member list or names are updated and pass.
+- [x] The Abstractions project keeps its quality gates.
 
 ## Notes
 
@@ -32,3 +32,4 @@ ADR-0170 decisions 2 and 3. Members are appended; existing members keep their va
 
 - 2026-11-16: Created.
 - 2026-11-16: Backlog -> Doing.
+- 2026-11-16: Doing -> Done. StoreKind gained ProxyAccounts and TlsSrpAccounts; tests updated
