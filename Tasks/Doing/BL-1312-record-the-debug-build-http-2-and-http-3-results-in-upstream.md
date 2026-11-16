@@ -32,3 +32,4 @@ ADR-0173 consequences. `UpstreamTestCasePassRateStatementTests` ties the table t
 ## Log
 
 - 2026-11-16: Created by BL-1303 (ADR-0173).
+- 2026-11-16: Backlog -> Doing.
