@@ -37,3 +37,4 @@ A `delay`, `drop` or `error` fault rule scoped with `account=<name>` fires on a 
 ## Log
 
 - 2026-11-16: Created.
+- 2026-11-16: Backlog -> Doing.
