@@ -84,7 +84,7 @@ internal sealed partial class ImapSession
             return await RespondAsync(InvalidArguments);
         }
 
-        var (outcome, stored) = await mailStore.AppendAsync(view!, name, pending, request.Flags, request.InternalDate, CancellationToken);
+        var (outcome, stored) = await mailStore.AppendAsync(view!, name, pending, request.Flags, request.InternalDate, CancellationToken, context);
         NoteAppend(outcome, name, length, pending.StorageFailure);
         await SaveMailStoreIfChangedAsync(outcome == MailStoreOutcome.Succeeded ? 1 : 0);
         return await RespondAsync(ImapResponse.Only(outcome == MailStoreOutcome.Succeeded
@@ -109,13 +109,13 @@ internal sealed partial class ImapSession
 
     // CREATE drops one trailing "/" (RFC 3501, section 6.3.3); its parents are not created.
     private ImapResponse CreateMailbox(ImapArguments arguments) =>
-        ChangeMailboxes(ReadNames(arguments, 1)?.Select(DropTrailingDelimiter).ToArray(), names => ImapResponses.ForOutcome(mailStore.CreateMailbox(view!, names[0]), "CREATE"));
+        ChangeMailboxes(ReadNames(arguments, 1)?.Select(DropTrailingDelimiter).ToArray(), names => ImapResponses.ForOutcome(mailStore.CreateMailbox(view!, names[0], context), "CREATE"));
 
     private ImapResponse DeleteMailbox(ImapArguments arguments) =>
-        ChangeMailboxes(ReadNames(arguments, 1), names => ImapResponses.ForOutcome(mailStore.DeleteMailbox(view!, names[0]), "DELETE"));
+        ChangeMailboxes(ReadNames(arguments, 1), names => ImapResponses.ForOutcome(mailStore.DeleteMailbox(view!, names[0], context), "DELETE"));
 
     private ImapResponse RenameMailbox(ImapArguments arguments) =>
-        ChangeMailboxes(ReadNames(arguments, 2), names => ImapResponses.ForOutcome(mailStore.RenameMailbox(view!, names[0], names[1]), "RENAME"));
+        ChangeMailboxes(ReadNames(arguments, 2), names => ImapResponses.ForOutcome(mailStore.RenameMailbox(view!, names[0], names[1], context), "RENAME"));
 
     // Every mailbox counts as subscribed, so SUBSCRIBE only checks the mailbox is there
     // (ADR-0055, decision 6).
@@ -202,7 +202,7 @@ internal sealed partial class ImapSession
         {
             // A message another session expunged is MessageMissing; one the store still holds was
             // there when the summaries were read, since UIDs are never given twice.
-            var outcome = mailStore.ChangeFlags(view!, selected!.Name, uid, request.Change, request.Flags, out var flags);
+            var outcome = mailStore.ChangeFlags(view!, selected!.Name, uid, request.Change, request.Flags, out var flags, context);
             if (outcome == MailStoreOutcome.Succeeded && flags != summaries[uid].Flags)
             {
                 changed.Add((number, uid, flags));
@@ -256,8 +256,8 @@ internal sealed partial class ImapSession
     {
         var uids = messages.Select(message => message.Uid).ToList();
         return isMove
-            ? mailStore.Move(view!, selected!.Name, uids, name, out copied)
-            : mailStore.Copy(view!, selected!.Name, uids, name, out copied);
+            ? mailStore.Move(view!, selected!.Name, uids, name, out copied, context)
+            : mailStore.Copy(view!, selected!.Name, uids, name, out copied, context);
     }
 
     // RFC 4315's COPYUID response code, when at least one message was copied.
@@ -306,8 +306,8 @@ internal sealed partial class ImapSession
     {
         IReadOnlyList<uint> expunged;
         _ = set is null
-            ? mailStore.Expunge(view!, selected!.Name, out expunged)
-            : mailStore.Expunge(view!, selected!.Name, selected.Resolve(set, isUidSet: true)!.Select(message => message.Uid), out expunged);
+            ? mailStore.Expunge(view!, selected!.Name, out expunged, context)
+            : mailStore.Expunge(view!, selected!.Name, selected.Resolve(set, isUidSet: true)!.Select(message => message.Uid), out expunged, context);
         return expunged;
     }
 }
