@@ -101,7 +101,7 @@ public sealed class WebTransportConnectFaultTests
         var (_, time) = await UnitTestWebTransport.StartAsync(client, Token, faults: new ScriptedFaultPlan(rule));
 
         client.Send(0, UnitTestWebTransport.Connect(client));
-        await UnitTestWebTransport.AdvanceUntilAsync(client, time, () => time.GetUtcNow() > new DateTimeOffset(2026, 11, 5, 12, 0, 4, TimeSpan.Zero), Token);
+        await UnitTestWebTransport.AdvanceUntilAsync(client, time, () => time.GetUtcNow() >= new DateTimeOffset(2026, 11, 5, 12, 0, 4, TimeSpan.Zero), Token);
 
         Assert.IsEmpty(client.StreamSent(0).Data);
     }
