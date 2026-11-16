@@ -30,3 +30,4 @@ ADR-0164 decision 9 (decisions 2 to 4 apply unchanged); the store is seeded by A
 ## Log
 
 - 2026-11-15: Created.
+- 2026-11-15: Backlog -> Doing.
