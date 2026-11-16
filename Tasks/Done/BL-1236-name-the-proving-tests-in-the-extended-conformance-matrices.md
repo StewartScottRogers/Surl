@@ -8,7 +8,7 @@ depends-on: []
 touches: [Documentation/Conformance/Extended]
 requirement: none
 created: 2026-11-15
-completed:
+completed: 2026-11-15
 ---
 # BL-1236 — Name the proving tests in the extended conformance matrices' rows that still point at deferred parents
 
@@ -43,19 +43,22 @@ work is Done.
 
 ## Acceptance criteria
 
-- [ ] Each row in the table above names, in its "Covered by" cell, at least one test that exists in the
+- [x] Each row in the table above names, in its "Covered by" cell, at least one test that exists in the
       repository, and none of those cells still says "(Deferred)", "BL-468 changes", "BL-468 adds",
       "BL-522's" or "BL-1027's".
-- [ ] `Select-String -Path Documentation/Conformance/Extended/*.md -Pattern '\(Deferred\)'` finds nothing.
-- [ ] Every test name added to these five files is found by a search of the `*.UnitTests` and
+- [x] `Select-String -Path Documentation/Conformance/Extended/*.md -Pattern '\(Deferred\)'` finds nothing.
+- [x] Every test name added to these five files is found by a search of the `*.UnitTests` and
       `Surl.Conformance.UnitTests` folders.
-- [ ] Any requirement with no proving test is listed in Notes with the task `task-planner` filed for it.
+- [x] Any requirement with no proving test is listed in Notes with the task `task-planner` filed for it.
 
 ## Notes
 
 - Filed by `task-planner` on 2026-11-15 while reviewing the Deferred tasks.
+- All named tests confirmed present by search. Gaps with no proving test (ALPN clause of AzureStorage:Surl-Tls-1; FailedInit for a stdout-writing option in MCP:Surl-Stdio-2) are stated in their rows and filed as BL-1238.
+- MCP:Http-4 stays "n/a" and now cites the `mcp` AiHelpExamples entry.
 
 ## Log
 
 - 2026-11-15: Created.
 - 2026-11-15: Backlog -> Doing.
+- 2026-11-15: Doing -> Done. Extended conformance matrix rows now name the tests that prove them; two gaps filed as BL-1238
