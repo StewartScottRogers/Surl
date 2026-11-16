@@ -8,7 +8,7 @@ depends-on: [BL-1245, BL-1283]
 touches: [Application/Surl.Mcp.UnitLibrary, Application/Surl.Mcp.UnitTests]
 requirement: FR-060
 created: 2026-11-16
-completed:
+completed: 2026-11-16
 ---
 # BL-1286 — Surl.Mcp reads and writes every SurlEvent through its members and derives the kinds enum (ADR-0171)
 
@@ -35,3 +35,4 @@ ADR-0171 (BL-1245) decides how a SurlEvent kind reaches the three hosts: the eve
 
 - 2026-11-16: Created.
 - 2026-11-16: Backlog -> Doing.
+- 2026-11-16: Doing -> Done. Mcp reads and writes every SurlEvent through its members
