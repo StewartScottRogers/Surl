@@ -47,7 +47,8 @@ exchanges and is changed only by its own faults. Recipe: `StandInParallelInstanc
 
 One instance, one mail store, one content store, one message bus and one account store (ADR-0100), plus one
 Redis keyspace, one LDAP directory and one set of DNS zones (ADR-0158). Mail
-sent over SMTP is read over IMAP or POP3; a file uploaded over FTP or SFTP is fetched over HTTP; a message
+sent over SMTP is read over IMAP or POP3; a file uploaded over FTP or SFTP is fetched over HTTP, and a file uploaded over FTP is fetched over SMB too
+(`UpstreamCurlSharesFilesFromFtpToSmbTests`); a message
 published over MQTT reaches NATS and STOMP. The stores are configured by the layer-2 options (`--mail-domain`,
 `--mailbox`, `--share`, `--bucket`, `--topic`, `--queue`, ...), which `SurlServerOptions` carries as
 `MailDomains`, `Mailboxes`, `Shares`, `Buckets`, `Topics`, `Queues` and the like; see the README's

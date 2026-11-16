@@ -710,6 +710,7 @@ started with every listener the test needs, both with `--directory` and in memor
 | Class | Ends | What each end must show | Task |
 | --- | --- | --- | --- |
 | `UpstreamCurlSharesFilesAcrossSurlProtocolsTests` | pinned upstream curl at both ends: `-T` over `ftp` then GET over `http`; `-T` over `sftp` then fetch over `ftp`; `-T` over `http` (PUT) then fetch over `scp` | exit 0, stdout the uploaded bytes exactly | BL-638 |
+| `UpstreamCurlSharesFilesFromFtpToSmbTests` | pinned upstream curl at both ends (the SMB fetch with the build that lists `smb`): `-T` over `ftp` to `docs/shared.bin`, then fetch over `smb` | exit 0, stdout the uploaded bytes exactly | BL-1248 |
 | `UpstreamCurlSharesMailAcrossSurlProtocolsTests` | pinned upstream curl: `smtp` send, then `imap` fetch and `pop3` `RETR` | exit 0, the message bytes as delivered | BL-639 |
 | `UpstreamCurlSharesTopicsAcrossSurlListenersTests` | pinned upstream curl: `-d` publish on one `mqtt` listener, subscribe on another `mqtt` and on `mqtts`; and publish, restart `surl` with the same `--directory`, subscribe | stdout `00 01 74 68 69` (topic length, topic, payload), exit 0 | BL-640 |
 | `CurlPortClientReadsFilesSharedAcrossSurlProtocolsTests` | upstream curl uploads over `ftp`; the Curl port's pinned client (`CurlPortBuilds.json`) GETs over `s3`, `az`, `gs` | the S3, Azure and GCS specifications decide the answer; the port only completes the exchange | BL-669 |

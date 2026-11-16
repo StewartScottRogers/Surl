@@ -8,7 +8,7 @@ depends-on: []
 touches: [Conformance/Surl.Conformance.UnitTests, Documentation/Planning/Decisions/ADR-0100-the-stores-synergetic-protocols-share-files-mail-the-message-bus-and-accounts.md, Documentation/Wiki/Surl-As-A-Stand-In.md]
 requirement: FR-061
 created: 2026-11-16
-completed:
+completed: 2026-11-16
 ---
 # BL-1248 — Prove a file pinned upstream curl uploads over FTP is fetched over SMB from the same surl
 
@@ -25,15 +25,18 @@ An `Integration` test shows pinned upstream curl uploading a file over `ftp://` 
 
 ## Acceptance criteria
 
-- [ ] `UpstreamCurlSharesFilesAcrossSurlProtocolsTests` (or a new class beside it, named in Notes) has `UploadOverFtp_FetchOverSmb_FetchesTheUploadedBytes`, with an in-memory and a `--directory` row, `[TestCategory("Integration")]`.
-- [ ] Each row: curl's FTP upload exits 0, and curl's SMB fetch exits 0 with standard output equal to the uploaded bytes exactly; inconclusive, naming the pin, where no pinned build lists `smb`.
-- [ ] `dotnet test Conformance/Surl.Conformance.UnitTests --filter "FullyQualifiedName~UploadOverFtp_FetchOverSmb"` passes on Windows with the pinned static-curl build installed.
-- [ ] `dotnet build Conformance/Surl.Conformance.UnitTests -warnaserror` is clean, and the fast run (`TestCategory!=Integration`) is unchanged.
-- [ ] The `UpstreamCurlSharesFilesAcrossSurlProtocolsTests` row of ADR-0100 section 5's table ("Cross-protocol tests") lists the `ftp` then `smb` pair, and `Documentation/Wiki/Surl-As-A-Stand-In.md`, section "Composing protocols over the shared stores", says a file uploaded over FTP is fetched over SMB too, naming the test.
+- [x] `UpstreamCurlSharesFilesAcrossSurlProtocolsTests` (or a new class beside it, named in Notes) has `UploadOverFtp_FetchOverSmb_FetchesTheUploadedBytes`, with an in-memory and a `--directory` row, `[TestCategory("Integration")]`.
+- [x] Each row: curl's FTP upload exits 0, and curl's SMB fetch exits 0 with standard output equal to the uploaded bytes exactly; inconclusive, naming the pin, where no pinned build lists `smb`.
+- [x] `dotnet test Conformance/Surl.Conformance.UnitTests --filter "FullyQualifiedName~UploadOverFtp_FetchOverSmb"` passes on Windows with the pinned static-curl build installed.
+- [x] `dotnet build Conformance/Surl.Conformance.UnitTests -warnaserror` is clean, and the fast run (`TestCategory!=Integration`) is unchanged.
+- [x] The `UpstreamCurlSharesFilesAcrossSurlProtocolsTests` row of ADR-0100 section 5's table ("Cross-protocol tests") lists the `ftp` then `smb` pair, and `Documentation/Wiki/Surl-As-A-Stand-In.md`, section "Composing protocols over the shared stores", says a file uploaded over FTP is fetched over SMB too, naming the test.
 
 ## Notes
+
+- New class `UpstreamCurlSharesFilesFromFtpToSmbTests` beside the SSH-based one, because SMB needs `PinnedUpstreamCurl.RunForProtocolAsync` (static-curl build) and `--auth ntlmv1`; the FTP upload uses the reference build. Test passes on Windows (2 rows); fast run 990 passed.
 
 ## Log
 
 - 2026-11-16: Created.
 - 2026-11-16: Backlog -> Doing.
+- 2026-11-16: Doing -> Done. Pinned curl uploads over FTP and fetches the same bytes over SMB from one surl, in memory and with --directory
