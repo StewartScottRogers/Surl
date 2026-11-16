@@ -36,3 +36,4 @@ ADR-0051 and ADR-0054 state what the Linux and macOS reference builds of upstrea
 ## Log
 
 - 2026-11-16: Created.
+- 2026-11-16: Backlog -> Doing.
