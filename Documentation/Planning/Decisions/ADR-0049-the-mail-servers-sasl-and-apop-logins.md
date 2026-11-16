@@ -579,3 +579,15 @@ with `--login-options AUTH=EXTERNAL -u alice:`. Each first has curl deliver `mai
 | `Fetch_SaslExternalWithAClientCertificateOverImaps_Exits0WithTheMessage` | surl `--cacert`; curl `--cert`, `--key` of client `alice` | 0 (`-v` shows `AUTHENTICATE EXTERNAL`) | the stored message, byte for byte |
 | `Fetch_SaslExternalWithAClientCertificateAndSaslIr_Exits0WithTheMessage` | the same with `--sasl-ir` | 0 | the stored message |
 | `Fetch_SaslExternalWithoutAClientCertificate_ExitsLoginDeniedWithNoOutput` | surl `--self-signed`; curl `-k`, no certificate | 67 | empty |
+
+### Amendment 4, addendum - `EXTERNAL` over `pop3s` (BL-1300, 2026-11-16)
+
+Decided by Claude under Stewart's delegation. Two more `Integration` tests, in
+`UpstreamCurlReadsMailFromSurlOverPop3Tests`, run the same OpenSSL build against a live `surl pop3s://`
+with `--login-options AUTH=EXTERNAL -u alice:`. Each first has curl deliver `mail.txt` over `smtp` to
+`alice`, then retrieves message 1:
+
+| Test | Setup | curl exit | Standard output |
+| --- | --- | --- | --- |
+| `Retrieve_SaslExternalWithAClientCertificateOverPop3s_Exits0WithTheMessage` | surl `--cacert`; curl `--cert`, `--key` of client `alice` | 0 (`-v` shows `AUTH EXTERNAL`) | the stored message, byte for byte |
+| `Retrieve_SaslExternalWithoutAClientCertificate_ExitsLoginDeniedWithNoOutput` | surl `--self-signed`; curl `-k`, no certificate | 67 | empty |
