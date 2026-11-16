@@ -36,3 +36,4 @@ ADR-0071 states what the Linux and macOS reference builds of upstream curl 8.21.
 ## Log
 
 - 2026-11-16: Created.
+- 2026-11-16: Backlog -> Doing.
