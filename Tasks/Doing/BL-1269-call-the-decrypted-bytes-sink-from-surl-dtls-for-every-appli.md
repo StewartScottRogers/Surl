@@ -33,3 +33,4 @@ ADR-0169 decision 1 and 5. Handshake, alert and change-cipher-spec records, keys
 ## Log
 
 - 2026-11-16: Created.
+- 2026-11-16: Backlog -> Doing.
