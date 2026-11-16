@@ -1,5 +1,6 @@
 using System.Text;
 using Surl.Content;
+using Surl.Protocol.Abstractions;
 using static Surl.Protocol.Ssh.SftpTestPackets;
 using static Surl.Protocol.Ssh.SshTestExchange;
 
@@ -113,22 +114,60 @@ public sealed class SshContentChannelHandlersTests
         CollectionAssert.AreEqual(new[] { "doc.txt" }, ShareNames());
     }
 
+    [TestMethod]
+    public async Task ForScp_OutOfSpaceRuleForThisListener_FiresForTheUploadAndPublishesTheFaultOnTheExchange()
+    {
+        var events = new RecordingSurlEventPublisher();
+        var faults = new ScriptedFaultPlan(new FaultRule("f1", FaultKind.OutOfSpace) { Listener = "sftp://127.0.0.1:47301/" });
+
+        var upload = await RunScpAsync("bob", Sink("/team/new.txt"), events, faults, Ascii("C0644 5 new.txt\n"), Ascii("hello"));
+
+        Assert.AreEqual(1u, upload.Exit);
+        CollectionAssert.AreEqual(new[] { "doc.txt" }, ShareNames());
+        Assert.AreEqual(1L, events.Events.OfType<FaultAppliedEvent>().Single().ExchangeId);
+    }
+
+    [TestMethod]
+    public async Task ForSftp_OutOfSpaceRuleForAnotherListener_LeavesTheUploadAlone()
+    {
+        var events = new RecordingSurlEventPublisher();
+        var faults = new ScriptedFaultPlan(new FaultRule("f1", FaultKind.OutOfSpace) { Listener = "sftp://127.0.0.1:1/" });
+
+        var run = await RunSftpAsync(
+            "bob",
+            events,
+            faults,
+            Request(3, 1, Text("/team/new.txt"), UInt32(CurlUpload), UInt32(0)),
+            Request(6, 2, Handle(0), UInt64(0), Text("hello")),
+            Request(4, 3, Handle(0)));
+
+        CollectionAssert.AreEqual(Status(3, 0, "Success"), run[2]);
+        Assert.IsEmpty(events.Events.OfType<FaultAppliedEvent>());
+        Assert.AreEqual(1L, events.Events.OfType<StoreChangedEvent>().Single().ExchangeId);
+    }
+
     private static SshScpCommand Sink(string path) => new(false, false, false, path);
 
-    private async Task<List<byte[]>> RunSftpAsync(string? accountName, params byte[][] requests)
+    private Task<List<byte[]>> RunSftpAsync(string? accountName, params byte[][] requests) =>
+        RunSftpAsync(accountName, null, null, requests);
+
+    private Task<(uint Exit, string Text)> RunScpAsync(string? accountName, SshScpCommand command, params byte[][] inbound) =>
+        RunScpAsync(accountName, command, null, null, inbound);
+
+    private async Task<List<byte[]>> RunSftpAsync(string? accountName, ISurlEventPublisher? events, IFaultPlan? faults, params byte[][] requests)
     {
         var channel = new SftpTestChannel([Init3, .. requests]);
-        var handler = new SshContentChannelHandlers(StoreWithTeamShare()).ForSftp(accountName, Context(clock, TestContext.CancellationToken))!;
+        var handler = new SshContentChannelHandlers(StoreWithTeamShare(events, faults)).ForSftp(accountName, Context(clock, TestContext.CancellationToken))!;
 
         Assert.AreEqual(0u, await handler.RunAsync(channel, TestContext.CancellationToken));
 
         return channel.WrittenPackets()[1..];
     }
 
-    private async Task<(uint Exit, string Text)> RunScpAsync(string? accountName, SshScpCommand command, params byte[][] inbound)
+    private async Task<(uint Exit, string Text)> RunScpAsync(string? accountName, SshScpCommand command, ISurlEventPublisher? events, IFaultPlan? faults, params byte[][] inbound)
     {
         var channel = new SftpTestChannel(inbound);
-        var handler = new SshContentChannelHandlers(StoreWithTeamShare()).ForScp(command, accountName, Context(clock, TestContext.CancellationToken))!;
+        var handler = new SshContentChannelHandlers(StoreWithTeamShare(events, faults)).ForScp(command, accountName, Context(clock, TestContext.CancellationToken))!;
 
         var exit = await handler.RunAsync(channel, TestContext.CancellationToken);
 
@@ -136,7 +175,7 @@ public sealed class SshContentChannelHandlersTests
     }
 
     // The root holds the standard files; the share team holds doc.txt, read by alice, written by bob.
-    private ContentStore StoreWithTeamShare()
+    private ContentStore StoreWithTeamShare(ISurlEventPublisher? events = null, IFaultPlan? faults = null)
     {
         shareFiles ??= NewShareFiles();
         var rootFiles = new InMemoryContentFileSystem(clock);
@@ -150,7 +189,7 @@ public sealed class SshContentChannelHandlersTests
             },
         };
 
-        return new ContentStore(InMemoryContentFileSystem.RootPath, rootFiles, new() { AllowUploads = true, ListDirectories = true }, [team], []);
+        return new ContentStore(InMemoryContentFileSystem.RootPath, rootFiles, new() { AllowUploads = true, ListDirectories = true }, [team], [], events, faults);
     }
 
     private InMemoryContentFileSystem NewShareFiles()
