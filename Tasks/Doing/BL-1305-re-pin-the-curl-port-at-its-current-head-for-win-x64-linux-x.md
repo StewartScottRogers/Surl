@@ -37,3 +37,4 @@ ADR-0089 Amendment 8; Stewart chose "most recent" (2026-11-16). Resolve the head
 - 2026-11-16: Doing -> Backlog. win-x64 pinned at 74f3f45; linux-x64/osx-arm64 need a curl-port-phase-7 run (workflow not on master yet, BL-1304 produced no run)
 - 2026-11-16: Backlog -> Doing.
 - 2026-11-16: Doing -> Backlog. linux-x64/osx-arm64 pins need a curl-port-phase-7 run; workflow is not on master so gh cannot dispatch it; retry once the shift merges it
+- 2026-11-16: Backlog -> Doing.
