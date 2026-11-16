@@ -38,3 +38,4 @@ A shift whose only commits since the last frozen merge PR are task-board bookkee
 ## Log
 
 - 2026-11-16: Created after the BL-1305 shift loop (PRs #46-#92); Stewart asked for it ("yes").
+- 2026-11-16: Backlog -> Doing.
