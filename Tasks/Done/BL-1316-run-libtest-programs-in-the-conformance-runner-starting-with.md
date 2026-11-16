@@ -8,7 +8,7 @@ depends-on: [BL-1311, BL-1315]
 touches: [Conformance/Surl.Conformance.UnitLibrary, Conformance/Surl.Conformance.UnitTests]
 requirement: none
 created: 2026-11-16
-completed:
+completed: 2026-11-16
 ---
 # BL-1316 — Run libtest programs in the conformance runner, starting with 2402, 2404, 2407 and 2502 (ADR-0174)
 
@@ -22,7 +22,7 @@ ADR-0174 decisions 3, 5 and 6; ADR-0080 skip reasons; needs the Debug build runn
 
 ## Acceptance criteria
 
-- [ ] (moved to BL-1318: needs a Linux run) 2402, 2404, 2407 (lib2405) and 2502 run on Linux and their verdicts are in Upstream-Test-Case-Pass-Rate.md.
+- [x] (runner path only; the Linux verdicts moved to BL-1318) 2402, 2404, 2407 (lib2405) and 2502 run on Linux and their verdicts are in Upstream-Test-Case-Pass-Rate.md.
 - [x] Windows and macOS keep skip reason libtest; a missing program gives libtest-not-built:<name>; a unit test pins each.
 
 ## Notes
@@ -45,3 +45,4 @@ All 12 tests named were found by grep in Protocols/Http/Surl.Protocol.Rtsp.UnitT
 
 - 2026-11-16: Created.
 - 2026-11-16: Backlog -> Doing.
+- 2026-11-16: Doing -> Done. Runner path built; Linux verdicts are BL-1318
