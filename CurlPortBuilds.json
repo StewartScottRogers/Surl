@@ -18,6 +18,14 @@
       "published": "2026-11-16"
     },
     {
+      "platform": "osx-arm64",
+      "path": "%HOME%/.local/share/surl/curl-port/74f3f45c47e86300b2b262dc1dacd43b508b09aa/curl",
+      "sha256": "E616A59F24FF19EFF640A9BEDEB225878FC3962C1D0B064B59C4116A5A7155BB",
+      "commit": "74f3f45c47e86300b2b262dc1dacd43b508b09aa",
+      "publishCommand": "dotnet publish Curl.Console -c Release -r osx-arm64 -o \"%HOME%/.local/share/surl/curl-port/74f3f45c47e86300b2b262dc1dacd43b508b09aa\"",
+      "published": "2026-11-16"
+    },
+    {
       "platform": "win-x64",
       "kind": "library",
       "path": "%LOCALAPPDATA%\\Surl\\curl-port\\74f3f45c47e86300b2b262dc1dacd43b508b09aa\\libcurl\\Libcurl.dll",
