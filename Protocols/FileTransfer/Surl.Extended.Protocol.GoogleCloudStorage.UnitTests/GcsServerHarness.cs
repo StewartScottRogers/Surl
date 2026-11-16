@@ -27,11 +27,11 @@ internal sealed class GcsServerHarness
 
     public const string BearerField = $"Authorization: Bearer {UnitTestGcsAuthenticationPolicy.Token}";
 
-    public GcsServerHarness(bool allowsAnonymous = false, long maxTotalBytes = InMemoryContentFileSystem.DefaultMaxTotalBytes, bool persistsIndex = false, string accountName = "", ContentExposureOptions? exposure = null, IReadOnlyList<ContentShare>? shares = null, IReadOnlyList<ContentBucket>? buckets = null, int maxIndexEntries = ObjectMetadataIndex.DefaultMaxEntries, string listenHost = "127.0.0.1", IFaultPlan? storeFaults = null)
+    public GcsServerHarness(bool allowsAnonymous = false, long maxTotalBytes = InMemoryContentFileSystem.DefaultMaxTotalBytes, bool persistsIndex = false, string accountName = "", ContentExposureOptions? exposure = null, IReadOnlyList<ContentShare>? shares = null, IReadOnlyList<ContentBucket>? buckets = null, int maxIndexEntries = ObjectMetadataIndex.DefaultMaxEntries, string listenHost = "127.0.0.1", IFaultPlan? storeFaults = null, bool storePublishesEvents = false)
     {
         TimeProvider = new FixedTimeProvider(Now);
         FileSystem = new InMemoryContentFileSystem(TimeProvider, maxTotalBytes);
-        Store = new ContentStore(InMemoryContentFileSystem.RootPath, FileSystem, exposure ?? new ContentExposureOptions(), shares ?? [], buckets ?? [], faults: storeFaults);
+        Store = new ContentStore(InMemoryContentFileSystem.RootPath, FileSystem, exposure ?? new ContentExposureOptions(), shares ?? [], buckets ?? [], events: storePublishesEvents ? Events : null, faults: storeFaults);
         Index = new ObjectMetadataIndex(FileSystem, InMemoryContentFileSystem.RootPath, persistsIndex, maxIndexEntries);
         Policy = new UnitTestGcsAuthenticationPolicy(allowsAnonymous) { AccountName = accountName };
         Server = new GoogleCloudStorageProtocolServer(Store, Index, Policy, TimeProvider);
