@@ -149,3 +149,4 @@ ADR-0089 Amendment 8; Stewart chose "most recent" (2026-11-16). Resolve the head
 - 2026-11-16: Blocked -> Backlog. Unblocked: PR #94 merged to master (6023b4b38) with curl-port-phase-7.yml, the BL-1311 Debug build and the BL-1316 runner; master's CI now runs on a commit containing them.
 - 2026-11-16: Backlog -> Doing.
 - 2026-11-16: Doing -> Backlog. osx-arm64 pin needs a curl-port-phase-7 run; macos-14 is unsupported on this account, fixed to macos-latest in the workflow, which GitHub dispatches only from master; linux-x64 and win-x64 pinned at 74f3f45; retry once the shift merges it
+- 2026-11-16: Backlog -> Doing.
