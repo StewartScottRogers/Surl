@@ -38,3 +38,4 @@ ADR-0171 (BL-1245) decides how a SurlEvent kind reaches the three hosts: the eve
 - 2026-11-16: Doing -> Backlog. Needs Surl.Control.UnitLibrary, which BL-1273 (Doing) touches; waits for BL-1273
 - 2026-11-16: Backlog -> Doing.
 - 2026-11-16: Doing -> Backlog. Needs Surl.Api and Surl.Composition.UnitTests (long to long? ExchangeId); BL-1287 (Doing) touches Surl.Api; waits for BL-1287
+- 2026-11-16: Backlog -> Doing.
