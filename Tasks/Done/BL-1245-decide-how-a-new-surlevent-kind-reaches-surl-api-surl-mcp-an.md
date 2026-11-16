@@ -8,7 +8,7 @@ depends-on: []
 touches: [Documentation/Planning/Decisions]
 requirement: FR-060
 created: 2026-11-16
-completed:
+completed: 2026-11-16
 ---
 # BL-1245 — Decide how a new SurlEvent kind reaches Surl.Api, Surl.Mcp and the control endpoint without editing a switch in each
 
@@ -40,3 +40,4 @@ ADR-0171 decided: base members plus WriteMembers, guard tests per host. Follow-u
 
 - 2026-11-16: Created.
 - 2026-11-16: Backlog -> Doing.
+- 2026-11-16: Doing -> Done. ADR-0171 written; follow-ups BL-1283 to BL-1286 filed
