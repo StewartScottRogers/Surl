@@ -248,7 +248,7 @@ internal sealed partial class FtpCommandResponder : IAsyncDisposable
         isLoggedIn = verdict is PasswordLoginVerdict.Accepted or PasswordLoginVerdict.AcceptedUnchecked;
         if (verdict == PasswordLoginVerdict.Accepted)
         {
-            contentCaller = ContentCaller.ForAccount(sentUserName, context.Scheme);
+            contentCaller = ContentCaller.ForExchange(context, sentUserName);
             loggedInAccount = sentUserName;
         }
 
@@ -261,7 +261,7 @@ internal sealed partial class FtpCommandResponder : IAsyncDisposable
     // answered as a missing path (550, as for any other); a write in a share it may only read is
     // the store's NotPermitted, 550 Not permitted (ADR-0102 decision 2.3).
     private ContentPathMapping MapPath(IReadOnlyList<string> path) =>
-        contentStore.MapRequestPathForCaller(FtpPath.ToRequestPath(path), contentCaller ??= ContentCaller.Anonymous(context.Scheme));
+        contentStore.MapRequestPathForCaller(FtpPath.ToRequestPath(path), contentCaller ??= ContentCaller.ForExchange(context, null));
 
     private static string LoginReply(PasswordLoginVerdict verdict) => verdict switch
     {
