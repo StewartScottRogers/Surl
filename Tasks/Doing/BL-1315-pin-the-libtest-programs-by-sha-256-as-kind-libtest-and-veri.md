@@ -34,3 +34,4 @@ ADR-0174 decision 2 and 4; follows the Debug pin of BL-1310 and the .github/acti
 - 2026-11-16: Created.
 - 2026-11-16: Backlog -> Doing.
 - 2026-11-16: Doing -> Backlog. Needs BL-1314 first: the libtest programs are not built, so there are no hashes to pin
+- 2026-11-16: Backlog -> Doing.
