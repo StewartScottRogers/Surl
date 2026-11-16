@@ -30,3 +30,4 @@ ADR-0174 decision 2 and 4; follows the Debug pin of BL-1310 and the .github/acti
 ## Log
 
 - 2026-11-16: Created.
+- 2026-11-16: Backlog -> Doing.
