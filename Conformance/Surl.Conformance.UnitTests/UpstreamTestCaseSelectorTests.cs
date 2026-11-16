@@ -62,6 +62,24 @@ public sealed class UpstreamTestCaseSelectorTests
     }
 
     [TestMethod]
+    [DataRow("Debug")]
+    [DataRow("TrackMemory")]
+    public void FindSkipReason_BuildHasTheDebugFeature_RunsTheCase(string feature)
+    {
+        var rules = Rules() with { Features = new HashSet<string>(["SSL", feature], StringComparer.Ordinal) };
+
+        Assert.IsNull(new UpstreamTestCaseSelector(rules).FindSkipReason(Number, Case(client: Server("http") + Features(feature))));
+    }
+
+    [TestMethod]
+    public void FindSkipReason_BuildHasOnlyTheOtherDebugFeature_SkipsDebugBuild()
+    {
+        var rules = Rules() with { Features = new HashSet<string>(["SSL", "TrackMemory"], StringComparer.Ordinal) };
+
+        Assert.AreEqual("debug-build", new UpstreamTestCaseSelector(rules).FindSkipReason(Number, Case(client: Server("http") + Features("Debug"))));
+    }
+
+    [TestMethod]
     public void FindSkipReason_PerlCommand_SkipsPerlCommand()
     {
         Assert.AreEqual("perl-command", Reason(Server("http") + "<command type=\"perl\">\n-e 1\n</command>\n"));

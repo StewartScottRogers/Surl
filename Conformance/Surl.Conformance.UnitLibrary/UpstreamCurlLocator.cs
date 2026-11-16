@@ -100,6 +100,37 @@ public sealed class UpstreamCurlLocator(IUpstreamCurlFileAccess fileAccess)
     }
 
     /// <summary>
+    /// Finds the supplementary Debug build of <paramref name="platform"/> (ADR-0173): the first
+    /// supplementary curl whose <c>features</c> list <c>Debug</c> and whose file exists and hashes
+    /// to its pin.
+    /// </summary>
+    /// <param name="pins">The builds <c>UpstreamCurlBuilds.json</c> pins.</param>
+    /// <param name="platform">The platform to find a build for, such as <c>linux-x64</c>.</param>
+    /// <returns>
+    /// The verified build, or a location saying that the platform pins no Debug build, as Windows
+    /// and macOS do not, or that its file does not exist.
+    /// </returns>
+    /// <exception cref="UnpinnedUpstreamCurlException">
+    /// A pinned Debug build's file exists but hashes to something else.
+    /// </exception>
+    public UpstreamCurlLocation LocateDebug(IReadOnlyList<PinnedUpstreamCurlBuild> pins, string platform)
+    {
+        ArgumentNullException.ThrowIfNull(pins);
+        ArgumentNullException.ThrowIfNull(platform);
+
+        var candidates = pins
+            .Where(pin => pin.Kind == UpstreamCurlBuildKind.Curl
+                && pin.Platform == platform
+                && pin.Role == UpstreamCurlBuildRole.Supplementary
+                && pin.Features.Contains("Debug", StringComparer.Ordinal))
+            .ToList();
+
+        return candidates.Count == 0
+            ? UpstreamCurlLocation.NoPinnedBuild(platform, UpstreamCurlBuildRole.Supplementary)
+            : VerifyFirstPresent(candidates);
+    }
+
+    /// <summary>
     /// Checks each candidate whose file exists, in order, and returns the first that hashes to
     /// its pin.
     /// </summary>

@@ -135,12 +135,16 @@ public sealed class UpstreamTestCasesAgainstSurlTests
         // supplementary build ADR-0030 pinned for SMB (Windows). Without one they skip as before.
         var smbLocation = locator.LocateForProtocol(pins, UpstreamCurlLocator.CurrentPlatform, "smb");
 
+        // The six http/2 and http/3 cases that list Debug run with the supplementary Debug build where
+        // the platform pins one (Linux); elsewhere they skip debug-build (ADR-0173).
+        var debugLocation = locator.LocateDebug(pins, UpstreamCurlLocator.CurrentPlatform);
+
         // Beside the test assembly rather than in the temporary folder, whose path may hold a
         // blank (C:\Users\First Last\...) that the cases' unquoted %PWD paths would split.
         var work = Directory.CreateDirectory(Path.Combine(AppContext.BaseDirectory, "upstream-test-case-runs", Path.GetRandomFileName()));
         try
         {
-            var run = new CaseRun(location, smbLocation.IsAvailable ? smbLocation : null, work.FullName, TestContext);
+            var run = new CaseRun(location, smbLocation.IsAvailable ? smbLocation : null, work.FullName, TestContext, debugLocation.IsAvailable ? debugLocation : null);
             var results = await run.RunAllAsync(TestCaseFiles());
 
             var text = UpstreamTestCaseResult.Format(results);
@@ -294,6 +298,7 @@ public sealed class UpstreamTestCasesAgainstSurlTests
     {
         private readonly CaseClient reference;
         private readonly CaseClient? smb;
+        private readonly CaseClient? debug;
         private readonly string work;
         private readonly string certificateDirectory;
         private Http3GatewayCertificate? http3Certificate;
@@ -302,11 +307,12 @@ public sealed class UpstreamTestCasesAgainstSurlTests
         private readonly string sshUser = UpstreamTestCaseFileServers.SshLoginNameFor(Environment.UserName);
         private readonly TlsSrpAccounts tlsSrpAccounts = UpstreamTestCaseTlsSrpServerHalf.ReadAccounts(Path.Combine(Root, "certs"));
 
-        public CaseRun(UpstreamCurlLocation location, UpstreamCurlLocation? smbLocation, string work, TestContext testContext)
+        public CaseRun(UpstreamCurlLocation location, UpstreamCurlLocation? smbLocation, string work, TestContext testContext, UpstreamCurlLocation? debugLocation = null)
         {
             reference = new CaseClient(location);
             smb = smbLocation is null || smbLocation.Build!.Sha256 == location.Build!.Sha256 ? null : new CaseClient(smbLocation);
-            PairedBuilds = smb is null ? [location.Build!] : [location.Build!, smbLocation!.Build!];
+            debug = debugLocation is null ? null : new CaseClient(debugLocation);
+            PairedBuilds = [location.Build!, .. smb is null ? [] : new[] { smbLocation!.Build! }, .. debugLocation is null ? [] : new[] { debugLocation.Build! }];
             this.work = work;
             certificateDirectory = Path.Combine(work, "certdir");
             this.testContext = testContext;
@@ -397,6 +403,12 @@ public sealed class UpstreamTestCasesAgainstSurlTests
                 if (onlyClient is null && smb is not null && ServerNames(selected).Contains(SmbFamily))
                 {
                     client = smb;
+                    selected = UpstreamTestCaseParser.Parse(source, SelectionEnvironment(client.Features));
+                }
+                else if (onlyClient is null && debug is not null && UpstreamTestCaseDebugBuildCases.UsesDebugBuild(number, true))
+                {
+                    // The http/2 and http/3 cases listing Debug run with the supplementary Debug build (ADR-0173).
+                    client = debug;
                     selected = UpstreamTestCaseParser.Parse(source, SelectionEnvironment(client.Features));
                 }
             }

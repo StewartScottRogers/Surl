@@ -66,6 +66,41 @@ public sealed class UpstreamCurlLocatorTests
     }
 
     [TestMethod]
+    public void LocateDebug_SupplementaryBuildListsDebug_ReturnsIt()
+    {
+        var other = Pin(SupplementaryPath, SupplementaryBytes, UpstreamCurlBuildRole.Supplementary);
+        var debug = Pin("/pinned/debug/curl", PortBytes, UpstreamCurlBuildRole.Supplementary) with { Features = ["SSL", "Debug"] };
+        var locator = new UpstreamCurlLocator(new FakeUpstreamCurlFileAccess()
+            .WithFile(SupplementaryPath, SupplementaryBytes)
+            .WithFile("/pinned/debug/curl", PortBytes));
+
+        var location = locator.LocateDebug([other, debug], "win-x64");
+
+        Assert.AreSame(debug, location.Build);
+    }
+
+    [TestMethod]
+    public void LocateDebug_NoDebugBuildPinned_IsUnavailable()
+    {
+        var reference = Pin(ReferencePath, ReferenceBytes) with { Features = ["Debug"] };
+        var locator = new UpstreamCurlLocator(new FakeUpstreamCurlFileAccess().WithFile(ReferencePath, ReferenceBytes));
+
+        var location = locator.LocateDebug([reference], "win-x64");
+
+        Assert.IsFalse(location.IsAvailable);
+        Assert.AreEqual(UpstreamCurlUnavailability.NoPinnedBuildForPlatform, location.Unavailability);
+    }
+
+    [TestMethod]
+    public void LocateDebug_NullArguments_Throw()
+    {
+        var locator = new UpstreamCurlLocator(new FakeUpstreamCurlFileAccess());
+
+        Assert.ThrowsExactly<ArgumentNullException>(() => locator.LocateDebug(null!, "win-x64"));
+        Assert.ThrowsExactly<ArgumentNullException>(() => locator.LocateDebug([], null!));
+    }
+
+    [TestMethod]
     public void Locate_SupplementaryRole_ReturnsTheSupplementaryBuild()
     {
         var supplementary = Pin(SupplementaryPath, SupplementaryBytes, UpstreamCurlBuildRole.Supplementary);
