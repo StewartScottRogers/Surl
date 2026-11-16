@@ -31,3 +31,4 @@ ADR-0089 Amendment 8; Stewart chose "most recent" (2026-11-16). Resolve the head
 ## Log
 
 - 2026-11-16: Created.
+- 2026-11-16: Backlog -> Doing.
