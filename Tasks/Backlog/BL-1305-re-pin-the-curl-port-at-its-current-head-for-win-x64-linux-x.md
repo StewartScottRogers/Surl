@@ -5,7 +5,7 @@ priority: Normal
 assignee: Claude
 pipeline: direct
 depends-on: [BL-1304]
-touches: [CurlPortBuilds.json]
+touches: [CurlPortBuilds.json, .github/workflows/curl-port-phase-7.yml]
 requirement: FR-057
 created: 2026-11-16
 completed:
@@ -29,6 +29,8 @@ ADR-0089 Amendment 8; Stewart chose "most recent" (2026-11-16). Resolve the head
 ## Notes
 
 - 2026-11-16: Head resolved as 74f3f45c47e86300b2b262dc1dacd43b508b09aa. win-x64 curl and Libcurl rebuilt and pinned (old b42c319 entries replaced). linux-x64 and osx-arm64 are not pinned: curl-port-phase-7.yml exists only on factory branches, not the default branch, so `gh` cannot find or dispatch it. Remaining work: run the workflow at this same commit, add the two entries, tick the boxes.
+
+- 2026-11-16: Dispatched curl-port-phase-7 on master (run 43980073283) at 74f3f45. linux-x64 published twice with the same hash DF507F32...57A and is pinned. osx-arm64 job was cancelled by GitHub: "macos-14-arm64-us-default is not supported". Changed the workflow to macos-latest (as ci.yml uses); it only takes effect once on master, so rerun then and pin osx-arm64. The win-x64 CI publish hashed EBE66BBA... against the local pin 7F4ED055...: build output differs between machines, a finding for BL-1304's workflow, not gating. Head on master has since moved to 437fb81; the pin stays at 74f3f45 so all entries agree.
 
 ## Log
 
@@ -146,3 +148,4 @@ ADR-0089 Amendment 8; Stewart chose "most recent" (2026-11-16). Resolve the head
 - 2026-11-16: Backlog -> Blocked. Waits for curl-port-phase-7.yml to reach master (GitHub dispatches only default-branch workflows). Its claim-requeue loop ended a shift every ~80 s and opened PRs #46-#92; unblock after the next merge to master.
 - 2026-11-16: Blocked -> Backlog. Unblocked: PR #94 merged to master (6023b4b38) with curl-port-phase-7.yml, the BL-1311 Debug build and the BL-1316 runner; master's CI now runs on a commit containing them.
 - 2026-11-16: Backlog -> Doing.
+- 2026-11-16: Doing -> Backlog. osx-arm64 pin needs a curl-port-phase-7 run; macos-14 is unsupported on this account, fixed to macos-latest in the workflow, which GitHub dispatches only from master; linux-x64 and win-x64 pinned at 74f3f45; retry once the shift merges it
