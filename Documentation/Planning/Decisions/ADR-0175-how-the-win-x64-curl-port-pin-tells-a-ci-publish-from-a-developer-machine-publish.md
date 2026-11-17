@@ -24,7 +24,16 @@ developer machine can never match CI, and CI's can never match the developer's f
 2. An entry may add `ciSha256`: the hash the `curl-port-phase-7` runner produces for the same commit.
    The workflow compares its publish with `ciSha256` when present, else `sha256`. linux-x64 and
    osx-arm64 were pinned from CI and need no `ciSha256`.
-3. The win-x64 entry gains `ciSha256 = 3E249136…FA3A`. Fields only grow; `CurlPortClientPins` ignores
+3. The win-x64 entry gains `ciSha256 = 4B634536…414A` (first pinned as `3E249136…FA3A` from run 43982591865, re-pinned by BL-1329). Fields only grow; `CurlPortClientPins` ignores
    fields it does not know, so no reader changes.
 4. Re-pinning a commit means updating `sha256` locally and `ciSha256` from the first CI run's reported
    hash.
+
+## Amendment 1 (BL-1329, 2026-11-16)
+
+Run 43995901070 built the same Curl port commit (`74f3f45c…`) as run 43982591865 and both publishes in
+each job agreed, yet win-x64 now hashes to `4B634536…414A` (was `3E249136…FA3A`) and osx-arm64 to
+`B5B48DC7…BBEE` (was `E616A59F…55BB`). The pins were for the right commit; a native-AOT publish also
+varies with the runner's toolchain (the macOS image moved from 20261102.0473.1 to 20261112.0504.1;
+linux-x64 stayed put and still matches). Decision: re-pin win-x64 `ciSha256` and osx-arm64 `sha256` to
+the run's hashes. Expect to re-pin again when a runner image changes; each re-pin is an ordinary commit.

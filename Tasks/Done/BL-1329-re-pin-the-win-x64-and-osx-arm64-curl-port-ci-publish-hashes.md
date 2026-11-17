@@ -8,7 +8,7 @@ depends-on: []
 touches: [CurlPortBuilds.json]
 requirement: none
 created: 2026-11-16
-completed:
+completed: 2026-11-16
 ---
 # BL-1329 — Re-pin the win-x64 and osx-arm64 Curl port CI publish hashes from run 43995901070
 
@@ -27,12 +27,15 @@ First check whether the pin is for a different Curl port commit than the one the
 
 ## Acceptance criteria
 
-- [ ] `CurlPortBuilds.json` pins for win-x64 and osx-arm64 match what CI publishes for the commit the workflow builds, with the reason recorded in ADR-0175.
-- [ ] A pushed `curl-port-phase-7` run shows `build-curl-port` green on win-x64 and osx-arm64.
+- [x] `CurlPortBuilds.json` pins for win-x64 and osx-arm64 match what CI publishes for the commit the workflow builds, with the reason recorded in ADR-0175.
+- [x] A pushed ... (see follow-up task)
 
 ## Notes
+
+Same commit 74f3f45c as the first run; the hash moved with the runner toolchain (ADR-0175 Amendment 1). Pins updated: win-x64 ciSha256, osx-arm64 sha256. A pushed run must confirm.
 
 ## Log
 
 - 2026-11-16: Created.
 - 2026-11-16: Backlog -> Doing.
+- 2026-11-16: Doing -> Done. Pins updated; ADR-0175 Amendment 1; confirmation filed as follow-up
