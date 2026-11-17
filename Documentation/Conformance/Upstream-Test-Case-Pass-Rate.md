@@ -39,7 +39,7 @@ decision 5). This is success criterion 2 of the
 | Platform | Commit | Date | Reference pin SHA-256 | Total | Runnable | Passed | Failed | Skipped | test-server-choice | Pass rate |
 | --- | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | `win-x64` | `c3011bee` | 2026-11-14 | `0E773709C3A44DB47B88B71351D902027682ED87C3BD3821009E454BACCA8778` | 2,013 | 1,185 | 1,185 | 0 | 828 | 34 | 100.0% |
-| `linux-x64` | `0cd51f95` | 2026-11-16 | `153CA463957609117D21A848BE29B70691B85F9E5CC9370C7DAA037B839A4E45` | 2,013 | 1,326 | 1,325 | 1 | 687 | 34 | 99.9% |
+| `linux-x64` | `4ac7b2c7` | 2026-11-17 | `153CA463957609117D21A848BE29B70691B85F9E5CC9370C7DAA037B839A4E45` | 2,013 | 1,326 | 1,326 | 0 | 687 | 34 | 100.0% |
 | `osx-arm64` | `145f16b2` | 2026-11-14 | `04E0E69BCD3BD814EC093551A0447AC14EDEEA9D395B468A2025DCB3F766EEBF` | 2,013 | 1,316 | 1,316 | 0 | 697 | 34 | 100.0% |
 
 BL-1317 (2026-11-16) moved Linux to commit `6023b4b3` from [CI run 43979679184](https://github.com/StewartScottRogers/Surl/actions/runs/43979679184), the first Linux run with the Debug build BL-1311 selects: 2400, 2406, 358 and 359 pass; 2401 and 2501 differ in the `Via` header nghttpx adds (BL-1321); 2402, 2404 and 2502 record nothing (BL-1322); 2407 has curl exit 6 (BL-1323). No case that passed before fails. macOS keeps its row until its Debug build runs.
@@ -51,6 +51,7 @@ BL-1325 (2026-11-16) moved Linux to commit `0cd51f95` from [CI run 44002670831](
 BL-1333 (2026-11-16) looked for the cause of that timeout. Case 2407 runs `lib2405` (`curl_multi_waitfds` over HTTP/2) and the runner stops it at its timeout, but the results artifact keeps only the verdict, not the stdout and stderr the client wrote before it was stopped, so the cause is not yet known and is not known to be a Surl defect. BL-1334 made the artifact carry that output.
 
 BL-1335 (2026-11-16) read the `test2407` block of `upstream-test-case-timeout-output.linux-x64.txt` from [CI run 44009482486](https://github.com/StewartScottRogers/Surl/actions/runs/44009482486). Cause: a Surl defect in the `http/2` gateway half. `lib2405` opens two connections to the gateway's plaintext port; each sends `GET /2407` with `Upgrade: h2c`, each is answered `101 Switching Protocols`, and curl logs `Received 101, Switching to HTTP/2` and `Copied HTTP/2 data in stream buffer ... len=21` (the server's SETTINGS frames). Then no response to stream 1 arrives: stdout is 0 bytes and the runner stops curl at 60 s. The upgraded connections therefore never write HEADERS and DATA for stream 1 (`Http2GatewayCleartextUpgrade`, `Http2ConnectionServer.ServeUpgradedAsync`, `Http2GatewayStreamForwarder`). BL-1336 fixes it.
+BL-1326 (2026-11-17) moved Linux to commit `4ac7b2c7` from [CI run 44068385591](https://github.com/StewartScottRogers/Surl/actions/runs/44068385591), the first Linux run with the BL-1336 fix (`b2ff44414`): 2407 passes and is in `upstream-test-cases-passing.linux-x64.txt` (1,326 passed, none failed).
 
 [ADR-0173](../Planning/Decisions/ADR-0173-a-debug-upstream-curl-8-21-0-build-from-source-for-the-http-2-and-http-3-test-cases-that-need-one.md)
 (BL-1312) is why `debug-build` falls from 50 to 44 on `linux-x64`: the Linux job builds a Debug curl
