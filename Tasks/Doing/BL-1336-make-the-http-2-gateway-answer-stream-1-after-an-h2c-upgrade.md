@@ -35,3 +35,4 @@ BL-1335 read the `test2407` block of `upstream-test-case-timeout-output.linux-x6
 - 2026-11-16: Created.
 - 2026-11-16: Backlog -> Doing.
 - 2026-11-16: Doing -> Backlog. Cause not reproducible in memory; waits on BL-1337 (curl HTTP/2 trace and gateway log in the timeout output)
+- 2026-11-16: Backlog -> Doing.
