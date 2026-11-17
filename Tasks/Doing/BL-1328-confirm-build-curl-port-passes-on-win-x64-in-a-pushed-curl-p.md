@@ -30,3 +30,4 @@ BL-1327 added `ciSha256` to the win-x64 entry in `CurlPortBuilds.json` (ADR-0175
 ## Log
 
 - 2026-11-16: Created.
+- 2026-11-16: Backlog -> Doing.
