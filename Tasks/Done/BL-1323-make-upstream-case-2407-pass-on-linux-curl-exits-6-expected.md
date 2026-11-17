@@ -8,7 +8,7 @@ depends-on: []
 touches: []
 requirement: none
 created: 2026-11-16
-completed:
+completed: 2026-11-16
 ---
 # BL-1323 — Make upstream case 2407 pass on Linux: curl exits 6, expected 0
 
@@ -33,3 +33,4 @@ Cause: exit 6 was "Could not resolve host: -q": the runner gave lib2405 curl's o
 
 - 2026-11-16: Created.
 - 2026-11-16: Backlog -> Doing.
+- 2026-11-16: Doing -> Done. BL-1322 already removed the cause; Linux CI confirmation filed as BL-1326
