@@ -36,3 +36,4 @@ ADR-0173 consequences. `UpstreamTestCasePassRateStatementTests` ties the table t
 - 2026-11-16: Created by BL-1303 (ADR-0173).
 - 2026-11-16: Backlog -> Doing.
 - 2026-11-16: Doing -> Backlog. Needs the Linux Debug-build run from BL-1317; depends-on now includes BL-1317
+- 2026-11-16: Backlog -> Doing.
