@@ -35,3 +35,4 @@ BL-1316 added the runner path; this machine (Windows) cannot run it. Needs the `
 - 2026-11-16: Backlog -> Doing.
 - 2026-11-16: Doing -> Blocked. Stewart: no CI run has the BL-1316 runner, and ci.yml runs only non-Integration tests without the Debug libtests binary; run the Integration upstream test cases on Linux with /opt/upstream-curl/8.21.0-debug/libtest/libtests and send the 2402/2404/2407/2502 verdicts
 - 2026-11-16: Blocked -> Backlog. Unblocked: PR #94 merged to master (6023b4b38) with curl-port-phase-7.yml, the BL-1311 Debug build and the BL-1316 runner; master's CI now runs on a commit containing them.
+- 2026-11-16: Backlog -> Doing.
