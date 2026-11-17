@@ -1203,7 +1203,7 @@ public sealed class CurlPortBesideUpstreamCurlOverMailTests
         }
 
         var portRunner = PinnedCurlPortClientOnThisMachine.RunnerFor(
-            new CurlPortClientLocator(files).Locate(portPins, upstreamPins, UpstreamCurlLocator.CurrentPlatform));
+            new CurlPortClientLocator(files).Locate(portPins, upstreamPins, UpstreamCurlLocator.CurrentPlatform, PinnedCurlPortClientOnThisMachine.CiAcceptedSha256));
         var upstreamRunner = new UpstreamCurlRunner(upstreamLocation, ClientTimeout, TimeProvider.System);
         var listedFindings = await ReadListedFindingsAsync(root, cancellationToken);
 

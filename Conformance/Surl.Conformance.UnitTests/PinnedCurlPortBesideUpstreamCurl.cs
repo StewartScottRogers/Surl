@@ -114,7 +114,7 @@ internal static class PinnedCurlPortBesideUpstreamCurl
             Assert.Inconclusive(upstreamLocation.Message);
         }
 
-        var portLocation = new CurlPortClientLocator(files).Locate(portPins, upstreamPins, UpstreamCurlLocator.CurrentPlatform);
+        var portLocation = new CurlPortClientLocator(files).Locate(portPins, upstreamPins, UpstreamCurlLocator.CurrentPlatform, PinnedCurlPortClientOnThisMachine.CiAcceptedSha256);
         var portRunner = PinnedCurlPortClientOnThisMachine.RunnerFor(portLocation);
         var upstreamRunner = new UpstreamCurlRunner(upstreamLocation, ClientTimeout, TimeProvider.System);
 

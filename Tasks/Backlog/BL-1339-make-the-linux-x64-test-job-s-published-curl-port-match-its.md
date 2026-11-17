@@ -5,7 +5,7 @@ priority: Normal
 assignee: Claude
 pipeline: protocol
 depends-on: [BL-1340]
-touches: [.github/workflows/curl-port-phase-7.yml, CurlPortBuilds.json, Documentation/Conformance/CurlPort]
+touches: [.github/workflows/curl-port-phase-7.yml, CurlPortBuilds.json, Documentation/Conformance/CurlPort, Conformance/Surl.Conformance.UnitTests]
 requirement: FR-057
 created: 2026-11-16
 completed:
@@ -33,6 +33,14 @@ BL-1307 found that run 44012635963 published `048AAEE0...` in the test job again
 
 - 2026-11-17: Run 44025033078 (dispatched on factory/phase-1 with the build-job-style publish) still published 048AAEE0 in the linux-x64 test job while its build job reproduced DF507F32. Publish method is not the cause; the test-side rule is filed as BL-1340, which this task now waits for before redispatching and recording outcomes.
 
+- Read-back routes (ADR-0164 decisions 1 to 4 and 7, BL-1203), all `GET`: `/v1/mail/{owner}`, `/v1/mail/{owner}/{mailbox}`
+  (`after_uid`, `limit`), `/v1/mail/{owner}/{mailbox}/{uid}` (`message/rfc822` bytes with `X-Surl-Uid` and `X-Surl-Flags`, or JSON
+  for `Accept: application/json`), `/v1/files/{path}` (bytes, or a folder listing when the path ends in `/`; `after_name`,
+  `limit`), `/v1/queues/{name}/messages` (`after_position`, `limit`), `/v1/topics/{name}/retained` and `/v1/topics/{name}/log`
+  (`from_offset`, `limit`). `IControlTarget` gains the matching read members; an absent item is `ControlRefusalKind.NotFound`
+  (404), one past 16 MiB is the new `ControlRefusalKind.TooLarge` (413 `too_large`). Reads publish nothing.
+- 2026-11-17 (fourth attempt): BL-1340 was pushed; run 44037418915 (factory/phase-1, cdf417e9f) set SURL_CURL_PORT_CI_SHA256=048AAEE0... yet linux-x64 still threw UnpinnedCurlPortClientException: the env var was read only by `PinnedCurlPortClientOnThisMachine.LocateAsync`, while `PinnedCurlPortBesideUpstreamCurl`, the Mail and Ssh port-beside-upstream tests and `PinnedCurlPortLibcurlBesideUpstreamLibcurl` called `Locate`/`LocateLibrary` without it. Fixed: all four now pass `PinnedCurlPortClientOnThisMachine.CiAcceptedSha256` (touches gained Conformance/Surl.Conformance.UnitTests). Conformance fast tests 1035/1035. Next: the shift pushes this commit, then `gh workflow run curl-port-phase-7.yml --ref factory/phase-1`, read the linux-x64 test job, record the outcome in each family file's linux-x64 section.
+
 ## Log
 
 - 2026-11-16: Created.
@@ -43,3 +51,4 @@ BL-1307 found that run 44012635963 published `048AAEE0...` in the test job again
 - 2026-11-16: Backlog -> Doing.
 - 2026-11-16: Doing -> Backlog. Third run 44025033078 still hashed 048AAEE0 in the test job; needs a test-side rule, filed as BL-1340
 - 2026-11-17: Backlog -> Doing.
+- 2026-11-17: Doing -> Backlog. Fixed the four test callers that ignored SURL_CURL_PORT_CI_SHA256; needs the shift to push it, then a curl-port-phase-7 dispatch
