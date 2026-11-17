@@ -8,7 +8,7 @@ depends-on: []
 touches: [Application/Surl.Mcp.UnitTests]
 requirement: none
 created: 2026-11-17
-completed:
+completed: 2026-11-17
 ---
 # BL-1364 — Cover the Redis key tool branches in Surl.Mcp.UnitLibrary
 
@@ -29,18 +29,20 @@ completed:
 
 ## Acceptance criteria
 
-- [ ] A named `Surl.Mcp.UnitTests` test sets a key whose name (database prefix, decoded runes and `\xNN` escapes) passes
+- [x] A named `Surl.Mcp.UnitTests` test sets a key whose name (database prefix, decoded runes and `\xNN` escapes) passes
       256 characters and asserts the event name is cut to exactly 256; another asserts a short name is kept whole.
-- [ ] Named tests call `list_keys` with and without `database`, asserting the database read.
-- [ ] Named tests call `read_key` for a key with bytes and one without, asserting the JSON has and lacks the bytes member.
-- [ ] `Measure-CodeQuality.ps1 -Library Surl.Mcp.UnitLibrary` reports `100 | 100` with 0 failing members, and the fast
+- [x] Named tests call `list_keys` with and without `database`, asserting the database read.
+- [x] Named tests call `read_key` for a key with bytes and one without, asserting the JSON has and lacks the bytes member.
+- [x] `Measure-CodeQuality.ps1 -Library Surl.Mcp.UnitLibrary` reports `100 | 100` with 0 failing members, and the fast
       tests are green.
 
 ## Notes
 
 - Tests only (test-writer). Tool names as registered in `Surl.Mcp.UnitLibrary`.
+- Added to `ReadKeyToolsTests`: `SetKey_ANameThatPassesTheLimitOnAnEscape_IsCutToExactly256Characters` (253 ASCII bytes plus 0xFF takes the name from 255 to 259 characters, cut to 256), `ListKeys_WithADatabase_ListsThatDatabasesKeys`, `ReadKey_AKeyOfAnotherType_HasNoValueMember` (RPUSH over a fake redis connection). Measured: 100 | 100, 0 failing; Mcp tests 364 pass.
 
 ## Log
 
 - 2026-11-17: Created.
 - 2026-11-17: Backlog -> Doing.
+- 2026-11-17: Doing -> Done. Surl.Mcp.UnitLibrary now measures 100 line, 100 branch, 0 failing members

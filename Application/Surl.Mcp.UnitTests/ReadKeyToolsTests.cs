@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Surl.Api;
 using Surl.McpServing;
 
 namespace Surl.Mcp;
@@ -61,6 +62,49 @@ public sealed class ReadKeyToolsTests
 
         Assert.IsTrue(result.IsError);
         Assert.IsFalse(string.IsNullOrWhiteSpace(Assert.ContainsSingle(result.TextContent)));
+    }
+
+    [TestMethod]
+    public async Task ListKeys_WithADatabase_ListsThatDatabasesKeys()
+    {
+        await using var host = await StartSeededHostAsync();
+
+        var second = Ok(await CallAsync(host.ListKeys, """{"server_id": "s1", "database": 2}"""));
+        var first = Ok(await CallAsync(host.ListKeys, """{"server_id": "s1", "database": 0}"""));
+
+        Assert.AreEqual("/w==", Assert.ContainsSingle(second.GetProperty("keys").EnumerateArray()).GetProperty("key_base64").GetString());
+        Assert.AreEqual(3, first.GetProperty("keys").GetArrayLength());
+    }
+
+    [TestMethod]
+    public async Task ReadKey_AKeyOfAnotherType_HasNoValueMember()
+    {
+        await using var host = await StartSeededHostAsync();
+        var connection = new FakeConnection("RPUSH numbers 1\r\nQUIT\r\n"u8.ToArray());
+        host.Seams.ListenerFactory.Accept("redis", connection);
+        await connection.Disposed.WaitAsync(TimeSpan.FromSeconds(30), TestContext.CancellationToken);
+
+        var list = Ok(await CallAsync(host.ReadKey, """{"server_id": "s1", "key": "numbers"}"""));
+        var text = Ok(await CallAsync(host.ReadKey, """{"server_id": "s1", "key": "other"}"""));
+
+        Assert.AreEqual("list", list.GetProperty("type").GetString());
+        Assert.IsFalse(list.TryGetProperty("text", out _));
+        Assert.IsFalse(list.TryGetProperty("base64", out _));
+        Assert.AreEqual("x", text.GetProperty("text").GetString());
+    }
+
+    [TestMethod]
+    public async Task SetKey_ANameThatPassesTheLimitOnAnEscape_IsCutToExactly256Characters()
+    {
+        await using var host = await StartSeededHostAsync();
+        var key = Convert.ToBase64String([.. Enumerable.Repeat((byte)'a', 253), 0xFF]);
+
+        var result = Ok(await CallAsync(host.SetKey, $$"""{"server_id": "s1", "key_base64": "{{key}}", "value": "v"}"""));
+        var shortName = Ok(await CallAsync(host.SetKey, """{"server_id": "s1", "key": "k", "value": "v"}"""));
+
+        Assert.AreEqual("0/" + new string('a', 253) + "\\", result.GetProperty("key").GetString());
+        Assert.AreEqual(256, result.GetProperty("key").GetString()!.Length);
+        Assert.AreEqual("0/k", shortName.GetProperty("key").GetString());
     }
 
     [TestMethod]
