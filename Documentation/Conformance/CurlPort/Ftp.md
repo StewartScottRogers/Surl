@@ -39,7 +39,27 @@ port defect, and an unlisted case must agree. A data-driven case is named `Metho
 | Phase 7 test | Mirrors | Finding |
 | --- | --- | --- |
 
-None: the Curl port agrees with upstream curl on every FTP and FTPS case.
+None: the Curl port agrees with upstream curl on every FTP and FTPS case on Windows.
+
+### Findings (linux-x64)
+
+Run [44044472038](https://github.com/StewartScottRogers/Surl/actions/runs/44044472038) (BL-1343): four TLS cases
+showed one port defect on linux-x64 and are listed for linux-x64 only (a heading that names a platform in
+parentheses applies on that platform alone).
+
+| Phase 7 test | Mirrors | Finding |
+| --- | --- | --- |
+| `Download_AccountOverImplicitFtps_WritesTheFile` | `UpstreamCurlLogsInToSurlOverFtpTests.Download_AccountOverImplicitFtps_WritesTheFile` | [FTP-1](#ftp-1-upstream-curls-tls-session-ends-with-a-broken-pipe-the-ports-does-not) |
+| `Download_AccountOverExplicitTls_WritesTheFile[--ssl-reqd]` | `UpstreamCurlLogsInToSurlOverFtpTests.Download_AccountOverExplicitTls_WritesTheFile` | [FTP-1](#ftp-1-upstream-curls-tls-session-ends-with-a-broken-pipe-the-ports-does-not) |
+| `Download_AccountOverExplicitTls_WritesTheFile[--ssl-reqd --ftp-ssl-ccc]` | `UpstreamCurlLogsInToSurlOverFtpTests.Download_AccountOverExplicitTls_WritesTheFile` | [FTP-1](#ftp-1-upstream-curls-tls-session-ends-with-a-broken-pipe-the-ports-does-not) |
+| `Download_AccountOverExplicitTls_WritesTheFile[--ftp-ssl-control]` | `UpstreamCurlLogsInToSurlOverFtpTests.Download_AccountOverExplicitTls_WritesTheFile` | [FTP-1](#ftp-1-upstream-curls-tls-session-ends-with-a-broken-pipe-the-ports-does-not) |
+
+#### FTP-1: upstream curl's TLS session ends with a broken pipe, the port's does not
+
+- **Measured:** exit code, standard output and the stored file agree. The only difference is `surl`'s `-v` note on
+  line 3: upstream curl's run has `Exchange 1 ended because the protocol server threw IOException: Unable to write
+  data to the transport connection: Broken pipe.`, the port's run has no such note (the same finding as Mail's M-1).
+- **Classification:** port defect, in how the port ends a TLS session after the exchange (notes only).
 
 ## osx-arm64
 
@@ -71,4 +91,4 @@ Findings:
 - **Cases compared.** The test job accepted the Curl port hash its own build job reproduced, so no
   `UnpinnedCurlPortClientException` was thrown (it replaces run 44012635963, where nothing compared).
 - **This family:** 39 passed, 4 failed, 3 not executed.
-- **Failures are triaged by BL-1343.** No failing case is recorded in this family's findings table yet.
+- **Triaged by BL-1343.** The 4 failures are listed under "Findings (linux-x64)" above: one port defect (FTP-1).

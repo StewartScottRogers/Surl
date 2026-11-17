@@ -54,6 +54,39 @@ the table does not list, and when a listed one stops appearing (ADR-0089 decisio
 | Test | Mirrors | Finding |
 | --- | --- | --- |
 
+### Findings (linux-x64)
+
+Run [44044472038](https://github.com/StewartScottRogers/Surl/actions/runs/44044472038) (BL-1343): 13 cases showed
+one port defect on linux-x64 and are listed for linux-x64 only (a heading that names a platform in parentheses
+applies on that platform alone). On Windows the family has no finding.
+
+| Test | Mirrors | Finding |
+| --- | --- | --- |
+| `Imap_Fetch_ImapsForcedBearerMechanism_LogsInAsTheNamedAccountAndWritesTheStoredMessage(OAUTHBEARER, False)` | `UpstreamCurlReadsMailFromSurlOverImapTests.Fetch_ImapsForcedBearerMechanism_LogsInAsTheNamedAccountAndWritesTheStoredMessage` | [M-1](#m-1-upstream-curls-tls-session-ends-with-a-broken-pipe-the-ports-does-not) |
+| `Imap_Fetch_ImapsForcedBearerMechanism_LogsInAsTheNamedAccountAndWritesTheStoredMessage(XOAUTH2, False)` | `UpstreamCurlReadsMailFromSurlOverImapTests.Fetch_ImapsForcedBearerMechanism_LogsInAsTheNamedAccountAndWritesTheStoredMessage` | [M-1](#m-1-upstream-curls-tls-session-ends-with-a-broken-pipe-the-ports-does-not) |
+| `Imap_Fetch_ImapsForcedBearerMechanism_LogsInAsTheNamedAccountAndWritesTheStoredMessage(XOAUTH2, True)` | `UpstreamCurlReadsMailFromSurlOverImapTests.Fetch_ImapsForcedBearerMechanism_LogsInAsTheNamedAccountAndWritesTheStoredMessage` | [M-1](#m-1-upstream-curls-tls-session-ends-with-a-broken-pipe-the-ports-does-not) |
+| `Imap_Fetch_ImapsForcedNamedChoiceMechanism_LogsInAndWritesTheStoredMessage(DIGEST-MD5, digest-md5)` | `UpstreamCurlReadsMailFromSurlOverImapTests.Fetch_ImapsForcedNamedChoiceMechanism_LogsInAndWritesTheStoredMessage` | [M-1](#m-1-upstream-curls-tls-session-ends-with-a-broken-pipe-the-ports-does-not) |
+| `Imap_Fetch_ImapsForcedPasswordLogin_LogsInAndWritesTheStoredMessage(AUTH=+LOGIN, False)` | `UpstreamCurlReadsMailFromSurlOverImapTests.Fetch_ImapsForcedPasswordLogin_LogsInAndWritesTheStoredMessage` | [M-1](#m-1-upstream-curls-tls-session-ends-with-a-broken-pipe-the-ports-does-not) |
+| `Imap_Fetch_ImapsForcedPasswordLogin_LogsInAndWritesTheStoredMessage(AUTH=CRAM-MD5, False)` | `UpstreamCurlReadsMailFromSurlOverImapTests.Fetch_ImapsForcedPasswordLogin_LogsInAndWritesTheStoredMessage` | [M-1](#m-1-upstream-curls-tls-session-ends-with-a-broken-pipe-the-ports-does-not) |
+| `Smtp_Send_ForcedBearerMechanismAfterStartTls_LogsInAsTheNamedAccountAndStoresTheMessage(OAUTHBEARER, False)` | `UpstreamCurlSendsMailToSurlOverSmtpTests.Send_ForcedBearerMechanismAfterStartTls_LogsInAsTheNamedAccountAndStoresTheMessage` | [M-1](#m-1-upstream-curls-tls-session-ends-with-a-broken-pipe-the-ports-does-not) |
+| `Smtp_Send_ForcedBearerMechanismAfterStartTls_LogsInAsTheNamedAccountAndStoresTheMessage(OAUTHBEARER, True)` | `UpstreamCurlSendsMailToSurlOverSmtpTests.Send_ForcedBearerMechanismAfterStartTls_LogsInAsTheNamedAccountAndStoresTheMessage` | [M-1](#m-1-upstream-curls-tls-session-ends-with-a-broken-pipe-the-ports-does-not) |
+| `Smtp_Send_ForcedBearerMechanismAfterStartTls_LogsInAsTheNamedAccountAndStoresTheMessage(XOAUTH2, True)` | `UpstreamCurlSendsMailToSurlOverSmtpTests.Send_ForcedBearerMechanismAfterStartTls_LogsInAsTheNamedAccountAndStoresTheMessage` | [M-1](#m-1-upstream-curls-tls-session-ends-with-a-broken-pipe-the-ports-does-not) |
+| `Smtp_Send_ForcedPasswordMechanism_LogsInAndStoresTheMessage(LOGIN, False, ESMTPSA)` | `UpstreamCurlSendsMailToSurlOverSmtpTests.Send_ForcedPasswordMechanism_LogsInAndStoresTheMessage` | [M-1](#m-1-upstream-curls-tls-session-ends-with-a-broken-pipe-the-ports-does-not) |
+| `Smtp_Send_ForcedPasswordMechanism_LogsInAndStoresTheMessage(LOGIN, True, ESMTPSA)` | `UpstreamCurlSendsMailToSurlOverSmtpTests.Send_ForcedPasswordMechanism_LogsInAndStoresTheMessage` | [M-1](#m-1-upstream-curls-tls-session-ends-with-a-broken-pipe-the-ports-does-not) |
+| `Smtp_Send_ForcedPasswordMechanism_LogsInAndStoresTheMessage(PLAIN, False, ESMTPSA)` | `UpstreamCurlSendsMailToSurlOverSmtpTests.Send_ForcedPasswordMechanism_LogsInAndStoresTheMessage` | [M-1](#m-1-upstream-curls-tls-session-ends-with-a-broken-pipe-the-ports-does-not) |
+| `Smtp_Send_SslReqdWithSelfSigned_UpgradesWithStartTlsAndStoresTheMessage` | `UpstreamCurlSendsMailToSurlOverSmtpTests.Send_SslReqdWithSelfSigned_UpgradesWithStartTlsAndStoresTheMessage` | [M-1](#m-1-upstream-curls-tls-session-ends-with-a-broken-pipe-the-ports-does-not) |
+
+#### M-1: upstream curl's TLS session ends with a broken pipe, the port's does not
+
+- **Cases:** every row above (the case name's parentheses hold the data row).
+- **Measured:** exit code, standard output and the stored mail agree. The only difference is `surl`'s `-v` note:
+  upstream curl's run has `Exchange N ended because the protocol server threw IOException: Unable to write data
+  to the transport connection: Broken pipe.` where the port's run ends the exchange without it. Upstream curl
+  (OpenSSL) drops the connection after the last command; the port ends the TLS session another way, so the
+  server's final write meets a closed peer only for upstream.
+- **Classification:** port defect, in how the port ends a TLS session after the exchange (notes only; no
+  output, exit code or stored-mail difference).
+
 ## osx-arm64
 
 Run [44000208980](https://github.com/StewartScottRogers/Surl/actions/runs/44000208980) of `curl-port-phase-7`
@@ -84,4 +117,4 @@ Findings:
 - **Cases compared.** The test job accepted the Curl port hash its own build job reproduced, so no
   `UnpinnedCurlPortClientException` was thrown (it replaces run 44012635963, where nothing compared).
 - **This family:** 108 passed, 13 failed.
-- **Failures are triaged by BL-1343.** No failing case is recorded in this family's findings table yet.
+- **Triaged by BL-1343.** The 13 failures are listed under "Findings (linux-x64)" above: one port defect (M-1).

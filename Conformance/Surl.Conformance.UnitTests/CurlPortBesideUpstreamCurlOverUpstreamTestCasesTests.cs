@@ -56,15 +56,31 @@ public sealed class CurlPortBesideUpstreamCurlOverUpstreamTestCasesTests
         var work = Directory.CreateDirectory(Path.Combine(AppContext.BaseDirectory, "upstream-test-case-runs", Path.GetRandomFileName()));
         try
         {
-            var run = new UpstreamTestCasesAgainstSurlTests.CaseRun(location, smbLocation.IsAvailable ? smbLocation : null, work.FullName, TestContext);
-            var rows = await run.RunBesideAsync(paths, port);
+            // As UpstreamTestCasesAgainstSurlTests does: the supplementary Debug build and libtests binary
+            // where the platform pins them (Linux).
+            var debugLocation = locator.LocateDebug(pins, UpstreamCurlLocator.CurrentPlatform);
+            var libtestLocation = locator.LocateLibtest(pins, UpstreamCurlLocator.CurrentPlatform);
+            var run = new UpstreamTestCasesAgainstSurlTests.CaseRun(
+                location, smbLocation.IsAvailable ? smbLocation : null, work.FullName, TestContext,
+                debugLocation.IsAvailable ? debugLocation : null, libtestLocation);
+            var allRows = await run.RunBesideAsync(paths, port);
+
+            // A case upstream skips because this run has no Debug build or no libtests binary is not a Surl
+            // defect: the platform's passing list names cases a fuller run passes. It cannot be compared.
+            var skippedForWantOfABuild = UpstreamTestCasesAgainstSurlTests.ToleratedSkipReasons(debugLocation.IsAvailable, libtestLocation.IsAvailable);
+            var rows = allRows
+                .Where(row => !(row.Upstream.Outcome == UpstreamTestCaseOutcome.Skip
+                    && row.Upstream.Reason is not null && skippedForWantOfABuild.Contains(row.Upstream.Reason)))
+                .ToList();
 
             var findingsFile = Path.Combine(root, "Documentation", "Conformance", "CurlPort", FindingsFileName);
-            var listed = UpstreamTestCasePortComparison.ListedFindings(await File.ReadAllLinesAsync(findingsFile, TestContext.CancellationToken));
+            var listed = UpstreamTestCasePortComparison.ListedFindings(
+                CurlPortFindingsFile.LinesForPlatform(
+                    await File.ReadAllLinesAsync(findingsFile, TestContext.CancellationToken), CurlPortFindingsFile.ThisPlatform()));
             var comparison = UpstreamTestCasePortComparison.Compare(rows, listed);
             await WriteMeasurementAsync(run, port, comparison, work.FullName);
 
-            Assert.HasCount(paths.Count, rows);
+            Assert.HasCount(paths.Count, allRows);
             Assert.IsTrue(comparison.Passes, comparison.DescribeFailures());
         }
         finally

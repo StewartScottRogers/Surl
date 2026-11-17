@@ -58,10 +58,36 @@ port defect, and an unlisted case must agree. A data-driven case is named `Metho
 | Phase 7 test | Mirrors | Finding |
 | --- | --- | --- |
 | `KexInit_OpenSslWindowsBuild_ListsTheOpenSslAlgorithms` | `UpstreamCurlOffersSshAlgorithmsTests.KexInit_OpenSslWindowsBuild_ListsTheOpenSslAlgorithms` | [SSH-1](#ssh-1-the-port-offers-only-the-wincng-backends-ssh-algorithms) |
+
+### Findings (win-x64)
+
+SSH-1 shows on Windows only for these four cases: the linux-x64 port build agrees with upstream curl on them
+(run 44044472038, BL-1343). A heading that names a platform in parentheses applies on that platform alone.
+
+| Phase 7 test | Mirrors | Finding |
+| --- | --- | --- |
 | `Download_CipherOnlySurlOffers_AgreesItAndWritesTheFile[blowfish-cbc]` | `UpstreamCurlAgreesWeakSshAlgorithmsWithSurlTests.Download_CipherOnlySurlOffers_AgreesItAndWritesTheFile` | [SSH-1](#ssh-1-the-port-offers-only-the-wincng-backends-ssh-algorithms) |
 | `Download_CipherOnlySurlOffers_AgreesItAndWritesTheFile[cast128-cbc]` | `UpstreamCurlAgreesWeakSshAlgorithmsWithSurlTests.Download_CipherOnlySurlOffers_AgreesItAndWritesTheFile` | [SSH-1](#ssh-1-the-port-offers-only-the-wincng-backends-ssh-algorithms) |
 | `Download_MacOnlySurlOffers_AgreesItAndWritesTheFile[hmac-ripemd160]` | `UpstreamCurlAgreesWeakSshAlgorithmsWithSurlTests.Download_MacOnlySurlOffers_AgreesItAndWritesTheFile` | [SSH-1](#ssh-1-the-port-offers-only-the-wincng-backends-ssh-algorithms) |
 | `Download_MacOnlySurlOffers_AgreesItAndWritesTheFile[hmac-ripemd160@openssh.com]` | `UpstreamCurlAgreesWeakSshAlgorithmsWithSurlTests.Download_MacOnlySurlOffers_AgreesItAndWritesTheFile` | [SSH-1](#ssh-1-the-port-offers-only-the-wincng-backends-ssh-algorithms) |
+
+### Findings (linux-x64)
+
+Run 44044472038 (BL-1343), classified from its `phase-7-linux-x64-results` artifact. Upstream curl is the
+linux-x64 build pinned in `UpstreamCurlBuilds.json`.
+
+| Phase 7 test | Mirrors | Finding |
+| --- | --- | --- |
+| `Login_PublicKey_DownloadsTheFile[scp]` | `UpstreamCurlLogsInToSurlOverSshTests.Login_PublicKey_DownloadsTheFile` | [SSH-2](#ssh-2-the-port-ends-an-scp-public-key-download-differently-on-linux-x64) |
+
+### SSH-2: the port ends an scp public-key download differently on linux-x64
+
+- **Case:** `Login_PublicKey_DownloadsTheFile[scp]`; command line `curl -sS --hostpubsha256 <surl's ssh-rsa SHA-256> -u tester: --key id_test --pubkey id_test.pub {surl}/a.txt`.
+- **Measured:** both clients exit 0 and write `hello world`. The only difference is `surl`'s `-v` note on line 11:
+  upstream curl's run has `SSH channel 0 handler failed: The SSH channel was closed before the data was sent.`
+  (upstream curl closes the channel as soon as it has the file), the port's run has no such note.
+- **Classification:** port defect, in how the port ends an scp channel (notes only; no output or exit code
+  difference).
 
 ### SSH-1: the port offers only the WinCNG backend's SSH algorithms
 
@@ -128,4 +154,5 @@ Findings:
 - **Cases compared.** The test job accepted the Curl port hash its own build job reproduced, so no
   `UnpinnedCurlPortClientException` was thrown (it replaces run 44012635963, where nothing compared).
 - **This family:** 67 passed, 5 failed, 7 not executed.
-- **Failures are triaged by BL-1343.** No failing case is recorded in this family's findings table yet.
+- **Triaged by BL-1343.** Of the 5 failures, four were SSH-1 cases that do not show on linux-x64 (now in a
+  win-x64-only table) and one is a new linux-x64 port defect (SSH-2).

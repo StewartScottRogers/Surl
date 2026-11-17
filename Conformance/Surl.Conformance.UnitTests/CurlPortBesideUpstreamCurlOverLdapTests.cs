@@ -609,6 +609,13 @@ public sealed class CurlPortBesideUpstreamCurlOverLdapTests
 
     private async Task JudgeAsync(CurlPortMeasurementCase measurementCase, int surlPort = 0, IReadOnlyDictionary<string, string>? clientEnvironment = null)
     {
+        // A WinLdap_ case judges the WinLDAP build of upstream curl, which exists on Windows only: elsewhere
+        // upstream curl is built against OpenLDAP and cannot give WinLDAP's answers (run 44044472038, BL-1343).
+        if (measurementCase.Name.StartsWith("WinLdap", StringComparison.Ordinal) && !OperatingSystem.IsWindows())
+        {
+            Assert.Inconclusive("WinLdap_ cases judge the WinLDAP build of upstream curl, which is Windows-only; the OpenLdap_ twins cover this platform.");
+        }
+
         var measurement = await PinnedCurlPortBesideUpstreamCurl.MeasureOnPortAsync(
             TestContext, measurementCase, surlPort, clientEnvironment ?? new Dictionary<string, string>());
         var listed = (await ListedFindingsAsync()).Contains(measurementCase.Name);
@@ -627,13 +634,7 @@ public sealed class CurlPortBesideUpstreamCurlOverLdapTests
 
     private async Task<HashSet<string>> ListedFindingsAsync()
     {
-        var text = await File.ReadAllTextAsync(Path.Combine(PinnedUpstreamCurl.RepositoryRoot(), FindingsFile), TestContext.CancellationToken);
-        var names = new HashSet<string>(StringComparer.Ordinal);
-        foreach (Match row in Regex.Matches(text, @"^\| `([^`]+)` \|", RegexOptions.Multiline))
-        {
-            names.Add(row.Groups[1].Value);
-        }
-
-        return names;
+        var lines = await File.ReadAllLinesAsync(Path.Combine(PinnedUpstreamCurl.RepositoryRoot(), FindingsFile), TestContext.CancellationToken);
+        return [.. CurlPortFindingsFile.ListedCaseNames(lines)];
     }
 }

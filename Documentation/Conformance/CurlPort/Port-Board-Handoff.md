@@ -884,5 +884,7 @@ passes with the port.
 Port commit `74f3f45` (Amendment 8 of ADR-0089) replaced `b42c319`. Re-measured on `win-x64`, it **fixed
 none** of the 23 earlier findings (each listed case still shows its defect) and **added one**, entry 24.
 The `linux-x64` run 44044472038 and the `osx-arm64` run 44000208980 record no new finding: osx-arm64
-compared nothing, and linux-x64's failing cases await triage by BL-1343, whose findings go into this file
-as further entries.
+compared nothing. linux-x64's failing cases are triaged by BL-1343 in each family's own "Findings (linux-x64)"
+table, not yet as entries here: a port defect on linux-x64 only (OpenLDAP SASL binds and StartTLS, how a TLS
+session or an scp channel ends, a chunked PUT to an HTTP/1.0 server) - Ldap.md L-1 to L-4, Mail.md M-1, Ftp.md
+FTP-1, Ssh.md SSH-2 and Upstream-Test-Cases.md UTC-5 - for the port's owners to take over.

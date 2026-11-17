@@ -56,6 +56,15 @@ The test reads this table: its first column is the Phase 7 case's name (ADR-0089
 | `GetWithHttp3Only_TwoUrls_ReuseOneQuicConnection` | `UpstreamCurlFetchesFromSurlOverHttp3Tests.GetWithHttp3Only_TwoUrls_ReuseOneQuicConnection` | [1](#1-the-port-has-no-http3) |
 | `GetWithHttp3Only_Http3Off_FailsToConnect` | `UpstreamCurlFetchesFromSurlOverHttp3Tests.GetWithHttp3Only_Http3Off_FailsToConnect` | [1](#1-the-port-has-no-http3) |
 | `GetWithHttp3_Http3Off_FallsBackToHttp2` | `UpstreamCurlFetchesFromSurlOverHttp3Tests.GetWithHttp3_Http3Off_FallsBackToHttp2` | [1](#1-the-port-has-no-http3) |
+
+### Findings (win-x64)
+
+Finding 2 shows on Windows only: on linux-x64 the pinned port agrees with upstream curl on this case (run
+44044472038, BL-1343), so the test would fail there on a listed case that agrees. The test reads this table on
+Windows only (a heading that names a platform in parentheses applies on that platform alone).
+
+| Test | Mirrors | Finding |
+| --- | --- | --- |
 | `Head_OverTcpWithHttp3On_CarriesAltSvcNamingThePort` | `UpstreamCurlFetchesFromSurlOverHttp3Tests.Head_OverTcpWithHttp3On_CarriesAltSvcNamingThePort` | [2](#2-the-port-does-not-negotiate-http2-over-https) |
 
 ### 1. The port has no HTTP/3
@@ -118,4 +127,5 @@ Findings:
 - **Cases compared.** The test job accepted the Curl port hash its own build job reproduced, so no
   `UnpinnedCurlPortClientException` was thrown (it replaces run 44012635963, where nothing compared).
 - **This family:** 12 passed, 1 failed.
-- **Failures are triaged by BL-1343.** No failing case is recorded in this family's findings table yet.
+- **Triaged by BL-1343.** The 1 failure, `Head_OverTcpWithHttp3On_CarriesAltSvcNamingThePort`, was a listed finding that
+  does not show on linux-x64; it now sits in a win-x64-only table (finding 2).

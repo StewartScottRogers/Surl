@@ -295,14 +295,8 @@ public sealed class CurlPortBesideUpstreamCurlOverWebSocketTests
 
     private async Task<HashSet<string>> ListedFindingsAsync()
     {
-        var text = await File.ReadAllTextAsync(Path.Combine(PinnedUpstreamCurl.RepositoryRoot(), FindingsFile), TestContext.CancellationToken);
-        var names = new HashSet<string>(StringComparer.Ordinal);
-        foreach (Match row in Regex.Matches(text, @"^\| `([^`]+)` \|", RegexOptions.Multiline))
-        {
-            names.Add(row.Groups[1].Value);
-        }
-
-        return names;
+        var lines = await File.ReadAllLinesAsync(Path.Combine(PinnedUpstreamCurl.RepositoryRoot(), FindingsFile), TestContext.CancellationToken);
+        return [.. CurlPortFindingsFile.ListedCaseNames(lines)];
     }
 
     private sealed class DisposeAction(Action action) : IAsyncDisposable

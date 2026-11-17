@@ -101,4 +101,4 @@ Findings:
 - **Cases compared.** The test job accepted the Curl port hash its own build job reproduced, so no
   `UnpinnedCurlPortClientException` was thrown (it replaces run 44012635963, where nothing compared).
 - **This family:** 0 passed, 0 failed, 15 not executed.
-- **Failures are triaged by BL-1343.** No failing case is recorded in this family's findings table yet.
+- **Triaged by BL-1343.** No case of this family failed on linux-x64, so nothing is added to its findings table.
