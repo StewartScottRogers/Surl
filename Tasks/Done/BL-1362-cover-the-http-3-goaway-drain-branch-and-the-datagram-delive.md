@@ -8,7 +8,7 @@ depends-on: []
 touches: [Protocols/Http/Surl.Http3.UnitTests]
 requirement: none
 created: 2026-11-17
-completed:
+completed: 2026-11-17
 ---
 # BL-1362 — Cover the HTTP/3 GOAWAY drain branch and the datagram delivery loop end
 
@@ -28,18 +28,20 @@ completed:
 
 ## Acceptance criteria
 
-- [ ] Named `Surl.Http3.UnitTests` tests end a connection both after a graceful drain that sent GOAWAY and without one,
+- [x] Named `Surl.Http3.UnitTests` tests end a connection both after a graceful drain that sent GOAWAY and without one,
       asserting the frames written in each case (line 402, both outcomes).
-- [ ] A named test delivers at least one datagram and then has the fake connection's `ReceiveDatagramAsync` return
+- [x] A named test delivers at least one datagram and then has the fake connection's `ReceiveDatagramAsync` return
       `null`, asserting delivery ends cleanly (line 291).
-- [ ] `Measure-CodeQuality.ps1 -Library Surl.Http3.UnitLibrary` reports `100 | 100` with 0 failing members, and the
+- [x] `Measure-CodeQuality.ps1 -Library Surl.Http3.UnitLibrary` reports `100 | 100` with 0 failing members, and the
       fast tests are green.
 
 ## Notes
 
 - Tests only (test-writer). Expected bytes from RFC 9114 and RFC 9297.
+- Added two tests in Http3ExtendedConnectTests: a datagram delivered and then the client closing (line 291, made deterministic by waiting for the held-datagram note), and a client close with ShutdownGrace set and no shutdown (EndAsync no-GOAWAY path). Measured: 100 | 100, 0 failing, 100 tests pass.
 
 ## Log
 
 - 2026-11-17: Created.
 - 2026-11-17: Backlog -> Doing.
+- 2026-11-17: Doing -> Done. Surl.Http3.UnitLibrary at 100% line and branch, 0 failing members
