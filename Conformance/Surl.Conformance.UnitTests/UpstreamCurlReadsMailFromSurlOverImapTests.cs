@@ -498,9 +498,13 @@ public sealed class UpstreamCurlReadsMailFromSurlOverImapTests
         var imap = surl.BaseUrlOf("imap");
         using var holder = new TcpClient();
         await holder.ConnectAsync(imap.Host, imap.Port, TestContext.CancellationToken);
-        var greeting = new byte[4];
-        await holder.GetStream().ReadExactlyAsync(greeting, TestContext.CancellationToken);
-        Assert.AreEqual("* OK", Encoding.ASCII.GetString(greeting));
+        using var holderReader = new StreamReader(holder.GetStream(), Encoding.ASCII);
+        StringAssert.StartsWith(await holderReader.ReadLineAsync(TestContext.CancellationToken), "* OK");
+
+        // The greeting alone shows surl accepted the holder; a NOOP answered shows its exchange is
+        // running and counted, so curl's connection is past the limit whenever it dials (BL-1344).
+        await holder.GetStream().WriteAsync(Encoding.ASCII.GetBytes("h1 NOOP\r\n"), TestContext.CancellationToken);
+        StringAssert.StartsWith(await holderReader.ReadLineAsync(TestContext.CancellationToken), "h1 OK");
 
         var result = await RunUpstreamCurlAsync("-sS", "-u", Credentials, ImapUrl(surl, "/INBOX;UID=1"));
 

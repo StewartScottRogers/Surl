@@ -559,9 +559,13 @@ public sealed class UpstreamCurlSendsMailToSurlOverSmtpTests
         await using var surl = await StartSurlAsync("smtp", NewTemporaryDirectory(), "--allow-anonymous", "--max-connections", "1");
         using var holder = new TcpClient();
         await holder.ConnectAsync(surl.BaseUrl.Host, surl.BaseUrl.Port, TestContext.CancellationToken);
-        var greeting = new byte[5];
-        await holder.GetStream().ReadExactlyAsync(greeting, TestContext.CancellationToken);
-        Assert.AreEqual("220 s", Encoding.ASCII.GetString(greeting));
+        using var holderReader = new StreamReader(holder.GetStream(), Encoding.ASCII);
+        StringAssert.StartsWith(await holderReader.ReadLineAsync(TestContext.CancellationToken), "220 s");
+
+        // The greeting alone shows surl accepted the holder; a NOOP answered shows its exchange is
+        // running and counted, so curl's connection is past the limit whenever it dials (BL-1344).
+        await holder.GetStream().WriteAsync(Encoding.ASCII.GetBytes("NOOP\r\n"), TestContext.CancellationToken);
+        StringAssert.StartsWith(await holderReader.ReadLineAsync(TestContext.CancellationToken), "250");
 
         var result = await RunUpstreamCurlAsync("-sS", "--mail-from", "a@x", "--mail-rcpt", Recipient, "-T", mail, MailUrl(surl));
 

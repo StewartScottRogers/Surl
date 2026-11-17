@@ -1463,7 +1463,20 @@ public sealed class CurlPortBesideUpstreamCurlOverMailTests
         var holder = new TcpClient();
         await holder.ConnectAsync(listener.Host, listener.Port, cancellationToken);
         var reader = new StreamReader(holder.GetStream(), Encoding.ASCII);
-        StringAssert.StartsWith(await reader.ReadLineAsync(cancellationToken), hold == MailHold.Pop3Login ? "+OK" : string.Empty);
+        var greeting = await reader.ReadLineAsync(cancellationToken);
+        StringAssert.StartsWith(greeting, hold == MailHold.Pop3Login ? "+OK" : string.Empty);
+        if (hold == MailHold.Greeting)
+        {
+            // The greeting alone shows surl accepted the holder; a NOOP answered shows its exchange is
+            // running and counted, so the client's connection is past the limit whenever it dials (BL-1344).
+            var isImap = greeting!.StartsWith("* OK", StringComparison.Ordinal);
+            var isPop3 = greeting.StartsWith("+OK", StringComparison.Ordinal);
+            await holder.GetStream().WriteAsync(
+                Encoding.ASCII.GetBytes(isImap ? "h1 NOOP\r\n" : isPop3 ? "CAPA\r\n" : "NOOP\r\n"), cancellationToken);
+            var expected = isImap ? "h1 OK" : isPop3 ? "+OK" : "250";
+            StringAssert.StartsWith(await reader.ReadLineAsync(cancellationToken), expected);
+        }
+
         if (hold == MailHold.Pop3Login)
         {
             await holder.GetStream().WriteAsync(Encoding.ASCII.GetBytes($"USER {AccountsFile.User}\r\n"), cancellationToken);
