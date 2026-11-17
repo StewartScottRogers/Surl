@@ -8,7 +8,7 @@ depends-on: []
 touches: [Conformance/Surl.Conformance.UnitTests]
 requirement: none
 created: 2026-11-17
-completed:
+completed: 2026-11-17
 ---
 # BL-1351 — Cover the pin and locator branches left in Surl.Conformance
 
@@ -32,21 +32,23 @@ completed:
 
 ## Acceptance criteria
 
-- [ ] Named `Surl.Conformance.UnitTests` tests parse `CurlPortBuilds.json` text with `ciHashStable` absent, `true`,
+- [x] Named `Surl.Conformance.UnitTests` tests parse `CurlPortBuilds.json` text with `ciHashStable` absent, `true`,
       `false` and a string, asserting the parsed flag or the refusal for each.
-- [ ] Named tests drive `CurlPortClientLocator` with a pin whose `Sha256` is null and with a `CiHashStable: false` pin
+- [x] Named tests drive `CurlPortClientLocator` with a pin whose `Sha256` is null and with a `CiHashStable: false` pin
       matched only by the CI-accepted hash, so lines 130 and 142 see every outcome.
-- [ ] Named tests cover `UpstreamTestCaseLibtests.ProgramName` for a case with no tool part and one whose tool lines are
+- [x] Named tests cover `UpstreamTestCaseLibtests.ProgramName` for a case with no tool part and one whose tool lines are
       all blank, and `UpstreamCurlLocator.LocateLibtest` with pins where a libtest pin for another platform comes first.
-- [ ] `Measure-CodeQuality.ps1 -Library Surl.Conformance.UnitLibrary` reports `100 | 100` with 0 failing members, and
+- [x] `Measure-CodeQuality.ps1 -Library Surl.Conformance.UnitLibrary` reports `100 | 100` with 0 failing members, and
       the fast tests are green.
 
 ## Notes
 
 - Tests only (test-writer), over the existing file-access fakes; no process is started.
+- Added tests to CurlPortClientPinsTests, CurlPortClientLocatorTests, UpstreamTestCaseLibtestsTests and UpstreamCurlLocatorTests; Measure-CodeQuality reports 0 failing members.
 - Low priority: this library is the conformance harness, not a protocol server.
 
 ## Log
 
 - 2026-11-17: Created.
 - 2026-11-17: Backlog -> Doing.
+- 2026-11-17: Doing -> Done. Pin and locator branches covered; Surl.Conformance.UnitLibrary has 0 failing members

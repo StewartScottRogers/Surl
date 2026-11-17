@@ -263,6 +263,45 @@ public sealed class CurlPortClientLocatorTests
         Assert.ThrowsExactly<ArgumentNullException>(() => locator.Locate([], [], null!));
     }
 
+    [TestMethod]
+    public void Locate_PinHasNoSha256AndNoCiHash_RefusesTheFile()
+    {
+        var pin = Pin(ClientPath, ClientBytes) with { Sha256 = null! };
+        var locator = new CurlPortClientLocator(new FakeUpstreamCurlFileAccess().WithFile(ClientPath, ClientBytes));
+
+        Assert.ThrowsExactly<UnpinnedCurlPortClientException>(() => locator.Locate([pin], [], "win-x64"));
+    }
+
+    [TestMethod]
+    public void Locate_UnstablePinMatchedOnlyByTheCiAcceptedHash_ReturnsTheClient()
+    {
+        var pin = Pin(ClientPath, ClientBytes) with { CiHashStable = false };
+        var locator = new CurlPortClientLocator(new FakeUpstreamCurlFileAccess().WithFile(ClientPath, OtherClientBytes));
+
+        var location = locator.Locate([pin], [], "win-x64", FakeUpstreamCurlFileAccess.Sha256Of(OtherClientBytes));
+
+        Assert.AreSame(pin, location.Client);
+    }
+
+    [TestMethod]
+    public void Locate_UnstablePinAndNoCiAcceptedHash_RefusesTheFile()
+    {
+        var pin = Pin(ClientPath, ClientBytes) with { CiHashStable = false };
+        var locator = new CurlPortClientLocator(new FakeUpstreamCurlFileAccess().WithFile(ClientPath, OtherClientBytes));
+
+        Assert.ThrowsExactly<UnpinnedCurlPortClientException>(() => locator.Locate([pin], [], "win-x64"));
+    }
+
+    [TestMethod]
+    public void Locate_StablePinAndAMatchingCiAcceptedHash_StillRefusesTheFile()
+    {
+        var pin = Pin(ClientPath, ClientBytes);
+        var locator = new CurlPortClientLocator(new FakeUpstreamCurlFileAccess().WithFile(ClientPath, OtherClientBytes));
+
+        Assert.ThrowsExactly<UnpinnedCurlPortClientException>(
+            () => locator.Locate([pin], [], "win-x64", FakeUpstreamCurlFileAccess.Sha256Of(OtherClientBytes)));
+    }
+
     internal static PinnedCurlPortClient Pin(string path, byte[] contents, string platform = "win-x64") =>
         new(platform, path, FakeUpstreamCurlFileAccess.Sha256Of(contents), "abc123", "dotnet publish Curl.Console -c Release -r win-x64", "2026-11-04");
 

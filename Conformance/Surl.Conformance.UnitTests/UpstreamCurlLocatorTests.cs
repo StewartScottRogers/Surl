@@ -147,6 +147,19 @@ public sealed class UpstreamCurlLocatorTests
     }
 
     [TestMethod]
+    public void LocateLibtest_OtherPlatformAndNonLibtestPinsComeFirst_PassesThemOver()
+    {
+        var program = LibtestPin("linux-x64", FakeUpstreamCurlFileAccess.Sha256Of(LibraryBytes));
+        var otherPlatform = LibtestPin("macos-arm64", "CD");
+        var notLibtest = program with { Kind = UpstreamCurlBuildKind.Curl };
+        var locator = new UpstreamCurlLocator(new FakeUpstreamCurlFileAccess().WithFile("/pinned/libtest/libtests", LibraryBytes));
+
+        var location = locator.LocateLibtest([otherPlatform, notLibtest, program], "linux-x64");
+
+        Assert.IsTrue(location.IsAvailable);
+    }
+
+    [TestMethod]
     public void LocateLibtest_NullArguments_Throw()
     {
         var locator = new UpstreamCurlLocator(new FakeUpstreamCurlFileAccess());
