@@ -31,13 +31,22 @@ internal static class TlsApplicationProtocols
     /// </summary>
     /// <param name="scheme">The listen URL's scheme, lower-cased.</param>
     /// <returns><c>h2</c> and <c>http/1.1</c> for <c>https</c>; <c>http/1.1</c> for <c>wss</c>, <c>s3</c>, <c>oci</c>, <c>mcps</c>, <c>az</c>, <c>abfss</c> and <c>gs</c>; exactly <c>h2</c> for <c>grpcs</c> (ADR-0116 decision 0); <c>xmpp-client</c> for <c>xmpps</c>; otherwise empty.</returns>
-    public static IReadOnlyList<SslApplicationProtocol> ForScheme(string scheme) => scheme switch
+    public static IReadOnlyList<SslApplicationProtocol> ForScheme(string scheme) =>
+        ByScheme.TryGetValue(scheme, out var protocols) ? protocols : [];
+
+    // A table, not a string switch: the compiled switch's hash and length edges cannot all be reached by any input.
+    private static readonly Dictionary<string, SslApplicationProtocol[]> ByScheme = new(StringComparer.Ordinal)
     {
-        "https" => Https,
-        "wss" or "s3" or "oci" or "mcps" or "az" or "abfss" or "gs" => Http11Only,
-        "grpcs" => Http2Only,
-        "xmpps" => XmppClient,
-        _ => [],
+        ["https"] = Https,
+        ["wss"] = Http11Only,
+        ["s3"] = Http11Only,
+        ["oci"] = Http11Only,
+        ["mcps"] = Http11Only,
+        ["az"] = Http11Only,
+        ["abfss"] = Http11Only,
+        ["gs"] = Http11Only,
+        ["grpcs"] = Http2Only,
+        ["xmpps"] = XmppClient,
     };
 
     /// <summary>

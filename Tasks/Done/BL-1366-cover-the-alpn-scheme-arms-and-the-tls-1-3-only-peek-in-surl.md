@@ -8,7 +8,7 @@ depends-on: []
 touches: [Foundation/Surl.Networking.UnitLibrary, Foundation/Surl.Networking.UnitTests]
 requirement: none
 created: 2026-11-17
-completed:
+completed: 2026-11-17
 ---
 # BL-1366 — Cover the ALPN scheme arms and the TLS 1.3-only peek in Surl.Networking
 
@@ -29,21 +29,22 @@ completed:
 
 ## Acceptance criteria
 
-- [ ] A data-driven `Surl.Networking.UnitTests` test calls `ForScheme` with every listed scheme and asserts its ALPN list,
+- [x] A data-driven `Surl.Networking.UnitTests` test calls `ForScheme` with every listed scheme and asserts its ALPN list,
       plus unlisted schemes of the same lengths as listed ones (for example `http`, `ws`, `s4`, `ocj`, `mcpx`, `ax`,
       `abfsx`, `gx`, `grpcx`, `xmppx`) and `""`, each asserting the empty list.
-- [ ] Named tests peek ClientHellos whose `supported_versions` hold, beside TLS 1.3, a version below SSL 3.0
+- [x] Named tests peek ClientHellos whose `supported_versions` hold, beside TLS 1.3, a version below SSL 3.0
       (for example `0x0200`), a version inside SSL 3.0..TLS 1.2, and only versions above TLS 1.2 (for example a GREASE
       value), so the lambda sees each side of both comparisons; each asserts `OffersOnlyTls13`.
-- [ ] `Measure-CodeQuality.ps1 -Library Surl.Networking.UnitLibrary` reports `100 | 100` with 0 failing members, and
+- [x] `Measure-CodeQuality.ps1 -Library Surl.Networking.UnitLibrary` reports `100 | 100` with 0 failing members, and
       the fast tests are green.
 
 ## Notes
 
-- Tests only (test-writer). If a string-switch edge proves unreachable by any input, say so in the Notes and reshape
+- Decision: the string-switch edges were unreachable by any input, so ForScheme became a static dictionary lookup (same answers per scheme). Tests only otherwise. If a string-switch edge proves unreachable by any input, say so in the Notes and reshape
   only that method, keeping every scheme's answer.
 
 ## Log
 
 - 2026-11-17: Created.
 - 2026-11-17: Backlog -> Doing.
+- 2026-11-17: Doing -> Done. Networking at 100/100; ForScheme reshaped to a table

@@ -24,6 +24,22 @@ public sealed class TlsApplicationProtocolsTests
         Assert.AreEqual(expected, string.Join(",", TlsApplicationProtocols.ForScheme(scheme)));
 
     [TestMethod]
+    [DataRow("xmpps", "xmpp-client")]
+    [DataRow("ws", "")]
+    [DataRow("s4", "")]
+    [DataRow("ocj", "")]
+    [DataRow("mcpx", "")]
+    [DataRow("ax", "")]
+    [DataRow("abfsx", "")]
+    [DataRow("gx", "")]
+    [DataRow("grpcx", "")]
+    [DataRow("xmppx", "")]
+    [DataRow("httpx", "")]
+    [DataRow("", "")]
+    public void ForScheme_ListedSchemesAndSameLengthLookAlikes_OfferTheirOwnListOrNone(string scheme, string expected) =>
+        Assert.AreEqual(expected, string.Join(",", TlsApplicationProtocols.ForScheme(scheme)));
+
+    [TestMethod]
     [DataRow("https", true, "h2,http/1.1")]
     [DataRow("http", true, "")]
     [DataRow("https", false, "h2,http/1.1")]
