@@ -568,12 +568,12 @@ public sealed class UpstreamTestCasesAgainstSurlTests
                 replies, ftpReplies, gopherReplies, mqttReplies, tftpReplies,
                 fileServers.CreateSsh(caseDirectory, sshUser), UpstreamTestCaseFileServers.CreateSmb(smbRoot), mailReplies, proxyReplies, socksReplies, dnsReplies, arrivalLog, http3Certificate!);
             var curl = await client.Client.RunAsync(
-                commandLine.Arguments, commandLine.StandardInput, CurlEnvironment(Slashes(caseDirectory), commandLine), caseDirectory, cancellationToken);
+                commandLine.Arguments, commandLine.StandardInput, CurlEnvironment(Slashes(caseDirectory), commandLine, UpstreamTestCaseLibtests.AdmittedNumbers.Contains(number)), caseDirectory, cancellationToken);
             if (curl.TimedOut)
             {
                 testContext.WriteLine($"{client.LogPrefix}test{number}: curl stopped after {CaseTimeout.TotalSeconds} s");
                 Failures.Record(number, $"curl stopped after {CaseTimeout.TotalSeconds} s");
-                TimeoutOutput.Record(number, curl.StandardOutput, curl.StandardError);
+                TimeoutOutput.Record(number, curl.StandardOutput, curl.StandardError, serverHalves.Notes);
                 return UpstreamTestCaseResult.Fail(number, UpstreamTestCaseResult.TimeoutReason);
             }
 
@@ -789,7 +789,7 @@ public sealed class UpstreamTestCasesAgainstSurlTests
         private static int SocksPortFor(UpstreamTestCaseServerHalves serverHalves, byte[] source) =>
             Encoding.Latin1.GetString(source).Contains("\nsocks4\n", StringComparison.Ordinal) ? serverHalves.Socks4Port : serverHalves.Socks5Port;
 
-        private static Dictionary<string, string> CurlEnvironment(string home, UpstreamTestCaseCommandLine commandLine)
+        private static Dictionary<string, string> CurlEnvironment(string home, UpstreamTestCaseCommandLine commandLine, bool traceAll)
         {
             // runtests points HOME, CURL_HOME and XDG_CONFIG_HOME at its own folder; USERPROFILE is Windows' HOME.
             var environment = new Dictionary<string, string>(StringComparer.Ordinal)
@@ -799,6 +799,12 @@ public sealed class UpstreamTestCasesAgainstSurlTests
                 ["XDG_CONFIG_HOME"] = home,
                 ["USERPROFILE"] = home,
             };
+            if (traceAll)
+            {
+                // A libtest program's Debug build writes its full trace to stderr, which the timeout output file keeps (BL-1337).
+                environment["CURL_DEBUG"] = "all";
+            }
+
             foreach (var (name, value) in commandLine.Environment)
             {
                 environment[name] = value;

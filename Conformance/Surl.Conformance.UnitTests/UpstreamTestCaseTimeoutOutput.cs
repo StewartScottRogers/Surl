@@ -10,18 +10,19 @@ namespace Surl.Conformance;
 /// </summary>
 internal sealed class UpstreamTestCaseTimeoutOutput
 {
-    private readonly ConcurrentDictionary<int, (byte[] StandardOutput, string StandardError)> outputs = new();
+    private readonly ConcurrentDictionary<int, (byte[] StandardOutput, string StandardError, string ExchangeNotes)> outputs = new();
 
     /// <summary>The name of the timeout output file for a pin's platform.</summary>
     public static string FileNameFor(string platform) => $"upstream-test-case-timeout-output.{platform}.txt";
 
     /// <summary>Records what one timed-out case's client had written.</summary>
-    public void Record(int number, byte[] standardOutput, string standardError) =>
-        outputs[number] = (standardOutput, standardError);
+    public void Record(int number, byte[] standardOutput, string standardError, string exchangeNotes) =>
+        outputs[number] = (standardOutput, standardError, exchangeNotes);
 
     /// <summary>
     /// One block per recorded case in number order: a header line, the stdout so far, the
-    /// stderr so far; empty when no case timed out.
+    /// stderr so far (which holds curl's trace for a libtest case) and the server halves'
+    /// exchange log notes; empty when no case timed out.
     /// </summary>
     public string Format()
     {
@@ -32,6 +33,8 @@ internal sealed class UpstreamTestCaseTimeoutOutput
                 .Append(Encoding.Latin1.GetString(output.StandardOutput).ReplaceLineEndings("\n").TrimEnd('\n'))
                 .Append($"\ntest{number} stderr so far:\n")
                 .Append(output.StandardError.ReplaceLineEndings("\n").TrimEnd('\n'))
+                .Append($"\ntest{number} exchange log notes:\n")
+                .Append(output.ExchangeNotes.ReplaceLineEndings("\n").TrimEnd('\n'))
                 .Append("\n\n");
         }
 

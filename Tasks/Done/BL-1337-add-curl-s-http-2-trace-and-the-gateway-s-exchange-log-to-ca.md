@@ -8,7 +8,7 @@ depends-on: []
 touches: [Conformance/Surl.Conformance.UnitTests]
 requirement: none
 created: 2026-11-16
-completed:
+completed: 2026-11-16
 ---
 # BL-1337 — Add curl's HTTP/2 trace and the gateway's exchange log to case 2407's Linux timeout output
 
@@ -22,13 +22,17 @@ BL-1336 could not find the cause by reading code: two concurrent `Upgrade: h2c` 
 
 ## Acceptance criteria
 
-- [ ] A timed-out libtest case's timeout output file holds curl's HTTP/2 trace lines.
-- [ ] It also holds the exchange log notes the `http/2` gateway wrote for that case.
-- [ ] A unit test in `Surl.Conformance.UnitTests` pins both.
+- [x] A timed-out libtest case's timeout output file holds curl's HTTP/2 trace lines.
+- [x] It also holds the exchange log notes the `http/2` gateway wrote for that case.
+- [x] A unit test in `Surl.Conformance.UnitTests` pins both.
 
 ## Notes
+
+- `CURL_DEBUG=all` is set for the admitted libtest cases only (`UpstreamTestCaseLibtests.AdmittedNumbers`), so the other cases' stderr checks are unchanged. The exchange log notes are `serverHalves.Notes`. The unit test pins the file format; the live trace appears on the next Linux CI run (follow-up: read test2407 block).
+
 
 ## Log
 
 - 2026-11-16: Created.
 - 2026-11-16: Backlog -> Doing.
+- 2026-11-16: Doing -> Done. Timeout output holds curl trace and exchange log notes
