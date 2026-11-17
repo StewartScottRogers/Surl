@@ -34,3 +34,4 @@ Every `*_MaxConnections1WhileAnotherClientHoldsIt_*` test in the mail families g
 ## Log
 
 - 2026-11-17: Created from merge PR #102's macOS failure (same race as BL-1320).
+- 2026-11-17: Backlog -> Doing.
