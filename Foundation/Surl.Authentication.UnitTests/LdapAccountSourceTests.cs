@@ -552,6 +552,31 @@ public sealed class LdapAccountSourceTests
     }
 
     [TestMethod]
+    public async Task CheckThatGetsASlotAfterItsTimeoutPassed_IsRefusedAsTimedOut_WithoutConnecting()
+    {
+        directory.Hangs = true;
+        var silentClock = new TimerlessTimeProvider();
+        var source = new LdapAccountSource(new LdapAccountSourceSettings(Url()), directory, silentClock, notes.Add);
+        using var holder = new CancellationTokenSource();
+        var holders = Enumerable.Range(0, LdapAccountSource.MaxConcurrentChecks)
+            .Select(_ => source.CheckAsync("imap", "alice", Bytes("pw"), holder.Token).AsTask())
+            .ToList();
+        var waiting = source.CheckAsync("imap", "alice", Bytes("pw"), CancellationToken.None).AsTask();
+
+        Assert.AreEqual(LdapAccountSource.MaxConcurrentChecks, directory.ConnectCount);
+        silentClock.Advance(TimeSpan.FromSeconds(LdapAccountSourceSettings.DefaultTimeoutSeconds));
+        await holder.CancelAsync();
+        var result = await waiting;
+
+        Assert.AreEqual("timed out after 5 s", result.Reason);
+        Assert.AreEqual(LdapAccountSource.MaxConcurrentChecks, directory.ConnectCount);
+        foreach (var held in holders)
+        {
+            await Assert.ThrowsAsync<OperationCanceledException>(() => held);
+        }
+    }
+
+    [TestMethod]
     public async Task ASlotFreedByAFinishedCheck_IsReused()
     {
         var source = Source();
@@ -574,5 +599,31 @@ public sealed class LdapAccountSourceTests
         Assert.Throws<ArgumentNullException>(() => new LdapAccountSource(settings, directory, null!));
         Assert.Throws<ArgumentNullException>(() => new LdapAccountSourceSettings(null!));
         Assert.Throws<ArgumentNullException>(() => Source().Serves(null!));
+    }
+
+    /// <summary>A clock that moves only when told and whose timers never fire, so a timeout is seen only by comparing times.</summary>
+    private sealed class TimerlessTimeProvider : TimeProvider
+    {
+        private long ticks;
+
+        public override long TimestampFrequency => TimeSpan.TicksPerSecond;
+
+        public override long GetTimestamp() => Interlocked.Read(ref ticks);
+
+        public void Advance(TimeSpan duration) => Interlocked.Add(ref ticks, duration.Ticks);
+
+        public override ITimer CreateTimer(TimerCallback callback, object? state, TimeSpan dueTime, TimeSpan period) =>
+            new SilentTimer();
+    }
+
+    private sealed class SilentTimer : ITimer
+    {
+        public bool Change(TimeSpan dueTime, TimeSpan period) => true;
+
+        public void Dispose()
+        {
+        }
+
+        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
     }
 }

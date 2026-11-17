@@ -5,10 +5,10 @@ priority: Normal
 assignee: Claude
 pipeline: direct
 depends-on: []
-touches: [Foundation/Surl.Authentication.UnitTests]
+touches: [Foundation/Surl.Authentication.UnitTests, Foundation/Surl.Authentication.UnitLibrary]
 requirement: none
 created: 2026-11-17
-completed:
+completed: 2026-11-17
 ---
 # BL-1347 — Cover the LDAP account check that finds its timeout already passed in Surl.Authentication
 
@@ -26,14 +26,16 @@ completed:
 
 ## Acceptance criteria
 
-- [ ] A named `Surl.Authentication.UnitTests` test holds every slot, advances an injected `TimeProvider` past the
+- [x] A named `Surl.Authentication.UnitTests` test holds every slot, advances an injected `TimeProvider` past the
       timeout without letting the timer callback cancel the wait first, frees a slot, and asserts the check is
       refused as timed out and never connects to the directory (lines 108 to 111 covered).
-- [ ] `Measure-CodeQuality.ps1 -Library Surl.Authentication.UnitLibrary` reports `100 | 100` with 0 failing members, and
+- [x] `Measure-CodeQuality.ps1 -Library Surl.Authentication.UnitLibrary` reports `100 | 100` with 0 failing members, and
       the fast tests are green.
 
 ## Notes
 
+- Added Surl.Authentication.UnitLibrary to touches (no other Doing task names it): line 111, the brace after ThrowIfCancellationRequested, was unreachable because timeout.Cancel() already cancels the linked token; replaced by an explicit throw of OperationCanceledException(linked.Token), same behaviour.
+- Test: LdapAccountSourceTests.CheckThatGetsASlotAfterItsTimeoutPassed_IsRefusedAsTimedOut_WithoutConnecting with a timerless TimeProvider.
 - Tests only (test-writer). Use a hand-written `TimeProvider` (no package); a timer that does not fire on its own is
   what lets the slot reach line 107 with the elapsed time past the timeout.
 
@@ -41,3 +43,4 @@ completed:
 
 - 2026-11-17: Created.
 - 2026-11-17: Backlog -> Doing.
+- 2026-11-17: Doing -> Done. LdapAccountSource timeout-already-passed path covered; Surl.Authentication.UnitLibrary at 100/100, 0 failing
