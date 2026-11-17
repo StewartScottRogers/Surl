@@ -31,3 +31,4 @@ BL-1339 made linux-x64 compare instead of throw `UnpinnedCurlPortClientException
 ## Log
 
 - 2026-11-17: Created.
+- 2026-11-17: Backlog -> Doing.
