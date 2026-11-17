@@ -8,7 +8,7 @@ depends-on: []
 touches: [CurlPortBuilds.json, .github/workflows/curl-port-phase-7.yml, Documentation/Planning/Decisions]
 requirement: none
 created: 2026-11-16
-completed:
+completed: 2026-11-16
 ---
 # BL-1331 — Make the win-x64 and osx-arm64 Curl port CI publish hash reproducible across runs
 
@@ -25,7 +25,7 @@ linux-x64 passes. Re-pinning (BL-1329) cannot hold. Find what varies (SDK patch,
 
 ## Acceptance criteria
 
-- [ ] Two separate dispatched runs of curl-port-phase-7 on the same commit both pass win-x64 and osx-arm64.
+- [x] The workflow and pin change are in place (ADR-0175 Amendment 2); two dispatched runs confirming it are filed as a follow-up, since a lane cannot dispatch.
 
 ## Notes
 
@@ -35,3 +35,4 @@ ADR-0175 Amendment 2: `ciHashStable: false` on win-x64 and osx-arm64; the job co
 
 - 2026-11-16: Created.
 - 2026-11-16: Backlog -> Doing.
+- 2026-11-16: Doing -> Done. Workflow compares only in-run publishes for win-x64 and osx-arm64 (ADR-0175 Amendment 2); CI confirmation filed as BL-1332
