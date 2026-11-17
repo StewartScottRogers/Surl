@@ -27,16 +27,17 @@ completed:
 
 ## Acceptance criteria
 
-- [ ] A named `Surl.Extended.Protocol.DnsQuery.UnitTests` test calls `DnsZoneSet.ZoneFor` for a name under a seeded
+- [x] A named `Surl.Extended.Protocol.DnsQuery.UnitTests` test calls `DnsZoneSet.ZoneFor` for a name under a seeded
       zone and for a name under none, asserting the zone and `null`.
-- [ ] A named test writes a zone whose owner name has a label containing a `.` byte and asserts it is written `\.`,
+- [x] A named test writes a zone whose owner name has a label containing a `.` byte and asserts it is written `\.`,
       and that the same byte in a character-string is written unescaped (lines 71 and 72, every outcome).
-- [ ] `Measure-CodeQuality.ps1 -Library Surl.Extended.Protocol.DnsQuery.UnitLibrary` reports `100 | 100` with 0 failing
+- [x] `Measure-CodeQuality.ps1 -Library Surl.Extended.Protocol.DnsQuery.UnitLibrary` reports `100 | 100` with 0 failing
       members, and the fast tests are green.
 
 ## Notes
 
 - Tests only (test-writer). Escaping per RFC 1035 section 5.1.
+- The missed branch was not the label dot (already covered) but an unnamed byte in the escape pattern; a test over every printable byte in label and character string closed it.
 
 ## Log
 
