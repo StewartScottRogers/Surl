@@ -33,3 +33,4 @@ Split from BL-1334, whose third criterion needs a CI run that exists only after 
 
 - 2026-11-16: Created.
 - 2026-11-16: Backlog -> Doing.
+- 2026-11-16: Doing -> Backlog. BL-1334 is not on master yet; the latest master CI run (44004609185) has no upstream-test-case-timeout-output file. Retry after the shift's merge PR carrying BL-1334 passes CI.
