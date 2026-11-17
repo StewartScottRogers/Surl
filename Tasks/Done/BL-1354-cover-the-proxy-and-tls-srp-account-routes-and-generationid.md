@@ -8,7 +8,7 @@ depends-on: []
 touches: [Application/Surl.Control.UnitTests]
 requirement: none
 created: 2026-11-17
-completed:
+completed: 2026-11-17
 ---
 # BL-1354 — Cover the proxy and TLS-SRP account routes and GenerationId member in Surl.Control
 
@@ -31,11 +31,11 @@ completed:
 
 ## Acceptance criteria
 
-- [ ] Named `Surl.Control.UnitTests` tests send each of the four requests through `ControlEndpoint` with a valid token
+- [x] Named `Surl.Control.UnitTests` tests send each of the four requests through `ControlEndpoint` with a valid token
       and assert the answers the doc comments name: `204` on success; `404` for an unknown account on each `DELETE`;
       `409` when no proxy account or no TLS-SRP is configured; and that `FakeControlTarget` saw the user and password.
-- [ ] Named tests write an event's `GenerationId` member with a value and with `null`, asserting the JSON for each.
-- [ ] `Measure-CodeQuality.ps1 -Library Surl.Control.UnitLibrary` reports `100 | 100` with 0 failing members, and the
+- [x] Named tests write an event's `GenerationId` member with a value and with `null`, asserting the JSON for each.
+- [x] `Measure-CodeQuality.ps1 -Library Surl.Control.UnitLibrary` reports `100 | 100` with 0 failing members, and the
       fast tests are green.
 
 ## Notes
@@ -46,3 +46,4 @@ completed:
 
 - 2026-11-17: Created.
 - 2026-11-17: Backlog -> Doing.
+- 2026-11-17: Doing -> Done. Added tests for the four proxy and TLS-SRP account routes and the GenerationId writer; Surl.Control.UnitLibrary at 100/100, 0 failing members
