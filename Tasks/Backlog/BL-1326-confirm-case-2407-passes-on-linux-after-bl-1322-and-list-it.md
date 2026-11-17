@@ -1,0 +1,31 @@
+---
+id: BL-1326
+title: Confirm case 2407 passes on Linux after BL-1322 and list it as passing
+priority: Normal
+assignee: Claude
+pipeline: feature
+depends-on: [BL-1323]
+touches: [Documentation/Conformance]
+requirement: none
+created: 2026-11-16
+completed:
+---
+# BL-1326 — Confirm case 2407 passes on Linux after BL-1322 and list it as passing
+
+## Goal
+
+Case 2407 is listed as passing on linux-x64 once a Linux CI run confirms it.
+
+## Context
+
+BL-1323 found 2407's curl exit 6 ("Could not resolve host: -q") was runtests options reaching lib2405; BL-1322 stopped that. Not verifiable on Windows. Follow BL-1325.
+
+## Acceptance criteria
+
+- [ ] The linux-x64 failures file of a CI run after 2df5bfc9f does not list 2407, and Documentation/Conformance/upstream-test-cases-passing.linux-x64.txt does.
+
+## Notes
+
+## Log
+
+- 2026-11-16: Created.
