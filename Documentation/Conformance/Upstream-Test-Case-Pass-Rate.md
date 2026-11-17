@@ -34,12 +34,14 @@ decision 5). This is success criterion 2 of the
 | Platform | Commit | Date | Reference pin SHA-256 | Total | Runnable | Passed | Failed | Skipped | test-server-choice | Pass rate |
 | --- | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | `win-x64` | `c3011bee` | 2026-11-14 | `0E773709C3A44DB47B88B71351D902027682ED87C3BD3821009E454BACCA8778` | 2,013 | 1,185 | 1,185 | 0 | 828 | 34 | 100.0% |
-| `linux-x64` | `6023b4b3` | 2026-11-16 | `153CA463957609117D21A848BE29B70691B85F9E5CC9370C7DAA037B839A4E45` | 2,013 | 1,326 | 1,322 | 4 | 687 | 34 | 99.7% |
+| `linux-x64` | `0cd51f95` | 2026-11-16 | `153CA463957609117D21A848BE29B70691B85F9E5CC9370C7DAA037B839A4E45` | 2,013 | 1,326 | 1,325 | 1 | 687 | 34 | 99.9% |
 | `osx-arm64` | `145f16b2` | 2026-11-14 | `04E0E69BCD3BD814EC093551A0447AC14EDEEA9D395B468A2025DCB3F766EEBF` | 2,013 | 1,316 | 1,316 | 0 | 697 | 34 | 100.0% |
 
 BL-1317 (2026-11-16) moved Linux to commit `6023b4b3` from [CI run 43979679184](https://github.com/StewartScottRogers/Surl/actions/runs/43979679184), the first Linux run with the Debug build BL-1311 selects: 2400, 2406, 358 and 359 pass; 2401 and 2501 differ in the `Via` header nghttpx adds (BL-1321); 2402, 2404 and 2502 record nothing (BL-1322); 2407 has curl exit 6 (BL-1323). No case that passed before fails. macOS keeps its row until its Debug build runs.
 
 BL-1321 (2026-11-16) made the gateway's forwarded request carry the `Via` nghttpx writes (`2 nghttpx` for HTTP/2, `3 nghttpx` for HTTP/3, the case 2401 and 2501 `<protocol>` bytes) and dropped `X-Forwarded-Proto` from the HTTP/3 request (case 2501 shows none). 2401 and 2501 are in the `linux-x64` passing list from the unit tests that replay those bytes; the Linux row counts them as passing (1,322 of 1,326) until the next CI run measures them.
+
+BL-1325 (2026-11-16) moved Linux to commit `0cd51f95` from [CI run 44002670831](https://github.com/StewartScottRogers/Surl/actions/runs/44002670831), the first Linux run with the BL-1322 fix (`2df5bfc9f`): 2402, 2404 and 2502 now pass and are in `upstream-test-cases-passing.linux-x64.txt` (1,325 passed). Only 2407 (curl exit 6, BL-1323) still fails on Linux.
 
 [ADR-0173](../Planning/Decisions/ADR-0173-a-debug-upstream-curl-8-21-0-build-from-source-for-the-http-2-and-http-3-test-cases-that-need-one.md)
 (BL-1312) is why `debug-build` falls from 50 to 44 on `linux-x64`: the Linux job builds a Debug curl
