@@ -8,7 +8,7 @@ depends-on: [BL-1334, BL-1335]
 touches: [Documentation/Conformance]
 requirement: none
 created: 2026-11-16
-completed:
+completed: 2026-11-16
 ---
 # BL-1333 — Find why case 2407 times out on Linux after BL-1322
 
@@ -22,7 +22,7 @@ BL-1326 found that CI run 44002670831 (commit 0cd51f95a, contains BL-1322's 2df5
 
 ## Acceptance criteria
 
-- [ ] The cause of the 2407 timeout on Linux is recorded in the family file under Documentation/Conformance, with a fix task filed if it is a Surl defect.
+- [x] The cause of the 2407 timeout on Linux is recorded in the family file under Documentation/Conformance, with a fix task filed if it is a Surl defect.
 
 ## Notes
 
@@ -34,3 +34,4 @@ The artifact holds only `test2407 fail timeout`; no libtest output survives, and
 - 2026-11-16: Backlog -> Doing.
 - 2026-11-16: Doing -> Backlog. Duplicate of BL-1335, which reads the BL-1334 capture once CI runs it on Linux; waits on BL-1335
 - 2026-11-16: Backlog -> Doing.
+- 2026-11-16: Doing -> Done. Cause recorded by BL-1335 (Surl h2c-upgrade defect in the http/2 gateway); fix filed as BL-1336
