@@ -13,7 +13,7 @@ decision 5).
 
 ## What was measured
 
-- **Platform:** Windows (`win-x64`) only. `CurlPortBuilds.json` pins the port for `win-x64` alone, so
+- **Platform:** Windows (`win-x64`) only. A first osx-arm64 run (run 44000208980, BL-1324) compared nothing: no upstream curl is pinned for `osx-arm64`, and the CI-published port's hash differs from its pin; each family file has an `osx-arm64` section. `CurlPortBuilds.json` pins the port for `win-x64` alone, so
   off Windows every Phase 7 test is Inconclusive (ADR-0089 decision 8).
 - **Curl port:** commit `74f3f45c47e86300b2b262dc1dacd43b508b09aa`, the one commit every family file
   measured (ADR-0089 decision 10):
