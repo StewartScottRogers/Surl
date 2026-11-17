@@ -31,3 +31,4 @@ BL-1339 found that the test job's publish hashes to `048AAEE0...` (linux-x64) wh
 ## Log
 
 - 2026-11-16: Created.
+- 2026-11-16: Backlog -> Doing.
