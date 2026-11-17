@@ -33,3 +33,4 @@ BL-1336 found the cause: case 2407's reply part has bare-LF lines (no `crlf="hea
 - 2026-11-17: Backlog -> Doing.
 - 2026-11-17: Doing -> Blocked. Waiting for run:44068385591 (ci.yml on factory/phase-1 at 4ac7b2c7b, contains the BL-1336 fix)
 - 2026-11-17: Blocked -> Backlog. Run 44068385591 completed: success; read it with gh run view 44068385591
+- 2026-11-17: Backlog -> Doing.
