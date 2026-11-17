@@ -59,7 +59,11 @@ jobs:
           "command=$command" >> $env:GITHUB_OUTPUT
           # A native-AOT publish is reproducible on one machine and path but not across them (ADR-0175),
           # so an entry pinned on a developer machine may add ciSha256, the hash the CI runner produces.
-          $expected = if ($own.Count -ne 1) { '' } elseif ($own[0].ciSha256) { $own[0].ciSha256 } else { $own[0].sha256 }
+          # ADR-0175 Amendment 2: "ciHashStable": false compares only the two publishes of this run,
+          # because the runner image's toolchain moves the hash between runs.
+          $stable = ($own.Count -eq 1) -and ($own[0].ciHashStable -ne $false)
+          "stable=$($stable.ToString().ToLowerInvariant())" >> $env:GITHUB_OUTPUT
+          $expected = if (-not $stable) { '' } elseif ($own[0].ciSha256) { $own[0].ciSha256 } else { $own[0].sha256 }
           "expected=$expected" >> $env:GITHUB_OUTPUT
           Write-Output "Building the Curl port at $commit for $env:PLATFORM: $command"
 
@@ -81,6 +85,7 @@ jobs:
           PUBLISH_COMMAND: ${{ steps.pin.outputs.command }}
           EXPECTED_SHA256: ${{ steps.pin.outputs.expected }}
           COMMIT: ${{ steps.pin.outputs.commit }}
+          HASH_STABLE: ${{ steps.pin.outputs.stable }}
         run: |
           $executable = if ($env:PLATFORM -eq 'win-x64') { 'curl.exe' } else { 'curl' }
           $hashes = @()
@@ -99,6 +104,10 @@ jobs:
           if ($hashes[0] -ne $hashes[1]) {
             Write-Output "::error::Two publishes of $env:COMMIT for $env:PLATFORM differ ($($hashes[0]) and $($hashes[1])); the publish is not reproducible, so no hash can be pinned (ADR-0089 Amendment 8)."
             exit 1
+          }
+          if ($env:HASH_STABLE -eq 'false' -and $env:PLATFORM -in 'win-x64', 'osx-arm64') {
+            Write-Output "The $env:PLATFORM publish is reproducible within this run ($($hashes[0])); its pin is not compared across runs (ADR-0175 Amendment 2)."
+            exit 0
           }
           if (-not $env:EXPECTED_SHA256) {
             Write-Output "::warning::CurlPortBuilds.json has no $env:PLATFORM curl pin yet. The reproducible hash is $($hashes[0]); pin it for commit $env:COMMIT."

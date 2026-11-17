@@ -5,7 +5,7 @@ priority: Normal
 assignee: Claude
 pipeline: direct
 depends-on: []
-touches: [CurlPortBuilds.json]
+touches: [CurlPortBuilds.json, .github/workflows/curl-port-phase-7.yml, Documentation/Planning/Decisions]
 requirement: none
 created: 2026-11-16
 completed:
@@ -28,6 +28,8 @@ linux-x64 passes. Re-pinning (BL-1329) cannot hold. Find what varies (SDK patch,
 - [ ] Two separate dispatched runs of curl-port-phase-7 on the same commit both pass win-x64 and osx-arm64.
 
 ## Notes
+
+ADR-0175 Amendment 2: `ciHashStable: false` on win-x64 and osx-arm64; the job compares only its two publishes. touches widened to the workflow and ADR folder (no other Doing task names them). The acceptance run needs a pushed dispatch, which a lane cannot do; confirm with two `gh workflow run curl-port-phase-7` runs.
 
 ## Log
 

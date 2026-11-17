@@ -37,3 +37,14 @@ each job agreed, yet win-x64 now hashes to `4B634536…414A` (was `3E249136…FA
 varies with the runner's toolchain (the macOS image moved from 20261102.0473.1 to 20261112.0504.1;
 linux-x64 stayed put and still matches). Decision: re-pin win-x64 `ciSha256` and osx-arm64 `sha256` to
 the run's hashes. Expect to re-pin again when a runner image changes; each re-pin is an ordinary commit.
+
+## Amendment 2 (BL-1331, 2026-11-16)
+
+Decided by Claude under Stewart's delegation. Run 43997573549 hashed the same commit `74f3f45c…` to
+`5ECBCAB5…D93E` (win-x64) and `E2E186CC…3807` (osx-arm64), against `4B634536…` and `B5B48DC7…` in run
+43995901070. The runner image's native toolchain (MSVC linker, Xcode) is not ours to pin from a workflow, so
+re-pinning (Amendment 1) cannot hold. Decision: an entry may add `"ciHashStable": false`; the
+`build-curl-port` job then checks only that its two publishes in the run agree and does not compare with a
+pin. win-x64 and osx-arm64 carry it; linux-x64 still matches a pin. `sha256` keeps its local meaning, and
+`CurlPortClientPins` ignores the new field. The `test-curl-port-osx-arm64` job still verifies `sha256`
+against its published client; it is `continue-on-error`, and its drift is a follow-up if it matters.
