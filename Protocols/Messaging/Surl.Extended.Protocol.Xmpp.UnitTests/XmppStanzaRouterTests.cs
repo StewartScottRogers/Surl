@@ -645,6 +645,23 @@ public sealed class XmppStanzaRouterTests
     }
 
     [TestMethod]
+    public async Task AnswerAsync_StanzaWithoutAToAddressUnderAnErrorRule_PublishesTheStanzaNameAsTheFaultTarget()
+    {
+        var rule = new FaultRule("f1", FaultKind.Error) { Scheme = "xmpp", Command = "presence", Reply = "forbidden" };
+        var events = new RecordingSurlEventPublisher();
+        var server = NewServer();
+        var juliet = await OpenAsync(server, "juliet", "balcony", faults: new ScriptedFaultPlan(rule), events: events);
+
+        var answers = await SendAsync(juliet, "<presence id='p1'/>");
+
+        StringAssert.Contains(answers, "<forbidden");
+        StringAssert.Contains(answers, "type=\"error\"");
+        Assert.AreEqual(new FaultAppliedEvent("f1", FaultKind.Error, FaultStage.Command, 1, "presence"), events.Events.Single());
+        juliet.Connection.Close();
+        await juliet.Serving;
+    }
+
+    [TestMethod]
     public async Task AnswerAsync_StanzaTheRuleDoesNotName_IsServed()
     {
         var events = new RecordingSurlEventPublisher();

@@ -8,7 +8,7 @@ depends-on: []
 touches: [Protocols/Messaging/Surl.Extended.Protocol.Xmpp.UnitTests]
 requirement: none
 created: 2026-11-17
-completed:
+completed: 2026-11-17
 ---
 # BL-1361 — Cover the XMPP stanza fault published without a to address
 
@@ -26,10 +26,10 @@ completed:
 
 ## Acceptance criteria
 
-- [ ] A named `Surl.Extended.Protocol.Xmpp.UnitTests` test applies an `error` fault rule to a stanza with no `to`
+- [x] A named `Surl.Extended.Protocol.Xmpp.UnitTests` test applies an `error` fault rule to a stanza with no `to`
       attribute and asserts the single `FaultAppliedEvent` names the stanza (for example `iq`) as its target, and the
       error stanza sent.
-- [ ] `Measure-CodeQuality.ps1 -Library Surl.Extended.Protocol.Xmpp.UnitLibrary` reports `100 | 100` with 0 failing
+- [x] `Measure-CodeQuality.ps1 -Library Surl.Extended.Protocol.Xmpp.UnitLibrary` reports `100 | 100` with 0 failing
       members, and the fast tests are green.
 
 ## Notes
@@ -40,3 +40,4 @@ completed:
 
 - 2026-11-17: Created.
 - 2026-11-17: Backlog -> Doing.
+- 2026-11-17: Doing -> Done. XMPP error rule on a stanza without a to address is covered; Xmpp library at 100/100
