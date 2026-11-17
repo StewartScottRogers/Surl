@@ -112,6 +112,7 @@ These are the factory working as designed; none needs you.
 | Sign | What it means | What to do |
 | --- | --- | --- |
 | The alarm: banner, chime, then speech naming the tasks | a task is Blocked or assigned to you, or a run stalled | press a key, then ask Claude "status" and answer the Blocked task's reason |
+| A task in `Blocked` with `run:<id>` in its reason | it waits on a workflow run a lane dispatched on the shift branch (`dispatch-workflow.ps1`); no alarm | nothing: the shift moves it to Backlog when the run completes, with the conclusion in its Log |
 | A task in `Blocked` | it needs a new package, a threshold change or an upstream curl download - still yours to decide | answer it; Claude moves it on |
 | A branch `factory/<ID>-lane-<n>-<stamp>` | work that would not integrate, parked; the task is back in Backlog | nothing: a later run picks it up from that branch |
 | `refuse  working tree not clean; commit or stash first` in the shift's log | the checkout has uncommitted or untracked files, so the shift would not start | say "status" to Claude; it commits or ignores what is there and starts the shift again |

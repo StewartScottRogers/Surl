@@ -1636,7 +1636,9 @@ function Get-WaitingOnStewart {
     $reasons = @()
     foreach ($f in Get-ChildItem (Join-Path $Root 'Tasks\Blocked') -Filter 'BL-*.md' -ErrorAction SilentlyContinue) {
         $id = ([regex]::Match($f.Name, '^BL-\d+').Value)
-        $reasons += "$id BLOCKED  $(Get-LastLogLine $id)"
+        $last = Get-LastLogLine $id
+        if ($last -match '\brun:\d+\b' -and $last -notmatch 'Stewart') { continue }   # waiting on a workflow run (BL-1342), not on Stewart
+        $reasons += "$id BLOCKED  $last"
     }
     foreach ($line in Invoke-Board @('status')) {
         if ($line -match '^\s+(BL-\d+)\s.*\[needs Stewart\]') {
@@ -1651,6 +1653,17 @@ function Test-TaskDone {
     return [bool](Get-ChildItem (Join-Path $Root 'Tasks\Done') -Recurse -Filter "$Id-*.md" -ErrorAction SilentlyContinue)
 }
 
+function Get-WorkflowRunConclusion {
+    # The conclusion of a finished GitHub Actions run ('success', 'failure', ...), or '' while it
+    # is queued or running, or when gh cannot say (no gh, no network): the task keeps waiting.
+    param([string]$RunId)
+    if (-not (Get-Command gh -ErrorAction SilentlyContinue)) { return '' }
+    $line = "$(gh run view $RunId --json status,conclusion --jq '[.status, .conclusion] | @tsv' 2>$null)".Trim()
+    $parts = $line -split "`t"
+    if ($parts.Count -ge 1 -and $parts[0] -eq 'completed') { return $(if ($parts.Count -ge 2 -and $parts[1]) { $parts[1] } else { 'completed' }) }
+    return ''
+}
+
 function Invoke-Requeue {
     # Moves back to Backlog every Blocked task whose blocker was only other tasks that are
     # now all Done: a last Log line that names BL-### IDs and is not a question for
@@ -1660,6 +1673,15 @@ function Invoke-Requeue {
         $id = ([regex]::Match($f.Name, '^BL-\d+').Value)
         $reason = Get-LastLogLine $id
         if ($reason -match 'Stewart') { continue }
+        $runMatch = [regex]::Match($reason, '\brun:(\d+)\b')
+        if ($runMatch.Success) {
+            # Waiting on a workflow run a lane dispatched (BL-1342): back to Backlog once it completes.
+            $conclusion = Get-WorkflowRunConclusion $runMatch.Groups[1].Value
+            if (-not $conclusion) { continue }
+            Invoke-Board @('move', '-Id', $id, '-To', 'Backlog', '-Reason', "Run $($runMatch.Groups[1].Value) completed: $conclusion; read it with gh run view $($runMatch.Groups[1].Value)") | Out-Null
+            if ((Get-TaskState $id) -eq 'Backlog') { $moved += $id; Write-Trace $id 'requeue' "run $($runMatch.Groups[1].Value) completed: $conclusion" 'Cyan' }
+            continue
+        }
         $waits = @([regex]::Matches($reason, 'BL-\d+') | ForEach-Object { $_.Value } | Where-Object { $_ -ne $id } | Select-Object -Unique)
         if (-not $waits.Count -or @($waits | Where-Object { -not (Test-TaskDone $_) }).Count) { continue }
         Invoke-Board @('move', '-Id', $id, '-To', 'Backlog', '-Reason', "Unblocked: $($waits -join ', ') now Done") | Out-Null
@@ -2070,6 +2092,10 @@ Rules for this unattended run, in addition to CLAUDE.md:
    file with the board script - add those IDs to its `depends-on` and move it to
    Backlog, not Blocked, with a -Reason naming them. The board starts it again once
    they are Done. Blocked is only for what needs Stewart.
+   Needing a CI run is never that: dispatch it yourself on the shift branch (not master) with
+   .claude/skills/task-board/dispatch-workflow.ps1 -Id {ID} -Workflow <name> -Ref <shift branch>
+   [-WorkflowInput name=value], then Block the task with a -Reason that holds "run:<id>" (the line
+   the script prints) and no mention of Stewart; the shift moves it back to Backlog when the run ends.
 5. When the task reaches Done with dotnet build clean and the fast tests green, commit
    by logical unit (Conventional Commits, including the task file). Do NOT push, pull,
    rebase, merge or switch branches: the shift integrates your commits.
