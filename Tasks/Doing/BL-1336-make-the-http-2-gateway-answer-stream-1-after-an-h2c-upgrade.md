@@ -40,3 +40,4 @@ BL-1335 read the `test2407` block of `upstream-test-case-timeout-output.linux-x6
 - 2026-11-16: Backlog -> Doing.
 - 2026-11-16: Doing -> Deferred. Needs the Linux CI timeout output from a run that includes BL-1337; not observable locally
 - 2026-11-17: Deferred -> Backlog. BL-1337's trace is on master: read case 2407's curl HTTP/2 trace and gateway log from PR #103's 'Upstream test cases (ubuntu-latest)' run 44059981299 job 133959035772 (gh run view 44059981299 --job 133959035772 --log), or its upstream-test-case-results-linux-x64 artifact.
+- 2026-11-17: Backlog -> Doing.
