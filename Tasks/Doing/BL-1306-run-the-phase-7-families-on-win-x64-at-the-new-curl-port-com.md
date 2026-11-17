@@ -31,3 +31,4 @@ ADR-0089 decisions 5 and 10 and Amendment 8: a stale finding fails its test, so 
 ## Log
 
 - 2026-11-16: Created.
+- 2026-11-16: Backlog -> Doing.
