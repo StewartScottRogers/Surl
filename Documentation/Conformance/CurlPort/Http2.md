@@ -1,4 +1,6 @@
-# Phase 7 findings: HTTP/2
+# Phase 7 findiRun [44044472038](https://github.com/StewartScottRogers/Surl/actions/runs/44044472038) of `curl-port-phase-7` (2026-11-17, `factory/phase-1` at Surl commit `a5337bdf7e6d54fa3337c51008d5c66b814355e2`, BL-1339) is the current linux-x64 outcome and supersedes the run below. Nothing threw `UnpinnedCurlPortClientException`: the test job accepted the hash its own build job reproduced (BL-1340, BL-1339), so cases compared pinned upstream curl with the Curl port. This family: 0 passed, 0 failed, 15 not executed. A failing case is a real difference not yet listed in a family findings table; each is follow-up work, not a CI finding.
+
+ngs: HTTP/2
 
 The Curl port measured beside pinned upstream curl against a live `surl` (ADR-0089), by
 `Conformance/Surl.Conformance.UnitTests/CurlPortBesideUpstreamCurlOverHttp2Tests.cs` (BL-589). It mirrors

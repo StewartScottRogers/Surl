@@ -8,7 +8,7 @@ depends-on: [BL-1340]
 touches: [.github/workflows/curl-port-phase-7.yml, CurlPortBuilds.json, Documentation/Conformance/CurlPort, Conformance/Surl.Conformance.UnitTests]
 requirement: FR-057
 created: 2026-11-16
-completed:
+completed: 2026-11-17
 ---
 # BL-1339 — Make the linux-x64 test job's published Curl port match its pin and rerun curl-port-phase-7
 
@@ -22,8 +22,8 @@ BL-1307 found that run 44012635963 published `048AAEE0...` in the test job again
 
 ## Acceptance criteria
 
-- [ ] A run of `curl-port-phase-7` on linux-x64 passes cases (not `UnpinnedCurlPortClientException`) for the Phase 7 families.
-- [ ] The 47 `OpenLdap_` cases compare on linux-x64 and each family file's linux-x64 section records the outcome.
+- [x] A run of `curl-port-phase-7` on linux-x64 passes cases (not `UnpinnedCurlPortClientException`) for the Phase 7 families.
+- [x] The 47 `OpenLdap_` cases compare on linux-x64 and each family file's linux-x64 section records the outcome.
 
 ## Notes
 
@@ -41,6 +41,8 @@ BL-1307 found that run 44012635963 published `048AAEE0...` in the test job again
   (404), one past 16 MiB is the new `ControlRefusalKind.TooLarge` (413 `too_large`). Reads publish nothing.
 - 2026-11-17 (fourth attempt): BL-1340 was pushed; run 44037418915 (factory/phase-1, cdf417e9f) set SURL_CURL_PORT_CI_SHA256=048AAEE0... yet linux-x64 still threw UnpinnedCurlPortClientException: the env var was read only by `PinnedCurlPortClientOnThisMachine.LocateAsync`, while `PinnedCurlPortBesideUpstreamCurl`, the Mail and Ssh port-beside-upstream tests and `PinnedCurlPortLibcurlBesideUpstreamLibcurl` called `Locate`/`LocateLibrary` without it. Fixed: all four now pass `PinnedCurlPortClientOnThisMachine.CiAcceptedSha256` (touches gained Conformance/Surl.Conformance.UnitTests). Conformance fast tests 1035/1035. Next: the shift pushes this commit, then `gh workflow run curl-port-phase-7.yml --ref factory/phase-1`, read the linux-x64 test job, record the outcome in each family file's linux-x64 section.
 
+- 2026-11-17 (fifth attempt, done): Run 44044472038 (factory/phase-1, a5337bdf7) linux-x64 test job: 0 UnpinnedCurlPortClientException; 371 passed, 71 failed, 47 not executed. The 47 `OpenLdap_` cases compared: 20 passed, 27 failed (real differences, not yet in Ldap.md's findings table). Each family file's linux-x64 section now leads with this run's counts. Remaining failures (Ftp 4, Http3 1, Ldap 27, Mail 13, Ssh 5, UpstreamTestCases 1) are filed as a follow-up task.
+
 ## Log
 
 - 2026-11-16: Created.
@@ -53,3 +55,4 @@ BL-1307 found that run 44012635963 published `048AAEE0...` in the test job again
 - 2026-11-17: Backlog -> Doing.
 - 2026-11-17: Doing -> Backlog. Fixed the four test callers that ignored SURL_CURL_PORT_CI_SHA256; needs the shift to push it, then a curl-port-phase-7 dispatch
 - 2026-11-17: Backlog -> Doing.
+- 2026-11-17: Doing -> Done. linux-x64 now compares: run 44044472038 had no UnpinnedCurlPortClientException, 47 OpenLdap_ cases compared (20 passed, 27 failed); outcome recorded in every family file

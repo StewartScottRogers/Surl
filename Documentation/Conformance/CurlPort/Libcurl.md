@@ -1,4 +1,6 @@
-# Phase 7 findings: the libcurl rows
+# Phase 7 findiRun [44044472038](https://github.com/StewartScottRogers/Surl/actions/runs/44044472038) of `curl-port-phase-7` (2026-11-17, `factory/phase-1` at Surl commit `a5337bdf7e6d54fa3337c51008d5c66b814355e2`, BL-1339) is the current linux-x64 outcome and supersedes the run below. Nothing threw `UnpinnedCurlPortClientException`: the test job accepted the hash its own build job reproduced (BL-1340, BL-1339), so cases compared pinned upstream curl with the Curl port. This family: no result for this family appears in the artifact. A failing case is a real difference not yet listed in a family findings table; each is follow-up work, not a CI finding.
+
+ngs: the libcurl rows
 
 What the libcurl rows of Phase 7 (ADR-0089 decision 1 (c)) found when each step list of a pinned
 upstream libcurl test ran through upstream's driver, calling the pinned `libcurl-4.dll`, and through the
