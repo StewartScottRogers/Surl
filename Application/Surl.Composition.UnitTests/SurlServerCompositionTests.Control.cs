@@ -170,6 +170,27 @@ public sealed partial class SurlServerCompositionTests
         Assert.AreEqual(string.Empty, log.ToString());
     }
 
+    [TestMethod]
+    public async Task ServeAsync_ControlBoundThenTheLogFails_StopsTheControlEngineAndRethrows()
+    {
+        var factory = new FakeListenerFactory();
+        await using var serving = await ComposeWithControlAsync(factory);
+        using var log = new FailingTextWriter();
+
+        var failure = await Assert.ThrowsExactlyAsync<IOException>(
+            () => serving.ServeAsync(StartTestSeams.Outputs(log), TestContext.CancellationToken));
+
+        Assert.AreEqual("the log is full", failure.Message);
+        Assert.IsNotNull(serving.ControlListenUrl);
+    }
+
+    private sealed class FailingTextWriter : TextWriter
+    {
+        public override Encoding Encoding => Encoding.ASCII;
+
+        public override void Write(char value) => throw new IOException("the log is full");
+    }
+
     private Task<ComposedServing> ComposeWithControlAsync(FakeListenerFactory factory, params string[] options) =>
         ComposeWithControlTokenFileAsync(factory, GoodToken + "\n", options);
 

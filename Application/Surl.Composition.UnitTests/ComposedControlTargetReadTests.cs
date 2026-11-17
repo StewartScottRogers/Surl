@@ -87,6 +87,41 @@ public sealed class ComposedControlTargetReadTests
     }
 
     [TestMethod]
+    public async Task BrowseQueueAsync_AMessageWithAHeader_ReturnsTheHeader()
+    {
+        await using var serving = await ComposeAsync();
+        var target = TargetOf(serving);
+        using var connection = serving.Stores.Bus.Connect();
+        _ = connection.DeclareQueue("orders", new BusQueueFlags(Durable: true));
+        var message = new BusMessage("orders", "one"u8.ToArray()) { Headers = [new BusMessageHeader("trace", "abc")] };
+        _ = await serving.Stores.SeedEnqueueAsync("orders", message, TestContext.CancellationToken);
+
+        var page = await target.BrowseQueueAsync("orders", -1, 10, TestContext.CancellationToken);
+
+        Assert.AreEqual(new KeyValuePair<string, string>("trace", "abc"), page.Messages.Single().Headers.Single());
+    }
+
+    [TestMethod]
+    public async Task ReadLogAsync_ASeededTopic_ReturnsEachRecordAndThePagePosition()
+    {
+        await using var serving = await ComposeAsync();
+        var target = TargetOf(serving);
+        _ = await serving.Stores.SeedPublishAsync(
+            new BusMessage("log/t", "x"u8.ToArray()) { Key = "k1"u8.ToArray() }, TestContext.CancellationToken);
+        _ = await serving.Stores.SeedPublishAsync(new BusMessage("log/t", "y"u8.ToArray()), TestContext.CancellationToken);
+
+        var page = await target.ReadLogAsync("log/t", 0, 1, TestContext.CancellationToken);
+
+        var record = page.Records.Single();
+        Assert.AreEqual(0, record.Offset);
+        Assert.AreEqual(serving.Stores.ReadLog("log/t").Value!.Records[0].Message.PublishedAt, record.Timestamp);
+        Assert.AreEqual("k1", Encoding.UTF8.GetString(record.Key!.Value.Span));
+        Assert.AreEqual("x", Encoding.UTF8.GetString(record.Payload.Span));
+        Assert.AreEqual(1, page.NextOffset);
+        Assert.IsTrue(page.HasMore);
+    }
+
+    [TestMethod]
     public async Task ReadRetainedMessageAsync_ARetainedTopic_ReturnsTheMessage()
     {
         await using var serving = await ComposeAsync();

@@ -18,13 +18,13 @@ namespace Surl.Composition;
 /// <param name="statusLine">Writes the status lines.</param>
 /// <param name="expectedListenerCount">How many listeners the engine starts: one per listen URL.</param>
 /// <param name="allListenersBound">Called once with every bound listen URL, in start order, after the status lines.</param>
-/// <param name="sharedPortDatagramListenerBound">Called with the bound listen URL of each datagram listener bound beside a connection listener on its port.</param>
+/// <param name="sharedPortDatagramListenerBound">Called with the bound listen URL of each datagram listener bound beside a connection listener on its port; <see langword="null"/> for a reporter whose listeners are never shared-port pairs, such as the control endpoint's.</param>
 internal sealed class ListenerStartReporter(
     IListenerFactory inner,
     ListenerStatusLine statusLine,
     int expectedListenerCount,
     Action<IReadOnlyList<ListenUrl>> allListenersBound,
-    Action<ListenUrl> sharedPortDatagramListenerBound)
+    Action<ListenUrl>? sharedPortDatagramListenerBound)
     : IListenerFactory
 {
     private readonly List<ListenUrl> boundListenUrls = [];
@@ -57,7 +57,7 @@ internal sealed class ListenerStartReporter(
         ListenUrl listenUrl, CancellationToken cancellationToken)
     {
         var listeners = await KeepBindFailureAsync(() => inner.StartSharedPortListenersAsync(listenUrl, cancellationToken));
-        sharedPortDatagramListenerBound(listeners.DatagramListener.ListenUrl);
+        sharedPortDatagramListenerBound?.Invoke(listeners.DatagramListener.ListenUrl);
         ReportBound(listeners.ConnectionListener.ListenUrl);
         return listeners;
     }
