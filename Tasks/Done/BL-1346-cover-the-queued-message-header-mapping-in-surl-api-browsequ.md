@@ -8,7 +8,7 @@ depends-on: []
 touches: [Application/Surl.Api.UnitTests]
 requirement: none
 created: 2026-11-17
-completed:
+completed: 2026-11-17
 ---
 # BL-1346 — Cover the queued-message header mapping in Surl.Api BrowseQueueAsync
 
@@ -26,9 +26,9 @@ completed:
 
 ## Acceptance criteria
 
-- [ ] A named `Surl.Api.UnitTests` test browses a queue holding a message with at least one header and asserts the
+- [x] A named `Surl.Api.UnitTests` test browses a queue holding a message with at least one header and asserts the
       header's name and value on the `SurlQueueMessage` returned.
-- [ ] `Measure-CodeQuality.ps1 -Library Surl.Api` reports `Surl.Api | 100 | 100` with 0 failing members, and the fast
+- [x] `Measure-CodeQuality.ps1 -Library Surl.Api` reports `Surl.Api | 100 | 100` with 0 failing members, and the fast
       tests are green.
 
 ## Notes
@@ -39,3 +39,4 @@ completed:
 
 - 2026-11-17: Created.
 - 2026-11-17: Backlog -> Doing.
+- 2026-11-17: Doing -> Done. Surl.Api at 100% line and branch: a STOMP-sent queued message with a header is browsed and its header asserted
