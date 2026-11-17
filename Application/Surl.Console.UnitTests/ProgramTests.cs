@@ -99,6 +99,14 @@ public sealed class ProgramTests
         }
     }
 
+    [TestMethod]
+    public void CreateSystemClockListenerFactory_ReturnsAListenerFactory()
+    {
+        var factory = Program.CreateSystemClockListenerFactory(null);
+
+        Assert.IsNotNull(factory);
+    }
+
     /// <summary>A thread-safe writer that hands out the first whole line written to it.</summary>
     private sealed class FirstLineWriter : StringWriter
     {

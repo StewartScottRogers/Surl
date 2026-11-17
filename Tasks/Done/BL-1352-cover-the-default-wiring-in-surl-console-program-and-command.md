@@ -8,7 +8,7 @@ depends-on: []
 touches: [Application/Surl.Console, Application/Surl.Console.UnitTests]
 requirement: none
 created: 2026-11-17
-completed:
+completed: 2026-11-17
 ---
 # BL-1352 — Cover the default wiring in Surl.Console Program and CommandLineRunner
 
@@ -30,18 +30,21 @@ completed:
 
 ## Acceptance criteria
 
-- [ ] A named `Surl.Console.UnitTests` test invokes the listener-factory lambda `Program.RunAsync` passes (for example by
+- [x] A named `Surl.Console.UnitTests` test invokes the listener-factory lambda `Program.RunAsync` passes (for example by
       exposing the composition as an `internal` method the test calls), and asserts it returns a listener factory; or,
       if it can run only by binding a socket, the test is marked `Integration` and the Notes say why the fast run cannot reach it.
-- [ ] Line 102 of `CommandLineRunner.cs` has every branch covered: if the missing edge is the cached-delegate check, the
+- [x] Line 102 of `CommandLineRunner.cs` has every branch covered: if the missing edge is the cached-delegate check, the
       method group becomes a lambda as BL-1055 did; otherwise a named test covers the missing side.
-- [ ] `Measure-CodeQuality.ps1 -Library Surl.Console` reports `100 | 100` with 0 failing members, and the fast tests are green.
+- [x] `Measure-CodeQuality.ps1 -Library Surl.Console` reports `100 | 100` with 0 failing members, and the fast tests are green.
 
 ## Notes
 
 - Mostly tests (test-writer); a one-line lambda change for a cached-delegate edge is allowed, as in BL-1055.
+- Lambda: `Program.CreateSystemClockListenerFactory` is the named method `RunAsync` passes; `ProgramTests.CreateSystemClockListenerFactory_ReturnsAListenerFactory` calls it (no socket bound).
+- Line 102: the missing edge was the cached-delegate null check shared with line 97 (same method group, already cached). Now `DiskConfigFileSource.OpenProcessStandardInput`, a distinct method group, `[ExcludeFromCodeCoverage]` as `LogFile.Open` is, since it only opens the real stdin.
 
 ## Log
 
 - 2026-11-17: Created.
 - 2026-11-17: Backlog -> Doing.
+- 2026-11-17: Doing -> Done. Surl.Console reports 100% line and branch, 0 failing members
