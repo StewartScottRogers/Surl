@@ -4,7 +4,7 @@ title: Find why case 2407 times out on Linux after BL-1322
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-1334]
+depends-on: [BL-1334, BL-1335]
 touches: [Documentation/Conformance]
 requirement: none
 created: 2026-11-16
@@ -32,3 +32,4 @@ The artifact holds only `test2407 fail timeout`; no libtest output survives, and
 - 2026-11-16: Backlog -> Doing.
 - 2026-11-16: Doing -> Backlog. Cause unreadable: the artifact keeps no libtest output; waits on BL-1334, which records it
 - 2026-11-16: Backlog -> Doing.
+- 2026-11-16: Doing -> Backlog. Duplicate of BL-1335, which reads the BL-1334 capture once CI runs it on Linux; waits on BL-1335
