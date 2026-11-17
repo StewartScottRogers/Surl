@@ -30,3 +30,4 @@ BL-1336 found the cause: case 2407's reply part has bare-LF lines (no `crlf="hea
 ## Log
 
 - 2026-11-17: Created.
+- 2026-11-17: Backlog -> Doing.
