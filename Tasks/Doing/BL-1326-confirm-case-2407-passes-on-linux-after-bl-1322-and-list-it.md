@@ -33,3 +33,4 @@ BL-1323 found 2407's curl exit 6 ("Could not resolve host: -q") was runtests opt
 - 2026-11-16: Doing -> Backlog. No Linux CI run includes 2df5bfc9f yet (newest CI run, 2026-11-16T23:29Z, predates it); retry once a CI run on a later commit finishes
 - 2026-11-16: Backlog -> Doing.
 - 2026-11-16: Doing -> Backlog. No CI run includes 2df5bfc9f yet (newest CI runs, master 6023b4b and merge 15ff9cb, do not contain it); retry after a CI run on a later commit finishes
+- 2026-11-16: Backlog -> Doing.
