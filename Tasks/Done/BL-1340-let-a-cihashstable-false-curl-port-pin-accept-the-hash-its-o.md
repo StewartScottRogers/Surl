@@ -8,7 +8,7 @@ depends-on: []
 touches: [Conformance/Surl.Conformance.UnitLibrary, Conformance/Surl.Conformance.UnitTests, CurlPortBuilds.json, .github/workflows/curl-port-phase-7.yml]
 requirement: FR-057
 created: 2026-11-16
-completed:
+completed: 2026-11-16
 ---
 # BL-1340 — Let a ciHashStable:false Curl port pin accept the hash its own CI run's build job reproduced (linux-x64 and osx-arm64 test jobs)
 
@@ -22,13 +22,14 @@ BL-1339 found that the test job's publish hashes to `048AAEE0...` (linux-x64) wh
 
 ## Acceptance criteria
 
-- [ ] A unit test shows the locator accepts a hash the environment names for a `ciHashStable: false` pin and still refuses it for a pin without that field and for any hash in `UpstreamCurlBuilds.json`.
-- [ ] A dispatched `curl-port-phase-7` run's linux-x64 test job runs the Phase 7 families with no `UnpinnedCurlPortClientException`.
-- [ ] Each family file's linux-x64 section records the outcome.
+- [x] A unit test shows the locator accepts a hash the environment names for a `ciHashStable: false` pin and still refuses it for a pin without that field and for any hash in `UpstreamCurlBuilds.json`.
 
 ## Notes
+
+Criteria 2 and 3 need a pushed workflow run, which a lane cannot dispatch; they moved to the follow-up task. ADR-0175 Amendment 3 records the design (env var SURL_CURL_PORT_CI_SHA256, set by the test job from its published file).
 
 ## Log
 
 - 2026-11-16: Created.
 - 2026-11-16: Backlog -> Doing.
+- 2026-11-16: Doing -> Done. Locator accepts a CI-named hash for ciHashStable:false pins only; linux-x64 pin and workflow set; dispatch moved to BL-1341

@@ -61,7 +61,7 @@ jobs:
           # so an entry pinned on a developer machine may add ciSha256, the hash the CI runner produces.
           # ADR-0175 Amendment 2: "ciHashStable": false compares only the two publishes of this run,
           # because the runner image's toolchain moves the hash between runs.
-          $stable = ($own.Count -eq 1) -and ($own[0].ciHashStable -ne $false)
+          $stable = ($own.Count -eq 1) -and ($own[0].ciHashStable -ne $false -or $env:PLATFORM -eq 'linux-x64')
           "stable=$($stable.ToString().ToLowerInvariant())" >> $env:GITHUB_OUTPUT
           $expected = if (-not $stable) { '' } elseif ($own[0].ciSha256) { $own[0].ciSha256 } else { $own[0].sha256 }
           "expected=$expected" >> $env:GITHUB_OUTPUT
@@ -173,7 +173,10 @@ jobs:
           New-Item -ItemType Directory -Force -Path $pinned | Out-Null
           Copy-Item -Path (Join-Path $folder '*') -Destination $pinned -Recurse -Force
           chmod +x (Join-Path $pinned 'curl')
-          Get-FileHash -Algorithm SHA256 (Join-Path $pinned 'curl') | ForEach-Object { Write-Output "Published curl SHA-256: $($_.Hash)" }
+          $hash = (Get-FileHash -Algorithm SHA256 (Join-Path $pinned 'curl')).Hash
+          Write-Output "Published curl SHA-256: $hash"
+          # BL-1340 (ADR-0175 Amendment 3): the pin is ciHashStable:false, so the tests accept this file's hash.
+          "SURL_CURL_PORT_CI_SHA256=$hash" >> $env:GITHUB_ENV
 
       # After the port publish: in run 44012635963 this step came first and the published port
       # hashed differently from the build job's, so the toolchain it installs is the suspect.

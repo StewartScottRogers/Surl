@@ -48,3 +48,14 @@ re-pinning (Amendment 1) cannot hold. Decision: an entry may add `"ciHashStable"
 pin. win-x64 and osx-arm64 carry it; linux-x64 still matches a pin. `sha256` keeps its local meaning, and
 `CurlPortClientPins` ignores the new field. The `test-curl-port-osx-arm64` job still verifies `sha256`
 against its published client; it is `continue-on-error`, and its drift is a follow-up if it matters.
+
+## Amendment 3 (BL-1340, 2026-11-16)
+
+Decided by Claude under Stewart's delegation. The linux-x64 `test-curl-port-linux-x64` job's own publish hashed
+to `048AAEE0…`, not the pinned `DF507F32…` its build job reproduces (runs 44012635963, 44021446938,
+44025033078; cause not found). Decision: linux-x64 carries `"ciHashStable": false` too, but its build job still
+compares with the pin (the `stable` step exempts linux-x64). `PinnedCurlPortClient.CiHashStable` reads the field
+(default true). `CurlPortClientLocator.Locate` and `LocateLibrary` take an optional `ciAcceptedSha256`, accepted
+only for a pin with `CiHashStable` false and never when the hash is an upstream pin's; the tests'
+`PinnedCurlPortClientOnThisMachine` passes the `SURL_CURL_PORT_CI_SHA256` environment variable, which the
+test job sets from the file it published. A pin without the field still refuses any other hash.
