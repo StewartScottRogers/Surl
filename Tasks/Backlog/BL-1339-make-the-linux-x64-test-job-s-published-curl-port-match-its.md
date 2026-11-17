@@ -27,6 +27,8 @@ BL-1307 found that run 44012635963 published `048AAEE0...` in the test job again
 
 ## Notes
 
+- 2026-11-16: The reordered workflow (f2d931f68) was unpushed, and the latest `curl-port-phase-7` run (44012635963) used the old order. A lane may not push or dispatch on unpushed code, so the rerun waits for the shift to push the fix. Then: `gh workflow run curl-port-phase-7.yml --ref <branch>`, read the linux-x64 test job's printed hash, record the outcome in each family file's linux-x64 section.
+
 ## Log
 
 - 2026-11-16: Created.
