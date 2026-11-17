@@ -34,3 +34,4 @@ BL-1327 added `ciSha256` to the win-x64 entry in `CurlPortBuilds.json` (ADR-0175
 - 2026-11-16: Created.
 - 2026-11-16: Backlog -> Doing.
 - 2026-11-16: Doing -> Backlog. Run 43995901070 failed on win-x64: CI hash differs from pin; fix is BL-1329, then re-dispatch
+- 2026-11-16: Backlog -> Doing.
