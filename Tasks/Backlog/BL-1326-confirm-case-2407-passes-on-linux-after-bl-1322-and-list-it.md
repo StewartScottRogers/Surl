@@ -39,3 +39,5 @@ BL-1323 found 2407's curl exit 6 ("Could not resolve host: -q") was runtests opt
 - 2026-11-16: Doing -> Backlog. CI run 44002670831 (contains 2df5bfc9f) lists test2407 fail timeout on linux-x64; cause is now BL-1333, retry after it
 - 2026-11-16: Backlog -> Doing.
 - 2026-11-16: Doing -> Backlog. CI run 44009482486 still lists test2407 fail timeout on linux-x64; waits on BL-1336
+- 2026-11-17: Backlog -> Doing.
+- 2026-11-17: Doing -> Backlog. No CI run includes b2ff44414 (BL-1336 fix, committed 2026-11-17T10:42Z) yet; newest run 44065965398 started 10:33Z; retry after a CI run on a later commit finishes
