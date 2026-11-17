@@ -42,3 +42,4 @@ BL-1307 found that run 44012635963 published `048AAEE0...` in the test job again
 - 2026-11-16: Doing -> Backlog. Reorder did not fix it (run 44021446938 still hashed 048AAEE0); test job now publishes like the build job, needs the shift to push then redispatch curl-port-phase-7
 - 2026-11-16: Backlog -> Doing.
 - 2026-11-16: Doing -> Backlog. Third run 44025033078 still hashed 048AAEE0 in the test job; needs a test-side rule, filed as BL-1340
+- 2026-11-17: Backlog -> Doing.
