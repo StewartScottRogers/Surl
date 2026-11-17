@@ -82,6 +82,20 @@ public sealed class TftpCommandStageFaultTests
     }
 
     [TestMethod]
+    [DataRow(FaultKind.RefuseLogin)]
+    [DataRow(FaultKind.OutOfSpace)]
+    public async Task ServeAsync_ReadMatchedByARuleOfAnotherKind_IsServed(FaultKind kind)
+    {
+        var events = new RecordingSurlEventPublisher();
+        var plan = new ScriptedFaultPlan(new FaultRule("r1", kind));
+
+        var flow = await ServeAsync(Request(isWrite: false, "/file name.txt"), plan, events, StandardFileSystem(), finalAck: true);
+
+        Assert.AreEqual(TftpPacket.Data, flow.Sent.Single().Bytes[1]);
+        Assert.IsEmpty(events.Events);
+    }
+
+    [TestMethod]
     public async Task ServeAsync_ReadUnderADelayRule_IsAnsweredOnlyAfterTheClockAdvances()
     {
         var clock = new ManualTimeProvider();
@@ -139,6 +153,27 @@ public sealed class TftpCommandStageFaultTests
         var packet = TftpCommandStageFault.ErrorPacket(reply);
 
         CollectionAssert.AreEqual(ErrorDatagram(expectedCode, expectedMessage), packet);
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_FaultPlanThatAnswersAsynchronously_AppliesItsErrorRule()
+    {
+        var events = new RecordingSurlEventPublisher();
+        var plan = new YieldingFaultPlan(new FaultRule("a1", FaultKind.Error) { Reply = "2 Quota frozen" });
+
+        var flow = await ServeAsync(Request(isWrite: false, "/file name.txt"), plan, events, StandardFileSystem());
+
+        CollectionAssert.AreEqual(ErrorDatagram(2, "Quota frozen"), flow.Sent.Single().Bytes);
+    }
+
+    private sealed class YieldingFaultPlan(FaultRule rule) : IFaultPlan
+    {
+        public async ValueTask<FaultRule?> FindAsync(FaultPoint point, CancellationToken cancellationToken)
+        {
+            await Task.Yield();
+
+            return rule;
+        }
     }
 
     private static byte[] ErrorDatagram(int code, string message) => [0, 5, 0, (byte)code, .. Encoding.ASCII.GetBytes(message), 0];
