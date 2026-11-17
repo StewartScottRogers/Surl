@@ -8,7 +8,7 @@ depends-on: []
 touches: [Protocols/Lookup/Surl.Extended.Protocol.DnsQuery.UnitTests]
 requirement: none
 created: 2026-11-17
-completed:
+completed: 2026-11-17
 ---
 # BL-1357 — Cover DnsZoneSet.ZoneFor and the label-dot escape in DnsZoneFileWriter
 
@@ -43,3 +43,4 @@ completed:
 
 - 2026-11-17: Created.
 - 2026-11-17: Backlog -> Doing.
+- 2026-11-17: Doing -> Done. DnsQuery library at 100/100, 0 failing members
