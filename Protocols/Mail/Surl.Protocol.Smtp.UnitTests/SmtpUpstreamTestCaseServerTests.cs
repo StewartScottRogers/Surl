@@ -296,6 +296,15 @@ public sealed class SmtpUpstreamTestCaseServerTests
     }
 
     [TestMethod]
+    public async Task ServeAsync_MailWithNoArgumentAtAll_IsAnsweredBySessionNotRefusedForSize()
+    {
+        var written = await ServeAsync(Case("CAPA \"SIZE 32\""), "EHLO c\r\nMAIL\r\nQUIT\r\n");
+
+        Assert.DoesNotContain("552 Message size too large", written);
+        Assert.Contains("221 2.0.0 Bye\r\n", written);
+    }
+
+    [TestMethod]
     public async Task ServeAsync_RecipientWithoutAnAtSign_IsRefusedAsUpstreamsServerRefusesIt()
     {
         var written = await ServeAsync(Case(), "EHLO 916\r\nMAIL FROM:<sender@example.com>\r\nRCPT TO:<invalid>\r\nRCPT\r\nQUIT\r\n");
