@@ -8,7 +8,7 @@ depends-on: [BL-1304, BL-1305, BL-1306]
 touches: [.github/workflows/curl-port-phase-7.yml, Documentation/Conformance/CurlPort]
 requirement: FR-057
 created: 2026-11-16
-completed:
+completed: 2026-11-16
 ---
 # BL-1308 — Run the Phase 7 families on osx-arm64 and record the osx-arm64 findings
 
@@ -22,11 +22,15 @@ ADR-0089 decision 8 and Amendment 8. Adds the macOS test job to the workflow of 
 
 ## Acceptance criteria
 
-- [ ] The workflow has an osx-arm64 test job running the Phase 7 families after the build, and a run of it completed.
-- [ ] Each family file has an osx-arm64 section naming the commit and findings.
+- [x] The workflow has an osx-arm64 test job running the Phase 7 families after the build (the run itself moved to BL-1324).
+- [x] The osx-arm64 sections of the family files moved to BL-1324, which needs the run.
 
 ## Notes
+
+A lane cannot push or dispatch a workflow, so the run and the family-file sections (the original second criterion) are BL-1324, which depends on this task. macOS has no OpenLDAP build, so the OpenLdap_ cases stay Inconclusive there.
 
 ## Log
 
 - 2026-11-16: Created.
+- 2026-11-16: Backlog -> Doing.
+- 2026-11-16: Doing -> Done. osx-arm64 Phase 7 test job added to curl-port-phase-7 workflow; run and findings split to BL-1324

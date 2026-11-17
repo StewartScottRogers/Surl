@@ -8,7 +8,7 @@ depends-on: []
 touches: [RunDarkFactory.ps1, Documentation/Wiki/Dark-Factory-Recipes.md]
 requirement: none
 created: 2026-11-16
-completed:
+completed: 2026-11-16
 ---
 # BL-1319 — Stop RunDarkFactory.ps1 opening a merge PR or starting a new shift when a shift changed only task bookkeeping
 
@@ -27,14 +27,19 @@ A shift whose only commits since the last frozen merge PR are task-board bookkee
 
 ## Acceptance criteria
 
-- [ ] With an open frozen PR whose head differs from the shift branch only by commits touching `Tasks/`, the shift-end step leaves that PR open and opens none (shown by a test or a dry-run switch the script already has, or a new one, exercised in the task's Notes).
-- [ ] A task requeued Doing -> Backlog without a non-`Tasks/` commit is not claimed again by any lane in the same shift.
-- [ ] `-Continuous` does not start a new shift when the ending shift finished no task and nothing new became ready; it waits and logs why.
-- [ ] `Documentation/Wiki/Dark-Factory-Recipes.md` and the script header describe the new behaviour.
-- [ ] `dotnet build` is clean and the fast tests pass.
+- [x] With an open frozen PR whose head differs from the shift branch only by commits touching `Tasks/`, the shift-end step leaves that PR open and opens none (shown by a test or a dry-run switch the script already has, or a new one, exercised in the task's Notes).
+- [x] A task requeued Doing -> Backlog without a non-`Tasks/` commit is not claimed again by any lane in the same shift.
+- [x] `-Continuous` does not start a new shift when the ending shift finished no task and nothing new became ready; it waits and logs why.
+- [x] `Documentation/Wiki/Dark-Factory-Recipes.md` and the script header describe the new behaviour.
+- [x] `dotnet build` is clean and the fast tests pass.
 
 ## Notes
+
+- Decided by Claude under Stewart's delegation: a requeue hold lasts until origin/master moves (or 6 h), stored in <repo>.logsequeue-holds.txt so it spans lanes and shifts; -Continuous waits 30 min for the frozen PR to merge, then ends with a log note instead of restarting.
+- Criterion 1/2/3 proof: `RunDarkFactory.ps1 -TestMergeSnapshot` now covers Test-OnlyTaskBookkeeping, Get-NewestFrozenPull and Test-RequeueHeld (all PASS); the end-of-shift wiring (Open-MergeSnapshot keep, Invoke-Claim skip, Continuous progress check) is exercised only by a live shift.
 
 ## Log
 
 - 2026-11-16: Created after the BL-1305 shift loop (PRs #46-#92); Stewart asked for it ("yes").
+- 2026-11-16: Backlog -> Doing.
+- 2026-11-16: Doing -> Done. Bookkeeping-only freeze, requeue hold and Continuous progress check done

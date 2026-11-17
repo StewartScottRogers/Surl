@@ -9,7 +9,8 @@ namespace Surl.Protocol.Http;
 /// </summary>
 public static class NghttpxGatewayRequestTranslator
 {
-    private const string ViaValue = "1.1 nghttpx";
+    private const string Http2ViaValue = "2 nghttpx";
+    private const string Http3ViaValue = "3 nghttpx";
 
     private static readonly HashSet<string> RemovedFields = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -48,8 +49,12 @@ public static class NghttpxGatewayRequestTranslator
             head.Append("Transfer-Encoding: chunked\r\n");
         }
 
-        head.Append("X-Forwarded-Proto: ").Append(forwardedScheme).Append("\r\n");
-        head.Append("Via: ").Append(JoinVia(fields)).Append("\r\n\r\n");
+        if (version == NghttpxGatewayVersion.Http2)
+        {
+            head.Append("X-Forwarded-Proto: ").Append(forwardedScheme).Append("\r\n");
+        }
+
+        head.Append("Via: ").Append(JoinVia(version, fields)).Append("\r\n\r\n");
         byte[] headBytes = Encoding.Latin1.GetBytes(head.ToString());
         return chunked ? Concatenate(headBytes, Chunk(body)) : Concatenate(headBytes, body);
     }
@@ -100,7 +105,7 @@ public static class NghttpxGatewayRequestTranslator
         && (!field.Key.Equals("te", StringComparison.OrdinalIgnoreCase)
             || field.Value.Equals("trailers", StringComparison.OrdinalIgnoreCase));
 
-    private static string JoinVia(IReadOnlyList<KeyValuePair<string, string>> fields)
+    private static string JoinVia(NghttpxGatewayVersion version, IReadOnlyList<KeyValuePair<string, string>> fields)
     {
         List<string> values = [];
         foreach (KeyValuePair<string, string> field in fields)
@@ -111,7 +116,7 @@ public static class NghttpxGatewayRequestTranslator
             }
         }
 
-        values.Add(ViaValue);
+        values.Add(version == NghttpxGatewayVersion.Http3 ? Http3ViaValue : Http2ViaValue);
         return string.Join(", ", values);
     }
 

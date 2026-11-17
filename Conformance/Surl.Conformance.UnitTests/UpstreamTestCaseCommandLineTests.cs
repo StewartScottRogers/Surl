@@ -18,6 +18,22 @@ public sealed class UpstreamTestCaseCommandLineTests
     }
 
     [TestMethod]
+    public void Build_ToolCase_PassesTheCommandsWordsAloneBecauseTheOptionsBeforeThemAreCurls()
+    {
+        var commandLine = Build("<tool>\nlib5\n</tool>\n" + Command("- 127.0.0.1 8990"));
+
+        CollectionAssert.AreEqual(new[] { "-", "127.0.0.1", "8990" }, commandLine.Arguments.ToArray());
+    }
+
+    [TestMethod]
+    public void Build_ToolCaseWithoutACommand_PassesADash()
+    {
+        var commandLine = Build("<tool>\nlib5\n</tool>\n");
+
+        CollectionAssert.AreEqual(new[] { "-" }, commandLine.Arguments.ToArray());
+    }
+
+    [TestMethod]
     public void Build_PlainCommand_AddsWhatRuntestsAddsBeforeTheCommandsWords()
     {
         var commandLine = Build(Command("http://127.0.0.1:8990/5 -H 'A: b'"));

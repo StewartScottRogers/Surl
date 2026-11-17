@@ -17,10 +17,10 @@ port's output is never an expected value.
 
 | What | Pin |
 | --- | --- |
-| Curl port | commit `b42c319ba940f66452b2b6f3e9910d46825b08fe`, `curl.exe` SHA-256 `F28D1417807AA862BA2A6D5B0BF0CF1200673BE45B959B1A78E1E4B476EF8FA7` (`CurlPortBuilds.json`, `win-x64`), the pin the extended `Integration` tests use (ADR-0089 decision 10) |
+| Curl port | commit `74f3f45c47e86300b2b262dc1dacd43b508b09aa`, `curl.exe` SHA-256 `7F4ED0559C543A1E2C415C8EC2C4C458F1906A54910907D3546479A42ECFE467` (`CurlPortBuilds.json`, `win-x64`), the pin the extended `Integration` tests use (ADR-0089 decision 10) |
 | Upstream curl | none: no upstream build has these schemes |
 | Judged by | each protocol's specification, as each `Integration` task names it |
-| Date | 2026-11-11 (BL-592); refreshed 2026-11-14 (BL-1124) |
+| Date | 2026-11-11 (BL-592); refreshed 2026-11-14 (BL-1124) and 2026-11-16 at port commit 74f3f45 (all 140 extended-client tests pass) |
 
 ## Findings
 

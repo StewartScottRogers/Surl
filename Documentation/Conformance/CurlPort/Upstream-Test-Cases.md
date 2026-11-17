@@ -12,32 +12,36 @@ that fails it while upstream's passes is a port finding, never a Surl change (AD
 
 | What | Pin |
 | --- | --- |
-| Curl port | commit `b42c319ba940f66452b2b6f3e9910d46825b08fe`, `curl.exe` SHA-256 `F28D1417807AA862BA2A6D5B0BF0CF1200673BE45B959B1A78E1E4B476EF8FA7` (`CurlPortBuilds.json`, `win-x64`); its `--version` says `curl 8.22.0 (x86_64-w64-mingw32) libcurl/8.22.0 Schannel` |
+| Curl port | commit `74f3f45c47e86300b2b262dc1dacd43b508b09aa`, `curl.exe` SHA-256 `7F4ED0559C543A1E2C415C8EC2C4C458F1906A54910907D3546479A42ECFE467` (`CurlPortBuilds.json`, `win-x64`); its `--version` says `curl 8.22.0 (x86_64-w64-mingw32) libcurl/8.22.0 Schannel` |
 | Upstream curl | SHA-256 `0E773709C3A44DB47B88B71351D902027682ED87C3BD3821009E454BACCA8778`, `curl 8.21.0 (x86_64-w64-mingw32) libcurl/8.21.0 Schannel zlib/1.3.2 brotli/1.2.0 zstd/1.5.7 libidn2/2.3.8 libpsl/0.21.5 libssh2/1.11.1 WinLDAP` (the Windows reference build, paired with every case but the smb ones) |
 | Upstream curl, smb | SHA-256 `589C8E4D297B4831C82ADF0261FC1CA57CE59D663B91B4106D2EE7DFF3972648`, `curl 8.21.0 (x86_64-w64-mingw32) libcurl/8.21.0 OpenSSL/4.0.1 zlib/1.3.2 brotli/1.2.0 zstd/1.5.7 c-ares/1.34.6 libidn2/2.3.8 libpsl/0.22.0 libssh2/1.11.1 nghttp2/1.69.0 ngtcp2/1.23.0 nghttp3/1.16.0` (the supplementary build `LocateForProtocol` pairs with `smb`) |
 | Surl | commit `7bf55f26a8eecda5f936db7e32f596770ee7adf5` with BL-591's changes |
 | Platform | Windows (`win-x64`); off Windows the test is Inconclusive until a port pin exists there (ADR-0089 decision 8) |
-| Date | 2026-11-06 |
+| Date | 2026-11-06; re-run 2026-11-16 at port commit 74f3f45: one finding added (UTC-4), none fixed |
 
 ## Result
 
-1,041 cases on Windows: upstream passed all 1,041 (no Surl defect), the port passed 1,028, 11 are port
-defects and 2 are not comparable. The run was repeated with the same result.
+1,185 cases on Windows: upstream passed all 1,185 (no Surl defect), the port passed 1,171, 12 are port
+defects and 2 are not comparable. Since the last measurement (port `b42c319`, 1,041 cases) the passing list
+grew by 144 cases and the new port commit `74f3f45` added one port defect, UTC-4; it fixed none of the
+earlier eleven (each listed case still shows its defect).
 
 | Family | Cases | Upstream passed | Port passed | Port defects | Not comparable |
 | --- | ---: | ---: | ---: | ---: | ---: |
 | dict | 1 | 1 | 1 | 0 | 0 |
-| ftp | 171 | 171 | 170 | 1 | 0 |
+| ftp | 190 | 190 | 188 | 2 | 0 |
 | gopher | 5 | 5 | 5 | 0 | 0 |
-| http | 658 | 658 | 653 | 5 | 0 |
-| mail (imap, pop3, smtp) | 146 | 146 | 141 | 5 | 0 |
-| mqtt | 6 | 6 | 6 | 0 | 0 |
+| http | 747 | 747 | 742 | 5 | 0 |
+| http-proxy | 2 | 2 | 2 | 0 | 0 |
+| mail (imap, pop3, smtp) | 163 | 163 | 158 | 5 | 0 |
+| mqtt | 16 | 16 | 16 | 0 | 0 |
 | smb | 2 | 2 | 0 | 0 | 2 |
+| socks | 5 | 5 | 5 | 0 | 0 |
 | ssh (scp, sftp) | 38 | 38 | 38 | 0 | 0 |
-| tftp | 14 | 14 | 14 | 0 | 0 |
-| **All** | **1,041** | **1,041** | **1,028** | **11** | **2** |
-
-A case's family is its first `<server>`'s. The win-x64 passing list holds no telnet case.
+| telnet | 1 | 1 | 1 | 0 | 0 |
+| tftp | 15 | 15 | 15 | 0 | 0 |
+| **All** | **1,185** | **1,185** | **1,171** | **12** | **2** |
+A case's family is its first `<server>`'s. 
 
 How the port ran each case (amendment 7):
 
@@ -59,6 +63,7 @@ port defect, and an unlisted case upstream passes must pass with the port too.
 
 | Case | Family | Port's first failing section | Finding |
 | --- | --- | --- | --- |
+| `test251` | ftp | timeout | [UTC-4](#utc-4-active-mode-ftp-with-p-and-a-slow-server-does-not-finish) |
 | `test798` | http | `file` (`log/jar798.txt`) | [UTC-1](#utc-1-a-cookie-with-a-domain-attribute-equal-to-the-host-is-saved-as-host-only) |
 | `test838` | mail | timeout | [UTC-2](#utc-2-an-empty-sasl-external-response-is-sent-as-an-empty-line-not-) |
 | `test884` | mail | `protocol` | [UTC-2](#utc-2-an-empty-sasl-external-response-is-sent-as-an-empty-line-not-) |
@@ -142,3 +147,14 @@ files all as the case's `<verify>` says.
   (`docs/cmdline-opts/libcurl.md` at 8.21.0: "the source code for a C program using libcurl that does
   the equivalent"), and the cases' `<file>` sections (`tests/data/data1402.c` and the rest) pin its
   exact text, option order included.
+
+### UTC-4: active-mode FTP with `-P` and a slow server does not finish
+
+- **Case:** test251 "FTP dir list, PORT with specified IP and slow response" (new at port commit `74f3f45`).
+- **Command line:** `curl ftp://127.0.0.1:<port>/ -P 127.0.0.1` against the case's FTP server half with `SLOWDOWN`.
+- **Upstream:** logs in, sends `PWD`, `PORT`, `TYPE A`, `LIST`, `QUIT` and exits 0; the `<protocol>` section
+  (with the `PORT` line stripped) passes.
+- **Port:** did not finish: the run was stopped after the case's 60-second limit, with no section judged.
+  The same result came on every run of the shift (three of three).
+- **What is right:** `-P`/`--ftp-port` makes the client use active mode with the given address (RFC 959
+  section 3.2, `PORT`); the case pins the command order and that the transfer completes.

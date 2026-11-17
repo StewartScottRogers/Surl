@@ -92,6 +92,15 @@ public sealed record UpstreamTestCaseCommandLine(
         var command = testCase.FindPart("client", "command");
         var option = command?.Attributes.GetValueOrDefault("option") ?? string.Empty;
         var arguments = new List<string>();
+        // runtests runs a <tool> program with the command's words alone: the options it puts before curl's
+        // words (-q, --output, --trace-ascii ...) are curl's, and a libtest would read them as its URL and arguments.
+        if (testCase.FindPart("client", "tool") is not null)
+        {
+            arguments.AddRange(command is null ? ["-"] : UpstreamTestCaseShellWords.Split(JoinCommandLines(command)));
+
+            return arguments;
+        }
+
         AddIf(arguments, !option.Contains("no-q", StringComparison.Ordinal), "-q");
         AddIf(arguments, WritesOutputFile(testCase, option), "--output", outputFile);
         AddIf(arguments, !option.Contains("no-include", StringComparison.Ordinal), "--include");

@@ -8,9 +8,9 @@ the port's defect, for the port's own board (BL-592's handoff), and Surl does no
 
 ## What was measured
 
-- **Platform:** `win-x64`, 2026-11-05. Phase 7 runs on Windows only (ADR-0089 decision 8).
-- **Curl port:** commit `b42c319ba940f66452b2b6f3e9910d46825b08fe`, `curl.exe` SHA-256
-  `F28D1417807AA862BA2A6D5B0BF0CF1200673BE45B959B1A78E1E4B476EF8FA7` (`CurlPortBuilds.json`).
+- **Platform:** `win-x64`, 2026-11-05. Phase 7 runs on Windows only (ADR-0089 decision 8). Re-run 2026-11-16 at port commit 74f3f45: every listed finding still holds, none fixed, none added.
+- **Curl port:** commit `74f3f45c47e86300b2b262dc1dacd43b508b09aa`, `curl.exe` SHA-256
+  `7F4ED0559C543A1E2C415C8EC2C4C458F1906A54910907D3546479A42ECFE467` (`CurlPortBuilds.json`).
 - **Upstream curl:** the static OpenSSL build the mirrored class runs on Windows, since the reference
   build has no `HTTP2` feature (ADR-0081 decision 1): SHA-256
   `589C8E4D297B4831C82ADF0261FC1CA57CE59D663B91B4106D2EE7DFF3972648`,

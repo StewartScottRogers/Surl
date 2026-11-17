@@ -84,6 +84,17 @@
     CI passed, deleting its branch, so with -Continuous the next shift does the merge while
     it works. -MergeToMaster does the same by hand.
 
+    Bookkeeping alone does not restart anything (BL-1319). When the branch differs from the
+    open frozen pull request (or, with none, from master) only in Tasks/ - claims, requeues,
+    blocks - the shift end keeps that pull request and its CI and opens none. A task a lane
+    requeues without a commit outside Tasks/ is held in <repo>.logs\requeue-holds.txt and
+    offered to no lane, in this shift or the next, until origin/master moves (or 6 hours
+    pass). A -Continuous shift that finished no task and saw master stay put does not start
+    the next shift at once: it waits up to 30 minutes for the frozen pull request to merge,
+    and starts the next shift only if master moved; otherwise it logs why and ends. A task
+    that waits on something outside the shift (a merge, a CI run) should be Blocked, not
+    requeued.
+
     The reset time comes from the run's rate_limit_event. Time spent waiting is added
     to the shift, so -Hours is always working time. With lanes, every lane waits on its
     own and the coordinator makes the announcements, once for all of them.
@@ -1793,15 +1804,43 @@ function Get-OpenMasterPulls {
     })
 }
 
+function Test-OnlyTaskBookkeeping {
+    # True when every changed path is under Tasks/ (a claim, requeue, block or unblock), or
+    # nothing changed. Such a change is not worth a new frozen pull request or its CI run
+    # (BL-1319). Pure, so -TestMergeSnapshot proves it.
+    param([string[]]$Paths)
+    return -not @($Paths | Where-Object { $_ -and -not $_.Replace('\', '/').StartsWith('Tasks/') }).Count
+}
+
+function Get-NewestFrozenPull {
+    # The open frozen pull request with the highest number, or $null. Pure.
+    param([object[]]$Pulls)
+    return @($Pulls | Where-Object { $_ -and $_.Head.StartsWith($MergeBranchPrefix) } | Sort-Object { [int]$_.Number } -Descending) | Select-Object -First 1
+}
+
 function Open-MergeSnapshot {
     # Freeze origin/<Branch>'s head as factory/merge-<stamp>, open its pull request to
     # master, and close what it supersedes: older frozen pull requests (their branches
     # deleted) and a pull request opened from the shift branch itself before this design
-    # (closed, the shift branch kept). Returns a line for the trace.
+    # (closed, the shift branch kept). Opens nothing when the branch differs from the open
+    # frozen pull request (or, with none, from master) only in Tasks/ (BL-1319), so a shift
+    # that only claimed and requeued tasks never cancels the CI that could merge. Returns a
+    # line for the trace.
     param([string]$Branch)
     if (-not (Get-Command gh -ErrorAction SilentlyContinue)) { return 'not merged: gh is not installed' }
     git -C $Root fetch -q origin master $Branch 2>&1 | Out-Null
     if ([int](git -C $Root rev-list --count "origin/master..origin/$Branch") -eq 0) { return "nothing on $Branch to merge" }
+    $openFrozen = Get-NewestFrozenPull -Pulls (Get-OpenMasterPulls)
+    $since = 'origin/master'
+    if ($openFrozen) {
+        git -C $Root fetch -q origin $openFrozen.Head 2>&1 | Out-Null
+        if ($LASTEXITCODE -eq 0) { $since = $openFrozen.HeadSha }
+    }
+    $changed = @(git -C $Root diff --name-only $since "origin/$Branch" 2>$null)
+    if ($LASTEXITCODE -eq 0 -and (Test-OnlyTaskBookkeeping -Paths $changed)) {
+        if ($openFrozen) { return "kept pull request #$($openFrozen.Number): $Branch has only Tasks/ changes since its frozen head" }
+        return "nothing to merge: $Branch has only Tasks/ changes since master"
+    }
     $head = (git -C $Root rev-parse "origin/$Branch").Trim()
     $short = $head.Substring(0, 7)
     $frozen = Get-MergeSnapshotName -ShiftStamp $Stamp
@@ -1859,6 +1898,46 @@ function Update-PendingMerges {
     return $lines
 }
 
+# ---- requeue holds (BL-1319)
+# A task a lane moves Doing -> Backlog without committing anything outside Tasks/ made no
+# progress: it is waiting on something the shift cannot supply (a merge to master, say), and
+# claiming it again only spins a lane. Each such task is held in <repo>.logs\requeue-holds.txt
+# as "<id> TAB <origin/master sha> TAB <unix seconds>" and is not offered to any lane, of this
+# shift or the next, until origin/master moves or $RequeueHoldHours pass.
+$RequeueHoldHours = 6
+
+function Get-RequeueHoldPath { return (Join-Path $LogDir 'requeue-holds.txt') }
+
+function Test-RequeueHeld {
+    # True when this hold line holds -Id against the current master. Pure.
+    param([string]$Line, [string]$Id, [string]$MasterSha)
+    $parts = "$Line" -split "`t"
+    if ($parts.Count -lt 3 -or $parts[0] -ne $Id -or $parts[1] -ne $MasterSha) { return $false }
+    $when = 0L
+    if (-not [long]::TryParse($parts[2], [ref]$when)) { return $false }
+    return ([DateTimeOffset]::UtcNow.ToUnixTimeSeconds() - $when) -lt ($RequeueHoldHours * 3600)
+}
+
+function Get-MasterSha {
+    git -C $Root fetch -q origin master 2>&1 | Out-Null
+    return "$(git -C $Root rev-parse origin/master 2>$null)".Trim()
+}
+
+function Get-HeldRequeues {
+    # The task IDs a lane must not claim now.
+    $path = Get-RequeueHoldPath
+    if (-not (Test-Path $path)) { return @() }
+    $sha = Get-MasterSha
+    $lines = @(Get-Content $path)
+    return @($lines | ForEach-Object { ($_ -split "`t")[0] } | Where-Object { $_ } | Sort-Object -Unique | Where-Object { $id = $_; @($lines | Where-Object { Test-RequeueHeld -Line $_ -Id $id -MasterSha $sha }).Count })
+}
+
+function Add-RequeueHold {
+    param([string]$Id)
+    New-Item -ItemType Directory -Force -Path $LogDir | Out-Null
+    Add-Content -Path (Get-RequeueHoldPath) -Value "$Id`t$(Get-MasterSha)`t$([DateTimeOffset]::UtcNow.ToUnixTimeSeconds())" -Encoding ASCII
+}
+
 if ($TestMergeSnapshot) {
     $pulls = @(
         [pscustomobject]@{ Number = '20'; Head = 'factory/merge-20261105-150047'; HeadSha = 'a' }
@@ -1875,7 +1954,16 @@ if ($TestMergeSnapshot) {
         ,@('step success', 'merge', (Get-MergeStep -Status 'completed' -Conclusion 'success'))
         ,@('step cancelled first time', 'rerun', (Get-MergeStep -Status 'completed' -Conclusion 'cancelled'))
         ,@('step cancelled after a rerun', 'failed', (Get-MergeStep -Status 'completed' -Conclusion 'cancelled' -RerunUsed $true))
-        ,@('step failure', 'failed', (Get-MergeStep -Status 'completed' -Conclusion 'failure')))
+        ,@('step failure', 'failed', (Get-MergeStep -Status 'completed' -Conclusion 'failure'))
+        ,@('bookkeeping: only Tasks', 'True', "$(Test-OnlyTaskBookkeeping -Paths @('Tasks/Doing/BL-1.md', 'Tasks\Backlog\BL-2.md'))")
+        ,@('bookkeeping: nothing changed', 'True', "$(Test-OnlyTaskBookkeeping -Paths @())")
+        ,@('bookkeeping: code too', 'False', "$(Test-OnlyTaskBookkeeping -Paths @('Tasks/Done/BL-1.md', 'RunDarkFactory.ps1'))")
+        ,@('newest frozen pull', '21', "$((Get-NewestFrozenPull -Pulls $pulls).Number)")
+        ,@('newest frozen pull: none', '', "$((Get-NewestFrozenPull -Pulls @($pulls[2], $pulls[3])).Number)")
+        ,@('requeue hold: same master holds', 'True', "$(Test-RequeueHeld -Line "BL-9`tabc`t$([DateTimeOffset]::UtcNow.ToUnixTimeSeconds())" -Id 'BL-9' -MasterSha 'abc')")
+        ,@('requeue hold: master moved', 'False', "$(Test-RequeueHeld -Line "BL-9`tabc`t$([DateTimeOffset]::UtcNow.ToUnixTimeSeconds())" -Id 'BL-9' -MasterSha 'def')")
+        ,@('requeue hold: other task', 'False', "$(Test-RequeueHeld -Line "BL-9`tabc`t$([DateTimeOffset]::UtcNow.ToUnixTimeSeconds())" -Id 'BL-8' -MasterSha 'abc')")
+        ,@('requeue hold: expired', 'False', "$(Test-RequeueHeld -Line "BL-9`tabc`t1000" -Id 'BL-9' -MasterSha 'abc')"))
     $failed = 0
     foreach ($case in $cases) {
         if ($case[1] -ceq $case[2]) { Write-Host "PASS $($case[0]): $($case[2])" -ForegroundColor Green }
@@ -2291,6 +2379,7 @@ function Invoke-Claim {
                 if (-not (Invoke-Git @('push', '-q', 'origin', "HEAD:$Branch"))) { continue }
             }
             $boardArgs = @('next')
+            $Skip = @($Skip) + @(Get-HeldRequeues) | Where-Object { $_ } | Sort-Object -Unique
             if ($Skip.Count) { $boardArgs += @('-Skip', ($Skip -join ',')) }
             $next = (Invoke-Board $boardArgs) -join "`n"
             if ($next -notmatch '(?m)^(BL-\d+)\s') {
@@ -3062,6 +3151,7 @@ if (($AutoLanes -or $LaneCount -gt 1) -and -not $Lane) {
     $nextAutoStep = (Get-Date).AddMinutes(15)
     # Frozen pull requests left by earlier shifts merge as soon as their CI passes.
     $nextMergeCheck = Get-Date
+    $masterAtShiftStart = Get-MasterSha
     while ((Get-Date) -lt $giveUp) {
         # The coordinator announces the usage limit for every lane, and lanes waiting for a
         # new session add that wait to their shift, so the coordinator waits longer too.
@@ -3153,7 +3243,27 @@ if (($AutoLanes -or $LaneCount -gt 1) -and -not $Lane) {
     # -Continuous: while the board still has ready work, the next shift starts itself, so
     # the factory keeps going without anyone - Stewart or a Claude session - to restart it.
     $stillReady = (Invoke-Board @('next')) -join "`n"
-    if ($Continuous -and $stillReady -match '(?m)^BL-\d+\s') {
+    # BL-1319: a shift that finished no task and saw no change to master made nothing new
+    # ready; starting another at once only repeats it (BL-1305 did, 47 times). Such a shift
+    # waits up to 30 minutes for the open frozen pull request to merge - which moves master -
+    # and starts the next shift only if that happened.
+    $shiftDone = 0
+    foreach ($file in Get-ChildItem $summaries -Filter 'lane-*.txt' -ErrorAction SilentlyContinue) {
+        $report = Read-LaneSummary ([int]($file.BaseName -replace '^lane-', ''))
+        if ($report.Summary -match 'done=(\d+)') { $shiftDone += [int]$Matches[1] }
+    }
+    $madeProgress = $shiftDone -gt 0 -or (Get-MasterSha) -ne $masterAtShiftStart
+    if ($Continuous -and $stillReady -match '(?m)^BL-\d+\s' -and -not $madeProgress) {
+        Write-Trace '-' 'shift' 'no task finished and master did not move; waiting up to 30 minutes for the frozen pull request to merge before starting another shift' 'Yellow'
+        $progressDeadline = (Get-Date).AddMinutes(30)
+        while (-not $madeProgress -and (Get-Date) -lt $progressDeadline) {
+            foreach ($line in (Update-PendingMerges)) { Write-Trace '-' 'merge' $line 'Cyan' }
+            $madeProgress = (Get-MasterSha) -ne $masterAtShiftStart
+            if (-not $madeProgress) { Start-Sleep -Seconds 60 }
+        }
+        if (-not $madeProgress) { Write-Trace '-' 'shift' 'still no progress; not starting another shift (run RunDarkFactory.cmd when the ready work can proceed)' 'Yellow' }
+    }
+    if ($Continuous -and $stillReady -match '(?m)^BL-\d+\s' -and $madeProgress) {
         foreach ($r in $reasons) { Write-Trace '-' 'note' (Get-Short $r 100) 'Yellow' }
         # An Auto shift hands on Auto, not the count it ended at; the next one starts from
         # the count auto-lanes.json saved.
@@ -3277,6 +3387,7 @@ while ($true) {
     if (-not $resuming) { Write-Trace $id 'claim' (Get-Short (Get-TaskTitle $id)) 'Cyan' }
     if ($Lane) { Set-OwnTabLabel "$id $(Get-TaskTitle $id)" }
     Write-Heartbeat 'run'
+    $preRunHead = (git -C $Root rev-parse HEAD).Trim()
     $run = Invoke-TaskRun $id -Resume:$resuming
     $state = Get-TaskState $id
 
@@ -3338,6 +3449,16 @@ while ($true) {
         $state = Get-TaskState $id
     }
     Save-StrayChanges $id
+
+    # A requeue that committed nothing outside Tasks/ made no progress: hold the task until
+    # origin/master moves, so no lane claims it again at once (BL-1319).
+    if ($Lane -and $state -eq 'Backlog') {
+        $ranChanged = @(git -C $Root diff --name-only $preRunHead HEAD 2>$null)
+        if (Test-OnlyTaskBookkeeping -Paths $ranChanged) {
+            Add-RequeueHold $id
+            Write-Trace $id 'hold' 'requeued with no code commit; not claimed again until origin/master moves' 'Yellow'
+        }
+    }
 
     if ($Lane -and $state -in 'Done', 'Blocked', 'Backlog', 'Deferred') {
         $problem = Invoke-Integrate -Id $id -State $state

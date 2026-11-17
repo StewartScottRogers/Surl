@@ -5,8 +5,27 @@
       "platform": "win-x64",
       "path": "%LOCALAPPDATA%\\Surl\\curl-port\\74f3f45c47e86300b2b262dc1dacd43b508b09aa\\curl.exe",
       "sha256": "7F4ED0559C543A1E2C415C8EC2C4C458F1906A54910907D3546479A42ECFE467",
+      "ciSha256": "4B6345363E6133CD1769677177276164C56F181A915A45617DE4DAC177FB414A",
+      "ciHashStable": false,
       "commit": "74f3f45c47e86300b2b262dc1dacd43b508b09aa",
       "publishCommand": "dotnet publish Curl.Console -c Release -r win-x64 -o \"C:\\Users\\Stewart Rogers\\AppData\\Local\\Surl\\curl-port\\74f3f45c47e86300b2b262dc1dacd43b508b09aa\"",
+      "published": "2026-11-16"
+    },
+    {
+      "platform": "linux-x64",
+      "path": "%HOME%/.local/share/surl/curl-port/74f3f45c47e86300b2b262dc1dacd43b508b09aa/curl",
+      "sha256": "DF507F32E8B3E5F0444F89544A62C18C4CFA96C838AF8C98D74B9B044F8CF57A",
+      "commit": "74f3f45c47e86300b2b262dc1dacd43b508b09aa",
+      "publishCommand": "dotnet publish Curl.Console -c Release -r linux-x64 -o \"%HOME%/.local/share/surl/curl-port/74f3f45c47e86300b2b262dc1dacd43b508b09aa\"",
+      "published": "2026-11-16"
+    },
+    {
+      "platform": "osx-arm64",
+      "ciHashStable": false,
+      "path": "%HOME%/.local/share/surl/curl-port/74f3f45c47e86300b2b262dc1dacd43b508b09aa/curl",
+      "sha256": "B5B48DC7CB11F42F41BD7F45E127ADF08E6BD1A0D3CAA0F80840E1971046BBEE",
+      "commit": "74f3f45c47e86300b2b262dc1dacd43b508b09aa",
+      "publishCommand": "dotnet publish Curl.Console -c Release -r osx-arm64 -o \"%HOME%/.local/share/surl/curl-port/74f3f45c47e86300b2b262dc1dacd43b508b09aa\"",
       "published": "2026-11-16"
     },
     {

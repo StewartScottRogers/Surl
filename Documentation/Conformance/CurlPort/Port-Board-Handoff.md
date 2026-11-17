@@ -23,9 +23,9 @@ upstream build, since upstream curl has no `webtransport` scheme).
 
 | Item | Value |
 | --- | --- |
-| Port commit | `b42c319ba940f66452b2b6f3e9910d46825b08fe` |
-| Port `curl.exe` SHA-256 | `F28D1417807AA862BA2A6D5B0BF0CF1200673BE45B959B1A78E1E4B476EF8FA7` (`curl 8.22.0 (x86_64-w64-mingw32) libcurl/8.22.0 Schannel`) |
-| Port `Libcurl.dll` SHA-256 | `613976A7CC3DA746AB74819C6A526D676A39998D56B5470D5C527A902D7C8311` (entry 14 only) |
+| Port commit | `74f3f45c47e86300b2b262dc1dacd43b508b09aa` |
+| Port `curl.exe` SHA-256 | `7F4ED0559C543A1E2C415C8EC2C4C458F1906A54910907D3546479A42ECFE467` (`curl 8.22.0 (x86_64-w64-mingw32) libcurl/8.22.0 Schannel`) |
+| Port `Libcurl.dll` SHA-256 | `FA53A0C83925E7A3326721E8C0243CE888E815AD40E37883DF78A151230AB953` (entry 14 only) |
 | Upstream reference build | SHA-256 `0E773709C3A44DB47B88B71351D902027682ED87C3BD3821009E454BACCA8778`, `curl 8.21.0 (x86_64-w64-mingw32) libcurl/8.21.0 Schannel zlib/1.3.2 brotli/1.2.0 zstd/1.5.7 libidn2/2.3.8 libpsl/0.21.5 libssh2/1.11.1 WinLDAP` |
 | Upstream static OpenSSL build | SHA-256 `589C8E4D297B4831C82ADF0261FC1CA57CE59D663B91B4106D2EE7DFF3972648`, `curl 8.21.0 (x86_64-w64-mingw32) libcurl/8.21.0 OpenSSL/4.0.1 zlib/1.3.2 brotli/1.2.0 zstd/1.5.7 c-ares/1.34.6 libidn2/2.3.8 libpsl/0.22.0 libssh2/1.11.1 nghttp2/1.69.0 ngtcp2/1.23.0 nghttp3/1.16.0` |
 | Upstream `libcurl-4.dll` | SHA-256 `799F7EEFC3C9DA9C80EC5AEA221A02B3AFE2C5350C6B45FD5A4865E7E2D4E574`, `libcurl/8.21.0 Schannel …` (entry 14 only) |
@@ -383,7 +383,7 @@ lists `smb` and `smbs`.
   wrong login; 78 for a missing share or file; 9, 25 and 3 where the rows say; 60 for an untrusted
   `smbs` certificate.
 - **Port result:** exit 1, `curl: (1) Protocol "smb" is disabled` (`"smbs"`) in every row, without
-  connecting. At port commit `b42c319`, `Curl.Engine.UnitLibrary/EngineComposition.cs` registers `smb`
+  connecting. At port commit `74f3f45`, `Curl.Engine.UnitLibrary/EngineComposition.cs` registers `smb`
   and `smbs` with a `DisabledProtocolHandler`.
 - **What decides:** curl 8.21.0 `docs/libcurl/opts/CURLOPT_PROTOCOLS_STR.md` (`SMB`, `SMBS`),
   `docs/URL-SYNTAX.md` ("SMB"); the port's own rule that nothing is left out.

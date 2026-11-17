@@ -28,6 +28,10 @@ ADR-0089 decision 8 and Amendment 8. Adds the test step to the workflow of BL-13
 
 ## Notes
 
+2026-11-16: Added job `test-curl-port-linux-x64` to curl-port-phase-7.yml (publishes the port to its pinned path, runs every `CurlPortBesideUpstreamCurl*` test with the OpenLDAP build, uploads the trx, `continue-on-error` since findings gate nothing). Remaining: a run needs the commit pushed and `gh workflow run curl-port-phase-7` dispatched, then the linux-x64 sections written from its results; the lane cannot push or dispatch.
+
 ## Log
 
 - 2026-11-16: Created.
+- 2026-11-16: Backlog -> Doing.
+- 2026-11-16: Doing -> Blocked. Stewart: the linux-x64 job is committed; once it is pushed, dispatch curl-port-phase-7 (gh workflow run) and say when it completes so the linux-x64 sections can be written.

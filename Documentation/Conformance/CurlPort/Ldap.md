@@ -9,12 +9,12 @@ through pinned upstream curl and the pinned Curl port, each against its own fres
 
 | What | Pin |
 | --- | --- |
-| Curl port | commit `b42c319ba940f66452b2b6f3e9910d46825b08fe`, `curl.exe` SHA-256 `F28D1417807AA862BA2A6D5B0BF0CF1200673BE45B959B1A78E1E4B476EF8FA7` (`CurlPortBuilds.json`, `win-x64`) |
+| Curl port | commit `74f3f45c47e86300b2b262dc1dacd43b508b09aa`, `curl.exe` SHA-256 `7F4ED0559C543A1E2C415C8EC2C4C458F1906A54910907D3546479A42ECFE467` (`CurlPortBuilds.json`, `win-x64`) |
 | Upstream curl, Windows | SHA-256 `0E773709C3A44DB47B88B71351D902027682ED87C3BD3821009E454BACCA8778`, `curl 8.21.0 (x86_64-w64-mingw32) libcurl/8.21.0 Schannel zlib/1.3.2 brotli/1.2.0 zstd/1.5.7 libidn2/2.3.8 libpsl/0.21.5 libssh2/1.11.1 WinLDAP` (the Windows reference build; `lib/ldap.c`) |
 | Upstream curl, Linux | SHA-256 `4418AD0292EB222B746096021817FE99E646E1506DA034A2607A264C21C39480`, `curl 8.21.0 (x86_64-pc-linux-musl) libcurl/8.21.0 OpenSSL/3.5.9 mit-krb5/1.22.2 OpenLDAP/2.6.15` (ADR-0076's OpenLDAP build; `lib/openldap.c`). Paired with the `OpenLdap_` tests; not run, as below |
 | Surl | commit `00351846bd295957d066acd7ac6a9faa68c78e84` |
 | Platform | Windows (`win-x64`) |
-| Date | 2026-11-05 |
+| Date | 2026-11-05; re-run 2026-11-16 at port commit 74f3f45: every listed finding still holds, none fixed, none added |
 
 ## Result
 
