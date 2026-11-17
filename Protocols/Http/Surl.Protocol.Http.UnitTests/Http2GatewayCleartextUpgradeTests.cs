@@ -43,7 +43,7 @@ public sealed class Http2GatewayCleartextUpgradeTests
 
         Assert.AreEqual(SwitchingProtocolsHead, Latin1(served.WrittenBytes[..SwitchingProtocolsHead.Length]));
         Assert.AreEqual(
-            "GET /1700 HTTP/1.1\r\nHost: 127.0.0.1:1234\r\nUser-Agent: curl/8\r\nAccept: */*\r\nX-Forwarded-Proto: http\r\nVia: 1.1 nghttpx\r\n\r\n",
+            "GET /1700 HTTP/1.1\r\nHost: 127.0.0.1:1234\r\nUser-Agent: curl/8\r\nAccept: */*\r\nX-Forwarded-Proto: http\r\nVia: 2 nghttpx\r\n\r\n",
             Latin1(first.WrittenBytes));
         StringAssert.StartsWith(Latin1(second.WrittenBytes), "GET /17000001 HTTP/1.1\r\n");
         var responses = Responses(served.WrittenBytes[SwitchingProtocolsHead.Length..]);
@@ -75,7 +75,7 @@ public sealed class Http2GatewayCleartextUpgradeTests
         var served = await ServeUpgradedAsync(request, Connect(backend), 1);
 
         Assert.AreEqual(
-            "POST /1701 HTTP/1.1\r\nHost: 127.0.0.1:1234\r\nUser-Agent: curl/8\r\nAccept: */*\r\nContent-Length: 10\r\nContent-Type: application/x-www-form-urlencoded\r\nX-Forwarded-Proto: http\r\nVia: 1.1 nghttpx\r\n\r\ndatatosend",
+            "POST /1701 HTTP/1.1\r\nHost: 127.0.0.1:1234\r\nUser-Agent: curl/8\r\nAccept: */*\r\nContent-Length: 10\r\nContent-Type: application/x-www-form-urlencoded\r\nX-Forwarded-Proto: http\r\nVia: 2 nghttpx\r\n\r\ndatatosend",
             Latin1(backend.WrittenBytes));
         Assert.AreEqual("-foo-\n", Responses(served.WrittenBytes[SwitchingProtocolsHead.Length..])[1].BodyText);
     }
@@ -106,7 +106,7 @@ public sealed class Http2GatewayCleartextUpgradeTests
         await ServeAsync(client, Connect(backend));
 
         Assert.AreEqual(
-            "GET /x HTTP/1.1\r\nHost: 127.0.0.1:1234\r\nUser-Agent: curl/8\r\nX-Forwarded-Proto: http\r\nVia: 1.1 nghttpx\r\n\r\n",
+            "GET /x HTTP/1.1\r\nHost: 127.0.0.1:1234\r\nUser-Agent: curl/8\r\nX-Forwarded-Proto: http\r\nVia: 2 nghttpx\r\n\r\n",
             Latin1(backend.WrittenBytes));
         var written = Latin1(client.WrittenBytes);
         StringAssert.StartsWith(written, "HTTP/1.1 200 OK\r\n");

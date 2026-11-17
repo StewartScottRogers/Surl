@@ -33,7 +33,7 @@ public sealed class NghttpxGatewayRequestTranslatorTests
 
         Assert.AreEqual(
             "GET /1700 HTTP/1.1\r\nHost: 127.0.0.1:8080\r\nUser-Agent: curl/8.21.0\r\nAccept: */*\r\n"
-            + "X-Forwarded-Proto: http\r\nVia: 1.1 nghttpx\r\n\r\n",
+            + "X-Forwarded-Proto: http\r\nVia: 2 nghttpx\r\n\r\n",
             request);
         Assert.AreEqual(
             "GET /1700 HTTP/1.1\r\nHost: 127.0.0.1:8080\r\nUser-Agent: curl/8.21.0\r\nAccept: */*\r\n\r\n",
@@ -50,7 +50,8 @@ public sealed class NghttpxGatewayRequestTranslatorTests
             "GET https://localhost:4433/2500 HTTP/1.1\r\nHost: localhost:4433\r\nUser-Agent: curl/8.21.0\r\n"
             + "Accept: */*\r\n\r\n",
             StripForwardingLines(request));
-        StringAssert.Contains(request, "X-Forwarded-Proto: https\r\n");
+        StringAssert.Contains(request, "Via: 3 nghttpx\r\n");
+        Assert.IsFalse(request.Contains("X-Forwarded-Proto", StringComparison.Ordinal));
     }
 
     [TestMethod]
@@ -63,7 +64,7 @@ public sealed class NghttpxGatewayRequestTranslatorTests
 
         Assert.AreEqual(
             "POST /1701 HTTP/1.1\r\nHost: h:1\r\nContent-Length: 10\r\nContent-Type: application/x-www-form-urlencoded\r\n"
-            + "X-Forwarded-Proto: http\r\nVia: 1.1 nghttpx\r\n\r\ndatatosend",
+            + "X-Forwarded-Proto: http\r\nVia: 2 nghttpx\r\n\r\ndatatosend",
             request);
     }
 
@@ -75,7 +76,7 @@ public sealed class NghttpxGatewayRequestTranslatorTests
 
         Assert.AreEqual(
             "POST / HTTP/1.1\r\nHost: h:1\r\nTransfer-Encoding: chunked\r\nX-Forwarded-Proto: http\r\n"
-            + "Via: 1.1 nghttpx\r\n\r\n3\r\nabc\r\n0\r\n\r\n",
+            + "Via: 2 nghttpx\r\n\r\n3\r\nabc\r\n0\r\n\r\n",
             request);
     }
 
@@ -117,7 +118,7 @@ public sealed class NghttpxGatewayRequestTranslatorTests
             NghttpxGatewayVersion.Http2, "GET", "http", "h:1", "/", fields, default));
 
         Assert.AreEqual(
-            "GET / HTTP/1.1\r\nHost: h:1\r\nX-Custom-Thing: kept\r\nX-Forwarded-Proto: http\r\nVia: 1.1 nghttpx\r\n\r\n",
+            "GET / HTTP/1.1\r\nHost: h:1\r\nX-Custom-Thing: kept\r\nX-Forwarded-Proto: http\r\nVia: 2 nghttpx\r\n\r\n",
             request);
     }
 
@@ -147,7 +148,7 @@ public sealed class NghttpxGatewayRequestTranslatorTests
         string request = Text(NghttpxGatewayRequestTranslator.Translate(
             NghttpxGatewayVersion.Http2, "GET", "http", "h:1", "/", [new("via", "1.1 proxy")], default));
 
-        StringAssert.Contains(request, "Via: 1.1 proxy, 1.1 nghttpx\r\n");
+        StringAssert.Contains(request, "Via: 1.1 proxy, 2 nghttpx\r\n");
         Assert.IsFalse(request.StartsWith("GET / HTTP/1.1\r\nHost: h:1\r\nVia", StringComparison.Ordinal));
     }
 

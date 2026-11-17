@@ -29,7 +29,7 @@ public sealed class Http2GatewayUpstreamTestCaseServerTests
         var served = await ServeAsync(request, backend);
 
         Assert.AreEqual(
-            "GET /2403 HTTP/1.1\r\nHost: 127.0.0.1:18050\r\nUser-Agent: curl/8\r\nAccept: */*\r\nX-Forwarded-Proto: http\r\nVia: 1.1 nghttpx\r\n\r\n",
+            "GET /2403 HTTP/1.1\r\nHost: 127.0.0.1:18050\r\nUser-Agent: curl/8\r\nAccept: */*\r\nX-Forwarded-Proto: http\r\nVia: 2 nghttpx\r\n\r\n",
             Latin1(backend.WrittenBytes));
         var response = Responses(served.WrittenBytes)[1];
         Assert.AreEqual("200", response.Status);
@@ -61,7 +61,7 @@ public sealed class Http2GatewayUpstreamTestCaseServerTests
         var served = await ServeAsync(request, backend);
 
         Assert.AreEqual(
-            "POST /1701 HTTP/1.1\r\nHost: 127.0.0.1:18050\r\nContent-Length: 10\r\nX-Forwarded-Proto: http\r\nVia: 1.1 nghttpx\r\n\r\ndatatosend",
+            "POST /1701 HTTP/1.1\r\nHost: 127.0.0.1:18050\r\nContent-Length: 10\r\nX-Forwarded-Proto: http\r\nVia: 2 nghttpx\r\n\r\ndatatosend",
             Latin1(backend.WrittenBytes));
         var response = Responses(served.WrittenBytes)[1];
         Assert.AreEqual("200", response.Status);

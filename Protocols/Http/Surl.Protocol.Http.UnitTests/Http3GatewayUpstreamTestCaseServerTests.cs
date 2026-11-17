@@ -37,7 +37,7 @@ public sealed class Http3GatewayUpstreamTestCaseServerTests
         await client.UntilAsync(() => client.HasEnded(0), Token);
 
         Assert.AreEqual(
-            "GET https://localhost:18060/2500 HTTP/1.1\r\nHost: localhost:18060\r\nUser-Agent: curl/8.21.0\r\nAccept: */*\r\nX-Forwarded-Proto: https\r\nVia: 1.1 nghttpx\r\n\r\n",
+            "GET https://localhost:18060/2500 HTTP/1.1\r\nHost: localhost:18060\r\nUser-Agent: curl/8.21.0\r\nAccept: */*\r\nVia: 3 nghttpx\r\n\r\n",
             Latin1(backend.WrittenBytes));
         var response = client.Response(0);
         Assert.AreEqual("200", response.Status);
