@@ -8,7 +8,7 @@ depends-on: []
 touches: [Application/Surl.Cli.UnitTests]
 requirement: none
 created: 2026-11-17
-completed:
+completed: 2026-11-17
 ---
 # BL-1348 — Cover both outcomes of FaultReplyShapes.IsOciError in Surl.Cli
 
@@ -25,17 +25,18 @@ completed:
 
 ## Acceptance criteria
 
-- [ ] Named `Surl.Cli.UnitTests` tests parse an `oci` error fault rule whose reply is a 400..599 status with an OCI
+- [x] Named `Surl.Cli.UnitTests` tests parse an `oci` error fault rule whose reply is a 400..599 status with an OCI
       Distribution Specification v1.1.0 error code (accepted), one whose status is in range but whose text is not
       such a code (refused), and one whose status is outside 400..599 (refused).
-- [ ] `Measure-CodeQuality.ps1 -Library Surl.Cli.UnitLibrary` reports `100 | 100` with 0 failing members, and the fast
+- [x] `Measure-CodeQuality.ps1 -Library Surl.Cli.UnitLibrary` reports `100 | 100` with 0 failing members, and the fast
       tests are green.
 
 ## Notes
 
-- Tests only (test-writer).
+- Tests only. Accepted and in-range-non-code cases already existed in CommandLineParserFaultTests; added two refused DataRows (399 and 600 with a valid code) to cover the status-out-of-range branch.
 
 ## Log
 
 - 2026-11-17: Created.
 - 2026-11-17: Backlog -> Doing.
+- 2026-11-17: Doing -> Done. IsOciError now 100/100: added out-of-range-status refusal tests
