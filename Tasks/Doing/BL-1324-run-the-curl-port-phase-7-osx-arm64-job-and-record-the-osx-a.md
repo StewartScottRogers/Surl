@@ -30,3 +30,4 @@ BL-1308 added the job to `.github/workflows/curl-port-phase-7.yml`. A lane canno
 ## Log
 
 - 2026-11-16: Created.
+- 2026-11-16: Backlog -> Doing.
