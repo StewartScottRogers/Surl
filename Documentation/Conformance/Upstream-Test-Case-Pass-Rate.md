@@ -39,6 +39,14 @@ decision 5). This is success criterion 2 of the
 
 BL-1317 (2026-11-16) moved Linux to commit `6023b4b3` from [CI run 43979679184](https://github.com/StewartScottRogers/Surl/actions/runs/43979679184), the first Linux run with the Debug build BL-1311 selects: 2400, 2406, 358 and 359 pass; 2401 and 2501 differ in the `Via` header nghttpx adds (BL-1321); 2402, 2404 and 2502 record nothing (BL-1322); 2407 has curl exit 6 (BL-1323). No case that passed before fails. macOS keeps its row until its Debug build runs.
 
+[ADR-0173](../Planning/Decisions/ADR-0173-a-debug-upstream-curl-8-21-0-build-from-source-for-the-http-2-and-http-3-test-cases-that-need-one.md)
+(BL-1312) is why `debug-build` falls from 50 to 44 on `linux-x64`: the Linux job builds a Debug curl
+and the suite plays the six cases that need it (2400, 2401, 2406, 2501, 358 and 359) with that
+build. Windows and macOS stay at 50 because neither has a reproducible Debug build (Docker Desktop
+yields Linux binaries, and there is no macOS runner for one), so their rows and counts do not move.
+The four libtest cases (2402, 2404, 2407 and 2502) stay skipped under ADR-0173's own build: they
+need a libtest program and a runner for `<tool>` programs, a separate decision (BL-1313).
+
 BL-1149 (2026-11-14) moved Linux and macOS to commit `145f16b2`, from [CI run 43651751537](https://github.com/StewartScottRogers/Surl/actions/runs/43651751537) (PR #36): 956, 957 and 958 now pass on both (`RCPT` and `VRFY` answer `501` for a non-ASCII address unless the case lists `SMTPUTF8`, as upstream `ftpserver.pl` does), so each is 1,316 passed, 0 failed and both failures files are empty. The paragraph below is the earlier BL-1142 record, kept as history.
 
 BL-1142 (2026-11-14) recorded all three rows at commit `c3011bee`, which contains BL-1126 to BL-1134, BL-1136,

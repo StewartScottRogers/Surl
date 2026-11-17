@@ -8,7 +8,7 @@ depends-on: [BL-1311, BL-1317]
 touches: [Documentation/Conformance]
 requirement: none
 created: 2026-11-16
-completed:
+completed: 2026-11-16
 ---
 # BL-1312 — Record the Debug-build http/2 and http/3 results in Upstream-Test-Case-Pass-Rate.md (ADR-0173)
 
@@ -23,9 +23,9 @@ ADR-0173 consequences. `UpstreamTestCasePassRateStatementTests` ties the table t
 
 ## Acceptance criteria
 
-- [ ] The `linux-x64` row's Runnable, Passed, Failed and Skipped match a run with the Debug build, and `debug-build` in the skipped-by-reason table falls by the cases now run.
-- [ ] A paragraph names ADR-0173, the six cases and the four libtest cases still skipped.
-- [ ] `UpstreamTestCasePassRateStatementTests` passes.
+- [x] The `linux-x64` row's Runnable, Passed, Failed and Skipped match a run with the Debug build, and `debug-build` in the skipped-by-reason table falls by the cases now run.
+- [x] A paragraph names ADR-0173, the six cases and the four libtest cases still skipped.
+- [x] `UpstreamTestCasePassRateStatementTests` passes.
 
 ## Notes
 
@@ -37,3 +37,4 @@ ADR-0173 consequences. `UpstreamTestCasePassRateStatementTests` ties the table t
 - 2026-11-16: Backlog -> Doing.
 - 2026-11-16: Doing -> Backlog. Needs the Linux Debug-build run from BL-1317; depends-on now includes BL-1317
 - 2026-11-16: Backlog -> Doing.
+- 2026-11-16: Doing -> Done. Linux Debug-build results and ADR-0173 paragraph recorded
