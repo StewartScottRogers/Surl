@@ -314,13 +314,16 @@ public static partial class SurlServerComposition
         }
     }
 
+    // A field, not a method group at the call: the compiler caches a method group in one static shared by every use of File.ReadAllBytes, so which use created it would decide this method's branch coverage (BL-1350).
+    private static readonly Func<string, byte[]> ReadKeytabFromDisk = File.ReadAllBytes;
+
     // The SOCKS5 server's GSS-API login (BL-1066): over its own acceptor on the --keytab, the
     // service name rcmd that curl's --socks5-gssapi-service defaults to. None without a keytab. The
     // keytab was already read and accepted by AuthenticationComposition.Compose, so a read that
     // fails now (the file changed between) leaves SOCKS5 without the method rather than failing a start.
     internal static Surl.Protocol.Socks.SocksGssApiLogin? ComposeSocksGssApiLogin(SurlCommandLine commandLine, SurlServerCompositionSeams seams)
     {
-        var (acceptor, _, _, _) = KeytabComposition.Read(commandLine, seams.ReadStartFile ?? File.ReadAllBytes, seams.TimeProvider);
+        var (acceptor, _, _, _) = KeytabComposition.Read(commandLine, seams.ReadStartFile ?? ReadKeytabFromDisk, seams.TimeProvider);
         return acceptor is null ? null : new Surl.Protocol.Socks.SocksGssApiLogin(acceptor, Surl.Protocol.Socks.SocksGssApiLogin.DefaultService);
     }
 

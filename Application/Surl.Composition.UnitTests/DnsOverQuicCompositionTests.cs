@@ -218,6 +218,30 @@ public sealed class DnsOverQuicCompositionTests
         Assert.IsTrue(servers.OfType<DnsDatagramRoutingProtocolServer>().Single() is IDatagramProtocolServer);
     }
 
+    [TestMethod]
+    public async Task Registrations_DnsOnAListenUrlThatIsTlsFromTheFirstByte_BuildsTheQuicServerThroughTheRegistrationFactory()
+    {
+        var services = ComposeServices();
+        using var key = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+        services.QuicCertificate.Certificate = new QuicServerCertificate([new byte[] { 1 }], key);
+        var router = ExtendedProtocolServers.Compose(new ExtendedProtocolServerServices(services)).OfType<DnsDatagramRoutingProtocolServer>().Single();
+
+        await ServeCancelledAsync(router, new ListenUrl("dns", "127.0.0.1", 853) { IsImplicitTls = true });
+
+        // The factory ran: it had the served certificate, so it built a server rather than refusing.
+        CollectionAssert.AreEqual(new[] { "dns" }, router.Schemes.ToArray());
+    }
+
+    [TestMethod]
+    public async Task Registrations_DnsOnAListenUrlThatIsTlsFromTheFirstByteWithoutACertificate_RefusesThroughTheRegistrationFactory()
+    {
+        var router = ExtendedProtocolServers.Compose(new ExtendedProtocolServerServices(ComposeServices()))
+            .OfType<DnsDatagramRoutingProtocolServer>().Single();
+
+        await Assert.ThrowsExactlyAsync<InvalidOperationException>(
+            () => ServeCancelledAsync(router, new ListenUrl("dns", "127.0.0.1", 853) { IsImplicitTls = true }));
+    }
+
     private static ExchangeContext ContextFor(ListenUrl listenUrl, CancellationToken token = default) =>
         new(
             1,

@@ -29,6 +29,38 @@ public sealed class SocksGssApiLoginCompositionTests
         Assert.AreEqual(SocksGssApiLogin.DefaultService, login.Service);
     }
 
+    [TestMethod]
+    public void ComposeSocksGssApiLogin_WithAKeytabAndNoReadSeam_ReadsTheFileFromDisk()
+    {
+        var file = Path.Combine(Path.GetTempPath(), $"surl-socks-{Guid.NewGuid():N}.keytab");
+        File.WriteAllBytes(file, AesKeytab());
+        try
+        {
+            var seams = new StartTestSeams().Seams with { ReadStartFile = null };
+
+            var login = SurlServerComposition.ComposeSocksGssApiLogin(new SurlCommandLine { KeytabFile = file }, seams);
+            // A second call takes the compiler-cached File.ReadAllBytes delegate, the other branch of the fallback.
+            var again = SurlServerComposition.ComposeSocksGssApiLogin(new SurlCommandLine { KeytabFile = file }, seams);
+
+            Assert.IsNotNull(login);
+            Assert.IsNotNull(again);
+        }
+        finally
+        {
+            File.Delete(file);
+        }
+    }
+
+    [TestMethod]
+    public void ComposeSocksGssApiLogin_WithAKeytabThatYieldsNoAcceptor_IsNone()
+    {
+        var seams = new StartTestSeams().Seams with { ReadStartFile = _ => [0x00] };
+
+        var login = SurlServerComposition.ComposeSocksGssApiLogin(new SurlCommandLine { KeytabFile = "bad.keytab" }, seams);
+
+        Assert.IsNull(login);
+    }
+
     private static byte[] AesKeytab()
     {
         byte[] key = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16];
