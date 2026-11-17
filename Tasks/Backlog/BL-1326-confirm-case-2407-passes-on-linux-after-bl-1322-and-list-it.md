@@ -4,7 +4,7 @@ title: Confirm case 2407 passes on Linux after BL-1322 and list it as passing
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-1323, BL-1333]
+depends-on: [BL-1323, BL-1333, BL-1336]
 touches: [Documentation/Conformance]
 requirement: none
 created: 2026-11-16
@@ -26,6 +26,8 @@ BL-1323 found 2407's curl exit 6 ("Could not resolve host: -q") was runtests opt
 
 ## Notes
 
+- 2026-11-16: CI run 44009482486 (master 38930c7, contains 2df5bfc9f) still lists test2407 fail timeout on linux-x64; cause recorded by BL-1335, fix is BL-1336. Added BL-1336 to depends-on.
+
 ## Log
 
 - 2026-11-16: Created.
@@ -36,3 +38,4 @@ BL-1323 found 2407's curl exit 6 ("Could not resolve host: -q") was runtests opt
 - 2026-11-16: Backlog -> Doing.
 - 2026-11-16: Doing -> Backlog. CI run 44002670831 (contains 2df5bfc9f) lists test2407 fail timeout on linux-x64; cause is now BL-1333, retry after it
 - 2026-11-16: Backlog -> Doing.
+- 2026-11-16: Doing -> Backlog. CI run 44009482486 still lists test2407 fail timeout on linux-x64; waits on BL-1336
