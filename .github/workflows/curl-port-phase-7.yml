@@ -57,7 +57,10 @@ jobs:
           $command = $command -replace '\s-o\s+("[^"]*"|\S+)', ''
           "commit=$commit" >> $env:GITHUB_OUTPUT
           "command=$command" >> $env:GITHUB_OUTPUT
-          "expected=$(if ($own.Count -eq 1) { $own[0].sha256 } else { '' })" >> $env:GITHUB_OUTPUT
+          # A native-AOT publish is reproducible on one machine and path but not across them (ADR-0175),
+          # so an entry pinned on a developer machine may add ciSha256, the hash the CI runner produces.
+          $expected = if ($own.Count -ne 1) { '' } elseif ($own[0].ciSha256) { $own[0].ciSha256 } else { $own[0].sha256 }
+          "expected=$expected" >> $env:GITHUB_OUTPUT
           Write-Output "Building the Curl port at $commit for $env:PLATFORM: $command"
 
       - name: Check out the Curl port at the pinned commit

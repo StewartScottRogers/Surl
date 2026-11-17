@@ -5,6 +5,7 @@
       "platform": "win-x64",
       "path": "%LOCALAPPDATA%\\Surl\\curl-port\\74f3f45c47e86300b2b262dc1dacd43b508b09aa\\curl.exe",
       "sha256": "7F4ED0559C543A1E2C415C8EC2C4C458F1906A54910907D3546479A42ECFE467",
+      "ciSha256": "3E249136155B1594D42A1E64E853BA071175D95888079FBA23909E16A9FBFA3A",
       "commit": "74f3f45c47e86300b2b262dc1dacd43b508b09aa",
       "publishCommand": "dotnet publish Curl.Console -c Release -r win-x64 -o \"C:\\Users\\Stewart Rogers\\AppData\\Local\\Surl\\curl-port\\74f3f45c47e86300b2b262dc1dacd43b508b09aa\"",
       "published": "2026-11-16"

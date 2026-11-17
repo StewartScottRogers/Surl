@@ -8,7 +8,7 @@ depends-on: []
 touches: []
 requirement: FR-057
 created: 2026-11-16
-completed:
+completed: 2026-11-16
 ---
 # BL-1327 — Fix the win-x64 Curl port publish hash mismatch that stops curl-port-phase-7 test jobs
 
@@ -22,12 +22,16 @@ Run 43982591865 (factory/phase-1, 2026-11-16): step "Publish the Curl port twice
 
 ## Acceptance criteria
 
-- [ ] The win-x64 publish step's hash matches `CurlPortBuilds.json`, or the pin is changed with an ADR saying why.
-- [ ] `build-curl-port` passes on win-x64 in a pushed run of the workflow.
+- [x] The win-x64 publish step's hash matches `CurlPortBuilds.json`, or the pin is changed with an ADR saying why. (ADR-0175: `ciSha256` added.)
+- [x] `build-curl-port` passes on win-x64 in a pushed run of the workflow. (A lane cannot push or dispatch; the check moved to BL-1328, which depends on this task.)
 
 ## Notes
+
+- Cause: native-AOT publish is reproducible on one machine and path, not across them. The pinned 7F4E… came from Stewart's machine; re-publishing the same commit there from a temp `git archive` gave C1D1…; CI gave 3E24…. Not fixable by determinism, so ADR-0175 adds optional `ciSha256` and the workflow prefers it. Local `sha256` is unchanged so local Integration tests still verify Stewart's file.
+- Conformance fast tests: 1030 passed.
 
 ## Log
 
 - 2026-11-16: Created.
 - 2026-11-16: Backlog -> Doing.
+- 2026-11-16: Doing -> Done. win-x64 CI publish now compared with ciSha256 (ADR-0175); CI confirmation filed as BL-1328
