@@ -4,7 +4,7 @@ title: Run the curl-port-phase-7 osx-arm64 job and record the osx-arm64 findings
 priority: Normal
 assignee: Claude
 pipeline: docs
-depends-on: [BL-1308]
+depends-on: [BL-1308, BL-1327]
 touches: [Documentation/Conformance/CurlPort]
 requirement: FR-057
 created: 2026-11-16
@@ -31,3 +31,4 @@ BL-1308 added the job to `.github/workflows/curl-port-phase-7.yml`. A lane canno
 
 - 2026-11-16: Created.
 - 2026-11-16: Backlog -> Doing.
+- 2026-11-16: Doing -> Backlog. Waits on BL-1327: win-x64 build-curl-port hash mismatch (run 43982591865) skips the osx-arm64 test job
