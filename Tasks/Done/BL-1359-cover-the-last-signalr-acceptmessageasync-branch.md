@@ -5,10 +5,10 @@ priority: Normal
 assignee: Claude
 pipeline: direct
 depends-on: []
-touches: [Protocols/Http/Surl.Extended.Protocol.SignalR.UnitTests]
+touches: [Protocols/Http/Surl.Extended.Protocol.SignalR.UnitTests, Protocols/Http/Surl.Extended.Protocol.SignalR.UnitLibrary]
 requirement: none
 created: 2026-11-17
-completed:
+completed: 2026-11-17
 ---
 # BL-1359 — Cover the last SignalR AcceptMessageAsync branch
 
@@ -26,16 +26,18 @@ completed:
 
 ## Acceptance criteria
 
-- [ ] A named `Surl.Extended.Protocol.SignalR.UnitTests` test sends the hub message that takes the missing edge of the
+- [x] A named `Surl.Extended.Protocol.SignalR.UnitTests` test sends the hub message that takes the missing edge of the
       line 375 switch (identify it from the per-line Cobertura report) and asserts the session's answer.
-- [ ] `Measure-CodeQuality.ps1 -Library Surl.Extended.Protocol.SignalR.UnitLibrary` reports `100 | 100` with 0 failing
+- [x] `Measure-CodeQuality.ps1 -Library Surl.Extended.Protocol.SignalR.UnitLibrary` reports `100 | 100` with 0 failing
       members, and the fast tests are green.
 
 ## Notes
 
 - Tests only (test-writer). The method is at complexity 10, the gate; anything that adds a branch to it must split it.
+- Decision: the uncovered branch was the `case HubClose` type test falling to `default`, unreachable because the Ack/Sequence case caught the rest. Added the library to `touches`; `HubClose` is now the `default` and the Ack/Sequence null-reconnect error moved into its case (behaviour unchanged). Also added a Sequence (type 9) row to the no-reconnect protocol-error test.
 
 ## Log
 
 - 2026-11-17: Created.
 - 2026-11-17: Backlog -> Doing.
+- 2026-11-17: Doing -> Done. SignalR AcceptMessageAsync at 100% branch
