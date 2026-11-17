@@ -8,7 +8,7 @@ depends-on: []
 touches: [Protocols/Http/Surl.Extended.Protocol.WebTransport.UnitLibrary, Protocols/Http/Surl.Extended.Protocol.WebTransport.UnitTests]
 requirement: none
 created: 2026-11-17
-completed:
+completed: 2026-11-17
 ---
 # BL-1360 — Cover WebTransport RefuseAsync and the datagram echo loop
 
@@ -29,12 +29,12 @@ completed:
 
 ## Acceptance criteria
 
-- [ ] `WebTransportConnectAuthentication.RefuseAsync` is either removed as dead (no caller in production or tests after
+- [x] `WebTransportConnectAuthentication.RefuseAsync` is either removed as dead (no caller in production or tests after
       BL-1242; `dotnet build` stays clean) or covered by a named test asserting it returns `JudgeAsync`'s refusal. The
       Notes say which, and why.
-- [ ] A named `Surl.Extended.Protocol.WebTransport.UnitTests` test echoes at least two datagrams on one session and
+- [x] A named `Surl.Extended.Protocol.WebTransport.UnitTests` test echoes at least two datagrams on one session and
       asserts both come back in order, so line 166 runs.
-- [ ] `Measure-CodeQuality.ps1 -Library Surl.Extended.Protocol.WebTransport.UnitLibrary` reports `100 | 100` with 0
+- [x] `Measure-CodeQuality.ps1 -Library Surl.Extended.Protocol.WebTransport.UnitLibrary` reports `100 | 100` with 0
       failing members, and the fast tests are green.
 
 ## Notes
@@ -55,3 +55,4 @@ completed:
   `SuppressThrowing` (its non-OCE failures were already caught inside). Touches stayed in the two projects.
 - Added `ServeAsync_TwoHttpDatagrams_AreBothEchoedInOrder` and `TakeNextAsync_CancelledWhileEmpty_ReturnsNull`.
   Measure-CodeQuality: 100 | 100, 0 failing; fast tests for the project green (245).
+- 2026-11-17: Doing -> Done. Coverage 100/100: dead RefuseAsync removed, echo loop restructured, tests added
