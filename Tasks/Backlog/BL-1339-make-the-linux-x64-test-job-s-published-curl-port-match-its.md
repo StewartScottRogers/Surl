@@ -31,3 +31,4 @@ BL-1307 found that run 44012635963 published `048AAEE0...` in the test job again
 
 - 2026-11-16: Created.
 - 2026-11-16: Backlog -> Doing.
+- 2026-11-16: Doing -> Backlog. Needs the reordered workflow commit f2d931f68 pushed by the shift before curl-port-phase-7 can be dispatched; a lane may not push
