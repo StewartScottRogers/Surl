@@ -31,3 +31,4 @@ BL-1335 read the `test2407` block of `upstream-test-case-timeout-output.linux-x6
 ## Log
 
 - 2026-11-16: Created.
+- 2026-11-16: Backlog -> Doing.
