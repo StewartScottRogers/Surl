@@ -30,3 +30,4 @@ BL-1340 added the `SURL_CURL_PORT_CI_SHA256` acceptance (ADR-0175 Amendment 3) b
 ## Log
 
 - 2026-11-16: Created.
+- 2026-11-16: Backlog -> Doing.
