@@ -41,7 +41,9 @@ BL-1317 (2026-11-16) moved Linux to commit `6023b4b3` from [CI run 43979679184](
 
 BL-1321 (2026-11-16) made the gateway's forwarded request carry the `Via` nghttpx writes (`2 nghttpx` for HTTP/2, `3 nghttpx` for HTTP/3, the case 2401 and 2501 `<protocol>` bytes) and dropped `X-Forwarded-Proto` from the HTTP/3 request (case 2501 shows none). 2401 and 2501 are in the `linux-x64` passing list from the unit tests that replay those bytes; the Linux row counts them as passing (1,322 of 1,326) until the next CI run measures them.
 
-BL-1325 (2026-11-16) moved Linux to commit `0cd51f95` from [CI run 44002670831](https://github.com/StewartScottRogers/Surl/actions/runs/44002670831), the first Linux run with the BL-1322 fix (`2df5bfc9f`): 2402, 2404 and 2502 now pass and are in `upstream-test-cases-passing.linux-x64.txt` (1,325 passed). Only 2407 (curl exit 6, BL-1323) still fails on Linux.
+BL-1325 (2026-11-16) moved Linux to commit `0cd51f95` from [CI run 44002670831](https://github.com/StewartScottRogers/Surl/actions/runs/44002670831), the first Linux run with the BL-1322 fix (`2df5bfc9f`): 2402, 2404 and 2502 now pass and are in `upstream-test-cases-passing.linux-x64.txt` (1,325 passed). Only 2407 still fails on Linux, and it no longer has curl exit 6 (BL-1323): the run records `test2407 fail timeout`.
+
+BL-1333 (2026-11-16) looked for the cause of that timeout. Case 2407 runs `lib2405` (`curl_multi_waitfds` over HTTP/2) and the runner stops it at its timeout, but the results artifact keeps only the verdict, not the stdout and stderr the client wrote before it was stopped, so the cause is not yet known and is not known to be a Surl defect. BL-1334 makes the artifact carry that output, reads it, and records the cause here.
 
 [ADR-0173](../Planning/Decisions/ADR-0173-a-debug-upstream-curl-8-21-0-build-from-source-for-the-http-2-and-http-3-test-cases-that-need-one.md)
 (BL-1312) is why `debug-build` falls from 50 to 44 on `linux-x64`: the Linux job builds a Debug curl

@@ -4,7 +4,7 @@ title: Find why case 2407 times out on Linux after BL-1322
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: []
+depends-on: [BL-1334]
 touches: [Documentation/Conformance]
 requirement: none
 created: 2026-11-16
@@ -26,5 +26,8 @@ BL-1326 found that CI run 44002670831 (commit 0cd51f95a, contains BL-1322's 2df5
 
 ## Notes
 
+The artifact holds only `test2407 fail timeout`; no libtest output survives, and lanes run on Windows where the case is skipped, so the cause cannot be read or reproduced here. Recorded that in the family file and filed BL-1334 to capture the output on a timeout and then determine the cause (the criterion's "cause recorded" is deferred there).
+
 ## Log
 - 2026-11-16: Backlog -> Doing.
+- 2026-11-16: Doing -> Backlog. Cause unreadable: the artifact keeps no libtest output; waits on BL-1334, which records it
