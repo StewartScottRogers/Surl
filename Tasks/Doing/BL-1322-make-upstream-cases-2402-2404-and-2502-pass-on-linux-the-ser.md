@@ -30,3 +30,4 @@ Each fails protocol: the server half recorded nothing, curl exit 0. Split from B
 ## Log
 
 - 2026-11-16: Created.
+- 2026-11-16: Backlog -> Doing.
