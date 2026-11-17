@@ -91,6 +91,21 @@ public sealed class NatsFaultTests
     }
 
     [TestMethod]
+    [DataRow(FaultKind.RefuseLogin)]
+    [DataRow(FaultKind.OutOfSpace)]
+    public async Task ServeAsync_ARuleOfAKindThatIsNotAnError_IsNotedAndNotApplied(FaultKind kind)
+    {
+        var events = new RecordingSurlEventPublisher();
+        var plan = new ScriptedFaultPlan(new FaultRule("f1", kind) { Command = "SUB", Reply = "busy now" });
+
+        var (answers, log) = await ServeAsync(plan, events, AliceConnect, "SUB foo 1\r\nPUB foo 1\r\na\r\nPING\r\n");
+
+        Assert.AreEqual("MSG foo 1 1\r\na\r\nPONG\r\n", answers);
+        Assert.IsEmpty(events.Events);
+        CollectionAssert.Contains(log.Notes.ToArray(), "SUB foo: fault rule f1 is not an error with -ERR text; not applied.");
+    }
+
+    [TestMethod]
     public async Task ServeAsync_ADelayRuleForPub_HoldsItThenDeliversAsUsual()
     {
         var events = new RecordingSurlEventPublisher();

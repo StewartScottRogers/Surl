@@ -8,7 +8,7 @@ depends-on: []
 touches: [Protocols/Messaging/Surl.Extended.Protocol.Nats.UnitTests]
 requirement: none
 created: 2026-11-17
-completed:
+completed: 2026-11-17
 ---
 # BL-1358 — Cover the NATS fault rule that is not an error reply
 
@@ -26,17 +26,18 @@ completed:
 
 ## Acceptance criteria
 
-- [ ] Named `Surl.Extended.Protocol.Nats.UnitTests` tests reach line 46 with an `error` rule whose reply is not an
+- [x] Named `Surl.Extended.Protocol.Nats.UnitTests` tests reach line 46 with an `error` rule whose reply is not an
       `-ERR` text and with a rule of another kind that is not handled before line 46, asserting each is logged as not
       applied and the command is answered normally.
-- [ ] `Measure-CodeQuality.ps1 -Library Surl.Extended.Protocol.Nats.UnitLibrary` reports `100 | 100` with 0 failing
+- [x] `Measure-CodeQuality.ps1 -Library Surl.Extended.Protocol.Nats.UnitLibrary` reports `100 | 100` with 0 failing
       members, and the fast tests are green.
 
 ## Notes
 
-- Tests only (test-writer).
+- Tests only. Added NatsFaultTests.ServeAsync_ARuleOfAKindThatIsNotAnError_IsNotedAndNotApplied (RefuseLogin, OutOfSpace); the error-with-bad-reply case already existed.
 
 ## Log
 
 - 2026-11-17: Created.
 - 2026-11-17: Backlog -> Doing.
+- 2026-11-17: Doing -> Done. NATS fault rule of a non-error kind now covered; Nats library at 100/100 with 0 failing members
