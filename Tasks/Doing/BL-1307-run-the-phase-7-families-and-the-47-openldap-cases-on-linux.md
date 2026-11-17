@@ -36,3 +36,4 @@ ADR-0089 decision 8 and Amendment 8. Adds the test step to the workflow of BL-13
 - 2026-11-16: Backlog -> Doing.
 - 2026-11-16: Doing -> Blocked. Stewart: the linux-x64 job is committed; once it is pushed, dispatch curl-port-phase-7 (gh workflow run) and say when it completes so the linux-x64 sections can be written.
 - 2026-11-16: Blocked -> Backlog. Unblocked: curl-port-phase-7 dispatched on factory/phase-1 (run 44012635963) completed successfully, linux-x64 and osx-arm64 jobs included; read its artifacts.
+- 2026-11-16: Backlog -> Doing.
