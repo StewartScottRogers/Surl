@@ -14,7 +14,7 @@ the upstream documentation or specification that says what is right, so the port
 it without re-deriving it.
 
 **What this file holds.** One entry per finding in the Phase 7 findings files
-([summary](README.md)): 23 entries, the 14 of the family files, the 3 of `Upstream-Test-Cases.md` and
+([summary](README.md)): 24 entries, the 14 of the family files, the 4 of `Upstream-Test-Cases.md` and
 the 6 of [`Extended.md`](Extended.md), the extended clients. Each entry is in the port's task shape (its `.claude/skills/task-board/TASK-TEMPLATE.md`): front matter fields, then `Goal`,
 `Context` and `Acceptance criteria`.
 
@@ -58,6 +58,7 @@ Each entry names its own Surl commit, Surl test and the findings file that holds
 | 21 | Map MQTT 5 CONNACK 0x86 to exit 67 in the mqtt5 client | Extended clients | 1 |
 | 22 | Publish or fail a -T upload to amqp:// | Extended clients | 1 |
 | 23 | Allow auto topic creation in the kafka client's Metadata request | Extended clients | 1 |
+| 24 | Finish an active-mode FTP listing with -P when the server answers slowly | Upstream test cases | 1 |
 
 ---
 
@@ -840,3 +841,48 @@ that allows creation makes the topic instead of answering `UNKNOWN_TOPIC_OR_PART
 ### Acceptance criteria
 
 - [ ] A port test producing to an undeclared topic on a broker that auto-creates succeeds.
+
+---
+
+## 24. Finish an active-mode FTP listing with -P when the server answers slowly
+
+*New at port commit `74f3f45`.*
+
+- **title:** Finish an active-mode FTP listing with -P when the server answers slowly
+- **priority:** Normal · **assignee:** Claude · **pipeline:** feature · **depends-on:** [] ·
+  **requirement:** none · **id**, **touches:** left to the port's planner
+
+### Goal
+
+`curl ftp://<host>/ -P <address>` against a server that answers slowly sends `PWD`, `PORT`, `TYPE A`,
+`LIST`, `QUIT`, completes the listing and exits 0, as upstream curl 8.21.0 does, so upstream test case 251
+passes with the port.
+
+### Context
+
+- **Finding:** Surl `Documentation/Conformance/CurlPort/Upstream-Test-Cases.md`, UTC-4.
+- **Case (1):** `test251` "FTP dir list, PORT with specified IP and slow response" (upstream tag
+  `curl-8_21_0`), played by `CurlPortBesideUpstreamCurlOverUpstreamTestCasesTests`.
+- **Command line:** `curl ftp://127.0.0.1:<port>/ -P 127.0.0.1` against the case's FTP server half with
+  `SLOWDOWN`.
+- **Upstream build:** reference build, SHA-256 `0E773709…8778`.
+- **Upstream result:** logs in, sends `PWD`, `PORT`, `TYPE A`, `LIST`, `QUIT` and exits 0; the
+  `<protocol>` section (with the `PORT` line stripped) passes.
+- **Port result:** did not finish; the run was stopped after the case's 60-second limit with no section
+  judged, on all three runs of the shift.
+- **What decides:** RFC 959 section 3.2 (`PORT`); the case's `<protocol>` section pins the command order
+  and that the transfer completes.
+
+### Acceptance criteria
+
+- [ ] Upstream test case 251 passes with the port in its own upstream-case runner.
+
+---
+
+## What the new commit fixed
+
+Port commit `74f3f45` (Amendment 8 of ADR-0089) replaced `b42c319`. Re-measured on `win-x64`, it **fixed
+none** of the 23 earlier findings (each listed case still shows its defect) and **added one**, entry 24.
+The `linux-x64` run 44044472038 and the `osx-arm64` run 44000208980 record no new finding: osx-arm64
+compared nothing, and linux-x64's failing cases await triage by BL-1343, whose findings go into this file
+as further entries.
