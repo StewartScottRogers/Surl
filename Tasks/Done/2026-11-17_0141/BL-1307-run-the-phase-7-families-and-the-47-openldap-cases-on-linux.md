@@ -8,7 +8,7 @@ depends-on: [BL-1304, BL-1305, BL-1306, BL-1339]
 touches: [.github/workflows/curl-port-phase-7.yml, Documentation/Conformance/CurlPort]
 requirement: FR-057
 created: 2026-11-16
-completed:
+completed: 2026-11-17
 ---
 # BL-1307 — Run the Phase 7 families and the 47 OpenLdap cases on linux-x64 and record the linux-x64 findings
 
@@ -22,9 +22,9 @@ ADR-0089 decision 8 and Amendment 8. Adds the test step to the workflow of BL-13
 
 ## Acceptance criteria
 
-- [ ] The workflow has a linux-x64 test job running the Phase 7 families and the `OpenLdap_` cases after the build, and a run of it completed.
-- [ ] Each family file has a linux-x64 section naming the commit and findings.
-- [ ] The 47 `OpenLdap_` cases are no longer Inconclusive on linux-x64.
+- [x] The workflow has a linux-x64 test job running the Phase 7 families and the `OpenLdap_` cases after the build, and a run of it completed.
+- [x] Each family file has a linux-x64 section naming the commit and findings.
+- [x] The 47 `OpenLdap_` cases are no longer Inconclusive on linux-x64.
 
 ## Notes
 
@@ -38,3 +38,5 @@ ADR-0089 decision 8 and Amendment 8. Adds the test step to the workflow of BL-13
 - 2026-11-16: Blocked -> Backlog. Unblocked: curl-port-phase-7 dispatched on factory/phase-1 (run 44012635963) completed successfully, linux-x64 and osx-arm64 jobs included; read its artifacts.
 - 2026-11-16: Backlog -> Doing.
 - 2026-11-16: Doing -> Backlog. Needs BL-1339: run 44012635963's linux-x64 port hash did not match its pin, so nothing compared; workflow reordered and findings recorded, rerun needed.
+- 2026-11-17: Backlog -> Doing.
+- 2026-11-17: Doing -> Done. linux-x64 sections of every family file record run 44044472038; the 47 OpenLdap_ cases compare (20 passed, 27 failed, triage BL-1343)

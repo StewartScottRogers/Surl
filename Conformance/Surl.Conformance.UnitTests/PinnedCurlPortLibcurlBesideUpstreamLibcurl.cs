@@ -40,7 +40,7 @@ internal static class PinnedCurlPortLibcurlBesideUpstreamLibcurl
             Assert.Inconclusive(upstreamLibrary.Message);
         }
 
-        var portLibrary = new CurlPortClientLocator(files).LocateLibrary(portPins, upstreamPins, UpstreamCurlLocator.CurrentPlatform);
+        var portLibrary = new CurlPortClientLocator(files).LocateLibrary(portPins, upstreamPins, UpstreamCurlLocator.CurrentPlatform, PinnedCurlPortClientOnThisMachine.CiAcceptedSha256);
         if (portLibrary.Client is null)
         {
             Assert.Inconclusive(portLibrary.Message);

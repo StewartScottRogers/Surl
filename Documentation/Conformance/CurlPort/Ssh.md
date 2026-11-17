@@ -1,5 +1,7 @@
 # Phase 7 findings: SCP and SFTP
 
+Run [44044472038](https://github.com/StewartScottRogers/Surl/actions/runs/44044472038) of `curl-port-phase-7` (2026-11-17, `factory/phase-1` at Surl commit `a5337bdf7e6d54fa3337c51008d5c66b814355e2`, BL-1339) is the current linux-x64 outcome and supersedes the run below. Nothing threw `UnpinnedCurlPortClientException`: the test job accepted the hash its own build job reproduced (BL-1340, BL-1339), so cases compared pinned upstream curl with the Curl port. This family: 67 passed, 5 failed, 7 not executed. A failing case is a real difference not yet listed in a family findings table; each is follow-up work, not a CI finding.
+
 What `CurlPortBesideUpstreamCurlOverSshTests` in `Conformance/Surl.Conformance.UnitTests` found when it
 ran every SCP and SFTP conversation of `UpstreamCurlTransfersFilesWithSurlOverScpTests`,
 `UpstreamCurlTransfersFilesWithSurlOverSftpTests`, `UpstreamCurlLogsInToSurlOverSshTests`,
@@ -56,10 +58,36 @@ port defect, and an unlisted case must agree. A data-driven case is named `Metho
 | Phase 7 test | Mirrors | Finding |
 | --- | --- | --- |
 | `KexInit_OpenSslWindowsBuild_ListsTheOpenSslAlgorithms` | `UpstreamCurlOffersSshAlgorithmsTests.KexInit_OpenSslWindowsBuild_ListsTheOpenSslAlgorithms` | [SSH-1](#ssh-1-the-port-offers-only-the-wincng-backends-ssh-algorithms) |
+
+### Findings (win-x64)
+
+SSH-1 shows on Windows only for these four cases: the linux-x64 port build agrees with upstream curl on them
+(run 44044472038, BL-1343). A heading that names a platform in parentheses applies on that platform alone.
+
+| Phase 7 test | Mirrors | Finding |
+| --- | --- | --- |
 | `Download_CipherOnlySurlOffers_AgreesItAndWritesTheFile[blowfish-cbc]` | `UpstreamCurlAgreesWeakSshAlgorithmsWithSurlTests.Download_CipherOnlySurlOffers_AgreesItAndWritesTheFile` | [SSH-1](#ssh-1-the-port-offers-only-the-wincng-backends-ssh-algorithms) |
 | `Download_CipherOnlySurlOffers_AgreesItAndWritesTheFile[cast128-cbc]` | `UpstreamCurlAgreesWeakSshAlgorithmsWithSurlTests.Download_CipherOnlySurlOffers_AgreesItAndWritesTheFile` | [SSH-1](#ssh-1-the-port-offers-only-the-wincng-backends-ssh-algorithms) |
 | `Download_MacOnlySurlOffers_AgreesItAndWritesTheFile[hmac-ripemd160]` | `UpstreamCurlAgreesWeakSshAlgorithmsWithSurlTests.Download_MacOnlySurlOffers_AgreesItAndWritesTheFile` | [SSH-1](#ssh-1-the-port-offers-only-the-wincng-backends-ssh-algorithms) |
 | `Download_MacOnlySurlOffers_AgreesItAndWritesTheFile[hmac-ripemd160@openssh.com]` | `UpstreamCurlAgreesWeakSshAlgorithmsWithSurlTests.Download_MacOnlySurlOffers_AgreesItAndWritesTheFile` | [SSH-1](#ssh-1-the-port-offers-only-the-wincng-backends-ssh-algorithms) |
+
+### Findings (linux-x64)
+
+Run 44044472038 (BL-1343), classified from its `phase-7-linux-x64-results` artifact. Upstream curl is the
+linux-x64 build pinned in `UpstreamCurlBuilds.json`.
+
+| Phase 7 test | Mirrors | Finding |
+| --- | --- | --- |
+| `Login_PublicKey_DownloadsTheFile[scp]` | `UpstreamCurlLogsInToSurlOverSshTests.Login_PublicKey_DownloadsTheFile` | [SSH-2](#ssh-2-the-port-ends-an-scp-public-key-download-differently-on-linux-x64) |
+
+### SSH-2: the port ends an scp public-key download differently on linux-x64
+
+- **Case:** `Login_PublicKey_DownloadsTheFile[scp]`; command line `curl -sS --hostpubsha256 <surl's ssh-rsa SHA-256> -u tester: --key id_test --pubkey id_test.pub {surl}/a.txt`.
+- **Measured:** both clients exit 0 and write `hello world`. The only difference is `surl`'s `-v` note on line 11:
+  upstream curl's run has `SSH channel 0 handler failed: The SSH channel was closed before the data was sent.`
+  (upstream curl closes the channel as soon as it has the file), the port's run has no such note.
+- **Classification:** port defect, in how the port ends an scp channel (notes only; no output or exit code
+  difference).
 
 ### SSH-1: the port offers only the WinCNG backend's SSH algorithms
 
@@ -117,19 +145,14 @@ Findings:
 
 ## linux-x64
 
-Run [44012635963](https://github.com/StewartScottRogers/Surl/actions/runs/44012635963) of `curl-port-phase-7`
-(2026-11-17, `factory/phase-1` at Surl commit `a6a289ce2e2d9691c1dd46894f92002bd84ce249`, Curl port commit
-`74f3f45c47e86300b2b262dc1dacd43b508b09aa`) completed; its `Phase 7 families and OpenLdap_ cases (linux-x64)` job
-ran green because the test step is `continue-on-error` (BL-1307). Its `phase-7-linux-x64-results` artifact holds 489
-results for all Phase 7 test classes: 1 passed, 441 failed, 47 not executed.
+Run [44044472038](https://github.com/StewartScottRogers/Surl/actions/runs/44044472038) of `curl-port-phase-7`
+(2026-11-17, `factory/phase-1` at Surl commit `a5337bdf7e6d54fa3337c51008d5c66b814355e2`, BL-1339, BL-1307) completed.
+Its `Phase 7 families and OpenLdap_ cases (linux-x64)` job runs `continue-on-error`, so findings gate nothing.
 
 Findings:
 
-- **Nothing was compared.** All 441 failures are the same `UnpinnedCurlPortClientException`: the port published in the
-  test job hashed `048AAEE01EAD37D136AF842303E8C90438B1E193DEDC0654F3CFCA4A1E555364`, but `CurlPortBuilds.json` pins
-  `DF507F32E8B3E5F0444F89544A62C18C4CFA96C838AF8C98D74B9B044F8CF57A`, which the `Build the Curl port (linux-x64)` job of
-  the same run reproduced twice. The port was published before any case ran, so the difference comes from the test
-  job, not from the port. It is a CI finding, not a port defect and not a Surl defect.
-- **Not executed:** 23 Windows-only, 2 macOS-only, and 15 `Assert.Inconclusive` ("pins no supplementary upstream curl
-  build for linux-x64") cases, plus the Kerberos/GSSAPI cases.
-- **No port defect and no Surl defect is recorded for linux-x64.** The family's findings table is unchanged.
+- **Cases compared.** The test job accepted the Curl port hash its own build job reproduced, so no
+  `UnpinnedCurlPortClientException` was thrown (it replaces run 44012635963, where nothing compared).
+- **This family:** 67 passed, 5 failed, 7 not executed.
+- **Triaged by BL-1343.** Of the 5 failures, four were SSH-1 cases that do not show on linux-x64 (now in a
+  win-x64-only table) and one is a new linux-x64 port defect (SSH-2).

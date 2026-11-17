@@ -60,9 +60,40 @@ internal static class CurlPortFindingsFile
     /// Gets the first cell of every table row whose first cell is a name in backticks.
     /// </summary>
     internal static IReadOnlySet<string> ListedCaseNames(IEnumerable<string> lines) =>
-        lines
+        LinesForPlatform(lines, ThisPlatform())
             .Select(line => line.Trim())
             .Where(line => line.StartsWith("| `", StringComparison.Ordinal))
             .Select(line => line[3..line.IndexOf('`', 3)])
             .ToHashSet(StringComparer.Ordinal);
+
+    /// <summary>
+    /// Gets the runtime identifier a findings table's heading names for the machine running the tests.
+    /// </summary>
+    internal static string ThisPlatform() =>
+        OperatingSystem.IsWindows() ? "win-x64" : OperatingSystem.IsMacOS() ? "osx-arm64" : "linux-x64";
+
+    /// <summary>
+    /// Drops the lines under a heading that names another platform in parentheses, for example
+    /// <c>### Findings (linux-x64)</c>. A table under a heading that names none applies on every platform:
+    /// a port defect can show on one platform and not on another, and a platform's table lists only its own.
+    /// </summary>
+    internal static IEnumerable<string> LinesForPlatform(IEnumerable<string> lines, string platform)
+    {
+        var applies = true;
+        foreach (var line in lines)
+        {
+            if (line.StartsWith('#'))
+            {
+                var open = line.LastIndexOf('(');
+                var named = open >= 0 && line.EndsWith(')') ? line[(open + 1)..^1] : null;
+                var namesAPlatform = named is "win-x64" or "osx-arm64" or "linux-x64";
+                applies = !namesAPlatform || named == platform;
+            }
+
+            if (applies)
+            {
+                yield return line;
+            }
+        }
+    }
 }

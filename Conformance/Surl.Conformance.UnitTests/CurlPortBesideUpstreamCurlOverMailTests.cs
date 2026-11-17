@@ -1203,7 +1203,7 @@ public sealed class CurlPortBesideUpstreamCurlOverMailTests
         }
 
         var portRunner = PinnedCurlPortClientOnThisMachine.RunnerFor(
-            new CurlPortClientLocator(files).Locate(portPins, upstreamPins, UpstreamCurlLocator.CurrentPlatform));
+            new CurlPortClientLocator(files).Locate(portPins, upstreamPins, UpstreamCurlLocator.CurrentPlatform, PinnedCurlPortClientOnThisMachine.CiAcceptedSha256));
         var upstreamRunner = new UpstreamCurlRunner(upstreamLocation, ClientTimeout, TimeProvider.System);
         var listedFindings = await ReadListedFindingsAsync(root, cancellationToken);
 
@@ -1479,10 +1479,7 @@ public sealed class CurlPortBesideUpstreamCurlOverMailTests
     private static async Task<IReadOnlySet<string>> ReadListedFindingsAsync(string root, CancellationToken cancellationToken)
     {
         var lines = await File.ReadAllLinesAsync(Path.Combine(root, FindingsFile), cancellationToken);
-        return lines
-            .Where(line => line.StartsWith("| `", StringComparison.Ordinal))
-            .Select(line => line.Split('|')[1].Trim().Trim('`'))
-            .ToHashSet(StringComparer.Ordinal);
+        return CurlPortFindingsFile.ListedCaseNames(lines);
     }
 
     private static async Task<string> SurlCommitAsync(string root, CancellationToken cancellationToken)

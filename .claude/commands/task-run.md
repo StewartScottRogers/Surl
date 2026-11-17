@@ -44,6 +44,13 @@ A task never stays in `Doing` when you finish. It ends in one of these:
   `$TB move -Id <ID> -To Blocked -Reason "<what blocks it, and who can clear it>"`.
   If the blocker is itself work, have `task-planner` file it first, then add its ID to
   this task's `depends-on`.
+- **Needs a CI run only.** A result you cannot produce on Windows (curl-port-phase-7,
+  ci.yml with attempts=2) is never a reason to block for Stewart. Dispatch it yourself on
+  the shift branch, never master:
+  `.claude/skills/task-board/dispatch-workflow.ps1 -Id <ID> -Workflow <name> -Ref <shift branch> [-WorkflowInput name=value]`,
+  then `$TB move -Id <ID> -To Blocked -Reason "Waiting for run:<id> (<workflow>)"` with no
+  mention of Stewart. The shift moves the task back to Backlog when the run completes,
+  with its conclusion in the Log.
 - **Follow-up work found** (an option still unimplemented, an edge case set aside):
   have `task-planner` file it as new tasks. Never widen the current task to absorb it.
 

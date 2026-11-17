@@ -1,5 +1,7 @@
 # Phase 7 findings: FTP and FTPS
 
+Run [44044472038](https://github.com/StewartScottRogers/Surl/actions/runs/44044472038) of `curl-port-phase-7` (2026-11-17, `factory/phase-1` at Surl commit `a5337bdf7e6d54fa3337c51008d5c66b814355e2`, BL-1339) is the current linux-x64 outcome and supersedes the run below. Nothing threw `UnpinnedCurlPortClientException`: the test job accepted the hash its own build job reproduced (BL-1340, BL-1339), so cases compared pinned upstream curl with the Curl port. This family: 39 passed, 4 failed, 3 not executed. A failing case is a real difference not yet listed in a family findings table; each is follow-up work, not a CI finding.
+
 What `CurlPortBesideUpstreamCurlOverFtpTests` in `Conformance/Surl.Conformance.UnitTests` found when it
 ran every FTP and FTPS conversation of `UpstreamCurlFetchesFromSurlOverFtpTests`,
 `UpstreamCurlLogsInToSurlOverFtpTests` and `UpstreamCurlUploadsToSurlOverFtpTests` through pinned
@@ -37,7 +39,27 @@ port defect, and an unlisted case must agree. A data-driven case is named `Metho
 | Phase 7 test | Mirrors | Finding |
 | --- | --- | --- |
 
-None: the Curl port agrees with upstream curl on every FTP and FTPS case.
+None: the Curl port agrees with upstream curl on every FTP and FTPS case on Windows.
+
+### Findings (linux-x64)
+
+Run [44044472038](https://github.com/StewartScottRogers/Surl/actions/runs/44044472038) (BL-1343): four TLS cases
+showed one port defect on linux-x64 and are listed for linux-x64 only (a heading that names a platform in
+parentheses applies on that platform alone).
+
+| Phase 7 test | Mirrors | Finding |
+| --- | --- | --- |
+| `Download_AccountOverImplicitFtps_WritesTheFile` | `UpstreamCurlLogsInToSurlOverFtpTests.Download_AccountOverImplicitFtps_WritesTheFile` | [FTP-1](#ftp-1-upstream-curls-tls-session-ends-with-a-broken-pipe-the-ports-does-not) |
+| `Download_AccountOverExplicitTls_WritesTheFile[--ssl-reqd]` | `UpstreamCurlLogsInToSurlOverFtpTests.Download_AccountOverExplicitTls_WritesTheFile` | [FTP-1](#ftp-1-upstream-curls-tls-session-ends-with-a-broken-pipe-the-ports-does-not) |
+| `Download_AccountOverExplicitTls_WritesTheFile[--ssl-reqd --ftp-ssl-ccc]` | `UpstreamCurlLogsInToSurlOverFtpTests.Download_AccountOverExplicitTls_WritesTheFile` | [FTP-1](#ftp-1-upstream-curls-tls-session-ends-with-a-broken-pipe-the-ports-does-not) |
+| `Download_AccountOverExplicitTls_WritesTheFile[--ftp-ssl-control]` | `UpstreamCurlLogsInToSurlOverFtpTests.Download_AccountOverExplicitTls_WritesTheFile` | [FTP-1](#ftp-1-upstream-curls-tls-session-ends-with-a-broken-pipe-the-ports-does-not) |
+
+#### FTP-1: upstream curl's TLS session ends with a broken pipe, the port's does not
+
+- **Measured:** exit code, standard output and the stored file agree. The only difference is `surl`'s `-v` note on
+  line 3: upstream curl's run has `Exchange 1 ended because the protocol server threw IOException: Unable to write
+  data to the transport connection: Broken pipe.`, the port's run has no such note (the same finding as Mail's M-1).
+- **Classification:** port defect, in how the port ends a TLS session after the exchange (notes only).
 
 ## osx-arm64
 
@@ -60,19 +82,13 @@ Findings:
 
 ## linux-x64
 
-Run [44012635963](https://github.com/StewartScottRogers/Surl/actions/runs/44012635963) of `curl-port-phase-7`
-(2026-11-17, `factory/phase-1` at Surl commit `a6a289ce2e2d9691c1dd46894f92002bd84ce249`, Curl port commit
-`74f3f45c47e86300b2b262dc1dacd43b508b09aa`) completed; its `Phase 7 families and OpenLdap_ cases (linux-x64)` job
-ran green because the test step is `continue-on-error` (BL-1307). Its `phase-7-linux-x64-results` artifact holds 489
-results for all Phase 7 test classes: 1 passed, 441 failed, 47 not executed.
+Run [44044472038](https://github.com/StewartScottRogers/Surl/actions/runs/44044472038) of `curl-port-phase-7`
+(2026-11-17, `factory/phase-1` at Surl commit `a5337bdf7e6d54fa3337c51008d5c66b814355e2`, BL-1339, BL-1307) completed.
+Its `Phase 7 families and OpenLdap_ cases (linux-x64)` job runs `continue-on-error`, so findings gate nothing.
 
 Findings:
 
-- **Nothing was compared.** All 441 failures are the same `UnpinnedCurlPortClientException`: the port published in the
-  test job hashed `048AAEE01EAD37D136AF842303E8C90438B1E193DEDC0654F3CFCA4A1E555364`, but `CurlPortBuilds.json` pins
-  `DF507F32E8B3E5F0444F89544A62C18C4CFA96C838AF8C98D74B9B044F8CF57A`, which the `Build the Curl port (linux-x64)` job of
-  the same run reproduced twice. The port was published before any case ran, so the difference comes from the test
-  job, not from the port. It is a CI finding, not a port defect and not a Surl defect.
-- **Not executed:** 23 Windows-only, 2 macOS-only, and 15 `Assert.Inconclusive` ("pins no supplementary upstream curl
-  build for linux-x64") cases, plus the Kerberos/GSSAPI cases.
-- **No port defect and no Surl defect is recorded for linux-x64.** The family's findings table is unchanged.
+- **Cases compared.** The test job accepted the Curl port hash its own build job reproduced, so no
+  `UnpinnedCurlPortClientException` was thrown (it replaces run 44012635963, where nothing compared).
+- **This family:** 39 passed, 4 failed, 3 not executed.
+- **Triaged by BL-1343.** The 4 failures are listed under "Findings (linux-x64)" above: one port defect (FTP-1).

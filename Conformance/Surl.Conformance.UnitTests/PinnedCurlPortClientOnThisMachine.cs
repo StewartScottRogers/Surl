@@ -12,6 +12,9 @@ internal static class PinnedCurlPortClientOnThisMachine
     /// <summary>The variable a CI workflow sets to the hash its build job reproduced, honoured for a <c>ciHashStable: false</c> pin only (ADR-0175 Amendment 3).</summary>
     internal const string CiAcceptedSha256Variable = "SURL_CURL_PORT_CI_SHA256";
 
+    /// <summary>Gets the hash the CI workflow named for the file its build job reproduced, or <see langword="null"/> outside CI.</summary>
+    internal static string? CiAcceptedSha256 => Environment.GetEnvironmentVariable(CiAcceptedSha256Variable);
+
     private static readonly IReadOnlyDictionary<string, string> NoEnvironmentChanges = new Dictionary<string, string>();
 
     /// <summary>
@@ -50,6 +53,6 @@ internal static class PinnedCurlPortClientOnThisMachine
             await File.ReadAllTextAsync(Path.Combine(root, UpstreamCurlBuildPins.FileName), testContext.CancellationToken));
 
         return new CurlPortClientLocator(new FileSystemUpstreamCurlFileAccess())
-            .Locate(pins, upstreamPins, UpstreamCurlLocator.CurrentPlatform, Environment.GetEnvironmentVariable(CiAcceptedSha256Variable));
+            .Locate(pins, upstreamPins, UpstreamCurlLocator.CurrentPlatform, CiAcceptedSha256);
     }
 }

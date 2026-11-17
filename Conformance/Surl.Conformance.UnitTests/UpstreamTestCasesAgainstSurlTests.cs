@@ -213,7 +213,7 @@ public sealed class UpstreamTestCasesAgainstSurlTests
     /// cannot play the cases that skip <c>debug-build</c>, and one with no libtests binary those that skip
     /// <c>libtest</c>. With both present nothing is tolerated (BL-1338).
     /// </summary>
-    private static HashSet<string> ToleratedSkipReasons(bool hasDebugBuild, bool hasLibtests)
+    internal static HashSet<string> ToleratedSkipReasons(bool hasDebugBuild, bool hasLibtests)
     {
         var tolerated = new HashSet<string>(StringComparer.Ordinal);
         if (!hasDebugBuild)

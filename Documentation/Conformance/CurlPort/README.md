@@ -55,9 +55,9 @@ Surl defect: upstream's run was what the mirrored test asserts in every case.
 | [HTTP/2](Http2.md) | `6268bee5` | 15 | 6 | 9 | 1 | 0 |
 | [HTTP/3](Http3.md) | `883c3d4d` | 13 | 0 | 13 | 2 | 0 |
 | [libcurl rows](Libcurl.md) | `dc8aebe3`, `2006b077` | 20 | 19 | 1 | 1 | 0 |
-| [Upstream test cases](Upstream-Test-Cases.md) | `7bf55f26` | 1,041 | 1,028 | 11 | 3 | 2 |
+| [Upstream test cases](Upstream-Test-Cases.md) | `7bf55f26` | 1,185 | 1,171 | 12 | 4 | 2 |
 | [Extended clients](Extended.md) | `477dda7d` and the others its tasks name | 21 | 20 | 1 | 6 | 0 |
-| **All** | | **1,518** | **1,420** | **96** | **23** | **2** |
+| **All** | | **1,662** | **1,563** | **97** | **24** | **2** |
 
 Not counted above: cases Inconclusive on Windows because their mirrored tests run only elsewhere (4
 HTTP cases, the 47 `OpenLdap_` cases) or are excluded on Windows by their `[OSCondition]` (6 SSH cases,
@@ -74,7 +74,7 @@ curl (ADR-0089 decision 9), and each case is judged by its protocol's specificat
 
 ## The handoff
 
-[`Port-Board-Handoff.md`](Port-Board-Handoff.md) holds the 23 findings as tasks in the port's own task
+[`Port-Board-Handoff.md`](Port-Board-Handoff.md) holds the 24 findings as tasks in the port's own task
 shape. Stewart files them on the port's board himself, by running the port's `/task-plan` on it in a
 session of the port's repository (ADR-0089 decision 7). No Surl session writes into the port's
 repository.

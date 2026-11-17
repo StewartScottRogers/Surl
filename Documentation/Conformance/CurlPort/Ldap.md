@@ -1,5 +1,7 @@
 # Phase 7 findings: LDAP and LDAPS
 
+Run [44044472038](https://github.com/StewartScottRogers/Surl/actions/runs/44044472038) of `curl-port-phase-7` (2026-11-17, `factory/phase-1` at Surl commit `a5337bdf7e6d54fa3337c51008d5c66b814355e2`, BL-1339) is the current linux-x64 outcome and supersedes the run below. Nothing threw `UnpinnedCurlPortClientException`: the test job accepted the hash its own build job reproduced (BL-1340, BL-1339), so cases compared pinned upstream curl with the Curl port. This family: 21 passed, 47 failed, 1 not executed; of the 47 `OpenLdap_` cases 20 passed and 27 failed (the other 20 failures are `WinLdap_` cases, which are Windows-only). A failing case is a real difference not yet listed in a family findings table; each is follow-up work, not a CI finding.
+
 What `CurlPortBesideUpstreamCurlOverLdapTests` in `Conformance/Surl.Conformance.UnitTests` found when it
 ran every LDAP and LDAPS conversation of `UpstreamCurlSearchesSurlOverLdapTests`,
 `UpstreamCurlBindsToSurlOverLdapWithKerberosTests` and `UpstreamCurlBindsAndSearchesSurlOverOpenLdapTests`
@@ -65,6 +67,82 @@ port defect, and an unlisted case must agree. A data-driven case is named `Metho
 The three that agree: `WinLdap_Bind_NoUserTheWindowsUserWithoutAnAccount_Exits38InvalidCredentials`,
 `WinLdap_Ldaps_UntrustedCertificate_Exits60` and `WinLdap_Search_SslReqd_Exits4ExplicitTlsNotSupported`.
 Upstream opens no unused connection in the first: there both clients open two connections.
+
+### Findings (linux-x64)
+
+Run [44044472038](https://github.com/StewartScottRogers/Surl/actions/runs/44044472038) (BL-1343): 27 `OpenLdap_`
+cases showed a port defect on linux-x64, where upstream curl is the OpenLDAP build pinned for the platform
+(`UpstreamCurlBuilds.json`) and the port is the linux-x64 Curl port build. They are listed for linux-x64 only (a
+heading that names a platform in parentheses applies on that platform alone). The 20 `WinLdap_` cases do not run
+there: they judge the WinLDAP build of upstream curl, which exists on Windows only, so they are Inconclusive off
+Windows (BL-1343). Classification is the comparison's own: upstream curl's run is what the mirrored test asserts,
+so each is a port defect (ADR-0003); none is a Surl defect.
+
+| Phase 7 test | Mirrors | Finding |
+| --- | --- | --- |
+| `OpenLdap_SaslBind_AnyMechanism_PicksOneSurlOffersAndExits0WithTheBaseEntry` | `UpstreamCurlBindsAndSearchesSurlOverOpenLdapTests.SaslBind_AnyMechanism_PicksOneSurlOffersAndExits0WithTheBaseEntry` | [L-1](#l-1-the-linux-x64-port-exits-38-where-openldap-binds-with-sasl) |
+| `OpenLdap_SaslBind_BearerToken_Exits0WithTheBaseEntry[OAUTHBEARER, False]` | `UpstreamCurlBindsAndSearchesSurlOverOpenLdapTests.SaslBind_BearerToken_Exits0WithTheBaseEntry` | [L-1](#l-1-the-linux-x64-port-exits-38-where-openldap-binds-with-sasl) |
+| `OpenLdap_SaslBind_BearerToken_Exits0WithTheBaseEntry[OAUTHBEARER, True]` | `UpstreamCurlBindsAndSearchesSurlOverOpenLdapTests.SaslBind_BearerToken_Exits0WithTheBaseEntry` | [L-1](#l-1-the-linux-x64-port-exits-38-where-openldap-binds-with-sasl) |
+| `OpenLdap_SaslBind_BearerToken_Exits0WithTheBaseEntry[XOAUTH2, False]` | `UpstreamCurlBindsAndSearchesSurlOverOpenLdapTests.SaslBind_BearerToken_Exits0WithTheBaseEntry` | [L-1](#l-1-the-linux-x64-port-exits-38-where-openldap-binds-with-sasl) |
+| `OpenLdap_SaslBind_BearerToken_Exits0WithTheBaseEntry[XOAUTH2, True]` | `UpstreamCurlBindsAndSearchesSurlOverOpenLdapTests.SaslBind_BearerToken_Exits0WithTheBaseEntry` | [L-1](#l-1-the-linux-x64-port-exits-38-where-openldap-binds-with-sasl) |
+| `OpenLdap_SaslBind_ChallengeResponseMechanismInClear_Exits0WithTheBaseEntry[cram-md5, --login-options, AUTH=CRAM-MD5]` | `UpstreamCurlBindsAndSearchesSurlOverOpenLdapTests.SaslBind_ChallengeResponseMechanismInClear_Exits0WithTheBaseEntry` | [L-1](#l-1-the-linux-x64-port-exits-38-where-openldap-binds-with-sasl) |
+| `OpenLdap_SaslBind_ChallengeResponseMechanismInClear_Exits0WithTheBaseEntry[digest-md5, --digest, null]` | `UpstreamCurlBindsAndSearchesSurlOverOpenLdapTests.SaslBind_ChallengeResponseMechanismInClear_Exits0WithTheBaseEntry` | [L-1](#l-1-the-linux-x64-port-exits-38-where-openldap-binds-with-sasl) |
+| `OpenLdap_SaslBind_ChallengeResponseMechanismInClear_Exits0WithTheBaseEntry[digest-md5, --login-options, AUTH=DIGEST-MD5]` | `UpstreamCurlBindsAndSearchesSurlOverOpenLdapTests.SaslBind_ChallengeResponseMechanismInClear_Exits0WithTheBaseEntry` | [L-1](#l-1-the-linux-x64-port-exits-38-where-openldap-binds-with-sasl) |
+| `OpenLdap_SaslBind_ChallengeResponseMechanismInClear_Exits0WithTheBaseEntry[ntlm, --login-options, AUTH=NTLM]` | `UpstreamCurlBindsAndSearchesSurlOverOpenLdapTests.SaslBind_ChallengeResponseMechanismInClear_Exits0WithTheBaseEntry` | [L-1](#l-1-the-linux-x64-port-exits-38-where-openldap-binds-with-sasl) |
+| `OpenLdap_SaslBind_ChallengeResponseMechanismInClear_Exits0WithTheBaseEntry[ntlm, --ntlm, null]` | `UpstreamCurlBindsAndSearchesSurlOverOpenLdapTests.SaslBind_ChallengeResponseMechanismInClear_Exits0WithTheBaseEntry` | [L-1](#l-1-the-linux-x64-port-exits-38-where-openldap-binds-with-sasl) |
+| `OpenLdap_SaslBind_ChallengeResponseMechanismWrongPassword_Exits67LoginDenied[digest-md5, --digest]` | `UpstreamCurlBindsAndSearchesSurlOverOpenLdapTests.SaslBind_ChallengeResponseMechanismWrongPassword_Exits67LoginDenied` | [L-1](#l-1-the-linux-x64-port-exits-38-where-openldap-binds-with-sasl) |
+| `OpenLdap_SaslBind_ChallengeResponseMechanismWrongPassword_Exits67LoginDenied[ntlm, --ntlm]` | `UpstreamCurlBindsAndSearchesSurlOverOpenLdapTests.SaslBind_ChallengeResponseMechanismWrongPassword_Exits67LoginDenied` | [L-1](#l-1-the-linux-x64-port-exits-38-where-openldap-binds-with-sasl) |
+| `OpenLdap_SaslBind_ExternalWithAClientCertificateOverLdaps_Exits0WithTheBaseEntry` | `UpstreamCurlBindsAndSearchesSurlOverOpenLdapTests.SaslBind_ExternalWithAClientCertificateOverLdaps_Exits0WithTheBaseEntry` | [L-1](#l-1-the-linux-x64-port-exits-38-where-openldap-binds-with-sasl) |
+| `OpenLdap_SaslBind_ExternalWithoutAClientCertificate_Exits67LoginDenied` | `UpstreamCurlBindsAndSearchesSurlOverOpenLdapTests.SaslBind_ExternalWithoutAClientCertificate_Exits67LoginDenied` | [L-1](#l-1-the-linux-x64-port-exits-38-where-openldap-binds-with-sasl) |
+| `OpenLdap_SaslBind_GssapiWithATicketFromTheTestKdc_Exits0WithTheBaseEntry` | `UpstreamCurlBindsAndSearchesSurlOverOpenLdapTests.SaslBind_GssapiWithATicketFromTheTestKdc_Exits0WithTheBaseEntry` | [L-1](#l-1-the-linux-x64-port-exits-38-where-openldap-binds-with-sasl) |
+| `OpenLdap_SaslBind_PlainNotOfferedInClearWithoutAllowPlaintextAuth_Exits67LoginDenied` | `UpstreamCurlBindsAndSearchesSurlOverOpenLdapTests.SaslBind_PlainNotOfferedInClearWithoutAllowPlaintextAuth_Exits67LoginDenied` | [L-1](#l-1-the-linux-x64-port-exits-38-where-openldap-binds-with-sasl) |
+| `OpenLdap_SaslBind_WrongBearerToken_Exits67LoginDenied` | `UpstreamCurlBindsAndSearchesSurlOverOpenLdapTests.SaslBind_WrongBearerToken_Exits67LoginDenied` | [L-1](#l-1-the-linux-x64-port-exits-38-where-openldap-binds-with-sasl) |
+| `OpenLdap_SaslBind_GssapiWithAUserNamingNoRealm_Exits67WithoutABind` | `UpstreamCurlBindsAndSearchesSurlOverOpenLdapTests.SaslBind_GssapiWithAUserNamingNoRealm_Exits67WithoutABind` | [L-2](#l-2-the-linux-x64-port-binds-with-gssapi-for-a-user-naming-no-realm) |
+| `OpenLdap_SaslBind_PlainTextMechanismWithAllowPlaintextAuth_Exits0WithTheBaseEntry[LOGIN, False]` | `UpstreamCurlBindsAndSearchesSurlOverOpenLdapTests.SaslBind_PlainTextMechanismWithAllowPlaintextAuth_Exits0WithTheBaseEntry` | [L-3](#l-3-the-linux-x64-port-sends-another-sasl-bind-request-for-plain-and-login) |
+| `OpenLdap_SaslBind_PlainTextMechanismWithAllowPlaintextAuth_Exits0WithTheBaseEntry[LOGIN, True]` | `UpstreamCurlBindsAndSearchesSurlOverOpenLdapTests.SaslBind_PlainTextMechanismWithAllowPlaintextAuth_Exits0WithTheBaseEntry` | [L-3](#l-3-the-linux-x64-port-sends-another-sasl-bind-request-for-plain-and-login) |
+| `OpenLdap_SaslBind_PlainTextMechanismWithAllowPlaintextAuth_Exits0WithTheBaseEntry[PLAIN, False]` | `UpstreamCurlBindsAndSearchesSurlOverOpenLdapTests.SaslBind_PlainTextMechanismWithAllowPlaintextAuth_Exits0WithTheBaseEntry` | [L-3](#l-3-the-linux-x64-port-sends-another-sasl-bind-request-for-plain-and-login) |
+| `OpenLdap_SaslBind_PlainTextMechanismWithAllowPlaintextAuth_Exits0WithTheBaseEntry[PLAIN, True]` | `UpstreamCurlBindsAndSearchesSurlOverOpenLdapTests.SaslBind_PlainTextMechanismWithAllowPlaintextAuth_Exits0WithTheBaseEntry` | [L-3](#l-3-the-linux-x64-port-sends-another-sasl-bind-request-for-plain-and-login) |
+| `OpenLdap_SaslBind_WrongPassword_Exits67LoginDenied[LOGIN]` | `UpstreamCurlBindsAndSearchesSurlOverOpenLdapTests.SaslBind_WrongPassword_Exits67LoginDenied` | [L-3](#l-3-the-linux-x64-port-sends-another-sasl-bind-request-for-plain-and-login) |
+| `OpenLdap_SaslBind_WrongPassword_Exits67LoginDenied[PLAIN]` | `UpstreamCurlBindsAndSearchesSurlOverOpenLdapTests.SaslBind_WrongPassword_Exits67LoginDenied` | [L-3](#l-3-the-linux-x64-port-sends-another-sasl-bind-request-for-plain-and-login) |
+| `OpenLdap_StartTls_SslReqdWithNoCertificate_Exits1UnsupportedProtocol` | `UpstreamCurlBindsAndSearchesSurlOverOpenLdapTests.StartTls_SslReqdWithNoCertificate_Exits1UnsupportedProtocol` | [L-4](#l-4-the-linux-x64-port-differs-from-openldap-on-starttls-without-a-trusted-certificate) |
+| `OpenLdap_StartTls_SslWithNoCertificate_CarriesOnInClearWithAVersion2BindAndExits0` | `UpstreamCurlBindsAndSearchesSurlOverOpenLdapTests.StartTls_SslWithNoCertificate_CarriesOnInClearWithAVersion2BindAndExits0` | [L-4](#l-4-the-linux-x64-port-differs-from-openldap-on-starttls-without-a-trusted-certificate) |
+| `OpenLdap_StartTls_UntrustedCertificate_Exits64UseSslFailedNamingTheVerifyResult` | `UpstreamCurlBindsAndSearchesSurlOverOpenLdapTests.StartTls_UntrustedCertificate_Exits64UseSslFailedNamingTheVerifyResult` | [L-4](#l-4-the-linux-x64-port-differs-from-openldap-on-starttls-without-a-trusted-certificate) |
+
+Each finding below is read from the verdict text of run 44044472038 (`phase-7-linux-x64-results`); a cause inside
+the port is not traced, only what differs.
+
+#### L-1: the linux-x64 port exits 38 where OpenLDAP binds with SASL
+
+- **Cases:** the 17 rows above that name L-1: challenge-response (`cram-md5`, `digest-md5`, `ntlm`), bearer
+  (`OAUTHBEARER`, `XOAUTH2`), `EXTERNAL`, `GSSAPI` with a KDC ticket and `AnyMechanism`.
+- **Upstream:** exit 0 with the base entry on stdout, or exit 67 for the wrong-password and not-offered cases.
+- **Port:** exit 38 (cannot bind) in every one, nothing on stdout. For the bearer cases the first request's BER
+  length differs too (upstream `0x3E` at offset 1, port `0x12`): the port sends a shorter first bind.
+- **Classification:** port defect.
+
+#### L-2: the linux-x64 port binds with GSSAPI for a user naming no realm
+
+- **Case:** `OpenLdap_SaslBind_GssapiWithAUserNamingNoRealm_Exits67WithoutABind`.
+- **Upstream:** exit 67 with no bind and nothing on stdout. **Port:** exit 0 and the base entry; its first request's
+  length byte is `0x17` against upstream's `0x3E`.
+- **Classification:** port defect.
+
+#### L-3: the linux-x64 port sends another SASL bind request for PLAIN and LOGIN
+
+- **Cases:** `SaslBind_PlainTextMechanismWithAllowPlaintextAuth` (four rows) and `SaslBind_WrongPassword` (two).
+- **Measured:** exit codes and output agree; the first request's BER length byte differs, upstream `0x3E`,
+  port `0x16` or `0x17`.
+- **Classification:** port defect (wire bytes).
+
+#### L-4: the linux-x64 port differs from OpenLDAP on StartTLS without a trusted certificate
+
+- **`StartTls_SslReqdWithNoCertificate`:** upstream exits 1 (`curl: (1) Unsupported protocol`); the port exits 64.
+  Upstream sends a byte at offset 31 where the port's request ends.
+- **`StartTls_SslWithNoCertificate`:** the carried-on version 2 bind differs at offset 40 (upstream `0x02`, port `0x03`).
+- **`StartTls_UntrustedCertificate`:** upstream exits 64, `curl: (64) SSL certificate OpenSSL verify result:
+  self-signed certificate (18)`; the port exits 60 with the same verify result. Upstream's `surl` also notes
+  `TLS handshake failed: Cannot determine the frame size or a corrupted frame was received.`, the port's does not.
+- **Classification:** port defect.
 
 ### F1: No unused connection before WinLDAP's own
 
@@ -145,21 +223,17 @@ Findings:
 
 ## linux-x64
 
-Run [44012635963](https://github.com/StewartScottRogers/Surl/actions/runs/44012635963) of `curl-port-phase-7`
-(2026-11-17, `factory/phase-1` at Surl commit `a6a289ce2e2d9691c1dd46894f92002bd84ce249`, Curl port commit
-`74f3f45c47e86300b2b262dc1dacd43b508b09aa`) completed; its `Phase 7 families and OpenLdap_ cases (linux-x64)` job
-ran green because the test step is `continue-on-error` (BL-1307). Its `phase-7-linux-x64-results` artifact holds 489
-results for all Phase 7 test classes: 1 passed, 441 failed, 47 not executed.
+Run [44044472038](https://github.com/StewartScottRogers/Surl/actions/runs/44044472038) of `curl-port-phase-7`
+(2026-11-17, `factory/phase-1` at Surl commit `a5337bdf7e6d54fa3337c51008d5c66b814355e2`, BL-1339, BL-1307) completed.
+Its `Phase 7 families and OpenLdap_ cases (linux-x64)` job runs `continue-on-error`, so findings gate nothing.
 
 Findings:
 
-- **Nothing was compared.** All 441 failures are the same `UnpinnedCurlPortClientException`: the port published in the
-  test job hashed `048AAEE01EAD37D136AF842303E8C90438B1E193DEDC0654F3CFCA4A1E555364`, but `CurlPortBuilds.json` pins
-  `DF507F32E8B3E5F0444F89544A62C18C4CFA96C838AF8C98D74B9B044F8CF57A`, which the `Build the Curl port (linux-x64)` job of
-  the same run reproduced twice. The port was published before any case ran, so the difference comes from the test
-  job, not from the port. It is a CI finding, not a port defect and not a Surl defect.
-- **Not executed:** 23 Windows-only, 2 macOS-only, and 15 `Assert.Inconclusive` ("pins no supplementary upstream curl
-  build for linux-x64") cases, plus the Kerberos/GSSAPI cases.
-- **No port defect and no Surl defect is recorded for linux-x64.** The family's findings table is unchanged.
-- **The 47 `OpenLdap_` cases are not Inconclusive any more, but they did not compare either.** They ran against the
-  OpenLDAP build and failed with the unpinned-client exception above (47 failed).
+- **Cases compared.** The test job accepted the Curl port hash its own build job reproduced, so no
+  `UnpinnedCurlPortClientException` was thrown (it replaces run 44012635963, where nothing compared).
+- **This family:** 21 passed, 47 failed, 1 not executed; of the 47 `OpenLdap_` cases 20 passed and 27 failed (the other 20 failures are `WinLdap_` cases, which are Windows-only).
+- **Triaged by BL-1343.** The 27 `OpenLdap_` failures are listed under "Findings (linux-x64)" above (L-1 to L-4); the 20
+  `WinLdap_` failures were test defects (a WinLDAP-only judgement run against OpenLDAP upstream) and are now
+  Inconclusive off Windows.
+- **The 47 `OpenLdap_` cases are no longer Inconclusive on linux-x64.** They ran against the OpenLDAP upstream build and compared: 20 passed, 27 failed. The 27 are real differences between the Curl port and pinned upstream curl, triaged by BL-1343 (L-1 to L-4).
+

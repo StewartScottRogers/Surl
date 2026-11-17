@@ -112,6 +112,18 @@ The script refuses:
 - touching an archived task
 - acting on an ID that names more than one live task (run `dedupe` first)
 
+## Waiting on a workflow run
+
+A task that needs a CI result a lane cannot produce on Windows dispatches it itself and
+never blocks for Stewart. `dispatch-workflow.ps1 -Id <ID> -Workflow <name> -Ref <shift branch>
+[-WorkflowInput name=value] [-DryRun]` (beside this file) dispatches the workflow on a
+pushed `factory/*` branch, refuses `master` and `main`, caps a task at 2 dispatches per 12
+hours (`<repo>.logs\workflow-dispatches.txt`), and prints `run:<id> <workflow> <ref> <url>`.
+Park the task with `move -To Blocked -Reason "Waiting for run:<id> (<workflow>)"` and no
+mention of Stewart: the coordinator polls `gh run view <id>`, moves the task to Backlog when
+the run completes with its conclusion in the Log, and never alarms for it. "Dispatch a
+workflow" is never a reason to block for Stewart.
+
 Do not work around a refusal. It is telling you something about the task.
 
 Never move a task with `Move-Item`, `git mv` or an editor. The script is what keeps

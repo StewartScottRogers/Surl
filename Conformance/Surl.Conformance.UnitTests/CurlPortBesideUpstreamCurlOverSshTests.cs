@@ -941,7 +941,7 @@ public sealed class CurlPortBesideUpstreamCurlOverSshTests
         var upstreamPins = UpstreamCurlBuildPins.Parse(
             await File.ReadAllTextAsync(Path.Combine(root, UpstreamCurlBuildPins.FileName), TestContext.CancellationToken));
         return PinnedCurlPortClientOnThisMachine.RunnerFor(
-            new CurlPortClientLocator(new FileSystemUpstreamCurlFileAccess()).Locate(portPins, upstreamPins, UpstreamCurlLocator.CurrentPlatform));
+            new CurlPortClientLocator(new FileSystemUpstreamCurlFileAccess()).Locate(portPins, upstreamPins, UpstreamCurlLocator.CurrentPlatform, PinnedCurlPortClientOnThisMachine.CiAcceptedSha256));
     }
 
     private static void RequireNoExtensionSwitch()

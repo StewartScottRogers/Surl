@@ -76,6 +76,33 @@ port defect, and an unlisted case upstream passes must pass with the port too.
 | `test1407` | mail | `file` (`log/test1407.c`) | [UTC-3](#utc-3---libcurl-writes-its-options-in-another-order) |
 | `test1465` | http | `file` (`log/test1465.c`) | [UTC-3](#utc-3---libcurl-writes-its-options-in-another-order) |
 
+### Findings (linux-x64)
+
+Run [44044472038](https://github.com/StewartScottRogers/Surl/actions/runs/44044472038) (BL-1343), played against the
+linux-x64 passing list: two port defects that show on linux-x64 only (a heading that names a platform in
+parentheses applies on that platform alone), and nine cases upstream skipped, which the test no longer judges (below).
+
+| Case | Family | Port's first failing section | Finding |
+| --- | --- | --- | --- |
+| `test1072` | http | `errorcode` (port exited 65, expected 25) | [UTC-5](#utc-5-the-linux-x64-port-exits-65-where-upstream-exits-25-on-a-chunked-put-to-an-http10-server) |
+| `test1073` | http | `errorcode` (port exited 65, expected 25) | [UTC-5](#utc-5-the-linux-x64-port-exits-65-where-upstream-exits-25-on-a-chunked-put-to-an-http10-server) |
+
+**Cases upstream skipped are not compared.** The linux-x64 passing list names test358, 359, 2400, 2401, 2402,
+2404, 2406, 2501 and 2502, which need a Debug build of curl or the libtests binary. The Phase 7 test ran upstream
+without either, so they ended `skip debug-build` or `skip libtest` and the comparison called each a Surl defect.
+That was a test defect: the test now locates the supplementary Debug build and libtests binary as
+`UpstreamTestCasesAgainstSurlTests` does, and leaves out a case upstream skips for want of the one it lacks
+(`ToleratedSkipReasons`). The row count the test asserts still counts them.
+
+#### UTC-5: the linux-x64 port exits 65 where upstream exits 25 on a chunked PUT to an HTTP/1.0 server
+
+- **Cases:** test1072 "HTTP chunked PUT to HTTP 1.0 server with authorization"
+  (`http://%HOSTIP:%HTTPPORT/1072 -T - -u testuser:testpass --anyauth`) and test1073 "HTTP chunked PUT to HTTP 1.0
+  server with redirect" (`http://%HOSTIP:%HTTPPORT/1073 -T - -L`).
+- **Upstream:** exit 25 (upload failed), as each case's `<errorcode>` says. **Port:** exit 65 in both.
+- **Classification:** port defect (the port's linux-x64 build only: both pass on Windows). The cause inside the
+  port is not traced.
+
 Each case is run as runtests runs it (`UpstreamTestCaseCommandLine`): `-q`, `--output log/curl<N>.out`,
 `--include`, `--trace-ascii log/trace<N>` and `--trace-time` as the case asks, then the case's
 `<command>`. Below, the command lines are the cases' own, with `%HOSTIP` `127.0.0.1` and each port
