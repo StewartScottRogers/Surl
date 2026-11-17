@@ -8,7 +8,7 @@ depends-on: []
 touches: [Application/Surl.Console, Application/Surl.Console.UnitTests]
 requirement: none
 created: 2026-11-17
-completed:
+completed: 2026-11-17
 ---
 # BL-1371 — Replace the coverage exclusion on DiskConfigFileSource.OpenProcessStandardInput with a test
 
@@ -35,14 +35,14 @@ completed:
 
 ## Acceptance criteria
 
-- [ ] `[ExcludeFromCodeCoverage]` and its `using System.Diagnostics.CodeAnalysis;` (if then unused) are removed from
+- [x] `[ExcludeFromCodeCoverage]` and its `using System.Diagnostics.CodeAnalysis;` (if then unused) are removed from
       `DiskConfigFileSource.cs`; the method itself and `CommandLineRunner`'s use of it at line 102 are unchanged.
-- [ ] A named `Surl.Console.UnitTests` test (e.g. `DiskConfigFileSourceTests.OpenProcessStandardInput_ReturnsAReadableStream`)
+- [x] A named `Surl.Console.UnitTests` test (e.g. `DiskConfigFileSourceTests.OpenProcessStandardInput_ReturnsAReadableStream`)
       calls `DiskConfigFileSource.OpenProcessStandardInput()`, asserts the stream is not null and `CanRead`, and
       disposes it without reading. The test is not marked `Integration` or `OSCondition`.
-- [ ] `Measure-CodeQuality.ps1 -Library Surl.Console` reports `100 | 100` with 0 failing members, and its
+- [x] `Measure-CodeQuality.ps1 -Library Surl.Console` reports `100 | 100` with 0 failing members, and its
       "Coverage exclusions in production code" section no longer lists `DiskConfigFileSource.cs`.
-- [ ] `dotnet build` is clean and the fast tests are green.
+- [x] `dotnet build` is clean and the fast tests are green.
 
 ## Notes
 
@@ -54,3 +54,4 @@ completed:
 
 - 2026-11-17: Created.
 - 2026-11-17: Backlog -> Doing.
+- 2026-11-17: Doing -> Done. Removed the exclusion; added test; Surl.Console 100|100, 0 failing
