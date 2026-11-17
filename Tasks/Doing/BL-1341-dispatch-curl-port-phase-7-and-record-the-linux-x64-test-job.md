@@ -33,3 +33,4 @@ BL-1340 added the `SURL_CURL_PORT_CI_SHA256` acceptance (ADR-0175 Amendment 3) b
 - 2026-11-16: Backlog -> Doing.
 - 2026-11-16: Doing -> Blocked. Stewart: push BL-1340 (9317c53d7) then run 'gh workflow run curl-port-phase-7'; a lane cannot push or dispatch workflows
 - 2026-11-17: Blocked -> Backlog. Unblocked: curl-port-phase-7 dispatched on factory/phase-1 at a5337bdf7 (BL-1339 and BL-1340 included), run 44044472038, succeeded; the linux-x64 job compared against the port (371 passed, 71 failed, 47 skipped). Read its artifacts.
+- 2026-11-17: Backlog -> Doing.
