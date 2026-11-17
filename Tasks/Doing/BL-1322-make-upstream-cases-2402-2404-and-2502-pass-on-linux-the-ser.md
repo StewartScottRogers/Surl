@@ -27,6 +27,8 @@ Each fails protocol: the server half recorded nothing, curl exit 0. Split from B
 
 ## Notes
 
+Cause (from the CI failures file): the runner gave a libtest the options runtests puts before curl's words (-q, --output, --trace-ascii ...), so lib2402 read `-q` as its URL and the host, port arguments shifted (stderr: "Could not parse CURLOPT_RESOLVE entry localhost:log/curl2402.out:--output"). Fix: UpstreamTestCaseCommandLine.Build passes a case with a `<tool>` only the command's words, as runtests does (2407's exit 6 "Could not resolve host: -q" shares the cause; BL-1323). Not verifiable on this Windows machine: the Linux CI run must confirm 2402/2404/2502 and add them to the passing list.
+
 ## Log
 
 - 2026-11-16: Created.
