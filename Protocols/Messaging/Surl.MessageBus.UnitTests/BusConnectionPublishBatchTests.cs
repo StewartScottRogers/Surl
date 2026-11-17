@@ -142,6 +142,26 @@ public sealed class BusConnectionPublishBatchTests
     }
 
     [TestMethod]
+    public void PublishBatch_OneBoundQueueFullAndAnotherWithRoom_CountsOneQueuedAndOneFull()
+    {
+        var bus = new MessageBus(clock, maxMessagesPerQueue: 1);
+        using var connection = bus.Connect();
+        connection.DeclareQueue("full");
+        connection.DeclareQueue("roomy");
+        connection.BindQueue("full", "t");
+        connection.BindQueue("roomy", "t");
+        bus.PublishToQueue("full", Message("t", "0"));
+
+        var result = connection.PublishBatch([BusBatchEntry.ToTopic(Message("t", "1"))]);
+
+        Assert.AreEqual(MessageBusOutcome.Succeeded, result.Outcome);
+        Assert.AreEqual(1, result.Results[0].QueuedCount);
+        Assert.AreEqual(1, result.Results[0].FullQueueCount);
+        CollectionAssert.AreEqual(new[] { "0" }, Drain(connection, "full"));
+        CollectionAssert.AreEqual(new[] { "1" }, Drain(connection, "roomy"));
+    }
+
+    [TestMethod]
     public void PublishBatch_NewTopicsPastMaxTopics_IsTooManyTopics()
     {
         var bus = new MessageBus(clock, maxTopics: 2);

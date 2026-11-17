@@ -152,6 +152,22 @@ public sealed partial class SurlServerTests
     }
 
     [TestMethod]
+    public async Task Messages_BrowseQueueAsync_AMessageSentWithAHeader_CarriesTheHeaderNameAndValue()
+    {
+        var seams = new ApiTestSeams();
+        var options = StoreOptions(Stomp);
+        options.AreExtensionsTurnedOn = true;
+        await using var server = await SurlServer.StartAsync(options, seams.Host, TestContext.CancellationToken);
+
+        await ServeAsync(seams, "stomp", StompConnect + "SEND\ndestination:/queue/q1\nx-order:42\n\nwith header\0");
+        var page = await server.Messages.BrowseQueueAsync("q1", -1, 100, TestContext.CancellationToken);
+
+        var message = page.Messages.Single();
+        CollectionAssert.AreEqual("with header"u8.ToArray(), message.Payload.ToArray());
+        Assert.IsTrue(message.Headers.Contains(KeyValuePair.Create("x-order", "42")), string.Join(",", message.Headers));
+    }
+
+    [TestMethod]
     public async Task Messages_ReadBack_NotFoundAndRefusedCases()
     {
         await using var server = await StartSeededForReadBackAsync();

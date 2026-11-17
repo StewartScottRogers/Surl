@@ -349,6 +349,7 @@ public sealed class SignalRHubSessionTests
     [DataRow("{\"type\":2,\"invocationId\":\"up\",\"item\":1}")]
     [DataRow("{\"type\":3,\"invocationId\":\"up\"}")]
     [DataRow("{\"type\":8,\"sequenceId\":1}")]
+    [DataRow("{\"type\":9,\"sequenceId\":1}")]
     [DataRow("[1]")]
     [DataRow("{\"protocol\":\"json\",\"version\":1}")]
     public async Task RunAsync_RecordTheServerDoesNotRead_IsAProtocolError(string record)

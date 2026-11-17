@@ -21,13 +21,6 @@ internal sealed class WebTransportConnectAuthentication(IHttpAuthenticationSessi
 {
     private const string AuthorizationField = "authorization";
 
-    /// <summary>Judges <paramref name="head"/>'s login.</summary>
-    /// <param name="head">The extended <c>CONNECT</c>'s head.</param>
-    /// <param name="cancellationToken">Cancelled when the connection ends.</param>
-    /// <returns>The <c>401</c> or <c>403</c> answer's fields, or <see langword="null"/> when the request proceeds.</returns>
-    public async Task<QpackFieldLine[]?> RefuseAsync(Http3RequestHead head, CancellationToken cancellationToken) =>
-        (await JudgeAsync(head, cancellationToken)).Refusal;
-
     /// <summary>Judges <paramref name="head"/>'s login and names the account that logged in (BL-1242).</summary>
     /// <param name="head">The extended <c>CONNECT</c>'s head.</param>
     /// <param name="cancellationToken">Cancelled when the connection ends.</param>

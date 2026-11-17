@@ -97,6 +97,19 @@ public sealed partial class Amqp0BrokerConnectionTests
     }
 
     [TestMethod]
+    public async Task QueueDeclare_UnderARuleOfAKindThatIsNotAnError_IsNotedAndServed()
+    {
+        var events = new RecordingSurlEventPublisher();
+        var rule = new FaultRule("f1", FaultKind.OutOfSpace) { Scheme = "amqp", Command = "queue.declare", Path = "orders", Reply = "404 NOT_FOUND - chosen" };
+
+        var (written, log) = await ServeFaultedAsync(new ScriptedFaultPlan(rule), events, QueueDeclare(1, "orders"));
+
+        AssertAnswered(written, QueueDeclareOk(1, "orders"));
+        Assert.IsEmpty(events.Events.OfType<FaultAppliedEvent>());
+        CollectionAssert.Contains(log.Notes.ToArray(), "queue.declare orders: fault rule f1 is not an error with an AMQP 0-9-1 reply code and text; not applied.");
+    }
+
+    [TestMethod]
     public async Task Publish_UnderADelayRule_HoldsTheMethodForTheDelayThenHandlesItAsUsual()
     {
         var events = new RecordingSurlEventPublisher();

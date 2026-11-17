@@ -124,12 +124,12 @@ internal static class ObjectMetadataIndexFormat
     private static int VersionOf(ReadOnlySpan<byte> header)
     {
         var version = 4;
-        while (version > 1 && !header.SequenceEqual(HeaderOf(version)))
+        while (version > 0 && !header.SequenceEqual(HeaderOf(version)))
         {
             version--;
         }
 
-        Require(version > 1 || header.SequenceEqual(HeaderWithoutContentMd5));
+        Require(version > 0);
 
         return version;
     }

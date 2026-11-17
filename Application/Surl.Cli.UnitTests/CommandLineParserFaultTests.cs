@@ -206,6 +206,8 @@ public sealed class CommandLineParserFaultTests
     [DataRow("drop;stage=command;after-bytes=5", "option --fault: key after-bytes cannot be given with stage=command", DisplayName = "After-bytes at command")]
     [DataRow("error;reply=503", "option --fault: kind error needs key scheme or key listener", DisplayName = "Error without scheme")]
     [DataRow("error;scheme=oci;reply=503 SlowDown", "option --fault: key reply does not fit the oci error shape", DisplayName = "OCI code off the specification")]
+    [DataRow("error;scheme=oci;reply=399 DENIED", "option --fault: key reply does not fit the oci error shape", DisplayName = "OCI status below 400")]
+    [DataRow("error;scheme=oci;reply=600 DENIED", "option --fault: key reply does not fit the oci error shape", DisplayName = "OCI status past 599")]
     [DataRow("error;scheme=grpc;reply=0", "option --fault: key reply does not fit the grpc error shape", DisplayName = "gRPC OK status")]
     [DataRow("error;scheme=grpcs;reply=17 x", "option --fault: key reply does not fit the grpcs error shape", DisplayName = "gRPCS past 16")]
     [DataRow("error;scheme=socks4;reply=90", "option --fault: key reply does not fit the socks4 error shape", DisplayName = "SOCKS4 granted code")]

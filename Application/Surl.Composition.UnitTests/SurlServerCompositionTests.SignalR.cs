@@ -45,3 +45,25 @@ public sealed class SignalRHubRoutingProtocolServerTests
         Assert.ThrowsExactly<ArgumentNullException>(() => router.ServeAsync(null!, null!));
     }
 }
+
+[TestClass]
+public sealed class SignalRRegistrationServingTests
+{
+    [TestMethod]
+    public async Task ServeAsync_ThroughTheComposedSignalRRegistration_AnswersTheHubAtTheListenUrlsPath()
+    {
+        var services = SurlServerComposition.ComposeUnservedExtendedServices(TimeProvider.System);
+        var router = SurlServerComposition.ComposeExtendedProtocolServers(true, null, services).OfType<SignalRHubRoutingProtocolServer>().Single();
+        var listenUrl = new Surl.Protocol.Abstractions.ListenUrl("signalr", "127.0.0.1", 0) { Path = "/chat" };
+        var connection = new FakeConnection(System.Text.Encoding.ASCII.GetBytes(
+            "POST /chat/negotiate HTTP/1.1\r\nHost: h\r\nConnection: close\r\n\r\n"));
+        var context = new Surl.Protocol.Abstractions.ExchangeContext(
+            1, listenUrl, connection.LocalEndPoint, connection.RemoteEndPoint,
+            new Surl.Protocol.Abstractions.RecordingExchangeLog(), TimeProvider.System, CancellationToken.None);
+
+        await router.ServeAsync(connection, context);
+
+        // The hub answers; with no account configured it refuses the anonymous negotiate (secure by default).
+        Assert.StartsWith("HTTP/1.1 403 Forbidden\r\n", System.Text.Encoding.ASCII.GetString(connection.WrittenBytes));
+    }
+}

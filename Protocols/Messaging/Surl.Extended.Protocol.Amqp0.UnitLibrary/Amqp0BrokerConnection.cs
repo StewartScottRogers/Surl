@@ -102,15 +102,28 @@ internal sealed partial class Amqp0BrokerConnection
     // cancelled token (ADR-0006 section 5; ADR-0059); the cancellation then still escapes.
     private async Task ServeOpenedUntilCancelledAsync()
     {
+        OperationCanceledException? cancelled = null;
         try
         {
             await ServeOpenedAsync();
         }
-        catch (OperationCanceledException) when (!closeSent)
+        catch (OperationCanceledException exception)
+        {
+            cancelled = exception;
+        }
+
+        if (cancelled is null)
+        {
+            return;
+        }
+
+        // A connection.close already sent is not followed by a second one.
+        if (!closeSent)
         {
             await WriteForcedCloseAsync();
-            throw;
         }
+
+        ExceptionDispatchInfo.Throw(cancelled);
     }
 
     private async Task WriteForcedCloseAsync()

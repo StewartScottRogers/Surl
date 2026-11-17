@@ -326,6 +326,42 @@ public sealed class ObjectMetadataIndexTests
     }
 
     [TestMethod]
+    public async Task LoadAsync_VersionFourEntryWithCrc32cAbsent_ReadsItWithNoCrc32c()
+    {
+        var fixture = new Fixture(persists: true);
+        await fixture.UploadAsync("b/x.txt", "hello"u8.ToArray());
+        await fixture.WriteFileAsync(IndexPath, VersionFourIndex("00"));
+
+        await fixture.Index.LoadAsync(CancellationToken.None);
+        var reading = await fixture.Index.ReadAsync("b/x.txt", CancellationToken.None);
+
+        Assert.IsNull(reading.Properties!.Crc32c);
+    }
+
+    [TestMethod]
+    public async Task LoadAsync_VersionFourEntryWithCrc32cPresent_ReadsItsValue()
+    {
+        var fixture = new Fixture(persists: true);
+        await fixture.UploadAsync("b/x.txt", "hello"u8.ToArray());
+        await fixture.WriteFileAsync(IndexPath, VersionFourIndex("019a71bb4c"));
+
+        await fixture.Index.LoadAsync(CancellationToken.None);
+        var reading = await fixture.Index.ReadAsync("b/x.txt", CancellationToken.None);
+
+        Assert.AreEqual(0x9a71bb4cu, reading.Properties!.Crc32c);
+    }
+
+    private static byte[] VersionFourIndex(string crc32cHex) =>
+    [
+        .. "SURL-OBJECT-INDEX-4\n"u8,
+        .. Convert.FromHexString("00000001" + "0007"),
+        .. "b/x.txt"u8,
+        .. Convert.FromHexString("0000000000000005" + "08df3a5a63755000" + "0000000000000007" + "0000000000000001" + "0022"),
+        .. "\"5d41402abc4b2a76b9719d911017c592\""u8,
+        .. Convert.FromHexString("0000" + "0000" + "0000" + "0000" + "0000" + "0000" + "0000" + crc32cHex),
+    ];
+
+    [TestMethod]
     public async Task LoadAsync_Crc32cPresenceByteAbove1_IsMalformed()
     {
         byte[] bytes =

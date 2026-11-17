@@ -180,6 +180,37 @@ public sealed class Http3ExtendedConnectTests
     }
 
     [TestMethod]
+    public async Task ServeAsync_ClientClosesAfterADatagramWasDelivered_EndsDeliveryCleanly()
+    {
+        using var client = new Http3TestQuicClient();
+        var handler = new UnitTestExtendedConnectHandler("webtransport-h3", (_, _) => Task.CompletedTask);
+        var log = await UnitTestExtendedConnect.StartAsync(client, new Http3ServerOptions { ExtendedConnectHandlers = [handler] }, Token);
+
+        SendDatagram(client, "01" + "78");
+        await client.UntilAsync(() => log.Notes.Contains("An HTTP datagram for stream 4, which is no open session yet, is held for it."), Token);
+        client.Flow.DeliverFromClient(client.Quic.SealOneRtt(new QuicConnectionCloseFrame(true, H3NoError, 0, ReadOnlyMemory<byte>.Empty)));
+        await client.FinishAsync(Token);
+
+        Assert.IsTrue(client.Serving!.IsCompletedSuccessfully);
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_ClientClosesWithAGraceSetAndNoShutdown_EndsWithoutGoAway()
+    {
+        using var shutdown = new CancellationTokenSource();
+        using var client = new Http3TestQuicClient();
+        var handler = new UnitTestExtendedConnectHandler("webtransport-h3", (_, _) => Task.CompletedTask);
+        var options = new Http3ServerOptions { ExtendedConnectHandlers = [handler], ShutdownGrace = TimeSpan.FromSeconds(2) };
+        await UnitTestExtendedConnect.StartAsync(client, options, Token, exchangeToken: shutdown.Token);
+
+        client.Flow.DeliverFromClient(client.Quic.SealOneRtt(new QuicConnectionCloseFrame(true, H3NoError, 0, ReadOnlyMemory<byte>.Empty)));
+        await client.FinishAsync(Token);
+
+        Assert.IsTrue(client.Serving!.IsCompletedSuccessfully);
+        Assert.DoesNotEndWith("070100", ControlStreamHex(client), "No GOAWAY is written.");
+    }
+
+    [TestMethod]
     public async Task ServeAsync_SignalAfterTheFirstFrameOfARequestStream_ClosesTheConnectionWithFrameError()
     {
         using var client = new Http3TestQuicClient();

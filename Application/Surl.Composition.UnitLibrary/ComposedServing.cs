@@ -197,36 +197,50 @@ public sealed class ComposedServing : IAsyncDisposable
         var feed = endpoint.FeedEventsAsync(stopControl.Token);
         var bound = new TaskCompletionSource<ListenUrl>(TaskCreationOptions.RunContinuationsAsynchronously);
         var controlReporter = new ListenerStartReporter(
-            listenerFactory, new ListenerStatusLine(TextWriter.Null), 1, listenUrls => bound.TrySetResult(listenUrls[0]), _ => { });
+            listenerFactory, new ListenerStatusLine(TextWriter.Null), 1, listenUrls => bound.TrySetResult(listenUrls[0]), null);
         var controlServing = RunEngineAsync(
             ComposeControlEngine(controlReporter, endpoint), controlReporter, [commandLine.ControlListenUrl!], stopControl.Token);
+        SurlServingOutcome outcome;
         try
         {
-            if (await Task.WhenAny(bound.Task, controlServing) != bound.Task)
-            {
-                // Not bound: the bind failure (45, 6), or a stop before it bound.
-                return await controlServing;
-            }
-
-            ControlListenUrl = await bound.Task;
-            WriteStartUpLines(outputs.Log, ControlListenUrl);
-            var statusOutput = StatusOutputOf(outputs);
-            return await ServeProtocolsAsync(
-                listenerFactory,
-                outputs,
-                listenUrls =>
-                {
-                    statusOutput.WriteLine(ControlComposition.FormatStatusLine(ControlListenUrl));
-                    outputs.AllListenersBound(listenUrls);
-                },
-                cancellationToken);
+            outcome = await ServeOnceControlBindsAsync(listenerFactory, outputs, bound.Task, controlServing, cancellationToken);
         }
         finally
         {
-            await stopControl.CancelAsync();
-            await controlServing;
-            await feed;
+            // Stops the control engine and its event feed. A failure thrown out of the serve is the host's to see at
+            // once, so only the normal end waits for both to finish.
+            stopControl.Cancel();
         }
+
+        await Task.WhenAll(controlServing, feed);
+        return outcome;
+    }
+
+    private async Task<SurlServingOutcome> ServeOnceControlBindsAsync(
+        IListenerFactory listenerFactory,
+        SurlServingOutputs outputs,
+        Task<ListenUrl> bound,
+        Task<SurlServingOutcome> controlServing,
+        CancellationToken cancellationToken)
+    {
+        if (await Task.WhenAny(bound, controlServing) != bound)
+        {
+            // Not bound: the bind failure (45, 6), or a stop before it bound.
+            return await controlServing;
+        }
+
+        ControlListenUrl = await bound;
+        WriteStartUpLines(outputs.Log, ControlListenUrl);
+        var statusOutput = StatusOutputOf(outputs);
+        return await ServeProtocolsAsync(
+            listenerFactory,
+            outputs,
+            listenUrls =>
+            {
+                statusOutput.WriteLine(ControlComposition.FormatStatusLine(ControlListenUrl));
+                outputs.AllListenersBound(listenUrls);
+            },
+            cancellationToken);
     }
 
     private ServingEngine ComposeControlEngine(ListenerStartReporter controlReporter, ControlEndpoint endpoint) =>

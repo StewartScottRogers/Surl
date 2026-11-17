@@ -374,8 +374,10 @@ internal sealed class SignalRHubSession : IDisposable, ISignalRBroadcastReceiver
 
         switch (message)
         {
-            case HubAck or HubSequence when reconnect is not null:
-                return AcceptReconnectMessage(reconnect, message);
+            case HubAck or HubSequence:
+                return reconnect is null
+                    ? SignalRSessionEnd.HubProtocolError($"the client sent a {message.Type} the connection did not negotiate")
+                    : AcceptReconnectMessage(reconnect, message);
             case HubInvocation invocation:
                 return await InvokeAsync(invocation, token);
             case HubCancelInvocation cancel:
@@ -387,11 +389,9 @@ internal sealed class SignalRHubSession : IDisposable, ISignalRBroadcastReceiver
                 return await AcceptUploadItemAsync(item, token);
             case HubCompletion completion:
                 return await AcceptUploadCompletionAsync(completion, token);
-            case HubClose:
-                return SignalRSessionEnd.WebSocketClose(SignalRSessionEnd.NormalClosure, "the client sent a hub Close");
             default:
-                // An Ack or Sequence on a connection that did not ask for stateful reconnect.
-                return SignalRSessionEnd.HubProtocolError($"the client sent a {message.Type} the connection did not negotiate");
+                // The last message type, HubClose.
+                return SignalRSessionEnd.WebSocketClose(SignalRSessionEnd.NormalClosure, "the client sent a hub Close");
         }
     }
 

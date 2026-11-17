@@ -29,6 +29,19 @@ public sealed class CoapProtocolServerRefusalTests
     }
 
     [TestMethod]
+    public async Task WriteRefusalAsync_NonRequestWithoutAnInjectedRandomSource_IsANon503WithAnyMessageId()
+    {
+        var server = new CoapProtocolServer(new CoapTestStore().Store, Anonymous);
+        await using var flow = new InMemoryDatagramFlow(new byte[] { 0x52, 0x01, 0xBE, 0xEF, 0xC7, 0xC8 });
+
+        await server.WriteRefusalAsync(flow, ConnectionRefusal.TooManyConnections, CancellationToken.None);
+
+        var sent = flow.SentDatagrams.Single();
+        CollectionAssert.AreEqual(new byte[] { 0x52, 0xA3 }, sent[..2]);
+        CollectionAssert.AreEqual(new byte[] { 0xC7, 0xC8, 0xD1, 0x01, 0x05 }, sent[4..]);
+    }
+
+    [TestMethod]
     [DataRow(new byte[] { 0x00 })]
     [DataRow(new byte[] { 0x40, 0x00, 0x00, 0x01 })]
     [DataRow(new byte[] { 0x40, 0x01, 0xBE, 0xEF, 0xFF })]

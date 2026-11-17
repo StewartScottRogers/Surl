@@ -92,6 +92,19 @@ public sealed class ListenerStartReporterTests
     }
 
     [TestMethod]
+    public async Task StartSharedPortListenersAsync_NoDatagramCallback_StillWritesTheStatusLine()
+    {
+        using var output = new StringWriter();
+        var reporter = new ListenerStartReporter(new FakeListenerFactory(), new ListenerStatusLine(output), 1, _ => { }, null);
+
+        var listeners = await reporter.StartSharedPortListenersAsync(new ListenUrl("https", "127.0.0.1", 0), TestContext.CancellationToken);
+        await listeners.ConnectionListener.DisposeAsync();
+        await listeners.DatagramListener.DisposeAsync();
+
+        Assert.AreEqual($"Listening on https://127.0.0.1:{FakeListenerFactory.BoundPort}/{Environment.NewLine}", output.ToString());
+    }
+
+    [TestMethod]
     public async Task StartSharedPortListenersAsync_BindFails_KeepsTheFailureAndRethrowsIt()
     {
         using var output = new StringWriter();

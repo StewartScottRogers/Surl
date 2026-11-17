@@ -107,9 +107,8 @@ public sealed class LdapAccountSource
                 if (timeProvider.GetElapsedTime(startedAt) >= timeoutLength)
                 {
                     timeout.Cancel();
-                    linked.Token.ThrowIfCancellationRequested();
+                    throw new OperationCanceledException(linked.Token);
                 }
-
 
                 return await ExchangeAsync(userName, password, linked.Token).ConfigureAwait(false);
             }

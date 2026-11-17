@@ -146,6 +146,30 @@ public sealed class Http1ConnectionServerTests
     }
 
     [TestMethod]
+    public async Task ServeAsync_NoByteBeforeTheHeadTimeout_ClosesWithNoBytes()
+    {
+        var clock = new ManualTimeProvider(Now);
+        var log = new RecordingExchangeLog();
+        var connection = new InMemoryConnection([], peerHalfClosesWhenExhausted: false);
+        var handler = new UnitTestEchoRequestHandler();
+        var serving = new Http1ConnectionServer(handler, Context(log, clock, TestContext.CancellationToken)).ServeAsync(connection);
+
+        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(10);
+        while (clock.ActiveTimerCount != 1 && DateTime.UtcNow < deadline)
+        {
+            await Task.Delay(TimeSpan.FromMilliseconds(1), TestContext.CancellationToken);
+        }
+
+        Assert.AreEqual(1, clock.ActiveTimerCount, "The head timer is running.");
+        clock.Advance(ExchangeLimits.Default.HeadTimeout);
+        await serving;
+
+        Assert.IsEmpty(connection.WrittenBytes);
+        Assert.IsEmpty(handler.Requests);
+        CollectionAssert.AreEqual(new[] { "No request head was read: HeadTimedOutBeforeAnyByte; closed with no bytes." }, log.Notes.ToArray());
+    }
+
+    [TestMethod]
     public async Task ServeAsync_ChunkedBodyThatEndsEarly_IsTheHandlersToRefuse()
     {
         var (connection, _) = await ServeAsync("POST /a HTTP/1.1\r\nHost: example.test\r\nTransfer-Encoding: chunked\r\n\r\n5\r\nhel");

@@ -81,4 +81,44 @@ public sealed class DnsZoneSetExportZoneTests
     [TestMethod]
     public void ExportZone_NullApex_Throws() =>
         Assert.ThrowsExactly<ArgumentNullException>(() => new DnsZoneSet().ExportZone(null!));
+
+    [TestMethod]
+    public void ExportZone_DotInALabelIsEscapedAndDotInACharacterStringIsNot()
+    {
+        var zones = new DnsZoneSet();
+        zones.SeedZone("example.test", "$TTL 5\n@ SOA a b 1 2 3 4 5\na\\.b TXT \"x.y\"\nempty TXT \"\"");
+
+        var lines = zones.ExportZone("example.test")!.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+
+        Assert.Contains("a\\.b.example.test. 5 IN TXT \"x.y\"", lines);
+    }
+
+    [TestMethod]
+    public void ExportZone_EveryPrintableByteInALabelAndACharacterString_IsEscapedOnlyWhenSpecial()
+    {
+        const string Special = "\\\";()@$";
+        for (var value = 0x21; value < 0x7F; value++)
+        {
+            var escaped = $"\\{value:D3}";
+            var zones = new DnsZoneSet();
+            zones.SeedZone("example.test", $"$TTL 5\n@ SOA a b 1 2 3 4 5\nl{escaped} TXT \"{escaped}\"");
+
+            var line = zones.ExportZone("example.test")!.Split('\n', StringSplitOptions.RemoveEmptyEntries)[1];
+
+            var character = (char)value;
+            var inText = Special.Contains(character) ? $"\\{character}" : character.ToString();
+            var inLabel = Special.Contains(character) || character == '.' ? $"\\{character}" : character.ToString();
+            Assert.AreEqual($"l{inLabel}.example.test. 5 IN TXT \"{inText}\"", line);
+        }
+    }
+
+    [TestMethod]
+    public void ZoneFor_NameUnderASeededZone_IsThatZoneAndNameUnderNoneIsNull()
+    {
+        var zones = new DnsZoneSet();
+        zones.SeedZone("example.test", Seeded);
+
+        Assert.AreEqual("example.test.", zones.ZoneFor(DnsName.Parse("www.example.test"))?.Apex.ToString());
+        Assert.IsNull(zones.ZoneFor(DnsName.Parse("www.other.test")));
+    }
 }

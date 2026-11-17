@@ -197,6 +197,33 @@ public sealed class CurlPortClientPinsTests
         ["published"] = "2026-11-04",
     };
 
+    [TestMethod]
+    public void Parse_CiHashStableAbsent_DefaultsToTrue()
+    {
+        Assert.IsTrue(CurlPortClientPins.Parse(Builds(Entry()))[0].CiHashStable);
+    }
+
+    [TestMethod]
+    [DataRow("true", true)]
+    [DataRow("false", false)]
+    public void Parse_CiHashStableBoolean_ReadsTheFlag(string value, bool expected)
+    {
+        var json = Builds(Entry().Replace(" }", $", \"ciHashStable\": {value} }}", StringComparison.Ordinal));
+
+        Assert.AreEqual(expected, CurlPortClientPins.Parse(json)[0].CiHashStable);
+    }
+
+    [TestMethod]
+    public void Parse_CiHashStableString_ThrowsNamingTheEntry()
+    {
+        var json = Builds(Entry().Replace(" }", ", \"ciHashStable\": \"false\" }", StringComparison.Ordinal));
+
+        var exception = Assert.ThrowsExactly<FormatException>(() => CurlPortClientPins.Parse(json));
+
+        StringAssert.Contains(exception.Message, "ciHashStable of entry 0");
+        StringAssert.Contains(exception.Message, "is not true or false");
+    }
+
     private static string Entry(string platform = "win-x64")
     {
         var fields = Fields();

@@ -99,7 +99,7 @@ internal sealed class CommandLineRunner(
     private readonly Func<Stream> openStandardOutput = openStandardOutput ?? System.Console.OpenStandardOutput;
 
     // -K/--config files are read while parsing (ADR-0101 decision 1).
-    private readonly IConfigFileSource configFiles = configFiles ?? new DiskConfigFileSource(System.Console.OpenStandardInput, fileNamesIgnoreCase: !OperatingSystem.IsLinux());
+    private readonly IConfigFileSource configFiles = configFiles ?? new DiskConfigFileSource(DiskConfigFileSource.OpenProcessStandardInput, fileNamesIgnoreCase: !OperatingSystem.IsLinux());
 
     private const string MessagePrefix = "surl: ";
 

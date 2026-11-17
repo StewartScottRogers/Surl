@@ -48,8 +48,17 @@ internal static class Program
     internal static async Task<int> RunAsync(
         string[] args, TextWriter output, TextWriter error, CancellationToken cancellationToken) =>
         (int)await new CommandLineRunner(
-                tlsSettings => CreateListenerFactory(tlsSettings, TimeProvider.System), DataDirectoryProbe.CanOpen, DataDirectoryLock.Take, TimeProvider.System)
+                CreateSystemClockListenerFactory, DataDirectoryProbe.CanOpen, DataDirectoryLock.Take, TimeProvider.System)
             .RunAsync(args, output, error, cancellationToken);
+
+    /// <summary>
+    /// Creates the socket-backed listener factory <see cref="RunAsync"/> hands the runner, timed by
+    /// the system clock.
+    /// </summary>
+    /// <param name="tlsSettings">The process's TLS settings, or <see langword="null"/> for none.</param>
+    /// <returns>The factory.</returns>
+    internal static IListenerFactory CreateSystemClockListenerFactory(ServerTlsSettings? tlsSettings) =>
+        CreateListenerFactory(tlsSettings, TimeProvider.System);
 
     /// <summary>
     /// Creates the socket-backed listener factory, securing connections with

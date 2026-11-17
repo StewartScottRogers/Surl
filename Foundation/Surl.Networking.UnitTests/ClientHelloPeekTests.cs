@@ -30,6 +30,18 @@ public sealed class ClientHelloPeekTests
         Assert.IsFalse((await ReadAsync(ClientHelloBytes.Record(22, ClientHelloBytes.Message([Tls13, Tls12])))).OffersOnlyTls13);
 
     [TestMethod]
+    public async Task ReadAsync_VersionBelowSsl3BesideTls13_StillOffersOnlyTls13() =>
+        Assert.IsTrue((await ReadAsync(ClientHelloBytes.Record(22, ClientHelloBytes.Message([0x0200, Tls13])))).OffersOnlyTls13);
+
+    [TestMethod]
+    public async Task ReadAsync_VersionInsideSsl3ToTls12BesideTls13_DoesNotOfferOnlyTls13() =>
+        Assert.IsFalse((await ReadAsync(ClientHelloBytes.Record(22, ClientHelloBytes.Message([0x0301, Tls13])))).OffersOnlyTls13);
+
+    [TestMethod]
+    public async Task ReadAsync_OnlyVersionsAboveTls12_StillOffersOnlyTls13() =>
+        Assert.IsTrue((await ReadAsync(ClientHelloBytes.Record(22, ClientHelloBytes.Message([0x7a7a, Tls13, 0x0305])))).OffersOnlyTls13);
+
+    [TestMethod]
     public async Task ReadAsync_Tls12Only_DoesNotOfferOnlyTls13() =>
         Assert.IsFalse((await ReadAsync(ClientHelloBytes.Record(22, ClientHelloBytes.Message([Tls12])))).OffersOnlyTls13);
 

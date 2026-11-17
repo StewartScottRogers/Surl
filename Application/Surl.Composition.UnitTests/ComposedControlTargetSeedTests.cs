@@ -138,6 +138,19 @@ public sealed class ComposedControlTargetSeedTests
         Assert.AreEqual(ControlRefusalKind.Conflict, noZones.Kind);
     }
 
+    [TestMethod]
+    public async Task SeedZoneAsync_ZoneTextPastTheSeedBound_IsAConflict()
+    {
+        await using var serving = await ComposeAsync();
+        var text = new string('a', Surl.Extended.Protocol.DnsQuery.DnsZoneSet.MaxSeedTextBytes + 1);
+
+        var refusal = await Assert.ThrowsExactlyAsync<ControlRefusalException>(
+            () => TargetOf(serving).SeedZoneAsync("example.com", text, TestContext.CancellationToken));
+
+        Assert.AreEqual(ControlRefusalKind.Conflict, refusal.Kind);
+        StringAssert.Contains(refusal.Message, "past the zones' bounds");
+    }
+
     private static ComposedControlTarget TargetOf(ComposedServing serving) => new(serving.Events, serving.Faults, serving.Stores);
 
     private async Task<ComposedServing> ComposeAsync()

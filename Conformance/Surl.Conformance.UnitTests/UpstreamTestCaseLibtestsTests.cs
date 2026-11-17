@@ -23,6 +23,26 @@ public sealed class UpstreamTestCaseLibtestsTests
     }
 
     [TestMethod]
+    public void ProgramName_NoToolPart_IsEmpty()
+    {
+        var testCase = UpstreamTestCaseParser.Parse(
+            UpstreamTestCaseText.Bytes("<testcase>\n<client>\n<server>\nhttp\n</server>\n<command>\nx\n</command>\n</client>\n</testcase>\n"),
+            UpstreamTestCaseText.Environment());
+
+        Assert.AreEqual(string.Empty, UpstreamTestCaseLibtests.ProgramName(testCase, 2402));
+    }
+
+    [TestMethod]
+    public void ProgramName_ToolLinesAllBlank_IsEmpty()
+    {
+        var testCase = UpstreamTestCaseParser.Parse(
+            UpstreamTestCaseText.Bytes("<testcase>\n<client>\n<server>\nhttp\n</server>\n<tool>\n   \n\t\n</tool>\n<command>\nx\n</command>\n</client>\n</testcase>\n"),
+            UpstreamTestCaseText.Environment());
+
+        Assert.AreEqual(string.Empty, UpstreamTestCaseLibtests.ProgramName(testCase, 2402));
+    }
+
+    [TestMethod]
     public void ProgramName_NullCase_Throws()
     {
         Assert.ThrowsExactly<ArgumentNullException>(() => UpstreamTestCaseLibtests.ProgramName(null!, 1));

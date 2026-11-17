@@ -280,7 +280,7 @@ public sealed partial class MessageBus
         : message.PayloadAndNativeFormBytes > MaxMessageBytes ? MessageBusOutcome.MessageTooLarge
         : MessageBusOutcome.Succeeded;
 
-    private BusPublishResult Accept(BusMessage published, DateTimeOffset now, BusConnection? publisher, bool onlyToConsumedQueues, bool seed, HashSet<NamedQueue>? queuesFullByPlan)
+    private BusPublishResult Accept(BusMessage published, DateTimeOffset now, BusConnection? publisher, bool onlyToConsumedQueues, bool seed, HashSet<NamedQueue> queuesFullByPlan)
     {
         var (outcome, logAppend) = PlanLogAppend(published);
         if (outcome is MessageBusOutcome.Succeeded && published.Retain)

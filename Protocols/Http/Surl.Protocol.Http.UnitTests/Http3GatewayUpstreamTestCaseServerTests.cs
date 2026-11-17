@@ -172,6 +172,29 @@ public sealed class Http3GatewayUpstreamTestCaseServerTests
     }
 
     [TestMethod]
+    public async Task ServeAsync_ExchangeCancelledAfterServing_EndsTheConnectionAndCompletesWithoutException()
+    {
+        using var client = new Http3TestClient();
+        var server = new Http3GatewayUpstreamTestCaseServer(Connect(Backend(Reply2503)), BackendPort, [client.SelfSignedCertificate()], client.Key);
+        var serving = server.ServeAsync(client.Flow, Context(client.Log, client.Time, client.Exchange.Token));
+        await client.OpenAsync(Token);
+        client.Send(0, Get(client, "/2503"), fin: true);
+        await client.UntilAsync(() => client.HasEnded(0), Token);
+
+        await client.Exchange.CancelAsync();
+        await client.UntilAsync(
+            () =>
+            {
+                client.Time.Advance(TimeSpan.FromMinutes(1));
+                return serving.IsCompleted;
+            },
+            Token);
+
+        await serving;
+        Assert.IsTrue(serving.IsCompletedSuccessfully);
+    }
+
+    [TestMethod]
     public async Task ServeAsync_ExchangeCancelledBeforeTheHandshake_StopsTheConnection()
     {
         using var client = new Http3TestClient();

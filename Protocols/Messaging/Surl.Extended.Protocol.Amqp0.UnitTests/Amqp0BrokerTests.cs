@@ -495,6 +495,24 @@ public sealed class Amqp0BrokerTests
         await Assert.ThrowsAsync<OperationCanceledException>(() => serving);
     }
 
+    [TestMethod]
+    public async Task ServeAsync_CancelledAfterTheBrokerSentConnectionClose_WritesNoForcedCloseAndThrows()
+    {
+        using var cancellation = new CancellationTokenSource();
+        var log = new RecordingExchangeLog();
+        var connection = new InMemoryConnection([ProtocolHeader, PlainStartOk, DefaultTuneOk, Open("/"), Method(0, 20, 10)], peerHalfClosesWhenExhausted: false);
+        byte[] opened = Concat(Start("PLAIN AMQPLAIN"), Tune(), OpenOk());
+        var serving = new Amqp0Broker(new UnitTestAmqp0AuthenticationPolicy("PLAIN"), NewBus()).ServeAsync(connection, Context(new ManualTimeProvider(), log, cancellation.Token));
+        await WaitUntilAsync(() => log.Notes.Any(note => note.StartsWith("Closed the connection with 503", StringComparison.Ordinal)));
+        await WaitUntilAsync(() => connection.WrittenBytes.Length > opened.Length);
+
+        await cancellation.CancelAsync();
+
+        await Assert.ThrowsAsync<OperationCanceledException>(() => serving);
+        CollectionAssert.AreEqual(Concat(opened, BrokerClose(503, "COMMAND_INVALID - method not valid on channel 0", 20, 10)), connection.WrittenBytes);
+        Assert.IsFalse(log.Notes.Any(note => note.StartsWith("Closed the connection with 320", StringComparison.Ordinal)));
+    }
+
     private const string ForcedCloseText = "CONNECTION_FORCED - idle timeout, maximum time or shutdown";
 
     [TestMethod]

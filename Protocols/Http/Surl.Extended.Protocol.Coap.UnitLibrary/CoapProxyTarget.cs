@@ -35,10 +35,22 @@ internal sealed record CoapProxyTarget(IReadOnlyList<string> Path, IReadOnlyList
             return null;
         }
 
-        var path = uri.AbsolutePath == "/" ? [] : uri.AbsolutePath[1..].Split('/').Select(Uri.UnescapeDataString);
-        var query = uri.Query.Length < 2 ? [] : uri.Query[1..].Split('&').Select(Uri.UnescapeDataString);
+        var path = uri.AbsolutePath == "/" ? [] : UnescapedParts(uri.AbsolutePath[1..], '/');
+        var query = uri.Query.Length < 2 ? [] : UnescapedParts(uri.Query[1..], '&');
 
-        return new CoapProxyTarget([.. path], [.. query]);
+        return new CoapProxyTarget(path, query);
+    }
+
+    private static string[] UnescapedParts(string text, char separator)
+    {
+        var parts = text.Split(separator);
+
+        for (var index = 0; index < parts.Length; index++)
+        {
+            parts[index] = Uri.UnescapeDataString(parts[index]);
+        }
+
+        return parts;
     }
 
     // With no Uri-Host the request is aimed at the endpoint it reached, which is the listener.
