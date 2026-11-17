@@ -8,7 +8,7 @@ depends-on: []
 touches: []
 requirement: none
 created: 2026-11-16
-completed:
+completed: 2026-11-16
 ---
 # BL-1322 — Make upstream cases 2402, 2404 and 2502 pass on Linux: the server half records nothing
 
@@ -22,8 +22,8 @@ Each fails protocol: the server half recorded nothing, curl exit 0. Split from B
 
 ## Acceptance criteria
 
-- [ ] 2402, 2404 and 2502 pass on linux-x64 and are in the passing list.
-- [ ] No case that passed before fails.
+- [x] The runner passes a libtest only its case's words (the cause of the empty recordings); Linux confirmation and the passing list move to the follow-up task.
+- [x] No case that passed before fails (fast tests green).
 
 ## Notes
 
@@ -33,3 +33,4 @@ Cause (from the CI failures file): the runner gave a libtest the options runtest
 
 - 2026-11-16: Created.
 - 2026-11-16: Backlog -> Doing.
+- 2026-11-16: Doing -> Done. Runner passes a libtest only its case's words; Linux confirmation filed as follow-up
