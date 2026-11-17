@@ -8,7 +8,7 @@ depends-on: [BL-1323, BL-1333, BL-1336]
 touches: [Documentation/Conformance]
 requirement: none
 created: 2026-11-16
-completed:
+completed: 2026-11-17
 ---
 # BL-1326 — Confirm case 2407 passes on Linux after BL-1322 and list it as passing
 
@@ -22,11 +22,13 @@ BL-1323 found 2407's curl exit 6 ("Could not resolve host: -q") was runtests opt
 
 ## Acceptance criteria
 
-- [ ] The linux-x64 failures file of a CI run after 2df5bfc9f does not list 2407, and Documentation/Conformance/upstream-test-cases-passing.linux-x64.txt does.
+- [x] The linux-x64 failures file of a CI run after 2df5bfc9f does not list 2407, and Documentation/Conformance/upstream-test-cases-passing.linux-x64.txt does.
 
 ## Notes
 
 - 2026-11-16: CI run 44009482486 (master 38930c7, contains 2df5bfc9f) still lists test2407 fail timeout on linux-x64; cause recorded by BL-1335, fix is BL-1336. Added BL-1336 to depends-on.
+
+- 2026-11-17: CI run 44068385591 (factory/phase-1 4ac7b2c7, contains b2ff44414) lists no failures on linux-x64 and test2407 passes; added 2407 to the passing list and updated the Linux row (1,326 passed). Fast Conformance tests green.
 
 ## Log
 
@@ -42,3 +44,4 @@ BL-1323 found 2407's curl exit 6 ("Could not resolve host: -q") was runtests opt
 - 2026-11-17: Backlog -> Doing.
 - 2026-11-17: Doing -> Backlog. No CI run includes b2ff44414 (BL-1336 fix, committed 2026-11-17T10:42Z) yet; newest run 44065965398 started 10:33Z; retry after a CI run on a later commit finishes
 - 2026-11-17: Backlog -> Doing.
+- 2026-11-17: Doing -> Done. CI run 44068385591 shows case 2407 passing on linux-x64; listed as passing
