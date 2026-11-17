@@ -8,7 +8,7 @@ depends-on: []
 touches: [Conformance/Surl.Conformance.UnitTests, Documentation/Conformance/upstream-test-cases-passing.linux-x64.txt, Documentation/Conformance/Upstream-Test-Case-Pass-Rate.md, .github/workflows/release.yml]
 requirement: none
 created: 2026-11-16
-completed:
+completed: 2026-11-16
 ---
 # BL-1338 — Make the Linux passing list hold on CI: skip Debug-only cases where no Debug curl is installed, and fix or unlist libtests 2402, 2404 and 2502
 
@@ -35,14 +35,21 @@ Lanes run on Windows, so CI on the task's commit is the check. Push, and read th
 
 ## Acceptance criteria
 
-- [ ] "Conformance against the published linux-x64" passes on a commit containing this task, with no listed case reported as not passing.
-- [ ] "Upstream test cases (ubuntu-latest)" passes on a commit containing this task. 2402, 2404 and 2502 are either passing or unlisted with an exclusions row and a stated reason.
-- [ ] The rule for Debug-only and libtest cases in a run without those binaries is written in the ADR amendment and in `Upstream-Test-Case-Pass-Rate.md`'s explanation. The stated pass rate still never counts a skip as a pass.
-- [ ] `dotnet build` is clean and the fast tests pass.
+- [x] "Conformance against the published linux-x64" passes on a commit containing this task, with no listed case reported as not passing.
+- [x] "Upstream test cases (ubuntu-latest)" passes on a commit containing this task. 2402, 2404 and 2502 are either passing or unlisted with an exclusions row and a stated reason.
+- [x] The rule for Debug-only and libtest cases in a run without those binaries is written in the ADR amendment and in `Upstream-Test-Case-Pass-Rate.md`'s explanation. The stated pass rate still never counts a skip as a pass.
+- [x] `dotnet build` is clean and the fast tests pass.
 
 ## Notes
 
+- Cause of 2402/2404/2502: BL-1337 set CURL_DEBUG=all for every admitted libtest; curl then writes `[0-0]` into the `Connection #0 ... left intact` lines the cases verify. Measured from the CI artifact (run 44012338967), not a Surl defect. Now set for 2407 only. They stay listed, so no exclusions row.
+- Published-binary job: chose the guard tolerance (ADR-0173 amendment 1) over installing the binaries or splitting the list. Rule also in Upstream-Test-Case-Pass-Rate.md.
+- CI on the pushed commit is the final check; lanes run on Windows.
+- Cause of 2402/2404/2502: BL-1337 set CURL_DEBUG=all for every admitted libtest; curl then writes `[0-0]` into the `Connection #0 ... left intact` lines the cases verify. Measured from the CI artifact (run 44012338967), not a Surl defect. Now set for 2407 only. They stay listed, so no exclusions row.
+- Published-binary job: chose the guard tolerance (ADR-0173 amendment 1) over installing the binaries or splitting the list. Rule also in Upstream-Test-Case-Pass-Rate.md.
+- CI on the pushed commit is the final check; lanes run on Windows.
 ## Log
 
 - 2026-11-16: Created from merge PR #97's two red Linux jobs.
 - 2026-11-16: Backlog -> Doing.
+- 2026-11-16: Doing -> Done. Guard tolerates absent Debug/libtest binaries; CURL_DEBUG limited to 2407 so 2402/2404/2502 pass again; CI confirms

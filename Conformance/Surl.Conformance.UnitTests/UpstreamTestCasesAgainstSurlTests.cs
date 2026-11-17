@@ -162,7 +162,7 @@ public sealed class UpstreamTestCasesAgainstSurlTests
             await File.WriteAllTextAsync(timeoutOutputFile, run.TimeoutOutput.Format(), TestContext.CancellationToken);
             TestContext.AddResultFile(timeoutOutputFile);
             WriteCounts(resultsFile, results);
-            var comparison = await CompareWithThePassingListAsync(location.Build.Platform, resultsFile, results);
+            var comparison = await CompareWithThePassingListAsync(location.Build.Platform, resultsFile, results, ToleratedSkipReasons(debugLocation.IsAvailable, libtestLocation.IsAvailable));
 
             Assert.HasCount(2013, results);
             Assert.IsTrue(results.Any(result => result.Outcome == UpstreamTestCaseOutcome.Pass), "No case passed; see the results file.");
@@ -184,7 +184,7 @@ public sealed class UpstreamTestCasesAgainstSurlTests
     /// list beside the results file, ready to copy.
     /// </summary>
     private async Task<UpstreamTestCasePassingListComparison> CompareWithThePassingListAsync(
-        string platform, string resultsFile, IReadOnlyList<UpstreamTestCaseResult> results)
+        string platform, string resultsFile, IReadOnlyList<UpstreamTestCaseResult> results, IReadOnlySet<string> toleratedSkipReasons)
     {
         var listPath = Path.Combine(PinnedUpstreamCurl.RepositoryRoot(), UpstreamTestCasePassingList.Folder, UpstreamTestCasePassingList.FileNameFor(platform));
         var listed = File.Exists(listPath)
@@ -199,13 +199,35 @@ public sealed class UpstreamTestCasesAgainstSurlTests
         await File.WriteAllTextAsync(runList, UpstreamTestCasePassingList.Format(results), TestContext.CancellationToken);
         TestContext.AddResultFile(runList);
 
-        var comparison = UpstreamTestCasePassingListComparison.Compare(platform, listed, results);
+        var comparison = UpstreamTestCasePassingListComparison.Compare(platform, listed, results, toleratedSkipReasons);
         if (comparison.NewlyPassing.Count > 0)
         {
             TestContext.WriteLine(comparison.DescribeNewlyPassing());
         }
 
         return comparison;
+    }
+
+    /// <summary>
+    /// The skip reasons that are not regressions for a listed case in this run: a run with no Debug build
+    /// cannot play the cases that skip <c>debug-build</c>, and one with no libtests binary those that skip
+    /// <c>libtest</c>. With both present nothing is tolerated (BL-1338).
+    /// </summary>
+    private static HashSet<string> ToleratedSkipReasons(bool hasDebugBuild, bool hasLibtests)
+    {
+        var tolerated = new HashSet<string>(StringComparer.Ordinal);
+        if (!hasDebugBuild)
+        {
+            tolerated.Add(UpstreamTestCaseSkipReasons.DebugBuild);
+        }
+
+        if (!hasLibtests)
+        {
+            tolerated.Add(UpstreamTestCaseSkipReasons.LibTest);
+            tolerated.Add("libtest-not-built");
+        }
+
+        return tolerated;
     }
 
     private void WriteCounts(string resultsFile, IReadOnlyList<UpstreamTestCaseResult> results)
@@ -568,7 +590,7 @@ public sealed class UpstreamTestCasesAgainstSurlTests
                 replies, ftpReplies, gopherReplies, mqttReplies, tftpReplies,
                 fileServers.CreateSsh(caseDirectory, sshUser), UpstreamTestCaseFileServers.CreateSmb(smbRoot), mailReplies, proxyReplies, socksReplies, dnsReplies, arrivalLog, http3Certificate!);
             var curl = await client.Client.RunAsync(
-                commandLine.Arguments, commandLine.StandardInput, CurlEnvironment(Slashes(caseDirectory), commandLine, UpstreamTestCaseLibtests.AdmittedNumbers.Contains(number)), caseDirectory, cancellationToken);
+                commandLine.Arguments, commandLine.StandardInput, CurlEnvironment(Slashes(caseDirectory), commandLine, number == TracedLibtestNumber), caseDirectory, cancellationToken);
             if (curl.TimedOut)
             {
                 testContext.WriteLine($"{client.LogPrefix}test{number}: curl stopped after {CaseTimeout.TotalSeconds} s");
@@ -789,6 +811,8 @@ public sealed class UpstreamTestCasesAgainstSurlTests
         private static int SocksPortFor(UpstreamTestCaseServerHalves serverHalves, byte[] source) =>
             Encoding.Latin1.GetString(source).Contains("\nsocks4\n", StringComparison.Ordinal) ? serverHalves.Socks4Port : serverHalves.Socks5Port;
 
+        private const int TracedLibtestNumber = 2407;
+
         private static Dictionary<string, string> CurlEnvironment(string home, UpstreamTestCaseCommandLine commandLine, bool traceAll)
         {
             // runtests points HOME, CURL_HOME and XDG_CONFIG_HOME at its own folder; USERPROFILE is Windows' HOME.
@@ -801,7 +825,7 @@ public sealed class UpstreamTestCasesAgainstSurlTests
             };
             if (traceAll)
             {
-                // A libtest program's Debug build writes its full trace to stderr, which the timeout output file keeps (BL-1337).
+                // Only the libtest case that times out (2407, BL-1336) traces everything: CURL_DEBUG=all adds "[0-0]" to the "Connection #0 ... left intact" lines 2402, 2404 and 2502 verify (BL-1338).
                 environment["CURL_DEBUG"] = "all";
             }
 

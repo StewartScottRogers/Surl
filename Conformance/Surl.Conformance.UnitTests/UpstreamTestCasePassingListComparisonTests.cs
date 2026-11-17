@@ -24,6 +24,30 @@ public sealed class UpstreamTestCasePassingListComparisonTests
     }
 
     [TestMethod]
+    public void Compare_ListedCaseSkippedForAToleratedReason_IsNotARegressionAndNotNewlyPassing()
+    {
+        var tolerated = new HashSet<string> { "debug-build", "libtest-not-built" };
+
+        var comparison = UpstreamTestCasePassingListComparison.Compare(
+            "linux-x64",
+            [1, 2, 3, 4, 5],
+            [UpstreamTestCaseResult.Skip(1, "debug-build"), UpstreamTestCaseResult.Skip(2, "libtest-not-built:lib2402"), UpstreamTestCaseResult.Skip(3, "libtest"), UpstreamTestCaseResult.Fail(4, "file"), new UpstreamTestCaseResult(5, UpstreamTestCaseOutcome.Skip, null)],
+            tolerated);
+
+        CollectionAssert.AreEqual(new[] { "test3 skip libtest", "test4 fail file", "test5 skip" }, comparison.Regressions.Select(result => result.ToString()).ToArray());
+        Assert.IsEmpty(comparison.NewlyPassing);
+    }
+
+    [TestMethod]
+    public void Compare_ListedCaseFailsWithAToleratedReasonName_IsStillARegression()
+    {
+        var comparison = UpstreamTestCasePassingListComparison.Compare(
+            "linux-x64", [1], [UpstreamTestCaseResult.Fail(1, "debug-build")], new HashSet<string> { "debug-build" });
+
+        Assert.IsTrue(comparison.HasRegressions);
+    }
+
+    [TestMethod]
     public void Compare_ListedCaseWithNoResult_IsARegression()
     {
         var comparison = UpstreamTestCasePassingListComparison.Compare("win-x64", [9], []);

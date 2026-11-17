@@ -26,6 +26,11 @@ decision 5). This is success criterion 2 of the
   `upstream-test-case-results-<platform>` artifact), copy it over the one here, and update that
   platform's row. Removing a number from a list is allowed only together with an exclusions row
   for that case.
+- A listed case that skips `debug-build`, `libtest` or `libtest-not-built` in a run that has no
+  Debug build or no libtests binary (the release workflow's published-binary job has only the
+  reference curl) is not a regression, since the run cannot play it ([ADR-0173](../Planning/Decisions/ADR-0173-a-debug-upstream-curl-8-21-0-build-from-source-for-the-http-2-and-http-3-test-cases-that-need-one.md),
+  amendment 1). It stays a skip in the results and is never counted as passed; where the binary
+  is present, a skip of a listed case is still a regression.
 - A platform not yet run says `not run`. Windows' row comes from a local run, since CI has no
   pinned Windows build (decision 6).
 
