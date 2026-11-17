@@ -32,3 +32,4 @@ Split from BL-1334, whose third criterion needs a CI run that exists only after 
 ## Log
 
 - 2026-11-16: Created.
+- 2026-11-16: Backlog -> Doing.
