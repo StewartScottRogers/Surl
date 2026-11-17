@@ -231,6 +231,61 @@ public sealed class ControlStoreRequestsTests
     }
 
     [TestMethod]
+    [DataRow("/v1/proxy-accounts", "AddProxyAccount")]
+    [DataRow("/v1/tls-srp-accounts", "AddTlsSrpAccount")]
+    public async Task AddProxyOrTlsSrpAccountAsync_UserAndPassword_AddsItAndAnswers204(string path, string call)
+    {
+        var target = new FakeControlTarget();
+
+        var response = await Serve(target, Request("POST", path, "application/json", "{\"user\":\"bob\",\"password\":\"s3cret-pass\"}"));
+
+        Assert.AreEqual("HTTP/1.1 204 No Content", StatusLine(response));
+        CollectionAssert.AreEqual(new[] { $"{call} bob s3cret-pass" }, target.Calls);
+    }
+
+    [TestMethod]
+    [DataRow("/v1/proxy-accounts", "no proxy account is configured")]
+    [DataRow("/v1/tls-srp-accounts", "TLS-SRP is not configured")]
+    public async Task AddProxyOrTlsSrpAccountAsync_NoneConfigured_Is409(string path, string message)
+    {
+        var target = new FakeControlTarget { Failure = new ControlRefusalException(ControlRefusalKind.Conflict, message) };
+
+        var response = await Serve(target, Request("POST", path, "application/json", "{\"user\":\"bob\",\"password\":\"s3cret-pass\"}"));
+
+        Assert.AreEqual("HTTP/1.1 409 Conflict", StatusLine(response));
+        Assert.Contains(message, Body(response));
+    }
+
+    [TestMethod]
+    [DataRow("/v1/proxy-accounts/bob%20smith", "RemoveProxyAccount bob smith", "no proxy account is named eve")]
+    [DataRow("/v1/tls-srp-accounts/bob%20smith", "RemoveTlsSrpAccount bob smith", "no TLS-SRP account is named eve")]
+    public async Task RemoveProxyOrTlsSrpAccountAsync_KnownOrUnknownUser_Answers204Or404(string path, string call, string notFound)
+    {
+        var target = new FakeControlTarget();
+
+        var known = await Serve(target, Request("DELETE", path));
+        var unknown = await Serve(new FakeControlTarget { Found = false }, Request("DELETE", path.Replace("bob%20smith", "eve", StringComparison.Ordinal)));
+
+        Assert.AreEqual("HTTP/1.1 204 No Content", StatusLine(known));
+        CollectionAssert.AreEqual(new[] { call }, target.Calls);
+        Assert.AreEqual("HTTP/1.1 404 Not Found", StatusLine(unknown));
+        Assert.AreEqual($"{{\"error\":\"not_found\",\"message\":\"{notFound}\"}}", Body(unknown));
+    }
+
+    [TestMethod]
+    [DataRow("/v1/proxy-accounts/bob", "no proxy account is configured")]
+    [DataRow("/v1/tls-srp-accounts/bob", "TLS-SRP is not configured")]
+    public async Task RemoveProxyOrTlsSrpAccountAsync_NoneConfigured_Is409(string path, string message)
+    {
+        var target = new FakeControlTarget { Failure = new ControlRefusalException(ControlRefusalKind.Conflict, message) };
+
+        var response = await Serve(target, Request("DELETE", path));
+
+        Assert.AreEqual("HTTP/1.1 409 Conflict", StatusLine(response));
+        Assert.Contains(message, Body(response));
+    }
+
+    [TestMethod]
     public async Task ResetAsync_StoreOnDisk_Is409WithTheTargetsMessage()
     {
         var target = new FakeControlTarget { Failure = new ControlRefusalException(ControlRefusalKind.Conflict, "the content store is on disk") };

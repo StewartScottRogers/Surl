@@ -81,6 +81,18 @@ public sealed class ControlEventMemberWriterTests
     }
 
     [TestMethod]
+    public void Number_GenerationIdWithAValueOrNull_WritesItOrLeavesItNull()
+    {
+        var writer = new ControlEventMemberWriter(new ControlEventJson { Sequence = 1, At = "t", Kind = "k" });
+
+        writer.Number("GenerationId", 7);
+        Assert.AreEqual(7, writer.Written.GenerationId);
+
+        writer.Number("GenerationId", null);
+        Assert.IsNull(writer.Written.GenerationId);
+    }
+
+    [TestMethod]
     public void Text_NameTheJsonHasNoPlaceFor_Throws()
     {
         var writer = new ControlEventMemberWriter(new ControlEventJson { Sequence = 1, At = "t", Kind = "k" });
