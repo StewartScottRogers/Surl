@@ -437,9 +437,14 @@ public sealed class UpstreamCurlReadsMailFromSurlOverPop3Tests
         var pop3 = surl.BaseUrlOf("pop3");
         using var holder = new TcpClient();
         await holder.ConnectAsync(pop3.Host, pop3.Port, TestContext.CancellationToken);
-        var greeting = new byte[3];
-        await holder.GetStream().ReadExactlyAsync(greeting, TestContext.CancellationToken);
-        Assert.AreEqual("+OK", Encoding.ASCII.GetString(greeting));
+        using var holderReader = new StreamReader(holder.GetStream(), Encoding.ASCII);
+        StringAssert.StartsWith(await holderReader.ReadLineAsync(TestContext.CancellationToken), "+OK");
+
+        // The greeting alone shows surl accepted the holder; a CAPA answered (NOOP needs a login in
+        // POP3) shows its exchange is running and counted, so curl's connection is past the limit
+        // whenever it dials (BL-1344).
+        await holder.GetStream().WriteAsync(Encoding.ASCII.GetBytes("CAPA\r\n"), TestContext.CancellationToken);
+        StringAssert.StartsWith(await holderReader.ReadLineAsync(TestContext.CancellationToken), "+OK");
 
         var result = await RunUpstreamCurlAsync("-sS", "-u", Credentials, Pop3Url(surl, "/1"));
 

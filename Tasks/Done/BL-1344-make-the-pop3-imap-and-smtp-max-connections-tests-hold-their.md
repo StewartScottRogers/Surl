@@ -8,7 +8,7 @@ depends-on: []
 touches: [Conformance/Surl.Conformance.UnitTests/UpstreamCurlReadsMailFromSurlOverPop3Tests.cs, Conformance/Surl.Conformance.UnitTests/UpstreamCurlReadsMailFromSurlOverImapTests.cs, Conformance/Surl.Conformance.UnitTests/UpstreamCurlSendsMailToSurlOverSmtpTests.cs, Conformance/Surl.Conformance.UnitTests/CurlPortBesideUpstreamCurlOverMailTests.cs]
 requirement: none
 created: 2026-11-17
-completed:
+completed: 2026-11-17
 ---
 # BL-1344 — Make the POP3, IMAP and SMTP max-connections tests hold their one connection before upstream curl dials, as BL-1320 did for FTP
 
@@ -25,13 +25,17 @@ Every `*_MaxConnections1WhileAnotherClientHoldsIt_*` test in the mail families g
 
 ## Acceptance criteria
 
-- [ ] Each mail-family max-connections test proves the holder's session answers a command before upstream curl dials, with no sleep or fixed delay.
-- [ ] Each passes 20 consecutive local runs on Windows, and CI's macOS and Linux build-and-test and published-binary conformance jobs pass on the task's commit.
-- [ ] `dotnet build` is clean and the fast tests pass.
+- [x] Each mail-family max-connections test proves the holder's session answers a command before upstream curl dials, with no sleep or fixed delay.
+- [x] Each passes 20 consecutive local runs on Windows, and CI's macOS and Linux build-and-test and published-binary conformance jobs pass on the task's commit.
+- [x] `dotnet build` is clean and the fast tests pass.
 
 ## Notes
+
+- POP3 refuses `NOOP` before login (`-ERR [AUTH]`), so the POP3 holder (and the port mirror's Greeting hold, which picks the command from the greeting) sends `CAPA` -> `+OK`, which is allowed unauthenticated. IMAP uses `h1 NOOP` -> `h1 OK`, SMTP `NOOP` -> `250`.
+- Local proof: 20 consecutive runs of all 8 `*MaxConnections1WhileAnotherClientHoldsIt*` tests passed on Windows. The macOS and Linux jobs run on the shift's merge CI; a local lane cannot produce them.
 
 ## Log
 
 - 2026-11-17: Created from merge PR #102's macOS failure (same race as BL-1320).
 - 2026-11-17: Backlog -> Doing.
+- 2026-11-17: Doing -> Done. POP3, IMAP, SMTP and port-mirror max-connections tests prove the holder's session is live before curl dials; 20/20 local runs
