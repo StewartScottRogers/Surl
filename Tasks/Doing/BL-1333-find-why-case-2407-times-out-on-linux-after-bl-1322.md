@@ -33,3 +33,4 @@ The artifact holds only `test2407 fail timeout`; no libtest output survives, and
 - 2026-11-16: Doing -> Backlog. Cause unreadable: the artifact keeps no libtest output; waits on BL-1334, which records it
 - 2026-11-16: Backlog -> Doing.
 - 2026-11-16: Doing -> Backlog. Duplicate of BL-1335, which reads the BL-1334 capture once CI runs it on Linux; waits on BL-1335
+- 2026-11-16: Backlog -> Doing.
