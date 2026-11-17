@@ -44,8 +44,12 @@ BL-1317 (2026-11-16) moved Linux to commit `6023b4b3` from [CI run 43979679184](
 and the suite plays the six cases that need it (2400, 2401, 2406, 2501, 358 and 359) with that
 build. Windows and macOS stay at 50 because neither has a reproducible Debug build (Docker Desktop
 yields Linux binaries, and there is no macOS runner for one), so their rows and counts do not move.
-The four libtest cases (2402, 2404, 2407 and 2502) stay skipped under ADR-0173's own build: they
-need a libtest program and a runner for `<tool>` programs, a separate decision (BL-1313).
+The four libtest cases (2402, 2404, 2407 and 2502) were skipped under ADR-0173's own build, which
+has no libtest program; ADR-0174 (BL-1313) added the runner for `<tool>` programs and BL-1316 its
+code. Since the Linux run at `6023b4b3` they run there with the Debug libtests binary and no longer
+count under `libtest` or `debug-build` on `linux-x64`. They are recorded as failures with their
+reasons, never excluded (ADR-0174 decision 6): 2402, 2404 and 2502 record nothing (BL-1322) and
+2407 has curl exit 6 (BL-1323). Windows and macOS still skip them.
 
 BL-1149 (2026-11-14) moved Linux and macOS to commit `145f16b2`, from [CI run 43651751537](https://github.com/StewartScottRogers/Surl/actions/runs/43651751537) (PR #36): 956, 957 and 958 now pass on both (`RCPT` and `VRFY` answer `501` for a non-ASCII address unless the case lists `SMTPUTF8`, as upstream `ftpserver.pl` does), so each is 1,316 passed, 0 failed and both failures files are empty. The paragraph below is the earlier BL-1142 record, kept as history.
 
