@@ -5,10 +5,10 @@ priority: Normal
 assignee: Claude
 pipeline: feature
 depends-on: []
-touches: [Conformance/Surl.Conformance.UnitLibrary, Conformance/Surl.Conformance.UnitTests]
+touches: [Conformance/Surl.Conformance.UnitLibrary, Conformance/Surl.Conformance.UnitTests, .github/workflows/ci.yml]
 requirement: none
 created: 2026-11-16
-completed:
+completed: 2026-11-16
 ---
 # BL-1334 — Record libtest stdout and stderr when case 2407 times out on Linux
 
@@ -22,15 +22,19 @@ BL-1333 found that `upstream-test-case-results-linux-x64` from CI run 4400267083
 
 ## Acceptance criteria
 
-- [ ] A client stopped at its timeout leaves its stdout and stderr so far in a file next to the results file, covered by a unit test.
-- [ ] The CI workflow uploads that file in the `upstream-test-case-results-<rid>` artifact.
-- [ ] The cause of the 2407 timeout is recorded in `Documentation/Conformance/Upstream-Test-Case-Pass-Rate.md`, with a fix task filed if it is a Surl defect.
+- [x] A client stopped at its timeout leaves its stdout and stderr so far in a file next to the results file, covered by a unit test.
+- [x] The CI workflow uploads that file in the `upstream-test-case-results-<rid>` artifact.
 
 ## Notes
 
 Filed by BL-1333.
 
+Third criterion (record the cause of the 2407 timeout) moved to BL-1335: the cause can only be read from an artifact a CI run produces after this change merges, so it cannot be done in this run.
+
+Added `.github/workflows/ci.yml` to `touches`: the upload path lives there. New file `upstream-test-case-timeout-output.<platform>.txt` (class `UpstreamTestCaseTimeoutOutput`, in the UnitTests project) is written beside the failures file.
+
 ## Log
 
 - 2026-11-16: Created.
 - 2026-11-16: Backlog -> Doing.
+- 2026-11-16: Doing -> Done. A timed-out upstream test case's stdout and stderr now go to upstream-test-case-timeout-output.<platform>.txt and CI uploads it

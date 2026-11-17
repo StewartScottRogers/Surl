@@ -158,6 +158,9 @@ public sealed class UpstreamTestCasesAgainstSurlTests
             var failuresFile = Path.Combine(Path.GetDirectoryName(resultsFile)!, UpstreamTestCaseFailureReport.FileNameFor(location.Build.Platform));
             await File.WriteAllTextAsync(failuresFile, run.Failures.Format(results), TestContext.CancellationToken);
             TestContext.AddResultFile(failuresFile);
+            var timeoutOutputFile = Path.Combine(Path.GetDirectoryName(resultsFile)!, UpstreamTestCaseTimeoutOutput.FileNameFor(location.Build.Platform));
+            await File.WriteAllTextAsync(timeoutOutputFile, run.TimeoutOutput.Format(), TestContext.CancellationToken);
+            TestContext.AddResultFile(timeoutOutputFile);
             WriteCounts(resultsFile, results);
             var comparison = await CompareWithThePassingListAsync(location.Build.Platform, resultsFile, results);
 
@@ -327,6 +330,11 @@ public sealed class UpstreamTestCasesAgainstSurlTests
         /// Gets the full verdicts of the run's failing cases, for the failures file.
         /// </summary>
         public UpstreamTestCaseFailureReport Failures { get; } = new();
+
+        /// <summary>
+        /// Gets the stdout and stderr each timed-out case's client had written, for the timeout output file.
+        /// </summary>
+        public UpstreamTestCaseTimeoutOutput TimeoutOutput { get; } = new();
 
         /// <summary>
         /// Gets the upstream builds the run's cases are played with: the reference build, then the
@@ -565,6 +573,7 @@ public sealed class UpstreamTestCasesAgainstSurlTests
             {
                 testContext.WriteLine($"{client.LogPrefix}test{number}: curl stopped after {CaseTimeout.TotalSeconds} s");
                 Failures.Record(number, $"curl stopped after {CaseTimeout.TotalSeconds} s");
+                TimeoutOutput.Record(number, curl.StandardOutput, curl.StandardError);
                 return UpstreamTestCaseResult.Fail(number, UpstreamTestCaseResult.TimeoutReason);
             }
 
