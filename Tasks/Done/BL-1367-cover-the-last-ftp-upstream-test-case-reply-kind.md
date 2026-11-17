@@ -8,7 +8,7 @@ depends-on: []
 touches: [Protocols/FileTransfer/Surl.Protocol.Ftp.UnitLibrary, Protocols/FileTransfer/Surl.Protocol.Ftp.UnitTests]
 requirement: none
 created: 2026-11-17
-completed:
+completed: 2026-11-17
 ---
 # BL-1367 — Cover the last FTP upstream test case reply kind
 
@@ -25,17 +25,19 @@ completed:
 
 ## Acceptance criteria
 
-- [ ] A named `Surl.Protocol.Ftp.UnitTests` test answers an upstream test case command of the missing kind (identify it
+- [x] A named `Surl.Protocol.Ftp.UnitTests` test answers an upstream test case command of the missing kind (identify it
       from line 96's arms) and asserts the reply bytes; if the missing edge is a default no kind can reach, reshape the
       switch so it has none and say so in the Notes.
-- [ ] `Measure-CodeQuality.ps1 -Library Surl.Protocol.Ftp.UnitLibrary` reports `100 | 100` with 0 failing members, and
+- [x] `Measure-CodeQuality.ps1 -Library Surl.Protocol.Ftp.UnitLibrary` reports `100 | 100` with 0 failing members, and
       the fast tests are green.
 
 ## Notes
 
 - Tests first (test-writer). Expected bytes come from the upstream test case data, never from the Curl port.
+- The three reply kinds were already tested; the missing branch was the async completion of the awaits inside the switch arms. Reshaped the switch to pick the second reply text and await once (no behaviour change; existing NoDataConnection tests pin the bytes).
 
 ## Log
 
 - 2026-11-17: Created.
 - 2026-11-17: Backlog -> Doing.
+- 2026-11-17: Doing -> Done. Ftp library at 100/100 branch coverage after reshaping AnswerWithoutDataConnectionAsync switch

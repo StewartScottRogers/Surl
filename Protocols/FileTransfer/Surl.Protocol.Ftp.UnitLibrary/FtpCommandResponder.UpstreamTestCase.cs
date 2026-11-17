@@ -93,12 +93,14 @@ internal sealed partial class FtpCommandResponder
     {
         await ReplyAsync("150 Opening data connection");
 
-        return kind switch
+        var secondReply = kind switch
         {
-            FtpNoDataConnectionReply.Refuse425 => await ReplyAsync("425 Can't open data connection"),
-            FtpNoDataConnectionReply.Timeout421 => await ReplyAsync("421 Connection timed out"),
-            _ => true,
+            FtpNoDataConnectionReply.Refuse425 => "425 Can't open data connection",
+            FtpNoDataConnectionReply.Timeout421 => "421 Connection timed out",
+            _ => null,
         };
+
+        return secondReply is null || await ReplyAsync(secondReply);
     }
 
     private ValueTask<bool> AnswerUpstreamTestCaseListingAsync(FtpUpstreamTestCaseReplies replies) =>
