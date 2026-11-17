@@ -87,3 +87,26 @@ SHA-256 (ADR-0003), so the build must come out the same bytes every time, as ADR
 - Follow-up tasks: BL-1310 builds and pins it, BL-1311 runs the six cases with it, BL-1312
   updates `Upstream-Test-Case-Pass-Rate.md` and its passing lists, and BL-1313 decides how libtests
   are built and run.
+
+## Amendment 1 (2026-11-16, BL-1338): a listed case skipped for want of the binary is not a regression
+
+Decided by Claude under Stewart's delegation.
+
+The release workflow's "Conformance against the published linux-x64" job runs the suite with only
+the reference curl, while the one per-platform passing list names the cases that pass where the
+Debug build and the libtests binary are installed (CI's "Upstream test cases" job). Nine listed
+cases skipped there (358, 359, 2400, 2401, 2406, 2501 as `debug-build`; 2402, 2404, 2502 as
+`libtest`) and the guard failed them as regressions.
+
+Decision: the guard (`UpstreamTestCasePassingListComparison.Compare`) takes the skip reasons to
+tolerate, and the run passes `debug-build` only when it has no Debug build, and `libtest` and
+`libtest-not-built` only when it has no libtests binary. Where the binary is present nothing is
+tolerated, so a skip there is still a regression. A tolerated skip is never counted as a pass:
+the stated rate and the results file still say `skip`. Rejected: installing both in the published
+job (another source build in the release path) and splitting the list by build (two lists to
+keep in step).
+
+Separately, BL-1337 set `CURL_DEBUG=all` for every admitted libtest, which makes curl's trace
+write `[0-0]` into the `Connection #0 ... left intact` lines that 2402, 2404 and 2502 verify, so
+those three failed `file`. Surl was not at fault. The variable is now set for 2407 only, the case
+that times out (BL-1336). The three stay on the passing list.

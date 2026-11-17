@@ -65,6 +65,30 @@ public sealed class Http2GatewayCleartextUpgradeTests
     }
 
     [TestMethod]
+    public async Task Test2407_TwoUpgradedConnectionsServedAtOnce_EachGetsHeadersAndDataOnStream1()
+    {
+        var request = Concat(
+            Ascii($"GET /2407 HTTP/1.1\r\nHost: 127.0.0.1:1234\r\nUser-Agent: curl/8\r\nAccept: */*\r\n{UpgradeFields}\r\n"),
+            Start());
+        var connector = new InMemoryOriginConnector()
+            .ScriptConnection("127.0.0.1", BackendPort, Backend(Reply1700))
+            .ScriptConnection("127.0.0.1", BackendPort, Backend(Reply1700));
+        var clients = new[] { new InMemoryConnection([request], peerHalfClosesWhenExhausted: false), new InMemoryConnection([request], peerHalfClosesWhenExhausted: false) };
+        using var exchange = CancellationTokenSource.CreateLinkedTokenSource(TestContext.CancellationToken);
+        var serving = clients.Select(client => new Http2GatewayUpstreamTestCaseServer(connector, BackendPort)
+            .ServeAsync(client, Context(new RecordingExchangeLog(), TimeProvider.System, exchange.Token))).ToArray();
+
+        await WaitUntilAsync(() => clients.All(client => AfterTheHead(client) is { } frames && Responses(frames).TryGetValue(1, out var response) && response.EndedOnData));
+        await exchange.CancelAsync();
+        await Task.WhenAll(serving);
+
+        foreach (var client in clients)
+        {
+            Assert.AreEqual("-foo-\n", Responses(AfterTheHead(client)!)[1].BodyText);
+        }
+    }
+
+    [TestMethod]
     public async Task Test1701_UpgradedPostForwardsItsBodyAndContentLength()
     {
         var request = Concat(

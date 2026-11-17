@@ -26,6 +26,11 @@ decision 5). This is success criterion 2 of the
   `upstream-test-case-results-<platform>` artifact), copy it over the one here, and update that
   platform's row. Removing a number from a list is allowed only together with an exclusions row
   for that case.
+- A listed case that skips `debug-build`, `libtest` or `libtest-not-built` in a run that has no
+  Debug build or no libtests binary (the release workflow's published-binary job has only the
+  reference curl) is not a regression, since the run cannot play it ([ADR-0173](../Planning/Decisions/ADR-0173-a-debug-upstream-curl-8-21-0-build-from-source-for-the-http-2-and-http-3-test-cases-that-need-one.md),
+  amendment 1). It stays a skip in the results and is never counted as passed; where the binary
+  is present, a skip of a listed case is still a regression.
 - A platform not yet run says `not run`. Windows' row comes from a local run, since CI has no
   pinned Windows build (decision 6).
 
@@ -43,7 +48,9 @@ BL-1321 (2026-11-16) made the gateway's forwarded request carry the `Via` nghttp
 
 BL-1325 (2026-11-16) moved Linux to commit `0cd51f95` from [CI run 44002670831](https://github.com/StewartScottRogers/Surl/actions/runs/44002670831), the first Linux run with the BL-1322 fix (`2df5bfc9f`): 2402, 2404 and 2502 now pass and are in `upstream-test-cases-passing.linux-x64.txt` (1,325 passed). Only 2407 still fails on Linux, and it no longer has curl exit 6 (BL-1323): the run records `test2407 fail timeout`.
 
-BL-1333 (2026-11-16) looked for the cause of that timeout. Case 2407 runs `lib2405` (`curl_multi_waitfds` over HTTP/2) and the runner stops it at its timeout, but the results artifact keeps only the verdict, not the stdout and stderr the client wrote before it was stopped, so the cause is not yet known and is not known to be a Surl defect. BL-1334 makes the artifact carry that output, reads it, and records the cause here.
+BL-1333 (2026-11-16) looked for the cause of that timeout. Case 2407 runs `lib2405` (`curl_multi_waitfds` over HTTP/2) and the runner stops it at its timeout, but the results artifact keeps only the verdict, not the stdout and stderr the client wrote before it was stopped, so the cause is not yet known and is not known to be a Surl defect. BL-1334 made the artifact carry that output.
+
+BL-1335 (2026-11-16) read the `test2407` block of `upstream-test-case-timeout-output.linux-x64.txt` from [CI run 44009482486](https://github.com/StewartScottRogers/Surl/actions/runs/44009482486). Cause: a Surl defect in the `http/2` gateway half. `lib2405` opens two connections to the gateway's plaintext port; each sends `GET /2407` with `Upgrade: h2c`, each is answered `101 Switching Protocols`, and curl logs `Received 101, Switching to HTTP/2` and `Copied HTTP/2 data in stream buffer ... len=21` (the server's SETTINGS frames). Then no response to stream 1 arrives: stdout is 0 bytes and the runner stops curl at 60 s. The upgraded connections therefore never write HEADERS and DATA for stream 1 (`Http2GatewayCleartextUpgrade`, `Http2ConnectionServer.ServeUpgradedAsync`, `Http2GatewayStreamForwarder`). BL-1336 fixes it.
 
 [ADR-0173](../Planning/Decisions/ADR-0173-a-debug-upstream-curl-8-21-0-build-from-source-for-the-http-2-and-http-3-test-cases-that-need-one.md)
 (BL-1312) is why `debug-build` falls from 50 to 44 on `linux-x64`: the Linux job builds a Debug curl

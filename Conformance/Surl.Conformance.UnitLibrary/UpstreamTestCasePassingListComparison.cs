@@ -34,9 +34,18 @@ public sealed record UpstreamTestCasePassingListComparison(
     /// <param name="platform">The pin's platform.</param>
     /// <param name="passingList">The numbers the platform's passing list holds.</param>
     /// <param name="results">The run's results.</param>
+    /// <param name="toleratedSkipReasons">
+    /// Skip reasons (the text before any colon) that are not a regression for a listed case because the run
+    /// has no binary the case needs: <c>debug-build</c> without the Debug build, <c>libtest</c> and
+    /// <c>libtest-not-built</c> without the libtests binary (BL-1338). A tolerated skip is never a pass:
+    /// it stays out of the stated rate. Null tolerates nothing.
+    /// </param>
     /// <returns>The comparison.</returns>
     public static UpstreamTestCasePassingListComparison Compare(
-        string platform, IEnumerable<int> passingList, IEnumerable<UpstreamTestCaseResult> results)
+        string platform,
+        IEnumerable<int> passingList,
+        IEnumerable<UpstreamTestCaseResult> results,
+        IReadOnlySet<string>? toleratedSkipReasons = null)
     {
         ArgumentNullException.ThrowIfNull(platform);
         ArgumentNullException.ThrowIfNull(passingList);
@@ -47,7 +56,7 @@ public sealed record UpstreamTestCasePassingListComparison(
 
         var regressions = listed.Order()
             .Select(number => byNumber.GetValueOrDefault(number) ?? UpstreamTestCaseResult.Fail(number, MissingReason))
-            .Where(result => result.Outcome != UpstreamTestCaseOutcome.Pass)
+            .Where(result => result.Outcome != UpstreamTestCaseOutcome.Pass && !IsTolerated(result, toleratedSkipReasons))
             .ToList();
         var newlyPassing = byNumber.Values
             .Where(result => result.Outcome == UpstreamTestCaseOutcome.Pass && !listed.Contains(result.Number))
@@ -96,6 +105,12 @@ public sealed record UpstreamTestCasePassingListComparison(
 
         return text.ToString();
     }
+
+    private static bool IsTolerated(UpstreamTestCaseResult result, IReadOnlySet<string>? toleratedSkipReasons) =>
+        toleratedSkipReasons is not null
+        && result.Outcome == UpstreamTestCaseOutcome.Skip
+        && result.Reason is { } reason
+        && toleratedSkipReasons.Contains(reason.Split(':')[0]);
 
     private string ListPath => $"{UpstreamTestCasePassingList.Folder}/{UpstreamTestCasePassingList.FileNameFor(Platform)}";
 }

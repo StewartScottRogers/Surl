@@ -137,13 +137,6 @@ jobs:
         with:
           global-json-file: global.json
 
-      - name: Obtain the pinned upstream curl and the OpenLDAP build
-        uses: ./.github/actions/upstream-curl
-        with:
-          platform: linux-x64
-          asset: curl-linux-x86_64-musl-8.21.0.tar.xz
-          openldap: 'true'
-
       - name: Check out the Curl port at the pinned commit
         id: port
         shell: pwsh
@@ -170,6 +163,18 @@ jobs:
             Invoke-Expression $env:PUBLISH_COMMAND
             if ($LASTEXITCODE -ne 0) { Write-Output "::error::The Curl port publish failed."; exit 1 }
           } finally { Pop-Location }
+          # Run 44012635963 hashed 048AAEE0... here against the pin DF507F32..., which the build job
+          # reproduced; the hash is printed so the next run shows what this job produced.
+          Get-FileHash -Algorithm SHA256 "$env:HOME/.local/share/surl/curl-port/${{ steps.port.outputs.commit }}/curl" | ForEach-Object { Write-Output "Published curl SHA-256: $($_.Hash)" }
+
+      # After the port publish: in run 44012635963 this step came first and the published port
+      # hashed differently from the build job's, so the toolchain it installs is the suspect.
+      - name: Obtain the pinned upstream curl and the OpenLDAP build
+        uses: ./.github/actions/upstream-curl
+        with:
+          platform: linux-x64
+          asset: curl-linux-x86_64-musl-8.21.0.tar.xz
+          openldap: 'true'
 
       - name: Build Surl
         run: dotnet build Conformance/Surl.Conformance.UnitTests -c Release
