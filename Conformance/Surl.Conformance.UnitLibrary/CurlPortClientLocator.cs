@@ -23,6 +23,7 @@ public sealed class CurlPortClientLocator(IUpstreamCurlFileAccess fileAccess)
     /// <param name="pins">The clients <c>CurlPortBuilds.json</c> pins.</param>
     /// <param name="upstreamPins">The builds <c>UpstreamCurlBuilds.json</c> pins, none of which is ever returned.</param>
     /// <param name="platform">The platform to find a client for, such as <c>win-x64</c>; see <see cref="UpstreamCurlLocator.CurrentPlatform"/>.</param>
+    /// <param name="ciAcceptedSha256">A hash a CI run names for the file its build job reproduced; accepted only for a pin with <see cref="PinnedCurlPortClient.CiHashStable"/> false, never for an upstream pin's hash.</param>
     /// <returns>
     /// The verified client, or a location saying that no client is pinned for the platform, or
     /// that none of the pinned clients' files exists.
@@ -35,8 +36,9 @@ public sealed class CurlPortClientLocator(IUpstreamCurlFileAccess fileAccess)
     public CurlPortClientLocation Locate(
         IReadOnlyList<PinnedCurlPortClient> pins,
         IReadOnlyList<PinnedUpstreamCurlBuild> upstreamPins,
-        string platform) =>
-        LocateOfKind(pins, upstreamPins, platform, CurlPortClientKind.Curl);
+        string platform,
+        string? ciAcceptedSha256 = null) =>
+        LocateOfKind(pins, upstreamPins, platform, CurlPortClientKind.Curl, ciAcceptedSha256);
 
     /// <summary>
     /// As <see cref="Locate"/>, for the port's managed <c>Libcurl</c> assembly: only pins of
@@ -46,6 +48,7 @@ public sealed class CurlPortClientLocator(IUpstreamCurlFileAccess fileAccess)
     /// <param name="pins">The clients <c>CurlPortBuilds.json</c> pins.</param>
     /// <param name="upstreamPins">The builds <c>UpstreamCurlBuilds.json</c> pins, none of which is ever returned.</param>
     /// <param name="platform">The platform to find a library for, such as <c>win-x64</c>.</param>
+    /// <param name="ciAcceptedSha256">As for <see cref="Locate"/>.</param>
     /// <returns>The verified library, or a location saying why none is available.</returns>
     /// <exception cref="UnpinnedCurlPortClientException">
     /// A pinned library's file exists but hashes to something other than its pin, or to an upstream
@@ -54,8 +57,9 @@ public sealed class CurlPortClientLocator(IUpstreamCurlFileAccess fileAccess)
     public CurlPortClientLocation LocateLibrary(
         IReadOnlyList<PinnedCurlPortClient> pins,
         IReadOnlyList<PinnedUpstreamCurlBuild> upstreamPins,
-        string platform) =>
-        LocateOfKind(pins, upstreamPins, platform, CurlPortClientKind.Library);
+        string platform,
+        string? ciAcceptedSha256 = null) =>
+        LocateOfKind(pins, upstreamPins, platform, CurlPortClientKind.Library, ciAcceptedSha256);
 
     /// <summary>
     /// Checks that the file at <paramref name="path"/> is a pinned Curl port library, for a libcurl
@@ -91,7 +95,8 @@ public sealed class CurlPortClientLocator(IUpstreamCurlFileAccess fileAccess)
         IReadOnlyList<PinnedCurlPortClient> pins,
         IReadOnlyList<PinnedUpstreamCurlBuild> upstreamPins,
         string platform,
-        CurlPortClientKind kind)
+        CurlPortClientKind kind,
+        string? ciAcceptedSha256)
     {
         ArgumentNullException.ThrowIfNull(pins);
         ArgumentNullException.ThrowIfNull(upstreamPins);
@@ -107,14 +112,14 @@ public sealed class CurlPortClientLocator(IUpstreamCurlFileAccess fileAccess)
 
         return candidates.Count == 0
             ? CurlPortClientLocation.NoPinnedClient(platform)
-            : VerifyFirstPresent(candidates, upstreamHashes);
+            : VerifyFirstPresent(candidates, upstreamHashes, ciAcceptedSha256);
     }
 
     /// <summary>
     /// Checks each candidate whose file exists, in order, and returns the first that hashes to
     /// its pin and to no upstream pin.
     /// </summary>
-    private CurlPortClientLocation VerifyFirstPresent(List<(PinnedCurlPortClient Client, string Path)> candidates, HashSet<string> upstreamHashes)
+    private CurlPortClientLocation VerifyFirstPresent(List<(PinnedCurlPortClient Client, string Path)> candidates, HashSet<string> upstreamHashes, string? ciAcceptedSha256)
     {
         UnpinnedCurlPortClientException? refusal = null;
 
@@ -122,7 +127,7 @@ public sealed class CurlPortClientLocator(IUpstreamCurlFileAccess fileAccess)
         {
             var sha256 = HashFile(path);
 
-            if (string.Equals(sha256, client.Sha256, StringComparison.OrdinalIgnoreCase) && !upstreamHashes.Contains(sha256))
+            if (!upstreamHashes.Contains(sha256) && (Matches(sha256, client.Sha256) || (!client.CiHashStable && Matches(sha256, ciAcceptedSha256))))
             {
                 return CurlPortClientLocation.Found(client, path);
             }
@@ -132,6 +137,9 @@ public sealed class CurlPortClientLocator(IUpstreamCurlFileAccess fileAccess)
 
         return refusal is null ? CurlPortClientLocation.FileAbsent(candidates[0].Client, candidates[0].Path) : throw refusal;
     }
+
+    private static bool Matches(string sha256, string? expected) =>
+        expected is not null && string.Equals(sha256, expected, StringComparison.OrdinalIgnoreCase);
 
     private string HashFile(string path)
     {

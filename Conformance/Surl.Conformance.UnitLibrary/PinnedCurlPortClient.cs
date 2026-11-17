@@ -28,4 +28,11 @@ public sealed record PinnedCurlPortClient(
     /// <c>kind</c>) or its managed <c>Libcurl</c> assembly (ADR-0089 decision 1 (c)).
     /// </summary>
     public CurlPortClientKind Kind { get; init; } = CurlPortClientKind.Curl;
+
+    /// <summary>
+    /// Gets whether a CI publish of this commit reproduces <c>Sha256</c>; <c>false</c> (the file's
+    /// <c>ciHashStable</c>, ADR-0175 Amendment 2) lets <see cref="CurlPortClientLocator"/> accept the
+    /// one extra hash a CI run names for the file its own build job reproduced (Amendment 3).
+    /// </summary>
+    public bool CiHashStable { get; init; } = true;
 }

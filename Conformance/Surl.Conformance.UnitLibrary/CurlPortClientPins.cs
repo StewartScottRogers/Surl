@@ -83,8 +83,16 @@ public static class CurlPortClientPins
             RequiredString(entry, index, "published"))
         {
             Kind = ParseKind(entry, index),
+            CiHashStable = ParseCiHashStable(entry, index),
         };
     }
+
+    private static bool ParseCiHashStable(JsonElement entry, int index) =>
+        !entry.TryGetProperty("ciHashStable", out var value)
+            ? true
+            : value.ValueKind is JsonValueKind.True or JsonValueKind.False
+                ? value.GetBoolean()
+                : throw new FormatException($"The ciHashStable of entry {index} of builds in {FileName} is not true or false.");
 
     private static CurlPortClientKind ParseKind(JsonElement entry, int index)
     {
