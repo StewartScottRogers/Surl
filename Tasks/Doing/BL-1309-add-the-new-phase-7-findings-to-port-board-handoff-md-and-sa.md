@@ -31,3 +31,4 @@ ADR-0089 decision 7 (handoff form) and Amendment 8. Source: the findings section
 ## Log
 
 - 2026-11-16: Created.
+- 2026-11-17: Backlog -> Doing.
