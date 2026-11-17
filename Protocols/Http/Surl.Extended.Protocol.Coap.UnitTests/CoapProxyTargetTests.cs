@@ -44,6 +44,33 @@ public sealed class CoapProxyTargetTests
     }
 
     [TestMethod]
+    [DataRow("coap://127.0.0.1:5683/f.txt?", "")]
+    [DataRow("coap://127.0.0.1:5683/f.txt?a=1", "a=1")]
+    [DataRow("coap://127.0.0.1:5683/f.txt?a=1&b=%20", "a=1|b= ")]
+    public void ResolveLocalProxy_ProxyUriWithABareQuestionMarkOrAQuery_ProducesTheUriQuery(string proxyUri, string query)
+    {
+        var local = Read(CoapOption.FromString(CoapOptionNumber.ProxyUri, proxyUri)).ResolveLocalProxy(Listener);
+
+        Assert.IsFalse(local.NamesAProxy);
+        Assert.AreEqual(query, string.Join('|', local.UriQuery));
+    }
+
+    [TestMethod]
+    [DataRow("localhost", false)]
+    [DataRow("127.0.0.1", false)]
+    [DataRow("10.0.0.9", true)]
+    [DataRow("example.org", true)]
+    public void ResolveLocalProxy_ProxySchemeHost_IsServedOnlyWhenLoopback(string host, bool staysAProxy)
+    {
+        var options = Read(
+            CoapOption.FromString(CoapOptionNumber.ProxyScheme, "coap"),
+            CoapOption.FromString(CoapOptionNumber.UriHost, host),
+            CoapOption.FromUInt(CoapOptionNumber.UriPort, 5683));
+
+        Assert.AreEqual(staysAProxy, options.ResolveLocalProxy(Listener).NamesAProxy);
+    }
+
+    [TestMethod]
     public void ResolveLocalProxy_ProxySchemeWithoutAHost_IsServedFromTheUriPath()
     {
         var options = Read(CoapOption.FromString(CoapOptionNumber.ProxyScheme, "coap"), CoapOption.FromString(CoapOptionNumber.UriPath, "f.txt"));
