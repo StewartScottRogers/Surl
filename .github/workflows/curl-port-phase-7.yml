@@ -153,19 +153,27 @@ jobs:
           ref: ${{ steps.port.outputs.commit }}
           path: curl-port
 
+      # BL-1339: the build job publishes into a temporary folder (the pin's -o removed) and its hash
+      # matches the pin; publishing straight into the pinned folder hashed 048AAEE0... instead of the
+      # pinned DF507F32..., so this job publishes the way the build job does and copies the folder.
       - name: Publish the Curl port to its pinned path
         shell: pwsh
         env:
           PUBLISH_COMMAND: ${{ steps.port.outputs.command }}
+          COMMIT: ${{ steps.port.outputs.commit }}
         run: |
+          $command = $env:PUBLISH_COMMAND -replace '\s-o\s+("[^"]*"|\S+)', ''
+          $folder = Join-Path $env:RUNNER_TEMP 'curl-port-publish-one'
           Push-Location curl-port
           try {
-            Invoke-Expression $env:PUBLISH_COMMAND
+            Invoke-Expression "$command -o `"$folder`""
             if ($LASTEXITCODE -ne 0) { Write-Output "::error::The Curl port publish failed."; exit 1 }
           } finally { Pop-Location }
-          # Run 44012635963 hashed 048AAEE0... here against the pin DF507F32..., which the build job
-          # reproduced; the hash is printed so the next run shows what this job produced.
-          Get-FileHash -Algorithm SHA256 "$env:HOME/.local/share/surl/curl-port/${{ steps.port.outputs.commit }}/curl" | ForEach-Object { Write-Output "Published curl SHA-256: $($_.Hash)" }
+          $pinned = Join-Path $env:HOME ".local/share/surl/curl-port/$env:COMMIT"
+          New-Item -ItemType Directory -Force -Path $pinned | Out-Null
+          Copy-Item -Path (Join-Path $folder '*') -Destination $pinned -Recurse -Force
+          chmod +x (Join-Path $pinned 'curl')
+          Get-FileHash -Algorithm SHA256 (Join-Path $pinned 'curl') | ForEach-Object { Write-Output "Published curl SHA-256: $($_.Hash)" }
 
       # After the port publish: in run 44012635963 this step came first and the published port
       # hashed differently from the build job's, so the toolchain it installs is the suspect.
