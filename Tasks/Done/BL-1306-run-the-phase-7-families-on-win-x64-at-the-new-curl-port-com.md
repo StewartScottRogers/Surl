@@ -8,7 +8,7 @@ depends-on: [BL-1305]
 touches: [Documentation/Conformance/CurlPort, Conformance/Surl.Conformance.UnitTests]
 requirement: FR-057
 created: 2026-11-16
-completed:
+completed: 2026-11-16
 ---
 # BL-1306 — Run the Phase 7 families on win-x64 at the new Curl port commit and update their findings
 
@@ -35,3 +35,4 @@ ADR-0089 decisions 5 and 10 and Amendment 8: a stale finding fails its test, so 
 
 - 2026-11-16: Created.
 - 2026-11-16: Backlog -> Doing.
+- 2026-11-16: Doing -> Done. Phase 7 re-run at 74f3f45 done; findings updated, UTC-4 added
