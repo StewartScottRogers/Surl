@@ -43,3 +43,4 @@ A lane whose task needs a CI result it cannot produce on Windows can start that 
 ## Log
 
 - 2026-11-17: Created; Stewart approved lanes dispatching workflows on the shift branch.
+- 2026-11-17: Backlog -> Doing.
