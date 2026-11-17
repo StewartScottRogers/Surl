@@ -36,3 +36,4 @@ BL-1308 added the job to `.github/workflows/curl-port-phase-7.yml`. A lane canno
 - 2026-11-16: Doing -> Backlog. Waits on BL-1327: win-x64 build-curl-port hash mismatch (run 43982591865) skips the osx-arm64 test job
 - 2026-11-16: Backlog -> Doing.
 - 2026-11-16: Doing -> Backlog. Waits on BL-1330: run 43997573549 after the BL-1329 re-pin still mismatched the osx-arm64 hash, skipping the osx-arm64 test job
+- 2026-11-16: Backlog -> Doing.
