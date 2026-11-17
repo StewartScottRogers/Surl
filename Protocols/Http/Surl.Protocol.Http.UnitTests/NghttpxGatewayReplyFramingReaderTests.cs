@@ -20,6 +20,8 @@ public sealed class NghttpxGatewayReplyFramingReaderTests
     [DataRow("HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n3\r\nabc\r\n0\r\n\r\n", false, NghttpxGatewayReplyFraming.Whole)]
     [DataRow("HTTP/1.1 100 Continue\r\n\r\n", false, NghttpxGatewayReplyFraming.NoHead)]
     [DataRow("HTTP/1.1 100 Continue\r\n\r\nHTTP/1.1 200 OK\r\nContent-Length: 1\r\n\r\na", false, NghttpxGatewayReplyFraming.Whole)]
+    [DataRow("HTTP/1.1 99 Below\r\nContent-Length: 1\r\n\r\n", false, NghttpxGatewayReplyFraming.Short)]
+    [DataRow("HTTP/1.1 199 Last Interim\r\n\r\n", false, NghttpxGatewayReplyFraming.NoHead)]
     [DataRow("HTTP/1.1 xyz Odd\r\nContent-Length: 1\r\n\r\n", false, NghttpxGatewayReplyFraming.Short)]
     [DataRow("HTTP/1.1 200 OK\r\nTransfer-Encoding: identity\r\n\r\nabc", false, NghttpxGatewayReplyFraming.ReadToClose)]
     [DataRow("garbage\r\nContent-Length: 1\r\n\r\n", false, NghttpxGatewayReplyFraming.Short)]

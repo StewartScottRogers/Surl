@@ -8,7 +8,7 @@ depends-on: []
 touches: [Protocols/Http/Surl.Protocol.Http.UnitTests]
 requirement: none
 created: 2026-11-17
-completed:
+completed: 2026-11-17
 ---
 # BL-1368 — Cover the nghttpx reply framing and HTTP/3 gateway gaps in Surl.Protocol.Http
 
@@ -29,18 +29,19 @@ completed:
 
 ## Acceptance criteria
 
-- [ ] A named `Surl.Protocol.Http.UnitTests` test reads a reply framing whose first status is outside 100..199 on the
+- [x] A named `Surl.Protocol.Http.UnitTests` test reads a reply framing whose first status is outside 100..199 on the
       side not yet covered, asserting the framing read.
-- [ ] A named test serves an HTTP/3 gateway upstream test case through to a normal end of the datagram flow and asserts
+- [x] A named test serves an HTTP/3 gateway upstream test case through to a normal end of the datagram flow and asserts
       `ServeAsync` completes without exception (line 89).
-- [ ] `Measure-CodeQuality.ps1 -Library Surl.Protocol.Http.UnitLibrary` reports `100 | 100` with 0 failing members, and
+- [x] `Measure-CodeQuality.ps1 -Library Surl.Protocol.Http.UnitLibrary` reports `100 | 100` with 0 failing members, and
       the fast tests are green.
 
 ## Notes
 
-- Tests only (test-writer).
+- Tests only: two framing rows (status 99 and 199) and a normal-end ServeAsync test (cancel after serving, clock advanced past closing state). Measured 100 | 100, 0 failing.
 
 ## Log
 
 - 2026-11-17: Created.
 - 2026-11-17: Backlog -> Doing.
+- 2026-11-17: Doing -> Done. Covered; Measure-CodeQuality reports 100 | 100
