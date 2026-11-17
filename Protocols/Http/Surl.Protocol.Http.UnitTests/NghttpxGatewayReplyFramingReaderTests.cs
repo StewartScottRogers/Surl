@@ -23,6 +23,11 @@ public sealed class NghttpxGatewayReplyFramingReaderTests
     [DataRow("HTTP/1.1 xyz Odd\r\nContent-Length: 1\r\n\r\n", false, NghttpxGatewayReplyFraming.Short)]
     [DataRow("HTTP/1.1 200 OK\r\nTransfer-Encoding: identity\r\n\r\nabc", false, NghttpxGatewayReplyFraming.ReadToClose)]
     [DataRow("garbage\r\nContent-Length: 1\r\n\r\n", false, NghttpxGatewayReplyFraming.Short)]
+    [DataRow("HTTP/1.1 200 OK\nContent-Length: 3\n\nabc", false, NghttpxGatewayReplyFraming.Whole)]
+    [DataRow("HTTP/1.1 200 OK\nContent-Length: 3\n\nab", false, NghttpxGatewayReplyFraming.Short)]
+    [DataRow("HTTP/1.1 200 OK\nContent-Length: 3\n", false, NghttpxGatewayReplyFraming.NoHead)]
+    [DataRow("HTTP/1.1 200 OK\nContent-Length: 3\r\n\nabc", false, NghttpxGatewayReplyFraming.Whole)]
+    [DataRow("\r\nHTTP/1.1 200 OK\nContent-Length: 1\n\na", false, NghttpxGatewayReplyFraming.Whole)]
     public void Read_ClassifiesTheBytesByTheirFraming(string reply, bool requestWasHead, NghttpxGatewayReplyFraming expected) =>
         Assert.AreEqual(expected, NghttpxGatewayReplyFramingReader.Read(Encoding.Latin1.GetBytes(reply), requestWasHead));
 }

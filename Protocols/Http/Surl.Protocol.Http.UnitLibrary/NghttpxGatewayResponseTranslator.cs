@@ -9,8 +9,6 @@ namespace Surl.Protocol.Http;
 /// </summary>
 public static class NghttpxGatewayResponseTranslator
 {
-    private static readonly byte[] HeadEnd = "\r\n\r\n"u8.ToArray();
-
     private static readonly HashSet<string> DroppedFields = new(StringComparer.Ordinal)
     {
         "connection", "keep-alive", "proxy-connection", "transfer-encoding", "upgrade",
@@ -25,14 +23,12 @@ public static class NghttpxGatewayResponseTranslator
         int offset = 0;
         while (true)
         {
-            int headLength = reply[offset..].IndexOf(HeadEnd);
-            if (headLength < 0)
+            if (!NghttpxGatewayReplyHead.TryRead(reply[offset..], out string[] lines, out int headSize))
             {
                 return null;
             }
 
-            string[] lines = Encoding.Latin1.GetString(reply.Slice(offset, headLength)).Split("\r\n");
-            int bodyStart = offset + headLength + HeadEnd.Length;
+            int bodyStart = offset + headSize;
             int status = ReadStatus(lines[0]);
             if (status is >= 100 and < 200)
             {
