@@ -30,3 +30,4 @@ ADR-0089 decision 8 and Amendment 8. Adds the macOS test job to the workflow of 
 ## Log
 
 - 2026-11-16: Created.
+- 2026-11-16: Backlog -> Doing.
