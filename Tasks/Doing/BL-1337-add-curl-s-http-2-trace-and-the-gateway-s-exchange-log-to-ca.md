@@ -31,3 +31,4 @@ BL-1336 could not find the cause by reading code: two concurrent `Upgrade: h2c` 
 ## Log
 
 - 2026-11-16: Created.
+- 2026-11-16: Backlog -> Doing.
