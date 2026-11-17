@@ -8,7 +8,7 @@ depends-on: []
 touches: [Protocols/Mail/Surl.Protocol.Smtp.UnitTests]
 requirement: none
 created: 2026-11-17
-completed:
+completed: 2026-11-17
 ---
 # BL-1369 — Cover the SMTP upstream test case SIZE comparison branch
 
@@ -26,9 +26,9 @@ completed:
 
 ## Acceptance criteria
 
-- [ ] A named `Surl.Protocol.Smtp.UnitTests` test answers the upstream test case path's `MAIL` with no argument (and, if
+- [x] A named `Surl.Protocol.Smtp.UnitTests` test answers the upstream test case path's `MAIL` with no argument (and, if
       that is not the missing edge, the outcome line 56 lacks), asserting the reply bytes.
-- [ ] `Measure-CodeQuality.ps1 -Library Surl.Protocol.Smtp.UnitLibrary` reports `100 | 100` with 0 failing members, and
+- [x] `Measure-CodeQuality.ps1 -Library Surl.Protocol.Smtp.UnitLibrary` reports `100 | 100` with 0 failing members, and
       the fast tests are green.
 
 ## Notes
@@ -39,3 +39,4 @@ completed:
 
 - 2026-11-17: Created.
 - 2026-11-17: Backlog -> Doing.
+- 2026-11-17: Doing -> Done. Added MAIL-with-no-argument test; Smtp library 100/100, 0 failing
