@@ -351,7 +351,7 @@ public sealed partial class MessageBus
 
     // A batch passes the bound queues its plan found full, so each is refused as planned and the
     // queues never hold more than the plan counted on (MessageBus.Batch.cs).
-    private (int QueuedCount, int FullQueueCount, int UnconsumedQueueCount) CopyIntoBoundQueues(BusMessage published, string[] topicLevels, DateTimeOffset now, bool onlyToConsumedQueues, HashSet<NamedQueue>? queuesFullByPlan)
+    private (int QueuedCount, int FullQueueCount, int UnconsumedQueueCount) CopyIntoBoundQueues(BusMessage published, string[] topicLevels, DateTimeOffset now, bool onlyToConsumedQueues, HashSet<NamedQueue> queuesFullByPlan)
     {
         var queuedCount = 0;
         var fullQueueCount = 0;
@@ -362,18 +362,23 @@ public sealed partial class MessageBus
             {
                 unconsumedQueueCount++;
             }
-            else if (queuesFullByPlan?.Contains(queue) != true && Enqueue(queue, published, now) is MessageBusOutcome.Succeeded)
+            else if (WasPlannedFull(queuesFullByPlan, queue) || Enqueue(queue, published, now) is not MessageBusOutcome.Succeeded)
             {
-                queuedCount++;
+                fullQueueCount++;
             }
             else
             {
-                fullQueueCount++;
+                queuedCount++;
             }
         }
 
         return (queuedCount, fullQueueCount, unconsumedQueueCount);
     }
+
+    // A plan that found the queue full refuses it without asking Enqueue; the plan mirrors Enqueue's
+    // bounds, so a queue it let through is never refused by Enqueue within a batch.
+    private static bool WasPlannedFull(HashSet<NamedQueue> queuesFullByPlan, NamedQueue queue) =>
+        queuesFullByPlan.Contains(queue);
 
     private MessageBusOutcome Enqueue(NamedQueue queue, BusMessage published, DateTimeOffset now)
     {

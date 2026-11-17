@@ -155,36 +155,88 @@ public sealed class TopicNameLookup
     private TopicNameMapping? Alias(SchemeFamily family, string? name) =>
         name is not null && canonicalTopicByName.TryGetValue((family, name), out var topic) ? TopicNameMapping.Of(topic) : null;
 
-    private static TopicNameMapping DefaultToCanonicalTopic(SchemeFamily family, string? name) => family switch
+    // The three defaults below test the family with explicit comparisons, not a switch: a switch over
+    // the private enum compiles to a jump table with an out-of-range edge no value can reach. The
+    // last family left, Amqp1 or Stomp, takes the slash-prefixed form.
+    private static TopicNameMapping DefaultToCanonicalTopic(SchemeFamily family, string? name)
     {
-        SchemeFamily.Mqtt or SchemeFamily.Mqtt5 => MqttTopicNames.ToCanonicalTopic(name),
-        SchemeFamily.Amqp0 => AmqpTopicExchangeNames.ToCanonicalTopic(name),
-        SchemeFamily.Kafka => KafkaTopicNames.ToCanonicalTopic(name),
-        SchemeFamily.Nats => NatsSubjectNames.ToCanonicalTopic(name),
-        SchemeFamily.Redis => IdentityTopic(name),
-        _ => SlashPrefixedTopicOf(name, isFilter: false),
-    };
+        if (family is SchemeFamily.Mqtt or SchemeFamily.Mqtt5)
+        {
+            return MqttTopicNames.ToCanonicalTopic(name);
+        }
 
-    private static TopicNameMapping DefaultToCanonicalFilter(SchemeFamily family, string? filter) => family switch
-    {
-        SchemeFamily.Mqtt => MqttTopicNames.ToCanonicalFilter(filter),
-        SchemeFamily.Mqtt5 => MqttTopicNames.ToCanonicalSharedSubscription(filter),
-        SchemeFamily.Amqp0 => AmqpTopicExchangeNames.ToCanonicalFilter(filter),
-        SchemeFamily.Kafka => KafkaTopicNames.ToCanonicalTopic(filter),
-        SchemeFamily.Nats => NatsSubjectNames.ToCanonicalFilter(filter),
-        SchemeFamily.Redis => IdentityTopic(filter),
-        _ => SlashPrefixedTopicOf(filter, isFilter: true),
-    };
+        if (family == SchemeFamily.Amqp0)
+        {
+            return AmqpTopicExchangeNames.ToCanonicalTopic(name);
+        }
 
-    private static TopicNameMapping DefaultFromCanonicalTopic(SchemeFamily family, string? topic) => family switch
+        if (family == SchemeFamily.Kafka)
+        {
+            return KafkaTopicNames.ToCanonicalTopic(name);
+        }
+
+        if (family == SchemeFamily.Nats)
+        {
+            return NatsSubjectNames.ToCanonicalTopic(name);
+        }
+
+        return family == SchemeFamily.Redis ? IdentityTopic(name) : SlashPrefixedTopicOf(name, isFilter: false);
+    }
+
+    private static TopicNameMapping DefaultToCanonicalFilter(SchemeFamily family, string? filter)
     {
-        SchemeFamily.Mqtt or SchemeFamily.Mqtt5 => MqttTopicNames.FromCanonicalTopic(topic),
-        SchemeFamily.Amqp0 => AmqpTopicExchangeNames.FromCanonicalTopic(topic),
-        SchemeFamily.Kafka => KafkaTopicNames.FromCanonicalTopic(topic),
-        SchemeFamily.Nats => NatsSubjectNames.FromCanonicalTopic(topic),
-        SchemeFamily.Redis => IdentityTopic(topic),
-        _ => SlashPrefixedTopic(topic),
-    };
+        if (family == SchemeFamily.Mqtt)
+        {
+            return MqttTopicNames.ToCanonicalFilter(filter);
+        }
+
+        if (family == SchemeFamily.Mqtt5)
+        {
+            return MqttTopicNames.ToCanonicalSharedSubscription(filter);
+        }
+
+        if (family == SchemeFamily.Amqp0)
+        {
+            return AmqpTopicExchangeNames.ToCanonicalFilter(filter);
+        }
+
+        if (family == SchemeFamily.Kafka)
+        {
+            return KafkaTopicNames.ToCanonicalTopic(filter);
+        }
+
+        if (family == SchemeFamily.Nats)
+        {
+            return NatsSubjectNames.ToCanonicalFilter(filter);
+        }
+
+        return family == SchemeFamily.Redis ? IdentityTopic(filter) : SlashPrefixedTopicOf(filter, isFilter: true);
+    }
+
+    private static TopicNameMapping DefaultFromCanonicalTopic(SchemeFamily family, string? topic)
+    {
+        if (family is SchemeFamily.Mqtt or SchemeFamily.Mqtt5)
+        {
+            return MqttTopicNames.FromCanonicalTopic(topic);
+        }
+
+        if (family == SchemeFamily.Amqp0)
+        {
+            return AmqpTopicExchangeNames.FromCanonicalTopic(topic);
+        }
+
+        if (family == SchemeFamily.Kafka)
+        {
+            return KafkaTopicNames.FromCanonicalTopic(topic);
+        }
+
+        if (family == SchemeFamily.Nats)
+        {
+            return NatsSubjectNames.FromCanonicalTopic(topic);
+        }
+
+        return family == SchemeFamily.Redis ? IdentityTopic(topic) : SlashPrefixedTopic(topic);
+    }
 
     /// <summary>A Redis channel (ADR-0126 decision 1): a canonical topic name, the same text on both
     /// sides; a channel with a wildcard, empty or too long is <see cref="TopicNameMappingOutcome.InvalidName"/>.</summary>
