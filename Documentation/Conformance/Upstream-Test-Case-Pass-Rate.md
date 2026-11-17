@@ -34,8 +34,10 @@ decision 5). This is success criterion 2 of the
 | Platform | Commit | Date | Reference pin SHA-256 | Total | Runnable | Passed | Failed | Skipped | test-server-choice | Pass rate |
 | --- | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | `win-x64` | `c3011bee` | 2026-11-14 | `0E773709C3A44DB47B88B71351D902027682ED87C3BD3821009E454BACCA8778` | 2,013 | 1,185 | 1,185 | 0 | 828 | 34 | 100.0% |
-| `linux-x64` | `145f16b2` | 2026-11-14 | `153CA463957609117D21A848BE29B70691B85F9E5CC9370C7DAA037B839A4E45` | 2,013 | 1,316 | 1,316 | 0 | 697 | 34 | 100.0% |
+| `linux-x64` | `6023b4b3` | 2026-11-16 | `153CA463957609117D21A848BE29B70691B85F9E5CC9370C7DAA037B839A4E45` | 2,013 | 1,326 | 1,320 | 6 | 687 | 34 | 99.5% |
 | `osx-arm64` | `145f16b2` | 2026-11-14 | `04E0E69BCD3BD814EC093551A0447AC14EDEEA9D395B468A2025DCB3F766EEBF` | 2,013 | 1,316 | 1,316 | 0 | 697 | 34 | 100.0% |
+
+BL-1317 (2026-11-16) moved Linux to commit `6023b4b3` from [CI run 43979679184](https://github.com/StewartScottRogers/Surl/actions/runs/43979679184), the first Linux run with the Debug build BL-1311 selects: 2400, 2406, 358 and 359 pass; 2401 and 2501 differ in the `Via` header nghttpx adds (BL-1321); 2402, 2404 and 2502 record nothing (BL-1322); 2407 has curl exit 6 (BL-1323). No case that passed before fails. macOS keeps its row until its Debug build runs.
 
 BL-1149 (2026-11-14) moved Linux and macOS to commit `145f16b2`, from [CI run 43651751537](https://github.com/StewartScottRogers/Surl/actions/runs/43651751537) (PR #36): 956, 957 and 958 now pass on both (`RCPT` and `VRFY` answer `501` for a non-ASCII address unless the case lists `SMTPUTF8`, as upstream `ftpserver.pl` does), so each is 1,316 passed, 0 failed and both failures files are empty. The paragraph below is the earlier BL-1142 record, kept as history.
 
@@ -170,10 +172,10 @@ upstream's test-server greeting banner in a `-D` file, BL-776), TFTP 15 ran, 13 
 
 | Reason | `win-x64` | `linux-x64` | `osx-arm64` |
 | --- | ---: | ---: | ---: |
-| `debug-build` | 50 | 50 | 50 |
+| `debug-build` | 50 | 44 | 50 |
 | `disabled-upstream` | 19 | 14 | 14 |
 | `feature-missing:<name>` | 143 | 16 | 16 |
-| `libtest` | 349 | 350 | 350 |
+| `libtest` | 349 | 346 | 350 |
 | `no-server-half` | 87 | 87 | 87 |
 | `perl-command` | 27 | 27 | 27 |
 | `postcheck` | 14 | 14 | 14 |
@@ -185,7 +187,7 @@ upstream's test-server greeting banner in a `-D` file, BL-776), TFTP 15 ran, 13 
 | `test-server-choice` | 34 | 34 | 34 |
 | `unittest` | 81 | 81 | 81 |
 | `unparsable` | 4 | 4 | 4 |
-| **Total** | **828** | **697** | **697** |
+| **Total** | **828** | **687** | **697** |
 
 ## Releases
 
