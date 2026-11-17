@@ -30,9 +30,12 @@ BL-1335 read the `test2407` block of `upstream-test-case-timeout-output.linux-x6
 
 2026-11-16: Read `Http2GatewayCleartextUpgrade`, `Http2ConnectionServer.ServeUpgradedAsync`, `Http2GatewayStreamForwarder`, `NghttpxGatewayBackend` and `Http2ConnectionPreface`: no state is shared between connections and nothing there can stall stream 1. Added `Test2407_TwoUpgradedConnectionsServedAtOnce_EachGetsHeadersAndDataOnStream1`; it PASSES, so the failure is not reproducible with in-memory connections (first criterion not met: no test fails before a fix). The CI timeout output has no HTTP/2 trace, so real-socket timing (curl's preface, the case's `http` half) is unobserved. Filed BL-1337 to capture curl's HTTP/2 trace and the gateway's exchange log on Linux; this task waits on it. The regression test stays.
 
+2026-11-16: BL-1337 landed on this lane but is not yet in a CI run, so the Linux HTTP/2 trace and exchange log do not exist yet. Nothing more to learn locally. Resume after a Linux CI run on master includes BL-1337 and its upstream-test-case-timeout-output.linux-x64.txt has the test2407 trace.
+
 ## Log
 
 - 2026-11-16: Created.
 - 2026-11-16: Backlog -> Doing.
 - 2026-11-16: Doing -> Backlog. Cause not reproducible in memory; waits on BL-1337 (curl HTTP/2 trace and gateway log in the timeout output)
 - 2026-11-16: Backlog -> Doing.
+- 2026-11-16: Doing -> Deferred. Needs the Linux CI timeout output from a run that includes BL-1337; not observable locally
