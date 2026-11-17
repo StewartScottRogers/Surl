@@ -1,6 +1,6 @@
 # Phase 7: builds the Curl port at the commit CurlPortBuilds.json pins on linux-x64, osx-arm64
 # and win-x64, publishes it twice, and compares both hashes with each other and with the pin
-# (ADR-0089 Amendment 8, BL-1304). The linux-x64 test job is BL-1307; BL-1308 adds the rest.
+# (ADR-0089 Amendment 8, BL-1304). The linux-x64 test job is BL-1307, the osx-arm64 one BL-1308.
 #
 # THIS WORKFLOW GATES NOTHING. It is not part of ci.yml, runs only on workflow_dispatch and a
 # weekly schedule (never on a push or pull request), is not a required check, and
@@ -171,4 +171,65 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: phase-7-linux-x64-results
+          path: ${{ runner.temp }}/phase-7-results
+
+  # BL-1308: runs the Phase 7 families on osx-arm64 (ADR-0089 decision 8, Amendment 8). Same shape
+  # as the linux-x64 job; macOS has no OpenLDAP build, so the OpenLdap_ cases stay Inconclusive there.
+  test-curl-port-osx-arm64:
+    name: Phase 7 families (osx-arm64)
+    needs: build-curl-port
+    runs-on: macos-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Obtain the pinned upstream curl
+        uses: ./.github/actions/upstream-curl
+        with:
+          platform: osx-arm64
+          asset: curl-macos-arm64-8.21.0.tar.xz
+
+      - name: Check out the Curl port at the pinned commit
+        id: port
+        shell: pwsh
+        run: |
+          $pin = @((Get-Content -Raw CurlPortBuilds.json | ConvertFrom-Json).builds |
+            Where-Object { $_.platform -eq 'osx-arm64' -and (-not $_.kind -or $_.kind -eq 'curl') })
+          if ($pin.Count -ne 1) { Write-Output "::error::CurlPortBuilds.json must pin exactly one osx-arm64 curl entry."; exit 1 }
+          "commit=$($pin[0].commit)" >> $env:GITHUB_OUTPUT
+          "command=$($pin[0].publishCommand -replace '%HOME%', $env:HOME)" >> $env:GITHUB_OUTPUT
+
+      - uses: actions/checkout@v4
+        with:
+          repository: StewartScottRogers/Curl
+          ref: ${{ steps.port.outputs.commit }}
+          path: curl-port
+
+      - name: Publish the Curl port to its pinned path
+        shell: pwsh
+        env:
+          PUBLISH_COMMAND: ${{ steps.port.outputs.command }}
+        run: |
+          Push-Location curl-port
+          try {
+            Invoke-Expression $env:PUBLISH_COMMAND
+            if ($LASTEXITCODE -ne 0) { Write-Output "::error::The Curl port publish failed."; exit 1 }
+          } finally { Pop-Location }
+
+      - name: Build Surl
+        run: dotnet build Conformance/Surl.Conformance.UnitTests -c Release
+
+      - name: Phase 7 families
+        continue-on-error: true
+        run: dotnet test Conformance/Surl.Conformance.UnitTests -c Release --no-build --filter "FullyQualifiedName~CurlPortBesideUpstreamCurl" --logger trx --logger "console;verbosity=normal" --results-directory "${{ runner.temp }}/phase-7-results"
+
+      - name: Publish the results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase-7-osx-arm64-results
           path: ${{ runner.temp }}/phase-7-results
