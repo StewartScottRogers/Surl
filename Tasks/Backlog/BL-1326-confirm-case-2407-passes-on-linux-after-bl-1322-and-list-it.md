@@ -4,7 +4,7 @@ title: Confirm case 2407 passes on Linux after BL-1322 and list it as passing
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-1323]
+depends-on: [BL-1323, BL-1333]
 touches: [Documentation/Conformance]
 requirement: none
 created: 2026-11-16
@@ -33,3 +33,5 @@ BL-1323 found 2407's curl exit 6 ("Could not resolve host: -q") was runtests opt
 - 2026-11-16: Doing -> Backlog. No Linux CI run includes 2df5bfc9f yet (newest CI run, 2026-11-16T23:29Z, predates it); retry once a CI run on a later commit finishes
 - 2026-11-16: Backlog -> Doing.
 - 2026-11-16: Doing -> Backlog. No CI run includes 2df5bfc9f yet (newest CI runs, master 6023b4b and merge 15ff9cb, do not contain it); retry after a CI run on a later commit finishes
+- 2026-11-16: Backlog -> Doing.
+- 2026-11-16: Doing -> Backlog. CI run 44002670831 (contains 2df5bfc9f) lists test2407 fail timeout on linux-x64; cause is now BL-1333, retry after it

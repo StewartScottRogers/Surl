@@ -76,3 +76,22 @@ connection 0 holds upstream's bytes and is absent for the port.
 | `Download_AllowAnonymous_LetsAnyLoginIn` | `Download_AllowAnonymous_LetsAnyLoginIn` | `-u anyone:anything {surl}/files/hello.txt` against `surl --allow-anonymous`: upstream exits 0 writing `hello smb`; port exits 1. |
 | `Smbs_Insecure_WritesTheFile` | `Smbs_Insecure_WritesTheFile` | `-k -u alice:secret {surl}/files/hello.txt` over `smbs://`: upstream exits 0 writing `hello smb`; port exits 1 (`Protocol "smbs" is disabled`). |
 | `Smbs_SelfSignedCertificateNotTrusted_Exits60` | `Smbs_SelfSignedCertificateNotTrusted_Exits60` | `-u alice:secret {surl}/files/hello.txt` over `smbs://` with a self-signed certificate: upstream exits 60; port exits 1 (`Protocol "smbs" is disabled`). |
+
+## osx-arm64
+
+Run [44000208980](https://github.com/StewartScottRogers/Surl/actions/runs/44000208980) of `curl-port-phase-7`
+(2026-11-17, `factory/phase-1` at Surl commit `c87b86d5c2ed723aeaf615bbc980b8d31d44b462`, Curl port commit
+`74f3f45c47e86300b2b262dc1dacd43b508b09aa`) completed with the `Phase 7 families (osx-arm64)` job green
+(BL-1324). Its `phase-7-osx-arm64-results` artifact holds 489 results for all Phase 7 test classes: 1 passed, 131 not
+executed, and every case of this family Inconclusive or failed before any comparison.
+
+Findings:
+
+- **Nothing was compared.** `UpstreamCurlBuilds.json` pins no upstream curl build for `osx-arm64`, so the mirrored
+  tests are Inconclusive there with "pins no upstream curl build for osx-arm64" (upstream curl is the only oracle,
+  ADR-0003). Pinning one means downloading a build, which needs Stewart's approval (CLAUDE.md, "Decisions").
+- **The osx-arm64 port build is not pinned by hash on a CI runner.** The runner's published `curl` hashed
+  `71F9BB5EED0DCAB034D33883365082D2BA19758E9549B140037C4E663A98A0D3`, not the pinned
+  `B5B48DC7CB11F42F41BD7F45E127ADF08E6BD1A0D3CAA0F80840E1971046BBEE` (`ciHashStable: false`), so cases that reach the port
+  throw `UnpinnedCurlPortClientException`. The hash changes with each publish; it is not a port defect.
+- **No port defect and no Surl defect is recorded for osx-arm64.** The family's findings table is unchanged.

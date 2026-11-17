@@ -195,6 +195,7 @@ jobs:
           path: |
             Conformance/Surl.Conformance.UnitTests/bin/Release/net10.0/upstream-test-case-results.*.txt
             Conformance/Surl.Conformance.UnitTests/bin/Release/net10.0/upstream-test-case-failures.*.txt
+            Conformance/Surl.Conformance.UnitTests/bin/Release/net10.0/upstream-test-case-timeout-output.*.txt
             Conformance/Surl.Conformance.UnitTests/bin/Release/net10.0/upstream-test-cases-passing.*.txt
             ${{ runner.temp }}/upstream-test-cases/**/upstream-test-case*.txt
           if-no-files-found: error
