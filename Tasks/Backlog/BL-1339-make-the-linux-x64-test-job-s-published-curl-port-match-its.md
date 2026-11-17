@@ -4,7 +4,7 @@ title: Make the linux-x64 test job's published Curl port match its pin and rerun
 priority: Normal
 assignee: Claude
 pipeline: protocol
-depends-on: []
+depends-on: [BL-1340]
 touches: [.github/workflows/curl-port-phase-7.yml, CurlPortBuilds.json, Documentation/Conformance/CurlPort]
 requirement: FR-057
 created: 2026-11-16
@@ -31,6 +31,8 @@ BL-1307 found that run 44012635963 published `048AAEE0...` in the test job again
 
 - 2026-11-16 (second attempt): The reorder was pushed and run 44021446938 dispatched on factory/phase-1. It did NOT fix it: the linux-x64 test job again published `048AAEE0...` (441 failed, `UnpinnedCurlPortClientException`) while the build job of the same run reproduced `DF507F32...` twice. Same runner image (ubuntu-26.04 20261111.196.1) and same SDK pin in both Curl's and Surl's `global.json`, so the toolchain is not the cause. The remaining difference is the output folder: the build job publishes with the pin's `-o` removed into `$RUNNER_TEMP/curl-port-publish-*`, the test job published straight into `~/.local/share/surl/curl-port/<commit>`. Change made: the test job now publishes the build job's way and copies the folder to the pinned path (`chmod +x`), printing the hash. osx-arm64's test job (BL-1308) fails the same way with `80965EA6...` but is out of this task's scope. Next: the shift pushes this commit, then `gh workflow run curl-port-phase-7.yml --ref factory/phase-1`, read the printed hash. If it still differs, the fallback is a test-side rule (a test job may trust the hash its own build job reproduced), which is a conformance-library change and needs its own task.
 
+- 2026-11-17: Run 44025033078 (dispatched on factory/phase-1 with the build-job-style publish) still published 048AAEE0 in the linux-x64 test job while its build job reproduced DF507F32. Publish method is not the cause; the test-side rule is filed as BL-1340, which this task now waits for before redispatching and recording outcomes.
+
 ## Log
 
 - 2026-11-16: Created.
@@ -39,3 +41,4 @@ BL-1307 found that run 44012635963 published `048AAEE0...` in the test job again
 - 2026-11-16: Backlog -> Doing.
 - 2026-11-16: Doing -> Backlog. Reorder did not fix it (run 44021446938 still hashed 048AAEE0); test job now publishes like the build job, needs the shift to push then redispatch curl-port-phase-7
 - 2026-11-16: Backlog -> Doing.
+- 2026-11-16: Doing -> Backlog. Third run 44025033078 still hashed 048AAEE0 in the test job; needs a test-side rule, filed as BL-1340
