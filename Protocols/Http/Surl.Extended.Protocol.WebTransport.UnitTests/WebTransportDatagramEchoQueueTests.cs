@@ -23,13 +23,23 @@ public sealed class WebTransportDatagramEchoQueueTests
         Assert.IsFalse(queue.TryEnqueue(new byte[] { 200 }), "The 65th is dropped.");
         queue.Complete();
         var echoed = new List<byte>();
-        await foreach (var payload in queue.TakeAsync(Token))
+        while (await queue.TakeNextAsync(Token) is { } payload)
         {
             echoed.Add(payload.Span[0]);
         }
 
         Assert.AreEqual(64, WebTransportDatagramEchoQueue.Capacity);
         CollectionAssert.AreEqual(Enumerable.Range(0, 64).Select(number => (byte)number).ToArray(), echoed);
+    }
+
+    [TestMethod]
+    public async Task TakeNextAsync_CancelledWhileEmpty_ReturnsNull()
+    {
+        var queue = new WebTransportDatagramEchoQueue();
+        using var cancelled = new CancellationTokenSource();
+        await cancelled.CancelAsync();
+
+        Assert.IsNull(await queue.TakeNextAsync(cancelled.Token));
     }
 
     [TestMethod]
@@ -41,8 +51,7 @@ public sealed class WebTransportDatagramEchoQueueTests
             _ = queue.TryEnqueue(new[] { number });
         }
 
-        await using var taking = queue.TakeAsync(Token).GetAsyncEnumerator(Token);
-        Assert.IsTrue(await taking.MoveNextAsync());
+        Assert.IsNotNull(await queue.TakeNextAsync(Token));
 
         Assert.IsTrue(queue.TryEnqueue(new byte[] { 200 }));
         Assert.IsFalse(queue.TryEnqueue(new byte[] { 201 }));

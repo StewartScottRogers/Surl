@@ -45,3 +45,13 @@ completed:
 
 - 2026-11-17: Created.
 - 2026-11-17: Backlog -> Doing.
+
+- 2026-11-17 Notes: `WebTransportConnectAuthentication.RefuseAsync` removed as dead (no caller after BL-1242; the
+  `RefuseAsync_*` tests drive the handler, which calls `JudgeAsync`).
+- Line 166 was the end of the `try` after `await foreach`, reachable only if the echo queue completed without the
+  session's cancellation, which cannot happen (the linked token is cancelled first). So a second datagram test alone
+  does not cover it; `WebTransportDatagramEchoQueue.TakeAsync` (IAsyncEnumerable) became `TakeNextAsync` (null on
+  completion or cancel) and the echo loop is a `while` with no try/catch; the send is awaited with
+  `SuppressThrowing` (its non-OCE failures were already caught inside). Touches stayed in the two projects.
+- Added `ServeAsync_TwoHttpDatagrams_AreBothEchoedInOrder` and `TakeNextAsync_CancelledWhileEmpty_ReturnsNull`.
+  Measure-CodeQuality: 100 | 100, 0 failing; fast tests for the project green (245).

@@ -157,16 +157,11 @@ internal sealed class WebTransportSession : IDisposable
         var waiting = new WebTransportDatagramEchoQueue();
         using var echoingToken = CancellationTokenSource.CreateLinkedTokenSource(endingToken, endingByServer.Token);
         var receiving = QueueDatagramsAsync(waiting);
-        try
+
+        // A send cut off by the session's end throws; TakeNextAsync then answers null and the loop ends.
+        while (await waiting.TakeNextAsync(echoingToken.Token) is { } payload)
         {
-            await foreach (var payload in waiting.TakeAsync(echoingToken.Token))
-            {
-                await SendDatagramAsync(payload);
-            }
-        }
-        catch (OperationCanceledException)
-        {
-            // The session has ended.
+            await SendDatagramAsync(payload).ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing);
         }
 
         await receiving;

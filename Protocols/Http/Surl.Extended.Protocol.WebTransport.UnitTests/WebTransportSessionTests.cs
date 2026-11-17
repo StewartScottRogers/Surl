@@ -121,6 +121,21 @@ public sealed class WebTransportSessionTests
     }
 
     [TestMethod]
+    public async Task ServeAsync_TwoHttpDatagrams_AreBothEchoedInOrder()
+    {
+        using var client = new Http3TestQuicClient(UnitTestWebTransport.ClientOfferingDatagramFrames);
+        await UnitTestWebTransport.StartAsync(client, Token);
+        await UnitTestWebTransport.OpenSessionAsync(client, Token);
+
+        UnitTestWebTransport.SendDatagram(client, "00" + "6869");
+        UnitTestWebTransport.SendDatagram(client, "00" + "6f6b");
+        await client.UntilAsync(() => client.OneRttFrames<QuicDatagramFrame>().Count() >= 2, Token);
+
+        var echoes = client.OneRttFrames<QuicDatagramFrame>().Select(frame => Convert.ToHexString(frame.Data.Span)).ToArray();
+        CollectionAssert.AreEqual(new[] { "006869", "006F6B" }, echoes);
+    }
+
+    [TestMethod]
     public async Task ServeAsync_ClientTakesNoDatagrams_DropsTheEcho()
     {
         using var client = new Http3TestQuicClient();

@@ -35,9 +35,22 @@ internal sealed class WebTransportDatagramEchoQueue
     /// <summary>Ends the queue: what waits is still echoed, nothing more is taken.</summary>
     public void Complete() => waiting.Writer.TryComplete();
 
-    /// <summary>Takes the waiting datagrams in the order they arrived, until the queue is completed and empty.</summary>
+    /// <summary>Takes the oldest waiting datagram, waiting for one to arrive.</summary>
     /// <param name="cancellationToken">Cancelled when the session ends.</param>
-    /// <returns>The datagrams, oldest first.</returns>
-    public IAsyncEnumerable<ReadOnlyMemory<byte>> TakeAsync(CancellationToken cancellationToken) =>
-        waiting.Reader.ReadAllAsync(cancellationToken);
+    /// <returns>The datagram, or <see langword="null"/> once the queue is completed and empty or <paramref name="cancellationToken"/> is cancelled.</returns>
+    public async ValueTask<ReadOnlyMemory<byte>?> TakeNextAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await waiting.Reader.ReadAsync(cancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
+            return null;
+        }
+        catch (ChannelClosedException)
+        {
+            return null;
+        }
+    }
 }
