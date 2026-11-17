@@ -30,3 +30,4 @@ Run 43982591865 (factory/phase-1, 2026-11-16): step "Publish the Curl port twice
 ## Log
 
 - 2026-11-16: Created.
+- 2026-11-16: Backlog -> Doing.
