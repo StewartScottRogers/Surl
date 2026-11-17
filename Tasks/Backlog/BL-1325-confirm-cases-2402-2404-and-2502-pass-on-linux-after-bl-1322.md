@@ -32,3 +32,4 @@ completed:
 - 2026-11-16: Backlog -> Doing.
 - 2026-11-16: Doing -> Backlog. No Linux CI run includes the BL-1322 fix yet (latest run 43979679184 predates it); needs the next master CI run on Linux, then list 2402/2404/2502 in upstream-test-cases-passing.linux-x64.txt
 - 2026-11-16: Backlog -> Doing.
+- 2026-11-16: Doing -> Backlog. Latest CI run 43979679184 (master 6023b4b) still predates the BL-1322 fix 2df5bfc9f; needs a newer master CI run on Linux, then list 2402/2404/2502 in upstream-test-cases-passing.linux-x64.txt
