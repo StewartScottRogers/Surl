@@ -35,3 +35,4 @@ First check whether the pin is for a different Curl port commit than the one the
 ## Log
 
 - 2026-11-16: Created.
+- 2026-11-16: Backlog -> Doing.
