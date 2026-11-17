@@ -4,7 +4,7 @@ title: Run the curl-port-phase-7 osx-arm64 job and record the osx-arm64 findings
 priority: Normal
 assignee: Claude
 pipeline: docs
-depends-on: [BL-1308, BL-1327]
+depends-on: [BL-1308, BL-1327, BL-1330]
 touches: [Documentation/Conformance/CurlPort]
 requirement: FR-057
 created: 2026-11-16
@@ -27,9 +27,12 @@ BL-1308 added the job to `.github/workflows/curl-port-phase-7.yml`. A lane canno
 
 ## Notes
 
+- 2026-11-16: Run 43997573549 (factory/phase-1 at aaecc1f1b, after the BL-1329 re-pin) still failed build-curl-port on osx-arm64: published hash E2E186CC...3807 vs pinned B5B48DC7...BBEE, so the osx-arm64 test job was skipped. BL-1330 owns confirming/fixing the pin; dispatch again once it is Done.
+
 ## Log
 
 - 2026-11-16: Created.
 - 2026-11-16: Backlog -> Doing.
 - 2026-11-16: Doing -> Backlog. Waits on BL-1327: win-x64 build-curl-port hash mismatch (run 43982591865) skips the osx-arm64 test job
 - 2026-11-16: Backlog -> Doing.
+- 2026-11-16: Doing -> Backlog. Waits on BL-1330: run 43997573549 after the BL-1329 re-pin still mismatched the osx-arm64 hash, skipping the osx-arm64 test job
