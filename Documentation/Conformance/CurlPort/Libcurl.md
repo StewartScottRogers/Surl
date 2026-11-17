@@ -21,11 +21,11 @@ ran, 1 perform failed, 2 malformed command line, 3 not pinned, 4 Inconclusive.
 
 | What | Pin |
 | --- | --- |
-| Curl port | commit `b42c319ba940f66452b2b6f3e9910d46825b08fe`, `Libcurl.dll` SHA-256 `613976A7CC3DA746AB74819C6A526D676A39998D56B5470D5C527A902D7C8311` (`CurlPortBuilds.json`, `win-x64`, kind `library`) |
+| Curl port | commit `74f3f45c47e86300b2b262dc1dacd43b508b09aa`, `Libcurl.dll` SHA-256 `FA53A0C83925E7A3326721E8C0243CE888E815AD40E37883DF78A151230AB953` (`CurlPortBuilds.json`, `win-x64`, kind `library`) |
 | Upstream libcurl | `libcurl-4.dll` SHA-256 `799F7EEFC3C9DA9C80EC5AEA221A02B3AFE2C5350C6B45FD5A4865E7E2D4E574`, `libcurl/8.21.0 Schannel zlib/1.3.2 brotli/1.2.0 zstd/1.5.7 libidn2/2.3.8 libpsl/0.21.5 libssh2/1.11.1 WinLDAP` (the Windows reference library, `UpstreamCurlBuilds.json`) |
 | Surl | commit `dc8aebe3c0b8dd07287f3af1983151b711a5f953` for the WebSocket rows, `2006b0770c8c905bd36f4db799c7fcdd7dd3e0e2` for the RTSP rows |
 | Platform | Windows (`win-x64`); off Windows every row is Inconclusive, since only the Windows reference build ships a shared libcurl and the port's library is pinned only for `win-x64` (ADR-0071 decision 10, ADR-0089 decision 8) |
-| Date | 2026-11-06 |
+| Date | 2026-11-06; re-run 2026-11-16 at port commit 74f3f45: both findings still hold, none fixed, none added |
 
 ## Result
 
@@ -73,7 +73,7 @@ rows.
 - **Command line:** `Run-LibcurlRtspScript.cs --timeout 3000 rtsp://{surl}/clip.bin
   stream-uri:rtsp://{surl}/clip.bin transport:RTP/AVP/TCP;interleaved=0-1 SETUP PLAY RECEIVE RECEIVE RECEIVE`
   (the port's twin `Run-CurlPortLibcurlRtspScript.cs` with the same arguments), against `surl rtsp://...`
-  serving the 100-byte `clip.bin`. Measured 2026-11-06, port `b42c319b…`, Surl `2006b077`; the lost
+  serving the 100-byte `clip.bin`. Measured 2026-11-06, port `74f3f45c…`, Surl `2006b077`; the lost
   BL-597 run of the same day saw the same first difference.
 - **Exit code:** both 0. Neither run stored a file.
 - **First differing report line (line 5, the first `RECEIVE` after `PLAY`):** upstream

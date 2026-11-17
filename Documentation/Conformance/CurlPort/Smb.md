@@ -8,11 +8,11 @@ upstream curl and the pinned Curl port, each against its own fresh `surl` (ADR-0
 
 | What | Pin |
 | --- | --- |
-| Curl port | commit `b42c319ba940f66452b2b6f3e9910d46825b08fe`, `curl.exe` SHA-256 `F28D1417807AA862BA2A6D5B0BF0CF1200673BE45B959B1A78E1E4B476EF8FA7` (`CurlPortBuilds.json`, `win-x64`) |
+| Curl port | commit `74f3f45c47e86300b2b262dc1dacd43b508b09aa`, `curl.exe` SHA-256 `7F4ED0559C543A1E2C415C8EC2C4C458F1906A54910907D3546479A42ECFE467` (`CurlPortBuilds.json`, `win-x64`) |
 | Upstream curl | SHA-256 `589C8E4D297B4831C82ADF0261FC1CA57CE59D663B91B4106D2EE7DFF3972648`, `curl 8.21.0 (x86_64-w64-mingw32) libcurl/8.21.0 OpenSSL/4.0.1 zlib/1.3.2 brotli/1.2.0 zstd/1.5.7 c-ares/1.34.6 libidn2/2.3.8 libpsl/0.22.0 libssh2/1.11.1 nghttp2/1.69.0 ngtcp2/1.23.0 nghttp3/1.16.0` (ADR-0030's static-curl build, which `PinnedUpstreamCurl` picks for `smb` because the reference build has no SMB; ADR-0089 decision 2) |
 | Surl | commit `4e626fa87f39c6c5d141a3bac7b5f9353ab7338c` |
 | Platform | Windows (`win-x64`); off Windows every case is Inconclusive until a port pin exists there (ADR-0089 decision 8) |
-| Date | 2026-11-05 |
+| Date | 2026-11-05; re-run 2026-11-16 at port commit 74f3f45: every listed finding still holds, none fixed, none added |
 
 ## Result
 
@@ -26,7 +26,7 @@ so none is compared.
 
 All 24 findings have one cause. The port answers every `smb://` and `smbs://` URL with exit code 1 and
 `curl: (1) Protocol "smb" is disabled` without connecting, so `surl` notes no exchange, the relay
-records no connection from the port, and no upload is stored. At port commit `b42c319`,
+records no connection from the port, and no upload is stored. At port commit `74f3f45`,
 `Curl.Engine.UnitLibrary/EngineComposition.cs` registers `smb` and `smbs` with a
 `DisabledProtocolHandler`, and `curl -V` lists neither in `Protocols:`. Upstream curl 8.21.0 built with
 SMB (`docs/libcurl/opts/CURLOPT_PROTOCOLS_STR.md` lists `SMB` and `SMBS`; `docs/URL-SYNTAX.md`,

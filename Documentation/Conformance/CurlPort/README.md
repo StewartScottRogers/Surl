@@ -15,11 +15,11 @@ decision 5).
 
 - **Platform:** Windows (`win-x64`) only. `CurlPortBuilds.json` pins the port for `win-x64` alone, so
   off Windows every Phase 7 test is Inconclusive (ADR-0089 decision 8).
-- **Curl port:** commit `b42c319ba940f66452b2b6f3e9910d46825b08fe`, the one commit every family file
+- **Curl port:** commit `74f3f45c47e86300b2b262dc1dacd43b508b09aa`, the one commit every family file
   measured (ADR-0089 decision 10):
-  - `curl.exe` SHA-256 `F28D1417807AA862BA2A6D5B0BF0CF1200673BE45B959B1A78E1E4B476EF8FA7`, whose
+  - `curl.exe` SHA-256 `7F4ED0559C543A1E2C415C8EC2C4C458F1906A54910907D3546479A42ECFE467`, whose
     `--version` says `curl 8.22.0 (x86_64-w64-mingw32) libcurl/8.22.0 Schannel`;
-  - `Libcurl.dll` SHA-256 `613976A7CC3DA746AB74819C6A526D676A39998D56B5470D5C527A902D7C8311`
+  - `Libcurl.dll` SHA-256 `FA53A0C83925E7A3326721E8C0243CE888E815AD40E37883DF78A151230AB953`
     (kind `library`, the libcurl rows only).
 - **Upstream curl** (`UpstreamCurlBuilds.json`), each case paired with the build its mirrored test runs
   (ADR-0089 decision 2):

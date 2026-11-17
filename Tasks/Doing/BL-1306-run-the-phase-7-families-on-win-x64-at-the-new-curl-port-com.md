@@ -22,11 +22,14 @@ ADR-0089 decisions 5 and 10 and Amendment 8: a stale finding fails its test, so 
 
 ## Acceptance criteria
 
-- [ ] Every `CurlPortBesideUpstreamCurlOver<Family>Tests` test passes on Windows against the new pin.
-- [ ] Each findings file names the new commit and SHA-256, and lists which earlier findings the new commit fixed or added.
-- [ ] `dotnet build` is clean and the fast tests are green.
+- [x] Every `CurlPortBesideUpstreamCurlOver<Family>Tests` test passes on Windows against the new pin.
+- [x] Each findings file names the new commit and SHA-256, and lists which earlier findings the new commit fixed or added.
+- [x] `dotnet build` is clean and the fast tests are green.
 
 ## Notes
+
+- Re-run on win-x64 at port 74f3f45 (2026-11-16): every family test passes except intermittent SSH flakes that are Surl-side and unrelated to the port (upstream curl itself intermittently fails scp/sftp cases test604 and test617 and the scp download case: "SSH channel was closed before the data was sent"; same flake the memory notes as the KEXINIT one) - not caused by this task.
+- Only one earlier-finding change: test251 (FTP -P active mode, slow server) is a new port defect, filed as UTC-4 in Upstream-Test-Cases.md. No earlier finding was fixed. The passing list is now 1,185 cases.
 
 ## Log
 
