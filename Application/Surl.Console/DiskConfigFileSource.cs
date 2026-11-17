@@ -1,4 +1,3 @@
-using System.Diagnostics.CodeAnalysis;
 using Surl.Cli;
 
 namespace Surl.Console;
@@ -20,7 +19,6 @@ internal sealed class DiskConfigFileSource(Func<Stream> openStandardInput, bool 
     /// Opens the process's standard input: what <c>surl</c> passes as <c>openStandardInput</c>.
     /// </summary>
     /// <returns>The standard input stream.</returns>
-    [ExcludeFromCodeCoverage(Justification = "Opens the process's standard input; tests pass a stream instead.")]
     internal static Stream OpenProcessStandardInput() => System.Console.OpenStandardInput();
 
     /// <inheritdoc/>

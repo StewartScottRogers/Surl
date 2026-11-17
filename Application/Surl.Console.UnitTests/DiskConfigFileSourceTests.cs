@@ -4,6 +4,15 @@ namespace Surl.Console;
 public sealed class DiskConfigFileSourceTests
 {
     [TestMethod]
+    public void OpenProcessStandardInput_ReturnsAReadableStream()
+    {
+        using var stream = DiskConfigFileSource.OpenProcessStandardInput();
+
+        Assert.IsNotNull(stream);
+        Assert.IsTrue(stream.CanRead);
+    }
+
+    [TestMethod]
     public void Read_StandardInputLongerThanTheLimit_StopsAtTheLimit()
     {
         var source = new DiskConfigFileSource(() => new MemoryStream(new byte[200000]), fileNamesIgnoreCase: false);
