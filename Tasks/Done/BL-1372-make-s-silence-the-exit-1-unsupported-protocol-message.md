@@ -8,7 +8,7 @@ depends-on: []
 touches: [Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests, Application/Surl.Console, Application/Surl.Console.UnitTests]
 requirement: none
 created: 2026-11-18
-completed:
+completed: 2026-11-18
 ---
 # BL-1372 — Make -s silence the exit-1 unsupported-protocol message
 
@@ -35,19 +35,22 @@ as upstream `curl -s nosuch://x` does and as `surl --aihelp exit-codes` already 
 
 ## Acceptance criteria
 
-- [ ] A named fast test runs `-s nosuch://127.0.0.1:0/` and asserts exit 1 (`SurlExitCode.UnsupportedProtocol`) and empty stderr.
-- [ ] A named fast test runs `--log-level none nosuch://127.0.0.1:0/` and asserts exit 1 and empty stderr.
-- [ ] A named fast test runs `-s -S nosuch://127.0.0.1:0/` and asserts stderr is `surl: (1) Protocol "nosuch" not supported`.
-- [ ] Without `-s` the message and exit 1 are unchanged (existing tests still pass).
-- [ ] `--aihelp exit-codes` (and any other prose naming this case) states that an unsupported scheme is silenced by `-s`.
-- [ ] `dotnet build` is clean and the fast tests are green; Surl.Cli and Surl.Console stay at 100/100 coverage.
+- [x] A named fast test runs `-s nosuch://127.0.0.1:0/` and asserts exit 1 (`SurlExitCode.UnsupportedProtocol`) and empty stderr.
+- [x] A named fast test runs `--log-level none nosuch://127.0.0.1:0/` and asserts exit 1 and empty stderr.
+- [x] A named fast test runs `-s -S nosuch://127.0.0.1:0/` and asserts stderr is `surl: (1) Protocol "nosuch" not supported`.
+- [x] Without `-s` the message and exit 1 are unchanged (existing tests still pass).
+- [x] `--aihelp exit-codes` (and any other prose naming this case) states that an unsupported scheme is silenced by `-s`.
+- [x] `dotnet build` is clean and the fast tests are green; Surl.Cli and Surl.Console stay at 100/100 coverage.
 
 ## Notes
 
 - Find where `-s`/`--log-level none` decide what a refused parse writes; the fix is likely to classify exit 1 from
   the listen-URL parser as a post-command-line failure, not to special-case the string.
 
+- Done: the parser holds an unsupported-scheme listen-URL refusal until the whole line is read (so a later -s or --log-level none counts) and returns it IsSilenced; the runner writes nothing then. Side effect: a later option error now wins over an earlier unsupported scheme, as in curl. Proxy (-x) scheme refusals are unchanged. Decided by Claude under Stewart's delegation (follows upstream curl).
+
 ## Log
 
 - 2026-11-18: Created.
 - 2026-11-18: Backlog -> Doing.
+- 2026-11-18: Doing -> Done. -s and --log-level none silence the exit-1 unsupported-protocol message; -S shows it

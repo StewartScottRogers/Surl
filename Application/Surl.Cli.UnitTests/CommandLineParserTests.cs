@@ -1064,13 +1064,39 @@ public sealed class CommandLineParserTests
     }
 
     [TestMethod]
-    public void Parse_RefusedListenUrl_EndsReadingWithItsFailure()
+    public void Parse_RefusedListenUrl_IsRefusedOnceTheLineIsRead()
     {
-        var failure = Refused("NOSUCH://127.0.0.1/", "--no-such");
+        var failure = Refused("NOSUCH://127.0.0.1/");
 
         Assert.AreEqual(SurlExitCode.UnsupportedProtocol, failure.ExitCode);
         Assert.AreEqual("(1) Protocol \"nosuch\" not supported", failure.Message);
         Assert.IsFalse(failure.FollowedByTryHelpLine);
+    }
+
+    [TestMethod]
+    public void Parse_UnsupportedProtocolBeforeAnUnknownOption_ReportsTheUnknownOption() =>
+        AssertOptionRefused(["NOSUCH://127.0.0.1/", "--no-such"], "option --no-such: is unknown");
+
+    [TestMethod]
+    [DataRow("-s", true)]
+    [DataRow("--log-level=none", true)]
+    [DataRow("-S", false)]
+    public void Parse_UnsupportedProtocolWithALogOption_IsSilencedOnlyAtLevelNone(string option, bool silenced)
+    {
+        var result = CommandLineParser.Parse(["NOSUCH://127.0.0.1/", option]);
+
+        Assert.AreEqual(CommandLineOutcome.Refused, result.Outcome);
+        Assert.AreEqual(SurlExitCode.UnsupportedProtocol, result.Failure!.ExitCode);
+        Assert.AreEqual(silenced, result.IsSilenced);
+        Assert.IsFalse(result.IsDeferred);
+    }
+
+    [TestMethod]
+    public void Parse_UnsupportedProtocolGivenTwice_ReportsTheFirst()
+    {
+        var failure = Refused("one://127.0.0.1/", "two://127.0.0.1/");
+
+        Assert.AreEqual("(1) Protocol \"one\" not supported", failure.Message);
     }
 
     // --help and --version.

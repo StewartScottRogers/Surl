@@ -137,7 +137,7 @@ internal sealed class CommandLineRunner(
             CommandLineOutcome.ShowAiHelp => WriteHelp(output, error, AiHelpText.Answer(parsed.AiHelpTopic)),
             CommandLineOutcome.ShowVersion => WriteText(output, ComposeVersionText()),
             CommandLineOutcome.ShowManual => WriteText(output, ManualText.Text),
-            CommandLineOutcome.Refused => WriteRefusal(error, parsed.Failure!),
+            CommandLineOutcome.Refused => WriteRefusal(parsed.IsSilenced ? TextWriter.Null : error, parsed.Failure!),
             _ => await ServeAsync(parsed.CommandLine!, output, HideAtLevelNone(parsed.CommandLine!, error), cancellationToken),
         };
     }
