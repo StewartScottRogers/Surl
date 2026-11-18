@@ -39,3 +39,4 @@ A reader can compile the `Surl.Api` README's first example as written, and knows
 ## Log
 
 - 2026-11-18: Created.
+- 2026-11-18: Backlog -> Doing.
