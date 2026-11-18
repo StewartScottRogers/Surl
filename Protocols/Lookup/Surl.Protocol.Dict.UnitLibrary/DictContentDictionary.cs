@@ -29,10 +29,11 @@ internal sealed class DictContentDictionary
     /// Finds the file that defines <paramref name="word"/>.
     /// </summary>
     /// <param name="word">The headword asked for.</param>
+    /// <param name="cancellationToken">Cuts the listing off.</param>
     /// <returns>The file's mapping and status, or <see langword="null"/> when the word has no definition.</returns>
-    public DictDefinitionFile? FindDefinition(string word)
+    public DictDefinitionFile? FindDefinition(string word, CancellationToken cancellationToken)
     {
-        if (!IsHeadwordName(word))
+        if (!IsHeadwordName(word) || !IsListedFile(word, cancellationToken))
         {
             return null;
         }
@@ -73,6 +74,10 @@ internal sealed class DictContentDictionary
     /// <returns>A task that completes when the file has been copied, or as much of it as is left if it shrank.</returns>
     public Task CopyDefinitionAsync(DictDefinitionFile file, Stream destination, CancellationToken cancellationToken) =>
         contentStore.CopyFileBytesAsync(file.Mapping, ContentByteRange.WholeFile(file.Status.Length), destination, cancellationToken);
+
+    private bool IsListedFile(string word, CancellationToken cancellationToken) =>
+        contentStore.ListDirectoryWhateverTheListingSwitchSays(contentStore.MapRequestPath("/"), cancellationToken).Entries
+            .Any(entry => entry.Kind == ContentEntryKind.File && string.Equals(entry.Name, word, StringComparison.Ordinal));
 
     private static bool IsHeadwordName(string word) => word.Length > 0 && word[0] != '.';
 }

@@ -8,7 +8,7 @@ depends-on: []
 touches: [Protocols/Lookup/Surl.Protocol.Dict.UnitLibrary, Protocols/Lookup/Surl.Protocol.Dict.UnitTests]
 requirement: none
 created: 2026-11-18
-completed:
+completed: 2026-11-18
 ---
 # BL-1373 — Make DICT DEFINE compare headwords case and all on every platform
 
@@ -32,13 +32,13 @@ Windows as on Linux and macOS, so `DEFINE` and `MATCH ... exact` always agree.
 
 ## Acceptance criteria
 
-- [ ] `FindDefinition` returns a file only when a listed headword equals the word ordinally (e.g. confirm the name
+- [x] `FindDefinition` returns a file only when a listed headword equals the word ordinally (e.g. confirm the name
       against the directory listing, or look the word up in the listing), so the result does not depend on the
       file system's case rules.
-- [ ] A named fast test with an in-memory or temp store holding `surly` asserts `DEFINE SURLY` answers `552 no match`
+- [x] A named fast test with an in-memory or temp store holding `surly` asserts `DEFINE SURLY` answers `552 no match`
       and `DEFINE surly` answers 150/151/250 with the 151 line naming `"surly"`. It is not marked `OSCondition`.
-- [ ] A named fast test asserts `DEFINE` and `MATCH ... exact` agree for a differently-cased word.
-- [ ] `dotnet build` is clean, fast tests green, Surl.Protocol.Dict stays at 100/100 coverage.
+- [x] A named fast test asserts `DEFINE` and `MATCH ... exact` agree for a differently-cased word.
+- [x] `dotnet build` is clean, fast tests green, Surl.Protocol.Dict stays at 100/100 coverage.
 
 ## Notes
 
@@ -49,3 +49,4 @@ Windows as on Linux and macOS, so `DEFINE` and `MATCH ... exact` always agree.
 
 - 2026-11-18: Created.
 - 2026-11-18: Backlog -> Doing.
+- 2026-11-18: Doing -> Done. DEFINE now confirms the headword against the ordinal directory listing

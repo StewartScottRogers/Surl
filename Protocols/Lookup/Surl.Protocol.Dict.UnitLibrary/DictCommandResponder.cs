@@ -141,7 +141,7 @@ internal sealed class DictCommandResponder
             return await ReplyAsync("550 invalid database, use \"SHOW DB\" for list of databases\r\n");
         }
 
-        if (dictionary.FindDefinition(words[2]) is not { } file)
+        if (dictionary.FindDefinition(words[2], context.CancellationToken) is not { } file)
         {
             return await ReplyAsync("552 no match\r\n");
         }

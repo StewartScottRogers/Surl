@@ -102,6 +102,32 @@ public sealed class DictProtocolServerTests
     }
 
     [TestMethod]
+    public async Task ServeAsync_DefineWithOtherCase_Answers552AndDefineWithStoredCaseAnswers150()
+    {
+        var fileSystem = new UnitTestInMemoryContentFileSystem()
+            .AddDirectory(Root)
+            .AddFile(Path.Join(Root, "surly"), "bad-tempered\n"u8.ToArray(), FileTime);
+
+        var wrong = await ServeTextAsync("DEFINE ! SURLY\r\n", fileSystem);
+        var right = await ServeTextAsync("DEFINE ! surly\r\n", fileSystem);
+
+        Assert.AreEqual(Banner + NoMatch, wrong);
+        Assert.AreEqual(Banner + Definition("surly", "bad-tempered\r\n"), right);
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_DefineAndExactMatchOfOtherCase_Agree()
+    {
+        var fileSystem = new UnitTestInMemoryContentFileSystem()
+            .AddDirectory(Root)
+            .AddFile(Path.Join(Root, "surly"), "bad-tempered\n"u8.ToArray(), FileTime);
+
+        var reply = await ServeTextAsync("DEFINE ! SURLY\r\nMATCH ! exact SURLY\r\n", fileSystem);
+
+        Assert.AreEqual(Banner + NoMatch + NoMatch, reply);
+    }
+
+    [TestMethod]
     [DataRow("!")]
     [DataRow("*")]
     [DataRow("surl")]
