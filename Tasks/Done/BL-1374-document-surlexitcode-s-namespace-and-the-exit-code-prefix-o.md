@@ -8,7 +8,7 @@ depends-on: []
 touches: [Application/Surl.Api/README.md]
 requirement: none
 created: 2026-11-18
-completed:
+completed: 2026-11-18
 ---
 # BL-1374 — Document SurlExitCode's namespace and the exit-code prefix on SurlServerStartException.Lines in the Surl.Api README
 
@@ -28,9 +28,9 @@ A reader can compile the `Surl.Api` README's first example as written, and knows
 
 ## Acceptance criteria
 
-- [ ] The README's first example has `using Surl.Protocol.Abstractions;` (or the README states the namespace beside its first use of `SurlExitCode`).
-- [ ] The README's `SurlServerStartException` paragraph shows a `Lines` item with its `(58) ` prefix and says each item starts with the exit code in parentheses.
-- [ ] Every statement changed is checked against `SurlServerStartException.cs` and the code that builds `Lines`.
+- [x] The README's first example has `using Surl.Protocol.Abstractions;` (or the README states the namespace beside its first use of `SurlExitCode`).
+- [x] The README's `SurlServerStartException` paragraph shows a `Lines` item with its `(58) ` prefix and says each item starts with the exit code in parentheses.
+- [x] Every statement changed is checked against `SurlServerStartException.cs` and the code that builds `Lines`.
 
 ## Notes
 
@@ -40,3 +40,4 @@ A reader can compile the `Surl.Api` README's first example as written, and knows
 
 - 2026-11-18: Created.
 - 2026-11-18: Backlog -> Doing.
+- 2026-11-18: Doing -> Done. README example now imports Surl.Protocol.Abstractions; Lines prefix documented, checked against SurlStartFailure sites
