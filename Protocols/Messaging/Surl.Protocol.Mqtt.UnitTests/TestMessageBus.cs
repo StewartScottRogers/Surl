@@ -12,6 +12,10 @@ internal static class TestMessageBus
     public static MessageBus.MessageBus New(int maxTopics = MessageBus.MessageBus.DefaultMaxTopics) =>
         new(TimeProvider.System, maxTopics);
 
+    /// <summary>An empty bus on which a --topic #;retain declaration retains every publish, whatever its RETAIN flag, as curl's RETAIN 0 publish needs.</summary>
+    public static MessageBus.MessageBus RetainingEveryPublish() =>
+        new(TimeProvider.System, configuration: new MessageBusConfiguration { Topics = [new DeclaredTopic("#", retain: true)] });
+
     /// <summary>Publishes <paramref name="payload"/> on <paramref name="topic"/> as a retained message.</summary>
     public static void Retain(this MessageBus.MessageBus bus, string topic, ReadOnlySpan<byte> payload)
     {

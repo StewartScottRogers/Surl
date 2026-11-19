@@ -17,11 +17,11 @@ namespace Surl.Composition;
 /// </summary>
 public sealed partial class SurlServerCompositionTests
 {
-    // MQTT 3.1.1 CONNECT (clean session, client "c"), PUBLISH QoS 0 "hi" on "t", DISCONNECT.
+    // MQTT 3.1.1 CONNECT (clean session, client "c"), PUBLISH QoS 0 RETAIN 1 "hi" on "t", DISCONNECT.
     private static readonly byte[] ConnectPublishHiOnTDisconnect =
     [
         0x10, 0x0D, 0x00, 0x04, (byte)'M', (byte)'Q', (byte)'T', (byte)'T', 0x04, 0x02, 0x00, 0x3C, 0x00, 0x01, (byte)'c',
-        0x30, 0x05, 0x00, 0x01, (byte)'t', (byte)'h', (byte)'i',
+        0x31, 0x05, 0x00, 0x01, (byte)'t', (byte)'h', (byte)'i',
         0xE0, 0x00,
     ];
 

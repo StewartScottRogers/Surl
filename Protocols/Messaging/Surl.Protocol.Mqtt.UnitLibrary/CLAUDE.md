@@ -5,9 +5,11 @@ Phase 1, alongside HTTP.
 The MQTT server (MQTT 3.1.1), `MqttProtocolServer`: accepts the connect, the subscribe
 (curl's plain fetch) and the publish (curl's `-d`) upstream curl sends. Every publish is
 published to the one `Surl.MessageBus` the server is given, retained (`BusMessage.Retain`)
-whatever its `RETAIN` flag; a subscribe is answered with the bus's retained messages its
+only when its `RETAIN` flag is 1 (MQTT 3.1.1 section 3.3.1.3, ADR-0176; a `--topic <filter>;retain`
+declaration makes the bus retain a matching one regardless); a RETAIN 0 publish, all upstream curl sends,
+reaches live subscribers and neither replaces nor removes a retained message; a subscribe is answered with the bus's retained messages its
 filters match (`MqttBusRetainedMessages`, which subscribes to each filter only for the moment
-it reads them), then `DISCONNECT`. Topic names and filters are checked and mapped with the
+it reads them), then `DISCONNECT`, sent because upstream curl 8.21.0 exits 56 on a bare close. Topic names and filters are checked and mapped with the
 bus's `MqttTopicNames` (BL-630). The server keeps no retained messages of its own (BL-635).
 ADR-0014 records every answer.
 

@@ -8,7 +8,7 @@ depends-on: [BL-1376]
 touches: [Protocols/Messaging/Surl.Protocol.Mqtt.UnitLibrary, Protocols/Messaging/Surl.Protocol.Mqtt.UnitTests, Application/Surl.Cli.UnitLibrary, Application/Surl.Composition.UnitTests]
 requirement: none
 created: 2026-11-18
-completed:
+completed: 2026-11-18
 ---
 # BL-1377 — Keep an MQTT 3.1.1 publish as retained only as the RETAIN decision says
 
@@ -51,22 +51,23 @@ sends `DISCONNECT`.
 
 ## Acceptance criteria
 
-- [ ] New tests in `Surl.Protocol.Mqtt.UnitTests` pin the ADR's rule for a RETAIN 0 and a RETAIN 1 `PUBLISH`:
+- [x] New tests in `Surl.Protocol.Mqtt.UnitTests` pin the ADR's rule for a RETAIN 0 and a RETAIN 1 `PUBLISH`:
       kept or not, replacing an existing retained message or not, and an empty payload removing it or not, each
       checked through a following `SUBSCRIBE` on the same bus.
-- [ ] A test in `Surl.Protocol.Mqtt.UnitTests` shows a RETAIN 0 publish on a topic a `DeclaredTopic` marks
+- [x] A test in `Surl.Protocol.Mqtt.UnitTests` shows a RETAIN 0 publish on a topic a `DeclaredTopic` marks
       retained (`--topic <filter>;retain`) is delivered to a later `SUBSCRIBE`.
-- [ ] Every existing fast test that relied on the old rule publishes RETAIN 1 (`0x31`) or seeds through a
+- [x] Every existing fast test that relied on the old rule publishes RETAIN 1 (`0x31`) or seeds through a
       declared topic, and its name still says what it checks; `dotnet test --filter "TestCategory!=Integration"`
       is green.
-- [ ] `AiHelpProse.cs`'s `mqtt` paragraph, `MqttProtocolServer`'s XML doc and the library's `CLAUDE.md` state the
+- [x] `AiHelpProse.cs`'s `mqtt` paragraph, `MqttProtocolServer`'s XML doc and the library's `CLAUDE.md` state the
       new rule and that the server sends `DISCONNECT` because upstream curl 8.21.0 exits 56 on a bare close;
       `CommandLineRunnerAiHelpTests` and `AiHelpTextTests` pass.
-- [ ] `dotnet build -warnaserror` is clean and `Surl.Protocol.Mqtt.UnitLibrary` stays at 100% line and branch
+- [x] `dotnet build -warnaserror` is clean and `Surl.Protocol.Mqtt.UnitLibrary` stays at 100% line and branch
       coverage.
 
 ## Notes
 
+- Done per ADR-0176: RETAIN flag threaded through MqttPacketResponder; recorded curl fixtures (0x30) kept as-is, tests that need retention use a bus declaring `#;retain` or RETAIN 1; new MqttRetainFlagTests.
 - Do not touch the `Integration` tests in `Conformance/`; BL-1378 reruns them against pinned upstream curl.
 - No new option and no new `SurlExitCode`.
 
@@ -74,3 +75,4 @@ sends `DISCONNECT`.
 
 - 2026-11-18: Created.
 - 2026-11-18: Backlog -> Doing.
+- 2026-11-18: Doing -> Done. MQTT 3.1.1 retains only RETAIN 1 or ;retain-declared publishes per ADR-0176; help and docs updated

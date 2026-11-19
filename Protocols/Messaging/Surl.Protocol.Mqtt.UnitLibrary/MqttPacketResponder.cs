@@ -11,6 +11,7 @@ internal sealed partial class MqttPacketResponder
 {
     private const int QualityOfServiceMask = 0x06;
     private const int DuplicateFlag = 0x08;
+    private const int RetainFlag = 0x01;
     private const byte SubscriptionFailure = 0x80;
     private const byte GrantedQualityOfService = 0x00;
 
@@ -246,28 +247,30 @@ internal sealed partial class MqttPacketResponder
             return CloseForViolation("PUBLISH had no packet identifier");
         }
 
-        return PublishUnlessAFaultAnswersAsync(topic, qualityOfService, packetIdentifier, reader.Remaining.ToArray());
+        return PublishUnlessAFaultAnswersAsync(topic, qualityOfService, packetIdentifier, reader.Remaining.ToArray(), (packet.Flags & RetainFlag) != 0);
     }
 
     // A publish a chosen-error rule matches closes the connection with nothing published, since
     // MQTT 3.1.1 has no negative acknowledgement (ADR-0139, decision 1); a drop rule aborts it
     // with nothing published (ADR-0141).
-    private async ValueTask<bool> PublishUnlessAFaultAnswersAsync(string topic, int qualityOfService, ushort packetIdentifier, byte[] payload)
+    private async ValueTask<bool> PublishUnlessAFaultAnswersAsync(string topic, int qualityOfService, ushort packetIdentifier, byte[] payload, bool retain)
     {
         if (await IsPublishAnsweredByAFaultAsync(topic))
         {
             return false;
         }
 
-        return await PublishAsync(topic, qualityOfService, packetIdentifier, payload);
+        return await PublishAsync(topic, qualityOfService, packetIdentifier, payload, retain);
     }
 
-    private ValueTask<bool> PublishAsync(string topic, int qualityOfService, ushort packetIdentifier, byte[] payload)
+    private ValueTask<bool> PublishAsync(string topic, int qualityOfService, ushort packetIdentifier, byte[] payload, bool retain)
     {
-        // Every publish is kept as its topic's retained message, RETAIN set or not (ADR-0014).
+        // Only a RETAIN 1 publish is retained (MQTT 3.1.1 section 3.3.1.3, ADR-0176); a RETAIN 0 one is
+        // delivered to live subscribers and neither replaces nor removes a retained message. A
+        // --topic ...;retain declaration still makes the bus retain a matching one.
         var message = new BusMessage(topic, payload)
         {
-            Retain = true,
+            Retain = retain,
             QualityOfService = (BusQualityOfService)qualityOfService,
         };
         return bus.Publish(message, account).Outcome switch
