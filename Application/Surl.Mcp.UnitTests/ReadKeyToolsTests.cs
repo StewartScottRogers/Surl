@@ -102,9 +102,9 @@ public sealed class ReadKeyToolsTests
         var result = Ok(await CallAsync(host.SetKey, $$"""{"server_id": "s1", "key_base64": "{{key}}", "value": "v"}"""));
         var shortName = Ok(await CallAsync(host.SetKey, """{"server_id": "s1", "key": "k", "value": "v"}"""));
 
-        Assert.AreEqual("0/" + new string('a', 253) + "\\", result.GetProperty("key").GetString());
-        Assert.AreEqual(256, result.GetProperty("key").GetString()!.Length);
-        Assert.AreEqual("0/k", shortName.GetProperty("key").GetString());
+        Assert.AreEqual("0/" + new string('a', 253) + "\\", result.GetProperty("event_name").GetString());
+        Assert.AreEqual(256, result.GetProperty("event_name").GetString()!.Length);
+        Assert.AreEqual("0/k", shortName.GetProperty("event_name").GetString());
     }
 
     [TestMethod]

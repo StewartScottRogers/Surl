@@ -44,7 +44,7 @@ public sealed class LookupToolsTests
         var result = await CallAsync(host.SetKey, """{"server_id": "s1", "key": "seeded", "value": "yes"}""");
         var answer = Encoding.ASCII.GetString(await ServeAsync(host, "redis", "GET seeded\r\nQUIT\r\n"u8.ToArray()));
 
-        StoreToolsTests.AssertResult(result, """{"key":"0/seeded","byte_count":3}""");
+        StoreToolsTests.AssertResult(result, """{"key":"seeded","database":0,"event_name":"0/seeded","byte_count":3}""");
         StringAssert.Contains(answer, "$3\r\nyes\r\n");
     }
 
@@ -56,7 +56,7 @@ public sealed class LookupToolsTests
         var result = await CallAsync(host.SetKey, """{"server_id": "s1", "key_base64": "cmF3", "value_base64": "Ynl0ZXM=", "database": 2, "expire_ms": 3600000}""");
         var answer = Encoding.ASCII.GetString(await ServeAsync(host, "redis", "SELECT 2\r\nGET raw\r\nQUIT\r\n"u8.ToArray()));
 
-        StoreToolsTests.AssertResult(result, """{"key":"2/raw","byte_count":5}""");
+        StoreToolsTests.AssertResult(result, """{"key":"raw","database":2,"event_name":"2/raw","byte_count":5}""");
         StringAssert.Contains(answer, "$5\r\nbytes\r\n");
     }
 
@@ -69,8 +69,9 @@ public sealed class LookupToolsTests
         var escaped = await CallAsync(host.SetKey, """{"server_id": "s1", "key_base64": "/2E=", "value": ""}""");
         var cut = await CallAsync(host.SetKey, $$"""{"server_id": "s1", "key_base64": "{{longKey}}", "value": "v"}""");
 
-        StoreToolsTests.AssertResult(escaped, """{"key":"0/\\xFFa","byte_count":0}""");
-        var name = cut.StructuredContent!.Value.GetProperty("key").GetString()!;
+        StoreToolsTests.AssertResult(escaped, """{"key_base64":"/2E=","database":0,"event_name":"0/\\xFFa","byte_count":0}""");
+        Assert.AreEqual(longKey, cut.StructuredContent!.Value.GetProperty("key_base64").GetString());
+        var name = cut.StructuredContent!.Value.GetProperty("event_name").GetString()!;
         Assert.AreEqual(256, name.Length);
         StringAssert.StartsWith(name, "0/\\xFFaaa");
     }
@@ -85,6 +86,20 @@ public sealed class LookupToolsTests
         await using var host = await StartHostAsync("redis://127.0.0.1:0");
 
         var result = await CallAsync(host.SetKey, arguments);
+
+        StoreToolsTests.AssertFailure(result, expected);
+    }
+
+    [TestMethod]
+    [DataRow("set_key", """{"server_id": "s1", "key": "k", "value": "v"}""", "Keyspace: A key in database 0 was refused: This instance holds no Redis keyspace.")]
+    [DataRow("add_dns_zone", """{"server_id": "s1", "apex": "example.com", "zone_text": "x"}""", "Zones: The zone example.com was refused: This instance holds no DNS zones.")]
+    [DataRow("add_ldap_entries", """{"server_id": "s1", "ldif": "dn: dc=x\nobjectClass: domain\ndc: x\n"}""", "Directory: The LDIF entries was refused: This instance holds no LDAP directory.")]
+    public async Task SeedingAStoreNoListenUrlServes_IsAnErrorNamingTheStore(string tool, string arguments, string expected)
+    {
+        await using var host = await StartHostAsync("http://127.0.0.1:0");
+        var target = tool switch { "set_key" => host.SetKey, "add_dns_zone" => host.AddDnsZone, _ => host.AddLdapEntries };
+
+        var result = await CallAsync(target, arguments);
 
         StoreToolsTests.AssertFailure(result, expected);
     }

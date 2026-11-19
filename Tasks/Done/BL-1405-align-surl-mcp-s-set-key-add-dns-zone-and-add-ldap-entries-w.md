@@ -8,7 +8,7 @@ depends-on: [BL-1404, BL-1410]
 touches: [Application/Surl.Mcp.UnitLibrary, Application/Surl.Mcp.UnitTests]
 requirement: none
 created: 2026-11-19
-completed:
+completed: 2026-11-19
 ---
 # BL-1405 — Align surl-mcp's set_key, add_dns_zone and add_ldap_entries with BL-1404's amendment to ADR-0158
 
@@ -41,13 +41,13 @@ their store answer an `isError` result with the text the amendment states.
 
 ## Acceptance criteria
 
-- [ ] A failing test first: a `LookupToolsTests` test calls `set_key` with `{"key": "greeting", "value": "hi"}` on a
+- [x] A failing test first: a `LookupToolsTests` test calls `set_key` with `{"key": "greeting", "value": "hi"}` on a
       `redis://` server and pins the amended result exactly (for example `"key": "greeting"` with `database` 0, as
       the amendment states), the same key text `list_keys` then answers.
-- [ ] A test pins `set_key`'s result for a non-UTF-8 key given as `key_base64`, per the amendment.
-- [ ] Tests on an `http://`-only server pin the `isError` text of `set_key`, `add_dns_zone` and `add_ldap_entries`.
-- [ ] `SetKeyTool`'s XML doc comment and `Description` say what the result now holds.
-- [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and `Surl.Mcp.UnitLibrary` stays at 100% line
+- [x] A test pins `set_key`'s result for a non-UTF-8 key given as `key_base64`, per the amendment.
+- [x] Tests on an `http://`-only server pin the `isError` text of `set_key`, `add_dns_zone` and `add_ldap_entries`.
+- [x] `SetKeyTool`'s XML doc comment and `Description` say what the result now holds.
+- [x] `dotnet build -warnaserror` is clean, the fast tests are green, and `Surl.Mcp.UnitLibrary` stays at 100% line
       and branch coverage.
 
 ## Notes
@@ -58,3 +58,5 @@ their store answer an `isError` result with the text the amendment states.
 
 - 2026-11-19: Created.
 - 2026-11-19: Backlog -> Doing.
+- 2026-11-19: set_key now answers key/key_base64 (ReadBackJson.WriteBytes), database, event_name, byte_count per ADR-0158 amendment 1; NameOf kept for event_name. No-listener refusals pinned with the composition's existing text (store prefix + "This instance holds no ..."); amendment names no different text, so unchanged. Fast tests 375 green.
+- 2026-11-19: Doing -> Done. set_key answers key/key_base64, database, event_name; seeds on unserved stores are pinned isError

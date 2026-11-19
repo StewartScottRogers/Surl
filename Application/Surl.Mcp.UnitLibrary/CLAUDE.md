@@ -56,8 +56,10 @@ with one `McpServerRegistry.AddTool` line and holds nothing else of the tools.
       refused with the tool's own text (`user: a user name may not hold ':'`, `user <user> already has an
       account`), so no exception text and never the password is echoed.
     - `SetKeyTool` (`set_key`, BL-1167, ADR-0158 decision 9): `key` or `key_base64`, `value` or `value_base64`,
-      `database` (0 to 15), `expire_ms` -> `{key, byte_count}`, `key` being the keyspace event's name
-      (`<database>/<key>`, non-UTF-8 bytes as `\xHH`, cut at 256 characters); the value is never echoed.
+      `database` (0 to 15), `expire_ms` -> `{key or key_base64, database, event_name, byte_count}` (ADR-0158 amendment 1,
+      BL-1405): the key as `read_key` spells it, `event_name` the keyspace event's name (`<database>/<key>`, non-UTF-8
+      bytes as `\xHH`, cut at 256 characters); the value is never echoed. On a server with no `redis` listen URL it
+      (like `add_dns_zone` and `add_ldap_entries` for their stores) is `isError` with the store's refusal text.
     - `AddLdapEntriesTool` (`add_ldap_entries`): `ldif` -> `{entry_count}` (the `dn:` lines); `AddDnsZoneTool`
       (`add_dns_zone`): `apex`, `zone_text` -> `{apex, byte_count}`. A bound, a duplicate apex or a refusal is `isError`.
     - `RemoveAccountTool` (`remove_account`): `user` -> `{user}`, plus a `warning` member and a second text block `server <id> has no account left and now needs no login` when it was the last account (BL-1391); an account not held is `server <id> has no account <user>`.
