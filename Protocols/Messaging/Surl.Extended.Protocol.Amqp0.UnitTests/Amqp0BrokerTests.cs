@@ -101,8 +101,29 @@ public sealed class Amqp0BrokerTests
 
         var (written, _) = await ServeAsync(broker, ProtocolHeader, StartOk("ANONYMOUS", []), DefaultTuneOk, Open("/"), Close());
 
-        CollectionAssert.AreEqual(Concat(Start("SCRAM-SHA-256 ANONYMOUS"), Tune(), OpenOk(), CloseOk()), written);
+        CollectionAssert.AreEqual(Concat(Start("SCRAM-SHA-256 PLAIN AMQPLAIN ANONYMOUS"), Tune(), OpenOk(), CloseOk()), written);
         Assert.IsEmpty(policy.Starts);
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_OffersAnonymous_OffersPlainAndAmqplainBeforeAnonymousAndAcceptsAnyPlain()
+    {
+        var policy = new UnitTestAmqp0AuthenticationPolicy("SCRAM-SHA-256") { AcceptsAnyPlain = true };
+        var broker = new Amqp0Broker(policy, NewBus(), new Amqp0BrokerOptions { OffersAnonymous = true });
+
+        var (written, _) = await ServeAsync(
+            broker, ProtocolHeader, StartOk("PLAIN", PlainResponse("guest", "guest")), DefaultTuneOk, Open("/"), Close());
+
+        CollectionAssert.AreEqual(Concat(Start("SCRAM-SHA-256 PLAIN AMQPLAIN ANONYMOUS"), Tune(), OpenOk(), CloseOk()), written);
+        Assert.AreEqual("PLAIN", policy.Starts.Single().Mechanism);
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_DoesNotOfferAnonymous_AddsNoPlain()
+    {
+        var (written, _) = await ServeAsync(new UnitTestAmqp0AuthenticationPolicy("SCRAM-SHA-256"), ProtocolHeader);
+
+        CollectionAssert.AreEqual(Start("SCRAM-SHA-256"), written);
     }
 
     [TestMethod]
@@ -112,7 +133,7 @@ public sealed class Amqp0BrokerTests
 
         var (written, _) = await ServeAsync(broker, ProtocolHeader);
 
-        CollectionAssert.AreEqual(Start("ANONYMOUS"), written);
+        CollectionAssert.AreEqual(Start("ANONYMOUS PLAIN AMQPLAIN"), written);
     }
 
     [TestMethod]

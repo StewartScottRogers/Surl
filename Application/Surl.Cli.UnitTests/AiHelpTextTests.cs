@@ -194,6 +194,88 @@ public sealed partial class AiHelpTextTests
         + "the `surl://aihelp` resources.";
 
     [TestMethod]
+    public void Answer_RedisTopic_SaysAClearTextAuthIsAnsweredWrongpassWhateverThePassword()
+    {
+        var redis = AiHelpText.Answer("redis").Output;
+
+        foreach (var text in new[] { "Over `redis://` without `--allow-plaintext-auth` every `AUTH` is answered `-WRONGPASS", "a right password included", "`rediss://` or `--allow-plaintext-auth` logs in" })
+        {
+            Assert.Contains(text, redis, text);
+        }
+    }
+
+    [TestMethod]
+    public void Answer_KafkaAndXmppTopics_SayWhichSaslMechanismsLogInByDefault()
+    {
+        var kafka = AiHelpText.Answer("kafka").Output;
+        var xmpp = AiHelpText.Answer("xmpp").Output;
+
+        Assert.Contains("`SCRAM-SHA-256` and `SCRAM-SHA-512` log in as an account (`--user`, `--user-file`) on `kafka`, and `PLAIN` as well on `kafkas`", kafka);
+        Assert.Contains("`SCRAM-SHA-256`, `SCRAM-SHA-1` and `PLAIN` log in as an account (`--user`, `--user-file`) once the stream is under TLS", xmpp);
+    }
+
+    [TestMethod]
+    public void Answer_AzureStorageTopic_SaysWhenAPathSegmentIsAnAccountAndThatListingsNeedListDirectories()
+    {
+        var azure = AiHelpText.Answer("azure-storage").Output;
+
+        foreach (var text in new[] { "only when the `Host` is an IP literal or `localhost` and that segment names a configured account", "the first segment is the container", "List Containers, List Blobs and the Data Lake lists need `--list-directories`", "`403 AuthorizationPermissionMismatch`" })
+        {
+            Assert.Contains(text, azure, text);
+        }
+    }
+
+    [TestMethod]
+    public void Answer_ContentTopic_NamesTheAzureListingsAmongThoseListDirectoriesTurnsOn()
+    {
+        StringAssert.Contains(AiHelpText.Answer("content").Output, "the Azure Storage List Containers, List Blobs and Data Lake listings");
+    }
+
+    [TestMethod]
+    public void Answer_XmppTopic_SaysAListenUrlWithoutACertificateExits58UnlessLoosened()
+    {
+        StringAssert.Contains(AiHelpText.Answer("xmpp").Output, "without `--cert` or `--self-signed` is refused at start and exits 58, unless `--allow-plaintext-auth` or `--allow-anonymous` is given");
+    }
+
+    [TestMethod]
+    public void Answer_AmqpTopic_NamesCramMd5AsOfferedByDefaultAndWhatAllowAnonymousOffers()
+    {
+        var amqp = AiHelpText.Answer("amqp").Output;
+
+        foreach (var text in new[] { "offers CRAM-MD5", "PLAIN and AMQPLAIN are offered only over TLS or with `--allow-plaintext-auth`", "`--allow-anonymous` offers PLAIN, AMQPLAIN and ANONYMOUS on every transport" })
+        {
+            Assert.Contains(text, amqp, text);
+        }
+    }
+
+    [TestMethod]
+    public void Answer_GrpcTopic_PrintsTheEchoProtoLineForLine()
+    {
+        var grpc = AiHelpText.Answer("grpc").Output;
+
+        foreach (var line in new[]
+        {
+            "syntax = \"proto3\";", "package surl.test;", "message EchoRequest {", "  string message = 1;", "  uint32 count = 2;",
+            "  int32 status_code = 3;", "  string status_message = 4;", "  uint32 delay_milliseconds = 5;", "message EchoReply {",
+            "  uint32 index = 2;", "service Echo {", "  rpc Echo (EchoRequest) returns (EchoReply);",
+            "  rpc Expand (EchoRequest) returns (stream EchoReply);", "  rpc Collect (stream EchoRequest) returns (EchoReply);",
+            "  rpc Chat (stream EchoRequest) returns (stream EchoReply);",
+        })
+        {
+            Assert.Contains("\n" + line + "\n", grpc.Replace("\r\n", "\n"), line);
+        }
+    }
+
+    [TestMethod]
+    public void Answer_WebTransportTopic_SaysAConnectWithoutALoginIsRefusedUnlessAllowAnonymous()
+    {
+        var webTransport = AiHelpText.Answer("webtransport").Output;
+
+        Assert.Contains("A `CONNECT` without a login is refused `401` unless `--allow-anonymous` is given", webTransport);
+        Assert.DoesNotContain("as an HTTP request is", webTransport);
+    }
+
+    [TestMethod]
     public void Answer_KafkaTopic_NamesTheGroupApisAndGroupAccess()
     {
         var kafka = AiHelpText.Answer("kafka").Output;

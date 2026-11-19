@@ -400,6 +400,32 @@ public sealed partial class ServingEngineTests
         Assert.IsFalse(cancelledAfterTheHold);
     }
 
+    // ADR-0181: an Accept-stage rule's times count is spent by any connection, so a readiness probe that
+    // opens and closes without a byte spends it, and the first real request is served untouched.
+    [TestMethod]
+    public async Task ServeAsync_ConnectAndCloseThenARealRequest_AgainstAnAcceptDropRuleWithTimesOne_TheProbeSpendsItAndTheRequestIsServed()
+    {
+        var factory = new FakeListenerFactory();
+        var plan = new FaultPlan();
+        plan.Add(new FaultRule("x", FaultKind.Drop) { Times = 1 });
+        var server = new FakeConnectionProtocolServer("http");
+        var engine = CreateFaultingEngine(
+            factory, new ManualTimeProvider(), new FakeExchangeLogFactory(), DiscardingSurlEventPublisher.Instance, plan, server);
+        var probe = new InMemoryConnection([]);
+        using var stop = new CancellationTokenSource();
+        var serving = engine.ServeAsync([Http], stop.Token);
+
+        factory.ListenerFor(Http).Connect(probe);
+        await InMemoryConnectionWaits.WaitUntilDisposedAsync(probe);
+        factory.ListenerFor(Http).Connect(new InMemoryConnection(["GET / HTTP/1.1\r\n\r\n"u8.ToArray()]));
+        await server.NextExchangeAsync();
+        await stop.CancelAsync();
+        await serving.WaitAsync(Patience.Timeout);
+
+        Assert.IsTrue(probe.Aborted);
+        Assert.AreEqual(0, plan.Rules.Single().Times);
+    }
+
     private static ServingEngine CreateFaultingEngine(
         FakeListenerFactory factory,
         TimeProvider time,

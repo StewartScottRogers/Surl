@@ -164,7 +164,7 @@ public sealed class GrpcStreamHandler : IHttp2StreamHandler
             throw new GrpcCallException(GrpcStatus.Unauthenticated);
         }
 
-        var verdict = await authentication.JudgeAsync(new HttpAuthenticationRequest("POST", head.Target, IsWrite: false, head.Fields), cancellationToken);
+        var verdict = await authentication.JudgeAsync(new HttpAuthenticationRequest("POST", head.Target, IsWrite: true, head.Fields), cancellationToken);
         switch (verdict.Outcome)
         {
             case HttpAuthenticationOutcome.Proceed:

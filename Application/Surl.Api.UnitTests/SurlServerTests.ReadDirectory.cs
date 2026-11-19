@@ -20,12 +20,14 @@ public sealed partial class SurlServerTests
     }
 
     [TestMethod]
-    public async Task Directory_ExportLdifAsync_AServerWithoutAnLdapListener_ReadsAnEmptyDirectory()
+    public async Task Directory_ExportLdifAsync_AServerWithoutAnLdapListener_ThrowsNotFoundNamingTheDirectory()
     {
         var token = TestContext.CancellationToken;
         await using var server = await SurlServer.StartAsync(LookupOptions(RedisUrl), new ApiTestSeams().Host, token);
 
-        Assert.AreEqual("version: 1\n", await server.Directory.ExportLdifAsync(token));
+        var refusal = await Assert.ThrowsExactlyAsync<SurlNotFoundException>(() => server.Directory.ExportLdifAsync(token));
+
+        StringAssert.Contains(refusal.Message, "no LDAP directory");
     }
 
     [TestMethod]

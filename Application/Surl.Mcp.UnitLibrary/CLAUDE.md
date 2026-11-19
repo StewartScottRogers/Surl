@@ -47,17 +47,19 @@ with one `McpServerRegistry.AddTool` line and holds nothing else of the tools.
     `Surl.Api` (a seed a store refuses, a store on disk refusing reset or snapshot, a snapshot past 256 MiB, a
     257th fault rule) is `isError` with its message.
     - `SeedMailTool` (`seed_mail`): `to`, and `message` (UTF-8) or `message_base64` -> `{delivered: true}`.
-    - `PutFileTool` (`put_file`): `path`, and `text` or `base64` -> `{path, byte_count}`; a path no request may name (relative, or with `..`) is `isError` `path <path> may not be named: <reason>` (BL-1382).
+    - `PutFileTool` (`put_file`): `path`, and `text` or `base64` -> `{path, byte_count}`; a path no request may name (relative, or with `..`) is `isError` saying why, e.g. `path <path> must start with /` (BL-1382, BL-1396).
     - `PublishMessageTool` (`publish_message`): `topic` (with `retain`) or `queue`, and `payload` or
       `payload_base64` -> `{published: true}`; `retain` with `queue` is refused.
-    - `DeleteFileTool` (`delete_file`, BL-1175, ADR-0161): `path` -> `{path}`; nothing, a folder or a hidden path there is `no file at <path>`; an unnameable path is `path <path> may not be named: <reason>` as for `put_file`.
+    - `DeleteFileTool` (`delete_file`, BL-1175, ADR-0161): `path` -> `{path}`; nothing, a folder or a hidden path there is `no file at <path>`; an unnameable path is the same why-text as for `put_file`.
     - The read-back tools (BL-1201, ADR-0164 decision 6): `ListMailboxesTool` (`list_mailboxes`), `ListMessagesTool` (`list_messages`), `ReadMessageTool` (`read_message`), `ReadFileTool` (`read_file`), `ListFilesTool` (`list_files`), `BrowseQueueTool` (`browse_queue`), `ReadRetainedMessageTool` (`read_retained_message`; none is `{retained: false}`) `ReadLogTool` (`read_log`), and for the Redis keyspace (BL-1218, decision 9) `ReadKeyTool` (`read_key`: `key` or `key_base64`, `database`; type, size, expiry and a string's `text` or `base64`), `ReadDirectoryTool` (`read_directory` -> `{ldif}`, BL-1219), `ReadZoneTool` (`read_zone`: `apex` -> `{apex, zone}`, no apex -> `{zones}`, BL-1220), and `ListKeysTool` (`list_keys`: `pattern`, `after_key`, `limit`, `database`; never a value). Bytes are `text` or `base64` by `ReadBackJson`; an absent item or a refusal is `isError` with the API message.
     - `AddAccountTool` (`add_account`): `user`, `password` -> `{user}`. A `:` in the name and a name taken are
       refused with the tool's own text (`user: a user name may not hold ':'`, `user <user> already has an
       account`), so no exception text and never the password is echoed.
     - `SetKeyTool` (`set_key`, BL-1167, ADR-0158 decision 9): `key` or `key_base64`, `value` or `value_base64`,
-      `database` (0 to 15), `expire_ms` -> `{key, byte_count}`, `key` being the keyspace event's name
-      (`<database>/<key>`, non-UTF-8 bytes as `\xHH`, cut at 256 characters); the value is never echoed.
+      `database` (0 to 15), `expire_ms` -> `{key or key_base64, database, event_name, byte_count}` (ADR-0158 amendment 1,
+      BL-1405): the key as `read_key` spells it, `event_name` the keyspace event's name (`<database>/<key>`, non-UTF-8
+      bytes as `\xHH`, cut at 256 characters); the value is never echoed. On a server with no `redis` listen URL it
+      (like `add_dns_zone` and `add_ldap_entries` for their stores) is `isError` with the store's refusal text.
     - `AddLdapEntriesTool` (`add_ldap_entries`): `ldif` -> `{entry_count}` (the `dn:` lines); `AddDnsZoneTool`
       (`add_dns_zone`): `apex`, `zone_text` -> `{apex, byte_count}`. A bound, a duplicate apex or a refusal is `isError`.
     - `RemoveAccountTool` (`remove_account`): `user` -> `{user}`, plus a `warning` member and a second text block `server <id> has no account left and now needs no login` when it was the last account (BL-1391); an account not held is `server <id> has no account <user>`.

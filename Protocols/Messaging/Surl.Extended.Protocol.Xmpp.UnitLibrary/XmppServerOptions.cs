@@ -37,6 +37,13 @@ public sealed record XmppServerOptions
     public bool AllowPlaintextAuthentication { get; init; }
 
     /// <summary>
+    /// Whether <c>--allow-anonymous</c> was given, so the stream features end with the SASL
+    /// <c>ANONYMOUS</c> mechanism (RFC 4505) and <c>&lt;auth mechanism='ANONYMOUS'/&gt;</c> logs in as a new
+    /// <c>anon-</c> JID (ADR-0114 decision 3). <see langword="false"/> unless given.
+    /// </summary>
+    public bool OffersAnonymous { get; init; }
+
+    /// <summary>
     /// The policy whose SASL mechanisms the stream features offer and whose exchanges run every
     /// login (ADR-0114 decision 3);
     /// <see cref="AnonymousAuthenticationPolicy"/> unless given.

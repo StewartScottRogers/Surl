@@ -438,7 +438,36 @@ public sealed class GrpcStreamHandlerTests
 
         Assert.AreEqual(TrailersOnly(16, "unauthenticated") + "\nwww-authenticate: Basic realm=\"surl\"", Text(fields));
         Assert.IsEmpty(body);
-        Assert.AreEqual(new HttpAuthenticationRequest("POST", EchoPath, false, session.JudgedRequests[0].Fields), session.JudgedRequests[0]);
+        Assert.AreEqual(new HttpAuthenticationRequest("POST", EchoPath, true, session.JudgedRequests[0].Fields), session.JudgedRequests[0]);
+    }
+
+    [TestMethod]
+    public async Task ServeStreamAsync_ReflectionCall_IsJudgedAsAWrite()
+    {
+        var client = new GrpcHttp2TestFrames();
+        var session = UnitTestHttpAuthenticationSession.ProceedingEveryRequest;
+        const string path = "/grpc.reflection.v1.ServerReflection/ServerReflectionInfo";
+
+        await CallAsync(
+            Handler(session, services: [.. new ServerReflectionService([EchoService.File]).Services]),
+            client.Call(1, path, endStream: false),
+            Data(1, Message([0x3A, 0x00]), endStream: true));
+
+        Assert.IsTrue(session.JudgedRequests[0].IsWrite);
+    }
+
+    [TestMethod]
+    public async Task ServeStreamAsync_NoLoginAndSessionChallenges_IsUnauthenticatedAndEchoIsNeverReached()
+    {
+        var client = new GrpcHttp2TestFrames();
+        var session = new UnitTestHttpAuthenticationSession(request => request.IsWrite
+            ? new HttpAuthenticationVerdict(HttpAuthenticationOutcome.Challenge, [], null)
+            : new HttpAuthenticationVerdict(HttpAuthenticationOutcome.Proceed, [], null));
+
+        var (fields, body, _, _) = await CallAsync(Handler(session), client.Call(1, EchoPath, endStream: false), Data(1, Message(Hi), endStream: true));
+
+        Assert.AreEqual(TrailersOnly(16, "unauthenticated"), Text(fields));
+        Assert.IsEmpty(body);
     }
 
     [TestMethod]

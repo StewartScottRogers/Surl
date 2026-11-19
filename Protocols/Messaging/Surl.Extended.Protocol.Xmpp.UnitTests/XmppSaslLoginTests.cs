@@ -101,6 +101,36 @@ public sealed class XmppSaslLoginTests
     }
 
     [TestMethod]
+    [DataRow("PLAIN", "\0alice\0anything", "Logged in as alice@im.example.com.")]
+    [DataRow("PLAIN", "alice@im.example.com\0alice@im.example.com\0anything", "Logged in as alice@im.example.com.")]
+    [DataRow("SCRAM-SHA-256", "n,,n=alice,r=abc", "Logged in as alice@im.example.com.")]
+    [DataRow("SCRAM-SHA-256", "n,,n=a=2Cb,r=abc", "Logged in as a,b@im.example.com.")]
+    [DataRow("PLAIN", "\0\0anything", null)]
+    [DataRow("PLAIN", "nonuls", null)]
+    [DataRow("SCRAM-SHA-256", "n,,n=,r=abc", null)]
+    [DataRow("SCRAM-SHA-256", "n,,r=abc", null)]
+    public async Task StartAsync_UncheckedLogin_BindsToTheNameItGaveElseAnAnonymousJid(string mechanism, string firstMessage, string? expectedNote)
+    {
+        var (_, log) = await ServeAsync(
+            Options(Policy()), TestContext.CancellationToken, ClientHeader, Auth(mechanism, Base64(firstMessage)), ClientHeader, Close);
+
+        CollectionAssert.Contains(
+            log.Notes.ToList(), expectedNote ?? $"Logged in as anon-{Hex(2, 16)}@im.example.com.");
+    }
+
+    [TestMethod]
+    [DataRow("PLAIN", "\0alice@other.example\0anything")]
+    [DataRow("PLAIN", "\0a b\0anything")]
+    [DataRow("SCRAM-SHA-256", "n,,n=a b,r=abc")]
+    public async Task StartAsync_UncheckedLoginNamingAnUnusableJid_IsNotAuthorized(string mechanism, string firstMessage)
+    {
+        var (answers, _) = await ServeAsync(
+            Options(Policy()), TestContext.CancellationToken, ClientHeader, Auth(mechanism, Base64(firstMessage)), Close);
+
+        StringAssert.Contains(answers, Failure("not-authorized"));
+    }
+
+    [TestMethod]
     public async Task StartAsync_NoMechanism_IsMalformedRequest()
     {
         var (answers, _) = await ServeAsync(

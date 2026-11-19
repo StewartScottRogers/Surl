@@ -56,6 +56,8 @@ public sealed class ServerTlsComposition : IDisposable
 
     private const string CoapsScheme = "coaps";
 
+    private const string XmppScheme = "xmpp";
+
     /// <summary>
     /// The settings every listener secures its connections with, or <see langword="null"/>
     /// when no listen URL is TLS from the first byte and none can be upgraded.
@@ -112,7 +114,7 @@ public sealed class ServerTlsComposition : IDisposable
 
     /// <summary>
     /// Finds the first listen URL, in command-line order, that is TLS from the first byte or
-    /// requires TLS before a login (<c>natss</c>, ADR-0113 decision 6), and has no certificate to serve because neither <c>--cert</c> nor <c>--self-signed</c> was
+    /// requires TLS before a login (<c>natss</c>, ADR-0113 decision 6; <c>xmpp</c> unless <c>--allow-plaintext-auth</c> or <c>--allow-anonymous</c> is given, ADR-0114 decision 2), and has no certificate to serve because neither <c>--cert</c> nor <c>--self-signed</c> was
     /// given (ADR-0032, section 10).
     /// </summary>
     /// <param name="commandLine">The parsed command line.</param>
@@ -251,10 +253,12 @@ public sealed class ServerTlsComposition : IDisposable
     }
 
     // coaps needs a certificate or an account, whose pre-shared key it can handshake with (ADR-0087 decision 3).
+    // xmpp needs one unless --allow-plaintext-auth or --allow-anonymous lets a login succeed without TLS (ADR-0114 decision 2).
     private static bool RequiresCertificate(SurlCommandLine commandLine, ListenUrl listenUrl) =>
         listenUrl.IsImplicitTls
         || UpgradeRequiredSchemes.Contains(listenUrl.Scheme)
-        || (listenUrl.Scheme == CoapsScheme && commandLine.Accounts.Count == 0 && commandLine.UserFile is null);
+        || (listenUrl.Scheme == CoapsScheme && commandLine.Accounts.Count == 0 && commandLine.UserFile is null)
+        || (listenUrl.Scheme == XmppScheme && !commandLine.AllowPlaintextAuthentication && !commandLine.AllowAnonymous);
 
     /// <summary>
     /// Formats the message for a TLS option file that could not be loaded, after the

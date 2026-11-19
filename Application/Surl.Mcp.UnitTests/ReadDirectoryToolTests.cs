@@ -34,14 +34,14 @@ public sealed class ReadDirectoryToolTests
     }
 
     [TestMethod]
-    public async Task AServerWithoutAnLdapListener_ReadsAnEmptyDirectory()
+    public async Task AServerWithoutAnLdapListener_AnswersNotFoundNamingTheDirectory()
     {
         await using var host = await StartHostAsync("redis://127.0.0.1:0");
 
         var result = await CallAsync(host.ReadDirectory, """{"server_id": "s1"}""");
 
-        Assert.IsFalse(result.IsError, result.TextContent.FirstOrDefault());
-        Assert.AreEqual("version: 1\n", result.StructuredContent!.Value.GetProperty("ldif").GetString());
+        Assert.IsTrue(result.IsError);
+        StringAssert.Contains(result.TextContent.FirstOrDefault(), "no LDAP directory");
     }
 
     [TestMethod]

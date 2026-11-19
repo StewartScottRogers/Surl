@@ -8,8 +8,10 @@ namespace Surl.Mcp;
 
 /// <summary>
 /// The <c>set_key</c> tool (ADR-0158 decision 9): sets a string key in a running server's Redis keyspace, as
-/// <c>SET</c> would, through <c>Surl.Api</c>'s <c>SurlServer.Keys</c>. Result <c>{"key", "byte_count"}</c>: <c>key</c> is
-/// the keyspace event's name (<c>&lt;database&gt;/&lt;key&gt;</c>) and the value is never echoed.
+/// <c>SET</c> would, through <c>Surl.Api</c>'s <c>SurlServer.Keys</c>. Result <c>{"key" or "key_base64", "database",
+/// "event_name", "byte_count"}</c> (ADR-0158 amendment 1): the key as <c>read_key</c> and <c>list_keys</c> spell it
+/// (<c>key_base64</c> for a non-UTF-8 key), <c>event_name</c> the keyspace event's name
+/// (<c>&lt;database&gt;/&lt;key&gt;</c>); the value is never echoed.
 /// </summary>
 public static class SetKeyTool
 {
@@ -20,7 +22,10 @@ public static class SetKeyTool
     internal const string Description =
         "Set a string key in a running Surl server's Redis keyspace, as a SET would, so the redis server answers GET "
         + "with it. Give the key and the value as UTF-8 text or base64, at most 16 MiB each; optionally a database (0 to 15) "
-        + "and an expiry in milliseconds. The value is never shown back.";
+        + "and an expiry in milliseconds. The value is never shown back. "
+        + "Answers the key as read_key and list_keys spell it (key, or key_base64 for a non-UTF-8 key), the database, "
+        + "event_name (<database>/<key>, the name a wait_for_event on the store watches) and byte_count. "
+        + "A server with no redis listen URL refuses it.";
 
     /// <summary>The tool's input schema.</summary>
     internal const string InputSchema = """
@@ -67,7 +72,9 @@ public static class SetKeyTool
         await running.Server.Keys.SetAsync(key, value!, expiry, database, cancellationToken);
         return ToolResults.FromObject(writer =>
         {
-            writer.WriteString("key", NameOf(database, key));
+            ReadBackJson.WriteBytes(writer, key, "key", "key_base64");
+            writer.WriteNumber("database", database);
+            writer.WriteString("event_name", NameOf(database, key));
             writer.WriteNumber("byte_count", value!.Length);
         });
     }

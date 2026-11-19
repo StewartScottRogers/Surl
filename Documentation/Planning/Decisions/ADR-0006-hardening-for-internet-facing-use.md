@@ -295,3 +295,12 @@ What each limit means:
   `Surl.Protocol.Gopher`, `Surl.Protocol.Mqtt` and `Surl.Protocol.Tftp`. The Phase 2 and
   later servers (FTP, SSH, SMTP, IMAP, POP3, WebSocket, LDAP, SMB, RTSP) take their rows
   of sections 1 and 5 as part of their own serving tasks.
+
+## Amendment 1 (BL-1394, 2026-11-19)
+
+Decided by Claude under Stewart's delegation: "no byte moves in either direction" means silence the
+peer causes. A server-side `delay` fault is not the peer's idle time, so the idle clock is stopped while a
+`delay` rule holds the exchange, at both stages the rule has: `accept` (`ServingEngine.cs`,
+`ApplyAcceptDelayOrFindDropAsync`) and `command` (`CommandStageFaults.cs`, ADR-0141). The wait still counts
+against `--max-time`. A delay fault exists to make the server slow; `--idle-timeout` closing the connection
+would defeat it. `surl --aihelp` states this in its limits and fault paragraphs.

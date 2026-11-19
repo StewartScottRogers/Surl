@@ -71,7 +71,7 @@ public sealed class KafkaBrokerStoreTests
             new[] { (StoreKind.Producers, StoreChange.Reset), (StoreKind.Producers, StoreChange.Restored) },
             changes.Select(change => (change.Store, change.Change)).ToArray());
         CollectionAssert.AreEqual(
-            new[] { StoreKind.Content, StoreKind.Mail, StoreKind.Bus, StoreKind.Accounts, StoreKind.Directory, StoreKind.Producers },
+            new[] { StoreKind.Content, StoreKind.Mail, StoreKind.Bus, StoreKind.Accounts, StoreKind.Producers },
             running.Stores.RegisteredStoreOrder.ToArray());
     }
 

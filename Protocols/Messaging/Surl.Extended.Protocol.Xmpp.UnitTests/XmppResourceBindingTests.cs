@@ -46,10 +46,10 @@ public sealed class XmppResourceBindingTests
     [TestMethod]
     public async Task AnswerAsync_AnonymousLogin_BindsAnAnonName()
     {
-        var policy = new UnitTestXmppSaslPolicy([], ["ANONYMOUS"]);
+        var policy = new UnitTestXmppSaslPolicy([], ["PLAIN"]);
 
         var (answers, _) = await ServeAsync(
-            Options(policy), TestContext.CancellationToken, ClientHeader, Auth("ANONYMOUS", "="), ClientHeader, BindBalcony, Close);
+            Options(policy) with { OffersAnonymous = true }, TestContext.CancellationToken, ClientHeader, Auth("ANONYMOUS", "="), ClientHeader, BindBalcony, Close);
 
         StringAssert.Contains(answers, $"<jid>anon-{Hex(2, 16)}@im.example.com/balcony</jid>");
     }

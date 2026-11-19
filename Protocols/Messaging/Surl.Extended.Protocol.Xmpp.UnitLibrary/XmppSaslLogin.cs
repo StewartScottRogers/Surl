@@ -25,6 +25,7 @@ internal sealed class XmppSaslLogin(
     private int failures;
     private string? firstMessageMechanism;
     private bool authzidRefused;
+    private string? namedAuthcid;
 
     /// <summary>The bare JID the stream logged in as once SASL succeeded; <see langword="null"/> until then.</summary>
     public string? BareJid { get; private set; }
@@ -63,6 +64,7 @@ internal sealed class XmppSaslLogin(
 
         domain = streamDomain;
         authzidRefused = false;
+        namedAuthcid = null;
         firstMessageMechanism = mechanism;
         if (auth.Value.Length != 0)
         {
@@ -109,10 +111,12 @@ internal sealed class XmppSaslLogin(
         var isAcceptable = true;
         if (mechanism == "PLAIN")
         {
+            namedAuthcid = XmppAuthzid.PlainAuthcid(message);
             isAcceptable = XmppAuthzid.IsAcceptablePlain(message, domain, randomSource, out forwarded);
         }
         else if (mechanism!.StartsWith("SCRAM-", StringComparison.Ordinal))
         {
+            namedAuthcid = XmppAuthzid.ScramAuthcid(message);
             isAcceptable = XmppAuthzid.IsAcceptableScram(message);
         }
 
@@ -208,7 +212,7 @@ internal sealed class XmppSaslLogin(
     private async Task SucceedAsync(SaslLoginStep step)
     {
         exchange = null;
-        var bareJid = XmppJids.BareJid(step.AccountName, domain, randomSource);
+        var bareJid = XmppJids.BareJid(step.AccountName ?? namedAuthcid, domain, randomSource);
         if (bareJid is null)
         {
             await FailAsync(XmppSaslFailures.NotAuthorized, "The account's name cannot be a JID on this stream's domain");
@@ -218,6 +222,15 @@ internal sealed class XmppSaslLogin(
         BareJid = bareJid;
         context.Log.Note($"Logged in as {bareJid}.");
         await write(XmppSaslText.Success(step.AdditionalSuccessData));
+    }
+
+    // RFC 4505: the trace token, if any, is not checked; no account is named, so the JID is a new anon- one.
+    private async Task SucceedAnonymouslyAsync()
+    {
+        var bareJid = XmppJids.BareJid(null, domain, randomSource)!;
+        BareJid = bareJid;
+        context.Log.Note($"Logged in as {bareJid}.");
+        await write(XmppSaslText.Success(ReadOnlyMemory<byte>.Empty));
     }
 
     private async Task FailAsync(string condition, string reason)

@@ -63,5 +63,28 @@ internal static class XmppAuthzid
         return user is not null && Decoded(fields[1][2..]) == Decoded(user[2..]);
     }
 
+    /// <summary>
+    /// The authcid a PLAIN message names, <c>[authzid] NUL authcid NUL password</c> (RFC 4616).
+    /// </summary>
+    /// <param name="message">The message as the client sent it.</param>
+    /// <returns>The authcid, or <see langword="null"/> when the message has none.</returns>
+    public static string? PlainAuthcid(byte[] message)
+    {
+        var first = Array.IndexOf(message, (byte)0);
+        var second = first < 0 ? -1 : Array.IndexOf(message, (byte)0, first + 1);
+        return second < 0 || second == first + 1 ? null : Encoding.UTF8.GetString(message, first + 1, second - first - 1);
+    }
+
+    /// <summary>
+    /// The user a SCRAM client-first message names, its <c>n=</c> field (RFC 5802 section 7), unescaped.
+    /// </summary>
+    /// <param name="message">The message as the client sent it.</param>
+    /// <returns>The user, or <see langword="null"/> when the message has none.</returns>
+    public static string? ScramAuthcid(byte[] message)
+    {
+        var user = Encoding.UTF8.GetString(message).Split(',').FirstOrDefault(field => field.StartsWith("n=", StringComparison.Ordinal));
+        return user is null || user.Length == 2 ? null : Decoded(user[2..]);
+    }
+
     private static string Decoded(string name) => name.Replace("=2C", ",", StringComparison.Ordinal).Replace("=3D", "=", StringComparison.Ordinal);
 }

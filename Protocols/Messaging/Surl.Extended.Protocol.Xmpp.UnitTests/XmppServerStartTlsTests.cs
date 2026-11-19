@@ -108,7 +108,7 @@ public sealed class XmppServerStartTlsTests
         var (answers, connection, log) = await ServeAsync(options, ClientHeader, StartTls, "<message/>");
 
         Assert.AreEqual(
-            ResponseHeader(1) + "<stream:features><mechanisms xmlns='urn:ietf:params:xml:ns:xmpp-sasl'><mechanism>ANONYMOUS</mechanism></mechanisms></stream:features>" +
+            ResponseHeader(1) + "<stream:features><mechanisms xmlns='urn:ietf:params:xml:ns:xmpp-sasl'><mechanism>PLAIN</mechanism></mechanisms></stream:features>" +
             TlsFailureAndClose,
             answers);
         Assert.IsFalse(connection.UpgradeRequested);
@@ -191,7 +191,7 @@ public sealed class XmppServerStartTlsTests
         Assert.AreEqual(
             ResponseHeader(1) +
             "<stream:features><starttls xmlns='urn:ietf:params:xml:ns:xmpp-tls'/>" +
-            "<mechanisms xmlns='urn:ietf:params:xml:ns:xmpp-sasl'><mechanism>ANONYMOUS</mechanism></mechanisms></stream:features>" +
+            "<mechanisms xmlns='urn:ietf:params:xml:ns:xmpp-sasl'><mechanism>PLAIN</mechanism></mechanisms></stream:features>" +
             Proceed + ResponseHeader(2) + TlsFeatures + Close,
             answers);
     }
@@ -201,7 +201,7 @@ public sealed class XmppServerStartTlsTests
     {
         var options = Options() with { AllowPlaintextAuthentication = true };
 
-        var (answers, _, _) = await ServeAsync(options, ClientHeader, "<auth xmlns='urn:ietf:params:xml:ns:xmpp-sasl' mechanism='ANONYMOUS'>=</auth>");
+        var (answers, _, _) = await ServeAsync(options, ClientHeader, "<auth xmlns='urn:ietf:params:xml:ns:xmpp-sasl' mechanism='PLAIN'>=</auth>");
 
         Assert.DoesNotContain("encryption-required", answers);
     }
@@ -219,7 +219,7 @@ public sealed class XmppServerStartTlsTests
     [TestMethod]
     public async Task ServeAsync_Features_AskThePolicyWithTheSchemeAndTheTlsState()
     {
-        var policy = new UnitTestXmppSaslPolicy(["ANONYMOUS"], ["PLAIN"]);
+        var policy = new UnitTestXmppSaslPolicy(["PLAIN"], ["PLAIN"]);
         var options = Options() with { AllowPlaintextAuthentication = true, AuthenticationPolicy = policy };
 
         await ServeAsync(options, ClientHeader, StartTls, ClientHeader, Close);
@@ -233,7 +233,7 @@ public sealed class XmppServerStartTlsTests
     {
         RandomSource = new CountingRandomSource(),
         IsTlsUpgradeAvailable = true,
-        AuthenticationPolicy = new UnitTestXmppSaslPolicy(["ANONYMOUS"], ["PLAIN", "DIGEST-MD5", "SCRAM-SHA-1", "SCRAM-SHA-256"]),
+        AuthenticationPolicy = new UnitTestXmppSaslPolicy(["PLAIN"], ["PLAIN", "DIGEST-MD5", "SCRAM-SHA-1", "SCRAM-SHA-256"]),
     };
 
     private static string ResponseHeader(int streamNumber) =>

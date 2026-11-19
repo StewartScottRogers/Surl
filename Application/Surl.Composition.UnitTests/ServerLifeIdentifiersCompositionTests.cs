@@ -62,7 +62,7 @@ public sealed class ServerLifeIdentifiersCompositionTests
     {
         var seams = new StartTestSeams().Seams with { AreExtensionsTurnedOn = true };
         var start = await SurlServerComposition.ComposeAsync(
-            CommandLineParser.Parse([.. options, "xmpp://127.0.0.1:0"], ["xmpp"]).CommandLine!, seams, TestContext.CancellationToken);
+            CommandLineParser.Parse(["--allow-anonymous", .. options, "xmpp://127.0.0.1:0"], ["xmpp"]).CommandLine!, seams, TestContext.CancellationToken);
         await using var serving = start.Serving ?? throw new AssertFailedException(string.Join(" ", start.Failure!.Lines));
         var xmpp = serving.Servers.OfType<Surl.Extended.Protocol.Xmpp.XmppServer>().Single();
         var connection = new FakeConnection([]);

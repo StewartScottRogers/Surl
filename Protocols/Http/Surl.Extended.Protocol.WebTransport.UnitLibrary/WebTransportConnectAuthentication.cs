@@ -31,7 +31,7 @@ internal sealed class WebTransportConnectAuthentication(IHttpAuthenticationSessi
         IReadOnlyList<KeyValuePair<string, string>> fields = isConnectionBound
             ? [.. head.Fields.Where(field => field.Key != AuthorizationField)]
             : head.Fields;
-        var verdict = await authentication.JudgeAsync(new HttpAuthenticationRequest("CONNECT", head.Target, IsWrite: false, fields), cancellationToken);
+        var verdict = await authentication.JudgeAsync(new HttpAuthenticationRequest("CONNECT", head.Target, IsWrite: true, fields), cancellationToken);
         QpackFieldLine[]? refusal = (isConnectionBound, verdict.Outcome) switch
         {
             (false, HttpAuthenticationOutcome.Proceed) => null,

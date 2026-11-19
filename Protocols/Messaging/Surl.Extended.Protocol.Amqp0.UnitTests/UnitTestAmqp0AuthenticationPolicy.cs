@@ -16,24 +16,27 @@ internal sealed class UnitTestAmqp0AuthenticationPolicy(params string[] mechanis
 
     public List<string> ScriptedResponses { get; } = [];
 
+    /// <summary>Accepts any <c>PLAIN</c> login unchecked, as the real policy does under <c>--allow-anonymous</c>.</summary>
+    public bool AcceptsAnyPlain { get; init; }
+
     public IReadOnlyList<string> GetSaslMechanisms(SaslOfferRequest request) => mechanisms;
 
     public ISaslExchange StartSaslExchange(SaslExchangeStart start)
     {
         Starts.Add(start);
-        return start.Mechanism == "PLAIN" ? new PlainExchange(start.InitialResponse) : new ScriptedExchange(this);
+        return start.Mechanism == "PLAIN" ? new PlainExchange(start.InitialResponse, AcceptsAnyPlain) : new ScriptedExchange(this);
     }
 
     public static SaslLoginStep Challenge(string text) =>
         new(SaslLoginOutcome.Challenge, Encoding.ASCII.GetBytes(text), null, null);
 
-    private sealed class PlainExchange(ReadOnlyMemory<byte>? initialResponse) : ISaslExchange
+    private sealed class PlainExchange(ReadOnlyMemory<byte>? initialResponse, bool acceptsAny) : ISaslExchange
     {
         public ValueTask<SaslLoginStep> BeginAsync(CancellationToken cancellationToken)
         {
             var parts = Encoding.UTF8.GetString(initialResponse.GetValueOrDefault().Span).Split('\0');
             var user = parts.Length == 3 ? parts[1] : null;
-            var isAccepted = user == "alice" && parts[2] == "secret";
+            var isAccepted = acceptsAny || (user == "alice" && parts[2] == "secret");
             return ValueTask.FromResult(new SaslLoginStep(
                 isAccepted ? SaslLoginOutcome.Accepted : SaslLoginOutcome.RefusedCredentials,
                 ReadOnlyMemory<byte>.Empty,

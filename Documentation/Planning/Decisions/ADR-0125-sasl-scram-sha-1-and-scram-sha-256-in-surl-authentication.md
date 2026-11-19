@@ -137,3 +137,9 @@ Decided by Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions").
   `scram-sha-1` in `--help`, `--manual`, `--aihelp` and `OptionArgumentReader`'s allowed words.
   It is not in the default set: like the other SCRAM words, a server offers it only when
   `--auth` names it, so no byte an original server sends changes without it.
+
+## Amendment, 2026-11-19 (BL-1402)
+
+Decided by Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions").
+
+[ADR-0179](ADR-0179-kafka-and-xmpp-offer-scram-without-auth-naming-it.md) narrows decision 9 and Amendment 1: SCRAM stays out of `AuthenticationMethods.DefaultAccepted` and the original servers (mail, and any server upstream curl speaks) offer it only when `--auth` names it, but `kafka`, `kafkas`, `xmpp` and `xmpps`, which upstream curl does not speak, offer their SCRAM mechanisms when `--auth` is not given, by a per-scheme default in the composition.
