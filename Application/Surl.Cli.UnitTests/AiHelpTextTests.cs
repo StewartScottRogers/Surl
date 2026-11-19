@@ -194,6 +194,44 @@ public sealed partial class AiHelpTextTests
         + "the `surl://aihelp` resources.";
 
     [TestMethod]
+    public void Answer_AmqpTopic_NamesCramMd5AsOfferedByDefaultAndWhatAllowAnonymousOffers()
+    {
+        var amqp = AiHelpText.Answer("amqp").Output;
+
+        foreach (var text in new[] { "offers CRAM-MD5", "PLAIN and AMQPLAIN are offered only over TLS or with `--allow-plaintext-auth`", "`--allow-anonymous` offers PLAIN, AMQPLAIN and ANONYMOUS on every transport" })
+        {
+            Assert.Contains(text, amqp, text);
+        }
+    }
+
+    [TestMethod]
+    public void Answer_GrpcTopic_PrintsTheEchoProtoLineForLine()
+    {
+        var grpc = AiHelpText.Answer("grpc").Output;
+
+        foreach (var line in new[]
+        {
+            "syntax = \"proto3\";", "package surl.test;", "message EchoRequest {", "  string message = 1;", "  uint32 count = 2;",
+            "  int32 status_code = 3;", "  string status_message = 4;", "  uint32 delay_milliseconds = 5;", "message EchoReply {",
+            "  uint32 index = 2;", "service Echo {", "  rpc Echo (EchoRequest) returns (EchoReply);",
+            "  rpc Expand (EchoRequest) returns (stream EchoReply);", "  rpc Collect (stream EchoRequest) returns (EchoReply);",
+            "  rpc Chat (stream EchoRequest) returns (stream EchoReply);",
+        })
+        {
+            Assert.Contains("\n" + line + "\n", grpc.Replace("\r\n", "\n"), line);
+        }
+    }
+
+    [TestMethod]
+    public void Answer_WebTransportTopic_SaysAConnectWithoutALoginIsRefusedUnlessAllowAnonymous()
+    {
+        var webTransport = AiHelpText.Answer("webtransport").Output;
+
+        Assert.Contains("A `CONNECT` without a login is refused `401` unless `--allow-anonymous` is given", webTransport);
+        Assert.DoesNotContain("as an HTTP request is", webTransport);
+    }
+
+    [TestMethod]
     public void Answer_KafkaTopic_NamesTheGroupApisAndGroupAccess()
     {
         var kafka = AiHelpText.Answer("kafka").Output;

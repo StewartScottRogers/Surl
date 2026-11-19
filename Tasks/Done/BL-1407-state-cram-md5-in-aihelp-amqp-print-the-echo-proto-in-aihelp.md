@@ -8,7 +8,7 @@ depends-on: [BL-1398, BL-1411]
 touches: [Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests]
 requirement: none
 created: 2026-11-19
-completed:
+completed: 2026-11-19
 ---
 # BL-1407 — State CRAM-MD5 in --aihelp amqp, print the echo .proto in --aihelp grpc, and reword --aihelp webtransport's login sentence
 
@@ -46,20 +46,22 @@ session needs a login unless `--allow-anonymous` is given.
 
 ## Acceptance criteria
 
-- [ ] `surl --aihelp amqp` names `CRAM-MD5` as offered over `amqp://` by default, `PLAIN`/`AMQPLAIN` as needing TLS
+- [x] `surl --aihelp amqp` names `CRAM-MD5` as offered over `amqp://` by default, `PLAIN`/`AMQPLAIN` as needing TLS
       or `--allow-plaintext-auth`, and what `--allow-anonymous` offers per BL-1411.
-- [ ] `surl --aihelp grpc` contains the `.proto` text of ADR-0116 decision 1 line for line.
-- [ ] `surl --aihelp webtransport` says a `CONNECT` without a login is refused `401` unless `--allow-anonymous` is
+- [x] `surl --aihelp grpc` contains the `.proto` text of ADR-0116 decision 1 line for line.
+- [x] `surl --aihelp webtransport` says a `CONNECT` without a login is refused `401` unless `--allow-anonymous` is
       given, with no reference to HTTP's read rule.
-- [ ] Tests in `Application/Surl.Cli.UnitTests/AiHelpTextTests.cs` pin each of the three.
-- [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and `Surl.Cli.UnitLibrary` stays at 100% line
+- [x] Tests in `Application/Surl.Cli.UnitTests/AiHelpTextTests.cs` pin each of the three.
+- [x] `dotnet build -warnaserror` is clean, the fast tests are green, and `Surl.Cli.UnitLibrary` stays at 100% line
       and branch coverage.
 
 ## Notes
 
+- Help text only; webtransport says `401` per the task. The proto is printed as a fenced block from ADR-0116 decision 1.
 - BL-1408 corrects the redis, azure-storage and xmpp topics; the board serialises the two.
 
 ## Log
 
 - 2026-11-19: Created.
 - 2026-11-19: Backlog -> Doing.
+- 2026-11-19: Doing -> Done. aihelp amqp names CRAM-MD5 and anonymous mechanisms, grpc prints echo.proto, webtransport CONNECT login reworded
