@@ -194,6 +194,40 @@ public sealed partial class AiHelpTextTests
         + "the `surl://aihelp` resources.";
 
     [TestMethod]
+    public void Answer_RedisTopic_SaysAClearTextAuthIsAnsweredWrongpassWhateverThePassword()
+    {
+        var redis = AiHelpText.Answer("redis").Output;
+
+        foreach (var text in new[] { "Over `redis://` without `--allow-plaintext-auth` every `AUTH` is answered `-WRONGPASS", "a right password included", "`rediss://` or `--allow-plaintext-auth` logs in" })
+        {
+            Assert.Contains(text, redis, text);
+        }
+    }
+
+    [TestMethod]
+    public void Answer_AzureStorageTopic_SaysWhenAPathSegmentIsAnAccountAndThatListingsNeedListDirectories()
+    {
+        var azure = AiHelpText.Answer("azure-storage").Output;
+
+        foreach (var text in new[] { "only when the `Host` is an IP literal or `localhost` and that segment names a configured account", "the first segment is the container", "List Containers, List Blobs and the Data Lake lists need `--list-directories`", "`403 AuthorizationPermissionMismatch`" })
+        {
+            Assert.Contains(text, azure, text);
+        }
+    }
+
+    [TestMethod]
+    public void Answer_ContentTopic_NamesTheAzureListingsAmongThoseListDirectoriesTurnsOn()
+    {
+        StringAssert.Contains(AiHelpText.Answer("content").Output, "the Azure Storage List Containers, List Blobs and Data Lake listings");
+    }
+
+    [TestMethod]
+    public void Answer_XmppTopic_SaysAListenUrlWithoutACertificateExits58UnlessLoosened()
+    {
+        StringAssert.Contains(AiHelpText.Answer("xmpp").Output, "without `--cert` or `--self-signed` is refused at start and exits 58, unless `--allow-plaintext-auth` or `--allow-anonymous` is given");
+    }
+
+    [TestMethod]
     public void Answer_AmqpTopic_NamesCramMd5AsOfferedByDefaultAndWhatAllowAnonymousOffers()
     {
         var amqp = AiHelpText.Answer("amqp").Output;

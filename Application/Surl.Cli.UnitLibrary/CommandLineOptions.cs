@@ -174,7 +174,7 @@ internal static class CommandLineOptions
         Flag("allow-uploads", null, negatable: true, (c, on) => c with { AllowUploads = on },
             new(null, "Accept uploads into served files", ["azure-storage", "content", "ftp", "gs", "oci", "rtsp", "s3", "security", "smb", "ssh", "tftp"], IsInShortList: true, Default: "off")),
         Flag("list-directories", null, negatable: true, (c, on) => c with { ListDirectories = on },
-            new(null, "Answer directory listings", ["content", "ftp", "gopher", "gs", "s3", "security", "ssh", "websocket"], IsInShortList: true, Default: "off")),
+            new(null, "Answer directory listings", ["azure-storage", "content", "ftp", "gopher", "gs", "s3", "security", "ssh", "websocket"], IsInShortList: true, Default: "off")),
         Flag("follow-symlinks", null, negatable: true, (c, on) => c with { FollowSymlinks = on },
             new(null, "Follow links that stay in the root", ["content", "dict", "ftp", "gopher", "http", "security", "smb", "ssh", "tftp"], IsInShortList: false, Default: "off")),
         Flag("serve-dot-files", null, negatable: true, (c, on) => c with { ServeDotFiles = on },

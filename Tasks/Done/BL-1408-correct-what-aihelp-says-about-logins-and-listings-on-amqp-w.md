@@ -8,7 +8,7 @@ depends-on: [BL-1401]
 touches: [Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests]
 requirement: none
 created: 2026-11-19
-completed:
+completed: 2026-11-19
 ---
 # BL-1408 — Correct what --aihelp says about logins and listings on redis, azure-storage and xmpp
 
@@ -48,15 +48,15 @@ needs a certificate unless `--allow-plaintext-auth` or `--allow-anonymous` is gi
 
 ## Acceptance criteria
 
-- [ ] `surl --aihelp redis` states that over `redis://` without `--allow-plaintext-auth` every `AUTH` is answered
+- [x] `surl --aihelp redis` states that over `redis://` without `--allow-plaintext-auth` every `AUTH` is answered
       `WRONGPASS`, a right password included, and that `rediss://` or `--allow-plaintext-auth` logs in.
-- [ ] `surl --aihelp azure-storage` states the path-style rule (IP literal or `localhost` host, first segment naming
+- [x] `surl --aihelp azure-storage` states the path-style rule (IP literal or `localhost` host, first segment naming
       a configured account; otherwise the first segment is the container) and that List Containers, List Blobs and
       the Data Lake lists need `--list-directories`, else `403 AuthorizationPermissionMismatch`.
-- [ ] The `content` topic's `--list-directories` sentence (`AiHelpProse.cs:87`) names the Azure listings too.
-- [ ] `surl --aihelp xmpp` states that an `xmpp` listen URL without `--cert` or `--self-signed` exits 58 unless
+- [x] The `content` topic's `--list-directories` sentence (`AiHelpProse.cs:87`) names the Azure listings too.
+- [x] `surl --aihelp xmpp` states that an `xmpp` listen URL without `--cert` or `--self-signed` exits 58 unless
       `--allow-plaintext-auth` or `--allow-anonymous` is given.
-- [ ] Tests in `Application/Surl.Cli.UnitTests/AiHelpTextTests.cs` pin each sentence; `dotnet build -warnaserror` is
+- [x] Tests in `Application/Surl.Cli.UnitTests/AiHelpTextTests.cs` pin each sentence; `dotnet build -warnaserror` is
       clean, the fast tests are green, and `Surl.Cli.UnitLibrary` stays at 100% line and branch coverage.
 
 ## Notes
@@ -68,3 +68,4 @@ needs a certificate unless `--allow-plaintext-auth` or `--allow-anonymous` is gi
 
 - 2026-11-19: Created.
 - 2026-11-19: Backlog -> Doing.
+- 2026-11-19: Doing -> Done. aihelp redis, azure-storage, content and xmpp topics corrected; tests pin each
