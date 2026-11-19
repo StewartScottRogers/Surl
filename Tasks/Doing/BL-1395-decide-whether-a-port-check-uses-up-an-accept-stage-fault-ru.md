@@ -49,3 +49,4 @@ A test that waits for surl's port and then expects an accept-stage fault on its 
 ## Log
 
 - 2026-11-19: Created.
+- 2026-11-19: Backlog -> Doing.
