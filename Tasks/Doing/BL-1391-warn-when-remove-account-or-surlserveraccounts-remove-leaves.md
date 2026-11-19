@@ -46,3 +46,4 @@ login-only stand-in turning open silently.
 ## Log
 
 - 2026-11-19: Created.
+- 2026-11-19: Backlog -> Doing.
