@@ -54,3 +54,4 @@ and why, instead of the JSON-RPC error `-32603 Internal error`.
 ## Log
 
 - 2026-11-18: Created.
+- 2026-11-18: Backlog -> Doing.
