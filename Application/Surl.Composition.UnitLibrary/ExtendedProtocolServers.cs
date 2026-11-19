@@ -188,6 +188,7 @@ public static class ExtendedProtocolServers
             MailDomains = services.MailDomains,
             IsTlsUpgradeAvailable = services.IsTlsUpgradeAvailable,
             AllowPlaintextAuthentication = services.AuthenticationPolicy.Settings.AllowPlaintextAuthentication,
+            OffersAnonymous = services.AuthenticationPolicy.Settings.AllowAnonymous,
             AuthenticationPolicy = services.AuthenticationPolicyFor("xmpp"),
             RandomSource = new IdentifierXmppRandomSource(services.IdentifiersForServer("xmpp")),
         })),

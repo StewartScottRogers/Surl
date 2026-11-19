@@ -48,7 +48,7 @@ STARTTLS (BL-537, ADR-0114 decision 2):
   a certificate, `<starttls><required/></starttls>` alone, or under the option a voluntary
   `<starttls/>` beside the plain-text mechanisms; without a certificate, or after TLS, the
   `<mechanisms/>` `AuthenticationPolicy` offers for the TLS state, ordered and filtered to
-  SCRAM-SHA-256, SCRAM-SHA-1, PLAIN, ANONYMOUS. STARTTLS is never offered once TLS is in force.
+  SCRAM-SHA-256, SCRAM-SHA-1, PLAIN, then `ANONYMOUS` last, offered and served by the server itself (not the policy) only under `XmppServerOptions.OffersAnonymous` (`--allow-anonymous`; RFC 4505, a new `anon-` JID per login). STARTTLS is never offered once TLS is in force.
 - `<starttls/>` is answered `<proceed/>`, then `UpgradeToTlsAsync`; a new `XmppStreamReader`
   reads the restarted stream, so bytes pipelined after `<starttls/>` are dropped. A failed or
   unfinished handshake closes with no more bytes. The head timeout runs from `<proceed/>` to the

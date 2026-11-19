@@ -8,7 +8,7 @@ depends-on: []
 touches: [Protocols/Messaging/Surl.Extended.Protocol.Xmpp.UnitLibrary, Protocols/Messaging/Surl.Extended.Protocol.Xmpp.UnitTests, Application/Surl.Composition.UnitLibrary/ExtendedProtocolServers.cs]
 requirement: none
 created: 2026-11-19
-completed:
+completed: 2026-11-19
 ---
 # BL-1399 — Offer and serve SASL ANONYMOUS on the XMPP server under --allow-anonymous
 
@@ -50,18 +50,18 @@ decision 3 says.
 
 ## Acceptance criteria
 
-- [ ] A failing test first: an `XmppServerConnection` (or `XmppServer`) test, with `OffersAnonymous = true` and no
+- [x] A failing test first: an `XmppServerConnection` (or `XmppServer`) test, with `OffersAnonymous = true` and no
       certificate, sees `<mechanisms>` end with `<mechanism>ANONYMOUS</mechanism>`; with `OffersAnonymous = false`
       it is absent.
-- [ ] A test replaying `<auth xmlns='urn:ietf:params:xml:ns:xmpp-sasl' mechanism='ANONYMOUS'>=</auth>` (written
+- [x] A test replaying `<auth xmlns='urn:ietf:params:xml:ns:xmpp-sasl' mechanism='ANONYMOUS'>=</auth>` (written
       from RFC 6120 section 6.4.2 and RFC 4505) gets `<success xmlns='urn:ietf:params:xml:ns:xmpp-sasl'/>`, and the
       bind that follows answers a JID `anon-<16 lower-case hex digits>@<domain>` drawn from the injected random
       source.
-- [ ] A test shows `ANONYMOUS` without `OffersAnonymous` is `invalid-mechanism`, and `ANONYMOUS` before TLS while TLS
+- [x] A test shows `ANONYMOUS` without `OffersAnonymous` is `invalid-mechanism`, and `ANONYMOUS` before TLS while TLS
       is required is `encryption-required`.
-- [ ] `ExtendedProtocolServers` sets `XmppServerOptions.OffersAnonymous` from
+- [x] `ExtendedProtocolServers` sets `XmppServerOptions.OffersAnonymous` from
       `AuthenticationPolicy.Settings.AllowAnonymous` (one line).
-- [ ] `dotnet build -warnaserror` is clean, `dotnet test --filter "TestCategory!=Integration"` is green, and
+- [x] `dotnet build -warnaserror` is clean, `dotnet test --filter "TestCategory!=Integration"` is green, and
       `Surl.Extended.Protocol.Xmpp.UnitLibrary` stays at 100% line and branch coverage.
 
 ## Notes
@@ -69,7 +69,10 @@ decision 3 says.
 - The second half of finding 2 (a `-u alice` login bound as `anon-...` under `--allow-anonymous`) is BL-1400.
 - Update the library's `CLAUDE.md` SASL bullet to say who offers `ANONYMOUS`.
 
+- 2026-11-19: ANONYMOUS is offered and served by XmppServerConnection and XmppSaslLogin themselves (the policy has no such mechanism, as for AMQP); the policy never sees it. Existing tests that relied on a policy listing ANONYMOUS now use OffersAnonymous or PLAIN. No ADR: ADR-0114 decision 3 already says this.
+
 ## Log
 
 - 2026-11-19: Created.
 - 2026-11-19: Backlog -> Doing.
+- 2026-11-19: Doing -> Done. ANONYMOUS offered last and served under --allow-anonymous

@@ -17,7 +17,9 @@ internal sealed class XmppServerConnection
     public static readonly TimeSpan FarewellWriteDeadline = TimeSpan.FromSeconds(1);
 
     /// <summary>The SASL mechanisms an XMPP stream may offer, in the order it offers them (ADR-0114 decision 3).</summary>
-    private static readonly string[] OfferableMechanisms = ["SCRAM-SHA-256", "SCRAM-SHA-1", "PLAIN", "ANONYMOUS"];
+    private static readonly string[] OfferableMechanisms = ["SCRAM-SHA-256", "SCRAM-SHA-1", "PLAIN"];
+
+    private const string AnonymousMechanism = "ANONYMOUS";
 
     private static readonly XName StartTls = XNamespace.Get(XmppNamespaces.Tls) + "starttls";
 
@@ -257,7 +259,7 @@ internal sealed class XmppServerConnection
 
         var startTls = connection.TlsSession is null && options.IsTlsUpgradeAvailable ? XmppStreamText.StartTlsOffered : string.Empty;
         var offered = options.AuthenticationPolicy.GetSaslMechanisms(new SaslOfferRequest(context.Scheme, connection.TlsSession));
-        offeredMechanisms = [.. OfferableMechanisms.Where(offered.Contains)];
+        offeredMechanisms = [.. OfferableMechanisms.Where(offered.Contains), .. options.OffersAnonymous ? (string[])[AnonymousMechanism] : []];
         return XmppStreamText.Features(startTls + XmppStreamText.Mechanisms(offeredMechanisms));
     }
 
