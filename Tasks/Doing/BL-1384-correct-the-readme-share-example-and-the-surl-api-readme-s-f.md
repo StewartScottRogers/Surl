@@ -66,3 +66,4 @@ and `Application/Surl.Api/README.md` names mail flags as the build returns them,
 ## Log
 
 - 2026-11-18: Created.
+- 2026-11-18: Backlog -> Doing.
