@@ -223,6 +223,25 @@ public sealed class CommandLineParserConfigFileTests
     }
 
     [TestMethod]
+    public void Parse_UrlLineWithABadListenUrlAndALaterSilentLine_ReadsOnAndIsSilencedAtItsLine()
+    {
+        var result = CommandLineParser.Parse(["-K", "a.cfg"], [], Files(("a.cfg", "url = rtmp://127.0.0.1:0/\nsilent\n")));
+
+        Assert.AreEqual(CommandLineOutcome.Refused, result.Outcome);
+        Assert.AreEqual("a.cfg:1: (1) Protocol \"rtmp\" not supported", result.Failure!.Message);
+        Assert.IsTrue(result.IsSilenced);
+    }
+
+    [TestMethod]
+    public void Parse_TwoBadListenUrlLines_ReportsTheFirst()
+    {
+        var result = CommandLineParser.Parse(["-K", "a.cfg"], [], Files(("a.cfg", "url = one://x/\nurl = two://x/\n")));
+
+        Assert.AreEqual("a.cfg:1: (1) Protocol \"one\" not supported", result.Failure!.Message);
+        Assert.IsFalse(result.IsSilenced);
+    }
+
+    [TestMethod]
     public void Parse_UrlOptionWithNoUrl_RequiresParameter() =>
         AssertRefused(Files(), ["--url"], SurlExitCode.FailedInit, "option --url: requires parameter", withTryLine: true);
 

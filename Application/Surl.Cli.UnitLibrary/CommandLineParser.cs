@@ -150,7 +150,11 @@ public static class CommandLineParser
         while (reading.TryTakeArgument(out var argument))
         {
             var ended = ReadArgument(reading, argument);
-            if (ended is not null)
+            if (ended is { IsDeferred: true })
+            {
+                reading.UnsupportedProtocol ??= ended.Failure;
+            }
+            else if (ended is not null)
             {
                 return ended;
             }
@@ -188,7 +192,10 @@ public static class CommandLineParser
         var parsed = ListenUrlParser.Parse(argument, reading.ExtendedSchemes);
         if (!parsed.Succeeded)
         {
-            return CommandLineParseResult.Refused(parsed.Failure);
+            // Upstream curl treats an unsupported scheme as a transfer failure, which -s silences (BL-1372).
+            return parsed.Failure.ExitCode == SurlExitCode.UnsupportedProtocol
+                ? CommandLineParseResult.Deferred(parsed.Failure)
+                : CommandLineParseResult.Refused(parsed.Failure);
         }
 
         reading.ListenUrls.Add(parsed.ListenUrl);
@@ -502,9 +509,9 @@ public static class CommandLineParser
             var result = line.Failure is null
                 ? ReadConfigLine(reading, line.Words)
                 : CommandLineParseResult.Refused(new CommandLineFailure(SurlExitCode.FailedInit, line.Failure, FollowedByTryHelpLine: true));
-            if (result is not null)
+            if (result is not null && Locate(reading, name, line.Number, result) is { } located)
             {
-                return Locate(reading, name, line.Number, result);
+                return located;
             }
         }
 
@@ -542,11 +549,17 @@ public static class CommandLineParser
     /// Prefixes a refusal made by line <paramref name="number"/> of <paramref name="name"/> with
     /// <c>&lt;file&gt;:&lt;line&gt;: </c>, once: a refusal a nested file already located keeps its own place.
     /// </summary>
-    private static CommandLineParseResult Locate(CommandLineReading reading, string name, int number, CommandLineParseResult result)
+    private static CommandLineParseResult? Locate(CommandLineReading reading, string name, int number, CommandLineParseResult result)
     {
         if (result.Outcome != CommandLineOutcome.Refused || reading.FailureLocated)
         {
             return result;
+        }
+
+        if (result.IsDeferred)
+        {
+            reading.UnsupportedProtocol ??= result.Failure! with { Message = $"{name}:{number}: {result.Failure!.Message}" };
+            return null;
         }
 
         reading.FailureLocated = true;
@@ -796,6 +809,12 @@ public static class CommandLineParser
             return CommandLineParseResult.Refused(refusedControl);
         }
 
+        if (reading.UnsupportedProtocol is not null)
+        {
+            return CommandLineParseResult.RefusedAfterTheLine(
+                reading.UnsupportedProtocol, ResolveLogging(reading.CommandLine).LogLevel == LogLevel.None);
+        }
+
         if (reading.ListenUrls.Count == 0 && reading.CommandLine.ProxyListenUrls.Count == 0)
         {
             return CommandLineParseResult.Refused(
@@ -1003,6 +1022,9 @@ public static class CommandLineParser
 
         /// <summary>The long names of the options whose argument was read and accepted.</summary>
         public HashSet<string> GivenOptions { get; } = new(StringComparer.Ordinal);
+
+        /// <summary>The first listen URL whose scheme no server claims, held until the whole line is read so a later <c>-s</c> can silence it.</summary>
+        public CommandLineFailure? UnsupportedProtocol { get; set; }
 
         /// <summary>The name each accepted <c>-u</c>/<c>--user</c> was written with, one per account, in order.</summary>
         public List<string> AccountOptionNames { get; } = [];

@@ -490,7 +490,7 @@ public sealed partial class AiHelpTextTests
                 + "command line is read, or `surl: option --<name>: <reason>` and the `try` line for a refused command line.",
             "",
             "With `-s` and without `-S`, a failure found once the command line is read writes nothing, and only the exit code "
-                + "says what failed; a refused command line is always written.",
+                + "says what failed; a refused command line is always written, except that a listen URL whose scheme is not served (exit 1) counts as a failure found once the command line is read.",
             "",
             "## Schemes",
             "",

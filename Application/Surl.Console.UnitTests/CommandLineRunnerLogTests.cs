@@ -55,6 +55,42 @@ public sealed class CommandLineRunnerLogTests
     }
 
     [TestMethod]
+    public async Task RunAsync_SilentWithAnUnsupportedProtocol_WritesNothingAndReturnsUnsupportedProtocol()
+    {
+        var run = await RunRefusedAsync("-s", "nosuch://127.0.0.1:0/");
+
+        Assert.AreEqual(SurlExitCode.UnsupportedProtocol, run.ExitCode);
+        Assert.AreEqual(string.Empty, run.Error);
+    }
+
+    [TestMethod]
+    public async Task RunAsync_LogLevelNoneWithAnUnsupportedProtocolGivenFirst_WritesNothingAndReturnsUnsupportedProtocol()
+    {
+        var run = await RunRefusedAsync("nosuch://127.0.0.1:0/", "--log-level", "none");
+
+        Assert.AreEqual(SurlExitCode.UnsupportedProtocol, run.ExitCode);
+        Assert.AreEqual(string.Empty, run.Error);
+    }
+
+    [TestMethod]
+    public async Task RunAsync_SilentShowErrorWithAnUnsupportedProtocol_WritesTheFailureLine()
+    {
+        var run = await RunRefusedAsync("-s", "-S", "nosuch://127.0.0.1:0/");
+
+        Assert.AreEqual(SurlExitCode.UnsupportedProtocol, run.ExitCode);
+        Assert.AreEqual("surl: (1) Protocol \"nosuch\" not supported" + NewLine, run.Error);
+    }
+
+    [TestMethod]
+    public async Task RunAsync_WithAnUnsupportedProtocol_WritesTheFailureLine()
+    {
+        var run = await RunRefusedAsync("nosuch://127.0.0.1:0/");
+
+        Assert.AreEqual(SurlExitCode.UnsupportedProtocol, run.ExitCode);
+        Assert.AreEqual("surl: (1) Protocol \"nosuch\" not supported" + NewLine, run.Error);
+    }
+
+    [TestMethod]
     public async Task RunAsync_SilentShowError_WritesNothingForAConnection()
     {
         var run = await ServeOneConnectionAsync(TimeProvider.System, "-s", "-S", Listen);

@@ -9,6 +9,7 @@ it needs is inside it.
 
 ```csharp
 using Surl.Api;
+using Surl.Protocol.Abstractions;   // SurlExitCode
 
 var options = new SurlServerOptions { ListenUrls = { "http://127.0.0.1:0" } };
 options.Files["hello.txt"] = "hello"u8.ToArray();
@@ -48,7 +49,9 @@ var exitCode = await server.StopAsync();   // SurlExitCode.Ok
   plaintext authentication and uploads are all off. Each loosening is a property named for its
   option, and each writes `surl`'s start-up warning to `Log`.
 - A start `surl` would refuse throws `SurlServerStartException`, with the `SurlExitCode` and the
-  lines `surl` writes after `surl: `; nothing is left bound or locked.
+  lines `surl` writes after `surl: `; nothing is left bound or locked. Each `Lines` item starts with
+  the exit code in parentheses, e.g. `(58) https://127.0.0.1:0/ needs a certificate ...`.
+  `SurlExitCode` is in the `Surl.Protocol.Abstractions` namespace.
 - `StopAsync` or disposing the server stops it. `StopAsync` returns the `SurlExitCode` `surl`
   would have exited with: `Ok`, or `InternalError` when serving failed; stopping again returns
   the same code.

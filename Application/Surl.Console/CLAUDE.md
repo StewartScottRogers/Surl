@@ -142,7 +142,7 @@ assembly scanning or reflection-based dependency injection, which native AOT for
   level: `LevelledExchangeLogFactory` up to `-v`, `TraceExchangeLogFactory` at the trace
   level, to the trace file or, with `--log-level trace` alone, the log stream (ADR-0033).
 - `CommandLineRunner` applies the level to the `surl: ` failure messages: at `-s` every one is
-  hidden but a command-line refusal is not. `ComposedServing` writes the status lines, the
+  hidden but a command-line refusal is not; the exception is an unsupported listen-URL scheme (exit 1), which the parser holds until the line is read and returns as a refusal with `IsSilenced` set at level `none` (BL-1372). `ComposedServing` writes the status lines, the
   startup warnings and the throwaway-certificate lines from the info level up only, so `-s`
   and `-s -S` hide them.
 - `ListenerStartReporter`, in `Surl.Composition`, wraps the listener factory: it writes the
