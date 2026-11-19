@@ -45,6 +45,14 @@ var exitCode = await server.StopAsync();   // SurlExitCode.Ok
   | `Faults` (`SurlFault`, in order) | `--fault <item>`, once each |
   | `ControlListenUrl`, `ControlTokenFile` | `--control`, `--control-token-file` |
 
+- With `SelfSigned`, `SurlServer.SelfSignedCertificatePem` is the public certificate the server made (PEM, never
+  its key; `null` otherwise), so a test pins it and keeps verification on. Each server has its own:
+
+  ```csharp
+  var pinned = X509Certificate2.CreateFromPem(server.SelfSignedCertificatePem!);
+  // trust only `pinned`: X509Chain with CustomRootTrust and pinned in CustomTrustStore
+  ```
+
 - Nothing is looser than `surl`: with only a listen URL and an account, anonymous logins,
   plaintext authentication and uploads are all off. Each loosening is a property named for its
   option, and each writes `surl`'s start-up warning to `Log`.

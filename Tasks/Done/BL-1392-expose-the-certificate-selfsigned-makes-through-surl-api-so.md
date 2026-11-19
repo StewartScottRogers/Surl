@@ -8,7 +8,7 @@ depends-on: []
 touches: [Application/Surl.Api, Application/Surl.Api.UnitTests, Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests]
 requirement: none
 created: 2026-11-19
-completed:
+completed: 2026-11-19
 ---
 # BL-1392 — Expose the certificate SelfSigned makes through Surl.Api so a test can trust it
 
@@ -28,20 +28,22 @@ made and pin it in its client, so it can keep TLS verification on.
 
 ## Acceptance criteria
 
-- [ ] `SurlServer` gains a read-only member (e.g. `SelfSignedCertificatePem`: the public certificate only, as PEM)
+- [x] `SurlServer` gains a read-only member (e.g. `SelfSignedCertificatePem`: the public certificate only, as PEM)
       that is set once the server has started with `SelfSigned` and is `null` otherwise. The private key is never
       exposed.
-- [ ] A named test in `Surl.Api.UnitTests` starts an HTTPS server on port 0 with `SelfSigned`, reads the PEM, and
+- [x] A named test in `Surl.Api.UnitTests` starts an HTTPS server on port 0 with `SelfSigned`, reads the PEM, and
       completes a request with an `HttpClient` (or `SslStream`) that trusts only that certificate, verification on.
-- [ ] Two servers side by side each report their own certificate (a named test); no static mutable state.
-- [ ] The `Surl.Api` README documents the member with a short example; XML docs written.
-- [ ] `dotnet build` clean, fast tests green, coverage gates held.
+- [x] Two servers side by side each report their own certificate (a named test); no static mutable state.
+- [x] The `Surl.Api` README documents the member with a short example; XML docs written.
+- [x] `dotnet build` clean, fast tests green, coverage gates held.
 
 ## Notes
 
 - Consider whether `surl-mcp`'s `start_server` answer should carry the same PEM; if yes, file it as a follow-up task.
+- Decision (Claude): `SelfSignedCertificatePem` is also set for TLS-SRP with `SelfSigned`; null when `CertificateFile` is served. Follow-up for `surl-mcp` start_server PEM not filed (additive, low priority).
 
 ## Log
 
 - 2026-11-19: Created.
 - 2026-11-19: Backlog -> Doing.
+- 2026-11-19: Doing -> Done. Implemented

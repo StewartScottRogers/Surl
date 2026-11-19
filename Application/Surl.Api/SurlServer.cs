@@ -261,6 +261,14 @@ public sealed class SurlServer : IAsyncDisposable
     /// </summary>
     public Uri? ControlUrl => composedServing.ControlListenUrl is { } url ? ToUri(url) : null;
 
+    /// <summary>
+    /// The public certificate the server made for <see cref="SurlServerOptions.SelfSigned"/>, as PEM, so a test can
+    /// trust exactly it and keep TLS verification on; the private key is never exposed. <see langword="null"/>
+    /// when the server made none: <see cref="SurlServerOptions.SelfSigned"/> is off, a certificate file is
+    /// served instead, or no listen URL needs TLS. Each server has its own certificate.
+    /// </summary>
+    public string? SelfSignedCertificatePem => composedServing.ThrowawayCertificatePem;
+
     /// <summary>The first of <see cref="BoundUrls"/>.</summary>
     public Uri BoundUrl => BoundUrls[0];
 
