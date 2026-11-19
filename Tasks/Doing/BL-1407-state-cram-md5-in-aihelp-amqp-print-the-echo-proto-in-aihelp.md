@@ -62,3 +62,4 @@ session needs a login unless `--allow-anonymous` is given.
 ## Log
 
 - 2026-11-19: Created.
+- 2026-11-19: Backlog -> Doing.
