@@ -61,3 +61,4 @@ passes against pinned upstream curl 8.21.0 under the RETAIN rule BL-1376 decided
 ## Log
 
 - 2026-11-18: Created.
+- 2026-11-18: Backlog -> Doing.
