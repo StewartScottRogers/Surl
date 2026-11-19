@@ -73,3 +73,4 @@ sends `DISCONNECT`.
 ## Log
 
 - 2026-11-18: Created.
+- 2026-11-18: Backlog -> Doing.
