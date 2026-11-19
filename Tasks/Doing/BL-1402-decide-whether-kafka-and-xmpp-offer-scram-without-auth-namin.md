@@ -78,3 +78,4 @@ given, and amends ADR-0105 decision 5, ADR-0114 decision 3 and ADR-0125 decision
 ## Log
 
 - 2026-11-19: Created.
+- 2026-11-19: Backlog -> Doing.
