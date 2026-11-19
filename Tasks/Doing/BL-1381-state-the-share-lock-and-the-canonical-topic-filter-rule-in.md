@@ -53,3 +53,4 @@ BL-1379's ADR decided.
 ## Log
 
 - 2026-11-18: Created.
+- 2026-11-18: Backlog -> Doing.
