@@ -53,3 +53,4 @@ An `ssh-dss` signature surl makes from any readable DSA host key always verifies
 ## Log
 
 - 2026-11-19: Created.
+- 2026-11-19: Backlog -> Doing.
