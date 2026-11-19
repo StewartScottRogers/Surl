@@ -8,7 +8,7 @@ depends-on: []
 touches: [Documentation/Planning/Decisions]
 requirement: none
 created: 2026-11-19
-completed:
+completed: 2026-11-19
 ---
 # BL-1402 — Decide whether kafka and xmpp offer SCRAM without --auth naming it, and amend ADR-0105, ADR-0114 and ADR-0125 to agree
 
@@ -78,3 +78,4 @@ given, and amends ADR-0105 decision 5, ADR-0114 decision 3 and ADR-0125 decision
 
 - 2026-11-19: Created.
 - 2026-11-19: Backlog -> Doing.
+- 2026-11-19: Doing -> Done. ADR-0179: kafka/kafkas/xmpp/xmpps offer SCRAM by a per-scheme composition default; ADR-0105/0114/0125 amended
