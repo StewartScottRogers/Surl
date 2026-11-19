@@ -37,18 +37,17 @@ public sealed class DeleteAndRemoveToolsTests
     }
 
     [TestMethod]
-    [DataRow("reports/b.txt")]
-    [DataRow("/../x.txt")]
-    public async Task DeleteFile_AtAPathNoRequestMayName_IsAnErrorNamingThePathAndTheReason(string path)
+    [DataRow("reports/b.txt", "path reports/b.txt must start with /")]
+    [DataRow("/../x.txt", "path /../x.txt may not hold a . or .. segment")]
+    [DataRow("/a//b.txt", "path /a//b.txt is not one a request may name")]
+    public async Task DeleteFile_AtAPathNoRequestMayName_IsAnErrorNamingThePathAndTheReason(string path, string expected)
     {
         await using var host = await StartHostAsync("http://127.0.0.1:0");
 
         var result = await CallAsync(host.DeleteFile, $$"""{"server_id": "s1", "path": "{{path}}"}""");
 
         Assert.IsTrue(result.IsError);
-        var text = Assert.ContainsSingle(result.TextContent);
-        StringAssert.Contains(text, $"path {path} may not be named");
-        StringAssert.Contains(text, "not one a request may name");
+        Assert.AreEqual(expected, Assert.ContainsSingle(result.TextContent));
     }
 
     [TestMethod]

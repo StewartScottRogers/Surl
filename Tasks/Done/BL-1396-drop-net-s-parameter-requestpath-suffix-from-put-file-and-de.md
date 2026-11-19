@@ -8,7 +8,7 @@ depends-on: []
 touches: [Application/Surl.Mcp.UnitLibrary, Application/Surl.Mcp.UnitTests]
 requirement: none
 created: 2026-11-19
-completed:
+completed: 2026-11-19
 ---
 # BL-1396 — Drop .NET's (Parameter 'requestPath') suffix from put_file and delete_file path refusals
 
@@ -28,15 +28,18 @@ agent can act on, without .NET's ` (Parameter 'requestPath')` suffix.
 
 ## Acceptance criteria
 
-- [ ] The tool error text for `"reports/b.txt"` and for `"/../x.txt"` names the problem and the path the agent
+- [x] The tool error text for `"reports/b.txt"` and for `"/../x.txt"` names the problem and the path the agent
       gave (e.g. `path reports/b.txt must start with /`), with no `(Parameter ` text; built from the refusal kind,
       not by trimming the exception string.
-- [ ] Named tests in `Surl.Mcp.UnitTests` pin both texts for `put_file` and `delete_file`.
-- [ ] `dotnet build` clean, fast tests green, coverage gates held.
+- [x] Named tests in `Surl.Mcp.UnitTests` pin both texts for `put_file` and `delete_file`.
+- [x] `dotnet build` clean, fast tests green, coverage gates held.
 
 ## Notes
+
+- Added internal `UnnameablePathMessage.For(path)` in Surl.Mcp.UnitLibrary: classifies the path (not rooted, `.`/`..` segment, else generic) so no exception text is used. Tests pin all three for put_file and delete_file.
 
 ## Log
 
 - 2026-11-19: Created.
 - 2026-11-19: Backlog -> Doing.
+- 2026-11-19: Doing -> Done. put_file and delete_file path refusals say why, without (Parameter 'requestPath')
