@@ -57,3 +57,4 @@ With an account and no `--auth`, `kafka://` answers SaslHandshake with the mecha
 ## Log
 
 - 2026-11-19: Created.
+- 2026-11-19: Backlog -> Doing.
