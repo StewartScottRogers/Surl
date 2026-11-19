@@ -205,6 +205,16 @@ public sealed partial class AiHelpTextTests
     }
 
     [TestMethod]
+    public void Answer_KafkaAndXmppTopics_SayWhichSaslMechanismsLogInByDefault()
+    {
+        var kafka = AiHelpText.Answer("kafka").Output;
+        var xmpp = AiHelpText.Answer("xmpp").Output;
+
+        Assert.Contains("`SCRAM-SHA-256` and `SCRAM-SHA-512` log in as an account (`--user`, `--user-file`) on `kafka`, and `PLAIN` as well on `kafkas`", kafka);
+        Assert.Contains("`SCRAM-SHA-256`, `SCRAM-SHA-1` and `PLAIN` log in as an account (`--user`, `--user-file`) once the stream is under TLS", xmpp);
+    }
+
+    [TestMethod]
     public void Answer_AzureStorageTopic_SaysWhenAPathSegmentIsAnAccountAndThatListingsNeedListDirectories()
     {
         var azure = AiHelpText.Answer("azure-storage").Output;

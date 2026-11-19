@@ -142,6 +142,59 @@ public sealed class SchemeAuthenticationPoliciesTests
         }
     }
 
+    private static readonly TlsSession Tls = new(System.Security.Authentication.SslProtocols.Tls13, default, null, null, null);
+
+    private static string[] Offered(SchemeAuthenticationPolicies policies, string scheme, bool encrypted) =>
+        [.. policies.For(scheme).GetSaslMechanisms(new SaslOfferRequest(scheme, encrypted ? Tls : null))];
+
+    [TestMethod]
+    public void For_KafkaWithoutAuth_OffersScramOverPlainTextAndNotPlain()
+    {
+        var policies = new SchemeAuthenticationPolicies(Policy(new Account("alice", "s3cret")), TimeProvider.System);
+
+        var offered = Offered(policies, "kafka", false);
+
+        CollectionAssert.IsSubsetOf(new[] { "SCRAM-SHA-256", "SCRAM-SHA-512" }, offered);
+        Assert.IsFalse(offered.Contains("PLAIN"));
+    }
+
+    [TestMethod]
+    public void For_KafkaOverTls_OffersPlainAndScram()
+    {
+        var policies = new SchemeAuthenticationPolicies(Policy(new Account("alice", "s3cret")), TimeProvider.System);
+
+        CollectionAssert.IsSubsetOf(new[] { "PLAIN", "SCRAM-SHA-256", "SCRAM-SHA-512" }, Offered(policies, "kafka", true));
+    }
+
+    [TestMethod]
+    public void For_XmppWithoutAuth_OffersScramAndPlainOverTls()
+    {
+        var policies = new SchemeAuthenticationPolicies(Policy(new Account("alice", "s3cret")), TimeProvider.System);
+
+        CollectionAssert.IsSubsetOf(new[] { "SCRAM-SHA-256", "SCRAM-SHA-1", "PLAIN" }, Offered(policies, "xmpp", true));
+        CollectionAssert.IsSubsetOf(new[] { "SCRAM-SHA-256", "SCRAM-SHA-1" }, Offered(policies, "xmpp", false));
+    }
+
+    [TestMethod]
+    [DataRow("smtp")]
+    [DataRow("imap")]
+    [DataRow("pop3")]
+    public void For_OriginalMailServerWithoutAuth_OffersNoScram(string scheme)
+    {
+        var policies = new SchemeAuthenticationPolicies(Policy(new Account("alice", "s3cret")), TimeProvider.System);
+
+        Assert.IsFalse(Offered(policies, scheme, true).Any(name => name.StartsWith("SCRAM", StringComparison.Ordinal)));
+    }
+
+    [TestMethod]
+    public void For_KafkaWithAuthGiven_OffersOnlyWhatAuthAccepts()
+    {
+        var policies = new SchemeAuthenticationPolicies(
+            Policy(new Account("alice", "s3cret")), TimeProvider.System, authenticationMethodsGiven: true);
+
+        Assert.IsFalse(Offered(policies, "kafka", true).Any(name => name.StartsWith("SCRAM", StringComparison.Ordinal)));
+    }
+
     private static AuthenticationPolicy Policy(params Account[] accounts) =>
         AuthenticationComposition.ComposePolicy(
             new AuthenticationSettings(new AccountBook(accounts), false, false, AuthenticationMethods.DefaultAccepted), TimeProvider.System, null, null);

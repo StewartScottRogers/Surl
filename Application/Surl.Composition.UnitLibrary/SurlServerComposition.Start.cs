@@ -271,7 +271,8 @@ public static partial class SurlServerComposition
                 skippedKeytabEntries,
                 sshHostKeys,
                 mailboxes,
-                new SchemeAuthenticationPolicies(policy, seams.TimeProvider, instruments.Events, instruments.Faults))
+                new SchemeAuthenticationPolicies(
+                    policy, seams.TimeProvider, instruments.Events, instruments.Faults, commandLine.GivenAuthenticationMethods is not null))
             {
                 ProxyPolicy = proxyPolicy,
                 DirectoryNotes = directoryNotes,

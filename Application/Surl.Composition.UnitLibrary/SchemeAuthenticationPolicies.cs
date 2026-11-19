@@ -18,6 +18,10 @@ public sealed class SchemeAuthenticationPolicies
     private readonly TimeProvider timeProvider;
     private readonly ISurlEventPublisher? events;
     private readonly IFaultPlan? faults;
+    // ADR-0179: the schemes, the plaintext one of each TLS twin, that offer SCRAM when --auth is not given.
+    private static readonly HashSet<string> ScramDefaultSchemes = new(StringComparer.OrdinalIgnoreCase) { "kafka", "xmpp" };
+
+    private readonly bool authenticationMethodsGiven;
     private readonly ConcurrentDictionary<string, AuthenticationPolicy> byScheme = new(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>
@@ -27,9 +31,14 @@ public sealed class SchemeAuthenticationPolicies
     /// <param name="timeProvider">The clock a scheme's own policy runs on.</param>
     /// <param name="events">The event stream a scheme's own policy publishes judged logins on; none when <see langword="null"/>.</param>
     /// <param name="faults">The fault plan a scheme's own policy consults; none when <see langword="null"/>.</param>
+    /// <param name="authenticationMethodsGiven">Whether <c>--auth</c> was given; when it was, its set applies to every server as it is, and the SCRAM default of <c>kafka</c> and <c>xmpp</c> (ADR-0179) is not added.</param>
     /// <exception cref="ArgumentNullException"><paramref name="policy"/> or <paramref name="timeProvider"/> is <see langword="null"/>.</exception>
     public SchemeAuthenticationPolicies(
-        AuthenticationPolicy policy, TimeProvider timeProvider, ISurlEventPublisher? events = null, IFaultPlan? faults = null)
+        AuthenticationPolicy policy,
+        TimeProvider timeProvider,
+        ISurlEventPublisher? events = null,
+        IFaultPlan? faults = null,
+        bool authenticationMethodsGiven = false)
     {
         ArgumentNullException.ThrowIfNull(policy);
         ArgumentNullException.ThrowIfNull(timeProvider);
@@ -37,6 +46,24 @@ public sealed class SchemeAuthenticationPolicies
         this.timeProvider = timeProvider;
         this.events = events;
         this.faults = faults;
+        this.authenticationMethodsGiven = authenticationMethodsGiven;
+    }
+
+    private static AuthenticationSettings ForSchemeWithScramDefault(
+        AuthenticationSettings settings, string scheme, bool authenticationMethodsGiven)
+    {
+        var view = settings.ForScheme(scheme);
+        return authenticationMethodsGiven || !ScramDefaultSchemes.Contains(scheme)
+            ? view
+            : view with
+            {
+                AcceptedMethods = new HashSet<AuthenticationMethod>(view.AcceptedMethods)
+                {
+                    AuthenticationMethod.ScramSha256,
+                    AuthenticationMethod.ScramSha512,
+                    AuthenticationMethod.ScramSha1,
+                },
+            };
     }
 
     /// <summary>
@@ -52,7 +79,8 @@ public sealed class SchemeAuthenticationPolicies
         return byScheme.GetOrAdd(
             scheme,
             static (named, policies) => AuthenticationComposition.ComposePolicy(
-                policies.policy.Settings.ForScheme(named), policies.timeProvider, policies.events, policies.faults),
+                ForSchemeWithScramDefault(policies.policy.Settings, named, policies.authenticationMethodsGiven),
+                policies.timeProvider, policies.events, policies.faults),
             this);
     }
 }

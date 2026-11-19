@@ -5,10 +5,10 @@ priority: Normal
 assignee: Claude
 pipeline: feature
 depends-on: [BL-1402]
-touches: [Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests]
+touches: [Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests, Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests]
 requirement: none
 created: 2026-11-19
-completed:
+completed: 2026-11-19
 ---
 # BL-1403 — Offer SCRAM on kafka and xmpp as BL-1402's decision says
 
@@ -37,16 +37,16 @@ With an account and no `--auth`, `kafka://` answers SaslHandshake with the mecha
 
 ## Acceptance criteria
 
-- [ ] A failing test first: a `Surl.Composition.UnitTests` test composes `--user alice:s3cret kafka://127.0.0.1:0/`
+- [x] A failing test first: a `Surl.Composition.UnitTests` test composes `--user alice:s3cret kafka://127.0.0.1:0/`
       and shows the Kafka policy's `GetSaslMechanisms` for a connection without TLS is the list the ADR states.
-- [ ] Tests show the same for `xmpp`, and for `kafkas`/`xmpps` with a TLS session, per the ADR.
-- [ ] A test shows the original servers are unchanged: `smtp`, `imap` and `pop3` with no `--auth` offer what they
+- [x] Tests show the same for `xmpp`, and for `kafkas`/`xmpps` with a TLS session, per the ADR.
+- [x] A test shows the original servers are unchanged: `smtp`, `imap` and `pop3` with no `--auth` offer what they
       offered before (no SCRAM).
-- [ ] A test shows `--auth plain` turns SCRAM off on `kafka`.
-- [ ] If the ADR changes what `--aihelp kafka` or `--aihelp xmpp` must say, add
+- [x] A test shows `--auth plain` turns SCRAM off on `kafka`.
+- [x] If the ADR changes what `--aihelp kafka` or `--aihelp xmpp` must say, add
       `Application/Surl.Cli.UnitLibrary/AiHelpProse.cs` to `touches` before claiming and change the sentence in
       the same diff, pinned by a `Surl.Cli.UnitTests` test; otherwise no help changes.
-- [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and `Surl.Composition.UnitLibrary` stays at
+- [x] `dotnet build -warnaserror` is clean, the fast tests are green, and `Surl.Composition.UnitLibrary` stays at
       100% line and branch coverage.
 
 ## Notes
@@ -54,7 +54,12 @@ With an account and no `--auth`, `kafka://` answers SaslHandshake with the mecha
 - If BL-1402's ADR keeps SCRAM behind `--auth`, this task reduces to the help sentence the ADR names; edit `touches`
   to `Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests` before claiming.
 
+## Notes (run)
+
+- Default lives in `SchemeAuthenticationPolicies.For` (kafka, xmpp; TLS twins share the plaintext scheme), skipped when `--auth` is given. Added Surl.Cli projects to touches for the two help sentences of ADR-0179 decision 6. Tests build the policy directly; the composed start passes `GivenAuthenticationMethods is not null`.
+
 ## Log
 
 - 2026-11-19: Created.
 - 2026-11-19: Backlog -> Doing.
+- 2026-11-19: Doing -> Done. kafka/xmpp offer SCRAM without --auth per ADR-0179; help updated
