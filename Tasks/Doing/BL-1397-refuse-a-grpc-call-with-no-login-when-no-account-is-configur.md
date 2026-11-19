@@ -71,3 +71,4 @@ serving it.
 ## Log
 
 - 2026-11-19: Created.
+- 2026-11-19: Backlog -> Doing.
