@@ -8,7 +8,7 @@ depends-on: []
 touches: [Application/Surl.Mcp.UnitLibrary, Application/Surl.Mcp.UnitTests]
 requirement: none
 created: 2026-11-18
-completed:
+completed: 2026-11-18
 ---
 # BL-1382 — Answer a put_file or delete_file path a request may not name with an isError tool result
 
@@ -37,14 +37,14 @@ and why, instead of the JSON-RPC error `-32603 Internal error`.
 
 ## Acceptance criteria
 
-- [ ] `put_file` with `"path": "reports/b.txt"` and with `"path": "/../x.txt"` each answers a tool result with
+- [x] `put_file` with `"path": "reports/b.txt"` and with `"path": "/../x.txt"` each answers a tool result with
       `isError` true whose text contains the path as given and the refusal reason, and the store is unchanged.
-- [ ] `delete_file` with the same two paths answers the same way.
-- [ ] Each case is a named test in `Application/Surl.Mcp.UnitTests` (`StoreToolsTests` for `put_file`,
+- [x] `delete_file` with the same two paths answers the same way.
+- [x] Each case is a named test in `Application/Surl.Mcp.UnitTests` (`StoreToolsTests` for `put_file`,
       `DeleteAndRemoveToolsTests` for `delete_file`), run over `McpTestHost` with no network.
-- [ ] `PutFileTool`'s and `DeleteFileTool`'s XML docs and the `put_file`/`delete_file` lines of
+- [x] `PutFileTool`'s and `DeleteFileTool`'s XML docs and the `put_file`/`delete_file` lines of
       `Application/Surl.Mcp.UnitLibrary/CLAUDE.md` name the new `isError` text.
-- [ ] `dotnet build Application/Surl.Mcp.UnitLibrary -warnaserror` is clean, the fast tests are green, and
+- [x] `dotnet build Application/Surl.Mcp.UnitLibrary -warnaserror` is clean, the fast tests are green, and
       `Surl.Mcp.UnitLibrary` stays at 100% line and branch coverage.
 
 ## Notes
@@ -55,3 +55,4 @@ and why, instead of the JSON-RPC error `-32603 Internal error`.
 
 - 2026-11-18: Created.
 - 2026-11-18: Backlog -> Doing.
+- 2026-11-18: Doing -> Done. put_file and delete_file answer an unnameable path with an isError result naming the path and reason

@@ -7,7 +7,8 @@ namespace Surl.Mcp;
 /// <summary>
 /// The <c>delete_file</c> tool (ADR-0161 decision 1): deletes a file from a running server's content store as the
 /// test's own delete, through <c>Surl.Api</c>'s <c>SurlServer.Files.DeleteAsync</c>. Result <c>{"path"}</c>; nothing,
-/// a folder or a hidden path at the path is an <c>isError</c> result <c>no file at &lt;path&gt;</c>.
+/// a folder or a hidden path at the path is an <c>isError</c> result <c>no file at &lt;path&gt;</c>, and a path no request may name (relative, or holding
+/// <c>..</c>) is an <c>isError</c> result <c>path &lt;path&gt; may not be named: &lt;reason&gt;</c>.
 /// </summary>
 public static class DeleteFileTool
 {
@@ -45,6 +46,10 @@ public static class DeleteFileTool
         try
         {
             await running.Server.Files.DeleteAsync(path);
+        }
+        catch (ArgumentException exception)
+        {
+            return McpToolResult.FromFailure($"path {path} may not be named: {exception.Message}");
         }
         catch (SurlSeedRefusedException exception) when (exception.Refusal == "Absent")
         {

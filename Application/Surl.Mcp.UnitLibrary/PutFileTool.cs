@@ -6,7 +6,8 @@ namespace Surl.Mcp;
 /// <summary>
 /// The <c>put_file</c> tool (ADR-0124 decision 8): writes a file into a running server's content store, as an
 /// upload would, through <c>Surl.Api</c>'s <c>SurlServer.Files.PutAsync</c>. Result <c>{"path", "byte_count"}</c>;
-/// a path no client may write or a file past the size limit is an <c>isError</c> result.
+/// a path no client may write or a file past the size limit is an <c>isError</c> result, and a path no request may
+/// name (relative, or holding <c>..</c>) is an <c>isError</c> result <c>path &lt;path&gt; may not be named: &lt;reason&gt;</c>.
 /// </summary>
 public static class PutFileTool
 {
@@ -48,7 +49,15 @@ public static class PutFileTool
         }
 
         var path = arguments.GetProperty("path").GetString()!;
-        await running.Server.Files.PutAsync(path, contents, cancellationToken);
+        try
+        {
+            await running.Server.Files.PutAsync(path, contents, cancellationToken);
+        }
+        catch (ArgumentException exception)
+        {
+            return McpToolResult.FromFailure($"path {path} may not be named: {exception.Message}");
+        }
+
         return ToolResults.FromObject(writer =>
         {
             writer.WriteString("path", path);
