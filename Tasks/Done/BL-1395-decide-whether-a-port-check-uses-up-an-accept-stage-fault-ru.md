@@ -8,7 +8,7 @@ depends-on: []
 touches: [Foundation/Surl.Core.UnitLibrary, Foundation/Surl.Core.UnitTests, Application/Surl.Cli.UnitLibrary/AiHelpProse.cs, Documentation/Planning/Decisions]
 requirement: none
 created: 2026-11-19
-completed:
+completed: 2026-11-19
 ---
 # BL-1395 — Decide whether a port check uses up an accept-stage fault rule's times count, and align the engine and --aihelp
 
@@ -31,14 +31,14 @@ A test that waits for surl's port and then expects an accept-stage fault on its 
 
 ## Acceptance criteria
 
-- [ ] An ADR in `Documentation/Planning/Decisions` ("Decided by Claude under Stewart's delegation") decides between
+- [x] An ADR in `Documentation/Planning/Decisions` ("Decided by Claude under Stewart's delegation") decides between
       (a) keeping today's count and documenting that port checks count, and (b) counting an accept-stage rule only
       when the connection then sends a byte (or completes a TLS handshake), with what that means for `drop` and
       `delay` at accept.
-- [ ] The engine follows the ADR; named fast tests in `Surl.Core.UnitTests` pin a connect-and-close followed by a
+- [x] The engine follows the ADR; named fast tests in `Surl.Core.UnitTests` pin a connect-and-close followed by a
       real request against an accept-stage `times=1` rule.
-- [ ] The fault paragraph in `AiHelpProse.cs` states the rule in one sentence.
-- [ ] `dotnet build` clean, fast tests green, `Surl.Core` stays 100/100.
+- [x] The fault paragraph in `AiHelpProse.cs` states the rule in one sentence.
+- [x] `dotnet build` clean, fast tests green, `Surl.Core` stays 100/100.
 
 ## Notes
 
@@ -46,7 +46,10 @@ A test that waits for surl's port and then expects an accept-stage fault on its 
   field, but configuration only grows and defaults keep today's behaviour, so a new field would leave the default
   as (a).
 
+- Decided (ADR-0181): option (a), keep the count and document it; option (b) would change what accept means, (c) leaves the default at (a). No engine change; pinned by a Surl.Core test; aihelp testing topic states it.
+
 ## Log
 
 - 2026-11-19: Created.
 - 2026-11-19: Backlog -> Doing.
+- 2026-11-19: Doing -> Done. ADR-0181 keeps accept-stage times counting every connection; --aihelp testing says so; test pins probe then request
