@@ -58,3 +58,4 @@ out, a certificate or an account for a pre-shared key, as `surl --aihelp coap` a
 ## Log
 
 - 2026-11-19: Created.
+- 2026-11-19: Backlog -> Doing.
