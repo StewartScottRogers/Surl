@@ -8,7 +8,7 @@ depends-on: []
 touches: [Documentation/Planning/Decisions]
 requirement: none
 created: 2026-11-19
-completed:
+completed: 2026-11-19
 ---
 # BL-1404 — Decide set_key's result key and what the seed tools answer on a server with no listener for their store, amending ADR-0158
 
@@ -55,23 +55,25 @@ serving that store.
 
 ## Acceptance criteria
 
-- [ ] ADR-0158 gains an amendment section marked "Decided by Claude under Stewart's delegation" that states
+- [x] ADR-0158 gains an amendment section marked "Decided by Claude under Stewart's delegation" that states
       `set_key`'s exact result fields (for a UTF-8 key and for a non-UTF-8 key) and why, keeping ADR-0164 decision
       9's read-tool shape in agreement.
-- [ ] The amendment states, for the keyspace, the zones and the directory, whether a seed on an instance with no
+- [x] The amendment states, for the keyspace, the zones and the directory, whether a seed on an instance with no
       listen URL serving that store is refused, by which project, with which text in `Surl.Api`, `surl-mcp` and
       the control endpoint, and what a reset, a snapshot and the read tools do there.
-- [ ] It amends decision 5's "when a redis server is composed" wording to match, and records the rejected
+- [x] It amends decision 5's "when a redis server is composed" wording to match, and records the rejected
       alternatives.
-- [ ] If the amendment keeps today's behaviour for either half, it says so plainly, and BL-1405's or BL-1410's Log
+- [x] If the amendment keeps today's behaviour for either half, it says so plainly, and BL-1405's or BL-1410's Log
       gets a line saying what is left for it.
-- [ ] No `.cs` file changes.
+- [x] No `.cs` file changes.
 
 ## Notes
 
 - BL-1410 implements the composition half, BL-1405 the `surl-mcp` half.
+- Decided: ADR-0158 Amendment 1: `set_key` answers bare `key`/`key_base64`, `database`, `event_name`; seeds of unserved stores refused in `Surl.Composition` (same text in all hosts). Neither half keeps today's behaviour, so no leftover line for BL-1405/BL-1410.
 
 ## Log
 
 - 2026-11-19: Created.
 - 2026-11-19: Backlog -> Doing.
+- 2026-11-19: Doing -> Done. ADR-0158 Amendment 1 decides set_key's result key and refuses seeds of stores no listen URL serves

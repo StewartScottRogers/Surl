@@ -293,3 +293,70 @@ are extended and judged by their specifications.
   when the task that builds the spelling lands.
 - No package, no start-up cost with no subscriber, and no change to any byte upstream curl sends or
   expects.
+
+## Amendment 1 (2026-11-19, BL-1404): `set_key`'s result key, and seeds on an instance that serves no such store
+
+**Decided by Claude under Stewart's delegation** (root `CLAUDE.md`, "Decisions"), in BL-1404, from the Surly cookbook
+bug report of 2026-11-19 09:30 (finding 7). Amends decision 9's `Surl.Mcp` table (the `set_key` result) and decision 5's
+wording "when a redis server is composed" (and the same words for the directory and the zones, decisions 2 and 3).
+Builds on ADR-0164 decision 9 (the read tools' shape), which this amendment keeps.
+
+### A1. `set_key` answers the key the way `read_key` and `list_keys` do
+
+One concept gets one spelling in every tool. `set_key`'s result is:
+
+- UTF-8 key: `{"key": "<the key>", "database": <0 to 15>, "event_name": "<database>/<key>", "byte_count": <n>}`
+- non-UTF-8 key: `{"key_base64": "<the key, base64>", "database": <0 to 15>, "event_name": "<database>/<key as the store publishes it>", "byte_count": <n>}`
+  (no `key`; this is `ReadBackJson.WriteBytes`'s rule, as `read_key` and `list_keys` use it).
+
+`key` and `key_base64` are the bare key, exactly what the caller sent and what `read_key` and `list_keys` answer, so a
+test can pass `set_key`'s `key` straight to `read_key`. `event_name` is the store-change name of decision 2
+(`<database>/<key>`), which is what a test waits on in the event stream. The value is never echoed.
+
+This changes what `key` means in `set_key`'s result, against the "only grows" rule, and is accepted: decision 9's table
+was built by BL-1167 on 2026-11-18 and no release carries it, `0/greeting` was the one place in the tool family that
+did not match, and the old text is still available, unchanged, under `event_name`. Every other field is only added.
+`ReadKeyTool`, `list_keys` and ADR-0164 decision 9 are unchanged; `Surl.Api`'s `SetAsync` already returns nothing and
+the control endpoint answers `204`, so neither moves.
+
+### A2. A seed of a store the instance does not serve is refused
+
+The keyspace, the DNS zones and the LDAP directory exist on an instance **only when one of its listen URLs serves
+them**: a `redis` or `rediss` URL for the keyspace, a `dns` (or `dns` over TLS, HTTPS or QUIC) URL for the zones, an `ldap` or
+`ldaps` URL for the directory. Today the extended servers are composed whichever URLs are given and the directory is
+always registered, so a seed of a store nobody serves succeeds and the test's client finds nothing later, which is the
+failure a stand-in must not give. This replaces "when a redis server is composed" in decision 5 with "when a listen
+URL serving the store is given", and the same for the directory and the zones.
+
+The refusal lives in **`Surl.Composition`** (`SurlServerComposition.Start.cs` registers a store, and gives
+`ComposedStores` its keyspace, zones and directory, only for a served store), so every host agrees with no host code.
+`ComposedStores.SeedKeyAsync`, `SeedZoneAsync` and `SeedEntriesAsync` throw `InvalidOperationException` with the
+text they already use: `This instance holds no Redis keyspace.`, `This instance holds no DNS zones.` and
+`This instance holds no LDAP directory.`. Each host turns it the way it already turns a refused seed:
+
+| Host | Answer |
+| --- | --- |
+| `Surl.Api` (`Keys`, `Zones`, `Directory`, and the start-time `RedisKeys`, `DnsZones`, `DirectoryLdif`) | `SurlSeedRefusedException` with that text; a start-time seed refuses the start |
+| `surl-mcp` (`set_key`, `add_dns_zone`, `add_ldap_entries`) | `isError: true`, the same text |
+| control endpoint (`PUT /v1/keys/...`, `PUT /v1/zones/...`, `POST /v1/directory`) | `409 conflict`, the same text |
+
+On such an instance: **reset and snapshot** walk only the stores the instance holds, so the unserved store is not in
+`ComposedStores.Order`, is not counted toward `MaxSnapshotBytes` and cannot be restored into; **the read tools**
+answer as they do for a store that is absent: `read_key`, `read_directory` and `read_zone` answer `NotFound` with the
+same text and `list_keys` and `list_zones` an empty page (ADR-0164 decision 9, unchanged otherwise).
+
+### A3. Alternatives rejected
+
+- **Refuse only in `surl-mcp`.** Rejected: `Surl.Api` and the control endpoint would stay permissive, so the same
+  test passes or fails by which host it uses.
+- **Keep today's behaviour (a seed of an unserved store is harmless).** Rejected: it is harmless only to the seed;
+  the test then fails at a client that finds nothing, far from the cause. A loud refusal at the seed is what a test
+  author is better served by, and it costs a test nothing it needs, since a test that seeds Redis serves Redis.
+- **Keep `key` as `<database>/<key>` and add the bare key as a new field.** Rejected: two fields would leave the
+  odd one out forever; the tool is unreleased, so the repair is cheaper now than as a permanent seam.
+- **Drop the event name.** Rejected: a test waiting on the store-change event needs it.
+
+### A4. Acted on by
+
+BL-1410 (composition: serve-gated stores, refusal) and BL-1405 (`set_key`'s result, and the MCP tests of the
+refusal). Neither half keeps today's behaviour, so no leftover is recorded for them.
