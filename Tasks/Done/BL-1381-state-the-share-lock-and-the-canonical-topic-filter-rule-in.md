@@ -8,7 +8,7 @@ depends-on: [BL-1379, BL-1380]
 touches: [Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests]
 requirement: none
 created: 2026-11-18
-completed:
+completed: 2026-11-18
 ---
 # BL-1381 — State the share lock and the canonical topic filter rule in surl --aihelp
 
@@ -34,19 +34,20 @@ BL-1379's ADR decided.
 
 ## Acceptance criteria
 
-- [ ] `surl --aihelp content` states that a share without `;readonly` takes `<path>/.surl/lock` too, so a second
+- [x] `surl --aihelp content` states that a share without `;readonly` takes `<path>/.surl/lock` too, so a second
       `surl` given that folder as `--directory` or as a writable share exits 124, and that a `;readonly` share takes
       no lock.
-- [ ] The `DataDirectoryInUse` row of `ExitCodeGuidanceTable` names a writable share's folder beside the data
+- [x] The `DataDirectoryInUse` row of `ExitCodeGuidanceTable` names a writable share's folder beside the data
       directory, and `surl --aihelp exit-codes` shows it.
-- [ ] `surl --aihelp messages` states the filter rule BL-1379's ADR decided, with one filter that is accepted and
+- [x] `surl --aihelp messages` states the filter rule BL-1379's ADR decided, with one filter that is accepted and
       one that exits 2.
-- [ ] A test in `Surl.Cli.UnitTests` (`AiHelpTextTests` or `AiHelpFactsTests`) pins each new sentence, and
+- [x] A test in `Surl.Cli.UnitTests` (`AiHelpTextTests` or `AiHelpFactsTests`) pins each new sentence, and
       `dotnet test Application/Surl.Cli.UnitTests` is green.
-- [ ] `dotnet build -warnaserror` is clean and `Surl.Cli.UnitLibrary` stays at 100% line and branch coverage.
+- [x] `dotnet build -warnaserror` is clean and `Surl.Cli.UnitLibrary` stays at 100% line and branch coverage.
 
 ## Notes
 
+- Added the ADR-0177 decision 4 sentence plus an accepted/refused example filter; added the lock sentence to the `--share` paragraph. No example added.
 - `CommandLineRunnerAiHelpTests.RunAsync_EveryAiHelpExample_WritesWhatTheExampleShows` lives in
   `Surl.Console.UnitTests`; add no example, so it needs no change.
 
@@ -54,3 +55,4 @@ BL-1379's ADR decided.
 
 - 2026-11-18: Created.
 - 2026-11-18: Backlog -> Doing.
+- 2026-11-18: Doing -> Done. aihelp content/exit-codes state the writable share lock; aihelp messages states the topic filter rule

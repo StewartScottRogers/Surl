@@ -69,8 +69,8 @@ internal static class ExitCodeGuidanceTable
             ["tls"]),
         new(
             SurlExitCode.DataDirectoryInUse,
-            "Another surl holds the data directory",
-            "Stop the other surl, give another --directory, or serve in memory without --directory",
+            "Another surl holds the data directory or the folder of a writable --share",
+            "Stop the other surl, give another --directory or share folder, mark the share ;readonly, or serve in memory without --directory",
             ["content"]),
         new(
             SurlExitCode.InternalError,
