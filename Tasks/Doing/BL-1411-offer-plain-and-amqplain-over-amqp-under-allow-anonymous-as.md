@@ -64,3 +64,4 @@ ADR-0112 decision 2 says.
 ## Log
 
 - 2026-11-19: Created.
+- 2026-11-19: Backlog -> Doing.
