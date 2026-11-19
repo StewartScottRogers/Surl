@@ -495,11 +495,9 @@ public sealed class UpstreamCurlReadsMailFromSurlOverImapTests
         using var accounts = await AccountsFile.WriteAsync(TestContext.CancellationToken);
         await using var surl = await StartSurlAsync(NewTemporaryDirectory(), "imap", "--user-file", accounts.Path, "--max-connections", "1");
         await SendMailOverSmtpAsync(surl, Credentials);
-        var imap = surl.BaseUrlOf("imap");
-        using var holder = new TcpClient();
-        await holder.ConnectAsync(imap.Host, imap.Port, TestContext.CancellationToken);
-        using var holderReader = new StreamReader(holder.GetStream(), Encoding.ASCII);
-        StringAssert.StartsWith(await holderReader.ReadLineAsync(TestContext.CancellationToken), "* OK");
+        var (holder, holderReader) = await DialUntilGreetedAsync(surl);
+        using var holderConnection = holder;
+        using var holderGreetings = holderReader;
 
         // The greeting alone shows surl accepted the holder; a NOOP answered shows its exchange is
         // running and counted, so curl's connection is past the limit whenever it dials (BL-1344).
@@ -509,6 +507,31 @@ public sealed class UpstreamCurlReadsMailFromSurlOverImapTests
         var result = await RunUpstreamCurlAsync("-sS", "-u", Credentials, ImapUrl(surl, "/INBOX;UID=1"));
 
         Assert.AreEqual(WeirdServerReply, result.ExitCode, result.StandardError);
+    }
+
+    // surl offers a test no way to see an exchange end, and the SMTP send's exchange can still be counted
+    // against --max-connections 1 after its client has closed (BL-1387). So dial again, up to 10 s, until
+    // a connection is greeted * OK rather than * BYE; the greeting that ends the wait is the holder's.
+    private async Task<(TcpClient Connection, StreamReader Greetings)> DialUntilGreetedAsync(SurlOnLoopback surl)
+    {
+        var imap = surl.BaseUrlOf("imap");
+        var deadline = DateTime.UtcNow.AddSeconds(10);
+        while (true)
+        {
+            var attempt = new TcpClient();
+            await attempt.ConnectAsync(imap.Host, imap.Port, TestContext.CancellationToken);
+            var reader = new StreamReader(attempt.GetStream(), Encoding.ASCII);
+            var greeting = await reader.ReadLineAsync(TestContext.CancellationToken);
+            if (greeting is not null && greeting.StartsWith("* OK", StringComparison.Ordinal))
+            {
+                return (attempt, reader);
+            }
+
+            reader.Dispose();
+            attempt.Dispose();
+            Assert.IsLessThan(deadline, DateTime.UtcNow, $"surl still refused the holder after 10 s: {greeting}");
+            await Task.Delay(100, TestContext.CancellationToken);
+        }
     }
 
     // The stored message is ADR-0053 decision 6's Return-Path and Received fields, then mail.txt.

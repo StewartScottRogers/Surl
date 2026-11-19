@@ -8,7 +8,7 @@ depends-on: []
 touches: [Conformance/Surl.Conformance.UnitTests/UpstreamCurlReadsMailFromSurlOverImapTests.cs]
 requirement: none
 created: 2026-11-19
-completed:
+completed: 2026-11-19
 ---
 # BL-1387 — Make the IMAP max-connections conformance test wait for the SMTP send's exchange to end before the holder dials
 
@@ -29,13 +29,13 @@ cannot see its own holder refused, on any platform.
 
 ## Acceptance criteria
 
-- [ ] Before the holder dials, the test waits (bounded, e.g. 10 s, failing with a clear message) until surl
+- [x] Before the holder dials, the test waits (bounded, e.g. 10 s, failing with a clear message) until surl
       reports no exchange in progress - preferably through the instance's event stream (the SMTP exchange's end
       event) or another observable surl already offers, not a fixed delay.
-- [ ] Any sibling max-connections test in the same file that seeds over another connection first gets the same wait,
+- [x] Any sibling max-connections test in the same file that seeds over another connection first gets the same wait,
       through one shared helper.
-- [ ] The assertions are otherwise unchanged.
-- [ ] `dotnet build` is clean and the fast tests are green; the changed tests pass under
+- [x] The assertions are otherwise unchanged.
+- [x] `dotnet build` is clean and the fast tests are green; the changed tests pass under
       `dotnet test --filter "FullyQualifiedName~MaxConnections"` on Windows.
 
 ## Notes
@@ -47,3 +47,7 @@ cannot see its own holder refused, on any platform.
 
 - 2026-11-19: Created.
 - 2026-11-19: Backlog -> Doing.
+- 2026-11-19: surl offers a conformance test no observable for an exchange's end, so the test dials the holder
+  in a bounded (10 s) retry loop until the greeting is `* OK` (`DialUntilGreetedAsync`); no production code.
+  The file has no other max-connections test that seeds first.
+- 2026-11-19: Doing -> Done. Holder dial retries until greeted * OK
