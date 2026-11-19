@@ -104,7 +104,7 @@ specifications leave the server a choice. Client-only requirements (waiting for 
 Curl port client `CurlPortBuilds.json` pins against a live `surl webtransport://` started with `--self-signed`
 (the client skips verification with `-k`). Each assertion is the rule's own, never what the client prints beyond
 the bytes the server was required to echo. The tests are inconclusive where no pinned client is installed. A
-server with no account set lets every CONNECT in, so the accepted exchanges pass `--allow-anonymous` and the
+server with no account set refuses a CONNECT without a login unless `--allow-anonymous` (ADR-0117 amendment 1), so the accepted exchanges pass `--allow-anonymous` and the
 refusal passes `--user`. The port's client exits 0 on a refused CONNECT (a defect in the port, reported under
 ADR-0083, not in surl), so the refusal test asserts only that nothing is echoed.
 

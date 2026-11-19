@@ -234,7 +234,7 @@ runs it against `surl --allow-anonymous`.
 
 - **Secure by default.** Negotiate, the WebSocket upgrade and every other request are judged through
   the connection's `IHttpAuthenticationSession` (`StartHttpConnection`, ADR-0032 section 6) with
-  `HttpAuthenticationRequest(<method>, <path>, IsWrite: false, <fields>)`, reading the one account
+  `HttpAuthenticationRequest(<method>, <path>, IsWrite: true, <fields>)`, reading the one account
   set of `--user`, `--user-file` and the layer-2 options (ADR-0100 decision 4), never a private
   credential source. The session's HTTP policy decides the schemes and whether a password may cross
   plain `signalr` (ADR-0032 section 4, `--allow-plaintext-auth`), as for the HTTP server.
@@ -421,3 +421,9 @@ HUB "Upload streaming", "Cancellation" and "Completion and results" and by ADR-0
 6. **A `Collect` naming a stream ID already being uploaded on the connection** is a protocol error,
    as an `invocationId` already in progress is (decision 3): the server could not tell whose items
    are whose.
+
+## Amendment 1, 2026-11-19 (BL-1091)
+
+Decided by Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions").
+
+Decision 5 now names `IsWrite: true`: negotiate, the upgrade and every request are judged as writes, so a server with no account refuses a caller without a login unless `--allow-anonymous` is given. `IsWrite: false` let `HttpAuthenticationSession` proceed anonymously when no account exists (ADR-0032 section 4's HTTP read rule); ADR-0032 Context items 1 and 2 keep anonymous access to HTTP, Gopher and TFTP only. Code: commit 6b1fc29be (BL-1091, 2026-11-12, `SignalRRequestAnswerer.cs`), which did not amend this ADR.

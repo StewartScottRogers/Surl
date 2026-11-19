@@ -272,7 +272,7 @@ answer a server with no protocols should get.
 
 - **Secure by default.** Every WebTransport CONNECT is judged through the connection's
   `IHttpAuthenticationSession` (`StartHttpConnection`, ADR-0032 section 6) with
-  `HttpAuthenticationRequest("CONNECT", <:path>, IsWrite: false, <regular fields>)`, reading the
+  `HttpAuthenticationRequest("CONNECT", <:path>, IsWrite: true, <regular fields>)`, reading the
   one account set of `--user`, `--user-file` and the layer-2 options (ADR-0100 decision 4), never a
   private credential source. The `authorization` field carries `Basic` (an account), `Bearer` (an
   empty-name account whose password is the token) or a request-bound scheme the session offers over
@@ -414,3 +414,9 @@ and are not repeated here.
   WebTransport `CONNECT` and stream-header timers used `Task.Delay` directly and would have thrown.
 - **`SURL_EXTENSIONS=0`** leaves `webtransport` unregistered: a `webtransport` listen URL is `(1) Protocol
   "webtransport" not supported`.
+
+## Amendment 1, 2026-11-19 (BL-1398)
+
+Decided by Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions").
+
+Decision 7 now names `IsWrite: true`: the `CONNECT` is judged as a write, so a server with no account refuses a session without a login unless `--allow-anonymous` is given. `IsWrite: false` let `HttpAuthenticationSession` proceed anonymously when no account exists (ADR-0032 section 4's HTTP read rule); ADR-0032 Context items 1 and 2 keep anonymous access to HTTP, Gopher and TFTP only. Code: commit fd67a2963 (BL-1398).

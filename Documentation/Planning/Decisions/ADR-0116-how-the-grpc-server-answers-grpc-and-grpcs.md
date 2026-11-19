@@ -246,7 +246,7 @@ PROTOCOL-HTTP2's suggested 8 KiB: the shared library has one bound for every ser
 
 - **Secure by default.** Every call, reflection included, is judged before its service is looked
   up, through the connection's `IHttpAuthenticationSession` (`StartHttpConnection`, ADR-0032 section
-  6) with `HttpAuthenticationRequest("POST", <:path>, IsWrite: false, <regular fields>)`. The
+  6) with `HttpAuthenticationRequest("POST", <:path>, IsWrite: true, <regular fields>)`. The
   `authorization` metadata carries `Basic <base64(name:password)>` (an account) or
   `Bearer <token>` (an empty-name account whose password is the token, ADR-0100 decision 4), as
   the HTTP servers read them.
@@ -381,3 +381,9 @@ Rejected: a separate `ExchangeContext.ShutdownToken`-driven signal to every hand
 writes are cut off. It would change when `Surl.Protocol.Http` and DNS over HTTPS stop writing,
 and `--idle-timeout` and `--max-time` would need their own grace; ending the call after the
 cut-off, on its own short deadline, needs neither.
+
+## Amendment 1, 2026-11-19 (BL-1397)
+
+Decided by Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions").
+
+Decision 7 now names `IsWrite: true`: every call is judged as a write, so a server with no account refuses a caller without a login unless `--allow-anonymous` is given. `IsWrite: false` let `HttpAuthenticationSession` proceed anonymously when no account exists, which is ADR-0032 section 4's rule for an HTTP read. gRPC calls are not reads, and ADR-0032 Context items 1 and 2 keep anonymous access to HTTP, Gopher and TFTP only. Code: commit d4d69ab71 (BL-1397).

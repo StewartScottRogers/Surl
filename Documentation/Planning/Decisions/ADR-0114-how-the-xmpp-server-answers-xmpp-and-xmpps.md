@@ -156,7 +156,7 @@ no expected byte comes from it.
   - for an account name without `@`, `<name>@<stream domain>`;
   - for an account name `<local>@<domain>` (a `--mailbox` account), that JID, only when `<domain>`
     is the stream's domain; on any other domain the login is `not-authorized`;
-  - for `ANONYMOUS`, `anon-` and 16 random lower-case hex digits `@<stream domain>`, new per login.
+  - for `ANONYMOUS`, `anon-` and 16 random lower-case hex digits `@<stream domain>`, new per login. (amendment 2026-11-19 below also covers a login accepted unchecked)
   A name that is not a valid RFC 7622 localpart (empty, holding `"&'/:<>@` or whitespace, or over
   1023 bytes) cannot log in over XMPP: `not-authorized`. The localpart keeps the account's case;
   JIDs are compared by RFC 7622's case-mapping of the localpart, so `Alice` and `alice` are one JID
@@ -364,3 +364,9 @@ Decided by Claude under Stewart's delegation.
 Decided by Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions").
 
 [ADR-0179](ADR-0179-kafka-and-xmpp-offer-scram-without-auth-naming-it.md) confirms decision 3: with an account and no `--auth`, `xmpp` (after STARTTLS) and `xmpps` offer `SCRAM-SHA-256`, `SCRAM-SHA-1` and `PLAIN`. The default lives in the composition per scheme; `--auth` replaces it.
+
+## Amendment 2, 2026-11-19 (BL-1400)
+
+Decided by Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions").
+
+Decision 3's `anon-` JID is for a login that names no authcid. A login accepted unchecked under `--allow-anonymous` that does name one (the authcid of a `PLAIN` message, or the `n=` user of a SCRAM client-first message, unescaped) binds to that name and takes the JID rules for an account name: `<name>@<stream domain>`, or the JID itself for a `<local>@<domain>` name on the stream's domain. Only an unchecked login with no authcid (empty, or a message without one) gets a new `anon-` JID. Code: commit e22d88e06 (BL-1400).

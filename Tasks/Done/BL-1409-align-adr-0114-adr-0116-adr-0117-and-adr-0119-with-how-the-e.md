@@ -8,7 +8,7 @@ depends-on: [BL-1397, BL-1398, BL-1400]
 touches: [Documentation/Planning/Decisions, Documentation/Conformance/Extended]
 requirement: none
 created: 2026-11-19
-completed:
+completed: 2026-11-19
 ---
 # BL-1409 — Align ADR-0114, ADR-0116, ADR-0117 and ADR-0119 with how the extended servers now judge a login with no account
 
@@ -39,13 +39,13 @@ ADR-0114 decision 3 says a login accepted unchecked under `--allow-anonymous` bi
 
 ## Acceptance criteria
 
-- [ ] ADR-0116, ADR-0117 and ADR-0119 each name `IsWrite: true` in the decision text, and each gains an amendment
+- [x] ADR-0116, ADR-0117 and ADR-0119 each name `IsWrite: true` in the decision text, and each gains an amendment
       section saying why (ADR-0032 Context items 1 and 2) and which task changed the code (BL-1397, BL-1398,
       BL-1091).
-- [ ] ADR-0114 gains an amendment section stating the unchecked-login JID rule as BL-1400 built it.
-- [ ] `Documentation/Conformance/Extended/Grpc.md`, `WebTransport.md` and `SignalR.md`, where a row states the
+- [x] ADR-0114 gains an amendment section stating the unchecked-login JID rule as BL-1400 built it.
+- [x] `Documentation/Conformance/Extended/Grpc.md`, `WebTransport.md` and `SignalR.md`, where a row states the
       no-account behaviour, agree with the ADRs (or the task Log says none does).
-- [ ] No `.cs` file changes.
+- [x] No `.cs` file changes.
 
 ## Notes
 
@@ -56,3 +56,4 @@ ADR-0114 decision 3 says a login accepted unchecked under `--allow-anonymous` bi
 
 - 2026-11-19: Created.
 - 2026-11-19: Backlog -> Doing.
+- 2026-11-19: Doing -> Done. ADR-0114, 0116, 0117, 0119 amended; WebTransport.md no-account row corrected; Grpc.md and SignalR.md already agree
