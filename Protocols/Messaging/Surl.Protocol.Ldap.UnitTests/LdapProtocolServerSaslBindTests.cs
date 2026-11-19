@@ -182,6 +182,20 @@ public sealed class LdapProtocolServerSaslBindTests
         Assert.IsEmpty(sasl.Starts);
     }
 
+    // ADR-0178: a raw NTLM bind (WinLDAP's Sicily bind for --ntlm) is judged as the NTLM mechanism, which
+    // --auth ntlm accepts and --auth negotiate alone does not; the server forwards the refusal as result 7.
+    [TestMethod]
+    public async Task ServeAsync_SicilyNtlmBindWhenThePolicyRefusesNtlm_IsAuthMethodNotSupported()
+    {
+        var sasl = new UnitTestSaslAuthenticationPolicy(offer: _ => ["GSS-SPNEGO"]);
+        var log = new RecordingExchangeLog();
+
+        var connection = await ServeAsync(sasl, log, [SicilyBind(1, LdapSicilyChoice.Negotiate, NtlmNegotiate)]);
+
+        Assert.AreEqual("#1 bindResponse authMethodNotSupported \"authentication method not accepted\"", LdapResponseTranscript.Of(connection.WrittenBytes).Single());
+        Assert.AreEqual("NTLM", sasl.Starts.Single().Mechanism);
+    }
+
     [TestMethod]
     public async Task ServeAsync_SicilyResponseWithNoNegotiate_IsProtocolError()
     {

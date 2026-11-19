@@ -8,7 +8,7 @@ depends-on: []
 touches: [Protocols/Messaging/Surl.Protocol.Ldap.UnitLibrary, Protocols/Messaging/Surl.Protocol.Ldap.UnitTests, Application/Surl.Cli.UnitLibrary/AiHelpProse.cs, Documentation/Planning/Decisions]
 requirement: none
 created: 2026-11-19
-completed:
+completed: 2026-11-19
 ---
 # BL-1390 — Decide and align whether --auth negotiate accepts a raw NTLM LDAP bind with what --aihelp ldap says
 
@@ -31,20 +31,20 @@ choice is recorded in an ADR.
 
 ## Acceptance criteria
 
-- [ ] An ADR in `Documentation/Planning/Decisions` ("Decided by Claude under Stewart's delegation") picks one, citing
+- [x] An ADR in `Documentation/Planning/Decisions` ("Decided by Claude under Stewart's delegation") picks one, citing
       what pinned upstream curl on Windows sends for `--ntlm` and `--negotiate` LDAP binds (bytes measured) and how
       Surl's HTTP server treats a raw NTLM `Authorization` under `--auth negotiate` today, for consistency.
-- [ ] The LDAP server and `--aihelp ldap` agree with the ADR; a named fast test in `Surl.Protocol.Ldap.UnitTests`
+- [x] The LDAP server and `--aihelp ldap` agree with the ADR; a named fast test in `Surl.Protocol.Ldap.UnitTests`
       pins a raw NTLM bind under `--auth negotiate` (accepted, or refused with the result code the ADR names).
-- [ ] `CommandLineRunnerAiHelpTests.RunAsync_EveryAiHelpExample_WritesWhatTheExampleShows` stays green.
-- [ ] `dotnet build` clean, fast tests green, coverage gates held.
+- [x] `CommandLineRunnerAiHelpTests.RunAsync_EveryAiHelpExample_WritesWhatTheExampleShows` stays green.
+- [x] `dotnet build` clean, fast tests green, coverage gates held.
 
 ## Notes
 
-- Default leaning: accept it, so `--auth negotiate` covers whatever Windows Negotiate may produce and the help
-  already written stays true. The ADR decides.
+- Decided (ADR-0178): option B - raw NTLM needs `--auth ntlm`, Negotiate binds need `--auth negotiate`; matches HTTP and keeps secure-by-default. Help corrected, no production change. Bytes cited from existing pinned-curl fixtures (ldap-ntlm-sealed, ldap-negotiate-sealed), not re-recorded. The refusal itself lives in Surl.Authentication (unchanged), so the LDAP test pins the server answering authMethodNotSupported (7) when the policy refuses NTLM.
 
 ## Log
 
 - 2026-11-19: Created.
 - 2026-11-19: Backlog -> Doing.
+- 2026-11-19: Doing -> Done. ADR-0178: raw NTLM LDAP bind needs --auth ntlm; --aihelp ldap corrected and a Sicily NTLM refusal test added
