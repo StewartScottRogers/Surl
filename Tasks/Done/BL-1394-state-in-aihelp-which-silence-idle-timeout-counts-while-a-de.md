@@ -8,7 +8,7 @@ depends-on: []
 touches: [Application/Surl.Cli.UnitLibrary/AiHelpProse.cs, Documentation/Planning/Decisions]
 requirement: none
 created: 2026-11-19
-completed:
+completed: 2026-11-19
 ---
 # BL-1394 — State in --aihelp which silence --idle-timeout counts while a delay fault holds the server
 
@@ -30,12 +30,12 @@ completed:
 
 ## Acceptance criteria
 
-- [ ] The task's Log states, with file:line, what the code does today: whether a `delay` fault's wait is counted as
+- [x] The task's Log states, with file:line, what the code does today: whether a `delay` fault's wait is counted as
       idle at each stage (accept, command, reply).
-- [ ] The `--idle-timeout` paragraph and the fault paragraph in `AiHelpProse.cs` each state that rule in one sentence.
-- [ ] ADR-0006 gains an amendment line ("Decided by Claude under Stewart's delegation") saying a server-side fault
+- [x] The `--idle-timeout` paragraph and the fault paragraph in `AiHelpProse.cs` each state that rule in one sentence.
+- [x] ADR-0006 gains an amendment line ("Decided by Claude under Stewart's delegation") saying a server-side fault
       delay is not the peer's idle time (or whatever the code shows, if it differs by stage).
-- [ ] `dotnet build` clean and the fast tests green (the aihelp tests included).
+- [x] `dotnet build` clean and the fast tests green (the aihelp tests included).
 
 ## Notes
 
@@ -46,3 +46,5 @@ completed:
 
 - 2026-11-19: Created.
 - 2026-11-19: Backlog -> Doing.
+- 2026-11-19: Code today: a `delay` wait is not idle at either stage it has. Accept: `ServingEngine.cs:807` `PauseIdleClock()` before the wait, `:809` restart. Command: `CommandStageFaults.cs:82` `context.IdleClock.Pause()`, `:89` restart (HTTP via `HttpCommandFaults.FindAndApplyAsync`). `delay` has no reply stage (`FaultPlan.cs:96`). The 3.7 s `200` in the report is therefore intended. Consistent, so no feature task.
+- 2026-11-19: Doing -> Done. --aihelp and ADR-0006 state a delay fault stops the idle clock at accept and command
