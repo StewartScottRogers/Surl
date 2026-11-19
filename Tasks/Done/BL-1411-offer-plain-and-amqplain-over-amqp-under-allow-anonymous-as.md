@@ -8,7 +8,7 @@ depends-on: []
 touches: [Protocols/Messaging/Surl.Extended.Protocol.Amqp0.UnitLibrary, Protocols/Messaging/Surl.Extended.Protocol.Amqp0.UnitTests]
 requirement: none
 created: 2026-11-19
-completed:
+completed: 2026-11-19
 ---
 # BL-1411 — Offer PLAIN and AMQPLAIN over amqp:// under --allow-anonymous, as ADR-0112 decision 2 says
 
@@ -47,17 +47,18 @@ ADR-0112 decision 2 says.
 
 ## Acceptance criteria
 
-- [ ] A failing test first: an `Amqp0BrokerTests` test with `OffersAnonymous = true` and a policy offering no `PLAIN`
+- [x] A failing test first: an `Amqp0BrokerTests` test with `OffersAnonymous = true` and a policy offering no `PLAIN`
       on a connection without TLS sees `connection.start` `mechanisms` end with `PLAIN AMQPLAIN ANONYMOUS`.
-- [ ] A test replays a `start-ok` with `PLAIN` `\0guest\0guest` on that connection and the connection opens
+- [x] A test replays a `start-ok` with `PLAIN` `\0guest\0guest` on that connection and the connection opens
       (`tune`, `open-ok`).
-- [ ] A test shows that without `OffersAnonymous` the list is the policy's alone (no `PLAIN` added).
-- [ ] The test at `Amqp0BrokerTests.cs:97` is updated to the new list.
-- [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and `Surl.Extended.Protocol.Amqp0.UnitLibrary`
+- [x] A test shows that without `OffersAnonymous` the list is the policy's alone (no `PLAIN` added).
+- [x] The test at `Amqp0BrokerTests.cs:97` is updated to the new list.
+- [x] `dotnet build -warnaserror` is clean, the fast tests are green, and `Surl.Extended.Protocol.Amqp0.UnitLibrary`
       stays at 100% line and branch coverage.
 
 ## Notes
 
+- Choice: the second test replays `guest`/`guest` against a fake policy (`AcceptsAnyPlain`) standing for the real policy under `--allow-anonymous`. A policy that already lists `ANONYMOUS` now gets `ANONYMOUS PLAIN AMQPLAIN` (PLAIN added when absent, ANONYMOUS not repeated).
 - BL-1407 states the result in `surl --aihelp amqp` after this lands. The cookbook's `anonymous-is-not-enough`
   case will change outcome; tell the cookbook's author in the shift report.
 
@@ -65,3 +66,4 @@ ADR-0112 decision 2 says.
 
 - 2026-11-19: Created.
 - 2026-11-19: Backlog -> Doing.
+- 2026-11-19: Doing -> Done. amqp:// under --allow-anonymous now offers PLAIN and AMQPLAIN before ANONYMOUS

@@ -43,6 +43,13 @@ internal sealed partial class Amqp0BrokerConnection
             }
         }
 
+        if (options.OffersAnonymous && !offered.Contains(PlainMechanism))
+        {
+            // ADR-0112 decision 2: 0-9-1 clients log in with PLAIN, so an anonymous broker offers it on every transport.
+            offered.Add(PlainMechanism);
+            offered.Add(AmqplainMechanism);
+        }
+
         if (options.OffersAnonymous && !offered.Contains(AnonymousMechanism))
         {
             offered.Add(AnonymousMechanism);
