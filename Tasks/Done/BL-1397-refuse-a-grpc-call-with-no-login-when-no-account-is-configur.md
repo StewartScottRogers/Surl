@@ -8,7 +8,7 @@ depends-on: []
 touches: [Protocols/Http/Surl.Extended.Protocol.Grpc.UnitLibrary, Protocols/Http/Surl.Extended.Protocol.Grpc.UnitTests]
 requirement: none
 created: 2026-11-19
-completed:
+completed: 2026-11-19
 ---
 # BL-1397 — Refuse a gRPC call with no login when no account is configured and --allow-anonymous is off
 
@@ -49,15 +49,15 @@ serving it.
 
 ## Acceptance criteria
 
-- [ ] A failing test first, then the fix: a `GrpcStreamHandlerTests` test shows every call (an `Echo` call and a
+- [x] A failing test first, then the fix: a `GrpcStreamHandlerTests` test shows every call (an `Echo` call and a
       reflection `ServerReflectionInfo` call) is judged with `IsWrite: true`, and the test at line 441 expects
       `true`.
-- [ ] A `GrpcStreamHandlerTests` test with a session that answers `Challenge` for a request with no
+- [x] A `GrpcStreamHandlerTests` test with a session that answers `Challenge` for a request with no
       `authorization` (as `HttpAuthenticationSession` does with no account once `IsWrite` is true) gets
       Trailers-Only `grpc-status: 16`, `grpc-message: unauthenticated`, and the `Echo` service is never reached.
-- [ ] A `GrpcStreamHandlerTests` test with a session that proceeds anonymously (as under `--allow-anonymous`) still
+- [x] A `GrpcStreamHandlerTests` test with a session that proceeds anonymously (as under `--allow-anonymous`) still
       serves the call.
-- [ ] `dotnet build Protocols/Http/Surl.Extended.Protocol.Grpc.UnitLibrary -warnaserror` is clean,
+- [x] `dotnet build Protocols/Http/Surl.Extended.Protocol.Grpc.UnitLibrary -warnaserror` is clean,
       `dotnet test --filter "TestCategory!=Integration"` is green, and `Surl.Extended.Protocol.Grpc.UnitLibrary`
       stays at 100% line and branch coverage. No test needs `TestCategory=Integration`.
 
@@ -68,7 +68,10 @@ serving it.
 - `Conformance/Surl.Conformance.UnitTests/CurlPortClientCallsMethodsOnSurlOverGrpcTests.cs` (Integration) starts
   every open server with `--allow-anonymous` and needs no change.
 
+- Fix: `GrpcStreamHandler.AuthenticateAsync` now judges every call `IsWrite: true` (ADR-0032 s4: anonymous reads are HTTP, Gopher, TFTP only). Tests: line-441 test flipped, reflection test, challenge-with-no-login test; anonymous serving is covered by the ProceedingEveryRequest tests. Full fast suite green.
+
 ## Log
 
 - 2026-11-19: Created.
 - 2026-11-19: Backlog -> Doing.
+- 2026-11-19: Doing -> Done. gRPC call with no login is refused UNAUTHENTICATED when no account and no --allow-anonymous
