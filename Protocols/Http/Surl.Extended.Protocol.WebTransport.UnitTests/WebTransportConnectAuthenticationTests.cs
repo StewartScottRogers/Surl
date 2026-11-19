@@ -39,7 +39,7 @@ public sealed class WebTransportConnectAuthenticationTests
         var request = policy.Requests.Single();
         Assert.AreEqual("CONNECT", request.Method);
         Assert.AreEqual("/echo", request.Target);
-        Assert.IsFalse(request.IsWrite);
+        Assert.IsTrue(request.IsWrite, "A WebTransport session is a two-way echo, not a read (BL-1398).");
     }
 
     [TestMethod]
