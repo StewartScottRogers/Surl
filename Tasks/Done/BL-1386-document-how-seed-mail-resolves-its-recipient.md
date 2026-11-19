@@ -8,7 +8,7 @@ depends-on: []
 touches: [Application/Surl.Mcp.UnitLibrary, Application/Surl.Mcp/README.md]
 requirement: none
 created: 2026-11-18
-completed:
+completed: 2026-11-18
 ---
 # BL-1386 — Document how seed_mail resolves its recipient
 
@@ -38,12 +38,12 @@ ignoring case, and the domain is ignored.
 
 ## Acceptance criteria
 
-- [ ] `SeedMailTool.Description` says the recipient is resolved as SMTP's `RCPT TO` is, and that without a mail
+- [x] `SeedMailTool.Description` says the recipient is resolved as SMTP's `RCPT TO` is, and that without a mail
       domain only the local part counts (case ignored when only one account matches) and the domain is ignored.
-- [ ] `SeedMailTool`'s XML doc says the same, citing ADR-0050 decision 5 and ADR-0102 decision 1.1.
-- [ ] `Application/Surl.Mcp/README.md` states the rule beside `seed_mail`, with the `ALICE@example.com` /
+- [x] `SeedMailTool`'s XML doc says the same, citing ADR-0050 decision 5 and ADR-0102 decision 1.1.
+- [x] `Application/Surl.Mcp/README.md` states the rule beside `seed_mail`, with the `ALICE@example.com` /
       `alice@other.org` example.
-- [ ] `dotnet build Application/Surl.Mcp.UnitLibrary -warnaserror` is clean and the fast tests are green
+- [x] `dotnet build Application/Surl.Mcp.UnitLibrary -warnaserror` is clean and the fast tests are green
       (`ProgramTests` and any test pinning tool descriptions still pass).
 
 ## Notes
@@ -54,3 +54,4 @@ ignoring case, and the domain is ignored.
 
 - 2026-11-18: Created.
 - 2026-11-18: Backlog -> Doing.
+- 2026-11-18: Doing -> Done. seed_mail description, XML doc and README state the RCPT TO recipient rule

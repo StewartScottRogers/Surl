@@ -7,6 +7,10 @@ namespace Surl.Mcp;
 /// The <c>seed_mail</c> tool (ADR-0124 decision 8): delivers a message into a running server's mail store, as SMTP
 /// would after <c>RCPT TO:</c>, through <c>Surl.Api</c>'s <c>SurlServer.Mail.DeliverAsync</c>. Result
 /// <c>{"delivered": true}</c>; a recipient or a delivery the store refuses is an <c>isError</c> result.
+/// The recipient <c>to</c> is resolved exactly as SMTP's <c>RCPT TO</c> resolves it, by the mail store's
+/// <c>LookUpRecipient</c>: without a mail domain only the local part counts, an account being matched exactly or
+/// else as the one account equal to it ignoring case, and the domain is ignored (ADR-0050 decision 5); with
+/// <c>--mail-domain</c>, ADR-0102 decision 1.1's routing applies and a recipient outside every domain is refused.
 /// </summary>
 public static class SeedMailTool
 {
@@ -16,7 +20,8 @@ public static class SeedMailTool
     /// <summary>The tool's description.</summary>
     internal const string Description =
         "Deliver a message into a running Surl server's mail store, as SMTP would, so its POP3 and IMAP servers "
-        + "serve it. Give the message as UTF-8 text or base64, headers first, at most 16 MiB.";
+        + "serve it. The recipient is resolved as SMTP's RCPT TO is: without a mail domain only the local part "
+        + "counts (matched exactly, else ignoring case when one account matches) and the domain is ignored. Give the message as UTF-8 text or base64, headers first, at most 16 MiB.";
 
     /// <summary>The tool's input schema.</summary>
     internal const string InputSchema = """
