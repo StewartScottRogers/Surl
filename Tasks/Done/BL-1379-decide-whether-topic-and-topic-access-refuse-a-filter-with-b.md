@@ -8,7 +8,7 @@ depends-on: []
 touches: [Documentation/Planning/Decisions]
 requirement: none
 created: 2026-11-18
-completed:
+completed: 2026-11-18
 ---
 # BL-1379 — Decide whether --topic and --topic-access refuse a filter with # before its last level
 
@@ -43,15 +43,15 @@ accepting it as a canonical filter and says so in `--aihelp messages`.
 
 ## Acceptance criteria
 
-- [ ] A new ADR under `Documentation/Planning/Decisions/` (next free number), marked "Decided by Claude under
+- [x] A new ADR under `Documentation/Planning/Decisions/` (next free number), marked "Decided by Claude under
       Stewart's delegation", decides whether `--topic` and `--topic-access` accept a filter with `#` before its
       last level, citing ADR-0100 decision 3.2, MQTT 3.1.1 section 4.7.1.2 and AMQP 0-9-1 section 3.1.3.3.
-- [ ] If it refuses such filters, the ADR gives the exact `(2) option --topic: ...` and `(2) option --topic-access: ...`
+- [x] If it refuses such filters, the ADR gives the exact `(2) option --topic: ...` and `(2) option --topic-access: ...`
       texts, and the lane files the `Surl.Composition` code task for it (depending on this task) and adds that
       task to BL-1381's `depends-on`.
-- [ ] If it keeps them, the ADR gives the sentence BL-1381 adds to `--aihelp messages` (which filters are valid, and
+- [x] If it keeps them, the ADR gives the sentence BL-1381 adds to `--aihelp messages` (which filters are valid, and
       that `#` may stand at any level there, unlike in an MQTT `SUBSCRIBE`).
-- [ ] ADR-0100 (and ADR-0102 if its refusal list changes) carries an amendment line pointing to the new ADR, and
+- [x] ADR-0100 (and ADR-0102 if its refusal list changes) carries an amendment line pointing to the new ADR, and
       `Documentation/Planning/Decisions/README.md` lists it.
 
 ## Notes
@@ -60,8 +60,10 @@ accepting it as a canonical filter and says so in `--aihelp messages`.
   canonical names for every bus protocol, and refusing `#` mid-level would make an AMQP binding-key grant
   inexpressible. The defect is that `--aihelp messages` does not say what a valid filter is; BL-1381 fixes that.
 - Decision record only: no code, no help text.
+- Decided: keep the canonical rule (ADR-0177); no code task filed; BL-1381 adds the ADR's decision 4 sentence to `--aihelp messages`.
 
 ## Log
 
 - 2026-11-18: Created.
 - 2026-11-18: Backlog -> Doing.
+- 2026-11-18: Doing -> Done. ADR-0177 decides to keep the canonical filter rule
