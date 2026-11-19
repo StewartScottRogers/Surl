@@ -157,6 +157,27 @@ public sealed class SshHostKeyFileTests
     }
 
     [TestMethod]
+    [DynamicData(nameof(ReadableDsaKeys))]
+    public void Read_DsaKeyWithWeakAlgorithms_SignsEverySshDssSignatureOverManyRunsVerifiably(string caseName, byte[] file)
+    {
+        var key = SshHostKeyFile.Read(file, Passphrase, allowWeakAlgorithms: true).Key!;
+        var failures = new List<int>();
+
+        for (var run = 0; run < 2000; run++)
+        {
+            var signature = new SshWireReader(key.Sign("ssh-dss", [1, 2, 3]));
+            signature.ReadString();
+            var raw = signature.ReadString().ToArray();
+            if (raw.Length != 40 || !SshTestKeys.Dsa1024.VerifyData(new byte[] { 1, 2, 3 }, raw, HashAlgorithmName.SHA1, DSASignatureFormat.IeeeP1363FixedFieldConcatenation))
+            {
+                failures.Add(run);
+            }
+        }
+
+        Assert.IsEmpty(failures, caseName + " failed on runs " + string.Join(",", failures.Take(10)));
+    }
+
+    [TestMethod]
     public void Read_DsaKeyWithA256BitQ_IsRefusedAsNotSupported()
     {
         var prime = Unsigned(SshTestKeys.Dsa1024.ExportParameters(false).P!);
