@@ -18,7 +18,7 @@ public sealed class UpstreamCurlTalksToSurlOverMqttTests
 {
     // curl publishes and subscribes without a user name, which surl's MQTT server refuses by
     // default (ADR-0032, section 5); these recordings are of an anonymous broker.
-    private static readonly string[] AnonymousMqtt = ["--allow-anonymous"];
+    private static readonly string[] AnonymousMqtt = ["--allow-anonymous", "--topic", "t;retain"];
 
     public TestContext TestContext { get; set; } = null!;
 

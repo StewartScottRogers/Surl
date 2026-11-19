@@ -94,7 +94,7 @@ public sealed class CurlPortClientConsumesMessagesSharedAcrossSurlProtocolsTests
     [Description("BL-670, ADR-0093 decision 0 and ADR-0100 3.9: a message upstream curl published over mqtt is the retained message the port's mqtt5 client subscribes to")]
     public async Task MqttPublish_ThenMqtt5Subscribe_ReturnsThePublishedPayload()
     {
-        await using var surl = await StartAsync("mqtt5");
+        await using var surl = await StartAsync("mqtt5", "--topic", $"{Topic};retain");
         await PublishOverMqttAsync(surl);
 
         // The subscribe never ends by itself, so its own time limit ends it after the retained message arrived.

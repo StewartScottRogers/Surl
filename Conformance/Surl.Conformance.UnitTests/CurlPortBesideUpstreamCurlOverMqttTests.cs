@@ -25,7 +25,7 @@ public sealed class CurlPortBesideUpstreamCurlOverMqttTests
 
     private const int WeirdServerReply = 8;
 
-    private static readonly string[] AnonymousMqtt = ["--allow-anonymous"];
+    private static readonly string[] AnonymousMqtt = ["--allow-anonymous", "--topic", "t;retain"];
 
     private static readonly string Credentials = $"{AccountsFile.User}:{AccountsFile.Password}";
 
@@ -86,7 +86,7 @@ public sealed class CurlPortBesideUpstreamCurlOverMqttTests
     {
         const string Method = nameof(PublishThenSubscribeOverMqtts_Account_SubscriberReceivesTheMessage);
         using var accounts = await AccountsFile.WriteAsync(TestContext.CancellationToken);
-        string[] surlOptions = ["--self-signed", "--user-file", accounts.Path];
+        string[] surlOptions = ["--self-signed", "--topic", "t;retain", "--user-file", accounts.Path];
 
         await JudgeAsync(
             Case($"{Method}[publish]", LogsIn, Method, "mqtts", ["-sS", "-k", "-u", Credentials, "-d", "x", "{surl}/t"], surlOptions, Exits((0, []))),

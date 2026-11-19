@@ -8,7 +8,7 @@ depends-on: [BL-1377]
 touches: [Conformance/Surl.Conformance.UnitTests]
 requirement: none
 created: 2026-11-18
-completed:
+completed: 2026-11-18
 ---
 # BL-1378 — Rerun the MQTT Integration tests against pinned upstream curl after the RETAIN change
 
@@ -42,15 +42,15 @@ passes against pinned upstream curl 8.21.0 under the RETAIN rule BL-1376 decided
 
 ## Acceptance criteria
 
-- [ ] `dotnet test Conformance/Surl.Conformance.UnitTests --filter "TestCategory=Integration&FullyQualifiedName~Mqtt"`
+- [x] `dotnet test Conformance/Surl.Conformance.UnitTests --filter "TestCategory=Integration&FullyQualifiedName~Mqtt"`
       passes on Windows with the pinned upstream curl 8.21.0 build, and the Log records the pass and fail counts.
-- [ ] `dotnet test Conformance/Surl.Conformance.UnitTests --filter "FullyQualifiedName~StandInPublishAndConsumeRecipeTests|FullyQualifiedName~UpstreamCurlTalksToAConfiguredSurlTests"`
+- [x] `dotnet test Conformance/Surl.Conformance.UnitTests --filter "FullyQualifiedName~StandInPublishAndConsumeRecipeTests|FullyQualifiedName~UpstreamCurlTalksToAConfiguredSurlTests"`
       passes.
-- [ ] Every test that fetches a message an upstream curl `-d` published either starts `surl` with
+- [x] Every test that fetches a message an upstream curl `-d` published either starts `surl` with
       `--topic <filter>;retain` or asserts the empty fetch (exit 0, no output) the ADR now gives, and its name says
       which.
-- [ ] No expected byte or exit code in a changed test comes from the Curl port.
-- [ ] `dotnet build -warnaserror` is clean and the fast tests are green.
+- [x] No expected byte or exit code in a changed test comes from the Curl port.
+- [x] `dotnet build -warnaserror` is clean and the fast tests are green.
 
 ## Notes
 
@@ -62,3 +62,5 @@ passes against pinned upstream curl 8.21.0 under the RETAIN rule BL-1376 decided
 
 - 2026-11-18: Created.
 - 2026-11-18: Backlog -> Doing.
+- 2026-11-18: Under ADR-0176 a RETAIN 0 publish is not retained, so 11 Integration tests that published with upstream curl and fetched with upstream curl (or the Curl port) failed. Fixed by starting `surl` with `--topic t;retain` (`--topic events;retain` for the mqtt5 one) in UpstreamCurlTalksToSurlOverMqttTests, UpstreamCurlSharesTopicsAcrossSurlListenersTests, UpstreamCurlLogsInToSurlOverMqttTests, CurlPortBesideUpstreamCurlOverMqttTests and CurlPortClientConsumesMessagesSharedAcrossSurlProtocolsTests. Test names unchanged (they still prove publish-then-fetch; the retain declaration is the only change). Cross-protocol live-delivery tests (AMQP, AMQP 1, STOMP, NATS, Kafka) passed unchanged. Results: Mqtt Integration filter 47 passed / 0 failed (was 36/11); StandIn+Configured filter 12 passed / 0 failed; fast Conformance tests 1049 passed. No expected bytes changed.
+- 2026-11-18: Doing -> Done. MQTT Integration tests pass against pinned upstream curl with --topic retain after the RETAIN change
