@@ -35,8 +35,8 @@ public sealed class MqttProtocolServerTests
         var mqttServer = new MqttProtocolServer(bus, new AnonymousAuthenticationPolicy());
         var mqttsServer = new MqttProtocolServer(bus, new AnonymousAuthenticationPolicy());
 
-        await ServeWithAsync(mqttServer, ClientPackets.Join(ClientPackets.CurlConnect(), ClientPackets.Publish(0x30, "t", "hi"), ClientPackets.Disconnect));
-        await ServeWithAsync(mqttsServer, ClientPackets.Join(ClientPackets.CurlConnect(), ClientPackets.Publish(0x30, "u", "yo"), ClientPackets.Disconnect), MqttsListenUrl);
+        await ServeWithAsync(mqttServer, ClientPackets.Join(ClientPackets.CurlConnect(), ClientPackets.Publish(0x31, "t", "hi"), ClientPackets.Disconnect));
+        await ServeWithAsync(mqttsServer, ClientPackets.Join(ClientPackets.CurlConnect(), ClientPackets.Publish(0x31, "u", "yo"), ClientPackets.Disconnect), MqttsListenUrl);
         var overMqtts = await ServeWithAsync(mqttsServer, RecordedFixture.ReadRequestBytes("subscribe-t"), MqttsListenUrl);
         var overMqtt = await ServeWithAsync(mqttServer, ClientPackets.Join(ClientPackets.CurlConnect(), ClientPackets.Subscribe(1, ("u", 0))));
 
@@ -53,7 +53,7 @@ public sealed class MqttProtocolServerTests
         var bus = TestMessageBus.New();
         await bus.LoadAsync(busFiles, TestContext.CancellationToken);
 
-        var (connection, log) = await ServeAsync(ClientPackets.CurlConnect(), ClientPackets.Publish(0x32, "t", 1, "hi"), ClientPackets.Disconnect, bus);
+        var (connection, log) = await ServeAsync(ClientPackets.CurlConnect(), ClientPackets.Publish(0x33, "t", 1, "hi"), ClientPackets.Disconnect, bus);
 
         CollectionAssert.AreEqual(new byte[] { 0x20, 0x02, 0x00, 0x00, 0x40, 0x02, 0x00, 0x01 }, connection.WrittenBytes);
         Assert.IsEmpty(log.Notes);
@@ -70,7 +70,7 @@ public sealed class MqttProtocolServerTests
         var bus = TestMessageBus.New();
         await bus.LoadAsync(new MessageBusFiles(fileSystem, Path.Join(InMemoryContentFileSystem.RootPath, ".surl")), TestContext.CancellationToken);
 
-        var (connection, log) = await ServeAsync(ClientPackets.CurlConnect(), ClientPackets.Publish(0x32, "t", 1, "hi"), ClientPackets.Disconnect, bus);
+        var (connection, log) = await ServeAsync(ClientPackets.CurlConnect(), ClientPackets.Publish(0x33, "t", 1, "hi"), ClientPackets.Disconnect, bus);
 
         CollectionAssert.AreEqual(new byte[] { 0x20, 0x02, 0x00, 0x00, 0x40, 0x02, 0x00, 0x01 }, connection.WrittenBytes);
         Assert.AreEqual("hi", Encoding.ASCII.GetString(bus.MatchingAny(["t"]).Single().Value));
@@ -158,7 +158,7 @@ public sealed class MqttProtocolServerTests
     [TestMethod]
     public async Task ServeAsync_PublishThenSubscribeFromCurl_DeliversWhatWasPublished()
     {
-        var retained = TestMessageBus.New();
+        var retained = TestMessageBus.RetainingEveryPublish();
 
         await ServeAsync(RecordedFixture.Whole(RecordedFixture.ReadRequestBytes("publish-hi")), retained);
         var (subscriber, _) = await ServeAsync(RecordedFixture.Whole(RecordedFixture.ReadRequestBytes("subscribe-t")), retained);
@@ -169,7 +169,7 @@ public sealed class MqttProtocolServerTests
     [TestMethod]
     public async Task ServeAsync_Publish200BytesFromCurl_KeepsTheWholePayload()
     {
-        var retained = TestMessageBus.New();
+        var retained = TestMessageBus.RetainingEveryPublish();
 
         await ServeAsync(RecordedFixture.Whole(RecordedFixture.ReadRequestBytes("publish-200-bytes")), retained);
 
@@ -183,7 +183,7 @@ public sealed class MqttProtocolServerTests
         var retained = TestMessageBus.New();
         retained.Retain("t", "hi"u8);
 
-        var (connection, _) = await ServeAsync(ClientPackets.CurlConnect(), ClientPackets.Publish(0x30, "t", ""), ClientPackets.Disconnect, retained);
+        var (connection, _) = await ServeAsync(ClientPackets.CurlConnect(), ClientPackets.Publish(0x31, "t", ""), ClientPackets.Disconnect, retained);
 
         CollectionAssert.AreEqual(ConnackAccepted, connection.WrittenBytes);
         Assert.AreEqual(0, retained.MatchingAny(["#"]).Count);
@@ -632,7 +632,7 @@ public sealed class MqttProtocolServerTests
     {
         var payload = Enumerable.Repeat((byte)'z', 70_000).ToArray();
         // Remaining length 70003 (topic length, "t", payload) is F3 A2 04 in section 2.2.3's encoding.
-        byte[] publish = [0x30, 0xF3, 0xA2, 0x04, 0x00, 0x01, (byte)'t', .. payload];
+        byte[] publish = [0x31, 0xF3, 0xA2, 0x04, 0x00, 0x01, (byte)'t', .. payload];
         var retained = TestMessageBus.New();
 
         var (connection, _) = await ServeAsync(ClientPackets.CurlConnect(), publish, ClientPackets.Disconnect, retained, Limits(0));
@@ -673,7 +673,7 @@ public sealed class MqttProtocolServerTests
     {
         var retained = TestMessageBus.New();
 
-        var (connection, _) = await ServeAsync(ClientPackets.CurlConnect(), ClientPackets.Publish(0x32, "t", 0x1234, "hi"), ClientPackets.Disconnect, retained);
+        var (connection, _) = await ServeAsync(ClientPackets.CurlConnect(), ClientPackets.Publish(0x33, "t", 0x1234, "hi"), ClientPackets.Disconnect, retained);
 
         CollectionAssert.AreEqual(new byte[] { 0x20, 0x02, 0x00, 0x00, 0x40, 0x02, 0x12, 0x34 }, connection.WrittenBytes);
         Assert.AreEqual("hi", Encoding.ASCII.GetString(retained.MatchingAny(["t"]).Single().Value));

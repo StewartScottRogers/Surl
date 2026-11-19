@@ -1,4 +1,5 @@
 using System.Net;
+using System.Net.Sockets;
 using System.Text;
 using Surl.Protocol.Abstractions;
 using static Surl.Core.InMemoryConnectionWaits;
@@ -390,6 +391,51 @@ public sealed partial class ServingEngineTests
         CollectionAssert.Contains(
             harness.Logs.LogOf(1).Notes.ToList(),
             "Exchange 1 ended because the protocol server threw IOException: The peer went away.");
+        await harness.StopAsync();
+    }
+
+    [TestMethod]
+    [DataRow(SocketError.ConnectionAborted)]
+    [DataRow(SocketError.ConnectionReset)]
+    [DataRow(SocketError.Shutdown)]
+    public async Task ServeAsync_ServerThatThrowsAClientCloseIOException_NotesTheClientCloseAndDoesNotAbort(SocketError code)
+    {
+        using var harness = new Harness(
+            limits: null,
+            "http",
+            serve: (_, _) => throw new IOException("The client went away.", new SocketException((int)code)));
+        var connection = HeldConnection(PeerAddress(1));
+        harness.Listener.Connect(connection);
+        await harness.Server.Inner.NextExchangeAsync();
+        await WaitUntilDisposedAsync(connection);
+
+        var notes = harness.Logs.LogOf(1).Notes.ToList();
+        Assert.IsFalse(connection.Aborted);
+        CollectionAssert.Contains(notes, $"Exchange 1 ended: the client closed the connection ({code}).");
+        Assert.IsFalse(notes.Exists(note => note.Contains("protocol server threw", StringComparison.Ordinal)));
+        await harness.StopAsync();
+    }
+
+    [TestMethod]
+    [DataRow(null)]
+    [DataRow(SocketError.AccessDenied)]
+    public async Task ServeAsync_ServerThatThrowsAnIOExceptionThatIsNotAClientClose_StillFailsTheExchange(SocketError? code)
+    {
+        using var harness = new Harness(
+            limits: null,
+            "http",
+            serve: (_, _) => throw (code is { } error
+                ? new IOException("Own failure.", new SocketException((int)error))
+                : new IOException("Own failure.")));
+        var connection = HeldConnection(PeerAddress(1));
+        harness.Listener.Connect(connection);
+        await harness.Server.Inner.NextExchangeAsync();
+        await WaitUntilDisposedAsync(connection);
+
+        Assert.IsTrue(connection.Aborted);
+        CollectionAssert.Contains(
+            harness.Logs.LogOf(1).Notes.ToList(),
+            "Exchange 1 ended because the protocol server threw IOException: Own failure.");
         await harness.StopAsync();
     }
 

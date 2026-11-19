@@ -54,6 +54,49 @@ public sealed partial class SurlServerTests
     }
 
     [TestMethod]
+    public async Task WaitForEventAsync_RecordingOff_ThrowsNamingTheMemberAskedFor()
+    {
+        var seams = new ApiTestSeams();
+        await using var server = await SurlServer.StartAsync(ApiTestSeams.Options("http://127.0.0.1:0"), seams.Host, TestContext.CancellationToken);
+
+        var exception = Assert.ThrowsExactly<InvalidOperationException>(
+            () => server.WaitForEventAsync(new SurlEventQuery(), TimeSpan.FromSeconds(1), TestContext.CancellationToken));
+
+        StringAssert.StartsWith(exception.Message, "RecordExchanges is off");
+        StringAssert.Contains(exception.Message, "WaitForEventAsync");
+        Assert.DoesNotContain("read Exchanges", exception.Message);
+    }
+
+    [TestMethod]
+    [DataRow("Exchanges")]
+    [DataRow("DroppedExchangeCount")]
+    [DataRow("DroppedEventCount")]
+    [DataRow("FindExchanges")]
+    [DataRow("FindEvents")]
+    [DataRow("WaitForExchangeAsync")]
+    public async Task Members_RecordingOff_EachMessageNamesItsMember(string member)
+    {
+        var seams = new ApiTestSeams();
+        var query = new SurlEventQuery();
+        var timeout = TimeSpan.FromSeconds(1);
+        await using var server = await SurlServer.StartAsync(ApiTestSeams.Options("http://127.0.0.1:0"), seams.Host, TestContext.CancellationToken);
+
+        Action call = member switch
+        {
+            "Exchanges" => () => _ = server.Exchanges,
+            "DroppedExchangeCount" => () => _ = server.DroppedExchangeCount,
+            "DroppedEventCount" => () => _ = server.DroppedEventCount,
+            "FindExchanges" => () => server.FindExchanges(query),
+            "FindEvents" => () => server.FindEvents(query),
+            _ => () => _ = server.WaitForExchangeAsync(query, timeout, TestContext.CancellationToken),
+        };
+        var exception = Assert.ThrowsExactly<InvalidOperationException>(call);
+
+        StringAssert.StartsWith(exception.Message, "RecordExchanges is off");
+        StringAssert.EndsWith(exception.Message, $"to use {member}.");
+    }
+
+    [TestMethod]
     public async Task Queries_ANullQuery_ThrowArgumentNullException()
     {
         var seams = new ApiTestSeams();

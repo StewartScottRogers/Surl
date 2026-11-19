@@ -54,6 +54,16 @@ public sealed partial class SurlServerTests
     }
 
     [TestMethod]
+    public async Task Files_PutAsync_ARelativePath_ThrowsArgumentException()
+    {
+        var seams = new ApiTestSeams();
+        await using var server = await SurlServer.StartAsync(ApiTestSeams.Options(Http), seams.Host, TestContext.CancellationToken);
+
+        await Assert.ThrowsExactlyAsync<ArgumentException>(
+            () => server.Files.PutAsync("reports/b.txt", "x"u8.ToArray(), TestContext.CancellationToken));
+    }
+
+    [TestMethod]
     public async Task Files_DeleteAsync_TheDeletedFileIsNotFoundOverHttpAndDeletingItAgainThrowsAbsent()
     {
         var seams = new ApiTestSeams();

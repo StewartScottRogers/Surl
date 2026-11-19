@@ -2,6 +2,7 @@
 
 - **Status:** Accepted
 - **Superseded in part:** decision 3's "a will, user name and password the flags allow are accepted and not read" is superseded by [ADR-0032](ADR-0032-secure-by-default-authentication-accounts-and-self-signed.md): the user name and password are checked.
+- **Superseded in part:** decision 1's "whatever its `RETAIN` flag says" is superseded by [ADR-0176](ADR-0176-how-the-mqtt-3-1-1-server-treats-the-retain-flag-and-why-it-keeps-the-server-sent-disconnect.md): only a RETAIN 1 publish (or a `--topic ...;retain` match) is retained. Decision 2's `DISCONNECT` is kept by ADR-0176.
 - **Date:** 2026-09-28
 - **Decided by:** Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), 2026-09-28, in BL-036
 

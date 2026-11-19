@@ -1,0 +1,118 @@
+using Surl.Protocol.Abstractions;
+
+namespace Surl.Protocol.Mqtt;
+
+/// <summary>
+/// The MQTT 3.1.1 server keeps, replaces and removes a topic's retained message only as the
+/// <c>RETAIN</c> flag of a <c>PUBLISH</c> says (section 3.3.1.3, ADR-0176), and a
+/// <c>--topic &lt;filter&gt;;retain</c> declaration retains a matching publish whatever its flag.
+/// Each test publishes, then fetches with a <c>SUBSCRIBE</c> on the same bus.
+/// </summary>
+[TestClass]
+public sealed class MqttRetainFlagTests
+{
+    // A publish from upstream curl carries 0x30 (RETAIN 0); a client that sets RETAIN sends 0x31.
+    private const byte RetainClear = 0x30;
+    private const byte RetainSet = 0x31;
+
+    private static readonly byte[] ConnackAccepted = [0x20, 0x02, 0x00, 0x00];
+    private static readonly byte[] SubackGranted = [0x90, 0x03, 0x00, 0x01, 0x00];
+    private static readonly byte[] Disconnect = [0xE0, 0x00];
+
+    public TestContext TestContext { get; set; } = null!;
+
+    [TestMethod]
+    public async Task ServeAsync_PublishWithRetainClear_IsNotFetchedBySubscribe()
+    {
+        var bus = TestMessageBus.New();
+
+        await PublishAsync(bus, RetainClear, "hi");
+
+        CollectionAssert.AreEqual(Fetched(), await SubscribeAsync(bus));
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_PublishWithRetainSet_IsFetchedBySubscribe()
+    {
+        var bus = TestMessageBus.New();
+
+        await PublishAsync(bus, RetainSet, "hi");
+
+        CollectionAssert.AreEqual(Fetched("hi"), await SubscribeAsync(bus));
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_PublishWithRetainClearOverARetainedMessage_LeavesTheRetainedMessage()
+    {
+        var bus = TestMessageBus.New();
+        await PublishAsync(bus, RetainSet, "old");
+
+        await PublishAsync(bus, RetainClear, "new");
+
+        CollectionAssert.AreEqual(Fetched("old"), await SubscribeAsync(bus));
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_PublishWithRetainSetOverARetainedMessage_ReplacesIt()
+    {
+        var bus = TestMessageBus.New();
+        await PublishAsync(bus, RetainSet, "old");
+
+        await PublishAsync(bus, RetainSet, "new");
+
+        CollectionAssert.AreEqual(Fetched("new"), await SubscribeAsync(bus));
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_EmptyPublishWithRetainClear_LeavesTheRetainedMessage()
+    {
+        var bus = TestMessageBus.New();
+        await PublishAsync(bus, RetainSet, "hi");
+
+        await PublishAsync(bus, RetainClear, "");
+
+        CollectionAssert.AreEqual(Fetched("hi"), await SubscribeAsync(bus));
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_EmptyPublishWithRetainSet_RemovesTheRetainedMessage()
+    {
+        var bus = TestMessageBus.New();
+        await PublishAsync(bus, RetainSet, "hi");
+
+        await PublishAsync(bus, RetainSet, "");
+
+        CollectionAssert.AreEqual(Fetched(), await SubscribeAsync(bus));
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_PublishWithRetainClearOnADeclaredRetainTopic_IsFetchedBySubscribe()
+    {
+        var bus = TestMessageBus.RetainingEveryPublish();
+
+        await PublishAsync(bus, RetainClear, "hi");
+
+        CollectionAssert.AreEqual(Fetched("hi"), await SubscribeAsync(bus));
+    }
+
+    private static byte[] Fetched(string? payload = null) =>
+        payload is null
+            ? [.. ConnackAccepted, .. SubackGranted, .. Disconnect]
+            : [.. ConnackAccepted, .. SubackGranted, 0x31, (byte)(3 + payload.Length), 0x00, 0x01, (byte)'t', .. System.Text.Encoding.ASCII.GetBytes(payload), .. Disconnect];
+
+    private Task PublishAsync(MessageBus.MessageBus bus, byte firstByte, string payload) =>
+        ServeAsync(bus, ClientPackets.Join(ClientPackets.CurlConnect(), ClientPackets.Publish(firstByte, "t", payload), ClientPackets.Disconnect));
+
+    private async Task<byte[]> SubscribeAsync(MessageBus.MessageBus bus) =>
+        await ServeAsync(bus, ClientPackets.Join(ClientPackets.CurlConnect(), ClientPackets.Subscribe(1, ("t", 0))));
+
+    private async Task<byte[]> ServeAsync(MessageBus.MessageBus bus, byte[] request)
+    {
+        var connection = new InMemoryConnection(RecordedFixture.Whole(request));
+
+        await new MqttProtocolServer(bus, new AnonymousAuthenticationPolicy()).ServeAsync(connection, MqttTestExchange.Context(TimeProvider.System, TestContext.CancellationToken));
+        await connection.DisposeAsync();
+
+        return connection.WrittenBytes;
+    }
+}

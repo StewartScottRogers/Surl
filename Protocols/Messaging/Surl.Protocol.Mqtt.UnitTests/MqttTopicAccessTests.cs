@@ -22,7 +22,7 @@ public sealed class MqttTopicAccessTests
     private static readonly byte[] CurlSubscribeToAB = [0x82, 0x08, 0x00, 0x01, 0x00, 0x03, 0x61, 0x2F, 0x62, 0x00];
 
     // The PUBLISH upstream curl 8.21.0 sends for -d hi mqtt://…/a/b (ADR-0102, R14).
-    private static readonly byte[] CurlPublishHiToAB = [0x30, 0x07, 0x00, 0x03, 0x61, 0x2F, 0x62, 0x68, 0x69];
+    private static readonly byte[] RetainedPublishHiToAB = [0x31, 0x07, 0x00, 0x03, 0x61, 0x2F, 0x62, 0x68, 0x69];
 
     public TestContext TestContext { get; set; } = null!;
 
@@ -84,7 +84,7 @@ public sealed class MqttTopicAccessTests
     {
         var bus = BusGranting(new TopicAccessGrant("a/#", "ann", TopicAccessRights.Subscribe));
 
-        var (written, log) = await ServeAsync(bus, LoginAs("ann"), CurlPublishHiToAB, ClientPackets.Disconnect);
+        var (written, log) = await ServeAsync(bus, LoginAs("ann"), RetainedPublishHiToAB, ClientPackets.Disconnect);
 
         // R14: a QoS 0 publish waits for nothing, so CONNACK is all upstream curl sees (exit 0).
         CollectionAssert.AreEqual(ConnackAccepted, written);
@@ -109,7 +109,7 @@ public sealed class MqttTopicAccessTests
     {
         var bus = BusGranting(new TopicAccessGrant("a/#", "ann", TopicAccessRights.Publish));
 
-        var (written, log) = await ServeAsync(bus, LoginAs("ann"), CurlPublishHiToAB, ClientPackets.Disconnect);
+        var (written, log) = await ServeAsync(bus, LoginAs("ann"), RetainedPublishHiToAB, ClientPackets.Disconnect);
 
         CollectionAssert.AreEqual(ConnackAccepted, written);
         Assert.AreEqual("hi", Encoding.ASCII.GetString(RetainedAsAdministrator(bus, "a/b").Single().Value));

@@ -47,6 +47,7 @@
 - **Amended:** decision 3.7 by its own text (2026-11-06, BL-703, recording BL-634): the message bus
   files' byte formats and layout, which queues persist, how a log file is saved, and what a load and
   a failed write answer ("The message bus files").
+- **Amended:** decision 3.2 by [ADR-0177](ADR-0177-surl-keeps-the-canonical-topic-filter-rule-for-topic-and-topic-access-so-a-hash-may-stand-at-any-level.md) (2026-11-18, BL-1379): `--topic` and `--topic-access` keep `#` at any level; `--aihelp messages` says so.
 - **Builds on:** [ADR-0003](ADR-0003-upstream-curl-is-surls-only-oracle.md) (upstream curl is the
   only oracle), ADR-0006 (every store a peer can fill is bounded), ADR-0014 (the MQTT 3.1.1
   server), ADR-0031 decisions 5 to 7 (`.surl` is never served, persistence, the lock), ADR-0032

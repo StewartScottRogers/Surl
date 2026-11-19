@@ -289,9 +289,7 @@ public static partial class SurlServerComposition
         EventStreamAndFaultPlan instruments,
         CancellationToken cancellationToken)
     {
-        var dataDirectoryLock = commandLine.DataDirectory is { } dataDirectory
-            ? seams.TakeDataDirectoryLock(dataDirectory)
-            : DataDirectoryLockOutcome.NoLock;
+        var dataDirectoryLock = TakeEveryLock(commandLine, seams);
         if (dataDirectoryLock.FailureMessage is { } lockFailure)
         {
             return Refuse(dataDirectoryLock.ExitCode, lockFailure);
@@ -312,6 +310,52 @@ public static partial class SurlServerComposition
                 dataDirectoryLock.Holder?.Dispose();
             }
         }
+    }
+
+    // The --directory lock, then the lock of every share that is not read-only, in command-line order (ADR-0031 decision 7, BL-1380).
+    // The first refusal releases every lock taken before it; otherwise one holder releases them all.
+    private static DataDirectoryLockOutcome TakeEveryLock(
+        SurlCommandLine commandLine, SurlServerCompositionSeams seams)
+    {
+        var paths = new List<string>();
+        if (commandLine.DataDirectory is { } dataDirectory)
+        {
+            paths.Add(dataDirectory);
+        }
+
+        paths.AddRange(commandLine.Shares.Where(share => !share.IsReadOnly).Select(share => share.Path));
+        if (paths.Count == 0)
+        {
+            return DataDirectoryLockOutcome.NoLock;
+        }
+
+        var held = new List<IDisposable>();
+        foreach (var path in paths)
+        {
+            var outcome = seams.TakeDataDirectoryLock(path);
+            if (outcome.Holder is null)
+            {
+                ReleaseAll(held);
+                return outcome;
+            }
+
+            held.Add(outcome.Holder);
+        }
+
+        return DataDirectoryLockOutcome.Taken(new HeldLocks(held));
+    }
+
+    private static void ReleaseAll(List<IDisposable> held)
+    {
+        foreach (var holder in held)
+        {
+            holder.Dispose();
+        }
+    }
+
+    private sealed class HeldLocks(List<IDisposable> held) : IDisposable
+    {
+        public void Dispose() => ReleaseAll(held);
     }
 
     // A field, not a method group at the call: the compiler caches a method group in one static shared by every use of File.ReadAllBytes, so which use created it would decide this method's branch coverage (BL-1350).

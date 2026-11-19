@@ -273,6 +273,24 @@ public sealed partial class AiHelpTextTests
     }
 
     [TestMethod]
+    public void Answer_Content_SaysAWritableShareIsLockedAndAReadonlyOneIsNot()
+    {
+        var page = AiHelpText.Answer("content").Output;
+
+        StringAssert.Contains(page, "A share without `readonly` is locked as `--directory` is: surl holds `<path>/.surl/lock` on its folder while it runs");
+        StringAssert.Contains(page, "as its `--directory` or as a writable share exits 124, and a `readonly` share takes no lock.");
+    }
+
+    [TestMethod]
+    public void Answer_Messages_SaysWhichTopicFiltersAreAccepted()
+    {
+        var page = AiHelpText.Answer("messages").Output;
+
+        StringAssert.Contains(page, "`#` may stand at any level here, not only the last as in an MQTT `SUBSCRIBE`");
+        StringAssert.Contains(page, "`shop/#/orders` is accepted; `shop/a#` exits 2.");
+    }
+
+    [TestMethod]
     public void Answer_ExitCodes_ListsEverySurlExitCodeMember()
     {
         var page = AiHelpText.Answer("exit-codes").Output;
@@ -530,8 +548,8 @@ public sealed partial class AiHelpTextTests
             "| 58 | `CertificateProblem` | A secure listen URL has no certificate, or the --cert or --key file cannot be used "
                 + "| Give --cert and --key files that load, with --pass when the key needs one, or --self-signed in a test |",
             "| 77 | `CaCertificateBadFile` | The --cacert file cannot be read | Give a --cacert file that holds certificates |",
-            "| 124 | `DataDirectoryInUse` | Another surl holds the data directory "
-                + "| Stop the other surl, give another --directory, or serve in memory without --directory |",
+            "| 124 | `DataDirectoryInUse` | Another surl holds the data directory or the folder of a writable --share "
+                + "| Stop the other surl, give another --directory or share folder, mark the share ;readonly, or serve in memory without --directory |",
             "| 125 | `InternalError` | surl failed while serving "
                 + "| Report it with the command line and the stderr line: it is a defect in surl |",
             "",

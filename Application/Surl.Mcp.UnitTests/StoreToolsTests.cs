@@ -122,6 +122,21 @@ public sealed class StoreToolsTests
     }
 
     [TestMethod]
+    [DataRow("reports/b.txt")]
+    [DataRow("/../x.txt")]
+    public async Task PutFile_AtAPathNoRequestMayName_IsAnErrorNamingThePathAndTheReason(string path)
+    {
+        await using var host = await StartHostAsync("http://127.0.0.1:0");
+
+        var result = await CallAsync(host.PutFile, $$"""{"server_id": "s1", "path": "{{path}}", "text": "x"}""");
+
+        Assert.IsTrue(result.IsError);
+        var text = Assert.ContainsSingle(result.TextContent);
+        StringAssert.Contains(text, $"path {path} may not be named");
+        StringAssert.Contains(text, "not one a request may name");
+    }
+
+    [TestMethod]
     public async Task PublishMessage_RetainedOnATopic_IsDeliveredToAnMqttSubscriber()
     {
         await using var host = await StartHostAsync("mqtt://127.0.0.1:0", "--user", "alice:secret", "--allow-plaintext-auth");

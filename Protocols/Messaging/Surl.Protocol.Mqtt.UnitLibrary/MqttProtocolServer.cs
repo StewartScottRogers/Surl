@@ -4,24 +4,26 @@ namespace Surl.Protocol.Mqtt;
 
 /// <summary>
 /// The MQTT 3.1.1 server: accepts the <c>CONNECT</c> upstream curl sends, keeps the message
-/// of every <c>PUBLISH</c> (curl's <c>-d</c>) as its topic's retained message, and answers a
+/// of a <c>PUBLISH</c> with <c>RETAIN</c> set (or on a <c>--topic ...;retain</c> topic) as its topic's retained message, and answers a
 /// <c>SUBSCRIBE</c> (curl's plain fetch) with the retained messages its filters match.
-/// ADR-0014 records the answers.
+/// ADR-0014 records the answers, ADR-0176 the retention rule.
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>What a subscriber receives.</b> Every message published to the server is kept, per
-/// topic, whether or not its <c>RETAIN</c> flag was set: upstream curl 8.21.0 publishes with
-/// <c>RETAIN</c> clear, and without this a curl fetch after a curl publish would receive
-/// nothing. A later publish to the topic replaces it, and an empty payload removes it. The
+/// <b>What a subscriber receives.</b> A <c>PUBLISH</c> with <c>RETAIN</c> 1 is kept, per
+/// topic, replaces the topic's retained message, and with an empty payload removes it; one with
+/// <c>RETAIN</c> 0 (all upstream curl 8.21.0 sends, fixed header <c>0x30</c>) is delivered to live bus
+/// subscribers but is not kept and neither replaces nor removes a retained message (MQTT 3.1.1
+/// section 3.3.1.3, ADR-0176). A topic a <c>--topic &lt;filter&gt;;retain</c> declaration covers is kept
+/// whatever the flag says. The
 /// messages are kept by the <see cref="MessageBus.MessageBus"/> the server was given - one per
 /// process, so every connection it answers, over <c>mqtt</c> or <c>mqtts</c>, and every other
 /// messaging server on the bus shares them (ADR-0100, decision 3). A <c>SUBSCRIBE</c> is answered <c>SUBACK</c>,
 /// granting QoS 0 to each valid topic filter and failure (<c>0x80</c>) to each invalid one;
 /// then one QoS 0 <c>PUBLISH</c>, <c>RETAIN</c> set, for every kept message a valid filter
 /// matches, in ordinal order of topic; then <c>DISCONNECT</c>, and the connection is closed.
-/// The <c>DISCONNECT</c> is what makes upstream curl end its fetch and exit 0; a bare close
-/// makes it exit 56. A subscriber is never kept waiting for a future publish.
+/// The <c>DISCONNECT</c> (server to client, which section 3.14 does not define) is sent because upstream
+/// curl 8.21.0 ends its fetch and exits 0 on it and exits 56 on a bare close (ADR-0014, ADR-0176). A subscriber is never kept waiting for a future publish.
 /// </para>
 /// <para>
 /// <b>Connect.</b> The first packet must be <c>CONNECT</c>. <c>MQTT</c> at a level other
@@ -41,7 +43,7 @@ namespace Surl.Protocol.Mqtt;
 /// </para>
 /// <para>
 /// <b>Other packets.</b> A QoS 1 publish is answered <c>PUBACK</c>, a QoS 2 publish
-/// <c>PUBREC</c>, and <c>PUBREL</c> <c>PUBCOMP</c>; the message is kept on arrival, whatever
+/// <c>PUBREC</c>, and <c>PUBREL</c> <c>PUBCOMP</c>; the message is handled on arrival, whatever
 /// its QoS. <c>UNSUBSCRIBE</c> is answered <c>UNSUBACK</c>, <c>PINGREQ</c> <c>PINGRESP</c>,
 /// and <c>DISCONNECT</c> by closing the connection.
 /// </para>

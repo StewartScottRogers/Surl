@@ -264,3 +264,18 @@ use temporary directories.
 - `Documentation/Product/Requirements.md` gains FR-022 to FR-025.
 - A later service keeps its state under `<path>/.surl/<service>/` by decision 6's pattern:
   one whole-file write through a temporary name, loaded at start, a malformed file refused.
+
+## Amendment (2026-11-18, BL-1380): writable shares take the lock too
+
+Decided by Claude under Stewart's delegation.
+
+Decision 7's lock guarded only `--directory`, so `surl --directory site` and a second
+`surl --share keep=site --allow-uploads` both started over one folder, with two writers. Now,
+after the `--directory` lock, the start takes the same `<path>/.surl/lock`, through the same
+seam, on the path of every `--share` that is not `;readonly`, in command-line order. The first
+refusal ends the start with its exit code (124, or 23 when `.surl` cannot be created) and its
+text naming the path as given; every lock taken before it is released, and the rest are released
+when the `ComposedServing` is disposed.
+
+A read-only share writes nothing, so it takes no lock and still starts over a read-only folder.
+Nested folders across processes stay unguarded, as two `--directory` values are today.

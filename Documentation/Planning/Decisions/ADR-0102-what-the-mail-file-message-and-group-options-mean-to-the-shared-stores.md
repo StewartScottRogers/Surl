@@ -7,6 +7,7 @@
   real servers"): `surl` is configured as a real server, with mail domains, mailboxes, shares,
   topics and groups. That approval is his and is not reopened here; this ADR decides what each
   option means.
+- **Amended:** refusal list kept by [ADR-0177](ADR-0177-surl-keeps-the-canonical-topic-filter-rule-for-topic-and-topic-access-so-a-hash-may-stand-at-any-level.md) (BL-1379).
 - **Builds on:** [ADR-0100](ADR-0100-the-stores-synergetic-protocols-share-files-mail-the-message-bus-and-accounts.md)
   (BL-622: the shared stores and their three layer-2 seams, `IContentShareLookup`,
   `ITopicNameLookup` and the account extensions) and

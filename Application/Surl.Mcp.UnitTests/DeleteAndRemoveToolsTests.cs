@@ -37,6 +37,21 @@ public sealed class DeleteAndRemoveToolsTests
     }
 
     [TestMethod]
+    [DataRow("reports/b.txt")]
+    [DataRow("/../x.txt")]
+    public async Task DeleteFile_AtAPathNoRequestMayName_IsAnErrorNamingThePathAndTheReason(string path)
+    {
+        await using var host = await StartHostAsync("http://127.0.0.1:0");
+
+        var result = await CallAsync(host.DeleteFile, $$"""{"server_id": "s1", "path": "{{path}}"}""");
+
+        Assert.IsTrue(result.IsError);
+        var text = Assert.ContainsSingle(result.TextContent);
+        StringAssert.Contains(text, $"path {path} may not be named");
+        StringAssert.Contains(text, "not one a request may name");
+    }
+
+    [TestMethod]
     public async Task RemoveAccount_AfterAddAccount_MakesALoginFailAndNeverEchoesThePassword()
     {
         await using var host = await StartHostAsync("pop3://127.0.0.1:0", "--user", "alice:secret", "--allow-plaintext-auth");

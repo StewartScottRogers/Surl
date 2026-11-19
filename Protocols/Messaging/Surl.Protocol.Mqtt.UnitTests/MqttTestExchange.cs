@@ -45,12 +45,12 @@ internal static class MqttTestExchange
         return [firstByte, .. remainingLength, .. body];
     }
 
-    /// <summary>A <c>PUBLISH</c> to <c>t</c> of <paramref name="payloadBytes"/> bytes of <c>x</c>, at QoS 0 or, with a packet identifier of 1, QoS 1.</summary>
+    /// <summary>A <c>PUBLISH</c> with <c>RETAIN</c> set to <c>t</c> of <paramref name="payloadBytes"/> bytes of <c>x</c>, at QoS 0 or, with a packet identifier of 1, QoS 1.</summary>
     public static byte[] PublishOf(int payloadBytes, int qualityOfService = 0)
     {
         byte[] packetIdentifier = qualityOfService > 0 ? [0x00, 0x01] : [];
         byte[] body = [.. ClientPackets.String("t"), .. packetIdentifier, .. Enumerable.Repeat((byte)'x', payloadBytes)];
 
-        return LongPacket((byte)(0x30 | (qualityOfService << 1)), body);
+        return LongPacket((byte)(0x31 | (qualityOfService << 1)), body);
     }
 }

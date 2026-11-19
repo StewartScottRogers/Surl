@@ -25,7 +25,7 @@ public sealed class UpstreamCurlLogsInToSurlOverMqttTests
     public async Task PublishThenSubscribeOverMqtts_Account_SubscriberReceivesTheMessage()
     {
         using var accounts = await AccountsFile.WriteAsync(TestContext.CancellationToken);
-        await using var surl = await StartSurlAsync("mqtts", "--self-signed", "--user-file", accounts.Path);
+        await using var surl = await StartSurlAsync("mqtts", "--self-signed", "--topic", "t;retain", "--user-file", accounts.Path);
 
         var publish = await PinnedUpstreamCurl.RunAsync(TestContext, "-sS", "-k", "-u", Credentials, "-d", "x", TopicUrl(surl));
         var subscribe = await PinnedUpstreamCurl.RunAsync(TestContext, "-sS", "-k", "-u", Credentials, TopicUrl(surl));

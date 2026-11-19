@@ -33,6 +33,10 @@ archives hold the same server as a native binary that needs no .NET runtime.
   `no file at <path>` when nothing, a folder or a hidden path is there. `remove_account` takes a `user`
   (an account given at start too) and answers `{user}`; `server <id> has no account <user>` when it holds
   none. Neither needs a client permission (ADR-0161; tests in `DeleteAndRemoveToolsTests`).
+  `seed_mail` resolves its `to` as SMTP's `RCPT TO` does (ADR-0050 decision 5, ADR-0102 decision 1.1): without
+  a mail domain only the local part counts, matched exactly or else ignoring case, and the domain is ignored,
+  so `ALICE@example.com` and `alice@other.org` both deliver to account `alice`. With `--mail-domain`, its
+  routing applies and a recipient outside every domain is refused.
 - `set_key`, `add_ldap_entries`, `add_dns_zone` - seed the Redis keyspace, the LDAP directory and the DNS
   zones (ADR-0158). `set_key` takes a `key` and a `value` (UTF-8 text, or `key_base64` and `value_base64`;
   together at most 16 MiB), an optional `database` (0 to 15) and `expire_ms` (1 to 31536000000), and answers

@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Net;
+using System.Net.Sockets;
 using System.Runtime.ExceptionServices;
 using Surl.Protocol.Abstractions;
 
@@ -478,9 +479,17 @@ public sealed partial class ServingEngine
             (null or OperationCanceledException, { } reason) => (DescribeCancellation(exchangeId, reason), false),
             (null, null) => (null, false),
             (TlsHandshakeException handshakeFailure, _) => ($"TLS handshake failed: {handshakeFailure.Message}", false),
+            (IOException { InnerException: SocketException { SocketErrorCode: var closeCode } }, _)
+                when IsClientClose(closeCode) =>
+                ($"Exchange {exchangeId} ended: the client closed the connection ({closeCode}).", false),
             ({ } thrown, _) =>
                 ($"Exchange {exchangeId} ended because the protocol server threw {thrown.GetType().Name}: {thrown.Message}", true),
         };
+
+    // The socket errors a peer going away leaves behind, the same three AcceptFailureClassifier
+    // treats as a peer leaving; Shutdown is a broken pipe on Linux and macOS.
+    private static bool IsClientClose(SocketError code) =>
+        code is SocketError.ConnectionReset or SocketError.ConnectionAborted or SocketError.Shutdown;
 
     private string DescribeCancellation(long exchangeId, ExchangeCancellation cancellation) =>
         cancellation switch

@@ -32,6 +32,35 @@ public sealed class DataDirectoryLockTests
 
     [TestMethod]
     [TestCategory("Integration")]
+    [DataRow("--share", "keep=", "--directory", "", DisplayName = "share first, then --directory")]
+    [DataRow("--directory", "", "--share", "keep=", DisplayName = "--directory first, then share")]
+    public async Task ComposeAsync_AFolderHeldAsAWritableShareOrAsTheDirectory_RefusesTheOtherWith124(
+        string firstOption, string firstValue, string secondOption, string secondValue)
+    {
+        var directory = Directory.CreateTempSubdirectory("surl-lock-");
+        try
+        {
+            var seams = new StartTestSeams().Seams with { TakeDataDirectoryLock = DataDirectoryLock.Take };
+            var first = await SurlServerComposition.ComposeAsync(
+                StartTestSeams.Parse(firstOption, firstValue + directory.FullName, "http://127.0.0.1:0"), seams, TestContext.CancellationToken);
+            await using var serving = first.Serving!;
+
+            var second = await SurlServerComposition.ComposeAsync(
+                StartTestSeams.Parse(secondOption, secondValue + directory.FullName, "http://127.0.0.1:0"), seams, TestContext.CancellationToken);
+
+            Assert.IsNull(second.Serving);
+            Assert.AreEqual(SurlExitCode.DataDirectoryInUse, second.Failure!.ExitCode);
+        }
+        finally
+        {
+            directory.Delete(recursive: true);
+        }
+    }
+
+    public TestContext TestContext { get; set; } = null!;
+
+    [TestMethod]
+    [TestCategory("Integration")]
     public void Take_AfterTheFirstHolderIsDisposed_Succeeds()
     {
         var directory = Directory.CreateTempSubdirectory("surl-lock-");

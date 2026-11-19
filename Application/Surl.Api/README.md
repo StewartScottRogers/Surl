@@ -9,7 +9,7 @@ it needs is inside it.
 
 ```csharp
 using Surl.Api;
-using Surl.Protocol.Abstractions;   // SurlExitCode
+using Surl.Protocol.Abstractions;   // SurlExitCode, SurlEvent, StoreChangedEvent, StoreKind
 
 var options = new SurlServerOptions { ListenUrls = { "http://127.0.0.1:0" } };
 options.Files["hello.txt"] = "hello"u8.ToArray();
@@ -94,6 +94,10 @@ With `RecordExchanges` on, ask for the exchanges and events a test cares about w
 var delivered = await server.WaitForEventAsync(
     new SurlEventQuery { Scheme = "smtp", Kind = SurlEventKind.StoreChanged, Store = StoreKind.Mail, Account = "bob" },
     TimeSpan.FromSeconds(5));
+
+// WaitForEventAsync returns the base SurlEvent (in Surl.Protocol.Abstractions, as are
+// StoreChangedEvent and StoreKind); a StoreChangedEvent's path, mailbox, topic, queue, key or account is its Name.
+var path = delivered is StoreChangedEvent changed ? changed.Name : null;   // or ((StoreChangedEvent)delivered).Name
 
 var ftpLogins = server.FindExchanges(new SurlEventQuery { Scheme = "ftp", Account = "alice" });
 var faults = server.FindEvents(new SurlEventQuery { Kind = SurlEventKind.FaultApplied });
@@ -228,6 +232,12 @@ await server.Messages.EnqueueAsync("jobs", "job 1"u8.ToArray());   // the queue 
 server.Accounts.Add("bob", "builder");                              // Remove("bob") takes it away
 ```
 
+`Mail.DeliverAsync` finds its recipient as SMTP's `RCPT TO` does. Under `AllowAnonymous` every valid
+recipient goes to the one anonymous mailbox set. Otherwise, with no `MailDomains`, only the local part
+counts and the domain is ignored: an account is matched exactly, or else as the one account equal
+ignoring case, so `ALICE@example.com` and `alice@other.org` both reach account `alice`. With a mail
+domain, the routing of ADR-0102 decision 1.1 applies.
+
 The Redis keyspace, the LDAP directory and the DNS zones have their own members (ADR-0158):
 
 ```csharp
@@ -294,7 +304,7 @@ An absent owner, mailbox, UID, file, folder, queue, log or key throws `SurlNotFo
 1 to 1000, a bad UID, position or offset, an item past 16 MiB, or a path a request may not name throws
 `SurlReadRefusedException`. A read never sets a flag, consumes or acknowledges a queued message, publishes an
 event or consults a fault rule, and it works with `DataDirectory`. The `.surl` state folder is not served.
-Flags are IMAP names (`Seen`). `SurlEventQuery.Name`, above, finds the change that put it there.
+Flags are IMAP system flags with their backslash, as RFC 9051 writes them (`\Seen`). `SurlEventQuery.Name`, above, finds the change that put it there.
 
 ## Your own protocol server
 
