@@ -402,7 +402,7 @@ url = imap://127.0.0.1:1143/
 url = http://127.0.0.1:8080/
 url = mqtt://127.0.0.1:1883/
 mail-domain = example.com
-mailbox = ann@example.com:secret
+mailbox = ann@example.com:secret;protocols=smtp,imap,pop3,http
 share = docs=site/docs;readonly
 share-access = docs=ann@example.com:r
 topic = shop/#;retain
@@ -413,9 +413,13 @@ topic-access = shop/#=ann@example.com:pubsub
 surl -K surl.cfg
 ```
 
-This file was run with `surl -v -K surl.cfg` on 2026-11-12, with `site/docs` an existing
+This file, without the mailbox's `;protocols=smtp,imap,pop3,http` (added on 2026-11-18 and not
+run since), was run with `surl -v -K surl.cfg` on 2026-11-12, with `site/docs` an existing
 directory: surl noted the mail domain, the mailbox (logins on `smtp`, `imap` and `pop3`),
-the share and the topic, then listened on all four URLs. `ann@example.com` logs in with the
+the share and the topic, then listened on all four URLs. A mailbox's account logs in only on the
+schemes its `protocols=` names (the mail schemes when it gives none), so `protocols=` names `http` here: without it
+nobody could read `docs` over HTTP, `ann@example.com` included
+([ADR-0102](Documentation/Planning/Decisions/ADR-0102-what-the-mail-file-message-and-group-options-mean-to-the-shared-stores.md) decision 1.4). `ann@example.com` logs in with the
 user name `ann@example.com` (`curl -u ann@example.com:secret imap://127.0.0.1:1143/`). With a
 mail domain set, mail to an address at another domain is refused `550 5.7.1 Relaying denied`.
 Because `docs` has a `--share-access`, it is closed to everyone not named, anonymous callers

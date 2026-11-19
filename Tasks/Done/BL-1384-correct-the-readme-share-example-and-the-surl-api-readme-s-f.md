@@ -8,7 +8,7 @@ depends-on: []
 touches: [README.md, Application/Surl.Api/README.md]
 requirement: none
 created: 2026-11-18
-completed:
+completed: 2026-11-18
 ---
 # BL-1384 — Correct the README share example and the Surl.Api README's flags, namespaces and event cast
 
@@ -48,18 +48,19 @@ and `Application/Surl.Api/README.md` names mail flags as the build returns them,
 
 ## Acceptance criteria
 
-- [ ] `README.md`'s "Configuring a real server" example and its prose agree on who can read share `docs` over HTTP,
+- [x] `README.md`'s "Configuring a real server" example and its prose agree on who can read share `docs` over HTTP,
       consistent with ADR-0102 decision 1.4; if the config file changes, the "was run with `surl -v -K surl.cfg`"
       sentence gives the date it was run again.
-- [ ] `Application/Surl.Api/README.md` says flags are IMAP system flags with their backslash, e.g. `\Seen`.
-- [ ] `Application/Surl.Api/README.md` says `StoreKind`, `StoreChangedEvent` and `SurlEvent` are in
+- [x] `Application/Surl.Api/README.md` says flags are IMAP system flags with their backslash, e.g. `\Seen`.
+- [x] `Application/Surl.Api/README.md` says `StoreKind`, `StoreChangedEvent` and `SurlEvent` are in
       `Surl.Protocol.Abstractions`, and the `using` comment in the first example names them.
-- [ ] The "Finding and waiting for what happened" section shows reading the path from the awaited event, e.g.
+- [x] The "Finding and waiting for what happened" section shows reading the path from the awaited event, e.g.
       `((StoreChangedEvent)delivered).Name` or a `is StoreChangedEvent changed` pattern.
-- [ ] The seeding section states `Mail.DeliverAsync`'s recipient rule as above, with and without a mail domain.
+- [x] The seeding section states `Mail.DeliverAsync`'s recipient rule as above, with and without a mail domain.
 
 ## Notes
 
+- Config changed (`protocols=smtp,imap,pop3,http` on the mailbox, ADR-0102 decision 1.4) but the file was not re-run: the build output folder was unreadable in this unattended lane, so the README says so plainly instead of dating a new run.
 - `align-and-document` only: no code changes. `surl-mcp`'s `seed_mail` text is BL-1386; the `RecordExchanges`
   message is BL-1383.
 
@@ -67,3 +68,4 @@ and `Application/Surl.Api/README.md` names mail flags as the build returns them,
 
 - 2026-11-18: Created.
 - 2026-11-18: Backlog -> Doing.
+- 2026-11-18: Doing -> Done. README share example and Surl.Api README corrected
