@@ -8,7 +8,7 @@ depends-on: []
 touches: [Protocols/Http/Surl.Protocol.Http.UnitLibrary, Protocols/Http/Surl.Protocol.Http.UnitTests, Application/Surl.Cli.UnitLibrary/AiHelpProse.cs, Documentation/Planning/Decisions]
 requirement: none
 created: 2026-11-19
-completed:
+completed: 2026-11-19
 ---
 # BL-1393 — Decide whether an HTTP server with no account answers POST, DELETE and PATCH 401 or 405, and align the server and --aihelp http
 
@@ -31,23 +31,25 @@ and the order of the login check and the method check is recorded in an ADR.
 
 ## Acceptance criteria
 
-- [ ] An ADR in `Documentation/Planning/Decisions` ("Decided by Claude under Stewart's delegation") fixes the order:
+- [x] An ADR in `Documentation/Planning/Decisions` ("Decided by Claude under Stewart's delegation") fixes the order:
       login check before or after the method check, for a server with and without accounts, and with
       `--allow-anonymous`.
-- [ ] The HTTP server and the `--aihelp http` paragraph agree with the ADR, in the same diff; any `AiHelpExamples`
+- [x] The HTTP server and the `--aihelp http` paragraph agree with the ADR, in the same diff; any `AiHelpExamples`
       entry showing a refused method is updated, and
       `CommandLineRunnerAiHelpTests.RunAsync_EveryAiHelpExample_WritesWhatTheExampleShows` stays green.
-- [ ] Named fast tests in `Surl.Protocol.Http.UnitTests` pin POST, DELETE and PATCH on a server without
+- [x] Named fast tests in `Surl.Protocol.Http.UnitTests` pin POST, DELETE and PATCH on a server without
       `--allow-anonymous` (status and, for 405, the `Allow` header; for 401, the challenge).
-- [ ] Named fast tests pin the same three methods under `--allow-anonymous` without `--allow-uploads` (405 with
+- [x] Named fast tests pin the same three methods under `--allow-anonymous` without `--allow-uploads` (405 with
       `Allow: GET, HEAD` expected unless the ADR says otherwise).
-- [ ] `dotnet build` clean, fast tests green, coverage gates held.
+- [x] `dotnet build` clean, fast tests green, coverage gates held.
 
 ## Notes
 
 - Default leaning: keep 401 first (secure by default) and correct the help.
+- Decided (ADR-0180): login before method, as ADR-0032 s4 already had it; server unchanged, help corrected, tests in HttpMethodLoginOrderTests. Not measured against curl: no bytes changed.
 
 ## Log
 
 - 2026-11-19: Created.
 - 2026-11-19: Backlog -> Doing.
+- 2026-11-19: Doing -> Done. HTTP login-before-method order recorded in ADR-0180, aihelp http corrected, 401/405 tests pin POST/DELETE/PATCH
