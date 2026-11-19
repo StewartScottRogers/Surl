@@ -81,3 +81,4 @@ curl user, a `Surl.Api` test and a `surl-mcp` agent leave a retained message for
 ## Log
 
 - 2026-11-18: Created.
+- 2026-11-18: Backlog -> Doing.
