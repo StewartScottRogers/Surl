@@ -55,3 +55,4 @@ ADR-0114 decision 3 says a login accepted unchecked under `--allow-anonymous` bi
 ## Log
 
 - 2026-11-19: Created.
+- 2026-11-19: Backlog -> Doing.
