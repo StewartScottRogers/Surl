@@ -66,6 +66,30 @@ public sealed class ServerTlsCompositionTests
     }
 
     [TestMethod]
+    public void FindListenUrlWithoutCertificate_XmppWithNoCertificateAndNoLoosening_IsTheXmppListenUrl()
+    {
+        Assert.AreEqual(
+            new ListenUrl("xmpp", "127.0.0.1", 0),
+            ServerTlsComposition.FindListenUrlWithoutCertificate(ParseWithXmpp("--user", "alice:s3cret", "xmpp://127.0.0.1:0/")));
+    }
+
+    [TestMethod]
+    [DataRow("--allow-plaintext-auth")]
+    [DataRow("--allow-anonymous")]
+    [DataRow("--self-signed")]
+    public void FindListenUrlWithoutCertificate_XmppWithALooseningOrACertificate_IsNull(string option)
+    {
+        Assert.IsNull(ServerTlsComposition.FindListenUrlWithoutCertificate(ParseWithXmpp("--user", "alice:s3cret", option, "xmpp://127.0.0.1:0/")));
+    }
+
+    [TestMethod]
+    public void FindListenUrlWithoutCertificate_XmppUnderTlsSrp_IsNull()
+    {
+        Assert.IsNull(ServerTlsComposition.FindListenUrlWithoutCertificate(
+            ParseWithXmpp("--tlsuser", "u", "--tlspassword", "p", "xmpp://127.0.0.1:0/")));
+    }
+
+    [TestMethod]
     public void Compose_Amqp1WithSelfSigned_ServesAThrowawayCertificateForItsTlsHeader()
     {
         using var composition = ServerTlsComposition.Compose(ParseWithAmqp1("--self-signed", "amqp1://127.0.0.1:0/"), TimeProvider.System);
@@ -457,6 +481,9 @@ public sealed class ServerTlsCompositionTests
 
     private static SurlCommandLine ParseWithNats(params string[] args) =>
         CommandLineParser.Parse(args, ["nats", "natss"]).CommandLine ?? throw new AssertFailedException("The command line was refused.");
+
+    private static SurlCommandLine ParseWithXmpp(params string[] args) =>
+        CommandLineParser.Parse(args, ["xmpp"]).CommandLine ?? throw new AssertFailedException("The command line was refused.");
 
     private static SurlCommandLine ParseWithAmqp1(params string[] args) =>
         CommandLineParser.Parse(args, ["amqp1", "amqp1s"]).CommandLine ?? throw new AssertFailedException("The command line was refused.");

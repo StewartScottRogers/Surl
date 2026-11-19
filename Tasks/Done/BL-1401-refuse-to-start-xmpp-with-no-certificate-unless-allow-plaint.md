@@ -8,7 +8,7 @@ depends-on: []
 touches: [Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests, Application/Surl.Console.UnitTests]
 requirement: none
 created: 2026-11-19
-completed:
+completed: 2026-11-19
 ---
 # BL-1401 — Refuse to start xmpp with no certificate unless --allow-plaintext-auth or --allow-anonymous is given
 
@@ -47,14 +47,14 @@ completed:
 
 ## Acceptance criteria
 
-- [ ] A failing test first: a `ServerTlsCompositionTests` test shows `FindListenUrlWithoutCertificate` returns the
+- [x] A failing test first: a `ServerTlsCompositionTests` test shows `FindListenUrlWithoutCertificate` returns the
       `xmpp` listen URL for `--user alice:s3cret xmpp://127.0.0.1:0/`.
-- [ ] `ServerTlsCompositionTests` show it returns `null` for `xmpp` with `--allow-plaintext-auth`, with
+- [x] `ServerTlsCompositionTests` show it returns `null` for `xmpp` with `--allow-plaintext-auth`, with
       `--allow-anonymous`, with `--self-signed`, and under TLS-SRP.
-- [ ] A `SurlServerCompositionTests` (or `CommandLineRunnerExtendedProtocolTests`) test pins exit 58 and the line
+- [x] A `SurlServerCompositionTests` (or `CommandLineRunnerExtendedProtocolTests`) test pins exit 58 and the line
       `(58) xmpp://127.0.0.1:0/ needs a certificate: give --cert <file>, or --self-signed for a throwaway one`.
-- [ ] The two existing tests named in Context pass `--allow-anonymous` and stay green.
-- [ ] `dotnet build -warnaserror` is clean, `dotnet test --filter "TestCategory!=Integration"` is green, and
+- [x] The two existing tests named in Context pass `--allow-anonymous` and stay green.
+- [x] `dotnet build -warnaserror` is clean, `dotnet test --filter "TestCategory!=Integration"` is green, and
       `Surl.Composition.UnitLibrary` stays at 100% line and branch coverage.
 
 ## Notes
@@ -66,3 +66,4 @@ completed:
 
 - 2026-11-19: Created.
 - 2026-11-19: Backlog -> Doing.
+- 2026-11-19: Doing -> Done. xmpp with no certificate and no --allow-plaintext-auth/--allow-anonymous now refused at start (58)

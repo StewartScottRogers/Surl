@@ -517,7 +517,7 @@ public sealed class CommandLineRunnerExtendedProtocolTests
     }
 
     [TestMethod]
-    [DataRow("xmpp", new string[0], 5222)]
+    [DataRow("xmpp", new[] { "--allow-anonymous" }, 5222)]
     [DataRow("xmpps", new[] { "--self-signed" }, 5223)]
     public async Task RunAsync_XmppSchemeWithTheSwitchUnset_ListensAtItsDefaultPort(string scheme, string[] options, int port)
     {
@@ -534,6 +534,19 @@ public sealed class CommandLineRunnerExtendedProtocolTests
 
         Assert.AreEqual(SurlExitCode.Ok, exitCode);
         Assert.AreEqual(new ListenUrl(scheme, "127.0.0.1", port), factory.StartedListenUrls.Single());
+    }
+
+    [TestMethod]
+    public async Task RunAsync_XmppSchemeWithNoCertificateAndNoLoosening_ExitsWithTheMissingCertificateCode()
+    {
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+        var runner = CreateRunner(new FakeListenerFactory(), FakeEnvironmentVariableReader.Empty, composeExtendedProtocolServers: null);
+
+        var exitCode = await runner.RunAsync(["--user", "alice:s3cret", "xmpp://127.0.0.1:0/"], output, error, TestContext.CancellationToken);
+
+        Assert.AreEqual(SurlExitCode.CertificateProblem, exitCode);
+        StringAssert.Contains(error.ToString(), "(58) xmpp://127.0.0.1:0/ needs a certificate: give --cert <file>, or --self-signed for a throwaway one");
     }
 
     [TestMethod]
