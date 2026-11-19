@@ -47,3 +47,4 @@ passes reliably on both the osx-arm64 and osx-x64 published-binary conformance j
 ## Log
 
 - 2026-11-18: Created.
+- 2026-11-18: Backlog -> Doing.
