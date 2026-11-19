@@ -730,7 +730,7 @@ public sealed class CommandLineRunnerExtendedProtocolTests
 
         Assert.AreEqual(SurlExitCode.CertificateProblem, exitCode);
         Assert.AreEqual(
-            "surl: (58) coaps://127.0.0.1:0/ needs a certificate: give --cert <file>, or --self-signed for a throwaway one" + NewLine,
+            "surl: (58) coaps://127.0.0.1:0/ needs a certificate or an account: give --cert <file>, --self-signed for a throwaway one, or --user <name:key> for a pre-shared key" + NewLine,
             error.ToString());
     }
 

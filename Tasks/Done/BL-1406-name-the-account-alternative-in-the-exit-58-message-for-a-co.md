@@ -8,7 +8,7 @@ depends-on: []
 touches: [Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests, Application/Surl.Console.UnitTests]
 requirement: none
 created: 2026-11-19
-completed:
+completed: 2026-11-19
 ---
 # BL-1406 — Name the account alternative in the exit-58 message for a coaps listen URL
 
@@ -43,11 +43,11 @@ out, a certificate or an account for a pre-shared key, as `surl --aihelp coap` a
 
 ## Acceptance criteria
 
-- [ ] A failing test first: a `Surl.Composition.UnitTests` test pins `FormatMissingCertificate` for
+- [x] A failing test first: a `Surl.Composition.UnitTests` test pins `FormatMissingCertificate` for
       `new ListenUrl("coaps", "127.0.0.1", 0)` as the new text, naming `--cert`, `--self-signed` and `--user`.
-- [ ] A test pins that `https`, `xmpps` and `webtransport` still get today's text unchanged.
-- [ ] `CommandLineRunnerExtendedProtocolTests.cs:720` expects the new `coaps` line and passes.
-- [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and `Surl.Composition.UnitLibrary` stays at
+- [x] A test pins that `https`, `xmpps` and `webtransport` still get today's text unchanged.
+- [x] `CommandLineRunnerExtendedProtocolTests.cs:720` expects the new `coaps` line and passes.
+- [x] `dotnet build -warnaserror` is clean, the fast tests are green, and `Surl.Composition.UnitLibrary` stays at
       100% line and branch coverage.
 
 ## Notes
@@ -59,3 +59,4 @@ out, a certificate or an account for a pre-shared key, as `surl --aihelp coap` a
 
 - 2026-11-19: Created.
 - 2026-11-19: Backlog -> Doing.
+- 2026-11-19: Doing -> Done. coaps exit-58 message names the --user alternative

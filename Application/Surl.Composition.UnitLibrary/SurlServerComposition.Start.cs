@@ -114,7 +114,14 @@ public static partial class SurlServerComposition
     public static string FormatMissingCertificate(ListenUrl listenUrl)
     {
         ArgumentNullException.ThrowIfNull(listenUrl);
-        return $"(58) {ListenerStatusLine.FormatBoundListenUrl(listenUrl with { BoundPort = listenUrl.Port })} needs a certificate: "
+        var url = ListenerStatusLine.FormatBoundListenUrl(listenUrl with { BoundPort = listenUrl.Port });
+        if (string.Equals(listenUrl.Scheme, "coaps", StringComparison.Ordinal))
+        {
+            return $"(58) {url} needs a certificate or an account: "
+                + "give --cert <file>, --self-signed for a throwaway one, or --user <name:key> for a pre-shared key";
+        }
+
+        return $"(58) {url} needs a certificate: "
             + "give --cert <file>, or --self-signed for a throwaway one";
     }
 
