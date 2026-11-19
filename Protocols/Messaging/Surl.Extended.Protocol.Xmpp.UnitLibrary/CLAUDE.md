@@ -70,7 +70,7 @@ SASL and resource binding (BL-538, ADR-0114 decisions 3 and 4):
   (`encryption-required` before TLS included) is answered, then ends it with `policy-violation`.
   `<response/>` or `<abort/>` with no exchange under way is `policy-violation`.
 - `XmppJids` makes the bare JID: `name@<stream domain>`, a `local@domain` account only on the
-  stream's domain, `anon-` and 16 random hex digits for a login accepted unchecked; a name that is
+  stream's domain, `anon-` and 16 random hex digits for `ANONYMOUS` and for a login accepted unchecked whose first message named no authcid (an unchecked PLAIN or SCRAM login that named one binds as `<authcid>@<domain>` by the same rules, BL-1400); a name that is
   not an RFC 7622 localpart is `not-authorized`. After `<success/>` a new `XmppStreamReader` reads
   the restarted stream, whose features are `<bind/>` alone.
 - `XmppResourceBinding` answers the logged-in stream's stanzas: an IQ with no `id` or an unknown

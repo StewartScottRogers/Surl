@@ -8,7 +8,7 @@ depends-on: [BL-1399]
 touches: [Protocols/Messaging/Surl.Extended.Protocol.Xmpp.UnitLibrary, Protocols/Messaging/Surl.Extended.Protocol.Xmpp.UnitTests]
 requirement: none
 created: 2026-11-19
-completed:
+completed: 2026-11-19
 ---
 # BL-1400 — Bind an XMPP login accepted unchecked under --allow-anonymous to the JID of the name it gave
 
@@ -43,14 +43,14 @@ reach it; only `ANONYMOUS` gets an `anon-` name.
 
 ## Acceptance criteria
 
-- [ ] A failing test first: an `XmppSaslLogin` test with a policy answering `AcceptedUnchecked` for `PLAIN`
+- [x] A failing test first: an `XmppSaslLogin` test with a policy answering `AcceptedUnchecked` for `PLAIN`
       `\0alice\0anything` sets `BareJid` to `alice@<domain>`.
-- [ ] The same for a SCRAM-SHA-256 client-first `n,,n=alice,r=...` accepted unchecked.
-- [ ] Tests: an unchecked login named `alice@other.example` on stream domain `example.com`, or named `a b`, is
+- [x] The same for a SCRAM-SHA-256 client-first `n,,n=alice,r=...` accepted unchecked.
+- [x] Tests: an unchecked login named `alice@other.example` on stream domain `example.com`, or named `a b`, is
       `not-authorized`; `ANONYMOUS` and an unchecked `PLAIN` with an empty authcid still get `anon-<16 hex>`.
-- [ ] A checked login (`Accepted`, account name from the policy) binds exactly as before (an existing test stays
+- [x] A checked login (`Accepted`, account name from the policy) binds exactly as before (an existing test stays
       green unchanged).
-- [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and the library stays at 100% line and branch
+- [x] `dotnet build -warnaserror` is clean, the fast tests are green, and the library stays at 100% line and branch
       coverage.
 
 ## Notes
@@ -63,3 +63,4 @@ reach it; only `ANONYMOUS` gets an `anon-` name.
 
 - 2026-11-19: Created.
 - 2026-11-19: Backlog -> Doing.
+- 2026-11-19: Doing -> Done. XMPP unchecked PLAIN/SCRAM login binds to the authcid it named

@@ -25,7 +25,8 @@ internal static class XmppJids
     /// <summary>
     /// The bare JID a login gives the stream: <c>&lt;name&gt;@&lt;domain&gt;</c> for an account name
     /// without <c>@</c>; the account name itself when it is <c>&lt;local&gt;@&lt;domain&gt;</c> on the
-    /// stream's domain; a new <c>anon-</c> name when no account was named (a login accepted unchecked).
+    /// stream's domain; a new <c>anon-</c> name when no name is given at all (<c>ANONYMOUS</c>, or a login accepted
+    /// unchecked whose first message named no authcid); a login accepted unchecked that named one is passed in as its account name.
     /// </summary>
     /// <param name="accountName">The account the login was accepted as, or <see langword="null"/> when accepted unchecked.</param>
     /// <param name="domain">The stream's domain.</param>
