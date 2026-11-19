@@ -232,6 +232,10 @@ await server.Messages.EnqueueAsync("jobs", "job 1"u8.ToArray());   // the queue 
 server.Accounts.Add("bob", "builder");                              // Remove("bob") takes it away
 ```
 
+`Accounts.Remove` of the last account leaves the server needing no login, as `surl` with no `--user` needs none:
+it stays allowed, `Accounts.HasAccounts` turns `false` and `surl: warning: no account left; the server now needs no login`
+goes to `Log`; `Accounts.Add` closes it again.
+
 `Mail.DeliverAsync` finds its recipient as SMTP's `RCPT TO` does. Under `AllowAnonymous` every valid
 recipient goes to the one anonymous mailbox set. Otherwise, with no `MailDomains`, only the local part
 counts and the domain is ignored: an account is matched exactly, or else as the one account equal

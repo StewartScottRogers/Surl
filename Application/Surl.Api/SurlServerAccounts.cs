@@ -12,7 +12,13 @@ public sealed class SurlServerAccounts
 {
     private readonly ComposedStores stores;
 
-    internal SurlServerAccounts(ComposedStores stores) => this.stores = stores;
+    private readonly TextWriter log;
+
+    internal SurlServerAccounts(ComposedStores stores, TextWriter log)
+    {
+        this.stores = stores;
+        this.log = log;
+    }
 
     /// <summary>
     /// Adds an account that may log in on every scheme, as <see cref="SurlServerOptions.Accounts"/> does at start.
@@ -41,12 +47,30 @@ public sealed class SurlServerAccounts
     /// <see cref="Protocol.Abstractions.StoreChangedEvent"/> with
     /// <see cref="Protocol.Abstractions.StoreChange.AccountRemoved"/> when there was one.
     /// </summary>
+    /// <remarks>
+    /// Removing the last account leaves the server needing no login, as <c>surl</c> with no <c>--user</c> needs none,
+    /// so the next unauthenticated request is served. That stays allowed; <see cref="HasAccounts"/> turns
+    /// <see langword="false"/> and a line <c>surl: warning: no account left; the server now needs no login</c> goes to
+    /// <see cref="SurlServerOptions.Log"/> (shown at every log level that shows warnings, which is all of them).
+    /// <see cref="Add"/> closes it again.
+    /// </remarks>
     /// <param name="userName">The user name.</param>
     /// <returns><see langword="true"/> when an account had that name.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="userName"/> is null.</exception>
     public bool Remove(string userName)
     {
         ArgumentNullException.ThrowIfNull(userName);
-        return stores.RemoveAccount(userName);
+        var isRemoved = stores.RemoveAccount(userName);
+        if (isRemoved && !HasAccounts)
+        {
+            log.WriteLine("surl: warning: no account left; the server now needs no login");
+        }
+
+        return isRemoved;
     }
+
+    /// <summary>
+    /// Whether an account is left. <see langword="false"/> means the server needs no login.
+    /// </summary>
+    public bool HasAccounts => stores.HasAccounts;
 }

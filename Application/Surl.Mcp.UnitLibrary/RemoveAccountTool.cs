@@ -5,7 +5,7 @@ namespace Surl.Mcp;
 
 /// <summary>
 /// The <c>remove_account</c> tool (ADR-0161 decision 1): removes an account, one given at start included, through
-/// <c>Surl.Api</c>'s <c>SurlServer.Accounts.Remove</c>. Result <c>{"user"}</c>, never anything about the password; an
+/// <c>Surl.Api</c>'s <c>SurlServer.Accounts.Remove</c>. Result <c>{"user"}</c>, never anything about the password, with a <c>warning</c> member and a second text block when it was the last account and the server now needs no login; an
 /// account the server does not have is an <c>isError</c> result.
 /// </summary>
 public static class RemoveAccountTool
@@ -16,7 +16,8 @@ public static class RemoveAccountTool
     /// <summary>The tool's description.</summary>
     internal const string Description =
         "Remove an account from a running Surl server, one given at start included, so a login with it fails from "
-        + "its next login on. Undoes add_account.";
+        + "its next login on. Undoes add_account. Removing the last account leaves the server needing no login, so "
+        + "anyone may then connect; the result then carries a warning, and add_account closes the server again.";
 
     /// <summary>The tool's input schema.</summary>
     internal const string InputSchema = """
@@ -42,8 +43,23 @@ public static class RemoveAccountTool
     private static McpToolResult Remove(RunningSurlServer running, JsonElement arguments)
     {
         var user = arguments.GetProperty("user").GetString()!;
-        return running.Server.Accounts.Remove(user)
-            ? ToolResults.FromObject(writer => writer.WriteString("user", user))
-            : McpToolResult.FromFailure($"server {running.ServerId} has no account {user}");
+        var accounts = running.Server.Accounts;
+        if (!accounts.Remove(user))
+        {
+            return McpToolResult.FromFailure($"server {running.ServerId} has no account {user}");
+        }
+
+        if (accounts.HasAccounts)
+        {
+            return ToolResults.FromObject(writer => writer.WriteString("user", user));
+        }
+
+        var warning = $"server {running.ServerId} has no account left and now needs no login";
+        var opened = ToolResults.FromObject(writer =>
+        {
+            writer.WriteString("user", user);
+            writer.WriteString("warning", warning);
+        });
+        return new McpToolResult([.. opened.TextContent, warning], opened.StructuredContent);
     }
 }

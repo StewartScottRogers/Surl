@@ -66,6 +66,30 @@ public sealed class DeleteAndRemoveToolsTests
     }
 
     [TestMethod]
+    public async Task RemoveAccount_TheLastAccount_AnswersSuccessWithAWarningThatTheServerNeedsNoLogin()
+    {
+        await using var host = await StartHostAsync("pop3://127.0.0.1:0", "--user", "alice:secret", "--allow-plaintext-auth");
+
+        var result = await CallAsync(host.RemoveAccount, """{"server_id": "s1", "user": "alice"}""");
+
+        Assert.IsFalse(result.IsError);
+        Assert.AreEqual(2, result.TextContent.Count);
+        Assert.AreEqual("server s1 has no account left and now needs no login", result.TextContent[1]);
+        StringAssert.Contains(result.TextContent[0], "\"warning\"");
+    }
+
+    [TestMethod]
+    public async Task RemoveAccount_AnAccountWhileAnotherRemains_KeepsTheAnswerWithoutAWarning()
+    {
+        await using var host = await StartHostAsync("pop3://127.0.0.1:0", "--user", "alice:secret", "--allow-plaintext-auth");
+        await CallAsync(host.AddAccount, """{"server_id": "s1", "user": "bob", "password": "pw"}""");
+
+        var result = await CallAsync(host.RemoveAccount, """{"server_id": "s1", "user": "bob"}""");
+
+        StoreToolsTests.AssertResult(result, """{"user":"bob"}""");
+    }
+
+    [TestMethod]
     public async Task RemoveAccount_UnknownAccount_IsAnErrorNamingTheServerAndUser()
     {
         await using var host = await StartHostAsync("pop3://127.0.0.1:0", "--user", "alice:secret", "--allow-plaintext-auth");

@@ -5,10 +5,10 @@ priority: Normal
 assignee: Claude
 pipeline: feature
 depends-on: []
-touches: [Application/Surl.Mcp.UnitLibrary, Application/Surl.Mcp.UnitTests, Application/Surl.Api, Application/Surl.Api.UnitTests]
+touches: [Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests, Application/Surl.Mcp.UnitLibrary, Application/Surl.Mcp.UnitTests, Application/Surl.Api, Application/Surl.Api.UnitTests]
 requirement: none
 created: 2026-11-19
-completed:
+completed: 2026-11-19
 ---
 # BL-1391 — Warn when remove_account or SurlServerAccounts.Remove leaves a server with no account and so open to anyone
 
@@ -30,14 +30,14 @@ login-only stand-in turning open silently.
 
 ## Acceptance criteria
 
-- [ ] `remove_account` removing the last account answers success with an added line naming the server and saying it
+- [x] `remove_account` removing the last account answers success with an added line naming the server and saying it
       now needs no login (e.g. `server s1 has no account left and now needs no login`); a named test in
       `Surl.Mcp.UnitTests` pins it, and removing a non-last account keeps today's answer.
-- [ ] The `remove_account` tool description says removing the last account opens the server.
-- [ ] `Surl.Api`: the same fact is observable - the instance's event stream or log records the server becoming open,
+- [x] The `remove_account` tool description says removing the last account opens the server.
+- [x] `Surl.Api`: the same fact is observable - the instance's event stream or log records the server becoming open,
       and the `Remove` XML doc and the `Surl.Api` README say so; a named test in `Surl.Api.UnitTests` pins it.
       `Remove`'s signature does not change.
-- [ ] `dotnet build` clean, fast tests green, coverage gates held.
+- [x] `dotnet build` clean, fast tests green, coverage gates held.
 
 ## Notes
 
@@ -47,3 +47,10 @@ login-only stand-in turning open silently.
 
 - 2026-11-19: Created.
 - 2026-11-19: Backlog -> Doing.
+
+## Notes (run)
+
+- Added `Application/Surl.Composition.UnitLibrary` and its tests to `touches`: `ComposedStores.HasAccounts` (public) was the only way for `Surl.Api` to read whether an account is left; no other Doing task touches Composition.
+- Api observability: `SurlServerAccounts.HasAccounts` plus a `surl: warning: no account left; the server now needs no login` line to `SurlServerOptions.Log` (the `AccountRemoved` store event already exists on the stream). `Remove`'s signature is unchanged.
+- MCP: result keeps `{user}` and gains `warning` plus a second text block only for the last account.
+- 2026-11-19: Doing -> Done. remove_account and SurlServerAccounts.Remove warn when the last account goes
