@@ -8,7 +8,7 @@ depends-on: []
 touches: [Documentation/Planning/Decisions]
 requirement: none
 created: 2026-11-18
-completed:
+completed: 2026-11-18
 ---
 # BL-1376 — Decide whether the MQTT 3.1.1 server keeps a RETAIN 0 publish as the topic's retained message
 
@@ -52,18 +52,18 @@ curl user, a `Surl.Api` test and a `surl-mcp` agent leave a retained message for
 
 ## Acceptance criteria
 
-- [ ] A new ADR under `Documentation/Planning/Decisions/` (next free number), marked "Decided by Claude under
+- [x] A new ADR under `Documentation/Planning/Decisions/` (next free number), marked "Decided by Claude under
       Stewart's delegation", decides whether a RETAIN 0 `PUBLISH` is kept as retained, and whether it replaces or
       removes an existing retained message, citing MQTT 3.1.1 section 3.3.1.3 and `lib/mqtt.c` at `curl-8_21_0`
       line 588.
-- [ ] The ADR says how each of a curl user, a `Surl.Api` test and a `surl-mcp` agent leaves a retained message
+- [x] The ADR says how each of a curl user, a `Surl.Api` test and a `surl-mcp` agent leaves a retained message
       that `curl mqtt://host/<topic>` then receives, naming `--topic <filter>;retain`, `Messages.PublishAsync(...,
       retain: true)` and `publish_message` with `retain` where they apply.
-- [ ] The ADR keeps or changes ADR-0014 decision 2's server-sent `DISCONNECT`, citing ADR-0014's measured exit
+- [x] The ADR keeps or changes ADR-0014 decision 2's server-sent `DISCONNECT`, citing ADR-0014's measured exit
       codes (56 for a bare close, 0 for `DISCONNECT`) and `lib/mqtt.c` lines 858-864 and 919-921.
-- [ ] ADR-0014 carries a "Superseded in part" line pointing to the new ADR for each decision it changes, and
+- [x] ADR-0014 carries a "Superseded in part" line pointing to the new ADR for each decision it changes, and
       `Documentation/Planning/Decisions/README.md` lists the new ADR.
-- [ ] The ADR lists the work it leaves for BL-1377 (server, unit tests, `--aihelp mqtt` sentence, the fixture in
+- [x] The ADR lists the work it leaves for BL-1377 (server, unit tests, `--aihelp mqtt` sentence, the fixture in
       `SurlServerCompositionTests.MessageBus.cs`) and for BL-1378 (the MQTT `Integration` tests), so neither needs
       a question.
 
@@ -77,8 +77,10 @@ curl user, a `Surl.Api` test and a `surl-mcp` agent leave a retained message for
 - The Surly cookbook's MQTT recipes depend on today's behaviour and will need `--topic ...;retain` if it changes;
   that book is outside this repository.
 - No code, no help text: a decision record only.
+- Decided in ADR-0176: follow section 3.3.1.3 (RETAIN 0 not retained), seed via `;retain`, `PublishAsync(retain: true)`, `publish_message`; keep the server-sent DISCONNECT.
 
 ## Log
 
 - 2026-11-18: Created.
 - 2026-11-18: Backlog -> Doing.
+- 2026-11-18: Doing -> Done. ADR-0176 decides MQTT RETAIN 0 is not retained, keeps the server DISCONNECT; ADR-0014 and README updated
