@@ -64,3 +64,4 @@ accepting it as a canonical filter and says so in `--aihelp messages`.
 ## Log
 
 - 2026-11-18: Created.
+- 2026-11-18: Backlog -> Doing.
