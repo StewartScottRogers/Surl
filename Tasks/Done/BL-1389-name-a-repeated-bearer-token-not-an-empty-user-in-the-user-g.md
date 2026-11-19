@@ -8,7 +8,7 @@ depends-on: []
 touches: [Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests]
 requirement: none
 created: 2026-11-19
-completed:
+completed: 2026-11-19
 ---
 # BL-1389 — Name a repeated Bearer token, not an empty user, in the --user given-twice refusal
 
@@ -26,16 +26,19 @@ completed:
 
 ## Acceptance criteria
 
-- [ ] An empty user name given twice exits 2 (exit code unchanged) with
+- [x] An empty user name given twice exits 2 (exit code unchanged) with
       `surl: option --user: a Bearer token (empty user name) is given twice`; no token value is shown.
-- [ ] A non-empty name given twice keeps today's `user <name> is given twice`.
-- [ ] Named fast tests in `Surl.Cli.UnitTests` pin both messages.
-- [ ] Any `AiHelpProse` sentence naming this refusal mentions the token form.
-- [ ] `dotnet build` clean, fast tests green, `Surl.Cli` stays 100/100.
+- [x] A non-empty name given twice keeps today's `user <name> is given twice`.
+- [x] Named fast tests in `Surl.Cli.UnitTests` pin both messages.
+- [x] Any `AiHelpProse` sentence naming this refusal mentions the token form.
+- [x] `dotnet build` clean, fast tests green, `Surl.Cli` stays 100/100.
 
 ## Notes
+
+Only the --user (account) refusal changed; the authorized-keys user name is never empty (split at the first colon of user:file). Doc-comment: the AiHelpProse sentence states the message in prose because a test pins every quoted `surl:` line.
 
 ## Log
 
 - 2026-11-19: Created.
 - 2026-11-19: Backlog -> Doing.
+- 2026-11-19: Doing -> Done. Bearer token repeat now named in the --user given-twice refusal

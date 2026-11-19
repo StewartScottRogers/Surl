@@ -906,7 +906,9 @@ public static class CommandLineParser
         ?? RefuseContentCombination(reading)
         ?? RefuseMessagingCombination(reading);
 
-    private static string UserGivenTwice(string userName) => $"user {userName} is given twice";
+    private static string UserGivenTwice(string userName) => userName.Length == 0
+        ? "a Bearer token (empty user name) is given twice"
+        : $"user {userName} is given twice";
 
     /// <summary>
     /// Refuses <c>--throwaway-hostkey</c> left on with any <c>--hostkey</c> (ADR-0051 decision 4);
