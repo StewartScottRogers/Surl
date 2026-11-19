@@ -8,7 +8,7 @@ depends-on: []
 touches: [Conformance/Surl.Conformance.UnitTests/UpstreamCurlAgreesWeakSshAlgorithmsWithSurlTests.cs, Conformance/Surl.Conformance.UnitTests/SshLogNotes.cs]
 requirement: none
 created: 2026-11-18
-completed:
+completed: 2026-11-18
 ---
 # BL-1375 — Make the macOS weak-cipher conformance test wait for surl's negotiated-algorithms log note
 
@@ -31,20 +31,23 @@ passes reliably on both the osx-arm64 and osx-x64 published-binary conformance j
 
 ## Acceptance criteria
 
-- [ ] The test waits (bounded, e.g. up to 10 s, polling the log through the injected or test-side clock - no
+- [x] The test waits (bounded, e.g. up to 10 s, polling the log through the injected or test-side clock - no
       `Thread.Sleep`; `Task.Delay` in test code is fine) until a `SSH negotiated` note appears before asserting
       on it, or fails with the log in the message after the bound.
-- [ ] The same wait is applied to the other `NegotiatedAlgorithms(surl)` assertions in that file, through one
+- [x] The same wait is applied to the other `NegotiatedAlgorithms(surl)` assertions in that file, through one
       shared helper, so none of them reads the log once.
-- [ ] Assertions are unchanged otherwise (exit code, empty stdout, `cipher <c>/<c>,`).
-- [ ] `dotnet build` is clean and the fast tests are green.
+- [x] Assertions are unchanged otherwise (exit code, empty stdout, `cipher <c>/<c>,`).
+- [x] `dotnet build` is clean and the fast tests are green.
 
 ## Notes
 
 - The test is `OSCondition(OSX)` and an integration-style conformance test, so a Windows lane cannot run it; the
   change must be correct by reading. The next Release run proves it.
 
+- 2026-11-18: Added NegotiatedAlgorithmsAsync, polling up to 10 s (Task.Delay, 100 ms) and failing with the log; all three assertions use it. Built clean, 1049 fast tests green; macOS path unrunnable on Windows.
+
 ## Log
 
 - 2026-11-18: Created.
 - 2026-11-18: Backlog -> Doing.
+- 2026-11-18: Doing -> Done. Weak-cipher test now waits for the negotiated-algorithms note

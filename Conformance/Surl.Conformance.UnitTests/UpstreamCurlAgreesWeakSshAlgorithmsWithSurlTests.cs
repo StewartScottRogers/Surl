@@ -60,7 +60,7 @@ public sealed class UpstreamCurlAgreesWeakSshAlgorithmsWithSurlTests
 
         Assert.AreEqual(0, result.ExitCode, result.StandardError);
         CollectionAssert.AreEqual(HelloWorld, result.StandardOutput);
-        StringAssert.Contains(NegotiatedAlgorithms(surl), $"cipher {cipher}/{cipher},");
+        StringAssert.Contains(await NegotiatedAlgorithmsAsync(surl), $"cipher {cipher}/{cipher},");
     }
 
     // The macOS pin (stunnel/static-curl's osx-arm64 build) offers both ciphers and agrees them
@@ -78,7 +78,7 @@ public sealed class UpstreamCurlAgreesWeakSshAlgorithmsWithSurlTests
 
         Assert.AreEqual(KilledBySegmentationFault, result.ExitCode, result.StandardError);
         Assert.IsEmpty(result.StandardOutput);
-        StringAssert.Contains(NegotiatedAlgorithms(surl), $"cipher {cipher}/{cipher},");
+        StringAssert.Contains(await NegotiatedAlgorithmsAsync(surl), $"cipher {cipher}/{cipher},");
     }
 
     [TestMethod]
@@ -92,12 +92,26 @@ public sealed class UpstreamCurlAgreesWeakSshAlgorithmsWithSurlTests
 
         Assert.AreEqual(0, result.ExitCode, result.StandardError);
         CollectionAssert.AreEqual(HelloWorld, result.StandardOutput);
-        StringAssert.Contains(NegotiatedAlgorithms(surl), $"MAC {mac}/{mac},");
+        StringAssert.Contains(await NegotiatedAlgorithmsAsync(surl), $"MAC {mac}/{mac},");
     }
 
-    private string NegotiatedAlgorithms(SurlOnLoopback surl)
+    // curl can exit (or crash) just after NEWKEYS while surl is still writing its "SSH negotiated"
+    // note, so poll the log until the note appears, for at most ten seconds (BL-1375).
+    private async Task<string> NegotiatedAlgorithmsAsync(SurlOnLoopback surl)
     {
+        var deadline = TimeProvider.System.GetUtcNow() + TimeSpan.FromSeconds(10);
         var notes = string.Join('\n', SshLogNotes.NegotiatedAlgorithms(surl.Log));
+        while (notes.Length == 0 && TimeProvider.System.GetUtcNow() < deadline)
+        {
+            await Task.Delay(TimeSpan.FromMilliseconds(100), TestContext.CancellationToken);
+            notes = string.Join('\n', SshLogNotes.NegotiatedAlgorithms(surl.Log));
+        }
+
+        if (notes.Length == 0)
+        {
+            Assert.Fail($"surl logged no 'SSH negotiated' note within 10 seconds. surl's log:\n{surl.Log}");
+        }
+
         TestContext.WriteLine($"surl negotiated with {UpstreamCurlLocator.CurrentPlatform}'s OpenSSL build: {notes}");
         return notes;
     }
