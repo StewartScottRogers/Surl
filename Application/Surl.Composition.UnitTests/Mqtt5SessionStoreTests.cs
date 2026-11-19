@@ -109,7 +109,7 @@ public sealed class Mqtt5SessionStoreTests
             new[] { (StoreKind.Sessions, StoreChange.Reset), (StoreKind.Sessions, StoreChange.Reset), (StoreKind.Sessions, StoreChange.Reset), (StoreKind.Sessions, StoreChange.Restored), (StoreKind.Sessions, StoreChange.Restored), (StoreKind.Sessions, StoreChange.Restored) },
             changes.Select(change => (change.Store, change.Change)).ToArray());
         CollectionAssert.AreEqual(
-            new[] { StoreKind.Content, StoreKind.Mail, StoreKind.Bus, StoreKind.Accounts, StoreKind.Keyspace, StoreKind.Directory, StoreKind.Exchanges, StoreKind.Producers, StoreKind.Sessions, StoreKind.Zones, StoreKind.Uploads },
+            new[] { StoreKind.Content, StoreKind.Mail, StoreKind.Bus, StoreKind.Accounts, StoreKind.Exchanges, StoreKind.Producers, StoreKind.Sessions, StoreKind.Uploads },
             running.Stores.RegisteredStoreOrder.ToArray());
     }
 
@@ -120,7 +120,7 @@ public sealed class Mqtt5SessionStoreTests
             StartTestSeams.Parse("--allow-anonymous", "http://127.0.0.1:0/"), new StartTestSeams().Seams, TestContext.CancellationToken);
         await using var serving = start.Serving!;
 
-        CollectionAssert.AreEqual((StoreKind[])[.. ComposedStores.StoreOrder, StoreKind.Directory], serving.Stores.RegisteredStoreOrder.ToArray());
+        CollectionAssert.AreEqual((StoreKind[])[.. ComposedStores.StoreOrder], serving.Stores.RegisteredStoreOrder.ToArray());
     }
 
     [TestMethod]

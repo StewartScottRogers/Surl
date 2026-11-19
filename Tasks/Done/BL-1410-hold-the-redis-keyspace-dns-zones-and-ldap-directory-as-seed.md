@@ -5,10 +5,10 @@ priority: Normal
 assignee: Claude
 pipeline: feature
 depends-on: [BL-1404]
-touches: [Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests]
+touches: [Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests, Application/Surl.Api.UnitTests, Application/Surl.Mcp.UnitTests]
 requirement: none
 created: 2026-11-19
-completed:
+completed: 2026-11-19
 ---
 # BL-1410 — Hold the Redis keyspace, DNS zones and LDAP directory as seedable stores only when a listen URL serves them
 
@@ -40,14 +40,14 @@ states, through every host alike.
 
 ## Acceptance criteria
 
-- [ ] A failing test first: a start with only `http://127.0.0.1:0/` and extensions on gets `ComposedStores` whose
+- [x] A failing test first: a start with only `http://127.0.0.1:0/` and extensions on gets `ComposedStores` whose
       `SeedKeyAsync` throws `InvalidOperationException`, and the same start with `redis://127.0.0.1:0/` added seeds.
-- [ ] The same pair of tests for `SeedZoneAsync` (with and without `dns://127.0.0.1:0/`).
-- [ ] The directory is held as BL-1404 states for an instance with and without an `ldap` listen URL, pinned by a
+- [x] The same pair of tests for `SeedZoneAsync` (with and without `dns://127.0.0.1:0/`).
+- [x] The directory is held as BL-1404 states for an instance with and without an `ldap` listen URL, pinned by a
       test.
-- [ ] A test pins `ComposedStores.StoreOrder` (or the whole-instance reset's stores) for an HTTP-only instance and
+- [x] A test pins `ComposedStores.StoreOrder` (or the whole-instance reset's stores) for an HTTP-only instance and
       for one serving `redis` and `dns`.
-- [ ] Existing tests that seed a key, zone or directory on an instance with no such listen URL get the listen URL
+- [x] Existing tests that seed a key, zone or directory on an instance with no such listen URL get the listen URL
       added; `dotnet build -warnaserror` is clean, the fast tests are green, and `Surl.Composition.UnitLibrary`
       stays at 100% line and branch coverage.
 
@@ -58,8 +58,11 @@ states, through every host alike.
   so neither project should need a change; the Composition seed and read tests (`RedisKeyspaceStoreTests`,
   `DnsZoneStoreTests`, `LdapDirectoryStoreTests`, `ComposedStores*ReadTests`, `ComposedControlTarget*Tests`) are the
   ones to check.
+- Done 2026-11-19: SurlServerComposition.ComposeStores (extracted to keep ComposeUnderTheLockAsync under complexity 10) holds the keyspace, zones and directory, and registers their stores, only when served.ListenUrls has edis/ediss, dns, ldap/ldaps. New ServedStoresTests pins seed refusal, seed success and RegisteredStoreOrder. Nine existing store-order assertions lost the unserved stores.
+- 	ouches grew by Surl.Api.UnitTests and Surl.Mcp.UnitTests (no task in Doing names them): one test each asserted that an instance with no LDAP listener reads an empty directory; ADR-0158 Amendment 1 says it answers NotFound, so both now pin that. No decision beyond the ADR, so no new ADR.
 
 ## Log
 
 - 2026-11-19: Created.
 - 2026-11-19: Backlog -> Doing.
+- 2026-11-19: Doing -> Done. Stores held only when a listen URL serves them

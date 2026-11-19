@@ -459,30 +459,46 @@ public static partial class SurlServerComposition
         {
             ListenUrls = [.. commandLine.ListenUrls, .. seams.AdditionalProtocolServers.SelectMany(additional => additional.ListenUrls)],
         };
-        // Every store a test seeds, resets, snapshots and restores, behind one surface (ADR-0124, decision 3).
-        var stores = new ComposedStores(
-            contentStore,
-            loaded.State.ObjectMetadataIndex,
-            loaded.State.MailStore,
-            loaded.State.MessageBus,
-            authentication.Policy.Settings.Accounts,
-            additionalRegistrations: [.. ControlledRedisKeyspace(servers, services), LdapDirectoryStoreRegistration.For(loaded.State.LdapServer), .. ControlledBrokerStores(servers, instruments.Events), .. ControlledDnsZones(servers, loaded.State.DnsZones), .. ControlledUploads(servers, contentStore, instruments.Events)],
-            ldapServer: loaded.State.LdapServer,
-            redisKeyspace: servers.OfType<RedisServer>().Any() ? services.RedisKeyspace : null,
-            dnsZones: IsDnsComposed(servers) ? loaded.State.DnsZones : null,
-            proxyAccounts: (authentication.ProxyPolicy as Surl.Authentication.AuthenticationPolicy)?.Settings.Accounts,
-            events: instruments.Events);
+        var stores = ComposeStores(served, servers, loaded.State, contentStore, authentication, services, instruments);
         return ComposeServing(served, seams, servers, stores, authentication, instruments, services.QuicCertificate, dataDirectoryLock);
     }
 
+
+    // Every store a test seeds, resets, snapshots and restores, behind one surface (ADR-0124, decision 3). The keyspace, the
+    // zones and the directory exist only when a listen URL serves them (ADR-0158 Amendment 1, BL-1410).
+    private static ComposedStores ComposeStores(
+        SurlCommandLine served,
+        IProtocolServer[] servers,
+        ServiceState state,
+        ContentStore contentStore,
+        ComposedAuthentication authentication,
+        ComposedProtocolServices services,
+        EventStreamAndFaultPlan instruments)
+    {
+        var redis = ControlledRedisKeyspace(servers, ServesScheme(served, "redis", "rediss"), services);
+        var dns = ControlledDnsZones(servers, ServesScheme(served, "dns"), state.DnsZones);
+        var ldap = ServesScheme(served, "ldap", "ldaps") ? state.LdapServer : null;
+        return new ComposedStores(
+            contentStore,
+            state.ObjectMetadataIndex,
+            state.MailStore,
+            state.MessageBus,
+            authentication.Policy.Settings.Accounts,
+            additionalRegistrations: [.. redis, .. (ldap is null ? new List<ComposedStoreRegistration>() : [LdapDirectoryStoreRegistration.For(ldap)]), .. ControlledBrokerStores(servers, instruments.Events), .. dns, .. ControlledUploads(servers, contentStore, instruments.Events)],
+            ldapServer: ldap,
+            redisKeyspace: redis.Count > 0 ? services.RedisKeyspace : null,
+            dnsZones: dns.Count > 0 ? state.DnsZones : null,
+            proxyAccounts: (authentication.ProxyPolicy as Surl.Authentication.AuthenticationPolicy)?.Settings.Accounts,
+            events: instruments.Events);
+    }
     // The Redis keyspace joins the order after the accounts when a redis server is composed (ADR-0158 decision 5); with
     // SURL_EXTENSIONS=0 there is no server and so no store.
-    private static List<ComposedStoreRegistration> ControlledRedisKeyspace(IProtocolServer[] servers, ComposedProtocolServices services) =>
-        servers.OfType<RedisServer>().Any() ? [RedisKeyspaceStoreRegistration.For(services.RedisKeyspace)] : [];
+    private static List<ComposedStoreRegistration> ControlledRedisKeyspace(IProtocolServer[] servers, bool isServed, ComposedProtocolServices services) =>
+        isServed && servers.OfType<RedisServer>().Any() ? [RedisKeyspaceStoreRegistration.For(services.RedisKeyspace)] : [];
 
     // The DNS zones join the order after the broker stores (BL-1165: the exchanges already follow the directory) when a dns server is composed (ADR-0158 decision 5).
-    private static List<ComposedStoreRegistration> ControlledDnsZones(IProtocolServer[] servers, DnsZoneSet zones) =>
-        IsDnsComposed(servers) ? [DnsZoneStoreRegistration.For(zones)] : [];
+    private static List<ComposedStoreRegistration> ControlledDnsZones(IProtocolServer[] servers, bool isServed, DnsZoneSet zones) =>
+        isServed && IsDnsComposed(servers) ? [DnsZoneStoreRegistration.For(zones)] : [];
 
     // The open uploads the composed object servers hold (ADR-0167 decision 3), after the content their temporary files live in.
     private static List<ComposedStoreRegistration> ControlledUploads(IProtocolServer[] servers, ContentStore content, SurlEventStream events) =>
@@ -494,6 +510,9 @@ public static partial class SurlServerComposition
                 GcsStagedUploadStoreRegistration.For([.. servers.OfType<GoogleCloudStorageProtocolServer>()], content, events),
                 OciUploadStoreRegistration.For([.. servers.OfType<OciRegistryProtocolServer>()], content, events)),
         }.OfType<ComposedStoreRegistration>()];
+
+    private static bool ServesScheme(SurlCommandLine commandLine, params string[] schemes) =>
+        commandLine.ListenUrls.Any(url => schemes.Contains(url.Scheme));
 
     private static bool IsDnsComposed(IProtocolServer[] servers) =>
         servers.OfType<DnsDatagramRoutingProtocolServer>().Any() || servers.OfType<DnsConnectionRoutingProtocolServer>().Any();

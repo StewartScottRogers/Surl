@@ -66,7 +66,7 @@ public sealed class DnsZoneStoreTests
         Assert.AreEqual(0, afterRestore[5] & 0x0F);
         CollectionAssert.AreEqual(new byte[] { 192, 0, 2, 1 }, afterRestore[^4..]);
         CollectionAssert.AreEqual(
-            new[] { StoreKind.Content, StoreKind.Mail, StoreKind.Bus, StoreKind.Accounts, StoreKind.Keyspace, StoreKind.Directory, StoreKind.Exchanges, StoreKind.Producers, StoreKind.Sessions, StoreKind.Zones, StoreKind.Uploads },
+            new[] { StoreKind.Content, StoreKind.Mail, StoreKind.Bus, StoreKind.Accounts, StoreKind.Exchanges, StoreKind.Producers, StoreKind.Sessions, StoreKind.Zones, StoreKind.Uploads },
             running.Stores.RegisteredStoreOrder.ToArray());
     }
 
