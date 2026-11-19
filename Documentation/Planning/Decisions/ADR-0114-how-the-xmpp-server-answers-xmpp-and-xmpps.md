@@ -358,3 +358,9 @@ Decided by Claude under Stewart's delegation.
   stream error `conflict`; an eleventh resource is an IQ error `resource-constraint` of type `wait`.
 - The login deadline is twice `--head-timeout` from accept, ended when a resource is bound;
   with no head timeout there is no deadline.
+
+## Amendment, 2026-11-19 (BL-1402)
+
+Decided by Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions").
+
+[ADR-0179](ADR-0179-kafka-and-xmpp-offer-scram-without-auth-naming-it.md) confirms decision 3: with an account and no `--auth`, `xmpp` (after STARTTLS) and `xmpps` offer `SCRAM-SHA-256`, `SCRAM-SHA-1` and `PLAIN`. The default lives in the composition per scheme; `--auth` replaces it.

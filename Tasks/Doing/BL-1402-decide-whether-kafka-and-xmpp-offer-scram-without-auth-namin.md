@@ -59,21 +59,20 @@ given, and amends ADR-0105 decision 5, ADR-0114 decision 3 and ADR-0125 decision
 
 ## Acceptance criteria
 
-- [ ] A new ADR under `Documentation/Planning/Decisions/` (the next free number, listed in that folder's
+- [x] A new ADR under `Documentation/Planning/Decisions/` (the next free number, listed in that folder's
       `README.md`), marked "Decided by Claude under Stewart's delegation", states which mechanisms `kafka`, `kafkas`,
       `xmpp` and `xmpps` offer with an account and no `--auth`, on each TLS state, and where in the code the default
       lives.
-- [ ] It weighs the points in Context, the `CRAM-MD5` precedent included, and records the rejected alternative.
-- [ ] ADR-0105 decision 5, ADR-0114 decision 3 and ADR-0125 decision 9 each gain an amendment note pointing to it, so
+- [x] It weighs the points in Context, the `CRAM-MD5` precedent included, and records the rejected alternative.
+- [x] ADR-0105 decision 5, ADR-0114 decision 3 and ADR-0125 decision 9 each gain an amendment note pointing to it, so
       no two of them contradict.
-- [ ] The ADR gives the exact sentence `surl --aihelp kafka` and `surl --aihelp xmpp` should state about mechanisms,
+- [x] The ADR gives the exact sentence `surl --aihelp kafka` and `surl --aihelp xmpp` should state about mechanisms,
       for BL-1403 to apply.
-- [ ] No `.cs` file changes.
+- [x] No `.cs` file changes.
 
 ## Notes
 
-- BL-1403 implements the outcome. If the ADR keeps SCRAM behind `--auth`, add a Log line to BL-1403 saying so, so
-  its run reduces to the help sentence.
+- Decision: ADR-0179. SCRAM is offered by default on kafka/kafkas/xmpp/xmpps through a per-scheme default in the composition (not DefaultAccepted). BL-1403 implements it (code plus the two help sentences in ADR-0179 decision 6).
 
 ## Log
 

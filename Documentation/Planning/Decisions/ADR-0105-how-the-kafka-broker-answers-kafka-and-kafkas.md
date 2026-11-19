@@ -431,3 +431,9 @@ BL-763 recorded them here, because BL-452 held this folder when BL-520 finished:
   `session_epoch` is not checked.
 - **ListOffsets** answers `timestamp` -1 for the -2 (earliest) and -1 (latest) queries, and
   `leader_epoch` 0 on success.
+
+## Amendment, 2026-11-19 (BL-1402)
+
+Decided by Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions").
+
+[ADR-0179](ADR-0179-kafka-and-xmpp-offer-scram-without-auth-naming-it.md) confirms decision 5: with an account and no `--auth`, `kafka://` offers `SCRAM-SHA-256` and `SCRAM-SHA-512`, and `kafkas://` also `PLAIN`. The default lives in the composition per scheme, not in `DefaultAccepted`; `--auth` replaces it.
