@@ -111,6 +111,12 @@ public sealed class ComposedServing : IAsyncDisposable
     internal IReadOnlyList<IProtocolServer> Servers => servers;
 
     /// <summary>
+    /// The public part of the throwaway certificate <c>--self-signed</c> made, as PEM (never its key), or
+    /// <see langword="null"/> when no certificate was made.
+    /// </summary>
+    public string? ThrowawayCertificatePem => tls.ThrowawayCertificatePem;
+
+    /// <summary>
     /// The SHA-256 fingerprint of the throwaway certificate <c>--self-signed</c> made, or none when
     /// no certificate was made.
     /// </summary>

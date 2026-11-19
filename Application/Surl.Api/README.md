@@ -45,6 +45,14 @@ var exitCode = await server.StopAsync();   // SurlExitCode.Ok
   | `Faults` (`SurlFault`, in order) | `--fault <item>`, once each |
   | `ControlListenUrl`, `ControlTokenFile` | `--control`, `--control-token-file` |
 
+- With `SelfSigned`, `SurlServer.SelfSignedCertificatePem` is the public certificate the server made (PEM, never
+  its key; `null` otherwise), so a test pins it and keeps verification on. Each server has its own:
+
+  ```csharp
+  var pinned = X509Certificate2.CreateFromPem(server.SelfSignedCertificatePem!);
+  // trust only `pinned`: X509Chain with CustomRootTrust and pinned in CustomTrustStore
+  ```
+
 - Nothing is looser than `surl`: with only a listen URL and an account, anonymous logins,
   plaintext authentication and uploads are all off. Each loosening is a property named for its
   option, and each writes `surl`'s start-up warning to `Log`.
@@ -231,6 +239,10 @@ await server.Messages.PublishAsync("sensors/1", "21.5"u8.ToArray(), retain: true
 await server.Messages.EnqueueAsync("jobs", "job 1"u8.ToArray());   // the queue must already exist
 server.Accounts.Add("bob", "builder");                              // Remove("bob") takes it away
 ```
+
+`Accounts.Remove` of the last account leaves the server needing no login, as `surl` with no `--user` needs none:
+it stays allowed, `Accounts.HasAccounts` turns `false` and `surl: warning: no account left; the server now needs no login`
+goes to `Log`; `Accounts.Add` closes it again.
 
 `Mail.DeliverAsync` finds its recipient as SMTP's `RCPT TO` does. Under `AllowAnonymous` every valid
 recipient goes to the one anonymous mailbox set. Otherwise, with no `MailDomains`, only the local part

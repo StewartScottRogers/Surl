@@ -48,7 +48,7 @@ public sealed class SurlServer : IAsyncDisposable
         Keys = new SurlServerKeys(composedServing.Stores, ThrowIfStopped);
         Directory = new SurlServerDirectory(composedServing.Stores, ThrowIfStopped);
         Zones = new SurlServerZones(composedServing.Stores, ThrowIfStopped);
-        Accounts = new SurlServerAccounts(composedServing.Stores);
+        Accounts = new SurlServerAccounts(composedServing.Stores, instruments.Log);
         ProxyAccounts = new SurlServerProxyAccounts(composedServing.Stores);
         TlsSrpAccounts = new SurlServerTlsSrpAccounts(composedServing.Stores);
         stopping = new Lazy<Task<SurlExitCode>>(StopServingAsync);
@@ -261,6 +261,14 @@ public sealed class SurlServer : IAsyncDisposable
     /// </summary>
     public Uri? ControlUrl => composedServing.ControlListenUrl is { } url ? ToUri(url) : null;
 
+    /// <summary>
+    /// The public certificate the server made for <see cref="SurlServerOptions.SelfSigned"/>, as PEM, so a test can
+    /// trust exactly it and keep TLS verification on; the private key is never exposed. <see langword="null"/>
+    /// when the server made none: <see cref="SurlServerOptions.SelfSigned"/> is off, a certificate file is
+    /// served instead, or no listen URL needs TLS. Each server has its own certificate.
+    /// </summary>
+    public string? SelfSignedCertificatePem => composedServing.ThrowawayCertificatePem;
+
     /// <summary>The first of <see cref="BoundUrls"/>.</summary>
     public Uri BoundUrl => BoundUrls[0];
 
@@ -370,7 +378,7 @@ public sealed class SurlServer : IAsyncDisposable
                 stop,
                 serving,
                 custom.InOrderGiven([.. bound.Task.Result.Select(ToUri)]),
-                new ServerInstruments(record, custom, timeProvider, options.HookTimeLimit));
+                new ServerInstruments(record, custom, timeProvider, options.HookTimeLimit, log));
         }
 
         // Serving ended before every listener bound: cancelled, or a bind failure (45 or 6).
@@ -411,7 +419,7 @@ public sealed class SurlServer : IAsyncDisposable
 
     // What a started server observes and controls with, beside what it serves.
     private sealed record ServerInstruments(
-        ExchangeRecordSubscriber? Record, CustomProtocolServers Custom, TimeProvider TimeProvider, TimeSpan HookTimeLimit);
+        ExchangeRecordSubscriber? Record, CustomProtocolServers Custom, TimeProvider TimeProvider, TimeSpan HookTimeLimit, TextWriter Log);
 
     private async Task<SurlExitCode> StopServingAsync()
     {

@@ -457,7 +457,7 @@ public sealed class CommandLineParserTests
     [DataRow(new[] { "--user", "alice:a", "--user", "alice:b" }, "option --user: user alice is given twice", DisplayName = "--user twice")]
     [DataRow(new[] { "--user", "alice:a", "-u", "alice:b" }, "option -u: user alice is given twice", DisplayName = "Named by the repeat's own form")]
     [DataRow(new[] { "-ubob:b", "-ualice:a", "--user=alice:a" }, "option --user: user alice is given twice", DisplayName = "The same account twice")]
-    [DataRow(new[] { "-u", ":t1", "-u", ":t2" }, "option -u: user  is given twice", DisplayName = "The empty name twice")]
+    [DataRow(new[] { "-u", ":t1", "-u", ":t2" }, "option -u: a Bearer token (empty user name) is given twice", DisplayName = "The empty name twice names a Bearer token")]
     public void Parse_UserNameGivenTwice_IsRefused(string[] arguments, string message) =>
         AssertOptionRefused([.. arguments, Url], message);
 

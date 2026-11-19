@@ -22,6 +22,7 @@ public sealed class ServerTlsComposition : IDisposable
 
     private ServerTlsComposition(
         ServerTlsSettings? settings, string? throwawayCertificateFingerprint, QuicServerCertificate? quicCertificate, IReadOnlyList<IDisposable> owned,
+        string? throwawayCertificatePem = null,
         IReadOnlyList<X509Certificate2>? clientTrustAnchors = null, IReadOnlyList<string>? srpGroupIndexesOutsideRfc5054 = null)
     {
         ClientTrustAnchors = clientTrustAnchors ?? [];
@@ -29,6 +30,7 @@ public sealed class ServerTlsComposition : IDisposable
         Settings = settings;
         QuicCertificate = quicCertificate;
         ThrowawayCertificateFingerprint = throwawayCertificateFingerprint;
+        ThrowawayCertificatePem = throwawayCertificatePem;
         this.owned = owned;
     }
 
@@ -65,6 +67,12 @@ public sealed class ServerTlsComposition : IDisposable
     /// note; <see langword="null"/> when <c>--cert</c> was given or no TLS is served.
     /// </summary>
     public string? ThrowawayCertificateFingerprint { get; }
+
+    /// <summary>
+    /// The throwaway certificate as PEM, the public certificate only and never its key, when one is served;
+    /// <see langword="null"/> when <c>--cert</c> was given or no TLS is served.
+    /// </summary>
+    public string? ThrowawayCertificatePem { get; }
 
     /// <summary>
     /// The same certificate as QUIC's TLS 1.3 serves it, with <c>--http3</c> (ADR-0082, decision 6);
@@ -195,9 +203,9 @@ public sealed class ServerTlsComposition : IDisposable
         try
         {
             var composed = TlsSrpAccountsComposition.Compose(commandLine, random, readFile);
-            var (certificate, fingerprint) = ComposeTlsSrpCertificate(commandLine, timeProvider, readFile, owned);
+            var (certificate, fingerprint, pem) = ComposeTlsSrpCertificate(commandLine, timeProvider, readFile, owned);
             return new ServerTlsComposition(
-                ServerTlsSettings.ForTlsSrp(composed.Accounts, random, certificate), fingerprint, null, owned, null, composed.GroupIndexesOutsideRfc5054);
+                ServerTlsSettings.ForTlsSrp(composed.Accounts, random, certificate), fingerprint, null, owned, pem, null, composed.GroupIndexesOutsideRfc5054);
         }
         catch (Exception failure) when (failure is TlsSrpAccountsException or TlsFileLoadException)
         {
@@ -206,7 +214,7 @@ public sealed class ServerTlsComposition : IDisposable
         }
     }
 
-    private static (TlsSrpServerCertificate? Certificate, string? ThrowawayFingerprint) ComposeTlsSrpCertificate(
+    private static (TlsSrpServerCertificate? Certificate, string? ThrowawayFingerprint, string? ThrowawayPem) ComposeTlsSrpCertificate(
         SurlCommandLine commandLine, TimeProvider timeProvider, Func<string, byte[]>? readFile, List<IDisposable> owned)
     {
         if (commandLine.CertificateFile is { } certificateFile)
@@ -219,17 +227,17 @@ public sealed class ServerTlsComposition : IDisposable
                 commandLine.KeyPassphrase,
                 readFile);
             owned.Add(loaded);
-            return (TlsSrpCertificateOf(loaded.Certificate, loaded.IntermediateCertificates, owned), null);
+            return (TlsSrpCertificateOf(loaded.Certificate, loaded.IntermediateCertificates, owned), null, null);
         }
 
         if (!commandLine.SelfSigned)
         {
-            return (null, null);
+            return (null, null, null);
         }
 
         var throwaway = ThrowawayServerCertificate.Create(timeProvider, commandLine.ListenUrls.Select(listenUrl => listenUrl.Host));
         owned.Add(throwaway);
-        return (TlsSrpCertificateOf(throwaway, [], owned), ThrowawayServerCertificate.Sha256FingerprintOf(throwaway));
+        return (TlsSrpCertificateOf(throwaway, [], owned), ThrowawayServerCertificate.Sha256FingerprintOf(throwaway), throwaway.ExportCertificatePem());
     }
 
     private static TlsSrpServerCertificate TlsSrpCertificateOf(
@@ -314,7 +322,7 @@ public sealed class ServerTlsComposition : IDisposable
 
         var quicCertificate = ComposeQuicCertificate(commandLine, loaded.Certificate, loaded.IntermediateCertificates);
 
-        return new ServerTlsComposition(settings, null, quicCertificate, [loaded, .. trustAnchors, .. OwnedKey(quicCertificate)], trustAnchors);
+        return new ServerTlsComposition(settings, null, quicCertificate, [loaded, .. trustAnchors, .. OwnedKey(quicCertificate)], null, trustAnchors);
     }
 
     private static ServerTlsComposition ComposeWithThrowaway(
@@ -331,6 +339,7 @@ public sealed class ServerTlsComposition : IDisposable
             ThrowawayServerCertificate.Sha256FingerprintOf(throwaway),
             quicCertificate,
             [throwaway, .. trustAnchors, .. OwnedKey(quicCertificate)],
+            throwaway.ExportCertificatePem(),
             trustAnchors);
     }
 

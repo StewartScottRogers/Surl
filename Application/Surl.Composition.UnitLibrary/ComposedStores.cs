@@ -629,6 +629,9 @@ public sealed partial class ComposedStores
     /// <returns>Whether an account had that name.</returns>
     public bool RemoveAccount(string userName) => accounts.Remove(userName);
 
+    /// <summary>Whether any account is left, so a login is required (no account: the server needs no login).</summary>
+    public bool HasAccounts => accounts.HasAccounts;
+
     /// <summary>
     /// Returns every store to its configured state, one at a time in <see cref="StoreOrder"/>.
     /// Each publishes one <see cref="StoreChange.Reset"/>.

@@ -32,9 +32,52 @@ internal sealed class SshDsaHostKey : SshHostKey
     /// <inheritdoc/>
     internal override byte[] SignRaw(string algorithm, byte[] data)
     {
-        using var dsa = DSA.Create(parameters);
+        // Signed by hand (FIPS 186-4, section 4.6), not by the platform's DSA: BL-1388, a
+        // signature from the platform's DSA on macOS now and then failed to verify.
+        var p = Unsigned(parameters.P!);
+        var q = Unsigned(parameters.Q!);
+        var hash = Unsigned(SHA1.HashData(data));
+        var z = hash >> Math.Max(0, 8 * SHA1.HashSizeInBytes - (int)q.GetBitLength());
+        var (r, s) = SignHash(p, q, Unsigned(parameters.G!), Unsigned(parameters.X!), z, () => RandomK(q));
 
-        return dsa.SignData(data, HashAlgorithmName.SHA1, DSASignatureFormat.IeeeP1363FixedFieldConcatenation);
+        return [.. FixedLength(r), .. FixedLength(s)];
+    }
+
+    /// <summary>
+    /// Signs a hash: the pair r and s of FIPS 186-4, section 4.6, drawing another k whenever
+    /// either comes out zero.
+    /// </summary>
+    /// <param name="p">The prime.</param>
+    /// <param name="q">The prime order of g, which must be prime (the inverse of k uses Fermat's little theorem).</param>
+    /// <param name="g">The generator.</param>
+    /// <param name="x">The private value.</param>
+    /// <param name="z">The hash, cut to the length of q.</param>
+    /// <param name="nextK">Draws a per-signature secret k, from 1 to q - 1.</param>
+    /// <returns>r and s.</returns>
+    internal static (BigInteger R, BigInteger S) SignHash(BigInteger p, BigInteger q, BigInteger g, BigInteger x, BigInteger z, Func<BigInteger> nextK)
+    {
+        BigInteger r;
+        BigInteger s;
+        do
+        {
+            var k = nextK();
+            r = BigInteger.ModPow(g, k, p) % q;
+            s = BigInteger.ModPow(k, q - 2, q) * (z + (x * r)) % q;
+        }
+        while (r.IsZero || s.IsZero);
+
+        return (r, s);
+    }
+
+    private static BigInteger RandomK(BigInteger q) =>
+        (Unsigned(RandomNumberGenerator.GetBytes(SubgroupLength + 8)) % (q - 1)) + 1;
+
+    private static byte[] FixedLength(BigInteger value)
+    {
+        var bytes = new byte[SubgroupLength];
+        value.TryWriteBytes(bytes.AsSpan(SubgroupLength - value.GetByteCount(isUnsigned: true)), out _, isUnsigned: true, isBigEndian: true);
+
+        return bytes;
     }
 
     private static byte[] Blob(DSAParameters parameters)

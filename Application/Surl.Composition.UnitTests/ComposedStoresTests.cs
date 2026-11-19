@@ -95,6 +95,18 @@ public sealed class ComposedStoresTests
     }
 
     [TestMethod]
+    public async Task HasAccounts_AfterTheLastAccountIsRemoved_IsFalse()
+    {
+        await using var serving = await ComposeStoresAsync("-u", "alice:secret");
+        var stores = serving.Stores;
+
+        Assert.IsTrue(stores.HasAccounts);
+        Assert.IsTrue(stores.RemoveAccount("alice"));
+
+        Assert.IsFalse(stores.HasAccounts);
+    }
+
+    [TestMethod]
     public async Task Stores_EachOperation_PublishesItsChangesOnTheInstancesStream()
     {
         await using var serving = await ComposeStoresAsync("-u", "alice:secret");

@@ -186,6 +186,23 @@ public sealed class ComposedServingTests
     }
 
     [TestMethod]
+    public async Task ThrowawayCertificatePem_SelfSigned_IsThePublicCertificateOnly()
+    {
+        await using var serving = await ComposeAsync(new StartTestSeams(), "--self-signed", "https://127.0.0.1:0");
+
+        Assert.StartsWith("-----BEGIN CERTIFICATE-----", serving.ThrowawayCertificatePem);
+        Assert.DoesNotContain("PRIVATE KEY", serving.ThrowawayCertificatePem);
+    }
+
+    [TestMethod]
+    public async Task ThrowawayCertificatePem_NoSelfSigned_IsNull()
+    {
+        await using var serving = await ComposeAsync(new StartTestSeams(), "http://127.0.0.1:0");
+
+        Assert.IsNull(serving.ThrowawayCertificatePem);
+    }
+
+    [TestMethod]
     public async Task ThrowawayCertificateFingerprints_NoSelfSigned_IsEmpty()
     {
         await using var serving = await ComposeAsync(new StartTestSeams(), "http://127.0.0.1:0");
