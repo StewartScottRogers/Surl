@@ -8,7 +8,7 @@ depends-on: []
 touches: [Application/Surl.Api, Application/Surl.Api.UnitTests]
 requirement: none
 created: 2026-11-18
-completed:
+completed: 2026-11-18
 ---
 # BL-1383 — Name the member asked for in Surl.Api's RecordExchanges-off message
 
@@ -37,14 +37,14 @@ Exchanges"; and `SurlServerFiles.PutAsync` and `DeleteAsync` document the `Argum
 
 ## Acceptance criteria
 
-- [ ] A named test in `Application/Surl.Api.UnitTests` shows `WaitForEventAsync` with recording off throws
+- [x] A named test in `Application/Surl.Api.UnitTests` shows `WaitForEventAsync` with recording off throws
       `InvalidOperationException` whose message starts "RecordExchanges is off" and contains `WaitForEventAsync`
       and not "read Exchanges".
-- [ ] A data-driven or per-member test shows each of the other six members' messages names that member.
-- [ ] `SurlServerFiles.PutAsync` and `DeleteAsync` each carry `<exception cref="ArgumentException">` saying the path
+- [x] A data-driven or per-member test shows each of the other six members' messages names that member.
+- [x] `SurlServerFiles.PutAsync` and `DeleteAsync` each carry `<exception cref="ArgumentException">` saying the path
       is one a request may not name, such as a relative path or one with a `..` segment, and a named test shows
       `PutAsync("reports/b.txt", ...)` throws it.
-- [ ] `dotnet build Application/Surl.Api -warnaserror` is clean, the fast tests are green, and `Surl.Api` keeps
+- [x] `dotnet build Application/Surl.Api -warnaserror` is clean, the fast tests are green, and `Surl.Api` keeps
       its coverage.
 
 ## Notes
@@ -55,3 +55,4 @@ Exchanges"; and `SurlServerFiles.PutAsync` and `DeleteAsync` document the `Argum
 
 - 2026-11-18: Created.
 - 2026-11-18: Backlog -> Doing.
+- 2026-11-18: Doing -> Done. RecordOrThrow names the member via CallerMemberName; PutAsync/DeleteAsync document ArgumentException; tests added

@@ -385,9 +385,10 @@ public sealed class SurlServer : IAsyncDisposable
     // A read-back of a store (ADR-0164) is refused once the server was told to stop, as a disposed object refuses use.
     private void ThrowIfStopped() => ObjectDisposedException.ThrowIf(stopping.IsValueCreated, this);
 
-    private ExchangeRecordSubscriber RecordOrThrow() =>
+    // The member's name comes from the caller, so the message names what the test asked for.
+    private ExchangeRecordSubscriber RecordOrThrow([System.Runtime.CompilerServices.CallerMemberName] string member = "") =>
         record ?? throw new InvalidOperationException(
-            "RecordExchanges is off, so no exchange was recorded; set SurlServerOptions.RecordExchanges to read Exchanges.");
+            $"RecordExchanges is off, so nothing was recorded; set SurlServerOptions.RecordExchanges to use {member}.");
 
     // The record stays readable once stopped: the pump has applied every event the subscription held.
     private static async ValueTask StopRecordingAsync(ExchangeRecordSubscriber? record)

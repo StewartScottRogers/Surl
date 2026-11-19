@@ -30,6 +30,7 @@ public sealed class SurlServerFiles
     /// <param name="cancellationToken">Cancels the write.</param>
     /// <returns>A task that completes once the file is in the store.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="path"/> is null.</exception>
+    /// <exception cref="ArgumentException"><paramref name="path"/> is one a request may not name, such as a relative path or one with a <c>..</c> segment.</exception>
     /// <exception cref="SurlSeedRefusedException">No client may write there (<c>NotPermitted</c>, such as a
     /// <c>.surl</c> path) or the file passes the size limit (<c>TooLarge</c>).</exception>
     public async Task PutAsync(string path, ReadOnlyMemory<byte> contents, CancellationToken cancellationToken = default)
@@ -50,6 +51,7 @@ public sealed class SurlServerFiles
     /// <param name="path">The file's request path, such as <c>/reports/a.txt</c>.</param>
     /// <returns>A task that completes once the file is gone.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="path"/> is null.</exception>
+    /// <exception cref="ArgumentException"><paramref name="path"/> is one a request may not name, such as a relative path or one with a <c>..</c> segment.</exception>
     /// <exception cref="SurlSeedRefusedException">No file is there (<c>Absent</c>: nothing, a folder, or a hidden
     /// path).</exception>
     public async Task DeleteAsync(string path)
