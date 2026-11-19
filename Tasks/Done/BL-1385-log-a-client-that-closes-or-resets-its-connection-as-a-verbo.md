@@ -8,7 +8,7 @@ depends-on: []
 touches: [Foundation/Surl.Core.UnitLibrary, Foundation/Surl.Core.UnitTests]
 requirement: none
 created: 2026-11-18
-completed:
+completed: 2026-11-18
 ---
 # BL-1385 — Log a client that closes or resets its connection as a verbose note, not a protocol server failure
 
@@ -43,20 +43,21 @@ the default level.
 
 ## Acceptance criteria
 
-- [ ] A test in `Foundation/Surl.Core.UnitTests` (beside `ServingEngineTests.Limits.cs`'s
+- [x] A test in `Foundation/Surl.Core.UnitTests` (beside `ServingEngineTests.Limits.cs`'s
       `ServeAsync_ServerThatThrowsSomethingElseAfterTheIdleTimeout_HasItsConnectionAborted`) shows a server that
       throws `IOException` wrapping `SocketException(SocketError.ConnectionAborted)` gets the client-close note,
       no "protocol server threw" note, and no `Abort()` on its connection.
-- [ ] Data rows cover `ConnectionReset` and `Shutdown` the same way.
-- [ ] A test shows a bare `IOException` with no `SocketException` inside, and one wrapping another `SocketError`
+- [x] Data rows cover `ConnectionReset` and `Shutdown` the same way.
+- [x] A test shows a bare `IOException` with no `SocketException` inside, and one wrapping another `SocketError`
       (e.g. `AccessDenied`), still gets the "protocol server threw IOException" note and an aborted connection.
-- [ ] No fast test needs `TestCategory=Integration`, and the new tests pass on Windows, Linux and macOS (no
+- [x] No fast test needs `TestCategory=Integration`, and the new tests pass on Windows, Linux and macOS (no
       platform error text asserted).
-- [ ] `dotnet build Foundation/Surl.Core.UnitLibrary -warnaserror` is clean, the fast tests are green, and
+- [x] `dotnet build Foundation/Surl.Core.UnitLibrary -warnaserror` is clean, the fast tests are green, and
       `Surl.Core.UnitLibrary` stays at 100% line and branch coverage with no method over complexity 10.
 
 ## Notes
 
+- Done: engine notes a client close (IOException wrapping SocketException ConnectionReset, ConnectionAborted or Shutdown) as "Exchange N ended: the client closed the connection (code)." with no abort; 4 new test cases pin it. No CLAUDE.md or ADR table described the ending notes.
 - `Conformance/Surl.Conformance.UnitTests/CurlPortRunSetup.cs:104` filters the old IOException line out of compared
   notes; leave it (it still matches a real server failure). If it becomes dead, file a follow-up rather than
   widening this task.
@@ -67,3 +68,4 @@ the default level.
 
 - 2026-11-18: Created.
 - 2026-11-18: Backlog -> Doing.
+- 2026-11-18: Doing -> Done. A client reset or close is a verbose 'client closed the connection' note with no abort, not a server failure
