@@ -44,3 +44,4 @@ made and pin it in its client, so it can keep TLS verification on.
 ## Log
 
 - 2026-11-19: Created.
+- 2026-11-19: Backlog -> Doing.
