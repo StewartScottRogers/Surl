@@ -117,6 +117,86 @@ public sealed partial class SurlServerCompositionTests
     }
 
     [TestMethod]
+    public async Task ComposeAsync_AWritableShareWhoseLockIsInUse_FailsWithDataDirectoryInUseAndBindsNothing()
+    {
+        var test = new StartTestSeams();
+        var seams = test.Seams with { CanOpenShareDirectory = _ => true, TakeDataDirectoryLock = _ => DataDirectoryLockOutcome.InUse("site") };
+
+        var start = await SurlServerComposition.ComposeAsync(
+            StartTestSeams.Parse("--share", "keep=site", "http://127.0.0.1:0"), seams, TestContext.CancellationToken);
+
+        Assert.IsNull(start.Serving);
+        Assert.AreEqual(SurlExitCode.DataDirectoryInUse, start.Failure!.ExitCode);
+        CollectionAssert.AreEqual(
+            new[] { "(124) Directory site is in use by another surl process" }, start.Failure.Lines.ToArray());
+    }
+
+    [TestMethod]
+    public async Task ComposeAsync_AReadOnlyShare_AsksForNoLock()
+    {
+        var test = new StartTestSeams();
+        var asked = new List<string>();
+        var seams = test.Seams with
+        {
+            CanOpenShareDirectory = _ => true,
+            TakeDataDirectoryLock = path =>
+            {
+                asked.Add(path);
+                return DataDirectoryLockOutcome.Taken(new NoOpDisposable());
+            },
+        };
+
+        var start = await SurlServerComposition.ComposeAsync(
+            StartTestSeams.Parse("--share", "keep=site;readonly", "--share", "rw=other", "http://127.0.0.1:0"), seams, TestContext.CancellationToken);
+        await start.Serving!.DisposeAsync();
+
+        CollectionAssert.AreEqual(new[] { "other" }, asked);
+    }
+
+    [TestMethod]
+    public async Task ComposeAsync_AShareLockRefused_ReleasesTheDirectoryLockAndEveryShareLockTakenBefore()
+    {
+        var test = new StartTestSeams();
+        var seams = test.Seams with { CanOpenShareDirectory = _ => true };
+        var commandLine = StartTestSeams.Parse("--directory", "served", "--share", "a=one", "--share", "b=two", "http://127.0.0.1:0");
+        var blocker = await SurlServerComposition.ComposeAsync(
+            StartTestSeams.Parse("--directory", "two", "http://127.0.0.1:0"), seams, TestContext.CancellationToken);
+
+        var start = await SurlServerComposition.ComposeAsync(commandLine, seams, TestContext.CancellationToken);
+
+        Assert.AreEqual(SurlExitCode.DataDirectoryInUse, start.Failure!.ExitCode);
+        CollectionAssert.AreEqual(
+            new[] { "(124) Directory two is in use by another surl process" }, start.Failure.Lines.ToArray());
+        Assert.IsFalse(test.IsHeld("served"));
+        Assert.IsFalse(test.IsHeld("one"));
+        Assert.IsTrue(test.IsHeld("two"));
+        await blocker.Serving!.DisposeAsync();
+    }
+
+    [TestMethod]
+    public async Task ComposeAsync_WritableShares_AreLockedUntilTheServingIsDisposed()
+    {
+        var test = new StartTestSeams();
+        var seams = test.Seams with { CanOpenShareDirectory = _ => true };
+
+        var start = await SurlServerComposition.ComposeAsync(
+            StartTestSeams.Parse("--directory", "served", "--share", "a=one", "http://127.0.0.1:0"), seams, TestContext.CancellationToken);
+        var heldWhileServing = test.IsHeld("served") && test.IsHeld("one");
+        await start.Serving!.DisposeAsync();
+
+        Assert.IsTrue(heldWhileServing);
+        Assert.IsFalse(test.IsHeld("served"));
+        Assert.IsFalse(test.IsHeld("one"));
+    }
+
+    private sealed class NoOpDisposable : IDisposable
+    {
+        public void Dispose()
+        {
+        }
+    }
+
+    [TestMethod]
     public async Task ComposeAsync_GssapiWithoutAKeytab_FailsWithFailedInitBeforeAnythingElse()
     {
         var start = await SurlServerComposition.ComposeAsync(

@@ -8,7 +8,7 @@ depends-on: []
 touches: [Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests]
 requirement: none
 created: 2026-11-18
-completed:
+completed: 2026-11-18
 ---
 # BL-1380 — Take the data-directory lock on every --share path
 
@@ -47,15 +47,15 @@ exit 124 before any listener binds.
 
 ## Acceptance criteria
 
-- [ ] A test in `SurlServerCompositionTests` (over `StartTestSeams`) shows a start with `--share keep=site` whose
+- [x] A test in `SurlServerCompositionTests` (over `StartTestSeams`) shows a start with `--share keep=site` whose
       lock seam answers `InUse` fails with `SurlExitCode.DataDirectoryInUse` and the line
       `(124) Directory site is in use by another surl process`, with no listener bound.
-- [ ] A test shows a `;readonly` share asks the seam for no lock.
-- [ ] A test shows that when a share's lock is refused, the `--directory` lock and every share lock taken before it
+- [x] A test shows a `;readonly` share asks the seam for no lock.
+- [x] A test shows that when a share's lock is refused, the `--directory` lock and every share lock taken before it
       are disposed, and another shows every lock is disposed with the `ComposedServing`.
-- [ ] An `[TestCategory("Integration")]` test using the real `DataDirectoryLock.Take` on a temporary folder shows a
+- [x] An `[TestCategory("Integration")]` test using the real `DataDirectoryLock.Take` on a temporary folder shows a
       start holding the folder as a writable share refuses a `--directory` start on it with 124, and the reverse.
-- [ ] `dotnet build Application/Surl.Composition.UnitLibrary -warnaserror` is clean, the fast tests are green, and
+- [x] `dotnet build Application/Surl.Composition.UnitLibrary -warnaserror` is clean, the fast tests are green, and
       `Surl.Composition.UnitLibrary` stays at 100% line and branch coverage.
 
 ## Notes
@@ -66,7 +66,10 @@ exit 124 before any listener binds.
 - Nested folders across processes (one `surl` on `site`, another on `site/sub`) stay unguarded, as they are for two
   `--directory` values today; do not widen this task to cover them.
 
+- Decided: locks are taken on the as-given `--share` path (from `SurlCommandLine.Shares`, so the text names it as given); ADR-0031 amendment of 2026-11-18 records it.
+
 ## Log
 
 - 2026-11-18: Created.
 - 2026-11-18: Backlog -> Doing.
+- 2026-11-18: Doing -> Done. Writable shares take the data-directory lock; tests and docs done

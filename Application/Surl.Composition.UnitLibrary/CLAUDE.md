@@ -271,7 +271,10 @@ rather than writing it, and the warning writers take the log `TextWriter` they w
   needed then except for `webtransport` and `coaps`, and `IsTlsUpgradeAvailable` (a certificate, or
   TLS-SRP) is what makes the STARTTLS-style servers offer their upgrade.
 - `DataDirectoryProbe`, `DataDirectoryLock` and `DataDirectoryLockOutcome` - the `--directory`
-  probe and its `.surl/lock` (ADR-0031 decision 7).
+  probe and its `.surl/lock` (ADR-0031 decision 7). The start takes the same lock, through the same
+  seam, on every writable (not `;readonly`) `--share` path too, in command-line order after the
+  `--directory` one (ADR-0031 amendment, BL-1380): the first refusal releases the locks taken before
+  it, and one holder releases them all when the `ComposedServing` is disposed.
 
 Tests: `Application/Surl.Composition.UnitTests` (`ServerTlsCompositionTests`,
 `DataDirectoryLockTests`, `DataDirectoryProbeTests`, `ListenerStartReporterTests`,
