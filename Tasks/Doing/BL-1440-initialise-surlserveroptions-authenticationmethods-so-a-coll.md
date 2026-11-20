@@ -44,3 +44,4 @@ throwing `NullReferenceException`, and code that assigns a list or null keeps wo
 
 - 2026-11-20: Created.
 - 2026-11-20: Filed from `Z:\repos\Surly\Documentation\Bug-Reports\2026-11-19T1942-Surl-bug-report.md` item 4.
+- 2026-11-20: Backlog -> Doing.
