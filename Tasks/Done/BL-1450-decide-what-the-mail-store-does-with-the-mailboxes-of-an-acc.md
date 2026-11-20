@@ -8,7 +8,7 @@ depends-on: []
 touches: [Documentation/Planning/Decisions]
 requirement: none
 created: 2026-11-20
-completed:
+completed: 2026-11-20
 ---
 # BL-1450 — Decide what the mail store does with the mailboxes of an account added or removed while the server runs
 
@@ -46,14 +46,14 @@ gets the mailbox a start-time `--user` gets; a removed account's mail stops bein
 
 ## Acceptance criteria
 
-- [ ] An ADR in `Documentation/Planning/Decisions` (the next free number), marked "Decided by Claude
+- [x] An ADR in `Documentation/Planning/Decisions` (the next free number), marked "Decided by Claude
       under Stewart's delegation", answers each question above with the outcome a test can observe
       (IMAP `SELECT INBOX`, POP3 `STAT`, SMTP `RCPT TO` reply, `seed_mail` result, events published).
-- [ ] It says how ADR-0131's reset and restore treat run-time owners, and amends ADR-0131 if that
+- [x] It says how ADR-0131's reset and restore treat run-time owners, and amends ADR-0131 if that
       changes its text.
-- [ ] It names the work split as BL-1451 (`Surl.MailStore`) and BL-1452 (`Surl.Composition`), with each
+- [x] It names the work split as BL-1451 (`Surl.MailStore`) and BL-1452 (`Surl.Composition`), with each
       new member's name and its result type.
-- [ ] `Documentation/Planning/Decisions/README.md` lists the ADR.
+- [x] `Documentation/Planning/Decisions/README.md` lists the ADR.
 
 ## Notes
 
@@ -66,3 +66,4 @@ gets the mailbox a start-time `--user` gets; a removed account's mail stops bein
 - 2026-11-20: Created.
 - 2026-11-20: Filed from `Z:\repos\Surly\Documentation\Bug-Reports\2026-11-19T2203-Surl-bug-report.md` items 1 and 2.
 - 2026-11-20: Backlog -> Doing.
+- 2026-11-20: Doing -> Done. ADR-0185 decides how the mail store treats accounts added or removed at run time; work split to BL-1451 and BL-1452

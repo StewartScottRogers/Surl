@@ -4,6 +4,7 @@
 - **Date:** 2026-11-05
 - **Decided by:** Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), 2026-11-05, in
   BL-799, which built it.
+- **Amended by:** [ADR-0185](ADR-0185-the-mail-store-reaches-an-account-added-while-the-server-runs-and-retires-one-removed.md) (decisions 2 and 4: run-time owners).
 - **Details:** [ADR-0124](ADR-0124-surl-is-a-stand-in-for-tests.md) decision 3 for `Surl.MailStore`'s
   `MailboxStore`.
 
