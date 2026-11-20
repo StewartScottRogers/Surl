@@ -64,3 +64,4 @@ connect fails the test instead of passing it.
   repetitions), reads the tally from the macOS job log, and continues with acceptance criteria 2-5. Remove the
   temporary test at the end.
 - 2026-11-19: Doing -> Backlog. Repeat test committed but a lane cannot push; next claim dispatches ci on the pushed shift branch for the macOS measurement
+- 2026-11-19: Backlog -> Doing.
