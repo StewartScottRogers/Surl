@@ -30,6 +30,10 @@ public sealed partial class ContentStoreTests
     [DataRow("/.hidden", ContentUploadOpeningResult.NotPermitted)]
     [DataRow("/.surl/lock", ContentUploadOpeningResult.NotPermitted)]
     [DataRow("/new.txt/", ContentUploadOpeningResult.NotPermitted)]
+    [DataRow("/.surl/x", ContentUploadOpeningResult.NotPermitted)]
+    [DataRow("/.SURL/x", ContentUploadOpeningResult.NotPermitted)]
+    [DataRow("/.surl/a/b", ContentUploadOpeningResult.NotPermitted)]
+    [DataRow("/.secret/x", ContentUploadOpeningResult.NotPermitted)]
     public async Task OpenUploadAsync_LocationThatCannotTakeAnUpload_AnswersWhyAndChangesNothing(string requestPath, ContentUploadOpeningResult expected)
     {
         (ContentStore store, UnitTestInMemoryContentFileSystem fileSystem) = ChangeStore();
