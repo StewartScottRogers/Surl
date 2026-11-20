@@ -29,10 +29,10 @@ With the BL-1418 contract implemented, ADR-0182's replacement text is logged in 
 ## Notes
 
 - Added `HttpExchangeRedaction` (HttpServing): HttpRequestHeadBytesRedactor plus API-key fields (X-Api-Key, Api-Key, X-Goog-Api-Key, X-Amz-Security-Token, Ocp-Apim-Subscription-Key). Wired S3, AzureStorage, GoogleCloudStorage, OciRegistry, McpServer, SignalR, SocketIo (touches extended; no Doing task overlapped).
-- gRPC (HTTP/2), WebTransport (HTTP/3) and DoH need other redactors: filed BL-1467.
+- gRPC (HTTP/2), WebTransport (HTTP/3) and DoH need other redactors: filed BL-1469.
 
 ## Log
 
 - 2026-11-20: Created.
 - 2026-11-20: Backlog -> Doing.
-- 2026-11-20: Doing -> Done. HTTP/1.1 extended servers (S3, Azure, GCS, OCI, MCP, SignalR, Socket.IO) log credentials as ****; gRPC/WebTransport/DoH split to BL-1467
+- 2026-11-20: Doing -> Done. HTTP/1.1 extended servers (S3, Azure, GCS, OCI, MCP, SignalR, Socket.IO) log credentials as ****; gRPC/WebTransport/DoH split to BL-1469

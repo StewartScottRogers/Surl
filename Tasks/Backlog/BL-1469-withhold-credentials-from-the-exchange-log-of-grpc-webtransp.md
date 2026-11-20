@@ -1,5 +1,5 @@
 ---
-id: BL-1467
+id: BL-1469
 title: Withhold credentials from the exchange log of gRPC, WebTransport and DNS over HTTPS
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-20
 completed:
 ---
-# BL-1467 — Withhold credentials from the exchange log of gRPC, WebTransport and DNS over HTTPS
+# BL-1469 — Withhold credentials from the exchange log of gRPC, WebTransport and DNS over HTTPS
 
 ## Goal
 
