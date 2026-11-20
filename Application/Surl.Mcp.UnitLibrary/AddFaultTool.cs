@@ -61,6 +61,7 @@ public static class AddFaultTool
             Command = configured.Command,
             Stage = configured.Stage,
             AfterBytes = configured.AfterBytes,
+            Body = configured.Body,
             Times = configured.Times,
         };
 

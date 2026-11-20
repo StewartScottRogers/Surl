@@ -43,6 +43,7 @@ internal static class ConfiguredFaultReader
     private const string MillisecondsKey = "ms";
     private const string AfterBytesKey = "after-bytes";
     private const string ReplyKey = "reply";
+    private const string BodyKey = "body";
     private const string TimesKey = "times";
 
     private static readonly string[] ScopeKeys = [ListenerKey, SchemeKey, AccountKey, PathKey, TimesKey];
@@ -54,17 +55,17 @@ internal static class ConfiguredFaultReader
     {
         ["delay"] = new(FaultKind.Delay, [CommandKey, StageKey, MillisecondsKey], MillisecondsKey),
         ["drop"] = new(FaultKind.Drop, [CommandKey, StageKey, AfterBytesKey], null),
-        ["error"] = new(FaultKind.Error, [CommandKey, ReplyKey], ReplyKey),
+        ["error"] = new(FaultKind.Error, [CommandKey, ReplyKey, BodyKey], ReplyKey),
         ["out-of-space"] = new(FaultKind.OutOfSpace, [], null),
         ["refuse-login"] = new(FaultKind.RefuseLogin, [], null),
     }.ToFrozenDictionary(StringComparer.Ordinal);
 
-    /// <summary>The <c>--fault</c> item: a kind, then any of the ten keys, each with one value.</summary>
+    /// <summary>The <c>--fault</c> item: a kind, then any of the eleven keys, each with one value.</summary>
     public static readonly ConfigurationItemShape Shape = new(
         "<kind>[;<key>=<value>]",
         null,
         ConfigurationItemValueKind.None,
-        new[] { ListenerKey, SchemeKey, AccountKey, PathKey, CommandKey, StageKey, MillisecondsKey, AfterBytesKey, ReplyKey, TimesKey }
+        new[] { ListenerKey, SchemeKey, AccountKey, PathKey, CommandKey, StageKey, MillisecondsKey, AfterBytesKey, ReplyKey, BodyKey, TimesKey }
             .ToDictionary(key => key, _ => ConfigurationItemAttributeKind.Value, StringComparer.Ordinal),
         []);
 
@@ -262,7 +263,7 @@ internal static class ConfiguredFaultReader
         }
 
         var reply = values[ReplyKey];
-        fault = fault with { Reply = reply };
+        fault = fault with { Reply = reply, Body = values.GetValueOrDefault(BodyKey) };
         var scheme = ReplySchemeOf(fault);
         if (scheme is null)
         {

@@ -37,6 +37,7 @@ internal static class FaultItemText
         Append(item, "ms", Number(rule.DelayMilliseconds));
         Append(item, "after-bytes", Number(rule.AfterBytes));
         Append(item, "reply", rule.Reply);
+        Append(item, "body", rule.Body);
         Append(item, "times", Number(rule.Times));
         return item.ToString();
     }

@@ -88,3 +88,12 @@ therefore a valid answer, and a body is a strict gain for a test that wants to r
   the text; their own protocol errors stay as they were (decision 4).
 - Fixtures re-recorded: the list above, plus `upload-too-large-413`, `post-refused-405`, `digest-401-then-200` and
   `range-unsatisfiable-416`; `Protocols/Http/Surl.Protocol.Http.UnitTests/Fixtures/README.md` records the commands.
+
+## Amendment 2 — what BL-1468 built (2026-11-20; decided by Claude under Stewart's delegation)
+
+- `body=<text>` is a new key of an `error` rule (it does not apply to the other kinds). It is carried as `FaultRule.Body`
+  (`ConfiguredFault.Body`, `SurlFault.Body`, the `GET /v1/faults` listing and the Mcp `add_fault` tool all keep it) and only
+  the HTTP server reads it; other schemes ignore it. The value follows the item grammar's percent-decoding.
+- `HttpRequestAnswerer.Faults.cs` replaces the status's fixed text with the UTF-8 bytes of the value: `Content-Type: text/plain; charset=utf-8`,
+  `Content-Length` of those bytes, no body after a HEAD. Without `body=` the answer is BL-1467's fixed text. A chosen status is
+  always 400 to 599, so a body is always allowed.

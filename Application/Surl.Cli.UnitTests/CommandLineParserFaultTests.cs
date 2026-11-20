@@ -171,6 +171,14 @@ public sealed class CommandLineParserFaultTests
         Assert.AreEqual(reply, Served("--fault", $"error;scheme={scheme};reply={reply}", Url).Faults.Single().Reply);
 
     [TestMethod]
+    public void Parse_ErrorWithABody_ReadsTheBodyText() =>
+        Assert.AreEqual("back soon", Served("--fault", "error;scheme=http;reply=503;body=back soon", Url).Faults.Single().Body);
+
+    [TestMethod]
+    public void Parse_ErrorWithoutABody_LeavesItNull() =>
+        Assert.IsNull(Served("--fault", "error;scheme=http;reply=503", Url).Faults.Single().Body);
+
+    [TestMethod]
     public void Parse_ErrorScopedToAListener_ChecksTheListenersScheme() =>
         Assert.AreEqual(
             "imap://127.0.0.1:0",
@@ -184,6 +192,7 @@ public sealed class CommandLineParserFaultTests
     [DataRow("out-of-space;command=STOR", "option --fault: key command does not apply to out-of-space", DisplayName = "Command on out-of-space")]
     [DataRow("error;scheme=http;reply=503;stage=command", "option --fault: key stage does not apply to error", DisplayName = "Stage on error")]
     [DataRow("delay;reply=x;ms=1", "option --fault: key reply does not apply to delay", DisplayName = "Reply on delay")]
+    [DataRow("delay;body=x;ms=1", "option --fault: key body does not apply to delay", DisplayName = "Body on delay")]
     [DataRow("drop;ms=1", "option --fault: key ms does not apply to drop", DisplayName = "Ms on drop")]
     [DataRow("delay", "option --fault: kind delay needs key ms", DisplayName = "Delay without ms")]
     [DataRow("error;scheme=http", "option --fault: kind error needs key reply", DisplayName = "Error without reply")]

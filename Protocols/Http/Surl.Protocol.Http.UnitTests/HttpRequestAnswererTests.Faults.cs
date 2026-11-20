@@ -56,6 +56,31 @@ public sealed partial class HttpRequestAnswererTests
         Assert.AreEqual(new KeyValuePair<string, string>("Content-Length", HttpErrorText.BytesOf(answer.Status).Length.ToString(System.Globalization.CultureInfo.InvariantCulture)), answer.Fields[^1]);
     }
 
+
+    [TestMethod]
+    public async Task AnswerAsync_ChosenErrorWithBody_SendsThatTextAsPlainTextWithItsLength()
+    {
+        var answerer = FaultAnswerer(new ScriptedFaultPlan(new FaultRule("f1", FaultKind.Error) { Reply = "503", Body = "back soon é" }));
+
+        var answer = await answerer.AnswerAsync(Request("GET", "/file.txt"), TestContext.CancellationToken);
+
+        var expected = Encoding.UTF8.GetBytes("back soon é");
+        CollectionAssert.AreEqual(expected, ((HttpAnswerBody.Bytes)answer.Body).Content.ToArray());
+        Assert.AreEqual("text/plain; charset=utf-8", answer.Fields.Single(field => field.Key == "Content-Type").Value);
+        Assert.AreEqual(expected.Length.ToString(System.Globalization.CultureInfo.InvariantCulture), answer.Fields.Single(field => field.Key == "Content-Length").Value);
+    }
+
+    [TestMethod]
+    public async Task AnswerAsync_ChosenErrorWithBodyOnAHead_SendsTheLengthAndNoBody()
+    {
+        var answerer = FaultAnswerer(new ScriptedFaultPlan(new FaultRule("f1", FaultKind.Error) { Reply = "503", Body = "back soon" }));
+
+        var answer = await answerer.AnswerAsync(Request("HEAD", "/file.txt"), TestContext.CancellationToken);
+
+        Assert.AreEqual(HttpAnswerBody.None, answer.Body);
+        Assert.AreEqual("9", answer.Fields.Single(field => field.Key == "Content-Length").Value);
+    }
+
     [TestMethod]
     public async Task AnswerAsync_ChosenErrorForARequestWithABody_IsARefusalThatLeavesTheBodyUnread()
     {
