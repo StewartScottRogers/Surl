@@ -57,3 +57,4 @@ measurements, so upstream curl's `-z`, `--etag-compare` and `--etag-save` get a 
 
 - 2026-11-20: Created.
 - 2026-11-20: Filed from `Z:\repos\Surly\Documentation\Bug-Reports\2026-11-19T1942-Surl-bug-report.md` item 12.
+- 2026-11-20: Backlog -> Doing.
