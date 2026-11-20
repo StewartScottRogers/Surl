@@ -8,7 +8,7 @@ depends-on: [BL-1419, BL-1428]
 touches: [Protocols/Mail/Surl.Protocol.Imap.UnitLibrary, Protocols/Mail/Surl.Protocol.Imap.UnitTests]
 requirement: none
 created: 2026-11-20
-completed:
+completed: 2026-11-20
 ---
 # BL-1430 — Withhold IMAP LOGIN and AUTHENTICATE credentials from the exchange log
 
@@ -30,22 +30,25 @@ completed:
 
 ## Acceptance criteria
 
-- [ ] The IMAP protocol server implements BL-1418's contract. Fast tests in
+- [x] The IMAP protocol server implements BL-1418's contract. Fast tests in
       `Protocols/Mail/Surl.Protocol.Imap.UnitTests` show `A1 LOGIN alice s3cret`,
       `A1 LOGIN alice "s3 cret"` and `A1 LOGIN alice {6}` with the literal on the next line all logged
       in the ADR's form.
-- [ ] `A2 AUTHENTICATE PLAIN <b64>` (SASL-IR) and a continuation-based `AUTHENTICATE` are redacted
+- [x] `A2 AUTHENTICATE PLAIN <b64>` (SASL-IR) and a continuation-based `AUTHENTICATE` are redacted
       (named tests).
-- [ ] An `APPEND` literal whose message contains `LOGIN a b` is logged unchanged (named test).
-- [ ] `dotnet test Conformance/Surl.Conformance.UnitTests --filter "TestCategory!=Integration"` stays
+- [x] An `APPEND` literal whose message contains `LOGIN a b` is logged unchanged (named test).
+- [x] `dotnet test Conformance/Surl.Conformance.UnitTests --filter "TestCategory!=Integration"` stays
       green.
-- [ ] `dotnet build Protocols/Mail/Surl.Protocol.Imap.UnitLibrary -warnaserror` is clean, the fast tests
+- [x] `dotnet build Protocols/Mail/Surl.Protocol.Imap.UnitLibrary -warnaserror` is clean, the fast tests
       are green, and coverage stays at 100% line and branch.
 
 ## Notes
+
+- `ImapLineRedactionRule` + `ImapProtocolServer.CreateRedactor`; ADR-0183 amendment 1 records the literal decisions (LOGIN password masked, APPEND literals untouched, refused literal cancels). Tests: `ImapExchangeLogRedactionTests` (25). Coverage reasoned by branch, not by collector.
 
 ## Log
 
 - 2026-11-20: Created.
 - 2026-11-20: Filed from `Z:\repos\Surly\Documentation\Bug-Reports\2026-11-20T0553-Surl-bug-report.md` item 1.
 - 2026-11-20: Backlog -> Doing.
+- 2026-11-20: Doing -> Done. IMAP LOGIN password and AUTHENTICATE secrets are withheld from the exchange log; APPEND literals unchanged

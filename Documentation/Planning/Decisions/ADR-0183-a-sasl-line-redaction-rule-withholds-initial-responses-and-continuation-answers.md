@@ -26,3 +26,20 @@
    (cancel) and an empty line hold nothing and are logged as they are.
 5. **Not covered.** An IMAP literal announced by `+ ` is a continuation to this rule, so its first line is
    masked; BL-1430 decides how to keep a literal's bytes out of the rule.
+
+## Amendment 1 — IMAP literals (BL-1430)
+
+Decided by Claude under Stewart's delegation, 2026-11-20. Settles decision 5.
+
+1. **Where.** `Surl.Protocol.Imap.ImapLineRedactionRule`, internal, wrapped in a `LineBytesRedactor` by
+   `ImapProtocolServer.CreateRedactor`. It owns one `SaslLineRedactionRule` (`AUTHENTICATE`, `+ `).
+2. **Literals stay out of the SASL rule.** A command line ending in `{n}` or `{n+}` starts a literal: the next `n`
+   bytes, across as many CR LF lines as they span, never reach the SASL rule, and the server's `+` that invites a
+   synchronizing literal is not shown to it. The bytes after the literal on its last line are the rest of the command.
+3. **`LOGIN`.** The second argument (atom, quoted string or literal) is `****`; a literal password is `****` once per
+   line it spans. Every other literal, an `APPEND` message included, is logged unchanged, so message text such as
+   `LOGIN a b` is never touched.
+4. **Refused literal.** After a synchronizing marker, a first server line that does not start with `+` cancels the
+   literal, so the next client line is read as a command.
+5. **Known limit.** The line seam holds at most 64 KiB without a CR LF; a longer run inside a literal is written as `****`
+   by `LineBytesRedactor` and the rule does not see it, so its literal count can then run long. Only the log is affected.
