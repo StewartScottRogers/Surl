@@ -32,3 +32,4 @@ ADR-0157 amendment 1 (BL-1453) decides this. ADR-0157 decision 3 left client cer
 ## Log
 
 - 2026-11-20: Created.
+- 2026-11-20: Backlog -> Doing.
