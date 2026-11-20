@@ -8,7 +8,7 @@ depends-on: [BL-1419]
 touches: [Protocols/DataStore/Surl.Extended.Protocol.Redis.UnitLibrary, Protocols/DataStore/Surl.Extended.Protocol.Redis.UnitTests]
 requirement: none
 created: 2026-11-20
-completed:
+completed: 2026-11-20
 ---
 # BL-1435 — Withhold Redis AUTH and HELLO AUTH passwords from the exchange log
 
@@ -30,18 +30,23 @@ completed:
 
 ## Acceptance criteria
 
-- [ ] `RedisServer` implements BL-1418's contract. Fast tests in
+- [x] `RedisServer` implements BL-1418's contract. Fast tests in
       `Protocols/DataStore/Surl.Extended.Protocol.Redis.UnitTests` show RESP `AUTH s3cret`,
       `AUTH alice s3cret` and `HELLO 3 AUTH alice s3cret` logged with the password in the ADR's form,
       also split across reads.
-- [ ] Inline `auth s3cret` is redacted, and `SET k s3cret` is logged unchanged (named tests).
-- [ ] `dotnet build Protocols/DataStore/Surl.Extended.Protocol.Redis.UnitLibrary -warnaserror` is clean,
+- [x] Inline `auth s3cret` is redacted, and `SET k s3cret` is logged unchanged (named tests).
+- [x] `dotnet build Protocols/DataStore/Surl.Extended.Protocol.Redis.UnitLibrary -warnaserror` is clean,
       the fast tests are green, and coverage stays at 100% line and branch.
 
 ## Notes
+
+- `RedisReceivedBytesRedactor` follows RESP arrays of bulk strings across reads: a masked password is logged as `$4
+****
+`, so the length is not shown and the log stays valid RESP. `AUTH` masks the last argument of `AUTH [user] password` (all arguments past the command when over 3); `HELLO` masks the element two after an `AUTH` element. Inline lines go through `RedisInlineCommandRedaction` (decided by Claude: BL-1418's `LineBytesRedactor` needs CRLF only and cannot re-quote Redis inline arguments, so Redis has its own line handling, same `****` form, same 64 KiB bound).
 
 ## Log
 
 - 2026-11-20: Created.
 - 2026-11-20: Filed from `Z:\repos\Surly\Documentation\Bug-Reports\2026-11-20T0553-Surl-bug-report.md` item 1.
 - 2026-11-20: Backlog -> Doing.
+- 2026-11-20: Doing -> Done. Redis AUTH and HELLO AUTH passwords withheld from the exchange log

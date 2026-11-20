@@ -47,7 +47,7 @@ namespace Surl.Extended.Protocol.Redis;
 /// unsent is closed with no more bytes.
 /// </para>
 /// </remarks>
-public sealed class RedisServer : IConnectionProtocolServer, IConnectionRefusalWriter
+public sealed class RedisServer : IConnectionProtocolServer, IConnectionRefusalWriter, IExchangeBytesRedactingServer
 {
     private readonly IAuthenticationPolicy authenticationPolicy;
     private readonly RedisKeyspace keyspace;
@@ -113,6 +113,15 @@ public sealed class RedisServer : IConnectionProtocolServer, IConnectionRefusalW
     /// whose handshake the engine performs (ADR-0106 decision 7).
     /// </summary>
     public IReadOnlyList<string> Schemes { get; } = Array.AsReadOnly(["redis", "rediss"]);
+
+    /// <summary>
+    /// Creates the redactor that writes the password of <c>AUTH</c> and of <c>HELLO ... AUTH</c> as
+    /// <c>****</c> in the exchange log, in RESP arrays and inline commands (ADR-0182, decision 6).
+    /// </summary>
+    /// <param name="context">The exchange the redactor is for.</param>
+    /// <returns>A redactor used by that exchange alone.</returns>
+    public IReceivedBytesRedactor CreateRedactor(ExchangeRedactionContext context) =>
+        new RedisReceivedBytesRedactor();
 
     /// <summary>
     /// Answers every command on <paramref name="connection"/> until the connection ends. Each
