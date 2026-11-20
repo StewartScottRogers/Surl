@@ -30,3 +30,4 @@ gRPC (HTTP/2), WebTransport (HTTP/3) and DNS over HTTPS log `Authorization` and 
 ## Log
 
 - 2026-11-20: Created.
+- 2026-11-20: Backlog -> Doing.
