@@ -23,6 +23,7 @@ public sealed class UpstreamCurlFetchesFromSurlOverFtpTests
 
     // CURLE_OPERATION_TIMEDOUT: surl answered 421 in place of the greeting.
     private const int OperationTimedOut = 28;
+    private const int CouldNotConnect = 7;
 
     // CURLE_REMOTE_FILE_NOT_FOUND: SIZE was answered 550.
     private const int RemoteFileNotFound = 78;
@@ -225,7 +226,42 @@ public sealed class UpstreamCurlFetchesFromSurlOverFtpTests
 
         var result = await RunCurlAsync(surl.UrlOf("a.txt"));
 
-        Assert.AreEqual(OperationTimedOut, result.ExitCode, result.StandardError);
+        // surl answers "421 Too many connections" and closes gracefully (FtpProtocolServer.WriteRefusalAsync,
+        // then StreamConnection's lingering close), and curl maps a 421 greeting to exit 28. On macOS
+        // arm64 one CI run (release 44640744739) saw curl report its connect as failed (exit 7, after
+        // 8 ms) before it read the reply; a rerun gave 28. Either way curl was refused, never served, so
+        // macOS accepts both refusals (BL-1412).
+        var acceptedExitCodes = OperatingSystem.IsMacOS() ? new[] { OperationTimedOut, CouldNotConnect } : [OperationTimedOut];
+        CollectionAssert.Contains(acceptedExitCodes, result.ExitCode, result.StandardError);
+    }
+
+    // TEMPORARY (BL-1413): measures how often pinned curl on macOS sees exit 7 instead of 28 for the
+    // refusal above. Every repetition's exit code and stderr are kept; the test fails with the tally
+    // if any repetition is not 28. Remove once BL-1413's macOS runs are logged.
+    [TestMethod]
+    public async Task Download_MaxConnections1WhileAnotherClientHoldsIt_RepeatedFiftyTimes_TalliesExitCodes()
+    {
+        const int repetitions = 50;
+        var tally = new SortedDictionary<string, int>(StringComparer.Ordinal);
+        for (var attempt = 0; attempt < repetitions; attempt++)
+        {
+            await using var surl = await StartSurlAsync("--max-connections", "1");
+            using var holder = new TcpClient();
+            await holder.ConnectAsync(surl.BaseUrl.Host, surl.BaseUrl.Port, TestContext.CancellationToken);
+            using var holderReader = new StreamReader(holder.GetStream(), Encoding.ASCII);
+            await holderReader.ReadLineAsync(TestContext.CancellationToken);
+            await holder.GetStream().WriteAsync(Encoding.ASCII.GetBytes("NOOP\r\n"), TestContext.CancellationToken);
+            await holderReader.ReadLineAsync(TestContext.CancellationToken);
+
+            var result = await RunCurlAsync(surl.UrlOf("a.txt"));
+            var key = $"exit {result.ExitCode}: {result.StandardError.Trim()}";
+            tally[key] = tally.GetValueOrDefault(key) + 1;
+        }
+
+        var report = string.Join(" | ", tally.Select(pair => $"{pair.Value}x {pair.Key}"));
+        TestContext.WriteLine(report);
+        Assert.AreEqual(1, tally.Count, report);
+        StringAssert.StartsWith(tally.Keys.Single(), $"exit {OperationTimedOut}:", report);
     }
 
     private static string[] Split(string options) => options.Split(' ', StringSplitOptions.RemoveEmptyEntries);
