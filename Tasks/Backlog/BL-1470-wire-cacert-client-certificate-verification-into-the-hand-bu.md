@@ -1,5 +1,5 @@
 ---
-id: BL-1467
+id: BL-1470
 title: Wire --cacert client-certificate verification into the hand-built TLS 1.3 server stream in Surl.Networking
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-20
 completed:
 ---
-# BL-1467 — Wire --cacert client-certificate verification into the hand-built TLS 1.3 server stream in Surl.Networking
+# BL-1470 — Wire --cacert client-certificate verification into the hand-built TLS 1.3 server stream in Surl.Networking
 
 ## Goal
 

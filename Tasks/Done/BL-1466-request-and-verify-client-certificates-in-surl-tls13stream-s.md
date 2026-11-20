@@ -31,10 +31,10 @@ ADR-0157 amendment 1 (BL-1453) decides this. ADR-0157 decision 3 left client cer
 
 Found on reading: BL-600 already put the CertificateRequest, client Certificate and CertificateVerify handling, with the unit tests for accept, wrong signature, untrusted chain and no certificate, in `TlsServerHandshake` (QUIC), and `Tls13ServerStream.AcceptAsync` already passed the options through and exposed `ClientCertificateChain` (the verified DER chain). What was missing was proof over the stream: `Tls13ServerStreamClientCertificateTests` now drives accept, no certificate (certificate_required), untrusted chain (bad_certificate) and wrong signature (decrypt_error) over the in-memory duplex. No library code changed, so coverage is as it was.
 
-Follow-up: BL-1467 wires `ServerTlsSettings.CreateTls13Options` and the session to the verifier, which is the routing guard still needed (Surl.Networking is outside this task's touches).
+Follow-up: BL-1470 wires `ServerTlsSettings.CreateTls13Options` and the session to the verifier, which is the routing guard still needed (Surl.Networking is outside this task's touches).
 
 ## Log
 
 - 2026-11-20: Created.
 - 2026-11-20: Backlog -> Doing.
-- 2026-11-20: Doing -> Done. Tls13ServerStream proven to request and verify client certificates over the duplex (accept, none, untrusted, bad signature); BL-1467 wires Networking
+- 2026-11-20: Doing -> Done. Tls13ServerStream proven to request and verify client certificates over the duplex (accept, none, untrusted, bad signature); BL-1470 wires Networking
