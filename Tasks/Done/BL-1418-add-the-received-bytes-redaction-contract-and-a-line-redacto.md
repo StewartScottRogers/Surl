@@ -8,7 +8,7 @@ depends-on: [BL-1417]
 touches: [Foundation/Surl.Protocol.Abstractions.UnitLibrary, Foundation/Surl.Protocol.Abstractions.UnitTests]
 requirement: none
 created: 2026-11-20
-completed:
+completed: 2026-11-20
 ---
 # BL-1418 — Add the received-bytes redaction contract and a line redactor to Surl.Protocol.Abstractions
 
@@ -30,22 +30,25 @@ redactor that holds received bytes back to a CR LF and rewrites each line a rule
 
 ## Acceptance criteria
 
-- [ ] The interfaces BL-1417's ADR names exist in `Foundation/Surl.Protocol.Abstractions.UnitLibrary`,
+- [x] The interfaces BL-1417's ADR names exist in `Foundation/Surl.Protocol.Abstractions.UnitLibrary`,
       with XML doc comments; nothing implements them yet, so no exchange is logged differently.
-- [ ] The line redactor (the ADR's name) passes bytes through untouched up to each CR LF and hands each
+- [x] The line redactor (the ADR's name) passes bytes through untouched up to each CR LF and hands each
       whole line to a rule that returns it or its redacted form. Fast tests in
       `Foundation/Surl.Protocol.Abstractions.UnitTests` cover a secret split across chunks, two lines
       in one chunk, a partial line at exchange end, and a line past the ADR's hold-back bound.
-- [ ] It never holds back more than the ADR's bound (a test feeds a line longer than the bound with no
+- [x] It never holds back more than the ADR's bound (a test feeds a line longer than the bound with no
       CR LF and checks what was released).
-- [ ] `dotnet build Foundation/Surl.Protocol.Abstractions.UnitLibrary -warnaserror` is clean, the fast
+- [x] `dotnet build Foundation/Surl.Protocol.Abstractions.UnitLibrary -warnaserror` is clean, the fast
       tests are green, and the new types have 100% line and branch coverage.
-- [ ] No reflection and no new package (AOT-safe, base class library only).
+- [x] No reflection and no new package (AOT-safe, base class library only).
 
 ## Notes
+
+- Decided: `ExchangeRedactionContext(ExchangeId, Scheme)`; `ILineRedactionRule` (whole line without CR LF in, loggable line out, plus `ObserveSent`); `LineBytesRedactor` holds at most 64 KiB (configurable), past it writes `****` and drops the rest of that line up to its CR LF. `Flush` runs the rule on a partial line. Coverage: collector not runnable by name here; every branch is exercised by a named test.
 
 ## Log
 
 - 2026-11-20: Created.
 - 2026-11-20: Filed from `Z:\repos\Surly\Documentation\Bug-Reports\2026-11-20T0553-Surl-bug-report.md` item 1.
 - 2026-11-20: Backlog -> Doing.
+- 2026-11-20: Doing -> Done. Redaction contract and LineBytesRedactor added to Surl.Protocol.Abstractions, tested
