@@ -8,7 +8,7 @@ depends-on: [BL-1423, BL-1424, BL-1465]
 touches: [Protocols/Http/Surl.Extended.Protocol.Grpc.UnitLibrary, Protocols/Http/Surl.Extended.Protocol.Grpc.UnitTests, Protocols/Http/Surl.Extended.Protocol.WebTransport.UnitLibrary, Protocols/Http/Surl.Extended.Protocol.WebTransport.UnitTests, Protocols/Lookup/Surl.Extended.Protocol.DnsQuery.UnitLibrary, Protocols/Lookup/Surl.Extended.Protocol.DnsQuery.UnitTests, Application/Surl.Composition.UnitLibrary/DnsConnectionRoutingProtocolServer.cs, Application/Surl.Composition.UnitTests/DnsConnectionRoutingProtocolServerTests.cs]
 requirement: none
 created: 2026-11-20
-completed:
+completed: 2026-11-20
 ---
 # BL-1469 — Withhold credentials from the exchange log of gRPC, WebTransport and DNS over HTTPS
 
@@ -36,3 +36,4 @@ gRPC (HTTP/2), WebTransport (HTTP/3) and DNS over HTTPS log `Authorization` and 
 
 - 2026-11-20: Created.
 - 2026-11-20: Backlog -> Doing.
+- 2026-11-20: Doing -> Done. gRPC, WebTransport and DNS over HTTPS log Authorization values as ****
