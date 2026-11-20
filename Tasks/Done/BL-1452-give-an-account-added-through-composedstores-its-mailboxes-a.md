@@ -8,7 +8,7 @@ depends-on: [BL-1451]
 touches: [Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests]
 requirement: none
 created: 2026-11-20
-completed:
+completed: 2026-11-20
 ---
 # BL-1452 — Give an account added through ComposedStores its mailboxes and retire a removed account's
 
@@ -31,16 +31,16 @@ An account added through `ComposedStores.AddAccount` (surl-mcp `add_account`, `S
 
 ## Acceptance criteria
 
-- [ ] A test in `Application/Surl.Composition.UnitTests` (`ComposedStoresTests` or a new
+- [x] A test in `Application/Surl.Composition.UnitTests` (`ComposedStoresTests` or a new
       `ComposedStoresMailOwnerTests`) adds `task-1` through `AddAccount` and then seeds mail to it with
       `SeedMailAsync`, which succeeds; `ListMailboxes("task-1")` lists `INBOX`.
-- [ ] After `RemoveAccount("alice")` for a start-time account, `SeedMailAsync` to alice gives the ADR's
+- [x] After `RemoveAccount("alice")` for a start-time account, `SeedMailAsync` to alice gives the ADR's
       result (`NoSuchAccount` expected) and `ListMailboxes` answers as the ADR says.
-- [ ] `ComposedControlTarget.AddAccountAsync` for an existing name (a password change) keeps the
+- [x] `ComposedControlTarget.AddAccountAsync` for an existing name (a password change) keeps the
       owner's messages (named test).
-- [ ] A whole-instance `ResetAsync` leaves the mail store and the accounts consistent (no owner without
+- [x] A whole-instance `ResetAsync` leaves the mail store and the accounts consistent (no owner without
       an account, no account without an owner) as the ADR says (named test).
-- [ ] `dotnet build Application/Surl.Composition.UnitLibrary -warnaserror` is clean, the fast tests are
+- [x] `dotnet build Application/Surl.Composition.UnitLibrary -warnaserror` is clean, the fast tests are
       green, and coverage stays at 100% line and branch.
 
 ## Notes
@@ -48,8 +48,11 @@ An account added through `ComposedStores.AddAccount` (surl-mcp `add_account`, `S
 - The surl-mcp and Surl.Api paths need no change of their own; a stand-in scenario test across both
   hosts, if wanted, is a separate task.
 
+- AddAccount adds the owner only when the account may log in on smtp, imap or pop3 (ADR-0185 decision 6); the existing control-target event test now also expects the mailbox Created event (decision 5).
+
 ## Log
 
 - 2026-11-20: Created.
 - 2026-11-20: Filed from `Z:\repos\Surly\Documentation\Bug-Reports\2026-11-19T2203-Surl-bug-report.md` items 1 and 2.
 - 2026-11-20: Backlog -> Doing.
+- 2026-11-20: Doing -> Done. AddAccount reaches a mail owner, RemoveAccount retires it

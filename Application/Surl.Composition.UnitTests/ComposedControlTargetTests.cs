@@ -117,7 +117,7 @@ public sealed class ComposedControlTargetTests
     }
 
     [TestMethod]
-    public async Task ReadEventsAsync_AnAccountAddedThenCancelled_YieldsItsStoreChangeThenEnds()
+    public async Task ReadEventsAsync_AnAccountAddedThenCancelled_YieldsItsStoreChangeAndItsMailboxThenEnds()
     {
         await using var serving = await ComposeAsync();
         var target = TargetOf(serving);
@@ -128,11 +128,16 @@ public sealed class ComposedControlTargetTests
         await target.AddAccountAsync("bob", "builder", TestContext.CancellationToken);
         var yielded = await moved;
         var current = events.Current;
+        var yieldedMailbox = await events.MoveNextAsync();
+        var mailbox = (StoreChangedEvent)events.Current;
         var movedAfterCancel = events.MoveNextAsync();
         await cancellation.CancelAsync();
 
         Assert.IsTrue(yielded);
         Assert.AreEqual(StoreKind.Accounts, ((StoreChangedEvent)current).Store);
+        Assert.IsTrue(yieldedMailbox);
+        Assert.AreEqual(StoreKind.Mail, mailbox.Store);
+        Assert.AreEqual(StoreChange.Created, mailbox.Change);
         Assert.IsFalse(await movedAfterCancel);
     }
 
