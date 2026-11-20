@@ -74,6 +74,9 @@ Public, what a server uses:
   `DATA` frame; like every write it waits while more than `QuicApplicationConnection.MaxUnsentLength`
   would wait unsent for the client's credit, BL-710), `ResetAsync` (`RESET_STREAM` and `STOP_SENDING`, a stream error) and
   `ResetResponseAsync` (`RESET_STREAM` alone, for an answer that cannot be finished).
+- Plaintext notes of received bytes are redacted by `Http3RequestBytesRedactor` (ADR-0182 Amendment 4, BL-1424), which
+  `Surl.Protocol.Http`'s `Http3ProtocolServer` hands out: `authorization` and `proxy-authorization` in a `HEADERS`
+  payload or in decoded header text are written as `****`.
 - The decrypted-bytes sink (ADR-0169 decision 1; BL-1270): `Http3RequestStreamServer` reports each decoded
   request header list as `Decoded` received, `Http3RequestStream.WriteHeadersAsync` each response header
   list as `Decoded` sent, and each DATA payload read or written as `Decrypted`, all with the stream id,

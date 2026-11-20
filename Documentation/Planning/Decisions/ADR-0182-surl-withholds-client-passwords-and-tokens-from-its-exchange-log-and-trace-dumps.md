@@ -152,3 +152,15 @@ IMAP `+`, the next client line is a secret).
   table unknown; from then on every header-block payload on that connection is withheld.
 - **Switching.** The http server's redactor starts as the HTTP/1.x one and moves to the HTTP/2 one when the connection's
   first bytes are the client preface, or after the server sent `101` for `Upgrade: h2c`.
+
+## Amendment 4 (BL-1424, decided by Claude under Stewart's delegation)
+
+- **HTTP/3 form.** `Http3ProtocolServer` implements `IExchangeBytesRedactingServer`; its `Http3RequestBytesRedactor` serves the
+  decrypted-bytes notes, each chunk by a fresh instance (Amendment 1). A `HEADERS` frame whose QPACK field section carries
+  `authorization` or `proxy-authorization` is logged with its payload replaced by `****`, the frame type and length logged as
+  received (as HTTP/2, Amendment 3). Surl advertises a QPACK table capacity of 0, so a fresh decoder reads any section.
+- **Decoded header text** (`Decoded` layer, ADR-0169 decision 1) carries the same values in clear, so a chunk starting with `:` is read as
+  `name: value` lines and those two values are written as `****`.
+- **Fail closed, with one limit.** A `HEADERS` payload that does not decode or runs past its chunk is withheld. A chunk is read as
+  frames from its first byte because the redactor is not told its stream; a body chunk starting mid-frame that happens to read as
+  an undecodable `HEADERS` frame is withheld too, which loses log detail and never reveals a secret.
