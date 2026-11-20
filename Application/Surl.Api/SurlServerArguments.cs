@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Security.Authentication;
 using Surl.Cli;
 using Surl.Composition;
 using Surl.Output;
@@ -35,6 +36,13 @@ internal static class SurlServerArguments
 
         InMemoryFiles.ThrowIfMisused(options.Files);
         ThrowIfAuthenticationMisused(options);
+        ThrowIfTlsVersionMisused(options.LowestTlsVersion, nameof(options.LowestTlsVersion));
+        ThrowIfTlsVersionMisused(options.HighestTlsVersion, nameof(options.HighestTlsVersion));
+        if (options.MaxRequestHeadBytes < 1)
+        {
+            throw new ArgumentException("MaxRequestHeadBytes must be at least 1.", nameof(options));
+        }
+
         ThrowIfNegativeDuration(options.IdleTimeout, nameof(options.IdleTimeout));
         ThrowIfNegativeDuration(options.MaxTime, nameof(options.MaxTime));
         ThrowIfRecordBoundNotPositive(options);
@@ -94,6 +102,25 @@ internal static class SurlServerArguments
             throw new ArgumentException("HostKeyFiles and AuthenticationMethods may not hold null.", nameof(options));
         }
     }
+
+    private static void ThrowIfTlsVersionMisused(SslProtocols? version, string propertyName)
+    {
+        if (version is { } value)
+        {
+            _ = TlsVersionNumber(value, propertyName);
+        }
+    }
+
+#pragma warning disable SYSLIB0039 // Tls and Tls11 name the old versions on purpose: --tlsv1.0, --tlsv1.1 and --tls-max 1.0/1.1.
+    private static string TlsVersionNumber(SslProtocols version, string propertyName) => version switch
+    {
+        SslProtocols.Tls => "1.0",
+        SslProtocols.Tls11 => "1.1",
+        SslProtocols.Tls12 => "1.2",
+        SslProtocols.Tls13 => "1.3",
+        _ => throw new ArgumentException($"{propertyName} must be Tls, Tls11, Tls12 or Tls13.", "options"),
+    };
+#pragma warning restore SYSLIB0039
 
     private static void ThrowIfNegativeDuration(TimeSpan? duration, string propertyName)
     {
@@ -240,8 +267,20 @@ internal static class SurlServerArguments
 
     private static void AddTls(List<string> arguments, SurlServerOptions options)
     {
+        if (options.LowestTlsVersion is { } lowest)
+        {
+            arguments.Add("--tlsv" + TlsVersionNumber(lowest, nameof(options.LowestTlsVersion)));
+        }
+
+        if (options.HighestTlsVersion is { } highest)
+        {
+            arguments.AddRange(["--tls-max", TlsVersionNumber(highest, nameof(options.HighestTlsVersion))]);
+        }
+
         AddValue(arguments, options.CertificateFile, "--cert");
+        AddValue(arguments, options.CertificateType, "--cert-type");
         AddValue(arguments, options.KeyFile, "--key");
+        AddValue(arguments, options.KeyType, "--key-type");
         AddValue(arguments, options.KeyPassphrase, "--pass");
         AddFlag(arguments, options.SelfSigned, "--self-signed");
         AddValue(arguments, options.CaCertificateFile, "--cacert");
@@ -260,6 +299,7 @@ internal static class SurlServerArguments
         AddValue(arguments, FormatSeconds(options.IdleTimeout), "--idle-timeout");
         AddValue(arguments, FormatSeconds(options.MaxTime), "--max-time");
         AddValue(arguments, FormatInvariant(options.MaxFileSize), "--max-filesize");
+        AddValue(arguments, FormatInvariant(options.MaxRequestHeadBytes), "--max-request-head");
         AddValue(arguments, FormatInvariant(options.RandomSeed), "--random-seed");
     }
 

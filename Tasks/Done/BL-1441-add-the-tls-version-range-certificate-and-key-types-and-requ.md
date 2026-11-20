@@ -8,7 +8,7 @@ depends-on: [BL-1438]
 touches: [Application/Surl.Api, Application/Surl.Api.UnitTests]
 requirement: none
 created: 2026-11-20
-completed:
+completed: 2026-11-20
 ---
 # BL-1441 — Add the TLS version range, certificate and key types and request-head limit to SurlServerOptions
 
@@ -32,22 +32,25 @@ of spelling `--tlsv1.3`, `--tls-max`, `--cert-type`, `--key-type` and `--max-req
 
 ## Acceptance criteria
 
-- [ ] The properties BL-1438 names exist on `SurlServerOptions` with XML doc comments naming the option
+- [x] The properties BL-1438 names exist on `SurlServerOptions` with XML doc comments naming the option
       each composes.
-- [ ] Named tests in `Application/Surl.Api.UnitTests` show each composes its option (for example a
+- [x] Named tests in `Application/Surl.Api.UnitTests` show each composes its option (for example a
       lowest of TLS 1.3 gives `--tlsv1.3`, a highest of TLS 1.2 gives `--tls-max 1.2`, `CertificateType`
       `P12` gives `--cert-type P12`, and the head limit gives `--max-request-head <n>`).
-- [ ] Defaults compose none of these words (named test), and the values the amendment refuses throw
+- [x] Defaults compose none of these words (named test), and the values the amendment refuses throw
       `ArgumentException` (named test).
-- [ ] A start with a lowest version above the highest throws `surl`'s own refusal as
+- [x] A start with a lowest version above the highest throws `surl`'s own refusal as
       `SurlServerStartException` (named test).
-- [ ] `dotnet build Application/Surl.Api -warnaserror` is clean, the fast tests are green, and coverage
+- [x] `dotnet build Application/Surl.Api -warnaserror` is clean, the fast tests are green, and coverage
       stays at 100% line and branch.
 
 ## Notes
+
+- Built as ADR-0099's 2026-11-20 amendment says. One helper maps SslProtocols to its number and throws ArgumentException for any other value; Compose and ThrowIfMisused both use it. Tests in SurlServerArgumentsTests.TlsRange.cs.
 
 ## Log
 
 - 2026-11-20: Created.
 - 2026-11-20: Filed from `Z:\repos\Surly\Documentation\Bug-Reports\2026-11-19T1942-Surl-bug-report.md` item 10 and `2026-11-19T2203-Surl-bug-report.md` item 6.
 - 2026-11-20: Backlog -> Doing.
+- 2026-11-20: Doing -> Done. SurlServerOptions has typed TLS version range, cert and key types and request-head limit
