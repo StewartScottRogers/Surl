@@ -5,10 +5,10 @@ priority: High
 assignee: Claude
 pipeline: feature
 depends-on: [BL-1419, BL-1421]
-touches: [Protocols/Http/Surl.Protocol.Rtsp.UnitLibrary, Protocols/Http/Surl.Protocol.Rtsp.UnitTests]
+touches: [Protocols/Http/Surl.Protocol.Rtsp.UnitLibrary, Protocols/Http/Surl.Protocol.Rtsp.UnitTests, Protocols/Http/Surl.HttpMessage.UnitLibrary, Protocols/Http/Surl.HttpMessage.UnitTests]
 requirement: none
 created: 2026-11-20
-completed:
+completed: 2026-11-20
 ---
 # BL-1426 — Withhold RTSP Authorization values from the exchange log
 
@@ -28,20 +28,23 @@ BL-1417's ADR fixes.
 
 ## Acceptance criteria
 
-- [ ] The RTSP protocol server implements BL-1418's contract with BL-1421's redactor. A fast test in
+- [x] The RTSP protocol server implements BL-1418's contract with BL-1421's redactor. A fast test in
       `Protocols/Http/Surl.Protocol.Rtsp.UnitTests` shows `OPTIONS` with `Authorization: Basic ...`
       logged in the ADR's form.
-- [ ] A `$`-framed interleaved packet containing the bytes `Authorization:` is logged unchanged (named
+- [x] A `$`-framed interleaved packet containing the bytes `Authorization:` is logged unchanged (named
       test).
-- [ ] `dotnet test Conformance/Surl.Conformance.UnitTests --filter "TestCategory!=Integration"` stays
+- [x] `dotnet test Conformance/Surl.Conformance.UnitTests --filter "TestCategory!=Integration"` stays
       green.
-- [ ] `dotnet build Protocols/Http/Surl.Protocol.Rtsp.UnitLibrary -warnaserror` is clean, the fast tests
+- [x] `dotnet build Protocols/Http/Surl.Protocol.Rtsp.UnitLibrary -warnaserror` is clean, the fast tests
       are green, and coverage stays at 100% line and branch.
 
 ## Notes
+
+- Touches widened to Surl.HttpMessage (no Doing task names it): added `HttpRequestHeadBytesRedactor.IsAtRequestStart` so the RTSP wrapper `RtspRequestBytesRedactor` can tell where a client `$` frame may start; frames pass through unchanged, heads go through BL-1421's redactor.
 
 ## Log
 
 - 2026-11-20: Created.
 - 2026-11-20: Filed from `Z:\repos\Surly\Documentation\Bug-Reports\2026-11-20T0553-Surl-bug-report.md` item 1.
 - 2026-11-20: Backlog -> Doing.
+- 2026-11-20: Doing -> Done. RTSP exchange log masks Authorization credentials; interleaved frames pass unchanged

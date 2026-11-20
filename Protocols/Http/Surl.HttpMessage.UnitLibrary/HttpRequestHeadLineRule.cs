@@ -35,6 +35,11 @@ internal sealed class HttpRequestHeadLineRule : ILineRedactionRule
     public bool HeadIsComplete { get; private set; }
 
     /// <summary>
+    /// Whether no line of a head has been read since the last <see cref="StartNextHead"/>.
+    /// </summary>
+    public bool NoHeadLineRead => lineCount == 0;
+
+    /// <summary>
     /// The framing the finished head declares.
     /// </summary>
     public HttpRequestBodyFraming Framing =>

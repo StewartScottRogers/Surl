@@ -135,6 +135,26 @@ public sealed class HttpRequestHeadBytesRedactorTests
     }
 
     [TestMethod]
+    public void IsAtRequestStart_IsTrueOnlyBetweenRequests()
+    {
+        var redactor = new HttpRequestHeadBytesRedactor();
+        var output = new ArrayBufferWriter<byte>();
+        Assert.IsTrue(redactor.IsAtRequestStart);
+
+        redactor.Redact("POST / HTTP/1.1\r\nContent-Length: 2\r\n"u8, output);
+        Assert.IsFalse(redactor.IsAtRequestStart);
+
+        redactor.Redact("\r\na"u8, output);
+        Assert.IsFalse(redactor.IsAtRequestStart);
+
+        redactor.Redact("b"u8, output);
+        Assert.IsTrue(redactor.IsAtRequestStart);
+
+        redactor.Redact("GE"u8, output);
+        Assert.IsFalse(redactor.IsAtRequestStart);
+    }
+
+    [TestMethod]
     public void Redact_AndFlush_RefuseANullOutput()
     {
         var redactor = new HttpRequestHeadBytesRedactor();

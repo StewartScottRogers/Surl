@@ -50,6 +50,13 @@ public sealed class HttpRequestHeadBytesRedactor : IReceivedBytesRedactor
         lines = new LineBytesRedactor(rule);
     }
 
+    /// <summary>
+    /// Whether the next byte begins a new request: no body or framing is being passed through and
+    /// no byte of a head line is held back. A protocol that interleaves its own frames between
+    /// requests (RTSP's <c>$</c> frames) uses this to tell where one may start.
+    /// </summary>
+    public bool IsAtRequestStart => state == State.Head && lines.HeldByteCount == 0 && rule.NoHeadLineRead;
+
     /// <inheritdoc />
     public void Redact(ReadOnlySpan<byte> received, ArrayBufferWriter<byte> output)
     {
