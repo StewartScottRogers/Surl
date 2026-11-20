@@ -54,3 +54,13 @@ connect fails the test instead of passing it.
 
 - 2026-11-19: Created.
 - 2026-11-19: Backlog -> Doing.
+
+## Notes (lane 1, 2026-11-19)
+
+- A lane cannot push, and dispatched runs use the pushed shift branch, so a macOS measurement needs a pushed
+  repeat test. Added the TEMPORARY `Download_MaxConnections1WhileAnotherClientHoldsIt_RepeatedFiftyTimes_TalliesExitCodes`
+  (50 repetitions, fails with a tally of exit codes and stderr unless all are 28; passes on Windows). Once the shift
+  has pushed it, the next claim dispatches `ci` on the shift branch (attempts=1 suffices: the macOS leg runs 50
+  repetitions), reads the tally from the macOS job log, and continues with acceptance criteria 2-5. Remove the
+  temporary test at the end.
+- 2026-11-19: Doing -> Backlog. Repeat test committed but a lane cannot push; next claim dispatches ci on the pushed shift branch for the macOS measurement
