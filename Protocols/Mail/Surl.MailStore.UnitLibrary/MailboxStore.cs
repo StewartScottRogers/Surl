@@ -92,6 +92,7 @@ public sealed partial class MailboxStore
     private MailDomainRouter? router;
     private MailStoreFiles? files;
     private readonly Dictionary<OwnerMailboxes, string[]>? configuredMailboxes;
+    private readonly string[] configuredAccountNames = [];
     private ulong nextFileNumber;
     private uint lastUidValidity;
     private int messageCount;
@@ -145,6 +146,7 @@ public sealed partial class MailboxStore
         ArgumentNullException.ThrowIfNull(accountNames);
         anonymousOwner = ReachOwners(accountNames, allowAnonymous, mailDomains);
         configuredMailboxes = owners.Values.ToDictionary(owner => owner, owner => owner.Mailboxes.Keys.ToArray());
+        configuredAccountNames = [.. accounts.Keys];
 
         // A new store starts with no change: its INBOXes are where it begins, not a change to it.
         changeCount = 0;

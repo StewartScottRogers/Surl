@@ -8,7 +8,7 @@ depends-on: [BL-1450]
 touches: [Protocols/Mail/Surl.MailStore.UnitLibrary, Protocols/Mail/Surl.MailStore.UnitTests]
 requirement: none
 created: 2026-11-20
-completed:
+completed: 2026-11-20
 ---
 # BL-1451 — Add and retire mail-store owners while the server runs, as BL-1450 decides
 
@@ -33,21 +33,25 @@ mailboxes a start-time account gets) and to retire one, so `ViewFor`, `LookUpRec
 
 ## Acceptance criteria
 
-- [ ] The members BL-1450 names exist, with XML doc comments. Fast tests in
+- [x] The members BL-1450 names exist, with XML doc comments. Fast tests in
       `Protocols/Mail/Surl.MailStore.UnitTests` show an added owner's `INBOX` selectable through
       `ViewFor` and deliverable through `LookUpRecipient`/`Deliver` and `Seed`.
-- [ ] A retired owner is `NoSuchAccount` to `LookUpRecipient` and `Seed`, and its mail is kept or
+- [x] A retired owner is `NoSuchAccount` to `LookUpRecipient` and `Seed`, and its mail is kept or
       dropped as the ADR says (named tests).
-- [ ] `Reset`, `TakeSnapshot` and `Restore` treat run-time owners as the ADR says (one named test each).
-- [ ] Adding an owner that exists, retiring one that does not, the anonymous store, and a store at
+- [x] `Reset`, `TakeSnapshot` and `Restore` treat run-time owners as the ADR says (one named test each).
+- [x] Adding an owner that exists, retiring one that does not, the anonymous store, and a store at
       `MaxMailboxes` each give the ADR's result and publish nothing (named tests).
-- [ ] `dotnet build Protocols/Mail/Surl.MailStore.UnitLibrary -warnaserror` is clean, the fast tests are
+- [x] `dotnet build Protocols/Mail/Surl.MailStore.UnitLibrary -warnaserror` is clean, the fast tests are
       green, and coverage stays at 100% line and branch.
 
 ## Notes
+
+- Decided inside ADR-0185. Snapshot also keeps the reached account names (internal) so Restore can reach owners as they were.
+- Removed owners are tracked by the `accounts` lookup only; the owner stays in `owners`. `LocalPartLookup` gained `Remove`, `Clear`, `Keys`.
 
 ## Log
 
 - 2026-11-20: Created.
 - 2026-11-20: Filed from `Z:\repos\Surly\Documentation\Bug-Reports\2026-11-19T2203-Surl-bug-report.md` items 1 and 2.
 - 2026-11-20: Backlog -> Doing.
+- 2026-11-20: Doing -> Done. MailboxStore.AddOwner/RetireOwner, owner-aware Reset/TakeSnapshot/Restore, MailStoreSnapshot.OwnerCount per ADR-0185

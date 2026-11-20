@@ -90,6 +90,12 @@ store's snapshot, under new `UIDVALIDITY`s. A store made by `LoadAsync` refuses 
 every POP3 maildrop lock; `MaildropLock` removes a message only while its UID still holds the bytes it
 was given, and releases the lock only while it still holds it.
 
+Owners at run time (BL-1451, ADR-0185): `AddOwner(name)` makes an owner with an empty `INBOX` (not counted
+against `MaxMailboxes`; one `Created` event; a change) or reaches a retired one again with its mail; `RetireOwner(name)`
+makes an owner unreached (mail kept and counted, no event). Both answer `false` and do nothing for the cases ADR-0185
+decision 6 lists. `Reset` drops owners not configured and reaches configured ones again; `TakeSnapshot` records
+`OwnerCount` and which owners are reached, and `Restore` puts both back.
+
 This library references `Surl.Protocol.Abstractions.UnitLibrary` and
 `Surl.Content.UnitLibrary` (for `IContentFileSystem`) and nothing else (ADR-0050 decision 1,
 amending ADR-0002's table); protocol servers may reference it, and the SMTP, IMAP and POP3

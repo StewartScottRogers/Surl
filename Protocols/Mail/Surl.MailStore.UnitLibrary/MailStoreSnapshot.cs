@@ -14,10 +14,15 @@ namespace Surl.MailStore;
 /// </remarks>
 public sealed class MailStoreSnapshot
 {
-    internal MailStoreSnapshot(MailboxStore store, IReadOnlyDictionary<OwnerMailboxes, IReadOnlyList<MailboxCopy>> owners)
+    internal MailStoreSnapshot(
+        MailboxStore store,
+        IReadOnlyDictionary<OwnerMailboxes, IReadOnlyList<MailboxCopy>> owners,
+        IReadOnlyList<string> reachedAccountNames)
     {
         Store = store;
         Owners = owners;
+        ReachedAccountNames = reachedAccountNames;
+        OwnerCount = owners.Count;
         var messages = owners.Values.SelectMany(mailboxes => mailboxes).SelectMany(mailbox => mailbox.Messages).ToList();
         MessageCount = messages.Count;
         MailboxCount = owners.Values.Sum(mailboxes => mailboxes.Count);
@@ -35,6 +40,11 @@ public sealed class MailStoreSnapshot
     public int MailboxCount { get; }
 
     /// <summary>
+    /// How many owners the snapshot holds, reached or retired (ADR-0185 decision 4).
+    /// </summary>
+    public int OwnerCount { get; }
+
+    /// <summary>
     /// The bytes of the distinct messages the snapshot holds, counted as the store counts them
     /// against <see cref="MailboxStore.MaxTotalMessageBytes"/>: a message held by several mailboxes
     /// once. What a whole instance's snapshot adds up against its bound.
@@ -44,4 +54,6 @@ public sealed class MailStoreSnapshot
     internal MailboxStore Store { get; }
 
     internal IReadOnlyDictionary<OwnerMailboxes, IReadOnlyList<MailboxCopy>> Owners { get; }
+
+    internal IReadOnlyList<string> ReachedAccountNames { get; }
 }
