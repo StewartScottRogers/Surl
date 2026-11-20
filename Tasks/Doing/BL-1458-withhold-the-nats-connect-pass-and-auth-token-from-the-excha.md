@@ -31,3 +31,4 @@ With the BL-1418 contract implemented, ADR-0182's replacement text is logged in 
 ## Log
 
 - 2026-11-20: Created.
+- 2026-11-20: Backlog -> Doing.
