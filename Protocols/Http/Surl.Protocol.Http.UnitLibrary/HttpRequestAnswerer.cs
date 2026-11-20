@@ -290,12 +290,13 @@ internal sealed partial class HttpRequestAnswerer : IHttpRequestHandler
         var now = Now();
         var lastModified = FormatHttpDate(status.LastModifiedUtc < now ? status.LastModifiedUtc : now);
         var lastModifiedUtc = status.LastModifiedUtc < now ? status.LastModifiedUtc : now;
-        if (DateConditionAnswer(request, lastModifiedUtc, challenges) is { } conditionAnswer)
+        var eTag = ETagOf(status);
+        if (ConditionAnswer(request, lastModifiedUtc, eTag, challenges) is { } conditionAnswer)
         {
             return conditionAnswer;
         }
 
-        var ranges = request.Method == "GET" ? SelectedRanges(request, lastModified, status.Length) : null;
+        var ranges = request.Method == "GET" ? SelectedRanges(request, lastModified, eTag, status.Length) : null;
         if (ranges is { Count: 0 })
         {
             context.Log.Note($"{request.Method} {request.Target}: 416, the range is past the end of the {status.Length}-byte {mapping.Location}");
@@ -303,16 +304,17 @@ internal sealed partial class HttpRequestAnswerer : IHttpRequestHandler
             return RangeNotSatisfiableAnswer(request, status.Length, challenges);
         }
 
-        return ServedFileAnswer(request, mapping, now, lastModified, ranges, status.Length, challenges);
+        return ServedFileAnswer(request, mapping, now, lastModified, eTag, ranges, status.Length, challenges);
     }
 
     // The 200 or 206 for a file: the ranges selected, or the whole file.
-    private HttpAnswer ServedFileAnswer(HttpRequest request, ContentPathMapping mapping, DateTimeOffset now, string lastModified, IReadOnlyList<ContentByteRange>? ranges, long fileLength, IReadOnlyList<string> challenges)
+    private HttpAnswer ServedFileAnswer(HttpRequest request, ContentPathMapping mapping, DateTimeOffset now, string lastModified, string eTag, IReadOnlyList<ContentByteRange>? ranges, long fileLength, IReadOnlyList<string> challenges)
     {
         List<KeyValuePair<string, string>> fields =
         [
             new("Date", FormatHttpDate(now)),
             new("Server", HttpResponseHead.ServerName),
+            new("ETag", eTag),
             new("Last-Modified", lastModified),
         ];
         var mediaType = ContentMediaTypes.Of(mapping.Location!);
@@ -339,13 +341,13 @@ internal sealed partial class HttpRequestAnswerer : IHttpRequestHandler
         return new HttpAnswer(answerStatus, AddChallenges(fields, challenges), body, IsRefusal: false, LeavesRequestBodyUnread: request.Body.IsAnnounced);
     }
 
-    // The range a GET's Range asks for, when its If-Range (if any) is the Last-Modified the
-    // answer carries, character for character; the server sends no ETag, so an entity-tag
-    // If-Range never matches and the whole file is served (RFC 9110, section 13.1.5).
-    private static IReadOnlyList<ContentByteRange>? SelectedRanges(HttpRequest request, string lastModified, long fileLength)
+    // The range a GET's Range asks for, when its If-Range (if any) is the Last-Modified the answer
+    // carries, character for character, or the strong ETag it carries; a weak or other tag gets the
+    // whole file (RFC 9110, section 13.1.5; ADR-0184, decision 6).
+    private static IReadOnlyList<ContentByteRange>? SelectedRanges(HttpRequest request, string lastModified, string eTag, long fileLength)
     {
         var ifRange = FieldValue(request, "If-Range");
-        if (ifRange is not null && !string.Equals(ifRange.Trim(' ', '\t'), lastModified, StringComparison.Ordinal))
+        if (ifRange is not null && ifRange.Trim(' ', '\t') is var validator && validator != lastModified && validator != eTag)
         {
             return null;
         }

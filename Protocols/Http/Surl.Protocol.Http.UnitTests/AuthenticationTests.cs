@@ -177,7 +177,7 @@ public sealed class AuthenticationTests
 
         Assert.AreEqual(
             "HTTP/1.1 200 OK\r\nDate: Mon, 28 Sep 2026 12:00:00 GMT\r\nServer: surl\r\n"
-            + "Last-Modified: Tue, 01 Sep 2026 08:30:00 GMT\r\nContent-Type: text/plain\r\nContent-Length: 17\r\n"
+            + "ETag: \"8df0803365eb400-11\"\r\nLast-Modified: Tue, 01 Sep 2026 08:30:00 GMT\r\nContent-Type: text/plain\r\nContent-Length: 17\r\n"
             + "WWW-Authenticate: Negotiate final\r\n\r\n" + FileBody,
             Latin1(connection.WrittenBytes));
     }
@@ -243,7 +243,7 @@ public sealed class AuthenticationTests
 
         Assert.AreEqual(
             Unauthorized("NTLM round-2") + "HTTP/1.1 200 OK\r\nDate: Mon, 28 Sep 2026 12:00:00 GMT\r\nServer: surl\r\n"
-            + "Last-Modified: Tue, 01 Sep 2026 08:30:00 GMT\r\nContent-Type: text/plain\r\nContent-Length: 17\r\n\r\n" + FileBody,
+            + "ETag: \"8df0803365eb400-11\"\r\nLast-Modified: Tue, 01 Sep 2026 08:30:00 GMT\r\nContent-Type: text/plain\r\nContent-Length: 17\r\n\r\n" + FileBody,
             Latin1(connection.WrittenBytes));
         AssertNoSecretIn(connection, log);
     }

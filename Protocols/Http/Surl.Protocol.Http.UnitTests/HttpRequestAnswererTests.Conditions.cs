@@ -15,6 +15,8 @@ public sealed partial class HttpRequestAnswererTests
     // The mtime of file.txt in the replays that need a file older than curl's recorded date, 1 January 2025.
     private static readonly DateTimeOffset OlderFileTime = new(2024, 1, 1, 0, 0, 0, TimeSpan.Zero);
 
+    private const string OlderFileETag = "8dc0a5c9900c000-11";
+
     private const string OlderFileDate = "Mon, 01 Jan 2024 00:00:00 GMT";
 
     private const string RecordedDate = "Wed, 01 Jan 2025 00:00:00 GMT";
@@ -28,7 +30,7 @@ public sealed partial class HttpRequestAnswererTests
         var (connection, _) = await ServeAsync(RecordedFixture.Whole(RecordedFixture.ReadRequestBytes("time-cond-since-304")), TestContext.CancellationToken, fileSystem: FileSystemWithFileAt(OlderFileTime));
 
         Assert.AreEqual(
-            $"HTTP/1.1 304 Not Modified\r\nDate: {Date}\r\nServer: surl\r\nLast-Modified: {OlderFileDate}\r\n\r\n",
+            $"HTTP/1.1 304 Not Modified\r\nDate: {Date}\r\nServer: surl\r\nETag: \"{OlderFileETag}\"\r\nLast-Modified: {OlderFileDate}\r\n\r\n",
             Latin1(connection.WrittenBytes));
         Assert.IsFalse(connection.Aborted);
     }
@@ -82,7 +84,7 @@ public sealed partial class HttpRequestAnswererTests
 
         var answer = await Answerer(log: log).AnswerAsync(RangeRequest("GET", ("If-Modified-Since", FileDate)), TestContext.CancellationToken);
 
-        CollectionAssert.AreEqual(new[] { Field("Date", Date), Field("Server", "surl"), Field("Last-Modified", FileDate) }, answer.Fields.ToArray());
+        CollectionAssert.AreEqual(new[] { Field("Date", Date), Field("Server", "surl"), Field("ETag", FileETag), Field("Last-Modified", FileDate) }, answer.Fields.ToArray());
         Assert.AreSame(HttpAnswerBody.None, answer.Body);
         Assert.IsFalse(answer.IsRefusal);
         StringAssert.StartsWith(log.Notes.Single(), "GET /file.txt: 304, ");

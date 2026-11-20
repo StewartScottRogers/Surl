@@ -3,6 +3,7 @@ HTTP/1.1 100 Continue
 HTTP/1.1 200 OK
 Date: Mon, 28 Sep 2026 12:00:00 GMT
 Server: surl
+ETag: "8df0803365eb400-11"
 Last-Modified: Tue, 01 Sep 2026 08:30:00 GMT
 Content-Type: text/plain
 Content-Length: 17

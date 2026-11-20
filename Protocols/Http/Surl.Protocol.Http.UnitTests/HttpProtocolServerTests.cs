@@ -12,7 +12,7 @@ public sealed class HttpProtocolServerTests
     private const string FileBody = "Hello from Surl.\n";
     private const string OkHead =
         "HTTP/1.1 200 OK\r\n" + DateAndServer
-        + "Last-Modified: Tue, 01 Sep 2026 08:30:00 GMT\r\n"
+        + "ETag: \"8df0803365eb400-11\"\r\nLast-Modified: Tue, 01 Sep 2026 08:30:00 GMT\r\n"
         + "Content-Type: text/plain\r\n"
         + "Content-Length: 17\r\n";
 
@@ -327,7 +327,7 @@ public sealed class HttpProtocolServerTests
 
     private static string OkResponseForAFileWithNoExtension(int length, string body) =>
         "HTTP/1.1 200 OK\r\n" + DateAndServer
-        + "Last-Modified: Tue, 01 Sep 2026 08:30:00 GMT\r\n"
+        + $"ETag: \"8df0803365eb400-{length:x}\"\r\nLast-Modified: Tue, 01 Sep 2026 08:30:00 GMT\r\n"
         + "Content-Type: application/octet-stream\r\n"
         + $"Content-Length: {length}\r\n\r\n" + body;
 

@@ -18,6 +18,8 @@ public sealed partial class HttpRequestAnswererTests
 
     private static readonly string Date = Now.ToString("r", CultureInfo.InvariantCulture);
 
+    private const string FileETag = "\"8df0803365eb400-11\"";
+
     private static readonly string FileDate = FileTime.ToString("r", CultureInfo.InvariantCulture);
 
     public TestContext TestContext { get; set; } = null!;
@@ -129,6 +131,7 @@ public sealed partial class HttpRequestAnswererTests
     [
         Field("Date", Date),
         Field("Server", "surl"),
+        Field("ETag", FileETag),
         Field("Last-Modified", FileDate),
         Field("Content-Type", "text/plain"),
         Field("Content-Length", FileBody.Length.ToString(CultureInfo.InvariantCulture)),

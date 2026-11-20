@@ -10,7 +10,7 @@ public sealed class FileSystemFailureTests
     private const string NotFound = "HTTP/1.1 404 Not Found\r\n" + DateAndServer + "Content-Length: 0\r\n\r\n";
     private const string OkHead =
         "HTTP/1.1 200 OK\r\n" + DateAndServer
-        + "Last-Modified: Tue, 01 Sep 2026 08:30:00 GMT\r\n"
+        + "ETag: \"8df0803365eb400-11\"\r\nLast-Modified: Tue, 01 Sep 2026 08:30:00 GMT\r\n"
         + "Content-Type: text/plain\r\n"
         + "Content-Length: 17\r\n\r\n";
 
