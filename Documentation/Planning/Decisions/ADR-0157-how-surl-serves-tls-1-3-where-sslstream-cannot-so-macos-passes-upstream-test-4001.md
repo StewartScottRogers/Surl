@@ -74,3 +74,44 @@ of ADR-0147) for QUIC, which has no record layer. What is missing is TLS 1.3's o
 - Surl now holds a second, hand-built TLS server path in production; it is exercised by a real
   platform only on macOS, so its unit tests carry the weight on Windows and Linux.
 - Choosing it by ClientHello keeps the blast radius to clients `SslStream` could not serve anyway.
+
+## Amendment 1 — a server limited to TLS 1.3 serves every client that offers TLS 1.3 (2026-11-20)
+
+**Decided by Claude under Stewart's delegation**, 2026-11-20, in BL-1453, from Surly's bug report
+`2026-11-19T2203-Surl-bug-report.md` item 3: on `macos-latest`, `surl --tlsv1.3 --cert server.pem
+--key server.key https://127.0.0.1:PORT/` starts, and `curl --cacert server.pem` exits 35.
+
+**Why decision 1 missed it.** Upstream curl without `--tlsv1.3` offers TLS 1.2 and 1.3, so the
+"1.3 and nothing lower" predicate (`ClientHelloPeek.OffersOnlyTls13`) sends it to `SslStream`,
+whose `AcceptedProtocols` is TLS 1.3 only, which macOS cannot serve. Decision 1 targeted test 4001,
+an ECH client offering 1.3 alone.
+
+**Routing rule (replaces the predicate in decision 1 for this case).** When the listener's lowest
+accepted version is TLS 1.3 *and* `ITls13Support` says the platform's `SslStream` has no TLS 1.3
+server, then:
+
+1. a ClientHello whose `supported_versions` lists TLS 1.3, whatever else it lists, goes to
+   `Surl.Tls13Stream`;
+2. one that does not list TLS 1.3 gets a fatal `protocol_version` alert (70) and the connection
+   closes, which is what a TLS 1.3-only server owes it (RFC 8446 section 4.2.1) and what OpenSSL
+   does on Linux.
+
+Where the lowest accepted version is below 1.3, or `SslStream` has a TLS 1.3 server, decision 1 is
+unchanged. Task BL-1454 builds the rule.
+
+**`--tlsv1.3` with `--cacert` on such a platform.** Surl does not refuse at start. Decision 3's
+"no client certificates" was a scope limit of the first build, not a design position, and the
+standing rule is that nothing is left out because a primitive is missing. `Surl.Tls13Stream` gains
+CertificateRequest and client Certificate/CertificateVerify verification against the `--cacert`
+roots, filed as **BL-1466** (depends on BL-1454). Until it lands, the predicate keeps routing
+client-certificate settings to `SslStream`, so the exit 35 on macOS remains and is a known gap
+owned by BL-1466, not a silent one. This revises decision 3's first sentence-clause accordingly
+once BL-1466 is Done.
+
+**How the rule is proved without a Mac.** Fast tests in `Surl.Networking.UnitTests` with a fake
+`ITls13Support` (macOS-like: no TLS 1.3 server) and `ClientHelloBytes` fixtures covering: offers
+1.3 only, offers 1.2 and 1.3, offers 1.2 only (alert 70), and lowest accepted version 1.2 (still
+`SslStream`). These run on every platform (BL-1454). One macOS conformance run through
+`dispatch-workflow.ps1` is needed once, after BL-1454: `curl --cacert server.pem` against
+`--tlsv1.3` must exit 0 on `osx-arm64`, recorded in BL-1454's Notes. BL-1466 needs the same run
+with `--cacert` as the client-certificate roots.

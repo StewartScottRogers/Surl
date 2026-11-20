@@ -8,7 +8,7 @@ depends-on: []
 touches: [Documentation/Planning/Decisions]
 requirement: none
 created: 2026-11-20
-completed:
+completed: 2026-11-20
 ---
 # BL-1453 — Amend ADR-0157 so a server limited to TLS 1.3 on macOS serves every client that offers TLS 1.3
 
@@ -39,22 +39,26 @@ also says what happens where the hand-built stream cannot serve (`--cacert` clie
 
 ## Acceptance criteria
 
-- [ ] An amendment section in
+- [x] An amendment section in
       `Documentation/Planning/Decisions/ADR-0157-how-surl-serves-tls-1-3-where-sslstream-cannot-so-macos-passes-upstream-test-4001.md`
       states the routing rule: when the settings' lowest accepted version is TLS 1.3 and the platform's
       `SslStream` has no TLS 1.3 server, any ClientHello whose `supported_versions` lists TLS 1.3 goes
       to `Surl.Tls13Stream`, and one that does not gets the alert the amendment names.
-- [ ] It decides `--tlsv1.3` with `--cacert` on such a platform. If it is a start-time refusal, it gives
+- [x] It decides `--tlsv1.3` with `--cacert` on such a platform. If it is a start-time refusal, it gives
       the exit code and exact text and files that task (`Surl.Composition`, `ServerTlsComposition`) with
       `task-board.ps1 new`; if it is client certificates in `Surl.Tls13Stream`, it files that task.
-- [ ] It names how the rule is proved without a Mac on the lanes: fast tests with a fake
+- [x] It names how the rule is proved without a Mac on the lanes: fast tests with a fake
       `ITls13Support` and `ClientHelloBytes` (BL-1454), and whether a macOS conformance run through
       `dispatch-workflow.ps1` is needed.
 
 ## Notes
+
+Decided: serve (route any ClientHello offering 1.3), client certificates in Tls13Stream filed as BL-1466; proof by BL-1454 fake-support tests plus one macOS dispatch run. Touched only the ADR.
+
 
 ## Log
 
 - 2026-11-20: Created.
 - 2026-11-20: Filed from `Z:\repos\Surly\Documentation\Bug-Reports\2026-11-19T2203-Surl-bug-report.md` item 3.
 - 2026-11-20: Backlog -> Doing.
+- 2026-11-20: Doing -> Done. ADR-0157 amendment 1 decides routing of any TLS 1.3 offer, files BL-1466, names proof
