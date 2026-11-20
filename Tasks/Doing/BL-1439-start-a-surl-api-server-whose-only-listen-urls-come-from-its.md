@@ -48,3 +48,4 @@ does.
 
 - 2026-11-20: Created.
 - 2026-11-20: Filed from `Z:\repos\Surly\Documentation\Bug-Reports\2026-11-19T1942-Surl-bug-report.md` item 3.
+- 2026-11-20: Backlog -> Doing.
