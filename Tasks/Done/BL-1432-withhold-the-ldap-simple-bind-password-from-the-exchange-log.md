@@ -8,7 +8,7 @@ depends-on: [BL-1419]
 touches: [Protocols/Messaging/Surl.Protocol.Ldap.UnitLibrary, Protocols/Messaging/Surl.Protocol.Ldap.UnitTests]
 requirement: none
 created: 2026-11-20
-completed:
+completed: 2026-11-20
 ---
 # BL-1432 — Withhold the LDAP simple bind password from the exchange log
 
@@ -33,19 +33,23 @@ simple bind password's bytes; they are written as BL-1417's ADR says.
 
 ## Acceptance criteria
 
-- [ ] `LdapProtocolServer` implements BL-1418's contract. Fast tests in
+- [x] `LdapProtocolServer` implements BL-1418's contract. Fast tests in
       `Protocols/Messaging/Surl.Protocol.Ldap.UnitTests` show a simple BindRequest logged with the
       password in the ADR's form, also when the message is split across reads at every byte.
-- [ ] A SASL PLAIN bind's credentials are redacted (named test); a SearchRequest whose filter contains
+- [x] A SASL PLAIN bind's credentials are redacted (named test); a SearchRequest whose filter contains
       the password's bytes is logged unchanged.
-- [ ] A BER length in long form (`0x81 0x..`) is handled (named test).
-- [ ] `dotnet build Protocols/Messaging/Surl.Protocol.Ldap.UnitLibrary -warnaserror` is clean, the fast
+- [x] A BER length in long form (`0x81 0x..`) is handled (named test).
+- [x] `dotnet build Protocols/Messaging/Surl.Protocol.Ldap.UnitLibrary -warnaserror` is clean, the fast
       tests are green, and coverage stays at 100% line and branch.
 
 ## Notes
+
+- Decided: `LdapBindBytesRedactor` keeps every tag and length octet as received and replaces only the secret value bytes with `****` (ADR-0182 decision 6), so a masked bind is not valid BER. An empty password or SASL credential is left as is (nothing to withhold). SASL `PLAIN` (any case) is masked; other mechanisms and Sicily tokens are logged (ADR-0182 decision 8). A bind over 64 KiB is logged as one `****`; a bind cut off at exchange end is masked from the field it stopped in.
+- Bytes after a non-SEQUENCE byte (security-layer buffers, TLS after StartTLS) pass through unchanged.
 
 ## Log
 
 - 2026-11-20: Created.
 - 2026-11-20: Filed from `Z:\repos\Surly\Documentation\Bug-Reports\2026-11-20T0553-Surl-bug-report.md` item 1.
 - 2026-11-20: Backlog -> Doing.
+- 2026-11-20: Doing -> Done. LdapBindBytesRedactor masks simple bind passwords and SASL PLAIN credentials in the exchange log
