@@ -74,3 +74,7 @@ the half itself); `short-PUBLISH` implies `PUBLISH-before-SUBACK`.
 
 Expected bytes come from a build pinned in `UpstreamCurlBuilds.json`, measured with
 `Record-CurlExchange.ps1`, and never from the Curl port (ADR-0003).
+
+The exchange log never holds a `CONNECT` password (ADR-0182, BL-1433): `MqttProtocolServer` implements
+`IExchangeBytesRedactingServer`, and `MqttConnectBytesRedactor` writes the first packet with its password
+field as length 4 and `****`, every other byte and every later packet as received.

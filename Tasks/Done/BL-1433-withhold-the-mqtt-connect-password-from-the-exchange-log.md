@@ -8,7 +8,7 @@ depends-on: [BL-1419]
 touches: [Protocols/Messaging/Surl.Protocol.Mqtt.UnitLibrary, Protocols/Messaging/Surl.Protocol.Mqtt.UnitTests]
 requirement: none
 created: 2026-11-20
-completed:
+completed: 2026-11-20
 ---
 # BL-1433 — Withhold the MQTT CONNECT password from the exchange log
 
@@ -31,20 +31,23 @@ bytes; they are written as BL-1417's ADR says.
 
 ## Acceptance criteria
 
-- [ ] `MqttProtocolServer` implements BL-1418's contract. Fast tests in
+- [x] `MqttProtocolServer` implements BL-1418's contract. Fast tests in
       `Protocols/Messaging/Surl.Protocol.Mqtt.UnitTests` show a CONNECT with user name and password
       logged with the password in the ADR's form, also split across reads at every byte.
-- [ ] A CONNECT with a will message and a password, and one without a password, are handled (named
+- [x] A CONNECT with a will message and a password, and one without a password, are handled (named
       tests); a later PUBLISH whose payload holds the password's bytes is logged unchanged.
-- [ ] `dotnet test Conformance/Surl.Conformance.UnitTests --filter "TestCategory!=Integration"` stays
+- [x] `dotnet test Conformance/Surl.Conformance.UnitTests --filter "TestCategory!=Integration"` stays
       green.
-- [ ] `dotnet build Protocols/Messaging/Surl.Protocol.Mqtt.UnitLibrary -warnaserror` is clean, the fast
+- [x] `dotnet build Protocols/Messaging/Surl.Protocol.Mqtt.UnitLibrary -warnaserror` is clean, the fast
       tests are green, and coverage stays at 100% line and branch.
 
 ## Notes
+
+- Decided: `MqttConnectBytesRedactor` holds the first packet (a CONNECT) until whole, writes the fixed header as received and the password field as length 4 + `****` (ADR-0182 decision 1: length hidden); later packets pass through unchanged. Level 5 CONNECT (properties, will properties) is parsed too, though Surl answers it CONNACK 1. A CONNECT past 64 KiB is written as `****` and the rest of it dropped. Coverage measured from the cobertura report.
 
 ## Log
 
 - 2026-11-20: Created.
 - 2026-11-20: Filed from `Z:\repos\Surly\Documentation\Bug-Reports\2026-11-20T0553-Surl-bug-report.md` item 1.
 - 2026-11-20: Backlog -> Doing.
+- 2026-11-20: Doing -> Done. MQTT CONNECT password withheld from the exchange log
