@@ -8,7 +8,7 @@ depends-on: [BL-1419]
 touches: [Protocols/Messaging/Surl.Extended.Protocol.Amqp1.UnitLibrary, Protocols/Messaging/Surl.Extended.Protocol.Amqp1.UnitTests]
 requirement: none
 created: 2026-11-20
-completed:
+completed: 2026-11-20
 ---
 # BL-1461 — Withhold AMQP 1.0 SASL PLAIN credentials from the exchange log
 
@@ -23,12 +23,15 @@ With the BL-1418 contract implemented, ADR-0182's replacement text is logged in 
 
 ## Acceptance criteria
 
-- [ ] A fast test in the server's .UnitTests shows the redacted bytes for a split-chunk exchange and that a server answer is unchanged.
-- [ ] The server's raw bytes still reach the server unchanged and the event stream follows ADR-0182.
+- [x] A fast test in the server's .UnitTests shows the redacted bytes for a split-chunk exchange and that a server answer is unchanged.
+- [x] The server's raw bytes still reach the server unchanged and the event stream follows ADR-0182.
 
 ## Notes
+
+- Decision (ADR-0182 applies; no new ADR): `Amqp1SaslInitBytesRedactor` follows the SASL header and frames (<=512 bytes, held whole) and masks only the password after the second NUL of a `PLAIN` `sasl-init` response; size and length octets are logged as received, the user name stays visible. Frames after the AMQP header or non-AMQP bytes (TLS) pass through. `Amqp1Container` implements `IExchangeBytesRedactingServer`.
 
 ## Log
 
 - 2026-11-20: Created.
 - 2026-11-20: Backlog -> Doing.
+- 2026-11-20: Doing -> Done. AMQP 1.0 SASL PLAIN password is masked in the exchange log, user name visible, split-chunk safe

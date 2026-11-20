@@ -23,7 +23,7 @@ namespace Surl.Extended.Protocol.Amqp1;
 /// any byte is read, so the container, which writes no refusal, sends it no bytes.
 /// </para>
 /// </remarks>
-public sealed class Amqp1Container : IConnectionProtocolServer
+public sealed class Amqp1Container : IConnectionProtocolServer, IExchangeBytesRedactingServer
 {
     // Timers take at most uint.MaxValue - 1 milliseconds; a longer head timeout is no limit at all.
     private static readonly TimeSpan MaxTimerDelay = TimeSpan.FromMilliseconds(uint.MaxValue - 1.0);
@@ -80,6 +80,14 @@ public sealed class Amqp1Container : IConnectionProtocolServer
     /// whose handshake the engine performs (ADR-0107 decision 7).
     /// </summary>
     public IReadOnlyList<string> Schemes { get; } = Array.AsReadOnly(["amqp1", "amqp1s"]);
+
+    /// <summary>
+    /// Creates the redactor that writes the password of a SASL <c>PLAIN</c> <c>sasl-init</c> as
+    /// <c>****</c> in the exchange log, the user name left visible (ADR-0182). Other bytes are logged unchanged.
+    /// </summary>
+    /// <param name="context">The exchange the redactor is for.</param>
+    /// <returns>A redactor used by that exchange alone.</returns>
+    public IReceivedBytesRedactor CreateRedactor(ExchangeRedactionContext context) => new Amqp1SaslInitBytesRedactor();
 
     /// <summary>Answers <paramref name="connection"/> from its first header to its end.</summary>
     /// <param name="connection">The accepted connection.</param>
