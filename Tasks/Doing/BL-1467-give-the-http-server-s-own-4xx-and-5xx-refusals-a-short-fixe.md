@@ -32,3 +32,4 @@ Every 4xx and 5xx the HTTP server itself originates carries the fixed body ADR-0
 ## Log
 
 - 2026-11-20: Created.
+- 2026-11-20: Backlog -> Doing.
