@@ -8,7 +8,7 @@ depends-on: []
 touches: [Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests]
 requirement: none
 created: 2026-11-20
-completed:
+completed: 2026-11-20
 ---
 # BL-1437 — Read a # after a value-less flag in a -K config file as a comment
 
@@ -35,20 +35,23 @@ the flag followed by a comment, as `directory site  # note` already is, instead 
 
 ## Acceptance criteria
 
-- [ ] `allow-uploads  # note`, `--allow-uploads # note`, `-v # note` and `allow-uploads\t#` in a config
+- [x] `allow-uploads  # note`, `--allow-uploads # note`, `-v # note` and `allow-uploads\t#` in a config
       file each set the flag and nothing else (DataRow cases in
       `Application/Surl.Cli.UnitTests/CommandLineParserConfigFileTests.cs`).
-- [ ] `header #x` still reads the value `#x`, and `directory site  # note` still reads `site` (existing
+- [x] `header #x` still reads the value `#x`, and `directory site  # note` still reads `site` (existing
       or new DataRows).
-- [ ] The existing refusals in `CommandLineParserConfigFileTests` (`-m30 b`, `--log-file=a.log b.log`,
+- [x] The existing refusals in `CommandLineParserConfigFileTests` (`-m30 b`, `--log-file=a.log b.log`,
       `user = "ann:secret" more`) still exit 2 with their texts.
-- [ ] `dotnet build Application/Surl.Cli.UnitLibrary -warnaserror` is clean, the fast tests are green,
+- [x] `dotnet build Application/Surl.Cli.UnitLibrary -warnaserror` is clean, the fast tests are green,
       and coverage stays at 100% line and branch.
 
 ## Notes
+
+- ConfigFileText.IsCommentAfterFlag: a # after a blank that follows a value-less flag (long or short bundle, by CommandLineOptions) is a comment. Valued options, and # right after = or :, unchanged. No ADR: ADR-0101 rows 3, 7, 8 applied to a flag.
 
 ## Log
 
 - 2026-11-20: Created.
 - 2026-11-20: Filed from `Z:\repos\Surly\Documentation\Bug-Reports\2026-11-19T1942-Surl-bug-report.md` item 2.
 - 2026-11-20: Backlog -> Doing.
+- 2026-11-20: Doing -> Done. A # comment after a value-less flag in a -K file is ignored
