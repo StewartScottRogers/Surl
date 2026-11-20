@@ -243,6 +243,24 @@ public sealed partial class ServingEngineTests
     }
 
     [TestMethod]
+    public async Task ServeAsync_RefusalWriterThatThrows_NotesWhyTheConnectionWasReset()
+    {
+        using var harness = new Harness(
+            OneConnection, "http", (_, _, _) => Task.FromException(new IOException("The refusal could not be written.")));
+        harness.Listener.Connect(HeldConnection(PeerAddress(1)));
+        await harness.Server.Inner.NextExchangeAsync();
+
+        var refused = HeldConnection(PeerAddress(2));
+        harness.Listener.Connect(refused);
+        await WaitUntilDisposedAsync(refused);
+
+        Assert.HasCount(2, harness.Logs.NotesOutsideExchanges);
+        StringAssert.Contains(harness.Logs.NotesOutsideExchanges.Last(), "IOException: The refusal could not be written.");
+        StringAssert.Contains(harness.Logs.NotesOutsideExchanges.Last(), "the connection was reset");
+        await harness.StopAsync();
+    }
+
+    [TestMethod]
     public async Task ServeAsync_DefaultIdleTimeout_CancelsAnIdleExchangeAt120SecondsAndNotBefore()
     {
         using var harness = new Harness(limits: null, "http", serve: ReadOnceAsync);
