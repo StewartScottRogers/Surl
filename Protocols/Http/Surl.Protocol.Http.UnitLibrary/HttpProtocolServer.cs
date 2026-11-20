@@ -136,7 +136,7 @@ namespace Surl.Protocol.Http;
 /// after the preface, before the deadline gets no bytes.
 /// </para>
 /// </remarks>
-public sealed class HttpProtocolServer : IConnectionProtocolServer, IConnectionRefusalWriter
+public sealed class HttpProtocolServer : IConnectionProtocolServer, IConnectionRefusalWriter, IExchangeBytesRedactingServer
 {
     private static readonly byte[] ServiceUnavailableResponse = new HttpResponseHead(HttpStatus.ServiceUnavailable)
         .AddField("Server", HttpResponseHead.ServerName)
@@ -204,6 +204,15 @@ public sealed class HttpProtocolServer : IConnectionProtocolServer, IConnectionR
     /// connections the serving engine has already secured with TLS (ADR-0020).
     /// </summary>
     public IReadOnlyList<string> Schemes { get; } = Array.AsReadOnly(["http"]);
+
+    /// <summary>
+    /// Creates the redactor that masks the <c>Authorization</c> and <c>Proxy-Authorization</c> credentials of
+    /// the HTTP/1.x request heads on one connection, so the exchange log never holds them (ADR-0182,
+    /// decision 7). HTTP/2 and HTTP/3 header blocks are redacted by BL-1423 and BL-1424.
+    /// </summary>
+    /// <param name="context">The exchange the redactor is for.</param>
+    /// <returns>A redactor for that exchange alone.</returns>
+    public IReceivedBytesRedactor CreateRedactor(ExchangeRedactionContext context) => new HttpRequestHeadBytesRedactor();
 
     /// <summary>
     /// Answers every request on <paramref name="connection"/> until the client closes it or
