@@ -41,3 +41,4 @@ the redacted form BL-1417's ADR fixes, and the WebSocket frames after `101` as b
 
 - 2026-11-20: Created.
 - 2026-11-20: Filed from `Z:\repos\Surly\Documentation\Bug-Reports\2026-11-20T0553-Surl-bug-report.md` item 1.
+- 2026-11-20: Backlog -> Doing.
