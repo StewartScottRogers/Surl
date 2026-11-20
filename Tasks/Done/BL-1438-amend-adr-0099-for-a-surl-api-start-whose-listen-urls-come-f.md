@@ -8,7 +8,7 @@ depends-on: []
 touches: [Documentation/Planning/Decisions]
 requirement: none
 created: 2026-11-20
-completed:
+completed: 2026-11-20
 ---
 # BL-1438 — Amend ADR-0099 for a Surl.Api start whose listen URLs come from ConfigFiles, an initialised AuthenticationMethods and the TLS-range and head-limit properties
 
@@ -41,16 +41,16 @@ request-head properties. BL-1439, BL-1440 and BL-1441 build exactly that.
 
 ## Acceptance criteria
 
-- [ ] An amendment section in
+- [x] An amendment section in
       `Documentation/Planning/Decisions/ADR-0099-one-server-composition-for-surl-and-surl-api-and-surl-apis-programming-interface.md`,
       marked "Decided by Claude under Stewart's delegation", says when an empty `ListenUrls` is still an
       `ArgumentException`, and that otherwise a start with no listen URL anywhere is `surl`'s own
       `SurlServerStartException` with exit 2.
-- [ ] It says `AuthenticationMethods` is initialised to an empty list, keeps its setter and type, and
+- [x] It says `AuthenticationMethods` is initialised to an empty list, keeps its setter and type, and
       composes no `--auth` when null or empty.
-- [ ] It names each new property, its type, its default (null: no word), the option it composes, and
+- [x] It names each new property, its type, its default (null: no word), the option it composes, and
       which values are an `ArgumentException` rather than `surl`'s refusal.
-- [ ] Decision 4's misuse list no longer says "an empty `ListenUrls`" without the amendment's
+- [x] Decision 4's misuse list no longer says "an empty `ListenUrls`" without the amendment's
       condition (edited in place or pointed to by the amendment).
 
 ## Notes
@@ -65,3 +65,4 @@ request-head properties. BL-1439, BL-1440 and BL-1441 build exactly that.
 - 2026-11-20: Created.
 - 2026-11-20: Filed from `Z:\repos\Surly\Documentation\Bug-Reports\2026-11-19T1942-Surl-bug-report.md` items 3, 4 and 10, and `2026-11-19T2203-Surl-bug-report.md` item 6.
 - 2026-11-20: Backlog -> Doing.
+- 2026-11-20: Doing -> Done. ADR-0099 amended; decision 4 points to it
