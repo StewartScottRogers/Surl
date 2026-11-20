@@ -448,7 +448,7 @@ public sealed class UpstreamCurlReadsMailFromSurlOverPop3Tests
 
         var result = await RunUpstreamCurlAsync("-sS", "-u", Credentials, Pop3Url(surl, "/1"));
 
-        Assert.AreEqual(WeirdServerReply, result.ExitCode, result.StandardError);
+        Assert.AreEqual(WeirdServerReply, result.ExitCode, result.StandardError + Environment.NewLine + surl.Diagnosis);
     }
 
     // The stored message is ADR-0053 decision 6's Return-Path and Received fields, then mail.txt.

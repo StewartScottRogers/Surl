@@ -349,7 +349,7 @@ public sealed partial class ContentStore
         if (IsInServiceStateFolder(resolved, unresolved, resolvedRoot)
             || IsHiddenByExposureOptions(segments, resolved, unresolved))
         {
-            return ContentPathMapping.AnsweredAsAbsent(unresolved, container, caller, deniesWrites);
+            return ContentPathMapping.ReservedOrHidden(unresolved, container, caller, deniesWrites);
         }
 
         return ContentPathMapping.Mapped(
@@ -1069,6 +1069,12 @@ public sealed partial class ContentStore
     private ContentUploadOpeningResult UploadOpeningResult(ContentPathMapping mapping, string location, ContentEntryKind kind, ContentUploadOpening opening)
     {
         if (!PermitsWrites(mapping))
+        {
+            return ContentUploadOpeningResult.NotPermitted;
+        }
+
+        // A reserved or hidden path is refused before its folder is looked for (ADR-0031 decision 5).
+        if (mapping.IsReservedOrHidden)
         {
             return ContentUploadOpeningResult.NotPermitted;
         }

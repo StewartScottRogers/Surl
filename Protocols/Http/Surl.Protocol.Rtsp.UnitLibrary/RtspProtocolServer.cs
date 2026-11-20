@@ -102,7 +102,7 @@ namespace Surl.Protocol.Rtsp;
 /// with no <c>CSeq</c> because no request was read, then half-closes it.
 /// </para>
 /// </remarks>
-public sealed class RtspProtocolServer : IConnectionProtocolServer, IConnectionRefusalWriter
+public sealed class RtspProtocolServer : IConnectionProtocolServer, IConnectionRefusalWriter, IExchangeBytesRedactingServer
 {
     private static readonly byte[] ServiceUnavailableResponse = new HttpResponseHead(HttpMessageProtocol.Rtsp10, RtspStatus.ServiceUnavailable)
         .AddField("Server", HttpResponseHead.ServerName)
@@ -151,6 +151,15 @@ public sealed class RtspProtocolServer : IConnectionProtocolServer, IConnectionR
     /// The one scheme answered: <c>rtsp</c>.
     /// </summary>
     public IReadOnlyList<string> Schemes { get; } = Array.AsReadOnly(["rtsp"]);
+
+    /// <summary>
+    /// Creates the redactor that masks the credentials of <c>Authorization</c> and
+    /// <c>Proxy-Authorization</c> as <c>****</c> in the exchange log, and logs an interleaved
+    /// <c>$</c> frame as it arrived (ADR-0182, decision 7).
+    /// </summary>
+    /// <param name="context">The exchange the redactor is for.</param>
+    /// <returns>A redactor for the connection, used by that exchange alone.</returns>
+    public IReceivedBytesRedactor CreateRedactor(ExchangeRedactionContext context) => new RtspRequestBytesRedactor();
 
     /// <summary>
     /// Answers every request on <paramref name="connection"/> until the client closes it or a

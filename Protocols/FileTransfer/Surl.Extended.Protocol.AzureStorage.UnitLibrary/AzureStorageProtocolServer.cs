@@ -34,7 +34,7 @@ namespace Surl.Extended.Protocol.AzureStorage;
 /// <c>abfss</c>, then closes it (ADR-0109, decisions 5.2 and 7).
 /// </para>
 /// </remarks>
-public sealed class AzureStorageProtocolServer : IConnectionProtocolServer, IConnectionRefusalWriter
+public sealed class AzureStorageProtocolServer : IConnectionProtocolServer, IExchangeBytesRedactingServer, IConnectionRefusalWriter
 {
     /// <summary>
     /// The Blob endpoint's scheme.
@@ -96,6 +96,15 @@ public sealed class AzureStorageProtocolServer : IConnectionProtocolServer, ICon
 
     /// <inheritdoc/>
     public IReadOnlyList<string> Schemes { get; } = [BlobScheme, DataLakeScheme, SecureDataLakeScheme];
+
+    /// <summary>
+    /// Creates the redactor that masks the <c>Authorization</c>, <c>Proxy-Authorization</c> and API-key
+    /// fields of the HTTP/1.1 request heads on one connection, so the exchange log never holds them
+    /// (ADR-0182, decision 7; BL-1465).
+    /// </summary>
+    /// <param name="context">The exchange the redactor is for.</param>
+    /// <returns>A redactor for that exchange alone.</returns>
+    public IReceivedBytesRedactor CreateRedactor(ExchangeRedactionContext context) => HttpExchangeRedaction.CreateRedactor();
 
     /// <summary>
     /// The uploads every connection of this server stages: Data Lake appends and Put Block's blocks.

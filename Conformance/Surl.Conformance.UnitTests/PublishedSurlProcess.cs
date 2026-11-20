@@ -70,6 +70,24 @@ internal sealed class PublishedSurlProcess : IAsyncDisposable
     }
 
     /// <summary>
+    /// Gets whether the surl process is still running, or the exit code it ended with.
+    /// </summary>
+    public string State
+    {
+        get
+        {
+            try
+            {
+                return process.HasExited ? $"exited with code {process.ExitCode}" : "still running";
+            }
+            catch (InvalidOperationException)
+            {
+                return "not started";
+            }
+        }
+    }
+
+    /// <summary>
     /// Starts <paramref name="executablePath"/> with <paramref name="arguments"/> and returns it
     /// with its first <paramref name="statusLineCount"/> status lines, once it has written them.
     /// </summary>

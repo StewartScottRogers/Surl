@@ -1,3 +1,4 @@
+using System.Security.Authentication;
 using Surl.Output;
 using Surl.Protocol.Abstractions;
 
@@ -14,7 +15,9 @@ public sealed class SurlServerOptions
 {
     /// <summary>
     /// The listen URLs, as <c>surl</c> takes them (<c>http://127.0.0.1:0</c>,
-    /// <c>ftp://127.0.0.1:0</c>), in order; port 0 asks for an ephemeral port. At least one is needed.
+    /// <c>ftp://127.0.0.1:0</c>), in order; port 0 asks for an ephemeral port. At least one is needed unless <see cref="ConfigFiles"/> or
+    /// <see cref="AdditionalArguments"/> is given, which may name listen URLs as <c>surl</c> reads them; if none of the
+    /// three then names one, the start throws <see cref="SurlServerStartException"/> with <c>surl</c>'s own refusal.
     /// </summary>
     public IList<string> ListenUrls { get; } = [];
 
@@ -70,9 +73,15 @@ public sealed class SurlServerOptions
 
     /// <summary>
     /// The authentication methods accepted and offered (<c>--auth</c>, given once with the words joined
-    /// by commas), or <see langword="null"/>, the default, for <c>surl</c>'s default set.
+    /// by commas), or empty, the default, for <c>surl</c>'s default set.
+    /// Assigning <see langword="null"/> leaves it empty.
     /// </summary>
-    public IList<string>? AuthenticationMethods { get; set; }
+    [System.Diagnostics.CodeAnalysis.AllowNull]
+    public IList<string> AuthenticationMethods
+    {
+        get;
+        set => field = value ?? [];
+    } = [];
 
     /// <summary>Accepts any login, or none (<c>--allow-anonymous</c>, warns on start); off by default.</summary>
     public bool AllowAnonymous { get; set; }
@@ -98,6 +107,26 @@ public sealed class SurlServerOptions
 
     /// <summary>The private key file for <see cref="CertificateFile"/> (<c>--key</c>), or <see langword="null"/>, the default, for the key in the certificate file.</summary>
     public string? KeyFile { get; set; }
+
+    /// <summary>
+    /// The lowest TLS version accepted (<c>--tlsv1.0</c> to <c>--tlsv1.3</c>), or <see langword="null"/>, the default,
+    /// for <c>surl</c>'s TLS 1.2. Only <see cref="SslProtocols.Tls"/>, <see cref="SslProtocols.Tls11"/>,
+    /// <see cref="SslProtocols.Tls12"/> and <see cref="SslProtocols.Tls13"/> are allowed; any other value is misuse.
+    /// A lowest above <see cref="HighestTlsVersion"/> is <c>surl</c>'s own refusal.
+    /// </summary>
+    public SslProtocols? LowestTlsVersion { get; set; }
+
+    /// <summary>The highest TLS version accepted (<c>--tls-max</c>), or <see langword="null"/>, the default, for <c>surl</c>'s TLS 1.3. The same values as <see cref="LowestTlsVersion"/> are allowed.</summary>
+    public SslProtocols? HighestTlsVersion { get; set; }
+
+    /// <summary>The format of <see cref="CertificateFile"/> (<c>--cert-type</c>: <c>PEM</c>, <c>DER</c> or <c>P12</c>), or <see langword="null"/>, the default, for <c>surl</c>'s PEM. Any other word is <c>surl</c>'s refusal.</summary>
+    public string? CertificateType { get; set; }
+
+    /// <summary>The format of <see cref="KeyFile"/> (<c>--key-type</c>: <c>PEM</c> or <c>DER</c>), or <see langword="null"/>, the default, for <c>surl</c>'s PEM. Any other word is <c>surl</c>'s refusal.</summary>
+    public string? KeyType { get; set; }
+
+    /// <summary>The largest HTTP or RTSP request head accepted, in bytes (<c>--max-request-head</c>), or <see langword="null"/>, the default, for <c>surl</c>'s 100 KiB. A value below 1 is misuse.</summary>
+    public long? MaxRequestHeadBytes { get; set; }
 
     /// <summary>The passphrase of the key file and host key files (<c>--pass</c>), or <see langword="null"/>, the default, for none.</summary>
     public string? KeyPassphrase { get; set; }

@@ -101,10 +101,25 @@ public static class ServerCertificateFileLoader
 
     private static LoadedServerCertificate LoadP12(byte[] fileBytes, string certificatePath, string? passphrase)
     {
-        var certificates = X509CertificateLoader.LoadPkcs12Collection(
-            fileBytes,
-            passphrase,
-            ServerCertificateImport.KeyStorageFlagsFor(OperatingSystem.IsLinux()) | X509KeyStorageFlags.Exportable);
+        X509Certificate2Collection certificates;
+
+        try
+        {
+            certificates = X509CertificateLoader.LoadPkcs12Collection(
+                fileBytes,
+                passphrase,
+                ServerCertificateImport.KeyStorageFlagsFor(OperatingSystem.IsLinux()) | X509KeyStorageFlags.Exportable);
+        }
+        catch (CryptographicException exception) when (X509Certificate2.GetCertContentType(fileBytes) == X509ContentType.Pkcs12)
+        {
+            // The platform's exception text differs, so the file's own content type tells a bad --pass from a bad file.
+            throw Unusable(
+                string.IsNullOrEmpty(passphrase)
+                    ? $"'{certificatePath}' is a P12 file that needs --pass."
+                    : $"'{certificatePath}' is a P12 file the --pass given does not open.",
+                exception);
+        }
+
         var certificate = certificates.FirstOrDefault(candidate => candidate.HasPrivateKey);
 
         if (certificate is null)

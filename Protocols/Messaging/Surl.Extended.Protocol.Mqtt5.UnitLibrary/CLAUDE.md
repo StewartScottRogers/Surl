@@ -139,3 +139,5 @@ This library references `Surl.Protocol.Abstractions.UnitLibrary`, `Surl.MessageB
 (ADR-0093 decision 7), and may also reference the horizontal libraries ADR-0093 decision 0
 names - never another protocol server, original or extended, and never `Surl.Protocol.Mqtt`. Never construct a `Socket`, `TcpListener`,
 `UdpClient`, `SslStream` or `HttpListener` here; the transport comes from the listener seam.
+
+Exchange-log redaction (BL-1464, ADR-0182 decision 6): `Mqtt5Broker` is an `IExchangeBytesRedactingServer`; `Mqtt5ClientSecretBytesRedactor` holds each `CONNECT` and `AUTH` packet until whole and writes the Password and every Authentication Data value as `****` (user name, Will and other properties kept; Remaining Length, Property Length and secret length rewritten). Other packets are passed through unheld. `mqtt5+ws` is not covered: its engine-level bytes are WebSocket frames.

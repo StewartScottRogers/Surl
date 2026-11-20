@@ -23,6 +23,31 @@ internal sealed class LocalPartLookup<TValue>
     }
 
     /// <summary>
+    /// Every key held, in no particular order.
+    /// </summary>
+    public IReadOnlyList<string> Keys => [.. exact.Keys];
+
+    /// <summary>
+    /// Removes the value under <paramref name="key"/>, which a value has, and lets a key it shared
+    /// ignoring case with another find that other again.
+    /// </summary>
+    public void Remove(string key)
+    {
+        var remaining = exact.Where(pair => pair.Key != key).ToList();
+        Clear();
+        remaining.ForEach(pair => Add(pair.Key, pair.Value));
+    }
+
+    /// <summary>
+    /// Removes every key.
+    /// </summary>
+    public void Clear()
+    {
+        exact.Clear();
+        ignoringCase.Clear();
+    }
+
+    /// <summary>
     /// The value whose key equals <paramref name="key"/> ordinally, or <see langword="null"/>.
     /// </summary>
     public TValue? FindExact(string key) => exact.GetValueOrDefault(key);

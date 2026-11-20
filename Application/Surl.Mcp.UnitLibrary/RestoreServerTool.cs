@@ -7,8 +7,9 @@ namespace Surl.Mcp;
 /// <summary>
 /// The <c>restore_server</c> tool (ADR-0124 decisions 3 and 8): replaces a running server's stores with a snapshot
 /// <c>snapshot_server</c> took of it, through <c>Surl.Api</c>'s <c>SurlServer.RestoreAsync</c>. Result
-/// <c>{"server_id", "snapshot_id"}</c>; a snapshot ID the host does not keep for that server - never taken, or
-/// dropped as the oldest - or a store that refuses is an <c>isError</c> result.
+/// <c>{"server_id", "snapshot_id"}</c>; a snapshot ID the host does not keep for that server is an <c>isError</c>
+/// result that names the other running server keeping an ID like it (a snapshot restores only into the server
+/// that took it), or else says it was never taken or was dropped as the oldest; a store that refuses is one too.
 /// </summary>
 public static class RestoreServerTool
 {
@@ -18,7 +19,8 @@ public static class RestoreServerTool
     /// <summary>The tool's description.</summary>
     internal const string Description =
         "Replace a running Surl server's files, mail, messages and accounts with a snapshot snapshot_server took of "
-        + "that server. Open connections stay and see the restored contents on their next command.";
+        + "that server. A snapshot restores only into the server that took it. Open connections stay and see the "
+        + "restored contents on their next command.";
 
     /// <summary>The tool's input schema.</summary>
     internal const string InputSchema = """
@@ -38,22 +40,41 @@ public static class RestoreServerTool
     /// <returns>The tool.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="servers"/> is <see langword="null"/>.</exception>
     public static McpTool Create(RunningSurlServers servers) =>
-        RunningServerTool.Create(servers, Name, "Restore a Surl server", Description, InputSchema, RestoreAsync);
+        RunningServerTool.Create(
+            servers,
+            Name,
+            "Restore a Surl server",
+            Description,
+            InputSchema,
+            (running, arguments, cancellationToken) => RestoreAsync(servers, running, arguments, cancellationToken));
 
-    /// <summary>The failure a snapshot ID the host does not keep is answered with.</summary>
+    /// <summary>The failure a snapshot ID the host does not keep for any server is answered with.</summary>
     /// <param name="serverId">The server's ID.</param>
     /// <param name="snapshotId">The snapshot ID given.</param>
     /// <returns>The failure's text.</returns>
     internal static string NoSnapshot(string serverId, string snapshotId) => string.Create(
         CultureInfo.InvariantCulture,
-        $"server {serverId} has no snapshot {snapshotId}; only its newest {ServerSnapshots.MaxSnapshots} snapshots are kept");
+        $"server {serverId} has no snapshot {snapshotId}; it was never taken of this server, or was dropped as one past its newest {ServerSnapshots.MaxSnapshots} snapshots");
 
-    private static async Task<McpToolResult> RestoreAsync(RunningSurlServer running, JsonElement arguments, CancellationToken cancellationToken)
+    /// <summary>The failure a snapshot ID another running server keeps is answered with.</summary>
+    /// <param name="serverId">The server's ID.</param>
+    /// <param name="snapshotId">The snapshot ID given.</param>
+    /// <param name="keeperId">The ID of the server that keeps it.</param>
+    /// <returns>The failure's text.</returns>
+    internal static string SnapshotOfAnotherServer(string serverId, string snapshotId, string keeperId) => string.Create(
+        CultureInfo.InvariantCulture,
+        $"server {serverId} has no snapshot {snapshotId}; server {keeperId} keeps a snapshot {snapshotId}, and a snapshot restores only into the server that took it");
+
+    private static async Task<McpToolResult> RestoreAsync(
+        RunningSurlServers servers, RunningSurlServer running, JsonElement arguments, CancellationToken cancellationToken)
     {
         var snapshotId = arguments.GetProperty("snapshot_id").GetString()!;
         if (running.Snapshots.Find(snapshotId) is not { } snapshot)
         {
-            return McpToolResult.FromFailure(NoSnapshot(running.ServerId, snapshotId));
+            var keeper = servers.List().FirstOrDefault(other => other != running && other.Snapshots.Find(snapshotId) is not null);
+            return McpToolResult.FromFailure(keeper is null
+                ? NoSnapshot(running.ServerId, snapshotId)
+                : SnapshotOfAnotherServer(running.ServerId, snapshotId, keeper.ServerId));
         }
 
         await running.Server.RestoreAsync(snapshot, cancellationToken);

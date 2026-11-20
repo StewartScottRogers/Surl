@@ -58,6 +58,12 @@ public sealed record FaultRule(string Id, FaultKind Kind)
     public string? Reply { get; init; }
 
     /// <summary>
+    /// The text an <see cref="FaultKind.Error"/> rule makes the HTTP server answer with (<c>body</c>);
+    /// <see langword="null"/> keeps the status's fixed text (ADR-0186 decision 5).
+    /// </summary>
+    public string? Body { get; init; }
+
+    /// <summary>
     /// How many times the rule applies before it is spent (<c>times</c>); <see langword="null"/> means always.
     /// </summary>
     public int? Times { get; init; }

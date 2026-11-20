@@ -1,3 +1,4 @@
+using Surl.HttpMessage;
 using Surl.Protocol.Abstractions;
 
 namespace Surl.Protocol.HttpProxy;
@@ -58,7 +59,7 @@ namespace Surl.Protocol.HttpProxy;
 /// answer the proxy makes itself has <c>Date</c>, <c>Server: surl</c> and a fixed-text body.
 /// </para>
 /// </remarks>
-public sealed class HttpProxyProtocolServer : IConnectionProtocolServer, IConnectionRefusalWriter
+public sealed class HttpProxyProtocolServer : IConnectionProtocolServer, IConnectionRefusalWriter, IExchangeBytesRedactingServer
 {
     private static readonly ReadOnlyMemory<byte> ServiceUnavailableResponse =
         "HTTP/1.1 503 Service Unavailable\r\nServer: surl\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"u8.ToArray();
@@ -102,6 +103,17 @@ public sealed class HttpProxyProtocolServer : IConnectionProtocolServer, IConnec
     /// The proxy is chosen by <c>--proxy</c>, not by scheme (decision 7).
     /// </summary>
     public IReadOnlyList<string> Schemes { get; } = Array.AsReadOnly(["http", "https"]);
+
+    /// <summary>
+    /// Creates the redactor that writes the credentials of the client's <c>Proxy-Authorization</c> and
+    /// <c>Authorization</c> fields as <c>****</c> in the exchange log (ADR-0182, decision 7 and
+    /// amendment 2). The log holds curl's side of the connection only; bytes the proxy sends to an
+    /// origin are not logged.
+    /// </summary>
+    /// <param name="context">The exchange the redactor is for.</param>
+    /// <returns>An HTTP request head redactor for curl's connection, used by that exchange alone.</returns>
+    public IReceivedBytesRedactor CreateRedactor(ExchangeRedactionContext context) =>
+        new HttpRequestHeadBytesRedactor();
 
     /// <summary>
     /// Answers every request on <paramref name="connection"/> until curl closes it or an answer

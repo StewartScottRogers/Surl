@@ -2,5 +2,7 @@ HTTP/1.1 416 Range Not Satisfiable
 Date: Mon, 28 Sep 2026 12:00:00 GMT
 Server: surl
 Content-Range: bytes */17
-Content-Length: 0
+Content-Type: text/plain; charset=utf-8
+Content-Length: 26
 
+416 Range Not Satisfiable

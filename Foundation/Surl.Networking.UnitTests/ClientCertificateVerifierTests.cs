@@ -17,6 +17,45 @@ public sealed class ClientCertificateVerifierTests
     }
 
     [TestMethod]
+    public void IsChainTrusted_LeafAndItsIntermediateUnderAnAnchor_IsTrue()
+    {
+        using var root = TestCertificates.CreateCertificateAuthority("CN=surl test root");
+        using var intermediate = TestCertificates.CreateIntermediateAuthority(root, "CN=surl test intermediate");
+        using var client = TestCertificates.CreateClientCertificate(intermediate);
+
+        Assert.IsTrue(new ClientCertificateVerifier([root], Time).IsChainTrusted([client.RawData, intermediate.RawData]));
+    }
+
+    [TestMethod]
+    public void IsChainTrusted_LeafWithoutItsIntermediate_IsFalse()
+    {
+        using var root = TestCertificates.CreateCertificateAuthority("CN=surl test root");
+        using var intermediate = TestCertificates.CreateIntermediateAuthority(root, "CN=surl test intermediate");
+        using var client = TestCertificates.CreateClientCertificate(intermediate);
+
+        Assert.IsFalse(new ClientCertificateVerifier([root], Time).IsChainTrusted([client.RawData]));
+    }
+
+    [TestMethod]
+    public void IsChainTrusted_AnIntermediateTheAnchorsDidNotSign_IsFalse()
+    {
+        using var root = TestCertificates.CreateCertificateAuthority("CN=surl test root");
+        using var stranger = TestCertificates.CreateCertificateAuthority("CN=stranger CA");
+        using var intermediate = TestCertificates.CreateIntermediateAuthority(stranger, "CN=stranger intermediate");
+        using var client = TestCertificates.CreateClientCertificate(intermediate);
+
+        Assert.IsFalse(new ClientCertificateVerifier([root], Time).IsChainTrusted([client.RawData, intermediate.RawData]));
+    }
+
+    [TestMethod]
+    public void IsChainTrusted_EmptyChain_IsFalse()
+    {
+        using var root = TestCertificates.CreateCertificateAuthority("CN=surl test root");
+
+        Assert.IsFalse(new ClientCertificateVerifier([root], Time).IsChainTrusted([]));
+    }
+
+    [TestMethod]
     public void IsTrusted_SignedByAStranger_IsFalse()
     {
         using var authority = TestCertificates.CreateCertificateAuthority("CN=surl test CA");

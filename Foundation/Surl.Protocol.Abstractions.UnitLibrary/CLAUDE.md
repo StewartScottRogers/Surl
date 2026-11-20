@@ -185,3 +185,7 @@ and the protocols fan out after.
   `long?` exchange ID), `KindName` (type name without `Event`, snake_case) and `WriteMembers(ISurlEventMemberWriter)`
   (`Text`, `Number`, `Flag`, `Choice`, `Bytes`, named by property name). `SurlEventMemberTests` fails when a record leaves
   a public property unwritten or shadows a fact instead of overriding it.
+
+- The received-bytes redaction contract (ADR-0182, decision 6; BL-1418): `IExchangeBytesRedactingServer.CreateRedactor(ExchangeRedactionContext)`
+  returns an `IReceivedBytesRedactor` (`Redact`, `ObserveSent`, `Flush`), and `LineBytesRedactor` serves CR LF line protocols through an
+  `ILineRedactionRule`, holding at most 64 KiB. Nothing implements them yet.

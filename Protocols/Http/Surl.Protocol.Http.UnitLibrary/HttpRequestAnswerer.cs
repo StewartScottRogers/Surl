@@ -92,7 +92,7 @@ internal sealed partial class HttpRequestAnswerer : IHttpRequestHandler
 
         if (!request.Body.IsReadable)
         {
-            return Refuse(HttpStatus.BadRequest, null, challenges, $"{request.Method} {request.Target}: the login is bound to the body, and the body's framing is not one the server reads");
+            return Refuse(request, HttpStatus.BadRequest, null, challenges, $"{request.Method} {request.Target}: the login is bound to the body, and the body's framing is not one the server reads");
         }
 
         if (IsServedUpload(request))
@@ -215,12 +215,12 @@ internal sealed partial class HttpRequestAnswerer : IHttpRequestHandler
     {
         if (outcome == HttpAuthenticationOutcome.Forbidden)
         {
-            return Refuse(HttpStatus.Forbidden, null, challenges, $"{request.Method} {request.Target}: the authentication policy forbade the request");
+            return Refuse(request, HttpStatus.Forbidden, null, challenges, $"{request.Method} {request.Target}: the authentication policy forbade the request");
         }
 
         if (request.Body.IsAnnounced)
         {
-            return Refuse(HttpStatus.Unauthorized, null, challenges, $"{request.Method} {request.Target}: a login is needed, and the body announced was not read");
+            return Refuse(request, HttpStatus.Unauthorized, null, challenges, $"{request.Method} {request.Target}: a login is needed, and the body announced was not read");
         }
 
         context.Log.Note($"{request.Method} {request.Target}: 401, a login is needed");
@@ -236,14 +236,14 @@ internal sealed partial class HttpRequestAnswerer : IHttpRequestHandler
         var maxUploadBytes = context.Limits.MaxUploadBytes;
 
         return request.Body.AnnouncedLength is { } length && maxUploadBytes != 0 && length > maxUploadBytes
-            ? Refuse(HttpStatus.ContentTooLarge, null, challenges, $"{request.Method} {request.Target}: the {length}-byte body is past the upload limit of {maxUploadBytes} bytes")
+            ? Refuse(request, HttpStatus.ContentTooLarge, null, challenges, $"{request.Method} {request.Target}: the {length}-byte body is past the upload limit of {maxUploadBytes} bytes")
             : null;
     }
 
     private HttpAnswer RefuseBody(HttpRequest request, HttpRequestBodyDiscardOutcome bodyOutcome, IReadOnlyList<string> challenges) =>
         bodyOutcome == HttpRequestBodyDiscardOutcome.TooLarge
-            ? Refuse(HttpStatus.ContentTooLarge, null, challenges, $"{request.Method} {request.Target}: the chunked body went past the upload limit of {context.Limits.MaxUploadBytes} bytes")
-            : Refuse(HttpStatus.BadRequest, null, challenges, $"{request.Method} {request.Target}: the body was malformed or ended early");
+            ? Refuse(request, HttpStatus.ContentTooLarge, null, challenges, $"{request.Method} {request.Target}: the chunked body went past the upload limit of {context.Limits.MaxUploadBytes} bytes")
+            : Refuse(request, HttpStatus.BadRequest, null, challenges, $"{request.Method} {request.Target}: the body was malformed or ended early");
 
     private HttpAnswer RefuseMethod(HttpRequest request, IReadOnlyList<string> challenges)
     {
@@ -252,20 +252,20 @@ internal sealed partial class HttpRequestAnswerer : IHttpRequestHandler
 
         var allow = contentStore.ExposureOptions.AllowUploads ? AllowedMethodsWithUploads : AllowedMethods;
 
-        return Refuse(status, isKnown ? allow : null, challenges, $"{request.Method} {request.Target}: the method is not served");
+        return Refuse(request, status, isKnown ? allow : null, challenges, $"{request.Method} {request.Target}: the method is not served");
     }
 
-    private HttpAnswer Refuse(HttpStatus status, string? allow, IReadOnlyList<string> challenges, string note)
+    private HttpAnswer Refuse(HttpRequest request, HttpStatus status, string? allow, IReadOnlyList<string> challenges, string note)
     {
         context.Log.Note($"{note}; answered {status.Code} and closed.");
 
-        return new HttpAnswer(status, EmptyAnswerFields(allow, challenges), HttpAnswerBody.None, IsRefusal: true, LeavesRequestBodyUnread: false);
+        return new HttpAnswer(status, EmptyAnswerFields(status, allow, challenges), EmptyAnswerBody(request, status), IsRefusal: true, LeavesRequestBodyUnread: false);
     }
 
     private HttpAnswer EmptyAnswer(HttpRequest request, HttpStatus status, IReadOnlyList<string> challenges) =>
-        new(status, EmptyAnswerFields(null, challenges), HttpAnswerBody.None, IsRefusal: false, LeavesRequestBodyUnread: request.Body.IsAnnounced);
+        new(status, EmptyAnswerFields(status, null, challenges), EmptyAnswerBody(request, status), IsRefusal: false, LeavesRequestBodyUnread: request.Body.IsAnnounced);
 
-    private List<KeyValuePair<string, string>> EmptyAnswerFields(string? allow, IReadOnlyList<string> challenges)
+    private List<KeyValuePair<string, string>> EmptyAnswerFields(HttpStatus status, string? allow, IReadOnlyList<string> challenges)
     {
         List<KeyValuePair<string, string>> fields =
         [
@@ -277,10 +277,21 @@ internal sealed partial class HttpRequestAnswerer : IHttpRequestHandler
             fields.Add(new("Allow", allow));
         }
 
-        fields.Add(new("Content-Length", "0"));
+        if (HttpErrorText.Carries(status))
+        {
+            fields.AddRange(HttpErrorText.FieldsOf(status));
+        }
+        else
+        {
+            fields.Add(new("Content-Length", "0"));
+        }
 
         return AddChallenges(fields, challenges);
     }
+
+    // A 4xx or 5xx carries ADR-0186's fixed text (none after a HEAD's head); every other status has no body.
+    private static HttpAnswerBody EmptyAnswerBody(HttpRequest request, HttpStatus status) =>
+        HttpErrorText.Carries(status) ? HttpErrorText.BodyOf(status, request.Method == "HEAD") : HttpAnswerBody.None;
 
     // A file is answered 200 with its length; a GET carries its bytes, a HEAD none. A GET whose
     // Range selects bytes is answered 206 with them - several ranges as multipart/byteranges - or
@@ -289,7 +300,14 @@ internal sealed partial class HttpRequestAnswerer : IHttpRequestHandler
     {
         var now = Now();
         var lastModified = FormatHttpDate(status.LastModifiedUtc < now ? status.LastModifiedUtc : now);
-        var ranges = request.Method == "GET" ? SelectedRanges(request, lastModified, status.Length) : null;
+        var lastModifiedUtc = status.LastModifiedUtc < now ? status.LastModifiedUtc : now;
+        var eTag = ETagOf(status);
+        if (ConditionAnswer(request, lastModifiedUtc, eTag, challenges) is { } conditionAnswer)
+        {
+            return conditionAnswer;
+        }
+
+        var ranges = request.Method == "GET" ? SelectedRanges(request, lastModified, eTag, status.Length) : null;
         if (ranges is { Count: 0 })
         {
             context.Log.Note($"{request.Method} {request.Target}: 416, the range is past the end of the {status.Length}-byte {mapping.Location}");
@@ -297,16 +315,17 @@ internal sealed partial class HttpRequestAnswerer : IHttpRequestHandler
             return RangeNotSatisfiableAnswer(request, status.Length, challenges);
         }
 
-        return ServedFileAnswer(request, mapping, now, lastModified, ranges, status.Length, challenges);
+        return ServedFileAnswer(request, mapping, now, lastModified, eTag, ranges, status.Length, challenges);
     }
 
     // The 200 or 206 for a file: the ranges selected, or the whole file.
-    private HttpAnswer ServedFileAnswer(HttpRequest request, ContentPathMapping mapping, DateTimeOffset now, string lastModified, IReadOnlyList<ContentByteRange>? ranges, long fileLength, IReadOnlyList<string> challenges)
+    private HttpAnswer ServedFileAnswer(HttpRequest request, ContentPathMapping mapping, DateTimeOffset now, string lastModified, string eTag, IReadOnlyList<ContentByteRange>? ranges, long fileLength, IReadOnlyList<string> challenges)
     {
         List<KeyValuePair<string, string>> fields =
         [
             new("Date", FormatHttpDate(now)),
             new("Server", HttpResponseHead.ServerName),
+            new("ETag", eTag),
             new("Last-Modified", lastModified),
         ];
         var mediaType = ContentMediaTypes.Of(mapping.Location!);
@@ -333,13 +352,13 @@ internal sealed partial class HttpRequestAnswerer : IHttpRequestHandler
         return new HttpAnswer(answerStatus, AddChallenges(fields, challenges), body, IsRefusal: false, LeavesRequestBodyUnread: request.Body.IsAnnounced);
     }
 
-    // The range a GET's Range asks for, when its If-Range (if any) is the Last-Modified the
-    // answer carries, character for character; the server sends no ETag, so an entity-tag
-    // If-Range never matches and the whole file is served (RFC 9110, section 13.1.5).
-    private static IReadOnlyList<ContentByteRange>? SelectedRanges(HttpRequest request, string lastModified, long fileLength)
+    // The range a GET's Range asks for, when its If-Range (if any) is the Last-Modified the answer
+    // carries, character for character, or the strong ETag it carries; a weak or other tag gets the
+    // whole file (RFC 9110, section 13.1.5; ADR-0184, decision 6).
+    private static IReadOnlyList<ContentByteRange>? SelectedRanges(HttpRequest request, string lastModified, string eTag, long fileLength)
     {
         var ifRange = FieldValue(request, "If-Range");
-        if (ifRange is not null && !string.Equals(ifRange.Trim(' ', '\t'), lastModified, StringComparison.Ordinal))
+        if (ifRange is not null && ifRange.Trim(' ', '\t') is var validator && validator != lastModified && validator != eTag)
         {
             return null;
         }
@@ -373,10 +392,10 @@ internal sealed partial class HttpRequestAnswerer : IHttpRequestHandler
             new("Date", FormatHttpDate(Now())),
             new("Server", HttpResponseHead.ServerName),
             new("Content-Range", FormattableString.Invariant($"bytes */{fileLength}")),
-            new("Content-Length", "0"),
+            .. HttpErrorText.FieldsOf(RangeNotSatisfiable),
         ];
 
-        return new HttpAnswer(RangeNotSatisfiable, AddChallenges(fields, challenges), HttpAnswerBody.None, IsRefusal: false, LeavesRequestBodyUnread: request.Body.IsAnnounced);
+        return new HttpAnswer(RangeNotSatisfiable, AddChallenges(fields, challenges), HttpErrorText.BodyOf(RangeNotSatisfiable, isHead: false), IsRefusal: false, LeavesRequestBodyUnread: request.Body.IsAnnounced);
     }
 
     // One WWW-Authenticate field per value the authentication session gave, after

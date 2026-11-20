@@ -142,4 +142,16 @@ public sealed class DnsConnectionRoutingProtocolServerTests
         Assert.ThrowsExactly<ArgumentNullException>(() => server.ServeAsync(null!, ContextFor(DnsOverHttps)));
         Assert.ThrowsExactly<ArgumentNullException>(() => server.ServeAsync(new InMemoryConnection([]), null!));
     }
+
+    [TestMethod]
+    public void CreateRedactor_DnsOverHttpsHead_LogsAuthorizationAsStars()
+    {
+        var redactor = Server(new RecordingConnectionServer()).CreateRedactor(new ExchangeRedactionContext(1, "dns"));
+        var output = new System.Buffers.ArrayBufferWriter<byte>();
+
+        redactor.Redact(Encoding.ASCII.GetBytes("GET /dns-query HTTP/1.1\r\nAuthorization: Bearer sekret\r\n\r\n"), output);
+        redactor.Flush(output);
+
+        Assert.DoesNotContain("sekret", Encoding.ASCII.GetString(output.WrittenSpan));
+    }
 }

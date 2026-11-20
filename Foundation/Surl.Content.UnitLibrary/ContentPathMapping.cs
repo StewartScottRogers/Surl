@@ -92,8 +92,21 @@ public sealed class ContentPathMapping
     internal static ContentPathMapping Mapped(string location, ContentEntryKind entryKind, bool namesADirectory, ContentContainer container, ContentCaller caller, bool deniesWrites) =>
         new(location, entryKind, ContentPathRefusal.None, isAnsweredAsAbsent: false, namesADirectory, container, caller, deniesWrites);
 
+    /// <summary>
+    /// Whether the path is the reserved <c>.surl</c> folder or a path the exposure options hide, as
+    /// against a share the caller may not see: an upload there is refused as not permitted before
+    /// its folder is looked for (ADR-0031 decision 5), while a closed share never reveals itself.
+    /// </summary>
+    internal bool IsReservedOrHidden { get; private init; }
+
     internal static ContentPathMapping AnsweredAsAbsent(string location, ContentContainer container, ContentCaller caller, bool deniesWrites) =>
         new(location, ContentEntryKind.None, ContentPathRefusal.None, isAnsweredAsAbsent: true, namesADirectory: false, container, caller, deniesWrites);
+
+    internal static ContentPathMapping ReservedOrHidden(string location, ContentContainer container, ContentCaller caller, bool deniesWrites) =>
+        new(location, ContentEntryKind.None, ContentPathRefusal.None, isAnsweredAsAbsent: true, namesADirectory: false, container, caller, deniesWrites)
+        {
+            IsReservedOrHidden = true,
+        };
 
     internal static ContentPathMapping Refused(ContentPathRefusal refusal) =>
         new(null, ContentEntryKind.None, refusal, isAnsweredAsAbsent: false, namesADirectory: false, container: null, caller: null, deniesWrites: false);

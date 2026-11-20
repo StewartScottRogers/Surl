@@ -60,7 +60,7 @@ namespace Surl.Protocol.Pop3;
 /// <see cref="WriteRefusalAsync"/>.
 /// </para>
 /// </remarks>
-public sealed class Pop3ProtocolServer : IConnectionProtocolServer, IConnectionRefusalWriter
+public sealed class Pop3ProtocolServer : IConnectionProtocolServer, IConnectionRefusalWriter, IExchangeBytesRedactingServer
 {
     /// <summary>
     /// How long the reply to a line that is too long or late may take to write (ADR-0006,
@@ -118,6 +118,16 @@ public sealed class Pop3ProtocolServer : IConnectionProtocolServer, IConnectionR
     /// The one scheme answered: <c>pop3</c>.
     /// </summary>
     public IReadOnlyList<string> Schemes { get; } = Array.AsReadOnly(["pop3"]);
+
+    /// <summary>
+    /// Creates the redactor that writes the argument of <c>PASS</c>, an <c>AUTH</c> initial response
+    /// and every answer to a <c>+ </c> continuation as <c>****</c> in the exchange log (ADR-0182,
+    /// decision 6; ADR-0183).
+    /// </summary>
+    /// <param name="context">The exchange the redactor is for.</param>
+    /// <returns>A line redactor used by that exchange alone.</returns>
+    public IReceivedBytesRedactor CreateRedactor(ExchangeRedactionContext context) =>
+        new LineBytesRedactor(new Pop3LineRedactionRule());
 
     /// <summary>
     /// The upstream test case whose reply every session plays (<see cref="Pop3UpstreamTestCaseServer"/>),

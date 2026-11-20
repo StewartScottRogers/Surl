@@ -100,7 +100,7 @@ internal static class CommandLineOptions
     private const string FaultExplanation =
         "Adds a fault rule that makes surl misbehave on purpose: delay (ms=<0-600000>, at accept or stage=command), "
         + "drop the connection (at accept, stage=command, or after-bytes=<n> sent), refuse-login, error (a reply=<code text> "
-        + "that fits the scheme's error shape, with scheme= or listener=) or out-of-space. Keys listener, scheme, account, "
+        + "that fits the scheme's error shape, with scheme= or listener=; an HTTP error may add body=<text>, the answer's text/plain body) or out-of-space. Keys listener, scheme, account, "
         + "path and command scope it, and times=<1-1000000> limits how often it applies; repeat it for more rules, at most 256. "
         + "A test uses it to check how its client copes with a slow, failing or full server. It is not the default because "
         + "a server that misbehaves on purpose looks broken to every other client.";

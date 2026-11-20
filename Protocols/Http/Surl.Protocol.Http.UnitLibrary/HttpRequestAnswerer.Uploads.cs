@@ -32,7 +32,7 @@ internal sealed partial class HttpRequestAnswerer
     {
         if (!request.Body.IsReadable)
         {
-            return Refuse(HttpStatus.BadRequest, null, challenges, $"{request.Method} {request.Target}: the body's framing is not one the server reads");
+            return Refuse(request, HttpStatus.BadRequest, null, challenges, $"{request.Method} {request.Target}: the body's framing is not one the server reads");
         }
 
         var mapping = contentStore.MapRequestPathForCaller(RequestPath(request.Target), caller);
@@ -96,10 +96,15 @@ internal sealed partial class HttpRequestAnswerer
             return UploadNotOpened(request, target.Opening.Result, challenges, leavesBodyUnread: false);
         }
 
+        if (!isTooLarge && FailedPutPrecondition(request, target.Mapping, challenges) is { } preconditionAnswer)
+        {
+            return preconditionAnswer;
+        }
+
         var committed = isTooLarge ? ContentUploadResult.TooLarge : await session.CommitAsync(cancellationToken);
         if (committed == ContentUploadResult.TooLarge)
         {
-            return Refuse(HttpStatus.ContentTooLarge, null, challenges, $"{request.Method} {request.Target}: the body went past the upload limit of {contentStore.ExposureOptions.MaxUploadBytes} bytes");
+            return Refuse(request, HttpStatus.ContentTooLarge, null, challenges, $"{request.Method} {request.Target}: the body went past the upload limit of {contentStore.ExposureOptions.MaxUploadBytes} bytes");
         }
 
         if (committed != ContentUploadResult.Written)
@@ -116,12 +121,38 @@ internal sealed partial class HttpRequestAnswerer
         var status = target.Replaces ? NoContent : Created;
         context.Log.Note($"{request.Method} {request.Target}: {status.Code}, {storedLength} bytes stored at {target.Mapping.Location}");
         List<KeyValuePair<string, string>> fields = [new("Date", FormatHttpDate(Now())), new("Server", HttpResponseHead.ServerName)];
+        if (LookUpFileStatus(target.Mapping).Status is { } storedStatus)
+        {
+            fields.Add(new("ETag", ETagOf(storedStatus)));
+        }
+
         if (!target.Replaces)
         {
             fields.Add(new("Content-Length", "0"));
         }
 
         return new HttpAnswer(status, AddChallenges(fields, challenges), HttpAnswerBody.None, IsRefusal: false, LeavesRequestBodyUnread: false);
+    }
+
+    // The 412 of a PUT whose If-Match, If-Unmodified-Since or If-None-Match the file there does not
+    // meet (ADR-0184, decision 7); null when the upload is to be stored. If-Match fails when no file
+    // is there; If-None-Match fails on any listed tag the file has, weak ones included; a missing
+    // file meets every other condition, and If-Modified-Since is ignored.
+    private HttpAnswer? FailedPutPrecondition(HttpRequest request, ContentPathMapping mapping, IReadOnlyList<string> challenges)
+    {
+        var status = LookUpFileStatus(mapping).Status;
+        var failed = status is null
+            ? EntityTagsOf(request, "If-Match") is not null
+            : IsPreconditionUnmet(request, ModificationSecond(status.LastModifiedUtc), ETagOf(status))
+                || (EntityTagsOf(request, "If-None-Match") is { } ifNoneMatch && TagListMatches(ifNoneMatch, ETagOf(status), isStrong: false));
+        if (!failed)
+        {
+            return null;
+        }
+
+        context.Log.Note($"{request.Method} {request.Target}: 412, the file does not meet the request's If-Match, If-Unmodified-Since or If-None-Match");
+
+        return EmptyAnswer(request, PreconditionFailed, challenges);
     }
 
     // A location that is missing its directory, or is a directory, conflicts with the PUT
@@ -132,7 +163,7 @@ internal sealed partial class HttpRequestAnswerer
         var status = result is ContentUploadOpeningResult.NoSuchDirectory or ContentUploadOpeningResult.IsADirectory ? Conflict : HttpStatus.Forbidden;
         context.Log.Note($"{request.Method} {request.Target}: {status.Code}, the upload could not be opened ({result})");
 
-        return new HttpAnswer(status, EmptyAnswerFields(null, challenges), HttpAnswerBody.None, IsRefusal: false, LeavesRequestBodyUnread: leavesBodyUnread);
+        return new HttpAnswer(status, EmptyAnswerFields(status, null, challenges), EmptyAnswerBody(request, status), IsRefusal: false, LeavesRequestBodyUnread: leavesBodyUnread);
     }
 
     // Where a PUT's body goes: the mapped location, the upload opened there, and whether a file

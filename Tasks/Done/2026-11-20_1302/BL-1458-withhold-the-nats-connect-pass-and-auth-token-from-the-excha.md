@@ -1,0 +1,37 @@
+---
+id: BL-1458
+title: Withhold the NATS CONNECT pass and auth_token from the exchange log
+priority: Normal
+assignee: Claude
+pipeline: feature
+depends-on: [BL-1419]
+touches: [Protocols/Messaging/Surl.Extended.Protocol.Nats.UnitLibrary, Protocols/Messaging/Surl.Extended.Protocol.Nats.UnitTests]
+requirement: none
+created: 2026-11-20
+completed: 2026-11-20
+---
+# BL-1458 — Withhold the NATS CONNECT pass and auth_token from the exchange log
+
+## Goal
+
+With the BL-1418 contract implemented, ADR-0182's replacement text is logged in place of the NATS CONNECT JSON `pass` and `auth_token` (and `user` stays) (`NatsConnectOptions.cs:34`) on -v, --trace, --trace-ascii and --log-file.
+
+## Context
+
+- Filed by BL-1417 (ADR-0182): an extended server whose client bytes carry a secret in recoverable form. The server's own parser shows where the field sits; the redactor must work across chunk boundaries and keep the user name visible.
+- Extended servers are judged by their protocol's specification (ADR-0083), not the Curl port.
+
+## Acceptance criteria
+
+- [x] A fast test in the server's .UnitTests shows the redacted bytes for a split-chunk exchange and that a server answer is unchanged.
+- [x] The server's raw bytes still reach the server unchanged and the event stream follows ADR-0182.
+
+## Notes
+
+NATS lines are CR LF lines, so the shared `LineBytesRedactor` (chunk splitting, 64 KiB cap) carries a new `NatsConnectLineRedactionRule` that reads CONNECT with `Utf8JsonReader` as `NatsConnectOptions` does (top-level, case-insensitive, unescaped names) and masks `pass`/`auth_token` values inside their quotes. Choices: a non-string secret becomes `"****"`; an unreadable CONNECT argument is masked whole; any line starting with CONNECT is treated alike. The redactor only feeds the log, so the server still reads raw bytes and the event stream stays raw (ADR-0182 decision 4).
+
+## Log
+
+- 2026-11-20: Created.
+- 2026-11-20: Backlog -> Doing.
+- 2026-11-20: Doing -> Done. NATS CONNECT pass and auth_token are logged as **** (user kept), across chunk boundaries

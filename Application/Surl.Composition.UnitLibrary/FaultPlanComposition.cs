@@ -53,6 +53,7 @@ public static class FaultPlanComposition
             DelayMilliseconds = fault.DelayMilliseconds,
             AfterBytes = fault.AfterBytes,
             Reply = fault.Reply,
+            Body = fault.Body,
             Times = fault.Times,
         };
     }

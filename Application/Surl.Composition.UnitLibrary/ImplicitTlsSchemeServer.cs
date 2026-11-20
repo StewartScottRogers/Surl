@@ -8,7 +8,7 @@ namespace Surl.Composition;
 /// secured (ADR-0002, "Consequences"; ADR-0010, section 2). It answers every exchange by
 /// handing it to that server unchanged, and adds no second server (ADR-0020).
 /// </summary>
-public sealed class ImplicitTlsSchemeServer : IConnectionProtocolServer
+public sealed class ImplicitTlsSchemeServer : IConnectionProtocolServer, IExchangeBytesRedactingServer
 {
     /// <summary>
     /// Registers <paramref name="server"/> for <paramref name="implicitTlsScheme"/>.
@@ -47,4 +47,27 @@ public sealed class ImplicitTlsSchemeServer : IConnectionProtocolServer
     /// <param name="context">What the server is told about this exchange.</param>
     /// <returns>The server's own task.</returns>
     public Task ServeAsync(IConnection connection, ExchangeContext context) => Server.ServeAsync(connection, context);
+
+    /// <summary>
+    /// Hands the engine the redactor of the server this one registers, so a secret that server
+    /// withholds from the exchange log (ADR-0182) is withheld on the secured scheme too; a server
+    /// that redacts nothing is logged byte for byte.
+    /// </summary>
+    /// <param name="context">The exchange the redactor is for.</param>
+    /// <returns>The registered server's redactor, or one that passes every byte through.</returns>
+    public IReceivedBytesRedactor CreateRedactor(ExchangeRedactionContext context) =>
+        Server is IExchangeBytesRedactingServer redacting ? redacting.CreateRedactor(context) : new PassThroughRedactor();
+
+    private sealed class PassThroughRedactor : IReceivedBytesRedactor
+    {
+        public void Redact(ReadOnlySpan<byte> received, System.Buffers.ArrayBufferWriter<byte> output) => System.Buffers.BuffersExtensions.Write(output, received);
+
+        public void ObserveSent(ReadOnlySpan<byte> sent)
+        {
+        }
+
+        public void Flush(System.Buffers.ArrayBufferWriter<byte> output)
+        {
+        }
+    }
 }

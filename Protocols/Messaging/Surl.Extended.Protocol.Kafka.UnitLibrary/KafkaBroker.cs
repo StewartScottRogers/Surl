@@ -35,7 +35,7 @@ namespace Surl.Extended.Protocol.Kafka;
 /// <c>correlation_id</c>.
 /// </para>
 /// </remarks>
-public sealed class KafkaBroker : IConnectionProtocolServer
+public sealed class KafkaBroker : IConnectionProtocolServer, IExchangeBytesRedactingServer
 {
     private readonly IAuthenticationPolicy authenticationPolicy;
     private readonly FrozenDictionary<KafkaApiKey, IKafkaApiAnswerer> answerers;
@@ -72,6 +72,14 @@ public sealed class KafkaBroker : IConnectionProtocolServer
     /// TLS, whose handshake the engine performs (ADR-0105 decision 7).
     /// </summary>
     public IReadOnlyList<string> Schemes { get; } = Array.AsReadOnly(["kafka", "kafkas"]);
+
+    /// <summary>
+    /// Creates the redactor that logs the SASL PLAIN password of a SaslAuthenticate request (or of a v0
+    /// handshake's raw token) as <c>****</c> and every other byte as it arrived (ADR-0182, decision 6).
+    /// </summary>
+    /// <param name="context">The exchange the redactor is for.</param>
+    /// <returns>A redactor for the connection, used by that exchange alone.</returns>
+    public IReceivedBytesRedactor CreateRedactor(ExchangeRedactionContext context) => new KafkaSaslPlainBytesRedactor();
 
     /// <summary>
     /// Answers every request on <paramref name="connection"/> until the connection ends.

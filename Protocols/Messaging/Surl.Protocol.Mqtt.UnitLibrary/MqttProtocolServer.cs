@@ -72,7 +72,7 @@ namespace Surl.Protocol.Mqtt;
 /// the exchange log.
 /// </para>
 /// </remarks>
-public sealed class MqttProtocolServer : IConnectionProtocolServer
+public sealed class MqttProtocolServer : IConnectionProtocolServer, IExchangeBytesRedactingServer
 {
     private readonly MessageBus.MessageBus bus;
     private readonly IAuthenticationPolicy authenticationPolicy;
@@ -100,6 +100,14 @@ public sealed class MqttProtocolServer : IConnectionProtocolServer
     /// plaintext (ADR-0010), so both are answered alike (ADR-0014).
     /// </summary>
     public IReadOnlyList<string> Schemes { get; } = Array.AsReadOnly(["mqtt", "mqtts"]);
+
+    /// <summary>
+    /// Creates the redactor that logs a <c>CONNECT</c>'s password as <c>****</c> and every other
+    /// byte as it arrived (ADR-0182, decision 6).
+    /// </summary>
+    /// <param name="context">The exchange the redactor is for.</param>
+    /// <returns>A redactor for the connection, used by that exchange alone.</returns>
+    public IReceivedBytesRedactor CreateRedactor(ExchangeRedactionContext context) => new MqttConnectBytesRedactor();
 
     /// <summary>
     /// Answers every packet on <paramref name="connection"/> until the client disconnects or

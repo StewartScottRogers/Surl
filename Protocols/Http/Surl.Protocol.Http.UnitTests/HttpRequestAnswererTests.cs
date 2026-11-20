@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Security.Cryptography;
+using System.Text;
 using Surl.Content;
 using Surl.HttpMessage;
 using Surl.Protocol.Abstractions;
@@ -18,9 +19,15 @@ public sealed partial class HttpRequestAnswererTests
 
     private static readonly string Date = Now.ToString("r", CultureInfo.InvariantCulture);
 
+    private const string FileETag = "\"8df0803365eb400-11\"";
+
     private static readonly string FileDate = FileTime.ToString("r", CultureInfo.InvariantCulture);
 
     public TestContext TestContext { get; set; } = null!;
+
+    // ADR-0186: a 4xx or 5xx the server originates carries its status line and a line feed as a text body.
+    private static void AssertErrorText(HttpAnswer answer, string statusLine) =>
+        CollectionAssert.AreEqual(Encoding.ASCII.GetBytes(statusLine + "\n"), ((HttpAnswerBody.Bytes)answer.Body).Content.ToArray());
 
     [TestMethod]
     public async Task AnswerAsync_GetOfAContentStoreFile_IsA200WithTheFileAsItsBody()
@@ -79,9 +86,9 @@ public sealed partial class HttpRequestAnswererTests
 
         Assert.AreEqual(HttpStatus.Unauthorized, answer.Status);
         CollectionAssert.AreEqual(
-            new[] { Field("Date", Date), Field("Server", "surl"), Field("Content-Length", "0"), Field("WWW-Authenticate", BasicChallenge), Field("WWW-Authenticate", "Bearer") },
+            new[] { Field("Date", Date), Field("Server", "surl"), Field("Content-Type", "text/plain; charset=utf-8"), Field("Content-Length", "17"), Field("WWW-Authenticate", BasicChallenge), Field("WWW-Authenticate", "Bearer") },
             answer.Fields.ToArray());
-        Assert.AreSame(HttpAnswerBody.None, answer.Body);
+        AssertErrorText(answer, "401 Unauthorized");
         Assert.IsFalse(answer.IsRefusal);
         Assert.AreEqual("GET", policy.JudgedRequests.Single().Method);
     }
@@ -94,8 +101,8 @@ public sealed partial class HttpRequestAnswererTests
         var answer = await Answerer(log: log).AnswerAsync(Request("GET", "/missing.txt"), TestContext.CancellationToken);
 
         Assert.AreEqual(HttpStatus.NotFound, answer.Status);
-        CollectionAssert.AreEqual(new[] { Field("Date", Date), Field("Server", "surl"), Field("Content-Length", "0") }, answer.Fields.ToArray());
-        Assert.AreSame(HttpAnswerBody.None, answer.Body);
+        CollectionAssert.AreEqual(new[] { Field("Date", Date), Field("Server", "surl"), Field("Content-Type", "text/plain; charset=utf-8"), Field("Content-Length", "14") }, answer.Fields.ToArray());
+        AssertErrorText(answer, "404 Not Found");
         Assert.IsFalse(answer.IsRefusal);
         Assert.IsFalse(answer.LeavesRequestBodyUnread);
         StringAssert.StartsWith(log.Notes.Single(), "GET /missing.txt: 404, nothing exists at ");
@@ -129,6 +136,7 @@ public sealed partial class HttpRequestAnswererTests
     [
         Field("Date", Date),
         Field("Server", "surl"),
+        Field("ETag", FileETag),
         Field("Last-Modified", FileDate),
         Field("Content-Type", "text/plain"),
         Field("Content-Length", FileBody.Length.ToString(CultureInfo.InvariantCulture)),

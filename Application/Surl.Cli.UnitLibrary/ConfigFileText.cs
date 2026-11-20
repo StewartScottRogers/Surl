@@ -106,9 +106,34 @@ internal static class ConfigFileText
             return new(number, [optionWord], null);
         }
 
+        if (text[valueStart] == '#' && IsCommentAfterFlag(text, valueStart, optionWord))
+        {
+            return new(number, [optionWord], null);
+        }
+
         return text[valueStart] == '"'
             ? ReadQuotedValue(text, valueStart + 1, optionWord, number)
             : ReadUnquotedValue(text, valueStart, optionWord, number);
+    }
+
+    /// <summary>
+    /// True when the <c>#</c> at <paramref name="hash"/> follows a blank and the option takes no value, so
+    /// it starts a comment (ADR-0101 decision 1 rows 3, 7 and 8 applied to a flag); a <c>#</c> straight
+    /// after <c>=</c> or <c>:</c>, or after a valued option, is a value.
+    /// </summary>
+    private static bool IsCommentAfterFlag(string text, int hash, string optionWord) =>
+        IsBlank(text[hash - 1]) && TakesNoValue(optionWord);
+
+    private static bool TakesNoValue(string optionWord)
+    {
+        if (optionWord.StartsWith(LongOptionPrefix, StringComparison.Ordinal))
+        {
+            var name = optionWord[LongOptionPrefix.Length..];
+            return CommandLineOptions.TryFindLong(name, out var option) && option.Kind == CommandLineOptionKind.Flag;
+        }
+
+        return optionWord.Length > 1 && optionWord[1..].All(
+            letter => CommandLineOptions.TryFindShort(letter, out var option) && option.Kind == CommandLineOptionKind.Flag);
     }
 
     private static ConfigFileLine ReadUnquotedValue(string text, int start, string optionWord, int number)

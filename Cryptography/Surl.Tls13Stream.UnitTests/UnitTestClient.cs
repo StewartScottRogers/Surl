@@ -57,7 +57,8 @@ internal sealed class UnitTestClient(Stream transport)
         byte[] clientHello,
         byte[]? retriedClientHello = null,
         bool alreadySent = false,
-        bool corruptFinished = false)
+        bool corruptFinished = false,
+        UnitTestClientCredentials? credentials = null)
     {
         if (!alreadySent)
         {
@@ -95,7 +96,19 @@ internal sealed class UnitTestClient(Stream transport)
 
         transcript = [.. transcript, .. ServerFlight];
         var serverFinishedHash = SHA256.HashData(transcript);
-        var verifyData = CryptographicOperations.HmacData(HashAlgorithmName.SHA256, ExpandLabel(clientHandshake, "finished", []), serverFinishedHash);
+        var finishedTranscriptHash = serverFinishedHash;
+        if (credentials is not null)
+        {
+            var authentication = credentials.Messages(transcript);
+            foreach (var message in authentication)
+            {
+                await transport.WriteAsync(write.Protect(TlsContentType.Handshake, message));
+            }
+
+            finishedTranscriptHash = SHA256.HashData([.. transcript, .. authentication.SelectMany(message => message)]);
+        }
+
+        var verifyData = CryptographicOperations.HmacData(HashAlgorithmName.SHA256, ExpandLabel(clientHandshake, "finished", []), finishedTranscriptHash);
         verifyData[0] ^= corruptFinished ? (byte)1 : (byte)0;
         await transport.WriteAsync(write.Protect(TlsContentType.Handshake, [20, 0, 0, HashLength, .. verifyData]));
         if (corruptFinished)

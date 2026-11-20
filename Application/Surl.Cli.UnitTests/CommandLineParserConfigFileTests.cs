@@ -36,6 +36,55 @@ public sealed class CommandLineParserConfigFileTests
         Assert.AreEqual("a.log", commandLine.LogFile);
     }
 
+    // BL-1437: a # after blanks that follow a value-less flag starts a comment.
+    [TestMethod]
+    [DataRow("allow-uploads  # note", DisplayName = "Undashed flag and comment")]
+    [DataRow("--allow-uploads # note", DisplayName = "Dashed flag and comment")]
+    [DataRow("allow-uploads\t#", DisplayName = "Tab and bare #")]
+    public void Parse_CommentAfterAFlag_IsIgnored(string line)
+    {
+        var commandLine = AssertServes(Files(("a.cfg", $"{line}\n")), "-K", "a.cfg", Url);
+
+        Assert.IsTrue(commandLine.AllowUploads);
+    }
+
+    [TestMethod]
+    public void Parse_CommentAfterAShortFlag_IsIgnored()
+    {
+        var commandLine = AssertServes(Files(("a.cfg", "-v # note\n")), "-K", "a.cfg", Url);
+
+        Assert.AreEqual(LogLevel.Verbose, commandLine.LogLevel);
+    }
+
+    [TestMethod]
+    [DataRow("directory site  # note", DisplayName = "Valued option keeps its value before a comment")]
+    [DataRow("directory site", DisplayName = "Valued option")]
+    public void Parse_CommentAfterAValue_StillReadsTheValue(string line)
+    {
+        var commandLine = AssertServes(Files(("a.cfg", $"{line}\n")), "-K", "a.cfg", Url);
+
+        Assert.AreEqual("site", commandLine.DataDirectory);
+    }
+
+    [TestMethod]
+    public void Parse_HashAfterAValuedOption_IsTheValue()
+    {
+        var commandLine = AssertServes(Files(("a.cfg", "log-file #x\n")), "-K", "a.cfg", Url);
+
+        Assert.AreEqual("#x", commandLine.LogFile);
+    }
+
+    [TestMethod]
+    [DataRow("allow-uploads=#", DisplayName = "# straight after =")]
+    [DataRow("- # note", DisplayName = "A lone dash")]
+    [DataRow("-vx # note", DisplayName = "Bundle with an unknown flag")]
+    public void Parse_HashThatIsNoComment_IsRefused(string line)
+    {
+        var result = CommandLineParser.Parse(["-K", "a.cfg", Url], [], Files(("a.cfg", $"{line}\n")));
+
+        Assert.AreEqual(CommandLineOutcome.Refused, result.Outcome);
+    }
+
     [TestMethod]
     public void Parse_ShortOptionInAConfigFile_TakesTheLinesValue()
     {

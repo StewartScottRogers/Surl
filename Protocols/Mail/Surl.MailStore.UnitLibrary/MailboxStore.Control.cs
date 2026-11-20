@@ -47,6 +47,7 @@ public sealed partial class MailboxStore
         {
             var configured = ThrowIfOnDisk("reset");
             ThrowIfUidValiditiesRunOut(configured.Values.Sum(names => names.Length));
+            DropOwnersNotIn(configured.Keys);
             foreach (var (owner, names) in configured)
             {
                 EmptyOwner(owner);
@@ -55,6 +56,8 @@ public sealed partial class MailboxStore
                     owner.Mailboxes.Add(name, new StoredMailbox(name, IssueUidValidity(), 1));
                 }
             }
+
+            ReachAccounts(configuredAccountNames);
 
             FinishReplacing(StoreChange.Reset, byteCount: 0);
         }
@@ -72,7 +75,10 @@ public sealed partial class MailboxStore
         lock (storeLock)
         {
             ThrowIfOnDisk("snapshotted");
-            return new(this, owners.Values.ToDictionary(owner => owner, owner => (IReadOnlyList<MailboxCopy>)[.. owner.Mailboxes.Values.Select(CopyMailbox)]));
+            return new(
+                this,
+                owners.Values.ToDictionary(owner => owner, owner => (IReadOnlyList<MailboxCopy>)[.. owner.Mailboxes.Values.Select(CopyMailbox)]),
+                accounts.Keys);
         }
     }
 
@@ -100,8 +106,10 @@ public sealed partial class MailboxStore
         {
             ThrowIfOnDisk("restored");
             ThrowIfUidValiditiesRunOut(snapshot.MailboxCount);
+            DropOwnersNotIn(snapshot.Owners.Keys);
             foreach (var (owner, mailboxes) in snapshot.Owners)
             {
+                owners[owner.Name] = owner;
                 EmptyOwner(owner);
                 foreach (var copy in mailboxes)
                 {
@@ -109,7 +117,110 @@ public sealed partial class MailboxStore
                 }
             }
 
+            ReachAccounts(snapshot.ReachedAccountNames);
+
             FinishReplacing(StoreChange.Restored, snapshot.ByteCount);
+        }
+    }
+
+    /// <summary>
+    /// Reaches the owner of an account named <paramref name="accountName"/> that the server gained
+    /// while it ran (ADR-0185 decisions 1, 2, 5 and 6). A name never seen gets an owner with an empty
+    /// <c>INBOX</c> (a new <c>UIDVALIDITY</c>, next UID 1) that does not count against
+    /// <see cref="MaxMailboxes"/>, and one <see cref="StoreChange.Created"/> is published for it. A
+    /// retired owner is reached again with its mail as it was, publishing nothing. A store on disk
+    /// counts the new owner as a change, which the next <see cref="SaveChangesAsync"/> writes.
+    /// </summary>
+    /// <param name="accountName">The account's name.</param>
+    /// <returns><see langword="true"/> when an owner was made or reached again; <see langword="false"/>,
+    /// changing and publishing nothing, for an empty name, a name that is already reached, a name that
+    /// is a mail-domain mailbox address, and any call on a store opened with
+    /// <c>--allow-anonymous</c>.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="accountName"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentException"><paramref name="accountName"/> is
+    /// <see cref="SharedFolderOwnerName"/>.</exception>
+    /// <exception cref="InvalidOperationException">The clock is past 2106-02-07T06:28:15Z, so the
+    /// <c>INBOX</c> can get no <c>UIDVALIDITY</c>; nothing is changed.</exception>
+    public bool AddOwner(string accountName)
+    {
+        ArgumentNullException.ThrowIfNull(accountName);
+        if (accountName == SharedFolderOwnerName)
+        {
+            throw new ArgumentException($"No account may be named {SharedFolderOwnerName}, the shared folders' owner.", nameof(accountName));
+        }
+
+        lock (storeLock)
+        {
+            if (anonymousOwner is not null || accountName.Length == 0 || accounts.FindExact(accountName) is not null || mailboxOwners.FindExact(accountName) is not null)
+            {
+                return false;
+            }
+
+            if (owners.TryGetValue(accountName, out var retired))
+            {
+                accounts.Add(accountName, retired);
+                return true;
+            }
+
+            var owner = new OwnerMailboxes(accountName);
+            var inbox = new StoredMailbox(MailboxName.Inbox, IssueUidValidity(), 1);
+            owner.Mailboxes.Add(MailboxName.Inbox, inbox);
+            owners.Add(accountName, owner);
+            accounts.Add(accountName, owner);
+            changeCount++;
+            PublishMailbox(StoreChange.Created, owner, inbox, exchange: null);
+            return true;
+        }
+    }
+
+    /// <summary>
+    /// Retires the owner of the account named <paramref name="accountName"/> (ADR-0185 decision 2):
+    /// its mail stays in the store, unreached, so <see cref="ViewFor"/> gives it an empty view,
+    /// <see cref="LookUpRecipient"/> answers <see cref="MailRecipientLookup.NoSuchAccount"/> and
+    /// <see cref="Seed"/> stores nothing, while the mail still counts against the bounds.
+    /// <see cref="AddOwner"/> with the same name reaches it again. Publishes nothing: no mail changes.
+    /// </summary>
+    /// <param name="accountName">The account's name.</param>
+    /// <returns><see langword="true"/> when a reached owner was retired; <see langword="false"/> for a
+    /// name that is no reached owner and for a store opened with <c>--allow-anonymous</c>.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="accountName"/> is <see langword="null"/>.</exception>
+    public bool RetireOwner(string accountName)
+    {
+        ArgumentNullException.ThrowIfNull(accountName);
+        lock (storeLock)
+        {
+            if (accounts.FindExact(accountName) is null)
+            {
+                return false;
+            }
+
+            accounts.Remove(accountName);
+            return true;
+        }
+    }
+
+    /// <summary>
+    /// Empties and forgets every owner not in <paramref name="kept"/>, which a reset or restore drops.
+    /// </summary>
+    private void DropOwnersNotIn(IEnumerable<OwnerMailboxes> kept)
+    {
+        var keptSet = kept.ToHashSet();
+        foreach (var dropped in owners.Values.Where(owner => !keptSet.Contains(owner)).ToList())
+        {
+            EmptyOwner(dropped);
+            owners.Remove(dropped.Name);
+        }
+    }
+
+    /// <summary>
+    /// Makes the owners of exactly <paramref name="accountNames"/> the reached ones.
+    /// </summary>
+    private void ReachAccounts(IEnumerable<string> accountNames)
+    {
+        accounts.Clear();
+        foreach (var name in accountNames)
+        {
+            accounts.Add(name, owners[name]);
         }
     }
 

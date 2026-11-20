@@ -38,6 +38,19 @@ internal sealed class UnitTestEstablished : IAsyncDisposable
         };
     }
 
+    /// <summary>Options as <see cref="Options"/> gives, requiring a client certificate that <paramref name="trusts"/> accepts.</summary>
+    public static TlsServerHandshakeOptions OptionsRequiringClientCertificate(
+        Func<IReadOnlyList<ReadOnlyMemory<byte>>, bool> trusts)
+    {
+        var options = Options();
+        return new TlsServerHandshakeOptions
+        {
+            CertificateChain = options.CertificateChain,
+            CertificateKey = options.CertificateKey,
+            TrustsClientCertificateChain = trusts,
+        };
+    }
+
     /// <summary>A server random and x25519 private key scripted from RFC 8448 section 3.</summary>
     public static UnitTestScriptedRandom Rfc8448Random() =>
         new(UnitTestRfc8448.ServerRandom, UnitTestRfc8448.ServerEphemeralPrivateKey);

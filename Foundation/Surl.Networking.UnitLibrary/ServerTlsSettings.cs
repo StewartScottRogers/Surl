@@ -136,16 +136,17 @@ public sealed class ServerTlsSettings : IDisposable
 
     /// <summary>
     /// Whether the hand-built TLS 1.3 stream may serve a handshake under these settings (ADR-0157,
-    /// decisions 1 and 3): they serve a certificate, ask for no client certificate, and accept TLS 1.3.
+    /// decisions 1 and 3): they serve a certificate and accept TLS 1.3. A client certificate no longer rules it out: the stream
+    /// requests and verifies one itself (ADR-0157 amendment 1).
     /// </summary>
     internal bool CanServeTls13Stream =>
         servingCertificate is not null
-        && !RequiresClientCertificate
         && AcceptedVersions.AcceptedProtocols.HasFlag(SslProtocols.Tls13);
 
     /// <summary>
     /// The options for one hand-built TLS 1.3 handshake: the serving certificate and its
-    /// intermediates in DER, the serving certificate's key and the ALPN protocol names. Only when
+    /// intermediates in DER, the serving certificate's key, the ALPN protocol names and, with --cacert,
+    /// the client-certificate chain verification (<see cref="ClientCertificateVerifier.IsChainTrusted"/>). Only when
     /// <see cref="CanServeTls13Stream"/>.
     /// </summary>
     /// <param name="applicationProtocols">The ALPN protocol IDs offered; empty offers none.</param>
@@ -162,6 +163,7 @@ public sealed class ServerTlsSettings : IDisposable
             CertificateChain = [certificate.RawData, .. intermediateCertificateChain],
             CertificateKey = certificateKey,
             ApplicationProtocols = [.. applicationProtocols.Select(protocol => protocol.ToString())],
+            TrustsClientCertificateChain = clientCertificateVerifier is null ? null : clientCertificateVerifier.IsChainTrusted,
         };
     }
 

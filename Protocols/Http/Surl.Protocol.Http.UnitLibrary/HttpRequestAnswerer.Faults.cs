@@ -81,8 +81,24 @@ internal sealed partial class HttpRequestAnswerer
         var status = new HttpStatus(code, reasonPhrase ?? ErrorReasonPhrases.GetValueOrDefault(code, string.Empty));
         HttpCommandFaults.PublishApplied(context, rule, request.Method, path, $"{status.Code} {status.ReasonPhrase}");
 
-        return request.Body.IsAnnounced
-            ? Refuse(status, null, challenges, $"{request.Method} {request.Target}: fault rule {rule.Id} chose the error, and the body announced was not read")
+        var answer = request.Body.IsAnnounced
+            ? Refuse(request, status, null, challenges, $"{request.Method} {request.Target}: fault rule {rule.Id} chose the error, and the body announced was not read")
             : EmptyAnswer(request, status, challenges);
+
+        return rule.Body is null ? answer : WithChosenBody(request, answer, rule.Body);
+    }
+
+    // The rule's body= text replaces the status's fixed text: the same Content-Type, the text's UTF-8 length, and no
+    // body after a HEAD's head (ADR-0186 decisions 3 and 5). A chosen status is always a 4xx or 5xx, so it always carries one.
+    private static HttpAnswer WithChosenBody(HttpRequest request, HttpAnswer answer, string text)
+    {
+        var bytes = System.Text.Encoding.UTF8.GetBytes(text);
+        var fields = answer.Fields
+            .Where(field => !field.Key.Equals("Content-Type", StringComparison.OrdinalIgnoreCase) && !field.Key.Equals("Content-Length", StringComparison.OrdinalIgnoreCase))
+            .Append(new("Content-Type", HttpErrorText.ContentType))
+            .Append(new("Content-Length", bytes.Length.ToString(System.Globalization.CultureInfo.InvariantCulture)))
+            .ToList();
+
+        return answer with { Fields = fields, Body = request.Method == "HEAD" ? HttpAnswerBody.None : new HttpAnswerBody.Bytes(bytes) };
     }
 }

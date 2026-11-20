@@ -90,4 +90,17 @@ public sealed class GrpcProtocolServerTests
         new RecordingExchangeLog(),
         new ShortTimersOnlyTimeProvider(),
         TestContext.CancellationToken);
+
+    [TestMethod]
+    public void CreateRedactor_AuthorizationHeaderBlock_IsLoggedAsStars()
+    {
+        var redactor = new GrpcProtocolServer(new AnonymousAuthenticationPolicy()).CreateRedactor(new ExchangeRedactionContext(1, "grpc"));
+        var output = new System.Buffers.ArrayBufferWriter<byte>();
+        redactor.Redact(Surl.Http2.Http2ConnectionPreface.Preface.ToArray(), output);
+        redactor.Redact(new GrpcHttp2TestFrames().Call(1, "/surl.test.Echo/Echo", true, ("authorization", "Bearer sekret-token")), output);
+        redactor.Flush(output);
+
+        Assert.DoesNotContain("sekret", System.Text.Encoding.Latin1.GetString(output.WrittenSpan));
+        Assert.Contains("****", System.Text.Encoding.Latin1.GetString(output.WrittenSpan));
+    }
 }

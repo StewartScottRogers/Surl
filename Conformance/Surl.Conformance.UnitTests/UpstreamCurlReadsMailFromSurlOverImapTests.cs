@@ -506,7 +506,7 @@ public sealed class UpstreamCurlReadsMailFromSurlOverImapTests
 
         var result = await RunUpstreamCurlAsync("-sS", "-u", Credentials, ImapUrl(surl, "/INBOX;UID=1"));
 
-        Assert.AreEqual(WeirdServerReply, result.ExitCode, result.StandardError);
+        Assert.AreEqual(WeirdServerReply, result.ExitCode, result.StandardError + Environment.NewLine + surl.Diagnosis);
     }
 
     // surl offers a test no way to see an exchange end, and the SMTP send's exchange can still be counted

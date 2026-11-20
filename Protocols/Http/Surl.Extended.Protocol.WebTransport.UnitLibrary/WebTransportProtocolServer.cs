@@ -1,4 +1,5 @@
 using System.Security.Cryptography;
+using Surl.Http3;
 using Surl.Protocol.Abstractions;
 using Surl.Quic;
 
@@ -17,7 +18,7 @@ namespace Surl.Extended.Protocol.WebTransport;
 /// <see cref="QuicConnectionRefusal"/> refuses it: one Initial packet holding <c>CONNECTION_CLOSE</c>
 /// <c>CONNECTION_REFUSED</c> for a version 1 Initial, and no bytes for any other first datagram.
 /// </remarks>
-public sealed class WebTransportProtocolServer : IDatagramProtocolServer, IDatagramRefusalWriter
+public sealed class WebTransportProtocolServer : IDatagramProtocolServer, IDatagramRefusalWriter, IExchangeBytesRedactingServer
 {
     /// <summary>The scheme the server answers.</summary>
     public const string Scheme = "webtransport";
@@ -46,6 +47,14 @@ public sealed class WebTransportProtocolServer : IDatagramProtocolServer, IDatag
 
     /// <inheritdoc/>
     public IReadOnlyList<string> Schemes { get; } = Array.AsReadOnly([Scheme]);
+
+    /// <summary>
+    /// Creates the redactor of the decrypted-bytes notes of one HTTP/3 connection: it withholds the
+    /// <c>authorization</c> and <c>proxy-authorization</c> values of request header blocks (ADR-0182; BL-1469).
+    /// </summary>
+    /// <param name="context">The exchange the redactor is for.</param>
+    /// <returns>A redactor for that exchange alone.</returns>
+    public IReceivedBytesRedactor CreateRedactor(ExchangeRedactionContext context) => new Http3RequestBytesRedactor();
 
     /// <summary>
     /// Runs one QUIC connection on <paramref name="flow"/> and serves its WebTransport sessions until

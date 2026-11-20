@@ -74,7 +74,7 @@ namespace Surl.Protocol.Ldap;
 /// security layer; one cancelled at shutdown ends with no farewell (ADR-0059).
 /// </para>
 /// </remarks>
-public sealed class LdapProtocolServer : IConnectionProtocolServer
+public sealed class LdapProtocolServer : IConnectionProtocolServer, IExchangeBytesRedactingServer
 {
     /// <summary>
     /// How long a Notice of Disconnection may take to write (ADR-0006, section 5).
@@ -168,6 +168,14 @@ public sealed class LdapProtocolServer : IConnectionProtocolServer
     /// first byte, which the engine's implicit TLS gives it (ADR-0072 decision 5).
     /// </summary>
     public IReadOnlyList<string> Schemes { get; } = Array.AsReadOnly(["ldap"]);
+
+    /// <summary>
+    /// Creates the redactor that writes a simple bind's password and a SASL <c>PLAIN</c> bind's
+    /// credentials as <c>****</c> in the exchange log (ADR-0182). Other messages are logged unchanged.
+    /// </summary>
+    /// <param name="context">The exchange the redactor is for.</param>
+    /// <returns>A redactor used by that exchange alone.</returns>
+    public IReceivedBytesRedactor CreateRedactor(ExchangeRedactionContext context) => new LdapBindBytesRedactor();
 
     /// <summary>
     /// Answers every message on <paramref name="connection"/> until the client unbinds or closes

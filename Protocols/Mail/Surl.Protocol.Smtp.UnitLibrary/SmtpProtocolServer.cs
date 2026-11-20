@@ -65,7 +65,7 @@ namespace Surl.Protocol.Smtp;
 /// <c>421</c> by <see cref="WriteRefusalAsync"/>.
 /// </para>
 /// </remarks>
-public sealed class SmtpProtocolServer : IConnectionProtocolServer, IConnectionRefusalWriter
+public sealed class SmtpProtocolServer : IConnectionProtocolServer, IConnectionRefusalWriter, IExchangeBytesRedactingServer
 {
     /// <summary>
     /// How long the reply to a line that is too long or late, or a message that is too large, may
@@ -127,6 +127,15 @@ public sealed class SmtpProtocolServer : IConnectionProtocolServer, IConnectionR
     /// The one scheme answered: <c>smtp</c>.
     /// </summary>
     public IReadOnlyList<string> Schemes { get; } = Array.AsReadOnly(["smtp"]);
+
+    /// <summary>
+    /// Creates the redactor that masks <c>AUTH</c> initial responses and the answers to
+    /// <c>334 </c> continuations as <c>****</c> in the exchange log, and leaves <c>DATA</c>
+    /// content as it arrived (ADR-0183).
+    /// </summary>
+    /// <param name="context">The exchange the redactor is for.</param>
+    /// <returns>A redactor for the connection, used by that exchange alone.</returns>
+    public IReceivedBytesRedactor CreateRedactor(ExchangeRedactionContext context) => new LineBytesRedactor(new SmtpLineRedactionRule());
 
     /// <summary>
     /// Sends the greeting, then answers every command line on <paramref name="connection"/>

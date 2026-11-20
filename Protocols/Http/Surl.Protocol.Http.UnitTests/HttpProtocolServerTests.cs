@@ -12,12 +12,13 @@ public sealed class HttpProtocolServerTests
     private const string FileBody = "Hello from Surl.\n";
     private const string OkHead =
         "HTTP/1.1 200 OK\r\n" + DateAndServer
-        + "Last-Modified: Tue, 01 Sep 2026 08:30:00 GMT\r\n"
+        + "ETag: \"8df0803365eb400-11\"\r\nLast-Modified: Tue, 01 Sep 2026 08:30:00 GMT\r\n"
         + "Content-Type: text/plain\r\n"
         + "Content-Length: 17\r\n";
 
-    private const string NotFound = "HTTP/1.1 404 Not Found\r\n" + DateAndServer + "Content-Length: 0\r\n\r\n";
-    private const string BadRequest = "HTTP/1.1 400 Bad Request\r\n" + DateAndServer + "Content-Length: 0\r\nConnection: close\r\n\r\n";
+    private const string NotFound = "HTTP/1.1 404 Not Found\r\n" + DateAndServer + "Content-Type: text/plain; charset=utf-8\r\nContent-Length: 14\r\n\r\n404 Not Found\n";
+    private const string NotFoundForHead = "HTTP/1.1 404 Not Found\r\n" + DateAndServer + "Content-Type: text/plain; charset=utf-8\r\nContent-Length: 14\r\n\r\n";
+    private const string BadRequest = "HTTP/1.1 400 Bad Request\r\n" + DateAndServer + "Content-Type: text/plain; charset=utf-8\r\nContent-Length: 16\r\nConnection: close\r\n\r\n400 Bad Request\n";
 
     private static readonly string Root = Path.Join(Path.GetTempPath(), "surl-http-tests");
     private static readonly DateTimeOffset Now = new(2026, 9, 28, 12, 0, 0, TimeSpan.Zero);
@@ -124,7 +125,7 @@ public sealed class HttpProtocolServerTests
     {
         var (connection, log) = await ServeAsync(Encoding.ASCII.GetBytes(request));
 
-        Assert.AreEqual(NotFound, Latin1(connection.WrittenBytes));
+        Assert.AreEqual(request.StartsWith("HEAD", StringComparison.Ordinal) ? NotFoundForHead : NotFound, Latin1(connection.WrittenBytes));
         Assert.IsFalse(connection.WritesCompleted);
         Assert.Contains(note, log.Notes[0]);
     }
@@ -166,7 +167,7 @@ public sealed class HttpProtocolServerTests
         var (connection, log) = await ServeAsync(Encoding.ASCII.GetBytes(request), peerHalfCloses: false);
 
         Assert.AreEqual(
-            "HTTP/1.1 405 Method Not Allowed\r\n" + DateAndServer + "Allow: GET, HEAD\r\nContent-Length: 0\r\nConnection: close\r\n\r\n",
+            "HTTP/1.1 405 Method Not Allowed\r\n" + DateAndServer + "Allow: GET, HEAD\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Length: 23\r\nConnection: close\r\n\r\n405 Method Not Allowed\n",
             Latin1(connection.WrittenBytes));
         Assert.IsTrue(connection.WritesCompleted);
         Assert.AreEqual($"{method} /file.txt: the method is not served; answered 405 and closed.", log.Notes[0]);
@@ -180,7 +181,7 @@ public sealed class HttpProtocolServerTests
         var (connection, _) = await ServeAsync(Encoding.ASCII.GetBytes($"{method} /file.txt HTTP/1.1\r\nHost: h\r\n\r\n"), peerHalfCloses: false);
 
         Assert.AreEqual(
-            "HTTP/1.1 501 Not Implemented\r\n" + DateAndServer + "Content-Length: 0\r\nConnection: close\r\n\r\n",
+            "HTTP/1.1 501 Not Implemented\r\n" + DateAndServer + "Content-Type: text/plain; charset=utf-8\r\nContent-Length: 20\r\nConnection: close\r\n\r\n501 Not Implemented\n",
             Latin1(connection.WrittenBytes));
         Assert.IsTrue(connection.WritesCompleted);
     }
@@ -204,7 +205,7 @@ public sealed class HttpProtocolServerTests
         var (connection, _) = await ServeAsync("GET / HTTP/2.0\r\n\r\n"u8.ToArray(), peerHalfCloses: false);
 
         Assert.AreEqual(
-            "HTTP/1.1 505 HTTP Version Not Supported\r\n" + DateAndServer + "Content-Length: 0\r\nConnection: close\r\n\r\n",
+            "HTTP/1.1 505 HTTP Version Not Supported\r\n" + DateAndServer + "Content-Type: text/plain; charset=utf-8\r\nContent-Length: 31\r\nConnection: close\r\n\r\n505 HTTP Version Not Supported\n",
             Latin1(connection.WrittenBytes));
         Assert.IsTrue(connection.WritesCompleted);
     }
@@ -217,7 +218,7 @@ public sealed class HttpProtocolServerTests
         var (connection, _) = await ServeAsync(Encoding.ASCII.GetBytes(request), peerHalfCloses: false);
 
         Assert.AreEqual(
-            "HTTP/1.1 431 Request Header Fields Too Large\r\n" + DateAndServer + "Content-Length: 0\r\nConnection: close\r\n\r\n",
+            "HTTP/1.1 431 Request Header Fields Too Large\r\n" + DateAndServer + "Content-Type: text/plain; charset=utf-8\r\nContent-Length: 36\r\nConnection: close\r\n\r\n431 Request Header Fields Too Large\n",
             Latin1(connection.WrittenBytes));
         Assert.IsTrue(connection.WritesCompleted);
     }
@@ -288,7 +289,7 @@ public sealed class HttpProtocolServerTests
 
         Assert.AreEqual(
             OkHead + "Connection: keep-alive\r\n\r\n" + FileBody
-            + "HTTP/1.1 404 Not Found\r\n" + DateAndServer + "Content-Length: 0\r\nConnection: close\r\n\r\n",
+            + "HTTP/1.1 404 Not Found\r\n" + DateAndServer + "Content-Type: text/plain; charset=utf-8\r\nContent-Length: 14\r\nConnection: close\r\n\r\n404 Not Found\n",
             Latin1(connection.WrittenBytes));
         Assert.IsTrue(connection.WritesCompleted);
     }
@@ -327,7 +328,7 @@ public sealed class HttpProtocolServerTests
 
     private static string OkResponseForAFileWithNoExtension(int length, string body) =>
         "HTTP/1.1 200 OK\r\n" + DateAndServer
-        + "Last-Modified: Tue, 01 Sep 2026 08:30:00 GMT\r\n"
+        + $"ETag: \"8df0803365eb400-{length:x}\"\r\nLast-Modified: Tue, 01 Sep 2026 08:30:00 GMT\r\n"
         + "Content-Type: application/octet-stream\r\n"
         + $"Content-Length: {length}\r\n\r\n" + body;
 

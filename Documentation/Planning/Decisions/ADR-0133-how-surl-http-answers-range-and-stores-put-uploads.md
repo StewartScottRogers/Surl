@@ -135,3 +135,9 @@ RFC 2046 section 5.1.
 6. **Mechanism:** `HttpAnswerBody.ContentFileParts` (preamble plus range per part, then an epilogue) is
    written by `Http1AnswerWriter`, `Http2StreamAnswerWriter` and `Http3StreamAnswerWriter` alike; the
    writers know nothing of MIME.
+
+## Amendment (BL-1447, ADR-0184)
+
+The sentence "the server sends no `ETag`, so an entity-tag `If-Range` never matches" no longer holds once BL-1449
+lands: [ADR-0184](ADR-0184-the-http-server-answers-conditional-requests-and-sends-a-length-and-mtime-etag.md)
+decision 6 makes the server send a strong `ETag` and honour an `If-Range` equal to it.

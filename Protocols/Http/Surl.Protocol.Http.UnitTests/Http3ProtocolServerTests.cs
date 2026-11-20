@@ -20,6 +20,20 @@ public sealed class Http3ProtocolServerTests
     private CancellationToken Token => TestContext.CancellationToken;
 
     [TestMethod]
+    public void CreateRedactor_ReturnsTheHttp3RedactorThatWithholdsAuthorization()
+    {
+        using var key = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+        var server = new Http3ProtocolServer(Store(), new AnonymousAuthenticationPolicy(), [], key, TimeSpan.Zero);
+
+        var redactor = server.CreateRedactor(new ExchangeRedactionContext(1, "https"));
+        var output = new System.Buffers.ArrayBufferWriter<byte>();
+        redactor.Redact(":method: GET\r\nauthorization: Bearer tok-h3\r\n\r\n"u8, output);
+
+        Assert.IsInstanceOfType<Surl.Http3.Http3RequestBytesRedactor>(redactor);
+        Assert.AreEqual(":method: GET\r\nauthorization: ****\r\n\r\n", System.Text.Encoding.UTF8.GetString(output.WrittenSpan));
+    }
+
+    [TestMethod]
     public void Schemes_IsHttpsOnly()
     {
         using var key = ECDsa.Create(ECCurve.NamedCurves.nistP256);

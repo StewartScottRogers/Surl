@@ -32,7 +32,7 @@ public sealed class HttpMethodLoginOrderTests
         var written = await ServeAsync(policy, method);
 
         Assert.AreEqual(
-            "HTTP/1.1 401 Unauthorized\r\n" + DateAndServer + "Content-Length: 0\r\nWWW-Authenticate: " + DigestChallenge + "\r\nConnection: close\r\n\r\n",
+            "HTTP/1.1 401 Unauthorized\r\n" + DateAndServer + "Content-Type: text/plain; charset=utf-8\r\nContent-Length: 17\r\nWWW-Authenticate: " + DigestChallenge + "\r\nConnection: close\r\n\r\n401 Unauthorized\n",
             written);
         Assert.DoesNotContain("Allow:", written);
     }
@@ -46,7 +46,7 @@ public sealed class HttpMethodLoginOrderTests
         var written = await ServeAsync(new AnonymousAuthenticationPolicy(), method);
 
         Assert.AreEqual(
-            "HTTP/1.1 405 Method Not Allowed\r\n" + DateAndServer + "Allow: GET, HEAD\r\nContent-Length: 0\r\nConnection: close\r\n\r\n",
+            "HTTP/1.1 405 Method Not Allowed\r\n" + DateAndServer + "Allow: GET, HEAD\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Length: 23\r\nConnection: close\r\n\r\n405 Method Not Allowed\n",
             written);
     }
 

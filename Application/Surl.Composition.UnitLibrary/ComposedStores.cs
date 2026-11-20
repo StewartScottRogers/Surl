@@ -619,15 +619,38 @@ public sealed partial class ComposedStores
     /// it may log in on judges logins with it from now on.
     /// </summary>
     /// <param name="account">The account.</param>
+    /// <remarks>
+    /// An account that may log in on a mail scheme and has a name also gets its mail-store owner with an
+    /// empty <c>INBOX</c>, or has its retired owner reached again (ADR-0185).
+    /// </remarks>
     /// <exception cref="ArgumentException">An account of that user name exists.</exception>
-    public void AddAccount(Account account) => accounts.Add(account);
+    public void AddAccount(Account account)
+    {
+        accounts.Add(account);
+        if (Account.MailSchemes.Any(account.MayLogInOn))
+        {
+            mail.AddOwner(account.UserName);
+        }
+    }
 
     /// <summary>
     /// Removes an account while the server runs, as <see cref="AccountBook.Remove"/> does.
     /// </summary>
+    /// <remarks>
+    /// The account's mail-store owner is retired, keeping its mail unreached (ADR-0185 decision 2).
+    /// </remarks>
     /// <param name="userName">The user name.</param>
     /// <returns>Whether an account had that name.</returns>
-    public bool RemoveAccount(string userName) => accounts.Remove(userName);
+    public bool RemoveAccount(string userName)
+    {
+        var removed = accounts.Remove(userName);
+        if (removed)
+        {
+            mail.RetireOwner(userName);
+        }
+
+        return removed;
+    }
 
     /// <summary>Whether any account is left, so a login is required (no account: the server needs no login).</summary>
     public bool HasAccounts => accounts.HasAccounts;

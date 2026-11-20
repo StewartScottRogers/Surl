@@ -569,7 +569,7 @@ public sealed class UpstreamCurlSendsMailToSurlOverSmtpTests
 
         var result = await RunUpstreamCurlAsync("-sS", "--mail-from", "a@x", "--mail-rcpt", Recipient, "-T", mail, MailUrl(surl));
 
-        Assert.AreEqual(WeirdServerReply, result.ExitCode, result.StandardError);
+        Assert.AreEqual(WeirdServerReply, result.ExitCode, result.StandardError + Environment.NewLine + surl.Diagnosis);
         StringAssert.Contains(result.StandardError, "421");
     }
 

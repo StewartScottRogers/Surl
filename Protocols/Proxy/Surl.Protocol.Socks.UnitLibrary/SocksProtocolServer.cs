@@ -54,7 +54,7 @@ namespace Surl.Protocol.Socks;
 /// connection without a reply.
 /// </para>
 /// </remarks>
-public sealed class SocksProtocolServer : IConnectionProtocolServer
+public sealed class SocksProtocolServer : IConnectionProtocolServer, IExchangeBytesRedactingServer
 {
     private readonly IOriginConnector originConnector;
     private readonly IAuthenticationPolicy? proxyAccounts;
@@ -109,6 +109,14 @@ public sealed class SocksProtocolServer : IConnectionProtocolServer
     /// alike (ADR-0121 decision 5).
     /// </summary>
     public IReadOnlyList<string> Schemes { get; } = Array.AsReadOnly(["socks4", "socks4a", "socks5", "socks5h"]);
+
+    /// <summary>
+    /// Creates the redactor that masks the RFC 1929 <c>PASSWD</c> as <c>****</c> in the exchange log
+    /// and logs everything else as it arrived (ADR-0182).
+    /// </summary>
+    /// <param name="context">The exchange the redactor is for.</param>
+    /// <returns>A redactor for the connection, used by that exchange alone.</returns>
+    public IReceivedBytesRedactor CreateRedactor(ExchangeRedactionContext context) => new Socks5PasswordRedactor();
 
     /// <summary>
     /// Answers the request on <paramref name="connection"/> and relays until both sides close, or

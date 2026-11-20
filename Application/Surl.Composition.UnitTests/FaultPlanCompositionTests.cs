@@ -20,6 +20,7 @@ public sealed class FaultPlanCompositionTests
             DelayMilliseconds = 5,
             AfterBytes = 10,
             Reply = "451 later",
+            Body = "chosen text",
             Times = 3,
         };
 
@@ -37,6 +38,7 @@ public sealed class FaultPlanCompositionTests
                 DelayMilliseconds = 5,
                 AfterBytes = 10,
                 Reply = "451 later",
+            Body = "chosen text",
                 Times = 3,
             },
             rule);

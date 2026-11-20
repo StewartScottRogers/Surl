@@ -41,6 +41,9 @@ public sealed record ConfiguredFault(FaultKind Kind)
     /// <summary>The reply an <see cref="FaultKind.Error"/> sends (<c>reply</c>), checked against its scheme's error shape.</summary>
     public string? Reply { get; init; }
 
+    /// <summary>The text an HTTP <see cref="FaultKind.Error"/> answers with (<c>body</c>); null for the status's fixed text.</summary>
+    public string? Body { get; init; }
+
     /// <summary>How many times the rule applies (<c>times</c>), 1 to 1000000; null for always.</summary>
     public int? Times { get; init; }
 }

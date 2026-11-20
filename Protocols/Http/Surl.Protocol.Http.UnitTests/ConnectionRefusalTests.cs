@@ -21,7 +21,7 @@ public sealed class ConnectionRefusalTests
         await Server().WriteRefusalAsync(connection, refusal, TestContext.CancellationToken);
 
         CollectionAssert.AreEqual(RecordedResponse("refusal-503"), connection.WrittenBytes);
-        Assert.AreEqual("HTTP/1.1 503 Service Unavailable\r\nServer: surl\r\nContent-Length: 0\r\nConnection: close\r\n\r\n", Latin1(connection.WrittenBytes));
+        Assert.AreEqual("HTTP/1.1 503 Service Unavailable\r\nServer: surl\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Length: 24\r\nConnection: close\r\n\r\n503 Service Unavailable\n", Latin1(connection.WrittenBytes));
         Assert.IsTrue(connection.WritesCompleted);
         Assert.IsFalse(connection.Aborted);
     }

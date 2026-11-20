@@ -654,4 +654,18 @@ public sealed class McpProtocolServerTests
 
         await Assert.ThrowsExactlyAsync<ArgumentNullException>(async () => await harness.Server.WriteRefusalAsync(null!, ConnectionRefusal.TooManyConnections, CancellationToken.None));
     }
+
+    [TestMethod]
+    public void CreateRedactor_AuthorizationAndApiKeyFields_AreLoggedAsStars()
+    {
+        var redactor = new McpHttpHarness().Server.CreateRedactor(new ExchangeRedactionContext(1, "s"));
+        var output = new System.Buffers.ArrayBufferWriter<byte>();
+
+        redactor.Redact(System.Text.Encoding.ASCII.GetBytes("GET / HTTP/1.1\r\nHost: h\r\nAuthorization: Bearer sekret-token\r\nX-Api-Key: sekret-key\r\n\r\n"), output);
+        redactor.Flush(output);
+        var logged = System.Text.Encoding.ASCII.GetString(output.WrittenSpan);
+
+        Assert.DoesNotContain("sekret", logged);
+        Assert.Contains("Authorization: Bearer ****", logged);
+    }
 }

@@ -21,9 +21,11 @@ internal sealed class SurlOnLoopback : IAsyncDisposable
     private readonly DirectoryInfo? servedDirectory;
     private readonly Func<string> readLog;
     private readonly Func<ValueTask> stopSurlAsync;
+    private readonly Func<string> describeProcess;
 
-    private SurlOnLoopback(DirectoryInfo? servedDirectory, IReadOnlyList<string> statusLines, Func<string> readLog, Func<ValueTask> stopSurlAsync)
+    private SurlOnLoopback(DirectoryInfo? servedDirectory, IReadOnlyList<string> statusLines, Func<string> readLog, Func<ValueTask> stopSurlAsync, Func<string> describeProcess)
     {
+        this.describeProcess = describeProcess;
         this.servedDirectory = servedDirectory;
         this.readLog = readLog;
         this.stopSurlAsync = stopSurlAsync;
@@ -62,6 +64,13 @@ internal sealed class SurlOnLoopback : IAsyncDisposable
     /// <c>-v</c>, its log notes.
     /// </summary>
     public string Log => readLog();
+
+    /// <summary>
+    /// Gets what a failed assertion should show to name the cause: whether the surl process is
+    /// still running, then everything surl has written to its error stream (start surl with
+    /// <c>-v</c> for its log notes).
+    /// </summary>
+    public string Diagnosis => $"surl process: {describeProcess()}. surl stderr:{Environment.NewLine}{Log}";
 
     /// <summary>
     /// Writes <paramref name="files"/> into a new temporary directory and starts surl serving
@@ -261,7 +270,7 @@ internal sealed class SurlOnLoopback : IAsyncDisposable
         var (surl, statusLines) = await PublishedSurlProcess.StartAsync(
             executablePath, args, listenerCount, StartTimeout, cancellationToken);
 
-        return new SurlOnLoopback(directory, statusLines, () => surl.Log, surl.DisposeAsync);
+        return new SurlOnLoopback(directory, statusLines, () => surl.Log, surl.DisposeAsync, () => surl.State);
     }
 
     private static async Task<SurlOnLoopback> StartInProcessAsync(
@@ -280,7 +289,7 @@ internal sealed class SurlOnLoopback : IAsyncDisposable
             await stop.CancelAsync();
             await running;
             stop.Dispose();
-        });
+        }, () => running.IsCompleted ? "in-process run ended" : "in-process run still going");
     }
 
     /// <summary>

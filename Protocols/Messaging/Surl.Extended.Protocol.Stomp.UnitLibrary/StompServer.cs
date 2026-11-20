@@ -39,7 +39,7 @@ namespace Surl.Extended.Protocol.Stomp;
 /// <param name="bus">The message bus every messaging server of the process shares.</param>
 /// <param name="options">The idle timeout; <see cref="StompServerOptions.Default"/> when null.</param>
 public sealed class StompServer(IAuthenticationPolicy policy, Surl.MessageBus.MessageBus bus, StompServerOptions? options = null)
-    : IConnectionProtocolServer, IConnectionRefusalWriter
+    : IConnectionProtocolServer, IConnectionRefusalWriter, IExchangeBytesRedactingServer
 {
     private readonly IAuthenticationPolicy policy = policy ?? throw new ArgumentNullException(nameof(policy));
     private readonly Surl.MessageBus.MessageBus bus = bus ?? throw new ArgumentNullException(nameof(bus));
@@ -47,6 +47,14 @@ public sealed class StompServer(IAuthenticationPolicy policy, Surl.MessageBus.Me
 
     /// <inheritdoc/>
     public IReadOnlyList<string> Schemes { get; } = Array.AsReadOnly(["stomp"]);
+
+    /// <summary>
+    /// Creates the redactor that logs the CONNECT or STOMP frame's <c>passcode</c> header as <c>****</c> and
+    /// every other byte as it arrived (ADR-0182, decision 6).
+    /// </summary>
+    /// <param name="context">The exchange the redactor is for.</param>
+    /// <returns>A redactor for the connection, used by that exchange alone.</returns>
+    public IReceivedBytesRedactor CreateRedactor(ExchangeRedactionContext context) => new StompConnectPasscodeRedactor();
 
     /// <inheritdoc/>
     public Task ServeAsync(IConnection connection, ExchangeContext context)

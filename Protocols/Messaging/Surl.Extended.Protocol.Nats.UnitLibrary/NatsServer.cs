@@ -55,7 +55,7 @@ namespace Surl.Extended.Protocol.Nats;
 /// Timeout'</c>; a handshake that fails, or does not finish within it, closes with no bytes.
 /// </para>
 /// </remarks>
-public sealed class NatsServer : IConnectionProtocolServer, IConnectionRefusalWriter
+public sealed class NatsServer : IConnectionProtocolServer, IConnectionRefusalWriter, IExchangeBytesRedactingServer
 {
     /// <summary>The length of <see cref="ServerId"/>.</summary>
     public const int ServerIdLength = 22;
@@ -121,6 +121,15 @@ public sealed class NatsServer : IConnectionProtocolServer, IConnectionRefusalWr
 
     /// <inheritdoc/>
     public IReadOnlyList<string> Schemes { get; } = Array.AsReadOnly(["nats", TlsScheme]);
+
+    /// <summary>
+    /// Creates the redactor that logs CONNECT's <c>pass</c> and <c>auth_token</c> as <c>****</c> and
+    /// every other byte as it arrived (ADR-0182, decision 6).
+    /// </summary>
+    /// <param name="context">The exchange the redactor is for.</param>
+    /// <returns>A redactor for the connection, used by that exchange alone.</returns>
+    public IReceivedBytesRedactor CreateRedactor(ExchangeRedactionContext context) =>
+        new LineBytesRedactor(new NatsConnectLineRedactionRule());
 
     /// <inheritdoc/>
     public async Task ServeAsync(IConnection connection, ExchangeContext context)

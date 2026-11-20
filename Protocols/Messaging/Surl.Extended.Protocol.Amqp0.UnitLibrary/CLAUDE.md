@@ -114,3 +114,8 @@ This library references `Surl.Protocol.Abstractions.UnitLibrary`, and may also r
 horizontal libraries ADR-0112 decision 0 names (`Surl.MessageBus`, `Surl.Content`) - never
 another protocol server, original or extended. Never construct a `Socket`, `TcpListener`,
 `UdpClient`, `SslStream` or `HttpListener` here; the transport comes from the listener seam.
+
+Exchange-log redaction (BL-1460, ADR-0182 decision 6): `Amqp0Broker` is an `IExchangeBytesRedactingServer`;
+`Amqp0LoginBytesRedactor` holds each channel-0 method frame until whole, up to `connection.open`, and writes
+`start-ok` with a `PLAIN` password or an `AMQPLAIN` `PASSWORD` value as `****` (user name kept; frame and
+string sizes rewritten), any other mechanism's response and every `secure-ok` response as `****`. All other bytes are logged as received.

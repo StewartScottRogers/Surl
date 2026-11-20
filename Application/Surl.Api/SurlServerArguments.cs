@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Security.Authentication;
 using Surl.Cli;
 using Surl.Composition;
 using Surl.Output;
@@ -13,7 +14,7 @@ namespace Surl.Api;
 internal static class SurlServerArguments
 {
     /// <summary>
-    /// Throws for options no start can be made from: no listen URL, a null word, a data directory
+    /// Throws for options no start can be made from: nothing that could name a listen URL (ListenUrls, ConfigFiles and AdditionalArguments all empty), a null word, a data directory
     /// together with in-memory files, or an in-memory file path that is not a plain relative path.
     /// </summary>
     /// <param name="options">The options.</param>
@@ -22,9 +23,9 @@ internal static class SurlServerArguments
     public static void ThrowIfMisused(SurlServerOptions options)
     {
         ArgumentNullException.ThrowIfNull(options);
-        if (options.ListenUrls.Count == 0)
+        if (options.ListenUrls.Count == 0 && options.ConfigFiles.Count == 0 && options.AdditionalArguments.Count == 0)
         {
-            throw new ArgumentException("ListenUrls names no listen URL.", nameof(options));
+            throw new ArgumentException("ListenUrls, ConfigFiles and AdditionalArguments are all empty, so nothing names a listen URL.", nameof(options));
         }
 
         ThrowIfHoldsNull(options);
@@ -35,6 +36,13 @@ internal static class SurlServerArguments
 
         InMemoryFiles.ThrowIfMisused(options.Files);
         ThrowIfAuthenticationMisused(options);
+        ThrowIfTlsVersionMisused(options.LowestTlsVersion, nameof(options.LowestTlsVersion));
+        ThrowIfTlsVersionMisused(options.HighestTlsVersion, nameof(options.HighestTlsVersion));
+        if (options.MaxRequestHeadBytes < 1)
+        {
+            throw new ArgumentException("MaxRequestHeadBytes must be at least 1.", nameof(options));
+        }
+
         ThrowIfNegativeDuration(options.IdleTimeout, nameof(options.IdleTimeout));
         ThrowIfNegativeDuration(options.MaxTime, nameof(options.MaxTime));
         ThrowIfRecordBoundNotPositive(options);
@@ -89,11 +97,30 @@ internal static class SurlServerArguments
                 "Accounts may not hold null, a null user name or password, or a user name with ':'.", nameof(options));
         }
 
-        if (options.HostKeyFiles.Contains(null!) || options.AuthenticationMethods?.Contains(null!) == true)
+        if (options.HostKeyFiles.Contains(null!) || options.AuthenticationMethods.Contains(null!))
         {
             throw new ArgumentException("HostKeyFiles and AuthenticationMethods may not hold null.", nameof(options));
         }
     }
+
+    private static void ThrowIfTlsVersionMisused(SslProtocols? version, string propertyName)
+    {
+        if (version is { } value)
+        {
+            _ = TlsVersionNumber(value, propertyName);
+        }
+    }
+
+#pragma warning disable SYSLIB0039 // Tls and Tls11 name the old versions on purpose: --tlsv1.0, --tlsv1.1 and --tls-max 1.0/1.1.
+    private static string TlsVersionNumber(SslProtocols version, string propertyName) => version switch
+    {
+        SslProtocols.Tls => "1.0",
+        SslProtocols.Tls11 => "1.1",
+        SslProtocols.Tls12 => "1.2",
+        SslProtocols.Tls13 => "1.3",
+        _ => throw new ArgumentException($"{propertyName} must be Tls, Tls11, Tls12 or Tls13.", "options"),
+    };
+#pragma warning restore SYSLIB0039
 
     private static void ThrowIfNegativeDuration(TimeSpan? duration, string propertyName)
     {
@@ -205,7 +232,7 @@ internal static class SurlServerArguments
     private static SurlCommandLine WithCustomScopes(SurlCommandLine commandLine, SurlServerOptions options, CustomProtocolServers custom) =>
         options.ProtocolServers.Count == 0 ? commandLine : commandLine with
         {
-            ListenUrls = custom.BuiltInListenUrls.Count == 0 ? [] : commandLine.ListenUrls,
+            ListenUrls = custom.UsesStandIn ? [] : commandLine.ListenUrls,
             Faults =
             [
                 .. options.Faults.Select((fault, index) => custom.WithScopeOf(commandLine.Faults[index], fault)),
@@ -233,15 +260,27 @@ internal static class SurlServerArguments
         }
 
         AddValue(arguments, options.UserFile, "--user-file");
-        AddValue(arguments, options.AuthenticationMethods is { } methods ? string.Join(",", methods) : null, "--auth");
+        AddValue(arguments, options.AuthenticationMethods.Count > 0 ? string.Join(",", options.AuthenticationMethods) : null, "--auth");
         AddFlag(arguments, options.AllowAnonymous, "--allow-anonymous");
         AddFlag(arguments, options.AllowPlaintextAuthentication, "--allow-plaintext-auth");
     }
 
     private static void AddTls(List<string> arguments, SurlServerOptions options)
     {
+        if (options.LowestTlsVersion is { } lowest)
+        {
+            arguments.Add("--tlsv" + TlsVersionNumber(lowest, nameof(options.LowestTlsVersion)));
+        }
+
+        if (options.HighestTlsVersion is { } highest)
+        {
+            arguments.AddRange(["--tls-max", TlsVersionNumber(highest, nameof(options.HighestTlsVersion))]);
+        }
+
         AddValue(arguments, options.CertificateFile, "--cert");
+        AddValue(arguments, options.CertificateType, "--cert-type");
         AddValue(arguments, options.KeyFile, "--key");
+        AddValue(arguments, options.KeyType, "--key-type");
         AddValue(arguments, options.KeyPassphrase, "--pass");
         AddFlag(arguments, options.SelfSigned, "--self-signed");
         AddValue(arguments, options.CaCertificateFile, "--cacert");
@@ -260,6 +299,7 @@ internal static class SurlServerArguments
         AddValue(arguments, FormatSeconds(options.IdleTimeout), "--idle-timeout");
         AddValue(arguments, FormatSeconds(options.MaxTime), "--max-time");
         AddValue(arguments, FormatInvariant(options.MaxFileSize), "--max-filesize");
+        AddValue(arguments, FormatInvariant(options.MaxRequestHeadBytes), "--max-request-head");
         AddValue(arguments, FormatInvariant(options.RandomSeed), "--random-seed");
     }
 

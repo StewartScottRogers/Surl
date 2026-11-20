@@ -254,6 +254,45 @@ public sealed partial class SurlServerArgumentsTests
     }
 
     [TestMethod]
+    public void Compose_AuthenticationMethodsFilledByACollectionInitializer_ComposesAuthBasic()
+    {
+        var options = new SurlServerOptions { ListenUrls = { HttpListenUrl }, AuthenticationMethods = { "basic" } };
+
+        var actual = SurlServerArguments.Compose(options);
+
+        CollectionAssert.Contains(actual.ToArray(), "--auth");
+        Assert.AreEqual("basic", actual[actual.ToList().IndexOf("--auth") + 1]);
+    }
+
+    [TestMethod]
+    public void Compose_DefaultAuthenticationMethods_ComposesNoAuth()
+    {
+        var actual = SurlServerArguments.Compose(ApiTestSeams.Options(HttpListenUrl));
+
+        CollectionAssert.DoesNotContain(actual.ToArray(), "--auth");
+    }
+
+    [TestMethod]
+    public void Compose_NullAuthenticationMethods_ComposesNoAuth()
+    {
+        var options = ApiTestSeams.Options(HttpListenUrl);
+        options.AuthenticationMethods = null;
+
+        CollectionAssert.DoesNotContain(SurlServerArguments.Compose(options).ToArray(), "--auth");
+    }
+
+    [TestMethod]
+    public void Compose_AssignedListOfDigest_ComposesAuthDigest()
+    {
+        var options = ApiTestSeams.Options(HttpListenUrl);
+        options.AuthenticationMethods = new List<string> { "digest" };
+
+        var actual = SurlServerArguments.Compose(options);
+
+        Assert.AreEqual("digest", actual[actual.ToList().IndexOf("--auth") + 1]);
+    }
+
+    [TestMethod]
     public void ThrowIfMisused_ANullAuthenticationMethod_ThrowsArgument()
     {
         var options = ApiTestSeams.Options(HttpListenUrl);

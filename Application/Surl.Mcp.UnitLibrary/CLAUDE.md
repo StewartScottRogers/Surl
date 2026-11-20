@@ -66,7 +66,7 @@ with one `McpServerRegistry.AddTool` line and holds nothing else of the tools.
     - `AddProxyAccountTool` / `AddTlsSrpAccountTool` (`add_proxy_account`, `add_tls_srp_account`): `user`, `password` -> `{user}`; a server without such accounts is refused (`holds no proxy accounts...`, `was not started with TLS-SRP`). `RemoveProxyAccountTool` / `RemoveTlsSrpAccountTool`: `user` -> `{user}`, same refusals (ADR-0170 decision 4).
     - `ResetServerTool` (`reset_server`) -> `{server_id}`; `SnapshotServerTool` (`snapshot_server`) ->
       `{snapshot_id}`; `RestoreServerTool` (`restore_server`): `snapshot_id` -> `{server_id, snapshot_id}`, and
-      an ID not kept is `server <id> has no snapshot <p>; only its newest 4 snapshots are kept`.
+      an ID not kept is `server <id> has no snapshot <p>; it was never taken of this server, or was dropped as one past its newest 4 snapshots`, or, when another running server keeps that ID, says that server keeps it and a snapshot restores only into the server that took it.
     - `AddFaultTool` (`add_fault`): `fault`, one `--fault` item, read by `Surl.Cli`'s `CommandLineParser` (a bad
       item is `isError` with `surl`'s `option --fault: ...` text) and added as a `SurlFault` -> `{fault_id}`.
     - `ListFaultsTool` (`list_faults`, BL-964): `server_id` -> `{faults: [{fault_id, item, remaining}]}` in plan
@@ -86,7 +86,9 @@ with one `McpServerRegistry.AddTool` line and holds nothing else of the tools.
   1 MiB in all are shown; a cut ends its chunk early and drops the chunks after it (`is_cut`), and in a text
   chunk backs off to the start of a UTF-8 sequence (a chunk cut to nothing is left out). Once the 1 MiB is
   used, later exchanges are left out and `has_more` is true, as it is when `max_exchanges` stops the list.
-- `StartServerSafetyCheck` - ADR-0103 decision 4: `-K`/`--config` refused outright; the words parsed with
+- `StartServerSafetyCheck` - ADR-0103 decision 4: `-K`/`--config` refused outright; `--log-file`, `--trace` and
+  `--trace-ascii` (also `=value` forms) refused with text pointing at standard error, `get_exchanges` and
+  `get_events` (BL-1457); the words parsed with
   `Surl.Cli`'s `CommandLineParser` (accepting every extended scheme, so they parse whenever `Surl.Api`'s own
   parse would; words `surl` refuses are left to `Surl.Api` to refuse with `surl`'s exit code); every listen
   URL and every proxy listen URL (`--proxy`) on loopback (`localhost`, `127.0.0.0/8`, `::1`, or a Unix domain socket) unless `AllowNonLoopback`; and

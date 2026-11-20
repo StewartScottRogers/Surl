@@ -170,7 +170,7 @@ public sealed class SurlServerOptions
     // Accounts and logins (ADR-0032).
     public IList<SurlAccount> Accounts { get; }                                  // --user, in order
     public string? UserFile { get; set; }                                        // --user-file
-    public IList<string>? AuthenticationMethods { get; set; }                    // --auth words; null is surl's default set
+    public IList<string>? AuthenticationMethods { get; set; }                    // --auth words; null or empty is surl's default set (amendment 2026-11-20)
     public bool AllowAnonymous { get; set; }                                     // --allow-anonymous
     public bool AllowPlaintextAuthentication { get; set; }                       // --allow-plaintext-auth
 
@@ -223,7 +223,7 @@ public sealed record SurlAccount(string UserName, string Password);
 - **Arguments a host owns** are `ArgumentException`s, not starts: `--help`, `--aihelp`, `--manual`,
   `--version` (no server to start), and `--log-file` and `--trace`/`--trace-ascii` (the API's log is
   `Log`; it writes no files of its own choosing). So are `DataDirectory` together with `Files`, a
-  `Files` path that is empty, absolute or climbs with `..`, an empty `ListenUrls`, a non-positive
+  `Files` path that is empty, absolute or climbs with `..`, an empty `ListenUrls` where [Amendment 2026-11-20](#amendment-2026-11-20-listen-urls-from-config-files-an-initialised-authenticationmethods-and-the-tls-range-and-head-limit-properties) says it is misuse, a non-positive
   `MaxRecordedExchanges` or `MaxRecordedBytesPerExchange`, and a null argument.
 - **`StartAsync` returns once every listener has bound** (`AllListenersBound`), with `BoundUrls` set. It
   serves on `Surl.Networking`'s `SocketListenerFactory`, the same as `surl`. The `CancellationToken`
@@ -342,6 +342,39 @@ protocol libraries) may reference any of them, and `Surl.Composition` references
 off its allowed list, the hosts included; BL-609 adds `Surl.Composition` and `Surl.Api` rows to
 `ForbiddenProtocolReferences_OtherProject_IsForbidden` and a test that no project outside `Application/`
 references a composition root, and that `Surl.Composition` references no host.
+
+### Amendment 2026-11-20: listen URLs from `ConfigFiles`, an initialised `AuthenticationMethods`, and the TLS-range and head-limit properties
+
+**Decided by Claude under Stewart's delegation** (root `CLAUDE.md`, "Decisions"), 2026-11-20, in BL-1438.
+BL-1439, BL-1440 and BL-1441 build it. Configuration only grows: nothing here repurposes a property, and
+every default keeps today's behaviour.
+
+1. **An empty `ListenUrls` is misuse only when nothing else can name a listener.** It is an
+   `ArgumentException` when `ListenUrls`, `ConfigFiles` and `AdditionalArguments` are all empty. Otherwise
+   the start goes on: `ConfigFiles` (composed as `--config`, the `-K` file) and `AdditionalArguments` may
+   carry `url` lines or URLs, as on the command line. A start whose composed arguments then name no
+   listen URL anywhere (a config file with no `url` line, say) is not an `ArgumentException`: it is `surl`'s
+   own refusal, `SurlServerStartException` carrying exit code 2 and `surl: (2) no URL specified`, the
+   text `CommandLineParser` gives `surl`. Decision 4's list of misuse arguments reads accordingly.
+2. **`AuthenticationMethods` is initialised to an empty list.** It keeps its type `IList<string>?` and its
+   setter, so code that assigns `null` still compiles and behaves as before. Null and an empty list both
+   compose no `--auth` and leave `surl`'s default set; a non-empty list composes `--auth` once, as
+   decision 4 says. `{ "basic" }` on a fresh options object no longer throws `NullReferenceException`.
+3. **New properties**, each null by default (compose no word), each a spelling of one option:
+
+   | Property | Type | Composes | `ArgumentException` (rather than `surl`'s refusal) |
+   |---|---|---|---|
+   | `LowestTlsVersion` | `SslProtocols?` | `--tlsv1.0`, `--tlsv1.1`, `--tlsv1.2` or `--tlsv1.3` | any value but `Tls`, `Tls11`, `Tls12`, `Tls13` (flags, `None`, `Default`, `Ssl2`, `Ssl3`, `Tls13 \| Tls12`) |
+   | `HighestTlsVersion` | `SslProtocols?` | `--tls-max 1.0`, `1.1`, `1.2` or `1.3` | the same set |
+   | `CertificateType` | `string?` | `--cert-type` | none: curl's words `PEM`, `DER`, `P12` pass through and `surl` refuses any other word |
+   | `KeyType` | `string?` | `--key-type` | none: the same words, the same refusal |
+   | `MaxRequestHeadBytes` | `long?` | `--max-request-head`, invariant culture | a value below 1 |
+
+   A lowest version above the highest is `surl`'s refusal (the parser's exit code), not an
+   `ArgumentException`, because `surl` makes the same judgment on the same words. A property set to its
+   null default composes nothing, so the option's own default applies. The new properties come with the
+   others in decision 4's order (TLS beside the TLS properties, `MaxRequestHeadBytes` beside the limits),
+   and, like all of them, before `AdditionalArguments`.
 
 ## Consequences
 

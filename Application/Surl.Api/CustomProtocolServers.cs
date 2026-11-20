@@ -52,8 +52,11 @@ internal sealed class CustomProtocolServers
     /// <summary>The listen URLs that name no custom scheme, in the order given: those <c>surl</c> parses.</summary>
     public IReadOnlyList<string> BuiltInListenUrls { get; }
 
-    /// <summary>The listen URLs <c>surl</c> is given: <see cref="BuiltInListenUrls"/>, or the stand-in when there are none.</summary>
-    public IReadOnlyList<string> ListenUrlsToParse => BuiltInListenUrls.Count == 0 ? [StandInListenUrl] : BuiltInListenUrls;
+    /// <summary>The listen URLs <c>surl</c> is given: <see cref="BuiltInListenUrls"/>, or the stand-in when only custom servers have listen URLs.</summary>
+    public IReadOnlyList<string> ListenUrlsToParse => UsesStandIn ? [StandInListenUrl] : BuiltInListenUrls;
+
+    /// <summary>Whether <c>surl</c> parses the stand-in: only custom servers have listen URLs, so none is left for it to read.</summary>
+    public bool UsesStandIn => BuiltInListenUrls.Count == 0 && AdditionalProtocolServers.Any(server => server.ListenUrls.Count > 0);
 
     /// <summary>Each custom server, in the order given, with the listen URLs that name its scheme, in the order given.</summary>
     public IReadOnlyList<AdditionalProtocolServer> AdditionalProtocolServers { get; }

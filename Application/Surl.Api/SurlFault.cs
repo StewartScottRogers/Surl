@@ -54,6 +54,9 @@ public sealed record SurlFault
     /// <summary>The chosen error a <see cref="ProtocolError"/> answers (<c>reply</c>), in its scheme's error shape.</summary>
     public string? Reply { get; init; }
 
+    /// <summary>The text an HTTP <see cref="ProtocolError"/> answers with (<c>body</c>); <see langword="null"/> for the status's fixed text.</summary>
+    public string? Body { get; init; }
+
     /// <summary>How many times the rule applies before it is spent (<c>times</c>), 1 to 1000000; <see langword="null"/> for always.</summary>
     public int? Times { get; init; }
 
@@ -104,6 +107,7 @@ public sealed record SurlFault
         DelayDuration = rule.DelayMilliseconds is { } milliseconds ? TimeSpan.FromMilliseconds(milliseconds) : null,
         AfterBytes = rule.AfterBytes,
         Reply = rule.Reply,
+        Body = rule.Body,
     };
 
     /// <summary>
@@ -123,6 +127,7 @@ public sealed record SurlFault
         AddKey(item, "ms", DelayDuration is { } duration ? FormatMilliseconds(duration) : null);
         AddKey(item, "after-bytes", AfterBytes?.ToString(CultureInfo.InvariantCulture));
         AddKey(item, "reply", Reply);
+        AddKey(item, "body", Body);
         AddKey(item, "times", Times?.ToString(CultureInfo.InvariantCulture));
         return item.ToString();
     }

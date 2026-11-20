@@ -57,7 +57,7 @@ namespace Surl.Protocol.Imap;
 /// connection limit is answered <c>* BYE</c> by <see cref="WriteRefusalAsync"/>.
 /// </para>
 /// </remarks>
-public sealed class ImapProtocolServer : IConnectionProtocolServer, IConnectionRefusalWriter
+public sealed class ImapProtocolServer : IConnectionProtocolServer, IConnectionRefusalWriter, IExchangeBytesRedactingServer
 {
     /// <summary>
     /// How long the response to a command that is too long or late may take to write (ADR-0006,
@@ -109,6 +109,16 @@ public sealed class ImapProtocolServer : IConnectionProtocolServer, IConnectionR
     /// or <see langword="null"/> for none, as the shipped <c>surl</c> has.
     /// </summary>
     internal MailUpstreamTestCaseReplies? UpstreamTestCaseReplies { get; init; }
+
+    /// <summary>
+    /// Creates the redactor that writes the password of <c>LOGIN</c> and every <c>AUTHENTICATE</c>
+    /// secret as <c>****</c> in the exchange log, leaving literals such as an <c>APPEND</c> message
+    /// unchanged (ADR-0183, decision 5 as amended by BL-1430).
+    /// </summary>
+    /// <param name="context">The exchange the redactor is for.</param>
+    /// <returns>A line redactor for the connection, used by that exchange alone.</returns>
+    public IReceivedBytesRedactor CreateRedactor(ExchangeRedactionContext context) =>
+        new LineBytesRedactor(new ImapLineRedactionRule());
 
     /// <summary>
     /// Sends the greeting, then answers every command on <paramref name="connection"/> until the
