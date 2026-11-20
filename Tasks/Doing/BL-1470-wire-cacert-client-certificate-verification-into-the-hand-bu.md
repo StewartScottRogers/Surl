@@ -32,3 +32,4 @@ ADR-0157 amendment 1. BL-1466 made `TlsServerHandshakeOptions.TrustsClientCertif
 ## Log
 
 - 2026-11-20: Created.
+- 2026-11-20: Backlog -> Doing.
