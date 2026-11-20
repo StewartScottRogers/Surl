@@ -54,3 +54,4 @@ message says the file is a PKCS#12 file that the `--pass` given does not open (o
 
 - 2026-11-20: Created.
 - 2026-11-20: Filed from `Z:\repos\Surly\Documentation\Bug-Reports\2026-11-19T1942-Surl-bug-report.md` item 8.
+- 2026-11-20: Backlog -> Doing.
