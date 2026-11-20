@@ -8,7 +8,7 @@ depends-on: [BL-1419]
 touches: [Protocols/Messaging/Surl.Extended.Protocol.Amqp0.UnitLibrary, Protocols/Messaging/Surl.Extended.Protocol.Amqp0.UnitTests]
 requirement: none
 created: 2026-11-20
-completed:
+completed: 2026-11-20
 ---
 # BL-1460 — Withhold AMQP 0-9-1 PLAIN and AMQPLAIN credentials from the exchange log
 
@@ -35,3 +35,4 @@ With the BL-1418 contract implemented, ADR-0182's replacement text is logged in 
 
 - 2026-11-20: Created.
 - 2026-11-20: Backlog -> Doing.
+- 2026-11-20: Doing -> Done. AMQP 0-9-1 start-ok/secure-ok responses redacted in the exchange log; tests green
