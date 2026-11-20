@@ -70,3 +70,4 @@ tolerated.
 - 2026-11-20: Doing -> Blocked. Waiting for run:44776460226 (Release dry run on factory/phase-1 with the max-connections diagnostics)
 - 2026-11-20: Blocked -> Backlog. Run 44776460226 completed: failure; read it with gh run view 44776460226
 - 2026-11-20: Backlog -> Doing.
+- 2026-11-20: Doing -> Blocked. Waiting for run:44788839369 (release.yml dry run on factory/phase-1; the previous run 44776460226 had its osx-arm64 publish cancelled, so conformance never ran)
