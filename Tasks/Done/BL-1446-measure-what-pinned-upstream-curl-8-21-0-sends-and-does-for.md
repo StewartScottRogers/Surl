@@ -8,7 +8,7 @@ depends-on: []
 touches: [Protocols/Http/Surl.Protocol.Http.UnitTests/Fixtures]
 requirement: none
 created: 2026-11-20
-completed:
+completed: 2026-11-20
 ---
 # BL-1446 — Measure what pinned upstream curl 8.21.0 sends and does for -z, --etag-compare and --etag-save against 200, 304 and 412 answers
 
@@ -39,17 +39,17 @@ measurements.
 
 ## Acceptance criteria
 
-- [ ] Recorded cases, each a fixture folder with request bytes, stdout, stderr and exit code:
+- [x] Recorded cases, each a fixture folder with request bytes, stdout, stderr and exit code:
       `-z "<date>"` against 304 and against 200 with a `Last-Modified` older than the date;
       `-z "-<date>"` against 412 and against 200; `-z <file>` (mtime); `--etag-compare` with
       `"abc"` in the file against 304; `--etag-save` against a 200 with `ETag: "abc"` and with none;
       both options on one file.
-- [ ] Each folder records the exact `If-Modified-Since`, `If-Unmodified-Since` or `If-None-Match` line
+- [x] Each folder records the exact `If-Modified-Since`, `If-Unmodified-Since` or `If-None-Match` line
       curl sent, and for `--etag-save` the saved file's bytes.
-- [ ] The cases are run with `--fail` too where the answer is 412, recording the exit code.
-- [ ] `Protocols/Http/Surl.Protocol.Http.UnitTests/Fixtures/README.md` lists each case, the command line,
+- [x] The cases are run with `--fail` too where the answer is 412, recording the exit code.
+- [x] `Protocols/Http/Surl.Protocol.Http.UnitTests/Fixtures/README.md` lists each case, the command line,
       the curl build's SHA-256 and the date measured.
-- [ ] No test needs `TestCategory=Integration`, and the fast tests stay green.
+- [x] No test needs `TestCategory=Integration`, and the fast tests stay green.
 
 ## Notes
 
@@ -61,3 +61,4 @@ measurements.
 - 2026-11-20: Created.
 - 2026-11-20: Filed from `Z:\repos\Surly\Documentation\Bug-Reports\2026-11-19T1942-Surl-bug-report.md` item 12.
 - 2026-11-20: Backlog -> Doing.
+- 2026-11-20: Doing -> Done. 15 fixture folders recorded from pinned curl 8.21.0; README table lists each
