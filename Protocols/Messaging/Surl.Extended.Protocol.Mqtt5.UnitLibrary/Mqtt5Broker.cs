@@ -119,7 +119,7 @@ namespace Surl.Extended.Protocol.Mqtt5;
 /// when that is 0.
 /// </para>
 /// </remarks>
-public sealed class Mqtt5Broker : IConnectionProtocolServer
+public sealed class Mqtt5Broker : IConnectionProtocolServer, IExchangeBytesRedactingServer
 {
     /// <summary>
     /// The longest Session Expiry Interval the broker grants, in seconds (ADR-0093 decision 1).
@@ -184,6 +184,14 @@ public sealed class Mqtt5Broker : IConnectionProtocolServer
     /// whose handshake the engine performs (ADR-0010).
     /// </summary>
     public IReadOnlyList<string> Schemes { get; } = Array.AsReadOnly(["mqtt5", "mqtt5s"]);
+
+    /// <summary>
+    /// Creates the redactor that logs a <c>CONNECT</c> and an <c>AUTH</c> without their Password and
+    /// Authentication Data and every other byte as it arrived (ADR-0182, decision 6).
+    /// </summary>
+    /// <param name="context">The exchange the redactor is for.</param>
+    /// <returns>A redactor for the connection, used by that exchange alone.</returns>
+    public IReceivedBytesRedactor CreateRedactor(ExchangeRedactionContext context) => new Mqtt5ClientSecretBytesRedactor();
 
     /// <summary>
     /// Ends the sessions with no connection and discards the pending Wills, and drops the queued deliveries of the

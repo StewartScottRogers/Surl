@@ -107,6 +107,13 @@ internal sealed class Mqtt5BodyReader(ReadOnlyMemory<byte> body)
     public byte[] ReadBinaryData() => Take(ReadTwoByteInteger()).ToArray();
 
     /// <summary>
+    /// Reads <paramref name="count"/> bytes that carry no length prefix of their own, as a property list or Will Properties list holds them.
+    /// </summary>
+    /// <param name="count">How many bytes; a count past the end is a Malformed Packet.</param>
+    /// <returns>The bytes.</returns>
+    public ReadOnlyMemory<byte> ReadBytes(int count) => Take(count);
+
+    /// <summary>
     /// Reads every byte left, as a <c>PUBLISH</c> payload is (section 3.3.3).
     /// </summary>
     /// <returns>The bytes.</returns>
@@ -196,7 +203,12 @@ internal sealed class Mqtt5BodyReader(ReadOnlyMemory<byte> body)
     /// <returns>The exception to throw.</returns>
     public static Mqtt5PacketFaultException Fault(Mqtt5PacketFault fault) => new(fault);
 
-    private Mqtt5Property ReadPropertyValue(Mqtt5PropertyDefinition definition) => definition.Type switch
+    /// <summary>
+    /// Reads the value of one property whose identifier was read already.
+    /// </summary>
+    /// <param name="definition">The property's table 2-4 row.</param>
+    /// <returns>The property.</returns>
+    public Mqtt5Property ReadPropertyValue(Mqtt5PropertyDefinition definition) => definition.Type switch
     {
         Mqtt5PropertyType.Byte => Mqtt5Property.FromInteger(definition.Identifier, ReadByte()),
         Mqtt5PropertyType.TwoByteInteger => Mqtt5Property.FromInteger(definition.Identifier, ReadTwoByteInteger()),
