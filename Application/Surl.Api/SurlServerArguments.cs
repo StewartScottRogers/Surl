@@ -13,7 +13,7 @@ namespace Surl.Api;
 internal static class SurlServerArguments
 {
     /// <summary>
-    /// Throws for options no start can be made from: no listen URL, a null word, a data directory
+    /// Throws for options no start can be made from: nothing that could name a listen URL (ListenUrls, ConfigFiles and AdditionalArguments all empty), a null word, a data directory
     /// together with in-memory files, or an in-memory file path that is not a plain relative path.
     /// </summary>
     /// <param name="options">The options.</param>
@@ -22,9 +22,9 @@ internal static class SurlServerArguments
     public static void ThrowIfMisused(SurlServerOptions options)
     {
         ArgumentNullException.ThrowIfNull(options);
-        if (options.ListenUrls.Count == 0)
+        if (options.ListenUrls.Count == 0 && options.ConfigFiles.Count == 0 && options.AdditionalArguments.Count == 0)
         {
-            throw new ArgumentException("ListenUrls names no listen URL.", nameof(options));
+            throw new ArgumentException("ListenUrls, ConfigFiles and AdditionalArguments are all empty, so nothing names a listen URL.", nameof(options));
         }
 
         ThrowIfHoldsNull(options);
@@ -205,7 +205,7 @@ internal static class SurlServerArguments
     private static SurlCommandLine WithCustomScopes(SurlCommandLine commandLine, SurlServerOptions options, CustomProtocolServers custom) =>
         options.ProtocolServers.Count == 0 ? commandLine : commandLine with
         {
-            ListenUrls = custom.BuiltInListenUrls.Count == 0 ? [] : commandLine.ListenUrls,
+            ListenUrls = custom.UsesStandIn ? [] : commandLine.ListenUrls,
             Faults =
             [
                 .. options.Faults.Select((fault, index) => custom.WithScopeOf(commandLine.Faults[index], fault)),

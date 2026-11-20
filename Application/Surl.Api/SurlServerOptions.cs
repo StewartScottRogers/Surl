@@ -14,7 +14,9 @@ public sealed class SurlServerOptions
 {
     /// <summary>
     /// The listen URLs, as <c>surl</c> takes them (<c>http://127.0.0.1:0</c>,
-    /// <c>ftp://127.0.0.1:0</c>), in order; port 0 asks for an ephemeral port. At least one is needed.
+    /// <c>ftp://127.0.0.1:0</c>), in order; port 0 asks for an ephemeral port. At least one is needed unless <see cref="ConfigFiles"/> or
+    /// <see cref="AdditionalArguments"/> is given, which may name listen URLs as <c>surl</c> reads them; if none of the
+    /// three then names one, the start throws <see cref="SurlServerStartException"/> with <c>surl</c>'s own refusal.
     /// </summary>
     public IList<string> ListenUrls { get; } = [];
 

@@ -8,7 +8,7 @@ depends-on: [BL-1438]
 touches: [Application/Surl.Api, Application/Surl.Api.UnitTests]
 requirement: none
 created: 2026-11-20
-completed:
+completed: 2026-11-20
 ---
 # BL-1439 — Start a Surl.Api server whose only listen URLs come from its ConfigFiles
 
@@ -30,22 +30,25 @@ does.
 
 ## Acceptance criteria
 
-- [ ] A test in `Application/Surl.Api.UnitTests` starts with only `ConfigFiles` (an in-memory file with
+- [x] A test in `Application/Surl.Api.UnitTests` starts with only `ConfigFiles` (an in-memory file with
       `url http://127.0.0.1:0/`) and asserts `BoundUrls` holds `http://127.0.0.1:49731/`
       (`FakeListenerFactory.BoundPort`).
-- [ ] A start whose config file names no URL throws `SurlServerStartException` with
+- [x] A start whose config file names no URL throws `SurlServerStartException` with
       `SurlExitCode.FailedInit` and the line `(2) no URL specified`, or whatever the amendment says
       (named test).
-- [ ] The cases BL-1438 keeps as `ArgumentException` still throw it (named test), and
+- [x] The cases BL-1438 keeps as `ArgumentException` still throw it (named test), and
       `SurlServerOptions.ListenUrls`' doc comment no longer says "At least one is needed" without the
       amendment's condition.
-- [ ] `dotnet build Application/Surl.Api -warnaserror` is clean, the fast tests are green, and coverage
+- [x] `dotnet build Application/Surl.Api -warnaserror` is clean, the fast tests are green, and coverage
       stays at 100% line and branch.
 
 ## Notes
+
+- The real cause was deeper than the guard: `CustomProtocolServers.ListenUrlsToParse` injected the stand-in `http://127.0.0.1:0` whenever no built-in listen URL was given, hiding config-file URLs and the parser's `no URL specified`. It now does so only when custom servers alone have listen URLs (`UsesStandIn`).
 
 ## Log
 
 - 2026-11-20: Created.
 - 2026-11-20: Filed from `Z:\repos\Surly\Documentation\Bug-Reports\2026-11-19T1942-Surl-bug-report.md` item 3.
 - 2026-11-20: Backlog -> Doing.
+- 2026-11-20: Doing -> Done. ConfigFiles-only start works; empty case is surl's no URL specified
