@@ -8,7 +8,7 @@ depends-on: [BL-1419, BL-1421]
 touches: [Protocols/Http/Surl.Protocol.HttpProxy.UnitLibrary, Protocols/Http/Surl.Protocol.HttpProxy.UnitTests]
 requirement: none
 created: 2026-11-20
-completed:
+completed: 2026-11-20
 ---
 # BL-1425 — Withhold Proxy-Authorization and Authorization values from the HTTP proxy's exchange log
 
@@ -31,20 +31,23 @@ value (and any `Authorization` the client sends to the origin) in the redacted f
 
 ## Acceptance criteria
 
-- [ ] `HttpProxyProtocolServer` implements BL-1418's contract with BL-1421's redactor. A fast test in
+- [x] `HttpProxyProtocolServer` implements BL-1418's contract with BL-1421's redactor. A fast test in
       `Protocols/Http/Surl.Protocol.HttpProxy.UnitTests` shows a `GET http://origin/` with
       `Proxy-Authorization: Basic ...` logged in the ADR's form.
-- [ ] A `CONNECT` with `Proxy-Authorization` is redacted, and the tunnelled bytes after `200` are
+- [x] A `CONNECT` with `Proxy-Authorization` is redacted, and the tunnelled bytes after `200` are
       logged as the ADR says (named test).
-- [ ] An `Authorization` header forwarded to an origin is redacted wherever the ADR says origin-side
+- [x] An `Authorization` header forwarded to an origin is redacted wherever the ADR says origin-side
       bytes are logged (named test).
-- [ ] `dotnet build Protocols/Http/Surl.Protocol.HttpProxy.UnitLibrary -warnaserror` is clean, the fast
+- [x] `dotnet build Protocols/Http/Surl.Protocol.HttpProxy.UnitLibrary -warnaserror` is clean, the fast
       tests are green, and coverage stays at 100% line and branch.
 
 ## Notes
+
+- Redactor is HttpRequestHeadBytesRedactor on curl's connection. Origin-side bytes are never logged (IOriginConnector), so forwarded Authorization needs no redaction there; tunnel bytes pass through the same redactor. Recorded as ADR-0182 Amendment 2.
 
 ## Log
 
 - 2026-11-20: Created.
 - 2026-11-20: Filed from `Z:\repos\Surly\Documentation\Bug-Reports\2026-11-20T0553-Surl-bug-report.md` item 1.
 - 2026-11-20: Backlog -> Doing.
+- 2026-11-20: Doing -> Done. HTTP proxy logs Proxy-Authorization and Authorization credentials masked

@@ -129,3 +129,13 @@ IMAP `+`, the next client line is a secret).
   rewrite file content that happens to look like a command. They still count in `ExchangeEndedEvent` and reach the event stream.
 - **Decrypted-bytes notes** (QUIC, DTLS) are redacted per reported chunk by a fresh redactor from the same server, not by the
   exchange's wire redactor, because the wire bytes of those transports are ciphertext. Only received chunks are redacted. Events stay raw.
+
+## Amendment 2 (BL-1425, decided by Claude under Stewart's delegation)
+
+- The HTTP proxy's redactor is `HttpRequestHeadBytesRedactor` on curl's connection, the one the engine logs.
+- **Origin-side bytes are not logged.** The proxy reaches origins through `IOriginConnector`; those connections never pass
+  through the exchange log, so the `Authorization` the proxy forwards is withheld there by construction, and the one in
+  curl's own head is masked on curl's side.
+- **A `CONNECT` head is redacted like any head; tunnelled bytes after the `200` pass through the same redactor.** They are
+  the client's own TLS (ciphertext, no field to match) or, in a test, plaintext HTTP, whose `Authorization` is masked too.
+  A held partial line is written at `Flush`.
