@@ -8,7 +8,7 @@ depends-on: [BL-1414]
 touches: []
 requirement: none
 created: 2026-11-20
-completed:
+completed: 2026-11-20
 ---
 # BL-1415 — Confirm CI upstream test cases on ubuntu-latest pass after the BL-1414 port-collision fix
 
@@ -25,10 +25,12 @@ the shift branch, dispatch it.
 
 ## Acceptance criteria
 
-- [ ] `.claude/skills/task-board/dispatch-workflow.ps1 -Id BL-1415 -Workflow ci -Ref <shift branch>` ran after BL-1414's commit was pushed, and its run id is in the Log.
-- [ ] That run's job "Upstream test cases (ubuntu-latest)" passed.
+- [x] `.claude/skills/task-board/dispatch-workflow.ps1 -Id BL-1415 -Workflow ci -Ref <shift branch>` ran after BL-1414's commit was pushed, and its run id is in the Log.
+- [x] That run's job "Upstream test cases (ubuntu-latest)" passed.
 
 ## Notes
+
+Run 44745192387 (ci on factory/phase-1, head 88494f145, which contains the BL-1414 fix 3512e350a) was dispatched earlier in this task; every job passed, including Upstream test cases (ubuntu-latest). Redispatching would only repeat it.
 
 ## Log
 
@@ -37,3 +39,4 @@ the shift branch, dispatch it.
 - 2026-11-20: Doing -> Blocked. Waiting for run:44745192387 (ci on factory/phase-1, includes BL-1414 fix)
 - 2026-11-20: Blocked -> Backlog. run:44745192387 (ci on factory/phase-1 with the BL-1414 fix) completed success: Upstream test cases (ubuntu-latest) and (macos-latest) passed, as did Build and test on all three
 - 2026-11-20: Backlog -> Doing.
+- 2026-11-20: Doing -> Done. CI run 44745192387 on factory/phase-1 (includes BL-1414 fix) passed Upstream test cases (ubuntu-latest)
