@@ -175,6 +175,85 @@ public sealed class ServerTlsHandshakeTls13Tests
     }
 
     [TestMethod]
+    public async Task AuthenticateAsync_Tls13OnlyListenerAndHelloOffersTls12And13_IsServedByTheHandBuiltStream()
+    {
+        using var certificate = TestCertificates.CreateEcdsaServerCertificate();
+        using var settings = new ServerTlsSettings(certificate, [], [], Time) { AcceptedVersions = new TlsVersionRange(SslProtocols.Tls13, SslProtocols.Tls13) };
+        var handshake = new ServerTlsHandshake(settings, [], new FakeTls13Support(true));
+        var (serverStream, clientStream) = InMemoryDuplexStream.CreatePair();
+        var hello = ClientHelloBytes.Record(22, ClientHelloBytes.Message([0x0303, 0x0304]));
+
+        await clientStream.WriteAsync(hello, TestContext.CancellationToken);
+        clientStream.CompleteWrites();
+        await Assert.ThrowsExactlyAsync<TlsHandshakeException>(
+            () => handshake.AuthenticateAsync(serverStream, TestContext.CancellationToken));
+
+        var reply = new byte[1];
+        Assert.AreEqual(1, await clientStream.ReadAsync(reply, TestContext.CancellationToken));
+        Assert.AreEqual(22, reply[0], "The hand-built stream answered with a ServerHello record.");
+    }
+
+    [TestMethod]
+    [OSCondition(ConditionMode.Exclude, OperatingSystems.OSX)]
+    public async Task AuthenticateAsync_Tls13OnlyListenerAndClientOffersTls12And13_CompletesAsTls13OnTheHandBuiltStream()
+    {
+        using var certificate = TestCertificates.CreateEcdsaServerCertificate();
+        using var settings = new ServerTlsSettings(certificate, [], [], Time) { AcceptedVersions = new TlsVersionRange(SslProtocols.Tls13, SslProtocols.Tls13) };
+
+        var (server, session, client) = await HandshakeAsync(settings, lacksTls13: true, ClientOptions(SslProtocols.Tls12 | SslProtocols.Tls13));
+        await using (client)
+        await using (server)
+        {
+            Assert.IsInstanceOfType<Tls13ServerStream>(server);
+            Assert.AreEqual(SslProtocols.Tls13, session.Protocol);
+        }
+    }
+
+    [TestMethod]
+    public async Task AuthenticateAsync_Tls13OnlyListenerAndHelloOffersTls12Only_SendsProtocolVersionAlert()
+    {
+        using var certificate = TestCertificates.CreateEcdsaServerCertificate();
+        using var settings = new ServerTlsSettings(certificate, [], [], Time) { AcceptedVersions = new TlsVersionRange(SslProtocols.Tls13, SslProtocols.Tls13) };
+        var handshake = new ServerTlsHandshake(settings, [], new FakeTls13Support(true));
+        var (serverStream, clientStream) = InMemoryDuplexStream.CreatePair();
+
+        await clientStream.WriteAsync(ClientHelloBytes.Record(22, ClientHelloBytes.Message([0x0303])), TestContext.CancellationToken);
+        await Assert.ThrowsExactlyAsync<TlsHandshakeException>(
+            () => handshake.AuthenticateAsync(serverStream, TestContext.CancellationToken));
+
+        var reply = new byte[7];
+        Assert.AreEqual(7, await clientStream.ReadAtLeastAsync(reply, 7, cancellationToken: TestContext.CancellationToken));
+        CollectionAssert.AreEqual(new byte[] { 21, 3, 3, 0, 2, 2, 70 }, reply);
+    }
+
+    [TestMethod]
+    public async Task AuthenticateAsync_Tls13OnlyListenerAndBytesAreNoClientHello_GoesToSslStreamWhichRefuses()
+    {
+        using var certificate = TestCertificates.CreateEcdsaServerCertificate();
+        using var settings = new ServerTlsSettings(certificate, [], [], Time) { AcceptedVersions = new TlsVersionRange(SslProtocols.Tls13, SslProtocols.Tls13) };
+        var handshake = new ServerTlsHandshake(settings, [], new FakeTls13Support(true));
+        var (serverStream, clientStream) = InMemoryDuplexStream.CreatePair();
+
+        await clientStream.WriteAsync("GET / HTTP/1.1\r\n\r\n"u8.ToArray(), TestContext.CancellationToken);
+        clientStream.CompleteWrites();
+
+        await Assert.ThrowsExactlyAsync<TlsHandshakeException>(
+            () => handshake.AuthenticateAsync(serverStream, TestContext.CancellationToken));
+    }
+
+    [TestMethod]
+    public async Task AuthenticateAsync_Tls13OnlyListenerRefusesAndTheClientIsGone_StillThrowsTlsHandshakeException()
+    {
+        using var certificate = TestCertificates.CreateEcdsaServerCertificate();
+        using var settings = new ServerTlsSettings(certificate, [], [], Time) { AcceptedVersions = new TlsVersionRange(SslProtocols.Tls13, SslProtocols.Tls13) };
+        var handshake = new ServerTlsHandshake(settings, [], new FakeTls13Support(true));
+        var hello = ClientHelloBytes.Record(22, ClientHelloBytes.Message([0x0303]));
+
+        await Assert.ThrowsExactlyAsync<TlsHandshakeException>(
+            () => handshake.AuthenticateAsync(new ScriptedReadResettingWriteStream(hello), TestContext.CancellationToken));
+    }
+
+    [TestMethod]
     public async Task AuthenticateAsync_ClientThatSendsNothingOnAPlatformWithoutTls13_IsTlsHandshakeException()
     {
         using var certificate = TestCertificates.CreateEcdsaServerCertificate();
@@ -225,6 +304,45 @@ public sealed class ServerTlsHandshakeTls13Tests
     }
 
     private sealed record FakeTls13Support(bool SslStreamLacksTls13Server) : ITls13Support;
+
+    private sealed class ScriptedReadResettingWriteStream(byte[] toRead) : Stream
+    {
+        private readonly MemoryStream source = new(toRead);
+
+        public override bool CanRead => true;
+
+        public override bool CanSeek => false;
+
+        public override bool CanWrite => true;
+
+        public override long Length => throw new NotSupportedException();
+
+        public override long Position
+        {
+            get => throw new NotSupportedException();
+            set => throw new NotSupportedException();
+        }
+
+        public override ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default) =>
+            source.ReadAsync(buffer, cancellationToken);
+
+        public override ValueTask WriteAsync(ReadOnlyMemory<byte> buffer, CancellationToken cancellationToken = default) =>
+            ValueTask.FromException(new IOException("The peer reset the connection."));
+
+        public override Task FlushAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+
+        public override void Flush()
+        {
+        }
+
+        public override int Read(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+
+        public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+
+        public override void SetLength(long value) => throw new NotSupportedException();
+
+        public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+    }
 
     private sealed class ResettingReadStream : Stream
     {

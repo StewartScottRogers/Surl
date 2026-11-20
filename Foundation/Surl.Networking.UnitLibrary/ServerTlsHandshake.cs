@@ -111,9 +111,34 @@ internal sealed class ServerTlsHandshake
             throw new TlsHandshakeException(exception.Message, exception);
         }
 
-        return peek.OffersOnlyTls13
+        // ADR-0157 amendment 1: a listener limited to TLS 1.3 serves every hello that lists TLS 1.3.
+        var tls13Only = settings.AcceptedVersions.Lowest == SslProtocols.Tls13;
+        if (tls13Only && peek.ClientHello is not null && !peek.OffersTls13)
+        {
+            await RefuseWithProtocolVersionAlertAsync(transport, cancellationToken);
+        }
+
+        return peek.OffersOnlyTls13 || (tls13Only && peek.OffersTls13)
             ? await AuthenticateTls13Async(transport, peek, cancellationToken)
             : await AuthenticateSslStreamAsync(new ReplayedPrefixStream(peek.BytesRead, transport), cancellationToken);
+    }
+
+    // RFC 8446 section 4.2.1: a TLS 1.3-only server answers a hello without TLS 1.3 with a fatal protocol_version alert.
+    private static async Task RefuseWithProtocolVersionAlertAsync(Stream transport, CancellationToken cancellationToken)
+    {
+        byte[] alert = [21, 3, 3, 0, 2, 2, 70];
+
+        try
+        {
+            await transport.WriteAsync(alert, cancellationToken);
+            await transport.FlushAsync(cancellationToken);
+        }
+        catch (IOException)
+        {
+            // The peer is gone; the refusal below is the same.
+        }
+
+        throw new TlsHandshakeException("The client offers no TLS version this listener accepts (TLS 1.3 only).", null);
     }
 
     private async Task<(Stream Stream, TlsSession Session)> AuthenticateTls13Async(

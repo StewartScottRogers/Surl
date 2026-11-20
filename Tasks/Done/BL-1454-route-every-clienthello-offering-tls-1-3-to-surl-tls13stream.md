@@ -8,7 +8,7 @@ depends-on: [BL-1453]
 touches: [Foundation/Surl.Networking.UnitLibrary, Foundation/Surl.Networking.UnitTests]
 requirement: none
 created: 2026-11-20
-completed:
+completed: 2026-11-20
 ---
 # BL-1454 — Route every ClientHello offering TLS 1.3 to Surl.Tls13Stream when the server accepts only TLS 1.3 and SslStream cannot serve it
 
@@ -32,22 +32,24 @@ handshake with `curl --cacert server.pem https://...` (which offers TLS 1.2 and 
 
 ## Acceptance criteria
 
-- [ ] With a fake `ITls13Support` that lacks a TLS 1.3 server and settings accepting TLS 1.3 only, a
+- [x] With a fake `ITls13Support` that lacks a TLS 1.3 server and settings accepting TLS 1.3 only, a
       ClientHello offering TLS 1.2 and 1.3 completes through `Tls13ServerStream`, and `TlsSession`
       reports `SslProtocols.Tls13` (named test in `Foundation/Surl.Networking.UnitTests`).
-- [ ] With the same settings, a hello offering only TLS 1.2 is answered as the amendment says (named
+- [x] With the same settings, a hello offering only TLS 1.2 is answered as the amendment says (named
       test).
-- [ ] With the default range (1.2 to 1.3), a hello offering 1.2 and 1.3 still goes to `SslStream`, as
+- [x] With the default range (1.2 to 1.3), a hello offering 1.2 and 1.3 still goes to `SslStream`, as
       ADR-0157 decision 1 says (existing tests green).
-- [ ] `dotnet build Foundation/Surl.Networking.UnitLibrary -warnaserror` is clean, the fast tests are
+- [x] `dotnet build Foundation/Surl.Networking.UnitLibrary -warnaserror` is clean, the fast tests are
       green, and coverage stays at 100% line and branch.
 
 ## Notes
 
 - The `--cacert` case is the separate task BL-1453 files.
+- Rule built in `ServerTlsHandshake` (lowest accepted version = TLS 1.3): hello listing 1.3 -> hand-built stream; hello with no 1.3 -> alert 70 written, `TlsHandshakeException`; non-hello bytes -> SslStream as before. Added `ClientHelloPeek.OffersTls13`. The macOS CI conformance run named in ADR-0157 amendment 1 is still to be dispatched; not done here.
 
 ## Log
 
 - 2026-11-20: Created.
 - 2026-11-20: Filed from `Z:\repos\Surly\Documentation\Bug-Reports\2026-11-19T2203-Surl-bug-report.md` item 3.
 - 2026-11-20: Backlog -> Doing.
+- 2026-11-20: Doing -> Done. TLS 1.3-only listeners route every hello offering 1.3 to Surl.Tls13Stream and answer others with alert 70

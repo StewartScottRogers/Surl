@@ -34,6 +34,9 @@ internal sealed class ClientHelloPeek
         && versions.Contains(Tls13Version)
         && !versions.Any(version => version is >= Ssl3Version and <= Tls12Version);
 
+    /// <summary>Whether the ClientHello lists TLS 1.3 among its supported versions, whatever else it lists.</summary>
+    public bool OffersTls13 => ClientHello?.SupportedVersions is { } versions && versions.Contains(Tls13Version);
+
     /// <summary>
     /// Reads the first record: its header and fragment, or as much as the transport gives before it ends.
     /// </summary>
