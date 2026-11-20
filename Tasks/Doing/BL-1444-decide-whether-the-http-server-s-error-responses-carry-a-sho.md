@@ -58,3 +58,4 @@ responses keep their empty bodies or carry a short fixed text body that `curl --
 
 - 2026-11-20: Created.
 - 2026-11-20: Filed from `Z:\repos\Surly\Documentation\Bug-Reports\2026-11-19T1942-Surl-bug-report.md` item 7.
+- 2026-11-20: Backlog -> Doing.
