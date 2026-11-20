@@ -31,3 +31,4 @@ A `--fault error;scheme=http;reply=<status>;body=<text>` rule makes the HTTP ser
 ## Log
 
 - 2026-11-20: Created.
+- 2026-11-20: Backlog -> Doing.
