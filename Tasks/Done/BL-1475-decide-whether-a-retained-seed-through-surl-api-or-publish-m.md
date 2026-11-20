@@ -8,7 +8,7 @@ depends-on: []
 touches: [Application/Surl.Api, Application/Surl.Api.UnitTests, Application/Surl.Mcp.UnitLibrary, Application/Surl.Mcp.UnitTests, Documentation/Planning/Decisions]
 requirement: none
 created: 2026-11-20
-completed:
+completed: 2026-11-20
 ---
 # BL-1475 — Decide whether a retained seed through Surl.Api or publish_message obeys --topic's retain filter as a client publish does
 
@@ -32,18 +32,19 @@ one a client publishes follow one recorded rule about topics outside `--topic ..
 
 ## Acceptance criteria
 
-- [ ] An ADR-0176 amendment ("Decided by Claude under Stewart's delegation") says whether a seed obeys the retain
+- [x] An ADR-0176 amendment ("Decided by Claude under Stewart's delegation") says whether a seed obeys the retain
       filter, and why, for `Surl.Api`, `surl-mcp` and the control endpoint alike.
-- [ ] The code follows it; named tests in `Surl.Api.UnitTests` and `Surl.Mcp.UnitTests` pin a retained seed on a
+- [x] The code follows it; named tests in `Surl.Api.UnitTests` and `Surl.Mcp.UnitTests` pin a retained seed on a
       topic outside `--topic`'s filter (kept, or refused with the error the ADR names).
-- [ ] The `Surl.Api` README, the `publish_message` tool description and the `--aihelp mqtt` paragraph state the rule.
-- [ ] `dotnet build` clean, fast tests green, coverage gates held.
+- [x] The `Surl.Api` README, the `publish_message` tool description and the `--aihelp mqtt` paragraph state the rule.
+- [x] `dotnet build` clean, fast tests green, coverage gates held.
 
 ## Notes
 
-- Default leaning: keep seeds (a seed is explicit test setup), and document it.
+- Decided: keep seeds, ADR-0176 amendment 1; no refusal error. Control endpoint shares the same SeedPublishAsync path.
 
 ## Log
 
 - 2026-11-20: Created.
 - 2026-11-20: Backlog -> Doing.
+- 2026-11-20: Doing -> Done. ADR-0176 amendment 1: seeds ignore the retain filter; tests and docs added

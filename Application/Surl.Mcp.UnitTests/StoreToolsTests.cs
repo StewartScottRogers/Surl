@@ -148,6 +148,19 @@ public sealed class StoreToolsTests
     }
 
     [TestMethod]
+    public async Task PublishMessage_RetainedOnATopicOutsideTheRetainFilter_IsStillKept()
+    {
+        await using var host = await StartHostAsync(
+            "mqtt://127.0.0.1:0", "--user", "alice:secret", "--allow-plaintext-auth", "--topic", "sensors/#;retain");
+
+        var result = await CallAsync(host.PublishMessage, """{"server_id": "s1", "topic": "t/1", "payload": "hi", "retain": true}""");
+        var written = await ServeBytesAsync(host, "mqtt", MqttSubscribeToT1AsAlice);
+
+        AssertResult(result, """{"published":true}""");
+        Assert.IsGreaterThanOrEqualTo(0, written.AsSpan().IndexOf(RetainedHiOnT1));
+    }
+
+    [TestMethod]
     public async Task PublishMessage_NotRetained_IsPublished()
     {
         await using var host = await StartHostAsync("mqtt://127.0.0.1:0");
