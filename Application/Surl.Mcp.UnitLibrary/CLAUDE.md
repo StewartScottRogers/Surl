@@ -86,7 +86,9 @@ with one `McpServerRegistry.AddTool` line and holds nothing else of the tools.
   1 MiB in all are shown; a cut ends its chunk early and drops the chunks after it (`is_cut`), and in a text
   chunk backs off to the start of a UTF-8 sequence (a chunk cut to nothing is left out). Once the 1 MiB is
   used, later exchanges are left out and `has_more` is true, as it is when `max_exchanges` stops the list.
-- `StartServerSafetyCheck` - ADR-0103 decision 4: `-K`/`--config` refused outright; the words parsed with
+- `StartServerSafetyCheck` - ADR-0103 decision 4: `-K`/`--config` refused outright; `--log-file`, `--trace` and
+  `--trace-ascii` (also `=value` forms) refused with text pointing at standard error, `get_exchanges` and
+  `get_events` (BL-1457); the words parsed with
   `Surl.Cli`'s `CommandLineParser` (accepting every extended scheme, so they parse whenever `Surl.Api`'s own
   parse would; words `surl` refuses are left to `Surl.Api` to refuse with `surl`'s exit code); every listen
   URL and every proxy listen URL (`--proxy`) on loopback (`localhost`, `127.0.0.0/8`, `::1`, or a Unix domain socket) unless `AllowNonLoopback`; and

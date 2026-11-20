@@ -8,7 +8,7 @@ depends-on: []
 touches: [Application/Surl.Mcp.UnitLibrary, Application/Surl.Mcp.UnitTests]
 requirement: none
 created: 2026-11-20
-completed:
+completed: 2026-11-20
 ---
 # BL-1457 — Answer start_server's --log-file, --trace and --trace-ascii in surl-mcp's own terms
 
@@ -35,20 +35,23 @@ and that `get_exchanges` and `get_events` show what a client sent. It no longer 
 
 ## Acceptance criteria
 
-- [ ] `start_server` with `arguments: ["--log-file", "x.log"]`, `["--trace", "t"]`,
+- [x] `start_server` with `arguments: ["--log-file", "x.log"]`, `["--trace", "t"]`,
       `["--trace-ascii=t"]` each returns an `isError` result whose text names the option, standard error,
       `get_exchanges` and `get_events`, and not `SurlServerOptions` (named tests in
       `Application/Surl.Mcp.UnitTests`).
-- [ ] No server is started for such a call (`list_servers` is empty afterwards).
-- [ ] `--help`, `--aihelp`, `--manual` and `--version` are still refused as before (existing tests
+- [x] No server is started for such a call (`list_servers` is empty afterwards).
+- [x] `--help`, `--aihelp`, `--manual` and `--version` are still refused as before (existing tests
       green).
-- [ ] `dotnet build Application/Surl.Mcp.UnitLibrary -warnaserror` is clean, the fast tests are green,
+- [x] `dotnet build Application/Surl.Mcp.UnitLibrary -warnaserror` is clean, the fast tests are green,
       and coverage stays at 100% line and branch.
 
 ## Notes
+
+Decision: refused in StartServerSafetyCheck (surl-mcp only), before parsing, so Surl.Api keeps its .NET-facing message. Shows as `refused: <option> is not accepted: ...`.
 
 ## Log
 
 - 2026-11-20: Created.
 - 2026-11-20: Filed from `Z:\repos\Surly\Documentation\Bug-Reports\2026-11-20T0553-Surl-bug-report.md` item 3.
 - 2026-11-20: Backlog -> Doing.
+- 2026-11-20: Doing -> Done. start_server refuses --log-file/--trace/--trace-ascii in surl-mcp's own terms

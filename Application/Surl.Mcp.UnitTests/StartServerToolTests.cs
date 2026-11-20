@@ -219,6 +219,30 @@ public sealed class StartServerToolTests
     }
 
     [TestMethod]
+    [DataRow("""["--log-file", "x.log"]""", "--log-file")]
+    [DataRow("""["--trace", "t"]""", "--trace")]
+    [DataRow("""["--trace-ascii=t"]""", "--trace-ascii")]
+    [DataRow("""["--log-file=x.log"]""", "--log-file")]
+    public async Task Handler_AHostOwnedFileOption_IsRefusedInSurlMcpsTermsAndStartsNothing(string words, string option)
+    {
+        await using var host = new McpTestHost();
+
+        var result = await McpTestHost.CallAsync(
+            host.StartServer,
+            $$"""{"listen_urls": ["http://127.0.0.1:0"], "arguments": {{words}}}""",
+            TestContext.CancellationToken);
+
+        Assert.IsTrue(result.IsError);
+        var text = string.Join("\n", result.TextContent);
+        StringAssert.Contains(text, option);
+        StringAssert.Contains(text, "standard error");
+        StringAssert.Contains(text, "get_exchanges");
+        StringAssert.Contains(text, "get_events");
+        Assert.DoesNotContain("SurlServerOptions", text);
+        Assert.IsEmpty(host.Servers.List());
+    }
+
+    [TestMethod]
     public async Task Handler_FilesAndBase64Files_ServesBoth()
     {
         await using var host = new McpTestHost();

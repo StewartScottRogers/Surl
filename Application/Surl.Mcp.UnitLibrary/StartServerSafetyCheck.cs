@@ -31,6 +31,13 @@ internal sealed class StartServerSafetyCheck(SurlMcpHostSettings settings, PathC
             return ConfigFileRule;
         }
 
+        var hostOwnedFileOption = words.Select(FindHostOwnedFileOption).FirstOrDefault(option => option is not null);
+        if (hostOwnedFileOption is not null)
+        {
+            return $"{hostOwnedFileOption} is not accepted: surl-mcp writes each server's log to its own standard error; "
+                + "use get_exchanges and get_events to see what a client sent";
+        }
+
         // Every extended scheme is accepted here, so the words parse whenever Surl.Api's narrower parse would.
         var commandLine = CommandLineParser.Parse(words, ExtendedSchemeDefaultPorts.Schemes).CommandLine;
         return commandLine is null ? null : FindListenHostRefusal(commandLine) ?? FindPathRefusal(commandLine);
@@ -42,6 +49,13 @@ internal sealed class StartServerSafetyCheck(SurlMcpHostSettings settings, PathC
     internal static bool IsLoopback(string host) =>
         string.Equals(host, "localhost", StringComparison.OrdinalIgnoreCase)
         || (IPAddress.TryParse(host, out var address) && IPAddress.IsLoopback(address));
+
+    private static readonly string[] HostOwnedFileOptions = ["--log-file", "--trace", "--trace-ascii"];
+
+    /// <summary>The host-owned file option <paramref name="word"/> spells, as <c>--name</c> or <c>--name=value</c>, or null.</summary>
+    private static string? FindHostOwnedFileOption(string word) =>
+        HostOwnedFileOptions.FirstOrDefault(option =>
+            word == option || word.StartsWith(option + "=", StringComparison.Ordinal));
 
     private static bool IsConfigFileOption(string word) =>
         word == "--config" || word.StartsWith("--config=", StringComparison.Ordinal) || word.StartsWith("-K", StringComparison.Ordinal);
