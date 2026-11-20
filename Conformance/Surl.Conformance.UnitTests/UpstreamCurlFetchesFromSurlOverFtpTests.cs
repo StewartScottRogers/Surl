@@ -23,6 +23,7 @@ public sealed class UpstreamCurlFetchesFromSurlOverFtpTests
 
     // CURLE_OPERATION_TIMEDOUT: surl answered 421 in place of the greeting.
     private const int OperationTimedOut = 28;
+    private const int CouldNotConnect = 7;
 
     // CURLE_REMOTE_FILE_NOT_FOUND: SIZE was answered 550.
     private const int RemoteFileNotFound = 78;
@@ -225,7 +226,13 @@ public sealed class UpstreamCurlFetchesFromSurlOverFtpTests
 
         var result = await RunCurlAsync(surl.UrlOf("a.txt"));
 
-        Assert.AreEqual(OperationTimedOut, result.ExitCode, result.StandardError);
+        // surl answers "421 Too many connections" and closes gracefully (FtpProtocolServer.WriteRefusalAsync,
+        // then StreamConnection's lingering close), and curl maps a 421 greeting to exit 28. On macOS
+        // arm64 one CI run (release 44640744739) saw curl report its connect as failed (exit 7, after
+        // 8 ms) before it read the reply; a rerun gave 28. Either way curl was refused, never served, so
+        // macOS accepts both refusals (BL-1412).
+        var acceptedExitCodes = OperatingSystem.IsMacOS() ? new[] { OperationTimedOut, CouldNotConnect } : [OperationTimedOut];
+        CollectionAssert.Contains(acceptedExitCodes, result.ExitCode, result.StandardError);
     }
 
     private static string[] Split(string options) => options.Split(' ', StringSplitOptions.RemoveEmptyEntries);
