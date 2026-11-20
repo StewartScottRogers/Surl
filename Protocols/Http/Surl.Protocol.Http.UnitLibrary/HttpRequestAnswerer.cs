@@ -289,6 +289,12 @@ internal sealed partial class HttpRequestAnswerer : IHttpRequestHandler
     {
         var now = Now();
         var lastModified = FormatHttpDate(status.LastModifiedUtc < now ? status.LastModifiedUtc : now);
+        var lastModifiedUtc = status.LastModifiedUtc < now ? status.LastModifiedUtc : now;
+        if (DateConditionAnswer(request, lastModifiedUtc, challenges) is { } conditionAnswer)
+        {
+            return conditionAnswer;
+        }
+
         var ranges = request.Method == "GET" ? SelectedRanges(request, lastModified, status.Length) : null;
         if (ranges is { Count: 0 })
         {

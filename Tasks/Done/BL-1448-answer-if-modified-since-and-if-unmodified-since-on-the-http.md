@@ -8,7 +8,7 @@ depends-on: [BL-1447]
 touches: [Protocols/Http/Surl.Protocol.Http.UnitLibrary, Protocols/Http/Surl.Protocol.Http.UnitTests, Application/Surl.Cli.UnitLibrary/AiHelpProse.cs]
 requirement: none
 created: 2026-11-20
-completed:
+completed: 2026-11-20
 ---
 # BL-1448 — Answer If-Modified-Since and If-Unmodified-Since on the HTTP server
 
@@ -30,22 +30,25 @@ BL-1446's recordings say.
 
 ## Acceptance criteria
 
-- [ ] Named fast tests in `Protocols/Http/Surl.Protocol.Http.UnitTests` cover each row of BL-1447's table
+- [x] Named fast tests in `Protocols/Http/Surl.Protocol.Http.UnitTests` cover each row of BL-1447's table
       for `If-Modified-Since` and `If-Unmodified-Since`: unchanged gives `304` with the fields the ADR
       lists and no body; changed gives `200`; an invalid date is treated as the ADR says; `HEAD` behaves
       as `GET` without a body.
-- [ ] The bytes sent for BL-1446's `-z` cases equal what the ADR pins (a replay test against the
+- [x] The bytes sent for BL-1446's `-z` cases equal what the ADR pins (a replay test against the
       recorded requests).
-- [ ] `-z "-<date>"` against a newer file gives `412` (named test).
-- [ ] The `--aihelp http` paragraph states the date conditions, and
+- [x] `-z "-<date>"` against a newer file gives `412` (named test).
+- [x] The `--aihelp http` paragraph states the date conditions, and
       `CommandLineRunnerAiHelpTests.RunAsync_EveryAiHelpExample_WritesWhatTheExampleShows` stays green.
-- [ ] `dotnet build Protocols/Http/Surl.Protocol.Http.UnitLibrary -warnaserror` is clean, the fast tests
+- [x] `dotnet build Protocols/Http/Surl.Protocol.Http.UnitLibrary -warnaserror` is clean, the fast tests
       are green, and coverage stays at 100% line and branch.
 
 ## Notes
+
+- Date conditions only (ADR-0184 steps 2 and 4). `If-Match`, `If-None-Match` and the `ETag` field on the 304 are BL-1449. Replays use BL-1446's recorded curl requests; the 304 bytes are pinned from the ADR (curl treats any 304 as bodiless). Date parsing is in `HttpRequestAnswerer.Conditions.cs`.
 
 ## Log
 
 - 2026-11-20: Created.
 - 2026-11-20: Filed from `Z:\repos\Surly\Documentation\Bug-Reports\2026-11-19T1942-Surl-bug-report.md` item 12.
 - 2026-11-20: Backlog -> Doing.
+- 2026-11-20: Doing -> Done. Date conditions answered 304/412; tests, aihelp done
