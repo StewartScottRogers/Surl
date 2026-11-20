@@ -8,7 +8,7 @@ depends-on: [BL-1420, BL-1422, BL-1423, BL-1424, BL-1425, BL-1426, BL-1427, BL-1
 touches: [Application/Surl.Cli.UnitLibrary/AiHelpProse.cs, Application/Surl.Cli.UnitLibrary/ManualText.cs, Application/Surl.Cli.UnitTests]
 requirement: none
 created: 2026-11-20
-completed:
+completed: 2026-11-20
 ---
 # BL-1436 — State in --aihelp and --manual which credentials the -v log, trace dumps and --log-file withhold
 
@@ -31,22 +31,27 @@ BL-1417's ADR decides, so a cookbook can keep a log without filtering it.
 
 ## Acceptance criteria
 
-- [ ] The `--aihelp` paragraph that describes `-v` and the trace options states which fields are
+- [x] The `--aihelp` paragraph that describes `-v` and the trace options states which fields are
       redacted and shows one redacted line (e.g. `PASS ****`) exactly as surl writes it.
-- [ ] The security topic says the log withholds credentials and names any option that turns that off.
-- [ ] `--manual`'s `-v`, `--trace` and `--trace-ascii` entries say the same; `ManualTextTests` is updated
+- [x] The security topic says the log withholds credentials and names any option that turns that off.
+- [x] `--manual`'s `-v`, `--trace` and `--trace-ascii` entries say the same; `ManualTextTests` is updated
       and green.
-- [ ] `CommandLineRunnerAiHelpTests.RunAsync_EveryAiHelpExample_WritesWhatTheExampleShows` and every
+- [x] `CommandLineRunnerAiHelpTests.RunAsync_EveryAiHelpExample_WritesWhatTheExampleShows` and every
       `AiHelpTextTests` test stay green.
-- [ ] `dotnet build Application/Surl.Cli.UnitLibrary -warnaserror` is clean and the fast tests are green.
+- [x] `dotnet build Application/Surl.Cli.UnitLibrary -warnaserror` is clean and the fast tests are green.
 
 ## Notes
 
 - Depends on every original-protocol redaction task, so the text names only what is built. Extended
   servers the ADR files tasks for are added to the text by those tasks.
 
+## Notes (run)
+
+- Text names the original servers and the extended ones already built (Redis, NATS, STOMP, AMQP 0-9-1); BL-1461..1465 add theirs. Written in the logging and security topics and the manual's LOG LEVELS section.
+
 ## Log
 
 - 2026-11-20: Created.
 - 2026-11-20: Filed from `Z:\repos\Surly\Documentation\Bug-Reports\2026-11-20T0553-Surl-bug-report.md` item 1.
 - 2026-11-20: Backlog -> Doing.
+- 2026-11-20: Doing -> Done. aihelp logging/security topics and --manual state which credentials the log withholds and that the event stream stays raw
