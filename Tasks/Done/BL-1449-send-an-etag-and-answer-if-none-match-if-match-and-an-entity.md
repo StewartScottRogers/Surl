@@ -47,7 +47,7 @@ the range when it matches.
 
 ## Notes
 
-- ADR-0184 decision 7 (`PUT` conditions) is not in this task's acceptance criteria and would exceed one run; filed as BL-1467.
+- ADR-0184 decision 7 (`PUT` conditions) is not in this task's acceptance criteria and would exceed one run; filed as BL-1471.
 - Recorded `response.bin` fixtures of a served file gained the `ETag` line (`"8df0803365eb400-11"` for the 17-byte file at the harness mtime).
 - BL-1446's `etag-compare-*` replay: the recorded `"abc"` is not the file's tag so it gets `200` with the `ETag`; with the server's own tag substituted it gets `304`.
 

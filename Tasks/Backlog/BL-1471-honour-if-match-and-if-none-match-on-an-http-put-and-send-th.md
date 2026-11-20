@@ -1,5 +1,5 @@
 ---
-id: BL-1467
+id: BL-1471
 title: Honour If-Match and If-None-Match on an HTTP PUT and send the new ETag (ADR-0184 decision 7)
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-20
 completed:
 ---
-# BL-1467 — Honour If-Match and If-None-Match on an HTTP PUT and send the new ETag (ADR-0184 decision 7)
+# BL-1471 — Honour If-Match and If-None-Match on an HTTP PUT and send the new ETag (ADR-0184 decision 7)
 
 ## Goal
 
