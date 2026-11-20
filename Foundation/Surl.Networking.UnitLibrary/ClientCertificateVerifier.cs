@@ -34,14 +34,23 @@ internal sealed class ClientCertificateVerifier
     /// </summary>
     /// <param name="certificate">The client's certificate, or <see langword="null"/> when it sent none.</param>
     /// <returns><see langword="true"/> when the chain builds to a trust anchor.</returns>
-    public bool IsTrusted(X509Certificate? certificate)
-    {
-        if (certificate is null)
-        {
-            return false;
-        }
+    public bool IsTrusted(X509Certificate? certificate) =>
+        certificate is not null && BuildsToAnchor(certificate.GetRawCertData(), []);
 
-        using var leaf = X509CertificateLoader.LoadCertificate(certificate.GetRawCertData());
+    /// <summary>
+    /// Whether a certificate chain a hand-built TLS 1.3 handshake received chains to a trust anchor
+    /// (ADR-0010, section 5): the first certificate is the client's, and the rest are intermediates
+    /// that may be used to reach an anchor but are never trusted themselves. An empty chain is never
+    /// trusted.
+    /// </summary>
+    /// <param name="chain">The DER certificates the client sent, its own first.</param>
+    /// <returns><see langword="true"/> when the first certificate builds to a trust anchor.</returns>
+    public bool IsChainTrusted(IReadOnlyList<ReadOnlyMemory<byte>> chain) =>
+        chain.Count > 0 && BuildsToAnchor(chain[0].ToArray(), chain.Skip(1));
+
+    private bool BuildsToAnchor(byte[] leafDer, IEnumerable<ReadOnlyMemory<byte>> intermediatesDer)
+    {
+        using var leaf = X509CertificateLoader.LoadCertificate(leafDer);
         using var chain = new X509Chain();
         chain.ChainPolicy.TrustMode = X509ChainTrustMode.CustomRootTrust;
         chain.ChainPolicy.CustomTrustStore.AddRange(trustAnchors.ToArray());
@@ -50,9 +59,21 @@ internal sealed class ClientCertificateVerifier
         chain.ChainPolicy.VerificationTime = timeProvider.GetUtcNow().UtcDateTime;
         chain.ChainPolicy.ApplicationPolicy.Add(ClientAuthentication);
 
-        return chain.Build(leaf);
-    }
+        var intermediates = intermediatesDer.Select(der => X509CertificateLoader.LoadCertificate(der.Span)).ToArray();
+        try
+        {
+            chain.ChainPolicy.ExtraStore.AddRange(intermediates);
 
+            return chain.Build(leaf);
+        }
+        finally
+        {
+            foreach (var intermediate in intermediates)
+            {
+                intermediate.Dispose();
+            }
+        }
+    }
     /// <summary>
     /// The <see cref="RemoteCertificateValidationCallback"/> a server handshake uses: it ignores
     /// the platform's own chain and errors and answers <see cref="IsTrusted"/>.

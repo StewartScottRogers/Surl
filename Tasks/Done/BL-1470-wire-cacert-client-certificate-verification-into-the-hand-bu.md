@@ -8,7 +8,7 @@ depends-on: [BL-1466]
 touches: [Foundation/Surl.Networking.UnitLibrary, Foundation/Surl.Networking.UnitTests]
 requirement: none
 created: 2026-11-20
-completed:
+completed: 2026-11-20
 ---
 # BL-1470 — Wire --cacert client-certificate verification into the hand-built TLS 1.3 server stream in Surl.Networking
 
@@ -22,14 +22,18 @@ ADR-0157 amendment 1. BL-1466 made `TlsServerHandshakeOptions.TrustsClientCertif
 
 ## Acceptance criteria
 
-- [ ] `CreateTls13Options` sets `TrustsClientCertificateChain` from the client-certificate verifier when `--cacert` is given, and leaves it null otherwise, with unit tests for both.
-- [ ] The TLS session of a hand-built stream carries the verified client certificate, with a unit test.
-- [ ] A TLS 1.3-only listener with `--cacert` refuses a client without a trusted certificate with a handshake failure, in a test over the hand-built stream.
-- [ ] No guard sends `--tlsv1.3 --cacert` listeners to `SslStream` any more; both projects keep 100% line and branch coverage.
+- [x] `CreateTls13Options` sets `TrustsClientCertificateChain` from the client-certificate verifier when `--cacert` is given, and leaves it null otherwise, with unit tests for both.
+- [x] The TLS session of a hand-built stream carries the verified client certificate, with a unit test.
+- [x] A TLS 1.3-only listener with `--cacert` refuses a client without a trusted certificate with a handshake failure, in a test over the hand-built stream.
+- [x] No guard sends `--tlsv1.3 --cacert` listeners to `SslStream` any more; both projects keep 100% line and branch coverage.
 
 ## Notes
+
+- Intermediates (ADR-0010 section 5): new `ClientCertificateVerifier.IsChainTrusted` takes the DER chain, leaf first, and passes the rest as ChainPolicy.ExtraStore (never trust anchors). `CanServeTls13Stream` no longer excludes `--cacert`, so no listener is sent to SslStream for it.
+- Ws test `ExchangeCancelledForALimit_IsClosedWith1001_ThenLingered` timed out once in the full run; untouched project, unrelated.
 
 ## Log
 
 - 2026-11-20: Created.
 - 2026-11-20: Backlog -> Doing.
+- 2026-11-20: Doing -> Done. TLS 1.3-only --cacert listeners request and verify client certificates over the hand-built stream

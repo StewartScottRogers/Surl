@@ -118,7 +118,7 @@ public sealed class ServerTlsHandshakeTls13Tests
 
     [TestMethod]
     [OSCondition(ConditionMode.Exclude, OperatingSystems.OSX)]
-    public async Task AuthenticateAsync_Tls13OnlyWithClientCertificateSetting_IsServedBySslStream()
+    public async Task AuthenticateAsync_Tls13OnlyWithClientCertificateSetting_IsServedByTheHandBuiltStreamWithTheVerifiedCertificate()
     {
         using var certificate = TestCertificates.CreateEcdsaServerCertificate();
         using var authority = TestCertificates.CreateCertificateAuthority("CN=surl test CA");
@@ -132,8 +132,57 @@ public sealed class ServerTlsHandshakeTls13Tests
         await using (client)
         await using (server)
         {
-            Assert.IsInstanceOfType<SslStream>(server);
+            Assert.IsInstanceOfType<Tls13ServerStream>(server);
+            Assert.AreEqual(SslProtocols.Tls13, session.Protocol);
             Assert.AreEqual(clientCertificate.Thumbprint, session.ClientCertificate!.Thumbprint);
+        }
+    }
+
+    [TestMethod]
+    [OSCondition(ConditionMode.Exclude, OperatingSystems.OSX)]
+    public async Task AuthenticateAsync_Tls13OnlyWithClientCertificateSettingAndNoCertificateSent_IsTlsHandshakeException()
+    {
+        using var certificate = TestCertificates.CreateEcdsaServerCertificate();
+        using var authority = TestCertificates.CreateCertificateAuthority("CN=surl test CA");
+        using var settings = new ServerTlsSettings(certificate, [], [authority], Time);
+
+        await AssertClientRefusedAsync(settings, ClientOptions(SslProtocols.Tls13));
+    }
+
+    [TestMethod]
+    [OSCondition(ConditionMode.Exclude, OperatingSystems.OSX)]
+    public async Task AuthenticateAsync_Tls13OnlyWithClientCertificateSettingAndAnUntrustedCertificate_IsTlsHandshakeException()
+    {
+        using var certificate = TestCertificates.CreateEcdsaServerCertificate();
+        using var authority = TestCertificates.CreateCertificateAuthority("CN=surl test CA");
+        using var stranger = TestCertificates.CreateCertificateAuthority("CN=stranger CA");
+        using var clientCertificate = TestCertificates.CreateClientCertificate(stranger);
+        using var settings = new ServerTlsSettings(certificate, [], [authority], Time);
+        var options = ClientOptions(SslProtocols.Tls13);
+        options.ClientCertificates = [clientCertificate];
+        options.LocalCertificateSelectionCallback = (_, _, _, _, _) => clientCertificate;
+
+        await AssertClientRefusedAsync(settings, options);
+    }
+
+    private async Task AssertClientRefusedAsync(ServerTlsSettings settings, SslClientAuthenticationOptions clientOptions)
+    {
+        var handshake = new ServerTlsHandshake(settings, [], new FakeTls13Support(true));
+        var (serverStream, clientStream) = InMemoryDuplexStream.CreatePair();
+        var client = new SslStream(clientStream, leaveInnerStreamOpen: true);
+        var clientHandshake = client.AuthenticateAsClientAsync(clientOptions, TestContext.CancellationToken);
+
+        await Assert.ThrowsExactlyAsync<TlsHandshakeException>(
+            () => handshake.AuthenticateAsync(serverStream, TestContext.CancellationToken));
+
+        await client.DisposeAsync();
+        try
+        {
+            await clientHandshake;
+        }
+        catch (Exception exception) when (exception is AuthenticationException or IOException or ObjectDisposedException)
+        {
+            // A TLS 1.3 client may or may not see the refusal before its own handshake ends.
         }
     }
 

@@ -19,13 +19,46 @@ public sealed class ServerTlsSettingsTests
     }
 
     [TestMethod]
-    public void CanServeTls13Stream_ClientCertificateRequired_IsFalse()
+    public void CanServeTls13Stream_ClientCertificateRequired_IsTrue()
     {
         using var certificate = TestCertificates.CreateEcdsaServerCertificate();
         using var authority = TestCertificates.CreateCertificateAuthority("CN=surl test CA");
         using var settings = new ServerTlsSettings(certificate, [], [authority], Time);
 
-        Assert.IsFalse(settings.CanServeTls13Stream);
+        Assert.IsTrue(settings.CanServeTls13Stream);
+    }
+
+    [TestMethod]
+    public void CreateTls13Options_NoTrustAnchors_RequestsNoClientCertificate()
+    {
+        using var certificate = TestCertificates.CreateEcdsaServerCertificate();
+        using var settings = new ServerTlsSettings(certificate, [], [], Time);
+
+        var options = settings.CreateTls13Options([], out var key);
+        using (key)
+        {
+            Assert.IsNull(options.TrustsClientCertificateChain);
+        }
+    }
+
+    [TestMethod]
+    public void CreateTls13Options_TrustAnchors_TrustsAChainThatEndsAtAnAnchorWithItsIntermediate()
+    {
+        using var certificate = TestCertificates.CreateEcdsaServerCertificate();
+        using var root = TestCertificates.CreateCertificateAuthority("CN=surl test root");
+        using var intermediate = TestCertificates.CreateIntermediateAuthority(root, "CN=surl test intermediate");
+        using var client = TestCertificates.CreateClientCertificate(intermediate);
+        using var stranger = TestCertificates.CreateCertificateAuthority("CN=stranger CA");
+        using var settings = new ServerTlsSettings(certificate, [], [root], Time);
+
+        var options = settings.CreateTls13Options([], out var key);
+        using (key)
+        {
+            Assert.IsNotNull(options.TrustsClientCertificateChain);
+            Assert.IsTrue(options.TrustsClientCertificateChain([client.RawData, intermediate.RawData]));
+            Assert.IsFalse(options.TrustsClientCertificateChain([client.RawData]));
+            Assert.IsFalse(options.TrustsClientCertificateChain([client.RawData, stranger.RawData]));
+        }
     }
 
     [TestMethod]

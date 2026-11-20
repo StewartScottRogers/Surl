@@ -191,7 +191,11 @@ internal sealed class ServerTlsHandshake
 
     // The Tls13 library's suite numbers are IANA's, as TlsCipherSuite's are.
     private static TlsSession SessionOf(Tls13ServerStream stream) =>
-        new(SslProtocols.Tls13, (System.Net.Security.TlsCipherSuite)(ushort)stream.CipherSuite, stream.ApplicationProtocol, stream.ClientHello.ServerName, null);
+        new(SslProtocols.Tls13, (System.Net.Security.TlsCipherSuite)(ushort)stream.CipherSuite, stream.ApplicationProtocol, stream.ClientHello.ServerName, ClientCertificateOf(stream));
+
+    // The stream verified the chain before the handshake finished; the session keeps the client's own certificate.
+    private static X509Certificate2? ClientCertificateOf(Tls13ServerStream stream) =>
+        stream.ClientCertificateChain is { } chain ? X509CertificateLoader.LoadCertificate(chain[0].Span) : null;
 
     private static TlsSession SessionOf(SslStream sslStream) =>
         new(
