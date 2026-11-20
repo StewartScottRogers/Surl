@@ -48,3 +48,4 @@ redactor that holds received bytes back to a CR LF and rewrites each line a rule
 
 - 2026-11-20: Created.
 - 2026-11-20: Filed from `Z:\repos\Surly\Documentation\Bug-Reports\2026-11-20T0553-Surl-bug-report.md` item 1.
+- 2026-11-20: Backlog -> Doing.
