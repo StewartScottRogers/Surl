@@ -52,3 +52,4 @@ An account added through `ComposedStores.AddAccount` (surl-mcp `add_account`, `S
 
 - 2026-11-20: Created.
 - 2026-11-20: Filed from `Z:\repos\Surly\Documentation\Bug-Reports\2026-11-19T2203-Surl-bug-report.md` items 1 and 2.
+- 2026-11-20: Backlog -> Doing.
