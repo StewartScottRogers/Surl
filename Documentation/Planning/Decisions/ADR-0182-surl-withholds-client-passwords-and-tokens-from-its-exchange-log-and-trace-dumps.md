@@ -120,3 +120,12 @@ IMAP `+`, the next client line is a secret).
 - BL-1418 and BL-1419 build the seam as decision 6; the filed tasks' `touches` match it, so none is amended.
 - `Documentation/Planning/Decisions/README.md` lists this ADR.
 - Eight extended-server tasks (BL-1458 to BL-1465) are filed behind BL-1419.
+
+## Amendment 1 (BL-1419, decided by Claude under Stewart's delegation)
+
+- `ServingEngine.OpenExchange` asks the exchange's server for a redactor once and puts a `RedactingExchangeLog` between
+  `EventPublishingExchangeLog` and the level's log; `Flush` runs when the exchange ends, before `ExchangeEndedEvent`.
+- **FTP data connections are logged raw.** Their bytes are the client's payload (decision 8), and a line redactor would
+  rewrite file content that happens to look like a command. They still count in `ExchangeEndedEvent` and reach the event stream.
+- **Decrypted-bytes notes** (QUIC, DTLS) are redacted per reported chunk by a fresh redactor from the same server, not by the
+  exchange's wire redactor, because the wire bytes of those transports are ciphertext. Only received chunks are redacted. Events stay raw.

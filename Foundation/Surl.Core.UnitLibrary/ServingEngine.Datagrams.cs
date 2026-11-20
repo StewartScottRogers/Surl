@@ -76,7 +76,8 @@ public sealed partial class ServingEngine
     // engine logs it as received when the exchange opens (ADR-0004, section 5).
     private async Task ServeAndLogFlowExchangeAsync(IDatagramFlow flow, AcceptedFlowRoute route, ExchangeDeadlines deadlines)
     {
-        var (exchangeId, log, context, bytesLog) = OpenExchange(route.ListenUrl, flow.LocalEndPoint, flow.RemoteEndPoint, deadlines);
+        var (exchangeId, log, context, bytesLog, redaction) = OpenExchange(
+            route.ListenUrl, route.Server, flow.LocalEndPoint, flow.RemoteEndPoint, deadlines);
 
         try
         {
@@ -90,7 +91,7 @@ public sealed partial class ServingEngine
         }
         finally
         {
-            PublishExchangeEnded(exchangeId, bytesLog);
+            PublishExchangeEnded(exchangeId, bytesLog, redaction);
         }
     }
 

@@ -735,13 +735,14 @@ public sealed partial class ServingEngine
     private async Task ServeAndLogExchangeAsync(
         IConnection connection, AcceptedConnectionRoute route, ExchangeDeadlines deadlines)
     {
-        var (exchangeId, log, context, bytesLog) = OpenExchange(route.ListenUrl, connection.LocalEndPoint, connection.RemoteEndPoint, deadlines);
+        var (exchangeId, log, context, bytesLog, redaction) = OpenExchange(
+            route.ListenUrl, route.Server, connection.LocalEndPoint, connection.RemoteEndPoint, deadlines);
         connection.UseTlsLoginJudge(new ExchangeTlsLoginJudge(context));
 
         try
         {
             var recordingConnection = new RecordingConnection(connection, bytesLog);
-            var dataConnections = new ExchangeDataConnections(dataConnectionOpener, bytesLog, deadlines);
+            var dataConnections = new ExchangeDataConnections(dataConnectionOpener, bytesLog.PayloadLog, deadlines);
             var failure = await CaptureFailureAsync(() => FaultThenSecureThenServeAsync(
                 recordingConnection, route, deadlines, context with { DataConnections = dataConnections }));
 
@@ -757,7 +758,7 @@ public sealed partial class ServingEngine
         }
         finally
         {
-            PublishExchangeEnded(exchangeId, bytesLog);
+            PublishExchangeEnded(exchangeId, bytesLog, redaction);
         }
     }
 
@@ -871,12 +872,18 @@ public sealed partial class ServingEngine
 
     // Numbers the exchange, creates its log and context, notes that it opened and publishes its
     // start. The server's context keeps the log itself; the bytes go through the publishing log,
-    // which also counts them for the exchange's end.
-    private (long ExchangeId, IExchangeLog Log, ExchangeContext Context, EventPublishingExchangeLog BytesLog) OpenExchange(
-        ListenUrl listenUrl, EndPoint localEndPoint, EndPoint remoteEndPoint, ExchangeDeadlines deadlines)
+    // which also counts them for the exchange's end. A server that redacts (ADR-0182) has a
+    // redacting log between the publishing log and the level's log: the event stream is fed the
+    // wire bytes, the level's log the redacted ones.
+    private (long ExchangeId, IExchangeLog Log, ExchangeContext Context, EventPublishingExchangeLog BytesLog, RedactingExchangeLog? Redaction)
+        OpenExchange(
+            ListenUrl listenUrl, IProtocolServer server, EndPoint localEndPoint, EndPoint remoteEndPoint, ExchangeDeadlines deadlines)
     {
         var exchangeId = Interlocked.Increment(ref lastExchangeId);
         var log = exchangeLogFactory.Create(exchangeId, remoteEndPoint);
+        var redactionContext = new ExchangeRedactionContext(exchangeId, listenUrl.Scheme);
+        var redactingServer = server as IExchangeBytesRedactingServer;
+        var redaction = redactingServer is null ? null : new RedactingExchangeLog(log, redactingServer.CreateRedactor(redactionContext));
         var context = new ExchangeContext(
             exchangeId, listenUrl, localEndPoint, remoteEndPoint, log, timeProvider, deadlines.Token)
         {
@@ -886,17 +893,21 @@ public sealed partial class ServingEngine
             Faults = faults,
             IdleClock = deadlines,
             Identifiers = IdentifiersForExchange?.Invoke(exchangeId) ?? CryptographicIdentifierRandom.Instance,
-            DecryptedBytes = new EventPublishingDecryptedBytesSink(log, events, exchangeId),
+            DecryptedBytes = new EventPublishingDecryptedBytesSink(
+                log, events, exchangeId, redactingServer is null ? null : () => redactingServer.CreateRedactor(redactionContext)),
         };
 
         log.Note($"Exchange {exchangeId} opened: {listenUrl.Scheme} from {remoteEndPoint}.");
         events.Publish(new ExchangeStartedEvent(exchangeId, ReportedListenUrl.Format(listenUrl), listenUrl.Scheme, remoteEndPoint));
 
-        return (exchangeId, log, context, new EventPublishingExchangeLog(log, events, exchangeId));
+        return (exchangeId, log, context, new EventPublishingExchangeLog(redaction ?? log, events, exchangeId, log), redaction);
     }
 
-    private void PublishExchangeEnded(long exchangeId, EventPublishingExchangeLog bytesLog) =>
+    private void PublishExchangeEnded(long exchangeId, EventPublishingExchangeLog bytesLog, RedactingExchangeLog? redaction)
+    {
+        redaction?.Flush();
         events.Publish(new ExchangeEndedEvent(exchangeId, bytesLog.ReceivedByteCount, bytesLog.SentByteCount));
+    }
 
     // A started listener, and the loop that accepts from it until the engine stops accepting.
     private sealed record StartedListener(IAsyncDisposable Listener, Func<ServingState, Task> AcceptUntilStoppedAsync);
