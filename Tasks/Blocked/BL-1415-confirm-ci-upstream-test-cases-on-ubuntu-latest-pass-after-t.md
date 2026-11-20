@@ -34,3 +34,4 @@ the shift branch, dispatch it.
 
 - 2026-11-20: Created.
 - 2026-11-20: Backlog -> Doing.
+- 2026-11-20: Doing -> Blocked. Waiting for run:44745192387 (ci on factory/phase-1, includes BL-1414 fix)
