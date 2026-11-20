@@ -211,3 +211,19 @@ Where curl wrote a file, `etag-file.bin` in the folder is a copy of it (the reco
 | `etag-compare-and-save-200` | `--etag-compare <file> --etag-save <file>` (file held `"abc"`) | 200 etag | `If-None-Match: "abc"` | 0 | `abc` | `"abc"` + LF (6 bytes) |
 
 Without `--fail`, curl exits 0 on a 304 and a 412 and writes nothing. These are recorded, not yet replayed by a test.
+
+## Error-body re-recording (BL-1467, ADR-0186)
+
+Re-recorded on 2026-11-20 from the repository root in PowerShell with the same pinned build
+(SHA-256 `0E773709C3A44DB47B88B71351D902027682ED87C3BD3821009E454BACCA8778`) and the same command
+lines as the sections above, except that each 4xx or 5xx `-Response` now carries `Content-Type: text/plain; charset=utf-8`,
+a `Content-Length` of the text and the text itself: `<code> <reason>\n` (`404 Not Found\n`, 14 bytes), written after the
+head and never after a HEAD's. `response.bin` is the decoded `-Response`. Re-recorded: `not-found-fail`,
+`head-timeout-408`, `head-too-large-431`, `refusal-503`, `upload-too-large-413`, `expect-continue-413`,
+`post-refused-405`, `invalid-content-length-400`, `fault-503-fail`, `fault-503-then-get`, `basic-401`, `bearer-401`,
+`anonymous-401-fail`, `basic-plaintext-403`, `digest-401-then-200`, `range-unsatisfiable-416`, `etag-compare-412`,
+`etag-compare-412-fail` and `time-cond-until-412-fail` (the 412 answer is now
+`HTTP/1.1 412 Precondition Failed\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Length: 24\r\n\r\n412 Precondition Failed\n`).
+Every exit code is unchanged (22 for each `--fail` run, 0 for the rest): a body changes only what curl keeps, so
+`basic-401`, `bearer-401`, `etag-compare-412` and `fault-503-then-get` now have the text on stdout where they had none.
+`digest-401-then-200`'s `request.bin` changed only in curl's fresh `cnonce`.

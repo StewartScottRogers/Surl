@@ -5,7 +5,7 @@ Accept: */*
 
 GET /file.txt HTTP/1.1
 Host: 127.0.0.1:18114
-Authorization: Digest username="tester",realm="surl",nonce="abc",uri="/file.txt",cnonce="c9006a464835e5aeb522a850fd0da13a",nc=00000001,algorithm=MD5,response="82efb5e1fefcc6bbf25ce51541125b4b",qop="auth"
+Authorization: Digest username="tester",realm="surl",nonce="abc",uri="/file.txt",cnonce="75248d33cc2de21111207358647a7c47",nc=00000001,algorithm=MD5,response="d003888f389aea2221a6548ebfd09aaf",qop="auth"
 User-Agent: curl/8.21.0
 Accept: */*
 

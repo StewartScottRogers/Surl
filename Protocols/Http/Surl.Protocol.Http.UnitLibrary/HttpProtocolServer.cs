@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Net;
 using Surl.Content;
 using Surl.Hpack;
@@ -127,7 +128,7 @@ namespace Surl.Protocol.Http;
 /// <para>
 /// As an <see cref="IConnectionRefusalWriter"/>, the server answers a connection past a
 /// connection limit with <c>503 Service Unavailable</c>, <c>Server: surl</c>,
-/// <c>Content-Length: 0</c> and <c>Connection: close</c>, then half-closes it; it carries no
+/// <c>Content-Type</c>, <c>Content-Length</c> and <c>Connection: close</c>, and the <c>503 Service Unavailable</c> text body of ADR-0186, then half-closes it; it carries no
 /// <c>Date</c>, which RFC 9110 section 6.6.1 leaves optional for a 5xx. It first reads the
 /// client's first bytes within the engine's refusal deadline: a client that opens with the HTTP/2
 /// preface gets the same <c>503</c> as HTTP/2 on its first stream - an empty <c>SETTINGS</c>,
@@ -138,11 +139,17 @@ namespace Surl.Protocol.Http;
 /// </remarks>
 public sealed class HttpProtocolServer : IConnectionProtocolServer, IConnectionRefusalWriter, IExchangeBytesRedactingServer
 {
-    private static readonly byte[] ServiceUnavailableResponse = new HttpResponseHead(HttpStatus.ServiceUnavailable)
-        .AddField("Server", HttpResponseHead.ServerName)
-        .AddField("Content-Length", "0")
-        .AddField("Connection", "close")
-        .ToBytes();
+    // The refusal's head, then ADR-0186's text body.
+    private static readonly byte[] ServiceUnavailableResponse =
+    [
+        .. new HttpResponseHead(HttpStatus.ServiceUnavailable)
+            .AddField("Server", HttpResponseHead.ServerName)
+            .AddField("Content-Type", HttpErrorText.ContentType)
+            .AddField("Content-Length", HttpErrorText.BytesOf(HttpStatus.ServiceUnavailable).Length.ToString(CultureInfo.InvariantCulture))
+            .AddField("Connection", "close")
+            .ToBytes(),
+        .. HttpErrorText.BytesOf(HttpStatus.ServiceUnavailable),
+    ];
 
     // The same 503 as one HTTP/2 header block (ADR-0081, decision 5): the fields above but
     // Connection, which HTTP/2 forbids (RFC 9113 section 8.2.2).

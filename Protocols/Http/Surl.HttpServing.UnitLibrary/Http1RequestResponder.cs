@@ -134,16 +134,16 @@ internal sealed class Http1RequestResponder
         return StandardRefusal(status);
     }
 
-    // The refusal's answer, unlogged: Date, Server and Content-Length: 0.
+    // The refusal's answer, unlogged: Date, Server and ADR-0186's text body (400 and above always).
     private HttpAnswer StandardRefusal(HttpStatus status)
     {
-        KeyValuePair<string, string>[] fields =
+        List<KeyValuePair<string, string>> fields =
         [
             new("Date", context.TimeProvider.GetUtcNow().ToString("r", CultureInfo.InvariantCulture)),
             new("Server", HttpResponseHead.ServerName),
-            new("Content-Length", "0"),
+            .. HttpErrorText.FieldsOf(status),
         ];
 
-        return new HttpAnswer(status, fields, HttpAnswerBody.None, IsRefusal: true, LeavesRequestBodyUnread: false);
+        return new HttpAnswer(status, fields, HttpErrorText.BodyOf(status, isHead: false), IsRefusal: true, LeavesRequestBodyUnread: false);
     }
 }

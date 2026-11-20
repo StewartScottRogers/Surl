@@ -32,7 +32,7 @@ internal sealed partial class HttpRequestAnswerer
     {
         if (!request.Body.IsReadable)
         {
-            return Refuse(HttpStatus.BadRequest, null, challenges, $"{request.Method} {request.Target}: the body's framing is not one the server reads");
+            return Refuse(request, HttpStatus.BadRequest, null, challenges, $"{request.Method} {request.Target}: the body's framing is not one the server reads");
         }
 
         var mapping = contentStore.MapRequestPathForCaller(RequestPath(request.Target), caller);
@@ -104,7 +104,7 @@ internal sealed partial class HttpRequestAnswerer
         var committed = isTooLarge ? ContentUploadResult.TooLarge : await session.CommitAsync(cancellationToken);
         if (committed == ContentUploadResult.TooLarge)
         {
-            return Refuse(HttpStatus.ContentTooLarge, null, challenges, $"{request.Method} {request.Target}: the body went past the upload limit of {contentStore.ExposureOptions.MaxUploadBytes} bytes");
+            return Refuse(request, HttpStatus.ContentTooLarge, null, challenges, $"{request.Method} {request.Target}: the body went past the upload limit of {contentStore.ExposureOptions.MaxUploadBytes} bytes");
         }
 
         if (committed != ContentUploadResult.Written)
@@ -163,7 +163,7 @@ internal sealed partial class HttpRequestAnswerer
         var status = result is ContentUploadOpeningResult.NoSuchDirectory or ContentUploadOpeningResult.IsADirectory ? Conflict : HttpStatus.Forbidden;
         context.Log.Note($"{request.Method} {request.Target}: {status.Code}, the upload could not be opened ({result})");
 
-        return new HttpAnswer(status, EmptyAnswerFields(null, challenges), HttpAnswerBody.None, IsRefusal: false, LeavesRequestBodyUnread: leavesBodyUnread);
+        return new HttpAnswer(status, EmptyAnswerFields(status, null, challenges), EmptyAnswerBody(request, status), IsRefusal: false, LeavesRequestBodyUnread: leavesBodyUnread);
     }
 
     // Where a PUT's body goes: the mapped location, the upload opened there, and whether a file

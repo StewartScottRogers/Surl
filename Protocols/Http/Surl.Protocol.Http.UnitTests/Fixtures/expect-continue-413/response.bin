@@ -1,6 +1,8 @@
 HTTP/1.1 413 Content Too Large
 Date: Mon, 28 Sep 2026 12:00:00 GMT
 Server: surl
-Content-Length: 0
+Content-Type: text/plain; charset=utf-8
+Content-Length: 22
 Connection: close
 
+413 Content Too Large

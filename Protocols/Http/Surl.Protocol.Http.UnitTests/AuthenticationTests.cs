@@ -136,7 +136,10 @@ public sealed class AuthenticationTests
 
         var (connection, _) = await ServeAsync(policy, RecordedFixture.ReadRequestBytes(caseName));
 
-        CollectionAssert.AreEqual(RecordedResponse("anonymous-401-fail"), connection.WrittenBytes);
+        // A HEAD's head is the GET's, Content-Length included, with no body byte after it (ADR-0186, decision 3).
+        var recorded = RecordedResponse("anonymous-401-fail");
+        var expected = caseName == "head-file" ? recorded[..^"401 Unauthorized\n".Length] : recorded;
+        CollectionAssert.AreEqual(expected, connection.WrittenBytes);
     }
 
     [TestMethod]
@@ -192,8 +195,8 @@ public sealed class AuthenticationTests
         var (connection, log) = await ServeAsync(policy, RecordedFixture.ReadRequestBytes("post-refused-405"));
 
         Assert.AreEqual(
-            "HTTP/1.1 401 Unauthorized\r\nDate: Mon, 28 Sep 2026 12:00:00 GMT\r\nServer: surl\r\nContent-Length: 0\r\n"
-            + "WWW-Authenticate: " + DigestMd5 + "\r\nConnection: close\r\n\r\n",
+            "HTTP/1.1 401 Unauthorized\r\nDate: Mon, 28 Sep 2026 12:00:00 GMT\r\nServer: surl\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Length: 17\r\n"
+            + "WWW-Authenticate: " + DigestMd5 + "\r\nConnection: close\r\n\r\n401 Unauthorized\n",
             Latin1(connection.WrittenBytes));
         Assert.IsTrue(connection.WritesCompleted);
         Assert.IsTrue(policy.JudgedRequests[0].IsWrite);
@@ -354,8 +357,8 @@ public sealed class AuthenticationTests
         var (connection, log) = await ServeAsync(BodyBindingPolicy(BodyCheckAccepting(BodySha256)), Put("bodY"));
 
         Assert.AreEqual(
-            "HTTP/1.1 401 Unauthorized\r\nDate: Mon, 28 Sep 2026 12:00:00 GMT\r\nServer: surl\r\nContent-Length: 0\r\n"
-            + "WWW-Authenticate: " + DigestMd5 + "\r\n\r\n",
+            "HTTP/1.1 401 Unauthorized\r\nDate: Mon, 28 Sep 2026 12:00:00 GMT\r\nServer: surl\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Length: 17\r\n"
+            + "WWW-Authenticate: " + DigestMd5 + "\r\n\r\n401 Unauthorized\n",
             Latin1(connection.WrittenBytes));
         Assert.IsFalse(connection.WritesCompleted);
         CollectionAssert.AreEqual(
@@ -455,7 +458,7 @@ public sealed class AuthenticationTests
         $"GET /file.txt HTTP/1.1\r\nHost: 127.0.0.1:18114\r\nAuthorization: NTLM {token}\r\n\r\n";
 
     private static string Unauthorized(string challenge) =>
-        $"HTTP/1.1 401 Unauthorized\r\nDate: Mon, 28 Sep 2026 12:00:00 GMT\r\nServer: surl\r\nContent-Length: 0\r\nWWW-Authenticate: {challenge}\r\n\r\n";
+        $"HTTP/1.1 401 Unauthorized\r\nDate: Mon, 28 Sep 2026 12:00:00 GMT\r\nServer: surl\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Length: 17\r\nWWW-Authenticate: {challenge}\r\n\r\n401 Unauthorized\n";
 
     private static byte[] SecondHead(byte[] twoHeads)
     {

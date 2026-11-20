@@ -1,8 +1,10 @@
 HTTP/1.1 401 Unauthorized
 Date: Mon, 28 Sep 2026 12:00:00 GMT
 Server: surl
-Content-Length: 0
+Content-Type: text/plain; charset=utf-8
+Content-Length: 17
 WWW-Authenticate: Digest realm="surl", qop="auth", algorithm=MD5, nonce="abc"
 WWW-Authenticate: Digest realm="surl", qop="auth", algorithm=SHA-256, nonce="abc"
 WWW-Authenticate: Digest realm="surl", qop="auth", algorithm=SHA-512-256, nonce="abc"
 
+401 Unauthorized

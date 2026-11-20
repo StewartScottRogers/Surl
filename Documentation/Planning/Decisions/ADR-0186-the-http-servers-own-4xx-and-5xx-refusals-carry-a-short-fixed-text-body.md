@@ -75,3 +75,16 @@ therefore a valid answer, and a body is a strict gain for a test that wants to r
 - ADR-0008's Consequences line is closed by this ADR; its table's "empty body" is superseded
   for the servers decision 1 names.
 - Two tasks carry it out: BL-1467 and BL-1468.
+
+## Amendment 1 — what BL-1467 built (2026-11-20; decided by Claude under Stewart's delegation)
+
+- `Surl.HttpServing`'s `HttpErrorText` holds the text (decision 2's bytes, fields and the HEAD rule). `HttpRequestAnswerer` (every
+  empty 4xx/5xx it builds, `416` included, which the table of decision 1 lists) and `Http1RequestResponder`'s standard
+  refusals use it; HTTP/2 and HTTP/3 carry the same body, since they reuse the answerer. A status with no reason phrase
+  (a fault's `599`) is written as the code alone and a line feed.
+- The connection-limit `503` that `HttpProtocolServer` writes over HTTP/1.1 carries the text too (decision 1's `503`); the
+  HTTP/2 form of that refusal, written by `Http2ConnectionRefusal`, stays empty, as decision 4 leaves HTTP/2 framing refusals.
+- The extended servers still reuse the standard `505` and head-not-read refusals of `Http1RequestResponder`, so those carry
+  the text; their own protocol errors stay as they were (decision 4).
+- Fixtures re-recorded: the list above, plus `upload-too-large-413`, `post-refused-405`, `digest-401-then-200` and
+  `range-unsatisfiable-416`; `Protocols/Http/Surl.Protocol.Http.UnitTests/Fixtures/README.md` records the commands.

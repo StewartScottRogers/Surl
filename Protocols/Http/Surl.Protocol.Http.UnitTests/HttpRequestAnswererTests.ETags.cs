@@ -107,8 +107,8 @@ public sealed partial class HttpRequestAnswererTests
     {
         var answer = await Answerer().AnswerAsync(RangeRequest("GET", ("If-Match", "\"other\"")), TestContext.CancellationToken);
 
-        CollectionAssert.AreEqual(new[] { Field("Date", Date), Field("Server", "surl"), Field("Content-Length", "0") }, answer.Fields.ToArray());
-        Assert.AreSame(HttpAnswerBody.None, answer.Body);
+        CollectionAssert.AreEqual(new[] { Field("Date", Date), Field("Server", "surl"), Field("Content-Type", "text/plain; charset=utf-8"), Field("Content-Length", "24") }, answer.Fields.ToArray());
+        AssertErrorText(answer, "412 Precondition Failed");
     }
 
     [TestMethod]

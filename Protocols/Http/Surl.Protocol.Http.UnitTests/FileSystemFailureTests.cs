@@ -7,7 +7,8 @@ namespace Surl.Protocol.Http;
 public sealed class FileSystemFailureTests
 {
     private const string DateAndServer = "Date: Mon, 28 Sep 2026 12:00:00 GMT\r\nServer: surl\r\n";
-    private const string NotFound = "HTTP/1.1 404 Not Found\r\n" + DateAndServer + "Content-Length: 0\r\n\r\n";
+    private const string NotFound = "HTTP/1.1 404 Not Found\r\n" + DateAndServer + "Content-Type: text/plain; charset=utf-8\r\nContent-Length: 14\r\n\r\n404 Not Found\n";
+    private const string NotFoundForHead = "HTTP/1.1 404 Not Found\r\n" + DateAndServer + "Content-Type: text/plain; charset=utf-8\r\nContent-Length: 14\r\n\r\n";
     private const string OkHead =
         "HTTP/1.1 200 OK\r\n" + DateAndServer
         + "ETag: \"8df0803365eb400-11\"\r\nLast-Modified: Tue, 01 Sep 2026 08:30:00 GMT\r\n"
@@ -32,7 +33,7 @@ public sealed class FileSystemFailureTests
             TestContext.CancellationToken,
             fileSystem: fileSystem);
 
-        Assert.AreEqual(NotFound + NotFound, Latin1(connection.WrittenBytes));
+        Assert.AreEqual(method == "HEAD" ? NotFoundForHead + NotFoundForHead : NotFound + NotFound, Latin1(connection.WrittenBytes));
         Assert.IsFalse(connection.Aborted);
         Assert.AreEqual($"{method} /file.txt: 404, {FilePath} could not be read ({failure.GetType().Name}: {failure.Message})", log.Notes[0]);
         Assert.StartsWith($"{method} /missing: 404, nothing exists at", log.Notes[1]);
@@ -48,7 +49,7 @@ public sealed class FileSystemFailureTests
             TestContext.CancellationToken,
             fileSystem: fileSystem);
 
-        Assert.AreEqual("HTTP/1.1 404 Not Found\r\n" + DateAndServer + "Content-Length: 0\r\nConnection: close\r\n\r\n", Latin1(connection.WrittenBytes));
+        Assert.AreEqual("HTTP/1.1 404 Not Found\r\n" + DateAndServer + "Content-Type: text/plain; charset=utf-8\r\nContent-Length: 14\r\nConnection: close\r\n\r\n404 Not Found\n", Latin1(connection.WrittenBytes));
         Assert.IsTrue(connection.WritesCompleted);
         Assert.IsFalse(connection.Aborted);
     }

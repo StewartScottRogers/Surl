@@ -82,7 +82,7 @@ internal sealed partial class HttpRequestAnswerer
         HttpCommandFaults.PublishApplied(context, rule, request.Method, path, $"{status.Code} {status.ReasonPhrase}");
 
         return request.Body.IsAnnounced
-            ? Refuse(status, null, challenges, $"{request.Method} {request.Target}: fault rule {rule.Id} chose the error, and the body announced was not read")
+            ? Refuse(request, status, null, challenges, $"{request.Method} {request.Target}: fault rule {rule.Id} chose the error, and the body announced was not read")
             : EmptyAnswer(request, status, challenges);
     }
 }

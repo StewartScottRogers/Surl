@@ -375,7 +375,7 @@ public sealed class GoogleCloudStorageProtocolServerTests
         var response = await harness.SendRawAsync("GET /photos/a.txt HTTP/2.5\r\nHost: x\r\n\r\n", ExchangeLimits.Default);
 
         StringAssert.StartsWith(response, "HTTP/1.1 505 ");
-        StringAssert.Contains(response, "Content-Length: 0\r\nConnection: close\r\n\r\n");
+        StringAssert.Contains(response, "Content-Length: 31\r\nConnection: close\r\n\r\n505 HTTP Version Not Supported\n");
     }
 
     [TestMethod]

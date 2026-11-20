@@ -107,7 +107,7 @@ public sealed class Http1ConnectionServerTests
         var (connection, handler) = await ServeAsync("GET /a HTTP/1.1\r\n\r\n", log);
 
         Assert.AreEqual(
-            $"HTTP/1.1 400 Bad Request\r\nDate: {NowHttpDate}\r\nServer: surl\r\nContent-Length: 0\r\nConnection: close\r\n\r\n",
+            $"HTTP/1.1 400 Bad Request\r\nDate: {NowHttpDate}\r\nServer: surl\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Length: 16\r\nConnection: close\r\n\r\n400 Bad Request\n",
             Latin1(connection.WrittenBytes));
         Assert.IsEmpty(handler.Requests);
         Assert.AreEqual("GET /a: a request may carry at most one Host field, and an HTTP/1.1 request needs one; answered 400 and closed.", log.Notes[0]);
@@ -123,7 +123,7 @@ public sealed class Http1ConnectionServerTests
         await new Http1ConnectionServer(handler, Context(log, new FixedTimeProvider(Now), TestContext.CancellationToken, LimitsOf64ByteHeads)).ServeAsync(connection);
 
         Assert.AreEqual(
-            $"HTTP/1.1 431 Request Header Fields Too Large\r\nDate: {NowHttpDate}\r\nServer: surl\r\nContent-Length: 0\r\nConnection: close\r\n\r\n",
+            $"HTTP/1.1 431 Request Header Fields Too Large\r\nDate: {NowHttpDate}\r\nServer: surl\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Length: 36\r\nConnection: close\r\n\r\n431 Request Header Fields Too Large\n",
             Latin1(connection.WrittenBytes));
         Assert.IsEmpty(handler.Requests);
         Assert.AreEqual("No request head was read: HeadTooLarge; answered 431 and closed.", log.Notes[0]);

@@ -40,7 +40,7 @@ public sealed partial class HttpRequestAnswererTests
     {
         var (connection, _) = await ServeAsync(RecordedFixture.Whole(RecordedFixture.ReadRequestBytes("time-cond-until-412")), TestContext.CancellationToken);
 
-        Assert.AreEqual($"HTTP/1.1 412 Precondition Failed\r\nDate: {Date}\r\nServer: surl\r\nContent-Length: 0\r\n\r\n", Latin1(connection.WrittenBytes));
+        Assert.AreEqual($"HTTP/1.1 412 Precondition Failed\r\nDate: {Date}\r\nServer: surl\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Length: 24\r\n\r\n412 Precondition Failed\n", Latin1(connection.WrittenBytes));
         Assert.IsFalse(connection.Aborted);
     }
 
@@ -98,8 +98,8 @@ public sealed partial class HttpRequestAnswererTests
         var answer = await Answerer(log: log).AnswerAsync(RangeRequest("GET", ("If-Unmodified-Since", RecordedDate)), TestContext.CancellationToken);
 
         Assert.AreEqual(412, answer.Status.Code);
-        CollectionAssert.AreEqual(new[] { Field("Date", Date), Field("Server", "surl"), Field("Content-Length", "0") }, answer.Fields.ToArray());
-        Assert.AreSame(HttpAnswerBody.None, answer.Body);
+        CollectionAssert.AreEqual(new[] { Field("Date", Date), Field("Server", "surl"), Field("Content-Type", "text/plain; charset=utf-8"), Field("Content-Length", "24") }, answer.Fields.ToArray());
+        AssertErrorText(answer, "412 Precondition Failed");
         StringAssert.StartsWith(log.Notes.Single(), "GET /file.txt: 412, ");
     }
 

@@ -1,6 +1,7 @@
 using System.Text;
 using Surl.Content;
 using Surl.HttpMessage;
+using Surl.HttpServing;
 using Surl.Protocol.Abstractions;
 using static Surl.Protocol.Http.HttpServerHarness;
 
@@ -52,7 +53,7 @@ public sealed partial class HttpRequestAnswererTests
 
         Assert.AreEqual(statusLine, $"{answer.Status.Code} {answer.Status.ReasonPhrase}");
         Assert.IsFalse(answer.IsRefusal);
-        Assert.AreEqual(new KeyValuePair<string, string>("Content-Length", "0"), answer.Fields[^1]);
+        Assert.AreEqual(new KeyValuePair<string, string>("Content-Length", HttpErrorText.BytesOf(answer.Status).Length.ToString(System.Globalization.CultureInfo.InvariantCulture)), answer.Fields[^1]);
     }
 
     [TestMethod]
@@ -163,7 +164,7 @@ public sealed partial class HttpRequestAnswererTests
 
         var written = Latin1(connection.WrittenBytes);
         Assert.StartsWith("HTTP/1.1 401 Unauthorized\r\n", written);
-        Assert.Contains("\r\n\r\nHTTP/1.1 503 Service Unavailable\r\n", written);
+        Assert.Contains("\r\n\r\n401 Unauthorized\nHTTP/1.1 503 Service Unavailable\r\n", written);
         Assert.AreEqual("alice", plan.Points.Single().Account);
         Assert.HasCount(1, events.Events.OfType<FaultAppliedEvent>().ToList());
     }

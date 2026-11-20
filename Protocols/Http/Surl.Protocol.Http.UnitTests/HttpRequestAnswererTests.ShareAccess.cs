@@ -46,7 +46,7 @@ public sealed partial class HttpRequestAnswererTests
 
         Assert.AreEqual(HttpStatus.NotFound, refused.Status);
         CollectionAssert.AreEqual(missing.Fields.ToArray(), refused.Fields.ToArray());
-        Assert.AreSame(HttpAnswerBody.None, refused.Body);
+        AssertErrorText(refused, "404 Not Found");
         Assert.AreEqual(missing.IsRefusal, refused.IsRefusal);
     }
 

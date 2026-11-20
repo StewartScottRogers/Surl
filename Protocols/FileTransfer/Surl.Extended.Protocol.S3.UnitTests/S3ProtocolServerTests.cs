@@ -357,7 +357,7 @@ public sealed class S3ProtocolServerTests
         var response = await harness.SendRawAsync("GET /photos/a.txt HTTP/2.0\r\nHost: s3.test\r\n\r\n");
 
         Assert.AreEqual(
-            $"HTTP/1.1 505 HTTP Version Not Supported\r\nDate: {S3ServerHarness.NowHttpDate}\r\nServer: surl\r\nContent-Length: 0\r\nConnection: close\r\n\r\n",
+            $"HTTP/1.1 505 HTTP Version Not Supported\r\nDate: {S3ServerHarness.NowHttpDate}\r\nServer: surl\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Length: 31\r\nConnection: close\r\n\r\n505 HTTP Version Not Supported\n",
             response);
     }
 
