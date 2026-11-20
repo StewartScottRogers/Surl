@@ -100,3 +100,8 @@ The chosen-error fault (BL-1031, ADR-0124 decisions 4 and 9):
   with no bytes, and a failed one surfaces as `TlsHandshakeException` for the engine to note.
 - Its tests use `UnitTestTlsClientConnection` over `InMemoryConnection`'s stand-in upgrade: the
   first chunk (a stand-in ClientHello, or plain text) is consumed by the handshake.
+
+The exchange log never holds a CONNECT `pass` or `auth_token` (ADR-0182, BL-1458): `NatsServer` implements
+`IExchangeBytesRedactingServer` with a `LineBytesRedactor` over `NatsConnectLineRedactionRule`, which masks those two
+top-level JSON values as `****` inside their quotes (a whole unreadable argument as `****`) and logs the rest, `user`
+included, as received.
