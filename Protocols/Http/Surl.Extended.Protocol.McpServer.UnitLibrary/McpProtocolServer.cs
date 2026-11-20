@@ -22,7 +22,7 @@ namespace Surl.Extended.Protocol.McpServer;
 /// HTTP/1.1 framing, the head limit and timeouts are <see cref="Http1ConnectionServer" />'s. <c>mcps</c> is
 /// the same server behind the host's implicit TLS (decision 4.9); the host composes it (BL-468).
 /// </remarks>
-public sealed class McpProtocolServer : IConnectionProtocolServer, IConnectionRefusalWriter
+public sealed class McpProtocolServer : IConnectionProtocolServer, IExchangeBytesRedactingServer, IConnectionRefusalWriter
 {
     /// <summary>The plain HTTP/1.1 scheme.</summary>
     public const string PlainScheme = "mcp";
@@ -76,6 +76,15 @@ public sealed class McpProtocolServer : IConnectionProtocolServer, IConnectionRe
 
     /// <inheritdoc />
     public IReadOnlyList<string> Schemes { get; } = [PlainScheme, SecureScheme];
+
+    /// <summary>
+    /// Creates the redactor that masks the <c>Authorization</c>, <c>Proxy-Authorization</c> and API-key
+    /// fields of the HTTP/1.1 request heads on one connection, so the exchange log never holds them
+    /// (ADR-0182, decision 7; BL-1465).
+    /// </summary>
+    /// <param name="context">The exchange the redactor is for.</param>
+    /// <returns>A redactor for that exchange alone.</returns>
+    public IReceivedBytesRedactor CreateRedactor(ExchangeRedactionContext context) => HttpExchangeRedaction.CreateRedactor();
 
     /// <summary>
     /// Deletes every registered client, code and token and ends every HTTP session, so a client ID is invalid_client,

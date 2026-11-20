@@ -377,4 +377,18 @@ public sealed class GoogleCloudStorageProtocolServerTests
         StringAssert.StartsWith(response, "HTTP/1.1 505 ");
         StringAssert.Contains(response, "Content-Length: 0\r\nConnection: close\r\n\r\n");
     }
+
+    [TestMethod]
+    public void CreateRedactor_AuthorizationAndApiKeyFields_AreLoggedAsStars()
+    {
+        var redactor = new GcsServerHarness().Server.CreateRedactor(new ExchangeRedactionContext(1, "s"));
+        var output = new System.Buffers.ArrayBufferWriter<byte>();
+
+        redactor.Redact(System.Text.Encoding.ASCII.GetBytes("GET / HTTP/1.1\r\nHost: h\r\nAuthorization: Bearer sekret-token\r\nX-Api-Key: sekret-key\r\n\r\n"), output);
+        redactor.Flush(output);
+        var logged = System.Text.Encoding.ASCII.GetString(output.WrittenSpan);
+
+        Assert.DoesNotContain("sekret", logged);
+        Assert.Contains("Authorization: Bearer ****", logged);
+    }
 }

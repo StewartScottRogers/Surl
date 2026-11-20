@@ -14,7 +14,7 @@ namespace Surl.Extended.Protocol.SignalR;
 /// transport. <c>signalrs</c> is <c>signalr</c> inside the TLS the listener seam provides.
 /// HTTP/1.1 framing, the head limit and timeouts are <see cref="Http1ConnectionServer"/>'s.
 /// </remarks>
-public sealed class SignalRProtocolServer : IConnectionProtocolServer
+public sealed class SignalRProtocolServer : IConnectionProtocolServer, IExchangeBytesRedactingServer
 {
     /// <summary>
     /// The plain scheme.
@@ -49,6 +49,15 @@ public sealed class SignalRProtocolServer : IConnectionProtocolServer
 
     /// <inheritdoc/>
     public IReadOnlyList<string> Schemes { get; } = [PlainScheme, TlsScheme];
+
+    /// <summary>
+    /// Creates the redactor that masks the <c>Authorization</c>, <c>Proxy-Authorization</c> and API-key
+    /// fields of the HTTP/1.1 request heads on one connection, so the exchange log never holds them
+    /// (ADR-0182, decision 7; BL-1465).
+    /// </summary>
+    /// <param name="context">The exchange the redactor is for.</param>
+    /// <returns>A redactor for that exchange alone.</returns>
+    public IReceivedBytesRedactor CreateRedactor(ExchangeRedactionContext context) => HttpExchangeRedaction.CreateRedactor();
 
     /// <inheritdoc/>
     public Task ServeAsync(IConnection connection, ExchangeContext context)

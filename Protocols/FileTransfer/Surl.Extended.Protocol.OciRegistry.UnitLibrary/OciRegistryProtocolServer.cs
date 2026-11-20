@@ -29,7 +29,7 @@ namespace Surl.Extended.Protocol.OciRegistry;
 /// <c>429 TOOMANYREQUESTS</c> with the JSON error body, then closes it (ADR-0115, decision 7).
 /// </para>
 /// </remarks>
-public sealed class OciRegistryProtocolServer : IConnectionProtocolServer, IConnectionRefusalWriter
+public sealed class OciRegistryProtocolServer : IConnectionProtocolServer, IExchangeBytesRedactingServer, IConnectionRefusalWriter
 {
     /// <summary>
     /// The scheme the server answers.
@@ -96,6 +96,15 @@ public sealed class OciRegistryProtocolServer : IConnectionProtocolServer, IConn
 
     /// <inheritdoc/>
     public IReadOnlyList<string> Schemes { get; } = [Scheme];
+
+    /// <summary>
+    /// Creates the redactor that masks the <c>Authorization</c>, <c>Proxy-Authorization</c> and API-key
+    /// fields of the HTTP/1.1 request heads on one connection, so the exchange log never holds them
+    /// (ADR-0182, decision 7; BL-1465).
+    /// </summary>
+    /// <param name="context">The exchange the redactor is for.</param>
+    /// <returns>A redactor for that exchange alone.</returns>
+    public IReceivedBytesRedactor CreateRedactor(ExchangeRedactionContext context) => HttpExchangeRedaction.CreateRedactor();
 
     /// <summary>
     /// Aborts every open blob upload session, so a later request naming one is <c>404 BLOB_UPLOAD_UNKNOWN</c>

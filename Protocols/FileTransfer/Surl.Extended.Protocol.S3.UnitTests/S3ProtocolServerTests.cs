@@ -426,4 +426,18 @@ public sealed class S3ProtocolServerTests
             S3ServerHarness.RequestIdOf(Encoding.UTF8.GetString(firstConnection.WrittenBytes)),
             S3ServerHarness.RequestIdOf(Encoding.UTF8.GetString(secondConnection.WrittenBytes)));
     }
+
+    [TestMethod]
+    public void CreateRedactor_AuthorizationAndApiKeyFields_AreLoggedAsStars()
+    {
+        var redactor = new S3ServerHarness().Server.CreateRedactor(new ExchangeRedactionContext(1, "s"));
+        var output = new System.Buffers.ArrayBufferWriter<byte>();
+
+        redactor.Redact(System.Text.Encoding.ASCII.GetBytes("GET / HTTP/1.1\r\nHost: h\r\nAuthorization: Bearer sekret-token\r\nX-Api-Key: sekret-key\r\n\r\n"), output);
+        redactor.Flush(output);
+        var logged = System.Text.Encoding.ASCII.GetString(output.WrittenSpan);
+
+        Assert.DoesNotContain("sekret", logged);
+        Assert.Contains("Authorization: Bearer ****", logged);
+    }
 }
