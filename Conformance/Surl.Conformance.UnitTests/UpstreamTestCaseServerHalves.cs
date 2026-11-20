@@ -265,6 +265,27 @@ internal sealed class UpstreamTestCaseServerHalves : IAsyncDisposable
     public static async Task<UpstreamTestCaseServerHalves> StartAsync(
         ServerTlsSettings tlsSettings, ServerTlsSettings mutualTlsSettings, string? httpUnixSocketPath, string? socksUnixSocketPath, CancellationToken cancellationToken)
     {
+        // `localhost` resolves to ::1 first, and the operating system numbers each listener on its own: an
+        // IPv4-only TLS listener can draw the very number a plaintext ::1 listener drew, so curl reaches the
+        // wrong server and fails "wrong version number" (BL-1414, test 2090). Draw again until no two
+        // listeners of different schemes on different hosts share a number.
+        for (var attempt = 1; ; attempt++)
+        {
+            var halves = await StartOnceAsync(tlsSettings, mutualTlsSettings, httpUnixSocketPath, socksUnixSocketPath, cancellationToken);
+            if (attempt == MostPortDraws || !UpstreamTestCasePortCollisions.AnyAcrossHosts(halves.ports))
+            {
+                return halves;
+            }
+
+            await halves.DisposeAsync();
+        }
+    }
+
+    private const int MostPortDraws = 20;
+
+    private static async Task<UpstreamTestCaseServerHalves> StartOnceAsync(
+        ServerTlsSettings tlsSettings, ServerTlsSettings mutualTlsSettings, string? httpUnixSocketPath, string? socksUnixSocketPath, CancellationToken cancellationToken)
+    {
         CaseServer[] servers = [.. Listeners.Select(listener => new CaseServer(listener.Scheme))];
         var tftp = new CaseDatagramServer("tftp");
         var dns = new CaseDatagramServer("dns");
