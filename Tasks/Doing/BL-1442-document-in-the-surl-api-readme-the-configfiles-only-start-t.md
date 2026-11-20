@@ -46,3 +46,4 @@ types and head limit, and that `StopAsync` waits up to 7 seconds while a client 
 
 - 2026-11-20: Created.
 - 2026-11-20: Filed from `Z:\repos\Surly\Documentation\Bug-Reports\2026-11-19T1942-Surl-bug-report.md` items 3, 4, 9 and 10, and `2026-11-19T2203-Surl-bug-report.md` item 6.
+- 2026-11-20: Backlog -> Doing.
