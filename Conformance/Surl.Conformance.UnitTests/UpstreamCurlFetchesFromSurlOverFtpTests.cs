@@ -212,7 +212,7 @@ public sealed class UpstreamCurlFetchesFromSurlOverFtpTests
     [TestMethod]
     public async Task Download_MaxConnections1WhileAnotherClientHoldsIt_ExitsOperationTimedOut()
     {
-        await using var surl = await StartSurlAsync("--max-connections", "1");
+        await using var surl = await StartSurlAsync("--max-connections", "1", "-v");
         using var holder = new TcpClient();
         await holder.ConnectAsync(surl.BaseUrl.Host, surl.BaseUrl.Port, TestContext.CancellationToken);
         using var holderReader = new StreamReader(holder.GetStream(), Encoding.ASCII);
@@ -229,7 +229,7 @@ public sealed class UpstreamCurlFetchesFromSurlOverFtpTests
         // then StreamConnection's lingering close), and curl maps a 421 greeting to exit 28. Measured on
         // the published osx-arm64 and osx-x64 binaries (release.yml run 44672857143, 50 repetitions each):
         // all 100 exited 28, none 7 (BL-1413). One exit code on every platform.
-        Assert.AreEqual(OperationTimedOut, result.ExitCode, result.StandardError);
+        Assert.AreEqual(OperationTimedOut, result.ExitCode, result.StandardError + Environment.NewLine + surl.Diagnosis);
     }
 
     private static string[] Split(string options) => options.Split(' ', StringSplitOptions.RemoveEmptyEntries);

@@ -41,7 +41,7 @@ tolerated.
 
 ## Acceptance criteria
 
-- [ ] When this test fails, its message carries surl's stderr (with `-v`) and whether the surl process is still
+- [x] When this test fails, its message carries surl's stderr (with `-v`) and whether the surl process is still
       running, so the next failure names its cause. Done through the conformance test's surl helper, for every
       max-connections test in the suite.
 - [ ] The cause is found from that evidence, with a Release dry run dispatched on the shift branch
@@ -64,3 +64,5 @@ tolerated.
 
 - 2026-11-20: Created.
 - 2026-11-20: Backlog -> Doing.
+- 2026-11-20: Diagnostics landed (SurlOnLoopback.Diagnosis: surl process state + stderr; the four max-connections tests start surl with -v and show it in the failure message). Fast Conformance tests green (1053). The cause needs a Release dry run of the pushed commit; this lane cannot push, so the next run must dispatch it (dispatch-workflow.ps1 -Workflow release.yml -Ref factory branch) once this commit is on the shift branch, then block on run:<id>.
+- 2026-11-20: Doing -> Backlog. Diagnostics committed; the Release dry run that names the cause must be dispatched from the pushed commit, which this lane cannot push.
