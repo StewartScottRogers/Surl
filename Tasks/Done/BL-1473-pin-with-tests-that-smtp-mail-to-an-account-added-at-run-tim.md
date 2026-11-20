@@ -8,7 +8,7 @@ depends-on: []
 touches: [Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests, Application/Surl.Api.UnitTests, Protocols/Mail/Surl.Protocol.Smtp.UnitTests]
 requirement: none
 created: 2026-11-20
-completed:
+completed: 2026-11-20
 ---
 # BL-1473 — Pin with tests that SMTP mail to an account added at run time is delivered to its mailbox, and refuse it at RCPT TO if it is not
 
@@ -30,18 +30,23 @@ account's INBOX, `Mail.DeliverAsync` to it succeeds, and a test pins both. If ei
 
 ## Acceptance criteria
 
-- [ ] A named fast test (composition or `Surl.Api`) starts SMTP and IMAP, adds an account at run time, sends a
+- [x] A named fast test (composition or `Surl.Api`) starts SMTP and IMAP, adds an account at run time, sends a
       message over SMTP to it, and reads it from that account's INBOX over IMAP.
-- [ ] A named test calls `Mail.DeliverAsync` to a run-time-added account and reads the message back.
-- [ ] A named test removes the account, then sends to it over SMTP, and pins the answer the BL-1450 decision gives
+- [x] A named test calls `Mail.DeliverAsync` to a run-time-added account and reads the message back.
+- [x] A named test removes the account, then sends to it over SMTP, and pins the answer the BL-1450 decision gives
       (refused at `RCPT TO` with the reply code it names, or accepted and discarded only where `--mail-domain`
       says so).
-- [ ] If any of these fails on `master`, the cause is fixed and named in the Log with file:line.
-- [ ] `dotnet build` clean, fast tests green, coverage gates held.
+- [x] If any of these fails on `master`, the cause is fixed and named in the Log with file:line.
+- [x] `dotnet build` clean, fast tests green, coverage gates held.
 
 ## Notes
+
+- Already fixed on master (BL-1451, BL-1452): all three paths pass with no production change. Tests: `SurlServerTests.MailToAddedAccount.cs` in `Surl.Api.UnitTests` (touches: the Api tests project already named).
+- Decision (follows ADR-0185 decision 1 and ADR-0102, no recipient enumeration): mail to a removed account is accepted at `RCPT TO` (250 2.1.5) and discarded, as for any unknown recipient in a served domain; only a recipient outside every `--mail-domain` is refused `550 5.7.1 Relaying denied`. `Mail.DeliverAsync` to a removed account does throw `SurlSeedRefusedException`. Both pinned. No new ADR needed.
+- Tests authenticate over SMTP (AUTH PLAIN as alice): `--allow-anonymous` sends all mail to one anonymous owner and masks routing.
 
 ## Log
 
 - 2026-11-20: Created.
 - 2026-11-20: Backlog -> Doing.
+- 2026-11-20: Doing -> Done. Pinned by four Api tests; already fixed on master by BL-1451/BL-1452
