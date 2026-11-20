@@ -85,7 +85,7 @@ namespace Surl.Protocol.Ftp;
 /// closes the connection part way through a line gets no reply.
 /// </para>
 /// </remarks>
-public sealed class FtpProtocolServer : IConnectionProtocolServer, IConnectionRefusalWriter
+public sealed class FtpProtocolServer : IConnectionProtocolServer, IConnectionRefusalWriter, IExchangeBytesRedactingServer
 {
     /// <summary>
     /// How long the reply to a line that is too long, or late, may take to write (ADR-0006, section 5).
@@ -141,6 +141,14 @@ public sealed class FtpProtocolServer : IConnectionProtocolServer, IConnectionRe
     /// </summary>
     public IReadOnlyList<string> Schemes { get; } = Array.AsReadOnly(["ftp", "ftps"]);
 
+    /// <summary>
+    /// Creates the redactor that writes the argument of <c>PASS</c> and <c>ACCT</c> as <c>****</c>
+    /// in the exchange log (ADR-0182, decision 6).
+    /// </summary>
+    /// <param name="context">The exchange the redactor is for.</param>
+    /// <returns>A line redactor for the control connection, used by that exchange alone.</returns>
+    public IReceivedBytesRedactor CreateRedactor(ExchangeRedactionContext context) =>
+        new LineBytesRedactor(new FtpLineRedactionRule());
     /// <summary>
     /// Sends the greeting, then answers every command line on <paramref name="connection"/>
     /// until the client quits or closes it, or a line is too long or late.

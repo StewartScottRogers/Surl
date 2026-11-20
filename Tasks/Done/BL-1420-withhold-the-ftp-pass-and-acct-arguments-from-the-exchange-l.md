@@ -8,7 +8,7 @@ depends-on: [BL-1419]
 touches: [Protocols/FileTransfer/Surl.Protocol.Ftp.UnitLibrary, Protocols/FileTransfer/Surl.Protocol.Ftp.UnitTests]
 requirement: none
 created: 2026-11-20
-completed:
+completed: 2026-11-20
 ---
 # BL-1420 — Withhold the FTP PASS and ACCT arguments from the exchange log
 
@@ -30,21 +30,22 @@ fixes, never `s3cret`.
 
 ## Acceptance criteria
 
-- [ ] The FTP protocol server implements BL-1418's contract. Fast tests in
+- [x] The FTP protocol server implements BL-1418's contract. Fast tests in
       `Protocols/FileTransfer/Surl.Protocol.Ftp.UnitTests` (e.g. `FtpExchangeLogRedactionTests`) show
       `PASS s3cret\r\n` logged in the ADR's form, also when the line is split across two reads, in
       lower case, and after `AUTH TLS`.
-- [ ] `ACCT <x>` is redacted the same way; `USER alice` and every other command are logged unchanged.
-- [ ] The upstream-test-case mode (`FtpCommandResponder.UpstreamTestCase.cs`) is unaffected:
+- [x] `ACCT <x>` is redacted the same way; `USER alice` and every other command are logged unchanged.
+- [x] The upstream-test-case mode (`FtpCommandResponder.UpstreamTestCase.cs`) is unaffected:
       `dotnet test Conformance/Surl.Conformance.UnitTests --filter "TestCategory!=Integration"` stays
       green.
-- [ ] `dotnet build Protocols/FileTransfer/Surl.Protocol.Ftp.UnitLibrary -warnaserror` is clean, the
+- [x] `dotnet build Protocols/FileTransfer/Surl.Protocol.Ftp.UnitLibrary -warnaserror` is clean, the
       fast tests are green, and coverage stays at 100% line and branch.
 
-## Notes
+## NotesnAdded internal FtpLineRedactionRule (PASS/ACCT argument -> ****, command word kept, case-insensitive, no-argument lines unchanged) and FtpProtocolServer implements IExchangeBytesRedactingServer through LineBytesRedactor. After AUTH TLS the same rule applies (engine builds a redactor per decrypted sink). No new ADR: ADR-0182 decides the form. Tests: FtpExchangeLogRedactionTests; coverage of the new rule is by those tests.
 
 ## Log
 
 - 2026-11-20: Created.
 - 2026-11-20: Filed from `Z:\repos\Surly\Documentation\Bug-Reports\2026-11-20T0553-Surl-bug-report.md` item 1.
 - 2026-11-20: Backlog -> Doing.
+- 2026-11-20: Doing -> Done. FTP PASS and ACCT arguments are logged as **** in the exchange log
