@@ -8,7 +8,7 @@ depends-on: [BL-1418]
 touches: [Protocols/Mail/Surl.LineProtocol.UnitLibrary, Protocols/Mail/Surl.LineProtocol.UnitTests]
 requirement: none
 created: 2026-11-20
-completed:
+completed: 2026-11-20
 ---
 # BL-1428 — Add a SASL continuation-line redactor to Surl.LineProtocol
 
@@ -32,14 +32,14 @@ ends.
 
 ## Acceptance criteria
 
-- [ ] A public redactor type (the ADR's name) in `Protocols/Mail/Surl.LineProtocol.UnitLibrary`, taking
+- [x] A public redactor type (the ADR's name) in `Protocols/Mail/Surl.LineProtocol.UnitLibrary`, taking
       the command words that start SASL and the continuation prefix as parameters, so each mail server
       configures it.
-- [ ] Fast tests in `Protocols/Mail/Surl.LineProtocol.UnitTests` show `AUTH PLAIN AGFsaWNlAHMzY3JldA==`
+- [x] Fast tests in `Protocols/Mail/Surl.LineProtocol.UnitTests` show `AUTH PLAIN AGFsaWNlAHMzY3JldA==`
       logged in the ADR's form, an `AUTH LOGIN` exchange's two continuation answers redacted, and a `*`
       cancel line left as is.
-- [ ] A client line sent when no continuation is pending is logged unchanged (named test).
-- [ ] `dotnet build Protocols/Mail/Surl.LineProtocol.UnitLibrary -warnaserror` is clean, the fast tests
+- [x] A client line sent when no continuation is pending is logged unchanged (named test).
+- [x] `dotnet build Protocols/Mail/Surl.LineProtocol.UnitLibrary -warnaserror` is clean, the fast tests
       are green, and coverage stays at 100% line and branch.
 
 ## Notes
@@ -52,3 +52,4 @@ ends.
 - 2026-11-20: Created.
 - 2026-11-20: Filed from `Z:\repos\Surly\Documentation\Bug-Reports\2026-11-20T0553-Surl-bug-report.md` item 1.
 - 2026-11-20: Backlog -> Doing.
+- 2026-11-20: Doing -> Done. SaslLineRedactionRule built, tested, ADR-0183
