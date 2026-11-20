@@ -46,3 +46,4 @@ one a client publishes follow one recorded rule about topics outside `--topic ..
 ## Log
 
 - 2026-11-20: Created.
+- 2026-11-20: Backlog -> Doing.
