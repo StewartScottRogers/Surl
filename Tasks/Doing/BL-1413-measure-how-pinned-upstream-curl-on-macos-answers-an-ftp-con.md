@@ -70,3 +70,4 @@ connect fails the test instead of passing it.
 - 2026-11-19: Backlog -> Doing.
 - 2026-11-19: Doing -> Blocked. Waiting for run:44672857143 (release.yml on factory/phase-1, macOS 50-repeat tally)
 - 2026-11-20: Blocked -> Backlog. run:44672857143 (release.yml dry run on factory/phase-1) completed success: the temporary 50-repeat test passed on the published osx-arm64 and osx-x64 binaries (Total 2306, Failed 0 on each), so all 100 repetitions exited 28 and none 7. Per Notes: assert 28 alone on every platform, drop the 7-or-28 tolerance and the temporary test
+- 2026-11-20: Backlog -> Doing.
