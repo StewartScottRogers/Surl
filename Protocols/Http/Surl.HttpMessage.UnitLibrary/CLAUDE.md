@@ -20,6 +20,11 @@ from `Surl.Protocol.Http.UnitLibrary` by BL-293 (ADR-0070 decision 2):
   HTTP or RTSP chosen-error reply (`TryReadChosenStatus`) or split any `<code> <text>` reply
   (`TrySplitCode`), and publish the `FaultAppliedEvent` (ADR-0134). `FindAndApplyAsync` applies a `Delay` itself (the request then goes on),
   returns an `Error` or `Drop` rule for the server to act on (ADR-0141 amendment 1), and notes any other kind as not applied.
+- `HttpRequestHeadBytesRedactor` - public: the `IReceivedBytesRedactor` for HTTP/1.x and RTSP request
+  heads (ADR-0182, BL-1421). It masks the credentials of `Authorization` and `Proxy-Authorization`
+  (plus any extra field names it is given) as `****`, keeping the scheme word, passes a
+  `Content-Length` or chunked body through unchanged and redacts the next head on the connection.
+  `HttpRequestHeadLineRule` is its internal line rule.
 - `HttpRequestHeadLineReader`, `HttpRequestLineParser`, `HttpFieldLineParser` and `HttpSyntax` -
   internal, visible to `Surl.HttpMessage.UnitTests` only.
 
