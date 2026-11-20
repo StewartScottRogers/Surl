@@ -125,9 +125,9 @@ public sealed class UpstreamCurlLogsInToSurlOverHttpTests
 
     [TestMethod]
     [DataRow("ec2", "secret", "--data-binary", "201", DisplayName = "ec2, --data-binary: signed over the body, stored")]
-    [DataRow("ec2", "wrong", "--data-binary", "401", DisplayName = "ec2, --data-binary, wrong secret: refused once the body is read")]
+    [DataRow("ec2", "wrong", "--data-binary", "401 Unauthorized\n401", DisplayName = "ec2, --data-binary, wrong secret: refused once the body is read")]
     [DataRow("s3", "secret", "-T", "201", DisplayName = "s3, -T: curl sends UNSIGNED-PAYLOAD, stored")]
-    [DataRow("ec2", "secret", "-T", "401", DisplayName = "ec2, -T: curl signs the empty body's hash, so the body sent is not the one signed")]
+    [DataRow("ec2", "secret", "-T", "401 Unauthorized\n401", DisplayName = "ec2, -T: curl signs the empty body's hash, so the body sent is not the one signed")]
     public async Task AwsSigV4UploadOverHttp_ExitsZeroJudgedOverTheBody(string service, string secret, string uploadOption, string expectedStatus)
     {
         // Without an x-amz-content-sha256 the signature is over the body's SHA-256, judged once
@@ -157,7 +157,7 @@ public sealed class UpstreamCurlLogsInToSurlOverHttpTests
     }
 
     [TestMethod]
-    public async Task AwsSigV4OverHttp_WrongSecret_ExitsZeroWithNoBody()
+    public async Task AwsSigV4OverHttp_WrongSecret_ExitsZeroWithTheUnauthorizedBody()
     {
         // Measured (Foundation/Surl.Authentication.UnitTests/Fixtures/aws-sigv4-refused): without -f, curl
         // takes the 401 as an answer, exits 0 and does not sign again.
@@ -168,7 +168,7 @@ public sealed class UpstreamCurlLogsInToSurlOverHttpTests
             TestContext, "-sS", "--aws-sigv4", "aws:amz:us-east-1:s3", "-u", $"{AccountsFile.User}:wrong", surl.UrlOf("hello.txt"));
 
         Assert.AreEqual(0, result.ExitCode, result.StandardError);
-        Assert.IsEmpty(result.StandardOutput);
+        CollectionAssert.AreEqual("401 Unauthorized\n"u8.ToArray(), result.StandardOutput);
     }
 
     [TestMethod]

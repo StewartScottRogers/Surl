@@ -283,9 +283,9 @@ public sealed class CurlPortBesideUpstreamCurlOverHttpTests
     [TestMethod]
     [Description("Mirrors UpstreamCurlLogsInToSurlOverHttpTests.AwsSigV4UploadOverHttp_ExitsZeroJudgedOverTheBody")]
     [DataRow("ec2", "secret", "--data-binary", "201", DisplayName = "ec2, --data-binary: signed over the body, stored")]
-    [DataRow("ec2", "wrong", "--data-binary", "401", DisplayName = "ec2, --data-binary, wrong secret: refused once the body is read")]
+    [DataRow("ec2", "wrong", "--data-binary", "401 Unauthorized\n401", DisplayName = "ec2, --data-binary, wrong secret: refused once the body is read")]
     [DataRow("s3", "secret", "-T", "201", DisplayName = "s3, -T: curl sends UNSIGNED-PAYLOAD, stored")]
-    [DataRow("ec2", "secret", "-T", "401", DisplayName = "ec2, -T: curl signs the empty body's hash, so the body sent is not the one signed")]
+    [DataRow("ec2", "secret", "-T", "401 Unauthorized\n401", DisplayName = "ec2, -T: curl signs the empty body's hash, so the body sent is not the one signed")]
     public async Task AwsSigV4UploadOverHttp_ExitsZeroJudgedOverTheBody(string service, string secret, string uploadOption, string expectedStatus)
     {
         using var accounts = await AccountsFile.WriteAsync(TestContext.CancellationToken);
@@ -302,16 +302,16 @@ public sealed class CurlPortBesideUpstreamCurlOverHttpTests
             $"({service}, {secret}, {uploadOption})")));
     }
 
-    /// <summary>Mirrors <see cref="UpstreamCurlLogsInToSurlOverHttpTests.AwsSigV4OverHttp_WrongSecret_ExitsZeroWithNoBody"/>.</summary>
+    /// <summary>Mirrors <see cref="UpstreamCurlLogsInToSurlOverHttpTests.AwsSigV4OverHttp_WrongSecret_ExitsZeroWithTheUnauthorizedBody"/>.</summary>
     [TestMethod]
-    [Description("Mirrors UpstreamCurlLogsInToSurlOverHttpTests.AwsSigV4OverHttp_WrongSecret_ExitsZeroWithNoBody")]
-    public async Task AwsSigV4OverHttp_WrongSecret_ExitsZeroWithNoBody()
+    [Description("Mirrors UpstreamCurlLogsInToSurlOverHttpTests.AwsSigV4OverHttp_WrongSecret_ExitsZeroWithTheUnauthorizedBody")]
+    public async Task AwsSigV4OverHttp_WrongSecret_ExitsZeroWithTheUnauthorizedBody()
     {
         using var accounts = await AccountsFile.WriteAsync(TestContext.CancellationToken);
 
         await MeasureAsync(SignedByTheClock(Case(
             Logins, "http", ["--user-file", accounts.Path],
-            ["-sS", "--aws-sigv4", "aws:amz:us-east-1:s3", "-u", $"{AccountsFile.User}:wrong", "{surl}/hello.txt"], Expect(0, []))));
+            ["-sS", "--aws-sigv4", "aws:amz:us-east-1:s3", "-u", $"{AccountsFile.User}:wrong", "{surl}/hello.txt"], Expect(0, "401 Unauthorized\n"u8.ToArray()))));
     }
 
     /// <summary>Mirrors <see cref="UpstreamCurlLogsInToSurlOverHttpTests.AwsSigV4OverHttp_WrongSecret_IsRefusedWithHttpReturnedError"/>.</summary>
