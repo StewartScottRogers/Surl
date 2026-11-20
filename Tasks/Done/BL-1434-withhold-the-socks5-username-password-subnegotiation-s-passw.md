@@ -8,7 +8,7 @@ depends-on: [BL-1419]
 touches: [Protocols/Proxy/Surl.Protocol.Socks.UnitLibrary, Protocols/Proxy/Surl.Protocol.Socks.UnitTests]
 requirement: none
 created: 2026-11-20
-completed:
+completed: 2026-11-20
 ---
 # BL-1434 — Withhold the SOCKS5 username/password subnegotiation's password from the exchange log
 
@@ -30,18 +30,21 @@ password bytes; they are written as BL-1417's ADR says.
 
 ## Acceptance criteria
 
-- [ ] `SocksProtocolServer` implements BL-1418's contract. Fast tests in
+- [x] `SocksProtocolServer` implements BL-1418's contract. Fast tests in
       `Protocols/Proxy/Surl.Protocol.Socks.UnitTests` show the subnegotiation logged with `PASSWD` in the
       ADR's form, also split across reads at every byte.
-- [ ] Tunnelled bytes after the CONNECT reply that contain the password's bytes are logged unchanged,
+- [x] Tunnelled bytes after the CONNECT reply that contain the password's bytes are logged unchanged,
       and a SOCKS4 request is logged as before (named tests).
-- [ ] `dotnet build Protocols/Proxy/Surl.Protocol.Socks.UnitLibrary -warnaserror` is clean, the fast
+- [x] `dotnet build Protocols/Proxy/Surl.Protocol.Socks.UnitLibrary -warnaserror` is clean, the fast
       tests are green, and coverage stays at 100% line and branch.
 
 ## Notes
+
+Socks5PasswordRedactor is a byte-wise state machine (no buffering): greeting, wait for ObserveSent method 0x02, mask PASSWD as ****, then pass through. SOCKS4/tunnel unchanged.
 
 ## Log
 
 - 2026-11-20: Created.
 - 2026-11-20: Filed from `Z:\repos\Surly\Documentation\Bug-Reports\2026-11-20T0553-Surl-bug-report.md` item 1.
 - 2026-11-20: Backlog -> Doing.
+- 2026-11-20: Doing -> Done. SOCKS5 RFC 1929 password is masked as **** in the exchange log
