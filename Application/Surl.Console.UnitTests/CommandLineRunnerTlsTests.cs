@@ -196,6 +196,34 @@ public sealed class CommandLineRunnerTlsTests
     }
 
     [TestMethod]
+    public async Task RunAsync_P12CertWithWrongPass_NamesThePassAndReturnsCertificateProblem()
+    {
+        using var directory = new TemporaryDirectory();
+        using var key = System.Security.Cryptography.RSA.Create(2048);
+        var request = new System.Security.Cryptography.X509Certificates.CertificateRequest(
+            "CN=127.0.0.1", key, System.Security.Cryptography.HashAlgorithmName.SHA256, System.Security.Cryptography.RSASignaturePadding.Pkcs1);
+        using var certificate = request.CreateSelfSigned(DateTimeOffset.UtcNow.AddHours(-1), DateTimeOffset.UtcNow.AddDays(1));
+        var file = Path.Combine(directory.Path, "server.pfx");
+        File.WriteAllBytes(file, certificate.Export(System.Security.Cryptography.X509Certificates.X509ContentType.Pkcs12, "right"));
+
+        var run = await RunRefusedAsync("--cert", file, "--cert-type", "P12", "--pass", "wrong", "https://127.0.0.1:0/");
+
+        Assert.AreEqual(SurlExitCode.CertificateProblem, run.ExitCode);
+        Assert.AreEqual(
+            $"surl: (58) Could not load the server certificate: '{file}' is a P12 file the --pass given does not open." + NewLine,
+            run.Error);
+    }
+
+    private sealed class TemporaryDirectory : IDisposable
+    {
+        private readonly DirectoryInfo directory = Directory.CreateTempSubdirectory("surl-console-p12-");
+
+        public string Path => directory.FullName;
+
+        public void Dispose() => directory.Delete(recursive: true);
+    }
+
+    [TestMethod]
     public async Task RunAsync_CacertFileMissing_WritesCurlsTwoLinesAndReturnsFailedInit()
     {
         using var files = TestCertificateFiles.Create();

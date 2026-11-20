@@ -8,7 +8,7 @@ depends-on: []
 touches: [Foundation/Surl.Networking.UnitLibrary, Foundation/Surl.Networking.UnitTests, Application/Surl.Console.UnitTests/CommandLineRunnerTlsTests.cs]
 requirement: none
 created: 2026-11-20
-completed:
+completed: 2026-11-20
 ---
 # BL-1445 — Name a wrong or missing --pass when a P12 --cert cannot be opened
 
@@ -36,22 +36,25 @@ message says the file is a PKCS#12 file that the `--pass` given does not open (o
 
 ## Acceptance criteria
 
-- [ ] For a PKCS#12 file and a wrong `--pass`, `TlsFileLoadException.Message` is
+- [x] For a PKCS#12 file and a wrong `--pass`, `TlsFileLoadException.Message` is
       `'<file>' is a P12 file the --pass given does not open.` and the failure stays
       `ServerCertificateUnusable`; with no `--pass` and a password-protected file it is
       `'<file>' is a P12 file that needs --pass.` (named tests in
       `Foundation/Surl.Networking.UnitTests`, generated PFX bytes, platform-neutral).
-- [ ] A file that is not PKCS#12 at all keeps `'<file>' is not a P12 certificate Surl can read.`
+- [x] A file that is not PKCS#12 at all keeps `'<file>' is not a P12 certificate Surl can read.`
       (existing test green).
-- [ ] `surl` with a wrong `--pass` exits 58 with `surl: (58) ...` carrying the new text (a test in
+- [x] `surl` with a wrong `--pass` exits 58 with `surl: (58) ...` carrying the new text (a test in
       `CommandLineRunnerTlsTests`).
-- [ ] `dotnet build Foundation/Surl.Networking.UnitLibrary -warnaserror` is clean, the fast tests are
+- [x] `dotnet build Foundation/Surl.Networking.UnitLibrary -warnaserror` is clean, the fast tests are
       green on every platform, and coverage stays at 100% line and branch.
 
 ## Notes
+
+The bad-file case is told from a bad --pass by `X509Certificate2.GetCertContentType == Pkcs12` in an exception filter, never by exception text. Empty --pass counts as none. `dotnet format` reports an import-order error in ServerTlsHandshake.cs, which this task did not touch.
 
 ## Log
 
 - 2026-11-20: Created.
 - 2026-11-20: Filed from `Z:\repos\Surly\Documentation\Bug-Reports\2026-11-19T1942-Surl-bug-report.md` item 8.
 - 2026-11-20: Backlog -> Doing.
+- 2026-11-20: Doing -> Done. P12 wrong or missing --pass named; tests green

@@ -170,7 +170,29 @@ public sealed class ServerCertificateFileLoaderTests
         using var withKey = certificate.CopyWithPrivateKey(rsa);
         var path = files.Write("server.p12", withKey.Export(X509ContentType.Pkcs12, Passphrase));
 
-        AssertUnusable(() => ServerCertificateFileLoader.Load(path, ServerCertificateFormat.P12, null, ServerKeyFormat.Pem, "wrong pass"));
+        var exception = Assert.ThrowsExactly<TlsFileLoadException>(
+            () => ServerCertificateFileLoader.Load(path, ServerCertificateFormat.P12, null, ServerKeyFormat.Pem, "wrong pass"));
+
+        Assert.AreEqual(TlsFileLoadFailure.ServerCertificateUnusable, exception.Failure);
+        Assert.AreEqual($"'{path}' is a P12 file the --pass given does not open.", exception.Message);
+    }
+
+    [TestMethod]
+    [DataRow(null)]
+    [DataRow("")]
+    public void Load_P12NeedingPassGivenNone_NamesThatItNeedsPass(string? passphrase)
+    {
+        using var files = new TemporaryTlsFiles();
+        using var rsa = RSA.Create(2048);
+        using var certificate = TemporaryTlsFiles.CreateCertificate(rsa);
+        using var withKey = certificate.CopyWithPrivateKey(rsa);
+        var path = files.Write("server.p12", withKey.Export(X509ContentType.Pkcs12, Passphrase));
+
+        var exception = Assert.ThrowsExactly<TlsFileLoadException>(
+            () => ServerCertificateFileLoader.Load(path, ServerCertificateFormat.P12, null, ServerKeyFormat.Pem, passphrase));
+
+        Assert.AreEqual(TlsFileLoadFailure.ServerCertificateUnusable, exception.Failure);
+        Assert.AreEqual($"'{path}' is a P12 file that needs --pass.", exception.Message);
     }
 
     [TestMethod]
