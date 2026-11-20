@@ -8,7 +8,7 @@ depends-on: [BL-1419]
 touches: [Protocols/Messaging/Surl.Extended.Protocol.Stomp.UnitLibrary, Protocols/Messaging/Surl.Extended.Protocol.Stomp.UnitTests]
 requirement: none
 created: 2026-11-20
-completed:
+completed: 2026-11-20
 ---
 # BL-1459 — Withhold the STOMP CONNECT passcode from the exchange log
 
@@ -23,12 +23,15 @@ With the BL-1418 contract implemented, ADR-0182's replacement text is logged in 
 
 ## Acceptance criteria
 
-- [ ] A fast test in the server's .UnitTests shows the redacted bytes for a split-chunk exchange and that a server answer is unchanged.
-- [ ] The server's raw bytes still reach the server unchanged and the event stream follows ADR-0182.
+- [x] A fast test in the server's .UnitTests shows the redacted bytes for a split-chunk exchange and that a server answer is unchanged.
+- [x] The server's raw bytes still reach the server unchanged and the event stream follows ADR-0182.
 
 ## Notes
+
+STOMP lines end in LF, so a dedicated `StompConnectPasscodeRedactor` (not `LineBytesRedactor`) masks `passcode` in the first CONNECT/STOMP frame only; later bytes pass through (a second CONNECT is an ERROR). Header name matched exactly, as the reader does.
 
 ## Log
 
 - 2026-11-20: Created.
 - 2026-11-20: Backlog -> Doing.
+- 2026-11-20: Doing -> Done. STOMP passcode withheld from the exchange log

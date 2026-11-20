@@ -65,3 +65,8 @@ Faults (BL-1062, ADR-0124 decisions 4 and 9): `StompFrameFaults` asks `ExchangeC
 frame after login (`command` the frame's command, `path` its `destination`, the account). A delay holds the
 frame; a drop ends the connection once what is queued is written; an `error` rule whose reply is one line of
 text answers ERROR with it as `message` (and `receipt-id`) and closes. Each publishes a `FaultAppliedEvent`.
+
+The exchange log never holds a CONNECT or STOMP `passcode` (ADR-0182, BL-1459): `StompServer` implements
+`IExchangeBytesRedactingServer` with `StompConnectPasscodeRedactor`, which (STOMP lines end in LF, so no
+`LineBytesRedactor`) holds a header line of the first frame until its LF, masks `passcode`'s value as `****`, keeps
+`login` and everything else as received, and passes every byte after that frame's headers through at once.
