@@ -162,3 +162,9 @@ Reset, snapshot and restore (BL-1190, ADR-0159 decision 2):
   timers stopped, a held JoinGroup answered 25, a held SyncGroup 27, a member's next request 25). `TakeSnapshot`
   copies the producer windows and counter only; `Restore` replaces them and drops the groups; another broker's
   snapshot is an `InvalidOperationException`. `Surl.Composition` registers it as `StoreKind.Producers`.
+
+The exchange log never holds a SASL PLAIN password (ADR-0182, BL-1462): `KafkaBroker` implements
+`IExchangeBytesRedactingServer` with `KafkaSaslPlainBytesRedactor`. It reads the size-prefixed requests, holds a
+SaslHandshake whole to see whether it names `PLAIN`, then holds each SaslAuthenticate's `auth_bytes` (or, after a v0
+handshake, the raw token) and logs `authzid NUL authcid NUL ****`; every other request is passed through as soon as its
+API key is known, and SCRAM is logged as received (ADR-0182 decision 8).
