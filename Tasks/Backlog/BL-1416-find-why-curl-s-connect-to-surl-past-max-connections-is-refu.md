@@ -73,3 +73,5 @@ tolerated.
 - 2026-11-20: Doing -> Blocked. Waiting for run:44788839369 (release.yml dry run on factory/phase-1; the previous run 44776460226 had its osx-arm64 publish cancelled, so conformance never ran)
 - 2026-11-20: Blocked -> Backlog. Run 44788839369 completed: success; read it with gh run view 44788839369
 - 2026-11-20: Backlog -> Doing.
+- 2026-11-20: Run 44788839369 (release.yml on factory/phase-1, the diagnostics commit) passed, including "Conformance against the published osx-arm64": the refusal did not reproduce, so no cause is named yet. The earlier run 44776460226 never ran osx-arm64 conformance (its publish was cancelled; artifact not found). The per-task dispatch cap (2 per 12 h, dispatches at 16:44Z and 18:01Z) refuses a third until 2026-11-21 04:45 UTC. Next run: dispatch release.yml again on the shift branch after that time, block on run:<id>, and repeat until a failure shows surl's stderr and process state; then fix, pin with a fast test, and ADR if the backlog is the cause.
+- 2026-11-20: Doing -> Backlog. Run 44788839369 passed without reproducing; dispatch cap (2 per 12h) blocks another Release dry run until 2026-11-21 04:45 UTC
