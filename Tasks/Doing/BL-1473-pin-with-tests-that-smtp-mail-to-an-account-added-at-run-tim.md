@@ -44,3 +44,4 @@ account's INBOX, `Mail.DeliverAsync` to it succeeds, and a test pins both. If ei
 ## Log
 
 - 2026-11-20: Created.
+- 2026-11-20: Backlog -> Doing.
