@@ -33,9 +33,12 @@ var exitCode = await server.StopAsync();   // SurlExitCode.Ok
   | --- | --- |
   | `Accounts` (`SurlAccount(UserName, Password)`, in order) | `--user name:password`, once each |
   | `UserFile` | `--user-file` |
-  | `AuthenticationMethods` (null: `surl`'s default set) | `--auth`, the words joined by commas |
+  | `AuthenticationMethods` (empty: `surl`'s default set) | `--auth`, the words joined by commas |
   | `AllowAnonymous`, `AllowPlaintextAuthentication` | `--allow-anonymous`, `--allow-plaintext-auth` |
   | `CertificateFile`, `KeyFile`, `KeyPassphrase`, `CaCertificateFile` | `--cert`, `--key`, `--pass`, `--cacert` |
+  | `CertificateType`, `KeyType` (`PEM`, `DER`, `P12` for the certificate; null: PEM) | `--cert-type`, `--key-type` |
+  | `LowestTlsVersion`, `HighestTlsVersion` (`SslProtocols.Tls` to `Tls13`; null: TLS 1.2 and 1.3) | `--tlsv1.0` to `--tlsv1.3`, `--tls-max` |
+  | `MaxRequestHeadBytes` (at least 1; null: 100 KiB) | `--max-request-head` |
   | `SelfSigned` | `--self-signed` |
   | `HostKeyFiles` (in order), `ThrowawayHostKey` | `--hostkey`, once each; `--throwaway-hostkey` |
   | `MaxConnections`, `MaxConnectionsPerAddress` | `--max-connections`, `--max-connections-per-address` |
@@ -45,6 +48,17 @@ var exitCode = await server.StopAsync();   // SurlExitCode.Ok
   | `Faults` (`SurlFault`, in order) | `--fault <item>`, once each |
   | `ControlListenUrl`, `ControlTokenFile` | `--control`, `--control-token-file` |
 
+- `AuthenticationMethods` is never null, so a collection initializer works
+  (`AuthenticationMethods = { "basic" }`); assigning null leaves it empty.
+- `ListenUrls` may be empty when `ConfigFiles` or `AdditionalArguments` is given, since they may name
+  listen URLs as `surl` reads them, so a server can start from config files alone:
+
+  ```csharp
+  var options = new SurlServerOptions { ConfigFiles = { "surl.conf" } };   // surl.conf holds the listen URLs
+  ```
+
+  With all three empty, nothing names a listen URL and the start is an `ArgumentException`. If the
+  files and arguments then name none either, `surl`'s own refusal is a `SurlServerStartException`.
 - With `SelfSigned`, `SurlServer.SelfSignedCertificatePem` is the public certificate the server made (PEM, never
   its key; `null` otherwise), so a test pins it and keeps verification on. Each server has its own:
 
@@ -62,7 +76,10 @@ var exitCode = await server.StopAsync();   // SurlExitCode.Ok
   `SurlExitCode` is in the `Surl.Protocol.Abstractions` namespace.
 - `StopAsync` or disposing the server stops it. `StopAsync` returns the `SurlExitCode` `surl`
   would have exited with: `Ok`, or `InternalError` when serving failed; stopping again returns
-  the same code.
+  the same code. It waits up to 5 seconds (`ServingEngine.DefaultShutdownGracePeriod`) for open
+  exchanges to finish, then each connection may linger up to 2 more seconds closing
+  (`StreamConnection.LingeringCloseTime`), so a client still holding a connection open makes it take
+  about 7 seconds. A test that disposes its clients first stops in milliseconds.
 - Misuse is an `ArgumentException`: an option that belongs to a host (`--help`, `--aihelp`,
   `--manual`, `--version`, `--log-file`, `--trace`, `--trace-ascii`) in
   `AdditionalArguments`, an account `--user` could not spell, a negative duration other than

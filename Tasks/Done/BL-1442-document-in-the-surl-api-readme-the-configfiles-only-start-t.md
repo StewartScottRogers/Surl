@@ -8,7 +8,7 @@ depends-on: [BL-1439, BL-1440, BL-1441]
 touches: [Application/Surl.Api/README.md]
 requirement: none
 created: 2026-11-20
-completed:
+completed: 2026-11-20
 ---
 # BL-1442 — Document in the Surl.Api README the ConfigFiles-only start, the new options properties and how long StopAsync waits for open connections
 
@@ -31,13 +31,13 @@ types and head limit, and that `StopAsync` waits up to 7 seconds while a client 
 
 ## Acceptance criteria
 
-- [ ] The README's options section shows a `ConfigFiles`-only start and says when an empty `ListenUrls`
+- [x] The README's options section shows a `ConfigFiles`-only start and says when an empty `ListenUrls`
       is an `ArgumentException`, matching BL-1438's amendment.
-- [ ] It shows `AuthenticationMethods = { "basic" }` and lists each property BL-1441 added with the option
+- [x] It shows `AuthenticationMethods = { "basic" }` and lists each property BL-1441 added with the option
       it composes.
-- [ ] The `StopAsync` bullet states the 5-second grace period for open exchanges plus up to 2 seconds of
+- [x] The `StopAsync` bullet states the 5-second grace period for open exchanges plus up to 2 seconds of
       lingering close per connection, and that disposing clients first avoids the wait.
-- [ ] Every statement matches the code (`SurlServerOptions.cs`, `SurlServerArguments.cs`,
+- [x] Every statement matches the code (`SurlServerOptions.cs`, `SurlServerArguments.cs`,
       `ServingEngine.cs:33`, `StreamConnection.cs:25`).
 
 ## Notes
@@ -47,3 +47,4 @@ types and head limit, and that `StopAsync` waits up to 7 seconds while a client 
 - 2026-11-20: Created.
 - 2026-11-20: Filed from `Z:\repos\Surly\Documentation\Bug-Reports\2026-11-19T1942-Surl-bug-report.md` items 3, 4, 9 and 10, and `2026-11-19T2203-Surl-bug-report.md` item 6.
 - 2026-11-20: Backlog -> Doing.
+- 2026-11-20: Doing -> Done. Surl.Api README documents ConfigFiles-only start, null-safe AuthenticationMethods, TLS/cert/head properties and StopAsync 5s+2s wait
