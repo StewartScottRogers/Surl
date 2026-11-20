@@ -67,3 +67,4 @@ tolerated.
 - 2026-11-20: Diagnostics landed (SurlOnLoopback.Diagnosis: surl process state + stderr; the four max-connections tests start surl with -v and show it in the failure message). Fast Conformance tests green (1053). The cause needs a Release dry run of the pushed commit; this lane cannot push, so the next run must dispatch it (dispatch-workflow.ps1 -Workflow release.yml -Ref factory branch) once this commit is on the shift branch, then block on run:<id>.
 - 2026-11-20: Doing -> Backlog. Diagnostics committed; the Release dry run that names the cause must be dispatched from the pushed commit, which this lane cannot push.
 - 2026-11-20: Backlog -> Doing.
+- 2026-11-20: Doing -> Blocked. Waiting for run:44776460226 (Release dry run on factory/phase-1 with the max-connections diagnostics)
