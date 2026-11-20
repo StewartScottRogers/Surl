@@ -36,7 +36,7 @@ internal sealed partial class HttpRequestAnswerer
     // modification time is compared at the second precision Last-Modified is sent at.
     private HttpAnswer? ConditionAnswer(HttpRequest request, DateTimeOffset lastModified, string eTag, IReadOnlyList<string> challenges)
     {
-        var modifiedAt = new DateTimeOffset(lastModified.UtcTicks - (lastModified.UtcTicks % TimeSpan.TicksPerSecond), TimeSpan.Zero);
+        var modifiedAt = ModificationSecond(lastModified);
         if (FailsPrecondition(request, modifiedAt, eTag))
         {
             return EmptyAnswer(request, PreconditionFailed, challenges);
@@ -60,11 +60,17 @@ internal sealed partial class HttpRequestAnswerer
     }
 
     // Steps 1 and 2 of ADR-0184, decision 4: If-Match, else If-Unmodified-Since.
-    private bool FailsPrecondition(HttpRequest request, DateTimeOffset modifiedAt, string eTag)
-    {
-        var failed = EntityTagsOf(request, "If-Match") is { } ifMatch
+    private static bool IsPreconditionUnmet(HttpRequest request, DateTimeOffset modifiedAt, string eTag) =>
+        EntityTagsOf(request, "If-Match") is { } ifMatch
             ? !TagListMatches(ifMatch, eTag, isStrong: true)
             : HttpDateOf(request, "If-Unmodified-Since") is { } unmodifiedSince && modifiedAt > unmodifiedSince;
+
+    private static DateTimeOffset ModificationSecond(DateTimeOffset lastModified) =>
+        new(lastModified.UtcTicks - (lastModified.UtcTicks % TimeSpan.TicksPerSecond), TimeSpan.Zero);
+
+    private bool FailsPrecondition(HttpRequest request, DateTimeOffset modifiedAt, string eTag)
+    {
+        var failed = IsPreconditionUnmet(request, modifiedAt, eTag);
         if (failed)
         {
             context.Log.Note($"{request.Method} {request.Target}: 412, the file does not meet the request's If-Match or If-Unmodified-Since");
