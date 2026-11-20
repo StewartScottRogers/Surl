@@ -671,8 +671,10 @@ public sealed partial class ServingEngine
             var failure = await CaptureFailureAsync(() => WriteRefusalWithinDeadlineAsync(
                 token => writer.WriteRefusalAsync(connection, refusal, route.ListenUrl.Scheme, token), route.ShutdownToken));
 
-            if (failure is { SourceException: not OperationCanceledException })
+            if (failure is { SourceException: not OperationCanceledException and var writeFailure })
             {
+                NoteOutsideExchange(
+                    $"The refusal for {connection.RemoteEndPoint} could not be written ({writeFailure.GetType().Name}: {writeFailure.Message}); the connection was reset.");
                 connection.Abort();
             }
         }
@@ -688,9 +690,15 @@ public sealed partial class ServingEngine
             ? $"--max-connections-per-address {connectionLimits.MaxConnectionsPerAddress}"
             : $"--max-connections {connectionLimits.MaxConnections}";
 
+        NoteOutsideExchange($"Refused {what} from {remoteEndPoint}: past {limit}.");
+    }
+
+    // A log that fails to take a note does not stop what the note is about.
+    private void NoteOutsideExchange(string note)
+    {
         try
         {
-            exchangeLogFactory.NoteOutsideExchange($"Refused {what} from {remoteEndPoint}: past {limit}.");
+            exchangeLogFactory.NoteOutsideExchange(note);
         }
         catch (Exception)
         {
