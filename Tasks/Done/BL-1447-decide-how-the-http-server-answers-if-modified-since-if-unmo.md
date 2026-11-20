@@ -8,7 +8,7 @@ depends-on: [BL-1446]
 touches: [Documentation/Planning/Decisions]
 requirement: none
 created: 2026-11-20
-completed:
+completed: 2026-11-20
 ---
 # BL-1447 — Decide how the HTTP server answers If-Modified-Since, If-Unmodified-Since, If-None-Match and If-Match, and what ETag it sends
 
@@ -38,23 +38,26 @@ measurements, so upstream curl's `-z`, `--etag-compare` and `--etag-save` get a 
 
 ## Acceptance criteria
 
-- [ ] An ADR in `Documentation/Planning/Decisions` (the next free number), marked "Decided by Claude
+- [x] An ADR in `Documentation/Planning/Decisions` (the next free number), marked "Decided by Claude
       under Stewart's delegation", gives the evaluation order and every outcome as a table (status, the
       fields sent, body or none, whether the connection persists), citing RFC 9110 sections.
-- [ ] It fixes the ETag: its exact form, how it is made, when it changes, and whether it comes from
+- [x] It fixes the ETag: its exact form, how it is made, when it changes, and whether it comes from
       `ObjectMetadataIndex`.
-- [ ] Each row cites the BL-1446 recording it rests on where curl is involved (`-z`, `-z -`,
+- [x] Each row cites the BL-1446 recording it rests on where curl is involved (`-z`, `-z -`,
       `--etag-compare`, `--etag-save`).
-- [ ] It amends ADR-0133's entity-tag `If-Range` sentence, and says what an invalid date
+- [x] It amends ADR-0133's entity-tag `If-Range` sentence, and says what an invalid date
       (`If-Modified-Since: nonsense`) gets.
-- [ ] It names the work split as BL-1448 (date conditions) and BL-1449 (ETag conditions); if that work
+- [x] It names the work split as BL-1448 (date conditions) and BL-1449 (ETag conditions); if that work
       needs a `Surl.Content` change, it files that task and adds it to BL-1449's `depends-on`.
-- [ ] `Documentation/Planning/Decisions/README.md` lists the ADR.
+- [x] `Documentation/Planning/Decisions/README.md` lists the ADR.
 
 ## Notes
+
+- Decided: ADR-0184. Strong ETag from mtime ticks + length (not ObjectMetadataIndex), so no Surl.Content task; BL-1449 depends-on stays BL-1448. ADR-0133 got an amendment note.
 
 ## Log
 
 - 2026-11-20: Created.
 - 2026-11-20: Filed from `Z:\repos\Surly\Documentation\Bug-Reports\2026-11-19T1942-Surl-bug-report.md` item 12.
 - 2026-11-20: Backlog -> Doing.
+- 2026-11-20: Doing -> Done. ADR-0184 written; README lists it; ADR-0133 amended
