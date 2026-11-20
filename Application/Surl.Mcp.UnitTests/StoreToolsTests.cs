@@ -251,8 +251,25 @@ public sealed class StoreToolsTests
         var oldest = await CallAsync(host.RestoreServer, """{"server_id": "s1", "snapshot_id": "p1"}""");
         var oldestKept = await CallAsync(host.RestoreServer, """{"server_id": "s1", "snapshot_id": "p2"}""");
 
-        AssertFailure(oldest, "server s1 has no snapshot p1; only its newest 4 snapshots are kept");
+        AssertFailure(oldest, "server s1 has no snapshot p1; it was never taken of this server, or was dropped as one past its newest 4 snapshots");
         Assert.IsFalse(oldestKept.IsError);
+    }
+
+    [TestMethod]
+    public async Task RestoreServer_AnIdOnlyAnotherServerKeeps_NamesThatServerAndSaysSnapshotsRestoreOnlyIntoTheirOwn()
+    {
+        await using var host = await StartMailHostAsync();
+        var second = await CallAsync(host.StartServer, """{"listen_urls": ["pop3://127.0.0.1:0"], "arguments": ["--user", "alice:secret", "--allow-plaintext-auth"]}""");
+        Assert.IsFalse(second.IsError, second.TextContent.FirstOrDefault());
+        await CallAsync(host.SnapshotServer, """{"server_id": "s2"}""");
+        await CallAsync(host.SnapshotServer, """{"server_id": "s2"}""");
+
+        var result = await CallAsync(host.RestoreServer, """{"server_id": "s1", "snapshot_id": "p2"}""");
+
+        Assert.IsTrue(result.IsError);
+        var text = Assert.ContainsSingle(result.TextContent);
+        StringAssert.Contains(text, "server s2");
+        StringAssert.Contains(text, "restores only into the server that took it");
     }
 
     [TestMethod]

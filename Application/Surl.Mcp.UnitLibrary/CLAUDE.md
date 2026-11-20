@@ -66,7 +66,7 @@ with one `McpServerRegistry.AddTool` line and holds nothing else of the tools.
     - `AddProxyAccountTool` / `AddTlsSrpAccountTool` (`add_proxy_account`, `add_tls_srp_account`): `user`, `password` -> `{user}`; a server without such accounts is refused (`holds no proxy accounts...`, `was not started with TLS-SRP`). `RemoveProxyAccountTool` / `RemoveTlsSrpAccountTool`: `user` -> `{user}`, same refusals (ADR-0170 decision 4).
     - `ResetServerTool` (`reset_server`) -> `{server_id}`; `SnapshotServerTool` (`snapshot_server`) ->
       `{snapshot_id}`; `RestoreServerTool` (`restore_server`): `snapshot_id` -> `{server_id, snapshot_id}`, and
-      an ID not kept is `server <id> has no snapshot <p>; only its newest 4 snapshots are kept`.
+      an ID not kept is `server <id> has no snapshot <p>; it was never taken of this server, or was dropped as one past its newest 4 snapshots`, or, when another running server keeps that ID, says that server keeps it and a snapshot restores only into the server that took it.
     - `AddFaultTool` (`add_fault`): `fault`, one `--fault` item, read by `Surl.Cli`'s `CommandLineParser` (a bad
       item is `isError` with `surl`'s `option --fault: ...` text) and added as a `SurlFault` -> `{fault_id}`.
     - `ListFaultsTool` (`list_faults`, BL-964): `server_id` -> `{faults: [{fault_id, item, remaining}]}` in plan
