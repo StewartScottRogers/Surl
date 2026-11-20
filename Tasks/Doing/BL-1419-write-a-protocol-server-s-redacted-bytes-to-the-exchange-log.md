@@ -49,3 +49,4 @@ event stream gets what BL-1417's ADR says.
 
 - 2026-11-20: Created.
 - 2026-11-20: Filed from `Z:\repos\Surly\Documentation\Bug-Reports\2026-11-20T0553-Surl-bug-report.md` item 1.
+- 2026-11-20: Backlog -> Doing.
