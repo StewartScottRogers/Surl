@@ -30,15 +30,17 @@ key type and its SHA-256 fingerprint, so a test can tell why the login failed.
 
 ## Acceptance criteria
 
-- [ ] A refused `publickey` query (no signature) and a refused signed `publickey` request each write one `-v` note
+- [x] A refused `publickey` query (no signature) and a refused signed `publickey` request each write one `-v` note
       naming the method, the user, the key type and `SHA256:<base64>` fingerprint, in the same form as the existing
       publickey note.
-- [ ] Named fast tests in `Surl.Protocol.Ssh.UnitTests` pin both notes, and pin that an accepted key's notes are
+- [x] Named fast tests in `Surl.Protocol.Ssh.UnitTests` pin both notes, and pin that an accepted key's notes are
       unchanged.
-- [ ] `--aihelp` (scp/sftp topic), if it lists the login notes, names the new one.
-- [ ] `dotnet build` clean, fast tests green, `Surl.Protocol.Ssh` stays 100/100.
+- [x] `--aihelp` (scp/sftp topic), if it lists the login notes, names the new one.
+- [x] `dotnet build` clean, fast tests green, `Surl.Protocol.Ssh` stays 100/100.
 
 ## Notes
+
+The publickey note was already written on every path (before the key is judged), so no production change: the gap was missing tests. Added two tests pinning the refused query and refused signed request notes; the accepted-key query test already pins the unchanged note. Form kept as the existing `SHA-256 <base64>`. The login notes are not listed in --aihelp.
 
 ## Log
 
