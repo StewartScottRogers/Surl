@@ -187,4 +187,18 @@ public sealed class WebTransportProtocolServerTests
         var server = new WebTransportProtocolServer(new AnonymousAuthenticationPolicy(), () => certificate, idleTimeout);
         return server.ServeAsync(client.Flow, context);
     }
+
+    [TestMethod]
+    public void CreateRedactor_DecodedAuthorizationLine_IsLoggedAsStars()
+    {
+        var redactor = new WebTransportProtocolServer(new AnonymousAuthenticationPolicy(), () => null, TimeSpan.Zero).CreateRedactor(new ExchangeRedactionContext(1, "webtransport"));
+        var output = new System.Buffers.ArrayBufferWriter<byte>();
+
+        redactor.Redact(System.Text.Encoding.ASCII.GetBytes(":method: CONNECT\r\nauthorization: Bearer sekret-token\r\n"), output);
+        redactor.Flush(output);
+        var logged = System.Text.Encoding.ASCII.GetString(output.WrittenSpan);
+
+        Assert.DoesNotContain("sekret", logged);
+        Assert.Contains("authorization: ****", logged);
+    }
 }

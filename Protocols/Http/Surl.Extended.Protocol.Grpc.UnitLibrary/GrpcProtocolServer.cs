@@ -13,7 +13,7 @@ namespace Surl.Extended.Protocol.Grpc;
 /// with <c>GOAWAY</c> <c>PROTOCOL_ERROR</c> (RFC 9113 section 3.4) and the connection is closed.
 /// </remarks>
 /// <param name="authenticationPolicy">Judges each call's <c>authorization</c> through one session per connection.</param>
-public sealed class GrpcProtocolServer(IAuthenticationPolicy authenticationPolicy) : IConnectionProtocolServer
+public sealed class GrpcProtocolServer(IAuthenticationPolicy authenticationPolicy) : IConnectionProtocolServer, IExchangeBytesRedactingServer
 {
     /// <summary>The scheme served in plain text.</summary>
     public const string PlainScheme = "grpc";
@@ -32,6 +32,14 @@ public sealed class GrpcProtocolServer(IAuthenticationPolicy authenticationPolic
 
     /// <inheritdoc />
     public IReadOnlyList<string> Schemes { get; } = [PlainScheme, TlsScheme];
+
+    /// <summary>
+    /// Creates the redactor that withholds the <c>authorization</c> and <c>proxy-authorization</c> values of
+    /// the HTTP/2 header blocks on one connection, so the exchange log never holds them (ADR-0182; BL-1469).
+    /// </summary>
+    /// <param name="context">The exchange the redactor is for.</param>
+    /// <returns>A redactor for that exchange alone.</returns>
+    public IReceivedBytesRedactor CreateRedactor(ExchangeRedactionContext context) => new Http2RequestBytesRedactor();
 
     /// <inheritdoc />
     public async Task ServeAsync(IConnection connection, ExchangeContext context)

@@ -20,7 +20,7 @@ internal sealed class DnsConnectionRoutingProtocolServer(
     IConnectionProtocolServer streamServer,
     DnsZoneSet zones,
     bool allowZoneTransfer,
-    IAuthenticationPolicy? authenticationPolicy = null) : IConnectionProtocolServer
+    IAuthenticationPolicy? authenticationPolicy = null) : IConnectionProtocolServer, IExchangeBytesRedactingServer
 {
     private const string Http2ApplicationProtocol = "h2";
 
@@ -29,6 +29,14 @@ internal sealed class DnsConnectionRoutingProtocolServer(
 
     /// <inheritdoc/>
     public IReadOnlyList<string> Schemes => streamServer.Schemes;
+
+    /// <summary>
+    /// Creates the redactor that withholds <c>Authorization</c> and API-key values of DNS over HTTPS requests
+    /// (HTTP/1.1 heads or HTTP/2 header blocks) and passes DNS over TCP and TLS bytes through (ADR-0182; BL-1469).
+    /// </summary>
+    /// <param name="context">The exchange the redactor is for.</param>
+    /// <returns>A redactor for that exchange alone.</returns>
+    public IReceivedBytesRedactor CreateRedactor(ExchangeRedactionContext context) => new DnsConnectionBytesRedactor();
 
     /// <inheritdoc/>
     public Task ServeAsync(IConnection connection, ExchangeContext context)

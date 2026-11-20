@@ -5,7 +5,7 @@ priority: Normal
 assignee: Claude
 pipeline: feature
 depends-on: [BL-1423, BL-1424, BL-1465]
-touches: [Protocols/Http/Surl.Extended.Protocol.Grpc.UnitLibrary, Protocols/Http/Surl.Extended.Protocol.Grpc.UnitTests, Protocols/Http/Surl.Extended.Protocol.WebTransport.UnitLibrary, Protocols/Http/Surl.Extended.Protocol.WebTransport.UnitTests, Protocols/Lookup/Surl.Extended.Protocol.DnsQuery.UnitLibrary, Protocols/Lookup/Surl.Extended.Protocol.DnsQuery.UnitTests]
+touches: [Protocols/Http/Surl.Extended.Protocol.Grpc.UnitLibrary, Protocols/Http/Surl.Extended.Protocol.Grpc.UnitTests, Protocols/Http/Surl.Extended.Protocol.WebTransport.UnitLibrary, Protocols/Http/Surl.Extended.Protocol.WebTransport.UnitTests, Protocols/Lookup/Surl.Extended.Protocol.DnsQuery.UnitLibrary, Protocols/Lookup/Surl.Extended.Protocol.DnsQuery.UnitTests, Application/Surl.Composition.UnitLibrary/DnsConnectionRoutingProtocolServer.cs, Application/Surl.Composition.UnitTests/DnsConnectionRoutingProtocolServerTests.cs]
 requirement: none
 created: 2026-11-20
 completed:
@@ -22,10 +22,15 @@ gRPC (HTTP/2), WebTransport (HTTP/3) and DNS over HTTPS log `Authorization` and 
 
 ## Acceptance criteria
 
-- [ ] Each server implements `IExchangeBytesRedactingServer` and a fast test shows the redacted bytes.
-- [ ] The raw bytes still reach the server unchanged.
+- [x] Each server implements `IExchangeBytesRedactingServer` and a fast test shows the redacted bytes.
+- [x] The raw bytes still reach the server unchanged.
 
 ## Notes
+
+- Added Composition's DnsConnectionRoutingProtocolServer (+tests) to touches: DoH is routed there and no other Doing task names it.
+- DoH redactor (DnsConnectionBytesRedactor) picks by first byte: capital letter = HTTP (HTTP/1.1 heads via HttpExchangeRedaction, or HTTP/2 on the preface), else DNS-over-TCP bytes pass through. A real query length never starts with 0x41-0x5A.
+- gRPC uses Http2RequestBytesRedactor and WebTransport Http3RequestBytesRedactor; both mask authorization and proxy-authorization only (those redactors have no API-key list), so API-key headers on gRPC/WebTransport are not yet masked.
+- Raw bytes are untouched: redaction only affects the log copy.
 
 ## Log
 
