@@ -43,3 +43,4 @@ key type and its SHA-256 fingerprint, so a test can tell why the login failed.
 ## Log
 
 - 2026-11-20: Created.
+- 2026-11-20: Backlog -> Doing.
