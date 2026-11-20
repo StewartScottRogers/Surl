@@ -23,10 +23,13 @@ With the BL-1418 contract implemented, ADR-0182's replacement text is logged in 
 
 ## Acceptance criteria
 
-- [ ] A fast test in the server's .UnitTests shows the redacted bytes for a split-chunk exchange and that a server answer is unchanged.
-- [ ] The server's raw bytes still reach the server unchanged and the event stream follows ADR-0182.
+- [x] A fast test in the server's .UnitTests shows the redacted bytes for a split-chunk exchange and that a server answer is unchanged.
+- [x] The server's raw bytes still reach the server unchanged and the event stream follows ADR-0182.
 
 ## Notes
+
+- Also masks every `connection.secure-ok` response (a SASL challenge answer can carry the password), beyond start-ok. A PLAIN response with fewer than two NULs, an AMQPLAIN table with a non-long-string entry, and any other mechanism are masked whole. Decision follows ADR-0182; no new ADR needed.
+- Frames are held up to 64 KiB (as MQTT); holding ends at connection.open or any non-method or non-channel-0 frame.
 
 ## Log
 

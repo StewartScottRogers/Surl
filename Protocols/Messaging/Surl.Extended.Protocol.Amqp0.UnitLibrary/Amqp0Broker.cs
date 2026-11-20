@@ -93,7 +93,7 @@ namespace Surl.Extended.Protocol.Amqp0;
 /// <c>connection.close</c> is answered <c>close-ok</c>.
 /// </para>
 /// </remarks>
-public sealed class Amqp0Broker : IConnectionProtocolServer
+public sealed class Amqp0Broker : IConnectionProtocolServer, IExchangeBytesRedactingServer
 {
     /// <summary>The channel-max <c>connection.tune</c> offers: 256 (decision 8).</summary>
     public const ushort ChannelMax = 256;
@@ -130,6 +130,14 @@ public sealed class Amqp0Broker : IConnectionProtocolServer
     /// whose handshake the engine performs (decision 8).
     /// </summary>
     public IReadOnlyList<string> Schemes { get; } = Array.AsReadOnly(["amqp", "amqps"]);
+
+    /// <summary>
+    /// Creates the redactor that logs the <c>connection.start-ok</c> and <c>secure-ok</c> responses
+    /// without their passwords and every other byte as it arrived (ADR-0182, decision 6).
+    /// </summary>
+    /// <param name="context">The exchange the redactor is for.</param>
+    /// <returns>A redactor for the connection, used by that exchange alone.</returns>
+    public IReceivedBytesRedactor CreateRedactor(ExchangeRedactionContext context) => new Amqp0LoginBytesRedactor();
 
     /// <summary>
     /// Loads the durable declared exchanges and their bindings from <paramref name="files"/>, and
