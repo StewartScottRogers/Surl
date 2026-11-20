@@ -68,3 +68,4 @@ tolerated.
 - 2026-11-20: Doing -> Backlog. Diagnostics committed; the Release dry run that names the cause must be dispatched from the pushed commit, which this lane cannot push.
 - 2026-11-20: Backlog -> Doing.
 - 2026-11-20: Doing -> Blocked. Waiting for run:44776460226 (Release dry run on factory/phase-1 with the max-connections diagnostics)
+- 2026-11-20: Blocked -> Backlog. Run 44776460226 completed: failure; read it with gh run view 44776460226
