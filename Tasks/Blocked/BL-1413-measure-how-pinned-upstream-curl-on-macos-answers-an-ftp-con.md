@@ -65,3 +65,4 @@ connect fails the test instead of passing it.
   temporary test at the end.
 - 2026-11-19: Doing -> Backlog. Repeat test committed but a lane cannot push; next claim dispatches ci on the pushed shift branch for the macOS measurement
 - 2026-11-19: Backlog -> Doing.
+- 2026-11-19: Doing -> Blocked. Waiting for run:44669095406 (ci on factory/phase-1, macOS 50-repeat tally)
