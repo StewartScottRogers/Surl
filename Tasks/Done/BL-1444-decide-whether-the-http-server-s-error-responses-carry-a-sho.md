@@ -8,7 +8,7 @@ depends-on: []
 touches: [Documentation/Planning/Decisions]
 requirement: none
 created: 2026-11-20
-completed:
+completed: 2026-11-20
 ---
 # BL-1444 — Decide whether the HTTP server's error responses carry a short text body for curl --fail-with-body
 
@@ -40,22 +40,26 @@ responses keep their empty bodies or carry a short fixed text body that `curl --
 
 ## Acceptance criteria
 
-- [ ] An ADR in `Documentation/Planning/Decisions` (the next free number), marked "Decided by Claude
+- [x] An ADR in `Documentation/Planning/Decisions` (the next free number), marked "Decided by Claude
       under Stewart's delegation", decides empty or a fixed body for each status family, with the exact
       bytes and `Content-Type` if a body.
-- [ ] It records a measurement with `Record-CurlExchange.ps1` and the pinned upstream curl 8.21.0
+- [x] It records a measurement with `Record-CurlExchange.ps1` and the pinned upstream curl 8.21.0
       (`-sS --fail-with-body` and `-i` against a 404 with a body and with none), giving exit codes and
       stdout.
-- [ ] It lists the upstream test cases and fixtures a body would change, and says why each stays right.
-- [ ] If it decides on a body, the implementation tasks are filed with `task-board.ps1 new` (one per
+- [x] It lists the upstream test cases and fixtures a body would change, and says why each stays right.
+- [x] If it decides on a body, the implementation tasks are filed with `task-board.ps1 new` (one per
       server, depending on this task) and named in the ADR; if it keeps empty bodies, ADR-0008's
       Consequences line is updated to say the question is closed.
-- [ ] `Documentation/Planning/Decisions/README.md` lists the ADR.
+- [x] `Documentation/Planning/Decisions/README.md` lists the ADR.
 
 ## Notes
+
+- Decided: a fixed `<code> <reason>
+` text/plain body for the HTTP server's own 4xx/5xx, none on HEAD/1xx/204/304, extended/proxy servers left empty (ADR-0186). Filed BL-1467 (refusals) and BL-1468 (fault `body=`).
 
 ## Log
 
 - 2026-11-20: Created.
 - 2026-11-20: Filed from `Z:\repos\Surly\Documentation\Bug-Reports\2026-11-19T1942-Surl-bug-report.md` item 7.
 - 2026-11-20: Backlog -> Doing.
+- 2026-11-20: Doing -> Done. ADR-0186 decides a fixed text body for HTTP 4xx/5xx, measured with curl 8.21.0; BL-1467 and BL-1468 filed

@@ -63,8 +63,7 @@ Upstream curl 8.21.0 (the pinned win-x64 build) was fed the 200 GET, 200 HEAD (`
 
 ## Consequences
 
-- Error bodies are empty; a later task may add a short fixed text body, measured against
-  curl first.
+- Error bodies were empty. That question is closed: ADR-0186 gives the server's own 4xx and 5xx\n  refusals a short fixed text body, measured against curl.
 - An absolute-form request target (`http://host/path`, RFC 9112, section 3.2.2) is
   served by its path; its authority is not compared with `Host` or the listen URL.
 - Still to do, filed as follow-up tasks: draining unread request bytes before a close
