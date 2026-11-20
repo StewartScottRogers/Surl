@@ -8,7 +8,7 @@ depends-on: []
 touches: [Documentation/Planning/Decisions]
 requirement: none
 created: 2026-11-20
-completed:
+completed: 2026-11-20
 ---
 # BL-1417 — Decide how surl's -v log, trace dumps and --log-file withhold the passwords and tokens a client sends
 
@@ -62,26 +62,26 @@ which sinks, and through which seam, so BL-1418 to BL-1435 can be built against 
 
 ## Acceptance criteria
 
-- [ ] An ADR in `Documentation/Planning/Decisions` (the next free number), marked "Decided by Claude
+- [x] An ADR in `Documentation/Planning/Decisions` (the next free number), marked "Decided by Claude
       under Stewart's delegation", fixes what replaces a secret (for example `PASS ****`,
       `Authorization: Basic ****`), whether its length shows, and what a trace dump's `<n> bytes`
       header counts after redaction.
-- [ ] It names the sinks that redact (`-v`, `--trace`, `--trace-ascii`, `--log-file`, `Surl.Api`'s
+- [x] It names the sinks that redact (`-v`, `--trace`, `--trace-ascii`, `--log-file`, `Surl.Api`'s
       `Log`). It decides, with reasons, whether `ExchangeBytesEvent` on the event stream (`Surl.Api`
       `Exchanges`, surl-mcp `get_exchanges`, control endpoint events) carries raw or redacted bytes, and
       whether any option turns redaction off. If one does, it is a loosening that warns (ADR-0032
       section 9).
-- [ ] It fixes the seam: interface names; where the engine applies it; how a redactor sees sent bytes
+- [x] It fixes the seam: interface names; where the engine applies it; how a redactor sees sent bytes
       for SASL state; binary frames; chunk boundaries and the most bytes a redactor may hold back. It
       states that `RecordingExchangeLog` and the upstream-test-case server halves in `Surl.Conformance`
       keep raw bytes.
-- [ ] It has a table: every server whose client bytes carry a password, token or key in recoverable
+- [x] It has a table: every server whose client bytes carry a password, token or key in recoverable
       form, the field, and the BL task that redacts it. For each server in the table with no task yet
       (the extended list above), it files one with `task-board.ps1 new`, depending on BL-1419, and
       names it in the table.
-- [ ] It quotes what upstream curl 8.21.0's `--manual` says about its own `-v`/`--trace-ascii` and says
+- [x] It quotes what upstream curl 8.21.0's `--manual` says about its own `-v`/`--trace-ascii` and says
       why surl differs.
-- [ ] `Documentation/Planning/Decisions/README.md` lists the ADR.
+- [x] `Documentation/Planning/Decisions/README.md` lists the ADR.
 
 ## Notes
 
@@ -95,3 +95,4 @@ which sinks, and through which seam, so BL-1418 to BL-1435 can be built against 
 - 2026-11-20: Created.
 - 2026-11-20: Filed from `Z:\repos\Surly\Documentation\Bug-Reports\2026-11-20T0553-Surl-bug-report.md` item 1.
 - 2026-11-20: Backlog -> Doing.
+- 2026-11-20: Doing -> Done. ADR-0182 written; BL-1458..BL-1465 filed
