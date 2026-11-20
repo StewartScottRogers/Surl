@@ -64,3 +64,4 @@ request-head properties. BL-1439, BL-1440 and BL-1441 build exactly that.
 
 - 2026-11-20: Created.
 - 2026-11-20: Filed from `Z:\repos\Surly\Documentation\Bug-Reports\2026-11-19T1942-Surl-bug-report.md` items 3, 4 and 10, and `2026-11-19T2203-Surl-bug-report.md` item 6.
+- 2026-11-20: Backlog -> Doing.
