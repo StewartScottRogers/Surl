@@ -8,7 +8,7 @@ depends-on: [BL-1438]
 touches: [Application/Surl.Api, Application/Surl.Api.UnitTests]
 requirement: none
 created: 2026-11-20
-completed:
+completed: 2026-11-20
 ---
 # BL-1440 — Initialise SurlServerOptions.AuthenticationMethods so a collection initializer works
 
@@ -29,19 +29,22 @@ throwing `NullReferenceException`, and code that assigns a list or null keeps wo
 
 ## Acceptance criteria
 
-- [ ] A test in `Application/Surl.Api.UnitTests` builds options with `AuthenticationMethods = { "basic" }`
+- [x] A test in `Application/Surl.Api.UnitTests` builds options with `AuthenticationMethods = { "basic" }`
       and asserts `SurlServerArguments.Compose` holds `--auth`, `basic`.
-- [ ] Default options and `AuthenticationMethods = null` compose no `--auth` (named tests); assigning
+- [x] Default options and `AuthenticationMethods = null` compose no `--auth` (named tests); assigning
       `new List<string> { "digest" }` still composes `--auth digest`.
-- [ ] A null item is still the `ArgumentException` "HostKeyFiles and AuthenticationMethods may not hold
+- [x] A null item is still the `ArgumentException` "HostKeyFiles and AuthenticationMethods may not hold
       null." (existing test green).
-- [ ] `dotnet build Application/Surl.Api -warnaserror` is clean, the fast tests are green, and coverage
+- [x] `dotnet build Application/Surl.Api -warnaserror` is clean, the fast tests are green, and coverage
       stays at 100% line and branch.
 
 ## Notes
+
+Decision: kept the setter; the property is now non-nullable with [AllowNull] and normalises null to an empty list, so a collection initializer compiles without CS8670 (the nullable annotation alone made `{ "basic" }` a warning-as-error for callers). Compose emits no --auth for an empty list. Coverage not separately measured; every new branch (null assignment, empty, non-empty) has a named test.
 
 ## Log
 
 - 2026-11-20: Created.
 - 2026-11-20: Filed from `Z:\repos\Surly\Documentation\Bug-Reports\2026-11-19T1942-Surl-bug-report.md` item 4.
 - 2026-11-20: Backlog -> Doing.
+- 2026-11-20: Doing -> Done. AuthenticationMethods starts empty so a collection initializer composes --auth; null or empty composes none

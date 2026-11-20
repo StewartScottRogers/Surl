@@ -72,9 +72,15 @@ public sealed class SurlServerOptions
 
     /// <summary>
     /// The authentication methods accepted and offered (<c>--auth</c>, given once with the words joined
-    /// by commas), or <see langword="null"/>, the default, for <c>surl</c>'s default set.
+    /// by commas), or empty, the default, for <c>surl</c>'s default set.
+    /// Assigning <see langword="null"/> leaves it empty.
     /// </summary>
-    public IList<string>? AuthenticationMethods { get; set; }
+    [System.Diagnostics.CodeAnalysis.AllowNull]
+    public IList<string> AuthenticationMethods
+    {
+        get;
+        set => field = value ?? [];
+    } = [];
 
     /// <summary>Accepts any login, or none (<c>--allow-anonymous</c>, warns on start); off by default.</summary>
     public bool AllowAnonymous { get; set; }

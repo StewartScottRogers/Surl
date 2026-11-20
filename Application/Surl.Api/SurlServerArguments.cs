@@ -89,7 +89,7 @@ internal static class SurlServerArguments
                 "Accounts may not hold null, a null user name or password, or a user name with ':'.", nameof(options));
         }
 
-        if (options.HostKeyFiles.Contains(null!) || options.AuthenticationMethods?.Contains(null!) == true)
+        if (options.HostKeyFiles.Contains(null!) || options.AuthenticationMethods.Contains(null!))
         {
             throw new ArgumentException("HostKeyFiles and AuthenticationMethods may not hold null.", nameof(options));
         }
@@ -233,7 +233,7 @@ internal static class SurlServerArguments
         }
 
         AddValue(arguments, options.UserFile, "--user-file");
-        AddValue(arguments, options.AuthenticationMethods is { } methods ? string.Join(",", methods) : null, "--auth");
+        AddValue(arguments, options.AuthenticationMethods.Count > 0 ? string.Join(",", options.AuthenticationMethods) : null, "--auth");
         AddFlag(arguments, options.AllowAnonymous, "--allow-anonymous");
         AddFlag(arguments, options.AllowPlaintextAuthentication, "--allow-plaintext-auth");
     }
