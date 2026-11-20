@@ -19,6 +19,10 @@ The CRLF line machinery the mail servers share (ADR-0050 decision 8), built in B
 - `ReplyLineWriter` - one printable-ASCII line and CRLF; throws `ArgumentException` otherwise.
 - `SaslContinuationLine` - `*` cancels, empty is an empty response, whitespace or anything
   else not base64 is `NotBase64`.
+- `SaslLineRedactionRule` (BL-1428, ADR-0183) - an `ILineRedactionRule` for `LineBytesRedactor`:
+  masks the initial response on `[tag] AUTH mech <b64>` as `****` and the client line after a
+  server line starting with the continuation prefix (`334 `, `+ `); `*`, empty and unprompted
+  lines pass unchanged.
 - `MailUpstreamTestCaseReplies` (BL-875, ADR-0080 decision 2) - a test seam, never composed by
   the shipped `surl`: one upstream test case's `<reply>` parts and `<servercmd>` lines as the
   IMAP, POP3 and SMTP server halves play them, with a record of every command line read and

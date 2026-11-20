@@ -44,6 +44,9 @@ ends.
 
 ## Notes
 
+- ADR-0183 (Decided by Claude under Stewart's delegation) names the type `SaslLineRedactionRule` and decides: every continuation answer is masked, `*` and empty lines pass, IMAP literals left to BL-1430.
+- Coverage collector could not be run by name here; every branch has a named test (reviewed by hand).
+
 ## Log
 
 - 2026-11-20: Created.
