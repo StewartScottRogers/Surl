@@ -139,3 +139,16 @@ IMAP `+`, the next client line is a secret).
 - **A `CONNECT` head is redacted like any head; tunnelled bytes after the `200` pass through the same redactor.** They are
   the client's own TLS (ciphertext, no field to match) or, in a test, plaintext HTTP, whose `Authorization` is masked too.
   A held partial line is written at `Flush`.
+
+## Amendment 3 (BL-1423, decided by Claude under Stewart's delegation)
+
+- **HTTP/2 form.** `Http2RequestBytesRedactor` keeps a copy of the connection's HPACK decoder, which decodes every client
+  header block in order, so an indexed `authorization` is found as well as a literal, Huffman-coded or not. A block that
+  carries `authorization` or `proxy-authorization` is logged with the payload of each of its `HEADERS` and `CONTINUATION`
+  frames replaced by `****` (HPACK cannot show `Authorization: Basic ****` in place); the 9-byte frame headers are logged
+  as received, so the dump's frame length fields name the original length and the dump's count is the new length (decision 2).
+  Every other frame streams through as received.
+- **Fail closed.** A block the copy cannot decode, one past 64 KiB, or one interrupted by another frame leaves the copy's
+  table unknown; from then on every header-block payload on that connection is withheld.
+- **Switching.** The http server's redactor starts as the HTTP/1.x one and moves to the HTTP/2 one when the connection's
+  first bytes are the client preface, or after the server sent `101` for `Upgrade: h2c`.

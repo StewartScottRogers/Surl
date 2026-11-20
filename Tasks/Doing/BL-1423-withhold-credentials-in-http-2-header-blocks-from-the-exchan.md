@@ -31,14 +31,14 @@ written as BL-1417's ADR says.
 
 ## Acceptance criteria
 
-- [ ] An HTTP/2 redactor in `Protocols/Http/Surl.Http2.UnitLibrary`. Fast tests in
+- [x] An HTTP/2 redactor in `Protocols/Http/Surl.Http2.UnitLibrary`. Fast tests in
       `Protocols/Http/Surl.Http2.UnitTests` show a HEADERS frame carrying `authorization: Basic ...`
       (Huffman-coded, plain literal, and indexed from the dynamic table on a second request) logged in
       the ADR's form, and frames without one unchanged.
-- [ ] The http server uses it after the prior-knowledge preface and after `Upgrade: h2c`; one named
+- [x] The http server uses it after the prior-knowledge preface and after `Upgrade: h2c`; one named
       test each in `Protocols/Http/Surl.Protocol.Http.UnitTests`.
-- [ ] Frame headers and lengths in the dump stay as the ADR says (a test pins one dump).
-- [ ] `dotnet build Protocols/Http/Surl.Http2.UnitLibrary -warnaserror` is clean, the fast tests are
+- [x] Frame headers and lengths in the dump stay as the ADR says (a test pins one dump).
+- [x] `dotnet build Protocols/Http/Surl.Http2.UnitLibrary -warnaserror` is clean, the fast tests are
       green, and coverage stays at 100% line and branch.
 
 ## Notes

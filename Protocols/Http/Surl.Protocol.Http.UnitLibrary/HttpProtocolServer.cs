@@ -208,11 +208,11 @@ public sealed class HttpProtocolServer : IConnectionProtocolServer, IConnectionR
     /// <summary>
     /// Creates the redactor that masks the <c>Authorization</c> and <c>Proxy-Authorization</c> credentials of
     /// the HTTP/1.x request heads on one connection, so the exchange log never holds them (ADR-0182,
-    /// decision 7). HTTP/2 and HTTP/3 header blocks are redacted by BL-1423 and BL-1424.
+    /// decision 7). HTTP/2 header blocks are redacted by <see cref="Http2RequestBytesRedactor"/> once the connection is HTTP/2 (BL-1423); HTTP/3 by BL-1424.
     /// </summary>
     /// <param name="context">The exchange the redactor is for.</param>
     /// <returns>A redactor for that exchange alone.</returns>
-    public IReceivedBytesRedactor CreateRedactor(ExchangeRedactionContext context) => new HttpRequestHeadBytesRedactor();
+    public IReceivedBytesRedactor CreateRedactor(ExchangeRedactionContext context) => new HttpConnectionBytesRedactor();
 
     /// <summary>
     /// Answers every request on <paramref name="connection"/> until the client closes it or
