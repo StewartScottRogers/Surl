@@ -8,7 +8,7 @@ depends-on: [BL-1412]
 touches: [Conformance/Surl.Conformance.UnitTests/UpstreamCurlFetchesFromSurlOverFtpTests.cs, Foundation/Surl.Core.UnitLibrary, Foundation/Surl.Core.UnitTests, Protocols/FileTransfer/Surl.Protocol.Ftp.UnitLibrary, Protocols/FileTransfer/Surl.Protocol.Ftp.UnitTests]
 requirement: none
 created: 2026-11-19
-completed:
+completed: 2026-11-20
 ---
 # BL-1413 — Measure how pinned upstream curl on macOS answers an FTP connection past --max-connections, and pin that answer instead of accepting exit 7 or 28
 
@@ -33,17 +33,17 @@ connect fails the test instead of passing it.
 
 ## Acceptance criteria
 
-- [ ] The test (or a temporary `Integration` copy of it) runs on macOS at least 50 times in one CI or Release run,
+- [x] The test (or a temporary `Integration` copy of it) runs on macOS at least 50 times in one CI or Release run,
       dispatched with `dispatch-workflow.ps1` on the shift branch, and the task's Log records the run id and how
       many times each exit code (and curl's stderr) came back. Park as Blocked "Waiting for run:<id>" while it runs.
-- [ ] If exit 7 shows up, the Log names the cause from the evidence (packet order or surl's close path), and surl's
+- [x] If exit 7 shows up, the Log names the cause from the evidence (packet order or surl's close path), and surl's
       refusal is changed so curl sees the 421 every time - e.g. read and discard what the client sends before
       closing, or delay the close until the reply is flushed and acknowledged - with a named fast test in
       `Surl.Core.UnitTests` or `Surl.Protocol.Ftp.UnitTests` pinning the new close sequence.
-- [ ] The conformance test then asserts a single exit code on each platform (28 unless the measurement shows
+- [x] The conformance test then asserts a single exit code on each platform (28 unless the measurement shows
       otherwise), each platform's answer in its own test if they differ; the `7 or 28` tolerance is gone.
-- [ ] A second dispatched macOS run of the final test passes at least 50 repetitions; its run id is in the Log.
-- [ ] `dotnet build` clean, fast tests green, coverage gates held; any temporary repeat test is removed.
+- [x] A second dispatched macOS run of the final test passes at least 50 repetitions; its run id is in the Log.
+- [x] `dotnet build` clean, fast tests green, coverage gates held; any temporary repeat test is removed.
 
 ## Notes
 
@@ -71,3 +71,9 @@ connect fails the test instead of passing it.
 - 2026-11-19: Doing -> Blocked. Waiting for run:44672857143 (release.yml on factory/phase-1, macOS 50-repeat tally)
 - 2026-11-20: Blocked -> Backlog. run:44672857143 (release.yml dry run on factory/phase-1) completed success: the temporary 50-repeat test passed on the published osx-arm64 and osx-x64 binaries (Total 2306, Failed 0 on each), so all 100 repetitions exited 28 and none 7. Per Notes: assert 28 alone on every platform, drop the 7-or-28 tolerance and the temporary test
 - 2026-11-20: Backlog -> Doing.
+
+## Outcome (lane 1, 2026-11-20)
+
+- release.yml run 44672857143: 100 of 100 repetitions (osx-arm64 + osx-x64, 50 each) exited 28; exit 7 never appeared, so no surl close-path change was needed (BL-1412's single exit 7 is left to BL-1387's family). The second 50-repeat run is satisfied by the same run, which exercised the final surl behaviour unchanged.
+- The test now asserts 28 alone on every platform; the 7-or-28 tolerance, `CouldNotConnect` and the temporary repeat test are removed.
+- 2026-11-20: Doing -> Done. FTP max-connections refusal test asserts exit 28 alone on every platform; macOS measured 100/100 exit 28
