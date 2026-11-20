@@ -19,3 +19,8 @@ references only `Surl.Tls13.UnitLibrary`.
   `TlsAlertException`; a plaintext record is refused. No tickets, no 0-RTT.
 - Failures are reported by awaiting the failed task again after the alert is written
   (`WriteFatalAlertOnFailureAsync`), not by `throw;`, so the coverage collector sees the rethrow.
+- Client certificates (BL-1466): options with `TrustsClientCertificateChain` set make
+  `AcceptAsync` request and verify one (the handshake is `Surl.Tls13`'s, BL-600); the verified DER
+  chain is `ClientCertificateChain`. A missing, untrusted or wrongly signed certificate sends
+  `certificate_required`, `bad_certificate` or `decrypt_error` under the handshake keys and throws.
+  `Surl.Networking` does not yet set the delegate (BL-1467).
