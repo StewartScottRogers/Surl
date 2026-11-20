@@ -94,3 +94,4 @@ which sinks, and through which seam, so BL-1418 to BL-1435 can be built against 
 
 - 2026-11-20: Created.
 - 2026-11-20: Filed from `Z:\repos\Surly\Documentation\Bug-Reports\2026-11-20T0553-Surl-bug-report.md` item 1.
+- 2026-11-20: Backlog -> Doing.
