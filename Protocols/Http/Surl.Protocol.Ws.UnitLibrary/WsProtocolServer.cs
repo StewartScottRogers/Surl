@@ -50,7 +50,7 @@ namespace Surl.Protocol.Ws;
 /// sends for at most one second (ADR-0071 decisions 4 to 7).
 /// </para>
 /// </remarks>
-public sealed class WsProtocolServer : IConnectionProtocolServer
+public sealed class WsProtocolServer : IConnectionProtocolServer, IExchangeBytesRedactingServer
 {
     private readonly ContentStore contentStore;
 
@@ -97,6 +97,16 @@ public sealed class WsProtocolServer : IConnectionProtocolServer
     /// serving engine has already secured with TLS (ADR-0071 decision 8).
     /// </summary>
     public IReadOnlyList<string> Schemes { get; } = Array.AsReadOnly(["ws"]);
+
+    /// <summary>
+    /// Creates the redactor that writes the credentials of the upgrade request's <c>Authorization</c>
+    /// field as <c>****</c> in the exchange log (ADR-0182). It stops at the end of that head: the
+    /// frames after <c>101</c> are logged unchanged.
+    /// </summary>
+    /// <param name="context">The exchange the redactor is for.</param>
+    /// <returns>A redactor used by that exchange alone.</returns>
+    public IReceivedBytesRedactor CreateRedactor(ExchangeRedactionContext context) =>
+        new WebSocketUpgradeHeadBytesRedactor();
 
     /// <summary>
     /// Answers every upgrade request on <paramref name="connection"/> until the client closes

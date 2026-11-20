@@ -8,7 +8,7 @@ depends-on: [BL-1419, BL-1421]
 touches: [Protocols/Http/Surl.Protocol.Ws.UnitLibrary, Protocols/Http/Surl.Protocol.Ws.UnitTests]
 requirement: none
 created: 2026-11-20
-completed:
+completed: 2026-11-20
 ---
 # BL-1427 — Withhold the WebSocket upgrade's Authorization value from the exchange log
 
@@ -28,17 +28,20 @@ the redacted form BL-1417's ADR fixes, and the WebSocket frames after `101` as b
 
 ## Acceptance criteria
 
-- [ ] The ws protocol server implements BL-1418's contract with BL-1421's redactor. A fast test in
+- [x] The ws protocol server implements BL-1418's contract with BL-1421's redactor. A fast test in
       `Protocols/Http/Surl.Protocol.Ws.UnitTests` shows the upgrade `GET` with `Authorization: Basic
       ...` logged in the ADR's form.
-- [ ] A frame after `101` whose payload contains `Authorization: x` is logged unchanged (named test).
-- [ ] `dotnet build Protocols/Http/Surl.Protocol.Ws.UnitLibrary -warnaserror` is clean, the fast tests
+- [x] A frame after `101` whose payload contains `Authorization: x` is logged unchanged (named test).
+- [x] `dotnet build Protocols/Http/Surl.Protocol.Ws.UnitLibrary -warnaserror` is clean, the fast tests
       are green, and coverage stays at 100% line and branch.
 
 ## Notes
+
+- Added `WebSocketUpgradeHeadBytesRedactor` (internal): wraps `HttpRequestHeadBytesRedactor` for the upgrade head only and passes every byte after the head's blank line through, because the HTTP redactor would otherwise parse frames as a next head. `WsProtocolServer` implements `IExchangeBytesRedactingServer`. Tests: `WsExchangeLogRedactionTests`.
 
 ## Log
 
 - 2026-11-20: Created.
 - 2026-11-20: Filed from `Z:\repos\Surly\Documentation\Bug-Reports\2026-11-20T0553-Surl-bug-report.md` item 1.
 - 2026-11-20: Backlog -> Doing.
+- 2026-11-20: Doing -> Done. ws upgrade Authorization is logged masked; frames after 101 are logged unchanged
