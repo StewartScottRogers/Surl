@@ -52,3 +52,4 @@ CI's "Build and test" on ubuntu-latest and macos-latest and the Release workflow
 ## Log
 
 - 2026-11-20: Created.
+- 2026-11-20: Backlog -> Doing.
