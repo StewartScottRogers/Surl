@@ -53,3 +53,4 @@ connect fails the test instead of passing it.
 ## Log
 
 - 2026-11-19: Created.
+- 2026-11-19: Backlog -> Doing.
