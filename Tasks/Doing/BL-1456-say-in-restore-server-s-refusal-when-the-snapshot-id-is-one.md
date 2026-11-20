@@ -49,3 +49,4 @@ keeps it. It no longer blames the four-snapshot limit.
 
 - 2026-11-20: Created.
 - 2026-11-20: Filed from `Z:\repos\Surly\Documentation\Bug-Reports\2026-11-19T2203-Surl-bug-report.md` item 5.
+- 2026-11-20: Backlog -> Doing.
