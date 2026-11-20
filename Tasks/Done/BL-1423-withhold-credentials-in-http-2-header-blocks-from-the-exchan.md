@@ -8,7 +8,7 @@ depends-on: [BL-1419, BL-1422]
 touches: [Protocols/Http/Surl.Http2.UnitLibrary, Protocols/Http/Surl.Http2.UnitTests, Protocols/Http/Surl.Protocol.Http.UnitLibrary, Protocols/Http/Surl.Protocol.Http.UnitTests]
 requirement: none
 created: 2026-11-20
-completed:
+completed: 2026-11-20
 ---
 # BL-1423 — Withhold credentials in HTTP/2 header blocks from the exchange log
 
@@ -51,3 +51,4 @@ written as BL-1417's ADR says.
 - 2026-11-20: Created.
 - 2026-11-20: Filed from `Z:\repos\Surly\Documentation\Bug-Reports\2026-11-20T0553-Surl-bug-report.md` item 1.
 - 2026-11-20: Backlog -> Doing.
+- 2026-11-20: Doing -> Done. HTTP/2 header blocks with authorization/proxy-authorization are withheld from the exchange log; http server switches redactor on preface and h2c 101 (ADR-0182 amendment 3)
