@@ -67,7 +67,8 @@ namespace Surl.Extended.Protocol.Xmpp;
 /// </para>
 /// </remarks>
 /// <param name="options">The mail domains and the random source; <see cref="XmppServerOptions.Default"/> when null.</param>
-public sealed class XmppServer(XmppServerOptions? options = null) : IConnectionProtocolServer, IConnectionRefusalWriter
+public sealed class XmppServer(XmppServerOptions? options = null)
+    : IConnectionProtocolServer, IConnectionRefusalWriter, IExchangeBytesRedactingServer
 {
     private readonly XmppServerOptions options = options ?? XmppServerOptions.Default;
 
@@ -76,6 +77,14 @@ public sealed class XmppServer(XmppServerOptions? options = null) : IConnectionP
 
     /// <inheritdoc/>
     public IReadOnlyList<string> Schemes { get; } = Array.AsReadOnly(["xmpp"]);
+
+    /// <summary>
+    /// Creates the redactor that logs the text of a SASL PLAIN <c>&lt;auth/&gt;</c> (or its <c>&lt;response/&gt;</c>)
+    /// as <c>****</c> and every other byte as it arrived (ADR-0182, decision 6).
+    /// </summary>
+    /// <param name="context">The exchange the redactor is for.</param>
+    /// <returns>A redactor for the connection, used by that exchange alone.</returns>
+    public IReceivedBytesRedactor CreateRedactor(ExchangeRedactionContext context) => new XmppSaslPlainRedactor();
 
     /// <inheritdoc/>
     public Task ServeAsync(IConnection connection, ExchangeContext context)

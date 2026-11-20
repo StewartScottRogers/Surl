@@ -114,3 +114,8 @@ bound stream (`command` the stanza kind `message`, `presence` or `iq`, `path` it
 delay holds the stanza; a drop aborts the connection; an `error` rule whose reply is a stanza error condition of
 RFC 6120 section 8.3.3 answers the stanza `<error type=...>` (the type from section 8.3.2) and routes nothing.
 Each publishes a `FaultAppliedEvent`; any other rule is noted and the stanza is served as without it.
+
+The exchange log never holds a SASL PLAIN secret (ADR-0182, BL-1463): `XmppServer` implements
+`IExchangeBytesRedactingServer` with `XmppSaslPlainRedactor`, which holds a tag until its `>`, writes the text of
+`<auth mechanism="PLAIN">` (and of the `<response>` after a PLAIN `<auth/>` with no initial response) as `****` up to
+the `</` that ends it, and passes every other byte through. SCRAM and ANONYMOUS are logged as received.
