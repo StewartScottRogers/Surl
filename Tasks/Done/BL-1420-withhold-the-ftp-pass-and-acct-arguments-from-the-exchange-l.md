@@ -41,7 +41,9 @@ fixes, never `s3cret`.
 - [x] `dotnet build Protocols/FileTransfer/Surl.Protocol.Ftp.UnitLibrary -warnaserror` is clean, the
       fast tests are green, and coverage stays at 100% line and branch.
 
-## NotesnAdded internal FtpLineRedactionRule (PASS/ACCT argument -> ****, command word kept, case-insensitive, no-argument lines unchanged) and FtpProtocolServer implements IExchangeBytesRedactingServer through LineBytesRedactor. After AUTH TLS the same rule applies (engine builds a redactor per decrypted sink). No new ADR: ADR-0182 decides the form. Tests: FtpExchangeLogRedactionTests; coverage of the new rule is by those tests.
+## Notes
+
+Added internal FtpLineRedactionRule (PASS/ACCT argument -> ****, command word kept, case-insensitive, no-argument lines unchanged) and FtpProtocolServer implements IExchangeBytesRedactingServer through LineBytesRedactor. After AUTH TLS the same rule applies (engine builds a redactor per decrypted sink). No new ADR: ADR-0182 decides the form. Tests: FtpExchangeLogRedactionTests; coverage of the new rule is by those tests.
 
 ## Log
 
