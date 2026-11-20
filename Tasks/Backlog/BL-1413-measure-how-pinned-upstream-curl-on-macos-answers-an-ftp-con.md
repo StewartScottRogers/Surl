@@ -69,3 +69,4 @@ connect fails the test instead of passing it.
 - 2026-11-19: Blocked -> Backlog. run:44669095406 (ci) gave no tally: CI's macOS Build-and-test skips the conformance tests (817 skipped; the repeat test never ran). Only release.yml's 'Conformance against the published osx-arm64/osx-x64' jobs run them, so dispatch release.yml (a workflow_dispatch run is a dry run that publishes nothing) on factory/phase-1 and read the tally from those two jobs
 - 2026-11-19: Backlog -> Doing.
 - 2026-11-19: Doing -> Blocked. Waiting for run:44672857143 (release.yml on factory/phase-1, macOS 50-repeat tally)
+- 2026-11-20: Blocked -> Backlog. run:44672857143 (release.yml dry run on factory/phase-1) completed success: the temporary 50-repeat test passed on the published osx-arm64 and osx-x64 binaries (Total 2306, Failed 0 on each), so all 100 repetitions exited 28 and none 7. Per Notes: assert 28 alone on every platform, drop the 7-or-28 tolerance and the temporary test
