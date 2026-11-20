@@ -8,7 +8,7 @@ depends-on: []
 touches: [Application/Surl.Cli.UnitLibrary/AiHelpProse.cs, Application/Surl.Cli.UnitLibrary/ManualText.cs, Application/Surl.Cli.UnitTests]
 requirement: none
 created: 2026-11-20
-completed:
+completed: 2026-11-20
 ---
 # BL-1443 — Correct the stale --control and --group sentences in --aihelp and --manual
 
@@ -35,22 +35,25 @@ not served and that nothing uses `--group`. Both are false today.
 
 ## Acceptance criteria
 
-- [ ] The control topic's last paragraph states that surl serves the endpoint on the control listen URL,
+- [x] The control topic's last paragraph states that surl serves the endpoint on the control listen URL,
       reads the token file at start, and writes `Control endpoint listening on <url>` after the
       `Listening on` lines, and names where the routes are documented. It says nothing the code does not
       do.
-- [ ] The `--group` paragraph names the options that take `@<group>` members (`--share-access`,
+- [x] The `--group` paragraph names the options that take `@<group>` members (`--share-access`,
       `--topic-access`, `--shared-folder`) instead of saying nothing uses a group.
-- [ ] `ManualText.cs` says the same in both places, and `ManualTextTests` pins the new lines.
-- [ ] `grep -r "does not yet serve the endpoint" Application` and `grep -r "nothing uses it" Application`
+- [x] `ManualText.cs` says the same in both places, and `ManualTextTests` pins the new lines.
+- [x] `grep -r "does not yet serve the endpoint" Application` and `grep -r "nothing uses it" Application`
       find nothing.
-- [ ] `AiHelpTextTests`, `CommandLineRunnerAiHelpTests` and `ManualTextTests` are green, and
+- [x] `AiHelpTextTests`, `CommandLineRunnerAiHelpTests` and `ManualTextTests` are green, and
       `dotnet build Application/Surl.Cli.UnitLibrary -warnaserror` is clean.
 
 ## Notes
+
+Routes are named by ADR-0124 and ADR-0136 (no wiki page documents them). Group example uses `--share-access team=@admins:rw`.
 
 ## Log
 
 - 2026-11-20: Created.
 - 2026-11-20: Filed from `Z:\repos\Surly\Documentation\Bug-Reports\2026-11-19T1942-Surl-bug-report.md` items 5 and 11.
 - 2026-11-20: Backlog -> Doing.
+- 2026-11-20: Doing -> Done. aihelp and manual no longer say the control endpoint is unserved or --group unused
