@@ -51,3 +51,4 @@ and that `get_exchanges` and `get_events` show what a client sent. It no longer 
 
 - 2026-11-20: Created.
 - 2026-11-20: Filed from `Z:\repos\Surly\Documentation\Bug-Reports\2026-11-20T0553-Surl-bug-report.md` item 3.
+- 2026-11-20: Backlog -> Doing.
