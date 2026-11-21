@@ -37,3 +37,4 @@ ADR-0053 Amendment 1 decision 6. File: `Application/Surl.Mcp.UnitLibrary/SeedMai
 - 2026-11-20: Backlog -> Doing.
 - 2026-11-20: Doing -> Backlog. Waiting for BL-1515 (MailStore and Composition: seed DeliveredFor, expose the option) and BL-1503 (Surl.Api Mail.DeliverAsync)
 - 2026-11-21: Backlog -> Doing.
+- 2026-11-21: Doing -> Backlog. Lane 6 could not integrate: fast tests failed twice (Surl.Extended.Protocol.DnsQuery.UnitTests: ServeAsync_TcpQueryUnderADelayRule_IsAnsweredOnlyAfterTheDelay; then Surl.Extended.Protocol.DnsQuery.UnitTests: ServeAsync_TcpQueryUnderADelayRule_IsAnsweredOnlyAfterTheDelay) after rebasing onto the other lanes' work. The work is on branch factory/BL-1504-lane-6-20261121-011657; start with git cherry-pick --no-commit factory/BL-1504-lane-6-20261121-011657 and fix it.
