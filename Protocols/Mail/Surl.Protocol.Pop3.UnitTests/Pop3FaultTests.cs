@@ -139,13 +139,41 @@ public sealed class Pop3FaultTests
         Assert.AreEqual(new FaultAppliedEvent("f1", FaultKind.Drop, FaultStage.Command, 1, "RETR"), events.Events.Single());
     }
 
+    // ADR-0141 amendment 3: the client half-closed during RETR's hold, so nothing answers RETR.
+    [TestMethod]
+    public async Task ServeAsync_ClientHalfClosesDuringARetrDelayHold_SendsNothingAndClosesGracefully()
+    {
+        var delay = new FaultRule("f1", FaultKind.Delay) { Stage = FaultStage.Command, Command = "RETR", DelayMilliseconds = 600000 };
+        var (serving, connection, _) = StartServing(
+            Ascii("USER alice\r\nPASS p\r\nRETR 1\r\n"), new ScriptedFaultPlan(delay), new ManualTimeProvider(), new RecordingIdleClock(), peerHalfCloses: true);
+
+        await serving.WaitAsync(TimeSpan.FromSeconds(30), TestContext.CancellationToken);
+
+        Assert.AreEqual(Greeting + "+OK User accepted\r\n+OK Logged in\r\n", Utf8(connection.WrittenBytes));
+        Assert.IsFalse(connection.Aborted);
+    }
+
+    // ADR-0141 amendment 3: a client that reset during the hold gets nothing and the connection is aborted.
+    [TestMethod]
+    public async Task ServeAsync_ClientResetsDuringARetrDelayHold_SendsNothingAndAborts()
+    {
+        var delay = new FaultRule("f1", FaultKind.Delay) { Stage = FaultStage.Command, Command = "RETR", DelayMilliseconds = 600000 };
+        var (serving, connection, _) = StartServing(
+            Ascii("USER alice\r\nPASS p\r\nRETR 1\r\n"), new ScriptedFaultPlan(delay), new ManualTimeProvider(), new RecordingIdleClock(), peerResets: true);
+
+        await serving.WaitAsync(TimeSpan.FromSeconds(30), TestContext.CancellationToken);
+
+        Assert.AreEqual(Greeting + "+OK User accepted\r\n+OK Logged in\r\n", Utf8(connection.WrittenBytes));
+        Assert.IsTrue(connection.Aborted);
+    }
+
     private (Task Serving, InMemoryConnection Connection, RecordingSurlEventPublisher Events) StartServing(
-        IEnumerable<ReadOnlyMemory<byte>> request, IFaultPlan faults, ManualTimeProvider clock, RecordingIdleClock idleClock)
+        IEnumerable<ReadOnlyMemory<byte>> request, IFaultPlan faults, ManualTimeProvider clock, RecordingIdleClock idleClock, bool peerResets = false, bool peerHalfCloses = false)
     {
         var store = new MailboxStore(["alice"], allowAnonymous: false, clock);
         Seed(store, "alice@x", [Message]);
         var events = new RecordingSurlEventPublisher();
-        var connection = new InMemoryConnection(request);
+        var connection = new InMemoryConnection(request, peerHalfClosesWhenExhausted: peerHalfCloses, peerResetsWhenExhausted: peerResets);
         var policy = new Pop3TestPolicy { Verdict = PasswordLoginVerdict.Accepted };
         var context = Context(clock, TestContext.CancellationToken) with { Faults = faults, Events = events, IdleClock = idleClock };
 

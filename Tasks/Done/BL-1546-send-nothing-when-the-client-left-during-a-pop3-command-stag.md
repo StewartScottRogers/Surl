@@ -8,7 +8,7 @@ depends-on: [BL-1540]
 touches: [Protocols/Mail/Surl.Protocol.Pop3.UnitLibrary, Protocols/Mail/Surl.Protocol.Pop3.UnitTests]
 requirement: none
 created: 2026-11-21
-completed:
+completed: 2026-11-21
 ---
 # BL-1546 — Send nothing when the client left during a POP3 command-stage delay hold
 
@@ -22,12 +22,15 @@ ADR-0141 Amendment 3 (Pop3Session.Faults.cs), using the BL-1540 helper result.
 
 ## Acceptance criteria
 
-- [ ] The goal holds, shown by named unit tests that fail without the change.
-- [ ] dotnet build is clean, fast tests pass, 100% line and branch coverage of the changed library.
+- [x] The goal holds, shown by named unit tests that fail without the change.
+- [x] dotnet build is clean, fast tests pass, 100% line and branch coverage of the changed library.
 
 ## Notes
+
+- POP3 session now asks CommandStageFaults.FindAndApplyWithClientOutcomeAsync; a client that half-closed or reset during a delay hold gets no answer (reset aborts). Existing delay test now keeps its peer open during the hold (peerHalfCloses defaults false).
 
 ## Log
 
 - 2026-11-21: Created.
 - 2026-11-21: Backlog -> Doing.
+- 2026-11-21: Doing -> Done. POP3 sends nothing when the client left during a delay hold
