@@ -246,6 +246,100 @@ public sealed partial class ServingEngineTests
     }
 
     [TestMethod]
+    public async Task ServeAsync_DropRuleAfterBytesInsideADataPayload_CutsTheDataConnectionThere_AndAbortsTheControlConnectionToo()
+    {
+        var (control, data, logs, events) = await RunDropAfterBytesOverControlAndDataAsync(
+            12, async (connection, context) =>
+            {
+                await connection.WriteAsync("220 hi\r\n"u8.ToArray(), context.CancellationToken);
+                await using var dataConnection = await context.DataConnections.ConnectActiveAsync(
+                    connection.RemoteEndPoint, CurlDataPort, TimeSpan.FromSeconds(30), context.CancellationToken);
+                await Assert.ThrowsExactlyAsync<IOException>(
+                    async () => await dataConnection.WriteAsync("0123456789"u8.ToArray(), context.CancellationToken));
+                await Assert.ThrowsExactlyAsync<IOException>(
+                    async () => await connection.WriteAsync("226 done\r\n"u8.ToArray(), context.CancellationToken));
+            });
+
+        Assert.AreEqual("220 hi\r\n", Encoding.ASCII.GetString(control.WrittenBytes));
+        Assert.AreEqual("0123", Encoding.ASCII.GetString(data.WrittenBytes));
+        Assert.IsTrue(control.Aborted);
+        Assert.IsTrue(data.Aborted);
+        Assert.AreEqual(1, logs.LogOf(1).Notes.Count(note => note == "Exchange 1 dropped after 12 bytes sent by fault rule f1."));
+        Assert.AreEqual(FaultKind.Drop, ((FaultAppliedEvent)events.Single()).Kind);
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_DropRuleReachedExactlyAtTheEndOfADataPayload_PublishesOneEventAndNote_AndAbortsBoth()
+    {
+        var (control, data, logs, events) = await RunDropAfterBytesOverControlAndDataAsync(
+            18, async (connection, context) =>
+            {
+                await connection.WriteAsync("220 hi\r\n"u8.ToArray(), context.CancellationToken);
+                await using var dataConnection = await context.DataConnections.ConnectActiveAsync(
+                    connection.RemoteEndPoint, CurlDataPort, TimeSpan.FromSeconds(30), context.CancellationToken);
+                await dataConnection.WriteAsync("0123456789"u8.ToArray(), context.CancellationToken);
+                await Assert.ThrowsExactlyAsync<IOException>(
+                    async () => await dataConnection.ReadAsync(new byte[1], context.CancellationToken));
+                await Assert.ThrowsExactlyAsync<IOException>(
+                    async () => await connection.PeekByteAsync(TimeSpan.Zero, context.CancellationToken));
+            });
+
+        Assert.AreEqual("0123456789", Encoding.ASCII.GetString(data.WrittenBytes));
+        Assert.IsTrue(control.Aborted);
+        Assert.IsTrue(data.Aborted);
+        Assert.AreEqual(1, logs.LogOf(1).Notes.Count(note => note.Contains("dropped", StringComparison.Ordinal)));
+        Assert.AreEqual(1, events.Count);
+        var applied = (FaultAppliedEvent)events.Single();
+        Assert.AreEqual(FaultKind.Drop, applied.Kind);
+        Assert.AreEqual(FaultStage.Accept, applied.Stage);
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_DropRuleAfterMoreBytesThanControlAndDataSend_EndsTheExchangeAsUsual()
+    {
+        var (control, data, logs, events) = await RunDropAfterBytesOverControlAndDataAsync(
+            100, async (connection, context) =>
+            {
+                await connection.WriteAsync("220 hi\r\n"u8.ToArray(), context.CancellationToken);
+                await using var dataConnection = await context.DataConnections.ConnectActiveAsync(
+                    connection.RemoteEndPoint, CurlDataPort, TimeSpan.FromSeconds(30), context.CancellationToken);
+                await dataConnection.WriteAsync("0123456789"u8.ToArray(), context.CancellationToken);
+            });
+
+        Assert.AreEqual("0123456789", Encoding.ASCII.GetString(data.WrittenBytes));
+        Assert.IsFalse(control.Aborted);
+        Assert.IsFalse(data.Aborted);
+        Assert.IsFalse(logs.LogOf(1).Notes.Any(note => note.Contains("dropped", StringComparison.Ordinal)));
+        Assert.AreEqual(0, events.Count);
+    }
+
+    private static async Task<(InMemoryConnection Control, InMemoryConnection Data, FakeExchangeLogFactory Logs, List<SurlEvent> Events)>
+        RunDropAfterBytesOverControlAndDataAsync(long afterBytes, Func<IConnection, ExchangeContext, Task> serve)
+    {
+        var factory = new FakeListenerFactory();
+        var logs = new FakeExchangeLogFactory();
+        var stream = new SurlEventStream(new ManualTimeProvider());
+        await using var subscription = stream.Subscribe(new SurlEventSubscriptionOptions { Filter = e => e is FaultAppliedEvent });
+        var plan = new FaultPlan();
+        plan.Add(new FaultRule("x", FaultKind.Drop) { AfterBytes = afterBytes });
+        var data = new InMemoryConnection([], remoteEndPoint: CurlDataPort, peerHalfClosesWhenExhausted: false);
+        var opener = new InMemoryDataConnections().ScriptActiveConnection(data);
+        var engine = new ServingEngine(
+            factory, [new FakeConnectionProtocolServer(serve, "ftp")], logs, new ManualTimeProvider(), GracePeriod,
+            ConnectionLimits.None, opener, ExchangeLimits.Default, stream, plan);
+        var control = new InMemoryConnection([]);
+        using var stop = new CancellationTokenSource();
+        var serving = engine.ServeAsync([Ftp], stop.Token);
+
+        factory.ListenerFor(Ftp).Connect(control);
+        await InMemoryConnectionWaits.WaitUntilDisposedAsync(control);
+        await stop.CancelAsync();
+        await serving.WaitAsync(Patience.Timeout);
+
+        return (control, data, logs, [.. Drain(subscription)]);
+    }
+
+    [TestMethod]
     public async Task ServeAsync_DatagramFlowUnderADropRule_GetsNoAnswer()
     {
         var factory = new FakeListenerFactory();

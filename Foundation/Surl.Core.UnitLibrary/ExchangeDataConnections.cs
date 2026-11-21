@@ -76,9 +76,22 @@ internal sealed class ExchangeDataConnections(IDataConnectionOpener opener, IExc
     {
         log.Note($"Data connection opened: {direction} {connection.RemoteEndPoint}.");
 
-        return Track(new ExchangeDataConnection(
-            new IdleClockRestartingConnection(new RecordingConnection(connection, log), deadlines), log, this));
+        IConnection opened = new IdleClockRestartingConnection(new RecordingConnection(connection, log), deadlines);
+
+        if (DropBudget is { } budget)
+        {
+            opened = new DroppingAfterBytesConnection(opened, budget);
+        }
+
+        return Track(new ExchangeDataConnection(opened, log, this));
     }
+
+    /// <summary>
+    /// Gets or sets the count an <c>Accept</c>-stage drop rule with after-bytes shares across the
+    /// exchange's connections (ADR-0124 amendment, BL-1518); every data connection opened after it
+    /// is set joins it. <see langword="null"/> when no such rule applies.
+    /// </summary>
+    internal ExchangeDropBudget? DropBudget { get; set; }
 
     /// <summary>
     /// Stops tracking <paramref name="disposable"/>, which has been disposed.

@@ -14,7 +14,7 @@ public sealed class DroppingAfterBytesConnectionTests
         var remote = new IPEndPoint(IPAddress.Loopback, 50001);
         var inner = new InMemoryConnection(["hi"u8.ToArray()], localEndPoint: local, remoteEndPoint: remote);
         var drops = 0;
-        var connection = new DroppingAfterBytesConnection(inner, 10, () => drops++);
+        var connection = new DroppingAfterBytesConnection(inner, new ExchangeDropBudget(10, () => drops++));
         var buffer = new byte[8];
 
         var peeked = await connection.PeekByteAsync(TimeSpan.Zero, CancellationToken.None);
@@ -41,7 +41,7 @@ public sealed class DroppingAfterBytesConnectionTests
     {
         var inner = new InMemoryConnection([]);
         var drops = 0;
-        var connection = new DroppingAfterBytesConnection(inner, 4, () => drops++);
+        var connection = new DroppingAfterBytesConnection(inner, new ExchangeDropBudget(4, () => drops++));
 
         await connection.WriteAsync("ab"u8.ToArray(), CancellationToken.None);
         await connection.WriteAsync("cd"u8.ToArray(), CancellationToken.None);
@@ -56,7 +56,7 @@ public sealed class DroppingAfterBytesConnectionTests
     {
         var inner = new InMemoryConnection([]);
         var drops = 0;
-        var connection = new DroppingAfterBytesConnection(inner, 3, () => drops++);
+        var connection = new DroppingAfterBytesConnection(inner, new ExchangeDropBudget(3, () => drops++));
 
         var exception = await Assert.ThrowsExactlyAsync<IOException>(
             async () => await connection.WriteAsync("abcdef"u8.ToArray(), CancellationToken.None));
@@ -72,7 +72,7 @@ public sealed class DroppingAfterBytesConnectionTests
     {
         var inner = new InMemoryConnection(["hi"u8.ToArray()]);
         var drops = 0;
-        var connection = new DroppingAfterBytesConnection(inner, 1, () => drops++);
+        var connection = new DroppingAfterBytesConnection(inner, new ExchangeDropBudget(1, () => drops++));
         await connection.WriteAsync("a"u8.ToArray(), CancellationToken.None);
 
         await Assert.ThrowsExactlyAsync<IOException>(async () => await connection.ReadAsync(new byte[4], CancellationToken.None));

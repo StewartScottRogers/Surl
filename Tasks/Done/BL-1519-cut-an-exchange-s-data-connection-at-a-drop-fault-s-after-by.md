@@ -8,7 +8,7 @@ depends-on: [BL-1518]
 touches: [Surl.Core.UnitLibrary, Surl.Core.UnitTests]
 requirement: none
 created: 2026-11-20
-completed:
+completed: 2026-11-21
 ---
 # BL-1519 — Cut an exchange's data connection at a drop fault's after-bytes per BL-1518's ADR-0124 amendment
 
@@ -31,12 +31,12 @@ Stand-in: no store; the test observes the `FaultAppliedEvent` on the instance's 
 
 ## Acceptance criteria
 
-- [ ] A `ServingEngineTests.Faults.cs` test drives a server that writes a control reply and then a data-connection payload through `ExchangeContext.DataConnections` (as `ServingEngineTests.DataConnections.cs` does) under `drop;after-bytes=N` with N inside the payload, and asserts the data connection received exactly the bytes the amendment allows and was aborted, and the control connection ended as the amendment says.
-- [ ] A test that a rule whose N is past everything the exchange sends ends the exchange as usual, data connection included (the twin of `ServeAsync_DropRuleAfterMoreBytesThanTheServerSends_EndsTheExchangeAsUsual`).
-- [ ] A test that exactly one `FaultAppliedEvent` (kind `Drop`, stage `Accept`) is published and one drop note is logged when the drop aborts both connections.
-- [ ] `ServeAsync_DropRuleAfterBytes_LetsTheServerSendThatManyBytesThenDropsTheConnection` and the other existing `Faults` tests pass unchanged.
-- [ ] `dotnet build Foundation/Surl.Core.UnitLibrary -warnaserror` is clean and `dotnet test Foundation/Surl.Core.UnitTests --filter "TestCategory!=Integration"` passes, with 100% line and branch coverage of the changed files; no test needs `TestCategory=Integration`.
-- [ ] `Foundation/Surl.Core.UnitLibrary/CLAUDE.md` and the XML comment on `DroppingAfterBytesConnection` state what the drop now counts.
+- [x] A `ServingEngineTests.Faults.cs` test drives a server that writes a control reply and then a data-connection payload through `ExchangeContext.DataConnections` (as `ServingEngineTests.DataConnections.cs` does) under `drop;after-bytes=N` with N inside the payload, and asserts the data connection received exactly the bytes the amendment allows and was aborted, and the control connection ended as the amendment says.
+- [x] A test that a rule whose N is past everything the exchange sends ends the exchange as usual, data connection included (the twin of `ServeAsync_DropRuleAfterMoreBytesThanTheServerSends_EndsTheExchangeAsUsual`).
+- [x] A test that exactly one `FaultAppliedEvent` (kind `Drop`, stage `Accept`) is published and one drop note is logged when the drop aborts both connections.
+- [x] `ServeAsync_DropRuleAfterBytes_LetsTheServerSendThatManyBytesThenDropsTheConnection` and the other existing `Faults` tests pass unchanged.
+- [x] `dotnet build Foundation/Surl.Core.UnitLibrary -warnaserror` is clean and `dotnet test Foundation/Surl.Core.UnitTests --filter "TestCategory!=Integration"` passes, with 100% line and branch coverage of the changed files; no test needs `TestCategory=Integration`.
+- [x] `Foundation/Surl.Core.UnitLibrary/CLAUDE.md` and the XML comment on `DroppingAfterBytesConnection` state what the drop now counts.
 
 ## Notes
 
@@ -46,3 +46,5 @@ The conformance stage proves it with pinned upstream curl 8.21.0: an `ftp://` `R
 
 - 2026-11-20: Created.
 - 2026-11-21: Backlog -> Doing.
+- 2026-11-21: Engine half done: `ExchangeDropBudget` (shared, locked count) joined by the control connection and each data connection; drop aborts all joined, one note and one event. Host help wording ("bytes sent" in Cli/Api/Composition/aihelp) is outside this task's `touches`; the conformance run with upstream curl (`RETR` cut, exit code, `-C -`) is not done here and belongs in its own Integration task.
+- 2026-11-21: Doing -> Done. Drop after-bytes now counts control and data connections

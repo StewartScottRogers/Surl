@@ -37,3 +37,9 @@ connection (`UseTlsLoginJudge`, once its `ExchangeContext` exists, so implicit T
 `ShouldRefuseAsync` asks the fault plan at `FaultStage.Login` (exchange, listener, scheme, account) and, for a
 `RefuseLogin` rule only, publishes `FaultAppliedEvent`; `Judged` then publishes `LoginJudgedEvent` with mechanism
 `tls-srp` and `IsRefusedByFault` set when that refusal came first. No secret is in either event.
+
+A `Drop` rule with `after-bytes` counts every byte the exchange sends on all its connections (ADR-0124
+amendment, BL-1518/BL-1519): `ExchangeDropBudget` is one lock-guarded count shared by the control
+connection and every data connection (`ExchangeDataConnections.DropBudget`), each wrapped in a
+`DroppingAfterBytesConnection`. The write that reaches the count is cut at it, then every joined
+connection is aborted and the note and one `FaultAppliedEvent` are written once.

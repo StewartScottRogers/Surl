@@ -4,19 +4,30 @@ using Surl.Protocol.Abstractions;
 namespace Surl.Core;
 
 /// <summary>
-/// Wraps a connection under a <see cref="FaultKind.Drop"/> rule with
-/// <see cref="FaultRule.AfterBytes"/> (ADR-0124, decision 4): the server's writes pass through
-/// until it has sent that many bytes, the write that reaches the count is cut at it, and the
-/// connection is then aborted. Every read or write after the drop throws <see cref="IOException"/>,
-/// as on a connection the peer reset.
+/// Wraps one connection of an exchange under a <see cref="FaultKind.Drop"/> rule with
+/// <see cref="FaultRule.AfterBytes"/> (ADR-0124, decision 4, and its amendment): the server's writes
+/// pass through until the exchange has sent that many bytes in all, counting this connection and
+/// every other one joined to the same <see cref="ExchangeDropBudget"/> (the control connection and
+/// each data connection). The write that reaches the count is cut at it, then every joined
+/// connection is aborted. Every read or write after the drop throws <see cref="IOException"/>, as
+/// on a connection the peer reset.
 /// </summary>
-/// <param name="connection">The connection to wrap.</param>
-/// <param name="afterBytes">How many bytes the server may send before the drop; 1 or more.</param>
-/// <param name="onDropped">Called once, when the connection is dropped.</param>
-internal sealed class DroppingAfterBytesConnection(IConnection connection, long afterBytes, Action onDropped) : IConnection
+internal sealed class DroppingAfterBytesConnection : IConnection
 {
-    private long sentByteCount;
-    private bool dropped;
+    private readonly IConnection connection;
+    private readonly ExchangeDropBudget budget;
+
+    /// <summary>
+    /// Wraps <paramref name="connection"/> and joins it to <paramref name="budget"/>.
+    /// </summary>
+    /// <param name="connection">The connection to wrap.</param>
+    /// <param name="budget">The count the exchange's connections share.</param>
+    public DroppingAfterBytesConnection(IConnection connection, ExchangeDropBudget budget)
+    {
+        this.connection = connection;
+        this.budget = budget;
+        budget.Join(this);
+    }
 
     /// <inheritdoc/>
     public EndPoint LocalEndPoint => connection.LocalEndPoint;
@@ -67,20 +78,15 @@ internal sealed class DroppingAfterBytesConnection(IConnection connection, long 
     /// </exception>
     public async ValueTask WriteAsync(ReadOnlyMemory<byte> bytes, CancellationToken cancellationToken)
     {
-        ThrowIfDropped();
+        var taken = budget.Take(bytes.Length) ?? throw DroppedException();
+        await connection.WriteAsync(bytes[..taken.Allowed], cancellationToken);
 
-        var allowed = (int)Math.Min(bytes.Length, afterBytes - sentByteCount);
-        await connection.WriteAsync(bytes[..allowed], cancellationToken);
-        sentByteCount += allowed;
-
-        if (sentByteCount == afterBytes)
+        if (taken.Reached)
         {
-            dropped = true;
-            connection.Abort();
-            onDropped();
+            budget.Drop();
         }
 
-        if (allowed < bytes.Length)
+        if (taken.Allowed < bytes.Length)
         {
             throw DroppedException();
         }
@@ -106,12 +112,12 @@ internal sealed class DroppingAfterBytesConnection(IConnection connection, long 
 
     private void ThrowIfDropped()
     {
-        if (dropped)
+        if (budget.Dropped)
         {
             throw DroppedException();
         }
     }
 
     private IOException DroppedException() =>
-        new($"The connection was dropped by a fault rule after {afterBytes} bytes sent.");
+        new($"The connection was dropped by a fault rule after {budget.AfterBytes} bytes sent.");
 }

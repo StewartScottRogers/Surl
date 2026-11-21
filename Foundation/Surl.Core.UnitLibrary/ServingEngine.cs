@@ -752,7 +752,7 @@ public sealed partial class ServingEngine
             var recordingConnection = new RecordingConnection(connection, bytesLog);
             var dataConnections = new ExchangeDataConnections(dataConnectionOpener, bytesLog.PayloadLog, deadlines);
             var failure = await CaptureFailureAsync(() => FaultThenSecureThenServeAsync(
-                recordingConnection, route, deadlines, context with { DataConnections = dataConnections }));
+                recordingConnection, route, deadlines, context with { DataConnections = dataConnections }, dataConnections));
 
             // Never throws: a data connection that fails to dispose does not stop the exchange ending.
             await dataConnections.DisposeAsync();
@@ -774,7 +774,8 @@ public sealed partial class ServingEngine
     // decision 4): a drop without after-bytes aborts the connection unserved; one with
     // after-bytes lets the server send that many.
     private async Task FaultThenSecureThenServeAsync(
-        RecordingConnection connection, AcceptedConnectionRoute route, ExchangeDeadlines deadlines, ExchangeContext context)
+        RecordingConnection connection, AcceptedConnectionRoute route, ExchangeDeadlines deadlines, ExchangeContext context,
+        ExchangeDataConnections dataConnections)
     {
         var drop = await ApplyAcceptDelayOrFindDropAsync(context, deadlines);
 
@@ -784,8 +785,10 @@ public sealed partial class ServingEngine
         }
         else if (drop.AfterBytes is long afterBytes and > 0)
         {
-            var dropping = new DroppingAfterBytesConnection(
-                connection, afterBytes, () => NoteAndPublishDrop(drop, context, $"after {afterBytes} bytes sent"));
+            var budget = new ExchangeDropBudget(
+                afterBytes, () => NoteAndPublishDrop(drop, context, $"after {afterBytes} bytes sent"));
+            dataConnections.DropBudget = budget;
+            var dropping = new DroppingAfterBytesConnection(connection, budget);
             await SecureThenServeAsync(dropping, route, deadlines, context);
         }
         else
