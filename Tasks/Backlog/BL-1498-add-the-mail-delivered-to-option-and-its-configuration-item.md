@@ -1,5 +1,5 @@
 ---
-id: BL-1488
+id: BL-1498
 title: Add the --mail-delivered-to option and its configuration item
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-20
 completed:
 ---
-# BL-1488 — Add the --mail-delivered-to option and its configuration item
+# BL-1498 — Add the --mail-delivered-to option and its configuration item
 
 ## Goal
 
@@ -18,7 +18,7 @@ completed:
 
 ## Context
 
-ADR-0053 Amendment 1 decision 1 (decided in BL-1487): the option is off by default, a boolean "like `--mail-catch-all`'s siblings", needs no start-up warning, and defaults keep today's bytes. Model the work on the existing mail routing options in `Application/Surl.Cli.UnitLibrary`: `CommandLineOptions.cs`, `CommandLineParser.cs`, `SurlCommandLine.cs`, `ConfigurationItemValueKind.cs`, `ConfiguredMailCatchAll*.cs`. This task adds the parsed value and configuration item only; the mail store, SMTP server and composition wiring are BL-1490, BL-1491 and BL-1492, and the long prose in `AiHelpProse` and the manual is BL-1497. Do whatever the existing completeness tests force so the build is green (`WithArgument<T>` with its `OptionArgumentType`, the option on the page of each of its categories, a `--help` line), with minimal text.
+ADR-0053 Amendment 1 decision 1 (decided in BL-1487): the option is off by default, a boolean "like `--mail-catch-all`'s siblings", needs no start-up warning, and defaults keep today's bytes. Model the work on the existing mail routing options in `Application/Surl.Cli.UnitLibrary`: `CommandLineOptions.cs`, `CommandLineParser.cs`, `SurlCommandLine.cs`, `ConfigurationItemValueKind.cs`, `ConfiguredMailCatchAll*.cs`. This task adds the parsed value and configuration item only; the mail store, SMTP server and composition wiring are BL-1500, BL-1501 and BL-1502, and the long prose in `AiHelpProse` and the manual is BL-1497. Do whatever the existing completeness tests force so the build is green (`WithArgument<T>` with its `OptionArgumentType`, the option on the page of each of its categories, a `--help` line), with minimal text.
 
 ## Acceptance criteria
 

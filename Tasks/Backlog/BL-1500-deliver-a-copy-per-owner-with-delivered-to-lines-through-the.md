@@ -1,16 +1,16 @@
 ---
-id: BL-1490
+id: BL-1500
 title: Deliver a copy per owner with Delivered-To lines through the mail store
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-1487, BL-1489]
+depends-on: [BL-1487, BL-1499]
 touches: [Surl.MailStore.UnitLibrary, Surl.MailStore.UnitTests]
 requirement: none
 created: 2026-11-20
 completed:
 ---
-# BL-1490 — Deliver a copy per owner with Delivered-To lines through the mail store
+# BL-1500 — Deliver a copy per owner with Delivered-To lines through the mail store
 
 ## Goal
 
@@ -18,7 +18,7 @@ completed:
 
 ## Context
 
-ADR-0053 Amendment 1 decisions 3, 4, 5 and 7 (the amendment is in `Documentation/Planning/Decisions/ADR-0053-how-the-smtp-server-answers-upstream-curl.md`), on top of ADR-0050 decision 3 (all-or-none) and `Protocols/Mail/Surl.MailStore.UnitLibrary/MailboxStore.cs` (`Deliver`, `DeliverAsync`, `DeliverPending`, `CreatePendingMessage`). Today `Deliver` takes one `PendingMessage` for every owner (one shared file). Add an overload of `Deliver` and `DeliverAsync` that takes the owners' copies as a list of (recipient owner, its own `PendingMessage`, its `DeliveredFor` addresses) and stores them all or none, with the same refusals (`MessageTooLarge`, `StorageFailed`, `StoreFull`, `QuotaExceeded`, the out-of-space fault) and disposing every pending message whatever the outcome. Every `StoreChangedEvent` with `StoreChange.Delivered` carries `DeliveredFor` (from BL-1489); the existing single-message overloads fill it with the addresses the `MailRecipient` was looked up for when it records them, else leave it null. Also add `MailboxStore.DeliveredToEnabled` (init-only bool, default false) for the composition root to set (BL-1492) and the SMTP server to read (BL-1491). The index format is unchanged. Update the project `CLAUDE.md`.
+ADR-0053 Amendment 1 decisions 3, 4, 5 and 7 (the amendment is in `Documentation/Planning/Decisions/ADR-0053-how-the-smtp-server-answers-upstream-curl.md`), on top of ADR-0050 decision 3 (all-or-none) and `Protocols/Mail/Surl.MailStore.UnitLibrary/MailboxStore.cs` (`Deliver`, `DeliverAsync`, `DeliverPending`, `CreatePendingMessage`). Today `Deliver` takes one `PendingMessage` for every owner (one shared file). Add an overload of `Deliver` and `DeliverAsync` that takes the owners' copies as a list of (recipient owner, its own `PendingMessage`, its `DeliveredFor` addresses) and stores them all or none, with the same refusals (`MessageTooLarge`, `StorageFailed`, `StoreFull`, `QuotaExceeded`, the out-of-space fault) and disposing every pending message whatever the outcome. Every `StoreChangedEvent` with `StoreChange.Delivered` carries `DeliveredFor` (from BL-1499); the existing single-message overloads fill it with the addresses the `MailRecipient` was looked up for when it records them, else leave it null. Also add `MailboxStore.DeliveredToEnabled` (init-only bool, default false) for the composition root to set (BL-1502) and the SMTP server to read (BL-1501). The index format is unchanged. Update the project `CLAUDE.md`.
 
 ## Acceptance criteria
 

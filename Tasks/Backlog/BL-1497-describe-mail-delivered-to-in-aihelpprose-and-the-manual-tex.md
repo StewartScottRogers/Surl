@@ -4,7 +4,7 @@ title: Describe --mail-delivered-to in AiHelpProse and the manual text
 priority: Normal
 assignee: Claude
 pipeline: docs
-depends-on: [BL-1487, BL-1488]
+depends-on: [BL-1487, BL-1498]
 touches: [Surl.Cli.UnitLibrary, Surl.Cli.UnitTests]
 requirement: none
 created: 2026-11-20

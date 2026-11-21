@@ -1,5 +1,5 @@
 ---
-id: BL-1489
+id: BL-1499
 title: Add the DeliveredFor member to StoreChangedEvent
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-20
 completed:
 ---
-# BL-1489 — Add the DeliveredFor member to StoreChangedEvent
+# BL-1499 — Add the DeliveredFor member to StoreChangedEvent
 
 ## Goal
 
@@ -18,7 +18,7 @@ completed:
 
 ## Context
 
-ADR-0053 Amendment 1 decision 7: the mail store's delivery event gains `DeliveredFor`, the envelope addresses (as sent, in `RCPT` order) that resolved to the owner of the copy; an optional member older subscribers ignore, set whatever the option. `Foundation/Surl.Protocol.Abstractions.UnitLibrary/StoreChangedEvent.cs` already has an `init`-only optional `PreviousName` (ADR-0129): add `DeliveredFor` beside it the same way (`IReadOnlyList<string>?`, null when none apply), and write it in `WriteMembers` through `ISurlEventMemberWriter` (check which writer method fits a list; add one only if none does, and keep every implementer building). `SurlEventMemberTests` fails if a public property is left unwritten. Stores other than mail leave it null. Populating it is BL-1490.
+ADR-0053 Amendment 1 decision 7: the mail store's delivery event gains `DeliveredFor`, the envelope addresses (as sent, in `RCPT` order) that resolved to the owner of the copy; an optional member older subscribers ignore, set whatever the option. `Foundation/Surl.Protocol.Abstractions.UnitLibrary/StoreChangedEvent.cs` already has an `init`-only optional `PreviousName` (ADR-0129): add `DeliveredFor` beside it the same way (`IReadOnlyList<string>?`, null when none apply), and write it in `WriteMembers` through `ISurlEventMemberWriter` (check which writer method fits a list; add one only if none does, and keep every implementer building). `SurlEventMemberTests` fails if a public property is left unwritten. Stores other than mail leave it null. Populating it is BL-1500.
 
 ## Acceptance criteria
 

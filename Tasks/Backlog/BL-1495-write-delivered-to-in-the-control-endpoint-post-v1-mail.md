@@ -4,7 +4,7 @@ title: Write Delivered-To in the control endpoint POST /v1/mail
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-1487, BL-1488, BL-1490]
+depends-on: [BL-1487, BL-1498, BL-1500]
 touches: [Surl.Control.UnitLibrary, Surl.Control.UnitTests]
 requirement: none
 created: 2026-11-20
@@ -18,7 +18,7 @@ The loopback control endpoint's `POST /v1/mail?to=` writes `Delivered-To: <to>` 
 
 ## Context
 
-ADR-0053 Amendment 1 decision 6. Files: `Application/Surl.Control.UnitLibrary/ControlStoreRequests.cs` (and `ControlJson.cs` if a response shows the message); tests `ControlStoreRequestsTests.cs`, `ControlReadRequestsTests.cs`. The control endpoint serves non-.NET test suites, so the field must be exact: one line `Delivered-To: <address>` CRLF for the `to` query value as given, ahead of the posted body, no `Return-Path` or `Received`. Off: unchanged. Depends on BL-1490 and BL-1488. The mail read-back responses are unchanged in shape.
+ADR-0053 Amendment 1 decision 6. Files: `Application/Surl.Control.UnitLibrary/ControlStoreRequests.cs` (and `ControlJson.cs` if a response shows the message); tests `ControlStoreRequestsTests.cs`, `ControlReadRequestsTests.cs`. The control endpoint serves non-.NET test suites, so the field must be exact: one line `Delivered-To: <address>` CRLF for the `to` query value as given, ahead of the posted body, no `Return-Path` or `Received`. Off: unchanged. Depends on BL-1500 and BL-1498. The mail read-back responses are unchanged in shape.
 
 ## Acceptance criteria
 

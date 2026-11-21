@@ -58,5 +58,5 @@ bullet and the AiHelpProse mail store paragraph / glossary row follow (BL-1496, 
 
 - 2026-11-20: Created.
 - 2026-11-20: Backlog -> Doing.
-- 2026-11-20: Follow-ups filed by task-planner: BL-1488, BL-1489, BL-1490, BL-1491, BL-1492, BL-1493, BL-1494, BL-1495, BL-1496, BL-1497.
-- 2026-11-20: Doing -> Done. ADR-0053 amendment 1 decides an opt-in Delivered-To field and DeliveredFor event member; follow-ups BL-1488..BL-1497 filed
+- 2026-11-20: Follow-ups filed by task-planner: BL-1498, BL-1499, BL-1500, BL-1501, BL-1502, BL-1503, BL-1504, BL-1495, BL-1496, BL-1497.
+- 2026-11-20: Doing -> Done. ADR-0053 amendment 1 decides an opt-in Delivered-To field and DeliveredFor event member; follow-ups BL-1498..BL-1497 filed

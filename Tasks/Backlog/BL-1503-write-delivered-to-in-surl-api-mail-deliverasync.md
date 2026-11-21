@@ -1,16 +1,16 @@
 ---
-id: BL-1493
+id: BL-1503
 title: Write Delivered-To in Surl.Api Mail.DeliverAsync
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-1487, BL-1488, BL-1490]
+depends-on: [BL-1487, BL-1498, BL-1500]
 touches: [Surl.Api, Surl.Api.UnitTests]
 requirement: none
 created: 2026-11-20
 completed:
 ---
-# BL-1493 — Write Delivered-To in Surl.Api Mail.DeliverAsync
+# BL-1503 — Write Delivered-To in Surl.Api Mail.DeliverAsync
 
 ## Goal
 
@@ -18,7 +18,7 @@ completed:
 
 ## Context
 
-ADR-0053 Amendment 1 decision 6. Files: `Application/Surl.Api/SurlServerMail.cs`, `SurlServerOptions.cs` and `SurlServerArguments.cs` (where `--mail-catch-all` maps today). Add the option's boolean to `SurlServerOptions` (it only grows; default false) and map it to `--mail-delivered-to` in `SurlServerArguments`, a test beside `SurlServerArgumentsTests.Items.cs`. When on, `Mail.DeliverAsync` prepends exactly one line `Delivered-To: <address>` CRLF, the `to` address as given, and writes no `Return-Path` or `Received` (it writes none today). Off: bytes unchanged. Depends on the store property from BL-1490. Stand-in note: the delivery publishes the mail store's `StoreChangedEvent` with `DeliveredFor` set to the one `to` address (via BL-1490), so tests can observe it.
+ADR-0053 Amendment 1 decision 6. Files: `Application/Surl.Api/SurlServerMail.cs`, `SurlServerOptions.cs` and `SurlServerArguments.cs` (where `--mail-catch-all` maps today). Add the option's boolean to `SurlServerOptions` (it only grows; default false) and map it to `--mail-delivered-to` in `SurlServerArguments`, a test beside `SurlServerArgumentsTests.Items.cs`. When on, `Mail.DeliverAsync` prepends exactly one line `Delivered-To: <address>` CRLF, the `to` address as given, and writes no `Return-Path` or `Received` (it writes none today). Off: bytes unchanged. Depends on the store property from BL-1500. Stand-in note: the delivery publishes the mail store's `StoreChangedEvent` with `DeliveredFor` set to the one `to` address (via BL-1500), so tests can observe it.
 
 ## Acceptance criteria
 

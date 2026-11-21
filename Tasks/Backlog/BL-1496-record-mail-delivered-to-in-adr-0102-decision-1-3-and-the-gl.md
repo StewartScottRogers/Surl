@@ -18,7 +18,7 @@ ADR-0102 decision 1.3 and the glossary's trace fields row say what `--mail-deliv
 
 ## Context
 
-ADR-0053 Amendment 1, "What follows". Edit `Documentation/Planning/Decisions/ADR-0102-what-the-mail-file-message-and-group-options-mean-to-the-shared-stores.md` and `Documentation/Wiki/Glossary.md` only. This is prose; do not change behaviour. State intent as intent where the code (BL-1488 to BL-1495) has not landed when this runs.
+ADR-0053 Amendment 1, "What follows". Edit `Documentation/Planning/Decisions/ADR-0102-what-the-mail-file-message-and-group-options-mean-to-the-shared-stores.md` and `Documentation/Wiki/Glossary.md` only. This is prose; do not change behaviour. State intent as intent where the code (BL-1498 to BL-1495) has not landed when this runs.
 
 ## Acceptance criteria
 
