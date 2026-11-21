@@ -8,7 +8,7 @@ depends-on: []
 touches: [Documentation/Planning/Decisions/ADR-0043-http-aws-signature-version-4-check.md]
 requirement: none
 created: 2026-11-21
-completed:
+completed: 2026-11-21
 ---
 # BL-1547 — Record in ADR-0043 that HTTP/2 and HTTP/3 sign host from :authority
 
@@ -49,17 +49,17 @@ pseudo-header, and the HTTP server hands it to the login check that way.
 
 ## Acceptance criteria
 
-- [ ] `Documentation/Planning/Decisions/ADR-0043-http-aws-signature-version-4-check.md` has an amendment
+- [x] `Documentation/Planning/Decisions/ADR-0043-http-aws-signature-version-4-check.md` has an amendment
   stating: over HTTP/2 and HTTP/3, when the request has no `host` field, the HTTP server hands the login
   check a `host` field whose value is `:authority` as received; a request that also carries a `host` field
   is judged on the fields as received.
-- [ ] The amendment cites `lib/http_aws_sigv4.c` `make_headers` and `lib/http.c` `Curl_http_req_to_h2` and
+- [x] The amendment cites `lib/http_aws_sigv4.c` `make_headers` and `lib/http.c` `Curl_http_req_to_h2` and
   `h2_permissible_field` at `curl-8_21_0`, and RFC 9113 section 8.3.1, as its evidence, and names no Curl
   port output.
-- [ ] The amendment says the change lives in the HTTP server (`HttpRequestAnswerer`), not in
+- [x] The amendment says the change lives in the HTTP server (`HttpRequestAnswerer`), not in
   `Surl.Authentication` and not in the shared `HttpAuthenticationRequest` contract, and why (the S3 and
   Cloud Storage servers answer HTTP/1.1 only).
-- [ ] The ADR's header lists the amendment and BL-1548 as the task that builds it.
+- [x] The ADR's header lists the amendment and BL-1548 as the task that builds it.
 
 ## Notes
 
@@ -67,3 +67,4 @@ pseudo-header, and the HTTP server hands it to the login check that way.
 
 - 2026-11-21: Created.
 - 2026-11-21: Backlog -> Doing.
+- 2026-11-21: Doing -> Done. ADR-0043 amendment 1 records HTTP/2 and HTTP/3 signing host from :authority
