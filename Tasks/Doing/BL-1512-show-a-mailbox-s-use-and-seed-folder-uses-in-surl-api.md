@@ -33,3 +33,4 @@ ADR-0055 Amendment 1, decision 6. Depends on the composition task (BL-1509), whi
 ## Log
 
 - 2026-11-20: Created.
+- 2026-11-20: Backlog -> Doing.
