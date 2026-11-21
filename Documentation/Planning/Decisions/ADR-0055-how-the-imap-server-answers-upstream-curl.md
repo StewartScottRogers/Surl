@@ -701,3 +701,75 @@ Recorded by BL-1291 from the measurement in Documentation/Conformance/Conformanc
 - `Surl.Protocol.Imap` carries its own RFC 5322 and MIME structure parser for `ENVELOPE`,
   `BODYSTRUCTURE`, sections and `SEARCH`; the store stays bytes only.
 - `Record-CurlExchange.ps1` is unchanged: its `-Imap` mode measured every case.
+
+## Amendment 1 — SPECIAL-USE (RFC 6154): yes, explicit, off until a start asks (2026-11-20)
+
+Decided by Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), in BL-1486, from BL-1485's
+measurements. It adds to decisions 2 and 6 and changes nothing a start without the new key sees.
+
+**Measured (BL-1485, `Protocols/Mail/Surl.Protocol.Imap.UnitTests/Fixtures/README.md`, "SPECIAL-USE").**
+Pinned upstream curl 8.21.0 completed every exchange in the folders `special-use-list`,
+`special-use-list-return`, `special-use-list-select` and `special-use-append-sent` with exit 0. It never sent
+`RETURN (SPECIAL-USE)`, a selection option or a use attribute unasked, addressed `Sent` by the name in the URL,
+and printed the `* LIST` lines unchanged, attributes included. So curl needs none of this; the reason is the
+stand-in: a client under test that finds its Sent folder by `\Sent` cannot use Surl without it (Surly cookbook
+bug report, item 9). ADR-0003 holds: every byte below is what the recorded `LIST` lines show, and curl
+completes all four cases against them.
+
+**Decision: yes, explicit.**
+
+1. **A folder gets its use only from configuration or `CREATE`, never from its name.** A folder named `Sent`
+   is not `\Sent` unless asked. **Why:** BL-203's and BL-1485's fixtures list `Sent` as
+   `(\HasNoChildren) "/" Sent`; a name-based default would change today's `LIST` bytes for every start that has
+   a `Sent` folder, and configuration only grows (CLAUDE.md). Explicit also lets a test model a server that
+   has no `\Sent` folder.
+2. **The configuration key** is on `--mailbox` (ADR-0101's `--mailbox` row; the `-K` file, `Surl.Api`,
+   `Surl.Mcp` and the control endpoint take the same model): `folders=` items may end in `=<use>`:
+   `--mailbox "a@x:pw;folders=Sent=sent,Drafts=drafts,Archive"`. The use is split off at the last `=`; it is
+   one of `all`, `archive`, `drafts`, `flagged`, `junk`, `sent`, `trash` (RFC 6154 section 2), written without
+   the backslash so no shell or config-file quoting is needed, compared without regard to case. One use per
+   folder, and one folder per use per owner. The ADR-0101 table row that grows is `--mailbox`'s `folders`
+   key: its form becomes `<name>[=<use>],...`; no new key, no new row. Refusals join row 10's list: `folder
+   use <text> is not one of all, archive, drafts, flagged, junk, sent, trash`, and (row 14's pattern) `use
+   <use> is given to two folders`. `--shared-folder` takes no use in this amendment: a shared folder is one
+   mailbox seen by several owners, and a use for it would be a second decision; the key can be added later.
+   `folders=Sent` without `=` is today's folder with no use.
+3. **Capabilities.** A store started with at least one use configured advertises `SPECIAL-USE
+   CREATE-SPECIAL-USE` (RFC 6154 sections 2 and 3), after `MOVE` and before `APPENDLIMIT=` in the same
+   states and the same line as decision 2's others. A store started with none advertises exactly what
+   decision 2 says today. It is decided at start, not per command, so a test sees one stable `CAPABILITY`.
+   `LIST-EXTENDED` is not advertised, so `LIST ... RETURN (SPECIAL-USE)` and `LIST (SPECIAL-USE) ...` are
+   answered as decision 3 answers any `LIST` form it does not implement, unchanged; **why:** curl sent
+   neither, and RFC 5258 is a larger feature than this one.
+4. **`LIST` and `LSUB` bytes** (the cases BL-1485 recorded), for a mailbox with a use, always, not only when
+   asked: the use is written after `\HasChildren`/`\HasNoChildren`, exactly as measured:
+
+   | Case | Bytes |
+   | --- | --- |
+   | `LIST "" *` (`special-use-list`) | `* LIST (\HasNoChildren) "/" INBOX`, `* LIST (\HasNoChildren \Sent) "/" Sent`, `* LIST (\HasNoChildren \Drafts) "/" Drafts`, `* LIST (\HasNoChildren \Trash) "/" Trash` |
+   | `LIST "" "*" RETURN (SPECIAL-USE)`, `LIST (SPECIAL-USE) "" "*"` | as today for any unimplemented `LIST` form (decision 3); curl never sends them |
+   | `LSUB` | the same attributes, as `LSUB` lines |
+   | a mailbox with no use, or a start with none configured | today's bytes |
+
+   A `\Noselect` placeholder never carries a use: it is not a mailbox.
+5. **`CREATE <name> (USE (\Sent))`** (RFC 6154 section 3) is accepted when `CREATE-SPECIAL-USE` is
+   advertised: the new mailbox gets the use. A use another mailbox of the owner holds, or an unknown
+   attribute, is `NO [USEATTR] ...`; so is any `USE` when the capability is not advertised. `RENAME` carries
+   a mailbox's use with it; `DELETE` ends it.
+6. **A test seeds, resets and reads the attribute** through the store and its hosts: `MailboxSettings` gains
+   a `FolderUses` map (folder name to use, default empty); `Surl.Api` and the control endpoint take
+   `folders` items in the same `<name>[=<use>]` form as the command line; `Reset` recreates each configured
+   folder with its configured use and drops a use gained by `CREATE` with its mailbox (ADR-0131 decision 2);
+   `TakeSnapshot` and `Restore` copy each mailbox's use with its name and next UID (ADR-0131 decisions 3 and
+   4); `Surl.Api`'s and the control endpoint's mailbox listings, and the `surl-mcp` mailbox tool, show a
+   `use` field only when a mailbox has one (an added field, never a repurposed one). Store events are
+   unchanged.
+
+**Alternatives rejected.** Implicit by name: changes today's bytes and cannot model a server without
+`\Sent`. A separate `uses=` key: a second place to name the same folder, so the two could disagree. A
+backslash in the value: `\` needs quoting in shells and the `-K` file. Attributes only for `RETURN
+(SPECIAL-USE)`: needs `LIST-EXTENDED`, and curl does not send it. Answering no: the stand-in cost is real
+and the change is additive.
+
+**Work this decides** is filed as BL-1486's follow-ups, one kind of work each: the mail store, the
+configuration, the IMAP server, the `--aihelp` text, and the hosts' views (see its Log).

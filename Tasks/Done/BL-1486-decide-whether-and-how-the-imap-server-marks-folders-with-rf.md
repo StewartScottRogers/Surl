@@ -8,7 +8,7 @@ depends-on: [BL-1485]
 touches: [Documentation/Planning/Decisions/ADR-0055-how-the-imap-server-answers-upstream-curl.md]
 requirement: none
 created: 2026-11-20
-completed:
+completed: 2026-11-20
 ---
 # BL-1486 — Decide whether and how the IMAP server marks folders with RFC 6154 SPECIAL-USE attributes
 
@@ -35,17 +35,21 @@ attribute, and files the work.
 
 ## Acceptance criteria
 
-- [ ] `ADR-0055` gains an amendment, marked "Decided by Claude under Stewart's delegation", that decides yes or no, cites BL-1485's
+- [x] `ADR-0055` gains an amendment, marked "Decided by Claude under Stewart's delegation", that decides yes or no, cites BL-1485's
       fixture folders, and if yes states the capability, the `LIST` bytes for each case BL-1485 recorded, the configuration key or
       rule, and how a test seeds, resets and reads the attribute.
-- [ ] If the amendment adds a configuration key, it says which ADR-0101 table row grows and the exact syntax.
-- [ ] task-planner files the follow-up tasks (mail store, IMAP server, configuration, help text; one kind of work and at most two
+- [x] If the amendment adds a configuration key, it says which ADR-0101 table row grows and the exact syntax.
+- [x] task-planner files the follow-up tasks (mail store, IMAP server, configuration, help text; one kind of work and at most two
       projects each), each depending on this task, and their IDs are in this task's Log; or, if the answer is no, the Log says why.
-- [ ] No `.cs` file changes in this task.
+- [x] No `.cs` file changes in this task.
 
 ## Notes
+
+- Decided yes, explicit (no name-based default), key `folders=<name>=<use>`, capabilities only when configured. ADR-0055 Amendment 1. Follow-ups: BL-1507 to BL-1514 (BL-1506 was a throwaway, Deferred). No `.cs` changed.
 
 ## Log
 
 - 2026-11-20: Created.
 - 2026-11-20: Backlog -> Doing.
+- 2026-11-20: Doing -> Done. ADR-0055 Amendment 1 decides SPECIAL-USE: explicit folders=<name>=<use>; follow-ups BL-1507..BL-1514 filed
+- 2026-11-20: Follow-up tasks filed: BL-1507, BL-1508, BL-1509, BL-1510, BL-1511, BL-1512, BL-1513, BL-1514.
