@@ -1,5 +1,5 @@
 ---
-id: BL-1495
+id: BL-1505
 title: Add SetPassword to the proxy account store in Surl.Api per ADR-0132 amendment 1
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-20
 completed:
 ---
-# BL-1495 — Add SetPassword to the proxy account store in Surl.Api per ADR-0132 amendment 1
+# BL-1505 — Add SetPassword to the proxy account store in Surl.Api per ADR-0132 amendment 1
 
 ## Goal
 

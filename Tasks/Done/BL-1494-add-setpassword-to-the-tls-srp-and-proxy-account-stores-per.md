@@ -27,11 +27,11 @@ The TLS-SRP account store gains `SetPassword`, and the proxy account store (find
 
 ## Notes
 
-- Proxy store is `Surl.Api`'s `SurlServerProxyAccounts`, another project: filed as BL-1495.
+- Proxy store is `Surl.Api`'s `SurlServerProxyAccounts`, another project: filed as BL-1505.
 - `TlsSrpAccounts` has no event publisher (it is a Cryptography library with no event seam), so, like `Add` and `Remove`, `SetPassword` swaps the entry whole and the host publishes `AccountRemoved` then `AccountAdded`; that wiring belongs to the host tasks (Surl.Composition / Surl.Api). Decision recorded here, no ADR needed as it follows ADR-0132 amendment 1 rule 3.
 - Group is kept from the existing entry; a fresh salt is drawn as `Add` draws it.
 
 ## Log
 - 2026-11-20: Created.
 - 2026-11-20: Backlog -> Doing.
-- 2026-11-20: Doing -> Done. TlsSrpAccounts.SetPassword re-derives verifier, refuses unknown user and empty password; proxy store filed as BL-1495
+- 2026-11-20: Doing -> Done. TlsSrpAccounts.SetPassword re-derives verifier, refuses unknown user and empty password; proxy store filed as BL-1505
