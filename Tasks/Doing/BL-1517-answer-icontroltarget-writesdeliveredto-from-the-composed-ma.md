@@ -31,3 +31,4 @@ BL-1495 added the default-false `WritesDeliveredTo` member and the endpoint's pr
 ## Log
 
 - 2026-11-20: Created.
+- 2026-11-21: Backlog -> Doing.
