@@ -47,3 +47,4 @@ BL-1548 fixes stays fixed.
 ## Log
 
 - 2026-11-21: Created.
+- 2026-11-21: Backlog -> Doing.
