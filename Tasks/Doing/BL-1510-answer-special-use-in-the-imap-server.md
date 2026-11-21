@@ -34,3 +34,4 @@ ADR-0055 Amendment 1, decisions 3-5. Measurements: `Protocols/Mail/Surl.Protocol
 ## Log
 
 - 2026-11-20: Created.
+- 2026-11-20: Backlog -> Doing.
