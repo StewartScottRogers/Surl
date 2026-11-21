@@ -33,3 +33,4 @@ A seeded mail delivery (`MailboxStore.Seed`, `ComposedStores.SeedMailAsync`) pub
 ## Log
 
 - 2026-11-20: Created.
+- 2026-11-21: Backlog -> Doing.
