@@ -32,7 +32,14 @@ internal sealed partial class SmtpSession
             Command = command.Verb,
         };
 
-        return await CommandStageFaults.FindAndApplyAsync(context, connection, point, path ?? command.Verb) switch
+        var applied = await CommandStageFaults.FindAndApplyWithClientOutcomeAsync(context, connection, point, path ?? command.Verb);
+        if (applied.ClientLeft != PeerWatchOutcome.NotWatched)
+        {
+            // The client left during a delay hold: send nothing and end the session (ADR-0141, amendment 3).
+            return false;
+        }
+
+        return applied.Rule switch
         {
             { Kind: FaultKind.Error } rule => await AnswerChosenErrorAsync(command.Verb, path, rule),
             { Kind: FaultKind.Drop } => false,

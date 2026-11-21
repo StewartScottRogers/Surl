@@ -8,7 +8,7 @@ depends-on: [BL-1540]
 touches: [Protocols/Mail/Surl.Protocol.Smtp.UnitLibrary, Protocols/Mail/Surl.Protocol.Smtp.UnitTests]
 requirement: none
 created: 2026-11-21
-completed:
+completed: 2026-11-21
 ---
 # BL-1544 — Send nothing when the client left during an SMTP command-stage delay hold
 
@@ -22,12 +22,15 @@ ADR-0141 Amendment 3 (SmtpSession.Faults.cs), using the BL-1540 helper result.
 
 ## Acceptance criteria
 
-- [ ] The goal holds, shown by named unit tests that fail without the change.
-- [ ] dotnet build is clean, fast tests pass, 100% line and branch coverage of the changed library.
+- [x] The goal holds, shown by named unit tests that fail without the change.
+- [x] dotnet build is clean, fast tests pass, 100% line and branch coverage of the changed library.
 
 ## Notes
+
+SmtpSession.Faults.cs calls FindAndApplyWithClientOutcomeAsync and returns false (ends the session, writes nothing) when ClientLeft is not NotWatched. Tests: half-close and reset during an RCPT delay send nothing; the existing delay test now uses a staying client (peerHalfClosesWhenExhausted: false). Coverage by those two tests covers both branches.
 
 ## Log
 
 - 2026-11-21: Created.
 - 2026-11-21: Backlog -> Doing.
+- 2026-11-21: Doing -> Done. SMTP sends nothing and ends the session when the client left during a command-stage delay hold
