@@ -101,7 +101,7 @@ public sealed partial class ServingEngine
     private async Task FaultThenServeFlowAsync(
         IDatagramFlow flow, AcceptedFlowRoute route, ExchangeDeadlines deadlines, ExchangeContext context)
     {
-        var drop = await ApplyAcceptDelayOrFindDropAsync(context, deadlines);
+        var (drop, _) = await ApplyAcceptDelayOrFindDropAsync(context, deadlines, null);
 
         if (drop is null)
         {

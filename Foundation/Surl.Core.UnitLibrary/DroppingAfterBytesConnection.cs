@@ -66,6 +66,10 @@ internal sealed class DroppingAfterBytesConnection : IConnection
         return connection.PeekByteAsync(wait, cancellationToken);
     }
 
+    /// <inheritdoc/>
+    public ValueTask<PeerWatchOutcome> WatchForPeerCloseAsync(int maxBufferedBytes, CancellationToken cancellationToken) =>
+        connection.WatchForPeerCloseAsync(maxBufferedBytes, cancellationToken);
+
     /// <summary>
     /// Writes as much of <paramref name="bytes"/> as the count allows, and drops the connection
     /// once the count is reached.

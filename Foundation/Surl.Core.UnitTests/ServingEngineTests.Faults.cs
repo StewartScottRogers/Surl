@@ -106,7 +106,7 @@ public sealed partial class ServingEngineTests
         using var stop = new CancellationTokenSource();
         var serving = engine.ServeAsync([Http], stop.Token);
 
-        factory.ListenerFor(Http).Connect(new InMemoryConnection([]));
+        factory.ListenerFor(Http).Connect(new InMemoryConnection([], peerHalfClosesWhenExhausted: false));
         await time.TimersCreated(1).WaitAsync(Patience.Timeout);
         time.Advance(TimeSpan.FromMilliseconds(499));
         var servedEarly = server.TryTakeExchange(out _);
@@ -137,7 +137,7 @@ public sealed partial class ServingEngineTests
         using var stop = new CancellationTokenSource();
         var serving = engine.ServeAsync([Http], stop.Token);
 
-        factory.ListenerFor(Http).Connect(new InMemoryConnection([]));
+        factory.ListenerFor(Http).Connect(new InMemoryConnection([], peerHalfClosesWhenExhausted: false));
         await time.TimersCreated(2).WaitAsync(Patience.Timeout);
         time.Advance(TimeSpan.FromSeconds(5));
         var exchange = await server.NextExchangeAsync();
