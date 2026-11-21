@@ -8,10 +8,29 @@ namespace Surl.MailStore;
 /// </summary>
 public sealed class MailRecipient
 {
-    internal MailRecipient(IReadOnlyList<OwnerMailboxes> owners)
+    internal MailRecipient(IReadOnlyList<OwnerMailboxes> owners, IReadOnlyList<string>? deliveredFor = null)
     {
         Owners = owners;
         OwnerNames = [.. owners.Select(owner => owner.Name)];
+        DeliveredFor = deliveredFor;
+    }
+
+    /// <summary>
+    /// The envelope addresses a delivery to this recipient names in its events' <c>DeliveredFor</c>
+    /// (ADR-0053 Amendment 1, decision 7); <see langword="null"/> unless <see cref="ForAddresses"/> recorded them.
+    /// </summary>
+    public IReadOnlyList<string>? DeliveredFor { get; }
+
+    /// <summary>
+    /// This recipient, recording the envelope addresses it was looked up for.
+    /// </summary>
+    /// <param name="addresses">The addresses, as sent and in <c>RCPT</c> order.</param>
+    /// <returns>A recipient of the same owners that names <paramref name="addresses"/>.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="addresses"/> is <see langword="null"/>.</exception>
+    public MailRecipient ForAddresses(IEnumerable<string> addresses)
+    {
+        ArgumentNullException.ThrowIfNull(addresses);
+        return new MailRecipient(Owners, [.. addresses]);
     }
 
     /// <summary>
@@ -45,7 +64,7 @@ public sealed class MailRecipient
             return this;
         }
 
-        return remaining.Count == 0 ? null : new MailRecipient(remaining);
+        return remaining.Count == 0 ? null : new MailRecipient(remaining, DeliveredFor);
     }
 
     internal IReadOnlyList<OwnerMailboxes> Owners { get; }

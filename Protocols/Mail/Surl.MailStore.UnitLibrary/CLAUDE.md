@@ -105,3 +105,13 @@ Never touch the disk directly: read and write only through the injected
 `IContentFileSystem`, so the tests need no disk, and write nothing outside the data
 directory. Never construct a `Socket`, `TcpListener`, `UdpClient`, `SslStream` or
 `HttpListener`.
+
+Per-owner copies and `DeliveredFor` (BL-1500, ADR-0053 Amendment 1 decisions 3, 4, 5 and 7): `Deliver(IReadOnlyList<MailOwnerCopy>)`
+and `DeliverAsync` take one `MailOwnerCopy` per owner (the recipient, its own `PendingMessage`, its `DeliveredFor`
+addresses) and store them all or none with the same refusals as the single-message overloads (`MessageTooLarge`,
+`StorageFailed`, `StoreFull`, `QuotaExceeded`, the out-of-space fault; a quota sums every copy an owner gets), disposing
+every pending message whatever the outcome. If a later copy's file cannot be kept, the earlier files are released (their
+file numbers are not reused). One batch is one change. Every `Delivered` event carries `DeliveredFor`: the copy's list, in the
+order given; the single-message overloads publish the addresses a `MailRecipient` records through
+`MailRecipient.ForAddresses`, else null (as before). `MailboxStore.DeliveredToEnabled` (init-only, default false) is only
+carried here: the composition root sets it and the SMTP server reads it. The index format is unchanged.

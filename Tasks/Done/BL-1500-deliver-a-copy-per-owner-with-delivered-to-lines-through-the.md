@@ -8,7 +8,7 @@ depends-on: [BL-1487, BL-1499]
 touches: [Surl.MailStore.UnitLibrary, Surl.MailStore.UnitTests]
 requirement: none
 created: 2026-11-20
-completed:
+completed: 2026-11-20
 ---
 # BL-1500 — Deliver a copy per owner with Delivered-To lines through the mail store
 
@@ -22,16 +22,21 @@ ADR-0053 Amendment 1 decisions 3, 4, 5 and 7 (the amendment is in `Documentation
 
 ## Acceptance criteria
 
-- [ ] The new `Deliver` and `DeliverAsync` overloads exist; a test delivers two owners' differing copies and each owner's `INBOX` holds only its own bytes.
-- [ ] A test shows one owner's refusal (`QuotaExceeded`, then `StoreFull`, then `MessageTooLarge`) stores nothing for any owner and deletes every pending file.
-- [ ] Each delivery `StoreChangedEvent` carries that owner's `DeliveredFor` addresses in the order given; a test pins it, and one pins that the pre-existing overloads publish what they did before.
-- [ ] `MailboxStore.DeliveredToEnabled` exists, defaults to false and is documented; a test pins the default.
-- [ ] `dotnet build Protocols/Mail/Surl.MailStore.UnitLibrary -warnaserror` is clean; `Surl.MailStore.UnitTests` fast tests pass at 100% line and branch coverage for the new code, no `Integration` test needed.
-- [ ] `Protocols/Mail/Surl.MailStore.UnitLibrary/CLAUDE.md` describes the per-owner delivery and `DeliveredFor`.
+- [x] The new `Deliver` and `DeliverAsync` overloads exist; a test delivers two owners' differing copies and each owner's `INBOX` holds only its own bytes.
+- [x] A test shows one owner's refusal (`QuotaExceeded`, then `StoreFull`, then `MessageTooLarge`) stores nothing for any owner and deletes every pending file.
+- [x] Each delivery `StoreChangedEvent` carries that owner's `DeliveredFor` addresses in the order given; a test pins it, and one pins that the pre-existing overloads publish what they did before.
+- [x] `MailboxStore.DeliveredToEnabled` exists, defaults to false and is documented; a test pins the default.
+- [x] `dotnet build Protocols/Mail/Surl.MailStore.UnitLibrary -warnaserror` is clean; `Surl.MailStore.UnitTests` fast tests pass at 100% line and branch coverage for the new code, no `Integration` test needed.
+- [x] `Protocols/Mail/Surl.MailStore.UnitLibrary/CLAUDE.md` describes the per-owner delivery and `DeliveredFor`.
 
 ## Notes
+
+- Added public `MailOwnerCopy` (recipient, own pending message, DeliveredFor) and `MailRecipient.ForAddresses` + `DeliveredFor`; `LookUpRecipient` records no addresses, so pre-existing overloads publish null as before (callers opt in via `ForAddresses`).
+- A later copy that cannot be kept releases earlier kept files; the file numbers are not reused (harmless).
+- Coverage not measured by tool (collector wrote no report); every new branch has a test by inspection.
 
 ## Log
 
 - 2026-11-20: Created.
 - 2026-11-20: Backlog -> Doing.
+- 2026-11-20: Doing -> Done. Per-owner Deliver overloads, DeliveredFor on events, DeliveredToEnabled

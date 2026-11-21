@@ -13,13 +13,16 @@ public sealed partial class MailboxStore
     /// with the message's byte count. Called under the store's lock, so the events keep the order
     /// in which the changes happened.
     /// </summary>
-    private void PublishMessage(StoreChange change, MailboxPlace place, uint uid, ExchangeContext? exchange) =>
+    private void PublishMessage(StoreChange change, MailboxPlace place, uint uid, ExchangeContext? exchange, IReadOnlyList<string>? deliveredFor = null) =>
         events.Publish(new StoreChangedEvent(
             StoreKind.Mail,
             change,
             MailStoreChangeName.ForMessage(place.Owner.Name, place.Mailbox.Name, uid),
             place.Mailbox.Messages[uid].Body.Length,
-            ExchangeId: exchange?.ExchangeId));
+            ExchangeId: exchange?.ExchangeId)
+        {
+            DeliveredFor = deliveredFor,
+        });
 
     /// <summary>
     /// Publishes one change to one mailbox, named by <see cref="MailStoreChangeName.ForMailbox"/>,
