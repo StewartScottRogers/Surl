@@ -8,7 +8,7 @@ depends-on: [BL-1532]
 touches: [Documentation/Planning/Decisions/ADR-0141-how-a-server-applies-a-command-stage-delay-or-drop.md, Documentation/Planning/Decisions/README.md]
 requirement: none
 created: 2026-11-21
-completed:
+completed: 2026-11-21
 ---
 # BL-1538 — Decide whether a server answers a command whose delay hold ended because the client left
 
@@ -34,14 +34,17 @@ Stand-in: no store. The point of the decision is what a test observes on the eve
 
 ## Acceptance criteria
 
-- [ ] `ADR-0141-how-a-server-applies-a-command-stage-delay-or-drop.md` has an `## Amendment 3` marked "Decided by Claude under Stewart's delegation", answering questions 1 to 4 above, with its reasons.
-- [ ] The amendment names the tasks that act on it, and each is filed on the board with `task-board.ps1 new` (contract first, then one task per server family, each with exact `touches`), or it states that no code changes and why.
-- [ ] The ADR index `Documentation/Planning/Decisions/README.md` row for ADR-0141 mentions Amendment 3.
-- [ ] No `.cs` file changes in this task.
+- [x] `ADR-0141-how-a-server-applies-a-command-stage-delay-or-drop.md` has an `## Amendment 3` marked "Decided by Claude under Stewart's delegation", answering questions 1 to 4 above, with its reasons.
+- [x] The amendment names the tasks that act on it, and each is filed on the board with `task-board.ps1 new` (contract first, then one task per server family, each with exact `touches`), or it states that no code changes and why.
+- [x] The ADR index `Documentation/Planning/Decisions/README.md` row for ADR-0141 mentions Amendment 3.
+- [x] No `.cs` file changes in this task.
 
 ## Notes
+
+Decided: ADR-0141 Amendment 3 (client leaving => server sends nothing; new helper overload; HTTP/1.x, RTSP, WS, SMTP, IMAP, POP3 opt in). Filed BL-1540..BL-1546. No .cs changed.
 
 ## Log
 
 - 2026-11-21: Created.
 - 2026-11-21: Backlog -> Doing.
+- 2026-11-21: Doing -> Done. ADR-0141 Amendment 3 decided; BL-1540..BL-1546 filed
