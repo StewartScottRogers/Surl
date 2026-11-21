@@ -4,7 +4,7 @@ title: Add the three set-password MCP tools per ADR-0132 amendment 1
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-1482, BL-1488, BL-1489]
+depends-on: [BL-1482, BL-1493, BL-1494]
 touches: [Application/Surl.Mcp.UnitLibrary, Application/Surl.Mcp.UnitTests]
 requirement: none
 created: 2026-11-20

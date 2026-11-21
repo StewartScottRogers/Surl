@@ -58,11 +58,11 @@ alignment work is filed.
 
 - Rule chosen: add refuses everywhere (control endpoint becomes 409); password change is a new SetPassword / set_*_password / PUT route. Why and the answers table: ADR-0132 amendment 1.
 - ADR-0124 and ADR-0185 edits are outside this task's touches; BL-1490 makes them.
-- Alignment tasks filed: BL-1488, BL-1489, BL-1490, BL-1491, BL-1492 (filed by hand with the board script, not task-planner).
+- Alignment tasks filed: BL-1493, BL-1494, BL-1490, BL-1491, BL-1492 (filed by hand with the board script, not task-planner).
 
 ## Log
 
 - 2026-11-20: Created.
 - 2026-11-20: Backlog -> Doing.
-- 2026-11-20: Filed BL-1488, BL-1489, BL-1490, BL-1491, BL-1492.
-- 2026-11-20: Doing -> Done. ADR-0132 amendment 1 decides one add-duplicate rule and set-password operation; alignment tasks BL-1488..1492 filed
+- 2026-11-20: Filed BL-1493, BL-1494, BL-1490, BL-1491, BL-1492.
+- 2026-11-20: Doing -> Done. ADR-0132 amendment 1 decides one add-duplicate rule and set-password operation; alignment tasks BL-1493..1492 filed

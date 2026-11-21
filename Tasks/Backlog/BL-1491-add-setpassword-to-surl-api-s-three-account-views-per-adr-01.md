@@ -4,7 +4,7 @@ title: Add SetPassword to Surl.Api's three account views per ADR-0132 amendment 
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-1482, BL-1488, BL-1489]
+depends-on: [BL-1482, BL-1493, BL-1494]
 touches: [Application/Surl.Api, Application/Surl.Api.UnitTests]
 requirement: none
 created: 2026-11-20

@@ -1,5 +1,5 @@
 ---
-id: BL-1489
+id: BL-1494
 title: Add SetPassword to the TLS-SRP and proxy account stores per ADR-0132 amendment 1
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-20
 completed:
 ---
-# BL-1489 — Add SetPassword to the TLS-SRP and proxy account stores per ADR-0132 amendment 1
+# BL-1494 — Add SetPassword to the TLS-SRP and proxy account stores per ADR-0132 amendment 1
 
 ## Goal
 

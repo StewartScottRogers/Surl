@@ -1,5 +1,5 @@
 ---
-id: BL-1488
+id: BL-1493
 title: Add SetPassword to the account book (Surl.Authentication) per ADR-0132 amendment 1
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-20
 completed:
 ---
-# BL-1488 — Add SetPassword to the account book (Surl.Authentication) per ADR-0132 amendment 1
+# BL-1493 — Add SetPassword to the account book (Surl.Authentication) per ADR-0132 amendment 1
 
 ## Goal
 
