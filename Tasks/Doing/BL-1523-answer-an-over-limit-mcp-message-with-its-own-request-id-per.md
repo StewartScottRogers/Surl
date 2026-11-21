@@ -43,3 +43,4 @@ Stand-in: no store or event; the observable is the response line on the session'
 ## Log
 
 - 2026-11-20: Created.
+- 2026-11-21: Backlog -> Doing.
