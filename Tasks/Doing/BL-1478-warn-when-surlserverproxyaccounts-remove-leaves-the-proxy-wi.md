@@ -51,3 +51,4 @@ A test that removes the last proxy account through `Surl.Api` is warned that the
 ## Log
 
 - 2026-11-20: Created.
+- 2026-11-20: Backlog -> Doing.
