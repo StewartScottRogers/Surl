@@ -53,3 +53,4 @@ and the like - and the code and `--aihelp` work to make both agree is filed.
 ## Log
 
 - 2026-11-20: Created.
+- 2026-11-20: Backlog -> Doing.
