@@ -8,7 +8,7 @@ depends-on: []
 touches: [Protocols/Mail/Surl.Protocol.Imap.UnitTests/Fixtures]
 requirement: none
 created: 2026-11-20
-completed:
+completed: 2026-11-20
 ---
 # BL-1485 — Measure what pinned upstream curl 8.21.0 sends and prints against an IMAP server that advertises SPECIAL-USE
 
@@ -32,19 +32,22 @@ with `\Sent`, `\Drafts`, `\Trash`, so BL-1486 decides from measurement whether a
 
 ## Acceptance criteria
 
-- [ ] Recorded cases, each a fixture folder with the recorder's five files, the greeting and `CAPABILITY` advertising `SPECIAL-USE`:
+- [x] Recorded cases, each a fixture folder with the recorder's five files, the greeting and `CAPABILITY` advertising `SPECIAL-USE`:
       `curl -u u:p imap://127.0.0.1:<port>/` (a plain listing, `LIST` answered with `\Sent`, `\Drafts`, `\Trash` attributes);
       `-X 'LIST "" "*" RETURN (SPECIAL-USE)'`; `-X 'LIST (SPECIAL-USE) "" "*"'`; and `-T mail.txt imap://.../Sent` (an upload).
-- [ ] Each folder's transcript shows whether curl itself ever sent `RETURN (SPECIAL-USE)` or a selection option unasked, and what
+- [x] Each folder's transcript shows whether curl itself ever sent `RETURN (SPECIAL-USE)` or a selection option unasked, and what
       it printed of the attributes on stdout.
-- [ ] `Fixtures/README.md` lists each case, the command line, the curl build's SHA-256 and the date measured, and states in one
+- [x] `Fixtures/README.md` lists each case, the command line, the curl build's SHA-256 and the date measured, and states in one
       sentence whether upstream curl 8.21.0 uses SPECIAL-USE on its own.
-- [ ] No test needs `TestCategory=Integration`, and the fast tests stay green (the new folders are not replayed by
+- [x] No test needs `TestCategory=Integration`, and the fast tests stay green (the new folders are not replayed by
       `RecordedFixtureTests` until BL-1486's follow-up says so; exclude them there if it would pick them up).
 
 ## Notes
+
+- Recorded 2026-11-20 into four `special-use-*` folders; curl exited 0 on all, never sent RETURN or a selection option unasked, printed attributes on stdout unchanged. Replay tests name cases explicitly, so the new folders are not picked up.
 
 ## Log
 
 - 2026-11-20: Created.
 - 2026-11-20: Backlog -> Doing.
+- 2026-11-20: Doing -> Done. Recorded pinned curl 8.21.0 against SPECIAL-USE IMAP: it never uses SPECIAL-USE unasked
