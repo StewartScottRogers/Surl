@@ -8,7 +8,7 @@
   -->
 
   <!--
-    Packed as one NuGet package, ID Surl.Api (ADR-0099 decision 10, BL-643). release.yml packs it with
+    Packed as one NuGet package, ID Surly.Surl.Api (ADR-0099 decision 10, BL-643). release.yml packs it with
     -p:BundledProjectReferencesPrivateAssets=all, which keeps the project references out of the package's
     dependencies, and BundleReferencedProjectAssemblies puts every Surl assembly they bring into lib/net10.0,
     so a test project references this one package and restores nothing else. Its version is the one
@@ -16,7 +16,7 @@
   -->
   <PropertyGroup>
     <IsPackable>true</IsPackable>
-    <PackageId>Surl.Api</PackageId>
+    <PackageId>Surly.Surl.Api</PackageId>
     <Authors>Stewart Scott Rogers</Authors>
     <Description>Starts and stops Surl servers in-process for a .NET test suite: Surl is the server-side mate of curl, the server that answers each protocol upstream curl speaks, as a stand-in for the real web, mail or file server.</Description>
     <PackageTags>surl; curl; server; testing; stand-in; http; ftp; smtp; imap</PackageTags>

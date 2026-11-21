@@ -258,8 +258,8 @@ is a decision recorded in an ADR.
 - Tests: the same name with `.UnitTests` instead of `.UnitLibrary`.
 - The executable is `Surl.Console` (assembly `surl`) — no `.UnitLibrary` suffix, because
   it is not a library. It is one of three exceptions: the hosts `Surl.Api` (the
-  in-process programming interface, NuGet package `Surl.Api`) and `Surl.Mcp` (the MCP server
-  executable, assembly `surl-mcp`, NuGet package `Surl.Mcp`) also carry no `.UnitLibrary`
+  in-process programming interface, NuGet package `Surly.Surl.Api`) and `Surl.Mcp` (the MCP server
+  executable, assembly `surl-mcp`, NuGet package `Surly.Surl.Mcp`) also carry no `.UnitLibrary`
   suffix, as the Curl port's `Curl.Api` and `Curl.Mcp` do (ADR-0098). Their tests are
   `Surl.Api.UnitTests` and `Surl.Mcp.UnitTests`; the MCP tools live in `Surl.Mcp.UnitLibrary`
   and the session handling in `Surl.McpServing.UnitLibrary`.

@@ -517,11 +517,11 @@ Every property is a spelling of a `surl` option, and a start `surl` would refuse
 `SurlServerStartException`. With `RecordExchanges` set, `server.Exchanges` holds each exchange's
 bytes, its listen URL and its scheme. The [package's README](Application/Surl.Api/README.md) covers
 the rest: queries and waits, fault rules, hooks, seeding, reset and snapshots, and a test's own
-protocol server. The NuGet package `Surl.Api` is packed by the release workflow but not yet
+protocol server. The NuGet package `Surly.Surl.Api` is packed by the release workflow but not yet
 published, because no release is tagged.
 
 **From an AI agent: `Surl.Mcp`.** `surl-mcp` is an MCP server on standard input and output. An MCP
-client starts it as a stdio server, for example with the command `dnx Surl.Mcp` (the package is a
+client starts it as a stdio server, for example with the command `dnx Surly.Surl.Mcp` (the package is a
 .NET tool of type `McpServer`, not yet published) or with the `surl-mcp` binary from a release
 archive, which needs no .NET runtime. Its tools are `start_server`, `list_servers`, `stop_server`,
 `get_exchanges`, `get_events`, `wait_for_event`, `seed_mail`, `put_file`, `publish_message`,
@@ -612,7 +612,7 @@ irm https://raw.githubusercontent.com/StewartScottRogers/Surl/master/install.ps1
 ```
 
 The release also attaches `surl-mcp-<runtime identifier>` archives, the native `surl-mcp` MCP
-server. The NuGet packages `Surl.Api` and `Surl.Mcp` are packed by the same workflow but not yet
+server. The NuGet packages `Surly.Surl.Api` and `Surly.Surl.Mcp` are packed by the same workflow but not yet
 published.
 
 ## Build and test

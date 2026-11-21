@@ -21,7 +21,7 @@ public sealed class McpServerPackageVersionTests
 
         Assert.AreEqual(csprojVersion, serverJson.RootElement.GetProperty("version").GetString());
         Assert.AreEqual(csprojVersion, package.GetProperty("version").GetString());
-        Assert.AreEqual("Surl.Mcp", package.GetProperty("identifier").GetString());
+        Assert.AreEqual("Surly.Surl.Mcp", package.GetProperty("identifier").GetString());
         Assert.AreEqual("stdio", package.GetProperty("transport").GetProperty("type").GetString());
     }
 
