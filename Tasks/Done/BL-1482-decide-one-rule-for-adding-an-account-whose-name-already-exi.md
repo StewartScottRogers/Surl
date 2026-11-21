@@ -8,7 +8,7 @@ depends-on: []
 touches: [Documentation/Planning/Decisions/ADR-0132-how-the-account-book-changes-while-the-server-runs.md]
 requirement: none
 created: 2026-11-20
-completed:
+completed: 2026-11-20
 ---
 # BL-1482 — Decide one rule for adding an account whose name already exists, for Surl.Api, surl-mcp and the control endpoint
 
@@ -43,20 +43,26 @@ alignment work is filed.
 
 ## Acceptance criteria
 
-- [ ] `ADR-0132` gains an amendment, marked "Decided by Claude under Stewart's delegation", that states the rule for each account
+- [x] `ADR-0132` gains an amendment, marked "Decided by Claude under Stewart's delegation", that states the rule for each account
       kind and each host, what is published, the answer each host gives (exception type, MCP result text, HTTP status and error
       code), and why.
-- [ ] If the rule adds a way to change a password (a new `Surl.Api` member, MCP tool or endpoint), the amendment names it, its
+- [x] If the rule adds a way to change a password (a new `Surl.Api` member, MCP tool or endpoint), the amendment names it, its
       arguments and its answer.
-- [ ] The amendment updates ADR-0185 decision 2's sentence on the replace if the rule changes it, and ADR-0124 decision 7's
+- [x] The amendment updates ADR-0185 decision 2's sentence on the replace if the rule changes it, and ADR-0124 decision 7's
       `POST /v1/accounts` row if its answers change.
-- [ ] task-planner files the alignment work as tasks of at most two projects each (for example `Surl.Composition` with
+- [x] task-planner files the alignment work as tasks of at most two projects each (for example `Surl.Composition` with
       `Surl.Control` docs, `Surl.Api`, `Surl.Mcp.UnitLibrary`), each depending on this task, and their IDs are in this task's Log.
-- [ ] No `.cs` file changes in this task.
+- [x] No `.cs` file changes in this task.
 
 ## Notes
+
+- Rule chosen: add refuses everywhere (control endpoint becomes 409); password change is a new SetPassword / set_*_password / PUT route. Why and the answers table: ADR-0132 amendment 1.
+- ADR-0124 and ADR-0185 edits are outside this task's touches; BL-1490 makes them.
+- Alignment tasks filed: BL-1488, BL-1489, BL-1490, BL-1491, BL-1492 (filed by hand with the board script, not task-planner).
 
 ## Log
 
 - 2026-11-20: Created.
 - 2026-11-20: Backlog -> Doing.
+- 2026-11-20: Filed BL-1488, BL-1489, BL-1490, BL-1491, BL-1492.
+- 2026-11-20: Doing -> Done. ADR-0132 amendment 1 decides one add-duplicate rule and set-password operation; alignment tasks BL-1488..1492 filed
