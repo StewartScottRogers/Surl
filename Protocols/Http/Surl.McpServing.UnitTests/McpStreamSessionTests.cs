@@ -89,7 +89,7 @@ public sealed class McpStreamSessionTests
     }
 
     [TestMethod]
-    public async Task RunAsync_LineOverTheLimit_AnswersInvalidRequestWithANullIdAndContinues()
+    public async Task RunAsync_LineOverTheLimit_AnswersInvalidRequestWithItsOwnIdAndContinues()
     {
         MemoryStream input = Input(
             """{"jsonrpc":"2.0","id":1,"method":"ping","params":{"padding":"0123456789012345678901234567890123456789"}}""",
@@ -101,10 +101,47 @@ public sealed class McpStreamSessionTests
         CollectionAssert.AreEqual(
             new[]
             {
-                """{"jsonrpc":"2.0","id":null,"error":{"code":-32600,"message":"Invalid Request: the message is longer than 64 bytes"}}""" + "\n",
+                """{"jsonrpc":"2.0","id":1,"error":{"code":-32600,"message":"Invalid Request: the message is longer than 64 bytes"}}""" + "\n",
                 """{"jsonrpc":"2.0","id":2,"result":{}}""" + "\n",
             },
             output.Writes.ToArray());
+    }
+
+    [TestMethod]
+    [DataRow("""{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"start_server","arguments":{"files":"@"}}}""", "7")]
+    [DataRow("""{"jsonrpc":"2.0","method":"tools/call","params":{"name":"start_server","arguments":{"files":"@"}},"id":"abc"}""", "\"abc\"")]
+    public async Task RunAsync_FiveMegabyteLine_AnswersInvalidRequestWithItsOwnIdAndContinues(string template, string expectedId)
+    {
+        string line = template.Replace("@", new string('x', 5_000_000), StringComparison.Ordinal);
+        MemoryStream input = Input(line, """{"jsonrpc":"2.0","id":2,"method":"ping"}""");
+        UnitTestLineOutputStream output = new();
+
+        await RunAsync(input, output, WeatherRegistry());
+
+        CollectionAssert.AreEqual(
+            new[]
+            {
+                """{"jsonrpc":"2.0","id":@,"error":{"code":-32600,"message":"Invalid Request: the message is longer than 4194304 bytes"}}""".Replace("@", expectedId, StringComparison.Ordinal) + "\n",
+                """{"jsonrpc":"2.0","id":2,"result":{}}""" + "\n",
+            },
+            output.Writes.ToArray());
+    }
+
+    [TestMethod]
+    [DataRow("""{"jsonrpc":"2.0","method":"ping","params":{"id":1,"padding":"0123456789012345678901234567890123456789"}}""")]
+    [DataRow("""{"jsonrpc":"2.0","method":"ping","id":{"padding":"0123456789012345678901234567890123456789"}}""")]
+    [DataRow("""{"jsonrpc":"2.0","method":"ping","id":01,"padding":"0123456789012345678901234567890123456789""")]
+    public async Task RunAsync_LineOverTheLimitWhoseIdCannotBeRead_AnswersWithANullId(string line)
+    {
+        MemoryStream input = Input(line, """{"jsonrpc":"2.0","id":2,"method":"ping"}""");
+        UnitTestLineOutputStream output = new();
+
+        await RunAsync(input, output, WeatherRegistry(), maximumMessageBytes: 64);
+
+        Assert.AreEqual(
+            """{"jsonrpc":"2.0","id":null,"error":{"code":-32600,"message":"Invalid Request: the message is longer than 64 bytes"}}""" + "\n",
+            output.Writes[0]);
+        Assert.AreEqual("""{"jsonrpc":"2.0","id":2,"result":{}}""" + "\n", output.Writes[1]);
     }
 
     [TestMethod]
