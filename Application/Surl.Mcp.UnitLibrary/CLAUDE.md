@@ -47,7 +47,7 @@ with one `McpServerRegistry.AddTool` line and holds nothing else of the tools.
     required and an unknown one is `isError` as for `stop_server`; any `InvalidOperationException` from
     `Surl.Api` (a seed a store refuses, a store on disk refusing reset or snapshot, a snapshot past 256 MiB, a
     257th fault rule) is `isError` with its message.
-    - `SeedMailTool` (`seed_mail`): `to`, and `message` (UTF-8) or `message_base64` -> `{delivered: true}`.
+    - `SeedMailTool` (`seed_mail`): `to`, and `message` (UTF-8) or `message_base64` -> `{delivered: true}`; on a server started with `--mail-delivered-to`, one `Delivered-To: <to>` line precedes the message (BL-1504).
     - `PutFileTool` (`put_file`): `path`, and `text` or `base64` -> `{path, byte_count}`; a path no request may name (relative, or with `..`) is `isError` saying why, e.g. `path <path> must start with /` (BL-1382, BL-1396).
     - `PublishMessageTool` (`publish_message`): `topic` (with `retain`) or `queue`, and `payload` or
       `payload_base64` -> `{published: true}`; `retain` with `queue` is refused.

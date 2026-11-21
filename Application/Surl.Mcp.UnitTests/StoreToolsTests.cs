@@ -51,6 +51,34 @@ public sealed class StoreToolsTests
     }
 
     [TestMethod]
+    public async Task SeedMail_WithMailDeliveredToOn_StoresDeliveredToAheadOfTheMessageAndTheEventNamesTheRecipient()
+    {
+        await using var host = await StartHostAsync("pop3://127.0.0.1:0", "--user", "alice:secret", "--allow-plaintext-auth", "--mail-delivered-to");
+
+        var result = await CallAsync(host.SeedMail, $$"""{"server_id": "s1", "to": "alice@x", "message": {{JsonSerializer.Serialize(SeededMail)}}}""");
+        var retrieved = await ServeAsync(host, "pop3", Pop3Retr);
+        var events = await CallAsync(host.GetEvents, """{"server_id": "s1", "kinds": ["store_changed"], "store": "mail"}""");
+
+        AssertResult(result, """{"delivered":true}""");
+        StringAssert.Contains(retrieved, "\r\nDelivered-To: alice@x\r\n" + SeededMail + ".\r\n");
+        var seeded = events.StructuredContent!.Value.GetProperty("events").EnumerateArray()
+            .Single(item => item.GetProperty("change").GetString() == "seeded");
+        Assert.AreEqual("alice@x", Assert.ContainsSingle(seeded.GetProperty("delivered_for").EnumerateArray()).GetString());
+    }
+
+    [TestMethod]
+    public async Task SeedMail_WithoutMailDeliveredTo_StoresTheMessageAsGiven()
+    {
+        await using var host = await StartMailHostAsync();
+
+        await CallAsync(host.SeedMail, $$"""{"server_id": "s1", "to": "alice@x", "message": {{JsonSerializer.Serialize(SeededMail)}}}""");
+        var retrieved = await ServeAsync(host, "pop3", Pop3Retr);
+
+        StringAssert.Contains(retrieved, "\r\n" + SeededMail + ".\r\n");
+        Assert.DoesNotContain("Delivered-To", retrieved);
+    }
+
+    [TestMethod]
     public async Task SeedMail_GivenAsBase64_IsDelivered()
     {
         await using var host = await StartMailHostAsync();
