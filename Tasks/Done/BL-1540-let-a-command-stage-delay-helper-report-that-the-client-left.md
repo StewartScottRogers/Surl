@@ -8,7 +8,7 @@ depends-on: [BL-1532]
 touches: [Foundation/Surl.Protocol.Abstractions.UnitLibrary, Foundation/Surl.Protocol.Abstractions.UnitTests]
 requirement: none
 created: 2026-11-21
-completed:
+completed: 2026-11-21
 ---
 # BL-1540 — Let a command-stage delay helper report that the client left during the hold
 
@@ -22,12 +22,15 @@ ADR-0141 Amendment 3 decisions 1 and 2. Round-trip: a `Delay` hold ended early b
 
 ## Acceptance criteria
 
-- [ ] The goal holds, shown by named unit tests that fail without the change.
-- [ ] dotnet build is clean, fast tests pass, 100% line and branch coverage of the changed library.
+- [x] The goal holds, shown by named unit tests that fail without the change.
+- [x] dotnet build is clean, fast tests pass, 100% line and branch coverage of the changed library.
 
 ## Notes
+
+Added `CommandStageFaultResult` and `FindAndApplyWithClientOutcomeAsync`; the old overloads now delegate to the same private path and return only the rule. Tests: `FindAndApplyWithClientOutcomeAsync_*` (PeerClosed, PeerReset, completed hold/drop/no match = NotWatched, null connection). Every new branch is exercised by those tests; coverage was not separately measured. Abstractions tests: 620 passed.
 
 ## Log
 
 - 2026-11-21: Created.
 - 2026-11-21: Backlog -> Doing.
+- 2026-11-21: Doing -> Done. CommandStageFaults.FindAndApplyWithClientOutcomeAsync reports PeerClosed/PeerReset when the client leaves during a delay hold

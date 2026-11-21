@@ -221,6 +221,61 @@ public sealed class CommandStageFaultsTests
         }
     }
 
+    [TestMethod]
+    public async Task FindAndApplyWithClientOutcomeAsync_ClientHalfClosesDuringADelay_ReportsPeerClosed()
+    {
+        var delay = new FaultRule("g1", FaultKind.Delay) { Stage = FaultStage.Command, DelayMilliseconds = 600000 };
+        var (context, _, _, _) = NewContext(new ScriptedFaultPlan(delay), new NeverFiringTimeProvider(), TestContext.CancellationToken);
+
+        var result = await CommandStageFaults.FindAndApplyWithClientOutcomeAsync(
+            context, new InMemoryConnection([]), RetrPoint, "RETR");
+
+        Assert.AreSame(delay, result.Rule);
+        Assert.AreEqual(PeerWatchOutcome.PeerClosed, result.ClientLeft);
+    }
+
+    [TestMethod]
+    public async Task FindAndApplyWithClientOutcomeAsync_ClientResetsDuringADelay_ReportsPeerReset()
+    {
+        var delay = new FaultRule("g2", FaultKind.Delay) { Stage = FaultStage.Command, DelayMilliseconds = 600000 };
+        var (context, _, _, _) = NewContext(new ScriptedFaultPlan(delay), new NeverFiringTimeProvider(), TestContext.CancellationToken);
+
+        var result = await CommandStageFaults.FindAndApplyWithClientOutcomeAsync(
+            context, new InMemoryConnection([], peerResetsWhenExhausted: true), RetrPoint, "RETR");
+
+        Assert.AreEqual(PeerWatchOutcome.PeerReset, result.ClientLeft);
+    }
+
+    [TestMethod]
+    public async Task FindAndApplyWithClientOutcomeAsync_CompletedHold_DropAndNoRule_ReportNotWatched()
+    {
+        var delay = new FaultRule("g3", FaultKind.Delay) { Stage = FaultStage.Command, DelayMilliseconds = 20 };
+        var drop = new FaultRule("g4", FaultKind.Drop) { Stage = FaultStage.Command };
+        var (held, _, _, _) = NewContext(new ScriptedFaultPlan(delay), TimeProvider.System, TestContext.CancellationToken);
+        var (dropped, _, _, _) = NewContext(new ScriptedFaultPlan(drop), TimeProvider.System, TestContext.CancellationToken);
+        var (none, _, _, _) = NewContext(new ScriptedFaultPlan(), TimeProvider.System, TestContext.CancellationToken);
+        var droppedConnection = new InMemoryConnection([]);
+
+        var heldResult = await CommandStageFaults.FindAndApplyWithClientOutcomeAsync(
+            held, new InMemoryConnection([], peerHalfClosesWhenExhausted: false), RetrPoint, "RETR");
+        var droppedResult = await CommandStageFaults.FindAndApplyWithClientOutcomeAsync(dropped, droppedConnection, RetrPoint, "RETR");
+        var noneResult = await CommandStageFaults.FindAndApplyWithClientOutcomeAsync(none, new InMemoryConnection([]), RetrPoint, "RETR");
+
+        Assert.AreEqual(new CommandStageFaultResult(delay, PeerWatchOutcome.NotWatched), heldResult);
+        Assert.AreEqual(new CommandStageFaultResult(drop, PeerWatchOutcome.NotWatched), droppedResult);
+        Assert.IsTrue(droppedConnection.Aborted);
+        Assert.AreEqual(new CommandStageFaultResult(null, PeerWatchOutcome.NotWatched), noneResult);
+    }
+
+    [TestMethod]
+    public async Task FindAndApplyWithClientOutcomeAsync_NoConnection_Throws()
+    {
+        var (context, _, _, _) = NewContext(new ScriptedFaultPlan(), TimeProvider.System, TestContext.CancellationToken);
+
+        await Assert.ThrowsExactlyAsync<ArgumentNullException>(
+            () => CommandStageFaults.FindAndApplyWithClientOutcomeAsync(context, null!, RetrPoint, "RETR").AsTask());
+    }
+
     private sealed class WatchDouble(Func<PeerWatchOutcome> outcome) : IConnection
     {
         public EndPoint LocalEndPoint => throw new NotSupportedException();

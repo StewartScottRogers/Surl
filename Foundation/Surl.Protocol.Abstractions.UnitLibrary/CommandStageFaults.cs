@@ -34,13 +34,31 @@ public static class CommandStageFaults
     {
         ArgumentNullException.ThrowIfNull(connection);
 
-        var rule = await ApplyAsync(context, connection, point, target);
-        if (rule is { Kind: FaultKind.Drop })
+        return (await FindAndApplyWithClientOutcomeAsync(context, connection, point, target)).Rule;
+    }
+
+    /// <summary>
+    /// <see cref="FindAndApplyAsync(ExchangeContext, IConnection, FaultPoint, string)"/> that also
+    /// reports whether a <see cref="FaultKind.Delay"/> hold ended because the client left (ADR-0141, amendment 3).
+    /// </summary>
+    /// <param name="context">The exchange: its fault plan, clock, idle clock, log and events.</param>
+    /// <param name="connection">The connection a drop aborts and a hold watches.</param>
+    /// <param name="point">The command's fault point, at <see cref="FaultStage.Command"/>.</param>
+    /// <param name="target">What a published <see cref="FaultAppliedEvent"/> names: the path, or else the verb.</param>
+    /// <returns>The matching rule and, when the client left during a hold, how.</returns>
+    /// <exception cref="OperationCanceledException">The exchange was cancelled during a delay.</exception>
+    public static async ValueTask<CommandStageFaultResult> FindAndApplyWithClientOutcomeAsync(
+        ExchangeContext context, IConnection connection, FaultPoint point, string target)
+    {
+        ArgumentNullException.ThrowIfNull(connection);
+
+        var result = await ApplyAsync(context, connection, point, target);
+        if (result.Rule is { Kind: FaultKind.Drop })
         {
             connection.Abort();
         }
 
-        return rule;
+        return result;
     }
 
     /// <summary>
@@ -54,19 +72,20 @@ public static class CommandStageFaults
     /// <param name="target">What a published <see cref="FaultAppliedEvent"/> names: the path, or else the verb.</param>
     /// <returns>The matching rule, or <see langword="null"/> when none matched.</returns>
     /// <exception cref="OperationCanceledException">The exchange was cancelled during a delay.</exception>
-    public static ValueTask<FaultRule?> FindAndApplyAsync(ExchangeContext context, FaultPoint point, string target) =>
-        ApplyAsync(context, null, point, target);
+    public static async ValueTask<FaultRule?> FindAndApplyAsync(ExchangeContext context, FaultPoint point, string target) =>
+        (await ApplyAsync(context, null, point, target)).Rule;
 
-    private static async ValueTask<FaultRule?> ApplyAsync(
+    private static async ValueTask<CommandStageFaultResult> ApplyAsync(
         ExchangeContext context, IConnection? connection, FaultPoint point, string target)
     {
         ArgumentNullException.ThrowIfNull(context);
         ArgumentNullException.ThrowIfNull(point);
 
+        var clientLeft = PeerWatchOutcome.NotWatched;
         var rule = await context.Faults.FindAsync(point, context.CancellationToken);
         if (rule is { Kind: FaultKind.Delay })
         {
-            await HoldAsync(context, connection, rule, point.Command, target);
+            clientLeft = await HoldAsync(context, connection, rule, point.Command, target);
         }
         else if (rule is { Kind: FaultKind.Drop })
         {
@@ -74,10 +93,10 @@ public static class CommandStageFaults
             Publish(context, rule, target);
         }
 
-        return rule;
+        return new CommandStageFaultResult(rule, clientLeft);
     }
 
-    private static async Task HoldAsync(
+    private static async Task<PeerWatchOutcome> HoldAsync(
         ExchangeContext context, IConnection? connection, FaultRule rule, string? verb, string target)
     {
         var delay = TimeSpan.FromMilliseconds(rule.DelayMilliseconds ?? 0);
@@ -92,7 +111,7 @@ public static class CommandStageFaults
         context.IdleClock.Pause();
         try
         {
-            await WaitForDelayOrPeerAsync(context, rule, hold, watch, holdEnded);
+            return await WaitForDelayOrPeerAsync(context, rule, hold, watch, holdEnded);
         }
         finally
         {
@@ -100,12 +119,13 @@ public static class CommandStageFaults
         }
     }
 
-    private static async Task WaitForDelayOrPeerAsync(
+    private static async Task<PeerWatchOutcome> WaitForDelayOrPeerAsync(
         ExchangeContext context, FaultRule rule, Task hold, Task<PeerWatchOutcome>? watch, CancellationTokenSource holdEnded)
     {
         if (watch is not null && await Task.WhenAny(hold, watch) == watch)
         {
-            var left = await watch switch
+            var outcome = await watch;
+            var left = outcome switch
             {
                 PeerWatchOutcome.PeerClosed => "closed",
                 PeerWatchOutcome.PeerReset => "reset",
@@ -116,7 +136,7 @@ public static class CommandStageFaults
             {
                 await holdEnded.CancelAsync();
                 context.Log.Note($"Exchange {context.ExchangeId}: the client {left} the connection during the hold by fault rule {rule.Id}.");
-                return;
+                return outcome;
             }
         }
 
@@ -133,6 +153,8 @@ public static class CommandStageFaults
         {
             await watch;
         }
+
+        return PeerWatchOutcome.NotWatched;
     }
 
     private static async Task<PeerWatchOutcome> WatchAsync(IConnection connection, CancellationToken cancellationToken)
