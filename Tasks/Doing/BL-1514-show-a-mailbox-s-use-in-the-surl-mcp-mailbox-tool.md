@@ -31,3 +31,4 @@ ADR-0055 Amendment 1, decision 6. Depends on `SurlMailboxInfo.Use` in Surl.Api (
 ## Log
 
 - 2026-11-20: Created.
+- 2026-11-20: Backlog -> Doing.
