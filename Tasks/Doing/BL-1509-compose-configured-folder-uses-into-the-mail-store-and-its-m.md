@@ -33,3 +33,4 @@ ADR-0055 Amendment 1, decisions 2 and 6. Depends on the store's `MailboxSettings
 ## Log
 
 - 2026-11-20: Created.
+- 2026-11-20: Backlog -> Doing.
