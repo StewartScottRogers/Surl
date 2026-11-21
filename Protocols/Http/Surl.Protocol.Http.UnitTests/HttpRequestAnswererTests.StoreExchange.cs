@@ -26,6 +26,31 @@ public sealed partial class HttpRequestAnswererTests
     }
 
     [TestMethod]
+    public async Task AnswerAsync_PutRefusedByOutOfSpaceRule_Answers413AndNamesTheRuleInTheNote()
+    {
+        var log = new RecordingExchangeLog();
+        var faults = new ScriptedFaultPlan(new FaultRule("f1", FaultKind.OutOfSpace) { Listener = "http://127.0.0.1:18050/" });
+        var (_, store) = UploadStoreObserved(new RecordingSurlEventPublisher(), faults);
+
+        var answer = await UploadAnswerer(store, log: log).AnswerAsync(Request("PUT", "/up.bin", new UnitTestCopyingRequestBody(Encoding.ASCII.GetBytes("abc"))), TestContext.CancellationToken);
+
+        Assert.AreEqual(413, answer.Status.Code);
+        Assert.Contains("PUT /up.bin: the upload was refused by the fault rule f1 (out-of-space); answered 413 and closed.", log.Notes);
+    }
+
+    [TestMethod]
+    public async Task AnswerAsync_PutPastTheUploadLimit_Answers413AndNamesTheLimitInTheNote()
+    {
+        var log = new RecordingExchangeLog();
+        var (_, store) = UploadStore(maxUploadBytes: 2);
+
+        var answer = await UploadAnswerer(store, log: log).AnswerAsync(Request("PUT", "/up.bin", new UnitTestCopyingRequestBody(Encoding.ASCII.GetBytes("abc"))), TestContext.CancellationToken);
+
+        Assert.AreEqual(413, answer.Status.Code);
+        Assert.Contains("PUT /up.bin: the body went past the upload limit of 2 bytes; answered 413 and closed.", log.Notes);
+    }
+
+    [TestMethod]
     public async Task AnswerAsync_PutWithOutOfSpaceRuleForAnotherListener_StoresAndPublishesTheChangeOnTheExchange()
     {
         var events = new RecordingSurlEventPublisher();
