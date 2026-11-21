@@ -174,6 +174,7 @@ internal static class SurlServerArguments
         AddItems(arguments, "--mailbox-file", options.MailboxFiles);
         AddItems(arguments, "--mail-alias", options.MailAliases);
         AddItems(arguments, "--mail-catch-all", options.MailCatchAlls);
+        AddFlag(arguments, options.MailDeliveredTo, "--mail-delivered-to");
         AddItems(arguments, "--shared-folder", options.SharedFolders);
         AddItems(arguments, "--share", options.Shares);
         AddItems(arguments, "--share-access", options.ShareAccess);

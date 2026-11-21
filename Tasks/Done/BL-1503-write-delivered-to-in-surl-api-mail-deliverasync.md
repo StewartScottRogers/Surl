@@ -8,7 +8,7 @@ depends-on: [BL-1487, BL-1498, BL-1500, BL-1515]
 touches: [Surl.Api, Surl.Api.UnitTests]
 requirement: none
 created: 2026-11-20
-completed:
+completed: 2026-11-21
 ---
 # BL-1503 — Write Delivered-To in Surl.Api Mail.DeliverAsync
 
@@ -22,11 +22,11 @@ ADR-0053 Amendment 1 decision 6. Files: `Application/Surl.Api/SurlServerMail.cs`
 
 ## Acceptance criteria
 
-- [ ] `SurlServerOptions` has the new boolean, default false, and `SurlServerArguments` maps it to `--mail-delivered-to`; tests pin both.
-- [ ] With it on, `Mail.DeliverAsync(to, message)` stores a message whose bytes are `Delivered-To: <to>` CRLF then the handed message; a test reads it back through the read-back API.
-- [ ] With it off, the stored bytes equal the handed message, pinned by a test.
-- [ ] The delivery event's `DeliveredFor` holds the `to` address, asserted through the instance's event stream.
-- [ ] `dotnet build Application/Surl.Api -warnaserror` is clean and `Surl.Api.UnitTests` fast tests pass with no `Integration` test.
+- [x] `SurlServerOptions` has the new boolean, default false, and `SurlServerArguments` maps it to `--mail-delivered-to`; tests pin both.
+- [x] With it on, `Mail.DeliverAsync(to, message)` stores a message whose bytes are `Delivered-To: <to>` CRLF then the handed message; a test reads it back through the read-back API.
+- [x] With it off, the stored bytes equal the handed message, pinned by a test.
+- [x] The delivery event's `DeliveredFor` holds the `to` address, asserted through the instance's event stream.
+- [x] `dotnet build Application/Surl.Api -warnaserror` is clean and `Surl.Api.UnitTests` fast tests pass with no `Integration` test.
 
 ## Notes
 
@@ -38,3 +38,4 @@ ADR-0053 Amendment 1 decision 6. Files: `Application/Surl.Api/SurlServerMail.cs`
 - 2026-11-20: Backlog -> Doing.
 - 2026-11-20: Doing -> Backlog. Waiting for BL-1515: seeding mail must publish DeliveredFor, which needs MailStore and Composition (held by BL-1507 and BL-1502)
 - 2026-11-21: Backlog -> Doing.
+- 2026-11-21: Doing -> Done. Delivered-To written by Mail.DeliverAsync when MailDeliveredTo is on

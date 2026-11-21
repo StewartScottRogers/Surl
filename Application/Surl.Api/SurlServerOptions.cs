@@ -207,6 +207,9 @@ public sealed class SurlServerOptions
     /// <summary>The catch-all addresses (<c>--mail-catch-all</c>, once each): <c>&lt;domain&gt;=&lt;to&gt;</c>; none by default, so mail to an unknown address is discarded.</summary>
     public IList<string> MailCatchAlls { get; } = [];
 
+    /// <summary>Whether each stored copy of a message begins with a <c>Delivered-To: &lt;address&gt;</c> line (<c>--mail-delivered-to</c>), whether SMTP or <see cref="SurlServerMail.DeliverAsync"/> delivered it; false by default, so stored bytes are as handed over.</summary>
+    public bool MailDeliveredTo { get; set; }
+
     /// <summary>The shared IMAP folders (<c>--shared-folder</c>, once each): <c>&lt;name&gt;=&lt;who&gt;,...</c>; none by default.</summary>
     public IList<string> SharedFolders { get; } = [];
 

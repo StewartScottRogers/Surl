@@ -42,6 +42,18 @@ public sealed partial class SurlServerArgumentsTests
     }
 
     [TestMethod]
+    public void Compose_MailDeliveredTo_IsTheFlagAfterTheCatchAlls_AndDefaultsOff()
+    {
+        var options = ApiTestSeams.Options(HttpListenUrl);
+        Assert.IsFalse(options.MailDeliveredTo);
+        CollectionAssert.DoesNotContain(SurlServerArguments.Compose(options).ToArray(), "--mail-delivered-to");
+
+        options.MailDeliveredTo = true;
+
+        CollectionAssert.AreEqual(new[] { HttpListenUrl, "--mail-delivered-to" }, SurlServerArguments.Compose(options).ToArray());
+    }
+
+    [TestMethod]
     public void Compose_NoItemProperty_AddsNoWord()
     {
         var options = ApiTestSeams.Options(HttpListenUrl);
