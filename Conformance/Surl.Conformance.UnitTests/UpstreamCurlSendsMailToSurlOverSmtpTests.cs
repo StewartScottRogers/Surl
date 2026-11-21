@@ -567,7 +567,7 @@ public sealed class UpstreamCurlSendsMailToSurlOverSmtpTests
         await holder.GetStream().WriteAsync(Encoding.ASCII.GetBytes("NOOP\r\n"), TestContext.CancellationToken);
         StringAssert.StartsWith(await holderReader.ReadLineAsync(TestContext.CancellationToken), "250");
 
-        var result = await RunUpstreamCurlAsync("-sS", "--mail-from", "a@x", "--mail-rcpt", Recipient, "-T", mail, MailUrl(surl));
+        var result = await RunUpstreamCurlAsync("-v", "--mail-from", "a@x", "--mail-rcpt", Recipient, "-T", mail, MailUrl(surl));
 
         Assert.AreEqual(WeirdServerReply, result.ExitCode, result.StandardError + Environment.NewLine + surl.Diagnosis);
         StringAssert.Contains(result.StandardError, "421");

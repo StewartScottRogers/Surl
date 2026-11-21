@@ -223,7 +223,7 @@ public sealed class UpstreamCurlFetchesFromSurlOverFtpTests
         await holder.GetStream().WriteAsync(Encoding.ASCII.GetBytes("NOOP\r\n"), TestContext.CancellationToken);
         StringAssert.StartsWith(await holderReader.ReadLineAsync(TestContext.CancellationToken), "200 ");
 
-        var result = await RunCurlAsync(surl.UrlOf("a.txt"));
+        var result = await RunCurlAsync("-v", surl.UrlOf("a.txt"));
 
         // surl answers "421 Too many connections" and closes gracefully (FtpProtocolServer.WriteRefusalAsync,
         // then StreamConnection's lingering close), and curl maps a 421 greeting to exit 28. Measured on

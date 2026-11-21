@@ -86,3 +86,4 @@ tolerated.
 - 2026-11-21: Doing -> Blocked. Waiting for run:44885355387 (release.yml dry run on factory/phase-1 with the reset logging; read surl stderr for the refusal reset note)
 - 2026-11-21: Blocked -> Backlog. Run 44885355387 completed: success; read it with gh run view 44885355387
 - 2026-11-21: Backlog -> Doing.
+- 2026-11-21: Doing -> Backlog. Run 44885355387 passed without reproducing; max-connections tests now run curl with -v so a failure names curl's connect errno (unpushed from this lane). Next run: dispatch release.yml on the shift branch once that commit is pushed (1 of 2 dispatches used in the last 12h), block on run:id, read curl -v and surl stderr

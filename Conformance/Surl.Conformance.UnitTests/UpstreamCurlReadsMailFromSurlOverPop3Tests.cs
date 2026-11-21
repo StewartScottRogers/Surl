@@ -444,7 +444,7 @@ public sealed class UpstreamCurlReadsMailFromSurlOverPop3Tests
         await holder.GetStream().WriteAsync(Encoding.ASCII.GetBytes("CAPA\r\n"), TestContext.CancellationToken);
         StringAssert.StartsWith(await holderReader.ReadLineAsync(TestContext.CancellationToken), "+OK");
 
-        var result = await RunUpstreamCurlAsync("-sS", "-u", Credentials, Pop3Url(surl, "/1"));
+        var result = await RunUpstreamCurlAsync("-v", "-u", Credentials, Pop3Url(surl, "/1"));
 
         Assert.AreEqual(WeirdServerReply, result.ExitCode, result.StandardError + Environment.NewLine + surl.Diagnosis);
     }
