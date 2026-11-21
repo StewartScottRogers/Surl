@@ -49,3 +49,4 @@ instead of reading "byte for byte" and taking a cut exchange for the whole one.
 ## Log
 
 - 2026-11-21: Created.
+- 2026-11-21: Backlog -> Doing.
