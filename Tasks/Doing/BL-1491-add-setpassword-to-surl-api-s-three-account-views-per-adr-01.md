@@ -33,3 +33,4 @@ completed:
 - 2026-11-20: Created.
 - 2026-11-20: Backlog -> Doing.
 - 2026-11-20: Doing -> Backlog. Needs ComposedStores SetPassword wrappers in Application/Surl.Composition.UnitLibrary, which BL-1477 (Doing) touches; depends-on BL-1477
+- 2026-11-21: Backlog -> Doing.
