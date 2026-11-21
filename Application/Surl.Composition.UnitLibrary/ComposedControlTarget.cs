@@ -19,8 +19,18 @@ namespace Surl.Composition;
 /// <param name="events">The instance's event stream.</param>
 /// <param name="faults">The instance's fault plan.</param>
 /// <param name="stores">The instance's stores.</param>
-internal sealed class ComposedControlTarget(SurlEventStream events, FaultPlan faults, ComposedStores stores) : IControlTarget
+/// <param name="log">The instance log, where removing the last account or proxy account is warned (BL-1477).</param>
+internal sealed class ComposedControlTarget(SurlEventStream events, FaultPlan faults, ComposedStores stores, TextWriter log) : IControlTarget
 {
+    /// <summary>Creates a target whose warnings go nowhere.</summary>
+    /// <param name="events">The instance's event stream.</param>
+    /// <param name="faults">The instance's fault plan.</param>
+    /// <param name="stores">The instance's stores.</param>
+    public ComposedControlTarget(SurlEventStream events, FaultPlan faults, ComposedStores stores)
+        : this(events, faults, stores, TextWriter.Null)
+    {
+    }
+
     // Any listen URL the parser accepts: the item is read as the command line reads --fault, so there is one grammar.
     private const string AnyListenUrl = "http://127.0.0.1:0";
 
@@ -181,8 +191,16 @@ internal sealed class ComposedControlTarget(SurlEventStream events, FaultPlan fa
     }
 
     /// <inheritdoc/>
-    public Task<bool> RemoveAccountAsync(string user, CancellationToken cancellationToken) =>
-        Task.FromResult(stores.RemoveAccount(user));
+    public Task<bool> RemoveAccountAsync(string user, CancellationToken cancellationToken)
+    {
+        var isRemoved = stores.RemoveAccount(user);
+        if (isRemoved && !stores.HasAccounts)
+        {
+            log.WriteLine("surl: warning: no account left; the server now needs no login");
+        }
+
+        return Task.FromResult(isRemoved);
+    }
 
     /// <inheritdoc/>
     public Task AddProxyAccountAsync(string user, string password, CancellationToken cancellationToken) =>
@@ -195,7 +213,16 @@ internal sealed class ComposedControlTarget(SurlEventStream events, FaultPlan fa
 
     /// <inheritdoc/>
     public Task<bool> RemoveProxyAccountAsync(string user, CancellationToken cancellationToken) =>
-        RefusingAnAbsentStore(() => stores.RemoveProxyAccount(user));
+        RefusingAnAbsentStore(() =>
+        {
+            var isRemoved = stores.RemoveProxyAccount(user);
+            if (isRemoved && !stores.HasProxyAccounts)
+            {
+                log.WriteLine("surl: warning: no proxy account left; the proxy now needs no login");
+            }
+
+            return isRemoved;
+        });
 
     /// <inheritdoc/>
     public Task AddTlsSrpAccountAsync(string user, string password, CancellationToken cancellationToken) =>

@@ -8,7 +8,7 @@ depends-on: []
 touches: [Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests]
 requirement: none
 created: 2026-11-20
-completed:
+completed: 2026-11-20
 ---
 # BL-1477 — Warn when the control endpoint removes a server's last account or last proxy account
 
@@ -41,17 +41,17 @@ and so needing no login.
 
 ## Acceptance criteria
 
-- [ ] `ComposedControlTarget` takes the instance log and, after a removal that leaves no account, writes
+- [x] `ComposedControlTarget` takes the instance log and, after a removal that leaves no account, writes
       `surl: warning: no account left; the server now needs no login` once; removing a non-last account or an unknown
       name writes nothing. Named tests in `Application/Surl.Composition.UnitTests` (`ComposedControlTargetTests` or a new
       `ComposedControlTargetAccountRemovalTests`) pin both.
-- [ ] The same for the last proxy account with `surl: warning: no proxy account left; the proxy now needs no login`,
+- [x] The same for the last proxy account with `surl: warning: no proxy account left; the proxy now needs no login`,
       named tests included.
-- [ ] `ComposedStores.HasProxyAccounts` exists with an XML doc and a named test (true, false after the last removal, false
+- [x] `ComposedStores.HasProxyAccounts` exists with an XML doc and a named test (true, false after the last removal, false
       with no proxy store).
-- [ ] A named test in `SurlServerCompositionTests.Control.cs` drives `DELETE /v1/accounts/<last>` through the served
+- [x] A named test in `SurlServerCompositionTests.Control.cs` drives `DELETE /v1/accounts/<last>` through the served
       control endpoint and finds the warning line in the log and `204` in the answer.
-- [ ] `dotnet build Application/Surl.Composition.UnitLibrary -warnaserror` is clean, the fast tests are green and
+- [x] `dotnet build Application/Surl.Composition.UnitLibrary -warnaserror` is clean, the fast tests are green and
       `Surl.Composition.UnitLibrary` keeps 100% line and branch coverage.
 
 ## Notes
@@ -62,3 +62,5 @@ and so needing no login.
 
 - 2026-11-20: Created.
 - 2026-11-20: Backlog -> Doing.
+- Decision: ComposedControlTarget keeps its 3-argument constructor (log goes to TextWriter.Null) beside the new 4-argument one, so existing test call sites are unchanged. Coverage not separately measured; every new branch has a named test.
+- 2026-11-20: Doing -> Done. control endpoint DELETE of the last account or proxy account now logs the no-login warning; ComposedStores.HasProxyAccounts added

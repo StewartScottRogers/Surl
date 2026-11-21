@@ -67,6 +67,20 @@ public sealed partial class SurlServerCompositionTests
     }
 
     [TestMethod]
+    public async Task ServeAsync_ControlDeleteOfTheLastAccount_Answers204AndLogsTheNoAccountLeftWarning()
+    {
+        var factory = new FakeListenerFactory();
+        await using var serving = await ComposeWithControlAsync(factory, "-u", "alice:secret");
+        var log = new StringWriter();
+        await using var running = await ServeControlledAsync(serving, log);
+
+        var removed = await SendAsync(factory, ControlUrl, ControlRequest("DELETE", "/v1/accounts/alice"));
+
+        StringAssert.StartsWith(removed, "HTTP/1.1 204");
+        StringAssert.Contains(log.ToString(), "surl: warning: no account left; the server now needs no login");
+    }
+
+    [TestMethod]
     public async Task ServeAsync_ControlPostReset_EmptiesASeededFile()
     {
         var factory = new FakeListenerFactory();

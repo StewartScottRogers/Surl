@@ -199,7 +199,7 @@ public sealed class ComposedServing : IAsyncDisposable
         IListenerFactory listenerFactory, ControlToken controlToken, SurlServingOutputs outputs, CancellationToken cancellationToken)
     {
         using var stopControl = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        var endpoint = new ControlEndpoint(new ComposedControlTarget(Events, Faults, Stores), controlToken);
+        var endpoint = new ControlEndpoint(new ComposedControlTarget(Events, Faults, Stores, outputs.Log), controlToken);
         var feed = endpoint.FeedEventsAsync(stopControl.Token);
         var bound = new TaskCompletionSource<ListenUrl>(TaskCreationOptions.RunContinuationsAsynchronously);
         var controlReporter = new ListenerStartReporter(

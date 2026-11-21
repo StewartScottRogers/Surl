@@ -655,6 +655,9 @@ public sealed partial class ComposedStores
     /// <summary>Whether any account is left, so a login is required (no account: the server needs no login).</summary>
     public bool HasAccounts => accounts.HasAccounts;
 
+    /// <summary>Whether any proxy account is left, so a proxy login is required; false too when no proxy account store is composed.</summary>
+    public bool HasProxyAccounts => proxyAccounts?.HasAccounts ?? false;
+
     /// <summary>
     /// Returns every store to its configured state, one at a time in <see cref="StoreOrder"/>.
     /// Each publishes one <see cref="StoreChange.Reset"/>.
