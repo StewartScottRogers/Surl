@@ -14,15 +14,16 @@ completed:
 
 ## Goal
 
-<!-- One sentence: the observable outcome once this task is done. -->
+`MailboxStore.LoadAsync` takes an optional `deliveredToEnabled` argument (default false) and the loaded store reports it as `DeliveredToEnabled`.
 
 ## Context
 
-<!-- Why this matters, and where to start: requirement IDs, ADRs, projects, files, upstream curl links with the curl version. -->
+`DeliveredToEnabled` is init-only, so a store built by `LoadAsync` (the file-backed path) cannot have it set by the composition root (BL-1502); the constructor path can use an object initializer. Add the parameter after `faults` and set the property in `LoadAsync`. Split from BL-1502, which needs it.
 
 ## Acceptance criteria
 
-- [ ] <!-- A statement someone else can check from the repository without asking a question. -->
+- [ ] A `MailboxStore` test: `LoadAsync` with `deliveredToEnabled: true` gives a store whose `DeliveredToEnabled` is true; omitted, false.
+- [ ] `dotnet build` is clean and the MailStore fast tests pass at 100% line and branch coverage.
 
 ## Notes
 
