@@ -234,5 +234,42 @@ public sealed class UnixSocketConnectionListener : IConnectionListener
 
     [ExcludeFromCodeCoverage(Justification = "Accepts on a socket; covered by UnixSocketConnectionListenerTests.")]
     private Task<Socket> AcceptFromSocketAsync(int index, CancellationToken cancellationToken) =>
-        listeningSocket.AcceptAsync(cancellationToken).AsTask();
+        Task.Factory.StartNew(() => AcceptBlocking(cancellationToken), cancellationToken, TaskCreationOptions.LongRunning, TaskScheduler.Default);
+
+    // A blocking accept on its own thread, not Socket.AcceptAsync (BL-1565): on macOS .NET's async
+    // accept throws ArgumentException ("Destination is too short") from FinishOperationAccept on a
+    // SocketAsyncEngine thread when the peer's AF_UNIX address is one it cannot copy - a client bound
+    // to a named socket - and nothing can catch it there, so the process ended. The blocking accept
+    // throws on this thread instead; that client is dropped and the accept goes on. The wait is a
+    // short poll for a queued client, then an accept that returns at once, so the loop sees the
+    // stop token within PollMicroseconds (BL-1568): on macOS disposing the socket does not wake a
+    // thread blocked in Accept(). A client the runtime cannot accept is waited out for
+    // RetryPause, so one bad client cannot spin the loop.
+    [ExcludeFromCodeCoverage(Justification = "Accepts on a socket; covered by UnixSocketConnectionListenerTests.")]
+    private Socket AcceptBlocking(CancellationToken cancellationToken)
+    {
+        while (true)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            if (!listeningSocket.Poll(PollMicroseconds, SelectMode.SelectRead))
+            {
+                continue;
+            }
+
+            try
+            {
+                return listeningSocket.Accept();
+            }
+            catch (ArgumentException)
+            {
+                // The runtime could not copy this peer's address: drop it, accept the next.
+                cancellationToken.WaitHandle.WaitOne(RetryPause);
+            }
+        }
+    }
+
+    private const int PollMicroseconds = 100_000;
+
+    private static readonly TimeSpan RetryPause = TimeSpan.FromMilliseconds(50);
 }

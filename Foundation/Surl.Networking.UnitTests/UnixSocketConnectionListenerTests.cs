@@ -43,6 +43,60 @@ public sealed class UnixSocketConnectionListenerTests
     }
 
     [TestMethod]
+    public async Task AcceptAsync_ClientBoundToANamedSocket_IsAcceptedAndServed()
+    {
+        var path = NewSocketPath();
+        var clientPath = NewSocketPath();
+        await using var listener = await UnixSocketConnectionListener.StartAsync(
+            UnixListenUrl(path, false), null, TestContext.CancellationToken);
+        using var client = new Socket(AddressFamily.Unix, SocketType.Stream, ProtocolType.Unspecified);
+        client.Bind(new UnixDomainSocketEndPoint(clientPath));
+
+        try
+        {
+            await client.ConnectAsync(new UnixDomainSocketEndPoint(path), TestContext.CancellationToken);
+            await using var connection = await listener.AcceptAsync(TestContext.CancellationToken);
+            await client.SendAsync(Encoding.ASCII.GetBytes("ping"), TestContext.CancellationToken);
+            var received = new byte[4];
+            await ReadExactlyAsync(connection, received);
+
+            Assert.AreEqual("ping", Encoding.ASCII.GetString(received));
+        }
+        finally
+        {
+            File.Delete(clientPath);
+        }
+    }
+
+    [TestMethod]
+    public async Task DisposeAsync_WhileAnAcceptIsWaiting_EndsTheAcceptWithinFiveSeconds()
+    {
+        var path = NewSocketPath();
+        var listener = await UnixSocketConnectionListener.StartAsync(
+            UnixListenUrl(path, false), null, TestContext.CancellationToken);
+        var waiting = listener.AcceptAsync(TestContext.CancellationToken).AsTask();
+        await Task.Delay(200, TestContext.CancellationToken);
+
+        var stopping = listener.DisposeAsync().AsTask();
+        var finished = await Task.WhenAny(Task.WhenAll(stopping, SettleAsync(waiting)), Task.Delay(TimeSpan.FromSeconds(5), TestContext.CancellationToken));
+
+        Assert.IsTrue(stopping.IsCompleted && waiting.IsCompleted, "Disposing did not end the waiting accept within 5 s.");
+        Assert.IsNotNull(finished);
+    }
+
+    private static async Task SettleAsync(Task task)
+    {
+        try
+        {
+            await task;
+        }
+        catch (Exception exception) when (exception is ObjectDisposedException or OperationCanceledException or IOException)
+        {
+            // Ending the accept by stopping is the outcome under test.
+        }
+    }
+
+    [TestMethod]
     public async Task DisposeAsync_SocketFile_DeletesTheFileAndStopsListening()
     {
         var path = NewSocketPath();

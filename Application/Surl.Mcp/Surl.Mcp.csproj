@@ -17,7 +17,7 @@
   </PropertyGroup>
 
   <!--
-    Packed as one framework-dependent .NET tool package of PackageType McpServer, ID Surl.Mcp, that
+    Packed as one framework-dependent .NET tool package of PackageType McpServer, ID Surly.Surl.Mcp, that
     `dnx Surl.Mcp` runs on every platform dotnet runs on, with .mcp/server.json for the MCP registry
     (ADR-0103 decision 7, BL-643). The native binary ships in the release's surl-mcp-<rid> archives instead.
     The version below is the one in .mcp/server.json, and Surl.Mcp.UnitTests holds the two equal; release.yml
@@ -28,7 +28,7 @@
     <PackAsTool>true</PackAsTool>
     <PackageType>McpServer</PackageType>
     <ToolCommandName>surl-mcp</ToolCommandName>
-    <PackageId>Surl.Mcp</PackageId>
+    <PackageId>Surly.Surl.Mcp</PackageId>
     <Authors>Stewart Scott Rogers</Authors>
     <Description>An MCP server whose tools let AI agents start, list and stop Surl protocol servers and see what their clients sent: Surl, the server-side mate of curl, served over standard input and output.</Description>
     <PackageTags>AI; MCP; server; stdio; surl; curl; testing</PackageTags>
