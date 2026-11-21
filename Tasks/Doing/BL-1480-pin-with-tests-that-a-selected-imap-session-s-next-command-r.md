@@ -64,3 +64,4 @@ next `NOOP`, `CHECK` or other updating command, and any defect they find is fixe
 ## Log
 
 - 2026-11-20: Created.
+- 2026-11-20: Backlog -> Doing.
