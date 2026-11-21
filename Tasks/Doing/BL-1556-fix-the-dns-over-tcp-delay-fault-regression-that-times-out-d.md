@@ -52,3 +52,4 @@ Windows, Linux and macOS, so the shift's pull request #123 (or the one that supe
 ## Log
 
 - 2026-11-21: Created.
+- 2026-11-21: Backlog -> Doing.
