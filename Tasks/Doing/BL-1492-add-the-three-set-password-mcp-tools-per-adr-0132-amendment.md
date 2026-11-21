@@ -31,3 +31,4 @@ completed:
 - 2026-11-20: Created.
 - 2026-11-20: Backlog -> Doing.
 - 2026-11-20: Doing -> Backlog. Needs Surl.Api SetPassword on the account, proxy and TLS-SRP views: waits for BL-1491 and BL-1505
+- 2026-11-21: Backlog -> Doing.
