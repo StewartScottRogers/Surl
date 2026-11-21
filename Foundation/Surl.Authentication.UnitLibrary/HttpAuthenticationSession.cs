@@ -258,7 +258,7 @@ internal sealed class HttpAuthenticationSession : IHttpAuthenticationSession
                 return ValueTask.FromResult(new HttpAuthenticationVerdict(HttpAuthenticationOutcome.Challenge, check.WwwAuthenticateValues, null));
             case HttpCredentialOutcome.AwaitingBody when check.CheckBody is not null:
                 return ValueTask.FromResult(new HttpAuthenticationVerdict(
-                    HttpAuthenticationOutcome.Proceed, [], check.AccountName, BodyCheck: new RequestBodyCheck(this, method, isServiceSignature, check.CheckBody)));
+                    HttpAuthenticationOutcome.Proceed, [], check.AccountName, BodyCheck: new RequestBodyCheck(this, method, isServiceSignature, check)));
             default:
                 return RefuseAsync(check, method, isServiceSignature, cancellationToken, checkStartedAt);
         }
@@ -300,8 +300,27 @@ internal sealed class HttpAuthenticationSession : IHttpAuthenticationSession
         HttpAuthenticationSession session,
         AuthenticationMethod method,
         bool isServiceSignature,
-        Func<ReadOnlyMemory<byte>, HttpCredentialCheck> checkBody) : IHttpRequestBodyCheck
+        HttpCredentialCheck awaiting) : IHttpRequestBodyCheck
     {
+        private readonly Func<ReadOnlyMemory<byte>, HttpCredentialCheck> checkBody = awaiting.CheckBody!;
+
+        // ADR-0045 amendment 1: the server answered without reading the body. A signature the head
+        // already verified (it names its account) was proved, so it is published as judged, accepted
+        // unless a refuse-login fault refuses it; one that needs the body's hash judged nothing.
+        public async ValueTask AbandonAsync(CancellationToken cancellationToken)
+        {
+            if (awaiting.AccountName is null)
+            {
+                return;
+            }
+
+            var proved = awaiting with { Outcome = HttpCredentialOutcome.Accepted };
+            var isRefusedByFault = await session.IsRefusedByFaultAsync(proved, cancellationToken).ConfigureAwait(false);
+            session.Published(
+                new HttpAuthenticationVerdict(HttpAuthenticationOutcome.Proceed, [], null, LoginChecked(method, proved, !isRefusedByFault)),
+                isRefusedByFault);
+        }
+
         public async ValueTask<HttpAuthenticationVerdict> JudgeBodyAsync(
             ReadOnlyMemory<byte> bodySha256, CancellationToken cancellationToken)
         {
