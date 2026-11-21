@@ -80,3 +80,4 @@ tolerated.
 - 2026-11-20: Doing -> Backlog. Surl now logs when a refusal write fails and the connection is reset (ServingEngine.RefuseAsync); cause still unnamed. Needs that commit pushed, then a Release dry run (dispatch cap lifts 2026-11-21 04:45 UTC) to see whether surl reset the connection
 - 2026-11-20: Backlog -> Doing.
 - 2026-11-20: Doing -> Backlog. Reset-logging commit e293e3b72 is unpushed from this lane and the dispatch cap (2 per 12h) lifts 2026-11-21 04:45 UTC; next run dispatches release.yml on the shift branch, blocks on run:id, and reads surl's stderr for the reset note
+- 2026-11-20: Backlog -> Doing.
