@@ -8,7 +8,7 @@ depends-on: []
 touches: [Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests, Foundation/Surl.Networking.UnitLibrary]
 requirement: none
 created: 2026-11-21
-completed:
+completed: 2026-11-21
 ---
 # BL-1555 — Word the Unix socket bind refusals as ADR-0094 decisions 3 and 5 give them
 
@@ -53,15 +53,15 @@ says so, and an abstract name off Linux says abstract names exist only on Linux.
 
 ## Acceptance criteria
 
-- [ ] Tests in `Application/Surl.Composition.UnitTests` pin each of the three messages above for a
+- [x] Tests in `Application/Surl.Composition.UnitTests` pin each of the three messages above for a
   `ListenerBindException` on a listen URL with `UnixSocket` set, the too-long one with a 120-byte path and the
   platform's limit.
-- [ ] A test pins that a Unix listen URL failing with `PermissionDenied` keeps today's message.
-- [ ] `UnixSocketBindRules` is `public` and nothing else in `Surl.Networking` changes.
-- [ ] `dotnet build Application/Surl.Composition.UnitLibrary -warnaserror` is clean, and
+- [x] A test pins that a Unix listen URL failing with `PermissionDenied` keeps today's message.
+- [x] `UnixSocketBindRules` is `public` and nothing else in `Surl.Networking` changes.
+- [x] `dotnet build Application/Surl.Composition.UnitLibrary -warnaserror` is clean, and
   `dotnet test Application/Surl.Composition.UnitTests` and `dotnet test Application/Surl.Console.UnitTests`
   pass with `--filter "TestCategory!=Integration"`, `FormatBindFailure` at 100% line and branch coverage.
-- [ ] Each refusal still returns `SurlExitCode.BindFailed` (45).
+- [x] Each refusal still returns `SurlExitCode.BindFailed` (45).
 
 ## Notes
 
@@ -69,3 +69,4 @@ says so, and an abstract name off Linux says abstract names exist only on Linux.
 
 - 2026-11-21: Created.
 - 2026-11-21: Backlog -> Doing.
+- 2026-11-21: Doing -> Done. surl --unix-socket bind refusals now use ADR-0094 wording, still exit 45
