@@ -1,7 +1,7 @@
 ---
 id: BL-1565
 title: Find whether surl or the client fails an HTTP fetch over --unix-socket on macOS, with pinned upstream curl, and fix surl's side
-priority: Normal
+priority: High
 assignee: Claude
 pipeline: feature
 depends-on: []
@@ -62,3 +62,4 @@ Windows and Linux. A conformance test proves it on osx-arm64 and osx-x64. If sur
 - 2026-11-21: Doing -> Backlog. Release dry run still cannot be dispatched: factory/lane-1 is not pushed (the shift pushes on integration); re-run after the shift integrates 4670a104c
 - 2026-11-21: Backlog -> Doing.
 - 2026-11-21: Doing -> Blocked. Waiting for run:44920264373 (release.yml on factory/phase-1 at 6c17adbd4, which holds the conformance test)
+- 2026-11-21: Evidence from the Surly cookbook's diagnostic run on macos-latest (Darwin 25.6.0, arm64, surl 9ad60d80c; workflow .github/workflows/diagnose.yml on Surly's branch diagnose/unix-socket; full log kept by that session at C:\Users\Stewart Rogers\AppData\Local\Temp\claude\09a64054125ee6b6\2591847c-0bfc-4a71-8bed-3480a071541c\scratchpad\diagnose-unix.log): surl itself crashes on the first accept over the Unix socket. After `Listening on http://localhost:8080/ over unix://surl.sock` it writes `Unhandled exception. System.ArgumentException: Destination is too short. (Parameter 'destination') at System.Net.Sockets.SocketAsyncEventArgs.FinishOperationAccept(SocketAddress remoteSocketAddress) at ...FinishOperationSyncSuccess / AcceptCompletionCallback / SocketAsyncEngine` and the process ends. The first client gets an empty reply (52), and every later connect is refused (7), with relative and absolute paths alike. So the fault is surl's (the .NET accept copying an unnamed AF_UNIX peer address on macOS), thrown on a SocketAsyncEngine thread from `listeningSocket.AcceptAsync` (UnixSocketConnectionListener.cs:237). Priority raised to High: the server dies. Look for an accept that does not ask the runtime for the peer address (e.g. a pre-created accept socket, or AcceptAsync(SocketAsyncEventArgs) with the address handled, or a synchronous Accept on a dedicated thread), check the .NET runtime issue tracker for this exception, and pin it with the conformance test this task added. The exception is unhandled because it is raised on the runtime's completion thread, so a try/catch around the await alone will not stop the crash.
