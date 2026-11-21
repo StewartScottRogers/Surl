@@ -42,3 +42,4 @@ and any SMTP max-connections test that seeds over another connection first, can 
 ## Log
 
 - 2026-11-21: Created.
+- 2026-11-21: Backlog -> Doing.
