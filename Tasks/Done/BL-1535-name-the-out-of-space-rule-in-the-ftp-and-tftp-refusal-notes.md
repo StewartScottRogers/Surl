@@ -8,7 +8,7 @@ depends-on: [BL-1534]
 touches: [Protocols/FileTransfer/Surl.Protocol.Ftp.UnitLibrary, Protocols/FileTransfer/Surl.Protocol.Ftp.UnitTests, Protocols/FileTransfer/Surl.Protocol.Tftp.UnitLibrary, Protocols/FileTransfer/Surl.Protocol.Tftp.UnitTests]
 requirement: none
 created: 2026-11-21
-completed:
+completed: 2026-11-21
 ---
 # BL-1535 — Name the out-of-space rule in the FTP and TFTP refusal notes (ADR-0129 amendment 1)
 
@@ -22,10 +22,10 @@ ADR-0129 amendment 1 (BL-1524) decides this; read it first. The wire bytes do no
 
 ## Acceptance criteria
 
-- [ ] FTP note, when RefusedByFaultRuleId is set, is exactly: The upload was refused by the fault rule <id> (out-of-space); the partial upload was deleted and the data connection was reset.
-- [ ] TFTP note, when set, is exactly: The write was refused by the fault rule <id> (out-of-space); the transfer was ended with an error.
-- [ ] With it null both notes are unchanged, and the 552 reply and TFTP ERROR 3 bytes are byte for byte unchanged (tests pin both).
-- [ ] Both libraries keep 100% line and branch coverage.
+- [x] FTP note, when RefusedByFaultRuleId is set, is exactly: The upload was refused by the fault rule <id> (out-of-space); the partial upload was deleted and the data connection was reset.
+- [x] TFTP note, when set, is exactly: The write was refused by the fault rule <id> (out-of-space); the transfer was ended with an error.
+- [x] With it null both notes are unchanged, and the 552 reply and TFTP ERROR 3 bytes are byte for byte unchanged (tests pin both).
+- [x] Both libraries keep 100% line and branch coverage.
 
 ## Notes
 
@@ -35,3 +35,4 @@ ADR-0129 amendment 1 (BL-1524) decides this; read it first. The wire bytes do no
 
 - 2026-11-21: Created.
 - 2026-11-21: Backlog -> Doing.
+- 2026-11-21: Doing -> Done. FTP and TFTP out-of-space refusal notes name the rule; tests pin notes and unchanged wire bytes
