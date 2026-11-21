@@ -46,3 +46,4 @@ Stand-in: no store; a test observes the early end on the event stream (`Exchange
 ## Log
 
 - 2026-11-20: Created.
+- 2026-11-21: Backlog -> Doing.
