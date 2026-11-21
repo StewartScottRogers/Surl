@@ -4,7 +4,7 @@ title: Write Delivered-To in Surl.Api Mail.DeliverAsync
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-1487, BL-1498, BL-1500]
+depends-on: [BL-1487, BL-1498, BL-1500, BL-1515]
 touches: [Surl.Api, Surl.Api.UnitTests]
 requirement: none
 created: 2026-11-20
@@ -30,7 +30,10 @@ ADR-0053 Amendment 1 decision 6. Files: `Application/Surl.Api/SurlServerMail.cs`
 
 ## Notes
 
+- 2026-11-20: Not started in code. The `DeliveredFor` criterion cannot be met inside `touches`: `MailboxStore.Seed` (MailStore) publishes `DeliveredFor` null and `ComposedStores.SeedMailAsync` (Composition) is the only way the Api seeds. Both projects are held by BL-1507 and BL-1502 in Doing. Filed BL-1515 for that seam and added it to `depends-on`. When it lands: add the `SurlServerOptions` boolean (`--mail-delivered-to` in `SurlServerArguments`, beside `--mail-catch-all`), have `SurlServerMail.DeliverAsync` prepend `Delivered-To: <address>` CRLF when on, and read the on/off from the options or from what BL-1515 exposes.
+
 ## Log
 
 - 2026-11-20: Created.
 - 2026-11-20: Backlog -> Doing.
+- 2026-11-20: Doing -> Backlog. Waiting for BL-1515: seeding mail must publish DeliveredFor, which needs MailStore and Composition (held by BL-1507 and BL-1502)
