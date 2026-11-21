@@ -41,3 +41,4 @@ A refused LDAP seed through `Surl.Api`'s `Directory` or `surl-mcp`'s `add_ldap_e
 ## Log
 
 - 2026-11-20: Created.
+- 2026-11-20: Backlog -> Doing.
