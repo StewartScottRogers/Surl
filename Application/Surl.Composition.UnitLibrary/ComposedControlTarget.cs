@@ -305,7 +305,7 @@ internal sealed class ComposedControlTarget(SurlEventStream events, FaultPlan fa
     {
         var boxes = Found(stores.ListMailboxes(owner));
 
-        return Task.FromResult<IReadOnlyList<ControlMailbox>>([.. boxes.Select(box => new ControlMailbox(box.Name, box.MessageCount, box.UnseenCount, box.UidValidity))]);
+        return Task.FromResult<IReadOnlyList<ControlMailbox>>([.. boxes.Select(box => new ControlMailbox(box.Name, box.MessageCount, box.UnseenCount, box.UidValidity, box.Use))]);
     }
 
     /// <inheritdoc/>

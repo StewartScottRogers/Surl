@@ -121,7 +121,7 @@ internal sealed record ControlSnapshotIdJson(string SnapshotId);
 internal sealed record ControlZonesJson(IReadOnlyList<string> Zones);
 
 /// <summary>One mailbox in the answer to <c>GET /v1/mail/{owner}</c>.</summary>
-internal sealed record ControlMailboxJson(string Name, int MessageCount, int UnseenCount, uint UidValidity);
+internal sealed record ControlMailboxJson(string Name, int MessageCount, int UnseenCount, uint UidValidity, string? Use = null);
 
 /// <summary>The answer to <c>GET /v1/mail/{owner}</c>.</summary>
 internal sealed record ControlMailboxesJson(IReadOnlyList<ControlMailboxJson> Mailboxes);

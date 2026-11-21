@@ -23,6 +23,17 @@ public sealed class ControlReadRequestsTests
     }
 
     [TestMethod]
+    public async Task ListMailboxesAsync_AMailboxWithAUse_ListsTheUseAfterTheUidValidity()
+    {
+        var target = new FakeControlTarget();
+        target.Mailboxes.Add(new ControlMailbox("Sent Items", 0, 0, 8, "sent"));
+
+        var response = await Serve(target, Request("GET", "/v1/mail/bob"));
+
+        Assert.AreEqual("{\"mailboxes\":[{\"name\":\"Sent Items\",\"message_count\":0,\"unseen_count\":0,\"uid_validity\":8,\"use\":\"sent\"}]}", Body(response));
+    }
+
+    [TestMethod]
     public async Task ListMessagesAsync_NoQuery_AsksForTheDefaultsAndListsEach()
     {
         var target = new FakeControlTarget { MessagePage = new([new(4, 120, ["\\Seen", "\\Flagged"], When)], true) };
