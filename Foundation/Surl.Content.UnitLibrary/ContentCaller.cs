@@ -28,6 +28,22 @@ public sealed class ContentCaller
     /// </summary>
     public long? ExchangeId { get; }
 
+    /// <summary>
+    /// The ID of the out-of-space fault rule that refused this caller's upload or session commit;
+    /// <see langword="null"/> until a refusal, and always for a caller not built for an exchange
+    /// (ADR-0129 amendment 1). The store sets it before it answers <see cref="ContentUploadResult.TooLarge"/>.
+    /// </summary>
+    public string? RefusedByFaultRuleId { get; private set; }
+
+    /// <summary>Records the refusing rule; does nothing for a caller not built for an exchange.</summary>
+    internal void RecordRefusal(string faultRuleId)
+    {
+        if (ExchangeId is not null)
+        {
+            RefusedByFaultRuleId = faultRuleId;
+        }
+    }
+
     /// <summary>The same caller, on the exchange <paramref name="exchangeId"/>.</summary>
     /// <param name="exchangeId">The exchange's ID.</param>
     /// <returns>A new caller; this one is unchanged.</returns>

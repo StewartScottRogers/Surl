@@ -41,6 +41,7 @@ internal sealed class ContentStoreEventsAndFaults
             return false;
         }
 
+        caller.RecordRefusal(rule.Id);
         events.Publish(new FaultAppliedEvent(rule.Id, FaultKind.OutOfSpace, FaultStage.StoreWrite, caller.ExchangeId, name));
         return true;
     }
