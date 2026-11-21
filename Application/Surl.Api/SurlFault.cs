@@ -112,9 +112,9 @@ public sealed record SurlFault
 
     /// <summary>
     /// The <c>--fault</c> item this rule spells: the kind's word, then each key given, in the order the ADR lists them,
-    /// each value percent-encoded so the reader decodes it back unchanged.
+    /// each value percent-encoded where it holds <c>;</c>, <c>,</c>, <c>=</c>, <c>%</c> or a control character, so the reader decodes it back unchanged and the item stays readable.
     /// </summary>
-    /// <returns>The item, e.g. <c>delay;listener=http%3A%2F%2F127.0.0.1%3A0;ms=250</c>.</returns>
+    /// <returns>The item, e.g. <c>delay;listener=http://127.0.0.1:0;ms=250</c>.</returns>
     internal string ToItem()
     {
         var item = new StringBuilder(KindWord(Kind));
@@ -149,7 +149,29 @@ public sealed record SurlFault
     {
         if (value is not null)
         {
-            item.Append(';').Append(key).Append('=').Append(Uri.EscapeDataString(value));
+            item.Append(';').Append(key).Append('=');
+            AppendEncoded(item, value);
+        }
+    }
+
+    // Written as FaultItemText.Encode in Surl.Composition does (ADR-0101 decision 3): the item grammar splits at ';',
+    // ',' and '=' and decodes '%', and a control character may not stand in a field, so each is written as its
+    // UTF-8 bytes in %XX form and every other character stays as it is.
+    private static void AppendEncoded(StringBuilder item, string value)
+    {
+        foreach (var character in value)
+        {
+            if (character is ';' or ',' or '=' or '%' || char.IsControl(character))
+            {
+                foreach (var b in Encoding.UTF8.GetBytes([character]))
+                {
+                    item.Append('%').Append(b.ToString("X2", CultureInfo.InvariantCulture));
+                }
+            }
+            else
+            {
+                item.Append(character);
+            }
         }
     }
 }

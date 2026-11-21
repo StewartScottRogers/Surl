@@ -8,7 +8,7 @@ depends-on: []
 touches: [Application/Surl.Api, Application/Surl.Api.UnitTests]
 requirement: none
 created: 2026-11-21
-completed:
+completed: 2026-11-21
 ---
 # BL-1539 — Percent-encode only the item grammar's delimiters in SurlFaultRule.Item and list_faults
 
@@ -32,15 +32,18 @@ Stand-in: no store and no event change. A test reading `Faults.List()` or `list_
 
 ## Acceptance criteria
 
-- [ ] `SurlFault.ToItem` encodes only `;`, `,`, `=`, `%` and control characters, as `FaultItemText.Encode` does; a new test `SurlFaultTests.ToItem_EncodesOnlyTheItemGrammarsDelimiters` pins `error;scheme=http;path=/a b%3Dc%3B%25;reply=503 Busy%3B later` for path `/a b=c;%` and reply `503 Busy; later`, and a value with a control character encodes it as `%XX`.
-- [ ] `SurlServerTests` has a test that adds `error;scheme=http;path=/report.txt;reply=503;times=2` and reads `List()` back as `Item` `error;scheme=http;path=/report.txt;reply=503` with `Remaining` 2.
-- [ ] Every rule the existing fault tests add still reads back as the same `FaultRule` through `CommandLineParser` (the round-trip tests in `SurlServerArgumentsTests.Faults.cs` pass with their new expected text).
-- [ ] The doc comments on `SurlFault.ToItem` and `SurlFaultRule` show the new spelling and still say `times` is left out and `Remaining` carries it.
-- [ ] Coverage of `SurlFault.cs` stays 100% line and branch; `dotnet build Application/Surl.Api -warnaserror` is clean and `dotnet test --filter "TestCategory!=Integration"` is green, `Surl.Mcp.UnitTests` included.
+- [x] `SurlFault.ToItem` encodes only `;`, `,`, `=`, `%` and control characters, as `FaultItemText.Encode` does; a new test `SurlFaultTests.ToItem_EncodesOnlyTheItemGrammarsDelimiters` pins `error;scheme=http;path=/a b%3Dc%3B%25;reply=503 Busy%3B later` for path `/a b=c;%` and reply `503 Busy; later`, and a value with a control character encodes it as `%XX`.
+- [x] `SurlServerTests` has a test that adds `error;scheme=http;path=/report.txt;reply=503;times=2` and reads `List()` back as `Item` `error;scheme=http;path=/report.txt;reply=503` with `Remaining` 2.
+- [x] Every rule the existing fault tests add still reads back as the same `FaultRule` through `CommandLineParser` (the round-trip tests in `SurlServerArgumentsTests.Faults.cs` pass with their new expected text).
+- [x] The doc comments on `SurlFault.ToItem` and `SurlFaultRule` show the new spelling and still say `times` is left out and `Remaining` carries it.
+- [x] Coverage of `SurlFault.cs` stays 100% line and branch; `dotnet build Application/Surl.Api -warnaserror` is clean and `dotnet test --filter "TestCategory!=Integration"` is green, `Surl.Mcp.UnitTests` included.
 
 ## Notes
+
+Encoder written privately in Surl.Api (AppendEncoded), same rule as FaultItemText.Encode. The Remaining test adds the rule through SurlServerFaults.Add(SurlFault) since no string overload exists.
 
 ## Log
 
 - 2026-11-21: Created.
 - 2026-11-21: Backlog -> Doing.
+- 2026-11-21: Doing -> Done. Item now encodes only ;,=% and control characters; tests green

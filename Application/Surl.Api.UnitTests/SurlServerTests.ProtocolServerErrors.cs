@@ -19,7 +19,7 @@ public sealed partial class SurlServerTests
         await using var server = await SurlServer.StartAsync(options, seams.Host, TestContext.CancellationToken);
         var rules = server.Faults.List();
 
-        Assert.AreEqual("error;listener=echo%3A%2F%2F127.0.0.1%3A0;reply=451%20busy%3B%20later", rules.Single().Item);
+        Assert.AreEqual("error;listener=echo://127.0.0.1:0;reply=451 busy%3B later", rules.Single().Item);
     }
 
     [TestMethod]
@@ -80,7 +80,7 @@ public sealed partial class SurlServerTests
         var exception = Assert.ThrowsExactly<ArgumentException>(
             () => server.Faults.Add(SurlFault.ProtocolError("200 fine") with { Scheme = "echo" }));
 
-        StringAssert.Contains(exception.Message, "reply=200%20fine");
+        StringAssert.Contains(exception.Message, "reply=200 fine");
         Assert.AreEqual("fault", exception.ParamName);
         Assert.IsEmpty(server.Faults.List());
     }
@@ -98,7 +98,7 @@ public sealed partial class SurlServerTests
             () => server.Faults.Add(SurlFault.ProtocolError("451 busy") with { Scheme = "echo" }));
 
         StringAssert.Contains(exception.Message, "predicate broke");
-        StringAssert.Contains(exception.Message, "reply=451%20busy");
+        StringAssert.Contains(exception.Message, "reply=451 busy");
         Assert.IsInstanceOfType<InvalidOperationException>(exception.InnerException);
     }
 

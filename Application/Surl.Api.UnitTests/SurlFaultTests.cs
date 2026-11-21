@@ -26,6 +26,16 @@ public sealed class SurlFaultTests
     }
 
     [TestMethod]
+    public void ToItem_EncodesOnlyTheItemGrammarsDelimiters()
+    {
+        var fault = SurlFault.ProtocolError("503 Busy; later") with { Scheme = "http", Path = "/a b=c;%" };
+
+        var control = SurlFault.ProtocolError("a\u0001b\u0085c");
+
+        Assert.AreEqual("error;scheme=http;path=/a b%3Dc%3B%25;reply=503 Busy%3B later", fault.ToItem());
+        Assert.AreEqual("error;reply=a%01b%C2%85c", control.ToItem());
+    }
+    [TestMethod]
     public void ToItem_AFractionOfAMillisecond_IsLeftForTheReaderToRefuse()
     {
         var fault = SurlFault.Delay(TimeSpan.FromTicks(15_000));

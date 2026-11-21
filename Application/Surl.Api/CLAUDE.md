@@ -52,7 +52,7 @@ measures it by name.
   `CancellationTokenSource` on the instance's `TimeProvider`, and it throws `TimeoutException`
   with `ExchangeRecordSubscriber.TimedOutMessage`. Tests drive waits with `ManualTimeProvider`.
 - Fault rules (BL-808, ADR-0124 decision 4): `SurlServerOptions.Faults` holds `SurlFault`
-  records, each composed by `SurlFault.ToItem` as one `--fault` item (values percent-encoded) after
+  records, each composed by `SurlFault.ToItem` as one `--fault` item (only `;`, `,`, `=`, `%` and control characters percent-encoded, as the control endpoint writes them) after
   the limits. `SurlServer.Faults` is a `SurlServerFaults` over `ComposedServing.Faults`: `Add`
   parses the item beside a fixed listen URL with `CommandLineParser`, so a refusal is the
   `ArgumentException` carrying `surl`'s text, then adds `FaultPlanComposition.ToRule`'s rule and

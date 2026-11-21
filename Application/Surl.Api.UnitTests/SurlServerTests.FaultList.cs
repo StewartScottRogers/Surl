@@ -32,8 +32,8 @@ public sealed partial class SurlServerTests
         CollectionAssert.AreEqual(
             new[]
             {
-                new SurlFaultRule("f1", "drop;listener=http%3A%2F%2F127.0.0.1%3A0;after-bytes=12", null),
-                new SurlFaultRule("f2", "error;scheme=http;path=%2Fa%20b%2Fc%25d;reply=503%20Busy%3B%20try%20later", 3),
+                new SurlFaultRule("f1", "drop;listener=http://127.0.0.1:0;after-bytes=12", null),
+                new SurlFaultRule("f2", "error;scheme=http;path=/a b/c%25d;reply=503 Busy%3B try later", 3),
                 new SurlFaultRule("f3", "delay;command=GET;stage=command;ms=250", null),
                 new SurlFaultRule("f4", "refuse-login;account=al%3Dice", 1),
                 new SurlFaultRule("f5", "out-of-space", null),
@@ -61,6 +61,17 @@ public sealed partial class SurlServerTests
         }
     }
 
+    [TestMethod]
+    public async Task List_AnErrorRuleWithAPathAndTimes_ListsThePathReadableAndTimesInRemaining()
+    {
+        await using var server = await SurlServer.StartAsync(FaultOptions(), new ApiTestSeams().Host, TestContext.CancellationToken);
+
+        server.Faults.Add(SurlFault.ProtocolError("503") with { Scheme = "http", Path = "/report.txt", Times = 2 });
+
+        CollectionAssert.AreEqual(
+            new[] { new SurlFaultRule("f1", "error;scheme=http;path=/report.txt;reply=503", 2) },
+            server.Faults.List().ToArray());
+    }
     [TestMethod]
     public async Task List_ATimesRuleApplied_RemainingDropsByOneEachTimeAndARuleWithoutTimesStaysNull()
     {
