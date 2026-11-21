@@ -30,3 +30,4 @@ ADR-0141 Amendment 3 (Pop3Session.Faults.cs), using the BL-1540 helper result.
 ## Log
 
 - 2026-11-21: Created.
+- 2026-11-21: Backlog -> Doing.
