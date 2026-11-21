@@ -8,7 +8,7 @@ depends-on: [BL-1483, BL-1488]
 touches: [Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests]
 requirement: none
 created: 2026-11-20
-completed:
+completed: 2026-11-20
 ---
 # BL-1489 — Update --aihelp and --manual text for the protocols= no-login refusal
 
@@ -22,13 +22,16 @@ ADR-0102 section 4.3 amendment of 2026-11-20 (BL-1483). `AiHelpProse.cs:228` cur
 
 ## Acceptance criteria
 
-- [ ] `AiHelpProse` paragraph for `--mailbox`/`protocols=` names `scheme <scheme> has no login` and the schemes `gopher`, `tftp`, `dict`, `telnet` as examples.
-- [ ] The `--manual` text agrees.
-- [ ] Completeness and example tests in `Surl.Cli.UnitTests` pass; build clean.
+- [x] `AiHelpProse` paragraph for `--mailbox`/`protocols=` names `scheme <scheme> has no login` and the schemes `gopher`, `tftp`, `dict`, `telnet` as examples.
+- [x] The `--manual` text agrees.
+- [x] Completeness and example tests in `Surl.Cli.UnitTests` pass; build clean.
 
 ## Notes
+
+Also updated the pinned full-text in ManualTextTests (Text_IsTheWholeManual).
 
 ## Log
 
 - 2026-11-20: Created.
 - 2026-11-20: Backlog -> Doing.
+- 2026-11-20: Doing -> Done. aihelp and manual text name the no-login refusal
