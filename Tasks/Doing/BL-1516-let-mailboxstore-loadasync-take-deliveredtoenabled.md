@@ -30,3 +30,4 @@ completed:
 ## Log
 
 - 2026-11-20: Created.
+- 2026-11-20: Backlog -> Doing.
