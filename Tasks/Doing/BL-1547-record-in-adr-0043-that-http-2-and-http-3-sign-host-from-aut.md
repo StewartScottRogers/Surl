@@ -66,3 +66,4 @@ pseudo-header, and the HTTP server hands it to the login check that way.
 ## Log
 
 - 2026-11-21: Created.
+- 2026-11-21: Backlog -> Doing.
