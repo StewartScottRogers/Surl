@@ -37,7 +37,7 @@ Windows and Linux. A conformance test proves it on osx-arm64 and osx-x64. If sur
 
 ## Acceptance criteria
 
-- [ ] A conformance test (e.g. `UpstreamCurlFetchesFromSurlOverHttpOnAUnixSocketTests`) runs pinned upstream curl
+- [x] A conformance test (e.g. `UpstreamCurlFetchesFromSurlOverHttpOnAUnixSocketTests`) runs pinned upstream curl
       `--unix-socket <relative path> http://localhost/hello.txt` against the published surl, with a relative socket
       path as in the report, plus an absolute-path case, and asserts exit 0 and the file's bytes. It runs on every
       platform that has Unix sockets.
@@ -51,7 +51,10 @@ Windows and Linux. A conformance test proves it on osx-arm64 and osx-x64. If sur
 
 ## Notes
 
+- 2026-11-21: Added `UpstreamCurlFetchesFromSurlOverHttpOnAUnixSocketTests` (relative and absolute socket path); both pass on Windows with the pinned curl. The Release dry run cannot be dispatched yet: `dispatch-workflow.ps1` refuses an unpushed ref and a lane does not push, so it needs this commit integrated first. Next run: dispatch `release.yml` on the shift branch, read the osx-arm64 and osx-x64 conformance results, then follow the remaining criteria.
+
 ## Log
 
 - 2026-11-21: Created.
 - 2026-11-21: Backlog -> Doing.
+- 2026-11-21: Doing -> Backlog. Conformance test written and green on Windows; the Release dry run needs this commit pushed first (dispatch refuses an unpushed ref), so re-run after the shift integrates it
