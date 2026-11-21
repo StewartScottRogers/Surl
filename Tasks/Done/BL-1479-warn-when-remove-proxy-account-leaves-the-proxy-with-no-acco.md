@@ -8,7 +8,7 @@ depends-on: [BL-1478]
 touches: [Application/Surl.Mcp.UnitLibrary, Application/Surl.Mcp.UnitTests]
 requirement: none
 created: 2026-11-20
-completed:
+completed: 2026-11-20
 ---
 # BL-1479 — Warn when remove_proxy_account leaves the proxy with no account
 
@@ -29,17 +29,20 @@ as `remove_account` tells it for server accounts (BL-1391).
 
 ## Acceptance criteria
 
-- [ ] `remove_proxy_account` removing the last proxy account answers success with `{"user", "warning"}` and a second text block
+- [x] `remove_proxy_account` removing the last proxy account answers success with `{"user", "warning"}` and a second text block
       `server s1 has no proxy account left and its proxy now needs no login`; removing a non-last one keeps `{"user"}`. Named
       tests in `Application/Surl.Mcp.UnitTests/ProxyAndTlsSrpAccountToolsTests.cs` pin both.
-- [ ] `RemoveProxyAccountTool.Description` says removing the last proxy account opens the proxy, and
+- [x] `RemoveProxyAccountTool.Description` says removing the last proxy account opens the proxy, and
       `ProgramTests`' description row still passes.
-- [ ] `dotnet build Application/Surl.Mcp.UnitLibrary -warnaserror` is clean, the fast tests are green and `Surl.Mcp.UnitLibrary`
+- [x] `dotnet build Application/Surl.Mcp.UnitLibrary -warnaserror` is clean, the fast tests are green and `Surl.Mcp.UnitLibrary`
       keeps 100% line and branch coverage.
 
 ## Notes
+
+Mirrors RemoveAccountTool; the seed-account test already pins the non-last `{"user"}` answer.
 
 ## Log
 
 - 2026-11-20: Created.
 - 2026-11-20: Backlog -> Doing.
+- 2026-11-20: Doing -> Done. remove_proxy_account warns when the last proxy account goes
