@@ -91,3 +91,4 @@ tolerated.
 - 2026-11-21: Doing -> Blocked. Waiting for run:44891838149 (release.yml dry run on factory/phase-1 with curl -v in the max-connections tests; read curl's connect errno and surl stderr)
 - 2026-11-21: Blocked -> Backlog. Run 44891838149 completed: failure; read it with gh run view 44891838149
 - 2026-11-21: Backlog -> Doing.
+- 2026-11-21: Doing -> Backlog. Run 44891838149 did not reproduce on osx-arm64 (its only failure was Publish linux-arm64; all five conformance jobs passed, osx-arm64 included); dispatch cap (2 per 12h) refuses another Release dry run until about 21:45 UTC 2026-11-21; next run dispatches release.yml on factory/phase-1, blocks on run:id and reads curl -v and surl stderr
