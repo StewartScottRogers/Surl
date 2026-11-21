@@ -38,3 +38,4 @@ Stand-in: tests already observe the fault through the `FaultAppliedEvent` on the
 ## Log
 
 - 2026-11-20: Created.
+- 2026-11-21: Backlog -> Doing.
