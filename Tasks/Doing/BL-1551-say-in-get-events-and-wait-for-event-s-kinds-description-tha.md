@@ -48,3 +48,4 @@ are read with `get_exchanges`.
 ## Log
 
 - 2026-11-21: Created.
+- 2026-11-21: Backlog -> Doing.
