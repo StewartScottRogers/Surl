@@ -21,7 +21,7 @@ public static class SeedMailTool
     internal const string Description =
         "Deliver a message into a running Surl server's mail store, as SMTP would, so its POP3 and IMAP servers "
         + "serve it. The recipient is resolved as SMTP's RCPT TO is: without a mail domain only the local part "
-        + "counts (matched exactly, else ignoring case when one account matches) and the domain is ignored. Give the message as UTF-8 text or base64, headers first, at most 16 MiB.";
+        + "counts (matched exactly, else ignoring case when one account matches) and the domain is ignored. When the server was started with --mail-delivered-to, one Delivered-To line for the recipient is written ahead of the message. Give the message as UTF-8 text or base64, headers first, at most 16 MiB.";
 
     /// <summary>The tool's input schema.</summary>
     internal const string InputSchema = """
