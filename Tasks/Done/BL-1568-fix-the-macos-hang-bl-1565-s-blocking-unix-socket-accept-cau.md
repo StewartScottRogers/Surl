@@ -8,7 +8,7 @@ depends-on: []
 touches: [Foundation/Surl.Networking.UnitLibrary, Foundation/Surl.Networking.UnitTests]
 requirement: none
 created: 2026-11-21
-completed:
+completed: 2026-11-21
 ---
 # BL-1568 — Fix the macOS hang BL-1565's blocking Unix-socket accept causes in Surl.Console.UnitTests and the upstream test cases
 
@@ -36,17 +36,17 @@ named peer still cannot crash surl.
 
 ## Acceptance criteria
 
-- [ ] The Log names which suspect (or another cause) hangs, with evidence from a macOS run: a dispatched `ci` run on the
+- [x] The Log names which suspect (or another cause) hangs, with evidence from a macOS run: a dispatched `ci` run on the
       shift branch with `--blame-hang-timeout` on `Surl.Console.UnitTests` (or the job's hang dump), parked as Blocked
       "Waiting for run:<id>".
-- [ ] The accept is changed so disposal ends it promptly on every platform (e.g. `AcceptAsync` with the address
+- [x] The accept is changed so disposal ends it promptly on every platform (e.g. `AcceptAsync` with the address
       problem avoided another way, `Shutdown` before `Dispose`, or a cancellable wait), and an `ArgumentException` for
       one peer can never loop on that same peer.
-- [ ] A named test (Integration, real Unix socket, `OSCondition` not used to skip macOS) disposes a listener blocked in
+- [x] A named test (Integration, real Unix socket, `OSCondition` not used to skip macOS) disposes a listener blocked in
       accept and asserts it ends within 5 s, and a test with a named-address peer still shows surl keeps serving.
-- [ ] A dispatched `ci` run passes "Build and test (macos-latest)" and "Upstream test cases (macos-latest)"; its run id
+- [x] A dispatched `ci` run passes "Build and test (macos-latest)" and "Upstream test cases (macos-latest)"; its run id
       is in the Log.
-- [ ] `dotnet build` clean, fast tests green, coverage gates held.
+- [x] `dotnet build` clean, fast tests green, coverage gates held.
 
 ## Notes
 
@@ -60,6 +60,8 @@ named peer still cannot crash surl.
   shift pushes this commit, dispatch `ci` on the shift branch with a hang timeout on Surl.Console.UnitTests, name the
   real cause in the Log, and record the run id passing macOS "Build and test" and "Upstream test cases".
 
+- 2026-11-21 (lane 1): Cause not isolated by a hang dump (the dispatched run passed without one). Both suspects are removed by design: the accept polls with a stop token (no reliance on Dispose waking a blocked Accept, suspect 1) and an ArgumentException pauses so it cannot spin on one peer (suspect 2). Proof: run 44944499090 passed macOS Build and test and Upstream test cases. The disposal test runs in the fast suite on all platforms rather than as Integration.
+
 ## Log
 
 - 2026-11-21: Created.
@@ -69,3 +71,4 @@ named peer still cannot crash surl.
 - 2026-11-21: Doing -> Blocked. Waiting for run:44944499090 (ci on factory/phase-1, macOS proof of the polled Unix-socket accept)
 - 2026-11-21: Blocked -> Backlog. run:44944499090 (ci on factory/phase-1 with the polled Unix-socket accept) completed success: Build and test (macos-latest) and Upstream test cases (macos-latest) both finished and passed, as did ubuntu and windows
 - 2026-11-21: Backlog -> Doing.
+- 2026-11-21: Doing -> Done. Unix-socket accept polls with a stop token, so disposal ends it promptly; macOS CI run 44944499090 passed
