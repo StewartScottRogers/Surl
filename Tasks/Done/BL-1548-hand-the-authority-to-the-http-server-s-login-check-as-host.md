@@ -8,7 +8,7 @@ depends-on: [BL-1547]
 touches: [Protocols/Http/Surl.Protocol.Http.UnitLibrary, Protocols/Http/Surl.Protocol.Http.UnitTests]
 requirement: none
 created: 2026-11-21
-completed:
+completed: 2026-11-21
 ---
 # BL-1548 — Hand the :authority to the HTTP server's login check as host on HTTP/2 and HTTP/3
 
@@ -49,23 +49,26 @@ amendment decides.
 
 ## Acceptance criteria
 
-- [ ] A test shows an HTTP/2 request with `Authority` `127.0.0.1:18122` and no `host` field hands the
+- [x] A test shows an HTTP/2 request with `Authority` `127.0.0.1:18122` and no `host` field hands the
   session a `host: 127.0.0.1:18122` field, after the fields as received.
-- [ ] A test shows a request that already carries `host` (HTTP/1.1, or HTTP/2 with a `host` field) hands the
+- [x] A test shows a request that already carries `host` (HTTP/1.1, or HTTP/2 with a `host` field) hands the
   session its fields unchanged, with no second `host`.
-- [ ] A test shows a request with `Authority` `null` and no `host` hands the fields unchanged.
-- [ ] A test drives one HTTP/2 stream through `Http2StreamAnswerWriter` whose request carries the
+- [x] A test shows a request with `Authority` `null` and no `host` hands the fields unchanged.
+- [x] A test drives one HTTP/2 stream through `Http2StreamAnswerWriter` whose request carries the
   `aws-sigv4-get` fixture's `Authorization`, `x-amz-date` and `x-amz-content-sha256` and `:authority`
   `127.0.0.1:18122`, and shows the judged request's fields include that `host`.
-- [ ] `dotnet build Protocols/Http/Surl.Protocol.Http.UnitLibrary -warnaserror` is clean and
+- [x] `dotnet build Protocols/Http/Surl.Protocol.Http.UnitLibrary -warnaserror` is clean and
   `dotnet test Protocols/Http/Surl.Protocol.Http.UnitTests --filter "TestCategory!=Integration"` passes,
   with `HttpRequestAnswerer` at 100% line and branch coverage.
-- [ ] `Protocols/Http/Surl.Protocol.Http.UnitLibrary/CLAUDE.md` says the login check sees `host` from
+- [x] `Protocols/Http/Surl.Protocol.Http.UnitLibrary/CLAUDE.md` says the login check sees `host` from
   `:authority` on HTTP/2 and HTTP/3 (ADR-0043 amendment, BL-1548).
 
 ## Notes
+
+- Decision: `HttpRequestAnswerer.FieldsWithHost` adds `host` from `Authority` only when no `host` field exists (case-insensitive); no new ADR, ADR-0043 amendment from BL-1547 decides it. Tests: `HttpRequestAnswererTests.Authority.cs`, `Http2StreamAnswerWriterTests`.
 
 ## Log
 
 - 2026-11-21: Created.
 - 2026-11-21: Backlog -> Doing.
+- 2026-11-21: Doing -> Done. HTTP/2 and HTTP/3 :authority is handed to the login check as host, so curl --aws-sigv4 logins are judged

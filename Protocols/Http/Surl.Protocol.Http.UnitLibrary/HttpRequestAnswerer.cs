@@ -205,11 +205,26 @@ internal sealed partial class HttpRequestAnswerer : IHttpRequestHandler
     };
 
     // What the authentication session is shown of a request: never its body (ADR-0032, section 6).
+    // Over HTTP/2 and HTTP/3 the host is the :authority, never a field, and upstream curl signs it
+    // as `host` (ADR-0043 amendment, BL-1547), so the session is handed one when none was received.
     private static HttpAuthenticationRequest AuthenticationRequest(HttpRequest request) => new(
         request.Method,
         request.Target,
         request.Method is not ("GET" or "HEAD"),
-        request.Fields.ToArray());
+        FieldsWithHost(request));
+
+    private static KeyValuePair<string, string>[] FieldsWithHost(HttpRequest request)
+    {
+        var fields = request.Fields.ToList();
+
+        if (request.Authority is not null
+            && !fields.Exists(field => string.Equals(field.Key, "host", StringComparison.OrdinalIgnoreCase)))
+        {
+            fields.Add(new KeyValuePair<string, string>("host", request.Authority));
+        }
+
+        return fields.ToArray();
+    }
 
     // A 401 keeps the connection as a 404 does, because NTLM and Negotiate need the same
     // connection; one whose request announced a body, which is never read, and every 403

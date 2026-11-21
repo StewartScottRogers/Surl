@@ -27,6 +27,11 @@ never asks which HTTP version carried it. The HTTP/1.x side is `Surl.HttpServing
 for each connection. Keep version
 questions out of the answerer: an HTTP/2 or HTTP/3 writer reuses it as it is.
 
+The login check sees a `host` field from `:authority` on HTTP/2 and HTTP/3: when a request has an
+`Authority` and no `host` field, `HttpRequestAnswerer` hands the authentication session its fields
+with `("host", Authority)` added, as upstream curl signs `host` and sends it as `:authority`
+(ADR-0043 amendment, BL-1548); `HttpRequest.Fields` itself is unchanged.
+
 The answerer maps each `GET` and `HEAD` with `ContentStore.MapRequestPathForCaller`: the caller is
 the account the verdict's `AccountName` names (an empty or absent one is anonymous) on the exchange's
 `Scheme`. A share the caller may not read answers as a missing path, the same empty `404` (ADR-0102
