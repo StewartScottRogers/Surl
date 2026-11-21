@@ -37,3 +37,4 @@ ADR-0053 Amendment 1 decision 6. Files: `Application/Surl.Api/SurlServerMail.cs`
 - 2026-11-20: Created.
 - 2026-11-20: Backlog -> Doing.
 - 2026-11-20: Doing -> Backlog. Waiting for BL-1515: seeding mail must publish DeliveredFor, which needs MailStore and Composition (held by BL-1507 and BL-1502)
+- 2026-11-21: Backlog -> Doing.
