@@ -82,9 +82,46 @@ public sealed class MailboxStoreTests
 
         Assert.AreEqual(MailStoreOutcome.Succeeded, store.Seed("<team@example.com>", "hello"u8).Delivery);
 
+        var changes = events.Events.OfType<StoreChangedEvent>().ToArray();
         CollectionAssert.AreEqual(
-            new SurlEvent[] { Change(StoreChange.Seeded, "ann/INBOX/;UID=1", 5), Change(StoreChange.Seeded, "bob/INBOX/;UID=1", 5) },
-            events.Events.ToArray());
+            new[] { "ann/INBOX/;UID=1", "bob/INBOX/;UID=1" },
+            changes.Select(change => change.Name).ToArray());
+        Assert.IsTrue(changes.All(change => change.Change == StoreChange.Seeded && change.ByteCount == 5));
+    }
+
+    [TestMethod]
+    [DataRow("<ann@x>", "ann@x")]
+    [DataRow("ann@x", "ann@x")]
+    public void Seed_ToAnAccount_PublishesDeliveredForHoldingTheOneAddressWithoutBracketsAndStoresTheBytesUnchanged(string path, string address)
+    {
+        var events = new RecordingSurlEventPublisher();
+        var store = new MailboxStore(["ann"], allowAnonymous: false, new SettableTimeProvider(), events: events);
+        var view = store.ViewFor("ann");
+
+        store.Seed(path, RawMessage);
+
+        var change = events.Events.OfType<StoreChangedEvent>().Single();
+        CollectionAssert.AreEqual(new[] { address }, change.DeliveredFor!.ToArray());
+        Assert.AreEqual(MailStoreOutcome.Succeeded, store.FetchMessage(view, "INBOX", 1, out var bytes));
+        CollectionAssert.AreEqual(RawMessage, bytes.ToArray());
+    }
+
+    [TestMethod]
+    public void Seed_ToAnAlias_NamesTheAddressSeededOnEachCopysEvent()
+    {
+        var events = new RecordingSurlEventPublisher();
+        var store = new MailboxStore(
+            ["ann", "bob"],
+            allowAnonymous: false,
+            new SettableTimeProvider(),
+            mailDomains: new MailDomainConfiguration([Domain], [], [new MailAlias("team@example.com", ["ann@example.com", "bob@example.com"])], []),
+            events: events);
+
+        store.Seed("<team@example.com>", "hello"u8);
+
+        var changes = events.Events.OfType<StoreChangedEvent>().ToArray();
+        Assert.AreEqual(2, changes.Length);
+        Assert.IsTrue(changes.All(change => change.DeliveredFor!.SequenceEqual(["team@example.com"])));
     }
 
     [TestMethod]

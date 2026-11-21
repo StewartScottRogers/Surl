@@ -26,8 +26,11 @@ public sealed partial class MailboxStore
     public MailSeedResult Seed(string recipientPath, ReadOnlySpan<byte> message)
     {
         var lookup = LookUpRecipient(recipientPath, out var recipient);
-        return new(lookup, recipient is null ? null : SeedTo([.. recipient.Owners], message));
+        return new(lookup, recipient is null ? null : SeedTo([.. recipient.Owners], message, [WithoutAngleBrackets(recipientPath)]));
     }
+
+    private static string WithoutAngleBrackets(string path) =>
+        path.Length > 1 && path.StartsWith('<') && path.EndsWith('>') ? path[1..^1] : path;
 
     /// <summary>
     /// Returns the store to its configured state: every owner it was made with holds exactly the
@@ -224,13 +227,13 @@ public sealed partial class MailboxStore
         }
     }
 
-    private MailStoreOutcome SeedTo(List<OwnerMailboxes> inboxOwners, ReadOnlySpan<byte> message)
+    private MailStoreOutcome SeedTo(List<OwnerMailboxes> inboxOwners, ReadOnlySpan<byte> message, IReadOnlyList<string> deliveredFor)
     {
         using var pending = CreatePendingMessage();
         pending.Body.Write(message);
         pending.Close();
         var outcome = CheckPending(pending);
-        return outcome == MailStoreOutcome.Succeeded ? DeliverPending(inboxOwners.ConvertAll(owner => new OwnerDelivery(owner, null)), pending, StoreChange.Seeded, exchange: null) : outcome;
+        return outcome == MailStoreOutcome.Succeeded ? DeliverPending(inboxOwners.ConvertAll(owner => new OwnerDelivery(owner, deliveredFor)), pending, StoreChange.Seeded, exchange: null) : outcome;
     }
 
     /// <summary>

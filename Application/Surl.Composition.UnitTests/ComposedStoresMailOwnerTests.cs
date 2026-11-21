@@ -1,7 +1,9 @@
 using System.Text;
 using Surl.Authentication;
 using Surl.Content;
+using Surl.Core;
 using Surl.MailStore;
+using Surl.Protocol.Abstractions;
 
 namespace Surl.Composition;
 
@@ -26,6 +28,36 @@ public sealed class ComposedStoresMailOwnerTests
 
         Assert.AreEqual(MailRecipientLookup.Deliverable, seeded.Recipient);
         Assert.AreEqual("INBOX", stores.ListMailboxes("task-1").Value!.Single().Name);
+    }
+
+    [TestMethod]
+    public async Task SeedMailAsync_PublishesDeliveredForHoldingTheRecipientAddress()
+    {
+        await using var serving = await ComposeAsync("-u", "alice:secret");
+        await using var subscription = serving.Events.Subscribe(new SurlEventSubscriptionOptions());
+
+        await serving.Stores.SeedMailAsync("<alice@example.com>", Encoding.ASCII.GetBytes(Message), TestContext.CancellationToken);
+
+        var seeded = new List<StoreChangedEvent>();
+        while (subscription.TryRead(out var next))
+        {
+            if (next is StoreChangedEvent { Store: StoreKind.Mail, Change: StoreChange.Seeded } change)
+            {
+                seeded.Add(change);
+            }
+        }
+
+        CollectionAssert.AreEqual(new[] { "alice@example.com" }, seeded.Single().DeliveredFor!.ToArray());
+    }
+
+    [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public async Task MailDeliveredToEnabled_FollowsTheMailDeliveredToOption(bool on)
+    {
+        await using var serving = await ComposeAsync(on ? ["-u", "alice:secret", "--mail-delivered-to"] : ["-u", "alice:secret"]);
+
+        Assert.AreEqual(on, serving.Stores.MailDeliveredToEnabled);
     }
 
     [TestMethod]
