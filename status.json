@@ -1,0 +1,25 @@
+{
+    "schema":  1,
+    "shift":  "20261121-112341",
+    "branch":  "factory/phase-1",
+    "state":  "ended",
+    "publishedAt":  "2026-11-21T18:24:07Z",
+    "autoLanes":  {
+                      "lanes":  1,
+                      "target":  null,
+                      "binding":  "no burn rate",
+                      "reason":  "lanes auto: starting at 1 (last shift saved 1, raised to 16 by -MinStartLanes, capped at 1)",
+                      "changedAt":  "2026-11-21T18:23:46Z"
+                  },
+    "lanes":  [
+                  {
+                      "lane":  1,
+                      "task":  null,
+                      "title":  null,
+                      "phase":  "finished",
+                      "step":  "nothing ready",
+                      "taskStartedAt":  null,
+                      "heartbeatAt":  "2026-11-21T18:23:53Z"
+                  }
+              ]
+}
