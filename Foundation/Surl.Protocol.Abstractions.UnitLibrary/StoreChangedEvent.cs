@@ -35,6 +35,7 @@ public sealed record StoreChangedEvent(
         writer.Number(nameof(ByteCount), ByteCount);
         writer.Number(nameof(ExchangeId), ExchangeId);
         writer.Text(nameof(PreviousName), PreviousName);
+        writer.TextList(nameof(DeliveredFor), DeliveredFor);
     }
 
     /// <summary>
@@ -42,4 +43,10 @@ public sealed record StoreChangedEvent(
     /// <see langword="null"/> for every other change.
     /// </summary>
     public string? PreviousName { get; init; }
+
+    /// <summary>
+    /// The envelope addresses, as sent and in <c>RCPT</c> order, that resolved to the owner of this mail copy
+    /// (ADR-0053 Amendment 1, decision 7); <see langword="null"/> when none apply, as for every store but mail.
+    /// </summary>
+    public IReadOnlyList<string>? DeliveredFor { get; init; }
 }

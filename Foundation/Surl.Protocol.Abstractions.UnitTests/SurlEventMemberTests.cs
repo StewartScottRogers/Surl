@@ -24,6 +24,22 @@ public sealed class SurlEventMemberTests
     }
 
     [TestMethod]
+    public void WriteMembers_StoreChangedDeliveredFor_WritesTheListOrNull()
+    {
+        var with = new RecordingSurlEventMemberWriter();
+        var without = new RecordingSurlEventMemberWriter();
+
+        new StoreChangedEvent(StoreKind.Mail, StoreChange.Written, "INBOX", 1, 2) { DeliveredFor = ["a@x", "b@x"] }.WriteMembers(with);
+        new StoreChangedEvent(StoreKind.Mail, StoreChange.Written, "INBOX", 1, 2).WriteMembers(without);
+
+        Assert.AreEqual("a@x|b@x", with.ValueOf("DeliveredFor"));
+        Assert.IsNull(without.ValueOf("DeliveredFor"));
+        CollectionAssert.AreEqual(
+            new[] { "Store", "Change", "Name", "ByteCount", "ExchangeId", "PreviousName", "DeliveredFor" },
+            without.Members.Select(member => member.Name).ToArray());
+    }
+
+    [TestMethod]
     public void SurlEvent_EveryEventRecordDeclaringExchangeIdSchemeOrAccount_OverridesTheBaseMember()
     {
         var shadows = new List<string>();

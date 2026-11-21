@@ -15,6 +15,13 @@ public interface ISurlEventMemberWriter
     void Text(string name, string? value);
 
     /// <summary>
+    /// Writes a member that is a list of text values; a <see langword="null"/> list means the member has no value.
+    /// </summary>
+    /// <param name="name">The member's property name.</param>
+    /// <param name="values">The texts in order, or <see langword="null"/>.</param>
+    void TextList(string name, IReadOnlyList<string>? values);
+
+    /// <summary>
     /// Writes a whole-number member; a <see langword="null"/> value means the member has no value.
     /// </summary>
     /// <param name="name">The member's property name.</param>

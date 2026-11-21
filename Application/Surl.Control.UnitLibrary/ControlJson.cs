@@ -54,6 +54,8 @@ internal sealed record ControlEventJson
 
     public string? PreviousName { get; init; }
 
+    public IReadOnlyList<string>? DeliveredFor { get; init; }
+
     public string? RuleId { get; init; }
 
     public string? FaultKind { get; init; }

@@ -26,6 +26,11 @@ internal sealed class ControlEventMemberWriter(ControlEventJson head) : ISurlEve
         ["MemberId"] = (json, value) => json with { MemberId = value },
     };
 
+    private static readonly Dictionary<string, Func<ControlEventJson, IReadOnlyList<string>?, ControlEventJson>> TextListMembers = new(StringComparer.Ordinal)
+    {
+        ["DeliveredFor"] = (json, value) => json with { DeliveredFor = value },
+    };
+
     private static readonly Dictionary<string, Func<ControlEventJson, long?, ControlEventJson>> NumberMembers = new(StringComparer.Ordinal)
     {
         ["ExchangeId"] = (json, value) => json with { ExchangeId = value },
@@ -60,6 +65,10 @@ internal sealed class ControlEventMemberWriter(ControlEventJson head) : ISurlEve
 
     /// <inheritdoc />
     public void Text(string name, string? value) => written = Find(TextMembers, name)(written, value);
+
+    /// <inheritdoc />
+    public void TextList(string name, IReadOnlyList<string>? values) =>
+        written = Find(TextListMembers, name)(written, values);
 
     /// <inheritdoc />
     public void Number(string name, long? value) => written = Find(NumberMembers, name)(written, value);
