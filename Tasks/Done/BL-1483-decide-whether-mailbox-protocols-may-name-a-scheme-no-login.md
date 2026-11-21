@@ -8,7 +8,7 @@ depends-on: []
 touches: [Documentation/Planning/Decisions/ADR-0102-what-the-mail-file-message-and-group-options-mean-to-the-shared-stores.md]
 requirement: none
 created: 2026-11-20
-completed:
+completed: 2026-11-20
 ---
 # BL-1483 — Decide whether --mailbox protocols= may name a scheme no login is made on, such as gopher or tftp
 
@@ -39,18 +39,25 @@ and the like - and the code and `--aihelp` work to make both agree is filed.
 
 ## Acceptance criteria
 
-- [ ] `ADR-0102` gains an amendment, marked "Decided by Claude under Stewart's delegation", stating the rule, the exact refusal
+- [x] `ADR-0102` gains an amendment, marked "Decided by Claude under Stewart's delegation", stating the rule, the exact refusal
       or warning text and exit code if any, when it is checked (parse or start), which options it covers, and why; and it
       corrects whichever of ADR-0101 decision 4's or ADR-0102 decision 1.4's sentences it overrules.
-- [ ] The amendment lists the schemes that count as "no login" or says how the list is derived so it grows with new servers
+- [x] The amendment lists the schemes that count as "no login" or says how the list is derived so it grows with new servers
       (root `CLAUDE.md`, "Open for extension").
-- [ ] task-planner files the code-and-tests task and the `--aihelp`/`--manual` text task (one kind of work each), each depending
+- [x] task-planner files the code-and-tests task and the `--aihelp`/`--manual` text task (one kind of work each), each depending
       on this task, and their IDs are in this task's Log.
-- [ ] No `.cs` file changes in this task.
+- [x] No `.cs` file changes in this task.
 
 ## Notes
+
+- Decision: refuse at start in `Surl.Composition` with exit 2, `scheme <scheme> has no login`; derived from a
+  `MakesLogin` flag on each registration so it grows with new servers. See ADR-0102 section 4.3 amendment.
+- Filed BL-1488 (code and tests) and BL-1489 (`--aihelp`/`--manual` text; also depends on BL-1488 so the text
+  describes real behaviour).
 
 ## Log
 
 - 2026-11-20: Created.
 - 2026-11-20: Backlog -> Doing.
+- 2026-11-20: Filed BL-1488 (code and tests) and BL-1489 (help text).
+- 2026-11-20: Doing -> Done. ADR-0102 amended: protocols= naming a login-less scheme is refused at start (exit 2); BL-1488 and BL-1489 filed
