@@ -30,3 +30,4 @@ ADR-0141 Amendment 3. Uses the `HttpCommandFaults` change of BL-1541 (RtspReques
 ## Log
 
 - 2026-11-21: Created.
+- 2026-11-21: Backlog -> Doing.
