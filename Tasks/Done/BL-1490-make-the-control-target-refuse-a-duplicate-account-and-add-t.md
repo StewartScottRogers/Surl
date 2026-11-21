@@ -5,7 +5,7 @@ priority: Normal
 assignee: Claude
 pipeline: feature
 depends-on: [BL-1482, BL-1493, BL-1494]
-touches: [Documentation/Planning/Decisions, Documentation/Planning/Decisions, Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests, Application/Surl.Control.UnitLibrary, Application/Surl.Control.UnitTests]
+touches: [Documentation/Planning/Decisions, Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests, Application/Surl.Control.UnitLibrary, Application/Surl.Control.UnitTests]
 requirement: none
 created: 2026-11-20
 completed: 2026-11-20
@@ -26,6 +26,8 @@ completed: 2026-11-20
 - [x] `IControlTarget`'s member documents no longer say replace; ADR-0124 decision 7's table and ADR-0185 decision 2's sentence are updated as amendment 1 lists (add them to touches first).
 
 ## Notes
+
+- Added Documentation/Planning/Decisions to touches (ADR-0124 and ADR-0185 edits). IControlTarget gains Set{Account,ProxyAccount,TlsSrpAccount}PasswordAsync returning whether the account existed (false is 404; an empty password is 400); a duplicate add is a Conflict refusal "user X already has an account". Set-password leaves the mail owner untouched (same net effect as the old retire and reach-again).
 
 ## Log
 - 2026-11-20: Created.
