@@ -59,3 +59,4 @@ becomes `Surly.Surl.Mcp`, from the next release (v0.1.3). Every document that na
 ## Log
 
 - 2026-11-21: Created. Stewart approved the rename in session.
+- 2026-11-21: Backlog -> Doing.
