@@ -34,6 +34,11 @@ public sealed class MailboxComposition
     }
 
     /// <summary>
+    /// The <c>protocols=</c> list of each mailbox, in order; <see langword="null"/> for one that gave none.
+    /// </summary>
+    public IEnumerable<IReadOnlyList<string>?> MailboxProtocols => mailboxes.Select(mailbox => mailbox.Protocols);
+
+    /// <summary>
     /// The configuration the mail store resolves recipients against; <see langword="null"/> without <c>--mail-domain</c>.
     /// </summary>
     public MailDomainConfiguration? MailDomains { get; private set; }

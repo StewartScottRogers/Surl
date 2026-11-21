@@ -181,6 +181,15 @@ public static partial class SurlServerComposition
             return new SurlServerStart(failure, null);
         }
 
+        // A protocols= list naming a scheme whose server makes no login (ADR-0102 decision 4.3, BL-1483).
+        if (SchemeLoginCheck.FindRefusal(
+                authentication.Mailboxes.MailboxProtocols,
+                commandLine,
+                [.. ProtocolServerRegistrations.Original, .. ExtendedProtocolServers.Registrations]) is { } noLogin)
+        {
+            return Refuse(SurlExitCode.FailedInit, noLogin);
+        }
+
         // The shares, their access and the buckets, once the groups are expanded (ADR-0102 decision 5).
         var (shares, buckets, shareExitCode, shareFailureMessage) = ContentShareComposition.Compose(
             commandLine,

@@ -15,6 +15,14 @@ public sealed record ProtocolServerRegistration(
     Func<ComposedProtocolServices, IProtocolServer> Create)
 {
     /// <summary>
+    /// Gets whether the server built by <see cref="Create"/> makes a login, asking its
+    /// <c>AuthenticationPolicy</c> (<see cref="ComposedProtocolServices.AuthenticationPolicyFor"/>); <see langword="false"/>
+    /// for Gopher, TFTP, DICT and Telnet. A <c>protocols=</c> list may name only schemes that make one (ADR-0102
+    /// decision 4.3, amendment of 2026-11-20).
+    /// </summary>
+    public bool MakesLogin { get; init; } = true;
+
+    /// <summary>
     /// Registers a scheme that is TLS from the first byte and answered by the server an earlier
     /// entry of the same list composed for <paramref name="plainScheme"/>, through
     /// <see cref="ImplicitTlsSchemeServer"/> over a connection the engine has secured (ADR-0020).

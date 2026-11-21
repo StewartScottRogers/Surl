@@ -45,9 +45,9 @@ public static class ProtocolServerRegistrations
     [
         new(["http"], services => new HttpProtocolServer(services.ContentStore, services.AuthenticationPolicyFor("http"), services.AdvertisesHttp3)),
         ProtocolServerRegistration.ImplicitTls("https", "http"),
-        new(["dict"], services => new DictProtocolServer(services.ContentStore)),
+        new(["dict"], services => new DictProtocolServer(services.ContentStore)) { MakesLogin = false },
         new(["ftp", "ftps"], services => new FtpProtocolServer(services.ContentStore, services.AuthenticationPolicyFor("ftp"), services.IsTlsUpgradeAvailable)),
-        new(["gopher", "gophers"], services => new GopherProtocolServer(services.ContentStore)),
+        new(["gopher", "gophers"], services => new GopherProtocolServer(services.ContentStore)) { MakesLogin = false },
         new(["imap"], services => new ImapProtocolServer(
             services.AuthenticationPolicyFor("imap"), services.AuthenticationPolicyFor("imap"), services.MailStore, services.IsTlsUpgradeAvailable)),
         ProtocolServerRegistration.ImplicitTls("imaps", "imap"),
@@ -65,8 +65,8 @@ public static class ProtocolServerRegistrations
         new(["scp"], services => ComposeSshServer(services, "scp")),
         new(["sftp"], services => ComposeSshServer(services, "sftp")),
         new(["socks4", "socks4a", "socks5", "socks5h"], services => new SocksProtocolServer(services.OriginConnector!, services.ProxyAuthenticationPolicy, services.SocksGssApiLogin)),
-        new(["telnet"], _ => new TelnetProtocolServer()),
-        new(["tftp"], services => new TftpProtocolServer(services.ContentStore)),
+        new(["telnet"], _ => new TelnetProtocolServer()) { MakesLogin = false },
+        new(["tftp"], services => new TftpProtocolServer(services.ContentStore)) { MakesLogin = false },
         new(["ws"], services => new WsProtocolServer(services.ContentStore, services.AuthenticationPolicyFor("ws"), services.EchoesWebSocketMessages)),
         ProtocolServerRegistration.ImplicitTls("wss", "ws"),
     ];
