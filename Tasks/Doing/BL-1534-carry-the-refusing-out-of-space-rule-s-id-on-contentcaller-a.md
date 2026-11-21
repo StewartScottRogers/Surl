@@ -31,3 +31,4 @@ ADR-0129 amendment 1 (BL-1524) decides this; read it first. The wire bytes do no
 ## Log
 
 - 2026-11-21: Created.
+- 2026-11-21: Backlog -> Doing.
