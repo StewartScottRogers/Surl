@@ -104,6 +104,56 @@ public sealed class ProxyAndTlsSrpAccountToolsTests
         StoreToolsTests.AssertFailure(removed, Refusal);
     }
 
+    [TestMethod]
+    public async Task SetProxyAccountPassword_ChangesTheLoginAndNeverEchoesThePassword()
+    {
+        await using var host = await StartProxyHostAsync();
+
+        var changed = await CallAsync(host.SetProxyAccountPassword, """{"server_id": "s1", "user": "alice", "password": "n3w-pass"}""");
+        var oldLogin = await ServeAsync(host, ConnectWithProxyLogin("alice:secret"));
+        var newLogin = await ServeAsync(host, ConnectWithProxyLogin("alice:n3w-pass"));
+        var unknown = await CallAsync(host.SetProxyAccountPassword, """{"server_id": "s1", "user": "nobody", "password": "pw"}""");
+
+        StoreToolsTests.AssertResult(changed, """{"user":"alice"}""");
+        Assert.DoesNotContain("n3w-pass", changed.TextContent[0]);
+        StringAssert.StartsWith(oldLogin, "HTTP/1.1 407 ");
+        Assert.IsFalse(newLogin.StartsWith("HTTP/1.1 407 ", StringComparison.Ordinal), newLogin);
+        StoreToolsTests.AssertFailure(unknown, "user nobody has no account");
+    }
+
+    [TestMethod]
+    public async Task SetProxyAccountPassword_ServerWithoutProxyAccounts_IsRefused()
+    {
+        await using var host = await StartHostAsync("http://127.0.0.1:0");
+
+        var result = await CallAsync(host.SetProxyAccountPassword, """{"server_id": "s1", "user": "bob", "password": "pw"}""");
+
+        StoreToolsTests.AssertFailure(result, "server s1 holds no proxy accounts, so its proxies are anonymous");
+    }
+
+    [TestMethod]
+    public async Task SetTlsSrpAccountPassword_AnswersTheUserAndRefusesAnUnknownUser()
+    {
+        await using var host = await StartHostAsync("https://127.0.0.1:0", "--tlsuser", "jsmith", "--tlspassword", "abc");
+
+        var changed = await CallAsync(host.SetTlsSrpAccountPassword, """{"server_id": "s1", "user": "jsmith", "password": "n3w-pass"}""");
+        var unknown = await CallAsync(host.SetTlsSrpAccountPassword, """{"server_id": "s1", "user": "nobody", "password": "pw"}""");
+
+        StoreToolsTests.AssertResult(changed, """{"user":"jsmith"}""");
+        Assert.DoesNotContain("n3w-pass", changed.TextContent[0]);
+        StoreToolsTests.AssertFailure(unknown, "user nobody has no account");
+    }
+
+    [TestMethod]
+    public async Task SetTlsSrpAccountPassword_ServerWithoutTlsSrp_IsRefused()
+    {
+        await using var host = await StartHostAsync("http://127.0.0.1:0");
+
+        var result = await CallAsync(host.SetTlsSrpAccountPassword, """{"server_id": "s1", "user": "bob", "password": "pw"}""");
+
+        StoreToolsTests.AssertFailure(result, "server s1 was not started with TLS-SRP");
+    }
+
     private Task<McpTestHost> StartProxyHostAsync() =>
         StartHostAsync("pop3://127.0.0.1:0", "--allow-plaintext-auth", "-x", "http://127.0.0.1:0/", "-U", "alice:secret");
 

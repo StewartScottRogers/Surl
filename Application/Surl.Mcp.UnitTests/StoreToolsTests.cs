@@ -216,6 +216,31 @@ public sealed class StoreToolsTests
     }
 
     [TestMethod]
+    public async Task SetAccountPassword_ChangesTheLoginAndNeverEchoesThePassword()
+    {
+        await using var host = await StartMailHostAsync();
+        await CallAsync(host.AddAccount, """{"server_id": "s1", "user": "bob", "password": "old-pass"}""");
+
+        var result = await CallAsync(host.SetAccountPassword, """{"server_id": "s1", "user": "bob", "password": "pa55-w0rd"}""");
+        var written = await ServeAsync(host, "pop3", "USER bob\r\nPASS pa55-w0rd\r\nQUIT\r\n");
+
+        AssertResult(result, """{"user":"bob"}""");
+        Assert.DoesNotContain("pa55-w0rd", result.TextContent[0]);
+        StringAssert.Contains(written, "+OK");
+        Assert.DoesNotContain("-ERR", written);
+    }
+
+    [TestMethod]
+    public async Task SetAccountPassword_AnUnknownUser_IsAnError()
+    {
+        await using var host = await StartMailHostAsync();
+
+        var result = await CallAsync(host.SetAccountPassword, """{"server_id": "s1", "user": "nobody", "password": "pw"}""");
+
+        AssertFailure(result, "user nobody has no account");
+    }
+
+    [TestMethod]
     public async Task AddAccount_AUserNameHoldingAColon_IsAnError()
     {
         await using var host = await StartMailHostAsync();
@@ -327,6 +352,9 @@ public sealed class StoreToolsTests
     [DataRow(RemoveProxyAccountTool.Name, """{"server_id": "s9", "user": "a"}""")]
     [DataRow(AddTlsSrpAccountTool.Name, """{"server_id": "s9", "user": "a", "password": "b"}""")]
     [DataRow(RemoveTlsSrpAccountTool.Name, """{"server_id": "s9", "user": "a"}""")]
+    [DataRow(SetAccountPasswordTool.Name, """{"server_id": "s9", "user": "a", "password": "b"}""")]
+    [DataRow(SetProxyAccountPasswordTool.Name, """{"server_id": "s9", "user": "a", "password": "b"}""")]
+    [DataRow(SetTlsSrpAccountPasswordTool.Name, """{"server_id": "s9", "user": "a", "password": "b"}""")]
     [DataRow(PublishMessageTool.Name, """{"server_id": "s9", "topic": "t", "payload": "x"}""")]
     [DataRow(AddAccountTool.Name, """{"server_id": "s9", "user": "a", "password": "b"}""")]
     [DataRow(SetKeyTool.Name, """{"server_id": "s9", "key": "k", "value": "v"}""")]
@@ -343,7 +371,7 @@ public sealed class StoreToolsTests
         await using var host = await StartMailHostAsync();
         McpTool[] tools =
         [
-            host.SeedMail, host.PutFile, host.DeleteFile, host.RemoveAccount, host.AddProxyAccount, host.RemoveProxyAccount, host.AddTlsSrpAccount, host.RemoveTlsSrpAccount, host.PublishMessage, host.AddAccount, host.SetKey, host.AddLdapEntries, host.AddDnsZone, host.ResetServer, host.SnapshotServer,
+            host.SeedMail, host.PutFile, host.DeleteFile, host.RemoveAccount, host.AddProxyAccount, host.RemoveProxyAccount, host.AddTlsSrpAccount, host.RemoveTlsSrpAccount, host.SetAccountPassword, host.SetProxyAccountPassword, host.SetTlsSrpAccountPassword, host.PublishMessage, host.AddAccount, host.SetKey, host.AddLdapEntries, host.AddDnsZone, host.ResetServer, host.SnapshotServer,
             host.RestoreServer, host.AddFault, host.ListFaults, host.RemoveFault,
         ];
 
@@ -357,7 +385,7 @@ public sealed class StoreToolsTests
     {
         Func<RunningSurlServers, McpTool>[] creates =
         [
-            SeedMailTool.Create, PutFileTool.Create, DeleteFileTool.Create, RemoveAccountTool.Create, AddProxyAccountTool.Create, RemoveProxyAccountTool.Create, AddTlsSrpAccountTool.Create, RemoveTlsSrpAccountTool.Create, PublishMessageTool.Create, AddAccountTool.Create, SetKeyTool.Create, AddLdapEntriesTool.Create, AddDnsZoneTool.Create, ResetServerTool.Create,
+            SeedMailTool.Create, PutFileTool.Create, DeleteFileTool.Create, RemoveAccountTool.Create, AddProxyAccountTool.Create, RemoveProxyAccountTool.Create, AddTlsSrpAccountTool.Create, RemoveTlsSrpAccountTool.Create, SetAccountPasswordTool.Create, SetProxyAccountPasswordTool.Create, SetTlsSrpAccountPasswordTool.Create, PublishMessageTool.Create, AddAccountTool.Create, SetKeyTool.Create, AddLdapEntriesTool.Create, AddDnsZoneTool.Create, ResetServerTool.Create,
             SnapshotServerTool.Create, RestoreServerTool.Create, AddFaultTool.Create, ListFaultsTool.Create, RemoveFaultTool.Create,
         ];
 

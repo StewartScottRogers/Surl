@@ -58,6 +58,9 @@ internal sealed class McpTestHost : IAsyncDisposable
         RemoveProxyAccount = RemoveProxyAccountTool.Create(Servers);
         AddTlsSrpAccount = AddTlsSrpAccountTool.Create(Servers);
         RemoveTlsSrpAccount = RemoveTlsSrpAccountTool.Create(Servers);
+        SetAccountPassword = SetAccountPasswordTool.Create(Servers);
+        SetProxyAccountPassword = SetProxyAccountPasswordTool.Create(Servers);
+        SetTlsSrpAccountPassword = SetTlsSrpAccountPasswordTool.Create(Servers);
         PublishMessage = PublishMessageTool.Create(Servers);
         AddAccount = AddAccountTool.Create(Servers);
         SetKey = SetKeyTool.Create(Servers);
@@ -114,6 +117,9 @@ internal sealed class McpTestHost : IAsyncDisposable
     public McpTool RemoveProxyAccount { get; }
     public McpTool AddTlsSrpAccount { get; }
     public McpTool RemoveTlsSrpAccount { get; }
+    public McpTool SetAccountPassword { get; }
+    public McpTool SetProxyAccountPassword { get; }
+    public McpTool SetTlsSrpAccountPassword { get; }
 
     public McpTool GetExchanges { get; }
 
