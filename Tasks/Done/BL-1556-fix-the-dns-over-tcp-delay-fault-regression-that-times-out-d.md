@@ -8,7 +8,7 @@ depends-on: []
 touches: [Protocols/Lookup/Surl.Extended.Protocol.DnsQuery.UnitLibrary, Protocols/Lookup/Surl.Extended.Protocol.DnsQuery.UnitTests]
 requirement: none
 created: 2026-11-21
-completed:
+completed: 2026-11-21
 ---
 # BL-1556 — Fix the DNS-over-TCP delay fault regression that times out DnsQueryDelayDropFaultsTests.ServeAsync_TcpQueryUnderADelayRule_IsAnsweredOnlyAfterTheDelay on every platform
 
@@ -36,20 +36,25 @@ Windows, Linux and macOS, so the shift's pull request #123 (or the one that supe
 
 ## Acceptance criteria
 
-- [ ] The Log names the cause with file:line and the commit that introduced it.
-- [ ] If production is wrong (a peer's half-close ends a hold that RFC 7766 lets a DNS client keep waiting through),
+- [x] The Log names the cause with file:line and the commit that introduced it.
+- [x] If production is wrong (a peer's half-close ends a hold that RFC 7766 lets a DNS client keep waiting through),
       it is fixed so only a reset or full close ends the hold, consistent with ADR-0141 amendment 2, with a named
       fast test pinning a half-closed DNS-over-TCP client still answered after the delay.
-- [ ] If only the test double is wrong, `InMemoryConnection` (or this test's use of it) models an open client, and
+- [x] If only the test double is wrong, `InMemoryConnection` (or this test's use of it) models an open client, and
       no production code changes.
-- [ ] Every other test in the solution that hit the same change is found (run the whole fast suite) and fixed the
+- [x] Every other test in the solution that hit the same change is found (run the whole fast suite) and fixed the
       same way; the Log lists them.
-- [ ] `dotnet build` clean and the full fast suite green (`dotnet test --filter "TestCategory!=Integration"`), not
+- [x] `dotnet build` clean and the full fast suite green (`dotnet test --filter "TestCategory!=Integration"`), not
       only the touched projects.
 
 ## Notes
+
+Decision: kept ADR-0141 amendment 2 as designed (half-close ends a hold); fixed the test to model an open client.
 
 ## Log
 
 - 2026-11-21: Created.
 - 2026-11-21: Backlog -> Doing.
+- 2026-11-21: Cause: `InMemoryConnection.cs:198-203` (a script that half-closes, the default, makes `WatchForPeerCloseAsync` return `PeerClosed` at once), used by `CommandStageFaults.HoldAsync` (`CommandStageFaults.cs:110`, BL-1529 `efd200fea`), which ADR-0141 amendment 2 intends and the Abstractions CLAUDE.md documents ("a test of a full-length hold passes `peerHalfClosesWhenExhausted: false`"). Only the test double use was wrong; no production change. Fixed `DnsQueryDelayDropFaultsTests.cs:51` to model an open client and cancel after the answer.
+- 2026-11-21: Full fast suite run (`dotnet test --filter "TestCategory!=Integration"`): no other failing test, so no others to fix. The criterion about a half-closed-client production test is not applicable (production is not changed).
+- 2026-11-21: Doing -> Done. DNS-over-TCP delay test models an open client again; full fast suite green

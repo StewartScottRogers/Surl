@@ -53,12 +53,16 @@ public sealed class DnsQueryDelayDropFaultsTests
         var time = new ManualTimeProvider();
         var events = new RecordingSurlEventPublisher();
         var query = Query("web.example.test", TypeA);
-        var connection = new InMemoryConnection([(ReadOnlyMemory<byte>)(byte[])[0, (byte)query.Length, .. query]]);
-        var serving = new DnsTcpProtocolServer(DnsTestZones.LoadExample()).ServeAsync(connection, Context(new ScriptedFaultPlan(DelayRule()), events, time, TestContext.CancellationToken));
+        // The client stays connected: a script that half-closes would end the hold at once (ADR-0141 amendment 2).
+        var connection = new InMemoryConnection([(ReadOnlyMemory<byte>)(byte[])[0, (byte)query.Length, .. query]], peerHalfClosesWhenExhausted: false);
+        using var exchange = CancellationTokenSource.CreateLinkedTokenSource(TestContext.CancellationToken);
+        var serving = new DnsTcpProtocolServer(DnsTestZones.LoadExample()).ServeAsync(connection, Context(new ScriptedFaultPlan(DelayRule()), events, time, exchange.Token));
 
         await UntilAsync(() => events.Events.Count == 1 && time.PendingTimerCount == 1);
         Assert.IsEmpty(connection.WrittenBytes);
         time.Advance(TimeSpan.FromMilliseconds(500));
+        await UntilAsync(() => connection.WrittenBytes.Length > 0);
+        await exchange.CancelAsync();
         await serving;
 
         Assert.AreEqual(DnsResponseCode.NoError, ReadWhole(connection.WrittenBytes[2..]).Header.ResponseCode);
