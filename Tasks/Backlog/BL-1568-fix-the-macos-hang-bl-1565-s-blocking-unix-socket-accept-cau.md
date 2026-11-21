@@ -50,7 +50,18 @@ named peer still cannot crash surl.
 
 ## Notes
 
+- 2026-11-21 (lane 2): Code and tests done, not yet proven on macOS. `UnixSocketConnectionListener.AcceptBlocking` now
+  polls the listening socket (100 ms) and checks `AcceptRace`'s stop token each pass, so stopping never depends on
+  Dispose waking a blocked `Accept()` (suspect 1); an `ArgumentException` pauses 50 ms on the token's wait handle, so one
+  peer cannot spin the loop (suspect 2). Named-peer protection is unchanged (blocking-style `Accept()` still catchable).
+  New test `DisposeAsync_WhileAnAcceptIsWaiting_EndsTheAcceptWithinFiveSeconds` (fast, all platforms). Windows build and
+  fast tests green.
+- Remaining: the lane may not push, and `dispatch-workflow.ps1` refuses a ref not pushed to origin. Next run: after the
+  shift pushes this commit, dispatch `ci` on the shift branch with a hang timeout on Surl.Console.UnitTests, name the
+  real cause in the Log, and record the run id passing macOS "Build and test" and "Upstream test cases".
+
 ## Log
 
 - 2026-11-21: Created.
 - 2026-11-21: Backlog -> Doing.
+- 2026-11-21: Doing -> Backlog. Fix and test committed; needs the shift to push it before a macOS ci run can be dispatched (dispatch refuses unpushed refs).
