@@ -30,3 +30,4 @@ ADR-0141 Amendment 3 decisions 1, 3 and 4. `HttpCommandFaults.cs:44` turns `Dela
 ## Log
 
 - 2026-11-21: Created.
+- 2026-11-21: Backlog -> Doing.
