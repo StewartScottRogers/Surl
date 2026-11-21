@@ -45,6 +45,7 @@ internal sealed class S3UploadPart(ContentStore store, S3PutObject putObject, S3
         var sentPartNumber = S3QueryParameters.Value(parameters, "partNumber")!;
         if (RefusalBeforeTheBody(request, sentPartNumber, loginResult.ChunkSignatures, out var partNumber) is { } refusal)
         {
+            await loginResult.AbandonBodyCheckAsync(cancellationToken);
             return refusal == S3Error.InvalidArgument
                 ? reply.Error(refusal, [new("ArgumentName", "partNumber"), new("ArgumentValue", sentPartNumber)])
                 : reply.Error(refusal);

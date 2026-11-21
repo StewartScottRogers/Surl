@@ -128,6 +128,20 @@ public sealed class S3UploadPartTests
     }
 
     [TestMethod]
+    public async Task ServeAsync_SignedUploadPartWithUploadsOff_AbandonsTheBodyCheck()
+    {
+        var harness = new S3ServerHarness();
+        harness.CreateFolder("photos");
+
+        var response = await harness.SendWithBodyAsync(
+            "PUT", "/photos/a.txt?partNumber=1&uploadId=0123456789abcdef0123456789abcdef", "hello",
+            "Authorization: AWS4-HMAC-SHA256 x", $"x-amz-content-sha256: {UnitTestS3AuthenticationPolicy.ContentSha256Of("hello")}");
+
+        StringAssert.Contains(response, "<Code>AccessDenied</Code>");
+        Assert.AreEqual(1, harness.Policy.AbandonedBodyChecks);
+    }
+
+    [TestMethod]
     public async Task ServeAsync_UploadsOff_Is403AccessDenied()
     {
         var harness = new S3ServerHarness();

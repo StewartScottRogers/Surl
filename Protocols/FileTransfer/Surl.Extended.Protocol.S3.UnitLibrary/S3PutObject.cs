@@ -44,6 +44,7 @@ internal sealed class S3PutObject(ContentStore store, ObjectMetadataIndex index,
     {
         if (!store.ExposureOptions.AllowUploads)
         {
+            await loginResult.AbandonBodyCheckAsync(cancellationToken);
             return reply.Error(S3Error.AccessDenied);
         }
 

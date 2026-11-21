@@ -51,6 +51,7 @@ internal sealed class S3CompleteMultipartUpload(ContentStore store, S3PutObject 
     {
         if (RefusalBeforeTheBody(request) is { } refusal)
         {
+            await loginResult.AbandonBodyCheckAsync(cancellationToken);
             return reply.Error(refusal);
         }
 

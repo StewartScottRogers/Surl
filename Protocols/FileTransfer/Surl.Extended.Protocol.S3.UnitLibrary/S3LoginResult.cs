@@ -19,6 +19,15 @@ internal sealed record S3LoginResult(ContentCaller? Caller, IHttpRequestBodyChec
     public IHttpChunkSignatureChain? ChunkSignatures { get; init; }
 
     /// <summary>
+    /// Tells the rest of a check that binds the body that the server answered without reading it
+    /// (ADR-0045 amendment 1); nothing when the head decided. The answer the peer gets is unchanged.
+    /// </summary>
+    /// <param name="cancellationToken">Cancels the call.</param>
+    /// <returns>A task that completes when the check has noted the abandonment.</returns>
+    public ValueTask AbandonBodyCheckAsync(CancellationToken cancellationToken) =>
+        BodyCheck?.AbandonAsync(cancellationToken) ?? ValueTask.CompletedTask;
+
+    /// <summary>
     /// A request served as <paramref name="accountName"/>, or anonymously when it is <see langword="null"/>.
     /// </summary>
     /// <param name="exchange">The exchange the request arrived on.</param>

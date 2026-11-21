@@ -139,6 +139,22 @@ public sealed class S3PutObjectTests
     }
 
     [TestMethod]
+    public async Task ServeAsync_SignedPutObjectWithUploadsOff_AbandonsTheBodyCheckAndStillAnswers403()
+    {
+        var harness = new S3ServerHarness();
+        harness.CreateFolder("photos");
+
+        var response = await harness.SendWithBodyAsync(
+            "PUT", "/photos/a.txt", "hello world",
+            "Authorization: AWS4-HMAC-SHA256 x", $"x-amz-content-sha256: {UnitTestS3AuthenticationPolicy.ContentSha256Of("hello world")}");
+
+        StringAssert.StartsWith(response, "HTTP/1.1 403 Forbidden\r\n");
+        StringAssert.Contains(response, "<Code>AccessDenied</Code><Message>Access Denied</Message>");
+        Assert.AreEqual(1, harness.Policy.AbandonedBodyChecks);
+        Assert.IsEmpty(harness.Policy.JudgedBodyHashes);
+    }
+
+    [TestMethod]
     public async Task ServeAsync_PutObjectWithAMatchingContentMd5_IsStored()
     {
         var harness = new S3ServerHarness(exposure: S3ServerHarness.Writable);
